@@ -212,8 +212,7 @@ export const lophnAgentSettings = [
 // 받지 않아 as_of_seq를 만들 수 없어 pool read로 둔다.
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
-// model 기본값(concern harness/model)과 model call 기록·사용량 읽기(concern
-// harness/usage). 시작·마침·보완은 machine 전용이다.
+// model 기본값과 model call 기록·사용량 읽기. 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
 const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다.
@@ -253,7 +252,7 @@ function modelCommandDeps(tx: Tx): ModelCommandDeps {
   };
 }
 
-// turn ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
+// turn ledger. 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
 // 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다.
 const turnCommands = createTurnCommands({
@@ -279,7 +278,7 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   return ok(undefined);
 }
 
-// 세션과 메시지(concern conversation). 사람 입력 접수는 담당 turn 접수와 한
+// 세션과 메시지. 사람 입력 접수는 담당 turn 접수와 한
 // transaction이므로 run-loop의 StartTurn handler를 같은 Tx에서 부른다. StartTurn은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
 // message 출처의 turn이다. 바깥 command의 actor·event 기록은 그대로다.
@@ -309,7 +308,7 @@ const conversationCommands = createConversationCommands({
 });
 const conversationReads = createConversationReads();
 
-// session 되돌리기(concern revert). file tool의 쓰기 기록(RecordRewindFile), Rewind, 설치 정정
+// session 되돌리기. file tool의 쓰기 기록(RecordRewindFile), Rewind, 설치 정정
 // (AmendRevertInstall), 앱 rewind 요청 결과(RecordRewindApps)를 올린다. checkpoint는 메시지를 접수하는 Tx가,
 // 기록 지움은 DeleteSession이 같은 Tx에서 한다. 파일 관측·준비·설치와 앱 rewind 요청은 ledger transaction
 // 밖의 일이라 command는 받은 준비로 판정만 한다. 그 흐름은 writer queue 앞 처리기(rewind/files.ts)가 잇는다.
@@ -324,17 +323,17 @@ const revertCommands = createSessionRewindCommands(revertDeps);
 // core의 route 등록이고 core에서는 실행되지 않는다.
 const revertReads = createSessionRewindReads({});
 
-// turn·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고
+// turn·session·독립 호출의 trace 조회. trace는 저장하지 않고
 // 조회 때 turn·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
 // step이 없다.
 const traceReads = createTraceReads();
 
-// tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
+// tool call ledger. 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
 const toolReads = createToolReads();
 
-// 질문(concern questions). 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
+// 질문. 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
 // 닫는다. 고정 action이 있는 선택지의 답(AnswerQuestionAction)만 사람 확인
 // (confirmation)이 필요하다. 본문·이유·선택지 설명·자유 답·취소 이유는 값으로 받아 core가
 // blob으로 준비하고(packages/core/lophn-agent/tools/questions/text-prepare.ts) blob 참조만 남는다.
@@ -434,7 +433,7 @@ function placeExists(
   ) !== undefined;
 }
 
-// agent 정의 저장소(concern lophn-agent/agents)가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
+// agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
 // 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
 function agentLookups(
   sql: Pick<Tx["sql"], "get" | "all">,
@@ -606,7 +605,7 @@ function skillsOffOf(
   return loaded.value.definition?.skills_off ?? [];
 }
 
-// `/` 명령 목록(concern commands). 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
+// `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
 // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 끈 것은 selected=false다.
 // 내장 skill은 선언한 role의 메뉴에만 보인다.
 const commandReads = createCommandReads({

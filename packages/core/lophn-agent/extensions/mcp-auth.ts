@@ -4,7 +4,7 @@ import type { McpAuthFailure } from "../../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
 import { httpRequest } from "./adapters/mcp-http.ts";
 
-// HTTP 인증(concern lophn-agent/extensions).
+// HTTP 인증.
 // 인증 없음·사람이 지정한 Bearer 토큰·사람이
 // 지정한 API 키 헤더·OAuth 2.1 Authorization Code와 S256 PKCE를 지원한다.
 // OAuth는 사람이 시작한 브라우저 열기(port가 열 URL을 돌려준다, 실제 브라우저를

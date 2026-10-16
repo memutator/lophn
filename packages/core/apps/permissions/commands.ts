@@ -20,7 +20,7 @@ import {
 type AppGrantScope = AppGrant["scope"];
 
 // 앱 grant는 activation 성공 단계의 syncAppGrants가 만들고 거둔다. 사람이 거두는 것은
-// app_grants.revoke 하나다(domain-model apps/permissions).
+// app_grants.revoke 하나다.
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });

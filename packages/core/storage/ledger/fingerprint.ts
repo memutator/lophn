@@ -1,6 +1,6 @@
 import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
 
-// domain-model platform/ledger: 지문은 command, 정규화 input, compare, turn,
+// 지문은 command, 정규화 input, compare, turn,
 // prepared의 불변 참조와 사람 결정의 대상·내용을 포함한다.
 // token·전송 시도 ID·일회 handle 원문은 제외한다.
 export type FingerprintInput = {

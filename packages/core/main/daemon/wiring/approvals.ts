@@ -126,9 +126,9 @@ export const approvalsWiring: WiringFactory = () => {
     name: "approvals",
     records: () => [APPROVALS_CONTEXT],
     build(ctx) {
-      // Bus는 events가 만들어 slot으로 낸다. events-bus-gateway가 들어오기 전에는 event를 버린다.
+      // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
-      // 설정은 config가 낸다. platform-config가 들어오기 전에는 선언의 기본값을 쓴다.
+      // 설정은 config가 낸다. slot이 비어 있으면 선언의 기본값을 쓴다.
       const settings: SettingsReader = ctx.peek.settings ?? DEFAULT_SETTINGS;
       const writer = () => ctx.runtime.writer;
       const send = (

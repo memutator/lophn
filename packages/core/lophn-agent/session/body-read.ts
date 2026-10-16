@@ -133,7 +133,7 @@ export async function readBodyBytes(
   return ok(whole);
 }
 
-// 본문 값. JSON 값이 아닌 기존 text blob은 글 하나로 읽는다(domain model).
+// 본문 값. JSON 값이 아닌 기존 text blob은 글 하나로 읽는다.
 function bodyContentOf(bytes: Uint8Array) {
   let text: string;
   try {

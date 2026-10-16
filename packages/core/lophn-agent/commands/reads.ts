@@ -13,8 +13,8 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import { agentRefOf, loadSession, placeOf } from "../session/model.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
-// `/` 명령 목록 read(concern lophn-agent/commands). 목록은 저장하는 표가 아니라 session의 agent에서
-// 열 때마다 계산한다(domain model 정책).
+// `/` 명령 목록 read. 목록은 저장하는 표가 아니라 session의 agent에서
+// 열 때마다 계산한다.
 
 type CommandSession = {
   role: Role;

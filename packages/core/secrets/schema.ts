@@ -1,7 +1,7 @@
 import type { SchemaStep } from "../../protocol/server/mod.ts";
 
 // secrets는 현재 참조만 담는다. secret_preparations는 command 밖 OS 준비의 증거다.
-// 둘 다 값·hash·길이·일부를 담지 않는다(domain model).
+// 둘 다 값·hash·길이·일부를 담지 않는다.
 export const SECRET_SCHEMA_STEPS: SchemaStep[] = [
   {
     id: "secrets",

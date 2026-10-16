@@ -5,8 +5,7 @@ import {
   QUESTION_GROUP_MIN_QUESTIONS,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
-// 질문 묶음의 순수 검사(domain model lophn-agent/questions QuestionGroup·answer_question_group·
-// defer_question_group). 저장·blob·event·
+// 질문 묶음의 순수 검사. 저장·blob·event·
 // confirmation은 command가 하고 이 파일은 값만 검사한다. 오류는 공통 code다.
 
 // 묶음 크기의 정본은 contract 한 곳이다. 여기서 숫자를 다시 쓰지 않는다.

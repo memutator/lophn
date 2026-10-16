@@ -26,8 +26,8 @@ import {
 import type { McpRuntimeServer } from "./mcp-server.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 
-// MCP OAuth 2.1의 시작·완료·상태·취소 memory route와 연결 때의 token 부착 대조다(concern
-// lophn-agent/extensions, requirements #R16, #R17). 업무 규칙은 extensions의 mcp-oauth에 있고(code-map 의존 규칙)
+// MCP OAuth 2.1의 시작·완료·상태·취소 memory route와 연결 때의 token 부착 대조다.
+// 업무 규칙은 extensions의 mcp-oauth에 있고
 // 여기는 core의 입구와 재료를 끼운다.
 // - 발급자(token endpoint)에 닿는 일은 이 core 프로세스가 한다. 시작에서 낸 verifier·state와 받은 token이 모두
 //   core 안에만 있어야 하기 때문이다. 값은 응답·log·ledger·event 어디에도 없다.

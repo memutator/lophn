@@ -1,4 +1,4 @@
-// role 명령이 사람의 메시지로 접수하는 prompt template(concern lophn-agent/commands).
+// role 명령이 사람의 메시지로 접수하는 prompt template.
 // 사람이 입력창에서 직접 쓴 글처럼 접수되므로 사람이 말하는 투로 쓴다. `/이름` 뒤에 사람이
 // 쓴 글(인자)은 접수할 때 이 글 뒤에 붙는다.
 

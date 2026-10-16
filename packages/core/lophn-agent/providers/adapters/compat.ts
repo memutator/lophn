@@ -5,7 +5,7 @@
 // 명시한다. Gemini는 Chat Completions 호환 연결이고 네이티브 Google 형식은
 // 받지 않는다.
 
-// endpoint는 API base이고 adapter가 표의 path를 붙인다(architecture §5.2). base가
+// endpoint는 API base이고 adapter가 표의 path를 붙인다. base가
 // 이미 /v1으로 끝나면 path의 /v1을 붙이지 않는다.
 export function joinEndpoint(base: string, path: string): string {
   const trimmed = base.replace(/\/+$/, "");
@@ -59,7 +59,7 @@ type StateFreeVerdict = {
 };
 
 // opaque 상태가 메모리에 없을 때(재시작·compaction) protocol별 state-free 계속을
-// 검증한다(architecture §5.2). Responses는 reasoning item을 빼도 function_call·
+// 검증한다. Responses는 reasoning item을 빼도 function_call·
 // call_id 대응이 남으므로 계속 가능하다. Chat는 reasoning_content 없는 assistant
 // 턴을 공백 하나로 채우므로 DeepSeek 필수라도 계속 가능하다. 두 protocol 모두
 // 검증을 통과한다. 검증을 통과하지 못하는 protocol(서명 필수 Anthropic)은

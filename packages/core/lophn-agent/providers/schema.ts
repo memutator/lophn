@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// domain-model lophn-agent/harness/provider의 표. credential 값은 열에 없다.
+// provider 표. credential 값은 열에 없다.
 // secret_ref는 참조만 담는다(platform/secrets). provider당 credential은 하나(PK가 provider)이고
 // Disconnect는 model block·credential·provider를 함께 지운다.
 

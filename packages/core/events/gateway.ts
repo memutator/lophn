@@ -8,7 +8,6 @@ import {
 } from "../../protocol/events/mod.ts";
 import type { Bus } from "./ports.ts";
 
-// 한도는 옛 구독의 BUFFER_BYTES와 같다.
 export const GATEWAY_BUFFER_LIMIT = 1024 * 1024;
 const CLOSE_POLICY_VIOLATION = 1008;
 

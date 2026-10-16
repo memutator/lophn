@@ -1,5 +1,4 @@
 // RuntimeState projection. IO 없는 순수 규칙이고 ledger에 저장하지 않는다.
-// 우선순위는 domain-model apps/runtime의 표 그대로다.
 import type {
   App,
   RuntimeObservation,

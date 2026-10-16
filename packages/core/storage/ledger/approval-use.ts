@@ -1,7 +1,7 @@
 // approval 한 번 사용의 공통 검사와 기록.
 // `Tx.useApproval`의 실제 구현이다. 정확한 action 일치 확인과 `approval_uses` INSERT는 소유 변경과
 // 같은 transaction에서 한다. 실패하면 err이고 부른 쪽이 그 결과를 돌려주어 전체가 rollback한다.
-// 표는 platform/approvals가 만들고 이 함수가 쓴다: 사용 기록은 이 공통 함수만 쓴다(domain model).
+// 표는 platform/approvals가 만들고 이 함수가 쓴다: 사용 기록은 이 공통 함수만 쓴다.
 // platform/approvals 모듈을 import하지 않는다(approvals가 ledger의 port를 쓰므로 순환이다).
 
 import {

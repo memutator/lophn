@@ -9,7 +9,7 @@ import {
 export type CatalogRefresherHandle = CatalogRefresher;
 
 // agent runtime 안의 catalog 갱신 연결. 갱신은 turn을 막지 않는 single-flight이고
-// network·시각·파일은 주입한다(architecture §5.3).
+// network·시각·파일은 주입한다.
 export function startCatalogRefresher(
   input: {
     dataRoot: string;
@@ -36,7 +36,7 @@ export function startCatalogRefresher(
 }
 
 // 동봉 snapshot은 모듈로 묶인 자산이다. runtime은 `--allow-read`가 data root뿐이라 소스 폴더의 파일을
-// 읽지 못한다(architecture §3.2).
+// 읽지 못한다.
 async function snapshotFromBundle() {
   const { parseEntries } = await import(
     "./mod.ts"

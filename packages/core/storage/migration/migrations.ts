@@ -22,7 +22,7 @@ type AppliedMigration = {
   contentHash: string;
 };
 
-// schema_migrations는 적용기가 처음 transaction에서 만든다(domain-model backup-and-migration).
+// schema_migrations는 적용기가 처음 transaction에서 만든다.
 const MIGRATIONS_TABLE = `
 create table if not exists schema_migrations (
   version integer primary key,

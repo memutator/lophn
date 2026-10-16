@@ -3,7 +3,7 @@ import type { ToolCall } from "../../../protocol/lophn-agent/mod.ts";
 
 // 순수 함수만. IO 없다. 표, row↔record mapping, 불변 조건을 여기 둔다.
 
-// domain-model lophn-agent/harness/tools의 표. tool_calls는 시도마다 한 행이고,
+// tools 표. tool_calls는 시도마다 한 행이고,
 // tool_call_supplements는 늦은 사실의 append 표다. 입력·출력 원문은 열에 없고
 // redaction을 거친 blob hash만 남는다. turn·model_call FK는 그 표가 같은 wire에
 // 있을 때 더한다. 삭제는 RESTRICT로 사실을 남긴다.

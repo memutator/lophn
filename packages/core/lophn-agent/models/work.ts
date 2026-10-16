@@ -304,7 +304,7 @@ function refreshDueAt(
 }
 
 // 동기 파일 읽기. read handler는 Promise를 돌려주지 않으므로 core read는 이것으로
-// derived 파일을 읽는다(architecture §5.3).
+// derived 파일을 읽는다.
 type SyncFiles = { readTextFile(path: string): string };
 
 type CatalogReadDeps = {

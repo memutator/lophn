@@ -29,7 +29,7 @@ type ChatTool = {
   function: { name: string; description?: string; parameters?: unknown };
 };
 
-// stream_options.include_usage는 고정이다(조사 문서 797–1002).
+// stream_options.include_usage는 고정이다.
 const STREAM_OPTIONS = { include_usage: true } as const;
 
 // 이미지는 tool message에 실을 수 없어 뒤따르는 user message의 content part로 보낸다.
@@ -61,7 +61,7 @@ function collectToolCallIds(messages: readonly unknown[]): Set<string> {
 // 순서 기준으로 남기고, id 없는 tool message는 앞의 tool_calls에 맞춘다.
 function pairedMessages(
   messages: readonly unknown[],
-  // DeepSeek은 assistant 메시지마다 reasoning_content 필수다(조사 문서 1378–1384).
+  // DeepSeek은 assistant 메시지마다 reasoning_content 필수다.
   provider?: string,
 ): unknown[] {
   const answered = collectToolCallIds(messages);
@@ -118,7 +118,7 @@ function applyPadding(
   }
 }
 
-// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다(§5.2).
+// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다.
 export function buildRequest(input: {
   model: string;
   messages: readonly unknown[];
@@ -150,7 +150,7 @@ export function buildRequest(input: {
 
 // ── SSE 응답 번역 ─────────────────────────────────────────────────────────
 
-// tool call 조각. index로 slot을 찾아 더한다(조사 문서 401–551). provider가 id를
+// tool call 조각. index로 slot을 찾아 더한다. provider가 id를
 // 빼먹은 조각(Ollama·llama.cpp)은 id가 빈 채로 남고 순서 기준 표시자로 대응한다.
 
 // stream 결과. tool 인자는 finish_reason chunk를 본 것만 완성이다.
@@ -246,7 +246,7 @@ function applyChoice(
   }
 }
 
-// frame 하나를 누적한다. choices 없는 chunk는 usage 전용이다(조사 문서 3048–3071).
+// frame 하나를 누적한다. choices 없는 chunk는 usage 전용이다.
 function applyFrame(out: ChatStreamResult, frame: SseFrame): void {
   const data = frame.data;
   if (data === "[DONE]") {
@@ -296,16 +296,16 @@ export function applyChatFrames(
 }
 
 // 마친 뒤 finish_reason을 못 본 상태로 끝난 것을 표시한다. finish_reason 없는
-// 종료는 partial이다(조사 문서 690–698).
+// 종료는 partial이다.
 export function finishChatStream(out: ChatStreamResult): void {
   if (out.finishReason === undefined) {
     out.streamEndedWithoutFinish = true;
   }
 }
 
-// usage 정규화(조사 문서 표). Chat는 prompt_tokens에 cache가 포함이다. cached는
+// usage 정규화. Chat는 prompt_tokens에 cache가 포함이다. cached는
 // prompt_tokens_details.cached_tokens ?? prompt_cache_hit_tokens ?? 뒷면 필드 순으로
-// 본다(조사 문서 1511–1552). 새 입력은 prompt에서 cached를 빼고 하한 0이다.
+// 본다. 새 입력은 prompt에서 cached를 빼고 하한 0이다.
 function chatUsage(raw: Record<string, unknown>): TokenUsage {
   const promptDetails = raw.prompt_tokens_details as
     | { cached_tokens?: unknown }
@@ -327,7 +327,7 @@ function chatUsage(raw: Record<string, unknown>): TokenUsage {
     cache_write: asCount(raw.cache_write_tokens),
     reasoning: asCount(completionDetails?.reasoning_tokens) ??
       asCount(raw.reasoning_tokens),
-    // Chat도 cache를 input 합계 안에 둔다(조사 문서 표).
+    // Chat도 cache를 input 합계 안에 둔다.
     cache_in_input: true,
     reasoning_in_output: true,
     definition_revision: "",
@@ -349,7 +349,7 @@ type Verdict = {
   providerCode?: string;
 };
 
-// 판정 표(조사 문서). stop·tool_calls만 complete다. length·단절은 partial이다.
+// 판정 표. stop·tool_calls만 complete다. length·단절은 partial이다.
 // finish_reason 없는 종료는 partial이다.
 export function judgeChat(out: ChatStreamResult): Verdict {
   if (out.errorType !== undefined || out.errorMessage !== undefined) {

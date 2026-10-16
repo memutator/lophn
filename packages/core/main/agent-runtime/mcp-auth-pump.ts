@@ -7,7 +7,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 
-// MCP OAuth 발급자(token endpoint) 호출을 core 대신 보낸다(concern lophn-agent/extensions, requirements #R16, #R17).
+// MCP OAuth 발급자(token endpoint) 호출을 core 대신 보낸다.
 // core module graph에는 외부 fetch가 없어서 core가 token 교환·갱신 요청을 대기열에 놓고,
 // 이 pump가 machine 입구로 하나씩 가져가 이 프로세스의 `--allow-net`(등록한 OAuth 서버의 발급자)이 허락하는 곳에만
 // 보낸다. 허락 밖 목적지는 Deno 권한이 막으므로 응답 없음(닿지 못함)으로 돌아간다.

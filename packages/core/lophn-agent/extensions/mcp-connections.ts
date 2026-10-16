@@ -15,7 +15,7 @@ import {
   rpcResultOf,
 } from "./adapters/mcp-http.ts";
 
-// 바깥 MCP 연결 관리(concern lophn-agent/extensions).
+// 바깥 MCP 연결 관리.
 // 연결은 assignment와 서버 이름의
 // 조합마다 하나다. 같은 assignment의 여러 turn이 같은 연결을 쓰고 다른
 // assignment와는 공유하지 않는다. 시계·대기·process 시작·HTTP는 주입한다.
@@ -36,7 +36,7 @@ const SCHEMA_DEPTH_MAX = 32;
 
 type OwnerKey = readonly [assignment: string, server: string];
 
-// 연결 상태다(domain model McpConnection).
+// 연결 상태다.
 type ConnectionState =
   | "disconnected"
   | "connecting"
@@ -681,7 +681,7 @@ export function createMcpConnections(
       const existing = entries.get(key);
       // 같은 assignment의 연결이 살아 있으면 같은 연결을 쓴다.
       if (existing !== undefined && existing.state === "connected") {
-        // 설정 판이 바뀌면 옛 연결을 쓰지 않는다(domain model).
+        // 설정 판이 바뀌면 옛 연결을 쓰지 않는다.
         if (existing.server.fingerprint === server.fingerprint) {
           return ok(view(existing));
         }
@@ -1000,7 +1000,7 @@ export function createMcpConnections(
     } finally {
       hard.abort();
     }
-    // 모든 page·검증이 끝난 뒤에만 hash를 둔다(domain model tool_list_hash).
+    // 모든 page·검증이 끝난 뒤에만 hash를 둔다.
     const hash = await sha256Hex(JSON.stringify(tools.map((tool) => [
       tool.server,
       tool.original,

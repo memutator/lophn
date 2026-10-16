@@ -27,7 +27,7 @@ import {
 } from "./binding.ts";
 
 // resolved agent가 정한 model 선택을 현재 provider·catalog로 검증해 turn이 쓸 model 묶음으로 만든다
-// (lophn-agent/harness/model, harness/provider). 어느 층의 선택인지는
+// 어느 층의 선택인지는
 // agents가 정했고 여기서는 받은 선택만 본다. 고른 option 값은 default를
 // 채운 뒤 호출 형식의 표로 요청 body 조각·header·보낼 model 이름이 되고, catalog에 없는 값이면 요청을
 // 보내지 않고 실패한다. provider에는 credential이 하나라 고르지 않는다: 연결이 없거나(Disconnect 포함)

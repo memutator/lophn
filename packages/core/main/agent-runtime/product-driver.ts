@@ -89,7 +89,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
     // 외부 MCP 연결과 등록 통로다. 프로세스 수명의 상태는 entry에서
-    // 만들어 넘기므로(architecture) productDriver 호출마다 하나를 만든다.
+    // 만들어 넘기므로 productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
       connections: mcpConnectionsDeps(calls.secrets),

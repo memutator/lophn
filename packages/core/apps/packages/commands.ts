@@ -133,7 +133,7 @@ export function createSdkCommands(): {
         if (!machine.ok) return machine;
         const current = loadPackageRow(tx.sql, input.name);
         if (current === undefined) {
-          // 새 Package다. id는 등록 결과다(domain-model apps/sdk Package 표).
+          // 새 Package다. id는 등록 결과다.
           const id = tx.newId("pkg");
           const seq = emitRegistered(tx, id, input);
           tx.sql.run(

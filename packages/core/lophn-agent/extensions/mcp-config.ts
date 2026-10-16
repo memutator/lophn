@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// 바깥 MCP 연결 설정 검사(concern lophn-agent/extensions).
+// 바깥 MCP 연결 설정 검사.
 // 계약 schema(mcpServerSchema)가 이미 전송 방식·값 모양을 거르고, 이 모듈은 그 밖의 누락·상충을 서버별로 본다.
 // 층의 서버(McpServer)와 연결이 쓰는 서버(McpRuntimeServer) 모두 이 모양을 만족한다.
 // 잘못된 서버 하나만 연결하지 않고 고칠 항목을 알리며 다른 서버와 lophn 자체
@@ -144,7 +144,7 @@ export function checkMcpConfig<T extends McpServerShape>(
   return ok({ valid, problems });
 }
 
-// `--allow-run` 목록이다(architecture §2.3). 사람이 enabled로 등록한 MCP stdio
+// `--allow-run` 목록이다. 사람이 enabled로 등록한 MCP stdio
 // executable만 둔다. shell 해석·model이 고른 프로그램은 없다.
 export function allowRunList(
   servers: readonly McpServerShape[],
@@ -164,7 +164,7 @@ export function allowRunList(
   return [...names].sort();
 }
 
-// `--allow-net` 중 MCP 몫이다(architecture §2.3). 사람이 enabled로 등록한 HTTP server의 정확한 `host:port`와,
+// `--allow-net` 중 MCP 몫이다. 사람이 enabled로 등록한 HTTP server의 정확한 `host:port`와,
 // OAuth 방식이면 그 발급자의 `host:port`다(token 교환·갱신은 runtime이 대신 보낸다). 같은 host의 다른
 // port, 일반 net, model이 제시한 URL은 없다. 기본 port는 https 443, http 80이다.
 export function allowNetList(

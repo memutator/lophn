@@ -1,6 +1,6 @@
 // provider 실패 분류. 순수 함수만. IO 없다. HTTP status·
 // header·응답 본문 문구를 contract의 ProviderFailure 코드로 옮긴다. 구조화 코드
-// 우선·문구 후순위의 단계 분류다(조사 문서 "오류 분류 순서"). 분류 근거가
+// 우선·문구 후순위의 단계 분류다. 분류 근거가
 // 안전하지 않으면 unknown이다. 인증 실패로 추측하지 않는다. 오류
 // 본문 원문은 여기에도 어디에도 남지 않는다.
 
@@ -13,7 +13,7 @@ type ProviderFailure = (typeof PROVIDER_FAILURES)[number];
 // ---- Retry-After 해석 ----
 
 // 순서: retry-after-ms → retry-after(숫자 초 또는 HTTP-date) → reset header.
-// "retry after" 문구가 "resets in"보다 우선이다(Hermes 조사 93–101).
+// "retry after" 문구가 "resets in"보다 우선이다.
 
 type ResetSource = {
   headers: Record<string, string>;
@@ -90,7 +90,7 @@ function resetHeaderValue(value: string, nowMs: number): number | null {
   return Math.max(0, at - nowMs);
 }
 
-// message 문구. 명시 "retry after N"이 "resets in"보다 우선이다(조사 문서).
+// message 문구. 명시 "retry after N"이 "resets in"보다 우선이다.
 function messageResetMs(message: string | undefined): number | null {
   if (message === undefined) return null;
   const retry = /retry after\s+(\d+)\s*(ms|s|seconds?|minutes?|m)/i.exec(
@@ -254,7 +254,7 @@ function coreVerdict(input: FailureInput): CoreVerdict {
       http_status: input.status,
     };
   }
-  // 2. 구조화 코드(조사 문서 순서).
+  // 2. 구조화 코드.
   const structured = fromStructuredCode(input);
   if (structured !== null) return structured;
   // 3. HTTP status.
@@ -333,7 +333,7 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     return { code: "refused", ...blank };
   }
   if (codeOf(RATE_CODES, code) !== null) {
-    // 과부하 계열 code는 아래로 내려간다(조사 문서 순서 2). 429·과부하 status는
+    // 과부하 계열 code는 아래로 내려간다. 429·과부하 status는
     // status 단계의 규칙이 판한다. 429가 아니면 reset 근거 없이 temporary다.
     return input.status === 429 ? rateVerdict(input) : null;
   }
@@ -393,7 +393,7 @@ function fromStatus(input: FailureInput): CoreVerdict | null {
     if (fragment.length > 0 && isOverflowMessage(fragment)) {
       return { code: "context_exceeded", ...blank };
     }
-    // 문구 없는 413는 unknown이다(조사 문서 순서 4).
+    // 문구 없는 413는 unknown이다.
     return null;
   }
   if (status === 500 || status === 502 || status === 503 || status === 529) {

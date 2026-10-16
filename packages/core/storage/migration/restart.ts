@@ -88,7 +88,7 @@ function readRestartTrace(
     const headSeq = raw === undefined || typeof raw !== "bigint"
       ? "0"
       : formatSeq(raw);
-    // 소유 concern의 복구 command(invocation·release activation·run·approval
+    // 소유 concern의 복구 command(invocation·release activation·turn·approval
     // 대기)가 아직 없어 어느 대상도 실제 관측으로 확정하지 못한다. 대상별
     // 관측 대신 기동 흔적 하나를 unknown으로 남긴다. reason은 안전한
     // 모양이고 근거는 ledger 위치뿐이다.

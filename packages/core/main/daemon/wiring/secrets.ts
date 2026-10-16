@@ -25,7 +25,6 @@ export const secretsWiring: WiringFactory = () => {
   return {
     name: "secrets",
     // 옛 ledger `secrets` 표. 아직 있는 SetSecret·RemoveSecret command와 runtime.ts의 옛 store가 읽는다.
-    // 그 쓰는 곳이 옮겨 가면 cleanup이 이 step과 함께 지운다.
     schemaStepsAfterTeams: SECRET_SCHEMA_STEPS,
     // 파일 저장소와 port를 런타임 전에 낸다. reader pool 통로는 runtime이 열린 뒤에야 있어 부를 때 읽는다.
     prepare(ctx) {

@@ -9,7 +9,7 @@ import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // prompt-assemble이 준 경계 위치(최대 3곳). Anthropic breakpoint
-// 상한은 4개라 3개는 상한 안이다(조사 문서, OpenCode 234–251).
+// 상한은 4개라 3개는 상한 안이다.
 
 type CacheBoundaries = {
   system: boolean;
@@ -28,7 +28,7 @@ type OpaqueReasoningState = {
 // model이 바뀌면 버리고, turn 종료 시 폐기한다. blob·trace에 남지 않는다.
 
 // 시그니처가 필요한데 메모리가 비어 있으면(restart·compaction) state-free 재시도를
-// 하지 않고 실패한다(architecture §5.2).
+// 하지 않고 실패한다.
 
 type AnthropicBlock = {
   type: string;
@@ -143,7 +143,7 @@ function pairedRedacted(
   return block;
 }
 
-// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다(§5.2).
+// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다.
 export function buildRequest(input: {
   model: string;
   max_tokens: number;
@@ -357,7 +357,7 @@ function mergeUsage(
   };
 }
 
-// usage 정규화(조사 문서 표). Anthropic input은 cache를 제외해 본다. 값 모름은 0이
+// usage 정규화. Anthropic input은 cache를 제외해 본다. 값 모름은 0이
 // 아니라 null이다.
 function anthropicUsage(raw: Record<string, unknown>): TokenUsage {
   const details = raw.output_tokens_details as

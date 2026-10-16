@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// Streamable HTTP MCP 전송(concern lophn-agent/extensions).
+// Streamable HTTP MCP 전송.
 // Streamable HTTP만 지원하고 SSE로 자동
 // 전환하지 않는다. HTTPS가 기본이고 평문 HTTP는 loopback뿐이다.
 // 다른 origin(host·scheme·port)으로의 redirect는 거절이다. TLS 검증을

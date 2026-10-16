@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretPurpose } from "../../../protocol/secrets/mod.ts";
 
-// MCP OAuth token 보관(concern lophn-agent/extensions, requirements #R16, #R17).
+// MCP OAuth token 보관.
 // 접근·갱신 token은 OS keychain에만 있고 ledger·설정·log에는 참조와 만료·묶음 정보만 있다. 서버(place+이름)마다
 // 한 벌이고, 같은 이름의 서버도 place가 다르면 따로다. 벌마다 발급자·서버 URL·client를 함께 적어 두어(binding)
 // 그 조합이 바뀌면 옛 token을 쓰지 않을 수 있게 한다. 평문 파일·환경 변수 fallback은 없다.

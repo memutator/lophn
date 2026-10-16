@@ -155,8 +155,7 @@ export async function assembleWriter(
   };
 }
 
-// event `at`·tx.now()·ULID·확인 기한은 같은 시각을 쓴다(domain model platform/ledger
-// "시각·기간·seq": 기록 시각은 커밋 시각). writer는 별도 Worker라 core의 clock
+// event `at`·tx.now()·ULID·확인 기한은 같은 시각을 쓴다. writer는 별도 Worker라 core의 clock
 // 객체를 그대로 받지 못한다. 제품 경로는 writer 자신의 system clock을 쓰고,
 // 테스트는 기동 시각에 고정한 clock을 쓴다. 어느 쪽이든 시각은 뒤로 가지 않는다.
 function writerClock(boot: WriterBoot, fixedMs: () => number): Clock {

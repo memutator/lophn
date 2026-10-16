@@ -202,7 +202,7 @@ export function createProviderCommands(): {
           return conflict("provider id already exists");
         }
         const kind = input.credential.kind;
-        // 같은 endpoint는 새 provider다. 진행 turn의 이동은 없다(domain model).
+        // 같은 endpoint는 새 provider다. 진행 turn의 이동은 없다.
         const credential = assertCredential({
           kind,
           secret_ref: input.credential.preparation === null ? null : {

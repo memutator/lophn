@@ -4,7 +4,7 @@ import {
   sessionTitleSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// session 제목 만들기(domain model lophn-agent/conversation Session.title).
+// session 제목 만들기.
 // 순수 함수이며 저장·redaction·event는 command가 한다.
 //
 // 글자는 사람이 보는 글자(grapheme cluster)다: 결합 문자나 이모지 묶음을 중간에서 자르지 않는다.

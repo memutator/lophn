@@ -5,7 +5,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { mcpTokenRef } from "./mcp-oauth-vault.ts";
 
-// 연결이 쓰는 MCP 서버 한 대다(concern lophn-agent/extensions). 층에서 온 설정(`McpServer`, secret은 이름 참조
+// 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 이름 참조
 // `{secret}`)을 연결, OAuth, secret 부착이 읽는 한 모양으로
 // 옮긴다. 값은 없고 참조뿐이다. 서버는 이름만으로 하나가 정해지지 않는다: 같은 이름도 층의 place가 다르면 따로이고,
 // OAuth token의 참조가 그 place에서 정해진다.

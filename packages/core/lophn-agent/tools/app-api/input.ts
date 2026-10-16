@@ -9,7 +9,7 @@ import type { Place } from "../../../../protocol/lophn-agent/places.ts";
 // app-api tool의 입력이다. 입력이 object인 app-api는 그 입력이 tool 입력이고, 입력이 없으면 빈 object,
 // 그 밖의 종류는 `{input}` 하나로 감싼다(model의 tool 입력은 object여야 한다).
 //
-// project 범위 app-api는 project를 부르는 쪽이 정한다(S5 4장). project에 놓인 agent의 입력에는 `project`
+// project 범위 app-api는 project를 부르는 쪽이 정한다. project에 놓인 agent의 입력에는 `project`
 // 칸이 없고 보내면 거절된다(core가 그 agent의 project를 넣는다). lophn과 앱 place의 agent는 `project`
 // 칸을 보이고, 이 칸은 앱에 가는 입력이 아니라 호출의 project다.
 

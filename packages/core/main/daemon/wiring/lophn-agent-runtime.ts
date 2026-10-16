@@ -90,7 +90,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         memory: [[key(steerQueuedNow), steerNow], [key(removeQueued), remove]],
       });
     },
-    // agent runtime(machine)과 turn의 agent 자격이 닿는 operation(lophn-agent/harness/run-loop).
+    // agent runtime(machine)과 turn의 agent 자격이 닿는 operation.
     operations: (ctx) => agentRuntimePolicies(ctx.allRoutes),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.

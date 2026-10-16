@@ -19,7 +19,7 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// `ReadSkills` handler다(concern lophn-agent/extensions). 내장, 전역, (project를 주면) project 층을 합친 skill 목록과
+// `ReadSkills` handler다. 내장, 전역, (project를 주면) project 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도
 // 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 role을 가리지
 // 않고 모두 낸다(어느 role의 것인지는 선언이 말한다).

@@ -37,8 +37,7 @@ import {
 } from "../run-loop/blobs.ts";
 import { readSessionConversation } from "./history.ts";
 
-// 사람이 요청한 Compact를 끝낸다(lophn-agent/conversation, harness/prompt-assemble,
-// harness/model). 요청은 core의 읽기로 고르고(끝나지 않은 turn이 있는 session의 요청은 나오지
+// 사람이 요청한 Compact를 끝낸다. 요청은 core의 읽기로 고르고(끝나지 않은 turn이 있는 session의 요청은 나오지
 // 않는다), session의 앞 구간을 같은 model(session agent의 model)에 요약 지시를 보내 요약하는 model call을
 // 한 뒤, 끝까지 성공한 그 call을 CompactSession으로 잇는다. 최근 사람 메시지 몇 개는 요약하지 않고 원문으로
 // 남겨 이후 call의 조립이 요약 뒤에 붙인다. 요약 call은 turn과 agent 대신 session에 묶여 turn이 한 번도

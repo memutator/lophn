@@ -12,13 +12,13 @@ import type {
 } from "../../../../protocol/projects/mod.ts";
 
 // 요청한 쪽. 실제 자격은 platform/identity가 정하고 여기서는 command가 가르는 구분만 둔다.
-// actor는 ledger에 남는 문자열이다(`user`, `agent:ses_…`, `machine`, `coding_agent:cac_…`).
+// actor는 ledger에 남는 문자열이다(`user`, `agent:ses_…`, `machine`, `coding_agent:…`).
 export type ContextApiActor =
   | { kind: "user"; actor: string }
   // agent가 context를 쓸 수 있는지는 그 context의 project로 deps.canWrite가 정한다(mayWrite).
   | { kind: "agent"; actor: string }
   // 좁은 범위 credential은 context worker의 제출 두 가지만 낸다. agent_runtime은 agent runtime의 machine
-  // 자격이고 run 시작 전 재료 읽기(context.list·get·contract)만 한다.
+  // 자격이고 turn 시작 전 재료 읽기(context.list·get·contract)만 한다.
   | {
     kind: "machine";
     actor: string;

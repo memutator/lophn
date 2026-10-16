@@ -39,7 +39,7 @@ type TurnTool = PromptTool & {
 
 export type TurnPromptInput = {
   role: Role;
-  // built-in role 지침 글 하나. 고정 규칙(PRODUCT_INSTRUCTIONS)은 이 함수가 앞에 붙인다.
+  // built-in role 지침 글 하나. 제품 고정 규칙은 이 함수가 앞에 붙인다.
   role_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
   tools: readonly TurnTool[];

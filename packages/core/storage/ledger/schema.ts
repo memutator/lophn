@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// domain-model platform/ledger의 공통 표. turn FK는 turns 표가 생길 때 더한다.
+// ledger 공통 표. turn FK는 turns 표가 생길 때 더한다.
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.
 // blob-refs step은 registered_seq의 events FK를 뺀 내용으로 고쳤다(step hash가 바뀐다). 개발 DB는
 // 지우고 새로 만든다. events.turn 칸과 question_evidence 표는 쓰는 곳이 남아 있어 아직 둔다.

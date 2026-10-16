@@ -16,7 +16,7 @@ import {
   undeclaredBuiltinReason,
 } from "./skills.ts";
 
-// 동기 skill 목록(concern lophn-agent/extensions). `ReadSkills`와 `/` 메뉴는 동기 handler라 비동기 발견
+// 동기 skill 목록. `ReadSkills`와 `/` 메뉴는 동기 handler라 비동기 발견
 // (`discoverSkills`, turn 시작이 쓴다)을 기다릴 수 없다. 같은 층 규칙(`mergeSkillLayers`)을 동기 port 위에서 한 번
 // 더 읽는다. 본문 hash와 딸린 파일은 만들지 않는다. 이 목록은 이름, 설명, 출처, 켜짐만 보인다.
 

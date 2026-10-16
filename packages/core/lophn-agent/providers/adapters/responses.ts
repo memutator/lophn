@@ -98,7 +98,7 @@ function pairedItems(
   return { items: output, reasoning };
 }
 
-// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다(§5.2).
+// 요청 본문 번역. endpoint는 API base이고 path는 transport가 붙인다.
 export function buildRequest(input: {
   model: string;
   instructions?: unknown;
@@ -128,7 +128,7 @@ export function buildRequest(input: {
   // reasoning 재전송 대상이 있으면 state-free 계속을 검증한다(검증의 실제
   // 호출 자리는 invoke.ts다). 메모리 상태가
   // 없을 때(restart·compaction)도 Responses는 계속 가능하다 — reasoning item을
-  // 빼도 function_call·call_id 대응이 남는다(architecture §5.2). 통과하지 못하는
+  // 빼도 function_call·call_id 대응이 남는다. 통과하지 못하는
   // protocol(서명 필수 Anthropic)은 messages.ts의 reasoningFor가 실패를 낸다.
   if (input.reasoning?.length) {
     body.reasoning = { include: ["reasoning.encrypted_content"] };
@@ -182,7 +182,7 @@ function collectReasoning(
 }
 
 // output_item.done 하나를 누적한다. Codex는 function_call_arguments.delta를
-// 무시하고 done의 전체 arguments만 쓴다(조사 문서 483–491).
+// 무시하고 done의 전체 arguments만 쓴다.
 function applyItemDone(
   out: ResponsesStreamResult,
   item: Record<string, unknown>,
@@ -296,7 +296,7 @@ export function applyResponsesFrames(
   for (const frame of frames) applyFrame(out, frame);
 }
 
-// usage 정규화(조사 문서 표). OpenAI는 cache를 input 합계 안에 둔다. 새 입력은
+// usage 정규화. OpenAI는 cache를 input 합계 안에 둔다. 새 입력은
 // input에서 cached를 빼고 하한 0이다. 값 모름은 0이 아니라 null이다.
 function responsesUsage(raw: Record<string, unknown>): TokenUsage {
   const inputDetails = raw.input_tokens_details as
@@ -316,7 +316,7 @@ function responsesUsage(raw: Record<string, unknown>): TokenUsage {
     cache_read: cached,
     cache_write: asCount(raw.cache_write_tokens),
     reasoning: asCount(outputDetails?.reasoning_tokens),
-    // OpenAI는 cache를 input 합계 안에 둔다(조사 문서 표).
+    // OpenAI는 cache를 input 합계 안에 둔다.
     cache_in_input: true,
     reasoning_in_output: true,
     definition_revision: "",
@@ -338,7 +338,7 @@ type Verdict = {
   providerCode?: string;
 };
 
-// 판정 표(조사 문서). response.completed만 complete다. tool 인자는
+// 판정 표. response.completed만 complete다. tool 인자는
 // output_item.done을 본 것만 완성이다. incomplete(max_output_tokens
 // 포함)·response.failed는 partial/failed이고 tool은 미실행이다.
 export function judgeResponses(out: ResponsesStreamResult): Verdict {
@@ -353,7 +353,7 @@ export function judgeResponses(out: ResponsesStreamResult): Verdict {
   // response.completed·response.incomplete를 보지 못하고 끝난 스트림은 단절이다.
   if (!out.responseEnded) return { kind: "partial" };
   if (out.responseStatus === "incomplete") {
-    // content_filter 거절은 refused다(조사 문서 판정 표).
+    // content_filter 거절은 refused다.
     if (out.incompleteReason === "content_filter") {
       return { kind: "refused", providerCode: "content_filter" };
     }

@@ -1,7 +1,7 @@
 // I/O worker의 정지 유지보수 조립.
 // collectGarbage·trimCapacity는 정상 동작 중 부르지 않는다. 삭제는 세 정지
 // 조건(새 준비 차단, command 차단, writer 정지)이 모두 관측될 때만 실행한다:
-// 부르는 쪽이 deps의 실제 관측으로 조건을 채운다(architecture 7.5 종료 순서).
+// 부르는 쪽이 deps의 실제 관측으로 조건을 채운다.
 // 관측(observeBlobGc)은 삭제가 아니므로 정상 동작 중에도 그대로 돈다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";

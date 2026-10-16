@@ -11,7 +11,7 @@ import {
   REPAIR_APP_PROMPT,
 } from "./role-prompts.ts";
 
-// `/` 명령 registry(concern lophn-agent/commands). 저장하는 표가 아니라 열 때마다
+// `/` 명령 registry. 저장하는 표가 아니라 열 때마다
 // 코드의 built-in·role 목록과 그 agent가 쓸 수 있는 skill에서 계산하는 값이다(domain
 // model 정책). IO가 없는 순수 함수다.
 

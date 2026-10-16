@@ -8,7 +8,7 @@ import { ADAPTER_MS, GROUP_CONFIRM_MS } from "./group.ts";
 import { LEADER_EXIT_MS, type Spawned } from "./process.ts";
 import type { Frame } from "../../../protocol/base/mod.ts";
 
-// architecture 2.3의 고정 값. 설정으로 늘리지 않는다.
+// 고정 값. 설정으로 늘리지 않는다.
 export const READY_MS = 10_000;
 export const STOP_MS = 5_000;
 // child stdin에 frame 하나를 쓰는 기한. child가 읽지 않으면 이 안에 그 child를 끝내고 재기동 경로로 보낸다.

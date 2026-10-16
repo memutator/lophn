@@ -327,7 +327,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        // 보완은 finished call에서만 통과한다(domain model).
+        // 보완은 finished call에서만 통과한다.
         if (current.value.state !== "finished") {
           return conflict("supplement needs a finished call");
         }

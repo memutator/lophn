@@ -8,7 +8,7 @@ import { advanceSubscriberCursor } from "../../../protocol/events/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { turnAdmission } from "./turn-admission.ts";
 
-// 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다(domain model).
+// 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다.
 const advanceSubscriberCursorCommand = defineSyncCommand(
   advanceSubscriberCursor,
   (tx: Tx, _ctx: RequestContext, input, _compare) => {

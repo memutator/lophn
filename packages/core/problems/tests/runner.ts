@@ -93,7 +93,7 @@ export function reportCollectorSpec(input: {
     "../reporting/worker/collector.ts",
     import.meta.url,
   ).pathname;
-  // architecture 2.2: --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은
+  // --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은
   // `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444다(releases/bundle/seal.ts),
   // 등록 시점 spec은 credential의 bundle_hash로 찾는 그 부모 폴더만 이름 짓는다.
   // ledger·blob store는 직접 열지 않는다. FFI는 launchArgv가 플래그를 내지 않는다.

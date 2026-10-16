@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// architecture 2.3 입장·실행 한도의 고정 값. 일반 설정으로 격리나 한도를 해제하지 않는다.
+// 입장·실행 한도의 고정 값. 일반 설정으로 격리나 한도를 해제하지 않는다.
 const COMMAND_ADMISSION_TOTAL = 256;
 const COMMAND_ADMISSION_PRINCIPAL = 64;
 const COMMAND_CONTROL_RESERVED = 16;
@@ -52,7 +52,7 @@ const unavailable = () =>
 const NORMAL_LIMIT = COMMAND_ADMISSION_TOTAL - COMMAND_CONTROL_RESERVED;
 
 export function createAdmission(
-  // 테스트가 기한을 줄일 때만 쓴다. 기본값은 architecture 2.3의 고정 값이다.
+  // 테스트가 기한을 줄일 때만 쓴다. 기본값은 고정 값이다.
   startWaitMs: number = COMMAND_START_WAIT_MS,
 ): Admission {
   const queues = new Map<string, Job[]>();

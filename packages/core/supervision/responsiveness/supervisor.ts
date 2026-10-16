@@ -44,7 +44,7 @@ type SupervisorOptions = {
   spawn?: (request: SpawnRequest) => Spawned;
   // kind별로 좁혀 넘길 환경. 전체 환경은 복사하지 않는다.
   env?: (kind: string) => Record<string, string>;
-  // 테스트가 기한을 줄일 때만 쓴다. 기본값은 architecture 2.3의 고정 값이다.
+  // 테스트가 기한을 줄일 때만 쓴다. 기본값은 고정 값이다.
   readyMs?: number;
   stopMs?: number;
   teardownMs?: number;

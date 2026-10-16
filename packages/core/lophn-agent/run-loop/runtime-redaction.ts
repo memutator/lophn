@@ -6,7 +6,7 @@ import {
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
 import { matchCredential } from "../../../base/redaction/mod.ts";
 
-// agent runtime의 안전화 요청(감독 pipe `redact_request`)을 core가 답한다(lophn-agent/harness/run-loop).
+// agent runtime의 안전화 요청(감독 pipe `redact_request`)을 core가 답한다.
 // 지울 자리는 제품 redactor(`createProductRedactor`)와 같은 규칙이다: 고정한 credential 검출 규칙과 core
 // 보호 메모리의 알려진 secret 값(provider·connection token 포함). 알려진 값을 아직 다 모르거나 요청이
 // 올바르지 않으면 ok=false이고 child는 그 글을 보내지 않는다. 값 목록·개수는 child로 가지 않는다.

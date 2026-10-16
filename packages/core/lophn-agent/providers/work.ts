@@ -1,5 +1,5 @@
-// model 호출 공통 interface(architecture §5.2). runtime 내부 interface는
-// `invokeModelCall(input, signal)`이다. 세 adapter(anthropic-messages·
+// model 호출 공통 interface. runtime 내부 interface는
+// `InvokeModelCall` 타입이다. 세 adapter(anthropic-messages·
 // openai-responses·openai-chat-completions)가 같은 입력·출력을 갖는다. SDK의
 // 숨은 retry는 0이다: retry 횟수·간격·총 시도 수의 주인은 run-loop다.
 
@@ -12,7 +12,7 @@ import type {
 import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
 
-// 호출 입력. resolve가 준 판과 turn 근거다(§5.2).
+// 호출 입력. resolve가 준 판과 turn 근거다.
 export type ModelCallInput = {
   // 시도 id. 호출 시작 기록과 같은 id다.
   callId: string;
@@ -36,7 +36,7 @@ export type ModelCallInput = {
   continuation?: { pendingReasoning: boolean; reasoningRequired: boolean };
 };
 
-// 호출 출력. 순서·대응을 보존한 text·tool requests다(§5.2).
+// 호출 출력. 순서·대응을 보존한 text·tool requests다.
 export type ModelCallOutput = {
   id: string;
   outcome: ModelOutcome;

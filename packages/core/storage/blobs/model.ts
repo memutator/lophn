@@ -7,7 +7,7 @@ import {
 } from "../../../protocol/storage/mod.ts";
 
 export const BLOB_STORE_TMP_DIR = "blobs/tmp";
-// 완성 blob은 hash 앞 2자 폴더 아래 나머지 62자 파일로 둔다(domain-model "경로").
+// 완성 blob은 hash 앞 2자 폴더 아래 나머지 62자 파일로 둔다.
 export const BLOB_STORE_OBJECTS_DIR = "blobs/sha256";
 const PREFIX_CHARS = 2;
 export const BLOB_READ_ONLY_MODE = 0o400;

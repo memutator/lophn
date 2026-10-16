@@ -1,7 +1,4 @@
-// context ledger 표(domain-model/documents/contexts, documents/terms의 "ledger 표")의 SQL이다.
-// 새 모델의 표라서 옛 `contexts`·`context_items`·`terms` 표와 이름이 겹친다. 옛 표는 옮기지 않는다
-// (개발 ledger는 초기화한다). 그래서 step id도 옛 id와 다르게 둔다.
-//
+// context ledger 표의 SQL이다.
 // 표는 걸 수 있는 제약을 모두 건다. handler가 먼저 거절하므로 이 제약은 마지막 방어선이고,
 // adapter가 잘못된 행을 쓰려 하면 transaction 전체가 rollback된다.
 //

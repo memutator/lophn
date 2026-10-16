@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// domain-model apps/releases의 releases·release_tests 표. 준비 뒤 내용 열은 불변이고
+// releases·release_tests 표. 준비 뒤 내용 열은 불변이고
 // status·activation·activated_at·failure만 activation 결정이 바꾼다.
 //
 // 정규 blueprint JSON(`blueprint`)과 거기서 만든 선언 사실(`declarations`)을 준비 때 한 번 같이 둔다.

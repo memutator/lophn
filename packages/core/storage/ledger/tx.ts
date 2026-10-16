@@ -61,8 +61,7 @@ export type TxDeps = {
   // 다른 owner command dispatch. 없으면 등록된 command를 부르지 않는다.
   dispatch?: CommandDispatch;
   call: TxCall;
-  // true면 domain event 10개가 아닌 type의 emit을 internal로 거절한다. 다른 단위가 옛 event를
-  // 다 걷은 뒤 cleanup이 켠다.
+  // true면 domain event 10개가 아닌 type의 emit을 internal로 거절한다.
   domainOnly?: boolean;
   // transaction이 열리고 닫힐 때 그 Tx를 알린다. blob 등록이 같은 sql을 쓰기 위해서다.
   onTx?(tx: Tx | undefined): void;

@@ -4,7 +4,7 @@ import type {
   OptionValues,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// option 축 규칙이다(harness/model). 어떤 model에 어떤 축과 값이 있는지는
+// option 축 규칙이다. 어떤 model에 어떤 축과 값이 있는지는
 // catalog 자료(CatalogEntry.options)만 말하고 이 모듈은 그 목록을 코드에 적지 않는다.
 // 요청 필드로 옮기는 일은 wire.ts의 몫이다.
 

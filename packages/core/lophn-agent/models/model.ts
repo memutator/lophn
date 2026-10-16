@@ -10,7 +10,7 @@ import { err, formatAt, ok, type Result } from "../../../base/mod.ts";
 
 export { CATALOG_REFRESH_INTERVAL_MS };
 
-// catalog 적용 순서(domain-model lophn-agent/harness/model "catalog 우선순위").
+// catalog 적용 순서.
 // release snapshot 위에 정상 갱신본을 겹치고 좁은 patch와 사람 보완이 그 위를 덮는다.
 const LAYER_ORDER = [
   "release_snapshot",

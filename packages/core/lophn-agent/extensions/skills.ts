@@ -7,7 +7,7 @@ import {
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견, 검증, 층 합치기(concern lophn-agent/extensions). 층은 내장, 전역(등록 폴더와 개인 보관소), project
+// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), project
 // 셋이고 같은 이름은 마지막 층이 덮는다. 다만 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 파일 IO는 SkillFilesPort로 끼운다. 이 모듈은 사람의 실제 home이나 다른 harness 보관소를
 // 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다. turn 시작마다 다시 읽어 그 turn의 판을 고정한다.

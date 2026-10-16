@@ -16,7 +16,7 @@ import type {
 import type { McpToolView } from "./mcp-connections.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
 
-// 외부 MCP tool 정의 만들기(concern lophn-agent/extensions).
+// 외부 MCP tool 정의 만들기.
 // 연결 관리(mcp-connections.ts)가 검증을 모두 지난 목록을 주면 tool마다 정의 하나를 만든다. 이름은
 // `mcp__<server>__<tool>`이다. 효과는 tool의 `readOnlyHint`가 참이면 read, 아니면 external이다. 묻는지는 agent
 // grant가 정하고 Gate는 `executeToolCall`이 부른다. 문서, skill, server 응답은 정의를 늘리지 않고 결과는 감싸지 않는다.
@@ -259,7 +259,7 @@ async function invoke(
   );
 }
 
-// 정의가 handler를 들지 않은 옛 실행 길의 handler 표다. 호출 이름 → handler.
+// 정의가 handler를 들지 않은 tool(MCP)의 handler 표다. 호출 이름 → handler.
 export function createMcpToolHandlers(
   tools: readonly ExternalTool[],
   call: McpToolCall,

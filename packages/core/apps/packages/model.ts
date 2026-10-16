@@ -1,4 +1,4 @@
-// domain-model apps/sdk의 값과 판정. IO는 없다.
+// 값과 판정. IO는 없다.
 
 // 첫 공개 묶음에서 제공하지 않는 이름. cap-read-model은 앱 사이
 // command 호출이 cap-app-api와 apps/connections를 따르므로 만들지 않았고, cap-notify는 보류라 만들지 않는다.

@@ -27,14 +27,14 @@ import {
 // 위장하지 않는다.
 const OAUTH_APP_NAME = "lophn";
 
-// chatgpt(공식 Sign in with ChatGPT)의 고정 목적지(조사 문서).
+// chatgpt(공식 Sign in with ChatGPT)의 고정 목적지.
 const SIWC_AUTHORIZE = "https://auth.openai.com/api/accounts/authorize";
 const SIWC_REGISTER =
   "https://auth.openai.com/api/accounts/oauth/register";
 // token reference: access 3600초, refresh 30일. 매 갱신 뒤 새 30일이다.
 const SIWC_ACCESS_SECONDS = 3_600;
 
-// supergrok의 고정 discovery와 device 코드 목적지(조사 문서). 실제 endpoints는
+// supergrok의 고정 discovery와 device 코드 목적지. 실제 endpoints는
 // discovery 응답을 다시 검사한 뒤에만 쓴다.
 const XAI_DISCOVERY =
   "https://auth.x.ai/.well-known/openid-configuration";
@@ -193,7 +193,7 @@ function parsePastedUrl(
 // ---- 로그인 세션과 취득 번들 ----
 
 // 갱신할 token 묶음. access·refresh·id_token과 실제 만료, 발급 client·resource,
-// 검증된 identity가 함께 교체된다(조사 구현 메모 1).
+// 검증된 identity가 함께 교체된다.
 type OAuthTokenBundle = {
   access_token: string;
   refresh_token: string | null;

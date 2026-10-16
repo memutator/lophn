@@ -6,7 +6,7 @@ import {
 } from "../../../protocol/supervision/mod.ts";
 import { REDACTION_REPLACEMENT } from "../../../base/redaction/mod.ts";
 
-// model로 보낼 글의 안전화는 core가 한다(lophn-agent/harness/run-loop). 알려진 secret 값은 core의 보호
+// model로 보낼 글의 안전화는 core가 한다. 알려진 secret 값은 core의 보호
 // 메모리에만 있고 이 프로세스로 오지 않는다. 글을 조각(window)으로 잘라 감독 pipe로 보내고 core가 돌려준
 // 지울 자리만 적용한다. 조각은 서로 겹치게 잘라 조각 경계에 걸친 값(길이 `REDACT_OVERLAP` 이하)도 한 조각
 // 안에서 온전히 보인다. 어느 조각이든 core가 끝내지 못하거나 기한 안에 답하지 않으면 그 글은 null이고,

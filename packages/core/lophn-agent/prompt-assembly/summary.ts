@@ -6,7 +6,7 @@ import {
 } from "../safety/mod.ts";
 import type { HistoryMessage, PromptRequest } from "./model.ts";
 
-// Compact summary의 준비이다(concern lophn-agent/harness/prompt-assemble). 순수 값과 계산만
+// Compact summary의 준비이다. 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
 
 export function summaryBodyTokens(text: string): number {

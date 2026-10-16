@@ -1,4 +1,4 @@
-// model 호출 한 번의 실제 HTTP 실행(architecture §5.2 invokeModelCall).
+// model 호출 한 번의 실제 HTTP 실행.
 // 인증 부착은 AuthTransport 하나를 거친다. 호출은 한 번이다: SDK 숨은 retry는
 // 없고 재시도는 run-loop가 새 ModelCall로 한다. 응답은 두 길이다. 성공 SSE는
 // protocol별 parser가 읽고, 그 밖의 응답(오류 status·JSON)은 상한 안 본문 한 덩어리로

@@ -26,7 +26,7 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// 동기 등록부(concern lophn-agent/extensions). agents read와 `/` 메뉴는 동기 handler라 폴더를 훑는 비동기 발견을
+// 동기 등록부. agents read와 `/` 메뉴는 동기 handler라 폴더를 훑는 비동기 발견을
 // 기다리지 못한다. 한 place의 skill·MCP 서버 목록을 동기로 읽어 한 번 만들면 이 등록부가 있는 동안 같은 place에는
 // 같은 목록을 준다(한 읽기 안에서 목록이 흔들리지 않는다). 파일 IO는 port로 받는다: core 프로세스의 module
 // graph에는 동기 file API를 두지 않으므로 port는 Worker 안에서 URL로 연 adapter다(adapters/node-fs.ts).

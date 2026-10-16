@@ -189,7 +189,7 @@ async function open(
   ctx.provide("runtime", runtime);
   ctx.provide("knownSecrets", runtime.knownSecrets);
 
-  // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
+  // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
   // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → run metadata 지우기와
   // lock 풀기. 정지 유지보수는 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가 예외를 던져도 metadata

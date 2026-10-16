@@ -1,4 +1,4 @@
-// preview 값과 판정. preview는 별도 entity·ID·운영 상태·ledger 표가 아니다(domain-model apps/preview).
+// preview 값과 판정. preview는 별도 entity·ID·운영 상태·ledger 표가 아니다.
 // 프로세스 메모리와 disposable 파일에만 있다.
 import type { RuntimeReason } from "../../../protocol/apps/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";

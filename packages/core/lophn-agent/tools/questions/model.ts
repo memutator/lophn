@@ -17,7 +17,7 @@ import {
 import type { GroupState, GroupStatus } from "./group.ts";
 import type { StoredGroupContent } from "./text-blobs.ts";
 
-// domain-model lophn-agent/questions의 `question_groups`·`questions` 표 row 변환과 읽기 조회.
+// `question_groups`·`questions` 표 row 변환과 읽기 조회.
 // 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는 reads.ts가 맡는다.
 
 type Lookup = {
@@ -288,7 +288,7 @@ export function settingChangesOf(
 }
 
 // 선택지의 근거·채택 참조는 그 document의 실제 불변 version이어야 한다. 판 표(documents/
-// versions)는 소유 concern의 것이라 읽기만 한다. 판 표가 없는 등록(문서 concern 없는 harness)은
+// versions)는 소유 concern의 것이라 읽기만 한다. 판 표가 없는 등록은
 // 확인할 판이 없으므로 통과한다.
 export function fixedVersionsExist(
   lookup: Lookup,

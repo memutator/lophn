@@ -26,7 +26,7 @@ import {
   type ReadSql,
 } from "./place-store.ts";
 
-// project 층 설정이다(concern lophn-agent/extensions). project의 lophn data 폴더 `<data root>/projects/<id>/`에
+// project 층 설정이다. project의 lophn data 폴더 `<data root>/projects/<id>/`에
 // skill 꾸러미는 `skills/`에, MCP 서버와 끈 이름은 `extensions.json` 한 파일에 둔다. 앱 place에는 이 층이 없다.
 // 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
 

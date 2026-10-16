@@ -28,7 +28,7 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
       return { mcpOAuthRefs: () => created.refs() };
     },
     // MCP OAuth의 시작·완료·상태·취소 입구다. 업무 규칙은 extensions의 mcp-oauth에 있고
-    // (concern lophn-agent/extensions, code-map 의존 규칙) 여기는 core의 memory route 입구와 재료를 끼운다.
+    // 여기는 core의 memory route 입구와 재료를 끼운다.
     // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
     // - token은 OS keychain(mcpVault)에만 두고 설정에는 쓰지 않는다. 서버(place와 이름)에서 정해지는 참조가 보관을 가리킨다.
     // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 대기열에 놓고 agent runtime이 가져가 대신

@@ -7,7 +7,7 @@ import type { SchemaStep, SqlParam } from "../../../protocol/server/mod.ts";
 
 // 순수 함수만. IO 없다. 표, row↔record mapping, 불변 조건을 여기 둔다.
 
-// domain-model lophn-agent/harness/usage의 표. model_calls는 실제 전송 시도마다
+// usage 표. model_calls는 실제 전송 시도마다
 // 한 행이고, model_call_supplements는 보완 근거의 append 표다. credential 값은
 // 열에 없고 참조만 남는다. turn·session FK는 turns·sessions 표가 생길 때 더한다
 // (platform ledger schema와 같은 근원). 삭제는 RESTRICT로 사실을 남긴다.

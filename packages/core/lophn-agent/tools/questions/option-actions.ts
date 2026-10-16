@@ -12,8 +12,7 @@ import {
 import { type CommandRoute } from "../../../../protocol/base/mod.ts";
 import { protectedSetting } from "./protected-settings.ts";
 
-// 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(domain model lophn-agent/questions
-// `apply_question_option`).
+// 사람이 고른 선택지의 고정 action을 소유 command로 적용한다.
 //
 // - 소유 command는 등록된 것만 부른다(OPTION_ACTION_OWNERS). 자유 답·일반 tool 결과·추천은
 //   동작으로 해석하지 않는다: action은 질문을 만들 때 선택지에 고정된 값뿐이다.

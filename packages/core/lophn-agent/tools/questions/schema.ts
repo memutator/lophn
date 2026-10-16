@@ -8,7 +8,7 @@ import {
   defineBlobField,
 } from "../../../../protocol/storage/mod.ts";
 
-// domain-model lophn-agent/questions의 `question_groups`·`questions` 표. 묶음은 상태·기한·
+// `question_groups`·`questions` 표. 묶음은 상태·기한·
 // 종료를 갖고 질문은 묶음 안의 값(본문 hash·선택지·추천·답)을 갖는다.
 //
 // 같은 turn에 답을 기다리는 묶음은 하나다(partial unique). 내용(turn·session·기한과 묶음 안

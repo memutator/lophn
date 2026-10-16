@@ -1,6 +1,6 @@
 import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
-// retry 규칙(concern lophn-agent/harness/run-loop). 순수 계산이다. 시계·대기·무작위는
+// retry 규칙. 순수 계산이다. 시계·대기·무작위는
 // 호출자가 주입한다. 모든 retry는 새 시도 하나이고 SDK의 숨은 retry는 없다.
 
 export const MODEL_RETRY_MAX = 2;

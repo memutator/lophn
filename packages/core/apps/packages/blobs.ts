@@ -1,4 +1,4 @@
-// SDK version의 사용 안내 blob(domain-model apps/sdk PackageVersion.guide_hash).
+// SDK version의 사용 안내 blob.
 // 안내 원문(공개 API·type·permission·peer·예제)은 공개 catalog 자료라 일반 읽기를 허용하는 field다.
 // 준비는 설치 worker가 blob 준비 통로로(purpose `sdk_guide`) 하고 등록은 `package.register_version`이 같은
 // transaction에서 한다. ledger에는 실제로 보존한 byte의 hash만 둔다.

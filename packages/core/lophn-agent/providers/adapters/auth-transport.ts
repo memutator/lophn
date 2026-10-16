@@ -1,5 +1,5 @@
 // 인증 transport(secret 전송 부착). adapter의 이
-// 파일만 secret 전송 부착을 machine credential으로 부른다(architecture §5.2).
+// 파일만 secret 전송 부착을 machine credential으로 부른다.
 // API key 값은 transport callback 메모리에서만 산다. 결과·오류·log·turn loop·
 // ModelCall blob에는 값이나 header가 남지 않는다.
 
@@ -23,7 +23,7 @@ export type SecretAttachLike = {
 export type AuthKind = "api_key" | "bearer";
 
 export type TransportRequest = {
-  // endpoint는 API base다(§5.2). adapter가 표의 path를 붙인다.
+  // endpoint는 API base다. adapter가 표의 path를 붙인다.
   url: string;
   method: string;
   headers: Record<string, string>;

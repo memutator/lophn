@@ -1,26 +1,26 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
-// stdio MCP 전송(concern lophn-agent/extensions).
+// stdio MCP 전송.
 // 절대 executable과 인자를 Deno.Command로
 // shell 없이 시작한다. 환경은 clearEnv 뒤 실행 파일 탐색·홈·임시 폴더·문자
 // 인코딩에 필요한 네 값(PATH·HOME·TEMP·LC_ALL)과 그 서버에 지정한 명시 env뿐이다.
 // 다른 연결이나 provider의 env·비밀은 상속하지 않는다. shell 메타문자가 든
 // 인자는 그 글 그대로 전달된다. stderr는 크기를 제한해 읽고 redaction된
-// 진단만 남긴다(architecture §2.3, §5.5). 종료는 stdin 닫기 뒤 5초 grace이고
+// 진단만 남긴다. 종료는 stdin 닫기 뒤 5초 grace이고
 // 남으면 강제 종료한다.
 
 //SIGKILL 전 대기다.
 const STDIO_KILL_GRACE_MS = 5_000;
 
-// stderr 원문의 상한이다(architecture §2.3 크기 제한). 넘으면 뒤를 버린다.
+// stderr 원문의 상한이다. 넘으면 뒤를 버린다.
 const STDERR_MAX_BYTES = 64 * 1024;
 
-// 자식 진입에 넘기는 최소 env 이름이다(architecture §2.3). 그 밖의
+// 자식 진입에 넘기는 최소 env 이름이다. 그 밖의
 // process env는 server에 가지 않는다.
 const STDIO_AMBIENT_ENV = ["PATH", "HOME", "TEMP", "LC_ALL"] as const;
 
 // 서버 설정에서 자식 env를 만든다. ambient는 호출 process의 env 읽기다.
-// secret 값은 연결 부착 경계에서 이미 결정된 글만 온다(architecture §5.5).
+// secret 값은 연결 부착 경계에서 이미 결정된 글만 온다.
 function stdioChildEnv(
   explicit: Record<string, string>,
   ambient: (name: string) => string | undefined,
@@ -46,7 +46,7 @@ export type StdioSpawn = {
   pid: number;
   stdin: WritableStream<Uint8Array>;
   stdout: ReadableStream<Uint8Array>;
-  // stderr의 redaction된 진단이다. 상한을 넘으면 잘린다(architecture §2.3).
+  // stderr의 redaction된 진단이다. 상한을 넘으면 잘린다.
   stderrText(): string;
   exited: Promise<Deno.CommandStatus>;
   // stdin 닫기 → 5초 grace → SIGKILL이다. 여러 번 불러도 된다.
@@ -66,7 +66,7 @@ export type StdioSpawnInput = {
 };
 
 // 절대 executable과 인자를 shell 없이 시작한다. cwd는 등록 값이고
-// model 입력에서 받지 않는다(architecture §2.3).
+// model 입력에서 받지 않는다.
 export function spawnStdioMcp(
   input: StdioSpawnInput,
 ): Result<StdioSpawn> {
@@ -152,7 +152,7 @@ export function spawnStdioMcp(
   });
 }
 
-// stderr를 상한 안에서 읽는다(architecture §2.3). text는 redaction 전 원문이고
+// stderr를 상한 안에서 읽는다. text는 redaction 전 원문이고
 // 부르는 쪽이 redaction해서 진단으로 쓴다. 버퍼가 상한을 넘으면 뒤를 버린다.
 function limitStderr(
   stream: ReadableStream<Uint8Array>,

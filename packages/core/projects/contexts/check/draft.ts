@@ -11,7 +11,7 @@ import { runCheck } from "./runner.ts";
 
 const NO_FILES: ProjectFiles = { paths: () => [], read: () => null };
 
-// 보고의 id는 판의 id에서 낸다(같은 초안은 같은 id). 판 id `cbn_<ulid>` → `chk_<ulid>`.
+// 보고의 id는 판의 id에서 낸다(같은 초안은 같은 id). 판 id 앞 네 글자를 떼고 `chk_`를 붙인다.
 function reportIdOf(bundle: string): string {
   return `chk_${bundle.slice(4)}`;
 }

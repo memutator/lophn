@@ -7,9 +7,9 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthDeadline, HttpFetch } from "./mod.ts";
 
-// MCP OAuth 발급자(token endpoint) 호출의 대기열이다(concern lophn-agent/extensions, requirements #R16, #R17).
+// MCP OAuth 발급자(token endpoint) 호출의 대기열이다.
 // core module graph에는 외부 fetch를 두지 않는다. 발급자에 닿는 network는 agent
-// runtime의 몫이므로(architecture §2.3: `--allow-net`에 등록 MCP HTTP·검증된 issuer) core의 token 교환·갱신은 이
+// runtime의 몫이므로 core의 token 교환·갱신은 이
 // 대기열에 요청을 놓고, runtime이 machine 입구(`TakeMcpAuthRequest`)로 가져가 대신 보낸 뒤 응답을
 // (`FinishMcpAuthRequest`)로 돌려준다.
 // - 대기열은 작업 메모리다: 요청·응답 본문(code·verifier·token)을 ledger·event·log 어디에도 남기지 않는다.

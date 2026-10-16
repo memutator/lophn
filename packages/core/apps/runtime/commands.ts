@@ -1,5 +1,4 @@
 // 실행 허용 변경(user)과 supervisor 관측 사실의 기록(machine). 짧은 Tx만 남긴다.
-// actor·CAS·거절은 domain-model apps/runtime command 정본을 따른다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type App,

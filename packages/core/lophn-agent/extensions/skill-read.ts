@@ -12,7 +12,7 @@ import {
   type SkillSkipped,
 } from "./skills.ts";
 
-// turn 시작에 고정하는 skill 판이다(concern lophn-agent/extensions). 그 turn이 볼 skill 목록과 읽을 수 있는 본문,
+// turn 시작에 고정하는 skill 판이다. 그 turn이 볼 skill 목록과 읽을 수 있는 본문,
 // 딸린 파일 본문을 메모리에 읽어 둔다. 도는 turn은 파일이 그 사이에 바뀌어도 이 판만 쓴다. 꺼진 skill은 막는다.
 // 전역 skill은 lophn data에 있어 file tool이 닿지 않는다. 이 reader만 읽는다.
 

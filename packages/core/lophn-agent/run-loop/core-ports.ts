@@ -55,7 +55,7 @@ import {
 
 // agent loop의 port를 실제 core 호출로 잇는다. 읽기와 기록은 machine 자격의 loopback이고 tool 실행은 이
 // turn의 agent 자격(`ToolContext.core`)이다. turn 행이 정본이다: 이 모듈은 상태를 따로 들고 있지 않고
-// id·순번·마지막 model call만 기억한다. model call과 tool call의 사용 기록은 옛 route를 best-effort로
+// id·순번·마지막 model call만 기억한다. model call과 tool call의 사용 기록은 route를 best-effort로
 // 부른다(기록을 못 해도 turn은 간다).
 
 export type TurnSeat = {

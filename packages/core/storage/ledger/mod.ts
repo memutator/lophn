@@ -62,8 +62,7 @@ type LedgerDeps = {
   // transaction이 commit된 뒤, 그 tx가 domain event를 썼을 때 부른다. createCommitPublisher의
   // onCommit을 잇는다. writer Worker 경로는 openWriter의 세 번째 인자로 같은 것을 받는다.
   onCommit?: (success: CommandSuccess) => void;
-  // true면 domain event 10개가 아닌 type의 emit을 거절한다. 기본 false인 것은 다른 단위 command가
-  // 옛 event를 아직 emit하기 때문이다. 모두 merge된 뒤 cleanup이 wiring에서 켠다.
+  // true면 domain event 10개가 아닌 type의 emit을 거절한다.
   domainOnly?: boolean;
 };
 

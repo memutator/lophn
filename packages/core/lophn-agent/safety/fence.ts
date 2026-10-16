@@ -1,4 +1,4 @@
-// 이 concern이 소유하는 자료 경계 표식 모양(architecture lophn-agent 2).
+// 이 concern이 소유하는 자료 경계 표식 모양.
 // platform/security의 defuseBoundaryMarkers는 이 표식을 흉내 내는 문자열을
 // 접는다, 이 모듈은 실제 전송본을 만든다.
 export const DATA_START_MARKER = "~~~data";

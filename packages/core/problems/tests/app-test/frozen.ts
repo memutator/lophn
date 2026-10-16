@@ -124,7 +124,7 @@ export async function deriveAppTest(
       },
       blueprint: store(facts.blueprintBytes),
       sdk_dependencies: dependencies,
-      // 계약의 옛 칸이다. app test에서는 비워 둔다.
+      // app test에서는 비워 둔다.
       failure_paths: [],
       symptom: null,
     };

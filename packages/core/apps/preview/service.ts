@@ -47,7 +47,7 @@ export type PreviewBundle = {
   app_api: readonly string[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
-  // bundle 파일 중 그 hash의 byte. fixture는 bundle 안의 파일이다(domain-model apps/sdk files).
+  // bundle 파일 중 그 hash의 byte. fixture는 bundle 안의 파일이다.
   fixture(hash: string): Promise<Uint8Array | undefined>;
   // 운영 앱과 같은 flag 계산에 disposable 영역을 data로 준 결과다.
   flags(dataPath: string): Result<FlagSet>;

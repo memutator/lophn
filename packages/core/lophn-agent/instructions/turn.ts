@@ -3,8 +3,11 @@ import {
   PROMPT_INSTRUCTION_LAYERS,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { inspectInstruction, type InstructionLayerKind } from "./model.ts";
-import type { InstructionDeps } from "./work.ts";
+import {
+  inspectInstruction,
+  type InstructionDeps,
+  type InstructionLayerKind,
+} from "./model.ts";
 
 // turn 시작에 한 번 읽는 지침이다. 도는 turn은 이 결과를 끝까지 쓰고, 바뀐 것은 다음 turn 시작에 hash로 알아본다.
 

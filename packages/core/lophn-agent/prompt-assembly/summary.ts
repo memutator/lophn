@@ -15,7 +15,7 @@ export const SUMMARY_RULE_VERSION = "compaction.1";
 
 // Compact 본문 상한은 요약 출력 상한(summaryOutputCap, 입력 예산 10%와 4,000 중
 // 작은 값)과 같고 호출자가 cap으로 넘긴다. 상한을 1 넘으면 저장된 완성 summary로 쓰지 않고 다시 줄인다.
-// token 상한은 COUNT_METHOD에 따라 UTF-8 byte를 쓴다. 재축소 횟수는 여기서 정한다.
+// token 상한은 UTF-8 byte를 쓴다. 재축소 횟수는 여기서 정한다.
 export const COMPACT_RESHRINK_MAX = 2;
 
 export type SummaryParts = {
@@ -291,7 +291,7 @@ export function compactSummaryRequest(input: {
     ]);
   return {
     system: [{
-      layer: "product",
+      layer: "role",
       text: compactSummaryInstructions(input.cap),
     }],
     tools: [],

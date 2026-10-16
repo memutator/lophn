@@ -7,6 +7,7 @@ import {
   type McpTool,
   type ModelChoice,
   type Place,
+  projectModelRead,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
@@ -15,8 +16,8 @@ import type { AgentFileDefinition } from "./definition-file.ts";
 import { resolveAgent, type ResolvedAgent } from "./resolve.ts";
 
 // turn을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로 모은다: session(agent와 고른
-// model), 정의 파일(전역 기본 model 포함), place의 active context. 정의 파일은 core가 읽어 검사한 값이고
-// runtime은 파일을 직접 열지 않는다. 합치는 규칙은 agents의 resolveAgent다.
+// model), 정의 파일(전역 기본 model 포함), project 층 model, place의 active context. 정의 파일은 core가
+// 읽어 검사한 값이고 runtime은 파일을 직접 열지 않는다. 합치는 규칙은 agents의 resolveAgent다.
 
 // 시작할 수 없는 이유. 영구히 없는 필수 설정·대상이라 turn을 이유와 함께 끝낸다.
 export type CannotStart = {
@@ -128,11 +129,22 @@ export async function resolveRunAgent(
       ? effective.value
       : null;
 
+  // project 층 model은 project place의 agent만 있다. 값이 없으면 null이라 전역 기본을 따른다.
+  let projectModel: ModelChoice | null = null;
+  if (place?.kind === "project") {
+    const project = await readOf(machine, projectModelRead, {
+      project: place.id,
+    });
+    if (!project.ok) return project;
+    projectModel = project.value.model;
+  }
+
   const resolved = await resolveAgent({
     agent: session.agent,
     place,
     definition,
     global_model: globalModel,
+    project_model: projectModel,
     session_model: session.model_selection,
     environment: {
       default_profile: DEFAULT_PROFILES[role],

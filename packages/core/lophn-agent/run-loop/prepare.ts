@@ -15,14 +15,17 @@ import {
   finishTurn,
   type ModelChoice,
   startTurn,
-  toWireToolName,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsGet } from "../../../protocol/config/mod.ts";
-import type { InstructionDeps } from "../instructions/mod.ts";
+import {
+  type InstructionDeps,
+  readTurnInstructions,
+  type TurnInstructionLayer,
+} from "../instructions/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import { abortableWait } from "./retry.ts";
 import { resolveTurnLimits, TURN_LIMIT_SETTING_KEYS } from "./limits.ts";
@@ -30,8 +33,7 @@ import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
 import type { AgentEventSink } from "./ports.ts";
 import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
 import type { StartTurnResult } from "./credentials.ts";
-import type { MaterialSource } from "../prompt-assembly/mod.ts";
-import type { SessionConversation } from "../prompt-assembly/mod.ts";
+import type { InstructionTexts, SeenBasis } from "../prompt-assembly/mod.ts";
 import {
   BUILTIN_TOOLS,
   listRoleTools,
@@ -46,7 +48,6 @@ import {
   type ContextToolPin,
 } from "../tools/context-search.ts";
 import type { ToolBinding } from "../tool-judgment/mod.ts";
-import { loadContextMaterials } from "../prompt-assembly/context-overview.ts";
 import { type CannotStart, resolveRunAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
@@ -59,6 +60,7 @@ import { readSessionConversation } from "../session/history.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
 import { inputText } from "./input-text.ts";
+import { readPlaceData } from "./place-data.ts";
 import type { TurnStart } from "./work.ts";
 import {
   buildMcpTools,
@@ -140,7 +142,6 @@ export type PreparerDeps = {
   toolPorts(session: AgentSession): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
-  product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
@@ -193,6 +194,12 @@ type FixedTools = {
   key: string;
 };
 
+// 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
+type Seen = { basis: SeenBasis; compaction: string | null };
+
+// place 정보의 context 글 예산(글자 수). session을 시작할 때 고정하는 값이라 상수다.
+const CONTEXT_TEXT_BUDGET = 12000;
+
 function keyOf(definitions: readonly ToolDefinition[]): string {
   return canonicalize(definitions.map((tool) => [tool.name, tool.revision]));
 }
@@ -236,9 +243,19 @@ function noticeText(body: string): string {
   });
 }
 
+// 없는 층은 빈 글이다.
+function instructionTexts(
+  layers: readonly TurnInstructionLayer[],
+): InstructionTexts {
+  const texts: InstructionTexts = { global: "", project: "", agent: "" };
+  for (const layer of layers) texts[layer.layer] = layer.text ?? "";
+  return texts;
+}
+
 export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   const { machine, clock, ids } = deps;
   const fixedBySession = new Map<string, FixedTools>();
+  const seenBySession = new Map<string, Seen>();
 
   // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
   async function loadMcp(
@@ -324,6 +341,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     request: TurnStart,
     agentCall: CoreCall,
     inputs: TurnInputs,
+    instructions: InstructionTexts,
   ) {
     const { seat, model, agent: resolved, external, session } = m;
     const toolkit = deps.toolkit;
@@ -362,7 +380,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       };
     });
     const place = session.place;
-    const ports = deps.toolPorts(session);
+    // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
+    const scope: { read: string[]; write: string[] } = { read: [], write: [] };
+    const ports = { ...deps.toolPorts(session), scope };
     const toolSetup: ToolSetup = {
       listed,
       context: (toolCall: Id<"tcl">): ToolContext => ({
@@ -390,95 +410,83 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         };
       },
     };
-    // context 자료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다.
-    let sourcesRead: Promise<MaterialSource[]> | undefined;
-    const contextSources = (): Promise<MaterialSource[]> =>
-      sourcesRead ??= loadContextMaterials(agentCall, {
-        contexts: resolved.contexts,
-      }).then((set) => [
-        ...set.materials.map((item) => ({
-          address: item.context,
-          title: item.title,
-          version: item.bundle_hash,
-          overview: item.overview,
-          type_names: item.type_names,
-          glossary: item.glossary,
-          has_glossary: !item.glossary_empty,
-        })),
-        // 고른 context를 읽지 못했으면 조용히 빼지 않고 자료 자리에 이유를 남긴다. 판이 없으니 version은 없다.
-        ...set.omitted.map((item) => ({
-          address: item.context,
-          title: item.title,
-          version: null,
-          overview: `[자료 없음] ${item.reason}. 필요하면 tool로 다시 읽는다.`,
-          type_names: [],
-          glossary: "",
-          has_glossary: false,
-          unavailable: item.reason,
-        })),
-      ]);
-    // session의 이전 대화는 turn마다 한 번 읽는다. 일하는 turn이 있는 session은 Compact하지 않으므로 turn 안에서
-    // 바뀌지 않는다.
-    let conversation: SessionConversation | undefined;
-    const context = async (): Promise<Result<TurnContext>> => {
+    // prompt 재료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다. 이전 대화는 일하는 turn이 있는
+    // session은 Compact하지 않으므로 turn 안에서 바뀌지 않는다. seen은 이 turn이 시작할 때 본 지난 turn의 판이다.
+    const seenAtStart = seenBySession.get(seat.session);
+    type Built = Omit<TurnContext, "keep"> & { compaction: string | null };
+    let built: Promise<Result<Built>> | undefined;
+    const build = async (): Promise<Result<Built>> => {
       const role = await deps.rolePrompt(resolved.role);
       if (!role.ok) return role;
-      if (conversation === undefined) {
-        const read = await readSessionConversation(machine, {
-          session: seat.session,
-          request: request.input.message,
-        });
-        if (!read.ok) return read;
-        conversation = read.value;
-      }
+      const read = await readSessionConversation(machine, {
+        session: seat.session,
+        request: request.input.message,
+      });
+      if (!read.ok) return read;
+      const placed = await readPlaceData(agentCall, resolved);
+      if (!placed.ok) return placed;
+      scope.read.push(...placed.value.scope.read);
+      scope.write.push(...placed.value.scope.write);
+      const compaction = read.value.compaction === null
+        ? null
+        : String(read.value.compaction.through_seq);
       const notices = m.current.length === 0 || keyOf(m.current) === fixed.key
         ? []
         : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
-        product: { instructions: deps.product },
-        role: { instructions: role.value },
-        // model에는 wire 이름으로 간다.
-        tools: fixed.definitions.map((tool) => ({
-          name: toWireToolName(tool.name),
-          description: tool.description,
-          input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
-        })),
-        work: {
+        prompt: {
           role: resolved.role,
-          session: resolved.place,
-          scope: place === null
-            ? { kind: "all", id: null }
-            : { kind: place.kind, id: place.id },
-        } as never,
-        attachments: [],
-        purpose: null,
-        turn_facts: null,
-        session: conversation,
-        notices,
-        sources: await contextSources(),
-        // 발견한 skill 중 agent가 끄지 않은 이름만 prompt에 오른다.
-        skills: ((await deps.skills?.(resolved.place)) ?? []).map((entry) => ({
-          ...entry,
-          enabled: entry.enabled && resolved.skills.includes(entry.name),
-        })),
-        timezone: deps.timezone?.() ?? null,
-        limits: {
-          context_limit: model.call.limits.context_limit,
-          input_limit: model.call.limits.input_limit,
-          output_limit: model.call.limits.output_limit,
+          role_prompt: role.value,
+          // 정본 이름이다. model에는 wire 이름으로 간다.
+          tools: fixed.definitions.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
+          })),
+          instructions,
+          // 발견한 skill 중 agent가 끄지 않은 이름만 켜진다.
+          skills: ((await deps.skills?.(resolved.place)) ?? []).map((
+            entry,
+          ) => ({
+            name: entry.name,
+            description: entry.description,
+            enabled: entry.enabled && resolved.skills.includes(entry.name),
+          })),
+          place: placed.value.place,
+          context_budget: CONTEXT_TEXT_BUDGET,
+          ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
+            ? { seen: seenAtStart.basis }
+            : {}),
+          limits: {
+            context_limit: model.call.limits.context_limit,
+            input_limit: model.call.limits.input_limit,
+            output_limit: model.call.limits.output_limit,
+          },
+          reserved_output: Math.min(
+            deps.reservedOutput ?? 8000,
+            model.call.limits.output_limit,
+          ),
         },
-        reserved_output: Math.min(
-          deps.reservedOutput ?? 8000,
-          model.call.limits.output_limit,
-        ),
-      } as TurnContext);
+        session: read.value,
+        notices,
+        compaction,
+      });
+    };
+    const context = async (): Promise<Result<TurnContext>> => {
+      built ??= build();
+      const loaded = await built;
+      if (!loaded.ok) return loaded;
+      const { compaction, ...rest } = loaded.value;
+      return ok({
+        ...rest,
+        keep: (basis) => seenBySession.set(seat.session, { basis, compaction }),
+      });
     };
     const ports_ = createCorePorts({
       seat,
       clock,
       ids,
       machine,
-      agent: agentCall,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
       turnInputs: inputs,
@@ -492,12 +500,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       clock,
       wait: abortableWait,
       random: Math.random,
-      instructions: deps.instructionFilesFor === undefined
-        ? deps.instructions
-        : {
-          ...deps.instructions,
-          files: deps.instructionFilesFor(seat.session as Id<"ses">),
-        },
       ports: ports_,
     };
     return { loopDeps };
@@ -507,7 +509,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   // 입력을 계속 받게 한다. 끝내지 못하면 오류이고 입력은 입력함에 남아 다음에 다시 시도한다.
   async function closeUnstarted(
     start: TurnStart,
-    why: CannotStart,
+    why: { reason: CannotStart["reason"]; why: string; detail?: string },
     limits: TurnLimits,
   ): Promise<Result<Preparation>> {
     const turn = ids.newId("trn");
@@ -515,7 +517,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       deps.blobs,
       deps.instructions.redact,
       TURN_BLOB_PURPOSES.turn_basis,
-      { session: start.session, why: why.why },
+      {
+        session: start.session,
+        why: why.why,
+        ...(why.detail === undefined ? {} : { detail: why.detail }),
+      },
     );
     if (!basis.ok) return basis;
     const started = await commandOf(
@@ -602,6 +608,28 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     }
     const agent = made.value.agent;
 
+    // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
+    const instructions = await readTurnInstructions(
+      {
+        ...deps.instructions,
+        files: deps.instructionFilesFor?.(start.session) ??
+          deps.instructions.files,
+      },
+      { role: session.agent.role },
+    );
+    if (instructions.status === "blocked") {
+      return await closeUnstarted(
+        start,
+        {
+          reason: "configuration_unavailable",
+          why: "instructions_blocked",
+          detail: instructions.message,
+        },
+        limits.value,
+      );
+    }
+    const texts = instructionTexts(instructions.layers);
+
     const turn = ids.newId("trn");
     const found = await material(
       start,
@@ -649,6 +677,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       {
         agent: session.agent,
         resolved: { hash: agent.hash, sources: agent.sources },
+        instructions: instructions.layers.map((layer) => ({
+          layer: layer.layer,
+          hash: layer.hash,
+        })),
         tools: {
           revision: "1",
           definitions_hash: await fingerprint(
@@ -742,6 +774,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             start,
             deps.agentCall(credential.token),
             inputs,
+            texts,
           );
           return {
             provider: m.model.call.provider,
@@ -763,6 +796,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     prepare,
     forget(session) {
       fixedBySession.delete(session);
+      seenBySession.delete(session);
     },
   };
 }

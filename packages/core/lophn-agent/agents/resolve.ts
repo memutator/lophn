@@ -42,8 +42,9 @@ export type ResolveInput = {
   place: Place | null;
   // 정의 파일이 없으면 null(built-in 기본). Operator는 파일이 있어야 agent다.
   definition: AgentFileDefinition | null;
-  // 전역 기본 model과 composer에서 이 session만 고른 model. 없으면 null.
+  // 전역 기본 model, project 층 model, composer에서 이 session만 고른 model. 없으면 null이다.
   global_model: ModelChoice | null;
+  project_model?: ModelChoice | null;
   session_model: ModelChoice | null;
   environment: ResolveEnvironment;
 };
@@ -77,7 +78,7 @@ export type ResolvedAgent = {
   hash: string;
 };
 
-// 값마다 마지막 층이 이긴다(전역 → agent → session). 규칙:
+// 값마다 마지막 층이 이긴다(전역 → project → agent → session). 규칙:
 // - model은 ModelChoice 하나를 통째로 쓴다(option을 층끼리 섞지 않는다). 어느 층에도 없으면
 //   invalid_input(`model` required)이고 turn을 시작하지 않는다. role별 기본은 없다.
 // - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP·다른 agent는 agent grant가
@@ -114,6 +115,7 @@ export async function resolveAgent(
   const modelLayers: [ModelChoice | null | undefined, AgentValueLayer][] = [
     [input.session_model, "session"],
     [definition?.model, "agent"],
+    [input.project_model, "project"],
     [input.global_model, "global"],
   ];
   const chosen = modelLayers.find(([choice]) => choice != null);

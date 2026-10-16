@@ -1,23 +1,10 @@
 import type { Result } from "../../../base/mod.ts";
-import type {
-  ViewTab,
-  WorkspaceReadOutput,
-} from "../../../protocol/shell/mod.ts";
 import {
-  assemblePrompt,
-  type AssembleResult,
-  buildTurnContext,
+  assembleTurnPrompt,
   type HistoryMessage,
   type HistoryPart,
-  type PromptAssembly,
-  type PromptInput,
-  type RenderedMaterial,
-  renderMaterial,
   sessionMaterial,
-  shrinkMaterial,
-  skillInstructionText,
-  type TurnContext as ViewContext,
-  type TurnContextView,
+  type TurnPromptResult,
 } from "../prompt-assembly/mod.ts";
 import { historyResultPart } from "./history.ts";
 import {
@@ -188,77 +175,72 @@ function sameSteering(a: PendingInputs, b: PendingInputs): boolean {
     a.steering.every((item, index) => item.id === b.steering[index].id);
 }
 
-// ---- 화면 모으기(prompt-assemble turn context) ----
-
-const MAX_VIEW_PAGES = 64;
-
-async function gatherView(
-  state: LoopState,
-  context: TurnContext,
-): Promise<ViewContext> {
-  const { deps } = state;
-  const input = {
-    collected_at: deps.clock.now(),
-    timezone: context.timezone,
-  };
-  const redact = { redact: deps.instructions.redact };
-  const session = state.input.session;
-  async function read(page?: number): Promise<Result<WorkspaceReadOutput>> {
-    return await deps.ports.view(
-      page === undefined ? { session } : { session, page },
-    );
-  }
-  const failed = (): Promise<ViewContext> =>
-    buildTurnContext(redact, {
-      ...input,
-      view: { availability: "collect_failed" } satisfies TurnContextView,
-      tabs: [],
-    });
-  const first = await read();
-  if (!first.ok) return await failed();
-  if (first.value.availability !== "current") {
-    return await buildTurnContext(redact, {
-      ...input,
-      view: first.value,
-      tabs: [],
-    });
-  }
-  const tabs: ViewTab[] = [...(first.value.tab_page ?? [])];
-  let next = first.value.next_page;
-  for (let pages = 0; next !== undefined; pages++) {
-    if (pages >= MAX_VIEW_PAGES) return await failed();
-    const page = await read(next);
-    if (!page.ok || page.value.availability !== "current") {
-      return await failed();
-    }
-    tabs.push(...(page.value.tab_page ?? []));
-    next = page.value.next_page;
-  }
-  return await buildTurnContext(redact, {
-    ...input,
-    view: first.value,
-    tabs,
-  });
-}
-
 // ---- prompt 조립 ----
 
 type Prepared = {
-  assembly: PromptAssembly;
+  prompt: Extract<TurnPromptResult, { status: "ready" }>;
   inputs: PendingInputs;
 };
 
 function blockedEnd(
   state: LoopState,
-  reason: Extract<AssembleResult, { status: "blocked" }>["reason"],
+  reason: Extract<TurnPromptResult, { status: "blocked" }>["reason"],
 ): Promise<TurnResult> {
   // 입력이 예산을 넘는 것은 compaction의 몫이고 조립이 막힌 call은 보내지 않는다.
-  const overflow = reason === "mandatory_input_overflow" ||
-    reason === "input_over_budget";
   return failWith(
     state,
-    overflow ? "context_limit" : "configuration_unavailable",
+    reason === "input_over_budget"
+      ? "context_limit"
+      : "configuration_unavailable",
   );
+}
+
+// 같은 쪽이 이어 말한 것은 한 message의 조각이다.
+function pushHistory(
+  messages: HistoryMessage[],
+  role: HistoryMessage["role"],
+  parts: readonly HistoryPart[],
+): void {
+  const last = messages[messages.length - 1];
+  if (last !== undefined && last.role === role) {
+    messages[messages.length - 1] = { role, parts: [...last.parts, ...parts] };
+  } else messages.push({ role, parts });
+}
+
+const SUMMARY_HEADING =
+  "Summary of the earlier part of this conversation, written when the person compacted it:";
+
+// 이전 대화(Compact 요약 포함), 이 turn의 요청, 이 turn에서 쌓은 이력, 아직 반영하지 않은 steering과 notice 순이다.
+function historyOf(
+  state: LoopState,
+  context: TurnContext,
+  inputs: PendingInputs,
+): HistoryMessage[] {
+  const messages: HistoryMessage[] = [];
+  const conversation = sessionMaterial(context.session);
+  if (conversation.compact_summary !== null) {
+    pushHistory(messages, "user", [{
+      kind: "text",
+      text: `${SUMMARY_HEADING}\n${conversation.compact_summary}`,
+    }]);
+  }
+  for (const message of conversation.history) {
+    pushHistory(messages, message.role, message.parts);
+  }
+  if (inputs.request !== null) {
+    pushHistory(messages, "user", [{ kind: "text", text: inputs.request }]);
+  }
+  for (const message of state.history) {
+    pushHistory(messages, message.role, message.parts);
+  }
+  const tail = [
+    ...inputs.steering.map((item) => inputText(item.input)),
+    ...context.notices,
+  ];
+  if (tail.length > 0) {
+    pushHistory(messages, "user", tail.map((text) => ({ kind: "text", text })));
+  }
+  return messages;
 }
 
 async function prepare(
@@ -266,73 +248,25 @@ async function prepare(
   first: PendingInputs,
 ): Promise<Prepared | TurnResult> {
   const { deps } = state;
-  const promptDeps = { ...deps.instructions, pack: deps.ports.model.pack };
   let inputs = first;
   for (;;) {
     const read = await deps.ports.context();
     if (!read.ok) return await failWith(state, "configuration_unavailable");
     const context = read.value;
-    const turn = await gatherView(state, context);
-    const options = { collected_at: deps.clock.now() };
-    const skills = skillInstructionText(context.skills);
-    const conversation = sessionMaterial(context.session);
-    const build = (material: RenderedMaterial): PromptInput => ({
-      product: context.product,
-      role: context.role === null ? null : {
-        instructions: skills === null
-          ? context.role.instructions
-          : `${context.role.instructions}\n\n${skills}`,
-      },
-      tools: context.tools,
-      work: context.work,
-      material: {
-        purpose: context.purpose,
-        run_facts: context.turn_facts,
-        compact_summary: conversation.compact_summary,
-        materials: material.materials,
-        compaction_summary: null,
-        history: [...conversation.history, ...state.history],
-        request: inputs.request,
-        // 대화 끝에 붙는 notice가 steer 뒤에 온다.
-        steering: [
-          ...inputs.steering.map((item) => inputText(item.input)),
-          ...context.notices,
-        ],
-      },
-      turn_context: turn.text,
-      evidence: {
-        references: material.references,
-        omissions: material.omissions,
-        turn_context: turn.basis,
-      },
-      limits: context.limits,
-      reserved_output: context.reserved_output,
-    });
-    let rendered = await renderMaterial(context.sources, options);
-    let assembled = await assemblePrompt(promptDeps, build(rendered));
-    if (
-      assembled.status === "blocked" && assembled.reason === "input_over_budget"
-    ) {
-      rendered = await shrinkMaterial(
-        context.sources,
-        options,
-        async (candidate) =>
-          (await assemblePrompt(promptDeps, build(candidate))).status ===
-            "ready",
-      );
-      assembled = await assemblePrompt(promptDeps, build(rendered));
-    }
+    const assembled = await assembleTurnPrompt(
+      { ...context.prompt, history: historyOf(state, context, inputs) },
+      { pack: deps.ports.model.pack },
+    );
     if (assembled.status === "blocked") {
       return await blockedEnd(state, assembled.reason);
     }
+    context.keep(assembled.basis);
     // 오래 조립하는 사이 도착한 멈춤과 수정 입력을 놓치지 않는다.
     const reason = await stopped(state);
     if (reason !== null) return stoppedEnd(reason);
     const again = await deps.ports.inputs();
     if (!again.ok) return await failWith(state, "configuration_unavailable");
-    if (sameSteering(inputs, again.value)) {
-      return { assembly: assembled.assembly, inputs };
-    }
+    if (sameSteering(inputs, again.value)) return { prompt: assembled, inputs };
     inputs = again.value;
   }
 }
@@ -377,13 +311,13 @@ async function callModel(
   prepared: Prepared,
 ): Promise<ModelStep> {
   const { deps, limiter } = state;
-  const body = deps.ports.model.pack(prepared.assembly.request)
+  const body = deps.ports.model.pack(prepared.prompt.request)
     .body as Record<string, unknown>;
   let previous: string | null = null;
   let retries = 0;
   for (;;) {
     const request: ModelCallRequest = {
-      assembly: prepared.assembly,
+      prompt: prepared.prompt,
       body,
       applied: previous === null
         ? prepared.inputs.steering.map((s) => s.id)

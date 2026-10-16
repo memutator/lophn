@@ -5,20 +5,15 @@ import type {
   TurnElapsed,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
-import type { WorkspaceReadOutput } from "../../../protocol/shell/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import type { TurnStart } from "./work.ts";
-import type { InstructionDeps } from "../instructions/mod.ts";
-import type { SkillEntry } from "../extensions/mod.ts";
 import type {
-  MaterialSource,
-  ModelLimits,
-  PromptAssembly,
-  PromptInput,
-  PromptTool,
+  SeenBasis,
   SessionConversation,
+  TurnPromptInput,
+  TurnPromptResult,
   WirePacker,
 } from "../prompt-assembly/mod.ts";
 import type { ConfirmedFacts, TurnLimits } from "./limits.ts";
@@ -82,28 +77,21 @@ export type CallSignals = {
   consumed(tx: Tx, call: Id<"cal">): Result<void>;
 };
 
-// model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·재료는 call마다 새로 읽어 최신이다.
+// model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·place 정보·tool 목록은 turn을 시작할 때 읽은 값을
+// 끝까지 쓰므로 call마다 같다. 대화(history)는 call마다 loop가 붙인다.
 export type TurnContext = {
-  product: PromptInput["product"];
-  role: PromptInput["role"];
-  tools: readonly PromptTool[];
-  work: PromptInput["work"];
-  purpose: string | null;
-  turn_facts: string | null;
+  prompt: Omit<TurnPromptInput, "history">;
   // 이 turn의 요청 앞에 있던 session의 대화다. Compact한 session이면 요약과 그것이 덮은 구간 뒤의 원문이고,
   // 덮은 구간의 원문은 이후 call의 입력에 넣지 않는다.
   session: SessionConversation;
-  // 대화 끝에 붙는 notice 글. session을 시작할 때 고정한 tool 목록이 도중에 바뀌었을 때 등이다.
+  // 대화 끝에 붙는 notice 글. session을 시작할 때 고정한 tool 목록이 도중에 바뀌었을 때다.
   notices: readonly string[];
-  sources: readonly MaterialSource[];
-  skills: readonly SkillEntry[];
-  timezone: string | null;
-  limits: ModelLimits;
-  reserved_output: number;
+  // 이번 turn이 본 판을 알린다. 다음 turn이 시작할 때 `seen`으로 쓴다.
+  keep(basis: SeenBasis): void;
 };
 
 export type ModelCallRequest = {
-  assembly: PromptAssembly;
+  prompt: Extract<TurnPromptResult, { status: "ready" }>;
   // 선택한 adapter가 `buildRequest`로 번역한 본문이다.
   body: Record<string, unknown>;
   // 이 call에 반영하는 steering message ID.
@@ -217,10 +205,6 @@ export type TurnPorts = {
   stop(): Promise<StopCheck>;
   inputs(): Promise<Result<PendingInputs>>;
   context(): Promise<Result<TurnContext>>;
-  // relay `workspace.read`. page 없이 첫 page, 있으면 그 page다.
-  view(
-    input: { session: string; page?: number },
-  ): Promise<Result<WorkspaceReadOutput>>;
   model: ModelPort;
   tools: ToolPort;
   // 시간 값만 저장한다(CheckpointTurn).
@@ -238,8 +222,6 @@ export type LoopDeps = {
   // 진행 중인 호출의 한도 timer. 없으면 실제 timer를 쓴다.
   deadline?(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
   random(): number;
-  // 지침 읽기와 전송 본문 redaction. 화면 글의 redaction도 같은 것을 쓴다.
-  instructions: InstructionDeps;
   ports: TurnPorts;
   // 중단을 요청한 호출이 이 시간 안에 돌아오지 않으면 결과를 기다리지 않고 불명확으로 둔다.
   abortGraceMs?: number;

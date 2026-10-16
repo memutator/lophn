@@ -11,14 +11,15 @@ import {
   contextContractRoute,
   contextGetRoute,
   contextListRoute,
-  contextOverviewRoute,
   glossaryListRoute,
+  projectApi,
 } from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
   agentDefinitionRead,
   agentSessionRead,
   applyQuestionOption,
+  callSendable,
   cancelQuestionGroup,
   checkpointTurn,
   compactSession,
@@ -28,17 +29,19 @@ import {
   finishRewindSummary,
   finishToolCall,
   finishTurn,
-  instructionRead,
+  instructionsGet,
   mcpAuthRequestDone,
   mcpAuthRequestTake,
   messageBody,
   messagesList,
   modelCallList,
   modelDefaultRead,
+  projectModelRead,
   providerList,
   providerRead,
   questionRead,
   questionText,
+  receivedMessageList,
   recordMessage,
   recordToolRequest,
   rewindList,
@@ -57,6 +60,8 @@ import {
 import {
   appAgentConfirmProof,
   appBlueprint,
+  appGet,
+  appList,
   appRuntime,
   grantsList,
   invocationAcceptConfirm,
@@ -70,6 +75,7 @@ import {
   cancelApprovalRequest,
   createApprovalRequest,
 } from "../../../protocol/approvals/mod.ts";
+import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsGet } from "../../../protocol/config/mod.ts";
 
@@ -85,6 +91,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   agentDefinitionRead,
   providerRead,
   modelDefaultRead,
+  // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
+  projectModelRead,
   agentSessionRead,
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   sessionCompactRequests,
@@ -94,8 +102,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   compactSession,
   failSessionCompact,
   settingsGet,
-  // 사람 지침(LOPHN.md) 확정 판. 매 model call 직전에 다시 읽는다.
-  instructionRead,
+  // 사람 지침(LOPHN.md)과 agent 지침. turn을 시작할 때 층마다 한 번 읽는다.
+  instructionsGet,
   startTurn,
   checkpointTurn,
   finishTurn,
@@ -105,6 +113,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   modelCallList,
   messagesList,
   messageBody,
+  // 이 session이 받은 메시지. turn이 이전 대화를 읽는다.
+  receivedMessageList,
   recordMessage,
   recordToolRequest,
   decideToolCall,
@@ -163,15 +173,19 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
   createApprovalRequest.name,
 ];
 
-// prompt의 context 자료(overview·용어집)를 turn을 시작할 때 읽는 route의 operation이다. turn의 agent 자격으로
-// 읽으므로 모든 역할의 상한에 읽기로만 더한다. 앱 하나에 묶인 agent가 어느
-// context를 보는지는 core가 정한다.
-const CONTEXT_MATERIAL_READS: readonly string[] = [
+// prompt의 place 정보(project·앱·context 글·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
+// 자격으로 읽으므로 모든 역할의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.
+const PLACE_READS: readonly string[] = [
   contextListRoute.name,
   contextGetRoute.name,
   contextContractRoute.name,
-  contextOverviewRoute.name,
   glossaryListRoute.name,
+  projectApi.get.name,
+  projectApi.list.name,
+  appGet.name,
+  appList.name,
+  appAppApi.name,
+  callSendable.name,
 ];
 
 function isRole(role: string): role is Role {
@@ -189,7 +203,7 @@ export function roleOperations(role: string): readonly string[] {
       // 선택한 context의 선언 검색과 개체 읽기다. 이름이 동적이라 tool 이름에 없다.
       CONTEXT_SEARCH_CONTRACT,
       CONTEXT_ENTITY_CONTRACT,
-      ...CONTEXT_MATERIAL_READS,
+      ...PLACE_READS,
       APP_TOOL_CONTRACT,
       ...EXTERNAL_TOOL_OPERATIONS,
     ]),

@@ -19,11 +19,6 @@ import {
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { routePath } from "../../../protocol/base/mod.ts";
-import {
-  type WorkspaceReadOutput,
-  workspaceReadOutputSchema,
-} from "../../../protocol/shell/mod.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import {
   executeToolCall,
@@ -89,7 +84,6 @@ export type CorePortsDeps = {
   clock: Clock;
   ids: IdSource;
   machine: CoreCall;
-  agent: CoreCall;
   // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
   blobs: BlobPort;
   redact: RedactText;
@@ -128,7 +122,7 @@ const UNKNOWN_COST: CallCost = {
 };
 
 export function createCorePorts(deps: CorePortsDeps): TurnPorts {
-  const { seat, machine, agent, clock, ids } = deps;
+  const { seat, machine, clock, ids } = deps;
   const store = (purpose: string, value: unknown) =>
     storeValue(deps.blobs, deps.redact, purpose, value);
   let attempts = 0;
@@ -200,7 +194,13 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     if (!inputBlob.ok) return inputBlob;
     const basisBlob = await store(
       TURN_BLOB_PURPOSES.model_call_basis,
-      request.assembly.basis,
+      {
+        seen: request.prompt.basis,
+        diff: request.prompt.diff,
+        cache_boundaries: request.prompt.cache_boundaries,
+        input_budget: request.prompt.input_budget,
+        measured_tokens: request.prompt.measured_tokens,
+      },
     );
     if (!basisBlob.ok) return basisBlob;
     const id = ids.newId("mcl");
@@ -550,17 +550,6 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     stop,
     inputs,
     context: deps.context,
-    async view(input): Promise<Result<WorkspaceReadOutput>> {
-      const reply = await agent(
-        routePath({ resource: "workspace", method: "read" }),
-        input,
-      );
-      if (!reply.ok) return reply;
-      const parsed = workspaceReadOutputSchema.safeParse(reply.value);
-      return parsed.success
-        ? ok(parsed.data)
-        : err({ code: "unavailable", message: "unexpected workspace reply" });
-    },
     model: {
       pack: deps.model.pack,
       available: () => deps.model.available(),

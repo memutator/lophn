@@ -112,6 +112,12 @@ export interface WorkspaceProps {
    * 막힌다. core 구현(agent-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
    */
   agentViewSource?: AgentViewSourceFactory;
+  /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
+  session?: string;
+  /** 처음 열 때 한 번 Project Manager를 위반(context와 검사)을 붙여 연다. */
+  projectManager?: { readonly context: string; readonly check: string };
+  /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
+  open?: { readonly path: string; readonly line?: number };
 }
 
 interface Loaded {
@@ -200,6 +206,8 @@ export function Workspace(props: WorkspaceProps) {
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
+  // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
+  const [readyProject, setReadyProject] = useState<string | null>(null);
   const [view, setView] = useState<WorkspaceView>(freshView);
   const [sidebar, setSidebar] = useState<SidebarState>({
     chosenWidth: SIDEBAR_WIDTH,
@@ -259,6 +267,7 @@ export function Workspace(props: WorkspaceProps) {
         // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
         if (restored) setView(restored);
       }
+      setReadyProject(projectId);
     };
     void load();
     return () => {
@@ -467,6 +476,52 @@ export function Workspace(props: WorkspaceProps) {
     return true;
   };
 
+  // 이 project의 열린 Project Manager session 가운데 가장 최근 것.
+  const openedPmSession = (): string | null => {
+    const found = sessionStates.filter((entry) =>
+      entry.ended === null && entry.agent?.role === "project_manager" &&
+      entry.agent.project === projectId
+    );
+    return found.length === 0 ? null : found[found.length - 1].session;
+  };
+
+  // Violations 단추. 열린 PM session이 있으면 그 탭을 고르고 chip을 쓰던 글로 채운다(session에는 chip을 붙일 길이 없다). 없으면 chip을 붙인 새 PM 탭이다.
+  const askPm = (chips: readonly ContextChipView[]) => {
+    const row = agentByRole(sidebarAgents.agents, "project_manager");
+    if (agentViewSource === undefined || row === undefined) return;
+    const session = openedPmSession();
+    if (session === null) {
+      openAgent(host, { agent: row.assignment, name: row.name, chips });
+      return;
+    }
+    const drafts = conversation?.drafts ?? localDrafts;
+    if (drafts.draft(session).text === "") {
+      const text = chips.map((chip) =>
+        chip.violation === undefined
+          ? chip.label
+          : `${chip.label}: ${chip.violation.file} - ${chip.violation.rule}`
+      ).join("\n");
+      drafts.save(session, { text, selection: [text.length, text.length] });
+    }
+    openAgent(host, { agent: row.assignment, name: row.name, session });
+  };
+
+  // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
+  const openSessionTab = (session: string): boolean => {
+    const entry = panelSessions(
+      sessionStates,
+      sidebarAgents.agents,
+      projectId,
+    )
+      .find((item) => item.id === session);
+    const row = sidebarAgents.agents.find((item) =>
+      item.assignment === entry?.agent
+    );
+    if (row === undefined || agentViewSource === undefined) return false;
+    openAgent(host, { agent: row.assignment, name: row.name, session });
+    return true;
+  };
+
   const contexts: ContextsSlice | null = contextsSource === undefined ? null : {
     source: contextsSource,
     list: contextList,
@@ -474,9 +529,7 @@ export function Workspace(props: WorkspaceProps) {
     refresh: readContexts,
     openPath,
     openSearch: (state) => openSearchFor(host, state),
-    askProjectManager: (chips) => {
-      openRole("project_manager", chips);
-    },
+    askProjectManager: askPm,
   };
 
   const agentView: AgentViewSlice | null = agentViewSource === undefined
@@ -545,23 +598,38 @@ export function Workspace(props: WorkspaceProps) {
   };
   useToastHandler({
     project: projectId,
-    openSession: (session) => {
-      const entry = panelSessions(
-        sessionStates,
-        sidebarAgents.agents,
-        projectId,
-      )
-        .find((item) => item.id === session);
-      const row = sidebarAgents.agents.find((item) =>
-        item.assignment === entry?.agent
-      );
-      if (row === undefined || agentViewSource === undefined) return false;
-      openAgent(host, { agent: row.assignment, name: row.name, session });
-      return true;
-    },
+    openSession: openSessionTab,
     openProjectManager: (context, check) =>
       openProjectManager(reactionEnv, { context, check }),
   });
+
+  // 시작 route(session·Project Manager·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
+  const started = useRef<{ session?: string; pm?: object; open?: object }>({});
+  useEffect(() => {
+    if (readyProject !== projectId) return;
+    const { session, projectManager, open } = props;
+    if (open !== undefined && started.current.open !== open) {
+      started.current.open = open;
+      openFile(host, open.path, { line: open.line });
+    }
+    if (session !== undefined && started.current.session !== session) {
+      if (openSessionTab(session)) started.current.session = session;
+    }
+    if (
+      projectManager !== undefined && started.current.pm !== projectManager &&
+      openProjectManager(reactionEnv, projectManager)
+    ) {
+      started.current.pm = projectManager;
+    }
+  }, [
+    readyProject,
+    projectId,
+    props.session,
+    props.projectManager,
+    props.open,
+    sidebarAgents.agents,
+    sessionIds,
+  ]);
 
   // core 요청으로 열린 coding 터미널은 이 project의 것만 붙이고 보던 탭을 바꾸지 않는다.
   useTerminalOpenRequests((request) => {

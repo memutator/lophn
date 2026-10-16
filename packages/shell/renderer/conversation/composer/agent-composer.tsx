@@ -65,8 +65,8 @@ export interface AgentComposerProps {
   readOnly: boolean;
   /** 글이 비어 있을 때 입력칸에 보이는 안내. */
   hint?: string;
-  /** 입력칸 위 context chip. 위반을 붙였으면 파일과 어긴 규칙도 보인다. 없으면 줄이 없다. */
-  chip: ContextChipView | null;
+  /** 입력칸 위 context chip들. 위반을 붙였으면 파일과 어긴 규칙도 보인다. 없으면 줄이 없다. */
+  chips: readonly ContextChipView[];
   /** 입력칸 밖 아래 줄의 자리. 프로젝트 또는 앱 하나다. */
   place: { readonly kind: "project" | "app"; readonly name: string };
   /** agent grant 요약 한 줄. */
@@ -74,8 +74,8 @@ export interface AgentComposerProps {
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
   permissions: PermissionsData | null;
   onDraft: (patch: Partial<Pick<Draft, "text" | "selection">>) => void;
-  /** chip의 ✕. 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
-  onRemoveChip: () => void;
+  /** chip 하나의 ✕. 그 chip을 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
+  onRemoveChip: (id: string) => void;
   onAttach: () => void;
   /** 권한 요약을 열었다. host가 `permissions`를 읽는다. */
   onLoadPermissions: () => void;
@@ -107,7 +107,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
 }
 
 function OpenComposer(props: AgentComposerProps): ReactNode {
-  const { draft, working, locked, tooLong, offline, chip } = props;
+  const { draft, working, locked, tooLong, offline, chips } = props;
   const input = useRef<HTMLTextAreaElement>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const picker = useModelPicker({
@@ -126,7 +126,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onProblem: props.onProblem,
   });
   const canSend = !locked && !offline && !tooLong &&
-    (draft.text.trim().length > 0 || chip !== null);
+    (draft.text.trim().length > 0 || chips.length > 0);
 
   // 다시 열 때 커서를 돌려놓는다. focus는 옮기지 않는다.
   useLayoutEffect(() => {
@@ -184,33 +184,39 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
           data-composer-box=""
           data-locked={locked || undefined}
         >
-          {chip === null
+          {chips.length === 0
             ? null
             : (
               <div className={styles.chips} data-composer-contexts="">
-                <span className={styles.chip} data-context-chip="">
-                  <Icon
-                    icon={workspaceIcons.document}
-                    pixels={iconPixels("small")}
-                  />
-                  <span className={styles.chipText}>{chip.label}</span>
-                  {chip.violation === undefined ? null : (
-                    <>
-                      <span className={styles.chipDetail} data-chip-file="">
-                        {chip.violation.file}
-                      </span>
-                      <span className={styles.chipDetail} data-chip-rule="">
-                        {chip.violation.rule}
-                      </span>
-                    </>
-                  )}
-                  <IconButton
-                    icon={conversationIcons.removeContext}
-                    label={t("conversation.button.remove-context")}
-                    size="sm"
-                    onClick={props.onRemoveChip}
-                  />
-                </span>
+                {chips.map((chip) => (
+                  <span
+                    key={chip.id}
+                    className={styles.chip}
+                    data-context-chip=""
+                  >
+                    <Icon
+                      icon={workspaceIcons.document}
+                      pixels={iconPixels("small")}
+                    />
+                    <span className={styles.chipText}>{chip.label}</span>
+                    {chip.violation === undefined ? null : (
+                      <>
+                        <span className={styles.chipDetail} data-chip-file="">
+                          {chip.violation.file}
+                        </span>
+                        <span className={styles.chipDetail} data-chip-rule="">
+                          {chip.violation.rule}
+                        </span>
+                      </>
+                    )}
+                    <IconButton
+                      icon={conversationIcons.removeContext}
+                      label={t("conversation.button.remove-context")}
+                      size="sm"
+                      onClick={() => props.onRemoveChip(chip.id)}
+                    />
+                  </span>
+                ))}
               </div>
             )}
           <textarea

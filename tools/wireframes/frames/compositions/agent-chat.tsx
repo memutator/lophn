@@ -220,7 +220,7 @@ export function ChatShell(
           offline={false}
           readOnly={archived}
           hint={placeholder}
-          chip={chip === undefined ? null : { id: "chip", label: chip }}
+          chips={chip === undefined ? [] : [{ id: "chip", label: chip }]}
           place={{ kind: "project", name: "phroner" }}
           permissionSummary="Permissions: 4 run freely · 3 ask first"
           permissions={permissions}

@@ -86,7 +86,7 @@ export interface AgentViewProps {
   session: string | null;
   onSessionChange: (session: string | null) => void;
   host: AgentViewHost;
-  /** 새 session의 첫 말을 보내기 전에 composer 위에 붙는 context(notification의 [Ask]). 첫 chip만 붙는다. */
+  /** 새 session의 첫 말을 보내기 전에 composer 위에 붙는 context(notification의 [Ask]). chip마다 하나씩 붙는다. */
   contextChips?: readonly ContextChipView[];
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
@@ -161,8 +161,8 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const [detail, setDetail] = useState<ViewDetail>("compact");
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
-  const [chip, setChip] = useState<ContextChipView | null>(
-    props.contextChips?.[0] ?? null,
+  const [chips, setChips] = useState<readonly ContextChipView[]>(
+    props.contextChips ?? [],
   );
   const [problem, setProblem] = useState<Problem | null>(null);
 
@@ -233,14 +233,14 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     const id = newId("ses", now());
     const opened = await source.openSession({
       id,
-      contexts: chip === null ? [] : [chip],
+      contexts: chips,
     });
     if (!opened.ok) {
       setProblem("open-failed");
       return null;
     }
     setProblem(null);
-    setChip(null);
+    setChips([]);
     drafts.save(id, { text: draft.text, selection: draft.selection });
     drafts.save(key, { text: "", selection: [0, 0] });
     onSessionChange(id);
@@ -277,7 +277,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     await deliver(target, outgoing);
   };
 
-  const chipText = chip === null ? "" : chip.label;
+  const chipText = chips.map((chip) => chip.label).join("\n");
 
   const send = async () => {
     if (readOnly || composerLocked(draft.outgoing)) return;
@@ -327,7 +327,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   };
 
   const startNew = () => {
-    setChip(null);
+    setChips([]);
     setLayer(null);
     onSessionChange(null);
   };
@@ -600,12 +600,13 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           offline={offline}
           readOnly={readOnly}
           hint={hint}
-          chip={session === null ? chip : null}
+          chips={session === null ? chips : []}
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
           onDraft={(patch) => drafts.save(key, patch)}
-          onRemoveChip={() => setChip(null)}
+          onRemoveChip={(id) =>
+            setChips((list) => list.filter((chip) => chip.id !== id))}
           onAttach={host.attach}
           onLoadPermissions={() => void loadPermissions()}
           onEditPermissions={host.openPermissions}

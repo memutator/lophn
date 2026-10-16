@@ -283,6 +283,9 @@ export function Desktop(
         editor={editor}
         terminal={terminal}
         agentViewSource={agentViewSource}
+        session={route.session}
+        projectManager={route.projectManager}
+        open={route.open}
       />
     );
   } else if (

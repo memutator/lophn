@@ -18,24 +18,21 @@ export {
 } from "./registry.ts";
 export {
   APP_TOOL_CONTRACT,
-  APP_TOOL_PREFIX,
-  type AppBlueprintView,
-  type AppCommandPorts,
-  appDefinitionHash,
-  type AppGrant,
-  type AppInvokeCall,
-  type AppInvokeOutcome,
-  type AppStatusAnswer,
-  type AppTool,
-  type AppToolSource,
-  buildAppTools,
-  commandInputOf,
-  createAppToolHandlers,
-  findInvocation,
-  grantFor,
-  recordedResult,
-  revertCounterpart,
+  type AppApiSource,
+  type AppApiTool,
+  type AppApiView,
+  buildAppApiTools,
 } from "./app-tools.ts";
+export {
+  type AppApiLoad,
+  type AppApiToolkit,
+  createAppApiToolkit,
+} from "./app-toolkit.ts";
+export {
+  appApiMissingReason,
+  type AppApiMissingState,
+  grantAllows,
+} from "./app-api/missing.ts";
 export {
   buildContextReadTools,
   CONTEXT_ENTITY_CONTRACT,

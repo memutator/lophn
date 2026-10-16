@@ -22,7 +22,6 @@ export {
   type SummaryCallRecord,
   type ToolView,
 } from "./recovery.ts";
-export { createAppToolLookups } from "./app-lookup.ts";
 export {
   recoverRunFromLedger,
   type RecoveryDeps,

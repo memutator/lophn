@@ -1,485 +1,176 @@
-import { z } from "zod";
-import { err, fingerprint, ok, type Result } from "../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
-  type AppBlueprintCommand,
-  appConnect,
+  type AppApiCallOutput,
+  appCallApi,
   type InputSchema,
-  type Invocation,
-  invocationsList,
-  validateInput,
 } from "../../../protocol/apps/mod.ts";
-import type {
-  AgentAppScope,
-  ToolResult,
-} from "../../../protocol/lophn-agent/mod.ts";
-import { COMMON_ERRORS, type ContractCall } from "./bundles/common.ts";
+import type { AppAppApi } from "../../../protocol/apps/blueprint/read.ts";
+import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
+import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
+import { readOf } from "../run-loop/core-call.ts";
+import { appApiInput } from "./app-api/input.ts";
+import { grantAllows } from "./app-api/missing.ts";
+import { appApiToolName } from "./app-api/name.ts";
 import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
-import type { RunCredential, ToolHandler } from "./work.ts";
+import type { ToolContext } from "./tool-context.ts";
 
-// 앱 command 자동 tool(concern harness/tools). 허락된 앱의 active release blueprint에서 command
-// 하나마다 tool 정의 하나를 만든다. 별도 MCP 등록도 app proxy server도 없다. 정의의 입력 schema는
-// blueprint의 InputSchema 그대로이고 목록과 실행 검사가 같은 선언을 쓴다. 소스·원본 파일·secret 값에는
-// 닿는 통로가 없다: 호출은 앱 통로(`app.connect`의 제한 연결과 앱 direct 호출) 하나뿐이다.
+// 앱 app-api tool. 허락된 앱의 활성 release 선언에서 app-api 하나마다 tool 하나를 만든다. 호출은 core의
+// 호출 경로 route(`app.call_api`) 하나로 간다. 부른 쪽 확인, project 정하기, Gate, invocation 기록,
+// 결과 모름은 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
-export const APP_TOOL_CONTRACT = appConnect.name;
-export const APP_TOOL_PREFIX = "app_";
+export const APP_TOOL_CONTRACT = appCallApi.name;
 
-// active release의 blueprint에서 command 정의만 읽은 값이다. 범위 밖·없는 앱과 active release가 없는
-// 앱은 읽히지 않는다(같은 답).
-export type AppBlueprintView = {
+// 활성 release에서 읽은 app-api 선언이다.
+export type AppApiView = {
   app: string;
   name: string;
   release: string;
-  blueprint_hash: string;
-  commands: readonly AppBlueprintCommand[];
-  // 화면 선언(크기)이다. 읽지 않은 호출자는 생략하고 그러면 카드는 없다.
-  screens?: readonly { key: string; sizes: readonly string[] }[];
+  app_api: readonly AppAppApi[];
 };
 
-// 현재 허락(agent.commands grant)이 연 command다. grant ID는 판정 근거에 남고 basis_seq는
-// grant 집합이 마지막으로 바뀐 seq다(호출 기록의 permission_basis 원문).
-export type AppGrant = {
-  grant: string;
-  commands: readonly string[];
-  basis_seq: string;
+export type AppApiSource = {
+  // session의 place. project에 놓인 agent에게는 project 범위 app-api 입력에서 project 칸을 뺀다.
+  place: Place | null;
+  views: readonly AppApiView[];
+  // agent grant의 entries. 앱 단위 할당과 app-api별 빼기가 들어 있다.
+  entries: readonly AgentGrantEntry[];
 };
 
-// command를 연 grant다. 여럿이면 ID가 앞선 것이다. 없으면 허락이 없다.
-export function grantFor(
-  grants: readonly AppGrant[],
-  command: string,
-): AppGrant | undefined {
-  return grants.filter((entry) => entry.commands.includes(command))
-    .sort((a, b) => (a.grant < b.grant ? -1 : a.grant > b.grant ? 1 : 0))[0];
-}
-
-export type AppTool = {
+export type AppApiTool = {
   definition: ToolDefinition;
   app: string;
-  appName: string;
-  release: string;
-  blueprintHash: string;
-  command: string;
-  effect: AppBlueprintCommand["effect"];
-  confirm: boolean;
-  // blueprint가 되돌리기 지원을 선언하고 대응 command가 이 blueprint에 있다. 이 이름의 command가
-  // revert의 되돌림 단계다.
-  revertCommand: string | null;
-  // 위 값이 null이 아닐 때만 되돌리기 지원으로 본다. 선언 `supported`만으로
-  // 낮추지 않는다.
-  reversible: boolean;
-  // 이 정의가 만들어진 선언의 지문. release·입력·effect·confirm·되돌리기 중 하나라도 바뀌면 달라진다.
-  definitionHash: string;
-  schema: InputSchema | null;
-  // 사람의 허락 근거(grant·scope·basis_seq)다. 호출 기록이 이 열로 묶여 revert가 앱의 선언된
-  // revert command를 부른다.
-  permissionBasis: { grant: string; scope: string; basis_seq: string };
+  api: string;
 };
 
-// 대응 command가 검증된 되돌리기만 지원으로 본다. 선언 `supported`만으로 낮추지 않는다.
-export function revertCounterpart(
-  commands: readonly AppBlueprintCommand[],
-  command: AppBlueprintCommand,
-): string | null {
-  if (command.effect !== "write" || command.revert?.supported !== true) {
-    return null;
-  }
-  const counterpart = commands.find((entry) =>
-    entry.key === command.revert?.command
-  );
-  return counterpart !== undefined && counterpart.key !== command.key &&
-      counterpart.effect === "write"
-    ? counterpart.key
-    : null;
-}
-
-// command 선언 하나의 지문이다. 정의와 호출 직전 재검사가 같은 함수를 쓴다.
-export function appDefinitionHash(
-  view: Pick<AppBlueprintView, "app" | "release" | "blueprint_hash">,
-  command: AppBlueprintCommand,
-  reversible: boolean,
-): Promise<string> {
-  return fingerprint({
-    app: view.app,
-    release: view.release,
-    blueprint_hash: view.blueprint_hash,
-    key: command.key,
-    label: command.label,
-    description: command.description,
-    effect: command.effect,
-    confirm: command.confirm,
-    input: command.input,
-    reversible,
-  });
-}
-
-async function appToolName(app: string, command: string): Promise<string> {
-  const appHash = (await fingerprint(app)).slice(0, 8);
-  const commandHash = (await fingerprint(command)).slice(0, 6);
-  const readable = command.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 40);
-  return `${APP_TOOL_PREFIX}${appHash}_${readable}_${commandHash}`;
-}
-
-const NO_INPUT = {
-  type: "object",
-  properties: {},
-  additionalProperties: false,
-} as const;
-
-// 입력이 object인 command는 그 입력이 tool 입력이고, 입력이 없는 command는 빈 object, 그 밖의 종류는
-// `{input}` 하나로 감싼다(model의 tool 입력은 object여야 한다).
-function toolInputSchema(schema: InputSchema | null): Record<string, unknown> {
-  if (schema === null) return NO_INPUT;
-  if (schema.type === "object") return schema as Record<string, unknown>;
-  return {
-    type: "object",
-    properties: { input: schema },
-    required: ["input"],
-    additionalProperties: false,
-  };
-}
-
-// 실행 검사다. blueprint의 검사(`validateInput`)를 그대로 쓰되 default를 채우지 않고 값을 바꾸지
-// 않는다. 반환 값은 입력 그대로다.
-function toolInputValidator(schema: InputSchema | null): z.ZodType {
-  return z.unknown().superRefine((value, context) => {
-    const fail = (message: string) =>
-      context.addIssue({ code: "custom", message });
-    const plain = typeof value === "object" && value !== null &&
-      !Array.isArray(value);
-    if (schema === null) {
-      if (!plain || Object.keys(value as object).length > 0) {
-        fail("this command takes no input");
-      }
-      return;
-    }
-    if (schema.type === "object") {
-      const checked = validateInput(schema, value);
-      if (!checked.ok) fail(checked.error.message);
-      return;
-    }
-    if (!plain || Object.keys(value as object).join() !== "input") {
-      fail("input must be { input }");
-      return;
-    }
-    const checked = validateInput(schema, (value as { input: unknown }).input);
-    if (!checked.ok) fail(checked.error.message);
-  });
-}
-
-// 앱에 보내는 command 입력이다. 입력이 없는 command는 보내지 않는다.
-export function commandInputOf(tool: AppTool, input: unknown): unknown {
-  if (tool.schema === null) return undefined;
-  return tool.schema.type === "object"
-    ? input
-    : (input as { input: unknown }).input;
-}
-
-export type AppToolSource = {
-  scope: AgentAppScope;
-  views: readonly AppBlueprintView[];
-  grants: ReadonlyMap<string, readonly AppGrant[]>;
-};
-
-// 역할·현재 허락·assignment의 교집합만 정의가 된다. 범위(AgentAppScope)는 StartRun이 고정한
-// 역할·assignment 상한이고, blueprint와 grant는 지금의 선언과 허락이다. 하나라도 빠지면 정의가 없다.
-export async function buildAppTools(
-  source: AppToolSource,
-): Promise<readonly AppTool[]> {
-  const tools: AppTool[] = [];
+// 앱 ∩ 선언 ∩ agent grant만 정의가 된다. 하나라도 빠지면 정의가 없다. 순서는 앱, api 키 순이다.
+export async function buildAppApiTools(
+  source: AppApiSource,
+): Promise<readonly AppApiTool[]> {
+  const tools: AppApiTool[] = [];
   const names = new Set<string>();
-  for (const entry of source.scope.apps) {
-    const view = source.views.find((item) => item.app === entry.app);
-    const grant = source.grants.get(entry.app);
-    if (view === undefined || grant === undefined) continue;
-    for (const key of [...entry.commands].sort()) {
-      const command = view.commands.find((item) => item.key === key);
-      const allowed = grantFor(grant, key);
-      if (command === undefined || allowed === undefined) continue;
-      if (!entry.effects.includes(command.effect)) continue;
-      if (command.confirm && !entry.confirm_allowed) continue;
-      const revertCommand = revertCounterpart(view.commands, command);
-      const reversible = revertCommand !== null;
-      if (
-        command.effect === "write" && entry.revert_required && !reversible
-      ) continue;
-      const name = await appToolName(view.app, key);
+  const views = [...source.views].sort((a, b) => a.app < b.app ? -1 : 1);
+  for (const view of views) {
+    const apis = [...view.app_api].sort((a, b) => a.key < b.key ? -1 : 1);
+    for (const api of apis) {
+      if (!grantAllows(source.entries, view.app, api.key)) continue;
+      const name = await appApiToolName(view.app, api.key);
       if (names.has(name)) continue;
       names.add(name);
-      const schema = command.input as InputSchema | null;
-      const definitionHash = await appDefinitionHash(
-        view,
-        command,
-        reversible,
-      );
-      const notes = [
-        command.effect === "read"
-          ? "reads only"
-          : command.effect === "write"
-          ? "changes the app"
-          : "changes something outside lophn",
-        ...(command.confirm ? ["a person confirms each call"] : []),
-        ...(reversible ? ["can be reverted"] : []),
-      ];
+      const shape = appApiInput({
+        input: api.input as InputSchema | null,
+        project_scope: api.project_scope,
+      }, source.place);
       const definition: ToolDefinition = {
         name,
         description:
-          `App ${view.name} (${view.app}), command ${key}: ${command.label}. ${command.description} (${
-            notes.join("; ")
-          })`,
-        revision: `${view.release}:${definitionHash.slice(0, 16)}`,
-        input: toolInputValidator(schema),
-        inputSchema: toolInputSchema(schema),
-        effect: command.effect,
-        confirm: command.confirm,
-        contract: APP_TOOL_CONTRACT,
-        scopeCheck: "apps the grant, role, and assignment allow",
-        reversible,
-        idempotent: command.effect === "read",
-        errors: COMMON_ERRORS,
+          `App ${view.name} (${view.app}), app-api ${api.key}: ${api.label}. ${api.description}`,
+        input: shape.validator,
+        inputSchema: shape.jsonSchema,
+        effect: api.effect,
         origin: "app",
-      };
-      tools.push({
-        definition,
-        app: view.app,
-        appName: view.name,
-        release: view.release,
-        blueprintHash: view.blueprint_hash,
-        command: key,
-        effect: command.effect,
-        confirm: command.confirm,
-        revertCommand,
-        reversible,
-        definitionHash,
-        schema,
-        permissionBasis: {
-          grant: allowed.grant,
-          // Grant.kind = agent.commands다. scope 원문은 command 목록의 JSON이다.
-          scope: JSON.stringify(allowed.commands),
-          basis_seq: allowed.basis_seq,
+        handler: async (input, ctx) => {
+          const { input: appInput, project } = shape.split(input);
+          const reply = await readOf(ctx.core, appCallApi, {
+            target: { mode: "live", app: view.app, release: null },
+            api: api.key,
+            ...(appInput === undefined ? {} : { input: appInput }),
+            ...(project === null ? {} : { project }),
+            caller: callerOf(ctx),
+          });
+          if (!reply.ok) return reply;
+          return ok(
+            resultOf(view.name, api.key, api.effect, reply.value),
+          );
         },
-      });
+        // 아래는 옛 칸이다. Gate는 core의 호출 경로가 건다.
+        revision: view.release,
+        confirm: false,
+        contract: APP_TOOL_CONTRACT,
+        reversible: false,
+        idempotent: api.effect === "read",
+      };
+      tools.push({ definition, app: view.app, api: api.key });
     }
   }
   return tools;
 }
 
-// ---- 호출 ----
-
-export type AppInvokeCall = {
-  app: string;
-  release: string;
-  command: string;
-  input: unknown;
-  // 같은 호출의 식별이다. 최초 ToolCall ID라 재전송이 handler를 다시 실행하지 않는다.
-  requestKey: string;
-  run: string;
-  toolCall: string;
-  // confirm command면 호출 쪽이 접수 proof를 붙인다. 없으면 증명 없는 호출이다.
-  confirm?: boolean;
-};
-
-export type AppInvokeOutcome =
-  | {
-    kind: "result";
-    result: unknown;
-    invocation: string | null;
-    revert:
-      | { invocation: string; receipt: string; expected_revision: string }
-      | null;
-    source: unknown;
-  }
-  // 요청은 나갔지만 응답을 못 받았다. 앱이 처리했는지 모른다.
-  | { kind: "unknown" };
-
-export type AppStatusAnswer = {
-  progress: "running" | "succeeded" | "failed" | "unknown";
-  result?: { result: unknown; revert?: unknown; source?: unknown };
-};
-
-// 앱 통로다. 실제 연결(core의 `apps/connect`와 앱 direct socket)은 agent runtime 조립이 낸다. 연결을
-// 열지 못해 요청이 나가지 않은 것은 err이고, 보낸 뒤 응답을 잃은 것은 `unknown`이다.
-export type AppCommandPorts = {
-  invoke(call: AppInvokeCall): Promise<Result<AppInvokeOutcome>>;
-  status(
-    call: AppInvokeCall & { invocation: string },
-  ): Promise<Result<AppStatusAnswer>>;
-};
-
-type Terminal = Extract<Invocation["status"], "succeeded" | "failed">;
-const TERMINAL = new Set<string>(["succeeded", "failed"]);
-const LOOKUP_PAGES = 25;
-
-// 이 ToolCall이 앱에 남긴 invocation이다. 호출자(caller)가 인증된 run·ToolCall이라 본문 주장이 아니다.
-export async function findInvocation(
-  read: (contract: string, input: unknown) => Promise<Result<unknown>>,
-  app: string,
-  toolCall: string,
-): Promise<Result<Invocation | null>> {
-  let cursor: string | undefined;
-  for (let page = 0; page < LOOKUP_PAGES; page++) {
-    const listed = await read(invocationsList.name, {
-      app,
-      limit: 200,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (!listed.ok) return listed;
-    const body = listed.value as {
-      invocations: Invocation[];
-      next_cursor?: string | null;
-    };
-    const found = body.invocations.find((item) =>
-      item.caller.kind === "agent" && item.caller.tool_call === toolCall
-    );
-    if (found !== undefined) return ok(found);
-    if (body.next_cursor === null || body.next_cursor === undefined) {
-      return ok(null);
-    }
-    cursor = body.next_cursor;
-  }
-  return ok(null);
+function callerOf(ctx: ToolContext) {
+  return {
+    kind: "agent",
+    session: ctx.session,
+    turn: ctx.turn,
+    tool_call: ctx.tool_call,
+  } as const;
 }
 
-function resultOf(
-  tool: Pick<AppTool, "appName" | "command">,
-  outcome: Extract<AppInvokeOutcome, { kind: "result" }>,
+function toolResult(
+  status: ToolResult["status"],
+  summary: string,
+  content: unknown,
+  extra: Partial<Pick<ToolResult, "complete" | "pending">> = {},
 ): ToolResult {
-  const full = {
-    invocation: outcome.invocation,
-    revert: outcome.revert,
-    source: outcome.source ?? null,
-    result: outcome.result,
-  };
-  const limited = limitJson(full);
-  // 상한을 넘어도 되돌리기 receipt는 잃지 않는다.
-  const content = limited.complete ? full : {
-    invocation: outcome.invocation,
-    revert: outcome.revert,
-    source: outcome.source ?? null,
-    result: null,
-    omitted: true,
-  };
   return {
-    status: "success",
-    summary: `command ${tool.command} of ${tool.appName} finished`,
+    status,
+    summary,
     content: content as ToolResult["content"],
-    complete: limited.complete,
-    source: null,
-    continuation: null,
-    pending: [],
-  };
-}
-
-// 앱 ledger의 종료 기록으로 만든 결과다. 앱이 돌려준 값 자체는 ledger에 없고 상태·요약만 있다.
-export function recordedResult(
-  tool: Pick<AppTool, "appName" | "command">,
-  invocation: Invocation,
-): { kind: Terminal; result: ToolResult } | null {
-  if (!TERMINAL.has(invocation.status)) return null;
-  const kind = invocation.status as Terminal;
-  return {
-    kind,
-    result: {
-      status: kind === "succeeded" ? "success" : "failure",
-      summary: kind === "succeeded"
-        ? `command ${tool.command} of ${tool.appName} finished`
-        : `command ${tool.command} of ${tool.appName} failed`,
-      content: {
-        invocation: invocation.id,
-        status: invocation.status,
-        finished_at: invocation.finished_at,
-        summary: invocation.summary,
-      } as ToolResult["content"],
-      complete: false,
-      source: null,
-      continuation: null,
-      pending: ["the value the app returned is not kept"],
-    },
-  };
-}
-
-function uncertain(
-  tool: Pick<AppTool, "appName" | "command">,
-  invocation: string | null,
-): ToolResult {
-  return {
-    status: "uncertain",
-    summary:
-      `the result of command ${tool.command} of ${tool.appName} is not known`,
-    content: invocation === null ? null : { invocation },
     complete: true,
     source: null,
     continuation: null,
-    pending: ["ask the app for the result of this call before repeating it"],
+    pending: [],
+    ...extra,
   };
 }
 
-// 앱 command tool의 handler다. 판정과 진입 기록은 이 handler 앞에서 끝났다. 입력은 실행기가 정의의
-// schema로 검사했고 여기서는 앱 통로 하나만 부른다. 결과를 잃었으면 같은 request_key로 앱에 묻고,
-// 그래도 모르면 성공이나 실패로 추측하지 않고 불명확으로 돌려준다.
-export function createAppToolHandlers(
-  tools: readonly AppTool[],
-  ports: ContractCall & AppCommandPorts,
-): ReadonlyMap<string, ToolHandler> {
-  const handlers = new Map<string, ToolHandler>();
-  for (const tool of tools) {
-    handlers.set(
-      tool.definition.name,
-      async (input: unknown, credential: RunCredential) => {
-        if (credential.call === undefined) {
-          return err({ code: "unavailable", message: "no tool call" });
-        }
-        const call: AppInvokeCall = {
-          app: tool.app,
-          release: tool.release,
-          command: tool.command,
-          input: commandInputOf(tool, input),
-          requestKey: credential.call,
-          run: credential.run,
-          toolCall: credential.call,
-          ...(tool.confirm ? { confirm: true } : {}),
-        };
-        const sent = await ports.invoke(call);
-        if (!sent.ok) return sent;
-        if (sent.value.kind === "result") {
-          return ok(resultOf(tool, sent.value));
-        }
-        const read = (contract: string, body: unknown) =>
-          ports.call(contract, body, credential.run);
-        const found = await findInvocation(read, tool.app, call.toolCall);
-        if (!found.ok || found.value === null) {
-          return ok(uncertain(tool, null));
-        }
-        const recorded = recordedResult(tool, found.value);
-        if (recorded !== null) return ok(recorded.result);
-        const asked = await ports.status({
-          ...call,
-          invocation: found.value.id,
-        });
-        if (asked.ok && asked.value.progress === "failed") {
-          return ok({
-            ...uncertain(tool, found.value.id),
-            status: "failure",
-            summary: `command ${tool.command} of ${tool.appName} failed`,
-            pending: [],
-          });
-        }
-        if (
-          asked.ok && asked.value.progress === "succeeded" &&
-          asked.value.result !== undefined
-        ) {
-          return ok(resultOf(tool, {
-            kind: "result",
-            result: asked.value.result.result,
-            invocation: found.value.id,
-            revert: (asked.value.result.revert ?? null) as never,
-            source: asked.value.result.source ?? null,
-          }));
-        }
-        return ok(uncertain(tool, found.value.id));
-      },
-    );
+// core가 돌려준 상태(성공, 실패, 거절, 결과 모름)를 그대로 옮긴다. 앱 결과는 감싸지 않는다.
+export function resultOf(
+  appName: string,
+  api: string,
+  effect: AppAppApi["effect"],
+  output: AppApiCallOutput,
+): ToolResult {
+  const label = `app-api ${api} of ${appName}`;
+  const { invocation, outcome } = output;
+  switch (outcome.status) {
+    case "succeeded": {
+      const full = { invocation, result: outcome.result };
+      const limited = limitJson(full);
+      return limited.complete
+        ? toolResult("success", `${label} finished`, full)
+        : toolResult(
+          "success",
+          `${label} finished`,
+          { invocation, result: null, omitted: true },
+          {
+            complete: false,
+            pending: ["the result was too large to show"],
+          },
+        );
+    }
+    case "failed":
+      return toolResult("failure", `${label} failed`, {
+        invocation,
+        error: outcome.error,
+      });
+    case "denied":
+      return toolResult("not_executed", `${label} was not run`, {
+        invocation,
+        denied: outcome.denial,
+      });
+    case "unknown":
+      return toolResult(
+        "uncertain",
+        `the result of ${label} is not known`,
+        { invocation, reason: outcome.reason },
+        {
+          pending: [
+            effect === "read"
+              ? "the read can be repeated"
+              : "check the app before repeating this call",
+          ],
+        },
+      );
   }
-  return handlers;
 }

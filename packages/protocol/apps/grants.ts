@@ -2,7 +2,6 @@ import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { releaseIdSchema } from "./apps.ts";
 import {
@@ -295,17 +294,3 @@ export const grantRevokedPayloadSchema = z.object({
   (value) => value.revoked_by === "user",
   { message: "revoked grant is revoked by a user" },
 );
-
-export const grantCreated = defineEvent("GrantCreated", {
-  subject: grantSubject,
-  payload: grantCreatedPayloadSchema,
-});
-export const grantRevoked = defineEvent("GrantRevoked", {
-  subject: grantSubject,
-  payload: grantRevokedPayloadSchema,
-});
-
-export const GRANT_EVENTS = [
-  grantCreated,
-  grantRevoked,
-] as const;

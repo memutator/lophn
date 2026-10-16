@@ -26,22 +26,9 @@ function utf8Bytes(value: string): number {
 }
 
 // 제품이 이름을 고정하는 built-in. Operator는 이 이름을 쓰지 못한다.
-export const BUILTIN_AGENT_NAMES = {
-  lophn: "lophn",
-  context_engineer: "Context Engineer",
-  app_engineer: "App Engineer",
-} as const;
-
 // 같은 자리 Operator 사이의 이름 중복과 built-in 이름 충돌을 가리는 열쇠다: 앞뒤 공백과 영문 대소문자를 무시한다.
 export function agentNameKey(name: string): string {
   return name.trim().toLowerCase();
-}
-
-export function isBuiltinAgentName(name: string): boolean {
-  const key = agentNameKey(name);
-  return Object.values(BUILTIN_AGENT_NAMES).some((builtin) =>
-    agentNameKey(builtin) === key
-  );
 }
 
 // 지침 파일 하나(agent 정의 본문 포함)의 상한이다.
@@ -49,12 +36,6 @@ export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 
 export const AGENT_KINDS = ["built_in", "operator"] as const;
 export const agentKindSchema = z.enum(AGENT_KINDS);
-
-export function agentKindOf(role: AgentRole): (typeof AGENT_KINDS)[number] {
-  return role === "operator" ? "operator" : "built_in";
-}
-
-export const AGENT_PLACE_KINDS = ["project", "app"] as const;
 
 // 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project나 앱 아래에 있다.
 export const agentPlaceSchema = z.discriminatedUnion("kind", [
@@ -231,10 +212,6 @@ const frontmatterOutputFields = {
   permissions: agentPermissionsOutputSchema.optional(),
 };
 
-// 정의 파일의 앞부분(frontmatter). 모르는 칸은 거절한다.
-export const agentFrontmatterSchema = z.strictObject(frontmatterFields);
-export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;
-
 // AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다.
 export const agentDefinitionSchema = z.strictObject({
   ...frontmatterFields,
@@ -246,20 +223,6 @@ export const agentDefinitionOutputSchema = z.object({
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
-// 자리 층 설정(`settings.md`): 역할별 model과 권한. 전역 층의 같은 모양 값(역할별 기본 model은
-// `agent-model-defaults`, 기본 권한은 platform/settings)은 이 route들이 아니라 resolve하는 쪽이 이 모양으로 넘긴다.
-const settingsFields = {
-  models: z.partialRecord(agentRoleSchema, modelChoiceSchema).optional(),
-  permissions: agentPermissionsSchema.optional(),
-};
-const settingsOutputFields = {
-  models: z.partialRecord(agentRoleSchema, modelChoiceOutputSchema).optional(),
-  permissions: agentPermissionsOutputSchema.optional(),
-};
-export const agentSettingsSchema = z.strictObject(settingsFields);
-export const agentSettingsOutputSchema = z.object(settingsOutputFields);
-export type AgentSettings = z.infer<typeof agentSettingsSchema>;
-
 // 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
 export const VALUE_LAYERS = [
   "default",
@@ -269,8 +232,6 @@ export const VALUE_LAYERS = [
   "session",
 ] as const;
 export const valueLayerSchema = z.enum(VALUE_LAYERS);
-export type ValueLayer = z.infer<typeof valueLayerSchema>;
-
 export const valueSourceSchema = z.object({
   layer: valueLayerSchema,
   place: agentPlaceOutputSchema.nullable(),
@@ -280,12 +241,6 @@ export const valueSourceSchema = z.object({
       (value.layer === "place" || value.layer === "definition"),
   { message: "place is set exactly for the place and definition layers" },
 );
-export type ValueSource = z.infer<typeof valueSourceSchema>;
-
-export function sourced<T extends z.ZodType>(value: T) {
-  return z.object({ value, source: valueSourceSchema });
-}
-
 // 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 export const AGENT_ISSUE_CODES = [
@@ -307,8 +262,6 @@ export const agentIssueSchema = z.object({
   field: z.string().min(1),
   code: agentIssueCodeSchema,
 });
-export type AgentIssue = z.infer<typeof agentIssueSchema>;
-
 // 오류 details에 싣는 항목별 이유의 모양이다. 저장 거절(invalid_input)의 details가 이것이다.
 export const agentIssuesDetailsSchema = z.object({
   issues: z.array(agentIssueSchema).min(1),
@@ -381,15 +334,6 @@ export const resolvedAgentSchema = z.object(resolvedFields).refine(
 );
 export type ResolvedAgent = z.infer<typeof resolvedAgentSchema>;
 
-// 목록 한 줄의 model 요약. 어느 층에서 왔는지도 함께 읽는다.
-export const modelSummarySchema = z.object({
-  provider: idSchema("pvd"),
-  model_name: nonblankSchema,
-  source: valueSourceSchema,
-});
-
-export const AGENT_LIST_STATES = ["enabled", "paused"] as const;
-
 const countSchema = z.number().int().nonnegative();
 
 // 카드의 "n contexts · n skills · n MCP". skills·mcp는 resolve 결과의 켜진 개수이고
@@ -403,31 +347,6 @@ export const agentCountsSchema = z.object({
 export type AgentCounts = z.infer<typeof agentCountsSchema>;
 
 // 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
-export const agentListRowSchema = z.object({
-  assignment: idSchema("asg"),
-  role: agentRoleSchema,
-  kind: agentKindSchema,
-  name: agentNameSchema,
-  profile: profileOutputSchema,
-  model: modelSummarySchema.nullable(),
-  state: z.enum(AGENT_LIST_STATES),
-  issues: z.array(agentIssueSchema),
-  counts: agentCountsSchema,
-}).refine((row) => row.kind === agentKindOf(row.role), {
-  message: "kind does not match role",
-}).refine(
-  (row) => {
-    const { contexts, skills, mcp } = row.counts;
-    if (row.issues.length > 0) {
-      return contexts === null && skills === null && mcp === null;
-    }
-    return skills !== null && mcp !== null &&
-      (contexts === null) === (row.kind === "built_in");
-  },
-  { message: "counts do not match the issues and kind" },
-);
-export type AgentListRow = z.infer<typeof agentListRowSchema>;
-
 // role마다 제품이 고정한 built-in 이름. Operator는 이 이름을 쓰지 못한다.
 export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
   lophn: "lophn",
@@ -435,10 +354,3 @@ export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
   app_engineer: "App Engineer",
   operator: "Operator",
 };
-
-export function isBuiltinRoleName(name: string): boolean {
-  const key = agentNameKey(name);
-  return Object.values(BUILTIN_ROLE_NAMES).some((builtin) =>
-    agentNameKey(builtin) === key
-  );
-}

@@ -1,18 +1,13 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { blobSizeSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   callCostOutputSchema,
-  callModelOutputSchema,
   initialCallCostSchema,
-  MODEL_PURPOSES,
   modelCallRecordSchema,
-  modelOutcomeOutputSchema,
   modelOutcomeSchema,
-  tokenUsageOutputSchema,
   tokenUsageSchema,
 } from "./model-call-values.ts";
 
@@ -145,49 +140,10 @@ export const modelCallList = defineRead({
   errors: [...readErrors],
 });
 
-export const modelCallStarted = defineEvent("ModelCallStarted", {
-  subject: idSchema("mcl"),
-  payload: z.object({
-    turn: idSchema("trn").nullable(),
-    session: idSchema("ses").nullable(),
-    model_use: z.enum(["judgment", "organizing"]).nullable(),
-    purpose: z.enum(MODEL_PURPOSES),
-    model: callModelOutputSchema,
-    input: sha256Schema,
-    context_basis: sha256Schema,
-  }),
-});
-
-export const modelCallFinished = defineEvent("ModelCallFinished", {
-  subject: idSchema("mcl"),
-  payload: z.object({
-    outcome: modelOutcomeOutputSchema,
-    output: sha256Schema.nullable(),
-    usage: tokenUsageOutputSchema,
-    cost: callCostOutputSchema,
-    duration_ms: measuredSchema,
-    first_output_ms: measuredSchema,
-  }),
-});
-
-export const modelCallSupplemented = defineEvent("ModelCallSupplemented", {
-  subject: idSchema("mcl"),
-  payload: z.object({
-    supplement_key: nonblankSchema,
-    previous_basis: sha256Schema.nullable(),
-  }),
-});
-
 export const MODEL_CALL_ROUTES = [
   startModelCall,
   finishModelCall,
   supplementModelCall,
   modelCallRead,
   modelCallList,
-] as const;
-
-export const MODEL_CALL_EVENTS = [
-  modelCallStarted,
-  modelCallFinished,
-  modelCallSupplemented,
 ] as const;

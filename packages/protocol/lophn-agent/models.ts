@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -219,17 +218,6 @@ export const catalogStateSchema = z.strictObject(stateFields);
 export const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
-// 전역 층의 기본 model. summaries는 제목·요약·압축에 쓰는 "Model for summaries" 한 칸이다. 처음은 null이다.
-const defaultsFields = {
-  summaries: modelChoiceSchema.nullable(),
-  settings_seq: seqSchema,
-};
-export const modelDefaultsSchema = z.strictObject(defaultsFields);
-export const modelDefaultsOutputSchema = z.object({
-  ...defaultsFields,
-  summaries: modelChoiceOutputSchema.nullable(),
-});
-export type ModelDefaults = z.infer<typeof modelDefaultsSchema>;
 
 // 즐겨찾기 순서는 별표를 찍은 순서이고 새로 찍은 것이 맨 끝이다. provider로 다시 묶지 않는다.
 const favoriteFields = {
@@ -274,41 +262,7 @@ const readErrors = [
 const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
-export const changeModelDefaultsInputSchema = z.strictObject({
-  summaries: modelChoiceSchema.nullable().optional(),
-}).refine(
-  (value) => Object.values(value).some((choice) => choice !== undefined),
-  { message: "model defaults change is empty" },
-);
 const settingsSeqCompare = z.strictObject({ settings_seq: seqSchema });
-
-export const changeModelDefaults = defineCommand({
-  resource: "agent-model-defaults",
-  method: "change",
-  name: "ChangeModelDefaults",
-  input: changeModelDefaultsInputSchema,
-  output: z.object({ defaults: modelDefaultsOutputSchema }),
-  compare: settingsSeqCompare,
-  actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "not_found",
-    "conflict",
-    "unavailable",
-  ],
-});
-
-export const modelDefaultsRead = defineRead({
-  resource: "agent-model-defaults",
-  method: "read",
-  name: "ReadModelDefaults",
-  input: z.strictObject({}),
-  output: withReadCommon(z.object({ defaults: modelDefaultsOutputSchema })),
-  actors: readActors,
-  errors: [...readErrors],
-});
 
 // 순서 있는 목록을 통째로 바꾼다. 별표를 찍고 끄는 일, 끌어 옮기는 일이 모두 새 순서 하나다.
 export const changeModelFavorites = defineCommand({
@@ -352,33 +306,6 @@ export const modelCatalogRead = defineRead({
   })),
   actors: readActors,
   errors: [...readErrors],
-});
-
-export const modelCatalogRefresh = defineCommand({
-  resource: "agent-model-catalog",
-  method: "refresh",
-  name: "RefreshModelCatalog",
-  input: z.strictObject({}),
-  output: z.object({ state: catalogStateOutputSchema }),
-  actors: ["user"],
-  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
-});
-
-export const modelDefaultsChanged = defineEvent("ModelDefaultsChanged", {
-  subject: z.null(),
-  payload: z.object({
-    settings_seq: seqSchema,
-    slots: z.array(modelDefaultSlotSchema).min(1),
-    defaults: modelDefaultsOutputSchema,
-  }),
-});
-
-export const modelFavoritesChanged = defineEvent("ModelFavoritesChanged", {
-  subject: z.null(),
-  payload: z.object({
-    settings_seq: seqSchema,
-    items: favoritesOutputItemsSchema,
-  }),
 });
 
 // model은 전역 기본 하나와 agent 설정에서 고른다. 처음은 null이다.
@@ -446,17 +373,9 @@ export const MODEL_ROUTES = [
   modelDefaultChange,
   projectModelRead,
   projectModelChange,
-  changeModelDefaults,
-  modelDefaultsRead,
   changeModelFavorites,
   modelFavoritesRead,
   modelCatalogRead,
-  modelCatalogRefresh,
-] as const;
-
-export const MODEL_EVENTS = [
-  modelDefaultsChanged,
-  modelFavoritesChanged,
 ] as const;
 
 export const CATALOG_REFRESH_INTERVAL_MS = 86_400_000;

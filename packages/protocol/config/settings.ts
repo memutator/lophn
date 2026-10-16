@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
-import { withReadCommon } from "../base/envelope.ts";
 import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
+import { defineCommand } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 
 export const SETTINGS_EXCHANGE_FORMAT_VERSION = 1;
@@ -174,29 +173,6 @@ export const settingMutationSchema = z.discriminatedUnion("action", [
 ]);
 export type SettingMutation = z.infer<typeof settingMutationSchema>;
 
-export const settingsDefinitionsInputSchema = z.strictObject({
-  keys: z.array(keySchema).optional(),
-});
-export const settingsDefinitionsOutputSchema = withReadCommon(z.object({
-  definitions: z.array(settingDefinitionSchema),
-  defaults_revision: nonemptySchema,
-}));
-export const settingsGetInputSchema = z.strictObject({
-  keys: z.array(keySchema).optional(),
-});
-export const settingsGetOutputSchema = withReadCommon(z.object({
-  settings: z.array(effectiveSettingSchema),
-  revision: settingsRevisionNumberSchema,
-  defaults_revision: nonemptySchema,
-}));
-export const settingsHistoryInputSchema = z.strictObject({
-  after_revision: settingsRevisionNumberSchema.optional(),
-  limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
-});
-export const settingsHistoryOutputSchema = withReadCommon(z.object({
-  revisions: z.array(settingsRevisionSchema),
-}));
-
 const readActors = ["user", "agent", "machine"] as const;
 const readErrors = [
   "invalid_input",
@@ -205,34 +181,6 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-export const settingsDefinitions = defineRead({
-  resource: "settings",
-  method: "definitions",
-  name: "SettingsDefinitions",
-  input: settingsDefinitionsInputSchema,
-  output: settingsDefinitionsOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-export const settingsGet = defineRead({
-  resource: "settings",
-  method: "get",
-  name: "GetSettings",
-  input: settingsGetInputSchema,
-  output: settingsGetOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-export const settingsHistory = defineRead({
-  resource: "settings",
-  method: "history",
-  name: "SettingsHistory",
-  input: settingsHistoryInputSchema,
-  output: settingsHistoryOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-
 export const applySettingsInputSchema = z.strictObject({
   changes: z.array(settingMutationSchema).refine(
     (changes) =>
@@ -245,7 +193,6 @@ export const applySettingsInputSchema = z.strictObject({
     option: z.string().min(1),
   }).optional(),
 });
-export const reloadSettingsInputSchema = z.strictObject({});
 export const settingsCompareSchema = z.strictObject({
   revision: settingsRevisionNumberSchema,
   defaults_revision: nonemptySchema,
@@ -279,27 +226,9 @@ export const applySettings = defineCommand({
   actors: ["user", "machine"],
   errors: commandErrors,
 });
-export const reloadSettings = defineCommand({
-  resource: "settings",
-  method: "reload",
-  name: "ReloadSettings",
-  input: reloadSettingsInputSchema,
-  output: settingsApplyResultSchema,
-  compare: settingsCompareSchema,
-  actors: ["user", "machine"],
-  errors: commandErrors,
-});
-
 export const settingsChangedPayloadSchema = z.object({
   revision: settingsRevisionNumberSchema,
   changes: z.array(settingChangeSchema),
-  affected_concerns: z.array(concernSchema),
-  applied: z.array(settingApplicationSchema),
-});
-export const settingsReloadedPayloadSchema = z.object({
-  revision: settingsRevisionNumberSchema,
-  defaults_revision: nonemptySchema,
-  keys: z.array(keySchema),
   affected_concerns: z.array(concernSchema),
   applied: z.array(settingApplicationSchema),
 });
@@ -307,15 +236,5 @@ export const settingsChanged = defineEvent("SettingsChanged", {
   subject: z.null(),
   payload: settingsChangedPayloadSchema,
 });
-export const settingsReloaded = defineEvent("SettingsReloaded", {
-  subject: z.null(),
-  payload: settingsReloadedPayloadSchema,
-});
-export const SETTINGS_ROUTES = [
-  settingsDefinitions,
-  settingsGet,
-  settingsHistory,
-  applySettings,
-  reloadSettings,
-] as const;
-export const SETTINGS_EVENTS = [settingsChanged, settingsReloaded] as const;
+export const SETTINGS_ROUTES = [applySettings] as const;
+export const SETTINGS_EVENTS = [settingsChanged] as const;

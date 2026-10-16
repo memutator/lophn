@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { dataChangeSchema, dataResultSchema } from "./releases.ts";
 
-// data worker job 입력. migration·backup·restore 프로세스와 problems test runner가
-// 같은 진입점으로 읽는다.
-// inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 하는 작업이다.
 export const DATA_JOB_KINDS = [
   "inspect",
   "backup",
@@ -12,8 +9,6 @@ export const DATA_JOB_KINDS = [
   "test",
 ] as const;
 export const dataJobKindSchema = z.enum(DATA_JOB_KINDS);
-
-export const DATA_JOB_PREPARATION_TIMEOUT_MS = 300_000;
 
 const dataJobFields = {
   kind: dataJobKindSchema,
@@ -51,39 +46,3 @@ export const dataJobOutputSchema = z.strictObject({
   { message: "successful data job result must have integrity_ok true" },
 );
 export type DataJobOutput = z.infer<typeof dataJobOutputSchema>;
-
-// 한 줄 JSON. 줄바꿈이 들어간 값은 job 입력이 아니다.
-export function encodeDataJobInput(input: DataJobInput): string {
-  const parsed = dataJobInputSchema.parse(input);
-  const line = JSON.stringify(parsed);
-  if (line.includes("\n")) {
-    throw new Error("data job input must be one line");
-  }
-  return `${line}\n`;
-}
-
-export function decodeDataJobInput(line: string): DataJobInput {
-  const trimmed = line.endsWith("\n") ? line.slice(0, -1) : line;
-  if (trimmed.includes("\n")) {
-    throw new Error("data job input must be one line");
-  }
-  return dataJobInputSchema.parse(JSON.parse(trimmed));
-}
-
-// 결과도 한 줄 JSON이다.
-export function encodeDataJobOutput(output: DataJobOutput): string {
-  const parsed = dataJobOutputSchema.parse(output);
-  const line = JSON.stringify(parsed);
-  if (line.includes("\n")) {
-    throw new Error("data job output must be one line");
-  }
-  return `${line}\n`;
-}
-
-export function decodeDataJobOutput(line: string): DataJobOutput {
-  const trimmed = line.endsWith("\n") ? line.slice(0, -1) : line;
-  if (trimmed.includes("\n")) {
-    throw new Error("data job output must be one line");
-  }
-  return dataJobOutputSchema.parse(JSON.parse(trimmed));
-}

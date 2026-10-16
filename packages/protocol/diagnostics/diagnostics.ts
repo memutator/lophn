@@ -24,31 +24,6 @@ export const diagnosticRecordSchema = z.object({
 
 export type DiagnosticRecord = z.infer<typeof diagnosticRecordSchema>;
 
-// doctor가 실제로 검사하는 항목.
-export const DIAGNOSTIC_CHECKS = [
-  "sdk_hash",
-  "credential_permission",
-  "broad_grant",
-  "file_and_network_grant",
-  "unused_grant",
-  "raw_key_pattern",
-] as const;
-
-export const diagnosticCheckSchema = z.enum(DIAGNOSTIC_CHECKS);
-
-export type DiagnosticCheck = z.infer<typeof diagnosticCheckSchema>;
-
-export const diagnosticCheckResultSchema = z.object({
-  check: diagnosticCheckSchema,
-  observed_at: atSchema,
-  finding: diagnosticRecordSchema.nullable(),
-}).refine(
-  (value) => value.finding === null || value.finding.kind === "health",
-  { message: "a check finding is a health observation" },
-);
-
-export type DiagnosticCheckResult = z.infer<typeof diagnosticCheckResultSchema>;
-
 const readErrors = [
   "invalid_input",
   "unauthorized",
@@ -71,22 +46,7 @@ export const diagnosticsList = defineRead({
   errors: readErrors,
 });
 
-export const diagnosticsCheck = defineRead({
-  resource: "diagnostics",
-  method: "check",
-  name: "CheckDiagnostics",
-  input: z.strictObject({
-    checks: z.array(diagnosticCheckSchema).optional(),
-  }),
-  output: withReadCommon(z.object({
-    results: z.array(diagnosticCheckResultSchema),
-    observed_at: atSchema,
-  })),
-  actors: ACTOR_KINDS,
-  errors: readErrors,
-});
-
-export const DIAGNOSTIC_ROUTES = [diagnosticsList, diagnosticsCheck] as const;
+export const DIAGNOSTIC_ROUTES = [diagnosticsList] as const;
 
 // core가 점검하는 구성 요소만이다. 터미널은 shell main이 안다.
 export const DIAGNOSTIC_COMPONENTS = [

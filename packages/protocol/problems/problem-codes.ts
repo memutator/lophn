@@ -32,27 +32,6 @@ export const problemCodeDeclarationsSchema = z.array(
   },
 );
 
-export const RESERVED_PROBLEM_CODES = [
-  {
-    code: "_exception",
-    message_key: "app-detail.issue.unexpected_error",
-    message: "Something went wrong in this app.",
-    fixer: "coding_agent",
-  },
-  {
-    code: "_feedback",
-    message_key: "app-detail.issue.reported",
-    message: "You reported an issue.",
-    fixer: "coding_agent",
-  },
-  {
-    code: "_invalid_report",
-    message_key: "app-detail.issue.report_incomplete",
-    message: "This app could not report an issue correctly.",
-    fixer: "coding_agent",
-  },
-] as const;
-export type ReservedProblemCode = (typeof RESERVED_PROBLEM_CODES)[number];
 export const reservedProblemCodeSchema = z.enum([
   "_exception",
   "_feedback",

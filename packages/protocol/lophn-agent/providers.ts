@@ -11,11 +11,9 @@ import {
   loginCancelInputSchema,
   loginCompleteInputSchema,
   loginCompleteOutputSchema,
-  providerChangedPayloadSchema,
   providerDisconnectedPayloadSchema,
   providerListInputSchema,
   providerReadInputSchema,
-  providerRegisteredPayloadSchema,
   providerRevisionCompareSchema,
   recordProviderAvailabilityInputSchema,
   refreshProviderCredentialInputSchema,
@@ -186,14 +184,6 @@ export const loginCancel = defineCommand({
 
 const providerSubject = idSchema("pvd");
 
-export const providerRegistered = defineEvent("ProviderRegistered", {
-  subject: providerSubject,
-  payload: providerRegisteredPayloadSchema,
-});
-export const providerChanged = defineEvent("ProviderChanged", {
-  subject: providerSubject,
-  payload: providerChangedPayloadSchema,
-});
 export const providerDisconnected = defineEvent("ProviderDisconnected", {
   subject: providerSubject,
   payload: providerDisconnectedPayloadSchema,
@@ -213,7 +203,5 @@ export const PROVIDER_ROUTES = [
 ] as const;
 
 export const PROVIDER_EVENTS = [
-  providerRegistered,
-  providerChanged,
   providerDisconnected,
 ] as const;

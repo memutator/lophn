@@ -109,32 +109,6 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const reconcileProblemWorkInputSchema = z.strictObject({
-  problem: idSchema("prb"),
-  ticket: idSchema("tkt"),
-  ticket_event_seq: seqSchema,
-});
-export const reconcileProblemWorkCompareSchema = z.strictObject({
-  problem_seq: seqSchema,
-  work: idSchema("tkt").nullable(),
-});
-export const reconcileProblemWorkOutputSchema = z.object({
-  status: problemStatusSchema,
-  work: idSchema("tkt").nullable(),
-  changed: z.boolean(),
-});
-export const reconcileProblemWork = defineCommand({
-  resource: "problems",
-  method: "reconcile-work",
-  name: "ReconcileProblemWork",
-  input: reconcileProblemWorkInputSchema,
-  output: reconcileProblemWorkOutputSchema,
-  compare: reconcileProblemWorkCompareSchema,
-  actors: ["machine"],
-  // 열린 repair ticket을 이미 가진 문제에 다른 열린 ticket을 이으려 하면 invalid_input이다.
-  errors: ["not_found", "conflict", "forbidden", "invalid_input"],
-});
-
 export const linkProblemInterpretationInputSchema = z.strictObject({
   problem: idSchema("prb"),
   interpretation: interpretationLinkInputSchema.nullable(),

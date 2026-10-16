@@ -96,30 +96,6 @@ export type UserProblemDecision = z.infer<typeof userProblemDecisionSchema>;
 // 문제 결정 handle binding은 owner_decision으로 등록한다.
 export const PROBLEM_DECISION = defineDecision("problem_decision");
 
-export const closeProblemVerifiedInputSchema = z.strictObject({
-  problem: idSchema("prb"),
-  verification: idSchema("vrf"),
-  problem_seq: seqSchema,
-  release: idSchema("rel"),
-});
-export const closeProblemVerifiedCompareSchema = z.strictObject({
-  problem_seq: seqSchema,
-  release: idSchema("rel"),
-});
-export const closeProblemVerifiedOutputSchema = z.object({
-  closure: closureSchema,
-});
-export const closeProblemVerified = defineCommand({
-  resource: "problems",
-  method: "close-verified",
-  name: "CloseProblemVerified",
-  input: closeProblemVerifiedInputSchema,
-  output: closeProblemVerifiedOutputSchema,
-  compare: closeProblemVerifiedCompareSchema,
-  actors: ["machine"],
-  errors: ["not_found", "forbidden", "conflict", "invalid_input"],
-});
-
 export const applyProblemDecisionInputSchema = userProblemDecisionInputSchema;
 export const applyProblemDecisionCompareSchema = z.strictObject({
   problem_seq: seqSchema,

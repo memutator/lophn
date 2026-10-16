@@ -105,23 +105,6 @@ export function grantsSeq(sql: Query, app: string): string {
   return String(row?.seq ?? 0);
 }
 
-// 앱에 activation이 진행 중이면 true. 시작 event는 있고 그 seq를 started_seq로 가리키는 성공·실패 event가
-// 아직 없는 경우다. releases·control이 아직 쓴다. 그 단위가 지운다.
-export function activationInProgress(sql: Query, app: string): boolean {
-  return sql.get(
-    `SELECT 1 AS found FROM events s
-     WHERE s.type = 'ReleaseActivationStarted'
-       AND json_extract(s.payload, '$.app') = ?
-       AND NOT EXISTS (
-         SELECT 1 FROM events e
-         WHERE e.type IN ('ReleaseActivated', 'ReleaseActivationFailed')
-           AND json_extract(e.payload, '$.started_seq') = CAST(s.seq AS TEXT)
-       )
-     LIMIT 1`,
-    [app],
-  ) !== undefined;
-}
-
 export type ProcessFact =
   | { kind: "none" }
   | { kind: "started"; nonce: string }

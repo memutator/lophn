@@ -25,8 +25,6 @@ export type Finding = {
 };
 
 export type CheckOptions = {
-  // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
-  knownKeys?: readonly string[];
   // key의 첫 구간으로 허용할 화면 이름. 없으면 kebab-case 이름이면 통과하고, 앱은 자기 screen key와 common을 준다.
   screens?: readonly string[];
 };
@@ -126,7 +124,6 @@ export function checkSource(
   options: CheckOptions = {},
 ): Finding[] {
   const findings: Finding[] = [];
-  const known = new Set(options.knownKeys ?? []);
   const add = (
     index: number,
     severity: Severity,
@@ -166,7 +163,7 @@ export function checkSource(
     }
     const call = /(?:^|[^A-Za-z0-9_])([A-Za-z]+)\(\s*$/.exec(before);
     if (!call || !CALLED.has(call[1])) continue;
-    if (!(part.text in catalog) && !known.has(part.text)) {
+    if (!(part.text in catalog)) {
       add(index, "error", "unknown-key", `없는 message key: ${part.text}`);
       continue;
     }
@@ -194,7 +191,7 @@ export function checkSource(
   }
 
   if (!file.endsWith(".tsx")) {
-    checkCatalog(source, catalog, known, keyShape(options.screens), add);
+    checkCatalog(source, catalog, keyShape(options.screens), add);
   }
   return findings;
 }
@@ -202,7 +199,6 @@ export function checkSource(
 function checkCatalog(
   source: string,
   catalog: Record<string, string>,
-  known: Set<string>,
   shape: RegExp,
   add: (
     index: number,
@@ -214,14 +210,6 @@ function checkCatalog(
   for (const [key, message] of Object.entries(catalog)) {
     const index = source.indexOf(JSON.stringify(key));
     const at = index === -1 ? 0 : index;
-    if (known.has(key)) {
-      add(
-        at,
-        "error",
-        "owned-elsewhere",
-        `${key}는 다른 concern의 문구 key라 catalog에 두지 않는다.`,
-      );
-    }
     if (!shape.test(key)) {
       add(
         at,

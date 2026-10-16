@@ -47,7 +47,7 @@ import { createCoreRegistration as createApprovalsRegistration } from "../../app
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createCoreRegistration as createCodingRegistration } from "../../apps/tickets/coding/register.ts";
-import { createCoreRegistration as createProjectsPortsRegistration } from "./wiring/projects-registration.ts";
+import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
@@ -64,7 +64,7 @@ export const TEAMS = [
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
   { createCoreRegistration: createCodingRegistration },
-  { createCoreRegistration: createProjectsPortsRegistration },
+  { createCoreRegistration: createPlaceRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -87,7 +87,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/router-registration.ts", import.meta.url).href,
   new URL("../../apps/annotations/register.ts", import.meta.url).href,
   new URL("../../apps/tickets/coding/register.ts", import.meta.url).href,
-  new URL("./wiring/projects-registration.ts", import.meta.url).href,
+  new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
 ];
 

@@ -16,7 +16,6 @@ export * from "./instructions.ts";
 export * from "./assignment-values.ts";
 export * from "./assignments.ts";
 export * from "./agent-values.ts";
-export * from "./agents.ts";
 export * from "./commands.ts";
 export * from "./provider-values.ts";
 export * from "./provider-inputs.ts";

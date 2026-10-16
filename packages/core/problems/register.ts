@@ -12,7 +12,6 @@ import type {
   defineBlobPurpose,
 } from "../../protocol/storage/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
-import type { SettingDefinition } from "../../protocol/config/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -30,7 +29,6 @@ export { detailCollectionSetting } from "./snapshots/register.ts";
 // ReleaseLookup을 받는 port key(writer ports와 reader ports에 같은 key로 끼운다. 구현은 repairs/register.ts)와
 // apps에 넘기는 열린 문제 수 구현.
 export { ReleaseLookupPort } from "./reporting/mod.ts";
-export { problemCounts } from "./grouping/mod.ts";
 
 // leaf마다 자기 register.ts에서 내는 등록 조각이다. 칸은 모두 선택이다.
 // 조립(이 file)은 조각을 칸마다 이어 붙인다.
@@ -50,7 +48,6 @@ export type ProblemsPart = {
   // reader Worker에 붙는 read와 그 port([key, 구현] 쌍).
   readerReads?: readonly ReadDefinition[];
   readerPorts?: readonly (readonly [unknown, unknown])[];
-  settings?: readonly SettingDefinition[];
   // createLedgerRegistration이 environment로 만드는 ledger snapshot 밖 read.
   ledgerApiReads?: (
     environment: ProblemsLedgerEnvironment,
@@ -75,8 +72,7 @@ type ListField =
   | "events"
   | "visibility"
   | "readerReads"
-  | "readerPorts"
-  | "settings";
+  | "readerPorts";
 
 function gather<K extends ListField>(
   parts: readonly ProblemsPart[],
@@ -110,11 +106,6 @@ export const problemsReportDefinitions = {
   workers: gather(reportParts, "workers"),
   workerRoutes: gather(reportParts, "workerRoutes"),
   uploadRoutes: gather(reportParts, "uploadRoutes"),
-};
-
-// core 조립의 settings.ts가 모으는 problems 등록 항목이다.
-export const problemsDefinitions = {
-  settings: gather(reportParts, "settings"),
 };
 
 export function createLedgerRegistration(

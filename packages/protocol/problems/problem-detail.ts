@@ -32,11 +32,9 @@ export const TEST_STATES = [
   "unconfirmed",
 ] as const;
 export const testStateSchema = z.enum(TEST_STATES);
-export type TestState = z.infer<typeof testStateSchema>;
 // 기록으로 남긴 한 건. not_run은 준비 실패·미실행이고 통과가 아니다.
 export const RECORDED_TEST_STATES = [...TEST_STATES, "not_run"] as const;
 export const recordedTestStateSchema = z.enum(RECORDED_TEST_STATES);
-export type RecordedTestState = z.infer<typeof recordedTestStateSchema>;
 // 전체 요약은 한 건도 안 돌았음(not_run)과 읽지 못함(unknown)을 성공으로 채우지 않는다.
 export const testSummaryStateSchema = z.enum([
   ...TEST_STATES,
@@ -143,23 +141,3 @@ export type ProblemWorkLookup = (
 export const ProblemWorkPort: PortKey<ProblemWorkLookup> = definePort<
   ProblemWorkLookup
 >("problems.ProblemWork");
-
-export type ProblemTestFact = {
-  kind: z.infer<typeof testKindSchema>;
-  state: TestState;
-  ended_at: string | null;
-};
-// 지금 값으로 접지 않은 결과다. not_run은 Verification이 없는 준비 실패다.
-export type ProblemTestRecord = {
-  kind: z.infer<typeof testKindSchema>;
-  state: RecordedTestState;
-  ended_at: string | null;
-};
-// 문제에 걸린 테스트 요청·결과다. 등록되지 않았거나 읽지 못하면 read는 모름으로 보인다.
-export type ProblemTestLookup = (
-  sql: Pick<Sql, "get" | "all">,
-  problem: string,
-) => Result<ProblemTestFact[]>;
-export const ProblemTestPort: PortKey<ProblemTestLookup> = definePort<
-  ProblemTestLookup
->("problems.ProblemTests");

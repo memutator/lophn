@@ -149,7 +149,6 @@ export const reportProblemInputSchema = z.strictObject({
   details: z.json().optional(),
   invocation: invocationEvidenceInputSchema.nullable().optional(),
 }).refine(automaticBytes);
-export type ReportProblemIngress = z.infer<typeof reportProblemInputSchema>;
 export const observeExceptionInputSchema = exceptionObservationInputSchema;
 export type ObserveExceptionInput = z.infer<typeof observeExceptionInputSchema>;
 export const reportProblem = defineWorker({

@@ -6,7 +6,7 @@ import {
   seqSchema,
   sha256Schema,
 } from "../base/values.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
+import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { agentRoleSchema } from "./scope.ts";
@@ -21,14 +21,6 @@ const readErrors = [
   "forbidden",
   "not_found",
   "unavailable",
-] as const;
-
-const TRACE_CONTENT_KINDS = [
-  "message",
-  "model_input",
-  "model_output",
-  "tool_input",
-  "tool_output",
 ] as const;
 
 const traceTargetSchema = z.discriminatedUnion("kind", [
@@ -134,44 +126,6 @@ export const agentTraceRead = defineRead({
   errors: readErrors,
 });
 
-export const TRACE_EXPORT_FORMAT_VERSION = 1;
-
-const exportErrorSchema = z.strictObject({
-  code: z.enum(readErrors),
-  reference: nonempty.max(200),
-});
-
-export const agentTraceExportInputSchema = z.strictObject({
-  targets: z.array(traceTargetSchema).min(1).max(100),
-  format: z.literal("ndjson"),
-  format_version: z.literal(TRACE_EXPORT_FORMAT_VERSION),
-  destination: nonempty.max(1024),
-  content_kinds: z.array(z.enum(TRACE_CONTENT_KINDS)).max(5),
-}).refine(
-  (value) => new Set(value.content_kinds).size === value.content_kinds.length,
-  { message: "content kinds must be unique" },
-).refine(
-  (value) => !/^https?:\/\//i.test(value.destination),
-  { message: "export destination is a local path" },
-);
-
-export const agentTraceExportOutputSchema = z.object({
-  sent: count,
-  not_sent: count,
-  errors: z.array(exportErrorSchema),
-});
-
-// export는 업무 event가 없는 runtime 접수다. ledger command로 두지 않는다.
-export const agentTraceExport = defineCommand({
-  resource: "agent-traces",
-  method: "export",
-  name: "ExportAgentTrace",
-  input: agentTraceExportInputSchema,
-  output: agentTraceExportOutputSchema,
-  actors: ["user"],
-  errors: readErrors,
-});
-
 // TokenUsage·CallCost 정본은 model-call-values.ts다(ModelCall 기록과 같은 값).
 const CALL_COST_KINDS = COST_KINDS;
 const decimal = z.string().regex(/^(0|[1-9][0-9]{0,17})(\.[0-9]{1,6})?$/);
@@ -243,7 +197,6 @@ export const agentUsageRead = defineRead({
 
 export const TRACE_ROUTES = [
   agentTraceRead,
-  agentTraceExport,
   agentUsageRead,
 ] as const;
 

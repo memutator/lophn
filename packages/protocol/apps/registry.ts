@@ -43,7 +43,7 @@ import {
   appStopped,
   appUnavailable,
 } from "./runtime.ts";
-import { APP_GRANT_ROUTES, GRANT_EVENTS } from "./grants.ts";
+import { APP_GRANT_ROUTES } from "./grants.ts";
 import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
 import { ACTIVATION_ROUTES } from "./activation/mod.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
@@ -51,12 +51,6 @@ import {
   RELEASE_ROUTES,
   releaseActivated,
   releaseActivationFailed,
-  releaseActivationStarted,
-  releaseBackupRecorded,
-  releaseDataChanged,
-  releaseDataRestored,
-  releasePrepared,
-  releaseSuperseded,
 } from "./releases.ts";
 
 export const ROUTES = [
@@ -105,14 +99,7 @@ export const EVENTS = [
   appStarted,
   appStopped,
   appUnavailable,
-  ...GRANT_EVENTS,
   ...PACKAGE_EVENTS,
-  releasePrepared,
-  releaseActivationStarted,
-  releaseBackupRecorded,
-  releaseDataChanged,
-  releaseDataRestored,
   releaseActivated,
-  releaseSuperseded,
   releaseActivationFailed,
 ] as const;

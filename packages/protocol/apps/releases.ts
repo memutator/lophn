@@ -1,10 +1,9 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
+import { defineCommand } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
-import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
-import { preparedBlobSchema } from "../storage/blob.ts";
+import { idempotencyKeySchema } from "../base/envelope.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import {
   appIdSchema,
@@ -13,7 +12,6 @@ import {
   invocationIdSchema,
   releaseIdSchema,
 } from "./channel-values.ts";
-import { readyAttestationSchema } from "./runtime.ts";
 import { packageVersionNameSchema } from "./packages.ts";
 import { lossStepSchema } from "./activation/migration.ts";
 
@@ -237,7 +235,7 @@ const releasePrepareBundleInputSchema = z.strictObject({
   app: appIdSchema,
   commit: z.string().regex(/^[0-9a-f]{40}$/),
   request_key: commandKeySchema,
-  ticket_source: ticketSourceSchema.optional(),
+  ticket_source: ticketSourceSchema,
 });
 const releasePrepareBundleOutputSchema = z.object({
   request_key: commandKeySchema,
@@ -336,141 +334,6 @@ export const releasePrepare = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
-// activation 시작. release·approval·schema·grants를 다시 CAS한다.
-const releaseStartActivationInputSchema = z.strictObject({
-  release: releaseIdSchema,
-  approval: approvalIdSchema,
-  previous_release: releaseIdSchema.nullable(),
-  expected_grants_seq: z.number().int().nonnegative().max(
-    Number.MAX_SAFE_INTEGER,
-  ),
-  expected_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  key: idempotencyKeySchema,
-});
-const releaseStartActivationOutputSchema = z.object({
-  status: z.literal("activating"),
-  started_seq: z.string().refine((value) => value !== "0", {
-    message: "started_seq must be positive",
-  }),
-});
-export const releaseStartActivation = defineCommand({
-  resource: "releases",
-  method: "start_activation",
-  name: "release.start_activation",
-  input: releaseStartActivationInputSchema,
-  output: releaseStartActivationOutputSchema,
-  actors: ["machine", "user"],
-  errors: ["forbidden", "conflict", "invalid_input"],
-});
-
-// 복구 참조 확정. migration 전 보호 backup을 먼저 ledger에 확정한다.
-const releaseRecordBackupInputSchema = z.strictObject({
-  release: releaseIdSchema,
-  activation_seq: z.string().refine((value) => value !== "0", {
-    message: "activation_seq must be positive",
-  }),
-  backup_hash: sha256Schema,
-  // backup byte를 준비한 보호 blob이다. hash가 backup_hash와 같아야 하고 일반 blob 읽기가 없는 field로
-  // 등록된다(domain-model apps/data DataBackup).
-  blob: preparedBlobSchema,
-  data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-});
-const releaseRecordBackupOutputSchema = z.object({
-  accepted: z.literal(true),
-});
-export const releaseRecordBackup = defineCommand({
-  resource: "releases",
-  method: "record_backup",
-  name: "release.record_backup",
-  input: releaseRecordBackupInputSchema,
-  output: releaseRecordBackupOutputSchema,
-  actors: releaseRecordActors,
-  errors: ["conflict", "invalid_input", "unavailable"],
-});
-
-// migration 결과 확정. 성공 제출은 integrity_ok true만 받는다.
-const releaseRecordDataChangeInputSchema = z.strictObject({
-  result: dataResultSchema,
-});
-const releaseRecordDataChangeOutputSchema = z.object({
-  accepted: z.literal(true),
-});
-export const releaseRecordDataChange = defineCommand({
-  resource: "releases",
-  method: "record_data_change",
-  name: "release.record_data_change",
-  input: releaseRecordDataChangeInputSchema,
-  output: releaseRecordDataChangeOutputSchema,
-  actors: releaseRecordActors,
-  errors: ["conflict", "invalid_input", "unavailable"],
-});
-
-// 실패 복원 결과 확정.
-const releaseRecordDataRestoreInputSchema = z.strictObject({
-  result: dataResultSchema,
-  backup_hash: sha256Schema,
-});
-const releaseRecordDataRestoreOutputSchema = z.object({
-  accepted: z.literal(true),
-});
-export const releaseRecordDataRestore = defineCommand({
-  resource: "releases",
-  method: "record_data_restore",
-  name: "release.record_data_restore",
-  input: releaseRecordDataRestoreInputSchema,
-  output: releaseRecordDataRestoreOutputSchema,
-  actors: releaseRecordActors,
-  errors: ["conflict", "invalid_input", "unavailable"],
-});
-
-// 새 active 참조와 이전 superseded를 같은 transaction으로 확정한다.
-const releaseCompleteActivationInputSchema = z.strictObject({
-  release: releaseIdSchema,
-  started_seq: z.string().refine((value) => value !== "0", {
-    message: "started_seq must be positive",
-  }),
-  result: dataResultSchema,
-  attestation: readyAttestationSchema,
-});
-const releaseCompleteActivationOutputSchema = z.object({
-  status: z.literal("active"),
-  previous_release: releaseIdSchema.nullable(),
-});
-export const releaseCompleteActivation = defineCommand({
-  resource: "releases",
-  method: "complete_activation",
-  name: "release.complete_activation",
-  input: releaseCompleteActivationInputSchema,
-  output: releaseCompleteActivationOutputSchema,
-  actors: releaseRecordActors,
-  errors: ["conflict", "unavailable"],
-});
-
-// activation 실패. 실패 근거와 이전 활성 참조를 남긴다.
-const releaseFailActivationInputSchema = z.strictObject({
-  release: releaseIdSchema,
-  started_seq: z.string().refine((value) => value !== "0", {
-    message: "started_seq must be positive",
-  }),
-  failure: z.object({
-    code: z.string().min(1),
-    summary: z.string().min(1),
-  }),
-  invocation: invocationIdSchema.nullable().optional(),
-});
-const releaseFailActivationOutputSchema = z.object({
-  status: z.literal("failed"),
-});
-export const releaseFailActivation = defineCommand({
-  resource: "releases",
-  method: "fail_activation",
-  name: "release.fail_activation",
-  input: releaseFailActivationInputSchema,
-  output: releaseFailActivationOutputSchema,
-  actors: releaseRecordActors,
-  errors: ["conflict", "invalid_input"],
-});
-
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [
   "invalid_input",
@@ -489,139 +352,18 @@ export const releasesListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(RELEASE_LIST_MAX_COUNT).optional(),
 });
-export const releasesListOutputSchema = withReadCommon(z.object({
-  releases: z.array(releaseSchema),
-}));
-export const releasesList = defineRead({
-  resource: "releases",
-  method: "list",
-  name: "releases.list",
-  input: releasesListInputSchema,
-  output: releasesListOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-
 export const releasesGetInputSchema = z.strictObject({
   release: releaseIdSchema,
 });
-export const releasesGetOutputSchema = withReadCommon(z.object({
-  release: releaseSchema.nullable(),
-}));
-export const releasesGet = defineRead({
-  resource: "releases",
-  method: "get",
-  name: "releases.get",
-  input: releasesGetInputSchema,
-  output: releasesGetOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-
-// 이전 release와의 비교 열람. 사람이 activation 전에 확인한다.
-export const releasesCompareInputSchema = z.strictObject({
-  release: releaseIdSchema,
-  previous_release: releaseIdSchema.optional(),
-});
-export const releasesCompareOutputSchema = withReadCommon(z.object({
-  comparison: releaseComparisonSchema,
-}));
-export const releasesCompare = defineRead({
-  resource: "releases",
-  method: "compare",
-  name: "releases.compare",
-  input: releasesCompareInputSchema,
-  output: releasesCompareOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-
 export const RELEASE_ROUTES = [
   releasePrepareBundle,
   releasePreparation,
   releaseCancelPreparation,
   releasePrepare,
-  releaseStartActivation,
-  releaseRecordBackup,
-  releaseRecordDataChange,
-  releaseRecordDataRestore,
-  releaseCompleteActivation,
-  releaseFailActivation,
-  releasesList,
-  releasesGet,
-  releasesCompare,
 ] as const;
 
 const releaseSubject = releaseIdSchema;
 
-export const releasePrepared = defineEvent("ReleasePrepared", {
-  subject: releaseSubject,
-  payload: z.object({
-    app: appIdSchema,
-    number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    code_commit: z.string().regex(/^[0-9a-f]{40}$/),
-    bundle_hash: sha256Schema,
-    blueprint_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    data_changes: z.array(dataChangeSchema),
-    tests: z.array(z.string().regex(/^vrf_[0-7][0-9a-hjkmnp-tv-z]{25}$/)),
-    ticket_source: ticketSourceSchema.nullable(),
-    created_by: actorSchema,
-  }),
-});
-export const releaseActivationStarted = defineEvent(
-  "ReleaseActivationStarted",
-  {
-    subject: releaseSubject,
-    payload: z.object({
-      app: appIdSchema,
-      started_seq: z.string().refine((value) => value !== "0", {
-        message: "started_seq must be positive",
-      }),
-      previous_release: releaseIdSchema.nullable(),
-      approval: approvalIdSchema,
-      expected_grants_seq: z.number().int().nonnegative().max(
-        Number.MAX_SAFE_INTEGER,
-      ),
-      expected_schema: z.number().int().nonnegative().max(
-        Number.MAX_SAFE_INTEGER,
-      ),
-    }),
-  },
-);
-export const releaseBackupRecorded = defineEvent("ReleaseBackupRecorded", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    backup_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }),
-});
-export const releaseDataChanged = defineEvent("ReleaseDataChanged", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    invocation: invocationIdSchema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    integrity_ok: z.boolean(),
-  }),
-});
-export const releaseDataRestored = defineEvent("ReleaseDataRestored", {
-  subject: releaseSubject,
-  payload: z.object({
-    activation_seq: z.string().refine((value) => value !== "0", {
-      message: "activation_seq must be positive",
-    }),
-    invocation: invocationIdSchema.nullable(),
-    backup_hash: sha256Schema,
-    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-    integrity_ok: z.boolean(),
-  }),
-});
 export const releaseActivated = defineEvent("ReleaseActivated", {
   subject: releaseSubject,
   payload: z.object({
@@ -630,15 +372,6 @@ export const releaseActivated = defineEvent("ReleaseActivated", {
     }),
     previous_release: releaseIdSchema.nullable(),
     data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  }),
-});
-export const releaseSuperseded = defineEvent("ReleaseSuperseded", {
-  subject: releaseSubject,
-  payload: z.object({
-    release: releaseIdSchema,
-    started_seq: z.string().refine((value) => value !== "0", {
-      message: "started_seq must be positive",
-    }),
   }),
 });
 export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
@@ -654,14 +387,3 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
     invocation: invocationIdSchema.nullable().optional(),
   }),
 });
-
-export const RELEASE_EVENTS = [
-  releasePrepared,
-  releaseActivationStarted,
-  releaseBackupRecorded,
-  releaseDataChanged,
-  releaseDataRestored,
-  releaseActivated,
-  releaseSuperseded,
-  releaseActivationFailed,
-] as const;

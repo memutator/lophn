@@ -21,7 +21,6 @@ import {
   reportRecorded,
 } from "./reports.ts";
 import { snapshotRecorded } from "./snapshots.ts";
-import { submitFeedback } from "./feedback.ts";
 import {
   getProblem,
   linkProblemInterpretation,
@@ -69,7 +68,6 @@ export const ROUTES = [
   reportProblem,
   observeException,
   observeViewError,
-  submitFeedback,
   recordReport,
   requestTest,
   recordVerification,

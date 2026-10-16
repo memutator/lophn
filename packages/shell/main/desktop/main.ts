@@ -22,8 +22,8 @@ const add = <T extends { stop(): void }>(area: T): T => {
 
 add(core.register(ctx));
 const views = add(appViews.register(ctx));
-const calls = add(appCalls.register(ctx, views));
-add(feedback.register(ctx, views, calls));
+add(appCalls.register(ctx, views));
+add(feedback.register(ctx, views));
 add(annotate.register(ctx, views));
 add(secretInput.register(ctx));
 const terminals = add(coding.register(ctx));

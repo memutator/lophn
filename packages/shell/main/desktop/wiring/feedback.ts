@@ -10,14 +10,12 @@ import {
   registerFeedbackIpc,
   removeFeedbackIpc,
 } from "../../app-frame/feedback.ts";
-import type { AppCalls } from "./app-calls.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 export function register(
   ctx: ShellContext,
   views: AppViews,
-  _calls: AppCalls,
 ): Registered {
   const { core, overlays, windows, windowRef, windowOfRef } = ctx;
   const feedback = createFeedback({

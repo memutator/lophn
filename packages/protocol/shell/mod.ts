@@ -101,30 +101,14 @@ export {
 export {
   FEEDBACK_IPC,
   FEEDBACK_LIMITS,
-  FEEDBACK_PUSH,
-  FEEDBACK_SCREENSHOT_STATES,
   type FeedbackBegin,
   feedbackBeginSchema,
   type FeedbackCancel,
   feedbackCancelSchema,
   type FeedbackIpc,
   feedbackOpenIssueSchema,
-  type FeedbackPreview,
-  feedbackPreviewSchema,
-  type FeedbackSubmit,
-  feedbackSubmitSchema,
   type LophnShellFeedback,
 } from "./feedback.ts";
-export {
-  SCREEN_TEST_FD,
-  SCREEN_TEST_FLAG,
-  SCREEN_TEST_HOST,
-  type ScreenTestInput,
-  screenTestInputSchema,
-  screenTestLine,
-  type ScreenTestObservation,
-  screenTestObservationSchema,
-} from "./screen-test.ts";
 
 // shell은 ledger command·event를 내놓지 않는다. 현재 보기 relay만 core 메모리 route다.
 export const ROUTES = WORKSPACE_ROUTES;

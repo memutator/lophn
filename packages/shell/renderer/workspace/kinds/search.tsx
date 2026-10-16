@@ -238,6 +238,9 @@ export const searchKind: TabKindDef = {
           }), { later: true })}
         onOpenContext={(context) => openContext(host, context)}
         onOpenDocument={contexts.openPath}
+        onTitle={(title) =>
+          host.patchTab(tab.key, (current) =>
+            current.title === title ? {} : { title })}
       />
     );
   },

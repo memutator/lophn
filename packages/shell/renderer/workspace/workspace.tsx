@@ -55,6 +55,7 @@ import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { layoutHint } from "./view-hint.ts";
 import type { AgentViewSourceFactory } from "../conversation/agent-source.ts";
+import type { ContextChipView } from "../conversation/composer/types.ts";
 import type {
   AgentsSlice,
   AgentViewSlice,
@@ -455,11 +456,14 @@ export function Workspace(props: WorkspaceProps) {
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
-  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
-  const openRole = (role: "lophn" | "project_manager"): boolean => {
+  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. chips가 있으면 첫 말 전에 붙인다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
+  const openRole = (
+    role: "lophn" | "project_manager",
+    chips?: readonly ContextChipView[],
+  ): boolean => {
     const row = agentByRole(sidebarAgents.agents, role);
     if (agentViewSource === undefined || row === undefined) return false;
-    openAgent(host, { agent: row.assignment, name: row.name });
+    openAgent(host, { agent: row.assignment, name: row.name, chips });
     return true;
   };
 
@@ -470,8 +474,8 @@ export function Workspace(props: WorkspaceProps) {
     refresh: readContexts,
     openPath,
     openSearch: (state) => openSearchFor(host, state),
-    askProjectManager: () => {
-      openRole("project_manager");
+    askProjectManager: (chips) => {
+      openRole("project_manager", chips);
     },
   };
 

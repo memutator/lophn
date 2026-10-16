@@ -21,7 +21,7 @@ export interface ContextTabBodyProps {
   readonly onOpenDocument: OpenDocument;
   /** Search 하위 탭에서 고른 검색이나 보기를 그 Search 탭에서 연다. */
   readonly onOpenSearch: (state: SearchTabState) => void;
-  /** Violations의 [Send to Project Manager]와 [Send all …]: 그 project의 Project Manager를 연다. */
+  /** Violations의 [Send to Project Manager]와 [Send all …]: 그 위반들을 chip으로 싣고 Project Manager를 연다. */
   readonly onSendViolations: (violations: readonly ViolationItem[]) => void;
   /** 읽은 context 이름. 복원한 탭이 이름을 얻는다. */
   readonly onTitle?: (title: string) => void;

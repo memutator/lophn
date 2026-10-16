@@ -19,17 +19,17 @@ export function termKey(term: string): string {
 }
 
 // 쓰기 주체가 이 항목을 고치거나 지울 수 있는가. mayWrite를 먼저 통과한 뒤에 쓴다.
-// 사람은 어느 항목이든, Project Manager는 agent가 정한 항목만이다.
+// 사람은 어느 항목이든, Project Manager는 자기가 정한 항목만이다.
 export function mayChange(
   actor: ContextApiActor,
   entry: GlossaryEntry,
 ): boolean {
-  return actor.kind === "user" || entry.set_by === "agent";
+  return actor.kind === "user" || entry.set_by === "project_manager";
 }
 
-// 뜻을 정한 쪽이다. 사람이면 user, 그 밖의 쓰기 주체는 agent이다.
-export function setterOf(actor: ContextApiActor): "user" | "agent" {
-  return actor.kind === "user" ? "user" : "agent";
+// 뜻을 정한 쪽이다. 사람이면 user, 그 밖의 쓰기 주체는 project_manager이다.
+export function setterOf(actor: ContextApiActor): "user" | "project_manager" {
+  return actor.kind === "user" ? "user" : "project_manager";
 }
 
 export function entriesIn(

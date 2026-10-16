@@ -251,7 +251,7 @@ export const contextsLedgerSchemaSteps: readonly SchemaStep[] = [{
         CHECK (${trimmed("term")} AND length(term) BETWEEN 1 AND 80),
       meaning TEXT NOT NULL
         CHECK (${trimmed("meaning")} AND length(meaning) BETWEEN 1 AND 1000),
-      set_by TEXT NOT NULL CHECK (set_by IN ('user', 'agent')),
+      set_by TEXT NOT NULL CHECK (set_by IN ('user', 'project_manager')),
       updated_at TEXT NOT NULL CHECK (${at("updated_at")}),
       revision TEXT NOT NULL CHECK (${SEQ})
     ) STRICT;

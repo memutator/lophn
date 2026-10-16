@@ -3,6 +3,7 @@
 import { workspaceIcons } from "../../icons/mod.ts";
 
 import { ContextTabBody } from "../contexts/context-tab-body.tsx";
+import { violationChips } from "../contexts/context-violations-model.ts";
 import type { SubTab } from "../contexts/shared.ts";
 import {
   CONTEXT_ID,
@@ -85,6 +86,7 @@ export const contextKind: TabKindDef = {
     const contexts = host.contexts;
     const context = contextOf(tab);
     if (contexts === null || context === null) return null;
+    const label = contexts.titleOf(context) ?? context;
     return (
       <ContextTabBody
         key={tab.key}
@@ -97,7 +99,8 @@ export const contextKind: TabKindDef = {
           }))}
         onOpenDocument={contexts.openPath}
         onOpenSearch={contexts.openSearch}
-        onSendViolations={() => contexts.askProjectManager()}
+        onSendViolations={(violations) =>
+          contexts.askProjectManager(violationChips(label, violations))}
         onTitle={(title) =>
           host.patchTab(tab.key, (current) =>
             current.title === title ? {} : { title })}

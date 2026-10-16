@@ -10,6 +10,7 @@ import type { AgentsSource } from "../agents/source.ts";
 import type { AgentViewSourceFactory } from "../../conversation/agent-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ContextLinks } from "../../conversation/file-links.tsx";
+import type { ContextChipView } from "../../conversation/composer/types.ts";
 import type { ReadPosition } from "./kind.ts";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -36,8 +37,8 @@ export interface ContextsSlice {
   openSearch(state: SearchTabState): void;
   /** 검색 결과·Overview 예시의 도메인 객체를 그 파일 탭으로 연다. 상대 경로는 연결 폴더 기준이다. */
   openPath(path: string): void;
-  /** Project Manager의 새 Agent 탭을 연다. */
-  askProjectManager(): void;
+  /** Project Manager의 새 Agent 탭을 연다. chips는 넘길 위반 근거이고, 없으면 빈 탭이다. */
+  askProjectManager(chips?: readonly ContextChipView[]): void;
 }
 
 /** Agents 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.agents는 null이다. */

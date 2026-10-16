@@ -230,7 +230,7 @@ export const GLOSSARY_MEANING_MAX = 1000;
 export const GLOSSARY_ENTRY_MAX = 200;
 export const glossaryTermSchema = trimmedText(1, GLOSSARY_TERM_MAX);
 export const glossaryMeaningSchema = trimmedText(1, GLOSSARY_MEANING_MAX);
-export const GLOSSARY_SET_BY = ["user", "agent"] as const;
+export const GLOSSARY_SET_BY = ["user", "project_manager"] as const;
 export const glossaryEntrySchema = z.strictObject({
   id: glossaryEntryIdSchema,
   context: ctxIdSchema,

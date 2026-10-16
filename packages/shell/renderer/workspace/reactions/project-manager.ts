@@ -2,6 +2,7 @@
 // 그 session의 Agent 탭을 고르고, 없으면 위반을 context chip으로 붙인 새 session 탭을 연다. 아무것도 보내지 않는다.
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
+import { violationChips } from "../contexts/context-violations-model.ts";
 import { openAgent } from "../kinds/agent.tsx";
 import type { TabHost } from "../kinds/host.ts";
 import { agentByRole } from "../sidebar/panel-sessions.ts";
@@ -30,7 +31,8 @@ function openedSession(
   return found.length === 0 ? null : found[found.length - 1].session;
 }
 
-async function violationChips(
+/** toast가 가리키는 context의 위반 전부. 읽지 못하거나 없으면 context 하나만 붙인다. */
+async function contextChips(
   host: TabHost,
   context: string,
   check: string,
@@ -40,11 +42,7 @@ async function violationChips(
   if (read === undefined || !read.ok || read.value.violations.length === 0) {
     return [{ id: check, label }];
   }
-  return read.value.violations.map((item, index) => ({
-    id: `${check}:${index}`,
-    label,
-    violation: { file: item.path, rule: item.rule ?? item.message },
-  }));
+  return violationChips(label, read.value.violations);
 }
 
 /** Project Manager를 열 수 있으면 true. 새 session 탭은 위반을 읽은 뒤에 연다. */
@@ -59,7 +57,7 @@ export function openProjectManager(
     openAgent(env.host(), { agent: row.assignment, name: row.name, session });
     return true;
   }
-  void violationChips(env.host(), violation.context, violation.check).then(
+  void contextChips(env.host(), violation.context, violation.check).then(
     (chips) =>
       openAgent(env.host(), { agent: row.assignment, name: row.name, chips }),
   );

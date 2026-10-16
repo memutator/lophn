@@ -1,5 +1,5 @@
 // context API command: glossary.set·remove.
-// 사람은 어느 항목이든, 그 project의 Project Manager는 agent가 정한 항목만 고치거나 지운다. 검사 순서는
+// 사람은 어느 항목이든, Project Manager는 자기가 정한 항목만 고치거나 지운다. 검사 순서는
 // 입력 모양, 대상 항목, 권한, base_revision CAS, 용어 유일과 항목 수 상한 순이다. 같은 key의 되풀이는
 // withReplay가 처음 결과를 돌려준다.
 import { ok, type Result } from "../../../../base/mod.ts";

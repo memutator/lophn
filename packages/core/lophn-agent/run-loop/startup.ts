@@ -14,8 +14,6 @@ export type Startup = {
   apiPort: number;
   // hello의 machine credential. 값은 여기만 있고 진단에는 나가지 않는다.
   credential: string;
-  // 옛 events/list head 자리다. Bus 구독으로 바뀔 때까지 provider watch가 읽는 값이고 늘 "0"이다.
-  eventCursor: string;
 };
 
 export type StartupInput = {
@@ -41,6 +39,5 @@ export function startRuntime(input: StartupInput): Result<Startup> {
     coreEpoch: hello.core_epoch,
     apiPort: hello.api_port,
     credential: hello.credential,
-    eventCursor: "0",
   });
 }

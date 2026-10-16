@@ -20,7 +20,7 @@ export type ResponsesItem = {
   call_id?: string;
   name?: string;
   arguments?: string;
-  output?: string;
+  output?: string | unknown[];
   summary?: unknown;
   encrypted_content?: string;
 };
@@ -38,6 +38,14 @@ export const RESPONSES_REQUEST_FIELDS = {
   store: false,
   stream: true,
 } as const;
+
+// function_call_output.output 배열에 싣는 이미지 item이다.
+export function imageItem(mediaType: string, dataBase64: string): unknown {
+  return {
+    type: "input_image",
+    image_url: `data:${mediaType};base64,${dataBase64}`,
+  };
+}
 
 // function_call_output의 call_id만 모은다. function_call 자체의 call_id는 짝
 // 근거가 아니다(짝 없는 call이 스스로를 답으로 세면 안 된다).

@@ -1,11 +1,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { eventsList } from "../../../protocol/events/mod.ts";
+import { providerList } from "../../../protocol/lophn-agent/mod.ts";
 import type { CoreRead } from "../run-loop/mod.ts";
 
 // Disconnect한 provider로 진행 중인 run을 멈추게 하는 눈이다.
-// core의 ProviderDisconnected event를 cursor 뒤로 읽어 provider마다 회수를 알린다. runtime은 ledger를 읽기만
-// 하므로 event가 유일한 신호이고, 늦게 읽어도 같은 event를 두 번 처리하지 않도록 훑은 위치를 옮긴다. 읽지
-// 못하면 위치를 옮기지 않아 다음 훑기가 같은 event를 이어서 처리한다.
+// provider 목록을 읽어 앞서 있던 provider가 사라졌으면 그 provider의 회수를 알린다. runtime은
+// ledger를 읽기만 하므로 목록이 유일한 신호이고, 읽지 못하면 아는 목록을 바꾸지 않아 다음 훑기가
+// 같은 차이를 이어서 처리한다. 처음 훑은 목록은 기준일 뿐 회수하지 않는다.
 
 export type ProviderWatch = {
   poll(): Promise<Result<void>>;
@@ -13,35 +13,40 @@ export type ProviderWatch = {
 
 export function createProviderWatch(deps: {
   read: CoreRead;
-  // 기동 때 event head다. 그 앞의 Disconnect는 복구의 사용 가능 확인이 본다.
-  cursor: string;
   revokeProvider(provider: string): Promise<void>;
 }): ProviderWatch {
-  let cursor = deps.cursor;
+  let known: Set<string> | undefined;
   let polling: Promise<Result<void>> | undefined;
 
-  async function scan(): Promise<Result<void>> {
+  async function listAll(): Promise<Result<Set<string>>> {
+    const ids = new Set<string>();
+    let cursor: string | undefined;
     for (;;) {
-      const listed = await deps.read("/v1/events/list", {
-        after_seq: cursor,
-        types: ["ProviderDisconnected"],
-      });
+      const listed = await deps.read(
+        "/v1/providers/list",
+        cursor === undefined ? {} : { cursor },
+      );
       if (!listed.ok) return listed;
-      const parsed = eventsList.output.safeParse(listed.value);
+      const parsed = providerList.output.safeParse(listed.value);
       if (!parsed.success) {
-        return err({
-          code: "unavailable",
-          message: "unexpected read shape",
-        });
+        return err({ code: "unavailable", message: "unexpected read shape" });
       }
-      for (const event of parsed.data.events) {
-        if (event.subject !== null) await deps.revokeProvider(event.subject);
-      }
-      const advanced = parsed.data.scanned_through_seq;
-      if (BigInt(advanced) <= BigInt(cursor)) return ok(undefined);
-      cursor = advanced;
-      if (BigInt(cursor) >= BigInt(parsed.data.head_seq)) return ok(undefined);
+      for (const provider of parsed.data.providers) ids.add(provider.id);
+      if (parsed.data.next_cursor === null) return ok(ids);
+      cursor = parsed.data.next_cursor;
     }
+  }
+
+  async function scan(): Promise<Result<void>> {
+    const current = await listAll();
+    if (!current.ok) return current;
+    const before = known;
+    known = current.value;
+    if (before === undefined) return ok(undefined);
+    for (const provider of before) {
+      if (!current.value.has(provider)) await deps.revokeProvider(provider);
+    }
+    return ok(undefined);
   }
 
   return {

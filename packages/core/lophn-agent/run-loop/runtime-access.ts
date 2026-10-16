@@ -37,8 +37,9 @@ import {
   messageBody,
   messagesList,
   modelCallList,
-  modelDefaultsRead,
+  modelDefaultRead,
   placeAgentSettingsRead,
+  providerList,
   providerRead,
   questionRead,
   questionText,
@@ -82,12 +83,13 @@ import { settingsGet } from "../../../protocol/config/mod.ts";
 
 export const RUNTIME_MACHINE_ROUTES = [
   eventsList,
+  providerList,
   turnList,
   turnRead,
   agentsRead,
   placeAgentSettingsRead,
   providerRead,
-  modelDefaultsRead,
+  modelDefaultRead,
   agentSessionRead,
   // 사람이 요청한 Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   sessionCompactRequests,

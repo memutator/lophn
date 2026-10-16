@@ -1,9 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   finishModelCall,
-  modelCallFinished,
-  modelCallStarted,
-  modelCallSupplemented,
   registerPreparedBlob,
   RUN_BLOB_PURPOSES,
   startModelCall,
@@ -22,7 +19,7 @@ import {
 } from "../../../protocol/storage/mod.ts";
 import { assertCall, callFromRow, type CallRow } from "./model.ts";
 
-// 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
+// 등록 순서: 입력 검사 → CAS 비교 → 쓰기. 짧은 transaction 하나. event는 쓰지 않는다.
 // executor는 processed_through_seq만 검사하므로 state_seq 비교 기준은
 // handler가 현재 행을 읽어 직접 본다(provider checkRevision와 같은 방식).
 // 오류 본문은 어디에도 저장하지 않는다. credential 값은 참조만 남는다.
@@ -48,6 +45,15 @@ export const modelCallBodyFields: readonly BlobFieldDefinition[] = [
     general_read: false,
   }),
 ];
+
+// ledger 위치. 시작·끝·보완의 기록 위치가 이 값이다.
+function ledgerHead(tx: Tx): number {
+  const row = tx.sql.get(
+    "select coalesce(max(seq), 0) as head from events",
+    [],
+  );
+  return Math.max(1, row === undefined ? 1 : Number(row["head"]));
+}
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
@@ -103,16 +109,21 @@ function checkRevision(
 
 // 시작 기록 저장은 같은 transaction이다. 저장이 실패하면 command 전체가
 // rollback되고 전송도 없다.
-function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
+function storeStart(
+  tx: Tx,
+  call: ModelCallRecord,
+  stateSeq: number,
+  startedSeq: number,
+): void {
   tx.sql.run(
     `insert into model_calls (
        id, turn, session, model_use, agent_hash, purpose,
        attempt_kind, attempt_order, retry_of,
        provider, credential_revision, model_name, protocol,
-       call_model, input, context_basis, output, state, state_seq,
+       call_model, input, context_basis, output, state, state_seq, started_seq,
        started_at, finished_at, duration_ms, first_output_ms, outcome,
        usage, cost
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       call.id,
       call.turn,
@@ -133,6 +144,7 @@ function storeStart(tx: Tx, call: ModelCallRecord, stateSeq: number): void {
       call.output,
       call.state,
       stateSeq,
+      startedSeq,
       call.started_at,
       call.finished_at,
       call.duration_ms,
@@ -204,18 +216,9 @@ export function createUsageCommands(deps: UsageDeps = {}): {
             return conflict("model call attempt already recorded");
           }
         }
-        const seq = tx.emit(modelCallStarted, call.value.id, {
-          turn: call.value.turn,
-          session: call.value.session,
-          model_use: call.value.model_use,
-          purpose: call.value.purpose,
-          model: call.value.model,
-          input: call.value.input,
-          context_basis: call.value.context_basis,
-        });
-        // 호출자가 보낸 CAS 기준 state_seq를 저장한다. emit seq는 event 순번이고
-        // 기록의 판 순번과는 다르다(compare가 같은 값을 다시 보낼 수 있어야 한다).
-        storeStart(tx, call.value, Number(input.state_seq));
+        const seq = ledgerHead(tx);
+        // 호출자가 보낸 CAS 기준 state_seq를 저장한다. started_seq는 시작한 ledger 위치다.
+        storeStart(tx, call.value, Number(input.state_seq), seq);
         // 준비한 input·basis blob의 영구 참조는 시작 기록과 같은 transaction이다.
         if (input.blob_sizes !== undefined) {
           for (
@@ -241,7 +244,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
               hash,
               size,
               purpose,
-              seq,
+              seq: String(seq),
             });
             if (!registered.ok) return registered;
           }
@@ -272,14 +275,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
           return conflict("model call was already finished");
         }
         const finishedAt = tx.now();
-        const seq = tx.emit(modelCallFinished, input.call, {
-          outcome: input.outcome,
-          output: input.output,
-          usage: input.usage,
-          cost: input.cost,
-          duration_ms: input.duration_ms,
-          first_output_ms: input.first_output_ms,
-        });
+        const seq = ledgerHead(tx);
         if (input.output_size !== undefined && input.output !== null) {
           const registered = registerPreparedBlob(tx, ctx, {
             owner_kind: "model_call",
@@ -288,7 +284,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
             hash: input.output,
             size: input.output_size,
             purpose: RUN_BLOB_PURPOSES.model_call_output,
-            seq,
+            seq: String(seq),
           });
           if (!registered.ok) return registered;
         }
@@ -313,7 +309,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
           call: callFromRow(current.value, {
             output: input.output,
             state: "finished",
-            state_seq: seq,
+            state_seq: String(seq),
             finished_at: finishedAt,
             duration_ms: input.duration_ms,
             first_output_ms: input.first_output_ms,
@@ -347,16 +343,9 @@ export function createUsageCommands(deps: UsageDeps = {}): {
           return conflict("supplement key already recorded");
         }
         const at = tx.now();
-        // 세 시점 가격 판은 call 행에 남아 있다. previous_basis는 확인 시각이
-        // 아니라 그 판의 revision이다(sha256은 아니지만 event payload는 열
-        // 검사가 이미 본다). 판이 없으면 null이다.
-        const seq = tx.emit(modelCallSupplemented, input.call, {
-          supplement_key: input.supplement_key,
-          previous_basis: null,
-        });
         tx.sql.run(
           `insert into model_call_supplements (
-             call, supplement_key, usage, cost, outcome, basis, event_seq, at
+             call, supplement_key, usage, cost, outcome, basis, seq, at
            ) values (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             input.call,
@@ -365,7 +354,7 @@ export function createUsageCommands(deps: UsageDeps = {}): {
             input.cost === null ? null : JSON.stringify(input.cost),
             input.outcome === null ? null : JSON.stringify(input.outcome),
             input.basis,
-            Number(seq),
+            ledgerHead(tx),
             at,
           ],
         );

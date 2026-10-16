@@ -123,7 +123,7 @@ import {
   questionSchemaSteps,
   questionTextRead,
 } from "./tools/questions/mod.ts";
-import { createTraceReads, traceExportCommand } from "./observability/mod.ts";
+import { createTraceReads } from "./observability/mod.ts";
 import {
   createRevertCommands,
   createRevertReads,
@@ -456,9 +456,9 @@ const revertCommands = createRevertCommands(revertDeps);
 // core의 route 등록이고 core에서는 실행되지 않는다.
 const revertReads = createRevertReads(revertDeps);
 
-// run·session·독립 호출의 trace 조회와 export(concern observability). trace는 저장하지 않고
+// run·session·독립 호출의 trace 조회(concern observability). trace는 저장하지 않고
 // 조회 때 run·event·ModelCall·ToolCall·message 참조에서 조립한다. 쓰는 표가 없어 command·schema
-// step이 없다. export는 ledger event가 없는 runtime 접수라 writer queue 앞 처리기가 실행한다.
+// step이 없다.
 const traceReads = createTraceReads();
 
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
@@ -699,7 +699,7 @@ export function agentLookups(
       mcpToolsOf(
         registryOf()?.mcpServers(place) ?? registeredMcpServers(sql),
       ),
-    // Workspace 층: 역할별 기본 model(agent_model_defaults의 role slot). 기본 권한 설정은 아직 없어
+    // 전역 층: 전역 기본 model 하나를 모든 role에 준다. 기본 권한 설정은 아직 없어
     // 권한 층은 비어 있다.
     workspace: () => ({ models: loadWorkspaceModels(sql) }),
   };
@@ -859,7 +859,8 @@ export const lophnAgentDefinitions = {
     commands.beginLogin,
     commands.completeLogin,
     commands.cancelLogin,
-    modelCommands.changeDefaults,
+    modelCommands.changeDefault,
+    modelCommands.changeProject,
     modelCommands.changeFavorites,
     usage.start,
     usage.finish,
@@ -909,12 +910,12 @@ export const lophnAgentDefinitions = {
     revertCommands.checkpoint,
     revertCommands.finish,
     revertCommands.amend,
-    traceExportCommand,
   ],
   reads: [
     reads.read,
     reads.list,
-    modelReads.defaults,
+    modelReads.modelDefault,
+    modelReads.projectModel,
     modelReads.favorites,
     modelReads.catalog,
     usageReads.read,
@@ -1107,7 +1108,8 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       reads.read,
       reads.list,
-      modelReads.defaults,
+      modelReads.modelDefault,
+      modelReads.projectModel,
       modelReads.favorites,
       modelReads.catalog,
       usageReads.read,

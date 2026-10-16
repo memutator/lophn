@@ -1,93 +1,79 @@
 import {
   AGENT_ROLES,
   type AgentSettings,
-  MODEL_DEFAULT_SLOTS,
   type ModelChoice,
-  type ModelDefaults,
   type ModelFavorites,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
-// ledger 표에서 기본값과 즐겨찾기를 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
+// ledger 표에서 model 선택과 즐겨찾기를 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
 
-function choiceOf(
-  row: { provider: unknown; model_name: unknown; option_values: unknown },
-): ModelChoice | null {
-  if (row.provider === null || row.model_name === null) return null;
+export const GLOBAL_SCOPE = "global";
+
+// scope는 'global'(전역 기본)이나 project id다. 줄이 없으면 null이다.
+export function loadChoice(sql: Query, scope: string): ModelChoice | null {
+  const row = sql.get(
+    "select provider, model_name, option_values from model_choices where scope = ?",
+    [scope],
+  );
+  if (row === undefined) return null;
   return {
-    provider: String(row.provider),
-    model_name: String(row.model_name),
-    option_values: JSON.parse(String(row.option_values)) as Record<
+    provider: String(row["provider"]),
+    model_name: String(row["model_name"]),
+    option_values: JSON.parse(String(row["option_values"])) as Record<
       string,
       string
     >,
   };
 }
 
-// 처음 값은 모든 slot이 null이고 seq는 "0"이다. 줄이 있는 slot 가운데 가장 큰 seq가 현재 seq다.
-export function loadDefaults(sql: Query): ModelDefaults {
-  const defaults: ModelDefaults = {
-    lophn: null,
-    project_manager: null,
-    app_engineer: null,
-    operator: null,
-    summaries: null,
-    settings_seq: "0",
-  };
-  const rows = sql.all(
-    "select slot, provider, model_name, option_values, settings_seq from agent_model_defaults",
-    [],
-  );
-  for (const row of rows) {
-    const slot = String(row["slot"]);
-    if ((MODEL_DEFAULT_SLOTS as readonly string[]).includes(slot)) {
-      defaults[slot as (typeof MODEL_DEFAULT_SLOTS)[number]] = choiceOf({
-        provider: row["provider"],
-        model_name: row["model_name"],
-        option_values: row["option_values"],
-      });
-    }
-    const seq = String(row["settings_seq"]);
-    if (BigInt(seq) > BigInt(defaults.settings_seq)) {
-      defaults.settings_seq = seq;
-    }
+export function saveChoice(
+  sql: Pick<Sql, "run">,
+  scope: string,
+  choice: ModelChoice | null,
+): void {
+  if (choice === null) {
+    sql.run("delete from model_choices where scope = ?", [scope]);
+    return;
   }
-  return defaults;
+  sql.run(
+    `insert into model_choices (scope, provider, model_name, option_values)
+     values (?, ?, ?, ?)
+     on conflict (scope) do update set
+       provider = excluded.provider,
+       model_name = excluded.model_name,
+       option_values = excluded.option_values`,
+    [
+      scope,
+      choice.provider,
+      choice.model_name,
+      JSON.stringify(choice.option_values),
+    ],
+  );
 }
 
-// agent의 전역 층이 쓰는 값이다: 역할 slot에 고른 선택만 남기고 비운 slot과
-// 요약용 slot은 뺀다.
-export function workspaceModels(
-  defaults: ModelDefaults,
+// 옛 agent 정의가 역할별 model 칸을 읽는 동안 쓰는 모양이다. 전역 기본 하나를 모든 role에 준다.
+export function loadWorkspaceModels(
+  sql: Query,
 ): NonNullable<AgentSettings["models"]> {
+  const choice = loadChoice(sql, GLOBAL_SCOPE);
   const models: NonNullable<AgentSettings["models"]> = {};
-  for (const role of AGENT_ROLES) {
-    // 옛 role 이름 context_engineer가 slot project_manager를 읽는다.
-    const choice =
-      defaults[role === "context_engineer" ? "project_manager" : role];
-    if (choice !== null) models[role] = choice;
+  if (choice !== null) {
+    for (const role of AGENT_ROLES) {
+      models[role] = choice;
+    }
   }
   return models;
 }
 
-export function loadWorkspaceModels(
-  sql: Query,
-): NonNullable<AgentSettings["models"]> {
-  return workspaceModels(loadDefaults(sql));
-}
-
-// 즐겨찾기의 현재 seq는 마지막 ModelFavoritesChanged event의 seq다. 목록을 비워도 앞으로 간다.
 export function loadFavorites(sql: Query): ModelFavorites {
   const rows = sql.all(
     "select provider, model_name from model_favorites order by rank",
     [],
   );
-  const seq = sql.get(
-    "select coalesce(max(seq), 0) as seq from events where type = 'ModelFavoritesChanged'",
-    [],
-  );
+  const seq = sql.get("select seq from model_favorites_seq", []);
   return {
     items: rows.map((row) => ({
       provider: String(row["provider"]),

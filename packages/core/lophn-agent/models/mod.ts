@@ -45,7 +45,7 @@ export {
 export { modelSchemaSteps } from "./schema.ts";
 export { createModelCommands, type ModelCommandDeps } from "./commands.ts";
 export { createModelReads } from "./reads.ts";
-export { loadWorkspaceModels, workspaceModels } from "./store.ts";
+export { loadWorkspaceModels } from "./store.ts";
 export { nonTextTokenBound, textTokenUpperBound } from "./token-bound.ts";
 export {
   type NamedLimits,

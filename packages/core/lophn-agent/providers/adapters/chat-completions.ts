@@ -32,6 +32,14 @@ export type ChatTool = {
 // stream_options.include_usage는 고정이다(조사 문서 797–1002).
 export const STREAM_OPTIONS = { include_usage: true } as const;
 
+// 이미지는 tool message에 실을 수 없어 뒤따르는 user message의 content part로 보낸다.
+export function imagePart(mediaType: string, dataBase64: string): unknown {
+  return {
+    type: "image_url",
+    image_url: { url: `data:${mediaType};base64,${dataBase64}` },
+  };
+}
+
 // 답을 기다리는 tool_call_id만 모은다. tool 메시지가 참조하는 id가 답의 근거다.
 // assistant tool_calls의 id는 스스로를 답으로 세면 안 되므로 근거가 아니다.
 function collectToolCallIds(messages: readonly unknown[]): Set<string> {

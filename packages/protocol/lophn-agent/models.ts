@@ -434,9 +434,41 @@ export const modelDefaultChange = defineCommand({
   ],
 });
 
+// project 층 model. 처음은 null이고 null이면 전역 기본을 따른다.
+export const projectModelRead = defineRead({
+  resource: "project-model",
+  method: "read",
+  name: "ReadProjectModel",
+  input: z.strictObject({ project: idSchema("prj") }),
+  output: withReadCommon(z.object({ model: modelDefaultOutputSchema })),
+  actors: readActors,
+  errors: [...readErrors, "not_found"],
+});
+
+export const projectModelChange = defineCommand({
+  resource: "project-model",
+  method: "change",
+  name: "ChangeProjectModel",
+  input: z.strictObject({
+    project: idSchema("prj"),
+    model: modelDefaultSchema,
+  }),
+  output: z.object({ model: modelDefaultOutputSchema }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
 export const MODEL_ROUTES = [
   modelDefaultRead,
   modelDefaultChange,
+  projectModelRead,
+  projectModelChange,
   changeModelDefaults,
   modelDefaultsRead,
   changeModelFavorites,

@@ -169,20 +169,24 @@ export function createModelResolver(deps: ModelResolverDeps) {
       at: formatAt,
     });
     const requestPatch = limits.request_patch;
+    const images = limits.input_media.includes("image");
     const pack = provider.protocol === "anthropic-messages"
       ? anthropicPacker({
         model: limits.sent_model_name,
+        images,
         maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
         requestPatch,
       })
       : provider.protocol === "openai-responses"
       ? responsesPacker({
         model: limits.sent_model_name,
+        images,
         maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
         requestPatch,
       })
       : chatPacker({
         model: limits.sent_model_name,
+        images,
         maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
         provider: provider.definition.key,
         requestPatch,
@@ -213,6 +217,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     };
     return ok({
       call,
+      inputMedia: limits.input_media,
       endpoint: provider.endpoint,
       usageRevision: limits.price_basis?.revision ?? "unknown",
       timeoutMs: deps.timeoutMs ?? null,

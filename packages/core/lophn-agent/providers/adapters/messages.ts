@@ -124,6 +124,14 @@ function markLast(value: unknown, boundary: boolean): unknown {
   return blocks;
 }
 
+// tool 결과 안의 이미지 block이다.
+export function imageBlock(mediaType: string, dataBase64: string): unknown {
+  return {
+    type: "image",
+    source: { type: "base64", media_type: mediaType, data: dataBase64 },
+  };
+}
+
 // tool_use.id와 tool_result.tool_use_id 대응. 짝 없는 조각은 제거하고, 제거로
 // 시그니처가 깨진 턴은 그 시그니처를 재전송하지 않는다(Hermes 487–524).
 function pairedMessages(

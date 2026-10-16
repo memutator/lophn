@@ -16,8 +16,3 @@ export {
   trimPlan,
   type TrimReference,
 } from "./retention.ts";
-export {
-  createTraceExport,
-  traceExportCommand,
-  type TraceExportDeps,
-} from "./work.ts";

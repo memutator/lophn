@@ -23,7 +23,6 @@ import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { eventsWiring } from "./wiring/events.ts";
 import {
   lophnAgentProviderLoginWiring,
-  lophnAgentTraceExportWiring,
   lophnAgentWiring,
 } from "./wiring/lophn-agent.ts";
 import { lophnAgentExtensionsWiring } from "./wiring/lophn-agent-extensions.ts";
@@ -100,7 +99,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   approvalsWiring,
   routerWiring,
   appsWiring,
-  lophnAgentTraceExportWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,
   appsRevertWiring,

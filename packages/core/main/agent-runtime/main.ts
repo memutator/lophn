@@ -18,7 +18,7 @@ import {
   type CatalogRefresherHandle,
   startCatalogRefresher,
 } from "../../lophn-agent/models/catalog-refresh.ts";
-import { eventsList } from "../../../protocol/events/mod.ts";
+import { providerList } from "../../../protocol/lophn-agent/mod.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
 import type { AgentEventSink } from "../../lophn-agent/run-loop/ports.ts";
@@ -261,7 +261,6 @@ export async function startAgentRuntime(input: {
         driver,
         providerWatch: createProviderWatch({
           read: selectorRead!,
-          cursor: startup!.eventCursor,
           revokeProvider: (provider) => driver!.revokeProvider(provider),
         }),
         ...(compactor === undefined ? {} : { compactor }),
@@ -292,7 +291,7 @@ export async function startAgentRuntime(input: {
 // core loopback read. selector가 쓰는 read route만 연다(SELECTOR_READ_ROUTES). credential은
 // 호출 시점의 사용 허가로만 붙인다. 목록에 없는 경로는 요청하지 않는다.
 const ROUTES_BY_PATH = new Map<string, ReadRoute>(
-  [eventsList].map((route) => [routePath(route), route as ReadRoute]),
+  [providerList].map((route) => [routePath(route), route as ReadRoute]),
 );
 
 function coreRead(

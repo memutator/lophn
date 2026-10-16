@@ -1,7 +1,7 @@
 // AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentRef로
 // 가리키고 화면에는 key(agent-key.ts)로 나간다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
 // 아래는 route가 없어 unavailable로 답하는 것이다.
-// - project 층 model 고르기, project 층 skill 켬·끔, 전역 server를 project 층에서 켬·끔
+// - project 층 skill 켬·끔, 전역 server를 project 층에서 켬·끔
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
 import type {
@@ -342,6 +342,9 @@ export function coreAgentsSource(
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
       const global = await readGlobalModel(link);
+      const chosen = isAppPlace(project) ? null : await link.read<
+        { model: ModelChoice | null }
+      >("project-model", "read", { project });
       const text = await instructionsOf(
         isAppPlace(project) ? "app_engineer" : "project_manager",
         project,
@@ -352,9 +355,8 @@ export function coreAgentsSource(
           text: text?.text ?? "",
           project: text?.project ?? null,
         },
-        // project 층 model을 읽는 route가 없다. 전역 기본만 보인다.
         projectModel: {
-          chosen: null,
+          chosen: chosen?.ok ? chosen.value.model : null,
           inherited: global.ok ? global.value : null,
         },
         skills: skills.value,
@@ -551,7 +553,16 @@ export function coreAgentsSource(
 
     imageSrc: (_project, key, image) => images.get(`${key}/${image}`) ?? "",
 
-    setProjectModel: () => Promise.resolve(unavailable),
+    async setProjectModel(project, choice) {
+      if (isAppPlace(project)) return unavailable;
+      const changed = await link.command("project-model", "change", {
+        project,
+        model: choice,
+      });
+      return changed.ok
+        ? { ok: true, value: null }
+        : { ok: false, message: changed.code };
+    },
 
     setSkill: () => Promise.resolve(unavailable),
 

@@ -293,8 +293,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const current: readonly ToolDefinition[] = [
       ...listRoleTools(
         session.agent.role,
-        // 고른 model의 입력 media는 선택 결과에 없다. 모르면 image를 받지 못하는 것으로 둔다.
-        { input_media: ["text"] },
+        { input_media: model.value.inputMedia },
         deps.toolkit.definitions ?? BUILTIN_TOOLS,
       ),
       ...(contextRead.entity === null ? [] : [contextRead.entity]),

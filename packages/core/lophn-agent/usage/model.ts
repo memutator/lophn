@@ -39,6 +39,7 @@ create table model_calls (
   output text,
   state text not null check (state in ('started', 'finished')),
   state_seq integer not null check (state_seq >= 0),
+  started_seq integer not null check (started_seq >= 0),
   started_at text not null,
   finished_at text,
   duration_ms integer,
@@ -91,13 +92,12 @@ create table model_call_supplements (
   cost text check (cost is null or json_valid(cost)),
   outcome text check (outcome is null or json_valid(outcome)),
   basis text,
-  event_seq integer not null,
+  seq integer not null,
   at text not null,
-  primary key (call, supplement_key),
-  foreign key (event_seq) references events (seq)
+  primary key (call, supplement_key)
 ) strict;
-create index model_call_supplements_event
-  on model_call_supplements (call, event_seq);`,
+create index model_call_supplements_seq
+  on model_call_supplements (call, seq);`,
   },
 ];
 

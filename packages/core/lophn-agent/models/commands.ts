@@ -1,14 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type CatalogEntry,
-  changeModelDefaults,
   changeModelFavorites,
-  MODEL_DEFAULT_SLOTS,
   type ModelChoice,
-  type ModelDefaults,
-  modelDefaultsChanged,
-  type ModelDefaultSlot,
-  modelFavoritesChanged,
+  modelDefaultChange,
+  projectModelChange,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -17,10 +13,10 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { validateOptionValues } from "./options.ts";
-import { loadDefaults, loadFavorites } from "./store.ts";
+import { GLOBAL_SCOPE, loadFavorites, saveChoice } from "./store.ts";
 
-// 등록 순서: actor 검사 → 입력(schema는 registry, provider·목록·option은 여기) → CAS → 쓰기 →
-// event. 짧은 transaction 하나다.
+// 등록 순서: actor 검사 → 입력(schema는 registry, provider·목록·option은 여기) → CAS → 쓰기.
+// 짧은 transaction 하나다. 바뀐 것은 command의 결과를 받은 화면이 다시 읽어 안다.
 
 // 저장 검사가 provider와 catalog에서 알아야 하는 것이다. 같은 Tx의 provider 표와 동봉·갱신 catalog에서
 // 채운다. 이 모듈은 그 출처를 모른다.
@@ -84,70 +80,47 @@ function checkChoice(
   });
 }
 
-function upsertSlot(
-  tx: Tx,
-  slot: ModelDefaultSlot,
-  choice: ModelChoice | null,
-  settingsSeq: string,
-): void {
-  // null은 선택만 지우고 줄을 남긴다. 설정 seq는 유지해 CAS 근거가 남는다.
-  tx.sql.run(
-    `insert into agent_model_defaults
-       (slot, provider, model_name, option_values, settings_seq)
-     values (?, ?, ?, ?, ?)
-     on conflict (slot) do update set
-       provider = excluded.provider,
-       model_name = excluded.model_name,
-       option_values = excluded.option_values,
-       settings_seq = excluded.settings_seq`,
-    [
-      slot,
-      choice?.provider ?? null,
-      choice?.model_name ?? null,
-      JSON.stringify(choice?.option_values ?? {}),
-      settingsSeq,
-    ],
-  );
-}
-
 export function createModelCommands(
   deps: ModelCommandDeps | ((tx: Tx) => ModelCommandDeps),
 ): {
-  changeDefaults: CommandDefinition<typeof changeModelDefaults>;
+  changeDefault: CommandDefinition<typeof modelDefaultChange>;
+  changeProject: CommandDefinition<typeof projectModelChange>;
   changeFavorites: CommandDefinition<typeof changeModelFavorites>;
 } {
   const resolve = (tx: Tx): ModelCommandDeps =>
     typeof deps === "function" ? deps(tx) : deps;
   return {
-    changeDefaults: {
-      route: changeModelDefaults,
-      handle(tx, ctx, input, compare) {
+    changeDefault: {
+      route: modelDefaultChange,
+      handle(tx, ctx, input) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        const changed = MODEL_DEFAULT_SLOTS.filter((slot) =>
-          input[slot] !== undefined
-        );
-        const known = resolve(tx);
-        for (const slot of changed) {
-          const choice = input[slot];
-          if (choice === null || choice === undefined) continue;
-          const checked = checkChoice(known, slot, choice);
+        if (input.default !== null) {
+          const checked = checkChoice(resolve(tx), "default", input.default);
           if (!checked.ok) return checked;
         }
-        const current = loadDefaults(tx.sql);
-        if (current.settings_seq !== compare.settings_seq) return conflict();
-        const next: ModelDefaults = { ...current };
-        for (const slot of changed) next[slot] = input[slot] ?? null;
-        // 새 seq는 이 event의 seq라 payload에는 비교한 이전 seq를 싣는다.
-        const nextSeq = tx.emit(modelDefaultsChanged, null, {
-          settings_seq: current.settings_seq,
-          slots: changed,
-          defaults: next,
-        });
-        for (const slot of changed) {
-          upsertSlot(tx, slot, next[slot], nextSeq);
+        saveChoice(tx.sql, GLOBAL_SCOPE, input.default);
+        return ok({ default: input.default });
+      },
+    },
+    changeProject: {
+      route: projectModelChange,
+      handle(tx, ctx, input) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const found = tx.sql.get(
+          "select 1 as found from projects where id = ?",
+          [input.project],
+        );
+        if (found === undefined) {
+          return err({ code: "not_found", message: "project not found" });
         }
-        return ok({ defaults: { ...next, settings_seq: nextSeq } });
+        if (input.model !== null) {
+          const checked = checkChoice(resolve(tx), "project", input.model);
+          if (!checked.ok) return checked;
+        }
+        saveChoice(tx.sql, input.project, input.model);
+        return ok({ model: input.model });
       },
     },
     changeFavorites: {
@@ -167,10 +140,12 @@ export function createModelCommands(
         }
         const current = loadFavorites(tx.sql);
         if (current.settings_seq !== compare.settings_seq) return conflict();
-        const nextSeq = tx.emit(modelFavoritesChanged, null, {
-          settings_seq: current.settings_seq,
-          items: input.items,
-        });
+        const nextSeq = String(Number(current.settings_seq) + 1);
+        tx.sql.run(
+          `insert into model_favorites_seq (one, seq) values (1, ?)
+           on conflict (one) do update set seq = excluded.seq`,
+          [nextSeq],
+        );
         // 목록을 통째로 바꾼다. rank를 0부터 빈틈 없이 다시 매긴다.
         tx.sql.run("delete from model_favorites", []);
         input.items.forEach((item, rank) => {

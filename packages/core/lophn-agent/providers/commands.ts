@@ -4,11 +4,8 @@ import {
   loginBegin,
   loginCancel,
   loginComplete,
-  providerChanged,
   type ProviderCredential,
-  providerDisconnected,
   type ProviderRecord,
-  providerRegistered,
   recordProviderAvailability,
   refreshProviderCredential,
   registerProvider,
@@ -68,15 +65,6 @@ function checkRevision(
     return conflict("provider revision changed");
   }
   return ok(undefined);
-}
-
-// tx.emit은 seq 문자열을 준다. revision은 양의 정수라 여기서 옮긴다.
-function revisionFromSeq(seq: string): Result<number> {
-  const parsed = Number(seq);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    return err({ code: "internal", message: "invalid event seq" });
-  }
-  return ok(parsed);
 }
 
 // secret 이름은 provider별 하나다. credential이 아니라 provider를 가리킨다.
@@ -215,15 +203,6 @@ export function createProviderCommands(): {
         }
         const kind = input.credential.kind;
         // 같은 endpoint는 새 provider다. 진행 run의 이동은 없다(domain model).
-        const seq = tx.emit(providerRegistered, input.id, {
-          name: input.name,
-          endpoint: input.endpoint,
-          protocol: input.protocol,
-          definition_revision: definition.value.revision,
-          auth_kind: kind,
-        });
-        const revision = revisionFromSeq(seq);
-        if (!revision.ok) return revision;
         const credential = assertCredential({
           kind,
           secret_ref: input.credential.preparation === null ? null : {
@@ -248,7 +227,7 @@ export function createProviderCommands(): {
           endpoint: input.endpoint,
           protocol: input.protocol,
           credential: credential.value,
-          revision: revision.value,
+          revision: 1,
         });
         if (!record.ok) return record;
         tx.sql.run(
@@ -262,7 +241,7 @@ export function createProviderCommands(): {
             JSON.stringify(definition.value),
             input.endpoint,
             input.protocol,
-            revision.value,
+            1,
           ],
         );
         insertCredential(tx, input.id, credential.value);
@@ -280,9 +259,6 @@ export function createProviderCommands(): {
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
-        tx.emit(providerDisconnected, input.provider, {
-          definition_key: current.value.definition.key,
-        });
         tx.sql.run(
           "delete from provider_credential_model_blocks where provider = ?",
           [input.provider],
@@ -342,22 +318,16 @@ export function createProviderCommands(): {
         }
         const checked = assertCredential(next);
         if (!checked.ok) return checked;
-        const seq = tx.emit(providerChanged, input.provider, {
-          revision: compare.revision + 1,
-          credential_revision: next.revision,
-          state: next.state,
-        });
-        const revision = revisionFromSeq(seq);
-        if (!revision.ok) return revision;
+        const revision = compare.revision + 1;
         updateCredential(tx, input.provider, checked.value);
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
-          [revision.value, input.provider, compare.revision],
+          [revision, input.provider, compare.revision],
         );
         return ok({
           provider: {
             ...current.value,
-            revision: revision.value,
+            revision,
             credential: checked.value,
           },
         });
@@ -394,25 +364,19 @@ export function createProviderCommands(): {
           model_blocks: blocks,
         });
         if (!checked.ok) return checked;
-        const seq = tx.emit(providerChanged, input.provider, {
-          revision: compare.revision + 1,
-          credential_revision: checked.value.revision,
-          state: checked.value.state,
-        });
-        const revision = revisionFromSeq(seq);
-        if (!revision.ok) return revision;
+        const revision = compare.revision + 1;
         updateCredential(tx, input.provider, checked.value);
         if (input.model_block !== null) {
           replaceModelBlocks(tx, input.provider, checked.value.model_blocks);
         }
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",
-          [revision.value, input.provider, compare.revision],
+          [revision, input.provider, compare.revision],
         );
         return ok({
           provider: {
             ...current.value,
-            revision: revision.value,
+            revision,
             credential: checked.value,
           },
         });

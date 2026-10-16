@@ -1,15 +1,11 @@
-// lophn-agent의 정의 쪽(질문 글, trace export, provider login, agent profile). 쓰기 앞 처리기가 세 자리라
-// wiring이 셋이다(assembly.ts의 순서가 접는 순서다).
+// lophn-agent의 정의 쪽(질문 글, provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
+// wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
 import { ok } from "../../../../base/mod.ts";
 import {
   agentProfilesRead,
   agentProfilesUpload,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
-import {
-  type TraceExportWriterDeps,
-  withTraceExport,
-} from "../../../lophn-agent/observability/trace-export.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import {
   createQuestionTextPreparer,
@@ -40,20 +36,6 @@ export const lophnAgentWiring: WiringFactory = () => ({
         profiles.file,
       ]],
     });
-  },
-});
-
-// trace export는 writer queue 앞에서 로컬 파일에 쓴다. ledger 경로와 blob 읽기 통로만 쓰고 계기 기록이 없다.
-export const lophnAgentTraceExportWiring: WiringFactory = () => ({
-  name: "lophn-agent-trace-export",
-  build(ctx) {
-    const deps: TraceExportWriterDeps = {
-      ledgerPath: ctx.ledgerPath,
-      readBlob: (hash, offset, length) =>
-        ctx.blobRead.deps.read(hash, offset, length),
-      known: () => ctx.knownSecrets,
-    };
-    return ok({ writer: (inner) => withTraceExport(inner, deps) });
   },
 });
 

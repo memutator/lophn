@@ -146,8 +146,9 @@ export function resolveSelection(
     option_values: optionValues.value,
     request_patch: {},
     request_headers: {},
-    input_media: ["text" as const],
-    output_media: ["text" as const],
+    // catalog가 모르는 media는 text뿐인 것으로 둔다. image를 받는지는 여기서 정해 tool 목록에 쓴다.
+    input_media: entry?.input_media ?? ["text" as const],
+    output_media: entry?.output_media ?? ["text" as const],
   };
   let limits: ResolvedModel;
   if (support !== undefined) {

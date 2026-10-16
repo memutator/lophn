@@ -1,12 +1,13 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { contextListRoute } from "../../../protocol/projects/mod.ts";
 import {
+  AGENT_ROLES,
   type AgentIssue,
   type AgentPlace,
   type AgentSettings,
   agentsRead,
   type McpTool,
-  modelDefaultsRead,
+  modelDefaultRead,
   placeAgentSettingsRead,
   type ResolvedAgent,
   resolvedAgentSchema,
@@ -16,7 +17,6 @@ import {
   type SessionRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { productEnvironment, resolveAgent } from "./mod.ts";
-import { workspaceModels } from "../models/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
 // run을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로
@@ -190,10 +190,13 @@ export async function resolveRunAgent(
       : placed;
   }
 
-  const defaults = await readOf(machine, modelDefaultsRead, {});
+  const defaults = await readOf(machine, modelDefaultRead, {});
   if (!defaults.ok) return defaults;
+  // 전역 기본 하나를 모든 role의 전역 층 model로 준다.
   const workspace: AgentSettings = {
-    models: workspaceModels(defaults.value.defaults),
+    models: defaults.value.default === null ? {} : Object.fromEntries(
+      AGENT_ROLES.map((role) => [role, defaults.value.default!]),
+    ),
   };
 
   const contexts = await activeContexts(machine, place, assignment.role);

@@ -136,7 +136,6 @@ export type CommonPlaceholders = {
   "documents.status.draft": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.retry": Record<never, never>;
-
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "settings.button.cancel": Record<never, never>;

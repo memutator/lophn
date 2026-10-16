@@ -104,7 +104,6 @@ export const common = {
   "documents.status.draft": "Not saved yet. Finish editing to keep it.",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",
-
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "settings.button.cancel": "Cancel",

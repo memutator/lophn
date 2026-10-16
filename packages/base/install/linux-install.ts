@@ -19,7 +19,6 @@ export type LinuxInstallLayout = {
   skills: string;
   // SDK package source. platform/packages/sdk로 가는 링크다(설치 도구가 그 위치에서 읽는다).
   sdk: string;
-
   // Electron main binary와 Chromium sandbox 실행 파일.
   desktopBinary: string;
   chromeSandbox: string;

@@ -465,21 +465,11 @@ function agentLookups(
       const row = sql.get("select project from contexts where id = ?", [id]);
       return row === undefined ? null : String(row["project"]);
     },
-    // project place는 그 project의 active context 전부이고, App Engineer는 적용된 판이 그 앱을 app-data
-    // source로 읽는 active context 전부다(context.list의 app 거르기와 같다). context_app_data는 앱 slug를
-    // 담는다. 그 밖에는 없다.
-    activeContexts: (place, role) =>
+    // project place는 그 project의 active context 전부이고 그 밖에는 없다.
+    activeContexts: (place) =>
       (place === null ? [] : place.kind === "project"
         ? sql.all(
           "select id from contexts where project = ? and status = 'active' order by id",
-          [place.id],
-        )
-        : role === "app_engineer"
-        ? sql.all(
-          `select c.id from contexts c where c.status = 'active' and exists (
-             select 1 from context_app_data d join apps a on a.slug = d.app
-             where d.context = c.id and a.id = ?
-           ) order by c.id`,
           [place.id],
         )
         : []).map((row) => String(row["id"])),

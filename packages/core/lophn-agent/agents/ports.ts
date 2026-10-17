@@ -2,7 +2,6 @@ import type {
   McpTool,
   ModelChoice,
   Place,
-  Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 
@@ -30,9 +29,9 @@ export type AgentLookups = {
   contextStatus(id: string): "drafting" | "active" | "archived" | null;
   // context가 속한 project. 없으면 null. context는 project 안에만 있다.
   contextProject(id: string): string | null;
-  // 이 place의 agent가 읽을 active context다. project place는 그 project의 active context 전부이고,
-  // App Engineer는 그 앱을 app-data source로 읽는 active context 전부다. 그 밖에는 빈 목록이다.
-  activeContexts(place: Place | null, role: Role): string[];
+  // 이 place의 agent가 읽을 active context다. project place는 그 project의 active context 전부이고
+  // 그 밖에는 빈 목록이다.
+  activeContexts(place: Place | null): string[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 project 층을 더한 것이고
   // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
   skills(place: Place | null): string[];

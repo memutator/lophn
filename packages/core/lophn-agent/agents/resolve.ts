@@ -31,7 +31,7 @@ type ResolveEnvironment = {
   // 이 place에서 쓸 수 있는 skill 이름과 MCP tool. 전역 층과 project 층을 이름 단위로 합친 것이다(등록 순서).
   skills: readonly string[];
   mcp: readonly McpTool[];
-  // place의 active context다. project place는 그 project의 것, App Engineer는 그 앱을 읽는 것이다.
+  // place의 active context다. project place는 그 project의 것이다.
   // 보관한 context는 들어 있지 않다.
   active_contexts: readonly string[];
 };
@@ -147,7 +147,7 @@ export async function resolveAgent(
     const active = new Set(environment.active_contexts);
     contexts = chosenContexts.filter((id) => active.has(id));
     picked = chosenContexts.length > 0;
-  } else if (role !== "lophn") {
+  } else if (role === "project_manager") {
     contexts = [...environment.active_contexts];
   }
 

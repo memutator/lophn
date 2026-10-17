@@ -121,8 +121,6 @@ const archiveSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
 });
 const archiveSessionCompareSchema = stateSeqCompareSchema;
-const unarchiveSessionInputSchema = archiveSessionInputSchema;
-const unarchiveSessionCompareSchema = stateSeqCompareSchema;
 
 const deleteSessionInputSchema = z.strictObject({
   session: idSchema("ses"),
@@ -250,21 +248,6 @@ export const archiveSession = defineCommand({
     state_seq: seqSchema,
   }),
   compare: archiveSessionCompareSchema,
-  actors: ["user"],
-  errors: ["not_found", "conflict", "unauthorized", "invalid_input"],
-});
-
-export const unarchiveSession = defineCommand({
-  resource: "sessions",
-  method: "unarchive",
-  name: "UnarchiveSession",
-  input: unarchiveSessionInputSchema,
-  output: z.object({
-    id: idSchema("ses"),
-    archived: z.literal(false),
-    state_seq: seqSchema,
-  }),
-  compare: unarchiveSessionCompareSchema,
   actors: ["user"],
   errors: ["not_found", "conflict", "unauthorized", "invalid_input"],
 });
@@ -479,7 +462,6 @@ export const SESSION_COMMANDS = [
   openSession,
   renameSession,
   archiveSession,
-  unarchiveSession,
   deleteSession,
   forkSession,
   requestSessionCompact,

@@ -58,7 +58,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const contexts = definition !== null && "contexts" in definition
     ? definition.contexts ?? []
     : [];
-  const active = new Set(lookups.activeContexts(loaded.place, loaded.role));
+  const active = new Set(lookups.activeContexts(loaded.place));
   return {
     agent: loaded.ref,
     kind: operator ? "operator" : "built_in",

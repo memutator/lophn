@@ -27,7 +27,7 @@ export type ToolContext = {
   agent: AgentRef;
   role: Role;
   place: Place | null;
-  // 그 session이 시작할 때 고정한 tool 목록. tool.search가 읽는다.
+  // 그 session이 시작할 때 고정한 tool 목록.
   listed: readonly ToolDefinition[];
   // core route를 부른다. agent 자격이다.
   core: CoreCall;

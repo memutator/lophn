@@ -29,20 +29,15 @@ import { type PlaceData, placeInfo, visibleContexts } from "./place-info.ts";
 import { type SkillListItem, skillListText } from "./skill-list.ts";
 import { PRODUCT_INSTRUCTIONS } from "../roles/prompts.ts";
 
-// turn 하나의 prompt를 6장 순서로 조립한다: role 지침과 고정 규칙, tools, 지침 층, skill 목록, place 정보,
+// turn 하나의 prompt를 5장 순서로 조립한다: role 지침과 고정 규칙, 지침 층, skill 목록, place 정보,
 // 대화. 지침은 file이 아니라 값으로 받는다(turn 시작에 읽는 쪽이 따로 있다). I/O는 호출하는 쪽이 한다.
-
-type TurnTool = PromptTool & {
-  // deferred tool은 이름만 prompt에 둔다.
-  deferred?: boolean;
-};
 
 export type TurnPromptInput = {
   role: Role;
   // built-in role 지침 글 하나. 제품 고정 규칙은 이 함수가 앞에 붙인다.
   role_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
-  tools: readonly TurnTool[];
+  tools: readonly PromptTool[];
   instructions: InstructionTexts;
   skills: readonly SkillListItem[];
   place: PlaceData;
@@ -85,16 +80,6 @@ function instructionsBlock(texts: InstructionTexts): string {
   return sections.length === 0
     ? ""
     : ["# Instructions", ...sections].join("\n\n");
-}
-
-function deferredBlock(tools: readonly TurnTool[]): string {
-  const names = tools.filter((t) => t.deferred === true)
-    .map((t) => toWireToolName(t.name)).sort();
-  return names.length === 0
-    ? ""
-    : `Deferred tools (names only, load one before using it): ${
-      names.join(", ")
-    }`;
 }
 
 function wire(names: readonly string[]): string {
@@ -226,7 +211,6 @@ export async function assembleTurnPrompt(
 
   const texts: [SystemLayerKind, string][] = [
     ["role", `${PRODUCT_INSTRUCTIONS}\n\n${input.role_prompt}`],
-    ["tools", deferredBlock(input.tools)],
     ["instructions", instructionsBlock(input.instructions)],
     ["skills", skillListText(input.skills)],
     ["place", placeInfo(input.role, input.place, input.context_budget)],
@@ -234,7 +218,7 @@ export async function assembleTurnPrompt(
   const system: SystemBlock[] = texts.filter(([, text]) => text !== "")
     .map(([layer, text]) => ({ layer, text, cache: CACHED.includes(layer) }));
 
-  const tools: PromptTool[] = input.tools.filter((t) => t.deferred !== true)
+  const tools: PromptTool[] = input.tools
     .map((t) => ({
       name: toWireToolName(t.name),
       description: t.description,

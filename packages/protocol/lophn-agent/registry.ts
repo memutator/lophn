@@ -3,7 +3,6 @@ import {
   openSession,
   SESSION_COMMANDS,
   sessionList,
-  unarchiveSession,
 } from "./sessions.ts";
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
@@ -43,7 +42,6 @@ export const ROUTES = [
       openSession,
       sessionList,
       closeSession,
-      unarchiveSession,
     ] as readonly unknown[])
       .includes(route)
   ),

@@ -8,7 +8,6 @@ import {
   type ModelChoice,
   type Place,
   projectModelRead,
-  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { DEFAULT_PROFILES } from "./builtin.ts";
@@ -35,21 +34,14 @@ function cannot(reason: CannotStart["reason"], why: CannotStart["why"]) {
   return ok<TurnAgent>({ kind: "cannot_start", reason, why });
 }
 
-// 이 place의 agent가 읽을 active context다. project place는 그 project의 context 전부이고, App Engineer는
-// 그 앱을 app-data source로 읽는 context 전부다(`context.list`의 app 거르기). lophn은 context 자료가 없다.
+// 이 place의 agent가 읽을 active context다. project place는 그 project의 context 전부이고, 그 밖에는
+// context 자료가 없다.
 async function activeContexts(
   machine: CoreCall,
   place: Place | null,
-  role: Role,
 ): Promise<Result<string[]>> {
-  const filter = place === null
-    ? null
-    : place.kind === "project"
-    ? { project: place.id }
-    : role === "app_engineer"
-    ? { app: place.id }
-    : null;
-  if (filter === null) return ok([]);
+  if (place === null || place.kind !== "project") return ok([]);
+  const filter = { project: place.id };
   const ids: string[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_CONTEXT_PAGES; page += 1) {
@@ -111,7 +103,7 @@ export async function resolveTurnAgent(
   }
 
   const { role, place } = read.value;
-  const contexts = await activeContexts(machine, place, role);
+  const contexts = await activeContexts(machine, place);
   if (!contexts.ok) return contexts;
 
   const definition = read.value.definition as AgentFileDefinition | null;

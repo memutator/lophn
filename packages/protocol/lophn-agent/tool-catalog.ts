@@ -48,7 +48,6 @@ const COMMON_TOOLS = [
   "session.list",
   "ask",
   "skill.read",
-  "tool.search",
 ] as const;
 
 // lophn을 뺀 세 role이 갖는다.
@@ -189,8 +188,6 @@ export const TOOL_INPUTS = {
   ask: askInputSchema,
   // 딸린 파일은 path로 읽는다.
   "skill.read": z.strictObject({ name: nonblank, path: path.optional() }),
-  // 정본 이름 1~20개.
-  "tool.search": z.strictObject({ names: z.array(nonblank).min(1).max(20) }),
   "ticket.list": z.strictObject({
     app: idSchema("app").optional(),
     state: ticketStateSchema.optional(),

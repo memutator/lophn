@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `app-cli-finish` | app-cli-finish | 1 | 없음 | todo |  |  |  |
+| `app-cli-finish` | app-cli-finish | 1 | 없음 | running | app-cli-finish/app-cli-finish |  |  |
 | `boot-damaged` | boot-damaged | 1 | 없음 | running | boot-damaged/boot-damaged |  |  |
 | `coding-role` | coding-role | 1 | boot-damaged | todo |  |  |  |
 | `gateway-client` | gateway-client | 1 | 없음 | running | gateway-client/gateway-client |  |  |

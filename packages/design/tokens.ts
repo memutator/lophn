@@ -207,6 +207,8 @@ export const tokens = {
     duration: { default: "5000ms", brief: "2000ms" },
   },
   chip: { width: "360px" },
+  // 아이콘 단추 모서리의 개수 표시 높이와 글자 크기. type 단계보다 작다.
+  badge: { size: "14px", font: "10px" },
   // 탭 줄의 탭 최소·최대 폭.
   tabStrip: { min: "96px", max: "240px" },
   // 창 위쪽 바 높이, 창 조절 단추 폭, 닫기 단추 hover 색.

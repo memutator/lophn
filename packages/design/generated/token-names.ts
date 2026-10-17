@@ -178,6 +178,8 @@ export const tokenNames = [
   "--toast-duration-default",
   "--toast-duration-brief",
   "--chip-width",
+  "--badge-size",
+  "--badge-font",
   "--tab-strip-min",
   "--tab-strip-max",
   "--window-top-bar",

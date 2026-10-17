@@ -441,6 +441,10 @@
     "chip": {
       "width": "360px"
     },
+    "badge": {
+      "size": "14px",
+      "font": "10px"
+    },
     "tabStrip": {
       "min": "96px",
       "max": "240px"

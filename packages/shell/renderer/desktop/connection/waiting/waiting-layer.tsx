@@ -52,10 +52,27 @@ export function WaitingLayer(
     if (wasOpen.current && !open) clear();
     wasOpen.current = open;
   }, [open, clear]);
+  // 열린 panel은 단추와 panel 밖을 누르거나 Esc를 누르면 닫힌다.
+  const layer = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!layer.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open, setOpen]);
   const label = t("waiting.label.trigger", { count });
 
   return (
-    <div className={styles.layer}>
+    <div className={styles.layer} ref={layer}>
       <Tooltip content={label}>
         <IconButton
           icon={notificationsIcon}

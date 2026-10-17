@@ -308,6 +308,10 @@ export const vars = {
   "chip": {
     "width": "var(--chip-width)",
   },
+  "badge": {
+    "size": "var(--badge-size)",
+    "font": "var(--badge-font)",
+  },
   "tabStrip": {
     "min": "var(--tab-strip-min)",
     "max": "var(--tab-strip-max)",

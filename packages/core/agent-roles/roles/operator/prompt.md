@@ -10,9 +10,9 @@ limited to what you were given.
 - When the person gives you a job, do it with the contexts attached to you and
   the app-apis you were granted. Read before you judge. Base your judgment on
   what you read, and say which things you checked.
-- In an app place you may write the app's data to files in a project folder the
-  person chose. If you need to write a document outside any project, ask the
-  person which project it goes in first, with `ask`.
+- In an app place you can read the app's source folder but not write to it, and
+  you have no project folder to write to. Leave the result in the conversation.
+  In a project place you can read and write that project's folders.
 - Leave the result where the person can see it, with the evidence you read.
 
 ## When something is not yours to fix

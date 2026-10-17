@@ -6,12 +6,24 @@
 // - 왜 지금 test로 못 잡나: places_test와 session unit은 한 module 안의 SQL만 본다. 보관(projects) → accepting(places) →
 //   입력함·Router(router) → 새 입력의 turn이 이어지는 것은 module과 process를 건너야 이어진다.
 //
+// archive-call·delete-call 행(contract: `agent-sessions`의 archive·지움은 한 tx, `router`의 받은 call은 session의 끝으로 닫힌다, `approvals`의
+// 끝난 session의 대기 request는 cancelled)
+// - 현실적 회귀: turn만 닫히고 받은 call이 accepted로 남아 보낸 lophn이 영영 기다리는 것, 대기 request가 남아 늦은 allow가 쓰기를 일으키는 것,
+//   지움은 call을 닫지 않는 것.
+// - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
+//   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
+// - 이 두 행은 fake 대답이 4개다(README 정한 것 11의 상한 3을 넘는 예외). session 둘이 한 flow에서 각자 turn을 돌려야 call이 열리고
+//   닫힌다(보낸 lophn 3, 받는 PM 1). 두 session이 같은 시각에 model을 부르므로 role 전용 tool 이름으로 줄을 가른다.
+//
 // core는 file 전체에서 하나고, 행마다 새 project 폴더(run.work/<행 이름>)와 새 session을 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import {
   type AgentRef,
   agentSessionList,
   agentSessionRead,
+  archiveSession,
+  callRead,
+  deleteSession,
   forkSession,
   messageBody,
   openAgentSession,
@@ -21,7 +33,9 @@ import {
   sessionRewindPreview,
   toolCallList,
   turnList,
+  turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { approvalsDecideTurn } from "../../packages/protocol/approvals/mod.ts";
 import {
   appConnectSource,
   appCreate,
@@ -41,10 +55,13 @@ import {
   openSession,
   say,
   settle,
+  until,
+  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
+import { toolNames } from "../support/fake-server/probe.ts";
 
 const LOPHN: AgentRef = { role: "lophn" };
 
@@ -144,6 +161,62 @@ async function bodiesOf(core: Core, session: string): Promise<string[]> {
     out.push(part?.kind === "text" ? part.text : "");
   }
   return out;
+}
+
+// 받는 PM의 session은 보낸 쪽 call이 열 때까지 없다. list를 신호로 읽는다.
+async function waitReceiver(core: Core, pm: AgentRef): Promise<string> {
+  return await until("받는 PM session이 열림", async () => {
+    const { sessions } = await core.call(agentSessionList, { agent: pm });
+    return sessions[0]?.id;
+  });
+}
+
+// 허락을 기다리는 PM session에 lophn이 보낸 call이 열려 있는 상태를 만든다. 늦은 허락을 보낼 수 있게 request도 돌려준다.
+async function openCallWaitingPermission(
+  core: Core,
+  fake: FakeServer,
+  name: string,
+) {
+  fake.reset();
+  const { pm } = await newProject(core, name);
+  const callBody = JSON.stringify({
+    to: { role: "project_manager", place: { project: name } },
+    reply: "result",
+    body: "update LOPHN.md",
+    refs: [],
+  });
+  fake.script([
+    {
+      reply: {
+        kind: "tool",
+        calls: [{ id: "t1", name: "call", arguments: callBody }],
+      },
+    },
+    textReply("sent"),
+    textReply("failed noted"),
+  ], {
+    name: "lophn",
+    match: (request) => toolNames(request).includes("app_create"),
+  });
+  fake.script([{
+    reply: {
+      kind: "tool",
+      calls: [{
+        id: "w1",
+        name: "file_write",
+        arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
+      }],
+    },
+  }], {
+    name: "pm",
+    match: (request) => toolNames(request).includes("context_draft"),
+  });
+  const src = await openSession(core, LOPHN);
+  await say(core, src, "ask the project manager");
+  const dst = await waitReceiver(core, pm);
+  const { request } = await waitPermission(core, dst);
+  const [received] = await messagesOf(core, dst);
+  return { src, dst, request, call: received!.call! };
 }
 
 async function ownTurnsOf(core: Core, session: string) {
@@ -525,6 +598,60 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         );
       },
     );
+
+    for (const how of ["archive", "delete"] as const) {
+      await t.step(
+        `${how}-call: session을 ${
+          how === "archive" ? "archive하면" : "지우면"
+        } 도는 turn, 대기 허락, 받은 call이 한 번에 닫힌다`,
+        async () => {
+          const name = `${how}-call`;
+          const { src, dst, request, call } = await openCallWaitingPermission(
+            c,
+            f,
+            name,
+          );
+          const [turn] = await ownTurnsOf(c, dst);
+          const { session: current } = await c.call(agentSessionRead, {
+            session: dst,
+          });
+          await c.call(how === "archive" ? archiveSession : deleteSession, {
+            session: dst,
+          }, { state_seq: current.state_seq });
+          // 보낸 쪽이 늦은 실패를 새 입력으로 받아 둘째 turn을 돈다.
+          await waitTurnEnd(c, src, 1);
+
+          // ledger
+          if (how === "archive") {
+            const closed = await c.call(turnRead, { turn: turn!.id });
+            assertEquals(closed.turn.state, "finished");
+            assertEquals(closed.turn.outcome, {
+              kind: "interrupted",
+              reason: "session_ended",
+            });
+            const { session } = await c.call(agentSessionRead, {
+              session: dst,
+            });
+            assertEquals(session.lifecycle, "archived");
+          } else {
+            const gone = await c.tryCall(agentSessionRead, { session: dst });
+            assert(!gone.ok && gone.error.code === "not_found");
+          }
+          // route
+          const { call: closedCall } = await c.call(callRead, { call });
+          assertEquals(closedCall.state, "failed");
+          assertEquals(closedCall.fail_reason, "receiver_ended");
+          const late = await c.tryCall(approvalsDecideTurn, {
+            session: dst,
+            request,
+            choice: { kind: "allow" },
+          });
+          assert(!late.ok, "끝난 session의 늦은 allow가 받아들여졌다");
+          // disk
+          assert(!await exists(`${c.run.work}/${name}/LOPHN.md`));
+        },
+      );
+    }
   } finally {
     await core?.kill().catch(() => {});
     await fake?.close();

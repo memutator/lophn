@@ -68,6 +68,19 @@ export const approvalsUnapplied = defineRead({
   errors: ["forbidden", "unavailable"],
 });
 
+// request 하나. 없는 id는 null이다.
+export const approvalsRequest = defineRead({
+  resource: "approvals",
+  method: "request",
+  name: "GetApprovalRequest",
+  input: z.strictObject({ request: idSchema("apr") }),
+  output: withReadCommon(
+    z.object({ request: pendingApprovalSchema.nullable() }),
+  ),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
 export const APPROVAL_INTERNAL_COMMANDS = [
   approvalsCreatePending,
   approvalsCancelPendingFor,

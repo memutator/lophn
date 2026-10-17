@@ -64,4 +64,7 @@ export interface Approvals {
   ): void;
   // 더 새 release의 activation이 시작되면 이전 보류 request를 cancelled로 만든다.
   cancelPendingFor(app: string, release?: string): Promise<Result<number>>;
+  // activation이 보류 request를 읽는다. 없는 id는 null이다.
+  request(id: string): Promise<Result<PendingApproval | null>>;
+  pending(): Promise<Result<PendingApproval[]>>;
 }

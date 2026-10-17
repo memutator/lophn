@@ -24,6 +24,7 @@ export {
   approvalsCancelPendingFor,
   approvalsCreatePending,
   approvalsRecordApplied,
+  approvalsRequest,
   approvalsUnapplied,
 } from "./routes.ts";
 export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";

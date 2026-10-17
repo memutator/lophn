@@ -1,8 +1,8 @@
 import { ok } from "../../base/mod.ts";
 import { approvalsPending } from "../../protocol/approvals/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
-import { REQUEST_COLUMNS, requestOf } from "./rows.ts";
-import { approvalsUnapplied } from "./routes.ts";
+import { loadRequest, REQUEST_COLUMNS, requestOf } from "./rows.ts";
+import { approvalsRequest, approvalsUnapplied } from "./routes.ts";
 
 export const approvalsPendingRead: ReadDefinition<typeof approvalsPending> = {
   route: approvalsPending,
@@ -48,3 +48,16 @@ export const approvalsUnappliedRead: ReadDefinition<typeof approvalsUnapplied> =
       });
     },
   };
+
+export const approvalsRequestRead: ReadDefinition<typeof approvalsRequest> = {
+  route: approvalsRequest,
+  handle(snapshot, _ctx, input) {
+    const request = loadRequest(snapshot.sql, input.request);
+    if (!request.ok) return request;
+    return ok({
+      request: request.value,
+      as_of_seq: snapshot.as_of_seq,
+      next_cursor: null,
+    });
+  },
+};

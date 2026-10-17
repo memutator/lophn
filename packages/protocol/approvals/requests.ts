@@ -135,7 +135,8 @@ export const approvalsPending = defineRead({
   output: withReadCommon(
     z.object({ requests: z.array(pendingApprovalSchema) }),
   ),
-  actors: ["user"],
+  // machine은 activation이 보류 request를 읽는다.
+  actors: ["user", "machine"],
   errors: [...readErrors],
 });
 

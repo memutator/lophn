@@ -4,6 +4,7 @@ import {
   agentGrantsSet,
   approvalsDecide,
   approvalsDecideTurn,
+  approvalsPending,
   toolGateCheck,
   toolGateInputSchema,
 } from "../../../../protocol/approvals/mod.ts";
@@ -23,6 +24,7 @@ import type { Id } from "../../../../protocol/base/ids.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   APPROVAL_INTERNAL_COMMANDS,
+  approvalsRequest,
   approvalsUnapplied,
   createApprovalLedger,
   createApprovals,
@@ -50,6 +52,8 @@ const APPROVALS_CONTEXT: AuthenticatedContext = {
     operations: [
       ...APPROVAL_INTERNAL_COMMANDS.map((route) => route.name),
       approvalsUnapplied.name,
+      approvalsRequest.name,
+      approvalsPending.name,
       // tool Gate가 호출자 agent를 session으로 읽는다.
       agentSessionRead.name,
     ],

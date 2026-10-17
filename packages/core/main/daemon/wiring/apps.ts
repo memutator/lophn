@@ -83,7 +83,6 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
-import { approvalLedgerRead } from "./approval-reads.ts";
 import {
   type AppsControl,
   createProductRedactor,
@@ -234,14 +233,13 @@ export const appsWiring: WiringFactory = () => {
       // activation: 다른 module의 port를 끼우고 Reactor·Approvals에 등록한다. 끼우기 전에는 일하지 않는다.
       const activation = appsControl.activation;
       if (activation !== null) {
-        const approvalReads = approvalLedgerRead(ctx.ledgerPath);
         activation.attach({
           approvals: {
             createPending: (intent) => ctx.approvals.createPending(intent),
             cancelPendingFor: (app, release) =>
               ctx.approvals.cancelPendingFor(app, release),
-            request: (id) => Promise.resolve(approvalReads.request(id)),
-            pending: () => Promise.resolve(approvalReads.pending()),
+            request: (id) => ctx.approvals.request(id),
+            pending: () => ctx.approvals.pending(),
           },
           bus: ctx.bus,
           intake: {

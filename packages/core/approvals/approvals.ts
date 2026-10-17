@@ -96,6 +96,8 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     registerApplier: applier.register,
     cancelPendingFor: (app, release) =>
       deps.ledger.cancelPendingFor(app, release),
+    request: (id) => deps.ledger.request(id),
+    pending: () => deps.ledger.pending(),
     decideTurn(ctx, body) {
       if (ctx.actor !== "user") {
         return Promise.resolve(err({

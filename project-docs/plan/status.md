@@ -10,7 +10,7 @@
 | `dead-agent` | dead | 1 | 없음 | merged | dead/dead-agent | 3777a51b6 |  |
 | `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
 | `feedback-existing-problem` | feedback | 1 | 없음 | merged | feedback/feedback-existing-problem | 939cbc9c7 |  |
-| `harness-global-install` | harness | 1 | 없음 | running | harness/harness-global-install |  |  |
+| `harness-global-install` | harness | 1 | 없음 | merged | harness/harness-global-install | 76a5cd1d7 |  |
 | `place-operator-app-read` | place | 1 | 없음 | merged | place/place-operator-app-read | 9e4f636d3 |  |
 | `platform-crash-diagnostics` | platform | 1 | 없음 | merged | platform/platform-crash-diagnostics | 5ad6df39b |  |
 | `router-waiting-and-failure` | router | 1 | 없음 | merged | router/router-waiting-and-failure | 903fb1c2c |  |

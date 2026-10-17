@@ -20,25 +20,6 @@ modules: [packages/protocol, packages/coding-agent]
 
 정한 것: 고친다. 전역 설치로 바꿀 때 OpenCode의 전역 plugin 위치를 확인해 hook을 놓는다.
 
-## harness 설치를 열 때마다 앱 폴더에 하지 않고 전역에 한 번 한다
-
-```yaml
-kind: defect
-modules: [packages/coding-agent, packages/shell/main, packages/protocol]
-```
-
-지금: coding agent 터미널을 열 때마다 `shell/main/terminal/coding/requests.ts`의 `install`이 `lophn harness install`을 돌려 앱 source 폴더에 skill 둘(`lophn-build-app`, `lophn-repair`)과 hook 설정(`.claude/settings.local.json` 등)을 놓는다. 사람이 고친 파일을 덮지 않으려고 `.lophn/installed.json`에 hash를 남기고(`coding-agent/harnesses/install.ts`, 247줄), 이 명령이 앱 폴더 하나에만 쓰게 Deno 권한을 계산한다(`cli/launch.ts`, `launch-entry.ts`). 결과는 읽지 않고 예외도 삼킨다. 모두 architecture의 "hook은 앱 source 폴더 안에만, 사용자 전역 설정은 건드리지 않는다"에서 나왔다. 이 원칙 때문에 hook 설정이 전역뿐인 Hermes와 OpenClaw는 맡길 수 없다.
-
-영향: 열 때마다 설치 확인, hash, 권한 계산, 앱 폴더마다 쌓이는 설정 파일. 설치가 실패해도 아무도 모른다.
-
-고치려면: orca 방식. orca는 사용자 전역 설정(`~/.claude/settings.json`, `~/.codex/hooks.json`)의 hook이 모두 `~/.orca/agent-hooks/<harness>-hook.sh` 하나를 부르게 한 번 등록하고, script는 orca가 띄울 때 넣는 환경 변수(port, token, pane key)가 없으면 바로 끝난다. 업데이트는 script 파일만 바꾸고 전역 설정은 다시 안 건드린다.
-- hook: harness마다 전역 설정에 `lophn hook <harness> <event>`를 한 번 등록한다. lophn은 이미 coding session에 환경 변수 token을 넣으니 그 token이 없으면 바로 끝낸다. 처음 그 harness로 맡길 때 없으면 사람에게 한 번 묻고 등록한다. 등록 결과는 사람에게 보인다.
-- skill: 전역 skill 폴더(`~/.claude/skills/lophn-*` 등)에 한 번 놓는다. 내용은 "`lophn guide`를 보라" 정도로 두고 실제 안내는 CLI가 그때그때 내준다. 그러면 lophn이 업데이트돼도 파일을 다시 쓸 일이 없다.
-- 지운다: 열 때마다 도는 install, `.lophn/installed.json` hash, install 명령의 권한 계산, 앱 폴더 안의 harness 설정.
-- `architecture/coding-agent.md`의 "skill과 hook은 앱 source 폴더 안에만"과 Hermes·OpenClaw를 맡길 수 없다는 문장을 같은 변경에서 고친다.
-
-정한 것: 전역에 한 번 설치하고 lophn 환경 변수로 켠다. 사용자 전역 설정을 건드리는 대신 처음 한 번 사람에게 묻는다.
-
 ## coding 완료 뒤 core가 harness를 멈추지 않는다
 
 ```yaml
@@ -74,24 +55,6 @@ modules: [packages/core/apps, packages/core/storage]
 - 추천: 남기는 쪽. 이유가 schema 주석에 이미 있다.
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
-
-## harness 7종의 감지·설치 표
-
-```yaml
-kind: defect
-modules: [packages/protocol, packages/coding-agent]
-```
-
-지금: `HARNESS_ADAPTERS`(`protocol/coding-agent/harness-adapter.ts`)에 claude, codex, opencode, gemini, pi, hermes, openclaw 7개가 있다. hermes와 openclaw는 `prompt`, `skill_dir`, `hook`이 모두 null이라 감지만 되고 맡길 수 없다. 설치 코드(`harnesses/install.ts`)는 json hook과 pi extension 둘을 다룬다. `format`의 `"toml"`은 어느 adapter도 쓰지 않는다.
-
-영향: 제품마다 조사 근거 없는 칸(pi extension 원문의 확인 못한 API, OpenCode hook 위치)과 감지·Settings 행이 따라온다. MVP에 비해 종류가 많다.
-
-고치려면:
-- claude 하나만 두고 나머지 adapter, pi extension, hook event 표, Settings 행을 지운다(중간, 지우는 일이 대부분).
-- hermes, openclaw 둘과 쓰지 않는 `toml` 형식만 지운다(작다).
-- 추천: MVP는 claude 하나. 나머지는 쓰겠다는 요구가 생길 때 다시 조사해 붙인다.
-
-정한 것: 7종을 유지한다. 전역 설치로 바꾸면 Hermes와 OpenClaw도 hook을 놓을 수 있다. 쓰지 않는 `toml` 형식만 지운다.
 
 ## `mutates` 칸을 명령 이름 마지막 단어(`READ_WORDS`)로 가른다
 
@@ -211,3 +174,63 @@ modules: [packages/core/apps]
 고치려면: 다시 돌리면 sandbox·시간·부작용이 늘어 크다. 추천: 남긴다. 이유를 `loadCheckWork` 주석에 두고 kept로 닫는다.
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
+
+## harness 전역 설치 위치 가운데 확인 못한 것이 있다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/coding-agent]
+```
+
+지금: `harness-global-install`이 `HARNESS_ADAPTERS`의 전역 위치를 공식 문서(WebFetch)로 확인했다. 확인한 것: claude skill `~/.claude/skills`·hook `~/.claude/settings.json`, codex hook `~/.codex/hooks.json`(feature flag 불필요), gemini skill `~/.gemini/skills`·hook `~/.gemini/settings.json`(`AfterAgent`), pi extension `~/.pi/agent/extensions/*.ts`, opencode skill `~/.config/opencode/skills`. 확인 못함:
+- codex skill `~/.agents/skills`: codex 문서로 직접 확인하지 못했다(opencode와 gemini 문서가 `~/.agents/skills`를 지원한다고 적었을 뿐).
+- pi skill: `~/.pi/agent/skills`를 확인하지 못해 pi 문서가 지원한다고 적은 `~/.agents/skills`로 했다. pi extension 원문의 `ctx.sessionManager.getSessionId()`와 `aborted` 칸도 확인 못함.
+- gemini: 문서에 "Gemini CLI가 2026-06에 Antigravity CLI로 대체됐다"는 말이 있어 위치가 바뀌었을 수 있다.
+- hermes, openclaw: prompt 전달, skill, hook 모두 확인 못함이라 null이다. 감지만 되고 맡길 수 없다.
+- opencode hook(plugin) 위치는 `harness-opencode`가 다룬다.
+- gemini, pi, hermes, openclaw는 이 컴퓨터에 설치돼 있지 않아 실제 실행으로는 하나도 확인하지 못했다.
+
+영향: 확인 못한 위치에 놓은 skill·hook은 harness가 읽지 않을 수 있다. 그러면 hook이 없어 coding session state가 unknown이고 skill이 안 보인다.
+
+고치려면: 그 harness를 설치한 컴퓨터에서 `harness install` 뒤 한 번 맡겨 hook signal과 skill이 보이는지 본다(harness마다 작음).
+
+## codex는 새로 놓은 hook을 사람이 `/hooks`에서 trust해야 쓴다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent]
+```
+
+지금: codex는 새로 놓이거나 바뀐 hook을 사람이 codex 안의 `/hooks`에서 trust하기 전까지 건너뛴다(learn.chatgpt.com/docs/hooks). trust 기록은 `~/.codex/config.toml`의 `[hooks.state."...hooks.json:stop:0:0"] trusted_hash`다. `harness install`은 toml을 쓰지 않는다.
+
+영향: codex에 맡기면 첫 번(그리고 hook이 바뀐 뒤)에는 사람이 trust할 때까지 turn 끝 신호가 안 와서 state가 unknown이다.
+
+고치려면:
+- 그대로 두고 confirm 화면에서 "codex에서 /hooks로 trust하라"를 알린다(작음).
+- `config.toml`에 trust 기록을 쓴다(중간. toml을 고치는 코드와 hash 규칙을 알아야 한다).
+
+## 전역 hook command가 PATH의 `lophn`을 부른다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent]
+```
+
+지금: 전역 hook은 `lophn hook <harness> <event>`이고 `lophn`이 PATH에 있다고 본다. 개발 실행(`LOPHN_CLI`)에서는 PATH의 `lophn`이 없거나 다른 판이라 전역 hook이 맞지 않는다.
+
+영향: 개발 중에는 coding session의 turn 끝 신호가 안 오거나 설치된 판의 core로 간다.
+
+고치려면: 개발 실행에서는 hook command에 `LOPHN_CLI` 경로를 쓴다(작음). 다만 전역 설정에 개발 경로가 남는다.
+
+## harness 전역 install 코드가 단계마다 Step을 돌려준다
+
+```yaml
+kind: defect
+modules: [packages/coding-agent]
+```
+
+지금: `coding-agent/harnesses/install.ts`(약 230줄)가 dry_run, json hook, plugin file, skill마다 `Step`을 따로 만들어 합친다. `thinSkill`은 원본 SKILL.md의 frontmatter를 정규식으로 뽑고, 깨졌으면 name만 있는 frontmatter로 대신한다.
+
+영향: 놓을 것이 셋뿐인데 길다. frontmatter 대체는 우리 원본이 깨질 때만 쓰이는 방어 코드다.
+
+고치려면: dry_run을 "쓰기 port를 바꿔 끼우기"로 바꿔 Step을 없앤다(작음). frontmatter 대체는 지운다(작음).

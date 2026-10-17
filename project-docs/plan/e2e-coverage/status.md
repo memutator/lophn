@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `gateway-client` | gateway-client | 1 | 없음 | merged | gateway-client/gateway-client | 4e55b37c4 |  |
 | `reply-fn` | reply-fn | 1 | 없음 | merged | reply-fn/reply-fn | 87dbd4d3e |  |
 | `annotation-archived-app` | annotation-archived-app | 2 | annotation-to-ae | todo |  |  |  |
-| `annotation-to-ae` | annotation-to-ae | 2 | reply-fn | todo |  |  |  |
+| `annotation-to-ae` | annotation-to-ae | 2 | reply-fn | running | annotation-to-ae/annotation-to-ae |  |  |
 | `approval-rows` | approval-rows | 2 | boot-damaged | merged | approval-rows/approval-rows | a7ce86a91 |  |
 | `boot-rows` | boot-rows | 2 | boot-damaged | merged | boot-rows/boot-rows | 43dec93aa |  |
 | `call-gate` | call-gate | 2 | 없음 | merged | call-gate/call-gate | b0189e380 |  |
@@ -22,7 +22,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `prompt-blocked` | prompt-blocked | 2 | 없음 | merged | prompt-blocked/prompt-blocked | 19b3b3f9e |  |
 | `prompt-notice` | prompt-notice | 2 | reply-fn | merged | prompt-notice/prompt-notice | c1768683d |  |
 | `reaction-rows` | reaction-rows | 2 | boot-damaged, gateway-client | todo |  |  |  |
-| `registration-rows` | registration-rows | 2 | 없음 | running | registration-rows/registration-rows |  |  |
+| `registration-rows` | registration-rows | 2 | 없음 | merged | registration-rows/registration-rows | 6901fa09a |  |
 | `rewind-rows` | rewind-rows | 2 | 없음 | merged | rewind-rows/rewind-rows | c9e2e22ec |  |
 | `secret-rows` | secret-rows | 2 | 없음 | merged | secret-rows/secret-rows | 577e9956a |  |
 | `session-archive-calls` | session-archive-calls | 2 | reply-fn, session-scope | todo |  |  |  |
@@ -30,7 +30,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `session-scope` | session-scope | 2 | session-rows | merged | session-scope/session-scope | e120be42a |  |
 | `steer` | steer | 2 | 없음 | merged | steer/steer | 3abf290dd | 단정 3: steer 메시지의 messages_only rewind. 문서대로 gather를 고친다(rewind-rows merge 뒤, 추가 소유) |
 | `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | running | test-app/test-app |  |  |
-| `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | todo |  |  |  |
+| `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | running | agent-call/agent-call |  |  |
 | `app-activation` | app-activation | 3 | test-app | todo |  |  |  |
 | `app-call` | app-call | 3 | test-app | todo |  |  |  |
 | `app-data-rewind` | app-data-rewind | 3 | test-app | todo |  |  |  |
@@ -52,6 +52,6 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |
 | `reaction-app` | reaction-app | 3 | reaction-rows, test-app | todo |  |  |  |
 | `reaction-context` | reaction-context | 3 | pm-context | running | reaction-context/reaction-context |  |  |
-| `restart-rows` | restart-rows | 3 | 없음 | running | restart-rows/restart-rows |  |  |
+| `restart-rows` | restart-rows | 3 | 없음 | merged | restart-rows/restart-rows | d83cd01cd |  |
 | `stop-rows` | stop-rows | 3 | turn-fate | running | stop-rows/stop-rows |  |  |
 | `turn-fate` | turn-fate | 3 | 없음 | merged | turn-fate/turn-fate | d7ee5791d |  |

@@ -2,8 +2,8 @@
 import { t } from "@lophn/wording";
 
 import {
+  type PaletteShortcut,
   WINDOW_SHORTCUTS,
-  type WindowShortcut,
 } from "../../../ipc/shortcuts.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { PaletteGroup } from "./model.ts";
@@ -54,7 +54,7 @@ function shortcutLabel(
 }
 
 export function windowShortcutLabel(
-  shortcut: WindowShortcut,
+  shortcut: PaletteShortcut,
   platform: WindowPlatform,
 ): string {
   return shortcutLabel(WINDOW_SHORTCUTS[shortcut], platform);

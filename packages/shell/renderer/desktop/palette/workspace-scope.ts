@@ -2,6 +2,7 @@
 // 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, Context 탭 열기, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
+import { commandLabel } from "../../../ipc/keybindings.ts";
 import {
   CONTEXT_PALETTE_PREFIX,
   contextPaletteItems,
@@ -90,7 +91,17 @@ function actions(
       windowShortcutLabel("launcher", input.platform),
     ),
     ...(input.terminal
-      ? [action("terminal", t("common.button.palette-terminal"), "terminal")]
+      ? [
+        action(
+          "terminal",
+          t("common.button.palette-terminal"),
+          "terminal",
+          commandLabel(
+            "terminal.focus",
+            input.platform === "mac" ? "mac" : "other",
+          ) ?? undefined,
+        ),
+      ]
       : []),
     action("settings", t("common.button.palette-settings"), "screen"),
   ];

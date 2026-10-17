@@ -161,6 +161,71 @@ export function moveTab(
   return kept === moved ? moved : { ...kept, focusedPane: 0 };
 }
 
+/** 탭을 같은 칸 안에서 한 칸 왼쪽(-1)이나 오른쪽(1)으로 옮긴다. 끝이면 그대로다. */
+export function shiftTab(
+  view: WorkspaceView,
+  pane: number,
+  key: string,
+  delta: -1 | 1,
+): WorkspaceView {
+  const tabs = view.panes[pane]?.tabs ?? [];
+  const at = tabs.findIndex((tab) => tab.key === key);
+  const to = at + delta;
+  if (at < 0 || to < 0 || to >= tabs.length) return view;
+  const rest = tabs.filter((tab) => tab.key !== key);
+  return moveTab(view, key, pane, rest[to]?.key ?? null);
+}
+
+/**
+ * 탭을 이웃 칸으로 옮긴다(-1 왼쪽, 1 오른쪽). 한 칸이면 나눠서 옮기고, 왼쪽으로 나누면 새 칸이
+ * 왼쪽에 선다. 이미 끝 칸이면 그대로다.
+ */
+export function moveTabBy(
+  view: WorkspaceView,
+  key: string,
+  delta: -1 | 1,
+): WorkspaceView {
+  const from = holderOf(view, key);
+  if (from < 0) return view;
+  if (view.panes.length === 1) {
+    const split = moveTab(view, key, 1);
+    if (split === view || delta === 1) return split;
+    return {
+      ...split,
+      panes: [...split.panes].reverse(),
+      splitRatio: 1 - split.splitRatio,
+      focusedPane: 0,
+    };
+  }
+  const to = from + delta;
+  return to < 0 || to >= view.panes.length ? view : moveTab(view, key, to);
+}
+
+/**
+ * 닫은 탭을 닫기 전 칸의 그 자리에 다시 연다(칸이 줄었으면 마지막 칸). 이미 열려 있는 탭이면
+ * 그대로다. 다시 연 탭은 고정 탭이다.
+ */
+export function reopenTab(
+  view: WorkspaceView,
+  tab: TabItem,
+  pane: number,
+  index: number,
+): WorkspaceView {
+  if (holderOf(view, tab.key) >= 0) return view;
+  const target = Math.min(Math.max(pane, 0), view.panes.length - 1);
+  const reopened = { ...tab, preview: false };
+  return {
+    ...view,
+    focusedPane: target,
+    panes: view.panes.map((item, at) => {
+      if (at !== target) return item;
+      const tabs = [...item.tabs];
+      tabs.splice(Math.min(index, tabs.length), 0, reopened);
+      return { tabs, selected: tab.key };
+    }),
+  };
+}
+
 function holderOf(view: WorkspaceView, key: string): number {
   return view.panes.findIndex((pane) =>
     pane.tabs.some((tab) => tab.key === key)

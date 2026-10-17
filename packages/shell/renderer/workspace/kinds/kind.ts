@@ -27,6 +27,8 @@ export interface TabKindDef {
   pathOf?(tab: TabItem): string | null;
   /** 탭 이름 뒤의 상태 점(Agent 탭의 session 상태). null이면 점이 없다. */
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
+  /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */
+  readonly noReopen?: true;
   /** 팔레트 탭 행의 아이콘. 없으면 일반 탭이다. */
   readonly paletteIcon?: "terminal";
   /**

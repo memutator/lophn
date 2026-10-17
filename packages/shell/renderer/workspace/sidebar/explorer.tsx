@@ -214,6 +214,9 @@ interface ExplorerProps {
   current?: string | null;
   /** 탭 menu의 Reveal in Explorer가 알리는 파일. 바뀔 때마다 펼쳐 고르고 focus한다. */
   reveal?: { readonly path: string; readonly nonce: number } | null;
+  /** true면 고른 줄(없으면 첫 줄)에 focus를 주고 `onFocusAsked`로 요청을 내려놓는다. */
+  focusAsked?: boolean;
+  onFocusAsked?: () => void;
   /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
   onOpenFile: (path: string, keep?: boolean) => void;
   /** 이름 바꾸기와 옮기기. 열린 탭의 경로를 따라 바꾸는 일까지 한다. */
@@ -230,6 +233,8 @@ export function Explorer(
     folders,
     current = null,
     reveal = null,
+    focusAsked = false,
+    onFocusAsked,
     onOpenFile,
     onMove,
     onTrash,
@@ -250,9 +255,10 @@ export function Explorer(
   const treeRef = useRef<HTMLDivElement>(null);
   const dragging = useRef<string | null>(null);
   // 다음 render에 줄이 생기면 보이게 하고(선택적으로 focus도) 비운다. 줄이 늦게 생겨도 잠시 기다린다.
-  const goal = useRef<{ id: string; focus: boolean; until: number } | null>(
-    null,
-  );
+  // id가 null이면 tab stop 줄이다.
+  const goal = useRef<
+    { id: string | null; focus: boolean; until: number } | null
+  >(null);
   const typed = useRef({ text: "", at: 0 });
 
   const rowElement = (id: string) =>
@@ -261,7 +267,7 @@ export function Explorer(
         [],
     ]
       .find((element) => element.dataset.file === id);
-  const show = (id: string, focus: boolean) => {
+  const show = (id: string | null, focus: boolean) => {
     goal.current = { id, focus, until: Date.now() + PENDING_MS };
   };
   useEffect(() => {
@@ -271,7 +277,13 @@ export function Explorer(
       goal.current = null;
       return;
     }
-    const element = rowElement(wanted.id);
+    const element = wanted.id === null
+      ? [
+        ...treeRef.current?.querySelectorAll<HTMLElement>(
+          '[role="treeitem"]',
+        ) ?? [],
+      ].find((item) => item.tabIndex === 0)
+      : rowElement(wanted.id);
     if (element === undefined) return;
     goal.current = null;
     if (wanted.focus) element.focus({ preventScroll: true });
@@ -302,6 +314,13 @@ export function Explorer(
     setSelection(reveal.path);
     show(reveal.path, true);
   }, [reveal?.nonce]);
+
+  // Ctrl/Cmd+Shift+E. 고른 줄이 없으면 tab stop 줄에 focus한다.
+  useEffect(() => {
+    if (!focusAsked) return;
+    show(selection ?? current, true);
+    onFocusAsked?.();
+  }, [focusAsked]);
 
   if (root === undefined) return null;
 

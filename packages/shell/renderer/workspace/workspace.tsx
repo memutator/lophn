@@ -31,8 +31,11 @@ import {
   closeTab,
   closeTargets,
   moveTab,
+  moveTabBy,
   openTabIn,
   pinTab,
+  reopenTab,
+  shiftTab,
   SIDEBAR_WIDTH,
   type SidebarState,
   sidebarView,
@@ -57,9 +60,13 @@ import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
 import {
   PaletteButton,
+  useMainCommand,
+  useOpenPalette,
   usePaletteEnv,
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
+import type { Command } from "../../ipc/keybindings.ts";
+import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
@@ -136,6 +143,7 @@ interface Loaded {
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const NO_CONTEXTS: readonly ContextListItem[] = [];
+const CLOSED_TABS_MAX = 10;
 
 function freshView(): WorkspaceView {
   return {
@@ -637,16 +645,45 @@ export function Workspace(props: WorkspaceProps) {
     };
   };
 
+  // 사람이 닫은 탭. 창 전체에서 최근 몇 개를 기억해 Ctrl/Cmd+Shift+T가 되살린다. 이름 바꾸기·
+  // 휴지통으로 사라진 탭은 사람이 닫은 것이 아니라서 넣지 않는다.
+  const closedTabs = useRef<
+    { tab: TabItem; pane: number; index: number }[]
+  >([]);
+  const rememberClosed = (key: string) => {
+    const current = latest.current;
+    const pane = current.panes.findIndex((item) =>
+      item.tabs.some((tab) => tab.key === key)
+    );
+    if (pane < 0) return;
+    const tabs = current.panes[pane]!.tabs;
+    const index = tabs.findIndex((tab) => tab.key === key);
+    const tab = tabs[index]!;
+    if (tabKindOf(tab.kind)?.noReopen) return;
+    const position = positions.current[key] ?? tab.readPosition;
+    closedTabs.current = [
+      {
+        tab: position === undefined ? tab : { ...tab, readPosition: position },
+        pane,
+        index,
+      },
+      ...closedTabs.current.filter((item) => item.tab.key !== key),
+    ].slice(0, CLOSED_TABS_MAX);
+  };
+
   // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
   const close = (pane: number, key: string) => {
     const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
     const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
     if (!confirm) {
+      rememberClosed(key);
       update(closeTab(view, pane, key));
       return;
     }
     void confirm.then((remove) => {
-      if (remove) removeTab(key);
+      if (!remove) return;
+      rememberClosed(key);
+      removeTab(key);
     });
   };
 
@@ -662,6 +699,7 @@ export function Workspace(props: WorkspaceProps) {
       if (tab === undefined) continue;
       const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
       if (confirm && !(await confirm)) return;
+      rememberClosed(target);
       removeTab(target);
     }
   };
@@ -689,11 +727,21 @@ export function Workspace(props: WorkspaceProps) {
   const [reveal, setReveal] = useState<
     { readonly path: string; readonly nonce: number } | null
   >(null);
-  const revealInExplorer = (path: string) => {
+  const expandSidebar = () => {
     setSidebar((current) => ({ ...current, collapsedByUser: false }));
     setUserChoseWidth(true);
+  };
+  const revealInExplorer = (path: string) => {
+    expandSidebar();
     setReveal({ path, nonce: Date.now() });
   };
+  // 접힘 단추와 Ctrl/Cmd+B. 창이 좁아 접혀 있던 것도 펼치면 사람이 고른 것으로 친다.
+  const toggleSidebar = () => {
+    if (sidebarShown.mode === "collapsed") expandSidebar();
+    else setSidebar((current) => ({ ...current, collapsedByUser: true }));
+  };
+  // Ctrl/Cmd+Shift+E. 숫자가 바뀔 때마다 sidebar가 Explorer를 고르고 고른 줄에 focus를 준다.
+  const [explorerFocus, setExplorerFocus] = useState(0);
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
@@ -794,55 +842,137 @@ export function Workspace(props: WorkspaceProps) {
     })
   );
 
-  // 탭 shortcut: Ctrl/Cmd+W 닫기, Ctrl+Tab·Ctrl+PageDown 다음 탭, Ctrl+Shift+Tab·Ctrl+PageUp 이전 탭.
-  // 편집기나 터미널이 키를 가져가기 전에 capture에서 받는다. 메뉴의 기본 "창 닫기"도 막으려고 preventDefault한다.
-  const tabKeys = useRef<(event: KeyboardEvent) => void>(() => {});
-  tabKeys.current = (event) => {
-    if (event.repeat || event.altKey) return;
-    const pane = latest.current.panes[latest.current.focusedPane];
-    if (pane === undefined || pane.selected === null) return;
-    const mac = palette.platform === "mac";
-    const letter = event.key.toLowerCase();
-    if (
-      (letter === "w" || event.code === "KeyW") && !event.shiftKey &&
-      (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey)
-    ) {
-      // 터미널의 Ctrl+W는 shell의 단어 지우기라서 터미널 안에서는 넘긴다(mac의 Cmd+W는 shell에 가지 않는다).
-      const inTerminal = event.target instanceof Element &&
-        event.target.closest("[data-terminal-screen]") !== null;
-      if (inTerminal && !mac) return;
-      event.preventDefault();
-      event.stopPropagation();
-      close(latest.current.focusedPane, pane.selected);
-      return;
-    }
-    // Ctrl+Tab·Ctrl+PageDown은 mac에서도 Control이다.
-    if (!event.ctrlKey || event.metaKey) return;
-    const delta = event.key === "Tab"
-      ? event.shiftKey ? -1 : 1
-      : event.key === "PageDown" && !event.shiftKey
-      ? 1
-      : event.key === "PageUp" && !event.shiftKey
-      ? -1
-      : 0;
-    if (delta === 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const next = stepTab(pane, delta);
-    if (next === null || next === pane.selected) return;
+  // 작업대 단축키. 표(ipc/keybindings.ts)가 key를 정하고 여기서는 command를 한다. main이 먼저
+  // 받는 것(macOS의 Cmd+W)도 같은 command로 온다. 지금 배치는 latest에서 읽는다.
+  const openQuickFiles = useOpenPalette();
+  const runCommand = (command: Command, arg?: number) => {
     const current = latest.current;
-    updateRef.current({
-      ...current,
-      panes: current.panes.map((item, index) =>
-        index === current.focusedPane ? { ...item, selected: next } : item
-      ),
-    });
+    const at = current.focusedPane;
+    const pane = current.panes[at];
+    if (pane === undefined) return;
+    const select = (paneAt: number, key: string) => {
+      update({
+        ...latest.current,
+        focusedPane: paneAt,
+        panes: latest.current.panes.map((item, index) =>
+          index === paneAt ? { ...item, selected: key } : item
+        ),
+      });
+      focusPaneBody(paneAt);
+    };
+    switch (command) {
+      case "tab.next":
+      case "tab.prev": {
+        const next = stepTab(pane, command === "tab.next" ? 1 : -1);
+        if (next !== null && next !== pane.selected) select(at, next);
+        return;
+      }
+      case "tab.nth": {
+        const target = arg === 0 ? pane.tabs.at(-1) : pane.tabs[(arg ?? 1) - 1];
+        if (target !== undefined && target.key !== pane.selected) {
+          select(at, target.key);
+        }
+        return;
+      }
+      case "tab.close":
+        if (pane.selected !== null) close(at, pane.selected);
+        return;
+      case "tab.reopen": {
+        while (closedTabs.current.length > 0) {
+          const [last, ...rest] = closedTabs.current;
+          closedTabs.current = rest;
+          const open = latest.current.panes.some((item) =>
+            item.tabs.some((tab) => tab.key === last!.tab.key)
+          );
+          if (open) continue;
+          update(reopenTab(latest.current, last!.tab, last!.pane, last!.index));
+          focusPaneBody(latest.current.focusedPane);
+          return;
+        }
+        return;
+      }
+      case "tab.move-left":
+      case "tab.move-right":
+        if (pane.selected !== null) {
+          update(
+            shiftTab(
+              current,
+              at,
+              pane.selected,
+              command === "tab.move-left" ? -1 : 1,
+            ),
+          );
+        }
+        return;
+      case "tab.to-prev-pane":
+      case "tab.to-next-pane":
+        if (pane.selected !== null) {
+          update(
+            moveTabBy(
+              current,
+              pane.selected,
+              command === "tab.to-prev-pane" ? -1 : 1,
+            ),
+          );
+          focusPaneBody(latest.current.focusedPane);
+        }
+        return;
+      case "pane.focus": {
+        const target = (arg ?? 1) - 1;
+        if (target === at || current.panes[target] === undefined) return;
+        update({ ...current, focusedPane: target });
+        focusPaneBody(target);
+        return;
+      }
+      case "pane.split":
+        // 이미 나뉘었으면 더 나눌 칸이 없다.
+        if (current.panes.length === 1 && pane.selected !== null) {
+          update(moveTab(current, pane.selected, 1));
+          focusPaneBody(latest.current.focusedPane);
+        }
+        return;
+      case "sidebar.toggle":
+        toggleSidebar();
+        return;
+      case "explorer.focus":
+        expandSidebar();
+        setExplorerFocus((count) => count + 1);
+        return;
+      case "search.open":
+        if (source.searchSource !== undefined) {
+          openSearchShortcut(hostRef.current);
+        }
+        return;
+      case "terminal.focus": {
+        if (terminal === undefined) return;
+        const panes = current.panes.map((item, index) => ({ item, index }));
+        // 지금 칸의 터미널을 먼저 찾고, 없으면 다른 칸의 터미널로 간다.
+        const found = [...panes.slice(at), ...panes.slice(0, at)].flatMap((
+          { item, index },
+        ) =>
+          item.tabs.filter((tab) => tab.kind === "terminal").map((tab) => ({
+            index,
+            key: tab.key,
+          }))
+        )[0];
+        if (found === undefined) openTerminalTab(hostRef.current);
+        else {
+          select(found.index, found.key);
+        }
+        return;
+      }
+      case "files.quick-open":
+        openQuickFiles();
+        return;
+    }
   };
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => tabKeys.current(event);
-    document.addEventListener("keydown", listener, true);
-    return () => document.removeEventListener("keydown", listener, true);
-  }, []);
+  const runRef = useRef(runCommand);
+  runRef.current = runCommand;
+  useKeybindings(
+    palette.platform === "mac" ? "mac" : "other",
+    (command, arg) => runRef.current(command, arg),
+  );
+  useMainCommand((command) => runRef.current(command));
 
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
@@ -883,12 +1013,9 @@ export function Workspace(props: WorkspaceProps) {
               ? currentTab.key
               : null}
             onLauncher={onLauncher}
-            onToggle={() =>
-              setSidebar((current) => ({
-                ...current,
-                collapsedByUser: sidebarShown.mode !== "collapsed",
-              }))}
+            onToggle={toggleSidebar}
             reveal={reveal}
+            focusExplorer={explorerFocus}
             onOpenFile={(path, keep) =>
               openFile(host, path, { preview: keep !== true })}
             onMove={moveFile}

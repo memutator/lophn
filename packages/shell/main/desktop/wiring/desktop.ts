@@ -251,7 +251,7 @@ export function register(
   // 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
   // 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
   app.on("web-contents-created", (_event, contents) => {
-    listenShortcuts(contents, process.platform, (shortcut) => {
+    listenShortcuts(contents, process.platform, (shortcut, send) => {
       const window = [...windows].find((window) =>
         !window.isDestroyed() &&
         (window.webContents === contents ||
@@ -260,7 +260,7 @@ export function register(
           ))
       );
       if (!window) return false;
-      window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
+      if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
       return true;
     });
   });

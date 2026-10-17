@@ -73,6 +73,7 @@ export const terminalKind: TabKindDef = {
   labelKey: "project-workspace.label.kind-terminal",
   icon: workspaceIcons.terminal,
   paletteIcon: "terminal",
+  noReopen: true,
   iconOf: (tab) => codingTabIcon(tab),
   fromStored(stored, { key }) {
     const folder = stored.project_folder;

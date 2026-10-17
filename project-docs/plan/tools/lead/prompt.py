@@ -23,6 +23,7 @@ print(f"""lophn task `{tid}`를 해 줘.
 - test는 깨지면 정말 곤란한 것에만 몇 개 쓴다(`.claude/skills/write-test`). E2E, 브라우저, 스크린샷은 하지 않는다. subprocess·서버를 띄우는 test는 새로 만들지 않는다.
 - Bash 호출마다 cwd와 shell 변수가 처음으로 돌아간다. 명령마다 `cd {MAIN}/.claude/worktrees/{tid}; ...`로 시작하거나 절대 경로를 쓴다. worktree 밖(main checkout)에서 돌리지 않는다.
 - 확인은 `deno task check:full`과 core 기동 두 번이다. core는 띄우기부터 끄기까지 Bash 호출 하나로 한다(같은 data root로 두 번): `cd {MAIN}/.claude/worktrees/{tid}; mkdir -m 700 -p .dev-data/{tid}; export LOPHN_HOME=$PWD/.dev-data/{tid}; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/{tid}/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID; head -5 .dev-data/{tid}/core.log`. `;`로 잇고 `&&` 사슬이나 `( ... )`로 묶어 background로 보내지 않는다(그러면 `$!`가 subshell이라 deno가 남는다). ps·fuser·ss로 찾지 않는다. pkill·killall은 쓰지 않는다. 실제 `~/.lophn`은 절대 건드리지 않는다.
+- 임시 file(move-files mapping, probe 출력 등)은 worktree 안 `.dev-data/{tid}/`에 둔다. session scratchpad는 같이 도는 다른 worker와 공유되어 같은 이름이면 서로 덮는다(남의 mapping으로 남의 file을 옮길 수 있다).
 - 명령이 auto mode classifier에 막히면 같은 일을 다른 명령으로 우회하지 않는다. 무엇이 막혔는지 보고하고 할 수 있는 데까지 한다.
 - 통과하면 이 branch에 commit한다. 메시지는 영어 명령형 한 줄과 본문, 끝에 `Co-Authored-By:` 줄(자기 model 이름). 요구 ID와 작업 번호는 넣지 않는다.
 - push, merge, rebase, 다른 branch 건드리기는 하지 않는다.

@@ -8,6 +8,7 @@ import {
   relativePathSchema,
 } from "../../../../protocol/projects/mod.ts";
 import { sha256Schema } from "../../../../protocol/base/mod.ts";
+import { createLinks, decodeLinks, LINKS_PATH } from "./links.ts";
 
 type SealFailure = {
   code: "unavailable" | "invalid_input";
@@ -81,6 +82,17 @@ export async function sealBundle(
 ): Promise<Result<void, SealFailure>> {
   const directories: string[] = [input.copyPath];
   const files: string[] = [];
+  // 사본 폴더를 만들기 전에 거른다. 사본 밖을 가리키는 연결은 아무것도 만들지 않고 거절한다.
+  const linksFile = input.bundleFiles.find((file) => file.path === LINKS_PATH);
+  const links = linksFile ? decodeLinks(linksFile.bytes) : ok([]);
+  if (!links.ok) return links;
+  const linkPaths = new Set(links.value.map((link) => link.path));
+  if (input.bundleFiles.some((file) => linkPaths.has(file.path))) {
+    return err({
+      code: "invalid_input",
+      message: "bundle link path is also a file",
+    });
+  }
   try {
     await Deno.mkdir(input.copyPath, { recursive: true });
     const written: { path: string; bytes: Uint8Array }[] = [];
@@ -117,6 +129,8 @@ export async function sealBundle(
       if (!narrowedFile.ok) return narrowedFile;
       files.push(target);
     }
+    // 연결은 정규 file을 다 쓴 뒤에 만든다. chmod가 연결을 따라가므로 files에 넣지 않는다.
+    await createLinks(input.copyPath, links.value, directories);
   } catch (thrown) {
     return err({
       code: "unavailable",

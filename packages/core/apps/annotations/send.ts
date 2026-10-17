@@ -72,12 +72,11 @@ export function createAnnotations(deps: AnnotationDeps) {
       view: item.view,
       release: item.release,
     }));
-    const message = renderAnnotationMessage(stored);
+    const text = renderAnnotationMessage(stored);
     const delivered = await delivery.deliver({
       app: input.app,
       session: input.session,
-      text: message.text,
-      images: message.images,
+      text,
       annotations: ids,
     });
     if (!delivered.ok) {

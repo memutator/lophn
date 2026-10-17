@@ -1,8 +1,8 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { historyResultPart } from "./history.ts";
+import { historyResultParts } from "./history.ts";
 
 function textOf(name: string, content: string): string {
-  const part = historyResultPart({
+  const part = historyResultParts({
     key: "k1",
     name,
     status: "success",
@@ -16,7 +16,7 @@ function textOf(name: string, content: string): string {
       continuation: null,
       pending: [],
     },
-  });
+  })[0]!;
   return part.kind === "tool_result" ? part.text : "";
 }
 

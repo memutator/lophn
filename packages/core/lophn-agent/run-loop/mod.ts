@@ -98,7 +98,7 @@ export {
   toolRetryDelayMs,
 } from "./retry.ts";
 export { type CallResult, runToolBatch } from "./tool-batch.ts";
-export { historyResultPart } from "./history.ts";
+export { historyResultParts } from "./history.ts";
 export {
   EXTERNAL_TOOL_OPERATIONS,
   roleOperations,

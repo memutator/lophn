@@ -62,7 +62,7 @@ export const FILE_TOOLS: readonly ToolDefinition[] = [
   defineBuiltin({
     name: "image.read",
     description:
-      "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model.",
+      "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model. path can also be annotation:<id> to open the screenshot of an annotation.",
     effect: "read",
     handler: (input, ctx) => readImage(input as Input<"image.read">, ctx),
   }),

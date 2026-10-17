@@ -57,6 +57,7 @@ import {
   turnList,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { annotationsGet } from "../../../protocol/apps/annotation.ts";
 import {
   appAgentConfirmProof,
   appGet,
@@ -213,6 +214,9 @@ export function roleOperations(role: string): readonly string[] {
         ? [stageRewindFile.name, recordRewindWrite.name]
         : []),
       ...PLACE_READS,
+      // image.read가 annotation screenshot 경로를 읽는다. 앱 범위는 App Engineer 자격의 app 조건이 정하므로
+      // 앱에 묶이지 않는 다른 역할에는 주지 않는다.
+      ...(role === "app_engineer" ? [annotationsGet.name] : []),
       APP_TOOL_CONTRACT,
       ...EXTERNAL_TOOL_OPERATIONS,
       ...HUMAN_WAIT_ROUTES,

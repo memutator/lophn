@@ -178,3 +178,32 @@ Deno.test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 t
   assertEquals(world.delivered[0]!.text.match(/<\/?lophn-/gi)?.length, 2);
   world.close();
 });
+
+Deno.test("agent 자격은 자기 앱의 annotation만 읽고 다른 앱 것은 not_found다", async () => {
+  const world = open();
+  const sent = await world.send(USER, {
+    app: APP,
+    session: null,
+    annotations: [input(1)],
+  } as never);
+  assert(sent.ok);
+  const agent = (app: string): RequestContext => ({
+    ...USER,
+    principal: `agent:${SESSION}`,
+    actor: `agent:${SESSION}`,
+    conditions: { app },
+  });
+  const get = (ctx: RequestContext) =>
+    createAnnotationReads().get.handle(
+      { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+      ctx,
+      { annotation: sent.value.annotations[0] } as never,
+    );
+  const own = get(agent(APP));
+  assert(own.ok);
+  assert(own.value.annotations[0]!.screenshot_path !== null);
+  const other = get(agent("app_01hzzzzzzzzzzzzzzzzzzzzzzb"));
+  assert(!other.ok);
+  assertEquals(other.error.code, "not_found");
+  world.close();
+});

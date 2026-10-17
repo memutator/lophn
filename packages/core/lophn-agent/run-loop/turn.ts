@@ -6,7 +6,7 @@ import {
   sessionMaterial,
   type TurnPromptResult,
 } from "../prompt-assembly/mod.ts";
-import { historyResultPart } from "./history.ts";
+import { historyResultParts } from "./history.ts";
 import {
   callWithinLimits,
   type ConfirmedFacts,
@@ -544,7 +544,7 @@ async function afterModel(
   state.history.push({ role: "assistant", parts });
   const answers: HistoryPart[] = [];
   for (const result of batch.results) {
-    answers.push(historyResultPart(result));
+    answers.push(...historyResultParts(result));
   }
   state.history.push({ role: "user", parts: answers });
   record(state, batch.results);

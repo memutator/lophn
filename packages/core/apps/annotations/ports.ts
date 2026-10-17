@@ -19,11 +19,6 @@ export type AnnotationDelivery = {
     app: AppId;
     session: SessionId | null;
     text: string;
-    images: readonly {
-      hash: string;
-      size_bytes: number;
-      media_type: "image/png";
-    }[];
     annotations: readonly AnnotationId[];
   }): Promise<Result<{ session: SessionId; message: MessageId }>>;
 };

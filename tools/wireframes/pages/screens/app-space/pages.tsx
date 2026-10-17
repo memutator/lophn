@@ -116,9 +116,20 @@ export function ProjectPickerInView() {
   return <AppSpace picker />;
 }
 
-// ---- agent와 coding 터미널 pane ----
+// ---- 오른쪽 패널: App details, agent, coding 터미널 탭 ----
 
-/** 앱 화면 옆에 붙은 agent pane. title bar의 Agent select로 연다. */
+/** 세 탭이 한 줄에 선 패널. App details를 보고 있다. */
+export function SidePanelTabs() {
+  return (
+    <AppSpace
+      panel="version"
+      pane={{ view: "details", agent: "App Engineer" }}
+      terminal="running"
+    />
+  );
+}
+
+/** 앱 화면 옆에 붙은 agent 탭. title bar의 Agent select로 연다. */
 export function AgentPaneOpen() {
   return <AppSpace pane={{ agent: "App Engineer" }} />;
 }

@@ -22,6 +22,7 @@ import {
   RewindConflict,
   RewindDone,
   RewindRunning,
+  SidePanelTabs,
   VersionApplied,
   VersionApplying,
   VersionFailed,
@@ -50,16 +51,23 @@ export const appSpaceArea: Area = {
     },
     {
       id: "new-app-agent-pane",
-      title: "App space · agent pane",
+      title: "App space · agent tab",
       description:
-        "title bar의 Agent select로 연 agent pane이다. 앱 화면 옆에 붙고, pane 안의 대화는 project 창 Agent 탭과 같은 component다.",
+        "title bar의 Agent select로 연 오른쪽 패널이다. 앱 화면 옆에 붙고 머리 줄에 Agent 탭 하나가 있다. 안의 대화는 project 창 Agent 탭과 같은 component다.",
       render: () => <AgentPaneOpen />,
+    },
+    {
+      id: "new-app-side-panel",
+      title: "App space · side panel tabs",
+      description:
+        "오른쪽 패널 하나에 App details, Agent, coding 터미널이 탭 줄로 선다. 탭마다 아이콘과 닫기 ×가 있고 마지막 탭을 닫으면 패널이 닫힌다. title bar의 App details와 Agent 단추는 해당 탭을 열거나 고르고, 이미 고른 탭이면 패널을 닫는다. 탭을 바꿔도 안의 상태는 그대로다.",
+      render: () => <SidePanelTabs />,
     },
     {
       id: "new-app-version-applied",
       title: "App space · Version (applied)",
       description:
-        "운영 패널 탭은 Version, Access, Activity, Issues 넷이다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
+        "오른쪽 패널의 App details 탭 안에 Version, Access, Activity, Issues 넷이 있다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
       render: () => <VersionApplied />,
     },
     {
@@ -178,14 +186,14 @@ export const appSpaceArea: Area = {
       id: "new-app-coding-toast",
       title: "App space · coding tab opened",
       description:
-        "App Engineer가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. pane 머리에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
+        "App Engineer가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
       render: () => <CodingOpenedToast />,
     },
     {
       id: "new-app-coding-terminal",
       title: "App space · coding terminal tab",
       description:
-        "pane 머리에서 바꿔 본 coding 터미널이다. harness 아이콘과 ticket이 탭 이름이고 터미널 바탕은 pane과 같다.",
+        "패널 탭 줄에서 바꿔 본 coding 터미널이다. harness 아이콘과 ticket이 탭 이름이고 터미널 바탕은 pane과 같다.",
       render: () => <CodingRunning />,
     },
     {

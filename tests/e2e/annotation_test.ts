@@ -7,6 +7,10 @@
 // - 왜 지금 test가 못 잡나: `annotations_test.ts`는 저장과 읽기를 따로 보고, upload → blob → Router → App Engineer turn →
 //   runtime의 `image_read` → model 요청까지 이어지는 길은 process를 건너야 한다.
 //
+// `archived-app` 행: boundary `apps`·`router`(보관한 앱은 새 입력을 받지 않는다), 회귀는 보관한 앱의 App Engineer에게
+// 새 session이 열리거나 저장이 거절됐는데 메시지가 먼저 가는 것, `annotations_test.ts`는 저장 command의 거절만 보고
+// 보내기 → 저장 → 전달에서 전달이 일어나지 않음(session이 열리지 않음)은 Router 쪽 상태까지 읽어야 보인다.
+//
 // core는 file 전체에서 하나다. 앱 A, B를 만들고 행은 table 순서로 돈다. `other-app`은 `new-session`이 만든
 // A의 annotation id를 쓴다(행 순서에 기댄다). shell main 역할은 test가 route를 직접 불러 맡는다.
 import { assert, assertEquals } from "@std/assert";
@@ -16,8 +20,9 @@ import {
   annotationSend,
   annotationsGet,
 } from "../../packages/protocol/apps/annotation.ts";
-import { appCreate } from "../../packages/protocol/apps/mod.ts";
+import { appArchive, appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
+  agentSessionList,
   agentSessionRead,
   receivedMessageList,
   toolCallList,
@@ -230,6 +235,38 @@ const ROWS: Row[] = [
       });
       assert(!refused.ok);
       assertEquals(refused.error.code, "conflict");
+    },
+  },
+  {
+    // 앱 C를 이 행에서 만들어 보관한다. 보관한 앱은 새 입력을 받지 않는다.
+    name: "archived-app",
+    async run(ctx) {
+      const { core } = ctx;
+      const created = await core.call(appCreate, {
+        slug: "annotation-c",
+        name: "annotation-c",
+        description: "app annotation-c",
+      }, {});
+      const c = created.id;
+      await core.call(appArchive, { app: c }, {
+        base_revision: created.revision,
+      });
+      const refused = await core.tryCall(annotationSend, {
+        app: c,
+        session: null,
+        annotations: [annotationOf(core.ids.newId("rel"), null)],
+      });
+
+      // route
+      assert(!refused.ok);
+      assertEquals(refused.error.code, "conflict");
+
+      // inbox
+      const { sessions } = await core.call(agentSessionList, {
+        agent: { role: "app_engineer", app: c },
+        archived: "include",
+      });
+      assertEquals(sessions.length, 0);
     },
   },
 ];

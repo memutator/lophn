@@ -20,7 +20,6 @@ const boot = JSON.parse(worker.name) as {
   modules: string[];
   clock: "system" | number;
   seed: number;
-  domainOnly?: boolean;
 };
 
 // 자격 기록과 command가 같은 연결을 본다. writer loop의 두 번째 연결은 쓰지 않는다.
@@ -43,7 +42,6 @@ if (!opened.ok) {
     checkCredential: registration.checkCredential,
     confirmation: registration.confirmation,
     onTx: registration.onTx,
-    domainOnly: boot.domainOnly,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {

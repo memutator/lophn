@@ -48,7 +48,6 @@ export {
 export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
 export { snapshotPort } from "./reads.ts";
 export { commandResultRead } from "./command-results.ts";
-export { isDomainEvent } from "./domain-events.ts";
 export { createCommitPublisher } from "./commit-publisher.ts";
 export { reactionIdempotencyKey } from "./reaction.ts";
 
@@ -64,8 +63,6 @@ type LedgerDeps = {
   // transaction이 commit된 뒤, 그 tx가 domain event를 썼을 때 부른다. createCommitPublisher의
   // onCommit을 잇는다. writer Worker 경로는 openWriter의 세 번째 인자로 같은 것을 받는다.
   onCommit?: (success: CommandSuccess) => void;
-  // true면 domain event 10개가 아닌 type의 emit을 거절한다.
-  domainOnly?: boolean;
 };
 
 type Ledger = {
@@ -94,7 +91,6 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
     ports: deps.ports ?? [],
     registerBlobRef: deps.registerBlobRef,
     call: deps.call,
-    domainOnly: deps.domainOnly,
   };
   return {
     transaction(ctx, fn) {

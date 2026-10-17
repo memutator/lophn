@@ -6,17 +6,12 @@ import { jsonValueSchema } from "../base/json-values.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { releaseIdSchema } from "./apps.ts";
 
-// 로컬 socket 경로. core API가 아니다.
-export const DIRECT_SOCKET_PATHS = {
-  screen: "/screens",
-  invoke: "/_lophn/commands/invoke",
-  cancel: "/_lophn/commands/cancel",
-  status: "/_lophn/commands/status",
+// supervisor가 앱 process에 보내는 제어 경로다. core API가 아니다.
+export const CONTROL_PATHS = {
   probe: "/_lophn/control/probe",
   open: "/_lophn/control/open",
   close: "/_lophn/control/close",
   shutdown: "/_lophn/control/shutdown",
-  viewClosed: "/_lophn/control/view-closed",
 } as const;
 
 // Unix socket HTTP의 가상 host. 필수 플랫폼 통로에만 쓴다.

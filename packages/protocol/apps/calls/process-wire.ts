@@ -12,7 +12,7 @@ import { appApiKeySchema } from "../channel-values.ts";
 import { invocationEffectSchema } from "./invocation.ts";
 
 // core와 앱 process 사이. 앱 process는 supervisor만 이 socket으로 부른다.
-// probe·open·close·shutdown은 DIRECT_SOCKET_PATHS를 쓴다.
+// probe·open·close·shutdown은 CONTROL_PATHS를 쓴다.
 export const PROCESS_PATHS = {
   call: "/_lophn/control/call",
   apply: "/_lophn/control/apply",

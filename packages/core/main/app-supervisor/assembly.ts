@@ -64,7 +64,7 @@ import {
   type PreviewLauncher,
   type PreviewScope,
 } from "../../apps/preview/mod.ts";
-import { DIRECT_SOCKET_PATHS } from "../../../protocol/apps/mod.ts";
+import { CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
 import { diagnosticSchema } from "../../../protocol/supervision/mod.ts";
 import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
@@ -610,7 +610,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       if (exited) return { ok: false as const, reason: "exited before ready" };
       const answered = await control(
         socket,
-        DIRECT_SOCKET_PATHS.probe,
+        CONTROL_PATHS.probe,
         { process_nonce: nonce },
       );
       if (answered.ok) {
@@ -650,11 +650,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     socket: string,
   ): Promise<void> {
     const nonce = child.identity.processNonce;
-    await control(socket, DIRECT_SOCKET_PATHS.close, {
+    await control(socket, CONTROL_PATHS.close, {
       process_nonce: nonce,
       reason: "stop",
     });
-    await control(socket, DIRECT_SOCKET_PATHS.shutdown, {
+    await control(socket, CONTROL_PATHS.shutdown, {
       process_nonce: nonce,
       grace_ms: 10_000,
     });
@@ -732,7 +732,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     async open(child, socket, desired) {
       const answered = await control(
         socket,
-        DIRECT_SOCKET_PATHS.open,
+        CONTROL_PATHS.open,
         {
           process_nonce: child.identity.processNonce,
           release: desired.release,
@@ -880,7 +880,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     async open(child, socket, launch) {
       const answered = await control(
         socket,
-        DIRECT_SOCKET_PATHS.open,
+        CONTROL_PATHS.open,
         { process_nonce: child.identity.processNonce, release: launch.release },
       );
       return answered.ok && answered.value.status === 200;

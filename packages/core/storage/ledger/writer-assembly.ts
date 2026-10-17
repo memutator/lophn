@@ -45,8 +45,6 @@ type WriterBoot = {
   // clock을 쓴다. 테스트만 숫자를 보내고, 제품 경로는 "system"이다.
   clock: "system" | number;
   seed: number;
-  // domain event 10개가 아닌 type의 emit을 거절한다(LedgerDeps.domainOnly).
-  domainOnly?: boolean;
 };
 
 type Loose = {

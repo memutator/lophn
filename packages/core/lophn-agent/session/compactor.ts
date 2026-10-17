@@ -192,7 +192,9 @@ export function createCompactor(
   ): Promise<{ id: string; text: string }> {
     const prompt = compactSummaryRequest({ ...input, cap: limit.body });
     const packed = binding.pack(prompt);
-    if (measureWire(packed) > limit.input) throw new Failure("too_large");
+    if (measureWire(packed, prompt) > limit.input) {
+      throw new Failure("too_large");
+    }
     // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않는다.
     const safeBody = await redactValue(deps.redact, packed.body);
     if (!safeBody.ok) throw new Failure("model_unavailable");
@@ -215,7 +217,7 @@ export function createCompactor(
         has_previous: input.previous !== null,
         from_seq: first === undefined ? null : String(first.seq),
         through_seq: last === undefined ? null : String(last.seq),
-        measured: measureWire(packed),
+        measured: measureWire(packed, prompt),
         input_budget: limit.input,
       },
     );

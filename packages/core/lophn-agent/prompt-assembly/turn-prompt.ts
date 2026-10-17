@@ -242,7 +242,7 @@ export async function assembleTurnPrompt(
     tools,
     messages: appendNotices(historyMessages(input.history), notices),
   };
-  const measured = measureWire(deps.pack(request));
+  const measured = measureWire(deps.pack(request), request);
   if (measured > budget.value) {
     return {
       status: "blocked",

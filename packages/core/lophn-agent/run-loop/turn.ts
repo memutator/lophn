@@ -6,7 +6,7 @@ import {
   sessionMaterial,
   type TurnPromptResult,
 } from "../prompt-assembly/mod.ts";
-import { historyResultParts } from "./history.ts";
+import { historyResultParts, KEEP_IMAGES, omitOldImages } from "./history.ts";
 import {
   callWithinLimits,
   type ConfirmedFacts,
@@ -230,7 +230,7 @@ function historyOf(
   if (inputs.request !== null) {
     pushHistory(messages, "user", [{ kind: "text", text: inputs.request }]);
   }
-  for (const message of state.history) {
+  for (const message of omitOldImages(state.history, KEEP_IMAGES)) {
     pushHistory(messages, message.role, message.parts);
   }
   const tail = [

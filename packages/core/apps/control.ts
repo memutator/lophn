@@ -267,6 +267,9 @@ type AppsControlDeps = {
       app: string,
       bundleHash: string,
     ): Result<string | undefined>;
+    // 준비가 끝난 봉인 bundle 사본의 고정 시험 hash다. 만들 수 없으면 null이다. 시험을 만드는 쪽이 problems라
+    // wiring이 넘겨준다.
+    testOf(app: string, bundleHash: string): Promise<string | null>;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
     platformPorts: () => readonly number[];
   };
@@ -543,8 +546,13 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
     const finalized = await finalizer.observe(read.value);
     if (finalized.ok) {
-      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다).
-      return ok({ ...read.value, release: releaseIdOf(read.value) });
+      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다). `app test`가 쓸 고정 시험 hash도
+      // 준비가 끝났을 때 준다: coding agent는 이 값을 스스로 만들 수 없다.
+      const { app, bundle_hash: bundleHash } = read.value;
+      const test = read.value.status === "completed" && bundleHash !== null
+        ? await deps.activation?.testOf(app, bundleHash) ?? null
+        : null;
+      return ok({ ...read.value, release: releaseIdOf(read.value), test });
     }
     // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
     const { code, message } = finalized.error;

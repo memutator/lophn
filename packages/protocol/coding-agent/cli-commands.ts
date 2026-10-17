@@ -10,10 +10,14 @@ import { appIdSchema } from "../apps/channel-values.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
-import { releasePrepareBundle } from "../apps/releases.ts";
+import { releasePreparation, releasePrepareBundle } from "../apps/releases.ts";
 import { appLogs, appRuntime } from "../apps/runtime.ts";
 import type { Route } from "../base/route.ts";
-import { requestTest } from "../problems/tests.ts";
+import {
+  getTestRequest,
+  getVerification,
+  requestTest,
+} from "../problems/tests.ts";
 import {
   problemGet,
   problemList,
@@ -150,6 +154,20 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   ),
   token("app show", appGet, appGet.input, appGet.output),
   token("app test", requestTest, requestTest.input, requestTest.output),
+  // `app test`로 접수한 request_key의 접수와 result_ref를 읽는다.
+  token(
+    "app test status",
+    getTestRequest,
+    getTestRequest.input,
+    getTestRequest.output,
+  ),
+  // result_ref로 통과·실패와 이유를 읽는다.
+  token(
+    "app test result",
+    getVerification,
+    getVerification.input,
+    getVerification.output,
+  ),
   token(
     "app preview start",
     previewsStart,
@@ -177,6 +195,13 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     releasePrepareBundle,
     releasePrepareBundle.input,
     releasePrepareBundle.output,
+  ),
+  // 준비 진행을 읽는다. 끝났고 같은 bundle hash의 통과한 app test가 있으면 core가 release를 확정해 id를 준다.
+  token(
+    "release status",
+    releasePreparation,
+    releasePreparation.input,
+    releasePreparation.output,
   ),
   // 의존으로 선언된 package의 안내 읽기만 한다.
   token(

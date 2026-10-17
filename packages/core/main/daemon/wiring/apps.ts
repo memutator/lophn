@@ -71,6 +71,8 @@ import {
   findAppTestVerification,
   findPassedAppTest,
 } from "../../../problems/tests/app-test-lookup.ts";
+import { deriveAppTest } from "../../../problems/tests/app-test/frozen.ts";
+import { bundleCopyPath } from "../../../apps/releases/bundle/seal.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -135,6 +137,12 @@ export const appsWiring: WiringFactory = () => {
             runtime.writer.command(context as never, envelope as never),
           machine,
           findPassedAppTest,
+          testOf: async (app, bundleHash) => {
+            const copy = bundleCopyPath(ctx.root.path, app, bundleHash);
+            if (!copy.ok) return null;
+            const derived = await deriveAppTest(copy.value, bundleHash);
+            return derived.ok ? derived.value.test_hash : null;
+          },
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,
         },

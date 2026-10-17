@@ -249,6 +249,8 @@ const releasePreparationOutputSchema = z.object({
   manifest: bundleManifestSchema.nullable(),
   // 준비가 끝나 확정된 release. ticket report가 쓴다.
   release: releaseIdSchema.nullable(),
+  // 준비가 끝났을 때 `app test`의 `test`에 넣는 고정 시험 hash. 끝나기 전에는 null.
+  test: sha256Schema.nullable(),
 });
 export const releasePreparation = defineCommand({
   resource: "releases",

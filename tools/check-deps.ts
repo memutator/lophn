@@ -1,6 +1,6 @@
 // 실행: deno run --allow-read tools/check-deps.ts [root]
 import { checkBlueprintGraph } from "./deps-blueprint.ts";
-import { readImports } from "./deps-imports.ts";
+import { readImports, readStringSites } from "./deps-imports.ts";
 import {
   directory,
   inside,
@@ -61,14 +61,14 @@ function numberedName(segment: string): boolean {
     /-next$/i.test(name);
 }
 
-// core 안 층. domain은 problems → apps만 되고, lophn-agent(harness)는 domain과 agent-roles(role 층) 아래,
-// domain과 agent-roles는 서로 모르고, 나머지 바닥은 셋 다 모른다.
-// 아직 못 끊은 예외. harness와 domain을 나눌 때 다시 본다(project-docs/architecture/layers.md).
+// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < role 층(agent-roles)·domain(projects, apps, problems) < main(조립).
+// harness와 바닥은 role 층과 domain을 모르고, role 층과 domain은 서로 모른다. 둘 다 harness는 쓸 수 있다.
+// domain끼리는 problems → apps, projects → apps만 된다(project-docs/architecture/layers.md).
 // projects → apps: writer·reader Worker가 직접 여는 projects/contexts/ledger/deps.ts가 releases store를 읽는다.
 const CORE_DOMAIN_EDGES = new Set(["problems>apps", "projects>apps"]);
-const CORE_LAYER_EXCEPTIONS = new Set<string>();
-const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
+const CORE_HARNESS = "lophn-agent";
 const CORE_ROLES = "agent-roles";
+const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
   return parts[0] === "packages" && parts[1] === "core" && parts.length > 3
@@ -82,35 +82,180 @@ function coreLayerViolation(file: string, target: string): string | undefined {
   if (from !== "main" && to === "main") {
     return `module은 core/main을 import하지 않는다: ${from} → main`;
   }
-  const bottom = from !== "main" && from !== "lophn-agent" &&
-    from !== CORE_ROLES && !CORE_DOMAINS.has(from);
-  if (
-    bottom &&
-    (to === "lophn-agent" || to === CORE_ROLES || CORE_DOMAINS.has(to))
-  ) {
-    return `바닥은 lophn-agent, agent-roles, domain을 import하지 않는다: ${from} → ${to}`;
+  const upper = (name: string) =>
+    name === CORE_HARNESS || name === CORE_ROLES || CORE_DOMAINS.has(name);
+  if (from !== "main" && !upper(from) && upper(to)) {
+    return `바닥은 ${CORE_HARNESS}, ${CORE_ROLES}, domain을 import하지 않는다: ${from} → ${to}`;
   }
-  if (from === "lophn-agent" && to === CORE_ROLES) {
-    return `lophn-agent는 agent-roles를 import하지 않는다: ${from} → ${to}`;
+  if (from === CORE_HARNESS && (to === CORE_ROLES || CORE_DOMAINS.has(to))) {
+    return `${CORE_HARNESS}는 ${CORE_ROLES}와 domain을 import하지 않는다: ${from} → ${to}`;
   }
   if (
     (from === CORE_ROLES && CORE_DOMAINS.has(to)) ||
     (CORE_DOMAINS.has(from) && to === CORE_ROLES)
   ) {
-    return `domain과 agent-roles는 서로 import하지 않는다: ${from} → ${to}`;
-  }
-  if (
-    from === "lophn-agent" && CORE_DOMAINS.has(to) &&
-    !CORE_LAYER_EXCEPTIONS.has(`${from}>${to}`)
-  ) {
-    return `lophn-agent는 domain을 import하지 않는다: ${from} → ${to}`;
+    return `domain과 ${CORE_ROLES}는 서로 import하지 않는다: ${from} → ${to}`;
   }
   if (
     CORE_DOMAINS.has(from) && CORE_DOMAINS.has(to) &&
     !CORE_DOMAIN_EDGES.has(`${from}>${to}`)
   ) {
-    return `domain끼리는 problems → apps만: ${from} → ${to}`;
+    return `domain끼리는 problems → apps, projects → apps만: ${from} → ${to}`;
   }
+}
+
+// harness 폴더가 domain protocol과 role 이름을 아는 것(rule harness-domain). 앞 task가 못 끊은 file은 이유와 함께 면제한다.
+// 목록 file이 위반을 다 없애면 검사가 빼라고 알려준다.
+const HARNESS_DIR = `packages/core/${CORE_HARNESS}/`;
+const HARNESS_DOMAIN_PROTOCOLS = [
+  "apps",
+  "problems",
+  "projects",
+  "coding-agent",
+];
+const ROLE_NAMES = new Set(["project_manager", "app_engineer", "operator"]);
+const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
+  [
+    "packages/core/lophn-agent/agents/commands.ts",
+    "못 옮김: agent 정의 생성 명령이 harness의 agents/에 있어 Operator ref를 role 이름으로 만든다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/definition-file.ts",
+    "못 옮김: agent 정의 file 읽기·쓰기가 harness의 agents/에 있어 Operator 여부를 role 이름으로 가른다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/inspect.ts",
+    "못 옮김: agent 점검이 harness의 agents/에 있어 role별 place와 이름(BUILTIN_NAMES)을 role 이름으로 푼다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/layers.ts",
+    "못 옮김: agent prompt 층 목록이 projects의 context 목록 route(contextListRoute)를 부른다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/names.ts",
+    "못 옮김: built-in 이름 표(BUILTIN_NAMES)가 harness에 있어 role 이름을 key로 쓴다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/profile-asset.ts",
+    "못 옮김: profile asset 검사가 harness의 agents/에 있어 Operator만 허용하는 규칙을 role 이름으로 쓴다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/reads.ts",
+    "못 옮김: agent 목록·조회가 harness의 agents/에 있어 role 이름으로 built_in/operator 종류와 place를 가른다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/resolve.ts",
+    "못 옮김: agent 정의 해석(DEFAULT_PROFILES 포함)이 harness의 agents/에 있어 role별 기본값을 role 이름으로 가른다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/store.ts",
+    "못 옮김: agent 정의 file 자리 계산이 harness의 agents/에 있어 role별 folder를 role 이름으로 고른다",
+  ],
+  [
+    "packages/core/lophn-agent/agents/validate.ts",
+    "못 옮김: agent 정의 검증이 harness의 agents/에 있어 Operator와 built-in을 role 이름으로 가른다",
+  ],
+  [
+    "packages/core/lophn-agent/instructions/files.ts",
+    "못 옮김: 지침 file 자리와 session 행 읽기가 harness의 instructions/에 있어 role별 file 이름을 role 이름으로 고른다",
+  ],
+  [
+    "packages/core/lophn-agent/places/directory.ts",
+    "못 옮김: place 해석이 harness의 places/에 있어 role별 place 종류를 role 이름으로 푼다",
+  ],
+  [
+    "packages/core/lophn-agent/places/lifecycle.ts",
+    "못 옮김: place 생명 주기가 harness의 places/에 있어 role별 session 열기·닫기를 role 이름으로 가른다",
+  ],
+  [
+    "packages/core/lophn-agent/register.ts",
+    "못 옮김: Operator 조회(operatorDirectory)를 harness의 wiring이 role 이름으로 직접 만든다",
+  ],
+  [
+    "packages/core/lophn-agent/run-loop/runtime-access.ts",
+    "못 옮김: agent runtime이 열 core route 목록이 projects·apps protocol의 route 값을 직접 import한다",
+  ],
+  [
+    "packages/core/lophn-agent/session/model.ts",
+    "못 옮김: session 표의 role check와 행 변환이 role 이름을 SQL과 코드에 쓴다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/app-api/input.ts",
+    "못 옮김: 동적 app-api tool이 apps protocol의 입력 type을 쓴다(domain tool로 옮기지 않았다)",
+  ],
+  [
+    "packages/core/lophn-agent/tools/app-toolkit.ts",
+    "못 옮김: 동적 app-api tool 묶음이 apps protocol의 appAppApi를 읽는다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/app-tools.ts",
+    "못 옮김: 동적 app-api tool이 apps protocol의 app runtime·AppAppApi를 쓴다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/bundles/call.ts",
+    "못 옮김: 범용 call tool이 projects·apps protocol의 목록 route(projectList, appList)를 부른다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/call/target.ts",
+    "못 옮김: call 대상 해석이 projects·apps 목록을 읽어 role 이름으로 대상 ref를 만든다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/file/image.ts",
+    "못 옮김: file.image가 apps protocol의 annotationsGet으로 annotation 이미지를 읽는다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/file/read.ts",
+    "못 옮김: file.read가 projects protocol의 openableKind로 열 수 있는 형식을 고른다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/questions/option-actions.ts",
+    "범위 밖: tools/questions/는 이번에 손대지 않기로 했다(README 정한 것 4). apps protocol의 appCreate를 쓴다",
+  ],
+  [
+    "packages/core/lophn-agent/tools/runtime-permissions.ts",
+    "못 옮김: runtime 권한 계산이 apps protocol의 appDirectSocketPaths를 쓴다",
+  ],
+]);
+
+// tool 정의 file은 agent runtime child에서 실려서 store·DB 코드를 끌어오면 안 된다(rule tool-file).
+const DOMAIN_TOOL_PLACES = [
+  "packages/core/apps/agent-tools/",
+  "packages/core/problems/agent-tools.ts",
+];
+const ROLE_TOOL_DIR = `packages/core/${CORE_ROLES}/tools/`;
+const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;
+function toolFileViolation(
+  file: string,
+  specifier: string,
+  target: string | undefined,
+): string | undefined {
+  const place = DOMAIN_TOOL_PLACES.find((path) => file.startsWith(path));
+  const role = file.startsWith(ROLE_TOOL_DIR);
+  if (!place && !role) return;
+  if (specifier === "node:sqlite") return "node:sqlite를 import하지 않는다";
+  if (!target) return;
+  if (target.startsWith("packages/core/storage/")) {
+    return `storage를 import하지 않는다: ${specifier}`;
+  }
+  if (role) {
+    return target.startsWith(`packages/core/${CORE_ROLES}/`) &&
+        /\/(?:store|ledger|register)(?:[-./]|$)/.test(target)
+      ? `store·ledger·register를 import하지 않는다: ${specifier}`
+      : undefined;
+  }
+  const ok = target === SPI || target.startsWith("packages/base/") ||
+    target.startsWith("packages/protocol/") || target.startsWith(place!);
+  return ok
+    ? undefined
+    : `domain tool 정의 file은 base, protocol, 같은 폴더, ${CORE_HARNESS}/tools/spi.ts만 import: ${specifier}`;
+}
+
+function harnessProtocol(file: string, target: string): string | undefined {
+  if (!file.startsWith(HARNESS_DIR)) return;
+  const top = HARNESS_DOMAIN_PROTOCOLS.find((name) =>
+    target.startsWith(`packages/protocol/${name}/`)
+  );
+  return top && `protocol/${top} import`;
 }
 
 function protocolTop(file: string): string | undefined {
@@ -153,8 +298,20 @@ async function checkRepo(root: string): Promise<Violation[]> {
   const violations: Violation[] = [];
   const edges: Edge[] = [];
   const sources = new Map<string, string>();
+  const harnessHits = new Set<string>();
   const add = (file: string, line: number, rule: string, message: string) =>
     violations.push({ file, line, rule, message });
+  const harness = (file: string, line: number, what: string) => {
+    harnessHits.add(file);
+    if (!HARNESS_LEFTOVERS.has(file)) {
+      add(
+        file,
+        line,
+        "harness-domain",
+        `${CORE_HARNESS}는 domain protocol과 role 이름을 모른다: ${what}`,
+      );
+    }
+  };
 
   for (const path of paths) {
     if (!/^(packages|tools)\//.test(path)) continue;
@@ -190,6 +347,13 @@ async function checkRepo(root: string): Promise<Violation[]> {
       /\/(?:testing|testdata)\//.test(file);
     const source = await Deno.readTextFile(`${root}/${file}`);
     sources.set(file, source);
+    if (!testCode && file.startsWith(HARNESS_DIR)) {
+      for (const { specifier, line } of readStringSites(source)) {
+        if (ROLE_NAMES.has(specifier)) {
+          harness(file, line, `role 이름 문자열 "${specifier}"`);
+        }
+      }
+    }
     for (const { specifier, line } of readImports(source)) {
       const relative = specifier.startsWith("./") ||
         specifier.startsWith("../");
@@ -261,6 +425,12 @@ async function checkRepo(root: string): Promise<Violation[]> {
       if (!testCode && target) {
         const message = coreLayerViolation(file, target);
         if (message) add(file, line, "core-layer", message);
+        const protocol = harnessProtocol(file, target);
+        if (protocol) harness(file, line, protocol);
+      }
+      if (!testCode) {
+        const tool = toolFileViolation(file, specifier, target);
+        if (tool) add(file, line, "tool-file", tool);
       }
       // testing/ 안은 *_test.ts와 같은 testing/ 안 파일만 import한다(제품 module graph에 test 도구가 들어가지 않게).
       const testing = target &&
@@ -273,6 +443,16 @@ async function checkRepo(root: string): Promise<Violation[]> {
           `testing/은 *_test.ts와 testing/ 안에서만 import: ${specifier}`,
         );
       }
+    }
+  }
+  for (const [file, reason] of HARNESS_LEFTOVERS) {
+    if (files.includes(file) && !harnessHits.has(file)) {
+      add(
+        file,
+        1,
+        "harness-domain",
+        `위반이 없다. HARNESS_LEFTOVERS에서 뺀다 (${reason})`,
+      );
     }
   }
   checkBlueprintGraph(sources, add);

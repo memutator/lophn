@@ -45,20 +45,3 @@ modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 - 추천: 사람이 구독 OAuth를 제품에 둘지 정한 뒤 그대로 한다. 둘 생각이 없으면 지운다.
 
 정할 것: 구독 계정(OAuth) provider 연결을 제품에 둘지.
-
-## `deno task dev`가 fake provider를 띄우지만 provider로 연결하지 않는다
-
-```yaml
-kind: bug
-modules: [tools]
-```
-
-지금: `tools/dev.ts`는 `tools/fake-provider`를 띄우고 그 loopback 주소를 `LOPHN_FAKE_PROVIDER_URL`로 core에 넘긴다. 저장소에 이 env를 읽는 곳이 없다. 새 `.dev-data`에는 provider가 없다. `ConnectProvider` 입력은 loopback endpoint와 `auth_kind: "none"`을 받으니(`packages/protocol/lophn-agent/provider-inputs.ts`) 사람이 설정 화면에서 손으로 연결할 수는 있다.
-
-영향: 개발 실행이나 `run` skill로 앱을 띄운 agent가 대화를 시켜 보면 provider가 없어 turn이 돌지 않는다. 손으로 연결하는 수고가 들고, 실제 provider를 연결하고 싶어진다(AGENTS.md는 개발에서 실제 provider 호출을 사람에게 묻게 한다).
-
-고치려면:
-- `dev.ts`가 core ready 뒤 fake 주소로 loopback provider 하나를 연결한다(작음). 이미 있으면 그대로 둔다.
-- env를 지우고 손으로 연결하는 법을 `dev.ts` 주석에 적는다(가장 작음. 수고는 그대로).
-- 추천: 첫째.
-

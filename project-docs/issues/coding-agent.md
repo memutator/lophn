@@ -182,12 +182,12 @@ kind: bug
 modules: [packages/protocol, packages/coding-agent]
 ```
 
-지금: `harness-global-install`이 `HARNESS_ADAPTERS`의 전역 위치를 공식 문서(WebFetch)로 확인했다. 확인한 것: claude skill `~/.claude/skills`·hook `~/.claude/settings.json`, codex hook `~/.codex/hooks.json`(feature flag 불필요), gemini skill `~/.gemini/skills`·hook `~/.gemini/settings.json`(`AfterAgent`), pi extension `~/.pi/agent/extensions/*.ts`, opencode skill `~/.config/opencode/skills`. 확인 못함:
+지금: 전역 설치로 바꿀 때 `HARNESS_ADAPTERS`의 전역 위치를 공식 문서(WebFetch)로 확인했다. 확인한 것: claude skill `~/.claude/skills`·hook `~/.claude/settings.json`, codex hook `~/.codex/hooks.json`(feature flag 불필요), gemini skill `~/.gemini/skills`·hook `~/.gemini/settings.json`(`AfterAgent`), pi extension `~/.pi/agent/extensions/*.ts`, opencode skill `~/.config/opencode/skills`. 확인 못함:
 - codex skill `~/.agents/skills`: codex 문서로 직접 확인하지 못했다(opencode와 gemini 문서가 `~/.agents/skills`를 지원한다고 적었을 뿐).
 - pi skill: `~/.pi/agent/skills`를 확인하지 못해 pi 문서가 지원한다고 적은 `~/.agents/skills`로 했다. pi extension 원문의 `ctx.sessionManager.getSessionId()`와 `aborted` 칸도 확인 못함.
 - gemini: 문서에 "Gemini CLI가 2026-06에 Antigravity CLI로 대체됐다"는 말이 있어 위치가 바뀌었을 수 있다.
 - hermes, openclaw: prompt 전달, skill, hook 모두 확인 못함이라 null이다. 감지만 되고 맡길 수 없다.
-- opencode hook(plugin) 위치는 `harness-opencode`가 다룬다.
+- opencode hook(plugin) 위치는 따로 다룬다(아직 null).
 - gemini, pi, hermes, openclaw는 이 컴퓨터에 설치돼 있지 않아 실제 실행으로는 하나도 확인하지 못했다.
 
 영향: 확인 못한 위치에 놓은 skill·hook은 harness가 읽지 않을 수 있다. 그러면 hook이 없어 coding session state가 unknown이고 skill이 안 보인다.

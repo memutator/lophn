@@ -21,7 +21,7 @@ guard: install_test.ts
 
 정한 것: 전역에 한 번 설치하고 lophn 환경 변수로 켠다. 사용자 전역 설정을 건드리는 대신 처음 한 번 사람에게 묻는다.
 
-닫음: `lophn harness install {harness, dry_run?}`가 hook과 얇은 skill(본문은 `lophn guide <name>`을 따르라는 말뿐)을 사용자 home의 전역 위치에 한 번 놓는다. `.lophn/installed.json` hash, `kept_user_edit`, 앱 폴더 권한 계산, `releaseExcludes`, `SKILL_RELEASES`를 지웠다. CLI 권한은 그 harness의 hook 설정 폴더와 skill 폴더로 좁혔다. 새 `lophn guide <name>`이 skill 원문을 내준다. token 없는 `lophn hook`은 아무것도 안 하고 exit 0이고, launcher는 deno도 띄우지 않는다. 사람에게 묻는 일은 `harness-global-confirm`이 한다.
+닫음: `lophn harness install {harness, dry_run?}`가 hook과 얇은 skill(본문은 `lophn guide <name>`을 따르라는 말뿐)을 사용자 home의 전역 위치에 한 번 놓는다. `.lophn/installed.json` hash, `kept_user_edit`, 앱 폴더 권한 계산, `releaseExcludes`, `SKILL_RELEASES`를 지웠다. CLI 권한은 그 harness의 hook 설정 폴더와 skill 폴더로 좁혔다. 새 `lophn guide <name>`이 skill 원문을 내준다. token 없는 `lophn hook`은 아무것도 안 하고 exit 0이고, launcher는 deno도 띄우지 않는다. 사람에게 묻는 일은 shell 쪽이 따로 한다.
 
 ## harness 7종의 감지·설치 표
 

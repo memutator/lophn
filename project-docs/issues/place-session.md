@@ -40,7 +40,7 @@ kind: bug
 modules: [packages/core/lophn-agent]
 ```
 
-지금: file tool과 shell은 agent runtime process(`main/agent-runtime`) 안에서 돈다. 그 process의 권한은 `tools/runtime-permissions.ts`의 `agentRuntimePermissions`가 `placeFolders.read`·`write`를 `allow_read`·`allow_write`에 얹어 만들고, `supervision/security/launch-spec.ts`가 `--allow-read`·`--allow-write` flag로 바꾼다. 그런데 `run-loop/runtime.ts`의 `specFor`는 늘 `placeFolders: { read: [], write: [] }`를 넘긴다. turn의 `scope`(`place-data.ts`)가 폴더를 열어도 Deno 권한은 data root, skill root, socket뿐이다. 코드로만 따라갔고 실제 turn에서 file tool이 `NotCapable`로 막히는지는 보지 않았다(`place-operator-app-read` worker가 찾음).
+지금: file tool과 shell은 agent runtime process(`main/agent-runtime`) 안에서 돈다. 그 process의 권한은 `tools/runtime-permissions.ts`의 `agentRuntimePermissions`가 `placeFolders.read`·`write`를 `allow_read`·`allow_write`에 얹어 만들고, `supervision/security/launch-spec.ts`가 `--allow-read`·`--allow-write` flag로 바꾼다. 그런데 `run-loop/runtime.ts`의 `specFor`는 늘 `placeFolders: { read: [], write: [] }`를 넘긴다. turn의 `scope`(`place-data.ts`)가 폴더를 열어도 Deno 권한은 data root, skill root, socket뿐이다. 코드로만 따라갔고 실제 turn에서 file tool이 `NotCapable`로 막히는지는 보지 않았다(앱 Operator 읽기를 고치다 찾음).
 
 영향: place 폴더가 data root 밖이면 PM, project Operator, App Engineer, 앱 Operator 모두 file tool과 shell로 그 폴더를 못 읽고 못 쓸 수 있다. 맞다면 agent가 project 일을 하지 못한다.
 

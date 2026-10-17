@@ -142,7 +142,7 @@ export async function prepareBundleBlobs(
 
 // 검증된 설치 내용만 설치한다.
 
-// 지원 소스(@lophn/design·@lophn/wording·@lophn/chart)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
+// 지원 소스(@lophn/ui·@lophn/wording)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
 
 // 공용 UI Package가 import하는 지원 소스를 sdk/<name>/<version>/에 읽기 전용으로 풀어 놓는다.
 // catalog Package가 아니라 register_version은 없다. 같은 byte면 hash도 같다.

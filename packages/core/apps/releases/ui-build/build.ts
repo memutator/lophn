@@ -15,20 +15,10 @@ type UiBuildFailure = {
 // 고정 UI 의존 exact 목록. 이 밖의 의존은 build에 넣지 않는다.
 export const FIXED_UI_DEPENDENCIES = [
   "@lophn/blueprint",
-  "@lophn/tokens",
-  "@lophn/ui-control",
-  "@lophn/ui-overlay",
-  "@lophn/ui-layout",
-  "@lophn/ui-reading",
-  "@lophn/ui-table",
-  "@lophn/ui-chart",
-  "@lophn/ui-filter",
-  "@lophn/ui-stat",
-  "@lophn/ui-state",
-  "@lophn/ui-action",
-  // 공용 UI Package가 import하는 지원 소스(apps/sdk 설치 사본). 같은 판으로 고정해 bundle에 담는다.
-  "@lophn/design",
-  "@lophn/chart",
+  // sub-path(@lophn/ui/overlay 등)도 esbuild external이 같이 거른다.
+  // 공용 UI와 지원 소스(apps/sdk 설치 사본). 같은 판으로 고정해 bundle에 담는다.
+  "@lophn/ui",
+  "@lophn/app-ui",
   "@lophn/wording",
   "react",
   "react-dom",

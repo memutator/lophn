@@ -38,13 +38,13 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `app-sandbox` | app-sandbox | 3 | test-app | running | app-sandbox/app-sandbox |  |  |
 | `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | todo |  |  |  |
 | `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | merged | coding-end-without-report/coding-end-without-report | 00216e611 |  |
-| `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | running | coding-message-to-ae/coding-message-to-ae |  |  |
-| `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | todo |  |  |  |
+| `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | merged | coding-message-to-ae/coding-message-to-ae | 57364371b |  |
+| `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | running | coding-one-per-app/coding-one-per-app |  |  |
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | merged | coding-report-needs-release/coding-report-needs-release | 13f333075 |  |
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | merged | coding-token-scope/coding-token-scope | aff4042fa |  |
-| `app-socket-root` | fix | 3 | 없음 | running | fix/app-socket-root |  |  |
-| `caller-directory` | fix | 3 | 없음 | running | fix/caller-directory |  |  |
+| `app-socket-root` | fix | 3 | 없음 | merged | fix/app-socket-root | f690e93ed |  |
+| `caller-directory` | fix | 3 | 없음 | merged | fix/caller-directory | 9cf9bb9a6 |  |
 | `cli-app-input` | fix | 3 | test-app | merged | fix/cli-app-input | 22aa43da8 | test-app 전에 당김. 앱 E2E 확인은 merge 때 |
 | `release-cold-cache` | fix | 3 | test-app | merged | fix/release-cold-cache | 070d975d9 | release 길 bug 2·3·4 같이(test-app commit 위) |
 | `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |
@@ -52,7 +52,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `operator-app-api` | operator | 3 | test-app, reply-fn | running | operator/operator-app-api |  |  |
 | `operator-grants` | operator | 3 | operator-app-api | todo |  |  |  |
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |
-| `reaction-app` | reaction-app | 3 | reaction-rows, test-app | running | reaction-app/reaction-app |  |  |
+| `reaction-app` | reaction-app | 3 | reaction-rows, test-app | merged | reaction-app/reaction-app | fa1b9f126 |  |
 | `reaction-context` | reaction-context | 3 | pm-context | merged | reaction-context/reaction-context | 915745354 |  |
 | `restart-rows` | restart-rows | 3 | 없음 | merged | restart-rows/restart-rows | d83cd01cd |  |
 | `stop-rows` | stop-rows | 3 | turn-fate | merged | stop-rows/stop-rows | 9be971ca0 |  |

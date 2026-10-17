@@ -53,7 +53,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 |---|---|---|
 | unit | 코드 옆 `*_test.ts` | `deno task check` |
 | harness | `tests/harness`(loop, wire) | `deno task check` |
-| E2E | `tests/e2e` | `deno task e2e`. lead가 land 전에 |
+| E2E | `tests/e2e` | `deno task e2e`(앱 flow 전에 `deno task e2e:deps` 한 번). lead가 merge 전에 새 file을 10번, land 전에 전체 |
 | live | `tests/live` | `deno task test:live`. 사람이 key를 줄 때만 |
 
 새 E2E flow는 contract 하나에 test 하나, 가장 싼 층, 세 질문(contract, 현실적 회귀, 왜 지금 test로 못 잡나)을 따른다.
@@ -64,7 +64,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 - subprocess, Worker, 서버, 브라우저를 띄우는 test
 - E2E
 
-새 E2E flow도 사람에게 묻는다(첫 묶음 6개는 testing 계획이 만들었다). 허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다.
+새 E2E flow도 사람에게 묻는다(지금 file은 testing·e2e-coverage 계획이 사람의 허락으로 만들었다). 허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다. file 수 상한은 없고 전체 10분 예산이 있다. 앱 길, fake 대답 세기, run 폴더는 `project-docs/architecture/testing.md`.
 
 ## 돌리기
 

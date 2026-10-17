@@ -35,10 +35,12 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
 - session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다(coding agent session은 process로 끝난다).
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
 - archive와 지움은 모든 영향을 한 tx에 묶는다. 일부만 적용된 끝이 없어야 한다. 보낸 call의 답은 취소하지 않는다(받은 session에만 남는다).
-  - 도는 turn은 interrupted로 닫고 진행한다. 끝나는 session이 받은 call은 receiver_ended로 닫혀 보낸 쪽이 안다.
+  - 도는 turn은 interrupted(`session_ended`)로 닫고 진행한다. agent runtime child에도 `turn_stop`을 보내 진행 중인 model 요청을 끊는다. 끝나는 session이 받은 call은 receiver_ended로 닫혀 보낸 쪽이 안다.
 - place를 보관하면 그 place의 session은 open인 채 남지만 새 입력(사람 메시지, call, reaction)을 받지 않고, Router에는 closed로 보인다. 다시 꺼내면 이어서 받는다.
   - 보관은 되돌릴 수 있는 일이라 session을 끝내면 안 된다.
 - lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled, "이 session 동안" 허락은 한 번 더 묻는다.
+  - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다.
+- agent runtime child가 죽거나 바뀌면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다. project 폴더, provider, MCP, skill이 바뀌어 child를 바꿀 때는 도는 turn이 끝날 때까지 미룬다.
 - fork는 이력만 복사한다. 같은 role, place, agent의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 허락, 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
 - checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다.

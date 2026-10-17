@@ -433,7 +433,8 @@ const findField = StateField.define<DecorationSet>({
 });
 
 const editingKeymap = keymap.of([
-  { key: "Mod-b", run: toggleMark("**") },
+  // Mod-b는 작업대의 sidebar 보이기·숨기기가 먼저 받는다(ipc/keybindings.ts).
+  { key: "Mod-Shift-b", run: toggleMark("**") },
   { key: "Mod-i", run: toggleMark("*") },
   { key: "Mod-Shift-x", run: toggleMark("~~") },
   { key: "Mod-Shift-k", run: insertLink },

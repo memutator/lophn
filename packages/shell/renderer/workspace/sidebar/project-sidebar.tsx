@@ -47,6 +47,8 @@ interface ProjectSidebarProps {
   initialTab?: SidebarTab;
   /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
   onOpenFile: (path: string, keep?: boolean) => void;
+  /** 올라갈 때마다 Explorer 모양으로 바꾸고 고른 줄에 focus를 준다(Ctrl/Cmd+Shift+E). 0은 요청 없음. */
+  focusExplorer?: number;
   /** 탭 menu의 Reveal in Explorer. 바뀔 때마다 Explorer 모양으로 바꾸고 Explorer에 그 파일을 알린다. */
   reveal?: Reveal | null;
   /** Explorer의 이름 바꾸기·옮기기. 열린 탭 정리까지 한다. */
@@ -76,6 +78,7 @@ export function ProjectSidebar(
     current = null,
     initialTab = "explorer",
     reveal = null,
+    focusExplorer = 0,
     onOpenFile,
     onMove,
     onTrash,
@@ -94,6 +97,14 @@ export function ProjectSidebar(
   useEffect(() => {
     if (reveal !== null) setTab("explorer");
   }, [reveal]);
+  // Explorer가 아직 없을 수 있다(접힘, 다른 모양). 그려질 때 한 번 focus하고 내려놓는다.
+  const [focusAsked, setFocusAsked] = useState(false);
+  const hasFolders = (project?.folders.length ?? 0) > 0;
+  useEffect(() => {
+    if (focusExplorer === 0) return;
+    setTab("explorer");
+    setFocusAsked(hasFolders);
+  }, [focusExplorer]);
   const panel = useAgentPanel(agents, sessions);
   const collapsed = mode === "collapsed";
   const toggleLabel = collapsed
@@ -153,6 +164,8 @@ export function ProjectSidebar(
                     folders={folders}
                     current={current}
                     reveal={reveal}
+                    focusAsked={focusAsked}
+                    onFocusAsked={() => setFocusAsked(false)}
                     onOpenFile={onOpenFile}
                     onMove={onMove}
                     onTrash={onTrash}

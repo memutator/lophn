@@ -3,8 +3,10 @@ import { assertEquals } from "@std/assert";
 import {
   closeTargets,
   moveTab,
+  moveTabBy,
   openTabIn,
   type PaneState,
+  reopenTab,
   type TabItem,
   type WorkspaceView,
 } from "./model.ts";
@@ -48,4 +50,20 @@ Deno.test("같은 칸에서 순서를 바꿔도 탭이 사라지거나 늘지 �
   assertEquals(moved.panes[0]!.tabs.map((item) => item.key), ["b", "c", "a"]);
   const front = moveTab(moved, "a", 0, "b");
   assertEquals(front.panes[0]!.tabs.map((item) => item.key), ["a", "b", "c"]);
+});
+
+Deno.test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라지거나 늘지 않고 다시 연 탭은 한 번만 생긴다", () => {
+  const view = viewOf({ tabs: [tab("a"), tab("b"), tab("c")], selected: "b" });
+  const keys = (v: WorkspaceView) =>
+    v.panes.map((pane) => pane.tabs.map((item) => item.key));
+  assertEquals(keys(moveTabBy(view, "b", 1)), [["a", "c"], ["b"]]);
+  assertEquals(keys(moveTabBy(view, "b", -1)), [["b"], ["a", "c"]]);
+  assertEquals(moveTabBy(view, "b", -1).focusedPane, 0);
+  // 끝 칸에서 더 바깥으로는 옮기지 않는다.
+  const right = moveTabBy(view, "b", 1);
+  assertEquals(moveTabBy(right, "b", 1), right);
+
+  const reopened = reopenTab(view, tab("x"), 0, 1);
+  assertEquals(keys(reopened), [["a", "x", "b", "c"]]);
+  assertEquals(reopenTab(reopened, tab("x"), 0, 0), reopened);
 });

@@ -163,7 +163,7 @@ components:
     description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
     path: project-docs/architecture/approval.md
     change_reasons:
-      boundaries: [approvals, agent-tools]
+      boundaries: [approvals, agent-tools, agent-roles]
 
   - id: architecture-activation
     kind: doc
@@ -195,7 +195,7 @@ components:
     description: agent가 놓이는 place와 session의 수명, fork, rewind.
     path: project-docs/architecture/place-session.md
     change_reasons:
-      boundaries: [agents, agent-sessions]
+      boundaries: [agents, agent-roles, agent-sessions]
 
   - id: architecture-agent-definition
     kind: doc

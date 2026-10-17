@@ -28,7 +28,7 @@
 ## 지키는 것
 
 - **annotation의 신원(앱, release, 화면 이름)은 shell main이 sender view로 정한다.** page가 보낸 값은 쓰지 않는다. page 쪽 메시지는 살아 있는 앱 view의 main frame에서 온 것만 받는다. page는 자기가 어느 앱인지 모르고, main frame 검사는 다른 곳으로 이동했거나 iframe에 든 인터넷 내용을 거른다.
-- **release는 번호가 처음 생길 때의 것을 쓴다.** 고르는 사이 앱이 다시 activate되어도 사람이 본 화면의 release가 간다. App Engineer는 지금 release와 다르면 source를 다시 확인한다(built-in 지침).
+- **release는 번호가 처음 생길 때의 것을 쓴다.** 고르는 사이 앱이 다시 activate되어도 사람이 본 화면의 release가 간다.
 - **보내기는 사람의 동작이라 Gate를 거치지 않고, 사람이 아니면 저장을 거절한다.** 보관한 앱이면 저장이 conflict로 거절되고, 전달에 실패하면 방금 저장한 묶음을 지운다. 보내기가 실패하면 모은 목록은 남는다.
 - **전달은 사람 메시지 하나다.** 출처는 사람이고 기본으로 다음 turn에 들어간다. 메모는 사람의 요청이다. 다만 본문의 `lophn-` tag는 다른 입력처럼 escape하고 속성 값은 scrub한다.
 - **annotation을 받는 것은 그 앱의 App Engineer뿐이다.** coding agent는 직접 받지 않고 ticket 근거로만 읽는다. 사람은 coding agent와 직접 이야기하지 않는다. 받은 App Engineer는 ticket을 만들고 annotation을 근거로 붙이도록 role 지침에 있다.

@@ -34,7 +34,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `app-activation` | app-activation | 3 | test-app | running | app-activation/app-activation |  |  |
 | `app-call` | app-call | 3 | test-app | merged | app-call/app-call | 8c86db1be |  |
 | `app-data-rewind` | app-data-rewind | 3 | test-app | merged | app-data-rewind/app-data-rewind | 70109b857 |  |
-| `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
+| `app-restart` | app-restart | 3 | test-app | merged | app-restart/app-restart | 3290d5aa9 |  |
 | `app-sandbox` | app-sandbox | 3 | test-app | merged | app-sandbox/app-sandbox | d758a0a00 |  |
 | `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | merged | coding-cancel-keeps-ticket/coding-cancel-keeps-ticket | 4691cfbf0 |  |
 | `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | merged | coding-end-without-report/coding-end-without-report | 00216e611 |  |

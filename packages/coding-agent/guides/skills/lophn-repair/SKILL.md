@@ -32,6 +32,9 @@ claim하지 않는다. claim은 ticket에만 있다. 통로는 `lophn` CLI 하�
 - release: `release prepare`, `release status`
 - App Engineer에게 청하기: `message send`
 
+입력에 `app`이 필수인 명령(`app show`, `release prepare` 등)에는 앱 id를 넣는다.
+core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app`이다.
+
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 대상 문제, 증상, 근거, acceptance

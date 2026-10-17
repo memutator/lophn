@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { routePath } from "../../protocol/base/mod.ts";
 import { releasePreparation } from "../../protocol/apps/mod.ts";
 import {
@@ -97,4 +97,30 @@ Deno.test("release와 app test를 읽는 명령은 표의 route에 닿는다", a
     });
     assertEquals(urls, [`http://127.0.0.1:1${routePath(route)}`]);
   }
+});
+
+// contract: `app`이 필수인 token 명령은 core가 token에서 채워 주지 않으므로 `app` 없이 보내지 않고 CLI가 칸 이름으로 알린다(coding-agent-cli-interface).
+// 현실적 회귀: `app`이 선택으로 보여 coding agent가 비운 채 부르고, 이름 없는 core 오류만 받아 막힌다.
+// 왜 지금 못 잡나: 위 행은 `app`을 넣어 부른다.
+Deno.test("app이 필수인 token 명령은 app 없이 부르면 보내지 않고 app 칸을 짚는다", async () => {
+  const stderr = sink();
+  let sent = false;
+  const code = await cliMain(["app", "show"], {
+    env: {
+      get: (name) =>
+        name === "LOPHN_CODING_TOKEN"
+          ? "coding-secret"
+          : name === "LOPHN_DAEMON_URL"
+          ? "http://127.0.0.1:1"
+          : undefined,
+    },
+    fetch: () => {
+      sent = true;
+      return Promise.reject(new Error("must not send"));
+    },
+    stdout: sink().stream,
+    stderr: stderr.stream,
+  });
+  assertEquals([code, sent], [2, false]);
+  assertStringIncludes(stderr.text(), "app");
 });

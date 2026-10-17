@@ -58,6 +58,7 @@ const READ_WORDS = [
   "logs",
   "more",
   "diff",
+  "result",
   "detect",
   "guide",
 ] as const;

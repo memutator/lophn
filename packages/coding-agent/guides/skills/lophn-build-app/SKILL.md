@@ -31,6 +31,9 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
   없다(아래 4)
 - App Engineer에게 청하기: `message send`
 
+입력에 `app`이 필수인 명령(`app show`, `release prepare` 등)에는 앱 id를 넣는다.
+core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app`이다.
+
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 목표, 근거(annotation의 메모,

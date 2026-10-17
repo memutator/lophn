@@ -1,12 +1,12 @@
 // coding agent CLI의 명령 목록. 이름, 입력, 출력, 인증을 묶는다.
 // 인증은 환경 변수 `LOPHN_CODING_TOKEN`(`coding_token`)뿐이다. `local` 명령은 token 없이
 // core를 부르지 않고 Settings와 shell main이 exec로 부른다.
-// 앱은 token이 정하므로 입력의 `app`은 선택이다.
+// `app`은 route가 정한 대로다. core는 token에서 `app`을 채우지 않아 필수인 명령은 `ticket list`·`ticket show`가
+// 알려 주는 앱 id를 입력에 넣어야 한다.
 import { z } from "zod";
 import { appGet } from "../apps/apps.ts";
 import { appAppApi } from "../apps/blueprint/read.ts";
 import { appInvocations } from "../apps/calls/invocation.ts";
-import { appIdSchema } from "../apps/channel-values.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
@@ -62,13 +62,12 @@ export type CodingCliCommand = {
   route?: Route;
 };
 
-// route 입력 위에 공통 칸을 얹는다. route 쪽 검사는 core가 다시 한다. 칸 이름이 겹치면 route 쪽이 이긴다.
+// route 입력 위에 공통 칸을 얹는다. 칸 이름이 겹치면 route 쪽이 이긴다.
 function withCommon(input: z.ZodType): z.ZodType {
   if (!(input instanceof z.ZodObject)) {
     throw new Error("cli input must be an object");
   }
   const shape = { ...input.shape } as Record<string, z.ZodType>;
-  if ("app" in shape) shape["app"] = appIdSchema.optional();
   return z.strictObject({ ...cliCommonSchema.shape, ...shape }).refine(
     (value) => value.input === undefined || value.input_file === undefined,
     { message: "input and input_file are exclusive" },

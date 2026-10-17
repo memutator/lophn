@@ -56,8 +56,8 @@ function packagedPermissionFlags(
     `--allow-read=${[options.repoRoot, options.dataRoot, denoDir].join(",")}`,
     `--allow-write=${options.dataRoot}`,
     "--allow-env=LOPHN_HOME,LOPHN_INSTALL_ROOT,HOME,PATH,DENO_DIR,XDG_RUNTIME_DIR,XDG_CACHE_HOME,DBUS_SESSION_BUS_ADDRESS,NODE_V8_COVERAGE",
-    // kill과 설치된 Deno, keychain 도구(`secret-tool`) 말고는 실행하지 않는다.
-    `--allow-run=/usr/bin/kill,/usr/bin/secret-tool,/usr/local/bin/secret-tool,${options.denoBinary}`,
+    // kill과 설치된 Deno 말고는 실행하지 않는다.
+    `--allow-run=/usr/bin/kill,${options.denoBinary}`,
     "--allow-net=127.0.0.1,[::1]",
     ...CORE_PERMISSION_FLAGS,
   ];

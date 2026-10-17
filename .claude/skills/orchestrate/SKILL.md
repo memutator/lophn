@@ -110,7 +110,6 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - worktree 안 `.dev-data`에는 쓰기 금지 file(deno cache, core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `deno task dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
 - `deno task dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
 - check:full이 못 보는 것: renderer build(`deno run -A packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
-- 지우면 안 되는 것: core keychain이 Linux에서 `secret-tool`을 쓴다. `libsecret-tools` 의존과 shell supervise의 secret-tool 실행 권한은 남긴다(한 번 뺐다가 되살렸다).
 - worker가 자주 한 실수(보고를 diff와 대조하는 이유):
   - `*.placeholders.ts`를 손으로 고치다 괄호를 깨뜨린 채 commit했다. generate로 만든다.
   - template literal로 만드는 wording key(`` `common.label.tab-${dot}` ``)를 "쓰는 곳 없음"으로 보고 지웠다.

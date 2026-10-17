@@ -154,8 +154,6 @@ const LINUX_DEPENDS: readonly string[] = [
   "libatspi2.0-0t64 | libatspi2.0-0",
   "libuuid1",
   "libsecret-1-0",
-  // core secrets의 Linux keychain이 secret-tool을 부른다.
-  "libsecret-tools",
   "libgbm1",
   "libasound2t64 | libasound2",
 ];

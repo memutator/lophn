@@ -192,6 +192,25 @@ type DevOptions = {
 };
 
 /**
+ * data root를 지운다. 없으면 조용히 지나간다.
+ */
+export async function removeDataRoot(dataRoot: string): Promise<void> {
+  // core가 깐 sdk 사본이 읽기 전용(폴더 0555)이라 쓰기 권한을 먼저 돌려준다.
+  async function open(directory: string): Promise<void> {
+    await Deno.chmod(directory, 0o755);
+    for await (const entry of Deno.readDir(directory)) {
+      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    }
+  }
+  try {
+    await open(dataRoot);
+    await Deno.remove(dataRoot, { recursive: true });
+  } catch {
+    // 없는 root(첫 실행)다.
+  }
+}
+
+/**
  * `deno task dev`와 `deno task dev:core`의 진행 순서다.
  *
  * 데이터 root(저장소 밖으로 가지 않는다)를 만들고(0700) → fake provider를 먼저 띄워
@@ -226,7 +245,7 @@ async function runDev(
   try {
     // mock 모드는 이전 실행의 core 상태를 이어받지 않는다.
     if (mode === "dev:mock") {
-      await Deno.remove(dataRoot, { recursive: true }).catch(() => {});
+      await removeDataRoot(dataRoot);
     }
     await Deno.mkdir(dataRoot, { recursive: true, mode: 0o700 });
   } catch (error) {

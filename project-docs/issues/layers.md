@@ -25,3 +25,10 @@ modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/core/ap
 - `agents/`의 role 표(`BUILTIN_NAMES`, `DEFAULT_PROFILES`, role별 폴더·검증)를 `agent-roles`로 옮기고 harness는 인자로 받는다(중간).
 - 동적 app-api tool을 apps domain tool로 옮긴다(중간). call·file tool의 domain 읽기는 hook이나 port로 뺀다(중간).
 - 추천: 다음 계획으로 첫째와 둘째를 먼저. `HARNESS_LEFTOVERS`에서 빠진 file은 check가 "목록에서 빼라"고 알린다.
+
+`extensions/`에도 role 층의 내용이 남았는데 check가 못 본다(import도 role 이름 문자열도 없어 `HARNESS_LEFTOVERS`에 없다):
+- MCP server와 skill을 전역(`settings.ts`) → project(`project-settings.ts`의 `<data root>/projects/<id>/extensions.json`, `skills/`) → agent 정의 층으로 겹쳐 고르는 규칙. 앱 place에는 project 층이 없다.
+- `<data root>/projects/<id>` path를 `project-settings.ts`·`project-servers.ts`가 문자열로 다시 짠다. 같은 규칙이 `agents/store.ts`의 `placeAgentsFolder`와 `instructions/files.ts`에도 따로 있다.
+- PM의 업무 절차인 내장 skill `builtin-skills/context-init`·`context-update`(`protocol/lophn-agent/skill-settings.ts`가 `role: "project_manager"`로 선언). role prompt·guide는 `agent-roles`로 옮겼는데 이 둘은 harness 폴더에 남았다.
+
+정한 것: `instructions/files.ts`의 SQL은 한다. `agents/`의 role 표와 `extensions/`의 층 규칙·project path·내장 skill은 한 묶음으로 `agent-roles`로 옮기고 harness는 결과(path, 층 목록, 기본값)를 인자로 받는다. path 사본이 하나로 모인다. 둘 다 사람이 잃는 동작이 없어, 사람이 잃는 bug(place 폴더 Deno 권한, API key provider 연결, 이미지 base64) 뒤 "role 층 마무리" 계획으로 연다. role이나 place를 바꿀 일이 먼저 오면 당긴다. 동적 app-api tool과 call·file tool의 domain 읽기(셋째)는 하지 않는다: 면제 목록이 새 위반을 막고, 옮겨서 줄어드는 비용이 구체적이지 않다. (agent)

@@ -243,3 +243,20 @@ guard: packages/core/main/agent-tools_test.ts "App Engineer의 credential 상한
 정한 것: `harness-spi-registry`가 고친다. 그 task가 core를 띄워 실제 거절을 먼저 확인한다.
 
 닫음: core를 띄워 고치기 전 거절을 확인했다(App Engineer credential로 `CreateTicket`이 403 `forbidden`, 같은 credential의 `problem.list`는 200). 이제 `ToolDefinition.operations`가 tool이 core에 부르는 route 이름(helper가 부르는 것 포함)이고 `defineTool`이 `routes`에서 채운다. `runOperations`·`roleOperations`가 그 합집합이라 credential 상한에 `CreateTicket`, `SendCall`, `CreateOperator`, `bundle.submit`, `app.connect_source` 같은 route 이름이 든다. `call`·`reply`·`cancel`도 같은 이유로 막혀 있었고 같이 풀렸다.
+
+## 외부 MCP tool 이름을 읽는 route가 없어 Grants의 MCP 목록이 빈다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/lophn-agent, packages/protocol]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/shell/renderer/workspace/agents/core-grants.ts`의 `readGrants`가 catalog를 `mcpServers: []`로 하드코딩한다. 서버별 tool 이름을 돌려주는 route가 `protocol/lophn-agent`에 없다(`mcp-settings.ts`에는 auth와 project 설정 route뿐). tool 목록은 core 안(`extensions/mcp-toolkit.ts`, `mcp-connections.ts`의 tools/list)에서만 읽힌다. 그래서 `grants-panel.tsx`의 "Tools from MCP servers"는 늘 "No MCP tools."이다.
+
+영향: 사람이 MCP tool별로 권한(ask/allow)을 볼 수도 정할 수도 없다. 서버 단위 on/off(`mcp_off`)만 된다.
+
+고치려면: `agent_grants` 쪽에 서버별 tool 목록(이름, effect, 설명)을 읽는 route를 하나 더하고 `readGrants`가 채운다. 연결이 필요하므로 못 읽은 서버는 빈 목록과 이유로 돌려준다. 비용은 route 하나와 shell 매핑이다. 추천: 이 안.
+
+닫음: memory route `agent-mcp-tools/list`(사람)와 `request-take`·`request-done`(runtime의 machine 입구)을 더했다. core는 요청을 작업 메모리 대기열에 놓고(`packages/core/lophn-agent/extensions/mcp-tool-requests.ts`, 기한 15초), agent runtime의 pump(`packages/core/main/agent-runtime/mcp-tools-pump.ts`)가 가져가 `McpKit.listTools`로 서버마다 따로 연결해(나란히, 서버마다 10초) 이름·설명·effect를 돌려준다. effect 규칙은 tool 정의와 같은 `mcpToolEffect` 하나다. `readGrants`가 읽은 서버만 `catalog.mcpServers`로 채운다. 꺼진 서버, 로그인이 필요한 서버, 못 읽은 서버는 Grants에 나오지 않는다(이유 안내 없음). 실제 서버 연결은 확인하지 않았다(process를 건너는 확인은 E2E 몫).

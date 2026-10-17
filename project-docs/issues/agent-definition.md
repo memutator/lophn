@@ -2,19 +2,6 @@
 
 agent 정의와 turn 조립(지침, tool, skill, place 정보, cache)에 걸린 열린 이슈. 흐름과 불변 조건은 `project-docs/architecture/agent-definition.md`.
 
-## 외부 MCP tool 이름을 읽는 route가 없어 Grants의 MCP 목록이 빈다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer, packages/core/lophn-agent, packages/protocol]
-```
-
-지금: `packages/shell/renderer/workspace/agents/core-grants.ts`의 `readGrants`가 catalog를 `mcpServers: []`로 하드코딩한다. 서버별 tool 이름을 돌려주는 route가 `protocol/lophn-agent`에 없다(`mcp-settings.ts`에는 auth와 project 설정 route뿐). tool 목록은 core 안(`extensions/mcp-toolkit.ts`, `mcp-connections.ts`의 tools/list)에서만 읽힌다. 그래서 `grants-panel.tsx`의 "Tools from MCP servers"는 늘 "No MCP tools."이다.
-
-영향: 사람이 MCP tool별로 권한(ask/allow)을 볼 수도 정할 수도 없다. 서버 단위 on/off(`mcp_off`)만 된다.
-
-고치려면: `agent_grants` 쪽에 서버별 tool 목록(이름, effect, 설명)을 읽는 route를 하나 더하고 `readGrants`가 채운다. 연결이 필요하므로 못 읽은 서버는 빈 목록과 이유로 돌려준다. 비용은 route 하나와 shell 매핑이다. 추천: 이 안.
-
 ## 파일 읽기가 pdf와 이미지 말고 docx 같은 형식을 못 읽는다
 
 ```yaml
@@ -92,3 +79,16 @@ modules: [packages/core/lophn-agent, packages/core/main]
 fetch를 넘겨도 갱신은 실패한다: `adapters/models-dev.ts`의 `parseCatalogBody`가 응답을 lophn 항목 배열로 읽는데 실제 `api.json`은 `{<provider>: {models: {…}}}` object다(2026-10-17 판: provider 232개). 동봉 `snapshot.json`도 models.dev에서 뽑은 것이 아니라 손으로 쓴 4개다.
 
 정한 것: OpenCode 꼴로 한다(사람). models.dev `api.json` → lophn 항목 변환 함수 하나를 두고, build 때 script가 lophn 내장 provider 정의 몫만 뽑아 `snapshot.json`을 만들고, 실행 때 갱신이 같은 함수로 그 위에 덮는다. catalog 밖 model은 지금처럼 거절한다(agent). 계획 `agent-io`의 `model-catalog-source`, `model-catalog`.
+
+## agent 정의의 MCP server가 turn에 연결되지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: Operator 정의는 자기 MCP server(`mcp_servers`)를 가질 수 있다(`packages/protocol/lophn-agent/operators.ts`의 `operatorDefinitionSchema`, 정의 file에 저장, renderer `packages/shell/renderer/workspace/agents/source.ts`가 "agent 층"으로 보인다). `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `serversOf(place, agent)`는 전역 → project → agent 층을 겹치지만 turn 준비(`packages/core/lophn-agent/run-loop/prepare.ts`의 `loadMcp`)는 `{ place, skip }`만 넘기고 `agent`를 넘기지 않는다. resolved agent(`packages/core/lophn-agent/agents/resolve.ts`)에도 정의의 `mcp_servers`가 없다. agent runtime의 Deno 권한 snapshot(`packages/core/lophn-agent/extensions/mcp-snapshot.ts`)도 이 층을 모른다. 그래서 정의에 넣은 서버는 연결되지 않고 tool도 안 생긴다. Grants의 MCP 목록(`agent-mcp-tools/list`)에도 없다.
+
+영향: 사람이 Operator에 MCP server를 붙여도 그 agent가 그 tool을 쓰지 못한다. 화면에는 붙은 것처럼 보인다.
+
+고치려면: resolved agent에 정의의 `mcp_servers`를 싣고 `loadMcp`가 `agent: { servers, off }`로 넘긴다. runtime의 Deno 권한(`--allow-net`·`--allow-run`)에 정의 층 서버를 더하고, 정의가 바뀌면 hosts·MCP처럼 child를 다시 띄운다(중간). Grants 목록은 같은 층을 받으면 따라온다. 추천: 이 안.

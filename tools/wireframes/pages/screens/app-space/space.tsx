@@ -66,7 +66,7 @@ import {
 type OpsTab = "version" | "access" | "activity" | "issues";
 type ActivationState = "applied" | "applying" | "failed";
 type RewindStage = "confirm" | "running" | "done" | "conflict";
-type PaneView = "agent" | "terminal";
+type PaneView = "agent" | "terminal" | "details";
 
 interface Annotation {
   readonly n: number;
@@ -102,9 +102,9 @@ interface AppSpaceProps {
   };
   /** project를 정하지 못한 채 열려 project 고르기를 보인다. */
   readonly picker?: boolean;
-  /** 옆 pane을 열어 둔다. 보이는 것과 agent. */
+  /** 오른쪽 패널에 agent 탭을 열어 둔다. 보이는 탭(details는 panel과 함께 쓴다)과 agent. */
   readonly pane?: { readonly view?: PaneView; readonly agent?: string };
-  /** lophn이 연 coding 터미널이 있다. pane 머리에서 agent와 바꿔 본다. */
+  /** lophn이 연 coding 터미널이 있다. 패널 탭 줄에서 agent와 바꿔 본다. */
   readonly terminal?: CodingScene;
   /** 열려 있는 pane 위쪽에 toast를 띄운 채 시작한다. */
   readonly openedToast?: boolean;
@@ -301,7 +301,8 @@ export function AppSpace(props: AppSpaceProps = {}) {
       if (issue) await click(`[data-issue="${ISSUE_ID[issue] ?? issue}"]`);
     }
     if (props.agentMenu === true) await press("[data-agent-select]");
-    if (pane !== undefined && terminal === undefined) {
+    // 터미널만 있는 장면은 coding 요청이 agent 탭을 함께 연다. panel과 함께 쓰면 요청이 탭을 더하지 않으니 select로 연다.
+    if (pane !== undefined && (terminal === undefined || panel !== undefined)) {
       await press("[data-agent-select]");
       await click(`[data-agent="${AGENT_KEY[pane.agent ?? "App Engineer"]}"]`);
     }
@@ -318,6 +319,7 @@ export function AppSpace(props: AppSpaceProps = {}) {
       } else if (props.openedToast !== true) {
         await click('[data-agent-pane-toast] button[aria-label="Close"]');
       }
+      if (pane?.view === "details") await click('[data-tab-key="details"]');
     }
   });
 

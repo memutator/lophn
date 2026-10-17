@@ -1,8 +1,10 @@
-// 앱 공간의 옆 pane. 앱 화면 옆에 agent 탭 하나(Agent 화면, 또는 Manage가 여는 앱 자리의 agent 관리 화면)와, lophn이 연
-// coding 터미널이 있을 때만 터미널 탭을 둔다. 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을 덮는다. 덮는 동안에도 앱 view는
-// 숨지 않고 pane이 덮지 않는 영역으로 준다.
+// 앱 공간의 오른쪽 패널 하나. 머리는 TabStrip이고 열린 것이 탭이다: App details(운영 패널), Agent(Agent 화면, 또는
+// Manage가 여는 앱 자리의 agent 관리 화면), lophn이 연 coding 터미널. 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을
+// 덮는다. 덮는 동안에도 앱 view는 숨지 않고 패널이 덮지 않는 영역으로 준다. 탭 몸은 모두 mount해 두고 고르지 않은 것만
+// 숨겨, 탭을 바꿔도 안의 상태(app-detail 탭, 대화 입력, 터미널)를 잃지 않는다.
 import {
   type ReactElement,
+  type ReactNode,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -14,9 +16,10 @@ import {
   TabStrip,
 } from "../parts/tab-strip/tab-strip.tsx";
 import { VendorIcon, vendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
-import { IconButton } from "@lophn/ui/primitives";
-import { Toast, Tooltip } from "@lophn/ui/overlay";
-import { workspaceIcons } from "../icons/mod.ts";
+import { Icon } from "@lophn/ui/primitives";
+import { Toast } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
+import { appSpaceIcons, conversationIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
@@ -32,20 +35,21 @@ import { STAY } from "./annotate/use-view-toast.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
 import type { SettingsPane } from "../desktop/settings/model.ts";
-import styles from "./agent-pane.module.css";
+import styles from "./side-panel.module.css";
 
-const AGENT_PANE_WIDTH = 480;
-/** 칸을 열고도 앱 화면이 이만큼은 남아야 옆 열이다. 아니면 덮는다. */
-const AGENT_PANE_BODY_MIN = 480;
+/** 탭이 무엇이든 폭은 하나다. 탭을 바꿔도 앱 view 자리가 흔들리지 않는다. */
+const SIDE_PANEL_WIDTH = 640;
+/** 패널을 열고도 앱 화면이 이만큼은 남아야 옆 열이다. 아니면 덮는다. */
+const SIDE_PANEL_BODY_MIN = 480;
 
-type AgentPanePlacement = "hidden" | "docked" | "overlay";
+type SidePanelPlacement = "hidden" | "docked" | "overlay";
 
-export function agentPanePlacement(
+export function sidePanelPlacement(
   open: boolean,
   contentWidth: number,
-): AgentPanePlacement {
+): SidePanelPlacement {
   if (!open) return "hidden";
-  return contentWidth - AGENT_PANE_WIDTH >= AGENT_PANE_BODY_MIN
+  return contentWidth - SIDE_PANEL_WIDTH >= SIDE_PANEL_BODY_MIN
     ? "docked"
     : "overlay";
 }
@@ -59,7 +63,7 @@ export type AgentPaneState =
   }
   | { readonly mode: "manage"; readonly agent: string | null };
 
-export type PaneTab = "agent" | "terminal";
+export type PanelTab = "details" | "agent" | "terminal";
 
 /** lophn이 연 coding 터미널 탭. */
 export interface PaneTerminal {
@@ -71,26 +75,33 @@ export interface PaneTerminal {
   readonly ticket: string;
 }
 
-interface AgentPaneProps {
-  state: AgentPaneState;
-  placement: Exclude<AgentPanePlacement, "hidden">;
+interface SidePanelProps {
+  /** 열린 탭들. 순서대로 줄에 선다. 비어 있으면 패널이 없다. */
+  tabs: readonly PanelTab[];
+  /** 보이는 탭. tabs 가운데 하나다. */
+  tab: PanelTab;
+  onTab: (tab: PanelTab) => void;
+  /** 탭을 닫았다. 터미널은 호출자가 닫기 확인을 거친다. */
+  onCloseTab: (tab: PanelTab) => void;
+  placement: SidePanelPlacement;
+  /** App details 탭의 내용. */
+  details: ReactNode;
+  /** agent 탭이 보이는 것. details·terminal만 열려 있으면 없다. */
+  state: AgentPaneState | null;
   app: string;
   appName: string;
-  source: AgentsSource;
+  /** agent 통로. 없으면 agent 탭을 열 수 없다. */
+  source?: AgentsSource;
   /** select와 같은 목록. agent 탭의 이름과 avatar를 찾는다. */
   agents: readonly AppSpaceAgent[];
   /** 없으면 Agent 화면을 열 수 없다("준비 안 됨"). */
   agentViewSource?: AgentTabSourceFactory;
-  /** 보이는 탭. */
-  tab: PaneTab;
-  onTab: (tab: PaneTab) => void;
   /** lophn이 연 coding 터미널. 있을 때만 터미널 탭이 있다. */
   coding?: { readonly tab: PaneTerminal; readonly deps: TerminalDeps };
   /** 터미널을 열었다는 알림을 머리 아래에 보인다. */
   opened: boolean;
   onOpenedClose: () => void;
   onState: (state: AgentPaneState) => void;
-  onClose: () => void;
   /** app 층 LOPHN.md를 연다. */
   onInstructions?: () => void;
   /** Settings로 간다(기본 model·확장 등록·연결). */
@@ -99,15 +110,17 @@ interface AgentPaneProps {
   onChanged: () => void;
 }
 
-export function AgentPane(props: AgentPaneProps): ReactElement {
+export function SidePanel(props: SidePanelProps): ReactElement | null {
   const ref = useRef<HTMLElement>(null);
   useViewCover(ref, props.placement === "overlay");
-  const { state, coding } = props;
+  const { state, coding, tab } = props;
+  if (props.tabs.length === 0) return null;
   const vendor = coding === undefined
     ? undefined
     : vendorOf(coding.tab.product);
-  const tab: PaneTab = coding === undefined ? "agent" : props.tab;
-  const agentBody = state.mode === "manage"
+  const agentBody = state === null
+    ? null
+    : state.mode === "manage"
     ? <ManageBody {...props} agent={state.agent} />
     : props.agentViewSource === undefined
     ? <NotReady />
@@ -120,31 +133,37 @@ export function AgentPane(props: AgentPaneProps): ReactElement {
         session={state.session}
       />
     );
+  const shown = (name: PanelTab) => tab === name ? "" : styles.hidden;
   return (
     <aside
       ref={ref}
       className={`${styles.pane} ${
         props.placement === "overlay" ? styles.overlay : ""
-      }`}
-      data-agent-pane={state.mode}
-      data-agent-placement={props.placement}
-      data-agent-pane-tab={tab}
-      aria-label={t("app-space.heading.agents")}
-      style={{ width: `${AGENT_PANE_WIDTH}px` }}
+      } ${props.placement === "hidden" ? styles.hidden : ""}`}
+      data-side-panel={props.placement}
+      data-side-panel-tab={tab}
+      style={{ width: `${SIDE_PANEL_WIDTH}px` }}
     >
-      <Head {...props} tab={tab} />
-      <div className={`${styles.body} ${tab === "agent" ? "" : styles.hidden}`}>
-        {agentBody}
-      </div>
-      {coding !== undefined && tab === "terminal"
+      <Head {...props} />
+      {props.tabs.includes("details")
         ? (
-          <div className={styles.body}>
+          <div className={`${styles.details} ${shown("details")}`}>
+            {props.details}
+          </div>
+        )
+        : null}
+      {agentBody === null
+        ? null
+        : <div className={`${styles.body} ${shown("agent")}`}>{agentBody}</div>}
+      {coding !== undefined
+        ? (
+          <div className={`${styles.body} ${shown("terminal")}`}>
             <TerminalTab
               key={coding.tab.key}
               tabKey={coding.tab.key}
               project={coding.tab.project}
               folderRef={null}
-              active
+              active={tab === "terminal" && props.placement !== "hidden"}
               deps={coding.deps}
               coding={{
                 product: coding.tab.product,
@@ -203,49 +222,45 @@ function useTerminalDot(coding: PaneTerminal | undefined, deps?: TerminalDeps) {
   return dot;
 }
 
-function Head(props: AgentPaneProps & { tab: PaneTab }): ReactElement {
+function Head(props: SidePanelProps): ReactElement {
   const { state, agents, coding } = props;
   const dot = useTerminalDot(coding?.tab, coding?.deps);
-  const agent = state.mode === "agent"
+  const agent = state?.mode === "agent"
     ? agents.find((item) => item.assignment === state.assignment)
     : undefined;
-  const tabs: TabItem[] = [{
-    key: "agent",
-    title: state.mode === "manage"
-      ? t("app-space.button.manage-agents")
-      : agent?.name ?? t("app-space.heading.agents"),
-    ...(agent === undefined
-      ? {}
-      : { icon: <Avatar profile={agent.profile} size="sm" /> }),
-  }];
-  if (coding !== undefined) {
-    const vendor = vendorOf(coding.tab.product);
-    tabs.push({
+  const items: Record<PanelTab, TabItem | null> = {
+    details: {
+      key: "details",
+      title: t("app-space.heading.app-details"),
+      icon: (
+        <Icon icon={appSpaceIcons.appDetails} pixels={iconPixels("small")} />
+      ),
+    },
+    agent: state === null ? null : {
+      key: "agent",
+      title: state.mode === "manage"
+        ? t("app-space.button.manage-agents")
+        : agent?.name ?? t("app-space.heading.agents"),
+      icon: agent === undefined
+        ? <Icon icon={conversationIcons.dock} pixels={iconPixels("small")} />
+        : <Avatar profile={agent.profile} size="sm" />,
+    },
+    terminal: coding === undefined ? null : {
       key: "terminal",
       title: coding.tab.title,
-      ...(vendor === undefined
-        ? {}
-        : { icon: <VendorIcon vendor={vendor} size={14} /> }),
+      ...(vendorOf(coding.tab.product) === undefined ? {} : {
+        icon: <VendorIcon vendor={vendorOf(coding.tab.product)!} size={14} />,
+      }),
       dot,
-    });
-  }
-  const label = t("common.button.close");
+    },
+  };
+  const tabs = props.tabs.flatMap((name) => items[name] ?? []);
   return (
     <TabStrip
       tabs={tabs}
       selected={props.tab}
-      onSelect={(key) => props.onTab(key as PaneTab)}
-      end={
-        <Tooltip content={label}>
-          <IconButton
-            icon={workspaceIcons.close}
-            label={label}
-            size="sm"
-            data-agent-pane-close=""
-            onClick={props.onClose}
-          />
-        </Tooltip>
-      }
+      onSelect={(key) => props.onTab(key as PanelTab)}
+      onClose={(key) => props.onCloseTab(key as PanelTab)}
     />
   );
 }
@@ -259,7 +274,7 @@ function NotReady(): ReactElement {
 }
 
 function AgentBody(
-  props: AgentPaneProps & {
+  props: SidePanelProps & {
     factory: AgentTabSourceFactory;
     assignment: string;
     session: string | null;
@@ -282,7 +297,7 @@ function AgentBody(
     openForked: (session) => onState({ mode: "agent", assignment, session }),
     // 사용량 화면과 첨부 통로는 아직 이 칸에 없다.
     showUsage: () => {},
-    closeTab: props.onClose,
+    closeTab: () => props.onCloseTab("agent"),
     attach: () => {},
     ...(props.onSettings === undefined ? {} : {
       openConnections: () => props.onSettings?.("providers"),
@@ -302,7 +317,8 @@ function AgentBody(
   );
 }
 
-function ManageBody(props: AgentPaneProps & { agent: string | null }) {
+function ManageBody(props: SidePanelProps & { agent: string | null }) {
+  if (props.source === undefined) return null;
   return (
     <div className={styles.manage}>
       <AgentsPage

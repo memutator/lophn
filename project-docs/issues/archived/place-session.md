@@ -111,3 +111,63 @@ guard: packages/core/agent-roles/place/place-folders_test.ts
 고치려면: 열린 project·앱 source 폴더 목록으로 `placeFolders`를 채우고, 목록이 바뀌면 runtime을 다시 띄운다(hosts·MCP가 바뀔 때와 같은 길, 중간). 폴더 목록 만드는 곳이 `rewind-glue.ts`의 `placeFoldersOf`와 `agent-roles/place/place-data.ts`로 둘이니 같은 규칙으로 합친다(위 "PM이 초안 폴더를 연 같은 turn에 쓰면 forbidden이다"와 같은 정리).
 
 닫음: `run-loop/runtime.ts`가 `readPlaceFolders`로 Deno 권한의 place 폴더를 받는다. 조립(`wiring/lophn-agent-runtime.ts`)이 `runtimeFoldersOf`로 active project 폴더와 active 앱 source 전체의 합을 넘기고, 초안 폴더는 turn 중에 열리므로 `<data root>/projects` 상위째 쓰기를 연다. 목록이 바뀌면 hosts·MCP와 같은 1초 polling에서 child를 다시 띄운다(돌던 turn은 끊긴다). session마다의 범위는 file tool scope가 지킨다. 실제 turn으로는 확인하지 않았다(process를 건너는 확인은 E2E 몫).
+
+## 성공한 tool call이 ledger에 `requested`로 남는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: tests/e2e/file-write_test.ts, tests/e2e/approval_test.ts
+```
+
+지금: `packages/core/lophn-agent/run-loop/core-ports.ts`의 `attemptTool`은 `record`(state `requested`) 뒤 tool을 실행하고 곧바로 `finishToolCall`을 `{state_seq: "0"}`로 부른다. 그 사이 `decideToolCall`·`startToolCall`을 부르지 않는다(production 코드에서 두 command를 부르는 곳이 없다. `run-loop/runtime-access.ts`의 허용 목록에만 있다). `packages/core/lophn-agent/tools/commands.ts`의 finish는 `requested`에서 success로 끝내기를 `conflict("a requested call cannot finish as success")`로 거절하고, `attemptTool`은 그 결과를 보지 않는다. failure·not_executed는 requested에서 끝낼 수 있어 기록된다. 그래서 성공한 call만 `state: requested`, `decision: null`, `outcome: null`, `output: null`로 남는다. `tests/e2e/file-write_test.ts`와 `tests/e2e/approval_test.ts`가 재현한다(disk에는 file이 쓰였고 model의 다음 요청에도 success 결과가 간다).
+
+영향: rewind preview의 `externalFacts`(`session/rewind/preview.ts`)는 `outcome.kind = 'success'`인 external call만 세므로, 성공한 외부 요청이 "되돌릴 수 없는 효과"로 사람에게 보이지 않는다. 성공한 tool 결과 blob(`tool_call_output`)이 ledger에 이어지지 않아 `turn-body-reads.ts`로 결과를 다시 읽을 수 없고, observability(`observability/reads.ts`)가 성공한 call을 미완으로 보여 준다.
+
+고치려면:
+- decide·start를 부른다(작음): `attemptTool`이 record 뒤 이미 내린 결정으로 `decideToolCall`을, 실행 직전에 `startToolCall`을 부르고, finish의 `compare`를 그 뒤 `state_seq`로 준다. 셋 중 하나라도 실패하면 버리지 않고 uncertain으로 닫는다.
+- finish가 requested에서 success를 받게 한다(작음): decision과 started_at이 비어 command의 상태 전이와 어긋난다.
+- 추천: decide·start를 부른다. command 쪽 규칙이 설계다.
+
+닫음: `attemptTool`(`run-loop/core-ports.ts`)이 Gate 판정 뒤 handler가 돌기 직전에 `decideToolCall`(allow, reason `gate_run`·`no_gate`)과 `startToolCall`을 부르고, finish의 `compare`를 그 뒤 `state_seq`로 준다. 셋 중 하나가 실패하면 그 call을 uncertain으로 닫는다. Gate가 거절하거나 실행하지 않은 call은 전처럼 finish만 한다.
+
+## daemon에서 `rewind/preview`의 `restore_all`이 늘 `internal`로 실패한다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/main, packages/core/storage]
+closed: fixed
+guard: tests/e2e/rewind_test.ts
+```
+
+지금: preview read(`packages/core/lophn-agent/session/rewind/reads.ts`)는 `restore_all`일 때 `snapshot.port(appWritesPort)`를 부른다. reader Worker는 등록 하나의 `ports`를 그 등록의 `reads`에만 붙인다(`packages/core/storage/ledger/reader-worker.ts`). `appWritesPort`는 `packages/core/main/daemon/wiring/rewind-registration.ts`의 `reads: []`인 등록에 있고, preview read가 든 `session/rewind/reader.ts`의 `createReaderRegistration`은 `ports: new Map()`이다. 그래서 reader Worker 안에서 `unregistered read port`가 나고 route는 `PreviewRewind: internal`을 낸다. `tests/e2e/rewind_test.ts`가 재현한다. port를 preview 등록에 붙이면 그 test가 10번 연속 통과한다(worker가 임시 변경으로 확인).
+
+영향: 사람이 session을 앞 시점으로 되돌리며 file을 복원하는 길(`restore_all`)이 화면에서 늘 실패한다. agent가 망친 file을 되돌릴 수 없다.
+
+고치려면:
+- port를 preview 등록으로 옮긴다(작음): `appWritesOf`가 `main/daemon/rewind-glue.ts`에 있으므로 `rewind-registration.ts`가 `createReaderRegistration()`의 reads와 `appWritesPort`를 한 등록으로 내놓거나, `createReaderRegistration`이 port를 인자로 받는다.
+- reader Worker가 모든 등록의 port를 모든 read에 붙인다(작음): port 이름이 겹치면 조용히 덮인다.
+- 추천: port를 preview 등록으로 옮긴다.
+
+닫음: preview read를 `appWritesPort`와 같은 reader 등록(`main/daemon/wiring/rewind-registration.ts`)에 둔다. `session/rewind/reader.ts`는 `createRewindReads()`로 정의를 내놓고 자기 등록에는 checkpoints·list만 둔다.
+
+## 사람이 turn을 멈춰도 agent runtime의 진행 중인 model 요청이 끊기지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol]
+closed: fixed
+guard: tests/e2e/stop_test.ts
+```
+
+지금: `turns/stop`(`packages/core/lophn-agent/run-loop/commands.ts`의 stop)은 core의 turn 행만 `finished`/`interrupted`(`user_stopped`)로 닫는다. core에서 agent runtime child로 turn 멈춤을 알리는 message가 없다(`packages/protocol/supervision/supervision.ts`의 parent 쪽 message는 `hello`, `stop`(process 종료), `credit`과 각종 `*_response`뿐이다). child의 `run-loop/driver.ts`에 `stop(turn, reason)`과 `endSession`이 있지만 production에서 부르는 곳이 없다. child는 `turn.ts`의 `stopped(state)`로 turn 행을 읽어 멈춤을 아는데, 그 확인은 prompt 조립 뒤, tool 시작 전, retry 대기 전후, 응답 뒤에만 있고 model 응답을 기다리는 동안에는 없다. 그래서 응답이 멈춘 provider 요청은 연결이 열린 채 남는다(호출당 idle 120초나 `stall_ms`가 끊을 때까지). `tests/e2e/stop_test.ts`가 재현한다(turn은 약 100ms에 닫히고 fake server의 연결은 열려 있다).
+
+영향: 사람이 멈춘 turn이 provider에 token을 계속 쓴다. 화면은 멈췄다고 보이지만 model 요청은 최대 120초 더 살아 있고, 그 사이 응답이 끝나면 child가 그 결과를 받는다.
+
+고치려면:
+- turn 멈춤 message를 더한다(중간): supervision parent message에 `turn_stop {turn, reason}`을 더하고, core의 stop command가 끝난 뒤 그 turn을 맡은 child에 보내며, child가 `driver.stop(turn, reason)`을 부른다. protocol 변경이라 쓰는 쪽을 같은 변경에서 고친다.
+- child가 model 호출 중에도 turn 행을 주기적으로 읽는다(작음): 읽기가 늘고 멈춤이 polling 간격만큼 늦는다.
+- 추천: turn 멈춤 message를 더한다. `run-loop` boundary의 "멈춤은 진행 중인 요청을 끊는다"를 그대로 지킨다.
+
+닫음: supervision parent message에 `turn_stop {turn, reason: "user_stopped"}`가 있다. core(`main/daemon/wiring/lophn-agent-runtime.ts`)가 Bus의 `TurnEnded`(interrupted, `user_stopped`)를 보고 child에 보내고, child(`main/agent-runtime/main.ts`)가 `driver.stop`을 부른다. session archive·delete로 닫는 turn은 아직 알리지 않는다(다음 계획 `e2e-coverage`).

@@ -1,6 +1,12 @@
 export const workspaceSettings = {
+  "settings.appearance.accent-help":
+    "The color of main buttons, focus rings, and selections.",
+  "settings.appearance.background-help": "The tint of backgrounds and borders.",
+  "settings.appearance.code-font-help":
+    "The font of code, terminals, and file paths.",
   "settings.appearance.density-help":
     "How much room lists and tables leave between rows.",
+  "settings.appearance.font-help": "The font of text across lophn.",
   "settings.appearance.reading-width-help":
     "How wide documents are laid out when you read them.",
   "settings.appearance.text-size-help": "The size of text across lophn.",
@@ -24,6 +30,8 @@ export const workspaceSettings = {
     "The options weren't saved. Nothing changed. Try again.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
+  "settings.error.font-name":
+    "Use only letters, numbers, spaces, hyphens, and underscores.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -45,13 +53,26 @@ export const workspaceSettings = {
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.reactions":
     "When something happens, lophn can open a new agent session for it. Choose what happens for each event. By default lophn opens the session without asking.",
+  "settings.label.accent": "Accent",
+  "settings.label.accent-blue": "Blue",
+  "settings.label.accent-green": "Green",
+  "settings.label.accent-ink": "Ink",
+  "settings.label.accent-orange": "Orange",
+  "settings.label.accent-purple": "Purple",
   "settings.label.add-entry": "Add an entry",
   "settings.label.appearance-target": "your appearance settings",
   "settings.label.available": "Available",
   "settings.label.available-no": "Unavailable",
   "settings.label.available-yes": "Available",
+  "settings.label.background": "Background",
+  "settings.label.background-cool": "Cool",
+  "settings.label.background-neutral": "Neutral",
+  "settings.label.background-warm": "Warm",
   "settings.label.checked-at": "Checked",
   "settings.label.chosen-default": "Set by you · Default: {value}",
+  "settings.label.code-font": "Code font",
+  "settings.label.code-font-jetbrains": "JetBrains Mono",
+  "settings.label.code-font-system": "System monospace",
   "settings.label.coding-check-failed": "Couldn't check",
   "settings.label.coding-col-executable": "Executable",
   "settings.label.coding-col-product": "Product",
@@ -87,6 +108,11 @@ export const workspaceSettings = {
   "settings.label.density": "Density",
   "settings.label.density-comfortable": "Comfortable",
   "settings.label.density-compact": "Compact",
+  "settings.label.font": "Font",
+  "settings.label.font-custom": "Custom",
+  "settings.label.font-custom-name": "Installed font name",
+  "settings.label.font-pretendard": "Pretendard",
+  "settings.label.font-system": "System UI",
   "settings.label.general-target": "your settings",
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",

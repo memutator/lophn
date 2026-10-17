@@ -1,0 +1,40 @@
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding: var(--space-2);
+}
+
+.option {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  inset: var(--space-0);
+  margin: var(--space-0);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.swatch {
+  box-sizing: border-box;
+  display: block;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+.input:checked + .swatch {
+  box-shadow:
+    0 0 0 var(--space-1) var(--color-surface-base),
+    0 0 0 calc(var(--space-1) * 2) var(--color-text-primary);
+}
+
+.input:focus-visible + .swatch {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--space-1) * 2 + var(--border-focus-offset));
+}

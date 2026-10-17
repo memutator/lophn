@@ -1,4 +1,6 @@
-// shell이 core에 선언하는 화면 설정 넷. 이름과 설명 wording은 settingWordingKey가 key에서 만든다.
+// shell이 core에 선언하는 화면 설정 열. 이름과 설명 wording은 settingWordingKey가 key에서 만든다.
+// 고르는 값의 목록은 packages/design의 appearance와 같아야 한다(core는 design을 import하지 못한다).
+// Custom 글꼴 이름의 글자 규칙은 CSS를 만드는 main이 검사한다. 여기는 길이만 본다.
 import { z } from "zod";
 import { declareSetting } from "../../protocol/config/mod.ts";
 
@@ -6,6 +8,42 @@ const themeSetting = declareSetting({
   key: "shell.theme",
   type: z.enum(["light", "dark", "system"]),
   default: "system",
+});
+
+const accentSetting = declareSetting({
+  key: "shell.accent",
+  type: z.enum(["ink", "blue", "green", "purple", "orange"]),
+  default: "ink",
+});
+
+const backgroundSetting = declareSetting({
+  key: "shell.background",
+  type: z.enum(["warm", "neutral", "cool"]),
+  default: "warm",
+});
+
+const fontSetting = declareSetting({
+  key: "shell.font",
+  type: z.enum(["pretendard", "system", "custom"]),
+  default: "pretendard",
+});
+
+const fontCustomSetting = declareSetting({
+  key: "shell.font_custom",
+  type: z.string().max(64),
+  default: "",
+});
+
+const codeFontSetting = declareSetting({
+  key: "shell.code_font",
+  type: z.enum(["jetbrains-mono", "system", "custom"]),
+  default: "jetbrains-mono",
+});
+
+const codeFontCustomSetting = declareSetting({
+  key: "shell.code_font_custom",
+  type: z.string().max(64),
+  default: "",
 });
 
 const textSizeSetting = declareSetting({
@@ -28,6 +66,12 @@ const densitySetting = declareSetting({
 
 export const shellSettings = [
   themeSetting,
+  accentSetting,
+  backgroundSetting,
+  fontSetting,
+  fontCustomSetting,
+  codeFontSetting,
+  codeFontCustomSetting,
   textSizeSetting,
   readingWidthSetting,
   densitySetting,

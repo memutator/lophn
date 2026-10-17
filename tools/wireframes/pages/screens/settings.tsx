@@ -10,6 +10,8 @@ import {
 } from "./agent-setup/agent-setup-pages.tsx";
 import {
   SettingsAppearance,
+  SettingsAppearancePresets,
+  SettingsAppearancePresetsDark,
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
@@ -67,8 +69,21 @@ export const settingsArea: Area = {
       id: "new-settings-appearance",
       title: "Settings · Appearance",
       description:
-        "화면 모양을 정하는 Settings 항목이다. Theme(Light, Dark, System이 기본, 고르면 바로 바뀜), 글자 크기, 문서 읽기 폭, 화면 밀도가 있다. 줄마다 이름과 설명이 왼쪽, 고르는 칸이 오른쪽 끝 고정 열이다.",
+        "화면 모양을 정하는 Settings 항목이다. Theme(Light, Dark, System이 기본), Accent와 Background(색 견본), Font와 Code font(Custom은 설치된 글꼴 이름을 적는다), 글자 크기, 문서 읽기 폭, 화면 밀도가 있다. 고르면 바로 모든 화면에 적용된다. 줄마다 이름과 설명이 왼쪽, 고르는 칸이 오른쪽 끝 고정 열이다.",
       render: () => <SettingsAppearance />,
+    },
+    {
+      id: "new-settings-appearance-presets",
+      title: "Settings · Appearance, presets (light)",
+      description:
+        "기본이 아닌 preset(Purple, Cool, System UI, Custom 코드 글꼴, Large, Compact)을 고른 상태다. 같은 화면의 색, 글꼴, 글자 크기, 줄 높이가 바뀐다. 다른 화면은 주소에 ?appearance=accent:purple,background:cool을 붙여 본다.",
+      render: () => <SettingsAppearancePresets />,
+    },
+    {
+      id: "new-settings-appearance-presets-dark",
+      title: "Settings · Appearance, presets (dark)",
+      description: "같은 preset을 Dark로 본 상태다.",
+      render: () => <SettingsAppearancePresetsDark />,
     },
     {
       id: "new-settings-providers",

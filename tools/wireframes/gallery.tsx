@@ -228,8 +228,11 @@ function Frame({ page, theme }: { page: Page; theme: Theme }) {
   const frameWidth = Math.max(FRAME_WIDTH, width);
   const scale = width / frameWidth;
   // 주소에 query만 써서 같은 경로(하위 경로에 올려도 맞다)의 index.html이 frame 모양으로 뜬다.
+  const appearance = new URLSearchParams(location.search).get("appearance");
   const source = `?frame=${encodeURIComponent(page.id)}${
     theme === "auto" ? "" : `&theme=${theme}`
+  }${
+    appearance === null ? "" : `&appearance=${encodeURIComponent(appearance)}`
   }`;
   return (
     <div

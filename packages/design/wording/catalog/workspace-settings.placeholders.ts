@@ -2,7 +2,11 @@
 import type { workspaceSettings } from "./workspace-settings.ts";
 
 export type WorkspaceSettingsPlaceholders = {
+  "settings.appearance.accent-help": Record<never, never>;
+  "settings.appearance.background-help": Record<never, never>;
+  "settings.appearance.code-font-help": Record<never, never>;
   "settings.appearance.density-help": Record<never, never>;
+  "settings.appearance.font-help": Record<never, never>;
   "settings.appearance.reading-width-help": Record<never, never>;
   "settings.appearance.text-size-help": Record<never, never>;
   "settings.appearance.theme-help": Record<never, never>;
@@ -26,6 +30,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.empty.general": Record<never, never>;
   "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
+  "settings.error.font-name": Record<never, never>;
   "settings.error.value-invalid": Record<never, never>;
   "settings.error.value-not-saved": Record<never, never>;
   "settings.error.value-out-of-range": Record<never, never>;
@@ -37,15 +42,28 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.intro.diagnostics": Record<never, never>;
   "settings.intro.general": Record<never, never>;
   "settings.intro.reactions": Record<never, never>;
+  "settings.label.accent": Record<never, never>;
+  "settings.label.accent-blue": Record<never, never>;
+  "settings.label.accent-green": Record<never, never>;
+  "settings.label.accent-ink": Record<never, never>;
+  "settings.label.accent-orange": Record<never, never>;
+  "settings.label.accent-purple": Record<never, never>;
   "settings.label.add-entry": Record<never, never>;
   "settings.label.appearance-target": Record<never, never>;
   "settings.label.available": Record<never, never>;
   "settings.label.available-no": Record<never, never>;
   "settings.label.available-yes": Record<never, never>;
+  "settings.label.background": Record<never, never>;
+  "settings.label.background-cool": Record<never, never>;
+  "settings.label.background-neutral": Record<never, never>;
+  "settings.label.background-warm": Record<never, never>;
   "settings.label.checked-at": Record<never, never>;
   "settings.label.chosen-default": {
     value: "string";
   };
+  "settings.label.code-font": Record<never, never>;
+  "settings.label.code-font-jetbrains": Record<never, never>;
+  "settings.label.code-font-system": Record<never, never>;
   "settings.label.coding-check-failed": Record<never, never>;
   "settings.label.coding-col-executable": Record<never, never>;
   "settings.label.coding-col-product": Record<never, never>;
@@ -83,6 +101,11 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.density": Record<never, never>;
   "settings.label.density-comfortable": Record<never, never>;
   "settings.label.density-compact": Record<never, never>;
+  "settings.label.font": Record<never, never>;
+  "settings.label.font-custom": Record<never, never>;
+  "settings.label.font-custom-name": Record<never, never>;
+  "settings.label.font-pretendard": Record<never, never>;
+  "settings.label.font-system": Record<never, never>;
   "settings.label.general-target": Record<never, never>;
   "settings.label.group-agents": Record<never, never>;
   "settings.label.group-general": Record<never, never>;

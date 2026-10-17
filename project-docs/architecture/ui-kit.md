@@ -7,7 +7,8 @@ lophn이 내놓는 범용 UI component가 어디 있고 어떻게 화면(rendere
 ```
 packages/design  (package @lophn/ui)          범용 kit. 사용자 앱도 그대로 쓸 만한 것만
   tokens.ts → generate.ts → generated/tokens.css, generated/vars.ts
-  mod.ts                                      root export: tokens, tokenNames, vars (token만)
+  presets.ts, appearance.ts                   사람이 고르는 색·글꼴·크기·밀도 preset과 그것을 token 덮어쓰기 CSS로 만드는 함수
+  mod.ts                                      root export: tokens, tokenNames, vars, appearance(preset, appearanceCss)
   base.css                                    기본 글꼴과 바탕
   components/<분류>/<component>/              분류 8개: primitives input layout navigation
   components/<분류>/mod.ts                               data feedback overlay reading
@@ -50,6 +51,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - `tools/check-deps.ts`의 `PACKAGE_DEPENDENCIES`: `design: []`, `sdk: [protocol, design]`, `shell: [protocol, base, design]`. design은 renderer·sdk를 모르고, shell은 sdk를 모르고, sdk는 shell을 모른다.
 - design 안 file끼리는 component file을 상대 경로로 직접 가리킨다. 분류 `mod.ts`나 package 이름(`@lophn/ui/...`)을 거치지 않는다. `data/mod.ts` → `chart/chart-frame.tsx` → `@lophn/ui/data` 같은 순환이 생기기 때문이다.
 - CSS는 token 변수만 쓴다(`packages/design/style-check`가 `packages/design/`, `packages/shell/renderer/`, `packages/sdk/*/`를 본다).
+- 사람이 고른 appearance는 같은 token 변수를 덮어써서 모든 문서와 사용자 앱에 닿는다. 흐름과 값은 `architecture/appearance.md`다.
 
 ## 사용자 앱에 닿는 길
 
@@ -86,4 +88,4 @@ check가 못 잡는 것: 이름이 kit page의 import나 주석에만 있어도 
 
 ## 하지 않는 것
 
-preview, slot, shell theme, eject CLI, token override 공식화, 앱 CSS 검사. 사용자가 복사해 간 file은 사용자 것이다.
+preview, slot, eject CLI, 앱 CSS 검사. (shell theme과 token override는 appearance로 했다: `architecture/appearance.md`. 사람이 고르는 preset만 있고 사용자가 token을 직접 쓰는 길은 없다.) 사용자가 복사해 간 file은 사용자 것이다.

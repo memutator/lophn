@@ -4,9 +4,19 @@ import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
 
-export type AppearanceId = "theme" | "text_size" | "reading_width" | "density";
+export type AppearanceId =
+  | "theme"
+  | "accent"
+  | "background"
+  | "font"
+  | "font_custom"
+  | "code_font"
+  | "code_font_custom"
+  | "text_size"
+  | "reading_width"
+  | "density";
 
-/** 네 줄의 지금 값. 사람이 고르지 않았으면 선언의 기본값이다. */
+/** 지금 값. 사람이 고르지 않았으면 선언의 기본값이다. */
 export type AppearanceValues = Readonly<Record<AppearanceId, string>>;
 
 export interface AppearanceSource {

@@ -13,6 +13,12 @@ export {
   type SelectOption,
   type SelectProps,
 } from "./select/select.tsx";
+// 색이나 모양 견본으로 하나 고른다. 견본이 곧 선택지일 때 쓰고, 이름으로 고르는 목록은 Select다.
+export {
+  type SwatchOption,
+  SwatchPicker,
+  type SwatchPickerProps,
+} from "./swatch-picker/swatch-picker.tsx";
 // 나중에 제출하는 선택. 바로 바뀌는 설정은 Switch를 쓴다.
 export { Checkbox, type CheckboxProps } from "./checkbox/checkbox.tsx";
 // 누르는 즉시 켜고 끄는 설정. 제출하는 선택은 Checkbox를 쓴다.

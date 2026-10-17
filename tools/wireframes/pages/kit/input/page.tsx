@@ -1,11 +1,12 @@
 // Kit · input. @lophn/ui/input의 component와 예제(control-sizes, orders-filters).
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import {
   Checkbox,
   Field,
   FieldContext,
   Input,
   Select,
+  SwatchPicker,
   Switch,
   Textarea,
 } from "@lophn/ui/input";
@@ -28,7 +29,26 @@ function ContextReader() {
   );
 }
 
+const SWATCHES = [
+  {
+    value: "ink",
+    label: "Ink",
+    swatch: "linear-gradient(135deg, #1a1a18 50%, #f3f3f0 50%)",
+  },
+  {
+    value: "blue",
+    label: "Blue",
+    swatch: "linear-gradient(135deg, #1d5bbf 50%, #7db0f2 50%)",
+  },
+  {
+    value: "green",
+    label: "Green",
+    swatch: "linear-gradient(135deg, #1b7a3c 50%, #6fcb8b 50%)",
+  },
+];
+
 export function KitInput() {
+  const [swatch, setSwatch] = useState("blue");
   const options = [
     { value: "daily", label: "Daily" },
     { value: "weekly", label: "Weekly" },
@@ -116,6 +136,19 @@ export function KitInput() {
             <Switch label="Disabled" disabled />
           </div>
         </div>
+      </Section>
+      <Section
+        title="SwatchPicker"
+        note="견본이 곧 선택지다. 고른 견본에 바깥 고리가 생기고 방향키로 옮긴다."
+      >
+        <Field label="Accent">
+          <SwatchPicker
+            label="Accent"
+            options={SWATCHES}
+            value={swatch}
+            onValueChange={setSwatch}
+          />
+        </Field>
       </Section>
       <Section
         title="FieldContext"

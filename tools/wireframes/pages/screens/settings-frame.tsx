@@ -8,6 +8,8 @@ import { createFakeWaiting } from "../../../../packages/shell/renderer/desktop/c
 import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
 import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
+import { fakeAppearance } from "../../../../packages/shell/renderer/desktop/settings/appearance/testdata/fake-source.ts";
+import type { AppearanceValues } from "../../../../packages/shell/renderer/desktop/settings/appearance/source.ts";
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 
@@ -16,6 +18,8 @@ interface SettingsFrameProps {
   readonly pane?: SettingsPane;
   /** 필수 설정이 비어 있는 fake settings로 그린다. */
   readonly requiredEmpty?: boolean;
+  /** Appearance 줄의 처음 값. 안 쓴 줄은 기본이다. */
+  readonly appearance?: Partial<AppearanceValues>;
   /** mount 뒤에 차례로 하는 동작. */
   readonly steps?: readonly Step[];
 }
@@ -23,8 +27,12 @@ interface SettingsFrameProps {
 const noop = () => {};
 
 export function SettingsFrame(
-  { pane = "general", requiredEmpty = false, steps = [] }: SettingsFrameProps =
-    {},
+  {
+    pane = "general",
+    requiredEmpty = false,
+    appearance,
+    steps = [],
+  }: SettingsFrameProps = {},
 ) {
   const mock = useMemo(() => devMock("?mock")!, []);
   const [client] = useState(() => createEventClient(createFakeWaiting([])));
@@ -32,6 +40,14 @@ export function SettingsFrame(
   const settings = useMemo(
     () => requiredEmpty ? mock.settings : fakeSettings().source,
     [mock, requiredEmpty],
+  );
+  const panels = useMemo(
+    () =>
+      appearance === undefined ? mock.settingsPanels : {
+        ...mock.settingsPanels,
+        appearance: fakeAppearance({ values: appearance }).source,
+      },
+    [mock, appearance],
   );
   useDrive(() => runSteps(steps));
   return (
@@ -43,7 +59,7 @@ export function SettingsFrame(
         onLauncher={noop}
         onApp={noop}
         settings={settings}
-        settingsPanels={mock.settingsPanels}
+        settingsPanels={panels}
         onInstructions={noop}
         onOpenSession={noop}
         onAnswerInTerminal={noop}

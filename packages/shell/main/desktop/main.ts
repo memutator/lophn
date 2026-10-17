@@ -2,6 +2,7 @@
 // 한 file이 자기 값을 등록한다. 순서는 core 연결 → 앱 view → 나머지, 창 열기는 맨 끝이다.
 import { app } from "electron";
 
+import * as appearance from "./wiring/appearance.ts";
 import * as annotate from "./wiring/annotate.ts";
 import * as appCalls from "./wiring/app-calls.ts";
 import * as appViews from "./wiring/app-views.ts";
@@ -28,6 +29,7 @@ add(appCalls.register(ctx, views));
 add(feedback.register(ctx, views));
 add(annotate.register(ctx, views));
 add(secretInput.register(ctx));
+add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(layout.register(ctx));
 add(editor.register(ctx));

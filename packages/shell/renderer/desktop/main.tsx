@@ -36,7 +36,7 @@ import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
 import type { SettingsPanels } from "./settings/settings-screen.tsx";
-import { applyTheme } from "./settings/appearance/model.ts";
+import { applyAppearance } from "./settings/appearance/model.ts";
 import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
@@ -240,14 +240,14 @@ export function Desktop(
     [projects],
   );
 
-  // 저장한 theme을 시작할 때 적용한다. core가 준비되면 읽는다.
+  // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
   const appearance = settingsPanels?.appearance;
   useEffect(() => {
     if (appearance === undefined) return;
     return appearance.watch((state) => {
       if (state.state !== "ready") return;
       void appearance.values().then((read) => {
-        if (read.ok) applyTheme(read.value.theme);
+        if (read.ok) applyAppearance(read.value);
       });
     });
   }, [appearance]);

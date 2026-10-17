@@ -3,6 +3,11 @@
 //   `secrets`(token·code·verifier·device_code는 secrets.json 밖 어디에도 없다).
 // - 현실적 회귀: issuer pump나 대기열을 건드려 발급자 왕복이 끊기는 것, complete가 간격 전에 발급자를 두드리는 것,
 //   취소해도 listener가 열려 있는 것, 로그인 도중 값이 log·blob에 남는 것.
+//   구독 token 사용: boundary `models`(OAuth 요청은 Bearer, revoked면 token을 건네지 않는다), `run-loop`(secret 부착이 막히면 turn은
+//   configuration_unavailable), `secrets`(token은 secrets.json에만 있다).
+//   회귀: 만료된 token으로 요청이 나가는 것, access만 쓰고 회전한 refresh를 안 저장하는 것, 거절된 갱신 뒤에도 옛 token을 건네는 것,
+//   header가 x-api-key로 나가는 것, .refresh·.meta가 log·ledger에 새는 것.
+//   못 잡는 이유: oauth-refresh_test는 refresher를 함수로만 부른다. child의 secret 요청, core hook, 발급자 pump, model HTTP header는 process를 건너야 이어진다.
 // - 왜 지금 test로 못 잡나: login_test.ts는 발급자·listener·writer를 가짜로 꽂은 함수 호출이다. 요청이 core 대기열 -> runtime
 //   child의 pump -> HTTP로 가는 길과 callback이 실제 loopback socket으로 오는 길은 process를 건너야만 돈다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
@@ -10,9 +15,14 @@ import {
   loginBegin,
   loginCancel,
   loginComplete,
+  modelCallList,
+  providerList,
   providerRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { SECRET_FILE_NAME } from "../../packages/protocol/secrets/mod.ts";
+import {
+  SECRET_FILE_NAME,
+  secretStatus,
+} from "../../packages/protocol/secrets/mod.ts";
 import {
   bootCore,
   type Core,
@@ -20,12 +30,19 @@ import {
   type Run,
 } from "../support/core/mod.ts";
 import { runtimePids } from "../support/core/process.ts";
-import { settle, until } from "../support/core/human.ts";
+import {
+  openSession,
+  say,
+  settle,
+  until,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import {
   type FakeServer,
   startFakeServer,
 } from "../support/fake-server/mod.ts";
 import { type FakeIssuer, startFakeIssuer } from "../support/fake-oauth/mod.ts";
+import { connectOAuthProvider } from "../support/fake-oauth/login.ts";
 
 const LOGIN_MS = 30_000;
 
@@ -276,5 +293,129 @@ Deno.test("취소한 로그인의 callback listener가 닫힌다", async () => {
       Object.keys(secrets).filter((name) => name.startsWith("provider.")),
       [],
     );
+  });
+});
+
+Deno.test("구독 token이 model 요청의 Bearer header로만 나간다", async () => {
+  await withFakes(async ({ fake, issuer, core }) => {
+    const { access, refresh } = await connectOAuthProvider(core, issuer, fake);
+    const session = await openSession(core, { role: "lophn" });
+    fake.script([{ reply: { kind: "text", text: "ok" } }]);
+    await say(core, session, "hello");
+    const turn = await waitTurnEnd(core, session);
+
+    // 1. fake model: Bearer 하나, x-api-key 없음, 본문에 token 없음
+    const [request, ...rest] = fake.journal();
+    assertEquals(rest, []);
+    assertEquals(request!.headers["authorization"], `Bearer ${access}`);
+    assertEquals(request!.headers["x-api-key"], undefined);
+    const body = JSON.stringify(request!.body);
+    assert(!body.includes(access) && !body.includes(refresh));
+    // 2. ledger
+    assertEquals(turn.outcome?.kind, "completed");
+    // 3. 발급자: 만료가 멀어 갱신하지 않고 로그인 요청뿐
+    const grants = issuer.journal().filter((entry) => entry.path === "/token")
+      .map((entry) => entry.form["grant_type"]);
+    assertEquals(grants.length, 1);
+    assert(!grants.includes("refresh_token"));
+  });
+});
+
+Deno.test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 회전한 값을 저장한다", async () => {
+  await withFakes(async ({ run, fake, issuer, core }) => {
+    const first = await connectOAuthProvider(core, issuer, fake, {
+      expires_in: 60,
+    });
+    const provider = first.provider;
+    const newAccess = core.ids.newId("key");
+    const newRefresh = core.ids.newId("key");
+    issuer.script({
+      refresh_token: [{
+        kind: "tokens",
+        access: newAccess,
+        refresh: newRefresh,
+      }],
+    });
+    const session = await openSession(core, { role: "lophn" });
+    fake.script([{ reply: { kind: "text", text: "ok" } }]);
+    await say(core, session, "hello");
+    await waitTurnEnd(core, session);
+
+    // 1. 발급자: refresh_token grant 하나, 로그인 때 refresh와 정의의 client_id
+    const refreshes = issuer.journal().filter((entry) =>
+      entry.form["grant_type"] === "refresh_token"
+    );
+    assertEquals(refreshes.length, 1);
+    assertEquals(refreshes[0]!.form["refresh_token"], first.refresh);
+    assertEquals(refreshes[0]!.form["client_id"], "e2e-client");
+    // 2. fake model: 요청이 새 access를 싣는다(갱신이 요청보다 먼저).
+    const requests = fake.journal();
+    assertEquals(requests.length, 1);
+    assertEquals(requests[0]!.headers["authorization"], `Bearer ${newAccess}`);
+    // 3. disk: 회전한 refresh와 새 access
+    await core.stop();
+    const secrets = await secretsOf(run);
+    const name = `provider.${suffixOf(provider)}`;
+    assertEquals(secrets[`${name}.refresh`], newRefresh);
+    assertEquals(secrets[name], newAccess);
+  });
+});
+
+Deno.test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가지 않는다", async () => {
+  await withFakes(async ({ fake, issuer, core }) => {
+    const { provider } = await connectOAuthProvider(core, issuer, fake, {
+      expires_in: 60,
+    });
+    issuer.script({
+      refresh_token: [{ kind: "error", status: 400, error: "invalid_grant" }],
+    });
+    const session = await openSession(core, { role: "lophn" });
+    fake.script([{ reply: { kind: "text", text: "unused" } }]);
+    await say(core, session, "hello");
+    const turn = await waitTurnEnd(core, session);
+
+    // 1. ledger: credential revoked
+    const { provider: record } = await core.call(providerRead, { provider });
+    assertEquals(record.credential.state, "revoked");
+    assertEquals(record.credential.unavailable_reason, "refresh_revoked");
+    // 2. ledger: turn은 configuration_unavailable로 닫힌다.
+    assertEquals(turn.outcome, {
+      kind: "failed",
+      reason: "configuration_unavailable",
+    });
+    // 3. fake model: 요청 없음
+    assertEquals(fake.journal().length, 0);
+  });
+});
+
+Deno.test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않는다", async () => {
+  await withFakes(async ({ run, fake, issuer, core }) => {
+    const { provider, access, refresh, device_code } =
+      await connectOAuthProvider(
+        core,
+        issuer,
+        fake,
+      );
+    const session = await openSession(core, { role: "lophn" });
+    fake.script([{ reply: { kind: "text", text: "ok" } }]);
+    await say(core, session, "hello");
+    await waitTurnEnd(core, session);
+
+    // 1. route 출력
+    const outputs = JSON.stringify([
+      await core.call(providerRead, { provider }),
+      await core.call(providerList, {}),
+      await core.call(modelCallList, { session }),
+      await core.call(secretStatus, {}),
+    ]);
+    for (const value of [access, refresh, device_code]) {
+      assert(!outputs.includes(value));
+    }
+    assert(outputs.includes(provider));
+    // 2. disk: core.log 포함 secrets.json 밖에 없다.
+    await core.stop();
+    for (const value of [access, refresh, device_code]) {
+      assertEquals(await filesWith(run.dir, value), []);
+    }
   });
 });

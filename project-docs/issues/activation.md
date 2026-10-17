@@ -20,18 +20,3 @@ modules: [packages/core/problems, packages/core/apps]
 추천: 막힌 앱이 생길 때까지 둔다.
 
 정한 것: 실제로 막히는 앱이 나올 때까지 둔다.
-
-## activation 요청 읽기(`approval-reads.ts`)가 approvals의 내부 파일을 직접 읽는다
-
-```yaml
-kind: defect
-modules: [packages/core/main, packages/core/approvals, packages/core/apps]
-```
-
-지금: `core/main/daemon/wiring/approval-reads.ts`의 `approvalLedgerRead`가 호출마다 `openConnection(ledgerPath)`로 ledger를 따로 열고, `core/approvals/rows.ts`(`loadRequest`, `REQUEST_COLUMNS`, `requestOf`)를 import해 `approval_requests`를 직접 읽는다. `wiring/apps.ts`가 activation의 `approvals.request/pending`에 끼운다. 이유는 파일 머리 주석대로 `Approvals` port에 읽기가 없어서다.
-
-영향: approvals의 표 모양이나 `rows.ts`를 바꾸면 activation이 조용히 깨진다. 다른 module의 표를 건너 읽는 경계 위반이고 연결도 호출마다 새로 연다.
-
-고치려면: approvals가 `request(id)`, `pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader), wiring은 그걸 끼운다. `approval-reads.ts`는 지운다. 작음. 추천.
-
-정한 것: 줄인다. `approvals`가 `request(id)`·`pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader) wiring이 그걸 끼운다. `approval-reads.ts`는 지운다.

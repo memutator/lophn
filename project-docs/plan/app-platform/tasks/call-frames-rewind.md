@@ -74,3 +74,8 @@ rewind apply 본문(뒤집은 changeset 전부)을 core에서 앱 supervisor로 
 - 계약 바꾸기 요청: `child-supervision-protocol`에 `apps.apply`의 stream 사용을 한 줄 적어야 하면 적는다(lead가 boundary-catalog·`architecture/app-call.md`를 plan 끝에 고친다)
 - **무겁게 짠 것**: 없으면 "없음". 가장 단순한 쪽은 credit 없이 chunk를 하나씩 기다려 보내는 것이다.
 - **알려진 미완 동작**: 호출 입력(`apps.call` payload의 `request.input`, `CALL_BODY_MAX_BYTES` 1 MiB)도 같은 control frame을 쓰므로 256 KiB를 넘는 입력은 같은 오류로 막힐 수 있다. 이 task 범위 밖이다. 코드로 따라간 결과만 적는다.
+
+## (lead가 더함)
+
+- 호출 입력 크기: `call-frames-result`가 `CALL_BODY_MAX_BYTES`(`apps/runtime/entrypoint/limits.ts`)를 control frame 한도 아래로 낮췄다. 그런데 core는 `apps.call`을 보내기 전에 입력 크기를 보지 않아, 큰 입력은 `encodeFrame`이 던져 "request could not be sent to the app supervisor"(`unavailable`)로 끝난다. 다시 해도 안 되는 일을 일시 장애처럼 알린다. `createAppProcessLink`의 `call`이 `JSON.stringify(request)`의 UTF-8 byte가 `CALL_BODY_MAX_BYTES`를 넘으면 보내지 않고 `{ sent: false, error: { code: "invalid_input", message: "call body exceeds the size limit" } }`를 돌려주게 한다(몇 줄). test는 따로 쓰지 않는다. 보고의 "알려진 미완 동작"에서 입력 문장은 이것으로 닫는다.
+- 받는 쪽 `control-link.ts`의 끝나지 않은 channel(`end`·`abort` 없이 pipe가 살아 있는 것)은 따로 치우지 않는다. core가 기한에 `abort`를 보낸다.

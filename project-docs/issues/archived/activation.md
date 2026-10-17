@@ -106,3 +106,22 @@ guard: 없음
 고치려면: 보존 규칙(복구본 몇 개, 언제 지움)과 complete의 일을 함수로 나눠 읽기 쉽게만 한다(작음). tx를 쪼개는 것은 하지 않는다. 추천: 나누지 않는다.
 
 닫음: 복구본 보존 규칙과 complete의 일을 함수로 나눠도 얻는 것은 읽기 쉬움뿐이고, 한 tx여야 하는 이유(중간 상태 금지)는 architecture 문서가 정했다. 나누지 않는다.
+
+## activation 요청 읽기(`approval-reads.ts`)가 approvals의 내부 파일을 직접 읽는다
+
+```yaml
+kind: defect
+modules: [packages/core/main, packages/core/approvals, packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: `core/main/daemon/wiring/approval-reads.ts`의 `approvalLedgerRead`가 호출마다 `openConnection(ledgerPath)`로 ledger를 따로 열고, `core/approvals/rows.ts`(`loadRequest`, `REQUEST_COLUMNS`, `requestOf`)를 import해 `approval_requests`를 직접 읽는다. `wiring/apps.ts`가 activation의 `approvals.request/pending`에 끼운다. 이유는 파일 머리 주석대로 `Approvals` port에 읽기가 없어서다.
+
+영향: approvals의 표 모양이나 `rows.ts`를 바꾸면 activation이 조용히 깨진다. 다른 module의 표를 건너 읽는 경계 위반이고 연결도 호출마다 새로 연다.
+
+고치려면: approvals가 `request(id)`, `pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader), wiring은 그걸 끼운다. `approval-reads.ts`는 지운다. 작음. 추천.
+
+정한 것: 줄인다. `approvals`가 `request(id)`·`pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader) wiring이 그걸 끼운다. `approval-reads.ts`는 지운다.
+
+닫음: `Approvals` port가 `request(id)`·`pending()`을 내놓는다. `ApprovalLedger`가 machine read `approvalsRequest`(새것)와 `approvalsPending`(actors에 `machine`을 더함)을 reader로 부르고, `wiring/apps.ts`는 `ctx.approvals`의 두 메서드를 activation에 끼운다. `approval-reads.ts`는 지웠고 approvals 밖에서 `rows.ts`를 읽는 곳이 없다.

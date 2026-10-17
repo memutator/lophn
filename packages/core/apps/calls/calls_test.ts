@@ -19,6 +19,7 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
+import { decodeChangeset, settleResponse } from "./record.ts";
 
 const clock = manualClock(Date.parse("2026-10-16T00:00:00.000Z"));
 const ids = createIdSource({ clock, random: seededRandom(7) });
@@ -341,4 +342,35 @@ Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접�
   t.intake.open(apps[0]);
   assertEquals(status(await held), "succeeded");
   assertEquals(t.sent[0].request.context.release, REL2);
+});
+
+Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 요약에 남는다", () => {
+  const ok = settleResponse({
+    status: "ok",
+    result: 1,
+    changeset: null,
+    changeset_dropped: "too_large",
+  });
+  assertEquals(ok.status, "succeeded");
+  assertEquals(ok.summary, {
+    outcome: "succeeded",
+    changeset_dropped: "too_large",
+  });
+  const failed = settleResponse({
+    status: "error",
+    error: { code: "internal", message: "x" },
+    changeset: null,
+    changeset_dropped: "too_large",
+  });
+  assertEquals(failed.status, "failed");
+  assertEquals(failed.summary.changeset_dropped, "too_large");
+  assertEquals(
+    decodeChangeset({
+      status: "ok",
+      result: 1,
+      changeset: null,
+      changeset_dropped: "too_large",
+    }),
+    null,
+  );
 });

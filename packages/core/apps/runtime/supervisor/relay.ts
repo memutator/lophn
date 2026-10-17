@@ -12,7 +12,7 @@ import {
   type ProcessCallResponse,
   processCallResponseSchema,
 } from "../../../../protocol/apps/calls/mod.ts";
-import { CONTROL_MAX_BYTES } from "../../../../protocol/base/mod.ts";
+import { CALL_RESPONSE_MAX_BYTES } from "../../../../protocol/base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
 import type { ControlTarget } from "./supervisor.ts";
 
@@ -20,9 +20,6 @@ import type { ControlTarget } from "./supervisor.ts";
 export const CALL_TIMEOUT_MS = 120_000;
 // 뒤집은 changeset 적용은 한 transaction이다.
 export const APPLY_TIMEOUT_MS = 60_000;
-// 응답이 core로 돌아가는 길이 감독 pipe의 control frame 하나라서 그 한도(256KiB)가 상한이다. envelope와
-// 감싼 칸의 여유를 뺀다. 넘으면 결과 모름이다.
-const CALL_RESPONSE_MAX_BYTES = CONTROL_MAX_BYTES - 1024;
 
 export type ControlRequest = {
   socket: string;

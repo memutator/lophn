@@ -47,16 +47,23 @@ export function unknownSettled(): Settled {
 // 앱 process 응답을 기록과 부른 쪽 결과로 옮긴다. 응답이 null이면 보냈는데 답을 못 받은 것이다.
 export function settleResponse(response: ProcessCallResponse | null): Settled {
   if (response === null) return unknownSettled();
+  const dropped: Record<string, string> = response.changeset_dropped
+    ? { changeset_dropped: response.changeset_dropped }
+    : {};
   if (response.status === "ok") {
     return {
       status: "succeeded",
-      summary: { outcome: "succeeded" },
+      summary: { outcome: "succeeded", ...dropped },
       outcome: { status: "succeeded", result: response.result },
     };
   }
   return {
     status: "failed",
-    summary: { outcome: "failed", error_code: response.error.code },
+    summary: {
+      outcome: "failed",
+      error_code: response.error.code,
+      ...dropped,
+    },
     outcome: { status: "failed", error: response.error },
   };
 }

@@ -2,6 +2,9 @@
 const FRAME_KINDS = { json: 1, bytes: 2, end: 3, abort: 4 } as const;
 export const STREAM_CHUNK_MAX_BYTES = 1024 * 1024;
 export const CONTROL_MAX_BYTES = 256 * 1024;
+// 앱 호출 응답이 core로 돌아가는 길이 control frame 하나라서 그 한도가 상한이다. envelope와 감싼 칸의
+// 여유를 뺀다.
+export const CALL_RESPONSE_MAX_BYTES = CONTROL_MAX_BYTES - 1024;
 export type Frame =
   | { kind: "json"; channel: 0; payload: unknown }
   | { kind: "bytes"; channel: number; payload: Uint8Array }

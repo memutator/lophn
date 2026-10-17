@@ -2,6 +2,7 @@
 import { validateInput } from "../../../../protocol/apps/blueprint/mod.ts";
 import { encodeChangeset, inputHashOf } from "./cap-host.ts";
 import { CALL_BODY_MAX_BYTES, RESULT_MAX_BYTES } from "./limits.ts";
+import { fitChangeset } from "./fit.ts";
 import { parseProcessCall, type ProcessCall } from "./wire.ts";
 import { isJson } from "./wire-check.ts";
 import type { RuntimeState } from "./state.ts";
@@ -61,9 +62,12 @@ export async function handleCall(
   try {
     // write·external은 이 process 안에서도 한 번에 하나다. session이 연결 단위라 겹치면 changeset에
     // 두 호출의 변경이 섞인다.
-    return context.effect === "read"
+    const done = context.effect === "read"
       ? await run(state, call, false)
       : await state.exclusive(() => run(state, call, true));
+    return done.status === 200
+      ? { status: 200, body: fitChangeset(done.body) }
+      : done;
   } finally {
     state.running--;
   }

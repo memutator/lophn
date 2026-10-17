@@ -223,6 +223,15 @@ components:
     change_reasons:
       boundaries: [app-tickets, sdk]
 
+  - id: skill-planner-persona
+    kind: skill
+    roles: [planner]
+    description: planner의 지침. 사람과 말하기(설명 먼저), 정하기(정할 수 있는 것은 근거로 정함), 계획 열기(roadmap, README, brief, lead 프롬프트), 이슈와 문서에서 지킬 것.
+    path: .claude/skills/planner-persona/
+    change_reasons:
+      paths: [AGENTS.md, project-docs/plan/README.md, .claude/skills/orchestrate/brief-template.md]
+      note: 사람과 일하는 방식이나 계획 절차가 바뀔 때.
+
   - id: skill-wrap-plan
     kind: skill
     roles: [planner]

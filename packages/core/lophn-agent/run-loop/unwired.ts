@@ -15,7 +15,7 @@ export const UNWIRED_TOOL_PORTS: ToolPorts = {
     sendable: () => Promise.resolve(unavailable()),
   },
   questions: { ask: () => Promise.resolve(unavailable()) },
-  scope: { read: [], write: [] },
+  scope: { read: [], write: [], open: () => {} },
   skills: { read: () => Promise.resolve(unavailable()) },
   fetch: (...args) => fetch(...args),
 };

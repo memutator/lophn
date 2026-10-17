@@ -44,6 +44,8 @@ export interface FileHooks {
 export type PlaceScope = {
   read: readonly string[];
   write: readonly string[];
+  // 같은 turn의 남은 동안 이 폴더를 read와 write에 더한다. 이미 있으면 다시 넣지 않는다.
+  open(folder: string): void;
 };
 
 // skill 본문이나 딸린 파일을 읽는다. 도는 turn은 그 turn이 시작할 때 읽은 판을 쓴다. 꺼진 skill은 막는다.

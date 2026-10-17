@@ -402,7 +402,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     });
     const place = session.place;
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
-    const scope: { read: string[]; write: string[] } = { read: [], write: [] };
+    const scope = {
+      read: [] as string[],
+      write: [] as string[],
+      open(folder: string) {
+        if (!scope.read.includes(folder)) scope.read.push(folder);
+        if (!scope.write.includes(folder)) scope.write.push(folder);
+      },
+    };
     const ports = {
       ...deps.toolPorts(session, { core: agentCall, skills: resolved.skills }),
       scope,

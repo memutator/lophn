@@ -42,7 +42,7 @@ function inside(root: string, path: string): boolean {
 }
 
 export async function resolveInPlace(
-  roots: PlaceScope,
+  roots: Pick<PlaceScope, "read" | "write">,
   path: string,
   mode: Mode,
 ): Promise<Result<Resolved>> {

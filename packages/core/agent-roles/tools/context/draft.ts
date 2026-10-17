@@ -50,6 +50,7 @@ export async function openDraft(
   );
   if (!opened.ok) return opened;
   const { context, bundle, folder } = opened.value;
+  ctx.scope.open(folder);
   return ok(fitted(
     `draft ${bundle} of context ${context} is open at ${folder}`,
     { context, draft: bundle, folder },

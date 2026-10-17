@@ -1,17 +1,20 @@
-// package 설치(package catalog과 설치).
-// packages/sdk/<name>의 검증된 소스를 패키지마다 자기 완결 byte로 묶고, hash·guide
-// hash를 blob으로 준비한 뒤 machine으로 register_version을 제출하고, 설치 사본을
+// package 설치 사본.
+// packages/sdk/*와 지원 소스(@lophn/ui·@lophn/wording)를 패키지마다 자기 완결 byte로 묶고,
 // 설치 위치(`packageInstallPath`)의 파일 0444·디렉터리 0555로 풀어 놓는다.
-// 여기서 설치하는 것은 packages/sdk/* 소스뿐이다. 사용자 package(@me)는 publish.ts가 낸다.
+// catalog 등록은 하지 않는다(같은 name·version의 byte가 바뀌면 등록이 conflict라 개발 중 기동이 막힌다).
+// 사용자 package(@me)는 publish.ts가 낸다.
 
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   packageNameSchema,
   type PackageRegisterVersionInput,
 } from "../../../protocol/apps/mod.ts";
-import { type SourceFile } from "./vendor.ts";
-
-// 설치 worker가 core에 제출할 결과. hash·guide hash와 machine 제출 입력이다.
+import {
+  keepSourceFile,
+  type SourceFile,
+  SUPPORT_SOURCES,
+  vendorFiles,
+} from "./vendor.ts";
 
 // blob 준비 통로. 검사한 byte를 그대로 넣는다.
 export type PrepareBlob = (input: {
@@ -29,11 +32,38 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 외부 Package 등록은 없다. supply 범위는 설치 제공 재료다.
+// 폴더의 파일을 상대 경로와 함께 모은다. keep은 파일과 폴더(끝에 `/`) 경로를 거른다.
+async function collectSourceFiles(
+  root: string,
+  keep: (path: string) => boolean,
+): Promise<Result<SourceFile[]>> {
+  const files: SourceFile[] = [];
+  async function visit(directory: string, prefix: string): Promise<void> {
+    for await (const entry of Deno.readDir(directory)) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory) {
+        if (keep(`${path}/`)) await visit(`${directory}/${entry.name}`, path);
+      } else if (entry.isFile && keep(path)) {
+        files.push({
+          path,
+          bytes: await Deno.readFile(`${directory}/${entry.name}`),
+        });
+      }
+    }
+  }
+  try {
+    await visit(root, "");
+  } catch {
+    return invalid(`package source is unreadable: ${root}`);
+  }
+  return files.length === 0
+    ? invalid(`package source is empty: ${root}`)
+    : ok(sortFiles(files));
+}
 
-// packages/sdk/<name>의 파일을 상대 경로와 함께 모은다.
-
-// 사본이 packages/sdk/<name> 밖에서 가져오는 소스를 vendor/로 함께 담고 specifier를 바꾼다.
+function sortFiles(files: SourceFile[]): SourceFile[] {
+  return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
 
 // manifest + 파일 내용을 순서대로 이은 자기 완결 byte다. hash는 이 byte의 sha256이다.
 export function bundleBytes(
@@ -140,13 +170,6 @@ export async function prepareBundleBlobs(
   return ok({ bundleHash, guideHash, guideBlob });
 }
 
-// 검증된 설치 내용만 설치한다.
-
-// 지원 소스(@lophn/ui·@lophn/wording)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
-
-// 공용 UI Package가 import하는 지원 소스를 sdk/<name>/<version>/에 읽기 전용으로 풀어 놓는다.
-// catalog Package가 아니라 register_version은 없다. 같은 byte면 hash도 같다.
-
 export async function removeInstallCopy(target: string): Promise<void> {
   // 읽기 전용 사본은 디렉터리 쓰기 권한을 먼저 돌려줘야 지울 수 있다.
   async function open(directory: string): Promise<void> {
@@ -162,10 +185,6 @@ export async function removeInstallCopy(target: string): Promise<void> {
     // 없는 사본이다.
   }
 }
-
-// 설치 템플릿을 `<dataRoot>/templates/app/`에 읽기 전용(파일 0444·디렉터리 0555)으로 둔다.
-// 내용은 고정 hash와 같을 때만 설치한다. 같은 byte의 사본이 있으면 그대로 두고, 다른 사본(옛 판)이면
-// 새 판으로 바꾼다. 템플릿은 SDK Package가 아니라 catalog 등록은 없다.
 
 async function copiedPaths(
   directory: string,
@@ -242,6 +261,105 @@ export async function writeInstallCopy(
   return ok(undefined);
 }
 
-// 설치된 사본이 정말 0444·0555인지 폴더 끝까지 본다. 테스트와 install checker가 쓴다.
+// 같은 byte의 사본이 이미 있으면 그대로 두고, 다르면 지우고 다시 쓴다(사본은 0555라 덮어쓸 수 없다).
+async function installCopy(
+  dataRoot: string,
+  name: string,
+  version: string,
+  files: readonly SourceFile[],
+): Promise<Result<{ name: string; version: string; install_path: string }>> {
+  const path = packageInstallPath(name, version);
+  if (!path.ok) return path;
+  const target = `${dataRoot}/${path.value}`;
+  if (!await sameInstallCopy(target, files)) {
+    await removeInstallCopy(target);
+    const written = await writeInstallCopy(target, files);
+    if (!written.ok) return written;
+  }
+  return ok({ name, version, install_path: target });
+}
 
-// catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다.
+// 소스 폴더의 deno.json에서 이름과 판을 읽는다.
+async function readIdentity(
+  dir: string,
+): Promise<Result<{ name: string; version: string }>> {
+  try {
+    const json = JSON.parse(await Deno.readTextFile(`${dir}/deno.json`));
+    if (typeof json.name === "string" && typeof json.version === "string") {
+      return ok({ name: json.name, version: json.version });
+    }
+  } catch {
+    // 아래에서 invalid_input이다.
+  }
+  return invalid(`deno.json needs name and version: ${dir}`);
+}
+
+// 소스 폴더를 (규칙이 있으면 vendor/를 더해) 설치 사본으로 푼다.
+async function installSource(
+  dataRoot: string,
+  packagesRoot: string,
+  source: string,
+  skip: readonly string[],
+) {
+  const dir = `${packagesRoot}/${source}`;
+  const identity = await readIdentity(dir);
+  if (!identity.ok) return identity;
+  const collected = await collectSourceFiles(
+    dir,
+    (path) => keepSourceFile(path, skip),
+  );
+  if (!collected.ok) return collected;
+  const vendored = await vendorFiles(
+    identity.value.name,
+    collected.value,
+    packagesRoot,
+  );
+  if (!vendored.ok) return vendored;
+  return await installCopy(
+    dataRoot,
+    identity.value.name,
+    identity.value.version,
+    sortFiles(vendored.value),
+  );
+}
+
+// packages/sdk/* 중 deno.json이 있는 폴더 전부와 지원 소스를 `<dataRoot>/sdk/…`에 푼다.
+// 하나라도 실패하면 그 err를 돌려주고 다음을 깔지 않는다.
+export async function installSdkCopies(deps: {
+  dataRoot: string;
+  packagesRoot: string;
+}): Promise<
+  Result<{ name: string; version: string; install_path: string }[]>
+> {
+  const sources: { source: string; skip: readonly string[] }[] = [];
+  try {
+    const names: string[] = [];
+    for await (const entry of Deno.readDir(`${deps.packagesRoot}/sdk`)) {
+      if (entry.isDirectory) names.push(entry.name);
+    }
+    for (const name of names.sort()) {
+      const source = `sdk/${name}`;
+      try {
+        await Deno.stat(`${deps.packagesRoot}/${source}/deno.json`);
+        sources.push({ source, skip: [] });
+      } catch {
+        // deno.json이 없는 폴더는 판이 없어 깔지 않는다.
+      }
+    }
+  } catch {
+    return invalid(`sdk source is unreadable: ${deps.packagesRoot}/sdk`);
+  }
+  sources.push(...SUPPORT_SOURCES);
+  const installed = [];
+  for (const { source, skip } of sources) {
+    const result = await installSource(
+      deps.dataRoot,
+      deps.packagesRoot,
+      source,
+      skip,
+    );
+    if (!result.ok) return result;
+    installed.push(result.value);
+  }
+  return ok(installed);
+}

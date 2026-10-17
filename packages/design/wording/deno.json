@@ -1,5 +1,6 @@
 {
   "name": "@lophn/wording",
+  "version": "1.0.0",
   "exports": {
     ".": "./mod.ts",
     "./check": "./check.ts",

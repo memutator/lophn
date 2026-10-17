@@ -51,7 +51,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | merged | operator/operator-app-api | 2124e9270 |  |
 | `operator-grants` | operator | 3 | operator-app-api | merged | operator/operator-grants | f4bce5e43 |  |
-| `operator-project-write` | operator | 3 | operator-grants | running | operator/operator-project-write |  |  |
+| `operator-project-write` | operator | 3 | operator-grants | merged | operator/operator-project-write | 3ca4a25db |  |
 | `reaction-app` | reaction-app | 3 | reaction-rows, test-app | merged | reaction-app/reaction-app | fa1b9f126 |  |
 | `reaction-context` | reaction-context | 3 | pm-context | merged | reaction-context/reaction-context | 915745354 |  |
 | `restart-rows` | restart-rows | 3 | 없음 | merged | restart-rows/restart-rows | d83cd01cd |  |

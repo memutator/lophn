@@ -295,7 +295,7 @@ export function coreAgentsSource(
   };
 
   // project 지침. project 자리는 그 project의 것이고, 앱의 App Engineer는 앱 source가 속한 등록 project의 것이다.
-  // 앱 Operator가 일하는 project 폴더는 정의에 없어 알 수 없다.
+  // 앱 Operator는 쓸 project 폴더가 없어 project 지침이 없다.
   const instructionsOf = async (
     role: AgentDetail["role"],
     place: string,

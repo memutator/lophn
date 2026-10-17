@@ -35,3 +35,24 @@ guard: tools/check-deps.ts의 rule harness-domain(HARNESS_LEFTOVERS에서 빠진
 
 닫음: role 표(built-in 이름, 기본 profile, 정의 file 자리, context 규칙, Operator ref), Operator 조회, session의 이름 풀기, 지침 읽기 규칙, data root 아래 자리, project 설정 층, 내장 skill `context-init`·`context-update`를 `agent-roles`로 옮겼다. harness는 type(`AgentRoleTable`, `PlaceRoleRules`, `ProjectLayer`)만 갖고 조립이 값을 꽂는다. role과 ref·session 행의 변환은 `protocol/lophn-agent/places.ts`의 순수 함수다. `instructions/files.ts`의 숨은 SQL은 `projects/lookups.ts`·`apps/lookups.ts`로 갔고 팀 file `main/daemon/wiring/instructions-registration.ts`가 꽂는다. `tools/questions/`의 ledger 질문 길은 지웠다. `HARNESS_LEFTOVERS`에는 동적 app-api tool과 call·file tool 등 9개가 남아 새 절로 둔다. role 4개의 tool 목록, prompt bytes, 정의 file 자리는 전과 같다(task마다 옮기기 전 값과 비교).
 
+## harness 폴더에 domain protocol import가 9개 file에 남았다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent, tools]
+closed: kept
+guard: tools/check-deps.ts rule harness-domain
+```
+
+지금: `packages/core/lophn-agent`의 9개 file이 `protocol/{apps,projects}`를 직접 import한다. `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`가 file마다 이유를 달아 면제하고 목록 밖의 새 위반만 막는다(rule `harness-domain`). 면제된 `tools/call/target.ts`에는 role 이름 분기도 남았다.
+- 동적 app-api tool: `packages/core/lophn-agent/tools/app-tools.ts`, `packages/core/lophn-agent/tools/app-toolkit.ts`, `packages/core/lophn-agent/tools/app-api/input.ts`(apps의 app runtime·`AppAppApi`).
+- agent runtime 권한과 route 목록: `packages/core/lophn-agent/tools/runtime-permissions.ts`(`appDirectSocketPaths`), `packages/core/lophn-agent/run-loop/runtime-access.ts`(projects·apps route 값).
+- 범용 tool에 샌 domain 읽기: `packages/core/lophn-agent/tools/bundles/call.ts`·`packages/core/lophn-agent/tools/call/target.ts`(`projectList`·`appList`), `packages/core/lophn-agent/tools/file/image.ts`(`annotationsGet`), `packages/core/lophn-agent/tools/file/read.ts`(`openableKind`).
+
+영향: apps·projects의 route나 type이 바뀌면 harness의 이 file들도 고쳐야 한다. 면제된 file 안에서는 새 domain 지식이 늘어도 check가 막지 못한다.
+
+고치려면: 동적 app-api tool을 apps domain tool로 옮긴다(중간). call·file tool의 domain 읽기는 hook이나 port로 뺀다(중간). route 목록과 권한 계산은 조립이 넘긴다(작음).
+
+정한 것: 지금은 하지 않는다. 면제 목록이 새 위반을 막고, 옮겨서 줄어드는 비용이 구체적이지 않다. 이 file들을 다른 이유로 고칠 일이 오면 그때 같이 옮긴다. (agent)
+
+닫음: 정한 것대로 남긴다. 남기는 이유는 `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`에 file마다 있고, 목록에서 빠질 file은 check가 알린다.

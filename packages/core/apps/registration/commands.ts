@@ -101,8 +101,7 @@ export function createAppCommands(): {
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
-        // 미리 배정한 ID는 사람 자격만 쓴다. 질문 선택지의 적용도 ledger가 근거를 검증해 넘긴 사람
-        // 자격이다. agent는 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
+        // 미리 배정한 ID는 사람 자격만 쓴다. agent는 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
         if (input.id !== undefined) {
           if (parseActor(ctx.actor)?.kind !== "user") {
             return forbidden("only a person assigns an app id");

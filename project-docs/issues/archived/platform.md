@@ -161,3 +161,42 @@ guard: packages/core/apps/packages/install_test.ts
 - release 준비가 data root 대신 repo의 `packages/` 소스를 직접 읽는다(작음). read-only 사본과 "release bundle에 굳힌 사본" 격리가 약해진다.
 
 닫음: core 기동의 `sdkInstallWiring`(`main/daemon/wiring/sdk-install.ts`, `build`)이 `installSdkCopies`로 `packages/sdk/*` 중 `deno.json`이 있는 것과 `@lophn/ui`·`@lophn/wording`을 `<dataRoot>/sdk/<이름 뒤쪽>/<판>`에 읽기 전용으로 풀고, `installBuiltinTemplate`으로 template을 `templates/app/`에 둔다. 같은 byte면 건드리지 않고 다르면 지우고 다시 쓴다. blueprint·cap-store·cap-problem이 사본 밖을 가리키던 import는 사본 안 `vendor/`로 담고 specifier를 바꾼다. 판은 각 `deno.json`의 `version`이다(`packages/design`·`design/wording`에 `1.0.0`을 더하고 `packages/sdk/cap-store/deno.json`을 만들었다). catalog 등록은 하지 않는다(열린 절 "sdk package가 catalog에 없어…"). 배포판은 `tools/package-linux.ts`가 `packages/`를 `platform/packages`로 복사해 같은 상대 계산이 풀린다.
+
+## sdk package가 catalog에 없어 `package show`가 coding agent에게 SDK guide를 주지 못한다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/coding-agent]
+closed: fixed
+guard: 없음
+```
+
+지금: core 기동이 `packages/sdk/*`와 지원 소스를 `<dataRoot>/sdk/<이름 뒤쪽>/<판>`에 설치 사본으로 푼다(`apps/packages/install.ts`의 `installSdkCopies`). 사본에는 `guide.md`가 들어 있지만 package catalog에는 등록하지 않는다(`register_version`·guide blob 준비를 되살리지 않았다). 그런데 coding agent skill `packages/coding-agent/guides/skills/lophn-build-app/SKILL.md`는 새 code를 쓰기 전에 `package list`, `package show`로 의존 package의 API와 예제를 읽으라고 하고, `@lophn/app-ui`의 guide도 `package show`로 읽으라고 한다. 등록이 없어 둘 다 빈 결과다.
+
+영향: coding agent가 앱을 만들 때 SDK(`@lophn/app-ui`, `@lophn/blueprint`, `cap-*`)의 API와 예제를 읽지 못하고 짐작으로 쓴다. 사람은 틀린 import·호출로 build와 release 준비가 실패하는 앱을 받는다.
+
+고치려면:
+- 기동 설치가 사본을 푼 뒤 같은 byte로 `register_version`을 낸다(중간). `apps/packages/commands.ts`는 같은 name·version의 bundle hash가 다르면 `conflict`("published version bytes are immutable")로 거절하므로, 개발 중 `packages/sdk/*` 소스를 고치고 다시 띄우면 기동이 막힌다. 내장 sdk만 같은 판 덮어쓰기를 허락하거나 판에 소스 hash를 붙여야 한다.
+- skill이 `package show` 대신 설치 사본의 `guide.md`(`<dataRoot>/sdk/<이름 뒤쪽>/<판>/guide.md`)를 읽게 한다(작음). agent가 data root 안 사본을 읽을 수 있어야 한다.
+- 추천: 둘째. catalog는 사용자 package(@me) 몫으로 두고, 내장 sdk는 설치 사본이 정본이다.
+
+닫음: 둘째 안으로 고쳤다. `packages/coding-agent/guides/skills/lophn-build-app/SKILL.md`가 내장 SDK는 앱 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의 `guide.md`를 읽게 하고, `package list`·`package show`는 사용자 package 몫으로 둔다. 설치 사본에는 각 sdk의 `guide.md`가 `mod.ts`와 같은 폴더에 들어 있다(`installSdkCopies`가 폴더째 복사한다).
+
+## I/O worker가 뜨기 전 daemon crash는 log에 안 남고, agent runtime crash는 재기동마다 쌓인다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/diagnostics]
+closed: kept
+guard: 없음
+```
+
+지금: daemon의 crash handler는 diagnostics wiring의 `prepare`에서 걸리지만, log 파일은 I/O worker가 쓰고 I/O worker는 `wiring/supervision.ts`의 `start`에서 뜬다. 그 앞의 crash는 `ctx.diagnosticsWrite`가 `false`로 끝나 stderr와 exit 1뿐이다. agent runtime(`main/agent-runtime/main.ts`)이 계속 죽으면 core가 다시 띄울 때마다 crash 한 줄이 쌓인다(재기동 제한 없음, `lophn-agent/run-loop/runtime.ts`). crash stderr 원문은 기존 redaction 규칙(20자 미만 `sk-` 값 등)에 안 걸리는 값을 가리지 못한다.
+
+영향: 기동 초반 실패는 사람이 terminal을 보지 않으면 원인을 모른다. agent runtime이 crash loop에 빠지면 같은 줄이 log를 채운다.
+
+고치려면:
+- 기동 초반 crash: log 파일에 직접 덧붙이는 길을 만든다(작음. log 파일을 I/O worker만 쓴다는 규칙이 깨진다). 실제로 원인을 못 찾는 기동 실패가 나올 때 한다. 추천.
+- agent runtime: 재기동에 횟수·간격 제한을 둔다(작음, agent runtime 쪽).
+
+닫음: 남긴다. 기동 초반 crash도 stderr와 exit 1은 남고(`main/daemon/wiring/diagnostics.ts` 주석), log 파일에 직접 쓰면 log를 I/O worker만 쓴다는 규칙이 깨진다. agent runtime 줄은 틀렸다: 재기동은 `packages/core/supervision/responsiveness/supervisor.ts`가 하고 `slot.ts`의 `RESTART_LIMIT`(3번)에서 멈추므로 log가 계속 쌓이지 않는다. redaction에 안 걸리는 값은 이 변경이 아니라 redaction 규칙 쪽 한계다.

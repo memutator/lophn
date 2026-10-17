@@ -17,15 +17,20 @@ modules: [packages/core/lophn-agent]
 
 정한 것: 필요해지는 형식 하나씩만 더한다.
 
-## agent 정의의 MCP server가 turn에 연결되지 않는다
+## agent 정의의 MCP server 층이 type과 정의 file에만 있다
 
 ```yaml
 kind: bug
-modules: [packages/core/lophn-agent]
+modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/protocol, packages/shell/renderer]
 ```
 
-지금: Operator 정의는 자기 MCP server(`mcp_servers`)를 가질 수 있다(`packages/protocol/lophn-agent/operators.ts`의 `operatorDefinitionSchema`, 정의 file에 저장, renderer `packages/shell/renderer/workspace/agents/source.ts`가 "agent 층"으로 보인다). `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `serversOf(place, agent)`는 전역 → project → agent 층을 겹치지만 turn 준비(`packages/core/lophn-agent/run-loop/prepare.ts`의 `loadMcp`)는 `{ place, skip }`만 넘기고 `agent`를 넘기지 않는다. resolved agent(`packages/core/lophn-agent/agents/resolve.ts`)에도 정의의 `mcp_servers`가 없다. agent runtime의 Deno 권한 snapshot(`packages/core/lophn-agent/extensions/mcp-snapshot.ts`)도 이 층을 모른다. 그래서 정의에 넣은 서버는 연결되지 않고 tool도 안 생긴다. Grants의 MCP 목록(`agent-mcp-tools/list`)에도 없다.
+지금: Operator 정의의 `mcp_servers`가 protocol(`packages/protocol/lophn-agent/operators.ts`의 `operatorDefinitionSchema`), 정의 file 키, renderer type(`packages/shell/renderer/workspace/agents/source.ts`)에 있다. `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `serversOf(place, agent)`도 agent 층을 겹친다. 그러나 붙이는 길이 없다. 화면의 draft(`packages/shell/renderer/workspace/agents/core-source.ts`)는 `mcp_off`만 보내고, 화면 목록(같은 폴더 `core-extensions.ts`)은 전역과 project 층만 그리고, `packages/core/agent-roles/tools/operator.ts`는 실행 파일을 정하는 입력이라 `mcp_servers`를 일부러 받지 않는다. 쓰는 쪽도 없다. turn 준비(`run-loop/prepare.ts`의 `loadMcp`)는 `agent`를 넘기지 않고 runtime의 Deno 권한(`extensions/mcp-snapshot.ts`)과 Grants 목록(`agent-mcp-tools/list`)도 이 층을 모른다.
 
-영향: 사람이 Operator에 MCP server를 붙여도 그 agent가 그 tool을 쓰지 못한다. 화면에는 붙은 것처럼 보인다.
+영향: 사람이 정의 file을 손으로 고쳐 서버를 넣으면 그 서버는 조용히 안 쓰인다. 화면과 tool로는 넣을 수 없다. Operator마다 MCP server를 다르게 주는 기능은 지금 없다.
 
-고치려면: resolved agent에 정의의 `mcp_servers`를 싣고 `loadMcp`가 `agent: { servers, off }`로 넘긴다. runtime의 Deno 권한(`--allow-net`·`--allow-run`)에 정의 층 서버를 더하고, 정의가 바뀌면 hosts·MCP처럼 child를 다시 띄운다(중간). Grants 목록은 같은 층을 받으면 따라온다. 추천: 이 안.
+고치려면:
+- 살린다(중간): resolved agent에 `mcp_servers`를 싣고 `loadMcp`가 넘긴다. Deno `--allow-net`·`--allow-run`에 정의 층을 더하고 정의가 바뀌면 child를 다시 띄운다. 화면 입력을 열고, 실행 파일을 정하는 입력이라 승인 경계를 다시 정한다.
+- 지운다(작음): protocol 칸, 정의 file 키, `serversOf`의 agent 층, renderer type을 지운다. 잃는 것은 지금도 못 쓰는 Operator별 MCP다.
+- 추천: 지운다. 필요해지면 그때 화면·승인과 같이 짠다.
+
+정할 것: Operator별 MCP server를 제품 기능으로 살릴지 지울지.

@@ -26,7 +26,8 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 - 앱: `app show`, `app status`, `app blueprint`, `app invocations`, `app logs`,
   `app test`, `app preview start`, `app preview stop`
 - release: `release prepare`
-- 의존 package 안내(읽기만): `package list`, `package show`
+- 사용자 package 안내(읽기만): `package list`, `package show`. 내장 SDK는
+  여기에 없다(아래 4)
 - App Engineer에게 청하기: `message send`
 
 ## 순서
@@ -42,9 +43,11 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
    `app_api`)와 화면을 보고, ticket이 가리킨 source를 읽는다(component 겹과 요소
    글자, 화면 이름으로 source를 검색해 찾는다). 앱 root의 안내 파일이 있으면
    먼저 읽는다.
-4. 쓸 package를 찾는다. 새 code를 쓰기 전에 `package list`, `package show`로 이
-   앱이 의존으로 선언한 package의 API와 예제를 읽는다. 선언되지 않은 package는
-   쓸 수 없다. UI는 `@lophn/ui/<분류>`에서 import한다.
+4. 쓸 package를 찾는다. 새 code를 쓰기 전에 이 앱이 의존으로 선언한 package의
+   API와 예제를 읽는다. 내장 SDK(`@lophn/app-ui`, `@lophn/blueprint`,
+   `@lophn/cap-*`)는 앱 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의
+   `guide.md`를, 사용자 package는 `package show`를 읽는다. 선언되지 않은
+   package는 쓸 수 없다. UI는 `@lophn/ui/<분류>`에서 import한다.
    - primitives: Button, Icon 등 기본 조작
    - input: form 칸과 filter
    - layout: AppShell, Grid, Card 같은 페이지 틀
@@ -59,7 +62,7 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
    가리키는 설치 사본이다. token과 기본 글꼴은 `@lophn/ui/tokens.css`,
    `@lophn/ui/base.css`로 받고, 앱 CSS는 token 변수만 쓴다. 앱 bridge를 쓰는
    AppApiButton, useAppApi, AppErrorBoundary는
-   `@lophn/app-ui`다(`package show`로 guide를 읽는다). 고치고 싶은 component는
+   `@lophn/app-ui`다(guide는 그 설치 사본의 `guide.md`). 고치고 싶은 component는
    그 파일을 앱 `src/`로 복사해 쓴다. 복사한 파일은 앱 것이라 이후 lophn의 UI
    update가 닿지 않는다.
 5. blueprint나 의존을 바꿔야 하면 직접 고치지 않는다. 무엇을 왜 바꿔야 하는지

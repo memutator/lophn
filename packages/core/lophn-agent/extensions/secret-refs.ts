@@ -60,7 +60,6 @@ function nameOf(ref: string): string | null {
 }
 
 // MCP server 설정이 가리키는 secret 참조를 읽는다.
-// provider credential과 같은 모양이다(contracts/platform/secrets SecretRefSource).
 // extra는 OAuth token 보관(mcp-oauth-vault)이 가진 참조다. 그 참조는 ledger 표가 아니라 keychain의 고정 meta가
 // 가리키므로 보관이 읽거나 저장한 것만 나온다. 값은 어디에도 없다.
 export function createMcpSecretRefSource(

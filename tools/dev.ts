@@ -5,9 +5,8 @@
 // `deno task dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
 // 않는다. tools/fake-provider를 함께 띄워 그 loopback 주소를 LOPHN_FAKE_PROVIDER_URL로
-// core에 넘긴다(그 값으로 개발 provider를 seed하는 일은 lophn-agent가 한다). 사람이
-// LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지 않는다. Ctrl+C와 SIGTERM에 띄운
-// 프로세스를 정리한다.
+// core에 넘긴다. 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지 않는다.
+// Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
 // shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `npm run dev`는 main만
 // build하므로 `dev`와 `dev:mock`은 shell을 띄우기 전에 renderer를 먼저 build한다(옛 화면이 뜨지

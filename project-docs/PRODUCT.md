@@ -110,4 +110,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 | `boundary-catalog.yaml` | lophn을 이루는 경계와 공개 계약 |
 | `module-catalog.yaml` | 코드 module ↔ 경계 |
 | `architecture/` | 여러 module에 걸친 메커니즘과 그 이유 |
-| `plan/` | 진행 중인 계획, 무겁게 짠 것, 알려진 미완 |
+| `products/roadmap/` | 아직 계획으로 열지 않은 큰 일 |
+| `plan/` | 진행 중인 계획 |
+| `issues/` | 열린 bug, defect, mistake |
+| `products/change-log/` | 판마다 바뀐 동작·계약과 결정 |

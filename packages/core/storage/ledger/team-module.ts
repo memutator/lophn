@@ -36,7 +36,7 @@ type TeamRegistration = {
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
-  // 자기 ledger 표에 secret 참조를 두는 concern(provider credential 등)이 그 참조를 읽는 함수를
+  // 자기 ledger 표에 secret 참조를 두는 concern(MCP OAuth 등)이 그 참조를 읽는 함수를
   // 낸다. core가 같은 keychain에서 값을 읽어 알려진 값 registry에 등록·회수한다.
   secretRefs?: readonly SecretRefSource[];
   clock?: Clock;

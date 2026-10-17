@@ -111,7 +111,7 @@ async function stageContent(pkg: string): Promise<void> {
   const skills = await ensure(inPkg(pkg, layout.skills));
   const skillSource = `${repo}/packages/coding-agent/guides/skills`;
   if (await exists(skillSource)) await copy(skillSource, skills);
-  // SDK package source는 설치 도구가 platform/packages/sdk에서 읽는다.
+  // core 기동의 sdk 설치(sdk-install.ts)는 platform/packages(sdk, design, 앱 template)를 직접 읽는다. 이 링크는 설치 확인용이다.
   await Deno.symlink("platform/packages/sdk", inPkg(pkg, layout.sdk));
 }
 

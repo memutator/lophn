@@ -59,5 +59,6 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 - 선행 줄은 첫 문장에 task id만 쓴다(`status.py`가 첫 마침표까지만 읽는다). 설명은 그 뒤에 쓴다.
 - 계약 task의 brief는 모양을 적는다. 옛 계약은 지우지 않고 새것을 옆에 더한다(옛것을 쓰는 곳이 남아 있다). 옛것은 구현 task와 cleanup이 지운다.
 - 화면 task의 brief는 wireframe 코드를 옮기게 한다. 보고 다시 그리지 않는다. wireframe file과 갈 renderer 위치를 짝지어 적고, 가짜 data를 대신할 source와 박아 둔 글을 바꿀 wording key 영역을 적는다.
+- 외부 data(models.dev 등)를 읽는 task는 정하기 전에 실제 data 한 건을 열어 없는 칸과 빈 값이 어떻게 오는지 본다. brief가 `limit.input`이 없으면 null로 정했다가 대부분 model을 고를 수 없게 된 일이 있다.
 - 위험 test는 `write-test` skill 기준이다. 화면, 문구, 내부 구현은 test하지 않는다.
 - 말: 개발자 영어 단어를 그대로 쓴다. 뜻을 옮긴 번역어(장부, 가림, 시험)를 새로 만들지 않는다.

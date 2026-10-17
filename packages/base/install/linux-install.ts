@@ -17,7 +17,7 @@ type LinuxInstallLayout = {
   desktop: string;
   // coding agent skill 배포 원본.
   skills: string;
-  // SDK package source. platform/packages/sdk로 가는 링크다(설치 도구가 그 위치에서 읽는다).
+  // SDK package source. platform/packages/sdk로 가는 링크다. core 기동의 sdk 설치는 platform/packages를 직접 읽는다.
   sdk: string;
   // Electron main binary와 Chromium sandbox 실행 파일.
   desktopBinary: string;

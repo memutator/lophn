@@ -265,7 +265,7 @@ const secretInput = defineUpload({
   max_bytes: SECRET_INPUT_MAX_BYTES,
 });
 
-// 다른 concern이 자기 ledger 표에 둔 secret 참조(provider credential 등)를 core의 알려진 값
+// 다른 concern이 자기 ledger 표에 둔 secret 참조(MCP OAuth 등)를 core의 알려진 값
 // registry에 등록하는 통로. 그 표는 소유 concern만
 // 읽으므로 읽는 함수도 소유 concern이 낸다. 값은 이 모양 어디에도 없다.
 export type SecretRefSource = {

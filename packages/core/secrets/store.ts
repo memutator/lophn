@@ -48,7 +48,7 @@ type SecretStoreDeps = {
   channel: KnownSecretChannel;
   // keychain adapter. 참조가 있을 때 처음 한 번 만든다(참조가 없는 core는 부르지 않는다).
   keychain(): KeychainAdapter;
-  // 다른 concern이 자기 ledger 표에 둔 secret 참조(provider credential 등). 값은 그 owner의
+  // 다른 concern이 자기 ledger 표에 둔 secret 참조(MCP OAuth 등). 값은 그 owner의
   // 참조로 같은 keychain에서 읽고 같은 등록·회수 통로로 넣는다.
   sources?: readonly SecretRefSource[];
   retryMs?: number;
@@ -228,7 +228,7 @@ export function withSecretSync(
   sync: () => Promise<unknown>,
   sources: readonly SecretRefSource[] = [],
 ): Writer {
-  // 다른 owner의 참조를 바꾸는 command도 같다(provider credential 등록·교체 등).
+  // 다른 owner의 참조를 바꾸는 command도 같다.
   const commands = new Set<string>(SECRET_COMMANDS);
   for (const source of sources) {
     for (const name of source.commands) commands.add(name);

@@ -49,6 +49,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 작업 위치(worktree 절대 경로)와 "그 밖의 file은 고치지 않는다".
 - 먼저 읽을 것: worktree의 AGENTS.md, brief의 절대 경로, brief의 "읽을 것".
 - 소유 path만 고친다. 계약은 고치지 않고 요청을 보고에 적는다. project-docs는 고치지 않는다.
+- import를 끊으려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 `check-deps` 예외로 둔다.
+- 지우거나 옮기거나 값을 바꾼 이름·숫자는 grep해 주석과 오류 메시지에 남은 것도 고친다. 규칙을 모을 때 이미 있는 표를 쓰고 사본을 만들지 않는다(옛 이름이 남은 주석을 lead가 따로 고친 일이 네 번, 모으는 task가 role 표 사본을 또 만든 일이 있다).
 - test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다.
 - worker의 Bash 호출은 매번 cwd와 변수가 처음으로 돌아간다. 명령마다 `cd <worktree>; ...`로 시작한다(안 그러면 main checkout에서 돈다).
 - core 확인: 띄우기부터 끄기까지 Bash 호출 하나로 한다. `cd <worktree>; mkdir -m 700 -p .dev-data/<id>; export LOPHN_HOME=$PWD/.dev-data/<id>; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/<id>/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID`. `;`로 잇고 `&&` 사슬이나 `( ... )`로 background에 보내지 않는다(`$!`가 subshell이라 deno가 남은 일이 있다). **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
@@ -105,7 +107,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 문서에 답이 없으면 추천안으로 진행하고 기록해 둔다. 사람에게 올리는 것은 제품 동작, 비용, 되돌리기 비싼 것뿐이다.
 - 권한 분류기가 `git push`, `git rebase`, merge script를 막을 수 있다. 우회하지 말고 무엇을 왜 하려는지 사람에게 말한다.
 - 같은 file을 두 task가 원하면 한쪽에 소유를 주고 다른 쪽은 선행을 걸어 뒤로 미룬다.
-- worktree 안 `.dev-data`에 쓰기 금지 file(deno cache)이 남아 `git worktree remove`가 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
+- worktree 안 `.dev-data`에는 쓰기 금지 file(deno cache, core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `deno task dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
 - `deno task dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
 - check:full이 못 보는 것: renderer build(`deno run -A packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
 - 지우면 안 되는 것: core keychain이 Linux에서 `secret-tool`을 쓴다. `libsecret-tools` 의존과 shell supervise의 secret-tool 실행 권한은 남긴다(한 번 뺐다가 되살렸다).

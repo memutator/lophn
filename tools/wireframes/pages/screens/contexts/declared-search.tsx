@@ -12,6 +12,7 @@ import {
   EVAL,
   PROJECT,
 } from "../../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
+import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/panes/padded-tab.tsx";
 import { contextTab, documentTab } from "../../../mock/phroner-data.ts";
 import type { TabSpec } from "../project-window.tsx";
 import { useOpenTab } from "../../../mock/contexts/open-tab.ts";
@@ -71,17 +72,19 @@ export function DeclaredSearch(
   });
   const ref = useTyped(typed, "C-04");
   return (
-    <div ref={ref}>
-      <SearchTab
-        project={PROJECT}
-        source={source}
-        state={state}
-        onState={setState}
-        onOpenContext={(context) =>
-          open(contextTab(context === EVAL ? "eval" : "harness"))}
-        onOpenDocument={(path) => open(documentTab(path))}
-      />
-    </div>
+    <PaddedTab>
+      <div ref={ref}>
+        <SearchTab
+          project={PROJECT}
+          source={source}
+          state={state}
+          onState={setState}
+          onOpenContext={(context) =>
+            open(contextTab(context === EVAL ? "eval" : "harness"))}
+          onOpenDocument={(path) => open(documentTab(path))}
+        />
+      </div>
+    </PaddedTab>
   );
 }
 

@@ -12,6 +12,7 @@ import {
   subTabOf,
   TAB_KEY,
 } from "../contexts/tab-fields.ts";
+import { PaddedTab } from "../panes/padded-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -78,27 +79,29 @@ export const contextKind: TabKindDef = {
     if (contexts === null || context === null) return null;
     const label = contexts.titleOf(context) ?? context;
     return (
-      <ContextTabBody
-        key={tab.key}
-        source={contexts.source}
-        context={context}
-        sub={subTabOf(tab)}
-        onSub={(sub) =>
-          host.patchTab(tab.key, (current) => ({
-            fields: { ...current.fields, sub_tab: sub },
-          }))}
-        onOpenDocument={contexts.openPath}
-        onOpenSearch={contexts.openSearch}
-        onSendViolations={(violations) =>
-          contexts.askProjectManager(
-            violationChips(context, label, violations),
-          )}
-        onTitle={(title) =>
-          host.patchTab(
-            tab.key,
-            (current) => current.title === title ? {} : { title },
-          )}
-      />
+      <PaddedTab>
+        <ContextTabBody
+          key={tab.key}
+          source={contexts.source}
+          context={context}
+          sub={subTabOf(tab)}
+          onSub={(sub) =>
+            host.patchTab(tab.key, (current) => ({
+              fields: { ...current.fields, sub_tab: sub },
+            }))}
+          onOpenDocument={contexts.openPath}
+          onOpenSearch={contexts.openSearch}
+          onSendViolations={(violations) =>
+            contexts.askProjectManager(
+              violationChips(context, label, violations),
+            )}
+          onTitle={(title) =>
+            host.patchTab(
+              tab.key,
+              (current) => current.title === title ? {} : { title },
+            )}
+        />
+      </PaddedTab>
     );
   },
 };

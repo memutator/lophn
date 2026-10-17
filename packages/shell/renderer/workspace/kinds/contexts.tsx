@@ -5,6 +5,7 @@ import { t } from "@lophn/wording";
 
 import { ContextsTab } from "../contexts/contexts-tab.tsx";
 import { TAB_KEY } from "../contexts/tab-fields.ts";
+import { PaddedTab } from "../panes/padded-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import { openContext } from "./context.tsx";
@@ -35,14 +36,16 @@ export const contextsKind: TabKindDef = {
     const contexts = host.contexts;
     if (contexts === null) return null;
     return (
-      <ContextsTab
-        key={tab.key}
-        projectTitle={host.projectTitle ?? ""}
-        project={host.projectId}
-        source={contexts.source}
-        onOpenContext={(context) => openContext(host, context)}
-        onChanged={contexts.refresh}
-      />
+      <PaddedTab>
+        <ContextsTab
+          key={tab.key}
+          projectTitle={host.projectTitle ?? ""}
+          project={host.projectId}
+          source={contexts.source}
+          onOpenContext={(context) => openContext(host, context)}
+          onChanged={contexts.refresh}
+        />
+      </PaddedTab>
     );
   },
 };

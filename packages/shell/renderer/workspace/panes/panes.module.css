@@ -44,6 +44,14 @@
   overflow: hidden;
 }
 
+/* 칸을 스스로 채우지 않는 탭(PaddedTab). 칸 본문과 같은 여백을 두고 그 안에서 scroll한다. */
+.padded {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+}
+
 /* 칸에 남겨 둔 앱 패널 탭. 고른 탭만 보이고 나머지는 숨는다. */
 .kept {
   display: flex;

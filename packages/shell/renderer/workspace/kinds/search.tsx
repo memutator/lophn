@@ -17,6 +17,7 @@ import {
   TAB_KEY,
 } from "../contexts/tab-fields.ts";
 import type { SearchInputValues } from "../contexts/source.ts";
+import { PaddedTab } from "../panes/padded-tab.tsx";
 import type { TabItem } from "../model.ts";
 import { FileSearch } from "../search/file-search.tsx";
 import type { TabHost } from "./host.ts";
@@ -213,24 +214,26 @@ export const searchKind: TabKindDef = {
     const contexts = host.contexts;
     if (contexts === null) return null;
     return (
-      <SearchTab
-        key={`${tab.key}:${tab.fields?.nonce ?? 0}`}
-        project={host.projectId}
-        source={contexts.source}
-        state={state}
-        // 입력은 타이핑마다 바뀌니 저장을 잠깐 모은다.
-        onState={(next) =>
-          host.patchTab(tab.key, (current) => ({
-            title: titleOf({ ...current, fields: searchFields(next) }, host),
-            // nonce는 그대로 둬 입력을 바꿀 때마다 본문이 다시 서지 않게 한다.
-            fields: { ...current.fields, ...searchFields(next) },
-          }), { later: true })}
-        onOpenContext={(context) => openContext(host, context)}
-        onOpenDocument={contexts.openPath}
-        onTitle={(title) =>
-          host.patchTab(tab.key, (current) =>
-            current.title === title ? {} : { title })}
-      />
+      <PaddedTab>
+        <SearchTab
+          key={`${tab.key}:${tab.fields?.nonce ?? 0}`}
+          project={host.projectId}
+          source={contexts.source}
+          state={state}
+          // 입력은 타이핑마다 바뀌니 저장을 잠깐 모은다.
+          onState={(next) =>
+            host.patchTab(tab.key, (current) => ({
+              title: titleOf({ ...current, fields: searchFields(next) }, host),
+              // nonce는 그대로 둬 입력을 바꿀 때마다 본문이 다시 서지 않게 한다.
+              fields: { ...current.fields, ...searchFields(next) },
+            }), { later: true })}
+          onOpenContext={(context) => openContext(host, context)}
+          onOpenDocument={contexts.openPath}
+          onTitle={(title) =>
+            host.patchTab(tab.key, (current) =>
+              current.title === title ? {} : { title })}
+        />
+      </PaddedTab>
     );
   },
 };

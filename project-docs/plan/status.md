@@ -13,7 +13,7 @@
 | `harness-global-install` | harness | 1 | 없음 | running | harness/harness-global-install |  |  |
 | `place-operator-app-read` | place | 1 | 없음 | running | place/place-operator-app-read |  |  |
 | `platform-crash-diagnostics` | platform | 1 | 없음 | running | platform/platform-crash-diagnostics |  |  |
-| `router-waiting-and-failure` | router | 1 | 없음 | running | router/router-waiting-and-failure |  |  |
+| `router-waiting-and-failure` | router | 1 | 없음 | merged | router/router-waiting-and-failure | 903fb1c2c |  |
 | `trust-agent-notes` | trust | 1 | 없음 | running | trust/trust-agent-notes |  |  |
 | `trust-cli-fence` | trust | 1 | 없음 | running | trust/trust-cli-fence |  |  |
 | `trust-view-error-signing` | trust | 1 | 없음 | running | trust/trust-view-error-signing |  |  |

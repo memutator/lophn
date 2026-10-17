@@ -38,3 +38,22 @@ guard: 없음
 정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 닫음: `unarchiveSession` command와 input·compare schema, registry의 거르는 줄을 지웠다.
+
+## 앱 place의 Operator는 file 범위가 없다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/main]
+closed: fixed
+guard: place-data_test.ts
+```
+
+지금: `run-loop/place-data.ts`의 `readPlaceData`는 project place면 role과 상관없이 project 폴더를 read·write에 넣고(Operator도 받는다), app place는 `role === "app_engineer"`일 때만 앱 `source_path`를 넣는다. 앱 place의 Operator는 scope가 비어 file tool을 쓸 폴더가 없다. `rewind-glue.ts`의 `placeFoldersOf`도 같은 이유로 `[]`를 준다. architecture 문서는 project의 Operator만 폴더를 적고 앱 place의 Operator는 말이 없다.
+
+영향: 앱에 놓인 Operator는 grant받은 tool과 context는 쓰지만 앱 폴더 file은 읽고 쓰지 못한다. 앱 폴더 일을 맡길 수 없다.
+
+고치려면: `place-data.ts`의 app 분기에서 `role === "app_engineer"` 조건에 operator를 더하고(`placeFoldersOf`도 같이), architecture의 file tool 줄에 앱 Operator를 적는다. 비용 작다. 다만 쓰기를 Operator에게 여는 것은 권한 결정이다.
+
+정한 것: 앱 Operator에게 앱 source 폴더 읽기를 준다. 쓰기는 주지 않는다.
+
+닫음: `place-data.ts`의 `appSourceScope`가 앱 place의 Operator에게 앱 source 폴더 읽기만 준다(쓰기는 App Engineer만). `rewind-glue.ts`의 `placeFoldersOf`는 쓰기 기록용이라 Operator에게 폴더를 주지 않는다.

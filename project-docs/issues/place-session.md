@@ -18,21 +18,6 @@ modules: [packages/core/lophn-agent, packages/core/main, packages/core/projects]
 - B. scope를 만드는 곳을 하나로 합친다. `placeFoldersOf`가 `place-data.ts`와 같은 규칙을 쓰게 해(초안 폴더와 project Operator 포함) 같은 모양의 복사본 둘을 없앤다. 비용 중간.
 - 추천: A를 지금, B를 같이 한다. 폴더 목록이 둘이라 한쪽만 고치면 이번처럼 어긋난다.
 
-## 앱 place의 Operator는 file 범위가 없다
-
-```yaml
-kind: bug
-modules: [packages/core/lophn-agent, packages/core/main]
-```
-
-지금: `run-loop/place-data.ts`의 `readPlaceData`는 project place면 role과 상관없이 project 폴더를 read·write에 넣고(Operator도 받는다), app place는 `role === "app_engineer"`일 때만 앱 `source_path`를 넣는다. 앱 place의 Operator는 scope가 비어 file tool을 쓸 폴더가 없다. `rewind-glue.ts`의 `placeFoldersOf`도 같은 이유로 `[]`를 준다. architecture 문서는 project의 Operator만 폴더를 적고 앱 place의 Operator는 말이 없다.
-
-영향: 앱에 놓인 Operator는 grant받은 tool과 context는 쓰지만 앱 폴더 file은 읽고 쓰지 못한다. 앱 폴더 일을 맡길 수 없다.
-
-고치려면: `place-data.ts`의 app 분기에서 `role === "app_engineer"` 조건에 operator를 더하고(`placeFoldersOf`도 같이), architecture의 file tool 줄에 앱 Operator를 적는다. 비용 작다. 다만 쓰기를 Operator에게 여는 것은 권한 결정이다.
-
-정한 것: 앱 Operator에게 앱 source 폴더 읽기를 준다. 쓰기는 주지 않는다.
-
 ## 숨김 구간을 `reverts.result_seq`로 잡는 규칙
 
 ```yaml
@@ -47,3 +32,18 @@ modules: [packages/core/lophn-agent]
 고치려면: 추천: 남긴다(kept). 주석이 이미 이유를 적었으니 별도 작업 없이 닫는다.
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
+
+## agent runtime process의 Deno 권한에 place 폴더가 없다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: file tool과 shell은 agent runtime process(`main/agent-runtime`) 안에서 돈다. 그 process의 권한은 `tools/runtime-permissions.ts`의 `agentRuntimePermissions`가 `placeFolders.read`·`write`를 `allow_read`·`allow_write`에 얹어 만들고, `supervision/security/launch-spec.ts`가 `--allow-read`·`--allow-write` flag로 바꾼다. 그런데 `run-loop/runtime.ts`의 `specFor`는 늘 `placeFolders: { read: [], write: [] }`를 넘긴다. turn의 `scope`(`place-data.ts`)가 폴더를 열어도 Deno 권한은 data root, skill root, socket뿐이다. 코드로만 따라갔고 실제 turn에서 file tool이 `NotCapable`로 막히는지는 보지 않았다(`place-operator-app-read` worker가 찾음).
+
+영향: place 폴더가 data root 밖이면 PM, project Operator, App Engineer, 앱 Operator 모두 file tool과 shell로 그 폴더를 못 읽고 못 쓸 수 있다. 맞다면 agent가 project 일을 하지 못한다.
+
+고치려면:
+- 먼저 실제 turn에서 file.read가 data root 밖 project 폴더를 읽는지 본다(작음).
+- 막히면 열린 project·앱 source 폴더 목록으로 `placeFolders`를 채우고, 목록이 바뀌면 runtime을 다시 띄운다(hosts·MCP가 바뀔 때와 같은 길, 중간).

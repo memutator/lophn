@@ -20,8 +20,8 @@ registry가 조립 쪽(`core/main`)에서 넘긴 tool 목록을 받게 한다. `
 - 계약:
   - 쓰는 것: `packages/protocol/lophn-agent/tool-catalog.ts`의 `TOOL_INPUTS`, `builtinToolNames`(이 task는 protocol을 바꾸지 않는다)
   - 내놓는 것:
-    - `packages/core/lophn-agent/tools/define.ts`의 `defineTool(spec)`. spec은 `{ name: string; description; effect; input: z.ZodType; routes: readonly { name: string }[]; handler; gate? }`. 반환은 `ToolDefinition`이고 `origin: "builtin"`, `revision: "1"`, `operations: routes의 name`을 채운다.
-    - `ToolDefinition`(`tools/registry.ts`)의 칸: `name, description, input, inputSchema?, effect, origin, handler?, gate?, revision, operations`. `contract, confirm, reversible, idempotent, scopeCheck, errors`는 없다.
+    - `packages/core/lophn-agent/tools/define.ts`의 `defineTool(spec)`. spec은 `{ name: string; description; effect; input: z.ZodType; routes: readonly { name: string }[]; handler; gate? }`. 반환은 `ToolDefinition`이고 `origin: "builtin"`, `operations: routes의 name`을 채운다.
+    - `ToolDefinition`(`tools/registry.ts`)의 칸: `name, description, input, inputSchema?, effect, origin, handler?, gate?, operations`. `revision, contract, confirm, reversible, idempotent, scopeCheck, errors`는 없다.
     - `runOperations(listed)`는 `operations`의 합집합이다.
     - `selectTools(names, model, definitions)`(`tools/registry.ts`). `listRoleTools`를 대신한다. role을 모른다. 이름 목록에 든 정의를 `definitions` 순서대로 돌려주고, model이 image 입력이 없으면 `image.read`를 뺀다.
     - `packages/core/main/agent-tools.ts`의 `agentTools(): readonly ToolDefinition[]`. 17개 bundle을 정적 import해 모으는 유일한 곳(composition root)이다. 순서는 옛 `TOOL_INPUTS` 선언 순서다.
@@ -41,7 +41,7 @@ lead가 코드에서 확인했다. 이 task가 `contract`를 없애는 근거다
 
 1. 시작 전에 snapshot을 뜬다. `packages/core/.tmp-probe/dump.ts`를 만들어(끝낼 때 지운다. commit하지 않는다) role 4개 × model 입력 둘(`["text"]`, `["text","image"]`)마다 `listRoleTools`가 낸 정의를 순서대로 `{name, description, effect, JSON schema(inputJsonSchema), gate가 있는가}`로 JSON에 쓴다. 파일은 `.dev-data/harness-spi-registry/tools-before.json`. 끝에 같은 script를 새 API로 돌려 `tools-after.json`과 `diff`가 없어야 한다(순서 포함). 실행: `cd packages/core && deno run -A .tmp-probe/dump.ts`(`zod`가 workspace 밖에서 안 풀린다).
 2. 각 bundle의 handler가 `readOf(ctx.core, X, …)`/`commandOf(ctx.core, X, …)`로 부르는 route X를 모두 센다(`grep -n "readOf(\|commandOf(" packages/core/lophn-agent/tools/bundles/*.ts packages/core/lophn-agent/tools/context/*.ts`). 한 tool이 route를 여럿 부르면(예: `package.get`은 packagesList·packagesVersions·packagesUsage·packagesGuideBody·appGet) 모두 `routes`에 적는다. 빠뜨리면 command일 때 `forbidden`이 난다. 각 route의 `actors`에 `"agent"`가 있는지도 본다(없으면 core가 어차피 거절한다). 없는 것은 고치지 말고 "알려진 미완 동작"에 적는다.
-3. `tools/registry.ts`: `ToolDefinition`에서 `contract, confirm, reversible, idempotent, scopeCheck, errors`를 지우고 `operations: readonly string[]`를 더한다. `revision`은 지우지 않는다. `run-loop/prepare.ts`의 `keyOf`와 `definitions_hash`, `core-ports.ts`의 `definition_revision` 기록이 읽고, `app-tools.ts`는 `view.release`를 revision으로 써서 release가 바뀌면 "tools changed" 알림을 만든다. `defineTool`은 `revision`을 spec에서 받지 않고 `"1"`로 채운다(domain tool 작성자는 보지 않는다). `BUILTIN_TOOLS` 상수와 `builtinTools()` import를 지운다.
+3. `tools/registry.ts`: `ToolDefinition`에서 `revision, contract, confirm, reversible, idempotent, scopeCheck, errors`를 지우고 `operations: readonly string[]`를 더한다. `revision`이 하던 일("정의가 바뀌었나")은 정의에서 계산한다: `tools/registry.ts`에 `definitionHash(tool)`(이름, description, 입력 JSON schema, effect를 canonicalize한 sha256 앞 16자) 하나를 두고, `run-loop/prepare.ts`의 `keyOf`와 `definitions_hash`, `core-ports.ts`의 `definition_revision` 기록이 그것을 쓴다. 지금 builtin은 모두 상수 `"1"`이라 builtin 정의가 바뀌어도 알림과 기록이 구별하지 못한다. 계산하면 이것도 고쳐진다. 앱 tool(`app-tools.ts`의 `view.release`)과 MCP tool(`extensions/mcp-tools.ts`의 hash)이 넣던 revision 값도 지운다. release가 바뀌어도 정의가 같으면 알림이 안 나가는 것이 맞다. `BUILTIN_TOOLS` 상수와 `builtinTools()` import를 지운다.
 4. `tools/define.ts`에 `defineTool`을 만들고 `tools/bundles/common.ts`(`defineBuiltin`)를 지운다. 17개 bundle(`tools/bundles/*.ts`)을 `defineTool`로 바꾸고 tool마다 `routes: [...]`를 적는다. 입력 schema는 아직 `input: TOOL_INPUTS["<name>"]`로 넘긴다(해체는 `harness-spi-inputs`). `name` type은 `string`이다. handler 안의 `ToolInput<…>` cast는 그대로 둔다.
 5. `app-tools.ts`와 `extensions/mcp-tools.ts`의 옛 칸(`confirm`, `contract`, `reversible`, `idempotent`, `errors`)을 지우고 `operations: [APP_TOOL_CONTRACT]`, `operations: [EXTERNAL_TOOL_CONTRACT]`를 넣는다.
 6. 지운 칸의 읽는 곳을 고친다. 근거: `idempotent`는 모든 정의에서 `effect === "read"`와 같다(builtin·app·mcp 모두). `confirm`은 모든 정의에서 `false`다.
@@ -80,8 +80,8 @@ lead가 코드에서 확인했다. 이 task가 `contract`를 없애는 근거다
 - 통과한 check
 - 등록할 것: 없음 (`main/agent-tools.ts`는 이 task가 만든다)
 - 안 쓰게 된 export: 없음
-- 정한 것: `revision`을 남긴 이유, `operations`와 `routes`를 나눈 이유, 순서 유지 방법. 문서에 답이 없어 정한 것 모두
+- 정한 것: `definitionHash`에 넣은 칸, `operations`와 `routes`를 나눈 이유, 순서 유지 방법. 문서에 답이 없어 정한 것 모두
 - 넘길 줄: 없음
-- 계약 바꾸기 요청: protocol의 `confirm`, `definition_revision` 칸이 항상 `false`, builtin은 `"1"`이라 지울 수 있다. 요청으로만 적는다
+- 계약 바꾸기 요청: protocol의 `confirm` 칸이 항상 `false`라 지울 수 있다. 요청으로만 적는다
 - **무겁게 짠 것**: 없음이 기본. 있으면 `무엇 / 왜 / 줄인다면 / 어디`
 - **알려진 미완 동작**: 2번에서 찾은 `actors`에 `agent`가 없는 route, 바뀐 operation 목록, core를 띄워 각 tool을 호출해 본 것은 아니라는 점

@@ -31,8 +31,8 @@ roadmap "정할 것"의 답이다. 근거는 roadmap의 "지켜야 할 것"과 A
 ## brief를 쓰며 바뀐 것
 
 - task 8개: `harness-spi-registry` → `harness-spi-inputs`(wave 1), `domain-tools-apps`와 `role-layer-tools` → `role-layer-prompts`(wave 2), `harness-hooks`, `role-ports`(wave 3), `layer-checks`(wave 4). problem tool은 `domain-tools-apps`가 같이 옮긴다.
-- **agent credential이 tool 이름을 operation으로 싣는다.** core는 route 이름으로 대조하므로 이름이 다른 command tool(`ticket.*`, `app.link_source`, `context.submit`, `operator.*`, `visual.show` 등)은 지금 거절될 가능성이 크다(`issues/agent-definition.md`). `harness-spi-registry`가 `contract`를 "tool이 부르는 route 이름"인 `operations`로 바꿔 고친다. 이 계획의 유일한 동작 변화다.
-- 옛 칸 중 `revision`은 남긴다(tool 정의 hash와 app tool의 release 변경 알림이 읽는다). `confirm`은 기록에 `false` 상수로 쓴다. `contract`, `reversible`, `idempotent`, `scopeCheck`, `errors`는 지운다.
+- **agent credential이 tool 이름을 operation으로 싣는다.** core는 route 이름으로 대조하므로 이름이 다른 command tool(`ticket.*`, `app.link_source`, `context.submit`, `operator.*`, `visual.show` 등)은 지금 거절될 가능성이 크다(`issues/agent-definition.md`). `harness-spi-registry`가 `contract`를 "tool이 부르는 route 이름"인 `operations`로 바꿔 고친다. 동작이 바뀌는 것은 이것과 아래 tool 정의 hash 둘뿐이다.
+- 옛 칸은 모두 지운다. `revision`이 하던 "정의가 바뀌었나"는 정의(이름, 설명, 입력 schema, effect)의 hash로 계산한다. 지금 builtin은 상수 `"1"`이라 정의가 바뀌어도 알림과 기록이 구별하지 못하는데 이것도 같이 고쳐진다. `confirm`은 기록에 `false` 상수로 쓴다.
 - context·glossary tool은 domain(projects)이 아니라 role 층으로 간다. role로 가르는 규칙 그 자체이고 prompt 조립을 import한다. outline tool은 이미 없다. 그래서 `agent-tool-spi`의 provided_by는 `apps`, `problems`, `agent-roles`가 된다.
 - role 층 module은 `packages/core/agent-roles`다.
 - `ToolContext`의 `role/place/agent/router`는 묶지 않는다. 범용 `call` tool, Gate intent, scope가 읽는다(`harness-hooks` brief의 정한 것).

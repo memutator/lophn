@@ -261,3 +261,24 @@ guard: packages/protocol/coding-agent/hook-signal_test.ts "OpenCode의 turn 끝 
 고치려면: `HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 빼고 `session.status`(idle)만 쓴다(작음). 실제 OpenCode에 맡겨 보지는 못했다. `.ts` plugin이 로드되는지와 plugin 실행기에서 `node:child_process`의 spawn이 되는지는 아직 모른다.
 
 닫음: `HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 지웠다. plugin이 듣는 event도 이 표에서 만들어 함께 줄었고, 이미 놓인 옛 plugin이 `session.idle`을 넘겨도 `hookSignalOf`가 null이라 신호가 아니다. 실제 OpenCode에 맡겨 `.ts` plugin 로드와 `node:child_process` spawn을 확인하지는 못했다.
+
+## coding agent가 CLI만으로 준비한 release의 완료를 보고할 수 없다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages/core/server]
+closed: fixed
+guard: tests/e2e/app-release_test.ts
+```
+
+지금: `lophn ticket report`(`protocol/coding-agent/cli-commands.ts`, 입력 `ticketReportToolInputSchema`)는 준비된 `release` id를 받는다. 그런데 `lophn release prepare`(`release.prepare_bundle`)의 출력에는 `request_key`, `status`, hash, manifest만 있고 release id가 없다. release id를 돌려주는 `releases/preparation`(`release.preparation`, `protocol/apps/releases.ts`의 출력 주석 "ticket report가 쓴다")은 CLI 명령 표에 없어 coding token으로 부를 길이 없다. 준비 확정도 그 read를 부를 때 일어난다(`finalizer.observe`, 계획 `e2e-coverage`의 brief 조사). 완료에 필요한 app test의 test hash와 결과를 CLI로 얻는 길도 없는 것으로 읽힌다. 코드로 읽었고 돌려 보지 않았다.
+
+영향: coding agent가 앱을 고치고 release를 준비해도 완료 보고를 못 한다. 그러면 App Engineer의 검증과 `TicketVerified`가 없어 activation이 시작되지 않는다. 사람이 lophn으로 앱을 만들어 쓸 수 없다. 앱 E2E도 이 길을 지나야 한다.
+
+고치려면:
+- CLI에 `release status`(`releases/preparation`), `app test status`, `app test result`를 coding token 명령으로 연다(중간). 계획 `e2e-coverage`의 `app-cli-finish` brief가 이 안이다. 추천.
+- `release prepare`가 끝날 때까지 기다려 release id를 돌려주게 한다(중간). 준비가 300초까지 걸려 CLI가 그동안 막힌다.
+
+정한 것: CLI에 `release status`, `app test status`, `app test result`를 coding token 명령으로 연다(계획 `e2e-coverage`의 `app-cli-finish`). (사람)
+
+닫음: CLI에 `release status`(`release.preparation`), `app test status`, `app test result`를 열었고 coding token 범위가 따라온다. `release.preparation`은 준비가 끝나면 고정 test hash를 준다. `tests/e2e/app-release_test.ts`가 template 앱을 CLI만으로 준비·test·보고해 activation까지 간다.

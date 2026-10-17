@@ -26,9 +26,9 @@ samp,
   user-select: text;
 }
 
-/* modal(dialog·palette)의 overlay view는 창의 위쪽 줄 아래부터 덮는다. 위쪽 줄(top bar, sidebar 머리)은
-   여기서 같은 scrim을 덮고, 그동안 창 끌기를 꺼 scrim 자리를 끌어도 창이 움직이지 않는다. */
-:root[data-overlay-modal] body::after {
+/* modal(overlay view의 dialog·palette, 화면 안의 project 고르기)은 창의 위쪽 줄 아래만 덮는다. 위쪽 줄(top bar,
+   sidebar 머리)은 여기서 같은 scrim을 덮고, 그동안 창 끌기를 꺼 scrim 자리를 끌어도 창이 움직이지 않는다. */
+:root:is([data-overlay-modal], [data-page-modal]) body::after {
   content: "";
   position: fixed;
   top: var(--space-0);
@@ -40,7 +40,7 @@ samp,
   z-index: var(--z-backdrop);
 }
 
-:root[data-overlay-modal] * {
+:root:is([data-overlay-modal], [data-page-modal]) * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

@@ -40,6 +40,14 @@ export function ProjectPicker(
 ): ReactElement {
   const ref = useRef<HTMLDivElement>(null);
   useViewCover(ref, true);
+  // 고르는 동안은 modal이다. 창 위쪽 줄도 같은 scrim으로 덮는다(chrome.css).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.pageModal = "";
+    return () => {
+      delete root.dataset.pageModal;
+    };
+  }, []);
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   useEffect(() => {

@@ -15,7 +15,7 @@ lead만 고친다. `tools/status.py ui-kit build`가 `tasks/*.md`에서 id, 단�
 | `kit-gallery-overlay` | kit-gallery | 2 | kit-gallery-split | todo |  |  |  |
 | `kit-gallery-primitives-input` | kit-gallery | 2 | kit-gallery-split | todo |  |  |  |
 | `kit-gallery-split` | kit-gallery | 2 | kit-gallery-copies | todo |  |  |  |
-| `kit-sdk-move` | kit-sdk | 2 | 없음 | todo |  |  |  |
+| `kit-sdk-move` | kit-sdk | 2 | 없음 | merged | kit-sdk/kit-sdk-move | 83a9dc45b |  |
 | `kit-sdk-publish` | kit-sdk | 2 | kit-sdk-move | todo |  |  |  |
 | `gallery-index` | gallery-index | 3 | kit-checks | todo |  |  |  |
 | `kit-checks` | kit-checks | 3 | 없음 | todo |  |  |  |

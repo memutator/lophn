@@ -15,7 +15,7 @@ import {
   type Route,
   UPLOAD_INPUT_HEADER,
 } from "../../../packages/protocol/base/mod.ts";
-import { spawnCore, waitGone } from "./process.ts";
+import { spawnCore, tail, waitGone } from "./process.ts";
 
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 const SETTINGS_FILE = "settings.json";
@@ -145,13 +145,46 @@ async function writeSettings(
   });
 }
 
+export type BootOptions = {
+  settings?: Record<string, unknown>;
+  /** core process의 env에 더하는 값(예 DENO_DIR, XDG_RUNTIME_DIR). LOPHN_HOME·HOME·PATH는 덮지 못한다. */
+  env?: Record<string, string>;
+};
+
+export type StartResult =
+  | { ok: true; core: Core }
+  | { ok: false; reason: string; exit: number | null };
+
 export async function bootCore(
   run: Run,
-  options: { settings?: Record<string, unknown> } = {},
+  options: BootOptions = {},
 ): Promise<Core> {
+  const started = await startCore(run, options);
+  if (!started.ok) {
+    throw new Error(
+      `core 시작 실패: ${started.reason}\n--- core.log ---\n${await tail(
+        `${run.dir}/core.log`,
+      )}`,
+    );
+  }
+  return started.core;
+}
+
+// bootCore와 tryBootCore(try-boot.ts)가 같이 쓴다. 시작 실패를 던지지 않고 값으로 돌려준다.
+export async function startCore(
+  run: Run,
+  options: BootOptions = {},
+): Promise<StartResult> {
   await writeSettings(run, options.settings);
   const logPath = `${run.dir}/core.log`;
-  const spawned = await spawnCore(run.home, `${run.dir}/user-home`, logPath);
+  const result = await spawnCore(
+    run.home,
+    `${run.dir}/user-home`,
+    logPath,
+    options.env,
+  );
+  if (!result.ok) return result;
+  const spawned = result;
   const { user_token: token, api_port: port } = spawned.hello;
   const baseUrl = `http://127.0.0.1:${port}`;
   const ids: IdSource = createIdSource({
@@ -186,7 +219,7 @@ export async function bootCore(
     return await rpc.call(route, body as never) as Result<never>;
   };
 
-  return {
+  const core: Core = {
     run,
     baseUrl,
     token,
@@ -228,4 +261,5 @@ export async function bootCore(
     kill: () => end(() => spawned.signal("SIGKILL")),
     stop: () => end(() => void spawned.closeStdin()),
   };
+  return { ok: true, core };
 }

@@ -25,7 +25,7 @@ const POLL_MS = 50;
 const MODEL_NAME = "claude-sonnet-4-5";
 
 // 신호를 읽는 조건이 맞을 때까지 되풀이한다. 맞으면 즉시 돌아오고 제한 시간이 지나면 무엇을 기다렸는지 담아 실패한다.
-async function until<T>(
+export async function until<T>(
   what: string,
   read: () => Promise<T | undefined>,
   timeoutMs = WAIT_MS,
@@ -188,6 +188,22 @@ export async function waitPermission(
     });
     const request = snapshots[0]?.permission_requests[0];
     return request === undefined ? undefined : { request: request.id };
+  });
+}
+
+// waitPermission의 짝이다. 사람 역할 helper 한도(열 개)는 흐름을 옮기는 helper를 세는 것이고, 이 helper는 같은 snapshot을 읽을 뿐이라 센 수에 넣지 않는다.
+export async function waitQuestion(
+  core: Core,
+  session: string,
+): Promise<{ turn: string; tool_call: string }> {
+  return await until("질문이 옴", async () => {
+    const { snapshots } = await core.call(sessionSnapshotsList, {
+      sessions: [session],
+    });
+    const question = snapshots[0]?.questions[0];
+    return question === undefined
+      ? undefined
+      : { turn: question.turn, tool_call: question.tool_call };
   });
 }
 

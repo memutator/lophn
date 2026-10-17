@@ -12,6 +12,7 @@ const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 const MAIN = `${REPO}/packages/core/main/daemon/main.ts`;
 
 export type Spawned = {
+  ok: true;
   hello: MainHello;
   /** stdin을 닫는다. core가 정상 종료를 시작한다. */
   closeStdin(): Promise<void>;
@@ -19,6 +20,16 @@ export type Spawned = {
   /** daemon이 끝나고 stdout·stderr pipe가 닫힌 뒤 돌아온다. */
   exited: Promise<void>;
 };
+
+/** core가 시작하지 못하고 `start_failed`를 알린 때. exit는 core가 스스로 끝난 코드이고, 제한 시간 안에 안 끝나 SIGKILL했으면 null이다. */
+export type SpawnFailed = {
+  ok: false;
+  reason: string;
+  exit: number | null;
+};
+
+// 호출한 쪽이 덮지 못하게 막는 env. 격리(사람의 홈, OS keychain)를 지키는 것들이다.
+const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH"];
 
 function denoDir(): string {
   const set = Deno.env.get("DENO_DIR");
@@ -28,7 +39,7 @@ function denoDir(): string {
   return `${cache}/deno`;
 }
 
-async function tail(path: string): Promise<string> {
+export async function tail(path: string): Promise<string> {
   try {
     return (await Deno.readTextFile(path)).slice(-2000);
   } catch {
@@ -42,7 +53,11 @@ export async function spawnCore(
   home: string,
   userHome: string,
   logPath: string,
-): Promise<Spawned> {
+  env: Record<string, string> = {},
+): Promise<Spawned | SpawnFailed> {
+  for (const name of FIXED_ENV) {
+    if (name in env) throw new Error(`core env ${name}는 덮을 수 없다`);
+  }
   const command = new Deno.Command(Deno.execPath(), {
     args: ["run", "--allow-all", MAIN, "--port=0"],
     cwd: REPO,
@@ -52,6 +67,7 @@ export async function spawnCore(
       HOME: userHome,
       PATH: Deno.env.get("PATH") ?? "",
       DENO_DIR: denoDir(),
+      ...env,
     },
     stdin: "piped",
     stdout: "piped",
@@ -76,7 +92,7 @@ export async function spawnCore(
       HELLO_TIMEOUT_MS,
     );
   });
-  const readHello = async (): Promise<MainHello> => {
+  const readHello = async (): Promise<MainHello | SpawnFailed> => {
     for (;;) {
       const next = await reader.read();
       if (next.done) throw new Error("hello 전에 core stdout이 닫혔다");
@@ -85,12 +101,12 @@ export async function spawnCore(
         const message = coreToMainMessageSchema.parse(frame.payload);
         if ("user_token" in message) return message;
         if ("type" in message && message.type === "start_failed") {
-          throw new Error(`core 시작 실패: ${message.reason}`);
+          return { ok: false, reason: message.reason, exit: null };
         }
       }
     }
   };
-  let hello: MainHello;
+  let hello: MainHello | SpawnFailed;
   try {
     hello = await Promise.race([readHello(), timeout]);
   } catch (error) {
@@ -109,6 +125,26 @@ export async function spawnCore(
     clearTimeout(timer);
   }
 
+  if ("ok" in hello) {
+    // 시작에 실패한 core는 스스로 끝나야 한다. SIGKILL에 기대면 정리 경로를 못 본다.
+    let giveUp: ReturnType<typeof setTimeout> | undefined;
+    const code = await Promise.race([
+      child.status.then((status) => status.code),
+      new Promise<null>((resolve) => {
+        giveUp = setTimeout(() => resolve(null), GONE_TIMEOUT_MS);
+      }),
+    ]);
+    clearTimeout(giveUp);
+    if (code === null) {
+      child.kill("SIGKILL");
+      await child.status;
+    }
+    await stdin.close().catch(() => {});
+    await reader.cancel().catch(() => {});
+    await logged.catch(() => {});
+    return { ...hello, exit: code };
+  }
+
   // 이후 stdout을 계속 비운다. 안 읽으면 pipe가 차서 core가 막힌다.
   const drained = (async () => {
     try {
@@ -125,6 +161,7 @@ export async function spawnCore(
     await Promise.all([drained, logged.catch(() => {})]);
   })();
   return {
+    ok: true,
     hello,
     async closeStdin() {
       await stdin.close().catch(() => {});
@@ -152,10 +189,14 @@ export async function processesOf(home: string): Promise<number[]> {
 }
 
 // daemon이 끝난 뒤 그 child까지 없어지기를 기다린다. 제한 시간까지 남으면 그 pid만 SIGKILL하고 pid를 돌려준다.
-export async function waitGone(home: string): Promise<number[]> {
+// keep은 같은 home에서 이미 돌던 process(둘째 core가 실패한 뒤 첫째 core)라 남아 있어도 된다.
+export async function waitGone(
+  home: string,
+  keep: number[] = [],
+): Promise<number[]> {
   const deadline = Date.now() + GONE_TIMEOUT_MS;
   for (;;) {
-    const left = await processesOf(home);
+    const left = (await processesOf(home)).filter((pid) => !keep.includes(pid));
     if (left.length === 0) return [];
     if (Date.now() > deadline) {
       for (const pid of left) {

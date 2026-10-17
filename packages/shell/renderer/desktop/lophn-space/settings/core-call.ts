@@ -47,7 +47,7 @@ export type SecretIntent = {
   /** provider 연결(Connect)의 값 아닌 등록 정보. owner는 만들 provider의 ID다. */
   readonly connect?: {
     readonly name: string;
-    /** 내장 정의 또는 직접 만든 정의. core의 RegisterProvider가 다시 검사한다. */
+    /** 내장 정의 또는 직접 만든 정의. core의 ConnectProvider가 다시 검사한다. */
     readonly definition: unknown;
     readonly endpoint: string;
     readonly protocol: string;

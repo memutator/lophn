@@ -569,9 +569,8 @@ export function createLedgerRegistration(
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),
     ],
-    // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
-    // registry에 등록·회수된다. MCP 참조는 extensions
-    // secret-refs의 통로다(#294).
+    // 외부 MCP credential의 secret 값은 core의 알려진 값 registry에 등록·회수된다.
+    // 참조는 extensions secret-refs의 통로다(#294).
     secretRefs: [
       createMcpSecretRefSource(environment.mcpOAuthRefs),
     ],

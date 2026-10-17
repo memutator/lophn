@@ -2,7 +2,7 @@
 // 사람의 요청만 이 route에 닿는다(route actors가 user). ledger이 아니라 writer queue
 // 앞의 처리기로 돈다: OAuth network(등록·token 교환·device poll)와 callback listener가
 // 기다리므로 ledger transaction 안에 있을 수 없다.
-// Connect가 credential까지 받는 RegisterProvider 하나라 로그인은 provider가 등록되기 전에 시작한다:
+// Connect가 credential까지 받는 ConnectProvider 하나라 로그인은 provider가 등록되기 전에 시작한다:
 // begin은 만들 provider의 ID와 내장 정의 key를 받고 정의는 내장 목록에서 찾는다.
 // login 세션(state·nonce·verifier·device_code)은 이 처리기의 메모리에만 있고
 // ledger·event·log에는 남지 않는다. 활성 gate는 verified_for_lophn과

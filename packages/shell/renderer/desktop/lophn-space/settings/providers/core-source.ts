@@ -208,7 +208,7 @@ export function coreProviderSettingsSource(
     return call(core, "read", "providers", "definitions", {});
   }
 
-  /** 연결 창이 RegisterProvider에 그대로 실을 등록 정보. 값은 이 안에 없다. */
+  /** 연결 창이 ConnectProvider에 그대로 실을 등록 정보. 값은 이 안에 없다. */
   function connectIntent(
     owner: string,
     connect: {

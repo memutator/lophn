@@ -76,7 +76,7 @@ export const agentsKind: TabKindDef = {
           name: item.title,
         }))}
         onEditInstructions={agents.editInstructions}
-        onAddExtension={agents.openLophn}
+        onAddExtension={agents.openExtensions}
         onChanged={agents.changed}
       />
     );

@@ -18,8 +18,8 @@ export const WORKSPACE_GROUPS: readonly PaletteGroup[] = [
   "actions",
 ];
 
-/** Lophn Workspace: 프로젝트·앱·파일·행동. */
-export const LOPHN_GROUPS: readonly PaletteGroup[] = [
+/** 작업대 밖(런처·Settings 창, 전역 팔레트): 프로젝트·앱·파일·행동. */
+export const DESKTOP_GROUPS: readonly PaletteGroup[] = [
   "projects",
   "apps",
   "files",

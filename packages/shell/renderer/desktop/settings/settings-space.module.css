@@ -1,4 +1,4 @@
-/* legacy lophn Shell(AppShell): sidebar가 창 높이를 다 쓰고 상단 바는 본문 열 위에만 있다. */
+/* sidebar가 창 높이를 다 쓰고 상단 바는 본문 열 위에만 있다. */
 .space {
   position: fixed;
   inset: var(--space-0);
@@ -18,7 +18,6 @@
 
 .topBar {
   flex: none;
-  border-bottom: var(--border-width) solid var(--color-border-base);
 }
 
 .leading {

@@ -1,4 +1,4 @@
-// tray. 창 열기·런처·로그인 자동 시작·Quit을 둔다. 모든 창을 닫아도
+// tray. 런처·로그인 자동 시작·Quit을 둔다. 모든 창을 닫아도
 // main과 tray, 그 아래 core는 남는다. tray의 Quit만 main과 core를 멈추는 명시 행동이다.
 // Electron Tray·Menu는 adapter 뒤에 둔다.
 import { join } from "node:path";
@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { AutostartState } from "./autostart.ts";
 import { word } from "./wording.ts";
 
-type TrayItemId = "open" | "launcher" | "autostart" | "quit";
+type TrayItemId = "launcher" | "autostart" | "quit";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
 type TrayNotice = "global-search-unavailable";
@@ -40,7 +40,6 @@ function trayMenu(
     label: word(NOTICE_LABELS[notice]),
   }));
   return [
-    { type: "normal", id: "open", label: word("common.label.tray-open") },
     {
       type: "normal",
       id: "launcher",
@@ -121,9 +120,6 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
   const render = () => handle.setMenu(trayMenu(autostart, notices), select);
   function select(id: TrayItemId): void {
     switch (id) {
-      case "open":
-        actions.openWindow();
-        return;
       case "launcher":
         actions.openLauncher();
         return;

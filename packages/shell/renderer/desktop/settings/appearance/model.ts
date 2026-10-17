@@ -2,7 +2,7 @@
 // Text size와 Density를 적용할 token이 design에 아직 없어 두 줄은 값만 저장한다.
 import type { MessageKey } from "@lophn/wording";
 
-import type { Theme, ThemeApi } from "../../../../../ipc/theme.ts";
+import type { Theme, ThemeApi } from "../../../../ipc/theme.ts";
 import type { AppearanceId, AppearanceValues } from "./source.ts";
 
 interface AppearanceOption {

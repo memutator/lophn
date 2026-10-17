@@ -1,13 +1,11 @@
-// Lophn Workspace의 팔레트 행. 프로젝트·앱·파일·행동 순서이고 고르면
-// 지금 탐색 대상(프로젝트 창, 앱 공간, 세 화면, project 창에서 파일 열기)으로만 간다.
+// 작업대 밖(런처·Settings 창, 전역 팔레트)의 팔레트 행. 프로젝트·앱·파일·행동 순서이고 고르면
+// 지금 탐색 대상(프로젝트 창, 앱 공간, 런처, Settings, project 창에서 파일 열기)으로만 간다.
 import { t } from "@lophn/wording";
 
-import { LOPHN_SCREENS, type LophnScreen } from "../../new-id.ts";
-import { screenLabel } from "../lophn-space/screens.ts";
-import type { Catalog } from "../../source-result.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
+import type { Catalog } from "./catalog.ts";
 import { windowShortcutLabel } from "./labels.ts";
-import { type FileFound, LOPHN_GROUPS, type PaletteEntry } from "./model.ts";
+import { type FileFound, DESKTOP_GROUPS, type PaletteEntry } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
 /** project 창에서 열 파일. path는 디스크의 절대 경로다. */
@@ -16,7 +14,7 @@ export interface FileOpen {
   readonly line: number;
 }
 
-export type LophnTarget =
+export type DesktopTarget =
   | { readonly kind: "project"; readonly id: string }
   | {
     readonly kind: "file";
@@ -24,17 +22,17 @@ export type LophnTarget =
     readonly file: FileOpen;
   }
   | { readonly kind: "app"; readonly id: string }
-  | { readonly kind: "screen"; readonly screen: LophnScreen }
+  | { readonly kind: "settings" }
   | { readonly kind: "launcher" };
 
-interface LophnScopeInput {
+interface DesktopScopeInput {
   readonly catalog: Catalog;
   readonly platform: WindowPlatform;
   readonly search?: (query: string) => Promise<readonly FileFound[]>;
-  readonly go: (target: LophnTarget) => void;
+  readonly go: (target: DesktopTarget) => void;
 }
 
-function actions(platform: WindowPlatform): PaletteEntry<LophnTarget>[] {
+function actions(platform: WindowPlatform): PaletteEntry<DesktopTarget>[] {
   return [
     {
       group: "actions",
@@ -44,21 +42,21 @@ function actions(platform: WindowPlatform): PaletteEntry<LophnTarget>[] {
       icon: "launcher",
       target: { kind: "launcher" },
     },
-    ...LOPHN_SCREENS.map((screen) => ({
-      group: "actions" as const,
-      key: `action:${screen}`,
-      label: t("common.button.palette-go-to", { screen: screenLabel(screen) }),
-      icon: "screen" as const,
-      target: { kind: "screen" as const, screen },
-    })),
+    {
+      group: "actions",
+      key: "action:settings",
+      label: t("common.button.palette-settings"),
+      icon: "screen",
+      target: { kind: "settings" },
+    },
   ];
 }
 
-export function lophnScope(input: LophnScopeInput): PaletteScope<LophnTarget> {
+export function desktopScope(input: DesktopScopeInput): PaletteScope<DesktopTarget> {
   const search = input.search;
   return {
-    title: t("common.title.palette-lophn"),
-    order: LOPHN_GROUPS,
+    title: t("common.title.palette-desktop"),
+    order: DESKTOP_GROUPS,
     entries: () => [
       ...input.catalog.projects.map((row) => ({
         group: "projects" as const,

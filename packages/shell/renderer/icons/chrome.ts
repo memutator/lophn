@@ -8,13 +8,13 @@ import {
   type LucideIcon,
   Minus,
   RotateCw,
-  Settings2,
+  Settings,
   Square,
   X,
 } from "lucide-react";
 
-/** 런처 바 오른쪽의 lophn 관리 진입점. */
-export const lophnEntryIcon: LucideIcon = Settings2;
+/** 런처와 작업대 바 오른쪽의 Settings 진입점. */
+export const settingsEntryIcon: LucideIcon = Settings;
 /** 연결 실패·단절에서 다시 시도·다시 연결. */
 export const retryIcon: LucideIcon = RotateCw;
 /** 준비하지 못한 연결. */

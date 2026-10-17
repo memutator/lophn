@@ -7,7 +7,7 @@ import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
 import type { CoreSource } from "../connection/connection.ts";
-import { windowFolderPicker } from "../launcher/core-source.ts";
+import { windowFolderPicker } from "../launcher/projects/core-source.ts";
 import {
   call,
   enterSecret,

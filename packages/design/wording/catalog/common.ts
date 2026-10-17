@@ -59,7 +59,6 @@ export const common = {
   "common.label.tray-global-search-unavailable":
     "Search from anywhere isn't available",
   "common.label.tray-launcher": "Launcher",
-  "common.label.tray-open": "Open Lophn Workspace",
   "common.label.tray-quit": "Quit lophn",
   "common.label.tray-start-at-login": "Start at login",
   "common.label.tray-tooltip": "lophn",

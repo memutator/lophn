@@ -1,4 +1,4 @@
-// 창 하나의 팔레트 자리. Desktop이 hub를 만들고 지금 공간(작업대·lophn 공간)이 자기
+// 창 하나의 팔레트 자리. Desktop이 hub를 만들고 지금 공간(작업대·Settings)이 자기
 // scope를 등록한다. 창 shortcut은 main이 보낸 이름으로만 받는다.
 import {
   createContext,

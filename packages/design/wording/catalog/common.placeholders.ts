@@ -80,7 +80,6 @@ export type CommonPlaceholders = {
   "common.label.tab-working": Record<never, never>;
   "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;
-  "common.label.tray-open": Record<never, never>;
   "common.label.tray-quit": Record<never, never>;
   "common.label.tray-start-at-login": Record<never, never>;
   "common.label.tray-tooltip": Record<never, never>;

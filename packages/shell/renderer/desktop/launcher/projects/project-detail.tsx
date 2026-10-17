@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Textarea } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
-import { Tooltip } from "@lophn/ui/overlay";
+import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 import { commonIcons, retryIcon } from "../../../icons/mod.ts";
 
@@ -21,14 +21,14 @@ import { SubfolderPicker } from "./subfolder-picker.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 import styles from "./project-detail.module.css";
 
-interface ProjectDetailProps {
+interface ProjectFormProps {
   source: ProjectsSource;
   project: ProjectItem;
-  /** 등록을 바꿨다. 목록의 행을 새 값으로 바꾼다. */
-  onChanged: (project: ProjectItem, saved: boolean) => void;
+  /** 등록을 바꿨다. 목록의 카드를 새 값으로 바꾼다. */
+  onChanged: (project: ProjectItem) => void;
   /** 대상이 바뀌어 목록을 다시 읽는다. */
   onLatest: () => void;
-  /** 사라진 폴더의 새 위치를 고른다. 화면 위쪽 toast와 같은 길이다. */
+  /** 사라진 폴더의 새 위치를 고른다. 카드의 [Choose new location]과 같은 길이다. */
   onRelocate: (project: ProjectItem, folder: string) => Promise<boolean>;
   /** 저장했다는 안내를 보인다. */
   saved: boolean;
@@ -36,11 +36,11 @@ interface ProjectDetailProps {
 
 type Problem = "name-missing" | "changed" | "failed" | "picker-failed";
 
-// 프로젝트 하나: 이름·목적·폴더·폴더 설명·하위 폴더를 고치고 저장한다. 보관은 목록에서만 숨긴다.
+// 프로젝트 하나: 이름·목적·폴더·폴더 설명·하위 폴더를 고치고 저장한다.
 // 고침은 [Save changes]를 누를 때까지 초안에만 있다.
-export function ProjectDetail(
+function ProjectForm(
   { source, project, onChanged, onLatest, onRelocate, saved }:
-    ProjectDetailProps,
+    ProjectFormProps,
 ) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(project));
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -64,19 +64,7 @@ export function ProjectDetail(
       setProblem(result.code === "conflict" ? "changed" : "failed");
       return;
     }
-    onChanged(result.value, true);
-  };
-
-  const archive = async () => {
-    setBusy(true);
-    setProblem(null);
-    const result = await source.setArchived(project, true);
-    setBusy(false);
-    if (!result.ok) {
-      setProblem(result.code === "conflict" ? "changed" : "failed");
-      return;
-    }
-    onChanged(result.value, false);
+    onChanged(result.value);
   };
 
   const pickFolder = async () => {
@@ -102,7 +90,6 @@ export function ProjectDetail(
       aria-label={project.title}
       data-project-detail={project.id}
     >
-      <h1 className={styles.detailTitle}>{project.title}</h1>
       {problem === "changed"
         ? (
           <p className={styles.notice} data-changed="">
@@ -191,7 +178,7 @@ export function ProjectDetail(
                           data-relocate=""
                           onClick={() => void relocate(folder.path)}
                         >
-                          {t("projects.button.choose-location")}
+                          {t("launcher.button.choose-location")}
                         </Button>
                       </>
                     )}
@@ -383,18 +370,6 @@ export function ProjectDetail(
           )
           : null}
       </form>
-      <div className={styles.dangerZone} data-project-archive="">
-        <p className={styles.muted}>{t("projects.notice.archive-keeps")}</p>
-        <Button
-          variant="danger"
-          icon={commonIcons.archive}
-          data-archive-project="archive"
-          disabled={busy}
-          onClick={() => void archive()}
-        >
-          {t("projects.button.archive")}
-        </Button>
-      </div>
       <SubfolderPicker
         open={adding !== null}
         root={adding ?? ""}
@@ -409,5 +384,46 @@ export function ProjectDetail(
         }}
       />
     </section>
+  );
+}
+
+interface ProjectDetailDialogProps {
+  source: ProjectsSource;
+  project: ProjectItem;
+  /** 등록을 바꿨다. 목록의 카드를 새 값으로 바꾼다. */
+  onChanged: (project: ProjectItem) => void;
+  onLatest: () => void;
+  onRelocate: (project: ProjectItem, folder: string) => Promise<boolean>;
+  onClose: () => void;
+}
+
+// 카드의 [Details]가 여는 dialog. 열려 있는 동안만 그려서 열 때마다 처음 초안에서 시작한다.
+export function ProjectDetailDialog(
+  { source, project, onChanged, onLatest, onRelocate, onClose }:
+    ProjectDetailDialogProps,
+) {
+  const [saved, setSaved] = useState(false);
+  return (
+    <Dialog
+      open
+      width="wide"
+      title={project.title}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <ProjectForm
+        key={`${project.id}:${project.revision}`}
+        source={source}
+        project={project}
+        saved={saved}
+        onChanged={(next) => {
+          setSaved(true);
+          onChanged(next);
+        }}
+        onLatest={onLatest}
+        onRelocate={onRelocate}
+      />
+    </Dialog>
   );
 }

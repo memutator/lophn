@@ -11,34 +11,23 @@ import {
   sidebarView,
 } from "../../workspace/model.ts";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
-import { DEFAULT_SCREEN, type LophnScreen } from "../../new-id.ts";
-import { screenLabel } from "../lophn-space/screens.ts";
-import type { Catalog, LophnSource } from "../../source-result.ts";
-import { LophnSidebar } from "./sidebar/sidebar.tsx";
+import { SettingsSidebar } from "./sidebar/sidebar.tsx";
 import {
   PaletteButton,
   usePaletteEnv,
   usePaletteScope,
 } from "../palette/host.tsx";
-import { type FileOpen, lophnScope } from "../palette/desktop-scope.ts";
-import { ProjectsScreen } from "../lophn-space/projects/projects-screen.tsx";
-import type { ProjectsSource } from "../launcher/projects/source.ts";
-import { AppsScreen } from "../lophn-space/apps/apps-screen.tsx";
-import type { AppsSource } from "../../apps/source.ts";
-import {
-  type SettingsPanels,
-  SettingsScreen,
-} from "./settings-screen.tsx";
-import { DEFAULT_PANE, type SettingsPane } from "./model.ts";
+import type { Catalog, CatalogSource } from "../palette/catalog.ts";
+import { desktopScope, type FileOpen } from "../palette/desktop-scope.ts";
+import { type SettingsPanels, SettingsScreen } from "./settings-screen.tsx";
+import { DEFAULT_PANE, paneLabel, type SettingsPane } from "./model.ts";
 import type { SettingsSource } from "./source.ts";
 import styles from "./settings-space.module.css";
 
-interface LophnSpaceProps {
+interface SettingsSpaceProps {
   /** 팔레트의 project·앱 행. */
-  source: LophnSource;
-  /** 처음 보일 화면. 없으면 projects다. */
-  screen?: LophnScreen;
-  /** Settings의 처음 항목. 없으면 General이다. */
+  source: CatalogSource;
+  /** 처음 보일 항목. 없으면 General이다. */
   settingsPane?: SettingsPane;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
@@ -47,17 +36,13 @@ interface LophnSpaceProps {
   onProject?: (project: string) => void;
   /** 그 project 창에서 그 파일을 연다. 창 팔레트의 파일 행이 쓴다. */
   onOpenFile?: (project: string, file: FileOpen) => void;
-  /** projects 화면 통로. 없으면 projects는 준비 전 안내다. */
-  projectsSource?: ProjectsSource;
-  /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
-  apps?: AppsSource;
-  /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
+  /** 그 앱의 앱 공간으로 간다. 팔레트의 앱 행이 쓴다. */
   onApp?: (app: string) => void;
-  /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
+  /** General과 Tools and skills가 읽고 쓰는 통로. 없으면 준비 전 안내다. */
   settings?: SettingsSource;
-  /** 전역 [Instructions] 편집기로 간다. settings 화면의 단추가 쓴다. */
+  /** 전역 [Instructions] 편집기로 간다. Agents 항목의 단추가 쓴다. */
   onInstructions?: () => void;
-  /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
+  /** 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
   /** 대기 목록 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
@@ -67,28 +52,23 @@ interface LophnSpaceProps {
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
-// Lophn Workspace. 왼쪽 sidebar의 화면 셋(Projects, Apps, Settings) 중 하나를 본문에 연다. Settings의 항목 목록은
-// sidebar가 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
-export function LophnSpace(
+// Settings 공간. 왼쪽 sidebar가 항목 목록을 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
+export function SettingsSpace(
   {
     source,
-    screen,
     settingsPane: initialPane,
     windowWidth,
     onLauncher,
     onProject,
     onOpenFile,
-    projectsSource,
-    apps,
     onApp,
     settings,
     onInstructions,
     settingsPanels,
     onOpenSession,
     onAnswerInTerminal,
-  }: LophnSpaceProps,
+  }: SettingsSpaceProps,
 ) {
-  const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
   const [settingsPane, setSettingsPane] = useState<SettingsPane>(
     initialPane ?? DEFAULT_PANE,
   );
@@ -115,9 +95,9 @@ export function LophnSpace(
     };
   }, [source, palette.available]);
 
-  // 창 팔레트의 Workspace 행. 고르면 지금 탐색 대상으로만 간다.
+  // 창 팔레트 행. 고르면 지금 탐색 대상으로만 간다. Settings는 이미 여기라 아무 일도 없다.
   usePaletteScope(() =>
-    lophnScope({
+    desktopScope({
       catalog,
       platform: palette.platform,
       search: palette.search
@@ -126,11 +106,9 @@ export function LophnSpace(
       go: (target) => {
         if (target.kind === "launcher") onLauncher();
         else if (target.kind === "project") onProject?.(target.id);
-        else if (target.kind === "screen") setCurrent(target.screen);
         else if (target.kind === "file") {
           onOpenFile?.(target.project, target.file);
-        } else if (onApp) onApp(target.id);
-        else setCurrent("apps");
+        } else if (target.kind === "app") onApp?.(target.id);
       },
     })
   );
@@ -138,14 +116,13 @@ export function LophnSpace(
   return (
     <div
       className={styles.space}
-      data-space="lophn"
-      data-current-screen={current}
+      data-space="settings"
+      data-settings-pane={settingsPane}
       ref={frameRef}
     >
-      <LophnSidebar
+      <SettingsSidebar
         mode={shown.mode}
         width={shown.width}
-        current={current}
         pane={settingsPane}
         onLauncher={onLauncher}
         onToggle={() =>
@@ -153,7 +130,6 @@ export function LophnSpace(
             ...state,
             collapsedByUser: shown.mode !== "collapsed",
           }))}
-        onOpen={setCurrent}
         onPane={setSettingsPane}
       />
       <div className={styles.main}>
@@ -166,8 +142,8 @@ export function LophnSpace(
                   : null}
                 <Breadcrumbs
                   crumbs={[
-                    { label: t("common.label.lophn-space") },
-                    { label: screenLabel(current) },
+                    { label: t("settings.title.screen") },
+                    { label: paneLabel(settingsPane) },
                   ]}
                 />
               </span>
@@ -184,9 +160,7 @@ export function LophnSpace(
           />
         </div>
         <div className={styles.content}>
-          {current === "apps" && apps && onApp
-            ? <AppsScreen source={apps} onOpen={onApp} />
-            : current === "settings" && settings
+          {settings
             ? (
               <SettingsScreen
                 {...settingsPanels}
@@ -196,10 +170,8 @@ export function LophnSpace(
                 onInstructions={onInstructions}
               />
             )
-            : current === "projects" && projectsSource
-            ? <ProjectsScreen source={projectsSource} />
             : (
-              <p className={styles.notReady} data-not-ready={current}>
+              <p className={styles.notReady} data-not-ready="settings">
                 {t("common.empty.not-ready")}
               </p>
             )}

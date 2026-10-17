@@ -11,8 +11,8 @@ import {
   LAUNCHER,
   openApp,
   openInstructions,
-  openLophn,
   openProject,
+  openSettings,
   type Route,
 } from "./router.ts";
 import {
@@ -23,17 +23,17 @@ import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
-import { LophnSpace } from "./settings/settings-space.tsx";
-import type { LophnSource } from "../source-result.ts";
+import { SettingsSpace } from "./settings/settings-space.tsx";
+import type { CatalogSource } from "./palette/catalog.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
-import type { LauncherSource } from "./launcher/source.ts";
 import type { ProjectsSource } from "./launcher/projects/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
-import type { LophnTarget } from "./palette/desktop-scope.ts";
+import type { DesktopTarget } from "./palette/desktop-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
 import type { ProjectsRead } from "../app-frame/project-picker.tsx";
 import type { AppsSource } from "../apps/source.ts";
+import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
 import type { SettingsPanels } from "./settings/settings-screen.tsx";
 import { applyTheme } from "./settings/appearance/model.ts";
@@ -58,21 +58,19 @@ interface DesktopProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
   terminal?: TerminalDeps;
-  /** Lophn Workspace의 팔레트 통로. 없으면 Workspace 대신 런처를 보인다. */
-  lophn?: LophnSource;
+  /** 팔레트의 project·앱 행 통로. 없으면 Settings 대신 런처를 보인다. */
+  catalog?: CatalogSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
-  /** 런처의 프로젝트 카드·등록 통로. 없으면 카드는 비었음 상태다. */
-  projects?: LauncherSource;
   /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
   instructions?: InstructionsSource;
-  /** Projects 화면 통로. 앱 공간의 project 고르기도 이 목록을 쓴다. 없으면 Projects는 준비 전 안내다. */
-  projectsSource?: ProjectsSource;
-  /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
+  /** 런처의 프로젝트 카드·등록·보관·detail 통로. 앱 공간의 project 고르기도 이 목록을 쓴다. 없으면 카드는 비었음 상태다. */
+  projects?: ProjectsSource;
+  /** 런처의 앱 카드·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
   apps?: AppsSource;
-  /** settings 화면 통로. 없으면 settings는 준비 전 안내다. */
+  /** settings 공간 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
@@ -140,10 +138,9 @@ export function Desktop(
     windowWidth = 1280,
     editor,
     terminal,
-    lophn,
+    catalog,
     palette,
     projects,
-    projectsSource,
     intents,
     instructions,
     apps,
@@ -159,34 +156,31 @@ export function Desktop(
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
-  // 같은 화면이어도 다시 열게 하는 횟수. Workspace의 화면은 열 때 처음 상태로 선다.
+  // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
-  const lophnSpace = () => setRoute(openLophn());
-  // Workspace 화면으로 간다. 이미 Workspace여도 그 화면을 다시 연다.
-  const visit = (next: Route) => {
+  // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
+  const settingsSpace = (pane?: SettingsPane) => {
     setVisits((value) => value + 1);
-    setRoute(next);
+    setRoute(openSettings(pane));
   };
-  // 앱 행은 그 앱 공간으로 간다. 앱 통로가 없는 창은 apps 화면으로 간다.
-  const appSpace = (app: string) =>
-    apps ? setRoute(openApp(app)) : visit(openLophn("apps"));
+  const appSpace = (app: string) => setRoute(openApp(app));
   // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
   const issueTarget = (app: string, problem: string) => {
     setVisits((value) => value + 1);
     setRoute({ ...openApp(app), issueProblem: problem });
   };
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
-  const go = (target: LophnTarget) => {
+  const go = (target: DesktopTarget) => {
     if (target.kind === "launcher") launcher();
     else if (target.kind === "project") setRoute(openProject(target.id));
-    else if (target.kind === "screen") visit(openLophn(target.screen));
+    else if (target.kind === "settings") settingsSpace();
     else if (target.kind === "app") appSpace(target.id);
     else setRoute(openProject(target.project, { open: target.file }));
   };
 
   // session을 그 session이 있는 창에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간이다.
-  // place가 없는 lophn의 session은 마지막으로 연 project 창에서 연다. project를 연 적이 없으면 Projects로 간다.
+  // place가 없는 lophn의 session은 마지막으로 연 project 창에서 연다. project를 연 적이 없으면 런처로 간다.
   const { sessions } = useSessions();
   const lastProject = useRef<string | null>(null);
   useEffect(() => {
@@ -204,7 +198,7 @@ export function Desktop(
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
     else if (lastProject.current !== null) {
       setRoute(openProject(lastProject.current, { session }));
-    } else visit(openLophn("projects"));
+    } else launcher();
   };
   // coding agent 카드의 [Answer in terminal]. 그 session의 탭이 이 창에도 main에도 없으면 그 session의 창으로 간 뒤 다시 고른다.
   const [focusRequest, setFocusRequest] = useState<{ session: string } | null>(
@@ -227,11 +221,11 @@ export function Desktop(
     })();
   };
 
-  // 앱 공간의 project 고르기 목록. Projects 화면과 같은 통로로 읽는다.
+  // 앱 공간의 project 고르기 목록. 런처와 같은 통로로 읽는다.
   const projectsRead = useMemo<ProjectsRead | undefined>(
     () =>
-      projectsSource === undefined ? undefined : async () => {
-        const read = await projectsSource.list();
+      projects === undefined ? undefined : async () => {
+        const read = await projects.list();
         return read.ok
           ? {
             ok: true,
@@ -243,7 +237,7 @@ export function Desktop(
           }
           : { ok: false };
       },
-    [projectsSource],
+    [projects],
   );
 
   // 저장한 theme을 시작할 때 적용한다. core가 준비되면 읽는다.
@@ -287,7 +281,7 @@ export function Desktop(
         windowWidth={windowWidth}
         bodyWidth={windowWidth - 240}
         onLauncher={launcher}
-        onLophn={lophnSpace}
+        onSettings={settingsSpace}
         onProjectInstructions={instructions
           ? () =>
             setRoute(openInstructions({
@@ -315,7 +309,7 @@ export function Desktop(
         editor={editor}
         // 전역 지침은 settings에서 왔으니 settings로 돌아간다.
         onBack={route.instructions.layer === "global"
-          ? () => visit(openLophn("settings"))
+          ? () => settingsSpace()
           : launcher}
       />
     );
@@ -332,7 +326,7 @@ export function Desktop(
         issueProblem={route.issueProblem}
         agents={workspace?.agentsSource}
         agentViewSource={agentViewSource}
-        onSettings={() => visit(openLophn("settings"))}
+        onSettings={settingsSpace}
         onInstructions={instructions
           ? () =>
             setRoute(openInstructions({ layer: "app", place: route.app! }))
@@ -347,20 +341,17 @@ export function Desktop(
         onOpenSession={openSession}
       />
     );
-  } else if (route.space === "lophn" && lophn) {
+  } else if (route.space === "settings" && catalog) {
     space = (
-      <LophnSpace
+      <SettingsSpace
         key={visits}
-        source={lophn}
-        screen={route.screen}
+        source={catalog}
         settingsPane={route.settingsPane}
-        projectsSource={projectsSource}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
         onOpenFile={(project, file) =>
           setRoute(openProject(project, { open: file }))}
-        apps={apps}
         onApp={appSpace}
         settings={settings}
         settingsPanels={settingsPanels}
@@ -376,7 +367,7 @@ export function Desktop(
       <Launcher
         source={source}
         formatTime={formatTime}
-        onLophn={lophnSpace}
+        onSettings={settingsSpace}
         projects={projects}
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
@@ -400,7 +391,7 @@ export function Desktop(
         ? (
           <DesktopIntents
             intents={intents}
-            lophn={lophn}
+            catalog={catalog}
             onIssue={issueTarget}
             go={go}
           />

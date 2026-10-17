@@ -1,13 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/wording";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { IconButton } from "@lophn/ui/primitives";
 import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
-import {
-  launcherEmptyIcon,
-  launcherIcons,
-  lophnEntryIcon,
-} from "../../icons/mod.ts";
+import { launcherEmptyIcon, launcherIcons } from "../../icons/mod.ts";
 
 import type { CoreSource } from "../connection/connection.ts";
 import {
@@ -19,30 +15,32 @@ import {
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
 import { sortApps } from "../../apps/model.ts";
 import type { AppRow, AppsSource } from "../../apps/source.ts";
-import { TopBar, Wordmark } from "../top-bar/top-bar.tsx";
+import { SettingsEntry, TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { failureOf } from "./start-failure/model.ts";
 import { StartFailureScreen } from "./start-failure/start-failure.tsx";
 import { AppsSection } from "./apps-section.tsx";
+import { ArchivedSection } from "./archived-section.tsx";
 import type { Loaded } from "./model.ts";
 import { ProjectCard } from "./project-card.tsx";
+import { ProjectDetailDialog } from "./projects/project-detail.tsx";
+import type { ProjectItem, ProjectsSource } from "./projects/source.ts";
 import { RegisterDialog } from "./register-dialog.tsx";
-import type { LauncherSource, ProjectCard as Card } from "./source.ts";
 import styles from "./launcher.module.css";
 
 interface LauncherProps {
   source: CoreSource;
   /** 확인 시각의 표시. 테스트가 고정한다. */
   formatTime?: (confirmedAt: number) => string;
-  /** Lophn Workspace로 이동한다. */
-  onLophn: () => void;
+  /** Settings로 이동한다. */
+  onSettings: () => void;
   /** 상단 바가 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;
-  /** 프로젝트 카드와 등록 통로. 없으면 프로젝트는 없는 것으로 본다. */
-  projects?: LauncherSource;
+  /** 프로젝트 카드·등록·보관·폴더 다시 잡기·detail 통로. 없으면 프로젝트는 없는 것으로 본다. */
+  projects?: ProjectsSource;
   /** 프로젝트 작업대로 이동한다. */
   onProject?: (project: string) => void;
-  /** 앱 카드. 없으면 앱 section을 두지 않는다. */
+  /** 앱 카드와 보관 통로. 없으면 앱 section을 두지 않는다. */
   apps?: AppsSource;
   /** 그 앱의 앱 공간으로 이동한다. */
   onApp?: (app: string) => void;
@@ -56,13 +54,13 @@ interface LauncherProps {
 
 const noop = () => {};
 
-// 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section. 준비 전·실패는 기둥 대신 연결
-// 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는 실제 read 결과로만 채운다.
+// 48px 바 아래 1040px 가운데 기둥에 프로젝트 section, 그 아래 앱 section, 맨 아래 접힌 Archived 묶음. 준비 전·실패는
+// 기둥 대신 연결 화면을 보이고, 단절은 마지막 화면 위에 한 줄을 더한다. 카드는 실제 read 결과로만 채운다.
 export function Launcher(
   {
     source,
     formatTime,
-    onLophn,
+    onSettings,
     platform,
     projects,
     onProject,
@@ -94,13 +92,7 @@ export function Launcher(
               onOpenSession={onOpenSession}
               onAnswerInTerminal={onAnswerInTerminal}
             />
-            <Button
-              icon={lophnEntryIcon}
-              data-entry="lophn"
-              onClick={onLophn}
-            >
-              {t("launcher.button.lophn")}
-            </Button>
+            <SettingsEntry onSettings={onSettings} />
           </span>
         )}
       />
@@ -122,7 +114,6 @@ export function Launcher(
                 apps={apps}
                 onProject={onProject ?? noop}
                 onApp={onApp ?? noop}
-                onLophn={onLophn}
                 newProjectId={newProjectId}
               />
             </div>
@@ -134,29 +125,31 @@ export function Launcher(
 
 interface BodyProps {
   ready: boolean;
-  projects?: LauncherSource;
+  projects?: ProjectsSource;
   apps?: AppsSource;
   onProject: (project: string) => void;
   onApp: (app: string) => void;
-  onLophn: () => void;
   newProjectId?: () => string;
 }
 
-// 프로젝트 카드 묶음과 앱 카드 묶음. 둘 다 비었으면 하나의 비었음 상태 하나만 보인다.
+// 프로젝트 카드 묶음과 앱 카드 묶음, 그 아래 접힌 Archived 묶음. project와 앱을 다루는 유일한 화면이라
+// 보관·복원·폴더 다시 잡기·detail이 여기 있다. 아무것도 없으면 비었음 상태 하나만 보인다.
 function LauncherBody(
-  { ready, projects, apps, onProject, onApp, onLophn, newProjectId }: BodyProps,
+  { ready, projects, apps, onProject, onApp, newProjectId }: BodyProps,
 ) {
-  const [cards, setCards] = useState<Loaded<Card>>(
+  // 보관한 것까지 모두 읽고 화면에서 가른다.
+  const [cards, setCards] = useState<Loaded<ProjectItem>>(
     projects ? { state: "loading" } : { state: "ready", items: [] },
   );
   const [rows, setRows] = useState<Loaded<AppRow>>(
     apps ? { state: "loading" } : { state: "ready", items: [] },
   );
   const [registering, setRegistering] = useState(false);
+  const [detail, setDetail] = useState<string | null>(null);
 
   const loadProjects = useCallback(async () => {
     if (!projects) return;
-    const read = await projects.projects();
+    const read = await projects.list();
     setCards(
       read.ok ? { state: "ready", items: read.value } : { state: "failed" },
     );
@@ -167,10 +160,7 @@ function LauncherBody(
     const read = await apps.list();
     setRows(
       read.ok
-        ? {
-          state: "ready",
-          items: sortApps(read.value).filter((row) => !row.archived),
-        }
+        ? { state: "ready", items: sortApps(read.value) }
         : { state: "failed" },
     );
   }, [apps]);
@@ -181,22 +171,87 @@ function LauncherBody(
     void loadApps();
   }, [loadProjects, loadApps, ready]);
 
+  const replaceProject = (project: ProjectItem) =>
+    setCards((current) =>
+      current.state === "ready"
+        ? {
+          state: "ready",
+          items: current.items.map((item) =>
+            item.id === project.id ? project : item
+          ),
+        }
+        : current
+    );
+
+  // 쓰기가 실패하면(대개 다른 창이 먼저 고쳤다) 최신을 다시 읽는다.
+  const setProjectArchived = async (
+    project: ProjectItem,
+    archived: boolean,
+  ) => {
+    if (!projects) return;
+    const result = await projects.setArchived(project, archived);
+    if (result.ok) replaceProject(result.value);
+    else void loadProjects();
+  };
+
+  const setAppArchived = async (app: AppRow, archived: boolean) => {
+    if (!apps) return;
+    await apps.setArchived(app, archived);
+    await loadApps();
+  };
+
+  const relocate = async (
+    project: ProjectItem,
+    folder: string,
+  ): Promise<boolean> => {
+    if (!projects) return false;
+    const result = await projects.relocate(project, folder);
+    if (!result.ok) return false;
+    if (result.value !== null) replaceProject(result.value);
+    return true;
+  };
+
+  const projectItems = cards.state === "ready" ? cards.items : [];
+  const appItems = rows.state === "ready" ? rows.items : [];
+  const activeProjects = projectItems.filter((item) => !item.archived);
+  const activeApps = appItems.filter((item) => !item.archived);
+  const detailed = projectItems.find((item) => item.id === detail);
+
+  const registerDialog = projects
+    ? (
+      <RegisterDialog
+        open={registering}
+        source={projects}
+        newProjectId={newProjectId}
+        onClose={() => setRegistering(false)}
+        onRegistered={() => {
+          setRegistering(false);
+          void loadProjects();
+        }}
+      />
+    )
+    : null;
+
+  const register = t("launcher.button.register-project");
+
   if (
     cards.state === "ready" && cards.items.length === 0 &&
     rows.state === "ready" && rows.items.length === 0
   ) {
     return (
-      <section className={styles.emptyCard} data-cards="empty">
-        <EmptyState
-          icon={launcherEmptyIcon}
-          message={t("launcher.empty.no-cards")}
-          action={{ label: t("launcher.button.lophn"), onSelect: onLophn }}
-        />
-      </section>
+      <>
+        <section className={styles.emptyCard} data-cards="empty">
+          <EmptyState
+            icon={launcherEmptyIcon}
+            message={t("launcher.empty.no-cards")}
+            action={{ label: register, onSelect: () => setRegistering(true) }}
+          />
+        </section>
+        {registerDialog}
+      </>
     );
   }
 
-  const register = t("launcher.button.register-project");
   let projectBody: ReactNode;
   if (cards.state === "loading") {
     projectBody = (
@@ -220,7 +275,7 @@ function LauncherBody(
         />
       </div>
     );
-  } else if (cards.items.length === 0) {
+  } else if (activeProjects.length === 0) {
     projectBody = (
       <div className={styles.emptyCard} data-cards="empty">
         <EmptyState
@@ -233,9 +288,15 @@ function LauncherBody(
   } else {
     projectBody = (
       <ul className={styles.grid} data-cards="projects">
-        {cards.items.map((card) => (
+        {activeProjects.map((card) => (
           <li key={card.id}>
-            <ProjectCard card={card} onOpen={onProject} />
+            <ProjectCard
+              card={card}
+              onOpen={onProject}
+              onDetails={(item) => setDetail(item.id)}
+              onArchive={(item) => void setProjectArchived(item, true)}
+              onRelocate={(item, folder) => void relocate(item, folder)}
+            />
           </li>
         ))}
       </ul>
@@ -250,8 +311,12 @@ function LauncherBody(
             <div className={styles.sectionHead}>
               <h2 className={styles.sectionTitle}>
                 {t("launcher.heading.projects")}
-                {cards.state === "ready" && cards.items.length > 0
-                  ? <span className={styles.count}>{cards.items.length}</span>
+                {activeProjects.length > 0
+                  ? (
+                    <span className={styles.count}>
+                      {activeProjects.length}
+                    </span>
+                  )
                   : null}
               </h2>
               <Tooltip content={register}>
@@ -264,25 +329,30 @@ function LauncherBody(
               </Tooltip>
             </div>
             {projectBody}
-            <RegisterDialog
-              open={registering}
-              source={projects}
-              newProjectId={newProjectId}
-              onClose={() => setRegistering(false)}
-              onRegistered={() => {
-                setRegistering(false);
-                void loadProjects();
-              }}
-            />
+            {registerDialog}
+            {detailed
+              ? (
+                <ProjectDetailDialog
+                  source={projects}
+                  project={detailed}
+                  onChanged={replaceProject}
+                  onLatest={() => void loadProjects()}
+                  onRelocate={relocate}
+                  onClose={() => setDetail(null)}
+                />
+              )
+              : null}
           </section>
         )
         : null}
       {apps
         ? (
           <AppsSection
-            apps={rows}
+            apps={rows.state === "ready"
+              ? { state: "ready", items: activeApps }
+              : rows}
             onApp={onApp}
-            onLophn={onLophn}
+            onArchive={(app) => void setAppArchived(app, true)}
             onRetry={() => {
               setRows({ state: "loading" });
               void loadApps();
@@ -290,6 +360,29 @@ function LauncherBody(
           />
         )
         : null}
+      <ArchivedSection
+        items={[
+          ...projectItems.filter((item) => item.archived).map((item) => ({
+            kind: "project" as const,
+            id: item.id,
+            name: item.title,
+          })),
+          ...appItems.filter((item) => item.archived).map((item) => ({
+            kind: "app" as const,
+            id: item.id,
+            name: item.name,
+          })),
+        ]}
+        onRestore={(item) => {
+          if (item.kind === "project") {
+            const project = projectItems.find((row) => row.id === item.id);
+            if (project) void setProjectArchived(project, false);
+          } else {
+            const app = appItems.find((row) => row.id === item.id);
+            if (app) void setAppArchived(app, false);
+          }
+        }}
+      />
     </>
   );
 }

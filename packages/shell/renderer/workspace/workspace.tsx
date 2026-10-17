@@ -1,13 +1,14 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
+import type { SettingsPane } from "../desktop/settings/model.ts";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { FilesApi } from "../../ipc/files.ts";
-import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { SettingsEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
@@ -91,8 +92,8 @@ export interface WorkspaceProps {
   bodyWidth: number;
   /** 런처로 돌아간다. */
   onLauncher: () => void;
-  /** lophn 관리 공간으로 간다. */
-  onLophn: () => void;
+  /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
+  onSettings: (pane?: SettingsPane) => void;
   /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
   onProjectInstructions?: () => void;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
@@ -155,7 +156,7 @@ export function Workspace(props: WorkspaceProps) {
     windowWidth,
     bodyWidth,
     onLauncher,
-    onLophn,
+    onSettings,
     onProjectInstructions,
     terminal,
   } = props;
@@ -494,17 +495,15 @@ export function Workspace(props: WorkspaceProps) {
       profileOf: (agent) =>
         sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
       dotOf: (session) => sessionDot(sessionStates, session),
-      openSettings: onLophn,
-      ...(conversation?.onSettings === undefined
-        ? {}
-        : { openConnections: conversation.onSettings }),
+      openSettings: (target) => onSettings(target === "defaults" ? "agents" : "tools"),
+      openConnections: () => onSettings("providers"),
     };
 
   const agents: AgentsSlice | null = agentsSource === undefined ? null : {
     source: agentsSource,
     changed: sidebarAgents.reload,
     editInstructions: () => onProjectInstructions?.(),
-    openLophn: onLophn,
+    openExtensions: () => onSettings("tools"),
   };
 
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인은 모두 kind의 선언에서 오고
@@ -717,7 +716,7 @@ export function Workspace(props: WorkspaceProps) {
         } else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "context") openContext(host, target.id);
         else if (target.action === "launcher") onLauncher();
-        else if (target.action === "lophn") onLophn();
+        else if (target.action === "settings") onSettings();
         else if (target.action === "terminal") openTerminalTab(host);
       },
     })
@@ -844,7 +843,7 @@ export function Workspace(props: WorkspaceProps) {
                     )
                     : null}
                   <PaletteButton />
-                  <LophnEntry onLophn={onLophn} />
+                  <SettingsEntry onSettings={() => onSettings()} />
                 </span>
               }
             />

@@ -6,8 +6,6 @@ import type { DraftStore } from "./drafts.ts";
 interface ConversationDeps {
   readonly drafts: DraftStore;
   readonly now?: () => number;
-  /** 설정의 연결 자리로 간다. Agent 화면의 provider 끊김 줄의 행동이 쓴다. */
-  readonly onSettings?: () => void;
 }
 
 const ConversationContext = createContext<ConversationDeps | null>(null);

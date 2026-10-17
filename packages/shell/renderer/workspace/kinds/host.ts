@@ -42,8 +42,8 @@ export interface AgentsSlice {
   changed(): void;
   /** project의 LOPHN.md 편집을 연다. */
   editInstructions(): void;
-  /** lophn 공간으로 간다(model 기본값·skill·MCP 등록이 있는 곳). */
-  openLophn(): void;
+  /** Settings의 Tools and skills로 간다(skill·MCP 등록이 있는 곳). */
+  openExtensions(): void;
 }
 
 /** Agent 탭이 작업대와 나누는 것. 통로(agentViewSource)가 없으면 host.agentView는 null이다. */
@@ -59,10 +59,10 @@ export interface AgentViewSlice {
   profileOf(agent: string): AvatarProfile | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
   dotOf(session: string | null): TabDot | null;
-  /** Change defaults…와 `/skills`·`/mcp`가 lophn 공간의 Settings › Agents로 간다. */
-  openSettings(): void;
-  /** provider 끊김 줄의 행동이 설정의 연결 자리로 간다. 없으면 그 행동을 두지 않는다. */
-  readonly openConnections?: () => void;
+  /** Change defaults…와 `/skills`·`/mcp`가 Settings › Agents로 간다. */
+  openSettings(target: "defaults" | "skills" | "mcp"): void;
+  /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */
+  openConnections(): void;
 }
 
 export interface TabHost {

@@ -44,7 +44,7 @@ export const agents = {
   "agents.notice.skills-project":
     "A switch turns a skill on or off for this project. Workspace skills can be turned off here too.",
   "agents.notice.tab-lead":
-    "The agents that work here. lophn is one agent for all of lophn, so you set it up in Workspace Settings \u203a Agents.",
+    "The agents that work here. lophn is one agent for all of lophn, so you set it up in Settings \u203a Agents.",
   "agents.button.add-agent": "Add agent",
   "agents.button.assign-app": "Assign app",
   "agents.button.assign-tools": "Assign tools",

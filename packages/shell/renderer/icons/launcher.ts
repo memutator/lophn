@@ -1,9 +1,11 @@
 import {
   ChevronDown,
   ChevronRight,
+  Ellipsis,
   Eye,
   Folder,
   FolderPlus,
+  Info,
   type LucideIcon,
   Plus,
   RotateCw,
@@ -25,4 +27,6 @@ export const launcherIcons = {
   preview: Eye,
   previewAgain: RotateCw,
   warning: TriangleAlert,
+  more: Ellipsis,
+  details: Info,
 } as const satisfies Record<string, LucideIcon>;

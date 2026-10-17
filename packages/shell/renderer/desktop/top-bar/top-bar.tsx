@@ -3,7 +3,7 @@ import { Command } from "lucide-react";
 import { t } from "@lophn/wording";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
-import { lophnEntryIcon } from "../../icons/mod.ts";
+import { settingsEntryIcon } from "../../icons/mod.ts";
 
 import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";
@@ -12,7 +12,7 @@ import { WindowControls } from "./window-controls.tsx";
 interface TopBarProps {
   /** 바 왼쪽 자리. 런처는 wordmark를 둔다. */
   leading?: ReactNode;
-  /** 바 오른쪽 자리. 런처는 lophn 관리 진입점을 둔다. */
+  /** 바 오른쪽 자리. 런처는 Settings 진입점을 둔다. */
   trailing?: ReactNode;
   /** 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;
@@ -37,18 +37,18 @@ export function Wordmark({ children }: { children: ReactNode }) {
   return <span className={styles.wordmark}>{children}</span>;
 }
 
-// 바 오른쪽의 고정 진입점. 형제 카드가 아니라 아이콘 하나이고 이름은 tooltip과 aria-label이다.
-export function LophnEntry({ onLophn }: { onLophn: () => void }) {
-  const label = t("launcher.button.lophn");
+// 바 오른쪽의 Settings 진입점. 아이콘 하나이고 이름은 tooltip과 aria-label이다.
+export function SettingsEntry({ onSettings }: { onSettings: () => void }) {
+  const label = t("common.button.settings");
   return (
     <Tooltip content={label}>
       <IconButton
-        icon={lophnEntryIcon}
+        icon={settingsEntryIcon}
         label={label}
         variant="secondary"
         size="md"
-        data-entry="lophn"
-        onClick={onLophn}
+        data-entry="settings"
+        onClick={() => onSettings()}
       />
     </Tooltip>
   );

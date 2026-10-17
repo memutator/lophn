@@ -19,7 +19,7 @@ import {
 } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
-type WorkspaceAction = "launcher" | "lophn" | "terminal";
+type WorkspaceAction = "launcher" | "settings" | "terminal";
 
 type WorkspaceTarget =
   | { readonly kind: "tab"; readonly pane: number; readonly key: string }
@@ -92,7 +92,7 @@ function actions(
     ...(input.terminal
       ? [action("terminal", t("common.button.palette-terminal"), "terminal")]
       : []),
-    action("lophn", t("common.button.palette-lophn"), "screen"),
+    action("settings", t("common.button.palette-settings"), "screen"),
   ];
 }
 

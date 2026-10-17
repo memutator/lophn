@@ -2,32 +2,11 @@
 import type { workspace } from "./workspace.ts";
 
 export type WorkspacePlaceholders = {
-  "apps.button.archive": Record<never, never>;
-  "apps.button.open": Record<never, never>;
-  "apps.button.unarchive": Record<never, never>;
-  "apps.empty.no-apps": Record<never, never>;
-  "apps.error.action-failed": {
-    name: "string";
-  };
-  "apps.error.changed": Record<never, never>;
-  "apps.heading.apps": Record<never, never>;
-  "apps.heading.archived": Record<never, never>;
-  "apps.intro.screen": Record<never, never>;
-  "apps.label.list-target": Record<never, never>;
-  "apps.notice.archived": {
-    name: "string";
-  };
-  "apps.notice.restored": {
-    name: "string";
-  };
-  "apps.title.screen": Record<never, never>;
-  "common.button.palette-go-to": {
-    screen: "string";
-  };
   "common.button.palette-launcher": Record<never, never>;
-  "common.button.palette-lophn": Record<never, never>;
   "common.button.palette-open": Record<never, never>;
+  "common.button.palette-settings": Record<never, never>;
   "common.button.palette-terminal": Record<never, never>;
+  "common.button.settings": Record<never, never>;
   "common.heading.palette-actions": Record<never, never>;
   "common.heading.palette-apps": Record<never, never>;
   "common.heading.palette-files": Record<never, never>;
@@ -39,7 +18,6 @@ export type WorkspacePlaceholders = {
   "common.label.app-stopped": Record<never, never>;
   "common.label.app-unavailable": Record<never, never>;
   "common.label.app-unknown": Record<never, never>;
-  "common.label.lophn-space": Record<never, never>;
   "common.label.palette-left-pane": Record<never, never>;
   "common.label.palette-right-pane": Record<never, never>;
   "common.label.palette-tab-detail": {
@@ -50,15 +28,21 @@ export type WorkspacePlaceholders = {
   "common.label.window-maximize": Record<never, never>;
   "common.label.window-minimize": Record<never, never>;
   "common.label.window-restore": Record<never, never>;
-  "common.title.palette-lophn": Record<never, never>;
+  "common.title.palette-desktop": Record<never, never>;
   "common.title.palette-workspace": Record<never, never>;
   "launcher.button.add-folder": Record<never, never>;
+  "launcher.button.archive": Record<never, never>;
+  "launcher.button.choose-location": Record<never, never>;
+  "launcher.button.details": Record<never, never>;
   "launcher.button.hide-details": Record<never, never>;
-  "launcher.button.lophn": Record<never, never>;
+  "launcher.button.more": {
+    name: "string";
+  };
   "launcher.button.register": Record<never, never>;
   "launcher.button.register-project": Record<never, never>;
   "launcher.button.remove-folder": Record<never, never>;
   "launcher.button.show-details": Record<never, never>;
+  "launcher.button.unarchive": Record<never, never>;
   "launcher.dialog.register-note": Record<never, never>;
   "launcher.empty.no-apps": Record<never, never>;
   "launcher.empty.no-cards": Record<never, never>;
@@ -83,6 +67,7 @@ export type WorkspacePlaceholders = {
   "launcher.failure.update-newer-schema": Record<never, never>;
   "launcher.field.purpose-help": Record<never, never>;
   "launcher.heading.apps": Record<never, never>;
+  "launcher.heading.archived": Record<never, never>;
   "launcher.heading.projects": Record<never, never>;
   "launcher.label.apps": Record<never, never>;
   "launcher.label.folder-count": {
@@ -95,6 +80,7 @@ export type WorkspacePlaceholders = {
   "launcher.label.projects": Record<never, never>;
   "launcher.label.purpose": Record<never, never>;
   "launcher.label.wordmark": Record<never, never>;
+  "launcher.note.archived": Record<never, never>;
   "launcher.title.damaged-original": Record<never, never>;
   "launcher.title.history-mismatch": Record<never, never>;
   "launcher.title.newer-schema": Record<never, never>;

@@ -1,4 +1,4 @@
-/* Lophn Workspace sidebar: 바탕보다 한 단 낮은 면, 오른쪽 경계, 위쪽 바와 같은 높이의 머리 줄, 40px 행. */
+/* Settings sidebar: 바탕보다 한 단 낮은 면, 오른쪽 경계, 위쪽 바와 같은 높이의 머리 줄, 40px 행. */
 .sidebar {
   box-sizing: border-box;
   display: flex;
@@ -149,27 +149,20 @@
   border-radius: var(--radius-md);
 }
 
-/* 열 방향 li 안에서 flex:1이 높이를 0으로 만들지 않게 한다. */
-.navItem > .navRow.navRow {
-  flex: none;
-  align-self: stretch;
-}
-
-.navItem {
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.subList {
+/* 항목 묶음: 묶음 이름 아래 항목 줄. */
+.groups {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  margin: var(--space-3) var(--space-0) var(--space-0);
-  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-6);
 }
 
-.subList .navList.navList {
+.groups .navList.navList {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
   padding: var(--space-0);
+  list-style: none;
 }
 
 .navGroup {

@@ -8,11 +8,11 @@ import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import {
   openApp,
   openInstructions,
-  openLophn,
   openProject,
+  openSettings,
   type Route,
 } from "./router.ts";
-import { lophnSource } from "./palette/core-catalog.ts";
+import { catalogSource } from "./palette/core-catalog.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -32,13 +32,12 @@ import { EventsProvider } from "./connection/events/hooks.tsx";
 import { ConversationProvider } from "../conversation/window-deps.tsx";
 import { coreAgentTabSourceFactory } from "../conversation/agent-tab-core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
-import {
-  coreLauncherSource,
-  windowFolderPicker,
-} from "./launcher/core-source.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreAppsSource } from "../apps/core-source.ts";
-import { coreProjectsSource } from "./launcher/projects/core-source.ts";
+import {
+  coreProjectsSource,
+  windowFolderPicker,
+} from "./launcher/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import { coreReactionsSource } from "./settings/reactions/core-source.ts";
@@ -67,13 +66,13 @@ const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
-// Projects 화면과 앱 공간의 project 고르기.
-const projectsSource = mock?.projectsSource ??
+// 런처의 프로젝트 카드·등록·보관과 앱 공간의 project 고르기.
+const projects = mock?.projects ??
   coreProjectsSource(core, windowFolderPicker());
-// apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
+// 런처의 앱 카드·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
-const lophn = mock?.lophn ?? lophnSource(projectsSource, apps);
+const catalog = mock?.catalog ?? catalogSource(projects, apps);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
@@ -87,31 +86,19 @@ const settingsPanels = mock?.settingsPanels ?? {
   coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),
 };
 const issues = mock?.issues ?? coreIssuesSource(core);
-// 런처의 프로젝트 카드·등록과 작업대는 제품 core 통로로 읽고 쓴다.
-const projects = mock?.launcher ??
-  coreLauncherSource(core, windowFolderPicker());
+// 작업대는 제품 core 통로로 읽고 쓴다.
 const workspace = bench?.source ?? coreWorkspaceSource(core);
-// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다. provider 끊김 줄의
-// 행동은 Settings로 간다.
-const conversation = {
-  drafts: new DraftStore(),
-  onSettings: () => {
-    location.hash = "#settings";
-  },
-};
+// 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
+const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource = mock?.agentViewSource ??
   coreAgentTabSourceFactory(core);
-// 개발 확인용 시작 화면. `#settings`면 Settings부터 연다. `#lophn`이면 Lophn Workspace(Projects)부터,
-// `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 Apps부터 연다.
+// 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
+// `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
 // `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
-  : location.hash === "#lophn"
-  ? openLophn()
-  : location.hash === "#projects"
-  ? openLophn("projects")
   : location.hash.startsWith("#project=")
   ? openProject(location.hash.slice("#project=".length))
   : location.hash === "#instructions=global"
@@ -123,10 +110,8 @@ const start: Route | undefined = seed
   })
   : location.hash.startsWith("#app=")
   ? openApp(location.hash.slice("#app=".length))
-  : location.hash === "#apps"
-  ? openLophn("apps")
   : location.hash === "#settings"
-  ? openLophn("settings")
+  ? openSettings()
   : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
@@ -161,7 +146,7 @@ const palette: PaletteDeps | undefined =
     ? {
       overlay: bridges.lophnShell,
       shortcuts: bridges.lophnShortcuts,
-      search: fileSearch(lophn, coreFileSearchSource(core)),
+      search: fileSearch(catalog, coreFileSearchSource(core)),
     }
     : undefined;
 
@@ -184,10 +169,9 @@ mount(
             editor={bench ? bench.editor : editor}
             windowWidth={seed ? 1440 : undefined}
             terminal={terminal}
-            lophn={lophn}
+            catalog={catalog}
             palette={palette}
             projects={projects}
-            projectsSource={projectsSource}
             intents={bridges.lophnIntents}
             apps={apps}
             settings={settings}

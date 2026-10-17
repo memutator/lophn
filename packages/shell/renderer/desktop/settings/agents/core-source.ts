@@ -13,7 +13,7 @@ import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { createLink } from "../../../workspace/agents/core-link.ts";
 import { readGlobalModel } from "../../../workspace/agents/core-extensions.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { windowFolderPicker } from "../../launcher/core-source.ts";
+import { windowFolderPicker } from "../../launcher/projects/core-source.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   call,

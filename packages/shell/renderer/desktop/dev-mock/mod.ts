@@ -12,13 +12,12 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { CoreSource } from "../connection/connection.ts";
-import type { LauncherSource } from "../launcher/source.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import type { SettingsSource } from "../settings/source.ts";
 import type { ProjectsSource } from "../launcher/projects/source.ts";
-import type { LophnSource } from "../../source-result.ts";
-import { lophnSource } from "../palette/core-catalog.ts";
+import type { CatalogSource } from "../palette/catalog.ts";
+import { catalogSource } from "../palette/core-catalog.ts";
 import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
@@ -33,18 +32,17 @@ import {
 } from "./app-space.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockCore, mockEvents } from "./requests.ts";
-import { mockInstructions, mockLauncher, mockProjects } from "./launcher.ts";
+import { mockInstructions, mockProjects } from "./launcher.ts";
 
 export interface DevMock {
   readonly core: CoreSource;
-  readonly launcher: LauncherSource;
   readonly workspace: WorkspaceSource;
   /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
   readonly editor: Omit<EditorDeps, "menu">;
   /** 팔레트의 project·앱 행. */
-  readonly lophn: LophnSource;
-  /** Projects 화면과 앱 공간의 project 고르기. 런처 카드와 같은 project다. */
-  readonly projectsSource: ProjectsSource;
+  readonly catalog: CatalogSource;
+  /** 런처 카드와 앱 공간의 project 고르기. */
+  readonly projects: ProjectsSource;
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
@@ -74,13 +72,11 @@ export function devMock(
 ): DevMock | null {
   if (!isDevMock(search)) return null;
   const bench = seedWorkbench();
-  const launcher = mockLauncher();
   const views = mockViews();
-  const projectsSource = mockProjects();
+  const projects = mockProjects();
   const apps = mockApps();
   return {
     core: mockCore(),
-    launcher,
     // 어느 카드를 열어도 같은 시드 작업대다. 제목만 카드의 것을 쓴다.
     workspace: {
       ...bench.source,
@@ -97,7 +93,7 @@ export function devMock(
       },
       project: async (id) => {
         const read = await bench.source.project(id);
-        const cards = await launcher.projects();
+        const cards = await projects.list();
         const card = cards.ok
           ? cards.value.find((item) => item.id === id)
           : undefined;
@@ -107,8 +103,8 @@ export function devMock(
       },
     },
     editor: bench.editor,
-    lophn: lophnSource(projectsSource, apps),
-    projectsSource,
+    catalog: catalogSource(projects, apps),
+    projects,
     apps,
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),

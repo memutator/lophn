@@ -1,28 +1,30 @@
-import { useId, useState } from "react";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Icon } from "@lophn/ui/primitives";
+import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { launcherIcons } from "../../icons/mod.ts";
+import { commonIcons, launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { folderMissing } from "./model.ts";
-import type { ProjectCard as Card } from "./source.ts";
+import { CardMenu } from "./card-menu.tsx";
+import { missingFolder } from "./model.ts";
+import type { ProjectItem } from "./projects/source.ts";
 import styles from "./launcher.module.css";
 
 interface ProjectCardProps {
-  card: Card;
+  card: ProjectItem;
   onOpen: (id: string) => void;
+  onDetails: (card: ProjectItem) => void;
+  onArchive: (card: ProjectItem) => void;
+  /** 사라진 폴더의 새 위치를 OS 선택기로 고른다. */
+  onRelocate: (card: ProjectItem, folder: string) => void;
 }
 
-// 카드: 폴더 아이콘·이름 한 줄, 목적 두 줄, 폴더 수나 "Folder not found" 한 줄. 카드 전체가 작업대로 가는
-// 단추다. 폴더 경로는 펼친 상세에만 둔다.
-export function ProjectCard({ card, onOpen }: ProjectCardProps) {
-  const [open, setOpen] = useState(false);
-  const detailsId = useId();
-  const toggle = t(
-    open ? "launcher.button.hide-details" : "launcher.button.show-details",
-  );
+// 카드: 폴더 아이콘·이름 한 줄과 ⋯ 메뉴, 목적 두 줄, 폴더 수나 "Folder not found"와 새 위치 고르기 한 줄.
+// 카드 전체가 작업대로 가는 단추다. 폴더 경로와 편집은 [Details] dialog에 둔다.
+export function ProjectCard(
+  { card, onOpen, onDetails, onArchive, onRelocate }: ProjectCardProps,
+) {
+  const missing = missingFolder(card);
   return (
     <article
       className={styles.card}
@@ -43,29 +45,42 @@ export function ProjectCard({ card, onOpen }: ProjectCardProps) {
           <span className={styles.cardTitle}>{card.title}</span>
         </button>
         <span className={styles.cardAside}>
-          <Tooltip content={toggle}>
-            <IconButton
-              icon={open ? launcherIcons.collapse : launcherIcons.expand}
-              label={toggle}
-              size="sm"
-              aria-expanded={open}
-              aria-controls={detailsId}
-              data-details-toggle=""
-              onClick={() => setOpen(!open)}
-            />
-          </Tooltip>
+          <CardMenu
+            name={card.title}
+            items={[
+              {
+                id: "details",
+                label: t("launcher.button.details"),
+                icon: launcherIcons.details,
+              },
+              {
+                id: "archive",
+                label: t("launcher.button.archive"),
+                icon: commonIcons.archive,
+              },
+            ]}
+            onSelect={(id) =>
+              id === "details" ? onDetails(card) : onArchive(card)}
+          />
         </span>
       </div>
       {card.purpose.trim() === ""
         ? null
         : <p className={styles.cardPurpose}>{card.purpose}</p>}
-      {folderMissing(card)
+      {missing !== undefined
         ? (
-          <div className={styles.cardStatus} data-status="missing">
+          <div className={styles.cardMissing} data-status="missing">
             <StatusMark
               tone="warning"
               label={t("launcher.label.folder-missing")}
             />
+            <Button
+              size="sm"
+              data-relocate=""
+              onClick={() => onRelocate(card, missing.path)}
+            >
+              {t("launcher.button.choose-location")}
+            </Button>
           </div>
         )
         : (
@@ -73,19 +88,6 @@ export function ProjectCard({ card, onOpen }: ProjectCardProps) {
             {t("launcher.label.folder-count", { count: card.folders.length })}
           </p>
         )}
-      {open
-        ? (
-          <div className={styles.details} id={detailsId} data-details="">
-            <ul className={styles.detailList}>
-              {card.folders.map((folder) => (
-                <li key={folder.path} className={styles.mono}>
-                  {folder.path}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )
-        : null}
     </article>
   );
 }

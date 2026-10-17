@@ -109,7 +109,7 @@ function viewHost(
     openFile: slice.openFile,
     // 권한 요약과 `/permissions`는 Agents 화면의 Permissions로 간다.
     openPermissions: () => openAgents(host),
-    openAgentSettings: () => slice.openSettings(),
+    openAgentSettings: (target) => slice.openSettings(target),
     // Fork가 만든 session은 같은 agent의 새 탭이다. 이 탭은 자기 session에 남는다.
     openForked: (session) =>
       openAgent(host, { agent, name: tab.title, session }),
@@ -118,9 +118,7 @@ function viewHost(
     // 탭만 닫는다. session은 그대로 남는다.
     closeTab: () => host.removeTab(tab.key),
     attach: () => {},
-    ...(slice.openConnections === undefined
-      ? {}
-      : { openConnections: slice.openConnections }),
+    openConnections: slice.openConnections,
   };
 }
 

@@ -31,6 +31,7 @@ import type { AgentsSource } from "../workspace/agents/source.ts";
 import { STAY } from "./annotate/use-view-toast.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
+import type { SettingsPane } from "../desktop/settings/model.ts";
 import styles from "./agent-pane.module.css";
 
 const AGENT_PANE_WIDTH = 480;
@@ -93,7 +94,7 @@ interface AgentPaneProps {
   /** app 층 LOPHN.md를 연다. */
   onInstructions?: () => void;
   /** Settings로 간다(기본 model·확장 등록·연결). */
-  onSettings?: () => void;
+  onSettings?: (pane?: SettingsPane) => void;
   /** 목록이나 정의가 바뀌었다. select가 다시 읽는다. */
   onChanged: () => void;
 }
@@ -275,16 +276,17 @@ function AgentBody(
   const host: AgentViewHost = {
     // 권한 요약은 같은 칸의 관리 화면으로 간다.
     openPermissions: () => onState({ mode: "manage", agent: null }),
-    openAgentSettings: () => props.onSettings?.(),
+    openAgentSettings: (target) =>
+      props.onSettings?.(target === "defaults" ? "agents" : "tools"),
     // Fork가 만든 session은 같은 칸에서 연다.
     openForked: (session) => onState({ mode: "agent", assignment, session }),
     // 사용량 화면과 첨부 통로는 아직 이 칸에 없다.
     showUsage: () => {},
     closeTab: props.onClose,
     attach: () => {},
-    ...(props.onSettings === undefined
-      ? {}
-      : { openConnections: props.onSettings }),
+    ...(props.onSettings === undefined ? {} : {
+      openConnections: () => props.onSettings?.("providers"),
+    }),
   };
   return (
     <div className={styles.agent}>
@@ -311,7 +313,7 @@ function ManageBody(props: AgentPaneProps & { agent: string | null }) {
         onAgent={(agent) => props.onState({ mode: "manage", agent })}
         contexts={[]}
         onEditInstructions={() => props.onInstructions?.()}
-        onAddExtension={() => props.onSettings?.()}
+        onAddExtension={() => props.onSettings?.("tools")}
         onChanged={props.onChanged}
       />
     </div>

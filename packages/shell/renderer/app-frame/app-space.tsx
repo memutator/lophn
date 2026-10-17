@@ -56,6 +56,7 @@ import { OpsPanelFrame, opsPanelPlacement } from "./ops-panel-frame.tsx";
 import { ProjectPicker, type ProjectsRead } from "./project-picker.tsx";
 import { ReportButton } from "./report-button.tsx";
 import { useToastHandler } from "./toast-handler.ts";
+import type { SettingsPane } from "../desktop/settings/model.ts";
 import styles from "./app-space.module.css";
 
 interface AppSpaceProps {
@@ -80,7 +81,7 @@ interface AppSpaceProps {
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
   /** Settings로 간다(Agent 칸·관리 칸의 기본 model·확장 등록·연결). 없으면 그 단추는 아무것도 하지 않는다. */
-  onSettings?: () => void;
+  onSettings?: (pane?: SettingsPane) => void;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;

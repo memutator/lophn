@@ -1,9 +1,8 @@
 import type { InstructionsPlace } from "../../ipc/instructions.ts";
-import type { LophnScreen } from "../new-id.ts";
 import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
-type Space = "launcher" | "lophn" | "project" | "app" | "instructions";
+type Space = "launcher" | "settings" | "project" | "app" | "instructions";
 
 export interface Route {
   readonly space: Space;
@@ -11,9 +10,7 @@ export interface Route {
   readonly project?: string;
   /** app 공간의 앱 id. 다른 공간은 없다. */
   readonly app?: string;
-  /** Lophn Workspace의 화면. 없으면 projects다. */
-  readonly screen?: LophnScreen;
-  /** Settings에서 처음 보일 항목. 없으면 General이다. */
+  /** settings 공간에서 처음 보일 항목. 없으면 General이다. */
   readonly settingsPane?: SettingsPane;
   /** instructions 공간이 여는 지침 층. settings·project-workspace·app-detail의 [Instructions]가 쓴다. */
   readonly instructions?: InstructionsPlace;
@@ -32,14 +29,11 @@ export interface Route {
 
 export const LAUNCHER: Route = { space: "launcher" };
 
-export function openLophn(
-  screen?: LophnScreen,
-  settingsPane?: SettingsPane,
-): Route {
-  if (screen === undefined) return { space: "lophn" };
+/** Settings로 이동한다. 항목을 주면 그 항목부터 연다. */
+export function openSettings(settingsPane?: SettingsPane): Route {
   return settingsPane === undefined
-    ? { space: "lophn", screen }
-    : { space: "lophn", screen, settingsPane };
+    ? { space: "settings" }
+    : { space: "settings", settingsPane };
 }
 
 /** 프로젝트 작업대로 이동한다. */

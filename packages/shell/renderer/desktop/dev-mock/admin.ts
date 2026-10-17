@@ -1,4 +1,4 @@
-// mock 모드의 Lophn Workspace 관리 화면(settings·apps) 통로. 화면 테스트의 가짜 통로에 대표 값을
+// mock 모드의 Settings·앱 통로. 화면 테스트의 가짜 통로에 대표 값을
 // 채운 것이다. key·로그인 응답은 보호 창이나 core를 부르지 않고 메모리에서만 끝난다.
 // Providers와 Agents 항목은 각자의 가짜 통로(providers/testdata, agents/testdata)를 쓴다.
 import {

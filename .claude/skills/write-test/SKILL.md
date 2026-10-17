@@ -45,7 +45,18 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 - 사람의 data root(`~/.lophn`)를 쓰지 않는다. 임시 폴더와 비운 환경(`clearEnv`, 임시 HOME)을 쓴다.
 - 자원 정리 검사(`sanitizeOps`, `sanitizeResources`)를 끄지 않는다.
 - test file은 대상 바로 옆에 `*_test.ts`로 둔다. helper는 작게 둔다. 거대한 시나리오 helper를 만들지 않는다.
-- model이 끼는 부분은 fake provider의 script나 녹화 응답으로 본다. model 판단의 품질은 test가 아니라 eval이 잰다.
+- model이 끼는 부분은 fake로 본다: loop는 scripted model(`tests/support/loop`), provider wire는 녹화 재생 `fetch`(`tests/support/wire`)와 `tests/fixtures/provider/`, core E2E와 `deno task dev`는 fake server(`tests/support/fake-server`). model 판단의 품질은 test가 아니라 eval이 잰다.
+
+## 층
+
+| 층 | 위치 | 돌리는 때 |
+|---|---|---|
+| unit | 코드 옆 `*_test.ts` | `deno task check` |
+| harness | `tests/harness`(loop, wire) | `deno task check` |
+| E2E | `tests/e2e` | `deno task e2e`. lead가 land 전에 |
+| live | `tests/live` | `deno task test:live`. 사람이 key를 줄 때만 |
+
+새 E2E flow는 contract 하나에 test 하나, 가장 싼 층, 세 질문(contract, 현실적 회귀, 왜 지금 test로 못 잡나)을 따른다.
 
 ## 사람에게 묻는 test
 
@@ -53,7 +64,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 - subprocess, Worker, 서버, 브라우저를 띄우는 test
 - E2E
 
-허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다.
+새 E2E flow도 사람에게 묻는다(첫 묶음 6개는 testing 계획이 만들었다). 허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다.
 
 ## 돌리기
 
@@ -73,6 +84,7 @@ deno test --no-check <파일이나 폴더>
 | `deno task check:full` | 전부. `deno test --parallel`(`DENO_JOBS` 기본 8), 앞에서 `deno check`가 끝났으니 test는 `--no-check` |
 
 - 독립 단계는 동시에 돌고 첫 실패에서 멈춘다. 실패하면 exit 1이고 출력에 `실패`가 찍힌다.
+- `tests/harness`와 `tests/support`는 check에 들고 `tests/e2e`와 `tests/live`는 안 든다.
 - test가 도는 길은 `deno test` 하나다. 따로 묶는 runner와 두 번째 check를 두지 않는다.
 - 함정: main에서 이미 commit한 뒤 `deno task check`를 돌리면 기준이 HEAD라 바뀐 package가 없다. 그때는 `check:full`이나 `--base`를 쓴다.
 - 함정: `check:full`은 renderer build(`deno run -A packages/shell/renderer/build.ts`)를 안 본다. 화면 쪽을 건드렸으면 따로 돌린다.

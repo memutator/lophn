@@ -53,6 +53,8 @@ function observeError(reason: unknown): ExceptionObservationError {
 
 export type ExceptionObserver = InstallExceptionObserver & {
   completion(reportId: string): Promise<ReportCompletion> | null;
+  // 지금까지 잡은 보고의 전달이 모두 끝난(성공이든 실패든) 때 풀린다. 앱 process가 죽기 전에 기다리는 데 쓴다.
+  settled(): Promise<void>;
 };
 
 // The app entry point calls the returned function with its transport before
@@ -66,6 +68,9 @@ export function createExceptionObserver(
   return Object.assign(install, {
     completion(reportId: string) {
       return completions.get(reportId) ?? null;
+    },
+    async settled() {
+      await Promise.allSettled([...completions.values()]);
     },
   });
 }

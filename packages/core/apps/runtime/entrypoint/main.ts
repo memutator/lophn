@@ -12,6 +12,7 @@ import type { BrokerTransport } from "./broker-client.ts";
 
 const OBSERVER = "@lophn/cap-problem";
 const APP = "@lophn/app";
+const CRASH_REPORT_WAIT_MS = 2_000;
 
 type ObservedInvocation = {
   id: string;
@@ -24,7 +25,9 @@ type ObserverFactory = {
     newId: (prefix: string) => string;
     sleep: (ms: number) => Promise<void>;
     currentInvocation: () => null;
-  }) => (transport: (input: unknown) => Promise<unknown>) => () => void;
+  }) => ((transport: (input: unknown) => Promise<unknown>) => () => void) & {
+    settled?: () => Promise<void>;
+  };
   // 앱 code의 reportProblem이 쓰는 reporter. 없는 module(시험의 대역)은 설치하지 않는다.
   createProblemReporter?: (deps: {
     transport: (input: unknown) => Promise<unknown>;
@@ -91,7 +94,18 @@ async function main(deps: MainDeps): Promise<void> {
       },
     }));
   }
-  installCrashExit({ writeStderr, exit });
+  installCrashExit({
+    writeStderr,
+    exit,
+    // 보고 전달이 막혀도 죽는 일을 미루지 않도록 상한을 둔다.
+    beforeExit: () =>
+      Promise.race([
+        install.settled?.() ?? Promise.resolve(),
+        new Promise<void>((resolve) =>
+          setTimeout(resolve, CRASH_REPORT_WAIT_MS)
+        ),
+      ]),
+  });
   const line = await deps.readLine();
   if (!line) throw new Error("app start input missing");
   const started = startRuntime({
@@ -146,7 +160,8 @@ async function main(deps: MainDeps): Promise<void> {
 
 // 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
 // 그 파일이 부른다. 시작이 실패하면 이유를 stderr로 알리고 끝난다.
-async function run(): Promise<void> {
+// export를 지우지 않는다: bundle 진입 파일은 문자열로 만들어져(`bundle/runtime-entry.ts`) import를 찾는 도구가 보지 못한다.
+export async function run(): Promise<void> {
   const reason = await boot().catch((error: unknown) =>
     error instanceof Error ? error.message : String(error)
   );

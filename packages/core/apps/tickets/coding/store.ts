@@ -86,6 +86,14 @@ export function activeOfCall(sql: Reader, call: string): SessionRow | null {
   return row === undefined ? null : rowOf(row);
 }
 
+// 끝나지 않은 session 전부.
+export function liveSessions(sql: Reader): SessionRow[] {
+  return sql.all(
+    `SELECT ${COLUMNS} FROM coding_sessions WHERE ended = 0 ORDER BY rowid`,
+    [],
+  ).map(rowOf);
+}
+
 // 끝난 session도 찾는다. 완료 보고나 끝 event를 call로 잇는 데 쓴다.
 
 export function insertSession(sql: Sql, row: SessionRow): void {

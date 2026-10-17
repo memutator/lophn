@@ -17,6 +17,7 @@ import {
   type SecretAttachLike,
   withRequestHeaders,
 } from "../providers/mod.ts";
+import type { IdleDeps } from "../providers/invoke.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
@@ -33,9 +34,9 @@ import {
 // 보내지 않고 실패한다. provider에는 credential이 하나라 고르지 않는다: 연결이 없거나(Disconnect 포함)
 // 그 credential을 쓸 수 없으면 turn은 시작하지 않고 다른 provider·model로 넘어가지 않는다. 닿는 protocol은
 // Anthropic Messages·OpenAI Responses·OpenAI Chat Completions다.
-// 인증 없는 loopback provider는 붙일 값이 없고, API key는 core가 감독 pipe로 건네는 값을 인증
-// transport가 전송 직전에만 붙인다. 값을 받지 못하면 요청을 보내지 않는다. OAuth는
-// 로그인·갱신이 runtime에 이어지기 전까지 `unavailable`이다.
+// 인증 없는 loopback provider는 붙일 값이 없고, API key와 구독 OAuth access token은 core가 감독 pipe로
+// 건네는 값을 인증 transport가 전송 직전에만 붙인다. OAuth token은 core가 건네기 직전에 만료가 가까우면
+// 갱신한다. 값을 받지 못하면 요청을 보내지 않는다.
 
 const MAX_OUTPUT_TOKENS = 4096;
 
@@ -61,7 +62,7 @@ type ModelResolverDeps = {
   catalog(): Promise<Result<readonly CatalogEntry[]>>;
   fetch?: typeof fetch;
   nowMs?: () => number;
-  timeoutMs?: number | null;
+  idle?: IdleDeps;
 };
 
 export function createModelResolver(deps: ModelResolverDeps) {
@@ -94,17 +95,17 @@ export function createModelResolver(deps: ModelResolverDeps) {
     ) {
       return err({ code: "unavailable", message: "no usable credential" });
     }
-    // 값이 있는 credential의 전송: API key만 닿고 값은 전송 직전에만 붙는다.
+    // 값이 있는 credential의 전송: 값은 전송 직전에만 붙는다.
     let transport: AuthTransport = { send: fetching };
     if (credential.kind !== "none") {
       const destination = secretDestinationOf(provider.endpoint);
       if (
-        credential.kind !== "api_key" || credential.secret_ref === null ||
-        deps.attach === undefined || destination === undefined
+        credential.secret_ref === null || deps.attach === undefined ||
+        destination === undefined
       ) {
         return err({
           code: "unavailable",
-          message: "this credential cannot be sent from the runtime yet",
+          message: "this credential cannot be sent from the runtime",
         });
       }
       transport = createAuthTransport({
@@ -113,8 +114,9 @@ export function createModelResolver(deps: ModelResolverDeps) {
         context: {} as never,
         use: { name: credential.secret_ref.name, destination },
         operation: "model.call",
-        // protocol이 정한 인증 header다. Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
-        ...(provider.protocol === "anthropic-messages"
+        // OAuth access token은 Bearer다. API key는 protocol이 정한다: Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
+        ...(credential.kind === "api_key" &&
+            provider.protocol === "anthropic-messages"
           ? { headerName: "x-api-key", kind: "api_key" as AuthKind }
           : { headerName: "authorization", kind: "bearer" as AuthKind }),
       });
@@ -162,6 +164,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
       transport: withRequestHeaders(transport, limits.request_headers),
       nowMs,
       at: formatAt,
+      idle: deps.idle,
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");
@@ -208,14 +211,17 @@ export function createModelResolver(deps: ModelResolverDeps) {
       catalog_basis: limits.basis as Record<string, never>,
       price_basis: limits.price_basis,
       // API key는 API 과금이고 인증 없는 연결은 청구를 모른다.
-      billing_route: credential.kind === "api_key" ? "api" : "unknown",
+      billing_route: credential.kind === "api_key"
+        ? "api"
+        : credential.kind === "oauth"
+        ? "subscription"
+        : "unknown",
     };
     return ok({
       call,
       inputMedia: limits.input_media,
       endpoint: provider.endpoint,
       usageRevision: limits.price_basis?.revision ?? "unknown",
-      timeoutMs: deps.timeoutMs ?? null,
       pack,
       invoke,
       // provider가 아직 연결돼 있고 같은 연결일 때만 보낸다. Disconnect하면 읽기가 없다고 답하고,

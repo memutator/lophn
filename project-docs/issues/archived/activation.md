@@ -125,3 +125,37 @@ guard: 없음
 정한 것: 줄인다. `approvals`가 `request(id)`·`pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader) wiring이 그걸 끼운다. `approval-reads.ts`는 지운다.
 
 닫음: `Approvals` port가 `request(id)`·`pending()`을 내놓는다. `ApprovalLedger`가 machine read `approvalsRequest`(새것)와 `approvalsPending`(actors에 `machine`을 더함)을 reader로 부르고, `wiring/apps.ts`는 `ctx.approvals`의 두 메서드를 activation에 끼운다. `approval-reads.ts`는 지웠고 approvals 밖에서 `rows.ts`를 읽는 곳이 없다.
+
+## activation이 가끔 새 앱의 ready를 못 보고 start_failed로 끝난다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/main/app-supervisor]
+closed: fixed
+guard: 없음
+```
+
+지금: activation 허락 뒤 release가 `failed`, failure `{code: "start_failed", summary: "the new app did not become ready"}`로 끝나고 runtime은 `preparing`에 머문다. `tests/e2e/app-sandbox_test.ts`를 약 200번 돌린 중 5번 났고 부하(load average 6~10)가 높을 때 잦았다. core.log는 비고 앱 stderr를 볼 길이 없어 원인은 모른다. 의심: `packages/core/main/app-supervisor/assembly.ts`의 `probeChild`(ready 기한, "exited before ready"), `packages/core/apps/releases/activation/orchestrator.ts`의 `startCandidate`.
+
+영향: 사람이 허락한 release가 이유 없이 실패로 남고 App Engineer에게 `ReleaseActivationFailed` reaction이 간다. 앱 E2E가 모두 이 길을 지나 가끔 실패한다.
+
+고치려면: 반복 실행으로 재현해 ready 관측과 기한 중 어디서 놓치는지 찾는다. 앱 stderr를 실패 진단에 남기면 다음 원인 찾기가 싸진다.
+
+닫음: 원인은 앱 socket 폴더였다. `${XDG_RUNTIME_DIR}/lophn`의 고정 slot 경로를 같은 사용자의 core가 모두 써서, 한 core의 supervisor가 다른 core 앱의 socket 파일을 지우거나 덮었다(ready 확인과 운영 link 연결이 거절됨). socket 폴더를 data root마다 나눈 뒤(`apps/runtime/processes/socket-dir.ts`의 `socketRootKey`) `tests/e2e/app-sandbox_test.ts` 90번, `tests/e2e/app-restart_test.ts` 4개 동시 16번이 모두 통과했다(고치기 전 각각 약 200번 중 8번, 16번 중 6번 실패).
+
+## running으로 보인 직후의 앱 call이 app_unavailable로 거절된다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: 앱 상태가 `running`·ready·accepting으로 읽힌 직후의 `appCallApi`가 `{status: "denied", denial: {code: "app_unavailable", message: "the app is not running"}}`다. `tests/e2e/app-sandbox_test.ts`를 약 200번 돌린 중 3번 났다. 의심: `packages/core/apps/calls/service.ts`에서 `deps.link.call`이 `sent: false`를 돌려주는 곳. 후보 관측의 ready·accepting과 운영 link 등록(`openAfterCommit`) 사이에 틈이 있을 수 있다.
+
+영향: activation이 끝났다고 보고 부른 사람·agent의 첫 call이 거절된다. 앱 E2E가 가끔 실패한다.
+
+고치려면: 상태가 running으로 보이는 시점과 call link가 열리는 시점을 같은 commit 뒤로 맞춘다.
+
+닫음: 원인은 앱 socket 폴더였다. `${XDG_RUNTIME_DIR}/lophn`의 고정 slot 경로를 같은 사용자의 core가 모두 써서, 한 core의 supervisor가 다른 core 앱의 socket 파일을 지우거나 덮었다(ready 확인과 운영 link 연결이 거절됨). socket 폴더를 data root마다 나눈 뒤(`apps/runtime/processes/socket-dir.ts`의 `socketRootKey`) `tests/e2e/app-sandbox_test.ts` 90번, `tests/e2e/app-restart_test.ts` 4개 동시 16번이 모두 통과했다(고치기 전 각각 약 200번 중 8번, 16번 중 6번 실패).

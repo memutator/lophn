@@ -87,8 +87,12 @@ function agentVerdict(intent: Intent, grants: GateGrants): GateVerdict {
       const entry = entries.find((one) =>
         one.kind === "agent" && canonicalize(one.agent) === wanted
       );
-      if (entry === undefined) return NOT_GRANTED;
-      return ofSetting(settingOf(entry) ?? DEFAULT_ASK.read);
+      // AGENT-ROLE T4: grant에 줄이 없는 상대도 기본은 묻지 않고 부른다. 줄이 있으면 그 설정을 따른다.
+      const setting = entry?.kind === "agent" ? entry.setting : undefined;
+      if (setting === "excluded") {
+        return { verdict: "deny", reason: "excluded" };
+      }
+      return ofSetting(setting ?? DEFAULT_ASK.read);
     }
     case "settings_edit": {
       const entry = entries.find((one) => one.kind === "settings");
@@ -103,7 +107,9 @@ function agentVerdict(intent: Intent, grants: GateGrants): GateVerdict {
 }
 
 function settingOf(entry: AgentGrantEntry): AskSetting | undefined {
-  return entry.kind === "app" ? undefined : entry.setting;
+  return entry.kind === "mcp_tool" || entry.kind === "settings"
+    ? entry.setting
+    : undefined;
 }
 
 // 앱 grant는 묻지 않는다. 덮으면 run, 아니면 deny.

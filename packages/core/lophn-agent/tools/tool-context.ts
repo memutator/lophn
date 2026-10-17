@@ -39,4 +39,6 @@ export type ToolContext = {
   clock: Clock;
   ids: IdSource;
   fetch: typeof fetch;
+  // turn이 멈추면 중단된다. 오래 도는 tool(shell)이 자기 process를 정리하는 데 쓴다.
+  signal?: AbortSignal;
 };

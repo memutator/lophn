@@ -45,10 +45,11 @@ const agentGrantEntrySchema = z.discriminatedUnion("kind", [
     setting: askSettingSchema.optional(),
   }),
   // 다른 agent 부르기. coding agent 맡기기도 대상이다.
+  // excluded는 그 agent가 부르지 못한다. 줄이 없으면 기본 허락(AGENT-ROLE T4)이다.
   z.strictObject({
     kind: z.literal("agent"),
     agent: callAgentSchema,
-    setting: askSettingSchema.optional(),
+    setting: z.enum(["excluded", "never", "ask"]).optional(),
   }),
   // lophn 쪽 설정 고치기.
   z.strictObject({

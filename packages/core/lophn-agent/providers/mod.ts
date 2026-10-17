@@ -19,11 +19,12 @@ export {
 } from "./adapters/transport.ts";
 export { credentialUsable } from "./credentials.ts";
 export { listProviders, loadProvider } from "./store.ts";
-export { createProviderOAuth, type OAuthBegin } from "./oauth.ts";
 export {
-  type OAuthCallback,
-  type OAuthListener,
-  type OAuthListenerOpener,
-} from "./adapters/oauth-transport.ts";
-export { openCallbackListener } from "./adapters/oauth-transport.ts";
+  hostIdOf,
+  loadProviderTokens,
+  providerSecretName,
+  providerTokenNames,
+  removeProviderTokens,
+  saveProviderTokens,
+} from "./oauth-secrets.ts";
 export type { InvokeModelCall } from "./work.ts";

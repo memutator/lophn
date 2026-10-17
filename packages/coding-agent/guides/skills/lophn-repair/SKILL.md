@@ -1,6 +1,6 @@
 ---
 name: lophn-repair
-description: "맡겨진 수리 ticket 하나로 lophn 앱의 문제를 고치는 절차. lophn CLI로 ticket 읽기와 claim, 문제 근거 읽기, 수정, 원래 증상 테스트와 preview, claim 재확인, release 준비, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않고 조사만 요청받으면 수리하지 않는다."
+description: "맡겨진 수리 ticket 하나로 lophn 앱의 문제를 고치는 절차. lophn CLI로 ticket 읽기와 claim, 문제 근거 읽기, 수정, release 준비, 원래 증상 테스트와 preview, claim 재확인, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않고 조사만 요청받으면 수리하지 않는다."
 ---
 
 # lophn 수리
@@ -27,9 +27,13 @@ claim하지 않는다. claim은 ticket에만 있다. 통로는 `lophn` CLI 하�
   `ticket report`
 - 문제: `problem list`, `problem show`, `problem more`, `problem diff`
 - 앱: `app show`, `app status`, `app blueprint`, `app invocations`, `app logs`,
-  `app test`, `app preview start`, `app preview stop`
-- release: `release prepare`
+  `app test`, `app test status`, `app test result`, `app preview start`,
+  `app preview stop`
+- release: `release prepare`, `release status`
 - App Engineer에게 청하기: `message send`
+
+입력에 `app`이 필수인 명령(`app show`, `release prepare` 등)에는 앱 id를 넣는다.
+core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app`이다.
 
 ## 순서
 
@@ -49,21 +53,24 @@ claim하지 않는다. claim은 ticket에만 있다. 통로는 `lophn` CLI 하�
    fixture와 ticket의 지킬 것을 보존한다. 테스트 기대값을 낮춰서 문제를 숨기지
    않는다. blueprint나 의존을 바꿔야 하면 직접 고치지 않고 `message send`로 App
    Engineer에게 청한다.
-6. 실제 테스트와 preview를 한다. 변경한 source를 commit한 뒤 `app test`로 원래
-   증상 reproduction과 app test를 요청한다. 결과는 runner가 낸 test result만
-   근거다. 실패· timeout·미실행이면 고쳐서 다시 한다. 통과 전에 release 준비를
-   시도하지 않는다. `app preview start`로 fixture 격리 preview에서 증상이
-   사라졌는지 보고 `app preview stop`으로 닫는다. preview는 운영 정상의 증거가
-   아니다.
-7. claim을 다시 확인한다. release를 준비하기 전에 `ticket show`로 이 claim이
-   아직 내 현재 claim인지, 기한이 남았는지 본다. 만료·반납·회수로 claim을
-   잃었으면 release 준비와 보고를 멈추고 `message send`로 알린다. 오래된
-   claim으로 결과를 제출하지 않는다.
-8. release를 준비한다. 테스트가 통과한 같은 commit에서 `release prepare`를
-   부른다. 준비는 activation이 아니다. 새 release를 운영에 켜는 일은 사람이
+6. release를 준비한다. 변경한 source를 commit한 뒤 `release prepare`를 부르고
+   `release status`로 `status`가 `completed`가 될 때까지 읽는다. 준비가 끝나면
+   `bundle_hash`와 `test`(고정 시험 hash)가 나온다. 준비는 activation이 아니다.
+7. 실제 테스트와 preview를 한다. `app test`의 `target.bundle_hash`와 `test`에
+   6에서 읽은 값을 넣어 원래 증상 reproduction과 app test를 요청한다.
+   `app test status`로 `result_ref`를 읽고 `app test result`로 결과를 읽는다.
+   결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면 고쳐서
+   6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로 fixture
+   격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로 닫는다.
+   preview는 운영 정상의 증거가 아니다.
+8. claim을 다시 확인한다. 보고하기 전에 `ticket show`로 이 claim이 아직 내 현재
+   claim인지, 기한이 남았는지 본다. 만료·반납·회수로 claim을 잃었으면 보고를
+   멈추고 `message send`로 알린다. 오래된 claim으로 결과를 제출하지 않는다.
+9. release를 확인한다. 테스트가 통과한 뒤 `release status`를 다시 읽으면 core가
+   release를 확정하고 `release`(id)를 준다. 새 release를 운영에 켜는 일은 사람이
    한다.
-9. 결과를 보고한다. `ticket report`에 준비한 release, summary(변경 내용, 수행한
-   확인, 미실행 확인, 한계), verification 참조를 담는다.
+10. 결과를 보고한다. `ticket report`에 확정된 release, summary(변경 내용, 수행한
+    확인, 미실행 확인, 한계), verification 참조를 담는다.
 
 ## 결과를 쓸 때
 

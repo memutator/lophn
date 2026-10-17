@@ -165,6 +165,34 @@ const CREDENTIAL_CODES: readonly string[] = [
   "organization_spend_limit_exceeded",
   "project_spend_limit_exceeded",
 ];
+// ChatGPT 구독 token(Sign in with ChatGPT)의 거절 code다. 다시 보내도 같으니 retry하지 않는다.
+// 한도는 사람이 ChatGPT 설정에서 보고, 자격·범위 거절은 API key나 다시 로그인으로 푼다.
+// 본문 꼴이 확인되지 않아 구조화 code가 아니면 문구 조각에서도 찾는다.
+const SUBSCRIPTION_CODES: Readonly<
+  Record<string, "quota" | "plan_access" | "authentication">
+> = {
+  subscription_sharing_usage_limit_exceeded: "quota",
+  subscription_sharing_user_not_eligible: "plan_access",
+  subscription_sharing_unsupported_capability: "plan_access",
+  subscription_sharing_route_not_supported: "plan_access",
+  chatpass_v2_scope_not_authorized: "plan_access",
+  subscription_sharing_invalid_user: "authentication",
+  chatpass_v2_invalid_authorization_context: "authentication",
+};
+
+function subscriptionReason(
+  input: { code?: string; message?: string },
+): "quota" | "plan_access" | "authentication" | null {
+  if (input.code !== undefined && input.code in SUBSCRIPTION_CODES) {
+    return SUBSCRIPTION_CODES[input.code]!;
+  }
+  const fragment = input.message ?? "";
+  for (const [code, reason] of Object.entries(SUBSCRIPTION_CODES)) {
+    if (fragment.includes(code)) return reason;
+  }
+  return null;
+}
+
 const MODEL_CODES: readonly string[] = [
   "model_not_found",
   "model_not_available",
@@ -294,8 +322,6 @@ function coreVerdict(input: FailureInput): CoreVerdict {
 }
 
 function fromStructuredCode(input: FailureInput): CoreVerdict | null {
-  const code = input.code;
-  if (code === undefined) return null;
   const blank = {
     retry_at_ms: null,
     until_ms: null,
@@ -303,6 +329,17 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     finish_reason: null,
     http_status: input.status,
   };
+  // 429여도 구독 거절 code가 앞선다(기다려도 풀리지 않는다).
+  const subscription = subscriptionReason(input);
+  if (subscription !== null) {
+    return {
+      code: "credential_unavailable",
+      ...blank,
+      unavailable_reason: subscription,
+    };
+  }
+  const code = input.code;
+  if (code === undefined) return null;
   if (codeOf(CONTEXT_EXCEEDED_CODES, code) !== null) {
     return { code: "context_exceeded", ...blank };
   }
@@ -333,9 +370,12 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     return { code: "refused", ...blank };
   }
   if (codeOf(RATE_CODES, code) !== null) {
-    // 과부하 계열 code는 아래로 내려간다. 429·과부하 status는
-    // status 단계의 규칙이 판한다. 429가 아니면 reset 근거 없이 temporary다.
-    return input.status === 429 ? rateVerdict(input) : null;
+    // 429는 reset 근거(header·문구)로 갈린다. 429가 아니면 reset 근거 없이 temporary다.
+    // stream 안 code는 status가 0이라 여기서 받지 않으면 unknown이 되어 retry하지 않는다.
+    return input.status === 429 ? rateVerdict(input) : {
+      code: "temporary",
+      ...blank,
+    };
   }
   // 모르는 코드는 다음 단계로 내려간다. 인증 실패로 추측하지 않는다.
   return null;
@@ -426,9 +466,9 @@ function disconnectVerdict(input: FailureInput): CoreVerdict {
   };
 }
 
-// 429와 과부하 코드 계열. retry 시각이 30초(주는 쪽이 정한 상한) 이내로 확인되면
+// 429와 rate limit 계열. retry 시각이 30초(주는 쪽이 정한 상한) 이내로 확인되면
 // temporary(시각 전달), 초과·미상이면 credential_unavailable이다. 미상의
-// usage_wait는 1시간이다.
+// usage_wait는 1시간이다. 단 stream 안 오류로 reset 미상이면 temporary다.
 function rateVerdict(input: FailureInput): CoreVerdict {
   const status = input.status;
   const boundary = input.temporary_ms ?? 30_000;
@@ -446,6 +486,17 @@ function rateVerdict(input: FailureInput): CoreVerdict {
     return {
       code: "temporary",
       retry_at_ms: input.nowMs + reset,
+      until_ms: null,
+      unavailable_reason: null,
+      ...base,
+    };
+  }
+  // stream 안 rate limit frame은 header가 없어 reset을 모른다. 1시간 대기가 아니라
+  // loop 기본 대기(2초·4초)로 retry한다. 긴 reset 문구가 있으면 위 분기를 지나 아래로 간다.
+  if (reset === null && input.kind === "stream_error") {
+    return {
+      code: "temporary",
+      retry_at_ms: null,
       until_ms: null,
       unavailable_reason: null,
       ...base,

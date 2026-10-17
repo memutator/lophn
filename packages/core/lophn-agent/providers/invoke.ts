@@ -51,11 +51,22 @@ const PATHS = {
 
 const ANTHROPIC_VERSION = "2023-06-01";
 
+// 호출 하나가 byte를 한 번도 받지 못하는 시간의 상한이다. 제품 동작이라 설정 key로 열지 않는다.
+export const MODEL_IDLE_MS = 120_000;
+
+export type IdleTimer = (
+  ms: number,
+  signal: AbortSignal,
+) => Promise<"elapsed" | "aborted">;
+
+export type IdleDeps = { ms?: number; timer?: IdleTimer };
+
 type InvokeDeps = {
   transport: AuthTransport;
   nowMs: () => number;
   // 지금 시각(ms)을 atSchema 꼴로 옮긴다.
   at: (ms: number) => string;
+  idle?: IdleDeps;
 };
 
 function emptyUsage(revision: string): TokenUsage {
@@ -149,6 +160,40 @@ function collectorFor(
   };
 }
 
+function timeoutTimer(
+  ms: number,
+  signal: AbortSignal,
+): Promise<"elapsed" | "aborted"> {
+  return new Promise((resolve) => {
+    const id = setTimeout(() => resolve("elapsed"), ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(id);
+      resolve("aborted");
+    }, { once: true });
+  });
+}
+
+// 호출 하나의 idle 기한이다. touch()가 기한을 새로 걸고(이전 기한은 접는다), 기한이 차면 signal이
+// abort된다. 사람의 signal과 합쳐 쓰므로 어느 쪽이 끊었는지는 호출자 signal로 가른다.
+function startIdle(deps: IdleDeps | undefined, human: AbortSignal) {
+  const ms = deps?.ms ?? MODEL_IDLE_MS;
+  const timer = deps?.timer ?? timeoutTimer;
+  const expired = new AbortController();
+  let current: AbortController | undefined;
+  return {
+    signal: AbortSignal.any([human, expired.signal]),
+    touch() {
+      current?.abort();
+      const mine = new AbortController();
+      current = mine;
+      void timer(ms, mine.signal).then((result) => {
+        if (result === "elapsed" && current === mine) expired.abort();
+      });
+    },
+    stop: () => current?.abort(),
+  };
+}
+
 function plainOutcome(
   kind: "complete" | "partial" | "cancelled" | "uncertain",
   status: number | null,
@@ -165,179 +210,186 @@ function plainOutcome(
 }
 
 export function createInvokeModelCall(deps: InvokeDeps): InvokeModelCall {
-  return async (input, signal): Promise<Result<ModelCallOutput>> => {
-    // state-free 계속 검증의 실제 호출 자리다. 불가면 보내지 않는다.
-    if (
-      input.continuation !== undefined &&
-      input.model.protocol !== "anthropic-messages"
-    ) {
-      const verdict = verifyStateFree({
-        protocol: input.model.protocol,
-        pendingReasoning: input.continuation.pendingReasoning,
-        reasoningRequired: input.continuation.reasoningRequired,
-      });
-      if (!verdict.continuable) {
-        return err({
-          code: "conflict",
-          message: "state-free continuation is not possible",
-        });
-      }
+  return async (input, signal) => {
+    const idle = startIdle(deps.idle, signal);
+    try {
+      return await invoke(deps, input, signal, idle);
+    } finally {
+      idle.stop();
     }
-    const id = input.callId;
-    const startedMs = deps.nowMs();
-    const timeout = input.timeoutMs === null
-      ? undefined
-      : AbortSignal.timeout(input.timeoutMs);
-    const combined = timeout === undefined
-      ? signal
-      : AbortSignal.any([signal, timeout]);
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      accept: "text/event-stream",
-    };
-    if (input.model.protocol === "anthropic-messages") {
-      headers["anthropic-version"] = ANTHROPIC_VERSION;
-    }
-    const sent = await deps.transport.send({
-      url: joinEndpoint(input.endpoint, PATHS[input.model.protocol]),
-      method: "POST",
-      headers,
-      body: JSON.stringify({ ...input.body, stream: true }),
-      signal: combined,
-    });
-    const usageRevision = input.usageRevision;
-    const done = (
-      outcome: ModelOutcome,
-      extra: Partial<ModelCallOutput> = {},
-    ): Result<ModelCallOutput> =>
-      ok({
-        id,
-        outcome,
-        text: "",
-        toolCalls: [],
-        usage: emptyUsage(usageRevision),
-        durationMs: deps.nowMs() - startedMs,
-        firstOutputMs: null,
-        ...extra,
-      });
-    const doneFailed = (
-      verdict: FailureVerdict,
-      extra: Partial<ModelCallOutput> = {},
-    ): Result<ModelCallOutput> =>
-      done(outcomeFromVerdict(verdict, deps.at), { ...extra, verdict });
-    if (!sent.ok) {
-      const how = sent.error.details?.transport;
-      if (how === "aborted" || combined.aborted) {
-        return done(abortOutcome(signal, null));
-      }
-      if (how === "connection_failed") {
-        // 연결 실패는 일시 실패다.
-        return doneFailed(classifyHttpFailureDisconnect());
-      }
-      // 보내기 전에 막혔다(secret 부착 거절 등). 모델 시도가 아니다.
-      return sent;
-    }
-    const response = sent.value;
-    if (response.stream === null && response.status >= 300) {
-      const verdict = classifyHttpFailure({
-        status: response.status,
-        headers: response.headers,
-        body: response.json,
-        nowMs: deps.nowMs(),
-      });
-      // 본문은 여기서 버린다.
-      return doneFailed(verdict);
-    }
-    const collector = collectorFor(input.model.protocol);
-    let firstOutputMs: number | null = null;
-    let disconnected = false;
-    let over = false;
-    if (response.stream === null) {
-      // batch(JSON) 성공 응답이다. stream과 같은 collector로 판정한다.
-      const frames = framesFromBatch(input.model.protocol, response.json);
-      if (frames === null) {
-        // 읽을 수 없는 성공 본문은 원인 불명이다.
-        const verdict = classifyStreamFailure({ nowMs: deps.nowMs() });
-        return doneFailed({ ...verdict, http_status: response.status });
-      }
-      firstOutputMs = deps.nowMs() - startedMs;
-      collector.push(frames);
-    } else {
-      const parser = createSseParser();
-      const reader = response.stream.getReader();
-      try {
-        for (;;) {
-          const next = await reader.read();
-          if (next.done) break;
-          const pushed = parser.push(next.value);
-          if (!pushed.ok) {
-            over = true;
-            break;
-          }
-          if (pushed.frames.length > 0) {
-            if (firstOutputMs === null) {
-              firstOutputMs = deps.nowMs() - startedMs;
-            }
-            collector.push(pushed.frames);
-          }
-        }
-      } catch {
-        disconnected = true;
-      } finally {
-        await reader.cancel().catch(() => undefined);
-      }
-      if (!disconnected && !over) parser.finish();
-    }
-    const collected = collector.finish();
-    const usage = collected.usage ?? emptyUsage(usageRevision);
-    const extra = {
-      text: collected.text,
-      toolCalls: collected.kind === "complete" ? collected.toolCalls : [],
-      usage: { ...usage, definition_revision: usageRevision },
-      firstOutputMs,
-    };
-    if (combined.aborted) {
-      return done(abortOutcome(signal, collected.text.length > 0), extra);
-    }
-    if (collected.kind === "failed") {
-      const verdict = classifyStreamFailure({
-        type: collected.errorType,
-        message: collected.errorMessage,
-        nowMs: deps.nowMs(),
-      });
-      return doneFailed(verdict, extra);
-    }
-    if (collected.kind === "refused") {
-      return done({
-        kind: "failed",
-        code: "refused",
-        retry_at: null,
-        finish_reason: collected.finishReason,
-        http_status: response.status,
-        provider_code: collected.providerCode,
-      }, extra);
-    }
-    if (over) {
-      // 크기 상한 초과는 일시가 아니라 응답 크기 문제다. 받은 것까지 partial이다.
-      return done(
-        plainOutcome("partial", response.status, collected.finishReason),
-        extra,
-      );
-    }
-    return done(
-      plainOutcome(collected.kind, response.status, collected.finishReason),
-      extra,
-    );
   };
 }
 
-function abortOutcome(
+async function invoke(
+  deps: InvokeDeps,
+  input: ModelCallInput,
   signal: AbortSignal,
-  hadOutput: boolean | null,
-): ModelOutcome {
-  // 호출자가 멈췄으면 취소다. 기한이 지났으면 받은 것까지 partial, 아니면 연결 실패다.
+  idle: ReturnType<typeof startIdle>,
+): Promise<Result<ModelCallOutput>> {
+  // state-free 계속 검증의 실제 호출 자리다. 불가면 보내지 않는다.
+  if (
+    input.continuation !== undefined &&
+    input.model.protocol !== "anthropic-messages"
+  ) {
+    const verdict = verifyStateFree({
+      protocol: input.model.protocol,
+      pendingReasoning: input.continuation.pendingReasoning,
+      reasoningRequired: input.continuation.reasoningRequired,
+    });
+    if (!verdict.continuable) {
+      return err({
+        code: "conflict",
+        message: "state-free continuation is not possible",
+      });
+    }
+  }
+  const id = input.callId;
+  const startedMs = deps.nowMs();
+  const combined = idle.signal;
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "text/event-stream",
+  };
+  if (input.model.protocol === "anthropic-messages") {
+    headers["anthropic-version"] = ANTHROPIC_VERSION;
+  }
+  idle.touch();
+  const sent = await deps.transport.send({
+    url: joinEndpoint(input.endpoint, PATHS[input.model.protocol]),
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...input.body, stream: true }),
+    signal: combined,
+  });
+  const usageRevision = input.usageRevision;
+  const done = (
+    outcome: ModelOutcome,
+    extra: Partial<ModelCallOutput> = {},
+  ): Result<ModelCallOutput> =>
+    ok({
+      id,
+      outcome,
+      text: "",
+      toolCalls: [],
+      usage: emptyUsage(usageRevision),
+      durationMs: deps.nowMs() - startedMs,
+      firstOutputMs: null,
+      ...extra,
+    });
+  const doneFailed = (
+    verdict: FailureVerdict,
+    extra: Partial<ModelCallOutput> = {},
+  ): Result<ModelCallOutput> =>
+    done(outcomeFromVerdict(verdict, deps.at), { ...extra, verdict });
+  if (!sent.ok) {
+    const how = sent.error.details?.transport;
+    if (how === "aborted" || combined.aborted) {
+      return done(abortOutcome(signal));
+    }
+    if (how === "connection_failed") {
+      // 연결 실패는 일시 실패다.
+      return doneFailed(classifyHttpFailureDisconnect());
+    }
+    // 보내기 전에 막혔다(secret 부착 거절 등). 모델 시도가 아니다.
+    return sent;
+  }
+  const response = sent.value;
+  if (response.stream === null && response.status >= 300) {
+    const verdict = classifyHttpFailure({
+      status: response.status,
+      headers: response.headers,
+      body: response.json,
+      nowMs: deps.nowMs(),
+    });
+    // 본문은 여기서 버린다.
+    return doneFailed(verdict);
+  }
+  const collector = collectorFor(input.model.protocol);
+  let firstOutputMs: number | null = null;
+  let disconnected = false;
+  let over = false;
+  if (response.stream === null) {
+    // batch(JSON) 성공 응답이다. stream과 같은 collector로 판정한다.
+    const frames = framesFromBatch(input.model.protocol, response.json);
+    if (frames === null) {
+      // 읽을 수 없는 성공 본문은 원인 불명이다.
+      const verdict = classifyStreamFailure({ nowMs: deps.nowMs() });
+      return doneFailed({ ...verdict, http_status: response.status });
+    }
+    firstOutputMs = deps.nowMs() - startedMs;
+    collector.push(frames);
+  } else {
+    const parser = createSseParser();
+    const reader = response.stream.getReader();
+    try {
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        idle.touch();
+        const pushed = parser.push(next.value);
+        if (!pushed.ok) {
+          over = true;
+          break;
+        }
+        if (pushed.frames.length > 0) {
+          if (firstOutputMs === null) {
+            firstOutputMs = deps.nowMs() - startedMs;
+          }
+          collector.push(pushed.frames);
+        }
+      }
+    } catch {
+      disconnected = true;
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+    if (!disconnected && !over) parser.finish();
+  }
+  const collected = collector.finish();
+  const usage = collected.usage ?? emptyUsage(usageRevision);
+  const extra = {
+    text: collected.text,
+    toolCalls: collected.kind === "complete" ? collected.toolCalls : [],
+    usage: { ...usage, definition_revision: usageRevision },
+    firstOutputMs,
+  };
+  if (combined.aborted) {
+    return done(abortOutcome(signal), extra);
+  }
+  if (collected.kind === "failed") {
+    const verdict = classifyStreamFailure({
+      type: collected.errorType,
+      message: collected.errorMessage,
+      nowMs: deps.nowMs(),
+    });
+    return doneFailed(verdict, extra);
+  }
+  if (collected.kind === "refused") {
+    return done({
+      kind: "failed",
+      code: "refused",
+      retry_at: null,
+      finish_reason: collected.finishReason,
+      http_status: response.status,
+      provider_code: collected.providerCode,
+    }, extra);
+  }
+  if (over) {
+    // 크기 상한 초과는 일시가 아니라 응답 크기 문제다. 받은 것까지 partial이다.
+    return done(
+      plainOutcome("partial", response.status, collected.finishReason),
+      extra,
+    );
+  }
+  return done(
+    plainOutcome(collected.kind, response.status, collected.finishReason),
+    extra,
+  );
+}
+
+function abortOutcome(signal: AbortSignal): ModelOutcome {
+  // 호출자가 멈췄으면 취소다. idle 기한이 찼으면 받은 글이 있어도 일시 실패다.
   if (signal.aborted) return plainOutcome("cancelled", null, null);
-  if (hadOutput === true) return plainOutcome("partial", null, null);
   return {
     kind: "failed",
     code: "temporary",

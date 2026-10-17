@@ -149,7 +149,7 @@ export const codingSessionsWiring: WiringFactory = () => {
       const relay = createCodingRelay({
         tokens: () => tokens ??= createCodingTokens({ registry: ctx.registry }),
         async run(signal, idempotency) {
-          const done = await ctx.runtime.writer.command(CODING_CONTEXT, {
+          const done = await ctx.writer.command(CODING_CONTEXT, {
             command: codingSignal.name,
             input: signal,
             idempotency_key: idempotency ?? crypto.randomUUID(),
@@ -168,10 +168,25 @@ export const codingSessionsWiring: WiringFactory = () => {
             ...(model === undefined ? {} : { model }),
           };
         },
+        // 발급한 token의 자격을 ledger에 기록한다.
+        async record(credential_ref) {
+          const current = ctx.registry.revalidate({ credential_ref });
+          return current.ok ? await ctx.runtime.record(current.value) : current;
+        },
         send: (frame) => ctx.gateway.send(frame),
         // release bundle의 source를 읽는다.
         sources: () => sourceReader,
       });
+      // 완료 보고, claim 만료, 보고 없는 끝이 call을 닫고 App Engineer에게 알린다.
+      ctx.reactor.on(
+        "TicketCompletionReported",
+        relay.reactor.TicketCompletionReported,
+      );
+      ctx.reactor.on("TicketClaimExpired", relay.reactor.TicketClaimExpired);
+      ctx.reactor.on(
+        "CodingSessionEndedUnreported",
+        relay.reactor.CodingSessionEndedUnreported,
+      );
       recover = relay.recover;
       const { handlers } = relay;
       return ok({

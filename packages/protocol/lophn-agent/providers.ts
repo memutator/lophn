@@ -152,10 +152,6 @@ export const loginComplete = defineCommand({
   output: loginCompleteOutputSchema,
   actors: ["user"],
   errors: [...userErrors, "not_found"],
-  confirmation: "required",
-  confirmation_kind: "secret_input",
-  binding: ["provider", "login", "submission"],
-  display_read: "/providers/read",
 });
 
 export const loginCancel = defineCommand({

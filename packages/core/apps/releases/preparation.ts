@@ -3,7 +3,6 @@
 // 요청은 `unknown`이며 성공으로 다시 쓰지 않는다. 준비 한 번의 실제 일(commit 추출·build·봉인)은
 // `PreparationRunner`가 하고 취소는 그 실행의 signal과 종료 확인으로 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { BundleManifest } from "../../../protocol/apps/mod.ts";
 
 type PreparationStatus =
   | "preparing"
@@ -23,7 +22,6 @@ export type PreparationJob = {
 export type PreparationOutcome = {
   bundle_hash: string;
   blueprint_hash: string;
-  manifest: BundleManifest;
 };
 
 export type PreparationSnapshot = {
@@ -32,7 +30,6 @@ export type PreparationSnapshot = {
   status: PreparationStatus;
   bundle_hash: string | null;
   blueprint_hash: string | null;
-  manifest: BundleManifest | null;
 };
 
 // 준비 한 번을 돈다. 취소면 signal이 aborted이고 실행은 자식을 끝낸 뒤에야 돌려준다.
@@ -70,7 +67,6 @@ function snapshotOf(
       status: "unknown",
       bundle_hash: null,
       blueprint_hash: null,
-      manifest: null,
     };
   }
   const done = entry.status === "completed" ? entry.outcome : null;
@@ -80,7 +76,6 @@ function snapshotOf(
     status: entry.status,
     bundle_hash: done?.bundle_hash ?? null,
     blueprint_hash: done?.blueprint_hash ?? null,
-    manifest: done?.manifest ?? null,
   };
 }
 

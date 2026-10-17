@@ -14,7 +14,6 @@ type ReleaseJobResult =
     ok: true;
     bundle_hash: string;
     blueprint_hash: string;
-    manifest: unknown;
   }
   | { ok: false; reason: string };
 
@@ -26,7 +25,6 @@ if (import.meta.main) {
       ok: true,
       bundle_hash: prepared.value.bundleHash,
       blueprint_hash: prepared.value.blueprintHash,
-      manifest: prepared.value.manifest,
     }
     : { ok: false, reason: prepared.error.reason };
   console.log(JSON.stringify(result));

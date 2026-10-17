@@ -36,7 +36,7 @@ export const annotationsWiring: WiringFactory = () => {
     records: () => [ANNOTATIONS_CONTEXT],
     build(ctx) {
       const run: RunCommand = async (caller, route, input, prepared) => {
-        const done = await ctx.runtime.writer.command(caller, {
+        const done = await ctx.writer.command(caller, {
           command: route.name,
           input,
           compare: {},
@@ -72,7 +72,7 @@ export const annotationsWiring: WiringFactory = () => {
     // 시작 때와 하루에 한 번 정리한다.
     start(ctx) {
       const sweep = async () => {
-        const done = await ctx.runtime.writer.command(ANNOTATIONS_CONTEXT, {
+        const done = await ctx.writer.command(ANNOTATIONS_CONTEXT, {
           command: annotationSweep.name,
           input: {},
           compare: {},

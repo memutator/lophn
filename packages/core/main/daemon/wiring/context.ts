@@ -61,9 +61,11 @@ import type { createSupervisor } from "../../../supervision/responsiveness/mod.t
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
+import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -76,6 +78,7 @@ export { createProductRedactor } from "../../../../base/redaction/mod.ts";
 export type Supervisor = ReturnType<typeof createSupervisor>;
 export type AppsControl = Awaited<ReturnType<typeof createAppsControl>>;
 export type McpAuthControl = ReturnType<typeof createMcpAuthControl>;
+export type IssuerRequests = ReturnType<typeof createIssuerRequests>;
 export type { BlobPrepareCall, CoreRuntime, RewindFilesDeps };
 
 export type BlobRead = {
@@ -196,6 +199,8 @@ type Late = {
   appsControl: AppsControl;
   rewindFiles: RewindFilesDeps;
   mcpAuthControl: McpAuthControl;
+  // OAuth 발급자 요청 대기열이다. provider 로그인 wiring이 내고 MCP OAuth와 provider 갱신이 같이 쓴다.
+  issuerRequests: IssuerRequests;
   server: ApiServer;
   shutdown: () => Promise<void>;
   // config가 낸다. 선언 목록은 assembly.ts가 각 단위의 선언을 모아 넣는다.
@@ -212,7 +217,7 @@ type Late = {
   reactor: Reactor;
   // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
   approvals: ApprovalsService;
-  // apps가 받는 것. places-sessions(callerDirectory), projects(projectDirectory), releases(bundleLocator)가 채운다.
+  // apps가 받는 것. callerDirectory는 apps가 lophn-agent session 표로 채우고, projects(projectDirectory)와 releases(bundleLocator)가 채운다.
   // 없으면 apps wiring이 "아직 없음"이나 대체 구현으로 돈다.
   callerDirectory: CallerDirectory;
   projectDirectory: ProjectDirectory;
@@ -226,6 +231,11 @@ type Late = {
   annotationDelivery: AnnotationDelivery;
   // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
   inbox: Inbox;
+  // approvals가 낸다. 답 없는 질문의 기다림(메모리).
+  questionWaits: ReturnType<typeof createQuestionWaits>;
+  // API server가 쓰는 쓰기 앞 처리기를 모두 접은 writer다. core 안에서 command를 내는 곳은 날 writer(runtime.writer)가 아니라
+  // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, 입력함 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
+  writer: Writer;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -252,6 +262,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appsControl: true,
   rewindFiles: true,
   mcpAuthControl: true,
+  issuerRequests: true,
   server: true,
   shutdown: true,
   settings: true,
@@ -271,6 +282,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appRewind: true,
   annotationDelivery: true,
   inbox: true,
+  questionWaits: true,
+  writer: true,
 };
 
 export type WiringContext = {

@@ -62,11 +62,12 @@ import {
 import { INSTALL_PRINCIPAL } from "./packages/install.ts";
 import { loadApp } from "./registration/mod.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
+import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
 import { loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
 import type { ConnectFacts } from "./runtime/connect.ts";
-import { allSlotSockets } from "./runtime/processes/mod.ts";
+import { allSlotSockets, socketRootKey } from "./runtime/processes/mod.ts";
 import {
   createAppProcessLink,
   createSupervisorChannel,
@@ -267,6 +268,9 @@ type AppsControlDeps = {
       app: string,
       bundleHash: string,
     ): Result<string | undefined>;
+    // 준비가 끝난 봉인 bundle 사본의 고정 시험 hash다. 만들 수 없으면 null이다. 시험을 만드는 쪽이 problems라
+    // wiring이 넘겨준다.
+    testOf(app: string, bundleHash: string): Promise<string | null>;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
     platformPorts: () => readonly number[];
   };
@@ -539,12 +543,31 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     );
     if (!source.ok) return source;
     const read = await client.releasePreparation(body.app, body.request_key);
-    if (!read.ok || finalizer === null) return read;
+    if (!read.ok) return read;
+    // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 준비가 끝났다고 알리기 전에 core가 봉인한다.
+    const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
+    if (
+      read.value.status === "completed" && read.value.bundle_hash !== null &&
+      dataRoot !== undefined
+    ) {
+      const copy = bundleCopyPath(dataRoot, body.app, read.value.bundle_hash);
+      if (!copy.ok) return internalError();
+      const sealed = await sealCopy(copy.value);
+      if (!sealed.ok) {
+        return err({ code: "unavailable", message: sealed.error.message });
+      }
+    }
+    if (finalizer === null) return read;
     // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
     const finalized = await finalizer.observe(read.value);
     if (finalized.ok) {
-      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다).
-      return ok({ ...read.value, release: releaseIdOf(read.value) });
+      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다). `app test`가 쓸 고정 시험 hash도
+      // 준비가 끝났을 때 준다: coding agent는 이 값을 스스로 만들 수 없다.
+      const { app, bundle_hash: bundleHash } = read.value;
+      const test = read.value.status === "completed" && bundleHash !== null
+        ? await deps.activation?.testOf(app, bundleHash) ?? null
+        : null;
+      return ok({ ...read.value, release: releaseIdOf(read.value), test });
     }
     // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
     const { code, message } = finalized.error;
@@ -726,18 +749,19 @@ function repoRoot(): string {
   return new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 }
 
-// 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더다
-// (packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
-export function appSocketRoot(runtimeDir?: string): string {
+// 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더 아래에
+// data root마다 하위 폴더 하나다(packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
+export function appSocketRoot(dataRoot: string, runtimeDir?: string): string {
   const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
-  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn`;
+  const key = socketRootKey(dataRoot);
+  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn/${key}`;
   // packaged allow-env에 TMPDIR은 없다. 없으면 기본 임시 폴더다.
   let temp = "/tmp";
   try {
     const configured = Deno.env.get("TMPDIR");
     if (configured !== undefined && configured.length > 0) temp = configured;
   } catch { /* 권한이 없으면 /tmp */ }
-  return `${temp}/lophn-${Deno.uid() ?? 0}`;
+  return `${temp}/lophn-${Deno.uid() ?? 0}/${key}`;
 }
 
 // supervisor 실행 권한. 데이터 root와 코드·deno 캐시를 읽고 쓰기는 앱 socket 폴더뿐이다.
@@ -747,7 +771,7 @@ export function appSupervisorSpec(input: {
   apiPort: number;
   runtimeDir?: string;
 }): KindLaunchSpec {
-  const sockets = appSocketRoot(input.runtimeDir);
+  const sockets = appSocketRoot(input.dataRoot, input.runtimeDir);
   return {
     kind: APPS_SUPERVISOR_KIND,
     entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,

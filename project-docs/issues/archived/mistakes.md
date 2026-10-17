@@ -60,3 +60,22 @@ guard: worker-prompt
 정한 것: 지금은 check를 만들지 않는다. 다시 생기면 check로 막는다. harness와 domain을 나눈 계획은 이 문장을 brief와 worker 지시마다 넣었고 다시 생기지 않았다(옛 SQL은 표를 가진 module의 `lookups.ts`로 옮겼다). 남은 숨은 SQL은 `issues/layers.md`.
 
 닫음: worker 지시문(`project-docs/plan/tools/lead/prompt.py`)과 orchestrate skill의 "worker에게 꼭 넣을 것"에 "import를 끊으려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 check-deps 예외로 둔다"를 넣었다. 계획 README마다 손으로 옮기던 문장이다. 다시 생기면 정한 것대로 check로 막는다.
+
+## check의 test 단에 붙인 `--ignore`가 deno.json의 exclude를 지움
+
+```yaml
+kind: mistake
+modules: [tools]
+closed: fixed
+guard: 없음
+```
+
+지금: brief가 "`deno.json`의 `test.exclude` 대신 `tools/check.ts`의 `deno test`에 `--ignore=tests/e2e,tests/live`를 붙인다"고 정했고 worker가 그대로 했다. Deno 2.9.7에서 CLI `--ignore`는 root `deno.json`의 `exclude`(`.claude`, `.dev-data`, `project-docs`, `packages/shell/main` …)에 더해지지 않고 그것을 대체한다. 그래서 `check:full`의 discovery가 `.dev-data/` 아래 임시 `*_test.ts`와 core가 깐 template의 test까지 찾았다. lead가 다음 task의 merge에서 worktree의 `.dev-data` file 때문에 full check가 실패해 찾았다.
+
+영향: main checkout에서 `check:full`을 돌리면 `.claude/worktrees/*`의 남의 test까지 돈다. data root에 깔린 template test가 실패하면 check가 이유 없이 빨개진다.
+
+원인: brief를 쓸 때 "`--ignore`는 discovery에서만 빼고 직접 준 인자는 돈다"까지만 확인하고 config exclude와 합쳐지는지는 보지 않았다. worker는 임시 file 확인을 `tests/` 안에서만 했다.
+
+막기: 코드 주석으로 둔다. 다시 생기면 check 자신을 보는 확인(`.dev-data`에 실패하는 임시 test를 두고 `check:full`)을 brief의 끝남 기준에 넣는다.
+
+닫음: `tools/check.ts`의 test 단이 `--ignore`에 `DENO_EXCLUDED`(root `deno.json`의 exclude와 같은 목록)와 `NOT_IN_CHECK`를 같이 준다. 그 자리 주석이 "CLI --ignore는 root deno.json의 exclude를 대체한다"를 적는다.

@@ -4,10 +4,13 @@ import {
   codingPrincipal,
   type CodingTokens,
 } from "../../../protocol/coding-agent/mod.ts";
+import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { CredentialRegistry } from "./registry.ts";
 
-// token이 여는 operation은 CLI 명령 가운데 coding_token 인증인 것의 route다.
+// token이 여는 operation은 CLI 명령 가운데 coding_token 인증인 것의 route다. `ticket report`는 먼저 summary를 올리므로
+// 그 upload route도 연다.
 const CODING_TOKEN_OPERATIONS = [
+  ticketUploadSummary.name,
   ...new Set(
     CODING_CLI_COMMANDS.flatMap((command) =>
       command.auth === "coding_token" && command.route
@@ -24,7 +27,7 @@ export function createCodingTokens(
 ): CodingTokens {
   const refs = new Map<string, string>();
   return {
-    issue({ session, app }): Result<{ token: string }> {
+    issue({ session, app }): Result<{ token: string; credential_ref: string }> {
       // session마다 token은 하나다. 다시 발급하면 앞 것은 거둔다.
       const old = refs.get(session);
       if (old !== undefined) options.registry.revoke(old);
@@ -37,7 +40,10 @@ export function createCodingTokens(
       });
       if (!issued.ok) return issued;
       refs.set(session, issued.value.credential_ref);
-      return ok({ token: issued.value.token });
+      return ok({
+        token: issued.value.token,
+        credential_ref: issued.value.credential_ref,
+      });
     },
     revoke(session) {
       const ref = refs.get(session);

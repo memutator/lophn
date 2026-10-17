@@ -33,7 +33,7 @@ import {
 } from "../../lophn-agent/run-loop/redact-link.ts";
 import { createSecretLink } from "./secret-link.ts";
 import { createTurnSourceLink } from "./turn-source-link.ts";
-import { startMcpAuthPump } from "./mcp-auth-pump.ts";
+import { startIssuerPump } from "./issuer-pump.ts";
 import { startMcpToolsPump } from "./mcp-tools-pump.ts";
 import type { McpKit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
@@ -231,6 +231,11 @@ async function startAgentRuntime(input: {
         if (redactLink.onParent(message)) return;
         if (secretLink.onParent(message)) return;
         if (turnLink.onParent(message)) return;
+        // 사람이 멈춘 turn이다. 그 turn이 이 child에 없으면 driver가 아무 일도 하지 않는다.
+        if (message.type === "turn_stop") {
+          driver?.stop(message.turn, message.reason);
+          return;
+        }
         link.onParent(message);
       },
       onStop() {
@@ -268,10 +273,10 @@ async function startAgentRuntime(input: {
   // 켜질 때 돌던 turn은 core가 interrupted로 닫으므로 runtime이 이을 것은 없다.
   const source: TurnSource = turnLink.source;
   let pumping: Promise<void> = Promise.resolve();
-  // MCP OAuth 발급자 호출은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
+  // OAuth 발급자 호출(MCP, 구독 provider)은 core에 외부 fetch가 없어서 이 프로세스가 대신 보낸다.
   // 제품 기동만 돌린다. 허락한 발급자(`--allow-net`) 밖은 Deno 권한이 막는다.
   const authPumping = input.pump === true
-    ? startMcpAuthPump({
+    ? startIssuerPump({
       call: calls!.machine,
       fetch: input.fetch ?? fetch,
       signal: pumpStop.signal,

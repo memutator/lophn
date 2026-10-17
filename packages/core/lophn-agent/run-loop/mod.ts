@@ -4,7 +4,7 @@ export { createTurnCommands, turnBodyFields } from "./commands.ts";
 export { loadTurn, turnRecordOf, type TurnRow, turnRowOf } from "./model.ts";
 export { deleteSessionTurns } from "./erase.ts";
 export { createTurnReads } from "./reads.ts";
-export { interruptRunningTurns } from "./interrupt.ts";
+export { interruptRunningTurns, interruptTurnsCommand } from "./interrupt.ts";
 export {
   publishAfterCommit,
   type PublishAgentEvent,

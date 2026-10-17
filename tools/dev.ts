@@ -4,14 +4,21 @@
 // 그래서 `deno task dev`는 shell main을 직접 띄우고,
 // `deno task dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
-// 않는다. tools/fake-provider를 함께 띄워 그 loopback 주소를 LOPHN_FAKE_PROVIDER_URL로
-// core에 넘긴다. 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지 않는다.
+// 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
+// 앱을 띄우기 전에 core를 pipe로 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤
+// 닫는다(shell main이 띄우는 core의 user token은 hello frame으로만 나오기 때문이다).
+// 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
 // shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `npm run dev`는 main만
 // build하므로 `dev`와 `dev:mock`은 shell을 띄우기 전에 renderer를 먼저 build한다(옛 화면이 뜨지
 // 않게). `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
-// 채운다. 그래서 fake provider를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다.
+// 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다.
+
+import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
+import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
+import { bootCore } from "../tests/support/core/mod.ts";
+import { connectFakeProvider } from "../tests/support/core/human.ts";
 
 type SpawnPlan = {
   command: string;
@@ -21,15 +28,14 @@ type SpawnPlan = {
 
 type Mode = "dev" | "dev:core" | "dev:mock";
 
-/** 띄우는 대상. fake provider는 stdout을 읽어 ready를 기다린다. */
-type Purpose = "fake" | "core" | "shell" | "build";
-
-/** fake provider ready 한 줄의 모양. */
-type FakeProviderReady = { ready: boolean; url: string };
+/** 띄우는 대상. */
+type Purpose = "core" | "shell" | "build";
 
 const LOPHN_HOME = "LOPHN_HOME";
-const FAKE_URL = "LOPHN_FAKE_PROVIDER_URL";
 const LIVE = "LOPHN_LIVE_PROVIDER";
+const FAKE_PORT = "LOPHN_DEV_FAKE_PORT";
+// provider의 endpoint가 ledger에 남으므로 port가 실행마다 바뀌면 안 된다.
+const DEFAULT_FAKE_PORT = 7499;
 
 /**
  * 개발 데이터 root. 저장소 밖으로 가지 않는다: 항상 <root>/.dev-data.
@@ -54,23 +60,80 @@ function planRendererBuild(root: string): SpawnPlan {
 }
 
 /**
- * 사람의 LOPHN_LIVE_PROVIDER가 live면 fake provider를 건너뛴다.
- * 이미 주소가 있으면 같은 server를 다시 띄우지 않는다.
+ * fake server를 고정 port로 띄운다. 늘 같은 짧은 대답을 낸다. 이미 쓰는 port면 이유를 말하고
+ * 실패한다(사람이 한 번에 하나만 띄우는 개발 도구라 고정 port를 쓴다).
  */
-function shouldStartFakeProvider(
-  env: { [LIVE]?: string; [FAKE_URL]?: string },
-): boolean {
-  if (env[LIVE] === "1") return false;
-  return env[FAKE_URL] === undefined || env[FAKE_URL] === "";
+function startDevFake(portText: string | undefined) {
+  const port = portText === undefined || portText === ""
+    ? DEFAULT_FAKE_PORT
+    : Number(portText);
+  const fake = createFakeHandler({
+    fallback: { kind: "text", text: "fake model: ok" },
+  });
+  let server: Deno.HttpServer;
+  try {
+    server = Deno.serve(
+      { hostname: "127.0.0.1", port, onListen() {} },
+      fake.handle,
+    );
+  } catch (error) {
+    if (error instanceof Deno.errors.AddrInUse) {
+      throw new Error(
+        `port ${port}을 이미 쓰고 있다. 다른 deno task dev가 떠 있는지 보고, 다른 port는 ${FAKE_PORT}로 정한다`,
+      );
+    }
+    throw error;
+  }
+  return {
+    url: `http://127.0.0.1:${port}`,
+    async close() {
+      fake.release();
+      await server.shutdown();
+    },
+  };
 }
 
-/** fake provider spawn 계획. loopback 빈 포트로 뜨고 ready 한 줄을 쓴다. */
-function planFakeProvider(root: string): SpawnPlan {
-  return {
-    command: Deno.execPath(),
-    args: ["run", "--allow-net", `${root}/tools/fake-provider/main.ts`],
-    env: {},
-  };
+/**
+ * 앱을 띄우기 전에 core를 pipe로 한 번 띄워 fake를 provider로 연결해 두고 닫는다. 연결은
+ * ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. 이미 연결돼 있으면 그대로 둔다.
+ */
+async function plantFakeProvider(
+  dataRoot: string,
+  fakeUrl: string,
+): Promise<void> {
+  // 선언 안 된 key가 있으면 file 전체가 거절되므로 있는 JSON에 key만 더한다. bootCore는
+  // 이미 있는 settings.json을 건드리지 않는다.
+  const settingsPath = `${dataRoot}/settings.json`;
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(await Deno.readTextFile(settingsPath));
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  settings["lophn-agent.model.catalog_auto_update"] ??= false;
+  await Deno.writeTextFile(settingsPath, JSON.stringify(settings), {
+    create: true,
+    mode: 0o600,
+  });
+
+  const dir = `${dataRoot}/dev-setup`;
+  await Deno.mkdir(`${dir}/user-home`, { recursive: true });
+  const core = await bootCore({
+    dir,
+    home: dataRoot,
+    work: dir,
+    remove: () => Promise.resolve(),
+  });
+  try {
+    const known = (await core.call(providerList, {})).providers;
+    if (!known.some((item) => item.endpoint === fakeUrl)) {
+      await connectFakeProvider(core, { url: fakeUrl });
+    }
+  } catch (error) {
+    await core.kill().catch(() => {});
+    throw error;
+  }
+  await core.stop();
 }
 
 /**
@@ -111,35 +174,9 @@ function planShell(
       "--home",
       options.dataRoot,
     ],
-    // fake provider 주소는 이 env로 core까지 흘러 간다. shell main이 core를 띄울 때
-    // 자기 프로세스 env를 바탕으로 child env를 만든다(supervise.ts coreLaunch).
     // LOPHN_HOME은 --home이 정하므로 여기서는 넣지 않는다.
     env: { ...options.env },
   };
-}
-
-/** fake provider ready 한 줄을 읽는다. 끊기거나 JSON이 아니면 null이다. */
-async function fakeProviderReady(
-  stream: ReadableStream<Uint8Array>,
-): Promise<FakeProviderReady | null> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let line = "";
-  try {
-    while (!line.includes("\n")) {
-      const chunk = await reader.read();
-      if (chunk.done) return null;
-      line += decoder.decode(chunk.value);
-    }
-  } catch {
-    return null;
-  }
-  try {
-    const value = JSON.parse(line) as FakeProviderReady;
-    return value.ready === true && typeof value.url === "string" ? value : null;
-  } catch {
-    return null;
-  }
 }
 
 /** Ctrl+C·SIGTERM이 이 프로세스에 도착하면 된다. Windows는 SIGBREAK다. */
@@ -149,7 +186,7 @@ function signalNames(os: string = Deno.build.os): Deno.Signal[] {
 
 /**
  * 띄운 프로세스의 수명. add로 추적하고 stop으로 모두 끝낸다. detached로 띄우지 않으므로
- * SIGTERM이 프로세스 tree보다 좁지만 fake provider·shell main은 SIGTERM를 받으면 끝나고,
+ * SIGTERM이 프로세스 tree보다 좁지만 shell main은 SIGTERM를 받으면 끝나고,
  * core는 shell main의 자식이라 같이 끝난다. 이미 끝난 child의 kill은 건너뛴다.
  */
 class ProcessGroup {
@@ -182,7 +219,7 @@ class ProcessGroup {
 type DevOptions = {
   /** 저장소 루트. 개발 데이터 root는 이 안이다. */
   root: string;
-  /** 사람의 env 위에 더할 값. 테스트가 fake provider 주소를 미리 넣을 때 쓴다. */
+  /** 사람의 env 위에 더할 값. */
   env?: Record<string, string>;
   /** 테스트가 명령을 흉내 낼 때 끼운다. 없으면 실제 프로세스를 띄운다. */
   spawn?: (plan: SpawnPlan, purpose: Purpose) => Deno.ChildProcess;
@@ -212,14 +249,27 @@ export async function removeDataRoot(dataRoot: string): Promise<void> {
 /**
  * `deno task dev`와 `deno task dev:core`의 진행 순서다.
  *
- * 데이터 root(저장소 밖으로 가지 않는다)를 만들고(0700) → fake provider를 먼저 띄워
- * (필요할 때만) 그 loopback 주소를 env에 넣고 → `dev`는 shell main을, `dev:core`는 core를
+ * 데이터 root(저장소 밖으로 가지 않는다)를 만들고(0700) → fake server를 고정 port로 띄워
+ * (필요할 때만) core에 provider로 연결해 두고 → `dev`는 shell main을, `dev:core`는 core를
  * 띄운다. shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에
  * 띄운 것을 모두 끝낸다.
  */
 async function runDev(
   mode: Mode,
   options: DevOptions,
+): Promise<{ ok: true } | { ok: false }> {
+  const closers: (() => Promise<void>)[] = [];
+  try {
+    return await launch(mode, options, closers);
+  } finally {
+    for (const close of closers) await close();
+  }
+}
+
+async function launch(
+  mode: Mode,
+  options: DevOptions,
+  closers: (() => Promise<void>)[],
 ): Promise<{ ok: true } | { ok: false }> {
   const dataRoot = mode === "dev:mock"
     ? mockDataRoot(options.root)
@@ -257,18 +307,20 @@ async function runDev(
   }
 
   const parentEnv = { ...Deno.env.toObject(), ...options.env };
-  if (mode !== "dev:mock" && shouldStartFakeProvider(parentEnv)) {
-    const fake = spawn(planFakeProvider(options.root), "fake");
-    group.add(fake);
-    const ready = await fakeProviderReady(fake.stdout);
-    if (ready === null) {
+  if (mode !== "dev:mock" && parentEnv[LIVE] !== "1") {
+    try {
+      const fake = startDevFake(parentEnv[FAKE_PORT]);
+      closers.push(fake.close);
+      await plantFakeProvider(dataRoot, fake.url);
+    } catch (error) {
       console.error(
-        `deno task ${mode}: fake provider가 ready 한 줄을 쓰지 않았다`,
+        `deno task ${mode}: fake provider를 붙이지 못했다: ${
+          error instanceof Error ? error.message : error
+        }`,
       );
       group.stop();
       return { ok: false };
     }
-    parentEnv[FAKE_URL] = ready.url;
   }
 
   if (mode === "dev" || mode === "dev:mock") {
@@ -314,13 +366,12 @@ async function runDev(
   return { ok: true };
 }
 
-function defaultSpawn(plan: SpawnPlan, purpose: Purpose): Deno.ChildProcess {
+function defaultSpawn(plan: SpawnPlan, _purpose: Purpose): Deno.ChildProcess {
   const child = new Deno.Command(plan.command, {
     args: [...plan.args],
     env: plan.env,
     stdin: "inherit",
-    // fake provider의 ready 한 줄을 읽어야 하므로 pipe다. 그 밖은 log를 그대로 본다.
-    stdout: purpose === "fake" ? "piped" : "inherit",
+    stdout: "inherit",
     stderr: "inherit",
   }).spawn();
   return child;

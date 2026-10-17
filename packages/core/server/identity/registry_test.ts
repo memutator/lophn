@@ -70,3 +70,39 @@ Deno.test("an agent credential reaches only its own session and turn", async () 
     false,
   );
 });
+
+// 앱 process가 다시 뜰 때 그 앱의 app credential만 끝나고, 같은 앱의 coding token은 남는다.
+Deno.test("ending an app's credentials leaves its coding token alive", () => {
+  const keys = new CredentialRegistry({
+    epoch: "epoch",
+    random: cryptoRandom,
+    clock: manualClock(Date.parse("2026-10-16T00:00:00Z")),
+    operations: [
+      { name: "ticket.show", actors: ["app", "coding_agent"], kind: "read" },
+    ],
+  });
+  const app = id("app", 1);
+  const coding = id("ses", 1);
+  const release = id("rel", 1);
+  const process = id("prc", 1);
+  const appCredential = keys.issue({
+    actor: `app:${app}`,
+    principal: `app:${app}`,
+    scope: {
+      operations: ["ticket.show"],
+      targets: { app, release, process, mode: "live" },
+    },
+    conditions: { app, release, process, mode: "live" },
+  });
+  const codingToken = keys.issue({
+    actor: `coding_agent:${coding}`,
+    principal: `coding_agent:${coding}`,
+    scope: { operations: ["ticket.show"], targets: { app } },
+    conditions: { app },
+  });
+  assert(appCredential.ok && codingToken.ok);
+
+  assertEquals(keys.endBy("app", app, "app"), 1);
+  assertEquals(keys.revalidate(appCredential.value).ok, false);
+  assert(keys.revalidate(codingToken.value).ok);
+});

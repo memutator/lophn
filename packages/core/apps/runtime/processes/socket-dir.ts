@@ -1,4 +1,5 @@
 // 앱 socket 디렉터리. slug는 경로에 넣지 않고 무작위 파일 이름만 쓴다.
+import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   APP_SOCKET_SLOTS,
@@ -16,6 +17,8 @@ type SocketDirectory = {
 };
 
 type SocketDirDeps = {
+  // data root마다 폴더를 나눈다. 같은 계정에서 lophn이 여럿 떠도 서로의 socket을 지우지 않는다.
+  dataRoot: string;
   xdgRuntimeDir: string | undefined;
   uid: number;
   // 0700 디렉터리를 만든다. 이미 있으면 그대로 둔다.
@@ -35,6 +38,11 @@ function fail(message: string): Result<never, SocketDirError> {
   return err({ code: "invalid_input", message });
 }
 
+// data root 절대 경로의 짧은 hash. socket 폴더 이름이다.
+export function socketRootKey(dataRoot: string): string {
+  return createHash("sha256").update(dataRoot).digest("hex").slice(0, 12);
+}
+
 // XDG runtime이 있으면 거기를, 없으면 사용자별 0700 임시 디렉터리를 쓴다.
 // 어느 쪽이든 경로가 104byte를 넘으면 거절한다. TCP로 바꾸지 않는다.
 export function createSocketDirectory(
@@ -43,9 +51,10 @@ export function createSocketDirectory(
   if (!Number.isSafeInteger(deps.uid) || deps.uid < 0) {
     return fail("uid is not valid");
   }
-  const directory = deps.xdgRuntimeDir && deps.xdgRuntimeDir.length > 0
+  const base = deps.xdgRuntimeDir && deps.xdgRuntimeDir.length > 0
     ? `${deps.xdgRuntimeDir}/lophn`
     : `${deps.tempParent}/lophn-${deps.uid}`;
+  const directory = `${base}/${socketRootKey(deps.dataRoot)}`;
   const brokerSocket = `${directory}/b-${deps.randomName()}.sock`;
   const controlSocket = `${directory}/a-${deps.randomName()}.sock`;
   for (const path of [directory, brokerSocket, controlSocket]) {

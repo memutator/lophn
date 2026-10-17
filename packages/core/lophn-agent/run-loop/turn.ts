@@ -33,6 +33,7 @@ import {
   isTransientFailure,
   MODEL_RETRY_MAX,
   modelRetryDelayMs,
+  PARTIAL_RUN_MAX,
 } from "./retry.ts";
 import {
   awaitAbortable,
@@ -63,6 +64,8 @@ export type LoopState = {
   modelCalls: Set<AbortController>;
   serverCalls: Map<string, Set<AbortController>>;
   history: HistoryMessage[];
+  // 연속으로 받은 partial 응답 수. 완전한 응답이 오면 0이 된다.
+  partialRun: number;
   facts: {
     changes: string[];
     unexecuted: string[];
@@ -474,6 +477,10 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   if (step.kind === "restart") return continueTurn;
   const attempt = step.attempt;
   if (step.kind === "partial") {
+    state.partialRun += 1;
+    if (state.partialRun >= PARTIAL_RUN_MAX) {
+      return await failWith(state, "model_error");
+    }
     // 불완전한 응답의 tool은 하나도 시작하지 않고 잘림 사실만 다음 판단에 전한다.
     const why = attempt.outcome.finish_reason ?? "unknown";
     appendUser(state, [{
@@ -484,6 +491,7 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
     await ports.checkpoint(limiter.snapshot());
     return continueTurn;
   }
+  state.partialRun = 0;
   return await afterModel(
     state,
     attempt,

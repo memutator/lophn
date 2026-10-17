@@ -71,6 +71,7 @@ import {
   createTurnReads,
   deleteSessionTurns,
   interruptRunningTurns,
+  interruptTurnsCommand,
   publishAfterCommit,
   turnBodyFields,
   turnBodyRead,
@@ -112,11 +113,11 @@ import {
 } from "./tools/mod.ts";
 import {
   type AgentRef,
+  issuerRequestDone,
+  issuerRequestTake,
   mcpAuthBegin,
   mcpAuthCancel,
   mcpAuthComplete,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
   mcpAuthState,
   type McpServer,
   mcpToolsList,
@@ -309,7 +310,8 @@ const revertDeps = {
   }),
 };
 const revertCommands = createSessionRewindCommands(revertDeps);
-// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록(rewind/reader.ts)이 서빙한다. 여기 정의는
+// 읽기는 파일을 읽는 preview 때문에 reader Worker의 별도 등록이 서빙한다: checkpoints·list는 rewind/reader.ts,
+// preview는 AppWrites port와 같은 등록인 main의 wiring/rewind-registration.ts다. 여기 정의는
 // core의 route 등록이고 core에서는 실행되지 않는다.
 const revertReads = createSessionRewindReads({});
 
@@ -701,6 +703,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       turnCommands.checkpoint,
       turnCommands.finish,
       turnCommands.stop,
+      interruptTurnsCommand(publishAfterCommit),
       conversationCommands.open,
       conversationCommands.rename,
       conversationCommands.archive,
@@ -778,8 +781,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpAuthComplete,
       mcpAuthState,
       mcpAuthCancel,
-      mcpAuthRequestTake,
-      mcpAuthRequestDone,
+      issuerRequestTake,
+      issuerRequestDone,
       // Grants의 MCP tool 목록. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
       mcpToolsList,
       mcpToolsRequestTake,

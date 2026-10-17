@@ -47,7 +47,7 @@
 ## 사람에게 묻는 것
 
 * push, force push, 기록 지우기, 병합 안 된 branch 삭제
-* 실제 model provider 호출(개발과 test는 `tools/fake-provider`)
+* 실제 model provider 호출(개발은 `deno task dev`가 띄우는 fake, test는 `tests/support/fake-server`와 녹화 재생)
 * 사람의 `~/.lophn`을 건드리는 일(개발은 `.dev-data/`)
 
 ## 호환성

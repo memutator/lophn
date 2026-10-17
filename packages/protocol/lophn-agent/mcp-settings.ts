@@ -236,60 +236,9 @@ export const mcpAuthCancel = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
-// 발급자(token endpoint) 호출을 agent runtime이 대신 보낸다(OAuth network는 runtime의 몫이고 core
-// module graph에는 외부 fetch가 없다). core는 token 교환·갱신 요청을 작업 메모리 대기열에 놓고, runtime이 이 입구로
-// 가져가 `--allow-net`이 허락한 발급자에게 보낸 뒤 받은 응답을 돌려준다. machine 자격만 부르고(actors), 요청과
-// 응답 본문에는 code·verifier·refresh token·새 token이 들어 있어 loopback 밖으로 나가지 않으며 어디에도 남기지
-// 않는다(ledger·event·log 없음). core가 정하는 것은 요청 내용이고 runtime은 그 URL이 https인지만 다시 본다.
-export const MCP_AUTH_REQUEST_BODY_MAX = 65_536;
-const mcpAuthRequestSchema = z.strictObject({
-  id: z.string().min(1).max(64),
-  url: z.string().regex(/^https:\/\/\S+$/).max(2048),
-  method: z.literal("POST"),
-  headers: z.record(
-    z.string().regex(/^[A-Za-z0-9-]{1,64}$/),
-    z.string().max(512),
-  ),
-  body: z.string().max(MCP_AUTH_REQUEST_BODY_MAX),
-});
-export type McpAuthRequest = z.infer<typeof mcpAuthRequestSchema>;
-
-export const mcpAuthRequestTake = defineMemory({
-  resource: "agent-mcp-auth",
-  method: "request-take",
-  name: "TakeMcpAuthRequest",
-  input: z.strictObject({}),
-  // 보낼 요청이 없으면 null이다. 가져간 요청은 runtime이 답하거나 기한이 지날 때까지 core가 기다린다.
-  output: z.object({ request: mcpAuthRequestSchema.nullable() }),
-  actors: ["machine"],
-  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
-});
-
-const mcpAuthResponseSchema = z.strictObject({
-  status: z.number().int().min(100).max(599),
-  // redirect 판정에 쓰는 Location뿐이다. 다른 header는 옮기지 않는다.
-  location: z.string().max(2048).nullable(),
-  body: z.string().max(MCP_AUTH_REQUEST_BODY_MAX),
-});
-
-export const mcpAuthRequestDone = defineMemory({
-  resource: "agent-mcp-auth",
-  method: "request-done",
-  name: "FinishMcpAuthRequest",
-  input: z.strictObject({
-    id: z.string().min(1).max(64),
-    // 발급자에 닿지 못했으면 null이다.
-    response: mcpAuthResponseSchema.nullable(),
-  }),
-  // 이미 기한이 지났거나 모르는 요청이면 accepted가 false다.
-  output: z.object({ accepted: z.boolean() }),
-  actors: ["machine"],
-  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
-});
-
 // Grants 화면이 서버별 MCP tool 목록(원래 이름, 설명, effect)을 읽는 입구다. 부르는 쪽은 사람이다.
 // MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
-// runtime이 `request-take`·`request-done`으로 가져가 답한다(위 OAuth 요청과 같은 길). 그 대기열 상태를 쥔 memory
+// runtime이 `request-take`·`request-done`으로 가져가 답한다(발급자 요청 `issuer-requests.ts`와 같은 길). 그 대기열 상태를 쥔 memory
 // route라서 reader Worker의 read로는 못 한다. place는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
 // 층을 더한 목록이고 app이거나 null이면 전역 서버만이다.
 //

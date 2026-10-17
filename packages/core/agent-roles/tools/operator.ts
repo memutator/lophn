@@ -40,7 +40,7 @@ const operatorPlace = z.union([
   z.strictObject({ app: nonblank }),
 ]);
 
-// 설정 고치기라 실행 전에 Gate에 묻는다. grant와 앱 Operator의 project 폴더는 입력에 없고 사람이 정한다.
+// 설정 고치기라 실행 전에 Gate에 묻는다. grant는 입력에 없고 사람이 정한다.
 function gateFor(id: string | null, ctx: ToolContext): GateRequest {
   const intent = settingsEditIntent({
     what: "agent_definition",

@@ -2,8 +2,12 @@
   {
     "key": "anthropic",
     "display_name": "Anthropic",
-    "protocols": ["anthropic-messages"],
-    "auth_kinds": ["api_key"],
+    "protocols": [
+      "anthropic-messages"
+    ],
+    "auth_kinds": [
+      "api_key"
+    ],
     "models_endpoint": "https://api.anthropic.com/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -11,16 +15,22 @@
   {
     "key": "openai",
     "display_name": "OpenAI",
-    "protocols": ["openai-responses", "openai-chat-completions"],
-    "auth_kinds": ["api_key", "oauth"],
+    "protocols": [
+      "openai-responses",
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key",
+      "oauth"
+    ],
     "models_endpoint": "https://api.openai.com/v1/models",
     "oauth": {
       "product": "chatgpt",
-      "flow": "device_code_then_pkce_paste_url",
       "issuer": "https://auth.openai.com",
       "authorization_endpoint": "https://auth.openai.com/api/accounts/authorize",
       "token_endpoint": "https://auth.openai.com/api/accounts/oauth/token",
-      "allowed_call_origins": ["https://api.openai.com"],
+      "jwks_uri": "https://auth.openai.com/.well-known/jwks.json",
+      "resource": "https://api.openai.com/v1",
       "scopes": [
         "openid",
         "profile",
@@ -28,24 +38,26 @@
         "offline_access",
         "resource.invoke",
         "chatgpt.tokens.use.direct"
-      ],
-      "verified_for_lophn": false
+      ]
     },
     "revision": "2026-10"
   },
   {
     "key": "xai",
     "display_name": "xAI",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["api_key", "oauth"],
+    "protocols": [
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key",
+      "oauth"
+    ],
     "models_endpoint": "https://api.x.ai/v1/models",
     "oauth": {
       "product": "supergrok",
-      "flow": "device_code",
-      "issuer": "https://auth.x.ai",
-      "authorization_endpoint": "https://auth.x.ai/oauth2/device/code",
+      "client_id": "b1a00492-073a-47ea-816f-4c329264a828",
+      "device_authorization_endpoint": "https://auth.x.ai/oauth2/device/code",
       "token_endpoint": "https://auth.x.ai/oauth2/token",
-      "allowed_call_origins": ["https://api.x.ai"],
       "scopes": [
         "openid",
         "profile",
@@ -53,16 +65,19 @@
         "offline_access",
         "grok-cli:access",
         "api:access"
-      ],
-      "verified_for_lophn": false
+      ]
     },
     "revision": "2026-10"
   },
   {
     "key": "openrouter",
     "display_name": "OpenRouter",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["api_key"],
+    "protocols": [
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key"
+    ],
     "models_endpoint": "https://openrouter.ai/api/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -70,8 +85,12 @@
   {
     "key": "groq",
     "display_name": "Groq",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["api_key"],
+    "protocols": [
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key"
+    ],
     "models_endpoint": "https://api.groq.com/openai/v1/models",
     "oauth": null,
     "revision": "2026-10"
@@ -79,8 +98,12 @@
   {
     "key": "deepseek",
     "display_name": "DeepSeek",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["api_key"],
+    "protocols": [
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key"
+    ],
     "models_endpoint": "https://api.deepseek.com/models",
     "oauth": null,
     "revision": "2026-10"
@@ -88,8 +111,12 @@
   {
     "key": "google-gemini",
     "display_name": "Google Gemini",
-    "protocols": ["openai-chat-completions"],
-    "auth_kinds": ["api_key"],
+    "protocols": [
+      "openai-chat-completions"
+    ],
+    "auth_kinds": [
+      "api_key"
+    ],
     "models_endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/models",
     "oauth": null,
     "revision": "2026-10"

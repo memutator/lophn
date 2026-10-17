@@ -8,9 +8,9 @@ const TARGET = {
   project: "prj_0000000000000000000000000a",
 } as never;
 
-function gateWith(grant: "ask" | "none") {
+function gateWith(grant: "ask" | "excluded" | "none") {
   const entries = JSON.stringify(
-    grant === "ask" ? [{ kind: "agent", agent: TARGET, setting: "ask" }] : [],
+    grant === "none" ? [] : [{ kind: "agent", agent: TARGET, setting: grant }],
   );
   const sql = { get: () => ({ entries }) } as never;
   return callGate(sql, () => LOPHN as never);
@@ -21,5 +21,7 @@ Deno.test("gate_allowed opens only an asking grant", () => {
   const from = { kind: "agent", session: SENDER } as never;
   assertEquals(gateWith("ask").authorize(from, TARGET, false).ok, false);
   assertEquals(gateWith("ask").authorize(from, TARGET, true).ok, true);
-  assertEquals(gateWith("none").authorize(from, TARGET, true).ok, false);
+  assertEquals(gateWith("excluded").authorize(from, TARGET, true).ok, false);
+  // 줄이 없는 상대는 T4 기본 허락이다.
+  assertEquals(gateWith("none").authorize(from, TARGET, false).ok, true);
 });

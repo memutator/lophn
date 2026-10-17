@@ -3,6 +3,7 @@ export {
   createSocketDirectory,
   slotSockets,
   SOCKET_SLOTS,
+  socketRootKey,
 } from "./socket-dir.ts";
 export { sameChild } from "./identity.ts";
 export type { ChildIdentity } from "./identity.ts";

@@ -12,7 +12,7 @@ import {
   type ExtractSpawner,
 } from "../../blueprint/extract.ts";
 import { buildManifest } from "../bundle/manifest.ts";
-import { bundleCopyPath, sealBundle } from "../bundle/seal.ts";
+import { bundleCopyPath, writeBundle } from "../bundle/seal.ts";
 import { buildScreens } from "../ui-build/build.ts";
 import {
   extractCommit,
@@ -210,12 +210,12 @@ export async function prepareRelease(
   );
   const copy = bundleCopyPath(input.dataRoot, input.app, bundleHash);
   if (!copy.ok) return fail(copy.error.message);
-  // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인(0555)이 끝나지 않은
-  // 사본은 끊긴 준비가 남긴 것이라 지우고 다시 쓴다.
+  // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인(0555)이 끝나지 않은 사본은 끊긴
+  // 준비가 남긴 것이거나 core가 아직 봉인하지 않은 것이라 지우고 다시 쓴다. 봉인(연결 만들기)은 core가 한다.
   const found = await Deno.stat(copy.value).then((info) => info, () => null);
   const existing = found !== null && ((found.mode ?? 0) & 0o222) === 0;
   if (found !== null && !existing) await removePartial(copy.value);
-  const sealed = existing ? { ok: true as const } : await sealBundle({
+  const sealed = existing ? { ok: true as const } : await writeBundle({
     copyPath: copy.value,
     manifest: manifest.value,
     blueprintJson: blueprintBytes,

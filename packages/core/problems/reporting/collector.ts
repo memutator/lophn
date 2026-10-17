@@ -2,7 +2,7 @@
 // `problems/report-collector`로 문제 보고 worker route를 넘기는 target과, collector가 core에
 // 제출할 때 쓰는 machine credential의 operation 목록이다.
 import { ok } from "../../../base/mod.ts";
-import { appLogs, invocationsGet } from "../../../protocol/apps/mod.ts";
+import { appInvocation, appLogs } from "../../../protocol/apps/mod.ts";
 import {
   observeException,
   observeViewError,
@@ -25,7 +25,7 @@ import type {
 export const COLLECTOR_CREDENTIAL_OPERATIONS = [
   recordProblemReport.name,
   appLogs.name,
-  invocationsGet.name,
+  appInvocation.name,
   settingsList.name,
   problemGet.name,
 ];
@@ -35,7 +35,7 @@ export const COLLECTOR_CREDENTIAL_OPERATIONS = [
 export function collectorOperationPolicies(): OperationPolicy[] {
   return [
     recordProblemReport.name,
-    invocationsGet.name,
+    appInvocation.name,
     settingsList.name,
     problemGet.name,
   ].map((name): OperationPolicy => ({

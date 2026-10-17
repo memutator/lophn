@@ -15,8 +15,6 @@ import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 // skipped(edited_outside)로 고치는 AmendRevertInstall 하나다.
 // rewind_apps는 사람이 고른 앱마다 앱 rewind를 요청한 결과다. 접수(accepted)가 끝나면 한 번 고친다.
 // blocked revert는 revert_items 행이 없다. reverts.checkpoint는 turn을 시작한 입력 메시지 id를 가리킨다.
-// steer로 들어간 메시지로 하는 messages_only rewind는 checkpoints 행이 없는 메시지를 고르므로 FK는
-// messages(id)다.
 export const revertSchemaSteps: readonly SchemaStep[] = [
   {
     id: "lophn-agent.revert.tables",

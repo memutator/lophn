@@ -119,7 +119,10 @@ export function inputText(
     case "reaction": {
       const tag = INPUT_TAGS.reaction;
       const seq = input.from.kind === "program" ? input.from.event_seq : "";
-      return wrap(tag, { event: input.event ?? "", seq }, input.body);
+      return [
+        wrap(tag, { event: input.event ?? "", seq }, input.body),
+        ...refLines(input.refs),
+      ].join("\n");
     }
     case "notice": {
       const tag = INPUT_TAGS.notice;

@@ -267,13 +267,14 @@ export async function prepareFromSource(
     if (evaluated.code !== 0) return fail("blueprint_eval_failed");
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
-    // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만, write는 staging만, env는 이름만 허락한다.
+    // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만(호출자가 `cacheBuildTools`로 미리 받아 둔다), env는 이름만 허락한다. write는 staging과, esbuild deno
+    // loader가 npm 사본을 hardlink로 모으는 deno-dir 폴더 셋이다(`Deno.link`는 원본 쪽에도 write를 요구해 npm 폴더가 든다).
     const built = await runDeno(deno, [
       "run",
       "--no-prompt",
       `--config=${REPO}/deno.json`,
       `--allow-read=${staging},${sdkRoot},${denoDir}`,
-      `--allow-write=${staging}`,
+      `--allow-write=${staging},${denoDir}/npm,${denoDir}/deno_esbuild,${denoDir}/deno_esbuild_tmp`,
       "--allow-env",
       `--allow-run=${[deno, ...await esbuildBinaries(denoDir)].join(",")}`,
       APP_BUILD,

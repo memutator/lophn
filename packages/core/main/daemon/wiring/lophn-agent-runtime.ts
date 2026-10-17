@@ -1,9 +1,17 @@
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   removeQueued,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
-import { providerList, ROLES } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  interruptTurns,
+  OAUTH_REFRESH_LEAD_MS,
+  providerList,
+  providerRead,
+  type ProviderRecord,
+  refreshProviderCredential,
+  ROLES,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import {
   agentConditions,
   roleOperations,
@@ -12,6 +20,7 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { FILE_HOOKS } from "../../../agent-roles/hooks.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
+import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
@@ -27,6 +36,7 @@ import {
   createTurnStarter,
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
+import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
@@ -48,8 +58,34 @@ const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
   credential_ref: SESSION_INPUTS_PRINCIPAL,
 };
 
+// 구독 provider의 OAuth token을 runtime에 건네기 직전에 갱신하는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const PROVIDER_REFRESH_PRINCIPAL = "machine:provider-refresh";
+
+const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
+  principal: PROVIDER_REFRESH_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: [providerRead.name, refreshProviderCredential.name],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: PROVIDER_REFRESH_PRINCIPAL,
+};
+
+// agent runtime child가 사라질 때 돌던 turn을 닫는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const RUNTIME_END_PRINCIPAL = "machine:runtime-end";
+
+const RUNTIME_END_CONTEXT: AuthenticatedContext = {
+  principal: RUNTIME_END_PRINCIPAL,
+  actor: "machine",
+  scope: { operations: [interruptTurns.name], targets: {} },
+  conditions: {},
+  credential_ref: RUNTIME_END_PRINCIPAL,
+};
+
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
+  let stopWatching: (() => void) | undefined;
   // 입력함은 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
   const inbox = createInbox();
   return {
@@ -68,7 +104,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           ),
       });
     },
-    records: () => [SESSION_INPUTS_CONTEXT],
+    records: () => [
+      SESSION_INPUTS_CONTEXT,
+      PROVIDER_REFRESH_CONTEXT,
+      RUNTIME_END_CONTEXT,
+    ],
     // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
     build(ctx) {
       const humanOnly = (who: AuthenticatedContext): Result<void> =>
@@ -93,7 +133,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         const user = humanOnly(who);
         if (!user.ok) return user;
         const input = removeQueued.input.parse(body);
-        const done = await ctx.runtime.writer.command(SESSION_INPUTS_CONTEXT, {
+        const done = await ctx.writer.command(SESSION_INPUTS_CONTEXT, {
           command: messageRemoveQueued.name,
           input,
           idempotency_key: crypto.randomUUID(),
@@ -122,6 +162,38 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
     async afterReady(ctx) {
       const { runtime } = ctx;
+      const refresher = createProviderRefresher({
+        async readProvider(provider) {
+          const read = await runtime.readers.read(
+            providerRead,
+            PROVIDER_REFRESH_CONTEXT,
+            { provider },
+          );
+          if (read.ok) {
+            return ok((read.value as { provider: ProviderRecord }).provider);
+          }
+          return read.error.code === "not_found" ? ok(null) : read;
+        },
+        secrets: ctx.secretStore,
+        http: ctx.issuerRequests.fetch,
+        record: (provider, result) =>
+          ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
+            command: refreshProviderCredential.name,
+            input: {
+              provider: provider.id,
+              expires_at: "expires_at" in result ? result.expires_at : null,
+              unavailable_reason: "unavailable_reason" in result
+                ? result.unavailable_reason
+                : null,
+            },
+            idempotency_key: crypto.randomUUID(),
+            compare: { revision: provider.revision },
+            prepared: [],
+          }),
+        nowMs: () => ctx.clock.nowMs(),
+        leadMs: OAUTH_REFRESH_LEAD_MS,
+      });
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const started = await startAgentRuntimeChild({
         io: ctx.io,
         operationsFor: (role) =>
@@ -139,10 +211,20 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           starter: createTurnStarter({ inbox }),
         }),
         publish: ctx.bus.publish,
+        inbox,
+        // TurnEnded는 commit 뒤에 Bus로 나가 권한 요청과 질문의 기다림을 푼다.
+        interruptTurns: () =>
+          ctx.writer.command(RUNTIME_END_CONTEXT, {
+            command: interruptTurns.name,
+            input: {},
+            idempotency_key: ids.newId("idk"),
+            compare: {},
+            prepared: [],
+          }),
         epoch: ctx.epoch,
         dataRoot: ctx.root.path,
         apiPort: ctx.server.port,
-        socketRoot: appSocketRoot(),
+        socketRoot: appSocketRoot(ctx.root.path),
         gauge: ctx.blobBuffer,
         prepareBlob: (call) => ctx.blobRelay.prepare(call),
         read: (route, context, input) =>
@@ -154,6 +236,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           process: AGENT_RUNTIME_KIND,
           task: AGENT_RUNTIME_TASK,
           mcpOAuth: ctx.mcpAuthControl.prepareToken,
+          providerOAuth: refresher.prepareToken,
         }),
         readMcpServers: () =>
           mcpServerSnapshot(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
@@ -192,8 +275,31 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       });
       if (started.ok) agentRuntime = started.value;
       else console.error(`agent runtime: ${started.error.message}`);
+      // 사람의 멈춤이나 session 끝남(archive·delete)이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청과 tool을 끊게 한다.
+      // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
+      stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
+        send(event) {
+          if (event.type !== "TurnEnded") return;
+          const { outcome } = event.payload;
+          if (outcome.kind !== "interrupted") return;
+          if (
+            outcome.reason !== "user_stopped" &&
+            outcome.reason !== "session_ended"
+          ) return;
+          void ctx.io.send(
+            AGENT_RUNTIME_KIND,
+            {
+              type: "turn_stop",
+              turn: event.payload.turn,
+              reason: outcome.reason,
+            } satisfies ParentMessage,
+          ).catch(() => {});
+        },
+        close() {},
+      });
     },
     closeIntake() {
+      stopWatching?.();
       agentRuntime?.stop();
     },
   };

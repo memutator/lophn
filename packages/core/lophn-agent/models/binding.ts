@@ -32,7 +32,6 @@ export type ModelBinding = {
   endpoint: string;
   // token 사용량 정의 판.
   usageRevision: string;
-  timeoutMs: number | null;
   pack: WirePacker;
   invoke: InvokeModelCall;
   // provider가 켜져 있고 쓸 수 있는지.

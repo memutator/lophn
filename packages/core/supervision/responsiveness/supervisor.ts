@@ -98,6 +98,7 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
   const slots = new Map<string, Slot>();
   const locks = new Map<string, Promise<void>>();
   const deps: Deps = {
+    clock: options.clock,
     denoCommand: options.denoCommand,
     readyMs: options.readyMs ?? READY_MS,
     stopMs: options.stopMs ?? STOP_MS,
@@ -290,7 +291,7 @@ async function supervise(slot: Slot, deps: Deps) {
   }
 }
 
-// kind 하나의 재기동은 ready 전후를 합쳐 최대 3회다.
+// kind 하나의 재기동은 연속 실패를 ready 전후를 합쳐 최대 3회까지 한다.
 function nextAttempt(slot: Slot): number | undefined {
   if (slot.failures >= RESTART_LIMIT) {
     slot.phase = "unavailable";

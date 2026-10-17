@@ -1,19 +1,23 @@
 // coding agent CLI의 명령 목록. 이름, 입력, 출력, 인증을 묶는다.
 // 인증은 환경 변수 `LOPHN_CODING_TOKEN`(`coding_token`)뿐이다. `local` 명령은 token 없이
 // core를 부르지 않고 Settings와 shell main이 exec로 부른다.
-// 앱은 token이 정하므로 입력의 `app`은 선택이다.
+// `app`은 route가 정한 대로다. core는 token에서 `app`을 채우지 않아 필수인 명령은 `ticket list`·`ticket show`가
+// 알려 주는 앱 id를 입력에 넣어야 한다.
 import { z } from "zod";
 import { appGet } from "../apps/apps.ts";
 import { appAppApi } from "../apps/blueprint/read.ts";
 import { appInvocations } from "../apps/calls/invocation.ts";
-import { appIdSchema } from "../apps/channel-values.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
-import { releasePrepareBundle } from "../apps/releases.ts";
+import { releasePreparation, releasePrepareBundle } from "../apps/releases.ts";
 import { appLogs, appRuntime } from "../apps/runtime.ts";
 import type { Route } from "../base/route.ts";
-import { requestTest } from "../problems/tests.ts";
+import {
+  getTestRequest,
+  getVerification,
+  requestTest,
+} from "../problems/tests.ts";
 import {
   problemGet,
   problemList,
@@ -58,13 +62,12 @@ export type CodingCliCommand = {
   route?: Route;
 };
 
-// route 입력 위에 공통 칸을 얹는다. route 쪽 검사는 core가 다시 한다. 칸 이름이 겹치면 route 쪽이 이긴다.
+// route 입력 위에 공통 칸을 얹는다. 칸 이름이 겹치면 route 쪽이 이긴다.
 function withCommon(input: z.ZodType): z.ZodType {
   if (!(input instanceof z.ZodObject)) {
     throw new Error("cli input must be an object");
   }
   const shape = { ...input.shape } as Record<string, z.ZodType>;
-  if ("app" in shape) shape["app"] = appIdSchema.optional();
   return z.strictObject({ ...cliCommonSchema.shape, ...shape }).refine(
     (value) => value.input === undefined || value.input_file === undefined,
     { message: "input and input_file are exclusive" },
@@ -150,6 +153,20 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   ),
   token("app show", appGet, appGet.input, appGet.output),
   token("app test", requestTest, requestTest.input, requestTest.output),
+  // `app test`로 접수한 request_key의 접수와 result_ref를 읽는다.
+  token(
+    "app test status",
+    getTestRequest,
+    getTestRequest.input,
+    getTestRequest.output,
+  ),
+  // result_ref로 통과·실패와 이유를 읽는다.
+  token(
+    "app test result",
+    getVerification,
+    getVerification.input,
+    getVerification.output,
+  ),
   token(
     "app preview start",
     previewsStart,
@@ -177,6 +194,13 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     releasePrepareBundle,
     releasePrepareBundle.input,
     releasePrepareBundle.output,
+  ),
+  // 준비 진행을 읽는다. 끝났고 같은 bundle hash의 통과한 app test가 있으면 core가 release를 확정해 id를 준다.
+  token(
+    "release status",
+    releasePreparation,
+    releasePreparation.input,
+    releasePreparation.output,
   ),
   // 의존으로 선언된 package의 안내 읽기만 한다.
   token(

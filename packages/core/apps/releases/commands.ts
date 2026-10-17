@@ -520,7 +520,7 @@ export function createReleaseCommands(): {
         if (pinned?.hash !== input.blueprint_hash) {
           return invalid("bundle blueprint.json does not match the blueprint");
         }
-        // 선언한 의존과 bundle에 담긴 의존이 같아야 한다. SDK, 사용자 package, npm·jsr 모두 같은 선언이다.
+        // blueprint는 SDK와 사용자 package만 선언한다(npm·jsr은 선언 문법이 없다). bundle에 담긴 그 둘이 선언과 같아야 한다.
         if (
           canonicalJson(blueprint.sdk_dependencies as never) !==
             canonicalJson(manifestDependencies(manifest) as never)
@@ -586,16 +586,25 @@ function requireMachine(ctx: RequestContext, route: string): Result<void> {
     : err({ code: "forbidden", message: `${route} is machine only` });
 }
 
-// bundle에 담긴 의존이다. `sdk_dependencies`와 `dependencies`를 합쳐 이름순으로 낸다.
+// bundle에 담긴 의존 가운데 blueprint가 선언하는 것(SDK와 사용자 package)이다. 이름순으로 낸다.
 function manifestDependencies(
   manifest: {
     sdk_dependencies: readonly { name: string; version: string }[];
-    dependencies: readonly { name: string; version: string }[];
+    dependencies: readonly {
+      name: string;
+      version: string;
+      source: "sdk" | "package" | "npm" | "jsr";
+    }[];
   },
 ): { name: string; version: string }[] {
   const byName = new Map<string, { name: string; version: string }>();
   for (
-    const dependency of [...manifest.sdk_dependencies, ...manifest.dependencies]
+    const dependency of [
+      ...manifest.sdk_dependencies,
+      ...manifest.dependencies.filter((item) =>
+        item.source === "sdk" || item.source === "package"
+      ),
+    ]
   ) {
     byName.set(dependency.name, {
       name: dependency.name,

@@ -252,7 +252,7 @@ export const archiveSession = defineCommand({
   errors: ["not_found", "conflict", "unauthorized", "invalid_input"],
 });
 
-// 되돌릴 수 없다. 진행 중·대기 중 run이 있으면 conflict, 그 run이 만든 문서·앱 변경은 지우지
+// 되돌릴 수 없다. 도는 turn은 interrupted(session_ended)로 닫고 진행한다. 그 turn이 만든 문서·앱 변경은 지우지
 // 않는다. 결과는 지운 사실의 최소 기록뿐이다.
 export const deleteSession = defineCommand({
   resource: "sessions",

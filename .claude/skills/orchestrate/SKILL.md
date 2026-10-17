@@ -51,7 +51,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 소유 path만 고친다. 계약은 고치지 않고 요청을 보고에 적는다. project-docs는 고치지 않는다.
 - import를 끊으려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 `check-deps` 예외로 둔다.
 - 지우거나 옮기거나 값을 바꾼 이름·숫자는 grep해 주석과 오류 메시지에 남은 것도 고친다. 규칙을 모을 때 이미 있는 표를 쓰고 사본을 만들지 않는다(옛 이름이 남은 주석을 lead가 따로 고친 일이 네 번, 모으는 task가 role 표 사본을 또 만든 일이 있다).
-- test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다.
+- test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다(계획이 brief로 정한 `tests/e2e`의 flow만 예외).
 - worker의 Bash 호출은 매번 cwd와 변수가 처음으로 돌아간다. 명령마다 `cd <worktree>; ...`로 시작한다(안 그러면 main checkout에서 돈다).
 - core 확인: 띄우기부터 끄기까지 Bash 호출 하나로 한다. `cd <worktree>; mkdir -m 700 -p .dev-data/<id>; export LOPHN_HOME=$PWD/.dev-data/<id>; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/<id>/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID`. `;`로 잇고 `&&` 사슬이나 `( ... )`로 background에 보내지 않는다(`$!`가 subshell이라 deno가 남은 일이 있다). **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.

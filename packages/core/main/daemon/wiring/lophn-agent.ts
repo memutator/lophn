@@ -15,6 +15,8 @@ import {
 } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
+import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
+import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
@@ -68,8 +70,37 @@ export const lophnAgentWiring: WiringFactory = () => ({
   },
 });
 
-// OAuth 로그인도 writer queue 앞에서 listener와 network를 기다린다. login 세션은 처리기 메모리에만 있다.
-export const lophnAgentProviderLoginWiring: WiringFactory = () => ({
-  name: "lophn-agent-provider-login",
-  build: () => ok({ writer: (inner) => withProviderLogin(inner) }),
-});
+// 구독 OAuth 로그인은 writer queue 앞에서 listener와 발급자 network를 다룬다. login 세션은 처리기 메모리에만 있다.
+// 발급자 요청 대기열을 여기서 만든다: MCP OAuth(extensions wiring)와 provider 갱신(runtime wiring)이 뒤에서
+// 같이 쓴다. core에는 외부 fetch가 없어 agent runtime이 machine 입구로 가져가 대신 보낸다.
+export const lophnAgentProviderLoginWiring: WiringFactory = () => {
+  let ending: (() => Promise<void>) | undefined;
+  return {
+    name: "lophn-agent-provider-login",
+    build(ctx) {
+      const requests = createIssuerRequests({
+        newId: () => crypto.randomUUID(),
+      });
+      ctx.provide("issuerRequests", requests);
+      return ok({
+        writer: (inner) => {
+          const login = withProviderLogin(inner, {
+            http: requests.fetch,
+            openListener: openCallbackListener,
+            secrets: ctx.secretStore,
+            newKey: () => crypto.randomUUID(),
+            nowMs: () => ctx.clock.nowMs(),
+            random: ctx.random,
+          });
+          ending = login.endAll;
+          return login;
+        },
+        memory: [...requests.handlers],
+      });
+    },
+    // 기다리는 로그인의 callback listener를 서버 정지 전에 닫는다.
+    async closeIntake() {
+      await ending?.();
+    },
+  };
+};

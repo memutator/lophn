@@ -141,6 +141,8 @@ Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async 
   ].map((server) => runtimeServerOfLayer(server, null));
   const values = new Map([
     ["provider.p1", "VALUE-provider"],
+    ["provider.p1.refresh", "VALUE-refresh"],
+    ["provider.p1.meta", "VALUE-meta"],
     ["mcp.global.srv", "VALUE-mcp"],
     ["mcp.global.off", "VALUE-off"],
     ["other.srv", "VALUE-other"],
@@ -179,6 +181,9 @@ Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async 
     ["mcp.global.srv", "https://api.example.com", "forbidden"],
     ["provider.p1", "https://mcp.example.com", "forbidden"],
     ["provider.p1", "https://api.example.com", "VALUE-provider"],
+    // 구독 로그인의 refresh token과 meta는 provider endpoint로도 나가지 않는다.
+    ["provider.p1.refresh", "https://api.example.com", "forbidden"],
+    ["provider.p1.meta", "https://api.example.com", "forbidden"],
     // 끈 서버와 이름 공간 밖 이름은 목적지가 없다.
     ["mcp.global.off", "https://off.example.com", "forbidden"],
     ["other.srv", "https://mcp.example.com", "forbidden"],

@@ -131,12 +131,13 @@ function base64url(bytes: Uint8Array): string {
 export type CallbackListener = {
   // loopback callback port다. 127.0.0.1에만 듣는다.
   port(): number;
-  // 사람이 돌아온 callback을 기다린다. code·state·iss를 돌려준다.
+  // 사람이 돌아온 callback을 기다린다. code·state·iss와 발급 client_id(동적 등록한 발급자만 준다)를 돌려준다.
   receive(signal: AbortSignal): Promise<
     Result<{
       code: string;
       state: string;
       iss: string | null;
+      client_id: string | null;
     }>
   >;
   close(): Promise<void>;

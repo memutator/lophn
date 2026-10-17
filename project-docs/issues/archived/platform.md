@@ -219,3 +219,25 @@ guard: "secret 값은 자기 이름 공간의 목적지로만 간다", "MCP 설�
 정한 것: keychain 길을 통째로 지운다. MCP credential과 MCP OAuth token을 `secrets.json`으로 옮기고, keychain adapter, 옛 ledger `secrets` 표와 그 command·read, `libsecret-tools` 의존을 지운다. `windowSecretOpener`는 provider OAuth `signIn`이 아직 쓰므로 그 절의 결정 때 지운다. (사람)
 
 닫음: MCP credential과 OAuth token이 `secrets.json`에 있다. 설정의 `{secret}`은 `mcp.` 이름만 받고(보통 `mcp.<global 또는 project id>.<서버>`) renderer가 서버를 더한 뒤 `windowSecretInputOpener`·`enterSecret`(purpose `mcp`)으로 값을 받는다. 상태는 `secrets/status`로 읽는다. OAuth token은 `mcp-oauth.<scope>.<server>.access`·`.refresh`·`.meta`다. 감독 pipe는 `{name, destination}` 하나이고 `createFileSecretAttach`가 이름의 앞머리로 용도를 정하며 `lophn-agent/secret-destinations.ts`가 이름 공간마다 목적지를 찾는다. `windowSecretOpener`는 provider OAuth `signIn`이 아직 쓴다(provider OAuth 절).
+
+## provider OAuth 로그인 길은 있지만 그 credential로 model을 부르는 길이 없다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
+closed: fixed
+guard: [packages/core/lophn-agent/providers/login_test.ts, packages/core/lophn-agent/providers/oauth-refresh_test.ts, packages/core/lophn-agent/providers/secret-refs_test.ts]
+```
+
+지금: provider 정의의 `auth_kinds`에 `oauth`가 있고(`packages/protocol/lophn-agent/provider-values.ts`), core에 로그인 흐름(`packages/core/lophn-agent/providers/oauth.ts`, `providers/login.ts`)이, 설정 화면에 `signIn`(`settings/providers/core-source.ts`)이 있다. 그러나 붙여 넣기 창을 여는 `settings/core-call.ts`의 `windowSecretOpener`가 preload에 없는 `lophnShell.openConfirmation`을 찾아 창이 열리지 않고(preload는 `openSecretInput`만 낸다), agent runtime의 secret 전달(`run-loop/runtime-secret.ts`)은 `provider.`·`mcp.`·`mcp-oauth.` 이름만 보낸다. OAuth token이 model 호출에 실리는 길이 없다.
+
+영향: 사람이 구독 계정(OAuth)으로 provider를 연결할 수 없다. 화면에는 sign in 단추가 보인다.
+
+고치려면:
+- 살린다(큼): 붙여 넣기 창을 `openSecretInput` 길로 고치고, token을 `secrets.json`에 두고, runtime이 provider 호출에 token을 싣고 갱신(`RefreshProviderCredential`)을 잇는다.
+- 지운다(중간): OAuth 정의와 로그인 흐름, 화면의 sign in을 지운다. API key와 loopback provider만 남는다.
+- 추천: 사람이 구독 OAuth를 제품에 둘지 정한 뒤 그대로 한다. 둘 생각이 없으면 지운다.
+
+정한 것: 구독 계정 OAuth를 제품에 둔다. ChatGPT(공식 Sign in with ChatGPT)와 SuperGrok(device code)만 두고 Claude는 두지 않는다(Anthropic 금지). (사람, Claude 제외는 agent)
+
+닫음: 로그인이 끝나면 core(`providers/login.ts`)가 token을 `provider.<id>`·`.refresh`·`.meta`에 저장하고 ConnectProvider(`auth_kind: oauth`, `expires_at`)를 부른다. 화면은 begin → OS browser → interval마다 complete이고 붙여넣기 창은 없다. `models/resolve.ts`가 OAuth를 Bearer로 싣고, runtime이 token을 청할 때 core(`providers/oauth-refresh.ts`)가 만료 5분 전이면 갱신한다. 발급자 호출은 MCP와 같은 대기열(`issuer-requests.ts`)로 runtime이 보낸다. gate 셋(`LOPHN_LIVE_PROVIDER`, `verified_for_lophn`, wiring의 http 없음)은 지웠다.

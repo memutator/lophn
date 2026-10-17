@@ -71,6 +71,8 @@ import {
   findAppTestVerification,
   findPassedAppTest,
 } from "../../../problems/tests/app-test-lookup.ts";
+import { deriveAppTest } from "../../../problems/tests/app-test/frozen.ts";
+import { bundleCopyPath } from "../../../apps/releases/bundle/seal.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -83,6 +85,7 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
+import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -132,9 +135,15 @@ export const appsWiring: WiringFactory = () => {
         activation: {
           dataRoot: ctx.root.path,
           command: (context, envelope) =>
-            runtime.writer.command(context as never, envelope as never),
+            ctx.writer.command(context as never, envelope as never),
           machine,
           findPassedAppTest,
+          testOf: async (app, bundleHash) => {
+            const copy = bundleCopyPath(ctx.root.path, app, bundleHash);
+            if (!copy.ok) return null;
+            const derived = await deriveAppTest(copy.value, bundleHash);
+            return derived.ok ? derived.value.test_hash : null;
+          },
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,
         },
@@ -181,11 +190,8 @@ export const appsWiring: WiringFactory = () => {
       });
       invocations = ledger;
 
-      const callers: CallerDirectory = {
-        agentToolCall: (...args) =>
-          ctx.peek.callerDirectory?.agentToolCall(...args) ??
-            notAttached(),
-      };
+      const callers: CallerDirectory = createCallerDirectory(link.sql);
+      ctx.provide("callerDirectory", callers);
       const projects: ProjectDirectory = {
         list: () => ctx.peek.projectDirectory?.list() ?? notAttached(),
         get: (id) => ctx.peek.projectDirectory?.get(id) ?? notAttached(),
@@ -252,6 +258,7 @@ export const appsWiring: WiringFactory = () => {
             abandon: (app) => intake.abandon(app as Id<"app">),
             open: (app) => intake.open(app as Id<"app">),
           },
+          heldCalls: (app) => intake.heldCount(app as Id<"app">),
           invocations: {
             pruneChangesets: (app, keepRelease) =>
               ledger.pruneChangesets(
@@ -304,7 +311,7 @@ export const appsWiring: WiringFactory = () => {
                 const key = `package-publish-${await sha256Hex(
                   `${input.name}\n${input.version}\n${input.bundle_hash}\n${input.guide_hash}`,
                 )}`;
-                const done = await ctx.runtime.writer.command(
+                const done = await ctx.writer.command(
                   PACKAGE_PUBLISH_CONTEXT as never,
                   {
                     command: packageRegisterVersion.name,

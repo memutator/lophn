@@ -251,17 +251,21 @@ async function open(
   const merged = <T>(
     pick: (built: Built) => Iterable<readonly [string, T]> | undefined,
   ) => new Map(builts.flatMap((built) => [...pick(built) ?? []]));
+  // 쓰기 앞 처리기는 안쪽에서 바깥으로 접는다(앞 wiring이 안쪽이다). API server와 core 안 호출이 같은 것을 쓴다.
+  ctx.provide(
+    "writer",
+    builts.reduce(
+      (inner, built) => built.writer ? built.writer(inner) : inner,
+      runtime.writer,
+    ),
+  );
   let server: ApiServer;
   try {
     server = await startApiServer({
       port: options.port,
       credentials: ctx.registry,
       clock,
-      // 쓰기 앞 처리기는 안쪽에서 바깥으로 접는다(앞 wiring이 안쪽이다).
-      writer: builts.reduce(
-        (inner, built) => built.writer ? built.writer(inner) : inner,
-        runtime.writer,
-      ),
+      writer: ctx.writer,
       reads: runtime.reads,
       memory: new Map([
         ...runtime.memory.handlers,

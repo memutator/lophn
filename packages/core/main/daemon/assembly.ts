@@ -37,6 +37,7 @@ import { problemsWiring } from "./wiring/problems.ts";
 import { problemsTestsWiring } from "./wiring/problems-tests.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
+import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { storageWiring } from "./wiring/storage.ts";
@@ -118,5 +119,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   problemsTestsWiring,
   lophnAgentExtensionsWiring,
   lophnAgentRuntimeWiring,
+  sessionSnapshotsWiring,
   serverWiring,
 ];

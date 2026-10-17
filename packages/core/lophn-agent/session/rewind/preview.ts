@@ -202,34 +202,21 @@ function externalFacts(
 
 function gather(lookup: Lookup, target: RewindTarget): Result<Gathered> {
   const message = lookup.sql.get(
-    `select m.from_kind as from_kind, m.created_seq as created_seq,
-            exists (select 1 from checkpoints c where c.message = m.id) as checkpoint
-       from messages m where m.id = ? and m.session = ?`,
+    `select m.created_seq as created_seq, c.files_restorable as files_restorable
+       from messages m join checkpoints c on c.message = m.id
+      where m.id = ? and m.session = ?`,
     [target.checkpoint, target.session],
   );
-  if (
-    message === undefined ||
-    (Number(message["checkpoint"]) !== 1 && message["from_kind"] !== "human")
-  ) return reject("not_found", "checkpoint message not found");
+  if (message === undefined) {
+    return reject("not_found", "checkpoint message not found");
+  }
   const boundary = String(message["created_seq"]);
   const restoreAll = target.choice === "restore_all";
-  if (restoreAll) {
-    const checkpoint = lookup.sql.get(
-      "select files_restorable from checkpoints where message = ?",
-      [target.checkpoint],
+  if (restoreAll && Number(message["files_restorable"]) !== 1) {
+    return reject(
+      "invalid_input",
+      "the files of this checkpoint cannot be restored",
     );
-    if (checkpoint === undefined) {
-      return reject(
-        "invalid_input",
-        "a steered message restores messages only",
-      );
-    }
-    if (Number(checkpoint["files_restorable"]) !== 1) {
-      return reject(
-        "invalid_input",
-        "the files of this checkpoint cannot be restored",
-      );
-    }
   }
   const records = restoreAll
     ? lookup.sql.all(
@@ -277,10 +264,9 @@ export function observationOf(
 //   options.observed: 주면 파일을 다시 읽지 않고 그 관측을 쓴다(command는 준비 때 본 관측으로 다시 판정한다).
 // 파일 판정은 choice=restore_all일 때만 한다. messages_only·summarize는 파일을 건드리지 않으므로 judged가
 // 비어 있다. 거절 규칙:
-//   checkpoint가 session에 없거나 사람이 보낸 메시지가 아니고 checkpoint도 아니면 `not_found`.
-//   steer 메시지(checkpoints 행 없음)에 restore_all이면, files_restorable=false인 checkpoint에 restore_all이면
-//   `invalid_input`. 이미 숨긴 구간 안의 checkpoint 검사는 hidden.ts다(Rewind command와 preview 읽기가 따로
-//   부른다).
+//   checkpoint가 session에 없거나 checkpoint 행이 없는 메시지(steer로 들어간 메시지 등)면 `not_found`.
+//   files_restorable=false인 checkpoint에 restore_all이면 `invalid_input`.
+//   이미 숨긴 구간 안의 checkpoint 검사는 hidden.ts다(Rewind command와 preview 읽기가 따로 부른다).
 export function planRewind(
   lookup: Lookup,
   deps: PlanDeps,

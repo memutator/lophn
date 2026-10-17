@@ -3,13 +3,10 @@ import {
   annotationSend,
   annotationUploadScreenshot,
 } from "../../../protocol/apps/annotation.ts";
-import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import {
   defineTxPort,
   type ReaderRegistration,
-  snapshotPort,
 } from "../../storage/ledger/mod.ts";
-import { codingSessionLookup } from "../tickets/coding/lookup.ts";
 import { TicketAnnotationLookup } from "../tickets/ports.ts";
 import { ANNOTATION_BLOB_FIELDS, ANNOTATION_BLOB_PURPOSES } from "./blobs.ts";
 import { createAnnotationCommands } from "./commands.ts";
@@ -47,8 +44,7 @@ export function createCoreRegistration() {
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [reads.get],
-    ports: new Map<unknown, unknown>([
-      [CodingSessionLookup, snapshotPort((s) => codingSessionLookup(s.sql))],
-    ]),
+    // 같은 port는 tickets 등록이 낸다(reader Worker가 모든 등록의 port를 모든 read에 준다).
+    ports: new Map<unknown, unknown>(),
   };
 }

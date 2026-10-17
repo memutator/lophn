@@ -54,6 +54,9 @@ const port: { value: number } = { value: 0 };
 // 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
+// socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
+const dataRoot = Deno.env.get("LOPHN_HOME");
+let socketDirectory: string | undefined;
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
 function placeOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
@@ -62,7 +65,9 @@ function placeOf(app: string): { broker: string; control: string } {
     if (slot >= SOCKET_SLOTS) throw new Error("no free app socket slot");
     slots.set(app, slot);
   }
+  if (dataRoot === undefined) throw new Error("LOPHN_HOME is not set");
   const created = createSocketDirectory({
+    dataRoot,
     xdgRuntimeDir: Deno.env.get("XDG_RUNTIME_DIR"),
     uid: Deno.uid() ?? 0,
     ensureDir: (path, mode) => Deno.mkdirSync(path, { recursive: true, mode }),
@@ -70,6 +75,7 @@ function placeOf(app: string): { broker: string; control: string } {
     randomName: () => "slot",
   });
   if (!created.ok) throw new Error(created.error.message);
+  socketDirectory = created.value.directory;
   const made = slotSockets(created.value.directory, slot);
   if (!made.ok) throw new Error(made.error.message);
   return { broker: made.value.brokerSocket, control: made.value.controlSocket };
@@ -86,6 +92,14 @@ function socketPathsOf(app: string): { broker: string; control: string } {
   return made;
 }
 
+// 정상 정지 때 자기 socket 폴더만 통째로 지운다. crash로 남은 폴더는 다음 기동이 다시 쓴다.
+function removeSocketDirectory(): void {
+  if (socketDirectory === undefined) return;
+  try {
+    Deno.removeSync(socketDirectory, { recursive: true });
+  } catch { /* 이미 없으면 지울 것이 없다 */ }
+}
+
 async function readBody(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -98,7 +112,6 @@ const credential: { value: string } = { value: "" };
 
 // release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 좁은 권한의
 // 자식으로 돌린다. 진행은 이 프로세스의 메모리다(apps/releases).
-const dataRoot = Deno.env.get("LOPHN_HOME");
 const preparation = dataRoot === undefined
   ? undefined
   : createPreparationService(createChildPreparationRunner({
@@ -175,7 +188,10 @@ const link = attachControlLink(assembled.supervisor, stdin, {
 let stopping: Promise<void> | undefined;
 const stopOnce = () => stopping ??= assembled.supervisor.stop();
 const shutdown = () => {
-  void stopOnce().finally(() => Deno.exit(0));
+  void stopOnce().finally(() => {
+    removeSocketDirectory();
+    Deno.exit(0);
+  });
 };
 Deno.addSignalListener("SIGINT", shutdown);
 Deno.addSignalListener("SIGTERM", shutdown);
@@ -199,5 +215,6 @@ installCrashHandler({
 
 await link.closed;
 assembled.shutdown();
+removeSocketDirectory();
 // 열린 timer(관측·ready 기한)가 남아 있어도 core가 끝난 supervisor는 끝낸다.
 Deno.exit(0);

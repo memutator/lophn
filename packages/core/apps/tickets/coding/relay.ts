@@ -41,6 +41,8 @@ type CodingRelayDeps = {
   tokens(): CodingTokens;
   // Settings의 기본 실행 옵션.
   defaults(): CodingOptions;
+  // 발급한 token의 자격을 ledger에 기록한다. 기록이 없으면 writer가 그 token의 command를 거절한다.
+  record(credentialRef: string): Promise<Result<void>>;
   // 연결된 shell main에 터미널 요청 frame을 보낸다. 연결이 없으면 unavailable이다.
   send(frame: GatewayServerFrame): Result<void>;
   // 없으면 source diff는 unavailable이다.
@@ -201,6 +203,47 @@ export function createCodingRelay(deps: CodingRelayDeps) {
     };
   }
 
+  const failed = (request: string) =>
+    void signal({ kind: "terminal_result", request, ok: false }).then(
+      (done) => {
+        if (!done.ok) {
+          console.error(
+            `coding: terminal failure not recorded (${done.error.code})`,
+          );
+        }
+      },
+    );
+
+  // open 요청에 token을 만들어 plan의 env에 담아 보낸다. token의 자격은 ledger에 기록한 뒤에야 쓸 수 있다.
+  async function open(
+    request: Extract<CodingTerminalRequest, { kind: "open" }>,
+  ): Promise<void> {
+    const { session, app } = request.plan;
+    const issued = deps.tokens().issue({ session, app } as never);
+    if (!issued.ok) {
+      console.error(`coding: token issue failed (${issued.error.code})`);
+      failed(request.request);
+      return;
+    }
+    const recorded = await deps.record(issued.value.credential_ref);
+    if (!recorded.ok) {
+      console.error(`coding: token record failed (${recorded.error.code})`);
+      failed(request.request);
+      return;
+    }
+    const sent = deps.send({
+      type: "coding_terminal",
+      request: {
+        ...request,
+        plan: {
+          ...request.plan,
+          env: { ...request.plan.env, [CODING_TOKEN_ENV]: issued.value.token },
+        },
+      },
+    });
+    if (!sent.ok) failed(request.request);
+  }
+
   return {
     // route 이름은 `${resource}/${method}`다.
     handlers: {
@@ -238,16 +281,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
     // commit 뒤 일 가운데 token 회수와 터미널 요청을 한다. open 요청은 여기서 token을 만들어 plan의 env에 담는다.
     // token을 못 만들거나 frame을 보내지 못하면 터미널이 실패 결과를 낸 것으로 본다.
     apply(actions: readonly CommitAction[]): void {
-      const failed = (request: string) =>
-        void signal({ kind: "terminal_result", request, ok: false }).then(
-          (done) => {
-            if (!done.ok) {
-              console.error(
-                `coding: terminal failure not recorded (${done.error.code})`,
-              );
-            }
-          },
-        );
       for (const action of actions) {
         if (action.topic === CODING_REVOKE_TOPIC) {
           const { session } = action.data as { session: string };
@@ -260,25 +293,10 @@ export function createCodingRelay(deps: CodingRelayDeps) {
           continue;
         }
         if (action.topic !== CODING_TERMINAL_TOPIC) continue;
-        let request = action.data as CodingTerminalRequest;
+        const request = action.data as CodingTerminalRequest;
         if (request.kind === "open") {
-          const { session, app } = request.plan;
-          const issued = deps.tokens().issue({ session, app } as never);
-          if (!issued.ok) {
-            console.error(`coding: token issue failed (${issued.error.code})`);
-            failed(request.request);
-            continue;
-          }
-          request = {
-            ...request,
-            plan: {
-              ...request.plan,
-              env: {
-                ...request.plan.env,
-                [CODING_TOKEN_ENV]: issued.value.token,
-              },
-            },
-          };
+          void open(request);
+          continue;
         }
         if (!deps.send({ type: "coding_terminal", request }).ok) {
           failed(request.request);

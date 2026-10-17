@@ -4,12 +4,17 @@
 // - context 쓰기를 하는 agent가 그 project의 Project Manager session인지 보는 판정
 // - session을 열고 Router가 session 목록을 읽을 때 쓰는 project, 앱, Operator 조회
 import { ok } from "../../../../base/mod.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import { contextAuthorityPort } from "../../../projects/contexts/mod.ts";
 import {
   projectInfoOf,
   projectManagerProvisioningPort,
 } from "../../../projects/registry/mod.ts";
-import { defineTxPort } from "../../../storage/ledger/mod.ts";
+import {
+  defineTxPort,
+  type ReaderRegistration,
+  snapshotPort,
+} from "../../../storage/ledger/mod.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import { ensureProjectManager } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
@@ -90,18 +95,34 @@ const ports = [
     },
   })),
   // actor는 `agent:<session>`이다. 그 project의 Project Manager session만 context를 쓴다.
-  defineTxPort(contextAuthorityPort, (tx) => ({
-    canWrite(actor, project) {
+  defineTxPort(contextAuthorityPort, (tx) => contextAuthority(tx.sql)),
+];
+
+function contextAuthority(
+  sql: Pick<Sql, "get">,
+) {
+  return {
+    canWrite(actor: string, project: string) {
       const session = actor.startsWith("agent:") ? actor.slice(6) : null;
       if (session === null) return false;
-      return tx.sql.get(
+      return sql.get(
         `select 1 as found from sessions
          where id = ? and role = 'project_manager' and project = ?`,
         [session, project],
       ) !== undefined;
     },
-  })),
-];
+  };
+}
+
+// bundle.test_draft 같은 read도 쓸 수 있는지 본다.
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [],
+    ports: new Map<unknown, unknown>([
+      [contextAuthorityPort, snapshotPort((s) => contextAuthority(s.sql))],
+    ]),
+  };
+}
 
 export function createCoreRegistration() {
   return { ports };

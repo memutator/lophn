@@ -54,8 +54,6 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 ### Operator
 
 - O1. 사람이 Operator session에서 일을 시키면, Operator는 붙은 context와 할당받은 app-api로 자료를 읽고 판단해 결과를 남긴다.
-- O2. 앱 place의 Operator는 앱 data를 사람이 정한 project 폴더에 파일로 쓸 수 있다.
-- O3. project 밖에 문서를 쓰게 되면, Operator는 먼저 어느 project에 둘지 사람에게 묻는다.
 - O4. 일하다 앱의 버그나 모자란 기능을 만나면, Operator는 직접 고치지 않고 그 앱의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - O5. 고쳐진 결과를 받아야 일을 이어갈 수 있으면, Operator는 App Engineer에게 결과를 받는 call로 맡기고 결과가 돌아오면 이어서 일한다.
 - O6. context 계약을 바꿔야 하면, Operator는 직접 고치지 않고 Project Manager에게 call로 맡긴다.

@@ -17,8 +17,8 @@ import {
   finishToolCall,
   finishTurn,
   instructionsGet,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
+  issuerRequestDone,
+  issuerRequestTake,
   mcpToolsRequestDone,
   mcpToolsRequestTake,
   messageBody,
@@ -44,7 +44,7 @@ import {
   turnList,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { appRuntime, invocationsList } from "../../../protocol/apps/mod.ts";
+import { appRuntime } from "../../../protocol/apps/mod.ts";
 import {
   agentGrantsGet,
   applyApprovedAction,
@@ -108,9 +108,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   approvalsText,
   applyApprovedAction,
   cancelApprovalRequest,
-  // MCP OAuth 발급자 호출을 core 대신 보낸다: core에는 외부 fetch가 없다.
-  mcpAuthRequestTake,
-  mcpAuthRequestDone,
+  // OAuth 발급자 호출(MCP, provider)을 core 대신 보낸다: core에는 외부 fetch가 없다.
+  issuerRequestTake,
+  issuerRequestDone,
   // Grants의 MCP tool 목록을 core 대신 서버에 연결해 읽는다: MCP 연결은 runtime의 몫이다.
   mcpToolsRequestTake,
   mcpToolsRequestDone,
@@ -122,10 +122,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   contextListRoute,
   contextGetRoute,
   contextContractRoute,
-  // app-api tool의 정의 재료(활성 release 선언과 agent grant)와 결과 조회(invocation 기록)를 읽는다.
+  // app-api tool의 정의 재료(활성 release 선언과 agent grant)를 읽는다.
   appAppApi,
   agentGrantsGet,
-  invocationsList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
 ] as const;

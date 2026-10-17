@@ -271,6 +271,10 @@ export const agents = {
     "Use lowercase letters, numbers, hyphens or underscores.",
   "settings.error.custom-name": "Enter a display name.",
   "settings.error.custom-url": "Use https, or http only for this computer.",
+  "settings.error.sign-in-expired":
+    "The sign-in took too long. Nothing changed. Try again.",
+  "settings.error.sign-in-refused":
+    "This account can't be used here. Nothing changed. Try another account or an API key.",
   "settings.extensions.server-added":
     "{name} is added. New work can use it once any credential is saved.",
   "settings.extensions.server-failed":
@@ -288,6 +292,7 @@ export const agents = {
   "settings.label.custom-url": "Base URL",
   "settings.label.extensions-target": "your tools and skills",
   "settings.label.login-signed-in": "Signed in",
+  "settings.label.method-continue": "Continue with {product}",
   "settings.label.method-opens-browser": "Opens your browser",
   "settings.label.method-sign-in": "Sign in with {product}",
   "settings.label.off": "Off",
@@ -308,10 +313,13 @@ export const agents = {
   "settings.notice.custom-id-help":
     "Lowercase letters, numbers, hyphens or underscores.",
   "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
-  "settings.notice.method-unverified": "Not confirmed to work with lophn yet.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.notice.provider-lead":
     "A provider is a service you connect with one key or sign-in. You choose models per agent and per session, not here.",
+  "settings.notice.sign-in-browser":
+    "Finish signing in to {product} in your browser.",
+  "settings.notice.sign-in-code":
+    "Enter this code on the page that opened in your browser.",
   "settings.server.address-help":
     "A secure web address, or one on this computer.",
   "settings.server.arguments-help": "One per line. They are passed as written.",
@@ -329,6 +337,7 @@ export const agents = {
     "Your plan doesn't allow this. Check that your plan includes it.",
   "settings.status.sign-in-problem":
     "There's a sign-in problem. Disconnect, then connect again.",
+  "settings.status.sign-in-waiting": "Waiting for you to finish signing in.",
   "settings.status.usage-limit":
     "Usage limit reached. Wait for the limit to reset.",
   "settings.title.connect-provider": "Connect {name}",

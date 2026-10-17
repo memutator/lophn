@@ -29,13 +29,12 @@ import {
   mcpAuthBegin,
   mcpAuthCancel,
   mcpAuthComplete,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
   mcpAuthState,
   mcpToolsList,
   mcpToolsRequestDone,
   mcpToolsRequestTake,
 } from "./mcp-settings.ts";
+import { issuerRequestDone, issuerRequestTake } from "./issuer-requests.ts";
 
 export const ROUTES = [
   // 옛 session·message route 가운데 새 route로 바뀐 것은 뺀다.
@@ -76,9 +75,9 @@ export const ROUTES = [
   mcpAuthComplete,
   mcpAuthState,
   mcpAuthCancel,
-  // runtime이 발급자 호출을 대신 보내는 machine 입구다.
-  mcpAuthRequestTake,
-  mcpAuthRequestDone,
+  // runtime이 OAuth 발급자 호출(MCP, provider)을 대신 보내는 machine 입구다.
+  issuerRequestTake,
+  issuerRequestDone,
   // Grants 화면의 MCP tool 목록 읽기와 runtime이 그 요청을 가져가 답하는 machine 입구다.
   mcpToolsList,
   mcpToolsRequestTake,

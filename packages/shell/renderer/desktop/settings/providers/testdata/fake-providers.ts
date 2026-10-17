@@ -30,10 +30,10 @@ function connection(
   };
 }
 
-/** Anthropic: 로그인. OpenAI와 xAI: API key. */
+/** OpenAI: ChatGPT 로그인. Anthropic과 xAI: API key. */
 const CONNECTED: readonly ProviderRow[] = [
-  connection(ANTHROPIC, "Anthropic", "anthropic", "oauth"),
-  connection(OPENAI, "OpenAI", "openai", "api_key"),
+  connection(ANTHROPIC, "Anthropic", "anthropic", "api_key"),
+  connection(OPENAI, "OpenAI", "openai", "oauth"),
   connection(XAI, "xAI", "xai", "api_key"),
 ];
 
@@ -53,17 +53,17 @@ function definition(
   };
 }
 
-const ANTHROPIC_DEFINITION = definition("anthropic", "Anthropic", {
-  ways: ["oauth", "api_key"],
-  signIn: { product: "Claude", verified: true },
-});
+const ANTHROPIC_DEFINITION = definition("anthropic", "Anthropic");
 
 const OPENAI_DEFINITION = definition("openai", "OpenAI", {
   ways: ["oauth", "api_key"],
-  signIn: { product: "ChatGPT", verified: true },
+  signIn: { product: "ChatGPT", button: "continue" },
 });
 
-const XAI_DEFINITION = definition("xai", "xAI");
+const XAI_DEFINITION = definition("xai", "xAI", {
+  ways: ["oauth", "api_key"],
+  signIn: { product: "SuperGrok", button: "sign-in" },
+});
 
 const CUSTOM_DEFINITION = definition("custom", "Custom provider", {
   hint: "Any OpenAI-compatible endpoint",
@@ -93,6 +93,8 @@ type ProviderCall =
 interface FakeProvidersOptions {
   connected?: readonly ProviderRow[];
   available?: readonly ProviderDefinitionRow[];
+  /** 구독 로그인을 고르면 이 code로 기다림을 보이고 그만둘 때까지 끝나지 않는다(gallery가 기다림 화면을 고정한다). */
+  signInWaits?: { userCode: string | null };
   /** 이 이름의 호출은 이 code로 실패한다. */
   failing?: Partial<
     Record<
@@ -130,8 +132,19 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
       if (back !== undefined) available = [back, ...available];
       return Promise.resolve(ok(null));
     },
-    connect(key, way) {
+    connect(key, way, progress) {
       calls.push(["connect", key, way]);
+      const waits = options.signInWaits;
+      if (way === "oauth" && waits !== undefined && progress !== undefined) {
+        progress.started(waits);
+        return new Promise((resolve) =>
+          progress.signal.addEventListener(
+            "abort",
+            () => resolve({ ok: false, code: "cancelled" }),
+            { once: true },
+          )
+        );
+      }
       return Promise.resolve(fail("connect") ?? ok(null));
     },
     registerCustom(input) {

@@ -37,3 +37,32 @@ export function buildEnvironment(tmp: string): Record<string, string> {
   }
   return env;
 }
+
+const REPO = new URL("../../../../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
+
+// build 도구(esbuild 실행 파일과 deno loader)를 deno-dir에 받는다. `deno cache`는 앱 코드를 실행하지 않는다.
+// 준비 자식은 시작할 때 이미 있는 esbuild 실행 파일만 실행 허락 목록에 담을 수 있어서 자식을 띄우기 전에 부른다.
+export async function cacheBuildTools(
+  deno: string,
+  env: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const done = await new Deno.Command(deno, {
+    args: [
+      "cache",
+      "--no-lock",
+      `--config=${REPO}/deno.json`,
+      `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
+    ],
+    env,
+    clearEnv: true,
+    stdin: "null",
+    stdout: "null",
+    stderr: "null",
+    signal,
+  }).output();
+  return done.success;
+}

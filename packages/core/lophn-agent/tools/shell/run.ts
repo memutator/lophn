@@ -126,9 +126,7 @@ export async function runShell(
     return fail("unavailable", "cannot start the shell");
   }
 
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
+  const kill = () =>
     void killGroup(child.pid).then(() => {
       try {
         child.kill("SIGKILL");
@@ -136,12 +134,20 @@ export async function runShell(
         // 이미 끝났다.
       }
     });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    kill();
   }, timeoutMs);
+  // 사람이 turn을 멈추면 group을 죽인다. 안 그러면 명령이 멈춘 뒤에도 돈다.
+  if (ctx.signal?.aborted) kill();
+  else ctx.signal?.addEventListener("abort", kill, { once: true });
 
   const out = collect(child.stdout);
   const errOut = collect(child.stderr);
   const status = await child.status;
   clearTimeout(timer);
+  ctx.signal?.removeEventListener("abort", kill);
   const empty: Collected = { text: "", truncated: false };
   const grace = <T>(promise: Promise<T>, fallback: T) =>
     Promise.race([

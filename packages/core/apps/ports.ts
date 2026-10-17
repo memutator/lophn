@@ -163,6 +163,8 @@ export interface AppIntake {
   abandon(app: Id<"app">): Promise<void>;
   /** 접수를 다시 열고 붙잡은 호출을 넘긴다. 넘길 때 대상 release는 그때의 활성 release다. */
   open(app: Id<"app">): void;
+  /** 닫힌 동안 붙잡아 둔 호출 수. */
+  heldCount(app: Id<"app">): number;
 }
 
 /**

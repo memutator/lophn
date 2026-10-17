@@ -1,4 +1,4 @@
-/* Connect dialog: 로그인 방법 고르기 목록과 Custom provider form. */
+/* Connect dialog: 로그인 방법 고르기 목록, 구독 로그인 기다림, Custom provider form. */
 .stack {
   display: flex;
   flex-direction: column;
@@ -80,4 +80,18 @@
   color: var(--color-text-primary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
+}
+
+/* 구독 로그인을 기다리는 동안. device code는 사람이 그대로 옮겨 적도록 크게 보인다. */
+.code {
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  text-align: center;
+  user-select: all;
 }

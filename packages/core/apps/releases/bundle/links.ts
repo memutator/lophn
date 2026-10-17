@@ -77,19 +77,14 @@ export function decodeLinks(
   return ok(links);
 }
 
-// 연결을 만들고, 새로 만든 부모 폴더를 directories에 넣는다(호출한 쪽이 마지막에 좁힌다).
+// 연결을 만든다. 부모 폴더는 이미 열려 있는 사본 안에서 만든다.
 export async function createLinks(
   copyPath: string,
   links: readonly VendorLink[],
-  directories: string[],
 ): Promise<void> {
   for (const link of links) {
-    const segments = link.path.split("/").slice(0, -1);
-    for (let depth = 1; depth <= segments.length; depth += 1) {
-      const directory = `${copyPath}/${segments.slice(0, depth).join("/")}`;
-      await Deno.mkdir(directory, { recursive: true });
-      directories.push(directory);
-    }
-    await Deno.symlink(link.target, `${copyPath}/${link.path}`);
+    const path = `${copyPath}/${link.path}`;
+    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await Deno.symlink(link.target, path);
   }
 }

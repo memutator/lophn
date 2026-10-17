@@ -1,4 +1,5 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   agentSessionRead,
   openAgentSession,
@@ -16,6 +17,7 @@ import {
   deleteSession,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
+  messageBody,
   serializeMessageContent,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -26,6 +28,12 @@ import {
 } from "../../../lophn-agent/session/message-body.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
+import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
+import {
+  createSessionDirectory,
+  placeDepsOf,
+} from "../../../lophn-agent/places/mod.ts";
+import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
   callsReact,
   callsRecover,
@@ -47,7 +55,7 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 켤 때 잃어버린 call을 닫는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+// 켤 때 잃어버린 call을 닫는 core 안 machine 자격이다. 입력함에 되돌릴 사람 메시지의 본문을 읽는 데도 쓴다. 기동 때 ledger에 기록한다.
 const ROUTER_PRINCIPAL = "machine:router";
 
 const ROUTER_CONTEXT: AuthenticatedContext = {
@@ -194,8 +202,9 @@ export const routerWiring: WiringFactory = () => {
       // session이 있으면 그 App Engineer session에, 없으면 새 session을 열어 사람 메시지 하나로 넣는다. 이미지는
       // 메시지에 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+      // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
       const run = async (route: { name: string }, input: unknown) => {
-        const done = await ctx.runtime.writer.command(
+        const done = await ctx.writer.command(
           ANNOTATION_DELIVERY_CONTEXT,
           {
             command: route.name,
@@ -266,7 +275,7 @@ export const routerWiring: WiringFactory = () => {
       eventsConnection = opened.value;
       const reaction: ReactionRouter = {
         async send(call, idempotencyKey) {
-          const done = await ctx.runtime.writer.command(ROUTER_CONTEXT, {
+          const done = await ctx.writer.command(ROUTER_CONTEXT, {
             command: callsReact.name,
             input: {
               event_seq: call.from.kind === "program"
@@ -304,22 +313,20 @@ export const routerWiring: WiringFactory = () => {
       eventsConnection = undefined;
     },
     // 입력함과 앱 줄이 메모리라 꺼졌다 켜진 뒤에는 잃어버린 call과 돌던 turn이 있다. 같은 tx에서 닫고,
-    // agent runtime이 turn을 읽기 전에(afterReady 앞) 끝낸다.
+    // agent runtime이 turn을 읽기 전에(afterReady 앞) 끝낸다. 접수만 하고 turn이 가져가지 않은 사람 메시지는
+    // 입력함에 되돌려 새 turn을 연다.
     async start(ctx) {
-      const writer = withAfterCommit(
-        ctx.runtime.writer,
-        createInboxApplier({
-          inbox: ctx.inbox,
-          publish: (event) => ctx.bus.publish(event),
-        }),
-      );
+      const apply = createInboxApplier({
+        inbox: ctx.inbox,
+        publish: (event) => ctx.bus.publish(event),
+      });
       // 보낸 session에 이유를 돌려줄 글을 준비하지 못하면 알림 없이 닫는다.
       const prepared = await prepareTexts(
         ctx.bodyPrepare,
         ROUTER_CONTEXT,
         [FAILURE_TEXTS.lophn_restarted],
       );
-      const done = await writer.command(ROUTER_CONTEXT, {
+      const done = await ctx.writer.command(ROUTER_CONTEXT, {
         command: callsRecover.name,
         input: { notify: prepared.ok },
         idempotency_key: crypto.randomUUID(),
@@ -330,6 +337,58 @@ export const routerWiring: WiringFactory = () => {
         console.error(
           `router: could not close lost calls (${done.error.code})`,
         );
+      }
+      // 본문은 blob이라 tx 안에서 읽지 못한다. 같은 ledger를 읽는 main thread 연결로 가려 읽는다.
+      if (eventsConnection !== undefined) {
+        const sql = eventsConnection.sql;
+        const directory = createSessionDirectory({
+          ...placeDepsOf(sql),
+          publish: () => {},
+          sql: () => sql,
+        });
+        for (const pending of unstartedHumanMessages(sql)) {
+          // 보관한 place의 session은 새 입력을 받지 않는다.
+          if (!directory.find(pending.session as Id<"ses">)?.accepting) {
+            continue;
+          }
+          // ReadMessageBody는 blob을 읽어서 reader pool 밖의 read다.
+          const body = await ctx.runtime.reads.get(
+            `${messageBody.resource}/${messageBody.method}`,
+          )!(ROUTER_CONTEXT, { message: pending.id });
+          if (!body.ok) {
+            console.error(
+              `router: could not requeue a received message (${body.error.code})`,
+            );
+            continue;
+          }
+          const { content } = body.value as {
+            content: { parts: { kind: string; text?: string }[] };
+          };
+          const text = content.parts.flatMap((part) =>
+            part.kind === "text" ? [part.text ?? ""] : []
+          ).join("\n");
+          apply([{
+            topic: INBOX_PUT_TOPIC,
+            data: {
+              session: pending.session,
+              input: {
+                kind: "message",
+                from: { kind: "human" },
+                call: null,
+                reply_to: null,
+                body: text,
+                refs: pending.refs,
+                delivery: "next_turn",
+                message: pending.id,
+                reply: null,
+                outcome: null,
+                event: null,
+                notice: null,
+              },
+              at: pending.created_at,
+            },
+          }]);
+        }
       }
       return ok(undefined);
     },

@@ -41,6 +41,19 @@ self.onmessage = async (event: MessageEvent) => {
       read: ReadDefinition;
       ports: ReadonlyMap<unknown, unknown>;
     }>();
+    // writer의 tx port처럼 어느 registration이 등록한 port든 모든 read가 쓴다. 같은 key를 두 곳에서 등록하면
+    // 조용히 덮이지 않게 기동 때 던진다.
+    const sharedPorts = new Map<unknown, unknown>();
+    for (const registration of registrations) {
+      for (const [key, port] of registration.ports) {
+        if (sharedPorts.has(key)) {
+          throw new Error(
+            `duplicate reader port ${(key as { name: string }).name}`,
+          );
+        }
+        sharedPorts.set(key, port);
+      }
+    }
     for (const registration of registrations) {
       for (const read of registration.reads) {
         const key = readKey(read.route);
@@ -49,7 +62,7 @@ self.onmessage = async (event: MessageEvent) => {
         }
         definitions.set(key, {
           read,
-          ports: new Map([...registration.ports, [KNOWN_SECRETS, matcher]]),
+          ports: new Map([...sharedPorts, [KNOWN_SECRETS, matcher]]),
         });
       }
     }

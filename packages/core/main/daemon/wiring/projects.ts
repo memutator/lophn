@@ -242,7 +242,7 @@ export const projectsWiring: WiringFactory = () => {
         command: (envelope) => {
           const context = runtime.current(credentialRef);
           return context.ok
-            ? runtime.writer.command(context.value as never, envelope)
+            ? ctx.writer.command(context.value as never, envelope)
             : Promise.resolve(context);
         },
         nowMs: () => performance.now(),

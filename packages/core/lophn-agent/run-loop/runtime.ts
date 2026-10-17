@@ -50,6 +50,7 @@ import { allowNetList, allowRunList } from "../extensions/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { createTurnPipe } from "./turn-pipe.ts";
 import type { TurnSource } from "./ports.ts";
+import type { Inbox } from "./inbox.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리. child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
@@ -58,7 +59,8 @@ import type { TurnSource } from "./ports.ts";
 // - turn마다 `agent:<ses>` credential: child가 감독 pipe로 청하고, core가 자기 기록으로
 //   대조한 뒤 발급한다(`createAgentCredentialLink`).
 // 감독 pipe의 blob 준비 요청은 child kind의 정책(child-blob-prepare)으로 받는다. 등록한 provider
-// 목적지가 바뀌면 권한 목록이 달라지므로 core가 옛 child를 멈추고 새 목록으로 다시 띄운다.
+// 목적지가 바뀌면 권한 목록이 달라지므로 core가 옛 child를 멈추고 새 목록으로 다시 띄운다. 도는 turn이 있으면
+// 그 turn이 끝날 때까지 미룬다. child가 crash하면 돌던 turn은 core가 interrupted(restarted)로 닫는다.
 
 export const AGENT_RUNTIME_KIND = "lophn-agent/runtime";
 export const AGENT_RUNTIME_TASK = "lophn-agent";
@@ -212,6 +214,10 @@ type AgentRuntimeDeps = {
   // child가 감독 pipe로 읽는 입력함(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
   // 읽지 못하고 event는 버려진다.
   turns?: TurnSource;
+  // 도는 turn이 있는지(child를 바꾸기를 미루는 기준)와, child가 사라질 때 그 표시를 풀 길이다. 정본은 입력함이다.
+  inbox?: Pick<Inbox, "anyRunning" | "endAll">;
+  // child가 사라졌다. 그 child가 돌리던 turn을 ledger에서 interrupted(restarted)로 닫는다.
+  interruptTurns?: () => Promise<Result<unknown>>;
   publish?: (event: AgentEvent) => void;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
@@ -320,11 +326,14 @@ export async function startAgentRuntimeChild(
         }).catch(() => {});
       },
       onFrame: (frame: Frame) => handler.onFrame(frame),
-      // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않는다.
+      // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않고, 돌던 turn은 닫힌다.
+      // 입력함의 도는 표시는 ledger가 닫힌 뒤에 푼다: 먼저 풀면 새 입력이 아직 running인 행과 겹친다.
       onEnd() {
         alive = false;
         handler.close();
         deps.registry.endBy("process", AGENT_RUNTIME_PROCESS);
+        void (deps.interruptTurns?.() ?? Promise.resolve()).catch(() => {})
+          .finally(() => deps.inbox?.endAll());
         if (blob === handler) {
           handler = newBlob();
           blob = handler;
@@ -407,6 +416,8 @@ export async function startAgentRuntimeChild(
         same(allowRunList(servers), allowRunList(mcp)) &&
         same(folders.read, place.read) && same(folders.write, place.write)
       ) return;
+      // 도는 turn은 끊지 않는다. 다음 주기에 마지막 목록으로 다시 본다.
+      if (deps.inbox?.anyRunning()) return;
       const restarted = await deps.io.updateSpec(
         specFor(read.value, roots, servers, folders),
         hello,

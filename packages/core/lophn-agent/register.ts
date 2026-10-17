@@ -127,6 +127,9 @@ import {
   mcpAuthRequestTake,
   mcpAuthState,
   type McpServer,
+  mcpToolsList,
+  mcpToolsRequestDone,
+  mcpToolsRequestTake,
   type Place,
   profileImageRead,
   profileImageUpload,
@@ -800,6 +803,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpAuthCancel,
       mcpAuthRequestTake,
       mcpAuthRequestDone,
+      // Grants의 MCP tool 목록. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
+      mcpToolsList,
+      mcpToolsRequestTake,
+      mcpToolsRequestDone,
       // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
       askWait,
       askRead,

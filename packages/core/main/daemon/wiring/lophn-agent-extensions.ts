@@ -5,6 +5,7 @@ import {
   type McpOAuthVault,
 } from "../../../lophn-agent/extensions/mod.ts";
 import { createMcpAuthRequests } from "../../../lophn-agent/extensions/mcp-auth-requests.ts";
+import { createMcpToolRequests } from "../../../lophn-agent/extensions/mcp-tool-requests.ts";
 import {
   createMcpAuthControl,
   openMcpCallbackListener,
@@ -48,7 +49,11 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
       control = created;
       ctx.provide("mcpAuthControl", created);
       // handler는 등록한 http 서버의 oauth2 인증 방식만 잡는다.
-      return ok({ memory: [...created.handlers, ...requests.handlers] });
+      // Grants의 MCP tool 목록 요청 대기열이다. runtime이 가져가 서버를 읽고 답한다(mcp-tool-requests.ts).
+      const tools = createMcpToolRequests({ newId: () => crypto.randomUUID() });
+      return ok({
+        memory: [...created.handlers, ...requests.handlers, ...tools.handlers],
+      });
     },
     // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.
     async closeIntake() {

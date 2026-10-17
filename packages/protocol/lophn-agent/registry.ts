@@ -32,6 +32,9 @@ import {
   mcpAuthRequestDone,
   mcpAuthRequestTake,
   mcpAuthState,
+  mcpToolsList,
+  mcpToolsRequestDone,
+  mcpToolsRequestTake,
 } from "./mcp-settings.ts";
 
 export const ROUTES = [
@@ -76,4 +79,8 @@ export const ROUTES = [
   // runtime이 발급자 호출을 대신 보내는 machine 입구다.
   mcpAuthRequestTake,
   mcpAuthRequestDone,
+  // Grants 화면의 MCP tool 목록 읽기와 runtime이 그 요청을 가져가 답하는 machine 입구다.
+  mcpToolsList,
+  mcpToolsRequestTake,
+  mcpToolsRequestDone,
 ] as const;

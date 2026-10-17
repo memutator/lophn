@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py agent-place build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `mcp-grants-contract` | mcp-grants | 1 | 없음 | merged | mcp-grants/mcp-grants-contract | 300144a31 |  |
-| `mcp-grants-core` | mcp-grants | 1 | mcp-grants-contract | running | mcp-grants/mcp-grants-core |  |  |
+| `mcp-grants-core` | mcp-grants | 1 | mcp-grants-contract | merged | mcp-grants/mcp-grants-core | 657cabdfb |  |
 | `mcp-grants-screen` | mcp-grants | 1 | mcp-grants-contract | merged | mcp-grants/mcp-grants-screen | 72080bbe6 |  |
 | `place-folders-draft` | place-folders | 1 | 없음 | merged | place-folders/place-folders-draft | c323a8da5 |  |
 | `place-folders-rule` | place-folders | 1 | 없음 | merged | place-folders/place-folders-rule | 7fe99e8dc |  |

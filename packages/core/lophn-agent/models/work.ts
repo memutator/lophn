@@ -6,7 +6,7 @@ import {
   modelCatalogRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Result } from "../../../base/mod.ts";
-import { err, ok } from "../../../base/mod.ts";
+import { err, formatAt, ok } from "../../../base/mod.ts";
 import type {
   Input,
   Output,
@@ -241,7 +241,7 @@ export function createCatalogRefresher(
       return ok(cached!);
     }
     // JSON 해석을 먼저 하고, 실패면 전체 거절이다.
-    const bodyParsed = validateCatalogBody(result.body);
+    const bodyParsed = validateCatalogBody(result.body, formatAt(nowMs));
     if (!bodyParsed.ok) {
       const next = stateAfterFailure(current.value.state, "invalid_input");
       const written = await persist(current.value.entries, next);

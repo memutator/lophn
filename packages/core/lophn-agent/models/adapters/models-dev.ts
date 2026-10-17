@@ -1,4 +1,4 @@
-import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   catalogEntrySchema,
   EFFORT_LABELS,
@@ -256,10 +256,10 @@ export function modelsDevEntries(
 }
 
 // 응답 body를 해석한다. 잘못된 JSON은 갱신 전체 거절 사유다.
-// at을 받는 쪽은 clock 시각을 넘긴다. 빠지면 지금 시각이다(work.ts가 넘기기 전의 호출 꼴).
+// at은 호출한 쪽 clock의 시각이다.
 export function parseCatalogBody(
   body: string,
-  at: string = formatAt(Date.now()),
+  at: string,
 ): Result<unknown[]> {
   let parsed: unknown;
   try {

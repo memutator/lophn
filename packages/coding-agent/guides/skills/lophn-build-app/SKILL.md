@@ -64,12 +64,12 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    어떤 component가 있는지는 분류의 `mod.ts`가 목록이고 export마다 "언제 쓰나"
    한 줄이 있다. 위치는 앱 `.lophn/import-map.json`의 `@lophn/ui/<분류>` 값이
    가리키는 설치 사본이다. token과 기본 글꼴은 `@lophn/ui/tokens.css`,
-   `@lophn/ui/base.css`로 받고, 앱 CSS는 token 변수만 쓴다.
-   사람이 고른 accent, 배경, 글꼴이 token 변수로 앱에 들어오니 색과 글꼴 값을
-   직접 쓰지 않는다. 앱 bridge를 쓰는
-   AppApiButton, useAppApi, AppErrorBoundary는 `@lophn/app-ui`다(guide는 그 설치
-   사본의 `guide.md`). 고치고 싶은 component는 그 파일을 앱 `src/`로 복사해
-   쓴다. 복사한 파일은 앱 것이라 이후 lophn의 UI update가 닿지 않는다.
+   `@lophn/ui/base.css`로 받고, 앱 CSS는 token 변수만 쓴다. 사람이 고른 accent,
+   배경, 글꼴이 token 변수로 앱에 들어오니 색과 글꼴 값을 직접 쓰지 않는다. 앱
+   bridge를 쓰는 AppApiButton, useAppApi, AppErrorBoundary는
+   `@lophn/app-ui`다(guide는 그 설치 사본의 `guide.md`). 고치고 싶은 component는
+   그 파일을 앱 `src/`로 복사해 쓴다. 복사한 파일은 앱 것이라 이후 lophn의 UI
+   update가 닿지 않는다.
 5. blueprint나 의존을 바꿔야 하면 직접 고치지 않는다. 무엇을 왜 바꿔야 하는지
    `message send`로 App Engineer에게 청하고 답을 기다린다.
 6. 구현한다. 화면과 app api(`src/app-api.ts`의 handler, 화면에서는

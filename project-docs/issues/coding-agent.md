@@ -130,21 +130,6 @@ modules: [packages/core/apps]
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
 
-## 텍스트 출력의 data fence
-
-```yaml
-kind: defect
-modules: [packages/coding-agent]
-```
-
-지금: `coding-agent/cli/output.ts`의 `renderLines`가 공백 없는 짧은 token(`isPlainToken`: 128자 이하, `[\w.:/@+#=-]`)이 아닌 문자열은 모두 `fence.ts`의 `fenceBlock`으로 감싼다. 자료 안의 `<<<`는 깬다.
-
-영향: 출력 규칙이 두 갈래다. 그러나 이 규칙은 ticket 본문 같은 자료가 안내 글과 섞여 coding agent를 조종하지 못하게 하는 경계다(architecture "지키는 것").
-
-고치려면: 규칙을 줄이면 prompt injection 방어가 약해진다. 추천: 남긴다. 이유를 `fence.ts` 주석에 이미 적었으니 kept로 닫는다.
-
-정한 것: 지운다. 사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다(AGENTS.md). `fence.ts`와 `renderLines`의 분기를 지우고 값을 그대로 쓴다.
-
 ## harness 감지 결과를 shell main 메모리에 쥔다
 
 ```yaml

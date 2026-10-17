@@ -15,7 +15,7 @@
 | `platform-crash-diagnostics` | platform | 1 | 없음 | merged | platform/platform-crash-diagnostics | 5ad6df39b |  |
 | `router-waiting-and-failure` | router | 1 | 없음 | merged | router/router-waiting-and-failure | 903fb1c2c |  |
 | `trust-agent-notes` | trust | 1 | 없음 | merged | trust/trust-agent-notes | dd8fdaa32 |  |
-| `trust-cli-fence` | trust | 1 | 없음 | running | trust/trust-cli-fence |  |  |
+| `trust-cli-fence` | trust | 1 | 없음 | merged | trust/trust-cli-fence | 0719e7768 |  |
 | `trust-view-error-signing` | trust | 1 | 없음 | merged | trust/trust-view-error-signing | 1274e025a |  |
 | `annotation-screenshot` | annotation | 2 | annotation-target | todo |  |  |  |
 | `dead-contexts` | dead | 2 | dead-agent | todo |  |  |  |

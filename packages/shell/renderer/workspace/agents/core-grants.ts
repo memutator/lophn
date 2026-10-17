@@ -1,6 +1,6 @@
 // agent grant를 읽고 저장하는 부분과 붙일 수 있는 대상 목록. 붙은 것은 agent_grants가, 붙일 수 있는 앱과 app-api는
 // 앱 목록과 활성 release의 blueprint가, 부를 수 있는 agent는 agent 정의 목록이 말한다.
-// 외부 MCP server의 tool 목록을 읽는 route가 없어 MCP tool 대상은 비어 있다.
+// 붙일 수 있는 MCP tool은 core가 서버에 연결해 읽은 목록(agent-mcp-tools/list)이 말한다.
 import {
   type AgentGrantEntry,
   agentKey,
@@ -8,7 +8,8 @@ import {
 import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
-import { refOf } from "./agent-key.ts";
+import type { McpToolServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import { isAppPlace, refOf } from "./agent-key.ts";
 import { type Link, unavailable } from "./core-link.ts";
 import type {
   GrantApp,
@@ -64,6 +65,30 @@ async function appCatalog(
   return found;
 }
 
+/** 읽은 서버의 tool. 읽지 못한 서버(reason이 있는 서버)는 붙일 tool이 없어 뺀다. */
+async function mcpCatalog(
+  link: Link,
+  place: string | null,
+): Promise<GrantCatalog["mcpServers"]> {
+  const body = place === null
+    ? null
+    : { kind: isAppPlace(place) ? "app" : "project", id: place };
+  const read = await link.memory<{ servers: McpToolServer[] }>(
+    "agent-mcp-tools",
+    "list",
+    { place: body },
+  );
+  if (!read.ok) return [];
+  return read.value.servers.filter((one) => one.reason === null).map((one) => ({
+    server: one.name,
+    tools: one.tools.map((tool) => ({
+      tool: tool.tool,
+      detail: tool.description,
+      effect: tool.effect,
+    })),
+  }));
+}
+
 /** 부를 수 있는 agent. 자기 자신은 뺀다. detail은 놓인 곳의 이름이다. */
 async function agentCatalog(
   link: Link,
@@ -114,16 +139,19 @@ export async function readGrants(
   );
   if (!grant.ok) return grant;
   const names = await projectNames(link);
-  const apps = await appCatalog(link, names);
+  // MCP 연결이 느린 서버가 있어도 다른 목록이 그만큼 더 늦지 않게 함께 읽는다. agent 목록은 appCatalog가
+  // 채우는 앱 이름을 쓰므로 그 뒤에 읽는다.
+  const [mcpServers, [apps, agents]] = await Promise.all([
+    mcpCatalog(link, place),
+    appCatalog(link, names).then(async (apps) =>
+      [apps, await agentCatalog(link, ref, names)] as const
+    ),
+  ]);
   return {
     ok: true,
     value: {
       entries: grant.value.grant.entries,
-      catalog: {
-        apps,
-        mcpServers: [],
-        agents: await agentCatalog(link, ref, names),
-      },
+      catalog: { apps, mcpServers, agents },
     },
   };
 }

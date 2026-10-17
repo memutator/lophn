@@ -4,15 +4,11 @@
 // ModelCall blob에는 값이나 header가 남지 않는다.
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import type {
-  SecretFileSendInput,
-  SecretSendInput,
-} from "../../../../protocol/secrets/mod.ts";
+import type { SecretFileSendInput } from "../../../../protocol/secrets/mod.ts";
 
 export type SecretAttachLike = {
   send(
-    // provider는 이름 기반(file), MCP는 옛 참조 기반이다.
-    input: SecretSendInput | SecretFileSendInput,
+    input: SecretFileSendInput,
     // 값은 callback 인자로만 넘긴다. 결과에는 전송 여부뿐이다.
     transmit: (
       value: Uint8Array | string,
@@ -58,7 +54,7 @@ export function createAuthTransport(options: {
   attach: SecretAttachLike;
   transport: Transport;
   // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 attach가 재검사한다.
-  context: SecretSendInput["context"];
+  context: SecretFileSendInput["context"];
   // secret 이름과 목적지. core가 같은 이름의 provider endpoint origin과 대조한다.
   use: SecretFileSendInput["use"];
   // 전송 기준 operation. 허용 목적지와 판이 다르면 fail closed다.

@@ -1,10 +1,7 @@
 // skill·MCP server·instruction·model 기본값을 읽는 부분. agent 설정 화면과 Agents 탭이 같이 쓴다. 전역 층은 settings 읽기와
 // skills 읽기에서, project 층은 project 확장 설정에서 온다. 앱 자리에는 project 층이 없다.
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import type {
-  McpServer,
-  McpServerConfig,
-} from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import {
   BUILTIN_SKILLS,
   type SkillEntry,
@@ -18,7 +15,7 @@ import type { McpRow, SkillRow } from "./views.ts";
 
 const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
 
-function detailOf(server: McpServerConfig | McpServer): string {
+function detailOf(server: McpServer): string {
   return server.transport === "stdio"
     ? server.stdio.executable
     : server.http.url;
@@ -57,7 +54,7 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpRow[]>> {
   if (!result.ok) return result;
   const entry = result.value.settings.find((one) => one.key === MCP_SERVERS);
   const found = entry?.chosen ?? entry?.default;
-  const servers = Array.isArray(found) ? found as McpServerConfig[] : [];
+  const servers = Array.isArray(found) ? found as McpServer[] : [];
   return {
     ok: true,
     value: servers.map((server) => ({

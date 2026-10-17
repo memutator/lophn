@@ -10,9 +10,9 @@ import {
   mcpAuthState,
   mcpAuthStateInputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type {
-  SecretDestination,
-  SecretUse,
+import {
+  secretDestinationOf,
+  type SecretFileUse,
 } from "../../../protocol/secrets/mod.ts";
 import {
   type AuthDeadline,
@@ -21,7 +21,7 @@ import {
   type HttpFetch,
   type McpOAuthServer,
   type McpOAuthVault,
-  mcpTokenRef,
+  mcpTokenNames,
 } from "./mod.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
@@ -31,8 +31,8 @@ import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 // 여기는 core의 입구와 재료를 끼운다.
 // - 발급자(token endpoint)에 닿는 일은 이 core 프로세스가 한다. 시작에서 낸 verifier·state와 받은 token이 모두
 //   core 안에만 있어야 하기 때문이다. 값은 응답·log·ledger·event 어디에도 없다.
-// - token은 OS keychain(vault)에만 보관한다. 설정에는 token이 없다. 서버(place+이름)에서 정해지는 참조가 보관을
-//   가리키고, 로그인했는지는 보관이 말한다.
+// - token은 `secrets.json`(vault)에만 보관한다. 설정에는 token이 없다. 서버(place+이름)에서 정해지는 이름에 두고,
+//   로그인했는지는 보관이 말한다.
 // - ledger를 거치지 않는다: 진행 중인 로그인은 작업 메모리가 곧 상태다.
 
 type McpAuthMemoryHandler = (
@@ -49,25 +49,12 @@ type McpAuthControlDeps = {
   // 등록한 MCP server와 등록된 place의 읽기다(전역 서버는 place가 null). 같은 이름의 서버가 여러 place에 있을 수
   // 있어 서버는 이름과 place로 고른다.
   registered(): Promise<Result<RegisteredMcpServer[]>>;
-  // token 보관이다(OS keychain).
+  // token 보관이다(`secrets.json`).
   vault: McpOAuthVault;
   nowMs(): number;
   // 기다림 시한 timer다. 없으면 제품 timer다.
   deadline?: AuthDeadline;
-  // 보관한 값이 바뀐 뒤 알려진 값 registry를 다시 맞춘다. 새 token이 안전화에 들고 옛 값이 회수된다.
-  syncSecrets?: () => Promise<unknown>;
 };
-
-// 연결이 token을 붙이려고 청한 비밀 한 개의 현재 참조다(lookupMcpSecretUse와 같은 모양).
-export type McpTokenUse = {
-  name: string;
-  sealedRef: string;
-  revision: number;
-  purpose: SecretUse["purpose"];
-  destination: SecretDestination;
-};
-
-const OAUTH_REF_PREFIX = "sec:mcp-oauth:";
 
 function samePlace(left: AgentPlace | null, right: AgentPlace | null) {
   return left === null || right === null
@@ -76,17 +63,10 @@ function samePlace(left: AgentPlace | null, right: AgentPlace | null) {
 }
 
 // 서버가 가는 곳의 origin이 청한 목적지와 같은지 본다.
-function sameOrigin(url: string, destination: SecretDestination): boolean {
-  if (destination.kind !== "https" && destination.kind !== "loopback_http") {
-    return false;
-  }
-  try {
-    const parsed = new URL(url);
-    const kind = parsed.protocol === "https:" ? "https" : "loopback_http";
-    return kind === destination.kind && parsed.origin === destination.origin;
-  } catch {
-    return false;
-  }
+function sameOrigin(url: string, destination: SecretFileUse["destination"]) {
+  const own = secretDestinationOf(url);
+  return own !== undefined && own.kind === destination.kind &&
+    own.origin === destination.origin;
 }
 
 // OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다.
@@ -102,7 +82,6 @@ function oauthServerOf(
     issuer: server.http.auth.issuer,
     serverUrl: server.http.url,
     clientId: server.http.auth.client_id,
-    tokenRef: server.http.auth.token_ref,
   };
 }
 
@@ -123,9 +102,9 @@ const timerDeadline: AuthDeadline = (ms, signal) =>
 
 export function createMcpAuthControl(deps: McpAuthControlDeps): {
   handlers: ReadonlyMap<string, McpAuthMemoryHandler>;
-  // 연결이 token을 붙이려고 청한 참조를 현재 설정과 보관에 대조한다. OAuth token 참조가 아니면 undefined다
-  // (다른 대조가 맡는다). 만료가 가까우면 여기서 갱신한다: refresh token은 core 밖으로 나가지 않는다.
-  tokenUse(use: SecretUse): Promise<Result<McpTokenUse> | undefined>;
+  // 연결이 접근 token을 붙이려고 청한 이름을 현재 설정과 보관에 대조한다. OAuth token 이름이 아니면 undefined다.
+  // 만료가 가까우면 여기서 갱신한다: refresh token은 core 밖으로 나가지 않는다. 값은 이 뒤 secret 부착이 읽는다.
+  prepareToken(use: SecretFileUse): Promise<Result<void> | undefined>;
   endAll(): Promise<void>;
 } {
   const oauth = createMcpOAuth({
@@ -133,7 +112,6 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     fetch: deps.fetch,
     nowMs: deps.nowMs,
     deadline: deps.deadline ?? timerDeadline,
-    ...(deps.syncSecrets === undefined ? {} : { changed: deps.syncSecrets }),
   });
 
   async function registeredServerOf(
@@ -217,11 +195,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     const { name, place } = parsed.data;
     const target = await oauthTarget(place, name);
     if (!target.ok) return target;
-    // 설정에 쓸 것이 없다. token은 보관에만 있다.
-    const done = await oauth.complete(
-      target.value,
-      () => Promise.resolve(ok(undefined)),
-    );
+    const done = await oauth.complete(target.value);
     if (!done.ok) return done;
     return ok({ completed: true });
   };
@@ -274,15 +248,8 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       [`${mcpAuthCancel.resource}/${mcpAuthCancel.method}`, cancel],
     ]),
 
-    async tokenUse(use) {
-      if (
-        use.purpose !== "external_mcp_credential" ||
-        !use.sealed_ref.startsWith(OAUTH_REF_PREFIX)
-      ) return undefined;
-      const forbidden = err({
-        code: "forbidden" as const,
-        message: "secret 전송을 허용하지 않는다",
-      });
+    async prepareToken(use) {
+      if (!use.name.startsWith("mcp-oauth.")) return undefined;
       const loaded = await deps.registered();
       if (!loaded.ok) {
         return err({
@@ -290,26 +257,20 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
           message: "MCP 서버 설정을 읽지 못했다",
         });
       }
-      // 이 참조를 가리키는 켜진 서버 중 자기 place의 참조를 가진 서버만 쓴다: 다른 place의 참조를 손으로
-      // 맞춘 설정은 그 서버의 token을 얻지 못한다. token은 로그인한 서버의 URL origin에만 간다.
+      // 이 이름을 자기 접근 token으로 가진 켜진 서버만 쓴다. token은 로그인한 서버의 URL origin에만 간다.
       const match = loaded.value.find((entry) => {
         const server = oauthServerOf(entry.place, entry.server);
         return server !== undefined && entry.server.enabled &&
-          server.tokenRef === use.sealed_ref &&
-          mcpTokenRef(server.key) === use.sealed_ref &&
+          mcpTokenNames(server.key).access === use.name &&
           sameOrigin(server.serverUrl, use.destination);
       });
-      if (match === undefined) return forbidden;
-      const server = oauthServerOf(match.place, match.server)!;
-      const access = await oauth.access(server);
-      if (!access.ok) return access;
-      return ok({
-        name: use.sealed_ref.slice("sec:".length),
-        sealedRef: access.value.sealedRef,
-        revision: 1,
-        purpose: use.purpose,
-        destination: use.destination,
-      });
+      if (match === undefined) {
+        return err({
+          code: "forbidden",
+          message: "secret 전송을 허용하지 않는다",
+        });
+      }
+      return await oauth.access(oauthServerOf(match.place, match.server)!);
     },
 
     endAll: () => oauth.endAll(),

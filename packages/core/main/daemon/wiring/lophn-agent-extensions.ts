@@ -1,9 +1,5 @@
 import { ok } from "../../../../base/mod.ts";
-import { randomSealedRef } from "../../../secrets/mod.ts";
-import {
-  createMcpOAuthVault,
-  type McpOAuthVault,
-} from "../../../lophn-agent/extensions/mod.ts";
+import { createMcpOAuthVault } from "../../../lophn-agent/extensions/mod.ts";
 import { createMcpAuthRequests } from "../../../lophn-agent/extensions/mcp-auth-requests.ts";
 import { createMcpToolRequests } from "../../../lophn-agent/extensions/mcp-tool-requests.ts";
 import {
@@ -15,24 +11,14 @@ import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
 import type { McpAuthControl, WiringFactory } from "./context.ts";
 
 export const lophnAgentExtensionsWiring: WiringFactory = () => {
-  // MCP OAuth token 보관이다. 값은 OS keychain에만 있고, 보관이 가진 참조는 알려진 값 registry에
-  // 올라 model로 가는 글과 저장할 글에서 지워진다.
-  let vault: McpOAuthVault | undefined;
   let control: McpAuthControl | undefined;
   return {
     name: "lophn-agent-extensions",
-    environment(ctx) {
-      const created = createMcpOAuthVault({
-        keychain: () => ctx.options.codingKeychain,
-        randomRef: randomSealedRef,
-      });
-      vault = created;
-      return { mcpOAuthRefs: () => created.refs() };
-    },
     // MCP OAuth의 시작·완료·상태·취소 입구다. 업무 규칙은 extensions의 mcp-oauth에 있고
     // 여기는 core의 memory route 입구와 재료를 끼운다.
     // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
-    // - token은 OS keychain(mcpVault)에만 두고 설정에는 쓰지 않는다. 서버(place와 이름)에서 정해지는 참조가 보관을 가리킨다.
+    // - token은 `secrets.json`의 서버 몫 `mcp-oauth.` 이름에만 두고 설정에는 쓰지 않는다. secret store가 값을 알려진
+    //   값으로 올려 model로 가는 글과 저장할 글에서 지운다.
     // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 대기열에 놓고 agent runtime이 가져가 대신
     // 보낸다(mcp-auth-requests.ts).
     build(ctx) {
@@ -44,9 +30,8 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
         openListener: openMcpCallbackListener,
         registered: () =>
           registeredMcpServers(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
-        vault: vault!,
+        vault: createMcpOAuthVault({ secrets: ctx.secretStore }),
         nowMs: () => ctx.clock.nowMs(),
-        syncSecrets: () => ctx.runtime.syncSecrets(),
       });
       control = created;
       ctx.provide("mcpAuthControl", created);

@@ -149,13 +149,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           runtime.readers.read(route, context, input),
         known: () => ctx.knownSecrets,
         secrets: createAgentRuntimeSecrets({
-          ledgerPath: ctx.ledgerPath,
-          keychain: () => ctx.options.codingKeychain,
-          fileAttach: ctx.secretAttach,
+          attach: ctx.secretAttach,
           known: () => ctx.knownSecrets,
           process: AGENT_RUNTIME_KIND,
           task: AGENT_RUNTIME_TASK,
-          mcpOAuth: ctx.mcpAuthControl.tokenUse,
+          mcpOAuth: ctx.mcpAuthControl.prepareToken,
         }),
         readMcpServers: () =>
           mcpServerSnapshot(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),

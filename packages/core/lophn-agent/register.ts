@@ -144,7 +144,6 @@ import {
 import type { AgentRoleTable } from "./agents/role-table.ts";
 import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import {
-  createMcpSecretRefSource,
   extensionSettings,
   globalMcpServersSetting,
   skillFoldersSetting,
@@ -204,7 +203,7 @@ export const lophnAgentSettings = [
 // 조립이 끼운다. reader가 없으면 read는 unavailable이다. apiRead 경로는 snapshot을
 // 받지 않아 as_of_seq를 만들 수 없어 pool read로 둔다.
 
-// provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
+// provider·credential ledger. 값은 `secrets.json`에만 있고 이곳에는 이름만 남는다.
 // model 기본값과 model call 기록·사용량 읽기. 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다.
@@ -556,8 +555,6 @@ export function createLedgerRegistration(
   environment: {
     messageBody?: MessageBodyEnvironment;
     redactBody?: (text: string) => string | null;
-    // OAuth token 보관(core 조립이 만든다)이 가진 알려진 값 참조다. 없는 등록은 설정이 가리키는 참조만 읽는다.
-    mcpOAuthRefs?: () => readonly { name: string; sealedRef: string }[];
   } = {},
 ) {
   return {
@@ -575,11 +572,6 @@ export function createLedgerRegistration(
       // 연결 가능 provider의 내장 정의는 ledger row가 아니라 동봉
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),
-    ],
-    // 외부 MCP credential의 secret 값은 core의 알려진 값 registry에 등록·회수된다.
-    // 참조는 extensions secret-refs의 통로다(#294).
-    secretRefs: [
-      createMcpSecretRefSource(environment.mcpOAuthRefs),
     ],
   };
 }

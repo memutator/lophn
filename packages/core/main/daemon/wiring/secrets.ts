@@ -1,5 +1,8 @@
 import { err, ok } from "../../../../base/mod.ts";
 import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
+import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
+import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
+import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
 import {
   secretDelete,
   secretPut,
@@ -45,24 +48,27 @@ export const secretsWiring: WiringFactory = () => {
         },
       });
       ctx.provide("secretStore", store);
-      // provider credential만 허용한다. 앱 secret은 아직 소유 concern이 없어 거절한다(fail-closed).
+      // provider와 MCP credential만 허용한다. 앱 secret은 아직 소유 concern이 없어 거절한다(fail-closed).
       // process는 관측한 감독 상태로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.
-      // 목적지는 그 이름을 가진 provider의 endpoint origin이고 부를 때마다 ledger를 읽는다.
+      // 목적지는 이름 공간마다 부를 때 읽는다(lophn-agent/secret-destinations.ts).
       ctx.provide(
         "secretAttach",
         createFileSecretAttach({
           file,
           allowance: (allowed) =>
-            allowed.purpose === "provider_credential" ? ok(undefined) : err({
-              code: "forbidden",
-              message: "secret 전송을 허용하지 않는다",
-            }),
+            allowed.purpose === "provider_credential" ||
+              allowed.purpose === "external_mcp_credential"
+              ? ok(undefined)
+              : err({
+                code: "forbidden",
+                message: "secret 전송을 허용하지 않는다",
+              }),
           processes: (context) =>
             context.conditions.process !== undefined &&
             ctx.peek.io?.observation(context.conditions.process).available ===
               true,
-          destinations: {
-            allowed(name) {
+          destinations: createSecretDestinations({
+            providers(name) {
               const opened = openConnection(ctx.ledgerPath);
               if (!opened.ok) return [];
               try {
@@ -71,7 +77,12 @@ export const secretsWiring: WiringFactory = () => {
                 opened.value.close();
               }
             },
-          },
+            mcpServers: () =>
+              mcpServerSnapshot(ctx.ledgerPath, {
+                projectLayer: PROJECT_LAYER,
+              }),
+            secrets: file,
+          }),
         }),
       );
     },

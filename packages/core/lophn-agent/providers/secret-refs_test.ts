@@ -1,9 +1,12 @@
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { ok } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
+import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SecretSendOutput } from "../../../protocol/secrets/mod.ts";
 import { createFileSecretAttach, SECRET_SEND } from "../../secrets/mod.ts";
+import { runtimeServerOfLayer } from "../extensions/mod.ts";
+import { createSecretDestinations } from "../secret-destinations.ts";
 import { providerSchemaSteps } from "./schema.ts";
 import { providerSecretDestinations } from "./secret-refs.ts";
 
@@ -109,4 +112,91 @@ Deno.test("attach는 허락한 provider endpoint origin이 아닌 목적지에 �
   // (e) endpoint origin과 같은 목적지만 값이 간다.
   const good = await run("provider.p1", https("https://api.example.com"));
   assertEquals([good.result.ok, good.sent], [true, [VALUE]]);
+});
+
+Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async () => {
+  const sql = setup();
+  const http = (
+    name: string,
+    url: string,
+    secret: string,
+    enabled = true,
+  ): McpServer => ({
+    name,
+    enabled,
+    call_timeout_ms: 60_000,
+    transport: "http",
+    http: {
+      url,
+      headers: {},
+      auth: { kind: "bearer", credential: { secret } },
+    },
+  });
+  const servers = [
+    http("srv", "https://mcp.example.com/mcp", "mcp.global.srv"),
+    http("off", "https://off.example.com", "mcp.global.off", false),
+  ].map((server) => runtimeServerOfLayer(server, null));
+  const values = new Map([
+    ["provider.p1", "VALUE-provider"],
+    ["mcp.global.srv", "VALUE-mcp"],
+    ["mcp.global.off", "VALUE-off"],
+    ["other.srv", "VALUE-other"],
+  ]);
+  const file = {
+    get: (name: string) => {
+      const value = values.get(name);
+      return value === undefined
+        ? err({ code: "not_found" as const, message: "없다" })
+        : ok(value);
+    },
+  };
+  const attach = createFileSecretAttach({
+    file,
+    allowance: () => ok(undefined),
+    processes: () => true,
+    destinations: createSecretDestinations({
+      providers: (name) => providerSecretDestinations(sql, name),
+      mcpServers: () => Promise.resolve(ok(servers)),
+      secrets: file,
+    }),
+  });
+  const context = {
+    principal: "machine:agent-runtime-secret",
+    actor: "machine" as const,
+    scope: {
+      operations: [SECRET_SEND],
+      targets: { process: "agent-runtime", task: "agent-runtime" },
+    },
+    conditions: { process: "agent-runtime", task: "agent-runtime" },
+    credential_ref: "machine:agent-runtime-secret",
+  };
+  const cases = [
+    ["mcp.global.srv", "https://mcp.example.com", "VALUE-mcp"],
+    // MCP 값은 provider endpoint로, provider 값은 MCP URL로 가지 않는다.
+    ["mcp.global.srv", "https://api.example.com", "forbidden"],
+    ["provider.p1", "https://mcp.example.com", "forbidden"],
+    ["provider.p1", "https://api.example.com", "VALUE-provider"],
+    // 끈 서버와 이름 공간 밖 이름은 목적지가 없다.
+    ["mcp.global.off", "https://off.example.com", "forbidden"],
+    ["other.srv", "https://mcp.example.com", "forbidden"],
+  ] as const;
+  for (const [name, origin, expected] of cases) {
+    const sent: unknown[] = [];
+    const result = await attach.send(
+      {
+        context,
+        use: { name, destination: { kind: "https", origin } },
+        operation: "mcp.request",
+        body: {},
+      },
+      (value) => {
+        sent.push(value);
+        return Promise.resolve(ok<SecretSendOutput>({ sent: true }));
+      },
+    );
+    assertEquals(
+      [name, origin, result.ok ? sent[0] : result.error.code],
+      [name, origin, expected],
+    );
+  }
 });

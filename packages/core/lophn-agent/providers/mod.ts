@@ -5,10 +5,7 @@ export {
   builtinProviderDefinition,
   createProviderDefinitionsRead,
 } from "./definitions.ts";
-export {
-  providerSecretDestination,
-  providerSecretDestinations,
-} from "./secret-refs.ts";
+export { providerSecretDestinations } from "./secret-refs.ts";
 export { createInvokeModelCall } from "./invoke.ts";
 export {
   type AuthKind,

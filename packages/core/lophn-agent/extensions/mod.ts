@@ -45,6 +45,7 @@ export {
 } from "./registry.ts";
 export {
   type McpRuntimeServer,
+  mcpSecretDestinations,
   mergeMcpLayers,
   runtimeServerOfLayer,
 } from "./mcp-server.ts";
@@ -82,15 +83,16 @@ export {
   type McpToolEntry,
   type McpToolsSource,
 } from "./mcp-tools.ts";
-export { createMcpSecretRefSource, lookupMcpSecretUse } from "./secret-refs.ts";
 export { createMcpOAuth, type McpOAuthServer } from "./mcp-oauth.ts";
 export {
   createMcpOAuthVault,
   type McpAuthKey,
   mcpAuthKeyId,
   type McpGrant,
+  mcpOAuthSecretDestinations,
   type McpOAuthVault,
-  mcpTokenRef,
+  mcpTokenNames,
+  type McpVaultSecrets,
 } from "./mcp-oauth-vault.ts";
 export {
   type AuthDeadline,

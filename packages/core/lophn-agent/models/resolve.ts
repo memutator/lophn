@@ -14,10 +14,10 @@ import {
   createFetchTransport,
   createInvokeModelCall,
   credentialUsable,
-  providerSecretDestination,
   type SecretAttachLike,
   withRequestHeaders,
 } from "../providers/mod.ts";
+import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
   anthropicPacker,
@@ -97,7 +97,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     // 값이 있는 credential의 전송: API key만 닿고 값은 전송 직전에만 붙는다.
     let transport: AuthTransport = { send: fetching };
     if (credential.kind !== "none") {
-      const destination = providerSecretDestination(provider.endpoint);
+      const destination = secretDestinationOf(provider.endpoint);
       if (
         credential.kind !== "api_key" || credential.secret_ref === null ||
         deps.attach === undefined || destination === undefined

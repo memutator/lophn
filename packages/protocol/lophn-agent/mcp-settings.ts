@@ -7,84 +7,20 @@ import { secretNameSchema } from "../secrets/secrets.ts";
 import { agentPlaceOutputSchema, agentPlaceSchema } from "./agent-values.ts";
 import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
 
-const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const nonempty = z.string().regex(/\S/);
 const nameSchema = z.string().regex(/^[A-Za-z0-9_-]{1,32}$/);
 const effectSchema = z.enum(["read", "write", "external"]);
-
-const secretRef = z.string().regex(/^sec:[A-Za-z0-9_.:-]{1,200}$/);
-const plainOrSecret = z.union([
-  z.strictObject({ kind: z.literal("value"), value: z.string() }),
-  z.strictObject({ kind: z.literal("secret_ref"), secret_ref: secretRef }),
-]);
-
 const headerName = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
+const absolutePath = z.string().regex(/^(\/|[A-Za-z]:\\).+/);
 
-const mcpAuthSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("none") }),
-  z.strictObject({ kind: z.literal("bearer"), secret_ref: secretRef }),
-  z.strictObject({
-    kind: z.literal("api_key"),
-    secret_ref: secretRef,
-    header_name: headerName,
-  }),
-  z.strictObject({
-    kind: z.literal("oauth2"),
-    issuer: z.string().regex(/^https:\/\/\S+$/),
-    client_id: nonempty.max(200),
-    client_secret_ref: secretRef.nullable(),
-    scopes: z.array(nonempty.max(128)).max(32),
-    token_ref: secretRef.nullable(),
-  }),
-]);
-
-const stdioSchema = z.strictObject({
-  executable: z.string().regex(/^(\/|[A-Za-z]:\\).+/),
-  args: z.array(z.string()).max(64),
-  cwd: z.string().regex(/^(\/|[A-Za-z]:\\).+/).nullable(),
-  env: z.record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/), plainOrSecret),
+// 층(전역, project, agent)에 두는 서버 한 칸이다. tool 분류는 없다: tool의 효과는 readOnlyHint가 참이면 read,
+// 아니면 external이다. credential은 `secrets.json`의 이름 참조다: 값은 보호 입력 창을 거쳐 `secrets/put`으로만 들어오고
+// 설정 파일에는 이름만 남는다. 이름은 `mcp.`로 시작해야 한다(보통 `mcp.<global 또는 project id>.<서버>`). 설정이
+// `provider.`나 OAuth token(`mcp-oauth.`)을 가리켜 그 값이 MCP URL로 가지 않게 한다. OAuth token은 core가 서버
+// 자리와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
+const secretCredentialSchema = z.strictObject({
+  secret: secretNameSchema.startsWith("mcp."),
 });
-
-const httpSchema = z.strictObject({
-  url: z.string().regex(
-    /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/,
-  ),
-  headers: z.record(headerName, plainOrSecret),
-  auth: mcpAuthSchema,
-});
-
-const mcpToolClassificationSchema = z.strictObject({
-  effect: effectSchema,
-  schema_hash: sha256Schema,
-  reversible: z.boolean(),
-});
-
-const serverFields = {
-  name: nameSchema,
-  revision,
-  enabled: z.boolean(),
-  call_timeout_ms: z.number().int().min(1000).max(600_000),
-  classifications: z.record(nonempty, mcpToolClassificationSchema),
-};
-
-const mcpServerConfigSchema = z.discriminatedUnion("transport", [
-  z.strictObject({
-    ...serverFields,
-    transport: z.literal("stdio"),
-    stdio: stdioSchema,
-  }),
-  z.strictObject({
-    ...serverFields,
-    transport: z.literal("http"),
-    http: httpSchema,
-  }),
-]);
-export type McpServerConfig = z.infer<typeof mcpServerConfigSchema>;
-
-// 층(전역, project, agent)에 두는 서버 한 칸이다. revision과 tool 분류는 없다: tool의 효과는 readOnlyHint가
-// 참이면 read, 아니면 external이라 서버 설정에 분류를 두지 않는다. credential은 secret 이름 참조다: 값은 보호 입력 창을
-// 거쳐 `secrets/put`으로만 들어오고 설정 파일에는 이름만 남는다. OAuth token은 core가 서버 이름으로 정한 secret에 둔다.
-const secretCredentialSchema = z.strictObject({ secret: secretNameSchema });
 const valueOrSecret = z.union([
   z.strictObject({ value: z.string() }),
   secretCredentialSchema,
@@ -110,15 +46,21 @@ const layerAuthSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+// stdio env는 값만 받는다. secret을 실행 파일에 넘길 때 대조할 목적지가 없다.
 const layerStdioSchema = z.strictObject({
-  executable: z.string().regex(/^(\/|[A-Za-z]:\\).+/),
+  executable: absolutePath,
   args: z.array(z.string()).max(64),
-  cwd: z.string().regex(/^(\/|[A-Za-z]:\\).+/).nullable(),
-  env: z.record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/), valueOrSecret),
+  cwd: absolutePath.nullable(),
+  env: z.record(
+    z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+    z.strictObject({ value: z.string() }),
+  ),
 });
 
 const layerHttpSchema = z.strictObject({
-  url: httpSchema.shape.url,
+  url: z.string().regex(
+    /^(https:\/\/\S+|http:\/\/(127\.0\.0\.1|\[::1\])(:\d+)?(\/\S*)?)$/,
+  ),
   headers: z.record(headerName, valueOrSecret),
   auth: layerAuthSchema,
 });
@@ -126,7 +68,7 @@ const layerHttpSchema = z.strictObject({
 const layerServerFields = {
   name: nameSchema,
   enabled: z.boolean(),
-  call_timeout_ms: serverFields.call_timeout_ms,
+  call_timeout_ms: z.number().int().min(1000).max(600_000),
 };
 export const mcpServerSchema = z.discriminatedUnion("transport", [
   z.strictObject({
@@ -154,7 +96,7 @@ const mcpAuthPlaceSchema = agentPlaceSchema.nullable();
 // 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 자리가 같은 이름의 서버를 따로 둘 수 있다.
 // 그래서 시작·완료 입력은 서버가 등록된 자리를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
-  // 등록한 서버 이름이다. 계약 serverFields의 nameSchema다.
+  // 등록한 서버 이름이다. 위 nameSchema와 같은 규칙이다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 서버가 등록된 자리다. 전역 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
   // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
@@ -189,9 +131,9 @@ export const mcpAuthBegin = defineMemory({
 
 // MCP OAuth 2.1의 완료 입구다. 사람이 돌아온 callback의 code·state를
 // 받아 lophn이 token 교환을 마친다. state는 시작이 만든 무작위 값과 같아야 하고(잘못된
-// 반환 검증 값은 거절이다), 교환한 token은 OS keychain에만 보관하고 설정의
-// `token_ref`가 그 보관을 가리키게 쓴다. 성공·실패의 상태는 `/agent-mcp-auth/state` read로만
-// 보인다: token·verifier·state 값은 응답 어디에도 없다.
+// 반환 검증 값은 거절이다), 교환한 token은 `secrets.json`의 서버 몫 `mcp-oauth.` 이름에만 보관한다. 설정에는
+// 쓰지 않는다. 성공·실패의 상태는 `/agent-mcp-auth/state` read로만 보인다: token·verifier·state 값은 응답
+// 어디에도 없다.
 export const mcpAuthCompleteInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 시작이 받은 자리와 같다: 서버가 등록된 자리이고 전역 서버는 null이다.
@@ -222,7 +164,7 @@ export const mcpAuthComplete = defineMemory({
 
 // 로그인 상태 read다. 서버(이름+자리)마다 지금 상태와 실패 이유 코드만 돌려준다.
 // 상태는 끝난 세션의 기억이 아니라 core가 지금 쥔 것이다: 진행 중인 로그인(작업 메모리), 마지막 실패,
-// 그리고 keychain에 보관한 token이 지금 설정(발급자·URL·client, token 참조)과 맞는지다.
+// 그리고 보관한 token이 지금 설정(발급자·URL·client)과 맞는지다.
 // - none: 로그인하지 않았거나 설정이 바뀌어 옛 token을 쓰지 않는다.
 // - in_progress: 사람이 browser에서 돌아오기를 기다린다(시한 안).
 // - signed_in: 쓸 수 있는 token이 있다.

@@ -209,13 +209,30 @@ export const secretDestinationSchema = z.discriminatedUnion("kind", [
         ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname);
     }, { message: "destination must be a fixed loopback HTTP origin" }),
   }),
-  z.strictObject({
-    kind: z.literal("mcp"),
-    server_connection: z.string().min(1),
-    transport: z.literal("https"),
-  }),
 ]);
 export type SecretDestination = z.infer<typeof secretDestinationSchema>;
+
+// URL이 credential을 받을 수 있는 고정 목적지. HTTPS origin이거나 같은 기계의 loopback HTTP origin이고 그 밖
+// (LAN·공개 주소의 HTTP, userinfo가 든 주소, 모르는 형식)은 없다. provider endpoint와 MCP 서버 URL이 같이 쓴다.
+export function secretDestinationOf(
+  endpoint: string,
+): SecretDestination | undefined {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return undefined;
+  }
+  if (url.username !== "" || url.password !== "") return undefined;
+  if (url.protocol === "https:") return { kind: "https", origin: url.origin };
+  if (
+    url.protocol === "http:" &&
+    ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname)
+  ) {
+    return { kind: "loopback_http", origin: url.origin };
+  }
+  return undefined;
+}
 
 const useFields = {
   sealed_ref: secretOpaqueRefSchema,

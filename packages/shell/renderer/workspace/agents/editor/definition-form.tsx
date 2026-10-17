@@ -416,6 +416,9 @@ export function DefinitionForm(props: DefinitionFormProps) {
         {addServer
           ? (
             <ServerForm
+              scope={detail.place.kind === "project" && detail.place.id !== null
+                ? detail.place.id
+                : "global"}
               taken={[...detail.mcpServers, ...own].map((row) => row.name)}
               onCancel={() => setAddServer(false)}
               onAdd={(server: McpServer) => {

@@ -70,9 +70,7 @@ export function toStatus(
 // 세 사실은 각각 관측한다. 하나를 다른 하나에서 추론하지 않는다.
 // redirect는 새 전송이다. 목적지가 바뀌면 인증을 넘기지 않는다.
 function destinationHost(destination: SecretDestination): string {
-  return destination.kind === "mcp"
-    ? destination.server_connection
-    : new URL(destination.origin).host;
+  return new URL(destination.origin).host;
 }
 
 export function sameDestination(

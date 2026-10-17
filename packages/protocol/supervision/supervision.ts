@@ -14,7 +14,6 @@ import { idSchema } from "../base/ids.ts";
 import {
   secretComparisonRequestSchema,
   secretComparisonResponseSchema,
-  secretUseSchema,
 } from "../secrets/secrets.ts";
 import { secretFileUseSchema } from "../secrets/secret-file.ts";
 import { atSchema, durationMsSchema, sha256Schema } from "../base/values.ts";
@@ -267,8 +266,8 @@ const redactResponseSchema = z.discriminatedUnion("ok", [
 export type RedactResponse = z.infer<typeof redactResponseSchema>;
 
 // agent runtime의 provider 호출이 credential 값을 받는 통로다.
-// 요청은 값 없이 secret 이름과 목적지(provider) 또는 참조·판·용도·목적지(MCP)와 보낼 요청의 url·method만 싣는다.
-// core가 현재 이름·참조·판·목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
+// 요청은 값 없이 `secrets.json`의 이름과 목적지, 보낼 요청의 url·method만 싣는다.
+// core가 그 이름 공간의 현재 목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
 // child에 닿고 child의 인증 전송 callback 메모리에서만 쓰인다. 읽을 수 없거나 대조에 실패하면 값 없이
 // 오류이고 child는 요청을 보내지 않는다(fail-closed).
 const SECRET_SEND_ERROR_CODES = [
@@ -280,7 +279,7 @@ const SECRET_SEND_ERROR_CODES = [
 export const secretSendRequestSchema = z.strictObject({
   type: z.literal("secret_send_request"),
   request_id: opaque,
-  use: z.union([secretUseSchema, secretFileUseSchema]),
+  use: secretFileUseSchema,
   operation: opaque,
   url: opaque,
   method: opaque,

@@ -10,7 +10,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { createKnownSecretRegistry } from "../../base/redaction/mod.ts";
 import type {
-  SecretFileStatus,
   SecretStorePort,
   SecretValue,
 } from "../../protocol/secrets/mod.ts";
@@ -24,7 +23,6 @@ export type SecretStore = SecretStorePort & {
   // 파일을 열고 알려진 값을 맞춘다. 시작 때 한 번 부른다. 못 열어도 막힌 채(fail-closed) 재시도한다.
   open(): Promise<Result<void>>;
   names(): Result<string[]>;
-  delete(name: string): Promise<Result<SecretFileStatus>>;
   // 파일의 현재 값과 알려진 값을 맞춘다. 동시에 부르면 한 번 더 도는 것으로 합친다.
   sync(): Promise<Result<void>>;
   readonly known: KnownSecretMatch;
@@ -122,6 +120,7 @@ export function openSecretStore(deps: {
       return opened.ok ? synced : opened;
     },
     names: () => deps.file.names(),
+    get: (name) => deps.file.get(name),
     sync,
     known: {
       match: (text) => coreKnown.match(text),

@@ -8,19 +8,18 @@
 //   (settings 화면)이 연결하므로 openInstructions는 unavailable이다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
 // - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
-import type { McpServer } from "../../../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { FolderPickerApi } from "../../../../../ipc/folder-picker.ts";
 import { coreAgentsSource } from "../../../../workspace/agents/core-source.ts";
 import { createLink } from "../../../../workspace/agents/core-link.ts";
 import { readGlobalModel } from "../../../../workspace/agents/core-extensions.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import { windowFolderPicker } from "../../../launcher/core-source.ts";
+import type { SecretInputOpenApi } from "../../../../../ipc/secret-input.ts";
 import {
   call,
   command,
-  openProtected,
-  type OpenSecretWindow,
-  windowSecretOpener,
+  enterSecret,
+  windowSecretInputOpener,
 } from "../core-call.ts";
 import {
   applySetting,
@@ -90,51 +89,9 @@ function statusOf(
     : "connected";
 }
 
-/** MCP credential을 담는 보관 이름. 설정의 `sec:` 참조가 같은 이름을 가리킨다. */
-const secretNameOf = (server: string) => `mcp-${server}`;
-
-/** 설정에 저장하는 server 한 줄. 값은 보관 이름 참조뿐이다. */
-function configOf(server: McpServer): Record<string, unknown> {
-  const common = {
-    name: server.name,
-    revision: 1,
-    enabled: true,
-    call_timeout_ms: server.call_timeout_ms,
-    classifications: {},
-  };
-  if (server.transport === "stdio") {
-    return {
-      ...common,
-      transport: "stdio",
-      stdio: { ...server.stdio },
-    };
-  }
-  const auth = server.http.auth;
-  const secret = `sec:${secretNameOf(server.name)}`;
-  return {
-    ...common,
-    transport: "http",
-    http: {
-      url: server.http.url,
-      headers: {},
-      auth: auth.kind === "none"
-        ? { kind: "none" }
-        : auth.kind === "bearer"
-        ? { kind: "bearer", secret_ref: secret }
-        : auth.kind === "api_key"
-        ? {
-          kind: "api_key",
-          secret_ref: secret,
-          header_name: auth.header_name,
-        }
-        : { kind: "none" },
-    },
-  };
-}
-
 interface AgentsDeps {
   picker: FolderPickerApi | undefined;
-  openWindow: OpenSecretWindow | undefined;
+  openSecret: SecretInputOpenApi["open"] | undefined;
   /** 새 command key를 만든다. 테스트가 고정한다. */
   random: () => string;
 }
@@ -144,9 +101,9 @@ export function coreAgentsSettingsSource(
   deps: Partial<AgentsDeps> = {},
 ): AgentsSettingsSource {
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
-  const openWindow = "openWindow" in deps
-    ? deps.openWindow
-    : windowSecretOpener();
+  const openSecret = "openSecret" in deps
+    ? deps.openSecret
+    : windowSecretInputOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
   const link = createLink(core, random);
   const editor = coreAgentsSource(core);
@@ -289,16 +246,17 @@ export function coreAgentsSettingsSource(
       if (!current.ok) return current;
       const added = await applySetting(core, MCP_SERVERS, [
         ...current.value.servers,
-        configOf(server),
+        server,
       ], random);
       if (!added.ok) return added;
       // key나 token이 필요한 server는 값을 보호 입력으로 받는다. 값은 이 화면을 지나지 않는다.
-      if (server.transport === "http" && server.http.auth.kind !== "none") {
-        // server는 이미 더해졌다. 창을 열지 못해도 더한 일은 되돌리지 않는다.
-        await openProtected(openWindow, {
-          kind: "secret_input",
-          owner: secretNameOf(server.name),
-          purpose: "app_secret",
+      const auth = server.transport === "http" ? server.http.auth : null;
+      if (auth?.kind === "bearer" || auth?.kind === "api_key") {
+        // server는 이미 더해졌다. 창을 열지 못하거나 취소해도 더한 일은 되돌리지 않고 상태로 보인다.
+        await enterSecret(openSecret, {
+          name: auth.credential.secret,
+          purpose: "mcp",
+          subject: server.name,
         });
       }
       return added;

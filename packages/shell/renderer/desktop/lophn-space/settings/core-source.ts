@@ -1,18 +1,18 @@
 // SettingsSource를 main의 core 통로로 만든다(일반 설정·skill 폴더·도구 server). 응답은 main의
 // contract client가 route output schema로 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는
 // field만 옮긴 것이다. provider와 agent 기본값은 각자의 통로(providers/core-source,
-// agents/core-source)가 맡는다. secret 값은 이 파일을 지나지 않는다: credential은 보호 창이 받고
+// agents/core-source)가 맡는다. secret 값은 이 파일을 지나지 않는다: credential은 보호 입력 창이 받고
 // 여기서는 창 열기만 한다.
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
+import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../launcher/core-source.ts";
 import {
   call,
-  openProtected,
-  type OpenSecretWindow,
+  enterSecret,
   windowLinkOpener,
-  windowSecretOpener,
+  windowSecretInputOpener,
 } from "./core-call.ts";
 import { listSettings, updateSettings } from "./declared.ts";
 import {
@@ -38,7 +38,7 @@ import type {
 } from "./source.ts";
 
 interface SettingsDeps {
-  openWindow: OpenSecretWindow | undefined;
+  openSecret: SecretInputOpenApi["open"] | undefined;
   picker: FolderPickerApi | undefined;
   /** 인증 주소를 OS browser로 여는 shell 통로. 없는 창에서는 undefined다. */
   openLink: OpenExternalApi["openExternal"] | undefined;
@@ -50,9 +50,9 @@ export function coreSettingsSource(
   core: CoreSource,
   deps: Partial<SettingsDeps> = {},
 ): SettingsSource {
-  const openWindow = "openWindow" in deps
-    ? deps.openWindow
-    : windowSecretOpener();
+  const openSecret = "openSecret" in deps
+    ? deps.openSecret
+    : windowSecretInputOpener();
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const random = deps.random ?? (() => crypto.randomUUID().slice(0, 8));
@@ -135,12 +135,11 @@ export function coreSettingsSource(
     addServer(view, server: NewServer) {
       const common = {
         name: server.name,
-        revision: 1,
         enabled: true,
         call_timeout_ms: 60_000,
-        classifications: {},
       };
-      const secret = `sec:${secretNameOf(server.name)}`;
+      // 이 목록은 전역 server뿐이다. 값은 보호 입력이 받고 설정에는 `secrets.json`의 이름만 남는다.
+      const credential = { secret: `mcp.global.${server.name}` };
       const config = server.transport === "stdio"
         ? {
           ...common,
@@ -161,10 +160,10 @@ export function coreSettingsSource(
             auth: server.auth === "none"
               ? { kind: "none" }
               : server.auth === "bearer"
-              ? { kind: "bearer", secret_ref: secret }
+              ? { kind: "bearer", credential }
               : {
                 kind: "api_key",
-                secret_ref: secret,
+                credential,
                 header_name: server.header ?? "",
               },
           },
@@ -172,12 +171,15 @@ export function coreSettingsSource(
       return apply(MCP_SERVERS, [...view.rawServers, config]);
     },
 
-    enterServerCredential: (secret) =>
-      openProtected(openWindow, {
-        kind: "secret_input",
-        owner: secret,
-        purpose: "app_secret",
-      }),
+    async enterServerCredential(server) {
+      if (server.secret === null) return INVALID;
+      const entered = await enterSecret(openSecret, {
+        name: server.secret,
+        purpose: "mcp",
+        subject: server.name,
+      });
+      return entered.ok ? { ok: true, value: null } : entered;
+    },
 
     async beginSignIn(server) {
       if (server.signIn === null) return INVALID;
@@ -253,9 +255,4 @@ function signInOf(
     state: found?.state ?? "unknown",
     reason: found?.reason ?? null,
   };
-}
-
-/** MCP credential을 담는 보관 이름. 설정의 `sec:` 참조가 같은 이름을 가리킨다. */
-function secretNameOf(server: string): string {
-  return `mcp-${server}`;
 }

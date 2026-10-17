@@ -25,7 +25,7 @@ export interface McpServerValue {
     url: string;
     auth: {
       kind: ServerAuth;
-      secret_ref?: string;
+      credential?: { secret: string };
       client_id?: string;
       scopes?: string[];
     };
@@ -50,15 +50,9 @@ export function applySetting(
   return chooseSetting(core, key, value);
 }
 
-function nameOf(ref: string | null | undefined): string | null {
-  return ref !== undefined && ref !== null && ref.startsWith("sec:")
-    ? ref.slice(4)
-    : null;
-}
-
-/** 값을 넣을 credential 보관 이름(bearer·API key). 설정의 참조(`sec:<이름>`)에서 이름만 뗀다. */
+/** 값을 넣을 credential의 `secrets.json` 이름(bearer·API key). */
 export function secretOf(server: McpServerValue): string | null {
-  return nameOf(server.http?.auth.secret_ref);
+  return server.http?.auth.credential?.secret ?? null;
 }
 
 /** core가 읽어 준 로그인 상태 하나. 이름으로 찾는다. */
@@ -108,7 +102,7 @@ export async function secretStates(
   if (names.length === 0) return new Map();
   const read = await call<{
     secrets: { name: string; configured: boolean }[];
-  }>(core, "read", "secrets", "list", { names });
+  }>(core, "memory", "secrets", "status", { names });
   if (!read.ok) return null;
   return new Map(
     read.value.secrets.map((

@@ -181,7 +181,7 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
         ? failed(options.applyCode)
         : Promise.resolve({ ok: true, value: null });
     },
-    enterServerCredential: (secret) => opened(["server-credential", secret]),
+    enterServerCredential: (row) => opened(["server-credential", row.secret]),
     beginSignIn(row) {
       calls.push(["sign-in-begin", row.name, row.signIn?.place ?? null]);
       if (options.signIn?.beginCode) return failed(options.signIn.beginCode);

@@ -20,6 +20,8 @@ const HEADER = /^[A-Za-z0-9-]{1,64}$/;
 const CALL_TIMEOUT_MS = 60_000;
 
 interface ServerFormProps {
+  /** credential 이름 `mcp.<scope>.<server>`의 scope. 전역은 `global`, 아니면 project id다. */
+  readonly scope: string;
   /** 이미 있는 이름. 같은 이름은 받지 않는다. */
   readonly taken: readonly string[];
   readonly onAdd: (server: McpServer) => void;
@@ -29,6 +31,7 @@ interface ServerFormProps {
 }
 
 function serverOf(
+  scope: string,
   fields: {
     name: string;
     transport: Transport;
@@ -56,8 +59,8 @@ function serverOf(
       },
     };
   }
-  // 값은 보호 입력이 받는다. 설정에는 보관 이름만 남는다.
-  const credential = { secret: `mcp-${fields.name}` };
+  // 값은 보호 입력이 받는다. 설정에는 `secrets.json`의 이름만 남는다.
+  const credential = { secret: `mcp.${scope}.${fields.name}` };
   return {
     ...base,
     transport: "http",
@@ -74,7 +77,7 @@ function serverOf(
 }
 
 export function ServerForm(
-  { taken, onAdd, onCancel, scrollIntoView = false }: ServerFormProps,
+  { scope, taken, onAdd, onCancel, scrollIntoView = false }: ServerFormProps,
 ) {
   const [name, setName] = useState("");
   const [transport, setTransport] = useState<Transport>("stdio");
@@ -216,7 +219,7 @@ export function ServerForm(
             setTried(true);
             if (invalid) return;
             onAdd(
-              serverOf({
+              serverOf(scope, {
                 name,
                 transport,
                 executable,

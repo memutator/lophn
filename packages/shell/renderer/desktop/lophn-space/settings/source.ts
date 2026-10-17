@@ -170,8 +170,8 @@ export interface SettingsSource {
     view: SettingsView,
     server: NewServer,
   ): Promise<SourceResult<null>>;
-  /** MCP credential을 보호 창에 넣는다. secret은 ServerRow.secret이다. */
-  enterServerCredential(secret: string): Promise<WindowOutcome>;
+  /** MCP credential을 보호 입력 창으로 `ServerRow.secret` 이름에 넣는다. 취소해도 ok이고 상태로 보인다. */
+  enterServerCredential(server: ServerRow): Promise<WindowOutcome>;
   /**
    * OAuth 로그인을 시작해 인증 주소를 OS browser로 연다. callback port를 돌려준다.
    * 열지 못했으면 code는 not_opened이고 시작이 거절됐으면 core가 준 code다.

@@ -70,11 +70,12 @@ export const SECRET_FILE_ROUTES = [
   secretDelete,
 ] as const;
 
-// provider credential은 이름과 목적지만 싣는다. 용도는 core가 context로 정한다.
+// 전송 부착은 이름과 목적지만 싣는다. 용도는 core가 이름의 앞머리(`provider.`, `mcp.`, `mcp-oauth.`)로 정한다.
 export const secretFileUseSchema = z.strictObject({
   name: secretNameSchema,
   destination: secretDestinationSchema,
 });
+export type SecretFileUse = z.infer<typeof secretFileUseSchema>;
 const secretFileSendInputSchema = z.strictObject({
   context: secretAdapterContextSchema,
   use: secretFileUseSchema,
@@ -91,7 +92,10 @@ export interface SecretAttachPort {
   ): Promise<Result<SecretSendOutput>>;
 }
 
-// 파일 전체를 임시 파일에 쓰고 rename으로 바꾼다. 실패하면 이전 값이 그대로다.
+// 파일 전체를 임시 파일에 쓰고 rename으로 바꾼다. 실패하면 이전 값이 그대로다. get·delete는 값을 스스로 관리하는
+// core 안의 소유 concern(MCP OAuth token)이 쓴다. 없는 이름의 get은 not_found다.
 export interface SecretStorePort {
   put(name: string, value: SecretValue): Promise<Result<SecretFileStatus>>;
+  get(name: string): Result<string>;
+  delete(name: string): Promise<Result<SecretFileStatus>>;
 }

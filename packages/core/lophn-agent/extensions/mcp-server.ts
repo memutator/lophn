@@ -3,29 +3,31 @@ import type {
   AgentPlace,
   McpServer,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { mcpTokenRef } from "./mcp-oauth-vault.ts";
+import {
+  type SecretDestination,
+  secretDestinationOf,
+} from "../../../protocol/secrets/mod.ts";
+import { mcpTokenNames } from "./mcp-oauth-vault.ts";
 
-// 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 이름 참조
-// `{secret}`)을 연결, OAuth, secret 부착이 읽는 한 모양으로
-// 옮긴다. 값은 없고 참조뿐이다. 서버는 이름만으로 하나가 정해지지 않는다: 같은 이름도 층의 place가 다르면 따로이고,
-// OAuth token의 참조가 그 place에서 정해진다.
+// 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 `secrets.json`의 이름 `{secret}`)을 연결,
+// OAuth, secret 부착이 읽는 한 모양으로 옮긴다. 값은 없고 이름뿐이다. 서버는 이름만으로 하나가 정해지지 않는다:
+// 같은 이름도 층의 place가 다르면 따로이고, OAuth token의 이름이 그 place에서 정해진다.
 
 type RuntimeValue =
   | { kind: "value"; value: string }
-  | { kind: "secret_ref"; secret_ref: string };
+  | { kind: "secret"; secret: string };
 
 type RuntimeAuth =
   | { kind: "none" }
-  | { kind: "bearer"; secret_ref: string }
-  | { kind: "api_key"; secret_ref: string; header_name: string }
+  | { kind: "bearer"; secret: string }
+  | { kind: "api_key"; secret: string; header_name: string }
   | {
     kind: "oauth2";
     issuer: string;
     client_id: string;
-    client_secret_ref: string | null;
     scopes: string[];
-    // 이 서버(place와 이름)의 token 보관을 가리키는 참조다. 로그인했는지는 보관이 말한다.
-    token_ref: string;
+    // 이 서버(place와 이름)의 접근 token 이름이다. 로그인했는지는 보관이 말한다.
+    token: string;
   };
 
 type Common = {
@@ -45,7 +47,7 @@ export type McpRuntimeServer =
         executable: string;
         args: string[];
         cwd: string | null;
-        env: Record<string, RuntimeValue>;
+        env: Record<string, string>;
       };
     }
     | {
@@ -57,24 +59,6 @@ export type McpRuntimeServer =
       };
     }
   );
-
-const secretRef = (name: string): string => `sec:${name}`;
-
-function layerValue(
-  value: { value: string } | { secret: string },
-): RuntimeValue {
-  return "secret" in value
-    ? { kind: "secret_ref", secret_ref: secretRef(value.secret) }
-    : { kind: "value", value: value.value };
-}
-
-function layerValues(
-  values: Record<string, { value: string } | { secret: string }>,
-): Record<string, RuntimeValue> {
-  return Object.fromEntries(
-    Object.entries(values).map(([name, value]) => [name, layerValue(value)]),
-  );
-}
 
 // 전역, project, agent 층의 서버다. place는 그 층이 놓인 곳이고 전역은 null이다.
 export function runtimeServerOfLayer(
@@ -95,40 +79,72 @@ export function runtimeServerOfLayer(
         executable: server.stdio.executable,
         args: [...server.stdio.args],
         cwd: server.stdio.cwd,
-        env: layerValues(server.stdio.env),
+        env: Object.fromEntries(
+          Object.entries(server.stdio.env).map((
+            [name, one],
+          ) => [name, one.value]),
+        ),
       },
     };
   }
   const auth = server.http.auth;
-  const tokenRef = mcpTokenRef({ place, name: server.name });
   return {
     ...common,
     transport: "http",
     http: {
       url: server.http.url,
-      headers: layerValues(server.http.headers),
+      headers: Object.fromEntries(
+        Object.entries(server.http.headers).map(([name, one]) => [
+          name,
+          "secret" in one
+            ? { kind: "secret", secret: one.secret }
+            : { kind: "value", value: one.value },
+        ]),
+      ),
       auth: auth.kind === "none"
         ? { kind: "none" }
         : auth.kind === "bearer"
-        ? { kind: "bearer", secret_ref: secretRef(auth.credential.secret) }
+        ? { kind: "bearer", secret: auth.credential.secret }
         : auth.kind === "api_key"
         ? {
           kind: "api_key",
-          secret_ref: secretRef(auth.credential.secret),
+          secret: auth.credential.secret,
           header_name: auth.header_name,
         }
         : {
           kind: "oauth2",
           issuer: auth.issuer,
           client_id: auth.client_id,
-          client_secret_ref: auth.client_credential === null
-            ? null
-            : secretRef(auth.client_credential.secret),
           scopes: [...auth.scopes],
-          token_ref: tokenRef,
+          token: mcpTokenNames({ place, name: server.name }).access,
         },
     },
   };
+}
+
+// `mcp.` 이름의 값이 갈 수 있는 목적지: 그 이름을 header나 bearer·api_key로 보내는 켜진 http 서버의 URL origin
+// 전부다. oauth2의 client credential은 서버로 가지 않아 목적지가 없다.
+export function mcpSecretDestinations(
+  servers: readonly McpRuntimeServer[],
+  name: string,
+): SecretDestination[] {
+  const found: SecretDestination[] = [];
+  for (const server of servers) {
+    if (!server.enabled || server.transport !== "http") continue;
+    const { headers, auth } = server.http;
+    const sent = Object.values(headers).some((one) =>
+      one.kind === "secret" && one.secret === name
+    ) || ((auth.kind === "bearer" || auth.kind === "api_key") &&
+      auth.secret === name);
+    if (!sent) {
+      continue;
+    }
+    const destination = secretDestinationOf(server.http.url);
+    if (destination !== undefined) {
+      found.push(destination);
+    }
+  }
+  return found;
 }
 
 type McpLayer = {

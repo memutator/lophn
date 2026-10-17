@@ -16,12 +16,11 @@ import {
   mcpAuthKeyId,
   type McpGrant,
   type McpOAuthVault,
-  mcpTokenRef,
 } from "./mcp-oauth-vault.ts";
 
 // MCP OAuth를 처음부터 끝까지 잇는다.
 // - 사람이 시작한 로그인(PKCE S256·loopback 반환)을 서버(place+이름)마다 하나씩 쥐고, 기다림 시한과 취소를 정한다.
-// - 받은 token은 vault(OS keychain)에만 보관하고, 설정이 그 보관을 가리키게 쓰는 일은 부르는 쪽이 넘긴 link가 한다.
+// - 받은 token은 vault(`secrets.json`의 서버 몫 이름)에만 보관한다. 설정에는 쓰지 않는다.
 // - 연결이 token을 붙일 때 만료가 가까우면 갱신한다. 같은 서버의 갱신은 한 번에 하나다.
 // - 상태는 끝난 세션의 기억이 아니라 진행 중인 시도, 마지막 실패, 지금 설정과 맞는 보관 token에서 읽는다.
 // network는 token endpoint(발급자)뿐이고 fetch로 받는다. 값(verifier·state·token)은 응답 모양 어디에도 없다.
@@ -35,8 +34,6 @@ export type McpOAuthServer = {
   issuer: string;
   serverUrl: string;
   clientId: string;
-  // 설정이 지금 가리키는 token 참조다. 로그인 전이면 null이다.
-  tokenRef: string | null;
 };
 
 type McpAuthReport = {
@@ -50,18 +47,14 @@ type McpOAuth = {
     server: McpOAuthServer,
     input: { scopes: readonly string[]; listener: CallbackListener },
   ): Promise<Result<{ url: string; callbackPort: number }>>;
-  // 사람이 돌아오기를 기다려 token을 교환하고 보관한 뒤 link로 설정에 참조를 쓴다. link가 실패하면 보관한
-  // token을 도로 지운다. 취소나 시한은 error로 끝난다.
-  complete(
-    server: McpOAuthServer,
-    link: () => Promise<Result<void>>,
-  ): Promise<Result<void>>;
+  // 사람이 돌아오기를 기다려 token을 교환하고 보관한다. 취소나 시한은 error로 끝난다.
+  complete(server: McpOAuthServer): Promise<Result<void>>;
   // 기다리는 로그인을 그만둔다. 보관한 token은 건드리지 않는다. 그만둔 것이 없으면 false다.
   cancel(server: Pick<McpOAuthServer, "key">): Promise<boolean>;
   report(server: McpOAuthServer): Promise<McpAuthReport>;
-  // 연결이 붙일 접근 token의 보관 참조다. 값이 아니라 참조다. 로그인이 필요하면 forbidden(재인증 필요),
-  // 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다.
-  access(server: McpOAuthServer): Promise<Result<{ sealedRef: string }>>;
+  // 연결이 접근 token을 붙이기 전에 쓸 수 있게 한다(만료가 가까우면 갱신). 로그인이 필요하면 forbidden(재인증
+  // 필요), 발급자에 닿지 못하면 unavailable(연결 실패)로 구별한다.
+  access(server: McpOAuthServer): Promise<Result<void>>;
   // 기다리는 모든 로그인을 그만둔다.
   endAll(): Promise<void>;
 };
@@ -77,18 +70,12 @@ export function createMcpOAuth(options: {
   random?: RandomSource;
   waitMs?: number;
   deadline: AuthDeadline;
-  // 보관한 값이 바뀐 뒤 불린다. 알려진 값 registry가 새 값을 읽고 옛 값을 회수한다.
-  changed?: () => Promise<unknown>;
 }): McpOAuth {
   const { vault } = options;
   const sessions = new Map<string, ReturnType<typeof createMcpAuth>>();
   // 시도가 아닌 이유로 로그인할 수 없게 된 서버의 마지막 실패다. 새로 시작하거나 성공하면 지워진다.
   const failures = new Map<string, McpAuthFailure>();
   const flights = new Map<string, Promise<Result<void>>>();
-
-  const changed = async () => {
-    await options.changed?.();
-  };
 
   function sessionOf(key: McpAuthKey) {
     const id = mcpAuthKeyId(key);
@@ -119,15 +106,11 @@ export function createMcpOAuth(options: {
     ) && grant.binding.client_id === server.clientId;
   }
 
-  const pointed = (server: McpOAuthServer) =>
-    server.tokenRef === mcpTokenRef(server.key);
-
   async function discard(
     key: McpAuthKey,
     reason: McpAuthFailure | null,
   ): Promise<void> {
     await vault.remove(key);
-    await changed();
     if (reason !== null) failures.set(mcpAuthKeyId(key), reason);
   }
 
@@ -178,7 +161,6 @@ export function createMcpOAuth(options: {
         : options.nowMs() + refreshed.value.expires_in * 1000,
     });
     if (!saved.ok) return saved;
-    await changed();
     return ok(undefined);
   }
 
@@ -203,7 +185,7 @@ export function createMcpOAuth(options: {
       });
     },
 
-    async complete(server, link) {
+    async complete(server) {
       const id = mcpAuthKeyId(server.key);
       const session = sessions.get(id);
       if (session === undefined) {
@@ -229,13 +211,6 @@ export function createMcpOAuth(options: {
         failures.set(id, "store_failed");
         return saved;
       }
-      await changed();
-      const linked = await link();
-      if (!linked.ok) {
-        // 설정이 token을 가리키지 못하면 쓸 수 없는 token이다. 반쯤 로그인된 채로 두지 않는다.
-        await discard(server.key, "store_failed");
-        return linked;
-      }
       failures.delete(id);
       return ok(undefined);
     },
@@ -257,10 +232,10 @@ export function createMcpOAuth(options: {
       const failure = failures.get(id);
       if (failure !== undefined) return { state: "failed", reason: failure };
       const loaded = await vault.load(server.key);
-      // keychain을 읽을 수 없으면 쓸 수 있는 token이 없다. 로그인했다고 말하지 않고 none으로 두며, 다시 로그인하려
+      // 보관을 읽을 수 없으면 쓸 수 있는 token이 없다. 로그인했다고 말하지 않고 none으로 두며, 다시 로그인하려
       // 하면 보관 실패(store_failed)가 이유로 남는다.
       const grant = loaded.ok ? loaded.value : null;
-      if (grant === null || !pointed(server) || !bound(grant, server)) {
+      if (grant === null || !bound(grant, server)) {
         return { state: "none", reason: null };
       }
       const expiresAt = grant.expires_at_ms;
@@ -274,7 +249,6 @@ export function createMcpOAuth(options: {
     },
 
     async access(server) {
-      if (!pointed(server)) return reauth();
       const id = mcpAuthKeyId(server.key);
       // 같은 서버에 같은 설정으로 동시에 온 요청은 한 번의 확인·갱신을 같이 기다린다.
       const flightId =
@@ -286,10 +260,7 @@ export function createMcpOAuth(options: {
         });
         flights.set(flightId, flight);
       }
-      const done = await flight;
-      if (!done.ok) return done;
-      const sealedRef = vault.sealedRefOf(server.key, "access");
-      return sealedRef === undefined ? reauth() : ok({ sealedRef });
+      return await flight;
     },
 
     async endAll() {

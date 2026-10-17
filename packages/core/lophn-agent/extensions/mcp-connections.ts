@@ -1,9 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { sha256Hex } from "../../../base/mod.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
-import type {
-  SecretDestination,
-  SecretSendInput,
+import {
+  type SecretDestination,
+  secretDestinationOf,
+  type SecretFileSendInput,
 } from "../../../protocol/secrets/mod.ts";
 import { authHeaders } from "./mcp-auth.ts";
 import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
@@ -107,7 +108,7 @@ type DeadlineFn = (
 // 인자로만 오고 결과에는 전송 여부뿐이다. provider 전송 부착과 같은 모양이다.
 type McpSecretAttach = {
   send(
-    input: SecretSendInput,
+    input: SecretFileSendInput,
     transmit: (
       value: Uint8Array | string,
     ) => Promise<Result<{ sent: boolean }>>,
@@ -126,7 +127,7 @@ export type McpConnectionsDeps = {
   ): Promise<Result<StdioSpawn>>;
   // HTTP 연결 열기다. 테스트가 로컬 fake server fetch를 끼운다.
   fetch?: HttpFetch;
-  // HTTP 인증 비밀(bearer·api_key·secret_ref 헤더)의 전송 부착이다. 값은 요청 하나를
+  // HTTP 인증 비밀(bearer·api_key·secret 헤더·OAuth 접근 token)의 전송 부착이다. 값은 요청 하나를
   // 보내는 callback 안에서만 쥐고 연결·log·오류에 남지 않는다. 없으면 인증 비밀이 필요한
   // 서버에 요청을 보내지 않는다.
   secrets?: McpSecretAttach;
@@ -202,25 +203,10 @@ function keyOf(assignment: string, server: string): string {
 
 // assignment 사용이 끝나면 연결을 닫는다. views는 사람용 진단이다.
 type SecretHeader = {
-  ref: string;
+  // `secrets.json`의 이름이다.
+  secret: string;
   headers(token: string): Record<string, string>;
 };
-
-// 인증 비밀이 갈 수 있는 고정 목적지다. HTTPS origin이거나 같은 기계의 loopback HTTP origin이다.
-function secretDestinationOf(url: string): SecretDestination | null {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "https:") {
-      return { kind: "https", origin: parsed.origin };
-    }
-    if (parsed.protocol === "http:") {
-      return { kind: "loopback_http", origin: parsed.origin };
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 // 비밀 헤더를 하나씩 전송 부착으로 받아 모두 모이면 send를 부른다. 값은 callback 호출 틀 안에만 있다.
 function attachHeaders(
@@ -236,13 +222,7 @@ function attachHeaders(
   return secrets.send({
     // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
     context: {} as never,
-    // MCP 참조는 이름(`sec:...`)으로 가리키고 판은 core가 현재 판으로 채운다.
-    use: {
-      sealed_ref: head.ref,
-      revision: 1,
-      purpose: "external_mcp_credential",
-      destination,
-    },
+    use: { name: head.secret, destination },
     operation: "mcp.request",
     body: { url, method: "POST" },
   }, (value) => {
@@ -299,7 +279,7 @@ export function createMcpConnections(
       if (value.kind === "value") headers[name] = value.value;
       else {
         secretHeaders.push({
-          ref: value.secret_ref,
+          secret: value.secret,
           headers: (token) => ({ [name]: token }),
         });
       }
@@ -307,12 +287,12 @@ export function createMcpConnections(
     const auth = server.http.auth;
     if (auth.kind === "bearer") {
       secretHeaders.push({
-        ref: auth.secret_ref,
+        secret: auth.secret,
         headers: (token) => authHeaders({ kind: "bearer", token }).headers,
       });
     } else if (auth.kind === "api_key") {
       secretHeaders.push({
-        ref: auth.secret_ref,
+        secret: auth.secret,
         headers: (token) =>
           authHeaders({
             kind: "api_key",
@@ -321,14 +301,10 @@ export function createMcpConnections(
           }).headers,
       });
     } else if (auth.kind === "oauth2") {
-      // 로그인 전에는 token 참조가 없다. 도구 호출이 막히도록 요청을 보내지 않는다. 로그인한 서버는 설정이
-      // 가리키는 token 참조를 요청마다 부착으로 청한다: 교환·갱신은 이 연결이 아니라 core의 몫이고 갱신된
-      // 값도 다음 요청에 그대로 붙는다.
-      if (auth.token_ref === null) {
-        return err({ code: "forbidden", message: "로그인이 필요하다" });
-      }
+      // 접근 token을 요청마다 부착으로 청한다. 로그인 전이면 core가 forbidden으로 거절해 요청이 나가지 않는다.
+      // 교환·갱신은 이 연결이 아니라 core의 몫이고 갱신된 값도 다음 요청에 그대로 붙는다.
       secretHeaders.push({
-        ref: auth.token_ref,
+        secret: auth.token,
         headers: (token) => authHeaders({ kind: "bearer", token }).headers,
       });
     }
@@ -336,7 +312,7 @@ export function createMcpConnections(
     const secrets = deps.secrets;
     if (
       secretHeaders.length > 0 &&
-      (secrets === undefined || destination === null)
+      (secrets === undefined || destination === undefined)
     ) {
       return err({ code: "unavailable", message: "인증 비밀을 붙일 수 없다" });
     }
@@ -461,19 +437,13 @@ export function createMcpConnections(
         message: "전송 방식이 stdio·http가 아니다",
       });
     }
-    const env: Record<string, string> = {};
-    for (const [name, value] of Object.entries(server.stdio.env)) {
-      // secret ref는 부착 경계에서 풀린다. 여기서는 결정된 값만 온다.
-      if (value.kind !== "value") continue;
-      env[name] = value.value;
-    }
     const spawn = await deps.openStdio(
       server,
       {
         executable: server.stdio.executable,
         args: server.stdio.args,
         cwd: server.stdio.cwd,
-        env,
+        env: server.stdio.env,
       },
       signal,
     );

@@ -200,3 +200,22 @@ guard: 없음
 - agent runtime: 재기동에 횟수·간격 제한을 둔다(작음, agent runtime 쪽).
 
 닫음: 남긴다. 기동 초반 crash도 stderr와 exit 1은 남고(`main/daemon/wiring/diagnostics.ts` 주석), log 파일에 직접 쓰면 log를 I/O worker만 쓴다는 규칙이 깨진다. agent runtime 줄은 틀렸다: 재기동은 `packages/core/supervision/responsiveness/supervisor.ts`가 하고 `slot.ts`의 `RESTART_LIMIT`(3번)에서 멈추므로 log가 계속 쌓이지 않는다. redaction에 안 걸리는 값은 이 변경이 아니라 redaction 규칙 쪽 한계다.
+
+## 설정 화면의 보호 입력 창이 열리지 않아 MCP credential을 넣을 수 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/secrets]
+closed: fixed
+guard: "secret 값은 자기 이름 공간의 목적지로만 간다", "MCP 설정은 mcp. 밖의 secret 이름과 stdio env의 secret을 받지 않는다", "OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 세 이름이 지워진다"
+```
+
+지금: `packages/shell/renderer/desktop/lophn-space/settings/core-call.ts`의 `windowSecretOpener`가 `lophnShell.openConfirmation`을 찾는데, preload(`packages/shell/preload/shell.ts`)는 `openSecretInput`만 낸다. 그래서 이 opener로 보호 입력 창을 여는 길은 `unavailable`이다. provider API key만 같은 file의 `windowSecretInputOpener`·`enterSecret`(preload의 `openSecretInput`)으로 고쳤다. 이 opener를 쓰는 곳은 셋이다: 전역 MCP credential(`settings/core-source.ts`의 `enterServerCredential`), agent 설정에서 만든 서버의 credential(`settings/agents/core-source.ts`의 `createServer`), provider OAuth 붙여 넣기(`settings/providers/core-source.ts`의 `signIn`, 아래 절). MCP의 `sec:` 참조는 창을 고쳐도 옛 ledger `secrets` 표와 keychain을 보므로 `secrets.json`에 넣은 값을 찾지 못한다(`packages/core/lophn-agent/extensions/secret-refs.ts`의 `lookupMcpSecretUse`, `run-loop/runtime-secret.ts`의 MCP 가지).
+
+영향: 사람이 token이 필요한 MCP server를 붙일 수 없다.
+
+고치려면: MCP credential을 provider와 같은 `secrets.json` 길로 옮긴다. 보호 입력 창은 `windowSecretInputOpener`·`enterSecret`을 쓰고, MCP의 secret 참조를 이름(`{name}`)으로 바꾸고 attach가 file 저장소에서 읽는다(중간). provider 길(`createFileSecretAttach`, `providerSecretDestinations`)의 모양을 따른다. 다 옮기면 `windowSecretOpener`와 그 intent type은 쓰는 곳이 없으니 지운다. 추천: 이 안.
+
+정한 것: keychain 길을 통째로 지운다. MCP credential과 MCP OAuth token을 `secrets.json`으로 옮기고, keychain adapter, 옛 ledger `secrets` 표와 그 command·read, `libsecret-tools` 의존을 지운다. `windowSecretOpener`는 provider OAuth `signIn`이 아직 쓰므로 그 절의 결정 때 지운다. (사람)
+
+닫음: MCP credential과 OAuth token이 `secrets.json`에 있다. 설정의 `{secret}`은 `mcp.` 이름만 받고(보통 `mcp.<global 또는 project id>.<서버>`) renderer가 서버를 더한 뒤 `windowSecretInputOpener`·`enterSecret`(purpose `mcp`)으로 값을 받는다. 상태는 `secrets/status`로 읽는다. OAuth token은 `mcp-oauth.<scope>.<server>.access`·`.refresh`·`.meta`다. 감독 pipe는 `{name, destination}` 하나이고 `createFileSecretAttach`가 이름의 앞머리로 용도를 정하며 `lophn-agent/secret-destinations.ts`가 이름 공간마다 목적지를 찾는다. `windowSecretOpener`는 provider OAuth `signIn`이 아직 쓴다(provider OAuth 절).

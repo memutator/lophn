@@ -11,7 +11,11 @@
 // "event가 열릴 때 끔"은 negative를 기다릴 신호가 없어 행으로 두지 않는다. 끔이 grant -> 설정 key -> 판정까지 이어지는 것은
 // ask-then-off가 허락 적용 시점에 본다.
 import { assert, assertEquals } from "@std/assert";
-import { appCreate } from "../../packages/protocol/apps/mod.ts";
+import {
+  appCallApi,
+  appCreate,
+  appRuntime,
+} from "../../packages/protocol/apps/mod.ts";
 import {
   approvalsDecide,
   approvalsPending,
@@ -32,6 +36,13 @@ import {
   until,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import {
+  activateTestApp,
+  aeLane,
+  waitRunning,
+} from "../support/app/activate.ts";
+import { crashPatch } from "../support/app/patch-reaction.ts";
+import { appCoreEnv } from "../support/coding/deps.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
 import { lastUserText } from "../support/fake-server/probe.ts";
@@ -252,6 +263,151 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
     });
   } finally {
     await gateway?.close().catch(() => {});
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
+});
+
+// 세 질문
+// - contract: boundary `problems`(앱 process의 처리 안 된 오류는 문제가 되고 한 번만 열린다), `app-runtime`(거듭 죽으면 자동
+//   재시작을 멈추고 `AppRestartHalted`를 낸다), `events`(새 일 event는 reaction grant대로 App Engineer를 연다).
+// - 현실적 회귀: 앱이 죽는데 문제가 안 열리는 것(보고가 exit에 먼저 잘림), 같은 오류가 보고마다 새 문제를 여는 것, crash 횟수
+//   계산이 어긋나 멈추지 않고 영영 되살리거나 너무 일찍 멈추는 것, 멈췄는데 아무도 부르지 않는 것.
+// - 왜 지금 test로 못 잡나: 재시작 정책은 순수 규칙 unit이 있어도 실제 process 종료 -> supervisor -> command -> ledger ->
+//   Reactor -> Router -> agent runtime의 turn은 이어서 본 적이 없다. SDK 오류 관측이 실제 exit와 경쟁하는 것은 process를
+//   건너야 보인다.
+//
+// 앱을 activate하는 데 core가 앱 test용 env를 필요로 해서 위 test와 core를 같이 쓰지 못한다. App Engineer 줄(앱 activation helper의
+// 줄이라 대답 3개 상한의 예외, README 정한 것 11)은 reaction session마다 text 하나다. supervisor가 종료마다 stack 없는
+// `unexpected_exit` 문제를 따로 열고 그 문제는 묶이지 않아 session이 종료 수만큼 더 생기므로 넉넉히 건다.
+// 문제는 SDK가 보고한 `Error`만 센다.
+// 10분 창 안의 예상 밖 종료가 다섯을 넘는 여섯 번째 종료에서 멈춘다(restart-policy의 CRASH_LIMIT 5).
+const CRASH_LIMIT_EXIT = 6;
+
+const crash = async (core: Core, app: string) => {
+  const called = await core.call(appCallApi, {
+    target: { mode: "live", app, release: null },
+    api: "crash",
+    caller: { kind: "person", view_session: "e2e" },
+  });
+  // 응답을 보낸 뒤 죽으므로 결과를 모를 수는 있어도 거절되거나 handler가 실패해서는 안 된다.
+  assert(
+    called.outcome.status === "succeeded" ||
+      called.outcome.status === "unknown",
+    JSON.stringify(called.outcome),
+  );
+};
+
+// process_nonce가 `before`와 다른 process가 ready가 될 때까지 기다린다.
+const restarted = (core: Core, app: string, before: string) =>
+  until("앱이 다시 running이 됨", async () => {
+    const now = await core.call(appRuntime, { app });
+    const seen = now.observation;
+    return now.state.state === "running" && seen !== null && seen.ready &&
+        seen.accepting && seen.process_nonce !== before
+      ? seen
+      : undefined;
+  }, 60_000);
+
+Deno.test("E2E 앱 process가 던진 오류는 문제가 되어 App Engineer를 부르고, 거듭 죽으면 자동 재시작이 멈추며 App Engineer를 다시 부른다", async (t) => {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  let app: Awaited<ReturnType<typeof activateTestApp>> | undefined;
+  try {
+    core = await bootCore(run, { env: await appCoreEnv() });
+    await connectFakeProvider(core, fake);
+    app = await activateTestApp(core, fake, {
+      name: "Crasher",
+      slug: "crasher",
+      patch: crashPatch,
+    });
+    const c = core;
+    const a = app;
+    // activation helper의 줄과 같은 이름이라 그 줄의 남은 대답을 대체한다. reaction session의 요청도 같은 줄로 간다.
+    fake.script(
+      Array.from({ length: 12 }, () => ({
+        reply: { kind: "text" as const, text: "noted" },
+      })),
+      aeLane(a),
+    );
+    let nonce = (await waitRunning(c, a)).process_nonce;
+    let problem = "";
+
+    const thrown = async () =>
+      (await c.call(problemList, { app: a.app })).problems.filter((p) =>
+        p.name === "Error"
+      );
+
+    await t.step("crash-opens-problem", async () => {
+      await crash(c, a.app);
+      const [error] = await until("던진 오류의 문제가 열림", async () => {
+        const found = await thrown();
+        return found.length > 0 ? found : undefined;
+      });
+      problem = error!.id;
+      const opened = await until(
+        "그 문제의 reaction session이 열림",
+        async () => {
+          const found = (await reactionSessions(c, a.app)).filter((s) =>
+            s.problems.includes(problem)
+          );
+          return found.length > 0 ? found : undefined;
+        },
+      );
+      await waitTurnEnd(c, opened[0]!.session);
+      // ledger: 문구는 단정하지 않는다.
+      assertEquals(error!.state, "open");
+      // route: reactionSessions가 첫 메시지의 from을 program으로 가렸다.
+      assertEquals(opened.length, 1);
+      // process
+      nonce = (await restarted(c, a.app, nonce)).process_nonce;
+    });
+
+    await t.step("crash-loop-halts", async () => {
+      await a.gateway.watch([{ types: ["AppRestartHalted"] }]);
+      for (let exit = 2; exit <= CRASH_LIMIT_EXIT; exit++) {
+        await crash(c, a.app);
+        if (exit < CRASH_LIMIT_EXIT) {
+          nonce = (await restarted(c, a.app, nonce)).process_nonce;
+        }
+      }
+      const halted = await a.gateway.next(
+        "event",
+        (frame) => frame.event.type === "AppRestartHalted",
+      );
+      assert(halted.event.type === "AppRestartHalted");
+      assertEquals(halted.event.subject, a.app);
+      const [second] = await until("둘째 reaction session이 열림", async () => {
+        const found = (await reactionSessions(c, a.app)).filter((s) =>
+          s.problems.length === 0
+        );
+        return found.length > 0 ? found : undefined;
+      });
+      await waitTurnEnd(c, second!.session);
+      // route
+      const state = (await c.call(appRuntime, { app: a.app })).state;
+      assertEquals(state.state, "unavailable");
+      assertEquals(state.reason?.code, "crash_loop");
+      // event
+      assertEquals(
+        a.gateway.frames().filter((frame) =>
+          frame.type === "event" && frame.event.type === "AppRestartHalted"
+        ).length,
+        1,
+      );
+      // ledger: 같은 오류는 여섯 번 던져도 문제 하나고, 이 event의 session은 refs가 없는 하나뿐이다.
+      assertEquals((await thrown()).map((p) => p.id), [problem]);
+      assertEquals(
+        (await reactionSessions(c, a.app)).filter((s) =>
+          s.problems.length === 0
+        ).length,
+        1,
+      );
+    });
+  } finally {
+    await app?.gateway.close().catch(() => {});
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

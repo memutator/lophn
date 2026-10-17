@@ -12,6 +12,7 @@ import type { BrokerTransport } from "./broker-client.ts";
 
 const OBSERVER = "@lophn/cap-problem";
 const APP = "@lophn/app";
+const CRASH_REPORT_WAIT_MS = 2_000;
 
 type ObservedInvocation = {
   id: string;
@@ -24,7 +25,9 @@ type ObserverFactory = {
     newId: (prefix: string) => string;
     sleep: (ms: number) => Promise<void>;
     currentInvocation: () => null;
-  }) => (transport: (input: unknown) => Promise<unknown>) => () => void;
+  }) => ((transport: (input: unknown) => Promise<unknown>) => () => void) & {
+    settled?: () => Promise<void>;
+  };
   // 앱 code의 reportProblem이 쓰는 reporter. 없는 module(시험의 대역)은 설치하지 않는다.
   createProblemReporter?: (deps: {
     transport: (input: unknown) => Promise<unknown>;
@@ -91,7 +94,18 @@ async function main(deps: MainDeps): Promise<void> {
       },
     }));
   }
-  installCrashExit({ writeStderr, exit });
+  installCrashExit({
+    writeStderr,
+    exit,
+    // 보고 전달이 막혀도 죽는 일을 미루지 않도록 상한을 둔다.
+    beforeExit: () =>
+      Promise.race([
+        install.settled?.() ?? Promise.resolve(),
+        new Promise<void>((resolve) =>
+          setTimeout(resolve, CRASH_REPORT_WAIT_MS)
+        ),
+      ]),
+  });
   const line = await deps.readLine();
   if (!line) throw new Error("app start input missing");
   const started = startRuntime({

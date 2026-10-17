@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py testing build`가 `tasks/*.md`에서 id, 단
 | `e2e-file-write` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-file-write |  |  |
 | `e2e-restart` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-restart |  |  |
 | `e2e-rewind` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-rewind |  |  |
-| `e2e-secret` | e2e | 2 | e2e-support-server, e2e-support-core | todo |  |  |  |
+| `e2e-secret` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-secret |  |  |
 | `e2e-stop` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-stop |  |  |
 | `e2e-support-shape` | e2e-support | 2 | e2e-support-server, harness-wire | running | e2e-support/e2e-support-shape |  |  |
 | `harness-wire-idle` | harness-wire | 2 | harness-wire | running | harness-wire/harness-wire-idle |  |  |

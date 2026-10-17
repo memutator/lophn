@@ -35,6 +35,14 @@
 // - 왜 못 잡나: `apps/tickets/coding` 단위 test는 transport를 직접 부르고, 두 session의 token과 터미널 요청(Gateway frame)이
 //   서로 다른지는 shell 역할과 CLI를 지나야 보인다.
 //
+// `cancel-claimed` 행(coding-cancel-keeps-ticket)은 사람이 맡긴 call을 cancel하는 길을 본다.
+// - contract: boundary `app-tickets`·`router`(call cancel은 session을 멈추고 token을 회수하되 ticket은 열어 둔다),
+//   `external-coding-agent`(멈춤은 shell main에 터미널 요청으로 간다).
+// - 현실적 회귀: call cancel이 ticket까지 닫아 사람이 다시 맡길 수 없게 되는 것, cancel 뒤에도 token이 살아 있어 멈추는 중인
+//   터미널이 core를 계속 쓰는 것, 멈춘 session의 claim이 풀리지 않아 ticket이 `claimed`로 잠기는 것(1시간 뒤에야 만료).
+// - 왜 못 잡나: `apps/tickets/coding`과 Router 단위 test는 transport와 Router를 따로 본다. cancel -> `stop` frame ->
+//   shell 역할의 끝 알림 -> claim 반납까지 이어지는 길은 process를 건너야 한다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
@@ -44,6 +52,7 @@ import {
   agentSessionList,
   agentSessionRead,
   archiveSession,
+  callCancel,
   callRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
@@ -400,6 +409,49 @@ const ROWS: Row[] = [
       assertEquals(
         (await second.run("ticket show", { ticket: queued.ticket })).code,
         0,
+      );
+    },
+  },
+  {
+    // call cancel은 session을 멈추고(stop 요청) token을 회수하며, 끝이 알려지면 claim이 풀려 ticket은 열려 있다.
+    name: "cancel-claimed",
+    async run(ctx) {
+      const { core } = ctx;
+      const app = await ctx.app("cancel-claimed");
+      const { cli, call, ticket, terminal } = await ctx.handOff(app);
+      const shown = await cli.run("ticket show", { ticket });
+      const base = (shown.value as { ticket: { revision: string } }).ticket
+        .revision;
+      assertEquals(
+        (await cli.run("ticket claim", { ticket, base_revision: base })).code,
+        0,
+      );
+
+      assertEquals(
+        (await core.call(callCancel, { call })).state,
+        "cancelled",
+      );
+      // CLI: 회수는 cancel과 같은 commit이라 응답 직후 같은 token은 통하지 않는다.
+      assertEquals(
+        errorCode(await cli.run("ticket show", { ticket })),
+        "unauthorized",
+      );
+      // gateway: 그 session의 stop 요청이 shell로 간다.
+      await app.gateway.next(
+        "coding_terminal",
+        (frame) =>
+          frame.request.kind === "stop" && frame.request.session === terminal,
+      );
+
+      // shell이 process를 죽이고 끝을 알린다. claim은 이때 반납된다.
+      await exitTerminal(core, terminal, "killed");
+      // route(user): ledger. ticket은 다시 맡길 수 있게 열려 있고 call은 failed가 아니라 cancelled다.
+      const after = (await core.call(ticketShow, { ticket })).ticket;
+      assertEquals(after.state, "open");
+      assertEquals(after.claim, null);
+      assertEquals(
+        (await core.call(callRead, { call })).call.state,
+        "cancelled",
       );
     },
   },

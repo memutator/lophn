@@ -10,6 +10,7 @@ import {
 } from "../../../agent-roles/credentials.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import { FILE_HOOKS } from "../../../agent-roles/hooks.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
@@ -109,7 +110,9 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     operations: (ctx) =>
       agentRuntimePolicies(
         ctx.allRoutes,
-        ROLES.flatMap((role) => roleOperations(role, agentTools())),
+        ROLES.flatMap((role) =>
+          roleOperations(role, agentTools({ file: FILE_HOOKS }))
+        ),
       ),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
@@ -117,7 +120,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       const { runtime } = ctx;
       const started = await startAgentRuntimeChild({
         io: ctx.io,
-        operationsFor: (role) => roleOperations(role, agentTools()),
+        operationsFor: (role) =>
+          roleOperations(role, agentTools({ file: FILE_HOOKS })),
         conditionsFor: agentConditions,
         diagnostic: (message) =>
           void ctx.diagnosticsWrite({

@@ -6,6 +6,7 @@ import {
   type ChildSession,
   startChild,
 } from "../../supervision/responsiveness/mod.ts";
+import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
 import {
   type CoreRead,
   createTurnCredentials,
@@ -137,7 +138,8 @@ async function startAgentRuntime(input: {
   const credentials = createTurnCredentials({
     issuer: link.issuer,
     // session의 역할 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
-    operations: (role) => roleOperations(role, agentTools()),
+    operations: (role) =>
+      roleOperations(role, agentTools({ file: FILE_HOOKS })),
     process: "agent-runtime",
   });
   let driver: TurnDriver | undefined;

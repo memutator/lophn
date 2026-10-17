@@ -16,11 +16,6 @@ export const UNWIRED_TOOL_PORTS: ToolPorts = {
   },
   questions: { ask: () => Promise.resolve(unavailable()) },
   scope: { read: [], write: [] },
-  rewind: {
-    stage: () => Promise.resolve(unavailable()),
-    read: () => Promise.resolve(null),
-    record: () => Promise.resolve(unavailable()),
-  },
   skills: { read: () => Promise.resolve(unavailable()) },
   fetch: (...args) => fetch(...args),
 };

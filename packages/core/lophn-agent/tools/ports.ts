@@ -9,6 +9,9 @@ import type {
   AskResult,
 } from "../../../protocol/lophn-agent/ask-tool.ts";
 
+import type { GateRequest } from "./registry.ts";
+import type { ToolContext } from "./tool-context.ts";
+
 // tool이 기대는 port 가운데 contract에 없는 것이다. 구현은 wiring이 끼운다.
 
 // ask가 기다림을 맡기는 port다. 질문 묶음을 대기 목록에 올리고, 사람이 답하거나 그 session에
@@ -23,6 +26,18 @@ export interface QuestionWait {
 // Gate가 걸리는 tool을 실행하기 직전에 core에 묻는다. turn이 아니면 실행하지 않는다.
 export interface ToolGatePort {
   check(input: ToolGateInput): Promise<Result<ToolGateResult>>;
+}
+
+// file.write와 file.edit에 role 층이 끼우는 규칙이다. writeGate는 쓰기를 Gate에 먼저 물을 때 요청을 내고
+// 아니면 null이다. aroundWrite는 실제 쓰기(run)를 감싼다. 어느 파일이 지침인지, 쓰기 기록을 어디에 남기는지는
+// harness가 모른다.
+export interface FileHooks {
+  writeGate(path: string, ctx: ToolContext): GateRequest | null;
+  aroundWrite(
+    ctx: ToolContext,
+    target: { root: string; relative: string },
+    run: () => Promise<Result<void>>,
+  ): Promise<Result<void>>;
 }
 
 // 그 session의 role과 place가 file tool에 열어 둔 폴더다. 절대 경로이고 쓰기 폴더는 읽기 폴더 안에 있다.

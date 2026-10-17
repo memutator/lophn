@@ -7,7 +7,6 @@ import type {
 } from "../../../protocol/lophn-agent/places.ts";
 import type { CallRouting } from "../ports.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
-import type { RecorderPorts } from "../session/rewind/record.ts";
 import type {
   PlaceScope,
   QuestionWait,
@@ -36,8 +35,6 @@ export type ToolContext = {
   router: CallRouting;
   questions: QuestionWait;
   scope: PlaceScope;
-  // file.write와 file.edit가 쓰기 전에 pre-image를 남기는 길이다.
-  rewind: RecorderPorts;
   skills: SkillReader;
   clock: Clock;
   ids: IdSource;

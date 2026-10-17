@@ -44,7 +44,7 @@ import { agentTools } from "../agent-tools.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
-import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts";
+import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
 // 시험도 같은 묶음을 쓴다.
@@ -108,7 +108,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       resolveModel,
       toolkit: productToolkit({
         machine: calls.machine,
-        definitions: agentTools(),
+        definitions: agentTools({ file: FILE_HOOKS }),
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),
@@ -121,8 +121,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
             readOf(turn.core, askWait, { ...call, questions }),
         },
         router: routerOverCore(turn.core),
-        // file tool의 쓰기 전 pre-image는 core가 읽어 남긴다(StageRewindFile, RecordRewindWrite).
-        rewind: rewindOverCore(turn.core),
         skills: turnSkillReader(
           productSkillSnapshotDeps(calls.machine),
           session,

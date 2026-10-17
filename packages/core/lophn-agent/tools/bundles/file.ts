@@ -2,7 +2,8 @@ import { readImage } from "../file/image.ts";
 import { readPdf } from "../file/pdf.ts";
 import { readFile } from "../file/read.ts";
 import { globFiles, grepFiles } from "../file/search.ts";
-import { editFile, instructionGate, writeFile } from "../file/write.ts";
+import { editFile, writeFile } from "../file/write.ts";
+import type { FileHooks } from "../ports.ts";
 import { defineTool, type ToolDefinition } from "../spi.ts";
 import { z } from "zod";
 
@@ -12,9 +13,11 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 const path = z.string().min(1);
 const lineCount = z.number().int().positive();
 
-// place 폴더 안의 file tool 일곱 개. agent runtime 안에서 돌고 Gate는 `LOPHN.md` 쓰기에만 걸린다.
+// place 폴더 안의 file tool 일곱 개. agent runtime 안에서 돌고 쓰기의 Gate와 쓰기 기록은 hook이 맡는다.
 
-export const FILE_TOOLS: readonly ToolDefinition[] = [
+export const createFileTools = (
+  hooks: FileHooks,
+): readonly ToolDefinition[] => [
   defineTool({
     name: "file.read",
     input: z.strictObject({
@@ -35,8 +38,9 @@ export const FILE_TOOLS: readonly ToolDefinition[] = [
     description:
       "Write a text file in the place folder, replacing it if it exists. Missing folders are created.",
     effect: "write",
-    gate: instructionGate,
-    handler: (input, ctx) => writeFile(input, ctx),
+    gate: (input, ctx) =>
+      hooks.writeGate((input as { path: string }).path, ctx),
+    handler: (input, ctx) => writeFile(input, ctx, hooks),
   }),
   defineTool({
     name: "file.edit",
@@ -50,8 +54,9 @@ export const FILE_TOOLS: readonly ToolDefinition[] = [
     description:
       "Replace old_string with new_string in a text file. old_string must appear exactly once unless replace_all is true.",
     effect: "write",
-    gate: instructionGate,
-    handler: (input, ctx) => editFile(input, ctx),
+    gate: (input, ctx) =>
+      hooks.writeGate((input as { path: string }).path, ctx),
+    handler: (input, ctx) => editFile(input, ctx, hooks),
   }),
   defineTool({
     name: "file.glob",

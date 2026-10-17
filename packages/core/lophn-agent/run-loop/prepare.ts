@@ -112,10 +112,10 @@ export type Toolkit = {
 };
 
 // ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, Router, 질문, 폴더 범위,
-// pre-image 기록, skill 읽기는 조립이 session마다 끼운다.
+// skill 읽기는 조립이 session마다 끼운다.
 export type ToolPorts = Pick<
   ToolContext,
-  "gate" | "router" | "questions" | "scope" | "rewind" | "skills" | "fetch"
+  "gate" | "router" | "questions" | "scope" | "skills" | "fetch"
 >;
 
 type PreparerDeps = {

@@ -2,12 +2,7 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type { Intent } from "../../../protocol/approvals/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 
-// 지침 파일은 LOPHN.md뿐이다. agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다.
-export function isInstructionFile(path: string): boolean {
-  return path.split(/[\\/]/).pop() === "LOPHN.md";
-}
-
-// file tool로 LOPHN.md를 쓰는 것은 설정 고치기다. 경로를 가르는 일은 file tool 실행기가 한다.
+// 설정 고치기의 Gate intent다. 무엇이 설정 고치기인지는 부르는 쪽이 가른다.
 export function settingsEditIntent(input: {
   what: Extract<Intent["target"], { kind: "settings_edit" }>["what"];
   id: string | null;

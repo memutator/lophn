@@ -56,15 +56,30 @@ const FOLDERS: readonly ProjectFolderView[] = [
   { path: FAKE_NOTES_FOLDER, found: true, subfolders: [] },
 ];
 
-function find(path: string): readonly Node[] | undefined {
-  const root = [
-    { path: FAKE_PROJECT_FOLDER, nodes: PHRONER },
-    { path: FAKE_NOTES_FOLDER, nodes: NOTES },
-  ].find((item) => path === item.path || path.startsWith(`${item.path}/`));
-  if (root === undefined) return undefined;
-  let nodes = root.nodes;
-  for (const name of path.slice(root.path.length).split("/")) {
-    if (name === "") continue;
+// source 하나가 자기 tree를 갖는다. 만들기·이름 바꾸기·지우기가 이 메모리 tree를 바꾼다.
+type Tree = { name: string; children?: Tree[] };
+type Mount = { readonly path: string; readonly nodes: Tree[] };
+
+const clone = (nodes: readonly Node[]): Tree[] =>
+  nodes.map((node) => ({
+    name: node.name,
+    ...(node.children === undefined ? {} : { children: clone(node.children) }),
+  }));
+
+const parts = (path: string) => path.split("/").filter((part) => part !== "");
+
+function mountOf(mounts: readonly Mount[], path: string): Mount | undefined {
+  return mounts.find((item) =>
+    path === item.path || path.startsWith(`${item.path}/`)
+  );
+}
+
+/** 폴더의 항목들. 폴더가 아니거나 없으면 undefined. */
+function find(mounts: readonly Mount[], path: string): Tree[] | undefined {
+  const mount = mountOf(mounts, path);
+  if (mount === undefined) return undefined;
+  let nodes = mount.nodes;
+  for (const name of parts(path.slice(mount.path.length))) {
     const next = nodes.find((node) => node.name === name)?.children;
     if (next === undefined) return undefined;
     nodes = next;
@@ -84,6 +99,15 @@ export function fakeWorkspaceSource(
 ): WorkspaceSource {
   const missing = options.missing ?? [];
   const failing = options.failing ?? [];
+  const mounts: Mount[] = [
+    { path: FAKE_PROJECT_FOLDER, nodes: clone(PHRONER) },
+    { path: FAKE_NOTES_FOLDER, nodes: clone(NOTES) },
+  ];
+  const dirOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
+  const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+  const fail = (code: "conflict" | "not_found" | "invalid_input") =>
+    Promise.resolve({ ok: false, code } as const);
+  const done = Promise.resolve({ ok: true } as const);
   return {
     searchSource: fakeFileSearchSource(),
     project: (id) =>
@@ -99,7 +123,7 @@ export function fakeWorkspaceSource(
         },
       }),
     list(path): Promise<ReadResult<readonly FolderEntry[]>> {
-      const nodes = find(path);
+      const nodes = find(mounts, path);
       if (nodes === undefined || failing.includes(path)) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
@@ -107,10 +131,63 @@ export function fakeWorkspaceSource(
         ok: true,
         value: nodes.map((node) => ({
           name: node.name,
-          kind: node.children === undefined ? "file" : "folder",
-        })),
+          kind: node.children === undefined
+            ? "file" as const
+            : "folder" as const,
+        })).sort((a, b) =>
+          a.kind !== b.kind
+            ? a.kind === "folder" ? -1 : 1
+            : a.name.localeCompare(b.name)
+        ),
       });
     },
+    create(path, kind) {
+      const mount = mountOf(mounts, path);
+      if (mount === undefined) return fail("not_found");
+      let nodes = mount.nodes;
+      const names = parts(path.slice(mount.path.length));
+      for (const [at, name] of names.entries()) {
+        const last = at === names.length - 1;
+        const hit = nodes.find((node) => node.name === name);
+        if (last) {
+          if (hit !== undefined) return fail("conflict");
+          nodes.push(kind === "folder" ? { name, children: [] } : { name });
+        } else if (hit === undefined) {
+          const made: Tree = { name, children: [] };
+          nodes.push(made);
+          nodes = made.children!;
+        } else if (hit.children === undefined) return fail("conflict");
+        else nodes = hit.children;
+      }
+      return done;
+    },
+    rename(from, to) {
+      if (to === from || to.startsWith(`${from}/`)) {
+        return to === from ? done : fail("invalid_input");
+      }
+      const source = find(mounts, dirOf(from));
+      const target = find(mounts, dirOf(to));
+      const node = source?.find((item) => item.name === nameOf(from));
+      if (source === undefined || target === undefined || node === undefined) {
+        return fail("not_found");
+      }
+      if (target.some((item) => item.name === nameOf(to))) {
+        return fail("conflict");
+      }
+      source.splice(source.indexOf(node), 1);
+      target.push({ ...node, name: nameOf(to) });
+      return done;
+    },
+    trash(path) {
+      const siblings = find(mounts, dirOf(path));
+      const at = siblings?.findIndex((item) => item.name === nameOf(path));
+      if (siblings === undefined || at === undefined || at < 0) {
+        return fail("not_found");
+      }
+      siblings.splice(at, 1);
+      return done;
+    },
+    reveal: () => done,
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "no layout" }),

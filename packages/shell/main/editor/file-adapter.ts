@@ -4,15 +4,15 @@
 // 충돌은 디스크 내용 hash 비교로만 안다(쓰기는 읽을 때 받은 hash를 기대값으로 보낸다).
 import { createHash, randomBytes } from "node:crypto";
 import {
+  lstat,
+  mkdir,
   open,
   readdir,
   readFile,
   realpath,
   rename,
   rm,
-  rmdir,
   stat,
-  unlink,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 
@@ -46,6 +46,13 @@ export interface FileAdapterOptions {
   folders: () => Promise<readonly string[] | null>;
   /** 밖에서 바뀐 파일을 그 창에 알린다. */
   notify: (owner: number, change: FileChanged) => void;
+  /**
+   * OS 휴지통으로 보낸다(Electron `shell.trashItem`). 못 보내면 던진다. 지우기는 이것만 쓰고
+   * 영구 삭제로 되돌아가지 않는다.
+   */
+  trash: (path: string) => Promise<void>;
+  /** OS 파일 관리자에서 그 경로를 보인다(Electron `shell.showItemInFolder`). */
+  reveal: (path: string) => void;
   fs?: Partial<FileSystemOps>;
   pollMs?: number;
 }
@@ -55,8 +62,12 @@ export interface FileAdapter {
   read(path: string): Promise<FileReply<FileText>>;
   readBytes(path: string): Promise<FileReply<FileBytes>>;
   write(owner: number, input: FileWrite): Promise<FileReply<FileWritten>>;
+  create(
+    input: { path: string; kind: "file" | "folder" },
+  ): Promise<FileReply<Empty>>;
   rename(input: { from: string; to: string }): Promise<FileReply<Empty>>;
   delete(input: { path: string }): Promise<FileReply<Empty>>;
+  reveal(input: { path: string }): Promise<FileReply<Empty>>;
   /** 이 창이 보는 경로 전체를 통째로 바꾼다. 빈 목록이면 끈다. */
   watch(owner: number, paths: readonly string[]): Promise<FileReply<Empty>>;
   /** 창이 사라지면 그 창의 감시를 놓는다. */
@@ -362,23 +373,55 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
         }));
     },
 
+    // 없을 때만 만든다. 파일은 `wx`로 열어 이미 있으면 EEXIST(conflict)이고, 폴더는 끝 조각을
+    // recursive 없이 만든다. 위쪽 폴더만 recursive로 채운다.
+    async create(input) {
+      return await guarded(input.path, async (clean) => {
+        await mkdir(dirname(clean), { recursive: true });
+        if (input.kind === "folder") await mkdir(clean);
+        else await (await open(clean, "wx", 0o644)).close();
+        return { ok: true, value: {} };
+      });
+    },
+
     async rename(input) {
       const to = await accept(input.to);
       if (!to.ok) return fail(to.code);
       return await guarded(input.from, async (from) => {
-        await stat(from);
-        const taken = await stat(to.path).then(() => true, () => false);
-        if (taken) return fail("conflict");
+        await lstat(from);
+        if (from === to.path) return { ok: true, value: {} };
+        // 폴더를 자기 안으로 옮길 수 없다.
+        const realFrom = await realPath(from);
+        if (inside(await realPath(to.path), realFrom)) {
+          return fail("invalid_input");
+        }
+        // 대문자만 바꾸는 이름 바꾸기는 대소문자를 가리지 않는 디스크에서 자기 자신과 부딪힌다.
+        const caseOnly = dirname(from) === dirname(to.path) &&
+          basename(from).toLowerCase() === basename(to.path).toLowerCase();
+        const taken = await lstat(to.path).then(() => true, () => false);
+        if (taken && !caseOnly) return fail("conflict");
         await ops.rename(from, to.path);
         return { ok: true, value: {} };
       });
     },
 
-    // 영구 삭제다. 폴더는 비어 있을 때만 지운다.
+    // 휴지통으로만 보낸다. 휴지통을 못 쓰면 아무것도 지우지 않고 unavailable이다.
     async delete(input) {
       return await guarded(input.path, async (clean) => {
-        if ((await stat(clean)).isDirectory()) await rmdir(clean);
-        else await unlink(clean);
+        await lstat(clean);
+        try {
+          await options.trash(clean);
+        } catch {
+          return fail("unavailable");
+        }
+        return { ok: true, value: {} };
+      });
+    },
+
+    async reveal(input) {
+      return await guarded(input.path, async (clean) => {
+        await lstat(clean);
+        options.reveal(clean);
         return { ok: true, value: {} };
       });
     },

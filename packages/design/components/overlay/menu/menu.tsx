@@ -1,5 +1,5 @@
 import * as Radix from "@radix-ui/react-dropdown-menu";
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import { keepFocus } from "../return-focus.ts";
 import { Icon, type IconProps } from "../../primitives/icon/icon.tsx";
 import {
@@ -21,6 +21,8 @@ export interface MenuItem {
   // 키보드 typeahead가 쓰는 글. label이 글이면 생략한다.
   textValue?: string;
   disabled?: boolean;
+  // 이 항목 위에 구분선을 긋는다. 항목 묶음의 경계에 쓴다.
+  separatorBefore?: boolean;
 }
 
 export interface MenuProps {
@@ -73,17 +75,21 @@ export function Menu(
           {...componentMark("Menu")}
         >
           {items.map((item) => (
-            <Radix.Item
-              key={item.id}
-              className={styles.item}
-              disabled={item.disabled}
-              textValue={item.textValue}
-              onSelect={() => onSelect(item.id)}
-              {...item.data}
-            >
-              {item.leading}
-              {item.label}
-            </Radix.Item>
+            <Fragment key={item.id}>
+              {item.separatorBefore === true
+                ? <Radix.Separator className={styles.separator} />
+                : null}
+              <Radix.Item
+                className={styles.item}
+                disabled={item.disabled}
+                textValue={item.textValue}
+                onSelect={() => onSelect(item.id)}
+                {...item.data}
+              >
+                {item.leading}
+                {item.label}
+              </Radix.Item>
+            </Fragment>
           ))}
         </Radix.Content>
       </Radix.Portal>

@@ -10,6 +10,7 @@ import type {
 } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
+import { click, type } from "../../mock/drive.ts";
 import {
   commonIcons,
   conversationIcons,
@@ -159,7 +160,22 @@ export interface SidebarSpec {
   readonly mode?: SidebarTab;
   /** 루트를 고르는 menu를 연 채 시작한다. */
   readonly rootMenu?: boolean;
+  /** Explorer에서 사람이 한 조작을 하고 멈춘 모양. */
+  readonly act?: ExplorerAct;
 }
+
+/**
+ * head: 머리 단추가 보인다(머리에 focus). delete: 오른쪽 클릭 menu의 Delete를 눌러 확인이 뜬다.
+ * new-file: 폴더를 고르고 New File을 눌러 이름을 쓰는 중이다. new-exists: 이미 있는 이름을 써서 오류가 보인다.
+ * rename: F2로 이름을 바꾸는 중이다. move: 파일을 폴더로 끌어 놓아 옮기기 확인이 뜬다.
+ */
+export type ExplorerAct =
+  | "head"
+  | "delete"
+  | "new-file"
+  | "new-exists"
+  | "rename"
+  | "move";
 
 interface SidebarProps extends SidebarSpec {
   readonly collapsed: boolean;
@@ -263,6 +279,67 @@ const CONTEXTS = createFakeContextsSource();
 const absolute = (path: string) =>
   path.startsWith("/") ? path : `${FAKE_PROJECT_FOLDER}/${path}`;
 
+const EXPERIMENTS = "eval/experiments";
+
+// Explorer에서 사람이 한 조작을 같은 신호(focus, click, key, drag)로 보내 한 상태를 만든다.
+async function runExplorerAct(
+  act: ExplorerAct,
+  waitFor: (selector: string) => Promise<HTMLElement | null>,
+) {
+  const fileRow = (path: string) => `[data-file="${CSS.escape(path)}"]`;
+  if (act === "head") {
+    (await waitFor('[data-explorer-action="new-file"]'))?.focus();
+  } else if (act === "delete") {
+    const row = await waitFor(
+      fileRow(absolute(`${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`)),
+    );
+    if (row === null) return;
+    const box = row.getBoundingClientRect();
+    row.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: box.left + 40,
+        clientY: box.top + 10,
+      }),
+    );
+    await click('[role="menuitem"]', "Delete");
+  } else if (act === "new-file" || act === "new-exists") {
+    (await waitFor(fileRow(absolute(EXPERIMENTS))))?.focus();
+    await click('[data-explorer-action="new-file"]');
+    await type(
+      "[data-editing] input",
+      act === "new-file" ? "exp-013-notes.md" : "exp-008-query-tools.md",
+    );
+  } else if (act === "rename") {
+    const row = await waitFor(
+      fileRow(absolute(`${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`)),
+    );
+    row?.focus();
+    row?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "F2",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  } else {
+    const file = await waitFor(
+      fileRow(absolute(`${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`)),
+    );
+    const target = await waitFor(fileRow(absolute("eval/rubrics")));
+    if (file === null || target === null) return;
+    const dataTransfer = new DataTransfer();
+    const fire = (element: HTMLElement, type: string) =>
+      element.dispatchEvent(
+        new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }),
+      );
+    fire(file, "dragstart");
+    fire(target, "dragover");
+    fire(target, "drop");
+  }
+}
+
 // page가 정한 한 상태로 sidebar를 세운다. 실제 component가 스스로 여는 menu·펼침은 화면 위의 사람 조작과 같은
 // 신호(click, 오른쪽 클릭, Enter, focus)를 보내 만든다. 한 번만 돈다.
 function useSidebarScript(
@@ -314,6 +391,7 @@ function useSidebarScript(
             }),
           );
         }
+        if (spec.act !== undefined) await runExplorerAct(spec.act, waitFor);
         if (spec.rootMenu === true) {
           const head = await waitFor("[data-root-head]");
           if (!live) return;
@@ -402,7 +480,8 @@ export function PageSidebar(props: SidebarProps) {
               ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
               : path,
           )}
-        onFileAction={() => {}}
+        onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
+        onTrash={(path) => DEMO_SOURCE.trash(path)}
         onRail={props.onRail}
         onAgent={(agent) => props.onAgent(agent.assignment)}
         onSession={(session) => {

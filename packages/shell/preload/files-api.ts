@@ -5,11 +5,13 @@ import {
   FILE_CLOSE_ANSWER_CHANNEL,
   FILE_CLOSE_REQUEST_CHANNEL,
   FILE_COUNTS_CHANNEL,
+  FILE_CREATE_CHANNEL,
   FILE_DELETE_CHANNEL,
   FILE_LIST_CHANNEL,
   FILE_READ_BYTES_CHANNEL,
   FILE_READ_CHANNEL,
   FILE_RENAME_CHANNEL,
+  FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
   FILE_WRITE_CHANNEL,
   type FileChanged,
@@ -48,7 +50,9 @@ export function createFilesApi(transport: FilesTransport): FilesApi {
       readBytes: (input) => invoke(FILE_READ_BYTES_CHANNEL, input),
       write: (input) => invoke(FILE_WRITE_CHANNEL, input),
       rename: (input) => invoke(FILE_RENAME_CHANNEL, input),
+      create: (input) => invoke(FILE_CREATE_CHANNEL, input),
       delete: (input) => invoke(FILE_DELETE_CHANNEL, input),
+      reveal: (input) => invoke(FILE_REVEAL_CHANNEL, input),
       watch: (input) => invoke(FILE_WATCH_CHANNEL, input),
       onChanged(listener) {
         const callback = (_event: unknown, payload: unknown) => {

@@ -104,9 +104,17 @@ export type ProjectPlaceholders = {
   "file-search.notice.no-matches": Record<never, never>;
   "file-search.notice.type-text": Record<never, never>;
   "file-search.notice.unavailable": Record<never, never>;
-  "project-workspace.button.file-delete": Record<never, never>;
-  "project-workspace.button.file-open": Record<never, never>;
-  "project-workspace.button.file-rename": Record<never, never>;
+  "project-workspace.button.explorer-collapse-all": Record<never, never>;
+  "project-workspace.button.explorer-copy-path": Record<never, never>;
+  "project-workspace.button.explorer-copy-relative-path": Record<never, never>;
+  "project-workspace.button.explorer-delete": Record<never, never>;
+  "project-workspace.button.explorer-move": Record<never, never>;
+  "project-workspace.button.explorer-new-file": Record<never, never>;
+  "project-workspace.button.explorer-new-folder": Record<never, never>;
+  "project-workspace.button.explorer-refresh": Record<never, never>;
+  "project-workspace.button.explorer-rename": Record<never, never>;
+  "project-workspace.button.explorer-reveal": Record<never, never>;
+  "project-workspace.button.explorer-trash": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.manage-agents": Record<never, never>;
   "project-workspace.button.move-pane": Record<never, never>;
@@ -127,14 +135,31 @@ export type ProjectPlaceholders = {
   "project-workspace.button.tab-reveal": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
-  "project-workspace.error.file-action-failed": Record<never, never>;
-  "project-workspace.error.file-exists": Record<never, never>;
+  "project-workspace.error.explorer-action-failed": Record<never, never>;
+  "project-workspace.error.explorer-move-exists": {
+    folder: "string";
+    name: "string";
+  };
+  "project-workspace.error.explorer-move-failed": {
+    name: "string";
+  };
+  "project-workspace.error.explorer-name-exists": {
+    name: "string";
+  };
+  "project-workspace.error.explorer-name-invalid": {
+    name: "string";
+  };
+  "project-workspace.error.explorer-name-required": Record<never, never>;
+  "project-workspace.error.explorer-trash-failed": {
+    name: "string";
+  };
   "project-workspace.error.files-failed": Record<never, never>;
   "project-workspace.error.load-failed": Record<never, never>;
   "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.label.agent-waiting": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
-  "project-workspace.label.file-new-name": Record<never, never>;
+  "project-workspace.label.explorer-actions": Record<never, never>;
+  "project-workspace.label.explorer-name": Record<never, never>;
   "project-workspace.label.files-in": {
     folder: "string";
   };
@@ -163,12 +188,21 @@ export type ProjectPlaceholders = {
   "project-workspace.label.sidebar-tab-context": Record<never, never>;
   "project-workspace.label.sidebar-tab-explorer": Record<never, never>;
   "project-workspace.label.tab-unsaved": Record<never, never>;
-  "project-workspace.notice.file-delete": Record<never, never>;
-  "project-workspace.sidebar.label": Record<never, never>;
-  "project-workspace.title.file-delete": {
+  "project-workspace.notice.explorer-delete-file": {
     name: "string";
   };
-  "project-workspace.title.file-rename": {
+  "project-workspace.notice.explorer-delete-folder": {
+    name: "string";
+  };
+  "project-workspace.notice.explorer-move": {
+    name: "string";
+    folder: "string";
+  };
+  "project-workspace.sidebar.label": Record<never, never>;
+  "project-workspace.title.explorer-delete": {
+    name: "string";
+  };
+  "project-workspace.title.explorer-move": {
     name: "string";
   };
   "terminal.button.close-terminal": Record<never, never>;

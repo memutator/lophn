@@ -15,7 +15,7 @@ import { t } from "@lophn/wording";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import { AgentPanel } from "./agent-panel.tsx";
-import { Explorer, type FileAction } from "./explorer.tsx";
+import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { Rail, type RailAction } from "./rail.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
@@ -49,8 +49,10 @@ interface ProjectSidebarProps {
   onOpenFile: (path: string, keep?: boolean) => void;
   /** 탭 menu의 Reveal in Explorer. 바뀔 때마다 Explorer 모양으로 바꾸고 Explorer에 그 파일을 알린다. */
   reveal?: Reveal | null;
-  /** 오른쪽 클릭 menu. Rename·Delete의 실행과 확인은 부르는 쪽이 한다. */
-  onFileAction: (action: FileAction, path: string) => void;
+  /** Explorer의 이름 바꾸기·옮기기. 열린 탭 정리까지 한다. */
+  onMove: (from: string, to: string) => Promise<TabAwareResult>;
+  /** Explorer의 휴지통 보내기. 열린 탭 정리까지 한다. */
+  onTrash: (path: string) => Promise<TabAwareResult>;
   onRail: (action: RailAction) => void;
   onAgent: (agent: SidebarAgent) => void;
   /** Agent 줄 hover의 +. 주지 않으면 `onAgent`와 같다. */
@@ -75,7 +77,8 @@ export function ProjectSidebar(
     initialTab = "explorer",
     reveal = null,
     onOpenFile,
-    onFileAction,
+    onMove,
+    onTrash,
     onRail,
     onAgent,
     onNewSession,
@@ -151,7 +154,8 @@ export function ProjectSidebar(
                     current={current}
                     reveal={reveal}
                     onOpenFile={onOpenFile}
-                    onFileAction={onFileAction}
+                    onMove={onMove}
+                    onTrash={onTrash}
                   />
                 )
               : null}

@@ -13,6 +13,7 @@ import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreContextsSource } from "./contexts/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
+  FileOpResult,
   FileRow,
   LayoutRead,
   ProjectView,
@@ -147,6 +148,22 @@ function layoutBridge(): {
   }).lophnLayout;
 }
 
+const filesBridge = () => (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+
+/** main이 디스크에서 직접 하는 파일 일. bridge가 없거나 던지면 unavailable이다. */
+async function fileOp(
+  run: (bridge: FilesApi) => ReturnType<FilesApi["rename"]>,
+): Promise<FileOpResult> {
+  const bridge = filesBridge();
+  if (!bridge) return { ok: false, code: "unavailable" };
+  try {
+    const reply = await run(bridge);
+    return reply.ok ? { ok: true } : { ok: false, code: reply.code };
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
+}
+
 export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
   const project = async (id: string): Promise<ReadResult<ProjectView>> => {
     const reply = await core.call({
@@ -199,6 +216,11 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         return { ok: false, message: "unavailable" };
       }
     },
+
+    create: (path, kind) => fileOp((bridge) => bridge.create({ path, kind })),
+    rename: (from, to) => fileOp((bridge) => bridge.rename({ from, to })),
+    trash: (path) => fileOp((bridge) => bridge.delete({ path })),
+    reveal: (path) => fileOp((bridge) => bridge.reveal({ path })),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

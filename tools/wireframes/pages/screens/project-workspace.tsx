@@ -4,6 +4,11 @@ import {
   AgentsGroup,
   ContextSidebar,
   DocumentInfoContexts,
+  ExplorerHead,
+  ExplorerMove,
+  ExplorerNewExists,
+  ExplorerNewFile,
+  ExplorerRename,
   ExplorerRootMenu,
   FileConflict,
   FileConflictCompare,
@@ -148,17 +153,52 @@ export const projectWorkspaceArea: Area = {
       render: () => <NewTabMenu />,
     },
     {
+      id: "new-explorer-head",
+      title: "Explorer · header buttons",
+      description:
+        "Explorer 머리 줄에 마우스를 올리거나 focus하면 New File, New Folder, Refresh, Collapse All 아이콘 단추가 오른쪽에 나타난다. 들여쓰기 안내선은 tree에 마우스를 올렸을 때 보인다.",
+      render: () => <ExplorerHead />,
+    },
+    {
+      id: "new-explorer-new-file",
+      title: "Explorer · new file",
+      description:
+        "폴더를 고르고 New File을 누르면 그 폴더 안에 이름 입력 줄이 생긴다. Enter로 만들고 고정 tab으로 열며, Esc나 focus를 잃으면 취소한다. a/b/c.md처럼 쓰면 중간 폴더도 만든다.",
+      render: () => <ExplorerNewFile />,
+    },
+    {
+      id: "new-explorer-name-exists",
+      title: "Explorer · name already exists",
+      description:
+        "이미 있는 이름이나 쓸 수 없는 이름을 쓰면 입력 아래에 오류가 보이고 Enter로 만들어지지 않는다.",
+      render: () => <ExplorerNewExists />,
+    },
+    {
+      id: "new-explorer-rename",
+      title: "Explorer · rename in place",
+      description:
+        "F2나 오른쪽 클릭 menu의 Rename은 dialog 없이 그 줄이 입력으로 바뀐다. 파일은 처음에 확장자 앞까지만 골라진다. 열려 있는 탭의 경로도 따라 바뀐다.",
+      render: () => <ExplorerRename />,
+    },
+    {
+      id: "new-explorer-move",
+      title: "Explorer · drag to move",
+      description:
+        "파일이나 폴더를 다른 폴더로 끌어 놓으면 옮기기 전에 한 번 묻는다. 같은 이름이 있는 폴더나 자기 안으로는 옮길 수 없다.",
+      render: () => <ExplorerMove />,
+    },
+    {
       id: "new-organize",
       title: "Project · file actions",
       description:
-        "파일 tree 행을 오른쪽 클릭한 메뉴다. Open, Rename, Delete가 있고 보관, 이동, 폴더 연결 해제는 없다.",
+        "파일 tree 행을 오른쪽 클릭한 메뉴다. VS Code 순서로 New File, New Folder, Reveal in File Manager, Copy Path, Copy Relative Path, Rename, Delete이고 묶음 사이에 구분선이 있다. 빈 자리를 오른쪽 클릭하면 루트 기준이라 Rename과 Delete가 빠진다.",
       render: () => <DocumentOrganize />,
     },
     {
       id: "new-file-delete",
       title: "Project · delete a file",
       description:
-        "파일 지우기 확인이 화면 가운데 modal로 뜬다. 파일은 디스크에서 지워진다.",
+        "Delete를 누르면 화면 가운데 modal이 한 번 묻는다. 파일과 폴더는 OS 휴지통으로 가고 비어 있지 않은 폴더도 된다. 휴지통을 쓸 수 없으면 지우지 않고 실패로 알린다.",
       render: () => <FileDeleteConfirm />,
     },
     {

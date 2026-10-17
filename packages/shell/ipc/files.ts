@@ -10,6 +10,8 @@ export const FILE_READ_BYTES_CHANNEL = "shell:file-read-bytes";
 export const FILE_WRITE_CHANNEL = "shell:file-write";
 export const FILE_RENAME_CHANNEL = "shell:file-rename";
 export const FILE_DELETE_CHANNEL = "shell:file-delete";
+export const FILE_CREATE_CHANNEL = "shell:file-create";
+export const FILE_REVEAL_CHANNEL = "shell:file-reveal";
 /** 이 창이 보는 파일 전체 목록을 통째로 바꾼다. 빈 목록이면 watch를 끈다. */
 export const FILE_WATCH_CHANNEL = "shell:file-watch";
 /** main → renderer: 밖(다른 편집기, git)에서 바뀐 파일. */
@@ -45,6 +47,11 @@ export const fileWriteSchema = z.object({
 }).strict();
 export const fileRenameSchema = z.object({ from: path, to: path }).strict();
 export const fileDeleteSchema = z.object({ path }).strict();
+export const fileCreateSchema = z.object({
+  path,
+  kind: z.enum(["file", "folder"]),
+}).strict();
+export const fileRevealSchema = z.object({ path }).strict();
 export const fileWatchSchema = z.object({
   paths: z.array(path).max(256),
 }).strict();
@@ -102,11 +109,20 @@ export interface FilesApi {
   readBytes(input: { path: string }): Promise<FileReply<FileBytes>>;
   /** base_hash가 지금 디스크와 다르면 `conflict`이고 디스크는 그대로다. */
   write(input: FileWrite): Promise<FileReply<FileWritten>>;
-  /** `to`가 이미 있으면 `conflict`. */
+  /** 비어 있는 새 파일이나 폴더를 만든다. 없는 위쪽 폴더도 만든다. 이미 있으면 `conflict`이고 아무것도 덮어쓰지 않는다. */
+  create(
+    input: { path: string; kind: "file" | "folder" },
+  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  /** `to`가 이미 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`. */
   rename(
     input: { from: string; to: string },
   ): Promise<FileReply<Record<PropertyKey, never>>>;
+  /** OS 휴지통으로 보낸다. 비어 있지 않은 폴더도 된다. 휴지통을 못 쓰면 `unavailable`이고 아무것도 지우지 않는다. */
   delete(
+    input: { path: string },
+  ): Promise<FileReply<Record<PropertyKey, never>>>;
+  /** OS 파일 관리자에서 그 파일을 보인다. */
+  reveal(
     input: { path: string },
   ): Promise<FileReply<Record<PropertyKey, never>>>;
   watch(

@@ -226,7 +226,7 @@ function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
 }
 
-// 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 바뀐 것은 새 session부터라고 말한다.
+// 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 더한 tool은 새 session부터다. 빠진 tool은 Gate가 call 때 지금 grant를 읽어 바로 막으므로 지금부터 못 쓴다.
 function toolsNotice(
   fixed: readonly ToolDefinition[],
   current: readonly ToolDefinition[],
@@ -241,11 +241,11 @@ function toolsNotice(
   }
   if (removed.length > 0) {
     lines.push(
-      `No longer available from a new session: ${removed.join(", ")}.`,
+      `No longer available: ${removed.join(", ")}.`,
     );
   }
   lines.push(
-    "This session keeps the tool list above; the change takes effect in a new session.",
+    "This session keeps the tool list above; added tools can be called from a new session.",
   );
   return lines.join("\n");
 }

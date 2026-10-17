@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|---|---|
 | `annotation-target` | annotation | 1 | 없음 | merged | annotation/annotation-target | a5b1eb0f8 |  |
 | `apps-activation-no-retry` | apps | 1 | 없음 | merged | apps/apps-activation-no-retry | add121bb2 |  |
-| `apps-large-changeset` | apps | 1 | dead-platform | running | apps/apps-large-changeset |  |  |
+| `apps-large-changeset` | apps | 1 | dead-platform | merged | apps/apps-large-changeset | f02d5e07c |  |
 | `dead-agent` | dead | 1 | 없음 | merged | dead/dead-agent | 3777a51b6 |  |
 | `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
 | `feedback-existing-problem` | feedback | 1 | 없음 | running | feedback/feedback-existing-problem |  |  |

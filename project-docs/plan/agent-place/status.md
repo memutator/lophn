@@ -4,13 +4,13 @@ lead만 고친다. `tools/status.py agent-place build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mcp-grants-contract` | mcp-grants | 1 | 없음 | todo |  |  |  |
+| `mcp-grants-contract` | mcp-grants | 1 | 없음 | merged | mcp-grants/mcp-grants-contract | 300144a31 |  |
 | `mcp-grants-core` | mcp-grants | 1 | mcp-grants-contract | todo |  |  |  |
-| `mcp-grants-screen` | mcp-grants | 1 | mcp-grants-contract | todo |  |  |  |
-| `place-folders-draft` | place-folders | 1 | 없음 | todo |  |  |  |
-| `place-folders-rule` | place-folders | 1 | 없음 | todo |  |  |  |
-| `place-folders-wiring` | place-folders | 1 | place-folders-rule | todo |  |  |  |
-| `question-path` | question-path | 1 | 없음 | todo |  |  |  |
+| `mcp-grants-screen` | mcp-grants | 1 | mcp-grants-contract | running | mcp-grants/mcp-grants-screen |  |  |
+| `place-folders-draft` | place-folders | 1 | 없음 | merged | place-folders/place-folders-draft | c323a8da5 |  |
+| `place-folders-rule` | place-folders | 1 | 없음 | merged | place-folders/place-folders-rule | 7fe99e8dc |  |
+| `place-folders-wiring` | place-folders | 1 | place-folders-rule | running | place-folders/place-folders-wiring |  |  |
+| `question-path` | question-path | 1 | 없음 | merged | question-path/question-path | 72b3b0f07 |  |
 | `role-rules-agent-files` | role-rules | 2 | role-rules-turn-agent, role-rules-data-folder | todo |  |  |  |
 | `role-rules-data-folder` | role-rules | 2 | 없음 | todo |  |  |  |
 | `role-rules-extensions` | role-rules | 2 | role-rules-agent-files, role-rules-data-folder | todo |  |  |  |

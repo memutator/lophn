@@ -99,3 +99,22 @@ guard: 없음
 - 추천: B. 안 쓰는 test는 AGENTS.md 지침대로 합치거나 지운다.
 
 닫음: 준비 코드가 파일마다 달라 공용 fixture로 모으면 오히려 무거워진다. 그 파일에 test를 더할 때 필요한 만큼만 helper로 뺀다.
+
+## `tools/questions/`의 ledger 질문 길이 쓰이지 않는다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent, packages/protocol, tools]
+closed: fixed
+guard: 없음
+```
+
+지금: `ask` tool은 `ctx.questions.ask` → memory route `askWait` → `main/daemon/wiring/approvals.ts`의 `createQuestionWaits`(`tools/questions/wait.ts`)로 main thread 메모리에서 기다린다. `ask` 입력(`protocol/lophn-agent/ask-tool.ts`)의 선택지는 `label`·`description`뿐이다. 그 옆의 ledger 질문 길은 `register.ts`가 handler, read, 표(`question_groups`·`questions` schema step), session 삭제 정리(`deleteSessionQuestions`)를 등록하지만 route(`CreateQuestionGroup`, `AnswerQuestionGroup`, `AnswerQuestionAction`, `ApplyQuestionOption`, `ReadQuestionGroup` 등)를 부르는 곳이 packages 어디에도 없다. 선택지 고정 action(`option-actions.ts`), 선택지로 못 바꾸는 설정(`protected-settings.ts`), 자유 답 secret 검사(`screen.ts`), 질문 글 blob(`text-*.ts`)이 모두 이 길에만 붙어 있다. `ask`가 옛 `question.submit`을 대신하면서 tool binding만 지워지고 남았다. `tools/questions/`에서 `ask.ts`(bundle)·`wait.ts`를 뺀 약 2,268줄이다.
+
+영향: 죽은 길이 harness 안의 domain 섞임으로 보인다. `option-actions.ts`가 `protocol/apps`의 `appCreate`를 import해 `HARNESS_LEFTOVERS`에 올라 있고, 표 둘의 schema step과 route가 agent credential(`run-loop/runtime-access.ts`의 `applyQuestionOption`)과 protocol registry에 남아 읽는 사람이 쓰이는 길로 오해한다.
+
+고치려면: `tools/questions/`에서 `wait.ts`와 그것이 쓰는 것만 남기고 지운다. `register.ts`의 등록(질문 commands·reads·`questionTextRead`·`questionBodyFields`·`questionSchemaSteps`·`deleteSessionQuestions`), protocol의 `questions.ts`·`question-submission.ts`·`question-text.ts` 중 `ask`가 안 쓰는 것, `runtime-access.ts`의 `applyQuestionOption`, `tools/check-deps.ts`의 `HARNESS_LEFTOVERS` 한 줄을 같이 지운다. schema가 바뀌므로 개발 data는 지우고 새로 만든다(중간, 기계적).
+
+정한 것: 지운다(사람). 선택지에 동작을 묶는 기능은 살리지 않는다. 필요해지면 그때의 `ask` 모양에 맞춰 새로 짠다.
+
+닫음: `tools/questions/`에는 `ask`가 기다리는 `wait.ts`와 그 export 한 줄(`mod.ts`)만 남았다. ledger 질문 길(handler, read, 표 둘, 글 blob, 선택지 고정 action, 보호 설정, 자유 답 검사)과 protocol `questions.ts`·`question-submission.ts`·`question-text.ts`·`decision-values.ts`, 그 길에만 붙은 ledger 장치(`Tx.callChosenOption`, `questionOption` port, `question_evidence` 표)와 handler 없던 `ApplySettings`(`protocol/config/settings.ts`)를 지웠다. machine credential에서 `applyQuestionOption` 등 질문 operation이 빠졌다. schema가 바뀌어 개발 data는 지우고 새로 만든다.

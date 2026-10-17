@@ -10,8 +10,8 @@ lead만 고친다. `tools/status.py app-platform build`가 `tasks/*.md`에서 id
 | `crash-log` | crash-log | 1 | approval-reads, call-frames-rewind | todo |  |  |  |
 | `doc-paths` | doc-paths | 1 | 없음 | merged | doc-paths/doc-paths | 4f1ae1fd7 |  |
 | `release-files` | release-files | 1 | 없음 | merged | release-files/release-files | 01ecb18d7 |  |
-| `screen-maps` | screen-maps | 1 | release-files | todo |  |  |  |
-| `sdk-install-copies` | sdk-install | 1 | 없음 | running | sdk-install/sdk-install-copies |  |  |
+| `screen-maps` | screen-maps | 1 | release-files | running | screen-maps/screen-maps |  |  |
+| `sdk-install-copies` | sdk-install | 1 | 없음 | merged | sdk-install/sdk-install-copies | b85782bff |  |
 | `sdk-install-startup` | sdk-install | 1 | sdk-install-copies, sdk-install-template | todo |  |  |  |
 | `sdk-install-template` | sdk-install | 1 | 없음 | running | sdk-install/sdk-install-template |  |  |
 | `test-wait` | test-wait | 1 | 없음 | merged | test-wait/test-wait | 1337ef9a2 |  |

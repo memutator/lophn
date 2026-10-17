@@ -6,7 +6,6 @@ import { z } from "zod";
 import { bundleManifestSchema } from "../../../protocol/apps/mod.ts";
 import {
   appApiTargetSchema,
-  processApplyRequestSchema,
   processApplyResponseSchema,
   processCallRequestSchema,
   processCallResponseSchema,
@@ -230,8 +229,8 @@ export const callOutputSchema = z.discriminatedUnion("sent", [
     response: processCallResponseSchema.nullable(),
   }),
 ]);
+// 본문(ProcessApplyRequest)은 같은 request의 bytes stream이다. control frame 한도를 넘을 수 있다.
 export const applyInputSchema = z.strictObject({
   app: appId,
-  request: processApplyRequestSchema,
 });
 export const applyOutputSchema = processApplyResponseSchema;

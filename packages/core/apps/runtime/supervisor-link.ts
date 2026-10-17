@@ -32,6 +32,8 @@ import {
   SUPERVISOR_OPS,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
+import { STREAM_CHUNK_MAX_BYTES } from "../../../protocol/base/mod.ts";
+import { CALL_BODY_MAX_BYTES } from "./entrypoint/limits.ts";
 import { APPLY_TIMEOUT_MS, CALL_TIMEOUT_MS } from "./supervisor/relay.ts";
 
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -58,18 +60,27 @@ type WorkerResponse =
     error: { code: string; message: string };
   };
 
+// pipe로 frame을 쓰는 함수들. false면 보내지 못한 것이다.
+export type SupervisorSenders = {
+  send(payload: unknown): Promise<boolean>;
+  sendBytes(channel: number, chunk: Uint8Array): Promise<boolean>;
+  sendEnd(channel: number): Promise<boolean>;
+  sendAbort(channel: number): Promise<boolean>;
+};
+
 export type SupervisorChannel = {
+  // body가 있으면 control frame에 담기지 않는 큰 본문이다: 같은 request의 bytes stream으로 보낸다.
   request(
     op: string,
     payload: unknown,
     timeoutMs?: number,
+    body?: Uint8Array,
   ): Promise<Result<unknown>>;
   // 요청이 아닌 message(app_credential_response 같은 답)를 supervisor에 보낸다.
   notify(payload: unknown): Promise<boolean>;
   // 감독 callback이 자식 message를 넘긴다. worker_response를 소비했으면 true다.
   onMessage(message: { type: string }): boolean;
-  // pipe로 frame을 쓰는 함수. false면 보내지 못한 것이다.
-  bind(send: (payload: unknown) => Promise<boolean>): void;
+  bind(senders: SupervisorSenders): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
   // supervisor child가 끝났다(crash·재기동). 보낸 요청은 답이 오지 않으므로 기한(5초·재시작 30초)까지
@@ -79,8 +90,10 @@ export type SupervisorChannel = {
 };
 
 export function createSupervisorChannel(): SupervisorChannel {
-  let send: ((payload: unknown) => Promise<boolean>) | null = null;
+  let senders: SupervisorSenders | null = null;
   let counter = 0;
+  // 진행 중인 apply끼리 겹치지 않게 1부터 올린다.
+  let nextChannel = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
   // 보낸 요청이 답 없이 끝났다. 앱 process까지 갔을 수 있다(`details.sent`).
   const SENT = { sent: true };
@@ -91,8 +104,8 @@ export function createSupervisorChannel(): SupervisorChannel {
     }
   }
   return {
-    request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
-      const sender = send;
+    request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS, body) {
+      const sender = senders;
       if (sender === null) {
         return Promise.resolve(err({
           code: "unavailable",
@@ -101,9 +114,11 @@ export function createSupervisorChannel(): SupervisorChannel {
       }
       counter += 1;
       const id = `apps-request-${counter}`;
+      const channel = body ? ++nextChannel : undefined;
       return new Promise<Result<unknown>>((resolve) => {
         const timer = setTimeout(() => {
           pending.delete(id);
+          if (channel !== undefined) sender.sendAbort(channel).catch(() => {});
           resolve(err({
             code: "unavailable",
             message: "app supervisor did not answer in time",
@@ -114,29 +129,51 @@ export function createSupervisorChannel(): SupervisorChannel {
           clearTimeout(timer);
           resolve(answer);
         });
-        sender({ type: "worker_request", request_id: id, op, payload }).then(
-          (sent) => {
+        // json 요청, bytes chunk, end 순서다. chunk 하나의 쓰기가 끝나야 다음을 보내
+        // frame writer의 backlog 한도를 넘지 않는다.
+        (async () => {
+          let started = false;
+          try {
+            let sent = await sender.send({
+              type: "worker_request",
+              request_id: id,
+              op,
+              ...(channel === undefined ? {} : { channel }),
+              payload,
+            });
+            started = sent;
+            if (body && channel !== undefined) {
+              for (
+                let at = 0;
+                sent && at < body.length && pending.has(id);
+                at += STREAM_CHUNK_MAX_BYTES
+              ) {
+                sent = await sender.sendBytes(
+                  channel,
+                  body.subarray(at, at + STREAM_CHUNK_MAX_BYTES),
+                );
+              }
+              // 기한이 지나 이미 끝난 요청이면 abort가 나갔으므로 end를 보내지 않는다.
+              if (sent && pending.has(id)) sent = await sender.sendEnd(channel);
+            }
             if (sent) return;
-            const settle = pending.get(id);
-            pending.delete(id);
-            settle?.(err({
-              code: "unavailable",
-              message: "request could not be sent to the app supervisor",
-            }));
-          },
-          () => {
-            const settle = pending.get(id);
-            pending.delete(id);
-            settle?.(err({
-              code: "unavailable",
-              message: "request could not be sent to the app supervisor",
-            }));
-          },
-        );
+          } catch {
+            // 아래에서 보내지 못한 것으로 끝낸다.
+          }
+          const settle = pending.get(id);
+          if (!settle) return;
+          pending.delete(id);
+          if (channel !== undefined) sender.sendAbort(channel).catch(() => {});
+          settle(err({
+            code: "unavailable",
+            message: "request could not be sent to the app supervisor",
+            ...(started ? { details: SENT } : {}),
+          }));
+        })();
       });
     },
     notify(payload) {
-      return send === null ? Promise.resolve(false) : send(payload);
+      return senders === null ? Promise.resolve(false) : senders.send(payload);
     },
     onMessage(message) {
       if (message.type !== "worker_response") return false;
@@ -153,15 +190,15 @@ export function createSupervisorChannel(): SupervisorChannel {
       return true;
     },
     bind(next) {
-      send = next;
+      senders = next;
     },
     failPending,
     unbind() {
-      send = null;
+      senders = null;
       failPending("app supervisor stopped");
     },
     get bound() {
-      return send !== null;
+      return senders !== null;
     },
   };
 }
@@ -417,6 +454,19 @@ export function createAppProcessLink(
 ): AppProcessLink {
   return {
     async call(target, request) {
+      // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 일시 장애로 알리지 않는다.
+      if (
+        new TextEncoder().encode(JSON.stringify(request)).length >
+          CALL_BODY_MAX_BYTES
+      ) {
+        return {
+          sent: false,
+          error: {
+            code: "invalid_input",
+            message: "call body exceeds the size limit",
+          } satisfies LophnError,
+        };
+      }
       const answer = await channel.request(
         SUPERVISOR_OPS.call,
         { target, request },
@@ -447,8 +497,10 @@ export function createAppProcessLink(
         applyOutputSchema,
         await channel.request(
           SUPERVISOR_OPS.apply,
-          { app, request },
+          { app },
           APPLY_REQUEST_TIMEOUT_MS,
+          // 뒤집은 changeset 전부가 한 요청이라 control frame 한도를 넘을 수 있다.
+          new TextEncoder().encode(JSON.stringify(request)),
         ),
       );
     },

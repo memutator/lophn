@@ -420,11 +420,25 @@ export const appsWiring: WiringFactory = () => {
           },
         );
         if (started.ok) {
-          appsControl.channel.bind((payload) =>
-            ctx.appsSupervision.send(APPS_SUPERVISOR_KIND, payload).then((
-              sent,
-            ) => sent.ok)
-          );
+          const supervision = ctx.appsSupervision;
+          appsControl.channel.bind({
+            send: (payload) =>
+              supervision.send(APPS_SUPERVISOR_KIND, payload).then((sent) =>
+                sent.ok
+              ),
+            sendBytes: (channel, chunk) =>
+              supervision.sendBytes(APPS_SUPERVISOR_KIND, channel, chunk).then((
+                sent,
+              ) => sent.ok),
+            sendEnd: (channel) =>
+              supervision.sendEnd(APPS_SUPERVISOR_KIND, channel).then((sent) =>
+                sent.ok
+              ),
+            sendAbort: (channel) =>
+              supervision.sendAbort(APPS_SUPERVISOR_KIND, channel).then((
+                sent,
+              ) => sent.ok),
+          });
         }
       }
       appsControl.start();

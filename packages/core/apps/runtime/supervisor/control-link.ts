@@ -16,6 +16,8 @@ import { FrameDecoder } from "../../../../protocol/base/mod.ts";
 
 type AppCredentialResponse = z.infer<typeof appCredentialResponseSchema>;
 
+type PendingRequest = { request_id: string; op: string; payload: unknown };
+
 type ControlReader = {
   read(buffer: Uint8Array): Promise<number | null>;
 };
@@ -29,7 +31,11 @@ export class OpError extends Error {
   }
 }
 
-export type OpHandlers = Record<string, (payload: unknown) => Promise<unknown>>;
+// body는 worker_request에 channel이 실려 bytes stream이 온 op에만 있다.
+export type OpHandlers = Record<
+  string,
+  (payload: unknown, body?: Uint8Array) => Promise<unknown>
+>;
 
 type ControlHello = {
   credential: string;
@@ -70,11 +76,16 @@ export function attachControlLink(
     void work.finally(() => inflight.delete(work));
   }
 
-  async function answer(request: {
-    request_id: string;
-    op: string;
-    payload: unknown;
-  }): Promise<void> {
+  // channel이 있는 요청은 end가 올 때까지 본문 chunk를 모은다.
+  const streams = new Map<
+    number,
+    { request: PendingRequest; chunks: Uint8Array[] }
+  >();
+
+  async function answer(
+    request: PendingRequest,
+    body?: Uint8Array,
+  ): Promise<void> {
     const handler = credential === undefined
       ? undefined
       : options.ops[request.op];
@@ -91,7 +102,7 @@ export function attachControlLink(
       return;
     }
     try {
-      const payload = await handler(request.payload);
+      const payload = await handler(request.payload, body);
       await options.send({
         type: "worker_response",
         request_id: request.request_id,
@@ -119,7 +130,20 @@ export function attachControlLink(
         const count = await input.read(buffer);
         if (count === null) break;
         for (const frame of frames.push(buffer.subarray(0, count))) {
-          if (frame.kind !== "json") continue;
+          if (frame.kind !== "json") {
+            const stream = streams.get(frame.channel);
+            if (!stream) continue;
+            if (frame.kind === "bytes") {
+              stream.chunks.push(frame.payload);
+              continue;
+            }
+            // abort는 core가 이미 포기한 것이라 답하지 않는다.
+            streams.delete(frame.channel);
+            if (frame.kind === "end") {
+              track(answer(stream.request, concat(stream.chunks)));
+            }
+            continue;
+          }
           const hello = helloSchema.safeParse(frame.payload);
           if (hello.success) {
             // credential은 한 번만 온다. 두 번째 hello는 protocol 위반이다.
@@ -149,12 +173,20 @@ export function attachControlLink(
           }
           const request = workerRequestEnvelopeSchema.safeParse(frame.payload);
           if (!request.success) throw new Error("unknown control message");
+          if (request.data.channel !== undefined) {
+            streams.set(request.data.channel, {
+              request: request.data,
+              chunks: [],
+            });
+            continue;
+          }
           track(answer(request.data));
         }
       }
     } catch {
       // frame 오류·protocol 위반도 core가 끊긴 것과 같이 자식을 끝낸다.
     }
+    streams.clear();
     if (!stopped) await supervisor.coreClosed();
     await Promise.allSettled([...inflight]);
   })();
@@ -163,4 +195,14 @@ export function attachControlLink(
     apiPort: () => apiPort,
     closed,
   };
+}
+
+function concat(chunks: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
 }

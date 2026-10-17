@@ -84,6 +84,7 @@ import {
   appCallApi,
   appProjects,
   brokerProjectsListOutputSchema,
+  processApplyRequestSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { createCoreBrokerAccess } from "./access.ts";
 import {
@@ -978,9 +979,22 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const input = parse(callInputSchema, payload);
       return relay.call(input.target, input.request);
     },
-    [SUPERVISOR_OPS.apply]: async (payload) => {
+    [SUPERVISOR_OPS.apply]: async (payload, body) => {
       const input = parse(applyInputSchema, payload);
-      const applied = await relay.apply(input.app, input.request);
+      // 본문(뒤집은 changeset 전부)은 control frame에 담기지 않아 bytes stream으로 온다.
+      if (body === undefined) {
+        throw new OpError("invalid_input", "apply body is missing");
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(
+          new TextDecoder("utf-8", { fatal: true }).decode(body),
+        );
+      } catch {
+        throw new OpError("invalid_input", "apply body is not json");
+      }
+      const request = parse(processApplyRequestSchema, json);
+      const applied = await relay.apply(input.app, request);
       if (!applied.ok) {
         throw new OpError(applied.error.code, applied.error.message);
       }

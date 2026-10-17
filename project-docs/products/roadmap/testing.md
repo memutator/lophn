@@ -39,6 +39,7 @@
 - models.dev: agent runtime child가 새 root의 첫 기동에 GET한다. 끄려면 기동 전에 `<root>/settings.json`에 `{"lophn-agent.model.catalog_auto_update": false}`를 둔다. 선언 안 된 key가 하나라도 있으면 file 전체가 거절된다.
 - place 폴더나 provider가 바뀌면 runtime child가 1초 polling으로 다시 뜨고 돌던 turn이 끊긴다(`run-loop/runtime.ts`).
 - 앱:
+  - 앱 source 연결(`apps/connect_source`)은 정규화된 절대 path인지만 본다. release 준비는 source 폴더가 그 자체로 git 저장소의 맨 위여야 한다(`apps/releases/prepare/git-extract.ts`의 `requireRepository`). 아니면 `source_outside_boundary`다.
   - release 준비 route(`releases/prepare_bundle`, `releases/preparation`)는 coding_agent와 machine만 부른다.
   - coding token은 App Engineer가 ticket을 coding agent에게 맡길 때 Gateway `coding_terminal` open frame의 `plan.env.LOPHN_CODING_TOKEN`으로만 나온다.
   - activation은 `tickets/verify`(agent만)가 내는 `TicketVerified`에서 시작한다.
@@ -179,7 +180,7 @@ tests/
 
 ## 지켜야 할 것
 
-- `~/.lophn`, OS keychain, 사람의 전역 harness 설정을 건드리지 않는다. E2E data root는 실행마다 `.dev-data/e2e/<run>`에 만들고, 끝나면 권한을 되돌린 뒤 지운다. 기동 전에 `settings.json`으로 models.dev를 끈다.
+- `~/.lophn`, OS keychain, 사람의 전역 harness 설정을 건드리지 않는다. E2E는 실행마다 `.dev-data/e2e/<run>/`을 만들고 그 아래 `home/`(data root)과 `work/`(project 폴더, 앱 source)를 둔다. 앱 source는 data root 밖에 두고, 폴더마다 `git init`과 commit을 한다. 끝나면 권한을 되돌린 뒤 `<run>`을 통째로 지운다. 기동 전에 `settings.json`으로 models.dev를 끈다.
 - 진짜 provider는 live task에서만, 사람이 key를 줄 때만 부른다.
 - 전역 mutable 상태를 두지 않는다. 고정 port와 고정 path를 쓰지 않는다. 병렬로 돌아야 한다.
 - sanitizer를 끄지 않는다.

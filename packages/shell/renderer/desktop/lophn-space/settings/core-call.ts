@@ -3,6 +3,10 @@
 // 로그인 응답은 보호 창이 받고 여기서는 창 열기만 한다.
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
+import type {
+  SecretInputOpenApi,
+  SecretInputPurpose,
+} from "../../../../ipc/secret-input.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import type { SourceResult, WindowOutcome } from "./source.ts";
 
@@ -67,6 +71,40 @@ export function windowSecretOpener(): OpenSecretWindow | undefined {
   return typeof shell?.openConfirmation === "function"
     ? (intent) => shell.openConfirmation!(intent)
     : undefined;
+}
+
+/** preload의 보호 입력 창 열기. 없는 창에서는 undefined다. */
+export function windowSecretInputOpener():
+  | SecretInputOpenApi["open"]
+  | undefined {
+  const shell = (globalThis as {
+    lophnShell?: { openSecretInput?: SecretInputOpenApi["open"] };
+  }).lophnShell;
+  return typeof shell?.openSecretInput === "function"
+    ? (input) => shell.openSecretInput!(input)
+    : undefined;
+}
+
+/**
+ * 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 `name`의 값이 올라가 있다. 값은 이 안을 지나지
+ * 않는다. subject는 창에 보일 이름이라 제어 문자를 빼고 80자로 자른다.
+ */
+export async function enterSecret(
+  open: SecretInputOpenApi["open"] | undefined,
+  input: { name: string; purpose: SecretInputPurpose; subject: string },
+): Promise<SourceResult<"stored" | "cancelled">> {
+  if (open === undefined) return { ok: false, code: "unavailable" };
+  try {
+    const reply = await open({
+      ...input,
+      subject: input.subject.replace(/\p{Cc}/gu, "").slice(0, 80),
+    });
+    return reply.ok
+      ? { ok: true, value: reply.result }
+      : { ok: false, code: reply.code };
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
 }
 
 /** preload의 shell 링크 열기. 없는 창이면 undefined다. */

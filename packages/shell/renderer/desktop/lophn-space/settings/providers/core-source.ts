@@ -4,8 +4,8 @@
 // 창 열기만 한다.
 //
 // provider 하나에는 연결(credential) 하나라 Connect는 provider와 credential을 함께 받는
-// RegisterProvider 하나다. key로 연결하는 일은 이 통로가 core를 부르지 않고 등록 정보를 실은 보호 창을
-// 열면 그 창이 값을 받아 RegisterProvider를 부른다. 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다:
+// ConnectProvider 하나다. key로 연결하는 일은 보호 입력 창이 값을 `secrets/put`으로 올린 뒤(`stored`)
+// 이 통로가 그 이름을 실어 ConnectProvider를 부른다. 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다:
 // shell main에서 결정 handle(`provider_disconnect`)을 받아 DisconnectProvider에 싣는다.
 import { t } from "@lophn/wording";
 
@@ -14,15 +14,18 @@ import type {
   DecisionHandleReply,
 } from "../../../../../ipc/confirmation.ts";
 import type { OpenExternalApi } from "../../../../../ipc/open-external.ts";
+import type { SecretInputOpenApi } from "../../../../../ipc/secret-input.ts";
 import type { CoreSource } from "../../../connection/connection.ts";
 import {
   call,
   command,
+  enterSecret,
   newProviderId,
   openProtected,
   type OpenSecretWindow,
   type SecretIntent,
   windowLinkOpener,
+  windowSecretInputOpener,
   windowSecretOpener,
 } from "../core-call.ts";
 import { waysOf } from "../model.ts";
@@ -154,7 +157,10 @@ function windowDecisionHandle():
 }
 
 interface ProviderDeps {
+  /** OAuth 붙여 넣기 창. */
   openWindow: OpenSecretWindow | undefined;
+  /** API key 보호 입력 창. */
+  openSecret: SecretInputOpenApi["open"] | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
   requestHandle: DecisionHandleApi["requestDecisionHandle"] | undefined;
   now: () => number;
@@ -173,6 +179,9 @@ export function coreProviderSettingsSource(
   const openWindow = "openWindow" in deps
     ? deps.openWindow
     : windowSecretOpener();
+  const openSecret = "openSecret" in deps
+    ? deps.openSecret
+    : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   const requestHandle = "requestHandle" in deps
     ? deps.requestHandle
@@ -219,27 +228,64 @@ export function coreProviderSettingsSource(
     };
   }
 
-  /** 내장 정의의 연결 창 등록 정보. 주소를 알 수 없는 정의는 연결하지 않는다. */
-  function builtinConnect(
+  /** 내장 정의의 연결 주소와 protocol. 주소를 알 수 없는 정의는 연결하지 않는다. */
+  function routeOf(
     definition: BuiltinDefinition,
-    kind: "api_key" | "oauth",
-    login?: string,
-  ): SecretIntent | null {
+  ): { endpoint: string; protocol: string } | null {
     const endpoint = baseOf(definition.models_endpoint);
     const protocol = definition.protocols[0];
-    if (endpoint === null || protocol === undefined) return null;
+    return endpoint === null || protocol === undefined
+      ? null
+      : { endpoint, protocol };
+  }
+
+  /** 내장 정의의 OAuth 붙여 넣기 창 등록 정보. */
+  function builtinConnect(
+    definition: BuiltinDefinition,
+    kind: "oauth",
+    login: string,
+  ): SecretIntent | null {
+    const route = routeOf(definition);
+    if (route === null) return null;
     return connectIntent(idFor(definition.key), {
       name: definition.display_name,
       definition,
-      endpoint,
-      protocol,
+      ...route,
       kind,
-      ...(login === undefined ? {} : { login }),
+      login,
     });
   }
 
+  /**
+   * API key로 연결한다. 보호 창이 값을 `secrets/put`으로 올린 뒤(`stored`)에야 그 이름을 가리키는
+   * ConnectProvider를 보낸다. 연결이 실패하면 올라간 값은 쓰이지 않으니 지운다(결과는 무시).
+   */
+  async function connectWithKey(input: {
+    id: string;
+    name: string;
+    definition: unknown;
+    endpoint: string;
+    protocol: string;
+  }): Promise<WindowOutcome> {
+    const secret = `provider.${input.id.slice("pvd_".length)}`;
+    const entered = await enterSecret(openSecret, {
+      name: secret,
+      purpose: "provider",
+      subject: input.name,
+    });
+    if (!entered.ok) return entered;
+    if (entered.value === "cancelled") return { ok: true, value: null };
+    const sent = await command(core, "providers", "connect", {
+      input: { ...input, auth_kind: "api_key", credential: { secret } },
+      key: `provider-connect-${random()}`,
+    });
+    if (sent.ok) return { ok: true, value: null };
+    await call(core, "memory", "secrets", "delete", { name: secret });
+    return sent;
+  }
+
   async function signIn(definition: BuiltinDefinition): Promise<WindowOutcome> {
-    if (builtinConnect(definition, "api_key") === null) return UNAVAILABLE;
+    if (routeOf(definition) === null) return UNAVAILABLE;
     const id = idFor(definition.key);
     // provider는 아직 없다. 만들 provider의 ID와 내장 정의 key로 로그인을 시작한다.
     const begun = await command<{
@@ -334,7 +380,12 @@ export function coreProviderSettingsSource(
         prepared: [],
         confirmation: handle.confirmation,
       });
-      return sent.ok ? { ok: true, value: null } : sent;
+      if (!sent.ok) return sent;
+      // 값 정리는 best-effort다. 못 지워도 끊기는 끝났다.
+      await call(core, "memory", "secrets", "delete", {
+        name: `provider.${provider.slice("pvd_".length)}`,
+      });
+      return { ok: true, value: null };
     },
 
     async connect(definition, way) {
@@ -345,8 +396,14 @@ export function coreProviderSettingsSource(
       );
       if (found === undefined) return UNAVAILABLE;
       if (way === "oauth") return await signIn(found);
-      const intent = builtinConnect(found, "api_key");
-      return intent === null ? UNAVAILABLE : openProtected(openWindow, intent);
+      const route = routeOf(found);
+      if (route === null) return UNAVAILABLE;
+      return connectWithKey({
+        id: idFor(found.key),
+        name: found.display_name,
+        definition: found,
+        ...route,
+      });
     },
 
     async registerCustom(input: CustomProviderInput) {
@@ -366,28 +423,17 @@ export function coreProviderSettingsSource(
         revision: "1",
       };
       const id = idFor(input.id);
-      if (input.withKey) {
-        return openProtected(
-          openWindow,
-          connectIntent(id, {
-            name: input.name,
-            definition,
-            endpoint: base,
-            protocol: "openai-chat-completions",
-            kind: "api_key",
-          }),
-        );
-      }
-      const sent = await command(core, "providers", "register", {
-        input: {
-          id,
-          name: input.name,
-          definition,
-          endpoint: base,
-          protocol: "openai-chat-completions",
-          credential: { kind: "none", preparation: null },
-        },
-        key: `provider-register-${random()}`,
+      const connect = {
+        id,
+        name: input.name,
+        definition,
+        endpoint: base,
+        protocol: "openai-chat-completions",
+      };
+      if (input.withKey) return connectWithKey(connect);
+      const sent = await command(core, "providers", "connect", {
+        input: { ...connect, auth_kind: "none", credential: null },
+        key: `provider-connect-${random()}`,
       });
       return sent.ok ? { ok: true, value: null } : sent;
     },

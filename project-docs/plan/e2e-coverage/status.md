@@ -29,28 +29,28 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `session-rows` | session-rows | 2 | 없음 | merged | session-rows/session-rows | 080476589 |  |
 | `session-scope` | session-scope | 2 | session-rows | merged | session-scope/session-scope | e120be42a |  |
 | `steer` | steer | 2 | 없음 | merged | steer/steer | 3abf290dd | 단정 3: steer 메시지의 messages_only rewind. 문서대로 gather를 고친다(rewind-rows merge 뒤, 추가 소유) |
-| `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | running | test-app/test-app |  | coding 길 bug 1·7·8 + run 경로. release 쪽은 release-cold-cache |
+| `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | merged | test-app/test-app | 696bf90f1 | coding 길 bug 1·7·8 + run 경로. release 쪽은 release-cold-cache |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | merged | agent-call/agent-call | 53fcef2a1 |  |
-| `app-activation` | app-activation | 3 | test-app | todo |  |  |  |
-| `app-call` | app-call | 3 | test-app | todo |  |  |  |
-| `app-data-rewind` | app-data-rewind | 3 | test-app | todo |  |  |  |
-| `app-restart` | app-restart | 3 | test-app | todo |  |  |  |
-| `app-sandbox` | app-sandbox | 3 | test-app | todo |  |  |  |
+| `app-activation` | app-activation | 3 | test-app | running | app-activation/app-activation |  |  |
+| `app-call` | app-call | 3 | test-app | running | app-call/app-call |  |  |
+| `app-data-rewind` | app-data-rewind | 3 | test-app | running | app-data-rewind/app-data-rewind |  |  |
+| `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
+| `app-sandbox` | app-sandbox | 3 | test-app | running | app-sandbox/app-sandbox |  |  |
 | `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | todo |  |  |  |
 | `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | todo |  |  |  |
 | `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | todo |  |  |  |
 | `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | todo |  |  |  |
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | todo |  |  |  |
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
-| `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | todo |  |  |  |
-| `cli-app-input` | fix | 3 | test-app | todo |  |  |  |
+| `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | running | coding-token-scope/coding-token-scope |  |  |
+| `cli-app-input` | fix | 3 | test-app | merged | fix/cli-app-input | 22aa43da8 | test-app 전에 당김. 앱 E2E 확인은 merge 때 |
 | `release-cold-cache` | fix | 3 | test-app | running | fix/release-cold-cache |  | release 길 bug 2·3·4 같이(test-app commit 위) |
 | `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |
 | `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
-| `operator-app-api` | operator | 3 | test-app, reply-fn | todo |  |  |  |
+| `operator-app-api` | operator | 3 | test-app, reply-fn | running | operator/operator-app-api |  |  |
 | `operator-grants` | operator | 3 | operator-app-api | todo |  |  |  |
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |
-| `reaction-app` | reaction-app | 3 | reaction-rows, test-app | todo |  |  |  |
+| `reaction-app` | reaction-app | 3 | reaction-rows, test-app | running | reaction-app/reaction-app |  |  |
 | `reaction-context` | reaction-context | 3 | pm-context | merged | reaction-context/reaction-context | 915745354 |  |
 | `restart-rows` | restart-rows | 3 | 없음 | merged | restart-rows/restart-rows | d83cd01cd |  |
 | `stop-rows` | stop-rows | 3 | turn-fate | merged | stop-rows/stop-rows | 9be971ca0 |  |

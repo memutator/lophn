@@ -43,12 +43,3 @@ const confirmProofFields = {
   expires_at: atSchema,
 };
 export const confirmExecutionProofSchema = z.object(confirmProofFields);
-
-// confirm proof가 싣는 서명 envelope의 서명. 서명 대상은 payload의 RFC 8785
-// canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다.
-const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
-
-export const signedConfirmProofSchema = z.strictObject({
-  payload: confirmExecutionProofSchema,
-  signature: signatureSchema,
-});

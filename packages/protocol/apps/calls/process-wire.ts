@@ -69,9 +69,8 @@ export const processApplyResponseSchema = z.discriminatedUnion("status", [
 ]);
 export type ProcessApplyResponse = z.infer<typeof processApplyResponseSchema>;
 
-// 옛 시작 입력에서 verify_key와 direct_socket을 빼고 control_socket을 더한 것이다.
-const { verify_key: _verifyKey, direct_socket, ...kept } =
-  appStartInputSchema.shape;
+// 시작 입력에서 direct_socket을 빼고 control_socket을 더한 것이다.
+const { direct_socket, ...kept } = appStartInputSchema.shape;
 const appProcessStartInputSchema = z.strictObject({
   ...kept,
   control_socket: direct_socket,

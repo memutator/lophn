@@ -84,12 +84,10 @@ const sectionSourceSchema = z.strictObject({
 }).refine(documentsOrFromType, {
   message: "expected exactly one of documents or from_type",
 });
-const OUTLINE_FORMATS = ["markdown"] as const;
 const outlineSourceSchema = z.strictObject({
   kind: z.literal("outline"),
   documents: z.array(pathPatternSchema).min(1).optional(),
   from_type: contractTypeNameSchema.optional(),
-  format: z.enum(OUTLINE_FORMATS),
   min_level: headingLevelSchema.default(1),
   max_level: headingLevelSchema.default(6),
 }).refine(documentsOrFromType, {

@@ -170,8 +170,6 @@ export const appSpace = {
     "This is the first release of this app. It starts serving when every step is done.",
   "app-detail.note.applying-keeps":
     "{previous} keeps responding until {next} is ready.",
-  "app-detail.note.applying-queued":
-    "Waiting for another activation of this app to finish.",
   "app-detail.note.applying-waiting-approval":
     "Waiting for your answer in the waiting list.",
   "app-detail.note.calls-held":

@@ -134,16 +134,16 @@ function VersionBody(
                     next: releaseName(applying.number),
                   })}
               </p>
-              {applying.phase === "running" ? null : (
-                <p
-                  className={styles.muted}
-                  data-applying-phase={applying.phase}
-                >
-                  {applying.phase === "waiting_approval"
-                    ? t("app-detail.note.applying-waiting-approval")
-                    : t("app-detail.note.applying-queued")}
-                </p>
-              )}
+              {applying.phase === "waiting_approval"
+                ? (
+                  <p
+                    className={styles.muted}
+                    data-applying-phase={applying.phase}
+                  >
+                    {t("app-detail.note.applying-waiting-approval")}
+                  </p>
+                )
+                : null}
               <ol className={styles.steps}>
                 {applying.steps.map((step) => (
                   <li

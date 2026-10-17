@@ -128,7 +128,6 @@ export type ActivationComparison = z.infer<typeof activationComparisonSchema>;
 // 줄은 메모리다. 끝난 것은 release의 status(active, failed)로 본다.
 const ACTIVATION_PHASES = [
   "waiting_approval",
-  "queued",
   "running",
 ] as const;
 const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
@@ -273,7 +272,7 @@ export const activationActivatePrevious = defineCommand({
     release: releaseIdSchema,
     key: idempotencyKeySchema,
   }),
-  output: z.object({ phase: z.enum(["queued", "running"]) }),
+  output: z.object({ phase: z.literal("running") }),
   actors: ["user"],
   errors: ["forbidden", "conflict", "invalid_input"],
 });

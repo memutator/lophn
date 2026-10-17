@@ -33,7 +33,7 @@ export interface ActivationStep {
 interface Applying {
   readonly id: string;
   readonly number: number;
-  readonly phase: "waiting_approval" | "queued" | "running";
+  readonly phase: "waiting_approval" | "running";
   readonly steps: readonly ActivationStep[];
 }
 

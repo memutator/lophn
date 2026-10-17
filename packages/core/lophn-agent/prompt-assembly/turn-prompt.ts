@@ -99,7 +99,7 @@ function changeText(
   return `${label} ${parts.join(" ")}`;
 }
 
-// 바뀐 것마다 notice 하나다. program이 쓴 문장만 쓰고 앱이 쓴 글은 넣지 않는다.
+// 바뀐 것마다 notice 하나다. program이 쓴 고정 문장만 쓰고 앱이 쓴 글은 넣지 않는다: 앞부분이 turn마다 같아야 prefix cache가 맞는다.
 function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
   const notices: string[] = [];
   if (diff.instructions.length > 0) {

@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import {
   confirmExecutionProofSchema,
   invocationCallerSchema,
-  signedConfirmProofSchema,
 } from "./channel.ts";
 import {
   appApiKeySchema,
@@ -158,27 +157,6 @@ export const invocationAcceptConfirm = defineCommand({
   output: invocationAcceptConfirmOutputSchema,
   actors: recordActors,
   errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
-});
-
-// agent caller가 이미 접수된 confirm을 앱에 보낼 때 붙이는 서명 proof.
-// 입력은 접수 입력 그대로이고, 출력 proof는 core 서명이다. 이 route는 접수나 approval 사용을 만들지 않는다.
-export const appAgentConfirmProof = defineMemory({
-  resource: "apps",
-  method: "agent_confirm_proof",
-  name: "app.agent_confirm_proof",
-  input: invocationAcceptConfirmInputSchema,
-  output: z.object({
-    invocation: invocationIdSchema,
-    proof: signedConfirmProofSchema,
-  }),
-  actors: ["machine"],
-  errors: [
-    "forbidden",
-    "not_found",
-    "conflict",
-    "invalid_input",
-    "unavailable",
-  ],
 });
 
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;

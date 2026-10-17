@@ -215,7 +215,6 @@ export type AppSpacePlaceholders = {
     previous: "string";
     next: "string";
   };
-  "app-detail.note.applying-queued": Record<never, never>;
   "app-detail.note.applying-waiting-approval": Record<never, never>;
   "app-detail.note.calls-held": {
     name: "string";

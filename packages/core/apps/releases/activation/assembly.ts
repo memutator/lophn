@@ -1,6 +1,6 @@
 // core 안 activation 조립. 세 일을 한다.
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
-//      만들어 supervisor에 알린다(`bundleFlags`). 앱 코드는 신뢰하지 않으므로 선언 ∩ active grant 밖의 접근은
+//      만들어 supervisor에 알린다(`bundleFlags`). AI가 쓴 앱 코드의 실수가 퍼지지 않게 선언 ∩ active grant 밖의 접근은
 //      flag에 없다.
 //   2. activation: `TicketVerified`·`ApprovalDecided` Reactor handler(handler.ts)가 앱마다 하나만(queue.ts)
 //      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나

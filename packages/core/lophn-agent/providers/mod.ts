@@ -6,9 +6,6 @@ export {
   createProviderDefinitionsRead,
 } from "./definitions.ts";
 export {
-  createProviderSecretRefSource,
-  lookupProviderSecretUse,
-  PROVIDER_SECRET_OWNER,
   providerSecretDestination,
   providerSecretDestinations,
 } from "./secret-refs.ts";

@@ -9,7 +9,6 @@ import {
   type ProviderRecord,
   recordProviderAvailability,
   refreshProviderCredential,
-  registerProvider,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -145,7 +144,6 @@ function replaceModelBlocks(
 
 export function createProviderCommands(): {
   connect: CommandDefinition<typeof connectProvider>;
-  register: CommandDefinition<typeof registerProvider>;
   disconnect: CommandDefinition<typeof disconnectProvider>;
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
@@ -252,67 +250,6 @@ export function createProviderCommands(): {
         return ok({ provider: record.value });
       },
     },
-    // 옛 길. provider-connect-cleanup이 지운다.
-    register: {
-      route: registerProvider,
-      handle(tx, ctx, input) {
-        const person = requireUser(ctx);
-        if (!person.ok) return person;
-        const definition = assertDefinition(input.definition);
-        if (!definition.ok) return definition;
-        const existing = tx.sql.get(
-          "select id from providers where id = ?",
-          [input.id],
-        );
-        // 이미 연결된 provider에는 두 번째 credential을 등록하지 못한다. 바꾸려면 Disconnect 뒤 Connect한다.
-        if (existing !== undefined) {
-          return conflict("provider id already exists");
-        }
-        const kind = input.credential.kind;
-        // 같은 endpoint는 새 provider다. 진행 turn의 이동은 없다.
-        const credential = assertCredential({
-          kind,
-          secret_ref: input.credential.preparation === null ? null : {
-            name: secretNameForProvider(input.id),
-          },
-          revision: 1,
-          state: "available",
-          unavailable_reason: null,
-          until: null,
-          expires_at: null,
-          logged_in_at: kind === "oauth" ? tx.now() : null,
-          refreshed_at: null,
-          model_blocks: [],
-        });
-        if (!credential.ok) return credential;
-        const record = assertRecord({
-          id: input.id,
-          name: input.name,
-          definition: definition.value,
-          endpoint: input.endpoint,
-          protocol: input.protocol,
-          credential: credential.value,
-          revision: 1,
-        });
-        if (!record.ok) return record;
-        tx.sql.run(
-          `insert into providers
-            (id, name, definition_key, definition, endpoint, protocol, revision)
-           values (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            input.id,
-            input.name,
-            definition.value.key,
-            JSON.stringify(definition.value),
-            input.endpoint,
-            input.protocol,
-            1,
-          ],
-        );
-        insertCredential(tx, input.id, credential.value);
-        return ok({ provider: record.value });
-      },
-    },
     // Disconnect: 확인 창을 거쳐 provider와 credential(secret 참조)을 함께 지운다. 확인 창의 증거는
     // route의 confirmation 선언을 executor가 검사한다.
     disconnect: {
@@ -349,13 +286,9 @@ export function createProviderCommands(): {
         if (!same.ok) return same;
         const existing = current.value.credential;
         let next: ProviderCredential;
-        if (input.preparation !== null && input.expires_at !== null) {
+        if (input.expires_at !== null) {
           next = {
             ...existing,
-            secret_ref: {
-              name: existing.secret_ref?.name ??
-                secretNameForProvider(input.provider),
-            },
             revision: existing.revision + 1,
             expires_at: input.expires_at,
             refreshed_at: tx.now(),

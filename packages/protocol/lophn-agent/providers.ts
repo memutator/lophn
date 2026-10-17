@@ -15,7 +15,6 @@ import {
   providerRevisionCompareSchema,
   recordProviderAvailabilityInputSchema,
   refreshProviderCredentialInputSchema,
-  registerProviderInputSchema,
 } from "./provider-inputs.ts";
 import {
   providerDefinitionOutputSchema,
@@ -52,16 +51,6 @@ export const connectProvider = defineCommand({
   method: "connect",
   name: "ConnectProvider",
   input: connectProviderInputSchema,
-  output: providerOutput,
-  actors: ["user"],
-  errors: [...userErrors],
-});
-
-export const registerProvider = defineCommand({
-  resource: "providers",
-  method: "register",
-  name: "RegisterProvider",
-  input: registerProviderInputSchema,
   output: providerOutput,
   actors: ["user"],
   errors: [...userErrors],
@@ -180,7 +169,6 @@ export const loginCancel = defineCommand({
 });
 
 export const PROVIDER_ROUTES = [
-  registerProvider,
   disconnectProvider,
   providerRead,
   providerList,

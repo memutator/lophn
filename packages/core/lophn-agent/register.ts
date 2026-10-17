@@ -39,7 +39,6 @@ import {
   createProviderCommands,
   createProviderDefinitionsRead,
   createProviderReads,
-  createProviderSecretRefSource,
   providerSchemaSteps,
 } from "./providers/mod.ts";
 import {
@@ -574,7 +573,6 @@ export function createLedgerRegistration(
     // registry에 등록·회수된다. MCP 참조는 extensions
     // secret-refs의 통로다(#294).
     secretRefs: [
-      createProviderSecretRefSource(),
       createMcpSecretRefSource(environment.mcpOAuthRefs),
     ],
   };
@@ -704,7 +702,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     ],
     commands: [
       commands.connect,
-      commands.register,
       commands.disconnect,
       commands.refreshCredential,
       commands.recordAvailability,

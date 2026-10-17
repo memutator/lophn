@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { atSchema, durationMsSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import {
-  secretNameSchema,
-  secretPreparationInputSchema,
-} from "../secrets/secrets.ts";
+import { secretNameSchema } from "../secrets/secrets.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,
@@ -36,35 +33,6 @@ function loopback(value: string): boolean {
   const host = new URL(value).hostname;
   return host === "127.0.0.1" || host === "[::1]" || host === "localhost";
 }
-
-// provider와 그 credential 하나를 함께 받는다. secret 원값은 받지 않고 보호 입력이 보관한 뒤의
-// 준비 증거만 받는다. 인증 없음(none)은 custom provider의 loopback 주소에만 있고 증거가 없다.
-export const registerProviderInputSchema = z.strictObject({
-  id: idSchema("pvd"),
-  name: nonblankSchema,
-  definition: providerDefinitionSchema,
-  endpoint: z.string(),
-  protocol: providerProtocolSchema,
-  credential: z.strictObject({
-    kind: providerAuthKindSchema,
-    preparation: secretPreparationInputSchema.nullable(),
-  }),
-}).refine((value) => {
-  const remote = isUrl(value.endpoint) &&
-    new URL(value.endpoint).protocol === "https:";
-  const { kind, preparation } = value.credential;
-  return value.definition.protocols.includes(value.protocol) &&
-    (remote || loopback(value.endpoint)) &&
-    value.definition.auth_kinds.includes(kind) &&
-    (!remote || kind !== "none") &&
-    (kind === "none") === (preparation === null) &&
-    (preparation === null ||
-      (preparation.purpose === "provider_credential" &&
-        preparation.owner === value.id));
-}, {
-  message:
-    "endpoint, protocol or credential is outside the provider definition",
-});
 
 // Connect: provider와 그 credential 하나를 함께 받는다. credential은 secret 이름 참조다: 값은 보호 입력 창을 거쳐
 // `secrets/put`으로 먼저 들어가 있고 여기에는 이름만 온다. 인증 없음(none)은 custom provider의 loopback 주소에만
@@ -101,18 +69,12 @@ export const disconnectProviderInputSchema = z.strictObject({
 
 export const refreshProviderCredentialInputSchema = z.strictObject({
   provider: idSchema("pvd"),
-  preparation: secretPreparationInputSchema.nullable(),
   expires_at: atSchema.nullable(),
   unavailable_reason: z.enum(["authentication", "refresh_revoked"]).nullable(),
 }).refine(
   (value) =>
-    (value.preparation === null) === (value.unavailable_reason !== null) &&
-    (value.preparation === null ||
-      (value.preparation.purpose === "provider_credential" &&
-        value.preparation.owner === value.provider)),
-  {
-    message: "refresh stores a new reference or a safe unavailable state",
-  },
+    (value.expires_at === null) === (value.unavailable_reason !== null),
+  { message: "refresh stores a new expiry or a safe unavailable state" },
 );
 
 export const recordProviderAvailabilityInputSchema = z.strictObject({

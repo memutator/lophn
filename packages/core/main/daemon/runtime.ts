@@ -31,7 +31,6 @@ import type {
 import { finishBlobRead, planBlobRead } from "../../storage/blobs/mod.ts";
 import { authorize } from "../../server/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
-import { PROVIDER_SECRET_OWNER } from "../../lophn-agent/providers/mod.ts";
 import { openSecretStore, withSecretSync } from "../../secrets/store.ts";
 import type { KeychainAdapter } from "../../secrets/mod.ts";
 
@@ -152,18 +151,9 @@ export async function openRuntime(input: {
     channel: readers.value.known,
     keychain: input.keychain,
     sources: input.assembled.secretRefs,
-    // provider credential은 Disconnect로 참조가 사라지면 OS 값도 지운다.
-    reclaim: {
-      purpose: "provider_credential",
-      owners: [PROVIDER_SECRET_OWNER],
-    },
   });
   respawnHooks.push(() => secretStore.sync());
   await secretStore.sync();
-  // 이전 실행이 지우지 못하고 남긴 provider 값을 쓸어 낸다. 참조 때문에 keychain이 이미 열렸을 때만 쓴다
-  // (참조 없는 core는 keychain을 열지 않는다). 기동 중에는 보호 입력이 아직 없어 바로 지운다. 지우지 못해도
-  // 기동은 막지 않고 주기 쓸기가 이어서 지운다.
-  await secretStore.sweep({ immediate: true });
   const writer = withSecretSync(
     openedWriter.writer,
     secretStore.sync,

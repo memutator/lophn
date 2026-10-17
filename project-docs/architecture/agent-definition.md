@@ -28,7 +28,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 
 ## 지키는 것
 
-- **도는 turn은 시작 때 읽은 판을 끝까지 쓴다.** 지침, tool, skill, place 정보가 도중에 바뀌어도 prefix는 그대로다. 바뀐 것은 다음 turn 시작에 notice로 대화 끝에 붙는다. prefix를 고치면 이력 전체가 cache miss가 된다.
+- **도는 turn은 시작 때 읽은 판을 끝까지 쓴다.** 지침, skill, place 정보가 도중에 바뀌면 다음 turn 시작에 system을 그 turn이 읽은 지금 판으로 다시 만들고, 바뀐 층·목록은 notice로도 대화 끝에 알린다(그 turn 요청에만 붙고 이력에 저장하지 않는다). 바뀐 turn에는 cache miss가 한 번 난다. tool 목록은 아래처럼 session을 시작할 때 고정이라 system에 안 닿고 notice로만 알린다.
 - **같은 재료는 같은 bytes다.** 정렬하고, 시각·무작위에 기대지 않는다. tag 목록도 코드에서 끼우지 않고 고정 문장으로 둔다. 뭔가 하나라도 흔들리면 cache 경계가 매번 달라진다.
 - **사람이 쓴 지침은 조용히 빼지 않는다.** 한 층이라도 못 읽거나 상한을 넘으면 turn을 시작하지 않는다. 빠진 채 일하면 사람이 모른다. 읽은 지침은 redaction을 거치고, 끝나지 않으면 역시 시작하지 않는다.
 - **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. 단 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
@@ -65,7 +65,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 
 ## 왜 이 모양인가
 
-- **지침 반영: 대화 끝에 덧붙이기.** 조사한 harness는 세 갈래다. session 시작에 고정(Claude Code, Hermes)은 며칠 열린 lophn session에서 `LOPHN.md` 수정이 안 닿는다. 매 call 다시 조립(Goose)은 편집 한 번이 이력 전체의 cache miss다. 바뀐 것만 대화 끝에 붙이는 Codex와 OpenCode를 따랐다. 옛 설계(매 model call 직전에 다시 읽기)는 Goose 쪽이었고 버렸다.
+- **지침 반영: 대화 끝에 덧붙이기.** 조사한 harness는 세 갈래다. session 시작에 고정(Claude Code, Hermes)은 며칠 열린 lophn session에서 `LOPHN.md` 수정이 안 닿는다. 매 call 다시 조립(Goose)은 call마다 prefix가 흔들린다. 바뀐 것을 대화 끝에 notice로 알리는 Codex와 OpenCode를 따르되, system은 turn 시작마다 지금 지침으로 만든다. 지침은 거의 안 바뀌어 편집 뒤 첫 turn의 cache miss 한 번이 싸고, notice를 session 기록에 저장해 prefix를 고정하는 쪽은 비용이 크다. 옛 설계(매 model call 직전에 다시 읽기)는 Goose 쪽이었고 버렸다.
 - **sandbox를 따로 두지 않는다.** 조사한 harness 여덟 가운데 경계를 기본으로 켜는 것은 Codex 하나다. lophn agent는 coding agent보다 직접 하는 일이 적고 place가 범위를 정한다. 대신 경로 가두기와 환경 변수 목록을 둔다.
 - **MCP와 app-api 결과를 감싸지 않는다.** 일곱 harness 가운데 다섯이 그대로 넣고, server 신뢰 표시로 결과 처리를 바꾸는 곳은 없다. 감싸는 것은 아무도 배정하지 않은 web 결과뿐이다.
 - **tool은 자원 하나에 동사 하나(`<자원>.<동사>`).** 효과, 쓸 수 있는 role, 상태 전이의 전제, 결과 모양 가운데 하나라도 다르면 나눈다. Gate, rewind, role 목록이 모두 tool 단위이기 때문이다. 거르기와 범위만 다르면 인자로 합친다.

@@ -79,7 +79,7 @@ export const TEAM_MODULES = [
   new URL("../../apps/tickets/register.ts", import.meta.url).href,
   new URL("../../apps/tickets/ports.ts", import.meta.url).href,
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
-  new URL("../../lophn-agent/instructions/files.ts", import.meta.url).href,
+  new URL("./wiring/instructions-registration.ts", import.meta.url).href,
   new URL("./platform-register.ts", import.meta.url).href,
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
@@ -92,7 +92,7 @@ export const TEAM_MODULES = [
 // module마다의 wiring. 순서가 뜻을 가진다.
 // - hook은 이 순서로 불린다(구동 순서는 wiring/context.ts). schema step의 순서는 migration 이력이다.
 // - 쓰기 앞 처리기는 앞이 안쪽이다. 안쪽에서 바깥으로: contexts → message body →
-//   question text → approval text → apps → trace export → rewind files → provider login → revocation sweep.
+//   approval text → apps → trace export → rewind files → provider login → revocation sweep.
 // - 읽는 쪽 wiring은 쓰는 쪽보다 뒤다: problems는 apps 뒤, agent runtime은
 //   extensions 뒤다. 순서가 틀리면 wiring 칸을 읽을 때 오류가 난다.
 // - supervision은 다른 start보다 앞이다(platform/io 위에서 다른 worker가 뜬다).

@@ -45,3 +45,18 @@ modules: [packages/core/main, packages/core/events]
 영향: reaction이 멈춰 있어도 Diagnostics는 정상으로 보인다.
 
 고치려면: `ReactorRunner`에 마지막 성공 시각이나 backoff 여부를 내는 읽기를 더하고 점검이 본다(작음). 필요해질 때 한다.
+
+## data root에 sdk 설치 사본과 앱 template을 까는 코드가 없다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: 앱 release 준비(`apps/releases/prepare/from-source.ts`)는 `readSdkCopies`(`releases/bundle/lock.ts`)로 `<dataRoot>/sdk/<part>/<version>`의 설치 사본을 읽고, 개발용 import map(`packages/template/import-map.ts`의 `devImportMap`)과 blueprint 검사(`apps/blueprint/check.ts`)도 같은 자리를 가리킨다. 그런데 그 자리에 사본을 쓰는 코드가 없다. `apps/packages/install.ts`에는 "지원 소스의 설치 사본", "설치 템플릿을 `<dataRoot>/templates/app/`에 둔다" 같은 주석만 남았고, `installPackage`·`installSupportPackage`·`installTemplate`는 쓰지 않는 export를 지운 cleanup에서 함께 지워졌다(그 전에도 부르는 곳은 test뿐이었다). `scaffoldApp`(`packages/template/scaffold.ts`)도 부르는 곳이 없다.
+
+영향: 새 data root에서 `lophn-sdk:` 의존을 선언한 앱은 release 준비가 `sdk_not_installed`로 멈춘다. 사람이 앱을 만들어 release할 수 없다. UI kit 계획의 "설치 사본에서 `@lophn/ui/<분류>`가 풀린다"도 core를 띄워서는 확인할 수 없고, 사본을 손으로 깔아 확인해야 한다.
+
+고치려면:
+- core 기동 때 `packages/sdk/*`와 지원 소스(`packages/design`, wording)를 `packageInstallPath` 자리에 읽기 전용으로 풀고, 앱 template을 `templates/app/`에 둔다(중간). 지워진 `install.ts` 함수를 git 기록에서 되살려 기동 조립에 잇는 것이 가장 짧다. 판(version)은 각 `deno.json`의 `version`을 쓴다. 추천.
+- release 준비가 data root 대신 repo의 `packages/` 소스를 직접 읽는다(작음). read-only 사본과 "release bundle에 굳힌 사본" 격리가 약해진다.

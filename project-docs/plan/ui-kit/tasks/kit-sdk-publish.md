@@ -59,3 +59,11 @@
 - 계약 바꾸기 요청: `install.ts`가 `@lophn/ui` → 소스 폴더를 정하는 코드를 못 찾았으면 적는다
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 설치 사본에서 `@lophn/ui/<분류>`가 풀리는지(실제 앱을 만들어 release 준비까지)는 이 task에서 못 돌린다. lead가 core를 띄워 확인한다
+
+## lead가 더함
+
+- (lead가 더함) data root에 sdk 사본을 까는 코드가 지금 tree에 없다(`project-docs/issues/platform.md`의 "data root에 sdk 설치 사본과 앱 template을 까는 코드가 없다"). 그래서 core를 띄워 앱을 만드는 길로는 확인할 수 없다. 대신 commit하지 않는 손 확인을 한다. 그 일회용 script는 worktree 밖 임시 경로에 둔다.
+  1. 임시 data root를 만들고, `packageInstallPath`(`packages/core/apps/packages/install.ts`)가 내는 자리(`sdk/ui/1.0.0`, `sdk/app-ui/1.0.0`, `sdk/wording/<판>`, `sdk/blueprint/<판>` …)에 `packages/design`, `packages/sdk/app-ui`, `packages/design/wording`, `packages/sdk/blueprint`를 복사한다. 판은 앱 template `deno.json.tmpl`의 `lophn-sdk:` 값과 같게 한다.
+  2. `scaffoldApp`(`packages/core/apps/packages/template/scaffold.ts`)으로 그 data root에 앱 하나를 만든다.
+  3. 화면 build를 돌린다(`releases/ui-build/app-build.ts` 또는 `buildScreens`). 가능하면 `prepareFromSource`(`releases/prepare/from-source.ts`)까지 돌린다. 이것은 git commit 하나와 deno·esbuild가 필요하다.
+  4. `@lophn/ui/<분류>`, `@lophn/ui/shared`, `@lophn/app-ui`가 풀리는지 본다. 결과와 돌린 명령을 보고에 쓴다. 안 풀리면 commit하지 말고 이유를 보고한다(lead가 사람에게 묻는다).

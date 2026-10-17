@@ -17,8 +17,8 @@ import {
   finishToolCall,
   finishTurn,
   instructionsGet,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
+  issuerRequestDone,
+  issuerRequestTake,
   mcpToolsRequestDone,
   mcpToolsRequestTake,
   messageBody,
@@ -108,9 +108,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   approvalsText,
   applyApprovedAction,
   cancelApprovalRequest,
-  // MCP OAuth 발급자 호출을 core 대신 보낸다: core에는 외부 fetch가 없다.
-  mcpAuthRequestTake,
-  mcpAuthRequestDone,
+  // OAuth 발급자 호출(MCP, provider)을 core 대신 보낸다: core에는 외부 fetch가 없다.
+  issuerRequestTake,
+  issuerRequestDone,
   // Grants의 MCP tool 목록을 core 대신 서버에 연결해 읽는다: MCP 연결은 runtime의 몫이다.
   mcpToolsRequestTake,
   mcpToolsRequestDone,

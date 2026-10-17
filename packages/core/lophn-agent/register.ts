@@ -112,11 +112,11 @@ import {
 } from "./tools/mod.ts";
 import {
   type AgentRef,
+  issuerRequestDone,
+  issuerRequestTake,
   mcpAuthBegin,
   mcpAuthCancel,
   mcpAuthComplete,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
   mcpAuthState,
   type McpServer,
   mcpToolsList,
@@ -779,8 +779,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpAuthComplete,
       mcpAuthState,
       mcpAuthCancel,
-      mcpAuthRequestTake,
-      mcpAuthRequestDone,
+      issuerRequestTake,
+      issuerRequestDone,
       // Grants의 MCP tool 목록. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
       mcpToolsList,
       mcpToolsRequestTake,

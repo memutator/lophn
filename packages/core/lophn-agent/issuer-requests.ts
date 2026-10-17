@@ -1,24 +1,25 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  MCP_AUTH_REQUEST_BODY_MAX,
-  type McpAuthRequest,
-  mcpAuthRequestDone,
-  mcpAuthRequestTake,
-} from "../../../protocol/lophn-agent/mod.ts";
-import type { AuthDeadline, HttpFetch } from "./mod.ts";
+  ISSUER_REQUEST_BODY_MAX,
+  type IssuerRequest,
+  issuerRequestDone,
+  issuerRequestTake,
+  issuerUrlAllowed,
+} from "../../protocol/lophn-agent/mod.ts";
+import type { AuthDeadline, HttpFetch } from "./extensions/mod.ts";
 
-// MCP OAuth 발급자(token endpoint) 호출의 대기열이다.
+// OAuth 발급자 호출의 대기열이다. MCP 서버와 구독 provider가 같이 쓴다.
 // core module graph에는 외부 fetch를 두지 않는다. 발급자에 닿는 network는 agent
-// runtime의 몫이므로 core의 token 교환·갱신은 이
-// 대기열에 요청을 놓고, runtime이 machine 입구(`TakeMcpAuthRequest`)로 가져가 대신 보낸 뒤 응답을
-// (`FinishMcpAuthRequest`)로 돌려준다.
+// runtime의 몫이므로 core의 token 교환·갱신·JWKS·device code 요청은 이
+// 대기열에 요청을 놓고, runtime이 machine 입구(`TakeIssuerRequest`)로 가져가 대신 보낸 뒤 응답을
+// (`FinishIssuerRequest`)로 돌려준다.
 // - 대기열은 작업 메모리다: 요청·응답 본문(code·verifier·token)을 ledger·event·log 어디에도 남기지 않는다.
 // - 기한 안에 답이 없으면(runtime이 없거나 발급자가 느리면) 요청은 실패하고 대기열에서 빠진다. 늦은 답은 받지 않는다.
 
-const MCP_AUTH_REQUEST_WAIT_MS = 8_000;
+const ISSUER_REQUEST_WAIT_MS = 8_000;
 
 type Entry = {
-  request: McpAuthRequest;
+  request: IssuerRequest;
   taken: boolean;
   settle(response: Response | undefined): void;
   stop: AbortController;
@@ -44,7 +45,7 @@ const timerDeadline: AuthDeadline = (ms, signal) =>
 // null 본문이어야 하는 상태다(Response 생성자 규칙).
 const NO_BODY = new Set([101, 204, 205, 304]);
 
-export function createMcpAuthRequests(options: {
+export function createIssuerRequests(options: {
   newId(): string;
   waitMs?: number;
   deadline?: AuthDeadline;
@@ -53,16 +54,16 @@ export function createMcpAuthRequests(options: {
   // runtime이 닿지 못하면 던진다(부르는 쪽이 연결 실패로 바꾼다).
   fetch: HttpFetch;
   // runtime이 가져갈 가장 오래된 요청이다. 없으면 null이다.
-  take(): McpAuthRequest | null;
+  take(): IssuerRequest | null;
   // runtime의 답이다. 아직 기다리는 요청이면 true다. 응답이 null이면 발급자에 닿지 못한 것이다.
   done(id: string, response: DoneResponse | null): boolean;
   handlers: ReadonlyMap<string, Handler>;
 } {
-  const waitMs = options.waitMs ?? MCP_AUTH_REQUEST_WAIT_MS;
+  const waitMs = options.waitMs ?? ISSUER_REQUEST_WAIT_MS;
   const deadline = options.deadline ?? timerDeadline;
   const entries = new Map<string, Entry>();
 
-  function take(): McpAuthRequest | null {
+  function take(): IssuerRequest | null {
     for (const entry of entries.values()) {
       if (entry.taken) continue;
       entry.taken = true;
@@ -95,19 +96,21 @@ export function createMcpAuthRequests(options: {
     new Headers(init.headers).forEach((value, name) => {
       headers[name] = value;
     });
+    const method = init.method ?? "GET";
+    const body = method === "GET" ? "" : init.body;
     if (
-      !url.startsWith("https://") || init.method !== "POST" ||
-      typeof init.body !== "string" ||
-      init.body.length > MCP_AUTH_REQUEST_BODY_MAX
+      !issuerUrlAllowed(url) || (method !== "GET" && method !== "POST") ||
+      (method === "GET" && init.body !== undefined && init.body !== null) ||
+      typeof body !== "string" || body.length > ISSUER_REQUEST_BODY_MAX
     ) {
       return Promise.reject(new Error("보낼 수 없는 요청이다"));
     }
-    const request: McpAuthRequest = {
+    const request: IssuerRequest = {
       id: options.newId(),
       url,
-      method: "POST",
+      method,
       headers,
-      body: init.body,
+      body,
     };
     return new Promise<Response>((resolve, reject) => {
       const stop = new AbortController();
@@ -131,7 +134,7 @@ export function createMcpAuthRequests(options: {
   };
 
   const takeHandler: Handler = (_ctx, input) => {
-    if (!mcpAuthRequestTake.input.safeParse(input).success) {
+    if (!issuerRequestTake.input.safeParse(input).success) {
       return Promise.resolve(
         err({ code: "invalid_input", message: "입력이 올바르지 않다" }),
       );
@@ -140,7 +143,7 @@ export function createMcpAuthRequests(options: {
   };
 
   const doneHandler: Handler = (_ctx, input) => {
-    const parsed = mcpAuthRequestDone.input.safeParse(input);
+    const parsed = issuerRequestDone.input.safeParse(input);
     if (!parsed.success) {
       return Promise.resolve(
         err({ code: "invalid_input", message: "입력이 올바르지 않다" }),
@@ -157,11 +160,11 @@ export function createMcpAuthRequests(options: {
     done,
     handlers: new Map([
       [
-        `${mcpAuthRequestTake.resource}/${mcpAuthRequestTake.method}`,
+        `${issuerRequestTake.resource}/${issuerRequestTake.method}`,
         takeHandler,
       ],
       [
-        `${mcpAuthRequestDone.resource}/${mcpAuthRequestDone.method}`,
+        `${issuerRequestDone.resource}/${issuerRequestDone.method}`,
         doneHandler,
       ],
     ]),

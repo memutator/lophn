@@ -1,58 +1,478 @@
-// OAuth 로그인 작업.
-// chatgpt는 공식 Sign in with ChatGPT(실제 lophn 앱 이름의 dynamic client 등록·발급
-// client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증)이고
-// supergrok은 xAI discovery(fake 포함)와 device code flow다. 활성 gate는
-// verified_for_lophn과 live 확인 둘이 모두 열려 있어야 통과한다. 값(state·
-// nonce·verifier·device_code·token)은 이 작업 메모리와 창가의 응답에만 산고
-// ledger·event·log에 남지 않는다. network·listener·시각은 deps로 받는다;
-// 이 모듈 자체는 IO를 하지 않는다.
+// 구독 OAuth 로그인 작업이다. begin이 사람이 OS browser에서 열 주소를 내고, complete는 기다리지 않고 한 번 보고
+// 돌아온다(아직이면 pending, 끝났으면 token). 화면이 interval_ms마다 complete를 다시 부른다.
+// - chatgpt: OpenAI 공식 Sign in with ChatGPT. PKCE(S256) + 127.0.0.1 loopback(`/auth/callback`). 첫 로그인은
+//   `client_id=dynamic_agent_client`로 등록하고 callback의 발급 client_id로 교환한다. id_token은 JWKS 서명·issuer·
+//   audience·exp·nonce를 검증하고, granted scope에 `chatgpt.tokens.use.direct`가 없으면 plan usage가 없는 것이다.
+// - supergrok: RFC 8628 device code. complete마다 token endpoint를 한 번 poll한다.
+// 발급자 주소와 client 값은 모두 provider 정의 data다. 상수 주소가 없어 fake 발급자도 정의만 바꿔 돈다.
+// 값(state·nonce·verifier·device_code·token)은 이 작업 메모리와 complete의 결과에만 있고 ledger·event·log·오류에
+// 싣지 않는다. network(발급자 요청 대기열)·listener·시각·무작위 값은 deps로 받는다.
 
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RandomSource } from "../../../base/mod.ts";
-import type {
-  OAuthDefinition,
-  ProviderDefinition,
-} from "../../../protocol/lophn-agent/mod.ts";
-import { OAUTH_REFRESH_LEAD_MS } from "../../../protocol/lophn-agent/mod.ts";
 import {
-  type OAuthCallback,
-  oauthHttp,
-  type OAuthListener,
-  type OAuthListenerOpener,
-  openCallbackListener,
-  xaiHostAllowed,
-} from "./adapters/oauth-transport.ts";
+  type OAuthDefinition,
+  type OAuthFlow,
+  oauthFlowOf,
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { CallbackListener } from "../extensions/mod.ts";
+import type { ProviderTokenMeta } from "./oauth-secrets.ts";
 
-// lophn 제품 이름 식별. 등록·요청 어디서도 Claude Code·Codex·Grok CLI로
-// 위장하지 않는다.
+// 발급자에게 보내는 이름이다. 동의 화면과 ChatGPT 설정의 앱 목록에 보인다.
 const OAUTH_APP_NAME = "lophn";
+const CHATGPT_REGISTER_CLIENT = "dynamic_agent_client";
+const CHATGPT_PLAN_SCOPE = "chatgpt.tokens.use.direct";
+const CHATGPT_LOGIN_MS = 15 * 60_000;
+const CHATGPT_CHECK_MS = 1_000;
+const DEVICE_DEFAULT_EXPIRES_S = 300;
+const DEVICE_DEFAULT_INTERVAL_S = 5;
+const DEVICE_SLOW_DOWN_MS = 5_000;
+const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+const ACCESS_DEFAULT_S = 3_600;
 
-// chatgpt(공식 Sign in with ChatGPT)의 고정 목적지.
-const SIWC_AUTHORIZE = "https://auth.openai.com/api/accounts/authorize";
-const SIWC_REGISTER = "https://auth.openai.com/api/accounts/oauth/register";
-// token reference: access 3600초, refresh 30일. 매 갱신 뒤 새 30일이다.
-const SIWC_ACCESS_SECONDS = 3_600;
+export type IssuerFetch = (url: string, init: RequestInit) => Promise<Response>;
 
-// supergrok의 고정 discovery와 device 코드 목적지. 실제 endpoints는
-// discovery 응답을 다시 검사한 뒤에만 쓴다.
-const XAI_DISCOVERY = "https://auth.x.ai/.well-known/openid-configuration";
-const XAI_SCOPES = [
-  "openid",
-  "profile",
-  "email",
-  "offline_access",
-  "grok-cli:access",
-  "api:access",
-] as const;
+export type OAuthTokens = {
+  access: string;
+  refresh: string;
+  expires_at_ms: number;
+  meta: ProviderTokenMeta;
+};
 
-// device polling: 간격 없으면 5초, slow_down마다 5초를 더하고, chatgpt는 최대
-// 15분, xAI는 만료가 없으면 최대 5분까지만 기다린다.
-const OAUTH_POLL_DEFAULT_MS = 5_000;
-const OAUTH_POLL_SLOW_DOWN_MS = 5_000;
-const CHATGPT_LOGIN_MAX_WAIT_MS = 15 * 60_000;
-const SUPERGROK_LOGIN_MAX_WAIT_MS = 5 * 60_000;
+export type OAuthBegin = {
+  login: string;
+  flow: OAuthFlow;
+  interval_ms: number;
+  expires_at_ms: number;
+  sign_in: { url: string; user_code: string | null };
+};
 
-// ---- base64url / PKCE / state / nonce ----
+export type OAuthStep<T> =
+  | { state: "pending"; interval_ms: number }
+  | { state: "done"; tokens: OAuthTokens; target: T };
+
+type Callback = Awaited<ReturnType<CallbackListener["receive"]>>;
+
+type Session<T> =
+  & {
+    provider: string;
+    target: T;
+    deadlineMs: number;
+    intervalMs: number;
+    // complete가 겹치면 두 번째는 교환을 다시 보내지 않는다.
+    busy: boolean;
+  }
+  & (
+    | {
+      flow: "pkce_loopback";
+      oauth: Extract<OAuthDefinition, { product: "chatgpt" }>;
+      listener: CallbackListener;
+      stop: AbortController;
+      callback: Callback | null;
+      state: string;
+      nonce: string;
+      verifier: string;
+      redirectUri: string;
+    }
+    | {
+      flow: "device_code";
+      oauth: Extract<OAuthDefinition, { product: "supergrok" }>;
+      deviceCode: string;
+      nextPollMs: number;
+    }
+  );
+
+export function createProviderOAuth<T>(deps: {
+  http: IssuerFetch;
+  openListener(): Promise<Result<CallbackListener>>;
+  hostId(): Promise<Result<string>>;
+  nowMs(): number;
+  random: RandomSource;
+}): {
+  begin(
+    provider: string,
+    oauth: OAuthDefinition,
+    target: T,
+  ): Promise<Result<OAuthBegin>>;
+  complete(provider: string, login: string): Promise<Result<OAuthStep<T>>>;
+  cancel(provider: string, login: string): Promise<Result<void>>;
+  endAll(): Promise<void>;
+} {
+  const sessions = new Map<string, Session<T>>();
+
+  const randomText = (bytes: number) => {
+    const value = new Uint8Array(bytes);
+    deps.random.fill(value);
+    return base64url(value);
+  };
+
+  async function end(login: string): Promise<void> {
+    const session = sessions.get(login);
+    if (session === undefined) return;
+    sessions.delete(login);
+    if (session.flow === "pkce_loopback") {
+      session.stop.abort();
+      await session.listener.close();
+    }
+  }
+
+  // 기한이 지난 세션을 치운다. 따로 timer를 두지 않고 begin·complete가 부를 때 본다.
+  async function sweep(): Promise<void> {
+    const now = deps.nowMs();
+    for (const [login, session] of [...sessions]) {
+      if (session.deadlineMs <= now) await end(login);
+    }
+  }
+
+  async function beginChatGpt(
+    provider: string,
+    oauth: Extract<OAuthDefinition, { product: "chatgpt" }>,
+    target: T,
+  ): Promise<Result<OAuthBegin>> {
+    const hostId = await deps.hostId();
+    if (!hostId.ok) return hostId;
+    const opened = await deps.openListener();
+    if (!opened.ok) return opened;
+    const listener = opened.value;
+    const state = randomText(32);
+    const nonce = randomText(32);
+    const verifier = randomText(32);
+    const redirectUri = `http://127.0.0.1:${listener.port()}/auth/callback`;
+    const url = new URL(oauth.authorization_endpoint);
+    for (
+      const [key, value] of Object.entries({
+        response_type: "code",
+        client_id: CHATGPT_REGISTER_CLIENT,
+        agent_name_hint: OAUTH_APP_NAME,
+        ext_agent_host_id: hostId.value,
+        redirect_uri: redirectUri,
+        scope: oauth.scopes.join(" "),
+        resource: oauth.resource,
+        state,
+        nonce,
+        code_challenge: await pkceChallenge(verifier),
+        code_challenge_method: "S256",
+      })
+    ) url.searchParams.set(key, value);
+    const login = randomText(16);
+    const stop = new AbortController();
+    const deadlineMs = deps.nowMs() + CHATGPT_LOGIN_MS;
+    const session: Session<T> = {
+      provider,
+      target,
+      deadlineMs,
+      intervalMs: CHATGPT_CHECK_MS,
+      busy: false,
+      flow: "pkce_loopback",
+      oauth,
+      listener,
+      stop,
+      callback: null,
+      state,
+      nonce,
+      verifier,
+      redirectUri,
+    };
+    sessions.set(login, session);
+    // callback은 사람이 돌아올 때 온다. complete가 기다리지 않도록 받으면 세션에 쥔다.
+    void listener.receive(stop.signal).then((callback) => {
+      session.callback = callback;
+    });
+    return ok({
+      login,
+      flow: "pkce_loopback",
+      interval_ms: CHATGPT_CHECK_MS,
+      expires_at_ms: deadlineMs,
+      sign_in: { url: url.toString(), user_code: null },
+    });
+  }
+
+  async function beginDevice(
+    provider: string,
+    oauth: Extract<OAuthDefinition, { product: "supergrok" }>,
+    target: T,
+  ): Promise<Result<OAuthBegin>> {
+    const started = await post(deps.http, oauth.device_authorization_endpoint, {
+      client_id: oauth.client_id,
+      scope: oauth.scopes.join(" "),
+    });
+    if (!started.ok) return started;
+    if (started.value.status !== 200) {
+      return err({
+        code: "unavailable",
+        message: "발급자가 device code를 내주지 않았다",
+      });
+    }
+    const body = started.value.body;
+    const deviceCode = text(body["device_code"]);
+    const userCode = text(body["user_code"]);
+    const signIn = text(body["verification_uri_complete"]) ??
+      text(body["verification_uri"]);
+    if (deviceCode === null || userCode === null || signIn === null) {
+      return err({
+        code: "unavailable",
+        message: "device code 응답이 모자라다",
+      });
+    }
+    const now = deps.nowMs();
+    const intervalMs =
+      (positive(body["interval"]) ?? DEVICE_DEFAULT_INTERVAL_S) * 1000;
+    const deadlineMs = now +
+      (positive(body["expires_in"]) ?? DEVICE_DEFAULT_EXPIRES_S) * 1000;
+    const login = randomText(16);
+    sessions.set(login, {
+      provider,
+      target,
+      deadlineMs,
+      intervalMs,
+      busy: false,
+      flow: "device_code",
+      oauth,
+      deviceCode,
+      nextPollMs: now + intervalMs,
+    });
+    return ok({
+      login,
+      flow: "device_code",
+      interval_ms: intervalMs,
+      expires_at_ms: deadlineMs,
+      sign_in: { url: signIn, user_code: userCode },
+    });
+  }
+
+  async function completeChatGpt(
+    login: string,
+    session: Extract<Session<T>, { flow: "pkce_loopback" }>,
+  ): Promise<Result<OAuthStep<T>>> {
+    const callback = session.callback;
+    if (callback === null) {
+      return ok({ state: "pending", interval_ms: session.intervalMs });
+    }
+    // code를 보내면 다시 쓸 수 없다. 여기부터는 성공이든 실패든 세션을 끝낸다.
+    await end(login);
+    if (!callback.ok) return refused("로그인이 끝나지 않았다");
+    if (callback.value.state !== session.state) {
+      return refused("로그인 응답이 이 시도의 것이 아니다");
+    }
+    const clientId = callback.value.client_id;
+    if (clientId === null) return refused("발급자가 client를 등록하지 않았다");
+    const exchanged = await post(deps.http, session.oauth.token_endpoint, {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: callback.value.code,
+      code_verifier: session.verifier,
+      redirect_uri: session.redirectUri,
+      resource: session.oauth.resource,
+    });
+    if (!exchanged.ok) return exchanged;
+    if (exchanged.value.status !== 200) {
+      return refused("발급자가 token 교환을 거절했다");
+    }
+    const body = exchanged.value.body;
+    const tokens = tokensOf(body, deps.nowMs());
+    if (tokens === null) return refused("token 응답이 모자라다");
+    if (!grantedScopes(body).includes(CHATGPT_PLAN_SCOPE)) {
+      return refused("이 ChatGPT 계정은 plan usage를 허락하지 않았다");
+    }
+    const subject = await verifiedSubject(deps.http, {
+      idToken: text(body["id_token"]),
+      jwksUri: session.oauth.jwks_uri,
+      issuer: session.oauth.issuer,
+      clientId,
+      nonce: session.nonce,
+      nowMs: deps.nowMs(),
+    });
+    if (!subject.ok) return subject;
+    return ok({
+      state: "done",
+      target: session.target,
+      tokens: {
+        ...tokens,
+        meta: { client_id: clientId, subject: subject.value },
+      },
+    });
+  }
+
+  async function completeDevice(
+    login: string,
+    session: Extract<Session<T>, { flow: "device_code" }>,
+  ): Promise<Result<OAuthStep<T>>> {
+    const now = deps.nowMs();
+    // 간격 전에 부르면 poll하지 않는다(발급자가 slow_down으로 벌한다).
+    if (now < session.nextPollMs) {
+      return ok({ state: "pending", interval_ms: session.nextPollMs - now });
+    }
+    const polled = await post(deps.http, session.oauth.token_endpoint, {
+      grant_type: DEVICE_GRANT,
+      client_id: session.oauth.client_id,
+      device_code: session.deviceCode,
+    });
+    session.nextPollMs = deps.nowMs() + session.intervalMs;
+    // 발급자에 닿지 못했으면 세션을 남겨 다음 poll이 잇는다.
+    if (!polled.ok) return polled;
+    const body = polled.value.body;
+    if (polled.value.status === 200) {
+      await end(login);
+      const tokens = tokensOf(body, deps.nowMs());
+      if (tokens === null) return refused("token 응답이 모자라다");
+      return ok({
+        state: "done",
+        target: session.target,
+        tokens: { ...tokens, meta: { client_id: null, subject: null } },
+      });
+    }
+    const reason = text(body["error"]);
+    if (reason === "authorization_pending") {
+      return ok({ state: "pending", interval_ms: session.intervalMs });
+    }
+    if (reason === "slow_down") {
+      session.intervalMs += DEVICE_SLOW_DOWN_MS;
+      session.nextPollMs = deps.nowMs() + session.intervalMs;
+      return ok({ state: "pending", interval_ms: session.intervalMs });
+    }
+    await end(login);
+    if (reason === "expired_token") {
+      return err({ code: "not_found", message: "로그인 기한이 지났다" });
+    }
+    return refused("발급자가 로그인을 거절했다");
+  }
+
+  return {
+    async begin(provider, oauth, target) {
+      await sweep();
+      return oauthFlowOf(oauth) === "pkce_loopback"
+        ? await beginChatGpt(
+          provider,
+          oauth as Extract<OAuthDefinition, { product: "chatgpt" }>,
+          target,
+        )
+        : await beginDevice(
+          provider,
+          oauth as Extract<OAuthDefinition, { product: "supergrok" }>,
+          target,
+        );
+    },
+    async complete(provider, login) {
+      await sweep();
+      const session = sessions.get(login);
+      if (session === undefined || session.provider !== provider) {
+        return err({ code: "not_found", message: "login not found" });
+      }
+      if (session.busy) {
+        return ok({ state: "pending", interval_ms: session.intervalMs });
+      }
+      session.busy = true;
+      try {
+        return session.flow === "pkce_loopback"
+          ? await completeChatGpt(login, session)
+          : await completeDevice(login, session);
+      } finally {
+        session.busy = false;
+      }
+    },
+    async cancel(provider, login) {
+      const session = sessions.get(login);
+      if (session === undefined || session.provider !== provider) {
+        return err({ code: "not_found", message: "login not found" });
+      }
+      await end(login);
+      return ok(undefined);
+    },
+    async endAll() {
+      for (const login of [...sessions.keys()]) await end(login);
+    },
+  };
+}
+
+function refused(message: string): Result<never> {
+  return err({ code: "forbidden", message });
+}
+
+// ---- 발급자 HTTP ----
+
+type Answer = { status: number; body: Record<string, unknown> };
+
+// form POST 한 번. 발급자에 닿지 못하면 unavailable이다. 본문이 JSON object가 아니면 빈 object로 본다.
+async function post(
+  http: IssuerFetch,
+  url: string,
+  fields: Record<string, string>,
+): Promise<Result<Answer>> {
+  return await send(http, url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "application/json",
+    },
+    body: new URLSearchParams(fields).toString(),
+  });
+}
+
+async function send(
+  http: IssuerFetch,
+  url: string,
+  init: RequestInit,
+): Promise<Result<Answer>> {
+  let response: Response;
+  let raw: string;
+  try {
+    response = await http(url, init);
+    raw = await response.text();
+  } catch {
+    return err({ code: "unavailable", message: "발급자에 닿지 못했다" });
+  }
+  if (response.status >= 500) {
+    return err({ code: "unavailable", message: "발급자가 답하지 못했다" });
+  }
+  return ok({ status: response.status, body: objectOf(raw) });
+}
+
+export function objectOf(raw: string): Record<string, unknown> {
+  try {
+    const value = JSON.parse(raw);
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+export function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export function positive(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+// access와 refresh가 둘 다 있어야 성공이다(offline_access를 요청했다).
+function tokensOf(
+  body: Record<string, unknown>,
+  nowMs: number,
+): Omit<OAuthTokens, "meta"> | null {
+  const access = text(body["access_token"]);
+  const refresh = text(body["refresh_token"]);
+  if (access === null || refresh === null) return null;
+  return {
+    access,
+    refresh,
+    expires_at_ms: nowMs +
+      (positive(body["expires_in"]) ?? ACCESS_DEFAULT_S) * 1000,
+  };
+}
+
+function grantedScopes(body: Record<string, unknown>): string[] {
+  const value = body["scope"] ?? body["scopes"];
+  if (typeof value === "string") return value.split(/\s+/);
+  return Array.isArray(value)
+    ? value.filter((scope): scope is string => typeof scope === "string")
+    : [];
+}
+
+// ---- base64url / PKCE ----
 
 function base64url(bytes: Uint8Array): string {
   let binary = "";
@@ -63,12 +483,17 @@ function base64url(bytes: Uint8Array): string {
   );
 }
 
-function oauthRandomBytes(count: number): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(count));
+function fromBase64url(value: string): Uint8Array<ArrayBuffer> {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - value.length % 4) % 4);
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
-// RFC 7636 S256 challenge다. verifier의 SHA-256을 base64url로 인코딩한다.
-async function pkceChallengeS256(verifier: string): Promise<string> {
+// RFC 7636 S256 challenge다.
+async function pkceChallenge(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(verifier),
@@ -76,955 +501,96 @@ async function pkceChallengeS256(verifier: string): Promise<string> {
   return base64url(new Uint8Array(digest));
 }
 
-function randomToken(random?: RandomSource): string {
-  const bytes = new Uint8Array(16);
-  if (random === undefined) crypto.getRandomValues(bytes);
-  else random.fill(bytes);
-  return base64url(bytes);
-}
+// ---- id_token 검증(RS256 서명·issuer·audience·exp·nonce) ----
 
-// ---- JWT 검증(id_token 서명·issuer·audience·만료·nonce) ----
-
-function jwtSegment(jwt: string, index: 0 | 1): Record<string, unknown> | null {
+function jwtPart(jwt: string, index: 0 | 1): Record<string, unknown> | null {
   const parts = jwt.split(".");
   if (parts.length !== 3) return null;
   try {
-    const normalized = parts[index]!.replaceAll("-", "+").replaceAll(
-      "_",
-      "/",
+    return objectOrNull(
+      JSON.parse(new TextDecoder().decode(fromBase64url(parts[index]!))),
     );
-    const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-    const decoded = JSON.parse(atob(padded));
-    return decoded !== null && typeof decoded === "object" &&
-        !Array.isArray(decoded)
-      ? decoded as Record<string, unknown>
-      : null;
   } catch {
     return null;
   }
 }
 
-// id_token의 서명을 JWKS의 RSA 공개 key로 검증한다(RS256만). JWK의 n·e는
-// base64url(unpadded)이다.
+function objectOrNull(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
 async function rs256Verified(
-  signingInput: string,
-  signatureB64: string,
+  jwt: string,
   jwk: Record<string, unknown>,
 ): Promise<boolean> {
+  const [header, payload, signature] = jwt.split(".");
+  if (typeof jwk["n"] !== "string" || typeof jwk["e"] !== "string") {
+    return false;
+  }
   try {
-    const modulus = jwk["n"];
-    const exponent = jwk["e"];
-    if (typeof modulus !== "string" || typeof exponent !== "string") {
-      return false;
-    }
     const key = await crypto.subtle.importKey(
       "jwk",
-      {
-        kty: "RSA",
-        n: modulus,
-        e: exponent,
-        alg: "RS256",
-        use: "sig",
-      },
+      { kty: "RSA", n: jwk["n"], e: jwk["e"], alg: "RS256", ext: true },
       { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
       false,
       ["verify"],
     );
-    // signature는 base64url이다. 풀어서 bytes로 옮긴다.
-    const normalized = signatureB64.replaceAll("-", "+").replaceAll("_", "/") +
-      "=".repeat((4 - signatureB64.length % 4) % 4);
-    const signature = atob(normalized);
-    const sigBytes = new Uint8Array(signature.length);
-    for (let i = 0; i < signature.length; i++) {
-      sigBytes[i] = signature.charCodeAt(i);
-    }
     return await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5",
       key,
-      sigBytes,
-      new TextEncoder().encode(signingInput),
+      fromBase64url(signature!),
+      new TextEncoder().encode(`${header}.${payload}`),
     );
   } catch {
     return false;
   }
 }
 
-// ---- 붙여넣은 인증 응답 파싱 ----
-// browser 최종 URL(code·state query), code#state, query string 세 모양을 받는다.
-
-function parsePastedSubmission(
-  text: string,
-): { code: string; state: string | null } | null {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) return null;
-  // URL이면 query의 code·state를 본다.
-  const parsed = parsePastedUrl(trimmed);
-  if (parsed !== null) return parsed;
-  // code#state 꼴이다(Pi 조사 parseAuthorizationInput의 다른 모양).
-  const hash = trimmed.indexOf("#");
-  if (hash > 0) {
-    const code = trimmed.slice(0, hash).trim();
-    const state = trimmed.slice(hash + 1).trim();
-    if (code.length > 0) {
-      return { code, state: state.length > 0 ? state : null };
-    }
-  }
-  return null;
-}
-
-function parsePastedUrl(
-  text: string,
-): { code: string; state: string | null } | null {
-  let url: URL;
-  try {
-    url = new URL(text);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-  const code = url.searchParams.get("code");
-  if (code === null || code.length === 0) return null;
-  const state = url.searchParams.get("state");
-  return { code, state: state === null ? null : state };
-}
-
-// ---- 로그인 세션과 취득 번들 ----
-
-// 갱신할 token 묶음. access·refresh·id_token과 실제 만료, 발급 client·resource,
-// 검증된 identity가 함께 교체된다.
-type OAuthTokenBundle = {
-  access_token: string;
-  refresh_token: string | null;
-  // 실제 만료(ms epoch). expiry margin은 refresh 쪽이 정한다.
-  expires_in: number;
-  issued_client_id: string | null;
-  resource: string | null;
-  // id_token의 검증된 sub다. 알 수 없으면 null이다(추측 금지).
-  subject: string | null;
-  // earliest_refresh_at의 ms epoch다. 알 수 없으면 null이다.
-  earliest_refresh_at: number | null;
-};
-
-export type OAuthBegin = {
-  login: string;
-  flow: OAuthDefinition["flow"];
-  interval_ms: number;
-  expires_at: string;
-  sign_in: { url: string; user_code: string | null } | null;
-};
-
-// login 세션. state·nonce·verifier·device_code는 값이라 메모리에만 산다.
-type LoginSession = {
-  login: string;
-  provider: string;
-  flow: OAuthDefinition["flow"];
+async function verifiedSubject(http: IssuerFetch, input: {
+  idToken: string | null;
+  jwksUri: string;
+  issuer: string;
   clientId: string;
-  verifier: string | null;
-  nonce: string | null;
-  state: string | null;
-  challenge: string | null;
-  resource: string | null;
-  scopes: readonly string[];
-  // paste 방식을 기다리는 callback listener다. 취소·완료 뒤에 닫는다.
-  listener: OAuthListener | null;
-  // device flow의 값이다.
-  deviceCode: string | null;
-  deviceAuthId: string | null;
-  userCode: string | null;
-  verificationUrl: string | null;
-  intervalMs: number;
-  deadlineMs: number;
-  // supergrok의 slow_down 누적이다.
-  slowDownMs: number;
-  startedMs: number;
-};
-
-// device code 시작 응답.
-
-// token endpoint의 원시 응답이다.
-type NativeTokens = {
-  access_token: string;
-  refresh_token: string | null;
-  expires_in: number | null;
-  id_token?: string | null;
-  earliest_refresh_at?: string | null;
-};
-
-type OAuthDeps = {
-  // 사람이 LOPHN_LIVE_PROVIDER=1로 실제 계정 확인을 시작했을 때만 열리는 활성
-  // gate다. gate가 닫혀 있으면 begin·complete은 시작하지 않는다(fake 성공으로
-  // 열지 않는다). 테스트가 openGate를 대신 준다.
-  liveGate(): boolean;
-  nowMs(): number;
-  at: (ms: number) => string;
-  random?: RandomSource;
-  // 인증 HTTP의 fetch 눈이다. 없으면(제품 정상 기동) network은 아예 닫혀 있다.
-  http?: (url: string, init: RequestInit) => Promise<Response>;
-  // loopback callback listener의 open port다. 없으면 제품 openCallbackListener다.
-  listenerOpener?: OAuthListenerOpener;
-  // device polling의 대기이다(서버 간격). 제품은 실제 대기, 테스트 fake clock은
-  // 즉시 돌려주는 대기를 준다.
-  wait?: (ms: number) => Promise<void>;
-  // provider의 현재 정의 read port다(complete이 세션 뒤 정의 변경을 검사한다).
-  // 테스트가 주입한다. 없으면 begin에 준 정의를 그대로 믿지 않고 unavailable이다.
-  currentDefinition?: (
-    provider: string,
-  ) => Promise<Result<ProviderDefinition>>;
-};
-
-export function createProviderOAuth(deps: OAuthDeps): {
-  begin: (
-    provider: string,
-    definition: ProviderDefinition,
-  ) => Promise<Result<OAuthBegin>>;
-  complete: (
-    provider: string,
-    login: string,
-    submission: string,
-  ) => Promise<Result<OAuthTokenBundle>>;
-  cancel: (provider: string, login: string) => Promise<Result<void>>;
-} {
-  // 발급 client_id 재사용. 등록은 최초 한 번, 이후 세션이 같은 client를 쓴다.
-  let issuedClientId: string | null = null;
-  const sessions = new Map<string, LoginSession>();
-
-  const gate = (): Result<void> => {
-    if (deps.http === undefined || !deps.liveGate()) {
-      return err({
-        code: "unavailable",
-        message: "OAuth login is not enabled in this build yet",
-      });
-    }
-    return ok(undefined);
-  };
-
-  const validDefinition = (
-    definition: ProviderDefinition,
-  ): Result<OAuthDefinition> => {
-    if (definition.oauth === null) {
-      return err({
-        code: "invalid_input",
-        message: "provider does not support OAuth login",
-      });
-    }
-    // 실제 확인 전까지 활성 gate는 false다.
-    if (definition.oauth.verified_for_lophn !== true) {
-      return err({
-        code: "unavailable",
-        message: "OAuth login is not enabled in this build yet",
-      });
-    }
-    return ok(definition.oauth);
-  };
-
-  const sessionOf = (provider: string, login: string): Result<LoginSession> => {
-    const session = sessions.get(login);
-    if (session === undefined || session.provider !== provider) {
-      return err({ code: "not_found", message: "login not found" });
-    }
-    return ok(session);
-  };
-
-  const closeListener = async (session: LoginSession): Promise<void> => {
-    const listener = session.listener;
-    session.listener = null;
-    if (listener !== null) await listener.close().catch(() => undefined);
-  };
-
-  const dropSession = (session: LoginSession): void => {
-    sessions.delete(session.login);
-  };
-
-  async function registerClient(
-    signal: AbortSignal,
-    redirectPort: number,
-  ): Promise<Result<string>> {
-    const http = deps.http!;
-    // 발급 client_id를 재사용한다. 등록은 최초 한 번이다.
-    if (issuedClientId !== null) return ok(issuedClientId);
-    const response = await oauthHttp(
-      http,
-      SIWC_REGISTER,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          client_name: OAUTH_APP_NAME,
-          redirect_uris: [`http://127.0.0.1:${redirectPort}/callback`],
-          token_endpoint_auth_method: "none",
-          grant_types: ["authorization_code", "refresh_token"],
-        }),
-      },
-      signal,
-    );
-    if (!response.ok) {
-      return err({ code: response.code, message: response.message });
-    }
-    if (response.response.status === 400 || response.response.status === 404) {
-      return err({
-        code: "unavailable",
-        message: "client registration is not enabled",
-      });
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(response.response.body);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "client registration is not JSON",
-      });
-    }
-    if (parsed === null || typeof parsed !== "object") {
-      return err({
-        code: "unavailable",
-        message: "client registration is not JSON",
-      });
-    }
-    const clientId = (parsed as Record<string, unknown>)["client_id"];
-    if (typeof clientId !== "string" || clientId.length === 0) {
-      return err({ code: "unavailable", message: "client_id is missing" });
-    }
-    issuedClientId = clientId;
-    return ok(clientId);
+  nonce: string;
+  nowMs: number;
+}): Promise<Result<string>> {
+  const bad = refused("id_token을 믿을 수 없다");
+  if (input.idToken === null) return bad;
+  const header = jwtPart(input.idToken, 0);
+  const claims = jwtPart(input.idToken, 1);
+  if (header === null || claims === null || header["alg"] !== "RS256") {
+    return bad;
   }
-
-  async function beginChatGpt(
-    session: LoginSession,
-    definition: OAuthDefinition,
-  ): Promise<Result<OAuthBegin>> {
-    const opener = deps.listenerOpener ?? openCallbackListener;
-    const opened = await opener();
-    if (!opened.ok) return opened;
-    session.listener = opened.value;
-    const signal = new AbortController().signal;
-    const clientId = await registerClient(signal, opened.value.port());
-    // 등록이 열리지 않아도 paste 방식은 진행할 수 없다. 발급 client가 필수다.
-    if (!clientId.ok) {
-      await closeListener(session);
-      return clientId;
-    }
-    session.clientId = clientId.value;
-    session.nonce = randomToken(deps.random);
-    session.state = randomToken(deps.random);
-    session.verifier = base64url(oauthRandomBytes(32));
-    session.challenge = await pkceChallengeS256(session.verifier);
-    session.resource = definition.issuer;
-    const url = new URL(SIWC_AUTHORIZE);
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("client_id", session.clientId);
-    url.searchParams.set(
-      "redirect_uri",
-      `http://127.0.0.1:${opened.value.port()}/callback`,
-    );
-    url.searchParams.set("scope", session.scopes.join(" "));
-    url.searchParams.set("state", session.state!);
-    url.searchParams.set("nonce", session.nonce!);
-    url.searchParams.set("code_challenge", session.challenge!);
-    url.searchParams.set("code_challenge_method", "S256");
-    if (session.resource !== null) {
-      url.searchParams.set("resource", session.resource);
-    }
-    return ok({
-      login: session.login,
-      flow: session.flow,
-      interval_ms: OAUTH_POLL_DEFAULT_MS,
-      expires_at: deps.at(session.deadlineMs),
-      sign_in: { url: url.href, user_code: null },
-    });
-  }
-
-  async function beginDevice(
-    session: LoginSession,
-    definition: OAuthDefinition,
-  ): Promise<Result<OAuthBegin>> {
-    const http = deps.http!;
-    const signal = new AbortController().signal;
-    session.clientId = definition.issuer;
-    session.scopes = [...XAI_SCOPES];
-    // discovery를 다시 확인하고 x.ai·하위 도메인 HTTPS인지 검사한다.
-    const discovery = await oauthHttp(http, XAI_DISCOVERY, {
-      method: "GET",
-    }, signal);
-    if (!discovery.ok) {
-      return err({ code: discovery.code, message: discovery.message });
-    }
-    if (discovery.response.status !== 200) {
-      return err({
-        code: "unavailable",
-        message: "xAI discovery did not answer",
-      });
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(discovery.response.body);
-    } catch {
-      return err({ code: "unavailable", message: "xAI discovery is not JSON" });
-    }
-    if (parsed === null || typeof parsed !== "object") {
-      return err({ code: "unavailable", message: "xAI discovery is not JSON" });
-    }
-    const record = parsed as Record<string, unknown>;
-    const endpoints = [
-      record["authorization_endpoint"],
-      record["token_endpoint"],
-      record["device_authorization_endpoint"],
-    ];
-    for (const endpoint of endpoints) {
-      if (typeof endpoint !== "string") {
-        return err({
-          code: "unavailable",
-          message: "xAI discovery is missing an endpoint",
-        });
-      }
-      if (!xaiHostAllowed(endpoint)) {
-        // discovery가 알려 준 목적지도 검사를 통과하지 못하면 중단한다.
-        return err({
-          code: "forbidden",
-          message: "xAI discovery endpoint is outside the trusted host",
-        });
-      }
-    }
-    const authorizeEndpoint = String(endpoints[0]);
-    const tokenEndpoint = String(endpoints[1]);
-    const deviceEndpoint = String(endpoints[2]);
-    session.state = null;
-    session.verifier = null;
-    // device code 시작이다(device code만).
-    const body = new URLSearchParams({
-      client_id: definition.issuer,
-      scope: session.scopes.join(" "),
-    });
-    const started = await oauthHttp(http, deviceEndpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-        "user-agent": `${OAUTH_APP_NAME}/cli`,
-      },
-      body: body.toString(),
-    }, signal);
-    if (!started.ok) {
-      return err({ code: started.code, message: started.message });
-    }
-    if (started.response.status !== 200) {
-      return err({
-        code: "unavailable",
-        message: "device code start was refused",
-      });
-    }
-    let deviceParsed: unknown;
-    try {
-      deviceParsed = JSON.parse(started.response.body);
-    } catch {
-      return err({ code: "unavailable", message: "device start is not JSON" });
-    }
-    if (deviceParsed === null || typeof deviceParsed !== "object") {
-      return err({ code: "unavailable", message: "device start is not JSON" });
-    }
-    const device = deviceParsed as Record<string, unknown>;
-    const deviceCode = device["device_code"];
-    const userCode = device["user_code"];
-    const verification = device["verification_uri"] ??
-      device["verification_url"];
-    if (
-      typeof deviceCode !== "string" || typeof userCode !== "string" ||
-      typeof verification !== "string"
-    ) {
-      return err({
-        code: "unavailable",
-        message: "device start is missing values",
-      });
-    }
-    session.deviceCode = deviceCode;
-    session.userCode = userCode;
-    session.verificationUrl = verification;
-    session.deviceAuthId = typeof device["device_auth_id"] === "string"
-      ? device["device_auth_id"]
-      : null;
-    const expiresIn = device["expires_in"];
-    session.intervalMs = typeof device["interval"] === "number" &&
-        (device["interval"] as number) > 0
-      ? (device["interval"] as number) * 1000
-      : OAUTH_POLL_DEFAULT_MS;
-    // 만료가 없으면 최대 5분까지만 기다린다. 만료 값이 있으면 그 둘 중 이른 값이다.
-    const deviceDeadline = typeof expiresIn === "number" && expiresIn > 0
-      ? deps.nowMs() + expiresIn * 1000
-      : session.deadlineMs;
-    session.deadlineMs = Math.min(session.deadlineMs, deviceDeadline);
-    // 정의의 token endpoint도 x.ai 호스트 규칙을 지나는지 재검사한다.
-    if (
-      !xaiHostAllowed(tokenEndpoint) || !xaiHostAllowed(authorizeEndpoint) ||
-      tokenEndpoint !== definition.token_endpoint ||
-      deviceEndpoint !== definition.authorization_endpoint
-    ) {
-      return err({
-        code: "forbidden",
-        message: "xAI endpoints do not match the verified definition",
-      });
-    }
-    return ok({
-      login: session.login,
-      flow: session.flow,
-      interval_ms: session.intervalMs,
-      expires_at: deps.at(session.deadlineMs),
-      sign_in: {
-        url: session.verificationUrl,
-        user_code: session.userCode,
-      },
-    });
-  }
-
-  async function tokenExchange(
-    _session: LoginSession,
-    definition: OAuthDefinition,
-    body: URLSearchParams,
-  ): Promise<Result<NativeTokens>> {
-    const http = deps.http!;
-    const signal = new AbortController().signal;
-    const response = await oauthHttp(http, definition.token_endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    }, signal);
-    if (!response.ok) {
-      return err({ code: response.code, message: response.message });
-    }
-    if (response.response.status !== 200) {
-      return err({
-        code: "unavailable",
-        message: "token exchange was refused",
-      });
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(response.response.body);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "token exchange is not JSON",
-      });
-    }
-    if (parsed === null || typeof parsed !== "object") {
-      return err({
-        code: "unavailable",
-        message: "token exchange is not JSON",
-      });
-    }
-    const record = parsed as Record<string, unknown>;
-    const accessToken = record["access_token"];
-    if (typeof accessToken !== "string" || accessToken.length === 0) {
-      return err({ code: "unavailable", message: "access_token is missing" });
-    }
-    return ok({
-      access_token: accessToken,
-      refresh_token: typeof record["refresh_token"] === "string"
-        ? record["refresh_token"]
-        : null,
-      expires_in: typeof record["expires_in"] === "number"
-        ? record["expires_in"]
-        : null,
-      id_token: typeof record["id_token"] === "string"
-        ? record["id_token"]
-        : null,
-      earliest_refresh_at: typeof record["earliest_refresh_at"] === "string"
-        ? record["earliest_refresh_at"]
-        : null,
-    });
-  }
-
-  async function identityOf(
-    idToken: string | null,
-    nonce: string | null,
-    clientId: string,
-    issuer: string,
-  ): Promise<Result<string | null>> {
-    if (idToken === null) {
-      return err({ code: "unavailable", message: "id_token is missing" });
-    }
-    const header = jwtSegment(idToken, 0);
-    const payload = jwtSegment(idToken, 1);
-    if (header === null || payload === null) {
-      return err({ code: "unavailable", message: "id_token is malformed" });
-    }
-    if (header["alg"] !== "RS256") {
-      return err({ code: "unavailable", message: "id_token is not RS256" });
-    }
-    if (typeof payload["exp"] !== "number") {
-      return err({ code: "unavailable", message: "id_token has no expiry" });
-    }
-    const nowSeconds = Math.floor(deps.nowMs() / 1000);
-    if (payload["exp"] <= nowSeconds) {
-      return err({ code: "unavailable", message: "id_token is expired" });
-    }
-    if (typeof payload["iss"] !== "string" || payload["iss"] !== issuer) {
-      return err({ code: "unavailable", message: "id_token issuer is wrong" });
-    }
-    const audience = payload["aud"];
-    const matches = typeof audience === "string"
-      ? audience === clientId
-      : Array.isArray(audience) && audience.includes(clientId);
-    if (!matches) {
-      return err({
-        code: "unavailable",
-        message: "id_token audience is wrong",
-      });
-    }
-    if (typeof payload["nonce"] !== "string" || payload["nonce"] !== nonce) {
-      return err({ code: "unavailable", message: "id_token nonce is wrong" });
-    }
-    // 서명 검증은 JWKS의 공개 key로 한다. 실패는 거절이다.
-    const parts = idToken.split(".");
-    const verified = await jwksVerified(
-      `${parts[0]}.${parts[1]}`,
-      parts[2]!,
-      issuer,
-    );
-    if (!verified.ok) return verified;
-    if (!verified.value) {
-      return err({
-        code: "unavailable",
-        message: "id_token signature is wrong",
-      });
-    }
-    const subject = payload["sub"];
-    return ok(
-      typeof subject === "string" && subject.length > 0 ? subject : null,
-    );
-  }
-
-  let cachedJwks: {
-    issuer: string;
-    keys: Record<string, unknown>[];
-    fetchedMs: number;
-  } | null = null;
-
-  async function jwksVerified(
-    signingInput: string,
-    signatureB64: string,
-    issuer: string,
-  ): Promise<Result<boolean>> {
-    const now = deps.nowMs();
-    if (
-      cachedJwks === null || cachedJwks.issuer !== issuer ||
-      now - cachedJwks.fetchedMs > 60_000
-    ) {
-      const http = deps.http!;
-      const wellKnown = issuer === "https://auth.openai.com"
-        ? "https://auth.openai.com/.well-known/jwks.json"
-        : `${issuer}/.well-known/jwks.json`;
-      const response = await oauthHttp(
-        http,
-        wellKnown,
-        { method: "GET" },
-        new AbortController().signal,
-      );
-      if (!response.ok) {
-        return err({ code: response.code, message: response.message });
-      }
-      if (response.response.status !== 200) {
-        return err({ code: "unavailable", message: "JWKS did not answer" });
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(response.response.body);
-      } catch {
-        return err({ code: "unavailable", message: "JWKS is not JSON" });
-      }
-      const keys = (parsed as { keys?: unknown })?.keys;
-      if (!Array.isArray(keys)) {
-        return err({ code: "unavailable", message: "JWKS has no keys" });
-      }
-      cachedJwks = {
-        issuer,
-        keys: keys.filter((key) =>
-          key !== null && typeof key === "object"
-        ) as Record<string, unknown>[],
-        fetchedMs: now,
-      };
-    }
-    // 검증에 성공하는 key가 하나라도 있으면 서명은 맞다(RS256만 시도한다).
-    for (const key of cachedJwks.keys) {
-      if ((key as Record<string, unknown>)["kty"] !== "RSA") continue;
-      if (await rs256Verified(signingInput, signatureB64, key)) return ok(true);
-    }
-    return ok(false);
-  }
-
-  async function completeChatGpt(
-    session: LoginSession,
-    definition: OAuthDefinition,
-    submission: string,
-  ): Promise<Result<OAuthTokenBundle>> {
-    // paste와 callback 둘을 본다. callback이 먼저 도착했으면 그 값을 쓴다.
-    let callback: OAuthCallback | null = null;
-    if (submission.trim().length > 0) {
-      const pasted = parsePastedSubmission(submission);
-      if (pasted === null) {
-        await closeListener(session);
-        dropSession(session);
-        return err({
-          code: "invalid_input",
-          message: "submission is not a code",
-        });
-      }
-      callback = { code: pasted.code, state: pasted.state ?? "", iss: null };
-    } else if (session.listener !== null) {
-      const received = await session.listener.receive(
-        new AbortController().signal,
-      );
-      if (!received.ok) {
-        await closeListener(session);
-        dropSession(session);
-        return received;
-      }
-      callback = received.value;
-    } else {
-      dropSession(session);
-      return err({ code: "invalid_input", message: "submission is empty" });
-    }
-    // state 누락·불일치는 거절이다. verifier를 state로도 쓰지 않는다.
-    if (
-      session.state === null || callback.state !== session.state ||
-      session.verifier === null || session.nonce === null
-    ) {
-      await closeListener(session);
-      dropSession(session);
-      return err({ code: "invalid_input", message: "state does not match" });
-    }
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: session.clientId,
-      code: callback.code,
-      redirect_uri: `http://127.0.0.1:${
-        session.listener?.port() ?? 0
-      }/callback`,
-      state: callback.state,
-      nonce: session.nonce,
-      code_verifier: session.verifier,
-      ...(session.resource === null ? {} : { resource: session.resource }),
-    });
-    const tokens = await tokenExchange(session, definition, body);
-    await closeListener(session);
-    if (!tokens.ok) {
-      dropSession(session);
-      return tokens;
-    }
-    const identity = await identityOf(
-      tokens.value.id_token ?? null,
-      session.nonce,
-      session.clientId,
-      "https://auth.openai.com",
-    );
-    if (!identity.ok) {
-      dropSession(session);
-      return identity;
-    }
-    const secured: OAuthTokenBundle = {
-      access_token: tokens.value.access_token,
-      refresh_token: tokens.value.refresh_token,
-      expires_in: tokens.value.expires_in ?? SIWC_ACCESS_SECONDS,
-      issued_client_id: session.clientId,
-      resource: session.resource,
-      subject: identity.value,
-      earliest_refresh_at: earliestOf(
-        tokens.value.earliest_refresh_at ?? null,
-        tokens.value.expires_in ?? SIWC_ACCESS_SECONDS,
-        deps.nowMs(),
-      ),
-    };
-    dropSession(session);
-    return ok(secured);
-  }
-
-  async function completeDevice(
-    session: LoginSession,
-    definition: OAuthDefinition,
-  ): Promise<Result<OAuthTokenBundle>> {
-    const http = deps.http!;
-    // device polling이다. 서버 간격·만료를 따르고 거절·만료·취소에 중단한다.
-    for (;;) {
-      const now = deps.nowMs();
-      if (now >= session.deadlineMs) {
-        dropSession(session);
-        return err({
-          code: "unavailable",
-          message: "device login deadline has passed",
-        });
-      }
-      const signal = new AbortController().signal;
-      const body = new URLSearchParams({
-        client_id: definition.issuer,
-        device_code: session.deviceCode ?? "",
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-      });
-      const response = await oauthHttp(http, definition.token_endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          "user-agent": `${OAUTH_APP_NAME}/cli`,
-        },
-        body: body.toString(),
-      }, signal);
-      if (!response.ok) {
-        dropSession(session);
-        return err({ code: response.code, message: response.message });
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(response.response.body);
-      } catch {
-        parsed = null;
-      }
-      const record = parsed !== null && typeof parsed === "object"
-        ? parsed as Record<string, unknown>
-        : null;
-      if (response.response.status === 200) {
-        const accessToken = record?.["access_token"];
-        if (typeof accessToken !== "string" || accessToken.length === 0) {
-          dropSession(session);
-          return err({
-            code: "unavailable",
-            message: "device token response has no access_token",
-          });
-        }
-        const secured: OAuthTokenBundle = {
-          access_token: accessToken,
-          refresh_token: typeof record?.["refresh_token"] === "string"
-            ? record["refresh_token"]
-            : null,
-          expires_in: typeof record?.["expires_in"] === "number"
-            ? record["expires_in"]
-            : SIWC_ACCESS_SECONDS,
-          issued_client_id: null,
-          resource: null,
-          subject: null,
-          earliest_refresh_at: null,
-        };
-        dropSession(session);
-        return ok(secured);
-      }
-      const error = record?.["error"];
-      const code = typeof error === "string" ? error : null;
-      if (code === "authorization_pending") {
-        await pollingWait(session.intervalMs);
-        continue;
-      }
-      if (code === "slow_down") {
-        // 대기 연장마다 5초를 더한다.
-        session.slowDownMs += OAUTH_POLL_SLOW_DOWN_MS;
-        await pollingWait(session.intervalMs + session.slowDownMs);
-        continue;
-      }
-      // 거절·만료·취소다.
-      dropSession(session);
-      return err({
-        code: code === "access_denied" || code === "expired_token"
-          ? "conflict"
-          : "unavailable",
-        message: "device login was refused",
-      });
-    }
-
-    async function pollingWait(ms: number): Promise<void> {
-      await (deps.wait ?? realWait)(ms);
+  const jwks = await send(http, input.jwksUri, {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  if (!jwks.ok) return jwks;
+  const keys = Array.isArray(jwks.value.body["keys"])
+    ? jwks.value.body["keys"].map(objectOrNull).filter((key) => key !== null)
+    : [];
+  const kid = header["kid"];
+  const candidates = keys.filter((key) =>
+    key["kty"] === "RSA" && (kid === undefined || key["kid"] === kid)
+  );
+  let signed = false;
+  for (const key of candidates) {
+    if (await rs256Verified(input.idToken, key)) {
+      signed = true;
+      break;
     }
   }
-  return {
-    async begin(provider, definition) {
-      const gated = gate();
-      if (!gated.ok) return gated;
-      const oauth = validDefinition(definition);
-      if (!oauth.ok) return oauth;
-      const session: LoginSession = {
-        login: randomToken(deps.random),
-        provider,
-        flow: oauth.value.flow,
-        clientId: "",
-        verifier: null,
-        nonce: null,
-        state: null,
-        challenge: null,
-        resource: null,
-        scopes: [...oauth.value.scopes],
-        listener: null,
-        deviceCode: null,
-        deviceAuthId: null,
-        userCode: null,
-        verificationUrl: null,
-        intervalMs: OAUTH_POLL_DEFAULT_MS,
-        deadlineMs: deps.nowMs() +
-          (oauth.value.product === "chatgpt"
-            ? CHATGPT_LOGIN_MAX_WAIT_MS
-            : SUPERGROK_LOGIN_MAX_WAIT_MS),
-        slowDownMs: 0,
-        startedMs: deps.nowMs(),
-      };
-      sessions.set(session.login, session);
-      const begun = oauth.value.product === "chatgpt"
-        ? await beginChatGpt(session, oauth.value)
-        : await beginDevice(session, oauth.value);
-      if (!begun.ok) {
-        await closeListener(session);
-        dropSession(session);
-        return begun;
-      }
-      return begun;
-    },
-    async complete(provider, login, submission) {
-      const gated = gate();
-      if (!gated.ok) return gated;
-      const session = sessionOf(provider, login);
-      if (!session.ok) return session;
-      // provider의 현재 정의를 다시 본다. 세션이 열린 뒤 정의가 바뀌었으면 거절이다.
-      const current = deps.currentDefinition === undefined
-        ? await Promise.resolve(
-          err({
-            code: "unavailable" as const,
-            message: "definition read port is missing",
-          }) as Result<ProviderDefinition>,
-        )
-        : await deps.currentDefinition(provider);
-      if (!current.ok) {
-        await closeListener(session.value);
-        dropSession(session.value);
-        return current;
-      }
-      const oauth = validDefinition(current.value);
-      if (!oauth.ok) return oauth;
-      if (oauth.value.product === "chatgpt") {
-        return await completeChatGpt(
-          session.value,
-          oauth.value,
-          submission,
-        );
-      }
-      return await completeDevice(session.value, oauth.value);
-    },
-    async cancel(provider, login) {
-      const session = sessionOf(provider, login);
-      if (!session.ok) return session;
-      await closeListener(session.value);
-      dropSession(session.value);
-      return ok(undefined);
-    },
-  };
-}
-
-// earliest_refresh_at의 ms epoch다. 값이 없으면 만료에서 lead를 뺀 시각을 둔다
-// (그 이전에 갱신 요청하지 않는다).
-function earliestOf(
-  value: string | null,
-  expiresIn: number,
-  nowMs: number,
-): number | null {
-  if (value !== null) {
-    const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  return nowMs + Math.max(0, expiresIn * 1000 - OAUTH_REFRESH_LEAD_MS);
-}
-
-// device polling의 실제 대기다. 테스트는 deps.wait으로 대신한다.
-function realWait(ms: number): Promise<void> {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const audience = claims["aud"];
+  const audiences = Array.isArray(audience) ? audience : [audience];
+  const exp = claims["exp"];
+  const subject = text(claims["sub"]);
+  if (
+    !signed || claims["iss"] !== input.issuer ||
+    !audiences.includes(input.clientId) ||
+    typeof exp !== "number" || exp * 1000 <= input.nowMs ||
+    claims["nonce"] !== input.nonce || subject === null
+  ) return bad;
+  return ok(subject);
 }

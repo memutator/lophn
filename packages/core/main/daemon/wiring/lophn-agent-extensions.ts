@@ -1,10 +1,9 @@
 import { ok } from "../../../../base/mod.ts";
 import { createMcpOAuthVault } from "../../../lophn-agent/extensions/mod.ts";
-import { createMcpAuthRequests } from "../../../lophn-agent/extensions/mcp-auth-requests.ts";
 import { createMcpToolRequests } from "../../../lophn-agent/extensions/mcp-tool-requests.ts";
 import {
   createMcpAuthControl,
-  openMcpCallbackListener,
+  openCallbackListener,
 } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
@@ -19,15 +18,12 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
     // - verifier·state·token은 core 안에만 있다: 응답·ledger·event·log 어디에도 옮기지 않는다.
     // - token은 `secrets.json`의 서버 몫 `mcp-oauth.` 이름에만 두고 설정에는 쓰지 않는다. secret store가 값을 알려진
     //   값으로 올려 model로 가는 글과 저장할 글에서 지운다.
-    // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 대기열에 놓고 agent runtime이 가져가 대신
-    // 보낸다(mcp-auth-requests.ts).
+    // core module graph에는 외부 fetch가 없다. 발급자(token endpoint) 호출은 provider 로그인 wiring이 낸 대기열에
+    // 놓고 agent runtime이 가져가 대신 보낸다(issuer-requests.ts).
     build(ctx) {
-      const requests = createMcpAuthRequests({
-        newId: () => crypto.randomUUID(),
-      });
       const created = createMcpAuthControl({
-        fetch: requests.fetch,
-        openListener: openMcpCallbackListener,
+        fetch: ctx.issuerRequests.fetch,
+        openListener: openCallbackListener,
         registered: () =>
           registeredMcpServers(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
         vault: createMcpOAuthVault({ secrets: ctx.secretStore }),
@@ -39,7 +35,7 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
       // Grants의 MCP tool 목록 요청 대기열이다. runtime이 가져가 서버를 읽고 답한다(mcp-tool-requests.ts).
       const tools = createMcpToolRequests({ newId: () => crypto.randomUUID() });
       return ok({
-        memory: [...created.handlers, ...requests.handlers, ...tools.handlers],
+        memory: [...created.handlers, ...tools.handlers],
       });
     },
     // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.

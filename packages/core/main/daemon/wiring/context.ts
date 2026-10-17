@@ -65,6 +65,7 @@ import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/m
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -77,6 +78,7 @@ export { createProductRedactor } from "../../../../base/redaction/mod.ts";
 export type Supervisor = ReturnType<typeof createSupervisor>;
 export type AppsControl = Awaited<ReturnType<typeof createAppsControl>>;
 export type McpAuthControl = ReturnType<typeof createMcpAuthControl>;
+export type IssuerRequests = ReturnType<typeof createIssuerRequests>;
 export type { BlobPrepareCall, CoreRuntime, RewindFilesDeps };
 
 export type BlobRead = {
@@ -197,6 +199,8 @@ type Late = {
   appsControl: AppsControl;
   rewindFiles: RewindFilesDeps;
   mcpAuthControl: McpAuthControl;
+  // OAuth 발급자 요청 대기열이다. provider 로그인 wiring이 내고 MCP OAuth와 provider 갱신이 같이 쓴다.
+  issuerRequests: IssuerRequests;
   server: ApiServer;
   shutdown: () => Promise<void>;
   // config가 낸다. 선언 목록은 assembly.ts가 각 단위의 선언을 모아 넣는다.
@@ -255,6 +259,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appsControl: true,
   rewindFiles: true,
   mcpAuthControl: true,
+  issuerRequests: true,
   server: true,
   shutdown: true,
   settings: true,

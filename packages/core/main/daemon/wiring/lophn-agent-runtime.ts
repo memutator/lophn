@@ -3,7 +3,14 @@ import {
   removeQueued,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
-import { providerList, ROLES } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  OAUTH_REFRESH_LEAD_MS,
+  providerList,
+  providerRead,
+  type ProviderRecord,
+  refreshProviderCredential,
+  ROLES,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import {
   agentConditions,
   roleOperations,
@@ -28,6 +35,7 @@ import {
   createTurnStarter,
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
+import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
@@ -47,6 +55,20 @@ const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
   scope: { operations: [messageRemoveQueued.name], targets: {} },
   conditions: {},
   credential_ref: SESSION_INPUTS_PRINCIPAL,
+};
+
+// 구독 provider의 OAuth token을 runtime에 건네기 직전에 갱신하는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const PROVIDER_REFRESH_PRINCIPAL = "machine:provider-refresh";
+
+const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
+  principal: PROVIDER_REFRESH_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: [providerRead.name, refreshProviderCredential.name],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: PROVIDER_REFRESH_PRINCIPAL,
 };
 
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
@@ -70,7 +92,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           ),
       });
     },
-    records: () => [SESSION_INPUTS_CONTEXT],
+    records: () => [SESSION_INPUTS_CONTEXT, PROVIDER_REFRESH_CONTEXT],
     // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
     build(ctx) {
       const humanOnly = (who: AuthenticatedContext): Result<void> =>
@@ -124,6 +146,37 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
     async afterReady(ctx) {
       const { runtime } = ctx;
+      const refresher = createProviderRefresher({
+        async readProvider(provider) {
+          const read = await runtime.readers.read(
+            providerRead,
+            PROVIDER_REFRESH_CONTEXT,
+            { provider },
+          );
+          if (read.ok) {
+            return ok((read.value as { provider: ProviderRecord }).provider);
+          }
+          return read.error.code === "not_found" ? ok(null) : read;
+        },
+        secrets: ctx.secretStore,
+        http: ctx.issuerRequests.fetch,
+        record: (provider, result) =>
+          runtime.writer.command(PROVIDER_REFRESH_CONTEXT, {
+            command: refreshProviderCredential.name,
+            input: {
+              provider: provider.id,
+              expires_at: "expires_at" in result ? result.expires_at : null,
+              unavailable_reason: "unavailable_reason" in result
+                ? result.unavailable_reason
+                : null,
+            },
+            idempotency_key: crypto.randomUUID(),
+            compare: { revision: provider.revision },
+            prepared: [],
+          }),
+        nowMs: () => ctx.clock.nowMs(),
+        leadMs: OAUTH_REFRESH_LEAD_MS,
+      });
       const started = await startAgentRuntimeChild({
         io: ctx.io,
         operationsFor: (role) =>
@@ -156,6 +209,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           process: AGENT_RUNTIME_KIND,
           task: AGENT_RUNTIME_TASK,
           mcpOAuth: ctx.mcpAuthControl.prepareToken,
+          providerOAuth: refresher.prepareToken,
         }),
         readMcpServers: () =>
           mcpServerSnapshot(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),

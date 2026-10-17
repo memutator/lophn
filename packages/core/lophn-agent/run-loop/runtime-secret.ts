@@ -38,6 +38,9 @@ export function createAgentRuntimeSecrets(deps: {
   // MCP OAuth 접근 token이면 보내기 전에 서버 설정과 대조하고 만료가 가까우면 갱신한다. OAuth token 이름이
   // 아니면 undefined다.
   mcpOAuth?: (use: SecretFileUse) => Promise<Result<void> | undefined>;
+  // 구독 provider의 OAuth access token(`provider.<id>`)이면 만료가 가까울 때 갱신한다. 그 이름이 아니거나
+  // OAuth credential이 아니면 undefined다.
+  providerOAuth?: (use: SecretFileUse) => Promise<Result<void> | undefined>;
 }): AgentRuntimeSecrets {
   const context: AuthenticatedContext = {
     principal: "machine:agent-runtime-secret",
@@ -77,7 +80,8 @@ export function createAgentRuntimeSecrets(deps: {
           message: "secret 전송을 허용하지 않는다",
         });
       }
-      const prepared = await deps.mcpOAuth?.(request.use);
+      const prepared = await deps.mcpOAuth?.(request.use) ??
+        await deps.providerOAuth?.(request.use);
       if (prepared !== undefined && !prepared.ok) return failed(prepared.error);
       let value: SecretValue | undefined;
       const sent = await deps.attach.send(

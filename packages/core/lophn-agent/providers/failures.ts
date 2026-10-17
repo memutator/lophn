@@ -165,6 +165,34 @@ const CREDENTIAL_CODES: readonly string[] = [
   "organization_spend_limit_exceeded",
   "project_spend_limit_exceeded",
 ];
+// ChatGPT 구독 token(Sign in with ChatGPT)의 거절 code다. 다시 보내도 같으니 retry하지 않는다.
+// 한도는 사람이 ChatGPT 설정에서 보고, 자격·범위 거절은 API key나 다시 로그인으로 푼다.
+// 본문 꼴이 확인되지 않아 구조화 code가 아니면 문구 조각에서도 찾는다.
+const SUBSCRIPTION_CODES: Readonly<
+  Record<string, "quota" | "plan_access" | "authentication">
+> = {
+  subscription_sharing_usage_limit_exceeded: "quota",
+  subscription_sharing_user_not_eligible: "plan_access",
+  subscription_sharing_unsupported_capability: "plan_access",
+  subscription_sharing_route_not_supported: "plan_access",
+  chatpass_v2_scope_not_authorized: "plan_access",
+  subscription_sharing_invalid_user: "authentication",
+  chatpass_v2_invalid_authorization_context: "authentication",
+};
+
+function subscriptionReason(
+  input: { code?: string; message?: string },
+): "quota" | "plan_access" | "authentication" | null {
+  if (input.code !== undefined && input.code in SUBSCRIPTION_CODES) {
+    return SUBSCRIPTION_CODES[input.code]!;
+  }
+  const fragment = input.message ?? "";
+  for (const [code, reason] of Object.entries(SUBSCRIPTION_CODES)) {
+    if (fragment.includes(code)) return reason;
+  }
+  return null;
+}
+
 const MODEL_CODES: readonly string[] = [
   "model_not_found",
   "model_not_available",
@@ -294,8 +322,6 @@ function coreVerdict(input: FailureInput): CoreVerdict {
 }
 
 function fromStructuredCode(input: FailureInput): CoreVerdict | null {
-  const code = input.code;
-  if (code === undefined) return null;
   const blank = {
     retry_at_ms: null,
     until_ms: null,
@@ -303,6 +329,17 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
     finish_reason: null,
     http_status: input.status,
   };
+  // 429여도 구독 거절 code가 앞선다(기다려도 풀리지 않는다).
+  const subscription = subscriptionReason(input);
+  if (subscription !== null) {
+    return {
+      code: "credential_unavailable",
+      ...blank,
+      unavailable_reason: subscription,
+    };
+  }
+  const code = input.code;
+  if (code === undefined) return null;
   if (codeOf(CONTEXT_EXCEEDED_CODES, code) !== null) {
     return { code: "context_exceeded", ...blank };
   }

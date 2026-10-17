@@ -282,6 +282,8 @@ export type AgentsPlaceholders = {
   "settings.error.custom-id": Record<never, never>;
   "settings.error.custom-name": Record<never, never>;
   "settings.error.custom-url": Record<never, never>;
+  "settings.error.sign-in-expired": Record<never, never>;
+  "settings.error.sign-in-refused": Record<never, never>;
   "settings.extensions.server-added": {
     name: "string";
   };
@@ -301,6 +303,9 @@ export type AgentsPlaceholders = {
   "settings.label.custom-url": Record<never, never>;
   "settings.label.extensions-target": Record<never, never>;
   "settings.label.login-signed-in": Record<never, never>;
+  "settings.label.method-continue": {
+    product: "string";
+  };
   "settings.label.method-opens-browser": Record<never, never>;
   "settings.label.method-sign-in": {
     product: "string";
@@ -324,9 +329,12 @@ export type AgentsPlaceholders = {
   "settings.label.status-needs-sign-in": Record<never, never>;
   "settings.notice.custom-id-help": Record<never, never>;
   "settings.notice.custom-lead": Record<never, never>;
-  "settings.notice.method-unverified": Record<never, never>;
   "settings.notice.none-connected": Record<never, never>;
   "settings.notice.provider-lead": Record<never, never>;
+  "settings.notice.sign-in-browser": {
+    product: "string";
+  };
+  "settings.notice.sign-in-code": Record<never, never>;
   "settings.server.address-help": Record<never, never>;
   "settings.server.arguments-help": Record<never, never>;
   "settings.server.error-header": Record<never, never>;
@@ -337,6 +345,7 @@ export type AgentsPlaceholders = {
   "settings.server.program-help": Record<never, never>;
   "settings.status.plan-access": Record<never, never>;
   "settings.status.sign-in-problem": Record<never, never>;
+  "settings.status.sign-in-waiting": Record<never, never>;
   "settings.status.usage-limit": Record<never, never>;
   "settings.title.connect-provider": {
     name: "string";

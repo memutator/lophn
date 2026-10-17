@@ -277,15 +277,13 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   };
 }
 
-// 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다.
-// 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state를 옮긴다. 실제 browser 열기는
-// shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 요청 하나를 마치면 닫는다.
-// 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고 unavailable로 돌아온다.
-export function openMcpCallbackListener(): Promise<Result<CallbackListener>> {
-  const settled: { code: string | null; state: string | null } = {
-    code: null,
-    state: null,
-  };
+// OAuth loopback callback listener다(MCP 서버와 ChatGPT 로그인이 같이 쓴다). 127.0.0.1에만 듣는다.
+// 사람이 OS browser에서 돌아온 callback 요청을 받아 code·state·발급 client_id를 옮긴다. 실제 browser 열기는
+// shell이 크롬 링크로 하고 이 listener는 닿는 요청만 받는다. 첫 callback 하나만 받는다.
+// 발급자가 `error`로 돌려보내면 받기는 forbidden으로 끝난다. 취소나 기다림 시한은 받기에 건 AbortSignal이 끊고
+// unavailable로 돌아온다.
+export function openCallbackListener(): Promise<Result<CallbackListener>> {
+  let settled: Callback | "refused" | null = null;
   let accepted: () => void = () => {};
   const incoming = new Promise<void>((resolve) => {
     accepted = resolve;
@@ -296,15 +294,27 @@ export function openMcpCallbackListener(): Promise<Result<CallbackListener>> {
       { hostname: "127.0.0.1", port: 0, onListen: () => {} },
       (request: Request) => {
         const url = new URL(request.url);
+        if (settled !== null) {
+          return new Response("이미 받은 로그인이다", { status: 409 });
+        }
+        if (url.searchParams.get("error") !== null) {
+          settled = "refused";
+          accepted();
+          return new Response(CALLBACK_REFUSED, CALLBACK_PAGE);
+        }
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
         if (code === null || code.length === 0 || state === null) {
           return new Response("요청 값이 부족하다", { status: 400 });
         }
-        settled.code = code;
-        settled.state = state;
+        settled = {
+          code,
+          state,
+          iss: url.searchParams.get("iss"),
+          client_id: url.searchParams.get("client_id"),
+        };
         accepted();
-        return new Response("", { status: 200 });
+        return new Response(CALLBACK_DONE, CALLBACK_PAGE);
       },
     );
   } catch {
@@ -323,22 +333,41 @@ export function openMcpCallbackListener(): Promise<Result<CallbackListener>> {
             once: true,
           });}
       });
-      return Promise.race([incoming, aborted]).then((how): Result<{
-        code: string;
-        state: string;
-        iss: string | null;
-      }> => {
-        if (how === null || settled.code === null || settled.state === null) {
-          return err({
-            code: "unavailable",
-            message: "callback이 오지 않았다",
-          });
-        }
-        return ok({ code: settled.code, state: settled.state, iss: null });
-      });
+      return Promise.race([incoming, aborted]).then(
+        (how): Result<Callback> => {
+          if (settled === "refused") {
+            return err({
+              code: "forbidden",
+              message: "발급자가 로그인을 거절했다",
+            });
+          }
+          if (how === null || settled === null) {
+            return err({
+              code: "unavailable",
+              message: "callback이 오지 않았다",
+            });
+          }
+          return ok(settled);
+        },
+      );
     },
     close(): Promise<void> {
       return Promise.resolve(http.shutdown());
     },
   }));
 }
+
+type Callback = {
+  code: string;
+  state: string;
+  iss: string | null;
+  client_id: string | null;
+};
+
+// browser 탭에 남는 글이다. 값은 싣지 않는다.
+const CALLBACK_PAGE = {
+  status: 200,
+  headers: { "content-type": "text/plain; charset=utf-8" },
+};
+const CALLBACK_DONE = "Signed in. You can close this tab and go back to lophn.";
+const CALLBACK_REFUSED = "Sign-in was not completed. You can close this tab.";

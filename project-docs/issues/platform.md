@@ -15,20 +15,17 @@ modules: [packages/core/main, packages/core/events]
 
 고치려면: `ReactorRunner`에 마지막 성공 시각이나 backoff 여부를 내는 읽기를 더하고 점검이 본다(작음). 필요해질 때 한다.
 
-## provider OAuth 로그인 길은 있지만 그 credential로 model을 부르는 길이 없다
+## ChatGPT로 로그인한 provider가 그 계정이 못 쓰는 model도 고르게 둔다
 
 ```yaml
 kind: bug
-modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
+modules: [packages/core/lophn-agent]
 ```
 
-지금: provider 정의의 `auth_kinds`에 `oauth`가 있고(`packages/protocol/lophn-agent/provider-values.ts`), core에 로그인 흐름(`packages/core/lophn-agent/providers/oauth.ts`, `providers/login.ts`)이, 설정 화면에 `signIn`(`settings/providers/core-source.ts`)이 있다. 그러나 붙여 넣기 창을 여는 `settings/core-call.ts`의 `windowSecretOpener`가 preload에 없는 `lophnShell.openConfirmation`을 찾아 창이 열리지 않고(preload는 `openSecretInput`만 낸다), agent runtime의 secret 전달(`run-loop/runtime-secret.ts`)은 `provider.`·`mcp.`·`mcp-oauth.` 이름만 보낸다. OAuth token이 model 호출에 실리는 길이 없다.
+지금: model 선택은 catalog에서 provider 정의 key(`openai`)가 같은 model을 모두 보인다(`models/resolve.ts`가 `provider_definition`과 model 이름으로 찾는다). ChatGPT 구독 token(Sign in with ChatGPT)은 계정마다 쓸 수 있는 model이 다르고, OpenAI 문서는 같은 Bearer로 `GET /v1/models`를 불러 `visibility == "list"`인 것만 보이라고 한다. lophn은 그 목록을 읽지 않는다.
 
-영향: 사람이 구독 계정(OAuth)으로 provider를 연결할 수 없다. 화면에는 sign in 단추가 보인다.
+영향: ChatGPT로 연결한 사람이 계정이 못 쓰는 model(예: API 전용 `-pro` 변형)을 고를 수 있고, 고르면 turn이 provider 거절로 실패한다.
 
 고치려면:
-- 살린다(큼): 붙여 넣기 창을 `openSecretInput` 길로 고치고, token을 `secrets.json`에 두고, runtime이 provider 호출에 token을 싣고 갱신(`RefreshProviderCredential`)을 잇는다.
-- 지운다(중간): OAuth 정의와 로그인 흐름, 화면의 sign in을 지운다. API key와 loopback provider만 남는다.
-- 추천: 사람이 구독 OAuth를 제품에 둘지 정한 뒤 그대로 한다. 둘 생각이 없으면 지운다.
-
-정할 것: 구독 계정(OAuth) provider 연결을 제품에 둘지.
+- 연결 뒤와 갱신 때 runtime이 `GET /v1/models`를 읽어 그 provider의 model block이나 고를 수 있는 목록으로 둔다(중간).
+- 추천: 위 안이다. 계정마다 다른 목록을 화면이 모르면 사람은 고른 뒤 실패해서야 안다.

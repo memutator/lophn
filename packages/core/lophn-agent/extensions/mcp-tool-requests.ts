@@ -10,7 +10,7 @@ import type { AuthDeadline } from "./mod.ts";
 
 // Grants 화면의 MCP tool 목록 요청 대기열이다. MCP 연결은 agent runtime의 몫이고 core에는 외부 연결이 없어서
 // `list`가 요청을 놓고, runtime이 `request-take`로 가져가 서버를 읽은 뒤 `request-done`으로 답하면 `list`가 깨어난다
-// (mcp-auth-requests.ts와 같은 길).
+// (issuer-requests.ts와 같은 길).
 // - 대기열은 작업 메모리다: ledger·event·log에 쓰지 않는다.
 // - 기한 안에 답이 없으면(runtime이 없거나 서버가 느리면) unavailable이고 요청은 대기열에서 빠진다. 늦은 답은 받지 않는다.
 

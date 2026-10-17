@@ -24,6 +24,7 @@ import {
   nextCredentialState,
   providerFromRow,
 } from "./model.ts";
+import { providerSecretName } from "./oauth-secrets.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기 → event. 짧은 transaction 하나.
 // provider에는 credential이 하나다. 계정 목록·순서·끄기는 없고, 바꾸거나 다시 로그인하려면
@@ -68,10 +69,6 @@ function checkRevision(
 }
 
 // secret 이름은 provider별 하나다. credential이 아니라 provider를 가리킨다.
-function secretNameForProvider(provider: string): string {
-  return `provider.${provider.replace(/^pvd_/, "")}`;
-}
-
 function insertCredential(
   tx: Tx,
   providerId: string,
@@ -199,7 +196,7 @@ export function createProviderCommands(): {
         // provider가 앱·MCP의 다른 secret 이름을 가리켜 그 값이 endpoint로 가는 일을 막는다.
         if (
           input.credential !== null &&
-          input.credential.secret !== secretNameForProvider(input.id)
+          input.credential.secret !== providerSecretName(input.id)
         ) {
           return err({
             code: "invalid_input",
@@ -215,7 +212,8 @@ export function createProviderCommands(): {
           state: "available",
           unavailable_reason: null,
           until: null,
-          expires_at: null,
+          // OAuth access token의 만료다. API key는 없다.
+          expires_at: input.expires_at ?? null,
           // 이 연결의 identity다. Disconnect 뒤 다시 Connect한 것과 구분한다.
           logged_in_at: tx.now(),
           refreshed_at: null,

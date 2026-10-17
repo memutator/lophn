@@ -20,12 +20,12 @@ export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
 const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);
 
-// OAuth는 ChatGPT와 SuperGrok만 쓴다. Claude OAuth는 두지 않는다.
-const OAUTH_PRODUCTS = ["chatgpt", "supergrok"] as const;
-export const OAUTH_FLOWS = [
-  "device_code",
-  "device_code_then_pkce_paste_url",
-] as const;
+// 구독 OAuth는 ChatGPT와 SuperGrok만 쓴다. Claude OAuth는 두지 않는다: Anthropic이
+// 제3자 앱의 Claude.ai 로그인과 구독 credential 사용을 금지한다.
+// chatgpt는 OpenAI 공식 Sign in with ChatGPT(PKCE + 127.0.0.1 loopback, 첫 로그인에 client를
+// 동적 등록)이고 supergrok은 device code다. product가 flow를 정한다.
+export const OAUTH_FLOWS = ["pkce_loopback", "device_code"] as const;
+export type OAuthFlow = (typeof OAUTH_FLOWS)[number];
 
 function isUrl(value: string): boolean {
   try {
@@ -44,52 +44,45 @@ function unique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
 }
 
-function originOf(value: string): string | null {
-  if (!isHttpsUrl(value)) return null;
-  const url = new URL(value);
-  return url.username || url.password ? null : url.origin;
-}
+// 발급자 주소는 정의 data다. loopback http는 fake 발급자(test, 개발)만 쓴다.
+const issuerUrlSchema = z.string().refine(
+  (value) => isHttpsUrl(value) || loopback(value),
+  { message: "expected an https or loopback url" },
+);
+const scopesSchema = z.array(nonblankSchema).min(1).refine(unique, {
+  message: "scopes repeat",
+});
 
-const oauthFields = {
-  product: z.enum(OAUTH_PRODUCTS),
-  flow: z.enum(OAUTH_FLOWS),
-  issuer: z.string(),
-  authorization_endpoint: z.string(),
-  token_endpoint: z.string(),
-  allowed_call_origins: z.array(z.string()).min(1),
-  scopes: z.array(nonblankSchema).min(1),
-  verified_for_lophn: z.boolean(),
+const chatgptFields = {
+  product: z.literal("chatgpt"),
+  issuer: issuerUrlSchema,
+  authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  jwks_uri: issuerUrlSchema,
+  resource: issuerUrlSchema,
+  scopes: scopesSchema,
+};
+const supergrokFields = {
+  product: z.literal("supergrok"),
+  client_id: nonblankSchema,
+  device_authorization_endpoint: issuerUrlSchema,
+  token_endpoint: issuerUrlSchema,
+  scopes: scopesSchema,
 };
 
-function oauthShape(value: {
-  product: (typeof OAUTH_PRODUCTS)[number];
-  flow: (typeof OAUTH_FLOWS)[number];
-  issuer: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  allowed_call_origins: readonly string[];
-  scopes: readonly string[];
-}): boolean {
-  const flow = value.product === "chatgpt"
-    ? "device_code_then_pkce_paste_url"
-    : "device_code";
-  return value.flow === flow &&
-    [value.issuer, value.authorization_endpoint, value.token_endpoint].every(
-      isHttpsUrl,
-    ) && unique(value.allowed_call_origins) &&
-    value.allowed_call_origins.every((origin) => originOf(origin) === origin) &&
-    unique(value.scopes);
-}
-
-const oauthDefinitionSchema = z.strictObject(oauthFields).refine(
-  oauthShape,
-  { message: "oauth definition does not match its verified product" },
-);
-const oauthDefinitionOutputSchema = z.object(oauthFields).refine(
-  oauthShape,
-  { message: "oauth definition does not match its verified product" },
-);
+const oauthDefinitionSchema = z.discriminatedUnion("product", [
+  z.strictObject(chatgptFields),
+  z.strictObject(supergrokFields),
+]);
+const oauthDefinitionOutputSchema = z.discriminatedUnion("product", [
+  z.object(chatgptFields),
+  z.object(supergrokFields),
+]);
 export type OAuthDefinition = z.infer<typeof oauthDefinitionSchema>;
+
+export function oauthFlowOf(definition: OAuthDefinition): OAuthFlow {
+  return definition.product === "chatgpt" ? "pkce_loopback" : "device_code";
+}
 
 const definitionFields = {
   key: nonblankSchema,
@@ -252,5 +245,5 @@ export const providerRecordSchema = z.object({
 });
 export type ProviderRecord = z.infer<typeof providerRecordSchema>;
 
-export const OAUTH_REFRESH_LEAD_MS = 60_000;
+export const OAUTH_REFRESH_LEAD_MS = 5 * 60_000;
 export const USAGE_WAIT_DEFAULT_MS = 3_600_000;

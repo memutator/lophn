@@ -1,5 +1,5 @@
 // lophn-app:// 요청을 view가 묶인 대상의 화면 byte로 바꾼다. byte는 core의 `app.screen_file`이
-// 내주고(UI bundle 사본), 대상(앱·release·preview process)은 view가 정하며 페이지 주장은 없다.
+// 내주고(UI bundle 사본), 대상(앱·release·preview process)은 view가 정한다.
 // redirect, 허용하지 않은 MIME은 거절하고 CSP를 겹친다. 요청이 취소되면 upstream도 끊는다.
 import {
   APP_SCHEME,
@@ -16,7 +16,7 @@ export type ScreenTarget =
   | { mode: "live"; app: string; release: string | null }
   | { mode: "preview"; app: string; process_nonce: string };
 
-/** protocol 요청이 쓰는 view 하나의 고정 값. 페이지 주장이 아니라 registry가 정한다. */
+/** protocol 요청이 쓰는 view 하나의 고정 값. 페이지는 자기가 어느 앱인지 모르고 registry가 정한다. */
 export interface ProtocolView {
   view_session: string;
   appLabel: string;

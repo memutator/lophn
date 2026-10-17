@@ -1,6 +1,6 @@
 // main의 앱 view 묶기. view가 보는 앱 process(release·bundle·process nonce)를 core 읽기로 알아
 // 두고, 이후 호출과 화면 byte는 core가 그 대상으로 전달한다. 앱·release·mode는 main이 정한 값만
-// 쓰며 페이지 주장은 들어올 자리가 없다.
+// 쓴다. 페이지는 자기가 어느 앱인지 모른다.
 // 바깥 host는 active net.fetch grant 가운데 지금 release가 선언한 것에서 읽는다.
 import type { FetchHost } from "./network-policy.ts";
 

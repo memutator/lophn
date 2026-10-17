@@ -1,7 +1,7 @@
 // 앱 view의 처리되지 않은 오류 전달. 설치 preload가 내부
 // `app:view-error`로 `{observation, name, message}`만 보내고, 앱·release·mode·view 연결은
-// main이 IPC를 보낸 실제 view에서 정해 붙인다. 페이지가 주장한 앱·release는 받을 자리가 없고
-// 모르는 field가 있는 메시지는 버린다. 깨진 페이지가 오류를 쏟아도 view마다 창당 상한까지만
+// main이 IPC를 보낸 실제 view에서 정해 붙인다. 페이지는 자기가 어느 앱인지 모르고, 앱·release·mode는
+// main이 정한다. 모르는 field가 있는 메시지는 버린다. 깨진 페이지가 오류를 쏟아도 view마다 창당 상한까지만
 // 보낸다. 원문은 collector의 bounded memory로만 가고 main log에는 개수와 view 참조만 남긴다.
 import type { ConnectTarget } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
@@ -67,7 +67,7 @@ interface ExceptionObservation {
   invocation: null;
 }
 
-/** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 view 식별이다(core route가 칸을 요구한다). */
+/** 오류를 귀속할 view. registry가 sender view에서 정한 값만 싣는다. */
 interface ViewErrorOrigin {
   view_session: string;
   generation: number;
@@ -75,7 +75,6 @@ interface ViewErrorOrigin {
   release: string | null;
   mode: ConnectTarget["mode"];
   bundle_hash: string;
-  binding: string;
 }
 
 interface ViewErrorForward {
@@ -155,7 +154,6 @@ export function createViewErrors(deps: ViewErrorDeps) {
           release: view.binding.release,
           mode: view.target.mode,
           bundle_hash: view.binding.bundleHash,
-          binding: `${view.view_session}#${view.generation}`,
         },
         observation: {
           report_id: deps.ids.reportId(),

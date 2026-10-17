@@ -1,5 +1,5 @@
 // 앱 view registry. `appFrame.open/replace/close`의 main service다. view가 보는 앱 process는
-// main이 core 읽기로 알아 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다.
+// main이 core 읽기로 알아 view에 묶는다. 페이지는 자기가 어느 앱인지 모른다.
 // 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
 // view_session과 generation으로 진단을 남긴다. view가 있다는 것만으로 권한이 생기지
 // 않는다: view는 자기 대상의 화면 byte만 받는다. app-api는 `app:call`(app-call.ts)이 이 view의

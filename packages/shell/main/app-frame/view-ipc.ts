@@ -1,6 +1,6 @@
 // shell renderer의 앱 view IPC. 매 요청마다 sender가 살아 있는 desktop 창 main frame인지,
 // 입력이 schema에 맞는지 본다. overlay view와 앱 view는 부르지 못한다.
-// 창은 sender에서 정하고 페이지가 적은 창·view 신원은 받지 않는다.
+// 창은 sender에서 main이 정한다.
 import type { ZodType } from "zod";
 
 import {

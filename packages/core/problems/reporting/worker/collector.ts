@@ -884,8 +884,7 @@ async function observeExceptionPayload(
 }
 
 // view 출처 오류 접수. 모든 observation 종류를 view_observer 출처로 받는다. view의
-// app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸 값이다
-// (packages/core/problems/reporting/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
+// app·release·mode·bundle_hash는 shell main이 sender view에서 정해 보낸 값이다.
 async function observeViewErrorPayload(
   payload: unknown,
   client: CoreClientOptions,

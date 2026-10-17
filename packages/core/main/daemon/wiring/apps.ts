@@ -105,7 +105,7 @@ export const appsWiring: WiringFactory = () => {
     operations: () => appsOperationPolicies(),
     // apps 제어(runtime·logs 덮기, activation)가 ledger 사실을 읽고 기록하는 core 내부 자격 기록.
     records: () => [APPS_CONTROL_CONTEXT, PACKAGE_PUBLISH_CONTEXT],
-    async build(ctx) {
+    build(ctx) {
       const { runtime } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -118,7 +118,7 @@ export const appsWiring: WiringFactory = () => {
         const current = runtime.current(APPS_CONTROL_PRINCIPAL);
         return current.ok ? current.value : undefined;
       };
-      const appsControl = await createAppsControl({
+      const appsControl = createAppsControl({
         clock: ctx.clock,
         ledgerPath: ctx.ledgerPath,
         readers: runtime.readers,
@@ -405,11 +405,9 @@ export const appsWiring: WiringFactory = () => {
             process_identity: ctx.epoch,
             kind: APPS_SUPERVISOR_KIND,
             task: "apps",
-            // 서명 검증 공개 key는 secret이 아니다. 감독이 supervisor를 다시 띄워도 hello가
-            // 같은 key를 다시 준다.
             scope: {
               operations: [],
-              targets: { task: "apps", verify_key: appsControl.verifyKey },
+              targets: { task: "apps" },
             },
             credential: issued.value.token,
             api_port: ctx.server.port,

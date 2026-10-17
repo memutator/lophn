@@ -13,7 +13,6 @@ import {
   collectorOperationPolicies,
   collectorWorkers,
 } from "../../../problems/reporting/collector.ts";
-import { withViewBinding } from "../../../problems/reporting/view-binding.ts";
 import { snapshotLogsEnvironment } from "../../../problems/snapshots/logs-read.ts";
 import type { SnapshotLogsEnvironment } from "../../../problems/snapshots/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
@@ -81,29 +80,22 @@ export const problemsWiring: WiringFactory = () => {
               reportBodyHandler(ctx, snapshotLogs, context, body),
           );
         },
-        // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다.
-        workers: new Map(withViewBinding(
-          collectorWorkers({
-            channel: collectorChannel,
-            observation: () => ctx.io.observation(COLLECTOR_KIND),
-            callerOf: (request) => {
-              const slash = request.request_id.lastIndexOf("/");
-              const current = slash > 0
-                ? ctx.runtime.current(request.request_id.slice(0, slash))
-                : undefined;
-              return current?.ok
-                ? {
-                  actor: current.value.actor,
-                  conditions: current.value.conditions,
-                }
-                : undefined;
-            },
-          }),
-          {
-            signer: ctx.appsControl.signer,
-            nowMs: () => ctx.clock.nowMs(),
+        workers: new Map(collectorWorkers({
+          channel: collectorChannel,
+          observation: () => ctx.io.observation(COLLECTOR_KIND),
+          callerOf: (request) => {
+            const slash = request.request_id.lastIndexOf("/");
+            const current = slash > 0
+              ? ctx.runtime.current(request.request_id.slice(0, slash))
+              : undefined;
+            return current?.ok
+              ? {
+                actor: current.value.actor,
+                conditions: current.value.conditions,
+              }
+              : undefined;
           },
-        )),
+        })),
       });
     },
     async start(ctx) {

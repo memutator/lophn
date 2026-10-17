@@ -34,7 +34,7 @@ export type ConnectionState =
   | "running"
   | "unavailable";
 
-/** IPC를 보낸 view. main이 정한 신원과 묶음만 싣고 페이지 주장은 없다. */
+/** IPC를 보낸 view. main이 sender view에서 정한 신원과 묶음이다. */
 export interface BoundView {
   view_session: string;
   generation: number;

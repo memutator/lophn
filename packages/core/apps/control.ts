@@ -65,7 +65,6 @@ import { createActivationQueueRead } from "./releases/reads.ts";
 import { loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
-import { type CoreSigner, createCoreSigner } from "./runtime/signing.ts";
 import type { ConnectFacts } from "./runtime/connect.ts";
 import { allSlotSockets } from "./runtime/processes/mod.ts";
 import {
@@ -282,10 +281,6 @@ type AppsControlDeps = {
 };
 
 type AppsControl = {
-  // 앱 시작 입력에 싣는 공개 검증 key. 서명 key는 core 시작마다 새로 만든다.
-  readonly verifyKey: string;
-  // core 안에서 하나뿐인 서명 key 쥠이다.
-  readonly signer: CoreSigner;
   // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
@@ -351,10 +346,7 @@ function ledgerPreviewReleases(ledgerPath: string): PreviewReleases {
   };
 }
 
-export async function createAppsControl(
-  deps: AppsControlDeps,
-): Promise<AppsControl> {
-  const signer = await createCoreSigner();
+export function createAppsControl(deps: AppsControlDeps): AppsControl {
   const channel = createSupervisorChannel();
   const client = createSupervisorClient(channel);
   const link = createAppProcessLink(channel);
@@ -629,8 +621,6 @@ export async function createAppsControl(
   let timer: ReturnType<typeof setInterval> | undefined;
 
   return {
-    verifyKey: signer.verifyKey,
-    signer,
     commands: new Map<string, MemoryHandler>([
       [releasePrepareBundle.name, releasePrepareBundleHandler],
       [releasePreparation.name, releasePreparationHandler],

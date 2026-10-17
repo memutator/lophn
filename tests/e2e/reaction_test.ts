@@ -50,8 +50,10 @@ import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 
 const SETTING = "reactions.problem_opened";
 
-// 보고마다 새 문제가 열린다(view 오류는 묶는 key가 report_id다). 접수가 알려 주는 문제 id를 돌려준다.
+// 보고마다 새 문제가 열린다(stack 없는 오류는 메시지까지 같아야 묶이니 report id로 메시지를 달리 한다).
+// 접수가 알려 주는 문제 id를 돌려준다.
 async function reportViewError(core: Core, app: string): Promise<string> {
+  const reportId = core.ids.newId("rpt");
   const accepted = await core.call(observeViewError, {
     view: {
       view_session: "e2e-view",
@@ -62,12 +64,12 @@ async function reportViewError(core: Core, app: string): Promise<string> {
       bundle_hash: "0".repeat(64),
     },
     observation: {
-      report_id: core.ids.newId("rpt"),
+      report_id: reportId,
       observed_at: new Date().toISOString(),
       observation: "render_error",
       error: {
         name: "E2eViewError",
-        message: "boom",
+        message: `boom ${reportId}`,
         message_missing_reason: null,
         stack: null,
         stack_missing_reason: { reason: "view" },
@@ -279,8 +281,8 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
 //   건너야 보인다.
 //
 // 앱을 activate하는 데 core가 앱 test용 env를 필요로 해서 위 test와 core를 같이 쓰지 못한다. App Engineer 줄(앱 activation helper의
-// 줄이라 대답 3개 상한의 예외, README 정한 것 11)은 reaction session마다 text 하나다. supervisor가 종료마다 stack 없는
-// `unexpected_exit` 문제를 따로 열고 그 문제는 묶이지 않아 session이 종료 수만큼 더 생기므로 넉넉히 건다.
+// 줄이라 대답 3개 상한의 예외, README 정한 것 11)은 reaction session마다 text 하나다. supervisor가 여는 stack 없는
+// `unexpected_exit` 문제는 같은 exit code끼리 한 문제로 묶이지만 넉넉히 건다.
 // 문제는 SDK가 보고한 `Error`만 센다.
 // 10분 창 안의 예상 밖 종료가 다섯을 넘는 여섯 번째 종료에서 멈춘다(restart-policy의 CRASH_LIMIT 5).
 const CRASH_LIMIT_EXIT = 6;

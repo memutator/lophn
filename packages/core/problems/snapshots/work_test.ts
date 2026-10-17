@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertNotEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
 import { assembleException } from "./work.ts";
 
@@ -77,4 +77,42 @@ Deno.test("assembleException: stack이 가리킨 화면의 map으로 source 위�
   } finally {
     await Deno.remove(dataRoot, { recursive: true });
   }
+});
+
+// stack 없는 관측은 report id가 아니라 이유로 묶는다. 메시지(exit code)나 release(bundle hash)가
+// 다르면 다른 문제다.
+Deno.test("assembleException: stack 없는 같은 이유의 관측은 같은 group key다", async () => {
+  const assemble = async (
+    reportId: string,
+    message: string,
+    bundleHash: string,
+  ) => {
+    const result = await assembleException(
+      {
+        report_id: reportId,
+        observed_at: "2026-10-17T00:00:00.000Z",
+        observation: "process_exit",
+        error: { name: "unexpected_exit", message, stack: null },
+        invocation: null,
+      },
+      { app: APP, bundle_hash: bundleHash },
+      {
+        blobPrepare: {
+          prepare: () => Promise.reject(new Error("no blob expected")),
+        },
+        folder: { appsRoot: null },
+        nowAt: "2026-10-17T00:00:00.000Z",
+        principal: "machine:test",
+      },
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value.group_key;
+  };
+  const base = await assemble("rpt_1", "exited with code 1", HASH);
+  assertEquals(await assemble("rpt_2", "exited with code 1", HASH), base);
+  assertNotEquals(await assemble("rpt_3", "exited with code 2", HASH), base);
+  assertNotEquals(
+    await assemble("rpt_4", "exited with code 1", "b".repeat(64)),
+    base,
+  );
 });

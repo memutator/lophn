@@ -449,18 +449,29 @@ export function problemNameOf(raw: string | null, fallback: string): string {
 }
 
 // 처리되지 않은 오류의 묶는 key. 오류 이름과 앱 source 위치(source map으로 푼 가장 위 앱 frame의
-// `path:line`)의 해시다. 위치를 못 풀면 그 발생의 Report id라 다른 발생과 묶이지 않는다.
+// `path:line`)의 해시다. 위치를 못 풀면(앱 process 종료, view 오류) 관측 종류·오류 이름·메시지·
+// bundle hash의 해시라 같은 release에서 같은 이유로 거듭 나는 오류가 한 문제로 묶인다.
+// 앱은 문제가 `(app, group_key)`로 찾아 key에 넣지 않는다.
 async function observedErrorGroupKey(
+  input: ObservedException,
   name: string,
   frames: readonly SourceFrame[],
-  reportId: string,
+  bundleHash: string | null,
 ): Promise<ProblemGroupKey> {
   const top = frames.find((frame) => frame.line !== null);
   return {
     kind: "exception",
-    discriminator: top === undefined
-      ? reportId
-      : await sha256Hex(`${name}\n${top.path}:${top.line}`),
+    discriminator: await sha256Hex(
+      top === undefined
+        ? [
+          input.observation,
+          name,
+          input.error?.message ?? "",
+          bundleHash ?? "",
+        ]
+          .join("\n")
+        : `${name}\n${top.path}:${top.line}`,
+    ),
   };
 }
 
@@ -508,7 +519,12 @@ export async function assembleException(
         error: null,
         logs: collected.logs,
       },
-      group_key: await observedErrorGroupKey(name, [], input.report_id),
+      group_key: await observedErrorGroupKey(
+        input,
+        name,
+        [],
+        evidence.bundle_hash,
+      ),
       stack_prepared: null,
       logs_prepared: collected.prepared,
     });
@@ -564,7 +580,12 @@ export async function assembleException(
       },
       logs: collected.logs,
     },
-    group_key: await observedErrorGroupKey(name, frames, input.report_id),
+    group_key: await observedErrorGroupKey(
+      input,
+      name,
+      frames,
+      evidence.bundle_hash,
+    ),
     stack_prepared: stackPrepared,
     logs_prepared: collected.prepared,
   });

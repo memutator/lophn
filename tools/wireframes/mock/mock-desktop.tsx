@@ -58,10 +58,21 @@ interface MockDesktopProps {
   readonly settingsTab?: SettingsTab;
 }
 
+// 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
+function storedTab(tab: TabSpec) {
+  return tab.kind === "terminal"
+    ? {
+      kind: tab.kind,
+      key: tab.key,
+      project_folder: tab.folder ?? "/home/mina/Documents/grocery",
+    }
+    : { kind: tab.kind, key: tab.key, path: tab.key };
+}
+
 function layoutOf(panes: readonly PaneSpec[]) {
   return {
     panes: panes.map((pane) => ({
-      tabs: pane.tabs,
+      tabs: pane.tabs.map(storedTab),
       selected_tab: pane.selected,
     })),
     split_ratio: 0.5,

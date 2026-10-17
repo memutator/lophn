@@ -45,14 +45,14 @@ import {
 } from "../../mock/mock-desktop.tsx";
 
 const NOTES = {
-  key: "doc_notes",
+  key: "/home/mina/Documents/grocery/notes.md",
   kind: "document_editor",
-  title: "notes",
+  title: "notes.md",
 } as const;
 const PLAN = {
-  key: "doc_plan",
+  key: "/home/mina/Documents/grocery/plan.md",
   kind: "document_editor",
-  title: "plan",
+  title: "plan.md",
 } as const;
 
 const DOCUMENT_PANES: readonly PaneSpec[] = [

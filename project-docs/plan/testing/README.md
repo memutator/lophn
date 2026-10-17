@@ -54,6 +54,8 @@ roadmap "정할 것"의 답이다. `(agent)`는 사람이 정하지 않고 추�
 
 - 다른 session이 main checkout에서 혼자 `PLAN-remove-keychain.md`(MCP secret을 `secrets.json`으로 옮기고 keychain 길을 지움)를 돌린다. `packages/core/secrets`, `lophn-agent/extensions/`, `run-loop/runtime-secret.ts`를 고친다. 이 계획은 그 file들을 소유하지 않는다. `e2e-secret` flow는 provider key만 보므로 겹치지 않지만, 그 계획이 land한 뒤 rebase에서 secret route 이름을 다시 확인한다.
 - 새 E2E와 subprocess test는 이 계획의 `e2e-support`, `e2e-*`에만 있다. 다른 task가 process를 띄우는 test를 만들면 lead가 멈춘다.
+- E2E나 harness가 제품 bug를 찾으면 test를 고쳐 맞추지 않는다. 고치는 일이 작으면(한 module, 동작이 문서로 정해져 있음) lead가 이 계획에 fix task를 더해 같은 wave에서 고친다. 크거나 제품 동작을 새로 정해야 하면 `issue` skill대로 올리고 사람에게 묻는다. 그동안 그 flow는 merge하지 않는다. 꺼 두지(skip) 않는다. 코드를 읽어 나온 의심은 `project-docs/plan/e2e-coverage/README.md`의 S1~S4다. S2(멈춤이 model 요청과 shell을 못 끊음)는 이 계획의 `e2e-stop`이 처음 드러낼 것이다.
+- 다음 계획 `e2e-coverage`가 이 계획의 support(`tests/support/fake-server`, `tests/support/core`) 위에 선다. 계약(brief의 "내놓는 것")을 바꾸면 그 계획 README의 "쓰는 계약"을 같이 고친다.
 
 ## lead가 할 일
 

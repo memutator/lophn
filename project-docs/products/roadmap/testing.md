@@ -58,7 +58,7 @@
 | unit | 함수 하나 | 없음 | 데이터 잃기, 권한, sandbox, 되돌림 규칙 | 코드 옆 `*_test.ts`(지금 그대로) | check |
 | harness loop | loop, tool, Gate, hook | scripted model | loop의 안전 규칙 | `tests/harness/loop/` | check |
 | harness wire | provider adapter, 오류 분류 | 녹화 fixture를 `fetch`에서 재생 | 진짜 SSE를 맞게 읽고 분류하나 | `tests/harness/wire/` | check |
-| core E2E | core, child process 전부, 앱 process | HTTP fake server | process 경계를 건너야 보이는 flow | `tests/e2e/` | `deno task e2e`. lead가 land 전에 |
+| core E2E | core, child process 전부. 앱 process는 계획 `e2e-coverage`부터 | HTTP fake server | process 경계를 건너야 보이는 flow | `tests/e2e/` | `deno task e2e`. lead가 land 전에 |
 | provider live | 진짜 provider와 model | 없음 | 받나, 잘리나, tool 인자가 JSON인가, token 수 | `tests/live/` | `deno task test:live`. 사람이 key를 줄 때만 |
 
 eval(model 대답의 질)은 test와 따로 한다. 이 roadmap 밖이다.
@@ -75,7 +75,7 @@ tests/
   live/       공용 suite 하나 + provider별 얇은 file
   fixtures/
     provider/<provider>/<case>   녹화한 응답과 손으로 만든 짧은 응답
-    apps/<이름>/                 test용 작은 앱(api 둘 정도)
+    apps/<이름>/                 test용 앱(계획 `e2e-coverage`가 만든다)
 ```
 
 - `tools/fake-provider/`는 옮기지 않는다. 지우고 새로 만든다(clean room). `deno task dev`도 새 fake server를 띄우고 `providers/connect`로 붙인다. `LOPHN_FAKE_PROVIDER_URL`은 지운다.
@@ -209,7 +209,7 @@ tests/
    - `deno task dev`를 새 fake server와 `providers/connect`로 바꾼다.
    - `tools/fake-provider/`와 `LOPHN_FAKE_PROVIDER_URL`을 지운다.
    - `tools/check.ts`, `deno.json`, registry(`tool-fake-provider`), module-catalog(`tests`), AGENTS.md "사람에게 묻는 것", `write-test` skill을 새 층에 맞춘다.
-4. 다음 계획: core E2E 7~9와 그 support(session별 queue, Gateway·coding agent 역할).
+4. 다음 계획 `e2e-coverage`(`project-docs/plan/e2e-coverage/`): 동적 대답, 앱 길(test용 앱, Gateway·coding agent 역할), core E2E 7~9와 lophn 코드·문서·bug 기록에서 더 뽑은 case.
 
 ## 끝남 기준
 

@@ -1,6 +1,6 @@
 // 대기 목록·toast·secret 보호 입력 화면. 동작하는 ProjectApp 위에 renderer의 대기 목록 층을 얹고, 항목은 fake Gateway가
 // 채운다. toast는 design Toast를 직접 쓴다.
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { Toast, ToastStack } from "@lophn/ui/overlay";
 
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -27,7 +27,6 @@ import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/conn
 import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import { ProjectApp } from "../project-app.tsx";
 import { documentTab } from "../../../mock/phroner-data.ts";
-import styles from "../../../drafts/waiting/waiting.module.css";
 import { SecretInput } from "../../../../../packages/shell/renderer/secret-input/secret-input.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
@@ -218,10 +217,36 @@ export const WaitingToasts = () => (
   <Over items={allItems()} initial={{ open: false }} toasts />
 );
 
+const STAGE: CSSProperties = {
+  position: "absolute",
+  inset: "var(--space-0)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "var(--color-surface-floor)",
+  fontFamily: "var(--font-sans)",
+};
+
+const SECRET_WINDOW: CSSProperties = {
+  boxSizing: "border-box",
+  display: "flex",
+  flexDirection: "column",
+  width: "var(--dialog-width-default)",
+  maxWidth: "100%",
+  border: "var(--border-width) solid var(--color-border-strong)",
+  borderRadius: "var(--radius-lg)",
+  background: "var(--color-surface-base)",
+  color: "var(--color-text-primary)",
+  boxShadow: "var(--shadow-dialog)",
+  fontSize: "var(--type-body-size)",
+  lineHeight: "var(--type-body-line)",
+  overflow: "hidden",
+};
+
 /** shell이 따로 띄우는 작은 창 하나를 gallery 무대 가운데에 놓는다. */
 const SecretStage = (props: Parameters<typeof SecretInput>[0]) => (
-  <div className={styles.stage}>
-    <div className={styles.secretWindow}>
+  <div style={STAGE}>
+    <div style={SECRET_WINDOW}>
       <SecretInput {...props} />
     </div>
   </div>

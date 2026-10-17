@@ -1,5 +1,7 @@
 // 시작 실패. 높은 schema, hash가 다른 이력, 손상 원본 세 경우를 한 창에 나란히 놓는다. 각 경우의 본문은 renderer의
 // StartFailureScreen이다. 셋 모두 원본을 그대로 두고 시작하지 않았다는 안내와 update 안내를 준다.
+import type { CSSProperties } from "react";
+
 import {
   TopBar,
   Wordmark,
@@ -7,7 +9,43 @@ import {
 import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/launcher/start-failure/model.ts";
 import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/launcher/start-failure/start-failure.tsx";
 import launcher from "../../../../../packages/shell/renderer/desktop/launcher/launcher.module.css";
-import styles from "../../../drafts/workspace/workspace.module.css";
+
+const FAILURES: CSSProperties = {
+  display: "grid",
+  flex: 1,
+  alignItems: "start",
+  gridTemplateColumns: "repeat(3, minmax(var(--space-0), 1fr))",
+  gap: "var(--space-6)",
+  padding: "var(--space-8) var(--layout-pane-padding-wide)",
+  overflow: "auto",
+};
+
+const FAILURE_CASE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-4)",
+  minWidth: "var(--space-0)",
+};
+
+const CAPTION: CSSProperties = {
+  color: "var(--color-text-muted)",
+  fontSize: "var(--type-caption-size)",
+  lineHeight: "var(--type-caption-line)",
+};
+
+const FAILURE_FRAME: CSSProperties = {
+  display: "flex",
+  flex: "none",
+  minHeight: 420,
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "var(--space-5)",
+  padding: "var(--space-9) var(--space-7)",
+  border: "var(--border-width) solid var(--color-border-base)",
+  borderRadius: "var(--radius-md)",
+  textAlign: "center",
+};
 
 const CASES = [
   { caption: "Data from a newer version", reason: "newer_schema" },
@@ -19,11 +57,11 @@ export function StartFailures() {
   return (
     <div className={launcher.window} data-space="launcher" data-gated="">
       <TopBar platform="linux" leading={<Wordmark>lophn</Wordmark>} />
-      <main className={styles.failures}>
+      <main style={FAILURES}>
         {CASES.map((one) => (
-          <section key={one.caption} className={styles.failureCase}>
-            <span className={styles.caption}>{one.caption}</span>
-            <div className={styles.failureFrame}>
+          <section key={one.caption} style={FAILURE_CASE}>
+            <span style={CAPTION}>{one.caption}</span>
+            <div style={FAILURE_FRAME}>
               <StartFailureScreen
                 failure={schemaFailure(one.reason)}
                 onRetry={() => {}}

@@ -70,6 +70,31 @@ export function providerSecretDestination(
   return undefined;
 }
 
+// 파일 secret 부착이 대조하는 목적지. 이름이 `provider_credentials.secret_name`인 회수되지 않은
+// credential의 provider endpoint origin 하나다. 모르는 이름·못 만드는 endpoint·revoked는 빈 목록이다.
+export function providerSecretDestinations(
+  sql: Pick<Sql, "all">,
+  name: string,
+): SecretDestination[] {
+  let rows: Record<string, unknown>[];
+  try {
+    rows = sql.all(
+      `select p.endpoint
+         from provider_credentials c join providers p on p.id = c.provider
+        where c.secret_name = ? and c.state != 'revoked'`,
+      [name],
+    );
+  } catch {
+    return [];
+  }
+  const found: SecretDestination[] = [];
+  for (const row of rows) {
+    const destination = providerSecretDestination(String(row["endpoint"]));
+    if (destination !== undefined) found.push(destination);
+  }
+  return found;
+}
+
 // 전송 직전에 secret 부착이 대조하는 현재 참조. ledger의 현재 provider·credential
 // 기록만 보고 값은 보지 않는다. 참조·판이 현재와 다르면(Disconnect한 provider나 교체된 옛 참조)
 // conflict이고, 회수한 credential과 고정할 수 없는 목적지는 forbidden이다.

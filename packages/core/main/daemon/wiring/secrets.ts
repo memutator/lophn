@@ -1,4 +1,5 @@
 import { err, ok } from "../../../../base/mod.ts";
+import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
 import {
   secretDelete,
   secretPut,
@@ -14,7 +15,10 @@ import {
   secretStatusHandler,
   type SecretStore,
 } from "../../../secrets/mod.ts";
-import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
+import {
+  type KnownSecretMatch,
+  openConnection,
+} from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
@@ -41,19 +45,33 @@ export const secretsWiring: WiringFactory = () => {
         },
       });
       ctx.provide("secretStore", store);
-      // allowance(앱 grant 판정, tx 안의 port)·process 생존·목적지 답은 소유 concern이 낸다. 이 세 입력이
-      // context에 아직 없어 모두 거절로 둔다(fail-closed). 칸이 생기면 여기서 끼운다.
+      // provider credential만 허용한다. 앱 secret은 아직 소유 concern이 없어 거절한다(fail-closed).
+      // process는 관측한 감독 상태로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.
+      // 목적지는 그 이름을 가진 provider의 endpoint origin이고 부를 때마다 ledger를 읽는다.
       ctx.provide(
         "secretAttach",
         createFileSecretAttach({
           file,
-          allowance: () =>
-            err({
+          allowance: (allowed) =>
+            allowed.purpose === "provider_credential" ? ok(undefined) : err({
               code: "forbidden",
               message: "secret 전송을 허용하지 않는다",
             }),
-          processes: () => false,
-          destinations: { allowed: () => [] },
+          processes: (context) =>
+            context.conditions.process !== undefined &&
+            ctx.peek.io?.observation(context.conditions.process).available ===
+              true,
+          destinations: {
+            allowed(name) {
+              const opened = openConnection(ctx.ledgerPath);
+              if (!opened.ok) return [];
+              try {
+                return providerSecretDestinations(opened.value.sql, name);
+              } finally {
+                opened.value.close();
+              }
+            },
+          },
         }),
       );
     },

@@ -7,9 +7,12 @@ import {
   secretSendRequestSchema,
   type SecretSendResponse,
 } from "../../../protocol/supervision/mod.ts";
-import type { SecretUse, SecretValue } from "../../../protocol/secrets/mod.ts";
+import type {
+  SecretAttachPort,
+  SecretUse,
+  SecretValue,
+} from "../../../protocol/secrets/mod.ts";
 import { lookupMcpSecretUse } from "../extensions/mod.ts";
-import { lookupProviderSecretUse } from "../providers/mod.ts";
 import {
   type KnownSecretMatch,
   openConnection,
@@ -22,9 +25,9 @@ import {
 import type { McpTokenUse } from "../extensions/mcp-auth-control.ts";
 
 // agent runtime의 secret 전송 부착 요청(감독 pipe `secret_send_request`)을 core가 답한다
-// platform의 `createSecretAttach`가 machine
-// 자격·process 생존·현재 참조와 판·용도·고정 목적지를 대조하고, 통과했을 때만 keychain에서 읽은 값을
-// 응답 하나로 child의 전송 callback에 준다. 값은 ledger·event·log·오류에 남지 않는다. 대조에 실패하거나
+// provider는 이름(`use.name`)을 싣고 `fileAttach`(secrets.json)가, MCP는 옛 참조를 싣고 platform의
+// `createSecretAttach`(keychain)가 machine 자격·process 생존·고정 목적지를 대조한다. 통과했을 때만
+// 읽은 값을 응답 하나로 child의 전송 callback에 준다. 값은 ledger·event·log·오류에 남지 않는다. 대조에 실패하거나
 // keychain을 읽을 수 없으면 값 없는 오류이고 child는 요청을 보내지 않는다(fail-closed).
 //
 // 값을 core의 알려진 값 registry가 전부 알고 있을 때만 준다. 알려진 값은 core의 안전화
@@ -42,6 +45,8 @@ export type AgentRuntimeSecrets = {
 export function createAgentRuntimeSecrets(deps: {
   ledgerPath: string;
   keychain: () => KeychainAdapter;
+  // provider API key. secrets.json에서 이름으로 읽고 목적지는 그 이름의 provider endpoint다.
+  fileAttach: SecretAttachPort;
   known: () => KnownSecretMatch | undefined;
   // child kind·task. machine 자격을 만드는 근거이고 child가 정하지 못한다.
   process: string;
@@ -93,54 +98,64 @@ export function createAgentRuntimeSecrets(deps: {
         }
       };
 
-      // MCP 인증 비밀은 설정의 이름(`sec:...`)으로 청해 오므로 현재 참조·판을 채워 대조한다.
-      // provider 참조는 청한 그대로 현재 provider 기록과 대조한다.
-      let use = request.use;
-      let mcp: ReturnType<typeof lookupMcpSecretUse> | undefined;
-      if (use.purpose === "external_mcp_credential") {
-        const looked = (await deps.mcpOAuth?.(use)) ??
-          lookupCurrent((sql) => lookupMcpSecretUse(sql, use));
-        if (!looked.ok) return failed(looked.error);
-        mcp = looked;
-        use = {
-          ...use,
-          sealed_ref: looked.value.sealedRef,
-          revision: looked.value.revision,
-        };
-      }
       let value: SecretValue | undefined;
-      const sent = await createSecretAttach({
-        keychain: deps.keychain(),
-        references: {
-          current(requested) {
-            if (mcp !== undefined) return Promise.resolve(mcp);
-            return Promise.resolve(
-              lookupCurrent((sql) => lookupProviderSecretUse(sql, requested)),
-            );
+      const take = (loaded: SecretValue) => {
+        value = loaded;
+        return Promise.resolve(ok({ sent: true }));
+      };
+      const body = { url: request.url, method: request.method };
+      let sent: Result<{ sent: boolean }>;
+      if ("name" in request.use) {
+        // 같은 generation의 child만 받는다. 목적지는 attach가 그 이름의 provider endpoint와 대조한다.
+        if (!alive()) {
+          return failed({
+            code: "forbidden",
+            message: "secret 전송을 허용하지 않는다",
+          });
+        }
+        sent = await deps.fileAttach.send(
+          { context, use: request.use, operation: request.operation, body },
+          take,
+        );
+      } else {
+        // MCP 인증 비밀은 설정의 이름(`sec:...`)으로 청해 오므로 현재 참조·판을 채워 대조한다.
+        let use: SecretUse = request.use;
+        let mcp: ReturnType<typeof lookupMcpSecretUse> | undefined;
+        if (use.purpose === "external_mcp_credential") {
+          const requested = use;
+          const looked = (await deps.mcpOAuth?.(requested)) ??
+            lookupCurrent((sql) => lookupMcpSecretUse(sql, requested));
+          if (!looked.ok) return failed(looked.error);
+          mcp = looked;
+          use = {
+            ...use,
+            sealed_ref: looked.value.sealedRef,
+            revision: looked.value.revision,
+          };
+        }
+        sent = await createSecretAttach({
+          keychain: deps.keychain(),
+          references: {
+            current() {
+              return Promise.resolve(
+                mcp ?? err({
+                  code: "forbidden" as const,
+                  message: "secret 전송을 허용하지 않는다",
+                }),
+              );
+            },
           },
-        },
-        // provider·MCP credential은 apps의 grant가 아니라 그 참조의 현재 상태로 허용한다(조회가 판정).
-        allowance: (allowed) =>
-          allowed.purpose === "provider_credential" ||
+          // MCP credential은 apps의 grant가 아니라 그 참조의 현재 상태로 허용한다(조회가 판정).
+          allowance: (allowed) =>
             allowed.purpose === "external_mcp_credential"
-            ? ok(undefined)
-            : err({
-              code: "forbidden",
-              message: "secret 전송을 허용하지 않는다",
-            }),
-        processes: alive,
-      }).send(
-        {
-          context,
-          use,
-          operation: request.operation,
-          body: { url: request.url, method: request.method },
-        },
-        (loaded) => {
-          value = loaded;
-          return Promise.resolve(ok({ sent: true }));
-        },
-      );
+              ? ok(undefined)
+              : err({
+                code: "forbidden",
+                message: "secret 전송을 허용하지 않는다",
+              }),
+          processes: alive,
+        }).send({ context, use, operation: request.operation, body }, take);
+      }
       if (!sent.ok) return failed(sent.error);
       const text = typeof value === "string"
         ? value

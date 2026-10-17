@@ -149,6 +149,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         secrets: createAgentRuntimeSecrets({
           ledgerPath: ctx.ledgerPath,
           keychain: () => ctx.options.codingKeychain,
+          fileAttach: ctx.secretAttach,
           known: () => ctx.knownSecrets,
           process: AGENT_RUNTIME_KIND,
           task: AGENT_RUNTIME_TASK,

@@ -111,12 +111,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
         attach: deps.attach,
         transport: fetching,
         context: {} as never,
-        use: {
-          sealed_ref: credential.secret_ref.name,
-          revision: 1,
-          purpose: "provider_credential",
-          destination,
-        },
+        use: { name: credential.secret_ref.name, destination },
         operation: "model.call",
         // protocol이 정한 인증 header다. Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
         ...(provider.protocol === "anthropic-messages"

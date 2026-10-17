@@ -70,7 +70,8 @@ export const SECRET_FILE_ROUTES = [
   secretDelete,
 ] as const;
 
-const secretFileUseSchema = z.strictObject({
+// provider credential은 이름과 목적지만 싣는다. 용도는 core가 context로 정한다.
+export const secretFileUseSchema = z.strictObject({
   name: secretNameSchema,
   destination: secretDestinationSchema,
 });
@@ -80,7 +81,7 @@ const secretFileSendInputSchema = z.strictObject({
   operation: z.string().min(1),
   body: z.json(),
 });
-type SecretFileSendInput = z.infer<typeof secretFileSendInputSchema>;
+export type SecretFileSendInput = z.infer<typeof secretFileSendInputSchema>;
 
 // core 안에서 부른다. 값은 transmit 인자로만 가고 결과에는 전송 여부뿐이다.
 export interface SecretAttachPort {

@@ -10,6 +10,7 @@ export {
   lookupProviderSecretUse,
   PROVIDER_SECRET_OWNER,
   providerSecretDestination,
+  providerSecretDestinations,
 } from "./secret-refs.ts";
 export { createInvokeModelCall } from "./invoke.ts";
 export {

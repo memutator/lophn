@@ -26,7 +26,7 @@ kind: bug
 modules: [packages/core/projects, packages/protocol]
 ```
 
-지금: context 계약의 목차는 markdown 제목에서만 나온다(`protocol/projects/context-contract.ts`의 outline source). pdf·docs 같은 문서는 목차 기반 개체를 만들 수 없어 context로 쓸 수 없다. 예전에 PM이 목차를 직접 적어 두는 저장 목차(`outline.set` route, agent tool, `outlines/` 폴더)를 만들었지만 읽는 쪽(계약 형식, context worker 요청)이 없어 이번 계획에서 지운다(`plan/tasks/dead-contexts.md`).
+지금: context 계약의 목차는 markdown 제목에서만 나온다(`protocol/projects/context-contract.ts`의 outline source). pdf·docs 같은 문서는 목차 기반 개체를 만들 수 없어 context로 쓸 수 없다. 예전에 PM이 목차를 직접 적어 두는 저장 목차(`outline.set` route, agent tool, `outlines/` 폴더)를 만들었지만 읽는 쪽(계약 형식, context worker 요청)이 없어 지웠다.
 
 영향: 사람이 pdf·docs로 가진 규정이나 문서를 PM이 context로 관리하지 못한다. md로 바꿔 넣어야 한다.
 

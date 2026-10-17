@@ -4,22 +4,3 @@
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `annotation-target` | annotation | 1 | 없음 | merged | annotation/annotation-target | a5b1eb0f8 |  |
-| `apps-activation-no-retry` | apps | 1 | 없음 | merged | apps/apps-activation-no-retry | add121bb2 |  |
-| `apps-large-changeset` | apps | 1 | dead-platform | merged | apps/apps-large-changeset | f02d5e07c |  |
-| `dead-agent` | dead | 1 | 없음 | merged | dead/dead-agent | 3777a51b6 |  |
-| `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
-| `feedback-existing-problem` | feedback | 1 | 없음 | merged | feedback/feedback-existing-problem | 939cbc9c7 |  |
-| `harness-global-install` | harness | 1 | 없음 | merged | harness/harness-global-install | 76a5cd1d7 |  |
-| `place-operator-app-read` | place | 1 | 없음 | merged | place/place-operator-app-read | 9e4f636d3 |  |
-| `platform-crash-diagnostics` | platform | 1 | 없음 | merged | platform/platform-crash-diagnostics | 5ad6df39b |  |
-| `router-waiting-and-failure` | router | 1 | 없음 | merged | router/router-waiting-and-failure | 903fb1c2c |  |
-| `trust-agent-notes` | trust | 1 | 없음 | merged | trust/trust-agent-notes | dd8fdaa32 |  |
-| `trust-cli-fence` | trust | 1 | 없음 | merged | trust/trust-cli-fence | 0719e7768 |  |
-| `trust-view-error-signing` | trust | 1 | 없음 | merged | trust/trust-view-error-signing | 1274e025a |  |
-| `annotation-screenshot` | annotation | 2 | annotation-target | merged | annotation/annotation-screenshot | 764b35f6b |  |
-| `dead-contexts` | dead | 2 | dead-agent | merged | dead/dead-contexts | 093b01eb9 |  |
-| `harness-global-confirm` | harness | 2 | harness-global-install | merged | harness/harness-global-confirm | b20c28584 |  |
-| `harness-opencode` | harness | 2 | harness-global-install | merged | harness/harness-opencode | 6c32c9a1d |  |
-| `platform-component-checks` | platform | 2 | platform-crash-diagnostics | merged | platform/platform-component-checks | 07a305b1c |  |
-| `cleanup-leftovers` | cleanup | 3 | trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, annotation-target, apps-activation-no-retry | todo |  |  |  |

@@ -4,23 +4,28 @@ import {
   releasesListRecords,
 } from "../../../../protocol/apps/mod.ts";
 import { getVerification } from "../../../../protocol/problems/mod.ts";
-import { readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { countSummary, fitted, notFound, readBody } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  countSummary,
+  defineTool,
+  fitted,
+  notFound,
+  readBody,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
 
 export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "release.list",
-    input: TOOL_INPUTS["release.list"],
+    input: z.strictObject({ app: idSchema("app") }),
     routes: [releasesListRecords],
     description:
       "List the releases of an app with number, status, commit, time and the failure when activation failed.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app } = input as ToolInput<"release.list">;
+      const { app } = input;
       const read = await readOf(ctx.core, releasesListRecords, { app });
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
@@ -42,13 +47,13 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "release.get",
-    input: TOOL_INPUTS["release.get"],
+    input: z.strictObject({ release: idSchema("rel") }),
     routes: [releasesGetRecord, getVerification],
     description:
       "Read a release: the prepared bundle, the results of its tests, the last activation and the failure with its reason.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { release } = input as ToolInput<"release.get">;
+      const { release } = input;
       const read = await readOf(ctx.core, releasesGetRecord, { release });
       if (!read.ok) return read;
       const record = read.value.release;

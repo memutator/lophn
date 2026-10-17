@@ -1,21 +1,22 @@
 import { ok } from "../../../../base/mod.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { fitted } from "../domain/result.ts";
-import type { ToolDefinition } from "../registry.ts";
-import { limitText } from "../result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import { defineTool, fitted, limitText, type ToolDefinition } from "../spi.ts";
+import { z } from "zod";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
+const path = z.string().min(1);
 
 export const SKILL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "skill.read",
-    input: TOOL_INPUTS["skill.read"],
+    input: z.strictObject({ name: nonblank, path: path.optional() }),
     routes: [],
     description:
       "Read a skill by name. Without path it returns the skill body; with path it returns a file that comes with the skill. A turn that is running reads the version the turn started with. A skill that is off cannot be read.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { name, path } = input as ToolInput<"skill.read">;
+      const { name, path } = input;
       const read = await ctx.skills.read(ctx.session, name, path);
       if (!read.ok) return read;
       const limited = limitText(read.value, "head");

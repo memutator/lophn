@@ -7,20 +7,26 @@ import {
   packagesUsage,
   packagesVersions,
 } from "../../../../protocol/apps/mod.ts";
-import { readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
 import {
   countSummary,
+  defineTool,
   fitted,
   invalid,
   notFound,
   readBody,
+  readOf,
+  TEXT_MAX_BYTES,
+  type ToolDefinition,
   unavailable,
-} from "../domain/result.ts";
-import { TEXT_MAX_BYTES } from "../result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+} from "../spi.ts";
+import { z } from "zod";
+import { packagePublishInputSchema } from "../../../../protocol/apps/package-routes.ts";
+import { sourceRelativePathSchema } from "../../../../protocol/coding-agent/ticket/mod.ts";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
+const none = z.strictObject({});
 
 // 가장 높은 version. 숫자 부분을 비교하고 같으면 문자열 순서다.
 function newer(a: string, b: string): number {
@@ -51,7 +57,7 @@ async function headOf(source: string): Promise<string | null> {
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "package.list",
-    input: TOOL_INPUTS["package.list"],
+    input: none,
     routes: [packagesList],
     description:
       "List the SDK and user packages with their description and versions.",
@@ -69,13 +75,16 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "package.get",
-    input: TOOL_INPUTS["package.get"],
+    input: z.strictObject({
+      name: nonblank,
+      version: nonblank.optional(),
+    }),
     routes: [packagesVersions, packagesUsage, packagesGuideBody],
     description:
       "Read one package: its guide (purpose, API and types, examples), required permissions and the apps that use the version. Without version the newest one.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { name, version } = input as ToolInput<"package.get">;
+      const { name, version } = input;
       const versions = await readOf(ctx.core, packagesVersions, { name });
       if (!versions.ok) return versions;
       const all = versions.value.versions;
@@ -114,13 +123,17 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "package.publish",
-    input: TOOL_INPUTS["package.publish"],
+    input: packagePublishInputSchema.omit({
+      commit: true,
+      key: true,
+      path: true,
+    }).extend({ path: sourceRelativePathSchema }),
     routes: [appGet, packagePublish],
     description:
       "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), the permissions it needs and tests (ids of passed app tests of this app). The code is the HEAD commit of the app source, so commit the folder first.",
     effect: "write",
     handler: async (input, ctx) => {
-      const rest = input as ToolInput<"package.publish">;
+      const rest = input;
       const app = await readOf(ctx.core, appGet, { app: rest.app });
       if (!app.ok) return app;
       const source = app.value.app.source_path;

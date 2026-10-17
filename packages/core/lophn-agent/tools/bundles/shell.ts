@@ -1,19 +1,23 @@
-import { defineTool } from "../define.ts";
 import { runShell } from "../shell/run.ts";
-import type { ToolDefinition } from "../registry.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
-import type { z } from "zod";
+import { defineTool, type ToolDefinition } from "../spi.ts";
+import { z } from "zod";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
 
 // place의 첫 폴더에서 명령을 돌린다. OS sandbox도 묻기도 없다(Gate를 거치지 않는다).
 export const SHELL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "shell.run",
-    input: TOOL_INPUTS["shell.run"],
+    input: z.strictObject({
+      command: nonblank,
+      timeout_ms: z.number().int().positive().optional(),
+    }),
     routes: [],
     description:
       "Run a shell command with /bin/sh in the place's first folder. Environment variables are limited and secrets are not available. timeout_ms defaults to 120000 and is at most 600000. Output is capped at 1 MiB per stream.",
     effect: "read",
-    handler: (input, ctx) =>
-      runShell(input as z.infer<(typeof TOOL_INPUTS)["shell.run"]>, ctx),
+    handler: (input, ctx) => runShell(input, ctx),
   }),
 ];

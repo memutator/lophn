@@ -1,6 +1,6 @@
-import { err, type Result } from "../../../../base/mod.ts";
-import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
-import { fitJson } from "../result.ts";
+import { err, type Result } from "../../../base/mod.ts";
+import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
+import { fitJson } from "./result.ts";
 
 // 결과 상한 안에 맞춰 돌려준다. 넘으면 arrayKeys의 뒤쪽 항목부터 덜어 내고 content.omitted에 수를 남긴다.
 export function fitted(

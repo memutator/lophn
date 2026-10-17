@@ -10,18 +10,23 @@ import { appList } from "../../../../protocol/apps/mod.ts";
 import { projectList } from "../../../../protocol/projects/mod.ts";
 import { listSendable } from "../call/sessions.ts";
 import { callAgentOf } from "../call/target.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { fitted } from "../domain/result.ts";
-import type { ToolDefinition } from "../registry.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import { defineTool, fitted, type ToolDefinition } from "../spi.ts";
+import { z } from "zod";
+import { callSendInputSchema } from "../../../../protocol/lophn-agent/calls.ts";
+
+const none = z.strictObject({});
+// dedup은 입력이 아니라 tool call ID로, gate_allowed는 ToolGate의 결과로 채운다.
+const callToolInput = callSendInputSchema.omit({
+  dedup: true,
+  gate_allowed: true,
+});
 
 // 맡기기, 답하기, 취소하기, 보낼 수 있는 session 보기. 판정은 Router가 보낸 agent의 agent grant로 한다.
 // 묻는 grant는 Router가 tx 안이라 물을 수 없어 거절하므로, call은 보내기 전에 여기서 Gate에 묻는다.
 export const CALL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "call",
-    input: TOOL_INPUTS["call"],
+    input: callToolInput,
     routes: [callSend, agentDefinitionList, projectList, appList],
     description:
       "Hand work to another agent. Returns the call ID at once and your turn goes on. " +
@@ -35,7 +40,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
     effect: "read",
     gate: async (input, ctx) => {
       const agent = await callAgentOf(
-        (input as ToolInput<"call">).to,
+        input.to,
         ctx,
       );
       return agent === null ? null : {
@@ -46,7 +51,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       };
     },
     handler: async (input, ctx) => {
-      const wanted = input as ToolInput<"call">;
+      const wanted = input;
       // gate가 받는 agent를 풀어 물었으면 여기까지 온 호출은 허락을 받은 것이다. 못 풀었으면 묻지 않았다.
       const asked = await callAgentOf(wanted.to, ctx) !== null;
       const sent = await ctx.router.send({
@@ -76,13 +81,13 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "reply",
-    input: TOOL_INPUTS["reply"],
+    input: callReply.input,
     routes: [callReply],
     description:
       "Answer a call you received, with call (its ID), body and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
     effect: "read",
     handler: async (input, ctx) => {
-      const sent = await ctx.router.reply(input as ToolInput<"reply">);
+      const sent = await ctx.router.reply(input);
       if (!sent.ok) return sent;
       return ok(fitted(
         sent.value.closed ? "the call is closed" : "reply delivered",
@@ -92,13 +97,13 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "cancel",
-    input: TOOL_INPUTS["cancel"],
+    input: callCancel.input.required({ reason: true }),
     routes: [callCancel],
     description:
       "Cancel a call you sent that has not ended, with call (its ID) and a one-line reason.",
     effect: "read",
     handler: async (input, ctx) => {
-      const cancelled = await ctx.router.cancel(input as ToolInput<"cancel">);
+      const cancelled = await ctx.router.cancel(input);
       if (!cancelled.ok) return cancelled;
       return ok(fitted(
         `call ${cancelled.value.call} is ${cancelled.value.state}`,
@@ -108,7 +113,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "session.list",
-    input: TOOL_INPUTS["session.list"],
+    input: none,
     routes: [callSendable],
     description:
       "List the open sessions you can send a call to (ID, role, place, name, state) and the coding agent handoffs waiting in an app's line.",

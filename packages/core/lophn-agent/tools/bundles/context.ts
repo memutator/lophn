@@ -16,18 +16,29 @@ import {
   projectApi,
 } from "../../../../protocol/projects/mod.ts";
 import { contextGetOutputSchema } from "../../../../protocol/lophn-agent/context-text.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import { readContext } from "../../run-loop/place-data.ts";
 import { renderContextText } from "../../prompt-assembly/mod.ts";
 import { openDraft, setGlossary } from "../context/draft.ts";
 import { searchContext } from "../context/search.ts";
 import { checkVisible, contextAccess } from "../context/visible.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { countSummary, fitted, notFound, readBody } from "../domain/result.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolContext } from "../tool-context.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  countSummary,
+  defineTool,
+  fitted,
+  notFound,
+  readBody,
+  readOf,
+  type ToolContext,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
+const none = z.strictObject({});
 
 type Row = {
   context: string;
@@ -104,7 +115,7 @@ const CONTEXT_ACCESS_ROUTES = [
 export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "context.list",
-    input: TOOL_INPUTS["context.list"],
+    input: none,
     routes: [...CONTEXT_ACCESS_ROUTES, contextListRoute],
     description:
       "List the contexts you can read: id, name, one line purpose, status (drafting, active) and project.",
@@ -122,7 +133,7 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "context.get",
-    input: TOOL_INPUTS["context.get"],
+    input: z.strictObject({ context: idSchema("ctx") }),
     routes: [
       ...CONTEXT_ACCESS_ROUTES,
       contextContractRoute,
@@ -133,7 +144,7 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
       "Read a context as the program describes it: purpose, project folders, types with fields and relations, searches with inputs, and the glossary. Also gives the applied version number.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { context } = input as ToolInput<"context.get">;
+      const { context } = input;
       const seen = await checkVisible(ctx, context);
       if (!seen.ok) return seen;
       const read = await readContext(ctx.core, context, async (id) => {
@@ -154,7 +165,11 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "context.search",
-    input: TOOL_INPUTS["context.search"],
+    input: z.strictObject({
+      context: idSchema("ctx"),
+      search: nonblank,
+      input: z.record(z.string(), z.unknown()),
+    }),
     routes: [
       ...CONTEXT_ACCESS_ROUTES,
       contextContractRoute,
@@ -164,7 +179,7 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
       "Run one search of a context: give the context, the search name and its inputs (see context.get for the searches). Returns entity rows with their file path and section.",
     effect: "read",
     handler: async (input, ctx) => {
-      const args = input as ToolInput<"context.search">;
+      const args = input;
       const seen = await checkVisible(ctx, args.context);
       if (!seen.ok) return seen;
       return searchContext(ctx, args);
@@ -172,13 +187,13 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "context.violations",
-    input: TOOL_INPUTS["context.violations"],
+    input: z.strictObject({ context: idSchema("ctx") }),
     routes: [...CONTEXT_ACCESS_ROUTES, contextViolationsRoute],
     description:
       "List the contract violations of a context: kind, rule, file path, section and message.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { context } = input as ToolInput<"context.violations">;
+      const { context } = input;
       const seen = await checkVisible(ctx, context);
       if (!seen.ok) return seen;
       const read = await readOf(ctx.core, contextViolationsRoute, { context });
@@ -193,13 +208,16 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "context.test",
-    input: TOOL_INPUTS["context.test"],
+    input: z.strictObject({
+      context: idSchema("ctx"),
+      draft: idSchema("cbn"),
+    }),
     routes: [bundleTestDraftRoute],
     description:
       "Run a draft in isolation and report whether the contract passes: status and findings. Nothing is applied.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { draft } = input as ToolInput<"context.test">;
+      const { draft } = input;
       const read = await readOf(ctx.core, bundleTestDraftRoute, {
         bundle: draft,
       });
@@ -214,23 +232,29 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "context.draft",
-    input: TOOL_INPUTS["context.draft"],
+    input: z.strictObject({
+      context: idSchema("ctx").optional(),
+      name: nonblank.optional(),
+      purpose: nonblank.optional(),
+    }),
     routes: [bundleOpenDraftRoute],
     description:
       "Open the folder of a new draft. With context, it is a new version of that context. Without context, give name and purpose and a new context is made with its first draft. Write the contract and the search scripts into the returned folder with file.write, then context.test and context.submit.",
     effect: "write",
-    handler: (input, ctx) =>
-      openDraft(ctx, input as ToolInput<"context.draft">),
+    handler: (input, ctx) => openDraft(ctx, input),
   }),
   defineTool({
     name: "context.submit",
-    input: TOOL_INPUTS["context.submit"],
+    input: z.strictObject({
+      context: idSchema("ctx"),
+      draft: idSchema("cbn"),
+    }),
     routes: [bundleSubmitRoute],
     description:
       "Submit a draft. It is checked and applied automatically when it passes; until then other agents keep using the current version.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { draft } = input as ToolInput<"context.submit">;
+      const { draft } = input;
       const done = await commandOf(
         ctx.core,
         bundleSubmitRoute,
@@ -246,12 +270,16 @@ export const CONTEXT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "glossary.set",
-    input: TOOL_INPUTS["glossary.set"],
+    input: z.strictObject({
+      context: idSchema("ctx"),
+      term: nonblank,
+      meaning: z.string(),
+      remove: z.boolean().optional(),
+    }),
     routes: [glossaryListRoute, glossaryRemoveRoute, glossarySetRoute],
     description:
       "Set the meaning of a term of a context, or change it. With remove true the term is deleted. The glossary is part of the text context.get returns.",
     effect: "write",
-    handler: (input, ctx) =>
-      setGlossary(ctx, input as ToolInput<"glossary.set">),
+    handler: (input, ctx) => setGlossary(ctx, input),
   }),
 ];

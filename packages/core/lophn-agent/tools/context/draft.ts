@@ -7,8 +7,7 @@ import {
   glossarySetRoute,
 } from "../../../../protocol/projects/mod.ts";
 import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { fitted, invalid, notFound } from "../domain/result.ts";
+import { fitted, invalid, notFound } from "../fit-result.ts";
 import type { ToolContext } from "../tool-context.ts";
 
 // Project Manager가 context의 새 판을 만드는 쓰기다.
@@ -17,7 +16,7 @@ import type { ToolContext } from "../tool-context.ts";
 // 폴더는 lophn data 안에 있다. 계약과 검색 script는 이 폴더에 file.write로 쓴다.
 export async function openDraft(
   ctx: ToolContext,
-  input: ToolInput<"context.draft">,
+  input: { context?: string; name?: string; purpose?: string },
 ): Promise<Result<ToolResult>> {
   let body;
   if (input.context !== undefined) {
@@ -56,7 +55,12 @@ export async function openDraft(
 // 용어의 뜻을 정하고 고친다. remove가 참이면 지운다. 용어는 context 안에서 글이 같으면 같은 항목이다.
 export async function setGlossary(
   ctx: ToolContext,
-  input: ToolInput<"glossary.set">,
+  input: {
+    context: string;
+    term: string;
+    meaning: string;
+    remove?: boolean;
+  },
 ): Promise<Result<ToolResult>> {
   const term = input.term.trim();
   const listed = await readOf(ctx.core, glossaryListRoute, {

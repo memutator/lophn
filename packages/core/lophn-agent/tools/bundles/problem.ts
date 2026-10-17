@@ -4,17 +4,29 @@ import {
   problemList,
   problemSetState,
 } from "../../../../protocol/problems/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { countSummary, fitted, readBody } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  countSummary,
+  defineTool,
+  fitted,
+  readBody,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
+import { atSchema } from "../../../../protocol/base/values.ts";
+import { problemStateSchema } from "../../../../protocol/problems/problem-record.ts";
 
 export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "problem.list",
-    input: TOOL_INPUTS["problem.list"],
+    input: z.strictObject({
+      app: idSchema("app").optional(),
+      state: problemStateSchema.optional(),
+      since: atSchema.optional(),
+      until: atSchema.optional(),
+    }),
     routes: [problemList],
     description:
       "List problems, optionally of one app, one state or a period of last occurrence (since, until).",
@@ -23,7 +35,7 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(
         ctx.core,
         problemList,
-        input as ToolInput<"problem.list">,
+        input,
       );
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
@@ -36,7 +48,7 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "problem.get",
-    input: TOOL_INPUTS["problem.get"],
+    input: z.strictObject({ problem: idSchema("prb") }),
     routes: [problemGet],
     description:
       "Read a problem with its occurrences, first and last release, and the latest occurrence's evidence (error, stack frames, invocation, logs).",
@@ -45,7 +57,7 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(
         ctx.core,
         problemGet,
-        input as ToolInput<"problem.get">,
+        input,
       );
       if (!read.ok) return read;
       const { body } = readBody(read.value);
@@ -66,12 +78,15 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "problem.set_state",
-    input: TOOL_INPUTS["problem.set_state"],
+    input: z.strictObject({
+      problem: idSchema("prb"),
+      state: z.enum(["resolved", "ignored"]),
+    }),
     routes: [problemSetState],
     description: "Mark a problem resolved or ignored.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { problem, state } = input as ToolInput<"problem.set_state">;
+      const { problem, state } = input;
       const done = await commandOf(
         ctx.core,
         problemSetState,

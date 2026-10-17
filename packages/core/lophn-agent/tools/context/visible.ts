@@ -8,7 +8,7 @@ import {
   projectApi,
 } from "../../../../protocol/projects/mod.ts";
 import { readOf } from "../../run-loop/core-call.ts";
-import { notFound } from "../domain/result.ts";
+import { notFound } from "../fit-result.ts";
 import type { ToolContext } from "../tool-context.ts";
 
 // agent가 읽을 수 있는 context를 정한다. 범위 밖은 없는 대상과 같은 not_found로 답한다.

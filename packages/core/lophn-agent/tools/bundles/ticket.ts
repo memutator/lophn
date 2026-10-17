@@ -1,24 +1,39 @@
 import { ok } from "../../../../base/mod.ts";
 import {
   ticketCancel,
+  ticketCancelInputSchema,
   ticketCreate,
+  ticketCreateInputSchema,
   ticketList,
   ticketShow,
+  ticketShowInputSchema,
+  ticketStateSchema,
   ticketUpdate,
+  ticketUpdateInputSchema,
   ticketVerify,
+  ticketVerifyInputSchema,
 } from "../../../../protocol/coding-agent/ticket/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { countSummary, fitted, invalid, readBody } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  countSummary,
+  defineTool,
+  fitted,
+  invalid,
+  readBody,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
 
 // ticket은 목표, acceptance check 하나, 근거 링크다. 상태 전이는 route가 지킨다.
 export const TICKET_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "ticket.list",
-    input: TOOL_INPUTS["ticket.list"],
+    input: z.strictObject({
+      app: idSchema("app").optional(),
+      state: ticketStateSchema.optional(),
+    }),
     routes: [ticketList],
     description:
       "List tickets, optionally of one app or one state. Returns id, app, title and state.",
@@ -27,7 +42,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(
         ctx.core,
         ticketList,
-        input as ToolInput<"ticket.list">,
+        input,
       );
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);
@@ -40,7 +55,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "ticket.get",
-    input: TOOL_INPUTS["ticket.get"],
+    input: ticketShowInputSchema,
     routes: [ticketShow],
     description:
       "Read a ticket: goal, acceptance check, evidence, state, claim, completion report and check result.",
@@ -49,7 +64,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       const read = await readOf(
         ctx.core,
         ticketShow,
-        input as ToolInput<"ticket.get">,
+        input,
       );
       if (!read.ok) return read;
       const { ticket } = read.value;
@@ -58,7 +73,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "ticket.create",
-    input: TOOL_INPUTS["ticket.create"],
+    input: ticketCreateInputSchema,
     routes: [ticketCreate],
     description:
       "Open a ticket for a coding agent: a goal, one acceptance check (app_test, test_command or text) and optional evidence links (problem, ticket, release, file, annotation).",
@@ -67,7 +82,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       const made = await commandOf(
         ctx.core,
         ticketCreate,
-        input as ToolInput<"ticket.create">,
+        input,
         {},
         ctx.tool_call,
       );
@@ -77,7 +92,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "ticket.update",
-    input: TOOL_INPUTS["ticket.update"],
+    input: ticketUpdateInputSchema,
     routes: [ticketUpdate],
     description:
       "Change the goal or the acceptance check of a ticket before it closes.",
@@ -86,7 +101,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       const changed = await commandOf(
         ctx.core,
         ticketUpdate,
-        input as ToolInput<"ticket.update">,
+        input,
         {},
         ctx.tool_call,
       );
@@ -98,13 +113,17 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "ticket.verify",
-    input: TOOL_INPUTS["ticket.verify"],
+    input: ticketVerifyInputSchema.pick({
+      ticket: true,
+      result: true,
+      note: true,
+    }),
     routes: [ticketShow, ticketVerify],
     description:
       "Mark a reported ticket verified or failed. A verified ticket is activated by the program.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { ticket, result, note } = input as ToolInput<"ticket.verify">;
+      const { ticket, result, note } = input;
       const read = await readOf(ctx.core, ticketShow, { ticket });
       if (!read.ok) return read;
       const view = read.value.ticket;
@@ -130,7 +149,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "ticket.cancel",
-    input: TOOL_INPUTS["ticket.cancel"],
+    input: ticketCancelInputSchema,
     routes: [ticketCancel],
     description: "Cancel a ticket with a one line reason.",
     effect: "write",
@@ -138,7 +157,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       const done = await commandOf(
         ctx.core,
         ticketCancel,
-        input as ToolInput<"ticket.cancel">,
+        input,
         {},
         ctx.tool_call,
       );

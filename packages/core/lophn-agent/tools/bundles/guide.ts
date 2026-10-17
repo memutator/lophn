@@ -1,24 +1,30 @@
 import { ok } from "../../../../base/mod.ts";
 import { settingsList } from "../../../../protocol/config/mod.ts";
-import { readOf } from "../../run-loop/core-call.ts";
 import { guideText, guideTopics } from "../../roles/guides.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { fitted, notFound } from "../domain/result.ts";
-import { limitText } from "../result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  defineTool,
+  fitted,
+  limitText,
+  notFound,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
 
 export const GUIDE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "guide.read",
-    input: TOOL_INPUTS["guide.read"],
+    input: z.strictObject({ topic: nonblank.optional() }),
     routes: [],
     description:
       "Read the product guide. Without topic it lists the topics; with a topic it returns that guide.",
     effect: "read",
     handler: (input) => {
-      const { topic } = input as ToolInput<"guide.read">;
+      const { topic } = input;
       if (topic === undefined) {
         return Promise.resolve(
           ok(fitted("guide topics", { topics: guideTopics() })),
@@ -38,13 +44,13 @@ export const GUIDE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "settings.get",
-    input: TOOL_INPUTS["settings.get"],
+    input: z.strictObject({ key: nonblank.optional() }),
     routes: [settingsList],
     description:
       "Read the current setting values and what they mean. Without key all settings, with key that one.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { key } = input as ToolInput<"settings.get">;
+      const { key } = input;
       const read = await readOf(
         ctx.core,
         settingsList,

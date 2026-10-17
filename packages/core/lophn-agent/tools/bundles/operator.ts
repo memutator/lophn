@@ -8,15 +8,37 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { appList } from "../../../../protocol/apps/mod.ts";
 import { projectList } from "../../../../protocol/projects/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import { settingsEditIntent } from "../../tool-judgment/intents.ts";
-import type { GateRequest, ToolDefinition } from "../registry.ts";
-import type { ToolContext } from "../tool-context.ts";
-import type { ToolInput } from "../domain/input.ts";
 import { operatorPlaceAllowed } from "../domain/operator-place.ts";
-import { fitted, forbidden, invalid, notFound } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  defineTool,
+  fitted,
+  forbidden,
+  type GateRequest,
+  invalid,
+  notFound,
+  readOf,
+  type ToolContext,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { operatorDefinitionSchema } from "../../../../protocol/lophn-agent/operators.ts";
+import { agentNameSchema } from "../../../../protocol/lophn-agent/agent-values.ts";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
+// operator 정의 입력. 이름은 따로 받고 grant와 agent 층 MCP 서버(실행 파일을 정하는 것)는 입력에 없다.
+const operatorDefinition = operatorDefinitionSchema.omit({
+  name: true,
+  mcp_servers: true,
+});
+
+const operatorPlace = z.union([
+  z.strictObject({ project: nonblank }),
+  z.strictObject({ app: nonblank }),
+]);
 
 // 설정 고치기라 실행 전에 Gate에 묻는다. grant와 앱 Operator의 project 폴더는 입력에 없고 사람이 정한다.
 function gateFor(id: string | null, ctx: ToolContext): GateRequest {
@@ -38,7 +60,7 @@ function gateFor(id: string | null, ctx: ToolContext): GateRequest {
 
 // 입력의 place는 project나 앱의 id 또는 이름이다.
 async function resolvePlace(
-  place: ToolInput<"operator.create">["place"],
+  place: z.infer<typeof operatorPlace>,
   ctx: ToolContext,
 ): Promise<Result<Place>> {
   if ("project" in place) {
@@ -70,15 +92,17 @@ async function resolvePlace(
 export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "operator.create",
-    input: TOOL_INPUTS["operator.create"],
+    input: operatorDefinition.extend({
+      place: operatorPlace,
+      name: agentNameSchema,
+    }).strict(),
     routes: [projectList, appList, operatorCreate],
     description:
       "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, contexts, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
-    gate: (input, ctx) =>
-      gateFor((input as ToolInput<"operator.create">).name, ctx),
+    gate: (input, ctx) => gateFor(input.name, ctx),
     handler: async (input, ctx) => {
-      const { place, ...definition } = input as ToolInput<"operator.create">;
+      const { place, ...definition } = input;
       const target = await resolvePlace(place, ctx);
       if (!target.ok) return target;
       if (!operatorPlaceAllowed(ctx.role, ctx.place, target.value)) {
@@ -97,15 +121,16 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "operator.update",
-    input: TOOL_INPUTS["operator.update"],
+    input: operatorDefinition.partial().extend({
+      operator: agentNameSchema,
+    }).strict(),
     routes: [agentDefinitionList, agentDefinitionRead, operatorChange],
     description:
       "Change an Operator of your own place by its name. Only the fields you send change.",
     effect: "write",
-    gate: (input, ctx) =>
-      gateFor((input as ToolInput<"operator.update">).operator, ctx),
+    gate: (input, ctx) => gateFor(input.operator, ctx),
     handler: async (input, ctx) => {
-      const { operator, ...patch } = input as ToolInput<"operator.update">;
+      const { operator, ...patch } = input;
       if (ctx.place === null) return forbidden("an Operator of another place");
       const listed = await readOf(ctx.core, agentDefinitionList, {
         place: ctx.place,

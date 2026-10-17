@@ -8,7 +8,7 @@ import {
   type SearchInput,
 } from "../../../../protocol/projects/mod.ts";
 import { readOf } from "../../run-loop/core-call.ts";
-import { fitted, invalid, notFound } from "../domain/result.ts";
+import { fitted, invalid, notFound } from "../fit-result.ts";
 import { PAGE_SIZE } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
 

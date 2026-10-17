@@ -1,25 +1,33 @@
 import { ok } from "../../../../base/mod.ts";
 import { appAppApi } from "../../../../protocol/apps/blueprint/read.ts";
 import { recordMessage } from "../../../../protocol/lophn-agent/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
 import { cardViewDeclared } from "../domain/app-card.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { fitted, notFound } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  defineTool,
+  fitted,
+  notFound,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
 
 // 대화에 보이는 시각물은 앱 카드뿐이다. 카드는 `app_card` message part로 session에 올린다.
 export const VISUAL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "visual.show",
-    input: TOOL_INPUTS["visual.show"],
+    input: z.strictObject({ app: idSchema("app"), view: nonblank }),
     routes: [appAppApi, recordMessage],
     description:
       "Show an app card in the conversation. view is a screen key of the app's blueprint that declares the card size.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app, view } = input as ToolInput<"visual.show">;
+      const { app, view } = input;
       const blueprint = await readOf(ctx.core, appAppApi, { app });
       if (!blueprint.ok) return blueprint;
       if (!cardViewDeclared(blueprint.value.screens, view)) {

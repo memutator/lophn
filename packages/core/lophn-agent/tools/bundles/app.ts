@@ -8,12 +8,23 @@ import {
   blueprintCheck,
 } from "../../../../protocol/apps/mod.ts";
 import { problemList } from "../../../../protocol/problems/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import type { ToolDefinition } from "../registry.ts";
-import type { ToolInput } from "../domain/input.ts";
-import { countSummary, fitted, readBody } from "../domain/result.ts";
-import { defineTool } from "../define.ts";
-import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import {
+  commandOf,
+  countSummary,
+  defineTool,
+  fitted,
+  readBody,
+  readOf,
+  type ToolDefinition,
+} from "../spi.ts";
+import { z } from "zod";
+import { idSchema } from "../../../../protocol/base/ids.ts";
+
+const nonblank = z.string().refine((value) => value.trim().length > 0, {
+  message: "expected nonblank text",
+});
+const path = z.string().min(1);
+const none = z.strictObject({});
 
 const SLUG_MAX = 63;
 
@@ -31,7 +42,7 @@ function slugOf(name: string, fallback: string): string {
 export const APP_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "app.list",
-    input: TOOL_INPUTS["app.list"],
+    input: none,
     routes: [appList],
     description: "List the registered apps.",
     effect: "read",
@@ -48,13 +59,13 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "app.get",
-    input: TOOL_INPUTS["app.get"],
+    input: z.strictObject({ app: idSchema("app") }),
     routes: [appGet, problemList],
     description:
       "Read an app: name, description, status, active release, source folder and the number of open problems.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app } = input as ToolInput<"app.get">;
+      const { app } = input;
       const read = await readOf(ctx.core, appGet, { app });
       if (!read.ok) return read;
       const open = await readOf(ctx.core, problemList, {
@@ -74,13 +85,13 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "app.create",
-    input: TOOL_INPUTS["app.create"],
+    input: z.strictObject({ name: nonblank, purpose: nonblank }),
     routes: [appCreate],
     description:
       "Register a new app with a name and a one line purpose. The app gets its own App Engineer.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { name, purpose } = input as ToolInput<"app.create">;
+      const { name, purpose } = input;
       const made = await commandOf(
         ctx.core,
         appCreate,
@@ -98,13 +109,13 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "app.link_source",
-    input: TOOL_INPUTS["app.link_source"],
+    input: z.strictObject({ app: idSchema("app"), path }),
     routes: [appGet, appConnectSource],
     description:
       "Connect a git folder as the source of an app. A relative path starts at the place's first folder.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { app, path } = input as ToolInput<"app.link_source">;
+      const { app, path } = input;
       const read = await readOf(ctx.core, appGet, { app });
       if (!read.ok) return read;
       const base = ctx.scope.read[0];
@@ -124,13 +135,13 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "blueprint.check",
-    input: TOOL_INPUTS["blueprint.check"],
+    input: z.strictObject({ app: idSchema("app") }),
     routes: [blueprintCheck],
     description:
       "Check the blueprint of an app and return errors, warnings and the permission review separately. Edit the blueprint file with the file tools.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app } = input as ToolInput<"blueprint.check">;
+      const { app } = input;
       const checked = await readOf(ctx.core, blueprintCheck, { app });
       if (!checked.ok) return checked;
       const { errors, warnings, permission_review } = checked.value;

@@ -9,7 +9,7 @@
 | `apps-large-changeset` | apps | 1 | dead-platform | merged | apps/apps-large-changeset | f02d5e07c |  |
 | `dead-agent` | dead | 1 | 없음 | merged | dead/dead-agent | 3777a51b6 |  |
 | `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
-| `feedback-existing-problem` | feedback | 1 | 없음 | running | feedback/feedback-existing-problem |  |  |
+| `feedback-existing-problem` | feedback | 1 | 없음 | merged | feedback/feedback-existing-problem | 939cbc9c7 |  |
 | `harness-global-install` | harness | 1 | 없음 | running | harness/harness-global-install |  |  |
 | `place-operator-app-read` | place | 1 | 없음 | running | place/place-operator-app-read |  |  |
 | `platform-crash-diagnostics` | platform | 1 | 없음 | running | platform/platform-crash-diagnostics |  |  |

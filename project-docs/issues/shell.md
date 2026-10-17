@@ -2,21 +2,6 @@
 
 데스크톱 앱(packages/shell)의 화면과 그 source. architecture 문서는 아직 없다.
 
-## 제보 창이 기존 문제를 못 고른다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer, packages/shell/ipc, packages/shell/main]
-```
-
-지금: `overlay/surfaces/surface.tsx`가 `FeedbackDialog`를 `problems` 없이 마운트한다. dialog는 `problems`가 있어야 "새 문제 / 기존 문제" 고르기를 그리므로 늘 새 문제로 간다. `beginFeedback(view_session, problem?)`과 main의 `existingProblem`은 있지만 부르는 곳이 `report-button.tsx` 하나이고 `problem`을 안 넘긴다. 옛 글의 "Issues에서 연 제보는 붙는다"는 틀렸다. Issues 탭에는 `beginFeedback`을 부르는 단추가 없다.
-
-영향: 같은 문제가 제보마다 새 문제로 중복해서 올라간다. dialog 쪽 고르기 코드는 죽어 있다.
-
-고치려면: `beginFeedback` 답을 `{draftRef, problems}`로 넓혀 main이 같은 앱의 열린 문제를 읽어 싣고, overlay가 `problems`를 dialog에 넘긴다(계약 고침, 중간). 안 살릴 거면 dialog의 고르기와 `existing_problem` 경로를 지운다(작음).
-
-정한 것: 살린다. main이 같은 앱의 열린 문제를 읽어 dialog에 넘긴다(plan `feedback-existing-problem`). dialog의 고르기와 core의 덧붙이기 분기는 이미 있다.
-
 ## 새 session 첫 말의 context chip을 session에 싣지 않는다
 
 ```yaml
@@ -141,3 +126,18 @@ modules: [packages/shell/renderer]
 고치려면: 추천: 남긴다. 이 절을 지운다. 파일 길이가 문제라면 panel 렌더 블록을 컴포넌트로 빼는 것은 별개의 정리다.
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
+
+## 제보 dialog의 기존 문제 목록이 열린 것 20개뿐이고 열린 뒤 갱신되지 않는다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: `shell/main/desktop/wiring/feedback.ts`의 `problems(app)`가 `state: "open"`, `limit: 20`으로 한 번 읽고 페이지를 넘기지 않는다. 해결됨·무시됨 문제는 목록에 없다. dialog가 열린 뒤 생긴 문제는 보이지 않는다. 읽기가 느리면 `begin()` 응답과 dialog 표시가 그만큼 늦는다(timeout 없음). dialog에서 "Send it as"가 실제로 보이는지는 브라우저 없이 type 검사로만 확인했다.
+
+영향: 문제가 많은 앱에서 사람이 덧붙이려는 문제가 목록에 없을 수 있다. 해결됨 문제가 다시 생겼다고 알릴 길이 없다.
+
+고치려면:
+- 그대로 둔다(작은 앱이면 20개로 충분하다).
+- 해결됨도 같이 읽고, 많으면 dialog에서 검색한다(중간).

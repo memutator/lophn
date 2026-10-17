@@ -31,3 +31,5 @@ modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages
 고치려면:
 - CLI에 `release status`(`releases/preparation`), `app test status`, `app test result`를 coding token 명령으로 연다(중간). 계획 `e2e-coverage`의 `app-cli-finish` brief가 이 안이다. 추천.
 - `release prepare`가 끝날 때까지 기다려 release id를 돌려주게 한다(중간). 준비가 300초까지 걸려 CLI가 그동안 막힌다.
+
+정한 것: CLI에 `release status`, `app test status`, `app test result`를 coding token 명령으로 연다(계획 `e2e-coverage`의 `app-cli-finish`). (사람)

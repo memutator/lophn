@@ -18,4 +18,4 @@ modules: [packages/core/agent-roles, packages/protocol, packages/shell/renderer]
 - 정책을 줄인다(작음): O2·O3를 AGENT-ROLE.md에서 지우고 `operator.ts` 주석을 고친다. 앱 Operator는 결과를 대화와 app-api로만 남긴다.
 - 추천: 줄인다. 실제로 앱 data를 파일로 내보낼 일이 생기면 만든다.
 
-정할 것: 앱 Operator가 project 폴더에 파일을 쓰는 기능을 지금 둘지.
+정한 것: 줄인다. O2·O3와 Operator prompt의 약속을 지운다(계획 `e2e-coverage`의 `operator-project-write`). (사람)

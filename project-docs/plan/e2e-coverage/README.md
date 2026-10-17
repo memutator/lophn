@@ -187,3 +187,10 @@ brief는 다섯 손이 병렬로 썼다: 위 26개(README 단위와 `research/ca
 3. **지침이 바뀐 다음 turn의 prompt.** 지금 코드(`prompt-assembly/turn-prompt.ts`)는 system의 지침 block을 그 turn의 지금 지침으로 다시 만들고 notice도 붙인다. `architecture/agent-definition.md`는 "prefix는 그대로, notice로만"이라 쓰고, "편집 한 번이 이력 전체의 cache miss"라 버린 방식을 이유로 적었다. 추천: 문서를 코드에 맞춘다(지침은 드물게 바뀌어 cache miss 한 번이 싸다). 정하기 전에는 `prompt-notice`를 merge하지 않는다.
 - **OAuth 단위를 더했다**(`oauth-issuer`, `oauth-login`, `oauth-token`). 구현 session이 보낸 명세에서 case를 뽑았다. state·nonce·aud·scope 거절과 회전 저장은 그 구현의 unit(`providers/login_test.ts`, `oauth-refresh_test.ts`)이 보므로 E2E에 두지 않았다. 로그인 setup의 fake 대답은 support helper(`connectOAuthProvider`)가 걸어 행 몫에 세지 않는다(정한 것 11). (agent)
 
+### 사람이 정한 것
+
+lead가 계획을 열며 물었다. 셋 다 추천대로다. (사람)
+
+1. `app-cli-finish`: CLI에 `release status`, `app test status`, `app test result`를 연다.
+2. `operator-project-write`: 줄인다. 앱 place Operator가 project 폴더에 쓰는 약속(O2·O3, Operator prompt)을 지운다.
+3. `prompt-notice`: 문서를 코드에 맞춘다. system의 지침 block은 늘 그 turn의 지침이고, 바뀐 turn에는 notice로 알린다.

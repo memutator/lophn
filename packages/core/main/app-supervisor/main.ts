@@ -54,6 +54,8 @@ const port: { value: number } = { value: 0 };
 // 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
+// socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
+const dataRoot = Deno.env.get("LOPHN_HOME");
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
 function placeOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
@@ -62,7 +64,9 @@ function placeOf(app: string): { broker: string; control: string } {
     if (slot >= SOCKET_SLOTS) throw new Error("no free app socket slot");
     slots.set(app, slot);
   }
+  if (dataRoot === undefined) throw new Error("LOPHN_HOME is not set");
   const created = createSocketDirectory({
+    dataRoot,
     xdgRuntimeDir: Deno.env.get("XDG_RUNTIME_DIR"),
     uid: Deno.uid() ?? 0,
     ensureDir: (path, mode) => Deno.mkdirSync(path, { recursive: true, mode }),
@@ -98,7 +102,6 @@ const credential: { value: string } = { value: "" };
 
 // release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 좁은 권한의
 // 자식으로 돌린다. 진행은 이 프로세스의 메모리다(apps/releases).
-const dataRoot = Deno.env.get("LOPHN_HOME");
 const preparation = dataRoot === undefined
   ? undefined
   : createPreparationService(createChildPreparationRunner({

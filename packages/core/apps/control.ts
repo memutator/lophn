@@ -67,7 +67,7 @@ import { loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
 import type { ConnectFacts } from "./runtime/connect.ts";
-import { allSlotSockets } from "./runtime/processes/mod.ts";
+import { allSlotSockets, socketRootKey } from "./runtime/processes/mod.ts";
 import {
   createAppProcessLink,
   createSupervisorChannel,
@@ -749,18 +749,19 @@ function repoRoot(): string {
   return new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 }
 
-// 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더다
-// (packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
-export function appSocketRoot(runtimeDir?: string): string {
+// 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더 아래에
+// data root마다 하위 폴더 하나다(packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
+export function appSocketRoot(dataRoot: string, runtimeDir?: string): string {
   const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
-  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn`;
+  const key = socketRootKey(dataRoot);
+  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn/${key}`;
   // packaged allow-env에 TMPDIR은 없다. 없으면 기본 임시 폴더다.
   let temp = "/tmp";
   try {
     const configured = Deno.env.get("TMPDIR");
     if (configured !== undefined && configured.length > 0) temp = configured;
   } catch { /* 권한이 없으면 /tmp */ }
-  return `${temp}/lophn-${Deno.uid() ?? 0}`;
+  return `${temp}/lophn-${Deno.uid() ?? 0}/${key}`;
 }
 
 // supervisor 실행 권한. 데이터 root와 코드·deno 캐시를 읽고 쓰기는 앱 socket 폴더뿐이다.
@@ -770,7 +771,7 @@ export function appSupervisorSpec(input: {
   apiPort: number;
   runtimeDir?: string;
 }): KindLaunchSpec {
-  const sockets = appSocketRoot(input.runtimeDir);
+  const sockets = appSocketRoot(input.dataRoot, input.runtimeDir);
   return {
     kind: APPS_SUPERVISOR_KIND,
     entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,

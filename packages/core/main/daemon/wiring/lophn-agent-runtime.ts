@@ -224,7 +224,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         epoch: ctx.epoch,
         dataRoot: ctx.root.path,
         apiPort: ctx.server.port,
-        socketRoot: appSocketRoot(),
+        socketRoot: appSocketRoot(ctx.root.path),
         gauge: ctx.blobBuffer,
         prepareBlob: (call) => ctx.blobRelay.prepare(call),
         read: (route, context, input) =>

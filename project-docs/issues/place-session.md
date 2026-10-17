@@ -18,21 +18,6 @@ modules: [packages/core/lophn-agent, packages/core/main, packages/core/projects]
 - B. scope를 만드는 곳을 하나로 합친다. `placeFoldersOf`가 `place-data.ts`와 같은 규칙을 쓰게 해(초안 폴더와 project Operator 포함) 같은 모양의 복사본 둘을 없앤다. 비용 중간.
 - 추천: A를 지금, B를 같이 한다. 폴더 목록이 둘이라 한쪽만 고치면 이번처럼 어긋난다.
 
-## 숨김 구간을 `reverts.result_seq`로 잡는 규칙
-
-```yaml
-kind: defect
-modules: [packages/core/lophn-agent]
-```
-
-지금: rewind가 숨기는 구간은 `boundary_seq`부터 결과를 확정한 때의 session 마지막 메시지 순번 `result_seq`까지다(`session/rewind/hidden.ts`의 `hiddenRangesOf`, `summary-read.ts`도 같은 칸을 읽는다). 그 뒤에 접수한 메시지는 숨기지 않는다. 이유(숨김에 끝이 없으면 rewind 뒤의 대화가 모두 사라진다)는 `hidden.ts` 머리 주석에 이미 있다.
-
-영향: 숨김 끝이 messages가 아니라 reverts 행의 `result_seq`에서 나오는 숨은 규칙이다. 이유 설명은 코드에 있어 남는 비용은 작다.
-
-고치려면: 추천: 남긴다(kept). 주석이 이미 이유를 적었으니 별도 작업 없이 닫는다.
-
-정한 것: 다이어트 계획에서 줄일지 정한다.
-
 ## agent runtime process의 Deno 권한에 place 폴더가 없다
 
 ```yaml
@@ -40,10 +25,8 @@ kind: bug
 modules: [packages/core/lophn-agent]
 ```
 
-지금: file tool과 shell은 agent runtime process(`main/agent-runtime`) 안에서 돈다. 그 process의 권한은 `tools/runtime-permissions.ts`의 `agentRuntimePermissions`가 `placeFolders.read`·`write`를 `allow_read`·`allow_write`에 얹어 만들고, `supervision/security/launch-spec.ts`가 `--allow-read`·`--allow-write` flag로 바꾼다. 그런데 `run-loop/runtime.ts`의 `specFor`는 늘 `placeFolders: { read: [], write: [] }`를 넘긴다. turn의 `scope`(`place-data.ts`)가 폴더를 열어도 Deno 권한은 data root, skill root, socket뿐이다. 코드로만 따라갔고 실제 turn에서 file tool이 `NotCapable`로 막히는지는 보지 않았다(앱 Operator 읽기를 고치다 찾음).
+지금: file tool과 shell은 agent runtime process(`main/agent-runtime`) 안에서 돈다. 그 process의 권한은 `tools/runtime-permissions.ts`의 `agentRuntimePermissions`가 `placeFolders.read`·`write`를 `allow_read`·`allow_write`에 얹어 만들고, `supervision/security/launch-spec.ts`의 `launchArgv`가 `--no-prompt`와 `--allow-read`·`--allow-write` flag로 바꾼다. 그런데 `run-loop/runtime.ts`의 `specFor`는 늘 `placeFolders: { read: [], write: [] }`를 넘기고 다른 곳에서 채우지 않는다. turn의 `scope`(`place-data.ts`)가 폴더를 열어도 Deno 권한은 data root, skill root, socket뿐이라 `tools/file/read.ts`의 `Deno.readFile` 같은 호출은 `NotCapable`이다(같은 flag 조합으로 허락 밖 경로를 읽어 확인했다). 실제 turn을 돌려 보지는 않았다.
 
-영향: place 폴더가 data root 밖이면 PM, project Operator, App Engineer, 앱 Operator 모두 file tool과 shell로 그 폴더를 못 읽고 못 쓸 수 있다. 맞다면 agent가 project 일을 하지 못한다.
+영향: place 폴더가 data root 밖이면 PM, project Operator, App Engineer, 앱 Operator 모두 file tool과 shell로 그 폴더를 못 읽고 못 쓴다. agent가 project 일을 하지 못한다.
 
-고치려면:
-- 먼저 실제 turn에서 file.read가 data root 밖 project 폴더를 읽는지 본다(작음).
-- 막히면 열린 project·앱 source 폴더 목록으로 `placeFolders`를 채우고, 목록이 바뀌면 runtime을 다시 띄운다(hosts·MCP가 바뀔 때와 같은 길, 중간).
+고치려면: 열린 project·앱 source 폴더 목록으로 `placeFolders`를 채우고, 목록이 바뀌면 runtime을 다시 띄운다(hosts·MCP가 바뀔 때와 같은 길, 중간). 폴더 목록 만드는 곳이 `rewind-glue.ts`의 `placeFoldersOf`와 `place-data.ts`로 둘이니 같은 규칙으로 합친다(위 "PM이 초안 폴더를 연 같은 turn에 쓰면 forbidden이다"와 같은 정리).

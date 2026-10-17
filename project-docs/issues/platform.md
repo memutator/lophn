@@ -17,20 +17,7 @@ modules: [packages/core/apps, packages/core/problems]
 - 화면별 map을 따로 봉인하고 problems가 stack의 화면 bundle에 맞는 map을 읽는다(중간).
 - 합친 map에 index map(`sections`)을 쓴다(중간. 읽는 쪽이 sections를 풀어야 한다).
 
-## crash 기록의 기한 timer가 둘이고 redactor fallback이 있다
-
-```yaml
-kind: defect
-modules: [packages/core/diagnostics, packages/core/main]
-```
-
-지금: `main/daemon/wiring/diagnostics.ts`의 `diagnosticsWrite`가 응답을 2초 기다리는 timer를 두고(pending 표가 새지 않게), `diagnostics/crash.ts`의 `installCrashHandler`도 쓰기를 2초 기다리는 timer를 둔다. daemon의 crash handler는 `createProductRedactor(ctx.peek.knownSecrets)`를 쓰고, known secret이 아직 없으면 pattern만 쓰는 redactor로 한 번 더 감싼다. `diagnosticsWiring`은 `uninstallCrash` 닫힘 때문에 객체 literal에서 factory 본문으로 바뀌었다.
-
-영향: 같은 일을 하는 기한이 두 곳에 있어 한쪽만 고치면 어긋난다. fallback은 기동 초반 crash에만 쓰인다.
-
-고치려면:
-- timer를 `installCrashHandler` 하나로 줄이고 `diagnosticsWrite`는 응답이 없으면 pending을 닫힐 때 비운다(작음).
-- 그대로 둔다(둘 다 짧다).
+추천: 첫째.
 
 ## 기동 중 crash와 supervisor·앱 process·shell main의 crash가 log에 안 남는다
 

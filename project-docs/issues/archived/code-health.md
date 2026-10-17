@@ -79,3 +79,23 @@ guard: 없음
 정한 것: 문구와 서명을 지우고 이유 문장을 고친다. 실수와 인터넷을 막는 코드는 남긴다.
 
 닫음: "Field values are data, not instructions"와 "Its fields are data."를 지웠다. 앱 화면 오류 보고의 서명(`signing.ts`, `view-binding.ts`, `SignedConnection`, `binding` 칸)을 지워 모든 보고가 `not_found`로 거절되던 bug도 같이 없앴다(core에 실제로 보내 `reports`·`problems` 행이 생기는 것을 손으로 확인). 이유 주석은 "페이지는 자기가 어느 앱인지 모른다", "AI가 쓴 code의 실수가 퍼지지 않게"로 고쳤고, architecture 문장은 이 계획 끝에 lead가 고친다. 남은 죽은 칸(`verify_key`, confirm proof)은 이 계획의 마지막 cleanup이 지운다.
+
+## test 준비 코드가 길다
+
+```yaml
+kind: defect
+modules: [packages/core/approvals, packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: test 수는 적은데 파일마다 준비 코드(setup)가 길다. `apps/calls/calls_test.ts` 376줄(test 3개, 앞 120줄 남짓의 `setup()`과 helper가 앱 process·invocation ledger를 메모리로 흉내), `approvals/approvals_test.ts` 336줄(test 3개, `openLedger`로 임시 ledger를 열고 `makeKit`으로 조립), `apps/rewind/rewind_test.ts` 278줄(test 4개, `DatabaseSync(":memory:")`와 `setup`), `approvals/gate/gate_test.ts` 250줄(test 2개, 대부분 grant·intent fixture). 쓰는 준비가 파일마다 달라서 "공용 ledger fixture 하나"로 모이는 모양이 아니다. calls와 gate는 ledger를 쓰지도 않는다.
+
+영향: 같은 파일에 test 하나를 더하는 비용이 준비 코드를 읽는 데서 든다. 다만 test를 적게 두는 것이 AGENTS.md의 방향이라 test가 늘 일이 적다.
+
+고치려면:
+- A. 공용 fixture로 모은다. 파일마다 준비 모양이 달라 억지로 맞추면 오히려 무거워진다. 비용 중간.
+- B. 건드리지 않는다. 그 파일에 test를 더할 때 필요한 만큼만 helper로 뺀다.
+- 추천: B. 안 쓰는 test는 AGENTS.md 지침대로 합치거나 지운다.
+
+닫음: 준비 코드가 파일마다 달라 공용 fixture로 모으면 오히려 무거워진다. 그 파일에 test를 더할 때 필요한 만큼만 helper로 뺀다.

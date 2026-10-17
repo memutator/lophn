@@ -89,3 +89,20 @@ guard: 없음
 정한 것: 줄과 30초 재시도를 없앤다. 겹치면 conflict로 거절하고 실패는 실패로 끝내 사람이 다시 누른다. 허락과 시작 사이에 비교가 달라지면 다시 묻는 검사는 남긴다.
 
 닫음: `queue.ts`의 앱별 Promise 줄을 앱마다 job 하나로 바꿔, 돌고 있으면 `conflict`로 거절한다. `ACTIVATION_RETRY_MS`와 `unsettled`(30초 재시도)를 지웠다. `activatePrevious`도 진행 중 activation이 있으면 `conflict`다. 끊긴 activation 이어받기는 매 sweep 그대로 한다.
+
+## 복구본 보존과 complete 한 tx에 몰린 일
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: 복구본은 blob `permanent`(`data/blobs.ts`)로 두고 앱마다 최근 하나만 둔다(`discardBackups`가 `eraseBlobRefs`로 참조를 지운다). `releases/commands.ts` `completeActivation`은 한 tx에서 active 참조와 `superseded` 전환, `replaceApp`(revision은 `nextRevision` = max(events head, 현재+1)), `syncAppGrants(..., "granted")`, `discardBackups`, 이전으로 돌아가기 요청(`activation_requests`) 삭제를 한다.
+
+영향: 한 tx에 일이 많아 하나를 바꿀 때 나머지가 영향받는다. 다만 architecture 문서가 이 일들이 한 tx여야 하는 이유(중간 상태 금지)를 정해 두었다.
+
+고치려면: 보존 규칙(복구본 몇 개, 언제 지움)과 complete의 일을 함수로 나눠 읽기 쉽게만 한다(작음). tx를 쪼개는 것은 하지 않는다. 추천: 나누지 않는다.
+
+닫음: 복구본 보존 규칙과 complete의 일을 함수로 나눠도 얻는 것은 읽기 쉬움뿐이고, 한 tx여야 하는 이유(중간 상태 금지)는 architecture 문서가 정했다. 나누지 않는다.

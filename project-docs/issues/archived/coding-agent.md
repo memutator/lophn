@@ -85,3 +85,145 @@ guard: 없음
 정한 것: 고친다. 전역 설치로 바꿀 때 OpenCode의 전역 plugin 위치를 확인해 hook을 놓는다.
 
 닫음: `HARNESS_ADAPTERS.opencode.hook`을 전역 plugin `~/.config/opencode/plugins/lophn-status.ts`(opencode.ai/docs/plugins로 확인)로 채우고, `install.ts`의 `opencodePlugin`이 `HOOK_EVENT_TABLE.opencode`의 event 가운데 root session 것만 `lophn hook opencode <event>`로 넘긴다. token이 없으면 hook을 등록하지 않는다. 가짜 client와 가짜 `lophn`으로 plugin만 돌려 봤고 실제 OpenCode로는 확인하지 못했다(아래 열린 bug).
+
+## coding session을 메모리 대신 ledger 표 셋과 `ApplyCodingSignal`로 둔다
+
+```yaml
+kind: defect
+modules: [packages/core/apps, packages/core/storage]
+closed: kept
+guard: 없음
+```
+
+지금: `coding_sessions`, `coding_lines`, `coding_inputs` 표(`core/apps/tickets/coding/schema.ts`)와 machine command `ApplyCodingSignal`(`signal.ts`)을 둔다. 이유는 schema 주석대로 command는 writer Worker에서 돌고 reader는 `CodingSessionLookup`과 줄을 읽어야 하는데 둘이 메모리를 같이 볼 수 없고, tx가 되돌아가면 표도 같이 되돌아가야 해서다. 값은 lophn이 꺼지면 의미를 잃어 켤 때 `recover`가 비운다. 감지 결과와 터미널 요청만 writer 메모리(`memory.ts`)에 있다.
+
+영향: 표 셋, 상태 갱신 command, recover, 표를 읽는 `store.ts`·`lookup.ts`가 따로 늘었다. 휘발성 값에 schema step이 붙어 바꿀 때마다 표를 같이 고친다.
+
+고치려면:
+- main thread 한 곳에만 두고 core 읽기는 거기에 묻는다. Worker 경계를 넘는 port가 새로 필요하고, "상태·정산·call 닫기를 같은 transaction에서" 고치는 지금 불변 조건을 깨야 한다(큼).
+- 남긴다. 표는 휘발성이지만 정산이 tx와 같이 가는 것이 이 구조의 이유다.
+- 추천: 남기는 쪽. 이유가 schema 주석에 이미 있다.
+
+닫음: 표는 휘발성이지만 정산이 tx와 같이 가는 것이 이 구조의 이유이고(command는 writer Worker, reader는 표를 읽는다), main thread로 옮기면 같은 transaction 불변 조건이 깨진다. 이유는 schema 주석에 있다.
+
+## `mutates` 칸을 명령 이름 마지막 단어(`READ_WORDS`)로 가른다
+
+```yaml
+kind: defect
+modules: [packages/coding-agent]
+closed: kept
+guard: 없음
+```
+
+지금: `coding-agent/cli/commands/types.ts`의 `isReadName`이 이름의 마지막 단어가 `READ_WORDS`(list, show, status, blueprint, invocations, logs, more, diff, detect)에 있으면 읽기로 본다. `entryOf`가 이걸로 `mutates`를 채우고 help가 읽기/변경 목록을 가른다(`help.ts`).
+
+영향: 새 변경 명령 이름이 우연히 이 단어로 끝나면 help가 읽기로 표시한다. 현재는 틀린 곳이 없어 화면 안내만 걸린다.
+
+고치려면: `entryOf`에 `mutates`를 명시 인자로 받고 `READ_WORDS`와 `isReadName`을 지운다(명령 수만큼 한 줄씩, 작다). 추천: 이대로.
+
+닫음: 새 변경 명령 이름이 우연히 읽기 단어로 끝날 때 help 표시만 틀리고 지금은 틀린 곳이 없다. 명령 25개에 인자를 다는 값에 비해 얻는 것이 작다. `READ_WORDS` 주석이 규칙을 말한다.
+
+## `ticket.cancel`이 transport의 active·waiting call을 찾아 멈춘다
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: `core/apps/tickets/commands.ts`의 `cancel`이 `stopCodingCalls`에서 `CodingTransport.lines()`를 돌며 이 ticket의 active·waiting call을 찾아 `stop(reason: "ticket_cancelled")`을 부른다. transport의 `stop`은 이 이유일 때 Router를 거치지 않으므로 call 상태도 직접 `cancelled`로 옮긴다(`transport.ts`).
+
+영향: ticket 모듈이 coding session의 줄 구조를 알고, call 취소 책임이 Router와 transport로 갈라진다. transport 모양을 바꾸면 ticket 취소도 같이 고친다.
+
+고치려면:
+- ticket 취소는 domain event만 내고 transport 쪽 handler가 줄을 정리한다(Reactor handler 하나 더, 중간). 같은 tx 안 일관성이 약해진다.
+- 남긴다. 지금 방식은 취소·claim 삭제·call 취소가 한 tx다.
+- 추천: 남긴다.
+
+닫음: 지금 방식은 취소·claim 삭제·call 취소가 한 tx이고, domain event로 나누면 같은 tx 안 일관성이 약해진다.
+
+## ticket 표가 6개다
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: `tickets`, `ticket_references`, `ticket_claims`, `ticket_completions`, `ticket_check_results`, `ticket_verdicts`(`core/apps/tickets/schema.ts`). 보고마다 completion 한 줄(불변, trigger), check 결과 한 줄(Reactor가 나중에 한 번 기록), verdict 한 줄(불변).
+
+영향: ticket 하나의 한 번 보고를 읽으려면 표 셋을 join한다. 표를 더하거나 바꿀 때 trigger와 외래 키까지 같이 본다.
+
+고치려면: completion·check·verdict를 한 표의 열로 합친다. 그러면 completion 불변 trigger가 나중에 채워지는 열과 부딪쳐 열마다 트리거를 따로 걸어야 한다(중간). 추천: 남긴다. 세 줄은 쓰는 때와 쓰는 주체가 달라 따로 불변으로 두는 편이 단순하다.
+
+닫음: completion·check·verdict는 쓰는 때와 주체가 달라 따로 불변으로 두는 편이 단순하다. 한 표로 합치면 불변 trigger가 나중에 채워지는 열과 부딪친다.
+
+## 앱마다 coding session 하나와 call 줄, 실패 이유
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: 앱마다 끝나지 않은 session은 하나이고(`coding_sessions_active` unique index) 그동안 온 맡기기는 `coding_lines`에 줄을 선다. 실패 이유는 시작 4(`not_connected`, `cannot_launch`, `no_source_folder`, `ticket_unavailable`), 메시지 거절 3(`no_turn_end_signal`, `state_unknown`, `session_ended`), 터미널 4(`spawn_failed`, `no_terminal`, `folder_missing`, `host_lost`)다(`protocol/coding-agent/transport.ts`, `terminal-requests.ts`).
+
+영향: 이유마다 문구와 호출처 처리가 있어 늘어난다. 줄은 같은 source 폴더에 session 둘이 부딪치는 것을 막는 장치다.
+
+고치려면: 줄을 없애고 바쁨으로 돌려주면 다시 맡길 때를 보낸 쪽이 알 길이 없다(architecture "busy 실패 대신 줄에 세운다"). 이유는 호출처가 갈라 처리하는 것만 남긴다. 추천: 남긴다. 이유는 architecture에 있다.
+
+닫음: 줄은 같은 source 폴더에 session 둘이 부딪치는 것을 막고, 없애면 바쁨으로 돌려받은 쪽이 다시 맡길 때를 알 길이 없다(architecture "busy 실패 대신 줄에 세운다").
+
+## harness 감지 결과를 shell main 메모리에 쥔다
+
+```yaml
+kind: defect
+modules: [packages/shell/main]
+closed: kept
+guard: 없음
+```
+
+지금: `shell/main/desktop/coding-connection.ts`가 마지막 성공 감지 결과(`last`)를 메모리에 쥐고, 실패한 결과는 쥐지 않아 다음 `read`가 다시 감지한다. core로 알리기(`report`)가 실패하면 다음 `read`에서 다시 알린다. 새로 감지는 `refresh`일 때만 한다.
+
+영향: 결함이라기보다 결정 기록이다. 메모리에만 있어 shell을 다시 켜면 처음 읽을 때 감지를 한 번 더 한다.
+
+고치려면: 저장하면 표와 무효화 규칙이 늘고 PATH가 바뀌면 낡는다. 추천: 남긴다. 이유는 `last` 위 주석에 있다.
+
+닫음: 저장하면 표와 무효화 규칙이 늘고 PATH가 바뀌면 낡는다. 이유를 `last` 위 주석에 적었다.
+
+## check는 test를 다시 돌리지 않고 기록된 Verification만 읽는다
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: `core/apps/tickets/checks.ts`의 `loadCheckWork`가 `verifications` 표에서 release의 bundle hash(`app_test`) 또는 이 ticket·completion의 `test_command` 기록만 읽어 `check_work`로 모은다. check 때 test를 다시 돌리지 않는다.
+
+영향: 결함이라기보다 결정 기록이다. test는 앞 단계(app test, test command)가 이미 기록한다. 다시 돌리는 비용과 sandbox를 피한다.
+
+고치려면: 다시 돌리면 sandbox·시간·부작용이 늘어 크다. 추천: 남긴다. 이유는 `loadCheckWork` 주석에 둔다.
+
+닫음: 다시 돌리면 sandbox·시간·부작용이 늘어 크다. test는 앞 단계(app test, test command)가 이미 기록한다.
+
+## harness 전역 install 코드가 단계마다 Step을 돌려준다
+
+```yaml
+kind: defect
+modules: [packages/coding-agent]
+closed: kept
+guard: 없음
+```
+
+지금: `coding-agent/harnesses/install.ts`(315줄)가 dry_run, json hook, plugin file, skill마다 `Step`을 따로 만들어 합친다. `thinSkill`은 원본 SKILL.md의 frontmatter를 정규식으로 뽑고, 깨졌으면 name만 있는 frontmatter로 대신한다.
+
+영향: 놓을 것이 셋뿐인데 길다. frontmatter 대체는 우리 원본이 깨질 때만 쓰이는 방어 코드다.
+
+고치려면: dry_run을 "쓰기 port를 바꿔 끼우기"로 바꿔 Step을 없앤다(작음). frontmatter 대체는 지운다(작음).
+
+닫음: 놓을 것이 셋(skill, json hook, plugin file)이고 `Step`으로 나뉜 지금 모양이 읽기 쉽다. frontmatter 대체는 한 식이라 지워도 얻는 것이 없다.

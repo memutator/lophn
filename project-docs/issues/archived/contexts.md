@@ -35,3 +35,37 @@ guard: 없음
 정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 닫음: 저장 목차(`context-outlines.ts`, `contexts/outlines.ts`, `outlineFolder`, `storedOutline`), outline tool 셋(`outline.get/set/delete`), `CONTEXT_OUTLINE_SOURCE_FORMATS`를 지웠다. outline kind는 md 제목에서만 목차를 만든다. 값이 `"markdown"` 하나뿐인 `outlineSourceSchema.format`은 남아 있고 마지막 cleanup이 지운다.
+
+## context 초안을 ledger가 아니라 data root 아래 폴더에 두고 제출 때 확정한다
+
+```yaml
+kind: defect
+modules: [packages/core/projects]
+closed: kept
+guard: 없음
+```
+
+지금: `contexts/folders.ts`가 초안을 `<data root>/projects/<project>/contexts/<context>/drafts/<bundle>/bundle.json`에 둔다. `bundle.submit`이 이 파일을 읽어 검사하고 판으로 확정한다. 초안 삭제는 `removed`에 쌓았다가 command 성공 뒤 `flush`한다. 이유(PM이 file tool로 직접 고친다)는 코드 어디에도 없다.
+
+영향: 초안은 ledger 밖이라 ledger rollback·backup에 안 따라온다. 대신 PM이 별도 command 없이 파일로 고친다.
+
+고치려면: 추천: 남긴다. 초안을 ledger로 옮기면 PM용 편집 tool을 새로 만든다(큼).
+
+닫음: 초안을 ledger로 옮기면 PM이 file tool로 직접 고치는 길 대신 편집 tool을 새로 만들어야 한다(큼). 초안이 ledger rollback·backup에 안 따라오는 것은 받아들인다.
+
+## `bundle.test_draft`가 worker 유무에 따라 다르게 돈다
+
+```yaml
+kind: defect
+modules: [packages/core/projects]
+closed: kept
+guard: 없음
+```
+
+지금: `contexts/connection.ts`가 `bundle.test_draft` 읽기를 감싸, ledger가 만든 `running` 보고를 dispatcher가 붙어 있으면 `testDraft`로 worker 격리 검사를 돌려 끝난 보고로 바꾸고, 붙기 전(`dispatcher === undefined`)에는 `running`을 그대로 돌려준다.
+
+영향: 경로가 둘이다. 실제로 dispatcher가 없는 때는 기동 직후와 worker 없는 조립(test)뿐이라 이대로 두어도 사람에게 보이는 문제는 없다.
+
+고치려면: 추천: 남긴다. 이유(worker 없는 조립은 결과를 꾸미지 않는다)는 이미 `connection.ts`의 주석에 있다.
+
+닫음: dispatcher가 없는 때는 기동 직후와 worker 없는 조립(test)뿐이라 사람에게 보이는 문제가 없다. 이유는 `connection.ts` 주석에 있다.

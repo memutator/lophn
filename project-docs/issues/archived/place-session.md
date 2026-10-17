@@ -57,3 +57,20 @@ guard: place-data_test.ts
 정한 것: 앱 Operator에게 앱 source 폴더 읽기를 준다. 쓰기는 주지 않는다.
 
 닫음: `place-data.ts`의 `appSourceScope`가 앱 place의 Operator에게 앱 source 폴더 읽기만 준다(쓰기는 App Engineer만). `rewind-glue.ts`의 `placeFoldersOf`는 쓰기 기록용이라 Operator에게 폴더를 주지 않는다.
+
+## 숨김 구간을 `reverts.result_seq`로 잡는 규칙
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+closed: kept
+guard: 없음
+```
+
+지금: rewind가 숨기는 구간은 `boundary_seq`부터 결과를 확정한 때의 session 마지막 메시지 순번 `result_seq`까지다(`session/rewind/hidden.ts`의 `hiddenRangesOf`, `summary-read.ts`도 같은 칸을 읽는다). 그 뒤에 접수한 메시지는 숨기지 않는다. 이유(숨김에 끝이 없으면 rewind 뒤의 대화가 모두 사라진다)는 `hidden.ts` 머리 주석에 이미 있다.
+
+영향: 숨김 끝이 messages가 아니라 reverts 행의 `result_seq`에서 나오는 숨은 규칙이다. 이유 설명은 코드에 있어 남는 비용은 작다.
+
+고치려면: 추천: 남긴다(kept). 주석이 이미 이유를 적었으니 별도 작업 없이 닫는다.
+
+닫음: 숨김 끝이 reverts 행의 `result_seq`에서 나오는 규칙이지만 이유(끝이 없으면 rewind 뒤의 대화가 모두 사라진다)는 `hidden.ts` 머리 주석에 있다.

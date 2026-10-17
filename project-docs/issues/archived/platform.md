@@ -37,3 +37,22 @@ guard: 없음
 정한 것: events와 agent runtime 점검만 더한다.
 
 닫음: `wiring/events.ts`가 `events` 점검(읽기 연결이 열려 있고 Reactor가 start된 뒤 `events` 표를 한 번 읽는다), `wiring/lophn-agent-runtime.ts`가 `agent-runtime` 점검(I/O observation의 `available`)을 `componentChecks`에 더했다. 둘 다 고정 이유 문장만 낸다. `diagnostics/status`에 core, ledger, events, agent-runtime이 나오는 것을 손으로 확인했다.
+
+## crash 기록의 기한 timer가 둘이고 redactor fallback이 있다
+
+```yaml
+kind: defect
+modules: [packages/core/diagnostics, packages/core/main]
+closed: kept
+guard: 없음
+```
+
+지금: `main/daemon/wiring/diagnostics.ts`의 `diagnosticsWrite`가 응답을 2초 기다리는 timer를 두고(pending 표가 새지 않게), `diagnostics/crash.ts`의 `installCrashHandler`도 쓰기를 2초 기다리는 timer를 둔다. daemon의 crash handler는 `createProductRedactor(ctx.peek.knownSecrets)`를 쓰고, known secret이 아직 없으면 pattern만 쓰는 redactor로 한 번 더 감싼다. `diagnosticsWiring`은 `uninstallCrash` 닫힘 때문에 객체 literal에서 factory 본문으로 바뀌었다.
+
+영향: 같은 일을 하는 기한이 두 곳에 있어 한쪽만 고치면 어긋난다. fallback은 기동 초반 crash에만 쓰인다.
+
+고치려면:
+- timer를 `installCrashHandler` 하나로 줄이고 `diagnosticsWrite`는 응답이 없으면 pending을 닫힐 때 비운다(작음).
+- 그대로 둔다(둘 다 짧다).
+
+닫음: 기한 둘의 목적이 다르다(하나는 pending 표가 새지 않게, 하나는 crash 뒤 종료가 늦지 않게). redactor fallback은 기동 초반 crash에만 쓰인다. 둘 다 짧다.

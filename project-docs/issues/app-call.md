@@ -9,13 +9,13 @@ kind: bug
 modules: [packages/core/apps, packages/core/main]
 ```
 
-지금: `core/apps/rewind/run.ts`의 `link.apply`가 되돌릴 changeset을 모두 base64로 한 요청에 담는다(`runtime/supervisor-link.ts`의 `apps.apply`, `runtime/control-protocol.ts`의 `applyInputSchema`, `main/app-supervisor/assembly.ts`). 이 요청은 core와 supervisor 사이 control pipe의 json frame 하나라 `protocol/base/frame.ts`의 `CONTROL_MAX_BYTES`(256KiB)를 넘으면 거절된다. `entrypoint/limits.ts`의 `APPLY_BODY_MAX_BYTES`(64MiB)는 supervisor와 앱 process 사이 socket의 한도라 이 frame을 막지 못한다. 호출 하나의 changeset은 이제 frame 안에 들지만(too_large로 뺌) 여러 write를 한꺼번에 되돌리면 합이 넘을 수 있다. 코드로만 따라갔고 재현하지 않았다.
+지금: `core/apps/rewind/run.ts`의 `link.apply`가 되돌릴 changeset을 모두 base64로 한 요청에 담는다(`runtime/supervisor-link.ts`의 `apps.apply`, `runtime/control-protocol.ts`의 `applyInputSchema`, `main/app-supervisor/assembly.ts`). 이 요청은 core와 supervisor 사이 control pipe의 json frame 하나라 `protocol/base/frame.ts`의 `CONTROL_MAX_BYTES`(256KiB)를 넘으면 `encodeFrame`이 `control frame exceeds limit`로 throw한다. `entrypoint/limits.ts`의 `APPLY_BODY_MAX_BYTES`(64MiB)는 supervisor와 앱 process 사이 socket의 한도라 이 frame을 막지 못한다. 호출 하나의 changeset은 이제 frame 안에 들지만(too_large로 뺌) 여러 write를 한꺼번에 되돌리면 합이 넘을 수 있다. 코드로만 따라갔고 재현하지 않았다.
 
-영향: 사람이 여러 write를 되돌리려 하면 rewind 적용이 통째로 실패한다. 실패 모양(오류 코드, 결과 모름 여부)은 확인하지 않았다.
+영향: 사람이 여러 write를 되돌리려 하면 rewind 적용이 통째로 실패한다. 요청이 나가기 전에 부호화에서 실패하므로 앱 data는 바뀌지 않는다. throw가 `channel.request`에서 어떤 오류 코드로 바뀌는지는 따라가지 않았다.
 
 고치려면:
 - changeset을 write 하나씩 나눠 보낸다(중간. 중간에 실패하면 일부만 되돌린 상태가 된다).
-- apply 본문을 bytes frame stream으로 보낸다(중간).
+- apply 본문을 bytes frame stream으로 보낸다(중간). 추천.
 
 ## changeset을 빼도 `result`가 control frame을 넘으면 결과 모름으로 닫힌다
 

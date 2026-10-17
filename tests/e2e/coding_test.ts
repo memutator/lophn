@@ -43,6 +43,13 @@
 // - 왜 못 잡나: `apps/tickets/coding`과 Router 단위 test는 transport와 Router를 따로 본다. cancel -> `stop` frame ->
 //   shell 역할의 끝 알림 -> claim 반납까지 이어지는 길은 process를 건너야 한다.
 //
+// 마지막 단계(coding-token-not-stored)는 행이 아니라 모든 행이 끝난 뒤 core를 정상 종료하고 data root와 log를 훑는다.
+// - contract: boundary `app-tickets`·`external-coding-agent`·`secrets`(token 원문은 저장하지 않는다. 새면 그 앱 하나가 열린다).
+// - 현실적 회귀: 디버깅하려고 plan이나 오류에 token을 넣어 ledger·log에 남는 것, session 행에 env를 통째로 저장하는 것,
+//   오류 본문에 요청 header가 되울리는 것.
+// - 왜 못 잡나: unit은 그 module이 만든 값만 본다. token은 registry 메모리에만 있어서, 실제 core가 돈 뒤 SQLite·WAL·blob·log를
+//   byte로 훑는 이 단계가 유일한 방어다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
@@ -91,6 +98,51 @@ type Ctx = {
 };
 
 type Row = { name: string; run(ctx: Ctx): Promise<void> };
+
+function includesBytes(haystack: Uint8Array, needle: Uint8Array): boolean {
+  const first = needle[0];
+  for (
+    let at = haystack.indexOf(first);
+    at !== -1 && at + needle.length <= haystack.length;
+    at = haystack.indexOf(first, at + 1)
+  ) {
+    let i = 1;
+    while (i < needle.length && haystack[at + i] === needle[i]) i++;
+    if (i === needle.length) return true;
+  }
+  return false;
+}
+
+// token 원문이 든 일반 file의 "경로: token 앞 6글자"만 모은다. 원문은 실패 메시지에도 쓰지 않는다.
+async function tokenLeaks(
+  roots: string[],
+  tokens: string[],
+): Promise<{ leaks: string[]; files: number }> {
+  const needles = tokens.map((token) => ({
+    head: token.slice(0, 6),
+    bytes: new TextEncoder().encode(token),
+  }));
+  const leaks: string[] = [];
+  let files = 0;
+  async function visit(path: string): Promise<void> {
+    const info = await Deno.lstat(path);
+    if (info.isDirectory) {
+      for await (const entry of Deno.readDir(path)) {
+        await visit(`${path}/${entry.name}`);
+      }
+    } else if (info.isFile) {
+      files++;
+      const data = await Deno.readFile(path);
+      for (const needle of needles) {
+        if (includesBytes(data, needle.bytes)) {
+          leaks.push(`${path}: ${needle.head}...`);
+        }
+      }
+    }
+  }
+  for (const root of roots) await visit(root);
+  return { leaks, files };
+}
 
 function errorCode(result: { value: unknown }): unknown {
   return (result.value as { error?: { code?: unknown } } | undefined)?.error
@@ -493,6 +545,21 @@ Deno.test("E2E coding token은 앱 하나 범위이고 session이 끝나면 회�
         }
       });
     }
+
+    // 마지막 단계: 정상 종료로 WAL이 본 file에 접힌 뒤 data root 전체와 log에서 token 원문을 찾는다.
+    await t.step("token-not-stored", async () => {
+      await booted.stop();
+      // guard: 빈 훑기로 통과하지 않게
+      assert(tokens.length >= 2);
+      assertEquals(new Set(tokens).size, tokens.length);
+      // disk: data root 전체와 core.log
+      const { leaks, files } = await tokenLeaks(
+        [run.home, booted.logPath],
+        tokens,
+      );
+      assert(files > 1);
+      assertEquals(leaks, []);
+    });
   } finally {
     for (const app of apps) await app.gateway.close();
     await core?.kill().catch(() => {});

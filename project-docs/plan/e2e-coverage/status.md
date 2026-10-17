@@ -32,7 +32,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | merged | test-app/test-app | 696bf90f1 | coding 길 bug 1·7·8 + run 경로. release 쪽은 release-cold-cache |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | merged | agent-call/agent-call | 53fcef2a1 |  |
 | `app-activation` | app-activation | 3 | test-app | running | app-activation/app-activation |  |  |
-| `app-call` | app-call | 3 | test-app | running | app-call/app-call |  |  |
+| `app-call` | app-call | 3 | test-app | merged | app-call/app-call | 8c86db1be |  |
 | `app-data-rewind` | app-data-rewind | 3 | test-app | merged | app-data-rewind/app-data-rewind | 70109b857 |  |
 | `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
 | `app-sandbox` | app-sandbox | 3 | test-app | merged | app-sandbox/app-sandbox | d758a0a00 |  |
@@ -51,7 +51,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | merged | operator/operator-app-api | 2124e9270 |  |
 | `operator-grants` | operator | 3 | operator-app-api | merged | operator/operator-grants | f4bce5e43 |  |
-| `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |
+| `operator-project-write` | operator | 3 | operator-grants | running | operator/operator-project-write |  |  |
 | `reaction-app` | reaction-app | 3 | reaction-rows, test-app | merged | reaction-app/reaction-app | fa1b9f126 |  |
 | `reaction-context` | reaction-context | 3 | pm-context | merged | reaction-context/reaction-context | 915745354 |  |
 | `restart-rows` | restart-rows | 3 | 없음 | merged | restart-rows/restart-rows | d83cd01cd |  |

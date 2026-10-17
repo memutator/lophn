@@ -2,6 +2,7 @@ import {
   agentRefOfColumns,
   type Place,
   type Role,
+  rolePlaceFits,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { ROLE_TABLE } from "../agents/role-table.ts";
 
@@ -19,14 +20,8 @@ export function agentFilePathOf(
   const { role, operator, place } = session;
   const project = place?.kind === "project" ? place.id : null;
   const app = place?.kind === "app" ? place.id : null;
-  const placed = role === "project_manager"
-    ? project !== null
-    : role === "app_engineer"
-    ? app !== null
-    : role === "operator"
-    ? place !== null && operator !== null
-    : true;
-  if (!placed) return null;
+  if (!rolePlaceFits(role, place)) return null;
+  if (ROLE_TABLE.isOperator(role) && operator === null) return null;
   const slot = ROLE_TABLE.slotOf(
     root,
     agentRefOfColumns({ role, project, app, operator }),

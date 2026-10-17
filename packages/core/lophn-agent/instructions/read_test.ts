@@ -1,10 +1,14 @@
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
-import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
+import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+} from "../../../protocol/server/mod.ts";
 import { projectsSchemaSteps } from "../../projects/registry/schema.ts";
 import { conversationSchemaSteps } from "../session/model.ts";
-import { instructionsGetHandler } from "./files.ts";
+import { createReaderRegistration } from "../../main/daemon/wiring/instructions-registration.ts";
 
 const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
@@ -61,7 +65,9 @@ function setup() {
 }
 
 function read(snapshot: ReadSnapshot, session: number, project?: string) {
-  const handler = instructionsGetHandler();
+  const handler = createReaderRegistration().reads[0] as ReadDefinition<
+    typeof instructionsGet
+  >;
   const result = handler.handle(
     snapshot,
     {} as never,

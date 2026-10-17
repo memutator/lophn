@@ -36,6 +36,28 @@ export function projectFolderPaths(sql: ReadSql, project: string): string[] {
   ).map((row) => String(row["path"]));
 }
 
+// path가 들어 있는 active project. 여럿이면 가장 안쪽 폴더를 가진 project다.
+export function innermostProjectOfPath(
+  sql: ReadSql,
+  path: string,
+): string | null {
+  let best: { project: string; length: number } | null = null;
+  for (
+    const row of sql.all(
+      `select f.project as project, f.path as path from project_folders f
+       join projects p on p.id = f.project where p.status = 'active'`,
+      [],
+    )
+  ) {
+    const folder = String(row["path"]).replace(/\/+$/, "");
+    const inside = path === folder || path.startsWith(`${folder}/`);
+    if (inside && (best === null || folder.length > best.length)) {
+      best = { project: String(row["project"]), length: folder.length };
+    }
+  }
+  return best === null ? null : best.project;
+}
+
 // active project 전체의 등록 폴더 경로.
 export function activeProjectFolderPaths(sql: ReadSql): string[] {
   return sql.all(

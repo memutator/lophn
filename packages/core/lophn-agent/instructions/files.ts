@@ -3,7 +3,7 @@
 // LOPHN.md(첫 등록 폴더 바로 아래), 그리고 agent 정의 본문이다. 앱 층은 없다.
 // 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다(lophn만 project를 골라 읽는다).
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
-// 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader Worker가 부른다). 동기
+// 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
@@ -20,6 +20,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import { dataRootOf } from "../agents/store.ts";
+import { loadSession, placeOf } from "../session/model.ts";
 import {
   encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
@@ -69,72 +70,44 @@ function openFile(
   }
 }
 
-type SessionRow = {
+export type SessionRow = {
   role: Role;
   operator: string | null;
   place: Place | null;
 };
 
-function loadSession(
+function loadInstructionSession(
   snapshot: ReadSnapshot,
-  session: string,
+  id: string,
 ): SessionRow | undefined {
-  const found = snapshot.sql.get(
-    `select role, operator, place_kind, place_id from sessions where id = ?`,
-    [session],
-  );
-  if (found === undefined) return undefined;
-  const place: Place | null =
-    found["place_kind"] === null || found["place_id"] === null ? null : {
-      kind: String(found["place_kind"]),
-      id: String(found["place_id"]),
-    } as Place;
-  return {
-    role: String(found["role"]) as Role,
-    operator: found["operator"] === null ? null : String(found["operator"]),
-    place,
-  };
+  const found = loadSession(snapshot, id);
+  return found === undefined
+    ? undefined
+    : { role: found.role, operator: found.operator, place: placeOf(found) };
 }
 
-function projectFolder(snapshot: ReadSnapshot, project: string) {
-  const first = snapshot.sql.get(
-    "select path from project_folders where project = ? order by position limit 1",
-    [project],
-  );
-  return first === undefined ? null : String(first["path"]);
-}
-
-// 앱 source 폴더가 들어 있는 등록 project. 여럿이면 가장 안쪽 폴더를 가진 project다.
-function projectOfApp(snapshot: ReadSnapshot, app: string): string | null {
-  const found = snapshot.sql.get(
-    "select source_path from apps where id = ?",
-    [app],
-  );
-  const source = found?.["source_path"];
-  if (typeof source !== "string") return null;
-  let best: { project: string; length: number } | null = null;
-  for (
-    const row of snapshot.sql.all(
-      `select f.project as project, f.path as path from project_folders f
-       join projects p on p.id = f.project where p.status = 'active'`,
-      [],
-    )
-  ) {
-    const folder = String(row["path"]).replace(/\/+$/, "");
-    const inside = source === folder || source.startsWith(`${folder}/`);
-    if (inside && (best === null || folder.length > best.length)) {
-      best = { project: String(row["project"]), length: folder.length };
-    }
-  }
-  return best === null ? null : best.project;
-}
+// 조립이 넘기는 조회와 규칙이다. project·앱 표와 role별 정의 file 자리는 harness가 모른다.
+export type InstructionReadDeps = {
+  projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
+  projectFirstFolder(sql: ReadSnapshot["sql"], project: string): string | null;
+  // 앱 source 폴더가 들어 있는 등록 project.
+  projectOfApp(sql: ReadSnapshot["sql"], app: string): string | null;
+  agentFilePathOf(root: string, session: SessionRow): string | null;
+  mayReadOtherProject(role: Role): boolean;
+};
 
 // 그 session의 agent가 prompt로 읽는 project. lophn은 place가 없어 없다. 앱 place는 앱 source가 등록 project 안에
 // 있을 때만 있다.
-function ownProject(snapshot: ReadSnapshot, session: SessionRow) {
+function ownProject(
+  deps: InstructionReadDeps,
+  snapshot: ReadSnapshot,
+  session: SessionRow,
+) {
   const { place } = session;
   if (place === null) return null;
-  return place.kind === "project" ? place.id : projectOfApp(snapshot, place.id);
+  return place.kind === "project"
+    ? place.id
+    : deps.projectOfApp(snapshot.sql, place.id);
 }
 
 // 정의 파일의 frontmatter를 뺀 본문. 닫는 줄이 없으면 깨진 파일이라 null이다.
@@ -151,37 +124,12 @@ function bodyOf(text: string): string | null {
   return body.replace(/^(\s*\n)+/, "").trimEnd();
 }
 
-// 정의 파일은 lophn data 아래에 있다(agents/store.ts의 slotOf와 같은 배치).
-function agentFilePath(
-  root: string,
-  session: SessionRow,
-): string | null {
-  const { place } = session;
-  const folder = (kind: Place["kind"], id: string) =>
-    `${root}/${kind === "project" ? "projects" : "apps"}/${id}/agents`;
-  switch (session.role) {
-    case "lophn":
-      return `${root}/agents/lophn.md`;
-    case "project_manager":
-      return place?.kind === "project"
-        ? `${folder("project", place.id)}/project-manager.md`
-        : null;
-    case "app_engineer":
-      return place?.kind === "app"
-        ? `${folder("app", place.id)}/app-engineer.md`
-        : null;
-    case "operator":
-      return place === null || session.operator === null
-        ? null
-        : `${folder(place.kind, place.id)}/${session.operator}.md`;
-  }
-}
-
 function readAgentBody(
+  deps: InstructionReadDeps,
   root: string,
   session: SessionRow,
 ): Result<InstructionFile | null> {
-  const path = agentFilePath(root, session);
+  const path = deps.agentFilePathOf(root, session);
   if (path === null) return unavailable();
   let text: string;
   try {
@@ -202,42 +150,39 @@ function readAgentBody(
 // - project 칸은 lophn session만 다른 project를 줄 수 있다. 다른 role은 자기 place의 project만 받는다.
 // - 칸이 없으면 session의 place가 가리키는 project다. lophn과 등록 project 밖의 앱은 project 지침이 없다.
 function readInstruction(
+  deps: InstructionReadDeps,
   snapshot: ReadSnapshot,
   sessionId: string,
   layer: InstructionLayerKind,
   requested: string | undefined,
 ): Result<InstructionFile | null> {
-  const session = loadSession(snapshot, sessionId);
+  const session = loadInstructionSession(snapshot, sessionId);
   if (session === undefined) return notFound();
   const root = dataRootOf(snapshot.sql, undefined);
   if (!root.ok) return unavailable();
   if (layer === "global") return openFile(`${root.value}/${FILE_NAME}`);
-  if (layer === "agent") return readAgentBody(root.value, session);
-  const own = ownProject(snapshot, session);
+  if (layer === "agent") return readAgentBody(deps, root.value, session);
+  const own = ownProject(deps, snapshot, session);
   if (requested !== undefined && requested !== own) {
-    if (session.role !== "lophn") {
+    if (!deps.mayReadOtherProject(session.role)) {
       return err({
         code: "forbidden",
         message: "only lophn reads another project's instructions",
       });
     }
-    const exists = snapshot.sql.get(
-      "select 1 as found from projects where id = ?",
-      [
-        requested,
-      ],
-    );
-    if (exists === undefined) return notFound();
+    if (!deps.projectExists(snapshot.sql, requested)) return notFound();
   }
   const project = requested ?? own;
   if (project === null) return ok(null);
-  const folder = projectFolder(snapshot, project);
+  const folder = deps.projectFirstFolder(snapshot.sql, project);
   return folder === null ? ok(null) : openFile(`${folder}/${FILE_NAME}`);
 }
 
 // GetInstructions. machine만 읽는다(route의 actors). reader Worker의 동기 handler라 core 흐름과
 // ledger writer를 붙잡지 않는다. `as_of_seq`는 읽은 때의 ledger 위치다.
-export function instructionsGetHandler(): ReadDefinition<
+function instructionsGetHandler(
+  deps: InstructionReadDeps,
+): ReadDefinition<
   typeof instructionsGet
 > {
   return {
@@ -253,6 +198,7 @@ export function instructionsGetHandler(): ReadDefinition<
       }
       try {
         const file = readInstruction(
+          deps,
           snapshot,
           input.session,
           input.layer,
@@ -273,7 +219,7 @@ export function instructionsGetHandler(): ReadDefinition<
 
 // PreviewGlobalInstructions. 사람 화면이 모든 project의 LOPHN.md(data root) 앞부분을 읽는다. turn을 모르고 전역 층
 // 하나뿐이다. 읽는 길은 GetInstructions와 같은 reader Worker라 core 흐름과 ledger writer를 붙잡지 않는다.
-export function instructionPreviewHandler(): ReadDefinition<
+function instructionPreviewHandler(): ReadDefinition<
   typeof instructionPreview
 > {
   return {
@@ -308,10 +254,12 @@ export function instructionPreviewHandler(): ReadDefinition<
   };
 }
 
-export function createReaderRegistration(): ReaderRegistration {
+export function createInstructionReads(
+  deps: InstructionReadDeps,
+): ReaderRegistration {
   return {
     reads: [
-      instructionsGetHandler(),
+      instructionsGetHandler(deps),
       instructionPreviewHandler(),
     ],
     ports: new Map(),

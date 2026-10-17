@@ -116,10 +116,6 @@ const HARNESS_DOMAIN_PROTOCOLS = [
 const ROLE_NAMES = new Set(["project_manager", "app_engineer", "operator"]);
 const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
   [
-    "packages/core/lophn-agent/instructions/files.ts",
-    "못 옮김: 지침 file 자리와 session 행 읽기가 harness의 instructions/에 있어 role별 file 이름을 role 이름으로 고른다",
-  ],
-  [
     "packages/core/lophn-agent/run-loop/runtime-access.ts",
     "못 옮김: agent runtime이 열 core route 목록이 projects·apps protocol의 route 값을 직접 import한다",
   ],

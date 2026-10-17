@@ -25,6 +25,7 @@ import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
+import { attachedOf } from "./attached-chips.ts";
 import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 import type {
@@ -135,6 +136,7 @@ export async function runCommand(
     key: `commands-run-${key}`,
     text,
     delivery: "next_turn",
+    chips: [],
   });
 }
 
@@ -158,7 +160,7 @@ export function sendText(
         parts: [{ kind: "text", text: input.text }],
       },
       delivery: input.delivery,
-      attached: [],
+      attached: attachedOf(input.chips),
       refs: [],
     },
     compare: {},
@@ -245,6 +247,7 @@ export async function retryTurn(
         session: body.value.session,
         content: { schema_version: 1, parts },
         delivery: "next_turn",
+        // 본문에 chip이 남지 않아 다시 만들 수 없다. chip 없이 다시 보낸다.
         attached: [],
         refs: [],
       },

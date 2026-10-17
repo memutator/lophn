@@ -453,6 +453,8 @@ export interface SendInput {
   readonly key: string;
   readonly text: string;
   readonly delivery: Delivery;
+  /** 이 말에 붙은 context chip. core가 `attached`로 받아 agent에게 chip으로 전한다. */
+  readonly chips: readonly ContextChipView[];
 }
 
 export interface AgentTabSource {
@@ -539,9 +541,9 @@ export interface AgentTabSource {
   cancelCall(call: string): Promise<SourceResult<void>>;
 
   // session
-  /** 첫 말을 보내기 전에 만든다. contexts가 이 session의 첫 context가 된다. */
+  /** 첫 말을 보내기 전에 만든다. 첫 context chip은 첫 말의 `attached`로 간다. */
   openSession(
-    input: { id: string; contexts: readonly ContextChipView[] },
+    input: { id: string },
   ): Promise<SourceResult<void>>;
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;

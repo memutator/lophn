@@ -24,6 +24,7 @@ interface AgentTabProps {
   title: string;
   onTitle: (name: string) => void;
   chips?: readonly ContextChipView[];
+  onChips: (chips: readonly ContextChipView[]) => void;
 }
 
 export function AgentTab(props: AgentTabProps) {
@@ -60,6 +61,7 @@ export function AgentTab(props: AgentTabProps) {
       onSessionChange={props.onSession}
       host={props.host}
       {...(props.chips === undefined ? {} : { contextChips: props.chips })}
+      onContextChips={props.onChips}
       {...(slice.now === undefined ? {} : { now: slice.now })}
     />
   );

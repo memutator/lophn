@@ -36,8 +36,9 @@ function NewSession({ rows }: { rows: readonly ViolationRow[] }) {
   );
 }
 
-/** reaction이 이미 연 session. Project Manager가 위반을 받아 일하는 중이다. */
-function WorkingSession() {
+/** reaction이 이미 연 session. Project Manager가 위반을 받아 일하는 중이고, 새로 누른 위반이 chip으로 붙어 있다. */
+function WorkingSession({ rows }: { rows: readonly ViolationRow[] }) {
+  const [chip, setChip] = useState<string | undefined>(violationEvidence(rows));
   const [opened, setOpened] = useState<Record<string, boolean>>({ read: true });
   const toggle = (key: string) => setOpened({ ...opened, [key]: !opened[key] });
   return (
@@ -45,6 +46,8 @@ function WorkingSession() {
       agent={PROJECT_MANAGER}
       session={{ id: "violations", title: "eval violations" }}
       running
+      chip={chip}
+      onChip={() => setChip(undefined)}
       placeholder={`Ask ${PROJECT_MANAGER}… @ for documents and contexts, / for skills`}
     >
       {(detail) => {
@@ -110,5 +113,5 @@ export const pmWorkingTab = (): TabSpec => ({
   kind: "agent",
   title: `eval violations · ${PROJECT_MANAGER}`,
   sub: "violations",
-  body: <WorkingSession />,
+  body: <WorkingSession rows={VIOLATIONS} />,
 });

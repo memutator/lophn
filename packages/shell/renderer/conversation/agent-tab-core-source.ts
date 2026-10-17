@@ -115,9 +115,7 @@ function createSource(
       decidePermission(env, session, request, choice, reason),
     cancelCall: (call) => cancelCallOf(env, call),
 
-    async openSession(
-      { id, contexts: _contexts },
-    ): Promise<SourceResult<void>> {
+    async openSession({ id }): Promise<SourceResult<void>> {
       const opened = await openSession(env, id);
       if (!opened.ok) return opened;
       await modelPart.applyPending(id, opened.value.state_seq);

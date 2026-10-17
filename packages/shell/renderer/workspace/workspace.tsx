@@ -34,6 +34,7 @@ import { ContextSidebar } from "./contexts/context-sidebar.tsx";
 import {
   agentByRole,
   type KnownSessions,
+  openedProjectManagerSession,
   panelSessions,
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
@@ -445,34 +446,16 @@ export function Workspace(props: WorkspaceProps) {
     return true;
   };
 
-  // 이 project의 열린 Project Manager session 가운데 가장 최근 것.
-  const openedPmSession = (): string | null => {
-    const found = sessionStates.filter((entry) =>
-      entry.ended === null && entry.agent?.role === "project_manager" &&
-      entry.agent.project === projectId
-    );
-    return found.length === 0 ? null : found[found.length - 1].session;
-  };
-
-  // Project Manager에게 묻는 단추(askProjectManager). 열린 PM session이 있으면 그 탭을 고르고 chip을 쓰던 글로 채운다(session에는 chip을 붙일 길이 없다). 없으면 chip을 붙인 새 PM 탭이다.
+  // Project Manager에게 묻는 단추(askProjectManager). 열린 PM session이 있으면 그 탭에, 없으면 새 PM 탭에 chip을 붙인다.
   const askPm = (chips: readonly ContextChipView[]) => {
     const row = agentByRole(sidebarAgents.agents, "project_manager");
     if (agentViewSource === undefined || row === undefined) return;
-    const session = openedPmSession();
-    if (session === null) {
-      openAgent(host, { agent: row.assignment, name: row.name, chips });
-      return;
-    }
-    const drafts = conversation?.drafts ?? localDrafts;
-    if (drafts.draft(session).text === "") {
-      const text = chips.map((chip) =>
-        chip.violation === undefined
-          ? chip.label
-          : `${chip.label}: ${chip.violation.file} - ${chip.violation.rule}`
-      ).join("\n");
-      drafts.save(session, { text, selection: [text.length, text.length] });
-    }
-    openAgent(host, { agent: row.assignment, name: row.name, session });
+    openAgent(host, {
+      agent: row.assignment,
+      name: row.name,
+      session: openedProjectManagerSession(sessionStates, projectId),
+      chips,
+    });
   };
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.

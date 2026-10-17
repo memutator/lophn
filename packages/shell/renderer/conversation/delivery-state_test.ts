@@ -13,6 +13,7 @@ const sending = startSend({
   key: "key-1",
   text: "Write the report.",
   delivery: "next_turn",
+  chips: [],
 });
 
 // 접수 여부를 모르는 채 다시 보내면 같은 말이 두 번 접수될 수 있다.

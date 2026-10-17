@@ -117,7 +117,7 @@ export const contextsArea: Area = {
       id: "new-violation-session-open",
       title: "Violation · Project Manager session (open)",
       description:
-        "reaction이 이미 연 session으로 간 경우다. Project Manager가 위반 문서와 계약을 읽고 일하는 중이고 사람이 쓴 글은 없다.",
+        "reaction이 이미 연 session으로 간 경우다. Project Manager가 위반 문서와 계약을 읽고 일하는 중이고, 새로 누른 위반이 chip으로 붙어 다음에 보내는 말에 실린다.",
       render: () => <ViolationSessionOpenPage />,
     },
   ],

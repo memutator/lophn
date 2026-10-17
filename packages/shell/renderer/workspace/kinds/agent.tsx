@@ -28,7 +28,7 @@ interface OpenAgentInput {
   readonly name: string;
   /** 열어 볼 session. 없으면 첫 말을 보낼 때 만드는 새 session이다. */
   readonly session?: string | null;
-  /** 새 session의 첫 context(계약 위반 toast가 여는 Project Manager의 위반 근거). 보낼 때까지 아무것도 보내지 않는다. */
+  /** 탭에 붙는 context(계약 위반 toast가 여는 Project Manager의 위반 근거). 다음에 보내는 말에 실려 가고, 보낼 때까지 아무것도 보내지 않는다. */
   readonly chips?: readonly ContextChipView[];
 }
 
@@ -69,6 +69,15 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
   if (host.agentView === null) return;
   const found = reusable(host, input);
   if (found !== undefined) {
+    // 열린 session의 탭에는 새 chip만 더한다.
+    const added = (input.chips ?? []).filter((chip) =>
+      !chipsOf(found).some((have) => have.id === chip.id)
+    );
+    if (input.session != null && added.length > 0) {
+      host.patchTab(found.key, (current) => ({
+        fields: { ...current.fields, chips: [...chipsOf(current), ...added] },
+      }));
+    }
     host.openTab(found);
     return;
   }
@@ -196,6 +205,13 @@ export const agentKind: TabKindDef = {
               current.fields ?? {};
             return {
               fields: session === null ? rest : { ...rest, session },
+            };
+          })}
+        onChips={(next) =>
+          host.patchTab(tab.key, (current) => {
+            const { chips: _chips, ...rest } = current.fields ?? {};
+            return {
+              fields: next.length === 0 ? rest : { ...rest, chips: next },
             };
           })}
         host={viewHost(tab, host, slice)}

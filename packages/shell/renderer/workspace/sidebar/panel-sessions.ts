@@ -16,6 +16,21 @@ export function agentByRole(
   return agents.find((row) => row.role === role);
 }
 
+/**
+ * 이 project의 열린 Project Manager session 가운데 가장 최근 것. session 정보에 reaction의 근거 seq가 없어서
+ * 그 위반의 reaction이 연 session을 정확히 가리지 못한다.
+ */
+export function openedProjectManagerSession(
+  entries: readonly SessionEntry[],
+  project: string,
+): string | null {
+  const found = entries.filter((entry) =>
+    entry.ended === null && entry.agent?.role === "project_manager" &&
+    entry.agent.project === project
+  );
+  return found.length === 0 ? null : found[found.length - 1].session;
+}
+
 // session을 가진 agent를 sidebar의 agent 줄로 찾는다. 이 project에 놓인 agent와 lophn만 줄이 있다.
 function agentRow(
   entry: SessionEntry,

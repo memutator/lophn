@@ -81,8 +81,9 @@ interface AgentViewProps {
   session: string | null;
   onSessionChange: (session: string | null) => void;
   host: AgentViewHost;
-  /** 새 session의 첫 말을 보내기 전에 composer 위에 붙는 context. chip마다 하나씩 붙는다. */
+  /** 다음에 보낼 말에 붙는 context. 탭이 쥔다. chip마다 하나씩 붙고, 보내면 비운다. */
   contextChips?: readonly ContextChipView[];
+  onContextChips?: (chips: readonly ContextChipView[]) => void;
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
   now?: () => number;
@@ -156,9 +157,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const [detail, setDetail] = useState<ViewDetail>("compact");
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
-  const [chips, setChips] = useState<readonly ContextChipView[]>(
-    props.contextChips ?? [],
-  );
+  const chips = props.contextChips ?? [];
+  const setChips = (next: readonly ContextChipView[]) =>
+    props.onContextChips?.(next);
   const [problem, setProblem] = useState<Problem | null>(null);
 
   const { agent, thread, refresh } = data;
@@ -222,20 +223,16 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     }
   };
 
-  // 첫 말을 보낼 때 session을 만든다. 남은 chip이 그 session의 첫 context가 되고, 쓰던 글은 새 session의 것이 된다.
+  // 첫 말을 보낼 때 session을 만든다. 쓰던 글은 새 session의 것이 된다. chip은 말에 실려 간다.
   const ensureSession = async (): Promise<string | null> => {
     if (session !== null) return session;
     const id = newId("ses", now());
-    const opened = await source.openSession({
-      id,
-      contexts: chips,
-    });
+    const opened = await source.openSession({ id });
     if (!opened.ok) {
       setProblem("open-failed");
       return null;
     }
     setProblem(null);
-    setChips([]);
     drafts.save(id, { text: draft.text, selection: draft.selection });
     drafts.save(key, { text: "", selection: [0, 0] });
     onSessionChange(id);
@@ -249,6 +246,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       key: outgoing.key,
       text: outgoing.text,
       delivery: outgoing.delivery,
+      chips: outgoing.chips,
     });
     const next = afterReply(
       outgoing,
@@ -267,7 +265,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       key: `session-messages-send-${id}`,
       text,
       delivery: "next_turn",
+      chips,
     });
+    setChips([]);
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
   };
@@ -276,9 +276,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
 
   const send = async () => {
     if (readOnly || composerLocked(draft.outgoing)) return;
-    const text = draft.text.trim() === "" && session === null
-      ? chipText
-      : draft.text;
+    const text = draft.text.trim() === "" ? chipText : draft.text;
     if (text.trim() === "" || !fitsMessage(text)) return;
     const target = await ensureSession();
     if (target !== null) await dispatch(text, target);
@@ -595,13 +593,13 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           offline={offline}
           readOnly={readOnly}
           hint={hint}
-          chips={session === null ? chips : []}
+          chips={chips}
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
           onDraft={(patch) => drafts.save(key, patch)}
           onRemoveChip={(id) =>
-            setChips((list) => list.filter((chip) => chip.id !== id))}
+            setChips(chips.filter((chip) => chip.id !== id))}
           onAttach={host.attach}
           onLoadPermissions={() => void loadPermissions()}
           onEditPermissions={host.openPermissions}

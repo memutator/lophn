@@ -8,11 +8,13 @@ export function keyText(key: ViolationItem): string {
 
 /** 위반 하나가 chip 하나다. label은 context 이름이다. */
 export function violationChips(
+  context: string,
   label: string,
   violations: readonly ViolationItem[],
 ): readonly ContextChipView[] {
   return violations.map((item) => ({
     id: keyText(item),
+    context,
     label,
     violation: { file: item.path, rule: item.rule ?? item.message },
   }));

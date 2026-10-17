@@ -31,7 +31,7 @@ export interface ContextsSlice {
   openSearch(state: SearchTabState): void;
   /** 검색 결과·Overview 예시의 도메인 객체를 그 파일 탭으로 연다. 상대 경로는 연결 폴더 기준이다. */
   openPath(path: string): void;
-  /** Project Manager의 새 Agent 탭을 연다. chips는 넘길 위반 근거이고, 없으면 빈 탭이다. */
+  /** Project Manager의 Agent 탭을 연다. 열린 PM session이 있으면 그 탭을, 없으면 새 탭을 연다. chips는 넘길 위반 근거이고 다음에 보내는 말에 실려 간다. */
   askProjectManager(chips?: readonly ContextChipView[]): void;
 }
 

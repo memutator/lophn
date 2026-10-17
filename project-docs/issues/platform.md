@@ -63,21 +63,6 @@ modules: [packages/core/apps]
 - core 기동 때 `packages/sdk/*`와 지원 소스(`packages/design`, wording)를 `packageInstallPath` 자리에 읽기 전용으로 풀고, 앱 template을 `templates/app/`에 둔다(중간). 지워진 `install.ts` 함수를 git 기록에서 되살려 기동 조립에 잇는 것이 가장 짧다. 판(version)은 각 `deno.json`의 `version`을 쓴다. 추천.
 - release 준비가 data root 대신 repo의 `packages/` 소스를 직접 읽는다(작음). read-only 사본과 "release bundle에 굳힌 사본" 격리가 약해진다.
 
-## template 앱의 release 준비가 file 수 상한(10,000)에 걸린다
-
-```yaml
-kind: bug
-modules: [packages/core/apps]
-```
-
-지금: `apps/releases/prepare/from-source.ts`의 `fetchExternal`이 앱 npm 의존을 `deno cache`(`nodeModulesDir: "auto"`)로 받고, `releases/bundle/vendor.ts`의 `readVendorFiles`가 `node_modules/`를 읽어 bundle file로 만든다. `collect`는 `Deno.stat`으로 symlink를 따라가므로 `node_modules/<이름>` symlink가 가리키는 `node_modules/.deno/<이름>@<판>/…` 폴더를 한 번 더 복사한다. 앱 template이 쓰는 `lucide-react@1.51.0` 하나가 4306 file이라 두 번 담기면 그것만 8600개를 넘는다. 손으로 깐 사본으로 template 앱의 release 준비를 돌리면 약 15,000 file이 되어 `RELEASE_FILE_MAX_COUNT`(`packages/protocol/apps/releases.ts`, 10,000)에서 `invalid_input`·`file_count`로 멈춘다.
-
-영향: template으로 만든 앱은 화면 build와 blueprint 평가를 지나도 release를 준비하지 못한다. 위 "설치 사본" 이슈를 고쳐도 release는 여기서 막힌다.
-
-고치려면:
-- `collect`가 symlink를 따라 복사하지 않고, 실제 폴더는 `.deno/` 안 한 곳만 담는다. bundle을 푸는 쪽(운영 process가 읽는 자리)이 `node_modules/<이름>` 연결을 다시 만든다(중간). 크기도 반으로 준다. 추천.
-- 상한을 올린다(작음). bundle에 같은 file이 두 번 들어가는 것은 그대로다.
-
 ## 설정 화면의 보호 입력 창이 열리지 않아 OAuth 붙여 넣기와 MCP credential을 넣을 수 없다
 
 ```yaml

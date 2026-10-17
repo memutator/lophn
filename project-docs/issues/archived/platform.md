@@ -82,3 +82,22 @@ guard: packages/core/lophn-agent/providers/secret-refs_test.ts "attach는 허락
 정한 것: `secrets.json` 길로 끝낸다. 저장소는 이미 그쪽으로 옮겼고 옛 relay는 지워져 있다(AGENTS.md "호환성": 옛 길을 남기지 않는다). (agent)
 
 닫음: `secrets.json` 길로 끝냈다. 설정 화면의 API key 연결은 보호 입력 창(`openSecretInput`)이 `stored`를 답한 뒤 `providers/connect`를 `credential: {secret: "provider.<id>"}`로 부르고, 실패하면(conflict 말고) 올린 값을 지운다. key 없는 custom도 `connect`다. 끊기는 `secrets/delete`로 값도 지운다. core의 `ConnectProvider`는 `provider.<id>` 밖의 이름을 `invalid_input`으로 거절하고, credential의 `secret_ref`는 `{name}`이며 같은 연결인지는 `logged_in_at`으로 본다. agent runtime은 감독 pipe에 `{name, destination}`을 싣고 core의 `createFileSecretAttach`가 provider credential만 허용하고, process가 살아 있고 목적지가 그 이름의 회수되지 않은 provider endpoint origin일 때만 값을 읽어 준다. `RegisterProvider`, `preparation`, provider keychain 참조 통로와 회수(`reclaim`·`sweep`)는 지웠다. MCP는 옛 keychain 길이 그대로다. OAuth credential로 model을 부르는 길은 여전히 없다.
+
+## template 앱의 release 준비가 file 수 상한(10,000)에 걸린다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: packages/core/apps/releases/bundle/vendor_test.ts
+```
+
+지금: `apps/releases/prepare/from-source.ts`의 `fetchExternal`이 앱 npm 의존을 `deno cache`(`nodeModulesDir: "auto"`)로 받고, `releases/bundle/vendor.ts`의 `readVendorFiles`가 `node_modules/`를 읽어 bundle file로 만든다. `collect`는 `Deno.stat`으로 symlink를 따라가므로 `node_modules/<이름>` symlink가 가리키는 `node_modules/.deno/<이름>@<판>/…` 폴더를 한 번 더 복사한다. 앱 template이 쓰는 `lucide-react@1.51.0` 하나가 4306 file이라 두 번 담기면 그것만 8600개를 넘는다. 손으로 깐 사본으로 template 앱의 release 준비를 돌리면 약 15,000 file이 되어 `RELEASE_FILE_MAX_COUNT`(`packages/protocol/apps/releases.ts`, 10,000)에서 `invalid_input`·`file_count`로 멈춘다.
+
+영향: template으로 만든 앱은 화면 build와 blueprint 평가를 지나도 release를 준비하지 못한다. 위 "설치 사본" 이슈를 고쳐도 release는 여기서 막힌다.
+
+고치려면:
+- `collect`가 symlink를 따라 복사하지 않고, 실제 폴더는 `.deno/` 안 한 곳만 담는다. bundle을 푸는 쪽(운영 process가 읽는 자리)이 `node_modules/<이름>` 연결을 다시 만든다(중간). 크기도 반으로 준다. 추천.
+- 상한을 올린다(작음). bundle에 같은 file이 두 번 들어가는 것은 그대로다.
+
+닫음: `readVendorFiles`의 `collect`는 symlink를 따라가지 않고 `Deno.readLink` 값을 `node_modules/.lophn-links.json`(`bundle/links.ts`) 목록 하나로 bundle에 굳힌다. 실제 폴더는 `.deno/` 안 한 벌만 담긴다. `sealBundle`이 정규 file을 다 쓴 뒤 그 목록으로 연결을 다시 만들고, 사본 밖을 가리키는 target(절대 경로, 부모 깊이를 넘는 `..`, 중간 `..`, 연결 아래 연결)은 아무것도 만들기 전에 `invalid_input`으로 거절한다. 상한은 그대로다. 실제 template 앱으로 file 수가 상한 아래인지는 손으로 확인하지 않았다(E2E 몫).

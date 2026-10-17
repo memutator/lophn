@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py app-platform build`가 `tasks/*.md`에서 id
 | `call-frames-rewind` | call-frames | 1 | approval-reads | running | call-frames/call-frames-rewind |  |  |
 | `crash-log` | crash-log | 1 | approval-reads, call-frames-rewind | todo |  |  |  |
 | `doc-paths` | doc-paths | 1 | 없음 | merged | doc-paths/doc-paths | 4f1ae1fd7 |  |
-| `release-files` | release-files | 1 | 없음 | running | release-files/release-files |  |  |
+| `release-files` | release-files | 1 | 없음 | merged | release-files/release-files | 01ecb18d7 |  |
 | `screen-maps` | screen-maps | 1 | release-files | todo |  |  |  |
 | `sdk-install-copies` | sdk-install | 1 | 없음 | running | sdk-install/sdk-install-copies |  |  |
 | `sdk-install-startup` | sdk-install | 1 | sdk-install-copies, sdk-install-template | todo |  |  |  |

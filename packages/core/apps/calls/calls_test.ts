@@ -136,9 +136,12 @@ async function tick() {
   for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
 }
 
+// 조건이 안 되면 조용히 지나가지 않고 실패한다. 부하에서는 tick 수보다 시간 상한이 안정적이다.
 async function until(done: () => boolean) {
-  for (let i = 0; i < 1000 && !done(); i++) {
-    await new Promise((r) => setTimeout(r, 0));
+  const limit = Date.now() + 2000;
+  while (!done()) {
+    if (Date.now() > limit) throw new Error("until: condition not met in 2s");
+    await new Promise((r) => setTimeout(r, 1));
   }
 }
 
@@ -259,23 +262,38 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
   const wOther = t.path.call(person(other, "w.one"), { actor: "user" });
   await until(() => t.sent.length >= 3);
   await tick();
-  // 같은 앱의 두 번째 write만 기다린다.
-  assertEquals(
-    t.sent.map((s) => s.request.api).sort(),
-    ["r.get", "w.one", "w.one"],
+  // 해시 계산 순서는 부하에 따라 달라서 같은 앱의 어느 write가 먼저 도는지는 정해지지 않는다.
+  // 같은 앱의 write 하나만 돌고 나머지 하나는 기다린다.
+  assertEquals(t.sent.length, 3);
+  const aWrites = t.sent.filter(
+    (s) => s.app === a && s.request.api.startsWith("w."),
   );
-  const first = t.sent.find((s) => s.app === a && s.request.api === "w.one")!;
+  assertEquals(aWrites.length, 1);
+  assertEquals(
+    t.sent.filter((s) => s.app === a && s.request.api === "r.get").length,
+    1,
+  );
+  assertEquals(
+    t.sent.filter((s) => s.app === other).map((s) => s.request.api),
+    ["w.one"],
+  );
+  const first = aWrites[0];
 
   gates.get(first.request.invocation)!.resolve(okResponse);
-  await w1;
   await until(() => t.sent.length >= 4);
   assertEquals(t.sent.length, 4);
-  assertEquals(t.sent[3].request.api, "w.two");
+  assertEquals(
+    t.sent
+      .filter((s) => s.app === a && s.request.api.startsWith("w."))
+      .map((s) => s.request.api)
+      .sort(),
+    ["w.one", "w.two"],
+  );
 
   for (const gate of gates.values()) gate.resolve(okResponse);
-  const results = await Promise.all([w2, r1, wOther]);
-  assertEquals(results.map(status), ["succeeded", "succeeded", "succeeded"]);
-  const read = results[1];
+  const results = await Promise.all([w1, w2, r1, wOther]);
+  assertEquals(results.map(status), Array(4).fill("succeeded"));
+  const read = results[2];
   assert(read.ok && read.value.invocation === null);
   // write는 끝에서 닫힌 기록이 남는다.
   assertEquals(

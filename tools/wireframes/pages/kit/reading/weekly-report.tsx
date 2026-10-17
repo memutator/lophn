@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { ReadingFrame } from "@lophn/ui/layout";
 import { Markdown, parseMarkdown, Toc } from "@lophn/ui/reading";
 import type { Clipboard } from "@lophn/ui/shared";
-import styles from "./weekly-report.module.css";
 
 // 앱의 read command가 돌려준 문서다. 본문은 사람이나 agent가 쓴 Markdown이다.
 export const REPORT = {
@@ -36,9 +35,17 @@ export function WeeklyReport(
   const outline = useMemo(() => parseMarkdown(REPORT.body).outline, []);
   const [active, setActive] = useState(outline[0]?.id);
   const header = (
-    <div className={styles.header}>
-      <h1 className={styles.title}>{REPORT.title}</h1>
-    </div>
+    <h1
+      style={{
+        margin: "var(--space-0)",
+        fontSize: "var(--type-title-size)",
+        lineHeight: "var(--type-title-line)",
+        fontWeight: "var(--font-weight-semibold)",
+        letterSpacing: "var(--type-tracking-title)",
+      }}
+    >
+      {REPORT.title}
+    </h1>
   );
   return (
     <ReadingFrame

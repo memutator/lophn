@@ -3,6 +3,8 @@ import { useState } from "react";
 import {
   EmptyState,
   ErrorState,
+  Loading,
+  ReadState,
   Skeleton,
   StaleNote,
   StatusMark,
@@ -10,11 +12,29 @@ import {
 import { launcherEmptyIcon } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AppRoot, OrdersStatus } from "./orders-status.tsx";
-import { kit, Page, Row, Section } from "../kit.tsx";
+import { FROZEN_TIMER, kit, Page, Row, Section } from "../kit.tsx";
 
 const NOW = new Date("2026-10-11T12:00:00Z");
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
 const NOOP = () => {};
+// 지연 시간이 이미 지난 것으로 본다.
+const ELAPSED_TIMER = {
+  set: (callback: () => void) => {
+    callback();
+    return 0;
+  },
+  clear: () => {},
+};
+const FRESHNESS = {
+  updatedAt: new Date("2026-10-11T11:55:00Z"),
+  now: NOW,
+  staleAfterMs: 60 * 60 * 1000,
+};
+const LIST = <p>ord_1 · Harbor Books</p>;
+const READ_EMPTY = {
+  message: "No orders yet.",
+  action: { label: "Reload", onSelect: NOOP },
+};
 
 const READY = {
   loading: false,
@@ -63,6 +83,34 @@ export function KitFeedback() {
           <Skeleton shape="icon" />
         </Row>
       </Section>
+      <Section
+        title="Loading"
+        note="300ms 안에 끝나면 아무것도 보이지 않는다. 길어지면 skeleton, 끝나면 내용이다."
+      >
+        <Row label="loading, before delay">
+          <Loading
+            loading
+            placeholder={<Skeleton lines={2} />}
+            timer={FROZEN_TIMER}
+          >
+            {LIST}
+          </Loading>
+        </Row>
+        <Row label="loading, after delay">
+          <Loading
+            loading
+            placeholder={<Skeleton lines={2} />}
+            timer={ELAPSED_TIMER}
+          >
+            {LIST}
+          </Loading>
+        </Row>
+        <Row label="loaded">
+          <Loading loading={false} placeholder={<Skeleton lines={2} />}>
+            {LIST}
+          </Loading>
+        </Row>
+      </Section>
       <Section title="StaleNote">
         <Row label="2 hours ago">
           <StaleNote updatedAt={new Date("2026-10-11T10:00:00Z")} now={NOW} />
@@ -82,6 +130,60 @@ export function KitFeedback() {
           <StatusMark tone="critical" label="Stopped" />
           <StatusMark tone="neutral" label="Not checked" />
         </div>
+      </Section>
+      <Section
+        title="ReadState"
+        note="loading → error → empty → 내용 중 하나만 그리고, 낡은 내용에는 나이를 붙인다."
+      >
+        <Row label="loading">
+          <ReadState
+            loading
+            onRetry={NOOP}
+            isEmpty={false}
+            empty={READ_EMPTY}
+            timer={ELAPSED_TIMER}
+          >
+            {LIST}
+          </ReadState>
+        </Row>
+        <Row label="empty">
+          <ReadState onRetry={NOOP} isEmpty empty={READ_EMPTY}>
+            {LIST}
+          </ReadState>
+        </Row>
+        <Row label="error">
+          <ReadState
+            failed="orders"
+            onRetry={NOOP}
+            isEmpty={false}
+            empty={READ_EMPTY}
+          >
+            {LIST}
+          </ReadState>
+        </Row>
+        <Row label="fresh">
+          <ReadState
+            onRetry={NOOP}
+            isEmpty={false}
+            empty={READ_EMPTY}
+            freshness={FRESHNESS}
+          >
+            {LIST}
+          </ReadState>
+        </Row>
+        <Row label="stale">
+          <ReadState
+            onRetry={NOOP}
+            isEmpty={false}
+            empty={READ_EMPTY}
+            freshness={{
+              ...FRESHNESS,
+              updatedAt: new Date("2026-10-11T08:00:00Z"),
+            }}
+          >
+            {LIST}
+          </ReadState>
+        </Row>
       </Section>
       <Section
         title="orders-status"

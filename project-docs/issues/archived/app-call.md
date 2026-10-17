@@ -56,3 +56,22 @@ guard: fit_test.ts
 정한 것: frame에 안 들어가는 changeset은 앱이 빼고 too_large로 알린다. core는 그 write만 "되돌리지 못함"으로 표시하고 나머지 rewind는 막지 않는다.
 
 닫음: 앱 process(`entrypoint/fit.ts`의 `fitChangeset`)가 응답이 `CALL_RESPONSE_MAX_BYTES`(control frame 256KiB에서 1KiB를 뺀 값)를 넘으면 changeset을 빼고 `changeset_dropped: "too_large"`를 싣는다. 호출은 결과 모름이 아니라 `succeeded`/`failed`로 닫히고 요약에 `changeset_dropped`가 남는다. 그 write만 되돌리지 못하고 나머지 rewind는 막지 않는다.
+
+## rewind 적용 요청이 control frame 256KiB를 넘을 수 있다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/main]
+closed: fixed
+guard: packages/core/apps/runtime/supervisor-link_test.ts
+```
+
+지금: `core/apps/rewind/run.ts`의 `link.apply`가 되돌릴 changeset을 모두 base64로 한 요청에 담는다(`runtime/supervisor-link.ts`의 `apps.apply`, `runtime/control-protocol.ts`의 `applyInputSchema`, `main/app-supervisor/assembly.ts`). 이 요청은 core와 supervisor 사이 control pipe의 json frame 하나라 `protocol/base/frame.ts`의 `CONTROL_MAX_BYTES`(256KiB)를 넘으면 `encodeFrame`이 `control frame exceeds limit`로 throw한다. `entrypoint/limits.ts`의 `APPLY_BODY_MAX_BYTES`(64MiB)는 supervisor와 앱 process 사이 socket의 한도라 이 frame을 막지 못한다. 호출 하나의 changeset은 이제 frame 안에 들지만(too_large로 뺌) 여러 write를 한꺼번에 되돌리면 합이 넘을 수 있다. 코드로만 따라갔고 재현하지 않았다.
+
+영향: 사람이 여러 write를 되돌리려 하면 rewind 적용이 통째로 실패한다. 요청이 나가기 전에 부호화에서 실패하므로 앱 data는 바뀌지 않는다. throw가 `channel.request`에서 어떤 오류 코드로 바뀌는지는 따라가지 않았다.
+
+고치려면:
+- changeset을 write 하나씩 나눠 보낸다(중간. 중간에 실패하면 일부만 되돌린 상태가 된다).
+- apply 본문을 bytes frame stream으로 보낸다(중간). 추천.
+
+닫음: `apps.apply`는 json 요청(`worker_request`에 `channel`, payload는 `{ app }`만)을 먼저 보내고 본문(`ProcessApplyRequest` JSON)을 같은 channel의 `bytes` frame(`STREAM_CHUNK_MAX_BYTES` 단위, 쓰기가 끝나야 다음)과 `end`로 보낸다. 보내다 실패하거나 기한이 지나면 core가 `abort`를 보내고 `unavailable`로 끝낸다. supervisor(`supervisor/control-link.ts`)는 `end`까지 모았다가 op 처리기에 body로 넘긴다. 뒤집은 changeset 전부가 한 transaction으로 가는 것은 그대로다. 같은 변경에서 core가 `CALL_BODY_MAX_BYTES`를 넘는 호출 입력을 보내기 전에 `invalid_input`으로 거절한다.

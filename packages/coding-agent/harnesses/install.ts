@@ -86,11 +86,75 @@ ${
 `;
 }
 
+// OpenCode plugin 원문이다. 듣는 event는 `HOOK_EVENT_TABLE.opencode`다. plugin은 root session의 event만 넘긴다
+// (hook-signal.ts가 그 전제로 변환한다). 하위 session은 `client.session.get`의 parentID로 가른다. 조회가
+// 실패하면 root가 아닌 것으로 보고 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
+// SDK 세대마다 get의 인자 모양이 달라 둘 다 시도한다. 전역에 놓으면 lophn과 상관없는 실행마다 불리므로
+// token이 없으면 아무 hook도 등록하지 않는다.
+function opencodePlugin(): string {
+  const events = Object.keys(HOOK_EVENT_TABLE.opencode);
+  return `// lophn이 놓은 파일이다. OpenCode event를 \`lophn hook opencode <event>\`로 넘긴다.
+import { spawn } from "node:child_process";
+
+const EVENTS = new Set(${JSON.stringify(events)});
+const isRoot = new Map();
+
+async function rootSession(client, id) {
+  if (isRoot.has(id)) return isRoot.get(id);
+  let root = false;
+  for (const args of [{ path: { id } }, { sessionID: id }]) {
+    try {
+      const session = (await client.session.get(args))?.data;
+      if (session?.id === id) {
+        root = !session.parentID;
+        break;
+      }
+    } catch {
+      // 다른 SDK 모양을 시도한다.
+    }
+  }
+  isRoot.set(id, root);
+  return root;
+}
+
+function send(type, properties) {
+  try {
+    const child = spawn("lophn", ["hook", "opencode", type], {
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+    child.on("error", () => {});
+    child.stdin.on("error", () => {});
+    child.stdin.end(JSON.stringify({ type, properties }));
+  } catch {
+    // hook 실패가 OpenCode를 멈추게 하지 않는다.
+  }
+}
+
+export const LophnStatus = async ({ client }) => {
+  if (!process.env.${CODING_TOKEN_ENV}) return {};
+  return {
+    event: async ({ event }) => {
+      try {
+        if (!EVENTS.has(event?.type)) return;
+        const id = event.properties?.sessionID;
+        if (typeof id !== "string" || !(await rootSession(client, id))) return;
+        send(event.type, event.properties);
+      } catch {
+        // hook 실패가 OpenCode를 멈추게 하지 않는다.
+      }
+    },
+  };
+};
+`;
+}
+
 // harness별 plugin 파일 원문을 고르는 한 곳이다.
 function pluginSource(harness: HarnessId): string | null {
   switch (harness) {
     case "pi":
       return piExtension();
+    case "opencode":
+      return opencodePlugin();
     default:
       return null;
   }

@@ -65,8 +65,14 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     prompt: { kind: "argv", flag: "--prompt" },
     // 확인함: opencode.ai/docs/skills (~/.config/opencode/skills).
     skill_dir: ".config/opencode/skills",
-    // hook(plugin)은 harness-opencode가 채운다.
-    hook: null,
+    // 확인함: opencode.ai/docs/plugins (`~/.config/opencode/plugins/` 전역 plugin, 시작 때 읽힘). 파일 이름 규칙은
+    // 문서에 없다(이 컴퓨터의 전역 plugins 폴더에서 다른 도구의 `*.js`가 같은 위치로 쓰이는 것을 봤다).
+    // event payload는 @opencode-ai/sdk 1.18.29 types로 확인했다. plugin 실행기가 Bun인지는 확인 못함이고,
+    // node:child_process만 쓴다.
+    hook: {
+      path: ".config/opencode/plugins/lophn-status.ts",
+      format: "plugin_file",
+    },
   },
   gemini: {
     id: "gemini",

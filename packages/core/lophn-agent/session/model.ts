@@ -204,6 +204,18 @@ export function loadSession(
   return row === undefined ? undefined : sessionRowOf(row);
 }
 
+// 열린 session 전부. archive한 session은 빼고 연 순서다.
+export function openSessions(
+  lookup: {
+    sql: { all: (query: string, params: SqlParams) => SqlRow[] };
+  },
+): AgentSessionRow[] {
+  return lookup.sql.all(
+    `select ${SESSION_COLUMNS} from sessions where lifecycle = 'open' order by created_seq`,
+    [],
+  ).map(sessionRowOf);
+}
+
 export function placeOf(row: AgentSessionRow): Place | null {
   return row.place_kind === null || row.place_id === null
     ? null

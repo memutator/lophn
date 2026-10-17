@@ -125,8 +125,8 @@ type ActivationLate = {
   };
   bus: Pick<Bus, "publish">;
   intake: ActivationIntake;
-  // 새 호출 접수를 닫은 동안 붙잡은 호출 수. 모르면 생략한다.
-  heldCalls?: (app: string) => number;
+  // 새 호출 접수를 닫은 동안 붙잡은 호출 수.
+  heldCalls: (app: string) => number;
   invocations: {
     pruneChangesets(app: string, keepRelease: string): Promise<Result<number>>;
   };
@@ -168,6 +168,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
   const preparedBackups = new Map<string, PreparedBlob>();
   // 운영 desired를 마지막으로 알린 근거. 같으면 다시 만들지 않는다.
   const lastKeys = new Map<string, string>();
+  // 준비 모드로 띄운 후보의 desired. complete 뒤 첫 맞춤에서 같으면 이미 그 모양으로 떠 있어 다시 띄우지 않는다.
+  // complete가 grant를 바꾸면 flag가 달라져 다시 띄운다.
+  const candidates = new Map<string, string>();
   function withLedger<T>(read: (sql: Sql) => T): Result<T> {
     const opened = openConnection(deps.ledgerPath);
     if (!opened.ok) return unavailable("ledger is unavailable");
@@ -428,6 +431,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           archived: false,
         });
         if (!desired.ok) return desired;
+        candidates.set(attempt.app, canonicalize(desired.value));
         const started = await deps.client.activationPrepare(desired.value);
         if (!started.ok) return started;
         if (!started.value.ok) {
@@ -704,8 +708,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     });
     // 봉인 사본을 읽지 못하면 알리지 않는다. 다음 sweep이 다시 본다.
     if (!desired.ok) return false;
-    // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다.
-    const replacing = lastKeys.has(app.id);
+    // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다. 방금 activation이 띄운
+    // 후보와 desired가 같으면 끝낼 자식이 없다.
+    const candidate = candidates.get(app.id);
+    candidates.delete(app.id);
+    const replacing = lastKeys.has(app.id) &&
+      candidate !== canonicalize(desired.value);
     if (replacing) {
       const paused = await deps.client.activationPause(app.id);
       if (!paused.ok || !paused.value) return false;
@@ -739,7 +747,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     },
     handlers,
     async queueEntries(app) {
-      const entries = queue.list(app, (one) => late?.heldCalls?.(one) ?? 0);
+      const entries = queue.list(app, (one) => late?.heldCalls(one) ?? 0);
       if (late !== undefined) {
         const pending = await late.approvals.pending();
         if (!pending.ok) return pending;

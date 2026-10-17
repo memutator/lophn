@@ -25,6 +25,7 @@ import {
 import {
   appCallApi,
   appGet,
+  appInvocation,
   appRewindPlan,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
@@ -134,22 +135,6 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     await call(core, app.app, "add_item", { title: "dup" });
     const seeded = ["dup", "dup"];
 
-    // activation이 끝나고 앱 process가 한 번 더 다시 뜨는 동안(약 0.5초) coding session을 열면 token이 사라진다. 앱 process가
-    // 1초 동안 그대로일 때까지 기다린다. 알려진 제품 문제라 보고에 적는다.
-    const quiet = async (): Promise<void> => {
-      let last = "";
-      let since = Date.now();
-      while (Date.now() - since < 1500) {
-        const now = await core!.call(appRuntime, { app: app.app });
-        const key = `${now.state.state} ${now.observation?.process_nonce}`;
-        if (key !== last) {
-          last = key;
-          since = Date.now();
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-    };
-
     // 한 release를 낸다: source를 처음 commit으로 되돌리고 patch를 얹어 `deliverRelease`한다.
     const deliver = async (
       patches: AppPatch[],
@@ -165,7 +150,6 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
       for (const patch of patches) {
         commit = await amendAppSource(app.source, patch);
       }
-      await quiet();
       return await deliverRelease(core!, fake, { ...app, commit }, {
         goal: "Make the next release",
         ...(options.verify === undefined ? {} : { verify: options.verify }),
@@ -315,16 +299,25 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
     });
     const held = call(core, app.app, "add_item", { title: "held" });
     held.catch(() => {});
-    // route: 둘 다 실패하지 않고 끝난다.
-    assertEquals((await slow).outcome.status, "succeeded");
-    const heldDone = await held;
-    assertEquals(heldDone.outcome.status, "succeeded");
-    // ledger: 붙잡았던 호출은 새 release가 받았다.
-    const { plan } = await core.call(appRewindPlan, {
-      app: app.app,
-      from_invocation: heldDone.invocation!,
+    // route: queue가 붙잡은 호출 수를 보인다.
+    const heldCalls = await until("붙잡은 호출이 queue에 보임", async () => {
+      const { entries } = await core!.call(activationsQueue, { app: app.app });
+      const count = entries.find((item) => item.release === swap.release)
+        ?.held_calls;
+      return count === undefined || count < 1 ? undefined : count;
     });
-    assertEquals(plan.release, swap.release);
+    assert(heldCalls >= 1);
+    // route: 둘 다 실패하지 않고 끝난다.
+    const heldDone = await held;
+    assertEquals(
+      [(await slow).outcome.status, heldDone.outcome.status],
+      ["succeeded", "succeeded"],
+    );
+    // ledger: 붙잡았던 호출은 새 release가 받았다.
+    const { invocation } = await core.call(appInvocation, {
+      invocation: heldDone.invocation!,
+    });
+    assertEquals(invocation?.release, swap.release);
     // process
     await waitRunning(core, app, swap.release);
     seeded.push("held");

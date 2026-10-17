@@ -58,6 +58,7 @@ export function createIntake(
       for (const release of held.get(app) ?? []) release();
       held.delete(app);
     },
+    heldCount: (app) => held.get(app)?.length ?? 0,
     admit(app) {
       if (!closed.has(app)) return Promise.resolve();
       return new Promise((resolve) => {

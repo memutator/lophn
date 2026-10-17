@@ -316,15 +316,18 @@ export class CredentialRegistry {
     return this.#finish(credentialRef, "ended");
   }
 
+  // `kind`를 주면 그 actor 종류만 끝낸다. 같은 앱 조건을 가진 coding token 같은 다른 종류는 남는다.
   endBy(
     condition: "app" | "task" | "process" | "turn" | "session" | "release",
     value: string,
+    kind?: string,
   ): number {
     let ended = 0;
     for (const record of this.#records.values()) {
       if (
         record.state === "active" &&
-        record.context.conditions[condition] === value
+        record.context.conditions[condition] === value &&
+        (kind === undefined || actorKind(record.context.actor) === kind)
       ) {
         record.state = "ended";
         ended++;

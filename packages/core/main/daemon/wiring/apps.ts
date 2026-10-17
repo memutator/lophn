@@ -258,6 +258,7 @@ export const appsWiring: WiringFactory = () => {
             abandon: (app) => intake.abandon(app as Id<"app">),
             open: (app) => intake.open(app as Id<"app">),
           },
+          heldCalls: (app) => intake.heldCount(app as Id<"app">),
           invocations: {
             pruneChangesets: (app, keepRelease) =>
               ledger.pruneChangesets(

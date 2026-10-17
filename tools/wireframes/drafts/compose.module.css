@@ -5,16 +5,6 @@
   line-height: var(--type-title-line);
 }
 
-/* 링크 */
-.link {
-  color: var(--color-link);
-  text-decoration: none;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
 /* Context 탭 여는 길 */
 .waysPage {
   position: absolute;

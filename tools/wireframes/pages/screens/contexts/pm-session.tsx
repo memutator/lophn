@@ -3,15 +3,12 @@
 import { useState } from "react";
 
 import { AgentTurn, ChatShell, Quiet, Said, ToolRow } from "../agent-chat.tsx";
-import { Link } from "../../../drafts/link.tsx";
-import { documentTab } from "../../../mock/phroner-data.ts";
 import type { TabSpec } from "../project-window.tsx";
 import {
   violationEvidence,
   type ViolationRow,
   VIOLATIONS,
 } from "../../../mock/contexts/contexts-data.ts";
-import { useOpenTab } from "../../../mock/contexts/open-tab.ts";
 
 const PROJECT_MANAGER = "Project Manager";
 
@@ -41,7 +38,6 @@ function NewSession({ rows }: { rows: readonly ViolationRow[] }) {
 
 /** reaction이 이미 연 session. Project Manager가 위반을 받아 일하는 중이다. */
 function WorkingSession() {
-  const open = useOpenTab();
   const [opened, setOpened] = useState<Record<string, boolean>>({ read: true });
   const toggle = (key: string) => setOpened({ ...opened, [key]: !opened[key] });
   return (
@@ -84,17 +80,10 @@ function WorkingSession() {
                 )
                 : null}
               <Said>
-                Two documents in eval break its contract.{" "}
-                <Link onClick={() => open(documentTab(VIOLATIONS[0].path))}>
-                  exp-012
-                </Link>{" "}
-                has no about, and{" "}
-                <Link onClick={() => open(documentTab(VIOLATIONS[1].path))}>
-                  F-014
-                </Link>{" "}
-                links to the scenario sched-x, which doesn't exist. I'm checking
-                whether the documents or the rule should change before I touch
-                anything.
+                Two documents in eval break its contract. exp-012 has no about,
+                and F-014 links to the scenario sched-x, which doesn't exist.
+                I'm checking whether the documents or the rule should change
+                before I touch anything.
               </Said>
             </AgentTurn>
           </>

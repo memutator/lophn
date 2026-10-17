@@ -28,6 +28,13 @@
 // - 왜 못 잡나: `apps/tickets/coding` 단위 test와 Router unit은 `open_session_or_new`의 풀기를 따로 본다. CLI token ->
 //   `send_message` route -> Router -> 새 App Engineer session의 turn까지 이어지는 길은 process를 건너야 한다.
 //
+// `queue-then-open` 행(coding-one-per-app)은 같은 앱의 둘째 맡기기가 줄에 섰다가 앞 session이 끝나면 열리는 것을 본다.
+// - contract: boundary `app-tickets`·`router`(앱 하나에 coding session은 하나이고 나머지는 줄에 선다), `external-coding-agent`.
+// - 현실적 회귀: 같은 source 폴더에 coding session 둘이 동시에 뜨는 것(서로 부딪친다), 줄에 선 call이 앞 session이 끝나도
+//   열리지 않아 영영 `accepted`로 남는 것, 줄에서 열린 session이 앞 session의 token을 물려받는 것.
+// - 왜 못 잡나: `apps/tickets/coding` 단위 test는 transport를 직접 부르고, 두 session의 token과 터미널 요청(Gateway frame)이
+//   서로 다른지는 shell 역할과 CLI를 지나야 보인다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
@@ -40,6 +47,7 @@ import {
   callRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { CODING_TOKEN_ENV } from "../../packages/protocol/coding-agent/mod.ts";
 import { ticketShow } from "../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
   aeLane,
@@ -48,7 +56,7 @@ import {
   type TestApp,
 } from "../support/app/activate.ts";
 import { codingCli } from "../support/coding/cli.ts";
-import { createTicket } from "../support/coding/hand-off.ts";
+import { createTicket, handOffQueued } from "../support/coding/hand-off.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
@@ -60,7 +68,7 @@ import {
   startFakeServer,
 } from "../support/fake-server/mod.ts";
 import { lastUserText } from "../support/fake-server/probe.ts";
-import { exitTerminal } from "../support/gateway/shell.ts";
+import { answerTerminal, exitTerminal } from "../support/gateway/shell.ts";
 
 type Ctx = {
   core: Core;
@@ -334,6 +342,65 @@ const ROWS: Row[] = [
       assertEquals((await fromCoding(core, app.ae)).length, 0);
       // fake: 새 session의 turn이 메시지를 받았다.
       assert(lastUserText(fake.journal().at(-1)!).includes("BLUEPRINT-MARK"));
+    },
+  },
+  {
+    // 앞 session이 도는 동안 둘째 맡기기는 받는 session 없이 줄에 서고, 앞 session의 끝이 줄 맨 앞을 새 session으로 연다.
+    name: "queue-then-open",
+    async run(ctx) {
+      const { core, fake } = ctx;
+      const app = await ctx.app("one-per-app");
+      const first = await ctx.handOff(app);
+      const queued = await handOffQueued(core, fake, app);
+      assertNotEquals(queued.call, first.call);
+
+      // route(user): ledger. 줄에 선 call은 받는 session이 없고 터미널 요청도 나가지 않았다.
+      const waiting = (await core.call(callRead, { call: queued.call })).call;
+      assertEquals(waiting.state, "accepted");
+      assertEquals(waiting.receiver_session, null);
+      assertEquals(
+        app.gateway.frames().filter((frame) =>
+          frame.type === "coding_terminal" && frame.request.kind === "open"
+        ).length,
+        1,
+      );
+
+      // 앞 session을 끝내면 그 call이 닫히며 App Engineer에게 reaction turn이 하나 더 돈다.
+      fake.script([{ reply: { kind: "text", text: "noted" } }], aeLane(app));
+      await exitTerminal(core, first.terminal);
+      const frame = await app.gateway.next(
+        "coding_terminal",
+        (item) =>
+          item.request.kind === "open" &&
+          item.request.plan.ticket === queued.ticket,
+      );
+      if (frame.request.kind !== "open") throw new Error("open 요청이 아니다");
+      const plan = frame.request.plan;
+      await answerTerminal(core, frame.request.request);
+      await waitTurnEnd(core, app.ae, 2);
+
+      // gateway: 새 session, 새 token, 둘째 ticket을 가리키는 첫 prompt. 줄에 섰던 call이 그 session을 받는다.
+      assertNotEquals(plan.session, first.terminal);
+      assertNotEquals(plan.env[CODING_TOKEN_ENV], first.token);
+      assert(plan.first_prompt.includes(queued.ticket));
+      assertEquals(
+        (await core.call(callRead, { call: queued.call })).call
+          .receiver_session,
+        plan.session,
+      );
+      // CLI: 앞 token은 회수되었고 새 token은 둘째 ticket을 읽는다.
+      const second = codingCli(core, plan.env[CODING_TOKEN_ENV]);
+      ctx.tokens.push(plan.env[CODING_TOKEN_ENV]);
+      assertEquals(
+        errorCode(
+          await first.cli.run("ticket show", { ticket: queued.ticket }),
+        ),
+        "unauthorized",
+      );
+      assertEquals(
+        (await second.run("ticket show", { ticket: queued.ticket })).code,
+        0,
+      );
     },
   },
 ];

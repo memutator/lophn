@@ -24,16 +24,23 @@ const ALL_PACKAGES = [
   "sdk",
   "shell",
   "tools",
+  "tests",
 ];
 const FOLDERS: Record<string, string> = Object.fromEntries(
-  ALL_PACKAGES.map((p) => [p, p === "tools" ? "tools" : `packages/${p}`]),
+  ALL_PACKAGES.map((
+    p,
+  ) => [p, p === "tools" || p === "tests" ? p : `packages/${p}`]),
 );
 // check-deps.ts의 표에 terminal host의 coding-agent와 tools의 넓은 사용을 더한다.
 const USES: Record<string, string[]> = {
   ...PACKAGE_DEPENDENCIES,
   shell: [...PACKAGE_DEPENDENCIES.shell, "coding-agent"],
-  tools: ALL_PACKAGES.filter((p) => p !== "tools"),
+  tools: ALL_PACKAGES.filter((p) => p !== "tools" && p !== "tests"),
+  // 어느 package가 바뀌어도 harness가 같이 돈다.
+  tests: ALL_PACKAGES.filter((p) => p !== "tests"),
 };
+// deno test의 discovery에서 뺀다. e2e는 `deno task e2e`, live는 `deno task test:live`로만 돈다.
+const NOT_IN_CHECK = ["tests/e2e", "tests/live"];
 // root deno.json의 exclude. 글로브 대신 file 목록을 줄 때 같이 뺀다.
 const DENO_EXCLUDED = [
   "packages/shell/main/",
@@ -75,6 +82,7 @@ function packageOf(file: string): string | "all" | undefined {
     /^tools\/check[^/]*\.ts$/.test(file)
   ) return "all";
   if (file.startsWith("tools/")) return "tools";
+  if (file.startsWith("tests/")) return "tests";
   const name = file.split("/")[1];
   return file.startsWith("packages/") && ALL_PACKAGES.includes(name)
     ? name
@@ -302,12 +310,17 @@ async function buildSteps(
 
   const testArgs = ["deno", "test", "--no-check"];
   if (full) testArgs.push("--parallel");
-  testArgs.push("--allow-all", "--permit-no-files");
+  // 목록이 비어 전체 discovery로 떨어져도 e2e와 live는 돌지 않는다.
+  testArgs.push(
+    "--allow-all",
+    "--permit-no-files",
+    `--ignore=${NOT_IN_CHECK.join(",")}`,
+  );
   if (!full) {
     testArgs.push(
       ...(await Promise.all(
         pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
-      )).flat(),
+      )).flat().filter((f) => !NOT_IN_CHECK.some((x) => f.startsWith(`${x}/`))),
     );
   }
   return { checks, test: { name: "test", commands: [testArgs] }, skipped };

@@ -1,7 +1,7 @@
-import { ok } from "../../../../base/mod.ts";
-import { appAppApi } from "../../../../protocol/apps/blueprint/read.ts";
-import { recordMessage } from "../../../../protocol/lophn-agent/mod.ts";
-import { cardViewDeclared } from "../domain/app-card.ts";
+import { ok } from "../../../base/mod.ts";
+import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
+import { recordMessage } from "../../../protocol/lophn-agent/mod.ts";
+import { cardViewDeclared } from "./app-card.ts";
 import {
   commandOf,
   defineTool,
@@ -9,9 +9,9 @@ import {
   notFound,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

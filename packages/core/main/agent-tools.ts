@@ -1,5 +1,6 @@
 import { TOOL_ORDER } from "../../protocol/lophn-agent/tool-catalog.ts";
-import { APP_TOOLS } from "../lophn-agent/tools/bundles/app.ts";
+import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
+import { PROBLEMS_AGENT_TOOLS } from "../problems/agent-tools.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
 import { CALL_TOOLS } from "../lophn-agent/tools/bundles/call.ts";
 import { CONTEXT_TOOLS } from "../lophn-agent/tools/bundles/context.ts";
@@ -7,13 +8,8 @@ import { FILE_TOOLS } from "../lophn-agent/tools/bundles/file.ts";
 import { GUIDE_TOOLS } from "../lophn-agent/tools/bundles/guide.ts";
 import { INSTRUCTION_TOOLS } from "../lophn-agent/tools/bundles/instructions.ts";
 import { OPERATOR_TOOLS } from "../lophn-agent/tools/bundles/operator.ts";
-import { PACKAGE_TOOLS } from "../lophn-agent/tools/bundles/package.ts";
-import { PROBLEM_TOOLS } from "../lophn-agent/tools/bundles/problem.ts";
-import { RELEASE_TOOLS } from "../lophn-agent/tools/bundles/release.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
-import { TICKET_TOOLS } from "../lophn-agent/tools/bundles/ticket.ts";
-import { VISUAL_TOOLS } from "../lophn-agent/tools/bundles/visual.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
 import type { ToolDefinition } from "../lophn-agent/tools/mod.ts";
 
@@ -28,14 +24,10 @@ export function agentTools(): readonly ToolDefinition[] {
     ...FILE_TOOLS,
     ...SHELL_TOOLS,
     ...WEB_TOOLS,
-    ...TICKET_TOOLS,
-    ...PROBLEM_TOOLS,
-    ...APP_TOOLS,
-    ...PACKAGE_TOOLS,
-    ...RELEASE_TOOLS,
+    ...APPS_AGENT_TOOLS,
+    ...PROBLEMS_AGENT_TOOLS,
     ...GUIDE_TOOLS,
     ...OPERATOR_TOOLS,
-    ...VISUAL_TOOLS,
     ...INSTRUCTION_TOOLS,
     ...CONTEXT_TOOLS,
     ...CALL_TOOLS,

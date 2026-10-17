@@ -1,9 +1,9 @@
-import { ok } from "../../../../base/mod.ts";
+import { ok } from "../../base/mod.ts";
 import {
   problemGet,
   problemList,
   problemSetState,
-} from "../../../../protocol/problems/mod.ts";
+} from "../../protocol/problems/mod.ts";
 import {
   commandOf,
   countSummary,
@@ -12,13 +12,13 @@ import {
   readBody,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
-import { atSchema } from "../../../../protocol/base/values.ts";
-import { problemStateSchema } from "../../../../protocol/problems/problem-record.ts";
+import { idSchema } from "../../protocol/base/ids.ts";
+import { atSchema } from "../../protocol/base/values.ts";
+import { problemStateSchema } from "../../protocol/problems/problem-record.ts";
 
-export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
+export const PROBLEMS_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "problem.list",
     input: z.strictObject({

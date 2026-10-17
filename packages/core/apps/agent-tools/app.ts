@@ -1,13 +1,13 @@
 import { resolve } from "node:path";
-import { ok } from "../../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
   appConnectSource,
   appCreate,
   appGet,
   appList,
   blueprintCheck,
-} from "../../../../protocol/apps/mod.ts";
-import { problemList } from "../../../../protocol/problems/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import { problemList } from "../../../protocol/problems/mod.ts";
 import {
   commandOf,
   countSummary,
@@ -16,9 +16,9 @@ import {
   readBody,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

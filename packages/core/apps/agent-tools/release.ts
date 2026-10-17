@@ -1,9 +1,9 @@
-import { ok } from "../../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
   releasesGetRecord,
   releasesListRecords,
-} from "../../../../protocol/apps/mod.ts";
-import { getVerification } from "../../../../protocol/problems/mod.ts";
+} from "../../../protocol/apps/mod.ts";
+import { getVerification } from "../../../protocol/problems/mod.ts";
 import {
   countSummary,
   defineTool,
@@ -12,9 +12,9 @@ import {
   readBody,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   defineTool({

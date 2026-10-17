@@ -1,4 +1,4 @@
-import { ok } from "../../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
   appGet,
   packagePublish,
@@ -6,7 +6,7 @@ import {
   packagesList,
   packagesUsage,
   packagesVersions,
-} from "../../../../protocol/apps/mod.ts";
+} from "../../../protocol/apps/mod.ts";
 import {
   countSummary,
   defineTool,
@@ -18,10 +18,10 @@ import {
   TEXT_MAX_BYTES,
   type ToolDefinition,
   unavailable,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { packagePublishInputSchema } from "../../../../protocol/apps/package-routes.ts";
-import { sourceRelativePathSchema } from "../../../../protocol/coding-agent/ticket/mod.ts";
+import { packagePublishInputSchema } from "../../../protocol/apps/package-routes.ts";
+import { sourceRelativePathSchema } from "../../../protocol/coding-agent/ticket/mod.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

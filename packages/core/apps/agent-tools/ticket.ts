@@ -1,4 +1,4 @@
-import { ok } from "../../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
   ticketCancel,
   ticketCancelInputSchema,
@@ -12,7 +12,7 @@ import {
   ticketUpdateInputSchema,
   ticketVerify,
   ticketVerifyInputSchema,
-} from "../../../../protocol/coding-agent/ticket/mod.ts";
+} from "../../../protocol/coding-agent/ticket/mod.ts";
 import {
   commandOf,
   countSummary,
@@ -22,9 +22,9 @@ import {
   readBody,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 // ticket은 목표, acceptance check 하나, 근거 링크다. 상태 전이는 route가 지킨다.
 export const TICKET_TOOLS: readonly ToolDefinition[] = [

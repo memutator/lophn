@@ -133,7 +133,7 @@ elements:
 
       - id: secrets
         kind: component
-        description: secret 보관.
+        description: secret 보관(`<data root>/secrets.json`)과 이름 공간별 전송 부착.
 
       - id: diagnostics
         kind: component

@@ -20,12 +20,23 @@
 // - 왜 못 잡나: `apps/tickets/coding` 단위 test는 event와 command를 직접 부르고, shell 역할의 `exited`에서 Reactor, Router,
 //   App Engineer의 새 turn까지 process를 건너는 흐름은 E2E에 없다.
 //
+// `open-session`·`closed-session` 행(coding-message-to-ae)은 coding agent의 막힘이 맡긴 App Engineer에게 가는 두 길을 본다.
+// - contract: boundary `router`·`app-tickets`·`coding-agent-cli-interface`(coding agent의 막힘은 맡긴 App Engineer에게 가고,
+//   닫혀 있으면 그 앱의 새 session이 받는다), `agent-sessions`.
+// - 현실적 회귀: archive된 session이 메시지를 삼켜 막힘이 아무에게도 안 가는 것, 새 session을 열지 않고 오류로 끝나는 것,
+//   메시지가 맡긴 call을 닫아 대화가 끊기는 것.
+// - 왜 못 잡나: `apps/tickets/coding` 단위 test와 Router unit은 `open_session_or_new`의 풀기를 따로 본다. CLI token ->
+//   `send_message` route -> Router -> 새 App Engineer session의 turn까지 이어지는 길은 process를 건너야 한다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
 // 이 file은 coding 길 E2E 전체의 틀이다: core 하나에 ROWS table의 행이 차례로 돈다. 행은 앱을 새로 만든다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
+  agentSessionList,
+  agentSessionRead,
+  archiveSession,
   callRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
@@ -39,11 +50,16 @@ import {
 import { codingCli } from "../support/coding/cli.ts";
 import { createTicket } from "../support/coding/hand-off.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import { connectFakeProvider, waitTurnEnd } from "../support/core/human.ts";
+import {
+  connectFakeProvider,
+  until,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import {
   type FakeServer,
   startFakeServer,
 } from "../support/fake-server/mod.ts";
+import { lastUserText } from "../support/fake-server/probe.ts";
 import { exitTerminal } from "../support/gateway/shell.ts";
 
 type Ctx = {
@@ -93,6 +109,12 @@ async function expectEndedUnreported(
     .ticket;
   assertEquals(ticket.state, "open");
   assertEquals(ticket.claim, null);
+}
+
+// coding agent가 보낸 입력만 모은다.
+async function fromCoding(core: Core, session: string) {
+  return (await core.call(receivedMessageList, { session })).messages
+    .filter((message) => message.from.kind === "coding_agent");
 }
 
 const ROWS: Row[] = [
@@ -233,6 +255,85 @@ const ROWS: Row[] = [
         { kind: "ticket", ticket },
         { kind: "session", session: started.terminal },
       ]);
+    },
+  },
+  {
+    // 메시지는 맡긴 call을 닫지 않고 열린 App Engineer session의 입력이 된다.
+    name: "open-session",
+    async run(ctx) {
+      const { core, fake } = ctx;
+      const app = await ctx.app("message-open");
+      const { cli, call, ticket, terminal } = await ctx.handOff(app);
+      fake.script([{ reply: { kind: "text", text: "noted" } }], aeLane(app));
+
+      const sent = await cli.run("message send", {
+        body: "BLUEPRINT-MARK needs a new field",
+      });
+      assertEquals(sent.code, 0, JSON.stringify(sent.value));
+      await waitTurnEnd(core, app.ae, 1);
+
+      // fake: 둘째 turn이 메시지를 받았다.
+      const last = fake.journal().filter((entry) =>
+        entry.lane === aeLane(app).name
+      ).at(-1)!;
+      assert(lastUserText(last).includes("BLUEPRINT-MARK"));
+      // route(user): inbox
+      const received = await fromCoding(core, app.ae);
+      assertEquals(received.length, 1);
+      assertEquals(
+        (received[0].from as { session?: string }).session,
+        terminal,
+      );
+      assert(
+        received[0].refs.some((ref) =>
+          (ref as { kind: string; ticket?: string }).kind === "ticket" &&
+          (ref as { ticket?: string }).ticket === ticket
+        ),
+      );
+      // route(user): ledger
+      assertEquals(
+        (await core.call(callRead, { call })).call.state,
+        "accepted",
+      );
+    },
+  },
+  {
+    // 맡긴 session이 archive되어 있으면 그 앱의 새 App Engineer session이 받는다.
+    name: "closed-session",
+    async run(ctx) {
+      const { core, fake } = ctx;
+      const app = await ctx.app("message-closed");
+      const { cli } = await ctx.handOff(app);
+      const { session } = await core.call(agentSessionRead, {
+        session: app.ae,
+      });
+      await core.call(archiveSession, { session: app.ae }, {
+        state_seq: session.state_seq,
+      });
+      // 새 session의 요청에는 맡긴 때의 `App <id>:` 글이 없어 aeLane에 안 맞고 fallback 줄로 간다.
+      fake.script([{ reply: { kind: "text", text: "noted" } }]);
+
+      const sent = await cli.run("message send", {
+        body: "BLUEPRINT-MARK needs a new field",
+      });
+      assertEquals(sent.code, 0, JSON.stringify(sent.value));
+      const open = await until("새 App Engineer session이 열림", async () => {
+        const { sessions } = await core.call(agentSessionList, {
+          agent: { role: "app_engineer", app: app.app },
+        });
+        return sessions.length > 0 ? sessions : undefined;
+      });
+      // route(user): 열린 session은 하나이고 옛 session은 archive에 남았다.
+      assertEquals(open.length, 1);
+      assertNotEquals(open[0].id, app.ae);
+      assertEquals(open[0].lifecycle, "open");
+      await waitTurnEnd(core, open[0].id, 0);
+
+      // route(user): inbox
+      assertEquals((await fromCoding(core, open[0].id)).length, 1);
+      assertEquals((await fromCoding(core, app.ae)).length, 0);
+      // fake: 새 session의 turn이 메시지를 받았다.
+      assert(lastUserText(fake.journal().at(-1)!).includes("BLUEPRINT-MARK"));
     },
   },
 ];

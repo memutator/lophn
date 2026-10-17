@@ -9,6 +9,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 
 ## 먼저 알아둘 것 (지금 코드)
 
+- gallery는 묶음 셋이다. **Kit**은 design(`@lophn/ui`)의 component를 분류마다 page 하나에 상태별로 그리고, 사람이 여기서 component를 승인한다. **Screens**는 renderer를 import한 제품 화면을 영역별로, **Drafts**는 아직 renderer에 없는 실험을 그린다. 범용 kit, lophn 전용 부품, app bridge UI를 어디에 두는지와 사용자 앱에 닿는 길은 `project-docs/architecture/ui-kit.md`다.
 - gallery는 그림을 따로 그리지 않는다. renderer(`packages/shell/renderer`)의 실제 component를 fake source와 고정 data로 그린다. 그래서 **화면 모양을 고친다 = renderer나 design component를 고친다.** `tools/wireframes`에는 모양을 덮어쓰는 CSS나 gallery 전용 prop을 두지 않는다. CSS 파일은 `drafts/`(승인 전 실험) 안과 gallery 자신의 틀(`gallery.module.css`, `pages/kit/kit.module.css`)에만 둔다. 무대 배치처럼 몇 줄이면 token 변수를 쓴 inline style로 쓴다.
 - 상태 하나를 고정하는 법: fake source의 설정으로 바탕을 정하고, mount 뒤 단추를 눌러 사람이 한 것처럼 만든다(`mock/drive.ts`의 `useDrive`와 `find`·`click`·`press`·`type`).
 
@@ -30,17 +31,17 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 | token(색, 간격, 글자) | `packages/design/tokens.ts`. 값을 CSS에 직접 쓰지 않고 token(var)을 쓴다 |
 | fake data | renderer의 `testdata/fake-source.ts`, `workspace/fake-source.ts`, `desktop/dev-mock/`. gallery의 예시 data는 `tools/wireframes/mock/`(예: `mock/phroner-data.ts`) |
 | kit page | `tools/wireframes/pages/kit/<분류>/` (분류마다 `page.tsx` 하나가 그 분류 `mod.ts`의 component를 실제 component로 상태별로 그린다), token은 `pages/kit/tokens/`, `@lophn/app-ui`는 `pages/kit/app-ui/` |
-| page 목록과 화면 연결 | `tools/wireframes/pages.ts`, `screens.tsx` |
+| page 목록과 화면 연결 | 영역 file 하나가 자기 page를 낸다: `pages/kit/<분류>/index.tsx`, `pages/screens/<영역>.tsx`, `drafts/index.tsx`. `pages/index.ts`의 `GROUPS`(Kit · Screens · Drafts > 영역 > page)가 모은다 |
 
 ## 새 화면(page) 만들기
 
 1. 필요한 component가 `packages/design/components/<분류>/mod.ts`에 있는지 본다. `mod.ts`의 `export { … } from` 문마다 윗줄 `//` 한 줄이 "언제 쓰나"라서 그 줄이 목록이다. 새 export를 더하면 그 줄도 단다. 없고 여러 화면이 쓸 것이면 **design에 먼저** 더한다(분류 안 component 폴더, 그 분류 `mod.ts` export, `tools/wireframes/pages/kit/<분류>/page.tsx`에 견본). 한 화면만 쓰는 조각은 renderer 그 화면 폴더에 둔다.
 2. 아이콘은 lucide를 직접 import하지 않는다. renderer는 `icons/*.ts` 묶음, design은 `Icon`을 쓴다. harness와 provider 이름 옆에는 renderer `parts/vendor-icon`의 `VendorIcon`, 파일과 폴더에는 design `FileIcon`이다.
 3. 화면 문구는 직접 쓰지 않고 wording key로 쓴다. → wording skill.
-4. `pages.ts`의 `PAGES`에 `fresh(id, title, description, screen)` 항목을 더하고, `ScreenId`에 이름을 더한다.
-5. `screens.tsx`의 `SCREENS`에 그 화면을 그리는 component를 더한다. `SCREENS`가 `Record<ScreenId, ...>`라 빠뜨리면 type error다.
+4. 알맞은 영역 file의 `pages`에 `{ id, title, description, render }`를 더한다. renderer를 import한 진짜 화면이면 Screens의 `pages/screens/<영역>.tsx`, 아직 renderer에 없는 실험이면 `drafts/index.tsx`다. 영역이 새로 필요하면 영역 file 하나를 만들고 `pages/index.ts`의 `GROUPS`에 더한다. 구현 여부는 묶음 위치가 말하고 badge는 없다. title은 영어, description은 한국어 한두 문장이다.
+5. id는 주소(`#/<id>`)라 한 번 정하면 바꾸지 않는다.
 6. 화면 component는 `pages/screens/<영역>/`에 둔다(가짜 data와 고정 도구는 `mock/`, 승인 전 실험은 `drafts/`). 인자 없이 한 상태를 그리게 하고, 상태는 fake source 설정과 drive로 건다.
-7. 버린 화면은 `PAGES`에 올리지 않는다.
+7. 버린 화면은 영역 file에 올리지 않는다(버린 목록은 `pages/index.ts` 머리 주석).
 
 ## 확인
 

@@ -56,7 +56,7 @@ components:
   - id: tool-check
     kind: tool
     roles: [all]
-    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, test를 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, test를 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
     run: deno task check
     change_reasons:
@@ -220,6 +220,16 @@ components:
     path: project-docs/architecture/annotation.md
     change_reasons:
       boundaries: [app-tickets, sdk]
+
+  - id: architecture-ui-kit
+    kind: doc
+    roles: [planner, lead, designer]
+    description: 범용 kit(@lophn/ui)·lophn 전용 부품·app bridge UI(@lophn/app-ui)를 어디 두나, 사용자 앱에 닿는 길, gallery 승인과 kit check.
+    path: project-docs/architecture/ui-kit.md
+    change_reasons:
+      boundaries: [design, design-api, sdk-api, app-releases]
+      paths: [tools/wireframes/pages/index.ts, tools/check-kit.ts, packages/core/apps/packages/template/app/deno.json.tmpl, packages/core/apps/releases/ui-build/build.ts]
+      note: 분류를 더하거나 바꿀 때, 범용·전용을 가르는 기준이 바뀔 때.
 
   - id: skill-planner-persona
     kind: skill
@@ -393,11 +403,11 @@ components:
   - id: skill-ui-design
     kind: skill
     roles: [designer]
-    description: wireframe gallery와 화면 모양을 고치는 절차와 모든 화면의 규칙.
+    description: wireframe gallery(Kit·Screens·Drafts)와 화면 모양을 고치는 절차, component를 어디 두나, 모든 화면의 규칙.
     path: .claude/skills/ui-design/
     change_reasons:
       boundaries: [shell, design, design-api]
-      paths: [tools/wireframes/]
+      paths: [tools/wireframes/, tools/check-kit.ts]
 
   - id: skill-wording
     kind: skill
@@ -411,11 +421,12 @@ components:
   - id: tool-wireframes
     kind: tool
     roles: [designer]
-    description: wireframe gallery를 build한다. 화면 task의 본보기가 여기서 나온다.
+    description: wireframe gallery를 build한다. Kit 묶음은 design component를 분류별로, Screens는 renderer 화면을, Drafts는 승인 전 실험을 그린다. 화면 task의 본보기가 여기서 나온다.
     path: tools/wireframes/
     run: deno task wireframes
     change_reasons:
       boundaries: [design, shell]
+      paths: [tools/check-kit.ts]
 
   - id: tool-wording
     kind: tool

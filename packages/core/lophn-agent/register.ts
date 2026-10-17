@@ -127,7 +127,6 @@ import {
   profileImageUpload,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
-  BUNDLED_SKILLS_ROOT,
   commandSkillsOf,
   createExtensionRegistry,
   createProjectExtensionCommands,
@@ -138,6 +137,7 @@ import {
   listSkillsSync,
   type McpRuntimeServer,
   type PlaceFiles,
+  type ProjectLayer,
   type SkillSources,
   type SyncSkillFiles,
 } from "./extensions/mod.ts";
@@ -164,12 +164,14 @@ export function agentRuntimeLaunchSpec(input: {
   hosts?: readonly string[];
   // 사람이 등록한 skill 폴더다. 읽기 허락에 더하고 등록이 바뀌면 core가 다시 띄운다.
   skillRoots?: readonly string[];
+  // 내장 skill 폴더다. role 층의 값이고 읽기 허락과 skill 발견이 같은 값을 쓴다.
+  bundledSkillsRoot: string;
   // file tool과 shell이 닿는 place 폴더들(절대 경로)이다. 쓰기 폴더는 읽기 폴더 안에 있다.
   placeFolders: { read: readonly string[]; write: readonly string[] };
 }): KindLaunchSpec {
   const permissions = agentRuntimePermissions({
     ...input,
-    bundledSkillRoots: [BUNDLED_SKILLS_ROOT],
+    bundledSkillRoots: [input.bundledSkillsRoot],
   });
   return {
     kind: "lophn-agent/runtime",
@@ -357,15 +359,19 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
   return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
+// role 층이 정하는 skill 자리다. 조립이 넘긴다.
+type SkillLayers = { projectLayer: ProjectLayer; bundledSkillsRoot: string };
+
 // 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더.
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
+  layers: SkillLayers,
 ): Omit<SkillSources, "project"> {
   const root = dataRootOf(sql, undefined);
   return {
     registered: registeredSkillFolders(sql),
     personal: root.ok ? `${root.value}/skills` : null,
-    bundled: BUNDLED_SKILLS_ROOT,
+    bundled: layers.bundledSkillsRoot,
   };
 }
 
@@ -388,16 +394,18 @@ const skillFiles = createNodeSkillFiles();
 // 모르면 null이다.
 function extensionRegistry(
   sql: Pick<Tx["sql"], "get" | "all">,
+  layers: SkillLayers,
 ): ExtensionRegistry | null {
   const root = dataRootOf(sql, undefined);
   if (!root.ok) return null;
   return createExtensionRegistry({
     root: root.value,
+    projectLayer: layers.projectLayer,
     files: placeFiles,
     skillFiles,
     global: {
       servers: registeredMcpServers(sql),
-      skills: globalSkillSources(sql),
+      skills: globalSkillSources(sql, layers),
       skillsOff: registeredSkillsOff(sql),
     },
   });
@@ -418,10 +426,11 @@ function placeExists(
 function agentLookups(
   places: PlaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
+  layers: SkillLayers,
 ): AgentLookups {
   let registry: ExtensionRegistry | null | undefined;
   const registryOf = (): ExtensionRegistry | null => {
-    if (registry === undefined) registry = extensionRegistry(sql);
+    if (registry === undefined) registry = extensionRegistry(sql, layers);
     return registry;
   };
   return {
@@ -442,7 +451,7 @@ function agentLookups(
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
     skills: (place) =>
       place === null
-        ? globalSkillNames(sql)
+        ? globalSkillNames(sql, layers)
         : registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent grant가 정한다.
     mcp: () => [],
@@ -452,10 +461,13 @@ function agentLookups(
 }
 
 // 전역 층에서 발견하는 skill 이름이다. 전역에서 끈 것은 뺀다.
-function globalSkillNames(sql: Pick<Tx["sql"], "get" | "all">): string[] {
+function globalSkillNames(
+  sql: Pick<Tx["sql"], "get" | "all">,
+  layers: SkillLayers,
+): string[] {
   return listSkillsSync(
     skillFiles,
-    { ...globalSkillSources(sql), project: null },
+    { ...globalSkillSources(sql, layers), project: null },
     { role: null, off: registeredSkillsOff(sql) },
   ).entries.filter((entry) => entry.enabled).map((entry) => entry.name);
 }
@@ -578,6 +590,9 @@ export type LophnAgentPorts = {
   roleCommands: RoleCommands;
   operatorPlaceAllowed: AgentDeps["operatorPlaceAllowed"];
   roles: AgentRoleTable;
+  // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. role 층의 값이다.
+  projectLayer: ProjectLayer;
+  bundledSkillsRoot: string;
 };
 
 // port에 묶인 command·read 정의와 reader 등록, 정의를 여는 길을 만든다.
@@ -590,7 +605,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   });
   const agentDeps: AgentDeps = {
     files: createNodeAgentFiles(),
-    lookups: (sql) => agentLookups(ports.lookups, sql),
+    lookups: (sql) => agentLookups(ports.lookups, sql, ports),
     roles: ports.roles,
     operatorPlaceAllowed: ports.operatorPlaceAllowed,
   };
@@ -604,16 +619,18 @@ export function createLophnAgent(ports: LophnAgentPorts) {
 
   // skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
   const skillsReads = createSkillsRead({
+    projectLayer: ports.projectLayer,
     files: placeFiles,
     skillFiles,
     lookups: (sql) => ({
-      skillSources: () => globalSkillSources(sql),
+      skillSources: () => globalSkillSources(sql, ports),
       skillsOff: () => registeredSkillsOff(sql),
       projectExists: (id) =>
         placeExists(ports.lookups, sql, { kind: "project", id }),
     }),
   });
   const projectExtensionDeps = {
+    projectLayer: ports.projectLayer,
     files: placeFiles,
     lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
       projectExists: (id: string) =>
@@ -649,10 +666,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         session.place === null
           ? listSkillsSync(
             skillFiles,
-            { ...globalSkillSources(sql), project: null },
+            { ...globalSkillSources(sql, ports), project: null },
             { role: null, off: registeredSkillsOff(sql) },
           ).entries
-          : extensionRegistry(sql)?.skills(session.place).entries ?? [],
+          : extensionRegistry(sql, ports)?.skills(session.place).entries ?? [],
         skillsOffOf(sql, session.agent),
         session.role,
       ),

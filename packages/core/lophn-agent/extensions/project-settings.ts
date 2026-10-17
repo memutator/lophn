@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AgentPlace,
   type McpServer,
   mcpServerSchema,
   projectExtensionSettingsChange,
@@ -26,27 +27,20 @@ import {
   type ReadSql,
 } from "./place-store.ts";
 
-// project 층 설정이다. project의 lophn data 폴더 `<data root>/projects/<id>/`에
-// skill 꾸러미는 `skills/`에, MCP 서버와 끈 이름은 `extensions.json` 한 파일에 둔다. 앱 place에는 이 층이 없다.
-// 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
+// project 층 설정이다. skill 꾸러미는 project의 skill 폴더에, MCP 서버와 끈 이름은 설정 파일 한 파일에 둔다. 앱
+// place에는 이 층이 없다. 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
 
-export const PROJECT_EXTENSIONS_FILE = "extensions.json";
-const PROJECT_SKILLS_DIR = "skills";
-
-function projectFolderOf(root: string, project: string): string {
-  return `${root}/projects/${project}`;
-}
-
-export function projectSkillsOf(root: string, project: string): string {
-  return `${projectFolderOf(root, project)}/${PROJECT_SKILLS_DIR}`;
-}
-
-export function projectExtensionsPathOf(
-  root: string,
-  project: string,
-): string {
-  return `${projectFolderOf(root, project)}/${PROJECT_EXTENSIONS_FILE}`;
-}
+// project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 role 층의 값을 넘긴다.
+export type ProjectLayer = {
+  // place의 project id다. project 층이 없는 place(앱)는 null이다.
+  projectOf(place: AgentPlace): string | null;
+  skillsFolder(root: string, project: string): string;
+  extensionsFile(root: string, project: string): string;
+  // project 폴더들이 든 폴더다.
+  settingsFolderArea(root: string): string;
+  // 그 폴더 안의 이름이 project 폴더면 project id, 아니면 null이다.
+  projectIdOfFolder(name: string): string | null;
+};
 
 // 서버 한 칸, 끈 skill 이름, 이 project에서 끈 전역 서버 이름이다.
 export type ProjectExtensions = {
@@ -92,6 +86,7 @@ export function parseProjectExtensions(
 
 type ProjectExtensionDeps = {
   files: PlaceFiles;
+  projectLayer: ProjectLayer;
   lookups(sql: ReadSql): { projectExists(project: string): boolean };
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
@@ -106,7 +101,9 @@ function readCurrent(
   project: string,
 ): Result<Current | null> {
   try {
-    const text = deps.files.read(projectExtensionsPathOf(root, project));
+    const text = deps.files.read(
+      deps.projectLayer.extensionsFile(root, project),
+    );
     if (text === null) return ok(null);
     const parsed = parseProjectExtensions(text);
     return ok({ hash: fileHash(text), value: parsed.ok ? parsed.value : null });
@@ -198,7 +195,7 @@ export function createProjectExtensionCommands(deps: ProjectExtensionDeps): {
         });
         try {
           deps.files.writeAtomic(
-            projectExtensionsPathOf(root.value, project),
+            deps.projectLayer.extensionsFile(root.value, project),
             text,
           );
         } catch {

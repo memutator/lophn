@@ -32,6 +32,8 @@ import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { runtimeFoldersOf } from "../place-folders-glue.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
+import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../../agent-roles/skills/root.ts";
 import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -155,7 +157,9 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           task: AGENT_RUNTIME_TASK,
           mcpOAuth: ctx.mcpAuthControl.tokenUse,
         }),
-        readMcpServers: () => mcpServerSnapshot(ctx.ledgerPath),
+        readMcpServers: () =>
+          mcpServerSnapshot(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
+        bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
         readPlaceFolders: () =>
           Promise.resolve(ledgerSnapshot(
             ctx.ledgerPath,

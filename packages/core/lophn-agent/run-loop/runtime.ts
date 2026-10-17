@@ -188,6 +188,8 @@ type AgentRuntimeDeps = {
   // 사람이 등록한 MCP server 설정(설정 registry의 snapshot). 없으면 MCP 권한은 없다. enabled인 stdio
   // 실행 경로와 HTTP `host:port`만 child 권한이 되고, 이 목록이 바뀌면 child를 다시 띄운다.
   readMcpServers?(): Promise<Result<readonly McpServerConfig[]>>;
+  // 내장 skill 폴더다. 읽기 허락에 더한다. role 층의 값이라 조립이 넘긴다.
+  bundledSkillsRoot: string;
   // 사람이 등록한 skill 폴더(절대 경로, 등록 순서). 읽기 허락에 더한다.
   readSkillRoots?(
     context: RequestContext,
@@ -353,6 +355,7 @@ export async function startAgentRuntimeChild(
       hosts: list,
       mcpServers: servers,
       skillRoots: roots,
+      bundledSkillsRoot: deps.bundledSkillsRoot,
       placeFolders,
     });
   // 읽지 못한 목록은 바꾸지 않은 것으로 본다. 권한은 읽은 목록으로만 정해진다.

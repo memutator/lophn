@@ -7,6 +7,7 @@ import {
   collectProjectMcpEntries,
   type ProjectServerSource,
 } from "./project-servers.ts";
+import type { ProjectLayer } from "./project-settings.ts";
 
 // 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`을 더한다.
 // agent-runtime child의 `--allow-run`·`--allow-net`과 MCP OAuth begin의 서버 조회가 같은 snapshot을 읽는다.
@@ -43,6 +44,8 @@ const denoProjectSource: ProjectServerSource = {
 };
 
 type McpSnapshotDeps = {
+  // project 폴더 규칙이다. role 층의 값을 조립이 넘긴다.
+  projectLayer: ProjectLayer;
   // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
@@ -58,7 +61,7 @@ export type RegisteredMcpServer = {
 // 가른다: OAuth 시작이 입력의 place로 서버를 고른다.
 export async function registeredMcpServers(
   ledgerPath: string,
-  deps: McpSnapshotDeps = {},
+  deps: McpSnapshotDeps,
 ): Promise<Result<RegisteredMcpServer[]>> {
   const root = ledgerPath.slice(0, ledgerPath.lastIndexOf("/"));
   const global = deps.global?.() ?? globalMcpServers(root);
@@ -66,6 +69,7 @@ export async function registeredMcpServers(
   const projects = await collectProjectMcpEntries(
     root,
     deps.projects ?? denoProjectSource,
+    deps.projectLayer,
   );
   return ok([
     ...global.value.map((server) => ({ place: null, server })),
@@ -75,7 +79,7 @@ export async function registeredMcpServers(
 
 export async function mcpServerSnapshot(
   ledgerPath: string,
-  deps: McpSnapshotDeps = {},
+  deps: McpSnapshotDeps,
 ): Promise<Result<McpRuntimeServer[]>> {
   const registered = await registeredMcpServers(ledgerPath, deps);
   if (!registered.ok) return registered;

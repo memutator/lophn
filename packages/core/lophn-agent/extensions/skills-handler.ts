@@ -10,8 +10,7 @@ import type {
 import { dataRootOf, type PlaceFiles, type ReadSql } from "./place-store.ts";
 import {
   parseProjectExtensions,
-  projectExtensionsPathOf,
-  projectSkillsOf,
+  type ProjectLayer,
 } from "./project-settings.ts";
 import {
   listSkillsSync,
@@ -34,6 +33,7 @@ type SkillsReadLookups = {
 };
 
 type SkillsReadDeps = {
+  projectLayer: ProjectLayer;
   files: PlaceFiles;
   skillFiles: SyncSkillFiles;
   lookups(sql: ReadSql): SkillsReadLookups;
@@ -61,11 +61,11 @@ export function createSkillsRead(deps: SkillsReadDeps): {
           }
           const root = dataRootOf(snapshot.sql, deps.dataRoot);
           if (!root.ok) return root;
-          project = projectSkillsOf(root.value, input.project);
+          project = deps.projectLayer.skillsFolder(root.value, input.project);
           // 파일이 없거나 틀렸으면 이 project에서 끈 것이 없다. 틀린 파일은 설정을 읽는 쪽이 알린다.
           try {
             const text = deps.files.read(
-              projectExtensionsPathOf(root.value, input.project),
+              deps.projectLayer.extensionsFile(root.value, input.project),
             );
             const parsed = text === null ? null : parseProjectExtensions(text);
             if (parsed !== null && parsed.ok) {

@@ -6,7 +6,6 @@ export {
 } from "./settings.ts";
 export {
   builtinForRole,
-  BUNDLED_SKILLS_ROOT,
   discoverSkills,
   mergeSkillLayers,
   parseSkillFrontmatter,
@@ -31,10 +30,8 @@ export {
   createProjectExtensionReads,
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
-  PROJECT_EXTENSIONS_FILE,
   type ProjectExtensions,
-  projectExtensionsPathOf,
-  projectSkillsOf,
+  type ProjectLayer,
 } from "./project-settings.ts";
 export {
   collectProjectMcpEntries,

@@ -10,8 +10,7 @@ import {
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
   type ProjectExtensions,
-  projectExtensionsPathOf,
-  projectSkillsOf,
+  type ProjectLayer,
 } from "./project-settings.ts";
 import {
   type McpRuntimeServer,
@@ -34,6 +33,7 @@ import {
 
 type ExtensionRegistryDeps = {
   root: string;
+  projectLayer: ProjectLayer;
   files: PlaceFiles;
   skillFiles: SyncSkillFiles;
   // 전역(Workspace) 층이다. 서버 목록은 platform/settings 값, skill 출처는 등록 폴더·개인 보관소·내장 폴더다.
@@ -67,10 +67,11 @@ export function createExtensionRegistry(
 
   // 틀린 파일은 그 project 층이 없는 것과 같다. 연결하지 않는 쪽으로 닫는다.
   function projectOf(place: AgentPlace): ProjectExtensions {
-    if (place.kind !== "project") return EMPTY_PROJECT_EXTENSIONS;
+    const project = deps.projectLayer.projectOf(place);
+    if (project === null) return EMPTY_PROJECT_EXTENSIONS;
     try {
       const text = deps.files.read(
-        projectExtensionsPathOf(deps.root, place.id),
+        deps.projectLayer.extensionsFile(deps.root, project),
       );
       if (text === null) return EMPTY_PROJECT_EXTENSIONS;
       const parsed = parseProjectExtensions(text);
@@ -87,11 +88,12 @@ export function createExtensionRegistry(
       const off = [
         ...new Set([...deps.global.skillsOff, ...projectOf(place).skills_off]),
       ];
+      const project = deps.projectLayer.projectOf(place);
       const listing = listSkillsSync(deps.skillFiles, {
         ...deps.global.skills,
-        project: place.kind === "project"
-          ? projectSkillsOf(deps.root, place.id)
-          : null,
+        project: project === null
+          ? null
+          : deps.projectLayer.skillsFolder(deps.root, project),
       }, { role: null, off });
       skills.set(key(place), listing);
       return listing;

@@ -35,6 +35,8 @@ import { builtinToolNames } from "../../agent-roles/tool-lists.ts";
 import { rolePrompt } from "../../agent-roles/roles/prompts.ts";
 import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { activeContextsOf } from "../../agent-roles/place/active-contexts.ts";
+import { PROJECT_LAYER } from "../../agent-roles/place/project-layer.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../agent-roles/skills/root.ts";
 import { placeData } from "../../agent-roles/place/place-data.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
@@ -50,6 +52,12 @@ import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
+
+// skill 발견이 쓰는 role 층의 자리 규칙이다. agent runtime child는 조립이라 role 층을 안다.
+const SKILL_PLACES = {
+  projectLayer: PROJECT_LAYER,
+  bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
+};
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
 // 시험도 같은 묶음을 쓴다.
@@ -131,7 +139,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         },
         router: routerOverCore(turn.core),
         skills: turnSkillReader(
-          productSkillSnapshotDeps(calls.machine),
+          productSkillSnapshotDeps(calls.machine, SKILL_PLACES),
           session,
           turn.skills,
         ),
@@ -165,7 +173,10 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       redact: calls.redact,
       // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 설정이 없으면 빈 목록이다.
       skills: (place) =>
-        registeredSkillEntries(calls.machine, productSkillStores(place)),
+        registeredSkillEntries(
+          calls.machine,
+          productSkillStores(place, SKILL_PLACES),
+        ),
     });
     // 사람이 요청한 Compact의 요약 call이다. 같은 model 선택 검증과 core 연결을 쓴다.
     const compactor = createCompactor({

@@ -49,10 +49,6 @@ export type SkillSkipped = {
   reason: string;
 };
 
-// 내장 skill 폴더다. 설치 묶음에 함께 간다. `register.ts`가 같은 값으로 읽기 허락을 건다.
-export const BUNDLED_SKILLS_ROOT = new URL("./builtin-skills", import.meta.url)
-  .pathname;
-
 // 형식 상한이다.
 const SKILL_NAME_MAX = 64;
 const SKILL_DESCRIPTION_MAX = 1024;

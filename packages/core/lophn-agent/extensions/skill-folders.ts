@@ -5,7 +5,6 @@ import { createListSettingsReader } from "../../config/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
-  BUNDLED_SKILLS_ROOT,
   discoverSkills,
   SKILL_BODY_MAX_BYTES,
   type SkillDiscovery,
@@ -15,14 +14,13 @@ import {
 import type { SkillSnapshotDeps } from "./skill-read.ts";
 import {
   parseProjectExtensions,
-  projectExtensionsPathOf,
-  projectSkillsOf,
+  type ProjectLayer,
 } from "./project-settings.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 제품 runtime의 skill 발견이다. 출처는 내장 skill 폴더(`extensions/builtin-skills`), 등록 순서의 설정
+// 제품 runtime의 skill 발견이다. 출처는 내장 skill 폴더, 등록 순서의 설정
 // `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), project place의 skill
-// 폴더(`<LOPHN_HOME>/projects/<id>/skills`) 넷뿐이다. 앱 place에는 skill 폴더가 없다. 다른 place의 폴더, 상위 폴더,
+// 폴더(project 층 규칙이 정한다) 넷뿐이다. 앱 place에는 skill 폴더가 없다. 다른 place의 폴더, 상위 폴더,
 // 앱 소스, 다른 harness 보관소, 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소), project 순이다.
 
 // 내장, 개인 보관소, project 폴더의 위치다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
@@ -33,11 +31,13 @@ type SkillStores = {
   project: string | null;
   // project에서 끈 이름이 든 파일이다.
   project_file: string | null;
-  // data root다. project 폴더를 여는 허락이 이 아래 `projects/<id>`로 좁다.
+  // data root다. project 폴더를 여는 허락이 이 아래 project 폴더로 좁다.
   root: string | null;
+  layer: ProjectLayer;
 };
 
-export { BUNDLED_SKILLS_ROOT };
+// 내장 skill 폴더와 project 층 규칙은 role 층의 값이라 조립이 넘긴다.
+type SkillStoreDeps = { projectLayer: ProjectLayer; bundledSkillsRoot: string };
 
 function dataRootOfEnv(): string | null {
   const home = Deno.env.get("LOPHN_HOME");
@@ -46,19 +46,25 @@ function dataRootOfEnv(): string | null {
     : null;
 }
 
-export function productSkillStores(place: AgentPlace | null): SkillStores {
+export function productSkillStores(
+  place: AgentPlace | null,
+  deps: SkillStoreDeps,
+): SkillStores {
   const root = dataRootOfEnv();
-  const project = root === null || place === null || place.kind !== "project"
+  const project = root === null || place === null
     ? null
-    : place.id;
+    : deps.projectLayer.projectOf(place);
   return {
-    bundled: BUNDLED_SKILLS_ROOT,
+    bundled: deps.bundledSkillsRoot,
     personal: root === null ? null : `${root}/skills`,
-    project: project === null ? null : projectSkillsOf(root!, project),
+    project: project === null
+      ? null
+      : deps.projectLayer.skillsFolder(root!, project),
     project_file: project === null
       ? null
-      : projectExtensionsPathOf(root!, project),
+      : deps.projectLayer.extensionsFile(root!, project),
     root,
+    layer: deps.projectLayer,
   };
 }
 
@@ -114,14 +120,19 @@ async function discoverProductSkills(
 
 // turn 시작에 skill 판을 고정하는 재료다(`createSkillSnapshot`). project마다 폴더가 달라 port는 data root 아래
 // 모든 project 폴더를 열 수 있다.
-export function productSkillSnapshotDeps(machine: CoreCall): SkillSnapshotDeps {
-  const base = productSkillStores(null);
+export function productSkillSnapshotDeps(
+  machine: CoreCall,
+  deps: SkillStoreDeps,
+): SkillSnapshotDeps {
+  const base = productSkillStores(null, deps);
   const stores = (project: string): SkillStores => ({
     ...base,
-    project: base.root === null ? null : projectSkillsOf(base.root, project),
+    project: base.root === null
+      ? null
+      : deps.projectLayer.skillsFolder(base.root, project),
     project_file: base.root === null
       ? null
-      : projectExtensionsPathOf(base.root, project),
+      : deps.projectLayer.extensionsFile(base.root, project),
   });
   return {
     port: productFiles([], { ...base, project: null }),
@@ -173,16 +184,21 @@ function productFiles(
   roots: readonly string[],
   stores: SkillStores,
 ): SkillFilesPort {
+  // data root 아래 project 폴더의 skill 폴더와 설정 파일만이다.
   const projectPath = (path: string): boolean => {
     if (stores.root === null) return false;
+    const { layer } = stores;
     const target = lexical(path);
-    const base = lexical(stores.root);
-    if (target === null || base === null) return false;
-    return new RegExp(
-      `^${
-        base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-      }/projects/prj_[0-9a-z]+/(skills(/.*)?|extensions\\.json)$`,
-    ).test(target);
+    const area = lexical(layer.settingsFolderArea(stores.root));
+    if (target === null || area === null || !target.startsWith(`${area}/`)) {
+      return false;
+    }
+    const id = layer.projectIdOfFolder(
+      target.slice(area.length + 1).split("/")[0],
+    );
+    if (id === null) return false;
+    return target === lexical(layer.extensionsFile(stores.root, id)) ||
+      under(layer.skillsFolder(stores.root, id), target);
   };
   const allowed = (path: string): boolean =>
     projectPath(path) ||

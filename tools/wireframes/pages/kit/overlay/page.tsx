@@ -1,217 +1,321 @@
-// Kit · overlay. @lophn/ui/overlay의 Popover·Tooltip·Toast, 같은 CSS Module로 짠 Menu·Dialog·Sheet·Palette(look-alike)와
-// 예제(overlays). Menu·Dialog·Sheet·Palette는 modal이라 열어 두면 page 전체가 잠겨서(Radix가 body를 inert로 만든다)
-// stage 안에 정적으로 그린다.
-import { Button, Icon, IconButton, Kbd } from "@lophn/ui/primitives";
-import { Popover, PopoverRow, Toast, Tooltip } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
+// Kit · overlay. @lophn/ui/overlay의 모든 component를 실제로 그린다. 닫혀 있다가 열리는 modal(Menu·Dialog·Palette)은
+// 열면 page 전체가 inert가 되어 Light·Dark 단추까지 막히므로 단추로 연다. 열린 면은 Stage 상자 안에 그린다.
+import { type ReactNode, useState } from "react";
+import { Button, FileIcon, IconButton } from "@lophn/ui/primitives";
+import {
+  Dialog,
+  Menu,
+  MenuIcon,
+  Palette,
+  type PaletteItem,
+  Popover,
+  PopoverRow,
+  Sheet,
+  Toast,
+  ToastStack,
+  Tooltip,
+} from "@lophn/ui/overlay";
 import {
   paletteIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
-import dialogStyles from "../../../../../packages/design/components/overlay/dialog/dialog.module.css";
-import sheetStyles from "../../../../../packages/design/components/overlay/sheet/sheet.module.css";
-import paletteStyles from "../../../../../packages/design/components/overlay/palette/palette.module.css";
-import menuStyles from "../../../../../packages/design/components/overlay/menu/menu.module.css";
 import { OverlayExample } from "./overlays.tsx";
-import { Example, FROZEN_TIMER, kit, Page, Section, Stage } from "../kit.tsx";
+import {
+  Example,
+  FROZEN_TIMER,
+  kit,
+  Page,
+  Row,
+  Section,
+  Stage,
+} from "../kit.tsx";
 
 const NOOP = () => {};
+const stop = { timer: FROZEN_TIMER, onClose: NOOP };
+
+const PALETTE_ITEMS: readonly PaletteItem[] = [
+  {
+    id: "projects",
+    label: "Projects",
+    group: "Go to",
+    icon: paletteIcons.project,
+  },
+  {
+    id: "confirm",
+    label: "Things to confirm",
+    group: "Go to",
+    hint: "G C",
+    icon: paletteIcons.context,
+  },
+  {
+    id: "doc",
+    label: "exp-008-query-tools.md",
+    group: "Documents",
+    detail: "Grocery budget",
+    icon: paletteIcons.document,
+  },
+  {
+    id: "search",
+    label: "Search phroner",
+    group: "Actions",
+    hint: "Ctrl K",
+    icon: paletteIcons.search,
+  },
+];
+
+// 단추를 누르면 열리는 modal 하나. 닫으면 inert가 풀린다.
+function Opens(
+  { label, children }: {
+    label: string;
+    children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode;
+  },
+) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>{label}</Button>
+      {children(open, setOpen)}
+    </>
+  );
+}
+
+function Close({ onClick }: { onClick: () => void }) {
+  return <Button onClick={onClick}>Close</Button>;
+}
 
 export function KitOverlay() {
-  const item = (label: string, group: string, hint?: string) => ({
-    label,
-    group,
-    hint,
-  });
-  const rows = [
-    item("Projects", "Go to"),
-    item("Things to confirm", "Go to", "G C"),
-    item("exp-008-query-tools.md", "Documents"),
-    item("Search phroner", "Actions", "Ctrl K"),
-  ];
-  const stop = { timer: FROZEN_TIMER, onClose: NOOP };
   return (
     <Page>
       <Section
-        title="Menu"
-        note="Radix 메뉴는 열면 page 전체가 inert가 되어서 같은 CSS Module로 짠 정적 모양이다. 위쪽 행이 highlight다."
+        title="Tooltip"
+        note="hover·focus에 잠깐 뜨는 짧은 설명. 열어 둔 채로 아래 상자에 그린다."
       >
-        <div className={kit.panel}>
-          <div
-            className={`${menuStyles.menu}`}
-            role="menu"
-            style={{ minWidth: "200px", display: "inline-block" }}
-          >
-            {["Open", "Open read-only", "Rename", "Move…", "Archive"].map((
-              label,
-              index,
-            ) => (
-              <div
-                key={label}
-                role="menuitem"
-                className={menuStyles.item}
-                data-highlighted={index === 0 ? "" : undefined}
-                data-disabled={label === "Archive" ? "" : undefined}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
+        <Stage height={140} center>
+          {(container) => (
+            <Tooltip open container={container} content="Split pane">
+              <IconButton icon={workspaceIcons.splitPane} label="Split pane" />
+            </Tooltip>
+          )}
+        </Stage>
       </Section>
       <Section
-        title="Popover and Tooltip"
-        note="실제 component를 열어 둔 채로 아래 상자에 그린다."
+        title="Popover and PopoverRow"
+        note="눌러서 여는 작은 면. PopoverRow는 고를 수 있는 한 줄이고 disabled도 있다."
       >
-        <Stage height={220} center>
+        <Stage height={200} center>
           {(container) => (
-            <div className={kit.row} style={{ gap: "160px" }}>
-              <Popover
-                open
+            <Popover
+              open
+              container={container}
+              trigger={<Button>Move to…</Button>}
+            >
+              <PopoverRow onSelect={NOOP}>Grocery budget</PopoverRow>
+              <PopoverRow onSelect={NOOP}>Home office</PopoverRow>
+              <PopoverRow onSelect={NOOP} disabled>phroner</PopoverRow>
+            </Popover>
+          )}
+        </Stage>
+      </Section>
+      <Section
+        title="Menu and MenuIcon"
+        note="행동 목록. 단추로 연다. 왼쪽은 글만, 오른쪽은 항목 앞에 MenuIcon(design 아이콘, FileIcon)을 놓고 한 항목은 disabled다."
+      >
+        <Stage height={240} center>
+          {(container) => (
+            <div className={kit.row} style={{ gap: "var(--space-8)" }}>
+              <Menu
                 container={container}
-                trigger={<Button>Move to…</Button>}
-              >
-                <PopoverRow onSelect={NOOP}>Grocery budget</PopoverRow>
-                <PopoverRow onSelect={NOOP}>Home office</PopoverRow>
-                <PopoverRow onSelect={NOOP} disabled>phroner</PopoverRow>
-              </Popover>
-              <Tooltip open container={container} content="Split pane">
-                <IconButton
-                  icon={workspaceIcons.splitPane}
-                  label="Split pane"
-                />
-              </Tooltip>
+                trigger={<Button>Plain menu</Button>}
+                items={[
+                  { id: "open", label: "Open" },
+                  { id: "rename", label: "Rename" },
+                  { id: "archive", label: "Archive", disabled: true },
+                ]}
+                onSelect={NOOP}
+              />
+              <Menu
+                container={container}
+                trigger={<Button>Menu with icons</Button>}
+                items={[
+                  {
+                    id: "open",
+                    label: "Open",
+                    leading: <MenuIcon icon={paletteIcons.document} />,
+                  },
+                  {
+                    id: "file",
+                    label: "notes.md",
+                    leading: (
+                      <MenuIcon>
+                        <FileIcon name="notes.md" />
+                      </MenuIcon>
+                    ),
+                  },
+                  {
+                    id: "trash",
+                    label: "Move to trash",
+                    leading: <MenuIcon icon={workspaceIcons.trash} />,
+                    disabled: true,
+                  },
+                ]}
+                onSelect={NOOP}
+              />
             </div>
           )}
         </Stage>
       </Section>
       <Section
         title="Dialog"
-        note="modal. backdrop 위 dialog 층, 오른쪽 끝에 주 행동. 같은 CSS Module로 짠 정적 모양이다."
+        note="작업을 멈추고 답을 받는 modal. 단추로 연다. default·wide 폭과 행동 줄 유무를 본다."
       >
-        <Stage height={320}>
-          {() => (
-            <>
-              <div className={dialogStyles.backdrop} />
-              <div
-                className={`${dialogStyles.dialog} ${dialogStyles.default}`}
-                role="dialog"
-              >
-                <h2 className={dialogStyles.title}>Archive this project?</h2>
-                <div className={dialogStyles.body}>
-                  Its documents stay where they are. You can bring the project
-                  back from Projects.
-                </div>
-                <div className={dialogStyles.actions}>
-                  <Button>Cancel</Button>
-                  <Button variant="danger">Archive</Button>
-                </div>
-              </div>
-            </>
-          )}
-        </Stage>
-      </Section>
-      <Section
-        title="Sheet"
-        note="backdrop 없는 non-modal 패널. 같은 CSS Module로 짠 정적 모양이다."
-      >
-        <Stage height={320}>
-          {() => (
-            <div
-              className={sheetStyles.sheet}
-              role="dialog"
-              style={{ width: "var(--dialog-width-default)" }}
-            >
-              <h2 className={dialogStyles.title}>Document details</h2>
-              <div className={dialogStyles.body}>
-                Version 3, saved 2 hours ago. 3 contexts include this document.
-              </div>
-              <div className={dialogStyles.actions}>
-                <Button>Close</Button>
-              </div>
+        <Stage height={320} center>
+          {(container) => (
+            <div className={kit.row}>
+              <Opens label="Default with actions">
+                {(open, setOpen) => (
+                  <Dialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    container={container}
+                    title="Archive this project?"
+                    actions={
+                      <>
+                        <Close onClick={() => setOpen(false)} />
+                        <Button variant="danger" onClick={() => setOpen(false)}>
+                          Archive
+                        </Button>
+                      </>
+                    }
+                  >
+                    Its documents stay where they are. You can bring the project
+                    back from Projects.
+                  </Dialog>
+                )}
+              </Opens>
+              <Opens label="Wide">
+                {(open, setOpen) => (
+                  <Dialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    container={container}
+                    width="wide"
+                    title="Operator run"
+                    actions={<Close onClick={() => setOpen(false)} />}
+                  >
+                    Wide fits longer text, such as a run log or a diff that
+                    needs more room to read.
+                  </Dialog>
+                )}
+              </Opens>
+              <Opens label="Without actions">
+                {(open, setOpen) => (
+                  <Dialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    container={container}
+                    title="Saved"
+                  >
+                    Press Escape to close.
+                  </Dialog>
+                )}
+              </Opens>
             </div>
           )}
         </Stage>
       </Section>
       <Section
-        title="Palette"
-        note="폭 640px, 항목 36px, 묶음 이름 아래에 행이 모인다. 같은 CSS Module로 짠 정적 모양이다."
+        title="Sheet"
+        note="backdrop 없는 non-modal 면이라 열어 둔 채로 아래 상자에 그린다. default·wide 폭."
       >
-        <Stage height={380}>
-          {() => (
-            <>
-              <div className={dialogStyles.backdrop} />
-              <div className={paletteStyles.palette} role="dialog">
-                <label className={paletteStyles.title}>Command palette</label>
-                <div className={paletteStyles.search}>
-                  <Icon
-                    icon={paletteIcons.search}
-                    pixels={iconPixels("base")}
-                    className={paletteStyles.icon}
+        <Row label="default">
+          <div style={{ width: "100%" }}>
+            <Stage height={280}>
+              {(container) => (
+                <Sheet
+                  open
+                  onOpenChange={NOOP}
+                  container={container}
+                  title="Document details"
+                  actions={<Button>Close</Button>}
+                >
+                  Version 3, saved 2 hours ago. 3 contexts include this
+                  document.
+                </Sheet>
+              )}
+            </Stage>
+          </div>
+        </Row>
+        <Row label="wide">
+          <div style={{ width: "100%" }}>
+            <Stage height={280}>
+              {(container) => (
+                <Sheet
+                  open
+                  onOpenChange={NOOP}
+                  container={container}
+                  width="wide"
+                  title="Document details"
+                  actions={<Button>Close</Button>}
+                >
+                  Version 3, saved 2 hours ago. 3 contexts include this
+                  document.
+                </Sheet>
+              )}
+            </Stage>
+          </div>
+        </Row>
+      </Section>
+      <Section
+        title="Palette"
+        note="검색해서 고르는 명령·이동 창. 단추로 연다. 항목이 있을 때와 항목이 없어 결과가 없다고 나올 때."
+      >
+        <Stage height={420} center>
+          {(container) => (
+            <div className={kit.row}>
+              <Opens label="With items">
+                {(open, setOpen) => (
+                  <Palette
+                    open={open}
+                    onOpenChange={setOpen}
+                    container={container}
+                    title="Command palette"
+                    items={PALETTE_ITEMS}
+                    onSelect={() => setOpen(false)}
                   />
-                  <input
-                    className={paletteStyles.input}
-                    defaultValue="plan"
-                    readOnly
+                )}
+              </Opens>
+              <Opens label="No results">
+                {(open, setOpen) => (
+                  <Palette
+                    open={open}
+                    onOpenChange={setOpen}
+                    container={container}
+                    title="Command palette"
+                    items={[]}
+                    onSelect={() => setOpen(false)}
                   />
-                </div>
-                <div className={paletteStyles.list} role="listbox">
-                  {rows.map((row, index) => (
-                    <div key={row.label} role="presentation">
-                      {row.group !== rows[index - 1]?.group
-                        ? <div className={paletteStyles.group}>{row.group}</div>
-                        : null}
-                      <div
-                        role="option"
-                        aria-selected={index === 1}
-                        className={`${paletteStyles.item} ${
-                          index === 1 ? paletteStyles.active : ""
-                        }`}
-                      >
-                        <span className={paletteStyles.text}>
-                          <span className={paletteStyles.label}>
-                            {row.label}
-                          </span>
-                        </span>
-                        {row.hint === undefined
-                          ? null
-                          : (
-                            <span className={paletteStyles.hint}>
-                              {row.hint}
-                            </span>
-                          )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className={paletteStyles.footer}>
-                  <span className={paletteStyles.key}>
-                    <Kbd keys={["↑", "↓"]} /> Move
-                  </span>
-                  <span className={paletteStyles.key}>
-                    <Kbd keys={["↵"]} /> Open
-                  </span>
-                  <span className={paletteStyles.key}>
-                    <Kbd keys={["Esc"]} /> Close
-                  </span>
-                </div>
-              </div>
-            </>
+                )}
+              </Opens>
+            </div>
           )}
         </Stage>
       </Section>
       <Section
         title="Toast"
-        note="행동은 최대 둘. 시간이 가지 않는 timer를 줘서 열린 채로 둔다. error는 시간으로 닫지 않는다."
+        note="잠깐 뜨는 알림. neutral과 error, 행동 0~3개. 시간이 가지 않는 timer를 줘서 열린 채로 둔다. error는 시간으로 닫지 않는다."
       >
-        <div className={kit.column}>
+        <Row label="neutral">
           <Toast title="Saved" duration="brief" {...stop} />
+        </Row>
+        <Row label="1 action">
           <Toast
             title="1 Operator repeats a check here"
             actions={[{ id: "see", label: "See Operators" }]}
             {...stop}
           />
+        </Row>
+        <Row label="2 actions + body">
           <Toast
             title="eval: 2 documents don't match the contract"
             body="Open the Violations tab to see which ones."
@@ -221,6 +325,19 @@ export function KitOverlay() {
             }]}
             {...stop}
           />
+        </Row>
+        <Row label="3 actions">
+          <Toast
+            title="Update ready"
+            actions={[
+              { id: "later", label: "Later" },
+              { id: "notes", label: "Release notes" },
+              { id: "restart", label: "Restart", variant: "primary" },
+            ]}
+            {...stop}
+          />
+        </Row>
+        <Row label="error">
           <Toast
             title="Couldn't save the document"
             body="The folder isn't reachable."
@@ -228,13 +345,31 @@ export function KitOverlay() {
             actions={[{ id: "retry", label: "Try again" }]}
             {...stop}
           />
-        </div>
+        </Row>
       </Section>
       <Section
-        title="overlays"
-        note="tooltip·popover·menu·dialog·toast를 여는 단추들이다. 눌러 열어 볼 수 있다."
+        title="ToastStack"
+        note="Toast들을 오른쪽 아래 층에 쌓는다. 아래 상자 오른쪽 아래를 본다."
       >
-        <Example>
+        <Stage height={300}>
+          {() => (
+            <ToastStack>
+              <Toast title="Saved" duration="brief" {...stop} />
+              <Toast
+                title="Couldn't save the document"
+                tone="error"
+                actions={[{ id: "retry", label: "Try again" }]}
+                {...stop}
+              />
+            </ToastStack>
+          )}
+        </Stage>
+      </Section>
+      <Section
+        title="ToastProvider and useToast"
+        note="앱 root에 둔 queue로 toast를 띄운다. Save를 누르면 아래 상자에 뜬다. tooltip·popover·menu·dialog·palette를 여는 단추들도 같이 있다."
+      >
+        <Example height={300}>
           <div className={kit.panel}>
             <OverlayExample />
           </div>

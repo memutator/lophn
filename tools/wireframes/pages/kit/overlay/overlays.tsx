@@ -13,7 +13,6 @@ import {
   useToast,
 } from "@lophn/ui/overlay";
 import type { Clock, Timer } from "@lophn/ui/shared";
-import styles from "./overlays.module.css";
 
 // 앱이 자기 catalog에서 가져오는 문구 자리다.
 const TEXT = {
@@ -54,7 +53,14 @@ function Overlays({ timer }: { timer?: Timer }) {
   const [renaming, setRenaming] = useState(false);
   const [palette, setPalette] = useState(false);
   return (
-    <div className={styles.bar}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "var(--space-4)",
+      }}
+    >
       <Tooltip content={TEXT.aboutBody} timer={timer}>
         <IconButton icon={Info} label={TEXT.about} />
       </Tooltip>

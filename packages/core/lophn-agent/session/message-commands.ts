@@ -20,6 +20,7 @@ import type {
   CommandDefinition,
   Input,
   RequestContext,
+  Sql,
   Tx,
 } from "../../../protocol/server/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -27,7 +28,7 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
 import { attachedText } from "../run-loop/input-text.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
-import { createCheckpoint } from "./rewind/mod.ts";
+import { createCheckpoint, hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { loadSession } from "./model.ts";
 import { titleOnReceive } from "./session-title.ts";
@@ -278,6 +279,37 @@ function sendWith(
   });
   if (!routed.ok) return routed;
   return ok({ message: input.id, state_seq: written.value.state_seq });
+}
+
+// core를 켤 때 입력함에 되돌려 놓을 사람 메시지다. 입력함은 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
+// 접수 기록은 남는다. 접수 순서로 돌려준다. Fork 복사본도 turn이 비어 있어서, Fork한 session은 자기 turn이 가져간
+// 마지막 메시지보다 뒤에 접수한 것만 센다. rewind가 숨긴 구간의 메시지는 뺀다.
+export function unstartedHumanMessages(
+  sql: Pick<Sql, "get" | "all">,
+): { id: string; session: string; refs: CallRef[]; created_at: string }[] {
+  const rows = sql.all(
+    `select m.id, m.session, m.refs, m.created_at, m.created_seq
+     from messages m join sessions s on s.id = m.session
+     where m.from_kind = 'human' and m.turn is null and s.lifecycle = 'open'
+       and (s.forked_from_session is null or m.created_seq > (
+         select max(c.created_seq) from messages c
+         where c.session = s.id and c.turn is not null))
+     order by m.created_seq`,
+    [],
+  );
+  const hidden = new Map<string, ReturnType<typeof hiddenRanges>>();
+  return rows.filter((row) => {
+    const session = String(row["session"]);
+    if (!hidden.has(session)) {
+      hidden.set(session, hiddenRanges({ sql }, session));
+    }
+    return !inHiddenRange(hidden.get(session)!, String(row["created_seq"]));
+  }).map((row) => ({
+    id: String(row["id"]),
+    session: String(row["session"]),
+    refs: JSON.parse(String(row["refs"])) as CallRef[],
+    created_at: String(row["created_at"]),
+  }));
 }
 
 // 사람의 단추 한 번으로 새 session을 여는 요청이다(request.ts). Router가 session을 열고 입력을 넣은 뒤

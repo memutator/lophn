@@ -13,7 +13,7 @@ pdf·docs 문서의 저장 목차(`outline.get`·`set`·`delete` route, 폴더 p
   - `packages/core/lophn-agent/tools/builtin.ts`, `packages/core/lophn-agent/tools/bundles/outline.ts`
   - `packages/core/lophn-agent/roles/project-manager/prompt.md`, `packages/core/lophn-agent/roles/lophn/guides/roles-and-grants.md`
 - 읽을 것:
-  - issues: `project-docs/issues/contexts.md`의 "md가 아닌 context 문서의 목차를 worker가 못 읽는다"와 "저장 목차와 outline kind가 쓰이지 않는다". 둘 다 정한 것이 "지운다"다.
+  - issues: `project-docs/issues/contexts.md`의 "저장 목차와 outline kind가 쓰이지 않는다"(정한 것: 지운다). md 아닌 문서를 context로 쓰는 일은 "md가 아닌 문서는 context로 쓸 수 없다" 이슈로 남아 있고, 필요해지면 계약부터 다시 설계한다. 이 task는 저장 목차를 되살릴 여지를 남기지 않는다.
   - architecture: contexts를 다루는 문서가 없다. 코드가 기준이다.
   - boundary·module: `project-docs/module-catalog.yaml`의 `packages/core/projects`, `packages/protocol`, `packages/core/lophn-agent`
 - 계약:

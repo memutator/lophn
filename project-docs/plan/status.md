@@ -9,6 +9,7 @@
 | `apps-large-changeset` | apps | 1 | dead-platform | todo |  |  |  |
 | `dead-agent` | dead | 1 | 없음 | todo |  |  |  |
 | `dead-platform` | dead | 1 | 없음 | todo |  |  |  |
+| `feedback-existing-problem` | feedback | 1 | 없음 | todo |  |  |  |
 | `harness-global-install` | harness | 1 | 없음 | todo |  |  |  |
 | `place-operator-app-read` | place | 1 | 없음 | todo |  |  |  |
 | `platform-crash-diagnostics` | platform | 1 | 없음 | todo |  |  |  |
@@ -18,8 +19,7 @@
 | `trust-view-error-signing` | trust | 1 | 없음 | todo |  |  |  |
 | `annotation-screenshot` | annotation | 2 | annotation-target | todo |  |  |  |
 | `dead-contexts` | dead | 2 | dead-agent | todo |  |  |  |
-| `dead-feedback-pick` | dead | 2 | trust-view-error-signing | todo |  |  |  |
 | `harness-global-confirm` | harness | 2 | harness-global-install | todo |  |  |  |
 | `harness-opencode` | harness | 2 | harness-global-install | todo |  |  |  |
 | `platform-component-checks` | platform | 2 | platform-crash-diagnostics | todo |  |  |  |
-| `cleanup-leftovers` | cleanup | 3 | trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, dead-feedback-pick, annotation-target, apps-activation-no-retry | todo |  |  |  |
+| `cleanup-leftovers` | cleanup | 3 | trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, annotation-target, apps-activation-no-retry | todo |  |  |  |

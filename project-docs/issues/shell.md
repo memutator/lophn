@@ -15,7 +15,7 @@ modules: [packages/shell/renderer, packages/shell/ipc, packages/shell/main]
 
 고치려면: `beginFeedback` 답을 `{draftRef, problems}`로 넓혀 main이 같은 앱의 열린 문제를 읽어 싣고, overlay가 `problems`를 dialog에 넘긴다(계약 고침, 중간). 안 살릴 거면 dialog의 고르기와 `existing_problem` 경로를 지운다(작음).
 
-정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+정한 것: 살린다. main이 같은 앱의 열린 문제를 읽어 dialog에 넘긴다(plan `feedback-existing-problem`). dialog의 고르기와 core의 덧붙이기 분기는 이미 있다.
 
 ## 새 session 첫 말의 context chip을 session에 싣지 않는다
 

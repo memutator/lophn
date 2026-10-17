@@ -25,8 +25,9 @@
   - `router`: describe의 waiting 포기, agent의 배달 실패 이중 통지
   - `platform`: crash를 diagnostic log에, Diagnostics 점검에 events와 agent runtime
   - `place`: 앱 Operator에게 앱 source 읽기
+  - `feedback`: 제보 창에서 기존 문제 고르기 살리기
   - `cleanup`: 앞 task들이 소유가 겹쳐 남긴 죽은 칸(`verify_key`, `queued`, confirm proof, outline format)과 틀린 이유 주석
-- 순서: wave 1은 서로 기대지 않는 task 12개. wave 2는 같은 file을 이어 고치는 task 6개(선행으로 묶음). wave 3은 `cleanup-leftovers` 하나. 모든 task가 merged면 lead가 문서를 고친다(아래).
+- 순서: wave 1은 서로 기대지 않는 task 13개. wave 2는 같은 file을 이어 고치는 task 5개(선행으로 묶음). wave 3은 `cleanup-leftovers` 하나. 모든 task가 merged면 lead가 문서를 고친다(아래).
 - brief를 쓰며 찾은 지금 bug(task가 같이 고친다): 앱 화면 오류 보고가 서명 검증에 걸려 전부 not_found로 거절된다(`trust-view-error-signing`). tool 결과 이미지가 `tool_result_image`가 아니라 JSON 글로 간다(`annotation-screenshot`). I/O worker가 diagnostics 쓰기를 모두 거절해 diagnostic log에 아무것도 안 남는다(`platform-crash-diagnostics`).
 - 사람이 정할 것: 없음. 결정은 이슈의 "정한 것"에 있다. brief가 정한 것과 다르게 가야 하면 worker는 멈추고 보고한다.
 

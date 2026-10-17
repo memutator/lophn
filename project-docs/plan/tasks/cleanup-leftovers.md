@@ -3,7 +3,7 @@
 앞 task들이 소유가 겹쳐 남겨 둔 죽은 칸, 닿지 않는 상태, 틀린 이유 주석을 지운다. 동작은 바꾸지 않는다.
 
 - 단위: cleanup (wave 3)
-- 선행: trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, dead-feedback-pick, annotation-target, apps-activation-no-retry. 모두 merged인 main에서 시작한다.
+- 선행: trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, annotation-target, apps-activation-no-retry. 모두 merged인 main에서 시작한다.
 - 소유(이 task만 고친다):
   - `packages/protocol/apps/app-start.ts`, `packages/protocol/apps/calls/process-wire.ts`
   - `packages/protocol/apps/channel.ts`, `packages/protocol/apps/invocations.ts`

@@ -19,20 +19,20 @@ modules: [packages/core/projects]
 
 추천: B.
 
-## md가 아닌 context 문서의 목차를 worker가 못 읽는다
+## md가 아닌 문서는 context로 쓸 수 없다
 
 ```yaml
 kind: bug
 modules: [packages/core/projects, packages/protocol]
 ```
 
-지금: outline source는 `outlineSourceSchema.format`이 `OUTLINE_FORMATS = ["markdown"]`뿐이라 pdf·docs를 계약에 선언할 수 없다. `extract/outline.ts`는 markdown이 아니면 `context.storedOutline`을 부르는데 `extractAll`의 두 호출처(`check/runner.ts`, `index/scan.ts`)가 모두 `storedOutline`을 넘기지 않는다. 저장 목차를 쓰는 `outline.set`(`contexts/outlines.ts`)과 agent tool(`lophn-agent/tools/bundles/outline.ts`)은 있으나 결과가 worker에 닿지 않는다.
+지금: context 계약의 목차는 markdown 제목에서만 나온다(`protocol/projects/context-contract.ts`의 outline source). pdf·docs 같은 문서는 목차 기반 개체를 만들 수 없어 context로 쓸 수 없다. 예전에 PM이 목차를 직접 적어 두는 저장 목차(`outline.set` route, agent tool, `outlines/` 폴더)를 만들었지만 읽는 쪽(계약 형식, context worker 요청)이 없어 이번 계획에서 지운다(`plan/tasks/dead-contexts.md`).
 
-영향: PM이 pdf·docs 문서의 목차를 적어도 계약이 그걸 쓸 길이 없다. md 아닌 문서는 목차 기반 개체를 만들 수 없다.
+영향: 사람이 pdf·docs로 가진 규정이나 문서를 PM이 context로 관리하지 못한다. md로 바꿔 넣어야 한다.
 
-고치려면: `format`을 `CONTEXT_OUTLINE_SOURCE_FORMATS`까지 넓히고, context worker 요청에 저장 목차를 실어 `extractAll`에 넘긴다. 계약 둘(contract, worker 요청)을 고치고 snapshot에 목차 파일을 포함해야 한다(중간~큼).
+고치려면: 실제로 md 아닌 문서를 context로 써야 할 때 계약부터 다시 설계한다. 목차를 누가 만드는지(PM이 적기, 문서에서 뽑기), 계약의 형식 칸, context worker 요청과 snapshot에 목차를 싣는 길을 같이 정한다. 지운 저장 목차를 되살리지 않는다.
 
-정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+정한 것: 지금 만들지 않는다. 필요해지면 위대로 다시 만든다.
 
 ## 열린 PM session에 위반 chip이 안 붙는다
 

@@ -31,7 +31,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `steer` | steer | 2 | 없음 | merged | steer/steer | 3abf290dd | 단정 3: steer 메시지의 messages_only rewind. 문서대로 gather를 고친다(rewind-rows merge 뒤, 추가 소유) |
 | `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | merged | test-app/test-app | 696bf90f1 | coding 길 bug 1·7·8 + run 경로. release 쪽은 release-cold-cache |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | merged | agent-call/agent-call | 53fcef2a1 |  |
-| `app-activation` | app-activation | 3 | test-app | running | app-activation/app-activation |  |  |
+| `app-activation` | app-activation | 3 | test-app | merged | app-activation/app-activation | 967e0fb6d |  |
 | `app-call` | app-call | 3 | test-app | merged | app-call/app-call | 8c86db1be |  |
 | `app-data-rewind` | app-data-rewind | 3 | test-app | merged | app-data-rewind/app-data-rewind | 70109b857 |  |
 | `app-restart` | app-restart | 3 | test-app | merged | app-restart/app-restart | 3290d5aa9 |  |

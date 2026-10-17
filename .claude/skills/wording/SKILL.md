@@ -48,6 +48,6 @@ description: 화면에 보이는 문구(label, 단추, 안내, 오류)를 더하
 
 ## 검사 범위 (함정)
 
-- check-wording은 `packages/shell/renderer`, `packages/sdk`, `packages/design/components`, `packages/design/reading`의 `.tsx`만 훑는다. `.ts` file과 `tools/wireframes`의 직접 문구는 못 잡으니 스스로 key로 쓴다.
+- check-wording은 `packages/shell/renderer`, `packages/sdk`, `packages/design/components`의 `.tsx`만 훑는다. `.ts` file과 `tools/wireframes`의 직접 문구는 못 잡으니 스스로 key로 쓴다.
 - 테스트 fixture(`_test.tsx`)의 문구는 검사하지 않는다.
 - wording catalog는 병렬 작업에서 충돌이 몰리는 곳이다. 여러 worker가 나눠 일할 때 catalog는 한 worker에게만 맡긴다.

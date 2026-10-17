@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py ui-kit build`가 `tasks/*.md`에서 id, 단�
 |---|---|---|---|---|---|---|---|
 | `kit-layout-chart` | kit-layout | 1 | kit-layout-move | todo |  |  |  |
 | `kit-layout-guide` | kit-layout | 1 | kit-layout-chart | todo |  |  |  |
-| `kit-layout-move` | kit-layout | 1 | kit-renderer | running | kit-layout/kit-layout-move |  |  |
+| `kit-layout-move` | kit-layout | 1 | kit-renderer | merged | kit-layout/kit-layout-move | 4ed77e0a5 |  |
 | `kit-renderer` | kit-renderer | 1 | 없음 | merged | kit-renderer/kit-renderer | fd43d900b |  |
 | `kit-gallery-copies` | kit-gallery | 2 | kit-sdk-move | todo |  |  |  |
 | `kit-gallery-data` | kit-gallery | 2 | kit-gallery-split | todo |  |  |  |

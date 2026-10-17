@@ -53,3 +53,9 @@
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 없음이 기본
+
+## lead가 더함
+
+- (lead가 더함) `kit-layout-move` 뒤 chart 파일의 package 이름 import는 `chart-frame.tsx`(`@lophn/ui/primitives`, `@lophn/ui/data`, `@lophn/ui/feedback`, `@lophn/ui/shared`)와 `geometry.ts`·`graph-layout.ts`·`palette.ts`(`@lophn/ui`의 `tokens`)다. `move-files.ts`가 package 이름 specifier를 상대 경로로 바꾸지 않으면 손으로 고친다. 같은 package 안의 file을 직접 가리킨다(예: `../../../tokens.ts`, `../../feedback/skeleton/skeleton.tsx`, `../table/...`). 특히 `@lophn/ui/data`를 그대로 두면 `data/mod.ts` → `chart-frame.tsx` → `data/mod.ts` 순환이다. 확인: `grep -rn "@lophn/ui" packages/design/components`가 0줄.
+- (lead가 더함) `kit-layout-move`는 `deno.lock`을 갱신할 필요가 없었다(패키지 이름만 바뀌었다). 이 task는 workspace 항목을 빼니 lock이 바뀔 것이다. 실제로 된 명령(예: `deno install --frozen=false`가 되는지, 아니면 다른 명령인지)을 보고의 "정한 것"에 그대로 적는다. `packages/shell/main/desktop/core/deno.lock` 변경은 commit하지 않는다.
+- (lead가 더함) `check:full`에서 `packages/core/apps/calls/calls_test.ts`의 "write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다"가 한 번 실패하면 다시 돌린다(이 task와 무관한 timing test다). 두 번 실패하면 보고한다.

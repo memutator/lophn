@@ -28,7 +28,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `session-archive-calls` | session-archive-calls | 2 | reply-fn, session-scope | todo |  |  |  |
 | `session-rows` | session-rows | 2 | 없음 | running | session-rows/session-rows |  |  |
 | `session-scope` | session-scope | 2 | session-rows | todo |  |  |  |
-| `steer` | steer | 2 | 없음 | running | steer/steer |  |  |
+| `steer` | steer | 2 | 없음 | blocked | steer/steer |  | 단정 3: steer 메시지의 messages_only rewind. 문서대로 gather를 고친다(rewind-rows merge 뒤, 추가 소유) |
 | `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | todo |  |  |  |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | todo |  |  |  |
 | `app-activation` | app-activation | 3 | test-app | todo |  |  |  |

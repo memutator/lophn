@@ -64,3 +64,9 @@ turn이 도는 중(허락 대기)에 사람이 steer로 보낸 message는 다음
 - 찾은 제품 bug: 증상, 재현하는 행, 의심 file. 고쳤으면 "고치기 전 코드에서 그 행이 실패한 것"의 출력 한 줄
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+- steer worker가 찾았다: 단정 3(steer로 들어간 메시지로 `messages_only` preview가 오류)이 지금 코드에서 빨강이다. `session/rewind/preview.ts`의 `gather`가 checkpoint가 없어도 사람 메시지면 받는다. `restore_all`과 요약 rewind(`summary.ts`)는 steer 메시지를 거절한다.
+- 정했다(agent): `architecture/place-session.md`("checkpoint는 turn을 시작한 입력에만 둔다. steer로 끼어든 메시지는 돌아갈 시점이 아니다")를 따른다. 이유가 `messages_only`에도 맞는다(turn 중간에서 자르면 그 turn이 반쯤 남는다). test는 그대로 두고 코드를 고친다.
+- 추가 소유(lead 승인, `rewind-rows`가 merge된 뒤): `packages/core/lophn-agent/session/rewind/preview.ts`의 `gather`(checkpoint 행이 있는 메시지만 받는다), `packages/core/lophn-agent/session/rewind/schema.ts`의 그 주석(steer 메시지 `messages_only` rewind를 전제하는 문장). schema step과 FK는 바꾸지 않는다.

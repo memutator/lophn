@@ -12,13 +12,26 @@
 // - 왜 못 잡나: `tickets_test`는 command를 직접 불러 CLI의 summary upload -> `report_completion` 순서와 claim을 쥔 token의 경로를 지나지 않는다.
 // 접수되는 쪽은 여기서 돌리지 않는다: release가 있으려면 준비(build)와 app test를 지나야 해서 `app-release`가 맡는다.
 //
+// `unclaimed-end`·`claimed-end` 행(coding-end-without-report)은 완료 보고 없이 터미널 process가 끝나는 두 길을 본다.
+// - contract: boundary `app-tickets`·`router`(끝나는 길마다 call은 한 번만 닫히고 맡긴 App Engineer는 같은 사실을 한 번만 받는다),
+//   `external-coding-agent`(session의 끝은 터미널 process의 exit으로만 안다).
+// - 현실적 회귀: 보고 없이 끝난 session의 call이 `accepted`로 영영 남아 ticket이 잠기는 것, 같은 끝을 App Engineer가 두 번 받아
+//   두 번 반응하는 것(Router와 Reactor가 모두 알리는 경우), claim이 반납되지 않아 같은 ticket을 다시 맡길 수 없는 것.
+// - 왜 못 잡나: `apps/tickets/coding` 단위 test는 event와 command를 직접 부르고, shell 역할의 `exited`에서 Reactor, Router,
+//   App Engineer의 새 turn까지 process를 건너는 흐름은 E2E에 없다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
 // 이 file은 coding 길 E2E 전체의 틀이다: core 하나에 ROWS table의 행이 차례로 돈다. 행은 앱을 새로 만든다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  callRead,
+  receivedMessageList,
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { ticketShow } from "../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
+  aeLane,
   handOff,
   startTestApp,
   type TestApp,
@@ -49,6 +62,37 @@ type Row = { name: string; run(ctx: Ctx): Promise<void> };
 function errorCode(result: { value: unknown }): unknown {
   return (result.value as { error?: { code?: unknown } } | undefined)?.error
     ?.code;
+}
+
+// 보고 없이 끝난 뒤의 세 곳: call은 receiver_ended로 닫히고, 맡긴 AE는 program 입력을 정확히 하나 받고, ticket은 반납되어 열려 있다.
+async function expectEndedUnreported(
+  core: Core,
+  app: TestApp,
+  started: { ticket: string; call: string },
+  refs: Record<string, unknown>[],
+): Promise<void> {
+  // route(user): ledger
+  const call = (await core.call(callRead, { call: started.call })).call;
+  assertEquals(call.state, "failed");
+  assertEquals(call.fail_reason, "receiver_ended");
+  // route(user): inbox. 같은 끝을 한 번만 알렸다.
+  const programs = (await core.call(receivedMessageList, { session: app.ae }))
+    .messages.filter((message) => message.from.kind === "program");
+  assertEquals(programs.length, 1);
+  for (const want of refs) {
+    assert(
+      programs[0].refs.some((ref) =>
+        Object.entries(want).every(([key, value]) =>
+          (ref as Record<string, unknown>)[key] === value
+        )
+      ),
+    );
+  }
+  // route(user): ticket
+  const ticket = (await core.call(ticketShow, { ticket: started.ticket }))
+    .ticket;
+  assertEquals(ticket.state, "open");
+  assertEquals(ticket.claim, null);
 }
 
 const ROWS: Row[] = [
@@ -148,6 +192,49 @@ const ROWS: Row[] = [
       assertNotEquals(after.claim, null);
     },
   },
+  {
+    // claim이 없으면 endSession이 같은 tx에서 call을 닫고 알린다.
+    name: "unclaimed-end",
+    async run(ctx) {
+      const { core, fake } = ctx;
+      const app = await ctx.app("end-unclaimed");
+      const started = await ctx.handOff(app);
+      fake.script([{ reply: { kind: "text", text: "noted" } }], aeLane(app));
+
+      await exitTerminal(core, started.terminal);
+      await waitTurnEnd(core, app.ae, 1);
+      // 같은 끝을 shell이 한 번 더 알려도 알림은 늘지 않는다.
+      await exitTerminal(core, started.terminal);
+      await expectEndedUnreported(core, app, started, [
+        { kind: "ticket", ticket: started.ticket },
+      ]);
+    },
+  },
+  {
+    // claim이 있으면 settle이 CodingSessionEndedUnreported를 내고 Reactor가 나중에 닫는다.
+    name: "claimed-end",
+    async run(ctx) {
+      const { core, fake } = ctx;
+      const app = await ctx.app("end-claimed");
+      const started = await ctx.handOff(app);
+      const { cli, ticket } = started;
+      const shown = await cli.run("ticket show", { ticket });
+      const base = (shown.value as { ticket: { revision: string } }).ticket
+        .revision;
+      assertEquals(
+        (await cli.run("ticket claim", { ticket, base_revision: base })).code,
+        0,
+      );
+      fake.script([{ reply: { kind: "text", text: "noted" } }], aeLane(app));
+
+      await exitTerminal(core, started.terminal);
+      await waitTurnEnd(core, app.ae, 1);
+      await expectEndedUnreported(core, app, started, [
+        { kind: "ticket", ticket },
+        { kind: "session", session: started.terminal },
+      ]);
+    },
+  },
 ];
 
 Deno.test("E2E coding token은 앱 하나 범위이고 session이 끝나면 회수된다", async (t) => {
@@ -175,7 +262,17 @@ Deno.test("E2E coding token은 앱 하나 범위이고 session이 끝나면 회�
         return { ...handed, cli: codingCli(booted, handed.token) };
       },
     };
-    for (const row of ROWS) await t.step(row.name, () => row.run(ctx));
+    // event 연결은 principal당 4개라 행이 끝나면 그 행의 앱 gateway를 닫는다.
+    for (const row of ROWS) {
+      const from = apps.length;
+      await t.step(row.name, async () => {
+        try {
+          await row.run(ctx);
+        } finally {
+          for (const app of apps.slice(from)) await app.gateway.close();
+        }
+      });
+    }
   } finally {
     for (const app of apps) await app.gateway.close();
     await core?.kill().catch(() => {});

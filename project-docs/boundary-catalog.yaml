@@ -74,6 +74,10 @@ elements:
         kind: subsystem
         description: 앱 문제의 감지, 증거, 확인, 닫기.
 
+      - id: agent-roles
+        kind: component
+        description: role마다의 prompt, tool 범위, 명령.
+
       - id: lophn-agent
         kind: subsystem
         description: lophn 안의 agent를 정의하고 돌리는 harness.
@@ -82,10 +86,6 @@ elements:
           - id: agents
             kind: component
             description: place에 놓인 agent와 그 설정.
-
-          - id: agent-roles
-            kind: component
-            description: role마다의 prompt, tool 범위, 명령.
 
           - id: agent-sessions
             kind: component

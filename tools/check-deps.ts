@@ -61,13 +61,15 @@ function numberedName(segment: string): boolean {
     /-next$/i.test(name);
 }
 
-// core 안 층. domain은 problems → apps만 되고, lophn-agent는 domain 아래, 나머지 바닥은 둘 다 모른다.
+// core 안 층. domain은 problems → apps만 되고, lophn-agent(harness)는 domain과 agent-roles(role 층) 아래,
+// domain과 agent-roles는 서로 모르고, 나머지 바닥은 셋 다 모른다.
 // 아직 못 끊은 예외 둘. harness와 domain을 나눌 때 다시 본다(project-docs/architecture/layers.md).
 // projects → apps: writer·reader Worker가 직접 여는 projects/contexts/ledger/deps.ts가 releases store를 읽는다.
 // lophn-agent → projects: lophn-agent/register.ts의 agent lookup이 context 상태를 읽는다.
 const CORE_DOMAIN_EDGES = new Set(["problems>apps", "projects>apps"]);
 const CORE_LAYER_EXCEPTIONS = new Set(["lophn-agent>projects"]);
 const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
+const CORE_ROLES = "agent-roles";
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
   return parts[0] === "packages" && parts[1] === "core" && parts.length > 3
@@ -82,9 +84,21 @@ function coreLayerViolation(file: string, target: string): string | undefined {
     return `module은 core/main을 import하지 않는다: ${from} → main`;
   }
   const bottom = from !== "main" && from !== "lophn-agent" &&
-    !CORE_DOMAINS.has(from);
-  if (bottom && (to === "lophn-agent" || CORE_DOMAINS.has(to))) {
-    return `바닥은 lophn-agent와 domain을 import하지 않는다: ${from} → ${to}`;
+    from !== CORE_ROLES && !CORE_DOMAINS.has(from);
+  if (
+    bottom &&
+    (to === "lophn-agent" || to === CORE_ROLES || CORE_DOMAINS.has(to))
+  ) {
+    return `바닥은 lophn-agent, agent-roles, domain을 import하지 않는다: ${from} → ${to}`;
+  }
+  if (from === "lophn-agent" && to === CORE_ROLES) {
+    return `lophn-agent는 agent-roles를 import하지 않는다: ${from} → ${to}`;
+  }
+  if (
+    (from === CORE_ROLES && CORE_DOMAINS.has(to)) ||
+    (CORE_DOMAINS.has(from) && to === CORE_ROLES)
+  ) {
+    return `domain과 agent-roles는 서로 import하지 않는다: ${from} → ${to}`;
   }
   if (
     from === "lophn-agent" && CORE_DOMAINS.has(to) &&

@@ -48,6 +48,10 @@ modules:
     boundary: core
     notes: 맞는 하위 boundary가 없어 core로 둔다(data root 해석, 실행 metadata, instance lock).
 
+  - path: packages/core/agent-roles
+    boundary: agent-roles
+    notes: lophn role 층. role별 tool 목록, role 규칙이 든 tool, credential 상한, prompt 내용. harness(lophn-agent) 위에 있고 domain과 서로 import하지 않는다.
+
   - path: packages/core/lophn-agent
     boundary: lophn-agent
 

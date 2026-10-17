@@ -16,12 +16,12 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
  core/main (composition root) ── 모두를 알고 조립만 한다. 업무 규칙을 두지 않는다
       │ 조립
       ▼
- problems ──▶ apps        projects                      domain
-      │         │             │
-      ▼         ▼             ▼
-            lophn-agent                                  agent harness (아래층 취급)
-                 │
-                 ▼
+ problems ──▶ apps     projects      agent-roles         domain / lophn role 층 (서로 모른다)
+      │         │          │              │
+      ▼         ▼          ▼              ▼
+                    lophn-agent                          agent harness
+                         │
+                         ▼
  storage, events, server, supervision, secrets, ...      바닥 (infrastructure)
 
  packages/protocol: 경계 사이의 약속(type, schema, route, event). 모든 층이 쓴다
@@ -29,7 +29,8 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 
 - 화살표 방향으로만 import한다. 거꾸로 가는 import가 문제다.
 - domain끼리는 problems → apps 하나만 있다. problem은 "앱의 문제"라 앱을 띄우고 읽어야 한다.
-- lophn-agent는 이름은 domain module이지만 domain들이 tool을 꽂는 플랫폼이라 그들 아래에 둔다.
+- lophn-agent는 domain과 role 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. role 이름, place 종류, domain route를 몰라야 하는 쪽이다.
+- agent-roles는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 guide, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. domain과 같은 높이이고 서로 import하지 않는다.
 
 ## 실행 때 import가 뜻하는 것
 
@@ -48,16 +49,16 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 - 막는 것: main → module → main 순환. module을 싣는 Worker나 child process에 조립 코드 전체가 딸려 가는 것.
 - 조립되는 쪽이 필요한 type이나 함수는 그것을 쓰는 module 쪽에 둔다.
 
-**바닥은 위층(lophn-agent, domain)을 import하지 않는다.**
+**바닥은 위층(lophn-agent, agent-roles, domain)을 import하지 않는다.**
 - 막는 것: 모든 process가 딛는 바닥에 domain이 딸려 가는 것. domain을 고쳤는데 바닥이 깨지는 것.
 - 바닥이 위층의 정보가 필요하면 wiring이 넘겨주거나 port로 받는다.
 
-**lophn-agent는 domain을 import하지 않는다. domain끼리는 problems → apps만.**
-- 막는 것: 플랫폼이 꽂히는 쪽을 알게 되는 것(domain을 더하고 뺄 때마다 harness를 고치게 된다). domain 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
+**lophn-agent는 agent-roles와 domain을 import하지 않는다. agent-roles와 domain은 서로 import하지 않는다. domain끼리는 problems → apps만.**
+- 막는 것: harness가 꽂히는 쪽을 알게 되는 것(domain이나 role을 더하고 뺄 때마다 harness를 고치게 된다). role 규칙과 domain 구현이 엉키는 것. domain 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
+- 둘을 다 알아야 하는 일(domain의 읽기 함수를 role 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps의 lookups와 role 명령, Operator place 규칙을 `lophn-agent/register.ts`의 factory에 꽂는다.
 - 처음 규칙은 "domain끼리 import 금지"였다. 한 방향 의존은 해가 없고 problems → apps는 자연스러워 방향 규칙으로 바꿨다.
-- 아직 못 끊은 예외 둘을 `tools/check-deps.ts`가 이름으로 허용한다. harness와 domain을 나눌 때 다시 본다.
+- 아직 못 끊은 예외 하나를 `tools/check-deps.ts`가 이름으로 허용한다.
   - projects → apps: writer·reader Worker가 직접 여는 `projects/contexts/ledger/deps.ts`가 app-api의 effect를 알려고 releases store를 읽는다. wiring이 값을 넘길 길이 없다.
-  - lophn-agent → projects: agent lookup이 context 상태를 읽는다.
 - import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 
 ## 두지 않는 규칙
@@ -69,21 +70,18 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 
 ## harness와 lophn domain
 
-lophn-agent 안에는 성격이 다른 둘이 섞여 있다. 기준은 "lophn이 무엇을 하는 제품인지 알아야 하나"다.
+기준은 "lophn이 무엇을 하는 제품인지 알아야 하나"다. 알아야 하면 harness 밖에 둔다.
 
-| 성격 | 예 |
-|---|---|
-| 장치 (infrastructure) | agent loop, tool calling(registry, schema 검사, 결과 전달), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
-| 범용 능력 | file, shell, web tool, MCP, skill 불러오기 |
-| lophn domain | role(PM, App Engineer, Operator), role별 tool과 prompt 내용, place 규칙, domain tool 정의(ticket, release, problem, context, app-api) |
+| 성격 | 자리 | 예 |
+|---|---|---|
+| 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`tools/registry.ts`, `tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
+| 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
+| domain tool | 각 domain | `apps/agent-tools/`(ticket, app, package, release, visual), `problems/agent-tools.ts` |
+| lophn role 층 | `agent-roles` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(guide, settings, instructions, operator, context, glossary), credential의 role 몫(`credentials.ts`), role prompt·guide(`roles/`), place 정보(`place/`), role 명령, file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록) |
 
-지금은 셋이 `lophn-agent` 한 module에 있고, domain tool 정의는 `lophn-agent/tools/bundles/`에 있다. 동작은 port로 주입받아 import 방향은 지키지만 domain 지식이 harness 폴더에 있다.
-
-나누면(domain tool 정의는 각 domain으로, role·place·prompt 내용은 harness 위의 domain으로, harness에는 장치와 범용 능력만) 얻는 것:
-- 빨리 변하는 agent 기술(provider, tool calling, caching)과 천천히 변하는 업무 규칙이 갈린다. harness를 갈아엎거나 외부 harness로 바꿔도 domain은 그대로다.
-- domain tool 하나를 고칠 때 tool 정의, port, 동작, wiring 네 곳이 아니라 그 domain 한 곳에서 끝난다.
-- agent에게 주는 context가 작아진다. ticket 일은 `apps/tickets`만, loop 일은 업무를 몰라도 된다.
-- 같은 domain 기능을 lophn agent(tool)와 coding agent(CLI)에 한 정의로 낼 수 있다.
-- harness는 fake provider로, domain tool은 loop 없이 함수로 test한다.
-
-이 분리는 계획된 리팩터링이다(`../plan/`).
+- harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·domain·role 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, role 목록·prompt·place 재료·credential 상한도 조립이 role 층에서 꽂는다.
+- tool 정의 file은 agent runtime child에서 실린다(위 "실행 때 import가 뜻하는 것"). 그래서 protocol(route, schema), base, `lophn-agent/tools/spi.ts`만 import하고 handler는 `ctx.core`로 core route를 부른다. domain의 store·DB 코드를 끌어오면 agent runtime에 sqlite가 딸려 간다.
+- tool 정의는 handler가 부르는 route를 `routes`에 적는다. agent credential의 상한은 그 route 이름이다(core는 route 이름으로 대조한다. tool 이름이 아니다).
+- 범용 tool 안의 lophn 규칙은 hook으로 뺀다. file tool의 `LOPHN.md` 쓰기 Gate와 rewind pre-image는 `FileHooks`로 role 층이 채운다. place 폴더 가두기는 role 층이 채운 `ToolContext.scope`로만 판정한다.
+- domain tool 하나를 더할 때 고치는 곳: 그 domain의 `agent-tools`와 protocol의 route, role 층 `tool-lists.ts`의 role 목록과 `TOOL_ORDER`에 한 줄씩.
+- 아직 harness 폴더에 domain protocol import나 role 이름이 남은 file이 있다(동적 app-api tool, `agents/`, `places/`, `instructions/`, `extensions/` 등). `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`가 file마다 이유와 함께 목록으로 두고 새 위반만 막는다. `tools/questions/`와 `extensions/`의 domain 섞임은 아직 나누지 않았다.

@@ -87,8 +87,6 @@ components:
     description: 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나.
     path: project-docs/products/roadmap/
     change_reasons:
-      boundaries: [lophn-agent, agent-tools, run-loop, agent-roles, agent-tool-spi]
-      paths: [tools/check-deps.ts]
       note: 큰 일을 계획으로 열거나 버릴 때.
 
   - id: issues
@@ -147,7 +145,7 @@ components:
     description: core 층과 import 방향, 그 이유. harness와 domain의 구분.
     path: project-docs/architecture/layers.md
     change_reasons:
-      boundaries: [core]
+      boundaries: [core, lophn-agent, agent-roles, agent-tool-spi]
       paths: [tools/check-deps.ts]
       note: core module이 생기거나 층을 옮길 때.
 
@@ -205,7 +203,7 @@ components:
     description: agent 정의, prompt 조립, tool, model.
     path: project-docs/architecture/agent-definition.md
     change_reasons:
-      boundaries: [agent-roles, agent-tools, run-loop, models]
+      boundaries: [agent-roles, agent-tools, run-loop, models, agent-tool-spi]
 
   - id: architecture-coding-agent
     kind: doc

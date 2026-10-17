@@ -76,11 +76,11 @@ elements:
 
       - id: agent-roles
         kind: component
-        description: role마다의 prompt, tool 범위, 명령.
+        description: lophn role 층. role마다의 tool 목록, prompt, place 정보, 명령.
 
       - id: lophn-agent
         kind: subsystem
-        description: lophn 안의 agent를 정의하고 돌리는 harness.
+        description: lophn 안의 agent를 정의하고 돌리는 harness. role 이름과 domain route를 모르고 등록받은 tool로 돈다.
         children:
 
           - id: agents
@@ -231,16 +231,15 @@ interfaces:
       - app-releases
       - problems
 
-  # 목표 모양이다. 지금 domain tool 정의는 lophn-agent/tools/bundles에 있다. harness와 domain을 나눌 때 맞춘다.
   - id: agent-tool-spi
     kind: interface
     description: domain이 agent tool을 등록하는 계약.
     interface_type: spi
     defined_by: agent-tools
     provided_by:
-      - projects
       - apps
       - problems
+      - agent-roles
     used_by:
       - run-loop
 

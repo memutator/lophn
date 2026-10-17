@@ -50,7 +50,7 @@ modules:
 
   - path: packages/core/agent-roles
     boundary: agent-roles
-    notes: lophn role 층. role별 tool 목록, role 규칙이 든 tool, credential 상한, prompt 내용. harness(lophn-agent) 위에 있고 domain과 서로 import하지 않는다.
+    notes: lophn role 층. role별 tool 목록, role 규칙이 든 tool, credential의 role 몫, role prompt·guide, place 정보, role 명령, file tool hook. harness(lophn-agent) 위에 있고 domain과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent

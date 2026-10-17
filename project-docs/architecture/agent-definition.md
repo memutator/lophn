@@ -1,14 +1,14 @@
 # agent-definition
 
-lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn마다 model 요청 하나로 조립된다. 이 조립에는 `agents`, `agent-roles`, `agent-tools`, `run-loop`, 지침 파일, skill, `projects`·`apps`가 주는 place 정보가 모두 들어간다. 어려운 점은 두 가지다. 사람이 고친 지침이 며칠씩 열린 session에 닿아야 하고, 그러면서 prompt cache가 깨지지 않아야 한다. 그리고 prompt에 들어오는 글(다른 agent, web, 문서)이 사람의 지시로 읽히면 안 된다.
+lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn마다 model 요청 하나로 조립된다. 이 조립에는 `agents`, `agent-roles`(role 층), `agent-tools`, `run-loop`, 지침 파일, skill, `projects`·`apps`가 주는 place 정보가 모두 들어간다. 어려운 점은 두 가지다. 사람이 고친 지침이 며칠씩 열린 session에 닿아야 하고, 그러면서 prompt cache가 깨지지 않아야 한다. 그리고 prompt에 들어오는 글(다른 agent, web, 문서)이 사람의 지시로 읽히면 안 된다.
 
 ## 흐름
 
 ```
  run-loop: turn 시작 때 한 번 읽어 그 turn의 판을 고정한다
    agents ─────── role(고정) + place + 설정 층 ─▶ resolved agent
-   agent-roles ── role 지침(built-in)
-   agent-tools ── role 고정 tool + grant가 붙인 tool(app-api, 외부 MCP)
+   agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 보이는 context
+   agent-tools ── 조립이 넘긴 tool 정의(범용·domain·role 층) 중 role 목록에 든 것 + grant가 붙인 tool(app-api, 외부 MCP)
    지침 파일 ──── 전역 · project LOPHN.md · agent 지침
    skill ──────── 내장 · 전역 · project
    place 정보 ─── 같은 place의 agent, context 글, 앱·project 목록 (잘 안 바뀌는 것만)
@@ -36,7 +36,9 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다.
 - **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, app-api, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 grant로 배정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.
 - **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 grant로 app-api, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
-- **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 agent grant 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다.
+- **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 agent grant 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다. 목록은 role 층(`agent-roles/tool-lists.ts`)에 있고, 목록의 이름마다 정의가 있고 정의마다 어느 목록에 든다(`main/agent-tools_test.ts`). 어긋나면 agent가 그 tool을 말없이 못 본다.
+- **agent credential의 operation 상한은 tool이 core에 부르는 route 이름이다.** core는 route 이름으로 대조하므로 tool 이름(`ticket.create`)을 넣으면 command가 `forbidden`이다. tool 정의는 helper가 부르는 것까지 `routes`에 적고, 상한은 role 목록 tool의 route 합집합에 place 읽기, rewind, Gate 대기 같은 보조 operation을 더한 것이다.
+- **"tool 정의가 바뀌었나"는 정의에서 계산한다.** 이름, 설명, 입력 JSON schema, effect의 hash다. 따로 들고 다니는 판 번호를 두지 않는다. 손으로 올리는 번호는 잊히고, 정의가 같으면 release가 바뀌어도 알림이 나가지 않는 것이 맞다.
 - **효과(read, write, external)는 model에 보이는 정의에 넣지 않는다.** registry와 Gate만 안다. model이 효과를 보고 Gate를 피해 가려 하지 않게 한다.
 - **file tool은 place 폴더 안에 가둔다.** realpath로 판정하고, 새 파일이면 가장 가까운 상위 폴더의 realpath에 이름을 붙여 판정한다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되므로 거절한다. 읽기·쓰기·shell은 Gate를 거치지 않는다. 대신 `LOPHN.md` 쓰기만 설정 고치기로 묻는다.
 - **agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다.** agent가 자기 정의나 지침을 file tool로 고쳐 grant를 우회하지 못한다.

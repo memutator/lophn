@@ -1,37 +1,373 @@
 # lophn — Context Component Registry
 #
-# agent와 사람에게 주는 context 조각의 목록이다. 조각마다 무엇이고 어디 있고, 무엇이 바뀌면 이 조각도 바뀌어야 하는지를 적는다.
+# 이 저장소에서 일하는 agent에게 주는 context 조각의 목록이다. 조각마다 무엇이고 어디 있고, 누가 쓰고,
+# 무엇이 바뀌면 이 조각도 바뀌어야 하는지를 적는다. 조각은 그것을 읽는(tool이면 돌리는) role의 절에 둔다.
 #
 # 흐름: plan(범위를 catalog ID로) → implement(commit이 path를 바꿈) → changelog(바뀐 module을 판마다)
 #       → 이 목록에서 change_reasons가 걸린 조각을 다시 본다.
 #
-# - id: 영어 kebab-case. 파일 전체에서 하나.
-# - kind: instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), product(제품 context), catalog(ID 목록),
-#   architecture(여러 module에 걸친 메커니즘), plan(진행 중인 계획), issues(열린 이슈), changelog(바뀐 것의 기록).
-# - path: 저장소 root 기준. 폴더면 끝에 /.
-# - change_reasons: 이 조각을 바꾸게 만드는 변경. 이 조각이 무엇에 기대어 쓰였는지다.
-#   - boundaries: boundary-catalog ID. 이 ID의 코드(module-catalog의 path)나 계약이 바뀌면 이 조각도 바뀌어야 한다.
-#   - paths: catalog 밖의 path. 바뀌면 이 조각도 바뀌어야 한다.
-#   - note: 위 둘로 못 적는 변경 한 줄(사람의 결정 등).
-#   부모 ID는 자식을 포함하지 않는다. 넓게 걸면 늘 걸려서 아무도 보지 않는다.
+# - roles: 이 저장소의 agent role. lophn 제품 안의 role(PM, App Engineer 등)이 아니다.
+# - components: 조각. 첫 role의 절에 둔다.
+#   - id: 영어 kebab-case. 파일 전체에서 하나.
+#   - kind: 꼴과 실리는 방식. instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), doc(필요할 때 읽는 설명),
+#     catalog(ID 목록), record(쌓이고 닫히는 기록), plan(진행 중인 계획), tool(agent가 돌리는 script·CLI·deno task).
+#   - roles: 이 조각을 읽는(돌리는) role. 첫 것이 주로 읽는 role이고 그 절에 둔다. 쓰는 쪽이 아니라 읽는 쪽이다.
+#     worker는 lead가 넘긴 것(worker-prompt, task-brief)과 거기서 가리키는 것을 읽는다.
+#   - path: 저장소 root 기준. 폴더면 끝에 /.
+#   - run: tool만. agent가 치는 명령 한 줄.
+#   - change_reasons: 이 조각을 바꾸게 만드는 변경. 이 조각이 무엇에 기대어 쓰였는지다.
+#     - boundaries: boundary-catalog ID. 이 ID의 코드(module-catalog의 path)나 계약이 바뀌면 이 조각도 바뀌어야 한다.
+#     - paths: catalog 밖의 path. 바뀌면 이 조각도 바뀌어야 한다.
+#     - note: 위 둘로 못 적는 변경 한 줄(사람의 결정 등).
+#     부모 ID는 자식을 포함하지 않는다. 넓게 걸면 늘 걸려서 아무도 보지 않는다.
 
-schema_version: 1
+schema_version: 2
+
+roles:
+
+  - id: all
+    description: 이 저장소에서 일하는 모든 agent.
+
+  - id: planner
+    description: 사람과 무엇을 할지 정한다. 제품 범위, 이슈의 결정, 로드맵, changelog의 결정, context 유지보수.
+
+  - id: lead
+    description: 계획 하나를 task로 나눠 worker에게 맡기고, review해 main에 합치고, 이슈와 상태를 고친다.
+
+  - id: worker
+    description: task brief 하나를 받아 코드를 고치고 check를 통과시킨다.
+
+  - id: designer
+    description: wireframe gallery와 화면 모양, 화면 문구를 고친다.
+
 components:
 
-  # instruction
+  # ── all ──
 
   - id: agents-md
     kind: instruction
-    description: 모든 작업에 실리는 저장소 지침.
+    roles: [all]
+    description: 모든 작업에 실리는 저장소 지침. 속도, 위협 원칙, 문서 표, 코드 규칙, 사람에게 묻는 것.
     path: AGENTS.md
     change_reasons:
       paths: [deno.json, tools/check.ts]
       note: 사람에게 묻는 것, worker model, 끝남 기준이 바뀔 때.
 
-  # skill
+  - id: tool-check
+    kind: tool
+    roles: [all]
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, test를 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    path: tools/check.ts
+    run: deno task check
+    change_reasons:
+      paths: [deno.json, tools/]
+      note: check 단계를 더하거나 뺄 때.
+
+  # ── planner ──
+
+  - id: product
+    kind: doc
+    roles: [planner]
+    description: lophn이 무엇이고 무엇이 아닌가.
+    path: project-docs/PRODUCT.md
+    change_reasons:
+      note: 제품 범위나 하지 않는 것이 바뀔 때. 코드 변경으로는 걸지 않는다.
+
+  - id: agent-role
+    kind: doc
+    roles: [planner]
+    description: lophn 제품 안의 agent 목록, place, 책임, call과 사람에게 올림의 정책.
+    path: project-docs/products/AGENT-ROLE.md
+    change_reasons:
+      boundaries: [agents, agent-roles, router]
+
+  - id: roadmap
+    kind: doc
+    roles: [planner, lead]
+    description: 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나.
+    path: project-docs/products/roadmap/
+    change_reasons:
+      boundaries: [lophn-agent, agent-tools, run-loop, agent-roles, agent-tool-spi]
+      paths: [tools/check-deps.ts]
+      note: 큰 일을 계획으로 열거나 버릴 때.
+
+  - id: issues
+    kind: record
+    roles: [planner, lead]
+    description: 열린 bug, defect, mistake. 주제 하나에 파일 하나, 닫은 것은 archived/. 절마다 정할 것·정한 것.
+    path: project-docs/issues/
+    change_reasons:
+      note: 이슈를 찾거나 고치거나 정할 때. 이슈의 modules가 바뀐 module을 가리키면 다시 본다.
+
+  - id: changelog
+    kind: record
+    roles: [planner, lead]
+    description: 판마다 동작이나 계약이 바뀐 것과 결정을 바뀐 module과 함께 남긴 기록.
+    path: project-docs/products/change-log/
+    change_reasons:
+      note: 동작이나 계약이 바뀌는 일, 결정이 있는 일이 끝날 때. append-only라 열린 판에 덧붙이기만 한다.
+
+  - id: boundary-catalog
+    kind: catalog
+    roles: [planner, lead]
+    description: 경계와 공개 계약의 ID. 저장소의 메타데이터 축.
+    path: project-docs/boundary-catalog.yaml
+    change_reasons:
+      paths: [packages/protocol/]
+      note: 경계가 생기거나 없어지거나 계약의 정의·제공·사용 쪽이 바뀔 때.
+
+  - id: module-catalog
+    kind: catalog
+    roles: [planner, lead]
+    description: 코드 module path ↔ boundary ID.
+    path: project-docs/module-catalog.yaml
+    change_reasons:
+      note: module 폴더가 생기거나 옮겨질 때. tools/check-modules.ts가 잡는다.
+
+  - id: context-component-registry
+    kind: catalog
+    roles: [planner]
+    description: 이 목록.
+    path: project-docs/context-component-registry.yaml
+    change_reasons:
+      paths: [AGENTS.md, .claude/skills/, project-docs/, tools/]
+
+  - id: tool-check-modules
+    kind: tool
+    roles: [planner]
+    description: boundary-catalog의 ID·참조·칸과 module-catalog의 path·boundary·빠진 폴더를 본다. check의 modules 단계.
+    path: tools/check-modules.ts
+    run: deno run --allow-read tools/check-modules.ts
+    change_reasons:
+      note: 두 catalog의 꼴이 바뀔 때.
+
+  - id: architecture-layers
+    kind: doc
+    roles: [planner, lead]
+    description: core 층과 import 방향, 그 이유. harness와 domain의 구분.
+    path: project-docs/architecture/layers.md
+    change_reasons:
+      boundaries: [core]
+      paths: [tools/check-deps.ts]
+      note: core module이 생기거나 층을 옮길 때.
+
+  - id: architecture-event
+    kind: doc
+    roles: [planner, lead]
+    description: domain event와 agent event가 기록되고 배달되는 길.
+    path: project-docs/architecture/event.md
+    change_reasons:
+      boundaries: [events, storage, router, event-stream]
+
+  - id: architecture-approval
+    kind: doc
+    roles: [planner, lead]
+    description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
+    path: project-docs/architecture/approval.md
+    change_reasons:
+      boundaries: [approvals, agent-tools]
+
+  - id: architecture-activation
+    kind: doc
+    roles: [planner, lead]
+    description: 앱 release를 켜고 실패하면 되돌리는 길.
+    path: project-docs/architecture/activation.md
+    change_reasons:
+      boundaries: [app-releases, app-runtime, app-data]
+
+  - id: architecture-agent-call
+    kind: doc
+    roles: [planner, lead]
+    description: agent 사이의 부름. 봉투, 받는 곳, 답 방식, 실패.
+    path: project-docs/architecture/agent-call.md
+    change_reasons:
+      boundaries: [router, agent-sessions]
+
+  - id: architecture-app-call
+    kind: doc
+    roles: [planner, lead]
+    description: agent와 앱이 앱의 app-api를 부르는 길. 줄, 기록, rewind.
+    path: project-docs/architecture/app-call.md
+    change_reasons:
+      boundaries: [app-runtime, app-data, app-capability]
+
+  - id: architecture-place-session
+    kind: doc
+    roles: [planner, lead]
+    description: agent가 놓이는 place와 session의 수명, fork, rewind.
+    path: project-docs/architecture/place-session.md
+    change_reasons:
+      boundaries: [agents, agent-sessions]
+
+  - id: architecture-agent-definition
+    kind: doc
+    roles: [planner, lead]
+    description: agent 정의, prompt 조립, tool, model.
+    path: project-docs/architecture/agent-definition.md
+    change_reasons:
+      boundaries: [agent-roles, agent-tools, run-loop, models]
+
+  - id: architecture-coding-agent
+    kind: doc
+    roles: [planner, lead]
+    description: 외부 coding agent를 띄우고 ticket을 맡기고 신호를 받는 길.
+    path: project-docs/architecture/coding-agent.md
+    change_reasons:
+      boundaries: [coding-agent, coding-agent-cli, app-tickets, coding-agent-harness-api, coding-agent-cli-interface]
+
+  - id: architecture-annotation
+    kind: doc
+    roles: [planner, lead]
+    description: 앱 화면에 남긴 annotation이 App Engineer와 ticket 근거로 가는 길.
+    path: project-docs/architecture/annotation.md
+    change_reasons:
+      boundaries: [app-tickets, sdk]
+
+  # ── lead ──
+
+  - id: skill-issue
+    kind: skill
+    roles: [lead, planner]
+    description: 이슈를 올리고(코드와 대조, 중복 찾기, 주제와 kind), 정하고(이미 정해진 원칙으로 답이 나오나), 닫고(archived, guard), 회귀를 되살리는 절차.
+    path: .claude/skills/issue/
+    change_reasons:
+      paths: [project-docs/issues/_template.md, AGENTS.md]
+      note: 이슈의 꼴이나 정하는 원칙이 바뀔 때.
+
+  - id: skill-orchestrate
+    kind: skill
+    roles: [lead]
+    description: 계획을 worker 여럿에게 나눠 돌리는 lead 절차와 task brief 꼴.
+    path: .claude/skills/orchestrate/
+    change_reasons:
+      paths: [project-docs/plan/tools/]
+      note: worker model이나 merge 절차가 바뀔 때.
+
+  - id: plan
+    kind: plan
+    roles: [lead]
+    description: 진행 중인 계획의 개요(목표, 단위, wave, lead가 할 일)와 상태 표.
+    path: project-docs/plan/README.md
+    change_reasons:
+      note: 계획을 열거나 닫을 때.
+
+  - id: tool-plan-status
+    kind: tool
+    roles: [lead]
+    description: task brief를 읽어 상태 표를 만들고, 띄울 수 있는 task(앞 wave merged, 선행 merged, 소유 안 겹침)를 고른다. N개를 한 번에 고르는 것은 lead/pick.py.
+    path: project-docs/plan/tools/status.py
+    run: python3 -I project-docs/plan/tools/status.py build | ready | set <id> <상태>
+    change_reasons:
+      paths: [.claude/skills/orchestrate/brief-template.md]
+      note: brief의 단위·선행·소유 줄 꼴이 바뀔 때.
+
+  - id: tool-lead
+    kind: tool
+    roles: [lead]
+    description: worktree 만들기(launch.sh), worker prompt(prompt.py), rebase·check·ff-merge(merge.sh, merge-fix.sh), route 중복 검사와 core 두 번 기동(boot.sh).
+    path: project-docs/plan/tools/lead/
+    run: project-docs/plan/tools/lead/launch.sh <id>... / prompt.py <id> <branch> "<알아 둘 것>" / merge.sh <id>
+    change_reasons:
+      paths: [tools/worktree-prep.ts, tools/check.ts]
+      note: worker 지침이나 merge 절차가 바뀔 때. skill-orchestrate와 같이 고친다.
+
+  - id: tool-worktree-prep
+    kind: tool
+    roles: [lead]
+    description: 새 worktree가 npm ci 없이 check를 돌게 shell main의 node_modules를 main checkout에서 잇는다.
+    path: tools/worktree-prep.ts
+    run: deno run -A tools/worktree-prep.ts <worktree 경로>
+    change_reasons:
+      boundaries: [shell]
+
+  # ── worker ──
+
+  - id: worker-prompt
+    kind: instruction
+    roles: [worker]
+    description: worker를 띄울 때 넘기는 지시문. 작업 위치, 먼저 읽을 것(AGENTS.md, brief), 소유만 고치기, 계약 고치지 않기, test 기준, core 확인과 PID 다루기, commit 규칙, 보고 꼴. lead가 prompt.py로 찍어 그대로 넘긴다.
+    path: project-docs/plan/tools/lead/prompt.py
+    change_reasons:
+      paths: [.claude/skills/orchestrate/SKILL.md, AGENTS.md]
+      note: worker에게 지킬 것을 더하거나 뺄 때. orchestrate skill의 "worker에게 꼭 넣을 것" 목록과 같이 고친다.
+
+  - id: task-brief
+    kind: plan
+    roles: [worker, lead]
+    description: worker 하나가 받는 task 하나의 brief. 할 일, 소유, 읽을 것, 계약, 끝남, 보고 꼴. lead가 brief-template대로 쓴다.
+    path: project-docs/plan/tasks/
+    change_reasons:
+      paths: [.claude/skills/orchestrate/brief-template.md]
+      note: 계획을 열거나 닫을 때.
+
+  - id: skill-write-test
+    kind: skill
+    roles: [worker]
+    description: test를 쓸지 정하는 기준, 모양, check 파이프라인.
+    path: .claude/skills/write-test/
+    change_reasons:
+      paths: [tools/check.ts, deno.json]
+
+  - id: tool-check-deps
+    kind: tool
+    roles: [worker]
+    description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, domain 방향과 이름 있는 예외), 의존성 판 고정을 본다. check의 deps 단계.
+    path: tools/check-deps.ts
+    run: deno task check
+    change_reasons:
+      boundaries: [core]
+      note: architecture/layers.md의 규칙이나 예외가 바뀔 때.
+
+  - id: tool-check-source
+    kind: tool
+    roles: [worker]
+    description: 주석과 test 이름의 요구 ID, task 번호, TODO·FIXME, 옛 말을 잡는다. check의 source 단계.
+    path: tools/check-source.ts
+    run: deno task check
+    change_reasons:
+      note: 쓰지 않기로 한 말이나 꼴이 늘 때.
+
+  - id: tool-fake-provider
+    kind: tool
+    roles: [worker]
+    description: 개발과 test용 가짜 model provider. 실제 provider를 부르지 않는다. 시나리오는 POST /__fake/script, 요청 log는 GET /__fake/log.
+    path: tools/fake-provider/
+    run: deno run -A tools/fake-provider/main.ts
+    change_reasons:
+      boundaries: [models]
+
+  - id: tool-dev
+    kind: tool
+    roles: [worker, designer]
+    description: 개발용 실행. core와 shell을 같이, core만, 또는 mock source로 shell만 띄운다. data root는 .dev-data/.
+    path: tools/dev.ts
+    run: deno task dev / dev:core / dev:mock
+    change_reasons:
+      boundaries: [core, shell]
+
+  - id: tool-move-files
+    kind: tool
+    roles: [worker]
+    description: mapping대로 파일과 폴더를 옮기고 옮긴 자리를 가리키는 import와 설정 경로를 고친다. 리팩터링에서 module을 옮길 때.
+    path: tools/move-files.ts
+    run: deno run --allow-read --allow-write --allow-run tools/move-files.ts <mapping.json> [--dry-run]
+    change_reasons:
+      note: import나 설정 경로의 꼴이 바뀔 때.
+
+  - id: tool-package-linux
+    kind: tool
+    roles: [worker]
+    description: Linux .deb 설치 묶음을 만들고(package-linux.ts), 설치된 묶음을 실제로 확인한다(verify-linux-install.ts).
+    path: tools/package-linux.ts
+    run: deno run -A tools/package-linux.ts / deno run -A tools/verify-linux-install.ts
+    change_reasons:
+      boundaries: [shell, core, coding-agent-cli]
+
+  # ── designer ──
 
   - id: skill-ui-design
     kind: skill
+    roles: [designer]
     description: wireframe gallery와 화면 모양을 고치는 절차와 모든 화면의 규칙.
     path: .claude/skills/ui-design/
     change_reasons:
@@ -40,172 +376,27 @@ components:
 
   - id: skill-wording
     kind: skill
+    roles: [designer, worker]
     description: 화면 문구와 wording key를 다루는 절차.
     path: .claude/skills/wording/
     change_reasons:
       boundaries: [design]
       paths: [tools/check-wording.ts]
 
-  - id: skill-write-test
-    kind: skill
-    description: test를 쓸지 정하는 기준, 모양, check 파이프라인.
-    path: .claude/skills/write-test/
+  - id: tool-wireframes
+    kind: tool
+    roles: [designer]
+    description: wireframe gallery를 build한다. 화면 task의 본보기가 여기서 나온다.
+    path: tools/wireframes/
+    run: deno task wireframes
     change_reasons:
-      paths: [tools/check.ts, deno.json]
+      boundaries: [design, shell]
 
-  - id: skill-orchestrate
-    kind: skill
-    description: 계획을 worker 여럿에게 나눠 돌리는 lead 절차와 brief 꼴.
-    path: .claude/skills/orchestrate/
+  - id: tool-wording
+    kind: tool
+    roles: [designer, worker]
+    description: wording catalog에서 placeholders를 다시 만든다. 문구·key 검사(check-wording.ts)와 CSS 구조 검사(check-style.ts)는 check의 wording·style 단계다.
+    path: packages/design/wording/generate.ts
+    run: deno task wording
     change_reasons:
-      paths: [project-docs/plan/tools/]
-      note: worker model이나 merge 절차가 바뀔 때.
-
-  # product
-
-  - id: product
-    kind: product
-    description: lophn이 무엇이고 무엇이 아닌가.
-    path: project-docs/PRODUCT.md
-    change_reasons:
-      note: 제품 범위나 하지 않는 것이 바뀔 때. 코드 변경으로는 걸지 않는다.
-
-  - id: agent-role
-    kind: product
-    description: agent 목록, place, 책임, call과 사람에게 올림의 정책.
-    path: project-docs/products/AGENT-ROLE.md
-    change_reasons:
-      boundaries: [agents, agent-roles, router]
-
-  - id: roadmap
-    kind: product
-    description: 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나.
-    path: project-docs/products/roadmap/
-    change_reasons:
-      boundaries: [lophn-agent, agent-tools, run-loop, agent-roles, agent-tool-spi]
-      paths: [tools/check-deps.ts]
-      note: 큰 일을 계획으로 열거나 버릴 때.
-
-  # catalog
-
-  - id: boundary-catalog
-    kind: catalog
-    description: 경계와 공개 계약의 ID.
-    path: project-docs/boundary-catalog.yaml
-    change_reasons:
-      paths: [packages/protocol/]
-      note: 경계가 생기거나 없어지거나 계약의 정의·제공·사용 쪽이 바뀔 때.
-
-  - id: module-catalog
-    kind: catalog
-    description: 코드 module path ↔ boundary ID.
-    path: project-docs/module-catalog.yaml
-    change_reasons:
-      note: module 폴더가 생기거나 옮겨질 때. tools/check-modules.ts가 잡는다.
-
-  - id: context-component-registry
-    kind: catalog
-    description: 이 목록.
-    path: project-docs/context-component-registry.yaml
-    change_reasons:
-      paths: [AGENTS.md, .claude/skills/, project-docs/]
-
-  # architecture
-
-  - id: architecture-layers
-    kind: architecture
-    description: core 층과 import 방향, 그 이유. harness와 domain의 구분.
-    path: project-docs/architecture/layers.md
-    change_reasons:
-      paths: [tools/check-deps.ts]
-      note: core module이 생기거나 층을 옮길 때.
-
-  - id: architecture-event
-    kind: architecture
-    description: domain event와 agent event가 기록되고 배달되는 길.
-    path: project-docs/architecture/event.md
-    change_reasons:
-      boundaries: [events, storage, router, event-stream]
-
-  - id: architecture-approval
-    kind: architecture
-    description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
-    path: project-docs/architecture/approval.md
-    change_reasons:
-      boundaries: [approvals, agent-tools]
-
-  - id: architecture-activation
-    kind: architecture
-    description: 앱 release를 켜고 실패하면 되돌리는 길.
-    path: project-docs/architecture/activation.md
-    change_reasons:
-      boundaries: [app-releases, app-runtime, app-data]
-
-  - id: architecture-agent-call
-    kind: architecture
-    description: agent 사이의 부름. 봉투, 받는 곳, 답 방식, 실패.
-    path: project-docs/architecture/agent-call.md
-    change_reasons:
-      boundaries: [router, agent-sessions]
-
-  - id: architecture-app-call
-    kind: architecture
-    description: agent와 앱이 앱의 app-api를 부르는 길. 줄, 기록, rewind.
-    path: project-docs/architecture/app-call.md
-    change_reasons:
-      boundaries: [app-runtime, app-data, app-capability]
-
-  - id: architecture-place-session
-    kind: architecture
-    description: agent가 놓이는 place와 session의 수명, fork, rewind.
-    path: project-docs/architecture/place-session.md
-    change_reasons:
-      boundaries: [agents, agent-sessions]
-
-  - id: architecture-agent-definition
-    kind: architecture
-    description: agent 정의, prompt 조립, tool, model.
-    path: project-docs/architecture/agent-definition.md
-    change_reasons:
-      boundaries: [agent-roles, agent-tools, run-loop, models]
-
-  - id: architecture-coding-agent
-    kind: architecture
-    description: 외부 coding agent를 띄우고 ticket을 맡기고 신호를 받는 길.
-    path: project-docs/architecture/coding-agent.md
-    change_reasons:
-      boundaries: [coding-agent, coding-agent-cli, app-tickets, coding-agent-harness-api, coding-agent-cli-interface]
-
-  - id: architecture-annotation
-    kind: architecture
-    description: 앱 화면에 남긴 annotation이 ticket 근거가 되는 길.
-    path: project-docs/architecture/annotation.md
-    change_reasons:
-      boundaries: [app-tickets, sdk]
-
-  # plan
-
-  - id: plan
-    kind: plan
-    description: 진행 중인 계획의 개요, 상태, task brief.
-    path: project-docs/plan/README.md
-    change_reasons:
-      note: 계획을 열거나 닫을 때.
-
-  # issues
-
-  - id: issues
-    kind: issues
-    description: 열린 bug, defect, mistake. 주제 하나에 파일 하나, 닫은 것은 archived/.
-    path: project-docs/issues/
-    change_reasons:
-      note: 이슈를 찾거나 고칠 때. 이슈 파일의 modules가 바뀐 module을 가리키면 다시 본다.
-
-  # changelog
-
-  - id: changelog
-    kind: changelog
-    description: 판마다 동작이나 계약이 바뀐 것을 바뀐 module과 함께 남긴 기록.
-    path: project-docs/products/change-log/
-    change_reasons:
-      note: 동작이나 계약이 바뀌는 변경. append-only라 열린 판에 덧붙이기만 한다.
+      boundaries: [design]

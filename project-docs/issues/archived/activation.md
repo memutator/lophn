@@ -70,3 +70,22 @@ guard: 없음
 추천: 막는다.
 
 닫음: 남긴다. 앱은 자기 의존성(예: 공휴일 data를 주는 라이브러리)을 쓸 수 있어야 한다. 그런 것을 coding agent가 다 짜거나 SDK가 다 줄 수 없다.
+
+## 앱별 activation 줄(메모리)과 30초 재시도
+
+```yaml
+kind: defect
+modules: [packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: `ApprovalDecided`·`TicketVerified` 뒤 `activation/queue.ts`가 앱마다 Promise 줄을 세우고 차례가 오면 `assembly.ts` `runOne`이 시작한다. 차례에서 비교(`comparisonOf`)를 다시 보고 허락한 값(`approved`)과 다르면 `reconsider`로 다시 묻는다. `unavailable`로 끝난 시도는 `unsettled`에 30초(`ACTIVATION_RETRY_MS`) 뒤 시각을 적고 `sweep`이 그 뒤에 다시 줄에 세운다. 같은 앱 activation이 겹치지 않게 하고 허락과 실제 시작 사이의 변경을 잡으려는 것이다.
+
+영향: 줄, `approved` 비교, 재시도 시각이 따로 상태라 고칠 때 셋을 같이 봐야 한다. 가장 단순한 구현보다 무겁다.
+
+고치려면: 앱마다 한 번에 하나만 받고 나머지는 `conflict`로 거절한다. 재시도는 없앤다(사람이 다시 시작). 중간. 허락 뒤 비교가 달라지는 검사는 남겨야 한다.
+
+정한 것: 줄과 30초 재시도를 없앤다. 겹치면 conflict로 거절하고 실패는 실패로 끝내 사람이 다시 누른다. 허락과 시작 사이에 비교가 달라지면 다시 묻는 검사는 남긴다.
+
+닫음: `queue.ts`의 앱별 Promise 줄을 앱마다 job 하나로 바꿔, 돌고 있으면 `conflict`로 거절한다. `ACTIVATION_RETRY_MS`와 `unsettled`(30초 재시도)를 지웠다. `activatePrevious`도 진행 중 activation이 있으면 `conflict`다. 끊긴 activation 이어받기는 매 sweep 그대로 한다.

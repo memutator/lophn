@@ -34,21 +34,6 @@ modules: [packages/core/main, packages/core/approvals, packages/core/apps]
 
 고치려면: approvals가 `request(id)`, `pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader), wiring은 그걸 끼운다. `approval-reads.ts`는 지운다. 작음. 추천.
 
-## 앱별 activation 줄(메모리)과 30초 재시도
-
-```yaml
-kind: defect
-modules: [packages/core/apps]
-```
-
-지금: `ApprovalDecided`·`TicketVerified` 뒤 `activation/queue.ts`가 앱마다 Promise 줄을 세우고 차례가 오면 `assembly.ts` `runOne`이 시작한다. 차례에서 비교(`comparisonOf`)를 다시 보고 허락한 값(`approved`)과 다르면 `reconsider`로 다시 묻는다. `unavailable`로 끝난 시도는 `unsettled`에 30초(`ACTIVATION_RETRY_MS`) 뒤 시각을 적고 `sweep`이 그 뒤에 다시 줄에 세운다. 같은 앱 activation이 겹치지 않게 하고 허락과 실제 시작 사이의 변경을 잡으려는 것이다.
-
-영향: 줄, `approved` 비교, 재시도 시각이 따로 상태라 고칠 때 셋을 같이 봐야 한다. 가장 단순한 구현보다 무겁다.
-
-고치려면: 앱마다 한 번에 하나만 받고 나머지는 `conflict`로 거절한다. 재시도는 없앤다(사람이 다시 시작). 중간. 허락 뒤 비교가 달라지는 검사는 남겨야 한다.
-
-정한 것: 줄과 30초 재시도를 없앤다. 겹치면 conflict로 거절하고 실패는 실패로 끝내 사람이 다시 누른다. 허락과 시작 사이에 비교가 달라지면 다시 묻는 검사는 남긴다.
-
 ## 복구본 보존과 complete 한 tx에 몰린 일
 
 ```yaml
@@ -74,3 +59,33 @@ modules: [packages/core/apps]
 영향: 순서에 기대는 복구 규칙이라 단계를 바꾸거나 끼우면 깨지기 쉽다.
 
 고치려면: 줄이려면 이어받기 경로와 함께 단순화해야 한다(위 "끊긴 시도" 절). 추천: 남긴다(archived, kept).
+
+## 이어받기가 `unavailable`로 끝나면 매 sweep(1초) 다시 두드린다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: `core/apps/releases/activation/assembly.ts`의 `runOne`은 종료 확인·복원이 `unavailable`이면 앱을 붙든 채로 둔다. 30초 재시도 표를 지운 뒤라 `sweep`이 `activatingRows()`를 읽을 때마다 같은 시도를 다시 `enqueue`한다. sweep 간격 기본값은 `control.ts`의 `sweepMs ?? 1_000`이다.
+
+영향: supervisor나 data worker가 오래 응답하지 않으면 같은 이어받기가 1초마다 돌고, 실패 기록이나 로그가 그만큼 쌓일 수 있다.
+
+고치려면:
+- 그대로 둔다. 이어받기는 남기기로 한 장치이고 한 번 도는 비용이 작으면 문제가 아니다.
+- 이어받기 실패 뒤 다음 시도를 sweep 몇 번 건너뛴다(작음. 지운 재시도 시각 표와 비슷해진다).
+
+## 바쁜 앱에 온 activation 시작은 `conflict`로 끝나고 다시 시작되지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: 앱에 activation이 돌고 있을 때 `TicketVerified`·`ApprovalDecided` handler가 시작하려던 `prepared` release는 `conflict`로 거절되고 `prepared`로 남는다. 자동으로 다시 시작하지 않는다. 이전 release로 돌아가기 요청(`activation_requests`)만 행이 남아 다음 sweep이 다시 본다.
+
+영향: 두 ticket이 거의 같이 확인되면 뒤의 release는 사람이 다시 확인하거나 App Engineer가 새 release를 낼 때까지 켜지지 않는다.
+
+고치려면:
+- 그대로 둔다(이슈 "앱별 activation 줄과 30초 재시도"에서 정한 것: 겹치면 conflict).
+- 끝난 activation 뒤 같은 앱의 가장 새 `prepared`를 한 번 본다(작음).

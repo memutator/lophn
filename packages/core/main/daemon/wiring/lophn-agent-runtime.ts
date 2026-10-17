@@ -280,14 +280,17 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       });
       if (started.ok) agentRuntime = started.value;
       else console.error(`agent runtime: ${started.error.message}`);
-      // turns/stop이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청을 끊게 한다.
+      // 사람의 멈춤이나 session 끝남(archive·delete)이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청과 tool을 끊게 한다.
       // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
       stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
         send(event) {
           if (event.type !== "TurnEnded") return;
           const { outcome } = event.payload;
           if (outcome.kind !== "interrupted") return;
-          if (outcome.reason !== "user_stopped") return;
+          if (
+            outcome.reason !== "user_stopped" &&
+            outcome.reason !== "session_ended"
+          ) return;
           void ctx.io.send(
             AGENT_RUNTIME_KIND,
             {

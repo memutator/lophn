@@ -44,12 +44,12 @@ export const stopSchema = z.strictObject({
   grace_ms: durationMsSchema,
 });
 const stoppedSchema = z.strictObject({ type: z.literal("stopped") });
-// core가 사람이 멈춘 turn을 그 turn을 돌리는 agent runtime child에 알린다. turn 행만 닫으면
-// child는 model 응답을 기다리는 동안 멈춤을 모르고 요청을 연 채 둔다.
+// core가 사람이 멈췄거나 session이 끝나(archive·delete) 닫은 turn을 그 turn을 돌리는 agent runtime child에 알린다.
+// turn 행만 닫으면 child는 model 응답을 기다리는 동안 멈춤을 모르고 요청을 연 채 둔다.
 export const turnStopSchema = z.strictObject({
   type: z.literal("turn_stop"),
   turn: idSchema("trn"),
-  reason: z.literal("user_stopped"),
+  reason: z.enum(["user_stopped", "session_ended"]),
 });
 const streamCreditSchema = z.strictObject({
   type: z.literal("credit"),

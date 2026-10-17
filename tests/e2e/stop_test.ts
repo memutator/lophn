@@ -1,15 +1,23 @@
 // 세 질문
-// - contract: boundary `run-loop`(멈춤은 진행 중인 요청을 끊고 새 진입을 막는다), `agent-sessions`(turn이 사람 멈춤으로 닫힌다).
+// - contract: boundary `run-loop`(멈춤은 진행 중인 요청과 tool 실행을 끊고 새 진입을 막는다), `agent-sessions`(turn이 사람 멈춤으로
+//   닫히고, archive·delete는 한 tx이며 도는 turn은 interrupted로 닫힌다), `approvals`(낡은 허락은 쓰이지 않는다).
 // - 현실적 회귀: core가 turn을 닫았는데 child의 model 요청이 계속 열려 token을 쓰는 것, 멈춘 뒤에도 tool이 시작되는 것,
-//   멈춤 신호가 child에 안 가 turn이 running으로 남는 것.
+//   멈춤 신호가 child에 안 가 turn이 running으로 남는 것, 멈췄는데 shell 명령이 계속 돌거나 늦게 끝나 반쯤 쓴 file이 남는 것,
+//   멈춘 뒤 도착한 `allow`가 쓰기를 일으키는 것, session을 archive하거나 지웠는데 model 요청이 token을 계속 쓰는 것.
 // - 왜 지금 test로 못 잡나: harness loop는 `stop()`을 부르는 쪽(in-process)만 본다. core의 `turns/stop` → 감독 pipe →
-//   child의 loop → HTTP 연결 끊김까지는 process를 건너야 이어진다.
+//   child의 loop → HTTP 연결 끊김과 shell process, 그리고 archive·delete의 연쇄는 process를 건너야 이어진다.
 import { assert, assertEquals } from "@std/assert";
 import {
+  agentSessionRead,
+  archiveSession,
+  deleteSession,
   toolCallList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { approvalsDecideTurn } from "../../packages/protocol/approvals/mod.ts";
+import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { runtimePids } from "../support/core/process.ts";
 import {
   connectFakeProvider,
   openProject,
@@ -17,9 +25,14 @@ import {
   say,
   stopTurn,
   turnsOf,
+  until,
+  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
-import { startFakeServer } from "../support/fake-server/mod.ts";
+import {
+  type FakeServer,
+  startFakeServer,
+} from "../support/fake-server/mod.ts";
 
 const WAIT_MS = 30_000;
 
@@ -103,3 +116,199 @@ Deno.test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의
     await run.remove();
   }
 });
+
+// 새 행이 같이 쓰는 준비다: core, fake 연결, project 폴더 하나. 행이 fake.script를 부른다.
+async function inProject(
+  body: (
+    t: { core: Core; fake: FakeServer; proj: string; project: string },
+  ) => Promise<void>,
+): Promise<void> {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  try {
+    core = await bootCore(run);
+    await connectFakeProvider(core, fake);
+    const proj = `${run.work}/proj`;
+    await Deno.mkdir(proj);
+    const { project } = await openProject(core, proj);
+    await body({ core, fake, proj, project });
+  } finally {
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
+}
+
+async function runningTurn(core: Core, session: string) {
+  const running = (await turnsOf(core, session)).find((turn) =>
+    turn.state === "running"
+  );
+  assert(running, "running turn이 있어야 한다");
+  return running;
+}
+
+const stallReply = {
+  reply: { kind: "stall", partial: { text: "thinking" } },
+} as const;
+const textReply = { reply: { kind: "text", text: "ok" } } as const;
+
+Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", async () => {
+  await inProject(async ({ core, fake, proj, project }) => {
+    // /proc에서 찾을 표지다. core.ids의 무작위 값에서 숫자 다섯 자리를 만든다.
+    const marker = `2999.${
+      [...core.ids.newId("key").slice(-5)].map((c) => c.charCodeAt(0) % 10)
+        .join("")
+    }`;
+    const alive = async () => {
+      const found: number[] = [];
+      for await (const entry of Deno.readDir("/proc")) {
+        if (!/^\d+$/.test(entry.name)) continue;
+        const argv = await Deno.readTextFile(`/proc/${entry.name}/cmdline`)
+          .catch(() => "");
+        if (argv.includes(`sleep ${marker}`)) found.push(Number(entry.name));
+      }
+      return found;
+    };
+    fake.script([{
+      reply: {
+        kind: "tool",
+        calls: [{
+          id: "sh1",
+          name: "shell_run",
+          arguments: JSON.stringify({
+            command: `touch started && sleep ${marker}`,
+          }),
+        }],
+      },
+    }]);
+    const session = await openSession(core, {
+      role: "project_manager",
+      project,
+    });
+    await say(core, session, "run the long command");
+    await until(
+      "shell이 started를 씀",
+      async () =>
+        await Deno.stat(`${proj}/started`).then(() => true, () => undefined),
+    );
+    assert((await alive()).length > 0, "표지를 가진 process가 떠 있어야 한다");
+    await stopTurn(core, (await runningTurn(core, session)).id);
+    const ended = await waitTurnEnd(core, session);
+
+    // process: shell group이 통째로 죽었다.
+    await until(
+      "shell process가 사라짐",
+      async () => (await alive()).length === 0 ? true : undefined,
+    );
+    // ledger: 사람이 멈춘 이유로 닫히고 shell call은 success가 아니다.
+    assertEquals(ended.outcome, {
+      kind: "interrupted",
+      reason: "user_stopped",
+    });
+    const { tool_calls } = await core.call(toolCallList, { turn: ended.id });
+    assert(
+      tool_calls.every((call) => call.outcome?.kind !== "success"),
+      "멈춘 shell call이 success로 기록됐다",
+    );
+    // fake가 받은 요청: 멈춘 뒤 새 요청이 없다.
+    assertEquals(fake.journal().length, 1);
+  });
+});
+
+Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 쓰기를 일으키지 못한다", async () => {
+  await inProject(async ({ core, fake, proj, project }) => {
+    fake.script([{
+      reply: {
+        kind: "tool",
+        calls: [{
+          id: "w1",
+          name: "file_write",
+          arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
+        }],
+      },
+    }]);
+    const session = await openSession(core, {
+      role: "project_manager",
+      project,
+    });
+    await say(core, session, "write the rules");
+    const { request } = await waitPermission(core, session);
+    await stopTurn(core, (await runningTurn(core, session)).id);
+    const ended = await waitTurnEnd(core, session);
+    const late = await core.tryCall(approvalsDecideTurn, {
+      session,
+      request,
+      choice: { kind: "allow" },
+    });
+
+    // route: 늦은 허락은 거절되고 대기 중이던 요청은 비었다.
+    assert(!late.ok, "멈춘 뒤의 allow가 받아들여졌다");
+    const { snapshots } = await core.call(sessionSnapshotsList, {
+      sessions: [session],
+    });
+    assertEquals(snapshots[0].permission_requests, []);
+    // ledger
+    assertEquals(ended.outcome, {
+      kind: "interrupted",
+      reason: "user_stopped",
+    });
+    const { tool_calls } = await core.call(toolCallList, { turn: ended.id });
+    assert(
+      tool_calls.every((call) => call.outcome?.kind !== "success"),
+      "허락 없이 멈춘 call이 success로 기록됐다",
+    );
+    // disk
+    assertEquals(
+      await Deno.stat(`${proj}/LOPHN.md`).then(() => true, () => false),
+      false,
+    );
+    // fake가 받은 요청
+    assertEquals(fake.journal().length, 1);
+  });
+});
+
+// archive와 지움은 진행 중인 model 요청을 끊고, runtime child는 그대로 살아 다음 session의 turn을 돌린다.
+for (const how of ["archive", "delete"] as const) {
+  Deno.test(`session을 ${how === "archive" ? "archive하면" : "지우면"} 진행 중인 model 요청이 끊긴다`, async () => {
+    await inProject(async ({ core, fake, project }) => {
+      fake.script([stallReply, textReply]);
+      const pm = { role: "project_manager", project } as const;
+      const session = await openSession(core, pm);
+      await say(core, session, "think forever");
+      await fake.arrived(1);
+      const pids = await runtimePids(core.run.home);
+      const { session: current } = await core.call(agentSessionRead, {
+        session,
+      });
+      const [turn] = await turnsOf(core, session);
+      await core.call(how === "archive" ? archiveSession : deleteSession, {
+        session,
+      }, { state_seq: current.state_seq });
+      await within("요청이 끊김", fake.aborted(1));
+      const next = await openSession(core, pm);
+      await say(core, next, "hello");
+      const done = await waitTurnEnd(core, next);
+
+      // fake가 받은 요청: 끊긴 요청 뒤 새 session의 요청이 정상 답을 받았다.
+      assertEquals(fake.journal().length, 2);
+      assertEquals(done.outcome?.kind, "completed");
+      // ledger
+      if (how === "archive") {
+        const archived = await core.call(agentSessionRead, { session });
+        assertEquals(archived.session.lifecycle, "archived");
+        const closed = await core.call(turnRead, { turn: turn.id });
+        assertEquals(closed.turn.state, "finished");
+        assertEquals(closed.turn.outcome, {
+          kind: "interrupted",
+          reason: "session_ended",
+        });
+      } else {
+        const gone = await core.tryCall(agentSessionRead, { session });
+        assert(!gone.ok && gone.error.code === "not_found");
+      }
+      // process: runtime child가 그대로다.
+      assertEquals(await runtimePids(core.run.home), pids);
+    });
+  });
+}

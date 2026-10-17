@@ -35,3 +35,22 @@ module별로는 core/lophn-agent 19, shell/renderer 13, protocol 9, core/apps 7,
 - 추천: B. 한도 check는 두지 않는다.
 
 닫음: 남긴다. 줄 수 기준을 두지 않고 check로 막지 않는다. 기능을 더할 때 필요하면 나눈다.
+
+## `protocol/apps/direct-socket.ts`의 흔적
+
+```yaml
+kind: defect
+modules: [packages/protocol]
+closed: fixed
+guard: 없음
+```
+
+지금: 앱 직통 통로는 지웠는데 `protocol/apps/direct-socket.ts`가 남았다. 내용은 `DIRECT_SOCKET_PATHS`를 `channel-values.ts`에서 가져와 다시 내보내는 한 줄과 다른 곳으로 옮겨 가야 할 주석 몇 개(읽기 결과 원천 상태, confirm proof 등)뿐이고, `protocol/apps/mod.ts`가 `export *`로 내보낸다. `mod.ts`는 `channel-values.ts`도 이미 내보내서 같은 이름이 두 길로 나온다. 쓰는 곳은 `core/main/app-supervisor/assembly.ts`(probe, open, close, shutdown 경로) 한 파일이다. 상수 이름 `DIRECT_SOCKET_PATHS`도 지운 직통 통로의 이름이다.
+
+영향: 죽은 이름이 남아 "직통 통로가 아직 있나"로 헷갈린다. 고아 주석은 읽는 사람을 잘못 이끈다.
+
+고치려면: `direct-socket.ts`를 지우고(1줄), `mod.ts`의 export 줄을 뺀다. 상수는 supervisor 제어 경로임을 드러내는 이름으로 바꾼다(쓰는 곳 `assembly.ts`와 `process-wire.ts` 주석). 비용 작다. 추천: 한다.
+
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+
+닫음: `protocol/apps/direct-socket.ts`와 고아 주석을 지우고, `DIRECT_SOCKET_PATHS`를 supervisor 제어 경로 네 칸만 둔 `CONTROL_PATHS`로 바꿨다.

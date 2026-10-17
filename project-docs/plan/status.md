@@ -4,15 +4,15 @@
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `annotation-target` | annotation | 1 | 없음 | todo |  |  |  |
-| `apps-activation-no-retry` | apps | 1 | 없음 | todo |  |  |  |
+| `annotation-target` | annotation | 1 | 없음 | running | annotation/annotation-target |  |  |
+| `apps-activation-no-retry` | apps | 1 | 없음 | running | apps/apps-activation-no-retry |  |  |
 | `apps-large-changeset` | apps | 1 | dead-platform | todo |  |  |  |
-| `dead-agent` | dead | 1 | 없음 | todo |  |  |  |
-| `dead-platform` | dead | 1 | 없음 | todo |  |  |  |
+| `dead-agent` | dead | 1 | 없음 | running | dead/dead-agent |  |  |
+| `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
 | `feedback-existing-problem` | feedback | 1 | 없음 | todo |  |  |  |
-| `harness-global-install` | harness | 1 | 없음 | todo |  |  |  |
+| `harness-global-install` | harness | 1 | 없음 | running | harness/harness-global-install |  |  |
 | `place-operator-app-read` | place | 1 | 없음 | todo |  |  |  |
-| `platform-crash-diagnostics` | platform | 1 | 없음 | todo |  |  |  |
+| `platform-crash-diagnostics` | platform | 1 | 없음 | running | platform/platform-crash-diagnostics |  |  |
 | `router-waiting-and-failure` | router | 1 | 없음 | todo |  |  |  |
 | `trust-agent-notes` | trust | 1 | 없음 | todo |  |  |  |
 | `trust-cli-fence` | trust | 1 | 없음 | todo |  |  |  |

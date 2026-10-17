@@ -51,3 +51,7 @@ check 셋을 `deno task check`에 건다: (1) `tools/wireframes`에서 `drafts/`
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: check가 못 잡는 것(예: 이름이 주석에만 있는 경우)
+
+## lead가 더함
+
+- (lead가 더함) check 2에서 `export type { … }` 문(type만 내보내는 문)의 이름은 모두 type으로 보고 뺀다. `kit-layout-guide`가 type 전용 이름을 그 꼴로 모았다(지금 `data/mod.ts`의 TreeNode·ChartLocaleProps…, `reading/mod.ts`의 Block·DiffLine…).

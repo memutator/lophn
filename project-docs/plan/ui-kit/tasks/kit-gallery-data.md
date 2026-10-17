@@ -54,3 +54,11 @@ gallery의 `Kit · data` page가 그 분류 `mod.ts`의 모든 component(차트 
 - 계약 바꾸기 요청: component에 없는 변형이 필요한 곳(design 변경 요청)
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 그리지 못한 export나 상태와 이유
+
+## lead가 더함
+
+- (lead가 더함) 위 "빠진 이름 확인" 명령은 `export type { … }` 문(type만 내보내는 문) 안 이름도 잡는다. 그 이름은 type이라 그릴 대상이 아니다. 대신 이 명령을 쓴다(`perl`이 `export type {…}` 묶음을 먼저 지운다):
+
+  ```
+  for n in $(perl -0pe 's/export\s+type\s*\{[^}]*\}//g' packages/design/components/data/mod.ts | grep -v '^\s*//' | grep -ohP '(?<!type )\b[A-Z][a-z0-9][A-Za-z0-9]*\b' | sort -u); do grep -rqw "$n" tools/wireframes/pages/kit/data/ || echo "빠짐 data: $n"; done
+  ```

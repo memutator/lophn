@@ -452,7 +452,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
 
   async function attemptTool(
     call: ToolCallRequest,
-    _signal: AbortSignal,
+    signal: AbortSignal,
     pause: Pause,
   ): Promise<ToolDone> {
     const definition = definitionOf(call.name);
@@ -470,7 +470,11 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     let bookkeeping: string | null = null;
     const gated = { ran: false };
     // 결정과 시작은 handler가 돌기 직전에 남긴다. 실패하면 tool을 실행하지 않는다.
-    const ctx = paused(deps.tools.context(id), pause, gated);
+    const ctx = paused(
+      { ...deps.tools.context(id), signal },
+      pause,
+      gated,
+    );
     const listed = ctx.listed.map((tool) =>
       tool !== definition || tool.handler === undefined ? tool : {
         ...tool,

@@ -55,7 +55,7 @@ modules: [packages/core/apps]
 
 지금: 앱 release 준비(`apps/releases/prepare/from-source.ts`)는 `readSdkCopies`(`releases/bundle/lock.ts`)로 `<dataRoot>/sdk/<part>/<version>`의 설치 사본을 읽고, 개발용 import map(`packages/template/import-map.ts`의 `devImportMap`)과 blueprint 검사(`apps/blueprint/check.ts`)도 같은 자리를 가리킨다. 그런데 그 자리에 사본을 쓰는 코드가 없다. `apps/packages/install.ts`에는 "지원 소스의 설치 사본", "설치 템플릿을 `<dataRoot>/templates/app/`에 둔다" 같은 주석만 남았고, `installPackage`·`installSupportPackage`·`installTemplate`는 쓰지 않는 export를 지운 cleanup에서 함께 지워졌다(그 전에도 부르는 곳은 test뿐이었다). `scaffoldApp`(`packages/template/scaffold.ts`)도 부르는 곳이 없다.
 
-영향: 새 data root에서 `lophn-sdk:` 의존을 선언한 앱은 release 준비가 `sdk_not_installed`로 멈춘다. 사람이 앱을 만들어 release할 수 없다. UI kit 계획의 "설치 사본에서 `@lophn/ui/<분류>`가 풀린다"도 core를 띄워서는 확인할 수 없고, 사본을 손으로 깔아 확인해야 한다.
+영향: 새 data root에서 `lophn-sdk:` 의존을 선언한 앱은 release 준비가 `sdk_not_installed`로 멈춘다. 사람이 앱을 만들어 release할 수 없다. 설치 사본에서 `@lophn/ui/<분류>`가 풀리는지도 core를 띄워서는 확인할 수 없고, 사본을 손으로 깔아 확인해야 한다.
 
 손으로 깔아 보니 더 필요한 것: `packages/sdk/blueprint`와 `cap-store`가 `../../protocol/…`을 상대 경로로 import해서, 사본만으로는 풀리지 않는다(지워진 `vendor.ts` 설치 쪽이 이것을 `vendor/`로 담았다). `packages/design/deno.json`(`@lophn/ui`)에는 `version`이 없어서 설치 판 `1.0.0`을 어디서 읽을지도 정해야 한다.
 

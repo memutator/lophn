@@ -47,3 +47,13 @@
 - 찾은 제품 bug: 증상, 재현하는 행, 의심 file. 고쳤으면 "고치기 전 코드에서 그 행이 실패한 것"의 출력 한 줄
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## (lead가 더함)
+
+test-app이 앱 길에서 release 쪽 bug 셋을 더 찾았다. 이 task가 같이 고친다(같은 영역). test-app의 commit(`tests/support/app/`, `tests/e2e/app-release_test.ts`)을 이 branch에 가져와 그 E2E로 확인한다.
+
+- 추가 소유(lead 승인): `packages/core/apps/releases/bundle/{links,seal}.ts`, `packages/core/apps/runtime/entrypoint/main.ts`, `packages/protocol/apps/releases.ts`(release preparation snapshot의 manifest 칸), `packages/core/apps/control.ts`(`releasePreparationHandler`), `packages/core/main/app-supervisor/`(snapshot을 보내는 곳). test-app이 이 폴더들을 소유하지만 그 worker는 지금 coding 쪽만 고친다.
+- bug 2: 준비 job이 bundle 사본의 symlink를 못 만든다(`Deno.symlink() requires unscoped --allow-read and --allow-write`. 준비 자식은 앱 폴더에만 write가 있다). symlink는 commit `34bc88f31`이 npm 의존 중복 복사를 피해 file 수 한도 아래로 두려고 넣었다. **준비 자식의 권한을 넓히거나 `ln`을 subprocess로 불러 Deno 권한 검사를 피하지 않는다**(test-app patch의 방식은 받지 않는다). 권한이 있는 core 쪽 봉인 단계로 link 재생성을 옮기거나, 사본 안 hardlink로 바꾸는 쪽을 코드로 보고 고른다. 고른 것과 이유를 보고에 적는다. 봉인본 밖을 가리키는 link는 지금처럼 거절한다.
+- bug 3: 준비가 끝난 뒤 `release status`가 `internal "app supervisor rejected the request"`다. template 앱의 manifest(5,963 file, 약 1.09 MB)가 supervisor→core control frame 한도(256 KiB, `CONTROL_MAX_BYTES`)를 넘는다. **frame 한도는 바꾸지 않는다**(test-app patch의 `protocol/base/frame.ts` 4 MiB 상향은 시험용이다. 받지 않는다). snapshot에 manifest를 싣지 않고, core가 봉인 bundle의 `manifest.json`을 읽는다(lead 결정, agent). `release.prepare` command가 manifest를 싣는 길도 같은 한도에 걸리면 같은 방식으로 고친다.
+- bug 4: 앱 process가 `.../runtime/entrypoint/main.ts' does not provide an export named 'run'`로 뜨지 못한다. commit `bcb7a9c3d`("Remove unused core exports")가 `run`의 export를 지웠다. bundle 진입 파일(`bundle/runtime-entry.ts`가 문자열로 만든다)이 쓴다. `export`를 되돌리고 주석 한 줄(문자열로 만든 진입 파일이 import한다)로 다시 지워지지 않게 한다.
+- 확인: test-app patch(`/home/pyosechang/projects/lophn/.claude/worktrees/test-app/.dev-data/test-app/product-fixes.patch`)의 coding 쪽(token 기록, upload route, reactor 등록)만 이 worktree에 임시로 적용해 `app-release_test.ts`를 끝까지 돌린다(그 부분은 commit하지 않는다. test-app worker가 고친다). release 쪽 고친 뒤 그 E2E 10번 연속. 빈 `DENO_DIR` 확인은 위 brief대로.

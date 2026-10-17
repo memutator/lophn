@@ -29,7 +29,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `session-rows` | session-rows | 2 | 없음 | merged | session-rows/session-rows | 080476589 |  |
 | `session-scope` | session-scope | 2 | session-rows | merged | session-scope/session-scope | e120be42a |  |
 | `steer` | steer | 2 | 없음 | merged | steer/steer | 3abf290dd | 단정 3: steer 메시지의 messages_only rewind. 문서대로 gather를 고친다(rewind-rows merge 뒤, 추가 소유) |
-| `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | running | test-app/test-app |  |  |
+| `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | running | test-app/test-app |  | coding 길 bug 1·7·8 + run 경로. release 쪽은 release-cold-cache |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | merged | agent-call/agent-call | 53fcef2a1 |  |
 | `app-activation` | app-activation | 3 | test-app | todo |  |  |  |
 | `app-call` | app-call | 3 | test-app | todo |  |  |  |
@@ -44,7 +44,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | todo |  |  |  |
 | `cli-app-input` | fix | 3 | test-app | todo |  |  |  |
-| `release-cold-cache` | fix | 3 | test-app | todo |  |  |  |
+| `release-cold-cache` | fix | 3 | test-app | running | fix/release-cold-cache |  | release 길 bug 2·3·4 같이(test-app commit 위) |
 | `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |
 | `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | todo |  |  |  |

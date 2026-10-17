@@ -51,3 +51,19 @@ modules: [packages/core/lophn-agent, packages/core/main, packages/core/storage]
 - port를 preview 등록으로 옮긴다(작음): `appWritesOf`가 `main/daemon/rewind-glue.ts`에 있으므로 `rewind-registration.ts`가 `createReaderRegistration()`의 reads와 `appWritesPort`를 한 등록으로 내놓거나, `createReaderRegistration`이 port를 인자로 받는다.
 - reader Worker가 모든 등록의 port를 모든 read에 붙인다(작음): port 이름이 겹치면 조용히 덮인다.
 - 추천: port를 preview 등록으로 옮긴다.
+
+## 사람이 turn을 멈춰도 agent runtime의 진행 중인 model 요청이 끊기지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol]
+```
+
+지금: `turns/stop`(`packages/core/lophn-agent/run-loop/commands.ts`의 stop)은 core의 turn 행만 `finished`/`interrupted`(`user_stopped`)로 닫는다. core에서 agent runtime child로 turn 멈춤을 알리는 message가 없다(`packages/protocol/supervision/supervision.ts`의 parent 쪽 message는 `hello`, `stop`(process 종료), `credit`과 각종 `*_response`뿐이다). child의 `run-loop/driver.ts`에 `stop(turn, reason)`과 `endSession`이 있지만 production에서 부르는 곳이 없다. child는 `turn.ts`의 `stopped(state)`로 turn 행을 읽어 멈춤을 아는데, 그 확인은 prompt 조립 뒤, tool 시작 전, retry 대기 전후, 응답 뒤에만 있고 model 응답을 기다리는 동안에는 없다. 그래서 응답이 멈춘 provider 요청은 연결이 열린 채 남는다(호출당 idle 120초나 `stall_ms`가 끊을 때까지). `tests/e2e/stop_test.ts`가 재현한다(turn은 약 100ms에 닫히고 fake server의 연결은 열려 있다).
+
+영향: 사람이 멈춘 turn이 provider에 token을 계속 쓴다. 화면은 멈췄다고 보이지만 model 요청은 최대 120초 더 살아 있고, 그 사이 응답이 끝나면 child가 그 결과를 받는다.
+
+고치려면:
+- turn 멈춤 message를 더한다(중간): supervision parent message에 `turn_stop {turn, reason}`을 더하고, core의 stop command가 끝난 뒤 그 turn을 맡은 child에 보내며, child가 `driver.stop(turn, reason)`을 부른다. protocol 변경이라 쓰는 쪽을 같은 변경에서 고친다.
+- child가 model 호출 중에도 turn 행을 주기적으로 읽는다(작음): 읽기가 늘고 멈춤이 polling 간격만큼 늦는다.
+- 추천: turn 멈춤 message를 더한다. `run-loop` boundary의 "멈춤은 진행 중인 요청을 끊는다"를 그대로 지킨다.

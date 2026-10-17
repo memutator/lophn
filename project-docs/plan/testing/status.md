@@ -14,7 +14,7 @@ lead만 고친다. `tools/status.py testing build`가 `tasks/*.md`에서 id, 단
 | `e2e-restart` | e2e | 2 | e2e-support-server, e2e-support-core | blocked | e2e/e2e-restart |  | 제품 bug: session_snapshots/list read 없음(issues/event.md) |
 | `e2e-rewind` | e2e | 2 | e2e-support-server, e2e-support-core | blocked | e2e/e2e-rewind |  | 제품 bug: rewind/preview restore_all의 appWritesPort 미등록(issues/place-session.md) |
 | `e2e-secret` | e2e | 2 | e2e-support-server, e2e-support-core | merged | e2e/e2e-secret | b95601580 |  |
-| `e2e-stop` | e2e | 2 | e2e-support-server, e2e-support-core | running | e2e/e2e-stop |  |  |
+| `e2e-stop` | e2e | 2 | e2e-support-server, e2e-support-core | blocked | e2e/e2e-stop |  | 제품 bug: turns/stop이 child의 진행 중인 model 요청을 끊지 않는다(issues/place-session.md) |
 | `e2e-support-shape` | e2e-support | 2 | e2e-support-server, harness-wire | merged | e2e-support/e2e-support-shape | 63e15198b |  |
 | `harness-wire-idle` | harness-wire | 2 | harness-wire | merged | harness-wire/harness-wire-idle | 25aa1435f |  |
 | `live-suite` | live-suite | 2 | harness-wire | merged | live-suite/live-suite | 23b81cab9 |  |

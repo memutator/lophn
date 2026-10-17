@@ -82,6 +82,7 @@ import {
   authorize,
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
+import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -411,7 +412,24 @@ export const appsWiring: WiringFactory = () => {
             api_port: ctx.server.port,
           },
           {
-            onMessage: (message) => appsControl.onSupervisorMessage(message),
+            onMessage: (message) => {
+              if (
+                message.type === "diagnostic" &&
+                message.kind === "lophn_internal"
+              ) {
+                // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
+                void ctx.diagnosticsWrite({
+                  ...message,
+                  payload: {
+                    ...message.payload,
+                    component: "platform/app-supervisor",
+                    location: CRASH_LOCATIONS.appSupervisor,
+                  },
+                }).catch(() => {});
+                return;
+              }
+              appsControl.onSupervisorMessage(message);
+            },
             // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
             onEnd: () =>
               appsControl.channel.failPending(

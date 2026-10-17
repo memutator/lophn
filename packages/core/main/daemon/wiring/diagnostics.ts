@@ -79,21 +79,8 @@ export const diagnosticsWiring: WiringFactory = () => {
           }, () => settle(false));
         });
       });
-    },
-    build(ctx) {
-      const list = diagnosticsListRead(
-        createLogRecordSource(ctx.root.path, ctx.clock),
-      );
-      return ok({
-        memory: [[
-          key(diagnosticsStatus),
-          diagnosticsStatusHandler(() => ctx.componentChecks, ctx.clock),
-        ]],
-        reads: (reads) => reads.set(key(diagnosticsList), list),
-      });
-    },
-    // 기동이 끝난 뒤(I/O worker가 뜬 뒤)의 처리 못한 예외만 기록한다. 그전은 stderr + 종료다.
-    start(ctx) {
+
+      // I/O worker가 뜨기 전의 crash는 write가 false로 끝나 stderr + 종료까지만 남는다.
       // 알려진 secret이 아직 준비되지 않으면 pattern 규칙만으로 가린다.
       const redact = (text: string) => {
         const source = {
@@ -119,7 +106,18 @@ export const diagnosticsWiring: WiringFactory = () => {
         redact,
         exit: Deno.exit,
       });
-      return Promise.resolve(ok(undefined));
+    },
+    build(ctx) {
+      const list = diagnosticsListRead(
+        createLogRecordSource(ctx.root.path, ctx.clock),
+      );
+      return ok({
+        memory: [[
+          key(diagnosticsStatus),
+          diagnosticsStatusHandler(() => ctx.componentChecks, ctx.clock),
+        ]],
+        reads: (reads) => reads.set(key(diagnosticsList), list),
+      });
     },
     // 정상 종료 중의 예외가 exit(1)로 바뀌지 않게 가장 먼저 푼다.
     closeIntake() {

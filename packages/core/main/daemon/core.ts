@@ -23,6 +23,7 @@ import {
   writeRunMetadata,
 } from "../../install-and-update/mod.ts";
 import type { KeychainAdapter } from "../../secrets/mod.ts";
+import { CRASH_LOCATIONS } from "../../diagnostics/mod.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
 import { withPlatform } from "./platform-register.ts";
@@ -345,7 +346,19 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime.confirmation(body),
       reply: (message) => writeParent(parent, message),
-    }, shellViewLog(root.path))
+    }, {
+      ...shellViewLog(root.path),
+      // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
+      internal: (diagnostic) =>
+        void ctx.diagnosticsWrite({
+          ...diagnostic,
+          payload: {
+            ...diagnostic.payload,
+            component: "platform/shell-main",
+            location: CRASH_LOCATIONS.shellMain,
+          },
+        }).catch(() => {}),
+    })
     : Promise.resolve();
   return ok(core);
 }

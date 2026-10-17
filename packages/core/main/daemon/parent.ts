@@ -128,9 +128,12 @@ type ShellViewLifetime = Extract<
   { kind: "shell_view_lifetime" }
 >;
 
+type InternalDiagnostic = Extract<Diagnostic, { kind: "lophn_internal" }>;
+
 // main의 안전 진단을 받는 곳. 기록 실패는 core를 멈추지 않는다.
 type ParentDiagnostics = {
   shellView(diagnostic: ShellViewLifetime): Promise<void>;
+  internal(diagnostic: InternalDiagnostic): void;
 };
 
 // view 수명 한 줄. schema가 고정한 field(구성 요소·관측 시각·view id·generation·개수)만 쓰고
@@ -153,7 +156,9 @@ function shellViewLogLine(diagnostic: ShellViewLifetime): string {
 }
 
 // `<데이터 root>/logs/shell-view.jsonl`에 덧붙인다. 다른 core 진단 파일과 같은 자리다.
-export function shellViewLog(dataRoot: string): ParentDiagnostics {
+export function shellViewLog(
+  dataRoot: string,
+): Pick<ParentDiagnostics, "shellView"> {
   return {
     async shellView(diagnostic) {
       try {
@@ -216,9 +221,11 @@ async function handleParent(
     return true;
   }
   if (message.data.type === "diagnostic") {
-    // main이 보내는 진단은 view 수명뿐이다. 다른 종류는 이 통로에서 받지 않고 무시한다.
+    // main이 보내는 진단은 view 수명과 main의 crash 한 줄뿐이다. 다른 종류는 무시한다.
     if (message.data.kind === "shell_view_lifetime") {
       await diagnostics?.shellView(message.data);
+    } else if (message.data.kind === "lophn_internal") {
+      diagnostics?.internal(message.data);
     }
     return false;
   }

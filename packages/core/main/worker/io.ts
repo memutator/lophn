@@ -470,7 +470,13 @@ export async function runPlatformIo(root: string): Promise<void> {
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
     catalog: {
-      components: ["platform/core", "platform/io", "lophn-agent/runtime"],
+      components: [
+        "platform/core",
+        "platform/io",
+        "lophn-agent/runtime",
+        "platform/app-supervisor",
+        "platform/shell-main",
+      ],
       locations: CRASH_LOCATION_NAMES,
     },
     // 이 pipe는 core만 쓰는 비공개 pipe다(credentialUsable일 때만 쓰인다). core의 고정 분류만 받는다.

@@ -4,6 +4,11 @@
 import { createIdSource, systemClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
 import {
+  CRASH_LOCATIONS,
+  crashDiagnostic,
+  installCrashHandler,
+} from "../../diagnostics/mod.ts";
+import {
   createSocketDirectory,
   slotSockets,
   SOCKET_SLOTS,
@@ -166,25 +171,30 @@ const link = attachControlLink(assembled.supervisor, stdin, {
 });
 
 // supervisor가 예상 밖으로 죽어도 detached 앱 자식을 남기지 않는다.
-let stopping = false;
+// 정지는 한 번만 돈다. 신호와 crash가 겹쳐도 같은 promise를 기다린다.
+let stopping: Promise<void> | undefined;
+const stopOnce = () => stopping ??= assembled.supervisor.stop();
 const shutdown = () => {
-  if (stopping) return;
-  stopping = true;
-  void assembled.supervisor.stop().finally(() => Deno.exit(0));
+  void stopOnce().finally(() => Deno.exit(0));
 };
 Deno.addSignalListener("SIGINT", shutdown);
 Deno.addSignalListener("SIGTERM", shutdown);
-globalThis.addEventListener("unhandledrejection", (event) => {
-  event.preventDefault();
-  // 원인을 stderr에 남긴다(감독이 줄 단위로 받는다). 자식은 남기지 않고 끝낸다.
-  console.error(
-    `unhandled rejection: ${
-      event.reason instanceof Error
-        ? event.reason.message
-        : String(event.reason)
-    }`,
-  );
-  shutdown();
+installCrashHandler({
+  target: globalThis,
+  // core에 한 줄 보내고 앱 자식을 정지한 뒤 종료한다. core가 component·location을 정해 log에 쓴다.
+  write: async () => {
+    await send(crashDiagnostic({
+      component: "platform/app-supervisor",
+      location: CRASH_LOCATIONS.appSupervisor,
+      at: systemClock.now(),
+    })).catch(() => {});
+    await stopOnce();
+  },
+  stderr: Deno.stderr.writable,
+  redact: (text) => text,
+  exit: Deno.exit,
+  // 앱 정지 유예(10초)와 강제 종료 확인이 들어갈 시간이다.
+  deadlineMs: 15_000,
 });
 
 await link.closed;

@@ -4,12 +4,17 @@ import type { Diagnostic } from "../../protocol/supervision/mod.ts";
 export const CRASH_LOCATIONS = {
   daemon: "daemon-crash",
   agentRuntime: "agent-runtime-crash",
+  appSupervisor: "app-supervisor-crash",
+  shellMain: "shell-main-crash",
 } as const;
 
-// I/O worker catalog의 `locations`에 쓴다.
+// I/O worker catalog의 `locations`에 쓴다. 새 location은 `main/worker/io.ts` catalog의
+// `components`에도 해당 component를 같이 올려야 한다(없으면 ingress가 조용히 버린다).
 export const CRASH_LOCATION_NAMES: Readonly<Record<string, string>> = {
   [CRASH_LOCATIONS.daemon]: "packages/core/main/daemon/wiring/diagnostics.ts",
   [CRASH_LOCATIONS.agentRuntime]: "packages/core/main/agent-runtime/main.ts",
+  [CRASH_LOCATIONS.appSupervisor]: "packages/core/main/app-supervisor/main.ts",
+  [CRASH_LOCATIONS.shellMain]: "packages/shell/main/desktop/wiring/crash.ts",
 };
 
 export function crashDiagnostic(input: {

@@ -9,6 +9,7 @@ import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
 import { createShellContext } from "./wiring/context.ts";
 import * as core from "./wiring/core.ts";
+import * as crash from "./wiring/crash.ts";
 import * as desktop from "./wiring/desktop.ts";
 import * as editor from "./wiring/editor.ts";
 import * as feedback from "./wiring/feedback.ts";
@@ -20,6 +21,7 @@ const add = <T extends { stop(): void }>(area: T): T => {
   return area;
 };
 
+add(crash.register(ctx));
 add(core.register(ctx));
 const views = add(appViews.register(ctx));
 add(appCalls.register(ctx, views));

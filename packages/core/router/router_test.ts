@@ -93,7 +93,7 @@ const base = {
   delivery: "next_turn",
 } as const;
 
-Deno.test("a call to a closed session fails as closed and delivers nothing to it", () => {
+Deno.test("a call to a closed session fails as closed and delivers no input to either side", () => {
   const { tx, router, delivered } = setup({
     [SENDER]: target(SENDER, true),
     [RECEIVER]: target(RECEIVER, false),
@@ -107,12 +107,8 @@ Deno.test("a call to a closed session fails as closed and delivers nothing to it
   assertEquals(routed.value.state, "failed");
   assertEquals(routed.value.fail_reason, "closed");
   assertEquals(delivered.filter((one) => one.to === RECEIVER), []);
-  // 실패는 이유를 붙여 보낸 session에 돌아간다.
-  assertEquals(delivered.map((one) => one.to), [SENDER]);
-  assertEquals(delivered[0]!.input.outcome, {
-    state: "failed",
-    reason: "closed",
-  });
+  // 즉시 난 실패는 tool 결과로만 알린다. 같은 실패를 입력으로 또 받지 않는다.
+  assertEquals(delivered, []);
 });
 
 Deno.test("a late reply to an ended call returns closed and sends nothing", () => {

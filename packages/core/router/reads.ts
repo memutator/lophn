@@ -43,7 +43,8 @@ function placeOf(agent: CallAgent): Place | null {
   return null;
 }
 
-const STATES = ["running", "waiting", "idle", "unknown"] as const;
+// 허락 기다림(waiting)은 reader가 못 봐서 구별하지 않는다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
+const STATES = ["running", "idle", "unknown"] as const;
 
 // 부를 수 있는 열린 session 목록. grant가 deny인 상대는 뺀다. 목록은 prompt에 넣지 않고 tool이 읽는다.
 const sendableRead: ReadDefinition<typeof callSendable> = {

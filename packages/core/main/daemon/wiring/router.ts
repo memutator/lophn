@@ -145,7 +145,6 @@ function createCallBodyPreparer(deps: {
       }
       texts.push(safe);
       next = { ...envelope, input: { ...(input as object), body: safe } };
-      if (name === callSend.name) texts.push(...Object.values(FAILURE_TEXTS));
     } else if (name === callCancel.name) {
       texts.push(CANCEL_TEXT);
     } else if (

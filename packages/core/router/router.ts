@@ -216,7 +216,7 @@ export function createRouter(deps: RouterDeps): Router {
     };
   }
 
-  // 보낸 session에 실패 이유를 새 입력으로 돌려준다. 보낸 session이 없어졌으면 조용히 둔다.
+  // 배달 뒤에 늦게 알게 된 실패를 보낸 session에 새 입력으로 돌려준다. 보낸 session이 없어졌으면 조용히 둔다.
   function notifyFailed(
     tx: Tx,
     sender: string,
@@ -287,8 +287,6 @@ export function createRouter(deps: RouterDeps): Router {
       );
       if (!stored.ok) return stored;
     }
-    const told = notifyFailed(tx, from.session, call, reason);
-    if (!told.ok) return told;
     return ok({ call, state: "failed", fail_reason: reason, session: null });
   }
 

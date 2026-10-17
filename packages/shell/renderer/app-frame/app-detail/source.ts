@@ -1,7 +1,7 @@
 // app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
 // 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
 // 이 화면이 쓰는 field만 옮긴 것이다.
-import type { SourceResult } from "../../desktop/lophn-space/source.ts";
+import type { SourceResult } from "../../source-result.ts";
 
 export type { SourceResult };
 

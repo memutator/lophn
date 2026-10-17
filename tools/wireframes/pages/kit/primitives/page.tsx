@@ -9,7 +9,7 @@ import {
   Kbd,
 } from "@lophn/ui/primitives";
 import {
-  lophnSpaceIcons,
+  commonIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -33,7 +33,7 @@ export function KitPrimitives() {
                 {size} Save
               </Button>
             ))}
-            <Button variant={variant} icon={lophnSpaceIcons.add}>
+            <Button variant={variant} icon={commonIcons.add}>
               With icon
             </Button>
             <Button variant={variant} disabled>

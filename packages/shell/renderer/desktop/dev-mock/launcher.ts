@@ -1,12 +1,12 @@
 // mock 모드의 런처 프로젝트 카드, Projects 화면과 [Instructions] 통로. 등록은 메모리 목록에만 더한다.
 import type { LauncherSource } from "../launcher/source.ts";
 import { fakeLauncher } from "../launcher/testdata/fake-launcher.ts";
-import type { ProjectItem } from "../lophn-space/projects/source.ts";
-import type { ProjectsSource } from "../lophn-space/projects/source.ts";
+import type { ProjectItem } from "../launcher/projects/source.ts";
+import type { ProjectsSource } from "../launcher/projects/source.ts";
 import {
   fakeProjects,
   folderItem,
-} from "../lophn-space/projects/testdata/fake-projects.ts";
+} from "../launcher/projects/testdata/fake-projects.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import { SEED_INSTRUCTIONS_DOCUMENT } from "../dev-seed.ts";
 import { PROJECT_GROCERY, PROJECT_OFFICE } from "./ids.ts";

@@ -9,7 +9,7 @@ import { Card } from "@lophn/ui/layout";
 import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { ModelField } from "./editor/model-field.tsx";
 import { McpList, ROLE_LABEL, SkillList } from "./editor/parts.tsx";
 import styles from "./agents-tab.module.css";
@@ -167,7 +167,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         action={
           <Button
             variant="primary"
-            icon={lophnSpaceIcons.add}
+            icon={commonIcons.add}
             onClick={props.onNewOperator}
           >
             {t("project-workspace.button.new-operator")}
@@ -243,7 +243,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         action={
           <Button
             size="sm"
-            icon={lophnSpaceIcons.add}
+            icon={commonIcons.add}
             onClick={props.onAddSkill}
           >
             {t("project-workspace.button.add-skill")}
@@ -271,7 +271,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         action={
           <Button
             size="sm"
-            icon={lophnSpaceIcons.add}
+            icon={commonIcons.add}
             onClick={props.onAddServer}
           >
             {t("project-workspace.button.add-server")}

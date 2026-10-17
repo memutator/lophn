@@ -2,7 +2,7 @@
 // 점은 사람을 기다림(경고색)·일하는 중(focus색)이다.
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { IconButton } from "@lophn/ui/primitives";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type {
@@ -90,7 +90,7 @@ function Group(
         </button>
         <span className={styles.plus}>
           <IconButton
-            icon={lophnSpaceIcons.add}
+            icon={commonIcons.add}
             label={t("project-workspace.button.new-session-with", {
               agent: agent.name,
             })}

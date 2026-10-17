@@ -17,8 +17,8 @@ import {
   useConnection,
 } from "../connection/connection.tsx";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
-import { sortApps } from "../lophn-space/apps/model.ts";
-import type { AppRow, AppsSource } from "../lophn-space/apps/source.ts";
+import { sortApps } from "../../apps/model.ts";
+import type { AppRow, AppsSource } from "../../apps/source.ts";
 import { TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { failureOf } from "./start-failure/model.ts";

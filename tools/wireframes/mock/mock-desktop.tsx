@@ -17,7 +17,7 @@ import {
   openLophn,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
-import type { SettingsPane } from "../../../packages/shell/renderer/desktop/lophn-space/settings/model.ts";
+import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";

@@ -7,7 +7,7 @@ import { Field, Select } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
-import { lophnSpaceIcons } from "../../../icons/mod.ts";
+import { commonIcons } from "../../../icons/mod.ts";
 import { Loadable } from "../loadable.tsx";
 import { dateTime, releaseName } from "../model.ts";
 import { Facts, Mono, Note, PaneToast, Pill, Section } from "../parts.tsx";
@@ -207,7 +207,7 @@ function IssueDetail(
       <Button
         size="sm"
         variant="ghost"
-        icon={lophnSpaceIcons.back}
+        icon={commonIcons.back}
         data-issue-back=""
         onClick={onBack}
       >

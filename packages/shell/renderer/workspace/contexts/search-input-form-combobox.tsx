@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { OptionValue, PickOption } from "./source.ts";
@@ -89,7 +89,7 @@ export function PickCombobox(
         }}
       />
       <span className={styles.comboCaret}>
-        <Icon icon={lophnSpaceIcons.collapse} pixels={iconPixels("base")} />
+        <Icon icon={commonIcons.collapse} pixels={iconPixels("base")} />
       </span>
       {open
         ? (

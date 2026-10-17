@@ -11,7 +11,7 @@ import {
 import { Button, Icon, Kbd } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import type {
   AnsweredLine,
   AskedQuestion,
@@ -274,7 +274,7 @@ export function QuestionSummary(
         {submitted
           ? (
             <Icon
-              icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+              icon={open ? commonIcons.collapse : commonIcons.expand}
               pixels={iconPixels("small")}
             />
           )

@@ -18,7 +18,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import {
   editorIcons,
   launcherIcons,
-  lophnSpaceIcons,
+  commonIcons,
   paletteIcons,
 } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
@@ -156,7 +156,7 @@ export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
               ? t("conversation.label.session-untitled")
               : titleOf(current)}
           </span>
-          <Icon icon={lophnSpaceIcons.collapse} pixels={iconPixels("small")} />
+          <Icon icon={commonIcons.collapse} pixels={iconPixels("small")} />
         </button>
       }
     >
@@ -336,7 +336,7 @@ function Switcher(
             }}
           />
           <IconButton
-            icon={lophnSpaceIcons.archive}
+            icon={commonIcons.archive}
             label={t("conversation.button.archive")}
             size="sm"
             onClick={(event) => {
@@ -438,8 +438,8 @@ function Switcher(
           >
             <Icon
               icon={showArchived
-                ? lophnSpaceIcons.collapse
-                : lophnSpaceIcons.expand}
+                ? commonIcons.collapse
+                : commonIcons.expand}
               pixels={iconPixels("small")}
             />
             {t("conversation.button.archived-toggle", {
@@ -471,7 +471,7 @@ function Switcher(
             ))}
           </ul>
         )}
-        <Button size="sm" icon={lophnSpaceIcons.add} onClick={props.onNew}>
+        <Button size="sm" icon={commonIcons.add} onClick={props.onNew}>
           {t("conversation.button.session-new")}
         </Button>
       </div>

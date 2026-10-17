@@ -1,6 +1,6 @@
 import type { InstructionsPlace } from "../../ipc/instructions.ts";
-import type { LophnScreen } from "./lophn-space/model.ts";
-import type { SettingsPane } from "./lophn-space/settings/model.ts";
+import type { LophnScreen } from "../new-id.ts";
+import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
 type Space = "launcher" | "lophn" | "project" | "app" | "instructions";

@@ -3,7 +3,7 @@ import { projectCardOf } from "../core-source.ts";
 import {
   fakeProjects,
   type FakeProjectsOptions,
-} from "../../lophn-space/projects/testdata/fake-projects.ts";
+} from "../projects/testdata/fake-projects.ts";
 import type { LauncherSource } from "../source.ts";
 
 export function fakeLauncher(options: FakeProjectsOptions = {}) {

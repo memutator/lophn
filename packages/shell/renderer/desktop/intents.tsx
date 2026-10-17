@@ -4,9 +4,9 @@
 import { useEffect, useRef } from "react";
 
 import type { IntentApi } from "../../ipc/shortcuts.ts";
-import type { Catalog, LophnSource } from "./lophn-space/source.ts";
+import type { Catalog, LophnSource } from "../source-result.ts";
 import { useGlobalPalette, usePaletteEnv } from "./palette/host.tsx";
-import { lophnScope, type LophnTarget } from "./palette/lophn-scope.ts";
+import { lophnScope, type LophnTarget } from "./palette/desktop-scope.ts";
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 

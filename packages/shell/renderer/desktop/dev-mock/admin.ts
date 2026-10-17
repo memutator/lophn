@@ -6,20 +6,20 @@ import {
   fakeSettings,
   SAMPLE_DECLARED,
   server,
-} from "../lophn-space/settings/testdata/fake-settings.ts";
-import { fakeProviders } from "../lophn-space/settings/providers/testdata/fake-providers.ts";
-import { fakeAgents } from "../lophn-space/settings/agents/testdata/fake-agents.ts";
-import { fakeDiagnostics } from "../lophn-space/settings/diagnostics/testdata/fake-source.ts";
-import { fakeAppearance } from "../lophn-space/settings/appearance/testdata/fake-source.ts";
+} from "../settings/testdata/fake-settings.ts";
+import { fakeProviders } from "../settings/providers/testdata/fake-providers.ts";
+import { fakeAgents } from "../settings/agents/testdata/fake-agents.ts";
+import { fakeDiagnostics } from "../settings/diagnostics/testdata/fake-source.ts";
+import { fakeAppearance } from "../settings/appearance/testdata/fake-source.ts";
 import {
   fakeReactions,
   SAMPLE_MODES,
-} from "../lophn-space/settings/reactions/testdata/fake-source.ts";
-import { fakeConnections } from "../lophn-space/settings/connections/testdata/fake-source.ts";
-import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
-import type { SettingsSource } from "../lophn-space/settings/source.ts";
-import type { SettingsPanels } from "../lophn-space/settings/settings-screen.tsx";
-import type { AppsSource } from "../lophn-space/apps/source.ts";
+} from "../settings/reactions/testdata/fake-source.ts";
+import { fakeConnections } from "../settings/connections/testdata/fake-source.ts";
+import { appRow, fakeApps } from "../../apps/testdata/fake-apps.ts";
+import type { SettingsSource } from "../settings/source.ts";
+import type { SettingsPanels } from "../settings/settings-screen.tsx";
+import type { AppsSource } from "../../apps/source.ts";
 import { APP_BUDGET, APP_EXPENSES, APP_PLANNER } from "./ids.ts";
 
 export function mockSettings(): SettingsSource {

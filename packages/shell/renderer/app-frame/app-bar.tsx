@@ -14,7 +14,7 @@ import {
   type AppStatus,
   statusLabel,
   statusTone,
-} from "../desktop/lophn-space/apps/model.ts";
+} from "../apps/model.ts";
 import styles from "./app-bar.module.css";
 
 interface AppBarProps {

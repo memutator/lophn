@@ -5,7 +5,7 @@ import { IconButton, type IconProps } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import {
   conversationIcons,
-  lophnSpaceIcons,
+  commonIcons,
   paletteIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
@@ -25,7 +25,7 @@ export type RailAction = typeof RAIL_ACTIONS[number];
 const ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
   terminal: workspaceIcons.terminal,
   contexts: workspaceIcons.context,
-  saved: lophnSpaceIcons.savedView,
+  saved: commonIcons.savedView,
   agent: conversationIcons.dock,
   search: paletteIcons.search,
 };

@@ -37,7 +37,7 @@ import { mockAgentTabSource } from "../../../../../packages/shell/renderer/deskt
 import {
   appRow,
   fakeApps,
-} from "../../../../../packages/shell/renderer/desktop/lophn-space/apps/testdata/fake-apps.ts";
+} from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
 import { createFakeAgentsSource } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { TerminalStore } from "../../../../../packages/shell/renderer/terminal/store.ts";
 import { createXtermView } from "../../../../../packages/shell/renderer/terminal/xterm-view.ts";

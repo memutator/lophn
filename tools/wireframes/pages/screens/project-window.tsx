@@ -12,7 +12,7 @@ import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import {
   conversationIcons,
-  lophnSpaceIcons,
+  commonIcons,
   paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
@@ -64,8 +64,8 @@ const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   agent: conversationIcons.dock,
-  agents: lophnSpaceIcons.roles,
-  operator: lophnSpaceIcons.roles,
+  agents: commonIcons.roles,
+  operator: commonIcons.roles,
 };
 
 export interface TabSpec {

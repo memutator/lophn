@@ -6,7 +6,7 @@ import { Field, Input, Select, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import { lophnSpaceIcons } from "../../../icons/mod.ts";
+import { commonIcons } from "../../../icons/mod.ts";
 import { ProtectedKeyNote } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
 
@@ -214,7 +214,7 @@ export function ServerForm(
         <Button onClick={onCancel}>{t("common.button.cancel")}</Button>
         <Button
           variant="primary"
-          icon={lophnSpaceIcons.add}
+          icon={commonIcons.add}
           onClick={() => {
             setTried(true);
             if (invalid) return;

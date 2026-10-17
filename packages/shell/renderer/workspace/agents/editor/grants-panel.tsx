@@ -13,7 +13,7 @@ import type {
   AskSetting,
   Effect,
 } from "../../../../../protocol/approvals/grants.ts";
-import { lophnSpaceIcons } from "../../../icons/mod.ts";
+import { commonIcons } from "../../../icons/mod.ts";
 import type { GrantCatalog } from "../source.ts";
 import {
   agentEntryOf,
@@ -162,7 +162,7 @@ function AssignMenu(
       trigger={
         <Button
           size="sm"
-          icon={lophnSpaceIcons.add}
+          icon={commonIcons.add}
           disabled={items.length === 0}
         >
           {label}
@@ -195,7 +195,7 @@ function TargetCard(
           onClick={onToggle}
         >
           <Icon
-            icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+            icon={open ? commonIcons.collapse : commonIcons.expand}
             pixels={iconPixels("small")}
           />
           {name}

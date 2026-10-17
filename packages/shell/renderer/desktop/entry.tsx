@@ -12,7 +12,7 @@ import {
   openProject,
   type Route,
 } from "./router.ts";
-import { lophnSource } from "./lophn-space/core-source.ts";
+import { lophnSource } from "./palette/core-catalog.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -37,19 +37,19 @@ import {
   windowFolderPicker,
 } from "./launcher/core-source.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
-import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
-import { coreProjectsSource } from "./lophn-space/projects/core-source.ts";
-import { coreSettingsSource } from "./lophn-space/settings/core-source.ts";
-import { coreAppearanceSource } from "./lophn-space/settings/appearance/core-source.ts";
-import { coreReactionsSource } from "./lophn-space/settings/reactions/core-source.ts";
-import { coreProviderSettingsSource } from "./lophn-space/settings/providers/core-source.ts";
-import { coreAgentsSettingsSource } from "./lophn-space/settings/agents/core-source.ts";
-import { coreDiagnosticsSource } from "./lophn-space/settings/diagnostics/core-source.ts";
+import { coreAppsSource } from "../apps/core-source.ts";
+import { coreProjectsSource } from "./launcher/projects/core-source.ts";
+import { coreSettingsSource } from "./settings/core-source.ts";
+import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
+import { coreReactionsSource } from "./settings/reactions/core-source.ts";
+import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
+import { coreAgentsSettingsSource } from "./settings/agents/core-source.ts";
+import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
 import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import {
   coreCodingConnectionsSource,
   windowCodingApi,
-} from "./lophn-space/settings/connections/core-source.ts";
+} from "./settings/connections/core-source.ts";
 import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";

@@ -1,7 +1,7 @@
 import { type ReactElement, type ReactNode, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 
 import type { ToolLineDetail, ToolLineView } from "./model.ts";
 import styles from "./activity.module.css";
@@ -31,7 +31,7 @@ export function ToolRow(
       >
         <span>{label}</span>
         <Icon
-          icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+          icon={open ? commonIcons.collapse : commonIcons.expand}
           pixels={iconPixels("small")}
         />
       </button>

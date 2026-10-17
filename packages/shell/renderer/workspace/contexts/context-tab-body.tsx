@@ -1,7 +1,7 @@
 // Context 탭의 본문: 머리와 하위 탭은 ContextFrame이, 하위 탭 본문 다섯은 여기서 이어 붙인다.
 import type { ReactNode } from "react";
 
-import { newId } from "../../desktop/lophn-space/model.ts";
+import { newId } from "../../new-id.ts";
 import { ContextFrame, type ContextFrameProps } from "./context-frame.tsx";
 import { ContextGlossary } from "./context-glossary.tsx";
 import { ContextOverview } from "./context-overview.tsx";

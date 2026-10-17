@@ -16,7 +16,7 @@ import { t } from "@lophn/wording";
 
 import {
   conversationIcons,
-  lophnSpaceIcons,
+  commonIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
 import type {
@@ -93,7 +93,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
     return (
       <div className={styles.composer} data-agent-composer="">
         <p className={styles.readOnly} data-read-only="">
-          <Icon icon={lophnSpaceIcons.archive} pixels={iconPixels("base")} />
+          <Icon icon={commonIcons.archive} pixels={iconPixels("base")} />
           {t("conversation.notice.session-archived")}
         </p>
       </div>

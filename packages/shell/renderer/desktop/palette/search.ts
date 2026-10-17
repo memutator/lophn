@@ -1,6 +1,6 @@
 // 팔레트의 파일 묶음이 쓰는 project 키워드 검색. place가 없으면 보관하지 않은 모든 project에서 찾는다.
 // 실패는 빈 목록이라 다른 묶음은 그대로 보인다.
-import type { LophnSource } from "../lophn-space/source.ts";
+import type { LophnSource } from "../../source-result.ts";
 import type { FileSearchSource } from "../../workspace/search/source.ts";
 import type { FileSearch } from "./host.tsx";
 import type { FileFound } from "./model.ts";

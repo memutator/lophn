@@ -5,7 +5,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
 import { FileIcon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
-import { lophnSpaceIcons, paletteIcons, workspaceIcons } from "../icons/mod.ts";
+import { commonIcons, paletteIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./add-tab-menu.module.css";
@@ -72,7 +72,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
         </span>
       ),
       textValue: t("project-workspace.label.menu-agent"),
-      leading: lead(lophnSpaceIcons.roles),
+      leading: lead(commonIcons.roles),
     });
   }
   if (props.contexts !== undefined && props.onContext) {
@@ -158,7 +158,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
       }}
       trigger={
         <IconButton
-          icon={lophnSpaceIcons.add}
+          icon={commonIcons.add}
           label={label}
           size="sm"
           data-new-tab=""

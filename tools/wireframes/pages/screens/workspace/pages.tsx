@@ -1,7 +1,7 @@
 // Lophn Workspace, 런처, 시작 실패의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { WorkspaceWithoutProject } from "../workspace-page.tsx";
-import { MISSING_FOLDER } from "../../../../../packages/shell/renderer/desktop/lophn-space/projects/testdata/fake-projects.ts";
+import { MISSING_FOLDER } from "../../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
 import { click, type } from "../../../mock/drive.ts";
 
 /** Projects: 목록(보관한 project 포함)과 상세. */

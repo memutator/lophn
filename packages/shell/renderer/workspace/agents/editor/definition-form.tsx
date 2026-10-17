@@ -9,7 +9,7 @@ import { t } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import { conversationIcons, lophnSpaceIcons } from "../../../icons/mod.ts";
+import { conversationIcons, commonIcons } from "../../../icons/mod.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -132,7 +132,7 @@ function ContextsField(
           trigger={
             <Button
               size="sm"
-              icon={lophnSpaceIcons.add}
+              icon={commonIcons.add}
               disabled={rest.length === 0}
             >
               {t("project-workspace.button.agent-editor-add-context")}
@@ -431,7 +431,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
             <div className={styles.rightEnd}>
               <Button
                 size="sm"
-                icon={lophnSpaceIcons.add}
+                icon={commonIcons.add}
                 onClick={() => setAddServer(true)}
               >
                 {t("settings.button.add-server")}

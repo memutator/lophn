@@ -7,7 +7,7 @@ import {
 import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import type { CallAgent } from "../../../../../../protocol/lophn-agent/calls.ts";
-import { lophnSpaceIcons } from "../../../../icons/mod.ts";
+import { commonIcons } from "../../../../icons/mod.ts";
 import type { CardView } from "../model.ts";
 import styles from "../waiting.module.css";
 
@@ -53,8 +53,8 @@ export function Head(
         {toggle === undefined ? <span className={styles.slot} /> : (
           <IconButton
             icon={toggle.open
-              ? lophnSpaceIcons.collapse
-              : lophnSpaceIcons.expand}
+              ? commonIcons.collapse
+              : commonIcons.expand}
             label={toggle.open
               ? t("waiting.label.hide-details")
               : t("waiting.label.show-details")}

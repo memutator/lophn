@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { lophnSpaceIcons, workspaceIcons } from "../../icons/mod.ts";
+import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "../sidebar/project-sidebar.module.css";
@@ -122,7 +122,7 @@ export function ContextSidebar(
                       onOpenSavedView(view)}
                   >
                     <Icon
-                      icon={lophnSpaceIcons.savedView}
+                      icon={commonIcons.savedView}
                       pixels={iconPixels("base")}
                     />
                     <span className={styles.label}>{view.name}</span>

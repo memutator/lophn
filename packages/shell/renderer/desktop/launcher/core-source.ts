@@ -5,8 +5,8 @@ import {
   createProject,
   readProjects,
   windowFolderPicker,
-} from "../lophn-space/projects/core-source.ts";
-import type { ProjectItem } from "../lophn-space/projects/source.ts";
+} from "./projects/core-source.ts";
+import type { ProjectItem } from "./projects/source.ts";
 import type { LauncherSource, ProjectCard } from "./source.ts";
 
 export { windowFolderPicker };

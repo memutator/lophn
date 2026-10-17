@@ -1,6 +1,6 @@
 // agents 탭 kind. 이 project의 agent 카드와 설정 구역을 보이고, [Open]이나 [+ New Operator]로 같은 탭 안에서
 // editor를 연다. 탭은 project에 하나이고 열어 둔 agent만 필드로 남긴다.
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { AgentsPage } from "../agents/agents-page.tsx";
@@ -37,7 +37,7 @@ export function openAgents(host: TabHost): void {
 export const agentsKind: TabKindDef = {
   kind: "agents",
   labelKey: "project-workspace.label.kind-agents",
-  icon: lophnSpaceIcons.roles,
+  icon: commonIcons.roles,
   fromStored(stored, { key }) {
     const { agent } = stored;
     return {

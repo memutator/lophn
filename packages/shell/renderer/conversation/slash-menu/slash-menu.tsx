@@ -10,7 +10,7 @@ import { t } from "@lophn/wording";
 import {
   conversationIcons,
   editorIcons,
-  lophnSpaceIcons,
+  commonIcons,
   settingsIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
@@ -51,14 +51,14 @@ export function slashQuery(text: string): string | null {
 const ICONS: Readonly<Record<string, IconType>> = {
   new: conversationIcons.newSession,
   rename: editorIcons.edit,
-  archive: lophnSpaceIcons.archive,
+  archive: commonIcons.archive,
   compact: editorIcons.compareChangesOnly,
   fork: editorIcons.compare,
   mcp: settingsIcons.providers,
   skills: settingsIcons.tools,
-  permissions: lophnSpaceIcons.settings,
+  permissions: commonIcons.settings,
   recap: conversationIcons.result,
-  "new-app": lophnSpaceIcons.apps,
+  "new-app": commonIcons.apps,
   "repair-app": editorIcons.restore,
   "check-contracts": editorIcons.problem,
   "new-context": workspaceIcons.context,

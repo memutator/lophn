@@ -7,7 +7,7 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/wording";
 
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import type {
   AgentTabSource,
   CallFailReason,
@@ -130,7 +130,7 @@ export function CallBlock(
           onClick={toggle}
         >
           <Icon
-            icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+            icon={open ? commonIcons.collapse : commonIcons.expand}
             pixels={iconPixels("small")}
           />
           <span className={styles.callTo}>

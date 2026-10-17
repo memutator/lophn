@@ -7,7 +7,7 @@ import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/wording";
 
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import type {
   AgentRole,
   AgentTabSource,
@@ -93,7 +93,7 @@ export function SenderChip(
       <SenderIcon sender={sender} />
       <span className={styles.senderName}>{label}</span>
       <Icon
-        icon={open ? lophnSpaceIcons.collapse : lophnSpaceIcons.expand}
+        icon={open ? commonIcons.collapse : commonIcons.expand}
         pixels={iconPixels("small")}
       />
     </button>
@@ -227,7 +227,7 @@ function SessionIcon({ sender }: { sender: Sender }): ReactElement {
     ? vendorOf(sender.product)
     : undefined;
   return vendor === undefined
-    ? <Icon icon={lophnSpaceIcons.openLink} pixels={iconPixels("small")} />
+    ? <Icon icon={commonIcons.openLink} pixels={iconPixels("small")} />
     : <VendorIcon vendor={vendor} size={14} />;
 }
 

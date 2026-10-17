@@ -9,8 +9,8 @@ import { createEventClient } from "../../../../../packages/shell/renderer/deskto
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { mockCore } from "../../../../../packages/shell/renderer/desktop/dev-mock/requests.ts";
-import { galleryApps } from "../../../../../packages/shell/renderer/desktop/lophn-space/apps/testdata/fake-apps.ts";
-import { MISSING_FOLDER } from "../../../../../packages/shell/renderer/desktop/lophn-space/projects/testdata/fake-projects.ts";
+import { galleryApps } from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
+import { MISSING_FOLDER } from "../../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
 import { click, runSteps, type Step, useDrive } from "../../../mock/drive.ts";
 import { registerSteps } from "../../../mock/workspace/register-panel.tsx";
 

@@ -7,11 +7,11 @@ import { createEventClient } from "../../../../packages/shell/renderer/desktop/c
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createFakeWaiting } from "../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
-import type { LophnScreen } from "../../../../packages/shell/renderer/desktop/lophn-space/model.ts";
-import { LophnSpace } from "../../../../packages/shell/renderer/desktop/lophn-space/lophn-space.tsx";
-import { fakeProjects } from "../../../../packages/shell/renderer/desktop/lophn-space/projects/testdata/fake-projects.ts";
-import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/model.ts";
-import { fakeSettings } from "../../../../packages/shell/renderer/desktop/lophn-space/settings/testdata/fake-settings.ts";
+import type { LophnScreen } from "../../../../packages/shell/renderer/new-id.ts";
+import { LophnSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
+import { fakeProjects } from "../../../../packages/shell/renderer/desktop/launcher/projects/testdata/fake-projects.ts";
+import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
+import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 
 type WorkspaceScreen = LophnScreen;

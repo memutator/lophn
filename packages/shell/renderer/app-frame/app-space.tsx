@@ -20,12 +20,12 @@ import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import {
   type AppStatus,
   appStatus,
-} from "../desktop/lophn-space/apps/model.ts";
+} from "../apps/model.ts";
 import type {
   AppRow,
   AppsSource,
   RunState,
-} from "../desktop/lophn-space/apps/source.ts";
+} from "../apps/source.ts";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
 import { keyOf } from "../workspace/agents/agent-key.ts";

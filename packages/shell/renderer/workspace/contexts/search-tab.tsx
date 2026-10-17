@@ -16,7 +16,7 @@
 //   common.error.load-failed
 import { type ReactNode, useEffect, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
-import { lophnSpaceIcons } from "../../icons/mod.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";
@@ -131,7 +131,7 @@ export function SearchTab(props: SearchTabProps): ReactNode {
         )}
         {searches.status === "loaded" && searches.value.length === 0 && (
           <EmptyState
-            icon={lophnSpaceIcons.search}
+            icon={commonIcons.search}
             message={t("contexts.empty.search-no-searches")}
             action={{
               label: t("contexts.button.search-open-context"),

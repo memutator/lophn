@@ -1,7 +1,7 @@
 // agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Workspace) 위에 상태 하나를 고정해 놓는다.
 import { t } from "@lophn/wording";
 
-import { OPENAI } from "../../../../../packages/shell/renderer/desktop/lophn-space/settings/providers/testdata/fake-providers.ts";
+import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import { EVAL_ANALYST_ID } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";

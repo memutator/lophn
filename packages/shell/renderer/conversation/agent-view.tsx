@@ -6,7 +6,7 @@ import { IconButton } from "@lophn/ui/primitives";
 import { retryIcon } from "../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
-import { newId } from "../desktop/lophn-space/model.ts";
+import { newId } from "../new-id.ts";
 import { ProgressChip } from "./activity/progress-chip.tsx";
 import type { ViewDetail } from "./activity/model.ts";
 import { ViewDetailSelect } from "./activity/view-detail-select.tsx";

@@ -39,7 +39,7 @@ export function register(
         : overlays.controller(window);
       if (overlay === undefined) return undefined;
       return {
-        open: (draftRef) => overlay.openFeedback(draftRef),
+        open: (draftRef, problems) => overlay.openFeedback(draftRef, problems),
         close: (draftRef) => overlay.closeFeedback(draftRef),
       };
     },
@@ -75,6 +75,30 @@ export function register(
         ok: true,
         value: { report: value.report, problem: value.problem },
       };
+    },
+    // 못 읽으면 undefined다. dialog가 빈 목록이 아니라 고르기 없음으로 연다.
+    async problems(app) {
+      const session = core.session();
+      if (session === null) return undefined;
+      const reply = await session.internal(
+        "read",
+        "problems",
+        "list_problems",
+        {
+          app,
+          state: "open",
+          limit: 20,
+        },
+      );
+      if (!reply.ok) return undefined;
+      const list = (reply.value as {
+        problems: { id: string; name: string; occurrence_count: number }[];
+      }).problems;
+      return list.map((problem) => ({
+        id: problem.id,
+        title: problem.name,
+        count: problem.occurrence_count,
+      }));
     },
     // 응답을 잃은 제출은 다시 보내기 전에 그 Report ID가 접수됐는지 읽는다.
     async lookup(report) {

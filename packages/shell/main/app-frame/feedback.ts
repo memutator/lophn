@@ -14,6 +14,7 @@ import {
   type FeedbackAccepted,
   feedbackBeginSchema,
   feedbackCancelSchema,
+  type FeedbackProblem,
   type FeedbackReply,
   feedbackSendSchema,
 } from "../../ipc/feedback.ts";
@@ -28,7 +29,7 @@ import type { FeedbackViewSnapshot } from "./view-model.ts";
 
 /** 한 창의 overlay에서 feedback dialog를 다루는 handle. */
 interface FeedbackDialog {
-  open(draftRef: string): boolean;
+  open(draftRef: string, problems?: readonly FeedbackProblem[]): boolean;
   close(draftRef: string): void;
 }
 
@@ -63,6 +64,8 @@ interface FeedbackDeps {
   submit(
     input: SubmitFeedbackRequest,
   ): Promise<FeedbackReply<FeedbackAccepted>>;
+  /** 그 앱의 열린 문제. 읽지 못하면 undefined이고 dialog는 고르기 없이 새 문제로만 보낸다. */
+  problems(app: string): Promise<readonly FeedbackProblem[] | undefined>;
   /** 묶인 Issue로 간다. 그 창 renderer가 앱 공간을 연다. */
   openIssue(window: string, target: { app: string; problem: string }): void;
   /**
@@ -87,8 +90,6 @@ interface Draft {
   accepted?: FeedbackAccepted;
   /** 보낸 뒤 접수 여부를 모르는 채 끝났다. 다시 보내기 전에 최신 상태를 읽는다. */
   unconfirmed: boolean;
-  /** Issues에서 고른 기존 문제. 같은 앱인지는 core 접수가 다시 본다. */
-  existingProblem: string | null;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -159,10 +160,10 @@ export function createFeedback(deps: FeedbackDeps) {
   }
 
   return {
-    begin(
+    async begin(
       event: IpcEvent,
       input: unknown,
-    ): FeedbackReply<{ draftRef: string }> {
+    ): Promise<FeedbackReply<{ draftRef: string }>> {
       const checked = guard(event, DESKTOP_HOST, feedbackBeginSchema, input);
       if (!checked.ok) return checked;
       const window = deps.windowOfShell(event.sender);
@@ -176,6 +177,10 @@ export function createFeedback(deps: FeedbackDeps) {
       }
       const dialog = deps.dialog(window);
       if (dialog === undefined) return fail("unavailable", "overlay is gone");
+      // core는 live view의 문제에만 덧붙인다. preview는 늘 새 문제다.
+      const problems = view.mode === "live"
+        ? await deps.problems(view.app)
+        : undefined;
       if ([...drafts.values()].some((draft) => draft.window === window)) {
         return fail("conflict", "a report is already open in this window");
       }
@@ -187,10 +192,9 @@ export function createFeedback(deps: FeedbackDeps) {
         report: deps.ids.report(),
         status: "draft",
         unconfirmed: false,
-        existingProblem: checked.value.problem ?? null,
       };
       drafts.set(draft.draftRef, draft);
-      if (!dialog.open(draft.draftRef)) {
+      if (!dialog.open(draft.draftRef, problems)) {
         drafts.delete(draft.draftRef);
         return fail("unavailable", "overlay is not available");
       }
@@ -236,7 +240,7 @@ export function createFeedback(deps: FeedbackDeps) {
       let reply: FeedbackReply<FeedbackAccepted>;
       try {
         reply = await deps.submit(
-          request(draft, text, existing_problem ?? draft.existingProblem),
+          request(draft, text, existing_problem),
         );
       } catch {
         reply = fail("unavailable", "report transport failed");

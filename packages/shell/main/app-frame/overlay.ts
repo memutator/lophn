@@ -1,3 +1,4 @@
+import type { FeedbackProblem } from "../../ipc/feedback.ts";
 import {
   fullBody,
   inside,
@@ -75,6 +76,7 @@ interface OverlayOptions {
 type Surface = OverlayOpen & OverlayIdentity & {
   ending?: boolean;
   feedback?: string;
+  feedbackProblems?: readonly FeedbackProblem[];
 };
 const failure = (
   code: "invalid_input" | "forbidden" | "conflict" | "unavailable",
@@ -418,7 +420,10 @@ export function createOverlay(options: OverlayOptions) {
      * main이 [Report a problem] dialog를 연다. shell renderer의 open과 달리
      * 창 본문 전체에 그리고 앱 view는 숨기지 않는다. 닫기는 closeFeedback만 한다.
      */
-    openFeedback(draftRef: string): boolean {
+    openFeedback(
+      draftRef: string,
+      problems?: readonly FeedbackProblem[],
+    ): boolean {
       if (disposed || !available) return false;
       const identity = { surfaceId: `surface_${++serial}`, generation };
       surfaces.set(identity.surfaceId, {
@@ -427,6 +432,7 @@ export function createOverlay(options: OverlayOptions) {
         anchorRect: options.body(),
         model: { label: "", choices: [] },
         feedback: draftRef,
+        ...(problems === undefined ? {} : { feedbackProblems: problems }),
         ...identity,
       });
       sync();

@@ -21,17 +21,11 @@ import {
   FEEDBACK_LIMITS,
   FEEDBACK_PROBLEM_NAME,
   type FeedbackAccepted,
+  type FeedbackProblem,
   type LophnOverlayFeedback,
 } from "../../../ipc/feedback.ts";
 import type { LophnShellFeedbackSend } from "../../../../protocol/shell/feedback.ts";
 import styles from "./feedback-dialog.module.css";
-
-/** 기존 문제에 덧붙일 때 고르는 줄. 열림·해결됨 문제만 온다. */
-interface FeedbackProblem {
-  readonly id: string;
-  readonly title: string;
-  readonly count: number;
-}
 
 /** dialog가 쓰는 통로. 보내기는 글만 보낸다. */
 export type FeedbackDialogApi =
@@ -43,7 +37,7 @@ interface FeedbackDialogProps {
   api: FeedbackDialogApi;
   host: HTMLElement;
   clipboard?: Clipboard;
-  /** 덧붙일 수 있는 기존 문제. 없으면 "Send it as" 고르기를 두지 않는다. */
+  /** 덧붙일 수 있는 같은 앱의 열린 문제. 없으면 "Send it as" 고르기를 두지 않는다. */
   problems?: readonly FeedbackProblem[];
 }
 

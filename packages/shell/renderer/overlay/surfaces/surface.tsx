@@ -217,6 +217,7 @@ export function surfaceMount(
         ? (
           <FeedbackDialog
             draftRef={surface.feedback}
+            problems={surface.feedbackProblems}
             api={feedback}
             host={host}
           />

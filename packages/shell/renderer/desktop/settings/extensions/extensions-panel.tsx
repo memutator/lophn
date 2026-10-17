@@ -12,10 +12,7 @@ import { t } from "@lophn/wording";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { commonIcons } from "../../../icons/mod.ts";
 import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
-import {
-  McpList,
-  SkillList,
-} from "../../../workspace/agents/editor/parts.tsx";
+import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import type {
   AgentsSettingsSource,
   ExtensionsView,

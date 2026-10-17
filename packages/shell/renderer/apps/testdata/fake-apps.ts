@@ -1,4 +1,4 @@
-// apps 화면·앱 공간 테스트의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
+// 런처·앱 공간 테스트의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
 import type { AppRow, AppsSource, RunState, SourceResult } from "../source.ts";
 
 export function appRow(
@@ -89,7 +89,7 @@ const GALLERY_IDS = [
   "app_01h455vb4pex5v6nkc6gd5fd15",
 ] as const;
 
-/** Workspace Apps 화면과 런처 gallery가 그리는 앱: 실행 중·멈춤·응답 없음과 보관 하나. */
+/** 런처 gallery가 그리는 앱: 실행 중·멈춤·응답 없음과 보관 하나. */
 export function galleryApps() {
   const [grocery, planner, reading, report, habit] = GALLERY_IDS;
   return fakeApps({

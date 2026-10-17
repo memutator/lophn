@@ -24,7 +24,7 @@ import { receivedMessageRead } from "../../../protocol/lophn-agent/received-mess
 import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
-import { newId } from "../new-id.ts";
+import { newId } from "../prefixed-id.ts";
 import { attachedOf } from "./attached-chips.ts";
 import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";

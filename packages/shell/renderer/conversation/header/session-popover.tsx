@@ -16,9 +16,9 @@ import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import {
+  commonIcons,
   editorIcons,
   launcherIcons,
-  commonIcons,
   paletteIcons,
 } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
@@ -437,9 +437,7 @@ function Switcher(
             onClick={() => setShowArchived(!showArchived)}
           >
             <Icon
-              icon={showArchived
-                ? commonIcons.collapse
-                : commonIcons.expand}
+              icon={showArchived ? commonIcons.collapse : commonIcons.expand}
               pixels={iconPixels("small")}
             />
             {t("conversation.button.archived-toggle", {

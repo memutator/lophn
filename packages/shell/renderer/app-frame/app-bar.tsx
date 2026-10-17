@@ -10,11 +10,7 @@ import { t } from "@lophn/wording";
 
 import { PaletteButton, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { LauncherButton } from "../workspace/launcher-button.tsx";
-import {
-  type AppStatus,
-  statusLabel,
-  statusTone,
-} from "../apps/model.ts";
+import { type AppStatus, statusLabel, statusTone } from "../apps/model.ts";
 import styles from "./app-bar.module.css";
 
 interface AppBarProps {

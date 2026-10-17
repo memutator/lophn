@@ -1,4 +1,4 @@
-// lophn 공간 settings 화면. 항목 목록은 sidebar의 Settings 아래에 있고(`SETTINGS_GROUPS`), 이 화면은
+// Settings 화면. 항목 목록은 sidebar의 Settings 아래에 있고(`SETTINGS_GROUPS`), 이 화면은
 // 고른 항목(`pane`)의 본문 하나만 가운데 기둥에 그린다. 둘째 목차 열은 없다. secret 값은 이 화면이 받지
 // 않고 보호 창이 받는다.
 import { useMemo, useRef } from "react";

@@ -8,9 +8,9 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import {
+  commonIcons,
   conversationIcons,
   editorIcons,
-  commonIcons,
   settingsIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";

@@ -5,7 +5,7 @@ import { t } from "@lophn/wording";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { Catalog } from "./catalog.ts";
 import { windowShortcutLabel } from "./labels.ts";
-import { type FileFound, DESKTOP_GROUPS, type PaletteEntry } from "./model.ts";
+import { DESKTOP_GROUPS, type FileFound, type PaletteEntry } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
 /** project 창에서 열 파일. path는 디스크의 절대 경로다. */
@@ -52,7 +52,9 @@ function actions(platform: WindowPlatform): PaletteEntry<DesktopTarget>[] {
   ];
 }
 
-export function desktopScope(input: DesktopScopeInput): PaletteScope<DesktopTarget> {
+export function desktopScope(
+  input: DesktopScopeInput,
+): PaletteScope<DesktopTarget> {
   const search = input.search;
   return {
     title: t("common.title.palette-desktop"),

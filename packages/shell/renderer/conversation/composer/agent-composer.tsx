@@ -15,8 +15,8 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import {
-  conversationIcons,
   commonIcons,
+  conversationIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
 import type {

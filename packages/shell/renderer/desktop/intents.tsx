@@ -39,7 +39,9 @@ export function DesktopIntents(
           return;
         }
         void (async () => {
-          const loaded = current.catalog ? await current.catalog.catalog() : null;
+          const loaded = current.catalog
+            ? await current.catalog.catalog()
+            : null;
           const { env, go, openGlobal } = latest.current;
           const search = env.search;
           openGlobal(desktopScope({

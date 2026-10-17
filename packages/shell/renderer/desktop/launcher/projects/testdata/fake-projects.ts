@@ -1,4 +1,4 @@
-// Projects 화면·런처·등록 dialog 시험과 gallery의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
+// 런처·등록 dialog·project detail 시험과 gallery의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
 import type {
   FolderItem,
   ProjectItem,

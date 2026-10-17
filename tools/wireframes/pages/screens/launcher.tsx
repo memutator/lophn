@@ -1,11 +1,16 @@
 import type { Area } from "../types.ts";
 import type { CoreSource } from "../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
+  LauncherArchived,
+  LauncherCardMenu,
   LauncherEmpty,
+  LauncherProjectDetail,
   LauncherProjects,
   LauncherRegister,
-  StartFailures,
-} from "./workspace/pages.tsx";
+  LauncherSubfolderAdd,
+  LauncherSubfolderEdit,
+} from "./launcher/launcher-pages.tsx";
+import { StartFailures } from "./launcher/start-failure-page.tsx";
 import { MockDesktop } from "../../mock/mock-desktop.tsx";
 
 type FailureState = "failed-start" | "failed-sandbox" | "failed-schema";
@@ -31,7 +36,7 @@ export const launcherArea: Area = {
   id: "launcher",
   title: "Launcher",
   summary:
-    "처음 여는 런처. 프로젝트 카드, 비었음 안내, 프로젝트 등록, 시작 실패 화면.",
+    "처음 여는 런처. project와 앱을 다루는 유일한 화면이다. 카드와 ⋯ 메뉴, 보관과 복원, 폴더 다시 잡기, project detail, 비었음 안내, 프로젝트 등록, 시작 실패 화면.",
   pages: [
     {
       id: "launcher-empty",
@@ -72,15 +77,50 @@ export const launcherArea: Area = {
       id: "new-launcher-projects",
       title: "Launcher · project cards",
       description:
-        "런처의 project 카드(이름, 목적, 폴더 수 또는 Folder not found)와 앱 카드다. 들어가는 단추의 이름이 Lophn Workspace다.",
+        "런처의 project 카드(이름, 목적, 폴더 수 또는 Folder not found와 [Choose new location])와 앱 카드다. 카드마다 ⋯ 메뉴가 있고, 오른쪽 위 톱니 단추가 Settings로 간다. 보관한 것은 맨 아래 접힌 Archived에 있다.",
       render: () => <LauncherProjects />,
     },
     {
       id: "new-launcher-empty",
       title: "Launcher · empty",
       description:
-        "project도 앱도 없는 런처다. 다음 행동 단추의 이름이 Lophn Workspace다.",
+        "project도 앱도 없는 런처다. 다음 행동 단추는 프로젝트 등록 하나다.",
       render: () => <LauncherEmpty />,
+    },
+    {
+      id: "new-launcher-card-menu",
+      title: "Launcher · card menu",
+      description:
+        "project 카드의 ⋯ 메뉴다. Details는 detail dialog를 열고 Archive는 카드를 Archived로 보낸다. 앱 카드의 메뉴에는 Archive 하나가 있다.",
+      render: () => <LauncherCardMenu />,
+    },
+    {
+      id: "new-launcher-archived",
+      title: "Launcher · archived",
+      description:
+        "맨 아래 접힌 Archived 묶음을 펼친 상태다. 보관한 project와 앱이 한 줄씩이고 [Unarchive]로 되살린다. 되살린 앱은 사람이 시작하기 전에는 멈춰 있다.",
+      render: () => <LauncherArchived />,
+    },
+    {
+      id: "new-launcher-project-detail",
+      title: "Launcher · project detail",
+      description:
+        "카드의 Details가 여는 dialog다. 이름 하나, 목적, 폴더와 폴더 설명, 등록 폴더 아래 들여 쓴 하위 폴더를 고치고 [Save changes]로 저장한다. 사라진 폴더 줄에 Not found와 [Choose new location]이 있다.",
+      render: () => <LauncherProjectDetail />,
+    },
+    {
+      id: "new-launcher-subfolder-add",
+      title: "Launcher · add subfolder",
+      description:
+        "등록 폴더 안의 하위 폴더를 더하는 dialog다. 폴더 고르기는 그 등록 폴더 안으로만 열리고, 이미 더한 폴더는 Added로 보인다. 고른 폴더에 설명을 달아 더한다.",
+      render: () => <LauncherSubfolderAdd />,
+    },
+    {
+      id: "new-launcher-subfolder-edit",
+      title: "Launcher · edit subfolders",
+      description:
+        "하위 폴더 설명을 고친 상태와 하위 폴더 하나를 뺀 상태다. 빼도 폴더 자체는 그대로이고 [Undo]가 있다.",
+      render: () => <LauncherSubfolderEdit />,
     },
     {
       id: "new-launcher-register",

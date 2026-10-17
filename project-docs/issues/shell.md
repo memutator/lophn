@@ -24,7 +24,7 @@ kind: defect
 modules: [packages/shell/renderer]
 ```
 
-지금: `packages/shell/renderer/desktop/lophn-space/settings/source.ts`의 `SettingsSource`에 `settings()`(skill 폴더와 MCP server 목록), `addSkillFolder`, `addServer`, `enterServerCredential`, `beginSignIn`, `cancelSignIn`, `finishSignIn`이 있고 `settings/core-source.ts`의 `coreSettingsSource`와 `settings/testdata/fake-settings.ts`가 구현한다. 화면에서 부르는 곳이 없다(`packages/shell`과 `tools`에서 `.addServer(`, `.enterServerCredential(`, `.beginSignIn(`, `.settings()` grep 0건). General 탭은 `declared`·`update`만 쓰고, Tools and skills 탭은 `AgentsSettingsSource`(`settings/agents/core-source.ts`의 `readExtensions`, `createServer`)를 쓴다.
+지금: `packages/shell/renderer/desktop/settings/source.ts`의 `SettingsSource`에 `settings()`(skill 폴더와 MCP server 목록), `addSkillFolder`, `addServer`, `enterServerCredential`, `beginSignIn`, `cancelSignIn`, `finishSignIn`이 있고 `settings/core-source.ts`의 `coreSettingsSource`와 `settings/testdata/fake-settings.ts`가 구현한다. 화면에서 부르는 곳이 없다(`packages/shell`과 `tools`에서 `.addServer(`, `.enterServerCredential(`, `.beginSignIn(`, `.settings()` grep 0건). General 탭은 `declared`·`update`만 쓰고, Tools and skills 탭은 `AgentsSettingsSource`(`settings/agents/core-source.ts`의 `readExtensions`, `createServer`)를 쓴다.
 
 영향: MCP server를 더하는 길이 둘이라 설정 꼴이나 secret 이름 규칙이 바뀔 때 두 곳을 고쳐야 한다(MCP credential을 `secrets.json`으로 옮길 때 쓰이지 않는 쪽도 새 꼴로 고쳤다). 개발 비용이다.
 

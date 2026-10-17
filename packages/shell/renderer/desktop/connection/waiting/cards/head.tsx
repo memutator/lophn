@@ -52,9 +52,7 @@ export function Head(
         <span className={styles.age}>{view.age}</span>
         {toggle === undefined ? <span className={styles.slot} /> : (
           <IconButton
-            icon={toggle.open
-              ? commonIcons.collapse
-              : commonIcons.expand}
+            icon={toggle.open ? commonIcons.collapse : commonIcons.expand}
             label={toggle.open
               ? t("waiting.label.hide-details")
               : t("waiting.label.show-details")}

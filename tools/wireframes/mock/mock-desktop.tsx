@@ -14,7 +14,7 @@ import {
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   LAUNCHER,
-  openLophn,
+  openSettings,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
 import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
@@ -83,7 +83,7 @@ export function MockDesktop(props: MockDesktopProps) {
   const { panes, openTerminal, core, settingsTab, emptyLauncher } = props;
   const route = settingsTab === undefined
     ? props.route ?? LAUNCHER
-    : openLophn("settings", SETTINGS_PANE[settingsTab]);
+    : openSettings(SETTINGS_PANE[settingsTab]);
   const wiring = useMemo(() => {
     const mock = devMock("?mock") as DevMock;
     const workspace = panes === undefined ? mock.workspace : {
@@ -106,13 +106,19 @@ export function MockDesktop(props: MockDesktopProps) {
       mock,
       projects: emptyLauncher === true
         ? {
-          ...mock.launcher,
-          projects: () => Promise.resolve({ ok: true as const, value: [] }),
+          ...mock.projects,
+          list: () => Promise.resolve({ ok: true as const, value: [] }),
         }
-        : mock.launcher,
+        : mock.projects,
+      apps: emptyLauncher === true
+        ? {
+          ...mock.apps,
+          list: () => Promise.resolve({ ok: true as const, value: [] }),
+        }
+        : mock.apps,
       workspace,
       terminal,
-      conversation: { drafts: new DraftStore(), onSettings: () => {} },
+      conversation: { drafts: new DraftStore() },
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
@@ -128,10 +134,9 @@ export function MockDesktop(props: MockDesktopProps) {
             workspace={wiring.workspace}
             editor={mock.editor}
             terminal={wiring.terminal}
-            lophn={mock.lophn}
+            catalog={mock.catalog}
             projects={wiring.projects}
-            projectsSource={mock.projectsSource}
-            apps={mock.apps}
+            apps={wiring.apps}
             settings={mock.settings}
             settingsPanels={wiring.settingsPanels}
             issues={mock.issues}

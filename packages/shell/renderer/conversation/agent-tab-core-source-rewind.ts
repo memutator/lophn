@@ -16,7 +16,7 @@ import {
   sessionRewindPreview,
 } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import { turnList } from "../../../protocol/lophn-agent/turn-reads.ts";
-import { newId } from "../new-id.ts";
+import { newId } from "../prefixed-id.ts";
 import type {
   RewindApp,
   RewindChoice,

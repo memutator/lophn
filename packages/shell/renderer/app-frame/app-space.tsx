@@ -17,15 +17,8 @@ import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
-import {
-  type AppStatus,
-  appStatus,
-} from "../apps/model.ts";
-import type {
-  AppRow,
-  AppsSource,
-  RunState,
-} from "../apps/source.ts";
+import { type AppStatus, appStatus } from "../apps/model.ts";
+import type { AppRow, AppsSource, RunState } from "../apps/source.ts";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
 import { keyOf } from "../workspace/agents/agent-key.ts";

@@ -1,6 +1,6 @@
 import type { Area } from "../types.ts";
 import type { ReactNode } from "react";
-import { openLophn } from "../../../../packages/shell/renderer/desktop/router.ts";
+import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   SettingsAgentsPage,
   SettingsConnectPage,
@@ -15,11 +15,11 @@ import {
   SettingsGeneral,
   SettingsReactions,
   SettingsRequiredEmpty,
-} from "./workspace/pages.tsx";
+} from "./settings-pages.tsx";
 import { MockDesktop, type SettingsTab } from "../../mock/mock-desktop.tsx";
 
 function settings(tab: SettingsTab): ReactNode {
-  return <MockDesktop route={openLophn("settings")} settingsTab={tab} />;
+  return <MockDesktop route={openSettings()} settingsTab={tab} />;
 }
 
 export const settingsArea: Area = {

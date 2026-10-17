@@ -495,7 +495,8 @@ export function Workspace(props: WorkspaceProps) {
       profileOf: (agent) =>
         sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
       dotOf: (session) => sessionDot(sessionStates, session),
-      openSettings: (target) => onSettings(target === "defaults" ? "agents" : "tools"),
+      openSettings: (target) =>
+        onSettings(target === "defaults" ? "agents" : "tools"),
       openConnections: () => onSettings("providers"),
     };
 

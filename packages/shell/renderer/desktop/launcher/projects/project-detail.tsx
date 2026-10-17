@@ -39,8 +39,7 @@ type Problem = "name-missing" | "changed" | "failed" | "picker-failed";
 // 프로젝트 하나: 이름·목적·폴더·폴더 설명·하위 폴더를 고치고 저장한다.
 // 고침은 [Save changes]를 누를 때까지 초안에만 있다.
 function ProjectForm(
-  { source, project, onChanged, onLatest, onRelocate, saved }:
-    ProjectFormProps,
+  { source, project, onChanged, onLatest, onRelocate, saved }: ProjectFormProps,
 ) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(project));
   const [problem, setProblem] = useState<Problem | null>(null);

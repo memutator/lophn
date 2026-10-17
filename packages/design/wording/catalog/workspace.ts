@@ -93,39 +93,26 @@ export const workspace = {
   "launcher.title.start-failed": "lophn didn't start",
   "projects.button.add-folder": "Add folder",
   "projects.button.add-subfolder": "Add subfolder",
-  "projects.button.archive": "Archive project",
-  "projects.button.choose-location": "Choose new location",
-  "projects.button.register": "Register project",
   "projects.button.remove": "Remove",
   "projects.button.save": "Save changes",
   "projects.button.show-latest": "Show latest",
-  "projects.button.unarchive": "Unarchive",
   "projects.button.undo": "Undo",
   "projects.empty.no-subfolders":
     "No subfolders. Add one to describe a part of this folder.",
-  "projects.empty.none": "No projects yet.",
-  "projects.empty.pick": "Choose a project to see it here.",
   "projects.error.changed": "This changed since you opened it.",
   "projects.error.folders-unavailable": "Couldn't read this folder. Try again.",
   "projects.error.name-missing": "Enter a name.",
   "projects.error.project-change-failed":
     "Couldn't change this project. Nothing changed. Try again.",
-  "projects.heading.archived": "Archived",
   "projects.heading.folders": "Folders",
   "projects.heading.subfolders": "Subfolders",
   "projects.help.subfolder-edited": "Edited. Save changes to keep it.",
   "projects.label.added": "Added",
   "projects.label.folder-description": "Folder description",
-  "projects.label.folder-not-found": "Folder not found",
   "projects.label.name": "Name",
   "projects.label.not-found": "Not found",
   "projects.label.purpose": "Purpose",
   "projects.label.subfolder-description": "Subfolder description",
-  "projects.label.target-projects": "your projects",
-  "projects.notice.archive-keeps":
-    "Archiving hides the project from the launcher. Its sessions stay, but agents stop reacting to new events until you unarchive it.",
-  "projects.notice.folder-missing":
-    "{path} was moved or deleted. Work that needs this folder waits until you choose its new location.",
   "projects.notice.pick-subfolder":
     "Pick a folder inside the registered folder and describe it. You can't go above it.",
   "projects.notice.relocate-first":
@@ -134,6 +121,4 @@ export const workspace = {
   "projects.notice.subfolder-removed":
     "{path} removed from the project. The folder itself is untouched.",
   "projects.title.add-subfolder": "Add subfolder",
-  "projects.title.folder-missing": "A registered folder is missing",
-  "projects.title.screen": "Projects",
 } as const;

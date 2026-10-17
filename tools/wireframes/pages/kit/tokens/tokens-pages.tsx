@@ -5,16 +5,16 @@ import { STATUS_ICONS } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import {
   appSpaceIcons,
+  commonIcons,
   connectionFailedIcon,
   connectionStaleIcon,
   conversationIcons,
   editorIcons,
   launcherEmptyIcon,
   launcherIcons,
-  lophnEntryIcon,
-  commonIcons,
   paletteIcons,
   retryIcon,
+  settingsEntryIcon,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import type { IconProps } from "@lophn/ui/primitives";
@@ -514,7 +514,7 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
   { title: "editorIcons", file: "editor-icons.ts", icons: editorIcons },
   {
     title: "commonIcons",
-    file: "lophn-space-icons.ts",
+    file: "common-icons.ts",
     icons: commonIcons,
   },
   { title: "appSpaceIcons", file: "app-space-icons.ts", icons: appSpaceIcons },
@@ -528,7 +528,7 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
     title: "chrome-icons",
     file: "chrome-icons.ts",
     icons: {
-      lophnEntryIcon,
+      settingsEntryIcon,
       retryIcon,
       connectionFailedIcon,
       connectionStaleIcon,

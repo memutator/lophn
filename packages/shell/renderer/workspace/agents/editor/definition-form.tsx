@@ -9,7 +9,7 @@ import { t } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import { conversationIcons, commonIcons } from "../../../icons/mod.ts";
+import { commonIcons, conversationIcons } from "../../../icons/mod.ts";
 import type {
   AgentDetail,
   AgentDraft,

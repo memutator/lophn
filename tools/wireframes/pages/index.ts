@@ -6,7 +6,7 @@
 // fake data와 고정 도구는 `mock/`에 둔다.
 //
 // 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
-// Export panel, lophn 공간 Documents 화면, Contexts(Focus) 화면, context Materials의
+// Export panel, Documents 화면, Contexts(Focus) 화면, context Materials의
 // Baseline·Reference·Follow-changes 묶음.
 import { draftsArea } from "../drafts/index.tsx";
 import { appUiArea } from "./kit/app-ui/index.tsx";
@@ -24,7 +24,6 @@ import { agentSettingsArea } from "./screens/agent-settings.tsx";
 import { appSpaceArea } from "./screens/app-space.tsx";
 import { contextsArea } from "./screens/contexts.tsx";
 import { launcherArea } from "./screens/launcher.tsx";
-import { lophnSpaceArea } from "./screens/lophn-space.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
 import { settingsArea } from "./screens/settings.tsx";
@@ -58,7 +57,6 @@ export const GROUPS: readonly Group[] = [
     inline: false,
     areas: [
       launcherArea,
-      lophnSpaceArea,
       projectWorkspaceArea,
       agentArea,
       agentSettingsArea,

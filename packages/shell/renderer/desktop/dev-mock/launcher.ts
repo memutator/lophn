@@ -1,5 +1,8 @@
 // mock 모드의 런처 프로젝트 카드와 [Instructions] 통로. 등록과 보관은 메모리 목록에만 더한다.
-import type { ProjectItem, ProjectsSource } from "../launcher/projects/source.ts";
+import type {
+  ProjectItem,
+  ProjectsSource,
+} from "../launcher/projects/source.ts";
 import {
   fakeProjects,
   folderItem,

@@ -4,8 +4,8 @@
 import { IconButton, type IconProps } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import {
-  conversationIcons,
   commonIcons,
+  conversationIcons,
   paletteIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";

@@ -89,37 +89,24 @@ export type WorkspacePlaceholders = {
   "launcher.title.start-failed": Record<never, never>;
   "projects.button.add-folder": Record<never, never>;
   "projects.button.add-subfolder": Record<never, never>;
-  "projects.button.archive": Record<never, never>;
-  "projects.button.choose-location": Record<never, never>;
-  "projects.button.register": Record<never, never>;
   "projects.button.remove": Record<never, never>;
   "projects.button.save": Record<never, never>;
   "projects.button.show-latest": Record<never, never>;
-  "projects.button.unarchive": Record<never, never>;
   "projects.button.undo": Record<never, never>;
   "projects.empty.no-subfolders": Record<never, never>;
-  "projects.empty.none": Record<never, never>;
-  "projects.empty.pick": Record<never, never>;
   "projects.error.changed": Record<never, never>;
   "projects.error.folders-unavailable": Record<never, never>;
   "projects.error.name-missing": Record<never, never>;
   "projects.error.project-change-failed": Record<never, never>;
-  "projects.heading.archived": Record<never, never>;
   "projects.heading.folders": Record<never, never>;
   "projects.heading.subfolders": Record<never, never>;
   "projects.help.subfolder-edited": Record<never, never>;
   "projects.label.added": Record<never, never>;
   "projects.label.folder-description": Record<never, never>;
-  "projects.label.folder-not-found": Record<never, never>;
   "projects.label.name": Record<never, never>;
   "projects.label.not-found": Record<never, never>;
   "projects.label.purpose": Record<never, never>;
   "projects.label.subfolder-description": Record<never, never>;
-  "projects.label.target-projects": Record<never, never>;
-  "projects.notice.archive-keeps": Record<never, never>;
-  "projects.notice.folder-missing": {
-    path: "string";
-  };
   "projects.notice.pick-subfolder": Record<never, never>;
   "projects.notice.relocate-first": Record<never, never>;
   "projects.notice.saved": Record<never, never>;
@@ -127,8 +114,6 @@ export type WorkspacePlaceholders = {
     path: "string";
   };
   "projects.title.add-subfolder": Record<never, never>;
-  "projects.title.folder-missing": Record<never, never>;
-  "projects.title.screen": Record<never, never>;
 };
 
 type Area = typeof workspace;

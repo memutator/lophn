@@ -253,6 +253,17 @@
   cursor: pointer;
 }
 
+/* 접힌 묶음 표시. details의 기본 표시는 flex 줄에서 사라져 직접 그린다. */
+.archivedSummary::before {
+  content: "›";
+  color: var(--color-text-muted);
+  transition: transform var(--motion-duration-short) var(--motion-ease);
+}
+
+.archived[open] .archivedSummary::before {
+  transform: rotate(90deg);
+}
+
 .archivedNote {
   margin: var(--space-4) var(--space-0);
   color: var(--color-text-muted);

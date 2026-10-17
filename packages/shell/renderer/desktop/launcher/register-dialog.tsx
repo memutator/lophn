@@ -5,7 +5,7 @@ import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { newId } from "../../new-id.ts";
+import { newId } from "../../prefixed-id.ts";
 import { addFolder, usableTitle } from "./model.ts";
 import type { FolderDraft, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";

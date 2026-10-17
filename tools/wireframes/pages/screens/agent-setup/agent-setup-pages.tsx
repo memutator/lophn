@@ -1,4 +1,4 @@
-// agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Workspace) 위에 상태 하나를 고정해 놓는다.
+// agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Settings) 위에 상태 하나를 고정해 놓는다.
 import { t } from "@lophn/wording";
 
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
@@ -6,7 +6,7 @@ import { EVAL_ANALYST_ID } from "../../../../../packages/shell/renderer/workspac
 import { AGENTS_TAB_SPEC, agentTab, OperatorEditor } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
-import { WorkspaceWithoutProject } from "../workspace-page.tsx";
+import { SettingsFrame } from "../settings-frame.tsx";
 import { Driven } from "../../../mock/driven.tsx";
 import { press, type Step } from "../../../mock/drive.ts";
 
@@ -62,23 +62,19 @@ export const AgentGrantsAppPage = () =>
   ]);
 
 /** Settings › Agents. */
-export const SettingsAgentsPage = () => (
-  <WorkspaceWithoutProject screen="settings" pane="agents" />
-);
+export const SettingsAgentsPage = () => <SettingsFrame pane="agents" />;
 
 /** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
 export const SettingsLophnPage = () => (
   <Driven
     steps={[() => press("button", t("agents.button.settings-open-lophn"))]}
   >
-    <WorkspaceWithoutProject screen="settings" pane="agents" />
+    <SettingsFrame pane="agents" />
   </Driven>
 );
 
 /** Settings › Providers. */
-export const SettingsProvidersPage = () => (
-  <WorkspaceWithoutProject screen="settings" pane="providers" />
-);
+export const SettingsProvidersPage = () => <SettingsFrame pane="providers" />;
 
 // OpenAI의 연결을 끊고 Add a provider에서 다시 [Connect]를 눌러 연 연결 창 하나.
 const CONNECT_OPENAI: readonly Step[] = [
@@ -90,11 +86,9 @@ const CONNECT_OPENAI: readonly Step[] = [
 /** provider 연결 창. */
 export const SettingsConnectPage = () => (
   <Driven steps={CONNECT_OPENAI}>
-    <WorkspaceWithoutProject screen="settings" pane="providers" />
+    <SettingsFrame pane="providers" />
   </Driven>
 );
 
 /** Settings › Tools and skills. */
-export const SettingsToolsPage = () => (
-  <WorkspaceWithoutProject screen="settings" pane="tools" />
-);
+export const SettingsToolsPage = () => <SettingsFrame pane="tools" />;

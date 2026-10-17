@@ -11,8 +11,8 @@ import type {
 import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import {
-  conversationIcons,
   commonIcons,
+  conversationIcons,
   paletteIcons,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";

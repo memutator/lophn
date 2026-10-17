@@ -224,3 +224,22 @@ guard: 없음
 고치려면: 감싸기만 남기고 정리 부분을 지운다(작음).
 
 닫음: compact 대화에 web 결과가 섞여 있어 감싸기와 제어 token·동형 문자 정리는 인터넷 방어이고, 지워서 줄어드는 것은 정규식 몇 줄이다.
+
+## agent credential의 operation이 tool 이름이라 이름이 다른 command tool이 거절된다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/server]
+closed: fixed
+guard: packages/core/main/agent-tools_test.ts "App Engineer의 credential 상한에 ticket.create tool이 부르는 route 이름이 든다"
+```
+
+지금: `tools/bundles/common.ts`의 `defineBuiltin`이 `contract = spec.name`(tool 이름, 예 `ticket.create`)으로 두고, `run-loop/runtime-access.ts`의 `runOperations`·`roleOperations`가 이 값으로 agent credential의 operation 목록을 만든다. core는 `server/identity/model.ts`의 `authorize`에서 `ctx.scope.operations.includes(<route 이름>)`으로 대조한다(command는 `storage/ledger/dispatch.ts`·`command-results.ts`의 `authorizeConditions`). tool 이름과 route 이름이 같은 것(`problem.*`, `app.list|get|create`, `context.list|get|search|draft|violations` 등)만 맞는다. 다른 것: `ticket.*`(`CreateTicket` 등), `app.link_source`(`app.connect_source`), `context.submit`(`bundle.submit`), `operator.*`, `package.list|get`, `release.*`, `settings.get`, `instructions.read`, `visual.show`(`RecordMessage`). `roleOperations("app_engineer")`에 `ticket.create`는 있고 `CreateTicket`은 없다.
+
+영향: App Engineer의 ticket 만들기·고치기·확인·취소, 앱 source 잇기, PM의 context 제출, operator 만들기 같은 command tool이 core에서 `forbidden`으로 거절된다. agent의 주요 일이 막힌다. core를 띄워 실제 호출로는 아직 확인하지 않았다.
+
+고치려면: tool 정의가 부르는 route 이름 목록(`operations`)을 갖게 하고 credential을 그것으로 만든다. harness-domain 계획의 `harness-spi-registry`가 이 일을 하고 위험 test(app_engineer 상한에 `CreateTicket`이 있고 `ticket.create`는 없음)를 쓴다. 그 전에 급하면 `defineBuiltin`에서 이름이 다른 tool만 route 이름을 더하는 작은 fix가 된다.
+
+정한 것: `harness-spi-registry`가 고친다. 그 task가 core를 띄워 실제 거절을 먼저 확인한다.
+
+닫음: core를 띄워 고치기 전 거절을 확인했다(App Engineer credential로 `CreateTicket`이 403 `forbidden`, 같은 credential의 `problem.list`는 200). 이제 `ToolDefinition.operations`가 tool이 core에 부르는 route 이름(helper가 부르는 것 포함)이고 `defineTool`이 `routes`에서 채운다. `runOperations`·`roleOperations`가 그 합집합이라 credential 상한에 `CreateTicket`, `SendCall`, `CreateOperator`, `bundle.submit`, `app.connect_source` 같은 route 이름이 든다. `call`·`reply`·`cancel`도 같은 이유로 막혀 있었고 같이 풀렸다.

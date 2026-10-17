@@ -310,11 +310,12 @@ async function buildSteps(
 
   const testArgs = ["deno", "test", "--no-check"];
   if (full) testArgs.push("--parallel");
-  // 목록이 비어 전체 discovery로 떨어져도 e2e와 live는 돌지 않는다.
+  // CLI --ignore는 root deno.json의 exclude를 더하지 않고 대체하므로 둘 다 담는다.
+  const ignore = [...DENO_EXCLUDED, ...NOT_IN_CHECK];
   testArgs.push(
     "--allow-all",
     "--permit-no-files",
-    `--ignore=${NOT_IN_CHECK.join(",")}`,
+    `--ignore=${ignore.join(",")}`,
   );
   if (!full) {
     testArgs.push(

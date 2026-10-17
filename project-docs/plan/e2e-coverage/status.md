@@ -36,7 +36,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `app-data-rewind` | app-data-rewind | 3 | test-app | merged | app-data-rewind/app-data-rewind | 70109b857 |  |
 | `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
 | `app-sandbox` | app-sandbox | 3 | test-app | merged | app-sandbox/app-sandbox | d758a0a00 |  |
-| `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | running | coding-cancel-keeps-ticket/coding-cancel-keeps-ticket |  |  |
+| `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | merged | coding-cancel-keeps-ticket/coding-cancel-keeps-ticket | 4691cfbf0 |  |
 | `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | merged | coding-end-without-report/coding-end-without-report | 00216e611 |  |
 | `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | merged | coding-message-to-ae/coding-message-to-ae | 57364371b |  |
 | `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | merged | coding-one-per-app/coding-one-per-app | 1052825e9 |  |

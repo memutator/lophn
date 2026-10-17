@@ -1,5 +1,6 @@
 // harness 감지, 터미널 supervisor, 터미널·coding IPC.
 import { app, BrowserWindow, dialog } from "electron";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -210,11 +211,21 @@ export function register(ctx: ShellContext): Coding {
       void codingTerminals.handle(frame.request);
     }
   });
+  // `deno task dev:mock`의 project는 renderer 메모리에만 있어 core가 그 폴더를 모른다. 그때 터미널은
+  // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
+  const mockFolder = process.env.LOPHN_DEV_MOCK === "1"
+    ? join(dataRoot, "mock-terminal")
+    : null;
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
     folders: {
-      folders: (project) => projectFolders(core.session(), project),
+      folders: async (project) => {
+        const found = await projectFolders(core.session(), project);
+        if (found.length > 0 || mockFolder === null) return found;
+        await mkdir(mockFolder, { recursive: true });
+        return [{ folder_ref: `${project}_0`, path: mockFolder }];
+      },
     },
     host: terminals,
     coding: codingTerminals,

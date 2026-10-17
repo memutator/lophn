@@ -115,7 +115,7 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     ticketList.input,
     ticketList.output,
   ),
-  // 근거 annotation은 메모, component, source 위치, release, screenshot 파일 경로까지 돌려준다.
+  // 근거 annotation은 메모, component 겹, release, screenshot 파일 경로까지 돌려준다.
   token("ticket show", ticketShow, ticketShow.input, ticketShow.output),
   token("ticket claim", ticketClaim, ticketClaim.input, ticketClaim.output),
   token(

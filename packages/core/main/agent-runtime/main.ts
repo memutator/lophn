@@ -32,6 +32,8 @@ import {
 import { createSecretLink } from "./secret-link.ts";
 import { createTurnSourceLink } from "./turn-source-link.ts";
 import { startMcpAuthPump } from "./mcp-auth-pump.ts";
+import { startMcpToolsPump } from "./mcp-tools-pump.ts";
+import type { McpKit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 import { redact } from "./redact.ts";
 import {
@@ -107,7 +109,9 @@ async function startAgentRuntime(input: {
   ) =>
     & { preparer: TurnPreparer }
     // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
-    & { compactor?: Compactor };
+    & { compactor?: Compactor }
+    // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
+    & { listMcpTools?: McpKit["listTools"] };
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -263,8 +267,16 @@ async function startAgentRuntime(input: {
       signal: pumpStop.signal,
     })
     : Promise.resolve();
+  let toolsPumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
-    const { compactor, preparer } = input.driver(calls!);
+    const { compactor, preparer, listMcpTools } = input.driver(calls!);
+    if (input.pump === true && listMcpTools !== undefined) {
+      toolsPumping = startMcpToolsPump({
+        call: calls!.machine,
+        list: listMcpTools,
+        signal: pumpStop.signal,
+      });
+    }
     driver = createTurnDriver({ source, credentials, preparer });
     if (input.pump === true) {
       pumping = startTurnPump({
@@ -302,6 +314,7 @@ async function startAgentRuntime(input: {
       await running;
       await pumping;
       await authPumping;
+      await toolsPumping;
     },
   };
   return ok(runtime);

@@ -21,6 +21,11 @@ import type { McpRuntimeServer } from "./mcp-server.ts";
 // `mcp__<server>__<tool>`이다. 효과는 tool의 `readOnlyHint`가 참이면 read, 아니면 external이다. 묻는지는 agent
 // grant가 정하고 Gate는 `executeToolCall`이 부른다. 문서, skill, server 응답은 정의를 늘리지 않고 결과는 감싸지 않는다.
 
+// 선언을 믿는다: readOnlyHint가 참이면 read, 아니면 external이다. tool 정의와 Grants의 목록이 같은 규칙을 쓴다.
+export function mcpToolEffect(entry: { read_only: boolean }): ToolEffect {
+  return entry.read_only ? "read" : "external";
+}
+
 // 소유 contract 이름 하나다. 외부 tool 호출은 MCP 통로 하나뿐이다.
 export const EXTERNAL_TOOL_CONTRACT = "external_mcp_call";
 
@@ -156,7 +161,7 @@ export async function buildMcpTools(
   const tools: ExternalTool[] = [];
   for (const entry of offered) {
     const name = names.value.get(`${entry.server}\0${entry.original}`)!;
-    const effect: ToolEffect = entry.read_only ? "read" : "external";
+    const effect = mcpToolEffect(entry);
     const definition: ToolDefinition = {
       name,
       description: `MCP tool ${entry.original} of server ${entry.server}: ${

@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentPlace,
   type McpServer,
+  type McpToolServer,
   projectExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
@@ -22,6 +23,7 @@ import {
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
 import { globalMcpServersSetting } from "./settings.ts";
+import { mcpToolEffect } from "./mcp-tools.ts";
 import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 
 // 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), project 층,
@@ -53,12 +55,16 @@ type McpToolkitDeps = {
   create?: (deps: McpConnectionsDeps) => McpConnections;
 };
 
-type McpKit = {
+export type McpKit = {
   // turn마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
+  // Grants 화면이 읽는 서버별 tool 목록이다. turn의 등록·재조회 상태와 따로 이 호출 전용 연결로 읽는다.
+  listTools(place: AgentPlace | null): Promise<Result<McpToolServer[]>>;
   // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;
 };
+
+const TOOL_DESCRIPTION_MAX = 500;
 
 export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // list_changed 알림은 connections가 부른다. transport가 모르는
@@ -329,6 +335,57 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   const kit: McpKit = {
     toolkit(assignment) {
       return makeToolkit(assignment);
+    },
+    async listTools(place) {
+      const registered = await serversOf(place, undefined);
+      if (!registered.ok) return registered;
+      const checked = checkMcpConfig(registered.value);
+      if (!checked.ok) return checked;
+      const servers: McpToolServer[] = [];
+      for (const server of checked.value.valid) {
+        if (!server.enabled) {
+          servers.push({ name: server.name, tools: [], reason: "disabled" });
+          continue;
+        }
+        // 호출마다 새 assignment라 turn의 연결과 상태를 공유하지 않는다.
+        const assignment = `grants-${crypto.randomUUID()}`;
+        try {
+          const acquired = await connections.acquire(
+            assignment,
+            server,
+            new AbortController().signal,
+          );
+          const listed = acquired.ok
+            ? await connections.toolList(assignment, server.name)
+            : acquired;
+          if (listed.ok) {
+            servers.push({
+              name: server.name,
+              tools: listed.value.tools.map((tool) => ({
+                tool: tool.original,
+                description: (tool.description ?? "").slice(
+                  0,
+                  TOOL_DESCRIPTION_MAX,
+                ),
+                effect: mcpToolEffect(tool),
+              })),
+              reason: null,
+            });
+          } else {
+            const needsSignIn = connections.views().some((view) =>
+              view.owner[0] === assignment && view.state === "failed_auth"
+            );
+            servers.push({
+              name: server.name,
+              tools: [],
+              reason: needsSignIn ? "sign_in" : "unreachable",
+            });
+          }
+        } finally {
+          await connections.endAssignment(assignment);
+        }
+      }
+      return ok(servers);
     },
     async endAll() {
       await connections.endAll();

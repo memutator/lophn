@@ -16,7 +16,10 @@ import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
-import { createMcpToolkit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
+import {
+  createMcpToolkit,
+  type McpKit,
+} from "../../lophn-agent/extensions/mcp-toolkit.ts";
 import {
   createTurnPreparer,
   type Toolkit,
@@ -76,7 +79,11 @@ function productToolkit(options: {
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
     calls: CoreCalls,
-  ): { preparer: TurnPreparer; compactor: Compactor } => {
+  ): {
+    preparer: TurnPreparer;
+    compactor: Compactor;
+    listMcpTools: McpKit["listTools"];
+  } => {
     const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
     const resolveModel = createModelResolver({
       machine: calls.machine,
@@ -166,7 +173,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       redact: calls.redact,
       resolveModel,
     });
-    return { preparer, compactor };
+    return { preparer, compactor, listMcpTools: mcpKit.listTools };
   };
 }
 

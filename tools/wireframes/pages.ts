@@ -2,9 +2,10 @@
 //
 // page 하나를 더하는 법:
 //   1. 이 목록에 항목 하나를 더한다(id, part, title, badges, description, screen).
-//   2. `ScreenId`에 screen 이름을 더하고 `frames/screens.tsx`의 SCREENS에 그 화면을 그리는
-//      component를 더한다. 새 설계(part "new")는 `frames/compositions/`에 `@lophn/ui`
-//      component와 고정 데이터만으로 짠 정적 구성을 둔다. 빠뜨리면 deno check가 잡는다.
+//   2. `ScreenId`에 screen 이름을 더하고 `screens.tsx`의 SCREENS에 그 화면을 그리는
+//      component를 더한다. 디자인 시스템 page(part "design")는 `pages/kit/<분류>/`에 두고, 새 설계
+//      (part "new")는 `pages/screens/`에 `@lophn/ui` component와 고정 데이터만으로 짠 정적 구성을 둔다.
+//      fake data와 고정 도구는 `mock/`에, 승인 전 실험은 `drafts/`에 둔다. 빠뜨리면 deno check가 잡는다.
 //
 // 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
 // Export panel, lophn 공간 Documents 화면, Contexts(Focus) 화면, context Materials의
@@ -48,27 +49,16 @@ export type ScreenId =
   | "tokens-type"
   | "tokens-space"
   | "tokens-icons"
-  | "components-buttons"
-  | "components-forms"
-  | "components-navigation"
-  | "components-table"
-  | "components-menus"
-  | "components-dialogs"
-  | "components-toast"
-  | "components-states"
-  | "components-cards"
-  | "components-frames"
-  | "sdk-tokens"
-  | "sdk-layout"
-  | "sdk-table"
-  | "sdk-actions"
-  | "sdk-controls"
-  | "sdk-filters"
-  | "sdk-states"
-  | "sdk-reading"
-  | "sdk-overlays"
-  | "sdk-stats"
-  | "sdk-charts"
+  | "tokens-chart"
+  | "kit-primitives"
+  | "kit-input"
+  | "kit-layout"
+  | "kit-navigation"
+  | "kit-data"
+  | "kit-feedback"
+  | "kit-overlay"
+  | "kit-reading"
+  | "kit-app-ui"
   | "launcher-empty"
   | "launcher-projects"
   | "launcher-start-failed"
@@ -287,130 +277,64 @@ export const PAGES: readonly WireframePage[] = [
     "tokens-icons",
   ),
   design(
-    "components-buttons",
-    "Components · buttons",
-    "Button의 variant·크기·아이콘·비활성, IconButton, Kbd, CopyButton을 실제 component로 보인다.",
-    "components-buttons",
+    "tokens-chart",
+    "Tokens · chart colors",
+    "앱 CSS 밖에서 token 값이 필요할 때 읽는 차트 계열 색과 기타 회색을 light·dark별로 보인다(예제 chart-colors).",
+    "tokens-chart",
   ),
   design(
-    "components-forms",
-    "Components · form controls",
-    "Field로 감싼 Input·Textarea·Select와 Checkbox·Switch를 기본·도움말·오류·비활성 상태로 보인다.",
-    "components-forms",
+    "kit-primitives",
+    "Kit · primitives",
+    "@lophn/ui/primitives의 Button(variant·크기·아이콘·비활성), IconButton, Kbd, CopyButton을 실제 component로 보인다.",
+    "kit-primitives",
   ),
   design(
-    "components-navigation",
-    "Components · tabs, tree & list",
-    "일반 Tabs, 폴더 Tree, 이름과 메타가 있는 List를 선택된 상태와 함께 보인다.",
-    "components-navigation",
+    "kit-input",
+    "Kit · input",
+    "@lophn/ui/input의 Field로 감싼 Input·Textarea·Select, Checkbox·Switch와 예제 control-sizes·orders-filters를 보인다.",
+    "kit-input",
   ),
   design(
-    "components-table",
-    "Components · table",
-    "text·number·time·id 열이 있는 Table을 compact와 comfortable 밀도로 보이고, 값이 없는 칸의 모양도 보인다.",
-    "components-table",
+    "kit-layout",
+    "Kit · layout",
+    "@lophn/ui/layout의 Card와 페이지 틀(Form·Dashboard·ListDetail·Table·Reading), 앱 shell 예제 orders-app을 보인다.",
+    "kit-layout",
   ),
   design(
-    "components-menus",
-    "Components · menu, popover & tooltip",
-    "Menu·Popover·Tooltip을 열어 둔 채로 보인다. 아래 상자 안에 portal로 그려 page 안에 머문다.",
-    "components-menus",
+    "kit-navigation",
+    "Kit · navigation",
+    "@lophn/ui/navigation의 Tabs를 비활성 탭과 함께 보인다.",
+    "kit-navigation",
   ),
   design(
-    "components-dialogs",
-    "Components · dialog, sheet & palette",
-    "Dialog·Sheet·Palette를 열어 둔 채로 보인다. 각 상자가 viewport 역할을 해서 backdrop과 위치가 상자 안에 그려진다.",
-    "components-dialogs",
+    "kit-data",
+    "Kit · data",
+    "@lophn/ui/data의 Tree·List·Table·StatTile·StatRow와 예제 orders-table·orders-summary·sales-dashboard를 보인다.",
+    "kit-data",
   ),
   design(
-    "components-toast",
-    "Components · toast",
-    "Toast의 neutral·error와 행동 0~2개 변형을 시간이 가지 않는 timer로 고정해 보인다.",
-    "components-toast",
+    "kit-feedback",
+    "Kit · feedback",
+    "@lophn/ui/feedback의 비었음·불러오기 실패·Skeleton·StaleNote·StatusMark와 읽기 결과 상태 예제 orders-status를 보인다.",
+    "kit-feedback",
   ),
   design(
-    "components-states",
-    "Components · states",
-    "비었음·불러오기 실패·Skeleton·오래된 값(StaleNote)·StatusMark·DiffMark 같은 상태 표시를 보인다.",
-    "components-states",
+    "kit-overlay",
+    "Kit · overlay",
+    "@lophn/ui/overlay의 Menu·Popover·Tooltip·Dialog·Sheet·Palette·Toast를 열어 둔 채로 보이고, 예제 overlays를 연다.",
+    "kit-overlay",
   ),
   design(
-    "components-cards",
-    "Components · card & stat tile",
-    "독립 객체 하나를 묶는 Card와 수치 타일(StatTile·StatRow)을 증가·감소·변화 없음·단위 있는 값으로 보인다.",
-    "components-cards",
+    "kit-reading",
+    "Kit · reading",
+    "@lophn/ui/reading의 DiffMark와 목차가 있는 읽기 틀 예제 weekly-report를 보인다.",
+    "kit-reading",
   ),
   design(
-    "components-frames",
-    "Components · page frames",
-    "페이지 틀(Form·Dashboard·ListDetail·Table·Reading)을 칸 폭 안에서 그대로 보인다. 틀 안은 이름만 적은 상자다.",
-    "components-frames",
-  ),
-  design(
-    "sdk-tokens",
-    "SDK · tokens",
-    "@lophn/ui의 token 예제. 앱이 token 이름과 차트 색을 가져다 쓰는 법을 보인다(예제 chart-colors).",
-    "sdk-tokens",
-  ),
-  design(
-    "sdk-layout",
-    "SDK · layout",
-    "@lophn/ui/layout 예제(orders-app). 앱 shell·sidebar·tab·grid·card와 다섯 가지 페이지 틀을 연다.",
-    "sdk-layout",
-  ),
-  design(
-    "sdk-table",
-    "SDK · table",
-    "@lophn/ui/data 예제(orders-table). 금액으로 정렬하고 25행씩 나누어 본다.",
-    "sdk-table",
-  ),
-  design(
-    "sdk-actions",
-    "SDK · actions",
-    "@lophn/app-ui 예제(order-actions). blueprint command를 버튼으로 두고 누르면 확인 없이 바로 호출한다. 앱 bridge가 없어 눌러도 실패 문구가 나온다.",
-    "sdk-actions",
-  ),
-  design(
-    "sdk-controls",
-    "SDK · controls",
-    "@lophn/ui/input 예제(control-sizes). sm·md·lg 높이의 Button·Input·Select를 같은 줄에 맞춘다.",
-    "sdk-controls",
-  ),
-  design(
-    "sdk-filters",
-    "SDK · filters",
-    "@lophn/ui/input 예제(orders-filters). 기간·상태·검색으로 read command의 입력을 만든다.",
-    "sdk-filters",
-  ),
-  design(
-    "sdk-states",
-    "SDK · states",
-    "@lophn/ui/feedback 예제(orders-status). 읽기 결과의 loading·empty·error·freshness를 보인다. 한 화면에 네 상태를 나란히 놓았다.",
-    "sdk-states",
-  ),
-  design(
-    "sdk-reading",
-    "SDK · reading",
-    "@lophn/ui/reading 예제(weekly-report). 목차와 문서 주소가 있는 읽기 틀로 주간 보고서를 그린다.",
-    "sdk-reading",
-  ),
-  design(
-    "sdk-overlays",
-    "SDK · overlays",
-    "@lophn/ui/overlay 예제(overlays). tooltip·popover·menu·dialog·toast를 여는 단추들이다. 눌러 열어 볼 수 있다.",
-    "sdk-overlays",
-  ),
-  design(
-    "sdk-stats",
-    "SDK · stats",
-    "@lophn/ui/data 예제(orders-summary). 이번 기간과 지난 기간 값으로 수치와 변화량을 보인다.",
-    "sdk-stats",
-  ),
-  design(
-    "sdk-charts",
-    "SDK · charts",
-    "@lophn/ui/data 예제(sales-dashboard). 시계열·막대·누적 막대·분포·산점·node-edge 여섯 차트를 보인다.",
-    "sdk-charts",
+    "kit-app-ui",
+    "Kit · app-ui",
+    "@lophn/app-ui 예제 order-actions. blueprint command를 버튼으로 두고 누르면 바로 호출한다. 앱 bridge가 없어 눌러도 실패 문구가 나온다.",
+    "kit-app-ui",
   ),
   now(
     "launcher-empty",

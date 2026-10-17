@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 
 import { pageById, PAGES, PARTS, type WireframePage } from "./pages.ts";
-import { SCREENS } from "./frames/screens.tsx";
+import { SCREENS } from "./screens.tsx";
 import styles from "./gallery.module.css";
 
 /** frame의 고정 데스크톱 크기. 좁은 창에서는 이 크기 그대로 줄여서 보인다. */

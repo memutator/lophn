@@ -7,7 +7,7 @@ import "@lophn/ui/tokens.css";
 import "@lophn/ui/base.css";
 
 import { FramePage, Gallery } from "./gallery.tsx";
-import { installWindowApi } from "./frames/chrome/window-api.ts";
+import { installWindowApi } from "./mock/window-api.ts";
 
 const params = new URLSearchParams(location.search);
 const theme = params.get("theme");

@@ -60,3 +60,9 @@ gallery 첫 화면과 목차를 README "gallery index"대로 다시 짠다. 맨 
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 없음이 기본. 영역 분배가 틀렸다고 사람이 보면 그 page 몇 개만 영역 파일 사이에서 옮기면 된다
+
+## lead가 더함
+
+- (lead가 더함) `kit-gallery-split`이 만든 모양에서 screens가 drafts 코드를 쓰는 곳이 하나 남았다. `pages/screens/contexts/pm-session.tsx`가 `drafts/link.tsx`(눌러서 탭을 여는 글 링크, CSS는 `drafts/compose.module.css`의 `.link`)를 import한다. renderer에 같은 component가 없어서 그대로 둔다. pm-session을 그리는 page는 Screens의 `contexts` 영역에 둔다. 보고의 "알려진 미완 동작"에 그 page id들을 적는다. 승인 때 사람이 링크 모양을 정한다.
+- (lead가 더함) gallery의 drive(mount 뒤 단추를 눌러 상태를 고정하는 것)는 `mock/drive.ts`의 `useDrive` 하나로 합쳐졌다(`kit-gallery-split`). 영역 파일에서 page를 만들 때 drive를 새로 짜지 않는다.
+- (lead가 더함) 임시 file(page 수 세기 등)은 worktree 안 `.dev-data/gallery-index/`에 둔다.

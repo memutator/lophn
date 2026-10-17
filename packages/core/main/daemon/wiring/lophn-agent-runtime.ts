@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   removeQueued,
   steerQueuedNow,
@@ -75,14 +75,14 @@ const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
 };
 
 // agent runtime child가 사라질 때 돌던 turn을 닫는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
-const TURN_FATE_PRINCIPAL = "machine:turn-fate";
+const RUNTIME_END_PRINCIPAL = "machine:runtime-end";
 
-const TURN_FATE_CONTEXT: AuthenticatedContext = {
-  principal: TURN_FATE_PRINCIPAL,
+const RUNTIME_END_CONTEXT: AuthenticatedContext = {
+  principal: RUNTIME_END_PRINCIPAL,
   actor: "machine",
   scope: { operations: [interruptTurns.name], targets: {} },
   conditions: {},
-  credential_ref: TURN_FATE_PRINCIPAL,
+  credential_ref: RUNTIME_END_PRINCIPAL,
 };
 
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
@@ -109,7 +109,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     records: () => [
       SESSION_INPUTS_CONTEXT,
       PROVIDER_REFRESH_CONTEXT,
-      TURN_FATE_CONTEXT,
+      RUNTIME_END_CONTEXT,
     ],
     // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
     build(ctx) {
@@ -195,6 +195,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         nowMs: () => ctx.clock.nowMs(),
         leadMs: OAUTH_REFRESH_LEAD_MS,
       });
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const started = await startAgentRuntimeChild({
         io: ctx.io,
         operationsFor: (role) =>
@@ -218,10 +219,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           withAfterCommit(
             runtime.writer,
             createInboxApplier({ inbox, publish: ctx.bus.publish }),
-          ).command(TURN_FATE_CONTEXT, {
+          ).command(RUNTIME_END_CONTEXT, {
             command: interruptTurns.name,
             input: {},
-            idempotency_key: crypto.randomUUID(),
+            idempotency_key: ids.newId("idk"),
             compare: {},
             prepared: [],
           }),

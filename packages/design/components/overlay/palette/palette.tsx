@@ -50,7 +50,7 @@ function matching(items: readonly PaletteItem[], query: string) {
   return items.filter((item) => item.label.toLocaleLowerCase().includes(words));
 }
 
-// 폭640px·위20%·항목36px. 목록 scrollbar는 항상 보여 남은 항목이 있음을 알린다.
+// 폭640px·위12%·항목36px. 목록 scrollbar는 항상 보여 남은 항목이 있음을 알린다.
 export function Palette(
   {
     open,

@@ -252,7 +252,7 @@ export function Desktop(
     });
   }, [appearance]);
 
-  // modal(dialog·palette)이 뜨면 scrim이 상단 바도 덮고 바는 끌기에서 빠진다. 스타일은 top-bar.module.css다.
+  // modal(dialog·palette)이 뜨면 scrim이 창의 위쪽 줄도 덮고 그 줄은 끌기에서 빠진다. 스타일은 chrome.css다.
   useEffect(() => {
     if (!overlay) return;
     const root = document.documentElement;

@@ -417,7 +417,7 @@
     "palette": {
       "item": "36px",
       "width": "640px",
-      "top": "20%"
+      "top": "12%"
     },
     "tooltip": {
       "delay": "400ms"

@@ -1,6 +1,5 @@
 /* SpaceBar 모양: 36px, 아래 테두리, 표면 배경, 좌우 12px. */
 .bar {
-  position: relative;
   box-sizing: border-box;
   display: flex;
   flex: none;
@@ -13,22 +12,6 @@
   background: var(--color-surface-base);
   -webkit-app-region: drag;
   app-region: drag;
-}
-
-/* modal이 떠 있으면 본문 scrim(overlay view)이 바 위에는 오지 않으므로 같은 색을 바에 덮는다.
-   덮개는 클릭을 통과시키고, 바는 끌기에서 빠져 scrim 자리를 끌어도 창이 움직이지 않는다. */
-:global(:root[data-overlay-modal]) .bar {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
-}
-
-:global(:root[data-overlay-modal]) .bar::after {
-  content: "";
-  position: absolute;
-  inset: var(--space-0) var(--space-0) calc(var(--border-width) * -1);
-  background: var(--floating-backdrop);
-  pointer-events: none;
-  z-index: var(--z-backdrop);
 }
 
 /* macOS 신호등 자리 80px. 전용 token이 없어 space token 합으로 쓴다. */

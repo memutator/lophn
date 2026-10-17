@@ -197,7 +197,7 @@ export const tokens = {
   // 수치 타일 한 줄 최대 개수.
   stat: { perRow: 4 },
   // 명령 팔레트 항목 높이와 폭·위 여백.
-  palette: { item: "36px", width: "640px", top: "20%" },
+  palette: { item: "36px", width: "640px", top: "12%" },
   // 떠 있는 표면의 지연·행·폭·시간. dialog 안 여백 24px은 space 값을 쓴다.
   tooltip: { delay: "400ms" },
   menu: { row: "32px" },

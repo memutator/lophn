@@ -195,6 +195,7 @@ export function register(ctx: ShellContext): Coding {
       ? null
       : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
     register,
+    hookCommand: app.isPackaged ? undefined : lophnCli ?? undefined,
     publish: (runtime) => {
       for (const window of ctx.windows) {
         if (!window.isDestroyed()) {

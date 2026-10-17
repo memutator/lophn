@@ -39,7 +39,7 @@ export function runHarnessDetect(
 
 // harness의 전역 위치에 skill 둘과 hook 설정을 놓는다. `dry_run`이면 쓰지 않고 놓을 것이 있는지만 본다.
 export async function runHarnessInstall(
-  input: { harness: HarnessId; dry_run?: boolean },
+  input: { harness: HarnessId; dry_run?: boolean; command?: string },
   home: string,
 ): Promise<
   Result<{ skill: string; hook: string; files: string[] }, LophnError>
@@ -64,7 +64,12 @@ export async function runHarnessInstall(
         await Deno.writeTextFile(path, text);
       },
     },
-    { harness: input.harness, home, dryRun: input.dry_run === true },
+    {
+      harness: input.harness,
+      home,
+      dryRun: input.dry_run === true,
+      command: input.command,
+    },
   );
   return done.ok ? ok(done.value) : err(done.error);
 }

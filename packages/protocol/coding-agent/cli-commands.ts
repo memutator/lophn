@@ -98,6 +98,10 @@ const harnessInstallOutcomeSchema = z.enum(HARNESS_INSTALL_OUTCOMES);
 export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,
   dry_run: z.boolean().optional(),
+  // 개발 실행의 hook command다. hook command는 shell 문자열이 되므로 공백·따옴표·`..` 없는 절대 경로만 받는다.
+  command: z.string().regex(/^\/[\w./-]+$/).refine((path) =>
+    !path.includes("..")
+  ).optional(),
 });
 // `files`는 쓴(`dry_run`이면 쓸) 절대 경로다.
 const harnessInstallOutputSchema = z.strictObject({

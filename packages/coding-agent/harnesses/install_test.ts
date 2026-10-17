@@ -50,3 +50,35 @@ Deno.test("전역 설정 install은 사람이 쓴 key와 hook을 보존하고 �
   assertEquals(missing.ok && missing.value.hook, "missing");
   assertEquals(dry.size, 0);
 });
+
+Deno.test("개발 command로 놓아도 사람이 쓴 hook은 남고 우리 항목은 event마다 하나다", async () => {
+  const mine = { type: "command", command: "my-stop-hook" };
+  const files = new Map<string, string>([
+    [SETTINGS, JSON.stringify({ hooks: { Stop: [{ hooks: [mine] }] } })],
+  ]);
+  const dev = "/opt/lophn/bin/lophn";
+  await installGlobal(memory(files), input);
+  // 옛 `lophn hook` 항목이 있으면 개발 command의 dry_run은 놓을 것이 있다고 본다.
+  const seen = await installGlobal(memory(files), {
+    ...input,
+    dryRun: true,
+    command: dev,
+  });
+  assertEquals(seen.ok && seen.value.hook, "missing");
+  await installGlobal(memory(files), { ...input, command: dev });
+  const after = JSON.parse(files.get(SETTINGS)!);
+  assertEquals(after.hooks.Stop[0], { hooks: [mine] });
+  assertEquals(after.hooks.Stop.length, 2);
+  assertEquals(after.hooks.Stop[1].hooks[0].command, `${dev} hook claude Stop`);
+  // 다시 packaged로 놓아도 항목이 둘이 되지 않는다.
+  await installGlobal(memory(files), input);
+  const back = JSON.parse(files.get(SETTINGS)!);
+  for (const list of Object.values(back.hooks) as unknown[][]) {
+    assertEquals(
+      list.filter((entry) => JSON.stringify(entry).includes(" hook claude "))
+        .length,
+      1,
+    );
+  }
+  assertEquals(back.hooks.Stop[1].hooks[0].command, "lophn hook claude Stop");
+});

@@ -1,6 +1,6 @@
 // 사용자 전역(home 기준)에 skill 둘과 hook 설정을 놓는다. skill은 얇은 안내(절차는 `lophn guide <name>`)이고
 // hook은 harness마다 한 번이다. skill과 plugin 파일은 우리 폴더·파일이라 내용이 다르면 덮는다. JSON 설정은 사람이
-// 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `로 시작)만 바꾼다.
+// 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `로 시작)만 바꾼다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   CODING_SKILL_NAMES,
@@ -43,21 +43,21 @@ function ownedEntry(harness: HarnessId, entry: unknown): boolean {
   return Array.isArray(hooks) && hooks.some((one) => {
     const command = (one as { command?: unknown } | null)?.command;
     return typeof command === "string" &&
-      command.startsWith(`lophn hook ${harness} `);
+      new RegExp(`^(lophn|/\\S+) hook ${harness} `).test(command);
   });
 }
 
 // pi extension 원문이다. 듣는 event는 `HOOK_EVENT_TABLE.pi`다. 조사로 확인하지 못한 API가 있다(host가
 // 아직 검증하지 않았다): `ctx.sessionManager.getSessionId()`, `agent_settled`의 `aborted`.
 // 전역에 놓으면 lophn과 상관없는 pi 실행마다 불리므로 token이 없으면 아무것도 등록하지 않는다.
-function piExtension(): string {
+function piExtension(command: string): string {
   const events = Object.keys(HOOK_EVENT_TABLE.pi);
   return `// lophn이 놓은 파일이다. pi event를 \`lophn hook pi <event>\`로 넘긴다.
 import { spawn } from "node:child_process";
 
 function send(event: string, payload: Record<string, unknown>) {
   try {
-    const child = spawn("lophn", ["hook", "pi", event], {
+    const child = spawn(${JSON.stringify(command)}, ["hook", "pi", event], {
       stdio: ["pipe", "ignore", "ignore"],
     });
     child.on("error", () => {});
@@ -91,7 +91,7 @@ ${
 // 실패하면 root가 아닌 것으로 보고 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
 // SDK 세대마다 get의 인자 모양이 달라 둘 다 시도한다. 전역에 놓으면 lophn과 상관없는 실행마다 불리므로
 // token이 없으면 아무 hook도 등록하지 않는다.
-function opencodePlugin(): string {
+function opencodePlugin(command: string): string {
   const events = Object.keys(HOOK_EVENT_TABLE.opencode);
   return `// lophn이 놓은 파일이다. OpenCode event를 \`lophn hook opencode <event>\`로 넘긴다.
 import { spawn } from "node:child_process";
@@ -119,7 +119,9 @@ async function rootSession(client, id) {
 
 function send(type, properties) {
   try {
-    const child = spawn("lophn", ["hook", "opencode", type], {
+    const child = spawn(${
+    JSON.stringify(command)
+  }, ["hook", "opencode", type], {
       stdio: ["pipe", "ignore", "ignore"],
     });
     child.on("error", () => {});
@@ -149,12 +151,12 @@ export const LophnStatus = async ({ client }) => {
 }
 
 // harness별 plugin 파일 원문을 고르는 한 곳이다.
-function pluginSource(harness: HarnessId): string | null {
+function pluginSource(harness: HarnessId, command: string): string | null {
   switch (harness) {
     case "pi":
-      return piExtension();
+      return piExtension(command);
     case "opencode":
-      return opencodePlugin();
+      return opencodePlugin(command);
     default:
       return null;
   }
@@ -211,13 +213,14 @@ async function installJsonHook(
   harness: HarnessId,
   hookPath: string,
   dryRun: boolean,
+  command: string | undefined,
 ): Promise<Step> {
   const path = `${home}/${hookPath}`;
   const events = Object.keys(HOOK_EVENT_TABLE[harness]);
   const ours = (event: string) => ({
     hooks: [{
       type: "command",
-      command: `lophn hook ${harness} ${event}`,
+      command: `${command ?? "lophn"} hook ${harness} ${event}`,
     }],
   });
   const text = await ports.read(path);
@@ -236,7 +239,8 @@ async function installJsonHook(
     Array.isArray(hooks[event]) ? hooks[event] as unknown[] : [];
   const upToDate = events.every((event) => {
     const owned = listOf(event).filter((entry) => ownedEntry(harness, entry));
-    return dryRun
+    // dry_run은 있으면 됐다(lophn이 업데이트돼도 다시 묻지 않는다). 개발 command를 받았을 때만 같은지 본다.
+    return dryRun && command === undefined
       ? owned.length > 0
       : JSON.stringify(owned) === JSON.stringify([ours(event)]);
   });
@@ -261,12 +265,15 @@ async function installPluginFile(
   harness: HarnessId,
   hookPath: string,
   dryRun: boolean,
+  command: string | undefined,
 ): Promise<Step> {
-  const expected = pluginSource(harness);
+  const expected = pluginSource(harness, command ?? "lophn");
   if (expected === null) return { outcome: "not_supported", files: [] };
   const path = `${home}/${hookPath}`;
   const current = await ports.read(path);
-  if (dryRun ? current !== null : current === expected) {
+  if (
+    dryRun && command === undefined ? current !== null : current === expected
+  ) {
     return { outcome: "unchanged", files: [] };
   }
   if (!dryRun) await ports.write(path, expected);
@@ -275,7 +282,13 @@ async function installPluginFile(
 
 export async function installGlobal(
   ports: InstallPorts,
-  input: { harness: HarnessId; home: string; dryRun: boolean },
+  input: {
+    harness: HarnessId;
+    home: string;
+    dryRun: boolean;
+    // 개발 실행의 hook command(절대 경로). 없으면 PATH의 `lophn`이다.
+    command?: string;
+  },
 ): Promise<Result<InstallResult>> {
   const adapter = HARNESS_ADAPTERS[input.harness];
   const home = input.home.replace(/\/+$/, "");
@@ -293,6 +306,7 @@ export async function installGlobal(
         input.harness,
         adapter.hook.path,
         input.dryRun,
+        input.command,
       )
       : await installPluginFile(
         ports,
@@ -300,6 +314,7 @@ export async function installGlobal(
         input.harness,
         adapter.hook.path,
         input.dryRun,
+        input.command,
       );
     return ok({
       skill: skill.outcome,

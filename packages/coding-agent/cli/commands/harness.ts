@@ -18,7 +18,7 @@ export const HARNESS_COMMANDS: readonly CommandEntry[] = [
       if (!checked.success) {
         return err({
           code: "invalid_input",
-          message: "harness·dry_run 입력이 맞지 않다",
+          message: "harness·dry_run·command 입력이 맞지 않다",
         });
       }
       const done = await runHarnessInstall(checked.data, ctx.local.home);

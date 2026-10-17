@@ -58,6 +58,8 @@ type CodingTerminalDeps = {
   };
   /** 새 coding 탭과 상태 변화를 창에 알린다. */
   publish?(runtime: TerminalRuntime): void;
+  /** 개발 실행의 hook command(절대 경로). packaged는 없고 PATH의 `lophn`이다. */
+  hookCommand?: string;
   /** 앱 source 폴더가 디렉터리이고 읽을 수 있는지. 기본은 fs로 본다. */
   checkFolder?(path: string): boolean;
 };
@@ -164,7 +166,11 @@ export function createCodingTerminalRequests(
   }
 
   function runInstall(harness: string, dryRun: boolean) {
-    const input = dryRun ? { harness, dry_run: true } : { harness };
+    const input = {
+      harness,
+      ...(dryRun ? { dry_run: true } : {}),
+      ...(deps.hookCommand === undefined ? {} : { command: deps.hookCommand }),
+    };
     return deps.runCli!([
       "harness",
       "install",

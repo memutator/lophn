@@ -59,7 +59,6 @@ export const HOOK_EVENT_TABLE: Readonly<
   },
   opencode: {
     "session.status": "TurnEnded",
-    "session.idle": "TurnEnded",
     "permission.asked": "PermissionRequested",
     "permission.replied": "PermissionResolved",
   },
@@ -167,8 +166,6 @@ function opencodeSignal(
       }
       return status === "idle" ? { type: base, outcome: "completed" } : null;
     }
-    case "session.idle":
-      return { type: base, outcome: "completed" };
     case "permission.asked": {
       const tool = textOf(properties.permission);
       if (tool === INVALID) return null;

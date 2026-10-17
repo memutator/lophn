@@ -1,6 +1,6 @@
 // harness와 provider의 vendor 아이콘. svg는 @lobehub/icons-static-svg 1.95.1(MIT, LICENSE)에서 가져왔다.
 // 한 색 아이콘은 currentColor라 둘레 글자 색(light·dark)을 따른다.
-import { componentMark } from "../shared.ts";
+import { componentMark } from "@lophn/design/components";
 import anthropic from "./anthropic.svg";
 import claudeCode from "./claude-code.svg";
 import codex from "./codex.svg";

@@ -324,14 +324,14 @@ export const PAGES: readonly WireframePage[] = [
   ),
   design(
     "components-toast",
-    "Components · toast & chip",
-    "Toast의 neutral·error와 행동 0~2개 변형, 기다리는 질문을 알리는 Chip을 시간이 가지 않는 timer로 고정해 보인다.",
+    "Components · toast",
+    "Toast의 neutral·error와 행동 0~2개 변형을 시간이 가지 않는 timer로 고정해 보인다.",
     "components-toast",
   ),
   design(
     "components-states",
     "Components · states",
-    "비었음·불러오기 실패·Skeleton·오래된 값(StaleNote)·StatusMark·DiffMark·AuthorMark 같은 상태 표시를 보인다.",
+    "비었음·불러오기 실패·Skeleton·오래된 값(StaleNote)·StatusMark·DiffMark 같은 상태 표시를 보인다.",
     "components-states",
   ),
   design(
@@ -343,7 +343,7 @@ export const PAGES: readonly WireframePage[] = [
   design(
     "components-frames",
     "Components · page frames",
-    "페이지 틀(Form·Launcher·Overview·Dashboard·ListDetail·Table·Reading)을 칸 폭 안에서 그대로 보인다. 틀 안은 이름만 적은 상자다.",
+    "페이지 틀(Form·Dashboard·ListDetail·Table·Reading)을 칸 폭 안에서 그대로 보인다. 틀 안은 이름만 적은 상자다.",
     "components-frames",
   ),
   design(

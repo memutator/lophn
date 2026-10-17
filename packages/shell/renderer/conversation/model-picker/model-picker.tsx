@@ -3,6 +3,7 @@
 // 없다. 정렬·거르기·option 축·기본 값 맞춤은 model catalog가 계산해 props로 주고, 이 component는 받은 순서대로
 // 그린다. model을 바꾸면 값은 조용히 맞고 알림은 없다.
 import { createContext, type KeyboardEvent, type ReactNode } from "react";
+import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import {
   Button,
   Field,
@@ -10,8 +11,6 @@ import {
   iconPixels,
   Popover,
   Select,
-  VendorIcon,
-  vendorOf,
 } from "@lophn/design/components";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";

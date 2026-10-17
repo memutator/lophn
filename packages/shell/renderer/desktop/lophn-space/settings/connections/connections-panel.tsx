@@ -3,6 +3,10 @@
 // [Detect again]을 누를 때만 다시 한다.
 import { useCallback, useState } from "react";
 import {
+  VendorIcon,
+  vendorOf,
+} from "../../../../parts/vendor-icon/vendor-icon.tsx";
+import {
   Button,
   ErrorState,
   Field,
@@ -10,8 +14,6 @@ import {
   Loading,
   Skeleton,
   StatusMark,
-  VendorIcon,
-  vendorOf,
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 

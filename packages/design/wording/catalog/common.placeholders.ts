@@ -2,9 +2,6 @@
 import type { common } from "./common.ts";
 
 export type CommonPlaceholders = {
-  "common.author.label": {
-    author: "string";
-  };
   "common.button.apply": Record<never, never>;
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
@@ -57,9 +54,6 @@ export type CommonPlaceholders = {
   };
   "common.label.first-and-more": {
     first: "string";
-    count: "plural";
-  };
-  "common.label.more-waiting": {
     count: "plural";
   };
   "common.label.on-this-page": Record<never, never>;

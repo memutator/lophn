@@ -2,9 +2,8 @@
 // 아이콘이 붙는다. Agent와 Context는 같은 menu가 그 목록으로 바뀐다(Radix menu는 한 번에 한 단계만 보인다).
 // 부르는 쪽이 통로가 있는 항목의 핸들러만 준다. 핸들러가 없는 항목은 두지 않는다.
 import { type ReactNode, useRef, useState } from "react";
+import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
 import {
-  Avatar,
-  type AvatarProfile,
   FileIcon,
   IconButton,
   Menu,

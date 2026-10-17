@@ -32,16 +32,6 @@
   max-width: var(--page-form);
 }
 
-.column[data-frame="launcher"] {
-  flex-basis: var(--page-launcher);
-  max-width: var(--page-launcher);
-}
-
-.column[data-frame="overview"] {
-  flex-basis: var(--page-overview);
-  max-width: var(--page-overview);
-}
-
 .dashboard {
   flex: 0 1 var(--page-dashboard-max);
   min-width: var(--space-0);

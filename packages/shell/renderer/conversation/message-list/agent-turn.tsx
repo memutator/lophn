@@ -1,13 +1,8 @@
 // 대화 줄의 부품. agent의 말 한 덩어리(AgentTurn과 Said), 한 줄 안내(Quiet), 내 메시지(UserMessage).
 // 조립은 부르는 쪽이 한다. 이 부품들은 children을 놓기만 하고 source 값을 읽지 않는다.
 import type { ReactElement, ReactNode } from "react";
-import {
-  Avatar,
-  type AvatarProfile,
-  Icon,
-  IconButton,
-  iconPixels,
-} from "@lophn/design/components";
+import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import { Icon, IconButton, iconPixels } from "@lophn/design/components";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

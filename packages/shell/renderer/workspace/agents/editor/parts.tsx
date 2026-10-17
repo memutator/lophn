@@ -1,14 +1,8 @@
 // agent 설정 화면들이 같이 쓰는 조각: 층이 붙은 skill·MCP 목록, profile 칸, 지침 블록, 보호 입력 안내.
 // 토글은 줄 오른쪽 끝 고정 열에 있고, 이름은 줄 왼쪽에 따로 있어서 Switch의 라벨은 눈에는 숨긴다.
 import { type ReactNode, useRef, useState } from "react";
-import {
-  Avatar,
-  type AvatarProfile,
-  Button,
-  Field,
-  Switch,
-  Textarea,
-} from "@lophn/design/components";
+import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import { Button, Field, Switch, Textarea } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 
@@ -17,7 +11,7 @@ import type { Role } from "../../../../../protocol/lophn-agent/places.ts";
 import {
   AVATAR_ICON_IDS,
   type AvatarIconId,
-} from "../../../../../design/components/avatar/avatar-icons.ts";
+} from "../../../parts/avatar/avatar-icons.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
 import type {
   McpLayer,

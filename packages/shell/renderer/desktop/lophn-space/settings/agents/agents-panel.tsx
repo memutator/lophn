@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Avatar } from "../../../../parts/avatar/avatar.tsx";
 import {
-  Avatar,
   Button,
   Card,
   ErrorState,

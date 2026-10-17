@@ -4,11 +4,9 @@
 // 열어 두고 stage에 portal한다.
 import { useState } from "react";
 import {
-  AuthorMark,
   Button,
   Card,
   Checkbox,
-  Chip,
   CopyButton,
   DashboardCell,
   DashboardFrame,
@@ -22,11 +20,9 @@ import {
   iconPixels,
   Input,
   Kbd,
-  LauncherFrame,
   List,
   ListDetailFrame,
   ListItem,
-  OverviewFrame,
   Popover,
   PopoverRow,
   ReadingFrame,
@@ -588,7 +584,7 @@ export function ComponentsDialogs() {
   );
 }
 
-/** Components · toast & chip. */
+/** Components · toast. */
 export function ComponentsToast() {
   const stop = { timer: FROZEN_TIMER, onClose: NOOP };
   return (
@@ -619,27 +615,6 @@ export function ComponentsToast() {
             tone="error"
             actions={[{ id: "retry", label: "Try again" }]}
             {...stop}
-          />
-        </div>
-      </Section>
-      <Section
-        title="Chip"
-        note="사람의 답을 기다리는 안내. 하나만 보이고 나머지는 개수로 붙는다. 저절로 사라지지 않는다."
-      >
-        <div className={kit.column}>
-          <Chip
-            items={[{ id: "q1", title: "Question from lophn" }]}
-            onView={NOOP}
-            onDismiss={NOOP}
-          />
-          <Chip
-            items={[
-              { id: "q1", title: "Approve the Grocery budget export?" },
-              { id: "q2", title: "Question from lophn" },
-              { id: "q3", title: "Pick a preset for the Operator" },
-            ]}
-            onView={NOOP}
-            onDismiss={NOOP}
           />
         </div>
       </Section>
@@ -705,12 +680,10 @@ export function ComponentsStates() {
           <StatusMark tone="neutral" label="Not checked" />
         </div>
       </Section>
-      <Section title="DiffMark and AuthorMark">
+      <Section title="DiffMark">
         <div className={kit.row}>
           <DiffMark kind="add" />
           <DiffMark kind="delete" />
-          <AuthorMark author="Project Manager" />
-          <AuthorMark author="lophn" />
         </div>
       </Section>
     </Page>
@@ -783,20 +756,6 @@ export function ComponentsFrames() {
           <FormFrame header={<strong>Register project</strong>}>
             <Slot>form body</Slot>
           </FormFrame>
-        </div>
-      </Section>
-      <Section title="LauncherFrame · 1040px">
-        <div className={kit.frameStage}>
-          <LauncherFrame header={<strong>Projects</strong>}>
-            <Slot>project cards</Slot>
-          </LauncherFrame>
-        </div>
-      </Section>
-      <Section title="OverviewFrame · 800px">
-        <div className={kit.frameStage}>
-          <OverviewFrame header={<strong>Overview</strong>}>
-            <Slot>overview body</Slot>
-          </OverviewFrame>
         </div>
       </Section>
       <Section title="DashboardFrame · 12 columns, max 1440px">

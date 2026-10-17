@@ -1,10 +1,10 @@
 // `useSessions()`의 session 상태를 sidebar의 Agent 모양과 Agent 탭의 상태 점이 읽는 값으로 옮긴다.
-import type { TabDot } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import type { SidebarAgent, SidebarAgentRole } from "./sidebar-agent.ts";
 import type { PanelSession } from "./use-agent-panel.ts";
+import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 
 /**
  * role로 agent 줄을 찾는다. Operator는 여럿이라 이 함수로 찾지 않는다.

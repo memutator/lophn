@@ -5,7 +5,8 @@ import {
   type ReactNode,
   useState,
 } from "react";
-import { IconButton, TabStrip, Tooltip } from "@lophn/design/components";
+import { TabStrip } from "../../parts/tab-strip/tab-strip.tsx";
+import { IconButton, Tooltip } from "@lophn/design/components";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

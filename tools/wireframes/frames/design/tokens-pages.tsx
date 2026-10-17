@@ -1,11 +1,6 @@
 // 디자인 시스템 · Tokens 네 page. 값은 @lophn/design의 tokens에서 그대로 읽는다.
 import { tokens } from "@lophn/design";
-import {
-  folderOpenIcon,
-  Icon,
-  iconPixels,
-  STATUS_ICONS,
-} from "@lophn/design/components";
+import { Icon, iconPixels, STATUS_ICONS } from "@lophn/design/components";
 import {
   appSpaceIcons,
   connectionFailedIcon,
@@ -536,7 +531,6 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
       connectionFailedIcon,
       connectionStaleIcon,
       launcherEmptyIcon,
-      folderOpenIcon,
     },
   },
   { title: "STATUS_ICONS", file: "status-mark.tsx", icons: STATUS_ICONS },

@@ -1,6 +1,10 @@
 // Model 칸. conversation의 ModelField(상속 표시, Changed, Reset, option 축)를 catalog에서 만든 선택지와 값으로 감싼다.
 // model 이름과 option 이름·값은 모두 catalog가 주고 화면 코드에는 없다.
-import { Field, Select, VendorIcon, vendorOf } from "@lophn/design/components";
+import {
+  VendorIcon,
+  vendorOf,
+} from "../../../parts/vendor-icon/vendor-icon.tsx";
+import { Field, Select } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { optionAxesOf } from "../../../../../protocol/lophn-agent/model-picker.ts";

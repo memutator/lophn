@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import {
   Icon,
   IconButton,
   iconPixels,
-  type TabItem as StripTab,
   Tooltip,
   useObservedSize,
 } from "@lophn/design/components";

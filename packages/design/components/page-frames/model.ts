@@ -5,7 +5,7 @@ import { pixels } from "../shared.ts";
 export type ReadingWidth = keyof typeof tokens.page.reading;
 export type TocPlacement = "side" | "head";
 export type PanePadding = keyof typeof tokens.layout.panePadding;
-export type ColumnFrame = "form" | "launcher" | "overview";
+export type ColumnFrame = "form";
 
 export const READING_WIDTHS = Object.keys(
   tokens.page.reading,

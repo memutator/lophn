@@ -1,10 +1,12 @@
 import { Fragment, type ReactNode, useState } from "react";
 import {
+  type TabItem as StripTab,
+  TabStrip,
+} from "../../parts/tab-strip/tab-strip.tsx";
+import {
   Icon,
   IconButton,
   iconPixels,
-  type TabItem as StripTab,
-  TabStrip,
   Tooltip,
 } from "@lophn/design/components";
 import { workspaceIcons } from "../../icons/mod.ts";

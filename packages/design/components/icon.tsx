@@ -1,4 +1,4 @@
-import { FolderOpen, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { tokens } from "../tokens.ts";
 
 export interface IconProps {
@@ -19,6 +19,3 @@ export function Icon({ icon: Glyph, pixels, className }: IconProps) {
     />
   );
 }
-
-// 화면이 lucide를 직접 들이지 않도록 design이 아이콘을 고른다.
-export const folderOpenIcon: LucideIcon = FolderOpen;

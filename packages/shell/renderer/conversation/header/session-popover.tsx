@@ -10,15 +10,14 @@ import {
   useRef,
   useState,
 } from "react";
+import { Avatar } from "../../parts/avatar/avatar.tsx";
+import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import {
-  Avatar,
   Button,
   Icon,
   IconButton,
   iconPixels,
   Popover,
-  VendorIcon,
-  vendorOf,
 } from "@lophn/design/components";
 import {
   editorIcons,

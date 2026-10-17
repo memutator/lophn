@@ -1,9 +1,8 @@
 // agent의 얼굴. icon 하나, 사람이 올린 이미지, 이니셜 중 하나를 둥글게 그린다.
 // sidebar·Agent 화면 머리·메시지·Agents 탭 카드·편집 form이 같은 component를 쓴다.
 import type { ReactElement } from "react";
-import { tokens } from "../../tokens.ts";
-import { Icon } from "../icon.tsx";
-import { componentMark, iconPixels, pixels } from "../shared.ts";
+import { tokens } from "@lophn/design";
+import { componentMark, Icon, iconPixels } from "@lophn/design/components";
 import {
   AVATAR_ICONS,
   DEFAULT_AVATAR_ICON,
@@ -38,7 +37,7 @@ export interface AvatarProps {
 const ICON_PIXELS: Record<AvatarSize, number> = {
   sm: iconPixels("small"),
   md: iconPixels("base"),
-  lg: pixels(tokens.space[9]),
+  lg: Number.parseFloat(tokens.space[9]),
 };
 
 /**

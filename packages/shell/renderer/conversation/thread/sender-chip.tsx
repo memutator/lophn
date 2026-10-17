@@ -2,12 +2,8 @@
 // program의 reaction, coding agent의 메시지, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
 // 읽어 보인다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
-import {
-  Icon,
-  iconPixels,
-  VendorIcon,
-  vendorOf,
-} from "@lophn/design/components";
+import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
+import { Icon, iconPixels } from "@lophn/design/components";
 import { type MessageKey, t } from "@lophn/wording";
 
 import { lophnSpaceIcons } from "../../icons/mod.ts";

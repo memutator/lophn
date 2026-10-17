@@ -1,5 +1,4 @@
 export const common = {
-  "common.author.label": "Written by {author}",
   "common.button.apply": "Apply",
   "common.button.back": "Back",
   "common.button.cancel": "Cancel",
@@ -39,7 +38,6 @@ export const common = {
   "common.label.date-with-weekday": "{date} ({weekday})",
   "common.label.first-and-more":
     "{first} and {count, plural, one {# more} other {# more}}",
-  "common.label.more-waiting": "{count, plural, one {+# more} other {+# more}}",
   "common.label.on-this-page": "On this page",
   "common.label.original-order": "Original order",
   "common.label.other": "Other",

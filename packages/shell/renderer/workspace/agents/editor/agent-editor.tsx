@@ -2,9 +2,8 @@
 // Definition 탭에 profile·이름·놓을 곳·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
 // 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 import { type ReactElement, useEffect, useState } from "react";
+import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import {
-  Avatar,
-  type AvatarProfile,
   Button,
   Dialog,
   ErrorState,

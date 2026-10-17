@@ -47,16 +47,6 @@ export {
 } from "./error-state/error-state.tsx";
 export { StaleNote, type StaleNoteProps } from "./stale-note/stale-note.tsx";
 export {
-  Avatar,
-  type AvatarProfile,
-  type AvatarProps,
-  type AvatarSize,
-} from "./avatar/avatar.tsx";
-export {
-  AuthorMark,
-  type AuthorMarkProps,
-} from "./author-mark/author-mark.tsx";
-export {
   type DiffKind,
   DiffMark,
   STATUS_ICONS,
@@ -74,7 +64,7 @@ export {
   systemTimer,
   type Timer,
 } from "./shared.ts";
-export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
+export { Icon, type IconProps } from "./icon.tsx";
 export {
   domResizeSource,
   type ResizeSource,
@@ -87,10 +77,8 @@ export {
   DashboardFrame,
   type DashboardSpan,
   FormFrame,
-  LauncherFrame,
   ListDetailFrame,
   type ListDetailFrameProps,
-  OverviewFrame,
   TableFrame,
 } from "./page-frames/frames.tsx";
 export {
@@ -138,13 +126,7 @@ export {
   type PopoverRowProps,
 } from "./popover/popover.tsx";
 export { Menu, MenuIcon, type MenuItem, type MenuProps } from "./menu/menu.tsx";
-export { type TabDot, type TabItem, TabStrip } from "./tab-strip/tab-strip.tsx";
 export { FileIcon, fileIconName } from "./file-icon/file-icon.tsx";
-export {
-  type Vendor,
-  VendorIcon,
-  vendorOf,
-} from "./vendor-icon/vendor-icon.tsx";
 export {
   Dialog,
   type DialogProps,
@@ -164,7 +146,6 @@ export {
   ToastStack,
   type ToastTone,
 } from "./toast/toast.tsx";
-export { Chip, type ChipItem, type ChipProps } from "./chip/chip.tsx";
 export { DataTable, type DataTableProps } from "./data-table/data-table.tsx";
 export {
   DataState,

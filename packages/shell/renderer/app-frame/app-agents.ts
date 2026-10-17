@@ -1,10 +1,10 @@
 // 앱 공간 agent select의 후보를 그 앱 자리의 agent 목록(AgentsSource.list)에서 읽는다. 목록은 lophn, 그 앱의
 // App Engineer, 이 앱에 놓인 Operator들이다. 정렬은 AgentSelect가 한다. 저장·삭제로 목록이 바뀌면 reload로 다시 읽는다.
 import { useCallback, useEffect, useState } from "react";
-import type { AvatarProfile } from "@lophn/design/components";
 
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
+import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
 
 export function useAppAgents(
   source: AgentsSource | undefined,

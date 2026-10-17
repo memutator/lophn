@@ -1,6 +1,5 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
 // 통로를 건드린다.
-import type { AvatarProfile, TabDot } from "@lophn/design/components";
 
 import type { TabItem, WorkspaceView } from "../model.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
@@ -11,6 +10,8 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ContextChipView } from "../../conversation/composer/types.ts";
 import type { ReadPosition } from "./kind.ts";
+import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {

@@ -7,17 +7,14 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
+import { Avatar } from "../parts/avatar/avatar.tsx";
 import {
-  Avatar,
-  IconButton,
   type TabDot,
   type TabItem,
   TabStrip,
-  Toast,
-  Tooltip,
-  VendorIcon,
-  vendorOf,
-} from "@lophn/design/components";
+} from "../parts/tab-strip/tab-strip.tsx";
+import { VendorIcon, vendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
+import { IconButton, Toast, Tooltip } from "@lophn/design/components";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

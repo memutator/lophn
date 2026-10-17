@@ -3,14 +3,16 @@
 // renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일(`PageSidebar`, `PageNewTabMenu`,
 // `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일(`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
+import type {
+  TabDot,
+  TabItem,
+} from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import {
-  type AvatarProfile,
   FileIcon,
   Icon,
   iconPixels,
   type IconProps,
-  type TabDot,
-  type TabItem,
 } from "@lophn/design/components";
 import {
   conversationIcons,

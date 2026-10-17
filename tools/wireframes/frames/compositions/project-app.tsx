@@ -9,7 +9,8 @@ import {
 } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
-import { Palette, type PaletteItem, TabStrip } from "@lophn/design/components";
+import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
+import { Palette, type PaletteItem } from "@lophn/design/components";
 import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";

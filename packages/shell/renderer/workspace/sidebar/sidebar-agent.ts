@@ -1,6 +1,6 @@
 // project sidebar가 그리는 agent 한 줄의 값. Agent 모양과 접힌 rail이 같이 쓴다.
 // renderer는 protocol을 type check하지 않으므로 id는 문자열로 받는다.
-import type { AvatarProfile } from "@lophn/design/components";
+import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
 /**
  * project sidebar에 보이는 역할. App Engineer는 앱 공간의 agent라 여기에 없다.

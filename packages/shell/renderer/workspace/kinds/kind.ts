@@ -2,7 +2,8 @@
 // 값 읽기와 쓰기·본문·열기 진입을 모두 선언하고, 탭 줄·layout map·칸은
 // 이 목록을 돌 뿐 kind 이름으로 가르지 않는다. kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { ReactNode } from "react";
-import type { IconProps, TabDot } from "@lophn/design/components";
+import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
+import type { IconProps } from "@lophn/design/components";
 import type { MessageKey } from "@lophn/wording";
 
 import type { TabItem } from "../model.ts";

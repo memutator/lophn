@@ -3,8 +3,8 @@
 import {
   Avatar,
   type AvatarProfile,
-  IconButton,
-} from "@lophn/design/components";
+} from "../../../../parts/avatar/avatar.tsx";
+import { IconButton } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 import type { CallAgent } from "../../../../../../protocol/lophn-agent/calls.ts";
 import { lophnSpaceIcons } from "../../../../icons/mod.ts";

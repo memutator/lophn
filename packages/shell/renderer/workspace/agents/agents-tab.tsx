@@ -3,12 +3,8 @@
 // lophn, not in your project folder." 한 줄이다. lophn은 전체에 하나라 이 탭에 없고 Workspace Settings에서 정한다.
 // 앱 자리에서는 Project Manager 자리에 그 앱의 App Engineer가 온다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 import type { ReactElement, ReactNode } from "react";
-import {
-  Avatar,
-  type AvatarProfile,
-  Button,
-  Card,
-} from "@lophn/design/components";
+import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import { Button, Card } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";

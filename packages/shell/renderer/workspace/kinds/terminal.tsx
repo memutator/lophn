@@ -1,6 +1,5 @@
 // terminal 탭 kind. 시작 폴더 참조만 남기고 PTY는 복원하지 않는다.
 import type { ReactNode } from "react";
-import { VendorIcon, vendorOf } from "@lophn/design/components";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
@@ -10,6 +9,7 @@ import type { TerminalOpenRequest } from "../../terminal/use-terminal-open-reque
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 

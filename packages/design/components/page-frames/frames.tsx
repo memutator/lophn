@@ -60,16 +60,6 @@ export function FormFrame(props: FrameProps) {
   return <Column frame="form" name="FormFrame" {...props} />;
 }
 
-// 런처 1040px.
-export function LauncherFrame(props: FrameProps) {
-  return <Column frame="launcher" name="LauncherFrame" {...props} />;
-}
-
-// 프로젝트 개요 800px.
-export function OverviewFrame(props: FrameProps) {
-  return <Column frame="overview" name="OverviewFrame" {...props} />;
-}
-
 // 최대 1440px, 12열, 간격 16px.
 export function DashboardFrame({ header, children }: FrameProps) {
   const { ref, pad } = usePane();

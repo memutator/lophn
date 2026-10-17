@@ -51,7 +51,8 @@ deno task check
 
 - 보기: `tools/wireframes/dist/index.html`을 browser로 연다. 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다.
 - 실제 앱에서 보기: `deno task dev:mock` (core 없이 메모리 fake data, renderer를 먼저 build한다).
-- `deno task check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `deno check`가 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), wording.
+- `deno task check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `deno check`가 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), wording, kit.
+- step `kit`(`tools/check-kit.ts`)이 kit 동기화를 본다. (1) `tools/wireframes`의 CSS는 `drafts/` 안과 `gallery.module.css`, `pages/kit/kit.module.css`에만 있다. (2) 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component)마다 `pages/kit/` 아래에 한 번은 나온다. (3) design의 `.tsx`는 분류 폴더(8개와 `_shared`) 안에만 있고, 값을 내보내는 `export { … } from` 문마다 윗줄에 `//` 한 줄 문서가 있다. design에 component를 더하면 그 분류 kit page에 견본을 같이 더한다.
 - renderer를 바꿨으면 `deno run -A packages/shell/renderer/build.ts`로 bundle이 서는지도 본다.
 
 ## 확정된 화면을 앱에 옮기기

@@ -18,4 +18,4 @@ lead만 고친다. `tools/status.py ui-kit build`가 `tasks/*.md`에서 id, 단�
 | `kit-sdk-move` | kit-sdk | 2 | 없음 | merged | kit-sdk/kit-sdk-move | 83a9dc45b |  |
 | `kit-sdk-publish` | kit-sdk | 2 | kit-sdk-move | merged | kit-sdk/kit-sdk-publish | 8dff9e150 |  |
 | `gallery-index` | gallery-index | 3 | kit-checks | todo |  |  |  |
-| `kit-checks` | kit-checks | 3 | 없음 | todo |  |  |  |
+| `kit-checks` | kit-checks | 3 | 없음 | merged | kit-checks/kit-checks | 985e4b890 |  |

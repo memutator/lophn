@@ -3,7 +3,6 @@ import {
   agentDefinitionList,
   agentDefinitionRead,
   type AgentDefinitionRow,
-  type AgentRef,
   type AgentValueLayer,
   type ModelChoice,
   type Place,
@@ -47,9 +46,9 @@ function effectiveModel(
 
 function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const model = effectiveModel(context, loaded);
-  const { lookups } = context;
+  const { lookups, roles } = context;
   const definition = loaded.definition;
-  const operator = loaded.role === "operator";
+  const operator = roles.isOperator(loaded.role);
   const broken = loaded.issues.length > 0;
   const skills = lookups.skills(loaded.place);
   const mcp = lookups.mcp(loaded.place);
@@ -61,10 +60,10 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const active = new Set(lookups.activeContexts(loaded.place));
   return {
     agent: loaded.ref,
-    kind: operator ? "operator" : "built_in",
+    kind: roles.kindOf(loaded.role),
     place: loaded.place,
-    name: nameOf(loaded),
-    profile: profileOf(loaded),
+    name: nameOf(roles, loaded),
+    profile: profileOf(roles, loaded),
     model: model === null ? null : {
       provider: model.value.provider,
       model_name: model.value.model_name,
@@ -117,17 +116,10 @@ export function createAgentReads(deps: AgentDeps): {
         if (within !== undefined && !lookups.placeExists(within)) {
           return notFound("place");
         }
-        // lophn, Project Manager, App Engineer, Operator 순서다.
-        const refs: AgentRef[] = [{ role: "lophn" }];
-        for (
-          const place of within === undefined ? lookups.places() : [within]
-        ) {
-          refs.push(
-            place.kind === "project"
-              ? { role: "project_manager", project: place.id }
-              : { role: "app_engineer", app: place.id },
-          );
-        }
+        // built-in 다음에 Operator 순서다.
+        const refs = context.value.roles.builtinRefs(
+          within === undefined ? lookups.places() : [within],
+        );
         const agents: AgentDefinitionRow[] = [];
         for (const ref of refs) {
           const loaded = loadAgent(context.value, ref);
@@ -172,8 +164,9 @@ export function createAgentReads(deps: AgentDeps): {
           if (!allowed.ok) return allowed;
         }
         const model = effectiveModel(context.value, loaded);
-        const operator = loaded.role === "operator";
-        const profile = profileOf(loaded);
+        const { roles } = context.value;
+        const operator = roles.isOperator(loaded.role);
+        const profile = profileOf(roles, loaded);
         return ok({
           agent: loaded.ref,
           role: loaded.role,
@@ -182,7 +175,7 @@ export function createAgentReads(deps: AgentDeps): {
           hash: loaded.file?.hash ?? null,
           effective: {
             name: {
-              value: nameOf(loaded),
+              value: nameOf(roles, loaded),
               source: operator ? "agent" : "global",
             },
             profile: {

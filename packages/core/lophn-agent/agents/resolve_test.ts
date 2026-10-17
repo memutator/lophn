@@ -38,6 +38,7 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
     const written = parseAgentFile(
       `---\nname: reviewer\npermissions:\n  tools:\n    - file.write\n---\nbody\n`,
       target,
+      ROLE_TABLE,
     );
     assert(!written.ok);
 

@@ -1,7 +1,8 @@
 import type { Result } from "../../../base/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileSystem } from "../../lophn-agent/agents/ports.ts";
-import { createAgentStore, slotOf } from "../../lophn-agent/agents/store.ts";
+import { createAgentStore } from "../../lophn-agent/agents/store.ts";
+import { ROLE_TABLE } from "./role-table.ts";
 
 // built-in agent의 정의 파일을 만들어 둔다. 파일이 이미 있으면 그대로다(여러 번 불러도 하나다).
 // 정의는 파일이라 SQL transaction에 묶을 수 없다. 호출하는 쪽이 등록이 commit된 뒤에 부르는 것이 바르고,
@@ -11,8 +12,12 @@ import { createAgentStore, slotOf } from "../../lophn-agent/agents/store.ts";
 type EnsureDeps = { files: AgentFileSystem; root: string };
 
 function ensure(deps: EnsureDeps, ref: AgentRef): Result<void> {
-  const store = createAgentStore(deps.files, deps.root);
-  const slot = slotOf(deps.root, ref)!;
+  const store = createAgentStore(
+    deps.files,
+    deps.root,
+    (place) => ROLE_TABLE.agentsFolderOf(deps.root, place),
+  );
+  const slot = ROLE_TABLE.slotOf(deps.root, ref)!;
   const current = store.read(slot);
   if (!current.ok) return current;
   if (current.value !== null) return { ok: true, value: undefined };

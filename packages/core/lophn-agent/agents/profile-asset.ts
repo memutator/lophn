@@ -14,7 +14,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { ReadRoute } from "../../../protocol/base/mod.ts";
-import { placeAgentsFolder } from "./store.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 
 // 사람이 올린 profile 이미지다. 받는 형식은 png·jpg·webp뿐이고 형식은 내용의 첫 byte로 확인한다.
 // Content-Type 선언과 맞지 않으면 거절한다. 바이트는 글과 달리 UTF-8로 바꾸지 않는다.
@@ -44,6 +44,7 @@ export type ProfileAssetDeps = {
   root: string;
   files: ProfileImageFiles;
   readers: ProfileReaders;
+  roles: AgentRoleTable;
 };
 
 type UploadedProfile = { profile: { kind: "image"; image: string } };
@@ -134,20 +135,19 @@ function checkProfileImage(
 }
 
 // `<place 폴더>/agents/<Operator id>/`. 정의 파일 `<Operator id>.md`와 이름이 같은 폴더다.
-function imageFolder(root: string, place: Place, operator: string): string {
-  return `${placeAgentsFolder(root, place)}/${operator}`;
+function imageFolder(agentsFolder: string, operator: string): string {
+  return `${agentsFolder}/${operator}`;
 }
 
 // 저장한 정의가 가리키지 않는 `avatar.*` 경로다. 정의가 이미지를 가리키면 그 파일만 남기고, icon이거나
 // profile이 없으면 이미지 파일을 모두 지운다. 정의를 저장한 뒤에 지운다.
 export function staleImagePaths(
-  root: string,
-  place: Place,
+  agentsFolder: string,
   operator: string,
   profile: Profile | undefined,
 ): string[] {
   const keep = profile?.kind === "image" ? profile.image : null;
-  const folder = imageFolder(root, place, operator);
+  const folder = imageFolder(agentsFolder, operator);
   return IMAGE_EXTENSIONS.map((ext) => `avatar.${ext}`)
     .filter((name) => name !== keep)
     .map((name) => `${folder}/${name}`);
@@ -160,7 +160,10 @@ async function storeImage(
   target: { place: Place; operator: string },
   image: { ext: string; body: Uint8Array },
 ): Promise<Result<UploadedProfile>> {
-  const folder = imageFolder(deps.root, target.place, target.operator);
+  const folder = imageFolder(
+    deps.roles.agentsFolderOf(deps.root, target.place),
+    target.operator,
+  );
   const name = `avatar.${image.ext}`;
   try {
     await deps.files.writeAtomic(`${folder}/${name}`, image.body);
@@ -185,7 +188,7 @@ async function judge(
   ctx: AuthenticatedContext,
   agent: z.infer<typeof readAgentDefinitionInputSchema>["agent"],
 ): Promise<Result<Judged>> {
-  if (agent.role !== "operator") {
+  if (!deps.roles.isOperator(agent.role)) {
     return invalid("only an operator has a profile image");
   }
   const read = await deps.readers.read(agentDefinitionRead, ctx, { agent });
@@ -266,8 +269,7 @@ export function profileImageFileHandler(
     if (profile?.kind !== "image") return notFound("profile image not found");
     const path = `${
       imageFolder(
-        deps.root,
-        judged.value.place,
+        deps.roles.agentsFolderOf(deps.root, judged.value.place),
         (input.data.agent as { agent: string }).agent,
       )
     }/${profile.image}`;

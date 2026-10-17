@@ -24,7 +24,6 @@ import {
 import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
 import { staleImagePaths } from "./profile-asset.ts";
-import { slotOf } from "./store.ts";
 import { checkBuiltin, checkOperator } from "./validate.ts";
 
 // 정의의 삭제와 built-in 저장은 사람만 한다(route actors). Operator는 agent도 만들고 고치되 자기 place 안에서만 한다. 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
@@ -50,9 +49,8 @@ function removeStaleImages(
   operator: string,
   profile: Profile | undefined,
 ): void {
-  for (
-    const path of staleImagePaths(context.store.root, place, operator, profile)
-  ) {
+  const folder = context.roles.agentsFolderOf(context.store.root, place);
+  for (const path of staleImagePaths(folder, operator, profile)) {
     try {
       deps.files.remove(path);
     } catch {
@@ -96,17 +94,20 @@ export function createAgentCommands(deps: AgentDeps): {
         if (existing.value !== null) {
           return err({ code: "conflict", message: "operator already exists" });
         }
+        const ref = context.value.roles.operatorRef(id);
         const checked = checkOperator({
           context: context.value,
+          role: ref.role,
           place,
           id,
           definition,
         });
         if (!checked.ok) return checked;
-        const slot = slotOf(context.value.store.root, {
-          role: "operator",
-          agent: id,
-        }, place)!;
+        const slot = context.value.roles.slotOf(
+          context.value.store.root,
+          ref,
+          place,
+        )!;
         const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
         removeStaleImages(deps, context.value, place, id, definition.profile);
@@ -136,6 +137,7 @@ export function createAgentCommands(deps: AgentDeps): {
         if (compare.hash !== file.hash) return conflict("agent file");
         const checked = checkOperator({
           context: context.value,
+          role: context.value.roles.operatorRef(input.agent).role,
           place,
           id: input.agent,
           definition: input.definition,
@@ -191,7 +193,11 @@ export function createAgentCommands(deps: AgentDeps): {
         if (loaded.value === null) return notFound("agent");
         const before = loaded.value.file?.hash ?? null;
         if (compare.hash !== before) return conflict("agent file");
-        const checked = checkBuiltin(input.agent.role, input.definition);
+        const checked = checkBuiltin(
+          deps.roles,
+          input.agent.role,
+          input.definition,
+        );
         if (!checked.ok) return checked;
         const written = context.value.store.write(
           loaded.value.slot,

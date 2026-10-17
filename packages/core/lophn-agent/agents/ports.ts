@@ -5,6 +5,7 @@ import type {
   Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
 // 읽기(snapshot)와 쓰기(Tx)가 같은 `lookups`를 쓰도록 sql만 받는 factory로 둔다.
@@ -57,6 +58,8 @@ export type PlaceLookups = {
 
 export type AgentDeps = {
   files: AgentFileSystem;
+  // role마다 다른 값과 규칙(정의 file 자리, built-in 이름, Operator 판정). role 층이 만들고 조립이 꽂는다.
+  roles: AgentRoleTable;
   lookups(sql: ReadSql): AgentLookups;
   // agent가 Operator를 만들고 고칠 수 있는 place인지의 규칙이다. role 층이 정하고 조립이 꽂는다.
   // ownPlace는 그 session의 place다.

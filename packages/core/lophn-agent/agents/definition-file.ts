@@ -12,7 +12,7 @@ import {
   type Place,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { isReservedAgentName } from "./names.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 
 // 정의 파일의 Markdown 읽기·쓰기다. 순수 함수이고 파일 IO도 hash도 없다.
 //
@@ -140,9 +140,10 @@ function checkDefinition(
   raw: Plain,
   body: unknown,
   target: AgentFileTarget,
+  roles: AgentRoleTable,
 ): FileResult<AgentFileDefinition> {
   const issues: AgentDefinitionIssue[] = [];
-  const operator = target.role === "operator";
+  const operator = roles.isOperator(target.role);
   if (typeof body !== "string") {
     return refuse([{ field: "body", code: "invalid_value" }]);
   }
@@ -177,7 +178,7 @@ function checkDefinition(
   if (nameMissing) {
     addIssue(issues, "name", "required");
   } else if (
-    operator && typeof name === "string" && isReservedAgentName(name)
+    operator && typeof name === "string" && roles.isReservedName(name)
   ) {
     addIssue(issues, "name", "reserved_name");
   }
@@ -234,18 +235,25 @@ function frontmatterText(fields: Plain): string {
 export function parseAgentFile(
   text: string,
   target: AgentFileTarget,
+  roles: AgentRoleTable,
 ): Result<AgentFileDefinition, AgentFileError> {
   const split = splitFile(text);
   if (!split.ok) return split;
-  return checkDefinition(split.value.frontmatter, split.value.body, target);
+  return checkDefinition(
+    split.value.frontmatter,
+    split.value.body,
+    target,
+    roles,
+  );
 }
 
 export function serializeAgentFile(
   definition: AgentFileDefinition,
   target: AgentFileTarget,
+  roles: AgentRoleTable,
 ): Result<string, AgentFileError> {
   const { body, ...fields } = definition as Plain;
-  const checked = checkDefinition(fields, body, target);
+  const checked = checkDefinition(fields, body, target, roles);
   if (!checked.ok) return checked;
   const { body: text, ...kept } = checked.value as Plain;
   const head = frontmatterText(orderedFrontmatter(kept));

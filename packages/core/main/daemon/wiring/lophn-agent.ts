@@ -7,6 +7,7 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
 import { appCreate } from "../../../../protocol/apps/mod.ts";
+import { ROLE_TABLE } from "../../../agent-roles/agents/role-table.ts";
 import { withAppEngineer } from "../../../agent-roles/agents/app-engineer.ts";
 import {
   ensureAppEngineer,
@@ -34,7 +35,11 @@ export const lophnAgentWiring: WiringFactory = () => ({
     );
   },
   build(ctx) {
-    const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
+    const profiles = agentProfileHandlers(
+      ctx.runtime.readers,
+      ctx.root.path,
+      ROLE_TABLE,
+    );
     return ok({
       writer: (inner) =>
         withAppEngineer(

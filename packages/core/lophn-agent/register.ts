@@ -48,22 +48,14 @@ import {
   modelCallBodyFields,
   usageSchemaSteps,
 } from "./usage/mod.ts";
-import {
-  COMMIT_END_DEPS,
-  openDepsOf,
-  type OperatorDirectory,
-  type OperatorInfo,
-  UNWIRED_END_DEPS,
-} from "./places/mod.ts";
+import { COMMIT_END_DEPS, openDepsOf, UNWIRED_END_DEPS } from "./places/mod.ts";
 import {
   type AgentDeps,
   type AgentFileSystem,
   type AgentLookups,
   createAgentCommands,
   createAgentReads,
-  listOperators,
   loadAgent,
-  nameOf,
   openAgentContext,
   type PlaceLookups,
   type ProfileAssetDeps,
@@ -149,7 +141,7 @@ import {
   type SkillSources,
   type SyncSkillFiles,
 } from "./extensions/mod.ts";
-import type { Loaded } from "./agents/inspect.ts";
+import type { AgentRoleTable } from "./agents/role-table.ts";
 import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import {
   createMcpSecretRefSource,
@@ -486,11 +478,13 @@ const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(
 export function agentProfileHandlers(
   readers: ProfileReaders,
   dataRoot: string,
+  roles: AgentRoleTable,
 ): { upload: ProfileUploadHandler; file: ProfileFileHandler } {
   const deps: ProfileAssetDeps = {
     root: dataRoot,
     files: createNodeProfileImageFiles(),
     readers,
+    roles,
   };
   return {
     upload: profileImageUploadHandler(deps),
@@ -583,9 +577,10 @@ export type LophnAgentPorts = {
   lookups: PlaceLookups;
   roleCommands: RoleCommands;
   operatorPlaceAllowed: AgentDeps["operatorPlaceAllowed"];
+  roles: AgentRoleTable;
 };
 
-// port에 묶인 command·read 정의와 reader 등록, Operator 조회를 만든다.
+// port에 묶인 command·read 정의와 reader 등록, 정의를 여는 길을 만든다.
 export function createLophnAgent(ports: LophnAgentPorts) {
   const modelCommands = createModelCommands((tx) =>
     modelCommandDeps(ports.lookups, tx)
@@ -596,41 +591,15 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   const agentDeps: AgentDeps = {
     files: createNodeAgentFiles(),
     lookups: (sql) => agentLookups(ports.lookups, sql),
+    roles: ports.roles,
     operatorPlaceAllowed: ports.operatorPlaceAllowed,
   };
   const agentCommands = createAgentCommands(agentDeps);
   const agentReads = createAgentReads(agentDeps);
 
-  // Operator 조회. session을 열 때와 Router의 session 목록이 읽는다. wiring이 places 환경에 끼운다.
-  function operatorDirectory(
-    sql: Pick<Tx["sql"], "get" | "all">,
-  ): OperatorDirectory {
-    const opened = openAgentContext(agentDeps, sql);
-    const toInfo = (loaded: Loaded): OperatorInfo | null =>
-      loaded.ref.role === "operator" && loaded.place !== null
-        ? {
-          id: loaded.ref.agent as OperatorInfo["id"],
-          name: nameOf(loaded),
-          place: loaded.place,
-        }
-        : null;
-    return {
-      operator(id) {
-        if (!opened.ok) return null;
-        const loaded = loadAgent(opened.value, {
-          role: "operator",
-          agent: id as never,
-        });
-        return loaded.ok && loaded.value !== null ? toInfo(loaded.value) : null;
-      },
-      operators() {
-        if (!opened.ok) return [];
-        const listed = listOperators(opened.value);
-        return listed.ok
-          ? listed.value.flatMap((loaded) => toInfo(loaded) ?? [])
-          : [];
-      },
-    };
+  // sql로 agent 정의를 읽는 길이다. wiring이 이것으로 Operator 조회를 만들어 places 환경에 끼운다.
+  function openAgents(sql: Pick<Tx["sql"], "get" | "all">) {
+    return openAgentContext(agentDeps, sql);
   }
 
   // skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
@@ -852,5 +821,5 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     };
   }
 
-  return { lophnAgentDefinitions, createReaderRegistration, operatorDirectory };
+  return { lophnAgentDefinitions, createReaderRegistration, openAgents };
 }

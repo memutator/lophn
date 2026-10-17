@@ -7,10 +7,13 @@ export { resolveAgent, type ResolvedAgent } from "./resolve.ts";
 export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
 export {
+  type AgentContext,
   listOperators,
   loadAgent,
+  type Loaded,
   nameOf,
   openAgentContext,
+  operatorIdOf,
 } from "./inspect.ts";
 export {
   type ProfileAssetDeps,
@@ -21,13 +24,13 @@ export {
   type ProfileReaders,
   type ProfileUploadHandler,
 } from "./profile-asset.ts";
-export { DEFAULT_PROFILES } from "./builtin.ts";
-export { BUILTIN_NAMES, isReservedAgentName } from "./names.ts";
+export type { AgentRoleTable } from "./role-table.ts";
 export type {
   AgentDeps,
   AgentFileSystem,
   AgentLookups,
   PlaceLookups,
+  ReadSql,
 } from "./ports.ts";
 export {
   type AgentFile,
@@ -35,5 +38,4 @@ export {
   type AgentStore,
   createAgentStore,
   dataRootOf,
-  slotOf,
 } from "./store.ts";

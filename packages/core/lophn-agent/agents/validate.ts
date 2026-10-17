@@ -8,6 +8,7 @@ import {
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { serializeAgentFile } from "./definition-file.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 import {
   type AgentContext,
   issuesOfError,
@@ -50,7 +51,8 @@ function duplicateName(
   return ok(
     others.value.some((other) =>
       (other.ref as { agent: string }).agent !== self &&
-      other.definition !== null && agentNameKey(nameOf(other)) === key
+      other.definition !== null &&
+      agentNameKey(nameOf(context.roles, other)) === key
     ),
   );
 }
@@ -58,17 +60,20 @@ function duplicateName(
 // 맞으면 파일에 쓸 글을 돌려준다.
 export function checkOperator(input: {
   context: AgentContext;
+  // Operator의 role이다. 호출하는 쪽이 표의 operatorRef나 입력의 ref에서 꺼낸다.
+  role: Role;
   place: Place;
   id: string | null;
   definition: OperatorDefinition;
 }): Result<string> {
-  const { context, place, id, definition } = input;
+  const { context, place, id, definition, role } = input;
   const issues: AgentDefinitionIssue[] = [];
 
-  const text = serializeAgentFile(definition, {
-    role: "operator",
-    place: place.kind,
-  });
+  const text = serializeAgentFile(
+    definition,
+    { role, place: place.kind },
+    context.roles,
+  );
   if (!text.ok) addAll(issues, issuesOfError(text.error));
 
   if (definition.name.trim() !== "") {
@@ -100,9 +105,10 @@ export function checkOperator(input: {
 }
 
 export function checkBuiltin(
-  role: Exclude<Role, "operator">,
+  roles: AgentRoleTable,
+  role: Role,
   definition: BuiltinDefinition,
 ): Result<string> {
-  const text = serializeAgentFile(definition, { role, place: null });
+  const text = serializeAgentFile(definition, { role, place: null }, roles);
   return text.ok ? ok(text.value) : invalidInput(issuesOfError(text.error));
 }

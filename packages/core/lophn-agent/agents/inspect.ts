@@ -1,26 +1,29 @@
 import { ok, type Result } from "../../../base/mod.ts";
-import type {
-  AgentDefinitionIssue,
-  AgentRef,
-  Place,
-  Role,
+import {
+  type AgentDefinitionIssue,
+  type AgentRef,
+  type Place,
+  placeOfAgentRef,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { DEFAULT_PROFILES } from "./builtin.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
-import { BUILTIN_NAMES } from "./names.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 import {
   type AgentFile,
   type AgentSlot,
   type AgentStore,
   createAgentStore,
   dataRootOf,
-  slotOf,
 } from "./store.ts";
 
 // 읽기와 쓰기가 함께 쓰는 것: agent 하나의 정의 파일을 찾아 읽고 검사한다.
 
-export type AgentContext = { lookups: AgentLookups; store: AgentStore };
+export type AgentContext = {
+  lookups: AgentLookups;
+  store: AgentStore;
+  roles: AgentRoleTable;
+};
 
 export function openAgentContext(
   deps: AgentDeps,
@@ -30,7 +33,12 @@ export function openAgentContext(
   if (!root.ok) return root;
   return ok({
     lookups: deps.lookups(sql),
-    store: createAgentStore(deps.files, root.value),
+    store: createAgentStore(
+      deps.files,
+      root.value,
+      (place) => deps.roles.agentsFolderOf(root.value, place),
+    ),
+    roles: deps.roles,
   });
 }
 
@@ -57,10 +65,11 @@ export function findOperator(
   id: string,
 ): Result<{ place: Place; slot: AgentSlot; file: AgentFile } | null> {
   for (const place of context.lookups.places()) {
-    const slot = slotOf(context.store.root, {
-      role: "operator",
-      agent: id as never,
-    }, place)!;
+    const slot = context.roles.slotOf(
+      context.store.root,
+      context.roles.operatorRef(id),
+      place,
+    )!;
     const file = context.store.read(slot);
     if (!file.ok) return file;
     if (file.value !== null) return ok({ place, slot, file: file.value });
@@ -76,28 +85,31 @@ export function loadAgent(
   let place: Place | null = null;
   let slot: AgentSlot | null;
   let file: AgentFile | null = null;
-  if (ref.role === "operator") {
-    const found = findOperator(context, ref.agent);
+  // place가 ref에 없는 agent(Operator)는 place 폴더를 훑어 찾는다.
+  const refPlace = placeOfAgentRef(ref);
+  if (refPlace === undefined) {
+    const found = findOperator(context, operatorIdOf(ref));
     if (!found.ok) return found;
     if (found.value === null) return ok(null);
     ({ place, slot, file } = found.value);
   } else {
-    place = ref.role === "project_manager"
-      ? { kind: "project", id: ref.project }
-      : ref.role === "app_engineer"
-      ? { kind: "app", id: ref.app }
-      : null;
+    place = refPlace;
     if (place !== null && !context.lookups.placeExists(place)) return ok(null);
-    slot = slotOf(context.store.root, ref)!;
+    slot = context.roles.slotOf(context.store.root, ref)!;
     const read = context.store.read(slot);
     if (!read.ok) return read;
     file = read.value;
   }
 
-  return ok(parsedAgent(ref, place, slot, file));
+  return ok(parsedAgent(context.roles, ref, place, slot, file));
+}
+
+export function operatorIdOf(ref: AgentRef): string {
+  return (ref as { agent: string }).agent;
 }
 
 function parsedAgent(
+  roles: AgentRoleTable,
   ref: AgentRef,
   place: Place | null,
   slot: AgentSlot,
@@ -109,7 +121,7 @@ function parsedAgent(
     const parsed = parseAgentFile(file.text, {
       role: ref.role,
       place: place?.kind ?? null,
-    });
+    }, roles);
     if (parsed.ok) definition = parsed.value;
     else issues.push(...issuesOfError(parsed.error));
   }
@@ -117,19 +129,20 @@ function parsedAgent(
 }
 
 // 이름과 profile은 Operator는 정의가, built-in은 제품이 정한다.
-export function nameOf(loaded: Loaded): string {
-  if (loaded.role !== "operator") return BUILTIN_NAMES[loaded.role];
+export function nameOf(roles: AgentRoleTable, loaded: Loaded): string {
+  const builtin = roles.builtinName(loaded.role);
+  if (builtin !== null) return builtin;
   const name = loaded.definition !== null && "name" in loaded.definition
     ? loaded.definition.name
     : undefined;
-  return name ?? (loaded.ref as { agent: string }).agent;
+  return name ?? operatorIdOf(loaded.ref);
 }
 
-export function profileOf(loaded: Loaded) {
+export function profileOf(roles: AgentRoleTable, loaded: Loaded) {
   const profile = loaded.definition !== null && "profile" in loaded.definition
     ? loaded.definition.profile
     : undefined;
-  return profile ?? DEFAULT_PROFILES[loaded.role];
+  return profile ?? roles.defaultProfile(loaded.role);
 }
 
 // 모든 Operator의 id와 이름과 place. 틀린 파일은 이름을 알 수 없어 id가 이름이다.
@@ -144,11 +157,11 @@ export function listOperators(
     const ids = context.store.operatorIds(place);
     if (!ids.ok) return ids;
     for (const id of ids.value) {
-      const ref: AgentRef = { role: "operator", agent: id as never };
-      const slot = slotOf(context.store.root, ref, place)!;
+      const ref = context.roles.operatorRef(id);
+      const slot = context.roles.slotOf(context.store.root, ref, place)!;
       const file = context.store.read(slot);
       if (!file.ok) return file;
-      found.push(parsedAgent(ref, place, slot, file.value));
+      found.push(parsedAgent(context.roles, ref, place, slot, file.value));
     }
   }
   return ok(found);

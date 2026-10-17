@@ -1,10 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
+import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
 import type { AgentLookups } from "./ports.ts";
-import { createAgentStore, slotOf } from "./store.ts";
+import { createAgentStore } from "./store.ts";
 
 const PROJECT = "prj_00000000000000000000000001";
 const OTHER = "prj_00000000000000000000000002";
@@ -29,6 +30,7 @@ Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름�
     const files = createNodeAgentFiles();
     const commands = createAgentCommands({
       files,
+      roles: ROLE_TABLE,
       lookups: () => lookups,
       operatorPlaceAllowed: () => false,
       dataRoot: root,
@@ -66,14 +68,22 @@ Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름�
     assertEquals(changed.error.code, "not_found");
 
     // Operator 삭제는 Operator 파일만 지운다. built-in 파일은 ensure가 만든 채로 남는다.
-    const store = createAgentStore(files, root);
-    const manager = slotOf(root, {
+    const store = createAgentStore(
+      files,
+      root,
+      (p) => ROLE_TABLE.agentsFolderOf(root, p),
+    );
+    const manager = ROLE_TABLE.slotOf(root, {
       role: "project_manager",
       project: PROJECT as never,
     })!;
     assert(store.write(manager, "").ok);
     const stored = store.read(
-      slotOf(root, { role: "operator", agent: OPERATOR as never }, place)!,
+      ROLE_TABLE.slotOf(
+        root,
+        { role: "operator", agent: OPERATOR as never },
+        place,
+      )!,
     );
     assert(stored.ok && stored.value !== null);
     const gone = commands.delete.handle(
@@ -105,6 +115,7 @@ Deno.test("옛 hash로 Operator를 고치면 충돌이고 파일은 그대로다
     const files = createNodeAgentFiles();
     const commands = createAgentCommands({
       files,
+      roles: ROLE_TABLE,
       lookups: () => lookups,
       operatorPlaceAllowed: () => false,
       dataRoot: root,
@@ -132,9 +143,17 @@ Deno.test("옛 hash로 Operator를 고치면 충돌이고 파일은 그대로다
     );
     assert(!stale.ok);
     assertEquals(stale.error.code, "conflict");
-    const store = createAgentStore(files, root);
+    const store = createAgentStore(
+      files,
+      root,
+      (p) => ROLE_TABLE.agentsFolderOf(root, p),
+    );
     const kept = store.read(
-      slotOf(root, { role: "operator", agent: OPERATOR as never }, place)!,
+      ROLE_TABLE.slotOf(
+        root,
+        { role: "operator", agent: OPERATOR as never },
+        place,
+      )!,
     );
     assert(kept.ok && kept.value?.hash === made.value.hash);
   } finally {

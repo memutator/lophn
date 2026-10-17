@@ -116,44 +116,8 @@ const HARNESS_DOMAIN_PROTOCOLS = [
 const ROLE_NAMES = new Set(["project_manager", "app_engineer", "operator"]);
 const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
   [
-    "packages/core/lophn-agent/agents/commands.ts",
-    "못 옮김: agent 정의 생성 명령이 harness의 agents/에 있어 Operator ref를 role 이름으로 만든다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/definition-file.ts",
-    "못 옮김: agent 정의 file 읽기·쓰기가 harness의 agents/에 있어 Operator 여부를 role 이름으로 가른다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/inspect.ts",
-    "못 옮김: agent 점검이 harness의 agents/에 있어 role별 place와 이름(BUILTIN_NAMES)을 role 이름으로 푼다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/names.ts",
-    "못 옮김: built-in 이름 표(BUILTIN_NAMES)가 harness에 있어 role 이름을 key로 쓴다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/profile-asset.ts",
-    "못 옮김: profile asset 검사가 harness의 agents/에 있어 Operator만 허용하는 규칙을 role 이름으로 쓴다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/reads.ts",
-    "못 옮김: agent 목록·조회가 harness의 agents/에 있어 role 이름으로 built_in/operator 종류와 place를 가른다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/store.ts",
-    "못 옮김: agent 정의 file 자리 계산이 harness의 agents/에 있어 role별 folder를 role 이름으로 고른다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/validate.ts",
-    "못 옮김: agent 정의 검증이 harness의 agents/에 있어 Operator와 built-in을 role 이름으로 가른다",
-  ],
-  [
     "packages/core/lophn-agent/instructions/files.ts",
     "못 옮김: 지침 file 자리와 session 행 읽기가 harness의 instructions/에 있어 role별 file 이름을 role 이름으로 고른다",
-  ],
-  [
-    "packages/core/lophn-agent/register.ts",
-    "못 옮김: Operator 조회(operatorDirectory)를 harness의 wiring이 role 이름으로 직접 만든다",
   ],
   [
     "packages/core/lophn-agent/run-loop/runtime-access.ts",

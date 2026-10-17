@@ -56,7 +56,7 @@ components:
   - id: tool-check
     kind: tool
     roles: [all]
-    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, test를 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, test를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
     run: deno task check
     change_reasons:
@@ -138,6 +138,15 @@ components:
     run: deno run --allow-read tools/check-modules.ts
     change_reasons:
       note: 두 catalog의 꼴이 바뀔 때.
+
+  - id: tool-check-docs
+    kind: tool
+    roles: [planner]
+    description: AGENTS.md, .claude/skills/, project-docs/(change-log, issues/archived, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.
+    path: tools/check-docs.ts
+    run: deno run --allow-read tools/check-docs.ts
+    change_reasons:
+      note: 문서나 registry의 꼴이 바뀔 때.
 
   - id: architecture-layers
     kind: doc

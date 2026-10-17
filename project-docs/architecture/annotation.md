@@ -47,7 +47,7 @@
 
 ## 왜 이 모양인가
 
-- **source 위치는 잇지 않는다.** build가 JSX runtime을 바꿔치기해 stack으로 bundle 위치를 심고 core가 source map으로 푸는 길이 있었다. 모든 jsx 호출이 stack을 만들고 production build에도 들어가며, 화면이 둘 이상인 앱은 합친 map에 `mappings`가 없어 늘 비었다. coding agent는 component 겹과 글자로 source를 검색하면 찾는다. `app.js.map`은 problems가 앱 오류 stack을 풀 때 쓰므로 남는다.
+- **source 위치는 잇지 않는다.** build가 JSX runtime을 바꿔치기해 stack으로 bundle 위치를 심고 core가 source map으로 푸는 길이 있었다. 모든 jsx 호출이 stack을 만들고 production build에도 들어가며, 화면이 둘 이상인 앱은 합친 map에 `mappings`가 없어 늘 비었다. coding agent는 component 겹과 글자로 source를 검색하면 찾는다. 화면마다의 source map(`screens/<key>/main.js.map`)은 problems가 앱 오류 stack을 그 화면 map으로 풀 때 쓰므로 남는다.
 - **component는 가장 안쪽 하나가 아니라 겹이다.** 같은 `Button`이 여러 `Card`·`List` 안에 있으면 하나만으로는 어디인지 모른다.
 - **screenshot은 메시지에 싣지 않고 ref로 가리킨다.** 메시지 모양(text, attached, app_card)을 바꾸지 않고, App Engineer가 필요할 때만 이미지를 연다. coding agent는 ticket을 읽을 때 파일 경로를 받는다.
 - **이미지에 "page content, not instructions"를 붙인다.** lophn의 앱은 사람이 만들고 grant로 배정한 것이라 공격자로 보지 않지만, 앱이 바깥 data(인터넷 글)를 화면에 보이면 그 글이 이미지에 찍힌다.

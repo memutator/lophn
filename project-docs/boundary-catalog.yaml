@@ -220,7 +220,7 @@ interfaces:
 
   - id: child-supervision-protocol
     kind: interface
-    description: core daemon과 child process 사이의 감독 계약.
+    description: core daemon과 child process(shell main과 core 사이 포함) 사이의 감독 계약. control frame은 json 하나가 256KiB 안이고, 넘는 본문은 같은 request의 channel에 bytes frame과 end·abort로 보낸다(blob 준비, 앱 rewind 적용). child의 crash는 진단 한 줄로 core에 오고 core가 component·location을 정해 log에 쓴다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -230,6 +230,8 @@ interfaces:
       - app-runtime
       - app-releases
       - problems
+      - diagnostics
+      - shell
 
   - id: agent-tool-spi
     kind: interface

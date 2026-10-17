@@ -63,7 +63,9 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - lophn update → 실행 중인 앱: 앱은 판을 고정하고, release bundle에 굳힌 사본으로 돈다.
 - 사용자가 component를 고치려면 그 file을 앱 `src/`로 복사해 쓴다. 복사한 file은 앱 것이라 lophn의 UI update가 닿지 않는다. 별도 eject 도구는 없다.
 
-지금 빈 곳: data root에 설치 사본과 앱 template을 까는 코드가 없고, release bundle이 npm package를 두 번 담아 file 수 상한에 걸린다(`project-docs/issues/platform.md`). 그래서 위 2~4는 사본을 손으로 깐 확인으로만 검증했다.
+설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(blueprint, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
+
+지금 빈 곳: 내장 sdk는 package catalog에 없어 `package show`로 guide를 읽을 수 없다(`project-docs/issues/platform.md`). template 앱이 새 data root에서 release 준비까지 가는지는 E2E로 아직 보지 않았다.
 
 ## gallery가 정본이다
 

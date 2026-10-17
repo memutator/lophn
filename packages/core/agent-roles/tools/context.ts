@@ -1,6 +1,6 @@
-import { ok, type Result } from "../../../../base/mod.ts";
-import { appGet } from "../../../../protocol/apps/mod.ts";
-import { agentDefinitionRead } from "../../../../protocol/lophn-agent/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import { appGet } from "../../../protocol/apps/mod.ts";
+import { agentDefinitionRead } from "../../../protocol/lophn-agent/mod.ts";
 import {
   bundleOpenDraftRoute,
   bundleSubmitRoute,
@@ -14,13 +14,13 @@ import {
   glossaryRemoveRoute,
   glossarySetRoute,
   projectApi,
-} from "../../../../protocol/projects/mod.ts";
-import { contextGetOutputSchema } from "../../../../protocol/lophn-agent/context-text.ts";
-import { readContext } from "../../run-loop/place-data.ts";
-import { renderContextText } from "../../prompt-assembly/mod.ts";
-import { openDraft, setGlossary } from "../context/draft.ts";
-import { searchContext } from "../context/search.ts";
-import { checkVisible, contextAccess } from "../context/visible.ts";
+} from "../../../protocol/projects/mod.ts";
+import { contextGetOutputSchema } from "../../../protocol/lophn-agent/context-text.ts";
+import { readContext } from "../../lophn-agent/run-loop/place-data.ts";
+import { renderContextText } from "../../lophn-agent/prompt-assembly/mod.ts";
+import { openDraft, setGlossary } from "./context/draft.ts";
+import { searchContext } from "./context/search.ts";
+import { checkVisible, contextAccess } from "./context/visible.ts";
 import {
   commandOf,
   countSummary,
@@ -31,9 +31,9 @@ import {
   readOf,
   type ToolContext,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

@@ -11,7 +11,7 @@ import {
 } from "../../../projects/registry/mod.ts";
 import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
-import { ensureProjectManager } from "../../../lophn-agent/agents/ensure.ts";
+import { ensureProjectManager } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { operatorDirectory } from "../../../lophn-agent/register.ts";
 import { installPlaceEnvironment } from "../../../lophn-agent/places/mod.ts";

@@ -3,7 +3,11 @@ import {
   removeQueued,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
-import { providerList } from "../../../../protocol/lophn-agent/mod.ts";
+import { providerList, ROLES } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  agentConditions,
+  roleOperations,
+} from "../../../agent-roles/credentials.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
@@ -102,14 +106,19 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       });
     },
     // agent runtime(machine)과 turn의 agent 자격이 닿는 operation.
-    operations: (ctx) => agentRuntimePolicies(ctx.allRoutes, agentTools()),
+    operations: (ctx) =>
+      agentRuntimePolicies(
+        ctx.allRoutes,
+        ROLES.flatMap((role) => roleOperations(role, agentTools())),
+      ),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
     async afterReady(ctx) {
       const { runtime } = ctx;
       const started = await startAgentRuntimeChild({
         io: ctx.io,
-        tools: agentTools(),
+        operationsFor: (role) => roleOperations(role, agentTools()),
+        conditionsFor: agentConditions,
         diagnostic: (message) =>
           void ctx.diagnosticsWrite({
             ...message,

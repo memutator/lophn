@@ -1,15 +1,15 @@
-import { ok } from "../../../../base/mod.ts";
-import { instructionsGet } from "../../../../protocol/lophn-agent/mod.ts";
-import { decodeInstructionFile } from "../../instructions/read.ts";
+import { ok } from "../../../base/mod.ts";
+import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
+import { decodeInstructionFile } from "../../lophn-agent/instructions/read.ts";
 import {
   defineTool,
   fitted,
   limitText,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { idSchema } from "../../../../protocol/base/ids.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 
 // lophn만 갖는다. 다른 role은 project 지침을 prompt로 받는다.
 export const INSTRUCTION_TOOLS: readonly ToolDefinition[] = [

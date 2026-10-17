@@ -7,10 +7,14 @@ import {
   contextSearchRoute,
   type SearchInput,
 } from "../../../../protocol/projects/mod.ts";
-import { readOf } from "../../run-loop/core-call.ts";
-import { fitted, invalid, notFound } from "../fit-result.ts";
-import { PAGE_SIZE } from "../result.ts";
-import type { ToolContext } from "../tool-context.ts";
+import { readOf } from "../../../lophn-agent/run-loop/core-call.ts";
+import {
+  fitted,
+  invalid,
+  notFound,
+} from "../../../lophn-agent/tools/fit-result.ts";
+import { PAGE_SIZE } from "../../../lophn-agent/tools/result.ts";
+import type { ToolContext } from "../../../lophn-agent/tools/tool-context.ts";
 
 // context 검색 하나를 부른다. 입력은 그 context 적용된 판의 검색 선언으로 검사한다.
 

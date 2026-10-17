@@ -11,37 +11,12 @@ import {
   type ChildMessage,
 } from "../../../protocol/supervision/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
-import { roleOperations } from "./mod.ts";
-export { roleOperations };
+import type { CredentialConditions } from "../../../protocol/server/mod.ts";
 import type { AgentCredentialIssuer } from "./mod.ts";
 
 // agent runtime 감독 pipe의 agent credential 발급. child가 보낸 요청은 신뢰하지 않는다. turn이 있고 진행
 // 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session 역할의 상한 안인지를
 // core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
-
-// agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
-// `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
-// 같은 답이다. 다른 역할은 앱 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
-function agentConditions(input: {
-  session: string;
-  turn: string;
-  process: string;
-  role: string;
-  place: { kind: string; id: string } | null;
-}): {
-  session: string;
-  turn: string;
-  process: string;
-  app?: string;
-} {
-  const base = {
-    session: input.session,
-    turn: input.turn,
-    process: input.process,
-  };
-  if (input.role !== "app_engineer" || input.place?.kind !== "app") return base;
-  return { ...base, app: input.place.id };
-}
 
 type CoreCall = (
   path: string,
@@ -64,6 +39,14 @@ export function createAgentCredentialLink(options: {
   process: string;
   // 역할의 operation 상한.
   operationsFor: (role: string) => readonly string[];
+  // credential의 고정 조건. session과 turn, process에 역할이 더하는 조건을 얹는다.
+  conditionsFor: (input: {
+    session: string;
+    turn: string;
+    process: string;
+    role: string;
+    place: { kind: string; id: string } | null;
+  }) => CredentialConditions;
 }): AgentCredentialLink {
   const { operationsFor } = options;
 
@@ -104,7 +87,7 @@ export function createAgentCredentialLink(options: {
         operations,
         targets: { session: turn.turn.session, turn: message.turn },
       },
-      conditions: agentConditions({
+      conditions: options.conditionsFor({
         session: turn.turn.session,
         turn: message.turn,
         process: options.process,

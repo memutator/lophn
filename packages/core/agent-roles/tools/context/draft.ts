@@ -6,9 +6,13 @@ import {
   glossaryRemoveRoute,
   glossarySetRoute,
 } from "../../../../protocol/projects/mod.ts";
-import { commandOf, readOf } from "../../run-loop/core-call.ts";
-import { fitted, invalid, notFound } from "../fit-result.ts";
-import type { ToolContext } from "../tool-context.ts";
+import { commandOf, readOf } from "../../../lophn-agent/run-loop/core-call.ts";
+import {
+  fitted,
+  invalid,
+  notFound,
+} from "../../../lophn-agent/tools/fit-result.ts";
+import type { ToolContext } from "../../../lophn-agent/tools/tool-context.ts";
 
 // Project Manager가 context의 새 판을 만드는 쓰기다.
 

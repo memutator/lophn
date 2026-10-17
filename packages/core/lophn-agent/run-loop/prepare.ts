@@ -12,9 +12,9 @@ import {
   type AgentPlace,
   type AgentSession,
   agentSessionRead,
-  builtinToolNames,
   finishTurn,
   type ModelChoice,
+  type Role,
   startTurn,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
@@ -136,6 +136,8 @@ type PreparerDeps = {
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
   rolePrompt(role: string): Promise<Result<string>>;
+  // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
+  roleTools(role: Role): readonly string[];
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
@@ -322,7 +324,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // role이 고정한 목록에 이 turn이 닿는 app-api와 외부 MCP tool을 더한다.
     const current: readonly ToolDefinition[] = [
       ...selectTools(
-        builtinToolNames(session.agent.role),
+        deps.roleTools(session.agent.role),
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
       ),
@@ -614,6 +616,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
+      roleTools: deps.roleTools,
       skills: skills.filter((entry) => entry.enabled).map((entry) =>
         entry.name
       ),

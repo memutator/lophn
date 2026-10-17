@@ -7,11 +7,11 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
 import { appCreate } from "../../../../protocol/apps/mod.ts";
-import { withAppEngineer } from "../../../lophn-agent/agents/app-engineer.ts";
+import { withAppEngineer } from "../../../agent-roles/agents/app-engineer.ts";
 import {
   ensureAppEngineer,
   ensureLophn,
-} from "../../../lophn-agent/agents/ensure.ts";
+} from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import {

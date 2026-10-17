@@ -38,7 +38,7 @@ import {
   crashDiagnostic,
   installCrashHandler,
 } from "../../diagnostics/crash.ts";
-import { roleOperations } from "../../lophn-agent/run-loop/mod.ts";
+import { roleOperations } from "../../agent-roles/credentials.ts";
 import { agentTools } from "../agent-tools.ts";
 export { redact };
 import type { Compactor } from "../../lophn-agent/session/compactor.ts";

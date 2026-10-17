@@ -1,13 +1,10 @@
-import { TOOL_ORDER } from "../../protocol/lophn-agent/tool-catalog.ts";
+import { TOOL_ORDER } from "../agent-roles/tool-lists.ts";
+import { ROLE_AGENT_TOOLS } from "../agent-roles/tools/mod.ts";
 import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
 import { PROBLEMS_AGENT_TOOLS } from "../problems/agent-tools.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
 import { CALL_TOOLS } from "../lophn-agent/tools/bundles/call.ts";
-import { CONTEXT_TOOLS } from "../lophn-agent/tools/bundles/context.ts";
 import { FILE_TOOLS } from "../lophn-agent/tools/bundles/file.ts";
-import { GUIDE_TOOLS } from "../lophn-agent/tools/bundles/guide.ts";
-import { INSTRUCTION_TOOLS } from "../lophn-agent/tools/bundles/instructions.ts";
-import { OPERATOR_TOOLS } from "../lophn-agent/tools/bundles/operator.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
@@ -26,10 +23,7 @@ export function agentTools(): readonly ToolDefinition[] {
     ...WEB_TOOLS,
     ...APPS_AGENT_TOOLS,
     ...PROBLEMS_AGENT_TOOLS,
-    ...GUIDE_TOOLS,
-    ...OPERATOR_TOOLS,
-    ...INSTRUCTION_TOOLS,
-    ...CONTEXT_TOOLS,
+    ...ROLE_AGENT_TOOLS,
     ...CALL_TOOLS,
     ...ASK_TOOLS,
     ...SKILL_TOOLS,

@@ -10,7 +10,6 @@ import {
   type AgentDefinitionIssue,
   type AgentRef,
   type AgentValueLayer,
-  builtinToolNames,
   type McpTool,
   type ModelChoice,
   type Place,
@@ -46,6 +45,8 @@ type ResolveInput = {
   global_model: ModelChoice | null;
   project_model?: ModelChoice | null;
   session_model: ModelChoice | null;
+  // role이 고정한 tool 이름 목록. 어느 tool이 있는지는 role 층이 정한다.
+  tools: readonly string[];
   environment: ResolveEnvironment;
 };
 
@@ -159,7 +160,7 @@ export async function resolveAgent(
     profile: copy(profile ?? environment.default_profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
-    tools: [...builtinToolNames(role)],
+    tools: [...input.tools],
     skills,
     mcp: copy(mcp),
     contexts,

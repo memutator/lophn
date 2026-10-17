@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
-import { ROLES } from "./places.ts";
 import {
-  builtinToolNames,
+  ROLES,
   toWireToolName,
   WIRE_TOOL_NAME_PATTERN,
-} from "./tool-catalog.ts";
+} from "../../protocol/lophn-agent/mod.ts";
+import { builtinToolNames } from "./tool-lists.ts";
 
 // 이름이 겹치면 tool 실행이 다른 tool로 간다.
 Deno.test("builtin tool wire names fit the provider rule and never collide", () => {

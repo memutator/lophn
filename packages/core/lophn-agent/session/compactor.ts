@@ -8,6 +8,7 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
+  type Role,
   sessionCompactRequests,
   startModelCall,
   takeRewindSummaryRequest,
@@ -94,6 +95,7 @@ type CompactorDeps = {
   ids: IdSource;
   // machine 자격의 loopback.
   machine: CoreCall;
+  roleTools(role: Role): readonly string[];
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(
@@ -159,6 +161,7 @@ export function createCompactor(
     const made = await resolveTurnAgent(machine, {
       session: request.session,
       skills: [],
+      roleTools: deps.roleTools,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"

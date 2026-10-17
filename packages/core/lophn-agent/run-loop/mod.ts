@@ -100,8 +100,8 @@ export {
 export { type CallResult, runToolBatch } from "./tool-batch.ts";
 export { historyResultParts } from "./history.ts";
 export {
+  AGENT_BASE_OPERATIONS,
   EXTERNAL_TOOL_OPERATIONS,
-  roleOperations,
   RUNTIME_MACHINE_OPERATIONS,
   RUNTIME_MACHINE_ROUTES,
 } from "./runtime-access.ts";

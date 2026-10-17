@@ -1,7 +1,7 @@
 import type { Result } from "../../../base/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
-import type { AgentFileSystem } from "./ports.ts";
-import { createAgentStore, slotOf } from "./store.ts";
+import type { AgentFileSystem } from "../../lophn-agent/agents/ports.ts";
+import { createAgentStore, slotOf } from "../../lophn-agent/agents/store.ts";
 
 // built-in agent의 정의 파일을 만들어 둔다. 파일이 이미 있으면 그대로다(여러 번 불러도 하나다).
 // 정의는 파일이라 SQL transaction에 묶을 수 없다. 호출하는 쪽이 등록이 commit된 뒤에 부르는 것이 바르고,

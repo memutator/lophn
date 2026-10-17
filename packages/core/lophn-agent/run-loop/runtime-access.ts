@@ -1,28 +1,15 @@
 import { OPTION_ACTION_OPERATIONS } from "../tools/questions/mod.ts";
-import {
-  APP_TOOL_CONTRACT,
-  runOperations,
-  selectTools,
-  type ToolDefinition,
-} from "../tools/mod.ts";
-import {
-  builtinToolNames,
-  type Role,
-  ROLES,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
 import {
   contextContractRoute,
   contextGetRoute,
   contextListRoute,
-  glossaryListRoute,
-  projectApi,
 } from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
   agentDefinitionRead,
   agentSessionRead,
   applyQuestionOption,
-  callSendable,
   cancelQuestionGroup,
   checkpointTurn,
   compactSession,
@@ -46,12 +33,10 @@ import {
   questionText,
   receivedMessageList,
   recordMessage,
-  recordRewindWrite,
   recordToolRequest,
   rewindList,
   sessionCompactRequests,
   sessionSummary,
-  stageRewindFile,
   startModelCall,
   startToolCall,
   startTurn,
@@ -62,13 +47,7 @@ import {
   turnList,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { annotationsGet } from "../../../protocol/apps/annotation.ts";
-import {
-  appGet,
-  appList,
-  appRuntime,
-  invocationsList,
-} from "../../../protocol/apps/mod.ts";
+import { appRuntime, invocationsList } from "../../../protocol/apps/mod.ts";
 import {
   agentGrantsGet,
   applyApprovedAction,
@@ -176,52 +155,10 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
 // 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 역할의 상한에 더한다.
 const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
 
-// prompt의 place 정보(project·앱·context 글·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
-// 자격으로 읽으므로 모든 역할의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.
-const PLACE_READS: readonly string[] = [
-  contextListRoute.name,
-  contextGetRoute.name,
-  contextContractRoute.name,
-  glossaryListRoute.name,
-  projectApi.get.name,
-  projectApi.list.name,
-  appGet.name,
-  appList.name,
-  appAppApi.name,
-  callSendable.name,
+// 어느 역할이든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent grant와 tool 목록이
+// 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. 역할 몫은 role 층이 더한다.
+export const AGENT_BASE_OPERATIONS: readonly string[] = [
+  APP_TOOL_CONTRACT,
+  ...EXTERNAL_TOOL_OPERATIONS,
+  ...HUMAN_WAIT_ROUTES,
 ];
-
-const REWIND_WRITE_TOOLS: readonly string[] = ["file.write", "file.edit"];
-
-function isRole(role: string): role is Role {
-  return (ROLES as readonly string[]).includes(role);
-}
-
-// 역할이 닿을 수 있는 operation의 상한. 역할이 고정한 tool 목록이 부르는 route와 보조 operation이다.
-// runtime은 turn마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
-// 앱 command 통로(`app.connect`)는 어느 역할이든 닿을 수 있다: 범위는 agent grant와 tool 목록이 정한다.
-export function roleOperations(
-  role: string,
-  definitions: readonly ToolDefinition[],
-): readonly string[] {
-  if (!isRole(role)) return [];
-  const tools = selectTools(builtinToolNames(role), {
-    input_media: ["image"],
-  }, definitions);
-  return [
-    ...new Set([
-      ...runOperations(tools),
-      // 쓰는 tool(file.write, file.edit)이 쓰기 전후에 core에 pre-image를 남기는 route다.
-      ...(tools.some((tool) => REWIND_WRITE_TOOLS.includes(tool.name))
-        ? [stageRewindFile.name, recordRewindWrite.name]
-        : []),
-      ...PLACE_READS,
-      // image.read가 annotation screenshot 경로를 읽는다. 앱 범위는 App Engineer 자격의 app 조건이 정하므로
-      // 앱에 묶이지 않는 다른 역할에는 주지 않는다.
-      ...(role === "app_engineer" ? [annotationsGet.name] : []),
-      APP_TOOL_CONTRACT,
-      ...EXTERNAL_TOOL_OPERATIONS,
-      ...HUMAN_WAIT_ROUTES,
-    ]),
-  ];
-}

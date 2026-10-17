@@ -8,6 +8,7 @@ import {
   type ModelChoice,
   type Place,
   projectModelRead,
+  type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { DEFAULT_PROFILES } from "./builtin.ts";
@@ -74,6 +75,8 @@ export async function resolveTurnAgent(
   input: {
     session: string;
     skills: readonly string[];
+    // role이 고정한 tool 이름 목록이다. role은 정의를 읽어야 알므로 함수로 받는다.
+    roleTools(role: Role): readonly string[];
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     // 어느 tool을 켜는지는 resolve가 정한다.
     mcp(
@@ -138,6 +141,7 @@ export async function resolveTurnAgent(
     global_model: globalModel,
     project_model: projectModel,
     session_model: session.model_selection,
+    tools: input.roleTools(role),
     environment: {
       default_profile: DEFAULT_PROFILES[role],
       skills: input.skills,

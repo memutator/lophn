@@ -3,7 +3,6 @@ import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
-import { ensureLophn, ensureProjectManager } from "./ensure.ts";
 import type { AgentLookups } from "./ports.ts";
 import { createAgentStore, slotOf } from "./store.ts";
 
@@ -66,13 +65,12 @@ Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름�
     assertEquals(changed.error.code, "not_found");
 
     // Operator 삭제는 Operator 파일만 지운다. built-in 파일은 ensure가 만든 채로 남는다.
-    assert(ensureLophn({ files, root }).ok);
-    assert(ensureProjectManager({ files, root }, PROJECT).ok);
     const store = createAgentStore(files, root);
     const manager = slotOf(root, {
       role: "project_manager",
       project: PROJECT as never,
     })!;
+    assert(store.write(manager, "").ok);
     const stored = store.read(
       slotOf(root, { role: "operator", agent: OPERATOR as never }, place)!,
     );

@@ -1,15 +1,15 @@
-import { ok, type Result } from "../../../../base/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
 import {
   agentDefinitionList,
   agentDefinitionRead,
   operatorChange,
   operatorCreate,
   type Place,
-} from "../../../../protocol/lophn-agent/mod.ts";
-import { appList } from "../../../../protocol/apps/mod.ts";
-import { projectList } from "../../../../protocol/projects/mod.ts";
-import { settingsEditIntent } from "../../tool-judgment/intents.ts";
-import { operatorPlaceAllowed } from "../domain/operator-place.ts";
+} from "../../../protocol/lophn-agent/mod.ts";
+import { appList } from "../../../protocol/apps/mod.ts";
+import { projectList } from "../../../protocol/projects/mod.ts";
+import { settingsEditIntent } from "../../lophn-agent/tool-judgment/intents.ts";
+import { operatorPlaceAllowed } from "../../lophn-agent/tools/domain/operator-place.ts";
 import {
   commandOf,
   defineTool,
@@ -21,10 +21,10 @@ import {
   readOf,
   type ToolContext,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { operatorDefinitionSchema } from "../../../../protocol/lophn-agent/operators.ts";
-import { agentNameSchema } from "../../../../protocol/lophn-agent/agent-values.ts";
+import { operatorDefinitionSchema } from "../../../protocol/lophn-agent/operators.ts";
+import { agentNameSchema } from "../../../protocol/lophn-agent/agent-values.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

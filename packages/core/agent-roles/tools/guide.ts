@@ -1,6 +1,6 @@
-import { ok } from "../../../../base/mod.ts";
-import { settingsList } from "../../../../protocol/config/mod.ts";
-import { guideText, guideTopics } from "../../roles/guides.ts";
+import { ok } from "../../../base/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
+import { guideText, guideTopics } from "../../lophn-agent/roles/guides.ts";
 import {
   defineTool,
   fitted,
@@ -8,7 +8,7 @@ import {
   notFound,
   readOf,
   type ToolDefinition,
-} from "../spi.ts";
+} from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {

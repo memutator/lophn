@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { ROLES } from "../../protocol/lophn-agent/places.ts";
-import { builtinToolNames } from "../../protocol/lophn-agent/tool-catalog.ts";
+import { builtinToolNames } from "../agent-roles/tool-lists.ts";
 import { ticketCreate } from "../../protocol/coding-agent/ticket/mod.ts";
-import { roleOperations } from "../lophn-agent/run-loop/mod.ts";
+import { roleOperations } from "../agent-roles/credentials.ts";
 import { agentTools } from "./agent-tools.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.

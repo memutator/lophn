@@ -1,12 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
-import {
-  type AgentRef,
-  builtinToolNames,
-  ROLES,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { type AgentRef, ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile } from "./definition-file.ts";
 import { resolveAgent } from "./resolve.ts";
 
+// role 층이 정하는 값이다. resolve는 받은 그대로 담는다.
+const TOOLS = ["file.read", "ticket.list"];
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
 const OPERATOR = "agt_00000000000000000000000001";
@@ -58,8 +56,9 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
         mcp: [],
         active_contexts: [],
       },
+      tools: TOOLS,
     });
     assert(resolved.ok);
-    assertEquals(resolved.value.tools, [...builtinToolNames(role)]);
+    assertEquals(resolved.value.tools, TOOLS);
   }
 });

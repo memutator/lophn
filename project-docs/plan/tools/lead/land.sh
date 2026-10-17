@@ -13,6 +13,9 @@ cd "$L" || exit 1
 [ -z "$(git status --short | grep -v node_modules)" ] || { echo "STOP: lead worktree에 commit 안 된 변경"; git status --short | head; exit 1; }
 git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
 out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: full check failed"; exit 1; }
+if ls tests/e2e/*_test.ts >/dev/null 2>&1; then
+  out=$(deno task e2e 2>&1) || { echo "$out" | tail -30; echo "STOP: e2e failed"; exit 1; }
+fi
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed"; echo "$BOOT" | tail -6; exit 1; }
 git -C "$MAIN" merge --ff-only -q "plan/$plan" || { echo "STOP: main ff failed"; exit 1; }
 echo "landed plan/$plan at $(git rev-parse --short HEAD)"

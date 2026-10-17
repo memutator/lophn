@@ -371,15 +371,6 @@ components:
     change_reasons:
       note: 쓰지 않기로 한 말이나 꼴이 늘 때.
 
-  - id: tool-fake-provider
-    kind: tool
-    roles: [worker]
-    description: 개발과 test용 가짜 model provider. 실제 provider를 부르지 않는다. 시나리오는 POST /__fake/script, 요청 log는 GET /__fake/log.
-    path: tools/fake-provider/
-    run: deno run -A tools/fake-provider/main.ts
-    change_reasons:
-      boundaries: [models]
-
   - id: tool-dev
     kind: tool
     roles: [worker, designer]

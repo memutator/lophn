@@ -2,7 +2,7 @@
 // 하나만 말한다(path `/messages`). 기대와 다른 요청과 queue가 빈 요청은 HTTP 400으로
 // 답한다. 500 계열은 제품이 temporary로 보고 retry해서 test가 헷갈린다.
 
-import { toResponse } from "./reply.ts";
+import { type Held, toResponse } from "./reply.ts";
 import type { FakeServer, JournalEntry, Reply, Step } from "./types.ts";
 
 export type {
@@ -74,13 +74,13 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
     };
     entries.push(entry);
     const until = AbortSignal.any([request.signal, closing.signal]);
+    // Deno는 정상으로 다 보낸 응답 뒤에도 request.signal을 abort한다. 붙들고 있는 동안
+    // client가 끊은 것만 aborted로 센다. close()로 놓아 준 것도 client 끊김이 아니다.
+    const held: Held = { on: false };
     const gone = abort(n);
-    if (request.signal.aborted) gone.resolve();
-    else {
-      request.signal.addEventListener("abort", () => gone.resolve(), {
-        once: true,
-      });
-    }
+    request.signal.addEventListener("abort", () => {
+      if (held.on && !closing.signal.aborted) gone.resolve();
+    }, { once: true });
     arrival(n).resolve(entry);
 
     const miss = (message: string) => {
@@ -105,13 +105,15 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
     if (reply.kind === "silent") {
       // header도 주지 않는다. client가 끊거나 server를 닫을 때까지 응답하지 않는다.
       if (!until.aborted) {
+        held.on = true;
         await new Promise<void>((resolve) =>
           until.addEventListener("abort", () => resolve(), { once: true })
         );
+        held.on = false;
       }
       return new Response(null, { status: 499 });
     }
-    return toResponse(reply, until);
+    return toResponse(reply, until, held);
   }
 
   return {

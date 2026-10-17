@@ -55,7 +55,7 @@ export type FakeServer = {
   reset(): void; // queue와 journal을 비운다
   journal(): readonly JournalEntry[];
   arrived(n: number): Promise<JournalEntry>; // n번째(1부터) 요청이 들어온 때 풀린다
-  aborted(n: number): Promise<void>; // n번째 요청의 연결을 client가 끊은 때 풀린다
+  aborted(n: number): Promise<void>; // n번째 요청을 server가 붙들고 있는 동안(silent, stall, raw hold) client가 끊은 때 풀린다. 다 보낸 응답 뒤의 끊김과 close()는 풀지 않는다
   handle(request: Request): Promise<Response>;
   close(): Promise<void>;
 };

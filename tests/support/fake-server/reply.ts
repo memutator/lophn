@@ -7,6 +7,9 @@ const SSE_HEADERS = {
   "content-type": "text/event-stream",
   "cache-control": "no-cache",
 };
+// server가 응답을 붙들고 있는 동안만 true다. 그 사이의 client 끊김만 aborted로 센다.
+export type Held = { on: boolean };
+
 const DEFAULT_USAGE = { input: 10, output: 5 };
 
 function event(type: string, data: Record<string, unknown>): string {
@@ -93,6 +96,7 @@ function body(
   chunks: readonly string[],
   end: "close" | "hold",
   until: AbortSignal,
+  held: Held,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   let release = () => {};
@@ -103,11 +107,13 @@ function body(
         controller.close();
         return;
       }
+      held.on = true;
       return new Promise<void>((resolve) => {
         release = resolve;
         if (until.aborted) resolve();
         else until.addEventListener("abort", () => resolve(), { once: true });
       }).then(() => {
+        held.on = false;
         try {
           controller.close();
         } catch {
@@ -125,6 +131,7 @@ function body(
 export function toResponse(
   reply: Exclude<Reply, { kind: "silent" }>,
   until: AbortSignal,
+  held: Held,
 ): Response {
   if (reply.kind === "error") {
     return new Response(reply.body ?? "", {
@@ -133,7 +140,7 @@ export function toResponse(
     });
   }
   if (reply.kind === "raw") {
-    return new Response(body(reply.chunks, reply.end ?? "close", until), {
+    return new Response(body(reply.chunks, reply.end ?? "close", until, held), {
       status: reply.status,
       headers: reply.headers,
     });
@@ -162,5 +169,5 @@ export function toResponse(
     chunks = partialChunks(reply.partial);
     end = reply.kind === "stall" ? "hold" : "close";
   }
-  return new Response(body(chunks, end, until), { headers: SSE_HEADERS });
+  return new Response(body(chunks, end, until, held), { headers: SSE_HEADERS });
 }

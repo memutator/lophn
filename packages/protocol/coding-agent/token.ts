@@ -23,7 +23,10 @@ type CodingTokenScope = z.infer<typeof codingTokenScopeSchema>;
 
 // token 발급과 회수. 회수한 token의 새 호출은 거절한다.
 export type CodingTokens = {
-  issue(scope: CodingTokenScope): Result<{ token: string }>;
+  // credential_ref는 core가 그 자격을 ledger에 기록할 때 쓴다(기록이 없으면 writer가 그 token의 command를 거절한다).
+  issue(
+    scope: CodingTokenScope,
+  ): Result<{ token: string; credential_ref: string }>;
   revoke(session: string): Result<void>;
 };
 export const CodingTokens: PortKey<CodingTokens> = definePort<CodingTokens>(

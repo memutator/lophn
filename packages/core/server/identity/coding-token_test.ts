@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { cryptoRandom, manualClock } from "../../../base/mod.ts";
 import { CODING_CLI_COMMANDS } from "../../../protocol/coding-agent/mod.ts";
+import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import { createCodingTokens } from "./coding-token.ts";
 import { type OperationPolicy } from "./model.ts";
 import { CredentialRegistry } from "./registry.ts";
@@ -8,9 +9,12 @@ import { CredentialRegistry } from "./registry.ts";
 const id = (prefix: string, n: number) =>
   `${prefix}_${String(n).padStart(26, "0")}`;
 
-const tokenRoutes = CODING_CLI_COMMANDS.flatMap((command) =>
-  command.auth === "coding_token" && command.route ? [command.route.name] : []
-);
+const tokenRoutes = [
+  ticketUploadSummary.name,
+  ...CODING_CLI_COMMANDS.flatMap((command) =>
+    command.auth === "coding_token" && command.route ? [command.route.name] : []
+  ),
+];
 const OUTSIDE = "approvals.decide";
 
 Deno.test("coding token은 그 앱 하나만 열고 회수하면 새 호출이 거절된다", async () => {

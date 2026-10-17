@@ -26,9 +26,8 @@ import {
   waitRunning,
 } from "../support/app/activate.ts";
 import { projectScopePatch } from "../support/app/patches.ts";
-import { createAppRun } from "../support/app/run.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
-import { bootCore, type Core } from "../support/core/mod.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider, until } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
@@ -50,7 +49,7 @@ async function activationRequests(core: Core, app: string) {
 }
 
 Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 뒤 첫 activation 허락으로만 뜨고, 거절하면 뜨지 않는다", async () => {
-  const run = await createAppRun();
+  const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
   const gateways: { close(): Promise<void> }[] = [];

@@ -17,11 +17,10 @@ import {
 } from "../../../packages/protocol/base/mod.ts";
 import { spawnCore, tail, waitGone } from "./process.ts";
 
-const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 const SETTINGS_FILE = "settings.json";
 
 export type Run = {
-  /** <repo>/.dev-data/e2e/<Deno.makeTempDir가 정한 이름> */
+  /** 시스템 임시 폴더의 lophn-e2e-<Deno.makeTempDir가 정한 이름> */
   dir: string;
   /** dir/home. LOPHN_HOME(0700) */
   home: string;
@@ -81,9 +80,9 @@ export class CallError extends Error {
 }
 
 export async function createRun(): Promise<Run> {
-  const root = `${REPO}/.dev-data/e2e`;
-  await Deno.mkdir(root, { recursive: true, mode: 0o700 });
-  const dir = await Deno.makeTempDir({ dir: root, prefix: "run-" });
+  // worktree 안(.claude/worktrees/<이름>/.dev-data/...)은 app test의 Unix socket 경로가 108자(SUN_LEN)를 넘는다.
+  // 그래서 run은 짧은 경로의 시스템 임시 폴더에 둔다.
+  const dir = await Deno.makeTempDir({ prefix: "lophn-e2e-" });
   const home = `${dir}/home`;
   const work = `${dir}/work`;
   await Deno.mkdir(home, { mode: 0o700 });

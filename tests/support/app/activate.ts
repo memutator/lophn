@@ -3,7 +3,7 @@
 // data root에 release를 직접 깔지 않는다. coding token은 Gateway `coding_terminal` frame으로만 받는다.
 //
 // App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `ticket_create`가 있고 본문에
-// 그 앱 id가 있는 요청이 받는다(앱마다 이름이 다르다).
+// 이 앱의 사람 메시지(`App <id>:`)가 있는 요청이 받는다. 앱 id만으로 가르면 다른 앱의 id를 싣는 prompt와 섞인다.
 import { assertEquals } from "@std/assert";
 import { releasesListRecords } from "../../../packages/protocol/apps/activation/activation.ts";
 import {
@@ -140,7 +140,7 @@ function aeLane(app: TestApp) {
     name: `ae-${app.app}`,
     match: (request: JournalEntry) =>
       toolNames(request).includes("ticket_create") &&
-      JSON.stringify(request.body).includes(app.app),
+      JSON.stringify(request.body).includes(`App ${app.app}:`),
   };
 }
 

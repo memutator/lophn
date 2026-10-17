@@ -75,3 +75,22 @@ guard: packages/core/apps/runtime/supervisor-link_test.ts
 - apply 본문을 bytes frame stream으로 보낸다(중간). 추천.
 
 닫음: `apps.apply`는 json 요청(`worker_request`에 `channel`, payload는 `{ app }`만)을 먼저 보내고 본문(`ProcessApplyRequest` JSON)을 같은 channel의 `bytes` frame(`STREAM_CHUNK_MAX_BYTES` 단위, 쓰기가 끝나야 다음)과 `end`로 보낸다. 보내다 실패하거나 기한이 지나면 core가 `abort`를 보내고 `unavailable`로 끝낸다. supervisor(`supervisor/control-link.ts`)는 `end`까지 모았다가 op 처리기에 body로 넘긴다. 뒤집은 changeset 전부가 한 transaction으로 가는 것은 그대로다. 같은 변경에서 core가 `CALL_BODY_MAX_BYTES`를 넘는 호출 입력을 보내기 전에 `invalid_input`으로 거절한다.
+
+## changeset을 빼도 `result`가 control frame을 넘으면 결과 모름으로 닫힌다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: packages/core/apps/runtime/entrypoint/fit_test.ts
+```
+
+지금: 앱 호출 결과 값 상한 `RESULT_MAX_BYTES`(1MiB, `entrypoint/limits.ts`)가 응답이 지나는 control frame(256KiB)보다 크다. `fitChangeset`은 changeset만 빼므로 `result`가 256KiB 근처를 넘으면 relay가 응답을 거절하고 호출이 결과 모름(`unknown`)으로 닫힌다.
+
+영향: 큰 읽기 결과를 내는 앱 호출이 실패가 아니라 결과 모름이 되고, write라면 rewind가 막힌다.
+
+고치려면:
+- `RESULT_MAX_BYTES`를 frame 한도 아래로 낮춘다(작음). 추천.
+- 응답을 bytes frame stream으로 보낸다(중간).
+
+닫음: `RESULT_MAX_BYTES`는 `CALL_RESPONSE_MAX_BYTES - 1024`(결과 밖 칸 몫)라 상한 안의 결과는 changeset을 빼면 늘 control frame에 든다. 같은 이유로 입력 상한 `CALL_BODY_MAX_BYTES`도 `CONTROL_MAX_BYTES - 2 * 1024`(target·envelope 몫)로 낮췄고, core가 그보다 큰 입력은 보내기 전에 `invalid_input`으로 거절한다(`createAppProcessLink.call`). 큰 값은 blob이나 file로 넘긴다.

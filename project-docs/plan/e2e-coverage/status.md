@@ -41,7 +41,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | merged | coding-message-to-ae/coding-message-to-ae | 57364371b |  |
 | `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | merged | coding-one-per-app/coding-one-per-app | 1052825e9 |  |
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | merged | coding-report-needs-release/coding-report-needs-release | 13f333075 |  |
-| `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
+| `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | running | coding-token-not-stored/coding-token-not-stored |  |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | merged | coding-token-scope/coding-token-scope | aff4042fa |  |
 | `app-socket-root` | fix | 3 | 없음 | merged | fix/app-socket-root | f690e93ed |  |
 | `caller-directory` | fix | 3 | 없음 | merged | fix/caller-directory | 9cf9bb9a6 |  |
@@ -50,7 +50,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |
 | `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | merged | operator/operator-app-api | 2124e9270 |  |
-| `operator-grants` | operator | 3 | operator-app-api | running | operator/operator-grants |  |  |
+| `operator-grants` | operator | 3 | operator-app-api | merged | operator/operator-grants | f4bce5e43 |  |
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |
 | `reaction-app` | reaction-app | 3 | reaction-rows, test-app | merged | reaction-app/reaction-app | fa1b9f126 |  |
 | `reaction-context` | reaction-context | 3 | pm-context | merged | reaction-context/reaction-context | 915745354 |  |

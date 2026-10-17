@@ -1,6 +1,6 @@
 # 계획: UI kit 하나로 모으기
 
-상태: 열었음. 분류는 정했다(`classification.md`). brief는 `tasks/`, 상태는 `status.md`(`python3 -I project-docs/plan/tools/status.py ui-kit build`).
+상태: 열었음. 분류는 정했다(`classification.md`). brief는 `tasks/`, 상태는 `status.md`(`python3 -I project-docs/plan/tools/status.py ui-kit build`). lead는 `project-docs/plan/tools/lead/lead.sh ui-kit`이 여는 worktree(branch `plan/ui-kit`)에서 돌린다.
 
 ## 이 계획
 
@@ -37,7 +37,8 @@
 
 ## 돌리기 전에
 
-- "이슈 결정 적용" 계획은 끝났다. 계획 tool은 계획 이름을 첫 인자로 받는다(`status.py ui-kit ready`, `launch.sh ui-kit <id>`, `prompt.py ui-kit <id> <branch>`, `merge.sh ui-kit <id>`).
+- "이슈 결정 적용" 계획은 끝났다. 계획 tool은 계획 이름을 첫 인자로 받는다(`status.py ui-kit ready`, `launch.sh ui-kit <id>`, `prompt.py ui-kit <id> <branch>`, `merge.sh ui-kit <id>`, wave 끝에 `land.sh ui-kit`).
+- harness-domain 계획과 같이 돌 수 있다. 겹칠 수 있는 곳은 `packages/core/apps`와 `tools/check.ts` 정도이고 `status.py ready`가 거른다.
 
 ## lead가 할 일
 

@@ -8,19 +8,20 @@
 """
 import os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from briefs import plan_dir, plan_names, read_briefs, resolve_deps, clash
+from briefs import plan_dir, plan_names, other_plans, read_briefs, resolve_deps, clash
 
 COLS = ["id", "단위", "wave", "선행", "상태", "branch", "commit", "기록"]
 MAX_WORKERS = 8  # core type check 하나가 약 2.6GB다. RAM에 맞춰 고친다.
 
-def status_path(plan):
-    return os.path.join(plan_dir(plan), "status.md")
+def status_path(plan, folder=None):
+    return os.path.join(folder or plan_dir(plan), "status.md")
 
-def load(plan):
+def load(plan, folder=None):
     rows = {}
-    if not os.path.exists(status_path(plan)):
+    path = status_path(plan, folder)
+    if not os.path.exists(path):
         return rows
-    for line in open(status_path(plan), encoding="utf-8"):
+    for line in open(path, encoding="utf-8"):
         if line.startswith("| ") and not line.startswith("| id ") and not line.startswith("|--"):
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if len(cells) == len(COLS):
@@ -53,10 +54,8 @@ def dependents(briefs):
 def running_elsewhere(plan):
     # 다른 계획에서 도는 task. 같은 file을 두 계획이 동시에 고치지 않게 소유를 같이 본다.
     out = []
-    for other in plan_names():
-        if other == plan:
-            continue
-        briefs, rows = read_briefs(other), load(other)
+    for other, folder in other_plans(plan):
+        briefs, rows = read_briefs(other, folder), load(other, folder)
         out += [b for t, b in briefs.items() if rows.get(t, {}).get("상태") in ("running", "review")]
     return out
 
@@ -85,7 +84,7 @@ def ready(plan, briefs, rows):
 
 def same_ids(plan, briefs):
     # worktree와 branch 이름이 task id라 계획을 건너서도 id가 하나여야 한다.
-    return sorted(t for other in plan_names() if other != plan for t in read_briefs(other) if t in briefs)
+    return sorted(t for other, folder in other_plans(plan) for t in read_briefs(other, folder) if t in briefs)
 
 def main():
     plan = sys.argv[1] if len(sys.argv) > 1 else ""

@@ -1,7 +1,8 @@
 # task brief(<계획>/tasks/*.md)를 읽는 공용 함수. status.py와 lead/pick.py가 쓴다.
-# 계획 하나가 project-docs/plan/<계획>/ 폴더 하나다. 여러 계획이 같이 돌 수 있다.
+# 계획 하나가 project-docs/plan/<계획>/ 폴더 하나이고, lead는 계획마다 branch `plan/<계획>`의 worktree에서 돈다.
+# 여러 계획이 같이 돌 수 있어 다른 계획의 상태는 그 lead worktree에서 읽는다.
 # brief가 없어도 돈다(빈 dict). brief 꼴은 .claude/skills/orchestrate/brief-template.md.
-import os, re
+import os, re, subprocess
 
 PLANS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO = os.path.dirname(os.path.dirname(PLANS))
@@ -20,9 +21,27 @@ def plan_names():
 def shared(path):
     return path.startswith("packages/design/wording") or path.endswith(".placeholders.ts")
 
-def read_briefs(plan):
+def other_plans(plan):
+    # 이 계획 말고 열린 계획마다 (이름, 계획 폴더). lead worktree(branch plan/<이름>)에 있는 것이 그 계획의 바른 상태다.
+    found = {}
+    for name in plan_names():
+        if name != plan:
+            found[name] = os.path.join(PLANS, name)
+    out = subprocess.run(["git", "-C", REPO, "worktree", "list", "--porcelain"], capture_output=True, text=True).stdout
+    path = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree "):]
+        elif line.startswith("branch refs/heads/plan/") and path is not None:
+            name = line[len("branch refs/heads/plan/"):]
+            folder = os.path.join(path, "project-docs", "plan", name)
+            if name != plan and os.path.isdir(os.path.join(folder, "tasks")):
+                found[name] = folder
+    return sorted(found.items())
+
+def read_briefs(plan, folder=None):
     briefs = {}
-    tdir = os.path.join(plan_dir(plan), "tasks")
+    tdir = os.path.join(folder or plan_dir(plan), "tasks")
     if not os.path.isdir(tdir):
         return briefs
     for name in sorted(os.listdir(tdir)):

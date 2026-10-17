@@ -1,17 +1,19 @@
 """사용: python3 -I prompt.py <계획> <id> <branch> [note]
 worker 지시문을 찍는다. 그대로 Agent prompt로 쓴다. main checkout의 것을 돌린다.
 note는 이 task에만 해당하는 "알아 둘 것"이다."""
-import os, sys
+import os, subprocess, sys
 if len(sys.argv) < 4:
     print(__doc__); sys.exit(0)
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *[os.pardir] * 4))
+# task worktree는 main checkout의 .claude/worktrees/ 아래에 있다(lead worktree 안이 아니다).
+MAIN = os.path.dirname(subprocess.run(["git", "-C", ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True).stdout.strip())
 plan, tid, branch = sys.argv[1], sys.argv[2], sys.argv[3]
 note = sys.argv[4] if len(sys.argv) > 4 else "없음"
 if not os.path.exists(os.path.join(ROOT, "project-docs/plan", plan, "tasks", f"{tid}.md")):
     sys.exit(f"brief 없음: project-docs/plan/{plan}/tasks/{tid}.md")
 print(f"""lophn task `{tid}`를 해 줘.
 
-- 작업 위치: {ROOT}/.claude/worktrees/{tid} (branch {branch}). 이 worktree 밖의 file은 고치지 않는다.
+- 작업 위치: {MAIN}/.claude/worktrees/{tid} (branch {branch}). 이 worktree 밖의 file은 고치지 않는다.
 - 먼저 읽을 것:
   1. 작업 위치의 AGENTS.md (특히 "속도": 프로토타입이다. 가장 단순한 구현, 미리 일반화·방어 코드 금지)
   2. {ROOT}/project-docs/plan/{plan}/tasks/{tid}.md (이 task의 brief. 끝의 "(lead가 더함)" 항목이 있으면 그것도 할 일이다)

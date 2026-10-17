@@ -264,9 +264,9 @@ components:
   - id: tool-lead
     kind: tool
     roles: [lead]
-    description: worktree 만들기(launch.sh), worker prompt(prompt.py), rebase·check·ff-merge(merge.sh, merge-fix.sh), route 중복 검사와 core 두 번 기동(boot.sh).
+    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh), route 중복 검사와 core 두 번 기동(boot.sh).
     path: project-docs/plan/tools/lead/
-    run: project-docs/plan/tools/lead/launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id>
+    run: project-docs/plan/tools/lead/lead.sh <계획> / launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id> / land.sh <계획>
     change_reasons:
       paths: [tools/worktree-prep.ts, tools/check.ts]
       note: worker 지침이나 merge 절차가 바뀔 때. skill-orchestrate와 같이 고친다.

@@ -11,7 +11,9 @@
 | `<계획>/tasks/<id>.md` | worker에게 넘기는 brief. task 하나에 file 하나. `status.py`가 "단위", "선행", "소유" 줄을 읽는다 |
 | 그 밖 | 계획마다 필요한 재료(예: 분류 표). 계획이 끝나면 같이 지운다 |
 
-`tools/`는 모든 계획이 같이 쓴다: `status.py <계획> build | ready | set`(상태 표, 띄울 task 고르기), `lead/`(`pick.py <계획> N`, `launch.sh <계획> <id>…`, `prompt.py <계획> <id> <branch>`, `merge.sh <계획> <id>`, `boot.sh`).
+`tools/`는 모든 계획이 같이 쓴다: `status.py <계획> build | ready | set`(상태 표, 띄울 task 고르기), `lead/`(`lead.sh <계획>`, `pick.py <계획> N`, `launch.sh <계획> <id>…`, `prompt.py <계획> <id> <branch>`, `merge.sh <계획> <id>`, `land.sh <계획>`, `boot.sh`).
+
+lead는 main checkout에서 일하지 않는다. 계획마다 branch `plan/<계획>`의 worktree(`lead.sh`가 연다)에서 task를 합치고, wave가 끝날 때 `land.sh`로 main에 올린다.
 
 ## 새 계획의 README
 

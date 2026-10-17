@@ -5,9 +5,11 @@ description: lead(주 session)가 계획 하나(project-docs/plan/<계획>/)를 
 
 # 오케스트레이션
 
-lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합친다. 기능 코드를 직접 짜지 않는다. 직접 고치는 것은 셋뿐이다: 공용 등록 file, 고정된 계약을 바꾸는 작은 commit, merge 충돌 가운데 등록 file 충돌.
+lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의 branch에 합치고, wave마다 main에 올린다. 기능 코드를 직접 짜지 않는다. 직접 고치는 것은 셋뿐이다: 공용 등록 file, 고정된 계약을 바꾸는 작은 commit, merge 충돌 가운데 등록 file 충돌.
 
-계획 하나가 `project-docs/plan/<계획>/` 폴더 하나다(꼴은 `project-docs/plan/README.md`). task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 모두 첫 인자로 계획 이름을 받으며 **main checkout에서** 돌린다. worktree에도 project-docs 사본이 생기지만 `status.md`와 brief는 main checkout의 것이 바른 것이다. 다른 계획이 같이 돌 수 있다. `status.py ready`가 다른 계획의 running task와 소유가 겹치는 task를 거른다.
+계획 하나가 `project-docs/plan/<계획>/` 폴더 하나다(꼴은 `project-docs/plan/README.md`). task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 모두 첫 인자로 계획 이름을 받는다.
+
+**lead는 main checkout에서 일하지 않는다.** 계획마다 branch `plan/<계획>`과 그 worktree(`.claude/worktrees/plan-<계획>`)가 lead의 자리다. `lead/lead.sh <계획>`이 만들고 경로를 찍는다. lead의 모든 명령(status, launch, prompt, merge, 이슈와 status commit)은 그 경로에서 돌린다(Bash 호출마다 `cd <그 경로> && ...`). task branch는 plan branch에서 갈라지고 merge.sh는 plan branch로 합친다. main에는 wave가 끝날 때 `lead/land.sh <계획>`이 올린다. 그래서 계획 둘이 같이 돌아도 main checkout과 서로의 작업 트리를 건드리지 않는다. `status.md`와 brief는 lead worktree의 것이 바른 것이다. `status.py ready`는 다른 계획의 lead worktree에서 running task를 읽어 소유가 겹치는 task를 거른다.
 
 ## 병렬 규칙
 
@@ -15,13 +17,13 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합�
 2. 단위마다 소유 path만 고친다. 남의 file은 import만 한다. 남이 쓰는 export는 더하기만 하고, 안 쓰게 된 것은 보고하면 lead가 합친 뒤 지운다.
 3. 공용 등록 file은 lead가 합친다: `deno.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `pages.ts`. worker는 "등록할 것"을 보고에 적는다.
 4. 옛것과 새것이 잠시 같이 있어도 된다. 호환 장치(옛 이름 읽기, 옛 경로)는 만들지 않는다. 여러 영역이 쓰던 옛 계약은 마지막 cleanup이 지운다.
-5. main은 늘 빠른 check가 통과한다.
+5. main과 plan branch는 늘 빠른 check가 통과한다. main에는 land.sh(rebase, full check, core 기동)를 거친 것만 올라간다.
 6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker는 최대 8개다(core type check 하나가 약 2.6GB. RAM에 맞춰 `status.py`의 `MAX_WORKERS`를 고친다). full check는 동시에 2개까지다.
 7. 영역을 통째로 소유하는 cleanup 같은 task도 영역별 worktree로 나눠 병렬로 돌릴 수 있다. 충돌은 `mod.ts`, registry, wording catalog에 몰리니 wording catalog는 한 worker에게만 맡긴다.
 
 ## 시작 전
 
-1. main에 commit 안 된 변경이 없고 `deno task check`가 통과한다. `git worktree list`에는 main checkout만 있다.
+1. `lead/lead.sh <계획>`으로 lead worktree를 열고 거기로 간다. 그 worktree에 commit 안 된 변경이 없고 `deno task check`가 통과한다. 계획 폴더가 아직 main에 없으면(main에서 계획을 쓰지 않았으면) lead worktree에 쓰고 commit한다.
 2. `git config user.email`이 맞다(없으면 worker가 commit마다 author를 제각각 넣는다).
 3. `<계획>/tasks/*.md`를 썼으면 `python3 -I project-docs/plan/tools/status.py <계획> build`로 `<계획>/status.md`를 만든다.
 
@@ -35,7 +37,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합�
 
 ### 2. worktree
 
-`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 `.claude/worktrees/<id>`와 branch `<단위>/<id>`를 만들고, `tools/worktree-prep.ts`로 shell main의 `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
+`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 main checkout의 `.claude/worktrees/<id>`와 branch `<단위>/<id>`(plan branch에서 갈라짐)를 만들고, `tools/worktree-prep.ts`로 shell main의 `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
 
 ### 3. worker 띄우기
 
@@ -59,7 +61,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 ### 4. 받기
 
 1. 보고를 읽고 diff와 대조한다. 보고만 믿지 않는다.
-2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/<topic>.md`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 덧붙인다. 올리는 절차는 `issue` skill이다(코드와 대조하고, 같은 이슈를 찾고, 주제 파일에 덧붙인다). 사람이 한꺼번에 보고 줄일지 정한다. 대부분 요구가 시킨 것이라 merge를 막지는 않는다.
+2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/<topic>.md`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 덧붙인다. 단 `issue` skill의 "올릴지"를 먼저 거친다. 그 task 안에서 고칠 만큼 작으면 같은 worker에게 SendMessage로 고쳐 보내게 하고, "확인 못 함"은 lead가 merge 전에 확인한다. 손해가 구체적이지 않은 무게와 사실을 적은 것은 올리지 않는다.
 3. worker가 크게 잘못한 것(review에서 되돌린 것, 사람이 찾은 것)은 `mistake` 이슈로 만든다. 원인과 막을 check나 문장을 적는다.
 4. review(아래)를 한다. 통과하면 merge한다.
 5. 안 되면 셋 중 하나다: 같은 worker에게 SendMessage로 고칠 것을 보낸다 / brief를 고쳐 다시 띄운다 / `blocked`로 두고 이유를 적는다. 두 번 실패한 task는 brief를 쪼갠다.
@@ -68,8 +70,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 | 볼 것 | 어떻게 |
 |---|---|
-| node_modules를 commit하지 않았다 | `git diff --stat main...<branch> \| grep node_modules`가 0줄. 있으면 merge하지 않는다. ff-merge가 main checkout의 진짜 `node_modules`를 덮어 지운 일이 있다 |
-| 소유 밖 file을 안 고쳤다 | `git diff --name-only main...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, wording catalog에 key를 더한 것 |
+| node_modules를 commit하지 않았다 | `git diff --stat plan/<계획>...<branch> \| grep node_modules`가 0줄. 있으면 merge하지 않는다. ff-merge가 main checkout의 진짜 `node_modules`를 덮어 지운 일이 있다 |
+| 소유 밖 file을 안 고쳤다 | `git diff --name-only plan/<계획>...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, wording catalog에 key를 더한 것 |
 | check가 통과한다 | worktree에서 `deno task check:full`. 빠른 check는 바뀐 package만 본다 |
 | 위험 test | brief의 "위험 test"가 이름으로 있고 통과한다 |
 | 할 일을 다 했다 | brief의 "할 일"과 "남지 않음" grep을 하나씩 댄다. `TODO`·`FIXME` grep |
@@ -79,9 +81,11 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 ### 6. merge
 
-`project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → rebase → worktree `check:full` → ff-merge → main `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
+`project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → plan branch 위로 rebase → worktree `check:full` → plan branch로 ff-merge → plan branch `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
 - `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 wording catalog다. catalog 충돌은 두 쪽 key를 다 남기고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`를 다시 돌린다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
+- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → core 두 번 기동 → main fast-forward. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
+- 계획이 끝나면 계획 폴더를 지운 commit까지 land하고 lead worktree와 plan branch를 지운다(`git worktree remove`, `git branch -d plan/<계획>`).
 - push는 사람 확인 뒤에만 한다.
 
 ## 상태 기록
@@ -92,7 +96,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 1. worker는 계약을 안 고치고 보고에 요청을 적는다.
 2. lead가 받을지 정한다. 기준은 `project-docs/architecture/`와 PRODUCT.md다.
-3. 받으면 main에 작은 commit으로 계약을 고치고, 그 계약을 쓰는 `running` worker에게 SendMessage로 알린다.
+3. 받으면 plan branch에 작은 commit으로 계약을 고치고, 그 계약을 쓰는 `running` worker에게 SendMessage로 알린다.
 4. 문서와 다르게 가야 하거나 제품 동작이 바뀌면 사람에게 묻는다.
 
 ## 막힘과 겪은 함정

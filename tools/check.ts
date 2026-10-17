@@ -221,6 +221,12 @@ async function buildSteps(
     skip("style", "design, sdk, shell이 안 돎");
     skip("wording", "design, sdk, shell이 안 돎");
   }
+  if (has("design", "tools")) {
+    checks.push({
+      name: "kit",
+      commands: [["deno", "run", "--allow-read", "tools/check-kit.ts"]],
+    });
+  } else skip("kit", "design, tools가 안 돎");
   if (has("design")) {
     checks.push({
       name: "wording 생성",

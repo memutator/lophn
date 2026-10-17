@@ -135,7 +135,7 @@ export async function startTestApp(
   };
 }
 
-function aeLane(app: TestApp) {
+export function aeLane(app: TestApp) {
   return {
     name: `ae-${app.app}`,
     match: (request: JournalEntry) =>
@@ -144,16 +144,20 @@ function aeLane(app: TestApp) {
   };
 }
 
-const tool = (id: string, name: string, args: unknown) => ({
+export const tool = (id: string, name: string, args: unknown) => ({
   kind: "tool" as const,
   calls: [{ id, name, arguments: JSON.stringify(args) }],
 });
 
 // 알림 turn의 요청은 앞 tool 결과를 줄여 싣는다. 그래서 ticket id는 앞선 요청의 tool 결과에서 읽는다.
-function ticketIn(journal: readonly JournalEntry[], lane: string): string {
+function ticketIn(
+  journal: readonly JournalEntry[],
+  lane: string,
+  createId: string,
+): string {
   const ticket = idIn(
     journal.filter((entry) => entry.lane === lane).map((entry) =>
-      lastToolResult(entry, "tc_create") ?? ""
+      lastToolResult(entry, createId) ?? ""
     ).join(" "),
     "tkt",
   );
@@ -164,11 +168,16 @@ function ticketIn(journal: readonly JournalEntry[], lane: string): string {
 }
 
 // AE가 ticket을 만들어 coding agent에게 call하고(①②③) 끝에 `tail`로 이어지는 줄을 건다.
+// tool call id는 같은 session의 맡기기마다 달라야 한다(`call`의 dedup과 `ticket_create`의 idempotency key).
 function scriptAe(
   fake: FakeServer,
   app: TestApp,
   goal: string,
   tail: "verify" | "text",
+  ids: { create: string; call: string } = {
+    create: "tc_create",
+    call: "tc_call",
+  },
 ): void {
   const made = (request: JournalEntry) => {
     const ticket = idIn(lastToolResult(request) ?? "", "tkt");
@@ -179,7 +188,7 @@ function scriptAe(
   };
   fake.script([
     {
-      reply: tool("tc_create", "ticket_create", {
+      reply: tool(ids.create, "ticket_create", {
         app: app.app,
         goal,
         check: { kind: "text", text: "the work is done" },
@@ -187,7 +196,7 @@ function scriptAe(
     },
     {
       reply: (request) =>
-        tool("tc_call", "call", {
+        tool(ids.call, "call", {
           to: { role: "coding_agent", place: { app: app.name } },
           reply: "none",
           body: goal,
@@ -201,7 +210,7 @@ function scriptAe(
         {
           reply: (_request: JournalEntry, journal: readonly JournalEntry[]) =>
             tool("tc_verify", "ticket_verify", {
-              ticket: ticketIn(journal, aeLane(app).name),
+              ticket: ticketIn(journal, aeLane(app).name, ids.create),
               result: "verified",
             }),
         },

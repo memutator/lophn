@@ -1,29 +1,17 @@
 // App Engineer가 ticket을 만들거나 coding agent에게 맡기는 준비다. `handOff`(터미널이 열리는 데까지)는
 // `tests/support/app/activate.ts`가 내놓고, 여기에는 그것이 못 하는 두 가지만 둔다: ticket만 만들기, 줄에 서는 맡기기.
 //
-// App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄 이름과 match는 activate.ts의 `aeLane`과 같아서, 같은 앱의
+// App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄 이름과 match는 activate.ts의 `aeLane`이라, 같은 앱의
 // 앞 맡기기가 건 줄의 queue를 대체한다. tool call id는 맡기기마다 다르게 둔다: 같은 session에서 id가 겹치면 `call`의
 // dedup(보낸 session + tool call id)과 `ticket_create`의 idempotency key에 걸려 새 일이 안 생긴다.
 import type { HarnessId } from "../../../packages/protocol/coding-agent/mod.ts";
 import type { Core } from "../core/mod.ts";
 import { say, turnsOf, waitTurnEnd } from "../core/human.ts";
-import type { FakeServer, JournalEntry } from "../fake-server/mod.ts";
-import { idIn, lastToolResult, toolNames } from "../fake-server/probe.ts";
-import type { TestApp } from "../app/activate.ts";
+import type { FakeServer } from "../fake-server/mod.ts";
+import { idIn, lastToolResult } from "../fake-server/probe.ts";
+import { aeLane, type TestApp, tool } from "../app/activate.ts";
 
 export type Queued = { ticket: string; call: string; turn: number };
-
-const lane = (app: TestApp) => ({
-  name: `ae-${app.app}`,
-  match: (request: JournalEntry) =>
-    toolNames(request).includes("ticket_create") &&
-    JSON.stringify(request.body).includes(`App ${app.app}:`),
-});
-
-const tool = (id: string, name: string, args: unknown) => ({
-  kind: "tool" as const,
-  calls: [{ id, name, arguments: JSON.stringify(args) }],
-});
 
 // 앞 tool 결과는 뒤 요청에서 줄여 실리므로 줄이 받은 모든 요청의 그 tool 결과를 이어 읽는다.
 function resultId(
@@ -32,7 +20,7 @@ function resultId(
   toolCall: string,
   prefix: string,
 ): string {
-  const text = fake.journal().filter((entry) => entry.lane === lane(app).name)
+  const text = fake.journal().filter((entry) => entry.lane === aeLane(app).name)
     .map((entry) => lastToolResult(entry, toolCall) ?? "").join(" ");
   const id = idIn(text, prefix);
   if (id === undefined) {
@@ -62,7 +50,7 @@ export async function createTicket(
       }),
     },
     { reply: { kind: "text", text: "created" } },
-  ], lane(app));
+  ], aeLane(app));
   await say(core, app.ae, `App ${app.app}: ${goal}`);
   await waitTurnEnd(core, app.ae, turn);
   return resultId(fake, app, id, "tkt");
@@ -103,7 +91,7 @@ export async function handOffQueued(
       },
     },
     { reply: { kind: "text", text: "handed over" } },
-  ], lane(app));
+  ], aeLane(app));
   await say(core, app.ae, `App ${app.app}: ${goal}`);
   await waitTurnEnd(core, app.ae, turn);
   return {

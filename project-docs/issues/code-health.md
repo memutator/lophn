@@ -9,7 +9,7 @@ kind: bug
 modules: [packages/core/apps]
 ```
 
-지금: "write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다"가 `deno task check:full`(`--parallel`)에서 한 번 실패했다. 같은 file만 돌리면 다섯 번 모두 통과했고, 같은 branch에서 check:full을 다시 돌리면 통과했다. test의 `until(done)`은 `setTimeout(0)`을 1000번 돌고 조건이 안 되어도 조용히 끝나며, 그다음 `assertEquals(t.sent.length, 4)`가 깨진다. 기다림이 시간이 아니라 tick 수라 부하가 크면 조건보다 먼저 끝날 수 있다.
+지금: "write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다"가 `deno task check:full`(`--parallel`)에서 한 번 실패했다. 같은 file만 돌리면 다섯 번 모두 통과했고, 같은 branch에서 check:full을 다시 돌리면 통과했다. 이 test file을 건드리지 않은 다른 변경의 check에서도 여러 번 같은 실패가 났다. 모두 다른 check:full이 같이 돌 때였다. test의 `until(done)`은 `setTimeout(0)`을 1000번 돌고 조건이 안 되어도 조용히 끝나며, 그다음 `assertEquals(t.sent.length, 4)`가 깨진다. 기다림이 시간이 아니라 tick 수라 부하가 크면 조건보다 먼저 끝날 수 있다.
 
 영향: lead의 merge·land가 코드와 상관없이 멈춘다(계획 둘이 full check를 같이 돌릴 때 늘어난다). 사람이 원인을 찾느라 시간을 쓴다.
 

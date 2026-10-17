@@ -1,14 +1,13 @@
 // Part 2: 파일 탭(viewer, 저장, 밖에서 바뀐 파일), project 키워드 검색, 경로로 열기, sidebar의 Agents 묶음.
 // 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
-import type { ReactNode } from "react";
-import { Dialog, Palette } from "@lophn/ui/overlay";
-import { Button } from "@lophn/ui/primitives";
+import { Palette } from "@lophn/ui/overlay";
 
 import { workspaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import { AGENT_ROWS } from "../../../mock/agents-data.ts";
 import { type, useDrive } from "../../../mock/drive.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";
+import type { ExplorerAct } from "../project-window.tsx";
 import type { TabSpec } from "../project-window.tsx";
 
 const EXP = "eval/experiments/exp-008-query-tools.md";
@@ -211,38 +210,51 @@ export function FileSearchOpened() {
   );
 }
 
-function organize(children?: ReactNode) {
+function explorer(act?: ExplorerAct, menuFor?: string) {
   const tab = documentTab(EXP);
   return (
     <ProjectApp
-      sidebar={{ current: EXP, menuFor: EXP_OTHER }}
+      sidebar={{
+        current: EXP,
+        ...(act === undefined ? {} : { act }),
+        ...(menuFor === undefined ? {} : { menuFor }),
+      }}
       panes={[{ tabs: [tab], selected: tab.key }]}
-    >
-      {children}
-    </ProjectApp>
+    />
   );
 }
 
-/** 파일 tree의 평범한 파일 동작. 행을 오른쪽 클릭하면 Open·Rename·Delete가 나온다(보관·이동·폴더 연결 해제는 없다). */
+/** 파일 tree의 오른쪽 클릭 menu. 위에서부터 New File, New Folder, Reveal in File Manager, Copy Path, Copy Relative Path, Rename, Delete이고 묶음 사이에 구분선이 있다. */
 export function FileActionsMenu() {
-  return organize();
+  return explorer(undefined, EXP_OTHER);
 }
 
-/** Delete를 누르면 화면 가운데 modal이 한 번 묻는다. 파일은 디스크에서 지워진다. */
+/** Explorer 머리에 마우스를 올리거나 focus하면 New File, New Folder, Refresh, Collapse All 단추가 나타난다. */
+export function ExplorerHead() {
+  return explorer("head");
+}
+
+/** New File을 누르면 고른 폴더 안에 이름 입력 줄이 생긴다. Enter로 만들고 Esc나 focus를 잃으면 취소한다. */
+export function ExplorerNewFile() {
+  return explorer("new-file");
+}
+
+/** 이미 있는 이름을 쓰면 입력 아래에 오류가 보인다. */
+export function ExplorerNewExists() {
+  return explorer("new-exists");
+}
+
+/** F2나 menu의 Rename은 이름을 tree 안 입력으로 바꾼다. 파일은 확장자 앞까지만 골라진다. */
+export function ExplorerRename() {
+  return explorer("rename");
+}
+
+/** 파일을 다른 폴더로 끌어 놓으면 옮기기 전에 한 번 묻는다. */
+export function ExplorerMove() {
+  return explorer("move");
+}
+
+/** Delete를 누르면 화면 가운데 modal이 한 번 묻는다. 파일은 OS 휴지통으로 가서 되살릴 수 있다. */
 export function FileDeleteConfirm() {
-  return organize(
-    <Dialog
-      open
-      onOpenChange={() => {}}
-      title="Delete exp-012-ftb-quests-021-q8.md?"
-      actions={
-        <>
-          <Button>Cancel</Button>
-          <Button variant="primary">Delete</Button>
-        </>
-      }
-    >
-      This removes the file from disk.
-    </Dialog>,
-  );
+  return explorer("delete");
 }

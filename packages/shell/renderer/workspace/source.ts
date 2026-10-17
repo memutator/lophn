@@ -1,6 +1,7 @@
 // 작업대가 읽는 통로. documents의 projects get·문서 목록·
 // documents/contexts(활성 context 목록)의 read 결과와 layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
+import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { ContextsSource } from "./contexts/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
@@ -35,6 +36,11 @@ export interface FileRow {
   readonly title: string;
 }
 
+/** 파일 tree를 바꾸는 일의 결과. 실패는 main이 돌려준 code다. */
+export type FileOpResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly code: FileFailure };
+
 export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
@@ -49,6 +55,14 @@ export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
   list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;
+  /** 새 파일·폴더. 없는 위쪽 폴더도 만들고, 이미 있으면 `conflict`다(덮어쓰지 않는다). */
+  create(path: string, kind: "file" | "folder"): Promise<FileOpResult>;
+  /** 이름 바꾸기이자 옮기기. 대상이 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`이다. */
+  rename(from: string, to: string): Promise<FileOpResult>;
+  /** OS 휴지통으로 보낸다. 휴지통을 못 쓰면 `unavailable`이고 지우지 않는다. */
+  trash(path: string): Promise<FileOpResult>;
+  /** OS 파일 관리자에서 보인다. */
+  reveal(path: string): Promise<FileOpResult>;
   /**
    * Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.

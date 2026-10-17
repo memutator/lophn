@@ -1,14 +1,20 @@
 import {
   AppWindow,
   Bell,
+  ChevronsDownUp,
   Columns2,
+  Copy,
+  FilePlus,
   FileText,
   Folder,
+  FolderOpen,
+  FolderPlus,
   LayoutGrid,
   Library,
   type LucideIcon,
   PanelLeft,
   PanelRight,
+  RefreshCw,
   SquareTerminal,
   Trash2,
   Upload,
@@ -32,4 +38,11 @@ export const workspaceIcons = {
   // Operator editor의 [Delete Operator]와 [Upload image].
   trash: Trash2,
   upload: Upload,
+  // Explorer 머리 단추와 tree 행의 오른쪽 클릭 menu.
+  newFile: FilePlus,
+  newFolder: FolderPlus,
+  refresh: RefreshCw,
+  collapseAll: ChevronsDownUp,
+  revealInFiles: FolderOpen,
+  copy: Copy,
 } as const satisfies Record<string, LucideIcon>;

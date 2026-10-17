@@ -92,9 +92,17 @@ export const project = {
   "file-search.notice.type-text":
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
-  "project-workspace.button.file-delete": "Delete",
-  "project-workspace.button.file-open": "Open",
-  "project-workspace.button.file-rename": "Rename",
+  "project-workspace.button.explorer-collapse-all": "Collapse All",
+  "project-workspace.button.explorer-copy-path": "Copy Path",
+  "project-workspace.button.explorer-copy-relative-path": "Copy Relative Path",
+  "project-workspace.button.explorer-delete": "Delete",
+  "project-workspace.button.explorer-move": "Move",
+  "project-workspace.button.explorer-new-file": "New File",
+  "project-workspace.button.explorer-new-folder": "New Folder",
+  "project-workspace.button.explorer-refresh": "Refresh",
+  "project-workspace.button.explorer-rename": "Rename",
+  "project-workspace.button.explorer-reveal": "Reveal in File Manager",
+  "project-workspace.button.explorer-trash": "Move to Trash",
   "project-workspace.button.launcher": "Launcher",
   "project-workspace.button.manage-agents": "Manage",
   "project-workspace.button.move-pane": "Move to other pane",
@@ -104,15 +112,27 @@ export const project = {
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.empty.no-folders": "No project folder.",
   "project-workspace.empty.no-tabs": "Nothing open in this pane.",
-  "project-workspace.error.file-action-failed": "Couldn't do that.",
-  "project-workspace.error.file-exists":
-    "A file with that name already exists.",
+  "project-workspace.error.explorer-action-failed":
+    "Couldn't do that. Nothing changed.",
+  "project-workspace.error.explorer-move-exists":
+    "“{folder}” already has a file or folder named “{name}”.",
+  "project-workspace.error.explorer-move-failed":
+    "Couldn't move “{name}”. Nothing changed.",
+  "project-workspace.error.explorer-name-exists":
+    "A file or folder named “{name}” already exists here. Choose a different name.",
+  "project-workspace.error.explorer-name-invalid":
+    "“{name}” isn't a valid file or folder name.",
+  "project-workspace.error.explorer-name-required":
+    "Enter a file or folder name.",
+  "project-workspace.error.explorer-trash-failed":
+    "Couldn't move “{name}” to the Trash, so nothing was deleted.",
   "project-workspace.error.files-failed": "Couldn't read this folder.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
   "project-workspace.heading.agents": "Agents",
   "project-workspace.label.agent-waiting": "Waiting for you",
   "project-workspace.label.choose-app": "Choose an app",
-  "project-workspace.label.file-new-name": "New name",
+  "project-workspace.label.explorer-actions": "Explorer actions",
+  "project-workspace.label.explorer-name": "File or folder name",
   "project-workspace.label.files-in": "Files in {folder}",
   "project-workspace.label.folder-missing": "Not found",
   "project-workspace.label.kind-agent": "Agent",
@@ -138,10 +158,15 @@ export const project = {
   "project-workspace.label.sidebar-tab-agent": "Agent",
   "project-workspace.label.sidebar-tab-context": "Context",
   "project-workspace.label.sidebar-tab-explorer": "Explorer",
-  "project-workspace.notice.file-delete": "This removes the file from disk.",
+  "project-workspace.notice.explorer-delete-file":
+    "Are you sure you want to delete “{name}”? You can restore it from the Trash.",
+  "project-workspace.notice.explorer-delete-folder":
+    "Are you sure you want to delete “{name}” and its contents? You can restore it from the Trash.",
+  "project-workspace.notice.explorer-move":
+    "This moves “{name}” into “{folder}”.",
   "project-workspace.sidebar.label": "Project",
-  "project-workspace.title.file-delete": "Delete {name}?",
-  "project-workspace.title.file-rename": "Rename {name}",
+  "project-workspace.title.explorer-delete": "Delete {name}?",
+  "project-workspace.title.explorer-move": "Move {name}?",
   "terminal.button.close-terminal": "Close terminal",
   "terminal.button.hide-notice": "Hide note",
   "terminal.button.keep-open": "Keep open",

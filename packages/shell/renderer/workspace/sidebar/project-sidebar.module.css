@@ -187,15 +187,44 @@
   padding: var(--space-4) var(--space-0);
 }
 
+/* Explorer: 머리 줄과 tree가 본문 높이를 채운다. 빈 자리를 눌러도 루트 기준 동작이 닿게 한다. */
+.section[data-explorer] {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* 머리 줄: 루트 이름 왼쪽, 단추 넷 오른쪽. 단추는 머리에 마우스를 올리거나 focus가 들어올 때만 보인다. */
+.explorerHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.headActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.explorerHead:hover .headActions,
+.explorerHead:focus-within .headActions {
+  opacity: 1;
+}
+
 /* Explorer: 루트 머리. 작은 대문자 이름과 ▾ 하나이고 경로는 menu 안에서만 보인다. */
 .rootHead {
   box-sizing: border-box;
   display: flex;
+  flex: 1;
   align-items: center;
   gap: var(--space-2);
-  width: 100%;
+  min-width: var(--space-0);
   height: var(--control-sm-height);
-  margin-bottom: var(--space-1);
   padding: var(--space-0) var(--space-2);
   border: var(--space-0);
   border-radius: var(--radius-xs);
@@ -260,6 +289,7 @@
 
 /* Explorer: 종류 아이콘이 붙은 파일 tree. 행 모양은 design Tree와 같다. */
 .tree {
+  flex: 1;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--type-body-size);
@@ -289,6 +319,77 @@
 
 .treeRow[data-current] {
   font-weight: var(--font-weight-medium);
+}
+
+/* 끌어 놓을 폴더. 루트면 tree 전체를 안쪽 테두리로 보인다. */
+.treeRow[data-drop],
+.tree[data-drop-root] {
+  background: var(--color-selection);
+}
+
+.tree[data-drop-root] {
+  box-shadow: inset 0 0 0 var(--border-width) var(--color-focus);
+}
+
+/* 들여쓰기 안내선: tree에 마우스를 올렸을 때만 보인다. */
+.guide {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  width: var(--border-width);
+  background: var(--color-border-base);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.tree:hover .guide {
+  opacity: 1;
+}
+
+/* tree 안 이름 입력. 오류는 입력 줄 바로 아래에 뜨고 아래 줄을 가린다. */
+.treeRow[data-editing] {
+  cursor: default;
+}
+
+.treeRow[data-editing]:hover {
+  background: transparent;
+}
+
+.nameInput {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: var(--space-0);
+  height: calc(var(--tree-row) - var(--space-2));
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  outline: none;
+}
+
+.nameInput[data-invalid] {
+  border-color: var(--status-critical-marker);
+}
+
+.nameError {
+  position: absolute;
+  top: 100%;
+  right: var(--space-2);
+  left: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--status-critical-marker);
+  border-radius: var(--radius-xs);
+  background: var(--floating-surface);
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: normal;
+  z-index: var(--z-popover);
 }
 
 .treeMarker {

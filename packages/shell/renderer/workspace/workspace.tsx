@@ -7,7 +7,6 @@ import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import type { FilesApi } from "../../ipc/files.ts";
 import { SettingsEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
@@ -29,6 +28,7 @@ import {
   type TabItem,
   type WorkspaceView,
 } from "./model.ts";
+import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/rail.tsx";
 import { ContextSidebar } from "./contexts/context-sidebar.tsx";
@@ -41,7 +41,6 @@ import {
 } from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
-import { FileActionDialog, type FileDialogState } from "./file-actions.tsx";
 import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
 import {
@@ -222,9 +221,6 @@ export function Workspace(props: WorkspaceProps) {
   const [contextList, setContextList] = useState<readonly ContextListItem[]>(
     NO_CONTEXTS,
   );
-  // sidebar 파일 tree의 Rename·Delete 확인. 끝나면 tree를 다시 읽으려고 sidebar를 새로 세운다.
-  const [fileDialog, setFileDialog] = useState<FileDialogState>(null);
-  const [treeEpoch, setTreeEpoch] = useState(0);
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
@@ -627,41 +623,44 @@ export function Workspace(props: WorkspaceProps) {
     });
   };
 
-  const filesApi = (): FilesApi | undefined =>
-    (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+  // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
+  const tabsAt = (path: string) =>
+    latest.current.panes.flatMap((pane) => pane.tabs).filter((tab) =>
+      tab.kind === "document_editor" &&
+      (tab.key === path || tab.key.startsWith(`${path}/`))
+    );
 
-  // sidebar에서 지운 파일은 열린 탭도 닫는다. 지우기 확인은 Delete 단추가 이미 받았다.
-  const deleteFile = async (path: string): Promise<boolean> => {
-    const reply = await filesApi()?.delete({ path });
-    if (reply === undefined || !reply.ok) return false;
-    removeTab(path);
-    setTreeEpoch((epoch) => epoch + 1);
+  // 저장이 남은 파일은 지금 있는 close guard 흐름(beforeClose)으로 사람에게 묻는다. 하나라도 거절하면 false다.
+  const releaseTabs = async (tabs: readonly TabItem[]): Promise<boolean> => {
+    for (const tab of tabs) {
+      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
+      if (confirm && !(await confirm)) return false;
+    }
     return true;
   };
 
-  // 열려 있던 파일은 저장이 남았으면 사람에게 묻고 탭을 닫은 뒤 옮기고, 옮긴 파일을 다시 연다.
-  const renameFile = async (
-    path: string,
-    name: string,
-  ): Promise<"ok" | "exists" | "failed"> => {
-    const api = filesApi();
-    if (api === undefined || name.includes("/")) return "failed";
-    const open = latest.current.panes.flatMap((pane) => pane.tabs).find((tab) =>
-      tab.key === path
-    );
-    if (open !== undefined) {
-      const confirm = tabKindOf(open.kind)?.beforeClose?.(open, host);
-      if (confirm && !(await confirm)) return "failed";
-    }
-    const to = `${path.slice(0, path.lastIndexOf("/") + 1)}${name}`;
-    const reply = await api.rename({ from: path, to });
-    if (!reply.ok) return reply.code === "conflict" ? "exists" : "failed";
-    if (open !== undefined) {
-      removeTab(path);
-      openFile(host, to);
-    }
-    setTreeEpoch((epoch) => epoch + 1);
-    return "ok";
+  // sidebar의 이름 바꾸기·끌어 옮기기. 열려 있던 파일은 옮긴 경로의 탭으로 다시 연다.
+  const moveFile = async (
+    from: string,
+    to: string,
+  ): Promise<TabAwareResult> => {
+    const open = tabsAt(from);
+    if (!(await releaseTabs(open))) return { ok: false, code: "cancelled" };
+    const result = await source.rename(from, to);
+    if (!result.ok) return result;
+    for (const tab of open) removeTab(tab.key);
+    for (const tab of open) openFile(host, to + tab.key.slice(from.length));
+    return result;
+  };
+
+  // sidebar에서 휴지통으로 보낸 파일의 열린 탭은 닫는다. 휴지통을 못 쓰면 탭도 그대로다.
+  const trashFile = async (path: string): Promise<TabAwareResult> => {
+    const open = tabsAt(path);
+    if (!(await releaseTabs(open))) return { ok: false, code: "cancelled" };
+    const result = await source.trash(path);
+    if (!result.ok) return result;
+    for (const tab of open) removeTab(tab.key);
+    return result;
   };
 
   // 접힌 sidebar의 바로 가기 rail. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
@@ -730,7 +729,6 @@ export function Workspace(props: WorkspaceProps) {
       <div className={styles.workspace} data-space="project" ref={frameRef}>
         {sidebarShown.mode === "hidden" ? null : (
           <ProjectSidebar
-            key={treeEpoch}
             mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
             width={sidebarShown.width}
             project={loaded.project}
@@ -769,10 +767,9 @@ export function Workspace(props: WorkspaceProps) {
                 collapsedByUser: sidebarShown.mode !== "collapsed",
               }))}
             onOpenFile={(path) => openFile(host, path)}
-            onFileAction={(action, path) => {
-              if (action === "open") openFile(host, path);
-              else setFileDialog({ action, path });
-            }}
+            onOpenPinned={(path) => openFile(host, path)}
+            onMove={moveFile}
+            onTrash={trashFile}
             onRail={onRail}
             onAgent={(agent) =>
               openAgent(host, { agent: agent.assignment, name: agent.name })}
@@ -927,12 +924,6 @@ export function Workspace(props: WorkspaceProps) {
             />
           </div>
         </div>
-        <FileActionDialog
-          state={fileDialog}
-          onClose={() => setFileDialog(null)}
-          onDelete={deleteFile}
-          onRename={renameFile}
-        />
       </div>
     </ViewCoversProvider>
   );

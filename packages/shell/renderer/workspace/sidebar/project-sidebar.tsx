@@ -14,7 +14,7 @@ import { t } from "@lophn/wording";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import { AgentPanel } from "./agent-panel.tsx";
-import { Explorer, type FileAction } from "./explorer.tsx";
+import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { Rail, type RailAction } from "./rail.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
@@ -40,8 +40,12 @@ interface ProjectSidebarProps {
   /** 처음 보이는 탭. 기본은 Explorer다. */
   initialTab?: SidebarTab;
   onOpenFile: (path: string) => void;
-  /** 오른쪽 클릭 menu. Rename·Delete의 실행과 확인은 부르는 쪽이 한다. */
-  onFileAction: (action: FileAction, path: string) => void;
+  /** 방금 만든 파일을 고정 tab으로 연다. */
+  onOpenPinned: (path: string) => void;
+  /** Explorer의 이름 바꾸기·옮기기. 열린 탭 정리까지 한다. */
+  onMove: (from: string, to: string) => Promise<TabAwareResult>;
+  /** Explorer의 휴지통 보내기. 열린 탭 정리까지 한다. */
+  onTrash: (path: string) => Promise<TabAwareResult>;
   onRail: (action: RailAction) => void;
   onAgent: (agent: SidebarAgent) => void;
   /** Agent 줄 hover의 +. 주지 않으면 `onAgent`와 같다. */
@@ -65,7 +69,9 @@ export function ProjectSidebar(
     current = null,
     initialTab = "explorer",
     onOpenFile,
-    onFileAction,
+    onOpenPinned,
+    onMove,
+    onTrash,
     onRail,
     onAgent,
     onNewSession,
@@ -137,7 +143,9 @@ export function ProjectSidebar(
                     folders={folders}
                     current={current}
                     onOpenFile={onOpenFile}
-                    onFileAction={onFileAction}
+                    onOpenPinned={onOpenPinned}
+                    onMove={onMove}
+                    onTrash={onTrash}
                   />
                 )
               : null}

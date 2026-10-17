@@ -8,7 +8,9 @@ import {
   type ControlSize,
   cx,
   iconPixels,
+  pixels,
 } from "../../_shared/shared.ts";
+import { tokens } from "../../../tokens.ts";
 import styles from "./select.module.css";
 
 export interface SelectOption {
@@ -52,6 +54,7 @@ export function Select(
           position="popper"
           side="bottom"
           align="start"
+          collisionPadding={pixels(tokens.space[2])}
           {...componentMark("Select")}
         >
           <Radix.Viewport className={styles.viewport}>

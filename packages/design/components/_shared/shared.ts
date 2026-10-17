@@ -59,12 +59,17 @@ export const systemClipboard: Clipboard = {
   writeText: (text) => navigator.clipboard.writeText(text),
 };
 
-// beside: trigger 옆에 간격을 두고 화면 안으로 뒤집는다. corner: trigger의 왼쪽 아래 꼭짓점에서 간격·뒤집기
-// 없이 그린다. overlay view는 표면 rect 왼쪽 위에 크기 없는 anchor를 두어 native rect 안에 그린다.
+// beside: trigger 옆에 간격을 두고 화면 안으로 뒤집으며, 창 가장자리에서도 같은 간격을 띄운다. corner: trigger의
+// 왼쪽 아래 꼭짓점에서 간격·뒤집기 없이 그린다. overlay view는 표면 rect 왼쪽 위에 크기 없는 anchor를 두어 native
+// rect 안에 그린다.
 export type Placement = "beside" | "corner";
 
 export function placementProps(placement: Placement) {
   return placement === "corner"
     ? { align: "start", sideOffset: 0, avoidCollisions: false } as const
-    : { align: "start", sideOffset: pixels(tokens.space[2]) } as const;
+    : {
+      align: "start",
+      sideOffset: pixels(tokens.space[2]),
+      collisionPadding: pixels(tokens.space[2]),
+    } as const;
 }

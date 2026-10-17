@@ -1,5 +1,6 @@
 // 파일 tree와 탭의 파일 종류 아이콘. @iconify-json/catppuccin(Catppuccin Icons, MIT)을 쓴다. 가는 선의 차분한 색이다.
 import { componentMark } from "../../_shared/shared.ts";
+import styles from "./file-icon.module.css";
 import icons from "@iconify-json/catppuccin/icons.json" with {
   type: "json",
 };
@@ -52,8 +53,8 @@ const BY_FOLDER: Readonly<Record<string, string>> = {
   loop: "folder-src",
 };
 
-// 아이콘 색은 Catppuccin Macchiato(어두운 바탕용)다. 밝은 바탕에서는 안 보여서, 색을 theme 변수로 바꾸고
-// design token(--file-icon-*)이 light에는 Latte, dark에는 Macchiato 값을 준다.
+// 아이콘 색은 Catppuccin Macchiato(어두운 바탕용)다. 밝은 바탕에서는 안 보여서, 색을 data-fill·data-stroke로
+// 바꾸고 file-icon.module.css가 design token(--file-icon-*)을 입힌다. light에는 Latte, dark에는 Macchiato 값이다.
 const PALETTE: Readonly<Record<string, string>> = {
   "#cad3f5": "text",
   "#8aadf4": "blue",
@@ -76,19 +77,15 @@ const PALETTE: Readonly<Record<string, string>> = {
 function themed(body: string): string {
   return body.replace(
     /<([a-zA-Z]+)([^>]*?)(\/?)>/g,
-    (tag, name, attrs, end) => {
-      const styles: string[] = [];
+    (_tag, name, attrs, end) => {
       const rest = attrs.replace(
         /\s(fill|stroke)="(#[0-9a-fA-F]{3,6})"/g,
         (whole: string, key: string, color: string) => {
           const token = PALETTE[color.toLowerCase()];
-          if (token === undefined) return whole;
-          styles.push(`${key}:var(--file-icon-${token})`);
-          return "";
+          return token === undefined ? whole : ` data-${key}="${token}"`;
         },
       );
-      if (styles.length === 0) return tag;
-      return `<${name}${rest} style="${styles.join(";")}"${end}>`;
+      return `<${name}${rest}${end}>`;
     },
   );
 }
@@ -134,13 +131,9 @@ export function FileIcon(
   return (
     <span
       aria-hidden
+      className={styles.icon}
       {...componentMark("FileIcon")}
-      style={{
-        display: "inline-flex",
-        flex: "none",
-        width: size,
-        height: size,
-      }}
+      style={{ width: size, height: size }}
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

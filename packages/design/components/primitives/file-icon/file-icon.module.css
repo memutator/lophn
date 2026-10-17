@@ -1,0 +1,133 @@
+/* 아이콘 색. shell CSP(style-src 'self')는 innerHTML의 style 속성을 막으므로, 색은 data 속성에 두고 여기서 token을 입힌다. */
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.icon :global([data-fill="text"]) {
+  fill: var(--file-icon-text);
+}
+
+.icon :global([data-stroke="text"]) {
+  stroke: var(--file-icon-text);
+}
+
+.icon :global([data-fill="blue"]) {
+  fill: var(--file-icon-blue);
+}
+
+.icon :global([data-stroke="blue"]) {
+  stroke: var(--file-icon-blue);
+}
+
+.icon :global([data-fill="yellow"]) {
+  fill: var(--file-icon-yellow);
+}
+
+.icon :global([data-stroke="yellow"]) {
+  stroke: var(--file-icon-yellow);
+}
+
+.icon :global([data-fill="green"]) {
+  fill: var(--file-icon-green);
+}
+
+.icon :global([data-stroke="green"]) {
+  stroke: var(--file-icon-green);
+}
+
+.icon :global([data-fill="overlay1"]) {
+  fill: var(--file-icon-overlay1);
+}
+
+.icon :global([data-stroke="overlay1"]) {
+  stroke: var(--file-icon-overlay1);
+}
+
+.icon :global([data-fill="peach"]) {
+  fill: var(--file-icon-peach);
+}
+
+.icon :global([data-stroke="peach"]) {
+  stroke: var(--file-icon-peach);
+}
+
+.icon :global([data-fill="red"]) {
+  fill: var(--file-icon-red);
+}
+
+.icon :global([data-stroke="red"]) {
+  stroke: var(--file-icon-red);
+}
+
+.icon :global([data-fill="mauve"]) {
+  fill: var(--file-icon-mauve);
+}
+
+.icon :global([data-stroke="mauve"]) {
+  stroke: var(--file-icon-mauve);
+}
+
+.icon :global([data-fill="sky"]) {
+  fill: var(--file-icon-sky);
+}
+
+.icon :global([data-stroke="sky"]) {
+  stroke: var(--file-icon-sky);
+}
+
+.icon :global([data-fill="sapphire"]) {
+  fill: var(--file-icon-sapphire);
+}
+
+.icon :global([data-stroke="sapphire"]) {
+  stroke: var(--file-icon-sapphire);
+}
+
+.icon :global([data-fill="pink"]) {
+  fill: var(--file-icon-pink);
+}
+
+.icon :global([data-stroke="pink"]) {
+  stroke: var(--file-icon-pink);
+}
+
+.icon :global([data-fill="teal"]) {
+  fill: var(--file-icon-teal);
+}
+
+.icon :global([data-stroke="teal"]) {
+  stroke: var(--file-icon-teal);
+}
+
+.icon :global([data-fill="maroon"]) {
+  fill: var(--file-icon-maroon);
+}
+
+.icon :global([data-stroke="maroon"]) {
+  stroke: var(--file-icon-maroon);
+}
+
+.icon :global([data-fill="lavender"]) {
+  fill: var(--file-icon-lavender);
+}
+
+.icon :global([data-stroke="lavender"]) {
+  stroke: var(--file-icon-lavender);
+}
+
+.icon :global([data-fill="rosewater"]) {
+  fill: var(--file-icon-rosewater);
+}
+
+.icon :global([data-stroke="rosewater"]) {
+  stroke: var(--file-icon-rosewater);
+}
+
+.icon :global([data-fill="flamingo"]) {
+  fill: var(--file-icon-flamingo);
+}
+
+.icon :global([data-stroke="flamingo"]) {
+  stroke: var(--file-icon-flamingo);
+}

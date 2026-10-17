@@ -99,3 +99,16 @@ modules: [packages/core/secrets, packages/core/lophn-agent, packages/core/main, 
 - 옛 keychain 길을 되살린다(큼). 지운 relay와 준비 작업을 되돌려야 하고 Linux Secret Service 밖에서는 여전히 안 된다.
 
 정한 것: `secrets.json` 길로 끝낸다. 저장소는 이미 그쪽으로 옮겼고 옛 relay는 지워져 있다(AGENTS.md "호환성": 옛 길을 남기지 않는다). (agent)
+
+## 설정 화면의 보호 입력 창이 열리지 않아 OAuth 붙여 넣기와 MCP credential을 넣을 수 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/secrets]
+```
+
+지금: `shell/renderer/desktop/lophn-space/settings/core-call.ts`의 `windowSecretOpener`가 `lophnShell.openConfirmation`을 찾는데, preload(`packages/shell/preload/shell.ts`)는 `openSecretInput`만 낸다. 그래서 설정 화면이 보호 입력 창을 여는 길이 모두 `unavailable`이다. 계획 `agent-io`의 `provider-connect-shell`이 provider API key 길만 새 opener로 고친다. OAuth 붙여 넣기 창(`settings/core-source.ts`)과 MCP credential 입력(`settings/agents/core-source.ts`)은 그대로다. MCP의 `sec:` 참조는 창을 고쳐도 옛 ledger `secrets` 표와 keychain을 보므로 `secrets.json`에 넣은 값을 찾지 못한다(`extensions/secret-refs.ts`의 `lookupMcpSecretUse`).
+
+영향: 사람이 token이 필요한 MCP server를 붙일 수 없다. OAuth 코드 붙여 넣기도 안 된다(OAuth로 model을 부르는 길은 원래 없다).
+
+고치려면: MCP credential을 provider와 같은 `secrets.json` 길로 옮긴다. 보호 입력 창은 `provider-connect-shell`이 만든 opener를 쓰고, MCP의 secret 참조를 이름(`{name}`)으로 바꾸고 attach가 file 저장소에서 읽는다(중간). 추천: `agent-io` 계획이 끝난 뒤 그 모양을 따라 한다.

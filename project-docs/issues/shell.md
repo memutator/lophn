@@ -2,19 +2,15 @@
 
 데스크톱 앱(packages/shell)의 화면과 그 source. architecture 문서는 아직 없다.
 
-## context chip이 agent에게 chip으로 전해지지 않는다
+## 보낸 chip이 대화에 남지 않고 다시 보내기가 chip을 빼고 보낸다
 
 ```yaml
 kind: bug
-modules: [packages/shell/renderer, packages/core/lophn-agent]
+modules: [packages/shell/renderer, packages/protocol]
 ```
 
-지금:
-- 새 session 첫 말: `conversation/agent-view.tsx`의 `ensureSession`이 `openSession({id, contexts: chips})`를 부르지만 `conversation/agent-tab-core-source-sessions.ts`의 `openSession`은 `contexts`를 버리고 `opening_context: null`로 연다. 첫 말은 `agent-tab-core-source-commands.ts`의 `sendText`가 `attached: []`로 보낸다. chip은 쓴 글이 없을 때 보낼 글감(`chipText`, 라벨만)으로만 쓰인다.
-- 열린 PM session: `workspace/workspace.tsx`의 `askPm`은 draft가 비어 있을 때만 위반 줄을 `파일 - 규칙` 글로 채운다(새 PM 탭은 `openAgent(... chips)`로 chip이 붙는다). `workspace/reactions/project-manager.ts`는 열린 session이 있으면 chip도 글도 없이 탭만 고른다. 열린 PM session 찾는 함수가 두 곳(`openedPmSession`, `openedSession`)에 따로 있다. composer는 `session === null`일 때만 chip을 그린다.
+지금: composer의 context·위반 chip은 `SendMessage.attached`로만 간다(`packages/shell/renderer/conversation/attached-chips.ts`의 `attachedOf`, `packages/shell/renderer/conversation/agent-tab-core-source-commands.ts`의 `sendText`). core는 그것을 Router 입력 본문 앞의 `<lophn-attached …>` 줄로 만들 뿐 message 본문(`content.parts`)에는 chip이 없다. 그래서 대화 화면에는 보낸 글만 보이고, 같은 file의 `retryTurn`은 본문에서 chip을 다시 만들 수 없어 `attached: []`로 다시 보낸다. 글 없이 chip만 보내면 본문은 chip 라벨뿐이다.
 
-계약은 이미 있다: `SendMessage.attached`가 `context`·`violation` chip을 받는다.
+영향: 사람은 어떤 위반·context를 붙여 보냈는지 대화에서 다시 볼 수 없다. 실패한 turn을 다시 시도하면 agent는 처음에 받은 위반(파일·규칙)을 받지 못하고 라벨 글만 본다.
 
-영향: PM이나 lophn에게 context나 위반을 chip으로 붙여 말해도 agent는 chip을 모르고 글 라벨만 본다. 같은 위반이 열린 session에서는 글이고 새 탭에서는 chip이라 PM이 받는 모양이 다르고, 열린 session의 draft에 글이 있으면 위반이 아예 안 실린다.
-
-고치려면: `sendText`가 chip을 `attached`로 싣고 composer가 열린 session에서도 chip을 그려 보낼 때 같이 싣는다. `ContextChipView`에 context id가 없어(`id`는 위반 key나 check id) 필드를 더해야 한다. 열린 PM session 찾는 함수는 하나로 합친다. 중간, 계약 변경 없음. 추천: 이 안.
+고치려면: message 본문에 `attached` part(ctx id 포함)를 더해 화면이 그리고 `retryTurn`이 다시 싣게 한다. protocol(`content.parts`)과 core의 본문 처리, 대화 화면을 같이 고친다(중간). 추천: 사람이 chip을 다시 보거나 다시 보내기가 실제로 아쉬워질 때 한다.

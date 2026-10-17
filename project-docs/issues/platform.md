@@ -107,7 +107,7 @@ kind: bug
 modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/secrets]
 ```
 
-지금: `shell/renderer/desktop/lophn-space/settings/core-call.ts`의 `windowSecretOpener`가 `lophnShell.openConfirmation`을 찾는데, preload(`packages/shell/preload/shell.ts`)는 `openSecretInput`만 낸다. 그래서 설정 화면이 보호 입력 창을 여는 길이 모두 `unavailable`이다. 계획 `agent-io`의 `provider-connect-shell`이 provider API key 길만 새 opener로 고친다. OAuth 붙여 넣기 창(`settings/core-source.ts`)과 MCP credential 입력(`settings/agents/core-source.ts`)은 그대로다. MCP의 `sec:` 참조는 창을 고쳐도 옛 ledger `secrets` 표와 keychain을 보므로 `secrets.json`에 넣은 값을 찾지 못한다(`extensions/secret-refs.ts`의 `lookupMcpSecretUse`).
+지금: `shell/renderer/desktop/lophn-space/settings/core-call.ts`의 `windowSecretOpener`가 `lophnShell.openConfirmation`을 찾는데, preload(`packages/shell/preload/shell.ts`)는 `openSecretInput`만 낸다. 그래서 이 opener로 보호 입력 창을 여는 길은 `unavailable`이다. provider API key 길만 같은 file의 `windowSecretInputOpener`·`enterSecret`(preload의 `openSecretInput`)으로 고쳤다. OAuth 붙여 넣기 창(`settings/core-source.ts`)과 MCP credential 입력(`settings/agents/core-source.ts`)은 그대로다. MCP의 `sec:` 참조는 창을 고쳐도 옛 ledger `secrets` 표와 keychain을 보므로 `secrets.json`에 넣은 값을 찾지 못한다(`extensions/secret-refs.ts`의 `lookupMcpSecretUse`).
 
 영향: 사람이 token이 필요한 MCP server를 붙일 수 없다. OAuth 코드 붙여 넣기도 안 된다(OAuth로 model을 부르는 길은 원래 없다).
 

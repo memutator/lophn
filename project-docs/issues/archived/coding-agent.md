@@ -227,3 +227,37 @@ guard: 없음
 고치려면: dry_run을 "쓰기 port를 바꿔 끼우기"로 바꿔 Step을 없앤다(작음). frontmatter 대체는 지운다(작음).
 
 닫음: 놓을 것이 셋(skill, json hook, plugin file)이고 `Step`으로 나뉜 지금 모양이 읽기 쉽다. frontmatter 대체는 한 식이라 지워도 얻는 것이 없다.
+
+## 전역 hook command가 PATH의 `lophn`을 부른다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent]
+closed: fixed
+guard: packages/coding-agent/harnesses/install_test.ts "개발 command로 놓아도 사람이 쓴 hook은 남고 우리 항목은 event마다 하나다"
+```
+
+지금: 전역 hook은 `lophn hook <harness> <event>`이고 `lophn`이 PATH에 있다고 본다. 개발 실행(`LOPHN_CLI`)에서는 PATH의 `lophn`이 없거나 다른 판이라 전역 hook이 맞지 않는다.
+
+영향: 개발 중에는 coding session의 turn 끝 신호가 안 오거나 설치된 판의 core로 간다.
+
+고치려면: 개발 실행에서는 hook command에 `LOPHN_CLI` 경로를 쓴다(작음). 다만 전역 설정에 개발 경로가 남는다.
+
+닫음: `harness install`이 `command`(공백·따옴표·`..` 없는 절대 경로)를 받는다. shell main은 개발 실행에서 `LOPHN_CLI` 경로를 `hookCommand`로 넘기고(packaged는 없다), `installGlobal`이 그 경로로 JSON hook과 pi·OpenCode plugin의 spawn을 쓴다. `lophn hook …`과 `<절대 경로> hook …`을 모두 우리 항목으로 보아 오가도 event마다 하나다. `command`를 준 dry_run만 내용이 다르면 `missing`이다. 남는 것: 개발 경로를 놓은 뒤 packaged로 돌아가면 `command` 없는 dry_run이 `unchanged`라 개발 경로가 전역 설정에 남는다(개발 머신만. 항목을 지우거나 packaged에서 다시 놓는다).
+
+## OpenCode가 turn 끝을 event 둘로 내서 TurnEnded가 두 번 간다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent, packages/protocol, packages/core/apps]
+closed: fixed
+guard: packages/protocol/coding-agent/hook-signal_test.ts "OpenCode의 turn 끝 신호는 session.status의 idle 하나다"
+```
+
+지금: 설치된 OpenCode(1.18.35)는 idle이 되면 canonical `session.status`(idle)를 낸 뒤 deprecated `session.idle`을 이어서 낸다(같은 판에서 도는 다른 도구의 plugin이 이 순서를 전제로 둘째를 거른다). `protocol/coding-agent/hook-signal.ts`의 `HOOK_EVENT_TABLE.opencode`는 둘 다 `TurnEnded`로 바꾸고, plugin(`harnesses/install.ts`의 `opencodePlugin`)도 둘 다 넘긴다. `core/apps/tickets/coding/hook.ts`의 `TurnEnded` 처리는 중복을 가리지 않는다. 첫 신호가 `drain`으로 대기열의 다음 메시지를 넣어 `inflight`를 켜면, 둘째 신호가 `running`·`inflight`를 다시 끄고 `TurnEnded` event를 한 번 더 낸다.
+
+영향: OpenCode로 맡기면 turn마다 `TurnEnded`가 두 번 기록되고, 대기열에 메시지가 둘 이상일 때 앞 메시지가 아직 turn으로 이어지기 전에 다음 메시지가 들어가 순서가 겹친다.
+
+고치려면: `HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 빼고 `session.status`(idle)만 쓴다(작음). 실제 OpenCode에 맡겨 보지는 못했다. `.ts` plugin이 로드되는지와 plugin 실행기에서 `node:child_process`의 spawn이 되는지는 아직 모른다.
+
+닫음: `HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 지웠다. plugin이 듣는 event도 이 표에서 만들어 함께 줄었고, 이미 놓인 옛 plugin이 `session.idle`을 넘겨도 `hookSignalOf`가 null이라 신호가 아니다. 실제 OpenCode에 맡겨 `.ts` plugin 로드와 `node:child_process` spawn을 확인하지는 못했다.

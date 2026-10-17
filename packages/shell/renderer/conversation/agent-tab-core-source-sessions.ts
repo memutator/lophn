@@ -139,7 +139,9 @@ async function grantRowsOf(
         rows.push({
           target: roleLabel(entry.agent.role),
           effect: "agent",
-          setting: settingOf(entry.setting, DEFAULT_ASK.read),
+          setting: entry.setting === "excluded"
+            ? "deny"
+            : settingOf(entry.setting, DEFAULT_ASK.read),
         });
         break;
       case "settings":

@@ -137,16 +137,22 @@ const cases: [string, Intent, GateGrants, GateVerdict][] = [
     deny("not_granted"),
   ],
   [
-    "agent 부르기 entry 없음은 deny",
+    "agent 부르기 entry 없음은 run(T4 기본 허락)",
     other({ kind: "agent_call", agent: AGENT }, agentActor),
     grants([]),
-    deny("not_granted"),
+    run,
   ],
   [
     "agent 부르기 setting 없으면 run",
     other({ kind: "agent_call", agent: AGENT }, agentActor),
     grants([{ kind: "agent", agent: AGENT }]),
     run,
+  ],
+  [
+    "agent 부르기 excluded는 deny",
+    other({ kind: "agent_call", agent: AGENT }, agentActor),
+    grants([{ kind: "agent", agent: AGENT, setting: "excluded" }]),
+    deny("excluded"),
   ],
   [
     "settings_edit entry 없음은 ask",

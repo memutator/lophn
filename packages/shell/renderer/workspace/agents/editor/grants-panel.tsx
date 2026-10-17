@@ -522,7 +522,12 @@ export function GrantsPanel(
                       name: target.name,
                       detail: target.detail,
                       defaultAsk: CALL_DEFAULT_ASK,
-                      pick: { removed: false, ask: entry.setting },
+                      pick: {
+                        removed: false,
+                        ask: entry.setting === "excluded"
+                          ? undefined
+                          : entry.setting,
+                      },
                     }}
                     onPick={(pick) =>
                       onChange(withSimplePick(

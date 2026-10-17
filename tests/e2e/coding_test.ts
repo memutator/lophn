@@ -6,6 +6,12 @@
 // - 왜 지금 test가 못 잡나: `tickets_test`·`coding_test`는 token 없이 actor 문자열을 직접 만들고, token 발급·회수는
 //   Gateway frame -> shell 역할 -> CLI -> 서버 인증을 지나야 한다.
 //
+// 이 file의 `report-needs-claim-and-release` 행(coding-report-needs-release)은 거절 쪽만 본다.
+// - contract: boundary `app-tickets`(완료 보고는 현재 유효한 claim과 그 claim으로 준비된 release가 있어야 접수한다), `coding-agent-cli-interface`.
+// - 현실적 회귀: claim 없이 보고해 ticket이 `reported`가 되는 것, 준비한 적 없는 release id로 보고가 접수되는 것, 거절된 보고가 claim을 지워 일이 사라지는 것.
+// - 왜 못 잡나: `tickets_test`는 command를 직접 불러 CLI의 summary upload -> `report_completion` 순서와 claim을 쥔 token의 경로를 지나지 않는다.
+// 접수되는 쪽은 여기서 돌리지 않는다: release가 있으려면 준비(build)와 app test를 지나야 해서 `app-release`가 맡는다.
+//
 // fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
@@ -105,6 +111,41 @@ const ROWS: Row[] = [
         assertEquals(errorCode(result), "unauthorized");
         assertEquals(result.code, 3);
       }
+    },
+  },
+  {
+    name: "report-needs-claim-and-release",
+    async run(ctx) {
+      const { core } = ctx;
+      const app = await ctx.app("report-gate");
+      const { cli, ticket } = await ctx.handOff(app);
+      const shown = await cli.run("ticket show", { ticket });
+      const base = (shown.value as { ticket: { revision: string } }).ticket
+        .revision;
+      const release = core.ids.newId("rel");
+      const report = (revision: string, claimSeq: string) =>
+        cli.run("ticket report", {
+          ticket,
+          base_revision: revision,
+          claim_seq: claimSeq,
+          release,
+          summary: "done",
+        });
+
+      // CLI: claim 없는 보고는 거절된다.
+      assertEquals(errorCode(await report(base, "1")), "conflict");
+      // CLI: claim이 있어도 준비된 적 없는 release면 거절된다.
+      const claimed = await cli.run("ticket claim", {
+        ticket,
+        base_revision: base,
+      });
+      const seq = (claimed.value as { claim_seq: string }).claim_seq;
+      assertEquals(errorCode(await report(seq, seq)), "not_found");
+      // route(user): 거절된 보고는 claim도 ticket도 건드리지 않았다.
+      const after = (await core.call(ticketShow, { ticket })).ticket;
+      assertEquals(after.state, "claimed");
+      assertEquals(after.completion, null);
+      assertNotEquals(after.claim, null);
     },
   },
 ];

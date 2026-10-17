@@ -13,6 +13,7 @@ import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import { ensureProjectManager } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
+import { createPlaceRoleRules } from "../../../agent-roles/place/session-directory.ts";
 import { operatorDirectory } from "./lophn-agent-team.ts";
 import { installPlaceEnvironment } from "../../../lophn-agent/places/mod.ts";
 
@@ -30,29 +31,36 @@ const files = createNodeAgentFiles();
 const ANY_FOLDER = { exists: () => true };
 
 installPlaceEnvironment({
-  deps: (sql) => ({
-    projects: {
-      project(id) {
+  deps: (sql) => {
+    const projects = {
+      project(id: string) {
         const found = projectInfoOf(sql, ANY_FOLDER, { id });
         return found.ok ? found.value as never : null;
       },
-      projectByName(name) {
+      projectByName(name: string) {
         const found = projectInfoOf(sql, ANY_FOLDER, { name });
         return found.ok ? found.value as never : null;
       },
-    },
-    apps: {
-      app: (id) => appOf(sql.get("select * from apps where id = ?", [id])),
-      appByName: (name) =>
+    };
+    const apps = {
+      app: (id: string) =>
+        appOf(sql.get("select * from apps where id = ?", [id])),
+      appByName: (name: string) =>
         appOf(
           sql.get("select * from apps where slug = ? or name = ?", [
             name,
             name,
           ]),
         ),
-    },
-    operators: operatorDirectory(sql),
-  }),
+    };
+    const operators = operatorDirectory(sql);
+    return {
+      projects,
+      apps,
+      operators,
+      roles: createPlaceRoleRules({ projects, apps, operators }),
+    };
+  },
 });
 
 function appOf(row: Record<string, unknown> | undefined) {

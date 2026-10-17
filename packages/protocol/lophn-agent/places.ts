@@ -52,3 +52,54 @@ export const agentRefOutputSchema = z.discriminatedUnion("role", [
   z.object({ role: z.literal("operator"), agent: idSchema("agt") }),
 ]);
 export type AgentRef = z.infer<typeof agentRefSchema>;
+
+// ref가 가리키는 place. Operator는 자기 정의에 place가 있어 여기서 알 수 없다(undefined).
+export function placeOfAgentRef(ref: AgentRef): Place | null | undefined {
+  switch (ref.role) {
+    case "lophn":
+      return null;
+    case "project_manager":
+      return { kind: "project", id: ref.project };
+    case "app_engineer":
+      return { kind: "app", id: ref.app };
+    case "operator":
+      return undefined;
+  }
+}
+
+// session 표의 role과 정체성 열에서 ref를 만든다.
+export function agentRefOfColumns(row: {
+  role: Role;
+  project: string | null;
+  app: string | null;
+  operator: string | null;
+}): AgentRef {
+  switch (row.role) {
+    case "lophn":
+      return { role: "lophn" };
+    case "project_manager":
+      return { role: "project_manager", project: row.project! as never };
+    case "app_engineer":
+      return { role: "app_engineer", app: row.app! as never };
+    case "operator":
+      return { role: "operator", agent: row.operator! as never };
+  }
+}
+
+// 같은 agent인지 가르는 재료. column이 그 role의 정체성을 담는 session 표의 열이다.
+export function agentIdentityOf(ref: AgentRef): {
+  role: Role;
+  column: "project" | "app" | "operator" | null;
+  value: string | null;
+} {
+  switch (ref.role) {
+    case "lophn":
+      return { role: ref.role, column: null, value: null };
+    case "project_manager":
+      return { role: ref.role, column: "project", value: ref.project };
+    case "app_engineer":
+      return { role: ref.role, column: "app", value: ref.app };
+    case "operator":
+      return { role: ref.role, column: "operator", value: ref.agent };
+  }
+}

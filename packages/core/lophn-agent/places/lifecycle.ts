@@ -1,8 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
+  agentIdentityOf,
   type AgentRef,
   type Place,
+  placeOfAgentRef,
   rolePlaceFits,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
@@ -43,23 +45,11 @@ function placeOfAgent(
   deps: PlaceDeps,
   agent: AgentRef,
 ): Result<Place | null> {
-  let place: Place | null;
-  switch (agent.role) {
-    case "lophn":
-      place = null;
-      break;
-    case "project_manager":
-      place = { kind: "project", id: agent.project };
-      break;
-    case "app_engineer":
-      place = { kind: "app", id: agent.app };
-      break;
-    case "operator": {
-      const operator = deps.operators.operator(agent.agent);
-      if (operator === null) return fail("not_found", "operator not found");
-      place = operator.place;
-      break;
-    }
+  let place = placeOfAgentRef(agent);
+  if (place === undefined) {
+    const operator = deps.operators.operator(agentIdentityOf(agent).value!);
+    if (operator === null) return fail("not_found", "operator not found");
+    place = operator.place;
   }
   if (!rolePlaceFits(agent.role, place)) {
     return fail("invalid_input", "the place does not fit the role");
@@ -92,6 +82,10 @@ export function startSession(
   if (!place.ok) return place;
   const seq = nextSessionSeq(tx);
   const kind = place.value?.kind ?? null;
+  // place를 ref가 말하지 못하는 agent(Operator)는 자기 ID가 정체성 열에 들어간다.
+  const operatorId = placeOfAgentRef(input.agent) === undefined
+    ? agentIdentityOf(input.agent).value
+    : null;
   const id = place.value?.id ?? null;
   const inherit = input.inherit;
   tx.sql.run(
@@ -105,7 +99,7 @@ export function startSession(
       input.agent.role,
       kind === "project" ? id : null,
       kind === "app" ? id : null,
-      input.agent.role === "operator" ? input.agent.agent : null,
+      operatorId,
       kind,
       id,
       inherit?.title ?? null,

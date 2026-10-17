@@ -1,10 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type {
-  CallAgent,
-  NamedAgent,
-  Place,
-} from "../../../protocol/lophn-agent/mod.ts";
+import type { Place } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
 import {
@@ -55,83 +51,12 @@ export function createSessionDirectory(
     };
   }
 
-  function nameOf(row: AgentSessionRow): string {
-    switch (row.role) {
-      case "lophn":
-        return "lophn";
-      case "project_manager":
-        return deps.projects.project(row.project as Id<"prj">)?.name ?? "";
-      case "app_engineer":
-        return deps.apps.app(row.app as Id<"app">)?.name ?? "";
-      case "operator":
-        return deps.operators.operator(row.operator as Id<"agt">)?.name ?? "";
-    }
-  }
-
-  // 이름으로 받은 agent 하나를 고른다. 이름을 짐작하지 않는다.
-  function resolve(named: NamedAgent): Result<CallAgent> {
-    const place = named.place;
-    switch (named.role) {
-      case "lophn":
-        return place === undefined && named.name === undefined
-          ? ok({ role: "lophn" })
-          : fail("invalid_input", "lophn has no place or name");
-      case "project_manager": {
-        if (place === undefined || !("project" in place)) {
-          return fail("invalid_input", "a Project Manager needs a project");
-        }
-        const project = deps.projects.projectByName(place.project);
-        return project === null
-          ? fail("not_found", "project not found")
-          : ok({ role: "project_manager", project: project.id });
-      }
-      case "app_engineer": {
-        if (place === undefined || !("app" in place)) {
-          return fail("invalid_input", "an App Engineer needs an app");
-        }
-        const app = deps.apps.appByName(place.app);
-        return app === null
-          ? fail("not_found", "app not found")
-          : ok({ role: "app_engineer", app: app.id });
-      }
-      case "operator": {
-        if (named.name === undefined) {
-          return fail("invalid_input", "an Operator is named");
-        }
-        let at: Place | null = null;
-        if (place !== undefined) {
-          const found = "project" in place
-            ? deps.projects.projectByName(place.project)
-            : deps.apps.appByName(place.app);
-          if (found === null) return fail("not_found", "place not found");
-          at = "project" in place
-            ? { kind: "project", id: found.id }
-            : { kind: "app", id: found.id };
-        }
-        const matches = deps.operators.operators().filter((operator) =>
-          operator.name === named.name &&
-          (at === null ||
-            (operator.place.kind === at.kind && operator.place.id === at.id))
-        );
-        if (matches.length === 0) {
-          return fail("not_found", "operator not found");
-        }
-        if (matches.length > 1) {
-          return fail("invalid_input", "the operator name is ambiguous");
-        }
-        return ok({ role: "operator", agent: matches[0]!.id });
-      }
-      case "coding_agent":
-        return fail("invalid_input", "a coding agent is not resolved here");
-    }
-  }
-
   return {
     find(session) {
       const row = loadSession({ sql: deps.sql() }, session);
       return row === undefined ? null : targetOf(row);
     },
-    resolveAgent: resolve,
+    resolveAgent: deps.roles.resolveNamed,
     openOf(agent) {
       if (agent.role === "coding_agent") return null;
       const which = agentClause(agent);
@@ -164,7 +89,7 @@ export function createSessionDirectory(
         [],
       ).map(sessionRowOf).map((row) => ({
         ...targetOf(row),
-        name: nameOf(row),
+        name: deps.roles.nameOf(agentRefOf(row)),
       }));
     },
   };

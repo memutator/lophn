@@ -152,24 +152,12 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: 지침 file 자리와 session 행 읽기가 harness의 instructions/에 있어 role별 file 이름을 role 이름으로 고른다",
   ],
   [
-    "packages/core/lophn-agent/places/directory.ts",
-    "못 옮김: place 해석이 harness의 places/에 있어 role별 place 종류를 role 이름으로 푼다",
-  ],
-  [
-    "packages/core/lophn-agent/places/lifecycle.ts",
-    "못 옮김: place 생명 주기가 harness의 places/에 있어 role별 session 열기·닫기를 role 이름으로 가른다",
-  ],
-  [
     "packages/core/lophn-agent/register.ts",
     "못 옮김: Operator 조회(operatorDirectory)를 harness의 wiring이 role 이름으로 직접 만든다",
   ],
   [
     "packages/core/lophn-agent/run-loop/runtime-access.ts",
     "못 옮김: agent runtime이 열 core route 목록이 projects·apps protocol의 route 값을 직접 import한다",
-  ],
-  [
-    "packages/core/lophn-agent/session/model.ts",
-    "못 옮김: session 표의 role check와 행 변환이 role 이름을 SQL과 코드에 쓴다",
   ],
   [
     "packages/core/lophn-agent/tools/app-api/input.ts",

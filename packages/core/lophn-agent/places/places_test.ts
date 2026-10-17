@@ -18,7 +18,7 @@ import { revertSchemaSteps } from "../session/rewind/mod.ts";
 import { createSessionDirectory } from "./directory.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
-import { UNWIRED_END_DEPS } from "./unwired.ts";
+import { UNWIRED_END_DEPS, UNWIRED_PLACE_DEPS } from "./unwired.ts";
 
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
@@ -67,6 +67,7 @@ const deps: OpenDeps = {
         : null,
     operators: () => [],
   },
+  roles: UNWIRED_PLACE_DEPS.roles,
   publish: () => {},
 };
 
@@ -100,6 +101,18 @@ Deno.test("archive한 session은 입력을 받지 않고 보관한 place의 sess
   assert(opened.ok);
   const session = opened.value.session;
   assertEquals(directory.find(session)?.accepting, true);
+
+  // 같은 agent의 열린 session만 고른다. 다른 agent와 Operator는 찾지 못한다.
+  assertEquals(
+    directory.openOf({ role: "app_engineer", app: APP })?.session,
+    session,
+  );
+  assertEquals(
+    directory.openOf({ role: "app_engineer", app: OTHER_APP }),
+    null,
+  );
+  assertEquals(directory.openOf({ role: "operator", agent: OPERATOR }), null);
+  assertEquals(directory.openOf({ role: "lophn" }), null);
 
   // place를 보관하면 session은 열린 채 남고 입력만 거절한다. 다시 꺼내면 이어서 받는다.
   archivedPlaces.add(APP);

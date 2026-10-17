@@ -1,5 +1,7 @@
 import {
+  agentIdentityOf,
   type AgentRef,
+  agentRefOfColumns,
   type AgentSession,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
@@ -174,7 +176,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     role: String(row["role"]) as Role,
     project: text(row["project"]),
     app: text(row["app"]),
-    operator: text(row["operator"]),
+    operator: text(row.operator),
     place_kind: text(row["place_kind"]) as AgentSessionRow["place_kind"],
     place_id: text(row["place_id"]),
     title: text(row["title"]),
@@ -209,41 +211,17 @@ export function placeOf(row: AgentSessionRow): Place | null {
 }
 
 export function agentRefOf(row: AgentSessionRow): AgentRef {
-  switch (row.role) {
-    case "lophn":
-      return { role: "lophn" };
-    case "project_manager":
-      return { role: "project_manager", project: row.project! as never };
-    case "app_engineer":
-      return { role: "app_engineer", app: row.app! as never };
-    case "operator":
-      return { role: "operator", agent: row.operator! as never };
-  }
+  return agentRefOfColumns(row);
 }
 
-// 같은 agent인지 가르는 조건. Project Manager와 App Engineer는 place가 정체성이고 Operator는 자기 ID다.
+// 같은 agent인지 가르는 조건. 정체성 열은 role이 정한다.
 export function agentClause(
   agent: AgentRef,
 ): { sql: string; params: string[] } {
-  switch (agent.role) {
-    case "lophn":
-      return { sql: "role = 'lophn'", params: [] };
-    case "project_manager":
-      return {
-        sql: "role = 'project_manager' and project = ?",
-        params: [agent.project],
-      };
-    case "app_engineer":
-      return {
-        sql: "role = 'app_engineer' and app = ?",
-        params: [agent.app],
-      };
-    case "operator":
-      return {
-        sql: "role = 'operator' and operator = ?",
-        params: [agent.agent],
-      };
-  }
+  const { role, column, value } = agentIdentityOf(agent);
+  return column === null
+    ? { sql: "role = ?", params: [role] }
+    : { sql: `role = ? and ${column} = ?`, params: [role, value!] };
 }
 
 export function modelSelectionOf(

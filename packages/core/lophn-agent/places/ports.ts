@@ -1,7 +1,12 @@
 import type { Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
-import type { Place } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentRef,
+  CallAgent,
+  NamedAgent,
+  Place,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type {
   AppDirectory,
@@ -21,11 +26,20 @@ export interface OperatorDirectory {
   operators(): readonly OperatorInfo[];
 }
 
+// role마다 다른 규칙. agent-roles가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
+export type PlaceRoleRules = {
+  // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
+  nameOf(ref: AgentRef): string;
+  // 이름으로 받은 agent 하나를 고른다. 이름을 짐작하지 않는다.
+  resolveNamed(named: NamedAgent): Result<CallAgent>;
+};
+
 // session의 agent와 place를 확인하는 데 필요한 것. place 정보는 project와 앱 module의 port로 읽는다.
 export type PlaceDeps = {
   projects: Pick<ProjectDirectory, "project" | "projectByName">;
   apps: Pick<AppDirectory, "app" | "appByName">;
   operators: OperatorDirectory;
+  roles: PlaceRoleRules;
 };
 
 export type OpenDeps = PlaceDeps & {

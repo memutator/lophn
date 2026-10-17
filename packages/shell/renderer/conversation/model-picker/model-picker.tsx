@@ -4,14 +4,10 @@
 // 그린다. model을 바꾸면 값은 조용히 맞고 알림은 없다.
 import { createContext, type KeyboardEvent, type ReactNode } from "react";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import {
-  Button,
-  Field,
-  Icon,
-  iconPixels,
-  Popover,
-  Select,
-} from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { Field, Select } from "@lophn/ui/input";
+import { Popover } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

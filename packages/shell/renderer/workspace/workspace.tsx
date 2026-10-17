@@ -1,12 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
-import {
-  Icon,
-  IconButton,
-  iconPixels,
-  Tooltip,
-  useObservedSize,
-} from "@lophn/design/components";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
+import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

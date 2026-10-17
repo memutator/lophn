@@ -1,7 +1,7 @@
 // rewind가 숨긴 구간. 메시지는 지워지지 않고 thread에서 한 줄로 접힌다. 그 줄이 숨긴 수와 실제 복원·건너뜀
 // 결과를 말하고, 펼치면 숨긴 줄을 읽기만 한다. 되돌린 것을 다시 하는 Redo는 없다.
 import { type ReactElement, type ReactNode, useId, useState } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 
 import type { ThreadHidden } from "../agent-tab-source.ts";

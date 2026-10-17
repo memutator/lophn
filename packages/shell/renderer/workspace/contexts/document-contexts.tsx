@@ -7,12 +7,8 @@
 //   common.error.load-failed
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Button,
-  ErrorState,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import type { ContainingContext, ContextsSource } from "./source.ts";

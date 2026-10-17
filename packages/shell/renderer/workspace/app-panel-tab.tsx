@@ -3,15 +3,9 @@
 // 앱 view는 앱 공간과 같은 앱·판·mode 신원과 격리로 main이 열고(size만 panel), 크롬은 이 탭의
 // shell renderer가 그린다. 탭이 안 보이면 view를 남긴 채 숨기고, 닫으면 폐기한다.
 import { useEffect, useState } from "react";
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  List,
-  ListItem,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { List, ListItem } from "@lophn/ui/data";
+import { EmptyState, ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

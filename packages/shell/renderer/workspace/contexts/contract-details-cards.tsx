@@ -1,6 +1,6 @@
 // 개체 카드 하나: 이름·public 표시·kind·경로·문서 수, 그다음 Fields와 Relations(관계가 있을 때만).
 import type { ReactNode } from "react";
-import { Card } from "@lophn/design/components";
+import { Card } from "@lophn/ui/layout";
 import { t } from "@lophn/wording";
 
 import type {

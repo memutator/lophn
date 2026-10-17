@@ -2,7 +2,8 @@
 // 최신까지 함께 되돌아갈 목록을 보이고, 사람이 [Rewind <앱 이름>]을 눌러야 시작한다. 진행과 결과도
 // 같은 panel에서 본다. 그 앱을 쓴 모두의 변경이 함께 사라지고 다시 되돌릴 수 없다.
 import { useState } from "react";
-import { Button, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";

@@ -2,7 +2,9 @@
 // 단추. 목록의 한 줄은 영향 한 문장과 상태다. 재발한 문제는 해결됨이던 것이 다시 열렸다는 것을 이전
 // 해결 시각과 다시 난 release와 함께 보인다.
 import { useState } from "react";
-import { Button, Field, Select, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Select } from "@lophn/ui/input";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { lophnSpaceIcons } from "../../../icons/mod.ts";

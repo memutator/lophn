@@ -19,7 +19,7 @@
 //   contexts.label.sub-contract (load 실패 때 대상 이름)
 //   common.error.load-failed
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { TypeCard } from "./contract-details-cards.tsx";

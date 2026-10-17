@@ -1,6 +1,6 @@
 /*
  * 편집기는 읽기 화면과 같은 기둥·16px/28px·제목·목록·인용·코드 모양을 쓴다
- * (packages/design/reading/reading.module.css). 배경·테두리는 읽기와
+ * (packages/design/components/reading/reading.module.css). 배경·테두리는 읽기와
  * 같고 바뀌는 것은 커서뿐이다. CodeMirror class는 전역이라 .editor 아래로만 고친다.
  */
 .editor {

@@ -16,13 +16,9 @@
 // "2 days ago"는 wording의 formatRelativeTime으로 만든다.
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Button,
-  Dialog,
-  ErrorState,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { GlossaryFields } from "./context-glossary-fields.tsx";

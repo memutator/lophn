@@ -1,5 +1,5 @@
 // coding agent의 권한 물음. lophn에서 답하지 않고 그 앱 공간의 터미널 탭으로 focus가 간다.
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import type { CardView } from "../model.ts";

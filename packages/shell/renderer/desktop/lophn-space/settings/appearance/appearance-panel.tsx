@@ -1,12 +1,8 @@
 // Settings › Appearance. 화면 모양을 고른다: theme, 글자 크기, 문서 읽기 폭, 화면 밀도. 줄은 이름과
 // 설명이 왼쪽이고 고르는 칸이 오른쪽 끝 고정 열이다. Theme은 고르면 바로 바뀐다.
 import { useCallback, useState } from "react";
-import {
-  ErrorState,
-  Loading,
-  Select,
-  Skeleton,
-} from "@lophn/design/components";
+import { Select } from "@lophn/ui/input";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { NamedControl } from "../general/named-control.tsx";

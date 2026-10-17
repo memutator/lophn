@@ -3,10 +3,7 @@
 // 틀·view bar·정보 panel·편집기·viewer는 모두 renderer 편집기(`packages/shell/renderer/editor`)의 component이고,
 // 이 파일은 고정 data(`editor/fake-source.ts`)와 gallery의 열기·상태 props를 이어 준다.
 import { useEffect, useRef, useState } from "react";
-import {
-  type ReadingWidthSetting,
-  useReadingWidth,
-} from "@lophn/design/components";
+import { type ReadingWidthSetting, useReadingWidth } from "@lophn/ui/layout";
 
 import { DocumentContexts } from "../../../../packages/shell/renderer/workspace/contexts/document-contexts.tsx";
 import { createFakeContextsSource } from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";

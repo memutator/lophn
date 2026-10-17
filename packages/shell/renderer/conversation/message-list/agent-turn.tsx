@@ -2,7 +2,8 @@
 // 조립은 부르는 쪽이 한다. 이 부품들은 children을 놓기만 하고 source 값을 읽지 않는다.
 import type { ReactElement, ReactNode } from "react";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { Icon, IconButton, iconPixels } from "@lophn/design/components";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

@@ -2,13 +2,9 @@
 // 연다. 탭 줄은 없다. 운영 패널은 720px로 열고 좁은 창에서는 본문을 덮되 앱 view는 덮이지 않는 영역으로 줄어든다.
 // 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(EmbeddedView).
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ErrorState,
-  Loading,
-  Skeleton,
-  Toast,
-  useObservedSize,
-} from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Toast } from "@lophn/ui/overlay";
+import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";

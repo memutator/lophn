@@ -1,5 +1,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { Field, IconButton, Input, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { Tooltip } from "@lophn/ui/overlay";
 import { editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

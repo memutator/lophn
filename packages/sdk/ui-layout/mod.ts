@@ -18,20 +18,20 @@ export {
   DashboardFrame,
   type DashboardSpan,
   FormFrame,
-  List,
   ListDetailFrame,
   type ListDetailFrameProps,
-  ListItem,
-  type ListItemProps,
   READING_WIDTHS,
   ReadingFrame,
   type ReadingFrameProps,
   type ReadingWidth,
-  Tab,
   TableFrame,
+} from "@lophn/ui/layout";
+export {
+  Tab,
   TabList,
   TabPanel,
   type TabProps,
   Tabs,
   type TabsProps,
-} from "@lophn/design/components";
+} from "@lophn/ui/navigation";
+export { List, ListItem, type ListItemProps } from "@lophn/ui/data";

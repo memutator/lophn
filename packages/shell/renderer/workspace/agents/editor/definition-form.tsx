@@ -2,14 +2,9 @@
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
-import {
-  Button,
-  Field,
-  IconButton,
-  Input,
-  Menu,
-  Select,
-} from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Field, Input, Select } from "@lophn/ui/input";
+import { Menu } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";

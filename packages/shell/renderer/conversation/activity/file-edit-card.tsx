@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
-import { Button, Card } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
 import { t } from "@lophn/wording";
 
 import styles from "./activity.module.css";

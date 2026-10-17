@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 
 import type {
   AppFrameViewState,

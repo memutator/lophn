@@ -1,7 +1,7 @@
 // project sidebar의 Agent 쪽. agent마다 열린 session을 들여 쓰고 맨 아래에 Recent session을 둔다.
 // 점은 사람을 기다림(경고색)·일하는 중(focus색)이다.
 import { Avatar } from "../../parts/avatar/avatar.tsx";
-import { IconButton } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 

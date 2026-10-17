@@ -3,7 +3,8 @@
 // write한 앱은 앱마다 고른다: write 목록과, 켜면 함께 되돌아갈 다른 변경, 되돌아가지 않는 external 효과,
 // 되돌릴 수 없는 write를 고르기 전에 보인다. 고르지 않은 앱의 data는 그대로다.
 import { type ReactElement, useEffect, useState } from "react";
-import { Button, Checkbox, IconButton } from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Checkbox } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { workspaceIcons } from "../../icons/mod.ts";

@@ -2,7 +2,9 @@
 // 읽어 보이고, 상태가 바뀌어도 따로 알리지 않는다. 끝나지 않은 call은 머리 줄 오른쪽 [Cancel]로 사람이 취소한다.
 // 답과 실패는 이 블록 안이 아니라 이어지는 새 메시지(ReceivedMessage)로 보인다.
 import { type ReactElement, useState } from "react";
-import { Button, Icon, iconPixels, StatusMark } from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
+import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/wording";
 
 import { lophnSpaceIcons } from "../../icons/mod.ts";

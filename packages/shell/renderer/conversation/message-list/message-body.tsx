@@ -1,7 +1,8 @@
 // Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 앱 카드로 보이고, 사람 말 아래에 전달 상태와
 // 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
-import { IconButton, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

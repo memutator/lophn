@@ -1,13 +1,7 @@
 import { CircleX, Clock } from "lucide-react";
 import { t } from "@lophn/wording";
-import {
-  Button,
-  type ButtonVariant,
-  componentMark,
-  type ControlSize,
-  Icon,
-  iconPixels,
-} from "@lophn/design/components";
+import { Button, type ButtonVariant, Icon } from "@lophn/ui/primitives";
+import { componentMark, type ControlSize, iconPixels } from "@lophn/ui/shared";
 import {
   type AppApiInput,
   type AppApiSpec,

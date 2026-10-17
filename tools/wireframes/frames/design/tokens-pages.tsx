@@ -1,6 +1,8 @@
-// 디자인 시스템 · Tokens 네 page. 값은 @lophn/design의 tokens에서 그대로 읽는다.
-import { tokens } from "@lophn/design";
-import { Icon, iconPixels, STATUS_ICONS } from "@lophn/design/components";
+// 디자인 시스템 · Tokens 네 page. 값은 @lophn/ui의 tokens에서 그대로 읽는다.
+import { tokens } from "@lophn/ui";
+import { Icon } from "@lophn/ui/primitives";
+import { STATUS_ICONS } from "@lophn/ui/feedback";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   appSpaceIcons,
   connectionFailedIcon,
@@ -15,7 +17,7 @@ import {
   retryIcon,
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
-import type { IconProps } from "@lophn/design/components";
+import type { IconProps } from "@lophn/ui/primitives";
 
 import { kit, Page, Row, Section } from "./kit.tsx";
 

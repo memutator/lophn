@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Avatar } from "../../../../parts/avatar/avatar.tsx";
-import {
-  Button,
-  Card,
-  ErrorState,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { AgentEditor } from "../../../../workspace/agents/editor/agent-editor.tsx";

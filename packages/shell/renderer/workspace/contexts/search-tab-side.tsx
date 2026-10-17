@@ -1,13 +1,9 @@
 // Search 탭의 왼쪽 열: context 고르기 · "Open context" · 선언된 검색 ·
 // Saved views. 순서가 화면 순서다.
 import type { ReactNode } from "react";
-import {
-  Button,
-  ErrorState,
-  Field,
-  Select,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Select } from "@lophn/ui/input";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";

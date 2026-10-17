@@ -1,7 +1,8 @@
 // agent가 일하는 중 보낸 메시지가 composer 바로 위에 쌓이는 줄. 기본은 다음 turn에 들어가고, 줄 오른쪽 끝의
 // [Send now]를 누르면 도는 turn에 steer로 들어가 대화에 steer 표시가 붙는다. 보낸 뒤 마음이 바뀌면 줄을 뺀다.
 import type { ReactElement } from "react";
-import { Button, Icon, IconButton, iconPixels } from "@lophn/design/components";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";

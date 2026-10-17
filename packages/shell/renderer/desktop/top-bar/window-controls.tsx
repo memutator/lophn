@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";
-import { IconButton } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
 import {
   windowCloseIcon,
   windowMaximizeIcon,

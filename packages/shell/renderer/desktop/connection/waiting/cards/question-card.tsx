@@ -1,7 +1,7 @@
 // 사람에게 묻는 `ask`의 질문. 질문 내용은 event에 없어서 읽는 route로 가져온다. 질문 하나에 선택지만 고르면
 // 되는 경우는 선택지를 눌러 바로 답하고, 그 밖에는 session에서 답한다.
 import { useEffect, useState } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import type { AskQuestion } from "../../../../../../protocol/lophn-agent/ask-tool.ts";
 import type { CoreSource } from "../../connection.ts";

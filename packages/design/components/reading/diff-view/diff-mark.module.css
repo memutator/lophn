@@ -1,0 +1,7 @@
+.sign {
+  display: inline-block;
+  width: var(--icon-size-base);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  text-align: center;
+}

@@ -2,7 +2,8 @@
 // 경로는 shell main(`InstructionsApi`)이 알려 주고, 없는 파일은 빈 buffer로 열려 첫 저장이 만든다.
 // 앱 층 지침은 없다.
 import { useEffect, useRef, useState } from "react";
-import { Button, ErrorState, Skeleton } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import type {

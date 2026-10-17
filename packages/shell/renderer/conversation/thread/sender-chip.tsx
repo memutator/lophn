@@ -3,7 +3,8 @@
 // 읽어 보인다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import { Icon, iconPixels } from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/wording";
 
 import { lophnSpaceIcons } from "../../icons/mod.ts";

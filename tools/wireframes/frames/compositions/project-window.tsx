@@ -8,12 +8,8 @@ import type {
   TabDot,
   TabItem,
 } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
-import {
-  FileIcon,
-  Icon,
-  iconPixels,
-  type IconProps,
-} from "@lophn/design/components";
+import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   conversationIcons,
   lophnSpaceIcons,

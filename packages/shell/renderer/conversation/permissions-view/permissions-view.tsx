@@ -2,7 +2,7 @@
 // agent grant(대상, 효과, 묻는지)와 이 session에서 "이 session 동안"으로 허락한 대상만 보인다. 고치기는
 // Agents 화면에서 한다.
 import type { ReactElement } from "react";
-import { Button, IconButton } from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type {

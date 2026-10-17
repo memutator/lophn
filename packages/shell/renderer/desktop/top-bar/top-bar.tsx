@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Command } from "lucide-react";
 import { t } from "@lophn/wording";
-import { IconButton, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { lophnEntryIcon } from "../../icons/mod.ts";
 
 import { currentPlatform, type WindowPlatform } from "./platform.ts";

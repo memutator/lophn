@@ -4,7 +4,7 @@ import {
   Avatar,
   type AvatarProfile,
 } from "../../../../parts/avatar/avatar.tsx";
-import { IconButton } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import type { CallAgent } from "../../../../../../protocol/lophn-agent/calls.ts";
 import { lophnSpaceIcons } from "../../../../icons/mod.ts";

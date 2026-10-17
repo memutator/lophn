@@ -2,7 +2,8 @@
 // [Revoke]는 확인 창 없이 바로 요청을 접수한다. 거두기는 요청 접수(새 호출 즉시 막힘)와 실제 정리
 // (이전 process 종료 확인 뒤 새 범위로 다시 시작)를 나눠 보인다.
 import { useEffect, useState } from "react";
-import { Button, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";

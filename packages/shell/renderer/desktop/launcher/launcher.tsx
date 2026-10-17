@@ -1,13 +1,8 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/wording";
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  IconButton,
-  Skeleton,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
 import {
   launcherEmptyIcon,
   launcherIcons,

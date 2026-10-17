@@ -1,7 +1,7 @@
 // 용어 줄을 바로 고치는 칸. 읽을 때와 같은 칸 배치에 글자 칸 둘과 ✓·×가 놓인다.
 // 추가하는 줄과 고치는 줄이 같이 쓴다. Enter·✓는 저장, Esc·×는 취소.
 import { type KeyboardEvent, type ReactNode, useState } from "react";
-import { IconButton } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 
 import { conversationIcons } from "../../icons/mod.ts";

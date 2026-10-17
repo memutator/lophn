@@ -1,7 +1,8 @@
 // project sidebar의 Context 모양 본문: contexts 목록(이름을 누르면 그 Context 탭)과 그 아래 saved views
 // (이름을 누르면 결과를 연다). 이 모양을 열 때(마운트) 한 번 읽고 polling하지 않는다.
 import { useEffect, useRef, useState } from "react";
-import { Icon, iconPixels } from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { lophnSpaceIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

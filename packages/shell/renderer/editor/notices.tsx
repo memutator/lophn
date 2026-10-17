@@ -1,7 +1,7 @@
 // 파일 탭 위쪽 toast. 그 탭 본문 위에 떠서 가운데에 놓인다. 밖(다른 편집기, git)에서 바뀐 것,
 // 충돌, 열거나 지우지 못한 것을 알린다. 색 다른 띠나 상자를 따로 두지 않고 design Toast를 쓴다.
 import type { ReactNode } from "react";
-import { Toast } from "@lophn/design/components";
+import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import styles from "./notices.module.css";

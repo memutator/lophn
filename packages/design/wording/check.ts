@@ -272,7 +272,6 @@ const SOURCE_GLOBS = [
   "packages/shell/renderer",
   "packages/sdk",
   "packages/design/components",
-  "packages/design/reading",
 ];
 
 async function collect(root: string): Promise<string[]> {

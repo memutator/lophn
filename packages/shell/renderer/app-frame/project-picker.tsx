@@ -2,13 +2,8 @@
 // native view가 DOM을 가리므로 고르는 동안 이 자리가 view를 덮은 것으로 알린다(useViewCover). 고르면 부르는 쪽이
 // main에 project를 알리고 view를 다시 보인다.
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import {
-  ErrorState,
-  List,
-  ListItem,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { List, ListItem } from "@lophn/ui/data";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { useViewCover } from "./embedded-view.tsx";

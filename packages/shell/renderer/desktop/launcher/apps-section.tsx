@@ -1,12 +1,8 @@
 import type { ReactNode } from "react";
 import { t } from "@lophn/wording";
-import {
-  EmptyState,
-  ErrorState,
-  Icon,
-  iconPixels,
-  Skeleton,
-} from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { EmptyState, ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { iconPixels } from "@lophn/ui/shared";
 import { appSpaceIcons } from "../../icons/mod.ts";
 
 import type { AppRow } from "../lophn-space/apps/source.ts";

@@ -1,51 +1,53 @@
-// 디자인 시스템 · Components. 실제 @lophn/design component를 고정 data로 그린다.
+// 디자인 시스템 · Components. 실제 @lophn/ui component를 고정 data로 그린다.
 // Menu·Dialog·Sheet·Palette는 modal이라 열어 두면 page 전체가 잠겨서(Radix가 body를 inert로 만든다) 같은
 // CSS Module을 import해 같은 모양으로 짠 look-alike를 stage 안에 그린다. Popover·Tooltip은 실제 component를
 // 열어 두고 stage에 portal한다.
 import { useState } from "react";
 import {
   Button,
-  Card,
-  Checkbox,
   CopyButton,
-  DashboardCell,
-  DashboardFrame,
-  DiffMark,
-  EmptyState,
-  ErrorState,
-  Field,
-  FormFrame,
   Icon,
   IconButton,
-  iconPixels,
-  Input,
   Kbd,
-  List,
-  ListDetailFrame,
-  ListItem,
-  Popover,
-  PopoverRow,
-  ReadingFrame,
+} from "@lophn/ui/primitives";
+import {
+  Checkbox,
+  Field,
+  Input,
   Select,
-  Skeleton,
-  StaleNote,
+  Switch,
+  Textarea,
+} from "@lophn/ui/input";
+import {
+  Card,
+  DashboardCell,
+  DashboardFrame,
+  FormFrame,
+  ListDetailFrame,
+  ReadingFrame,
+  TableFrame,
+} from "@lophn/ui/layout";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+import {
+  List,
+  ListItem,
   StatRow,
   StatTile,
-  StatusMark,
-  Switch,
-  Tab,
   Table,
   type TableColumn,
-  TableFrame,
-  TabList,
-  TabPanel,
-  Tabs,
-  Textarea,
-  Toast,
-  Tooltip,
   Tree,
   type TreeNode,
-} from "@lophn/design/components";
+} from "@lophn/ui/data";
+import {
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  StaleNote,
+  StatusMark,
+} from "@lophn/ui/feedback";
+import { Popover, PopoverRow, Toast, Tooltip } from "@lophn/ui/overlay";
+import { DiffMark } from "@lophn/ui/reading";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   launcherEmptyIcon,
   lophnSpaceIcons,
@@ -53,10 +55,10 @@ import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
-import dialogStyles from "../../../../packages/design/components/dialog/dialog.module.css";
-import sheetStyles from "../../../../packages/design/components/sheet/sheet.module.css";
-import paletteStyles from "../../../../packages/design/components/palette/palette.module.css";
-import menuStyles from "../../../../packages/design/components/menu/menu.module.css";
+import dialogStyles from "../../../../packages/design/components/overlay/dialog/dialog.module.css";
+import sheetStyles from "../../../../packages/design/components/overlay/sheet/sheet.module.css";
+import paletteStyles from "../../../../packages/design/components/overlay/palette/palette.module.css";
+import menuStyles from "../../../../packages/design/components/overlay/menu/menu.module.css";
 import { FROZEN_TIMER, kit, Page, Row, Section, Stage } from "./kit.tsx";
 
 const NOW = new Date("2026-10-11T12:00:00Z");

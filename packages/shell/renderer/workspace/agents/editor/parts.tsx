@@ -2,7 +2,8 @@
 // 토글은 줄 오른쪽 끝 고정 열에 있고, 이름은 줄 왼쪽에 따로 있어서 Switch의 라벨은 눈에는 숨긴다.
 import { type ReactNode, useRef, useState } from "react";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
-import { Button, Field, Switch, Textarea } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Switch, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 

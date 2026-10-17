@@ -14,7 +14,8 @@ import {
   TabStrip,
 } from "../parts/tab-strip/tab-strip.tsx";
 import { VendorIcon, vendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
-import { IconButton, Toast, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Toast, Tooltip } from "@lophn/ui/overlay";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

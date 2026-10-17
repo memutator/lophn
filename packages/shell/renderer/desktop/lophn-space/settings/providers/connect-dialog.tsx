@@ -1,5 +1,7 @@
 import { type ReactNode, useState } from "react";
-import { Button, Dialog, Field, Input } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { ProtectedKeyNote } from "../../../../workspace/agents/editor/parts.tsx";

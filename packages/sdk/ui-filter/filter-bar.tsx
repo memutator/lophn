@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 import { t } from "@lophn/wording";
-import { Button, componentMark, Field, Input } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { componentMark } from "@lophn/ui/shared";
 import styles from "./filter.module.css";
 
 export interface SearchFilterProps {

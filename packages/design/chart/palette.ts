@@ -1,7 +1,7 @@
 // 계열 색 규칙. 순수 함수.
 // - 색은 화면에 남은 순서가 아니라 안정된 domain 안의 엔티티 자리로 정한다. filter가 남은 계열을 다시 칠하지 않는다.
 // - 8 slot을 순환하지 않고, 9번째 엔티티부터는 기타 회색 하나로 합친다.
-import { tokens } from "@lophn/design";
+import { tokens } from "@lophn/ui";
 import type { Series, Slot } from "./types.ts";
 
 export const SLOT_COUNT = tokens.chart.series.length;

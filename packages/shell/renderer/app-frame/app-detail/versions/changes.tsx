@@ -1,7 +1,7 @@
 // "What changes, rA to rB". 대기 목록 카드의 비교와 같은 모양이다: 늘어난 선언과 손실 단계만 보인다.
 // 대기 목록 카드의 비교(desktop/connection/waiting/cards/activation-card.tsx)는 그 카드 안의 줄이라
 // 가져다 쓸 component가 아니어서 여기서 만든다.
-import { DiffMark } from "@lophn/design/components";
+import { DiffMark } from "@lophn/ui/reading";
 import { t } from "@lophn/wording";
 
 import { lossText, releaseName } from "../model.ts";

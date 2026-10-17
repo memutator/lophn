@@ -1,11 +1,8 @@
 import { useId, useState } from "react";
-import {
-  Icon,
-  IconButton,
-  iconPixels,
-  StatusMark,
-  Tooltip,
-} from "@lophn/design/components";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

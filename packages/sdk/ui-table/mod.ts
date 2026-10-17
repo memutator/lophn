@@ -1,4 +1,4 @@
-// 정렬·페이지·열 선택·숫자 정렬·가상 scroll을 갖춘 표. 칸 모양은 @lophn/design의 Table이 그린다.
+// 정렬·페이지·열 선택·숫자 정렬·가상 scroll을 갖춘 표. 칸 모양은 @lophn/ui의 Table이 그린다.
 export {
   clampPage,
   DataState,
@@ -16,4 +16,4 @@ export {
   type TableColumn,
   toggleColumn,
   visibleColumns,
-} from "@lophn/design/components";
+} from "@lophn/ui/data";

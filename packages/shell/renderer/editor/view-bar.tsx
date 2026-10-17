@@ -1,15 +1,9 @@
 // 탭 안 맨 위의 view bar 한 줄. 왼쪽에는 짧은 정보(project 밖 표시, 파일 정보, 열린 줄)만 두고
 // 경로는 위쪽 breadcrumb에 있다. 오른쪽에는 저장 상태, Edit·Read(md만), Info, … menu가 있다.
 import type { ReactNode } from "react";
-import {
-  Button,
-  IconButton,
-  Kbd,
-  Menu,
-  MenuIcon,
-  StatusMark,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { currentPlatform } from "../desktop/top-bar/platform.ts";

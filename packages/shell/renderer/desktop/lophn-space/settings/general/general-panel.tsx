@@ -2,20 +2,11 @@
 // 사람이 정한 값만 저장하고 기본값과 나눠 보인다. 틀린 값은 거절 이유를 줄 아래에 보이고 저장된 값은
 // 그대로다. 필수 설정이 비어 있으면 panel 위쪽 toast가 알린다.
 import { type KeyboardEvent, useCallback, useState } from "react";
-import {
-  Button,
-  ErrorState,
-  Field,
-  Icon,
-  IconButton,
-  iconPixels,
-  Input,
-  Loading,
-  Select,
-  Skeleton,
-  Switch,
-  Toast,
-} from "@lophn/design/components";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Field, Input, Select, Switch } from "@lophn/ui/input";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Toast } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import { connectionFailedIcon, launcherIcons } from "../../../../icons/mod.ts";

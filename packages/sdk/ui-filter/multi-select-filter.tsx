@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { ListFilter } from "lucide-react";
 import { t } from "@lophn/wording";
-import {
-  Button,
-  Checkbox,
-  componentMark,
-  Field,
-  Input,
-  Popover,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Checkbox, Field, Input } from "@lophn/ui/input";
+import { Popover } from "@lophn/ui/overlay";
+import { componentMark } from "@lophn/ui/shared";
 import styles from "./filter.module.css";
 
 export interface FilterOption {

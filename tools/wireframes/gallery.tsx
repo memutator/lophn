@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 
 import { pageById, PAGES, PARTS, type WireframePage } from "./pages.ts";
 import { SCREENS } from "./frames/screens.tsx";

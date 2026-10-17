@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useObservedSize } from "@lophn/design/components";
+import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import { TopBar } from "../top-bar/top-bar.tsx";

@@ -10,7 +10,8 @@
 //   contexts.label.input-to
 //   contexts.note.input-unsupported
 import { type ReactNode, useId } from "react";
-import { Button, Field, Input } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { PickCombobox } from "./search-input-form-combobox.tsx";

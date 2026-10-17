@@ -1,7 +1,8 @@
 // 탭 안 정보 panel. 본문 위에 떠서 그 칸 오른쪽에 붙고 본문 폭은 줄지 않는다. 탭은 Info와
 // Contexts 둘이고 Outline은 Info 안에 있다. Contexts 탭의 내용은 부른 쪽이 끼운다.
 import type { ReactNode } from "react";
-import { Button, Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { formatSize, type OutlineSection } from "../model.ts";

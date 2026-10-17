@@ -1,7 +1,7 @@
 // 용어집의 읽는 줄: 용어 · 뜻(아래에 누가·언제) · [Edit]·[Delete]. 두 단추는 hover나 focus가 들어왔을 때만
 // 보이고 칸은 그대로다.
 import type { ReactNode } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 
 import { setByLabel, whenLabel } from "./context-glossary-model.ts";

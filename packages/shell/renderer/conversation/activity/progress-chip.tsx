@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
-import { Button, Popover } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Popover } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { TaskState, TaskView } from "./model.ts";

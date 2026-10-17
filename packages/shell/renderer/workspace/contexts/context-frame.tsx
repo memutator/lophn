@@ -3,18 +3,11 @@
 // context는 Project Manager가 대화에서 만들고 고친다. 이 머리에는 agent를 부르는 단추가 없고,
 // 사람이 하는 일은 옛 판으로 되돌리기([Restore]) 하나다.
 import { type ReactNode, useEffect, useState } from "react";
-import {
-  Button,
-  type Clock,
-  ErrorState,
-  Skeleton,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  type Timer,
-  Toast,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { Toast } from "@lophn/ui/overlay";
+import type { Clock, Timer } from "@lophn/ui/shared";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { ContextTitle } from "./context-frame-title.tsx";

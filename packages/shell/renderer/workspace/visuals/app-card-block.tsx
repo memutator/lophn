@@ -3,7 +3,7 @@
 // 바꾸지 않는다. 판을 싣지 않은 카드는 지금 판을 연다. view는 message·block 표시 참조에 묶여 열리고 보이는 사각형만
 // main에 간다. 카드를 열어도 command 권한은 늘지 않는다(view에는 command 통로가 없다).
 import { useEffect, useState } from "react";
-import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import type { AppFrameViewState } from "../../../ipc/app-frame.ts";

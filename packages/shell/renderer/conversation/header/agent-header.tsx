@@ -8,7 +8,8 @@ import {
   type ReactNode,
   useState,
 } from "react";
-import { IconButton, Menu } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Menu } from "@lophn/ui/overlay";
 import { editorIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/wording";
 

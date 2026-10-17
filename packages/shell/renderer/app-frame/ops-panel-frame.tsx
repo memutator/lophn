@@ -3,7 +3,8 @@
 // 덮지 않는 영역으로 줄며, 닫으면 원래 bounds로 돌아온다(useViewCover). 패널 안 내용(version,
 // access 등)은 app-detail이 채운다.
 import { type ReactNode, useRef } from "react";
-import { IconButton, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

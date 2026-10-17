@@ -1,11 +1,7 @@
-import {
-  Icon,
-  IconButton,
-  iconPixels,
-  List,
-  ListItem,
-  Tooltip,
-} from "@lophn/design/components";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { List, ListItem } from "@lophn/ui/data";
+import { Tooltip } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

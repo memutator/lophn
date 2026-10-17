@@ -2,7 +2,7 @@
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
 // 동안 agent 한 덩어리로 묶는다.
 import type { ReactElement, ReactNode } from "react";
-import { StatusMark } from "@lophn/design/components";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { EditCard } from "./activity/file-edit-card.tsx";

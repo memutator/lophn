@@ -1,6 +1,6 @@
 // 모은 annotation 목록. 앱 화면 왼쪽 아래에 떠서 번호, 대상 이름, 메모를 보이고 하나씩 지우거나 모두 지우고 App Engineer에게 보낸다.
 // 고른 곳의 윤곽과 번호 표지, 메모 칸은 앱 view 안 preload가 그리므로 여기 없다.
-import { Button, IconButton } from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 
 import type { AnnotateState } from "../../../ipc/annotation.ts";

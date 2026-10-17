@@ -1,7 +1,8 @@
 // Version 탭. activation 진행 상태(적용 중, 적용됨, 적용 실패)와 이전 release로 돌아가기 하나만 있다.
 // 사람이 release를 고르거나 쓰기 시작하는 단추는 없다(activation은 검증이 끝나면 저절로 시작한다).
 import { useEffect, useState } from "react";
-import { Button, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";

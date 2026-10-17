@@ -1,7 +1,7 @@
 // 대기 목록·toast·secret 보호 입력 화면. 동작하는 ProjectApp 위에 renderer의 대기 목록 층을 얹고, 항목은 fake Gateway가
 // 채운다. toast는 design Toast를 직접 쓴다.
 import { useState } from "react";
-import { Toast, ToastStack } from "@lophn/design/components";
+import { Toast, ToastStack } from "@lophn/ui/overlay";
 
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";

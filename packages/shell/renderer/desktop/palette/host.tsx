@@ -8,13 +8,9 @@ import {
   useMemo,
   useRef,
 } from "react";
-import {
-  IconButton,
-  Kbd,
-  systemTimer,
-  type Timer,
-  Tooltip,
-} from "@lophn/design/components";
+import { IconButton, Kbd } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
+import { systemTimer, type Timer } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

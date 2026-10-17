@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  Button,
-  Dialog,
-  Field,
-  Icon,
-  IconButton,
-  iconPixels,
-  Input,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { Skeleton } from "@lophn/ui/feedback";
+import { Dialog } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 import { launcherIcons } from "../../../icons/mod.ts";
 

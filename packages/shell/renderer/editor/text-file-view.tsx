@@ -11,11 +11,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  ErrorState,
-  Skeleton,
-  useReadingWidth,
-} from "@lophn/design/components";
+import { useReadingWidth } from "@lophn/ui/layout";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import type { FileFailure } from "../../ipc/files.ts";

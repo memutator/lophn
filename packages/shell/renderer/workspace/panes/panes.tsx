@@ -3,12 +3,9 @@ import {
   type TabItem as StripTab,
   TabStrip,
 } from "../../parts/tab-strip/tab-strip.tsx";
-import {
-  Icon,
-  IconButton,
-  iconPixels,
-  Tooltip,
-} from "@lophn/design/components";
+import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

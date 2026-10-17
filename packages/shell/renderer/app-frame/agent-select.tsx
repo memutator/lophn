@@ -4,14 +4,9 @@
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
 import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
-import {
-  Button,
-  Icon,
-  iconPixels,
-  Menu,
-  type MenuItem,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { Menu, type MenuItem, Tooltip } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

@@ -14,12 +14,11 @@ export {
   Toc,
   TOC_MAX_LEVEL,
   type TocProps,
-} from "@lophn/design/reading";
+} from "@lophn/ui/reading";
 export {
-  type Clipboard,
   READING_WIDTHS,
   ReadingFrame,
   type ReadingFrameProps,
   type ReadingWidth,
-  systemClipboard,
-} from "@lophn/design/components";
+} from "@lophn/ui/layout";
+export { type Clipboard, systemClipboard } from "@lophn/ui/shared";

@@ -1,13 +1,7 @@
 import { useState } from "react";
-import {
-  Button,
-  Dialog,
-  Field,
-  IconButton,
-  Input,
-  Textarea,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Field, Input, Textarea } from "@lophn/ui/input";
+import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { launcherIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

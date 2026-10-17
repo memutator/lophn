@@ -3,7 +3,8 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { t } from "@lophn/wording";
-import { componentMark, Icon, iconPixels } from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { componentMark, iconPixels } from "@lophn/ui/shared";
 import styles from "./tab-strip.module.css";
 
 export type TabDot = "waiting" | "working" | "ended";

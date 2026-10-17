@@ -3,7 +3,7 @@
 // page 하나를 더하는 법:
 //   1. 이 목록에 항목 하나를 더한다(id, part, title, badges, description, screen).
 //   2. `ScreenId`에 screen 이름을 더하고 `frames/screens.tsx`의 SCREENS에 그 화면을 그리는
-//      component를 더한다. 새 설계(part "new")는 `frames/compositions/`에 `@lophn/design`
+//      component를 더한다. 새 설계(part "new")는 `frames/compositions/`에 `@lophn/ui`
 //      component와 고정 데이터만으로 짠 정적 구성을 둔다. 빠뜨리면 deno check가 잡는다.
 //
 // 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
@@ -23,7 +23,7 @@ export const PARTS: readonly Part[] = [
     id: "design",
     title: "디자인 시스템",
     summary:
-      "@lophn/design의 token과 component, 앱이 import하는 SDK(@lophn/ui-*)의 공개 예제를 있는 그대로 그린다. frame 없이 본문에 바로 그리고, 위쪽 Light·Dark 선택을 따른다.",
+      "@lophn/ui의 token과 component, 앱이 import하는 SDK(@lophn/ui-*)의 공개 예제를 있는 그대로 그린다. frame 없이 본문에 바로 그리고, 위쪽 Light·Dark 선택을 따른다.",
   },
   {
     id: "now",
@@ -35,7 +35,7 @@ export const PARTS: readonly Part[] = [
     id: "new",
     title: "새 설계",
     summary:
-      "구현 전에 사람이 확인할 새 설계 wireframe. @lophn/design component와 고정 데이터만으로 짠 정적 구성이다.",
+      "구현 전에 사람이 확인할 새 설계 wireframe. @lophn/ui component와 고정 데이터만으로 짠 정적 구성이다.",
   },
 ];
 

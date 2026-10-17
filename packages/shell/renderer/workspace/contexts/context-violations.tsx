@@ -10,7 +10,8 @@
 //   contexts.label.violations-rule
 //   contexts.label.target-focus
 import { type ReactNode, useEffect, useState } from "react";
-import { Button, ErrorState } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import {

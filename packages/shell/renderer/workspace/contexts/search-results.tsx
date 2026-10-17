@@ -9,12 +9,9 @@
 //   contexts.label.results-pager
 //   contexts.label.results-range
 import { Fragment, type ReactNode, useMemo } from "react";
-import {
-  Button,
-  Card,
-  DataTable,
-  type TableColumn,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
+import { DataTable, type TableColumn } from "@lophn/ui/data";
 import { t } from "@lophn/wording";
 
 import type { DeclaredSearch, SearchRow } from "./source.ts";

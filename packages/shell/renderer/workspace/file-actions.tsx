@@ -1,7 +1,9 @@
 // sidebar 파일 tree의 Rename·Delete 확인. Delete는 화면 가운데 modal이 한 번 묻고, Rename은 새 이름을 받는다.
 // 실제로 디스크를 바꾸는 일과 열린 탭 정리는 부르는 쪽(window)이 한다.
 import { useState } from "react";
-import { Button, Dialog, Field, Input } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 export type FileDialogState =

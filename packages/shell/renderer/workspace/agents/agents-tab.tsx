@@ -4,7 +4,8 @@
 // 앱 자리에서는 Project Manager 자리에 그 앱의 App Engineer가 온다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 import type { ReactElement, ReactNode } from "react";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { Button, Card } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
 import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";

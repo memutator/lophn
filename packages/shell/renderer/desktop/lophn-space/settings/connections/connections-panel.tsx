@@ -6,15 +6,9 @@ import {
   VendorIcon,
   vendorOf,
 } from "../../../../parts/vendor-icon/vendor-icon.tsx";
-import {
-  Button,
-  ErrorState,
-  Field,
-  Input,
-  Loading,
-  Skeleton,
-  StatusMark,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { retryIcon } from "../../../../icons/mod.ts";

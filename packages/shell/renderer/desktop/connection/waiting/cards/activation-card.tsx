@@ -1,6 +1,7 @@
 // activation 허락. 이전보다 늘어난 선언과 손실 단계만 보인다. 첫 activation이면 선언 전부가 늘어난 것이다.
 import { useState } from "react";
-import { DiffMark, StatusMark } from "@lophn/design/components";
+import { StatusMark } from "@lophn/ui/feedback";
+import { DiffMark } from "@lophn/ui/reading";
 import { t } from "@lophn/wording";
 import type { Line } from "../model.ts";
 import styles from "../waiting.module.css";

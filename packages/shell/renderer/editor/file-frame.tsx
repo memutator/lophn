@@ -2,7 +2,8 @@
 // 정보 panel은 그 칸 오른쪽에 뜨는 overlay이고, 파일 지우기는 화면 가운데 modal이 묻는다.
 // 어느 파일이든 이 틀을 쓰고 본문과 toast만 갈아 끼운다.
 import { type KeyboardEventHandler, type ReactNode, useState } from "react";
-import { Button, Dialog } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import {

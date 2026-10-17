@@ -3,17 +3,10 @@
 // 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 import { type ReactElement, useEffect, useState } from "react";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
-import {
-  Button,
-  Dialog,
-  ErrorState,
-  Skeleton,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Toast,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { Dialog, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 

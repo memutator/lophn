@@ -1,5 +1,5 @@
 // Issues 탭의 순수 계산. 상태 이름과 색, 기간 거르기.
-import type { StatusTone } from "@lophn/design";
+import type { StatusTone } from "@lophn/ui";
 import { t } from "@lophn/wording";
 
 import type { IssueOccurrence, IssueStatus } from "./source.ts";

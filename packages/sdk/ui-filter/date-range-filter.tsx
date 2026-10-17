@@ -1,16 +1,10 @@
 import { useState } from "react";
 import { Calendar, Check } from "lucide-react";
 import { formatDate, type MessageKey, t } from "@lophn/wording";
-import {
-  Button,
-  componentMark,
-  Field,
-  Icon,
-  iconPixels,
-  Input,
-  Popover,
-  PopoverRow,
-} from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { Popover, PopoverRow } from "@lophn/ui/overlay";
+import { componentMark, iconPixels } from "@lophn/ui/shared";
 import {
   type DateRange,
   parseDay,

@@ -2,7 +2,7 @@
 // 바깥 자원 거두기, 앱 data rewind를 한다. 운영 패널(`ops-panel-frame.tsx`)의 본문이다. 사람은
 // release를 고르거나 쓰기 시작하지 않는다. 결정은 확인 창 없이 이 탭에서 바로 한다.
 import type { ReactNode } from "react";
-import { Tab, TabList, TabPanel, Tabs } from "@lophn/design/components";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { t } from "@lophn/wording";
 
 import { InstructionsButton } from "../../editor/instructions-entry.tsx";

@@ -1,10 +1,6 @@
 import type { ReactNode } from "react";
-import {
-  Icon,
-  IconButton,
-  iconPixels,
-  type IconProps,
-} from "@lophn/design/components";
+import { Icon, IconButton, type IconProps } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

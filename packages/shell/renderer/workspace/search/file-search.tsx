@@ -1,7 +1,7 @@
 // project 키워드 검색 화면. 검색어와 폴더 하나로 좁히기, 결과는 경로 순·줄 순(route가 정해 준다),
 // 일치한 부분이 든 snippet을 보인다. 결과를 누르면 그 줄에서 파일을 열라고 부르는 쪽에 알린다.
 import { useEffect, useRef, useState } from "react";
-import { Field, Input, Select } from "@lophn/design/components";
+import { Field, Input, Select } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { rootChoices } from "../sidebar/explorer.tsx";

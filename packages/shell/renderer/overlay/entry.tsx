@@ -1,5 +1,5 @@
-import "@lophn/design/tokens.css";
-import "@lophn/design/base.css";
+import "@lophn/ui/tokens.css";
+import "@lophn/ui/base.css";
 import "../chrome.css";
 import { t } from "@lophn/wording";
 import type { OverlayApi } from "../../ipc/overlay.ts";

@@ -3,7 +3,8 @@
 // 무한 loop여도 동작한다. renderer는 view_session만 보내고 앱·release·화면은 main이 정한다.
 import { useState } from "react";
 import { Flag } from "lucide-react";
-import { IconButton, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";

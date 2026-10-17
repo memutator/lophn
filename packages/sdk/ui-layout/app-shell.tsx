@@ -1,11 +1,7 @@
 import { createContext, type ReactNode, useContext, useRef } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  componentMark,
-  Icon,
-  iconPixels,
-  useObservedSize,
-} from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { componentMark, iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { type ContainerSpace, containerSpace } from "./space.ts";
 import styles from "./layout.module.css";
 

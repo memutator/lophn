@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import "@lophn/design/tokens.css";
-import "@lophn/design/base.css";
+import "@lophn/ui/tokens.css";
+import "@lophn/ui/base.css";
 import "./chrome.css";
 
 // 문구는 넣지 않는다. 화면 문구는 wording key로만 쓴다(shell/wording).

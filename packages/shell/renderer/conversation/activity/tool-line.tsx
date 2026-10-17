@@ -1,5 +1,6 @@
 import { type ReactElement, type ReactNode, useState } from "react";
-import { Icon, iconPixels } from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 
 import type { ToolLineDetail, ToolLineView } from "./model.ts";

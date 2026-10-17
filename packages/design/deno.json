@@ -1,9 +1,16 @@
 {
-  "name": "@lophn/design",
+  "name": "@lophn/ui",
   "exports": {
     ".": "./mod.ts",
-    "./components": "./components/mod.ts",
-    "./reading": "./reading/mod.ts",
+    "./primitives": "./components/primitives/mod.ts",
+    "./input": "./components/input/mod.ts",
+    "./layout": "./components/layout/mod.ts",
+    "./navigation": "./components/navigation/mod.ts",
+    "./data": "./components/data/mod.ts",
+    "./feedback": "./components/feedback/mod.ts",
+    "./overlay": "./components/overlay/mod.ts",
+    "./reading": "./components/reading/mod.ts",
+    "./shared": "./components/_shared/mod.ts",
     "./base.css": "./base.css",
     "./tokens.css": "./generated/tokens.css"
   },

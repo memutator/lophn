@@ -5,7 +5,7 @@ import {
   type ReadingWidth,
   readingWidthOf,
   type ReadingWidthSetting,
-} from "@lophn/design/components";
+} from "@lophn/ui/layout";
 
 import type { CoreSource } from "../desktop/connection/connection.ts";
 

@@ -9,13 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  Button,
-  Icon,
-  IconButton,
-  iconPixels,
-  Popover,
-} from "@lophn/design/components";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Popover } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import {

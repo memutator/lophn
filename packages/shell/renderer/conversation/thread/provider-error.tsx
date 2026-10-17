@@ -1,6 +1,7 @@
 // 대화 안 오류 메시지. provider가 요청을 거절하는 등 server 요청이 실패하면 어떤 오류인지와 [Retry]가 대화에 남는다.
 import { type ReactElement, useState } from "react";
-import { Button, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import type { AgentTabSource } from "../agent-tab-source.ts";

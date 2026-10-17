@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
 import { Inbox, type LucideIcon } from "lucide-react";
 import {
-  componentMark,
   type EmptyAction,
   EmptyState,
   ErrorState,
   Loading,
   Skeleton,
   StaleNote,
-  type Timer,
-} from "@lophn/design/components";
+} from "@lophn/ui/feedback";
+import { componentMark, type Timer } from "@lophn/ui/shared";
 import styles from "./state.module.css";
 
 export interface Freshness {

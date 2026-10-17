@@ -2,7 +2,9 @@
 // 선택지는 request가 가진 `choices` 그대로다(app-api·MCP tool은 넷, 나머지는 허락과 거절). [Deny]는 이유 칸을
 // 열고 비워도 된다. 카드를 닫거나 가만히 두는 것은 결정이 아니다.
 import { type ReactElement, useState } from "react";
-import { Button, Icon, iconPixels, StatusMark } from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 import type { RequestChoice } from "../../../../protocol/approvals/requests.ts";
 import { editorIcons } from "../../icons/mod.ts";

@@ -1,12 +1,8 @@
 // Settings › Reactions. 새 일을 여는 domain event 다섯마다 Off, Open without asking, Ask를 고른다.
 // 기본은 열고 묻지 않음이다. call을 닫는 event는 항목이 없다.
 import { useCallback, useState } from "react";
-import {
-  ErrorState,
-  Loading,
-  Select,
-  Skeleton,
-} from "@lophn/design/components";
+import { Select } from "@lophn/ui/input";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { NamedControl } from "../general/named-control.tsx";

@@ -1,11 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import {
-  Button,
-  Dialog,
-  ErrorState,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Dialog } from "@lophn/ui/overlay";
 import { lophnSpaceIcons } from "../../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

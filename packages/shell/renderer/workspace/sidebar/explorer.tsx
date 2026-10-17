@@ -2,13 +2,9 @@
 // 오른쪽 클릭 menu는 Open·Rename·Delete를 낼 뿐이고 실제 실행은 부르는 쪽이 한다.
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import {
-  FileIcon,
-  Icon,
-  iconPixels,
-  Menu,
-  MenuIcon,
-} from "@lophn/design/components";
+import { FileIcon, Icon } from "@lophn/ui/primitives";
+import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { editorIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

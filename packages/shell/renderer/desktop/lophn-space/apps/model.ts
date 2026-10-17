@@ -1,6 +1,6 @@
 // 앱 상태를 화면 말로 바꾼다. 원시 enum은 사용자 라벨에 나오지 않는다.
 import { t } from "@lophn/wording";
-import type { StatusTone } from "@lophn/design";
+import type { StatusTone } from "@lophn/ui";
 
 import type { AppRow, RunState } from "./source.ts";
 

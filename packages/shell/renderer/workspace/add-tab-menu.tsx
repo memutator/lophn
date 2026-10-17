@@ -3,13 +3,8 @@
 // 부르는 쪽이 통로가 있는 항목의 핸들러만 준다. 핸들러가 없는 항목은 두지 않는다.
 import { type ReactNode, useRef, useState } from "react";
 import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
-import {
-  FileIcon,
-  IconButton,
-  Menu,
-  MenuIcon,
-  type MenuItem,
-} from "@lophn/design/components";
+import { FileIcon, IconButton } from "@lophn/ui/primitives";
+import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { lophnSpaceIcons, paletteIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

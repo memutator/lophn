@@ -1,7 +1,7 @@
 // md 본문 칸. 읽기와 live preview 편집이 같은 scroll 칸·기둥·배경을 쓰고 본문 자리만 바뀐다.
 import type { Ref, RefObject } from "react";
-import { ReadingFrame, type ReadingWidth } from "@lophn/design/components";
-import { Markdown } from "@lophn/design/reading";
+import { ReadingFrame, type ReadingWidth } from "@lophn/ui/layout";
+import { Markdown } from "@lophn/ui/reading";
 
 import {
   MarkdownEditor,

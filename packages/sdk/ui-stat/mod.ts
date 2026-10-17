@@ -5,4 +5,4 @@ export {
   StatRow,
   StatTile,
   type StatTileProps,
-} from "@lophn/design/components";
+} from "@lophn/ui/data";

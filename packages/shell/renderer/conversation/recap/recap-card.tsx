@@ -1,6 +1,6 @@
 // `/recap`의 결과. session을 짧게 요약한 줄들을 대화 끝에 보이고 닫을 수 있다. 요약은 이력에 들어가지 않는다.
 import type { ReactElement } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import styles from "./recap-card.module.css";
 

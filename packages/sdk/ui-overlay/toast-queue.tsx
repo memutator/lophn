@@ -6,13 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  type Clock,
-  type Timer,
-  Toast,
-  type ToastProps,
-  ToastStack,
-} from "@lophn/design/components";
+import { Toast, type ToastProps, ToastStack } from "@lophn/ui/overlay";
+import type { Clock, Timer } from "@lophn/ui/shared";
 
 export type ToastOptions = Omit<ToastProps, "onClose" | "timer" | "clock"> & {
   onClose?: () => void;

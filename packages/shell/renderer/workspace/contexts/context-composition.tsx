@@ -14,7 +14,7 @@
 // 문구는 context-composition-nodes.ts가 만든다. 이 파일은 읽기와 그리기를 맡는다.
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import styles from "./context-composition.module.css";

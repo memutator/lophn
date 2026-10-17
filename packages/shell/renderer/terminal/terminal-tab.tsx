@@ -5,7 +5,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useObservedSize } from "@lophn/design/components";
+import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import type {

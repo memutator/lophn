@@ -1,6 +1,6 @@
 // Search 탭 본문의 결과: 지금 page를 읽어 SearchResults에 넘긴다.
 import { type ReactNode, useMemo } from "react";
-import { ErrorState, Loading, Skeleton } from "@lophn/design/components";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 
 import { SearchResults } from "./search-results.tsx";
 import { loadPage } from "./search-tab-page.ts";

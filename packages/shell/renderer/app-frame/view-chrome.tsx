@@ -4,12 +4,9 @@
 // 화면이 멈추거나 crash하면 그 상태와 [Open again]을 둔다. 새 view는 사람이 누를 때만 지금
 // 연결로 연다.
 import { Flag } from "lucide-react";
-import {
-  Button,
-  IconButton,
-  StatusMark,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";

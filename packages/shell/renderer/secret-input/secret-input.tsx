@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { t } from "@lophn/wording";
-import { Button, Field, Input } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
 
 import type {
   SecretInputPurpose,

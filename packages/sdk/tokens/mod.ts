@@ -1,5 +1,5 @@
 // 앱이 import하는 고정 token. 값의 정본은 packages/design이고 여기서는 다시 내보내기만 한다.
-export { tokenNames, tokens, vars } from "@lophn/design";
+export { tokenNames, tokens, vars } from "@lophn/ui";
 export type {
   Breakpoint,
   SpaceStep,
@@ -9,4 +9,4 @@ export type {
   TokenName,
   Tokens,
   TokenVars,
-} from "@lophn/design";
+} from "@lophn/ui";

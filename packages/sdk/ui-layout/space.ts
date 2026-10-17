@@ -1,4 +1,4 @@
-import { tokens } from "@lophn/design";
+import { tokens } from "@lophn/ui";
 
 // 앱 화면이 놓인 container의 크기 종류. 창이 아니라 실제로 넣은 영역의 폭으로 정한다.
 export type ContainerSpace = "card" | "panel" | "full";

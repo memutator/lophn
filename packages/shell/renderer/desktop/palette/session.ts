@@ -1,7 +1,7 @@
 // 창 안 명령 팔레트 하나. shell overlay view에 palette 표면으로 열고
 // 검색어가 오면 지금 공간의 행을 다시 만들어 같은 표면에 보낸다. 고른 행의 대상은
 // 이 renderer에만 있고 overlay·main에는 행 id와 이름만 간다.
-import type { Timer } from "@lophn/design/components";
+import type { Timer } from "@lophn/ui/shared";
 
 import type {
   OverlayApi,

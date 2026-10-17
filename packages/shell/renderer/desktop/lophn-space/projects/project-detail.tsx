@@ -1,13 +1,8 @@
 import { type FormEvent, useState } from "react";
-import {
-  Button,
-  Field,
-  IconButton,
-  Input,
-  StatusMark,
-  Textarea,
-  Tooltip,
-} from "@lophn/design/components";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Field, Input, Textarea } from "@lophn/ui/input";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 import { lophnSpaceIcons, retryIcon } from "../../../icons/mod.ts";
 

@@ -3,8 +3,8 @@
 // - `?frame=<page id>`: gallery가 frame(iframe)에 넣는 화면 하나. iframe이라서 화면은 고정 크기의
 //   창처럼 자기 viewport를 갖는다(100vh·fixed 배치·창 폭 규칙이 그대로 맞는다).
 import { createRoot } from "react-dom/client";
-import "@lophn/design/tokens.css";
-import "@lophn/design/base.css";
+import "@lophn/ui/tokens.css";
+import "@lophn/ui/base.css";
 
 import { FramePage, Gallery } from "./gallery.tsx";
 import { installWindowApi } from "./frames/chrome/window-api.ts";

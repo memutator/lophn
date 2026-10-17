@@ -1,5 +1,5 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
-import { StatusMark } from "@lophn/design/components";
+import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 import { useEventClient, useWaitingRefresh } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";

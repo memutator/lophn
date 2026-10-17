@@ -15,7 +15,7 @@
 //   contexts.note.search-pick
 //   common.error.load-failed
 import { type ReactNode, useEffect, useState } from "react";
-import { EmptyState, ErrorState } from "@lophn/design/components";
+import { EmptyState, ErrorState } from "@lophn/ui/feedback";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

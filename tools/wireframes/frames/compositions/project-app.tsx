@@ -10,7 +10,7 @@ import {
 import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
-import { Palette, type PaletteItem } from "@lophn/design/components";
+import { Palette, type PaletteItem } from "@lophn/ui/overlay";
 import {
   workspaceIcons,
 } from "../../../../packages/shell/renderer/icons/mod.ts";

@@ -8,7 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Icon, iconPixels, Kbd } from "@lophn/design/components";
+import { Button, Icon, Kbd } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 import { lophnSpaceIcons } from "../../icons/mod.ts";
 import type {

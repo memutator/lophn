@@ -12,13 +12,9 @@ import {
 } from "react";
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import {
-  Button,
-  Icon,
-  IconButton,
-  iconPixels,
-  Popover,
-} from "@lophn/design/components";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Popover } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   editorIcons,
   launcherIcons,

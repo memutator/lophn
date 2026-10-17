@@ -1,15 +1,9 @@
 // lophn 공간 apps 화면. 등록한 앱을 사람이 지은 이름과 상태로 보이고, 열기·보관·꺼내기를 둔다. 앱 등록은
 // 이 화면의 일이 아니다. 보관은 되돌릴 수 있어 묻지 않고 하고 결과만 알린다. 원시 enum·ID는 보이지 않는다.
 import { useCallback, useEffect, useState } from "react";
-import {
-  Button,
-  ErrorState,
-  Icon,
-  iconPixels,
-  Loading,
-  Skeleton,
-  StatusMark,
-} from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 import { appSpaceIcons, lophnSpaceIcons } from "../../../icons/mod.ts";
 

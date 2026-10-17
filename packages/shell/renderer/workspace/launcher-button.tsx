@@ -1,4 +1,5 @@
-import { IconButton, Tooltip } from "@lophn/design/components";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 

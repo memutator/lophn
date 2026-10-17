@@ -3,18 +3,11 @@
 // 저장하지 않고, 이미 접수한 것은 닫아도 지우지 않는다. 접수 뒤 묶인 Issue로 갈 수 있다. 안내에는
 // code·ID·stack·원문 오류를 넣지 않고 문제 문구는 problems가 정한 값 그대로 쓴다.
 import { useState } from "react";
-import {
-  Button,
-  type Clipboard,
-  CopyButton,
-  Dialog,
-  Field,
-  List,
-  ListItem,
-  Select,
-  systemClipboard,
-  Textarea,
-} from "@lophn/design/components";
+import { Button, CopyButton } from "@lophn/ui/primitives";
+import { Field, Select, Textarea } from "@lophn/ui/input";
+import { List, ListItem } from "@lophn/ui/data";
+import { Dialog } from "@lophn/ui/overlay";
+import { type Clipboard, systemClipboard } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import {

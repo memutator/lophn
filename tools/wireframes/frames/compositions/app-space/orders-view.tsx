@@ -1,6 +1,6 @@
 // Orders 앱이 그린 화면의 고정 그림. 앱 view는 앱이 그리므로 lophn 화면이 아니다. annotate에서 고를 수 있는 요소 둘과 영역 하나가 있다.
 import type { ReactNode } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 
 import { ORDER_ROWS } from "./data.ts";
 import styles from "./app-space.module.css";

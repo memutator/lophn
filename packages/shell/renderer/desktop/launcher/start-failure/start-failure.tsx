@@ -1,6 +1,7 @@
 // 시작 실패 화면. 시작·sandbox·schema 세 경우를 연결 화면 대신 보이고, 다음 행동 하나를 준다.
 import { type ReactElement, useId, useState } from "react";
-import { Button, Icon, iconPixels } from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { connectionFailedIcon, retryIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 

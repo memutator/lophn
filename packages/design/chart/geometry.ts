@@ -1,7 +1,7 @@
 // mark 치수와 SVG geometry. 순수 함수. 치수는 token에서만 읽는다.
 // @ts-types="@types/d3-scale"
 import { scaleLinear } from "d3-scale";
-import { tokens } from "@lophn/design";
+import { tokens } from "@lophn/ui";
 
 const px = (value: string) => Number.parseFloat(value);
 

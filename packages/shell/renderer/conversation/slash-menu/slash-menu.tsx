@@ -3,7 +3,8 @@
 // component는 받은 묶음을 순서대로 그리며 query와 맞는 글자를 굵게 한다. 일하는 중 고른 명령은 모두 다음
 // turn에 들어간다.
 import { type ComponentProps, Fragment, type ReactNode } from "react";
-import { Icon, iconPixels } from "@lophn/design/components";
+import { Icon } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import {

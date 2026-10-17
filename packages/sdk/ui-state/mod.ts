@@ -24,6 +24,5 @@ export {
   type SkeletonShape,
   StaleNote,
   type StaleNoteProps,
-  systemTimer,
-  type Timer,
-} from "@lophn/design/components";
+} from "@lophn/ui/feedback";
+export { systemTimer, type Timer } from "@lophn/ui/shared";

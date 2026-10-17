@@ -1,7 +1,7 @@
 // document_editor 탭 kind. 파일 하나를 연다. 탭 key는 파일 경로이고 project 안팎 어느 파일이든
 // 같다. 확장자로 viewer를 고른다(md, text, 이미지, pdf).
 import { useEffect, useState } from "react";
-import { FileIcon } from "@lophn/design/components";
+import { FileIcon } from "@lophn/ui/primitives";
 
 import { workspaceIcons } from "../../icons/mod.ts";
 import { DocumentView } from "../../editor/document-view.tsx";

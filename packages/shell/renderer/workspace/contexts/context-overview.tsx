@@ -9,7 +9,9 @@
 //   contexts.note.overview-example
 //   common.error.load-failed
 import { type ReactNode, useEffect, useState } from "react";
-import { Button, Card, ErrorState } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
+import { ErrorState } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { ContextComposition } from "./context-composition.tsx";

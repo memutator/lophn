@@ -2,7 +2,7 @@
 // 라벨이 있어야 해서, 같은 context를 직접 잡아 라벨을 줄 왼쪽에 둔다. Appearance·Reactions도 쓴다.
 import { type ReactNode, useId } from "react";
 
-import { FieldContext } from "@lophn/design/components";
+import { FieldContext } from "@lophn/ui/input";
 
 export function NamedControl(
   { name, invalid = false, labelClass, children }: {

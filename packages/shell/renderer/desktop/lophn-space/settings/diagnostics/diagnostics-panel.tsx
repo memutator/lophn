@@ -1,7 +1,8 @@
 // Settings › Diagnostics. 구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 실제로 점검한 시각을 보인다.
 // 사람이 [Run checks]를 누를 때만 점검한다. 보안 점검은 없다.
 import { useState } from "react";
-import { Button, Skeleton, StatusMark } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { retryIcon } from "../../../../icons/mod.ts";

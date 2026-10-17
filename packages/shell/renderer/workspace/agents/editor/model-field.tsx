@@ -4,7 +4,7 @@ import {
   VendorIcon,
   vendorOf,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
-import { Field, Select } from "@lophn/design/components";
+import { Field, Select } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { optionAxesOf } from "../../../../../protocol/lophn-agent/model-picker.ts";

@@ -4,13 +4,9 @@
 // context는 Project Manager가 대화에서 만들므로 만드는 단추가 없다. 열 때 읽고 열려 있는 동안 다시 읽지 않는다.
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Button,
-  Card,
-  ErrorState,
-  Loading,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Card } from "@lophn/ui/layout";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import styles from "./contexts-tab.module.css";

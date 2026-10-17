@@ -1,13 +1,9 @@
 // Search 탭의 본문: 고른 검색의 제목, 입력 form, [Save as view]의 이름 칸,
 // 결과. 입력을 바꾸는 일은 곧바로 state로 알리고, 결과는 [Search]를 눌러야 바뀐 입력으로 다시 읽는다.
 import { type ReactNode, useState } from "react";
-import {
-  Button,
-  ErrorState,
-  Field,
-  Input,
-  Skeleton,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input } from "@lophn/ui/input";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { SearchInputForm } from "./search-input-form.tsx";

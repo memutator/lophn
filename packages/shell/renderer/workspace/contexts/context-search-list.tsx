@@ -2,7 +2,8 @@
 // 줄의 [Open]이나 보기를 고르면 결과를 여기서 그리지 않고 그 검색을 고른 Search 탭을 여는 일을
 // 부른 쪽에 맡긴다.
 import type { ReactNode } from "react";
-import { Button, ErrorState, Skeleton } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import styles from "./search-tab.module.css";

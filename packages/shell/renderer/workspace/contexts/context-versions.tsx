@@ -1,7 +1,7 @@
 // Context 탭 머리의 판 목록. 판마다 번호와 시각이고, 적용된 판은 Current, 옛 판은 [Restore]로 되돌린다.
 // 되돌리는 일은 확인 없이 바로 한다: 되돌린 뒤에도 옛 판이 목록에 남아 다시 되돌릴 수 있다.
 import type { ReactNode } from "react";
-import { Button } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { BundleEntry } from "./source.ts";

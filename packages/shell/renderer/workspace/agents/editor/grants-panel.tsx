@@ -1,15 +1,10 @@
 // agent grant 화면. 사람이 이 agent에게 앱, 외부 MCP tool, 부를 수 있는 다른 agent, 설정 고치기를 붙이고 대상마다 실행 때
 // 묻는지를 정한다. 효과별 기본값을 위에 보이고, 앱은 펼치면 app-api마다 빼거나 묻는지를 바꾼다. 바꾼 것은 바로 entries로 나간다.
 import { type ReactNode, useState } from "react";
-import {
-  Button,
-  Field,
-  Icon,
-  iconPixels,
-  Menu,
-  Select,
-  Switch,
-} from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui/primitives";
+import { Field, Select, Switch } from "@lophn/ui/input";
+import { Menu } from "@lophn/ui/overlay";
+import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 

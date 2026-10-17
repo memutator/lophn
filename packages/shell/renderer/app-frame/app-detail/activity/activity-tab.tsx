@@ -1,7 +1,8 @@
 // Activity 탭. 호출 기록 목록, 한 호출을 펼친 세부, project로 거르기, 그리고 rewind panel로 가는 단추.
 // 성공한 읽기는 기록하지 않는다. 호출 성공은 업무가 맞다는 뜻이 아니다.
 import { useState } from "react";
-import { Button, Field, Select } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Select } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";

@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Field, Select } from "@lophn/design/components";
+import { Field, Select } from "@lophn/ui/input";
 import { type MessageKey, t } from "@lophn/wording";
 
 import type { ViewDetail } from "./model.ts";

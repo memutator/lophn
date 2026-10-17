@@ -2,7 +2,8 @@
 // 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다. 열어 둔 agent는 탭의 필드(layout)에 남고, 첫 저장 전의 새 Operator는
 // 이 탭 안의 상태일 뿐이다.
 import { type ReactElement, useCallback, useEffect, useState } from "react";
-import { ErrorState, Skeleton, Toast } from "@lophn/design/components";
+import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";

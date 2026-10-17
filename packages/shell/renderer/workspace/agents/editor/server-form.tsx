@@ -1,13 +1,8 @@
 // agent 층에서 MCP server를 더하는 form. 이름·연결 방식·실행이나 주소·로그인 방식만 받고 key나 token 값은 받지 않는다.
 // 값은 더한 뒤 보호 입력으로 받는다(ProtectedKeyNote). 설정 화면의 전역 server 추가도 이 form을 쓴다.
 import { useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Field,
-  Input,
-  Select,
-  Textarea,
-} from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Input, Select, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";

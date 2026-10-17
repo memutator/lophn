@@ -1,7 +1,8 @@
 // 결정 단추와 거절 이유 칸. 단추는 오른쪽 끝에 모이고 주 행동이 맨 오른쪽이다. 선택지는 request가 가진 것을
 // 그대로 그린다(화면이 따로 판정하지 않는다).
 import { useState } from "react";
-import { Button, Field, Textarea } from "@lophn/design/components";
+import { Button } from "@lophn/ui/primitives";
+import { Field, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 import type { RequestChoice } from "../../../../../../protocol/approvals/mod.ts";
 import type { WaitingChoice } from "../decide.ts";

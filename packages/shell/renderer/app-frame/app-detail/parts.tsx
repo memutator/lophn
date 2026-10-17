@@ -1,7 +1,7 @@
 // 탭들이 같이 쓰는 작은 조각. 색 다른 띠나 상자로 알리지 않는다. 안내는 굵은 제목 한 줄과 설명이고,
 // 알림은 pane 위쪽 toast다.
 import type { ReactNode } from "react";
-import { Toast } from "@lophn/design/components";
+import { Toast } from "@lophn/ui/overlay";
 
 import type { Effect } from "./source.ts";
 import styles from "./app-detail.module.css";

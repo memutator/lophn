@@ -1,6 +1,6 @@
 // 충돌 해결 화면의 줄 비교. 옛 쪽은 디스크(또는 최신 판), 새 쪽은 편집기 초안이다.
 // 앞뒤 같은 줄을 떼고 가운데만 LCS로 맞춘다. 가운데가 너무 크면 통째로 지우고 더한 것으로 본다.
-import type { DiffLine } from "@lophn/design/reading";
+import type { DiffLine } from "@lophn/ui/reading";
 
 /** 가운데 LCS 표의 칸 상한. 넘으면 통째 바꿈으로 보인다. */
 const CELL_LIMIT = 4_000_000;

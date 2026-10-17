@@ -1,7 +1,8 @@
 // 접힌 project sidebar의 바로 가기 rail. 펼치기 단추는 머리 줄에 있고 이 rail은 그 아래
 // Terminal · Contexts · Saved views · Agent · Search를 세로로 둔다. 단추를 누르면 어느 탭을
 // 열지는 부르는 쪽(window)이 정한다.
-import { IconButton, type IconProps, Tooltip } from "@lophn/design/components";
+import { IconButton, type IconProps } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import {
   conversationIcons,
   lophnSpaceIcons,

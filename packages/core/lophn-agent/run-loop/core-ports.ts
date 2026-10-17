@@ -8,12 +8,14 @@ import {
 import {
   type CallCost,
   checkpointTurn,
+  decideToolCall,
   finishModelCall,
   finishToolCall,
   finishTurn,
   recordMessage,
   recordToolRequest,
   startModelCall,
+  startToolCall,
   type TokenUsage,
   TURN_BLOB_PURPOSES,
   turnRead,
@@ -400,15 +402,22 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     },
   });
 
-  // 사람의 결정을 기다리는 동안 turn의 시간을 세지 않게 맥락의 기다림 둘을 감싼다.
-  function paused(ctx: ToolContext, pause: Pause): ToolContext {
+  // 사람의 결정을 기다리는 동안 turn의 시간을 세지 않게 맥락의 기다림 둘을 감싼다. Gate가 run을 돌려줬는지도
+  // 여기서 본다(결정 기록에 Gate가 물었다는 사실을 싣는다).
+  function paused(
+    ctx: ToolContext,
+    pause: Pause,
+    gated: { ran: boolean },
+  ): ToolContext {
     return {
       ...ctx,
       gate: {
         async check(input) {
           pause.begin();
           try {
-            return await ctx.gate.check(input);
+            const checked = await ctx.gate.check(input);
+            if (checked.ok && checked.value.kind === "run") gated.ran = true;
+            return checked;
           } finally {
             pause.end();
           }
@@ -453,12 +462,40 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       tool: definition?.name ?? call.name,
     });
     const startedMs = clock.nowMs();
+
+    // 각 command의 compare는 앞 command가 올린 state_seq다(요청 0, decide 1, start 2). command 출력에는
+    // state_seq가 없어 성공한 만큼 센다.
+    let seq = 0;
+    let bookkeeping: string | null = null;
+    const gated = { ran: false };
+    // 결정과 시작은 handler가 돌기 직전에 남긴다. 실패하면 tool을 실행하지 않는다.
+    const ctx = paused(deps.tools.context(id), pause, gated);
+    const listed = ctx.listed.map((tool) =>
+      tool !== definition || tool.handler === undefined ? tool : {
+        ...tool,
+        handler: async (input: unknown, context: ToolContext) => {
+          const entered = recorded.ok
+            ? await enter(id, seq, gated.ran)
+            : ok(undefined);
+          if (!entered.ok) {
+            bookkeeping = entered.error.message;
+            return entered;
+          }
+          if (recorded.ok) seq += 2;
+          return await tool.handler!(input, context);
+        },
+      }
+    );
     const executed = await executeToolCall(
-      paused(deps.tools.context(id), pause),
+      { ...ctx, listed },
       call.name,
       call.input,
       deps.tools.missing,
     );
+    if (bookkeeping !== null) {
+      publish("ToolCallEnded", { tool_call: id, outcome: "error" });
+      return done(id, "uncertain", "uncertain", bookkeeping);
+    }
     let outputBlob: { hash: string; size: number } | null = null;
     if (executed.outcome.kind === "success") {
       const stored = await store(
@@ -478,7 +515,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       outputBlob = stored.value;
     }
     if (recorded.ok) {
-      await commandOf(
+      const finished = await commandOf(
         machine,
         finishToolCall,
         {
@@ -490,9 +527,18 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
           finished_at: clock.now(),
           duration_ms: Math.max(0, clock.nowMs() - startedMs),
         },
-        { state_seq: "0" },
+        { state_seq: String(seq) },
         `${id}:finish`,
       );
+      if (!finished.ok) {
+        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
+        return done(
+          id,
+          "uncertain",
+          "uncertain",
+          "the result could not be recorded",
+        );
+      }
     }
     publish("ToolCallEnded", {
       tool_call: id,
@@ -504,6 +550,64 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       code: executed.outcome.code,
       result: executed.result,
     };
+  }
+
+  // handler 직전에 결정(requested → decided)과 시작(→ started)을 남긴다. Gate가 물어 허락한 call과
+  // 묻지 않은 call(정책상 허락)을 reason으로 가른다.
+  async function enter(
+    id: Id<"tcl">,
+    seq: number,
+    gated: boolean,
+  ): Promise<Result<void>> {
+    const decided = await commandOf(
+      machine,
+      decideToolCall,
+      {
+        tool_call: id,
+        decision: {
+          decision: "allow",
+          reason: gated ? "gate_run" : "no_gate",
+          effect: null,
+          assignment_revision: null,
+          agent_hash: deps.agentHash,
+          contract_revision: null,
+          comparison_basis: null,
+          approval: null,
+          session_grant: null,
+        },
+      },
+      { state_seq: String(seq) },
+      `${id}:decide`,
+    );
+    if (!decided.ok) {
+      return err({
+        code: decided.error.code,
+        message: "the decision could not be recorded",
+      });
+    }
+    const turn = await turnRecord();
+    if (!turn.ok) {
+      return err({
+        code: turn.error.code,
+        message: "the start could not be recorded",
+      });
+    }
+    const started = await commandOf(
+      machine,
+      startToolCall,
+      { tool_call: id, started_at: clock.now(), approval: null },
+      {
+        state_seq: String(seq + 1),
+        turn_state_seq: turn.value.turn.state_seq,
+        // command는 이 값을 보지 않는다. 자격 재검사는 실행기가 하고 turn은 assignment 판을 들고 있지 않다.
+        assignment_revision: 1,
+      },
+      `${id}:start`,
+    );
+    return started.ok ? ok(undefined) : err({
+      code: started.error.code,
+      message: "the start could not be recorded",
+    });
   }
 
   // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)이다. 시작하지 않았으므로 event는 없다.

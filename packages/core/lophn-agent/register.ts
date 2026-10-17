@@ -702,6 +702,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...revertSchemaSteps,
     ],
     commands: [
+      commands.connect,
       commands.register,
       commands.disconnect,
       commands.refreshCredential,

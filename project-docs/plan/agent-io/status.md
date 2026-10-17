@@ -10,8 +10,8 @@ lead만 고친다. `tools/status.py agent-io build`가 `tasks/*.md`에서 id, �
 | `model-catalog-source` | model-catalog | 1 | 없음 | running | model-catalog/model-catalog-source |  |  |
 | `provider-connect-attach` | provider-connect | 1 | provider-connect-handler | todo |  |  |  |
 | `provider-connect-cleanup` | provider-connect | 1 | provider-connect-handler, provider-connect-attach, provider-connect-shell | todo |  |  |  |
-| `provider-connect-handler` | provider-connect | 1 | 없음 | running | provider-connect/provider-connect-handler |  |  |
+| `provider-connect-handler` | provider-connect | 1 | 없음 | merged | provider-connect/provider-connect-handler | f97aaeb20 |  |
 | `provider-connect-shell` | provider-connect | 1 | 없음 | running | provider-connect/provider-connect-shell |  |  |
-| `tool-output-image` | tool-output | 1 | tool-output-untrusted | todo |  |  |  |
+| `tool-output-image` | tool-output | 1 | tool-output-untrusted | running | tool-output/tool-output-image |  |  |
 | `tool-output-shell` | tool-output | 1 | 없음 | running | tool-output/tool-output-shell |  |  |
-| `tool-output-untrusted` | tool-output | 1 | 없음 | running | tool-output/tool-output-untrusted |  |  |
+| `tool-output-untrusted` | tool-output | 1 | 없음 | merged | tool-output/tool-output-untrusted | b57ac8dee |  |

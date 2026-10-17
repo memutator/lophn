@@ -12,7 +12,6 @@ import { FILE_TOOLS } from "./bundles/file.ts";
 import { GUIDE_TOOLS } from "./bundles/guide.ts";
 import { INSTRUCTION_TOOLS } from "./bundles/instructions.ts";
 import { OPERATOR_TOOLS } from "./bundles/operator.ts";
-import { OUTLINE_TOOLS } from "./bundles/outline.ts";
 import { PACKAGE_TOOLS } from "./bundles/package.ts";
 import { PROBLEM_TOOLS } from "./bundles/problem.ts";
 import { RELEASE_TOOLS } from "./bundles/release.ts";
@@ -39,7 +38,6 @@ export function builtinTools(): readonly ToolDefinition[] {
     ...VISUAL_TOOLS,
     ...INSTRUCTION_TOOLS,
     ...CONTEXT_TOOLS,
-    ...OUTLINE_TOOLS,
     ...CALL_TOOLS,
     ...ASK_TOOLS,
     ...SKILL_TOOLS,

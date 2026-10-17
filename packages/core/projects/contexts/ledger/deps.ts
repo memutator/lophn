@@ -184,7 +184,7 @@ export function createContextsRuntime(): ContextsRuntime {
     },
   };
 
-  // 초안·저장 목차 폴더는 data root 아래다. ledger 연결이 없으면 위치를 알 수 없다.
+  // 초안 폴더는 data root 아래다. ledger 연결이 없으면 위치를 알 수 없다.
   const foldersAt = (): ContextFolders => {
     const base = root();
     if (!base.ok) throw new ContextDepUnavailable(base.error.message);
@@ -193,8 +193,6 @@ export function createContextsRuntime(): ContextsRuntime {
   const folders: ContextFolders = {
     draftFolder: (project, context, bundle) =>
       foldersAt().draftFolder(project, context, bundle),
-    outlineFolder: (project, context) =>
-      foldersAt().outlineFolder(project, context),
   };
 
   const files = createContextFiles();

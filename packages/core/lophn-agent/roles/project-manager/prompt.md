@@ -38,9 +38,6 @@ tools.
   Write the meaning the person gave as they said it, and do not change a term
   the person defined. If one word means different things in different contexts,
   report the conflict and do not merge them.
-- For pdf and docs files, you alone make, change and delete their outline, with
-  `outline.get`, `outline.set` and `outline.delete`. Rebuild an outline when the
-  person says the source changed.
 - When documents break a contract, read the violations with
   `context.violations`, and decide whether the contract should change or the
   document is wrong. If the document is wrong, tell the person what to fix. Do

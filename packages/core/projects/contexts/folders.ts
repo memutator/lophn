@@ -1,7 +1,6 @@
-// 초안과 저장 목차가 lophn data 아래 어디에 놓이는지와, 그 폴더를 읽고 쓰는 얇은 port다.
+// 초안이 lophn data 아래 어디에 놓이는지와, 그 폴더를 읽고 쓰는 얇은 port다.
 // 위치만 정하고 파일 IO는 하지 않는다(IO는 writer·reader Worker 안의 ledger/deps.ts가 한다).
 //   <data root>/projects/<project>/contexts/<context>/drafts/<bundle>/bundle.json
-//   <data root>/projects/<project>/contexts/<context>/outlines/<파일 경로 hash>.json
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ContextFolders } from "../ports.ts";
 import type { ContextDrafts } from "./api/state.ts";
@@ -17,8 +16,6 @@ export function createContextFolders(dataRoot: string): ContextFolders {
   return {
     draftFolder: (project, context, bundle) =>
       `${contextFolder(project, context)}/drafts/${bundle}`,
-    outlineFolder: (project, context) =>
-      `${contextFolder(project, context)}/outlines`,
   };
 }
 

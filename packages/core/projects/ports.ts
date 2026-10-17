@@ -14,10 +14,9 @@ export interface ContextAuthority {
   canWrite(actor: string, project: string): boolean;
 }
 
-// 초안·목차 폴더가 놓이는 lophn data 아래 위치. 파일 IO는 구현이 한다.
+// 초안 폴더가 놓이는 lophn data 아래 위치. 파일 IO는 구현이 한다.
 export interface ContextFolders {
   draftFolder(project: string, context: string, bundle: string): string;
-  outlineFolder(project: string, context: string): string;
 }
 
 // 하위 폴더가 연결 폴더 밖으로 나가지 않는지 realpath로 검사한다. 순수 함수가 못하므로 port다.

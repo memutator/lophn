@@ -71,7 +71,6 @@ const READ_TOOLS = [
   "context.search",
   "context.test",
   "context.violations",
-  "outline.get",
   "guide.read",
   "settings.get",
   "visual.show",
@@ -98,8 +97,6 @@ const ROLE_WRITE_TOOLS = {
     "context.draft",
     "context.submit",
     "glossary.set",
-    "outline.set",
-    "outline.delete",
     "operator.create",
     "operator.update",
   ],
@@ -134,12 +131,6 @@ const path = z.string().min(1);
 const none = z.strictObject({});
 
 const lineCount = z.number().int().positive();
-
-const outlineEntry = z.strictObject({
-  level: z.number().int().min(1).max(6),
-  title: nonblank,
-  locator: nonblank,
-});
 
 // operator 정의 입력. 이름은 따로 받고 grant와 agent 층 MCP 서버(실행 파일을 정하는 것)는 입력에 없다.
 const operatorDefinition = operatorDefinitionSchema.omit({
@@ -262,14 +253,6 @@ export const TOOL_INPUTS = {
     meaning: z.string(),
     remove: z.boolean().optional(),
   }),
-  "outline.get": z.strictObject({ context: idSchema("ctx"), path }),
-  // pdf, docs 파일의 목차 전체를 통째로 바꾼다.
-  "outline.set": z.strictObject({
-    context: idSchema("ctx"),
-    path,
-    outline: z.array(outlineEntry),
-  }),
-  "outline.delete": z.strictObject({ context: idSchema("ctx"), path }),
   "guide.read": z.strictObject({ topic: nonblank.optional() }),
   "settings.get": z.strictObject({ key: nonblank.optional() }),
   // 앱 blueprint 화면 key. card 크기를 선언한 화면만 된다.

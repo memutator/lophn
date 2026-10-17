@@ -70,14 +70,8 @@ type AnchorScope =
   | { kind: "outline"; title: string | null; entries: readonly OutlineEntry[] }
   | { kind: "item"; item: unknown };
 
-// 목차 항목 하나: md 파일은 제목에서, pdf·docs는 저장된 목차에서 온다. 문서 순서다.
+// 목차 항목 하나: md 파일의 제목에서 온다. 문서 순서다.
 export type OutlineEntry = { level: number; title: string };
-
-// pdf·docs 파일의 저장된 목차. 없으면 null.
-export type StoredOutlines = (
-  path: string,
-  format: string,
-) => readonly OutlineEntry[] | null;
 
 export type ExtractedEntity = {
   type: string;
@@ -115,8 +109,6 @@ export type KindContext = {
   files: ProjectFiles;
   readDocument: DocumentReader;
   appData: AppDataReader;
-  // md가 아닌 파일의 목차(저장된 것). 주지 않으면 저장된 목차가 없는 것과 같다.
-  storedOutline?: StoredOutlines;
   // from_type·to_type이 가리키는 type의 읽을 수 있는 개체 자리(개체 순서대로)
   anchorsOf(typeName: string): readonly EntityAnchor[];
 };

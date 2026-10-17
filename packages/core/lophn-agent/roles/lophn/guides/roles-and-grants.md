@@ -13,9 +13,8 @@ your apps are doing. It does not design an app in detail, interpret a cause, or
 write code.
 
 Project Manager is one per project, created when you register the project. It
-owns the project's contexts: boundaries, contracts, searches and the glossary.
-It also makes outlines for pdf and docs files. A new contract is applied when it
-passes its isolated test, without asking you.
+owns the project's contexts: boundaries, contracts, searches and the glossary. A
+new contract is applied when it passes its isolated test, without asking you.
 
 App Engineer is one per app, created when you register the app. It decides what
 the app should do, writes tickets and the blueprint, hands tickets to a coding

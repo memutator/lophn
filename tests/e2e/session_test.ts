@@ -22,6 +22,11 @@ import {
   toolCallList,
   turnList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  appConnectSource,
+  appCreate,
+} from "../../packages/protocol/apps/mod.ts";
+import { operatorCreate } from "../../packages/protocol/lophn-agent/mod.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   bootCore,
@@ -96,6 +101,22 @@ function toolResultOf(fake: FakeServer, id: string): string {
     .find((item) => item.type === "tool_result" && item.tool_use_id === id);
   assert(block, `둘째 요청에 ${id}의 tool_result가 없다`);
   return JSON.stringify((block as { content?: unknown }).content ?? null);
+}
+
+function toolNamesOf(fake: FakeServer): string[] {
+  const body = fake.journal()[0]?.body as { tools: { name: string }[] };
+  return body.tools.map((tool) => tool.name);
+}
+
+async function outcomesOf(core: Core, turn: string) {
+  const { tool_calls } = await core.call(toolCallList, { turn });
+  return Object.fromEntries(
+    tool_calls.map((item) => [item.response_key, item.outcome]),
+  );
+}
+
+async function exists(path: string): Promise<boolean> {
+  return await Deno.lstat(path).then(() => true, () => false);
 }
 
 function callTool(to: unknown) {
@@ -384,6 +405,123 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
             item.outcome
           ),
           [{ kind: "failure", code: "invalid_input" }],
+        );
+      },
+    );
+
+    await t.step(
+      "lophn-reads-not-writes: lophn은 project 폴더를 읽고 쓰기 tool은 목록에 없다",
+      async () => {
+        f.reset();
+        await newProject(c, "lophn-scope");
+        const folder = `${c.run.work}/lophn-scope`;
+        await Deno.writeTextFile(`${folder}/notes.md`, "alpha");
+        const session = await openSession(c, LOPHN);
+        f.script([
+          {
+            reply: {
+              kind: "tool",
+              calls: [
+                {
+                  id: "t-read",
+                  name: "file_read",
+                  arguments: JSON.stringify({ path: `${folder}/notes.md` }),
+                },
+                {
+                  id: "t-write",
+                  name: "file_write",
+                  arguments: JSON.stringify({
+                    path: `${folder}/new.md`,
+                    content: "x",
+                  }),
+                },
+              ],
+            },
+          },
+          textReply("done"),
+        ]);
+        await say(c, session, "read and write");
+        const turn = await waitTurnEnd(c, session);
+
+        // fake
+        const names = toolNamesOf(f);
+        assert(names.includes("file_read"));
+        for (const gone of ["file_write", "file_edit", "shell_run"]) {
+          assert(!names.includes(gone), `lophn에 ${gone}이 보인다`);
+        }
+        assert(toolResultOf(f, "t-read").includes("alpha"));
+        // 없는 tool의 call은 tool_result로만 not_found를 돌려받고 ledger에는 행이 없다(tool 정의가 없어 진입하지 않는다).
+        assert(toolResultOf(f, "t-write").includes("not_found"));
+        // ledger
+        assertEquals(await outcomesOf(c, turn.id), {
+          "t-read": { kind: "success", code: "ok" },
+        });
+        // disk
+        assert(!await exists(`${folder}/new.md`));
+      },
+    );
+
+    await t.step(
+      "app-operator-reads-not-writes: 앱 Operator는 source를 읽고 쓰기는 forbidden이다",
+      async () => {
+        f.reset();
+        const before = await runtimePids(c.run.home);
+        const app = await c.call(appCreate, {
+          slug: "scope-app",
+          name: "Scope App",
+          description: "scope check",
+        }, {});
+        const source = `${c.run.work}/app-src`;
+        await Deno.mkdir(source);
+        await Deno.writeTextFile(`${source}/main.ts`, "export const v = 1;");
+        await c.call(appConnectSource, { app: app.id, source_path: source }, {
+          base_revision: app.revision,
+        });
+        await settle(c, before);
+        const agent = c.ids.newId("agt");
+        await c.call(operatorCreate, {
+          id: agent,
+          place: { kind: "app", id: app.id },
+          definition: { name: "reviewer", body: "review" },
+        });
+        const session = await openSession(c, { role: "operator", agent });
+        f.script([
+          {
+            reply: {
+              kind: "tool",
+              calls: [
+                {
+                  id: "t-read",
+                  name: "file_read",
+                  arguments: JSON.stringify({ path: `${source}/main.ts` }),
+                },
+                {
+                  id: "t-write",
+                  name: "file_write",
+                  arguments: JSON.stringify({
+                    path: `${source}/main.ts`,
+                    content: "changed",
+                  }),
+                },
+              ],
+            },
+          },
+          textReply("done"),
+        ]);
+        await say(c, session, "read and write");
+        const turn = await waitTurnEnd(c, session);
+
+        // fake
+        assert(toolResultOf(f, "t-read").includes("export const v = 1;"));
+        // ledger
+        assertEquals(await outcomesOf(c, turn.id), {
+          "t-read": { kind: "success", code: "ok" },
+          "t-write": { kind: "failure", code: "forbidden" },
+        });
+        // disk
+        assertEquals(
+          await Deno.readTextFile(`${source}/main.ts`),
+          "export const v = 1;",
         );
       },
     );

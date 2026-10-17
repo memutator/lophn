@@ -12,8 +12,8 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
        ├ 늘지 않음 ──────────────────────────────────────────────┐
        └ 늘었음 ─▶ 보류 request (approvals) ─▶ 사람이 허락 ─▶ ApprovalDecided ─▶ handler ─┤
                                                                                              ▼
-                                                       앱마다 하나씩 줄 (메모리. 앱 사이는 서로 안 기다림)
- 줄에서 시도 하나:
+                                                       앱마다 하나만 돈다 (메모리. 돌고 있으면 conflict로 거절)
+ 시도 하나:
    1 접수를 닫고 도는 호출이 끝나길 기다린다 (app-runtime). 그 사이 온 호출은 붙잡아 둔다
    2 이전 process의 종료를 확인한다 (supervision)
    3 종료된 실제 DB의 schema와 무결성을 읽는다 (app-data worker)
@@ -34,8 +34,9 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - 계기가 domain event라서 꺼졌다 켜져도 Reactor가 이어 간다. handler는 다시 불려도 안전하다. 이은 release가 prepared가 아니면 아무것도 하지 않는다.
 - 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 app-api 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 app-api가 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
-- 사람이 허락한 비교와 줄에서 차례가 왔을 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 grant가 바뀔 수 있다.
-- 앱마다 한 번에 하나만 돌고 겹치면 줄에 세운다. 줄은 메모리여서 꺼지면 사라지지만 Reactor가 cursor 뒤의 event부터 다시 세운다.
+- 사람이 허락한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 grant가 바뀔 수 있다.
+- 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 새 ticket 확인이나 새 release가 계기다. 실패는 다시 시도하지 않고 실패로 끝낸다.
+- 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지지만 Reactor가 cursor 뒤의 event부터 다시 반응한다.
 
 순서
 - 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않는다. 특히 이전 process의 종료를 확인하기 전에는 DB 작업도 새 process도 없다. 두 process가 한 DB를 열면 안 된다. 종료가 확인되지 않으면 진행하지 않는다.
@@ -60,3 +61,4 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - 새 process를 commit 전에 준비 모드로 먼저 띄우는 이유는, commit 뒤에 띄우다 실패하면 이미 바뀐 active 참조를 되돌려야 하기 때문이다. 확인이 끝난 것만 commit한다.
 - 이전 release로 돌아가기를 사람에게만 열었다. 앱을 쓰는 모두에게 영향이 가는 일이고, 앱 rewind와 같은 이유다. 돌아가도 DB는 되돌리지 않는다. data를 거꾸로 돌리는 것은 별개의 위험이라 schema가 같을 때만 허락한다.
 - core는 앱 DB를 열지 않는다. DB 작업은 supervisor가 띄우는 data worker가 하고 core는 복구본 byte를 흘려 보내기만 한다. 앱 DB는 그 앱의 process만 여는 규칙을 지키려는 것이다.
+- 시작 요청의 줄과 30초 재시도를 두지 않는다. 앱마다 줄을 세우면 기다리는 release와 다시 묻는 시점이 메모리에 쌓이고, 재시도는 같은 실패를 되풀이한다. 겹치는 일은 드물어 거절하고 계기를 기다리는 쪽이 단순하다.

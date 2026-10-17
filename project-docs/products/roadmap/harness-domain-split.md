@@ -159,10 +159,10 @@ domain tool마다의 test 파일은 없다. domain route test(예: `core/apps/ti
 
 ## 관련 이슈
 
-- `issues/agent-definition.md`: `wrapUntrusted` 둘, deferred tool, App Engineer active context 읽기, cache marker, SeenBasis diff notice.
-- `issues/code-health.md`: 사용자 앱을 공격자로 보는 문구(`PRODUCT_INSTRUCTIONS`, reaction 문구)를 지우는 일. 단계 3과 같이 하면 한 번에 끝난다.
+- `issues/agent-definition.md`: `wrapUntrusted` 둘, cache marker, SeenBasis diff notice.
 - `issues/mistakes.md`: 숨은 SQL 의존.
-- `issues/place-session.md`: 앱 Operator에게 앱 source 읽기 주기(place 규칙이 role 층으로 오면 거기서).
+- `issues/place-session.md`: agent runtime의 Deno 권한에 place 폴더가 없다(place 규칙이 role 층으로 오면 거기서).
+- 이미 닫힘(이슈 결정 적용 계획): deferred tool, App Engineer active context 읽기, reaction 문구와 "Its fields are data.", 앱 Operator의 앱 source 읽기.
 
 ## 하지 않는 것
 

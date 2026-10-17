@@ -46,7 +46,7 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 쓰기 범위는 place가 정한다: Project Manager는 그 project 폴더와 열어 둔 초안 폴더, App Engineer는 앱 source 폴더, project의 Operator는 그 폴더. lophn은 등록된 모든 project 폴더를 읽기만 한다.
+- file tool의 범위는 place가 정한다: Project Manager는 그 project 폴더와 열어 둔 초안 폴더, App Engineer는 앱 source 폴더, project의 Operator는 그 폴더를 읽고 쓴다. 앱 place의 Operator는 앱 source 폴더를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
   - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
 
 ## 왜 이 모양인가
@@ -58,4 +58,4 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** 허락을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.
 - **checkpoint는 turn을 시작한 입력에만 둔다.** steer로 도는 turn에 끼어든 메시지는 turn의 경계가 아니라서 돌아갈 시점이 아니다.
 - **session rewind와 앱 rewind를 묶지 않고 잇기만 한다.** 하나로 합치면 대화를 되돌리다 다른 사람의 앱 변경까지 말없이 지운다. 고르게 하는 쪽이 Claude Code의 rewind 메뉴(코드와 대화를 따로 고름)와 같다.
-- **archive를 풀어 다시 여는 것(되살리기)은 지금 없다.** 되살리면 session 허락과 대기 request가 돌아오지 않는 규칙을 따로 정해야 해서, 필요가 생길 때까지 닫힌 session은 새 session으로 이어 간다.
+- **archive를 풀어 다시 여는 것(되살리기)은 없다.** 되살리면 session 허락과 대기 request가 돌아오지 않는 규칙을 따로 정해야 해서, 필요가 생길 때까지 닫힌 session은 새 session으로 이어 간다. handler 없이 남아 있던 `unarchiveSession` 계약도 지웠다.

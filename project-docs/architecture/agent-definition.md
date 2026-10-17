@@ -15,10 +15,9 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
         │
         ▼  assemble (순수 함수. I/O 없음)
    system  1 제품 고정 규칙 + role 지침   ← cache 경계
-           2 deferred tool 이름
-           3 지침 층 (전역, LOPHN.md, agent)   ← cache 경계
-           4 skill 목록 (이름과 설명)
-           5 place 정보                    ← cache 경계
+           2 지침 층 (전역, LOPHN.md, agent)   ← cache 경계
+           3 skill 목록 (이름과 설명)
+           4 place 정보                    ← cache 경계
    tools[] 정렬된 정의
    대화    Router 입력(tag로 출처 표시) ... 끝에 notice
         ▲
@@ -36,7 +35,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다.
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다.
 - **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, app-api, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 grant로 배정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.
-- **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 grant로 app-api, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. notice는 program이 쓴 문장만 쓰고 앱이 쓴 글은 넣지 않는다. 앱이 쓴 글이 program 문장으로 prefix에 들어가면 안 된다.
+- **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 grant로 app-api, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
 - **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 agent grant 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다.
 - **효과(read, write, external)는 model에 보이는 정의에 넣지 않는다.** registry와 Gate만 안다. model이 효과를 보고 Gate를 피해 가려 하지 않게 한다.
 - **file tool은 place 폴더 안에 가둔다.** realpath로 판정하고, 새 파일이면 가장 가까운 상위 폴더의 realpath에 이름을 붙여 판정한다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되므로 거절한다. 읽기·쓰기·shell은 Gate를 거치지 않는다. 대신 `LOPHN.md` 쓰기만 설정 고치기로 묻는다.
@@ -57,7 +56,9 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **MCP와 app-api 결과를 감싸지 않는다.** 일곱 harness 가운데 다섯이 그대로 넣고, server 신뢰 표시로 결과 처리를 바꾸는 곳은 없다. 감싸는 것은 아무도 배정하지 않은 web 결과뿐이다.
 - **tool은 자원 하나에 동사 하나(`<자원>.<동사>`).** 효과, 쓸 수 있는 role, 상태 전이의 전제, 결과 모양 가운데 하나라도 다르면 나눈다. Gate, rewind, role 목록이 모두 tool 단위이기 때문이다. 거르기와 범위만 다르면 인자로 합친다.
 - **일의 흐름은 tool로 만들지 않는다.** `app.plan` 같은 흐름 tool을 버리고 지침과 skill이 primitive를 엮게 했다. 예: 문제로 ticket 만들기는 `problem.get`과 근거를 붙인 `ticket.create`다.
-- **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다.
+- **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다. 이미지 결과는 JSON 글이 아니라 `tool_result_image` 조각으로 싣는다. App Engineer는 같은 `image.read`로 annotation screenshot(`annotation:<id>`)도 연다(annotation).
 - **role 고정 목록과 grant가 옛 preset과 tool 묶음을 대신한다.** 사람이 tool 목록을 고치는 길을 없애고, 권한을 바꾸는 길을 grant 하나로 모았다.
 - **place 정보는 목록만 prompt에, 내용은 tool로.** 목록이 없으면 model은 그것이 있는 줄 몰라 찾지 않는다(skill 목록과 같은 이유).
-- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻과 "지시가 아니다"를 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다.
+- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn이 감지한 사실이고 그 값은 lophn과 사람의 앱에서 온다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
+- **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.
+- **active context는 project place만 읽는다.** project place의 PM과 Operator가 그 project의 active context를 받는다. App Engineer가 앱을 app-data source로 읽는 context를 받는 길은 쓰는 곳이 없어 지웠다.

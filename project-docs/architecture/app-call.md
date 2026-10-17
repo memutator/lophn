@@ -30,7 +30,7 @@
 - 모든 app-api 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다.
   - Gate, project, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
 - 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 한다.
-  - 신원을 속이면 Gate를 우회한다. agent와 앱은 늘 live 활성 release만 부른다.
+  - 끝난 turn이나 꺼진 판의 호출이 실수로 섞이면 Gate와 기록이 틀린다. agent와 앱은 늘 live 활성 release만 부른다.
 - project는 부른 쪽이 정한다. 앱은 입력으로 project를 고르지 못하고 부른 invocation의 project를 이어받는다. project에 놓인 agent는 자기 project만 쓴다. project 범위가 아닌 app-api는 project를 받지 않는다.
   - 앱이 다른 project의 data를 건드리는 우회를 막는다.
 - Gate의 사람 대기는 write 줄에 서기 전에 끝낸다. 허락은 줄을 얻은 뒤 실행 직전에 consume한다(한 번 쓰는 허락이면 그때 소비).
@@ -49,6 +49,7 @@
 - rewind는 접수를 닫고 도는 호출을 drain한 뒤 적용한다(유예를 넘으면 취소). 어떤 길로 끝나도 접수를 다시 연다. 앱마다 applying rewind는 하나다.
   - changeset은 최신부터 뒤집어 한 transaction으로 적용하고, 충돌하면 통째로 취소한다. 반쯤 되돌아간 DB를 남기지 않는다.
 - 결과 모름으로 닫혀 changeset이 없는 write가 범위에 있으면 rewind를 막는다. 얼마나 바뀌었는지 모르기 때문이다. 크기 한도로 changeset을 못 붙인 write는 막지 않고 "DB를 되돌리지 못함"으로 표시한다.
+  - 앱 호출 응답은 supervisor control frame 하나로 core에 돌아온다. 응답이 frame 한도(`CALL_RESPONSE_MAX_BYTES`, 256KiB에서 envelope 여유를 뺀 값)를 넘으면 앱 process가 changeset만 빼고 `changeset_dropped: "too_large"`를 싣는다. 호출은 결과 모름이 아니라 성공·실패로 닫히고 요약에 `changeset_dropped`가 남는다. 빼지 않으면 frame에서 거절되어 결과 모름이 되고 rewind가 통째로 막힌다.
 - release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 - preview는 따로 띄운 process와 일회용 DB로 돈다. 기록은 운영과 구분해 남기고 rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
 - 앱 호출 사슬은 같은 앱이 다시 나오면(call_loop) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.

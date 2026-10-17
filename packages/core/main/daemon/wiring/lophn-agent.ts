@@ -1,4 +1,4 @@
-// lophn-agent의 정의 쪽(질문 글, provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
+// lophn-agent의 정의 쪽(provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
 // wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
 import { ok } from "../../../../base/mod.ts";
 import {
@@ -14,10 +14,6 @@ import {
 } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
-import {
-  createQuestionTextPreparer,
-  withQuestionText,
-} from "../../../lophn-agent/tools/questions/text-prepare.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
@@ -29,7 +25,6 @@ const { createNodeAgentFiles } = await import(NODE_AGENT_FILES) as {
   createNodeAgentFiles(): AgentFileSystem;
 };
 
-// 질문 글(본문·이유·설명·자유 답·취소 이유)도 message body와 같은 길로 redaction해 blob으로 준비한다.
 export const lophnAgentWiring: WiringFactory = () => ({
   name: "lophn-agent",
   // 첫 기동 때 lophn 정의 파일이 없으면 만든다. 이미 있으면 그대로다.
@@ -43,10 +38,7 @@ export const lophnAgentWiring: WiringFactory = () => ({
     return ok({
       writer: (inner) =>
         withAppEngineer(
-          withQuestionText(
-            inner,
-            createQuestionTextPreparer({ relay: () => ctx.bodyPrepare }),
-          ),
+          inner,
           // 앱을 등록하면 그 앱의 App Engineer 정의 파일을 만든다.
           (app) => {
             ensureAppEngineer(

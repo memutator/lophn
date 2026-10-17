@@ -6,7 +6,6 @@ import {
 } from "./sessions.ts";
 import { AGENT_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
-import { applyQuestionOption, QUESTION_COMMANDS } from "./questions.ts";
 import { REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
 import { COMMAND_ROUTES } from "./commands.ts";
@@ -47,7 +46,6 @@ export const ROUTES = [
   ),
   ...AGENT_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
-  ...QUESTION_COMMANDS.filter((route) => route !== applyQuestionOption),
   ...REVERT_ROUTES,
   sessionRewind,
   sessionRewindPreview,

@@ -208,10 +208,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: file.read가 projects protocol의 openableKind로 열 수 있는 형식을 고른다",
   ],
   [
-    "packages/core/lophn-agent/tools/questions/option-actions.ts",
-    "범위 밖: tools/questions/는 이번에 손대지 않기로 했다(README 정한 것 4). apps protocol의 appCreate를 쓴다",
-  ],
-  [
     "packages/core/lophn-agent/tools/runtime-permissions.ts",
     "못 옮김: runtime 권한 계산이 apps protocol의 appDirectSocketPaths를 쓴다",
   ],
@@ -287,7 +283,6 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 // 새 계약으로 바뀌어 곧 지울 옛 file이다. 이 file의 import는 protocol 순환에 세지 않는다.
 // 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
 const LEAVING_FILES = new Set([
-  "packages/protocol/lophn-agent/question-submission.ts",
   "packages/protocol/server/registration.ts",
 ]);
 

@@ -1,4 +1,3 @@
-import { OPTION_ACTION_OPERATIONS } from "../tools/questions/mod.ts";
 import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
 import {
   contextContractRoute,
@@ -9,8 +8,6 @@ import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
   agentDefinitionRead,
   agentSessionRead,
-  applyQuestionOption,
-  cancelQuestionGroup,
   checkpointTurn,
   compactSession,
   decideToolCall,
@@ -29,8 +26,6 @@ import {
   projectModelRead,
   providerList,
   providerRead,
-  questionRead,
-  questionText,
   receivedMessageList,
   recordMessage,
   recordToolRequest,
@@ -111,10 +106,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   approvalsText,
   applyApprovedAction,
   cancelApprovalRequest,
-  questionRead,
-  questionText,
-  cancelQuestionGroup,
-  applyQuestionOption,
   // MCP OAuth 발급자 호출을 core 대신 보낸다: core에는 외부 fetch가 없다.
   mcpAuthRequestTake,
   mcpAuthRequestDone,
@@ -134,14 +125,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   appRuntime,
 ] as const;
 
-// machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는
-// 소유 command의 operation도 더한다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정된다.
+// machine credential이 가져야 하는 operation 이름이다.
 // 이 목록이 core가 runtime에 주는 machine credential의 scope 기준이다.
 export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
-  ...new Set([
-    ...RUNTIME_MACHINE_ROUTES.map((route) => route.name),
-    ...OPTION_ACTION_OPERATIONS,
-  ]),
+  ...new Set(RUNTIME_MACHINE_ROUTES.map((route) => route.name)),
 ];
 
 // 외부 MCP tool이 쓰는 operation이다. 소유 contract와, 미분류·쓰기·external 호출이 사람에게

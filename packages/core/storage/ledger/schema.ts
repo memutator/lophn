@@ -3,7 +3,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // ledger 공통 표. turn FK는 turns 표가 생길 때 더한다.
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다.
 // blob-refs step은 registered_seq의 events FK를 뺀 내용으로 고쳤다(step hash가 바뀐다). 개발 DB는
-// 지우고 새로 만든다. events.turn 칸과 question_evidence 표는 쓰는 곳이 남아 있어 아직 둔다.
+// 지우고 새로 만든다. events.turn 칸은 쓰는 곳이 남아 있어 아직 둔다.
 
 const IMMUTABLE = (table: string) => `
 create trigger ${table}_no_update
@@ -122,18 +122,5 @@ when not exists (select 1 from erase_windows where table_name = 'blob_refs')
 begin
   select raise(abort, 'immutable');
 end;`,
-  },
-  {
-    // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다.
-    // rollback이면 행이 없고, 재시작·다른 writer에서도 같은 key는 거절된다.
-    id: "question-evidence",
-    sql: `
-create table question_evidence (
-  evidence_key text primary key,
-  question text not null,
-  option text not null,
-  at text not null
-);
-${IMMUTABLE("question_evidence")}`,
   },
 ];

@@ -1,6 +1,5 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
 import {
-  canonicalize,
   err,
   formatSeq,
   internalError,
@@ -8,8 +7,6 @@ import {
   parseSeq,
 } from "../../../base/mod.ts";
 import {
-  type ChosenOptionCall,
-  questionOption,
   type RequestContext,
   type Sql,
   TargetAuthorization,
@@ -35,7 +32,6 @@ import {
 import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import type { CommandDispatch } from "./dispatch.ts";
-import { actorKind } from "./command-outcome.ts";
 import {
   createTxPortLookup,
   type TxPortLookup,
@@ -160,11 +156,6 @@ export function runTransaction<T>(
     return settle(thrown);
   }
 }
-
-const CHOSEN_FORBIDDEN = err({
-  code: "forbidden" as const,
-  message: "사람이 고른 고정 action이 아니다",
-});
 
 const COMMAND_MAX_CHANGED_ROWS = 1000n;
 
@@ -326,58 +317,6 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
         ));
       return ok(undefined);
     },
-    callChosenOption<R extends CommandRoute>(
-      route: R,
-      input: unknown,
-      compare: unknown,
-      evidence: { question: string; option: string },
-      handle: (tx: Tx) => Result<z.output<R["output"]>>,
-    ) {
-      live();
-      // 사람 결정을 대신하는 유일한 경로. 자격은 machine만이다.
-      if (actorKind(ctx.actor) !== "machine") return CHOSEN_FORBIDDEN;
-      if (ports.current?.present(questionOption as PortKey<unknown>) !== true) {
-        return CHOSEN_FORBIDDEN;
-      }
-      let chosen: Result<ChosenOptionCall>;
-      try {
-        chosen = tx.port(questionOption).chosen(evidence.question);
-      } catch (thrown) {
-        if (thrown instanceof TxRejected || isSqlRejected(thrown)) throw thrown;
-        return CHOSEN_FORBIDDEN;
-      }
-      // 질문·답이 없거나 고정 action이 없는 경우도 같은 답이다(존재를 새지 않는다).
-      if (!chosen.ok) return CHOSEN_FORBIDDEN;
-      if (
-        chosen.value.option !== evidence.option ||
-        chosen.value.route !== route.name ||
-        canonicalize(chosen.value.input) !== canonicalize(input) ||
-        canonicalize(chosen.value.compare ?? null) !==
-          canonicalize(compare ?? null)
-      ) {
-        return CHOSEN_FORBIDDEN;
-      }
-      // 같은 질문 option은 한 번만 적용한다. 기록은 소유 변경과 같은 transaction이다.
-      try {
-        measured(true, () =>
-          sql.run(
-            "insert into question_evidence (evidence_key, question, option, at) values (?, ?, ?, ?)",
-            [
-              `${evidence.question}\u0000${evidence.option}`,
-              evidence.question,
-              evidence.option,
-              deps.clock.now(),
-            ],
-          ));
-      } catch (thrown) {
-        if (thrown instanceof TxRejected || isSqlRejected(thrown)) throw thrown;
-        return err({
-          code: "conflict",
-          message: "질문 option은 이미 적용했다",
-        });
-      }
-      return handle(chosenTx) as Result<z.output<R["output"]>>;
-    },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();
       if (deps.dispatch !== undefined) {
@@ -387,15 +326,6 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       }
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
-  };
-  // 근거를 검증한 option 적용 한 번에만 넘기는 Tx다. event는 사람 자격(user, turn 없음)으로
-  // 기록하고, 다시 사람 자격으로 바꾸거나 다른 command를 부르는 입구는 없다.
-  const chosenTx: Tx = {
-    ...tx,
-    emit: (event, subject, payload) =>
-      emitAs("user", null, event, subject, payload),
-    callChosenOption: () => CHOSEN_FORBIDDEN,
-    call: () => CHOSEN_FORBIDDEN,
   };
   const ownerPorts = deps.ports.some((port) => port.key === TargetAuthorization)
     ? deps.ports

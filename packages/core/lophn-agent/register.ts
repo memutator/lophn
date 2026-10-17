@@ -104,14 +104,6 @@ import {
   sessionSummaryRead,
   takeSteering,
 } from "./session/mod.ts";
-import {
-  createQuestionCommands,
-  createQuestionReads,
-  deleteSessionQuestions,
-  questionBodyFields,
-  questionSchemaSteps,
-  questionTextRead,
-} from "./tools/questions/mod.ts";
 import { createTraceReads } from "./observability/mod.ts";
 import {
   createRewindEffects,
@@ -265,11 +257,10 @@ const turnCommands = createTurnCommands({
 const turnReads = createTurnReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 turn 기록이다. turn을 가리키는 표마다
-// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, 질문 묶음, tool call, model 호출, 마지막으로 turn. 본문 참조는 소유 행보다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, tool call, model 호출, 마지막으로 turn. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
-    () => deleteSessionQuestions(tx, session, eraseBlobRefs),
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
     () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
     () => deleteSessionTurns(tx, session, eraseBlobRefs),
@@ -336,14 +327,7 @@ const traceReads = createTraceReads();
 const toolCommands = createToolCommands();
 const toolReads = createToolReads();
 
-// 질문. 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
-// 닫는다. 고정 action이 있는 선택지의 답(AnswerQuestionAction)만 사람 확인
-// (confirmation)이 필요하다. 본문·이유·선택지 설명·자유 답·취소 이유는 값으로 받아 core가
-// blob으로 준비하고(packages/core/lophn-agent/tools/questions/text-prepare.ts) blob 참조만 남는다.
-const questionCommands = createQuestionCommands();
-const questionReads = createQuestionReads();
-
-// agent 자격의 command(CreateQuestionGroup 같은)는 자격에 묶인 turn이 진행 중일 때만 통과한다
+// agent 자격의 command(tool call 기록 같은)는 자격에 묶인 turn이 진행 중일 때만 통과한다
 // (platform/ledger). 판정은 이 concern의 turns 표를 같은 Tx에서 읽는다. 없는 turn은
 // unknown이고 끝난 turn은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
 const turnAdmissionPort = defineTxPort(turnAdmission, (tx) => ({
@@ -567,12 +551,10 @@ export function createLedgerRegistration(
   } = {},
 ) {
   return {
-    // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // Compact가 session에 이은 요약의 본문도 같은 읽기 통로로 읽는다.
       sessionSummaryRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
-      questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 저장된 turn basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       turnBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       // 사람 화면이 같은 본문을 지금의 redaction을 거쳐 읽는 길이다(user만).
@@ -714,7 +696,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...turnSchemaSteps,
       ...conversationSchemaSteps,
       ...toolsSchemaSteps,
-      ...questionSchemaSteps,
       ...revertSchemaSteps,
     ],
     commands: [
@@ -758,12 +739,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       toolCommands.finish,
       toolCommands.recordRead,
       toolCommands.supplement,
-      questionCommands.create,
-      questionCommands.answer,
-      questionCommands.answerAction,
-      questionCommands.defer,
-      questionCommands.cancel,
-      questionCommands.expire,
       revertCommands.record,
       revertCommands.rewind,
       revertCommands.amend,
@@ -794,8 +769,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       commandReads.list,
       toolReads.read,
       toolReads.list,
-      questionReads.read,
-      questionReads.list,
       traceReads.read,
       revertReads.preview,
       revertReads.checkpoints,
@@ -809,7 +782,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...modelCallBodyFields,
       ...toolCallBodyFields,
       ...turnBodyFields,
-      ...questionBodyFields,
       ...messageBodyFields,
     ],
     ports: [turnAdmissionPort],
@@ -869,8 +841,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         commandReads.list,
         toolReads.read,
         toolReads.list,
-        questionReads.read,
-        questionReads.list,
         traceReads.read,
       ],
       ports: new Map(),

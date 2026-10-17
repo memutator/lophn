@@ -174,6 +174,14 @@ components:
     change_reasons:
       boundaries: [approvals, agent-tools, agent-roles]
 
+  - id: architecture-testing
+    kind: doc
+    roles: [planner, lead, worker]
+    description: test 층 다섯(unit, harness loop·wire, core E2E, provider live), 가짜 셋, tests/support, E2E 실행 폴더, 돌리는 때, case 고르는 규칙.
+    path: project-docs/architecture/testing.md
+    change_reasons:
+      paths: [tests/support/, tools/check.ts, project-docs/plan/tools/lead/land.sh]
+
   - id: architecture-activation
     kind: doc
     roles: [planner, lead]
@@ -308,7 +316,7 @@ components:
   - id: tool-lead
     kind: tool
     roles: [lead]
-    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh), route 중복 검사와 core 두 번 기동(boot.sh).
+    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. check:full과 deno task e2e 뒤), route 중복 검사와 core 두 번 기동(boot.sh).
     path: project-docs/plan/tools/lead/
     run: project-docs/plan/tools/lead/lead.sh <계획> / launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id> / land.sh <계획>
     change_reasons:
@@ -323,6 +331,26 @@ components:
     run: deno run -A tools/worktree-prep.ts <worktree 경로>
     change_reasons:
       boundaries: [shell]
+
+  - id: tool-e2e
+    kind: tool
+    roles: [lead, worker]
+    description: core E2E. flow마다 core daemon과 child를 띄우고 fake server를 provider로 붙인다. lead가 새 flow를 10번 연속 돌리고, land.sh가 main에 올리기 전에 돈다.
+    path: tests/e2e/
+    run: deno task e2e
+    change_reasons:
+      boundaries: [server, supervision, models]
+      paths: [tests/support/]
+
+  - id: tool-test-live
+    kind: tool
+    roles: [lead]
+    description: 진짜 Anthropic·OpenAI를 부르는 provider live 시험. 사람이 key를 줄 때만 돈다. key가 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.
+    path: tests/live/
+    run: deno task test:live
+    change_reasons:
+      boundaries: [models]
+      paths: [packages/core/lophn-agent/models/snapshot.json]
 
   # ── worker ──
 
@@ -379,6 +407,15 @@ components:
     run: deno task dev / dev:core / dev:mock
     change_reasons:
       boundaries: [core, shell]
+
+  - id: tests-support
+    kind: tool
+    roles: [worker]
+    description: test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider), core(daemon을 pipe로 띄우기, 사람 역할 helper). flow의 단계는 test file에 쓴다.
+    path: tests/support/
+    run: test file이 import한다(직접 돌리지 않는다)
+    change_reasons:
+      boundaries: [run-loop, models, server, supervision]
 
   - id: tool-move-files
     kind: tool

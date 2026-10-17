@@ -33,6 +33,8 @@ import {
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
 import { builtinToolNames } from "../../agent-roles/tool-lists.ts";
 import { rolePrompt } from "../../agent-roles/roles/prompts.ts";
+import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
+import { activeContextsOf } from "../../agent-roles/place/active-contexts.ts";
 import { placeData } from "../../agent-roles/place/place-data.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
@@ -138,6 +140,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       rolePrompt,
       placeData,
       roleTools: builtinToolNames,
+      roles: ROLE_TABLE,
+      activeContexts: (place) => activeContextsOf(calls.machine, place),
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
@@ -169,6 +173,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       ids,
       machine: calls.machine,
       roleTools: builtinToolNames,
+      roles: ROLE_TABLE,
+      activeContexts: (place) => activeContextsOf(calls.machine, place),
       blobs: calls.blobs,
       redact: calls.redact,
       resolveModel,

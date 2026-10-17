@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { type AgentRef, ROLES } from "../../../protocol/lophn-agent/mod.ts";
+import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { parseAgentFile } from "./definition-file.ts";
 import { resolveAgent } from "./resolve.ts";
 
@@ -57,6 +58,7 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
         active_contexts: [],
       },
       tools: TOOLS,
+      roles: ROLE_TABLE,
     });
     assert(resolved.ok);
     assertEquals(resolved.value.tools, TOOLS);

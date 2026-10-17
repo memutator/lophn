@@ -1,5 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import { contextListRoute } from "../../../protocol/projects/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentDefinitionIssue,
   agentDefinitionRead,
@@ -11,8 +10,8 @@ import {
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { DEFAULT_PROFILES } from "./builtin.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 import { resolveAgent, type ResolvedAgent } from "./resolve.ts";
 
 // turn을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로 모은다: session(agent와 고른
@@ -29,36 +28,8 @@ type TurnAgent =
   | { kind: "resolved"; agent: ResolvedAgent }
   | ({ kind: "cannot_start" } & CannotStart);
 
-const MAX_CONTEXT_PAGES = 50;
-
 function cannot(reason: CannotStart["reason"], why: CannotStart["why"]) {
   return ok<TurnAgent>({ kind: "cannot_start", reason, why });
-}
-
-// 이 place의 agent가 읽을 active context다. project place는 그 project의 context 전부이고, 그 밖에는
-// context 자료가 없다.
-async function activeContexts(
-  machine: CoreCall,
-  place: Place | null,
-): Promise<Result<string[]>> {
-  if (place === null || place.kind !== "project") return ok([]);
-  const filter = { project: place.id };
-  const ids: string[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < MAX_CONTEXT_PAGES; page += 1) {
-    const listed = await readOf(machine, contextListRoute, {
-      ...filter,
-      status: "active",
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (!listed.ok) return listed;
-    for (const context of listed.value.contexts) {
-      if (context.status === "active") ids.push(context.id);
-    }
-    if (listed.value.next_cursor === null) return ok(ids);
-    cursor = listed.value.next_cursor;
-  }
-  return err({ code: "unavailable", message: "the context list is too long" });
 }
 
 function issueFields(error: { details?: unknown }): string[] {
@@ -77,6 +48,10 @@ export async function resolveTurnAgent(
     skills: readonly string[];
     // role이 고정한 tool 이름 목록이다. role은 정의를 읽어야 알므로 함수로 받는다.
     roleTools(role: Role): readonly string[];
+    // role마다 다른 값과 규칙. role 층이 정해 조립이 넘긴다.
+    roles: AgentRoleTable;
+    // 이 place의 agent가 읽을 active context다.
+    activeContexts(place: Place | null): Promise<Result<string[]>>;
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     // 어느 tool을 켜는지는 resolve가 정한다.
     mcp(
@@ -106,7 +81,7 @@ export async function resolveTurnAgent(
   }
 
   const { role, place } = read.value;
-  const contexts = await activeContexts(machine, place);
+  const contexts = await input.activeContexts(place);
   if (!contexts.ok) return contexts;
 
   const definition = read.value.definition as AgentFileDefinition | null;
@@ -142,8 +117,9 @@ export async function resolveTurnAgent(
     project_model: projectModel,
     session_model: session.model_selection,
     tools: input.roleTools(role),
+    roles: input.roles,
     environment: {
-      default_profile: DEFAULT_PROFILES[role],
+      default_profile: input.roles.defaultProfile(role),
       skills: input.skills,
       mcp,
       active_contexts: contexts.value,

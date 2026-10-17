@@ -18,7 +18,7 @@ import {
   rolePlaceFits,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
-import { BUILTIN_NAMES } from "./names.ts";
+import type { AgentRoleTable } from "./role-table.ts";
 
 // 설정 층을 합쳐 turn마다 고정하는 resolved agent를 만든다. 읽은 값만 받는 순수 함수라 파일도 시각도
 // 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
@@ -47,6 +47,8 @@ type ResolveInput = {
   session_model: ModelChoice | null;
   // role이 고정한 tool 이름 목록. 어느 tool이 있는지는 role 층이 정한다.
   tools: readonly string[];
+  // role마다 다른 이름·context 규칙. role 층이 정한다.
+  roles: AgentRoleTable;
   environment: ResolveEnvironment;
 };
 
@@ -97,8 +99,9 @@ export async function resolveAgent(
   input: ResolveInput,
 ): Promise<Result<ResolvedAgent, LophnError>> {
   const { agent, place, definition, environment } = input;
+  const { roles } = input;
   const role = agent.role;
-  const operator = role === "operator";
+  const operator = roles.isOperator(role);
 
   if (!rolePlaceFits(role, place)) {
     return invalid([{ field: "place", code: "not_allowed" }]);
@@ -139,24 +142,18 @@ export async function resolveAgent(
     )
   );
 
-  let contexts: string[] = [];
-  let picked = false;
-  if (operator) {
-    const chosenContexts = definition !== null && "contexts" in definition
+  const { contexts, picked } = roles.contextsOf(role, {
+    chosen: definition !== null && "contexts" in definition
       ? definition.contexts ?? []
-      : [];
-    const active = new Set(environment.active_contexts);
-    contexts = chosenContexts.filter((id) => active.has(id));
-    picked = chosenContexts.length > 0;
-  } else if (role === "project_manager") {
-    contexts = [...environment.active_contexts];
-  }
+      : [],
+    active: environment.active_contexts,
+  });
 
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
     role,
     place: copy(place),
-    name: operator ? given as string : BUILTIN_NAMES[role],
+    name: operator ? given as string : roles.builtinName(role) as string,
     profile: copy(profile ?? environment.default_profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),

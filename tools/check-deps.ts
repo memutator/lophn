@@ -128,10 +128,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: agent 점검이 harness의 agents/에 있어 role별 place와 이름(BUILTIN_NAMES)을 role 이름으로 푼다",
   ],
   [
-    "packages/core/lophn-agent/agents/layers.ts",
-    "못 옮김: agent prompt 층 목록이 projects의 context 목록 route(contextListRoute)를 부른다",
-  ],
-  [
     "packages/core/lophn-agent/agents/names.ts",
     "못 옮김: built-in 이름 표(BUILTIN_NAMES)가 harness에 있어 role 이름을 key로 쓴다",
   ],
@@ -142,10 +138,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
   [
     "packages/core/lophn-agent/agents/reads.ts",
     "못 옮김: agent 목록·조회가 harness의 agents/에 있어 role 이름으로 built_in/operator 종류와 place를 가른다",
-  ],
-  [
-    "packages/core/lophn-agent/agents/resolve.ts",
-    "못 옮김: agent 정의 해석(DEFAULT_PROFILES 포함)이 harness의 agents/에 있어 role별 기본값을 role 이름으로 가른다",
   ],
   [
     "packages/core/lophn-agent/agents/store.ts",

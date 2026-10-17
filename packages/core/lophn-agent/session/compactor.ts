@@ -8,6 +8,7 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
+  type Place,
   type Role,
   sessionCompactRequests,
   startModelCall,
@@ -27,6 +28,7 @@ import {
 } from "../prompt-assembly/mod.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import { resolveTurnAgent } from "../agents/layers.ts";
+import type { AgentRoleTable } from "../agents/role-table.ts";
 import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
@@ -96,6 +98,8 @@ type CompactorDeps = {
   // machine 자격의 loopback.
   machine: CoreCall;
   roleTools(role: Role): readonly string[];
+  roles: AgentRoleTable;
+  activeContexts(place: Place | null): Promise<Result<string[]>>;
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(
@@ -162,6 +166,8 @@ export function createCompactor(
       session: request.session,
       skills: [],
       roleTools: deps.roleTools,
+      roles: deps.roles,
+      activeContexts: deps.activeContexts,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"

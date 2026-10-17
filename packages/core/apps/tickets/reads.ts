@@ -1,5 +1,5 @@
 // ticket 읽기. list는 요약만, show는 내용·상태·claim·완료 보고·check 결과·확인 결과를 준다.
-// 근거 annotation은 값(메모, component, source 위치, release, screenshot 파일 경로)으로 풀어 싣는다.
+// 근거 annotation은 값(메모, component 겹, release, screenshot 파일 경로)으로 풀어 싣는다.
 import { z } from "zod";
 import { ok, type Result } from "../../../base/mod.ts";
 import {

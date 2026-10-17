@@ -45,11 +45,10 @@ export const annotationsWiring: WiringFactory = () => {
         });
         return done.ok ? ok(done.value.result as never) : done;
       };
-      // Router와 releases가 채우는 칸은 보낼 때 읽는다.
+      // Router가 채우는 칸은 보낼 때 읽는다.
       const annotations = createAnnotations({
         run,
         delivery: () => ctx.peek.annotationDelivery,
-        sourceMaps: () => ctx.peek.releaseSourceMaps,
       });
       return ok({
         memory: [[

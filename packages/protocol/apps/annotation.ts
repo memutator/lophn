@@ -41,23 +41,6 @@ const annotationElementSchema = z.strictObject({
   text: elementText,
 });
 
-// 앱 source의 파일과 줄(core가 source map으로 푼 값).
-export const annotationSourceSchema = z.strictObject({
-  file: z.string(),
-  line: z.number().int(),
-});
-export type AnnotationSource = z.infer<typeof annotationSourceSchema>;
-
-// 페이지가 요소에서 얻은 bundle 위치. core가 release의 source map으로 `source`를 푼다.
-const annotationBundlePositionSchema = z.strictObject({
-  file: z.string(),
-  line: z.number().int(),
-  column: z.number().int(),
-});
-export type AnnotationBundlePosition = z.infer<
-  typeof annotationBundlePositionSchema
->;
-
 // 앱 화면 위치(앱이 정한 view 이름과 route).
 const annotationViewSchema = z.strictObject({
   screen: screenKeySchema,
@@ -71,14 +54,13 @@ const annotationScreenshotBlobSchema = z.strictObject(
   { message: "screenshot blob purpose must be annotation_screenshot" },
 );
 
-// 보내는 쪽 입력. source는 없고 bundle_position만 있다(core가 푼다).
 export const annotationInputSchema = z.strictObject({
   n: z.number().int().min(1),
   kind: annotationKindSchema,
   note: z.string().max(ANNOTATION_NOTE_MAX_CHARS),
   screenshot: annotationScreenshotBlobSchema.nullable(),
+  // `List > Card > Button`처럼 바깥에서 안쪽 순서의 SDK component 겹. SDK component 안이 아니면 null.
   component: z.string().nullable(),
-  bundle_position: annotationBundlePositionSchema.nullable(),
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
@@ -97,8 +79,8 @@ const annotationSchema = z.strictObject({
     hash: sha256Schema,
     size_bytes: z.number().int().min(0),
   }).nullable(),
+  // `List > Card > Button`처럼 바깥에서 안쪽 순서의 SDK component 겹. SDK component 안이 아니면 null.
   component: z.string().nullable(),
-  source: annotationSourceSchema.nullable(),
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
@@ -137,7 +119,7 @@ export const annotationUploadScreenshot = defineUpload({
   max_bytes: ANNOTATION_SCREENSHOT_MAX_BYTES,
 });
 
-// 묶음 하나를 그 앱의 App Engineer에게 사람 메시지로 보낸다. source map 읽기와 Router 전달이
+// 묶음 하나를 그 앱의 App Engineer에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
 // session은 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
 export const annotationSendInputSchema = z.strictObject({

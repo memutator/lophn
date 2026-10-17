@@ -18,8 +18,7 @@ import {
   annotationPersist,
 } from "./commands.ts";
 import { renderAnnotationMessage } from "./message.ts";
-import type { AnnotationDelivery, ReleaseSourceMaps } from "./ports.ts";
-import { resolveAll } from "./source.ts";
+import type { AnnotationDelivery } from "./ports.ts";
 
 // 호출한 사람의 자격으로 command를 낸다. 준비한 blob의 영구 참조 등록이 준비 주체와 같은 자격을 요구한다.
 export type RunCommand = <R extends CommandRoute>(
@@ -31,9 +30,8 @@ export type RunCommand = <R extends CommandRoute>(
 
 type AnnotationDeps = {
   run: RunCommand;
-  // 다른 module이 채우는 칸이라 부를 때 읽는다. 없으면 보내기는 unavailable, source map은 없는 것과 같다.
+  // 다른 module이 채우는 칸이라 부를 때 읽는다. 없으면 보내기는 unavailable.
   delivery(): AnnotationDelivery | undefined;
-  sourceMaps(): ReleaseSourceMaps | undefined;
 };
 
 type SendInput = z.output<typeof annotationSendInputSchema>;
@@ -47,21 +45,10 @@ export function createAnnotations(deps: AnnotationDeps) {
         message: "annotation delivery is not attached",
       });
     }
-    const sources = await resolveAll(
-      deps.sourceMaps(),
-      input.app,
-      input.annotations,
-    );
     const persisted = await deps.run(
       ctx,
       annotationPersist,
-      {
-        app: input.app,
-        annotations: input.annotations.map((item, i) => ({
-          input: item,
-          source: sources[i]!,
-        })),
-      },
+      { app: input.app, annotations: input.annotations },
       input.annotations.flatMap((item) =>
         item.screenshot === null ? [] : [item.screenshot.preparation]
       ),
@@ -80,7 +67,6 @@ export function createAnnotations(deps: AnnotationDeps) {
         size_bytes: item.screenshot.size_bytes,
       },
       component: item.component,
-      source: sources[i]!,
       element: item.element,
       rect: item.rect,
       view: item.view,

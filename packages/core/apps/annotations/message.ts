@@ -21,12 +21,6 @@ function blockOf(annotation: Annotation): string {
   const lines: [string, string | undefined][] = [
     ["Note", annotation.note === "" ? "(none)" : annotation.note],
     ["Component", annotation.component ?? undefined],
-    [
-      "Source",
-      annotation.source === null
-        ? undefined
-        : `${annotation.source.file}:${annotation.source.line}`,
-    ],
     ["Element", elementText(annotation.element)],
     [
       "Area",

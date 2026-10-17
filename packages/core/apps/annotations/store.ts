@@ -34,10 +34,6 @@ function readOf(row: Record<string, unknown>, root: string | null) {
       ? null
       : { hash: String(hash), size_bytes: Number(row["screenshot_size"]) },
     component: row["component"] === null ? null : String(row["component"]),
-    source: row["source_file"] === null ? null : {
-      file: String(row["source_file"]),
-      line: Number(row["source_line"]),
-    },
     element: json(row["element"]),
     rect: json(row["rect"]),
     view: json(row["view"]),

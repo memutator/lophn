@@ -1,5 +1,5 @@
-// `lophn ticket`: 맡은 ticket을 읽고 claim하고 갱신하고 완료를 보고한다. 근거 annotation(메모, component,
-// source 위치, release, screenshot 파일 경로)은 `ticket show`의 route 출력 그대로 보인다.
+// `lophn ticket`: 맡은 ticket을 읽고 claim하고 갱신하고 완료를 보고한다. 근거 annotation(메모,
+// component 겹, release, screenshot 파일 경로)은 `ticket show`의 route 출력 그대로 보인다.
 import { err } from "../../../base/mod.ts";
 import { reportTicket } from "../../connection/mod.ts";
 import { type CommandEntry, entryOf, noToken } from "./types.ts";

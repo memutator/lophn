@@ -71,7 +71,6 @@ import {
   findAppTestVerification,
   findPassedAppTest,
 } from "../../../problems/tests/app-test-lookup.ts";
-import { createReleaseSourceMaps } from "../../../apps/releases/bundle/read.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -269,14 +268,6 @@ export const appsWiring: WiringFactory = () => {
           activation.handlers.applier,
         );
       }
-      // annotation이 읽는 release bundle의 source map이다.
-      ctx.provide(
-        "releaseSourceMaps",
-        createReleaseSourceMaps({
-          ledgerPath: ctx.ledgerPath,
-          dataRoot: ctx.root.path,
-        }),
-      );
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);
       ctx.provide("appRewind", rewind);

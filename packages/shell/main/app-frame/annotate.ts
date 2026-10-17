@@ -1,6 +1,6 @@
 // 앱 화면 annotate mode의 main 쪽. view마다 상태(켬·끔, 고른 목록, 보내는 중)를 메모리에 쥐고,
 // renderer(켜기·지우기·보내기)와 앱 view의 페이지(고른 목록·Esc·capture 준비)를 이어 준다.
-// 신원(앱, release, 화면)은 sender view에서 정한다. 페이지가 적은 앱·release·화면은 쓰지 않는다.
+// 페이지는 자기가 어느 앱인지 모른다. 신원(앱, release, 화면)은 sender view에서 정한다.
 // 보내기는 annotation마다 screenshot을 만들어 올리고 묶음 하나를 core에 보낸다.
 import { createHash } from "node:crypto";
 import type { ZodType } from "zod";
@@ -253,7 +253,6 @@ export function createAnnotate(deps: AnnotateDeps) {
             note: picked.note,
             screenshot,
             component: picked.component,
-            bundle_position: picked.bundle_position,
             element: picked.element,
             rect: picked.rect,
             view: { screen: port.screen, path: picked.path },

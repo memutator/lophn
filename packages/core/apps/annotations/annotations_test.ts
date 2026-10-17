@@ -21,13 +21,6 @@ const USER: RequestContext = {
   credential_ref: "user",
 };
 
-// bundle.js 1번 줄의 열 9부터는 원래 파일의 42번 줄이다.
-const SOURCE_MAP = JSON.stringify({
-  version: 3,
-  sources: ["../src/orders/totals-table.tsx"],
-  mappings: "AAAA,SAyCA",
-});
-
 function input(n: number, patch: Partial<AnnotationInput> = {}) {
   return {
     n,
@@ -40,8 +33,7 @@ function input(n: number, patch: Partial<AnnotationInput> = {}) {
       hash: HASH,
       size_bytes: 10,
     },
-    component: "DataTable",
-    bundle_position: { file: "bundle.js", line: 1, column: 12 },
+    component: "List > DataTable",
     element: { role: "row", name: "#1042", text: null },
     rect: {
       x_ratio: 0.62,
@@ -107,7 +99,6 @@ function open(status: "active" | "archived" = "active") {
         return Promise.resolve(ok({ session: SESSION, message: MESSAGE }));
       },
     }),
-    sourceMaps: () => ({ sourceMap: () => Promise.resolve(ok(SOURCE_MAP)) }),
   });
   return {
     dir,
@@ -141,7 +132,7 @@ Deno.test("보관한 앱으로 보내면 거절되고 아무것도 저장되지 
   world.close();
 });
 
-Deno.test("보낸 묶음은 저장되어 id로 읽히고 메모·component·source 위치·screenshot 경로가 나온다", async () => {
+Deno.test("보낸 묶음은 저장되어 id로 읽히고 메모·component 겹·screenshot 경로가 나온다", async () => {
   const world = open();
   const sent = await world.send(USER, {
     app: APP,
@@ -159,11 +150,7 @@ Deno.test("보낸 묶음은 저장되어 id로 읽히고 메모·component·sour
   assert(read.ok);
   const [first, second] = read.value.annotations;
   assertEquals(first!.note, "total is off");
-  assertEquals(first!.component, "DataTable");
-  assertEquals(first!.source, {
-    file: "src/orders/totals-table.tsx",
-    line: 42,
-  });
+  assertEquals(first!.component, "List > DataTable");
   assert(first!.screenshot_path!.startsWith(world.dir));
   assert(first!.screenshot_path!.endsWith(HASH.slice(2)));
   assertEquals(second!.screenshot_path, null);

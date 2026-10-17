@@ -28,15 +28,6 @@ export type AnnotationDelivery = {
   }): Promise<Result<{ session: SessionId; message: MessageId }>>;
 };
 
-export type ReleaseSourceMaps = {
-  /** release의 UI bundle 파일에 맞는 source map 본문. 없으면 null. */
-  sourceMap(
-    app: AppId,
-    release: string,
-    bundleFile: string,
-  ): Promise<Result<string | null>>;
-};
-
 export type AnnotationLookup = {
   /** ticket 근거를 읽는 쪽(core/apps/tickets)이 core 안에서 부른다. annotation-core가 구현한다. */
   byIds(ids: readonly AnnotationId[]): Result<readonly AnnotationRead[]>;

@@ -1,5 +1,5 @@
 // 봉인 bundle 사본에서 release의 source 파일과 source map을 읽는다. 사본은 읽기만 한다.
-// coding session의 source diff(ReleaseSourceReader)와 annotation의 source 위치(ReleaseSourceMaps)가 쓴다.
+// coding session의 source diff(ReleaseSourceReader)가 쓴다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readBundleCopy } from "../activation/desired.ts";
@@ -91,31 +91,4 @@ function decodeText(bytes: Uint8Array): string | null {
   } catch {
     return null;
   }
-}
-
-// release의 UI bundle 파일에 맞는 source map 본문이다. 없으면 null이다.
-export function createReleaseSourceMaps(deps: Deps) {
-  return {
-    async sourceMap(
-      app: string,
-      release: string,
-      bundleFile: string,
-    ): Promise<Result<string | null>> {
-      const hash = bundleOf(deps, app, release);
-      if (!hash.ok) return hash.error.code === "not_found" ? ok(null) : hash;
-      const copy = await readBundleCopy(deps.dataRoot, app, hash.value);
-      if (!copy.ok) return copy;
-      if (
-        copy.value === undefined ||
-        !copy.value.manifest.files.some((file) => file.path === bundleFile)
-      ) return ok(null);
-      try {
-        return ok(
-          await Deno.readTextFile(`${copy.value.root}/${SOURCE_MAP_COPY_NAME}`),
-        );
-      } catch {
-        return ok(null);
-      }
-    },
-  };
 }

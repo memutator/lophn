@@ -1,5 +1,5 @@
-// 앱 화면 build의 신뢰된 실행. 앱 source는 신뢰하지 않으므로 준비는
-// 앱이 쓴 `scripts/build-ui.ts`를 실행하지 않고 이 파일이 같은 일을 한다. esbuild 입력은 staging의
+// 앱 화면 build의 신뢰된 실행. 앱 폴더의 build script는 AI가 쓴 code라 그 실수가 준비에 퍼지지 않게
+// 준비는 앱이 쓴 `scripts/build-ui.ts`를 실행하지 않고 이 파일이 같은 일을 한다. esbuild 입력은 staging의
 // `src/screens/<key>/main.tsx`로 고정이고 출력은 `dist/screens/<key>/`뿐이다. 앱 코드는 번들될 뿐 실행되지
 // 않는다. 호출자가 run은 deno·esbuild 실행 파일만, write는 staging만, env는 이름만 허락해 띄운다.
 // 사용: deno run ... app-build.ts <staging 폴더> <설치 SDK 폴더> <Deno 캐시 폴더>
@@ -19,47 +19,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SCREEN_KEY = /^[a-z0-9][a-z0-9-]*$/;
-
-// 앱 source가 SDK component를 쓰는 지점에 bundle 위치(`data-lophn-at="<file>:<line>:<column>"`)를 싣는다.
-// annotation이 이 위치를 release의 app.js.map으로 원래 source 위치로 푼다. 앱 source의 jsx runtime만 이 파일이 대신한다.
-// 앱 template의 `scripts/build-ui.ts`와 같은 코드다(template은 앱 폴더에 복사되어 core를 import하지 못해 복사로 둔다).
-const AT_RUNTIME = `
-import { Fragment, jsx as jsx0, jsxs as jsxs0 } from "react/jsx-runtime";
-const POSITION = /([^\\s()]+:\\d+:\\d+)\\)?\\s*$/;
-function at() {
-  const frame = (new Error().stack ?? "").split("\\n")[3] ?? "";
-  return POSITION.exec(frame)?.[1];
-}
-function mark(type, props, position) {
-  return typeof type === "string" || position === undefined
-    ? props
-    : { ...props, "data-lophn-at": position };
-}
-export { Fragment };
-export const jsx = (type, props, key) => jsx0(type, mark(type, props, at()), key);
-export const jsxs = (type, props, key) => jsxs0(type, mark(type, props, at()), key);
-`;
-
-function atRuntime(root: string): esbuild.Plugin {
-  return {
-    name: "app-at-runtime",
-    setup(build) {
-      build.onResolve(
-        { filter: /^react\/jsx-runtime$/ },
-        (args) =>
-          args.namespace === "file" &&
-            args.importer.startsWith(join(root, "src/"))
-            ? { path: "jsx-runtime", namespace: "app-at" }
-            : undefined,
-      );
-      build.onLoad({ filter: /.*/, namespace: "app-at" }, () => ({
-        contents: AT_RUNTIME,
-        loader: "js",
-        resolveDir: root,
-      }));
-    },
-  };
-}
 
 // CSS Modules·CSS·글꼴·svg는 import map이 가리키는 설치 사본의 파일을 esbuild loader로 읽는다.
 function assets(imports: Record<string, string>): esbuild.Plugin {
@@ -165,7 +124,6 @@ try {
       logLevel: "error",
       plugins: [
         guard(allowed),
-        atRuntime(root),
         assets(imports),
         ...(denoPlugins({
           configPath: scratch,

@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 // 고른 것 하나의 값과 대상 찾기.
 import type { PickedItem } from "../../ipc/annotation.ts";
-import { bundlePositionOf, nameOf, roleOf, textOf } from "./describe.ts";
+import { nameOf, roleOf, textOf } from "./describe.ts";
 import { type Box, rectOf, type View } from "./geometry.ts";
 
 const COMPONENT_ATTR = "data-lophn-component";
@@ -9,6 +9,8 @@ const COMPONENT_ATTR = "data-lophn-component";
 export const DRAG_THRESHOLD = 4;
 export const NOTE_MAX = 2000;
 const PATH_MAX = 512;
+const CHAIN_MAX = 8;
+const CHAIN_NAME_MAX = 60;
 
 /** 고른 것. 요소를 고른 것이면 `ref`를 쥔다. */
 export type Picked = Omit<PickedItem, "rect"> & {
@@ -35,6 +37,19 @@ export function targetAt(
   return hit.closest(`[${COMPONENT_ATTR}]`) ?? hit;
 }
 
+/** target부터 위로 만나는 SDK component 이름을 바깥 → 안쪽으로 ` > `로 잇는다. 안쪽 8개, 이름 60자까지. 없으면 null. */
+export function componentChainOf(target: Element): string | null {
+  const names: string[] = [];
+  let el: Element | null = target.closest(`[${COMPONENT_ATTR}]`);
+  while (el !== null) {
+    const name = el.getAttribute(COMPONENT_ATTR);
+    if (name) names.push(name.slice(0, CHAIN_NAME_MAX));
+    el = el.parentElement?.closest(`[${COMPONENT_ATTR}]`) ?? null;
+  }
+  if (names.length === 0) return null;
+  return names.slice(0, CHAIN_MAX).reverse().join(" > ");
+}
+
 /** 이름표 문구: component 이름, 아니면 `role "접근 이름"`. */
 export function labelOf(target: Element): string {
   const component = target.getAttribute(COMPONENT_ATTR);
@@ -57,8 +72,7 @@ export function pickElement(
     n,
     kind: "element",
     note: "",
-    component: target.getAttribute(COMPONENT_ATTR) || null,
-    bundle_position: bundlePositionOf(target),
+    component: componentChainOf(target),
     element: {
       role: roleOf(target),
       name: nameOf(target),
@@ -76,7 +90,6 @@ export function pickRegion(box: Box, n: number, win: Window): Picked {
     kind: "region",
     note: "",
     component: null,
-    bundle_position: null,
     element: { role: null, name: null, text: null },
     rect: rectOf(box, viewOf(win)),
     path: pathOf(win),

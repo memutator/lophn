@@ -32,15 +32,16 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 목표, 근거(annotation의 메모,
-   component, source 위치, screenshot 파일 경로), acceptance 조건, 볼 곳과 지킬
+   component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 볼 곳과 지킬
    것을 읽는다. 작업 가능하지 않다고 나오면 claim하지 않고 `message send`로
    알린다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
    전에 `ticket renew`를 부른다.
 3. 현재 앱을 읽는다. `app show`, `app blueprint`로 선언된 app api(blueprint의
-   `app_api`)와 화면을 보고, ticket이 가리킨 source를 읽는다. 앱 root의 안내
-   파일이 있으면 먼저 읽는다.
+   `app_api`)와 화면을 보고, ticket이 가리킨 source를 읽는다(component 겹과 요소
+   글자, 화면 이름으로 source를 검색해 찾는다). 앱 root의 안내 파일이 있으면
+   먼저 읽는다.
 4. 쓸 package를 찾는다. 새 code를 쓰기 전에 `package list`, `package show`로 이
    앱이 의존으로 선언한 package의 API와 예제를 읽는다. 선언되지 않은 package는
    쓸 수 없다.

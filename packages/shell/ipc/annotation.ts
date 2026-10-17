@@ -115,11 +115,6 @@ const pickedItemSchema = z.strictObject({
   kind,
   note: z.string().max(2000),
   component: z.string().nullable(),
-  bundle_position: z.strictObject({
-    file: z.string(),
-    line: z.number().int(),
-    column: z.number().int(),
-  }).nullable(),
   element: z.strictObject({
     role: elementText,
     name: elementText,

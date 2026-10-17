@@ -25,16 +25,12 @@ export const annotationSchemaSteps: readonly SchemaStep[] = [{
       screenshot_hash TEXT,
       screenshot_size INTEGER,
       component TEXT,
-      source_file TEXT,
-      source_line INTEGER,
       element TEXT NOT NULL CHECK (json_valid(element)),
       rect TEXT NOT NULL CHECK (json_valid(rect)),
       view TEXT NOT NULL CHECK (json_valid(view)),
       release TEXT NOT NULL,
-      bundle_position TEXT CHECK (bundle_position IS NULL OR json_valid(bundle_position)),
       UNIQUE (batch, n),
-      CHECK ((screenshot_hash IS NULL) = (screenshot_size IS NULL)),
-      CHECK ((source_file IS NULL) = (source_line IS NULL))
+      CHECK ((screenshot_hash IS NULL) = (screenshot_size IS NULL))
     ) STRICT;
 
     CREATE TABLE annotation_refs (

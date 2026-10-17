@@ -19,7 +19,6 @@ function item(n: number, note: string): PickedItem {
     kind: "element",
     note,
     component: "DataTable",
-    bundle_position: null,
     element: { role: "row", name: "#1", text: null },
     rect: {
       x_ratio: 0.1,

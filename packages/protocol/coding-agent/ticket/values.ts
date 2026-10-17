@@ -107,7 +107,7 @@ export const ticketEvidenceListSchema = z.array(ticketEvidenceSchema)
     { message: "duplicate evidence" },
   );
 
-// 읽는 쪽 근거. annotation은 값을 풀어 싣는다(메모, component, source 위치, release,
+// 읽는 쪽 근거. annotation은 값을 풀어 싣는다(메모, component 겹, release,
 // screenshot 파일 경로). 지워졌거나 못 읽는 annotation은 값이 null이다.
 export const ticketEvidenceReadSchema = z.union([
   z.strictObject({

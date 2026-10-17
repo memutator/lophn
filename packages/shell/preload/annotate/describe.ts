@@ -78,13 +78,3 @@ export function textOf(el: Element): string | null {
   }
   return null;
 }
-
-export function bundlePositionOf(
-  el: Element,
-): { file: string; line: number; column: number } | null {
-  const match = /^(.+):(\d+):(\d+)$/.exec(
-    el.getAttribute("data-lophn-at") ?? "",
-  );
-  if (match === null) return null;
-  return { file: match[1]!, line: Number(match[2]), column: Number(match[3]) };
-}

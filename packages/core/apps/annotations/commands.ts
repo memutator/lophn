@@ -8,7 +8,6 @@ import {
   annotationBatchIdSchema,
   annotationIdSchema,
   annotationInputSchema,
-  annotationSourceSchema,
 } from "../../../protocol/apps/annotation.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/apps.ts";
 import { appIdSchema } from "../../../protocol/projects/values.ts";
@@ -24,11 +23,9 @@ export const annotationPersist = defineCommand({
   name: "AnnotationPersist",
   input: z.strictObject({
     app: appIdSchema,
-    // source는 core가 release의 source map으로 푼 값이다. 못 풀었으면 null이다.
-    annotations: z.array(z.strictObject({
-      input: annotationInputSchema,
-      source: annotationSourceSchema.nullable(),
-    })).min(1).max(ANNOTATION_BATCH_MAX),
+    annotations: z.array(annotationInputSchema).min(1).max(
+      ANNOTATION_BATCH_MAX,
+    ),
   }),
   output: z.object({
     batch: annotationBatchIdSchema,
@@ -109,15 +106,14 @@ export function createAnnotationCommands(): {
         );
         const registeredSeq = headSeq(tx.sql);
         const ids: string[] = [];
-        for (const { input: item, source } of input.annotations) {
+        for (const item of input.annotations) {
           const id = tx.newId("ann");
           ids.push(id);
           tx.sql.run(
             `INSERT INTO annotations
                (id, batch, app, n, kind, note, screenshot_hash, screenshot_size,
-                component, source_file, source_line, element, rect, view, release,
-                bundle_position)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                component, element, rect, view, release)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               id,
               batch,
@@ -128,15 +124,10 @@ export function createAnnotationCommands(): {
               item.screenshot?.hash ?? null,
               item.screenshot?.size_bytes ?? null,
               item.component,
-              source?.file ?? null,
-              source?.line ?? null,
               JSON.stringify(item.element),
               JSON.stringify(item.rect),
               JSON.stringify(item.view),
               item.release,
-              item.bundle_position === null
-                ? null
-                : JSON.stringify(item.bundle_position),
             ],
           );
           if (item.screenshot !== null) {

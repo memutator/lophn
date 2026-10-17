@@ -112,7 +112,7 @@ const ticketViewSchema = z.object({
 );
 
 export const ticketShowInputSchema = z.strictObject({ ticket: ticketIdSchema });
-// 근거 annotation은 메모, component, source 위치, release, screenshot 파일 경로까지 풀려 있다.
+// 근거 annotation은 메모, component 겹, release, screenshot 파일 경로까지 풀려 있다.
 export const ticketShow = defineRead({
   resource: "tickets",
   method: "show",

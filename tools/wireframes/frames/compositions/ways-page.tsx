@@ -29,7 +29,9 @@ export function ContextWays() {
                 <span className={styles.wayArrow} aria-hidden="true">→</span>
                 <span className={styles.wayResult}>
                   Context tab<br />
-                  <span className={styles.muted}>{way.result}</span>
+                  <span style={{ color: "var(--color-text-muted)" }}>
+                    {way.result}
+                  </span>
                 </span>
               </span>
             </div>

@@ -1,5 +1,6 @@
 // Orders 앱이 그린 화면의 고정 그림. 앱 view는 앱이 그리므로 lophn 화면이 아니다. annotate에서 고를 수 있는 요소 둘과 영역 하나가 있다.
 import type { ReactNode } from "react";
+import { StatRow, StatTile } from "@lophn/ui/data";
 import { Button } from "@lophn/ui/primitives";
 
 import { ORDER_ROWS } from "./data.ts";
@@ -80,20 +81,11 @@ export function OrdersView({ marks = {} }: { marks?: ViewMarks }) {
         <h1 className={styles.appTitle}>Orders</h1>
         <Button variant="primary" size="sm">New order</Button>
       </div>
-      <div className={styles.tiles}>
-        <div className={styles.tile}>
-          <span className={styles.muted}>Open</span>
-          <span className={styles.tileValue}>12</span>
-        </div>
-        <div className={styles.tile}>
-          <span className={styles.muted}>Shipped today</span>
-          <span className={styles.tileValue}>31</span>
-        </div>
-        <div className={styles.tile}>
-          <span className={styles.muted}>Revenue today</span>
-          <span className={styles.tileValue}>$4,210</span>
-        </div>
-      </div>
+      <StatRow>
+        <StatTile label="Open" value={12} />
+        <StatTile label="Shipped today" value={31} />
+        <StatTile label="Revenue today" value={4210} unit="USD" />
+      </StatRow>
       <div className={styles.orders}>
         <div className={styles.ordersHead}>
           <span>Order</span>

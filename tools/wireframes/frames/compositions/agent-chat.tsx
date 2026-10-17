@@ -33,7 +33,6 @@ import {
   sessionsOf,
 } from "./agents-data.ts";
 import { type DemoStep, openSwitcher, pressAt, useDemo } from "./demo-steps.ts";
-import styles from "./compose.module.css";
 
 export { Quiet, Said, ToolRow, UserMessage };
 type Detail = ViewDetail;
@@ -173,7 +172,7 @@ export function ChatShell(
       : null);
 
   return (
-    <div className={styles.chat}>
+    <div className={view.view}>
       <AgentHeader
         agent={faceOf(agent)}
         session={current}

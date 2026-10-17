@@ -1,14 +1,15 @@
 // Part 2: 파일 탭(viewer, 저장, 밖에서 바뀐 파일), project 키워드 검색, 경로로 열기, sidebar의 Agents 묶음.
 // 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
 import type { ReactNode } from "react";
-import { Dialog } from "@lophn/ui/overlay";
+import { Dialog, Palette } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 
+import { workspaceIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import { AGENT_ROWS } from "../agents-data.ts";
+import { typeInto, useDemo } from "../demo-steps.ts";
 import { documentTab } from "../phroner-data.ts";
 import { ProjectApp, type ProjectAppProps } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
-import fileStyles from "./files.module.css";
 
 const EXP = "eval/experiments/exp-008-query-tools.md";
 const EXP_OTHER = "eval/experiments/exp-012-ftb-quests-021-q8.md";
@@ -114,26 +115,24 @@ export function OutsideFile() {
   });
 }
 
+// 실제 Palette는 입력칸 값을 밖에서 못 정해서, 뜬 뒤에 사람이 친 것처럼 경로를 넣는다.
+// modal이라 page가 잠기지만 이 page는 이 palette를 보이는 screen이다.
 function PathPalette({ typed }: { typed: string }) {
+  useDemo([typeInto('[role="dialog"] input', typed)], typed);
   return (
-    <div className={fileStyles.paletteBackdrop}>
-      <div className={fileStyles.palettePanel} role="dialog" aria-label="Open">
-        <div className={fileStyles.paletteSearch}>{typed}</div>
-        <div className={fileStyles.paletteList}>
-          <div className={fileStyles.paletteGroup}>Open</div>
-          <div
-            className={`${fileStyles.paletteItem} ${fileStyles.paletteActive}`}
-          >
-            <span>{typed}</span>
-            <span className={fileStyles.paletteDetail}>Outside project</span>
-          </div>
-        </div>
-        <div className={fileStyles.paletteFooter}>
-          Enter opens this path in a tab. Open file… chooses it with the system
-          dialog.
-        </div>
-      </div>
-    </div>
+    <Palette
+      open
+      onOpenChange={() => {}}
+      title="Open"
+      items={[{
+        id: `path:${typed}`,
+        group: "Open",
+        label: typed,
+        detail: "Outside project",
+        icon: workspaceIcons.document,
+      }]}
+      onSelect={() => {}}
+    />
   );
 }
 

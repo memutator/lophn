@@ -6,7 +6,6 @@ import { TerminalTab } from "../../../../packages/shell/renderer/terminal/termin
 import { createXtermView } from "../../../../packages/shell/renderer/terminal/xterm-view.ts";
 import { PROJECT_GROCERY } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { fakeTerminal } from "../fake-terminal.ts";
-import styles from "./compose.module.css";
 
 import "@xterm/xterm/css/xterm.css";
 
@@ -25,14 +24,12 @@ export function TerminalBody() {
     };
   }, []);
   return (
-    <div className={styles.docTab}>
-      <TerminalTab
-        tabKey={KEY}
-        project={PROJECT_GROCERY}
-        folderRef={null}
-        active
-        deps={deps}
-      />
-    </div>
+    <TerminalTab
+      tabKey={KEY}
+      project={PROJECT_GROCERY}
+      folderRef={null}
+      active
+      deps={deps}
+    />
   );
 }

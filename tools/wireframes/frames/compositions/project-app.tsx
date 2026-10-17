@@ -41,7 +41,8 @@ import {
   stripTabsOf,
   type TabSpec,
 } from "./project-window.tsx";
-import styles from "./compose.module.css";
+import workspace from "../../../../packages/shell/renderer/workspace/workspace.module.css";
+import paneStyles from "../../../../packages/shell/renderer/workspace/panes/panes.module.css";
 
 export interface PaneInit {
   readonly tabs: readonly TabSpec[];
@@ -440,7 +441,7 @@ export function ProjectApp(
           ),
       }}
     >
-      <div className={styles.window}>
+      <div className={workspace.workspace}>
         <PageSidebar
           {...sidebar}
           collapsed={collapsed}
@@ -453,28 +454,28 @@ export function ProjectApp(
           onSession={(row) => open(sessionTab(row))}
           onSavedView={(view) => open(savedViewTab(view))}
         />
-        <div className={styles.main}>
-          <div className={styles.topBar}>
+        <div className={workspace.main}>
+          <div className={workspace.topBar}>
             <TopBar
               platform="linux"
               leading={
-                <div className={styles.leading}>
+                <div className={workspace.leading}>
                   {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
                   <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
                 </div>
               }
               trailing={
-                <div className={styles.titleEnd}>
+                <div className={workspace.trailing}>
                   {titleExtra}
                   <PaletteButton onClick={() => setPalette(true)} />
                 </div>
               }
             />
           </div>
-          <div className={styles.panes}>
+          <div className={paneStyles.panes}>
             {panes.map((pane, index) => {
               return (
-                <section key={index} className={styles.pane}>
+                <section key={index} className={paneStyles.pane}>
                   <TabStrip
                     tabs={stripTabsOf(pane.tabs, tabStates)}
                     selected={pane.selected}
@@ -497,8 +498,8 @@ export function ProjectApp(
                     <div
                       key={tab.key}
                       hidden={tab.key !== pane.selected}
-                      className={`${styles.body} ${
-                        FLUSH.has(tab.kind) ? styles.flush : ""
+                      className={`${paneStyles.body} ${
+                        FLUSH.has(tab.kind) ? paneStyles.flush : ""
                       }`}
                     >
                       {body(tab)}

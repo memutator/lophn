@@ -38,13 +38,14 @@ import {
 } from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
 import {
   AGENT_ROWS,
-  type AgentRow,
+  type AgentProfile,
   type ChatInit,
+  profileOf,
   type SessionRow,
   SESSIONS,
 } from "./agents-data.ts";
 import type { FileInit } from "./project-files/file-data.ts";
-import { Avatar } from "./agent-avatar.tsx";
+import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 
 type TabKind =
   | "document"
@@ -111,7 +112,7 @@ function tabIcon(tab: TabSpec): ReactNode {
     return <FileIcon name={tab.sub ?? tab.title} size={14} />;
   }
   if (tab.kind === "agent") {
-    return <Avatar agent={agentNameOf(tab)} size="sm" />;
+    return <Avatar profile={avatarOf(profileOf(agentNameOf(tab)))} size="sm" />;
   }
   return <Icon icon={KIND_ICON[tab.kind]} pixels={iconPixels("small")} />;
 }
@@ -191,10 +192,10 @@ const PHOTO = `data:image/svg+xml,${
   )
 }`;
 
-const profileOf = (row: AgentRow): AvatarProfile =>
-  row.profile.image === true
+const avatarOf = (profile: AgentProfile): AvatarProfile =>
+  profile.image === true
     ? { kind: "image", src: PHOTO }
-    : { kind: "icon", icon: row.profile.icon };
+    : { kind: "icon", icon: profile.icon };
 
 const AGENTS: readonly SidebarAgent[] = AGENT_ROWS
   .filter((row) => row.id !== "operators")
@@ -206,7 +207,7 @@ const AGENTS: readonly SidebarAgent[] = AGENT_ROWS
       ? "lophn" as const
       : "project_manager" as const,
     name: row.name,
-    profile: profileOf(row),
+    profile: avatarOf(row.profile),
     waiting: false,
   }));
 

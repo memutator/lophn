@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   agentSessionRead,
   messageBody,
+  type ReceivedMessage,
   receivedMessageList,
   rewindList,
   sessionSummary,
@@ -19,6 +20,7 @@ import {
   type RevertRow,
 } from "./rewind/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import { receivedText } from "../run-loop/input-text.ts";
 
 // 새 turn의 prompt가 쓰는 session의 이전 대화다. Compact한
 // session이면 요약과 그것이 덮은 구간 뒤의 원문만 읽는다: 덮인 구간의 원문은 읽지도 않는다(원문은 session에
@@ -104,6 +106,7 @@ export async function readSessionConversation(
     // 접힌 구간의 메시지는 요약이 맡으므로 본문을 읽지 않는다. 구간의 자리를 알리는 표시로만 둔다.
     folded: boolean;
     turn: string | null;
+    received: ReceivedMessage;
   }[] = [];
   // 이 turn의 입력. 입력함은 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
   let requestTurn: string | null = null;
@@ -141,6 +144,7 @@ export async function readSessionConversation(
           BigInt(entry.created_seq) <= BigInt(fold.through_seq)
         ),
         turn: entry.turn,
+        received: entry,
       });
     }
     const next = listed.value.next_cursor;
@@ -177,12 +181,16 @@ export async function readSessionConversation(
         messages.push({ seq: entry.seq, role: entry.role, text: "" });
         continue;
       }
-      // 카드뿐인 답은 글이 없어 이력에 넣지 않는다.
+      // 카드뿐인 답은 글이 없어 이력에 넣지 않는다. 글 없는 취소 알림은 tag만으로 뜻이 있다.
       const text = body.value.content.parts.flatMap((part) =>
         part.kind === "text" ? [part.text] : []
       ).join("\n");
-      if (text.trim() === "") continue;
-      messages.push({ seq: entry.seq, role: entry.role, text });
+      if (text.trim() === "" && entry.received.from.kind === "human") continue;
+      messages.push({
+        seq: entry.seq,
+        role: entry.role,
+        text: receivedText(entry.received, text),
+      });
     }
   }
   return ok({

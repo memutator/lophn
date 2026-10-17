@@ -1,6 +1,6 @@
-import type { HistoryPart } from "../prompt-assembly/mod.ts";
+import { type HistoryPart, wrapUntrusted } from "../prompt-assembly/mod.ts";
 import type { CallResult } from "./tool-batch.ts";
-import { untrustedSource, wrapUntrusted } from "./untrusted.ts";
+import { untrustedSource } from "./untrusted.ts";
 
 // 확정한 tool 결과를 다음 판단의 이력 글로 만든다. loop가 call마다 쓴다. web 결과만 바깥 글로 감싼다.
 // 이미지는 text에 base64로 싣지 않고 tool_result_image 조각으로 따로 싣는다.

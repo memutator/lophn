@@ -36,30 +36,3 @@ export function appWritesOf(lookup: Lookup): AppWrites {
     },
   };
 }
-
-// 그 session의 place가 file tool에 연 쓰기 폴더(절대 경로)다. project는 등록한 폴더, 앱은 source 폴더이고,
-// lophn은 읽기만 하므로 없다.
-export function placeFoldersOf(lookup: Lookup, session: string): string[] {
-  const found = lookup.sql.get(
-    "select role, place_kind, place_id from sessions where id = ?",
-    [session],
-  );
-  if (found === undefined) return [];
-  if (
-    found["role"] === "project_manager" && found["place_kind"] === "project"
-  ) {
-    return lookup.sql.all(
-      "select path from project_folders where project = ? order by position",
-      [String(found["place_id"])],
-    ).map((row) => String(row["path"]));
-  }
-  if (found["role"] === "app_engineer" && found["place_kind"] === "app") {
-    const app = lookup.sql.get("select source_path from apps where id = ?", [
-      String(found["place_id"]),
-    ]);
-    return app === undefined || app["source_path"] === null
-      ? []
-      : [String(app["source_path"])];
-  }
-  return [];
-}

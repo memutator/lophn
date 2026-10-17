@@ -162,6 +162,11 @@ export type AgentRuntimeChild = {
   hosts(): readonly string[];
 };
 
+type PlaceFolders = {
+  read: readonly string[];
+  write: readonly string[];
+};
+
 type AgentRuntimeDeps = {
   io: Supervisor;
   // 역할의 operation 상한과 agent credential의 조건. role 층이 정한다.
@@ -187,6 +192,9 @@ type AgentRuntimeDeps = {
   readSkillRoots?(
     context: RequestContext,
   ): Promise<Result<readonly string[]>>;
+  // file tool이 열 폴더의 합(열린 project와 앱 source 폴더 전체 + 초안 상위). Deno 읽기·쓰기 권한이 되고, 이 목록이
+  // 바뀌면 child를 다시 띄운다. 없으면 빈 목록이다. 값은 harness가 모르는 규칙이라 조립이 넘긴다.
+  readPlaceFolders?(): Promise<Result<PlaceFolders>>;
   // machine credential의 자격으로 ledger reader를 직접 읽는다(발급 판정이 쓰는 turn·session).
   read(
     route: ReadRoute,
@@ -326,6 +334,7 @@ export async function startAgentRuntimeChild(
   let hosts: readonly string[] = [];
   let mcp: readonly McpServerConfig[] = [];
   let skillRoots: readonly string[] = [];
+  let place: PlaceFolders = { read: [], write: [] };
   const readSkillRoots = async (): Promise<readonly string[] | undefined> => {
     if (deps.readSkillRoots === undefined) return skillRoots;
     const read = await deps.readSkillRoots(SKILL_ROOTS_READER);
@@ -335,6 +344,7 @@ export async function startAgentRuntimeChild(
     list: readonly string[],
     roots: readonly string[],
     servers: readonly McpServerConfig[],
+    placeFolders: PlaceFolders,
   ): KindLaunchSpec =>
     agentRuntimeLaunchSpec({
       dataRoot: deps.dataRoot,
@@ -343,7 +353,7 @@ export async function startAgentRuntimeChild(
       hosts: list,
       mcpServers: servers,
       skillRoots: roots,
-      placeFolders: { read: [], write: [] },
+      placeFolders,
     });
   // 읽지 못한 목록은 바꾸지 않은 것으로 본다. 권한은 읽은 목록으로만 정해진다.
   const readMcp = async (): Promise<readonly McpServerConfig[] | undefined> => {
@@ -351,12 +361,18 @@ export async function startAgentRuntimeChild(
     const read = await deps.readMcpServers();
     return read.ok ? read.value : undefined;
   };
+  const readPlace = async (): Promise<PlaceFolders | undefined> => {
+    if (deps.readPlaceFolders === undefined) return place;
+    const read = await deps.readPlaceFolders();
+    return read.ok ? read.value : undefined;
+  };
   const initial = await deps.readProviders(HOSTS_READER);
   if (initial.ok) hosts = initial.value;
   skillRoots = (await readSkillRoots()) ?? [];
   mcp = await readMcp() ?? [];
+  place = await readPlace() ?? place;
   const started = await deps.io.start(
-    specFor(hosts, skillRoots, mcp),
+    specFor(hosts, skillRoots, mcp, place),
     hello,
     callbacks(),
   );
@@ -379,14 +395,17 @@ export async function startAgentRuntimeChild(
       if (!read.ok || roots === undefined || stopped) return;
       const servers = await readMcp();
       if (servers === undefined || stopped) return;
-      // 권한에 닿는 것은 provider 목적지, skill 폴더, MCP의 net·run 목록뿐이다. 다른 설정 변경은 다시 띄우지 않는다.
+      const folders = await readPlace();
+      if (folders === undefined || stopped) return;
+      // 권한에 닿는 것은 provider 목적지, skill 폴더, MCP의 net·run 목록, place 폴더뿐이다. 다른 설정 변경은 다시 띄우지 않는다.
       if (
         same(read.value, hosts) && same(roots, skillRoots) &&
         same(allowNetList(servers), allowNetList(mcp)) &&
-        same(allowRunList(servers), allowRunList(mcp))
+        same(allowRunList(servers), allowRunList(mcp)) &&
+        same(folders.read, place.read) && same(folders.write, place.write)
       ) return;
       const restarted = await deps.io.updateSpec(
-        specFor(read.value, roots, servers),
+        specFor(read.value, roots, servers, folders),
         hello,
         callbacks(),
       );
@@ -394,6 +413,7 @@ export async function startAgentRuntimeChild(
         hosts = read.value;
         mcp = servers;
         skillRoots = roots;
+        place = folders;
       }
     })().catch(() => {}).finally(() => {
       checking = false;

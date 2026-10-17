@@ -27,3 +27,37 @@ export function activeContextIds(sql: ReadSql, project: string): string[] {
     [project],
   ).map((row) => String(row["id"]));
 }
+
+// project의 등록 폴더 경로(position 순).
+export function projectFolderPaths(sql: ReadSql, project: string): string[] {
+  return sql.all(
+    "select path from project_folders where project = ? order by position",
+    [project],
+  ).map((row) => String(row["path"]));
+}
+
+// active project 전체의 등록 폴더 경로.
+export function activeProjectFolderPaths(sql: ReadSql): string[] {
+  return sql.all(
+    `select f.path as path from project_folders f
+       join projects p on p.id = f.project
+      where p.status = 'active' order by f.project, f.position`,
+    [],
+  ).map((row) => String(row["path"]));
+}
+
+// project의 열린 초안 판. context마다 draft 판은 많아야 하나다.
+export function draftBundles(
+  sql: ReadSql,
+  project: string,
+): { context: string; bundle: string }[] {
+  return sql.all(
+    `select c.id as context, b.id as bundle from contexts c
+       join context_bundles b on b.context = c.id
+      where c.project = ? and b.status = 'draft' order by c.id`,
+    [project],
+  ).map((row) => ({
+    context: String(row["context"]),
+    bundle: String(row["bundle"]),
+  }));
+}

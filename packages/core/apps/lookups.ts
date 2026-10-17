@@ -14,3 +14,20 @@ export function appIds(sql: ReadSql): string[] {
     String(row["id"])
   );
 }
+
+// 앱 하나의 source 폴더. 앱이 없거나 source가 없으면 null이다.
+export function appSourcePath(sql: ReadSql, id: string): string | null {
+  const row = sql.get("select source_path from apps where id = ?", [id]);
+  return row === undefined || row["source_path"] === null
+    ? null
+    : String(row["source_path"]);
+}
+
+// active 앱 전체의 source 폴더(source가 없는 앱은 뺀다).
+export function activeAppSourcePaths(sql: ReadSql): string[] {
+  return sql.all(
+    `select source_path from apps
+      where status = 'active' and source_path is not null order by id`,
+    [],
+  ).map((row) => String(row["source_path"]));
+}

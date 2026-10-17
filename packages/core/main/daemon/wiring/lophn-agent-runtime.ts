@@ -29,6 +29,8 @@ import {
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { runtimeFoldersOf } from "../place-folders-glue.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
 import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
@@ -153,6 +155,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           mcpOAuth: ctx.mcpAuthControl.tokenUse,
         }),
         readMcpServers: () => mcpServerSnapshot(ctx.ledgerPath),
+        readPlaceFolders: () =>
+          Promise.resolve(ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) => runtimeFoldersOf(lookup, ctx.root.path),
+          )),
         readProviders: async (context) => {
           const hosts = new Set<string>();
           let cursor: string | undefined;

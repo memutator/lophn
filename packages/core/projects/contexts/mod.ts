@@ -14,7 +14,7 @@ export {
   contextLedgerReads,
   mapActor,
 } from "./ledger/adapter.ts";
-export { createContextFolders } from "./folders.ts";
+export { createContextFolders, projectsRoot } from "./folders.ts";
 export {
   contextWorkInputRead,
   contextWorkListRead,

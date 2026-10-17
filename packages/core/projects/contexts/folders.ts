@@ -10,9 +10,14 @@ export const DRAFT_FILE = "bundle.json";
 // 새 context의 첫 초안, 적용된 판이 없는 context의 새 초안이 이 내용으로 시작한다. types는 Project Manager가 채운다.
 export const EMPTY_DRAFT_CONTENT = { schema: 1, contract: { types: [] } };
 
+// 모든 project의 폴더가 놓이는 상위다. 초안은 turn 중에 열려 Deno 쓰기 권한이 이 상위째 쓴다.
+export function projectsRoot(dataRoot: string): string {
+  return `${dataRoot}/projects`;
+}
+
 export function createContextFolders(dataRoot: string): ContextFolders {
   const contextFolder = (project: string, context: string) =>
-    `${dataRoot}/projects/${project}/contexts/${context}`;
+    `${projectsRoot(dataRoot)}/${project}/contexts/${context}`;
   return {
     draftFolder: (project, context, bundle) =>
       `${contextFolder(project, context)}/drafts/${bundle}`,

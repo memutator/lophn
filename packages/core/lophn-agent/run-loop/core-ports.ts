@@ -264,7 +264,6 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       inputHash: inputBlob.value.hash,
       contextBasisHash: basisBlob.value.hash,
       body: safeBody.value as Record<string, unknown>,
-      timeoutMs: model.timeoutMs,
       usageRevision: model.usageRevision,
     }, signal);
     const output = invoked.ok ? invoked.value : undefined;

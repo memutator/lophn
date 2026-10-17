@@ -17,6 +17,7 @@ import {
   type SecretAttachLike,
   withRequestHeaders,
 } from "../providers/mod.ts";
+import type { IdleDeps } from "../providers/invoke.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
@@ -61,7 +62,7 @@ type ModelResolverDeps = {
   catalog(): Promise<Result<readonly CatalogEntry[]>>;
   fetch?: typeof fetch;
   nowMs?: () => number;
-  timeoutMs?: number | null;
+  idle?: IdleDeps;
 };
 
 export function createModelResolver(deps: ModelResolverDeps) {
@@ -162,6 +163,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
       transport: withRequestHeaders(transport, limits.request_headers),
       nowMs,
       at: formatAt,
+      idle: deps.idle,
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");
@@ -215,7 +217,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
       inputMedia: limits.input_media,
       endpoint: provider.endpoint,
       usageRevision: limits.price_basis?.revision ?? "unknown",
-      timeoutMs: deps.timeoutMs ?? null,
       pack,
       invoke,
       // provider가 아직 연결돼 있고 같은 연결일 때만 보낸다. Disconnect하면 읽기가 없다고 답하고,

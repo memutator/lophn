@@ -11,6 +11,7 @@ import type { CatalogEntry } from "../../../packages/protocol/lophn-agent/mod.ts
 import type { ModelCallOutput } from "../../../packages/core/lophn-agent/providers/work.ts";
 import { snapshotCatalogEntry } from "../../../packages/core/lophn-agent/models/mod.ts";
 import type { ModelBinding } from "../../../packages/core/lophn-agent/models/binding.ts";
+import type { IdleDeps } from "../../../packages/core/lophn-agent/providers/invoke.ts";
 import { createModelResolver } from "../../../packages/core/lophn-agent/models/resolve.ts";
 import type { PromptTool } from "../../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 
@@ -38,6 +39,7 @@ export async function wireBinding(
   protocol: WireProtocol,
   fetch: typeof globalThis.fetch,
   clock = wireClock(),
+  idle?: IdleDeps,
 ): Promise<ModelBinding> {
   const target = TARGET[protocol];
   const provider: ProviderRecord = {
@@ -81,6 +83,7 @@ export async function wireBinding(
     catalog: () => Promise.resolve(ok(catalog)),
     fetch,
     nowMs: () => clock.nowMs(),
+    idle,
   });
   const bound = await resolve({
     model: {
@@ -115,7 +118,6 @@ export async function callWire(
     inputHash: "h",
     contextBasisHash: "h",
     body: packed.body as Record<string, unknown>,
-    timeoutMs: binding.timeoutMs,
     usageRevision: binding.usageRevision,
   }, new AbortController().signal);
   if (!called.ok) throw new Error(`invoke failed: ${called.error.message}`);

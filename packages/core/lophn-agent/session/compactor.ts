@@ -281,7 +281,6 @@ export function createCompactor(
       inputHash: inputBlob.value.hash,
       contextBasisHash: basisBlob.value.hash,
       body: safeBody.value as Record<string, unknown>,
-      timeoutMs: binding.timeoutMs,
       usageRevision: binding.usageRevision,
     }, new AbortController().signal);
     const output = invoked.ok ? invoked.value : undefined;

@@ -29,7 +29,6 @@ export type ModelCallInput = {
   // 전송할 본문(adapter가 번역한 wire bytes).
   body: Record<string, unknown>;
   // prompt-assemble이 준 cache 경계는 buildRequest에서 이미 표시됐다.
-  timeoutMs: number | null;
   // token 사용량 정의 판. 보고 사용량에 붙는다.
   usageRevision: string;
   // 재전송 대상 opaque 추론이 있는 요청의 state-free 계속 검증 입력이다.

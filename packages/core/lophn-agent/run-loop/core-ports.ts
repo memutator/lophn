@@ -17,6 +17,7 @@ import {
   startModelCall,
   startToolCall,
   type TokenUsage,
+  type ToolResult,
   TURN_BLOB_PURPOSES,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -515,6 +516,17 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       outputBlob = stored.value;
     }
     if (recorded.ok) {
+      // 기록 열의 결과도 blob과 같이 redaction을 거친 값만 남긴다.
+      const safeResult = await redactValue(deps.redact, executed.result);
+      if (!safeResult.ok) {
+        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
+        return done(
+          id,
+          "uncertain",
+          "uncertain",
+          "the result could not be recorded",
+        );
+      }
       const finished = await commandOf(
         machine,
         finishToolCall,
@@ -523,7 +535,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
           outcome: executed.outcome,
           output: outputBlob?.hash ?? null,
           ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
-          result: executed.result,
+          result: safeResult.value as ToolResult,
           finished_at: clock.now(),
           duration_ms: Math.max(0, clock.nowMs() - startedMs),
         },

@@ -280,7 +280,10 @@ export function coreProviderSettingsSource(
       key: `provider-connect-${random()}`,
     });
     if (sent.ok) return { ok: true, value: null };
-    await call(core, "memory", "secrets", "delete", { name: secret });
+    // conflict는 같은 id의 provider가 이미 있다는 뜻이라 그 이름은 연결된 provider의 key 자리다.
+    if (sent.code !== "conflict") {
+      await call(core, "memory", "secrets", "delete", { name: secret });
+    }
     return sent;
   }
 

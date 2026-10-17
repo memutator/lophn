@@ -21,7 +21,7 @@
     "check:full": "deno run --allow-all tools/check.ts --full",
     "wording": "deno run --allow-read --allow-write packages/design/wording/generate.ts",
     "e2e": "deno test --allow-all --no-check tests/e2e",
-    "test:live": "deno run --allow-all tests/live/run.ts",
+    "test:live": "deno run --allow-all --env-file=.env tests/live/run.ts",
     "dev": "deno run --allow-all tools/dev.ts dev",
     "dev:core": "deno run --allow-all tools/dev.ts dev:core",
     "dev:mock": "deno run --allow-all tools/dev.ts dev:mock",

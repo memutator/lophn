@@ -45,7 +45,7 @@
     - `app-activation-fail`: activation이 실패하면 앱 data가 그대로임.
   - agent 사이 call (wave 3, `reply-fn`의 session별 줄 세우기)
     - `agent-call`: A가 B를 부르고 결과가 A로 옴, B가 끝나면 A가 실패를 받음, core 재시작 때 받은 call이 `lophn_restarted`로 닫힘.
-  - provider OAuth 로그인 (`research/candidates-oauth.md`. **branch `feat/oauth`가 main에 land한 뒤**)
+  - provider OAuth 로그인 (`research/candidates-oauth.md`. `feat/oauth`는 main `cd5c5e78d`에 land했다)
     - `oauth-issuer`(wave 2): fake 발급자 `tests/support/fake-oauth/`(device·token·jwks, RS256 id_token, journal)와 로그인 helper.
     - `oauth-login`, `oauth-token`(wave 3): `tests/e2e/oauth_test.ts`. device 로그인, pkce 로그인, 취소 뒤 listener 닫힘, Bearer로 model 호출, 만료 전 갱신, 갱신 거절 → revoked, token이 `secrets.json` 밖에 없음.
 - 순서(초안): wave 1 support 다섯. wave 2 행 더하기 일곱과 새 flow 일곱. wave 3 앱 flow 여섯과 `agent-call`. 같은 file이 나오면 선행으로 묶는다.
@@ -79,7 +79,7 @@
 - `testing`이 land하고 그 계획이 막힌 flow(approval, file-write, restart, rewind, stop)를 고쳐 merge한 뒤 시작한다. 그 flow들이 찾은 bug(`issues/place-session.md`, `issues/event.md`)는 `testing`의 몫이다.
 - `testing`의 support 계약이 바뀌었으면 이 README와 brief의 "쓰는 것"을 main의 `tests/support/`에 맞춰 고친 뒤 연다.
 - `PLAN-remove-keychain`이 land했으면 secret 행의 secret 이름과 route를 다시 확인한다.
-- OAuth 단위(`oauth-*`)는 branch `feat/oauth`가 main에 land한 뒤에 띄운다. 그 전에는 다른 task만 돌리고, land하면 brief의 "다시 확인할 것"을 main 코드로 본다.
+- OAuth 단위(`oauth-*`)의 시작 조건은 찼다(`feat/oauth`가 main `cd5c5e78d`에 land). 띄우기 전에 brief의 "다시 확인할 것"을 main 코드로 본다. 구현 session에 따르면 route 이름(`providers/login-begin`·`login-complete`·`login-cancel`, `issuer-requests/take`·`done`)은 명세와 같다.
 
 ## lead가 할 일
 

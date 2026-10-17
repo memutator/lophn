@@ -65,6 +65,8 @@ export type McpKit = {
 };
 
 const TOOL_DESCRIPTION_MAX = 500;
+// Grants 읽기에서 서버 하나에 주는 시간이다. core가 답을 기다리는 기한(15초)보다 짧아야 한다.
+const LIST_SERVER_MAX_MS = 10_000;
 
 export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // list_changed 알림은 connections가 부른다. transport가 모르는
@@ -190,6 +192,68 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     setState(assignment, server.name, "refreshing");
     await requery(assignment, server.name);
     return stateOf(assignment, server.name) === "fresh";
+  }
+
+  // 서버 하나의 tool 목록이다. 호출마다 새 assignment라 turn의 연결과 상태를 공유하지 않는다. 상한이 지나면
+  // 연결 중이어도 끊고 unreachable로 돌려준다.
+  async function readServerTools(
+    server: McpRuntimeServer,
+  ): Promise<McpToolServer> {
+    const unreachable = (reason: McpToolServer["reason"]): McpToolServer => ({
+      name: server.name,
+      tools: [],
+      reason,
+    });
+    if (!server.enabled) return unreachable("disabled");
+    const assignment = `grants-${crypto.randomUUID()}`;
+    const cut = new AbortController();
+    const timer = new AbortController();
+    void deps.connections.deadline(LIST_SERVER_MAX_MS, timer.signal).then(
+      (how) => {
+        if (how === "elapsed") cut.abort();
+      },
+    );
+    const timedOut = new Promise<McpToolServer>((resolve) => {
+      cut.signal.addEventListener(
+        "abort",
+        () => resolve(unreachable("unreachable")),
+        { once: true },
+      );
+    });
+    const read = async (): Promise<McpToolServer> => {
+      const acquired = await connections.acquire(
+        assignment,
+        server,
+        cut.signal,
+      );
+      const listed = acquired.ok
+        ? await connections.toolList(assignment, server.name)
+        : acquired;
+      if (listed.ok) {
+        return {
+          name: server.name,
+          tools: listed.value.tools.map((tool) => ({
+            tool: tool.original,
+            description: (tool.description ?? "").slice(
+              0,
+              TOOL_DESCRIPTION_MAX,
+            ),
+            effect: mcpToolEffect(tool),
+          })),
+          reason: null,
+        };
+      }
+      const needsSignIn = connections.views().some((view) =>
+        view.owner[0] === assignment && view.state === "failed_auth"
+      );
+      return unreachable(needsSignIn ? "sign_in" : "unreachable");
+    };
+    try {
+      return await Promise.race([read(), timedOut]);
+    } finally {
+      timer.abort();
+      await connections.endAssignment(assignment);
+    }
   }
 
   function makeToolkit(assignmentId: string): McpToolkit {
@@ -341,51 +405,8 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       if (!registered.ok) return registered;
       const checked = checkMcpConfig(registered.value);
       if (!checked.ok) return checked;
-      const servers: McpToolServer[] = [];
-      for (const server of checked.value.valid) {
-        if (!server.enabled) {
-          servers.push({ name: server.name, tools: [], reason: "disabled" });
-          continue;
-        }
-        // 호출마다 새 assignment라 turn의 연결과 상태를 공유하지 않는다.
-        const assignment = `grants-${crypto.randomUUID()}`;
-        try {
-          const acquired = await connections.acquire(
-            assignment,
-            server,
-            new AbortController().signal,
-          );
-          const listed = acquired.ok
-            ? await connections.toolList(assignment, server.name)
-            : acquired;
-          if (listed.ok) {
-            servers.push({
-              name: server.name,
-              tools: listed.value.tools.map((tool) => ({
-                tool: tool.original,
-                description: (tool.description ?? "").slice(
-                  0,
-                  TOOL_DESCRIPTION_MAX,
-                ),
-                effect: mcpToolEffect(tool),
-              })),
-              reason: null,
-            });
-          } else {
-            const needsSignIn = connections.views().some((view) =>
-              view.owner[0] === assignment && view.state === "failed_auth"
-            );
-            servers.push({
-              name: server.name,
-              tools: [],
-              reason: needsSignIn ? "sign_in" : "unreachable",
-            });
-          }
-        } finally {
-          await connections.endAssignment(assignment);
-        }
-      }
-      return ok(servers);
+      // 느린 서버 하나가 다른 서버의 목록을 막지 않도록 나란히 읽고, 서버마다 core 기한보다 짧은 상한을 둔다.
+      return ok(await Promise.all(checked.value.valid.map(readServerTools)));
     },
     async endAll() {
       await connections.endAll();

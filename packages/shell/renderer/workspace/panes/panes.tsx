@@ -280,6 +280,7 @@ function PaneView(
         id: "copy-path",
         label: t("project-workspace.button.tab-copy-path"),
         leading: <MenuIcon icon={workspaceIcons.copyPath} />,
+        separatorBefore: true,
       },
       {
         id: "copy-relative-path",
@@ -290,6 +291,7 @@ function PaneView(
         id: "reveal",
         label: t("project-workspace.button.tab-reveal"),
         leading: <MenuIcon icon={workspaceIcons.revealInExplorer} />,
+        separatorBefore: true,
       },
     ]),
     ...(menuTab.preview === true
@@ -297,6 +299,7 @@ function PaneView(
         id: "keep-open",
         label: t("project-workspace.button.tab-keep-open"),
         leading: <MenuIcon icon={workspaceIcons.keepOpen} />,
+        separatorBefore: true,
       }]
       : []),
   ];

@@ -12,6 +12,7 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { FILE_HOOKS } from "../../../agent-roles/hooks.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
+import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   AGENT_RUNTIME_KIND,
@@ -50,6 +51,7 @@ const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
 
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
+  let stopWatching: (() => void) | undefined;
   // 입력함은 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
   const inbox = createInbox();
   return {
@@ -192,8 +194,28 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       });
       if (started.ok) agentRuntime = started.value;
       else console.error(`agent runtime: ${started.error.message}`);
+      // turns/stop이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청을 끊게 한다.
+      // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
+      stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
+        send(event) {
+          if (event.type !== "TurnEnded") return;
+          const { outcome } = event.payload;
+          if (outcome.kind !== "interrupted") return;
+          if (outcome.reason !== "user_stopped") return;
+          void ctx.io.send(
+            AGENT_RUNTIME_KIND,
+            {
+              type: "turn_stop",
+              turn: event.payload.turn,
+              reason: outcome.reason,
+            } satisfies ParentMessage,
+          ).catch(() => {});
+        },
+        close() {},
+      });
     },
     closeIntake() {
+      stopWatching?.();
       agentRuntime?.stop();
     },
   };

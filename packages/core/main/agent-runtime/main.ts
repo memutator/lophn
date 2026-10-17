@@ -231,6 +231,11 @@ async function startAgentRuntime(input: {
         if (redactLink.onParent(message)) return;
         if (secretLink.onParent(message)) return;
         if (turnLink.onParent(message)) return;
+        // 사람이 멈춘 turn이다. 그 turn이 이 child에 없으면 driver가 아무 일도 하지 않는다.
+        if (message.type === "turn_stop") {
+          driver?.stop(message.turn, message.reason);
+          return;
+        }
         link.onParent(message);
       },
       onStop() {

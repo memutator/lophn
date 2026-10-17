@@ -34,7 +34,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 
 ## 새 화면(page) 만들기
 
-1. 필요한 component가 `packages/design/components/<분류>/mod.ts`에 있는지 본다. 없고 여러 화면이 쓸 것이면 **design에 먼저** 더한다(분류 안 component 폴더, 그 분류 `mod.ts` export, `frames/design/components-pages.tsx`에 견본). 한 화면만 쓰는 조각은 renderer 그 화면 폴더에 둔다.
+1. 필요한 component가 `packages/design/components/<분류>/mod.ts`에 있는지 본다. `mod.ts`의 `export { … } from` 문마다 윗줄 `//` 한 줄이 "언제 쓰나"라서 그 줄이 목록이다. 새 export를 더하면 그 줄도 단다. 없고 여러 화면이 쓸 것이면 **design에 먼저** 더한다(분류 안 component 폴더, 그 분류 `mod.ts` export, `frames/design/components-pages.tsx`에 견본). 한 화면만 쓰는 조각은 renderer 그 화면 폴더에 둔다.
 2. 아이콘은 lucide를 직접 import하지 않는다. renderer는 `icons/*.ts` 묶음, design은 `Icon`을 쓴다. harness와 provider 이름 옆에는 renderer `parts/vendor-icon`의 `VendorIcon`, 파일과 폴더에는 design `FileIcon`이다.
 3. 화면 문구는 직접 쓰지 않고 wording key로 쓴다. → wording skill.
 4. `pages.ts`의 `PAGES`에 `fresh(id, title, description, screen)` 항목을 더하고, `ScreenId`에 이름을 더한다.

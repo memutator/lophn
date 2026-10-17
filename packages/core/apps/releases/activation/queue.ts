@@ -1,5 +1,5 @@
-// 앱마다 하나씩 줄에 세워 진행하는 activation 줄. 줄은 메모리다. lophn이 꺼졌다 켜지면 사라지고
-// Reactor가 cursor 뒤의 `TicketVerified`부터 다시 반응한다. 앱 사이는 서로 기다리지 않는다.
+// 앱마다 하나만 도는 activation 상태. 메모리다. lophn이 꺼졌다 켜지면 사라지고
+// Reactor가 cursor 뒤의 `TicketVerified`부터 다시 반응한다. 도는 앱에 온 새 요청은 거절한다.
 import type {
   ActivationPhase,
   ActivationQueueEntry,
@@ -19,7 +19,8 @@ export type QueueEntry = {
 
 export function createActivationQueue() {
   const entries = new Map<string, QueueEntry>();
-  const lanes = new Map<string, Promise<void>>();
+  // 앱마다 돌고 있는 job 하나.
+  const jobs = new Map<string, Promise<void>>();
   const running = new Set<string>();
 
   function entryOf(
@@ -43,7 +44,7 @@ export function createActivationQueue() {
       const entry = entries.get(release);
       return entry !== undefined && entry.phase !== "waiting_approval";
     },
-    // 사람의 결정을 기다린다. 줄에서 일하지 않는다.
+    // 사람의 결정을 기다린다. 일하지 않는다.
     waitApproval(app: string, release: string, approval: string): void {
       const entry = entries.get(release);
       if (entry !== undefined && entry.phase !== "waiting_approval") return;
@@ -61,35 +62,33 @@ export function createActivationQueue() {
         ) entries.delete(release);
       }
     },
-    // 줄에 세운다. 이미 줄에 있거나 도는 release는 다시 세우지 않는다. 앱마다 한 번에 하나씩 job을 돈다.
+    // 곧바로 시작한다. 그 앱에 도는 job이 있거나 이 release가 이미 진행 중이면 시작하지 않고 false다.
     enqueue(
       app: string,
       release: string,
       approved: string | null,
       job: (entry: QueueEntry) => Promise<void>,
     ): boolean {
+      if (jobs.has(app)) return false;
       const existing = entries.get(release);
       if (existing !== undefined && existing.phase !== "waiting_approval") {
         return false;
       }
-      const entry = { ...entryOf(app, release, "queued"), approved };
+      const entry = { ...entryOf(app, release, "running"), approved };
       entries.set(release, entry);
-      const lane = (lanes.get(app) ?? Promise.resolve()).then(async () => {
-        entry.phase = "running";
-        running.add(release);
+      running.add(release);
+      const run = (async () => {
         try {
           await job(entry);
         } catch {
-          // 한 job의 실패가 같은 앱의 다음 job을 막지 않는다. 실패는 ledger에 남는다.
+          // 실패는 ledger에 남는다.
         } finally {
           running.delete(release);
           entries.delete(release);
+          jobs.delete(app);
         }
-      });
-      lanes.set(app, lane);
-      void lane.finally(() => {
-        if (lanes.get(app) === lane) lanes.delete(app);
-      });
+      })();
+      jobs.set(app, run);
       return true;
     },
     update(
@@ -127,7 +126,7 @@ export function createActivationQueue() {
       } as ActivationQueueEntry));
     },
     async settled(): Promise<void> {
-      while (lanes.size > 0) await Promise.all([...lanes.values()]);
+      while (jobs.size > 0) await Promise.all([...jobs.values()]);
     },
   };
 }

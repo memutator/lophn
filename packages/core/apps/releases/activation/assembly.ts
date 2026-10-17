@@ -2,13 +2,13 @@
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
 //      만들어 supervisor에 알린다(`bundleFlags`). 앱 코드는 신뢰하지 않으므로 선언 ∩ active grant 밖의 접근은
 //      flag에 없다.
-//   2. activation 줄: `TicketVerified`·`ApprovalDecided` Reactor handler(handler.ts)가 앱마다 줄(queue.ts)에
-//      세운 release를 차례로 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
+//   2. activation: `TicketVerified`·`ApprovalDecided` Reactor handler(handler.ts)가 앱마다 하나만(queue.ts)
+//      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
 //      supervisor가 끊긴 뒤의 진행 중 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다.
 //      단계의 실제 일은 `ActivationPorts`로 끼운다: 자식 종료·후보 준비·열기는 supervisor, 앱 DB 작업은
 //      supervisor가 띄우는 data worker, ledger 확정은 core 내부 machine 자격의 command다. core는 앱 DB를
 //      열지 않고 backup 파일의 byte를 blob 준비 통로로 흘리기만 한다.
-//   3. 이전 release로 돌아가기 요청(`activation_requests`)을 sweep이 읽어 줄에 세운다.
+//   3. 이전 release로 돌아가기 요청(`activation_requests`)을 sweep이 읽어 시작한다.
 // Approvals·Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
 import {
   canonicalize,
@@ -84,9 +84,6 @@ type Envelope = {
   prepared: string[];
 };
 
-// 진행하지 못한 시도를 다시 이어받는 최소 간격이다. 같은 실패를 매 sweep 쏟아내지 않는다.
-const ACTIVATION_RETRY_MS = 30_000;
-
 type ActivationDeps = {
   clock: Clock;
   ids: IdSource;
@@ -138,14 +135,14 @@ type ActivationLate = {
 export type ActivationDriver = {
   // activation 진행과 운영 DesiredApp 맞춤을 한 번 돈다. 시도마다 오래 걸리는 일은 기다리지 않는다.
   sweep(): Promise<void>;
-  // 줄에 있거나 도는 시도 수. 시험이 끝을 기다린다.
+  // 도는 시도 수. 시험이 끝을 기다린다.
   readonly running: number;
   settled(): Promise<void>;
   // Approvals·Bus·접수·changeset port를 끼운다.
   attach(late: ActivationLate): void;
   // Reactor에 등록하는 handler 둘과 Approvals에 등록하는 applier(`registerApplier("activation", ...)`).
   readonly handlers: ReturnType<typeof createActivationHandlers>;
-  // `activations.queue` read의 원천이다. 줄(메모리)과 기다리는 보류 request를 합친다.
+  // `activations.queue` read의 원천이다. 도는 것(메모리)과 기다리는 보류 request를 합친다.
   queueEntries(
     app: string | undefined,
   ): Promise<Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>>;
@@ -167,8 +164,6 @@ function unavailable(message: string): Result<never> {
 export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
   const queue = createActivationQueue();
   let late: ActivationLate | undefined;
-  // 끝내지 못한 시도와 다음 재시도 시각이다.
-  const unsettled = new Map<string, number>();
   // record_backup이 싣는 보호 blob 준비 결과. 준비한 시도 안에서만 쓴다.
   const preparedBackups = new Map<string, PreparedBlob>();
   // 운영 desired를 마지막으로 알린 근거. 같으면 다시 만들지 않는다.
@@ -581,9 +576,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     newInvocation: () => deps.ids.newId("inv"),
   };
 
-  // ---- 줄에서 한 차례 ----
+  // ---- 앱 하나의 한 차례 ----
 
-  // 줄에서 차례가 온 release 하나를 끝까지 진행한다. 진행 중으로 남은 시도(끊긴 것)면 이어받는다.
+  // 시작한 release 하나를 끝까지 진행한다. 진행 중으로 남은 시도(끊긴 것)면 이어받는다.
   async function runOne(entry: QueueEntry): Promise<void> {
     if (late === undefined) return;
     const found = currentRelease(entry.release);
@@ -624,18 +619,25 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       queue.dropWaiting(release.app, release.id);
       outcome = await runActivation(ports, release);
     }
-    if (outcome.status === "unavailable") {
-      // 복원이나 종료를 확인하지 못했다. 앱은 붙든 채로 두고(이전 코드를 시작하지 않는다) 나중에 이어받는다.
-      unsettled.set(release.id, deps.clock.nowMs() + ACTIVATION_RETRY_MS);
-    } else {
-      unsettled.delete(release.id);
+    // 복원이나 종료를 확인하지 못했으면 앱은 붙든 채로 둔다(이전 코드를 시작하지 않는다). 다음 sweep이 이어받는다.
+    if (outcome.status !== "unavailable") {
       // 시도가 끝났다. 이전 release가 없어 다시 띄울 것이 없어도 붙들기는 푼다.
       await deps.client.activationResume(release.app).catch(() => undefined);
     }
   }
 
-  function enqueue(app: string, release: string, approved: string | null) {
-    queue.enqueue(app, release, approved, runOne);
+  function enqueue(
+    app: string,
+    release: string,
+    approved: string | null,
+  ): Result<void> {
+    if (!queue.enqueue(app, release, approved, runOne)) {
+      return err({
+        code: "conflict",
+        message: "an activation is already running for the app",
+      });
+    }
+    return ok(undefined);
   }
 
   const handlers = createActivationHandlers({
@@ -771,21 +773,17 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     async sweep() {
       if (!deps.bound()) return;
       if (late !== undefined) {
-        // 이 process가 줄에 세우지 않은 진행 중 시도는 끊긴 것이다. 이어받는다.
+        // 이 process가 돌리지 않는 진행 중 시도는 끊긴 것이다. 이어받는다. 앱이 바쁘면 건너뛴다.
         const rows = activatingRows();
         if (rows.ok) {
-          for (const row of rows.value) {
-            const retryAt = unsettled.get(row.id);
-            if (queue.has(row.id)) continue;
-            if (retryAt !== undefined && deps.clock.nowMs() < retryAt) continue;
-            enqueue(row.app, row.id, null);
-          }
+          for (const row of rows.value) enqueue(row.app, row.id, null);
         }
-        // 이전 release로 돌아가기 요청을 줄에 세운다. `activation.start`가 요청을 지운다.
+        // 이전 release로 돌아가기 요청을 시작한다. 앱이 바쁘면 요청 행이 남아 다음 sweep이 다시 본다.
+        // `activation.start`가 요청을 지운다.
         const requested = requestedRows();
         if (requested.ok) {
           for (const row of requested.value) {
-            if (!queue.has(row.release)) enqueue(row.app, row.release, null);
+            enqueue(row.app, row.release, null);
           }
         }
       }

@@ -1,6 +1,6 @@
 // activation을 여는 Reactor handler 둘과 보류 request의 applier. `TicketVerified`가 계기이고, 선언이 넓어지거나
-// data 손실 migration이 있을 때만 사람에게 묻는다(보류 request). 묻지 않거나 사람이 허락하면 그 앱의 줄에 세운다.
-// 줄에서 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.
+// data 손실 migration이 있을 때만 사람에게 묻는다(보류 request). 묻지 않거나 사람이 허락하면 그 앱의 activation을 곧바로 시작한다.
+// 앱에 이미 돌고 있는 activation이 있으면 conflict다. 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type {
   ApplyResult,
@@ -28,8 +28,8 @@ type ActivationHandlerDeps = {
     request(id: string): Promise<Result<PendingApproval | null>>;
   };
   waitApproval(app: string, release: string, approval: string): void;
-  // approved는 사람이 허락한 비교의 정규 값이다. 묻지 않고 세운 것은 null이다.
-  enqueue(app: string, release: string, approved: string | null): void;
+  // approved는 사람이 허락한 비교의 정규 값이다. 묻지 않고 시작한 것은 null이다.
+  enqueue(app: string, release: string, approved: string | null): Result<void>;
 };
 
 const TICKET_VERIFIED_HANDLER = "activation.ticket-verified";
@@ -39,10 +39,10 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
   ticketVerified: ReactorHandler<"TicketVerified">;
   approvalDecided: ReactorHandler<"ApprovalDecided">;
   applier: (request: PendingApproval) => Promise<Result<ApplyResult>>;
-  // 줄에 세우기 전에 다시 판정한다. 허락한 비교와 달라졌을 때 driver가 부른다.
+  // 시작하기 전에 다시 판정한다. 허락한 비교와 달라졌을 때 driver가 부른다.
   reconsider(release: ReleaseRecord, seq: string): Promise<Result<void>>;
 } {
-  // 비교를 보고 줄에 세우거나 묻는다. 같은 intent의 보류 request는 하나라서(createPending) 같은 event를
+  // 비교를 보고 시작하거나 묻는다. 같은 intent의 보류 request는 하나라서(createPending) 같은 event를
   // 두 번 처리해도 request가 늘지 않는다.
   async function judge(
     release: ReleaseRecord,
@@ -51,8 +51,7 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
     const comparison = await deps.releases.comparison(release);
     if (!comparison.ok) return comparison;
     if (!asksFor(comparison.value)) {
-      deps.enqueue(release.app, release.id, null);
-      return ok(undefined);
+      return deps.enqueue(release.app, release.id, null);
     }
     const pending = await deps.approvals.createPending({
       kind: "activation",
@@ -113,15 +112,14 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
         ) {
           return await judge(found.value, event.seq);
         }
-        deps.enqueue(
+        return deps.enqueue(
           found.value.app,
           found.value.id,
           asksFor(comparison.value) ? canonicalize(comparison.value) : null,
         );
-        return ok(undefined);
       },
     },
-    // 허락을 적용하기 직전에 release가 아직 prepared인지 다시 본다. 줄에 세우는 일은 ApprovalDecided handler다.
+    // 허락을 적용하기 직전에 release가 아직 prepared인지 다시 본다. 시작하는 일은 ApprovalDecided handler다.
     applier(request) {
       const target = request.intent.target;
       if (target.kind !== "activation") {

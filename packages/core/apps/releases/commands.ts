@@ -200,8 +200,8 @@ export function createReleaseCommands(): {
   activatePrevious: CommandDefinition<typeof activationActivatePrevious>;
 } {
   return {
-    // activation 시작. Reactor handler가 줄에 세운 앱의 차례가 되면 driver가 machine 자격으로 부른다.
-    // 시작 때는 CAS를 하지 않는다: 무엇을 activate하는지는 줄에 세울 때 정해졌고, 데이터의 실제 상태는
+    // activation 시작. Reactor handler가 시작한 앱의 activation에서 driver가 machine 자격으로 부른다.
+    // 시작 때는 CAS를 하지 않는다: 무엇을 activate하는지는 시작을 정할 때 정해졌고, 데이터의 실제 상태는
     // 종료를 확인한 뒤 읽는다. 앱마다 시도는 하나다.
     startActivation: {
       route: activationStart,
@@ -397,7 +397,7 @@ export function createReleaseCommands(): {
       },
     },
     // 이전 release로 돌아가기. 사람만 한다. 지금 활성 release와 data schema가 같은 superseded release만 받는다.
-    // 요청만 남기고 줄에 세우는 일은 driver가 한다(commit 뒤 hook이 없다). approval은 없다.
+    // 요청만 남기고 시작하는 일은 driver가 한다(commit 뒤 hook이 없다). approval은 없다.
     activatePrevious: {
       route: activationActivatePrevious,
       handle(tx, ctx, input) {
@@ -426,6 +426,9 @@ export function createReleaseCommands(): {
         if (!active.ok) return active;
         if (active.value?.data_schema !== release.data_schema) {
           return invalid("the data schema differs from the active release");
+        }
+        if (activatingOf(tx, release.app) !== null) {
+          return conflict("an activation is in progress for the app");
         }
         tx.sql.run(
           `INSERT INTO activation_requests (release, requested_at)

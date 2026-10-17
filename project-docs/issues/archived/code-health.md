@@ -1,0 +1,37 @@
+# code-health (닫음)
+
+## 400줄 넘는 파일이 67개다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent, packages/shell/renderer, packages/protocol, packages/core/apps, packages/core/main, packages/core/problems]
+closed: kept
+guard: 없음
+```
+
+지금: `packages/` 아래 `.ts` 1811개 중 400줄 넘는 것이 67개다(test 파일은 없다). 가장 긴 열 개:
+
+| 줄 | 파일 |
+|---|---|
+| 1274 | `packages/shell/renderer/conversation/agent-tab-fake-source.ts` |
+| 1194 | `packages/shell/renderer/workspace/contexts/fake-source.ts` |
+| 1157 | `packages/protocol/projects/context-api.ts` |
+| 1106 | `packages/core/main/app-supervisor/assembly.ts` |
+| 1048 | `packages/core/lophn-agent/extensions/mcp-connections.ts` |
+| 1038 | `packages/core/problems/reporting/worker/collector.ts` |
+| 1030 | `packages/core/lophn-agent/providers/oauth.ts` |
+| 882 | `packages/core/lophn-agent/register.ts` |
+| 819 | `packages/core/apps/control.ts` |
+| 814 | `packages/core/lophn-agent/run-loop/prepare.ts` |
+
+module별로는 core/lophn-agent 19, shell/renderer 13, protocol 9, core/apps 7, core/main 5, core/problems 4 순이다. 위 둘(fake-source)은 화면 fixture 데이터라 나눠도 이득이 작다. 줄 수 한도는 AGENTS.md에도 tools의 check에도 없다.
+
+영향: 읽고 고치는 비용이 든다(worker의 context도 먹는다). 조립 파일(`assembly.ts`, `register.ts`, `prepare.ts`)이 길어 한 번에 읽기 부담스럽다.
+
+고치려면:
+- A. 한도를 정하고 check로 막는다. 67개를 한 번에 나눠야 해 비용 크다. 프로토타입 속도와 맞지 않는다.
+- B. 나누지 않는다. 그 파일에 기능을 더하러 들어갈 때 같은 변경에서 나눈다. 비용 0.
+- C. 가장 긴 비-fixture 파일 몇 개(`context-api.ts`, `assembly.ts`, `mcp-connections.ts`, `collector.ts`, `oauth.ts`)만 지금 나눈다. 파일당 반나절.
+- 추천: B. 한도 check는 두지 않는다.
+
+닫음: 남긴다. 줄 수 기준을 두지 않고 check로 막지 않는다. 기능을 더할 때 필요하면 나눈다.

@@ -69,7 +69,7 @@ modules: [packages/core/lophn-agent]
 
 고치려면: (a) `layers.ts`에서 App Engineer 분기를 지운다(`resolve.ts`가 `role !== "lophn"`이면 담는 줄도 맞춘다). (b) App Engineer에게 context를 보이게 한다. 이쪽은 제품 결정이다. 추천: (a).
 
-정할 것: App Engineer가 앱 context를 prompt에서 봐야 하는지.
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 ## deferred tool을 아무 tool에도 켜지 않는다
 
@@ -84,6 +84,8 @@ modules: [packages/core/lophn-agent]
 
 고치려면: (a) `deferred`, `deferredBlock`, `tool.search`를 지운다(`tool.search`는 tool 카탈로그·role 목록에서도). (b) 정의가 큰 tool(MCP 많이 붙은 경우)에 켠다. 추천: MCP tool이 많아져 prompt가 커지는 것이 아직 문제가 아니므로 (a).
 
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+
 ## `SeenBasis`와 turn 사이 diff notice
 
 ```yaml
@@ -97,7 +99,7 @@ modules: [packages/core/lophn-agent]
 
 고치려면: 바뀐 층의 전문을 통째로 notice에 싣고 Added/Removed diff는 없앤다. 비용은 basis와 `listChange`를 줄이는 정도이고 notice가 길어진다. 대화 끝에 붙이는 구조 자체는 cache를 지키려 남겨야 한다. 추천: 지금 두고, 목록 종류를 더 늘릴 때 다시 본다.
 
-정할 것: diff 문구를 유지할지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## file tool 상한이 많다
 
@@ -151,7 +153,7 @@ modules: [packages/core/lophn-agent]
 
 고치려면: 남길지 정한다. 층마다 바뀌는 빈도가 달라(role 고정, 지침은 사람이 가끔, place는 자주) 나눈 것이다. 추천: 남기고 archived로 닫는다(kept).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## MCP tool 이름이 wire 규칙에 안 맞거나 64자를 넘으면 hash 8자를 붙여 줄인다
 
@@ -166,7 +168,7 @@ modules: [packages/core/lophn-agent]
 
 고치려면: wire 규칙 때문에 길거나 이상한 MCP tool 이름은 어차피 바꿔야 한다. 추천: 남기고 archived로 닫는다(kept)(주석은 이미 규칙을 설명한다).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 즐겨찾기 compare 기준용 표 `model_favorites_seq(one, seq)`
 
@@ -181,37 +183,7 @@ modules: [packages/core/lophn-agent]
 
 고치려면: 남길지 정한다. 즐겨찾기는 비었을 때도 compare 기준이 있어야 하고, 목록 표에서 max를 구하면 다 지울 때 기준이 사라진다. 추천: 남기고 archived로 닫는다(kept)(주석은 이미 있다).
 
-정할 것: 남길지.
-
-## `web.fetch` redirect를 hop마다 검사하며 직접 따라간다
-
-```yaml
-kind: defect
-modules: [packages/core/lophn-agent]
-```
-
-지금: `tools/web/fetch.ts`가 `redirect: "manual"`로 최대 5번(`MAX_REDIRECTS`) 따라가며 hop마다 `tools/web/target.ts`의 `checkFetchTarget`을 부른다. 이 검사는 scheme과 host literal(localhost, 사설 IPv4, IPv6 loopback·ULA·link-local, `::ffff:` 매핑)만 본다. 파일은 68줄이다(예전 글처럼 표가 길지는 않다). host 이름이 사설 주소로 풀리는 경우(DNS)는 보지 않는다.
-
-영향: 이 검사가 사람 PC의 내부 주소로 agent가 요청을 보내지 못하게 하는 경계다. 지우면 redirect로 내부 주소를 칠 수 있다.
-
-고치려면: 권한 경계라 줄일 이유가 약하다. 추천: 남기고 archived로 닫는다(kept). DNS 재바인딩은 별도 이슈로 다룰지 사람이 정한다.
-
-정할 것: 남길지, DNS 해석 검사를 더할지.
-
-## 경로 판정이 symlink·끊어진 symlink·새 파일의 상위 realpath까지 본다
-
-```yaml
-kind: defect
-modules: [packages/core/lophn-agent]
-```
-
-지금: `tools/file/scope.ts`의 `resolveInPlace`가 후보 경로를 정규화한 뒤 있는 가장 가까운 상위 폴더까지 올라가 `realpath`를 구하고, 끊어진 symlink(`lstat`이 symlink)는 거절하고, 허용 폴더의 realpath 안인지 본다. 92줄이다.
-
-영향: 판정이 복잡하지만 place 밖 쓰기를 막는 유일한 경계(shell은 묻지도 않는다)다. 단순화하면 symlink로 폴더를 탈출할 수 있다.
-
-고치려면: 권한 경계라 남기는 쪽을 추천한다. archived로 닫는다(kept)(`scope_test.ts`가 있다).
-
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 끌 수 없는 내장 skill과 같은 이름의 사람 skill을 `skipped`에 남긴다
 
@@ -226,4 +198,20 @@ modules: [packages/core/lophn-agent]
 
 고치려면: 남길지 정한다. architecture 문서가 "끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다"를 지키는 규칙으로 두므로 이유를 알리는 것이 맞다. 추천: 남기고 archived로 닫는다(kept).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
+
+## compact 요약의 fence가 Unicode·동형 문자 정리까지 한다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+```
+
+지금: `safety/fence.ts`의 `defuseTransmittedText`가 compact 요약에 넣을 대화 글을 `~~~data` block으로 감싸고 제어 token과 동형 문자(homoglyph)를 정리한다(`prompt-assembly/summary.ts`). 대화에 web 결과가 섞여 있어 감싸는 것은 인터넷 방어다.
+
+영향: Unicode·동형 문자 정리는 프로토타입에 무겁다.
+
+고치려면: 감싸기만 남기고 정리 부분을 지운다(작음).
+
+정한 것: 다이어트 계획에서 줄일지 정한다.
+

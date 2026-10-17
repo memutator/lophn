@@ -18,21 +18,26 @@ modules: [packages/protocol, packages/coding-agent]
 - project plugin 위치를 조사로 확인해 hook을 설치한다(조사 + install 코드, 중간).
 - 추천: 앞쪽. hook 위치가 확인되면 그때 되살린다.
 
-## `harness install` 결과를 core에 알리지 않는다
+정한 것: 고친다. 전역 설치로 바꿀 때 OpenCode의 전역 plugin 위치를 확인해 hook을 놓는다.
+
+## harness 설치를 열 때마다 앱 폴더에 하지 않고 전역에 한 번 한다
 
 ```yaml
-kind: bug
-modules: [packages/shell/main, packages/protocol, packages/core/apps]
+kind: defect
+modules: [packages/coding-agent, packages/shell/main, packages/protocol]
 ```
 
-지금: `shell/main/terminal/coding/requests.ts`의 `install`이 `runCli(["harness","install",...])`의 결과를 읽지 않고 예외도 삼킨다. `codingTerminalResult`(`protocol/coding-agent/terminal-requests.ts`)에는 install 결과를 담을 칸이 없다. skill·hook을 못 놓거나 사람이 고친 파일이라 `kept_user_edit`가 되어도 `open`은 성공으로 돌아간다.
+지금: coding agent 터미널을 열 때마다 `shell/main/terminal/coding/requests.ts`의 `install`이 `lophn harness install`을 돌려 앱 source 폴더에 skill 둘(`lophn-build-app`, `lophn-repair`)과 hook 설정(`.claude/settings.local.json` 등)을 놓는다. 사람이 고친 파일을 덮지 않으려고 `.lophn/installed.json`에 hash를 남기고(`coding-agent/harnesses/install.ts`, 247줄), 이 명령이 앱 폴더 하나에만 쓰게 Deno 권한을 계산한다(`cli/launch.ts`, `launch-entry.ts`). 결과는 읽지 않고 예외도 삼킨다. 모두 architecture의 "hook은 앱 source 폴더 안에만, 사용자 전역 설정은 건드리지 않는다"에서 나왔다. 이 원칙 때문에 hook 설정이 전역뿐인 Hermes와 OpenClaw는 맡길 수 없다.
 
-영향: hook이 없으면 상태가 늘 unknown이라 메시지가 거절되는데(위 이슈와 같은 증상), core도 사람도 원인이 install 실패인 줄 모른다. 디버깅 비용이 든다.
+영향: 열 때마다 설치 확인, hash, 권한 계산, 앱 폴더마다 쌓이는 설정 파일. 설치가 실패해도 아무도 모른다.
 
-고치려면:
-- `open` 성공 결과에 `install` 칸(skill/hook 결과)을 더하고 core가 session 이벤트나 Settings 쪽에 남긴다(protocol + shell + core, 중간).
-- 실패만 `open` 실패 이유(`install_failed`)로 올린다. 더 작다. 단 "설치 실패가 맡기기를 막지 않는다"는 지금 결정을 바꾼다.
-- 추천: 앞쪽. 결과를 알리되 막지는 않는다.
+고치려면: orca 방식. orca는 사용자 전역 설정(`~/.claude/settings.json`, `~/.codex/hooks.json`)의 hook이 모두 `~/.orca/agent-hooks/<harness>-hook.sh` 하나를 부르게 한 번 등록하고, script는 orca가 띄울 때 넣는 환경 변수(port, token, pane key)가 없으면 바로 끝난다. 업데이트는 script 파일만 바꾸고 전역 설정은 다시 안 건드린다.
+- hook: harness마다 전역 설정에 `lophn hook <harness> <event>`를 한 번 등록한다. lophn은 이미 coding session에 환경 변수 token을 넣으니 그 token이 없으면 바로 끝낸다. 처음 그 harness로 맡길 때 없으면 사람에게 한 번 묻고 등록한다. 등록 결과는 사람에게 보인다.
+- skill: 전역 skill 폴더(`~/.claude/skills/lophn-*` 등)에 한 번 놓는다. 내용은 "`lophn guide`를 보라" 정도로 두고 실제 안내는 CLI가 그때그때 내준다. 그러면 lophn이 업데이트돼도 파일을 다시 쓸 일이 없다.
+- 지운다: 열 때마다 도는 install, `.lophn/installed.json` hash, install 명령의 권한 계산, 앱 폴더 안의 harness 설정.
+- `architecture/coding-agent.md`의 "skill과 hook은 앱 source 폴더 안에만"과 Hermes·OpenClaw를 맡길 수 없다는 문장을 같은 변경에서 고친다.
+
+정한 것: 전역에 한 번 설치하고 lophn 환경 변수로 켠다. 사용자 전역 설정을 건드리는 대신 처음 한 번 사람에게 묻는다.
 
 ## coding 완료 뒤 core가 harness를 멈추지 않는다
 
@@ -50,7 +55,7 @@ modules: [packages/core/apps, packages/protocol]
 - 완료 보고 접수 뒤 core가 `stop` 터미널 요청을 낸다(Reactor의 완료 handler 한 곳, 작다). agent가 보고 뒤 답할 말이 남아 있어도 끊긴다.
 - 추천: 둘 다. 앞의 것만으로는 보장이 없고 뒤의 것만으로는 마지막 출력이 잘릴 수 있어 짧은 유예를 둔다.
 
-정할 것: 보고 뒤 바로 끊을지, 사람이 결과를 볼 수 있게 탭을 남길지.
+정한 것: 완료 보고 뒤 터미널(TUI)을 따로 끄지 않는다. 사람이 결과를 보고 직접 닫는다. `mcp_tool` intent를 빌리는 이름은 다이어트 계획에서 본다.
 
 ## coding session을 메모리 대신 ledger 표 셋과 `ApplyCodingSignal`로 둔다
 
@@ -68,7 +73,7 @@ modules: [packages/core/apps, packages/core/storage]
 - 남긴다. 표는 휘발성이지만 정산이 tx와 같이 가는 것이 이 구조의 이유다.
 - 추천: 남기는 쪽. 이유가 schema 주석에 이미 있다.
 
-정할 것: 남길지. 남기면 이 절을 kept로 닫는다.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## harness 7종의 감지·설치 표
 
@@ -86,7 +91,7 @@ modules: [packages/protocol, packages/coding-agent]
 - hermes, openclaw 둘과 쓰지 않는 `toml` 형식만 지운다(작다).
 - 추천: MVP는 claude 하나. 나머지는 쓰겠다는 요구가 생길 때 다시 조사해 붙인다.
 
-정할 것: 지금 몇 종을 남길지.
+정한 것: 7종을 유지한다. 전역 설치로 바꾸면 Hermes와 OpenClaw도 hook을 놓을 수 있다. 쓰지 않는 `toml` 형식만 지운다.
 
 ## `mutates` 칸을 명령 이름 마지막 단어(`READ_WORDS`)로 가른다
 
@@ -117,7 +122,7 @@ modules: [packages/core/apps]
 - 남긴다. 지금 방식은 취소·claim 삭제·call 취소가 한 tx다.
 - 추천: 남긴다. archived로 닫는다(kept).
 
-정할 것: 남길지. 남기면 kept로 닫는다.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## ticket 표가 6개다
 
@@ -132,7 +137,7 @@ modules: [packages/core/apps]
 
 고치려면: completion·check·verdict를 한 표의 열로 합친다. 그러면 completion 불변 trigger가 나중에 채워지는 열과 부딪쳐 열마다 트리거를 따로 걸어야 한다(중간). 추천: 남긴다. 세 줄은 쓰는 때와 쓰는 주체가 달라 따로 불변으로 두는 편이 단순하다.
 
-정할 것: 합칠지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## ticket마다 revision, claim_seq, completion_seq
 
@@ -160,7 +165,7 @@ modules: [packages/core/apps]
 
 고치려면: 줄을 없애고 바쁨으로 돌려주면 다시 맡길 때를 보낸 쪽이 알 길이 없다(architecture "busy 실패 대신 줄에 세운다"). 이유는 호출처가 갈라 처리하는 것만 남긴다. 추천: 남긴다. 이유는 이미 architecture에 있으니 이 절은 kept로 닫는다.
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 텍스트 출력의 data fence
 
@@ -175,37 +180,7 @@ modules: [packages/coding-agent]
 
 고치려면: 규칙을 줄이면 prompt injection 방어가 약해진다. 추천: 남긴다. 이유를 `fence.ts` 주석에 이미 적었으니 kept로 닫는다.
 
-정할 것: 남길지.
-
-## `harness install`·`refresh`의 Deno 권한을 입력 경로 하나로 좁힌다
-
-```yaml
-kind: defect
-modules: [packages/coding-agent]
-```
-
-지금: `launch-entry.ts`가 같은 argv에서 이 실행이 더 열 권한 flag를 계산한다. `launch.ts`의 `selectionFlags`는 절대 경로이고 `..`·쉼표·개행이 없을 때만 `--allow-read/write=<folder>`를 더한다. `harness refresh`는 감지한 실행 파일에만 `--allow-run`을 연다. install engine(`harnesses/install.ts`)은 이미 있어 옛 글의 "install engine이 아직 없어 unavailable"은 틀리다. shell main이 `open` 때 이 명령을 실제로 부른다.
-
-영향: 권한 계산 코드(`launch.ts`, `launch-entry.ts`)와 launcher 연동이 따로 있어 가장 단순한 구현보다 무겁다. 대신 coding agent가 부르는 CLI라 쓰기를 앱 source 폴더 하나로 좁힌다.
-
-고치려면: `-A`를 주면 코드가 없어지지만 sandbox 경계가 없어진다. 추천: 경계라 남긴다. 이유를 `launch.ts` 주석에 두고 kept로 닫는다.
-
-정할 것: 남길지.
-
-## 설치 hash 기록(`.lophn/installed.json`)과 "사람이 고쳤으면 안 덮기"
-
-```yaml
-kind: defect
-modules: [packages/coding-agent]
-```
-
-지금: `harnesses/install.ts`의 `installIntoFolder`가 skill은 파일마다, hook JSON은 lophn 항목만 접은 hash를 앱 source 폴더의 `.lophn/installed.json`에 쓴다. 지금 내용 hash가 기록과 다르면 `kept_user_edit`로 두고 덮지 않는다. 기록을 읽지 못하면 있는 파일은 모두 사람이 고친 것으로 본다.
-
-영향: hash 기록과 비교, JSON hook의 lophn 항목만 접는 코드가 붙어 install이 247줄이다. 대신 사람이 고친 설정을 잃지 않는다(데이터 보호).
-
-고치려면: 항상 덮으면 단순해지지만 사람이 고친 skill·hook을 잃는다. 추천: 남긴다. 이유를 `install.ts` 머리 주석(이미 있음)으로 두고 kept로 닫는다.
-
-정할 것: 남길지.
+정한 것: 지운다. 사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다(AGENTS.md). `fence.ts`와 `renderLines`의 분기를 지우고 값을 그대로 쓴다.
 
 ## harness 감지 결과를 shell main 메모리에 쥔다
 
@@ -220,7 +195,7 @@ modules: [packages/shell/main]
 
 고치려면: 저장하면 표와 무효화 규칙이 늘고 PATH가 바뀌면 낡는다. 추천: 남긴다. 이유를 `last` 위 주석에 이미 적었으니 kept로 닫는다.
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## check는 test를 다시 돌리지 않고 기록된 Verification만 읽는다
 
@@ -235,4 +210,4 @@ modules: [packages/core/apps]
 
 고치려면: 다시 돌리면 sandbox·시간·부작용이 늘어 크다. 추천: 남긴다. 이유를 `loadCheckWork` 주석에 두고 kept로 닫는다.
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.

@@ -64,7 +64,7 @@ modules: [packages/core/main, packages/core/router]
 - B. 지금처럼 둔다. 고정 문구가 다섯 개뿐이라 실제 비용은 작다.
 - 추천: B. 이유를 `createCallBodyPreparer` 주석에 한 줄 더하고 이 절을 닫는다(kept).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## commit 뒤 할 일(after-commit) 길
 
@@ -79,7 +79,7 @@ modules: [packages/core/storage, packages/core/router, packages/core/main, packa
 
 고치려면: 추천: 남긴다(kept). 이유(입력함·Bus는 main thread, command는 Worker)는 `after-commit.ts` 머리 주석에 한 문단으로 둔다.
 
-정할 것: 남기는 것에 동의하는지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 켤 때 `RecoverCalls`가 별도 command다
 
@@ -94,4 +94,4 @@ modules: [packages/core/router]
 
 고치려면: 추천: 남긴다(kept). 입력함이 메모리인 한 켤 때 정산은 필요하고, 합칠 만한 기존 command가 없다. archived로 닫는다(kept).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.

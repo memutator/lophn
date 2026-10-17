@@ -32,7 +32,7 @@ modules: [packages/core/projects, packages/protocol]
 
 고치려면: `format`을 `CONTEXT_OUTLINE_SOURCE_FORMATS`까지 넓히고, context worker 요청에 저장 목차를 실어 `extractAll`에 넘긴다. 계약 둘(contract, worker 요청)을 고치고 snapshot에 목차 파일을 포함해야 한다(중간~큼).
 
-정할 것: 이 길을 살릴지, 아니면 아래 "저장 목차" 이슈대로 지울지. 둘은 한 쌍이다.
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 ## 열린 PM session에 위반 chip이 안 붙는다
 
@@ -60,7 +60,7 @@ modules: [packages/core/projects]
 
 고치려면: 추천: 남긴다. archived로 닫는다(kept). 초안을 ledger로 옮기면 PM용 편집 tool을 새로 만든다(큼).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 저장 목차와 outline kind가 쓰이지 않는다
 
@@ -75,7 +75,7 @@ modules: [packages/core/projects, packages/protocol]
 
 고치려면: 저장 목차 전체를 빼고 md 목차만 둔다(`outlines.ts`, protocol `context-outlines.ts`, agent tool, `outlineFolder` port 삭제, 작음~중간).
 
-정할 것: 위 이슈를 고쳐 살릴지, 이 길을 지울지.
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 ## 위반 키 집합 비교용 표 `context_violation_keys`
 
@@ -105,4 +105,4 @@ modules: [packages/core/projects]
 
 고치려면: 추천: 남긴다. 이유(worker 없는 조립은 결과를 꾸미지 않는다)는 이미 `connection.ts`의 주석에 있으므로 이 절을 지운다.
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.

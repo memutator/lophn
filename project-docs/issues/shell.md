@@ -15,7 +15,7 @@ modules: [packages/shell/renderer, packages/shell/ipc, packages/shell/main]
 
 고치려면: `beginFeedback` 답을 `{draftRef, problems}`로 넓혀 main이 같은 앱의 열린 문제를 읽어 싣고, overlay가 `problems`를 dialog에 넘긴다(계약 고침, 중간). 안 살릴 거면 dialog의 고르기와 `existing_problem` 경로를 지운다(작음).
 
-정할 것: 기존 문제에 붙이는 제보를 살릴지.
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
 ## 새 session 첫 말의 context chip을 session에 싣지 않는다
 
@@ -95,7 +95,7 @@ modules: [packages/shell/renderer]
 
 고치려면: 추천: 남긴다. 접수 응답과 event 도착 사이 틈을 메우는 상태이므로 이유를 `accepted` 주석에 적고 이 절을 지운다(몇 줄).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 터미널 요청은 `request.coding.app === app`일 때만 pane에서 받는다
 
@@ -110,7 +110,7 @@ modules: [packages/shell/renderer]
 
 고치려면: 추천: 남긴다. 훅이 호스트 둘이 공유하는 것이라 검사는 호스트에 두는 게 단순하다. archived로 닫는다(kept). 바꾼다면 훅이 `filter` 인자를 받는다(작음).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## 새 session 입력 메모리 key `new:role:name:place`
 
@@ -125,7 +125,7 @@ modules: [packages/shell/renderer]
 
 고치려면: 추천: 남긴다. 이 절을 지운다. 겹침이 걱정되면 이름 부분을 `encodeURIComponent`로 감싼다(한 줄).
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.
 
 ## panel 층(rewind·권한·recap)을 `layer` state 하나로 둔다
 
@@ -140,4 +140,4 @@ modules: [packages/shell/renderer]
 
 고치려면: 추천: 남긴다. 이 절을 지운다. 파일 길이가 문제라면 panel 렌더 블록을 컴포넌트로 빼는 것은 별개의 정리다.
 
-정할 것: 남길지.
+정한 것: 다이어트 계획에서 줄일지 정한다.

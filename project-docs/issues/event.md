@@ -17,6 +17,8 @@ modules: [packages/core/storage, packages/core/main]
 - 옵션과 거절 분기, 주석을 지운다(작음). 추천.
 - 남기려면 `runtime.ts`에서 `domainOnly: true`로 켜고 주석을 맞춘다(작음. 이미 쓰이는 비 domain emit이 있으면 깨지므로 먼저 확인).
 
+정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+
 ## Reactor의 backoff와 5초 poll 안전망, handler 이름 중복 검사
 
 ```yaml
@@ -30,4 +32,4 @@ modules: [packages/core/events]
 
 고치려면: 추천: 남긴다. archived로 닫는다(kept). 줄인다면 poll만 남기고 backoff를 고정 간격으로 바꾼다(작음).
 
-정할 것: kept로 닫아도 되는지.
+정한 것: 다이어트 계획에서 줄일지 정한다.

@@ -1,4 +1,10 @@
-import { type Clock, fingerprint, ok, type Result } from "../../../base/mod.ts";
+import {
+  type Clock,
+  err,
+  fingerprint,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import type { IdSource } from "../../../base/mod.ts";
 import type {
   AppApiCallInput,
@@ -18,6 +24,7 @@ import type {
   InvocationLedger,
   ProjectDirectory,
 } from "../ports.ts";
+import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
 import { appApiIntent, askGate } from "./gate.ts";
 import {
@@ -109,6 +116,25 @@ export function createAppCalls(
     return ok(denied(code, base.id));
   }
 
+  function requestOf(
+    input: AppApiCallInput,
+    base: CallRecordBase,
+  ): ProcessCallRequest {
+    return {
+      invocation: base.id,
+      api: input.api,
+      ...(input.input === undefined ? {} : { input: input.input }),
+      context: {
+        app: base.app,
+        release: base.mode === "live" ? base.release : null,
+        mode: base.mode,
+        project: base.project,
+        effect: base.effect,
+        caller: input.caller,
+      },
+    };
+  }
+
   async function call(
     input: AppApiCallInput,
     auth: CallAuth,
@@ -176,6 +202,17 @@ export function createAppCalls(
       intake.chainApps(parent === null ? null : parent.id),
     );
     if (refused !== null) return recordDenied(base, refused);
+
+    // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 기록·Gate·줄 앞에서 거절한다.
+    const bytes = new TextEncoder().encode(
+      JSON.stringify(requestOf(input, base)),
+    ).length;
+    if (bytes > CALL_BODY_MAX_BYTES) {
+      return err({
+        code: "invalid_input",
+        message: "call body exceeds the size limit",
+      });
+    }
 
     return run(input, caller, base, target);
   }
@@ -265,19 +302,7 @@ export function createAppCalls(
         if (!begun.ok) return begun;
       }
       phase = "sent";
-      const request: ProcessCallRequest = {
-        invocation: base.id,
-        api: input.api,
-        ...(input.input === undefined ? {} : { input: input.input }),
-        context: {
-          app,
-          release: live ? base.release : null,
-          mode: base.mode,
-          project: base.project,
-          effect: base.effect,
-          caller: input.caller,
-        },
-      };
+      const request = requestOf(input, base);
       const sent = await deps.link.call(processTarget, request);
       if (abandoned) return null;
 

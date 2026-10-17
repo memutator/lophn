@@ -1,0 +1,325 @@
+// 세 질문
+// - contract: boundary `app-runtime`·`app-spi`(app-api 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
+//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(app-api tool).
+// - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
+//   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것.
+// - 왜 지금 test로 못 잡나: 한도 관계는 `fit_test`, `supervisor-link_test`가 상수로만 본다. 실제 pipe를 지나는 호출과
+//   agent -> core -> 앱 process 왕복은 process를 건너야 한다.
+//
+// fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
+// 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 api로 끝나는 이름을 골라 부르는 함수 대답이다. tool
+// 이름 규칙(`app__<앱 id>__<api>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 App Engineer
+// 대답은 행 몫에 세지 않는다(README 정한 것 11).
+import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  appCallApi,
+  appInvocation,
+  appInvocations,
+  appRewindPlan,
+  appRuntime,
+} from "../../packages/protocol/apps/mod.ts";
+import {
+  agentGrantsSet,
+  approvalsDecideTurn,
+  approvalsPending,
+} from "../../packages/protocol/approvals/mod.ts";
+import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
+import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
+import { activateTestApp, type TestApp } from "../support/app/activate.ts";
+import { callPatch } from "../support/app/patch-call.ts";
+import { projectScopePatch } from "../support/app/patches.ts";
+import { appCoreEnv } from "../support/coding/deps.ts";
+import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import {
+  connectFakeProvider,
+  openProject,
+  openSession,
+  say,
+  waitPermission,
+  waitTurnEnd,
+} from "../support/core/human.ts";
+import {
+  type JournalEntry,
+  startFakeServer,
+} from "../support/fake-server/mod.ts";
+import { lastToolResult, toolNames } from "../support/fake-server/probe.ts";
+
+const user = { kind: "person", view_session: "e2e" } as const;
+
+// 요청의 tool 목록에서 api로 끝나는 app-api tool을 골라 부른다.
+function callApp(id: string, api: string, input: unknown) {
+  return (request: JournalEntry) => {
+    const name = toolNames(request).find((item) => item.endsWith(`__${api}`));
+    if (name === undefined) throw new Error(`${api} tool이 요청에 없다`);
+    return {
+      kind: "tool" as const,
+      calls: [{ id, name, arguments: JSON.stringify(input) }],
+    };
+  };
+}
+
+const text = (value: string) => ({
+  reply: { kind: "text" as const, text: value },
+});
+
+async function nonceOf(core: Core, app: string): Promise<string> {
+  const { observation } = await core.call(appRuntime, { app });
+  assert(observation !== null, "앱 process 관측이 없다");
+  return observation.process_nonce;
+}
+
+async function items(core: Core, app: string): Promise<string> {
+  const listed = await core.call(appCallApi, {
+    target: { mode: "live", app, release: null },
+    api: "list_items",
+    caller: user,
+  });
+  return JSON.stringify(listed.outcome);
+}
+
+Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 process가 실행하고 기록되며, frame 한도를 넘는 write도 성공으로 닫힌다", async (t) => {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  let app: TestApp | undefined;
+  try {
+    core = await bootCore(run, { env: await appCoreEnv() });
+    await connectFakeProvider(core, fake);
+    app = await activateTestApp(core, fake, {
+      name: "Calls",
+      slug: "calls",
+      patch: async (dir) => {
+        await callPatch(dir);
+        await projectScopePatch(dir);
+      },
+    });
+    const id = app.app;
+    const c = core;
+    const target = { mode: "live", app: id, release: null } as const;
+    await c.call(agentGrantsSet, {
+      agent: { role: "lophn" },
+      entries: [{ kind: "app", app: id, apis: [] }],
+    });
+
+    await t.step("agent-calls-app", async () => {
+      fake.reset();
+      fake.script([
+        { reply: callApp("t1", "add_item", { title: "first" }) },
+        text("done"),
+      ]);
+      const session = await openSession(c, { role: "lophn" });
+      await say(c, session, "add an item");
+      const turn = await waitTurnEnd(c, session);
+      const { tool_calls } = await c.call(toolCallList, { session });
+      // ledger
+      const { invocations } = await c.call(appInvocations, {
+        app: id,
+        session,
+      });
+      assertEquals(invocations.length, 1);
+      assertEquals(invocations[0].status, "succeeded");
+      assertEquals(invocations[0].caller, {
+        kind: "agent",
+        session,
+        turn: turn.id,
+        tool_call: tool_calls[0].id,
+      });
+      assertNotEquals(invocations[0].changeset, null);
+      // app state
+      assert((await items(c, id)).includes("first"));
+      // fake: 둘째 요청의 tool_result에 앱의 응답(새 row)이 있다.
+      assert(
+        (lastToolResult(fake.journal()[1], "t1") ?? "").includes("first"),
+      );
+    });
+
+    await t.step("big-changeset", async () => {
+      const nonce = await nonceOf(c, id);
+      const called = await c.call(appCallApi, {
+        target,
+        api: "big_write",
+        input: { kb: 300 },
+        caller: user,
+      });
+      assertEquals(called.outcome.status, "succeeded");
+      assert(called.invocation !== null);
+      // ledger
+      const { invocation } = await c.call(appInvocation, {
+        invocation: called.invocation,
+      });
+      assertEquals(invocation?.status, "succeeded");
+      assertEquals(invocation?.summary.changeset_dropped, "too_large");
+      assertEquals(invocation?.changeset, null);
+      const { plan } = await c.call(appRewindPlan, {
+        app: id,
+        from_invocation: called.invocation,
+      });
+      assertEquals(plan.blocked, null);
+      assertEquals(
+        plan.items.find((item) => item.invocation === called.invocation)
+          ?.reverts_db,
+        false,
+      );
+      // app state
+      assertEquals(
+        JSON.stringify(called.outcome),
+        JSON.stringify({ status: "succeeded", result: { rows: 1 } }),
+      );
+      // process
+      assertEquals(await nonceOf(c, id), nonce);
+    });
+
+    await t.step("call-from-person", async () => {
+      const called = await c.call(appCallApi, {
+        target,
+        api: "add_item",
+        input: { title: "by-hand" },
+        caller: user,
+      });
+      assertEquals(called.outcome.status, "succeeded");
+      assert(called.invocation !== null);
+      // ledger
+      const { invocation } = await c.call(appInvocation, {
+        invocation: called.invocation,
+      });
+      assertEquals(invocation?.status, "succeeded");
+      assertEquals(invocation?.caller, user);
+      assertNotEquals(invocation?.changeset, null);
+      // route
+      assertEquals((await c.call(approvalsPending, {})).requests, []);
+      // app state
+      assert((await items(c, id)).includes("by-hand"));
+    });
+
+    await t.step("input-too-large", async () => {
+      const nonce = await nonceOf(c, id);
+      const before = (await c.call(appInvocations, { app: id })).invocations
+        .length;
+      const refused = await c.tryCall(appCallApi, {
+        target,
+        api: "put_text",
+        input: { text: "a".repeat(CALL_BODY_MAX_BYTES + 1) },
+        caller: user,
+      });
+      // route
+      assert(!refused.ok);
+      assertEquals(refused.error.code, "invalid_input");
+      // ledger
+      assertEquals(
+        (await c.call(appInvocations, { app: id })).invocations.length,
+        before,
+      );
+      // process
+      assertEquals(await nonceOf(c, id), nonce);
+    });
+
+    await t.step("project-scope", async () => {
+      fake.reset();
+      fake.script([
+        { reply: callApp("t1", "list_in_project", {}) },
+        text("done"),
+      ]);
+      const folder = `${run.work}/proj`;
+      await Deno.mkdir(folder);
+      const { project } = await openProject(c, folder);
+      await c.call(agentGrantsSet, {
+        agent: { role: "project_manager", project },
+        entries: [{ kind: "app", app: id, apis: [] }],
+      });
+      const session = await openSession(c, {
+        role: "project_manager",
+        project,
+      });
+      await say(c, session, "which project");
+      await waitTurnEnd(c, session);
+      const { tool_calls } = await c.call(toolCallList, { session });
+      // ledger: 성공한 read는 invocation을 남기지 않으므로 agent의 tool call 기록으로 본다.
+      assertEquals(tool_calls.map((call) => call.outcome?.kind), ["success"]);
+      // fake: project에 놓인 agent는 project를 고르지 못한다.
+      const first = fake.journal()[0].body as {
+        tools: {
+          name: string;
+          input_schema: { properties?: Record<string, unknown> };
+        }[];
+      };
+      const defined = first.tools.find((item) =>
+        item.name.endsWith("__list_in_project")
+      );
+      assert(defined !== undefined);
+      assertEquals(defined.input_schema.properties?.["project"], undefined);
+      // app state
+      assert(
+        (lastToolResult(fake.journal()[1], "t1") ?? "").includes(project),
+      );
+    });
+
+    // 한 session에서 허락한 "이 session 동안"은 그 session에만 유효하다. 두 session을 case 둘로 나눈다.
+    let granted = "";
+    await t.step(
+      "allow-session-scope: 허락한 session은 다시 묻지 않는다",
+      async () => {
+        fake.reset();
+        const ping = (callId: string) => callApp(callId, "external_ping", {});
+        fake.script([
+          { reply: ping("p1") },
+          { reply: ping("p2") },
+          text("done"),
+        ]);
+        const session = await openSession(c, { role: "lophn" });
+        granted = session;
+        await say(c, session, "ping twice");
+        const { request } = await waitPermission(c, session);
+        await c.call(approvalsDecideTurn, {
+          session,
+          request,
+          choice: { kind: "session" },
+        });
+        // route: 둘째 호출을 또 물으면 turn이 멈춰 여기서 실패한다.
+        await waitTurnEnd(c, session);
+        // ledger
+        const { invocations } = await c.call(appInvocations, {
+          app: id,
+          session,
+          effect: "external",
+        });
+        assertEquals(invocations.map((item) => item.status), [
+          "succeeded",
+          "succeeded",
+        ]);
+      },
+    );
+
+    await t.step(
+      "allow-session-scope: 다른 session은 같은 호출을 다시 묻고 거절하면 거절로 닫힌다",
+      async () => {
+        fake.reset();
+        fake.script([
+          { reply: callApp("p3", "external_ping", {}) },
+          text("done"),
+        ]);
+        const session = await openSession(c, { role: "lophn" });
+        assertNotEquals(session, granted);
+        await say(c, session, "ping once");
+        // route
+        const { request } = await waitPermission(c, session);
+        await c.call(approvalsDecideTurn, {
+          session,
+          request,
+          choice: { kind: "reject" },
+        });
+        await waitTurnEnd(c, session);
+        // ledger
+        const { invocations } = await c.call(appInvocations, {
+          app: id,
+          session,
+        });
+        assertEquals(invocations.map((item) => item.status), ["denied"]);
+      },
+    );
+  } finally {
+    await app?.gateway.close().catch(() => {});
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
+});

@@ -63,7 +63,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 - `deno task check`(작업 중, 끝내기 전)와 `check:full`(merge 전): unit, harness, support의 test.
 - `deno task e2e`: lead가 merge 전에 새 flow를 10번 연속 돌리고, `land.sh`가 main에 올리기 전에 돈다. 끝난 뒤 `.dev-data/e2e/`가 비고 그 run의 core process가 없어야 한다.
-- `deno task test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(`.env.example`을 복사한다. git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `deno task e2e`와 check는 `.env`를 읽지 않는다. key가 없으면 이유를 찍고 0으로 끝난다. key가 있는 provider의 file만 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
+- `deno task test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `deno task e2e`와 check는 `.env`를 읽지 않는다. key가 없으면 이유를 찍고 0으로 끝난다. key가 있는 provider의 file만 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
 - `deno task dev`: `tools/dev.ts`가 앱 전에 core를 한 번 띄워 고정 port(기본 7499)의 fake server를 `providers/connect`로 심는다. `LOPHN_LIVE_PROVIDER=1`이면 심지 않는다.
 
 ## case 고르는 규칙

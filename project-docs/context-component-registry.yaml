@@ -223,6 +223,24 @@ components:
     change_reasons:
       boundaries: [app-tickets, sdk]
 
+  - id: skill-wrap-plan
+    kind: skill
+    roles: [planner]
+    description: 계획이 land된 뒤 planner가 끝났는지 확인하고, 다시 볼 context 조각을 찾아 고치고, 이슈와 배운 것을 정리하고, 다음 계획으로 넘기는 절차.
+    path: .claude/skills/wrap-plan/
+    change_reasons:
+      paths: [project-docs/plan/README.md, tools/context-review.ts, project-docs/products/change-log/_template.md]
+
+  - id: tool-context-review
+    kind: tool
+    roles: [planner]
+    description: 바뀐 file에서 module-catalog, boundary, registry의 change_reasons를 따라 다시 볼 context 조각을 이유와 함께 뽑는다. 자기 module이 없는 자식 boundary로 넓힌다. 같은 범위에서 이미 고친 조각은 따로 보인다.
+    path: tools/context-review.ts
+    run: deno run --allow-read --allow-run tools/context-review.ts --range <git range>
+    change_reasons:
+      paths: [project-docs/module-catalog.yaml, project-docs/boundary-catalog.yaml]
+      note: registry나 catalog의 꼴이 바뀔 때.
+
   # ── lead ──
 
   - id: skill-issue

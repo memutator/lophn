@@ -89,4 +89,6 @@ modules: [packages/core/lophn-agent, packages/core/main]
 - 살린다(작음): agent runtime이 제품에서도 `fetch`를 넘기고, `catalog_auto_update` 설정 값을 `catalog-state.json`의 `auto_update`로 옮긴다. 기동 때마다 models.dev에 공개 GET이 나간다(24시간에 한 번).
 - 지운다(작음): refresher, models.dev adapter, `catalog-state.json`, 설정을 지우고 catalog는 동봉 snapshot과 사람이 더한 model만 쓴다. 새 model은 lophn 판 올리기로만 들어온다.
 
-정할 것: 살릴지 지울지(제품 동작). 추천은 살리기다. 새 model을 쓰려고 lophn을 올리게 하는 것보다 비용이 작다.
+fetch를 넘겨도 갱신은 실패한다: `adapters/models-dev.ts`의 `parseCatalogBody`가 응답을 lophn 항목 배열로 읽는데 실제 `api.json`은 `{<provider>: {models: {…}}}` object다(2026-10-17 판: provider 232개). 동봉 `snapshot.json`도 models.dev에서 뽑은 것이 아니라 손으로 쓴 4개다.
+
+정한 것: OpenCode 꼴로 한다(사람). models.dev `api.json` → lophn 항목 변환 함수 하나를 두고, build 때 script가 lophn 내장 provider 정의 몫만 뽑아 `snapshot.json`을 만들고, 실행 때 갱신이 같은 함수로 그 위에 덮는다. catalog 밖 model은 지금처럼 거절한다(agent). 계획 `agent-io`의 `model-catalog-source`, `model-catalog`.

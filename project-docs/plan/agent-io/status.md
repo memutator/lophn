@@ -7,6 +7,7 @@ lead만 고친다. `tools/status.py agent-io build`가 `tasks/*.md`에서 id, �
 | `coding-signal` | coding-signal | 1 | 없음 | todo |  |  |  |
 | `context-chip` | context-chip | 1 | 없음 | todo |  |  |  |
 | `model-catalog` | model-catalog | 1 | 없음 | todo |  |  |  |
+| `model-catalog-source` | model-catalog | 1 | 없음 | todo |  |  |  |
 | `provider-connect-attach` | provider-connect | 1 | provider-connect-handler | todo |  |  |  |
 | `provider-connect-cleanup` | provider-connect | 1 | provider-connect-handler, provider-connect-attach, provider-connect-shell | todo |  |  |  |
 | `provider-connect-handler` | provider-connect | 1 | 없음 | todo |  |  |  |

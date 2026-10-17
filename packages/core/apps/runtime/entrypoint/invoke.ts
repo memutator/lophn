@@ -39,7 +39,7 @@ export async function handleCall(
     return fail(503, "unavailable", "process is not accepting calls");
   }
   if (raw.byteLength > CALL_BODY_MAX_BYTES) {
-    return fail(400, "invalid_input", "call body exceeds 1MiB");
+    return fail(400, "invalid_input", "call body exceeds the size limit");
   }
   let json: unknown;
   try {

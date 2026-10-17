@@ -16,12 +16,14 @@ import {
   type TurnSource,
 } from "../../lophn-agent/run-loop/mod.ts";
 import {
+  CATALOG_AUTO_UPDATE_KEY,
   type CatalogRefresherHandle,
   startCatalogRefresher,
 } from "../../lophn-agent/models/catalog-refresh.ts";
 import { providerList } from "../../../protocol/lophn-agent/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import { agentCall, machineCall } from "./core-http.ts";
-import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
+import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 import type { AgentEventSink } from "../../lophn-agent/run-loop/ports.ts";
 import type { BlobPort } from "../../lophn-agent/run-loop/blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
@@ -98,6 +100,9 @@ async function startAgentRuntime(input: {
   // 테스트가 core 대신 응답을 끼운다. 없으면 hello의 loopback port로 붙는다.
   read?: CoreRead;
   fetch?: typeof fetch;
+  // models.dev 공개 GET용. core loopback용 `fetch`와 나눠야 loopback 가짜가 공개 GET을 받지 않는다.
+  // 없으면 catalog 갱신은 network 없이 끝난다.
+  catalogFetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다.
   dataRoot?: string;
   // 입력함의 turn을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
@@ -168,24 +173,29 @@ async function startAgentRuntime(input: {
           selectorRead = read;
           // catalog 자동 갱신은 기동을 막지 않는 single-flight다. 끈 날에는 내부에서 자동 요청이
           // 나가지 않는다.
+          const machine = input.read ?? machineCall({
+            port: hello.api_port,
+            credential: () =>
+              child.credentialUsable ? hello.credential : undefined,
+            ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+          });
           const root = runtimeDataRoot(input.dataRoot);
           const refresher = root === undefined
             ? undefined
             : startCatalogRefresher({
               dataRoot: root,
-              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+              // 설정은 다음 기동부터 적용한다. 기동 때 한 번만 읽는다.
+              autoUpdate: await readCatalogAutoUpdate(machine),
+              ...(input.catalogFetch === undefined
+                ? {}
+                : { fetch: input.catalogFetch }),
             });
           calls = {
             catalog: refresher,
             redact: redactLink.redact,
             events: turnLink.events,
             secrets: secretLink.attach,
-            machine: input.read ?? machineCall({
-              port: hello.api_port,
-              credential: () =>
-                child.credentialUsable ? hello.credential : undefined,
-              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
-            }),
+            machine,
             blobs: {
               async prepare(purpose, bytes) {
                 const prepared = await child.prepareBlob({
@@ -210,7 +220,7 @@ async function startAgentRuntime(input: {
           };
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
-          refresher?.kickAutoUpdate();
+          void refresher?.kickAutoUpdate();
         } else {
           // 진단 쓰기가 막혀도 기동 실패는 바로 돌려준다.
           void diagnostics.write(started.error.message);
@@ -358,6 +368,20 @@ function coreRead(
   };
 }
 
+// 설정에서 고른 값, 없으면 선언의 기본값, 읽지 못하면 true.
+async function readCatalogAutoUpdate(machine: CoreCall): Promise<boolean> {
+  const listed = await readOf(machine, settingsList, {
+    keys: [CATALOG_AUTO_UPDATE_KEY],
+  });
+  if (!listed.ok) return true;
+  const entry = listed.value.settings.find((one) =>
+    one.key === CATALOG_AUTO_UPDATE_KEY
+  );
+  if (typeof entry?.chosen === "boolean") return entry.chosen;
+  if (typeof entry?.default === "boolean") return entry.default;
+  return true;
+}
+
 // derived 위치의 root. core의 resolveDataRoot와 같은 근원(env)에서 결정한다.
 function runtimeDataRoot(injected?: string): string | undefined {
   if (injected !== undefined && injected.length > 0) return injected;
@@ -429,6 +453,7 @@ function streamWriter(stream: WritableStream<Uint8Array>) {
 if (import.meta.main) {
   const started = await startAgentRuntime({
     driver: productDriver(),
+    catalogFetch: fetch,
     pump: true,
   });
   if (!started.ok) {

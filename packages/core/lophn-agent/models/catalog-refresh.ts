@@ -6,6 +6,9 @@ import {
   type FilesLike,
 } from "./mod.ts";
 
+// 설정 key. `lophn-agent/register.ts`의 선언과 같은 문자열이어야 한다.
+export const CATALOG_AUTO_UPDATE_KEY = "lophn-agent.model.catalog_auto_update";
+
 export type CatalogRefresherHandle = CatalogRefresher;
 
 // agent runtime 안의 catalog 갱신 연결. 갱신은 turn을 막지 않는 single-flight이고
@@ -13,6 +16,7 @@ export type CatalogRefresherHandle = CatalogRefresher;
 export function startCatalogRefresher(
   input: {
     dataRoot: string;
+    autoUpdate: boolean;
     fetch?: typeof fetch;
     files?: FilesLike;
     clock?: { nowMs(): number };
@@ -20,6 +24,7 @@ export function startCatalogRefresher(
 ): CatalogRefresherHandle {
   const work: CatalogWorkInput = {
     dataRoot: input.dataRoot,
+    autoUpdate: input.autoUpdate,
     clock: input.clock ?? systemClock,
     files: input.files ?? {
       readTextFile: (path) => Deno.readTextFile(path),

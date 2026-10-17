@@ -64,6 +64,8 @@ export type CatalogWorkInput = {
   clock: CatalogClock;
   files: FilesLike;
   loadSnapshot: SnapshotLoader;
+  // 설정 `lophn-agent.model.catalog_auto_update`의 값. 설정이 정본이고 state 파일의 auto_update는 이것을 따른다.
+  autoUpdate: boolean;
   fetch?: HttpFetch;
 };
 
@@ -93,8 +95,9 @@ function catalogPaths(dataRoot: string): {
 export type CatalogRefresher = {
   // 저장된 catalog와 state를 읽는다. 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
   load(): Promise<Result<CatalogStore>>;
-  // 마지막 확인 뒤 24시간이 지났으면 비동기로 갱신을 시작한다. 기다리지 않는다.
-  kickAutoUpdate(): void;
+  // 마지막 확인 뒤 24시간이 지났으면 갱신을 시작한다.
+  // 시작한 갱신이 끝나면 풀린다. 갱신하지 않으면 바로 풀린다.
+  kickAutoUpdate(): Promise<void>;
   // 사람의 즉시 새로 받기. TTL을 건너뛰되 검증과 개인 자료 규칙은 유지한다.
   refreshNow(): Promise<Result<CatalogStore>>;
 };
@@ -138,11 +141,11 @@ export function createCatalogRefresher(
     if (!validated.ok) return validated;
     const entries = validated.value;
     const hash = await hashEntries(entries);
-    // 복구 시점을 마지막 확인으로 둔다. 재복구 직후의 중복 갱신을 막는다.
-    const state = stateAfterChecked(
-      initialState(true, hash),
-      input.clock.nowMs(),
-    );
+    // 마지막 확인은 비워 둔다. 새 data root가 24시간을 기다리지 않고 바로 갱신해야 한다.
+    const state = initialState(input.autoUpdate, hash);
+    // state만 쓰면 다음 load가 catalog가 비어 있어 state를 무시한다. 둘을 함께 쓴다.
+    // 쓰지 못해도 메모리 값으로 계속 간다.
+    await persist(entries, state);
     return ok({ entries, state });
   }
 
@@ -168,10 +171,18 @@ export function createCatalogRefresher(
       // state 파일만 깨졌으면 catalog 자료를 유지하고 hash를 다시 저장한다.
       const hash = await hashEntries(mergeCatalogLayers(layered.value));
       const at = input.clock.nowMs();
-      const next = stateAfterChecked(initialState(true, hash), at);
-      return ok({ entries: mergeCatalogLayers(layered.value), state: next });
+      const next = stateAfterChecked(initialState(input.autoUpdate, hash), at);
+      const entries = mergeCatalogLayers(layered.value);
+      await persist(entries, next);
+      return ok({ entries, state: next });
     }
-    return ok({ entries: mergeCatalogLayers(layered.value), state });
+    const entries = mergeCatalogLayers(layered.value);
+    if (state.auto_update !== input.autoUpdate) {
+      const next = { ...state, auto_update: input.autoUpdate };
+      await writeAtomic(paths.state, JSON.stringify(next, null, 2));
+      return ok({ entries, state: next });
+    }
+    return ok({ entries, state });
   }
 
   async function writeAtomic(
@@ -180,6 +191,8 @@ export function createCatalogRefresher(
   ): Promise<Result<void>> {
     const temporary = `${path}.tmp`;
     try {
+      // derived/lophn-agent를 만드는 곳이 따로 없다.
+      await files.mkdir(paths.directory, { recursive: true });
       await files.writeTextFile(temporary, text, { mode: 0o600 });
       await files.rename(temporary, path);
       return ok(undefined);
@@ -271,16 +284,17 @@ export function createCatalogRefresher(
     async load() {
       return await load();
     },
-    kickAutoUpdate() {
-      // 이미 진행 중이면 새 요청을 만들지 않는다(single-flight).
-      if (inFlight !== undefined) return;
-      void load().then((loaded) => {
+    async kickAutoUpdate() {
+      // 이미 진행 중이면 새 요청을 만들지 않고 그 진행을 기다린다(single-flight).
+      if (inFlight === undefined) {
+        const loaded = await load();
         if (!loaded.ok) return;
         if (!refreshDueAt(loaded.value.state, input.clock.nowMs())) return;
-        inFlight = runRefresh().finally(() => {
+        inFlight ??= runRefresh().finally(() => {
           inFlight = undefined;
         });
-      });
+      }
+      await inFlight;
     },
     async refreshNow() {
       if (inFlight !== undefined) return await inFlight;

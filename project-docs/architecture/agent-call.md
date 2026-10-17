@@ -11,7 +11,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  agent-tools (call/reply/cancel) ─┤       ├ 새 session   : role+place로 하나    │   run-loop 입력함(메모리)
  events Reactor (reaction)   ─┼─ route ─▶ ├ 열린 session : session ID           │
  coding-agent-cli (메시지)   ─┘           └ 둘 다        : 열려 있으면 거기,    └─ coding session
-                                            닫혔으면 같은 role+place의 새 session  앱별 줄 + PTY(메모리)
+                                            닫혔으면 같은 role+place의 새 session  앱별 줄(coding_lines) + PTY
                                           Gate(approvals): agent가 보낸 것만
                                           agent_calls 행(storage): agent가 보낸 것만
 
@@ -42,7 +42,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 이름을 풀지 못한 call도 행이 없다(받는 곳을 적을 수 없다). 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
 - dedup(보낸 session + tool call ID)은 unique다.
   - run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부른다. call은 Gate에서 read라 그 대상이고, 첫 시도가 call을 만들고 실패로 돌아오면 재시도가 call과 session을 하나 더 만든다.
-- 입력함과 앱 줄은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
+- 입력함은 메모리라 꺼지면 사라진다. 앱 줄은 `coding_lines` 표에 있지만 켤 때 `recoverCoding`이 비운다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
   - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다.
 - 같은 사실을 두 길로 알리지 않는다. coding session의 끝(완료 보고, claim 만료, 보고 없는 끝)은 domain event → Reactor 한 길로만 App Engineer에게 가고, 그 handler가 같은 tx에서 call을 닫는다.
   - Router의 실패 알림이 같은 사실을 한 번 더 보내면 App Engineer가 두 번 반응한다. 이미 끝난 call(취소, Router가 먼저 닫음)이면 알리지 않는다.

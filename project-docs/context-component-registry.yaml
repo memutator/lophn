@@ -187,7 +187,7 @@ components:
 
   - id: issues
     kind: issues
-    description: 열린 bug, defect, mistake. 이슈 하나에 파일 하나.
+    description: 열린 bug, defect, mistake. 주제 하나에 파일 하나, 닫은 것은 archived/.
     path: project-docs/issues/
     change_reasons:
       note: 이슈를 찾거나 고칠 때. 이슈 파일의 modules가 바뀐 module을 가리키면 다시 본다.

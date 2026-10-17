@@ -57,7 +57,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 ### 4. 받기
 
 1. 보고를 읽고 diff와 대조한다. 보고만 믿지 않는다.
-2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 만든다. 꼴은 `project-docs/issues/_template.md`. 사람이 한꺼번에 보고 줄일지 정한다. 대부분 요구가 시킨 것이라 merge를 막지는 않는다.
+2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/<topic>.md`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 덧붙인다. 꼴은 `project-docs/issues/_template.md`. 사람이 한꺼번에 보고 줄일지 정한다. 대부분 요구가 시킨 것이라 merge를 막지는 않는다.
 3. worker가 크게 잘못한 것(review에서 되돌린 것, 사람이 찾은 것)은 `mistake` 이슈로 만든다. 원인과 막을 check나 문장을 적는다.
 4. review(아래)를 한다. 통과하면 merge한다.
 5. 안 되면 셋 중 하나다: 같은 worker에게 SendMessage로 고칠 것을 보낸다 / brief를 고쳐 다시 띄운다 / `blocked`로 두고 이유를 적는다. 두 번 실패한 task는 brief를 쪼갠다.

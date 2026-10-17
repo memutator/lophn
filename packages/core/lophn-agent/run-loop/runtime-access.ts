@@ -1,10 +1,15 @@
 import { OPTION_ACTION_OPERATIONS } from "../tools/questions/mod.ts";
 import {
   APP_TOOL_CONTRACT,
-  listRoleTools,
   runOperations,
+  selectTools,
+  type ToolDefinition,
 } from "../tools/mod.ts";
-import { type Role, ROLES } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  builtinToolNames,
+  type Role,
+  ROLES,
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   contextContractRoute,
   contextGetRoute,
@@ -192,12 +197,17 @@ function isRole(role: string): role is Role {
   return (ROLES as readonly string[]).includes(role);
 }
 
-// 역할이 닿을 수 있는 operation의 상한. 역할이 고정한 tool 목록의 소유 contract와 보조 operation이다.
+// 역할이 닿을 수 있는 operation의 상한. 역할이 고정한 tool 목록이 부르는 route와 보조 operation이다.
 // runtime은 turn마다 이 안에서 agent credential을 청하고, core는 같은 상한으로 요청을 대조한다.
 // 앱 command 통로(`app.connect`)는 어느 역할이든 닿을 수 있다: 범위는 agent grant와 tool 목록이 정한다.
-export function roleOperations(role: string): readonly string[] {
+export function roleOperations(
+  role: string,
+  definitions: readonly ToolDefinition[],
+): readonly string[] {
   if (!isRole(role)) return [];
-  const tools = listRoleTools(role, { input_media: ["image"] });
+  const tools = selectTools(builtinToolNames(role), {
+    input_media: ["image"],
+  }, definitions);
   return [
     ...new Set([
       ...runOperations(tools),

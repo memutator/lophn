@@ -29,13 +29,11 @@ export function modelRetryDelayMs(
   return MODEL_RETRY_DEFAULT_MS[index];
 }
 
-// tool 자동 retry는 읽기 또는 최초 호출의 중복 효과 없음이 계약으로 보장된 쓰기에만 허용한다.
-// external과 보장 없는 쓰기는 다시 부르지 않는다.
+// tool 자동 retry는 읽기에만 허용한다. 쓰기와 external은 다시 부르지 않는다.
 export function toolMayRetry(
-  tool: { effect: "read" | "write" | "external"; idempotent: boolean },
+  tool: { effect: "read" | "write" | "external" },
 ): boolean {
-  return tool.effect === "read" ||
-    (tool.effect === "write" && tool.idempotent);
+  return tool.effect === "read";
 }
 
 // 일시적일 수 있는 실패만 다시 본다. 거절·잘못된 입력·사라진 대상·권한·문맥 초과·사람 멈춤은

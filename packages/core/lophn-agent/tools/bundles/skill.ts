@@ -3,11 +3,14 @@ import type { ToolInput } from "../domain/input.ts";
 import { fitted } from "../domain/result.ts";
 import type { ToolDefinition } from "../registry.ts";
 import { limitText } from "../result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 export const SKILL_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "skill.read",
+    input: TOOL_INPUTS["skill.read"],
+    routes: [],
     description:
       "Read a skill by name. Without path it returns the skill body; with path it returns a file that comes with the skill. A turn that is running reads the version the turn started with. A skill that is off cannot be read.",
     effect: "read",

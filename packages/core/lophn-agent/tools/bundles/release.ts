@@ -8,11 +8,14 @@ import { readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { countSummary, fitted, notFound, readBody } from "../domain/result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 export const RELEASE_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "release.list",
+    input: TOOL_INPUTS["release.list"],
+    routes: [releasesListRecords],
     description:
       "List the releases of an app with number, status, commit, time and the failure when activation failed.",
     effect: "read",
@@ -37,8 +40,10 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "release.get",
+    input: TOOL_INPUTS["release.get"],
+    routes: [releasesGetRecord, getVerification],
     description:
       "Read a release: the prepared bundle, the results of its tests, the last activation and the failure with its reason.",
     effect: "read",

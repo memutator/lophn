@@ -8,11 +8,14 @@ import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { countSummary, fitted, readBody } from "../domain/result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "problem.list",
+    input: TOOL_INPUTS["problem.list"],
+    routes: [problemList],
     description:
       "List problems, optionally of one app, one state or a period of last occurrence (since, until).",
     effect: "read",
@@ -31,8 +34,10 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "problem.get",
+    input: TOOL_INPUTS["problem.get"],
+    routes: [problemGet],
     description:
       "Read a problem with its occurrences, first and last release, and the latest occurrence's evidence (error, stack frames, invocation, logs).",
     effect: "read",
@@ -59,8 +64,10 @@ export const PROBLEM_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(summary, slim, ["occurrences"]));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "problem.set_state",
+    input: TOOL_INPUTS["problem.set_state"],
+    routes: [problemSetState],
     description: "Mark a problem resolved or ignored.",
     effect: "write",
     handler: async (input, ctx) => {

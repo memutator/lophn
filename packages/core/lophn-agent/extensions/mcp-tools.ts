@@ -44,15 +44,6 @@ async function externalToolTargetId(
   return "mcp_" + text;
 }
 
-// 내장 묶음과 같은 실패 종류다.
-const EXTERNAL_TOOL_ERRORS: readonly string[] = [
-  "invalid_input",
-  "not_found",
-  "forbidden",
-  "conflict",
-  "unavailable",
-];
-
 // 서버의 원래 tool 하나다. 목록 검증(mcp-connections)을 지난 view다.
 export type McpToolEntry = McpToolView;
 
@@ -171,12 +162,6 @@ export async function buildMcpTools(
       description: `MCP tool ${entry.original} of server ${entry.server}: ${
         entry.description ?? "(no description)"
       }`,
-      revision: (await sha256Hex(JSON.stringify([
-        entry.original,
-        entry.description,
-        entry.schema,
-        entry.read_only,
-      ]))).slice(0, 16),
       input: OBJECT_INPUT,
       inputSchema: entry.schema,
       effect,
@@ -200,11 +185,7 @@ export async function buildMcpTools(
             requestKey: ctx.tool_call,
           }),
       }),
-      confirm: false,
-      contract: EXTERNAL_TOOL_CONTRACT,
-      reversible: false,
-      idempotent: effect === "read",
-      errors: EXTERNAL_TOOL_ERRORS,
+      operations: [EXTERNAL_TOOL_CONTRACT],
     };
     tools.push({
       definition,

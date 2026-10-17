@@ -15,7 +15,8 @@ import type { ToolContext } from "../tool-context.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { operatorPlaceAllowed } from "../domain/operator-place.ts";
 import { fitted, forbidden, invalid, notFound } from "../domain/result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 // 설정 고치기라 실행 전에 Gate에 묻는다. grant와 앱 Operator의 project 폴더는 입력에 없고 사람이 정한다.
 function gateFor(id: string | null, ctx: ToolContext): GateRequest {
@@ -67,8 +68,10 @@ async function resolvePlace(
 }
 
 export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "operator.create",
+    input: TOOL_INPUTS["operator.create"],
+    routes: [projectList, appList, operatorCreate],
     description:
       "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, contexts, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
@@ -92,8 +95,10 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`created Operator ${definition.name}`, made.value));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "operator.update",
+    input: TOOL_INPUTS["operator.update"],
+    routes: [agentDefinitionList, agentDefinitionRead, operatorChange],
     description:
       "Change an Operator of your own place by its name. Only the fields you send change.",
     effect: "write",

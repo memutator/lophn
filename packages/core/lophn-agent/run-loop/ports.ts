@@ -123,8 +123,6 @@ type ModelPort = {
 
 export type ToolInfo = {
   effect: "read" | "write" | "external";
-  // 최초 호출의 중복 효과 없음이 계약으로 보장되는 쓰기인지.
-  idempotent: boolean;
   // 외부 MCP tool이면 그 서버 이름. 연결 제거 때 새 진입을 막는 단위다.
   server: string | null;
 };

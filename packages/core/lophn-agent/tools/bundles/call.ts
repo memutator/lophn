@@ -1,16 +1,28 @@
 import { ok } from "../../../../base/mod.ts";
+import {
+  agentDefinitionList,
+  callCancel,
+  callReply,
+  callSend,
+  callSendable,
+} from "../../../../protocol/lophn-agent/mod.ts";
+import { appList } from "../../../../protocol/apps/mod.ts";
+import { projectList } from "../../../../protocol/projects/mod.ts";
 import { listSendable } from "../call/sessions.ts";
 import { callAgentOf } from "../call/target.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { fitted } from "../domain/result.ts";
 import type { ToolDefinition } from "../registry.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 // 맡기기, 답하기, 취소하기, 보낼 수 있는 session 보기. 판정은 Router가 보낸 agent의 agent grant로 한다.
 // 묻는 grant는 Router가 tx 안이라 물을 수 없어 거절하므로, call은 보내기 전에 여기서 Gate에 묻는다.
 export const CALL_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "call",
+    input: TOOL_INPUTS["call"],
+    routes: [callSend, agentDefinitionList, projectList, appList],
     description:
       "Hand work to another agent. Returns the call ID at once and your turn goes on. " +
       "to: {session} an open session (see session.list), or {role, place, name?} a new session " +
@@ -62,8 +74,10 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "reply",
+    input: TOOL_INPUTS["reply"],
+    routes: [callReply],
     description:
       "Answer a call you received, with call (its ID), body and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
     effect: "read",
@@ -76,8 +90,10 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "cancel",
+    input: TOOL_INPUTS["cancel"],
+    routes: [callCancel],
     description:
       "Cancel a call you sent that has not ended, with call (its ID) and a one-line reason.",
     effect: "read",
@@ -90,8 +106,10 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "session.list",
+    input: TOOL_INPUTS["session.list"],
+    routes: [callSendable],
     description:
       "List the open sessions you can send a call to (ID, role, place, name, state) and the coding agent handoffs waiting in an app's line.",
     effect: "read",

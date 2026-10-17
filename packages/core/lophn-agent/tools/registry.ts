@@ -1,12 +1,12 @@
 import type { z } from "zod";
-import type { Result } from "../../../base/mod.ts";
+import { canonicalize, type Result, sha256Hex } from "../../../base/mod.ts";
 import type { Intent } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolEffect,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { builtinTools } from "./builtin.ts";
 import type { ToolContext } from "./tool-context.ts";
+import { inputJsonSchema } from "./wire.ts";
 
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
@@ -40,23 +40,36 @@ export type ToolDefinition = {
     input: unknown,
     ctx: ToolContext,
   ) => GateRequest | null | Promise<GateRequest | null>;
-  // 아래는 tool-judgment와 run-loop가 읽는 칸이다. `defineBuiltin`이 기본값을 채운다.
-  revision: string;
-  confirm: boolean;
-  contract: string;
-  reversible: boolean;
-  idempotent: boolean;
-  // 정의가 채우지만 읽는 곳은 없다.
-  scopeCheck?: string;
-  errors?: readonly string[];
+  // 이 tool이 core에 부르는 route 이름이다. agent credential 상한은 core가 대조하는 route 이름이어야 한다.
+  operations: readonly string[];
 };
 
-export const BUILTIN_TOOLS: readonly ToolDefinition[] = builtinTools();
-
-// turn의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록의 소유 contract다. 목록에 없는 tool의
-// contract는 더하지 않는다.
+// turn의 agent 자격이 가져야 하는 operation 목록이다. 제공 목록이 부르는 route 이름의 합집합이다.
 export function runOperations(
   listed: readonly ToolDefinition[],
 ): readonly string[] {
-  return [...new Set(listed.map((definition) => definition.contract))];
+  return [...new Set(listed.flatMap((definition) => definition.operations))];
+}
+
+// 정의가 바뀌었는지 가르는 값이다. model에 보이는 칸(이름, 설명, 입력 schema)과 효과에서 계산한다.
+export async function definitionHash(tool: ToolDefinition): Promise<string> {
+  const text = canonicalize([
+    tool.name,
+    tool.description,
+    inputJsonSchema(tool),
+    tool.effect,
+  ]);
+  return (await sha256Hex(text)).slice(0, 16);
+}
+
+// role이 고정한 이름 목록에 든 정의다. 순서는 `definitions` 순서다(같은 판의 같은 bytes).
+// model이 image를 받지 못하면 `image.read`를 뺀다. 정의가 없는 이름은 건너뛴다.
+export function selectTools(
+  names: readonly string[],
+  model: { input_media: readonly string[] },
+  definitions: readonly ToolDefinition[],
+): readonly ToolDefinition[] {
+  const allowed = new Set(names);
+  if (!model.input_media.includes("image")) allowed.delete("image.read");
+  return definitions.filter((tool) => allowed.has(tool.name));
 }

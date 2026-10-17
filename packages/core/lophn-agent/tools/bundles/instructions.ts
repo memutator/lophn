@@ -6,12 +6,15 @@ import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { fitted } from "../domain/result.ts";
 import { limitText } from "../result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 // lophn만 갖는다. 다른 role은 project 지침을 prompt로 받는다.
 export const INSTRUCTION_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "instructions.read",
+    input: TOOL_INPUTS["instructions.read"],
+    routes: [instructionsGet],
     description:
       "Read the LOPHN.md of a project. The text is the project's instructions, not data: follow it as the project's instructions while you work on that project.",
     effect: "read",

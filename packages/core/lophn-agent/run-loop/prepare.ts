@@ -12,6 +12,7 @@ import {
   type AgentPlace,
   type AgentSession,
   agentSessionRead,
+  builtinToolNames,
   finishTurn,
   type ModelChoice,
   startTurn,
@@ -36,9 +37,9 @@ import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
 import type { StartTurnResult } from "./credentials.ts";
 import type { InstructionTexts, SeenBasis } from "../prompt-assembly/mod.ts";
 import {
-  BUILTIN_TOOLS,
-  listRoleTools,
+  definitionHash,
   runOperations,
+  selectTools,
   type ToolContext,
   type ToolDefinition,
   type ToolHandler,
@@ -97,8 +98,8 @@ export type McpToolkit = {
 };
 
 export type Toolkit = {
-  // 내장 tool 정의의 출처. 없으면 제품 내장 전부다.
-  definitions?: readonly ToolDefinition[];
+  // 내장 tool 정의의 출처다. 조립(main/agent-tools.ts)이 준다.
+  definitions: readonly ToolDefinition[];
   // 이 turn의 agent 자격으로 소유 계약을 부르는 handler. 정의가 handler를 들지 않은 tool만 쓴다.
   handlers(seat: TurnSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
@@ -194,8 +195,16 @@ type Seen = { basis: SeenBasis; compaction: string | null };
 // place 정보의 context 글 예산(글자 수). session을 시작할 때 고정하는 값이라 상수다.
 const CONTEXT_TEXT_BUDGET = 12000;
 
-function keyOf(definitions: readonly ToolDefinition[]): string {
-  return canonicalize(definitions.map((tool) => [tool.name, tool.revision]));
+async function hashesOf(
+  definitions: readonly ToolDefinition[],
+): Promise<(string)[][]> {
+  return await Promise.all(
+    definitions.map(async (tool) => [tool.name, await definitionHash(tool)]),
+  );
+}
+
+async function keyOf(definitions: readonly ToolDefinition[]): Promise<string> {
+  return canonicalize(await hashesOf(definitions));
 }
 
 function names(definitions: readonly ToolDefinition[]): Set<string> {
@@ -312,10 +321,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // role이 고정한 목록에 이 turn이 닿는 app-api와 외부 MCP tool을 더한다.
     const current: readonly ToolDefinition[] = [
-      ...listRoleTools(
-        session.agent.role,
+      ...selectTools(
+        builtinToolNames(session.agent.role),
         { input_media: model.value.inputMedia },
-        deps.toolkit.definitions ?? BUILTIN_TOOLS,
+        deps.toolkit.definitions,
       ),
       ...(appApi?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
@@ -441,7 +450,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       const compaction = read.value.compaction === null
         ? null
         : String(read.value.compaction.through_seq);
-      const notices = m.current.length === 0 || keyOf(m.current) === fixed.key
+      const notices = m.current.length === 0 ||
+          await keyOf(m.current) === fixed.key
         ? []
         : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
@@ -669,7 +679,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     if (!fixedBySession.has(start.session)) {
       fixedBySession.set(start.session, {
         definitions: m.current,
-        key: keyOf(m.current),
+        key: await keyOf(m.current),
         offered: m.appApi?.tools ?? [],
       });
     }
@@ -698,7 +708,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         tools: {
           revision: "1",
           definitions_hash: await fingerprint(
-            fixed.definitions.map((tool) => [tool.name, tool.revision]),
+            await hashesOf(fixed.definitions),
           ),
         },
         models: { judgment: m.model.call, organizing: m.model.call },

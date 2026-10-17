@@ -1,8 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { ok } from "../../../base/mod.ts";
-import { listRoleTools } from "./builtin.ts";
-import { defineBuiltin } from "./bundles/common.ts";
+import { defineTool } from "./define.ts";
+import { selectTools } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 import { buildWireTable } from "./wire.ts";
 import { executeToolCall } from "./work.ts";
@@ -25,23 +25,28 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
     }));
   };
   const definitions = [
-    defineBuiltin({
+    defineTool({
       name: "ticket.create",
       description: "create",
       effect: "write",
+      input: z.strictObject({}),
+      routes: [],
       handler: handler("ticket.create"),
     }),
-    defineBuiltin({
+    defineTool({
       name: "file.read",
       description: "read",
       effect: "read",
+      input: z.strictObject({ path: z.string() }),
+      routes: [],
       handler: handler("file.read"),
     }),
-    defineBuiltin({
+    defineTool({
       name: "operator.update",
       description: "gated",
       effect: "write",
       input: z.strictObject({}),
+      routes: [],
       handler: handler("operator.update"),
       gate: () => ({
         kind: "settings_edit",
@@ -51,8 +56,13 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
       }),
     }),
   ];
+  // role마다 고정되는 이름 목록이다.
+  const NAMES = {
+    operator: ["file.read"],
+    app_engineer: ["file.read", "operator.update"],
+  };
   const context = (role: "operator" | "app_engineer"): ToolContext => ({
-    listed: listRoleTools(role, MODEL, definitions),
+    listed: selectTools(NAMES[role], MODEL, definitions),
     agent: { role: "operator", agent: "agt_01J00000000000000000000000" },
     session: "ses_01J00000000000000000000000",
     turn: "trn_01J00000000000000000000000",

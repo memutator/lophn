@@ -19,7 +19,8 @@ import {
   unavailable,
 } from "../domain/result.ts";
 import { TEXT_MAX_BYTES } from "../result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 // 가장 높은 version. 숫자 부분을 비교하고 같으면 문자열 순서다.
 function newer(a: string, b: string): number {
@@ -48,8 +49,10 @@ async function headOf(source: string): Promise<string | null> {
 }
 
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "package.list",
+    input: TOOL_INPUTS["package.list"],
+    routes: [packagesList],
     description:
       "List the SDK and user packages with their description and versions.",
     effect: "read",
@@ -64,8 +67,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "package.get",
+    input: TOOL_INPUTS["package.get"],
+    routes: [packagesVersions, packagesUsage, packagesGuideBody],
     description:
       "Read one package: its guide (purpose, API and types, examples), required permissions and the apps that use the version. Without version the newest one.",
     effect: "read",
@@ -107,8 +112,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       }, ["used_by"]));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "package.publish",
+    input: TOOL_INPUTS["package.publish"],
+    routes: [appGet, packagePublish],
     description:
       "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), the permissions it needs and tests (ids of passed app tests of this app). The code is the HEAD commit of the app source, so commit the folder first.",
     effect: "write",

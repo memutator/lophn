@@ -6,11 +6,14 @@ import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { fitted, notFound } from "../domain/result.ts";
 import { limitText } from "../result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 export const GUIDE_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "guide.read",
+    input: TOOL_INPUTS["guide.read"],
+    routes: [],
     description:
       "Read the product guide. Without topic it lists the topics; with a topic it returns that guide.",
     effect: "read",
@@ -33,8 +36,10 @@ export const GUIDE_TOOLS: readonly ToolDefinition[] = [
       })));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "settings.get",
+    input: TOOL_INPUTS["settings.get"],
+    routes: [settingsList],
     description:
       "Read the current setting values and what they mean. Without key all settings, with key that one.",
     effect: "read",

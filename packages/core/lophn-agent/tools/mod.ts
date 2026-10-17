@@ -3,9 +3,10 @@ export { createToolCommands, toolCallBodyFields } from "./commands.ts";
 export { deleteSessionToolCalls } from "./erase.ts";
 export { createToolReads } from "./reads.ts";
 export {
-  BUILTIN_TOOLS,
+  definitionHash,
   type GateRequest,
   runOperations,
+  selectTools,
   type ToolCallHandler,
   type ToolDefinition,
 } from "./registry.ts";
@@ -35,8 +36,7 @@ export {
   type ToolHandler,
   type TurnCredential,
 } from "./work.ts";
-export { builtinTools, listRoleTools } from "./builtin.ts";
-export { defineBuiltin } from "./bundles/common.ts";
+export { defineTool } from "./define.ts";
 export type { ToolContext } from "./tool-context.ts";
 export type {
   PlaceScope,

@@ -11,12 +11,15 @@ import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { countSummary, fitted, invalid, readBody } from "../domain/result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 // ticket은 목표, acceptance check 하나, 근거 링크다. 상태 전이는 route가 지킨다.
 export const TICKET_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "ticket.list",
+    input: TOOL_INPUTS["ticket.list"],
+    routes: [ticketList],
     description:
       "List tickets, optionally of one app or one state. Returns id, app, title and state.",
     effect: "read",
@@ -35,8 +38,10 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "ticket.get",
+    input: TOOL_INPUTS["ticket.get"],
+    routes: [ticketShow],
     description:
       "Read a ticket: goal, acceptance check, evidence, state, claim, completion report and check result.",
     effect: "read",
@@ -51,8 +56,10 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`ticket ${ticket.id} is ${ticket.state}`, ticket));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "ticket.create",
+    input: TOOL_INPUTS["ticket.create"],
+    routes: [ticketCreate],
     description:
       "Open a ticket for a coding agent: a goal, one acceptance check (app_test, test_command or text) and optional evidence links (problem, ticket, release, file, annotation).",
     effect: "write",
@@ -68,8 +75,10 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`opened ticket ${made.value.ticket}`, made.value));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "ticket.update",
+    input: TOOL_INPUTS["ticket.update"],
+    routes: [ticketUpdate],
     description:
       "Change the goal or the acceptance check of a ticket before it closes.",
     effect: "write",
@@ -87,8 +96,10 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       );
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "ticket.verify",
+    input: TOOL_INPUTS["ticket.verify"],
+    routes: [ticketShow, ticketVerify],
     description:
       "Mark a reported ticket verified or failed. A verified ticket is activated by the program.",
     effect: "write",
@@ -117,8 +128,10 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`ticket ${ticket} is ${done.value.state}`, done.value));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "ticket.cancel",
+    input: TOOL_INPUTS["ticket.cancel"],
+    routes: [ticketCancel],
     description: "Cancel a ticket with a one line reason.",
     effect: "write",
     handler: async (input, ctx) => {

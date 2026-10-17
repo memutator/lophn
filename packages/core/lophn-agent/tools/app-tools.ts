@@ -84,12 +84,8 @@ export async function buildAppApiTools(
             resultOf(view.name, api.key, api.effect, reply.value),
           );
         },
-        // 아래는 옛 칸이다. Gate는 core의 호출 경로가 건다.
-        revision: view.release,
-        confirm: false,
-        contract: APP_TOOL_CONTRACT,
-        reversible: false,
-        idempotent: api.effect === "read",
+        // Gate는 core의 호출 경로가 건다.
+        operations: [APP_TOOL_CONTRACT],
       };
       tools.push({ definition, app: view.app, api: api.key });
     }

@@ -12,7 +12,8 @@ import { commandOf, readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { ToolInput } from "../domain/input.ts";
 import { countSummary, fitted, readBody } from "../domain/result.ts";
-import { defineBuiltin } from "./common.ts";
+import { defineTool } from "../define.ts";
+import { TOOL_INPUTS } from "../../../../protocol/lophn-agent/tool-catalog.ts";
 
 const SLUG_MAX = 63;
 
@@ -28,8 +29,10 @@ function slugOf(name: string, fallback: string): string {
 }
 
 export const APP_TOOLS: readonly ToolDefinition[] = [
-  defineBuiltin({
+  defineTool({
     name: "app.list",
+    input: TOOL_INPUTS["app.list"],
+    routes: [appList],
     description: "List the registered apps.",
     effect: "read",
     handler: async (_input, ctx) => {
@@ -43,8 +46,10 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       ));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "app.get",
+    input: TOOL_INPUTS["app.get"],
+    routes: [appGet, problemList],
     description:
       "Read an app: name, description, status, active release, source folder and the number of open problems.",
     effect: "read",
@@ -67,8 +72,10 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       }));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "app.create",
+    input: TOOL_INPUTS["app.create"],
+    routes: [appCreate],
     description:
       "Register a new app with a name and a one line purpose. The app gets its own App Engineer.",
     effect: "write",
@@ -89,8 +96,10 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`registered app ${made.value.id}`, made.value));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "app.link_source",
+    input: TOOL_INPUTS["app.link_source"],
+    routes: [appGet, appConnectSource],
     description:
       "Connect a git folder as the source of an app. A relative path starts at the place's first folder.",
     effect: "write",
@@ -113,8 +122,10 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`linked the source of app ${app}`, linked.value));
     },
   }),
-  defineBuiltin({
+  defineTool({
     name: "blueprint.check",
+    input: TOOL_INPUTS["blueprint.check"],
+    routes: [blueprintCheck],
     description:
       "Check the blueprint of an app and return errors, warnings and the permission review separately. Edit the blueprint file with the file tools.",
     effect: "read",

@@ -21,6 +21,7 @@ import {
 import type { Id } from "../../../protocol/base/ids.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import {
+  definitionHash,
   executeToolCall,
   type MissingToolCode,
   type ToolContext,
@@ -335,7 +336,6 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     if (definition === undefined) return undefined;
     return {
       effect: definition.effect,
-      idempotent: definition.idempotent,
       server: deps.tools.server?.(definition) ?? null,
     };
   }
@@ -362,9 +362,11 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         response_key: call.key,
         response_order: call.order,
         tool: definition?.name ?? call.name,
-        definition_revision: definition?.revision ?? "unlisted",
+        definition_revision: definition === undefined
+          ? "unlisted"
+          : await definitionHash(definition),
         effect: definition?.effect ?? "read",
-        confirm: definition?.confirm ?? false,
+        confirm: false,
         // 외부 MCP tool의 원래 서버·tool 쌍이다. 내장·없는 tool은 null이다.
         extension: definition === undefined
           ? null

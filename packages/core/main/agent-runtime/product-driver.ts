@@ -38,6 +38,7 @@ import {
 } from "../../lophn-agent/extensions/skill-folders.ts";
 import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
 import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
+import { agentTools } from "../agent-tools.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
@@ -47,10 +48,12 @@ import { rewindOverCore } from "../../lophn-agent/session/rewind/runtime-port.ts
 // 시험도 같은 묶음을 쓴다.
 function productToolkit(options: {
   machine: CoreCall;
+  definitions: Toolkit["definitions"];
   mcp?: Toolkit["mcp"];
 }): Toolkit {
   return {
     ...createBuiltinToolkit(),
+    definitions: options.definitions,
     // 허락된 앱의 app-api tool. grant는 machine 자격의 loopback으로 읽는다.
     appApi: createAppApiToolkit({
       machine: options.machine,
@@ -103,6 +106,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       resolveModel,
       toolkit: productToolkit({
         machine: calls.machine,
+        definitions: agentTools(),
         // 외부 MCP tool 등록 통로다. 등록·재조회는 mcp-toolkit이 소유한다.
         mcp: (session: string) => mcpKit.toolkit(session),
       }),

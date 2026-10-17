@@ -25,6 +25,7 @@ import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
+import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -101,13 +102,14 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       });
     },
     // agent runtime(machine)과 turn의 agent 자격이 닿는 operation.
-    operations: (ctx) => agentRuntimePolicies(ctx.allRoutes),
+    operations: (ctx) => agentRuntimePolicies(ctx.allRoutes, agentTools()),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
     // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
     async afterReady(ctx) {
       const { runtime } = ctx;
       const started = await startAgentRuntimeChild({
         io: ctx.io,
+        tools: agentTools(),
         diagnostic: (message) =>
           void ctx.diagnosticsWrite({
             ...message,

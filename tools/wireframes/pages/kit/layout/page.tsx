@@ -1,22 +1,69 @@
 // Kit · layout. @lophn/ui/layout의 Card와 페이지 틀, 예제(orders-app).
 import { useState } from "react";
 import {
+  AppShell,
   Card,
   DashboardCell,
   DashboardFrame,
   FormFrame,
+  Grid,
   ListDetailFrame,
   ReadingFrame,
   TableFrame,
 } from "@lophn/ui/layout";
 import { Table } from "@lophn/ui/data";
+import { Button } from "@lophn/ui/primitives";
+import { Sidebar } from "@lophn/ui/navigation";
 
 import { COLUMNS, ORDERS } from "../data/orders-rows.ts";
 import { OrdersApp } from "./orders-app.tsx";
-import { Example, kit, Page, Section } from "../kit.tsx";
+import { Example, kit, Page, Row, Section } from "../kit.tsx";
 
 const NOW = new Date("2026-10-11T12:00:00Z");
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
+
+const NAV = [
+  { id: "overview", label: "Overview" },
+  { id: "orders", label: "Orders" },
+  { id: "settings", label: "Settings" },
+];
+
+// AppShell은 넣은 영역의 폭을 보고 모양을 바꾼다. 폭이 다른 상자에 넣어 셋을 나란히 보인다.
+function ShellBox(
+  { width, nav = true, actions = true }: {
+    width: string;
+    nav?: boolean;
+    actions?: boolean;
+  },
+) {
+  return (
+    <div className={kit.frameStage} style={{ width, height: 240 }}>
+      <AppShell
+        title="Orders"
+        actions={actions
+          ? <Button variant="primary" size="sm">New order</Button>
+          : undefined}
+        nav={nav
+          ? <Sidebar items={NAV} current="overview" onSelect={() => {}} />
+          : undefined}
+      >
+        <Slot>screen</Slot>
+      </AppShell>
+    </div>
+  );
+}
+
+function Cells({ count }: { count: number }) {
+  return (
+    <Grid>
+      {Array.from({ length: count }, (_, index) => (
+        <Card key={index}>
+          <strong>Cell {index + 1}</strong>
+        </Card>
+      ))}
+    </Grid>
+  );
+}
 
 function Slot({ children }: { children: string }) {
   return <div className={kit.frameBox}>{children}</div>;
@@ -42,6 +89,46 @@ export function KitLayout() {
             <p className={kit.note}>Tax papers and receipts for the desk.</p>
           </Card>
         </div>
+      </Section>
+      <Section
+        title="Grid"
+        note="카드 폭 240px 이상의 칸을 영역 폭에 맞게 채운다. 240px 영역에서는 한 줄에 한 칸이다."
+      >
+        <Row label="2 cells · 100%">
+          <div style={{ width: "100%" }}>
+            <Cells count={2} />
+          </div>
+        </Row>
+        <Row label="6 cells · 100%">
+          <div style={{ width: "100%" }}>
+            <Cells count={6} />
+          </div>
+        </Row>
+        <Row label="6 cells · 240px">
+          <div style={{ width: "var(--layout-container-card)" }}>
+            <Cells count={6} />
+          </div>
+        </Row>
+      </Section>
+      <Section
+        title="AppShell"
+        note="넣은 영역이 320px 미만이면 card, 640px 미만이면 panel이고 nav는 본문 위 한 줄이 된다. nav나 행동이 없으면 그 자리가 비고 본문이 전체 폭을 쓴다."
+      >
+        <Row label="full · nav">
+          <ShellBox width="100%" />
+        </Row>
+        <Row label="panel · nav">
+          <ShellBox width="480px" />
+        </Row>
+        <Row label="card · nav">
+          <ShellBox width="var(--layout-container-card)" />
+        </Row>
+        <Row label="full · no nav">
+          <ShellBox width="100%" nav={false} />
+        </Row>
+        <Row label="full · no actions">
+          <ShellBox width="100%" actions={false} />
+        </Row>
       </Section>
       <Section title="FormFrame · 640px">
         <div className={kit.frameStage}>

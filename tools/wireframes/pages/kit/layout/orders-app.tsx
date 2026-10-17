@@ -23,7 +23,6 @@ import {
   TableFrame,
 } from "@lophn/ui/layout";
 import { Sidebar, Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
-import styles from "./orders-app.module.css";
 
 export type OrdersPage = "overview" | "orders" | "table" | "settings" | "guide";
 
@@ -155,7 +154,7 @@ export function OrdersApp(
             </List>
           }
           detail={
-            <div className={styles.detail}>
+            <div style={{ padding: "var(--space-6)" }}>
               {order
                 ? (
                   <Card>
@@ -185,12 +184,18 @@ export function OrdersApp(
       )}
       {page === "settings" && (
         <FormFrame header={<h2>{TEXT.settings}</h2>}>
-          <div className={styles.form}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-6)",
+            }}
+          >
             <Field label={TEXT.shopName}>
               <Input />
             </Field>
             <Switch label={TEXT.sync} />
-            <div className={styles.actions}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <Button variant="primary">{TEXT.save}</Button>
             </div>
           </div>

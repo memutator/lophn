@@ -164,7 +164,6 @@ export async function callLive(
     inputHash: "h",
     contextBasisHash: "h",
     body: packed.body as Record<string, unknown>,
-    timeoutMs: binding.timeoutMs,
     usageRevision: binding.usageRevision,
   }, AbortSignal.timeout(CALL_TIMEOUT_MS));
   if (!called.ok) throw new Error(`invoke failed: ${called.error.message}`);

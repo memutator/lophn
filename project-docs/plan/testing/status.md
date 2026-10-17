@@ -22,4 +22,4 @@ lead만 고친다. `tools/status.py testing build`가 `tasks/*.md`에서 id, 단
 | `turn-stop` | fix | 2 | 없음 | running | fix/turn-stop |  |  |
 | `harness-wire-idle` | harness-wire | 2 | harness-wire | merged | harness-wire/harness-wire-idle | 25aa1435f |  |
 | `live-suite` | live-suite | 2 | harness-wire | merged | live-suite/live-suite | 23b81cab9 |  |
-| `dev-fake` | dev-fake | 3 | e2e-support-server, e2e-support-core | todo |  |  |  |
+| `dev-fake` | dev-fake | 3 | e2e-support-server, e2e-support-core | running | dev-fake/dev-fake |  |  |

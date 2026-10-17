@@ -86,9 +86,8 @@ function stackBytesOf(stack: string, limit: number): {
   };
 }
 
-// prepared 출처의 앱 frame 위치 찾기. source map으로 stack의
-// 생성 위치를 원본 상대 path·줄로 찾는다: 위치를 아는 stack은 같은 생성 위치의
-// mapping만 취하고, 준비 폴더 밖 path는 읽지 않는다.
+// prepared 출처의 앱 frame 위치 찾기. 화면 source map으로 stack의
+// 생성 위치를 원본 상대 path·줄로 찾는다. 준비 폴더 밖 path는 읽지 않는다.
 async function resolveStackFrames(
   folder: PreparedFolderSource,
   evidence: {
@@ -112,122 +111,67 @@ async function resolveStackFrames(
   if (!copy.ok) {
     return [];
   }
-  // 준비 폴더 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
-  const bundled = await framesInsideBundle(copy.value, evidence.stack);
-  if (bundled !== null) {
-    return bundled;
-  }
+  // 화면 JS를 가리킨 stack은 그 화면의 map으로 앱 source 위치를 푼다. 사본 안 화면 JS의
+  // 생성 위치를 그대로 frame으로 두면 앱 source를 잇지 못하므로 framesInsideBundle보다 먼저 한다.
   const manifest = await readBundleManifest(copy.value);
-  if (!manifest.ok) {
-    return [];
+  const mapped = manifest.ok
+    ? await frameFromScreenMap(copy.value, evidence.stack)
+    : null;
+  if (mapped !== null) {
+    return [mapped];
   }
-  const map = await readSourceMap(copy.value);
-  if (!map.ok) {
-    return [];
-  }
-  // 최초 mappings를 풀기 전 크기 한도는 stack_bytes다.
-  if (new TextEncoder().encode(map.value).length > LIMITS.stack_bytes) {
-    return [];
-  }
-  let parsed: unknown;
+  // 준비 폴더 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
+  return await framesInsideBundle(copy.value, evidence.stack) ?? [];
+}
+
+// 화면 JS 파일(`/screens/<key>/main.js`). stack file은 URL이든 path든 이 꼴로 끝난다.
+const SCREEN_FILE = /\/screens\/([^/]+)\/main\.js$/;
+
+// stack에서 화면 JS를 가리킨 첫 site를 그 화면의 source map으로 앱 source 위치로 푼다.
+// 같은 줄에서 대상 열 이하 가장 큰 표지 하나만 취한다. stack 열은 1-based, map 열은 0-based다.
+async function frameFromScreenMap(
+  copy: string,
+  stack: string,
+): Promise<SourceFrame | null> {
+  const site = stackSites(stack).find((candidate) =>
+    SCREEN_FILE.test(candidate.file)
+  );
+  if (site === undefined) return null;
+  const map = await readSourceMap(copy, SCREEN_FILE.exec(site.file)![1]!);
+  if (!map.ok) return null;
+  let parsed: { mappings?: unknown; sources?: unknown };
   try {
-    parsed = JSON.parse(map.value);
+    parsed = JSON.parse(map.value) as typeof parsed;
   } catch {
-    return [];
+    return null;
   }
-  if (
-    typeof parsed !== "object" || parsed === null || !("mappings" in parsed)
-  ) {
-    return [];
+  if (typeof parsed.mappings !== "string" || !Array.isArray(parsed.sources)) {
+    return null;
   }
-  const record = parsed as { mappings?: unknown; sources?: unknown };
-  if (typeof record.mappings !== "string" || !Array.isArray(record.sources)) {
-    return [];
-  }
-  const sources = record.sources;
-  const stack = evidence.stack;
-  const mappings = record.mappings;
-  // stack의 at 줄에서 생성 위치(줄·열)를 찾는다. 실행 환경의 file: URL도 취한다.
-  const att = /at\s+[^\n]*?\(?([^()\s]+):(\d+):(\d+)\)?/.exec(stack);
-  const positional = att === null
-    ? null
-    : { line: Number(att[2]), column: Number(att[3]) };
-  const frames: SourceFrame[] = [];
-  if (positional !== null) {
-    // 위치 원문을 아는 stack은 같은 줄에서 대상 열 이하 가장 큰 표지 하나만
-    // 취한다(source map 탐색 규칙). stack 열은 1-based,
-    // source map 열은 0-based다.
-    const target = positional.column - 1;
-    let chosen: {
-      sourceIndex: number;
-      originalLine: number;
-      originalColumn: number;
-    } | null = null;
-    const walkResult = walkAllMappings(mappings, sources.length, (entry) => {
-      if (entry.generatedLine !== positional.line) return;
-      if (entry.generatedColumn > target) return;
-      chosen = {
-        sourceIndex: entry.sourceIndex,
-        originalLine: entry.originalLine,
-        originalColumn: entry.originalColumn,
-      };
-    });
-    if (walkResult !== null && !walkResult.ok) {
-      return [];
-    }
-    if (chosen === null) {
-      return [];
-    }
-    const found = chosen as {
-      sourceIndex: number;
-      originalLine: number;
-      originalColumn: number;
-    };
-    const sourceName = sources[found.sourceIndex];
-    if (typeof sourceName !== "string") {
-      return [];
-    }
-    // sources를 준비 폴더 안 상대 path로 좁힌다.
-    const path = relativeToFolder(sourceName);
-    if (path === null) {
-      return [];
-    }
-    if (found.originalLine < 1 || found.originalColumn < 1) {
-      return [];
-    }
-    frames.push({
-      path,
-      function: null,
-      line: found.originalLine,
-      column: found.originalColumn,
-    });
-    return frames;
-  }
-  // 위치 원문을 모르는 stack은 mappings를 유한 한도 안에서 풀어 앱 frame만 둔다.
-  const walkResult = walkAllMappings(mappings, sources.length, (entry) => {
-    if (frames.length >= LIMITS.snapshot_frames) return;
-    const sourceName = sources[entry.sourceIndex];
-    if (typeof sourceName !== "string") return;
-    // sources를 준비 폴더 안 상대 path로 좁힌다.
-    const path = relativeToFolder(sourceName);
-    if (path === null) {
-      // 준비 폴더 밖 소스는 위치 원본을 남기지 않는다.
-      return;
-    }
-    frames.push({
-      path,
-      function: null,
+  const sources: unknown[] = parsed.sources;
+  const target = site.column - 1;
+  let chosen: { source: unknown; line: number; column: number } | null = null;
+  const walked = walkAllMappings(parsed.mappings, (entry) => {
+    if (entry.generatedLine !== site.line) return;
+    if (entry.generatedColumn > target) return;
+    chosen = {
+      source: sources[entry.sourceIndex],
       line: entry.originalLine,
       column: entry.originalColumn,
-    });
+    };
   });
-  if (walkResult !== null && !walkResult.ok) {
-    return [];
-  }
-  if (frames.length === 0) {
-    return [];
-  }
-  return frames;
+  if (!walked.ok || chosen === null) return null;
+  const found = chosen as { source: unknown; line: number; column: number };
+  if (typeof found.source !== "string") return null;
+  // sources를 준비 폴더 안 상대 path로 좁힌다.
+  const path = relativeToFolder(found.source);
+  if (path === null || found.line < 1 || found.column < 1) return null;
+  return {
+    path,
+    function: site.function,
+    line: found.line,
+    column: found.column,
+  };
 }
 
 // 준비 폴더 밖 소스 이름 판정. webpack:/~ / file: / absolute 모양은
@@ -352,7 +296,6 @@ function relativeToFolder(name: string): string | null {
 // mappings 전체를 풀며 segment마다 생성·원본 위치를 돌려준다. 유한한 총량만 푼다.
 function walkAllMappings(
   mappings: string,
-  _sourceCount: number,
   visit: (entry: {
     generatedLine: number;
     generatedColumn: number;

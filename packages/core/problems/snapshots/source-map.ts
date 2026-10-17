@@ -3,9 +3,9 @@
 // 상대 path를 찾는다. 준비 폴더 밖 path·symlink는 읽지 않고 이유를 남긴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-// bundle 사본 안의 고정 이름(releases/bundle/seal.ts와 같다). contracts의 경로
-// 함수가 problems에서 닿지 않으므로 이 leaf가 문자만 반복한다.
-const SOURCE_MAP_COPY = "app.js.map";
+// 화면 key 규칙(apps/releases/ui-build/app-build.ts의 SCREEN_KEY와 같다). problems는
+// apps를 import하지 않으므로 규칙만 반복한다.
+const SCREEN_KEY = /^[a-z0-9][a-z0-9-]*$/;
 
 // source map 실패 이유. 값은 공백 아닌 누락 이유 하나다.
 export type SourceMapFailure = {
@@ -53,11 +53,16 @@ async function readIfInside(
   }
 }
 
-// bundle 사본의 source map 파일을 읽는다. map이 없으면 그 이유를 돌려준다.
+// bundle 사본에서 화면 하나의 source map(`screens/<key>/main.js.map`)을 읽는다.
+// map이 없으면 그 이유를 돌려준다.
 export async function readSourceMap(
   copyRoot: string,
+  screenKey: string,
 ): Promise<Result<string, SourceMapFailure>> {
-  return await readIfInside(copyRoot, SOURCE_MAP_COPY);
+  if (!SCREEN_KEY.test(screenKey)) {
+    return err({ code: "invalid_input", message: "화면 key가 아니다" });
+  }
+  return await readIfInside(copyRoot, `screens/${screenKey}/main.js.map`);
 }
 
 // bundle 사본의 manifest를 읽고 files 목록을 검사한다.

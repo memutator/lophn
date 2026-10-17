@@ -1,11 +1,10 @@
-// 봉인 bundle 사본에서 release의 source 파일과 source map을 읽는다. 사본은 읽기만 한다.
+// 봉인 bundle 사본에서 release의 source 파일을 읽는다. 사본은 읽기만 한다.
 // coding session의 source diff(ReleaseSourceReader)가 쓴다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readBundleCopy } from "../activation/desired.ts";
 import { loadRelease } from "../store.ts";
 import { RUNTIME_CONFIG_PATH, RUNTIME_ENTRY_PATH } from "./runtime-entry.ts";
-import { SOURCE_MAP_COPY_NAME } from "./seal.ts";
 
 // 앱 source가 아닌 파일이다(준비가 만들거나 담은 것).
 const GENERATED_FILES = new Set([
@@ -14,7 +13,6 @@ const GENERATED_FILES = new Set([
   "import-map.json",
   RUNTIME_ENTRY_PATH,
   RUNTIME_CONFIG_PATH,
-  SOURCE_MAP_COPY_NAME,
 ]);
 const GENERATED_FOLDERS = ["screens/", "sdk/", "vendor/", "node_modules/"];
 

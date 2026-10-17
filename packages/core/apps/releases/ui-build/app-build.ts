@@ -116,7 +116,7 @@ try {
       format: "esm",
       jsx: "automatic",
       minify: true,
-      // 준비가 이 main.js를 다시 묶어 app.js.map을 만든다. inline이어야 그 map이 원래 source를 잇는다.
+      // 준비가 이 main.js를 다시 묶어 화면 map(main.js.map)을 만든다. inline이어야 그 map이 원래 source를 잇는다.
       sourcemap: "inline",
       sourcesContent: true,
       assetNames: "[name]",

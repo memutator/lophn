@@ -123,7 +123,7 @@ export async function prepareRelease(
   for (const file of extracted.value) sourceBytes += file.bytes.byteLength;
   const sourceLimit = counter.addSource(sourceBytes, extracted.value.length);
   if (sourceLimit) return fromLimit(sourceLimit);
-  // 화면·blueprint·source map이 더해지기 전에 파일 수만 먼저 본다.
+  // 화면·화면 map·blueprint가 더해지기 전에 파일 수만 먼저 본다.
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
   const sdkCopies = input.sdkCopies ?? [];
@@ -146,8 +146,8 @@ export async function prepareRelease(
   }
   const countedFiles = counter.addBundle(
     0,
-    input.screens.length + assets.length + sdkCopies.length +
-      vendorCopies.length + lockedMap.length + entryFiles.length + 2,
+    input.screens.length * 2 + assets.length + sdkCopies.length +
+      vendorCopies.length + lockedMap.length + entryFiles.length + 1,
   );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
@@ -188,14 +188,6 @@ export async function prepareRelease(
     ...lockedMap,
     { path: "blueprint.json", bytes: blueprintBytes },
   ];
-  if (
-    !files.some((file) => file.path === built.value.sourceMap.path)
-  ) {
-    files.push({
-      path: built.value.sourceMap.path,
-      bytes: built.value.sourceMap.bytes,
-    });
-  }
   let bundleBytes = 0;
   const hashed: { path: string; hash: string }[] = [];
   for (const file of files) {
@@ -228,7 +220,6 @@ export async function prepareRelease(
     manifest: manifest.value,
     blueprintJson: blueprintBytes,
     bundleFiles: files.filter((file) => file.path !== "blueprint.json"),
-    sourceMap: built.value.sourceMap,
   });
   if (!sealed.ok) {
     await removePartial(copy.value);

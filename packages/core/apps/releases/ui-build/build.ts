@@ -29,10 +29,9 @@ type UiBuildInput = {
   dependencies: readonly { name: string; version: string }[];
 };
 
+// files에는 화면 JS와 화면마다 `<화면 path>.map`(external source map)이 같이 있다.
 type UiBuildOutput = {
   files: { path: string; bytes: Uint8Array }[];
-  // external source map. bundle 안 고정 이름이며 운영 시작의 오류 위치 근거다.
-  sourceMap: { path: string; bytes: Uint8Array };
 };
 
 // 준비 단계 build 입력이 고정 목록 안에만 있는지 본다. 밖의 의존은 거절이다.
@@ -49,7 +48,7 @@ type SourceMap = {
   file?: string;
   sources: string[];
   sourcesContent?: (string | null)[];
-  mappings?: string;
+  mappings: string;
 };
 
 function decode(bytes: Uint8Array): string {
@@ -76,7 +75,6 @@ export async function buildScreens(
     }
   }
   const files: { path: string; bytes: Uint8Array }[] = [];
-  const maps: SourceMap[] = [];
   try {
     for (const screen of input.screens) {
       // esbuild는 ESBUILD_BINARY_PATH를 모듈 로드 때 읽는다. 정적 import면
@@ -107,32 +105,20 @@ export async function buildScreens(
       parsed.sources = parsed.sources.map((source) =>
         source.endsWith(screen.path) ? screen.path : source
       );
-      maps.push(parsed);
+      // source 위치를 풀려면 원문이 map에 다 있어야 한다.
+      if (
+        parsed.sourcesContent?.length !== parsed.sources.length ||
+        parsed.sourcesContent.some((content) => content === null)
+      ) {
+        return err({ code: "unavailable", reason: "build_failed" });
+      }
+      files.push({
+        path: `${screen.path}.map`,
+        bytes: new TextEncoder().encode(JSON.stringify(parsed)),
+      });
     }
   } catch {
     return err({ code: "unavailable", reason: "build_failed" });
   }
-  const merged: SourceMap = {
-    version: 3,
-    file: input.screens.map((screen) => screen.path).join(","),
-    sources: maps.flatMap((map) => map.sources),
-    sourcesContent: maps.flatMap((map) => map.sourcesContent ?? []),
-    // mappings는 화면이 하나일 때만 담는다. 화면이 여럿이면 한 map에 이어 붙일 수 없다.
-    ...(maps.length === 1 ? { mappings: maps[0]!.mappings } : {}),
-  };
-  if (
-    merged.sourcesContent?.length !== merged.sources.length ||
-    merged.sourcesContent.some((content) =>
-      content === null || content === undefined
-    )
-  ) {
-    return err({ code: "unavailable", reason: "build_failed" });
-  }
-  return ok({
-    files,
-    sourceMap: {
-      path: "app.js.map",
-      bytes: new TextEncoder().encode(JSON.stringify(merged)),
-    },
-  });
+  return ok({ files });
 }

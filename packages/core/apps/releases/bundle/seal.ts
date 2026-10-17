@@ -1,6 +1,6 @@
 // 읽기 전용 bundle 사본과 seal.
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
-// 그 안의 정규 `blueprint.json`과 source map 자리는 problems test runner가 쓴다.
+// 그 안의 정규 `blueprint.json` 자리는 problems test runner가 쓴다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { BundleManifest } from "../../../../protocol/apps/mod.ts";
 import {
@@ -37,9 +37,8 @@ export function bundleCopyPath(
   return ok(`${dataRoot}/apps/${app}/bundles/${bundleHash}`);
 }
 
-// 정규 blueprint.json과 source map 자리. bundle 사본 안의 고정 이름이다.
+// 정규 blueprint.json 자리. bundle 사본 안의 고정 이름이다.
 export const BLUEPRINT_COPY_NAME = "blueprint.json";
-export const SOURCE_MAP_COPY_NAME = "app.js.map";
 export const MANIFEST_COPY_NAME = "manifest.json";
 
 function relativeCopyPath(path: string): Result<string, SealFailure> {
@@ -69,7 +68,7 @@ async function chmodOrFail(
   return ok(undefined);
 }
 
-// bundle byte·manifest·정규 blueprint JSON·source map을 봉인한다.
+// bundle byte·manifest·정규 blueprint JSON을 봉인한다.
 // 파일은 0444, 디렉터리는 0555로 좁힌다. umask와 상관없이 chmod를 다시 한다.
 export async function sealBundle(
   input: {
@@ -77,7 +76,6 @@ export async function sealBundle(
     manifest: BundleManifest;
     blueprintJson: Uint8Array;
     bundleFiles: readonly { path: string; bytes: Uint8Array }[];
-    sourceMap?: { path: string; bytes: Uint8Array };
   },
 ): Promise<Result<void, SealFailure>> {
   const directories: string[] = [input.copyPath];
@@ -108,9 +106,6 @@ export async function sealBundle(
       MANIFEST_COPY_NAME,
       new TextEncoder().encode(JSON.stringify(input.manifest)),
     );
-    if (input.sourceMap) {
-      push(input.sourceMap.path || SOURCE_MAP_COPY_NAME, input.sourceMap.bytes);
-    }
     for (const file of written) {
       const relative = relativeCopyPath(file.path);
       if (!relative.ok) return relative;
@@ -149,5 +144,3 @@ export async function sealBundle(
   }
   return ok(undefined);
 }
-
-// 사본이 정말 0444·0555인지 재귀로 본다.

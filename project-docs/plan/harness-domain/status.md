@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py harness-domain build`가 `tasks/*.md`에서 
 | `harness-spi-inputs` | harness-spi | 1 | harness-spi-registry | merged | harness-spi/harness-spi-inputs | 9f9955b24 |  |
 | `harness-spi-registry` | harness-spi | 1 | 없음 | merged | harness-spi/harness-spi-registry | d233212f5 |  |
 | `domain-tools-apps` | domain-tools | 2 | 없음 | merged | domain-tools/domain-tools-apps | 92a45f461 |  |
-| `role-layer-prompts` | role-layer | 2 | role-layer-tools | todo |  |  |  |
+| `role-layer-prompts` | role-layer | 2 | role-layer-tools | merged | role-layer/role-layer-prompts | e259b7517 |  |
 | `role-layer-tools` | role-layer | 2 | 없음 | merged | role-layer/role-layer-tools | d1fba856d |  |
 | `harness-hooks` | harness-hooks | 3 | 없음 | todo |  |  |  |
 | `role-ports` | role-ports | 3 | 없음 | todo |  |  |  |

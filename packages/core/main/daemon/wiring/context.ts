@@ -233,6 +233,9 @@ type Late = {
   inbox: Inbox;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
   questionWaits: ReturnType<typeof createQuestionWaits>;
+  // API server가 쓰는 쓰기 앞 처리기를 모두 접은 writer다. core 안에서 command를 내는 곳은 날 writer(runtime.writer)가 아니라
+  // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, 입력함 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
+  writer: Writer;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -280,6 +283,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   annotationDelivery: true,
   inbox: true,
   questionWaits: true,
+  writer: true,
 };
 
 export type WiringContext = {

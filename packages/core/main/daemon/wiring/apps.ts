@@ -134,7 +134,7 @@ export const appsWiring: WiringFactory = () => {
         activation: {
           dataRoot: ctx.root.path,
           command: (context, envelope) =>
-            runtime.writer.command(context as never, envelope as never),
+            ctx.writer.command(context as never, envelope as never),
           machine,
           findPassedAppTest,
           testOf: async (app, bundleHash) => {
@@ -312,7 +312,7 @@ export const appsWiring: WiringFactory = () => {
                 const key = `package-publish-${await sha256Hex(
                   `${input.name}\n${input.version}\n${input.bundle_hash}\n${input.guide_hash}`,
                 )}`;
-                const done = await ctx.runtime.writer.command(
+                const done = await ctx.writer.command(
                   PACKAGE_PUBLISH_CONTEXT as never,
                   {
                     command: packageRegisterVersion.name,

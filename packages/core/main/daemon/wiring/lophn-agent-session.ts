@@ -143,7 +143,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
           );
           return read.ok ? read.value : [];
         },
-        writer: () => ctx.runtime.writer,
+        writer: () => ctx.writer,
       });
       return ok({
         writer: (inner) => withRewindFiles(inner, files),
@@ -157,7 +157,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
         snapshot: (read) => ledgerSnapshot(ctx.ledgerPath, read),
         amend: async (revert, paths) =>
           await amendInstall(
-            ctx.runtime.writer,
+            ctx.writer,
             revert,
             paths,
             `rewind-recover:${revert}:${await sha256Hex(paths.join("\n"))}`,

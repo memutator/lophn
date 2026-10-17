@@ -149,7 +149,7 @@ export const codingSessionsWiring: WiringFactory = () => {
       const relay = createCodingRelay({
         tokens: () => tokens ??= createCodingTokens({ registry: ctx.registry }),
         async run(signal, idempotency) {
-          const done = await ctx.runtime.writer.command(CODING_CONTEXT, {
+          const done = await ctx.writer.command(CODING_CONTEXT, {
             command: codingSignal.name,
             input: signal,
             idempotency_key: idempotency ?? crypto.randomUUID(),

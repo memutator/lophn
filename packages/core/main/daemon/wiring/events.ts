@@ -71,6 +71,7 @@ export const eventsWiring: WiringFactory = () => {
       const runner = createReactor({
         reader: createEventsReader(sql),
         cursor: createSqlCursor(sql, async (through, previous) => {
+          // Reactor 진행 기록은 domain event를 쓰지 않고, 이 wiring이 Bus 층을 만드는 쪽이라 날 writer를 쓴다.
           const done = await ctx.runtime.writer.command(reactorContext, {
             command: "AdvanceSubscriberCursor",
             input: {

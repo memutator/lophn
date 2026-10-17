@@ -23,10 +23,8 @@ import {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import {
-  createMessageBodyPreparer,
   prepareBytes,
   rejected,
-  withMessageBody,
 } from "../../../lophn-agent/session/message-body.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
@@ -204,17 +202,9 @@ export const routerWiring: WiringFactory = () => {
       // session이 있으면 그 App Engineer session에, 없으면 새 session을 열어 사람 메시지 하나로 넣는다. 이미지는
       // 메시지에 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // ctx.runtime.writer는 API 앞 처리기가 안 붙은 안쪽 writer다. 사람 메시지는 본문 준비와 입력함 적용이
-      // 거쳐야 turn이 열리므로 route와 같은 처리를 여기서 붙인다.
-      const writer = withMessageBody(
-        withAfterCommit(ctx.runtime.writer, apply),
-        createMessageBodyPreparer({
-          relay: () => ctx.bodyPrepare,
-          known: () => ctx.knownSecrets,
-        }),
-      );
+      // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
       const run = async (route: { name: string }, input: unknown) => {
-        const done = await writer.command(
+        const done = await ctx.writer.command(
           ANNOTATION_DELIVERY_CONTEXT,
           {
             command: route.name,
@@ -283,17 +273,9 @@ export const routerWiring: WiringFactory = () => {
       const opened = openConnection(ctx.ledgerPath);
       if (!opened.ok) return opened;
       eventsConnection = opened.value;
-      const prepareBody = createCallBodyPreparer({
-        relay: () => ctx.bodyPrepare,
-        known: () => ctx.knownSecrets,
-      });
       const reaction: ReactionRouter = {
         async send(call, idempotencyKey) {
-          // core 안 호출도 API server와 같은 두 겹(본문 준비, 입력함 적용)을 거친다.
-          const done = await withCallBody(
-            withAfterCommit(ctx.runtime.writer, apply),
-            prepareBody,
-          ).command(ROUTER_CONTEXT, {
+          const done = await ctx.writer.command(ROUTER_CONTEXT, {
             command: callsReact.name,
             input: {
               event_seq: call.from.kind === "program"
@@ -338,14 +320,13 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      const writer = withAfterCommit(ctx.runtime.writer, apply);
       // 보낸 session에 이유를 돌려줄 글을 준비하지 못하면 알림 없이 닫는다.
       const prepared = await prepareTexts(
         ctx.bodyPrepare,
         ROUTER_CONTEXT,
         [FAILURE_TEXTS.lophn_restarted],
       );
-      const done = await writer.command(ROUTER_CONTEXT, {
+      const done = await ctx.writer.command(ROUTER_CONTEXT, {
         command: callsRecover.name,
         input: { notify: prepared.ok },
         idempotency_key: crypto.randomUUID(),

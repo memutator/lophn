@@ -32,11 +32,9 @@ import {
 } from "../../../lophn-agent/run-loop/runtime.ts";
 import {
   createInbox,
-  createInboxApplier,
   createTurnSource,
   createTurnStarter,
 } from "../../../lophn-agent/run-loop/mod.ts";
-import { withAfterCommit } from "../../../storage/ledger/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
@@ -135,7 +133,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         const user = humanOnly(who);
         if (!user.ok) return user;
         const input = removeQueued.input.parse(body);
-        const done = await ctx.runtime.writer.command(SESSION_INPUTS_CONTEXT, {
+        const done = await ctx.writer.command(SESSION_INPUTS_CONTEXT, {
           command: messageRemoveQueued.name,
           input,
           idempotency_key: crypto.randomUUID(),
@@ -179,7 +177,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         secrets: ctx.secretStore,
         http: ctx.issuerRequests.fetch,
         record: (provider, result) =>
-          runtime.writer.command(PROVIDER_REFRESH_CONTEXT, {
+          ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
             command: refreshProviderCredential.name,
             input: {
               provider: provider.id,
@@ -216,10 +214,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         inbox,
         // TurnEnded는 commit 뒤에 Bus로 나가 권한 요청과 질문의 기다림을 푼다.
         interruptTurns: () =>
-          withAfterCommit(
-            runtime.writer,
-            createInboxApplier({ inbox, publish: ctx.bus.publish }),
-          ).command(RUNTIME_END_CONTEXT, {
+          ctx.writer.command(RUNTIME_END_CONTEXT, {
             command: interruptTurns.name,
             input: {},
             idempotency_key: ids.newId("idk"),

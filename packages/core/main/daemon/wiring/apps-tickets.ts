@@ -43,7 +43,7 @@ export const appsTicketsWiring: WiringFactory = () => {
             input,
           ),
         record: (call, idempotencyKey) =>
-          ctx.runtime.writer.command(ticketMachineContext as never, {
+          ctx.writer.command(ticketMachineContext as never, {
             command: "RecordTicketChecks",
             input: call,
             compare: { base_revision: call.base_revision },
@@ -66,7 +66,7 @@ export const appsTicketsWiring: WiringFactory = () => {
     async start(ctx) {
       // 살아 있는 coding session이 없는 기동이다. claim이 남은 session을 정산한다(보고 없이 끝났으면
       // CodingSessionEndedUnreported가 남는다).
-      const settled = await ctx.runtime.writer.command(
+      const settled = await ctx.writer.command(
         ticketMachineContext as never,
         {
           command: "SettleTicketSessions",
@@ -112,7 +112,7 @@ function sweepTicketClaims(ctx: WiringContext): Promise<void> {
       claims?: { ticket: string; claim_seq: string }[];
     }).claims ?? [];
     for (const claim of claims) {
-      await ctx.runtime.writer.command(ticketMachineContext as never, {
+      await ctx.writer.command(ticketMachineContext as never, {
         command: "ExpireTicketClaim",
         input: claim,
         compare: {},

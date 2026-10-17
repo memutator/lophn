@@ -134,7 +134,7 @@ export const approvalsWiring: WiringFactory = () => {
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
       // 설정은 config가 낸다. slot이 비어 있으면 선언의 기본값을 쓴다.
       const settings: SettingsReader = ctx.peek.settings ?? DEFAULT_SETTINGS;
-      const writer = () => ctx.runtime.writer;
+      const writer = () => ctx.writer;
       const send = (
         who: AuthenticatedContext,
         command: string,

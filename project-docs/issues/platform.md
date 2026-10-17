@@ -75,3 +75,19 @@ modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/secr
 영향: 사람이 token이 필요한 MCP server를 붙일 수 없다. OAuth 코드 붙여 넣기도 안 된다(OAuth로 model을 부르는 길은 원래 없다).
 
 고치려면: MCP credential을 provider와 같은 `secrets.json` 길로 옮긴다. 보호 입력 창은 provider API key가 쓰는 `windowSecretInputOpener`·`enterSecret`을 쓰고, MCP의 secret 참조를 이름(`{name}`)으로 바꾸고 attach가 file 저장소에서 읽는다(중간). 추천: provider 길(`createFileSecretAttach`와 `providerSecretDestinations`)의 모양을 따라 한다.
+
+## sdk package가 catalog에 없어 `package show`가 coding agent에게 SDK guide를 주지 못한다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/coding-agent]
+```
+
+지금: core 기동이 `packages/sdk/*`와 지원 소스를 `<dataRoot>/sdk/<이름 뒤쪽>/<판>`에 설치 사본으로 푼다(`apps/packages/install.ts`의 `installSdkCopies`). 사본에는 `guide.md`가 들어 있지만 package catalog에는 등록하지 않는다(`register_version`·guide blob 준비를 되살리지 않았다). 그런데 coding agent skill `packages/coding-agent/guides/skills/lophn-build-app/SKILL.md`는 새 code를 쓰기 전에 `package list`, `package show`로 의존 package의 API와 예제를 읽으라고 하고, `@lophn/app-ui`의 guide도 `package show`로 읽으라고 한다. 등록이 없어 둘 다 빈 결과다.
+
+영향: coding agent가 앱을 만들 때 SDK(`@lophn/app-ui`, `@lophn/blueprint`, `cap-*`)의 API와 예제를 읽지 못하고 짐작으로 쓴다. 사람은 틀린 import·호출로 build와 release 준비가 실패하는 앱을 받는다.
+
+고치려면:
+- 기동 설치가 사본을 푼 뒤 같은 byte로 `register_version`을 낸다(중간). `apps/packages/commands.ts`는 같은 name·version의 bundle hash가 다르면 `conflict`("published version bytes are immutable")로 거절하므로, 개발 중 `packages/sdk/*` 소스를 고치고 다시 띄우면 기동이 막힌다. 내장 sdk만 같은 판 덮어쓰기를 허락하거나 판에 소스 hash를 붙여야 한다.
+- skill이 `package show` 대신 설치 사본의 `guide.md`(`<dataRoot>/sdk/<이름 뒤쪽>/<판>/guide.md`)를 읽게 한다(작음). agent가 data root 안 사본을 읽을 수 있어야 한다.
+- 추천: 둘째. catalog는 사용자 package(@me) 몫으로 두고, 내장 sdk는 설치 사본이 정본이다.

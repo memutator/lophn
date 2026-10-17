@@ -435,7 +435,7 @@ export function createReleaseCommands(): {
            VALUES (?, ?) ON CONFLICT (release) DO NOTHING`,
           [release.id, tx.now()],
         );
-        return ok({ phase: "running" as const });
+        return ok({});
       },
     },
     // 준비 접수의 요청 때 검사다. 앱 범위·source 연결·ticket claim을 이 transaction에서

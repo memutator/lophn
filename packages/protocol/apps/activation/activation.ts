@@ -272,7 +272,7 @@ export const activationActivatePrevious = defineCommand({
     release: releaseIdSchema,
     key: idempotencyKeySchema,
   }),
-  output: z.object({ phase: z.literal("running") }),
+  output: z.object({}),
   actors: ["user"],
   errors: ["forbidden", "conflict", "invalid_input"],
 });

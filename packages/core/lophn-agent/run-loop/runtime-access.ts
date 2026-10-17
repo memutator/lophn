@@ -62,7 +62,6 @@ import {
   appGet,
   appList,
   appRuntime,
-  invocationAcceptConfirm,
   invocationsList,
 } from "../../../protocol/apps/mod.ts";
 import {
@@ -158,10 +157,6 @@ export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
   ...new Set([
     ...RUNTIME_MACHINE_ROUTES.map((route) => route.name),
     ...OPTION_ACTION_OPERATIONS,
-    // 접수 command는 apply의 안쪽 tx.call이다. 권한은 바깥 machine 자격의 scope로
-    // 다시 검사하므로 이 operation이 있어야 이미 허락된 confirm이 접수된다.
-    // HTTP route에는 넣지 않는다. 직접 호출은 dispatch 전용이라 거절된다.
-    invocationAcceptConfirm.name,
   ]),
 ];
 

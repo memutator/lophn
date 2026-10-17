@@ -1,19 +1,15 @@
 import { z } from "zod";
 import { actorSchema } from "../base/actor.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
-import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
+import { defineRead } from "../base/route.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
-import {
-  confirmExecutionProofSchema,
-  invocationCallerSchema,
-} from "./channel.ts";
+import { invocationCallerSchema } from "./channel.ts";
 import {
   appApiKeySchema,
   appIdSchema,
   approvalIdSchema,
   invocationIdSchema,
-  processNonceSchema,
   releaseIdSchema,
   runtimeModeSchema,
 } from "./channel-values.ts";
@@ -121,43 +117,6 @@ function invocationSchemas(strict: boolean) {
 }
 
 const invocationSchema = invocationSchemas(false);
-
-// record_started 입력. 검증된 inv·사실만 받는다.
-
-// record_finished 입력. 종료 상태는 succeeded/failed/unknown이다.
-// unknown도 같은 사실 재전송이므로 started_at 모양은 그대로다.
-
-// record_denied 입력. handler를 부르기 전 거절이라 시작이 없다.
-
-// confirm 접수. 승인 사용과 accepted를 원자적으로 저장한다.
-const invocationAcceptConfirmInputSchema = z.strictObject({
-  app: appIdSchema,
-  release: releaseIdSchema,
-  command: appApiKeySchema,
-  input_hash: sha256Schema,
-  approval: approvalIdSchema,
-  key: idempotencyKeySchema,
-  process_nonce: processNonceSchema,
-  caller: invocationCallerSchema,
-});
-
-// 출력은 inv ID와 proof다.
-const invocationAcceptConfirmOutputSchema = z.object({
-  invocation: invocationIdSchema,
-  proof: confirmExecutionProofSchema,
-});
-
-const recordActors = ["machine"] as const;
-
-export const invocationAcceptConfirm = defineCommand({
-  resource: "invocations",
-  method: "accept_confirm",
-  name: "invocation.accept_confirm",
-  input: invocationAcceptConfirmInputSchema,
-  output: invocationAcceptConfirmOutputSchema,
-  actors: recordActors,
-  errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
-});
 
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [

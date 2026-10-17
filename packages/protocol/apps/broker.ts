@@ -74,9 +74,4 @@ export const brokerProblemObserveInputSchema = z.strictObject({
 
 // source 자식 신원으로 제한된 다른 앱 connection 준비. 업무 payload는 중계하지 않는다.
 
-// 다른 앱의 confirm=true command 호출 준비. 호출한 앱 자식이 정확한 대상·
-// command·입력의 approval을 요청하고 사람의 결정을 poll로 기다려 서명된 proof를 받는다. 신원은
-// 자식 연결이 정하며 입력 지문은 서비스가 대상의 고정 blueprint로 계산한다. proof는 approval이
-// 적용돼 접수가 확정된 뒤에만 나온다.
-
 // capability 거절은 필요한 permission 이름과 scope를 알린다.

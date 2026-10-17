@@ -59,7 +59,7 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
     BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
     CREATE TRIGGER releases_no_delete BEFORE DELETE ON releases
     BEGIN SELECT RAISE(ABORT, 'releases are kept'); END;
-    -- 이전 release로 돌아가기 요청. activate_previous가 쓰고 activation driver가 읽어 줄에 세운 뒤 지운다.
+    -- 이전 release로 돌아가기 요청. activate_previous가 쓰고 activation driver가 읽어 시작하고 activation.start가 지운다.
     CREATE TABLE activation_requests (
       release TEXT PRIMARY KEY NOT NULL REFERENCES releases(id),
       requested_at TEXT NOT NULL CHECK (length(requested_at) > 0)

@@ -10,7 +10,7 @@ import { seqSchema, sha256Schema } from "../base/values.ts";
 const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
 
 // command 이름은 소유 concern이 등록한 command route의 이름 그대로다(`document.rename`,
-// `invocation.accept_confirm`, `create_approval_request`, `ApplySettings`). 이름을 바꾸거나 맞추지
+// `create_approval_request`, `ApplySettings`). 이름을 바꾸거나 맞추지
 // 않으므로 action의 command와 registry의 route 이름이 글자 그대로 같을 때만 같은 동작이다.
 // 이 모양은 문법 검사일 뿐이고 dispatch는 등록된 dispatchable command만 한다.
 const commandNameSchema = z.string().max(128).regex(

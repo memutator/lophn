@@ -1,12 +1,8 @@
 import { z } from "zod";
 import {
-  appApiKeySchema,
   appIdSchema,
-  atSchema,
   invocationIdSchema,
-  processNonceSchema,
   releaseIdSchema,
-  sha256Schema,
   toolCallIdSchema,
   turnIdSchema,
 } from "./channel-values.ts";
@@ -31,15 +27,3 @@ export const invocationCallerSchema = z.discriminatedUnion(
   "kind",
   invocationCallerBranches,
 );
-
-// 서명된 일시 값. 서명·TTL은 core가 정한다.
-const confirmProofFields = {
-  invocation: invocationIdSchema,
-  process_nonce: processNonceSchema,
-  release: releaseIdSchema,
-  command: appApiKeySchema,
-  input_hash: sha256Schema,
-  caller: invocationCallerSchema,
-  expires_at: atSchema,
-};
-export const confirmExecutionProofSchema = z.object(confirmProofFields);

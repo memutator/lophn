@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result, systemClock } from "../../../base/mod.ts";
 import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
@@ -33,6 +33,11 @@ import { createTurnSourceLink } from "./turn-source-link.ts";
 import { startMcpAuthPump } from "./mcp-auth-pump.ts";
 import type { SecretAttachLike } from "../../lophn-agent/providers/mod.ts";
 import { redact } from "./redact.ts";
+import {
+  CRASH_LOCATIONS,
+  crashDiagnostic,
+  installCrashHandler,
+} from "../../diagnostics/crash.ts";
 import { roleOperations } from "../../lophn-agent/run-loop/mod.ts";
 export { redact };
 import type { Compactor } from "../../lophn-agent/session/compactor.ts";
@@ -72,6 +77,8 @@ type Runtime = {
   driver: TurnDriver | undefined;
   // 새 model·tool 진입을 막는다. 진행 호출 취소는 나중 작업이 이 신호에 붙는다.
   readonly stopped: boolean;
+  // 처리 못한 예외로 죽기 직전에 core에 분류 한 줄을 보낸다. core가 diagnostic log에 적는다.
+  reportInternal(): Promise<void>;
   done: Promise<void>;
   shutdown(): Promise<void>;
 };
@@ -277,6 +284,15 @@ async function startAgentRuntime(input: {
       return stopped;
     },
     done: running,
+    reportInternal: () =>
+      send(
+        child,
+        crashDiagnostic({
+          component: "lophn-agent/runtime",
+          location: CRASH_LOCATIONS.agentRuntime,
+          at: systemClock.now(),
+        }),
+      ),
     async shutdown() {
       stopped = true;
       pumpStop.abort();
@@ -404,9 +420,20 @@ if (import.meta.main) {
     Deno.exit(1);
   }
   const runtime = started.value;
-  const stop = () => void runtime.shutdown().then(() => Deno.exit(0));
+  const uninstallCrash = installCrashHandler({
+    target: globalThis,
+    write: runtime.reportInternal,
+    stderr: Deno.stderr.writable,
+    redact,
+    exit: Deno.exit,
+  });
+  const stop = () => {
+    uninstallCrash();
+    void runtime.shutdown().then(() => Deno.exit(0));
+  };
   Deno.addSignalListener("SIGINT", stop);
   Deno.addSignalListener("SIGTERM", stop);
   await runtime.done;
+  uninstallCrash();
   Deno.exit(0);
 }

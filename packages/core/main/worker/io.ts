@@ -5,12 +5,14 @@ import {
   startChild,
 } from "../../supervision/responsiveness/mod.ts";
 import {
+  CRASH_LOCATION_NAMES,
   createDiagnosticIngress,
   createLogFiles,
   createSafeLog,
   type DiagnosticAuthority,
   type DiagnosticCatalog,
 } from "../../diagnostics/mod.ts";
+import { DIAGNOSTICS_WRITE_OP } from "../../../protocol/diagnostics/mod.ts";
 import { createBlobStoreWork, systemQuota } from "../../storage/blobs/mod.ts";
 import { observeBlobGc } from "../../storage/blobs/worker/gc.ts";
 import {
@@ -385,6 +387,8 @@ async function createPlatformIo(
           : submission;
         if (!session.credentialUsable) return;
         const response = result.ok ? result.value : result;
+        // 죽기 직전의 쓰기라 파일에 닿은 뒤에 응답한다.
+        if (response.ok) await log.flush();
         await session.send(
           response.ok
             ? {
@@ -465,9 +469,18 @@ export async function runPlatformIo(root: string): Promise<void> {
   const session = await createPlatformIo({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
-    catalog: { components: ["platform/core", "platform/io"], locations: {} },
-    // Product authority is supplied by the core entry composition, not inferred from hello.
-    currentAuthority: () => undefined,
+    catalog: {
+      components: ["platform/core", "platform/io", "lophn-agent/runtime"],
+      locations: CRASH_LOCATION_NAMES,
+    },
+    // 이 pipe는 core만 쓰는 비공개 pipe다(credentialUsable일 때만 쓰인다). core의 고정 분류만 받는다.
+    currentAuthority: () => ({
+      principal: "core",
+      process: "platform/core",
+      task: "diagnostics",
+      scope: [DIAGNOSTICS_WRITE_OP],
+      permits: (diagnostic) => diagnostic.kind === "lophn_internal",
+    }),
   });
   // blob GC 관측. 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
   // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은

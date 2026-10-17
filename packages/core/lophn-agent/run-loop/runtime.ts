@@ -17,6 +17,7 @@ import {
 import { settingsList } from "../../../protocol/config/mod.ts";
 import type {
   ChildMessage,
+  Diagnostic,
   KindLaunchSpec,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
@@ -173,6 +174,8 @@ export type AgentRuntimeChild = {
 
 type AgentRuntimeDeps = {
   io: Supervisor;
+  // child가 보낸 lophn_internal 분류(처리 못한 예외로 죽기 직전). 다른 kind는 받지 않는다.
+  diagnostic?(message: Extract<Diagnostic, { kind: "lophn_internal" }>): void;
   registry: CredentialRegistry;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   epoch: string;
@@ -276,6 +279,10 @@ export async function startAgentRuntimeChild(
     let alive = true;
     return {
       onMessage(message: ChildMessage) {
+        if (message.type === "diagnostic") {
+          if (message.kind === "lophn_internal") deps.diagnostic?.(message);
+          return;
+        }
         if (handler.onMessage(message)) return;
         if (message.type === "redact_request") {
           const response = answerRedactRequest(message, deps.known());

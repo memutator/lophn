@@ -1,3 +1,9 @@
+export {
+  CRASH_LOCATION_NAMES,
+  CRASH_LOCATIONS,
+  crashDiagnostic,
+  installCrashHandler,
+} from "./crash.ts";
 export { createComponentChecks } from "./components.ts";
 export { createLogFiles } from "./files.ts";
 export { createSafeLog, type DiagnosticCatalog, type SafeLog } from "./log.ts";

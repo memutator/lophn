@@ -98,6 +98,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       const { runtime } = ctx;
       const started = await startAgentRuntimeChild({
         io: ctx.io,
+        diagnostic: (message) =>
+          void ctx.diagnosticsWrite({
+            ...message,
+            payload: { ...message.payload, component: AGENT_RUNTIME_KIND },
+          }).catch(() => {}),
         registry: ctx.registry,
         record: (context) => runtime.record(context),
         turns: createTurnSource({

@@ -11,7 +11,10 @@ import type {
   AuthenticatedContext,
   SchemaStep,
 } from "../../../../protocol/server/mod.ts";
-import type { ChildMessage } from "../../../../protocol/supervision/mod.ts";
+import type {
+  ChildMessage,
+  Diagnostic,
+} from "../../../../protocol/supervision/mod.ts";
 import type {
   ApiServer,
   ApiServerOptions,
@@ -176,6 +179,8 @@ type Late = {
   eventNames: readonly string[];
   operations: readonly OperationPolicy[];
   statusSource: StatusSource;
+  // I/O worker의 diagnostics ingress에 한 줄 쓴다. 기한 안에 받아 적었으면 true, 못 썼으면 false다.
+  diagnosticsWrite: (diagnostic: Diagnostic) => Promise<boolean>;
   blobRead: BlobRead;
   registry: CredentialRegistry;
   io: Supervisor;
@@ -233,6 +238,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   eventNames: true,
   operations: true,
   statusSource: true,
+  diagnosticsWrite: true,
   blobRead: true,
   registry: true,
   io: true,

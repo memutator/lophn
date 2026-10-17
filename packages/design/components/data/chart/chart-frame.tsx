@@ -2,15 +2,12 @@ import { type ReactNode, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Rows3 } from "lucide-react";
 import { t } from "@lophn/wording";
-import { Button } from "@lophn/ui/primitives";
-import {
-  DataState,
-  type DataStateProps,
-  Table,
-  type TableColumn,
-} from "@lophn/ui/data";
-import { EmptyState, Skeleton } from "@lophn/ui/feedback";
-import { useObservedSize } from "@lophn/ui/shared";
+import { Button } from "../../primitives/button/button.tsx";
+import { DataState, type DataStateProps } from "../data-table/data-state.tsx";
+import { Table, type TableColumn } from "../table/table.tsx";
+import { EmptyState } from "../../feedback/empty-state/empty-state.tsx";
+import { Skeleton } from "../../feedback/skeleton/skeleton.tsx";
+import { useObservedSize } from "../../_shared/resize.ts";
 import { ALL_PAIRS_MAX } from "./palette.ts";
 import type { Slot } from "./types.ts";
 import type { Problem } from "./validate.ts";

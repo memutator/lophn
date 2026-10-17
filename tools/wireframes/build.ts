@@ -106,7 +106,6 @@ async function importMap(): Promise<Record<string, string>> {
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));
-  await addPackage(imports, join(root, "packages/design/chart"));
   for (const entry of await readdir(join(root, "packages/sdk"))) {
     try {
       await stat(join(root, "packages/sdk", entry, "deno.json"));

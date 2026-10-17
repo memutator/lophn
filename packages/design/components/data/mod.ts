@@ -1,4 +1,4 @@
-// 표·목록·트리처럼 data를 보이는 component.
+// 표·목록·트리·차트처럼 data를 보이는 component.
 export { Table, type TableColumn, type TableProps } from "./table/table.tsx";
 export { type Density, VIRTUALIZE_AFTER } from "./table/model.ts";
 export { domTableViewport, type TableViewport } from "./table/viewport.ts";
@@ -28,3 +28,29 @@ export {
   toggleColumn,
   visibleColumns,
 } from "./data-table/model.ts";
+export { LineChart, type LineChartProps } from "./chart/line-chart.tsx";
+export { BarChart, type BarChartProps } from "./chart/bar-chart.tsx";
+export {
+  DistributionChart,
+  type DistributionChartProps,
+} from "./chart/distribution-chart.tsx";
+export {
+  ScatterChart,
+  type ScatterChartProps,
+} from "./chart/scatter-chart.tsx";
+export {
+  GraphDiagram,
+  type GraphDiagramProps,
+} from "./chart/graph-diagram.tsx";
+export type {
+  ChartLocaleProps,
+  ChartStateProps,
+} from "./chart/chart-frame.tsx";
+export type {
+  GraphEdge,
+  GraphNode,
+  ScatterGroup,
+  ScatterPoint,
+  Series,
+} from "./chart/types.ts";
+export { ALL_PAIRS_MAX, SLOT_COUNT } from "./chart/palette.ts";

@@ -20,4 +20,4 @@ export {
   type ScatterPoint,
   type Series,
   SLOT_COUNT,
-} from "@lophn/chart";
+} from "@lophn/ui/data";

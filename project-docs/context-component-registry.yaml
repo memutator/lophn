@@ -246,17 +246,17 @@ components:
   - id: plan
     kind: plan
     roles: [lead]
-    description: 진행 중인 계획의 개요(목표, 단위, wave, lead가 할 일)와 상태 표.
-    path: project-docs/plan/README.md
+    description: 계획 폴더의 꼴. 계획 하나가 project-docs/plan/<계획>/ 하나이고 그 README(목표, 단위, wave, lead가 할 일)와 status.md를 lead가 읽는다.
+    path: project-docs/plan/
     change_reasons:
       note: 계획을 열거나 닫을 때.
 
   - id: tool-plan-status
     kind: tool
     roles: [lead]
-    description: task brief를 읽어 상태 표를 만들고, 띄울 수 있는 task(앞 wave merged, 선행 merged, 소유 안 겹침)를 고른다. N개를 한 번에 고르는 것은 lead/pick.py.
+    description: 계획 하나의 task brief를 읽어 상태 표를 만들고, 띄울 수 있는 task(앞 wave merged, 선행 merged, 이 계획과 다른 계획의 running과 소유 안 겹침)를 고른다. N개를 한 번에 고르는 것은 lead/pick.py.
     path: project-docs/plan/tools/status.py
-    run: python3 -I project-docs/plan/tools/status.py build | ready | set <id> <상태>
+    run: python3 -I project-docs/plan/tools/status.py <계획> build | ready | set <id> <상태>
     change_reasons:
       paths: [.claude/skills/orchestrate/brief-template.md]
       note: brief의 단위·선행·소유 줄 꼴이 바뀔 때.
@@ -266,7 +266,7 @@ components:
     roles: [lead]
     description: worktree 만들기(launch.sh), worker prompt(prompt.py), rebase·check·ff-merge(merge.sh, merge-fix.sh), route 중복 검사와 core 두 번 기동(boot.sh).
     path: project-docs/plan/tools/lead/
-    run: project-docs/plan/tools/lead/launch.sh <id>... / prompt.py <id> <branch> "<알아 둘 것>" / merge.sh <id>
+    run: project-docs/plan/tools/lead/launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id>
     change_reasons:
       paths: [tools/worktree-prep.ts, tools/check.ts]
       note: worker 지침이나 merge 절차가 바뀔 때. skill-orchestrate와 같이 고친다.
@@ -295,7 +295,7 @@ components:
     kind: plan
     roles: [worker, lead]
     description: worker 하나가 받는 task 하나의 brief. 할 일, 소유, 읽을 것, 계약, 끝남, 보고 꼴. lead가 brief-template대로 쓴다.
-    path: project-docs/plan/tasks/
+    path: project-docs/plan/
     change_reasons:
       paths: [.claude/skills/orchestrate/brief-template.md]
       note: 계획을 열거나 닫을 때.

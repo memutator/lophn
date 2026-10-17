@@ -1,13 +1,13 @@
 ---
 name: orchestrate
-description: lead(주 session)가 계획 하나(project-docs/plan/)를 worker 여럿에게 나눠 돌릴 때 쓴다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, issue 기록까지. 일 하나를 혼자 하거나 worker 하나에 맡기는 정도면 쓰지 않는다.
+description: lead(주 session)가 계획 하나(project-docs/plan/<계획>/)를 worker 여럿에게 나눠 돌릴 때 쓴다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, issue 기록까지. 일 하나를 혼자 하거나 worker 하나에 맡기는 정도면 쓰지 않는다.
 ---
 
 # 오케스트레이션
 
 lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합친다. 기능 코드를 직접 짜지 않는다. 직접 고치는 것은 셋뿐이다: 공용 등록 file, 고정된 계약을 바꾸는 작은 commit, merge 충돌 가운데 등록 file 충돌.
 
-계획 하나의 꼴은 `project-docs/plan/README.md`, task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 **main checkout에서** 돌린다. worktree에도 project-docs 사본이 생기지만 `status.md`와 brief는 main checkout의 것이 바른 것이다.
+계획 하나가 `project-docs/plan/<계획>/` 폴더 하나다(꼴은 `project-docs/plan/README.md`). task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 모두 첫 인자로 계획 이름을 받으며 **main checkout에서** 돌린다. worktree에도 project-docs 사본이 생기지만 `status.md`와 brief는 main checkout의 것이 바른 것이다. 다른 계획이 같이 돌 수 있다. `status.py ready`가 다른 계획의 running task와 소유가 겹치는 task를 거른다.
 
 ## 병렬 규칙
 
@@ -23,7 +23,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합�
 
 1. main에 commit 안 된 변경이 없고 `deno task check`가 통과한다. `git worktree list`에는 main checkout만 있다.
 2. `git config user.email`이 맞다(없으면 worker가 commit마다 author를 제각각 넣는다).
-3. `tasks/*.md`를 썼으면 `python3 -I project-docs/plan/tools/status.py build`로 `status.md`를 만든다.
+3. `<계획>/tasks/*.md`를 썼으면 `python3 -I project-docs/plan/tools/status.py <계획> build`로 `<계획>/status.md`를 만든다.
 
 ## 한 바퀴
 
@@ -31,15 +31,15 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 main에 합�
 
 ### 1. 고르기
 
-`python3 -I project-docs/plan/tools/status.py ready`가 띄울 수 있는 task를 낸다(앞 wave 모두 merged, 선행 merged, running과 소유 안 겹침). 여럿이면 wave가 낮은 것, 뒤에 기다리는 task가 많은 것, `status.md` 위쪽 순이다. 겹치지 않게 N개를 한 번에 고르려면 `python3 -I project-docs/plan/tools/lead/pick.py N`.
+`python3 -I project-docs/plan/tools/status.py <계획> ready`가 띄울 수 있는 task를 낸다(앞 wave 모두 merged, 선행 merged, 이 계획과 다른 계획의 running과 소유 안 겹침). 여럿이면 wave가 낮은 것, 뒤에 기다리는 task가 많은 것, `status.md` 위쪽 순이다. 겹치지 않게 N개를 한 번에 고르려면 `python3 -I project-docs/plan/tools/lead/pick.py <계획> N`.
 
 ### 2. worktree
 
-`project-docs/plan/tools/lead/launch.sh <id>...`가 `.claude/worktrees/<id>`와 branch `<단위>/<id>`를 만들고, `tools/worktree-prep.ts`로 shell main의 `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
+`project-docs/plan/tools/lead/launch.sh <계획> <id>...`가 `.claude/worktrees/<id>`와 branch `<단위>/<id>`를 만들고, `tools/worktree-prep.ts`로 shell main의 `node_modules`를 잇고, status를 `running`으로 한다. 새 worktree에서 `npm ci`를 돌리지 않는다(Electron과 node-pty를 다시 받아 느리다).
 
 ### 3. worker 띄우기
 
-Agent tool로 띄운다: `subagent_type: sonnet-high`, `run_in_background: true`, prompt는 `python3 -I project-docs/plan/tools/lead/prompt.py <id> <branch> "<알아 둘 것>"`의 출력 그대로.
+Agent tool로 띄운다: `subagent_type: sonnet-high`, `run_in_background: true`, prompt는 `python3 -I project-docs/plan/tools/lead/prompt.py <계획> <id> <branch> "<알아 둘 것>"`의 출력 그대로.
 - model은 `sonnet-high`다. `mimo-v2.6-flash`는 쓰지 않는다. worker는 자기 sub agent를 띄우지 않는다.
 - 폴링하지 않는다. 끝나면 알림이 온다. 그 사이 다른 slot을 채운다.
 
@@ -79,14 +79,14 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 ### 6. merge
 
-`project-docs/plan/tools/lead/merge.sh <id>`(`fix/<id>` branch는 `merge-fix.sh`). 하는 일: node_modules 검사 → rebase → worktree `check:full` → ff-merge → main `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
+`project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → rebase → worktree `check:full` → ff-merge → main `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
 - `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 wording catalog다. catalog 충돌은 두 쪽 key를 다 남기고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`를 다시 돌린다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
 - push는 사람 확인 뒤에만 한다.
 
 ## 상태 기록
 
-`python3 -I project-docs/plan/tools/status.py set <id> <todo|running|review|merged|blocked> [branch] [commit] [기록]`. 막히면 `set <id> blocked "" "" "<이유>"`.
+`python3 -I project-docs/plan/tools/status.py <계획> set <id> <todo|running|review|merged|blocked> [branch] [commit] [기록]`. 막히면 `<계획> set <id> blocked "" "" "<이유>"`.
 
 ## 계약 바꾸기 요청
 

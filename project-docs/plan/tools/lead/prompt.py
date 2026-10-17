@@ -1,17 +1,20 @@
-"""사용: python3 -I prompt.py <id> <branch> [note]
+"""사용: python3 -I prompt.py <계획> <id> <branch> [note]
 worker 지시문을 찍는다. 그대로 Agent prompt로 쓴다. main checkout의 것을 돌린다.
 note는 이 task에만 해당하는 "알아 둘 것"이다."""
 import os, sys
-if len(sys.argv) < 3:
+if len(sys.argv) < 4:
     print(__doc__); sys.exit(0)
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), *[os.pardir] * 4))
-tid, branch, note = sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "없음"
+plan, tid, branch = sys.argv[1], sys.argv[2], sys.argv[3]
+note = sys.argv[4] if len(sys.argv) > 4 else "없음"
+if not os.path.exists(os.path.join(ROOT, "project-docs/plan", plan, "tasks", f"{tid}.md")):
+    sys.exit(f"brief 없음: project-docs/plan/{plan}/tasks/{tid}.md")
 print(f"""lophn task `{tid}`를 해 줘.
 
 - 작업 위치: {ROOT}/.claude/worktrees/{tid} (branch {branch}). 이 worktree 밖의 file은 고치지 않는다.
 - 먼저 읽을 것:
   1. 작업 위치의 AGENTS.md (특히 "속도": 프로토타입이다. 가장 단순한 구현, 미리 일반화·방어 코드 금지)
-  2. {ROOT}/project-docs/plan/tasks/{tid}.md (이 task의 brief. 끝의 "(lead가 더함)" 항목이 있으면 그것도 할 일이다)
+  2. {ROOT}/project-docs/plan/{plan}/tasks/{tid}.md (이 task의 brief. 끝의 "(lead가 더함)" 항목이 있으면 그것도 할 일이다)
   3. brief의 "읽을 것"
 - 고칠 수 있는 것은 brief의 "소유" path뿐이다. "추가 소유"는 lead가 승인했으니 그 줄이 말한 범위만 같이 고친다. 자기 module의 내부 모양을 바꿔 남의 file이 컴파일되지 않으면 그 줄만 최소로 맞추고 보고의 "넘길 줄"에 적는다. 그 밖의 path가 필요하면 고치지 말고 보고한다.
 - brief의 "계약"에 적힌 고정된 계약(protocol, port, shell IPC, preload)은 고치지 않는다. 바꿀 것이 있으면 바꾸기 요청을 보고에 적는다. brief가 말하는 계약 이름이 main과 다르면 main의 계약이 맞다.

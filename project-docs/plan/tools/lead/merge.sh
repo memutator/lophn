@@ -1,11 +1,12 @@
 #!/bin/bash
-# merge.sh <id>: rebase, worktree에서 check:full, ff-merge, main에서 check:full과 core 기동, renderer build, 정리, status merged.
+# merge.sh <계획> <id>: rebase, worktree에서 check:full, ff-merge, main에서 check:full과 core 기동, renderer build, 정리, status merged.
 # main checkout에서 돈다. 멈추면 "STOP: ..."을 찍고 exit 1.
 set -u
 ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
 cd "$ROOT" || exit 1
-id=$1
-if [ "${FIX:-}" = 1 ]; then B=fix/$id; else u=$(grep -m1 -oP "단위: \K[a-z0-9-]+" project-docs/plan/tasks/$id.md); B=$u/$id; fi
+plan=$1; id=$2
+[ -d project-docs/plan/$plan/tasks ] || { echo "STOP: 계획 없음: $plan"; exit 1; }
+if [ "${FIX:-}" = 1 ]; then B=fix/$id; else u=$(grep -m1 -oP "단위: \K[a-z0-9-]+" project-docs/plan/$plan/tasks/$id.md); B=$u/$id; fi
 W=.claude/worktrees/$id
 nm=$(git diff --stat main...$B | grep -c node_modules)
 [ "$nm" != 0 ] && { echo "STOP: node_modules in diff"; exit 1; }
@@ -22,5 +23,5 @@ BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "
 deno run -A packages/shell/renderer/build.ts >/dev/null 2>&1 || { echo "STOP: renderer build failed after merge"; exit 1; }; echo "renderer build ok"
 rm -f $W/packages/shell/main/node_modules
 git worktree remove --force $W && git branch -q -D $B
-python3 -I project-docs/plan/tools/status.py set $id merged $B $(git rev-parse --short HEAD)
+python3 -I project-docs/plan/tools/status.py $plan set $id merged $B $(git rev-parse --short HEAD)
 echo "merged $id at $(git rev-parse --short HEAD)"

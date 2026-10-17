@@ -1,6 +1,6 @@
 # 계획: UI kit 하나로 모으기
 
-상태: 열었음. 분류는 정했다(`classification.md`). brief는 아직 없다. "이슈 결정 적용" 계획(`project-docs/plan/README.md`의 "이 계획")이 끝나고 계획 tool이 계획마다 폴더를 받도록 바뀐 뒤 돌린다(아래 "돌리기 전에").
+상태: 열었음. 분류는 정했다(`classification.md`). brief는 `tasks/`, 상태는 `status.md`(`python3 -I project-docs/plan/tools/status.py ui-kit build`).
 
 ## 이 계획
 
@@ -37,8 +37,7 @@
 
 ## 돌리기 전에
 
-- "이슈 결정 적용" 계획이 끝나야 한다. 두 계획 모두 `packages/shell/renderer`(feedback dialog, overlay), `packages/design/wording`, `tools/wireframes`를 고친다.
-- 계획 tool(`project-docs/plan/tools/status.py`, `briefs.py`, `lead/*.py`, `lead/*.sh`)이 계획 폴더를 인자로 받고, `ready`가 다른 계획의 `running` task와 소유 겹침을 보도록 바뀌어야 한다. 그때 "이슈 결정 적용"의 파일을 `plan/issue-decisions/`로 옮기거나 지운다. 지금 도는 session이 그 tool을 쓰므로 그 계획이 끝난 뒤에 바꾼다.
+- "이슈 결정 적용" 계획은 끝났다. 계획 tool은 계획 이름을 첫 인자로 받는다(`status.py ui-kit ready`, `launch.sh ui-kit <id>`, `prompt.py ui-kit <id> <branch>`, `merge.sh ui-kit <id>`).
 
 ## lead가 할 일
 

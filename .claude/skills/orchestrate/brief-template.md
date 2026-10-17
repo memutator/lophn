@@ -1,10 +1,10 @@
 # task brief 꼴
 
-task 하나에 file 하나다: `project-docs/plan/tasks/<id>.md`. worker는 이 file과 AGENTS.md만 보고 일을 끝낼 수 있어야 한다. lead가 쓴다.
+task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worker는 이 file과 AGENTS.md만 보고 일을 끝낼 수 있어야 한다. lead가 쓴다.
 
 ## 이름과 크기
 
-- id는 `<단위>-<하는 일>`(소문자 영어, `-`)이다. 단위에 task가 하나면 단위 이름 그대로 쓴다. 번호, wave, 단계 이름을 넣지 않는다.
+- id는 `<단위>-<하는 일>`(소문자 영어, `-`)이다. 계획을 건너서도 하나여야 한다(worktree·branch 이름). 단위에 task가 하나면 단위 이름 그대로 쓴다. 번호, wave, 단계 이름을 넣지 않는다.
 - worker 하나가 한 session에 끝낼 크기로 나눈다.
 - 같은 wave에서 소유 path가 겹치는 task는 선행으로 순서를 정한다. 서로 기대지 않는 task는 선행을 두지 않는다.
 

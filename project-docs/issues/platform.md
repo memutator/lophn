@@ -28,6 +28,8 @@ modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/secr
 
 고치려면: MCP credential을 provider와 같은 `secrets.json` 길로 옮긴다. 보호 입력 창은 `windowSecretInputOpener`·`enterSecret`을 쓰고, MCP의 secret 참조를 이름(`{name}`)으로 바꾸고 attach가 file 저장소에서 읽는다(중간). provider 길(`createFileSecretAttach`, `providerSecretDestinations`)의 모양을 따른다. 다 옮기면 `windowSecretOpener`와 그 intent type은 쓰는 곳이 없으니 지운다. 추천: 이 안.
 
+정한 것: keychain 길을 통째로 지운다. MCP credential과 MCP OAuth token을 `secrets.json`으로 옮기고, keychain adapter, 옛 ledger `secrets` 표와 그 command·read, `libsecret-tools` 의존을 지운다. `windowSecretOpener`는 provider OAuth `signIn`이 아직 쓰므로 그 절의 결정 때 지운다. (사람)
+
 ## provider OAuth 로그인 길은 있지만 그 credential로 model을 부르는 길이 없다
 
 ```yaml

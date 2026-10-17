@@ -15,8 +15,16 @@
   flex: 1;
   min-height: var(--space-0);
   padding: var(--space-2) var(--space-3);
-  background: var(--color-ink-background);
+  background: var(--color-surface-base);
   overflow: hidden;
+  /* scroll한 뒤 위·왼쪽에 생기는 xterm 그림자(기본 #000)는 밝은 바탕에서 띠로 보인다. 탭 본문과 이어지게 끈다. */
+  --vscode-scrollbar-shadow: transparent;
+}
+
+/* xterm.css는 viewport 바탕을 #000으로 둔다. 출력 화면이 덮고 남은 가장자리 소수점 픽셀에 그 검정이 섞여 밝은
+   바탕에서 출력 둘레에 회색 테두리로 보이므로 탭 본문 색으로 맞춘다. */
+.screen :global(.xterm .xterm-viewport) {
+  background-color: var(--color-surface-base);
 }
 
 .screen[hidden] {

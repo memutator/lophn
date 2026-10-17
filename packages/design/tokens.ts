@@ -216,6 +216,25 @@ export const tokens = {
     bar: { light: "#f3f2ef", dark: "#0d0d0d" },
     hover: { light: "#ebeae6", dark: "#1d1d1b" },
   },
+  // 터미널 ANSI 16색. 바탕이 surface라 light는 밝은 바탕용, dark는 어두운 바탕용 값이다(VS Code Light+·Dark+).
+  terminal: {
+    black: { light: "#000000", dark: "#000000" },
+    red: { light: "#cd3131", dark: "#cd3131" },
+    green: { light: "#107c10", dark: "#0dbc79" },
+    yellow: { light: "#949800", dark: "#e5e510" },
+    blue: { light: "#0451a5", dark: "#2472c8" },
+    magenta: { light: "#bc05bc", dark: "#bc3fbc" },
+    cyan: { light: "#0598bc", dark: "#11a8cd" },
+    white: { light: "#555555", dark: "#e5e5e5" },
+    brightBlack: { light: "#666666", dark: "#666666" },
+    brightRed: { light: "#cd3131", dark: "#f14c4c" },
+    brightGreen: { light: "#14ce14", dark: "#23d18b" },
+    brightYellow: { light: "#b5ba00", dark: "#f5f543" },
+    brightBlue: { light: "#0451a5", dark: "#3b8eea" },
+    brightMagenta: { light: "#bc05bc", dark: "#d670d6" },
+    brightCyan: { light: "#0598bc", dark: "#29b8db" },
+    brightWhite: { light: "#a5a5a5", dark: "#e5e5e5" },
+  },
   // 창 위쪽 바 높이, 창 조절 단추 폭, 닫기 단추 hover 색.
   window: {
     topBar: "36px",

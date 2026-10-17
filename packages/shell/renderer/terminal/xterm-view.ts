@@ -21,6 +21,7 @@ const SWALLOWED_OSC = [8, 52] as const;
 
 interface XtermLike {
   readonly cols: number;
+  options: { theme?: Record<string, string | undefined> };
   readonly rows: number;
   readonly parser: {
     registerOscHandler(
@@ -54,6 +55,61 @@ const REAL: XtermParts = {
 function token(element: HTMLElement, name: string): string | undefined {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
   return value.length > 0 ? value : undefined;
+}
+
+const ANSI = [
+  "black",
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "magenta",
+  "cyan",
+  "white",
+] as const;
+
+// 바탕은 탭 본문과 같은 surface다. 글자·선택·ANSI 색도 token에서 읽어 light/dark와 Appearance를 따른다.
+function themeOf(element: HTMLElement): Record<string, string | undefined> {
+  const theme: Record<string, string | undefined> = {
+    background: token(element, "--color-surface-base"),
+    foreground: token(element, "--color-text-primary"),
+    cursor: token(element, "--color-text-primary"),
+    cursorAccent: token(element, "--color-surface-base"),
+    selectionBackground: token(element, "--color-selection"),
+  };
+  for (const name of ANSI) {
+    const bright = `bright${name[0].toUpperCase()}${name.slice(1)}`;
+    theme[name] = token(element, `--terminal-${name}`);
+    theme[bright] = token(element, `--terminal-bright-${name}`);
+  }
+  return theme;
+}
+
+/**
+ * token 값이 바뀌면(theme, Appearance의 insertCSS) 부른다. xterm은 색을 CSS가 아니라 option으로 받으므로,
+ * 그 token을 쓰는 보이지 않는 요소의 transition으로 바뀜을 안다. 숨은 탭에서는 transition이 돌지 않으니
+ * fit 때도 다시 읽는다.
+ */
+function watchTokens(host: HTMLElement, onChange: () => void): () => void {
+  const probe = host.ownerDocument.createElement("span");
+  probe.setAttribute("aria-hidden", "true");
+  Object.assign(probe.style, {
+    position: "absolute",
+    width: "0",
+    height: "0",
+    visibility: "hidden",
+    pointerEvents: "none",
+    backgroundColor: "var(--color-surface-base)",
+    color: "var(--color-text-primary)",
+    borderTopColor: "var(--color-selection)",
+    transition: "background-color 1ms, color 1ms, border-top-color 1ms",
+  });
+  probe.addEventListener("transitionend", onChange);
+  host.appendChild(probe);
+  return () => {
+    probe.removeEventListener("transitionend", onChange);
+    probe.remove();
+  };
 }
 
 /**
@@ -129,13 +185,16 @@ export function createXtermView(
     fontSize: Number.parseFloat(token(host, "--type-small-size") ?? "") || 13,
     cursorBlink: true,
     scrollback: 10_000,
-    theme: {
-      background: token(host, "--color-ink-background"),
-      foreground: token(host, "--color-ink-text"),
-      cursor: token(host, "--color-ink-text"),
-      selectionBackground: token(host, "--color-ink-hover"),
-    },
+    theme: themeOf(host),
   });
+  let shown = JSON.stringify(term.options.theme);
+  const retheme = () => {
+    const next = themeOf(host);
+    const key = JSON.stringify(next);
+    if (key === shown) return;
+    shown = key;
+    term.options.theme = next;
+  };
   const swallowed = SWALLOWED_OSC.map((ident) =>
     term.parser.registerOscHandler(ident, () => true)
   );
@@ -147,11 +206,15 @@ export function createXtermView(
     ? adoptInlineStyles(host)
     : () => {};
   term.open(host);
+  const unwatch = typeof getComputedStyle === "function"
+    ? watchTokens(host, retheme)
+    : () => {};
   return {
     write: (text) => term.write(text),
     reset: () => term.reset(),
     focus: () => term.focus(),
     fit() {
+      retheme();
       try {
         fitAddon.fit();
       } catch {
@@ -167,6 +230,7 @@ export function createXtermView(
     },
     dispose() {
       for (const handler of swallowed) handler.dispose();
+      unwatch();
       release();
       term.dispose();
     },

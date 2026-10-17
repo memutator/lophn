@@ -4,7 +4,6 @@ import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
 import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { Grants } from "../../approvals/ports.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { type AppApiMissingState } from "./app-api/missing.ts";
 import {
   type AppApiSource,
   type AppApiTool,
@@ -24,12 +23,6 @@ export type AppApiToolkit = {
     agent: AgentRef,
     place: Place | null,
   ): Promise<Result<readonly AppApiTool[]>>;
-  // 앞서 보인 tool과 지금의 선언·grant로 `appApiMissingReason`의 state를 만든다.
-  missingState(
-    offered: readonly AppApiTool[],
-    loaded: AppApiLoad,
-    denied?: ReadonlySet<string>,
-  ): AppApiMissingState;
 };
 
 export function createAppApiToolkit(options: {
@@ -65,21 +58,6 @@ export function createAppApiToolkit(options: {
       const loaded = await load(agent);
       if (!loaded.ok) return loaded;
       return ok(await buildAppApiTools({ place, ...loaded.value }));
-    },
-    missingState(offered, loaded, denied) {
-      return {
-        offered: offered.map((tool) => ({
-          name: tool.definition.name,
-          app: tool.app,
-          api: tool.api,
-        })),
-        declared: new Map(loaded.views.map((view) => [
-          view.app,
-          new Set(view.app_api.map((api) => api.key)),
-        ])),
-        entries: loaded.entries,
-        ...(denied === undefined ? {} : { denied }),
-      };
     },
   };
 }

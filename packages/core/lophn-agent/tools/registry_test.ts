@@ -89,7 +89,7 @@ Deno.test("role의 고정 목록에 없는 tool은 목록에도 실행에도 나
   assertEquals(ctx.listed.map((tool) => tool.name), ["file.read"]);
 
   const missing = await executeToolCall(ctx, "ticket_create", {});
-  assertEquals(missing.outcome.code, "unknown_tool");
+  assertEquals(missing.outcome.code, "not_found");
   assertEquals(missing.executed, false);
 
   const read = await executeToolCall(ctx, "file_read", { path: "a.md" });

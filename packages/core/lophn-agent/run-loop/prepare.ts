@@ -50,8 +50,7 @@ import {
   type ToolHandler,
 } from "../tools/mod.ts";
 import type { AppApiToolkit } from "../tools/app-toolkit.ts";
-import { type AppApiTool, buildAppApiTools } from "../tools/app-tools.ts";
-import { appApiMissingReason } from "../tools/app-api/missing.ts";
+import { buildAppApiTools } from "../tools/app-tools.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import type { AgentRoleTable } from "../agents/role-table.ts";
@@ -203,8 +202,6 @@ export type TurnPreparer = {
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
-  // 그때 보인 app-api tool이다. 나중에 목록에 없는 이유를 가릴 때 쓴다.
-  offered: readonly AppApiTool[];
 };
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
@@ -329,8 +326,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const appApi = apiKit === undefined || loadedApi === null || !loadedApi.ok
       ? null
       : {
-        kit: apiKit,
-        loaded: loadedApi.value,
         tools: await buildAppApiTools({
           place: session.place,
           ...loadedApi.value,
@@ -440,12 +435,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ids,
         ...ports,
       }),
-      // 앞서 보인 app-api tool이 사라진 이유(release 선언이나 grant가 바뀜)를 가른다.
-      missing: (wireName) =>
-        m.appApi === null ? "unknown_tool" : appApiMissingReason(
-          wireName,
-          m.appApi.kit.missingState(fixed.offered, m.appApi.loaded),
-        ),
       server: (definition) =>
         externalByName.get(definition.name)?.server ?? null,
       extension: (definition) => {
@@ -709,7 +698,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       fixedBySession.set(start.session, {
         definitions: m.current,
         key: await keyOf(m.current),
-        offered: m.appApi?.tools ?? [],
       });
     }
     const fixed = fixedBySession.get(start.session)!;

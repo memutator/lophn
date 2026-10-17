@@ -10,7 +10,6 @@ import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
 import { appApiInput } from "./app-api/input.ts";
-import { grantAllows } from "./app-api/missing.ts";
 import { appApiToolName } from "./app-api/name.ts";
 import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
@@ -21,6 +20,21 @@ import type { ToolContext } from "./tool-context.ts";
 // 결과 모름은 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
 export const APP_TOOL_CONTRACT = appCallApi.name;
+
+// agent grant가 이 app-api를 부르게 두는가. 앱을 할당하지 않았거나 api를 뺐으면 아니다.
+function grantAllows(
+  entries: readonly AgentGrantEntry[],
+  app: string,
+  api: string,
+): boolean {
+  for (const entry of entries) {
+    if (entry.kind !== "app" || entry.app !== app) continue;
+    return !entry.apis.some((one) =>
+      one.api === api && one.setting === "excluded"
+    );
+  }
+  return false;
+}
 
 // 활성 release에서 읽은 app-api 선언이다.
 export type AppApiView = {

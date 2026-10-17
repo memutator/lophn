@@ -49,23 +49,6 @@ export function toolForWireName(
   return table.ok ? table.value.get(name) : undefined;
 }
 
-// 없는 tool을 불렀을 때 구별하는 네 코드다. 앱 tool의 이유는 app-api가 정한다.
-const MISSING_TOOL_CODES = [
-  "unknown_tool",
-  "removed_from_grant",
-  "removed_from_release",
-  "denied",
-] as const;
-export type MissingToolCode = (typeof MISSING_TOOL_CODES)[number];
-
-export const MISSING_TOOL_MESSAGES: Readonly<Record<MissingToolCode, string>> =
-  {
-    unknown_tool: "no such tool",
-    removed_from_grant: "this tool was removed from your grant",
-    removed_from_release: "this tool is no longer in the active release",
-    denied: "this tool call was denied",
-  };
-
 // model에 보이는 정의다. effect와 origin은 registry와 Gate만 읽으므로 싣지 않는다.
 
 export function inputJsonSchema(

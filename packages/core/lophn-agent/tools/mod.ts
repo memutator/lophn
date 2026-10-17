@@ -18,11 +18,6 @@ export {
   buildAppApiTools,
 } from "./app-tools.ts";
 export { type AppApiToolkit, createAppApiToolkit } from "./app-toolkit.ts";
-export {
-  appApiMissingReason,
-  type AppApiMissingState,
-  grantAllows,
-} from "./app-api/missing.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {
   limitJson,
@@ -44,10 +39,4 @@ export type {
   SkillReader,
   ToolGatePort,
 } from "./ports.ts";
-export {
-  buildWireTable,
-  inputJsonSchema,
-  MISSING_TOOL_MESSAGES,
-  type MissingToolCode,
-  toolForWireName,
-} from "./wire.ts";
+export { buildWireTable, inputJsonSchema, toolForWireName } from "./wire.ts";

@@ -7,11 +7,7 @@ import type {
 import { checkInput, unchanged } from "./schema.ts";
 import type { GateRequest, ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
-import {
-  MISSING_TOOL_MESSAGES,
-  type MissingToolCode,
-  toolForWireName,
-} from "./wire.ts";
+import { toolForWireName } from "./wire.ts";
 
 // 실행기. command 밖의 일이다. 결과는 command로 남긴다.
 // 자격과 범위는 호출 turn의 것만 쓴다. 실행기가 권한을 넓히지 않는다.
@@ -93,17 +89,19 @@ function stopped(
 // model이 부른 wire 이름의 tool을 ctx.listed에서 찾아 실행한다. 목록 밖의 tool은 실행하지 않는다.
 // Gate가 걸리는 tool(`gate`가 있는 정의)은 실행 전에 core에 묻고, 막히면 이유를 결과로 돌려준다.
 // file, shell, web, pdf, image tool은 `gate`가 없어 거치지 않는다.
-// `missingReason`은 목록에 없는 이유를 구별한다(앱 tool의 grant·release 변화). 없으면 `unknown_tool`이다.
 export async function executeToolCall(
   ctx: ToolContext,
   wireName: string,
   input: unknown,
-  missingReason?: (wireName: string) => MissingToolCode,
 ): Promise<ToolCallOutcome> {
   const definition = toolForWireName(ctx.listed, wireName);
   if (definition === undefined) {
-    const code = missingReason?.(wireName) ?? "unknown_tool";
-    return stopped(wireName, "failure", code, MISSING_TOOL_MESSAGES[code]);
+    return stopped(
+      wireName,
+      "failure",
+      "not_found",
+      "tool is not available",
+    );
   }
   const name = definition.name;
   const effect = definition.effect;

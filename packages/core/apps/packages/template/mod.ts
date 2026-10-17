@@ -2,3 +2,4 @@
 export { type TemplateFailure, type TemplateFile } from "./files.ts";
 export { scaffoldApp } from "./scaffold.ts";
 export { devImportMap } from "./import-map.ts";
+export { installBuiltinTemplate } from "./install.ts";

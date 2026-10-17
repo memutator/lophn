@@ -5,30 +5,30 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `app-cli-finish` | app-cli-finish | 1 | 없음 | todo |  |  |  |
-| `boot-damaged` | boot-damaged | 1 | 없음 | todo |  |  |  |
+| `boot-damaged` | boot-damaged | 1 | 없음 | running | boot-damaged/boot-damaged |  |  |
 | `coding-role` | coding-role | 1 | boot-damaged | todo |  |  |  |
-| `gateway-client` | gateway-client | 1 | 없음 | todo |  |  |  |
-| `reply-fn` | reply-fn | 1 | 없음 | todo |  |  |  |
+| `gateway-client` | gateway-client | 1 | 없음 | running | gateway-client/gateway-client |  |  |
+| `reply-fn` | reply-fn | 1 | 없음 | running | reply-fn/reply-fn |  |  |
 | `annotation-archived-app` | annotation-archived-app | 2 | annotation-to-ae | todo |  |  |  |
 | `annotation-to-ae` | annotation-to-ae | 2 | reply-fn | todo |  |  |  |
 | `approval-rows` | approval-rows | 2 | boot-damaged | todo |  |  |  |
 | `boot-rows` | boot-rows | 2 | boot-damaged | todo |  |  |  |
-| `call-gate` | call-gate | 2 | 없음 | todo |  |  |  |
-| `compact` | compact | 2 | 없음 | todo |  |  |  |
-| `file-write-rows` | file-write-rows | 2 | 없음 | todo |  |  |  |
+| `call-gate` | call-gate | 2 | 없음 | running | call-gate/call-gate |  |  |
+| `compact` | compact | 2 | 없음 | running | compact/compact |  |  |
+| `file-write-rows` | file-write-rows | 2 | 없음 | running | file-write-rows/file-write-rows |  |  |
 | `oauth-issuer` | oauth | 2 | 없음 | todo |  |  |  |
 | `pm-context` | pm-context | 2 | reply-fn | todo |  |  |  |
-| `pm-tools` | pm-tools | 2 | 없음 | todo |  |  |  |
-| `prompt-blocked` | prompt-blocked | 2 | 없음 | todo |  |  |  |
+| `pm-tools` | pm-tools | 2 | 없음 | running | pm-tools/pm-tools |  |  |
+| `prompt-blocked` | prompt-blocked | 2 | 없음 | running | prompt-blocked/prompt-blocked |  |  |
 | `prompt-notice` | prompt-notice | 2 | reply-fn | todo |  |  |  |
 | `reaction-rows` | reaction-rows | 2 | boot-damaged, gateway-client | todo |  |  |  |
-| `registration-rows` | registration-rows | 2 | 없음 | todo |  |  |  |
-| `rewind-rows` | rewind-rows | 2 | 없음 | todo |  |  |  |
-| `secret-rows` | secret-rows | 2 | 없음 | todo |  |  |  |
+| `registration-rows` | registration-rows | 2 | 없음 | running | registration-rows/registration-rows |  |  |
+| `rewind-rows` | rewind-rows | 2 | 없음 | running | rewind-rows/rewind-rows |  |  |
+| `secret-rows` | secret-rows | 2 | 없음 | running | secret-rows/secret-rows |  |  |
 | `session-archive-calls` | session-archive-calls | 2 | reply-fn, session-scope | todo |  |  |  |
-| `session-rows` | session-rows | 2 | 없음 | todo |  |  |  |
+| `session-rows` | session-rows | 2 | 없음 | running | session-rows/session-rows |  |  |
 | `session-scope` | session-scope | 2 | session-rows | todo |  |  |  |
-| `steer` | steer | 2 | 없음 | todo |  |  |  |
+| `steer` | steer | 2 | 없음 | running | steer/steer |  |  |
 | `test-app` | test-app | 2 | reply-fn, boot-damaged, gateway-client, coding-role, app-cli-finish | todo |  |  |  |
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | todo |  |  |  |
 | `app-activation` | app-activation | 3 | test-app | todo |  |  |  |
@@ -52,4 +52,4 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `reaction-context` | reaction-context | 3 | pm-context | todo |  |  |  |
 | `restart-rows` | restart-rows | 3 | 없음 | todo |  |  |  |
 | `stop-rows` | stop-rows | 3 | turn-fate | todo |  |  |  |
-| `turn-fate` | turn-fate | 3 | 없음 | todo |  |  |  |
+| `turn-fate` | turn-fate | 3 | 없음 | running | turn-fate/turn-fate |  |  |

@@ -56,6 +56,7 @@ const port: { value: number } = { value: 0 };
 const slots = new Map<string, number>();
 // socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
 const dataRoot = Deno.env.get("LOPHN_HOME");
+let socketDirectory: string | undefined;
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
 function placeOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
@@ -74,6 +75,7 @@ function placeOf(app: string): { broker: string; control: string } {
     randomName: () => "slot",
   });
   if (!created.ok) throw new Error(created.error.message);
+  socketDirectory = created.value.directory;
   const made = slotSockets(created.value.directory, slot);
   if (!made.ok) throw new Error(made.error.message);
   return { broker: made.value.brokerSocket, control: made.value.controlSocket };
@@ -88,6 +90,14 @@ function socketPathsOf(app: string): { broker: string; control: string } {
     } catch { /* 없으면 지울 것이 없다 */ }
   }
   return made;
+}
+
+// 정상 정지 때 자기 socket 폴더만 통째로 지운다. crash로 남은 폴더는 다음 기동이 다시 쓴다.
+function removeSocketDirectory(): void {
+  if (socketDirectory === undefined) return;
+  try {
+    Deno.removeSync(socketDirectory, { recursive: true });
+  } catch { /* 이미 없으면 지울 것이 없다 */ }
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -178,7 +188,10 @@ const link = attachControlLink(assembled.supervisor, stdin, {
 let stopping: Promise<void> | undefined;
 const stopOnce = () => stopping ??= assembled.supervisor.stop();
 const shutdown = () => {
-  void stopOnce().finally(() => Deno.exit(0));
+  void stopOnce().finally(() => {
+    removeSocketDirectory();
+    Deno.exit(0);
+  });
 };
 Deno.addSignalListener("SIGINT", shutdown);
 Deno.addSignalListener("SIGTERM", shutdown);
@@ -202,5 +215,6 @@ installCrashHandler({
 
 await link.closed;
 assembled.shutdown();
+removeSocketDirectory();
 // 열린 timer(관측·ready 기한)가 남아 있어도 core가 끝난 supervisor는 끝낸다.
 Deno.exit(0);

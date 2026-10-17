@@ -16,6 +16,7 @@ export type CommonPlaceholders = {
   "common.button.next-page": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
+  "common.button.register": Record<never, never>;
   "common.button.reload": Record<never, never>;
   "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
@@ -93,6 +94,9 @@ export type CommonPlaceholders = {
     start: "string";
     end: "string";
   };
+  "common.notice.coding-agent-register-failed": Record<never, never>;
+  "common.notice.coding-agent-registered": Record<never, never>;
+  "common.notice.register-coding-agent": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
   "common.palette.no-results": Record<never, never>;
   "common.quit.saves": Record<never, never>;
@@ -101,10 +105,13 @@ export type CommonPlaceholders = {
   "common.stale.label": {
     age: "string";
   };
+  "common.title.coding-agent-register-failed": Record<never, never>;
+  "common.title.coding-agent-registered": Record<never, never>;
   "common.title.pick-file": Record<never, never>;
   "common.title.pick-folder-register": Record<never, never>;
   "common.title.pick-folder-relocate": Record<never, never>;
   "common.title.quit": Record<never, never>;
+  "common.title.register-coding-agent": Record<never, never>;
   "contexts.empty.tab-none": Record<never, never>;
   "contexts.label.frame-chip": Record<never, never>;
   "contexts.label.rail-contexts": Record<never, never>;

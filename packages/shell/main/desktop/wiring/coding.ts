@@ -1,5 +1,5 @@
 // harness 감지, 터미널 supervisor, 터미널·coding IPC.
-import { app } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
 import { join } from "node:path";
 
 import {
@@ -31,6 +31,7 @@ import {
   HARNESS_ADAPTERS,
   harnessDetectionSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
+import { word } from "../wording.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
 
 type CallSession = {
@@ -62,6 +63,12 @@ async function projectFolders(
   }));
 }
 
+function harnessLabel(harness: string): string {
+  return harness in HARNESS_ADAPTERS
+    ? HARNESS_ADAPTERS[harness as keyof typeof HARNESS_ADAPTERS].label
+    : harness;
+}
+
 /** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor. */
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
@@ -80,7 +87,7 @@ export function register(ctx: ShellContext): Coding {
     spawnHost: spawnNodeHost,
   });
 
-  // harness 감지와 skill·hook 설치. `lophn` 실행 파일은 설치 묶음에 있다(Linux .deb의 `/usr/bin/lophn`).
+  // harness 감지와 전역 skill·hook 등록. `lophn` 실행 파일은 설치 묶음에 있다(Linux .deb의 `/usr/bin/lophn`).
   // 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고, 없으면 감지는 unavailable이다.
   // child에는 이 main의 데이터 root만 환경으로 준다.
   function lophnCommand(): string | null {
@@ -125,7 +132,58 @@ export function register(ctx: ShellContext): Coding {
   // folder_ref는 documents의 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
   // snapshot으로만 renderer에 다시 보인다.
   const terminalFocus = new TerminalFocusTable();
-  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다. skill·hook 설치는 CLI가 한다.
+  // 전역 hook·skill 등록을 OS 확인 창으로 묻고 결과를 보인다(quit 확인과 같은 종류). headless는 창을 안 띄운다.
+  async function box(options: Electron.MessageBoxOptions) {
+    const parent = BrowserWindow.getFocusedWindow();
+    return parent
+      ? await dialog.showMessageBox(parent, options)
+      : await dialog.showMessageBox(options);
+  }
+  const register = {
+    async ask(input: { harness: string; files: string[] }): Promise<boolean> {
+      if (ctx.headless.headless) return false;
+      const reply = await box({
+        type: "question",
+        buttons: [word("common.button.register"), word("common.button.cancel")],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+        message: word("common.title.register-coding-agent"),
+        detail: `${word("common.notice.register-coding-agent")}\n\n${
+          harnessLabel(input.harness)
+        }\n${input.files.join("\n")}`,
+      });
+      return reply.response === 0;
+    },
+    async show(
+      input: {
+        harness: string;
+        ok: boolean;
+        files: string[];
+        message?: string;
+      },
+    ): Promise<void> {
+      if (ctx.headless.headless) return;
+      await box({
+        type: input.ok ? "info" : "error",
+        buttons: [word("common.button.close")],
+        noLink: true,
+        message: word(
+          input.ok
+            ? "common.title.coding-agent-registered"
+            : "common.title.coding-agent-register-failed",
+        ),
+        detail: input.ok
+          ? `${word("common.notice.coding-agent-registered")}\n\n${
+            input.files.join("\n")
+          }`
+          : `${word("common.notice.coding-agent-register-failed")}\n\n${
+            input.message ?? ""
+          }`,
+      });
+    },
+  };
+  // core 요청으로 연 coding 탭. 결과와 끝은 사람 token으로 core에 알린다. 전역 hook·skill 등록은 CLI가 한다.
   const codingTerminals = createCodingTerminalRequests({
     supervisor: terminals,
     focus: terminalFocus,
@@ -136,6 +194,7 @@ export function register(ctx: ShellContext): Coding {
     runCli: lophnCli === null
       ? null
       : childCliRunner({ command: lophnCli, env: cliEnv, timeout_ms: 15_000 }),
+    register,
     publish: (runtime) => {
       for (const window of ctx.windows) {
         if (!window.isDestroyed()) {

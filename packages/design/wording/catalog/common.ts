@@ -11,6 +11,7 @@ export const common = {
   "common.button.next-page": "Next page",
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
+  "common.button.register": "Register",
   "common.button.reload": "Reload",
   "common.button.reset-filters": "Reset filters",
   "common.button.retry": "Try again",
@@ -65,6 +66,12 @@ export const common = {
   "common.label.tray-start-at-login": "Start at login",
   "common.label.tray-tooltip": "lophn",
   "common.label.value-range": "{start}–{end}",
+  "common.notice.coding-agent-register-failed":
+    "lophn couldn't add its hook and skill to this coding agent. The session opens without them.",
+  "common.notice.coding-agent-registered":
+    "lophn added its hook and skill to this coding agent.",
+  "common.notice.register-coding-agent":
+    "lophn adds its hook and skill to this coding agent's user settings, once. They do nothing outside lophn coding sessions.",
   "common.overlay.unavailable": "This action couldn't be completed. Try again.",
   "common.palette.no-results": "Nothing matches your search.",
   "common.quit.saves":
@@ -74,10 +81,14 @@ export const common = {
   "common.quit.terminals-and-saves":
     "Running terminals will stop and changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
   "common.stale.label": "Last updated {age}",
+  "common.title.coding-agent-register-failed": "Couldn't register lophn",
+  "common.title.coding-agent-registered": "lophn registered",
   "common.title.pick-file": "Choose a file",
   "common.title.pick-folder-register": "Choose a project folder",
   "common.title.pick-folder-relocate": "Choose the folder's new location",
   "common.title.quit": "Quit lophn?",
+  "common.title.register-coding-agent":
+    "Register lophn with this coding agent?",
   "contexts.empty.tab-none": "No contexts in this project yet.",
   "contexts.label.frame-chip": "Context",
   "contexts.label.rail-contexts": "Contexts",

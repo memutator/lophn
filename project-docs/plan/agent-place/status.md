@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py agent-place build`가 `tasks/*.md`에서 id,
 | `question-path` | question-path | 1 | 없음 | merged | question-path/question-path | 72b3b0f07 |  |
 | `role-rules-agent-files` | role-rules | 2 | role-rules-turn-agent, role-rules-data-folder | merged | role-rules/role-rules-agent-files | 374622baf |  |
 | `role-rules-data-folder` | role-rules | 2 | 없음 | merged | role-rules/role-rules-data-folder | 0a1a89beb |  |
-| `role-rules-extensions` | role-rules | 2 | role-rules-agent-files, role-rules-data-folder | running | role-rules/role-rules-extensions |  |  |
+| `role-rules-extensions` | role-rules | 2 | role-rules-agent-files, role-rules-data-folder | merged | role-rules/role-rules-extensions | 5288c7005 |  |
 | `role-rules-instructions` | role-rules | 2 | role-rules-agent-files, role-rules-session-places | merged | role-rules/role-rules-instructions | 1f42bc00a |  |
 | `role-rules-session-places` | role-rules | 2 | 없음 | merged | role-rules/role-rules-session-places | 3d747aa77 |  |
 | `role-rules-turn-agent` | role-rules | 2 | 없음 | merged | role-rules/role-rules-turn-agent | 09c255e49 |  |

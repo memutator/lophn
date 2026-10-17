@@ -76,7 +76,7 @@ elements:
 
       - id: agent-roles
         kind: component
-        description: lophn role 층. role마다의 tool 목록, prompt, place 정보, 명령.
+        description: lophn role 층. role마다의 tool 목록, prompt, place 정보, 명령, role 표(built-in 이름·기본 profile·정의 file 자리), place 폴더 규칙, data root 아래 자리, 내장 skill.
 
       - id: lophn-agent
         kind: subsystem

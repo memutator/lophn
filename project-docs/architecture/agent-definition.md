@@ -7,7 +7,8 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 ```
  run-loop: turn 시작 때 한 번 읽어 그 turn의 판을 고정한다
    agents ─────── role(고정) + place + 설정 층 ─▶ resolved agent
-   agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 보이는 context
+   agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 보이는 context,
+                  role 표(built-in 이름·기본 profile·정의 file 자리), 설정 층의 project 자리, 내장 skill
    agent-tools ── 조립이 넘긴 tool 정의(범용·domain·role 층) 중 role 목록에 든 것 + grant가 붙인 tool(app-api, 외부 MCP)
    지침 파일 ──── 전역 · project LOPHN.md · agent 지침
    skill ──────── 내장 · 전역 · project
@@ -31,6 +32,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **같은 재료는 같은 bytes다.** 정렬하고, 시각·무작위에 기대지 않는다. tag 목록도 코드에서 끼우지 않고 고정 문장으로 둔다. 뭔가 하나라도 흔들리면 cache 경계가 매번 달라진다.
 - **사람이 쓴 지침은 조용히 빼지 않는다.** 한 층이라도 못 읽거나 상한을 넘으면 turn을 시작하지 않는다. 빠진 채 일하면 사람이 모른다. 읽은 지침은 redaction을 거치고, 끝나지 않으면 역시 시작하지 않는다.
 - **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. 단 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
+  - 층의 자리(project 층의 skill 폴더와 `extensions.json`, 앱 place에는 project 층이 없음)와 내장 skill 폴더(`packages/core/agent-roles/skills/`)는 role 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.
 - **`AGENTS.md`는 읽지 않는다.** 지침은 `LOPHN.md`뿐이다. 다른 도구의 지침이 섞이면 사람이 무엇이 prompt에 들어가는지 모른다.
 - **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다.
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다.

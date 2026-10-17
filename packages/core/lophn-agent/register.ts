@@ -524,7 +524,8 @@ const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
 const UNATTACHED_REDACT = (): string | null => null;
 
 // GetInstructions는 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는 core module
-// graph에 들일 수 없어 서빙은 instructions/files.ts의 reader 등록이 한다(core 조립이 reader module로 붙인다). 여기
+// graph에 들일 수 없어 서빙은 instructions/files.ts의 reader 등록이 한다(core 조립의 팀 file
+// `main/daemon/wiring/instructions-registration.ts`가 project·앱 조회와 role 규칙을 꽂아 reader module로 붙인다). 여기
 // handler는 route를 registry에 올릴 뿐 실행되지 않는다.
 function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
   return {

@@ -7,6 +7,10 @@ export const MODEL_RETRY_MAX = 2;
 // 서버가 시각을 주지 않았을 때 첫째·둘째 retry 앞의 대기.
 const MODEL_RETRY_DEFAULT_MS: readonly [number, number] = [2000, 4000];
 
+// 연속으로 잘린 응답을 이만큼 받으면 turn을 끝낸다. 같은 입력이 같게 잘리는 되풀이를 시도 한도(30)까지
+// 끌지 않으려는 것이다. 완전한 응답이 오면 센 값이 0으로 돌아간다. 일시 실패와 그 retry는 세지 않는다.
+export const PARTIAL_RUN_MAX = 3;
+
 export const TOOL_RETRY_MAX = 1;
 const TOOL_RETRY_BASE_MS = 1000;
 const TOOL_RETRY_JITTER = 0.1;

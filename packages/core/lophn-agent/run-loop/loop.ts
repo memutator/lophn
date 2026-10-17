@@ -48,6 +48,7 @@ export function startTurnLoop(
     modelCalls: new Set(),
     serverCalls: new Map(),
     history: [],
+    partialRun: 0,
     facts: { changes: [], unexecuted: [], unknown_effects: [] },
   };
 

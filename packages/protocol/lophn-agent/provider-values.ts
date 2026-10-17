@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { atSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import {
-  secretNameSchema,
-  secretOpaqueRefSchema,
-  secretRevisionSchema,
-} from "../secrets/secrets.ts";
+import { secretNameSchema } from "../secrets/secrets.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -128,11 +124,9 @@ export const providerDefinitionOutputSchema = z.object({
 });
 export type ProviderDefinition = z.infer<typeof providerDefinitionSchema>;
 
-// secret 원값은 받지 않는다. platform secret 준비 handle과 참조만 받는다.
+// secret 원값은 받지 않는다. 파일 저장소(secrets.json)의 이름이 곧 key라 이름만 담는다.
 const secretRefFields = {
   name: secretNameSchema,
-  sealed_ref: secretOpaqueRefSchema,
-  revision: secretRevisionSchema,
 };
 const providerSecretRefSchema = z.strictObject(secretRefFields);
 const providerSecretRefOutputSchema = z.object(secretRefFields);

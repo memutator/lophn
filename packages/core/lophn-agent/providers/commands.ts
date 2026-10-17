@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  connectProvider,
   disconnectProvider,
   loginBegin,
   loginCancel,
@@ -79,15 +80,13 @@ function insertCredential(
 ): void {
   tx.sql.run(
     `insert into provider_credentials
-      (provider, kind, secret_name, secret_sealed_ref, secret_revision, revision,
+      (provider, kind, secret_name, revision,
        state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       providerId,
       value.kind,
       value.secret_ref?.name ?? null,
-      value.secret_ref?.sealed_ref ?? null,
-      value.secret_ref?.revision ?? null,
       value.revision,
       value.state,
       value.unavailable_reason,
@@ -107,14 +106,12 @@ function updateCredential(
 ): void {
   tx.sql.run(
     `update provider_credentials set
-       secret_name = ?, secret_sealed_ref = ?, secret_revision = ?, revision = ?,
+       secret_name = ?, revision = ?,
        state = ?, unavailable_reason = ?, until = ?, expires_at = ?,
        logged_in_at = ?, refreshed_at = ?
      where provider = ?`,
     [
       value.secret_ref?.name ?? null,
-      value.secret_ref?.sealed_ref ?? null,
-      value.secret_ref?.revision ?? null,
       value.revision,
       value.state,
       value.unavailable_reason,
@@ -147,6 +144,7 @@ function replaceModelBlocks(
 }
 
 export function createProviderCommands(): {
+  connect: CommandDefinition<typeof connectProvider>;
   register: CommandDefinition<typeof registerProvider>;
   disconnect: CommandDefinition<typeof disconnectProvider>;
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
@@ -185,7 +183,76 @@ export function createProviderCommands(): {
         });
       },
     },
-    // Connect: provider와 그 credential 하나를 함께 둔다.
+    // Connect: provider와 그 credential 하나를 함께 둔다. secret 값은 이미 secrets.json에 있고 이름만 받는다.
+    connect: {
+      route: connectProvider,
+      handle(tx, ctx, input) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const definition = assertDefinition(input.definition);
+        if (!definition.ok) return definition;
+        const existing = tx.sql.get(
+          "select id from providers where id = ?",
+          [input.id],
+        );
+        if (existing !== undefined) {
+          return conflict("provider id already exists");
+        }
+        // provider가 앱·MCP의 다른 secret 이름을 가리켜 그 값이 endpoint로 가는 일을 막는다.
+        if (
+          input.credential !== null &&
+          input.credential.secret !== secretNameForProvider(input.id)
+        ) {
+          return err({
+            code: "invalid_input",
+            message: "secret name must be provider.<id>",
+          });
+        }
+        const credential = assertCredential({
+          kind: input.auth_kind,
+          secret_ref: input.credential === null
+            ? null
+            : { name: input.credential.secret },
+          revision: 1,
+          state: "available",
+          unavailable_reason: null,
+          until: null,
+          expires_at: null,
+          // 이 연결의 identity다. Disconnect 뒤 다시 Connect한 것과 구분한다.
+          logged_in_at: tx.now(),
+          refreshed_at: null,
+          model_blocks: [],
+        });
+        if (!credential.ok) return credential;
+        const record = assertRecord({
+          id: input.id,
+          name: input.name,
+          definition: definition.value,
+          endpoint: input.endpoint,
+          protocol: input.protocol,
+          credential: credential.value,
+          revision: 1,
+        });
+        if (!record.ok) return record;
+        tx.sql.run(
+          `insert into providers
+            (id, name, definition_key, definition, endpoint, protocol, revision)
+           values (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            input.id,
+            input.name,
+            definition.value.key,
+            JSON.stringify(definition.value),
+            input.endpoint,
+            input.protocol,
+            1,
+          ],
+        );
+        insertCredential(tx, input.id, credential.value);
+        return ok({ provider: record.value });
+      },
+    },
+    // 옛 길. provider-connect-cleanup이 지운다.
     register: {
       route: registerProvider,
       handle(tx, ctx, input) {
@@ -207,8 +274,6 @@ export function createProviderCommands(): {
           kind,
           secret_ref: input.credential.preparation === null ? null : {
             name: secretNameForProvider(input.id),
-            sealed_ref: input.credential.preparation.sealed_ref,
-            revision: 1,
           },
           revision: 1,
           state: "available",
@@ -290,8 +355,6 @@ export function createProviderCommands(): {
             secret_ref: {
               name: existing.secret_ref?.name ??
                 secretNameForProvider(input.provider),
-              sealed_ref: input.preparation.sealed_ref,
-              revision: (existing.secret_ref?.revision ?? 0) + 1,
             },
             revision: existing.revision + 1,
             expires_at: input.expires_at,

@@ -26,27 +26,16 @@ function credentialFromRow(
   provider: string,
 ): Result<ProviderCredential | null> {
   const row = sql.all(
-    "select kind, secret_name, secret_sealed_ref, secret_revision, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at from provider_credentials where provider = ?",
+    "select kind, secret_name, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at from provider_credentials where provider = ?",
     [provider],
   )[0];
   if (row === undefined) return ok(null);
   const text = (value: unknown): string | null =>
     value === null ? null : String(value);
   const secretName = text(row["secret_name"]);
-  const secretSealedRef = text(row["secret_sealed_ref"]);
-  const secretRevision = row["secret_revision"] === null
-    ? null
-    : Number(row["secret_revision"]);
   const value: ProviderCredential = {
     kind: row["kind"] as ProviderCredential["kind"],
-    secret_ref: secretName === null || secretSealedRef === null ||
-        secretRevision === null
-      ? null
-      : {
-        name: secretName,
-        sealed_ref: secretSealedRef,
-        revision: secretRevision,
-      },
+    secret_ref: secretName === null ? null : { name: secretName },
     revision: Number(row["revision"]),
     state: row["state"] as ProviderCredential["state"],
     unavailable_reason: row["unavailable_reason"] === null

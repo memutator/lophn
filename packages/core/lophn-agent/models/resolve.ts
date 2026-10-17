@@ -112,8 +112,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
         transport: fetching,
         context: {} as never,
         use: {
-          sealed_ref: credential.secret_ref.sealed_ref,
-          revision: credential.secret_ref.revision,
+          sealed_ref: credential.secret_ref.name,
+          revision: 1,
           purpose: "provider_credential",
           destination,
         },
@@ -223,8 +223,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
       timeoutMs: deps.timeoutMs ?? null,
       pack,
       invoke,
-      // provider가 아직 연결돼 있고 credential의 secret 판이 바뀌지 않았을 때만 보낸다. Disconnect하면
-      // 읽기가 없다고 답하고, 같은 ID로 다시 Connect하면 secret 참조가 달라진다.
+      // provider가 아직 연결돼 있고 같은 연결일 때만 보낸다. Disconnect하면 읽기가 없다고 답하고,
+      // 같은 ID로 다시 Connect하면 logged_in_at이 달라진다.
       available: async () => {
         const again = await readOf(deps.machine, providerRead, {
           provider: selection.provider,
@@ -232,9 +232,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
         if (!again.ok) return false;
         const current = again.value.provider.credential;
         return current.kind === credential.kind &&
-          current.secret_ref?.sealed_ref ===
-            credential.secret_ref?.sealed_ref &&
-          current.secret_ref?.revision === credential.secret_ref?.revision;
+          current.secret_ref?.name === credential.secret_ref?.name &&
+          current.logged_in_at === credential.logged_in_at;
       },
     });
   };

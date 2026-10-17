@@ -9,7 +9,7 @@ fake server의 대답을 앞 요청과 journal에서 계산하는 함수로 줄 
 - 읽을 것:
   - `project-docs/plan/e2e-coverage/research/candidates-product.md` §0 사실 1·2, §2 묶음 G1·G2
   - `project-docs/plan/e2e-coverage/research/candidates-invariants.md` 후보 19(`agent-call-roundtrip`)
-  - `project-docs/plan/testing/tasks/e2e-support-server.md`(이 server의 처음 계약과 "정한 것")
+  - `project-docs/architecture/testing.md`의 "가짜 셋"과 main의 `tests/support/fake-server/`(이 server의 지금 계약)
   - main의 `tests/support/fake-server/{mod,types,reply}.ts`(지금 계약: `startFakeServer`, `FakeServer.script/reset/journal/arrived/aborted`, `Reply` 7종, `JournalEntry`)
   - `.claude/skills/write-test/SKILL.md`, AGENTS.md "속도"
 - 계약:

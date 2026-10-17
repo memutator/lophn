@@ -15,7 +15,7 @@
   - `project-docs/plan/e2e-coverage/research/candidates-invariants.md` 후보 11, 12; `candidates-bugs.md` 후보 `secret-redaction-in-content`, `secret-rotate-delete`; `candidates-product.md` 후보 `secret-tool-result`, `secret-provider-error`
   - architecture: `project-docs/architecture/agent-definition.md`("provider API key는 ... 값은 ledger, event, log, 오류, model 입력에 없다", "shell은 환경 변수 허용 목록만 넘긴다")
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `secrets`, `models`, `agent-tools`, `run-loop`
-  - 코드: `packages/core/lophn-agent/run-loop/{runtime-redaction,runtime-secret,blobs}.ts`, `packages/core/secrets/`, `packages/protocol/secrets/secret-file.ts`(`secretDelete`, `secretStatus`, `SECRET_FILE_NAME`), `packages/core/lophn-agent/tools/shell/env.ts`, `project-docs/plan/testing/research/facts-main.md` 11절
+  - 코드: `packages/core/lophn-agent/run-loop/{runtime-redaction,runtime-secret,blobs}.ts`, `packages/core/secrets/`, `packages/protocol/secrets/secret-file.ts`(`secretDelete`, `secretStatus`, `SECRET_FILE_NAME`), `packages/core/lophn-agent/tools/shell/env.ts`, `project-docs/plan/e2e-coverage/research/facts-main.md` 11절
   - main의 `tests/support/core/{mod,process,human}.ts`(`createRun`, `bootCore`, `Core.call/tryCall/upload/kill/stop/ids`, `processesOf`, `runtimePids`, `connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `decide`, `stopTurn`, `settle`), `tests/support/fake-server/mod.ts`(`startFakeServer`, `FakeServer.script/reset/journal/arrived/aborted`, `Reply`)
   - `.claude/skills/write-test/SKILL.md`, AGENTS.md "속도"
   - `PLAN-remove-keychain`이 land했다면 secret 이름과 route를 다시 확인한다(README "돌리기 전에").

@@ -9,7 +9,7 @@
 - 읽을 것:
   - `project-docs/plan/e2e-coverage/research/candidates-bugs.md` 후보 `boot-failure-frame`
   - `project-docs/plan/e2e-coverage/research/candidates-invariants.md` 후보 5(`second-core-same-root`)
-  - `project-docs/plan/testing/tasks/e2e-support-core.md`
+  - `project-docs/architecture/testing.md`의 `tests/support` 절과 main의 `tests/support/core/`
   - main의 `tests/support/core/{mod,process,human}.ts`(지금 계약: `createRun`, `bootCore`, `Core.call/tryCall/upload/kill/stop/ids`, `processesOf`, `runtimePids`, `connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `decide`, `stopTurn`, `settle`)
   - 코드: `packages/core/main/daemon/main.ts`(실패하면 `start_failed {reason}` frame을 쓰고 `Deno.exit(1)`), `packages/protocol/supervision/supervision.ts`(`START_FAILURE_REASONS`: `newer_schema`, `history_mismatch`, `damaged_original`, `other`), `packages/core/storage/migration/migrations.ts`(`startFailureReason`), `packages/base/install/instance-lock.ts`
   - `.claude/skills/write-test/SKILL.md`, AGENTS.md "속도"

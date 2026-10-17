@@ -9,9 +9,9 @@
   - `research/candidates-invariants.md`(architecture 문서의 불변식에서 뽑은 후보 28개)
   - `research/candidates-bugs.md`(닫은 이슈, changelog, fix commit, 옛 e2e suite에서 뽑은 후보와 의심 N1~N3)
   - `research/candidates-product.md`(role별 사용자 흐름에서 뽑은 후보와 support 묶음 G0~G5)
-  - `project-docs/products/roadmap/testing.md`의 case 고르는 규칙 9개, 지켜야 할 것. `testing`이 끝나면 `project-docs/architecture/testing.md`가 그 자리다
-  - `project-docs/plan/testing/tasks/e2e-support-{server,core}.md`의 "내놓는 것"(쓰는 계약), main의 `tests/support/`
-  - `project-docs/plan/testing/research/facts-main.md`의 7절(앱), 9절(사람 역할 route), 10절(재시작)
+  - `project-docs/architecture/testing.md`: test 층, 가짜 셋, `tests/support`, E2E 실행 폴더, case 고르는 규칙 9개
+  - main의 `tests/support/`(fake-server, core, loop, wire)와 `tests/e2e/`: 쓰는 계약은 그 export다
+  - `research/facts-main.md`의 7절(앱), 9절(사람 역할 route), 10절(재시작) 계획 `testing` 전의 main(`4b3029f48`) 사실이라 바뀐 곳은 코드로 다시 본다
 - 범위 밖: UI·Electron E2E, coding agent의 PTY 실행(test는 CLI만 부른다), eval, OS matrix. `testing`의 `e2e-*` flow가 찾아 그 계획이 고치는 bug.
 - 단위(brief가 확정한다):
   - support (wave 1)

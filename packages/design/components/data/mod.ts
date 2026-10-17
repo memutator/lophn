@@ -1,5 +1,5 @@
 // data: 표·목록·트리·차트처럼 data를 보이는 component.
-// 행과 열을 보이는 기본 표. 정렬·페이지·열 고르기까지 필요하면 DataTable을 쓴다.
+// 행과 열을 보이는 기본 표. 칸은 text·number·time·link·id와 앱이 그리는 custom(단추 등)이다. 정렬·페이지·열 고르기까지 필요하면 DataTable을 쓴다.
 export { Table, type TableColumn, type TableProps } from "./table/table.tsx";
 // Table의 행 밀도 type과 가상 scroll을 시작하는 행 수. 표 높이를 맞추는 쪽이 쓴다.
 export { type Density, VIRTUALIZE_AFTER } from "./table/model.ts";

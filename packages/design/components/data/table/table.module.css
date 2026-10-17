@@ -75,6 +75,12 @@
   text-align: left;
 }
 
+/* text 칸과 같은 정렬. 안의 단추가 잘리지 않게 말줄임은 하지 않는다. */
+.custom {
+  text-align: left;
+  white-space: nowrap;
+}
+
 .number {
   text-align: right;
   font-variant-numeric: var(--font-numeric);

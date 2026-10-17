@@ -51,7 +51,9 @@ export type TableColumn<Row> =
     dataAttributes?: LinkDataAttributes;
   }
   // 내부 ID. diagnostics가 아니면 열 자체를 그리지 않는다.
-  | ColumnBase & { kind: "id"; value: (row: Row) => string };
+  | ColumnBase & { kind: "id"; value: (row: Row) => string }
+  // 앱이 행 안에 그리는 것(단추 등). 값이 없어 정렬하지 않는다.
+  | ColumnBase & { kind: "custom"; render: (row: Row) => ReactNode };
 
 export interface TableProps<Row> {
   columns: readonly TableColumn<Row>[];
@@ -122,6 +124,12 @@ function cell<Row>(
     case "id":
       return (
         <IdCell key={column.id} value={column.value(row)} format={format} />
+      );
+    case "custom":
+      return (
+        <td key={column.id} className={styles.custom} data-kind="custom">
+          {column.render(row)}
+        </td>
       );
   }
 }

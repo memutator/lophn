@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { Rows3 } from "lucide-react";
 import { Skeleton } from "@lophn/ui/feedback";
+import { Button } from "@lophn/ui/primitives";
 import {
   BarChart,
   DataState,
@@ -15,11 +16,12 @@ import {
   StatRow,
   StatTile,
   Table,
+  type TableColumn,
   Tree,
   type TreeNode,
 } from "@lophn/ui/data";
 
-import { COLUMNS, ORDERS } from "./orders-rows.ts";
+import { COLUMNS, type Order, ORDERS } from "./orders-rows.ts";
 import { OrdersSummary } from "./orders-summary.tsx";
 import { OrdersTable } from "./orders-table.tsx";
 import {
@@ -36,6 +38,17 @@ import { Example, kit, Page, Row, Section } from "../kit.tsx";
 const NOW = new Date("2026-10-11T12:00:00Z");
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
 const NOOP = () => {};
+
+// 행 안에 앱이 그리는 칸. custom 칸은 정렬하지 않는다.
+const ACTION_COLUMNS: readonly TableColumn<Order>[] = [
+  ...COLUMNS,
+  {
+    id: "action",
+    header: "Action",
+    kind: "custom",
+    render: () => <Button size="sm">Mark shipped</Button>,
+  },
+];
 
 const clipboard = { writeText: () => Promise.resolve() };
 
@@ -189,6 +202,16 @@ export function KitData() {
             />
           </Wide>
         </Row>
+        <Row label="custom column">
+          <Wide>
+            <Table
+              columns={ACTION_COLUMNS}
+              rows={ORDERS}
+              rowKey={(row) => row.id}
+              now={NOW}
+            />
+          </Wide>
+        </Row>
         <Row label="diagnostics">
           <Wide>
             <Table
@@ -253,6 +276,18 @@ export function KitData() {
               rowKey={(row) => row.id}
               now={NOW}
               visibleColumns={["customer", "total"]}
+              onRetry={NOOP}
+              empty={RELOAD}
+            />
+          </Wide>
+        </Row>
+        <Row label="custom column">
+          <Wide>
+            <DataTable
+              columns={ACTION_COLUMNS}
+              rows={ORDERS}
+              rowKey={(row) => row.id}
+              now={NOW}
               onRetry={NOOP}
               empty={RELOAD}
             />

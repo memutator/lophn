@@ -1,12 +1,13 @@
 // 표의 순수 규칙: 정렬, 페이지, 보이는 열. React·DOM을 모른다.
 
 // design table의 TableColumn과 같은 모양. 컴포넌트 module(CSS)을 끌어오지 않으려고 필요한 만큼만 적는다.
-export type ColumnKind = "text" | "number" | "time" | "link" | "id";
+export type ColumnKind = "text" | "number" | "time" | "link" | "id" | "custom";
 
 export interface ColumnShape<Row> {
   readonly id: string;
   readonly kind: ColumnKind;
-  readonly value: (row: Row) => string | number | Date | undefined;
+  // custom 칸은 값이 없다.
+  readonly value?: (row: Row) => string | number | Date | undefined;
 }
 
 export type SortDirection = "ascending" | "descending";
@@ -42,7 +43,7 @@ function comparer(
 }
 
 export function sortable(column: { kind: ColumnKind }): boolean {
-  return column.kind !== "id";
+  return column.kind !== "id" && column.kind !== "custom";
 }
 
 // 안정 정렬. 같은 값은 들어온 순서를 지킨다. 알 수 없는 열이면 들어온 순서 그대로다.
@@ -53,10 +54,10 @@ export function sortRows<Row>(
   locale: string,
 ): readonly Row[] {
   const column = sort && columns.find((item) => item.id === sort.columnId);
-  if (!sort || !column || !sortable(column)) return rows;
+  const read = column ? column.value : undefined;
+  if (!sort || !column || !read || !sortable(column)) return rows;
   const compare = comparer(column.kind, locale);
   const sign = sort.direction === "ascending" ? 1 : -1;
-  const read = column.value;
   return rows
     .map((row, index) => ({ row, index, value: read(row) }))
     .sort((a, b) => {

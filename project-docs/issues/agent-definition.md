@@ -184,3 +184,19 @@ modules: [packages/core/lophn-agent]
 고치려면: 감싸기만 남기고 정리 부분을 지운다(작음).
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
+
+## 이미지 tool 결과의 base64가 ledger와 blob에 그대로 쌓인다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/storage]
+```
+
+지금: `image.read`의 결과 `content.image.data_base64`가 세 곳에 저장된다. (1) `tool_calls.result` 칸(`run-loop/core-ports.ts`의 `finishToolCall`, `tools/commands.ts`), (2) `tool_call_output` blob(`core-ports.ts`), (3) `model_call_input` blob(`core-ports.ts`). 요청 body 전체라 이미지가 history에 남아 있는 동안 model call마다 다시 저장된다. 이미지 하나의 상한은 `tools/file/image.ts`의 `MAX_IMAGE_BYTES`(5 MiB, base64로 약 6.7 MiB)이고, annotation screenshot은 `ANNOTATION_SCREENSHOT_MAX_BYTES`(2 MiB)다. 기록 쪽에는 이미지 상한이 없고 blob purpose 상한 16 MiB(`storage/blobs/child-prepare.ts`)만 있다. `toolResultSchema.content`는 `z.json()`이라 크기 제한이 없다. 이미지 결과가 `tool_result_image`로 model에 가게 되면서 실제로 쓰이는 길이 됐다.
+
+영향: 이미지를 연 session마다 ledger가 수 MiB씩 커진다. 5 MiB 이미지 둘이 history에 있으면 `model_call_input` blob이 16 MiB를 넘어 저장에 실패하고, `core-ports.ts`가 그 model call을 보내지 않는다. 그 session은 이미지가 history에서 빠질 때까지 진행하지 못한다.
+
+고치려면:
+- `tool_calls.result`와 `tool_call_output`에는 `content.image` 대신 media type, 크기, hash만 남기고, history에는 이미지를 blob ref로 둔다(중간).
+- history에서 오래된 이미지 조각을 빼고 "[image omitted]"로 바꾼다(작음. compact와 같은 자리).
+- 추천: 둘째를 먼저. 실제로 막히면 첫째.

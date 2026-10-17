@@ -17,9 +17,9 @@
 | `trust-agent-notes` | trust | 1 | 없음 | merged | trust/trust-agent-notes | dd8fdaa32 |  |
 | `trust-cli-fence` | trust | 1 | 없음 | merged | trust/trust-cli-fence | 0719e7768 |  |
 | `trust-view-error-signing` | trust | 1 | 없음 | merged | trust/trust-view-error-signing | 1274e025a |  |
-| `annotation-screenshot` | annotation | 2 | annotation-target | running | annotation/annotation-screenshot |  |  |
+| `annotation-screenshot` | annotation | 2 | annotation-target | merged | annotation/annotation-screenshot | 764b35f6b |  |
 | `dead-contexts` | dead | 2 | dead-agent | merged | dead/dead-contexts | 093b01eb9 |  |
-| `harness-global-confirm` | harness | 2 | harness-global-install | running | harness/harness-global-confirm |  |  |
-| `harness-opencode` | harness | 2 | harness-global-install | running | harness/harness-opencode |  |  |
+| `harness-global-confirm` | harness | 2 | harness-global-install | merged | harness/harness-global-confirm | b20c28584 |  |
+| `harness-opencode` | harness | 2 | harness-global-install | merged | harness/harness-opencode | 6c32c9a1d |  |
 | `platform-component-checks` | platform | 2 | platform-crash-diagnostics | merged | platform/platform-component-checks | 07a305b1c |  |
 | `cleanup-leftovers` | cleanup | 3 | trust-view-error-signing, apps-large-changeset, dead-platform, harness-global-install, dead-agent, dead-contexts, annotation-target, apps-activation-no-retry | todo |  |  |  |

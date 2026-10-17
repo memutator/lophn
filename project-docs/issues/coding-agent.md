@@ -2,24 +2,6 @@
 
 App Engineer가 ticket을 외부 coding agent에게 맡기는 길(session, 터미널, CLI, ticket)이다. `project-docs/architecture/coding-agent.md`.
 
-## OpenCode 맡기기에서 메시지가 늘 `state_unknown`으로 거절된다
-
-```yaml
-kind: bug
-modules: [packages/protocol, packages/coding-agent]
-```
-
-지금: `HARNESS_ADAPTERS.opencode.hook`이 `null`이라 `harness install`이 hook을 놓지 않는다(결과 `not_supported`). 그런데 `TURN_END_SIGNALS.opencode`는 `"session.status idle"`이라 `canDeliverMessages("opencode")`가 true다(`protocol/coding-agent/harness-adapter.ts`). 그래서 `core/apps/tickets/coding/transport.ts`의 `send`가 `no_turn_end_signal` 검사는 통과하고, hook이 한 번도 안 와 `row.heard`가 false인 채라 늘 `state_unknown`으로 거절한다. Settings에도 메시지를 받을 수 있는 제품으로 보인다.
-
-영향: OpenCode로 맡기면 session은 뜨지만 App Engineer가 보내는 메시지는 전부 실패한다. 사람은 Settings 표시를 믿고 골랐다가 뒤에 안다.
-
-고치려면:
-- 신호 표에서 `opencode`를 `null`로 바꾼다(한 줄). 거절 이유가 `no_turn_end_signal`로 정직해지고 Settings도 맞게 보인다. `architecture/coding-agent.md`의 turn 끝 신호 목록에서 OpenCode를 같이 뺀다.
-- project plugin 위치를 조사로 확인해 hook을 설치한다(조사 + install 코드, 중간).
-- 추천: 앞쪽. hook 위치가 확인되면 그때 되살린다.
-
-정한 것: 고친다. 전역 설치로 바꿀 때 OpenCode의 전역 plugin 위치를 확인해 hook을 놓는다.
-
 ## coding 완료 뒤 core가 harness를 멈추지 않는다
 
 ```yaml
@@ -219,3 +201,42 @@ modules: [packages/coding-agent]
 영향: 놓을 것이 셋뿐인데 길다. frontmatter 대체는 우리 원본이 깨질 때만 쓰이는 방어 코드다.
 
 고치려면: dry_run을 "쓰기 port를 바꿔 끼우기"로 바꿔 Step을 없앤다(작음). frontmatter 대체는 지운다(작음).
+
+## OpenCode plugin을 실제 OpenCode에서 돌려 보지 못했다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent]
+```
+
+지금: `harnesses/install.ts`의 `opencodePlugin`은 가짜 `client`와 가짜 `lophn`으로만 돌려 봤다. 확인 못함: `.ts` plugin이 로드되는지(문서는 JS·TS 모두 된다고 함), 실행기에서 `node:child_process` spawn이 되는지, 설치된 판이 plugin에 `permission.asked`를 주는지(plugin SDK v1 type에는 `permission.updated`만 있다), `client.session.get` 인자 모양이 `{path:{id}}`인지 `{sessionID}`인지(둘 다 시도한다). `session.status idle`과 `session.idle`이 둘 다 오면 TurnEnded가 두 번 갈 수 있는데 core가 중복을 받아도 되는지 보지 않았다. 하위 session 조회에 timeout이 없다.
+
+영향: OpenCode로 맡기면 turn 끝 신호가 안 오거나 두 번 와서 메시지 보내기가 `state_unknown`으로 거절되거나 상태가 틀릴 수 있다.
+
+고치려면: OpenCode에서 한 번 맡겨 hook 도착을 본다(작음). 중복이 오면 `HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 뺀다(작음).
+
+## OpenCode plugin이 root session을 SDK 두 세대 인자로 조회한다
+
+```yaml
+kind: defect
+modules: [packages/coding-agent]
+```
+
+지금: `opencodePlugin`의 `rootSession`이 event의 `sessionID`로 `client.session.get`을 `{path:{id}}`와 `{sessionID}` 두 모양으로 차례로 불러 `parentID`가 없으면 root로 보고 Map에 캐시한다. 조회가 실패하면 root가 아닌 것으로 본다.
+
+영향: 하위 session의 idle을 turn 끝으로 잘못 읽지 않으려는 것이라 필요하지만, 설치된 판을 확인하면 한 모양으로 줄일 수 있다.
+
+고치려면: 실제 OpenCode에서 확인한 뒤 맞는 인자 한 모양만 남긴다(작음).
+
+## harness 등록 창을 실제로 띄워 보지 못했다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: `shell/main/desktop/wiring/coding.ts`의 `register`가 Electron `dialog.showMessageBox`로 묻고(Register/Cancel, 기본은 Cancel) 결과를 보인다. 실제 창은 띄워 보지 않았다(단추 배치, 줄바꿈, files 목록). headless(`LOPHN_SHELL_HEADLESS=1`)에서 묻지 않고 session이 열리는지도 코드로만 봤다. 사람이 묻는 창을 오래 두면 core의 coding `open` 요청이 그동안 기다리는데, core 쪽에 이 요청의 timeout이 있는지 확인하지 못했다. 개발 실행에서 `LOPHN_CLI`가 없으면 등록을 통째로 건너뛴다.
+
+영향: 창 모양이 틀리거나, 창을 오래 두면 맡기기가 timeout으로 실패할 수 있다.
+
+고치려면: 앱을 띄워 claude로 한 번 맡겨 창을 본다(작음).

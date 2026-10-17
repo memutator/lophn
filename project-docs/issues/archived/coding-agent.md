@@ -63,3 +63,25 @@ guard: 없음
 정한 것: 지운다. 사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다(AGENTS.md). `fence.ts`와 `renderLines`의 분기를 지우고 값을 그대로 쓴다.
 
 닫음: `cli/fence.ts`를 지우고 `output.ts`의 `renderLines`가 한 줄 문자열은 `key: value`, 여러 줄은 `key:` 아래 들여 쓰기로만 낸다. lophn-repair skill의 fence 문장도 지웠다. 문자열 끝 newline 하나와 `\r\n`은 정리되어 나간다.
+
+## OpenCode 맡기기에서 메시지가 늘 `state_unknown`으로 거절된다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/coding-agent]
+closed: fixed
+guard: 없음
+```
+
+지금: `HARNESS_ADAPTERS.opencode.hook`이 `null`이라 `harness install`이 hook을 놓지 않는다(결과 `not_supported`). 그런데 `TURN_END_SIGNALS.opencode`는 `"session.status idle"`이라 `canDeliverMessages("opencode")`가 true다(`protocol/coding-agent/harness-adapter.ts`). 그래서 `core/apps/tickets/coding/transport.ts`의 `send`가 `no_turn_end_signal` 검사는 통과하고, hook이 한 번도 안 와 `row.heard`가 false인 채라 늘 `state_unknown`으로 거절한다. Settings에도 메시지를 받을 수 있는 제품으로 보인다.
+
+영향: OpenCode로 맡기면 session은 뜨지만 App Engineer가 보내는 메시지는 전부 실패한다. 사람은 Settings 표시를 믿고 골랐다가 뒤에 안다.
+
+고치려면:
+- 신호 표에서 `opencode`를 `null`로 바꾼다(한 줄). 거절 이유가 `no_turn_end_signal`로 정직해지고 Settings도 맞게 보인다. `architecture/coding-agent.md`의 turn 끝 신호 목록에서 OpenCode를 같이 뺀다.
+- project plugin 위치를 조사로 확인해 hook을 설치한다(조사 + install 코드, 중간).
+- 추천: 앞쪽. hook 위치가 확인되면 그때 되살린다.
+
+정한 것: 고친다. 전역 설치로 바꿀 때 OpenCode의 전역 plugin 위치를 확인해 hook을 놓는다.
+
+닫음: `HARNESS_ADAPTERS.opencode.hook`을 전역 plugin `~/.config/opencode/plugins/lophn-status.ts`(opencode.ai/docs/plugins로 확인)로 채우고, `install.ts`의 `opencodePlugin`이 `HOOK_EVENT_TABLE.opencode`의 event 가운데 root session 것만 `lophn hook opencode <event>`로 넘긴다. token이 없으면 hook을 등록하지 않는다. 가짜 client와 가짜 `lophn`으로 plugin만 돌려 봤고 실제 OpenCode로는 확인하지 못했다(아래 열린 bug).

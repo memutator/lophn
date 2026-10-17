@@ -24,6 +24,7 @@ import { type CoreCall, readOf } from "./core-call.ts";
 // prompt의 place 정보 재료를 turn의 agent 자격으로 core 읽기에서 모은다. turn마다 한 번 읽는다.
 // file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다: lophn은 모든 project 폴더를 읽기만 하고, Project
 // Manager와 project place의 Operator는 그 project 폴더를, App Engineer는 앱 source 폴더를 읽고 쓴다.
+// 앱 place의 Operator는 앱 source 폴더를 읽기만 한다.
 
 type PlaceRead = {
   place: PlaceData;
@@ -105,6 +106,16 @@ function placeProject(project: ProjectRecord): PlaceProject {
   };
 }
 
+// 앱 source 폴더의 file 범위. 쓰기는 App Engineer만 갖는다.
+export function appSourceScope(
+  role: Role,
+  source: string,
+): { read: string[]; write: string[] } {
+  const read = role === "app_engineer" || role === "operator" ? [source] : [];
+  const write = role === "app_engineer" ? [source] : [];
+  return { read, write };
+}
+
 export async function readPlaceData(
   call: CoreCall,
   agent: ResolvedAgent,
@@ -148,9 +159,10 @@ export async function readPlaceData(
       source,
       blueprint: source === null ? "blueprint.ts" : `${source}/blueprint.ts`,
     };
-    if (source !== null && role === "app_engineer") {
-      scope.read.push(source);
-      scope.write.push(source);
+    if (source !== null) {
+      const { read: r, write: w } = appSourceScope(role, source);
+      scope.read.push(...r);
+      scope.write.push(...w);
     }
     if (role === "app_engineer" && found.active_release !== null) {
       const apis = await readOf(call, appAppApi, { app: place.id });

@@ -339,3 +339,22 @@ fetch를 넘겨도 갱신은 실패한다: `adapters/models-dev.ts`의 `parseCat
 정한 것: OpenCode 꼴로 한다(사람). models.dev `api.json` → lophn 항목 변환 함수 하나를 두고, build 때 script가 lophn 내장 provider 정의 몫만 뽑아 `snapshot.json`을 만들고, 실행 때 갱신이 같은 함수로 그 위에 덮는다. catalog 밖 model은 지금처럼 거절한다(agent). 계획 `agent-io`의 `model-catalog-source`, `model-catalog`.
 
 닫음: OpenCode 꼴로 고쳤다. `models/adapters/models-dev.ts`의 `modelsDevEntries`가 models.dev `api.json`(provider object)을 lophn 항목으로 바꾼다. 내장 정의 7개 몫만 뽑고(`google` → `google-gemini`), 한도나 text 입출력이 없는 model과 schema를 못 넘는 항목은 버리며, `limit.input`이 없으면 `input_limit`은 context 한도다(출력 예약은 `inputBudget`이 뺀다). reasoning effort는 effort 축 하나로, anthropic의 `budget_tokens`는 예산 축으로 옮기고 모르는 형(toggle 등)은 `options: null`이다. 실행 때 갱신(`parseCatalogBody`)과 `tools/models-snapshot.ts`(판을 낼 때 돌린다)가 같은 함수를 쓰고, 동봉 `snapshot.json`은 그 결과다(510개, models.dev에 없는 ollama 항목은 옮겼다). agent runtime은 `import.meta.main`에서만 `catalogFetch: fetch`를 받고, 기동 때 설정 `lophn-agent.model.catalog_auto_update`를 core에서 읽어 `catalog-state.json`의 `auto_update`로 쓴다(다음 기동부터 적용). 새 data root는 복구 직후 바로 갱신하고, 복구한 catalog·state를 `derived/lophn-agent`에 쓴다. `refreshNow()`를 부르는 route는 여전히 없다(즉시 새로 받기 화면도 없다).
+
+## 목록에서 빠진 tool의 이유 구별(grant·release·거절)이 run-loop에서 닿지 않는다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/core/lophn-agent/run-loop/tool-batch.ts`의 `one`은 목록에 없는 tool(`control.tools.info`가 없음)을 `not_found` "tool is not available"로 먼저 닫는다. 그래서 `packages/core/lophn-agent/tools/work.ts`의 `executeToolCall`이 받는 `missingReason`(prepare.ts가 `appApiMissingReason`으로 채움)과 app-api의 `missing.ts`의 `removed_from_release`·`removed_from_grant`·`denied`·`unknown_tool`, `packages/core/lophn-agent/tools/wire.ts`의 `MISSING_TOOL_MESSAGES`는 부를 길이 없다. `tests/e2e/operator_test.ts`의 `excluded` 행이 model이 받는 tool_result가 `not_found`임을 보였다.
+
+영향: session 도중 사람이 grant에서 앱 tool을 빼거나 release가 api를 없애도 agent는 "없는 tool"로만 듣고 이유를 모른다. 쓰이지 않는 이유 구별 코드와 문구가 남아 고칠 때 헷갈린다.
+
+고치려면:
+- (추천) 이유 구별을 지운다(`missing.ts`의 `appApiMissingReason`·`AppApiMissingState`, `missingReason` 인자, `MISSING_TOOL_MESSAGES`, `missingState`). 목록에 없는 tool은 `not_found` 하나다. `grantAllows`는 `app-tools.ts`가 쓰니 남긴다.
+- 또는 `tool-batch.ts`가 `not_found` 대신 `control.tools`에 이유를 물어 그 code로 닫는다. agent가 이유를 들어야 할 근거가 문서에 생기면 이쪽이다.
+
+닫음: 이유 구별을 지웠다(app-api의 `missing.ts`, `missingReason` 인자, `MISSING_TOOL_MESSAGES`, `missingState`, prepare의 `offered`). 목록에 없는 tool은 `not_found` "tool is not available" 하나다. `grantAllows`는 쓰는 `tools/app-tools.ts` 안으로 옮겼다.

@@ -5,7 +5,7 @@
 - 단위: missing-tool-reasons (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
-  - `packages/core/lophn-agent/tools/app-api/missing.ts`
+  - app-api의 `missing.ts`(이 task가 지움)
   - `packages/core/lophn-agent/tools/work.ts`
   - `packages/core/lophn-agent/tools/wire.ts`
   - `packages/core/lophn-agent/tools/app-toolkit.ts`

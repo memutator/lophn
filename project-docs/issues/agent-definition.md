@@ -34,18 +34,3 @@ modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/protoco
 - 추천: 지운다. 필요해지면 그때 화면·승인과 같이 짠다.
 
 정할 것: Operator별 MCP server를 제품 기능으로 살릴지 지울지.
-
-## 목록에서 빠진 tool의 이유 구별(grant·release·거절)이 run-loop에서 닿지 않는다
-
-```yaml
-kind: defect
-modules: [packages/core/lophn-agent]
-```
-
-지금: `packages/core/lophn-agent/run-loop/tool-batch.ts`의 `one`은 목록에 없는 tool(`control.tools.info`가 없음)을 `not_found` "tool is not available"로 먼저 닫는다. 그래서 `packages/core/lophn-agent/tools/work.ts`의 `executeToolCall`이 받는 `missingReason`(prepare.ts가 `appApiMissingReason`으로 채움)과 `packages/core/lophn-agent/tools/app-api/missing.ts`의 `removed_from_release`·`removed_from_grant`·`denied`·`unknown_tool`, `packages/core/lophn-agent/tools/wire.ts`의 `MISSING_TOOL_MESSAGES`는 부를 길이 없다. `tests/e2e/operator_test.ts`의 `excluded` 행이 model이 받는 tool_result가 `not_found`임을 보였다.
-
-영향: session 도중 사람이 grant에서 앱 tool을 빼거나 release가 api를 없애도 agent는 "없는 tool"로만 듣고 이유를 모른다. 쓰이지 않는 이유 구별 코드와 문구가 남아 고칠 때 헷갈린다.
-
-고치려면:
-- (추천) 이유 구별을 지운다(`missing.ts`의 `appApiMissingReason`·`AppApiMissingState`, `missingReason` 인자, `MISSING_TOOL_MESSAGES`, `missingState`). 목록에 없는 tool은 `not_found` 하나다. `grantAllows`는 `app-tools.ts`가 쓰니 남긴다.
-- 또는 `tool-batch.ts`가 `not_found` 대신 `control.tools`에 이유를 물어 그 code로 닫는다. agent가 이유를 들어야 할 근거가 문서에 생기면 이쪽이다.

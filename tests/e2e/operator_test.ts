@@ -1,7 +1,7 @@
 // 세 질문(행을 더하는 task는 자기 행의 질문을 아래에 한 줄씩 더한다)
 // - contract: boundary `agent-tools`·`app-runtime`(앱 ∩ release 선언 ∩ agent grant만 tool이 되고 호출은 core를 지나 기록된다), `approvals`(사람이 뺀 것은 요청에 없고 묻기로 한 것은 결정 전에 실행되지 않는다).
 // - 현실적 회귀: grant를 풀 때 `excluded`가 무시되어 뺀 app-api가 요청에 남는 것, 할당하지 않은 앱이나 선언에 없는 app-api가 tool이 되는 것, "물음"인데 허락 전에 write가 실행되는 것, 사람이 답하는 동안 앱의 write 줄이 막히는 것.
-// - 왜 지금 test로 못 잡나: `app-tools`·`missing`의 unit은 grant와 선언의 조합 함수만 본다. 사람의 `agent_grants/set`이 저장되고, agent runtime child가 읽고, model 요청에 실리고, 호출이 core를 지나 앱 process에서 실행되는 왕복은 process를 건너야 보인다.
+// - 왜 지금 test로 못 잡나: `app-tools`의 unit은 grant와 선언의 조합 함수만 본다. 사람의 `agent_grants/set`이 저장되고, agent runtime child가 읽고, model 요청에 실리고, 호출이 core를 지나 앱 process에서 실행되는 왕복은 process를 건너야 보인다.
 // operator-grants 행(grant-added·no-grant·pm-creates-no-grant)의 세 질문:
 // - contract: boundary `run-loop`·`agent-tools`(tool 목록은 session을 시작할 때 고정하고 바뀐 것은 program이 쓴 고정 알림으로만 간다), `agents`·`approvals`(Operator 정의를 만드는 길은 grant를 주지 못하고 grant는 사람의 `agent_grants/set`뿐이다).
 // - 현실적 회귀: session 도중 grant가 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, notice에 앱이 쓴 글(tool 설명)이 들어가 같은 재료가 같은 bytes가 아니게 되는 것, grant 없는 Operator에 앱 tool이 보이는 것, `operator.create`에 grant 칸이 생겨 agent가 자기 권한을 넓히는 것.

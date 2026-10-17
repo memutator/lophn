@@ -2,6 +2,7 @@
 // Text size와 Density를 적용할 token이 design에 아직 없어 두 줄은 값만 저장한다.
 import type { MessageKey } from "@lophn/wording";
 
+import type { Theme, ThemeApi } from "../../../../../ipc/theme.ts";
 import type { AppearanceId, AppearanceValues } from "./source.ts";
 
 interface AppearanceOption {
@@ -79,11 +80,16 @@ export function valueOf(row: AppearanceRow, stored: unknown): string {
     : APPEARANCE_DEFAULTS[row.id];
 }
 
-/** Light·Dark는 data-theme에 쓰고 System은 지워 OS 설정을 따른다. */
+/**
+ * Light·Dark는 data-theme에 쓰고 System은 지워 OS 설정을 따른다. overlay 같은 다른 문서는
+ * data-theme이 없어 OS 설정만 보므로, 고른 theme을 main에도 알려 그쪽 prefers-color-scheme을 맞춘다.
+ */
 export function applyTheme(
   value: string,
   root: HTMLElement = document.documentElement,
 ): void {
-  if (value === "light" || value === "dark") root.dataset.theme = value;
-  else delete root.dataset.theme;
+  const theme: Theme = value === "light" || value === "dark" ? value : "system";
+  if (theme === "system") delete root.dataset.theme;
+  else root.dataset.theme = theme;
+  (globalThis as { lophnTheme?: ThemeApi }).lophnTheme?.set(theme);
 }

@@ -6,6 +6,7 @@ import {
   globalShortcut,
   Menu,
   nativeImage,
+  nativeTheme,
   protocol,
   shell,
   Tray,
@@ -21,6 +22,7 @@ import {
 } from "../../../ipc/folder-picker.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
+import { THEME_CHANNEL, THEMES } from "../../../ipc/theme.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import {
   type AutostartOs,
@@ -60,6 +62,7 @@ import {
   type TrayFactory,
   trayIconPath,
 } from "../tray.ts";
+import { checkCaller } from "../ipc-guard.ts";
 import { createWindowControl } from "../window-controls.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Coding } from "./coding.ts";
@@ -160,6 +163,17 @@ export function register(
       windowOf: (event) => ctx.shellWindowOf(event.sender),
     }),
   );
+
+  // 사람이 고른 theme. app 전체 prefers-color-scheme을 맞춰 overlay·보호 입력 창·앱 view도 따른다.
+  ipc.handle(THEME_CHANNEL, (event, input: unknown) => {
+    const caller = checkCaller(overlays.overlayRegistry(), event);
+    const theme = (input as { theme?: unknown } | null)?.theme;
+    if (
+      !caller.ok || caller.value.origin.host !== "desktop" ||
+      !THEMES.includes(theme as typeof THEMES[number])
+    ) return;
+    nativeTheme.themeSource = theme as typeof THEMES[number];
+  });
 
   // shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS browser로 연다.
   // headless 확인에서는 사람 화면에 browser를 띄우지 않는다.
@@ -316,6 +330,7 @@ export function register(
       ipc.removeHandler(FOLDER_PICK_CHANNEL);
       ipc.removeHandler(FILE_PICK_CHANNEL);
       ipc.removeHandler(WINDOW_CONTROL_CHANNEL);
+      ipc.removeHandler(THEME_CHANNEL);
       ipc.removeHandler(OPEN_EXTERNAL_CHANNEL);
       globalPalette?.dispose();
       ctx.tray.current?.destroy();

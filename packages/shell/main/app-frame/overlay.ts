@@ -3,6 +3,7 @@ import {
   fullBody,
   inside,
   interactive,
+  modal,
   overlayCloseSchema,
   type OverlayEvent,
   type OverlayIdentity,
@@ -139,12 +140,26 @@ export function createOverlay(options: OverlayOptions) {
     dragFrame.cancel();
     pendingId = undefined;
   }
+  // scrim 표면이 떠 있는지 바뀔 때만 shell renderer에 알린다. 상단 바가 scrim을 같이 받는다.
+  let modalOpen = false;
+  function announceModal() {
+    const open = [...surfaces.values()].some((surface) => modal(surface.kind));
+    if (open === modalOpen) return;
+    modalOpen = open;
+    if (!options.shell.isDestroyed()) {
+      options.shell.send(
+        "shell:overlay-result",
+        { type: "modal", open } satisfies OverlayEvent,
+      );
+    }
+  }
   function finish(
     surface: Surface,
     reason: OverlayOutcome["reason"],
     choiceId?: string,
   ) {
     surfaces.delete(surface.surfaceId);
+    announceModal();
     if (pendingId === surface.surfaceId) cancelDrag();
     if (surface.feedback !== undefined && reason !== "completed") {
       options.feedbackEnded?.(surface.feedback);
@@ -199,6 +214,7 @@ export function createOverlay(options: OverlayOptions) {
   function sync() {
     if (disposed || !available) return;
     resizeFrame.cancel();
+    announceModal();
     const state = snapshot();
     view.setBounds(state.bounds);
     view.setVisible(state.surfaces.length > 0);

@@ -143,11 +143,14 @@ export type OverlayQuery = OverlayIdentity & {
   type: "query";
   text: string;
 };
+/** scrim을 까는 표면(modal dialog·palette)이 떠 있는지. shell renderer가 상단 바를 같이 덮는다. */
+export type OverlayModal = { type: "modal"; open: boolean };
 export type OverlayEvent =
   | OverlaySnapshot
   | OverlayOutcome
   | OverlayDragUpdate
-  | OverlayQuery;
+  | OverlayQuery
+  | OverlayModal;
 export interface OverlayApi {
   open(input: OverlayOpen): Promise<OverlayReply<OverlayIdentity>>;
   close(input: OverlayIdentity): Promise<OverlayReply<null>>;
@@ -160,6 +163,10 @@ export interface OverlayApi {
 }
 export function interactive(kind: OverlayKind): boolean {
   return ["menu", "popover", "palette", "dialog", "sheet"].includes(kind);
+}
+/** backdrop(scrim)을 까는 표면. sheet는 backdrop이 없다. */
+export function modal(kind: OverlayKind): boolean {
+  return kind === "dialog" || kind === "palette";
 }
 export function fullBody(kind: OverlayKind): boolean {
   return ["dialog", "palette", "sheet", "drag", "notification"].includes(kind);

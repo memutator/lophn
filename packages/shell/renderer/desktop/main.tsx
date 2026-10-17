@@ -258,6 +258,22 @@ export function Desktop(
     });
   }, [appearance]);
 
+  // modal(dialog·palette)이 뜨면 scrim이 상단 바도 덮고 바는 끌기에서 빠진다. 스타일은 top-bar.module.css다.
+  useEffect(() => {
+    if (!overlay) return;
+    const root = document.documentElement;
+    const off = overlay.subscribe((event) => {
+      if ("type" in event && event.type === "modal") {
+        if (event.open) root.dataset.overlayModal = "";
+        else delete root.dataset.overlayModal;
+      }
+    }, () => {});
+    return () => {
+      off();
+      delete root.dataset.overlayModal;
+    };
+  }, [overlay]);
+
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);

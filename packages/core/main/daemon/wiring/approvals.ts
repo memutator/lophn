@@ -205,6 +205,7 @@ export const approvalsWiring: WiringFactory = () => {
       // runtime의 Gate 입구와 ask 기다림이다. 기다림은 여기 main thread 메모리에 있고 runtime은 결과만 받는다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const waits = createQuestionWaits({ bus, clock: ctx.clock, ids });
+      ctx.provide("questionWaits", waits);
       // turn이 끝나거나 session이 닫히면 기다리던 권한 물음과 질문을 cancelled로 푼다.
       // 사람이 기다리는 session에 메시지를 보내면 질문은 그 메시지로 풀린다.
       stopWatching = bus.subscribe([{

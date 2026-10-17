@@ -15,6 +15,7 @@ type Entry = {
   group: Id<"qgr">;
   session: string;
   turn: string;
+  toolCall: string;
   questions: AskInput["questions"];
   settle(result: AskResult): void;
 };
@@ -68,6 +69,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
           group,
           session: call.session,
           turn: call.turn,
+          toolCall: call.tool_call,
           questions,
           settle: resolve,
         });
@@ -91,6 +93,18 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
         return err({ code: "not_found", message: "the question is not open" });
       }
       return ok({ group: entry.group, questions: entry.questions });
+    },
+
+    // 그 session의 답 없는 질문. snapshot이 읽는다.
+    list(
+      session: string,
+    ): { group: Id<"qgr">; turn: Id<"trn">; tool_call: Id<"tcl"> }[] {
+      return [...entries.values()].filter((one) => one.session === session)
+        .map((one) => ({
+          group: one.group,
+          turn: one.turn as Id<"trn">,
+          tool_call: one.toolCall as Id<"tcl">,
+        }));
     },
 
     // 사람의 답. 질문 순서대로 하나씩이다.

@@ -1,6 +1,6 @@
 // session의 지금 상태, 대기 중인 권한 요청, 질문을 모아 내는 read. 화면이 붙거나 다시 붙을 때 읽는다.
 // 상태는 각 module이 내놓는 read와 함수에서 모으고(lophn-agent session·turn, coding session, approvals의 turn 안 request),
-// 질문은 메모리라 Bus의 QuestionAsked·QuestionResolved를 따라 적는다.
+// 질문은 approvals가 낸 메모리 기다림에서 읽는다.
 import { ok } from "../../../../base/mod.ts";
 import {
   type SessionSnapshot,
@@ -24,11 +24,8 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-type Question = SessionSnapshot["questions"][number];
-
 export const sessionSnapshotsWiring: WiringFactory = () => {
   let connection: LedgerConnection | undefined;
-  let unwatch: (() => void) | undefined;
   return {
     name: "session-snapshots",
     build(ctx) {
@@ -36,25 +33,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
       if (!opened.ok) return opened;
       connection = opened.value;
       const { sql } = opened.value;
-      // key는 group이다. 풀리면 지운다. 꺼졌다 켜지면 질문도 없다.
-      const asked = new Map<string, Question & { session: string }>();
-      unwatch = ctx.bus.subscribe([{
-        types: ["QuestionAsked", "QuestionResolved"],
-      }], {
-        send(event) {
-          if (!("session" in event)) return;
-          if (event.type === "QuestionAsked") {
-            asked.set(event.payload.group, {
-              session: event.session,
-              ...event.payload,
-            });
-          } else if (event.type === "QuestionResolved") {
-            asked.delete(event.payload.group);
-          }
-        },
-        close() {},
-      });
-
       const lookup = { sql };
       const snapshotsOf = (sessions: string[] | undefined) => {
         const snapshots: SessionSnapshot[] = [];
@@ -65,9 +43,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
           : sessions.flatMap((id) => loadSession(lookup, id) ?? []);
         for (const row of lophn) {
           const permission_requests = requests(row.id);
-          const questions = [...asked.values()].filter((one) =>
-            one.session === row.id
-          ).map(({ group, turn, tool_call }) => ({ group, turn, tool_call }));
+          const questions = ctx.questionWaits.list(row.id);
           snapshots.push({
             session: row.id,
             agent: agentRefOf(row),
@@ -116,9 +92,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             },
           ),
       });
-    },
-    closeIntake() {
-      unwatch?.();
     },
     closeWork() {
       connection?.close();

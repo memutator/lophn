@@ -61,6 +61,7 @@ import type { createSupervisor } from "../../../supervision/responsiveness/mod.t
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
+import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
@@ -226,6 +227,8 @@ type Late = {
   annotationDelivery: AnnotationDelivery;
   // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
   inbox: Inbox;
+  // approvals가 낸다. 답 없는 질문의 기다림(메모리).
+  questionWaits: ReturnType<typeof createQuestionWaits>;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -271,6 +274,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appRewind: true,
   annotationDelivery: true,
   inbox: true,
+  questionWaits: true,
 };
 
 export type WiringContext = {

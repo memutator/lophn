@@ -48,6 +48,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 같은 사실을 두 길로 알리지 않는다. coding session의 끝(완료 보고, claim 만료, 보고 없는 끝)은 domain event → Reactor 한 길로만 App Engineer에게 가고, 그 handler가 같은 tx에서 call을 닫는다.
   - Router의 실패 알림이 같은 사실을 한 번 더 보내면 App Engineer가 두 번 반응한다. 이미 끝난 call(취소, Router가 먼저 닫음)이면 알리지 않는다.
 - 입력함 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
+- 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다.
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.

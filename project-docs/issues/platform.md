@@ -2,21 +2,6 @@
 
 config, diagnostics, storage, server, supervision 같은 바닥 module. 이 주제의 architecture 문서는 없다.
 
-## daemon과 agent runtime의 crash가 diagnostic log에 안 남는다
-
-```yaml
-kind: bug
-modules: [packages/core/main, packages/core/diagnostics]
-```
-
-지금: diagnostic log 쓰기는 I/O worker(`main/worker/io.ts`의 `createSafeLog`, `createDiagnosticIngress`)가 받는다. 그런데 daemon(`main/daemon/main.ts`)에는 `unhandledrejection`/`error` listener가 없고, agent runtime(`main/agent-runtime/main.ts`)은 기동 실패와 `child.run()` 거절만 자기 stderr writer(`createDiagnosticWriter`)로 쓴다. 이 쪽 어디도 ingress로 `platform.diagnostics.write`를 보내지 않는다. 앱 supervisor(`main/app-supervisor/main.ts`)는 stderr에 한 줄 남기고, 앱 process(`apps/runtime/entrypoint/crash.ts`)는 자기 보고 경로가 있다. 옛 text의 `createDiagnosticHost`는 지금 코드에 없다.
-
-영향: daemon이나 agent runtime이 처리 못한 reject로 죽으면 원인이 터미널 stderr에만 남고 `diagnostics.list`에는 없다. 나중에 사람이 볼 수 없다.
-
-고치려면: daemon `main.ts`와 agent runtime `main.ts`에 `unhandledrejection`/`error` listener를 달고, 로그에 쓴 뒤 종료한다. 쓰기 길은 I/O worker의 ingress를 재사용한다(작음~중간. 권한(`DiagnosticAuthority`)과 종료 직전 flush 순서를 정해야 함). 추천.
-
-정한 것: log에 쓰다가 또 실패하면 stderr로만 둔다.
-
 ## Diagnostics 점검이 core·ledger 둘뿐이다
 
 ```yaml
@@ -46,3 +31,32 @@ modules: [packages/core/apps, packages/core/problems]
 고치려면:
 - 화면별 map을 따로 봉인하고 problems가 stack의 화면 bundle에 맞는 map을 읽는다(중간).
 - 합친 map에 index map(`sections`)을 쓴다(중간. 읽는 쪽이 sections를 풀어야 한다).
+
+## crash 기록의 기한 timer가 둘이고 redactor fallback이 있다
+
+```yaml
+kind: defect
+modules: [packages/core/diagnostics, packages/core/main]
+```
+
+지금: `main/daemon/wiring/diagnostics.ts`의 `diagnosticsWrite`가 응답을 2초 기다리는 timer를 두고(pending 표가 새지 않게), `diagnostics/crash.ts`의 `installCrashHandler`도 쓰기를 2초 기다리는 timer를 둔다. daemon의 crash handler는 `createProductRedactor(ctx.peek.knownSecrets)`를 쓰고, known secret이 아직 없으면 pattern만 쓰는 redactor로 한 번 더 감싼다. `diagnosticsWiring`은 `uninstallCrash` 닫힘 때문에 객체 literal에서 factory 본문으로 바뀌었다.
+
+영향: 같은 일을 하는 기한이 두 곳에 있어 한쪽만 고치면 어긋난다. fallback은 기동 초반 crash에만 쓰인다.
+
+고치려면:
+- timer를 `installCrashHandler` 하나로 줄이고 `diagnosticsWrite`는 응답이 없으면 pending을 닫힐 때 비운다(작음).
+- 그대로 둔다(둘 다 짧다).
+
+## 기동 중 crash와 supervisor·앱 process·shell main의 crash가 log에 안 남는다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/apps, packages/shell/main]
+```
+
+지금: `installCrashHandler`는 daemon의 diagnostics wiring `start` 뒤와 agent runtime의 `startAgentRuntime` 성공 뒤에만 걸린다. 그 앞의 crash는 stderr와 종료뿐이다. 앱 supervisor, 앱 process, shell main은 crash handler가 없다. agent runtime이 계속 죽으면 core가 다시 띄울 때마다 한 줄씩 쌓인다(재기동 제한 없음). agent runtime이 적은 `location`이 I/O worker catalog에 없으면 ingress가 버린다. stderr 원문은 기존 redaction 규칙(20자 미만 `sk-` 값 등)에 안 걸리는 값을 가리지 못한다.
+
+영향: 기동 실패와 앱 쪽 crash는 사람이 terminal을 보지 않으면 원인을 모른다.
+
+고치려면:
+- 필요해질 때 같은 `installCrashHandler`를 각 entry에 건다(작음, 곳마다).

@@ -77,6 +77,15 @@ components:
     change_reasons:
       boundaries: [agents, agent-roles, router]
 
+  - id: roadmap
+    kind: product
+    description: 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나.
+    path: project-docs/products/roadmap/
+    change_reasons:
+      boundaries: [lophn-agent, agent-tools, run-loop, agent-roles, agent-tool-spi]
+      paths: [tools/check-deps.ts]
+      note: 큰 일을 계획으로 열거나 버릴 때.
+
   # catalog
 
   - id: boundary-catalog

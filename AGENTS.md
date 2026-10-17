@@ -27,6 +27,7 @@
 | `project-docs/boundary-catalog.yaml` | 추상화 경계와 공개 계약의 ID |
 | `project-docs/module-catalog.yaml` | 코드 module ↔ boundary ID |
 | `project-docs/architecture/<topic>.md` | 여러 module에 걸친 메커니즘의 흐름, 불변 조건, 이유 |
+| `project-docs/products/roadmap/` | 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나 |
 | `project-docs/plan/` | 진행 중인 계획 |
 | `project-docs/issues/` | 열린 이슈: bug, defect(코드 결함, 무겁게 짠 것), mistake(worker의 큰 실수) |
 | `project-docs/products/change-log/` | 판마다 바뀐 동작·계약과 결정 |

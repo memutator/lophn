@@ -50,7 +50,7 @@ deno task wireframes     # tools/wireframes/dist/ 에 bundle (1초 안팎, dist�
 deno task check
 ```
 
-- 보기: `tools/wireframes/dist/index.html`을 browser로 연다. 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다.
+- 보기: bundle은 module script라 `file://`로 열면 빈 화면이다. `python3 -m http.server <port> -d tools/wireframes`로 띄우고 `http://localhost:<port>/dist/index.html`을 연다(dist를 root로 띄우면 다시 build할 때 폴더가 지워져 server가 빈다). 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다. headless Chrome의 `--screenshot`으로 같은 주소를 찍어 볼 수 있다.
 - 실제 앱에서 보기: `deno task dev:mock` (core 없이 메모리 fake data, renderer를 먼저 build한다).
 - `deno task check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `deno check`가 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), wording, kit.
 - step `kit`(`tools/check-kit.ts`)이 kit 동기화를 본다. (1) `tools/wireframes`의 CSS는 `drafts/` 안과 `gallery.module.css`, `pages/kit/kit.module.css`에만 있다. (2) 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component)마다 `pages/kit/` 아래에 한 번은 나온다. (3) design의 `.tsx`는 분류 폴더(8개와 `_shared`) 안에만 있고, 값을 내보내는 `export { … } from` 문마다 윗줄에 `//` 한 줄 문서가 있다. design에 component를 더하면 그 분류 kit page에 견본을 같이 더한다.
@@ -72,4 +72,8 @@ gallery가 이미 renderer component를 그리므로 따로 옮기는 단계는 
 - Radix modal은 열리면 page 전체를 inert로 만든다. 디자인 시스템 page에서는 modal 견본을 같이 열어 두지 말고 따로 둔다(`pages/kit/overlay`는 단추로 연다).
 - dialog와 menu는 portal로 열리므로 drive에서 `global`로 document 전체에서 찾는다.
 - 앱 view(사용자 앱이 그리는 부분)는 main의 native view라 gallery에 없다. 자리에 고정 그림(`mock/app-space/orders-view.tsx`, CSS는 `drafts/app-space/`)을 넣는다.
+- gallery는 Electron이 아니라서 맞게 보여도 앱에서 깨지는 것이 있다. 이것들은 `deno task dev:mock`으로 본다.
+  - shell CSP(`style-src 'self'`)는 HTML 글에서 읽은 `style` 속성을 막는다. SVG markup을 문자열로 넣을 때 색을 `style`에 두면 앱에서만 사라진다(파일 아이콘이 안 보인 일이 있다). data 속성과 module CSS로 칠한다. React `style` prop과 `el.style`(CSSOM)은 된다.
+  - 위쪽 바는 창 끌기 영역이고 `-webkit-app-region`은 자식에게 이어진다. 바 안에서 absolute로 내려오는 panel은 `no-drag`를 주지 않으면 클릭과 scroll이 창 끌기로 먹힌다.
+  - 팔레트와 dialog는 overlay라는 다른 문서다. desktop 창의 `data-theme`이 닿지 않고, top bar는 overlay 밖이라 scrim이 덮지 않는다(`chrome.css`의 `data-overlay-modal` 띠가 덮는다).
 - 모양이 6장 규칙과 부딪히면 임의로 정하지 말고 사람에게 묻는다.

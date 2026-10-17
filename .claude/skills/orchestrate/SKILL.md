@@ -110,6 +110,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - worktree 안 `.dev-data`에는 쓰기 금지 file(deno cache, core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `deno task dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
 - `deno task dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
 - check:full이 못 보는 것: renderer build(`deno run -A packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
+- 계획 폴더 없이 worker 여럿을 돌릴 때도 모양은 같다: branch 하나에 합치고 main에는 사람이 확인한 뒤 올린다. 첫 worker를 main으로 바로 올렸다가 사람이 바로잡은 일이 있다.
+- Agent tool의 `isolation: worktree`는 plan branch에서 갈라지지 않는다(main 쪽 옛 commit에서 시작한 일이 있다). launch.sh가 만든 worktree를 쓰고, 그렇게 못 했으면 worker가 먼저 `git reset --hard <합칠 branch>`를 하게 한다.
 - worker가 자주 한 실수(보고를 diff와 대조하는 이유):
   - `*.placeholders.ts`를 손으로 고치다 괄호를 깨뜨린 채 commit했다. generate로 만든다.
   - template literal로 만드는 wording key(`` `common.label.tab-${dot}` ``)를 "쓰는 곳 없음"으로 보고 지웠다.

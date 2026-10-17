@@ -55,6 +55,7 @@ html[data-theme="dark"] { dark 값 }
 
 - 선택자에 `html`을 붙여 `tokens.css`의 같은 규칙보다 우선순위가 한 칸 높다. 문서 안 stylesheet의 순서와 상관없이 이긴다.
 - desktop 창은 `data-theme`으로, overlay·보호 입력 창·앱 view는 `data-theme`이 없어 `prefers-color-scheme`으로 theme을 따른다. main이 `nativeTheme.themeSource`를 맞춰 그 문서들이 같은 theme이 된다.
+- xterm 터미널은 색을 CSS가 아니라 option으로 받는다. `terminal/xterm-view.ts`가 surface·text·selection token을 쓰는 숨은 요소의 transition으로 값이 바뀐 것을 알고 색(바탕, 글자, 선택, ANSI `terminal.*`)을 다시 읽는다. 숨은 탭에서는 transition이 돌지 않아 탭을 보일 때(fit) 다시 읽는다.
 
 ## 사용자 앱에 닿는 길
 

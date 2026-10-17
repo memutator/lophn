@@ -15,7 +15,7 @@ modules: [packages/core/main, packages/core/diagnostics]
 
 고치려면: daemon `main.ts`와 agent runtime `main.ts`에 `unhandledrejection`/`error` listener를 달고, 로그에 쓴 뒤 종료한다. 쓰기 길은 I/O worker의 ingress를 재사용한다(작음~중간. 권한(`DiagnosticAuthority`)과 종료 직전 flush 순서를 정해야 함). 추천.
 
-정할 것: crash를 log에 쓰다가 또 실패하면 stderr로만 두어도 되는지.
+정한 것: log에 쓰다가 또 실패하면 stderr로만 둔다.
 
 ## Diagnostics 점검이 core·ledger 둘뿐이다
 
@@ -30,4 +30,4 @@ modules: [packages/core/diagnostics, packages/core/main]
 
 고치려면: 각 owner wiring(`events.ts`, `apps.ts`, `supervision.ts`, `lophn-agent-runtime.ts`)이 `ctx.componentChecks.push`로 자기 점검을 더한다. component마다 작음. 점검이 무엇을 보는지(살아 있음, 마지막 응답 시각) 정하는 쪽이 일이다. 추천.
 
-정할 것: 어떤 component를 점검 대상에 넣을지(MVP는 events와 agent runtime만으로 충분한지).
+정한 것: events와 agent runtime 점검만 더한다.

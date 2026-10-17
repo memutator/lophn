@@ -19,7 +19,7 @@ modules: [packages/core/lophn-agent, packages/core/projects, tools]
 
 고치려면: check로 막는다. 표마다 주인 module을 정하고(ledger schema step이 있는 module), 주인이 아닌 module의 SQL 문자열에 그 표 이름이 나오면 실패시킨다. 비용은 표 이름 목록을 schema에서 뽑는 일이다.
 
-정할 것: check를 만들지, 다시 생길 때까지 문장으로 둘지.
+정한 것: 지금은 check를 만들지 않는다. 다시 생기면 check로 막는다. harness와 domain을 나누는 계획의 brief에 "import를 지우려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 check-deps 예외로 드러낸다"를 넣는다.
 
 ## 새로 쓴 문서와 주석이 지운 파일을 가리킴
 

@@ -77,21 +77,6 @@ modules: [packages/core/projects, packages/protocol]
 
 정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
 
-## 위반 키 집합 비교용 표 `context_violation_keys`
-
-```yaml
-kind: defect
-modules: [packages/core/projects]
-```
-
-지금: `ledger/rows-violations.ts`가 context마다 JSON 한 행에 위반 키 `[kind, rule, path, section]` 배열을 둔다. `api/commands-violations.ts`의 `recordViolations`가 이전에 없던 키가 생길 때만 `ContextViolationFound`를 낸다. 같은 위반으로 PM을 반복해서 깨우지 않으려는 규칙이다.
-
-영향: 표 하나와 load·save 코드가 늘었다. 이 표가 없으면 위반 하나를 고치고 다른 하나가 생긴 경우를 개수만으로는 못 가린다.
-
-고치려면: 위반 수가 늘 때만 event를 내고 새 표를 뺀다(`violation_mark` 열만 사용, 작음). 그러면 "하나 고치고 하나 새로 생김"에는 event가 안 난다.
-
-정할 것: 그 경우 PM을 깨워야 하는지. 깨워야 하면 표를 남긴다(추천).
-
 ## `bundle.test_draft`가 worker 유무에 따라 다르게 돈다
 
 ```yaml

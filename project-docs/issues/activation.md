@@ -19,7 +19,7 @@ modules: [packages/core/problems, packages/core/apps]
 - 호출이 `invalid_input`/`not_found`로 거절되면 fail 대신 not_applicable로 둔다(작음. 그러나 rewind를 증명 못 한 채 통과).
 추천: 막힌 앱이 생길 때까지 둔다.
 
-정할 것: 막히면 fixture를 앱이 주게 할지, 검사를 약하게 할지.
+정한 것: 실제로 막히는 앱이 나올 때까지 둔다.
 
 ## activation 요청 읽기(`approval-reads.ts`)가 approvals의 내부 파일을 직접 읽는다
 
@@ -33,24 +33,6 @@ modules: [packages/core/main, packages/core/approvals, packages/core/apps]
 영향: approvals의 표 모양이나 `rows.ts`를 바꾸면 activation이 조용히 깨진다. 다른 module의 표를 건너 읽는 경계 위반이고 연결도 호출마다 새로 연다.
 
 고치려면: approvals가 `request(id)`, `pending()` 읽기를 공개 API로 내놓고(`ApprovalsService` 또는 reader), wiring은 그걸 끼운다. `approval-reads.ts`는 지운다. 작음. 추천.
-
-## npm·jsr 의존을 준비 때 받아 bundle에 통째로 담는다
-
-```yaml
-kind: defect
-modules: [packages/core/apps]
-```
-
-지금: release 준비(`releases/prepare/from-source.ts` `fetchExternal`)가 잠근 `npm:`/`jsr:` 값을 `deno cache`로 받아 `vendor/`, `node_modules/`를 만들고, `bundle/vendor.ts` `readVendorFiles`가 symlink를 풀어 전부 읽어 bundle에 담는다(`prepare/flow.ts` `vendorCopies`). `bundle/read.ts`는 `vendor/`, `node_modules/`를 생성 폴더(예약)로 거절한다. 운영 앱이 network 없이 뜨게 하려는 것이다.
-
-영향: bundle 크기와 hash 계산이 의존 크기만큼 커지고, 준비가 network와 `deno cache`에 걸린다. 이 경로 전체(vendor.ts, fetchExternal, 예약 거절, `dependencies` 검사)가 유지 비용이다.
-
-고치려면:
-- MVP는 npm·jsr 의존을 막고 sdk와 `@me`만 허용한다. 위 경로를 지운다(중간, 앱이 라이브러리를 못 씀).
-- 그대로 둔다(0).
-추천: 막는다.
-
-정할 것: MVP 앱이 npm·jsr 라이브러리를 써야 하나.
 
 ## 앱별 activation 줄(메모리)과 30초 재시도
 

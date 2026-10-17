@@ -18,7 +18,7 @@ modules: [packages/core/router, packages/core/main]
 - B. 표시를 포기하고 STATES에서 lophn session의 waiting을 뺀다. 코드 한 줄.
 - 추천: B. 보내는 쪽은 running이든 waiting이든 다음 turn 입력으로 같은 곳에 들어간다. 구별이 필요해지면 A.
 
-정할 것: 목록에서 waiting 구별이 필요한가.
+정한 것: lophn session의 waiting 구별을 포기한다(B).
 
 ## Router·command·read를 요청마다 만들고 `RouterEnvironment`를 전역에 놓는다
 
@@ -46,7 +46,7 @@ modules: [packages/core/router]
 
 고치려면: 모든 보낸 쪽에 오류 code 하나(`failureCode`)로 돌려주고 agent는 입력 통지만 둔다. 계약이 바뀌어 `RouteResult`를 쓰는 곳(tool, Reactor, coding CLI)을 같이 고친다. 비용 중간. 추천: agent의 이중 통지만 먼저 정리하고 나머지는 보낸 쪽이 늘 때 한다.
 
-정할 것: 실패를 오류 code로 통일하는 계약 변경을 지금 할지.
+정한 것: agent가 같은 실패를 두 번 받는 것만 지금 고친다. 꼴 통일은 보낸 쪽이 늘 때 한다.
 
 ## 본문과 고정 문구를 writer 앞 처리기에서 blob으로 미리 준비한다
 

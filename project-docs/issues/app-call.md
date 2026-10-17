@@ -19,4 +19,4 @@ modules: [packages/core/apps, packages/core/supervision, packages/protocol]
 - `CHANGESET_MAX_BYTES`를 frame에 맞춰 낮춘다(작음. 위 첫 안과 같이 가야 앱이 알 수 있음).
 추천: 첫 안으로 막힘을 표시로 바꾸고, 큰 write가 실제로 나오면 둘째 안으로 간다. rewind 적용 쪽(`APPLY_BODY_MAX_BYTES` 64MiB)이 control frame을 지나는지도 같이 확인한다.
 
-정할 것: 190KiB 넘는 write를 되돌릴 수 있어야 하나, 표시로 충분한가.
+정한 것: frame에 안 들어가는 changeset은 앱이 빼고 too_large로 알린다. core는 그 write만 "되돌리지 못함"으로 표시하고 나머지 rewind는 막지 않는다.

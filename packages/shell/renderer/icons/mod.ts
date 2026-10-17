@@ -4,6 +4,7 @@ export {
   connectionFailedIcon,
   connectionStaleIcon,
   launcherEmptyIcon,
+  notificationsIcon,
   retryIcon,
   settingsEntryIcon,
   windowCloseIcon,

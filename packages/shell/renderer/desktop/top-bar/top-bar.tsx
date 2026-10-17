@@ -45,8 +45,6 @@ export function SettingsEntry({ onSettings }: { onSettings: () => void }) {
       <IconButton
         icon={settingsEntryIcon}
         label={label}
-        variant="secondary"
-        size="md"
         data-entry="settings"
         onClick={() => onSettings()}
       />

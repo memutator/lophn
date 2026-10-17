@@ -91,9 +91,6 @@ export type DataPlaceholders = {
   "waiting.label.loss-narrow-type": Record<never, never>;
   "waiting.label.panel": Record<never, never>;
   "waiting.label.panel-scope": Record<never, never>;
-  "waiting.label.pill": {
-    count: "number";
-  };
   "waiting.label.place-app": {
     id: "string";
   };
@@ -123,6 +120,9 @@ export type DataPlaceholders = {
   "waiting.label.target-mcp-tool": {
     server: "string";
     tool: "string";
+  };
+  "waiting.label.trigger": {
+    count: "plural";
   };
   "waiting.notice.activation-fine": Record<never, never>;
   "waiting.notice.activation-first": {

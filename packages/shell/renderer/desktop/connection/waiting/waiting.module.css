@@ -1,6 +1,6 @@
-/* 대기 목록: 창 위 pill, 펼친 panel, 요청 카드. 같은 token만 쓴다. */
+/* 대기 목록: 창 위 알림 단추, 펼친 panel, 요청 카드. 같은 token만 쓴다. */
 
-/* 창 위쪽 바 안에 놓는 층. pill은 바 안에 있고 panel은 pill 바로 아래(바 아래)에서 열린다. layout을 차지하지 않는다. */
+/* 창 위쪽 바 안에 놓는 층. 단추는 바 안에 있고 panel은 단추 바로 아래(바 아래)에서 열린다. layout을 차지하지 않는다. */
 .layer {
   position: relative;
   display: flex;
@@ -15,34 +15,23 @@
   z-index: var(--z-popover);
 }
 
-.pill {
+/* 알림 단추 오른쪽 위의 개수. 단추를 가리지 않게 클릭은 통과시킨다. */
+.badge {
+  position: absolute;
+  top: var(--space-0);
+  right: var(--space-0);
   box-sizing: border-box;
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-sm-height);
-  padding: var(--space-0) var(--space-4);
-  border: var(--border-width) solid var(--color-border-strong);
+  min-width: var(--space-6);
+  padding: var(--space-0) var(--space-1);
   border-radius: var(--radius-full);
-  background: var(--color-surface-base);
-  color: var(--color-text-primary);
+  background: var(--color-ink-background);
+  color: var(--color-ink-text);
   font-family: var(--font-sans);
   font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.pill:hover,
-.pill[aria-expanded="true"] {
-  background: var(--color-surface-subtle);
-}
-
-.pill:focus-visible {
-  outline: var(--border-focus-width) solid var(--color-focus);
-  outline-offset: var(--border-focus-offset);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--space-6);
+  text-align: center;
+  pointer-events: none;
 }
 
 .panel {

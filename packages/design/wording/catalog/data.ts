@@ -80,9 +80,8 @@ export const data = {
   "waiting.label.loss-drop-table": "Drops table",
   "waiting.label.loss-heading": "Data loss",
   "waiting.label.loss-narrow-type": "Narrows type",
-  "waiting.label.panel": "Waiting",
+  "waiting.label.panel": "Notifications",
   "waiting.label.panel-scope": "All sessions",
-  "waiting.label.pill": "{count, number} waiting",
   "waiting.label.place-app": "App {id}",
   "waiting.label.place-project": "Project {id}",
   "waiting.label.reason": "Reason (optional)",
@@ -101,6 +100,8 @@ export const data = {
   "waiting.label.show-details": "Show details",
   "waiting.label.target-app-api": "{app} › {api}",
   "waiting.label.target-mcp-tool": "{server} › {tool}",
+  "waiting.label.trigger":
+    "{count, plural, =0 {Notifications} one {# notification} other {# notifications}}",
   "waiting.notice.activation-fine":
     "Only added declarations and data-loss steps are shown.",
   "waiting.notice.activation-first":
@@ -116,7 +117,7 @@ export const data = {
   "waiting.notice.coding":
     "A coding agent is waiting for your answer in its terminal tab.",
   "waiting.notice.decide-failed": "Couldn't send your answer. Try again.",
-  "waiting.notice.empty": "Nothing is waiting for you.",
+  "waiting.notice.empty": "No notifications.",
   "waiting.notice.mcp-tool": "Uses {target}, a tool on an outside server.",
   "waiting.notice.question-in-session":
     "This question needs your answer in the session.",

@@ -1,7 +1,10 @@
-// 위쪽 바 안의 pill과 그 아래로 열리는 panel. 위쪽 바의 오른쪽 slot에 꽂는다. 호스트(project 창, 앱 공간, 런처)는
-// callback만 준다.
+// 위쪽 바 안의 알림 단추와 그 아래로 열리는 panel. 위쪽 바의 오른쪽 slot에 꽂는다. 호스트(project 창, 앱 공간,
+// 런처)는 callback만 준다.
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { t } from "@lophn/wording";
+import { IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
+import { notificationsIcon } from "../../../icons/mod.ts";
 import { useWaiting } from "../events/hooks.tsx";
 import { createValueStore } from "../events/store.ts";
 import type { SettledRow } from "./settled.ts";
@@ -49,20 +52,21 @@ export function WaitingLayer(
     if (wasOpen.current && !open) clear();
     wasOpen.current = open;
   }, [open, clear]);
+  const label = t("waiting.label.trigger", { count });
 
   return (
     <div className={styles.layer}>
-      {count > 0 || open
-        ? (
-          <button
-            type="button"
-            className={styles.pill}
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-          >
-            {t("waiting.label.pill", { count })}
-          </button>
-        )
+      <Tooltip content={label}>
+        <IconButton
+          icon={notificationsIcon}
+          label={label}
+          aria-expanded={open}
+          data-waiting-trigger=""
+          onClick={() => setOpen(!open)}
+        />
+      </Tooltip>
+      {count > 0
+        ? <span className={styles.badge} aria-hidden>{count}</span>
         : null}
       {open
         ? (

@@ -1,6 +1,7 @@
 // 데스크톱 shell 크롬(상단 바·런처·연결 화면)이 쓰는 Lucide 아이콘. 화면이 lucide를 직접 들이지 않도록
 // 이 묶음이 고른다.
 import {
+  Bell,
   CircleX,
   CloudOff,
   Copy,
@@ -13,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 
+/** 상단 바 오른쪽의 알림(대기 목록) 단추. */
+export const notificationsIcon: LucideIcon = Bell;
 /** 런처와 작업대 바 오른쪽의 Settings 진입점. */
 export const settingsEntryIcon: LucideIcon = Settings;
 /** 연결 실패·단절에서 다시 시도·다시 연결. */

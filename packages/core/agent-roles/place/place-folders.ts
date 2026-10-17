@@ -1,0 +1,78 @@
+import type { Role } from "../../../protocol/lophn-agent/mod.ts";
+
+export type PlaceFacts = {
+  role: Role;
+  place: { kind: "project" | "app"; id: string } | null;
+  // place가 project일 때 그 project의 등록 폴더(position 순)
+  projectFolders: readonly string[];
+  // 그 project의 열린 초안 폴더
+  draftFolders: readonly string[];
+  // place가 app일 때 앱 source 폴더. 없으면 null
+  appSource: string | null;
+  // active project 전체 폴더. lophn만 쓴다
+  allProjectFolders: readonly string[];
+};
+
+export type FolderScope = { read: string[]; write: string[] };
+
+// 어떤 role이 어떤 폴더를 읽고 쓰는가의 규칙 하나. file tool scope(place-data)와 rewind, runtime 권한이 모두 이것을 쓴다.
+export function placeScope(facts: PlaceFacts): FolderScope {
+  const { role, place } = facts;
+  if (role === "lophn") {
+    return { read: [...facts.allProjectFolders], write: [] };
+  }
+  if (place?.kind === "project") {
+    // 초안 폴더는 PM만 연다.
+    if (role === "project_manager") {
+      const folders = [...facts.projectFolders, ...facts.draftFolders];
+      return { read: folders, write: [...folders] };
+    }
+    if (role === "operator") {
+      return {
+        read: [...facts.projectFolders],
+        write: [...facts.projectFolders],
+      };
+    }
+  } else if (place?.kind === "app" && facts.appSource !== null) {
+    if (role === "app_engineer") {
+      return { read: [facts.appSource], write: [facts.appSource] };
+    }
+    if (role === "operator") return { read: [facts.appSource], write: [] };
+  }
+  return { read: [], write: [] };
+}
+
+// agent runtime child의 Deno 권한용 합. 초안 폴더는 turn 중에 열려 목록이 정해지지 않아 draftRoot째 쓰기를 연다.
+export function runtimeFolders(input: {
+  draftRoot: string;
+  projectFolders: readonly string[];
+  appSources: readonly string[];
+}): FolderScope {
+  const base = {
+    role: "operator" as const,
+    draftFolders: [],
+    allProjectFolders: [],
+  };
+  const folders = new Set(
+    placeScope({
+      ...base,
+      place: { kind: "project", id: "" },
+      projectFolders: input.projectFolders,
+      appSource: null,
+    }).write,
+  );
+  for (const source of input.appSources) {
+    const scope = placeScope({
+      ...base,
+      role: "app_engineer",
+      place: { kind: "app", id: "" },
+      projectFolders: [],
+      appSource: source,
+    });
+    for (const path of scope.write) folders.add(path);
+  }
+  return {
+    read: [...folders],
+    write: [...new Set([...folders, input.draftRoot])],
+  };
+}

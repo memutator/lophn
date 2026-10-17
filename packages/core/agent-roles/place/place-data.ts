@@ -25,11 +25,10 @@ import {
   type PlaceProject,
   visibleContexts,
 } from "./place-info.ts";
+import { placeScope } from "./place-folders.ts";
 
 // prompt의 place 정보 재료를 turn의 agent 자격으로 core 읽기에서 모은다. turn마다 한 번 읽는다.
-// file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다: lophn은 모든 project 폴더를 읽기만 하고, Project
-// Manager와 project place의 Operator는 그 project 폴더를, App Engineer는 앱 source 폴더를 읽고 쓴다.
-// 앱 place의 Operator는 앱 source 폴더를 읽기만 한다.
+// file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다. 읽은 값만 모아 place-folders의 규칙(placeScope)에 넘긴다.
 
 type PlaceRead = {
   place: PlaceData;
@@ -114,16 +113,6 @@ function placeProject(project: ProjectRecord): PlaceProject {
   };
 }
 
-// 앱 source 폴더의 file 범위. 쓰기는 App Engineer만 갖는다.
-export function appSourceScope(
-  role: Role,
-  source: string,
-): { read: string[]; write: string[] } {
-  const read = role === "app_engineer" || role === "operator" ? [source] : [];
-  const write = role === "app_engineer" ? [source] : [];
-  return { read, write };
-}
-
 async function readPlaceData(
   call: CoreCall,
   agent: ResolvedAgent,
@@ -142,24 +131,25 @@ async function readPlaceData(
   let project: PlaceProject | null = null;
   let app: PlaceData["app"] = null;
   let release: PlaceData["release"] = null;
-  const scope: PlaceRead["scope"] = { read: [], write: [] };
+  let projectFolders: string[] = [];
+  let draftFolders: string[] = [];
+  let appSource: string | null = null;
+  const allProjectFolders: string[] = [];
 
   if (place?.kind === "project") {
     const read = await projectOf(place.id);
     if (!read.ok) return read;
     project = placeProject(read.value);
-    const folders = read.value.folders.map((f) => f.path);
-    // Project Manager는 열어 둔 초안 폴더에 file tool로 쓴다.
+    projectFolders = read.value.folders.map((f) => f.path);
     if (role === "project_manager") {
-      folders.push(...await openDraftFolders(call, place.id));
+      draftFolders = await openDraftFolders(call, place.id);
     }
-    scope.read.push(...folders);
-    scope.write.push(...folders);
   } else if (place?.kind === "app") {
     const read = await readOf(call, appGet, { app: place.id });
     if (!read.ok) return read;
     const found = read.value.app;
     const source = found.source_path;
+    appSource = source;
     app = {
       id: found.id,
       name: found.name,
@@ -167,11 +157,6 @@ async function readPlaceData(
       source,
       blueprint: source === null ? "blueprint.ts" : `${source}/blueprint.ts`,
     };
-    if (source !== null) {
-      const { read: r, write: w } = appSourceScope(role, source);
-      scope.read.push(...r);
-      scope.write.push(...w);
-    }
     if (role === "app_engineer" && found.active_release !== null) {
       const apis = await readOf(call, appAppApi, { app: place.id });
       if (apis.ok) {
@@ -203,7 +188,7 @@ async function readPlaceData(
     for (const record of listed.value) {
       projects.set(record.id, record);
       projectList.push({ name: record.name, purpose: record.purpose });
-      scope.read.push(...record.folders.map((f) => f.path));
+      allProjectFolders.push(...record.folders.map((f) => f.path));
     }
     const apps = await pages(async (cursor) => {
       const read = await readOf(call, appList, {
@@ -296,6 +281,14 @@ async function readPlaceData(
     }
   }
 
+  const scope = placeScope({
+    role,
+    place,
+    projectFolders,
+    draftFolders,
+    appSource,
+    allProjectFolders,
+  });
   return ok({
     place: {
       self: { role, name: agent.name },

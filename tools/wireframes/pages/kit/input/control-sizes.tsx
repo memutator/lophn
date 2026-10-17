@@ -3,7 +3,6 @@ import { Search } from "lucide-react";
 import { Checkbox, Field, Input, Select, Switch } from "@lophn/ui/input";
 import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import type { ControlSize } from "@lophn/ui/shared";
-import styles from "./control-sizes.module.css";
 
 const SIZES: readonly ControlSize[] = ["sm", "md", "lg"];
 
@@ -21,9 +20,24 @@ const TEXT = {
 
 export function ControlSizes() {
   return (
-    <div className={styles.rows}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-8)",
+      }}
+    >
       {SIZES.map((size) => (
-        <div key={size} data-row={size} className={styles.row}>
+        <div
+          key={size}
+          data-row={size}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+            gap: "var(--space-5)",
+          }}
+        >
           <Button variant="primary" size={size}>{TEXT.save}</Button>
           <IconButton icon={Search} label={TEXT.search} size={size} />
           <Field label={TEXT.name}>

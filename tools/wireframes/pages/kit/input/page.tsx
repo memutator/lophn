@@ -1,7 +1,9 @@
 // Kit · input. @lophn/ui/input의 component와 예제(control-sizes, orders-filters).
+import { useContext } from "react";
 import {
   Checkbox,
   Field,
+  FieldContext,
   Input,
   Select,
   Switch,
@@ -13,6 +15,18 @@ import { OrdersFilters } from "./orders-filters.tsx";
 import { Example, kit, Page, Section } from "../kit.tsx";
 
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
+
+// Field가 넘기는 id·오류 상태를 FieldContext로 읽어 보이는 최소 입력.
+function ContextReader() {
+  const field = useContext(FieldContext);
+  if (field === null) return null;
+  return (
+    <>
+      <input id={field.id} aria-invalid={field.invalid} />
+      <span className={kit.mono}>invalid: {String(field.invalid)}</span>
+    </>
+  );
+}
 
 export function KitInput() {
   const options = [
@@ -60,6 +74,16 @@ export function KitInput() {
               </Field>
             </div>
             <div className={kit.field}>
+              <Field label="Purpose" error="Write at least one sentence.">
+                <Textarea rows={2} />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Notes">
+                <Textarea rows={2} defaultValue="Locked." disabled />
+              </Field>
+            </div>
+            <div className={kit.field}>
               <Field label="Repeat">
                 <Select options={options} defaultValue="weekly" />
               </Field>
@@ -91,6 +115,19 @@ export function KitInput() {
             <Switch label="Disabled, on" defaultChecked disabled />
             <Switch label="Disabled" disabled />
           </div>
+        </div>
+      </Section>
+      <Section
+        title="FieldContext"
+        note="Field가 자식에게 id와 오류 상태를 넘긴다. 새 입력 control이 이 context를 읽는다."
+      >
+        <div className={kit.colTwo}>
+          <Field label="Context, valid" help="id를 label과 잇는다.">
+            <ContextReader />
+          </Field>
+          <Field label="Context, invalid" error="invalid가 true가 된다.">
+            <ContextReader />
+          </Field>
         </div>
       </Section>
       <Section

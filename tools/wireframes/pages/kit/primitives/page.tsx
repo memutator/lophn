@@ -1,5 +1,13 @@
 // Kit · primitives. @lophn/ui/primitives의 component를 고정 data로 그린다.
-import { Button, CopyButton, IconButton, Kbd } from "@lophn/ui/primitives";
+import { Folder, Search, Settings } from "lucide-react";
+import {
+  Button,
+  CopyButton,
+  FileIcon,
+  Icon,
+  IconButton,
+  Kbd,
+} from "@lophn/ui/primitives";
 import {
   lophnSpaceIcons,
   workspaceIcons,
@@ -57,6 +65,51 @@ export function KitPrimitives() {
             />
           </Row>
         ))}
+      </Section>
+      <Section
+        title="Icon"
+        note="Lucide 아이콘을 선 두께 token에 맞춰 그린다. pixels만 바꾼다."
+      >
+        <Row label="pixels">
+          {[14, 16, 20, 24].map((pixels) => (
+            <Icon key={pixels} icon={Search} pixels={pixels} />
+          ))}
+          <Icon icon={Settings} pixels={20} />
+          <Icon icon={Folder} pixels={20} />
+        </Row>
+      </Section>
+      <Section
+        title="FileIcon"
+        note="파일 이름의 확장자나 폴더 이름으로 종류를 고른다. 모르는 이름은 기본 파일·폴더다."
+      >
+        <Row label="files">
+          {[
+            "lophn.md",
+            "report.md",
+            "app.tsx",
+            "data.json",
+            "plan.yaml",
+            "x.py",
+            "chart.png",
+            "unknown.zzz",
+          ].map((
+            name,
+          ) => (
+            <span key={name} className={kit.mono}>
+              <FileIcon name={name} size={20} /> {name}
+            </span>
+          ))}
+        </Row>
+        <Row label="folders">
+          {["docs", "src", "other"].map((name) => (
+            <span key={name} className={kit.mono}>
+              <FileIcon name={name} folder size={20} /> {name}
+            </span>
+          ))}
+          <span className={kit.mono}>
+            <FileIcon name="docs" folder open size={20} /> docs (open)
+          </span>
+        </Row>
       </Section>
       <Section title="Kbd">
         <Row label="keys">

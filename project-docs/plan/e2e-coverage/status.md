@@ -16,6 +16,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `call-gate` | call-gate | 2 | 없음 | todo |  |  |  |
 | `compact` | compact | 2 | 없음 | todo |  |  |  |
 | `file-write-rows` | file-write-rows | 2 | 없음 | todo |  |  |  |
+| `oauth-issuer` | oauth | 2 | 없음 | todo |  |  |  |
 | `pm-context` | pm-context | 2 | reply-fn | todo |  |  |  |
 | `pm-tools` | pm-tools | 2 | 없음 | todo |  |  |  |
 | `prompt-blocked` | prompt-blocked | 2 | 없음 | todo |  |  |  |
@@ -42,6 +43,8 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | todo |  |  |  |
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | todo |  |  |  |
+| `oauth-login` | oauth | 3 | oauth-issuer | todo |  |  |  |
+| `oauth-token` | oauth | 3 | oauth-login | todo |  |  |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | todo |  |  |  |
 | `operator-grants` | operator | 3 | operator-app-api | todo |  |  |  |
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |

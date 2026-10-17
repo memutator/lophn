@@ -45,6 +45,9 @@
     - `app-activation-fail`: activation이 실패하면 앱 data가 그대로임.
   - agent 사이 call (wave 3, `reply-fn`의 session별 줄 세우기)
     - `agent-call`: A가 B를 부르고 결과가 A로 옴, B가 끝나면 A가 실패를 받음, core 재시작 때 받은 call이 `lophn_restarted`로 닫힘.
+  - provider OAuth 로그인 (`research/candidates-oauth.md`. **branch `feat/oauth`가 main에 land한 뒤**)
+    - `oauth-issuer`(wave 2): fake 발급자 `tests/support/fake-oauth/`(device·token·jwks, RS256 id_token, journal)와 로그인 helper.
+    - `oauth-login`, `oauth-token`(wave 3): `tests/e2e/oauth_test.ts`. device 로그인, pkce 로그인, 취소 뒤 listener 닫힘, Bearer로 model 호출, 만료 전 갱신, 갱신 거절 → revoked, token이 `secrets.json` 밖에 없음.
 - 순서(초안): wave 1 support 다섯. wave 2 행 더하기 일곱과 새 flow 일곱. wave 3 앱 flow 여섯과 `agent-call`. 같은 file이 나오면 선행으로 묶는다.
 - 사람이 정할 것: 아래 "정한 것" 4, 5. 추천으로 brief를 쓴다. 사람이 바꾸면 그 brief만 바꾼다.
 
@@ -76,6 +79,7 @@
 - `testing`이 land하고 그 계획이 막힌 flow(approval, file-write, restart, rewind, stop)를 고쳐 merge한 뒤 시작한다. 그 flow들이 찾은 bug(`issues/place-session.md`, `issues/event.md`)는 `testing`의 몫이다.
 - `testing`의 support 계약이 바뀌었으면 이 README와 brief의 "쓰는 것"을 main의 `tests/support/`에 맞춰 고친 뒤 연다.
 - `PLAN-remove-keychain`이 land했으면 secret 행의 secret 이름과 route를 다시 확인한다.
+- OAuth 단위(`oauth-*`)는 branch `feat/oauth`가 main에 land한 뒤에 띄운다. 그 전에는 다른 task만 돌리고, land하면 brief의 "다시 확인할 것"을 main 코드로 본다.
 
 ## lead가 할 일
 
@@ -181,4 +185,5 @@ brief는 다섯 손이 병렬로 썼다: 위 26개(README 단위와 `research/ca
 1. **coding agent가 CLI로 release 완료를 보고할 길**(`issues/coding-agent.md`). 추천: `app-cli-finish`가 CLI에 `release status`, `app test status`, `app test result`를 연다. 다른 안은 `release prepare`가 끝날 때까지 기다려 release id를 돌려주는 것이다(준비가 300초까지 걸려 CLI가 막힌다). 정해지기 전에는 `app-cli-finish`와 그 뒤의 앱 task를 띄우지 않는다.
 2. **앱 place Operator가 앱 data를 project 폴더에 쓰는 기능**(`issues/place-session.md`, AGENT-ROLE O2·O3). `operator-project-write`는 이슈의 추천(기능을 줄이고 O2·O3·Operator prompt의 약속을 지운다)으로 썼다. "만든다"를 고르면 그 brief를 다시 쓴다.
 3. **지침이 바뀐 다음 turn의 prompt.** 지금 코드(`prompt-assembly/turn-prompt.ts`)는 system의 지침 block을 그 turn의 지금 지침으로 다시 만들고 notice도 붙인다. `architecture/agent-definition.md`는 "prefix는 그대로, notice로만"이라 쓰고, "편집 한 번이 이력 전체의 cache miss"라 버린 방식을 이유로 적었다. 추천: 문서를 코드에 맞춘다(지침은 드물게 바뀌어 cache miss 한 번이 싸다). 정하기 전에는 `prompt-notice`를 merge하지 않는다.
+- **OAuth 단위를 더했다**(`oauth-issuer`, `oauth-login`, `oauth-token`). 구현 session이 보낸 명세에서 case를 뽑았다. state·nonce·aud·scope 거절과 회전 저장은 그 구현의 unit(`providers/login_test.ts`, `oauth-refresh_test.ts`)이 보므로 E2E에 두지 않았다. 로그인 setup의 fake 대답은 support helper(`connectOAuthProvider`)가 걸어 행 몫에 세지 않는다(정한 것 11). (agent)
 

@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py ui-kit build`가 `tasks/*.md`에서 id, 단�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `kit-layout-chart` | kit-layout | 1 | kit-layout-move | todo |  |  |  |
+| `kit-layout-chart` | kit-layout | 1 | kit-layout-move | merged | kit-layout/kit-layout-chart | 65ccb37c9 |  |
 | `kit-layout-guide` | kit-layout | 1 | kit-layout-chart | todo |  |  |  |
 | `kit-layout-move` | kit-layout | 1 | kit-renderer | merged | kit-layout/kit-layout-move | 4ed77e0a5 |  |
 | `kit-renderer` | kit-renderer | 1 | 없음 | merged | kit-renderer/kit-renderer | fd43d900b |  |

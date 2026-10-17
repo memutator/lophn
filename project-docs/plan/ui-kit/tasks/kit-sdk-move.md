@@ -95,3 +95,8 @@ sdk `ui-*`의 범용 자기 코드(AppShell·Grid·Sidebar, FilterBar 등, ReadS
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 예제의 `.module.css` 5개가 `pages/kit/` 안에 있다(`kit-gallery-*`가 없앤다). 앱 template과 `FIXED_UI_DEPENDENCIES`는 아직 옛 이름이다(`kit-sdk-publish`)
+
+## lead가 더함
+
+- (lead가 더함) `deno.lock` 갱신은 `deno install --frozen=false`로 된다(`kit-layout-chart`에서 확인했다). 8번은 이 명령 하나만 쓴다. `packages/shell/main/desktop/core/deno.lock` 변경은 commit하지 않고, 끝낼 때 `git checkout -- packages/shell/main/desktop/core/deno.lock`으로 되돌려 working tree를 깨끗하게 둔다.
+- (lead가 더함) `tools/move-files.ts`의 folder mapping은 from·to 끝에 `/`를 붙인다. tool은 working tree가 더러우면 막히고, mapping이 가리키는 file을 아직 import하는 곳이 있으면 "export 없음"으로 멈춘다(`kit-layout-chart`는 그 import를 먼저 고쳐 임시 commit한 뒤 돌리고 `git reset`으로 풀었다). tool이 package 이름 import(`@lophn/ui/<분류>`)를 바꾸면 분류 `mod.ts`를 가리키는 상대 경로로 바꾸므로, 옮긴 design file에서는 손으로 그 component file을 직접 가리키게 고친다. 확인: `grep -rnE "from \"(\.\./)+([a-z_]+/)?mod\.ts\"|@lophn/ui" packages/design/components`가 0줄.

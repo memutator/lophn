@@ -2,20 +2,6 @@
 
 config, diagnostics, storage, server, supervision 같은 바닥 module. 이 주제의 architecture 문서는 없다.
 
-## 기동 중 crash와 supervisor·앱 process·shell main의 crash가 log에 안 남는다
-
-```yaml
-kind: bug
-modules: [packages/core/main, packages/core/apps, packages/shell/main]
-```
-
-지금: `installCrashHandler`는 daemon의 diagnostics wiring `start` 뒤와 agent runtime의 `startAgentRuntime` 성공 뒤에만 걸린다. 그 앞의 crash는 stderr와 종료뿐이다. 앱 supervisor, 앱 process, shell main은 crash handler가 없다. agent runtime이 계속 죽으면 core가 다시 띄울 때마다 한 줄씩 쌓인다(재기동 제한 없음). agent runtime이 적은 `location`이 I/O worker catalog에 없으면 ingress가 버린다. stderr 원문은 기존 redaction 규칙(20자 미만 `sk-` 값 등)에 안 걸리는 값을 가리지 못한다.
-
-영향: 기동 실패와 앱 쪽 crash는 사람이 terminal을 보지 않으면 원인을 모른다.
-
-고치려면:
-- 필요해질 때 같은 `installCrashHandler`를 각 entry에 건다(작음, 곳마다).
-
 ## events 점검이 Reactor backoff를 보지 못한다
 
 ```yaml
@@ -74,3 +60,18 @@ modules: [packages/core/apps, packages/coding-agent]
 - 기동 설치가 사본을 푼 뒤 같은 byte로 `register_version`을 낸다(중간). `apps/packages/commands.ts`는 같은 name·version의 bundle hash가 다르면 `conflict`("published version bytes are immutable")로 거절하므로, 개발 중 `packages/sdk/*` 소스를 고치고 다시 띄우면 기동이 막힌다. 내장 sdk만 같은 판 덮어쓰기를 허락하거나 판에 소스 hash를 붙여야 한다.
 - skill이 `package show` 대신 설치 사본의 `guide.md`(`<dataRoot>/sdk/<이름 뒤쪽>/<판>/guide.md`)를 읽게 한다(작음). agent가 data root 안 사본을 읽을 수 있어야 한다.
 - 추천: 둘째. catalog는 사용자 package(@me) 몫으로 두고, 내장 sdk는 설치 사본이 정본이다.
+
+## I/O worker가 뜨기 전 daemon crash는 log에 안 남고, agent runtime crash는 재기동마다 쌓인다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/diagnostics]
+```
+
+지금: daemon의 crash handler는 diagnostics wiring의 `prepare`에서 걸리지만, log 파일은 I/O worker가 쓰고 I/O worker는 `wiring/supervision.ts`의 `start`에서 뜬다. 그 앞의 crash는 `ctx.diagnosticsWrite`가 `false`로 끝나 stderr와 exit 1뿐이다. agent runtime(`main/agent-runtime/main.ts`)이 계속 죽으면 core가 다시 띄울 때마다 crash 한 줄이 쌓인다(재기동 제한 없음, `lophn-agent/run-loop/runtime.ts`). crash stderr 원문은 기존 redaction 규칙(20자 미만 `sk-` 값 등)에 안 걸리는 값을 가리지 못한다.
+
+영향: 기동 초반 실패는 사람이 terminal을 보지 않으면 원인을 모른다. agent runtime이 crash loop에 빠지면 같은 줄이 log를 채운다.
+
+고치려면:
+- 기동 초반 crash: log 파일에 직접 덧붙이는 길을 만든다(작음. log 파일을 I/O worker만 쓴다는 규칙이 깨진다). 실제로 원인을 못 찾는 기동 실패가 나올 때 한다. 추천.
+- agent runtime: 재기동에 횟수·간격 제한을 둔다(작음, agent runtime 쪽).

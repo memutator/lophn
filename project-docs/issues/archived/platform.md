@@ -122,3 +122,21 @@ guard: packages/core/problems/snapshots/work_test.ts
 추천: 첫째.
 
 닫음: 화면 build(`ui-build/build.ts`)가 화면마다 `screens/<key>/main.js.map`을 bundle file로 내고 합친 `app.js.map`은 없다. problems(`snapshots/work.ts`의 `frameFromScreenMap`)는 stack에서 `/screens/<key>/main.js`를 가리킨 첫 site의 화면 map으로 앱 source 위치를 풀고, 그것을 `framesInsideBundle`보다 먼저 시도한다. 위치를 모르는 stack에서 map 전체를 푸는 가지는 지웠다. mappings 문자열 한도(`stack_bytes`, 16 KiB)를 넘는 큰 화면은 여전히 bundle 위치로만 남는다.
+
+## 기동 중 crash와 supervisor·앱 process·shell main의 crash가 log에 안 남는다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/apps, packages/shell/main]
+closed: fixed
+guard: 없음
+```
+
+지금: `installCrashHandler`는 daemon의 diagnostics wiring `start` 뒤와 agent runtime의 `startAgentRuntime` 성공 뒤에만 걸린다. 그 앞의 crash는 stderr와 종료뿐이다. 앱 supervisor, 앱 process, shell main은 crash handler가 없다. agent runtime이 계속 죽으면 core가 다시 띄울 때마다 한 줄씩 쌓인다(재기동 제한 없음). agent runtime이 적은 `location`이 I/O worker catalog에 없으면 ingress가 버린다. stderr 원문은 기존 redaction 규칙(20자 미만 `sk-` 값 등)에 안 걸리는 값을 가리지 못한다.
+
+영향: 기동 실패와 앱 쪽 crash는 사람이 terminal을 보지 않으면 원인을 모른다.
+
+고치려면:
+- 필요해질 때 같은 `installCrashHandler`를 각 entry에 건다(작음, 곳마다).
+
+닫음: daemon은 `installCrashHandler`를 diagnostics wiring의 `prepare`(진단 입구를 provide한 직후)에서 건다. 앱 supervisor(`main/app-supervisor/main.ts`)는 `unhandledrejection` listener 대신 `installCrashHandler`로 core에 진단 한 줄을 보내고 앱 자식을 정지한 뒤 exit 1 하고, core(`wiring/apps.ts`)가 component·location을 정해 log에 쓴다. shell main은 `desktop/wiring/crash.ts`가 `ctx.core.diagnostic`으로 한 줄 보내고 core(`daemon/parent.ts`의 `internal`)가 받는다. 새 location과 component는 I/O worker catalog에 올렸다. 앱 process는 이 절의 서술과 달리 이미 `installCrashExit`와 exception observer, supervisor의 crash 관측(problems)이 있어 걸지 않았다. 남은 것(I/O worker가 뜨기 전 crash, agent runtime 재기동마다 쌓이는 줄, stderr redaction 한계)은 열린 절로 다시 썼다.

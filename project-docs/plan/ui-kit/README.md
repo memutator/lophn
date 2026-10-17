@@ -1,6 +1,6 @@
 # 계획: UI kit 하나로 모으기
 
-상태: 열었음. brief는 아직 없다. 분류 표(`classification.md`)를 사람이 정한 뒤 쓴다. "이슈 결정 적용" 계획(`project-docs/plan/README.md`의 "이 계획")이 끝나고 계획 tool이 계획마다 폴더를 받도록 바뀐 뒤 돌린다(아래 "돌리기 전에").
+상태: 열었음. 분류는 정했다(`classification.md`). brief는 아직 없다. "이슈 결정 적용" 계획(`project-docs/plan/README.md`의 "이 계획")이 끝나고 계획 tool이 계획마다 폴더를 받도록 바뀐 뒤 돌린다(아래 "돌리기 전에").
 
 ## 이 계획
 
@@ -14,9 +14,8 @@
   - `kit-gallery`: `tools/wireframes`를 `pages/kit/<분류>/`, `pages/screens/`, `mock/`, `drafts/`로 나누고, wireframe 전용 코드를 renderer·design(승인된 것)이나 `drafts/`(아닌 것)로 옮긴다.
   - `kit-checks`: check 셋 — `tools/wireframes`에서 `drafts/` 밖 CSS 없음, design의 모든 export가 `pages/kit`에 한 번은 나옴, design component가 모두 분류 폴더 안에 있고 `mod.ts`에 한 줄 문서가 있음.
 - 순서(초안): wave 1 `kit-layout`(옮기기의 바탕). wave 2 `kit-renderer`, `kit-sdk`, `kit-gallery`(소유가 겹치면 선행으로). wave 3 `kit-checks`. 옮기기는 `tools/move-files.ts`로 하고 import를 기계적으로 고친다.
-- 사람이 정할 것:
-  - `classification.md`의 표: component마다 분류 8개 중 어디인가, 범용인가 lophn 전용인가. 표의 "사람이 정할 것" 절만 고르면 된다.
-  - architecture 문서: 이 흐름(token → design → sdk·renderer → 앱 UI build → gallery)을 `project-docs/architecture/ui-kit.md`로 둘지. 둔다면 계획이 끝난 뒤의 코드로 lead가 쓴다(문서가 코드보다 앞서지 않게).
+- 사람이 정할 것: 없음. component마다의 분류와 범용·전용은 요구의 기준으로 lead가 정했다(`classification.md` 5절). 사람은 요구 1대로 `kit-gallery`가 끝난 뒤 gallery의 `pages/kit`을 보고 승인하고, 다르게 보면 그 component만 옮긴다.
+- architecture 문서: 이 흐름(token → design → sdk·renderer → 앱 UI build → gallery)을 계획이 끝난 뒤의 코드로 `project-docs/architecture/ui-kit.md`에 쓴다. 문서가 코드보다 앞서지 않게 lead가 마지막에 쓴다.
 
 ## 돌리기 전에
 
@@ -26,4 +25,4 @@
 ## lead가 할 일
 
 - task가 merge될 때마다 `ui-design` skill과 `issues/`의 관련 절을 맞춘다.
-- 모두 merged면 roadmap 파일을 지우고, 정했다면 `architecture/ui-kit.md`를 쓰고, `context-component-registry.yaml`(skill-ui-design, tool-wireframes, 새 architecture 문서)과 changelog 열린 판을 고친다. 이 폴더를 지운다.
+- 모두 merged면 roadmap 파일을 지우고, `architecture/ui-kit.md`를 쓰고, `context-component-registry.yaml`(skill-ui-design, tool-wireframes, 새 architecture 문서)과 changelog 열린 판을 고친다. 이 폴더를 지운다.

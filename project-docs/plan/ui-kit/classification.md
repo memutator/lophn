@@ -46,7 +46,7 @@
 
 ## 2. design component 표
 
-분류: primitives / layout / navigation / data / feedback / overlay / reading / input. 표기: `?`는 5절에서 정한다.
+분류: primitives / layout / navigation / data / feedback / overlay / reading / input, 지원 export는 `_shared`. 기준으로 정하기 어려웠던 행은 5절이 근거를 적는다.
 
 | 이름 | 지금 file (`packages/design/...`) | 쓰는 곳 | 제안 분류 | 범용/전용 | 근거 |
 |---|---|---|---|---|---|
@@ -67,11 +67,11 @@
 | ListDetailFrame | components/page-frames/frames.tsx | renderer 0, sdk layout, wf gal | layout | 범용 | |
 | TableFrame | components/page-frames/frames.tsx | renderer 0, sdk layout, wf gal | layout | 범용 | |
 | ReadingFrame, READING_WIDTHS, useReadingWidth 등 | components/page-frames/reading-frame.tsx, reading-width.ts, toc-placement.ts, model.ts | renderer 1(폭 설정), sdk layout·reading, wf gal+1 | layout | 범용 | 읽기 폭·목차 위치 틀. `DEFAULT_READING_WIDTH`·`readingWidthOf`는 lophn 설정이 쓰지만 틀 자체는 범용. |
-| LauncherFrame | components/page-frames/frames.tsx | renderer 0, sdk 없음, wf gal | layout ? | 전용 추천 ? | 이름이 lophn launcher. 쓰는 곳은 gallery뿐. |
-| OverviewFrame | components/page-frames/frames.tsx | renderer 0, sdk 없음, wf gal | layout ? | 전용 추천 ? | 같음. sdk 비공개. |
+| LauncherFrame | components/page-frames/frames.tsx | renderer 0, sdk 없음, wf gal | — | 지움 | 폭 틀(1040px)일 뿐 lophn launcher 화면이 아니다. 쓰는 곳이 gallery뿐이고 sdk도 공개하지 않는다. 5절 4번. |
+| OverviewFrame | components/page-frames/frames.tsx | renderer 0, sdk 없음, wf gal | — | 지움 | 폭 틀(800px). 같음. 5절 4번. |
 | useObservedSize, ResizeSource 등 | components/resize.ts | renderer 4, sdk layout(AppShell 내부), wf 0 | layout | 범용(지원) | 폭 관측. `shared`와 함께 5절 7번. |
 | Tabs, TabList, Tab, TabPanel | components/tabs/tabs.tsx | renderer 4, sdk layout, wf gal | navigation | 범용 | Radix tabs. |
-| TabStrip, TabItem, TabDot | components/tab-strip/tab-strip.tsx | renderer 3, sdk 없음, wf +1(project-app) | navigation ? | 전용 추천 ? | 닫기 ×, 칸 focus, `waiting/working/ended` 점이 session 상태다. 5절 1번. |
+| TabStrip, TabItem, TabDot | components/tab-strip/tab-strip.tsx | renderer 3, sdk 없음, wf +1(project-app) | — | lophn 전용 → renderer | 점이 session 상태(`waiting/working/ended`)다. 5절 1번. |
 | Table(+cells) | components/table/ | renderer 0(DataTable 내부), sdk 없음, wf gal | data | 범용 | 표의 칸 모양. sdk는 `TableColumn` type만 노출. |
 | DataTable, DataState, sortRows·pageSlice 등 | components/data-table/ | renderer 1, sdk table, wf 0 | data | 범용 | 정렬·페이지·열 선택·가상 scroll. |
 | Tree, TreeNode | components/tree/ | renderer 0, sdk 없음, wf gal | data | 범용 | |
@@ -87,7 +87,7 @@
 | ErrorState | components/error-state/error-state.tsx | renderer 35, sdk state, wf gal | feedback | 범용 | |
 | StaleNote | components/stale-note/stale-note.tsx | renderer 1, sdk state, wf gal | feedback | 범용 | |
 | StatusMark, STATUS_ICONS | components/status-mark/status-mark.tsx | renderer 20, sdk 없음, wf gal+1 | feedback | 범용 | tone 5개 아이콘+글. sdk가 안 내보내던 범용 부품. |
-| Toast, ToastStack | components/toast/toast.tsx | renderer 10/1, sdk overlay, wf gal+1 | overlay ? | 범용 | sdk는 overlay에 둔다. 5절 6번. |
+| Toast, ToastStack | components/toast/toast.tsx | renderer 10/1, sdk overlay, wf gal+1 | overlay | 범용 | 화면 위에 뜬다. sdk도 overlay에 둔다. 5절 6번. |
 | Tooltip | components/tooltip/tooltip.tsx | renderer 25, sdk overlay, wf gal | overlay | 범용 | |
 | Popover, PopoverRow | components/popover/popover.tsx | renderer 5/1, sdk overlay(+filter), wf gal | overlay | 범용 | |
 | Menu, MenuIcon | components/menu/menu.tsx | renderer 8/3, sdk overlay, wf look-alike | overlay | 범용 | `MenuItem.leading`은 호출자가 채운다. |
@@ -98,12 +98,12 @@
 | CodeBlock | reading/code-block/code-block.tsx | renderer 0, sdk reading | reading | 범용 | |
 | Toc | reading/toc/toc.tsx | renderer 0, sdk reading | reading | 범용 | |
 | DiffMark, DiffLine(type) | components/status-mark/status-mark.tsx, reading/diff-view/diff-view.tsx | renderer 3/1, sdk 없음, wf gal | reading | 범용 | +/− 표식과 diff 줄 type. `diff-view.tsx`는 type 16줄뿐이고 DiffView component는 없다. |
-| Avatar, AvatarProfile | components/avatar/ | renderer 12, sdk 없음, wf 0(wireframe은 복사본을 따로 둔다) | — | lophn 전용 → renderer ? | `AVATAR_ICONS`가 "agent profile icon 집합의 정본". 5절 3번. |
-| AuthorMark | components/author-mark/author-mark.tsx | renderer 0, sdk 없음, wf gal | — | lophn 전용 → renderer ? | "agent 작성 표식". renderer에 쓰는 곳이 없다. 5절 5번. |
+| Avatar, AvatarProfile | components/avatar/ | renderer 12, sdk 없음, wf 0(wireframe은 복사본을 따로 둔다) | — | lophn 전용 → renderer | `AVATAR_ICONS`가 agent profile icon 집합의 정본. 5절 3번. |
+| AuthorMark | components/author-mark/author-mark.tsx | renderer 0, sdk 없음, wf gal | — | 지움 | agent 작성 표식. 쓰는 곳이 gallery뿐. 5절 5번. |
 | VendorIcon, vendorOf, Vendor | components/vendor-icon/ | renderer 8/8, sdk 없음, wf 0 | — | lophn 전용 → renderer | harness·provider 15개 로고(claude-code, codex, openrouter…). 앱이 쓸 이유가 없다. |
-| Chip, ChipItem | components/chip/chip.tsx | renderer 0, sdk 없음, wf gal | — | lophn 전용 → renderer ? | "기다리는 질문의 owner 문구". 이름은 chip이지만 lophn 대기 안내다. 5절 5번. |
-| FileIcon, fileIconName | components/file-icon/file-icon.tsx | renderer 3, sdk 없음, wf +1 | primitives ? | 범용 추천 ? | catppuccin json 의존. 5절 2번. |
-| componentMark, ControlSize, Clock/Timer/Clipboard, systemClock/Timer/Clipboard, cx | components/shared.ts | renderer 2/1(system*), sdk 4개 package가 componentMark | 분류 밖(지원) ? | 범용 | 5절 7번. |
+| Chip, ChipItem | components/chip/chip.tsx | renderer 0, sdk 없음, wf gal | — | 지움 | 이름은 chip이지만 lophn 대기 질문 안내다. 쓰는 곳이 gallery뿐. 5절 5번. |
+| FileIcon, fileIconName | components/file-icon/file-icon.tsx | renderer 3, sdk 없음, wf +1 | primitives | 범용 | 앱도 파일 목록을 그린다. catppuccin json 의존이 앱 bundle에 들어간다. 5절 2번. |
+| componentMark, ControlSize, Clock/Timer/Clipboard, systemClock/Timer/Clipboard, cx | components/shared.ts | renderer 2/1(system*), sdk 4개 package가 componentMark | `_shared` | 범용 | 5절 7번. |
 | tokens, tokenNames, vars, 타입 | mod.ts, tokens.ts, generated/ | renderer 1(+타입 3), sdk tokens·layout, wf tokens-pages | 분류 밖(token) | 범용 | design root에 그대로 둔다. |
 
 행 수와 분류별 개수는 맨 아래 "개수".
@@ -120,7 +120,7 @@
 | MultiSelectFilter, selectionLabel, SEARCH_AFTER | ui-filter/multi-select-filter.tsx | 안 씀 | design input | |
 | RANGE_PRESETS, resolveRange, toDay, parseDay | ui-filter/range.ts | 안 씀(순수 함수) | design input | 날짜 범위 계산. |
 | ReadState, Freshness, isStale | ui-state/read-state.tsx, state.module.css | 안 씀(Loading·ErrorState·EmptyState·StaleNote 조합) | design feedback | 앱 template이 쓴다. |
-| AppErrorBoundary, RENDER_ERROR_EVENT | ui-state/app-error-boundary.tsx | 직접 호출은 안 함. `lophn:render-error` DOM event를 보내 preload bridge(`shell/preload/app-api.ts`)가 받는다 | sdk에 남김 ? | event 이름이 shell과의 계약. 5절 8번. |
+| AppErrorBoundary, RENDER_ERROR_EVENT | ui-state/app-error-boundary.tsx | 직접 호출은 안 함. `lophn:render-error` DOM event를 보내 preload bridge(`shell/preload/app-api.ts`)가 받는다 | sdk에 남김 | event 이름이 shell과의 계약. 5절 8번. |
 | AppApiButton | ui-action/app-api-button.tsx, action.module.css | 씀: blueprint `AppApiDeclaration`, `lophnApp.call` | sdk에 남김 | roadmap과 같다. |
 | useAppApi, appBridge, AppBridge 등 | ui-action/use-app-api.ts | 씀: `globalThis.lophnApp` | sdk에 남김 | |
 | ToastProvider, useToast, ToastQueue | ui-overlay/toast-queue.tsx | 안 씀. design Toast·ToastStack과 timer·clock 인자만 쓴다 | design overlay | roadmap이 놓친 자기 코드. |
@@ -177,44 +177,26 @@
 | gallery.tsx, gallery.module.css (263), main.tsx, pages.ts (1248), build.ts, frames/screens.tsx (416) | gallery 껍데기, page 등록, build | 유지(gallery 도구) | `gallery.module.css`는 check 1의 예외로 둘지 5절 10번에 같이 본다. |
 | frames/mock-desktop.tsx (148), fake-terminal.ts (77), chrome/window-api.ts (19) | 진짜 Desktop을 mock으로 띄우는 조립, 가짜 터미널·창 통로 | mock | |
 
-## 5. 사람이 정할 것
+## 5. 정한 것
 
-추천안에 `←` 표시. 여기 없는 행은 표의 제안대로 진행한다.
+요구(`project-docs/products/roadmap/ui-kit-single-source.md`)의 기준으로 lead가 정했다. 사람은 요구 1대로 gallery의 `pages/kit`을 보고 승인하고, 다르게 보면 그 component만 옮긴다.
 
-1. TabStrip (+TabItem, TabDot): 범용 navigation인가 lophn 전용인가
-   - A. 범용: design `navigation/`에 두고 `TabDot`을 중립 이름으로 바꾼다.
-   - B. 전용: renderer로. 점이 `waiting/working/ended`(session 상태), 쓰는 곳이 renderer 3파일뿐. ←
-2. FileIcon (+fileIconName): 앱도 쓰는 범용인가
-   - A. 범용 `primitives/` ←: 앱이 파일 목록을 그릴 수 있다. 단 `@iconify-json/catppuccin` json이 앱 bundle에 들어간다.
-   - B. 전용: renderer로. 쓰는 곳이 파일 tree·탭(renderer 3파일).
-3. Avatar (+AvatarProfile, `AVATAR_ICONS`): 전용인가
-   - A. 전용 → renderer ←: icon 집합이 agent profile 정본이고 sidebar·agent 머리·Agents 탭에서만 쓴다. wireframe의 복사본(`agent-avatar.tsx`)도 이때 renderer를 import하게 고친다.
-   - B. 범용 `primitives/`: `kind: icon|image|initial` 구조는 사용자 아바타에도 맞다. icon id 집합만 호출자가 넘기게 바꿔야 한다.
-4. LauncherFrame, OverviewFrame: 전용인가
-   - A. 전용 → renderer: 이름이 lophn launcher이고 sdk가 공개하지 않았다.
-   - B. 범용 `layout/` ←: 쓰는 곳이 renderer 0이라 지금 판정할 근거가 없다. lophn 화면이 쓰게 되기 전에는 kit에서 뺄 이유도 없다.
-5. Chip, AuthorMark: renderer에 쓰는 곳이 없다
-   - A. renderer로 옮겨 둔다.
-   - B. 지운다 ←: 쓰는 곳이 wireframe gallery뿐이고 Chip은 이름과 뜻(대기 질문 안내)이 어긋난다. 필요하면 다시 만든다(AGENTS.md "쓰일지 모를 것을 만들지 않는다").
-6. Toast, ToastStack(+ sdk `ToastProvider`): 분류
-   - A. overlay ←: sdk가 이미 `ui-overlay`에 둔 이름과 같다.
-   - B. feedback: 잠깐 나오는 알림이라는 뜻이면.
-7. `shared.ts`/`resize.ts`/`icon.tsx` 같은 지원 export(componentMark, Clock, Timer, Clipboard, ResizeSource…)의 자리
-   - A. `components/_shared/` 폴더를 8개 분류 밖에 둔다 ←: "분류 폴더 안에 있다"(check 3)를 8개 폴더 + `_shared`로 정의.
-   - B. `primitives/`에 넣는다.
-8. AppErrorBoundary: sdk에 남기나
-   - A. sdk에 남김 ←: `lophn:render-error` event 이름이 shell preload와의 계약이다.
-   - B. design `feedback/`: bridge를 직접 부르지 않으니 event 이름만 prop으로 받게 한다.
-9. `ui-*`의 `guide.md` 10개와 `examples/` 10개를 지운 뒤 자리
-   - A. 분류별 `mod.ts`의 한 줄 문서와 build-app skill로 흡수하고 예제는 `pages/kit/<분류>/`로 옮긴다 ←.
-   - B. `packages/design/<분류>/examples/`에 둔다.
-10. check 1("`drafts/` 밖 CSS 없음")과 지금 CSS 9파일(1142줄)
-   - A. 4B·4C의 표대로 지우거나 `drafts/`로 옮긴다 ←: annotate 표식(`app-space.module.css`)은 `drafts/`에 둔다.
-   - B. `gallery.module.css`·`kit.module.css`(gallery 자신의 틀)는 예외로 허용한다: 이 둘은 component가 아니라 gallery 껍데기다.
+기준: 범용인지는 "사용자 앱도 그대로 쓸 만한가"(요구 4). lophn만의 뜻(session, agent, 대기 질문)이 이름이나 동작에 박혀 있으면 전용이다. kit에는 쓰는 곳이 있거나 앱에 공개된 것만 둔다(요구 1, AGENTS.md "미리 만들지 않는다"). lophn과의 약속(event 이름, app-api)을 아는 부품은 sdk다.
+
+1. TabStrip(+TabItem, TabDot) → renderer. 점이 session 상태다.
+2. FileIcon(+fileIconName) → design `primitives/`. 앱도 파일 목록을 그린다.
+3. Avatar(+AvatarProfile, `AVATAR_ICONS`) → renderer. icon 집합이 agent profile의 정본이다. wireframe의 복사본(`agent-avatar.tsx`, `agents.module.css`)은 지우고 renderer의 Avatar를 import한다.
+4. LauncherFrame, OverviewFrame → 지운다. 폭 틀일 뿐 lophn launcher 화면이 아니고, renderer도 sdk도 쓰지 않는다.
+5. Chip, AuthorMark → 지운다. 쓰는 곳이 gallery뿐이다.
+6. Toast, ToastStack(+ sdk `ToastProvider`, `useToast`) → design `overlay/`.
+7. 지원 export(`shared.ts`, `resize.ts`, `icon.tsx`의 componentMark, Clock, Timer, Clipboard, ResizeSource …) → `components/_shared/`. check 3의 "분류 폴더"는 8개와 `_shared`다.
+8. AppErrorBoundary → sdk에 남긴다. `lophn:render-error`가 shell preload와의 약속이다. AppApiButton, useAppApi와 같은 sdk package 하나에 둔다.
+9. `ui-*`의 `guide.md`와 `examples/` → 글은 분류 `mod.ts`의 export마다 "언제 쓰나" 한 줄과 `lophn-build-app` skill로 줄이고, 예제는 gallery `pages/kit/<분류>/`로 옮긴다. gallery가 실제 component를 그리니 글처럼 어긋나지 않는다.
+10. wireframe CSS: 실제 component의 사본(`compose.module.css`의 틀, `files.module.css`의 palette, `agents.module.css`)은 지우고 실제 component를 import한다. 실험·가짜 화면용은 4B 표대로 `drafts/`나 mock으로 옮긴다. gallery 자신의 틀인 `gallery.module.css`, `kit.module.css` 두 파일만 check 1의 예외로 이름을 박아 둔다.
 
 ## 개수
 
 - 2절 표 55행. 분류별(제안): primitives 6(FileIcon 포함), input 6, layout 9, navigation 2, data 10, feedback 5, overlay 7, reading 4, lophn 전용 → renderer 4(Avatar, AuthorMark, VendorIcon, Chip), 분류 밖 2(지원 export, token). 범용 49, 전용 4(+ LauncherFrame·OverviewFrame가 전용 추천, TabStrip이 전용 추천이라 이 셋이 바뀌면 전용 7).
-- 미정(`?`) 행: 2절 9행(TabStrip, FileIcon, LauncherFrame, OverviewFrame, Toast/ToastStack, Avatar, AuthorMark, Chip, 지원 export) + 3절 1행(AppErrorBoundary) = 10행. 5절 항목은 10개(1~8은 행, 9·10은 구조 결정).
-- 3절 표 12행: design으로 9, sdk에 남김 3(AppErrorBoundary ?, AppApiButton, useAppApi).
+- 5절에서 정한 행: 2절 9행(TabStrip, FileIcon, LauncherFrame, OverviewFrame, Toast/ToastStack, Avatar, AuthorMark, Chip, 지원 export) + 3절 1행(AppErrorBoundary). 5절 9·10은 구조. 결과: renderer로 3(TabStrip, Avatar, VendorIcon), 지움 4(LauncherFrame, OverviewFrame, Chip, AuthorMark).
+- 3절 표 12행: design으로 9, sdk에 남김 3(AppErrorBoundary, AppApiButton, useAppApi).
 - 4절: 4A 14파일(1217줄), 4B 22파일(1655줄), 4C 참고 파일. 4A 제안: screens 6(agent-pages, scenes, app-space/pages, context-pages, project-pages, project-files/pages)+pm-session 1, mock 5(glossary, host, driven, register-panel, orders-view), drafts 2(ways-page, link). renderer·design으로 옮길 코드는 0.

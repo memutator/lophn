@@ -43,7 +43,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | merged | coding-report-needs-release/coding-report-needs-release | 13f333075 |  |
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | merged | coding-token-not-stored/coding-token-not-stored | eb45b02c9 |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | merged | coding-token-scope/coding-token-scope | aff4042fa |  |
-| `activation-restart` | fix | 3 | app-activation | todo |  |  |  |
+| `activation-restart` | fix | 3 | app-activation | merged | fix/activation-restart | 287f4152c |  |
 | `app-socket-root` | fix | 3 | 없음 | merged | fix/app-socket-root | f690e93ed |  |
 | `caller-directory` | fix | 3 | 없음 | merged | fix/caller-directory | 9cf9bb9a6 |  |
 | `cli-app-input` | fix | 3 | test-app | merged | fix/cli-app-input | 22aa43da8 | test-app 전에 당김. 앱 E2E 확인은 merge 때 |

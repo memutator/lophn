@@ -9,6 +9,8 @@ import {
   type Result,
   sha256Hex,
 } from "../../../../base/mod.ts";
+import { appInvocation } from "../../../../protocol/apps/mod.ts";
+import { routePath } from "../../../../protocol/base/route.ts";
 import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import {
   exceptionObservationInputSchema,
@@ -1012,7 +1014,7 @@ async function confirmInvocation(
     const base = client.baseUrl.replace(/\/$/, "");
     // 주입한 client.fetch를 건다: 테스트와 EXTERNAL_FETCH tripwire가 같은
     // 통로를 본다. 응답은 loopback 모양({status, bytes})이다.
-    const response = await client.fetch(`${base}/invocations/get`, {
+    const response = await client.fetch(`${base}${routePath(appInvocation)}`, {
       method: "POST",
       headers: {
         "authorization": `Bearer ${client.credential}`,

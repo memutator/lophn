@@ -272,9 +272,17 @@ export const routerWiring: WiringFactory = () => {
       const opened = openConnection(ctx.ledgerPath);
       if (!opened.ok) return opened;
       eventsConnection = opened.value;
+      const prepareBody = createCallBodyPreparer({
+        relay: () => ctx.bodyPrepare,
+        known: () => ctx.knownSecrets,
+      });
       const reaction: ReactionRouter = {
         async send(call, idempotencyKey) {
-          const done = await ctx.runtime.writer.command(ROUTER_CONTEXT, {
+          // core 안 호출도 API server와 같은 두 겹(본문 준비, 입력함 적용)을 거친다.
+          const done = await withCallBody(
+            withAfterCommit(ctx.runtime.writer, apply),
+            prepareBody,
+          ).command(ROUTER_CONTEXT, {
             command: callsReact.name,
             input: {
               event_seq: call.from.kind === "program"

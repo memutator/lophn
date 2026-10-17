@@ -6,12 +6,25 @@
 // - 왜 지금 test가 못 잡나: 지금 PM으로 도는 E2E는 file 쓰기뿐이다. 초안 폴더는 data root 아래라 runtime의
 //   `<dataRoot>/projects` 쓰기 허락, file scope의 openDraft 확장, context worker가 한꺼번에 맞아야 하고
 //   이 id들은 정적 대답으로는 줄 수 없다.
+//
+// 두 번째 행 묶음(violation-calls-pm)의 세 질문
+// - contract: boundary `contexts`(문서가 계약을 어기면 위반이 기록되고 새 위반만 event가 된다),
+//   `events`·`router`(새 일 event는 그 project의 PM을 새 session으로 부른다).
+// - 현실적 회귀: 사람이 문서를 고쳐도 감시가 못 봐 위반이 기록되지 않는 것, 위반이 기록됐는데 event가
+//   안 나가 PM이 모르는 것, 다른 project의 PM이 불리는 것.
+// - 왜 지금 test가 못 잡나: 위반 key 판정은 unit이 보지만 disk 변경, context worker child의 감시·계산,
+//   core의 command, Reactor, Router, agent runtime child의 turn은 process 셋을 건너야 이어진다.
 import { assert, assertEquals } from "@std/assert";
-import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  agentSessionList,
+  receivedMessageList,
+  toolCallList,
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   contextBundlesRoute,
   contextGetRoute,
   contextSearchRoute,
+  contextViolationsRoute,
 } from "../../packages/protocol/projects/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
@@ -19,6 +32,7 @@ import {
   openProject,
   openSession,
   say,
+  until,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
@@ -27,7 +41,7 @@ import type {
   JournalEntry,
   Reply,
 } from "../support/fake-server/mod.ts";
-import { lastToolResult } from "../support/fake-server/probe.ts";
+import { lastToolResult, lastUserText } from "../support/fake-server/probe.ts";
 
 // 폴더가 이미 가진 layout은 `bundle.json` 한 파일(계약, 검색, 예)이다.
 const bundle = (expectKeys: string[]) => ({
@@ -47,7 +61,13 @@ const bundle = (expectKeys: string[]) => ({
         visibility: "private",
       }],
       relations: [],
-      rules: [],
+      // 문서에서 slug를 지우면 위반이 된다.
+      rules: [{
+        id: "slug-present",
+        kind: "required_field",
+        params: { field: "slug" },
+        message: "A note needs a slug",
+      }],
     }],
   },
   searches: [{
@@ -171,6 +191,55 @@ async function runRow(
   return { journal, context, draft, folder, calls };
 }
 
+// 앞 행이 적용한 context의 문서가 계약을 어기면 그 project의 PM이 program 메시지로 새 session에서 불린다.
+async function violationCallsPm(
+  core: Core,
+  fake: FakeServer,
+  project: string,
+  proj: string,
+  context: string,
+) {
+  const pm = { role: "project_manager", project } as const;
+  const before =
+    (await core.call(agentSessionList, { agent: pm })).sessions.length;
+  fake.reset();
+  fake.script([{ reply: { kind: "text", text: "noted" } }]);
+  await Deno.writeTextFile(`${proj}/notes/alpha.md`, `# alpha\n`);
+
+  // route: 위반이 고친 문서를 가리킨다.
+  const violations = await until("위반이 기록됨", async () => {
+    const read = await core.call(contextViolationsRoute, { context });
+    return read.violations.length > 0 ? read.violations : undefined;
+  });
+  assertEquals(violations.map((v) => [v.kind, v.rule, v.path]), [
+    ["rule", "Note.slug-present", "notes/alpha.md"],
+  ]);
+
+  // ledger: program 메시지로 열린 PM session이 정확히 하나 늘었다.
+  const sessions = await until("PM session이 열림", async () => {
+    const read = await core.call(agentSessionList, { agent: pm });
+    return read.sessions.length > before ? read.sessions : undefined;
+  });
+  assertEquals(sessions.length, before + 1);
+  const opened = await until("program 메시지가 옴", async () => {
+    for (const { id } of sessions) {
+      const { messages } = await core.call(receivedMessageList, {
+        session: id,
+      });
+      if (messages.some((m) => m.from.kind === "program")) return id;
+    }
+  });
+  await waitTurnEnd(core, opened);
+
+  // fake: 그 turn이 받은 글에 context id가 있다.
+  const journal = fake.journal();
+  assertEquals(journal.length, 1);
+  assert(
+    lastUserText(journal[0]!).includes(context),
+    lastUserText(journal[0]!),
+  );
+}
+
 async function assertGone(path: string): Promise<void> {
   try {
     await Deno.stat(path);
@@ -198,6 +267,7 @@ Deno.test("E2E PM이 제출한 초안은 격리 test를 통과할 때만 적용�
     }
     const { project } = await openProject(core, proj);
 
+    let appliedContext: string | undefined;
     for (const row of ROWS) {
       const got = await runRow(core, fake, project, row);
       const outcomes = Object.fromEntries(
@@ -215,6 +285,7 @@ Deno.test("E2E PM이 제출한 초안은 격리 test를 통과할 때만 적용�
           return read.applied ?? undefined;
         });
         assertEquals(applied.id, got.draft);
+        appliedContext = got.context;
         assertEquals(outcomes, {
           t_draft: "success",
           t_write: "success",
@@ -260,6 +331,8 @@ Deno.test("E2E PM이 제출한 초안은 격리 test를 통과할 때만 적용�
         assertEquals(found.error.code, "not_found");
       }
     }
+    assert(appliedContext, "적용된 context가 없다");
+    await violationCallsPm(core, fake, project, proj, appliedContext);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

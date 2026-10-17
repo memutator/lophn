@@ -24,7 +24,7 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 // session이면 요약과 그것이 덮은 구간 뒤의 원문만 읽는다: 덮인 구간의 원문은 읽지도 않는다(원문은 session에
 // 그대로 있고 화면도 그대로다). rewind가 숨긴 구간과 "Summarize from here"가 접은 구간의 원문도 읽지 않는다:
 // 숨긴 구간은 입력에 들지 않고 접힌 구간은 그 요약이 맡는다. 숨김·접힘을 읽지 못하면 숨긴 내용이 새지 않게
-// 대화 전체를 읽지 못한 것으로 한다. 이 turn의 요청 메시지와 그 뒤에 접수된 메시지는 이전 대화가 아니다.
+// 대화 전체를 읽지 못한 것으로 한다. 이 turn의 요청 메시지와 아직 어느 turn도 가져가지 않은 메시지는 이전 대화가 아니다.
 // 한 turn 안에서는 Compact가 일어날 수 없어(끝나지 않은 turn이 있으면 요청하지 않는다) 이 값은 turn마다 한 번 읽는다.
 
 const MAX_PAGES = 400;
@@ -103,7 +103,10 @@ export async function readSessionConversation(
     role: "user" | "assistant";
     // 접힌 구간의 메시지는 요약이 맡으므로 본문을 읽지 않는다. 구간의 자리를 알리는 표시로만 둔다.
     folded: boolean;
+    turn: string | null;
   }[] = [];
+  // 이 turn의 입력. 입력함은 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
+  let requestTurn: string | null = null;
   let cursor: string | undefined;
   for (let page = 0;; page++) {
     if (page >= MAX_PAGES) {
@@ -117,11 +120,10 @@ export async function readSessionConversation(
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (!listed.ok) return listed;
-    let reached = false;
     for (const entry of listed.value.messages) {
       if (entry.id === input.request) {
-        reached = true;
-        break;
+        requestTurn = entry.turn;
+        continue;
       }
       // 요약이 덮은 구간과 숨긴 구간의 원문은 읽지도 않는다.
       if (
@@ -138,16 +140,29 @@ export async function readSessionConversation(
           BigInt(entry.created_seq) >= BigInt(fold.from_seq) &&
           BigInt(entry.created_seq) <= BigInt(fold.through_seq)
         ),
+        turn: entry.turn,
       });
     }
     const next = listed.value.next_cursor;
-    if (reached || next === null || next === undefined) break;
+    if (next === null || next === undefined) break;
     cursor = next;
   }
+  // turn의 prompt는 앞 turn들이 가져간 메시지(turn 순서대로)와 이 turn의 입력이다. 아직 어느 turn도 가져가지
+  // 않은 메시지는 어떤 turn의 prompt에도 들어가지 않는다. 요청이 없는 읽기(Compact)는 모든 메시지를 접수 순서로 본다.
+  const taken = input.request === null
+    ? heard
+    : heard.filter((entry) => entry.turn !== null && entry.turn !== requestTurn)
+      .sort((a, b) =>
+        a.turn! === b.turn!
+          ? (a.seq < b.seq ? -1 : 1)
+          : a.turn! < b.turn!
+          ? -1
+          : 1
+      );
 
   const messages: SessionMessage[] = [];
-  for (let at = 0; at < heard.length; at += BODY_BATCH) {
-    const batch = heard.slice(at, at + BODY_BATCH);
+  for (let at = 0; at < taken.length; at += BODY_BATCH) {
+    const batch = taken.slice(at, at + BODY_BATCH);
     const bodies = await Promise.all(
       batch.map((entry) =>
         entry.folded

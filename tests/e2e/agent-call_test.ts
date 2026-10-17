@@ -568,6 +568,8 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         const toB = lane(fake, "pm").map((e) => JSON.stringify(e.body));
         assert(toB[2].includes("human-follow-up"));
         assert(toB[3].includes("<lophn-call"));
+        // 넷째 요청의 history에는 앞 turn이 가져간 사람 글이 있다.
+        assert(toB[3].includes("human-follow-up"));
         // route: B의 turn은 셋이고 모두 completed다.
         assertEquals(
           turns.map((turn) => turn.outcome?.kind),

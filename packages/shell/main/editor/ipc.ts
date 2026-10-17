@@ -3,20 +3,24 @@
 import {
   FILE_CLOSE_ANSWER_CHANNEL,
   FILE_COUNTS_CHANNEL,
+  FILE_CREATE_CHANNEL,
   FILE_DELETE_CHANNEL,
   FILE_LIST_CHANNEL,
   FILE_READ_BYTES_CHANNEL,
   FILE_READ_CHANNEL,
   FILE_RENAME_CHANNEL,
+  FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
   FILE_WRITE_CHANNEL,
   fileCloseAnswerSchema,
   fileCountsSchema,
+  fileCreateSchema,
   fileDeleteSchema,
   fileListSchema,
   fileReadBytesSchema,
   fileReadSchema,
   fileRenameSchema,
+  fileRevealSchema,
   fileWatchSchema,
   fileWriteSchema,
 } from "../../ipc/files.ts";
@@ -59,6 +63,8 @@ const HANDLED = [
   FILE_WRITE_CHANNEL,
   FILE_RENAME_CHANNEL,
   FILE_DELETE_CHANNEL,
+  FILE_CREATE_CHANNEL,
+  FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
   INSTRUCTIONS_OPEN_CHANNEL,
 ] as const;
@@ -130,6 +136,28 @@ export function registerFilesIpc(ipc: FilesIpcMain, deps: FilesIpcDeps) {
     );
     if (!checked.ok) return reject(checked.error.code);
     return await deps.adapter.delete(checked.value);
+  });
+
+  ipc.handle(FILE_CREATE_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      fileCreateSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.adapter.create(checked.value);
+  });
+
+  ipc.handle(FILE_REVEAL_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      fileRevealSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.adapter.reveal(checked.value);
   });
 
   ipc.handle(FILE_WATCH_CHANNEL, async (event, input) => {

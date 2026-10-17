@@ -9,6 +9,6 @@ lead만 고친다. `tools/status.py harness-domain build`가 `tasks/*.md`에서 
 | `domain-tools-apps` | domain-tools | 2 | 없음 | merged | domain-tools/domain-tools-apps | 92a45f461 |  |
 | `role-layer-prompts` | role-layer | 2 | role-layer-tools | merged | role-layer/role-layer-prompts | e259b7517 |  |
 | `role-layer-tools` | role-layer | 2 | 없음 | merged | role-layer/role-layer-tools | d1fba856d |  |
-| `harness-hooks` | harness-hooks | 3 | 없음 | todo |  |  |  |
-| `role-ports` | role-ports | 3 | 없음 | todo |  |  |  |
+| `harness-hooks` | harness-hooks | 3 | 없음 | merged | harness-hooks/harness-hooks | 849b23ef0 |  |
+| `role-ports` | role-ports | 3 | 없음 | running | role-ports/role-ports |  |  |
 | `layer-checks` | layer-checks | 4 | 없음 | todo |  |  |  |

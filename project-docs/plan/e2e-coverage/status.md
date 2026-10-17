@@ -21,7 +21,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `pm-tools` | pm-tools | 2 | 없음 | merged | pm-tools/pm-tools | 0bf40226b |  |
 | `prompt-blocked` | prompt-blocked | 2 | 없음 | merged | prompt-blocked/prompt-blocked | 19b3b3f9e |  |
 | `prompt-notice` | prompt-notice | 2 | reply-fn | merged | prompt-notice/prompt-notice | c1768683d |  |
-| `reaction-rows` | reaction-rows | 2 | boot-damaged, gateway-client | running | reaction-rows/reaction-rows |  |  |
+| `reaction-rows` | reaction-rows | 2 | boot-damaged, gateway-client | merged | reaction-rows/reaction-rows | 7faedf9d5 |  |
 | `registration-rows` | registration-rows | 2 | 없음 | merged | registration-rows/registration-rows | 6901fa09a |  |
 | `rewind-rows` | rewind-rows | 2 | 없음 | merged | rewind-rows/rewind-rows | c9e2e22ec |  |
 | `secret-rows` | secret-rows | 2 | 없음 | merged | secret-rows/secret-rows | 577e9956a |  |
@@ -45,8 +45,8 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | todo |  |  |  |
 | `cli-app-input` | fix | 3 | test-app | todo |  |  |  |
 | `release-cold-cache` | fix | 3 | test-app | todo |  |  |  |
-| `oauth-login` | oauth | 3 | oauth-issuer | running | oauth/oauth-login |  |  |
-| `oauth-token` | oauth | 3 | oauth-login | todo |  |  |  |
+| `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |
+| `oauth-token` | oauth | 3 | oauth-login | merged | oauth/oauth-token | db973d5b3 |  |
 | `operator-app-api` | operator | 3 | test-app, reply-fn | todo |  |  |  |
 | `operator-grants` | operator | 3 | operator-app-api | todo |  |  |  |
 | `operator-project-write` | operator | 3 | operator-grants | todo |  |  |  |

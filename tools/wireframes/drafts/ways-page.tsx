@@ -1,6 +1,6 @@
 // Context 탭을 여는 길을 한 장에 모은다. 길마다 눌러 가는 순서를 상자와 화살표로 보이고, 끝 상자는 열리는 Context
 // 탭이다. "try it"은 gallery에서 그 길을 눌러 볼 수 있는 page로 간다(frame은 iframe이라 위 창의 주소를 바꾼다).
-import { pageById } from "../pages.ts";
+import { pageById } from "../pages/index.ts";
 import { WAYS } from "./ways.ts";
 import styles from "./compose.module.css";
 

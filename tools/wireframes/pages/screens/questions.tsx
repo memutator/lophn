@@ -1,0 +1,98 @@
+import type { Area } from "../types.ts";
+import {
+  SecretInputApp,
+  SecretInputMcp,
+  SecretInputProvider,
+  WaitingActivation,
+  WaitingDenyReason,
+  WaitingFirstActivation,
+  WaitingList,
+  WaitingPermission,
+  WaitingReaction,
+  WaitingSettled,
+  WaitingToasts,
+} from "./waiting/waiting-pages.tsx";
+
+export const questionsArea: Area = {
+  id: "questions",
+  title: "Questions & input",
+  summary: "사람에게 묻는 화면. 대기 중인 요청(Waiting)과 secret 입력.",
+  pages: [
+    {
+      id: "new-waiting-list",
+      title: "Waiting · list",
+      description:
+        "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청, 질문, 승인이 세 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
+      render: () => <WaitingList />,
+    },
+    {
+      id: "new-waiting-permission",
+      title: "Waiting · permission requests",
+      description:
+        "권한 요청 셋의 세부를 펼친 상태다. 대상, 정규화한 입력, 효과가 program 문구로만 보인다. app-api와 MCP tool은 선택지 넷이고 설정 고치기는 Allow와 Deny다.",
+      render: () => <WaitingPermission />,
+    },
+    {
+      id: "new-waiting-deny-reason",
+      title: "Waiting · deny with reason",
+      description:
+        "Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다.",
+      render: () => <WaitingDenyReason />,
+    },
+    {
+      id: "new-waiting-activation",
+      title: "Waiting · activation approval",
+      description:
+        "activation 허락 카드의 세부를 펼친 상태다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 app-api 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
+      render: () => <WaitingActivation />,
+    },
+    {
+      id: "new-waiting-first-activation",
+      title: "Waiting · first activation",
+      description:
+        "첫 activation의 세부를 펼친 상태다. 선언 전부가 늘어난 것이고 손실 단계는 없다.",
+      render: () => <WaitingFirstActivation />,
+    },
+    {
+      id: "new-waiting-reaction",
+      title: "Waiting · reaction approval",
+      description:
+        "물음으로 둔 reaction의 세부를 펼친 상태다. 어떤 domain event로 어떤 agent의 session을 열지 보이고 Allow와 Deny만 있다.",
+      render: () => <WaitingReaction />,
+    },
+    {
+      id: "new-waiting-settled",
+      title: "Waiting · just settled",
+      description:
+        "결정한 뒤 목록에 잠깐 남는 줄이다. 허락 접수(applying)와 적용 성공(applied)을 나누고, 거절과 cancelled(원래 일이 끝남)를 나눈다.",
+      render: () => <WaitingSettled />,
+    },
+    {
+      id: "new-waiting-toasts",
+      title: "Waiting · toasts",
+      description:
+        "창 오른쪽 아래에 쌓인 toast 넷(권한 요청, 허락 요청, 질문, App restart halted)이다. layout을 차지하지 않고 단추([Review], [Open session])는 오른쪽 끝에 있다.",
+      render: () => <WaitingToasts />,
+    },
+    {
+      id: "new-secret-input",
+      title: "Secret input · provider key",
+      description:
+        "shell이 띄우는 작은 secret 보호 입력 창이다. 값은 점으로만 보이고, 저장하면 이름과 설정 여부만 남는다. 빈 칸이면 Save가 꺼져 있다.",
+      render: () => <SecretInputProvider />,
+    },
+    {
+      id: "new-secret-input-app",
+      title: "Secret input · app secret",
+      description:
+        "이미 설정된 앱 secret의 값을 바꾸는 상태다. 저장하면 값이 바뀐다는 안내가 있다.",
+      render: () => <SecretInputApp />,
+    },
+    {
+      id: "new-secret-input-mcp",
+      title: "Secret input · MCP credential",
+      description: "MCP server credential을 받는 같은 보호 입력 창이다.",
+      render: () => <SecretInputMcp />,
+    },
+  ],
+};

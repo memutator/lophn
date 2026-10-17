@@ -70,11 +70,11 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.tocPart {
+.tocGroup {
   margin-top: var(--space-6);
 }
 
-.tocPartTitle {
+.tocGroupTitle {
   margin: var(--space-0) var(--space-0) var(--space-2);
   padding: var(--space-0) var(--space-3);
   font-size: var(--type-small-size);
@@ -82,19 +82,29 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.tocGroup + .tocGroup {
-  margin-top: var(--space-3);
+.tocAreaName {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  cursor: pointer;
 }
 
-.tocGroupName {
-  margin: var(--space-0);
-  padding: var(--space-1) var(--space-3);
+.tocAreaName:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.tocCount {
   color: var(--color-text-tertiary, var(--color-text-secondary));
   font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
 }
 
-.tocGroupName + .tocList .tocLink {
+.tocArea .tocLink {
   padding-left: var(--space-5);
 }
 
@@ -132,13 +142,13 @@
   }
 }
 
-.part {
+.group {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.partTitle {
+.groupTitle {
   margin: var(--space-0);
   font-size: var(--type-title-size);
   line-height: var(--type-title-line);
@@ -185,6 +195,13 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.cardCount {
+  margin: var(--space-0);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .cardText {
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
@@ -197,35 +214,6 @@
   letter-spacing: var(--type-tracking-title);
 }
 
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.badge {
-  padding: var(--space-1) var(--space-4);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-full);
-  background: var(--color-surface-subtle);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.badge[data-kind="now"] {
-  border-color: var(--status-good-marker);
-  color: var(--status-good-text);
-}
-
-.badge[data-kind="design"] {
-  border-color: var(--chart-series-6);
-  color: var(--chart-series-6);
-}
-
 /* 디자인 시스템 page는 frame 없이 본문 칸에 바로 그린다. 테마 선택을 따르는 바탕이다. */
 .inline {
   box-sizing: border-box;
@@ -235,11 +223,6 @@
   background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
-}
-
-.badge[data-kind="new"] {
-  border-color: var(--color-link);
-  color: var(--color-link);
 }
 
 .frameBox {

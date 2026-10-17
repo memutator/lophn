@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 
-import { pageById, PAGES, PARTS, type WireframePage } from "./pages.ts";
-import { SCREENS } from "./screens.tsx";
+import { GROUPS, locate, type Located, pageById } from "./pages/index.ts";
+import type { Page } from "./pages/types.ts";
 import styles from "./gallery.module.css";
 
 /** frame의 고정 데스크톱 크기. 좁은 창에서는 이 크기 그대로 줄여서 보인다. */
@@ -57,7 +57,8 @@ function useRoute(): string | null {
 export function Gallery() {
   const [theme, setTheme] = useTheme();
   const id = useRoute();
-  const page = id === null ? undefined : pageById(id);
+  const located = id === null ? undefined : locate(id);
+  const page = located?.page;
   useEffect(() => {
     document.title = page === undefined
       ? "lophn wireframes"
@@ -83,37 +84,17 @@ export function Gallery() {
         </div>
       </header>
       <div className={styles.body}>
-        <Toc current={page} />
-        {page === undefined
+        <Toc current={located} />
+        {located === undefined
           ? <Index missing={id} />
-          : <PageView page={page} theme={theme} />}
+          : <PageView located={located} theme={theme} />}
       </div>
     </div>
   );
 }
 
-/** "Launcher · empty"는 묶음 "Launcher"의 "empty"다. 가운뎃점이 없으면 제목 그대로 한 줄이다. */
-function tocGroups(
-  pages: readonly WireframePage[],
-): { name: string; pages: { page: WireframePage; label: string }[] }[] {
-  const groups: {
-    name: string;
-    pages: { page: WireframePage; label: string }[];
-  }[] = [];
-  for (const page of pages) {
-    const cut = page.title.indexOf(" · ");
-    const name = cut === -1 ? page.title : page.title.slice(0, cut);
-    const label = cut === -1 ? page.title : page.title.slice(cut + 3);
-    const last = groups.at(-1);
-    if (last !== undefined && last.name === name && cut !== -1) {
-      last.pages.push({ page, label });
-    } else groups.push({ name, pages: [{ page, label }] });
-  }
-  return groups;
-}
-
-// 왼쪽 목차. 묶음마다 page를 늘어놓고 지금 page를 표시한다.
-function Toc({ current }: { current: WireframePage | undefined }) {
+// 왼쪽 목차. 묶음 > 영역 > page이고 지금 page가 있는 영역만 펼친다.
+function Toc({ current }: { current: Located | undefined }) {
   const nav = useRef<HTMLElement>(null);
   useEffect(() => {
     nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({
@@ -129,52 +110,37 @@ function Toc({ current }: { current: WireframePage | undefined }) {
       >
         전체 목록
       </a>
-      {PARTS.map((part) => (
-        <section key={part.id} className={styles.tocPart}>
-          <h2 className={styles.tocPartTitle}>{part.title}</h2>
-          {tocGroups(PAGES.filter((page) => page.part === part.id)).map((
-            group,
-            index,
-          ) => (
-            // 같은 이름의 묶음이 떨어져 있을 수 있어(Project · …) 이름만으로는 key가 겹친다.
-            <div key={`${index}:${group.name}`} className={styles.tocGroup}>
-              {group.pages.length > 1 || group.pages[0].label !== group.name
-                ? <p className={styles.tocGroupName}>{group.name}</p>
-                : null}
+      {GROUPS.map((group) => (
+        <section key={group.id} className={styles.tocGroup}>
+          <h2 className={styles.tocGroupTitle}>{group.title}</h2>
+          {group.areas.map((area) => (
+            <details
+              key={area.id}
+              className={styles.tocArea}
+              open={area === current?.area}
+            >
+              <summary className={styles.tocAreaName}>
+                {area.title}
+                <span className={styles.tocCount}>{area.pages.length}</span>
+              </summary>
               <ol className={styles.tocList}>
-                {group.pages.map(({ page, label }) => (
+                {area.pages.map((page) => (
                   <li key={page.id}>
                     <a
                       className={styles.tocLink}
                       href={`#/${page.id}`}
-                      aria-current={page === current ? "page" : undefined}
+                      aria-current={page === current?.page ? "page" : undefined}
                     >
-                      {label}
+                      {page.title}
                     </a>
                   </li>
                 ))}
               </ol>
-            </div>
+            </details>
           ))}
         </section>
       ))}
     </nav>
-  );
-}
-
-function Badges({ page }: { page: WireframePage }) {
-  return (
-    <ul className={styles.badges}>
-      {page.badges.map((badge, index) => (
-        <li
-          key={badge}
-          className={styles.badge}
-          data-kind={index === 0 ? page.part : "flow"}
-        >
-          {badge}
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -186,18 +152,18 @@ function Index({ missing }: { missing: string | null }) {
           “{missing}” page가 없다. 아래 목록에서 고른다.
         </p>
       )}
-      {PARTS.map((part) => (
-        <section key={part.id} className={styles.part}>
-          <h2 className={styles.partTitle}>{part.title}</h2>
-          <p className={styles.text}>{part.summary}</p>
+      {GROUPS.map((group) => (
+        <section key={group.id} className={styles.group}>
+          <h2 className={styles.groupTitle}>{group.title}</h2>
+          <p className={styles.text}>{group.summary}</p>
           <ol className={styles.cards}>
-            {PAGES.filter((page) => page.part === part.id).map((page) => (
-              <li key={page.id} className={styles.card}>
-                <a className={styles.cardLink} href={`#/${page.id}`}>
-                  {page.title}
+            {group.areas.map((area) => (
+              <li key={area.id} className={styles.card}>
+                <a className={styles.cardLink} href={`#/${area.pages[0].id}`}>
+                  {area.title}
                 </a>
-                <Badges page={page} />
-                <p className={styles.cardText}>{page.description}</p>
+                <p className={styles.cardCount}>page {area.pages.length}</p>
+                <p className={styles.cardText}>{area.summary}</p>
               </li>
             ))}
           </ol>
@@ -207,21 +173,23 @@ function Index({ missing }: { missing: string | null }) {
   );
 }
 
-function PageView({ page, theme }: { page: WireframePage; theme: Theme }) {
-  const at = PAGES.indexOf(page);
-  const previous = PAGES[at - 1];
-  const next = PAGES[at + 1];
-  const go = (target: WireframePage) => () => {
+function PageView({ located, theme }: { located: Located; theme: Theme }) {
+  const { group, page } = located;
+  // 이전·다음은 같은 묶음 안 순서다.
+  const pages = group.areas.flatMap((area) => area.pages);
+  const at = pages.indexOf(page);
+  const previous = pages[at - 1];
+  const next = pages[at + 1];
+  const go = (target: Page) => () => {
     location.hash = `#/${target.id}`;
   };
   return (
     <main className={styles.page}>
       <a className={styles.back} href="#/">← 목록</a>
       <h1 className={styles.title}>{page.title}</h1>
-      <Badges page={page} />
       <p className={styles.description}>{page.description}</p>
-      {page.part === "design"
-        ? <div className={styles.inline}>{SCREENS[page.screen]()}</div>
+      {group.inline
+        ? <div className={styles.inline}>{page.render()}</div>
         : <Frame page={page} theme={theme} />}
       <nav className={styles.nav}>
         {previous === undefined
@@ -244,7 +212,7 @@ function PageView({ page, theme }: { page: WireframePage; theme: Theme }) {
 }
 
 // 고정 크기 iframe을 칸 폭에 맞게 줄인다. 줄여도 안의 화면은 1280x800 창이다.
-function Frame({ page, theme }: { page: WireframePage; theme: Theme }) {
+function Frame({ page, theme }: { page: Page; theme: Theme }) {
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(FRAME_WIDTH);
   useEffect(() => {
@@ -286,8 +254,5 @@ function Frame({ page, theme }: { page: WireframePage; theme: Theme }) {
 
 /** `?frame=<id>`로 뜬 문서가 그리는 화면 하나. */
 export function FramePage({ id }: { id: string }) {
-  const page = pageById(id);
-  return page === undefined
-    ? <p>unknown page: {id}</p>
-    : SCREENS[page.screen]();
+  return pageById(id)?.render() ?? <p>unknown page: {id}</p>;
 }

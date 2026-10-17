@@ -12,6 +12,6 @@ lead만 고친다. `tools/status.py app-platform build`가 `tasks/*.md`에서 id
 | `release-files` | release-files | 1 | 없음 | merged | release-files/release-files | 01ecb18d7 |  |
 | `screen-maps` | screen-maps | 1 | release-files | merged | screen-maps/screen-maps | 6a52ceb77 |  |
 | `sdk-install-copies` | sdk-install | 1 | 없음 | merged | sdk-install/sdk-install-copies | b85782bff |  |
-| `sdk-install-startup` | sdk-install | 1 | sdk-install-copies, sdk-install-template | running | sdk-install/sdk-install-startup |  |  |
+| `sdk-install-startup` | sdk-install | 1 | sdk-install-copies, sdk-install-template | merged | sdk-install/sdk-install-startup | 5e46485d3 |  |
 | `sdk-install-template` | sdk-install | 1 | 없음 | merged | sdk-install/sdk-install-template | a43c27098 |  |
 | `test-wait` | test-wait | 1 | 없음 | merged | test-wait/test-wait | 1337ef9a2 |  |

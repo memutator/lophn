@@ -19,6 +19,7 @@ import { annotationsWiring } from "./wiring/annotations.ts";
 import { codingSessionsWiring } from "./wiring/coding-sessions.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { configWiring } from "./wiring/config.ts";
+import { sdkInstallWiring } from "./wiring/sdk-install.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { eventsWiring } from "./wiring/events.ts";
 import {
@@ -101,6 +102,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   storageWiring,
   settingDeclarationsWiring,
   configWiring,
+  sdkInstallWiring,
   secretsWiring,
   eventsWiring,
   projectsWiring,

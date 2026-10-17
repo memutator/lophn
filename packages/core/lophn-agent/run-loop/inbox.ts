@@ -21,6 +21,10 @@ export type Inbox = {
   // turn이 도는 중인지. turn을 시작할 때 true, 끝나면 false로 둔다.
   setRunning(session: Session, running: boolean): void;
   isRunning(session: Session): boolean;
+  // 도는 turn이 하나라도 있는지. child를 바꿀지 정하는 기준이다.
+  anyRunning(): boolean;
+  // child가 사라졌다. 도는 표시를 모두 푼다.
+  endAll(): void;
   // 입력함의 사람 메시지 하나를 지금 도는 turn의 steer로 올린다. 가져간 것이거나 도는 turn이 없으면 false다.
   steerNow(session: Session, message: string): boolean;
   // 입력함에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
@@ -128,6 +132,12 @@ export function createInbox(): Inbox {
     },
     isRunning(session) {
       return running.has(session);
+    },
+    anyRunning() {
+      return running.size > 0;
+    },
+    endAll() {
+      for (const session of [...running]) this.setRunning(session, false);
     },
     waiting() {
       const heads: { session: Session; entry: Entry }[] = [];

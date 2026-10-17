@@ -1,3 +1,4 @@
+import type { Clock } from "../../../base/mod.ts";
 import {
   type ChildMessage,
   childMessageSchema,
@@ -19,6 +20,7 @@ import {
   safeCall,
   settle,
   type Slot,
+  STABLE_MS,
   STDERR_LINE_MAX,
 } from "./slot.ts";
 import type { Frame } from "../../../protocol/base/mod.ts";
@@ -29,6 +31,8 @@ type ReadStep = ChildMessage | "ended" | "violated" | "faulted";
 type Frames = AsyncGenerator<Frame, "eof" | "closed">;
 
 export type RunDeps = {
+  // ready 뒤 버틴 시간(STABLE_MS)만 이 시계로 잰다.
+  clock: Clock;
   denoCommand: string;
   readyMs: number;
   teardownMs: number;
@@ -75,7 +79,7 @@ export async function runOnce(slot: Slot, deps: RunDeps): Promise<Outcome> {
     ]);
     readyTimer.cancel();
     if (typeof raced !== "string") {
-      outcome = await afterReady(frames, slot, attempt, exitedCode);
+      outcome = await afterReady(frames, slot, attempt, exitedCode, deps);
     } else {
       attempt.live = false;
       outcome = raced === "violated" ? violation(slot) : failure(slot, raced);
@@ -120,6 +124,7 @@ async function afterReady(
   slot: Slot,
   attempt: Attempt,
   exitedCode: Promise<number | null>,
+  deps: RunDeps,
 ): Promise<Outcome> {
   // ready를 읽은 순간 leader가 이미 끝났으면 ready로 세지 않는다. 열린 stdout을 붙들지 않는다.
   if (await settledWithin(exitedCode, 0)) {
@@ -131,8 +136,11 @@ async function afterReady(
   slot.phase = "ready";
   slot.reason = undefined;
   settle(slot, true);
+  const readyAt = deps.clock.nowMs();
   const step = await readRest(frames, slot, attempt, exitedCode);
   if (slot.generation !== attempt.generation) return "stopped";
+  // 오래 버틴 child의 끝은 연속 실패가 아니다. ready 직후 되풀이해 죽는 child만 한도에 닿는다.
+  if (deps.clock.nowMs() - readyAt >= STABLE_MS) slot.failures = 0;
   if (step === "violated") return violation(slot);
   slot.phase = "starting";
   slot.reason = step === "faulted" ? "stdio failed" : "exited after ready";

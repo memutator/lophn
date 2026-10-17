@@ -50,7 +50,8 @@ const finishTurnInputSchema = z.strictObject({
   result_size: blobSizeSchema.optional(),
 });
 
-// 사람이 멈추는 것만 있다. 꺼졌다 켜질 때와 session 끝남은 command 없이 core가 interrupted로 닫는다.
+// 사람이 멈추는 것만 있다. 켤 때와 session 끝남은 command 없이 core가 interrupted로 닫는다. child가 사라지는
+// 것은 `interruptTurns`가 닫는다.
 const stopTurnInputSchema = z.strictObject({
   ...turnRef,
   request_key: z.string().min(1),
@@ -146,9 +147,22 @@ export const stopTurn = defineCommand({
   ],
 });
 
+// agent runtime child가 사라졌다(crash·교체). 그 child가 돌리던 turn 전부를 interrupted(restarted)로 닫는다.
+// core 안 machine만 쓴다.
+export const interruptTurns = defineCommand({
+  resource: "turns",
+  method: "interrupt",
+  name: "InterruptTurns",
+  input: z.strictObject({}),
+  output: z.object({ interrupted: z.number().int() }),
+  actors: ["machine"],
+  errors: ["forbidden", "internal"],
+});
+
 export const TURN_COMMANDS = [
   startTurn,
   checkpointTurn,
   finishTurn,
   stopTurn,
+  interruptTurns,
 ] as const;

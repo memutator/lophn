@@ -4,6 +4,7 @@ import {
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
+  interruptTurns,
   OAUTH_REFRESH_LEAD_MS,
   providerList,
   providerRead,
@@ -31,9 +32,11 @@ import {
 } from "../../../lophn-agent/run-loop/runtime.ts";
 import {
   createInbox,
+  createInboxApplier,
   createTurnSource,
   createTurnStarter,
 } from "../../../lophn-agent/run-loop/mod.ts";
+import { withAfterCommit } from "../../../storage/ledger/mod.ts";
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
@@ -71,6 +74,17 @@ const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
   credential_ref: PROVIDER_REFRESH_PRINCIPAL,
 };
 
+// agent runtime child가 사라질 때 돌던 turn을 닫는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const TURN_FATE_PRINCIPAL = "machine:turn-fate";
+
+const TURN_FATE_CONTEXT: AuthenticatedContext = {
+  principal: TURN_FATE_PRINCIPAL,
+  actor: "machine",
+  scope: { operations: [interruptTurns.name], targets: {} },
+  conditions: {},
+  credential_ref: TURN_FATE_PRINCIPAL,
+};
+
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
   let stopWatching: (() => void) | undefined;
@@ -92,7 +106,11 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           ),
       });
     },
-    records: () => [SESSION_INPUTS_CONTEXT, PROVIDER_REFRESH_CONTEXT],
+    records: () => [
+      SESSION_INPUTS_CONTEXT,
+      PROVIDER_REFRESH_CONTEXT,
+      TURN_FATE_CONTEXT,
+    ],
     // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
     build(ctx) {
       const humanOnly = (who: AuthenticatedContext): Result<void> =>
@@ -194,6 +212,19 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           starter: createTurnStarter({ inbox }),
         }),
         publish: ctx.bus.publish,
+        inbox,
+        // TurnEnded는 commit 뒤에 Bus로 나가 권한 요청과 질문의 기다림을 푼다.
+        interruptTurns: () =>
+          withAfterCommit(
+            runtime.writer,
+            createInboxApplier({ inbox, publish: ctx.bus.publish }),
+          ).command(TURN_FATE_CONTEXT, {
+            command: interruptTurns.name,
+            input: {},
+            idempotency_key: crypto.randomUUID(),
+            compare: {},
+            prepared: [],
+          }),
         epoch: ctx.epoch,
         dataRoot: ctx.root.path,
         apiPort: ctx.server.port,

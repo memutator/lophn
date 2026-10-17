@@ -15,6 +15,8 @@ export const STOP_MS = 5_000;
 export const WRITE_MS = 20_000;
 export const RESTART_DELAYS_MS = [1_000, 2_000, 4_000];
 export const RESTART_LIMIT = RESTART_DELAYS_MS.length;
+// ready 뒤 이만큼 버틴 child가 끝나면 재기동 횟수를 0에서 다시 센다.
+export const STABLE_MS = 60_000;
 export const STDERR_LINE_MAX = 8 * 1024;
 // group 종료 확인 전체 한도. adapter 호출(신호·마지막 확인)과 leader exit·group 확인 한도를 더한 것이다.
 // 넘으면 그 kind를 unavailable로 막고 old handle을 보존해 겹쳐 띄우지 않는다.
@@ -63,7 +65,7 @@ export type Attempt = {
 export type Slot = {
   spec: KindLaunchSpec;
   phase: Phase;
-  // ready 전 실패와 ready 후 crash를 합쳐 센다. kind 전체 최대 3회다. ready는 이 수를 지우지 않는다.
+  // ready 전 실패와 ready 후 crash를 합쳐 연속 실패만 센다. 최대 3회다. ready 뒤 STABLE_MS를 버틴 child가 끝나면 0으로 돌아간다.
   failures: number;
   reason?: string;
   generation: number;

@@ -1,5 +1,5 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
-import type { PlaceAgent, PlaceContext } from "./place-info.ts";
+import type { PlaceAgent, PlaceContext } from "./model.ts";
 
 // 지난 turn이 본 prompt의 판이다. turn이 시작할 때 지금 판과 비교해 바뀐 것마다 notice를 만든다.
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.

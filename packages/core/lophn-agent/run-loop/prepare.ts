@@ -35,7 +35,11 @@ import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
 import type { AgentEventSink } from "./ports.ts";
 import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
 import type { StartTurnResult } from "./credentials.ts";
-import type { InstructionTexts, SeenBasis } from "../prompt-assembly/mod.ts";
+import type {
+  InstructionTexts,
+  SeenBasis,
+  TurnPromptInput,
+} from "../prompt-assembly/mod.ts";
 import {
   definitionHash,
   runOperations,
@@ -59,7 +63,6 @@ import { readSessionConversation } from "../session/history.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
 import { inputText } from "./input-text.ts";
-import { readPlaceData } from "./place-data.ts";
 import type { TurnStart } from "./work.ts";
 import {
   buildMcpTools,
@@ -135,7 +138,15 @@ type PreparerDeps = {
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
+  // 제품 고정 규칙을 포함한 role 지침 글.
   rolePrompt(role: string): Promise<Result<string>>;
+  // prompt의 place 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. role 규칙은 role 층이 쥔다.
+  placeData(call: CoreCall, resolved: ResolvedAgent): Promise<
+    Result<{
+      place: TurnPromptInput["place"];
+      scope: { read: string[]; write: string[] };
+    }>
+  >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
   roleTools(role: Role): readonly string[];
   instructions: InstructionDeps;
@@ -193,9 +204,6 @@ type FixedTools = {
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
 type Seen = { basis: SeenBasis; compaction: string | null };
-
-// place 정보의 context 글 예산(글자 수). session을 시작할 때 고정하는 값이라 상수다.
-const CONTEXT_TEXT_BUDGET = 12000;
 
 async function hashesOf(
   definitions: readonly ToolDefinition[],
@@ -445,7 +453,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         request: request.input.message,
       });
       if (!read.ok) return read;
-      const placed = await readPlaceData(agentCall, resolved);
+      const placed = await deps.placeData(agentCall, resolved);
       if (!placed.ok) return placed;
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
@@ -458,7 +466,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
         prompt: {
-          role: resolved.role,
           role_prompt: role.value,
           // 정본 이름이다. model에는 wire 이름으로 간다.
           tools: fixed.definitions.map((tool) => ({
@@ -476,7 +483,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             enabled: entry.enabled && resolved.skills.includes(entry.name),
           })),
           place: placed.value.place,
-          context_budget: CONTEXT_TEXT_BUDGET,
           ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
             ? { seen: seenAtStart.basis }
             : {}),

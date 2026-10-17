@@ -10,16 +10,21 @@ import {
   glossaryListRoute,
   projectApi,
 } from "../../../protocol/projects/mod.ts";
-import type { ResolvedAgent } from "../agents/mod.ts";
+import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
   buildContextText,
   type FolderRead,
   type PlaceAgent,
   type PlaceContext,
+  type TurnPromptInput,
+} from "../../lophn-agent/prompt-assembly/mod.ts";
+import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
+import {
   type PlaceData,
+  placeInfo,
   type PlaceProject,
-} from "../prompt-assembly/mod.ts";
-import { type CoreCall, readOf } from "./core-call.ts";
+  visibleContexts,
+} from "./place-info.ts";
 
 // prompt의 place 정보 재료를 turn의 agent 자격으로 core 읽기에서 모은다. turn마다 한 번 읽는다.
 // file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다: lophn은 모든 project 폴더를 읽기만 하고, Project
@@ -30,6 +35,9 @@ type PlaceRead = {
   place: PlaceData;
   scope: { read: string[]; write: string[] };
 };
+
+// place 정보의 context 글 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
+const CONTEXT_TEXT_BUDGET = 12000;
 
 // 부를 수 있는 agent 목록에 붙는 한 줄. agent 정의에 설명 칸이 없어 role마다 고정 문장이다.
 const ROLE_LINE: Record<Role, string> = {
@@ -116,7 +124,7 @@ export function appSourceScope(
   return { read, write };
 }
 
-export async function readPlaceData(
+async function readPlaceData(
   call: CoreCall,
   agent: ResolvedAgent,
 ): Promise<Result<PlaceRead>> {
@@ -298,6 +306,28 @@ export async function readPlaceData(
       apps: appItems,
       projects: projectList,
       release,
+    },
+    scope,
+  });
+}
+
+// prompt가 받는 place 값과 file 범위다. 글과 보이는 context는 여기서 정해 harness는 role을 모른다.
+export async function placeData(
+  call: CoreCall,
+  agent: ResolvedAgent,
+): Promise<
+  Result<{ place: TurnPromptInput["place"]; scope: PlaceRead["scope"] }>
+> {
+  const read = await readPlaceData(call, agent);
+  if (!read.ok) return read;
+  const { place, scope } = read.value;
+  const { role } = agent;
+  return ok({
+    place: {
+      text: placeInfo(role, place, CONTEXT_TEXT_BUDGET),
+      contexts: visibleContexts(role, place),
+      agents: place.agents,
+      show_project: place.project === null,
     },
     scope,
   });

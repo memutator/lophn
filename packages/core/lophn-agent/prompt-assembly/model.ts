@@ -1,3 +1,6 @@
+import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
+import type { Role } from "../../../protocol/lophn-agent/places.ts";
+
 // prompt 조립의 값이다. 순수 값만 두고 I/O와 hash는 `assembleTurnPrompt`가 한다.
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
@@ -78,3 +81,25 @@ export type BlockedReason =
 // provider 포장. 번역된 wire body와 전송 adapter가 따로 쥔 opaque 상태의 byte 수다.
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
+
+// place 정보에서 notice와 판 비교(basis)가 쓰는 값이다. 읽어서 거르는 일은 role 층이 한다.
+export type PlaceContext = {
+  name: string;
+  // 속한 project의 id
+  project: string;
+  // 이 agent에 붙었는가 (Operator의 정의가 고른 context)
+  attached: boolean;
+  purpose: string;
+  // 적용된 판 번호. 예: "r3".
+  version: string;
+  // full 글을 쓰려면 있어야 한다. lophn은 목록만 써서 null이어도 된다.
+  text: ContextText | null;
+};
+
+export type PlaceAgent = {
+  role: Role;
+  name: string;
+  // 놓인 곳의 이름. 예: "project phroner". place가 없으면 null.
+  place: string | null;
+  line: string;
+};

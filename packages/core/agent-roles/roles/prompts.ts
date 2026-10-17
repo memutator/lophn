@@ -21,12 +21,13 @@ const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
   ["operator", operator],
 ]);
 
+// 제품 고정 규칙을 앞에 붙인 role 지침 글이다. turn prompt의 role 층에 그대로 들어간다.
 export function rolePrompt(role: string): Promise<Result<string>> {
   const text = ROLE_PROMPTS.get(role);
   return Promise.resolve(
     text === undefined
       ? err({ code: "unavailable", message: "role prompt is not available" })
-      : ok(text),
+      : ok(`${PRODUCT_INSTRUCTIONS}\n\n${text}`),
   );
 }
 

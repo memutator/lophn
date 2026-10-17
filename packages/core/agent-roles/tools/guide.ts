@@ -1,6 +1,6 @@
 import { ok } from "../../../base/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
-import { guideText, guideTopics } from "../../lophn-agent/roles/guides.ts";
+import { guideText, guideTopics } from "../roles/guides.ts";
 import {
   defineTool,
   fitted,

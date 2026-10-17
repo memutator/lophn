@@ -1,7 +1,14 @@
 import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
-import { type FolderRead, renderContextText } from "./context-text.ts";
+import {
+  type FolderRead,
+  renderContextText,
+} from "../../lophn-agent/prompt-assembly/context-text.ts";
+import type {
+  PlaceAgent,
+  PlaceContext,
+} from "../../lophn-agent/prompt-assembly/model.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 role별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
@@ -23,27 +30,6 @@ type PlaceApp = {
   source: string | null;
 };
 
-export type PlaceContext = {
-  name: string;
-  // 속한 project의 id
-  project: string;
-  // 이 agent에 붙었는가 (Operator의 정의가 고른 context)
-  attached: boolean;
-  purpose: string;
-  // 적용된 판 번호. 예: "r3".
-  version: string;
-  // full 글을 쓰려면 있어야 한다. lophn은 목록만 써서 null이어도 된다.
-  text: ContextText | null;
-};
-
-export type PlaceAgent = {
-  role: Role;
-  name: string;
-  // 놓인 곳의 이름. 예: "project phroner". place가 없으면 null.
-  place: string | null;
-  line: string;
-};
-
 export type PlaceData = {
   self: { role: Role; name: string };
   // 이 agent가 놓인 place
@@ -61,7 +47,7 @@ export type PlaceData = {
   release: { version: string; api_names: readonly string[] } | null;
 };
 
-const ROLE_LABEL: Record<Role, string> = {
+export const ROLE_LABEL: Record<Role, string> = {
   lophn: "lophn",
   project_manager: "Project Manager",
   app_engineer: "App Engineer",

@@ -29,7 +29,8 @@ import {
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
 import { builtinToolNames } from "../../agent-roles/tool-lists.ts";
-import { rolePrompt } from "../../lophn-agent/roles/prompts.ts";
+import { rolePrompt } from "../../agent-roles/roles/prompts.ts";
+import { placeData } from "../../agent-roles/place/place-data.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -130,6 +131,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       }),
       events: calls.events,
       rolePrompt,
+      placeData,
       roleTools: builtinToolNames,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.

@@ -1,5 +1,4 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
-import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import { renderContextText } from "./context-text.ts";
 import { inputBudget, measureWire } from "./budget.ts";
@@ -18,6 +17,8 @@ import type {
   CacheBoundary,
   HistoryMessage,
   ModelLimits,
+  PlaceAgent,
+  PlaceContext,
   PromptMessage,
   PromptRequest,
   PromptTool,
@@ -25,24 +26,26 @@ import type {
   SystemLayerKind,
   WirePacker,
 } from "./model.ts";
-import { type PlaceData, placeInfo, visibleContexts } from "./place-info.ts";
 import { type SkillListItem, skillListText } from "./skill-list.ts";
-import { PRODUCT_INSTRUCTIONS } from "../roles/prompts.ts";
 
 // turn 하나의 prompt를 5장 순서로 조립한다: role 지침과 고정 규칙, 지침 층, skill 목록, place 정보,
 // 대화. 지침은 file이 아니라 값으로 받는다(turn 시작에 읽는 쪽이 따로 있다). I/O는 호출하는 쪽이 한다.
 
 export type TurnPromptInput = {
-  role: Role;
-  // built-in role 지침 글 하나. 제품 고정 규칙은 이 함수가 앞에 붙인다.
+  // 제품 고정 규칙을 포함한 role 지침 글.
   role_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
   tools: readonly PromptTool[];
   instructions: InstructionTexts;
   skills: readonly SkillListItem[];
-  place: PlaceData;
-  // place 정보의 context 글 예산(글자 수). session을 시작할 때 고정한다.
-  context_budget: number;
+  // role 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 보이는 context와 agent다.
+  place: {
+    text: string;
+    contexts: readonly PlaceContext[];
+    agents: readonly PlaceAgent[];
+    // project가 없는 place면 context 글에 project 이름을 싣는다.
+    show_project: boolean;
+  };
   history: readonly HistoryMessage[];
   // 지난 turn이 본 판. 없으면(첫 turn, compact) notice를 붙이지 않는다.
   seen?: SeenBasis;
@@ -128,13 +131,13 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
   }
   if (diff.contexts !== null) {
     const { added, removed, refreshed } = diff.contexts;
-    const visible = visibleContexts(input.role, input.place);
+    const visible = input.place.contexts;
     const shown = new Set([...added, ...refreshed]);
     const texts = visible.flatMap((c) =>
       shown.has(c.name) && c.text !== null
         ? [
           renderContextText(c.text, "full", {
-            project: input.place.project === null,
+            project: input.place.show_project,
           }),
         ]
         : []
@@ -210,10 +213,10 @@ export async function assembleTurnPrompt(
   }
 
   const texts: [SystemLayerKind, string][] = [
-    ["role", `${PRODUCT_INSTRUCTIONS}\n\n${input.role_prompt}`],
+    ["role", input.role_prompt],
     ["instructions", instructionsBlock(input.instructions)],
     ["skills", skillListText(input.skills)],
-    ["place", placeInfo(input.role, input.place, input.context_budget)],
+    ["place", input.place.text],
   ];
   const system: SystemBlock[] = texts.filter(([, text]) => text !== "")
     .map(([layer, text]) => ({ layer, text, cache: CACHED.includes(layer) }));
@@ -228,7 +231,7 @@ export async function assembleTurnPrompt(
   const basis = await basisOf({
     instructions: input.instructions,
     tool_names: input.tools.map((t) => t.name),
-    contexts: visibleContexts(input.role, input.place),
+    contexts: input.place.contexts,
     agents: input.place.agents,
   });
   const diff = input.seen === undefined ? null : diffBasis(input.seen, basis);

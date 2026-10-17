@@ -16,7 +16,7 @@ import {
   projectApi,
 } from "../../../protocol/projects/mod.ts";
 import { contextGetOutputSchema } from "../../../protocol/lophn-agent/context-text.ts";
-import { readContext } from "../../lophn-agent/run-loop/place-data.ts";
+import { readContext } from "../place/place-data.ts";
 import { renderContextText } from "../../lophn-agent/prompt-assembly/mod.ts";
 import { openDraft, setGlossary } from "./context/draft.ts";
 import { searchContext } from "./context/search.ts";

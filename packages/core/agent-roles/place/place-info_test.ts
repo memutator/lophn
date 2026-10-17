@@ -1,11 +1,10 @@
 import { assert } from "@std/assert";
-import { buildContextText, type ContextRead } from "./context-text.ts";
 import {
-  type PlaceContext,
-  type PlaceData,
-  placeInfo,
-  type PlaceProject,
-} from "./place-info.ts";
+  buildContextText,
+  type ContextRead,
+} from "../../lophn-agent/prompt-assembly/context-text.ts";
+import type { PlaceContext } from "../../lophn-agent/prompt-assembly/model.ts";
+import { type PlaceData, placeInfo, type PlaceProject } from "./place-info.ts";
 
 function project(id: string, name: string): PlaceProject {
   return { id, name, purpose: `${name} purpose`, folders: [], subfolders: [] };

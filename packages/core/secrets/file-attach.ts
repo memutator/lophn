@@ -17,7 +17,6 @@ import {
 } from "../../protocol/secrets/mod.ts";
 import { authorize } from "../server/identity/mod.ts";
 import type { SecretFileStore } from "./file-store.ts";
-import { sameDestination } from "./model.ts";
 
 // owner concern(provider·MCP)이 그 secret을 보낼 수 있는 목적지를 답한다. redirect로 목적지가 바뀌었는지
 // 보려고 쓴다. 모르는 이름은 빈 목록이다.
@@ -73,6 +72,15 @@ export function createFileSecretAttach(options: {
       return await transmit(loaded.value);
     },
   };
+}
+
+// redirect는 새 전송이다. 목적지(종류와 host)가 바뀌면 값을 넘기지 않는다.
+function sameDestination(
+  allowed: SecretDestination,
+  next: SecretDestination,
+): boolean {
+  return allowed.kind === next.kind &&
+    new URL(allowed.origin).host === new URL(next.origin).host;
 }
 
 function admit(context: AuthenticatedContext): Result<void> {

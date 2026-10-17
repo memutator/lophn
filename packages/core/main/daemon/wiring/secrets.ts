@@ -12,16 +12,12 @@ import {
   createFileSecretAttach,
   createSecretFileStore,
   openSecretStore,
-  SECRET_SCHEMA_STEPS,
   secretDeleteHandler,
   secretPutHandler,
   secretStatusHandler,
   type SecretStore,
 } from "../../../secrets/mod.ts";
-import {
-  type KnownSecretMatch,
-  openConnection,
-} from "../../../storage/ledger/mod.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
@@ -31,8 +27,6 @@ export const secretsWiring: WiringFactory = () => {
   let store: SecretStore | undefined;
   return {
     name: "secrets",
-    // 옛 ledger `secrets` 표. 아직 있는 SetSecret·RemoveSecret command와 runtime.ts의 옛 store가 읽는다.
-    schemaStepsAfterTeams: SECRET_SCHEMA_STEPS,
     // 파일 저장소와 port를 런타임 전에 낸다. reader pool 통로는 runtime이 열린 뒤에야 있어 부를 때 읽는다.
     prepare(ctx) {
       const file = createSecretFileStore({
@@ -48,6 +42,8 @@ export const secretsWiring: WiringFactory = () => {
         },
       });
       ctx.provide("secretStore", store);
+      // 값을 다 알기 전(open 전, 못 읽는 동안)에는 ready가 false라서 redactor가 막는다.
+      ctx.provide("knownSecrets", store.known);
       // provider와 MCP credential만 허용한다. 앱 secret은 아직 소유 concern이 없어 거절한다(fail-closed).
       // process는 관측한 감독 상태로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.
       // 목적지는 이름 공간마다 부를 때 읽는다(lophn-agent/secret-destinations.ts).
@@ -94,11 +90,6 @@ export const secretsWiring: WiringFactory = () => {
       if (!opened.ok) console.error("secrets: secret 파일을 열지 못했다");
       // 다시 뜬 reader는 알려진 값을 모른다. 현재 값을 다시 올린다.
       ctx.runtime.onReaderRespawn(() => secrets.sync());
-      // 옛 keychain 값(runtime.ts의 옛 store)과 파일 값을 모두 안다. 어느 쪽이든 준비되지 않았으면 막는다.
-      ctx.provide(
-        "knownSecrets",
-        bothKnown(ctx.runtime.knownSecrets, secrets.known),
-      );
       return ok({
         memory: [
           [key(secretStatus), secretStatusHandler(secrets)],
@@ -112,19 +103,3 @@ export const secretsWiring: WiringFactory = () => {
     },
   };
 };
-
-function bothKnown(a: KnownSecretMatch, b: KnownSecretMatch): KnownSecretMatch {
-  return {
-    match(text) {
-      const x = a.match(text);
-      const y = b.match(text);
-      if (x === undefined || y === undefined) return x ?? y;
-      return x.index < y.index || (x.index === y.index && x.length >= y.length)
-        ? x
-        : y;
-    },
-    get ready() {
-      return a.ready && b.ready;
-    },
-  };
-}

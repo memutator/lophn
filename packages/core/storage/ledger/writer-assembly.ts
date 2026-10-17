@@ -35,7 +35,6 @@ import {
   type PreparationRegistry,
 } from "../blobs/mod.ts";
 import { requestPrincipal } from "./after-commit.ts";
-import { SECRET_COMMANDS } from "../../secrets/mod.ts";
 import type { TeamModule } from "./team-module.ts";
 
 type WriterBoot = {
@@ -73,11 +72,7 @@ export async function assembleWriter(
   // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
   let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
   const clock = writerClock(boot, () => fixedMs);
-  // secret 참조(SetSecret·RemoveSecret)는 platform 소유 command라 팀 module 없이 항상 붙는다.
-  const commands: CommandDefinition[] = [
-    ...LEDGER_COMMANDS,
-    ...SECRET_COMMANDS,
-  ];
+  const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const afterCommit = createAfterCommitCollector();
   const ports: TxPortRegistration[] = [
     afterCommit.registration,

@@ -9,7 +9,6 @@ import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import type { Route } from "../../../protocol/base/mod.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { TxPortRegistration } from "../../storage/ledger/mod.ts";
-import type { SecretRefSource } from "../../secrets/mod.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
 
 type Loose = {
@@ -25,7 +24,6 @@ type Loose = {
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
-  secretRefs?: readonly SecretRefSource[];
 };
 
 export type Assembled = {
@@ -39,8 +37,6 @@ export type Assembled = {
   ports: TxPortRegistration[];
   workers: KindLaunchSpec[];
   blobFields: BlobFieldDefinition[];
-  // 다른 concern의 secret 참조를 읽는 함수. owner가 겹치면 거절한다.
-  secretRefs: SecretRefSource[];
 };
 
 // command·read·file·worker route를 같은 경로 집합에 넣는다. 같은 resource/method는 거절한다.
@@ -101,9 +97,7 @@ export function assemble(
     ports: [],
     workers: [],
     blobFields: [],
-    secretRefs: [],
   };
-  const secretOwners = new Set<string>();
   const schema = new Set<string>();
   const commands = new Set<string>();
   const reads = new Set<string>();
@@ -203,11 +197,6 @@ export function assemble(
         assembled.ports.push(port);
       }
       assembled.blobFields.push(...registration.blobFields ?? []);
-      for (const source of registration.secretRefs ?? []) {
-        const check = taken(secretOwners, source.owner, source);
-        if (!check.ok) return check;
-        assembled.secretRefs.push(check.value);
-      }
       for (const worker of registration.workers ?? []) {
         const check = taken(workers, worker.kind, worker);
         if (!check.ok) return check;

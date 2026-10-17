@@ -329,7 +329,6 @@ const CONTROL_OPERATIONS = new Set([
   "cancel_approval_request",
   "reject_approval_request",
   "expire_approval_request",
-  "removeSecret",
 ]);
 
 function controlCommand(_ctx: AuthenticatedContext, name: string): boolean {

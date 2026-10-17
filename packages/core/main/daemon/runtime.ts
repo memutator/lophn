@@ -10,7 +10,6 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../protocol/storage/mod.ts";
-import type { SecretPreparation } from "../../../protocol/secrets/mod.ts";
 import type { ReadHandler } from "../../server/mod.ts";
 import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
 import {
@@ -19,7 +18,6 @@ import {
 } from "../../diagnostics/mod.ts";
 import {
   createReaderPool,
-  type KnownSecretMatch,
   openConnection,
   type ReaderPool,
   type Writer,
@@ -31,8 +29,6 @@ import type {
 import { finishBlobRead, planBlobRead } from "../../storage/blobs/mod.ts";
 import { authorize } from "../../server/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
-import { openSecretStore, withSecretSync } from "../../secrets/store.ts";
-import type { KeychainAdapter } from "../../secrets/mod.ts";
 
 export type CoreRuntime = {
   writer: Writer;
@@ -42,20 +38,10 @@ export type CoreRuntime = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  // 값 없는 secret 준비 증거를 writer가 ledger에 남긴다.
-  recordSecretPreparation(
-    preparation: SecretPreparation,
-  ): Promise<Result<void>>;
-  // 알려진 secret 값과 일치하는 부분을 찾는 얼굴. 값 목록은 내보내지 않는다. core 프로세스 안의
-  // 안전화(메시지 본문)가 쓴다.
-  knownSecrets: KnownSecretMatch;
-  // ledger 밖에서 바뀐 secret 보관(MCP OAuth token의 교환·갱신)을 알려진 값 registry에 맞춘다. 새 값이 안전화에
-  // 들고 옛 값이 회수된 뒤에 끝난다.
-  syncSecrets(): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   readers: ReaderPool;
-  // 격리됐다 다시 뜬 reader가 healthy가 된 뒤 부를 함수를 더한다(새 secret store의 sync).
+  // 격리됐다 다시 뜬 reader가 healthy가 된 뒤 부를 함수를 더한다(secret store의 sync).
   onReaderRespawn(hook: () => Promise<unknown>): void;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
   // 요청 자격을 다시 읽는 데 쓴다.
@@ -100,8 +86,6 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
-  // secret store가 값을 읽는 OS keychain. 참조가 있을 때 부른다.
-  keychain: () => KeychainAdapter;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
   blob?: {
     fields: readonly BlobFieldDefinition[];
@@ -143,22 +127,6 @@ export async function openRuntime(input: {
     await openedWriter.writer.close();
     return readers;
   }
-  // secret store: ledger의 현재 secret 참조의 값을 keychain에서 읽어 reader의 알려진 값
-  // registry에 넣는다. 기동 때 한 번 맞춘다(못 읽으면 reader가 준비되지 않음이라 알려진 값을
-  // 모른 채 원문을 내보내지 않고, 재시도가 이어서 맞춘다).
-  const secretStore = openSecretStore({
-    ledgerPath: input.ledgerPath,
-    channel: readers.value.known,
-    keychain: input.keychain,
-    sources: input.assembled.secretRefs,
-  });
-  respawnHooks.push(() => secretStore.sync());
-  await secretStore.sync();
-  const writer = withSecretSync(
-    openedWriter.writer,
-    secretStore.sync,
-    input.assembled.secretRefs,
-  );
   const status = platformStatusReads(input.source, input.clock);
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
@@ -198,12 +166,9 @@ export async function openRuntime(input: {
   // 현재 보기 relay는 ledger 밖 core 메모리다.
   const memory = createWorkspaceRelay();
   return ok({
-    writer,
+    writer: openedWriter.writer,
     confirmation: openedWriter.confirmation,
     record: openedWriter.record,
-    recordSecretPreparation: openedWriter.recordSecretPreparation,
-    knownSecrets: secretStore.known,
-    syncSecrets: () => secretStore.sync(),
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
@@ -212,7 +177,6 @@ export async function openRuntime(input: {
     reads,
     memory,
     async close() {
-      secretStore.stop();
       readers.value.close();
       await openedWriter.writer.close();
     },
@@ -235,9 +199,6 @@ function openProductWriter(
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
-  recordSecretPreparation(
-    preparation: SecretPreparation,
-  ): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
 } {
@@ -364,21 +325,6 @@ function openProductWriter(
         op: "blob-prune",
         nowMs,
       } as unknown as WriterRequest).then(blobNoted);
-    },
-
-    recordSecretPreparation(preparation) {
-      return send({
-        id: nextId++,
-        op: "record-secret-preparation",
-        preparation,
-      } as unknown as WriterRequest).then((message) => {
-        if ((message.op as string) === "recorded") return ok(undefined);
-        if (message.op === "failed") return err(message.body);
-        return err({
-          code: "unavailable",
-          message: "준비 증거를 남기지 못했다",
-        });
-      });
     },
 
     record(context) {

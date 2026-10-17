@@ -1,4 +1,4 @@
-// secret 사용 대역. 실제 keychain·전송부·redaction 등록에 닿지 않고 값도 어디에도
+// secret 사용 대역. 실제 secret 저장소·전송부·redaction 등록에 닿지 않고 값도 어디에도
 // 없다. 선언한 secret 이름과 선언한 목적지만 받고 사용 요청만 메모리에 남긴다. 같은 규칙의 앱 쪽
 // 대역은 packages/sdk/cap-secret의 createSecretStandIn이고, 앱 프로세스는 live가 아닌 mode에서 그것을
 // 쓴다. 이 대역은 broker 통로로 직접 온 요청을 같은 규칙으로 받는 server 쪽이다.

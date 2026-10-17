@@ -22,11 +22,9 @@ import {
   resolveDataRoot,
   writeRunMetadata,
 } from "../../install-and-update/mod.ts";
-import type { KeychainAdapter } from "../../secrets/mod.ts";
 import { CRASH_LOCATIONS } from "../../diagnostics/mod.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
-import { withPlatform } from "./platform-register.ts";
 import { openRuntime } from "./runtime.ts";
 import {
   greet,
@@ -59,8 +57,6 @@ export type CoreOptions = {
   random?: RandomSource;
   // Electron main이 물려 준 stdin/stdout.
   parent?: ParentPipe;
-  // secret store·MCP OAuth가 값을 읽는 keychain adapter.
-  codingKeychain: KeychainAdapter;
 };
 
 type Core = {
@@ -110,10 +106,7 @@ async function open(
     {},
     ...wirings.map((wiring) => wiring.environment?.(ctx)),
   );
-  const assembled = withPlatform(
-    assemble(options.teams, environment),
-    environment,
-  );
+  const assembled = assemble(options.teams, environment);
   if (!assembled.ok) return assembled;
   ctx.provide("assembled", assembled.value);
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
@@ -177,13 +170,10 @@ async function open(
     assembled: assembled.value,
     source: ctx.statusSource,
     blob: ctx.blobRead.deps,
-    // 참조가 있을 때만 부른다. secret store와 MCP OAuth가 같은 adapter로 값을 읽는다.
-    keychain: () => options.codingKeychain,
   });
   if (!openedRuntime.ok) return openedRuntime;
   const runtime = openedRuntime.value;
   ctx.provide("runtime", runtime);
-  ctx.provide("knownSecrets", runtime.knownSecrets);
 
   // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →

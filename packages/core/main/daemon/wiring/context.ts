@@ -134,7 +134,7 @@ type Wiring = {
   // migration에 더한다. 팀 schema보다 앞(ledger, credential)과 뒤(settings, secret). 순서가 이력이다.
   schemaSteps?: readonly SchemaStep[];
   schemaStepsAfterTeams?: readonly SchemaStep[];
-  // assemble(options.teams, env)과 withPlatform의 환경에 합쳐 넘긴다.
+  // assemble(options.teams, env)의 환경에 합쳐 넘긴다.
   environment?(ctx: WiringContext): Record<string, unknown>;
   // 기동 때 중단 작업을 점검하는 소유 concern.
   restartOwners?: readonly RestartOwner[];

@@ -2,7 +2,6 @@ import { startCore } from "./core.ts";
 import { writeParent } from "./parent.ts";
 import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
-import { productKeychain } from "../../secrets/store.ts";
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
 const port = portArg === undefined ? undefined : Number(portArg.slice(7));
@@ -18,7 +17,6 @@ const started = await startCore({
   teamModules: TEAM_MODULES,
   wirings: WIRINGS,
   parent,
-  codingKeychain: productKeychain(),
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);

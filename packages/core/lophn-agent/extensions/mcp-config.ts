@@ -83,7 +83,7 @@ function httpReason(server: McpServerShape): string | null {
   if (server.transport !== "http") return null;
   const endpoint = httpEndpointReason(server.http.url);
   if (endpoint !== null) return endpoint;
-  // 인증 방식은 계약이 이미 골랐다(mcpAuthSchema). 여기서는 auth 헤더와 추가
+  // 인증 방식은 계약이 이미 골랐다(mcp-settings의 layerAuthSchema). 여기서는 auth 헤더와 추가
   // 헤더의 이름 상충만 본다.
   if (server.http.auth.kind === "api_key") {
     const name = server.http.auth.header_name.toLowerCase();

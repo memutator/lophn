@@ -8,7 +8,6 @@ import {
 } from "./server/routes.ts";
 import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
-import { SECRET_ROUTES } from "./secrets/secrets.ts";
 import { SETTINGS_FILE_ROUTES } from "./config/file.ts";
 import { SECRET_FILE_ROUTES } from "./secrets/secret-file.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
@@ -25,7 +24,6 @@ export const ROUTES = [
   sessionSnapshotsList,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,
-  ...SECRET_ROUTES,
   ...SETTINGS_FILE_ROUTES,
   ...SECRET_FILE_ROUTES,
   ...DIAGNOSTIC_STATUS_ROUTES,

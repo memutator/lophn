@@ -3,8 +3,11 @@ import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../../base/mod.ts";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import type { SecretSendOutput } from "../../../protocol/secrets/mod.ts";
-import { createFileSecretAttach, SECRET_SEND } from "../../secrets/mod.ts";
+import {
+  SECRET_SEND_OP,
+  type SecretSendOutput,
+} from "../../../protocol/secrets/mod.ts";
+import { createFileSecretAttach } from "../../secrets/mod.ts";
 import { runtimeServerOfLayer } from "../extensions/mod.ts";
 import { createSecretDestinations } from "../secret-destinations.ts";
 import { providerSchemaSteps } from "./schema.ts";
@@ -61,7 +64,7 @@ Deno.test("attach는 허락한 provider endpoint origin이 아닌 목적지에 �
     principal: "machine:agent-runtime-secret",
     actor: "machine" as const,
     scope: {
-      operations: [SECRET_SEND],
+      operations: [SECRET_SEND_OP],
       targets: { process: "agent-runtime", task: "agent-runtime" },
     },
     conditions: { process: "agent-runtime", task: "agent-runtime" },
@@ -164,7 +167,7 @@ Deno.test("secret 값은 자기 이름 공간의 목적지로만 간다", async 
     principal: "machine:agent-runtime-secret",
     actor: "machine" as const,
     scope: {
-      operations: [SECRET_SEND],
+      operations: [SECRET_SEND_OP],
       targets: { process: "agent-runtime", task: "agent-runtime" },
     },
     conditions: { process: "agent-runtime", task: "agent-runtime" },

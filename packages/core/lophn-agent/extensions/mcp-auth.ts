@@ -16,19 +16,7 @@ import { httpRequest } from "./adapters/mcp-http.ts";
 // 만료 토큰은 같은 연결에서 한 번에 하나만 갱신하고(single-flight), 갱신 실패는
 // 재인증 필요로 알린다.
 
-// 이름 규칙이다. bearer·api_key·oauth2의 credential은
-// 보호 창의 `SetSecret`(이름 `mcp-<server 이름>`)이 저장하고 설정은
-// `sec:mcp-<server 이름>`을 가리킨다. 이 이름 규칙으로 찾는 곳은 이 모듈 밖의
-// 통로(extensions secret-refs)다.
-
-// 보관 이름이다. 서버 이름을 그대로 쓴다. 서버 이름은
-// 계약이 `[A-Za-z0-9_-]{1,32}`로 거르므로 이 그대로가
-// secretNameSchema를 지난다.
-
-// 설정이 가리키는 참조다. `sec:` + 보관 이름이다(extensions secret-refs가 같은
-// 규칙으로 읽는다).
-
-// 인증 방식이다(계약 mcpAuthSchema의 kind).
+// 인증 방식이다(설정 schema의 auth kind).
 type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
 
 // 사람이 지정한 Bearer·API 키의 인증 비밀이 묶인 서버 연결 대상이다. 값은
@@ -43,7 +31,7 @@ type CredentialBinding = {
 // OAuth 발급자에 묶인 인증 비밀이다. 발급자·계정이 바뀌면 옛 token을
 // 재사용하지 않는다.
 type OAuthBinding = {
-  // OAuth 발급자다(계약 mcpAuthSchema의 issuer). 발급자가 바뀌면 옛 token을
+  // OAuth 발급자다(설정 schema의 issuer). 발급자가 바뀌면 옛 token을
   // 재사용하지 않는다.
   issuer: string;
   // 서버 URL이다. URL이 바뀌면 옛 token을 재사용하지 않는다.
@@ -392,7 +380,7 @@ export type AuthDeadline = (
 ) => Promise<"elapsed" | "aborted">;
 
 // 로그인 session의 상태다. 값(verifier·state·token)은 어디에도 없다. 끝나면 session은 값을 쥐지 않고
-// not_started로 돌아간다(받은 token은 부르는 쪽이 keychain에 보관한다).
+// not_started로 돌아간다(받은 token은 부르는 쪽이 `secrets.json`에 보관한다).
 type AuthState =
   | { kind: "not_started" }
   | { kind: "in_progress" }

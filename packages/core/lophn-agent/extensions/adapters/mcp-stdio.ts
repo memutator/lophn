@@ -59,7 +59,7 @@ export type StdioSpawnInput = {
   executable: string;
   args: readonly string[];
   cwd: string | null;
-  // 이미 결정된 값 그대로다. secret_ref는 부르는 쪽이 풀어서 준다.
+  // 설정의 값 그대로다. stdio env는 secret을 받지 않는다.
   env: Record<string, string>;
   // 호출 process의 env 읽기다. 없는 이름은 넘기지 않는다.
   ambient?: (name: string) => string | undefined;

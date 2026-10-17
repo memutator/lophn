@@ -1,9 +1,8 @@
-import { err, internalError, type Result } from "../../../base/mod.ts";
+import { internalError } from "../../../base/mod.ts";
 import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { executeCommand, readOwnResult } from "./executor.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
 import type { WriterRequest, WriterResponse } from "./writer-message.ts";
-import { recordSecretPreparation } from "../../secrets/mod.ts";
 import { assembleWriter } from "./writer-assembly.ts";
 
 type WorkerSelf = {
@@ -64,11 +63,6 @@ type WorkerMessage = WriterRequest | {
   id: number;
   op: "record-credential";
   context: unknown;
-} | {
-  // I/O worker가 keychain에 값을 둔 뒤 돌려준 값 없는 준비 증거(secret_preparations)다.
-  id: number;
-  op: "record-secret-preparation";
-  preparation: unknown;
 } | {
   // 테스트 manual clock을 민 시각. writer clock이 그 시각을 따라간다.
   id: number;
@@ -141,38 +135,6 @@ async function handle(
     worker.postMessage(
       { id: data.id, op: "confirmation", body: issued } as never,
     );
-    return;
-  }
-  if (data.op === "record-secret-preparation") {
-    // 자체 transaction으로 한 행을 확정한다. 열린 transaction 안에서는 부르지 않는다.
-    let recorded: Result<unknown>;
-    if (connection.inTransaction()) {
-      recorded = err({
-        code: "internal",
-        message: "준비 증거를 열린 transaction 안에서 남길 수 없다",
-      });
-    } else {
-      try {
-        connection.exec("begin immediate");
-        recorded = recordSecretPreparation(connection.sql, data.preparation);
-        connection.exec(recorded.ok ? "commit" : "rollback");
-      } catch {
-        try {
-          connection.exec("rollback");
-        } catch { /* 이미 끝난 transaction */ }
-        recorded = err({
-          code: "unavailable",
-          message: "준비 증거를 남기지 못했다",
-        });
-      }
-    }
-    worker.postMessage({
-      id: data.id,
-      op: recorded.ok ? "recorded" : "failed",
-      body: recorded.ok
-        ? { code: "ok", message: "secret preparation recorded" }
-        : recorded.error,
-    } as never);
     return;
   }
   if (data.op === "record-credential") {

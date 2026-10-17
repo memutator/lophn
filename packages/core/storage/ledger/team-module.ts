@@ -13,7 +13,6 @@ import type {
   WorkerRoute,
 } from "../../../protocol/base/mod.ts";
 import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
-import type { SecretRefSource } from "../../secrets/mod.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 
 // 최상위 팀의 등록 파일이 내놓는 모양. main.ts는 이 목록만 부르고 팀 내용을 모른다.
@@ -36,9 +35,6 @@ type TeamRegistration = {
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
-  // 자기 ledger 표에 secret 참조를 두는 concern(MCP OAuth 등)이 그 참조를 읽는 함수를
-  // 낸다. core가 같은 keychain에서 값을 읽어 알려진 값 registry에 등록·회수한다.
-  secretRefs?: readonly SecretRefSource[];
   clock?: Clock;
   ids?: IdSource;
 };

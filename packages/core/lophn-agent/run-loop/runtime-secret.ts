@@ -4,13 +4,13 @@ import {
   secretSendRequestSchema,
   type SecretSendResponse,
 } from "../../../protocol/supervision/mod.ts";
-import type {
-  SecretAttachPort,
-  SecretFileUse,
-  SecretValue,
+import {
+  SECRET_SEND_OP,
+  type SecretAttachPort,
+  type SecretFileUse,
+  type SecretValue,
 } from "../../../protocol/secrets/mod.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
-import { SECRET_SEND } from "../../secrets/mod.ts";
 
 // agent runtime의 secret 전송 부착 요청(감독 pipe `secret_send_request`)을 core가 답한다. 요청은 `secrets.json`의
 // 이름과 목적지를 싣고, core의 `attach`가 machine 자격·process 생존·이름 공간의 목적지를 대조한다. 통과했을 때만
@@ -43,7 +43,7 @@ export function createAgentRuntimeSecrets(deps: {
     principal: "machine:agent-runtime-secret",
     actor: "machine",
     scope: {
-      operations: [SECRET_SEND],
+      operations: [SECRET_SEND_OP],
       targets: { process: deps.process, task: deps.task },
     },
     conditions: { process: deps.process, task: deps.task },

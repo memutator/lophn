@@ -219,7 +219,7 @@ function mcpConnectionsDeps(
       }),
     // HTTP MCP는 core가 child 권한에 더한 등록 server의 정확한 host:port로만 닿는다.
     fetch: (url, init) => fetch(url, init),
-    // bearer·api_key·secret_ref 헤더의 값은 core가 감독 pipe로 요청마다 한 번 건넨다.
+    // bearer·api_key·secret 헤더·OAuth 접근 token의 값은 core가 감독 pipe로 요청마다 한 번 건넨다.
     ...(secrets === undefined ? {} : { secrets }),
     openStdio: (_server, input, signal) => {
       void signal;

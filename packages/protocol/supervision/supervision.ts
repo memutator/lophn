@@ -11,10 +11,6 @@ import {
 } from "../storage/blob.ts";
 import { credentialScopeSchema } from "../server/identity.ts";
 import { idSchema } from "../base/ids.ts";
-import {
-  secretComparisonRequestSchema,
-  secretComparisonResponseSchema,
-} from "../secrets/secrets.ts";
 import { secretFileUseSchema } from "../secrets/secret-file.ts";
 import { atSchema, durationMsSchema, sha256Schema } from "../base/values.ts";
 import { STREAM_CHUNK_MAX_BYTES } from "../base/frame.ts";
@@ -421,14 +417,12 @@ export const childMessageSchema = z.union([
   secretSendRequestSchema,
   blobPrepareRequestSchema,
 ]);
-// 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다.
-// 비교 op는 이 연결에서 main 신원을 인증하며
-// renderer HTTP token과 worker context를 신뢰하지 않는다.
+// 사람 결정 handle 등록은 main↔core 비공개 연결로만 오간다. renderer HTTP token과 worker context를 신뢰하지
+// 않는다.
 export const mainToCoreMessageSchema = z.union([
   diagnosticSchema,
   stopSchema,
   confirmationHandleRegisterSchema,
-  secretComparisonRequestSchema,
 ]);
 // migration 앞에서 시작하지 못할 때 알린다. 문장과 경로는 싣지 않는다.
 export const START_FAILURE_REASONS = [
@@ -446,7 +440,6 @@ export const coreToMainMessageSchema = z.union([
   readySchema,
   startFailedSchema,
   confirmationHandleRegisteredSchema,
-  secretComparisonResponseSchema,
 ]);
 export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;
 export type ParentMessage = z.infer<typeof parentMessageSchema>;

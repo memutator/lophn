@@ -209,8 +209,13 @@ export const tokens = {
   chip: { width: "360px" },
   // 아이콘 단추 모서리의 개수 표시 높이와 글자 크기. type 단계보다 작다.
   badge: { size: "12px", font: "9px" },
-  // 탭 줄의 탭 최소·최대 폭.
-  tabStrip: { min: "96px", max: "240px" },
+  // 탭 줄의 탭 최소·최대 폭, 편집기 탭 줄 바탕(editor보다 한 단계 어둡다)과 안 고른 탭의 hover 바탕.
+  tabStrip: {
+    min: "96px",
+    max: "240px",
+    bar: { light: "#f3f2ef", dark: "#0d0d0d" },
+    hover: { light: "#ebeae6", dark: "#1d1d1b" },
+  },
   // 창 위쪽 바 높이, 창 조절 단추 폭, 닫기 단추 hover 색.
   window: {
     topBar: "36px",

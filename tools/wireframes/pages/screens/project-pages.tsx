@@ -43,6 +43,25 @@ export function TabKinds() {
   );
 }
 
+/** 편집기 탭 줄(VS Code 느낌). 바탕은 editor보다 어둡고, 고른 탭은 editor 바탕으로 이어지며 위에 강조선이 있다. 탭 사이에 구분선이 있고, 이름이 italic인 탭은 preview(Explorer 한 번 클릭), 닫기 자리에 ●가 있는 탭은 저장 안 된 변경이 있는 탭이다. 닫기 ×는 고른 탭과 hover한 탭에만 보인다. */
+export function EditorTabs() {
+  const notes = documentTab("docs/notes.md");
+  const dirty = {
+    ...documentTab("eval/rubrics/query-hygiene.json"),
+    unsaved: true,
+  };
+  const preview = { ...documentTab("loop/findings/F-009.md"), preview: true };
+  return (
+    <ProjectApp
+      sidebar={{ current: DOC_PATH }}
+      panes={[{
+        tabs: [DOC, preview, dirty, notes, FILES_SEARCH, TERMINAL],
+        selected: DOC.key,
+      }, chat]}
+    />
+  );
+}
+
 /** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Context ▸, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents(관리 탭)와 New context는 없다. */
 export function NewTabMenu() {
   return (

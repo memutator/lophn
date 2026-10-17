@@ -1,4 +1,11 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -21,11 +28,16 @@ import {
   applyDrag,
   breadcrumbs,
   clampSidebar,
+  type CloseScope,
   closeTab,
+  closeTargets,
   moveTab,
+  openTabIn,
+  pinTab,
   SIDEBAR_WIDTH,
   type SidebarState,
   sidebarView,
+  stepTab,
   type TabItem,
   type WorkspaceView,
 } from "./model.ts";
@@ -276,6 +288,10 @@ export function Workspace(props: WorkspaceProps) {
   // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
   const latest = useRef(view);
   latest.current = view;
+  // 저장 안 된 변경이 있는 탭. 탭 줄의 ●와 preview 탭 보호가 같은 session을 본다.
+  const editorSessions = props.editor?.sessions;
+  const isUnsaved = (key: string) => editorSessions?.isUnsettled(key) ?? false;
+  const [, redrawUnsaved] = useReducer((count: number) => count + 1, 0);
   // 파일 탭의 읽던 위치. scroll마다 배치 state를 바꾸지 않고 저장만 늦춘다.
   const positions = useRef<
     Record<string, { section: string; scroll_offset: number }>
@@ -336,6 +352,26 @@ export function Workspace(props: WorkspaceProps) {
     setView(next);
     persist(next);
   };
+  const updateRef = useRef(update);
+  updateRef.current = update;
+
+  // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
+  // 하는 첫 번째 장치이고, 두 번째는 openTabIn이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
+  useEffect(() => {
+    if (editorSessions === undefined) return;
+    return editorSessions.onUnsettledChange(() => {
+      redrawUnsaved();
+      let next = latest.current;
+      for (const pane of next.panes) {
+        for (const tab of pane.tabs) {
+          if (tab.preview && editorSessions.isUnsettled(tab.key)) {
+            next = pinTab(next, tab.key);
+          }
+        }
+      }
+      if (next !== latest.current) updateRef.current(next);
+    });
+  }, [editorSessions]);
 
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
@@ -347,7 +383,8 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // focus 칸 끝에 붙이고 고른다. 같은 key가 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고른다
-  // (탭 key는 작업대 안에서 유일하다). `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
+  // (탭 key는 작업대 안에서 유일하다). preview 탭은 그 칸의 preview 자리를 바꿔 쓴다(openTabIn).
+  // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
     const current = latest.current;
     const holder = current.panes.findIndex((pane) =>
@@ -370,19 +407,7 @@ export function Workspace(props: WorkspaceProps) {
       });
       return;
     }
-    const target = holder >= 0 ? holder : current.focusedPane;
-    update({
-      ...current,
-      focusedPane: target,
-      panes: current.panes.map((item, index) =>
-        index === target
-          ? {
-            tabs: holder >= 0 ? item.tabs : [...item.tabs, tab],
-            selected: tab.key,
-          }
-          : item
-      ),
-    });
+    update(openTabIn(current, tab, isUnsaved));
   };
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
@@ -611,6 +636,8 @@ export function Workspace(props: WorkspaceProps) {
       title: tab.title,
       ...(icon === undefined ? {} : { icon }),
       dot: def?.dotOf?.(tab, host) ?? null,
+      preview: tab.preview === true,
+      unsaved: isUnsaved(tab.key),
     };
   };
 
@@ -625,6 +652,51 @@ export function Workspace(props: WorkspaceProps) {
     void confirm.then((remove) => {
       if (remove) removeTab(key);
     });
+  };
+
+  // 탭 menu의 Close Others·Close to the Right·Close Saved·Close All. 탭마다 닫기 확인(beforeClose)을
+  // 차례로 거치고, 사람이 계속 편집을 고르면 거기서 멈춘다(남은 탭도 닫지 않는다).
+  const closeMany = async (pane: number, scope: CloseScope, key: string) => {
+    const current = latest.current.panes[pane];
+    if (current === undefined) return;
+    for (const target of closeTargets(current, scope, key, isUnsaved)) {
+      const tab = latest.current.panes.flatMap((item) => item.tabs).find((
+        item,
+      ) => item.key === target);
+      if (tab === undefined) continue;
+      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
+      if (confirm && !(await confirm)) return;
+      removeTab(target);
+    }
+  };
+
+  // 탭이 파일이면 그 절대 경로. Copy Path·Reveal in Explorer가 이 탭에만 생긴다.
+  const pathOfTab = (tab: TabItem): string | null =>
+    tabKindOf(tab.kind)?.pathOf?.(tab) ?? null;
+
+  const relativePath = (path: string): string => {
+    const folder = (loaded.project?.folders ?? []).find((item) =>
+      path.startsWith(`${item.path.replace(/\/+$/, "")}/`)
+    );
+    return folder === undefined
+      ? path
+      : path.slice(folder.path.replace(/\/+$/, "").length + 1);
+  };
+
+  const copyPath = (path: string, relative: boolean) => {
+    void globalThis.navigator?.clipboard?.writeText(
+      relative ? relativePath(path) : path,
+    );
+  };
+
+  // Explorer 자리를 열고 그 파일을 알린다. 접힌 sidebar도 펼친다.
+  const [reveal, setReveal] = useState<
+    { readonly path: string; readonly nonce: number } | null
+  >(null);
+  const revealInExplorer = (path: string) => {
+    setSidebar((current) => ({ ...current, collapsedByUser: false }));
+    setUserChoseWidth(true);
+    setReveal({ path, nonce: Date.now() });
   };
 
   const filesApi = (): FilesApi | undefined =>
@@ -723,6 +795,56 @@ export function Workspace(props: WorkspaceProps) {
     })
   );
 
+  // 탭 shortcut: Ctrl/Cmd+W 닫기, Ctrl+Tab·Ctrl+PageDown 다음 탭, Ctrl+Shift+Tab·Ctrl+PageUp 이전 탭.
+  // 편집기나 터미널이 키를 가져가기 전에 capture에서 받는다. 메뉴의 기본 "창 닫기"도 막으려고 preventDefault한다.
+  const tabKeys = useRef<(event: KeyboardEvent) => void>(() => {});
+  tabKeys.current = (event) => {
+    if (event.repeat || event.altKey) return;
+    const pane = latest.current.panes[latest.current.focusedPane];
+    if (pane === undefined || pane.selected === null) return;
+    const mac = palette.platform === "mac";
+    const letter = event.key.toLowerCase();
+    if (
+      (letter === "w" || event.code === "KeyW") && !event.shiftKey &&
+      (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey)
+    ) {
+      // 터미널의 Ctrl+W는 shell의 단어 지우기라서 터미널 안에서는 넘긴다(mac의 Cmd+W는 shell에 가지 않는다).
+      const inTerminal = event.target instanceof Element &&
+        event.target.closest("[data-terminal-screen]") !== null;
+      if (inTerminal && !mac) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close(latest.current.focusedPane, pane.selected);
+      return;
+    }
+    // Ctrl+Tab·Ctrl+PageDown은 mac에서도 Control이다.
+    if (!event.ctrlKey || event.metaKey) return;
+    const delta = event.key === "Tab"
+      ? event.shiftKey ? -1 : 1
+      : event.key === "PageDown" && !event.shiftKey
+      ? 1
+      : event.key === "PageUp" && !event.shiftKey
+      ? -1
+      : 0;
+    if (delta === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = stepTab(pane, delta);
+    if (next === null || next === pane.selected) return;
+    const current = latest.current;
+    updateRef.current({
+      ...current,
+      panes: current.panes.map((item, index) =>
+        index === current.focusedPane ? { ...item, selected: next } : item
+      ),
+    });
+  };
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => tabKeys.current(event);
+    document.addEventListener("keydown", listener, true);
+    return () => document.removeEventListener("keydown", listener, true);
+  }, []);
+
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
   return (
@@ -768,7 +890,9 @@ export function Workspace(props: WorkspaceProps) {
                 ...current,
                 collapsedByUser: sidebarShown.mode !== "collapsed",
               }))}
-            onOpenFile={(path) => openFile(host, path)}
+            reveal={reveal}
+            onOpenFile={(path, keep) =>
+              openFile(host, path, { preview: keep !== true })}
             onFileAction={(action, path) => {
               if (action === "open") openFile(host, path);
               else setFileDialog({ action, path });
@@ -879,8 +1003,15 @@ export function Workspace(props: WorkspaceProps) {
                   ),
                 })}
               onClose={close}
+              onCloseMany={(pane, scope, key) =>
+                void closeMany(pane, scope, key)}
+              onPin={(key) => update(pinTab(latest.current, key))}
+              pathOf={pathOfTab}
+              onCopyPath={copyPath}
+              onReveal={revealInExplorer}
               onFocus={(pane) => update({ ...view, focusedPane: pane })}
-              onMove={(key, toPane) => update(moveTab(view, key, toPane))}
+              onMove={(key, toPane, before) =>
+                update(moveTab(view, key, toPane, before))}
               onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
               newTab={
                 <NewTabMenu

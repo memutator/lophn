@@ -1,4 +1,5 @@
-/* 공용 탭 줄. 아이콘과 이름, 고른 탭에 밑줄, 상자 없음. 바탕이 탭 본문과 같아서 줄과 본문이 하나로 보인다. */
+/* 공용 탭 줄. 기본(.editor)은 편집기 탭 줄이고 .compact는 sidebar 위쪽의 view 전환 줄이다.
+   두 줄은 높이와 아래선(inset 그림자)이 같아서 나란히 놓으면 한 줄로 이어진다. */
 .bar {
   box-sizing: border-box;
   display: flex;
@@ -12,13 +13,20 @@
   font-family: var(--font-sans);
 }
 
+.scroller {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+}
+
+/* offsetLeft가 이 줄 기준이 되도록 position을 둔다. scrollbar는 그리지 않고 .track이 대신한다. */
 .list {
+  position: relative;
   display: flex;
   flex: 1;
   align-items: stretch;
-  gap: var(--space-2);
   min-width: var(--space-0);
-  padding: var(--space-0) var(--space-3);
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -26,6 +34,34 @@
 
 .list::-webkit-scrollbar {
   display: none;
+}
+
+/* 줄에 hover할 때만 보이는 얇은 scrollbar. 자리를 차지하지 않고 탭 아래에 겹친다. */
+.track {
+  position: absolute;
+  right: var(--space-0);
+  bottom: var(--space-0);
+  left: var(--space-0);
+  height: var(--space-2);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroller:hover .track {
+  opacity: 1;
+}
+
+.thumb {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  pointer-events: auto;
+}
+
+.thumb:hover {
+  background: var(--color-text-disabled);
 }
 
 .tab {
@@ -37,8 +73,6 @@
   gap: var(--control-gap);
   min-width: var(--tab-strip-min);
   max-width: var(--tab-strip-max);
-  padding: var(--space-0) var(--space-3) var(--space-0) var(--space-4);
-  color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
   font-weight: var(--font-weight-regular);
@@ -47,32 +81,8 @@
   outline: none;
 }
 
-.tab:hover {
-  color: var(--color-text-primary);
-}
-
 .tab:focus-visible {
   box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
-}
-
-.active {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-/* 고른 탭의 밑줄. 두 칸 중 focus 칸은 focus 색이다. */
-.active::after {
-  content: "";
-  position: absolute;
-  right: var(--space-3);
-  bottom: var(--space-0);
-  left: var(--space-3);
-  height: calc(var(--tab-indicator) * 3 / 2);
-  background: var(--color-text-primary);
-}
-
-.focused.active::after {
-  background: var(--color-focus);
 }
 
 .icon {
@@ -80,10 +90,6 @@
   flex: none;
   align-items: center;
   color: var(--color-text-muted);
-}
-
-.active .icon {
-  color: var(--color-text-secondary);
 }
 
 .title {
@@ -114,6 +120,70 @@
   background: var(--status-neutral-marker);
 }
 
+.end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-2);
+}
+
+/* 편집기 탭 줄. 바탕은 editor보다 한 단계 어둡고, 고른 탭만 editor 바탕이라 아래선 없이 본문과 이어진다. */
+.editor {
+  background: var(--tab-strip-bar);
+}
+
+.editor .tab {
+  padding: var(--space-0) var(--space-3) var(--space-0) var(--space-5);
+  border-right: var(--border-width) solid var(--color-border-base);
+  color: var(--color-text-muted);
+}
+
+.editor .tab:hover {
+  background: var(--tab-strip-hover);
+  color: var(--color-text-secondary);
+}
+
+.editor .active,
+.editor .active:hover {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+}
+
+.editor .active .icon {
+  color: var(--color-text-secondary);
+}
+
+/* 고른 탭 위쪽 강조선. 두 칸 중 focus 칸은 focus 색이다. */
+.editor .active::before {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  right: var(--space-0);
+  left: var(--space-0);
+  height: var(--tab-indicator);
+  background: var(--color-border-strong);
+}
+
+.editor .focused.active::before {
+  background: var(--color-focus);
+}
+
+/* 기울인 글자가 overflow 경계에서 잘리지 않게 오른쪽을 비운다. */
+.preview .title {
+  padding-right: var(--space-2);
+  font-style: italic;
+}
+
+.editor .tab[data-drop="before"] {
+  box-shadow: inset var(--tab-indicator) 0 0 var(--color-focus);
+}
+
+.editor .tab[data-drop="after"] {
+  box-shadow: inset calc(var(--tab-indicator) * -1) 0 0 var(--color-focus);
+}
+
+/* 닫기 자리. 고른 탭과 hover한 탭에만 보이고, 저장 안 된 탭은 늘 보이되 ●이다가 hover하면 ×가 된다. */
 .close {
   box-sizing: border-box;
   display: inline-flex;
@@ -139,20 +209,41 @@
 
 .active .close,
 .tab:hover .close,
+.unsaved .close,
 .close:focus-visible {
   opacity: 1;
 }
 
-.end {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-0) var(--space-2);
+.mark {
+  display: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.unsaved .mark {
+  display: block;
+}
+
+.unsaved .cross {
+  display: none;
+}
+
+.unsaved:hover .mark,
+.unsaved .close:hover .mark,
+.unsaved .close:focus-visible .mark {
+  display: none;
+}
+
+.unsaved:hover .cross,
+.unsaved .close:hover .cross,
+.unsaved .close:focus-visible .cross {
+  display: inline-block;
 }
 
 /* sidebar 위쪽 같은 줄. 높이는 본문 탭 줄과 같아야 아래선이 한 줄로 이어진다.
-   탭이 폭을 나눠 가지고 글자는 가운데다. */
+   탭이 폭을 나눠 가지고 글자는 가운데이며 고른 탭에 밑줄이 있다. */
 .compact {
   background: transparent;
 }
@@ -167,10 +258,28 @@
   min-width: var(--space-0);
   justify-content: center;
   padding: var(--space-0) var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.compact .tab:hover {
+  color: var(--color-text-primary);
+}
+
+.compact .active {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .compact .active::after {
+  content: "";
+  position: absolute;
   right: var(--space-2);
+  bottom: var(--space-0);
   left: var(--space-2);
+  height: calc(var(--tab-indicator) * 3 / 2);
   background: var(--color-text-primary);
+}
+
+.compact .active .icon {
+  color: var(--color-text-secondary);
 }

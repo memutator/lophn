@@ -3,6 +3,7 @@
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useEffect,
   useState,
 } from "react";
 import { TabStrip } from "../../parts/tab-strip/tab-strip.tsx";
@@ -22,6 +23,11 @@ import styles from "./project-sidebar.module.css";
 
 export type SidebarTab = "explorer" | "context" | "agent";
 
+export interface Reveal {
+  readonly path: string;
+  readonly nonce: number;
+}
+
 const TABS: readonly SidebarTab[] = ["explorer", "context", "agent"];
 
 interface ProjectSidebarProps {
@@ -39,7 +45,10 @@ interface ProjectSidebarProps {
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
   initialTab?: SidebarTab;
-  onOpenFile: (path: string) => void;
+  /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
+  onOpenFile: (path: string, keep?: boolean) => void;
+  /** 탭 menu의 Reveal in Explorer. 바뀔 때마다 Explorer 모양으로 바꾸고 Explorer에 그 파일을 알린다. */
+  reveal?: Reveal | null;
   /** 오른쪽 클릭 menu. Rename·Delete의 실행과 확인은 부르는 쪽이 한다. */
   onFileAction: (action: FileAction, path: string) => void;
   onRail: (action: RailAction) => void;
@@ -64,6 +73,7 @@ export function ProjectSidebar(
     sessions,
     current = null,
     initialTab = "explorer",
+    reveal = null,
     onOpenFile,
     onFileAction,
     onRail,
@@ -78,6 +88,9 @@ export function ProjectSidebar(
 ) {
   // 고른 탭은 화면 상태일 뿐이라 저장하지 않는다.
   const [tab, setTab] = useState<SidebarTab>(initialTab);
+  useEffect(() => {
+    if (reveal !== null) setTab("explorer");
+  }, [reveal]);
   const panel = useAgentPanel(agents, sessions);
   const collapsed = mode === "collapsed";
   const toggleLabel = collapsed
@@ -136,6 +149,7 @@ export function ProjectSidebar(
                     source={source}
                     folders={folders}
                     current={current}
+                    reveal={reveal}
                     onOpenFile={onOpenFile}
                     onFileAction={onFileAction}
                   />

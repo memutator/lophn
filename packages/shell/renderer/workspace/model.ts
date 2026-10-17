@@ -85,6 +85,11 @@ export interface TabItem {
     readonly section: string;
     readonly scroll_offset: number;
   };
+  /**
+   * preview 탭. 칸마다 하나이고 다음 preview가 이 자리를 바꿔 쓴다. layout 파일에 남기지 않아서
+   * 다시 열면 모두 고정 탭이다.
+   */
+  readonly preview?: boolean;
 }
 
 export interface PaneState {
@@ -109,13 +114,14 @@ export function normalizePane(pane: PaneState): PaneState {
 }
 
 /**
- * 탭을 다른 칸으로 옮긴다. 원본 칸의 순서에서 빼고 대상 칸 끝에
- * 붙인다. 옮긴 탭이 선택이 되고 focus는 대상 칸으로 간다.
+ * 탭을 옮긴다. 원본 칸에서 빼고 대상 칸의 `before` 탭 앞에 넣는다(없으면 끝). 같은 칸이어도
+ * `before`를 주면 순서만 바꾼다. 옮긴 탭이 선택이 되고 focus는 대상 칸으로 간다. 옮긴 탭은 고정 탭이 된다.
  */
 export function moveTab(
   view: WorkspaceView,
   key: string,
   toPane: number,
+  before?: string | null,
 ): WorkspaceView {
   // 한 칸에서 오른쪽으로 옮기면 새 칸을 연다. 탭이 하나뿐이면 나눌 것이 없다.
   if (toPane === 1 && view.panes.length === 1) {
@@ -123,26 +129,148 @@ export function moveTab(
     view = { ...view, panes: [...view.panes, { tabs: [], selected: null }] };
   }
   if (toPane < 0 || toPane >= view.panes.length) return view;
-  const fromPane = view.panes.findIndex((pane) =>
-    pane.tabs.some((tab) => tab.key === key)
-  );
-  if (fromPane < 0 || fromPane === toPane) return view;
-  const tab = view.panes[fromPane]!.tabs.find((item) => item.key === key)!;
+  const fromPane = holderOf(view, key);
+  if (fromPane < 0 || (fromPane === toPane && before === undefined)) {
+    return view;
+  }
+  if (before === key) return view;
+  const found = view.panes[fromPane]!.tabs.find((item) => item.key === key)!;
+  const tab = { ...found, preview: false };
   const panes = view.panes.map((pane, index) => {
-    if (index === fromPane) {
-      return normalizePane({
-        tabs: pane.tabs.filter((item) => item.key !== key),
-        selected: pane.selected,
-      });
-    }
+    const rest = index === fromPane
+      ? pane.tabs.filter((item) => item.key !== key)
+      : pane.tabs;
     if (index === toPane) {
-      return { tabs: [...pane.tabs, tab], selected: key };
+      const at = before == null
+        ? -1
+        : rest.findIndex((item) => item.key === before);
+      return {
+        tabs: at < 0
+          ? [...rest, tab]
+          : [...rest.slice(0, at), tab, ...rest.slice(at)],
+        selected: key,
+      };
+    }
+    if (index === fromPane) {
+      return normalizePane({ tabs: rest, selected: pane.selected });
     }
     return pane;
   });
   const moved = { ...view, panes, focusedPane: toPane };
   const kept = dropEmptyPane(moved);
   return kept === moved ? moved : { ...kept, focusedPane: 0 };
+}
+
+function holderOf(view: WorkspaceView, key: string): number {
+  return view.panes.findIndex((pane) =>
+    pane.tabs.some((tab) => tab.key === key)
+  );
+}
+
+/**
+ * 탭을 focus 칸에 열고 고른다. 이미 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고르고, 고정으로
+ * 여는 길(preview가 아닌 탭)이면 preview를 푼다. preview 탭은 그 칸의 preview 자리를 바꿔 쓰되,
+ * 저장 안 된 변경이 있는 탭은 사라지지 않게 고정 탭으로 남기고 새 preview를 뒤에 붙인다.
+ */
+export function openTabIn(
+  view: WorkspaceView,
+  tab: TabItem,
+  isUnsaved: (key: string) => boolean,
+): WorkspaceView {
+  const holder = holderOf(view, tab.key);
+  const target = holder >= 0 ? holder : view.focusedPane;
+  const panes = view.panes.map((pane, index) => {
+    if (index !== target) return pane;
+    if (holder >= 0) {
+      return {
+        tabs: tab.preview === true
+          ? pane.tabs
+          : pane.tabs.map((item) =>
+            item.key === tab.key && item.preview
+              ? { ...item, preview: false }
+              : item
+          ),
+        selected: tab.key,
+      };
+    }
+    const old = tab.preview === true
+      ? pane.tabs.find((item) => item.preview === true)
+      : undefined;
+    if (old === undefined) {
+      return { tabs: [...pane.tabs, tab], selected: tab.key };
+    }
+    if (!isUnsaved(old.key)) {
+      return {
+        tabs: pane.tabs.map((item) => item.key === old.key ? tab : item),
+        selected: tab.key,
+      };
+    }
+    return {
+      tabs: [
+        ...pane.tabs.map((item) =>
+          item.key === old.key ? { ...item, preview: false } : item
+        ),
+        tab,
+      ],
+      selected: tab.key,
+    };
+  });
+  return { ...view, focusedPane: target, panes };
+}
+
+/** preview 탭을 고정 탭으로 만든다(탭 double-click, 내용을 고침). */
+export function pinTab(view: WorkspaceView, key: string): WorkspaceView {
+  if (
+    !view.panes.some((pane) =>
+      pane.tabs.some((tab) => tab.key === key && tab.preview)
+    )
+  ) return view;
+  return {
+    ...view,
+    panes: view.panes.map((pane) => ({
+      ...pane,
+      tabs: pane.tabs.map((tab) =>
+        tab.key === key ? { ...tab, preview: false } : tab
+      ),
+    })),
+  };
+}
+
+export type CloseScope = "others" | "right" | "saved" | "all";
+
+/**
+ * 탭 menu의 Close Others·Close to the Right·Close Saved·Close All이 닫으려는 탭. 저장 안 된 탭은
+ * Close Saved에서 빠진다. 나머지는 탭마다 닫기 확인(beforeClose)을 거치므로 여기서 거르지 않는다.
+ */
+export function closeTargets(
+  pane: PaneState,
+  scope: CloseScope,
+  key: string,
+  isUnsaved: (key: string) => boolean,
+): string[] {
+  const at = pane.tabs.findIndex((tab) => tab.key === key);
+  const keys = pane.tabs.map((tab) => tab.key);
+  switch (scope) {
+    case "others":
+      return keys.filter((item) => item !== key);
+    case "right":
+      return at < 0 ? [] : keys.slice(at + 1);
+    case "saved":
+      return keys.filter((item) => !isUnsaved(item));
+    case "all":
+      return keys;
+  }
+}
+
+/** 칸 안에서 delta만큼 떨어진 탭. 끝에서 반대쪽으로 돈다. */
+export function stepTab(pane: PaneState, delta: number): string | null {
+  const count = pane.tabs.length;
+  if (count === 0) return null;
+  const at = Math.max(
+    0,
+    pane.tabs.findIndex((tab) => tab.key === pane.selected),
+  );
+  return pane.tabs[(at + delta + count) % count]!.key;
 }
 
 /** 탭을 닫는다. 두 칸 중 한 칸이 비면 남은 칸 하나로 돌아간다. */

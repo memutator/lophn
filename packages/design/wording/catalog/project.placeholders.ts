@@ -116,6 +116,15 @@ export type ProjectPlaceholders = {
   "project-workspace.button.new-tab": Record<never, never>;
   "project-workspace.button.show-notices": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
+  "project-workspace.button.tab-close": Record<never, never>;
+  "project-workspace.button.tab-close-all": Record<never, never>;
+  "project-workspace.button.tab-close-others": Record<never, never>;
+  "project-workspace.button.tab-close-right": Record<never, never>;
+  "project-workspace.button.tab-close-saved": Record<never, never>;
+  "project-workspace.button.tab-copy-path": Record<never, never>;
+  "project-workspace.button.tab-copy-relative-path": Record<never, never>;
+  "project-workspace.button.tab-keep-open": Record<never, never>;
+  "project-workspace.button.tab-reveal": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
   "project-workspace.empty.no-tabs": Record<never, never>;
   "project-workspace.error.file-action-failed": Record<never, never>;
@@ -153,6 +162,7 @@ export type ProjectPlaceholders = {
   "project-workspace.label.sidebar-tab-agent": Record<never, never>;
   "project-workspace.label.sidebar-tab-context": Record<never, never>;
   "project-workspace.label.sidebar-tab-explorer": Record<never, never>;
+  "project-workspace.label.tab-unsaved": Record<never, never>;
   "project-workspace.notice.file-delete": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
   "project-workspace.title.file-delete": {

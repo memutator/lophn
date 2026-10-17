@@ -14,13 +14,14 @@ import { openContext } from "./context.tsx";
 import type { TabKindDef } from "./kind.ts";
 
 /**
- * 파일을 탭으로 연다. 탭 key는 경로이고 이미 그 칸에 있으면 고르기만 한다. line이 있으면(검색
+ * 파일을 탭으로 연다. 탭 key는 경로이고 이미 그 칸에 있으면 고르기만 한다. preview면 그 칸의 preview 탭
+ * 자리를 바꿔 쓰는 탭으로 연다(Explorer 한 번 클릭). line이 있으면(검색
  * 결과) 열린 탭도 그 줄로 간다. 사이드바·팔레트·검색·대화의 결과 링크가 모두 이 함수를 부른다.
  */
 export function openFile(
   host: TabHost,
   path: string,
-  options: { readonly line?: number } = {},
+  options: { readonly line?: number; readonly preview?: boolean } = {},
 ): void {
   const fields = options.line === undefined
     ? undefined
@@ -30,6 +31,7 @@ export function openFile(
     kind: "document_editor",
     title: fileNameOf(path),
     ...(fields === undefined ? {} : { fields }),
+    ...(options.preview === true ? { preview: true } : {}),
   });
   if (fields !== undefined) host.patchTab(path, { fields });
 }
@@ -100,6 +102,7 @@ export const documentEditorKind: TabKindDef = {
   labelKey: "project-workspace.label.kind-document-editor",
   icon: workspaceIcons.documentEditor,
   iconOf: (tab) => <FileIcon name={tab.title} size={14} />,
+  pathOf: (tab) => tab.key,
   fromStored(stored, { key, position }) {
     if (stored.path !== key) return null;
     return {

@@ -182,6 +182,8 @@ export const tokenNames = [
   "--badge-font",
   "--tab-strip-min",
   "--tab-strip-max",
+  "--tab-strip-bar",
+  "--tab-strip-hover",
   "--window-top-bar",
   "--window-control",
   "--window-close-hover",

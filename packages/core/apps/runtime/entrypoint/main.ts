@@ -146,7 +146,8 @@ async function main(deps: MainDeps): Promise<void> {
 
 // 앱 프로세스를 띄운다. 직접 실행하면 이 파일이, 준비한 bundle의 진입 파일(`bundle/runtime-entry.ts`가 만든다)이면
 // 그 파일이 부른다. 시작이 실패하면 이유를 stderr로 알리고 끝난다.
-async function run(): Promise<void> {
+// export를 지우지 않는다: bundle 진입 파일은 문자열로 만들어져(`bundle/runtime-entry.ts`) import를 찾는 도구가 보지 못한다.
+export async function run(): Promise<void> {
   const reason = await boot().catch((error: unknown) =>
     error instanceof Error ? error.message : String(error)
   );

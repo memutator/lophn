@@ -103,10 +103,9 @@ export function createReleaseFinalizer(
     request: Watched,
     ctx: RequestContext,
   ): Promise<Result<void>> {
-    if (
-      snapshot.bundle_hash === null || snapshot.blueprint_hash === null ||
-      snapshot.manifest === null
-    ) return unavailable("the preparation result is incomplete");
+    if (snapshot.bundle_hash === null || snapshot.blueprint_hash === null) {
+      return unavailable("the preparation result is incomplete");
+    }
     const existing = hasRelease(snapshot.app, snapshot.bundle_hash);
     if (!existing.ok) return existing;
     if (existing.value) {

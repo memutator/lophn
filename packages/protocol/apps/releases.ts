@@ -223,7 +223,6 @@ const releasePrepareBundleOutputSchema = z.object({
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256Schema.nullable(),
   blueprint_hash: sha256Schema.nullable(),
-  manifest: bundleManifestSchema.nullable(),
 });
 export const releasePrepareBundle = defineCommand({
   resource: "releases",
@@ -246,7 +245,6 @@ const releasePreparationOutputSchema = z.object({
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256Schema.nullable(),
   blueprint_hash: sha256Schema.nullable(),
-  manifest: bundleManifestSchema.nullable(),
   // 준비가 끝나 확정된 release. ticket report가 쓴다.
   release: releaseIdSchema.nullable(),
   // 준비가 끝났을 때 `app test`의 `test`에 넣는 고정 시험 hash. 끝나기 전에는 null.

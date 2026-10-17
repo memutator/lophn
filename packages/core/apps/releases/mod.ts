@@ -25,7 +25,7 @@ export { lockAppImports, readSdkCopies } from "./bundle/lock.ts";
 export {
   BLUEPRINT_COPY_NAME,
   bundleCopyPath,
-  sealBundle,
+  sealCopy,
 } from "./bundle/seal.ts";
 export { buildScreens, FIXED_UI_DEPENDENCIES } from "./ui-build/build.ts";
 // core의 ledger 쪽(동기 command·read). packages/core/apps/register.ts는 core module graph에 worker 코드가 들어가지

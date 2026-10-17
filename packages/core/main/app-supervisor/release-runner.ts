@@ -2,7 +2,6 @@
 // supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더에만
 // 한다. 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { bundleManifestSchema } from "../../../protocol/apps/mod.ts";
 import type {
   PreparationJob,
   PreparationOutcome,
@@ -10,6 +9,7 @@ import type {
 } from "../../apps/releases/preparation.ts";
 import {
   buildEnvironment,
+  cacheBuildTools,
   esbuildBinaries,
 } from "../../apps/releases/ui-build/binaries.ts";
 import { RELEASE_PREPARATION_LIMIT_MS } from "../../../protocol/apps/mod.ts";
@@ -30,11 +30,17 @@ export function createChildPreparationRunner(options: {
     async run(job: PreparationJob, signal: AbortSignal) {
       const appRoot = `${options.dataRoot}/apps/${job.app}`;
       const deno = options.deno();
+      // 자식은 시작할 때 이미 받아 둔 esbuild 실행 파일만 `--allow-run`에 담을 수 있다. 빈 deno-dir(새 기계)에서는
+      // 아직 없으므로 자식을 띄우기 전에 build 도구를 받아 둔다.
+      const env = buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp");
+      if (!await cacheBuildTools(deno, env, signal)) {
+        return err({ code: "unavailable", message: "build tools unavailable" });
+      }
       // 자식은 git·deno·esbuild만 실행하고 환경은 몇 개 이름만 갖는다. 앱 source는 실행되지 않는다.
       const programs = ["git", deno, ...await esbuildBinaries(options.denoDir)];
       const child = new Deno.Command(deno, {
         clearEnv: true,
-        env: buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp"),
+        env,
         args: [
           "run",
           "--quiet",
@@ -94,17 +100,14 @@ function readOutcome(stdout: string): Result<PreparationOutcome> {
       ok?: boolean;
       bundle_hash?: string;
       blueprint_hash?: string;
-      manifest?: unknown;
     };
-    const manifest = bundleManifestSchema.safeParse(parsed.manifest);
     if (
       parsed.ok === true && typeof parsed.bundle_hash === "string" &&
-      typeof parsed.blueprint_hash === "string" && manifest.success
+      typeof parsed.blueprint_hash === "string"
     ) {
       return ok({
         bundle_hash: parsed.bundle_hash,
         blueprint_hash: parsed.blueprint_hash,
-        manifest: manifest.data,
       });
     }
   } catch { /* 결과 줄이 없다 */ }

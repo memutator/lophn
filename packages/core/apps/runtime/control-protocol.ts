@@ -3,7 +3,6 @@
 // 여기는 op 이름과 payload 모양만 정한다. core는 앱 코드를 import하지 않고 supervisor와
 // 이 모양으로만 말한다.
 import { z } from "zod";
-import { bundleManifestSchema } from "../../../protocol/apps/mod.ts";
 import {
   appApiTargetSchema,
   processApplyResponseSchema,
@@ -174,7 +173,6 @@ export const releasePreparationOutputSchema = z.strictObject({
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256.nullable(),
   blueprint_hash: sha256.nullable(),
-  manifest: bundleManifestSchema.nullable(),
 });
 export type ReleasePreparationWire = z.infer<
   typeof releasePreparationOutputSchema

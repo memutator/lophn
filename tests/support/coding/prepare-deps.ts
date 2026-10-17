@@ -11,6 +11,10 @@ import { installSdkCopies } from "../../../packages/core/apps/packages/install.t
 import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
 import { builtinTemplate } from "../../../packages/core/apps/packages/template/files.ts";
 import { installBuiltinTemplate } from "../../../packages/core/apps/packages/template/install.ts";
+import {
+  buildEnvironment,
+  cacheBuildTools,
+} from "../../../packages/core/apps/releases/ui-build/binaries.ts";
 import { prepareFromSource } from "../../../packages/core/apps/releases/prepare/from-source.ts";
 import { e2eDenoDir } from "./deps.ts";
 
@@ -81,25 +85,6 @@ try {
   await git(sourceRoot, "commit", "-q", "-m", "deps");
   const commit = await git(sourceRoot, "rev-parse", "HEAD");
 
-  // 빈 deno-dir에서는 release 준비의 build 자식이 실패한다. 자식은 시작할 때 이미 받아 둔 esbuild 실행 파일만 실행할
-  // 수 있고(받는 것은 build 자신), esbuild의 deno loader가 쓰는 `<deno-dir>/deno_esbuild` 링크 폴더에 쓸 수 없다.
-  // 그래서 같은 build를 쓰기 권한을 넓혀 한 번 직접 돌려 둔다.
-  const built = await new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      "--allow-all",
-      `--config=${REPO}/deno.json`,
-      `${REPO}/packages/core/apps/releases/ui-build/app-build.ts`,
-      sourceRoot,
-      `${dataRoot}/sdk`,
-      denoDir,
-    ],
-    env: { DENO_DIR: denoDir },
-    stdout: "inherit",
-    stderr: "inherit",
-  }).output();
-  if (!built.success) throw new Error("build를 미리 돌리지 못했다");
-
   // release 준비의 `deno cache`는 vendor 모드라 jsr 파일을 deno-dir이 아니라 staging의 vendor/로 바로 받고, 그때마다
   // jsr.io에서 meta.json을 다시 받는다(npm은 deno-dir을 거친다). 그래서 vendor 없이 같은 npm·jsr 값을 먼저 받아
   // deno-dir에 채워 두어야 network 없이 준비가 된다.
@@ -130,6 +115,10 @@ try {
   }).output();
   if (!cached.success) throw new Error("npm·jsr 의존을 받지 못했다");
 
+  // prepareFromSource는 이미 받아 둔 esbuild 실행 파일만 build 자식에 허락한다. 제품에서는 release-runner가 하는 일이다.
+  if (!await cacheBuildTools(Deno.execPath(), buildEnvironment(dataRoot))) {
+    throw new Error("build 도구를 받지 못했다");
+  }
   const prepared = await prepareFromSource({
     dataRoot,
     app: createIdSource({ clock: systemClock, random: cryptoRandom }).newId(

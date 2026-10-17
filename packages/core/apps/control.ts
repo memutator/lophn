@@ -62,6 +62,7 @@ import {
 import { INSTALL_PRINCIPAL } from "./packages/install.ts";
 import { loadApp } from "./registration/mod.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
+import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
 import { loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
@@ -542,7 +543,21 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     );
     if (!source.ok) return source;
     const read = await client.releasePreparation(body.app, body.request_key);
-    if (!read.ok || finalizer === null) return read;
+    if (!read.ok) return read;
+    // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 준비가 끝났다고 알리기 전에 core가 봉인한다.
+    const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
+    if (
+      read.value.status === "completed" && read.value.bundle_hash !== null &&
+      dataRoot !== undefined
+    ) {
+      const copy = bundleCopyPath(dataRoot, body.app, read.value.bundle_hash);
+      if (!copy.ok) return internalError();
+      const sealed = await sealCopy(copy.value);
+      if (!sealed.ok) {
+        return err({ code: "unavailable", message: sealed.error.message });
+      }
+    }
+    if (finalizer === null) return read;
     // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
     const finalized = await finalizer.observe(read.value);
     if (finalized.ok) {

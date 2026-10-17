@@ -101,3 +101,7 @@ modules:
   - path: tools
     boundary: null
     notes: 개발 도구(check, wireframes, fake provider)라 맞는 boundary가 없다.
+
+  - path: tests
+    boundary: null
+    notes: harness(loop, wire), core E2E, provider live test와 그 support·fixture다. 제품 코드는 여기를 import하지 않는다.

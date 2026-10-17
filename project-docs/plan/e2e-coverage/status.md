@@ -37,12 +37,13 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
 | `app-sandbox` | app-sandbox | 3 | test-app | running | app-sandbox/app-sandbox |  |  |
 | `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | todo |  |  |  |
-| `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | todo |  |  |  |
+| `coding-end-without-report` | coding-end-without-report | 3 | coding-report-needs-release | running | coding-end-without-report/coding-end-without-report |  |  |
 | `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | todo |  |  |  |
 | `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | todo |  |  |  |
-| `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | running | coding-report-needs-release/coding-report-needs-release |  |  |
+| `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | merged | coding-report-needs-release/coding-report-needs-release | 13f333075 |  |
 | `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | todo |  |  |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | merged | coding-token-scope/coding-token-scope | aff4042fa |  |
+| `app-socket-root` | fix | 3 | 없음 | running | fix/app-socket-root |  |  |
 | `cli-app-input` | fix | 3 | test-app | merged | fix/cli-app-input | 22aa43da8 | test-app 전에 당김. 앱 E2E 확인은 merge 때 |
 | `release-cold-cache` | fix | 3 | test-app | merged | fix/release-cold-cache | 070d975d9 | release 길 bug 2·3·4 같이(test-app commit 위) |
 | `oauth-login` | oauth | 3 | oauth-issuer | merged | oauth/oauth-login | 9b74f30f3 |  |

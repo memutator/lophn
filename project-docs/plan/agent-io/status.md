@@ -4,14 +4,14 @@ lead만 고친다. `tools/status.py agent-io build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `coding-signal` | coding-signal | 1 | 없음 | running | coding-signal/coding-signal |  |  |
-| `context-chip` | context-chip | 1 | 없음 | running | context-chip/context-chip |  |  |
-| `model-catalog` | model-catalog | 1 | 없음 | running | model-catalog/model-catalog |  |  |
-| `model-catalog-source` | model-catalog | 1 | 없음 | running | model-catalog/model-catalog-source |  |  |
-| `provider-connect-attach` | provider-connect | 1 | provider-connect-handler | todo |  |  |  |
+| `coding-signal` | coding-signal | 1 | 없음 | merged | coding-signal/coding-signal | f9ef8ce6e |  |
+| `context-chip` | context-chip | 1 | 없음 | merged | context-chip/context-chip | 51301f68d |  |
+| `model-catalog` | model-catalog | 1 | 없음 | merged | model-catalog/model-catalog | 7ab628aac |  |
+| `model-catalog-source` | model-catalog | 1 | 없음 | merged | model-catalog/model-catalog-source | 74f0f64a7 |  |
+| `provider-connect-attach` | provider-connect | 1 | provider-connect-handler | running | provider-connect/provider-connect-attach |  |  |
 | `provider-connect-cleanup` | provider-connect | 1 | provider-connect-handler, provider-connect-attach, provider-connect-shell | todo |  |  |  |
 | `provider-connect-handler` | provider-connect | 1 | 없음 | merged | provider-connect/provider-connect-handler | f97aaeb20 |  |
-| `provider-connect-shell` | provider-connect | 1 | 없음 | running | provider-connect/provider-connect-shell |  |  |
-| `tool-output-image` | tool-output | 1 | tool-output-untrusted | running | tool-output/tool-output-image |  |  |
-| `tool-output-shell` | tool-output | 1 | 없음 | running | tool-output/tool-output-shell |  |  |
+| `provider-connect-shell` | provider-connect | 1 | 없음 | merged | provider-connect/provider-connect-shell | 5ac1f8d7c |  |
+| `tool-output-image` | tool-output | 1 | tool-output-untrusted | merged | tool-output/tool-output-image | 328d8b976 |  |
+| `tool-output-shell` | tool-output | 1 | 없음 | merged | tool-output/tool-output-shell | d497bd5c7 |  |
 | `tool-output-untrusted` | tool-output | 1 | 없음 | merged | tool-output/tool-output-untrusted | b57ac8dee |  |

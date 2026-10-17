@@ -34,6 +34,7 @@ import {
   snapshotModelListed,
 } from "./models/mod.ts";
 import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
+import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
 import {
   createProviderCommands,
   createProviderDefinitionsRead,
@@ -191,7 +192,7 @@ export function agentRuntimeLaunchSpec(input: {
 
 // catalog 자동 갱신 on/off. 사람이 끄면 정상본·snapshot만 쓴다. 다음 기동부터 적용한다.
 const catalogAutoUpdateSetting = declareSetting({
-  key: "lophn-agent.model.catalog_auto_update",
+  key: CATALOG_AUTO_UPDATE_KEY,
   type: z.boolean(),
   default: true,
 });

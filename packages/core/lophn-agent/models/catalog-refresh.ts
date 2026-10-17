@@ -6,7 +6,7 @@ import {
   type FilesLike,
 } from "./mod.ts";
 
-// 설정 key. `lophn-agent/register.ts`의 선언과 같은 문자열이어야 한다.
+// 설정 key. 선언(register.ts)과 agent runtime의 읽기가 같이 쓴다.
 export const CATALOG_AUTO_UPDATE_KEY = "lophn-agent.model.catalog_auto_update";
 
 export type CatalogRefresherHandle = CatalogRefresher;

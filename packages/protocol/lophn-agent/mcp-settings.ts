@@ -345,6 +345,73 @@ export const mcpAuthRequestDone = defineMemory({
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
 
+// Grants 화면이 서버별 MCP tool 목록(원래 이름, 설명, effect)을 읽는 입구다. 부르는 쪽은 사람이다.
+// MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
+// runtime이 `request-take`·`request-done`으로 가져가 답한다(위 OAuth 요청과 같은 길). 그 대기열 상태를 쥔 memory
+// route라서 reader Worker의 read로는 못 한다. place는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
+// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다.
+//
+// 서버마다 reason이 목록을 못 읽은 이유다. null이면 읽었다. 아니면 tools는 빈 배열이다.
+// - disabled: 설정에서 꺼진 서버.
+// - sign_in: OAuth 로그인이 필요한 서버.
+// - unreachable: 그 밖에 연결이나 목록 읽기가 실패한 서버.
+// effect는 서버가 알린 readOnlyHint가 참이면 read, 아니면 external이라 write는 나오지 않는다(선언을 믿는다).
+// tool은 서버가 알린 원래 이름이고 grant의 mcp_tool entry의 tool과 같은 값이다. 응답에는 이름, 설명, effect뿐이고
+// 서버 설정(주소, 실행 파일, header, env)이나 credential은 들어가지 않는다.
+const mcpToolSchema = z.strictObject({
+  tool: z.string().min(1),
+  description: z.string().max(500),
+  effect: effectSchema,
+});
+const mcpToolServerSchema = z.strictObject({
+  name: nameSchema,
+  tools: z.array(mcpToolSchema).max(2048),
+  reason: z.enum(["disabled", "sign_in", "unreachable"]).nullable(),
+});
+export type McpToolServer = z.infer<typeof mcpToolServerSchema>;
+
+export const mcpToolsList = defineMemory({
+  resource: "agent-mcp-tools",
+  method: "list",
+  name: "ListMcpTools",
+  input: z.strictObject({ place: mcpAuthPlaceSchema }),
+  output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
+  actors: ["user"],
+  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
+});
+
+// runtime이 core 대신 서버에 연결해 tool 목록을 읽는 machine 입구다. 사람이 `ListMcpTools`를 부르면 core가 요청을
+// 작업 메모리 대기열에 놓고, runtime이 가져가 place가 정하는 서버 집합을 읽은 뒤 `FinishMcpToolsRequest`로 답한다.
+// 보낼 요청이 없으면 null이다.
+export const mcpToolsRequestTake = defineMemory({
+  resource: "agent-mcp-tools",
+  method: "request-take",
+  name: "TakeMcpToolsRequest",
+  input: z.strictObject({}),
+  output: z.strictObject({
+    request: z.strictObject({
+      id: z.string().min(1).max(64),
+      place: mcpAuthPlaceSchema,
+    }).nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
+});
+
+export const mcpToolsRequestDone = defineMemory({
+  resource: "agent-mcp-tools",
+  method: "request-done",
+  name: "FinishMcpToolsRequest",
+  input: z.strictObject({
+    id: z.string().min(1).max(64),
+    servers: z.array(mcpToolServerSchema).max(64),
+  }),
+  // 이미 기한이 지났거나 모르는 요청이면 accepted가 false다.
+  output: z.strictObject({ accepted: z.boolean() }),
+  actors: ["machine"],
+  errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
+});
+
 const readErrors = [
   "invalid_input",
   "unauthorized",

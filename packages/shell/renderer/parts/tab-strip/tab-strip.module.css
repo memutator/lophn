@@ -151,9 +151,9 @@
   padding: var(--space-0) var(--space-2);
 }
 
-/* sidebar 위쪽 같은 작은 줄. 탭이 폭을 나눠 가지고 글자는 가운데다. */
+/* sidebar 위쪽 같은 줄. 높이는 본문 탭 줄과 같아야 아래선이 한 줄로 이어진다.
+   탭이 폭을 나눠 가지고 글자는 가운데다. */
 .compact {
-  height: var(--control-md-height);
   background: transparent;
 }
 

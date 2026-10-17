@@ -17,9 +17,9 @@
   min-height: var(--space-0);
 }
 
+/* 아래 경계선은 TopBar가 이미 그린다. 여기서 또 그리면 2px로 겹친다. */
 .topBar {
   flex: none;
-  border-bottom: var(--border-width) solid var(--color-border-base);
 }
 
 .leading {

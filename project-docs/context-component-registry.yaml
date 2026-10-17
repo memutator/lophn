@@ -7,7 +7,7 @@
 #
 # - id: 영어 kebab-case. 파일 전체에서 하나.
 # - kind: instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), product(제품 context), catalog(ID 목록),
-#   architecture(여러 module에 걸친 메커니즘), plan(계획과 그 부속), changelog(바뀐 것의 기록).
+#   architecture(여러 module에 걸친 메커니즘), plan(진행 중인 계획), issues(열린 이슈), changelog(바뀐 것의 기록).
 # - path: 저장소 root 기준. 폴더면 끝에 /.
 # - change_reasons: 이 조각을 바꾸게 만드는 변경. 이 조각이 무엇에 기대어 쓰였는지다.
 #   - boundaries: boundary-catalog ID. 이 ID의 코드(module-catalog의 path)나 계약이 바뀌면 이 조각도 바뀌어야 한다.
@@ -183,19 +183,14 @@ components:
     change_reasons:
       note: 계획을 열거나 닫을 때.
 
-  - id: plan-weight
-    kind: plan
-    description: 가장 단순한 구현보다 무겁게 짠 곳.
-    path: project-docs/plan/weight.md
-    change_reasons:
-      note: worker 보고에 무겁게 짠 것이 있을 때, 사람이 줄이거나 남기기로 정할 때.
+  # issues
 
-  - id: plan-gaps
-    kind: plan
-    description: 알려진 미완 동작.
-    path: project-docs/plan/gaps.md
+  - id: issues
+    kind: issues
+    description: 열린 bug, defect, mistake. 이슈 하나에 파일 하나.
+    path: project-docs/issues/
     change_reasons:
-      note: 미완 동작이 생기거나 고쳐질 때.
+      note: 이슈를 찾거나 고칠 때. 이슈 파일의 modules가 바뀐 module을 가리키면 다시 본다.
 
   # changelog
 

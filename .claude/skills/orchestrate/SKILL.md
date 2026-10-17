@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: lead(주 session)가 계획 하나(project-docs/plan/)를 worker 여럿에게 나눠 돌릴 때 쓴다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, 무게(weight)·미완(gaps) 기록까지. 일 하나를 혼자 하거나 worker 하나에 맡기는 정도면 쓰지 않는다.
+description: lead(주 session)가 계획 하나(project-docs/plan/)를 worker 여럿에게 나눠 돌릴 때 쓴다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, issue 기록까지. 일 하나를 혼자 하거나 worker 하나에 맡기는 정도면 쓰지 않는다.
 ---
 
 # 오케스트레이션
@@ -57,8 +57,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 ### 4. 받기
 
 1. 보고를 읽고 diff와 대조한다. 보고만 믿지 않는다.
-2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳: 무엇/왜/줄인다면/어디)은 `project-docs/plan/weight.md`에 항목으로 덧붙인다. 제목은 `## <task id> (<commit>)`. 사람이 한꺼번에 보고 줄일지 정한다. 대부분 요구가 시킨 것이라 merge를 막지는 않는다.
-3. **알려진 미완 동작**은 `project-docs/plan/gaps.md`에 덧붙인다. 지금 동작, 고치려면 필요한 것, 출처(task와 commit)를 쓴다.
+2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 만든다. 꼴은 `project-docs/issues/_template.md`. 사람이 한꺼번에 보고 줄일지 정한다. 대부분 요구가 시킨 것이라 merge를 막지는 않는다.
+3. worker가 크게 잘못한 것(review에서 되돌린 것, 사람이 찾은 것)은 `mistake` 이슈로 만든다. 원인과 막을 check나 문장을 적는다.
 4. review(아래)를 한다. 통과하면 merge한다.
 5. 안 되면 셋 중 하나다: 같은 worker에게 SendMessage로 고칠 것을 보낸다 / brief를 고쳐 다시 띄운다 / `blocked`로 두고 이유를 적는다. 두 번 실패한 task는 brief를 쪼갠다.
 
@@ -112,4 +112,4 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 
 ## 사람에게 알리는 때
 
-wave 하나가 끝났을 때(무엇이 merge됐는지, push할지), 계약을 고정했을 때, `blocked`를 lead가 못 풀 때, 문서와 다르게 가야 할 때, 그리고 `weight.md`와 `gaps.md`에 항목이 쌓였을 때.
+wave 하나가 끝났을 때(무엇이 merge됐는지, push할지), 계약을 고정했을 때, `blocked`를 lead가 못 풀 때, 문서와 다르게 가야 할 때, 그리고 `project-docs/issues/`에 이슈가 쌓였을 때.

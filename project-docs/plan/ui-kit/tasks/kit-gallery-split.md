@@ -90,3 +90,8 @@ tools/wireframes/
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본
 - 알려진 미완 동작: 예제 `.module.css` 5개와 menu·dialog·sheet·palette look-alike는 `kit-gallery-*`가 없앤다. 분류 page의 export 빠짐도 그 task들이 채운다
+
+## lead가 더함
+
+- (lead가 더함) `kit-gallery-copies`가 Orders tile은 design `StatTile`·`StatRow`로 바꿨지만, Orders 표는 바꾸지 못했다. design `Table`에 단추 칸(`Mark shipped`)과 annotate 표식으로 감싸는 칸이 없다. design `Table`은 고치지 않는다. Orders view는 사용자 앱이 그리는 view의 가짜 그림이라 lophn kit 부품이 아니다. 그래서 `frames/compositions/app-space/app-space.module.css`를 나누지 않고 통째로 `drafts/app-space/orders-view.module.css`로 옮긴다. 남은 class는 앱 틀(`.muted .appView .appHead .appTitle`), 표 그림(`.orders* .num`), annotate 표식이다. `orders-view.tsx`는 계획대로 `mock/app-space/`로 가고 이 drafts css를 import한다. 이 import가 1번이 말한 예외 하나다. `app-space/space.tsx`나 `pages.tsx`가 이 css를 쓰면 그 file도 같은 css를 import한 채 둔다. 보고에 그 file 이름을 적는다.
+- (lead가 더함) 임시 file(mapping, script 출력)은 worktree 안 `.dev-data/kit-gallery-split/`에 둔다. tool의 folder mapping은 from·to 끝에 `/`를 붙인다. tool은 working tree가 더러우면 막힌다.

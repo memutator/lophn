@@ -62,7 +62,7 @@ def read_briefs(plan, folder=None):
         raw = []
         for m in re.finditer(r"^- (?:추가 )?소유[^\n]*\n((?:[ \t]+[^\n]*\n)*)", text, re.M):
             for line in m.group(1).splitlines():
-                raw += re.findall(r"`((?:packages|tools)/[^`]+)`", line)
+                raw += re.findall(r"`((?:packages|tools|tests|\.claude|project-docs)/[^`]+|deno\.json|deno\.lock|AGENTS\.md)`", line)
         b["owned"] = sorted({x.rstrip("/") for r in raw for x in expand(r.strip())})
         briefs[tid] = b
     # 선행에는 task id나 단위 이름만 남긴다.

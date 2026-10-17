@@ -77,3 +77,25 @@ modules: [packages/core/apps]
 고치려면:
 - `collect`가 symlink를 따라 복사하지 않고, 실제 폴더는 `.deno/` 안 한 곳만 담는다. bundle을 푸는 쪽(운영 process가 읽는 자리)이 `node_modules/<이름>` 연결을 다시 만든다(중간). 크기도 반으로 준다. 추천.
 - 상한을 올린다(작음). bundle에 같은 file이 두 번 들어가는 것은 그대로다.
+
+## API key로 provider를 연결해도 쓸 수 있는 provider가 생기지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/secrets, packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/main, packages/shell/renderer]
+```
+
+지금: secret 저장을 `<dataRoot>/secrets.json`(`secrets/file-store.ts`)으로 옮기면서 옛 보호 입력 relay와 keychain 준비(preparation) 작업을 지웠는데, provider 쪽은 옛 길에 남았다.
+- 설정 화면의 API key 연결(`settings/providers/core-source.ts`의 `connect`, `registerCustom`의 key 있는 길)은 `connectIntent`로 보호 입력 창을 연다. 창의 제출(`shell/main/secret-input/submit.ts`의 `submitSecret`)은 `secrets/put`으로 값만 올린다. intent의 `connect`(이름, 정의, endpoint, protocol)로 provider를 등록하는 호출은 어디에도 없다. `providers/register`를 부르는 곳은 key 없는 custom 길 하나다.
+- 새 길의 `ConnectProvider`(`protocol/lophn-agent/providers.ts`, `credential: {secret}`)는 protocol에만 있고 core handler가 없다(`lophn-agent/providers/commands.ts`는 register, disconnect, refresh, record-availability, login만).
+- `RegisterProvider`는 api_key의 값 참조를 옛 `credential.preparation.sealed_ref`로만 받는다. 그 준비를 만드는 코드는 지워졌다.
+- agent runtime의 전송은 옛 keychain에서 읽는다(`run-loop/runtime-secret.ts`의 `createSecretAttach({keychain})`). 새 `createFileSecretAttach`는 `main/daemon/wiring/secrets.ts`에서 allowance가 늘 `forbidden`, 목적지가 빈 목록이다.
+- OAuth도 model 호출에 못 쓴다(`models/resolve.ts`가 api_key와 none 밖의 credential을 거절).
+
+영향: 사람이 Anthropic·OpenAI 같은 cloud provider를 key로 연결할 수 없다. key는 `secrets.json`에 저장되지만 연결된 provider 목록은 비고, agent는 model을 부를 수 없다. 인증 없는 loopback provider(이 컴퓨터의 local model)만 쓸 수 있다. 코드로 확인했고 화면으로 돌려 보지는 않았다.
+
+고치려면:
+- `secrets.json` 길로 끝낸다(중간). core에 `ConnectProvider` handler를 두어 `credential: {secret: <이름>}`으로 provider를 만들고, 보호 입력 창이 `secrets/put` 뒤에 intent의 `connect`로 `ConnectProvider`를 부르고, agent runtime의 attach를 `createFileSecretAttach`로 바꿔 provider endpoint host를 목적지로 허락한다. `RegisterProvider`의 `preparation`과 provider가 쓰던 옛 keychain 코드는 지운다. 추천.
+- 옛 keychain 길을 되살린다(큼). 지운 relay와 준비 작업을 되돌려야 하고 Linux Secret Service 밖에서는 여전히 안 된다.
+
+정한 것: `secrets.json` 길로 끝낸다. 저장소는 이미 그쪽으로 옮겼고 옛 relay는 지워져 있다(AGENTS.md "호환성": 옛 길을 남기지 않는다). (agent)

@@ -73,3 +73,20 @@ modules: [packages/core/lophn-agent, packages/core/storage]
 - `tool_calls.result`와 `tool_call_output`에는 `content.image` 대신 media type, 크기, hash만 남기고, history에는 이미지를 blob ref로 둔다(중간).
 - history에서 오래된 이미지 조각을 빼고 "[image omitted]"로 바꾼다(작음. compact와 같은 자리).
 - 추천: 둘째를 먼저. 실제로 막히면 첫째.
+
+## model catalog가 models.dev에서 갱신되지 않고 자동 갱신 설정은 아무것도 바꾸지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/main]
+```
+
+지금: `models/work.ts`의 `createCatalogRefresher`가 `runRefresh`에서 `fetch`가 없으면 network 없이 정상본을 그대로 돌려준다(`if (!input.fetch)`). agent runtime(`main/agent-runtime/main.ts`)은 `import.meta.main`에서 `productDriver()`로 시작하며 `fetch`를 넘기지 않아, 제품에서는 갱신이 한 번도 일어나지 않는다. `refreshNow()`를 부르는 route도 없다. 설정 `lophn-agent.model.catalog_auto_update`(`lophn-agent/register.ts`)는 선언만 있고 읽는 곳이 없다. 실제 on/off는 `<dataRoot>/derived/lophn-agent/catalog-state.json`의 `auto_update`이고 file이 없으면 늘 true다.
+
+영향: 사람이 고를 수 있는 model이 동봉 `models/snapshot.json`의 4개(openai `gpt-5`, anthropic `claude-sonnet-4-5`, openrouter `anthropic/claude-sonnet-4-5`, ollama `qwen3:8b`)에 묶인다. 새 model이 나와도 lophn을 새 판으로 올리기 전에는 쓸 수 없다. 설정 화면의 자동 갱신 켜기·끄기는 아무 일도 하지 않는다.
+
+고치려면:
+- 살린다(작음): agent runtime이 제품에서도 `fetch`를 넘기고, `catalog_auto_update` 설정 값을 `catalog-state.json`의 `auto_update`로 옮긴다. 기동 때마다 models.dev에 공개 GET이 나간다(24시간에 한 번).
+- 지운다(작음): refresher, models.dev adapter, `catalog-state.json`, 설정을 지우고 catalog는 동봉 snapshot과 사람이 더한 model만 쓴다. 새 model은 lophn 판 올리기로만 들어온다.
+
+정할 것: 살릴지 지울지(제품 동작). 추천은 살리기다. 새 model을 쓰려고 lophn을 올리게 하는 것보다 비용이 작다.

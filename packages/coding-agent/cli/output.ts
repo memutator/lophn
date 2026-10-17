@@ -1,8 +1,7 @@
 // CLI 출력 계층. 기계 출력과 진단은 분리한다.
-// --json이면 stdout에 JSON 하나와 마지막 newline만 쓴다. 아니면 같은 data를 줄로 풀어 쓰되 token이 아닌
-// 문자열(사람 말, 앱 문자열, log 원문)은 모두 data fence 안에 둔다. 받은 coding token은 어떤 출력에도 남지 않는다.
+// --json이면 stdout에 JSON 하나와 마지막 newline만 쓴다. 아니면 같은 data를 줄로 풀어 쓴다.
+// 받은 coding token은 어떤 출력에도 남지 않는다.
 import type { LophnError } from "../../base/mod.ts";
-import { fenceBlock, isPlainToken } from "./fence.ts";
 
 export const CLI_EXITS = {
   success: 0,
@@ -39,7 +38,7 @@ type OutputWriter = {
   // data가 undefined이면 아무것도 쓰지 않는다(hook).
   result(data: unknown): Promise<void>;
   failure(error: LophnError): Promise<void>;
-  // 안내 글이다(help). 자료가 아니므로 fence 없이 stdout에 쓴다.
+  // 안내 글이다(help).
   text(text: string): Promise<void>;
 };
 
@@ -65,19 +64,14 @@ async function write(
   }
 }
 
-// data를 줄로 푼다. key는 CLI·protocol이 정한 이름이라 그대로 쓰고, 문자열 값만 fence를 판단한다.
-function renderLines(
-  value: unknown,
-  indent = "",
-  label = "data",
-): string[] {
+// data를 줄로 푼다. 한 줄 문자열은 `key: value`, 줄바꿈이 든 문자열은 `key:` 아래에 줄마다 들여 쓴다.
+function renderLines(value: unknown, indent = ""): string[] {
+  if (typeof value === "string") {
+    if (value === "") return [`${indent}""`];
+    return value.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n")
+      .map((line) => `${indent}${line}`);
+  }
   if (value === null || typeof value !== "object") {
-    if (typeof value === "string" && !isPlainToken(value)) {
-      const fenced = fenceBlock(label, value);
-      return fenced.length === 0
-        ? [`${indent}""`]
-        : fenced.map((line) => `${indent}${line}`);
-    }
     return [`${indent}${value === null ? "null" : String(value)}`];
   }
   const lines: string[] = [];
@@ -85,10 +79,8 @@ function renderLines(
     ? value.map((item, index) => [`[${index}]`, item])
     : Object.entries(value);
   for (const [key, item] of entries) {
-    const name = label === "data" ? key : `${label}.${key}`;
-    const child = renderLines(item, `${indent}  `, name);
-    const inline = item === null || typeof item !== "object" ||
-      (typeof item === "string" && isPlainToken(item));
+    const child = renderLines(item, `${indent}  `);
+    const inline = item === null || typeof item !== "object";
     if (inline && child.length === 1) {
       lines.push(`${indent}${key}: ${child[0].trimStart()}`);
     } else {
@@ -129,7 +121,7 @@ export function createOutput(options: OutputOptions): OutputWriter {
       }
       const lines = [`${error.code}: ${error.message}`];
       if (error.details !== undefined) {
-        lines.push(...renderLines(error.details, "  ", "details"));
+        lines.push(...renderLines(error.details, "  "));
       }
       await write(stderr, `${scrub(lines.join("\n"))}\n`);
     },

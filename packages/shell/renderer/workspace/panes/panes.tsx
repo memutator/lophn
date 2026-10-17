@@ -4,7 +4,7 @@ import {
   TabStrip,
 } from "../../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
-import { Tooltip } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
@@ -12,6 +12,7 @@ import { t } from "@lophn/wording";
 import {
   applyDrag,
   BREAKPOINT_MD,
+  type CloseScope,
   type PaneState,
   ratioFromDrag,
   SPLIT_EQUAL,
@@ -33,9 +34,20 @@ interface PanesProps {
   windowWidth: number;
   onSelect: (pane: number, key: string) => void;
   onClose: (pane: number, key: string) => void;
+  /** 탭 menu의 Close Others·Close to the Right·Close Saved·Close All. */
+  onCloseMany: (pane: number, scope: CloseScope, key: string) => void;
+  /** preview 탭을 고정한다(탭 double-click, menu의 Keep Open). */
+  onPin: (key: string) => void;
+  /** 탭이 파일이면 그 경로. 아니면 null이다. 경로 복사·Explorer에서 보기가 이 탭에만 생긴다. */
+  pathOf: (tab: TabItem) => string | null;
+  onCopyPath: (path: string, relative: boolean) => void;
+  onReveal: (path: string) => void;
   onFocus: (pane: number) => void;
-  /** 탭을 다른 칸으로 옮긴다. 한 칸에서 1로 옮기면 칸을 나눈다. */
-  onMove: (key: string, toPane: number) => void;
+  /**
+   * 탭을 옮긴다. before 탭 앞에 넣고 없으면 끝이다. 같은 칸이어도 before가 있으면 순서만 바꾼다.
+   * 한 칸에서 1로 옮기면 칸을 나눈다.
+   */
+  onMove: (key: string, toPane: number, before?: string | null) => void;
   /** 경계 drag가 끝나거나 두 번 눌렀을 때의 비율. */
   onRatio: (ratio: number) => void;
   /** 마지막 칸 탭 줄 끝의 새 탭(+) 단추. */
@@ -62,6 +74,11 @@ export function Panes(
     windowWidth,
     onSelect,
     onClose,
+    onCloseMany,
+    onPin,
+    pathOf,
+    onCopyPath,
+    onReveal,
     onFocus,
     onMove,
     onRatio,
@@ -155,14 +172,19 @@ export function Panes(
               pane={view.panes[index]!}
               width={layout.visiblePanes === 2 && position === 0 ? width : null}
               focused={view.focusedPane === index}
-              split={layout.visiblePanes === 2}
               wide={wide}
               end={end(index, position)}
               stripTab={stripTab}
               renderTab={renderTab}
               renderKept={renderKept}
+              pathOf={pathOf}
               onSelect={(key) => onSelect(index, key)}
               onClose={(key) => onClose(index, key)}
+              onCloseMany={(scope, key) => onCloseMany(index, scope, key)}
+              onPin={onPin}
+              onCopyPath={onCopyPath}
+              onReveal={onReveal}
+              onReorder={(key, before) => onMove(key, index, before)}
               onFocus={() => {
                 if (view.focusedPane !== index) onFocus(index);
               }}
@@ -180,14 +202,19 @@ interface PaneViewProps {
   /** 두 칸의 왼쪽 칸 폭. 나머지 칸은 남은 폭을 채운다. */
   width: number | null;
   focused: boolean;
-  split: boolean;
   wide: boolean;
   end: ReactNode;
   stripTab: (tab: TabItem) => StripTab;
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
   renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
+  pathOf: (tab: TabItem) => string | null;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
+  onCloseMany: (scope: CloseScope, key: string) => void;
+  onPin: (key: string) => void;
+  onCopyPath: (path: string, relative: boolean) => void;
+  onReveal: (path: string) => void;
+  onReorder: (key: string, before: string | null) => void;
   onFocus: () => void;
 }
 
@@ -197,17 +224,96 @@ function PaneView(
     pane,
     width,
     focused,
-    split,
     wide,
     end,
     stripTab,
     renderTab,
     renderKept,
+    pathOf,
     onSelect,
     onClose,
+    onCloseMany,
+    onPin,
+    onCopyPath,
+    onReveal,
+    onReorder,
     onFocus,
   }: PaneViewProps,
 ) {
+  const [menu, setMenu] = useState<
+    { key: string; x: number; y: number } | null
+  >(null);
+  const menuTab = menu === null
+    ? undefined
+    : pane.tabs.find((tab) => tab.key === menu.key);
+  const menuPath = menuTab === undefined ? null : pathOf(menuTab);
+  const menuItems = menuTab === undefined ? [] : [
+    {
+      id: "close",
+      label: t("project-workspace.button.tab-close"),
+      leading: <MenuIcon icon={workspaceIcons.close} />,
+    },
+    {
+      id: "others",
+      label: t("project-workspace.button.tab-close-others"),
+      leading: <MenuIcon icon={workspaceIcons.closeOthers} />,
+      disabled: pane.tabs.length < 2,
+    },
+    {
+      id: "right",
+      label: t("project-workspace.button.tab-close-right"),
+      leading: <MenuIcon icon={workspaceIcons.closeRight} />,
+      disabled: pane.tabs[pane.tabs.length - 1]?.key === menuTab.key,
+    },
+    {
+      id: "saved",
+      label: t("project-workspace.button.tab-close-saved"),
+      leading: <MenuIcon icon={workspaceIcons.closeSaved} />,
+    },
+    {
+      id: "all",
+      label: t("project-workspace.button.tab-close-all"),
+      leading: <MenuIcon icon={workspaceIcons.closeAll} />,
+    },
+    ...(menuPath === null ? [] : [
+      {
+        id: "copy-path",
+        label: t("project-workspace.button.tab-copy-path"),
+        leading: <MenuIcon icon={workspaceIcons.copyPath} />,
+      },
+      {
+        id: "copy-relative-path",
+        label: t("project-workspace.button.tab-copy-relative-path"),
+        leading: <MenuIcon icon={workspaceIcons.copyRelativePath} />,
+      },
+      {
+        id: "reveal",
+        label: t("project-workspace.button.tab-reveal"),
+        leading: <MenuIcon icon={workspaceIcons.revealInExplorer} />,
+      },
+    ]),
+    ...(menuTab.preview === true
+      ? [{
+        id: "keep-open",
+        label: t("project-workspace.button.tab-keep-open"),
+        leading: <MenuIcon icon={workspaceIcons.keepOpen} />,
+      }]
+      : []),
+  ];
+  const chooseMenu = (id: string) => {
+    if (menuTab === undefined) return;
+    if (id === "close") onClose(menuTab.key);
+    else if (id === "others") onCloseMany("others", menuTab.key);
+    else if (id === "right") onCloseMany("right", menuTab.key);
+    else if (id === "saved") onCloseMany("saved", menuTab.key);
+    else if (id === "all") onCloseMany("all", menuTab.key);
+    else if (id === "keep-open") onPin(menuTab.key);
+    else if (menuPath !== null) {
+      if (id === "copy-path") onCopyPath(menuPath, false);
+      else if (id === "copy-relative-path") onCopyPath(menuPath, true);
+      else if (id === "reveal") onReveal(menuPath);
+    }
+  };
   const selected = pane.tabs.find((tab) => tab.key === pane.selected);
   // 앱 패널은 고르지 않아도 칸에 남는다. 다른 탭을 고르면 숨고 닫으면 빠진다.
   const kept = renderKept
@@ -236,11 +342,33 @@ function PaneView(
       <TabStrip
         tabs={pane.tabs.map(stripTab)}
         selected={pane.selected ?? ""}
-        focused={split && focused}
+        focused={focused}
         onSelect={onSelect}
         onClose={onClose}
+        onPin={onPin}
+        onMenu={(key, at) => setMenu({ key, ...at })}
+        onReorder={onReorder}
         end={end}
       />
+      {menu === null || menuTab === undefined ? null : (
+        <Menu
+          open
+          onOpenChange={(open) => {
+            if (!open) setMenu(null);
+          }}
+          trigger={
+            <span
+              className={styles.menuAnchor}
+              style={{ left: menu.x, top: menu.y }}
+            />
+          }
+          items={menuItems}
+          onSelect={(id) => {
+            chooseMenu(id);
+            setMenu(null);
+          }}
+        />
+      )}
       <div
         className={`${styles.body} ${wide ? "" : styles.narrow} ${
           custom || keptSelected ? styles.flush : ""

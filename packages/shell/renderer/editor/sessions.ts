@@ -34,6 +34,7 @@ export class EditorSessions {
   readonly #entries = new Map<string, Entry>();
   readonly #opening = new Map<string, Promise<OpenedSession | OpenFailure>>();
   readonly #watchers = new Map<string, Set<(change: FileChanged) => void>>();
+  readonly #unsettledListeners = new Set<() => void>();
   #reported: FileCounts = { unsettled: 0, open: 0 };
   #disposers: (() => void)[] = [];
 
@@ -62,6 +63,17 @@ export class EditorSessions {
   dispose(): void {
     for (const dispose of this.#disposers) dispose();
     this.#disposers = [];
+  }
+
+  /** 이 파일에 저장이 끝나지 않은 고침이 있다(탭의 ●, preview 탭 고정). */
+  isUnsettled(path: string): boolean {
+    return this.#entries.get(path)?.session.unsettled() ?? false;
+  }
+
+  /** 어느 파일이든 저장 상태가 바뀌면 부른다. 해제는 반환 함수다. */
+  onUnsettledChange(listener: () => void): () => void {
+    this.#unsettledListeners.add(listener);
+    return () => this.#unsettledListeners.delete(listener);
   }
 
   /** 이 파일이 밖에서 바뀌는지 본다. 해제는 반환 함수다. */
@@ -232,6 +244,7 @@ export class EditorSessions {
       entry.session.dispose();
     }
     this.#report();
+    for (const listener of this.#unsettledListeners) listener();
   }
 
   #report(): void {

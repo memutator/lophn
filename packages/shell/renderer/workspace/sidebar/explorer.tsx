@@ -1,6 +1,12 @@
 // project sidebar의 Explorer 쪽: 루트 머리(연결 폴더·하위 폴더 고르기)와 종류 아이콘이 붙은 파일 tree.
 // 오른쪽 클릭 menu는 Open·Rename·Delete를 낼 뿐이고 실제 실행은 부르는 쪽이 한다.
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { FileIcon, Icon } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
@@ -102,16 +108,21 @@ function RootPicker(
 }
 
 function Row(
-  { row, current, selected, onActivate, onMenu }: {
+  { row, current, selected, onActivate, onKeep, onMenu }: {
     row: FileRow;
     current: boolean;
     selected: boolean;
     onActivate: (row: FileRow) => void;
+    /** 파일을 고정 탭으로 연다(double-click, Enter). */
+    onKeep: (row: FileRow) => void;
     onMenu: (row: FileRow, at: { x: number; y: number }) => void;
   },
 ) {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
+    if (event.key === "Enter") {
+      if (row.folder) onActivate(row);
+      else onKeep(row);
+    } else if (event.key === " ") {
       onActivate(row);
     } else if (event.key === "ArrowRight" && row.folder && !row.expanded) {
       onActivate(row);
@@ -140,6 +151,9 @@ function Row(
         paddingLeft: `calc(var(--space-2) + var(--tree-indent) * ${row.depth})`,
       }}
       onClick={() => onActivate(row)}
+      onDoubleClick={() => {
+        if (!row.folder) onKeep(row);
+      }}
       onKeyDown={onKeyDown}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -168,12 +182,16 @@ interface ExplorerProps {
   folders: readonly ProjectFolderView[];
   /** 지금 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
-  onOpenFile: (path: string) => void;
+  /** 탭 menu의 Reveal in Explorer가 알리는 파일. 어떻게 드러낼지는 Explorer가 정한다. */
+  reveal?: { readonly path: string; readonly nonce: number } | null;
+  /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다. */
+  onOpenFile: (path: string, keep?: boolean) => void;
   onFileAction: (action: FileAction, path: string) => void;
 }
 
 export function Explorer(
-  { source, folders, current = null, onOpenFile, onFileAction }: ExplorerProps,
+  { source, folders, current = null, reveal = null, onOpenFile, onFileAction }:
+    ExplorerProps,
 ): ReactNode {
   const roots = rootChoices(folders);
   // 고른 루트는 화면 상태일 뿐이라 저장하지 않는다. 처음은 첫 연결 폴더다.
@@ -183,11 +201,27 @@ export function Explorer(
   const [menu, setMenu] = useState<
     { row: FileRow; x: number; y: number } | null
   >(null);
+  // 알려 온 파일이 지금 보이는 행이면 그 행으로 간다. 접힌 폴더 속 파일을 펼치는 일은 여기서 하지 않는다.
+  const section = useRef<HTMLElement>(null);
+  const revealed = useRef<number | null>(null);
+  useEffect(() => {
+    if (reveal === null || revealed.current === reveal.nonce) return;
+    if (tree.rows.length === 0) return;
+    revealed.current = reveal.nonce;
+    const row = [
+      ...(section.current?.querySelectorAll<HTMLElement>(
+        "[data-file]",
+      ) ?? []),
+    ].find((item) => item.dataset.file === reveal.path);
+    row?.scrollIntoView({ block: "nearest" });
+    row?.focus();
+  }, [reveal, tree.rows]);
   if (root === undefined) return null;
   const activate = (row: FileRow) => {
     if (row.folder) tree.toggle(row.id);
     else onOpenFile(row.id);
   };
+  const keep = (row: FileRow) => onOpenFile(row.id, true);
   const items = menu === null ? [] : [
     ...(menu.row.folder ? [] : [{
       id: "open",
@@ -206,7 +240,7 @@ export function Explorer(
     },
   ];
   return (
-    <section className={styles.section} data-explorer="">
+    <section className={styles.section} data-explorer="" ref={section}>
       <RootPicker roots={roots} root={root} onRoot={setChosen} />
       <div
         role="tree"
@@ -222,6 +256,7 @@ export function Explorer(
             current={row.id === current}
             selected={menu?.row.id === row.id}
             onActivate={activate}
+            onKeep={keep}
             onMenu={(target, at) => setMenu({ row: target, ...at })}
           />
         ))}

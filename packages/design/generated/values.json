@@ -447,7 +447,15 @@
     },
     "tabStrip": {
       "min": "96px",
-      "max": "240px"
+      "max": "240px",
+      "bar": {
+        "light": "#f3f2ef",
+        "dark": "#0d0d0d"
+      },
+      "hover": {
+        "light": "#ebeae6",
+        "dark": "#1d1d1b"
+      }
     },
     "window": {
       "topBar": "36px",

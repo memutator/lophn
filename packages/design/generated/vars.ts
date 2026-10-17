@@ -315,6 +315,8 @@ export const vars = {
   "tabStrip": {
     "min": "var(--tab-strip-min)",
     "max": "var(--tab-strip-max)",
+    "bar": "var(--tab-strip-bar)",
+    "hover": "var(--tab-strip-hover)",
   },
   "window": {
     "topBar": "var(--window-top-bar)",

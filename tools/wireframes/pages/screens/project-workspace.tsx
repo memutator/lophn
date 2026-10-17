@@ -23,6 +23,7 @@ import {
   DocumentOrganize,
   DocumentTabInfo,
   DocumentTabPage,
+  EditorTabs,
   NewTabMenu,
   SidebarCollapsed,
   TabKinds,
@@ -31,6 +32,7 @@ import {
   DeclaredSearchBoardPage,
   DeclaredSearchTablePage,
 } from "./contexts/context-pages.tsx";
+import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
   MockDesktop,
   type PaneSpec,
@@ -123,6 +125,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "한 칸에 md 문서, JSON 파일, project 키워드 검색, Context, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭 줄은 앱 공간 pane과 같은 component이고, 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
       render: () => <TabKinds />,
+    },
+    {
+      id: "new-editor-tabs",
+      title: "Project · editor tabs",
+      description:
+        "편집기 탭 줄이다. 고른 탭은 editor 바탕으로 이어지고 위에 얇은 강조선이 있다. italic 이름은 preview 탭, 닫기 자리의 ●는 저장 안 된 탭이고 hover하면 ×가 된다. 탭이 넘치면 가로 scroll하고 줄에 hover할 때만 얇은 scrollbar가 보인다.",
+      render: () => <EditorTabs />,
+    },
+    {
+      id: "new-editor-tab-menu",
+      title: "Project · tab menu",
+      description:
+        "탭을 오른쪽 클릭한 menu다. Close, Close Others, Close to the Right, Close Saved, Close All, Copy Path, Copy Relative Path, Reveal in Explorer 순이고 preview 탭이면 Keep Open이 더 있다.",
+      render: () => <EditorTabMenu />,
     },
     {
       id: "new-project-tab-menu",

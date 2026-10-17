@@ -78,6 +78,10 @@ export interface TabSpec {
   readonly rev?: number;
   /** 대화 탭의 시작 상태(어느 대화인지, 열린 menu). */
   readonly chat?: ChatInit;
+  /** preview 탭(이름이 italic이다). */
+  readonly preview?: boolean;
+  /** 저장 안 된 변경이 있는 탭(닫기 자리에 ●). */
+  readonly unsaved?: boolean;
   /** 탭 본문을 직접 준다. 있으면 종류별 본문 대신 이것을 그린다. */
   readonly body?: ReactNode;
   /** 문서 탭의 시작 상태(저장 상태, 밖에서 바뀐 안내, 검색 결과로 열린 줄). */
@@ -127,6 +131,8 @@ export function stripTabsOf(
     title: tabTitle(tab),
     icon: tabIcon(tab),
     dot: states?.[tab.key],
+    preview: tab.preview,
+    unsaved: tab.unsaved,
   }));
 }
 

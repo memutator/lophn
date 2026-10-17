@@ -23,6 +23,8 @@ export interface TabKindDef {
   readonly icon: IconProps["icon"];
   /** 탭마다 다른 아이콘(파일 종류, agent의 profile, harness vendor). null이면 `icon`이다. */
   iconOf?(tab: TabItem, host: TabHost): ReactNode | null;
+  /** 탭이 디스크 파일이면 그 절대 경로. 탭 menu의 Copy Path·Reveal in Explorer가 쓴다. */
+  pathOf?(tab: TabItem): string | null;
   /** 탭 이름 뒤의 상태 점(Agent 탭의 session 상태). null이면 점이 없다. */
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
   /** 팔레트 탭 행의 아이콘. 없으면 일반 탭이다. */

@@ -151,3 +151,11 @@
 .divider[data-dragging]::after {
   opacity: 1;
 }
+
+/* 탭을 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
+.menuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}

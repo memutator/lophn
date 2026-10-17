@@ -44,6 +44,10 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다.** agent가 자기 정의나 지침을 file tool로 고쳐 grant를 우회하지 못한다.
 - **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 앱 data는 app-api로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
 - **Operator 정의를 만들고 고치는 tool은 grant를 주지 못한다.** grant는 사람이 할당한다. agent가 자기 권한을 넓히는 길이 없어야 한다.
+- **tool 결과는 model에 약 24 KiB까지만 싣는다.** shell도 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시로 바꾼다. 오류는 끝에 나오므로 뒤를 버리지 않는다. 출력 많은 명령 한 번이 context를 채우지 않게 한다.
+- **model 요청에 싣는 이미지는 그 turn의 최신 둘뿐이다.** 오래된 이미지 조각은 빼고 짝 tool 결과 글 끝에 `[image omitted]`를 붙인다. 요청 body 전체를 blob으로 저장하고 그 상한이 16 MiB라, 이미지가 쌓이면 model call을 보내지 못한다. 입력 예산은 이미지를 base64 byte가 아니라 이미지당 고정 token(4096)으로 센다. byte=token 가정은 이미지에 맞지 않아 screenshot 하나로 `context_limit`이 난다.
+- **provider API key는 `secrets.json`의 이름 `provider.<id>`로만 가리킨다.** ConnectProvider는 그 provider 몫의 이름만 받는다. 값은 core가 전송 직전에 그 이름을 가진 회수되지 않은 provider의 endpoint origin과 요청 목적지가 같을 때만 읽어 agent runtime의 전송 callback 하나에 준다. 값은 ledger, event, log, 오류, model 입력에 없다. 다른 이름을 가리킬 수 있으면 앱·MCP secret이 provider endpoint로 나간다.
+- **model catalog는 동봉 snapshot 위에 models.dev 갱신을 덮는다.** snapshot은 판을 낼 때 `tools/models-snapshot.ts`가 만들고, 실행 때 갱신(24시간에 한 번 공개 GET, 설정 `lophn-agent.model.catalog_auto_update`로 끈다)이 같은 변환을 쓴다. catalog 밖 model은 사람이 한계를 명시하지 않으면 거절한다. 기본값으로 허용하면 실제 한도와 달라 예산이 틀린다.
 - **compact는 사람이 부를 때만 한다.** 같은 model이 요약하고, 요약 대상 원문은 data 경계로 감싸 지시로 읽히지 않게 한다. 입력이 예산을 넘으면 call을 보내지 않고 turn이 `context_limit`으로 실패한다. 자동 compact는 없다.
 - **skill은 목록(이름과 설명)만 prompt에 넣고 본문은 tool로 읽는다.** 꺼진 skill은 목록에서 빼고 읽기도 막는다. 도는 turn은 시작 때 읽은 판을 쓴다.
 - **사람이 composer에 붙인 것(context, 파일, 위반)은 이름과 한 줄만 싣는다.** 상세는 agent가 tool로 읽는다. 사람이 붙인 글 전체가 prompt를 부풀리거나 지시로 읽히지 않게 한다.
@@ -62,5 +66,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **role 고정 목록과 grant가 옛 preset과 tool 묶음을 대신한다.** 사람이 tool 목록을 고치는 길을 없애고, 권한을 바꾸는 길을 grant 하나로 모았다.
 - **place 정보는 목록만 prompt에, 내용은 tool로.** 목록이 없으면 model은 그것이 있는 줄 몰라 찾지 않는다(skill 목록과 같은 이유).
 - **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn이 감지한 사실이고 그 값은 lophn과 사람의 앱에서 온다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
+- **model catalog는 OpenCode 꼴이다.** OpenCode와 Codex는 catalog snapshot을 넣고 실행 때 받는다. 손으로 쓴 목록은 새 model이 나와도 판을 올리기 전에는 쓸 수 없다. models.dev 항목의 `limit.input`이 없으면 context 한도를 입력 한계로 두고, 출력 예약은 입력 예산이 따로 뺀다.
+- **오래된 이미지만 빼고 기록은 그대로 둔다.** tool 호출 기록과 그 출력 blob에는 이미지 base64가 남는다. 기록에서 빼는 길은 model call이 막히지 않으니 실제로 막힐 때 한다.
 - **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.
 - **active context는 project place만 읽는다.** project place의 PM과 Operator가 그 project의 active context를 받는다. App Engineer가 앱을 app-data source로 읽는 context를 받는 길은 쓰는 곳이 없어 지웠다.

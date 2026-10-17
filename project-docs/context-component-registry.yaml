@@ -398,6 +398,15 @@ components:
     change_reasons:
       boundaries: [shell, core, coding-agent-cli]
 
+  - id: tool-models-snapshot
+    kind: tool
+    roles: [worker]
+    description: 판을 낼 때 models.dev api.json을 실행 때 갱신과 같은 변환(modelsDevEntries)으로 바꿔 동봉 model catalog snapshot을 새로 쓴다. models.dev에 없는 정의의 항목은 옮긴다.
+    path: tools/models-snapshot.ts
+    run: deno run --allow-net=models.dev --allow-read --allow-write tools/models-snapshot.ts [--from <api.json>]
+    change_reasons:
+      boundaries: [models]
+
   # ── designer ──
 
   - id: skill-ui-design

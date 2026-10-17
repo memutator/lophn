@@ -44,7 +44,6 @@ export type AgentsPlaceholders = {
   "agents.notice.model-for-project": Record<never, never>;
   "agents.notice.skills-project": Record<never, never>;
   "agents.notice.tab-lead": Record<never, never>;
-  "agents.button.add-agent": Record<never, never>;
   "agents.button.assign-app": Record<never, never>;
   "agents.button.assign-tools": Record<never, never>;
   "agents.button.choose-icon": Record<never, never>;

@@ -20,6 +20,7 @@ import {
   apiPick,
   appEntryOf,
   CALL_DEFAULT_ASK,
+  callPick,
   defaultAskOf,
   dropEntries,
   KEPT,
@@ -30,7 +31,8 @@ import {
   toolEntryOf,
   toolPick,
   withApiPick,
-  withSimplePick,
+  withCallPick,
+  withSettingsPick,
   withToolPick,
 } from "./grants-model.ts";
 import styles from "./grants-panel.module.css";
@@ -310,9 +312,6 @@ export function GrantsPanel(
   const apps = catalog.apps.filter((app) =>
     appEntryOf(entries, app.app) !== undefined
   );
-  const callable = catalog.agents.filter((target) =>
-    agentEntryOf(entries, target.agent) !== undefined
-  );
   const settingsOn = settingsEntryOf(entries) !== undefined;
 
   return (
@@ -492,28 +491,14 @@ export function GrantsPanel(
           <h2 className={styles.sectionTitle}>
             {t("agents.heading.grants-agents")}
           </h2>
-          <AssignMenu
-            label={t("agents.button.add-agent")}
-            items={catalog.agents.map((target, index) => ({
-              id: String(index),
-              label: target.name,
-              disabled: agentEntryOf(entries, target.agent) !== undefined,
-            })).filter((item) => !item.disabled)}
-            onAdd={(index) => {
-              const target = catalog.agents[Number(index)];
-              onChange(
-                setEntry(entries, { kind: "agent", agent: target.agent }),
-              );
-            }}
-          />
         </div>
-        {callable.length === 0
+        {catalog.agents.length === 0
           ? <p className={styles.empty}>{t("agents.empty.grants-agents")}</p>
           : (
             <ul className={`${styles.rows} ${styles.standalone}`}>
               <RowHead effect={false} />
-              {callable.map((target) => {
-                const entry = agentEntryOf(entries, target.agent)!;
+              {catalog.agents.map((target) => {
+                const entry = agentEntryOf(entries, target.agent);
                 return (
                   <GrantRow
                     key={target.name + target.detail}
@@ -522,20 +507,10 @@ export function GrantsPanel(
                       name: target.name,
                       detail: target.detail,
                       defaultAsk: CALL_DEFAULT_ASK,
-                      pick: {
-                        removed: false,
-                        ask: entry.setting === "excluded"
-                          ? undefined
-                          : entry.setting,
-                      },
+                      pick: callPick(entry),
                     }}
                     onPick={(pick) =>
-                      onChange(withSimplePick(
-                        entries,
-                        { kind: "agent", agent: target.agent },
-                        CALL_DEFAULT_ASK,
-                        pick,
-                      ))}
+                      onChange(withCallPick(entries, target.agent, pick))}
                   />
                 );
               })}
@@ -564,13 +539,9 @@ export function GrantsPanel(
                 }
                 : { removed: true },
             }}
-            onPick={(pick) =>
-              onChange(withSimplePick(
-                entries,
-                { kind: "settings" },
-                SETTINGS_EDIT_DEFAULT_ASK,
-                pick,
-              ))}
+            onPick={(pick) => onChange(
+              withSettingsPick(entries, SETTINGS_EDIT_DEFAULT_ASK, pick),
+            )}
           />
         </ul>
         <p className={styles.note}>{t("agents.notice.grants-settings-help")}</p>

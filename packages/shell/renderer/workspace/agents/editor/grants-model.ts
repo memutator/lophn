@@ -127,17 +127,41 @@ export const agentEntryOf = (
 export const settingsEntryOf = (entries: readonly AgentGrantEntry[]) =>
   entries.find((one) => one.kind === "settings");
 
-/** 부르기와 설정 고치기 줄의 상태 바꾸기. 뺐으면 entry를 지운다. */
-export function withSimplePick(
+/** 설정 고치기 줄의 상태 바꾸기. 뺐으면 entry를 지운다. */
+export function withSettingsPick(
   entries: readonly AgentGrantEntry[],
-  target: { kind: "agent"; agent: CallAgent } | { kind: "settings" },
   defaultAsk: AskSetting,
   pick: Pick,
 ): AgentGrantEntry[] {
-  const key = agentGrantEntryKey(target);
+  const target = { kind: "settings" } as const;
   if (pick.removed) {
-    return entries.filter((one) => agentGrantEntryKey(one) !== key);
+    return entries.filter((one) => one.kind !== "settings");
   }
   const same = pick.ask === undefined || pick.ask === defaultAsk;
   return setEntry(entries, same ? target : { ...target, setting: pick.ask });
+}
+
+/** agent 부르기 하나의 상태. 줄이 없으면 켜진 기본이고, excluded는 꺼진 것이다. */
+export function callPick(entry: AgentEntry | undefined): Pick {
+  if (entry === undefined || entry.setting === undefined) return KEPT;
+  return entry.setting === "excluded"
+    ? { removed: true }
+    : { removed: false, ask: entry.setting };
+}
+
+/** agent 부르기 하나의 상태를 바꾼 entries. 끄면 줄을 지우지 않고 excluded로 남긴다(줄이 없으면 core는 허락한다). */
+export function withCallPick(
+  entries: readonly AgentGrantEntry[],
+  agent: CallAgent,
+  pick: Pick,
+): AgentGrantEntry[] {
+  const target = { kind: "agent", agent } as const;
+  if (pick.removed) {
+    return setEntry(entries, { ...target, setting: "excluded" });
+  }
+  if (pick.ask === undefined || pick.ask === CALL_DEFAULT_ASK) {
+    const key = agentGrantEntryKey(target);
+    return entries.filter((one) => agentGrantEntryKey(one) !== key);
+  }
+  return setEntry(entries, { ...target, setting: pick.ask });
 }

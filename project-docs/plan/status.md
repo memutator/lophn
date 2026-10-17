@@ -7,7 +7,7 @@
 | `annotation-target` | annotation | 1 | 없음 | running | annotation/annotation-target |  |  |
 | `apps-activation-no-retry` | apps | 1 | 없음 | running | apps/apps-activation-no-retry |  |  |
 | `apps-large-changeset` | apps | 1 | dead-platform | todo |  |  |  |
-| `dead-agent` | dead | 1 | 없음 | running | dead/dead-agent |  |  |
+| `dead-agent` | dead | 1 | 없음 | merged | dead/dead-agent | 3777a51b6 |  |
 | `dead-platform` | dead | 1 | 없음 | merged | dead/dead-platform | bde4e7c2b |  |
 | `feedback-existing-problem` | feedback | 1 | 없음 | todo |  |  |  |
 | `harness-global-install` | harness | 1 | 없음 | running | harness/harness-global-install |  |  |

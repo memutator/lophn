@@ -33,24 +33,6 @@ modules: [packages/core/lophn-agent, packages/core/main]
 
 정한 것: 앱 Operator에게 앱 source 폴더 읽기를 준다. 쓰기는 주지 않는다.
 
-## session 되살리기(unarchive) route에 handler가 없다
-
-```yaml
-kind: defect
-modules: [packages/protocol, packages/core/lophn-agent]
-```
-
-지금: `protocol/lophn-agent/sessions.ts`에 `unarchiveSession` command가 정의되고 `registry.ts`에 등록돼 있지만 `lophn-agent/session/commands.ts`에는 archive·delete·rename만 있고 handler가 없다. UI(`agent-tab-core-source-sessions.ts`)도 부르지 않는다. architecture 문서가 이미 "archive를 풀어 다시 여는 것(되살리기)은 지금 없다. 되살리면 session 허락과 대기 request가 돌아오지 않는 규칙을 따로 정해야 한다"고 적었다. 그러니 기능 누락이 아니라 정의만 남은 죽은 route다.
-
-영향: 계약은 있는데 동작이 없어, 쓸 수 있는 기능으로 오해하게 한다.
-
-고치려면:
-- A. route와 schema를 지운다. 비용 작다. 문서와 일치한다.
-- B. 지금 짓는다. archive가 call을 닫고 허락을 버리는 것(`endSession`)을 되돌릴 수 없어, 되살린 session이 받는 것과 못 받는 것의 규칙을 먼저 정해야 한다. 비용 중간~큼.
-- 추천: A. 닫힌 session은 새 session으로 이어 가는 게 지금 설계다.
-
-정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
-
 ## 숨김 구간을 `reverts.result_seq`로 잡는 규칙
 
 ```yaml

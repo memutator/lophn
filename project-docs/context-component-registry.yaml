@@ -336,11 +336,11 @@ components:
   - id: tool-check-deps
     kind: tool
     roles: [worker]
-    description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, domain 방향과 이름 있는 예외), 의존성 판 고정을 본다. check의 deps 단계.
+    description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·domain 금지, role 층 ↔ domain 금지, domain 방향과 이름 있는 예외), harness 폴더의 domain protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, 의존성 판 고정을 본다. check의 deps 단계.
     path: tools/check-deps.ts
     run: deno task check
     change_reasons:
-      boundaries: [core]
+      boundaries: [core, lophn-agent, agent-roles, agent-tool-spi]
       note: architecture/layers.md의 규칙이나 예외가 바뀔 때.
 
   - id: tool-check-source

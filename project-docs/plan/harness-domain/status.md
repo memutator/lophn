@@ -11,4 +11,4 @@ lead만 고친다. `tools/status.py harness-domain build`가 `tasks/*.md`에서 
 | `role-layer-tools` | role-layer | 2 | 없음 | merged | role-layer/role-layer-tools | d1fba856d |  |
 | `harness-hooks` | harness-hooks | 3 | 없음 | merged | harness-hooks/harness-hooks | 849b23ef0 |  |
 | `role-ports` | role-ports | 3 | 없음 | merged | role-ports/role-ports | c913becc8 |  |
-| `layer-checks` | layer-checks | 4 | 없음 | running | layer-checks/layer-checks |  |  |
+| `layer-checks` | layer-checks | 4 | 없음 | merged | layer-checks/layer-checks | 9f617f3ed |  |

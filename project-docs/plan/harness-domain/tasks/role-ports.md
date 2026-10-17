@@ -14,6 +14,7 @@
   - `packages/core/main/daemon/assembly.ts`
   - `packages/core/main/daemon/wiring/{lophn-agent-team.ts,lophn-agent-registration.ts}`
   - `tools/check-deps.ts`
+  - 추가 소유(lead가 더함, 8번 범위만): `packages/core/lophn-agent/agents/{caller.ts,caller_test.ts,commands.ts,reads.ts}`, `packages/core/lophn-agent/tools/domain/{operator-place.ts,operator-place_test.ts}`, `packages/core/agent-roles/tools/operator.ts`의 import 줄
 - 읽을 것:
   - architecture: `project-docs/architecture/layers.md`("규칙과 그 이유"의 예외 둘, "import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다")
   - roadmap: `project-docs/products/roadmap/harness-domain-split.md`("층 규칙의 예외와 숨은 의존", "단계" 5번, 정할 것 6), `project-docs/issues/mistakes.md`의 숨은 SQL 의존
@@ -43,6 +44,7 @@
 4. `main/daemon/wiring/lophn-agent-team.ts`를 만들고 `assembly.ts`의 `TEAMS`가 그것을 가리키게 한다. `lophn-agent-registration.ts`가 부르던 `operatorDirectory`도 `lookups`를 넘긴다.
 5. role 명령: `commands/role-prompts.ts`와 `registry.ts`의 `ROLE_COMMANDS`, `promptCommand`를 `agent-roles/commands.ts`로 옮긴다. `buildRegistry`는 `roleCommands`를 인자로 받는다. protocol의 `ROLE_COMMAND_NAMES`와 같아야 한다는 주석 조건은 그대로다.
 6. `tools/check-deps.ts`에서 `CORE_LAYER_EXCEPTIONS`의 `"lophn-agent>projects"`와 그 주석 줄을 지운다(집합이 비면 비운 채로 둔다. 규칙 정리는 `layer-checks`).
+8. (lead가 더함) Operator의 role→place 규칙 `operatorPlaceAllowed`(`lophn-agent/tools/domain/operator-place.ts`)를 role 층으로 옮긴다. `role-layer-tools`가 옮기려 했으나 harness의 `agents/caller.ts:6`(`agentCallerRule`)과 `agents/commands.ts`·`agents/reads.ts`가 써서 못 옮겼다. `agents/ports.ts`의 `AgentDeps`에 그 규칙을 받는 칸 하나(`operatorPlaceAllowed`나 `agentCallerRule`, 가장 단순한 쪽)를 더하고 `caller.ts`·`commands.ts`·`reads.ts`가 그것을 쓰게 한다. `register.ts`의 factory가 받아 넘기고, 팀 file(`main/daemon/wiring/lophn-agent-team.ts`)이 role 층에서 꽂는다. 그 뒤 `operator-place.ts`와 `_test.ts`를 `tools/move-files.ts`로 `packages/core/agent-roles/tools/`로 옮긴다. `caller_test.ts`는 규칙을 인자로 넘기게 고친다. 남지 않음: `grep -rn "operator-place" packages/core/lophn-agent --include=*.ts`가 0줄이다.
 7. 같은 종류의 숨은 SQL이 `lophn-agent/instructions/files.ts`(110, 225줄: `apps.source_path`, `projects` 존재)와 `lophn-agent/models/{commands.ts,reads.ts}`(`projects` 존재)에 있다. 이 task의 방법(lookups를 port로 받기)으로 풀 수 있으면 같이 푼다. 그 file들은 소유가 아니므로 바꾸면 "넘길 줄"에 file:line을 적는다. 못 풀면 고치지 말고 "알려진 미완 동작"에 적는다.
 
 ## 끝남

@@ -59,6 +59,7 @@ const READ_WORDS = [
   "more",
   "diff",
   "detect",
+  "guide",
 ] as const;
 
 function isReadName(name: string): boolean {

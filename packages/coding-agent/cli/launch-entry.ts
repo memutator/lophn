@@ -1,6 +1,6 @@
 // `lophn` launcher가 실행 전에 부르는 권한 계획 entry다. 같은 argv에서 이 실행이 더 열 권한 flag만 한 줄씩
-// 낸다: `harness install`의 앱 source 폴더 읽기·쓰기, `harness refresh`가 probe를 돌릴 제품 실행 파일의
-// 실행. 계산하지 못하면 아무것도 내지 않는다(그 command는 권한이 없어 unavailable로 끝난다). 오류 내용도
+// 낸다: `harness install`이 쓰는 그 harness의 전역 위치(home 기준) 읽기·쓰기, `harness refresh`가 probe를
+// 돌릴 제품 실행 파일의 실행. 계산하지 못하면 아무것도 내지 않는다(그 command는 권한이 없어 unavailable로 끝난다). 오류 내용도
 // 내지 않는다: 실제 실행(main.ts)이 같은 입력을 다시 읽고 이유를 낸다.
 import { parseArgs } from "./parser.ts";
 import { matchCommand } from "./registry.ts";
@@ -40,12 +40,10 @@ function planCliPermissions(
   if (matched === undefined) return [];
   const env = options.env ?? ambientEnv();
   const cwd = options.cwd ?? Deno.cwd();
+  const home = options.home ?? env.get("HOME") ?? "";
   const name = matched.entry.name;
   if (name === "harness refresh") {
-    const executables = detectedExecutables(
-      env,
-      options.home ?? env.get("HOME") ?? "",
-    ).filter(exactPath);
+    const executables = detectedExecutables(env, home).filter(exactPath);
     return executables.length === 0
       ? []
       : [`--allow-run=${executables.join(",")}`];
@@ -53,7 +51,7 @@ function planCliPermissions(
   const input = inputOf(parsed.input, parsed.inputFile, cwd);
   if (input === undefined) return [];
   return selectionFlags(
-    planSelection(name, input as Record<string, unknown>),
+    planSelection(name, input as Record<string, unknown>, home),
   );
 }
 

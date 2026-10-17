@@ -10,7 +10,6 @@ export {
   type HarnessProbeResult,
   type HarnessVersion,
 } from "./harnesses.ts";
-export { releaseExcludes } from "./release-exclude.ts";
 export { ROUTES } from "./registry.ts";
 export {
   canDeliverMessages,

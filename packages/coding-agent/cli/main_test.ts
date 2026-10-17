@@ -1,8 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { cliMain } from "./main.ts";
 
 function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
@@ -18,7 +14,7 @@ function sink(): { stream: WritableStream<Uint8Array>; text(): string } {
   };
 }
 
-Deno.test("hook CLI는 token 없이 거절되고 core로 아무것도 보내지 않는다", async () => {
+Deno.test("hook CLI는 token이 없으면 아무것도 보내지 않고 stdin도 읽지 않고 조용히 성공한다", async () => {
   const stdout = sink();
   const stderr = sink();
   let sent = false;
@@ -36,8 +32,7 @@ Deno.test("hook CLI는 token 없이 거절되고 core로 아무것도 보내지 
     stdout: stdout.stream,
     stderr: stderr.stream,
   });
-  assertNotEquals(code, 0);
-  assertEquals(stdout.text(), "");
-  assertStringIncludes(stderr.text(), "LOPHN_CODING_TOKEN");
+  assertEquals(code, 0);
+  assertEquals([stdout.text(), stderr.text()], ["", ""]);
   assertEquals([sent, read], [false, false]);
 });

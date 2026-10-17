@@ -1,8 +1,7 @@
 // 배포 skill 원본을 읽는다. 원본은 이 module 옆 `skills/<name>/`이고 개발 저장소와 설치 묶음이 같다.
-// 읽은 내용의 hash가 manifest 기록과 다르면 설치하지 않는다.
+// `lophn guide`가 이 원본을 그대로 내준다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { CODING_SKILL_NAMES } from "../../protocol/coding-agent/mod.ts";
-import { SKILL_RELEASES, skillContentHash } from "./manifest.ts";
 
 const DISTRIBUTED_SKILLS_DIR = decodeURIComponent(
   new URL("./skills", import.meta.url).pathname,
@@ -42,15 +41,6 @@ export async function loadSkills(
       return err({
         code: "unavailable",
         message: `배포 skill 원본을 읽지 못했다: ${name}`,
-      });
-    }
-    const release = SKILL_RELEASES.find((item) => item.name === name);
-    const actual = await skillContentHash(files);
-    if (release === undefined || release.hash !== actual) {
-      return err({
-        code: "internal",
-        message:
-          `${name}의 내용이 manifest 기록과 다르다. 내용을 바꿨으면 version을 올리고 manifest에 hash(${actual})를 기록한다`,
       });
     }
     skills.push({ name, files });

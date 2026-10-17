@@ -1,8 +1,9 @@
 // CLI 실행 argv의 권한 계산이다.
 // 일반 CLI는 core loopback network와 읽기뿐이고 쓰기가 없다.
-// 명령 시점에야 알 수 있는 권한은 그 명령에만 정확한 경로로 더한다: `harness install`은 고른 앱 source 폴더
-// 하나의 읽기·쓰기, `harness refresh`는 감지가 찾은 제품 실행 파일의 실행. `-A`·일반 `--allow-write`·
-// `--allow-run`, 와일드카드는 없다.
+// 명령 시점에야 알 수 있는 권한은 그 명령에만 정확한 경로로 더한다: `harness install`은 고른 harness의
+// 전역 위치(hook 설정 폴더와 skill 폴더, home 기준)의 읽기·쓰기, `harness refresh`는 감지가 찾은 제품
+// 실행 파일의 실행. `-A`·일반 `--allow-write`·`--allow-run`, 와일드카드는 없다.
+import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 
 // 실행 entry의 설치 resource root 기준 경로다.
 
@@ -10,11 +11,11 @@
 
 // 명령 시점에 입력에서 계산한 정확한 경로다.
 type CliSelection = {
-  // `harness install`의 앱 source 폴더다. 이 폴더 하나의 읽기·쓰기만 열린다.
-  folders: readonly string[];
+  // `harness install`이 쓰는 그 harness의 전역 폴더들이다. 이 경로들의 읽기·쓰기만 열린다.
+  paths: readonly string[];
 };
 
-const NO_SELECTION: CliSelection = { folders: [] };
+const NO_SELECTION: CliSelection = { paths: [] };
 
 export function exactPath(path: string): boolean {
   return path.startsWith("/") && !path.split("/").includes("..") &&
@@ -23,9 +24,9 @@ export function exactPath(path: string): boolean {
 
 // 선택이 더하는 읽기·쓰기 flag다. 선택이 없으면 비어 있다.
 export function selectionFlags(selection: CliSelection): string[] {
-  const folders = selection.folders.filter(exactPath);
-  if (folders.length === 0) return [];
-  const list = folders.join(",");
+  const paths = selection.paths.filter(exactPath);
+  if (paths.length === 0) return [];
+  const list = paths.join(",");
   return [`--allow-read=${list}`, `--allow-write=${list}`];
 }
 
@@ -38,11 +39,19 @@ export function selectionFlags(selection: CliSelection): string[] {
 export function planSelection(
   command: string,
   input: Record<string, unknown>,
+  home: string,
 ): CliSelection {
-  if (command === "harness install" && typeof input.folder === "string") {
-    return exactPath(input.folder)
-      ? { folders: [input.folder.replace(/\/+$/, "")] }
-      : NO_SELECTION;
-  }
-  return NO_SELECTION;
+  if (command !== "harness install") return NO_SELECTION;
+  const adapter = Object.values(HARNESS_ADAPTERS).find((one) =>
+    one.id === input.harness
+  );
+  if (adapter === undefined) return NO_SELECTION;
+  const base = home.replace(/\/+$/, "");
+  const paths = [
+    ...(adapter.hook === null
+      ? []
+      : [`${base}/${adapter.hook.path.split("/").slice(0, -1).join("/")}`]),
+    ...(adapter.skill_dir === null ? [] : [`${base}/${adapter.skill_dir}`]),
+  ];
+  return { paths: paths.filter(exactPath) };
 }

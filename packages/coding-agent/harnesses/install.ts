@@ -1,9 +1,10 @@
-// 앱 source 폴더에 skill 둘과 hook 설정을 놓는다. 폴더 안만 쓰고 사용자 전역 설정은 건드리지 않는다.
-// 사람이 고친 파일은 덮지 않는다. 이를 알려고 lophn이 마지막에 쓴 내용의 hash만 `.lophn/installed.json`에
-// 남긴다(앱 source 폴더의 git에 넣지 않는 위치). 그 hash와 지금 내용이 다르면 `kept_user_edit`이다.
-import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
+// 사용자 전역(home 기준)에 skill 둘과 hook 설정을 놓는다. skill은 얇은 안내(절차는 `lophn guide <name>`)이고
+// hook은 harness마다 한 번이다. skill과 plugin 파일은 우리 폴더·파일이라 내용이 다르면 덮는다. JSON 설정은 사람이
+// 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `로 시작)만 바꾼다.
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   CODING_SKILL_NAMES,
+  CODING_TOKEN_ENV,
   HARNESS_ADAPTERS,
   type HARNESS_INSTALL_OUTCOMES,
   type HarnessId,
@@ -26,15 +27,15 @@ export type InstallPorts = {
   skills: readonly SkillSource[];
 };
 
-type InstallResult = { skill: Outcome; hook: Outcome };
+type InstallResult = { skill: Outcome; hook: Outcome; files: string[] };
 
-const RECORD_PATH = ".lophn/installed.json";
+// 한 항목의 결과다. `files`는 쓴(dry_run이면 쓸) 절대 경로다.
+type Step = { outcome: Outcome; files: string[] };
 
-type Record_ = Record<string, string>;
+type Json = Record<string, unknown>;
 
-// lophn이 놓은 hook 항목을 알아보는 command 앞부분이다.
-function commandOf(harness: HarnessId, event: string): string {
-  return `lophn hook ${harness} ${event}`;
+function isObject(value: unknown): value is Json {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function ownedEntry(harness: HarnessId, entry: unknown): boolean {
@@ -46,15 +47,9 @@ function ownedEntry(harness: HarnessId, entry: unknown): boolean {
   });
 }
 
-type Json = Record<string, unknown>;
-
-function isObject(value: unknown): value is Json {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 // pi extension 원문이다. 듣는 event는 `HOOK_EVENT_TABLE.pi`다. 조사로 확인하지 못한 API가 있다(host가
-// 아직 검증하지 않았다): `pi.on(event, handler)`, `ctx.sessionManager.getSessionId()`, `agent_settled`의
-// `aborted`.
+// 아직 검증하지 않았다): `ctx.sessionManager.getSessionId()`, `agent_settled`의 `aborted`.
+// 전역에 놓으면 lophn과 상관없는 pi 실행마다 불리므로 token이 없으면 아무것도 등록하지 않는다.
 function piExtension(): string {
   const events = Object.keys(HOOK_EVENT_TABLE.pi);
   return `// lophn이 놓은 파일이다. pi event를 \`lophn hook pi <event>\`로 넘긴다.
@@ -73,6 +68,7 @@ function send(event: string, payload: Record<string, unknown>) {
 }
 
 export default function (pi: any) {
+  if (!process.env.${CODING_TOKEN_ENV}) return;
 ${
     events.map((event) =>
       `  pi.on("${event}", (event: any, ctx: any) => {
@@ -90,158 +86,166 @@ ${
 `;
 }
 
-// 파일 하나를 정한 내용으로 맞춘다. 마지막에 lophn이 쓴 내용이면 갱신하고 아니면 사람이 고친 것이라 둔다.
-async function put(
-  ports: InstallPorts,
-  folder: string,
-  record: Record_,
-  path: string,
-  expected: string,
-): Promise<Outcome> {
-  const current = await ports.read(`${folder}/${path}`);
-  const expectedHash = await sha256Hex(expected);
-  if (current === expected) {
-    record[path] = expectedHash;
-    return "unchanged";
+// harness별 plugin 파일 원문을 고르는 한 곳이다.
+function pluginSource(harness: HarnessId): string | null {
+  switch (harness) {
+    case "pi":
+      return piExtension();
+    default:
+      return null;
   }
-  if (current !== null && record[path] !== await sha256Hex(current)) {
-    return "kept_user_edit";
-  }
-  await ports.write(`${folder}/${path}`, expected);
-  record[path] = expectedHash;
-  return "installed";
 }
 
-// 여러 결과를 하나로 묶는다. 앞일수록 먼저 보인다.
-function worst(list: readonly Outcome[]): Outcome {
-  for (const one of ["failed", "kept_user_edit", "installed"] as const) {
-    if (list.includes(one)) return one;
-  }
-  return "unchanged";
+// skill은 얇다. 원본의 frontmatter(name, description)를 그대로 쓰고 절차는 guide가 내준다.
+function thinSkill(name: string, source: string): string {
+  const front = source.match(/^---\n[\s\S]*?\n---\n/)?.[0] ??
+    `---\nname: ${name}\n---\n`;
+  return `${front}
+# ${name}
+
+절차는 \`lophn guide ${name}\`이 내준다. 그 출력을 따른다.
+`;
 }
 
 async function installSkill(
   ports: InstallPorts,
-  folder: string,
-  record: Record_,
+  home: string,
   skillDir: string,
-): Promise<Outcome> {
-  const list: Outcome[] = [];
+  dryRun: boolean,
+): Promise<Step> {
+  const files: string[] = [];
+  let failed = false;
   for (const name of CODING_SKILL_NAMES) {
-    const source = ports.skills.find((one) => one.name === name);
-    if (source === undefined) return "failed";
-    for (const file of source.files) {
-      list.push(
-        await put(
-          ports,
-          folder,
-          record,
-          `${skillDir}/${name}/${file.path}`,
-          file.content,
-        ),
-      );
+    const source = ports.skills.find((one) => one.name === name)?.files
+      .find((file) => file.path === "SKILL.md");
+    if (source === undefined) {
+      failed = true;
+      continue;
     }
+    const path = `${home}/${skillDir}/${name}/SKILL.md`;
+    const expected = thinSkill(name, source.content);
+    const current = await ports.read(path);
+    // dry_run은 있으면 됐다(lophn이 업데이트돼도 다시 묻지 않는다).
+    if (dryRun ? current !== null : current === expected) continue;
+    if (!dryRun) await ports.write(path, expected);
+    files.push(path);
   }
-  return worst(list);
+  if (failed) return { outcome: "failed", files };
+  return { outcome: outcomeOf(files, dryRun), files };
 }
 
-// JSON 설정에 `lophn hook <harness> <event>` 항목을 event마다 하나씩 넣는다. lophn이 놓은 항목만 바꾸고
-// 나머지는 그대로 둔다. 항목 모양은 Claude Code·Codex·Gemini CLI가 같다.
+function outcomeOf(files: readonly string[], dryRun: boolean): Outcome {
+  if (files.length === 0) return "unchanged";
+  return dryRun ? "missing" : "installed";
+}
+
+// JSON 설정에 `lophn hook <harness> <event>` 항목을 event마다 하나씩 넣는다. 항목 모양은 Claude Code·Codex·
+// Gemini CLI가 같다. 파싱되지 않거나 객체가 아니면 쓰지 않고 `failed`다.
 async function installJsonHook(
   ports: InstallPorts,
-  folder: string,
-  record: Record_,
+  home: string,
   harness: HarnessId,
-  path: string,
-): Promise<Outcome> {
+  hookPath: string,
+  dryRun: boolean,
+): Promise<Step> {
+  const path = `${home}/${hookPath}`;
   const events = Object.keys(HOOK_EVENT_TABLE[harness]);
   const ours = (event: string) => ({
-    hooks: [{ type: "command", command: commandOf(harness, event) }],
+    hooks: [{
+      type: "command",
+      command: `lophn hook ${harness} ${event}`,
+    }],
   });
-  const text = await ports.read(`${folder}/${path}`);
+  const text = await ports.read(path);
   let doc: Json = {};
   if (text !== null) {
     try {
       const parsed: unknown = JSON.parse(text);
-      if (!isObject(parsed)) return "kept_user_edit";
+      if (!isObject(parsed)) return { outcome: "failed", files: [] };
       doc = parsed;
     } catch {
-      return "kept_user_edit";
+      return { outcome: "failed", files: [] };
     }
   }
   const hooks = isObject(doc.hooks) ? doc.hooks : {};
-  const owned = (list: unknown) =>
-    (Array.isArray(list) ? list : []).filter((entry) =>
-      ownedEntry(harness, entry)
-    );
-  const currentOwned = events.map((event) => owned(hooks[event]));
-  const expectedOwned = events.map((event) => [ours(event)]);
-  const currentHash = await sha256Hex(JSON.stringify(currentOwned));
-  const expectedHash = await sha256Hex(JSON.stringify(expectedOwned));
-  if (currentHash === expectedHash) {
-    record[path] = expectedHash;
-    return "unchanged";
+  const listOf = (event: string): unknown[] =>
+    Array.isArray(hooks[event]) ? hooks[event] as unknown[] : [];
+  const upToDate = events.every((event) => {
+    const owned = listOf(event).filter((entry) => ownedEntry(harness, entry));
+    return dryRun
+      ? owned.length > 0
+      : JSON.stringify(owned) === JSON.stringify([ours(event)]);
+  });
+  if (upToDate) return { outcome: "unchanged", files: [] };
+  if (!dryRun) {
+    for (const event of events) {
+      hooks[event] = [
+        ...listOf(event).filter((entry) => !ownedEntry(harness, entry)),
+        ours(event),
+      ];
+    }
+    doc.hooks = hooks;
+    const indent = text?.match(/\n(\t| {2,})"/)?.[1] ?? "  ";
+    await ports.write(path, `${JSON.stringify(doc, null, indent)}\n`);
   }
-  const anyOwned = currentOwned.some((list) => list.length > 0);
-  if (anyOwned && record[path] !== currentHash) return "kept_user_edit";
-  for (const event of events) {
-    const rest = (Array.isArray(hooks[event]) ? hooks[event] as unknown[] : [])
-      .filter((entry) => !ownedEntry(harness, entry));
-    hooks[event] = [...rest, ours(event)];
-  }
-  doc.hooks = hooks;
-  const indent = text?.match(/\n(\t| {2,})"/)?.[1] ?? "  ";
-  await ports.write(
-    `${folder}/${path}`,
-    `${JSON.stringify(doc, null, indent)}\n`,
-  );
-  record[path] = expectedHash;
-  return "installed";
+  return { outcome: dryRun ? "missing" : "installed", files: [path] };
 }
 
-export async function installIntoFolder(
+async function installPluginFile(
   ports: InstallPorts,
-  input: { harness: HarnessId; folder: string },
+  home: string,
+  harness: HarnessId,
+  hookPath: string,
+  dryRun: boolean,
+): Promise<Step> {
+  const expected = pluginSource(harness);
+  if (expected === null) return { outcome: "not_supported", files: [] };
+  const path = `${home}/${hookPath}`;
+  const current = await ports.read(path);
+  if (dryRun ? current !== null : current === expected) {
+    return { outcome: "unchanged", files: [] };
+  }
+  if (!dryRun) await ports.write(path, expected);
+  return { outcome: dryRun ? "missing" : "installed", files: [path] };
+}
+
+export async function installGlobal(
+  ports: InstallPorts,
+  input: { harness: HarnessId; home: string; dryRun: boolean },
 ): Promise<Result<InstallResult>> {
   const adapter = HARNESS_ADAPTERS[input.harness];
-  const folder = input.folder.replace(/\/+$/, "");
-  let record: Record_ = {};
+  const home = input.home.replace(/\/+$/, "");
+  const none: Step = { outcome: "not_supported", files: [] };
   try {
-    const text = await ports.read(`${folder}/${RECORD_PATH}`);
-    const parsed: unknown = text === null ? {} : JSON.parse(text);
-    if (isObject(parsed)) record = parsed as Record_;
-  } catch {
-    // 읽지 못하면 lophn이 쓴 것을 모른다. 있는 파일은 모두 사람이 고친 것으로 둔다.
-  }
-  const before = JSON.stringify(record);
-  let skill: Outcome = "not_supported";
-  let hook: Outcome = "not_supported";
-  try {
-    if (adapter.skill_dir !== null) {
-      skill = await installSkill(ports, folder, record, adapter.skill_dir);
-    }
-    if (adapter.hook?.format === "json") {
-      hook = await installJsonHook(
+    const skill = adapter.skill_dir === null
+      ? none
+      : await installSkill(ports, home, adapter.skill_dir, input.dryRun);
+    const hook = adapter.hook === null
+      ? none
+      : adapter.hook.format === "json"
+      ? await installJsonHook(
         ports,
-        folder,
-        record,
+        home,
         input.harness,
         adapter.hook.path,
+        input.dryRun,
+      )
+      : await installPluginFile(
+        ports,
+        home,
+        input.harness,
+        adapter.hook.path,
+        input.dryRun,
       );
-    } else if (adapter.hook?.format === "plugin_file") {
-      hook = await put(ports, folder, record, adapter.hook.path, piExtension());
-    }
-    if (JSON.stringify(record) !== before) {
-      await ports.write(
-        `${folder}/${RECORD_PATH}`,
-        `${JSON.stringify(record, null, 2)}\n`,
-      );
-    }
+    return ok({
+      skill: skill.outcome,
+      hook: hook.outcome,
+      files: [...skill.files, ...hook.files],
+    });
   } catch {
     return err({
       code: "unavailable",
-      message: "앱 source 폴더에 쓰지 못했다",
+      message: "harness 전역 설정에 쓰지 못했다",
     });
   }
-  return ok({ skill, hook });
 }

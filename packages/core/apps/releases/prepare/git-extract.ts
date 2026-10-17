@@ -3,7 +3,6 @@
 // git 관리 정보·개발 credential·agent 도구·임시 설정은 bundle에 넣지 않는다.
 // git 권한은 source 경계의 read뿐이다. argv 배열만 쓰고 shell은 쓰지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { releaseExcludes } from "../../../../protocol/coding-agent/mod.ts";
 
 type ExtractedFile = {
   path: string;
@@ -19,7 +18,6 @@ type ExtractFailure = {
     | "uncommitted_file"
     | "symlink_itself"
     | "git_metadata"
-    | "excluded_path"
     | "git_failed";
 };
 
@@ -169,15 +167,6 @@ async function rejectDirtyTree(
   return fail(tracked ? "working_tree_changed" : "uncommitted_file");
 }
 
-function excluded(path: string): boolean {
-  if (releaseExcludes(path)) return true;
-  const parts = path.split("/");
-  for (let end = 1; end < parts.length; end++) {
-    if (releaseExcludes(parts.slice(0, end).join("/"))) return true;
-  }
-  return false;
-}
-
 // 지정 commit에 파일이 없으면 단축 hash처럼 commit을 몰라도 같은 거절이다.
 export async function extractCommit(
   git: GitRunner,
@@ -204,7 +193,6 @@ export async function extractCommit(
   const entries = parseLsTree(decode(tree));
   const files: ExtractedFile[] = [];
   for (const entry of entries) {
-    if (excluded(entry.path)) continue;
     if (entry.mode === "120000") return fail("symlink_itself");
     if (entry.mode !== "100644" && entry.mode !== "100755") {
       return fail("git_metadata");

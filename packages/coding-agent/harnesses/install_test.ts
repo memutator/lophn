@@ -1,11 +1,14 @@
 import { assertEquals } from "@std/assert";
-import { installIntoFolder, type InstallPorts } from "./install.ts";
+import { installGlobal, type InstallPorts } from "./install.ts";
 
 function memory(files: Map<string, string>): InstallPorts {
   return {
     skills: ["lophn-build-app", "lophn-repair"].map((name) => ({
       name,
-      files: [{ path: "SKILL.md", content: `# ${name}\n` }],
+      files: [{
+        path: "SKILL.md",
+        content: `---\nname: ${name}\ndescription: "d"\n---\n# ${name}\n`,
+      }],
     })),
     read: (path) => Promise.resolve(files.get(path) ?? null),
     write: (path, text) => {
@@ -15,37 +18,35 @@ function memory(files: Map<string, string>): InstallPorts {
   };
 }
 
-Deno.test("사람이 고친 skill과 hook 설정은 덮지 않고 다른 설정은 보존한다", async () => {
-  const files = new Map<string, string>([
-    ["/app/.claude/settings.local.json", '{"model":"x"}'],
-  ]);
-  const input = { harness: "claude", folder: "/app" } as const;
-  const first = await installIntoFolder(memory(files), input);
-  assertEquals(first, {
-    ok: true,
-    value: { skill: "installed", hook: "installed" },
-  });
-  assertEquals(
-    JSON.parse(files.get("/app/.claude/settings.local.json")!).model,
-    "x",
-  );
-  const again = await installIntoFolder(memory(files), input);
-  assertEquals(again, {
-    ok: true,
-    value: { skill: "unchanged", hook: "unchanged" },
-  });
+const SETTINGS = "/home/u/.claude/settings.json";
+const input = { harness: "claude", home: "/home/u", dryRun: false } as const;
 
-  files.set("/app/.claude/skills/lophn-repair/SKILL.md", "내가 고침\n");
-  const settings = JSON.parse(files.get("/app/.claude/settings.local.json")!);
-  settings.hooks.Stop[0].hooks[0].command = "lophn hook claude Stop --mine";
-  files.set("/app/.claude/settings.local.json", JSON.stringify(settings));
-  const edited = await installIntoFolder(memory(files), input);
-  assertEquals(edited, {
-    ok: true,
-    value: { skill: "kept_user_edit", hook: "kept_user_edit" },
-  });
+Deno.test("전역 설정 install은 사람이 쓴 key와 hook을 보존하고 파싱되지 않는 설정은 건드리지 않는다", async () => {
+  const mine = { type: "command", command: "my-stop-hook" };
+  const files = new Map<string, string>([
+    [
+      SETTINGS,
+      JSON.stringify({ model: "x", hooks: { Stop: [{ hooks: [mine] }] } }),
+    ],
+  ]);
+  const first = await installGlobal(memory(files), input);
+  const second = await installGlobal(memory(files), input);
   assertEquals(
-    files.get("/app/.claude/skills/lophn-repair/SKILL.md"),
-    "내가 고침\n",
+    [first.ok && first.value.hook, second.ok && second.value.hook],
+    ["installed", "unchanged"],
   );
+  const doc = JSON.parse(files.get(SETTINGS)!);
+  assertEquals(doc.model, "x");
+  assertEquals(doc.hooks.Stop[0], { hooks: [mine] });
+  assertEquals(doc.hooks.Stop.length, 2);
+
+  const broken = new Map([[SETTINGS, "{ 내가 쓰는 중"]]);
+  const refused = await installGlobal(memory(broken), input);
+  assertEquals(refused.ok && refused.value.hook, "failed");
+  assertEquals(broken.get(SETTINGS), "{ 내가 쓰는 중");
+
+  const dry = new Map<string, string>();
+  const missing = await installGlobal(memory(dry), { ...input, dryRun: true });
+  assertEquals(missing.ok && missing.value.hook, "missing");
+  assertEquals(dry.size, 0);
 });

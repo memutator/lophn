@@ -18,12 +18,12 @@ export type HarnessAdapter = {
     | { kind: "argv"; flag: string | null }
     | { kind: "paste_after_hook" }
     | null;
-  // 앱 source 폴더 기준 상대 위치다. skill을 놓는 곳이고 확인한 제품만 적는다.
+  // 사용자 home 기준 상대 위치(전역)다. skill을 놓는 곳이고 확인한 제품만 적는다.
   skill_dir: string | null;
-  // 앱 source 폴더 안 project 설정만이다(사용자 전역 금지). 확인한 제품만 적는다.
+  // 사용자 home 기준 상대 위치(전역)다. 확인한 제품만 적는다.
   hook: {
     path: string;
-    format: "json" | "toml" | "plugin_file";
+    format: "json" | "plugin_file";
   } | null;
 };
 
@@ -38,8 +38,9 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
+    // 확인함: code.claude.com/docs/en/skills (~/.claude/skills), /docs/en/hooks (~/.claude/settings.json).
     skill_dir: ".claude/skills",
-    hook: { path: ".claude/settings.local.json", format: "json" },
+    hook: { path: ".claude/settings.json", format: "json" },
   },
   codex: {
     id: "codex",
@@ -50,6 +51,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
     skill_dir: ".agents/skills",
+    // 확인함: ~/.codex/hooks.json, feature flag 불필요(hook 기본 켜짐). 다만 codex는 새·바뀐 hook을
+    // 사람이 /hooks에서 trust하기 전까지 건너뛴다(learn.chatgpt.com/docs/hooks). trust는 쓰지 않는다.
     hook: { path: ".codex/hooks.json", format: "json" },
   },
   opencode: {
@@ -60,8 +63,9 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: "--prompt" },
-    skill_dir: ".opencode/skills",
-    // project plugin 위치를 조사로 확인하지 못했다.
+    // 확인함: opencode.ai/docs/skills (~/.config/opencode/skills).
+    skill_dir: ".config/opencode/skills",
+    // hook(plugin)은 harness-opencode가 채운다.
     hook: null,
   },
   gemini: {
@@ -72,6 +76,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: "--prompt-interactive" },
+    // 확인함: geminicli.com/docs/cli/skills (~/.gemini/skills), geminicli.com/docs/hooks (~/.gemini/settings.json).
     skill_dir: ".gemini/skills",
     hook: { path: ".gemini/settings.json", format: "json" },
   },
@@ -83,12 +88,16 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
-    skill_dir: ".pi/skills",
-    // project `.pi/`의 extensions는 project trust 뒤에 읽힌다.
-    hook: { path: ".pi/extensions/lophn-status.ts", format: "plugin_file" },
+    // pi 문서가 지원한다고 적은 전역 위치다(pi.dev/docs/latest/skills). `~/.pi/agent/skills`는 확인 못함.
+    skill_dir: ".agents/skills",
+    // 확인함: pi.dev/docs/latest/extensions (~/.pi/agent/extensions/*.ts).
+    hook: {
+      path: ".pi/agent/extensions/lophn-status.ts",
+      format: "plugin_file",
+    },
   },
   // hermes와 openclaw는 turn 끝 신호가 없는 제품이다. TUI query argv 전달을 조사로 확인하지 못해
-  // prompt는 null이고, project skill·hook 위치도 확인하지 못했다.
+  // prompt는 null이고, 전역 skill·hook 위치도 확인하지 못했다.
   hermes: {
     id: "hermes",
     label: "Hermes",

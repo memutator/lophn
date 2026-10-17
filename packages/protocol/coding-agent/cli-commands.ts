@@ -19,7 +19,7 @@ import {
   problemList,
   problemMore,
 } from "../problems/problem-views.ts";
-import { absolutePathSchema } from "../projects/values.ts";
+import { CODING_SKILL_NAMES } from "./harness-adapter.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
 import { codingHook, HOOK_ROUTES } from "./hook.ts";
 import { HARNESS_ROUTES } from "./harness-report.ts";
@@ -89,19 +89,21 @@ function token(
 export const HARNESS_INSTALL_OUTCOMES = [
   "installed",
   "unchanged",
-  "kept_user_edit",
+  // `dry_run`일 때만 나온다. 놓을 것이 있다는 뜻이다.
+  "missing",
   "not_supported",
   "failed",
 ] as const;
 const harnessInstallOutcomeSchema = z.enum(HARNESS_INSTALL_OUTCOMES);
 export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,
-  folder: absolutePathSchema,
+  dry_run: z.boolean().optional(),
 });
-// 사람이 고친 파일은 덮지 않는다(`kept_user_edit`).
+// `files`는 쓴(`dry_run`이면 쓸) 절대 경로다.
 const harnessInstallOutputSchema = z.strictObject({
   skill: harnessInstallOutcomeSchema,
   hook: harnessInstallOutcomeSchema,
+  files: z.array(z.string()),
 });
 
 const harnessDetections = z.array(harnessDetectionSchema);
@@ -135,7 +137,7 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     codingMessageSend.input,
     codingMessageSend.output,
   ),
-  // `hook <harness> <event>`. payload는 stdin JSON이다. token이 없으면 보내지 않고 실패한다.
+  // `hook <harness> <event>`. payload는 stdin JSON이다. token이 없으면 아무것도 하지 않고 성공한다.
   token(
     "hook",
     codingHook,
@@ -220,5 +222,12 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     auth: "local",
     input: withCommon(harnessInstallInputSchema),
     output: harnessInstallOutputSchema,
+  },
+  // `guide <name>`: skill의 절차 본문을 돌려준다(전역 skill은 얇고 이 명령을 가리킨다).
+  {
+    name: "guide",
+    auth: "local",
+    input: withCommon(z.strictObject({ name: z.enum(CODING_SKILL_NAMES) })),
+    output: z.string(),
   },
 ];

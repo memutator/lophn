@@ -1,4 +1,5 @@
 // `lophn harness detect|refresh|install`의 실행이다. 감지·설치 engine을 부르는 일만 하고 새 규칙은 없다.
+// `install`은 home 기준 전역 위치에 쓴다(권한도 그 harness의 두 위치만 연다).
 // `detect`는 실행 파일만 찾고 `refresh`는 version·login probe까지 돈다. 결과는 저장하지 않는다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -11,7 +12,7 @@ import {
   detectHarnesses,
   discover,
   executableOf,
-  installIntoFolder,
+  installGlobal,
   runProbe,
 } from "../../harnesses/mod.ts";
 import type { LocalEnv } from "./types.ts";
@@ -36,13 +37,16 @@ export function runHarnessDetect(
   );
 }
 
-// 앱 source 폴더에 skill 둘과 hook 설정을 놓는다. 폴더 안만 쓴다(권한도 그 폴더 하나만 연다).
+// harness의 전역 위치에 skill 둘과 hook 설정을 놓는다. `dry_run`이면 쓰지 않고 놓을 것이 있는지만 본다.
 export async function runHarnessInstall(
-  input: { harness: HarnessId; folder: string },
-): Promise<Result<{ skill: string; hook: string }, LophnError>> {
+  input: { harness: HarnessId; dry_run?: boolean },
+  home: string,
+): Promise<
+  Result<{ skill: string; hook: string; files: string[] }, LophnError>
+> {
   const skills = await loadSkills();
   if (!skills.ok) return skills;
-  const done = await installIntoFolder(
+  const done = await installGlobal(
     {
       skills: skills.value,
       async read(path) {
@@ -60,7 +64,7 @@ export async function runHarnessInstall(
         await Deno.writeTextFile(path, text);
       },
     },
-    input,
+    { harness: input.harness, home, dryRun: input.dry_run === true },
   );
   return done.ok ? ok(done.value) : err(done.error);
 }

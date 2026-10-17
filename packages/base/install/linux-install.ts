@@ -87,11 +87,13 @@ const CLI_ENV =
 
 // `lophn` CLI. 같은 플랫폼 daemon에 loopback으로 연결하고 token은 환경 변수 `LOPHN_CODING_TOKEN`으로 받는다.
 // 고정 권한은 읽기(플랫폼·cache·H/run·PATH와 감지 폴더), 환경 이름, loopback이고 쓰기는 instance lock 파일 하나다.
-// 명령 시점에야 알 수 있는 권한(harness install의 앱 폴더, harness refresh의 제품 실행 파일)은 같은 argv를 읽는
+// 명령 시점에야 알 수 있는 권한(harness install의 전역 설정 위치, harness refresh의 제품 실행 파일)은 같은 argv를 읽는
 // 권한 계획 entry(`packages/coding-agent/cli/launch-entry.ts`)가 계산해 이 실행에만 더한다. 실행은 고정으로 없다.
 export function cliLauncher(layout: LinuxInstallLayout): string {
   return [
     launcherHead(layout, "lophn"),
+    "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. token이 없으면 deno를 띄우지 않고 끝낸다.",
+    'if [ "${1:-}" = hook ] && [ -z "${LOPHN_CODING_TOKEN:-}" ]; then exit 0; fi',
     "# PATH의 절대 폴더만 읽기로 연다(제품 감지).",
     'PATHDIRS=""',
     "OLDIFS=$IFS",
@@ -106,7 +108,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
     `READ="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat,${CLI_FALLBACK_BINS}\${PATHDIRS:+,$PATHDIRS}"`,
     `WRITE="$H/run/${INSTANCE_LOCK_NAME}"`,
     `ENVNAMES="${CLI_ENV}"`,
-    "# harness 명령만 권한 계획을 부른다. 계획은 harness install의 앱 폴더와 harness refresh의 제품 실행 파일만 준다.",
+    "# harness 명령만 권한 계획을 부른다. 계획은 harness install의 전역 설정 위치와 harness refresh의 제품 실행 파일만 준다.",
     'EXTRA=""',
     'for arg in "$@"; do',
     '  case "$arg" in harness) NEED=1 ;; esac',

@@ -47,6 +47,16 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     // Router가 같은 입력함에 넣는다.
     prepare(ctx) {
       ctx.provide("inbox", inbox);
+      // io는 supervision wiring이 채우므로 호출 때 읽는다. 없거나 종료 뒤여도 던지지 않고 불가를 돌려준다.
+      ctx.componentChecks.push({
+        component: "agent-runtime",
+        check: () =>
+          Promise.resolve(
+            ctx.peek.io?.observation(AGENT_RUNTIME_KIND).available
+              ? { available: true }
+              : { available: false, reason: "agent runtime이 준비되지 않았다" },
+          ),
+      });
     },
     records: () => [SESSION_INPUTS_CONTEXT],
     // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.

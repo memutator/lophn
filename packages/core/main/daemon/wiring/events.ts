@@ -42,6 +42,8 @@ export const eventsWiring: WiringFactory = () => {
   let openError = "";
   let reactor: ReactorRunner | undefined;
   let unsubscribe: (() => void) | undefined;
+  // Reactor가 start된 뒤 closeWork 전까지만 true. 점검이 "돌고 있음"으로 쓴다.
+  let started = false;
   // 닫힌 뒤 읽기는 던지고, 읽는 쪽(store)이 unavailable로 바꾼다.
   const sql: Pick<Sql, "all" | "get"> = {
     all: (query, params) => {
@@ -85,6 +87,26 @@ export const eventsWiring: WiringFactory = () => {
       });
       reactor = runner;
       ctx.provide("reactor", runner);
+      ctx.componentChecks.push({
+        component: "events",
+        check: () => {
+          if (connection === undefined || !started) {
+            return Promise.resolve({
+              available: false,
+              reason: "events 연결이나 Reactor가 아직 없다",
+            });
+          }
+          try {
+            sql.get("select 1 as found from events limit 1", []);
+            return Promise.resolve({ available: true });
+          } catch {
+            return Promise.resolve({
+              available: false,
+              reason: "events를 읽지 못한다",
+            });
+          }
+        },
+      });
     },
     build(ctx) {
       // command가 commit된 뒤 그 tx의 domain event를 Bus로 낸다. Bus는 놓칠 수 있고 Reactor가 표에서 메운다.
@@ -119,12 +141,14 @@ export const eventsWiring: WiringFactory = () => {
         close: () => {},
       });
       running.start();
+      started = true;
       return Promise.resolve(ok(undefined));
     },
     closeIntake() {
       unsubscribe?.();
     },
     async closeWork() {
+      started = false;
       await reactor?.stop();
       connection?.close();
       connection = undefined;

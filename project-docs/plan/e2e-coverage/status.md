@@ -33,7 +33,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `agent-call` | agent-call | 3 | reply-fn, call-gate, restart-rows | merged | agent-call/agent-call | 53fcef2a1 |  |
 | `app-activation` | app-activation | 3 | test-app | running | app-activation/app-activation |  |  |
 | `app-call` | app-call | 3 | test-app | running | app-call/app-call |  |  |
-| `app-data-rewind` | app-data-rewind | 3 | test-app | running | app-data-rewind/app-data-rewind |  |  |
+| `app-data-rewind` | app-data-rewind | 3 | test-app | merged | app-data-rewind/app-data-rewind | 70109b857 |  |
 | `app-restart` | app-restart | 3 | test-app | running | app-restart/app-restart |  |  |
 | `app-sandbox` | app-sandbox | 3 | test-app | running | app-sandbox/app-sandbox |  |  |
 | `coding-cancel-keeps-ticket` | coding-cancel-keeps-ticket | 3 | coding-one-per-app | todo |  |  |  |

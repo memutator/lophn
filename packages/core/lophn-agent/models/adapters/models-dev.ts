@@ -229,7 +229,7 @@ export function modelsDevEntries(
         provider_definition: target.definition,
         model_name: modelName,
         context_limit: context,
-        input_limit: positive(limit?.input),
+        input_limit: positive(limit?.input) ?? context,
         output_limit: output,
         supports_tools: model.tool_call === true,
         input_media: inputMedia,

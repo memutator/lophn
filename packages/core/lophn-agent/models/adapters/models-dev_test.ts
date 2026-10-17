@@ -101,7 +101,8 @@ Deno.test("models.dev 응답이 lophn 항목으로 바뀐다", () => {
   ]);
   assertEquals(axis.default_value, null);
   assertEquals(axis.budget, { minimum: 1024, maximum: 64000 });
-  assertEquals(claude.input_limit, null);
+  // limit.input이 없으면 input_limit은 context 한도다(null이면 한도가 확인되지 않은 model이 된다).
+  assertEquals(claude.input_limit, 200000);
   // 모르는 option 형은 option 없음(null)이다.
   assertEquals(gemini.options, null);
   // context tier는 겹치지 않는 두 구간이 된다.

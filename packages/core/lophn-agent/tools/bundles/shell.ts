@@ -16,7 +16,7 @@ export const SHELL_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [],
     description:
-      "Run a shell command with /bin/sh in the place's first folder. Environment variables are limited and secrets are not available. timeout_ms defaults to 120000 and is at most 600000. Output is capped at 1 MiB per stream.",
+      "Run a shell command with /bin/sh in the place's first folder. Environment variables are limited and secrets are not available. timeout_ms defaults to 120000 and is at most 600000. Output is capped at about 24 KiB per stream: the first and last 12 KiB are kept and the middle is omitted.",
     effect: "read",
     handler: (input, ctx) => runShell(input, ctx),
   }),

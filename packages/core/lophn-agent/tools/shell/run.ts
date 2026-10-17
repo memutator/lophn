@@ -1,12 +1,14 @@
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { fail } from "../file/scope.ts";
+import { limitText } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
 import { readShellEnvironment } from "./env.ts";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 600_000;
-const OUTPUT_MAX_BYTES = 1024 * 1024;
+const HEAD_BYTES = 12 * 1024;
+const TAIL_BYTES = 12 * 1024;
 // 시간이 지나 group을 죽인 뒤 출력 pipe가 닫히기를 기다리는 최대 시간이다.
 const DRAIN_GRACE_MS = 1_000;
 
@@ -16,28 +18,71 @@ const LAUNCH =
 
 type Collected = { text: string; truncated: boolean };
 
-async function collect(stream: ReadableStream<Uint8Array>): Promise<Collected> {
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  let truncated = false;
-  for await (const chunk of stream) {
-    if (size >= OUTPUT_MAX_BYTES) {
-      truncated = true;
-      continue;
+function concat(
+  a: Uint8Array,
+  b: Uint8Array,
+): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+// 자른 자리가 멀티바이트 문자 한가운데면 그 조각을 버려 교체 문자(U+FFFD)가 안 생기게 한다.
+function trimPartialEnd(bytes: Uint8Array): Uint8Array {
+  for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 4); i--) {
+    const b = bytes[i]!;
+    if (b < 0x80) return bytes;
+    if (b >= 0xC0) {
+      const need = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
+      return i + need > bytes.length ? bytes.slice(0, i) : bytes;
     }
-    const room = OUTPUT_MAX_BYTES - size;
-    if (chunk.length > room) truncated = true;
-    const kept = chunk.length > room ? chunk.slice(0, room) : chunk;
-    chunks.push(kept);
-    size += kept.length;
   }
-  const bytes = new Uint8Array(size);
-  let at = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, at);
-    at += chunk.length;
+  return bytes;
+}
+
+function trimPartialStart(bytes: Uint8Array): Uint8Array {
+  let i = 0;
+  while (i < 3 && i < bytes.length && (bytes[i]! & 0xC0) === 0x80) i++;
+  return bytes.slice(i);
+}
+
+// 오류는 끝에 나오므로 앞 HEAD_BYTES와 굴러가는 뒤 TAIL_BYTES만 쥐고 가운데는 버린다.
+export async function collect(
+  stream: ReadableStream<Uint8Array>,
+): Promise<Collected> {
+  let head: Uint8Array = new Uint8Array(0);
+  let tail: Uint8Array = new Uint8Array(0);
+  let total = 0;
+  for await (const chunk of stream) {
+    total += chunk.length;
+    if (head.length < HEAD_BYTES) {
+      head = concat(head, chunk.subarray(0, HEAD_BYTES - head.length));
+    }
+    tail = concat(tail, chunk);
+    if (tail.length > TAIL_BYTES) tail = tail.slice(tail.length - TAIL_BYTES);
   }
-  return { text: new TextDecoder("utf-8").decode(bytes), truncated };
+  const decoder = new TextDecoder("utf-8");
+  if (total <= HEAD_BYTES + TAIL_BYTES) {
+    const rest = tail.slice(tail.length - (total - head.length));
+    return { text: decoder.decode(concat(head, rest)), truncated: false };
+  }
+  const headPart = limitText(
+    decoder.decode(trimPartialEnd(head)),
+    "head",
+  );
+  const tailPart = limitText(
+    decoder.decode(trimPartialStart(tail)),
+    "tail",
+  );
+  const encoder = new TextEncoder();
+  const omitted = total - encoder.encode(headPart.text).length -
+    encoder.encode(tailPart.text).length;
+  return {
+    text:
+      `${headPart.text}\n[… ${omitted} bytes omitted; redirect output to a file and read it with file.read …]\n${tailPart.text}`,
+    truncated: true,
+  };
 }
 
 async function killGroup(pid: number): Promise<void> {

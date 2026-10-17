@@ -5,25 +5,25 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `app-cli-finish` | app-cli-finish | 1 | 없음 | running | app-cli-finish/app-cli-finish |  |  |
-| `boot-damaged` | boot-damaged | 1 | 없음 | running | boot-damaged/boot-damaged |  |  |
-| `coding-role` | coding-role | 1 | boot-damaged | todo |  |  |  |
-| `gateway-client` | gateway-client | 1 | 없음 | running | gateway-client/gateway-client |  |  |
-| `reply-fn` | reply-fn | 1 | 없음 | running | reply-fn/reply-fn |  |  |
+| `boot-damaged` | boot-damaged | 1 | 없음 | merged | boot-damaged/boot-damaged | 602ee09a2 |  |
+| `coding-role` | coding-role | 1 | boot-damaged | running | coding-role/coding-role |  |  |
+| `gateway-client` | gateway-client | 1 | 없음 | merged | gateway-client/gateway-client | 4e55b37c4 |  |
+| `reply-fn` | reply-fn | 1 | 없음 | merged | reply-fn/reply-fn | 87dbd4d3e |  |
 | `annotation-archived-app` | annotation-archived-app | 2 | annotation-to-ae | todo |  |  |  |
 | `annotation-to-ae` | annotation-to-ae | 2 | reply-fn | todo |  |  |  |
-| `approval-rows` | approval-rows | 2 | boot-damaged | todo |  |  |  |
-| `boot-rows` | boot-rows | 2 | boot-damaged | todo |  |  |  |
-| `call-gate` | call-gate | 2 | 없음 | running | call-gate/call-gate |  |  |
+| `approval-rows` | approval-rows | 2 | boot-damaged | running | approval-rows/approval-rows |  |  |
+| `boot-rows` | boot-rows | 2 | boot-damaged | running | boot-rows/boot-rows |  |  |
+| `call-gate` | call-gate | 2 | 없음 | merged | call-gate/call-gate | b0189e380 |  |
 | `compact` | compact | 2 | 없음 | running | compact/compact |  |  |
 | `file-write-rows` | file-write-rows | 2 | 없음 | running | file-write-rows/file-write-rows |  |  |
 | `oauth-issuer` | oauth | 2 | 없음 | todo |  |  |  |
-| `pm-context` | pm-context | 2 | reply-fn | todo |  |  |  |
-| `pm-tools` | pm-tools | 2 | 없음 | running | pm-tools/pm-tools |  |  |
-| `prompt-blocked` | prompt-blocked | 2 | 없음 | running | prompt-blocked/prompt-blocked |  |  |
-| `prompt-notice` | prompt-notice | 2 | reply-fn | todo |  |  |  |
+| `pm-context` | pm-context | 2 | reply-fn | running | pm-context/pm-context |  |  |
+| `pm-tools` | pm-tools | 2 | 없음 | merged | pm-tools/pm-tools | 0bf40226b |  |
+| `prompt-blocked` | prompt-blocked | 2 | 없음 | merged | prompt-blocked/prompt-blocked | 19b3b3f9e |  |
+| `prompt-notice` | prompt-notice | 2 | reply-fn | running | prompt-notice/prompt-notice |  |  |
 | `reaction-rows` | reaction-rows | 2 | boot-damaged, gateway-client | todo |  |  |  |
 | `registration-rows` | registration-rows | 2 | 없음 | running | registration-rows/registration-rows |  |  |
-| `rewind-rows` | rewind-rows | 2 | 없음 | running | rewind-rows/rewind-rows |  |  |
+| `rewind-rows` | rewind-rows | 2 | 없음 | merged | rewind-rows/rewind-rows | c9e2e22ec |  |
 | `secret-rows` | secret-rows | 2 | 없음 | running | secret-rows/secret-rows |  |  |
 | `session-archive-calls` | session-archive-calls | 2 | reply-fn, session-scope | todo |  |  |  |
 | `session-rows` | session-rows | 2 | 없음 | running | session-rows/session-rows |  |  |

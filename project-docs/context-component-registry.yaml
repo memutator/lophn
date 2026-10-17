@@ -1,0 +1,207 @@
+# lophn — Context Component Registry
+#
+# agent와 사람에게 주는 context 조각의 목록이다. 조각마다 무엇이고 어디 있고, 무엇이 바뀌면 이 조각도 바뀌어야 하는지를 적는다.
+#
+# 흐름: plan(범위를 catalog ID로) → implement(commit이 path를 바꿈) → changelog(바뀐 module을 판마다)
+#       → 이 목록에서 change_reasons가 걸린 조각을 다시 본다.
+#
+# - id: 영어 kebab-case. 파일 전체에서 하나.
+# - kind: instruction(늘 실리는 지침), skill(작업 종류에 따라 실림), product(제품 context), catalog(ID 목록),
+#   architecture(여러 module에 걸친 메커니즘), plan(계획과 그 부속), changelog(바뀐 것의 기록).
+# - path: 저장소 root 기준. 폴더면 끝에 /.
+# - change_reasons: 이 조각을 바꾸게 만드는 변경. 이 조각이 무엇에 기대어 쓰였는지다.
+#   - boundaries: boundary-catalog ID. 이 ID의 코드(module-catalog의 path)나 계약이 바뀌면 이 조각도 바뀌어야 한다.
+#   - paths: catalog 밖의 path. 바뀌면 이 조각도 바뀌어야 한다.
+#   - note: 위 둘로 못 적는 변경 한 줄(사람의 결정 등).
+#   부모 ID는 자식을 포함하지 않는다. 넓게 걸면 늘 걸려서 아무도 보지 않는다.
+
+schema_version: 1
+components:
+
+  # instruction
+
+  - id: agents-md
+    kind: instruction
+    description: 모든 작업에 실리는 저장소 지침.
+    path: AGENTS.md
+    change_reasons:
+      paths: [deno.json, tools/check.ts]
+      note: 사람에게 묻는 것, worker model, 끝남 기준이 바뀔 때.
+
+  # skill
+
+  - id: skill-ui-design
+    kind: skill
+    description: wireframe gallery와 화면 모양을 고치는 절차와 모든 화면의 규칙.
+    path: .claude/skills/ui-design/
+    change_reasons:
+      boundaries: [shell, design, design-api]
+      paths: [tools/wireframes/]
+
+  - id: skill-wording
+    kind: skill
+    description: 화면 문구와 wording key를 다루는 절차.
+    path: .claude/skills/wording/
+    change_reasons:
+      boundaries: [design]
+      paths: [tools/check-wording.ts]
+
+  - id: skill-write-test
+    kind: skill
+    description: test를 쓸지 정하는 기준, 모양, check 파이프라인.
+    path: .claude/skills/write-test/
+    change_reasons:
+      paths: [tools/check.ts, deno.json]
+
+  - id: skill-orchestrate
+    kind: skill
+    description: 계획을 worker 여럿에게 나눠 돌리는 lead 절차와 brief 꼴.
+    path: .claude/skills/orchestrate/
+    change_reasons:
+      paths: [project-docs/plan/tools/]
+      note: worker model이나 merge 절차가 바뀔 때.
+
+  # product
+
+  - id: product
+    kind: product
+    description: lophn이 무엇이고 무엇이 아닌가.
+    path: project-docs/PRODUCT.md
+    change_reasons:
+      note: 제품 범위나 하지 않는 것이 바뀔 때. 코드 변경으로는 걸지 않는다.
+
+  - id: agent-role
+    kind: product
+    description: agent 목록, place, 책임, call과 사람에게 올림의 정책.
+    path: project-docs/products/AGENT-ROLE.md
+    change_reasons:
+      boundaries: [agents, agent-roles, router]
+
+  # catalog
+
+  - id: boundary-catalog
+    kind: catalog
+    description: 경계와 공개 계약의 ID.
+    path: project-docs/boundary-catalog.yaml
+    change_reasons:
+      paths: [packages/protocol/]
+      note: 경계가 생기거나 없어지거나 계약의 정의·제공·사용 쪽이 바뀔 때.
+
+  - id: module-catalog
+    kind: catalog
+    description: 코드 module path ↔ boundary ID.
+    path: project-docs/module-catalog.yaml
+    change_reasons:
+      note: module 폴더가 생기거나 옮겨질 때. tools/check-modules.ts가 잡는다.
+
+  - id: context-component-registry
+    kind: catalog
+    description: 이 목록.
+    path: project-docs/context-component-registry.yaml
+    change_reasons:
+      paths: [AGENTS.md, .claude/skills/, project-docs/]
+
+  # architecture
+
+  - id: architecture-layers
+    kind: architecture
+    description: core 층과 import 방향, 그 이유. harness와 domain의 구분.
+    path: project-docs/architecture/layers.md
+    change_reasons:
+      paths: [tools/check-deps.ts]
+      note: core module이 생기거나 층을 옮길 때.
+
+  - id: architecture-event
+    kind: architecture
+    description: domain event와 agent event가 기록되고 배달되는 길.
+    path: project-docs/architecture/event.md
+    change_reasons:
+      boundaries: [events, storage, router, event-stream]
+
+  - id: architecture-approval
+    kind: architecture
+    description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
+    path: project-docs/architecture/approval.md
+    change_reasons:
+      boundaries: [approvals, agent-tools]
+
+  - id: architecture-activation
+    kind: architecture
+    description: 앱 release를 켜고 실패하면 되돌리는 길.
+    path: project-docs/architecture/activation.md
+    change_reasons:
+      boundaries: [app-releases, app-runtime, app-data]
+
+  - id: architecture-agent-call
+    kind: architecture
+    description: agent 사이의 부름. 봉투, 받는 곳, 답 방식, 실패.
+    path: project-docs/architecture/agent-call.md
+    change_reasons:
+      boundaries: [router, agent-sessions]
+
+  - id: architecture-app-call
+    kind: architecture
+    description: agent와 앱이 앱의 app-api를 부르는 길. 줄, 기록, rewind.
+    path: project-docs/architecture/app-call.md
+    change_reasons:
+      boundaries: [app-runtime, app-data, app-capability]
+
+  - id: architecture-place-session
+    kind: architecture
+    description: agent가 놓이는 place와 session의 수명, fork, rewind.
+    path: project-docs/architecture/place-session.md
+    change_reasons:
+      boundaries: [agents, agent-sessions]
+
+  - id: architecture-agent-definition
+    kind: architecture
+    description: agent 정의, prompt 조립, tool, model.
+    path: project-docs/architecture/agent-definition.md
+    change_reasons:
+      boundaries: [agent-roles, agent-tools, run-loop, models]
+
+  - id: architecture-coding-agent
+    kind: architecture
+    description: 외부 coding agent를 띄우고 ticket을 맡기고 신호를 받는 길.
+    path: project-docs/architecture/coding-agent.md
+    change_reasons:
+      boundaries: [coding-agent, coding-agent-cli, app-tickets, coding-agent-harness-api, coding-agent-cli-interface]
+
+  - id: architecture-annotation
+    kind: architecture
+    description: 앱 화면에 남긴 annotation이 ticket 근거가 되는 길.
+    path: project-docs/architecture/annotation.md
+    change_reasons:
+      boundaries: [app-tickets, sdk]
+
+  # plan
+
+  - id: plan
+    kind: plan
+    description: 진행 중인 계획의 개요, 상태, task brief.
+    path: project-docs/plan/README.md
+    change_reasons:
+      note: 계획을 열거나 닫을 때.
+
+  - id: plan-weight
+    kind: plan
+    description: 가장 단순한 구현보다 무겁게 짠 곳.
+    path: project-docs/plan/weight.md
+    change_reasons:
+      note: worker 보고에 무겁게 짠 것이 있을 때, 사람이 줄이거나 남기기로 정할 때.
+
+  - id: plan-gaps
+    kind: plan
+    description: 알려진 미완 동작.
+    path: project-docs/plan/gaps.md
+    change_reasons:
+      note: 미완 동작이 생기거나 고쳐질 때.
+
+  # changelog
+
+  - id: changelog
+    kind: changelog
+    description: 판마다 동작이나 계약이 바뀐 것을 바뀐 module과 함께 남긴 기록.
+    path: project-docs/products/change-log/
+    change_reasons:
+      note: 동작이나 계약이 바뀌는 변경. append-only라 열린 판에 덧붙이기만 한다.

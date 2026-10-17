@@ -14,12 +14,10 @@ const KINDS = new Set([
   "library",
   "extension",
   "interface",
-  "guidance",
-  "bundle",
   "actor",
 ]);
 const INTERFACE_TYPES = new Set(["api", "spi", "protocol"]);
-const REFERENCES = ["depends_on", "bundles"];
+const REFERENCES = ["depends_on"];
 const INTERFACE_FIELDS = [
   "interface_type",
   "defined_by",
@@ -50,7 +48,7 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-// boundary-catalog 머리말 7장: elements를 재귀로 돈 것과 interfaces로 ID index를 만들고 참조와 칸을 본다.
+// boundary-catalog: elements를 재귀로 돈 것과 interfaces로 ID index를 만들고 참조와 칸을 본다.
 function checkBoundaries(catalog: Node, issues: Issue[]): Set<string> {
   const add = (message: string) => issues.push({ file: BOUNDARY, message });
   const nodes: Node[] = [];
@@ -88,9 +86,6 @@ function checkBoundaries(catalog: Node, issues: Issue[]): Set<string> {
     }
     if (isInterface && !INTERFACE_TYPES.has(String(node.interface_type))) {
       add(`${id}: 모르는 interface_type ${node.interface_type}`);
-    }
-    if (node.bundles !== undefined && node.kind !== "bundle") {
-      add(`${id}: bundles는 bundle에만 쓴다`);
     }
   }
   for (const node of nodes) {

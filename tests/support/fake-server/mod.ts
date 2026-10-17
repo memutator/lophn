@@ -3,13 +3,15 @@
 // 답한다. 500 계열은 제품이 temporary로 보고 retry해서 test가 헷갈린다.
 
 import { type Held, toResponse } from "./reply.ts";
-import type { FakeServer, JournalEntry, Reply, Step } from "./types.ts";
+import type { FakeServer, JournalEntry, Lane, Reply, Step } from "./types.ts";
 
 export type {
   FakeServer,
   JournalEntry,
+  Lane,
   Partial,
   Reply,
+  ReplyFn,
   Step,
 } from "./types.ts";
 
@@ -35,8 +37,10 @@ function mismatchResponse(message: string): Response {
 
 // socket 없이 request를 직접 넣을 수 있는 몸체. startFakeServer가 Deno.serve를 얹는다.
 export function createFakeHandler(options: { fallback?: Reply } = {}) {
-  let queue: readonly Step[] = [];
-  let taken = 0;
+  // 줄마다 따로 꺼낸다. 기본 줄은 match가 없고 어느 줄에도 안 맞은 요청이 간다.
+  type Queue = { steps: readonly Step[]; taken: number };
+  let fallbackQueue: Queue = { steps: [], taken: 0 };
+  let lanes = new Map<string, Queue & { match: Lane["match"] }>();
   let entries: JournalEntry[] = [];
   let arrivals = new Map<number, Deferred<JournalEntry>>();
   let aborts = new Map<number, Deferred<void>>();
@@ -71,7 +75,14 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
       body: parsed,
       step: null,
       mismatch: null,
+      lane: null,
     };
+    for (const [name, lane] of lanes) {
+      if (lane.match(entry)) {
+        entry.lane = name;
+        break;
+      }
+    }
     entries.push(entry);
     const until = AbortSignal.any([request.signal, closing.signal]);
     // Deno는 정상으로 다 보낸 응답 뒤에도 request.signal을 abort한다. 붙들고 있는 동안
@@ -91,12 +102,24 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
       return miss(`expected POST ${PATH}, got ${entry.method} ${entry.path}`);
     }
     let reply: Reply;
-    const step = queue[taken];
+    const queue = entry.lane === null ? fallbackQueue : lanes.get(entry.lane)!;
+    const step = queue.steps[queue.taken];
     if (step !== undefined) {
-      entry.step = taken++;
+      entry.step = queue.taken++;
       const difference = step.expect?.(entry) ?? null;
       if (difference !== null) return miss(difference);
-      reply = step.reply;
+      if (typeof step.reply === "function") {
+        try {
+          reply = step.reply(entry, entries);
+        } catch (error) {
+          const message = error instanceof Error
+            ? error.message
+            : String(error);
+          return miss(`reply function threw: ${message}`);
+        }
+      } else {
+        reply = step.reply;
+      }
     } else if (options.fallback !== undefined) {
       reply = options.fallback;
     } else {
@@ -117,13 +140,20 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
   }
 
   return {
-    script(steps: readonly Step[]) {
-      queue = [...steps];
-      taken = 0;
+    script(steps: readonly Step[], lane?: Lane) {
+      if (lane === undefined) {
+        fallbackQueue = { steps: [...steps], taken: 0 };
+      } else {
+        lanes.set(lane.name, {
+          match: lane.match,
+          steps: [...steps],
+          taken: 0,
+        });
+      }
     },
     reset() {
-      queue = [];
-      taken = 0;
+      fallbackQueue = { steps: [], taken: 0 };
+      lanes = new Map();
       entries = [];
       arrivals = new Map();
       aborts = new Map();

@@ -41,18 +41,32 @@ export type JournalEntry = {
   body: unknown; // JSON이면 파싱한 값, 아니면 원문 글
   step: number | null; // 쓴 step 번호(0부터). 못 쓰면 null
   mismatch: string | null; // 차이 오류로 답했으면 그 설명
+  lane: string | null; // 요청을 받은 줄 이름. 기본 줄이 받았으면 null
 };
 
+// 응답을 만들기 직전에 부른다. 그 요청이 journal에 들어간 뒤라 journal의 마지막이 request다.
+export type ReplyFn = (
+  request: JournalEntry,
+  journal: readonly JournalEntry[],
+) => Reply;
+
 export type Step = {
-  reply: Reply;
+  reply: Reply | ReplyFn;
   // 문자열을 돌려주면 그것이 차이 설명이다. null이면 기대대로다.
   expect?: (request: JournalEntry) => string | null;
 };
 
+export type Lane = {
+  name: string;
+  match: (request: JournalEntry) => boolean;
+};
+
 export type FakeServer = {
   url: string; // "http://127.0.0.1:<port>"
-  script(steps: readonly Step[]): void; // 앞에 있던 queue를 대체한다
-  reset(): void; // queue와 journal을 비운다
+  // lane 없이 부르면 기본 줄의 queue를 대체한다. lane을 주면 그 name의 줄을 더하거나 그 queue를 대체한다.
+  // 요청은 줄을 등록한 순서대로 match를 검사해 처음 true인 줄로 가고, 어느 줄에도 안 맞으면 기본 줄로 간다.
+  script(steps: readonly Step[], lane?: Lane): void;
+  reset(): void; // 줄, queue, journal을 비운다
   journal(): readonly JournalEntry[];
   arrived(n: number): Promise<JournalEntry>; // n번째(1부터) 요청이 들어온 때 풀린다
   aborted(n: number): Promise<void>; // n번째 요청을 server가 붙들고 있는 동안(silent, stall, raw hold) client가 끊은 때 풀린다. 다 보낸 응답 뒤의 끊김과 close()는 풀지 않는다

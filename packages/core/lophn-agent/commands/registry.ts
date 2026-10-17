@@ -5,11 +5,6 @@ import {
   type Role,
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  CHECK_CONTRACTS_PROMPT,
-  NEW_APP_PROMPT,
-  REPAIR_APP_PROMPT,
-} from "./role-prompts.ts";
 
 // `/` 명령 registry. 저장하는 표가 아니라 열 때마다
 // 코드의 built-in·role 목록과 그 agent가 쓸 수 있는 skill에서 계산하는 값이다(domain
@@ -25,8 +20,12 @@ export type RegistrySkill = {
   selected: boolean;
 };
 
+// role마다의 role 명령 목록이다. role 층이 정하고 조립이 꽂는다.
+export type RoleCommands = Record<Role, readonly CommandEntry[]>;
+
 type RegistryInput = {
   role: Role;
+  roleCommands: RoleCommands;
   skills: readonly RegistrySkill[];
 };
 
@@ -102,57 +101,6 @@ function builtinCommands(): readonly CommandEntry[] {
   }));
 }
 
-function promptCommand(
-  name: string,
-  title: string,
-  description: string,
-  template: string,
-): CommandEntry {
-  return {
-    name,
-    title,
-    description,
-    source: "role",
-    skill_origin: null,
-    while_running: "queue",
-    action: { kind: "prompt", template },
-  };
-}
-
-// role 명령은 role마다의 목록 하나다. protocol의 ROLE_COMMAND_NAMES와 같아야 한다.
-const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
-  lophn: [
-    promptCommand(
-      "new-app",
-      "New app",
-      "Start a new app in this project",
-      NEW_APP_PROMPT,
-    ),
-    promptCommand(
-      "repair-app",
-      "Repair app",
-      "Find and fix what broke in an app",
-      REPAIR_APP_PROMPT,
-    ),
-  ],
-  project_manager: [
-    promptCommand(
-      "check-contracts",
-      "Check contracts",
-      "Check every context against its documents",
-      CHECK_CONTRACTS_PROMPT,
-    ),
-  ],
-  app_engineer: [],
-  operator: [],
-};
-
-// 그 role의 built-in이다. lophn은 New app · Repair app, Project Manager는 Check
-// contracts, App Engineer와 Operator는 빈 목록이다.
-function roleCommands(role: Role): readonly CommandEntry[] {
-  return ROLE_COMMANDS[role].map((entry) => structuredClone(entry));
-}
-
 // 이름 영문 사전순이고, 같은 이름은 마지막 층(project, global, builtin 순)이 앞이다. 같은 이름은
 // 마지막 층 하나만 남는다.
 const ORIGIN_RANK: Record<SkillSource, number> = {
@@ -167,7 +115,9 @@ function compareSkills(a: RegistrySkill, b: RegistrySkill): number {
 
 export function buildRegistry(input: RegistryInput): CommandRegistry {
   const builtins = builtinCommands();
-  const roles = roleCommands(input.role);
+  const roles = input.roleCommands[input.role].map((entry) =>
+    structuredClone(entry)
+  );
   const reserved = new Map<string, CommandNotice["reserved_by"]>();
   for (const entry of builtins) reserved.set(entry.name, "builtin");
   for (const entry of roles) reserved.set(entry.name, "role");

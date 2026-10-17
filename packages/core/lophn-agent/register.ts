@@ -65,6 +65,7 @@ import {
   loadAgent,
   nameOf,
   openAgentContext,
+  type PlaceLookups,
   type ProfileAssetDeps,
   type ProfileFileHandler,
   profileImageFileHandler,
@@ -91,7 +92,7 @@ import {
   messageDirectory,
   messageRouter,
 } from "../router/mod.ts";
-import { createCommandReads } from "./commands/mod.ts";
+import { createCommandReads, type RoleCommands } from "./commands/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -155,7 +156,6 @@ import {
 } from "./extensions/mod.ts";
 import type { Loaded } from "./agents/inspect.ts";
 import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
-import { contextStatusOf } from "../projects/contexts/mod.ts";
 import {
   createMcpSecretRefSource,
   extensionSettings,
@@ -218,13 +218,11 @@ export const lophnAgentSettings = [
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
 // model 기본값과 model call 기록·사용량 읽기. 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
-const modelCommands = createModelCommands(modelCommandDeps);
 // 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다.
 const usage = createUsageCommands({
   applyMessages: takeSteering,
 });
 const reads = createProviderReads();
-const modelReads = createModelReads();
 const usageReads = createUsageReads();
 
 // provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이 없으면 undefined로
@@ -246,8 +244,9 @@ function providerDefinitionKey(
 }
 
 // model 기본값 저장 검사 deps. 목록과 catalog는 동봉 snapshot에서 읽는다.
-function modelCommandDeps(tx: Tx): ModelCommandDeps {
+function modelCommandDeps(places: PlaceLookups, tx: Tx): ModelCommandDeps {
   return {
+    projectExists: (id) => places.projectExists(tx.sql, id),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
     modelListed: (providerDefinition, modelName) =>
       snapshotModelListed(providerDefinition, modelName),
@@ -426,20 +425,19 @@ function extensionRegistry(
 }
 
 function placeExists(
-  sql: Pick<Tx["sql"], "get">,
+  places: PlaceLookups,
+  sql: Pick<Tx["sql"], "get" | "all">,
   place: Place,
 ): boolean {
-  return sql.get(
-    place.kind === "project"
-      ? "select 1 as found from projects where id = ?"
-      : "select 1 as found from apps where id = ?",
-    [place.id],
-  ) !== undefined;
+  return place.kind === "project"
+    ? places.projectExists(sql, place.id)
+    : places.appExists(sql, place.id);
 }
 
 // agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
 // 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
 function agentLookups(
+  places: PlaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
 ): AgentLookups {
   let registry: ExtensionRegistry | null | undefined;
@@ -448,31 +446,19 @@ function agentLookups(
     return registry;
   };
   return {
-    placeExists: (place) => placeExists(sql, place),
+    placeExists: (place) => placeExists(places, sql, place),
     places: () => [
-      ...sql.all("select id from projects order by id", []).map((row) => ({
-        kind: "project" as const,
-        id: String(row["id"]),
-      })),
-      ...sql.all("select id from apps order by id", []).map((row) => ({
-        kind: "app" as const,
-        id: String(row["id"]),
-      })),
+      ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
+      ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
     ],
     // context는 project 안에만 있다(documents/contexts). 만드는 중(drafting)인 context도 실제 context다.
-    contextStatus: (id) => contextStatusOf(sql, id) ?? null,
-    contextProject: (id) => {
-      const row = sql.get("select project from contexts where id = ?", [id]);
-      return row === undefined ? null : String(row["project"]);
-    },
+    contextStatus: (id) => places.contextStatus(sql, id) ?? null,
+    contextProject: (id) => places.contextProjectOf(sql, id),
     // project place는 그 project의 active context 전부이고 그 밖에는 없다.
     activeContexts: (place) =>
-      (place === null ? [] : place.kind === "project"
-        ? sql.all(
-          "select id from contexts where project = ? and status = 'active' order by id",
-          [place.id],
-        )
-        : []).map((row) => String(row["id"])),
+      place === null || place.kind !== "project"
+        ? []
+        : places.activeContextIds(sql, place.id),
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 project 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
     skills: (place) =>
@@ -524,232 +510,6 @@ export function agentProfileHandlers(
     file: profileImageFileHandler(deps),
   };
 }
-
-const agentDeps: AgentDeps = {
-  files: createNodeAgentFiles(),
-  lookups: agentLookups,
-};
-const agentCommands = createAgentCommands(agentDeps);
-const agentReads = createAgentReads(agentDeps);
-
-// Operator 조회. session을 열 때와 Router의 session 목록이 읽는다. wiring이 places 환경에 끼운다.
-export function operatorDirectory(
-  sql: Pick<Tx["sql"], "get" | "all">,
-): OperatorDirectory {
-  const opened = openAgentContext(agentDeps, sql);
-  const toInfo = (loaded: Loaded): OperatorInfo | null =>
-    loaded.ref.role === "operator" && loaded.place !== null
-      ? {
-        id: loaded.ref.agent as OperatorInfo["id"],
-        name: nameOf(loaded),
-        place: loaded.place,
-      }
-      : null;
-  return {
-    operator(id) {
-      if (!opened.ok) return null;
-      const loaded = loadAgent(opened.value, {
-        role: "operator",
-        agent: id as never,
-      });
-      return loaded.ok && loaded.value !== null ? toInfo(loaded.value) : null;
-    },
-    operators() {
-      if (!opened.ok) return [];
-      const listed = listOperators(opened.value);
-      return listed.ok
-        ? listed.value.flatMap((loaded) => toInfo(loaded) ?? [])
-        : [];
-    },
-  };
-}
-
-// skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
-const skillsReads = createSkillsRead({
-  files: placeFiles,
-  skillFiles,
-  lookups: (sql) => ({
-    skillSources: () => globalSkillSources(sql),
-    skillsOff: () => registeredSkillsOff(sql),
-    projectExists: (id) => placeExists(sql, { kind: "project", id }),
-  }),
-});
-const projectExtensionDeps = {
-  files: placeFiles,
-  lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
-    projectExists: (id: string) => placeExists(sql, { kind: "project", id }),
-  }),
-};
-const projectExtensionCommands = createProjectExtensionCommands(
-  projectExtensionDeps,
-);
-const projectExtensionReads = createProjectExtensionReads(
-  projectExtensionDeps,
-);
-
-// 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
-function skillsOffOf(
-  sql: Pick<Tx["sql"], "get" | "all">,
-  agent: AgentRef,
-): readonly string[] {
-  const opened = openAgentContext(agentDeps, sql);
-  if (!opened.ok) return [];
-  const loaded = loadAgent(opened.value, agent);
-  if (!loaded.ok || loaded.value === null) return [];
-  return loaded.value.definition?.skills_off ?? [];
-}
-
-// `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-// place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 끈 것은 selected=false다.
-// 내장 skill은 선언한 role의 메뉴에만 보인다.
-const commandReads = createCommandReads({
-  skills: (sql, session) =>
-    commandSkillsOf(
-      session.place === null
-        ? listSkillsSync(
-          skillFiles,
-          { ...globalSkillSources(sql), project: null },
-          { role: null, off: registeredSkillsOff(sql) },
-        ).entries
-        : extensionRegistry(sql)?.skills(session.place).entries ?? [],
-      skillsOffOf(sql, session.agent),
-      session.role,
-    ),
-});
-
-export const lophnAgentDefinitions = {
-  schemaSteps: [
-    ...providerSchemaSteps,
-    ...modelSchemaSteps,
-    ...usageSchemaSteps,
-    ...turnSchemaSteps,
-    ...conversationSchemaSteps,
-    ...toolsSchemaSteps,
-    ...questionSchemaSteps,
-    ...revertSchemaSteps,
-  ],
-  commands: [
-    commands.register,
-    commands.disconnect,
-    commands.refreshCredential,
-    commands.recordAvailability,
-    commands.beginLogin,
-    commands.completeLogin,
-    commands.cancelLogin,
-    modelCommands.changeDefault,
-    modelCommands.changeProject,
-    modelCommands.changeFavorites,
-    usage.start,
-    usage.finish,
-    usage.supplement,
-    agentCommands.create,
-    agentCommands.change,
-    agentCommands.delete,
-    agentCommands.changeBuiltin,
-    projectExtensionCommands.change,
-    turnCommands.start,
-    turnCommands.checkpoint,
-    turnCommands.finish,
-    turnCommands.stop,
-    conversationCommands.open,
-    conversationCommands.rename,
-    conversationCommands.archive,
-    conversationCommands.delete,
-    conversationCommands.changeModel,
-    conversationCommands.fork,
-    conversationCommands.requestCompact,
-    conversationCommands.compact,
-    conversationCommands.failCompact,
-    conversationCommands.send,
-    conversationCommands.record,
-    removeQueuedCommand({ eraseBlobRefs }),
-    toolCommands.request,
-    toolCommands.decide,
-    toolCommands.start,
-    toolCommands.finish,
-    toolCommands.recordRead,
-    toolCommands.supplement,
-    questionCommands.create,
-    questionCommands.answer,
-    questionCommands.answerAction,
-    questionCommands.defer,
-    questionCommands.cancel,
-    questionCommands.expire,
-    revertCommands.record,
-    revertCommands.rewind,
-    revertCommands.amend,
-    revertCommands.apps,
-  ],
-  reads: [
-    reads.read,
-    reads.list,
-    modelReads.modelDefault,
-    modelReads.projectModel,
-    modelReads.favorites,
-    modelReads.catalog,
-    usageReads.read,
-    usageReads.list,
-    usageReads.usage,
-    agentReads.list,
-    agentReads.read,
-    skillsReads.read,
-    projectExtensionReads.read,
-    turnReads.read,
-    turnReads.list,
-    turnReads.result,
-    conversationReads.session,
-    conversationReads.sessions,
-    conversationReads.messages,
-    conversationReads.message,
-    conversationReads.compactRequests,
-    commandReads.list,
-    toolReads.read,
-    toolReads.list,
-    questionReads.read,
-    questionReads.list,
-    traceReads.read,
-    revertReads.preview,
-    revertReads.checkpoints,
-    revertReads.list,
-    instructionsGetRoute(),
-    instructionPreviewRoute(),
-  ],
-  // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
-  // 메시지 본문은 영구 참조다.
-  blobFields: [
-    ...modelCallBodyFields,
-    ...toolCallBodyFields,
-    ...turnBodyFields,
-    ...questionBodyFields,
-    ...messageBodyFields,
-  ],
-  ports: [turnAdmissionPort],
-  workers: [],
-  // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
-  memoryRoutes: [
-    stageRewindFile,
-    recordRewindWrite,
-    requestRewindSummary,
-    readRewindSummary,
-    takeRewindSummaryRequest,
-    finishRewindSummary,
-    mcpAuthBegin,
-    mcpAuthComplete,
-    mcpAuthState,
-    mcpAuthCancel,
-    mcpAuthRequestTake,
-    mcpAuthRequestDone,
-    // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
-    askWait,
-    askRead,
-    askAnswer,
-  ],
-  // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
-  uploadRoutes: [profileImageUpload],
-  files: [profileImageRead],
-  // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
-  // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
-};
 
 // ReadMessageBody는 ledger snapshot 없이 blob 바이트를 기다리는 core read다. core가 기동
 // 때 environment로 읽기 통로를 넣고, 넣지 않은 등록(harness)은 unavailable이다.
@@ -834,10 +594,181 @@ export function createLedgerRegistration(
   };
 }
 
-// reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
-// event를 보지 않는다. usage·preset read도 event를 보지 않는다.
-export function createReaderRegistration(): ReaderRegistration {
-  return {
+// 다른 module의 표와 role 층의 값은 이 port로 받는다. core/main의 팀 file(wiring/lophn-agent-team.ts)이 꽂는다.
+// 값은 모두 Worker 안에서 팀 file을 import할 때 만들어진다.
+export type LophnAgentPorts = {
+  lookups: PlaceLookups;
+  roleCommands: RoleCommands;
+  operatorPlaceAllowed: AgentDeps["operatorPlaceAllowed"];
+};
+
+// port에 묶인 command·read 정의와 reader 등록, Operator 조회를 만든다.
+export function createLophnAgent(ports: LophnAgentPorts) {
+  const modelCommands = createModelCommands((tx) =>
+    modelCommandDeps(ports.lookups, tx)
+  );
+  const modelReads = createModelReads({
+    projectExists: (sql, id) => ports.lookups.projectExists(sql, id),
+  });
+  const agentDeps: AgentDeps = {
+    files: createNodeAgentFiles(),
+    lookups: (sql) => agentLookups(ports.lookups, sql),
+    operatorPlaceAllowed: ports.operatorPlaceAllowed,
+  };
+  const agentCommands = createAgentCommands(agentDeps);
+  const agentReads = createAgentReads(agentDeps);
+
+  // Operator 조회. session을 열 때와 Router의 session 목록이 읽는다. wiring이 places 환경에 끼운다.
+  function operatorDirectory(
+    sql: Pick<Tx["sql"], "get" | "all">,
+  ): OperatorDirectory {
+    const opened = openAgentContext(agentDeps, sql);
+    const toInfo = (loaded: Loaded): OperatorInfo | null =>
+      loaded.ref.role === "operator" && loaded.place !== null
+        ? {
+          id: loaded.ref.agent as OperatorInfo["id"],
+          name: nameOf(loaded),
+          place: loaded.place,
+        }
+        : null;
+    return {
+      operator(id) {
+        if (!opened.ok) return null;
+        const loaded = loadAgent(opened.value, {
+          role: "operator",
+          agent: id as never,
+        });
+        return loaded.ok && loaded.value !== null ? toInfo(loaded.value) : null;
+      },
+      operators() {
+        if (!opened.ok) return [];
+        const listed = listOperators(opened.value);
+        return listed.ok
+          ? listed.value.flatMap((loaded) => toInfo(loaded) ?? [])
+          : [];
+      },
+    };
+  }
+
+  // skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
+  const skillsReads = createSkillsRead({
+    files: placeFiles,
+    skillFiles,
+    lookups: (sql) => ({
+      skillSources: () => globalSkillSources(sql),
+      skillsOff: () => registeredSkillsOff(sql),
+      projectExists: (id) =>
+        placeExists(ports.lookups, sql, { kind: "project", id }),
+    }),
+  });
+  const projectExtensionDeps = {
+    files: placeFiles,
+    lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
+      projectExists: (id: string) =>
+        placeExists(ports.lookups, sql, { kind: "project", id }),
+    }),
+  };
+  const projectExtensionCommands = createProjectExtensionCommands(
+    projectExtensionDeps,
+  );
+  const projectExtensionReads = createProjectExtensionReads(
+    projectExtensionDeps,
+  );
+
+  // 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
+  function skillsOffOf(
+    sql: Pick<Tx["sql"], "get" | "all">,
+    agent: AgentRef,
+  ): readonly string[] {
+    const opened = openAgentContext(agentDeps, sql);
+    if (!opened.ok) return [];
+    const loaded = loadAgent(opened.value, agent);
+    if (!loaded.ok || loaded.value === null) return [];
+    return loaded.value.definition?.skills_off ?? [];
+  }
+
+  // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
+  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 끈 것은 selected=false다.
+  // 내장 skill은 선언한 role의 메뉴에만 보인다.
+  const commandReads = createCommandReads({
+    roleCommands: ports.roleCommands,
+    skills: (sql, session) =>
+      commandSkillsOf(
+        session.place === null
+          ? listSkillsSync(
+            skillFiles,
+            { ...globalSkillSources(sql), project: null },
+            { role: null, off: registeredSkillsOff(sql) },
+          ).entries
+          : extensionRegistry(sql)?.skills(session.place).entries ?? [],
+        skillsOffOf(sql, session.agent),
+        session.role,
+      ),
+  });
+
+  const lophnAgentDefinitions = {
+    schemaSteps: [
+      ...providerSchemaSteps,
+      ...modelSchemaSteps,
+      ...usageSchemaSteps,
+      ...turnSchemaSteps,
+      ...conversationSchemaSteps,
+      ...toolsSchemaSteps,
+      ...questionSchemaSteps,
+      ...revertSchemaSteps,
+    ],
+    commands: [
+      commands.register,
+      commands.disconnect,
+      commands.refreshCredential,
+      commands.recordAvailability,
+      commands.beginLogin,
+      commands.completeLogin,
+      commands.cancelLogin,
+      modelCommands.changeDefault,
+      modelCommands.changeProject,
+      modelCommands.changeFavorites,
+      usage.start,
+      usage.finish,
+      usage.supplement,
+      agentCommands.create,
+      agentCommands.change,
+      agentCommands.delete,
+      agentCommands.changeBuiltin,
+      projectExtensionCommands.change,
+      turnCommands.start,
+      turnCommands.checkpoint,
+      turnCommands.finish,
+      turnCommands.stop,
+      conversationCommands.open,
+      conversationCommands.rename,
+      conversationCommands.archive,
+      conversationCommands.delete,
+      conversationCommands.changeModel,
+      conversationCommands.fork,
+      conversationCommands.requestCompact,
+      conversationCommands.compact,
+      conversationCommands.failCompact,
+      conversationCommands.send,
+      conversationCommands.record,
+      removeQueuedCommand({ eraseBlobRefs }),
+      toolCommands.request,
+      toolCommands.decide,
+      toolCommands.start,
+      toolCommands.finish,
+      toolCommands.recordRead,
+      toolCommands.supplement,
+      questionCommands.create,
+      questionCommands.answer,
+      questionCommands.answerAction,
+      questionCommands.defer,
+      questionCommands.cancel,
+      questionCommands.expire,
+      revertCommands.record,
+      revertCommands.rewind,
+      revertCommands.amend,
+      revertCommands.apps,
+    ],
     reads: [
       reads.read,
       reads.list,
@@ -866,7 +797,85 @@ export function createReaderRegistration(): ReaderRegistration {
       questionReads.read,
       questionReads.list,
       traceReads.read,
+      revertReads.preview,
+      revertReads.checkpoints,
+      revertReads.list,
+      instructionsGetRoute(),
+      instructionPreviewRoute(),
     ],
-    ports: new Map(),
+    // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
+    // 메시지 본문은 영구 참조다.
+    blobFields: [
+      ...modelCallBodyFields,
+      ...toolCallBodyFields,
+      ...turnBodyFields,
+      ...questionBodyFields,
+      ...messageBodyFields,
+    ],
+    ports: [turnAdmissionPort],
+    workers: [],
+    // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
+    memoryRoutes: [
+      stageRewindFile,
+      recordRewindWrite,
+      requestRewindSummary,
+      readRewindSummary,
+      takeRewindSummaryRequest,
+      finishRewindSummary,
+      mcpAuthBegin,
+      mcpAuthComplete,
+      mcpAuthState,
+      mcpAuthCancel,
+      mcpAuthRequestTake,
+      mcpAuthRequestDone,
+      // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
+      askWait,
+      askRead,
+      askAnswer,
+    ],
+    // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
+    uploadRoutes: [profileImageUpload],
+    files: [profileImageRead],
+    // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
+    // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
   };
+
+  // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
+  // event를 보지 않는다. usage·preset read도 event를 보지 않는다.
+  function createReaderRegistration(): ReaderRegistration {
+    return {
+      reads: [
+        reads.read,
+        reads.list,
+        modelReads.modelDefault,
+        modelReads.projectModel,
+        modelReads.favorites,
+        modelReads.catalog,
+        usageReads.read,
+        usageReads.list,
+        usageReads.usage,
+        agentReads.list,
+        agentReads.read,
+        skillsReads.read,
+        projectExtensionReads.read,
+        turnReads.read,
+        turnReads.list,
+        turnReads.result,
+        conversationReads.session,
+        conversationReads.sessions,
+        conversationReads.messages,
+        conversationReads.message,
+        conversationReads.compactRequests,
+        commandReads.list,
+        toolReads.read,
+        toolReads.list,
+        questionReads.read,
+        questionReads.list,
+        traceReads.read,
+      ],
+      ports: new Map(),
+    };
+  }
+
+  return { lophnAgentDefinitions, createReaderRegistration, operatorDirectory };
 }

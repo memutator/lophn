@@ -8,6 +8,10 @@ function sqlOf(row: Record<string, unknown> | undefined): ReadSql {
   return { get: () => row, all: () => [] } as unknown as ReadSql;
 }
 
+// role 층의 규칙 자리에 끼우는 규칙이다: 자기 place만.
+const ownPlaceOnly = (_role: unknown, own: Place | null, target: Place) =>
+  own !== null && own.kind === target.kind && own.id === target.id;
+
 const project = (id: string) => ({ kind: "project", id }) as Place;
 const manager = {
   id: "ses_0aaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -24,17 +28,21 @@ const manager = {
 Deno.test("an agent caller is held to its own place", () => {
   const rule = agentCallerRule(sqlOf(manager), {
     actor: "agent:ses_0aaaaaaaaaaaaaaaaaaaaaaaaa",
-  });
+  }, ownPlaceOnly);
   if (!rule.ok || rule.value === null) throw new Error("expected a rule");
   assertEquals(rule.value(project("prj_0aaaaaaaaaaaaaaaaaaaaaaaaa")).ok, true);
   assertEquals(rule.value(project("prj_0bbbbbbbbbbbbbbbbbbbbbbbbb")).ok, false);
   assertEquals(rule.value(null).ok, false);
 
-  const person = agentCallerRule(sqlOf(undefined), { actor: "user" });
+  const person = agentCallerRule(
+    sqlOf(undefined),
+    { actor: "user" },
+    ownPlaceOnly,
+  );
   assertEquals(person.ok && person.value, null);
 
   const unknown = agentCallerRule(sqlOf(undefined), {
     actor: "agent:ses_0bbbbbbbbbbbbbbbbbbbbbbbbb",
-  });
+  }, ownPlaceOnly);
   assertEquals(unknown.ok, false);
 });

@@ -13,7 +13,7 @@ import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import { ensureProjectManager } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
-import { operatorDirectory } from "../../../lophn-agent/register.ts";
+import { operatorDirectory } from "./lophn-agent-team.ts";
 import { installPlaceEnvironment } from "../../../lophn-agent/places/mod.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.

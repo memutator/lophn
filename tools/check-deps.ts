@@ -63,11 +63,10 @@ function numberedName(segment: string): boolean {
 
 // core 안 층. domain은 problems → apps만 되고, lophn-agent(harness)는 domain과 agent-roles(role 층) 아래,
 // domain과 agent-roles는 서로 모르고, 나머지 바닥은 셋 다 모른다.
-// 아직 못 끊은 예외 둘. harness와 domain을 나눌 때 다시 본다(project-docs/architecture/layers.md).
+// 아직 못 끊은 예외. harness와 domain을 나눌 때 다시 본다(project-docs/architecture/layers.md).
 // projects → apps: writer·reader Worker가 직접 여는 projects/contexts/ledger/deps.ts가 releases store를 읽는다.
-// lophn-agent → projects: lophn-agent/register.ts의 agent lookup이 context 상태를 읽는다.
 const CORE_DOMAIN_EDGES = new Set(["problems>apps", "projects>apps"]);
-const CORE_LAYER_EXCEPTIONS = new Set(["lophn-agent>projects"]);
+const CORE_LAYER_EXCEPTIONS = new Set<string>();
 const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
 const CORE_ROLES = "agent-roles";
 function coreModule(path: string): string | undefined {

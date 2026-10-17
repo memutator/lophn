@@ -100,7 +100,11 @@ export function createAgentReads(deps: AgentDeps): {
         ctx: RequestContext,
         input: Input<typeof agentDefinitionList>,
       ): Result<Output<typeof agentDefinitionList>> {
-        const rule = agentCallerRule(snapshot.sql, ctx);
+        const rule = agentCallerRule(
+          snapshot.sql,
+          ctx,
+          deps.operatorPlaceAllowed,
+        );
         if (!rule.ok) return rule;
         if (rule.value !== null) {
           const allowed = rule.value(input.place ?? null);
@@ -151,7 +155,11 @@ export function createAgentReads(deps: AgentDeps): {
         ctx: RequestContext,
         input: Input<typeof agentDefinitionRead>,
       ): Result<Output<typeof agentDefinitionRead>> {
-        const rule = agentCallerRule(snapshot.sql, ctx);
+        const rule = agentCallerRule(
+          snapshot.sql,
+          ctx,
+          deps.operatorPlaceAllowed,
+        );
         if (!rule.ok) return rule;
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;

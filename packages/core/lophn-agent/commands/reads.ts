@@ -11,7 +11,11 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { agentRefOf, loadSession, placeOf } from "../session/model.ts";
-import { buildRegistry, type RegistrySkill } from "./registry.ts";
+import {
+  buildRegistry,
+  type RegistrySkill,
+  type RoleCommands,
+} from "./registry.ts";
 
 // `/` 명령 목록 read. 목록은 저장하는 표가 아니라 session의 agent에서
 // 열 때마다 계산한다.
@@ -23,6 +27,7 @@ type CommandSession = {
 };
 
 type CommandReadDeps = {
+  roleCommands: RoleCommands;
   // 그 agent가 그 place에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
   // (lophn-agent/extensions). 끈 skill은 selected=false로 와서 registry가 거른다.
   skills(
@@ -55,6 +60,7 @@ export function createCommandReads(deps: CommandReadDeps): {
         };
         const registry = buildRegistry({
           role: session.role,
+          roleCommands: deps.roleCommands,
           skills: deps.skills(snapshot.sql, session),
         });
         return ok({

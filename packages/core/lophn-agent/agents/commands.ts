@@ -79,7 +79,7 @@ export function createAgentCommands(deps: AgentDeps): {
         ctx: RequestContext,
         input: Input<typeof operatorCreate>,
       ): Result<Output<typeof operatorCreate>> {
-        const rule = agentCallerRule(tx.sql, ctx);
+        const rule = agentCallerRule(tx.sql, ctx, deps.operatorPlaceAllowed);
         if (!rule.ok) return rule;
         const { place, definition, id } = input;
         if (rule.value !== null) {
@@ -121,7 +121,7 @@ export function createAgentCommands(deps: AgentDeps): {
         input: Input<typeof operatorChange>,
         compare: Compare<typeof operatorChange>,
       ): Result<Output<typeof operatorChange>> {
-        const rule = agentCallerRule(tx.sql, ctx);
+        const rule = agentCallerRule(tx.sql, ctx, deps.operatorPlaceAllowed);
         if (!rule.ok) return rule;
         const context = open(deps, tx);
         if (!context.ok) return context;

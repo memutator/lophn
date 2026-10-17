@@ -23,7 +23,12 @@ export {
 } from "./profile-asset.ts";
 export { DEFAULT_PROFILES } from "./builtin.ts";
 export { BUILTIN_NAMES, isReservedAgentName } from "./names.ts";
-export type { AgentDeps, AgentFileSystem, AgentLookups } from "./ports.ts";
+export type {
+  AgentDeps,
+  AgentFileSystem,
+  AgentLookups,
+  PlaceLookups,
+} from "./ports.ts";
 export {
   type AgentFile,
   type AgentSlot,

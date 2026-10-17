@@ -9,7 +9,7 @@ import {
 import { appList } from "../../../protocol/apps/mod.ts";
 import { projectList } from "../../../protocol/projects/mod.ts";
 import { settingsEditIntent } from "../../lophn-agent/tool-judgment/intents.ts";
-import { operatorPlaceAllowed } from "../../lophn-agent/tools/domain/operator-place.ts";
+import { operatorPlaceAllowed } from "./operator-place.ts";
 import {
   commandOf,
   defineTool,

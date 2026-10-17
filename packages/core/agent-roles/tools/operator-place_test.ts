@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { Place, Role } from "../../../../protocol/lophn-agent/places.ts";
+import type { Place, Role } from "../../../protocol/lophn-agent/places.ts";
 import { operatorPlaceAllowed } from "./operator-place.ts";
 
 const project = (id: string): Place => ({ kind: "project", id }) as Place;

@@ -2,6 +2,7 @@ import type {
   McpTool,
   ModelChoice,
   Place,
+  Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 
@@ -40,9 +41,30 @@ export type AgentLookups = {
   modelDefault(): ModelChoice | null;
 };
 
+// project·앱·context 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.
+export type PlaceLookups = {
+  projectExists(sql: ReadSql, id: string): boolean;
+  projectIds(sql: ReadSql): string[];
+  appExists(sql: ReadSql, id: string): boolean;
+  appIds(sql: ReadSql): string[];
+  contextStatus(
+    sql: ReadSql,
+    id: string,
+  ): "drafting" | "active" | "archived" | undefined;
+  contextProjectOf(sql: ReadSql, id: string): string | null;
+  activeContextIds(sql: ReadSql, project: string): string[];
+};
+
 export type AgentDeps = {
   files: AgentFileSystem;
   lookups(sql: ReadSql): AgentLookups;
+  // agent가 Operator를 만들고 고칠 수 있는 place인지의 규칙이다. role 층이 정하고 조립이 꽂는다.
+  // ownPlace는 그 session의 place다.
+  operatorPlaceAllowed(
+    role: Role,
+    ownPlace: Place | null,
+    target: Place,
+  ): boolean;
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
 };

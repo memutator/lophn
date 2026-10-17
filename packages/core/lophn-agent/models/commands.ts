@@ -29,6 +29,8 @@ export type ModelCommandDeps = {
     definition: string,
     modelName: string,
   ): CatalogEntry | undefined;
+  // project 표를 가진 module의 읽기다. 조립이 꽂는다.
+  projectExists(project: string): boolean;
 };
 
 function requireUser(ctx: RequestContext): Result<void> {
@@ -108,15 +110,12 @@ export function createModelCommands(
       handle(tx, ctx, input) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        const found = tx.sql.get(
-          "select 1 as found from projects where id = ?",
-          [input.project],
-        );
-        if (found === undefined) {
+        const resolved = resolve(tx);
+        if (!resolved.projectExists(input.project)) {
           return err({ code: "not_found", message: "project not found" });
         }
         if (input.model !== null) {
-          const checked = checkChoice(resolve(tx), "project", input.model);
+          const checked = checkChoice(resolved, "project", input.model);
           if (!checked.ok) return checked;
         }
         saveChoice(tx.sql, input.project, input.model);

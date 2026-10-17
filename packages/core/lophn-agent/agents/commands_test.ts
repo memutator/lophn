@@ -30,6 +30,7 @@ Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름�
     const commands = createAgentCommands({
       files,
       lookups: () => lookups,
+      operatorPlaceAllowed: () => false,
       dataRoot: root,
     });
     const place = { kind: "project", id: PROJECT } as const;
@@ -105,6 +106,7 @@ Deno.test("옛 hash로 Operator를 고치면 충돌이고 파일은 그대로다
     const commands = createAgentCommands({
       files,
       lookups: () => lookups,
+      operatorPlaceAllowed: () => false,
       dataRoot: root,
     });
     const place = { kind: "project", id: PROJECT } as const;

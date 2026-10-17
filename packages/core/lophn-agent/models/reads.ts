@@ -4,13 +4,19 @@ import {
   projectModelRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
-import type { ReadDefinition } from "../../../protocol/server/mod.ts";
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+} from "../../../protocol/server/mod.ts";
 import { GLOBAL_SCOPE, loadChoice, loadFavorites } from "./store.ts";
 import { createCatalogRead } from "./work.ts";
 
 // 읽기는 ledger snapshot에서 읽는다. 줄이 없으면 처음 값(null, 빈 목록)이다.
 // 읽기는 catalog를 보지 않는다. catalog에서 사라진 model도 저장된 선택 그대로 돌려준다.
-export function createModelReads(): {
+export function createModelReads(deps: {
+  // project 표를 가진 module의 읽기다. 조립이 꽂는다.
+  projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
+}): {
   modelDefault: ReadDefinition<typeof modelDefaultRead>;
   projectModel: ReadDefinition<typeof projectModelRead>;
   favorites: ReadDefinition<typeof modelFavoritesRead>;
@@ -30,11 +36,7 @@ export function createModelReads(): {
     projectModel: {
       route: projectModelRead,
       handle(snapshot, _ctx, input) {
-        const found = snapshot.sql.get(
-          "select 1 as found from projects where id = ?",
-          [input.project],
-        );
-        if (found === undefined) {
+        if (!deps.projectExists(snapshot.sql, input.project)) {
           return err({ code: "not_found", message: "project not found" });
         }
         return ok({

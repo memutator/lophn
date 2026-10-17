@@ -1,2 +1,6 @@
 export { createCommandReads } from "./reads.ts";
-export { buildRegistry, type RegistrySkill } from "./registry.ts";
+export {
+  buildRegistry,
+  type RegistrySkill,
+  type RoleCommands,
+} from "./registry.ts";

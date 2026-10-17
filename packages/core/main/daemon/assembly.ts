@@ -4,7 +4,7 @@ import { createLedgerRegistration } from "../../projects/register.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
-} from "../../lophn-agent/register.ts";
+} from "./wiring/lophn-agent-team.ts";
 import {
   createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
@@ -74,7 +74,7 @@ export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
   new URL("../../problems/register.ts", import.meta.url).href,
-  new URL("../../lophn-agent/register.ts", import.meta.url).href,
+  new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
   new URL("../../apps/tickets/register.ts", import.meta.url).href,
   new URL("../../apps/tickets/ports.ts", import.meta.url).href,
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,

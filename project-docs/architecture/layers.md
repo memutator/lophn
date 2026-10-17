@@ -74,7 +74,7 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 
 | 성격 | 자리 | 예 |
 |---|---|---|
-| 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`tools/registry.ts`, `tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
+| 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`packages/core/lophn-agent/tools/registry.ts`, `packages/core/lophn-agent/tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
 | 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
 | domain tool | 각 domain | `apps/agent-tools/`(ticket, app, package, release, visual), `problems/agent-tools.ts` |
 | lophn role 층 | `agent-roles` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(guide, settings, instructions, operator, context, glossary), credential의 role 몫(`credentials.ts`), role prompt·guide(`roles/`), place 정보(`place/`), role 명령, file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록) |

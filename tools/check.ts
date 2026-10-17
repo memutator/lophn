@@ -188,6 +188,11 @@ async function buildSteps(
       commands: [["deno", "run", "--allow-read", "tools/check-modules.ts"]],
     });
   } else skip("modules", "package와 catalog가 안 바뀜");
+  // 문서만 바뀐 변경을 잡는 check라 조건 없이 돈다.
+  checks.push({
+    name: "docs",
+    commands: [["deno", "run", "--allow-read", "tools/check-docs.ts"]],
+  });
 
   if (full) {
     checks.push({ name: "check", commands: [["deno", "check"]] });

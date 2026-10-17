@@ -69,7 +69,7 @@ deno test --no-check <파일이나 폴더>
 
 | 명령 | 하는 일 |
 |---|---|
-| `deno task check` | 빠른 check. `git merge-base HEAD main` 이후 바뀐 package와 그것을 쓰는 package만 fmt, lint, deps, source(주석과 test 이름의 요구 ID·작업 번호·금지 낱말), modules(`project-docs/*-catalog.yaml`과 폴더 대조), `deno check`, style, wording, test를 돈다. `--base <rev>`로 기준을 바꾼다 |
+| `deno task check` | 빠른 check. `git merge-base HEAD main` 이후 바뀐 package와 그것을 쓰는 package만 fmt, lint, deps, source(주석과 test 이름의 요구 ID·작업 번호·금지 낱말), modules(`project-docs/*-catalog.yaml`과 폴더 대조), docs(문서 속 저장소 path가 있는지), `deno check`, style, wording, test를 돈다. `--base <rev>`로 기준을 바꾼다 |
 | `deno task check:full` | 전부. `deno test --parallel`(`DENO_JOBS` 기본 8), 앞에서 `deno check`가 끝났으니 test는 `--no-check` |
 
 - 독립 단계는 동시에 돌고 첫 실패에서 멈춘다. 실패하면 exit 1이고 출력에 `실패`가 찍힌다.

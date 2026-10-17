@@ -1,26 +1,26 @@
-// 디자인 시스템 · SDK. packages/sdk/*/examples의 공개 예제를 고치지 않고 그대로 그린다. 예제가 받는
+// 디자인 시스템 · SDK. pages/kit의 예제를 고치지 않고 그대로 그린다. 예제가 받는
 // props(시각, 데이터, 앱 bridge)만 고정 값으로 준다.
 import { kit, Page, Section } from "./kit.tsx";
 import type { ReactNode } from "react";
-import { tokens } from "@lophn/tokens";
+import { tokens } from "@lophn/ui";
 
 import {
   otherColor,
   seriesColors,
-} from "../../../../packages/sdk/tokens/examples/chart-colors.ts";
-import { OrdersApp } from "../../../../packages/sdk/ui-layout/examples/orders-app.tsx";
-import { OrdersTable } from "../../../../packages/sdk/ui-table/examples/orders-table.tsx";
-import { OrderActions } from "../../../../packages/sdk/ui-action/examples/order-actions.tsx";
-import { ControlSizes } from "../../../../packages/sdk/ui-control/examples/control-sizes.tsx";
-import { OrdersFilters } from "../../../../packages/sdk/ui-filter/examples/orders-filters.tsx";
+} from "../../pages/kit/tokens/chart-colors.ts";
+import { OrdersApp } from "../../pages/kit/layout/orders-app.tsx";
+import { OrdersTable } from "../../pages/kit/data/orders-table.tsx";
+import { OrderActions } from "../../pages/kit/app-ui/order-actions.tsx";
+import { ControlSizes } from "../../pages/kit/input/control-sizes.tsx";
+import { OrdersFilters } from "../../pages/kit/input/orders-filters.tsx";
 import {
   AppRoot,
   OrdersStatus,
-} from "../../../../packages/sdk/ui-state/examples/orders-status.tsx";
-import { WeeklyReport } from "../../../../packages/sdk/ui-reading/examples/weekly-report.tsx";
-import { OverlayExample } from "../../../../packages/sdk/ui-overlay/examples/overlays.tsx";
-import { OrdersSummary } from "../../../../packages/sdk/ui-stat/examples/orders-summary.tsx";
-import { SalesDashboard } from "../../../../packages/sdk/ui-chart/examples/sales-dashboard.tsx";
+} from "../../pages/kit/feedback/orders-status.tsx";
+import { WeeklyReport } from "../../pages/kit/reading/weekly-report.tsx";
+import { OverlayExample } from "../../pages/kit/overlay/overlays.tsx";
+import { OrdersSummary } from "../../pages/kit/data/orders-summary.tsx";
+import { SalesDashboard } from "../../pages/kit/data/sales-dashboard.tsx";
 
 const NOW = new Date("2026-10-06T15:30:00Z");
 const NOOP = () => {};
@@ -73,7 +73,7 @@ export function SdkTokens() {
           </div>
         </div>
         <p className={kit.note}>
-          export된 token은 {Object.keys(tokens).length}묶음이다(@lophn/tokens).
+          export된 token은 {Object.keys(tokens).length}묶음이다(@lophn/ui).
         </p>
       </Section>
     </Page>

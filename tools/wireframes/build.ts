@@ -1,7 +1,7 @@
 // 실행: deno task wireframes
 // gallery를 정적 bundle(dist/index.html, main.js, main.css, 글꼴)로 만든다. 렌더러의 build()와 같은
-// 방식(Deno import map, CSS Modules의 local-css, woff2 file loader)이지만, SDK 예제가 쓰는 ui-*
-// package 전부를 import map에 올리려고 따로 짠 build다(렌더러의 build()는 일곱 개만 올린다).
+// 방식(Deno import map, CSS Modules의 local-css, woff2 file loader)이지만, 예제가 쓰는 @lophn/app-ui를
+// import map에 올리려고 따로 짠 build다(렌더러의 build()는 sdk를 올리지 않는다).
 // 주소는 모두 상대 경로이고 바깥 요청이 없다.
 import * as esbuild from "esbuild";
 import { denoPlugins } from "@luca/esbuild-deno-loader";
@@ -106,16 +106,8 @@ async function importMap(): Promise<Record<string, string>> {
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));
-  for (const entry of await readdir(join(root, "packages/sdk"))) {
-    try {
-      await stat(join(root, "packages/sdk", entry, "deno.json"));
-    } catch {
-      continue;
-    }
-    // blueprint는 앱 선언 type만 쓰는 곳이라 bundle에 들어가지 않는다.
-    if (entry === "blueprint") continue;
-    await addPackage(imports, join(root, "packages/sdk", entry));
-  }
+  // 앱 bridge를 쓰는 예제(order-actions)의 package. blueprint는 type만 써서 bundle에 들어가지 않는다.
+  await addPackage(imports, join(root, "packages/sdk/app-ui"));
   return imports;
 }
 

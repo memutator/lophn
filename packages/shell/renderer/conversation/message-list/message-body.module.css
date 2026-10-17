@@ -1,4 +1,4 @@
-/* 확정 메시지 본문과 사람 말 아래의 접수 표시. legacy ui-reading 본문 글꼴을 따른다. */
+/* 확정 메시지 본문과 사람 말 아래의 접수 표시. 옛 읽기 본문 글꼴을 따른다. */
 .body {
   display: flex;
   flex-direction: column;

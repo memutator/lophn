@@ -7,3 +7,9 @@ export { TabList } from "./tabs/tabs.tsx";
 export { Tab, type TabProps } from "./tabs/tabs.tsx";
 // 탭 하나의 내용. value가 고른 탭과 같을 때만 보인다.
 export { TabPanel } from "./tabs/tabs.tsx";
+// 앱 화면 사이를 오가는 목록. AppShell의 nav에 두고 좁은 영역에서는 가로 한 줄이 된다. 한 화면 안의 보기 전환은 Tabs다.
+export {
+  Sidebar,
+  type SidebarItem,
+  type SidebarProps,
+} from "./sidebar/sidebar.tsx";

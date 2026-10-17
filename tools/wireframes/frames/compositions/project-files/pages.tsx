@@ -2,7 +2,7 @@
 // 모두 동작하는 ProjectApp 위에 고정 data로 놓는다.
 import type { ReactNode } from "react";
 import { Dialog } from "@lophn/ui/overlay";
-import { Button } from "@lophn/ui-control";
+import { Button } from "@lophn/ui/primitives";
 
 import { AGENT_ROWS } from "../agents-data.ts";
 import { documentTab } from "../phroner-data.ts";

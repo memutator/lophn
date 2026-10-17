@@ -37,3 +37,11 @@ export {
 export { useTocPlacement } from "./page-frames/toc-placement.ts";
 // 독립 객체 하나를 묶는 면. 카드 안에 카드를 두지 않는다.
 export { Card, type CardProps } from "./card/card.tsx";
+// 앱 view 안의 화면 틀. 머리(제목·행동)와 nav·본문을 두고, 넣은 영역이 좁으면 nav를 본문 위 한 줄로 옮긴다.
+export { AppShell, type AppShellProps } from "./app-shell/app-shell.tsx";
+// AppShell 안의 화면이 놓인 영역 크기(card·panel·full)를 읽는 hook. 크기에 따라 모양을 바꾸는 component가 쓴다.
+export { useContainerSpace } from "./app-shell/app-shell.tsx";
+// 영역 폭(px)을 card·panel·full로 나누는 계산. 관측한 폭이 있고 AppShell 밖에서 같은 기준이 필요할 때 쓴다.
+export { type ContainerSpace, containerSpace } from "./app-shell/space.ts";
+// 카드 폭 240px 이상의 칸을 영역 폭에 맞게 채운다. 12열로 나누는 대시보드는 DashboardFrame이다.
+export { Grid, type GridProps } from "./grid/grid.tsx";

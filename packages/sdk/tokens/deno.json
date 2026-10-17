@@ -1,9 +1,0 @@
-{
-  "name": "@lophn/tokens",
-  "version": "1.0.0",
-  "exports": {
-    ".": "./mod.ts",
-    "./tokens.css": "./tokens.css",
-    "./base.css": "./base.css"
-  }
-}

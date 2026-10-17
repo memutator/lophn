@@ -130,7 +130,7 @@ async function build(
       config.imports ?? {},
       pathToFileURL(join(here, "deno.json")),
     );
-    // 공통 UI와 SDK가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
+    // 공통 UI가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
     const design = new URL(
       "../../design/",
       pathToFileURL(`${here}/`),
@@ -139,19 +139,6 @@ async function build(
     await addPackage(imports, new URL("wording/", design));
     // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.
     await addPackage(imports, new URL("../base/", design));
-    for (
-      const name of [
-        "tokens",
-        "ui-control",
-        "ui-overlay",
-        "ui-layout",
-        "ui-state",
-        "ui-table",
-        "ui-chart",
-      ]
-    ) {
-      await addPackage(imports, new URL(`../sdk/${name}/`, design));
-    }
     await writeFile(configPath, JSON.stringify({ imports }));
     for (const entry of entryPoints) {
       const directory = entryPoints === defaultEntries

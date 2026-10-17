@@ -28,3 +28,7 @@ export {
   StatusMark,
   type StatusMarkProps,
 } from "./status-mark/status-mark.tsx";
+// 읽기 결과의 loading → error → empty → 내용 중 하나만 그리고 오래된 내용에는 나이를 붙인다. 상태를 따로 조립하면 Loading과 EmptyState다.
+export { ReadState, type ReadStateProps } from "./read-state/read-state.tsx";
+// ReadState에 넘기는 마지막 갱신 시각과 낡음 기준(Freshness), 그리고 낡았는지만 따로 알 때 쓰는 isStale.
+export { type Freshness, isStale } from "./read-state/read-state.tsx";

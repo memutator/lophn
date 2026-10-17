@@ -1,4 +1,4 @@
-/* legacy ui-layout AppShell: sidebar가 창 높이를 다 쓰고 상단 바는 본문 열 위에만 있다. */
+/* 옛 AppShell처럼 sidebar가 창 높이를 다 쓰고 상단 바는 본문 열 위에만 있다. */
 /* 창 전체를 덮는다. 페이지 자체는 scroll하지 않는다. */
 .workspace {
   position: fixed;

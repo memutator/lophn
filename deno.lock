@@ -1319,70 +1319,7 @@
           "npm:intl-messageformat@12.1.2"
         ]
       },
-      "packages/sdk/ui-action": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-chart": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-control": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-filter": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-layout": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-overlay": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-reading": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-stat": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-state": {
-        "dependencies": [
-          "npm:@types/react@19.3.0",
-          "npm:lucide-react@1.51.0",
-          "npm:react@19.3.0"
-        ]
-      },
-      "packages/sdk/ui-table": {
+      "packages/sdk/app-ui": {
         "dependencies": [
           "npm:@types/react@19.3.0",
           "npm:lucide-react@1.51.0",

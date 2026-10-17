@@ -1,4 +1,4 @@
-/* legacy ui-layout SplitPane. 칸마다 탭 줄과 따로 scroll하는 본문. */
+/* 옛 SplitPane처럼 칸마다 탭 줄과 따로 scroll하는 본문. */
 .panes {
   display: flex;
   flex: 1;

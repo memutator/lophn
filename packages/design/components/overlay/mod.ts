@@ -33,3 +33,11 @@ export {
 } from "./toast/toast.tsx";
 // Toast들을 오른쪽 아래 층에 쌓는다. 앱 root에 한 번 둔다.
 export { ToastStack } from "./toast/toast.tsx";
+// toast를 띄우는 queue를 앱 root에 둔다. useToast로 어디서든 띄우고, 직접 쌓으려면 Toast와 ToastStack이다.
+export {
+  type ToastOptions,
+  ToastProvider,
+  type ToastProviderProps,
+  type ToastQueue,
+  useToast,
+} from "./toast/toast-queue.tsx";

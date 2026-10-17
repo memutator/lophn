@@ -1,4 +1,4 @@
-/* legacy ui-layout TopBar 경로. 좁으면 앞 조각부터 줄어든다. */
+/* 옛 TopBar 경로처럼 좁으면 앞 조각부터 줄어든다. */
 .crumbs {
   min-width: var(--space-0);
   font-family: var(--font-sans);

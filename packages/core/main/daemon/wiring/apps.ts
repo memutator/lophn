@@ -85,6 +85,7 @@ import {
   CONDITION_TARGET_KEYS,
 } from "../../../server/identity/mod.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
+import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -189,11 +190,8 @@ export const appsWiring: WiringFactory = () => {
       });
       invocations = ledger;
 
-      const callers: CallerDirectory = {
-        agentToolCall: (...args) =>
-          ctx.peek.callerDirectory?.agentToolCall(...args) ??
-            notAttached(),
-      };
+      const callers: CallerDirectory = createCallerDirectory(link.sql);
+      ctx.provide("callerDirectory", callers);
       const projects: ProjectDirectory = {
         list: () => ctx.peek.projectDirectory?.list() ?? notAttached(),
         get: (id) => ctx.peek.projectDirectory?.get(id) ?? notAttached(),

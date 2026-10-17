@@ -95,3 +95,10 @@
 - 계약 바꾸기 요청: 없음
 - 무겁게 짠 것: 없음이 기본. 있으면 `무엇 / 왜 / 줄인다면 / 어디`
 - 알려진 미완 동작: 앱 template의 `@lophn/design*` 이름은 `kit-sdk-publish`가 고치기 전까지 옛 이름이다(template은 type check 밖이다)
+
+## lead가 더함
+
+- (lead가 더함) "남지 않음"의 `@lophn/design` grep에서 `packages/core/apps`는 뺀다. `releases/ui-build/build.ts`의 `FIXED_UI_DEPENDENCIES`, `packages/install.ts` 주석, 앱 template은 `kit-sdk-publish`가 고친다. 이 task는 그 file을 고치지 않는다. 확인: `grep -rnE --exclude-dir=node_modules --exclude-dir=dist "@lophn/design|@lophn/ui/components" packages tools --include=*.ts --include=*.tsx --include=*.css --include=*.json | grep -v "^packages/core/apps/"`가 0줄.
+- (lead가 더함) `kit-renderer`가 옮긴 `packages/shell/renderer/parts/{avatar,vendor-icon,tab-strip}/`도 `@lophn/design`·`@lophn/design/components`를 import한다. renderer 전체를 고칠 때 같이 고친다.
+- (lead가 더함) `deno.lock` 갱신이 필요하면 실제로 된 명령을 보고의 "정한 것"에 그대로 적는다(lead가 남은 brief에 옮긴다). `packages/shell/main/desktop/core/deno.lock` 변경은 commit하지 않는다.
+- (lead가 더함) `check:full`에서 `packages/core/apps/calls/calls_test.ts`의 "write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다"가 한 번 실패하면 다시 돌린다(이 task와 무관한 timing test다). 두 번 실패하면 보고한다.

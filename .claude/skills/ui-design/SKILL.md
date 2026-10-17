@@ -26,7 +26,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 | 하는 일 | 위치 |
 |---|---|
 | 화면 모양 | `packages/shell/renderer/...` 해당 component와 `.module.css` |
-| 여러 화면이 쓰는 조각 | `packages/design/components/<이름>/` (tsx, module.css), `components/mod.ts`에 export |
+| 여러 화면이 쓰는 조각 | 사용자 앱도 쓸 범용이면 `packages/design/components/<이름>/` (tsx, module.css), `components/mod.ts`에 export. lophn만의 뜻(session, agent, harness)이 박힌 것이면 `packages/shell/renderer/parts/<이름>/` (Avatar, VendorIcon, TabStrip) |
 | token(색, 간격, 글자) | `packages/design/tokens.ts`. 값을 CSS에 직접 쓰지 않고 token(var)을 쓴다 |
 | fake data | renderer의 `testdata/fake-source.ts`, `workspace/fake-source.ts`, `desktop/dev-mock/`. 예시 project data는 `frames/compositions/phroner-data.ts` |
 | 디자인 시스템 page | `frames/design/` (design component를 그대로 나열) |
@@ -35,7 +35,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 ## 새 화면(page) 만들기
 
 1. 필요한 component가 `packages/design/components/mod.ts`에 있는지 본다. 없고 여러 화면이 쓸 것이면 **design에 먼저** 더한다(component 폴더, `mod.ts` export, `frames/design/components-pages.tsx`에 견본). 한 화면만 쓰는 조각은 renderer 그 화면 폴더에 둔다.
-2. 아이콘은 lucide를 직접 import하지 않는다. renderer는 `icons/*.ts` 묶음, design은 `Icon`을 쓴다. harness와 provider 이름 옆에는 `VendorIcon`, 파일과 폴더에는 `FileIcon`이다.
+2. 아이콘은 lucide를 직접 import하지 않는다. renderer는 `icons/*.ts` 묶음, design은 `Icon`을 쓴다. harness와 provider 이름 옆에는 renderer `parts/vendor-icon`의 `VendorIcon`, 파일과 폴더에는 design `FileIcon`이다.
 3. 화면 문구는 직접 쓰지 않고 wording key로 쓴다. → wording skill.
 4. `pages.ts`의 `PAGES`에 `fresh(id, title, description, screen)` 항목을 더하고, `ScreenId`에 이름을 더한다.
 5. `frames/screens.tsx`의 `SCREENS`에 그 화면을 그리는 component를 더한다. `SCREENS`가 `Record<ScreenId, ...>`라 빠뜨리면 type error다.

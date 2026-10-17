@@ -62,21 +62,6 @@ modules: [packages/core/projects]
 
 정한 것: 다이어트 계획에서 줄일지 정한다.
 
-## 저장 목차와 outline kind가 쓰이지 않는다
-
-```yaml
-kind: defect
-modules: [packages/core/projects, packages/protocol]
-```
-
-지금: `contexts/outlines.ts`가 `outlines/<sha256(path)>.json`에 목차를 revision으로 낙관적 잠금해 저장하고 `outline.get`·`set`·`delete` route와 agent tool이 있다. 읽는 쪽인 `extractAll`은 이 목차를 받지 못한다(위 "md가 아닌 context 문서" 이슈).
-
-영향: 쓰는 길은 있고 읽는 길이 없어 죽은 장치다. route 셋, 폴더 port(`outlineFolder`), 테스트 대상이 늘어 있다.
-
-고치려면: 저장 목차 전체를 빼고 md 목차만 둔다(`outlines.ts`, protocol `context-outlines.ts`, agent tool, `outlineFolder` port 삭제, 작음~중간).
-
-정한 것: 지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
-
 ## `bundle.test_draft`가 worker 유무에 따라 다르게 돈다
 
 ```yaml

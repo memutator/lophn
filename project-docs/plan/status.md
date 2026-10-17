@@ -18,7 +18,7 @@
 | `trust-cli-fence` | trust | 1 | 없음 | merged | trust/trust-cli-fence | 0719e7768 |  |
 | `trust-view-error-signing` | trust | 1 | 없음 | merged | trust/trust-view-error-signing | 1274e025a |  |
 | `annotation-screenshot` | annotation | 2 | annotation-target | running | annotation/annotation-screenshot |  |  |
-| `dead-contexts` | dead | 2 | dead-agent | running | dead/dead-contexts |  |  |
+| `dead-contexts` | dead | 2 | dead-agent | merged | dead/dead-contexts | 093b01eb9 |  |
 | `harness-global-confirm` | harness | 2 | harness-global-install | running | harness/harness-global-confirm |  |  |
 | `harness-opencode` | harness | 2 | harness-global-install | running | harness/harness-opencode |  |  |
 | `platform-component-checks` | platform | 2 | platform-crash-diagnostics | merged | platform/platform-component-checks | 07a305b1c |  |

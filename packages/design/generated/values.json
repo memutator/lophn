@@ -442,8 +442,8 @@
       "width": "360px"
     },
     "badge": {
-      "size": "14px",
-      "font": "10px"
+      "size": "12px",
+      "font": "9px"
     },
     "tabStrip": {
       "min": "96px",

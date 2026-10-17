@@ -179,8 +179,8 @@
   --toast-duration-default: 5000ms;
   --toast-duration-brief: 2000ms;
   --chip-width: 360px;
-  --badge-size: 14px;
-  --badge-font: 10px;
+  --badge-size: 12px;
+  --badge-font: 9px;
   --tab-strip-min: 96px;
   --tab-strip-max: 240px;
   --window-top-bar: 36px;

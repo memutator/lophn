@@ -41,7 +41,7 @@ lead만 고친다. `tools/status.py e2e-coverage build`가 `tasks/*.md`에서 id
 | `coding-message-to-ae` | coding-message-to-ae | 3 | coding-end-without-report | merged | coding-message-to-ae/coding-message-to-ae | 57364371b |  |
 | `coding-one-per-app` | coding-one-per-app | 3 | coding-message-to-ae | merged | coding-one-per-app/coding-one-per-app | 1052825e9 |  |
 | `coding-report-needs-release` | coding-report-needs-release | 3 | coding-token-scope | merged | coding-report-needs-release/coding-report-needs-release | 13f333075 |  |
-| `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | running | coding-token-not-stored/coding-token-not-stored |  |  |
+| `coding-token-not-stored` | coding-token-not-stored | 3 | coding-cancel-keeps-ticket | merged | coding-token-not-stored/coding-token-not-stored | eb45b02c9 |  |
 | `coding-token-scope` | coding-token-scope | 3 | test-app, coding-role, gateway-client, reply-fn | merged | coding-token-scope/coding-token-scope | aff4042fa |  |
 | `app-socket-root` | fix | 3 | 없음 | merged | fix/app-socket-root | f690e93ed |  |
 | `caller-directory` | fix | 3 | 없음 | merged | fix/caller-directory | 9cf9bb9a6 |  |

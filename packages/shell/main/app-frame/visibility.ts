@@ -77,7 +77,14 @@ interface Pending {
 export function createViewVisibility(deps: {
   frame: Pick<
     AppFrameService,
-    "open" | "setBounds" | "hide" | "close" | "reopen" | "owner" | "setProject"
+    | "open"
+    | "setBounds"
+    | "hide"
+    | "close"
+    | "reopen"
+    | "owner"
+    | "setProject"
+    | "move"
   >;
   geometry: WindowGeometry;
   timer: FrameTimer;
@@ -186,6 +193,32 @@ export function createViewVisibility(deps: {
         generation = Math.max(generation, result.value.generation);
       }
       return { ok: true, value: { generation } };
+    },
+
+    /** 모두 window의 view인가. */
+    owns(window: string, view_sessions: readonly string[]): boolean {
+      return view_sessions.every((view) => owned(window, view));
+    },
+
+    /**
+     * 모두 from 창의 view이고 to 창이 열려 있을 때만 옮긴다(아니면 아무것도 옮기지 않는다).
+     * 기다리던 bounds는 옛 창 기준이라 버린다. 옮긴 view는 새 창 renderer가 bounds를 보내면 붙는다.
+     */
+    move(
+      from: string,
+      to: string,
+      view_sessions: readonly string[],
+    ): Outcome<null> {
+      if (!view_sessions.every((view) => owned(from, view))) return notOpen();
+      if (deps.geometry.body(to) === undefined) {
+        return failure("invalid_input", "window is not open");
+      }
+      for (const view_session of view_sessions) {
+        cancel(view_session, notOpen);
+        const result = deps.frame.move(view_session, from, to);
+        if (!result.ok) return result;
+      }
+      return { ok: true, value: null };
     },
 
     /** 바로 폐기한다. */

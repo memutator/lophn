@@ -18,34 +18,49 @@ export interface ViewKeeps {
   release(key: string): void;
   /** 보관 중인 key 모두. */
   keys(): readonly string[];
+  /** mount돼 있든 보관 중이든 key의 view. 없으면 undefined. state는 알린 쪽이 갱신한 최신 값이다. */
+  lookup<State>(key: string): KeptView<State> | undefined;
+  /**
+   * view를 가진 쪽(EmbeddedView, BrowserTab)이 view를 얻었을 때(열었거나 take했을 때)와 state가
+   * 바뀔 때 알린다. mount된 동안 lookup이 찾게 한다.
+   */
+  track<State>(key: string, view: KeptView<State>): void;
 }
 
 export function createViewKeeps(close: (session: string) => void): ViewKeeps {
-  const kept = new Map<string, KeptView>();
+  // mounted인 view는 쓰는 쪽이 들고 있다. 닫는 일도 그쪽이 한다.
+  const views = new Map<string, { view: KeptView; mounted: boolean }>();
   return {
     take<State>(key: string, signature: string) {
-      const view = kept.get(key);
-      if (view === undefined) return undefined;
-      kept.delete(key);
-      if (view.signature !== signature) {
-        close(view.session);
+      const item = views.get(key);
+      if (item === undefined || item.mounted) return undefined;
+      if (item.view.signature !== signature) {
+        views.delete(key);
+        close(item.view.session);
         return undefined;
       }
-      return view as KeptView<State>;
+      item.mounted = true;
+      return item.view as KeptView<State>;
     },
     put(key, view) {
-      const previous = kept.get(key);
-      if (previous !== undefined && previous.session !== view.session) {
-        close(previous.session);
+      const previous = views.get(key);
+      if (previous !== undefined && previous.view.session !== view.session) {
+        close(previous.view.session);
       }
-      kept.set(key, view);
+      views.set(key, { view, mounted: false });
     },
     release(key) {
-      const view = kept.get(key);
-      if (view === undefined) return;
-      kept.delete(key);
-      close(view.session);
+      const item = views.get(key);
+      if (item === undefined || item.mounted) return;
+      views.delete(key);
+      close(item.view.session);
     },
-    keys: () => [...kept.keys()],
+    keys: () =>
+      [...views].filter(([, item]) => !item.mounted).map(([key]) => key),
+    lookup: <State>(key: string) =>
+      views.get(key)?.view as KeptView<State> | undefined,
+    track(key, view) {
+      views.set(key, { view, mounted: true });
+    },
   };
 }

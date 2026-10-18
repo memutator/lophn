@@ -11,6 +11,7 @@ import { createEntryScreen } from "../../app-frame/blueprint-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
 import { createExternalLinks } from "../../app-frame/external-link.ts";
+import type { Outcome } from "../../app-frame/app-connection.ts";
 import { createAppFrame } from "../../app-frame/registry.ts";
 import { createViewErrors, reportIdOf } from "../../app-frame/view-error.ts";
 import {
@@ -46,6 +47,14 @@ export type AppViews = Registered & {
   viewErrors: ReturnType<typeof createViewErrors>;
   /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
   openIntent(intent: OpenIntent): void;
+  /** 모두 window의 native view(앱 view, popup, DevTools)인가. */
+  owns(window: string, view_sessions: readonly string[]): boolean;
+  /** view를 닫지 않고 from 창에서 to 창으로 옮긴다. 하나라도 from 창의 것이 아니면 아무것도 옮기지 않는다. */
+  moveViews(
+    from: string,
+    to: string,
+    view_sessions: readonly string[],
+  ): Outcome<null>;
 };
 
 export function register(
@@ -293,6 +302,8 @@ export function register(
     appFrame,
     externalLinks,
     viewErrors,
+    owns: viewVisibility.owns,
+    moveViews: viewVisibility.move,
     openIntent(intent) {
       if (intent.kind === "app") {
         void appWindows.open(intent.app).then((opened) => {

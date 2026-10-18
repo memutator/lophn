@@ -1,12 +1,12 @@
 // createViewVisibility가 받는 frame. browser 탭의 view_session이면 browser로, 아니면 앱 view
-// registry로 보낸다. 위치·숨김·폐기만 갈라 보내고 열기·reopen·project는 앱 것이다.
+// registry로 보낸다. 위치·숨김·폐기·창 옮기기만 갈라 보내고 열기·reopen·project는 앱 것이다.
 import type { ViewBounds } from "../app-frame/view-model.ts";
 import type { AppFrameService } from "../app-frame/registry.ts";
 import type { BrowserViews } from "./registry.ts";
 
 export type BrowserFrame = Pick<
   BrowserViews,
-  "has" | "owner" | "setBounds" | "hide" | "close"
+  "has" | "owner" | "setBounds" | "hide" | "close" | "move"
 >;
 
 export function routeFrame(
@@ -14,7 +14,14 @@ export function routeFrame(
   browser: BrowserFrame,
 ): Pick<
   AppFrameService,
-  "open" | "setBounds" | "hide" | "close" | "reopen" | "owner" | "setProject"
+  | "open"
+  | "setBounds"
+  | "hide"
+  | "close"
+  | "reopen"
+  | "owner"
+  | "setProject"
+  | "move"
 > {
   return {
     open: appFrame.open,
@@ -31,6 +38,10 @@ export function routeFrame(
       browser.has(view_session)
         ? browser.hide(view_session)
         : appFrame.hide(view_session),
+    move: (view_session, from, to) =>
+      browser.has(view_session)
+        ? browser.move(view_session, from, to)
+        : appFrame.move(view_session, from, to),
     close(view_session) {
       if (browser.has(view_session)) browser.close(view_session);
       else appFrame.close(view_session);

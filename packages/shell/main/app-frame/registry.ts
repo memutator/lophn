@@ -488,6 +488,25 @@ export function createAppFrame(deps: AppFrameDeps) {
     },
 
     /**
+     * view를 닫지 않고 from 창에서 to 창으로 옮긴다. 떼어 숨긴 상태가 되고(page와 연결은 산다)
+     * 새 창 renderer가 bounds를 보내면 붙는다.
+     */
+    move(view_session: string, from: string, to: string): Outcome<null> {
+      const entry = entries.get(view_session);
+      if (entry === undefined || entry.window !== from) {
+        return failure("invalid_input", "view is not open");
+      }
+      if (!deps.views.hasWindow(to)) {
+        return failure("invalid_input", "window is not open");
+      }
+      // 떼기는 옛 창 기준이라 소유 창을 바꾸기 전에 한다.
+      placement.hide(entry);
+      entry.window = to;
+      pushState(entry);
+      return { ok: true, value: null };
+    },
+
+    /**
      * 연결과 grant를 다시 읽는다. release·프로세스·bundle·host가 바뀐 view는 다시 연다.
      * app을 주지 않으면 모든 view다(앱을 싣지 않는 event).
      */

@@ -205,6 +205,9 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     };
     const show = (state: AppFrameViewState) => {
       lastState.current = state;
+      if (keepKey !== undefined && keeps !== null) {
+        keeps.track(keepKey, { session: state.view_session, signature, state });
+      }
       setViewSession(state.view_session);
       setPhase("ready");
       stateListener.current?.(state);
@@ -259,10 +262,15 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     return views.subscribeViewState((state) => {
       if (state.view_session === viewSession) {
         lastState.current = state;
+        // 다른 창으로 옮길 때 lookup이 최신 state를 준다.
+        if (keepKey !== undefined && keeps !== null) {
+          const tracked = keeps.lookup<AppFrameViewState>(keepKey);
+          if (tracked?.session === state.view_session) tracked.state = state;
+        }
         stateListener.current?.(state);
       }
     });
-  }, [views, viewSession]);
+  }, [views, viewSession, keeps, keepKey]);
 
   useViewBounds({ views, viewSession, shown, ref });
 

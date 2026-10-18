@@ -467,6 +467,25 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     owner: (view_session: string) =>
       (entries.get(view_session) ?? devtools.get(view_session))?.window,
 
+    /**
+     * popup과 DevTools view를 닫지 않고 from 창에서 to 창으로 옮긴다. 떼어 숨긴 상태가 되고
+     * 새 창 renderer가 bounds를 보내면 붙는다. guest는 옮기지 않는다(renderer가 다시 만든다).
+     */
+    move(view_session: string, from: string, to: string): Outcome<null> {
+      const tool = devtools.get(view_session);
+      const entry = tool ?? entries.get(view_session);
+      if (entry === undefined || entry.window !== from) return notOpen();
+      if (!deps.host.hasWindow(to)) {
+        return failure("invalid_input", "window is not open");
+      }
+      // 떼기는 옛 창 기준이라 소유 창을 바꾸기 전에 한다. 따로 뜬 OS 창의 DevTools는 붙어 있지 않다.
+      if (tool !== undefined) {
+        if (!tool.inWindow) devPlacement.hide(tool);
+      } else placement.hide(entry as Entry);
+      entry.window = to;
+      return { ok: true, value: null };
+    },
+
     setBounds(view_session: string, bounds: ViewBounds, layer: number) {
       const tool = devtools.get(view_session);
       if (tool !== undefined) {

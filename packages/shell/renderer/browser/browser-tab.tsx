@@ -28,8 +28,8 @@ import type {
   DevtoolsPlace,
   DevtoolsState,
 } from "../workspace/kinds/browser-devtools.tsx";
-import { DevtoolsPane, startOverlayDrag } from "./devtools-pane.tsx";
-import { useBrowserApi, useBrowserOverlay } from "./browser-api.tsx";
+import { DevtoolsPane } from "./devtools-pane.tsx";
+import { useBrowserApi } from "./browser-api.tsx";
 import { useBookmarks } from "./bookmarks.ts";
 import { BrowserToolbar } from "./browser-toolbar.tsx";
 import { BlankTabPage } from "./blank-tab-page.tsx";
@@ -161,9 +161,8 @@ function OpenTab(
   const [menuOpen, setMenuOpen] = useState(false);
   const region = useRef<HTMLDivElement | null>(null);
   const body = useRef<HTMLDivElement | null>(null);
-  // 경계를 끄는 동안의 크기. null이면 값(devtools.size)을 쓴다.
+  // 경계를 끄는 동안의 크기. null이면 끄는 중이 아니고 값(devtools.size)을 쓴다.
   const [dragSize, setDragSize] = useState<number | null>(null);
-  const overlay = useBrowserOverlay();
   // adopt는 한 번만 한다. 끝나거나 거절되면 비워서, 다시 시도할 때는 빈 page를 연다.
   const adoptId = useRef(props.adopt);
   const reported = useRef<{ url: string; title: string; favicon?: string }>({
@@ -388,32 +387,27 @@ function OpenTab(
       Math.round(Math.max(DEVTOOLS_MIN, Math.min(room, value)));
     const start = docked.size;
     let last = start;
-    const finish = (done: boolean) => {
-      setDragSize(null);
-      if (done && last !== start) {
-        callbacks.current.onDevtools({ ...docked, size: last });
-      }
-    };
-    if (overlay === null) {
-      startPointerDrag(event, {
-        move: (dx, dy) => {
-          // 경계를 page 쪽으로 끌면 DevTools가 커진다.
-          last = clamp(start - (right ? dx : dy));
-          setDragSize(last);
-        },
-        finish: (outcome) => finish(outcome.type === "drag-end"),
-      });
-      return;
-    }
-    // page <webview>와 DevTools view가 pointer를 가져가지 않도록 overlay drag 표면으로 잰다. 기준점은
-    // 이 탭 본문의 왼쪽 위이고, 그 점에서 pointer까지의 거리로 DevTools 크기를 정한다.
-    event.preventDefault();
-    startOverlayDrag(overlay, { x: box.left, y: box.top }, {
+    // 끄는 동안 page <webview>와 DevTools native view가 pointer를 가져가지 않게 한다. <webview>는 DOM이라
+    // 창 전체를 덮는 투명한 막이 위에서 받는다. DevTools는 native view라 DOM 위에 그려지므로 끄는 동안
+    // 숨기고(자리에는 빈 칸이 보인다) 놓으면 새 크기로 다시 붙인다.
+    const shield = document.createElement("div");
+    shield.className = styles.dragShield;
+    shield.dataset.axis = right ? "x" : "y";
+    document.body.append(shield);
+    setDragSize(start);
+    startPointerDrag(event, {
       move: (dx, dy) => {
-        last = clamp(right ? box.width - dx : box.height - dy);
+        // 경계를 page 쪽으로 끌면 DevTools가 커진다.
+        last = clamp(start - (right ? dx : dy));
         setDragSize(last);
       },
-      finish,
+      finish: (outcome) => {
+        shield.remove();
+        setDragSize(null);
+        if (outcome.type === "drag-end" && last !== start) {
+          callbacks.current.onDevtools({ ...docked, size: last });
+        }
+      },
     });
   };
 
@@ -492,9 +486,7 @@ function OpenTab(
                 ? "vertical"
                 : "horizontal"}
               onPointerDown={resize}
-            >
-              <div className={styles.devtoolsGrab} />
-            </div>
+            />
             <div
               className={styles.devtoolsSlot}
               style={{ flexBasis: `${dragSize ?? docked.size}px` }}
@@ -502,7 +494,7 @@ function OpenTab(
               <DevtoolsPane
                 views={views}
                 session={docked.session}
-                shown={shown && !menuOpen}
+                shown={shown && !menuOpen && dragSize === null}
               />
             </div>
           </>

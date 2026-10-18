@@ -75,43 +75,58 @@
   background: var(--color-surface-subtle);
 }
 
+/* page와 DevTools 사이의 끄는 막대. 양옆은 <webview>와 native view가 덮으므로 막대 자체가 잡을 폭을 가진다.
+   선은 가운데 1줄로 그린다. */
 .devtoolsDivider {
   position: relative;
   flex: none;
   align-self: stretch;
-  width: var(--border-width);
-  background: var(--color-border-base);
+  width: var(--space-2);
+  cursor: col-resize;
   touch-action: none;
 }
 
-.body[data-devtools-place="bottom"] > .devtoolsDivider {
-  width: auto;
-  height: var(--border-width);
-}
-
-.devtoolsGrab {
+.devtoolsDivider::before {
+  content: "";
   position: absolute;
   top: var(--space-0);
   bottom: var(--space-0);
   left: 50%;
-  width: var(--space-4);
+  width: var(--border-width);
   transform: translateX(-50%);
-  cursor: col-resize;
+  background: var(--color-border-base);
 }
 
-.body[data-devtools-place="bottom"] .devtoolsGrab {
+.body[data-devtools-place="bottom"] > .devtoolsDivider {
+  width: auto;
+  height: var(--space-2);
+  cursor: row-resize;
+}
+
+.body[data-devtools-place="bottom"] > .devtoolsDivider::before {
   top: 50%;
   bottom: auto;
   left: var(--space-0);
   right: var(--space-0);
   width: auto;
-  height: var(--space-4);
+  height: var(--border-width);
   transform: translateY(-50%);
-  cursor: row-resize;
 }
 
-.devtoolsDivider[data-dragging] {
+.devtoolsDivider[data-dragging]::before {
   background: var(--color-focus);
+}
+
+/* 끄는 동안만 body에 붙는 투명한 막. 창 전체를 덮어 page <webview> 위에서도 pointer를 shell이 받는다. */
+.dragShield {
+  position: fixed;
+  inset: var(--space-0);
+  z-index: var(--z-tooltip);
+  cursor: col-resize;
+}
+
+.dragShield[data-axis="y"] {
+  cursor: row-resize;
 }
 
 /* floated 패널로 뜬 DevTools. 위 줄은 탭 안으로 붙이기·따로 창 단추다. */

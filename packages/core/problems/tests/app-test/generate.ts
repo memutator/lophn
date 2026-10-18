@@ -101,7 +101,7 @@ const EXAMPLES_RUN = "예시 검증 실행이다";
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const REGISTRY_IMPORT = /^(npm|jsr):(@[^/@]+\/[^/@]+|[^/@]+)@([^/]+)/;
-const SDK_COPY = /^\.\/sdk\/([^/]+)\/([^/]+)\//;
+const SDK_COPY = /^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//;
 
 // 선언한 의존과 bundle의 import가 같고 version이 정확한지 본다. 앱 안 상대 경로와 플랫폼이
 // 놓은 file: 경로는 의존이 아니다.

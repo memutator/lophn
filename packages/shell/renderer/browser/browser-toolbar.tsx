@@ -148,6 +148,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
         title={state.title}
         presses={props.bookmarkKey + keyPresses}
         onNotice={props.onNotice}
+        openOverlay={openMenu}
         onOpenChange={props.onMenuOpenChange}
       />
       <BookmarkMenu

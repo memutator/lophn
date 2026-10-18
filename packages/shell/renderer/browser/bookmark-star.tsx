@@ -1,4 +1,5 @@
-// 주소 칸 끝의 별. 빈 별은 눌러 더하고, 채운 별은 눌러 title을 고치거나 지우는 popover를 연다.
+// 주소 칸 끝의 별. 빈 별은 눌러 더하고, 채운 별은 눌러 popover를 연다.
+// overlay api가 있으면 popover는 overlay view(title과 [Remove])라 page를 숨기지 않고, 없으면 DOM popover에서 title도 고친다.
 // Ctrl/Cmd+D는 `presses`가 올라 별을 누른 것과 같은 동작을 한다.
 import { useEffect, useRef, useState } from "react";
 import { Field, Input } from "@lophn/ui/input";
@@ -7,6 +8,7 @@ import { Popover } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { Bookmark } from "../../ipc/browser.ts";
+import type { OpenMenu } from "./overlay-menu.ts";
 import { browserIcons } from "../icons/mod.ts";
 import { bookmarkReasonText, type Bookmarks, hostOf } from "./bookmarks.ts";
 import styles from "./bookmark.module.css";
@@ -20,6 +22,8 @@ interface BookmarkStarProps {
   /** 올라갈 때마다 별을 누른 것과 같은 동작을 한다(Ctrl/Cmd+D). */
   presses: number;
   onNotice(text: string): void;
+  /** overlay api가 없는 창(dev mock, gallery)이면 null. */
+  openOverlay: OpenMenu | null;
   /** popover가 열려 있는 동안 탭이 native view를 숨긴다. */
   onOpenChange(open: boolean): void;
 }
@@ -29,6 +33,7 @@ export function BookmarkStar(props: BookmarkStarProps) {
   const existing = bookmarks.bookmarks.find((item) => item.url === url);
   const disabled = url === "" || bookmarks.state !== "ok";
   const [open, setOpen] = useState(false);
+  const anchor = useRef<HTMLSpanElement>(null);
   const shown = open && existing !== undefined;
 
   const change = (next: boolean) => {
@@ -42,7 +47,20 @@ export function BookmarkStar(props: BookmarkStarProps) {
   const press = () => {
     if (disabled) return;
     if (existing === undefined) void add();
-    else change(true);
+    else if (props.openOverlay !== null && anchor.current !== null) {
+      const { id } = existing;
+      void props.openOverlay(
+        anchor.current,
+        existing.title || hostOf(existing.url),
+        [{ id: "remove", label: t("settings.button.bookmark-remove") }],
+        "popover",
+      ).then((picked) => {
+        if (picked !== "remove") return;
+        bookmarks.remove(id).catch((error) =>
+          onNotice(bookmarkReasonText(error))
+        );
+      });
+    } else change(true);
   };
   const latest = useRef(press);
   latest.current = press;
@@ -56,11 +74,19 @@ export function BookmarkStar(props: BookmarkStarProps) {
   }, [open, existing === undefined]);
 
   return (
-    <span className={existing === undefined ? undefined : styles.filled}>
+    <span
+      ref={anchor}
+      className={existing === undefined ? undefined : styles.filled}
+    >
       <Popover
         open={shown}
         // 채우기 전의 누름은 trigger onClick이 더한다. 열고 닫기는 채운 별만 한다.
-        onOpenChange={(next) => existing !== undefined && change(next)}
+        onOpenChange={(next) => {
+          if (existing === undefined) return;
+          // overlay가 있으면 DOM popover를 열지 않고 overlay popover를 연다.
+          if (next && props.openOverlay !== null) press();
+          else change(next);
+        }}
         trigger={
           <IconButton
             icon={browserIcons.star}

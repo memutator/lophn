@@ -20,6 +20,8 @@ export type OpenMenu = (
   trigger: HTMLElement,
   label: string,
   choices: readonly MenuChoice[],
+  // popover는 label을 머리글로 그린다(별 popover).
+  kind?: "menu" | "popover",
 ) => Promise<string | null>;
 
 type Pending = {
@@ -35,10 +37,21 @@ let serial = 0;
 const ROW = 32;
 const PAD = 4;
 
-function menuBox(trigger: DOMRect, choices: readonly MenuChoice[]) {
-  const longest = Math.max(0, ...choices.map((choice) => choice.label.length));
+function menuBox(
+  trigger: DOMRect,
+  label: string,
+  choices: readonly MenuChoice[],
+  kind: "menu" | "popover",
+) {
+  // popover의 머리글 한 줄은 menu 줄과 같은 높이로 어림한다.
+  const heading = kind === "popover" ? label.length : 0;
+  const longest = Math.max(
+    heading,
+    ...choices.map((choice) => choice.label.length),
+  );
   const width = Math.min(360, Math.max(160, longest * 8 + 40));
-  const height = choices.length * ROW + PAD * 2;
+  const height = (choices.length + (kind === "popover" ? 1 : 0)) * ROW +
+    PAD * 2;
   const maxWidth = Math.max(1, Math.floor(globalThis.innerWidth));
   const maxHeight = Math.max(1, Math.floor(globalThis.innerHeight));
   const w = Math.min(width, maxWidth);
@@ -80,30 +93,33 @@ export function useOverlayMenu(): OpenMenu | null {
     };
   }, [overlay]);
 
-  const open = useCallback<OpenMenu>(async (trigger, label, choices) => {
-    const made = consumer.current;
-    if (made === null || pending.current !== null) return null;
-    const requestId = `browser-menu-${++serial}`;
-    const box = trigger.getBoundingClientRect();
-    const shown = choices.slice(0, MENU_LIMIT);
-    let settle!: (id: string | null) => void;
-    const answer = new Promise<string | null>((resolve) => settle = resolve);
-    const mine: Pending = { requestId, identity: null, settle };
-    pending.current = mine;
-    const opened = await made.open({
-      requestId,
-      kind: "menu",
-      anchorRect: menuBox(box, shown),
-      model: { label, choices: shown },
-    }, trigger);
-    if (pending.current !== mine) return answer;
-    if (opened.ok) mine.identity = opened.value;
-    else {
-      pending.current = null;
-      settle(null);
-    }
-    return answer;
-  }, []);
+  const open = useCallback<OpenMenu>(
+    async (trigger, label, choices, kind = "menu") => {
+      const made = consumer.current;
+      if (made === null || pending.current !== null) return null;
+      const requestId = `browser-menu-${++serial}`;
+      const box = trigger.getBoundingClientRect();
+      const shown = choices.slice(0, MENU_LIMIT);
+      let settle!: (id: string | null) => void;
+      const answer = new Promise<string | null>((resolve) => settle = resolve);
+      const mine: Pending = { requestId, identity: null, settle };
+      pending.current = mine;
+      const opened = await made.open({
+        requestId,
+        kind,
+        anchorRect: menuBox(box, label, shown, kind),
+        model: { label, choices: shown },
+      }, trigger);
+      if (pending.current !== mine) return answer;
+      if (opened.ok) mine.identity = opened.value;
+      else {
+        pending.current = null;
+        settle(null);
+      }
+      return answer;
+    },
+    [],
+  );
 
   return overlay === null ? null : open;
 }

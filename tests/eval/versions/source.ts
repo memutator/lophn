@@ -21,7 +21,13 @@ export function denoGit(root: string): Git {
 
 // 제품 코드(packages, deno.json, deno.lock)의 변경만 센다. runs, registry, scorecards, materials는
 // run이 스스로 쓰므로 세면 늘 dirty가 된다.
-const TARGET = ["packages", "deno.json", "deno.lock"];
+// desktop core의 deno.lock은 commit하지 않는 file인데 check와 core 기동이 늘 고쳐 둔다.
+const TARGET = [
+  "packages",
+  "deno.json",
+  "deno.lock",
+  ":(exclude)packages/shell/main/desktop/core/deno.lock",
+];
 
 export async function captureSource(
   deps: Deps & { git?: Git } = {},

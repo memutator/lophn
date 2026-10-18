@@ -118,8 +118,15 @@ export type ProjectPlaceholders = {
   "project-workspace.button.float-close": Record<never, never>;
   "project-workspace.button.float-dock": Record<never, never>;
   "project-workspace.button.float-minimize": Record<never, never>;
+  "project-workspace.button.float-restore": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.manage-agents": Record<never, never>;
+  "project-workspace.button.minimized-count": {
+    count: "string";
+  };
+  "project-workspace.button.minimized-more": {
+    count: "plural";
+  };
   "project-workspace.button.move-pane": Record<never, never>;
   "project-workspace.button.new-session-with": {
     agent: "string";
@@ -178,6 +185,7 @@ export type ProjectPlaceholders = {
   "project-workspace.label.menu-document": Record<never, never>;
   "project-workspace.label.menu-search": Record<never, never>;
   "project-workspace.label.menu-terminal": Record<never, never>;
+  "project-workspace.label.minimized": Record<never, never>;
   "project-workspace.label.path": Record<never, never>;
   "project-workspace.label.rail-agent": Record<never, never>;
   "project-workspace.label.rail-contexts": Record<never, never>;

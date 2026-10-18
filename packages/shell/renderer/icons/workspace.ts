@@ -19,6 +19,7 @@ import {
   Library,
   ListX,
   type LucideIcon,
+  Maximize2,
   Minus,
   PanelLeft,
   PanelRight,
@@ -66,4 +67,6 @@ export const workspaceIcons = {
   // floated 패널 위 bar의 [Minimize]와 [Dock].
   minimize: Minus,
   dock: Dock,
+  // 접힌 항목을 접기 전 자리로 되돌린다.
+  restore: Maximize2,
 } as const satisfies Record<string, LucideIcon>;

@@ -21,6 +21,7 @@ import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { openProjectManager } from "./reactions/project-manager.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
+import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
 import {
@@ -1111,6 +1112,17 @@ export function Workspace(props: WorkspaceProps) {
                       ? <LauncherButton onLauncher={onLauncher} />
                       : null}
                     <Breadcrumbs crumbs={crumbs} />
+                    <MinimizedBar
+                      items={view.floats.filter((item) => item.minimized)}
+                      stripTab={stripTab}
+                      onRestore={(key) =>
+                        update(restoreFloat(latest.current, key))}
+                      onDock={(key) => {
+                        update(dockTab(latest.current, key));
+                        focusPaneBody(latest.current.focusedPane);
+                      }}
+                      onClose={(key) => close(null, key)}
+                    />
                   </span>
                 }
                 trailing={

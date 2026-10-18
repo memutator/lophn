@@ -1,0 +1,58 @@
+/* 상단 바의 빈 자리. 이 줄 자체는 끌기 영역으로 두고 button만 top-bar 규칙으로 no-drag가 된다. */
+.row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: var(--space-0);
+  overflow: hidden;
+}
+
+/* 칸 폭(140px, +N은 40px)은 token에 없는 값이라 minimized-bar.tsx가 style로 준다. 개수도 같은 상수로 센다. */
+.chip,
+.more {
+  box-sizing: border-box;
+  flex: none;
+  height: var(--control-sm-height);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  cursor: pointer;
+}
+
+.chip:hover,
+.more:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-0) var(--space-4);
+}
+
+.icon {
+  display: flex;
+  flex: none;
+}
+
+.title {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 오른쪽 클릭한 자리에 menu를 붙잡아 두는 빈 anchor. */
+.menuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}

@@ -24,6 +24,7 @@
 
 .leading {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: var(--space-4);
   min-width: var(--space-0);

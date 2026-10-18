@@ -6,7 +6,7 @@
 kind: bug
 modules: [packages/core/apps, packages/core/agent-roles]
 closed: fixed
-guard: 없음
+guard: core 기동의 memory route 대조(`packages/core/main/daemon/core.ts`의 `memoryRouteMismatch`)
 ```
 
 지금:
@@ -63,7 +63,7 @@ guard: packages/core/agent-roles/tool-lists_test.ts "app.app_api is only in the 
 kind: bug
 modules: [packages/sdk, packages/core/apps, packages/coding-agent]
 closed: fixed
-guard: packages/core/apps/permissions/broker/net-fetch_test.ts, packages/core/apps/permissions/secret-value_test.ts, packages/core/secrets/file-attach_test.ts, packages/core/supervision/security/launch-spec_test.ts, tests/e2e/app-call_test.ts의 step net-fetch-loopback
+guard: packages/core/apps/permissions/broker/net-fetch_test.ts, packages/core/apps/permissions/secret-value_test.ts, packages/core/secrets/file-attach_test.ts, packages/core/supervision/security/launch-spec_test.ts, tests/e2e/app-call_test.ts의 step net-fetch-loopback, core 기동의 memory route 대조(`memoryRouteMismatch`)
 ```
 
 지금:

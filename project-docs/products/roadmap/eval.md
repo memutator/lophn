@@ -207,6 +207,7 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 - template의 `withStore`는 일하는 중의 예외를 모두 `store_unavailable`로 바꿔 다시 던진다. 그래서 stack이 사라지고, 그 꼴이 복사된다.
 - 보고에 붙은 stack 글(`snapshot_stack`)을 읽는 route가 없다. message, details, log는 `problem.body`와 `problem body`로 읽는다.
 - App Engineer 지침에는 "a repeating problem closed"라는 reaction이 있지만 그런 event는 없다.
+- 재현 확인이 없다. `app_test`는 business logic을 보지 않는다. App Engineer가 쓴 `examples`는 고친 release에서만 돌아, 고치기 전에 증상이 재현되는지(진단이 맞는지)는 보지 않는다.
 
 ### 지침
 

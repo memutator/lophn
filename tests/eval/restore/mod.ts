@@ -1,6 +1,6 @@
 // trial마다 새 data root에 재료를 제품 route로 되살린다. 되살리는 동안만 fake provider를 전역 기본 model로 붙이고,
 // 끝나면 떼어 root에 model이 어디에도 없게 한다(진짜 model은 ev-provider가 붙인다).
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { ok, type Result } from "../../../packages/base/mod.ts";
 import {
   type AgentRef,
   modelDefaultChange,
@@ -9,7 +9,10 @@ import type { Core } from "../../support/core/mod.ts";
 import { connectFakeProvider } from "../../support/core/human.ts";
 import { startFakeServer } from "../../support/fake-server/mod.ts";
 import type { Participant, SetupContext, WorldIds } from "../types.ts";
+import { restoreActiveApp } from "./active-app.ts";
+import { restoreAppData } from "./app-data.ts";
 import { restoreApps } from "./apps.ts";
+import { restoreCall } from "./call.ts";
 import { restoreContext } from "./context.ts";
 import {
   type Material,
@@ -18,6 +21,7 @@ import {
   verifyMaterial,
 } from "./manifest.ts";
 import { restoreOperators } from "./operators.ts";
+import { restorePackage } from "./package.ts";
 import { restoreProjects } from "./projects.ts";
 
 export async function beginRestore(core: Core): Promise<SetupContext> {
@@ -47,14 +51,14 @@ async function restoreOne(
       await restoreOperators(ctx, material);
       return ok(undefined);
     case "active_app":
+      return await restoreActiveApp(ctx, material);
     case "app_data":
+      return await restoreAppData(ctx, material);
     case "package":
+      return await restorePackage(ctx, material);
     case "call":
-      return err({
-        code: "unavailable",
-        message:
-          `material kind ${material.manifest.kind} is restored by ec-restore`,
-      });
+      await restoreCall(ctx, material);
+      return ok(undefined);
   }
 }
 
@@ -76,6 +80,10 @@ export async function restoreWorld(
   }
   return ok(undefined);
 }
+
+export { deliverCall } from "./deliver.ts";
+export { restoreCoreEnv } from "./env.ts";
+export { saveMaterials } from "./save.ts";
 
 export async function endRestore(ctx: SetupContext): Promise<void> {
   await ctx.core.call(modelDefaultChange, { default: null });

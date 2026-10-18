@@ -6,6 +6,7 @@ Deno.test("driverEnv drops nested-session markers and keeps the rest", () => {
   const env = driverEnv({
     CLAUDE_CODE_CHILD_SESSION: "1",
     CLAUDECODE: "1",
+    ANTHROPIC_API_KEY: "sk-test",
     CLAUDE_CONFIG_DIR: "/home/p/.claude-alt",
     HOME: "/home/p",
     UNSET: undefined,

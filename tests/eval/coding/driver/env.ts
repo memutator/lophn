@@ -14,6 +14,8 @@ const NESTED = [
   "CLAUDE_CODE_SUBAGENT_MODEL",
   "CLAUDE_PID",
   "CLAUDE_EFFORT",
+  // eval의 .env에서 온 실제 key다(role agent와 judge용). 사람의 로그인이 아니라 이 key로 과금되면 안 된다.
+  "ANTHROPIC_API_KEY",
 ];
 
 // host의 env로 넘긴다. platform 값은 host(createCodingHost)가 지우므로 여기서 또 지우지 않는다.

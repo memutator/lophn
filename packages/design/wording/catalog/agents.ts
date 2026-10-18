@@ -13,7 +13,7 @@ export const agents = {
   "agents.label.settings-lophn-model-none": "Model: No model chosen yet",
   "agents.label.settings-lophn-model-own": "Model: {model}",
   "agents.notice.providers-custom-key":
-    "Typed in a protected prompt after you connect, outside this window. Skip it if you manage sign-in through headers.",
+    "Typed in a protected prompt after you connect, outside this window.",
   "agents.notice.providers-disconnect-body":
     "lophn forgets the saved key or sign-in for {name}. Agents can't use it until you connect again.",
   "agents.notice.providers-disconnect-failed":

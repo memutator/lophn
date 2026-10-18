@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-bookmark-ipc` | bt-bookmark | 2 | bt-bookmark-store, bt-view | merged | bt-bookmark/bt-bookmark-ipc | ac667e3d6 |  |
 | `bt-bookmark-store` | bt-bookmark | 2 | 없음 | merged | bt-bookmark/bt-bookmark-store | 639e1e033 |  |
 | `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | todo |  |  |  |
-| `bt-popup-host` | bt-popup | 2 | bt-view | running | bt-popup/bt-popup-host |  |  |
+| `bt-popup-host` | bt-popup | 2 | bt-view | merged | bt-popup/bt-popup-host | 589712cf6 |  |
 | `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | todo |  |  |  |
 | `bt-settings-bookmarks` | bt-settings | 2 | bt-settings-clear, bt-bookmark-ipc | todo |  |  |  |
 | `bt-settings-clear` | bt-settings | 2 | bt-tab-page | running | bt-settings/bt-settings-clear |  |  |

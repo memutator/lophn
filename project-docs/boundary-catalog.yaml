@@ -101,7 +101,7 @@ elements:
 
           - id: models
             kind: component
-            description: model catalog, provider 연결, provider가 알려 주는 model 목록.
+            description: model catalog, 사람이 적은 custom model 정보, provider 연결, provider가 알려 주는 model 목록.
 
       - id: events
         kind: component

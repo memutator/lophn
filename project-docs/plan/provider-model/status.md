@@ -5,8 +5,8 @@ lead만 고친다. `tools/status.py provider-model build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `pm-reported-models` | pm-contract | 1 | 없음 | merged | pm-contract/pm-reported-models | f9f09e1c8 |  |
-| `pm-custom-list` | pm-core | 2 | pm-reported-models | todo |  |  |  |
-| `pm-model-rules` | pm-core | 2 | pm-reported-models | todo |  |  |  |
+| `pm-custom-list` | pm-core | 2 | pm-reported-models | running | pm-core/pm-custom-list |  |  |
+| `pm-model-rules` | pm-core | 2 | pm-reported-models | running | pm-core/pm-model-rules |  |  |
 | `pm-connect-flow` | pm-screens | 3 | 없음 | todo |  |  |  |
 | `pm-picker-data` | pm-screens | 3 | pm-custom-list, pm-model-rules | todo |  |  |  |
 | `pm-picker-ui` | pm-screens | 4 | pm-picker-data, pm-connect-flow | todo |  |  |  |

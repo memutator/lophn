@@ -11,7 +11,7 @@ deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [
     버전 확인          재료 hash(restore), 시나리오·criterion·judge hash(versions)를 registry와 댄다
     fixture 확인       checks/validate.ts: right는 모든 program check 통과, wrong은 적은 check가 떨어져야 한다
     key가 없으면       여기서 0으로 끝난다(진짜 provider를 부르지 않는다)
-    coding 시나리오면   TMPDIR이 비어 있을 때 /tmp/lophn-eval로 둔다(사람이 한 번 trust한 폴더)
+    coding 시나리오면   TMPDIR이 비어 있을 때 /tmp/lophn-eval로 둔다(짧은 socket 경로)
     시나리오마다 trial마다 (runner/trials.ts, 상한 runner/cap.ts)
       runner/trial.ts
         createRun · bootCore(evalCoreSettings(), restoreCoreEnv(world))   tests/support/core, provider/, restore/env.ts
@@ -44,7 +44,7 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 | `tests/eval/registry/` | `<kind>/<name>.json`. n → hash, 글 component·criterion·judge는 내용도. commit한다 |
 | `tests/eval/materials/<이름>/<n>/` | `material.json`(kind, 고정 id, needs, parent, content_hash)과 `files/`. commit한다 |
 | `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `context.ts`, `operators.ts`, `active-app.ts`, `app-data.ts`, `package.ts`, `call.ts`), call 본문 보내기(`deliver.ts`), 산출물을 새 재료로 쓰기(`save.ts`), setup helper(`setup.ts`) |
-| `tests/eval/coding/driver/` | desktop shell의 터미널 몫. launch plan으로 PTY를 열고(shell의 `createCodingHost` 그대로), `lophn` wrapper(`wrapper.ts`), 보고 뒤 `/exit`와 끊기, attach socket(`screen.ts`, `attach.ts`), hook·skill 설치 확인(`prepare.ts`) |
+| `tests/eval/coding/driver/` | desktop shell의 터미널 몫. launch plan으로 PTY를 열고(shell의 `createCodingHost` 그대로), `lophn` wrapper(`wrapper.ts`), 보고 뒤 `/exit`와 끊기, folder trust 답하기(`trust.ts`), PTY 입력은 libc `write`로(Deno의 `node:fs`가 node-pty master fd를 몰라 EBADF), attach socket(`screen.ts`, `attach.ts`), hook·skill 설치 확인(`prepare.ts`) |
 | `tests/eval/coding/metrics/` | Claude Code session JSONL의 token·tool 오류(`jsonl.ts`), wrapper 기록의 명령(`commands.ts`), `CodingRecord` 합치기(`record.ts`) |
 | `tests/eval/human/` | 사람 역할. 요구 카드로 `ask`에 답하기(`answer.ts`, `human.json`, `prompt.md`), 허락 규칙대로 결정하기(`approve.ts`), poll마다 한 번 처리(`role.ts`) |
 | `tests/eval/checks/app/` | 끝난 world를 보는 live check(앱이 켜졌나, app-api가 기대대로 답하나, 재사용, observation, 진단)와 그 judge 입력 |
@@ -72,7 +72,7 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 - **비용 상한.** runner는 끝난 trial의 `cost_usd`(model call의 USD cost)와 judge 비용을 더해 `--budget`(기본 $50) 이상이면 새 trial을 띄우지 않는다. 값을 모르는 call(`unpriced_calls`)이 있으면 한 번 경고한다. 판단 case는 core 설정 `lophn-agent.run.model_attempts`를 15로 낮춰 돈다.
 - **`tests/eval`의 `*_test.ts`는 `deno task check`에서 돈다.** 그래서 모두 순수하다. core를 띄우지 않고, process·network·진짜 provider를 쓰지 않는다. runner와 시나리오 file은 test file이 아니다.
 - **coding agent는 사람 환경의 진짜 Claude Code다.** App Engineer가 맡기면 core가 만든 launch plan 그대로 driver가 PTY로 띄운다. 사람의 HOME, 설치된 Claude Code, 그 로그인을 그대로 쓴다. driver는 dev에 없는 것만 더한다: PATH 앞의 `lophn` wrapper(명령 시각을 기록 file에 적는다)와 `LOPHN_DAEMON_URL`. 상속 env에서 Claude Code 중첩 표시(`CLAUDE_CODE_CHILD_SESSION` 등, 있으면 session 기록을 안 쓴다)와 `ANTHROPIC_API_KEY`(eval의 `.env`에서 온 key라 Claude Code가 그것으로 과금하지 않게)를 지운다. model(`claude-sonnet-5-5`)과 harness는 제품 설정 `coding-agent.default_model`·`default_harness`로 준다.
-- **터미널 앞의 사람 몫은 한 번만 사람이 한다.** folder trust는 trial root를 `/tmp/lophn-eval` 아래에 두고 사람이 그 폴더를 한 번 믿는다. hook·skill은 사람이 main checkout의 wrapper(`.dev-data/eval/bin/lophn`)로 한 번 설치하고, runner는 `dry_run`으로 확인만 하며 없으면 명령을 찍고 멈춘다. permission 물음은 사람의 권한 설정 그대로이고, 뜨면 session이 `waiting`으로 남아 기록(`permission_requests`)에 든다. eval 전용 flag는 없다.
+- **터미널 앞의 사람 몫.** Claude Code는 앱 source마다(자기 `.git`이 있어 상위 폴더 trust가 이어지지 않는다) folder trust를 묻는다. driver가 그 화면만 알아보고, 화면이 1초 그대로인 뒤 아래 화살표를 넣고 커서가 "Yes"일 때만 Enter를 넣는다(`trust.ts`, `CodingTrace.trust_answered`). hook·skill은 사람이 main checkout의 wrapper(`.dev-data/eval/bin/lophn`)로 한 번 설치하고, runner는 `dry_run`으로 확인만 하며 없으면 명령을 찍고 멈춘다. permission 물음은 사람의 권한 설정 그대로이고, 뜨면 session이 `waiting`으로 남아 기록(`permission_requests`)에 든다. eval 전용 flag는 없다.
 - **coding agent 수치는 role agent 수치와 섞지 않는다.** `Metrics`는 role agent만 센다. coding agent의 token·tool 오류·명령은 `TrialRecord.coding`에 있다. token은 그 trial의 cwd에 해당하는 Claude Code session JSONL(subagent 포함)을 읽기만 해서 `message.id`로 중복을 빼고 센다. 비용은 세지 않는다.
 - **사람 역할은 카드와 허락 규칙만 따른다.** `ask`에는 요구 카드, 앞서 한 답, 질문만 본 model이 답하고 카드 밖 질문에는 "추천대로 해 줘"다. 허락은 시나리오의 `approve` 규칙대로 program이 제품 route로 낸다. 규칙에 없는 종류는 거절이다. 사람 역할이 있으면 `ask` 대기와 보류 허락은 쉼이 아니다.
 - **trial 상한.** role agent·judge·사람 역할의 비용이 trial마다 `--trial-budget`(기본 $50)을 넘으면 그 trial을 timeout으로 끝낸다. coding agent에는 돈 상한이 없고 시간 상한(`CODING_TRIAL_LIMIT_MS`, 90분)만 있다.

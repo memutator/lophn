@@ -41,8 +41,6 @@ export interface BrowserSessionHandle {
   clearCache(): Promise<void>;
 }
 
-const installed = new WeakSet<BrowserSessionHandle>();
-
 /** 같은 이름의 header는 대소문자가 달라도 하나만 남긴다. */
 function setHeader(
   headers: Record<string, string>,
@@ -64,11 +62,6 @@ export function installBrowserSession(
     platform: string;
   },
 ): { clearData(): Promise<void> } {
-  if (installed.has(handle)) {
-    throw new Error("browser session already installed");
-  }
-  installed.add(handle);
-
   handle.onPermissionRequest(decidePermission);
   handle.onPermissionCheck(decidePermission);
   handle.denyDevices();

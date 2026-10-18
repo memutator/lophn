@@ -37,8 +37,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 목표, 근거(annotation의 메모,
-   component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 볼 곳과 지킬
-   것을 읽는다. 작업 가능하지 않다고 나오면 claim하지 않고 `message send`로
+   component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 보고할 실패
+   분기와 이름, 볼 곳과 지킬 것을 읽는다. 작업 가능하지 않다고 나오면 claim하지 않고 `message send`로
    알린다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
@@ -75,6 +75,13 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 6. 구현한다. 화면과 app api(`src/app-api.ts`의 handler, 화면에서는
    `lophnApp.call(api, input)`)는 blueprint 선언과 맞게 쓰고, 생성물은 손으로
    고치지 않는다. 기존 fixture와 ticket의 지킬 것을 보존한다.
+   ticket이 적은 실패 분기마다 `@lophn/cap-problem`의 `reportProblem(name,
+   message)`을 그 자리에 둔다. 원인이 다른 실패는 이름을 나눈다(같은 이름은 한
+   problem으로 묶인다). 진입점이 이미 보고하는 잡히지 않은 예외와 handler가 던진
+   `Error`는 따로 보고하지 않는다. 대상은 거절로 끝나는 업무 분기, 외부 호출
+   실패, 조용히 넘어가는 fallback이다. ticket에 보고 자리가 없는데 필요해
+   보이면 `message send`로 App Engineer에게 청한다. 규칙은 cap-problem
+   `guide.md`를 읽는다.
 7. release를 준비한다. 구현을 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. claim이
    만료되었으면 준비하지 않고 먼저 `ticket show`로 claim을 확인한다. 준비가

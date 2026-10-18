@@ -38,7 +38,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 대상 문제, 증상, 근거, acceptance
-   조건(원래 증상 reproduction test 포함), 볼 곳과 지킬 것을 읽는다.
+   check(하나. `app_test`, `test_command`, `text` 중 하나), 볼 곳과 지킬 것을
+   읽는다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    `claim_seq`와 `expires_at`을 기억하고 기한 전에 필요하면 `ticket renew`를
    부른다.
@@ -49,15 +50,20 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    `problem diff`로 읽는다. 앱 쪽 사실은 `app status`, `app invocations`,
    `app logs`로 읽는다. 전체 목록이나 전체 log를 한 번에 가져오지 않는다.
 5. 고친다. 원인 가설을 세우고 최소 변경으로 source를 고친다. 먼저 원래 증상을
-   재현하는 테스트를 만든다(수리 전에는 실패하고 수리 뒤에는 통과). 기존
-   fixture와 ticket의 지킬 것을 보존한다. 테스트 기대값을 낮춰서 문제를 숨기지
+   재현하는 테스트를 앱 `tests/`에 만들고 `deno task test`로 수리 전에는
+   실패하고 수리 뒤에는 통과하는 것을 직접 확인한다. 직접 돌린 결과는 test
+   result가 아니므로 보고 summary에 "수행한 확인"으로 적는다. 기존 fixture와
+   ticket의 지킬 것을 보존한다. 테스트 기대값을 낮춰서 문제를 숨기지
    않는다. blueprint나 의존을 바꿔야 하면 직접 고치지 않고 `message send`로 App
    Engineer에게 청한다.
 6. release를 준비한다. 변경한 source를 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. 준비가 끝나면
    `bundle_hash`와 `test`(고정 시험 hash)가 나온다. 준비는 activation이 아니다.
 7. 실제 테스트와 preview를 한다. `app test`의 `target.bundle_hash`와 `test`에
-   6에서 읽은 값을 넣어 원래 증상 reproduction과 app test를 요청한다.
+   6에서 읽은 값을 넣어 ticket의 check를 요청한다. `app test`는 ticket의 check
+   하나를 돌리는 요청이다. `text` check는 runner가 돌리지 않는다. `app test`가
+   `unavailable`로 거절되면(check가 돌지 않는 경우) 다시 요청하지 않고, 돌리지
+   못한 확인으로 `ticket report`의 summary에 이유와 함께 적는다.
    `app test status`로 `result_ref`를 읽고 `app test result`로 결과를 읽는다.
    결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면 고쳐서
    6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로 fixture

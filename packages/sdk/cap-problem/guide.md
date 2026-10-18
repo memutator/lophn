@@ -6,6 +6,16 @@
 앱이 같은 이름으로 보고하면 한 문제로 묶인다. problem을 직접 닫거나 상태를
 바꾸는 API는 없다.
 
+## 이름으로 묶기
+
+- 같은 앱이 같은 이름으로 보고하면 한 문제로 묶인다. 원인이 다르면 이름을
+  나눈다.
+- 이름은 원인을 말하고 안정적이다. id나 시각처럼 바뀌는 값을 넣지 않는다.
+  바뀌는 값은 `details`에 둔다.
+- 보고할 곳: 거절로 끝나는 업무 분기, 외부 호출 실패, 조용히 넘어가는 fallback.
+- 보고하지 않을 곳: 잡히지 않은 예외와 handler가 던진 `Error`. 앱 진입점이
+  저절로 보고한다.
+
 ## 공개 API와 type
 
 ```ts
@@ -48,9 +58,9 @@ import {
 import { reportProblem } from "@lophn/cap-problem";
 
 const reported = reportProblem(
-  "sync_failed",
-  "서버에 동기화하지 못했다",
-  { command: "sync" },
+  "sync_server_unreachable",
+  "서버에 연결하지 못해 동기화를 건너뛰었다",
+  { command: "sync", attempt: 3 },
 );
 await reported.completion;
 ```

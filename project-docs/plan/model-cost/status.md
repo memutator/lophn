@@ -4,4 +4,4 @@ lead만 고친다. `tools/status.py model-cost build`가 `tasks/*.md`에서 id, 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mc-cost` | mc-cost | 1 | 없음 | todo |  |  |  |
+| `mc-cost` | mc-cost | 1 | 없음 | running | mc-cost/mc-cost |  |  |

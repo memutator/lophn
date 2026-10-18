@@ -67,9 +67,11 @@ roadmap "정한 것" 가운데 이 계획에 걸리는 것은 다시 적지 않�
 
 `tasks/ev-contract.md`가 정본이다. 다른 brief는 그 이름과 칸으로 서로 기댄다.
 
-## 사람이 정할 것
+## 진짜 provider
 
-- worker가 계획 중에 진짜 provider를 부르는 것(roadmap "정할 것" 1). 추천은 `claude-haiku-5-5`로만, 계획 전체 $5. 정해질 때까지 worker는 진짜 provider를 부르지 않고 fake provider와 fixture로만 확인한다. lead는 첫 진짜 run 전에 사람에게 `.env`의 key를 받는다.
+- 계획 중에 진짜 provider를 부르는 것은 허용됐다(사람). worker와 lead가 runner가 도는지 보는 확인은 `claude-haiku-5-5`로만, 계획 전체 $5 안에서 한다(agent: 추천을 상한으로 둔다).
+- 끝에 돌리는 첫 scorecard는 `claude-sonnet-5-5`, trial 1, 상한 $50(위 "정한 것")이다.
+- key는 main checkout의 `.env`(`ANTHROPIC_API_KEY`)에 있다. worktree에서는 `--env-file=<main checkout>/.env`로 읽는다. key를 찍거나 옮기거나 commit하지 않는다.
 
 ## lead가 할 일
 

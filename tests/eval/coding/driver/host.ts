@@ -38,6 +38,38 @@ export type EvalTerminal = {
   onRuntime(listener: (runtime: TerminalRuntime) => void): void;
 };
 
+const libc = Deno.dlopen(
+  process.platform === "darwin" ? "libSystem.B.dylib" : "libc.so.6",
+  { write: { parameters: ["i32", "buffer", "usize"], result: "isize" } },
+);
+
+// Deno의 node:fs는 native addon이 만든 master fd를 자기 resource로 몰라 write가 EBADF가 된다
+// (읽기는 tty.ReadStream이라 된다). 입력은 짧은 키라서 libc write를 직접 부른다.
+function loadNodePty(): ReturnType<
+  NonNullable<Parameters<typeof nodePtyAdapter>[0]>
+> {
+  const nodePty = createRequire(
+    `${CHECKOUT}/packages/shell/main/package.json`,
+  )("node-pty");
+  const spawn = nodePty.spawn;
+  return {
+    spawn(...args: unknown[]) {
+      const term = spawn(...args);
+      term.write = (data: string) => {
+        let rest = new TextEncoder().encode(data);
+        while (rest.length > 0) {
+          const n = Number(
+            libc.symbols.write(term.fd, rest, BigInt(rest.length)),
+          );
+          if (n < 0) throw new Error("pty write failed");
+          rest = rest.subarray(n);
+        }
+      };
+      return term;
+    },
+  };
+}
+
 export function createEvalTerminal(deps: {
   core: Core;
   gate: FocusGate;
@@ -76,9 +108,7 @@ export function createEvalTerminal(deps: {
     schedule: setImmediate,
     coding: createCodingHost(),
     // node-pty는 shell main의 의존성이라 Deno의 기본 경로 탐색으로는 못 찾는다.
-    pty: nodePtyAdapter(() =>
-      createRequire(`${CHECKOUT}/packages/shell/main/package.json`)("node-pty")
-    ),
+    pty: nodePtyAdapter(loadNodePty),
     onRuntime: notify,
   });
 

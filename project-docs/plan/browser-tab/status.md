@@ -14,7 +14,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | todo |  |  |  |
 | `bt-settings-bookmarks` | bt-settings | 2 | bt-settings-clear, bt-bookmark-ipc | merged | bt-settings/bt-settings-bookmarks | 4810cc5b3 |  |
 | `bt-settings-clear` | bt-settings | 2 | bt-tab-page | merged | bt-settings/bt-settings-clear | e84fc37cd |  |
-| `bt-tab-kind` | bt-tab | 2 | bt-tab-page | todo |  |  |  |
+| `bt-tab-kind` | bt-tab | 2 | bt-tab-page | running | bt-tab/bt-tab-kind |  |  |
 | `bt-tab-page` | bt-tab | 2 | bt-contract, bt-view | merged | bt-tab/bt-tab-page | 39c13995e |  |
 | `bt-view` | bt-view | 2 | bt-rules, bt-session, bt-contract | merged | bt-view/bt-view | 269e235ce |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui | todo |  |  |  |

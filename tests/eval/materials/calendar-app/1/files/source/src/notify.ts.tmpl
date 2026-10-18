@@ -1,0 +1,25 @@
+// 알림 앱에 일정 알림을 예약한다. 알림 앱의 id와 app-api는 blueprint의 app_connections와 같아야 한다.
+import { type AppApiClient } from "@lophn/cap-app-api";
+import { reportProblem } from "@lophn/cap-problem";
+
+export const NOTIFY_APP = "app_0000000000000000000000ntfy";
+export const REMINDER_MINUTES = 10;
+
+// 알림 호출이 실패해도 일정은 이미 저장했으므로 던지지 않고 "failed"로 돌려준다. 원인은 보고로 남긴다.
+export async function scheduleReminder(
+  client: Pick<AppApiClient, "call">,
+  title: string,
+  start: Date,
+): Promise<"scheduled" | "failed"> {
+  const at = start.getTime() - REMINDER_MINUTES * 60 * 1000;
+  const called = await client.call("notify.schedule", { title, at });
+  if (called.ok && called.value.outcome.status === "succeeded") {
+    return "scheduled";
+  }
+  reportProblem(
+    "notify_call_failed",
+    "the reminder app did not accept the reminder",
+    { api: "event.add" },
+  );
+  return "failed";
+}

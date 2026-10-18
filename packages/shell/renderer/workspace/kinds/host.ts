@@ -59,8 +59,8 @@ export interface AgentViewSlice {
   profileOf(agent: string): AvatarProfile | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
   dotOf(session: string | null): TabDot | null;
-  /** Change defaults…와 `/skills`·`/mcp`가 Settings › Agents로 간다. */
-  openSettings(target: "defaults" | "skills" | "mcp"): void;
+  /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
+  openSettings(target: "skills" | "mcp"): void;
   /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */
   openConnections(): void;
 }

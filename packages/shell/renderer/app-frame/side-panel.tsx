@@ -291,8 +291,7 @@ function AgentBody(
   const host: AgentViewHost = {
     // 권한 요약은 같은 칸의 관리 화면으로 간다.
     openPermissions: () => onState({ mode: "manage", agent: null }),
-    openAgentSettings: (target) =>
-      props.onSettings?.(target === "defaults" ? "agents" : "tools"),
+    openAgentSettings: () => props.onSettings?.("tools"),
     // Fork가 만든 session은 같은 칸에서 연다.
     openForked: (session) => onState({ mode: "agent", assignment, session }),
     // 사용량 화면과 첨부 통로는 아직 이 칸에 없다.

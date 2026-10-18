@@ -2,8 +2,8 @@
 
 앱이 `@lophn/cap-net`과 `@lophn/cap-secret`으로 loopback 서버를 부르면 broker를 지나 응답이 오고 secret이 붙는 것을 기존 앱 E2E 한 행으로 확인한다(사람이 허락한 행이다). 이 행이 첫 실제 실행이라 막는 곳이 나오면 그 task의 소유 범위 밖이라도 고치지 말고 보고한다.
 
-- 단위: rd-cap-live (wave 4)
-- 선행: rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs. 앞의 둘이 net과 secret을 열었다.
+- 단위: rd-cap-live (wave 5)
+- 선행: rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs, rd-ex-e2e. 앞의 둘이 net과 secret을 열었다. (lead가 더함: `tests/support/app/**`를 `rd-ex-e2e`가 먼저 고친다.)
 - 소유(이 task만 고친다):
   - `tests/e2e/app-call_test.ts`
   - `tests/support/app/**`

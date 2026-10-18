@@ -2,8 +2,8 @@
 
 App Engineer가 쓴 app-api 예시로 ticket을 검증하는 길이 process를 건너 끝까지 도는지, 기존 앱 E2E에 행 하나로 확인한다.
 
-- 단위: rd-ex (wave 5)
-- 선행: rd-ex-trigger, rd-cap-net-live. `rd-cap-net-live`가 `tests/support/app/**`를 고치므로 그 뒤에 한다.
+- 단위: rd-ex (wave 4)
+- 선행: rd-ex-trigger, rd-body-tool. `rd-body-tool`이 `tests/support/app/`에 patch를 더하므로 그 뒤에 한다(lead가 바꿈: `rd-cap-net-live`는 사람 답을 기다려 이 task가 먼저 간다).
 - 소유(이 task만 고친다):
   - `tests/e2e/app-release_test.ts`
   - `tests/support/app/**`

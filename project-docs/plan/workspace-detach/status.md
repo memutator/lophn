@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py workspace-detach build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `wd-contract` | wd-contract | 1 | wd-layout | todo |  |  |  |
+| `wd-contract` | wd-contract | 1 | wd-layout | merged | wd-contract/wd-contract | c955b0a5d |  |
 | `wd-layout` | wd-layout | 1 | 없음 | merged | wd-layout/wd-layout | 7a3a1c82d |  |
 | `wd-browser` | wd-browser | 2 | wd-native-move | todo |  |  |  |
 | `wd-main` | wd-main | 2 | wd-native-move | todo |  |  |  |

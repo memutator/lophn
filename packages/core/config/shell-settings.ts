@@ -64,6 +64,20 @@ const densitySetting = declareSetting({
   default: "comfortable",
 });
 
+// key는 packages/shell/main/browser-bridge/policy.ts의 LINK_SETTING_KEYS와 같은 글자여야 한다
+// (shell은 core를 import하지 못한다).
+const webLinksSetting = declareSetting({
+  key: "shell.browser.web_links",
+  type: z.enum(["browser_tab", "system_browser"]),
+  default: "browser_tab",
+});
+
+const localLinksSetting = declareSetting({
+  key: "shell.browser.local_links",
+  type: z.enum(["browser_tab", "system_browser"]),
+  default: "browser_tab",
+});
+
 export const shellSettings = [
   themeSetting,
   accentSetting,
@@ -75,4 +89,6 @@ export const shellSettings = [
   textSizeSetting,
   readingWidthSetting,
   densitySetting,
+  webLinksSetting,
+  localLinksSetting,
 ] as const;

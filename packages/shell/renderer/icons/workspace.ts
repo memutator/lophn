@@ -6,6 +6,7 @@ import {
   ClipboardCopy,
   Columns2,
   Copy,
+  Dock,
   FileCheck,
   FilePlus,
   FileText,
@@ -18,6 +19,7 @@ import {
   Library,
   ListX,
   type LucideIcon,
+  Minus,
   PanelLeft,
   PanelRight,
   Pin,
@@ -61,4 +63,7 @@ export const workspaceIcons = {
   collapseAll: ChevronsDownUp,
   revealInFiles: FolderOpen,
   copy: Copy,
+  // floated 패널 위 bar의 [Minimize]와 [Dock].
+  minimize: Minus,
+  dock: Dock,
 } as const satisfies Record<string, LucideIcon>;

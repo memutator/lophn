@@ -32,15 +32,19 @@ import {
   type CloseScope,
   closeTab,
   closeTargets,
+  dockTab,
   findTab,
   isFloated,
   mapTabs,
+  minimizeFloat,
   moveTab,
   moveTabBy,
   openTabIn,
   pinTab,
+  raiseFloat,
   reopenTab,
   restoreFloat,
+  setFloatRect,
   shiftTab,
   SIDEBAR_WIDTH,
   type SidebarState,
@@ -61,6 +65,7 @@ import {
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
+import { Floats } from "./floats/floats.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
@@ -1218,6 +1223,24 @@ export function Workspace(props: WorkspaceProps) {
                 stripTab={stripTab}
                 renderTab={renderTab}
                 renderKept={renderKept}
+              />
+              <Floats
+                floats={view.floats}
+                area={mainSize}
+                stripTab={stripTab}
+                renderTab={renderTab}
+                renderKept={renderKept}
+                onRaise={(key) => update(raiseFloat(latest.current, key))}
+                onRect={(key, rect) => {
+                  if (mainSize === undefined) return;
+                  update(setFloatRect(latest.current, key, rect, mainSize));
+                }}
+                onMinimize={(key) => update(minimizeFloat(latest.current, key))}
+                onDock={(key) => {
+                  update(dockTab(latest.current, key));
+                  focusPaneBody(latest.current.focusedPane);
+                }}
+                onClose={(key) => close(null, key)}
               />
             </div>
           </div>

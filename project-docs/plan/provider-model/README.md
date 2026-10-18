@@ -28,13 +28,14 @@
 
 - 저장은 따로, 흐름은 하나다(사람: "opencode, hermes 식으로").
 - provider가 알려 주는 model 목록:
-  - custom provider는 붙일 때와 사람이 "model 목록 다시 읽기"를 누를 때 `GET {base URL}/models`를 읽어 provider에 저장한다. 실패하면 앞 목록을 둔다.
+  - custom provider는 붙일 때와 사람이 "model 목록 다시 읽기"를 누를 때 `GET {provider endpoint}/models`를 읽어 그 provider의 credential에 저장한다. 실패하면 앞 목록을 둔다. 정의의 `models_endpoint`는 https만 받으므로 local http 주소는 endpoint에서 만든다.
   - ChatGPT 계정 model 목록과 같은 칸, 같은 길(발급자 요청 대기열)을 쓴다. 칸 이름은 두 쓰임에 맞게 바꾼다. 옛 이름은 남기지 않는다(AGENTS.md "호환성").
   - local http 주소도 같다.
 - 고를 수 있는 model:
   - provider가 알려 준 목록이 있으면 그 목록이다(catalog와 겹치면 catalog의 정보를 붙인다).
   - 목록이 없으면 지금처럼 catalog다.
-  - 어느 경우에도 이름을 직접 적을 수 있다.
+  - 이름을 직접 적을 수 있다. 예외는 provider가 알려 준 목록이 계정의 허락 목록일 때(구독 OAuth provider, 예: ChatGPT)다. 그때는 목록 밖 이름을 받지 않는다. 계획 `chatgpt-subscription`이 지킨 것이다(agent).
+  - custom provider의 목록은 찾기 위한 것이라 목록 밖 이름도 받는다(agent).
   - catalog는 고를 수 있는지를 정하지 않고 정보(context, output 한도, effort 축, vision)만 준다(agent, hermes 방식).
 - model picker:
   - model을 고르는 세 곳은 같은 picker를 쓴다.
@@ -42,7 +43,7 @@
   - 맨 아래에 "provider 붙이기" 줄을 둔다. 누르면 연결 대화창이 열리고, 붙인 뒤에는 그 provider의 model 목록으로 돌아온다(agent, opencode 방식).
   - 즐겨찾기는 지금처럼 맨 위다.
 - 처음 붙일 때: 전역 기본값이 없는 채로 provider를 붙이면, 붙인 직후 기본 model을 고르게 한다(agent).
-- 어디서 정해졌나: 대화의 model 표시와 Operator 정의의 Model 칸은, 지금 model이 어느 층(이 대화, agent 정의, project, 전역 기본값)에서 왔는지 보여 준다(agent).
+- 어디서 정해졌나: 대화의 model 표시와 Operator 정의의 Model 칸은, 지금 model이 어느 층(이 대화, agent 정의, project, 전역 기본값)에서 왔는지 보여 준다(agent). 정의 read(`effective.model.source`)가 이미 층을 내므로, project 층을 더하는 것만 한다.
 - reasoning effort는 지금처럼 picker 안의 option 축으로 둔다. 따로 묻는 단계를 더하지 않는다(agent: 이미 고르는 자리에 있다).
 - 하지 않는 것: 설정 file로만 기본값을 정하기, 인증과 설정을 두 file로 나누기, 겹치는 여러 명령.
 

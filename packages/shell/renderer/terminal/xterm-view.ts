@@ -1,7 +1,9 @@
-// xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·
-// 자동 링크(OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서
-// 먹어 xterm 기본 동작(링크 열기 확인 창)도 생기지 않게 한다.
+// xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·자동 링크
+// (OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서 먹어 xterm
+// 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는 http/https 글자만 Ctrl/Cmd-click
+// 하면 `onLink`로 알리고, 여는 것은 듣는 쪽이 한다.
 import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 
 /** 탭 화면이 쓰는 터미널 표시. 테스트는 가짜를 끼운다. */
@@ -13,6 +15,8 @@ export interface TerminalView {
   /** 지금 표시 영역에 맞춘 PTY 치수. 아직 잴 수 없으면 null이다. */
   fit(): { columns: number; rows: number } | null;
   onData(listener: (text: string) => void): () => void;
+  /** 보이는 http/https 링크를 Ctrl/Cmd-click했다. 그냥 click은 알리지 않는다. */
+  onLink(listener: (url: string) => void): () => void;
   dispose(): void;
 }
 
@@ -45,11 +49,18 @@ interface FitLike {
 interface XtermParts {
   Terminal: new (options: Record<string, unknown>) => XtermLike;
   FitAddon: new () => FitLike;
+  WebLinksAddon: new (
+    handler: (
+      event: { ctrlKey: boolean; metaKey: boolean },
+      uri: string,
+    ) => void,
+  ) => unknown;
 }
 
 const REAL: XtermParts = {
   Terminal: Terminal as unknown as XtermParts["Terminal"],
   FitAddon: FitAddon as unknown as XtermParts["FitAddon"],
+  WebLinksAddon: WebLinksAddon as unknown as XtermParts["WebLinksAddon"],
 };
 
 function token(element: HTMLElement, name: string): string | undefined {
@@ -180,7 +191,7 @@ export function createXtermView(
   parts: XtermParts = REAL,
 ): TerminalView {
   const term = new parts.Terminal({
-    // 색·글꼴은 design token을 읽는다. 링크·clipboard 관련 option은 주지 않는다.
+    // 색·글꼴은 design token을 읽는다. clipboard 관련 option은 주지 않는다.
     fontFamily: token(host, "--font-mono"),
     fontSize: Number.parseFloat(token(host, "--type-small-size") ?? "") || 13,
     cursorBlink: true,
@@ -200,6 +211,14 @@ export function createXtermView(
   );
   const fitAddon = new parts.FitAddon();
   term.loadAddon(fitAddon);
+  const linkListeners = new Set<(url: string) => void>();
+  // window.open이나 기본 동작은 쓰지 않는다. 그냥 click은 글을 고르는 데 쓰이므로 무시한다.
+  term.loadAddon(
+    new parts.WebLinksAddon((event, uri) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      for (const listener of linkListeners) listener(uri);
+    }),
+  );
   const release = typeof MutationObserver === "function" &&
       typeof CSSStyleSheet === "function" &&
       "adoptedStyleSheets" in host.ownerDocument
@@ -227,6 +246,10 @@ export function createXtermView(
     onData(listener) {
       const subscription = term.onData(listener);
       return () => subscription.dispose();
+    },
+    onLink(listener) {
+      linkListeners.add(listener);
+      return () => linkListeners.delete(listener);
     },
     dispose() {
       for (const handler of swallowed) handler.dispose();

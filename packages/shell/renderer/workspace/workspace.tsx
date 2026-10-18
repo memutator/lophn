@@ -116,6 +116,10 @@ import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
 import { openAppPanel } from "./kinds/app-panel.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
+import {
+  openBridgeUrl,
+  useBridgeOpenRequests,
+} from "../terminal/use-bridge-open-requests.ts";
 import { openCodingTerminal } from "./kinds/terminal.tsx";
 import { NoticeCard } from "./notice-card.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
@@ -678,6 +682,13 @@ export function Workspace(props: WorkspaceProps) {
     if (terminal === undefined || request.runtime.project !== projectId) return;
     openCodingTerminal(host, request);
   });
+  useBridgeOpenRequests(
+    terminal?.bridge ?? null,
+    (request) =>
+      terminal === undefined
+        ? false
+        : openBridgeUrl(hostRef.current, terminal.store, request),
+  );
   // 대기 목록 카드가 터미널 session을 고르면 그 탭을 고른다.
   useEffect(() => {
     if (terminal === undefined) return;

@@ -33,6 +33,7 @@
     "npm:@types/d3-shape@3.2.0": "3.2.0",
     "npm:@types/react@19.3.0": "19.3.0",
     "npm:@xterm/addon-fit@0.11.0": "0.11.0",
+    "npm:@xterm/addon-web-links@0.12.0": "0.12.0",
     "npm:@xterm/xterm@6.0.0": "6.0.0",
     "npm:d3-scale@4.0.2": "4.0.2",
     "npm:d3-shape@3.2.0": "3.2.0",
@@ -994,6 +995,9 @@
     "@xterm/addon-fit@0.11.0": {
       "integrity": "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g=="
     },
+    "@xterm/addon-web-links@0.12.0": {
+      "integrity": "sha512-4Smom3RPyVp7ZMYOYDoC/9eGJJJqYhnPLGGqJ6wOBfB8VxPViJNSKdgRYb8NpaM6YSelEKbA2SStD7lGyqaobw=="
+    },
     "@xterm/xterm@6.0.0": {
       "integrity": "sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg=="
     },
@@ -1338,6 +1342,7 @@
           "npm:@codemirror/view@6.43.13",
           "npm:@types/react@19.3.0",
           "npm:@xterm/addon-fit@0.11.0",
+          "npm:@xterm/addon-web-links@0.12.0",
           "npm:@xterm/xterm@6.0.0",
           "npm:esbuild@0.28.2",
           "npm:lucide-react@1.51.0",

@@ -209,8 +209,15 @@ export function TerminalTab(
         );
       }
     });
+    // Ctrl/Cmd-click한 링크는 main이 browser 탭으로 열지 정한다. 실패해도 아무것도 보이지 않는다.
+    const offLink = view.onLink((url) => {
+      const terminalRef = store.get(tabKey)?.terminalRef;
+      if (!bridge || !terminalRef) return;
+      void bridge.openLink({ terminal_ref: terminalRef, url });
+    });
     return () => {
       off();
+      offLink();
       view.dispose();
       viewRef.current = null;
     };

@@ -444,3 +444,25 @@ guard: 없음
 정한 것: core의 route가 HEAD를 읽는다(사람).
 
 닫음: `packagePublishInputSchema`에 `commit`이 없다. route(`packages/core/apps/packages/publish.ts`의 `publishPackage`)가 core process에서 앱 source의 `git rev-parse HEAD`를 읽어 그 commit을 낸다. tool은 git을 띄우지 않는다.
+
+## lophn이 새로 만든 앱은 coding agent에 맡길 수 없다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금:
+- lophn의 `app.create`(`packages/core/apps/agent-tools/app.ts`)는 앱을 등록만 하고 source 폴더는 `null`이다.
+- App Engineer가 coding agent에게 `call`하면 `resolveLaunch`(`packages/core/apps/tickets/coding/launch.ts`)가 `no_source_folder`로 거절하고, call은 `unavailable`로 끝난다.
+- App Engineer의 `app.link_source`는 이미 있는 git 폴더만 잇는다. 지침에도 source 이야기가 없고, 새 source를 만드는 화면이나 route도 없다. test는 `tests/support/app/source.ts`가 template을 복사하고 git init한 뒤 잇는다.
+
+영향: 사람이 lophn에게 새 앱을 부탁하면 App Engineer가 만들 수 없다. eval의 calendar-mvp 첫 run이 이 때문에 coding session 없이 끝났다.
+
+고치려면: coding session을 열 때 source가 없으면 core가 template을 `<data root>/apps/<id>/source`에 깔고 git init·commit한 뒤 잇는다(작음~중간). 추천.
+
+정한 것: 위 추천대로 한다(사람).
+
+닫음: App Engineer가 source 없는 앱의 coding agent에게 call하면 core가 template을 `<data root>/apps/<id>/source`에 깔고 commit한 뒤 잇는다(`packages/core/apps/tickets/coding/scaffold-source.ts`의 `withScaffoldedSource`). 잇기로 agent runtime이 다시 뜨는 것은 도는 turn이 끝난 뒤다.

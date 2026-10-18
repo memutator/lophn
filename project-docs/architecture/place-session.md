@@ -52,7 +52,7 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
   - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
   - 이 표는 `packages/core/agent-roles/place/place-folders.ts`의 `placeScope` 하나다. turn의 file tool 범위, rewind의 쓰기 폴더, agent runtime process의 Deno 권한이 모두 이것으로 만든다. 목록이 둘이면 한쪽만 고쳐 어긋난다.
   - Project Manager가 같은 turn에 초안 폴더를 열면 그 자리에서 그 turn의 범위에 더한다. 열고 바로 쓴다.
-  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더와 앱 source 폴더 전체의 합이다. session마다의 범위는 file tool이 지킨다. 초안 폴더는 turn 중에 열리므로 `<data root>/projects` 상위째 쓰기를 연다. 폴더 목록이 바뀌면(project·앱 등록) process를 다시 띄우고 돌던 turn은 끊긴다.
+  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더와 앱 source 폴더 전체의 합이다. session마다의 범위는 file tool이 지킨다. 초안 폴더는 turn 중에 열리므로 `<data root>/projects` 상위째 쓰기를 연다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
 
 ## 왜 이 모양인가
 

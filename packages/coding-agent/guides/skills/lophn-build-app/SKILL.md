@@ -99,8 +99,9 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    만료되었으면 준비하지 않고 먼저 `ticket show`로 claim을 확인한다. 준비가
    끝나면 `bundle_hash`와 `test`(고정 시험 hash)가 나온다. test는 이 bundle에
    대해서만 돌므로 source가 바뀌면 다시 준비한다. 준비는 activation이 아니다.
-8. 실제 테스트를 돌린다. `app test`는 플랫폼 검사다. `target.bundle_hash`와
-   `test`에 7에서 읽은 값을 넣어 요청한다. `app test status`에 `request_key`를
+8. 실제 테스트를 돌린다. `app test`는 플랫폼 검사다. 입력은
+   `{"kind":"app_test","request_key":"<새 key>","app":"<app>","target":{"bundle_hash":"<7의 값>"},"test":"<7의 test>"}`
+   뿐이다(release·ticket은 쓰지 않는다). `app test status`에 `request_key`를
    주어 접수와 `result_ref`를 읽고, `app test result`에 `result_ref`를 주어
    통과·실패와 이유를 읽는다. 결과는 runner가 낸 test result다. 실패·timeout·
    미실행이면 원인을 고쳐 다시 준비하고 요청한다. 통과 전에 보고하지 않는다.

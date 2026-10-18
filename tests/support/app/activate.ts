@@ -387,8 +387,7 @@ export async function deliverRelease(
           request_key: testKey,
           kind: "app_test",
           app: app.app,
-          target: { bundle_hash: prepared.bundle_hash, release: null },
-          ticket: null,
+          target: { bundle_hash: prepared.bundle_hash },
           test: prepared.test,
         }),
       );

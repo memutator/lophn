@@ -65,15 +65,16 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 6. release를 준비한다. 변경한 source를 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. 준비가 끝나면
    `bundle_hash`와 `test`(고정 시험 hash)가 나온다. 준비는 activation이 아니다.
-7. 실제 테스트와 preview를 한다. `app test`는 플랫폼 검사다.
-   `target.bundle_hash`와 `test`에 6에서 읽은 값을 넣어 요청한다. 예시는 보고한
-   뒤 program이 보고한 release로 돌린다. 예시의 api를 그 입력으로 불렀을 때 기대
-   결과가 나오도록 고친다. `text` check는 runner가 돌리지 않는다(App Engineer가
-   판단한다). `app test status`로 `result_ref`를 읽고 `app test result`로 결과를
-   읽는다. 결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면
-   고쳐서 6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로
-   fixture 격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로
-   닫는다. preview는 운영 정상의 증거가 아니다.
+7. 실제 테스트와 preview를 한다. `app test`는 플랫폼 검사다. 입력은
+   `{"kind":"app_test","request_key":"<새 key>","app":"<app>","target":{"bundle_hash":"<6의 값>"},"test":"<6의 test>"}`
+   뿐이다(release·ticket은 쓰지 않는다). 예시는 보고한 뒤 program이 보고한
+   release로 돌린다. 예시의 api를 그 입력으로 불렀을 때 기대 결과가 나오도록
+   고친다. `text` check는 runner가 돌리지 않는다(App Engineer가 판단한다).
+   `app test status`로 `result_ref`를 읽고 `app test result`로 결과를 읽는다.
+   결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면 고쳐서
+   6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로 fixture
+   격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로 닫는다.
+   preview는 운영 정상의 증거가 아니다.
 8. claim을 다시 확인한다. 보고하기 전에 `ticket show`로 이 claim이 아직 내 현재
    claim인지, 기한이 남았는지 본다. 만료·반납·회수로 claim을 잃었으면 보고를
    멈추고 `message send`로 알린다. 오래된 claim으로 결과를 제출하지 않는다.

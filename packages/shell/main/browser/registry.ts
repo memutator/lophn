@@ -1,7 +1,11 @@
 // browser 탭의 native view 목록. view 하나는 contents 하나와 그 위치(placement)다. 앱 view
 // registry(app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않고, 위치·숨김만 같은
 // createPlacement를 쓴다. 규칙(navigation·활동·주소 정리)은 이 폴더의 순수 모듈이 정한다.
-import type { BrowserEvent, BrowserViewState } from "../../ipc/browser.ts";
+import type {
+  BrowserEvent,
+  BrowserViewState,
+  PopupPlacement,
+} from "../../ipc/browser.ts";
 import { failure, type Outcome } from "../app-frame/app-connection.ts";
 import {
   nextHealth,
@@ -35,6 +39,8 @@ export interface BrowserContents extends AppViewContents {
   forward(): void;
   reload(): void;
   inspect(): void;
+  /** 첫 load가 끝나면(실패도) 풀린다. Electron이 load를 시작한 popup contents에 쓴다. */
+  firstLoad(): Promise<void>;
 }
 
 /** contents에 거는 hook이 부르는 것. popup으로 생긴 contents에도 같은 모양을 쓴다. */
@@ -50,6 +56,17 @@ export interface BrowserHooks {
   onChange(): void;
   onHealth(signal: ViewHealthSignal): void;
   onBookmarkKey(): void;
+  /** page가 window.close()를 불렀다. contents는 Electron이 곧 부순다. */
+  onClose(): void;
+  popup: {
+    /** 사용자 입력 없이 열려던 popup을 거절했다. */
+    blocked(): void;
+    /** popup을 새 view로 등록한다. make가 만든 contents가 그 view의 것이다. */
+    open(
+      placement: PopupPlacement,
+      make: (hooks: BrowserHooks) => BrowserContents,
+    ): void;
+  };
 }
 
 export interface BrowserViewHost extends
@@ -73,6 +90,8 @@ interface BrowserViewsDeps {
 interface Entry extends Placed {
   view_session: string;
   contents: BrowserContents;
+  // popup으로 생긴 view는 renderer가 탭을 만들어 가져가기(adopt) 전까지 false다.
+  adopted: boolean;
   health: ViewHealth;
   // crash한 contents를 다시 열 주소. 읽을 때마다 비어 있지 않은 마지막 값을 남긴다.
   lastUrl: string;
@@ -101,17 +120,22 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     };
   }
 
+  // adopt 전 popup은 renderer에 탭이 없다. adopt가 지금 state로 답한다.
   function push(entry: Entry): void {
-    deps.pushState(entry.window, state(entry));
+    if (entry.adopted) deps.pushState(entry.window, state(entry));
   }
 
   // 교체·폐기된 contents가 늦게 보낸 신호는 지금 view의 것이 아니다.
-  function spawn(view_session: string): BrowserContents {
+  function spawn(
+    view_session: string,
+    make: (hooks: BrowserHooks) => BrowserContents = (hooks) =>
+      deps.host.create(hooks),
+  ): BrowserContents {
     const live = () => {
       const entry = entries.get(view_session);
       return entry?.contents === contents ? entry : undefined;
     };
-    const contents: BrowserContents = deps.host.create({
+    const contents: BrowserContents = make({
       activation: deps.activation,
       openExternal: deps.openExternal,
       onChange() {
@@ -130,17 +154,74 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
           deps.pushEvent(entry.window, { kind: "bookmark-key", view_session });
         }
       },
+      onClose() {
+        const entry = live();
+        if (entry !== undefined) {
+          deps.pushEvent(entry.window, { kind: "close", view_session });
+        }
+      },
+      popup: {
+        blocked() {
+          const entry = live();
+          if (entry !== undefined) {
+            deps.pushEvent(entry.window, {
+              kind: "popup-blocked",
+              view_session,
+            });
+          }
+        },
+        open(where, make) {
+          const opener = live();
+          if (opener !== undefined) openPopup(opener, where, make);
+        },
+      },
     });
     return contents;
   }
 
   // 첫 load가 끝나면(실패도) 붙일 수 있다. 빈 주소 칸으로 연 view는 첫 navigate가 첫 load다.
   function load(entry: Entry, url: string): void {
+    firstLoaded(entry, entry.contents.load(url));
+  }
+
+  function firstLoaded(entry: Entry, loaded: Promise<void>): void {
     const contents = entry.contents;
-    void contents.load(url).catch(() => {}).then(() => {
+    void loaded.catch(() => {}).then(() => {
       if (entries.get(entry.view_session) !== entry) return;
       if (entry.contents !== contents || entry.ready) return;
       placement.loaded(entry);
+    });
+  }
+
+  // 소유 창은 opener의 창이다. renderer가 adopt하지 않은 view는 그 창이 닫힐 때까지 남는다.
+  function openPopup(
+    opener: Entry,
+    where: PopupPlacement,
+    make: (hooks: BrowserHooks) => BrowserContents,
+  ): void {
+    const view_session = deps.ids.viewSession();
+    const entry: Entry = {
+      view_session,
+      window: opener.window,
+      bounds: { x: 0, y: 0, width: 0, height: 0 },
+      contents: spawn(view_session, make),
+      generation: 0,
+      shown: false,
+      ready: false,
+      placed: false,
+      attached: false,
+      adopted: false,
+      health: "ok",
+      lastUrl: "",
+    };
+    entries.set(view_session, entry);
+    placement.mounted(entry);
+    firstLoaded(entry, entry.contents.firstLoad());
+    deps.pushEvent(opener.window, {
+      kind: "popup",
+      opener: opener.view_session,
+      view_session,
+      placement: where,
     });
   }
 
@@ -171,6 +252,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
         ready: false,
         placed: false,
         attached: false,
+        adopted: true,
         health: "ok",
         lastUrl: "",
       };
@@ -184,6 +266,15 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
         load(entry, address);
       }
       return Promise.resolve({ ok: true, value: state(entry) });
+    },
+
+    /** renderer가 popup으로 생긴 view에 탭을 만들었다. 그 창이 아직 가져가지 않은 view만 된다. */
+    adopt(window: string, view_session: string): Outcome<BrowserViewState> {
+      const entry = ownedEntry(window, view_session);
+      if (entry === undefined) return notOpen();
+      if (entry.adopted) return failure("forbidden", "view is already adopted");
+      entry.adopted = true;
+      return { ok: true, value: state(entry) };
     },
 
     navigate(

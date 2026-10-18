@@ -2,10 +2,12 @@
 // 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view의 bounds·숨기기·폐기는
 // 앱 view와 같은 길(view-ipc.ts)을 쓴다.
 import {
+  BROWSER_ADOPT_CHANNEL,
   BROWSER_CLEAR_DATA_CHANNEL,
   BROWSER_COMMAND_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
   BROWSER_OPEN_CHANNEL,
+  browserAdoptSchema,
   browserCommandSchema,
   browserNavigateSchema,
   browserOpenSchema,
@@ -25,13 +27,20 @@ interface BrowserIpcDeps {
   registry: ContentsRegistry;
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
-  views: Pick<BrowserViews, "open" | "navigate" | "command" | "reloadAll">;
+  views: Pick<
+    BrowserViews,
+    "open" | "adopt" | "navigate" | "command" | "reloadAll"
+  >;
   /** installBrowserSession이 돌려준 것. */
   clearData(): Promise<void>;
 }
 
 interface BrowserIpcHandlers {
   open(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<BrowserReply<BrowserViewState>>;
+  adopt(
     event: IpcEvent,
     input: unknown,
   ): Promise<BrowserReply<BrowserViewState>>;
@@ -68,6 +77,15 @@ export function createBrowserIpc(deps: BrowserIpcDeps): BrowserIpcHandlers {
       const checked = checkInput(browserOpenSchema, input);
       if (!checked.ok) return checked;
       return await deps.views.open(window.value, checked.value.url);
+    },
+    adopt(event, input) {
+      const window = callerWindow(event);
+      if (!window.ok) return Promise.resolve(window);
+      const checked = checkInput(browserAdoptSchema, input);
+      if (!checked.ok) return Promise.resolve(checked);
+      return Promise.resolve(
+        deps.views.adopt(window.value, checked.value.view_session),
+      );
     },
     navigate(event, input) {
       const window = callerWindow(event);
@@ -122,6 +140,7 @@ interface BrowserIpcMain {
 
 const CHANNELS = [
   [BROWSER_OPEN_CHANNEL, "open"],
+  [BROWSER_ADOPT_CHANNEL, "adopt"],
   [BROWSER_NAVIGATE_CHANNEL, "navigate"],
   [BROWSER_COMMAND_CHANNEL, "command"],
   [BROWSER_CLEAR_DATA_CHANNEL, "clearData"],

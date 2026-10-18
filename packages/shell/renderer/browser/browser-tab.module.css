@@ -46,3 +46,91 @@
   min-height: var(--space-0);
   background: var(--color-surface-base);
 }
+
+/* page와 탭 안 DevTools 자리. DevTools가 오른쪽이면 가로, 아래면 세로로 나눈다. */
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.body[data-devtools-place="bottom"] {
+  flex-direction: column;
+}
+
+.devtoolsSlot {
+  display: flex;
+  flex: none;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+/* DevTools view가 붙기 전과 dev mock에서 보이는 자리. 붙으면 native view가 덮는다. */
+.devtools {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  background: var(--color-surface-subtle);
+}
+
+.devtoolsDivider {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  width: var(--border-width);
+  background: var(--color-border-base);
+  touch-action: none;
+}
+
+.body[data-devtools-place="bottom"] > .devtoolsDivider {
+  width: auto;
+  height: var(--border-width);
+}
+
+.devtoolsGrab {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--space-4);
+  transform: translateX(-50%);
+  cursor: col-resize;
+}
+
+.body[data-devtools-place="bottom"] .devtoolsGrab {
+  top: 50%;
+  bottom: auto;
+  left: var(--space-0);
+  right: var(--space-0);
+  width: auto;
+  height: var(--space-4);
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
+
+.devtoolsDivider[data-dragging] {
+  background: var(--color-focus);
+}
+
+/* floated 패널로 뜬 DevTools. 위 줄은 탭 안으로 붙이기·따로 창 단추다. */
+.devtoolsFloat {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+}
+
+.devtoolsBar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}

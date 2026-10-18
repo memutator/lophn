@@ -7,6 +7,7 @@ import { agentKind } from "./agent.tsx";
 import { agentsKind } from "./agents.tsx";
 import { appPanelKind } from "./app-panel.tsx";
 import { browserKind } from "./browser.tsx";
+import { browserDevtoolsKind } from "./browser-devtools.tsx";
 import { contextKind } from "./context.tsx";
 import { contextsKind } from "./contexts.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
@@ -24,6 +25,7 @@ const BUILT_IN_TAB_KINDS = [
   agentsKind,
   agentKind,
   browserKind,
+  browserDevtoolsKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

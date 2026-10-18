@@ -1,8 +1,15 @@
 // browser 탭 본문. toolbar 아래 page region 자리에 page를 그린다. 보통 탭은 <webview>이고(webview-host.tsx,
 // DOM 안에 그려져 menu·패널이 위에 겹친다), 크기를 준 popup만 opener를 지키려고 main이 native view를
 // 붙인다(adopt). native view는 DOM 위에 그려지므로 알림은 toolbar와 region 사이 줄에 둔다. 주소가 빈
-// 탭은 page 대신 bookmark 목록을 그린다.
-import { useEffect, useRef, useState } from "react";
+// 탭은 page 대신 bookmark 목록을 그린다. DevTools는 page 옆(오른쪽·아래)에 붙거나, floated 패널이나 따로 뜬
+// 창으로 간다. 그 값은 탭 fields가 들고(Float·Dock으로 다시 mount되어도 남는다), 값이 바뀌면 이 탭이 main에
+// 열기·닫기·창 옮기기를 시킨다.
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
@@ -16,6 +23,12 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { useViewBounds } from "../app-frame/embedded-view.tsx";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
+import { startPointerDrag } from "../workspace/drag.ts";
+import type {
+  DevtoolsPlace,
+  DevtoolsState,
+} from "../workspace/kinds/browser-devtools.tsx";
+import { DevtoolsPane } from "./devtools-pane.tsx";
 import { useBrowserApi } from "./browser-api.tsx";
 import { useBookmarks } from "./bookmarks.ts";
 import { BrowserToolbar } from "./browser-toolbar.tsx";
@@ -57,7 +70,16 @@ interface BrowserTabProps {
   onCloseRequested(): void;
   /** 새 탭 화면의 bookmark를 새 탭에서 연다. */
   onOpenInNewTab(url: string): void;
+  /** 이 page의 DevTools 자리. null이면 닫혀 있다. */
+  devtools: DevtoolsState | null;
+  /** DevTools 값을 바꾼다. 경계를 끄는 동안의 잦은 바뀜은 `later`로 모은다. */
+  onDevtools(next: DevtoolsState | null, later?: boolean): void;
 }
+
+// 탭 안 DevTools 자리의 처음 크기와 DevTools·page 각자의 가장 작은 크기(CSS px).
+const DEVTOOLS_SIZE = 420;
+const DEVTOOLS_MIN = 240;
+const PAGE_MIN = 240;
 
 const KEEP_SIGNATURE = "browser";
 
@@ -138,6 +160,9 @@ function OpenTab(
   const bookmarks = useBookmarks();
   const [menuOpen, setMenuOpen] = useState(false);
   const region = useRef<HTMLDivElement | null>(null);
+  const body = useRef<HTMLDivElement | null>(null);
+  // 경계를 끄는 동안의 크기. null이면 값(devtools.size)을 쓴다.
+  const [dragSize, setDragSize] = useState<number | null>(null);
   // adopt는 한 번만 한다. 끝나거나 거절되면 비워서, 다시 시도할 때는 빈 page를 연다.
   const adoptId = useRef(props.adopt);
   const reported = useRef<{ url: string; title: string; favicon?: string }>({
@@ -286,6 +311,97 @@ function OpenTab(
     ref: region,
   });
 
+  // DevTools 값이 바뀐 것을 main에 옮긴다. 다시 mount되면 처음 값은 바뀜이 아니다. main이 먼저 닫았으면
+  // (devtools-closed) 다시 닫지 않는다.
+  const devtools = props.devtools;
+  const shownDevtools = useRef(devtools);
+  const closedByMain = useRef<string | null>(null);
+  useEffect(() => {
+    const before = shownDevtools.current;
+    shownDevtools.current = devtools;
+    if (before !== null && before.session !== devtools?.session) {
+      if (closedByMain.current !== before.session) {
+        void browser.devtools.close({ devtools_session: before.session })
+          .catch(() => {});
+      }
+      closedByMain.current = null;
+    }
+    if (devtools === null) return;
+    const wasWindow = before?.session === devtools.session &&
+      before.place === "window";
+    const isWindow = devtools.place === "window";
+    if (wasWindow !== isWindow) {
+      void browser.devtools.window({
+        devtools_session: devtools.session,
+        window: isWindow,
+      }).catch(() => {});
+    }
+  }, [browser, devtools]);
+
+  useEffect(() => {
+    if (viewSession === null) return;
+    return browser.subscribeEvents((event) => {
+      if (
+        event.kind === "devtools-closed" && event.view_session === viewSession
+      ) {
+        closedByMain.current = event.devtools_session;
+        callbacks.current.onDevtools(null);
+      }
+    });
+  }, [browser, viewSession]);
+
+  const devtoolsAction = (action: DevtoolsPlace | "open" | "close") => {
+    if (action === "close") {
+      callbacks.current.onDevtools(null);
+      return;
+    }
+    if (action === "open") {
+      if (viewSession === null || devtools !== null) return;
+      void browser.devtools.open({ view_session: viewSession }).then(
+        ({ devtools_session }) =>
+          callbacks.current.onDevtools({
+            session: devtools_session,
+            place: "right",
+            size: DEVTOOLS_SIZE,
+          }),
+        () => {},
+      );
+      return;
+    }
+    if (devtools !== null) {
+      callbacks.current.onDevtools({ ...devtools, place: action });
+    }
+  };
+
+  // 탭 안 자리(오른쪽·아래)만 page 옆에 DevTools 칸을 둔다.
+  const docked = devtools !== null &&
+      (devtools.place === "right" || devtools.place === "bottom")
+    ? devtools
+    : null;
+  const resize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = body.current?.getBoundingClientRect();
+    if (docked === null || box === undefined) return;
+    const right = docked.place === "right";
+    const room = (right ? box.width : box.height) - PAGE_MIN;
+    const clamp = (value: number) =>
+      Math.round(Math.max(DEVTOOLS_MIN, Math.min(room, value)));
+    const start = docked.size;
+    let last = start;
+    startPointerDrag(event, {
+      move: (dx, dy) => {
+        // 경계를 page 쪽으로 끌면 DevTools가 커진다.
+        last = clamp(start - (right ? dx : dy));
+        setDragSize(last);
+      },
+      finish: (outcome) => {
+        setDragSize(null);
+        if (outcome.type === "drag-end" && last !== start) {
+          callbacks.current.onDevtools({ ...docked, size: last });
+        }
+      },
+    });
+  };
+
   const reload = () => {
     if (viewSession === null) return;
     void browser.command({ view_session: viewSession, command: "reload" })
@@ -311,6 +427,8 @@ function OpenTab(
           setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))}
         onNavigate={navigate}
         onMenuOpenChange={setMenuOpen}
+        devtools={devtools?.place ?? null}
+        onDevtools={devtoolsAction}
       />
       {notice === null ? null : (
         <div className={styles.notice}>
@@ -323,26 +441,57 @@ function OpenTab(
           />
         </div>
       )}
-      <div ref={region} className={styles.region} data-browser-page="">
-        {failed
-          ? (
-            <ErrorState
-              target={t("browser.label.page")}
-              // 가져오지 못한 popup은 빈 webview 탭으로 다시 연다.
-              onRetry={props.onDocked}
-            />
-          )
-          : state.health === "crashed"
-          ? <ErrorState target={t("browser.label.page")} onRetry={reload} />
-          : state.url === "" && viewSession !== null
-          ? (
-            <BlankTabPage
-              bookmarks={bookmarks}
-              onOpen={navigate}
-              onOpenInNewTab={props.onOpenInNewTab}
-            />
-          )
-          : null}
+      <div
+        ref={body}
+        className={styles.body}
+        data-devtools-place={docked?.place ?? "none"}
+      >
+        <div ref={region} className={styles.region} data-browser-page="">
+          {failed
+            ? (
+              <ErrorState
+                target={t("browser.label.page")}
+                // 가져오지 못한 popup은 빈 webview 탭으로 다시 연다.
+                onRetry={props.onDocked}
+              />
+            )
+            : state.health === "crashed"
+            ? <ErrorState target={t("browser.label.page")} onRetry={reload} />
+            : state.url === "" && viewSession !== null
+            ? (
+              <BlankTabPage
+                bookmarks={bookmarks}
+                onOpen={navigate}
+                onOpenInNewTab={props.onOpenInNewTab}
+              />
+            )
+            : null}
+        </div>
+        {docked === null ? null : (
+          <>
+            <div
+              className={styles.devtoolsDivider}
+              role="separator"
+              aria-label={t("browser.label.devtools-resize")}
+              aria-orientation={docked.place === "right"
+                ? "vertical"
+                : "horizontal"}
+              onPointerDown={resize}
+            >
+              <div className={styles.devtoolsGrab} />
+            </div>
+            <div
+              className={styles.devtoolsSlot}
+              style={{ flexBasis: `${dragSize ?? docked.size}px` }}
+            >
+              <DevtoolsPane
+                views={views}
+                session={docked.session}
+                shown={shown && !menuOpen}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { t } from "@lophn/wording";
 import { BrowserTab } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
+import { readDevtools, setDevtools } from "./browser-devtools.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -107,6 +108,10 @@ export const browserKind: TabKindDef = {
           }))}
         onCloseRequested={() => host.removeTab(tab.key)}
         onOpenInNewTab={(next) => openBrowserTab(host, next)}
+        // DevTools 자리는 fields에 둔다(저장하지 않는다). Float·Dock으로 다시 mount되어도 남는다.
+        devtools={readDevtools(tab.fields?.devtools)}
+        onDevtools={(next, later) =>
+          setDevtools(host, tab.key, next, { later: later === true })}
         onState={(state) =>
           host.patchTab(tab.key, (current) => ({
             title: nameOf(state.title, state.url),

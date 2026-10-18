@@ -7,8 +7,13 @@ import {
   ExternalLink,
   Globe,
   type LucideIcon,
+  PanelBottom,
+  PanelRight,
+  PictureInPicture2,
   RotateCw,
+  SquareArrowOutUpRight,
   Star,
+  X,
 } from "lucide-react";
 
 // browser 탭의 toolbar와 새 탭 화면이 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
@@ -22,4 +27,9 @@ export const browserIcons = {
   inspect: Code,
   star: Star,
   bookmarks: Bookmark,
+  devtoolsRight: PanelRight,
+  devtoolsBottom: PanelBottom,
+  devtoolsFloat: PictureInPicture2,
+  devtoolsWindow: SquareArrowOutUpRight,
+  devtoolsClose: X,
 } as const satisfies Record<string, LucideIcon>;

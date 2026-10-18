@@ -1,4 +1,5 @@
 // browser 탭 위쪽 줄: 뒤로·앞으로·새로 고침, 주소 칸, 별, bookmark menu, [Open in browser], overflow menu.
+// overflow menu는 DevTools를 열고, 열려 있으면 자리(오른쪽, 아래, floated 패널, 따로 창)를 고르거나 닫는다.
 // 단추는 오른쪽 끝 고정 열에 둔다. 아이콘은 icons/browser.ts만 쓴다.
 // Ctrl/Cmd+D는 focus가 page에 있으면 main이 event로 보내고(`bookmarkKey`), toolbar에 있으면 여기서 받는다.
 import { type MouseEventHandler, useId, useState } from "react";
@@ -8,6 +9,7 @@ import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
+import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import { browserIcons } from "../icons/mod.ts";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
@@ -35,7 +37,40 @@ interface BrowserToolbarProps {
   focusAddress: boolean;
   /** DOM menu와 별 popover가 열려 있는 동안 native view가 가리지 않도록 탭이 view를 숨긴다. overlay menu는 view 위에 그려져 부르지 않는다. */
   onMenuOpenChange(open: boolean): void;
+  /** 지금 DevTools 자리. null이면 닫혀 있다. */
+  devtools: DevtoolsPlace | null;
+  onDevtools(action: DevtoolsPlace | "open" | "close"): void;
 }
+
+type DevtoolsAction = DevtoolsPlace | "open" | "close";
+
+const DEVTOOLS_ITEMS = [
+  {
+    id: "right",
+    label: "browser.button.devtools-right",
+    icon: browserIcons.devtoolsRight,
+  },
+  {
+    id: "bottom",
+    label: "browser.button.devtools-bottom",
+    icon: browserIcons.devtoolsBottom,
+  },
+  {
+    id: "float",
+    label: "browser.button.devtools-float",
+    icon: browserIcons.devtoolsFloat,
+  },
+  {
+    id: "window",
+    label: "browser.button.devtools-window",
+    icon: browserIcons.devtoolsWindow,
+  },
+  {
+    id: "close",
+    label: "browser.button.devtools-close",
+    icon: browserIcons.devtoolsClose,
+  },
+] as const;
 
 export function BrowserToolbar(props: BrowserToolbarProps) {
   const { browser, viewSession, state } = props;
@@ -46,7 +81,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
   // overlay가 없는 창(dev mock, gallery)이면 null이고, menu는 DOM으로 그린다.
   const openMenu = useOverlayMenu();
 
-  const command = (name: "back" | "forward" | "reload" | "inspect") => {
+  const command = (name: "back" | "forward" | "reload") => {
     if (viewSession === null) return;
     void browser.command({ view_session: viewSession, command: name })
       .catch(() => {});
@@ -65,11 +100,23 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
     void shell?.openExternal?.(state.url);
   };
 
-  const inspect = {
-    id: "inspect",
-    label: t("browser.button.inspect"),
-    leading: <MenuIcon icon={browserIcons.inspect} />,
-    disabled: viewSession === null,
+  // DevTools가 닫혀 있으면 열기 하나, 열려 있으면 자리 고르기와 닫기. 지금 자리는 잠근다.
+  const devtoolsItems = props.devtools === null
+    ? [{
+      id: "open" as DevtoolsAction,
+      label: t("browser.button.inspect"),
+      icon: browserIcons.inspect,
+      disabled: viewSession === null,
+    }]
+    : DEVTOOLS_ITEMS.map((item) => ({
+      id: item.id as DevtoolsAction,
+      label: t(item.label),
+      icon: item.icon,
+      disabled: item.id === props.devtools,
+    }));
+  const pick = (id: string) => {
+    const found = devtoolsItems.find((item) => item.id === id);
+    if (found !== undefined && !found.disabled) props.onDevtools(found.id);
   };
   const moreButton = (onClick?: MouseEventHandler<HTMLButtonElement>) => (
     <IconButton
@@ -169,8 +216,13 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
       {openMenu === null
         ? (
           <Menu
-            items={[inspect]}
-            onSelect={() => command("inspect")}
+            items={devtoolsItems.map((item) => ({
+              id: item.id,
+              label: item.label,
+              leading: <MenuIcon icon={item.icon} />,
+              disabled: item.disabled,
+            }))}
+            onSelect={pick}
             onOpenChange={props.onMenuOpenChange}
             placement="beside"
             trigger={moreButton()}
@@ -180,13 +232,13 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
           void openMenu(
             event.currentTarget,
             t("browser.button.more"),
-            [{
-              id: inspect.id,
-              label: inspect.label,
-              disabled: inspect.disabled,
-            }],
+            devtoolsItems.map((item) => ({
+              id: item.id,
+              label: item.label,
+              disabled: item.disabled,
+            })),
           ).then((picked) => {
-            if (picked === inspect.id) command("inspect");
+            if (picked !== null) pick(picked);
           });
         })}
     </div>

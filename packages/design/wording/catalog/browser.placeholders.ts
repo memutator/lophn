@@ -6,6 +6,12 @@ export type BrowserPlaceholders = {
   "browser.button.bookmark-add": Record<never, never>;
   "browser.button.bookmark-edit": Record<never, never>;
   "browser.button.bookmarks": Record<never, never>;
+  "browser.button.devtools-bottom": Record<never, never>;
+  "browser.button.devtools-close": Record<never, never>;
+  "browser.button.devtools-dock": Record<never, never>;
+  "browser.button.devtools-float": Record<never, never>;
+  "browser.button.devtools-right": Record<never, never>;
+  "browser.button.devtools-window": Record<never, never>;
   "browser.button.forward": Record<never, never>;
   "browser.button.inspect": Record<never, never>;
   "browser.button.more": Record<never, never>;
@@ -16,6 +22,8 @@ export type BrowserPlaceholders = {
   "browser.label.address": Record<never, never>;
   "browser.label.address-placeholder": Record<never, never>;
   "browser.label.browser": Record<never, never>;
+  "browser.label.devtools": Record<never, never>;
+  "browser.label.devtools-resize": Record<never, never>;
   "browser.label.kind": Record<never, never>;
   "browser.label.menu-browser": Record<never, never>;
   "browser.label.page": Record<never, never>;

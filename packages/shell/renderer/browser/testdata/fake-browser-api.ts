@@ -94,9 +94,10 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
       return Promise.resolve();
     },
     clearData: () => Promise.resolve(),
-    // dev mock·gallery에는 DevTools가 없다.
+    // dev mock·gallery에는 DevTools가 없다. 자리만 그려지도록 session만 준다.
     devtools: {
-      open: () => Promise.reject(new Error("unavailable")),
+      open: ({ view_session }) =>
+        Promise.resolve({ devtools_session: `fake-devtools-${view_session}` }),
       close: () => Promise.resolve(),
       window: () => Promise.resolve(),
     },

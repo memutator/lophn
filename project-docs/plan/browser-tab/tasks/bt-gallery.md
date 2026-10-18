@@ -18,7 +18,7 @@ wireframes gallery에 browser 화면을 더한다. gallery는 따로 그리지 �
   - 제품 결정: `project-docs/products/roadmap/browser-tab.md`의 "무엇을 만드나" 4(Settings에 Browser pane), 5, 6(gallery 목록. 단 terminal 옆 pane에 bridge로 열린 탭은 계획 `browser-bridge`의 몫이다)
   - skill: `.claude/skills/ui-design/SKILL.md`("새 화면(page) 만들기", "함정": 앱 view는 gallery에 없어 고정 그림을 넣는다, `deno task wireframes`와 `dev:mock`)
   - 본보기(화면): `tools/wireframes/pages/screens/project-workspace.tsx`(`MockDesktop`을 쓰는 page와 `pages` 항목의 모양), `tools/wireframes/mock/mock-desktop.tsx`(`TabSpec`, `layoutOf`, `AppViewsProvider`, `SETTINGS_PANE`), `project-window.tsx`의 `PageNewTabMenu`, `mock/drive.ts`(`click`, `press`, `find`), `mock/app-space/orders-view.tsx`(앱 view 자리의 고정 그림), `packages/shell/renderer/desktop/dev-mock/app-space.ts`의 `mockViews`, `pages/screens/settings.tsx`의 `settings(tab)`와 `settingsArea.pages`, `settings-pages.tsx`, `settings-frame.tsx`의 `SettingsFrame`, `project-files/pages.tsx`의 `OpenPathPalette`(Ctrl+K로 팔레트를 연 상태를 만드는 방법)
-  - 이 task가 그리는 component: `packages/shell/renderer/browser/`의 `browser-tab.tsx`, `bookmark-star.tsx`, `bookmark-menu.tsx`, `new-tab-page.tsx`, `testdata/fake-browser-api.ts`(`push`, `set`, bookmarks), `workspace/add-tab-menu.tsx`, `desktop/palette/workspace-scope.ts`, `desktop/settings/browser/browser-panel.tsx`, `bookmark-rows.tsx`, `testdata/fake-source.ts`(`fakeBrowserSettings`)
+  - 이 task가 그리는 component: `packages/shell/renderer/browser/`의 `browser-tab.tsx`, `bookmark-star.tsx`, `bookmark-menu.tsx`, `blank-tab-page.tsx`, `testdata/fake-browser-api.ts`(`push`, `set`, bookmarks), `workspace/add-tab-menu.tsx`, `desktop/palette/workspace-scope.ts`, `desktop/settings/browser/browser-panel.tsx`, `bookmark-rows.tsx`, `testdata/fake-source.ts`(`fakeBrowserSettings`)
   - 계획 `workspace-float`의 gallery 상태(floated 패널): land된 `project-workspace.tsx`에서 floated 패널을 만든 방법을 따른다.
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `shell`
 - 계약:
@@ -78,3 +78,6 @@ wave 2·3에서 바뀐 것을 gallery에도 반영한다(실제 component를 쓴
 - toolbar menu(overflow, bookmark)와 채운 별 popover는 앱에서 overlay로 뜬다. gallery에는 overlay가 없으니 DOM 길로 그려진다. 그대로 쓴다.
 - 탭과 bookmark 목록(toolbar menu, 새 탭 목록, Settings 목록, palette)에 favicon이 보인다. favicon이 없는 항목(`Globe`)도 하나 둔다.
 - OAuth popup으로 뜬 floated browser 탭은 `project-docs/architecture/workspace-layout.md`의 floats 층 component를 쓴다.
+- 보통 browser 탭은 이제 `<webview>`다(`renderer/browser/webview-host.tsx`). gallery에는 `<webview>`가 없으니 webview host가 그리는 가짜 page 자리를 그대로 쓴다.
+- DevTools: page 오른쪽에 붙은 DevTools(경계 막대 포함), 아래에 붙은 것, floated DevTools 패널(`browser_devtools` kind), toolbar overflow menu의 DevTools 항목(열렸을 때)을 더한다. fake api의 `devtools.open`이 회색 자리를 준다.
+- popup: 크기 준 popup이 floated 패널로 뜬 모습, 크기 없는 popup이 연 탭 뒤 새 탭으로 열린 모습.

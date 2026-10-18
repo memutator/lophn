@@ -8,6 +8,7 @@
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -35,20 +36,29 @@ const ViewCoversContext = createContext<ViewCovers | null>(null);
 export const ViewCoversProvider = ViewCoversContext.Provider;
 export { createViewCovers };
 
+const ViewLayerContext = createContext(0);
+
+/** 이 아래 EmbeddedView의 층. 0 = pane view, 1.. = floated view(floats 배열 index + 1). 기본 0. */
+export const ViewLayerProvider = ViewLayerContext.Provider;
+
 /**
- * 좁은 창에서 본문을 덮는 패널(대화·정보·운영 패널)이 부른다. 덮는 동안 앱 view는 숨지 않고
- * 덮이지 않는 영역으로 줄고, 닫으면 원래 bounds로 돌아온다.
+ * 좁은 창에서 본문을 덮는 패널(대화·정보·운영 패널)이 부른다. 덮는 동안 자기보다 아래 층의
+ * 앱 view는 숨지 않고 덮이지 않는 영역으로 줄고, 닫으면 원래 bounds로 돌아온다. layer 기본
+ * Infinity(side panel·picker 같은 overlay 성격은 늘 위). 돌려주는 함수는 cover 요소가 크기
+ * 변화 없이 옮겨졌을 때 부른다.
  */
 export function useViewCover(
   ref: { readonly current: Element | null },
   covering: boolean,
-): void {
+  layer?: number,
+): () => void {
   const covers = useContext(ViewCoversContext);
   useEffect(() => {
     const element = ref.current;
     if (covers === null || element === null || !covering) return;
-    return covers.add(element);
-  }, [covers, ref, covering]);
+    return covers.add(element, layer);
+  }, [covers, ref, covering, layer]);
+  return useCallback(() => covers?.changed(), [covers]);
 }
 
 type Phase = "opening" | "ready" | "failed";
@@ -78,6 +88,10 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   const shown = props.shown ?? true;
   const ref = useRef<HTMLDivElement | null>(null);
   const covers = useContext(ViewCoversContext);
+  const layer = useContext(ViewLayerContext);
+  const layerRef = useRef(layer);
+  layerRef.current = layer;
+  const relayRef = useRef<{ refresh(): void } | null>(null);
   const fallbackCovers = useMemo(createViewCovers, []);
   const [viewSession, setViewSession] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("opening");
@@ -166,8 +180,9 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       element,
       covers: list.list,
       onCoversChange: list.subscribe,
-      send: (bounds: Rect) =>
-        void views.setViewBounds({ view_session: viewSession, bounds })
+      layer: () => layerRef.current,
+      send: (bounds: Rect, layer: number) =>
+        void views.setViewBounds({ view_session: viewSession, bounds, layer })
           .catch(() => {}),
       hide,
       frame: {
@@ -180,11 +195,18 @@ export function EmbeddedView(props: EmbeddedViewProps) {
         return () => observer.disconnect();
       },
     });
+    relayRef.current = relay;
     return () => {
+      relayRef.current = null;
       relay.stop();
       hide();
     };
   }, [views, viewSession, shown, covers, fallbackCovers]);
+
+  // 층만 바뀌면 view를 숨기지 않고 새 층을 다시 보낸다(effect를 다시 돌리면 hide로 깜빡인다).
+  useEffect(() => {
+    relayRef.current?.refresh();
+  }, [layer]);
 
   const retry = () => setAttempt((count) => count + 1);
 

@@ -73,8 +73,13 @@ export interface AppViewHost {
     /** 화면 process가 사라지거나 응답이 없거나 돌아왔다(crash.ts). */
     onHealth?(signal: ViewHealthSignal): void;
   }): AppViewContents;
-  /** 창 본문에 붙이거나 bounds를 옮긴다. 창이 없으면 false다. */
-  attach(window: string, view: AppViewContents, bounds: ViewBounds): boolean;
+  /** 창 본문에 붙이거나 bounds를 옮긴다. layer가 클수록 위다(0 = pane view). 창이 없으면 false다. */
+  attach(
+    window: string,
+    view: AppViewContents,
+    bounds: ViewBounds,
+    layer: number,
+  ): boolean;
   detach(window: string, view: AppViewContents): void;
   /** 이 view가 지금 키보드 focus를 가졌는가. */
   focused?(view: AppViewContents): boolean;

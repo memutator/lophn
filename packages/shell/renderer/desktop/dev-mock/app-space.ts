@@ -74,10 +74,12 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
       for (const listener of [...listeners]) listener(state);
       return Promise.resolve(state);
     },
-    setViewBounds({ view_session, bounds }) {
+    setViewBounds({ view_session, bounds, layer = 0 }) {
       const box = boxes.get(view_session);
       if (box !== undefined) {
         box.style.display = "flex";
+        // layer 1.. 은 floats 층(--z-sticky = 10)보다 위다. 진짜 native view는 DOM 위에 늘 그려진다.
+        box.style.zIndex = String(layer === 0 ? 1 : 10 + layer);
         box.style.left = `${bounds.x}px`;
         box.style.top = `${bounds.y}px`;
         box.style.width = `${bounds.width}px`;

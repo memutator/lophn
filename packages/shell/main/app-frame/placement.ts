@@ -16,6 +16,8 @@ import {
 export interface Placed {
   window: string;
   bounds: ViewBounds;
+  // 쌓는 층. 0 = pane view, 1.. = floated view. 클수록 위다.
+  layer: number;
   contents: AppViewContents;
   generation: number;
   // renderer가 보이라고 한 view다. 숨김 요청이나 빈 bounds면 false다.
@@ -35,7 +37,14 @@ export function createPlacement<T extends Placed>(deps: {
 }) {
   function place(entry: T): void {
     if (!entry.shown || !entry.ready || entry.attached) return;
-    if (!deps.views.attach(entry.window, entry.contents, entry.bounds)) return;
+    if (
+      !deps.views.attach(
+        entry.window,
+        entry.contents,
+        entry.bounds,
+        entry.layer,
+      )
+    ) return;
     entry.attached = true;
     if (entry.placed) entry.generation += 1;
     entry.placed = true;
@@ -79,16 +88,17 @@ export function createPlacement<T extends Placed>(deps: {
       detach(entry);
       entry.ready = false;
     },
-    setBounds(entry: T, bounds: ViewBounds): Generation {
+    setBounds(entry: T, bounds: ViewBounds, layer: number): Generation {
       if (!deps.views.hasWindow(entry.window)) {
         return failure("unavailable", "window is not open");
       }
       entry.bounds = bounds;
+      entry.layer = layer;
       if (boundsEmpty(bounds)) return hide(entry);
       entry.shown = true;
       if (
         entry.attached &&
-        !deps.views.attach(entry.window, entry.contents, bounds)
+        !deps.views.attach(entry.window, entry.contents, bounds, layer)
       ) {
         return failure("unavailable", "window is not open");
       }

@@ -1,6 +1,7 @@
 // 앱 view 자리의 사각형을 main에 보낸다. renderer는 사각형만
 // 정하고 붙이기·숨기기·폐기는 main이 한다. 보낼 사각형은 자리를 칸·카드·스크롤 경계로 자르고
-// 본문을 덮는 패널(좁은 창의 대화·정보·운영 패널) 영역을 뺀 것이다. 남은 넓이가 없으면 숨긴다.
+// 본문을 덮는 패널(좁은 창의 대화·정보·운영 패널) 영역을 뺀 것이다. 자기 층보다 위 층의 덮개만
+// 뺀다. 남은 넓이가 없으면 숨긴다.
 // 자리·경계·덮개의 크기 변화와 스크롤·창 resize를 animation frame마다 한 번으로 묶는다.
 
 export interface Rect {
@@ -111,11 +112,13 @@ function clipAncestors(element: Element): Element[] {
 
 interface BoundsRelayDeps {
   element: Element;
-  /** 지금 본문을 덮는 패널. 없으면 빈 목록이다. */
-  covers(): readonly Element[];
-  /** 덮개가 열리고 닫힐 때 부른다. 돌려준 함수로 끊는다. */
+  /** 지금 본문을 덮는 패널과 그 층. 없으면 빈 목록이다. */
+  covers(): readonly { readonly element: Element; readonly layer: number }[];
+  /** 덮개가 열리고 닫히거나 옮겨질 때 부른다. 돌려준 함수로 끊는다. */
   onCoversChange(listener: () => void): () => void;
-  send(rect: Rect): void;
+  /** 이 자리의 층(0 = pane view, 1.. = floated view). 읽을 때마다 최신 값이다. */
+  layer(): number;
+  send(rect: Rect, layer: number): void;
   hide(): void;
   frame: {
     request(callback: () => void): number;
@@ -131,22 +134,30 @@ export function startBoundsRelay(deps: BoundsRelayDeps): {
   stop(): void;
 } {
   const clips = clipAncestors(deps.element);
-  let last: Rect | undefined;
+  let last: { rect: Rect; layer: number } | undefined;
   let handle: number | undefined;
   let stopped = false;
 
   function measure(): void {
     handle = undefined;
     if (stopped) return;
+    const layer = deps.layer();
     const next = visibleRect(
       rectOf(deps.element),
       clips.map(rectOf),
-      deps.covers().map(rectOf),
+      coversAbove(layer).map((cover) => rectOf(cover.element)),
     );
-    if (last !== undefined && sameRect(last, next)) return;
-    last = next;
+    if (
+      last !== undefined && last.layer === layer && sameRect(last.rect, next)
+    ) return;
+    last = { rect: next, layer };
     if (empty(next)) deps.hide();
-    else deps.send(next);
+    else deps.send(next, layer);
+  }
+
+  // 같거나 아래 층의 덮개는 이 view를 가리지 못한다.
+  function coversAbove(layer: number) {
+    return deps.covers().filter((cover) => cover.layer > layer);
   }
 
   function schedule(): void {
@@ -158,11 +169,12 @@ export function startBoundsRelay(deps: BoundsRelayDeps): {
   // 크기는 그대로인데 위치만 바뀌는 경우(sidebar 접기, 카드 스크롤, 창 이동)도 본다.
   view?.addEventListener("resize", schedule);
   deps.element.ownerDocument.addEventListener("scroll", schedule, true);
-  let unobserveCovers = deps.observe(deps.covers(), schedule);
+  const coverElements = () => deps.covers().map((cover) => cover.element);
+  let unobserveCovers = deps.observe(coverElements(), schedule);
   const unobserve = deps.observe([deps.element, ...clips], schedule);
   const offCovers = deps.onCoversChange(() => {
     unobserveCovers();
-    unobserveCovers = deps.observe(deps.covers(), schedule);
+    unobserveCovers = deps.observe(coverElements(), schedule);
     schedule();
   });
   schedule();
@@ -182,29 +194,33 @@ export function startBoundsRelay(deps: BoundsRelayDeps): {
 
 /** 본문을 덮는 패널 목록. 창마다 하나를 만들어 context로 나눈다. */
 export interface ViewCovers {
-  add(element: Element): () => void;
-  list(): readonly Element[];
+  /** layer 기본 Infinity. 자기보다 아래 층의 view만 이 덮개에 줄어든다. */
+  add(element: Element, layer?: number): () => void;
+  list(): readonly { readonly element: Element; readonly layer: number }[];
   subscribe(listener: () => void): () => void;
+  /** 요소 크기는 그대로인데 위치만 바뀌었을 때(패널을 옮길 때) 부른다. subscribe한 relay가 다시 잰다. */
+  changed(): void;
 }
 
 export function createViewCovers(): ViewCovers {
-  const covers = new Set<Element>();
+  const covers = new Map<Element, number>();
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of [...listeners]) listener();
   };
   return {
-    add(element) {
-      covers.add(element);
+    add(element, layer = Infinity) {
+      covers.set(element, layer);
       notify();
       return () => {
         if (covers.delete(element)) notify();
       };
     },
-    list: () => [...covers],
+    list: () => [...covers].map(([element, layer]) => ({ element, layer })),
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    changed: notify,
   };
 }

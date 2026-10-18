@@ -103,6 +103,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
         checked.value.window,
         checked.value.input.view_session,
         checked.value.input.bounds,
+        checked.value.input.layer ?? 0,
       );
     },
     setProject(event, input) {

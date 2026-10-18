@@ -70,6 +70,7 @@ function intersect(a: ViewBounds, b: ViewBounds): ViewBounds {
 interface Pending {
   window: string;
   bounds: ViewBounds;
+  layer: number;
   waiters: ((result: Generation) => void)[];
 }
 
@@ -92,7 +93,11 @@ export function createViewVisibility(deps: {
     const body = deps.geometry.body(item.window);
     if (body === undefined) return failure("unavailable", "window is not open");
     const dip = toDip(item.bounds, deps.geometry.zoom(item.window));
-    return deps.frame.setBounds(view_session, intersect(dip, body));
+    return deps.frame.setBounds(
+      view_session,
+      intersect(dip, body),
+      item.layer,
+    );
   }
 
   // 한 frame에 모인 모든 view의 마지막 bounds를 함께 적용한다.
@@ -142,12 +147,14 @@ export function createViewVisibility(deps: {
       window: string,
       view_session: string,
       bounds: ViewBounds,
+      layer: number,
     ): Promise<Generation> {
       if (!owned(window, view_session)) return Promise.resolve(notOpen());
       return new Promise((resolve) => {
         const item = pending.get(view_session) ??
-          { window, bounds, waiters: [] };
+          { window, bounds, layer, waiters: [] };
         item.bounds = bounds;
+        item.layer = layer;
         item.waiters.push(resolve);
         pending.set(view_session, item);
         handle ??= deps.timer.set(flush, BOUNDS_FRAME_MS);

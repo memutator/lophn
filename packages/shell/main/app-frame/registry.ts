@@ -354,6 +354,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         generation: 1,
         window: input.parentWindow,
         bounds: input.bounds,
+        layer: 0,
         shown: !boundsEmpty(input.bounds),
         ready: false,
         placed: false,
@@ -414,12 +415,13 @@ export function createAppFrame(deps: AppFrameDeps) {
     setBounds(
       view_session: string,
       bounds: unknown,
+      layer = 0,
     ): Outcome<{ generation: number }> {
       const entry = entries.get(view_session);
       if (entry === undefined || !boundsValid(bounds)) {
         return failure("invalid_input", "view bounds are invalid");
       }
-      return placement.setBounds(entry, bounds);
+      return placement.setBounds(entry, bounds, layer);
     },
 
     hide,

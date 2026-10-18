@@ -115,19 +115,24 @@ export function overlayRegistry(
       },
     });
   }
+  // drag는 shell에서 이미 누른 채로 시작할 수 있다(경계 끌기). 그때는 이 표면이 pointerdown을 받지
+  // 못하므로 누른 버튼(buttons)으로 움직임을 받는다.
   function drag(node: HTMLElement, surface: OverlaySurface) {
+    const held = (event: PointerEvent) =>
+      node.hasPointerCapture(event.pointerId) || (event.buttons & 1) === 1;
     node.addEventListener(
       "pointerdown",
       (event) => node.setPointerCapture(event.pointerId),
     );
     node.addEventListener("pointermove", (event) => {
-      if (!node.hasPointerCapture(event.pointerId) || !current) return;
+      if (!held(event) || !current) return;
       pointer(surface, event, "pointer");
     });
     node.addEventListener("pointerup", (event) => {
-      if (!node.hasPointerCapture(event.pointerId)) return;
       pointer(surface, event, "drag-end");
-      node.releasePointerCapture(event.pointerId);
+      if (node.hasPointerCapture(event.pointerId)) {
+        node.releasePointerCapture(event.pointerId);
+      }
     });
     node.addEventListener("pointercancel", (event) => {
       if (node.hasPointerCapture(event.pointerId)) {

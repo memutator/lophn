@@ -1,250 +1,302 @@
-# eval: 진짜 model이 role 지침대로 판단하나
+# eval: 진짜 model이 lophn의 일을 잘하나
 
 상태: 로드맵. 아직 계획(`plan/`)으로 열지 않았다. 열 때 이 문서를 계획 README의 재료로 쓴다.
-배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, AGENTS.md "속도"·"사람에게 묻는 것".
+배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
 
 - test 층 다섯(`architecture/testing.md`)은 정해 둔 입력에 pass/fail이 결정적으로 갈리는 것만 본다. fake는 대답을 test가 정하므로 판단이 없다. live는 진짜 model을 부르지만 대답 내용을 보지 않는다(`tests/live/suite.ts:173-199`).
-- AGENT-ROLE의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 이런 줄은 role 지침과 model만 지키는데, 그것을 재는 장치가 없다.
+- AGENT-ROLE의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 앱을 만들고, 이미 있는 것을 다시 쓰고, 문제를 진단하는 일도 role 지침과 model이 한다. 이것을 재는 장치가 없다.
 
-## 지금 모양
+## 무엇을 재나
 
-### role 지침과 tool
+1. 앱 만들기: 캘린더 앱 MVP를 만들고, 그 앱의 app-api를 쓰고, 기능을 더하는 유지보수까지 한 사슬로 잰다.
+2. 바퀴를 다시 만들지 않기: 새 앱을 만들 때 이미 있는 component, logic(package), 다른 앱의 app-api를 찾아 쓰나.
+3. 책임에 따른 agent call: 누구에게 어떤 답 방식으로 맡기나. 남의 일을 직접 하지 않나. 거절당한 일을 다른 agent에게 돌리지 않나(T19).
+4. observation 두기: App Engineer가 앱이 문제를 보고할 자리를 잘 두게 하나.
+5. 진단: 앱이 문제를 보고하면 App Engineer가 원인을 찾아 맞는 ticket을 만들고, 고친 뒤 그 문제가 다시 나지 않나.
 
-- 지침: `packages/core/agent-roles/roles/<role>/prompt.md` 넷(영어, lophn 60줄, App Engineer 70, Operator 41, Project Manager 72). `rolePrompt()`가 그 앞에 product 규칙 2,166자(`roles/prompts.ts:36-55`)를 붙인다. lophn guide 8개(15.7KB)는 prompt에 없고 `guide.read` tool로 읽는다.
-- system prompt는 `assembleTurnPrompt`(`lophn-agent/prompt-assembly/turn-prompt.ts:195-262`)가 쌓는다: role 지침, instruction 층(Global, `LOPHN.md`, Agent), skill 목록, place 글(`agent-roles/place/place-info.ts:240-271`).
-- place 글의 "Agents you can call"은 열린 session에서만 나온다(`router/reads.ts:50-91`). 새 core에서는 비어 있다. project·앱 목록은 lophn의 place 글에만 있다.
-- tool 수(`agent-roles/tool-lists.ts`, 정의 49개): lophn 34, App Engineer 44, Operator 35에 grant된 app-api가 더해짐, Project Manager 40.
-- model이 받는 고정 입력. 글자 수를 4로 나눠 어림했고, instruction·history는 넣지 않았다.
+어떤 시나리오든 아래 "공통 수치"를 같이 잰다.
 
-| role | tool JSON | role 지침 | 합계 token |
-|---|---|---|---|
-| lophn | 18,570자 | 5,264자 | 약 6.1k |
-| App Engineer | 28,704자 | 5,998자 | 약 8.9k |
-| Operator | 19,213자 | 4,062자 | 약 6.0k |
-| Project Manager | 24,032자 | 5,784자 | 약 7.6k(context 글로 최대 약 3k 더) |
+## 기초 모양
 
-- 한 turn은 보통 model 호출 2~8번이다. 호출마다 위 고정 입력과 history를 다시 보낸다.
+```
+재료(material)  이름@버전. 시작 world의 조각: 앱 source, project 문서, context, package, 앱 data, Operator·grant
+   │ 여러 개를 조립해 world 하나를 만든다
+시나리오        world + 단계(사람 말, program event, app-api 호출) + 확인(결과 판정) + 저장(결과 → 새 재료)
+   │ trial마다 새 data root에서 돈다
+공통 수치       token(input, output, cache read, cache write), 시간, tool 정확도, 잘림, agent call
+   ↓
+scorecard       시나리오 × model: 통과, 확인마다 결과, 공통 수치, 재료 버전, lophn commit
+```
 
-### AGENT-ROLE 항목과 지침이 맞나
+## 공통 수치
 
-- 대부분의 항목은 지침에 그 줄이 있다. 항목마다 지침 줄, 쓰는 tool, 결과를 읽는 곳을 정리한 표는 계획을 열 때 `research/roles-and-outcomes.md`로 붙인다.
-- 어긋난 곳:
-  - Project Manager 지침이 서로 부딪친다. "draw the boundary first"와 "decide whether the contract should change or the document is wrong"은 PM이 정하라고 한다. 같은 file의 "What you do not do"는 "Do not decide … a boundary … whether the contract or the document should change. Ask with `ask`"라고 한다. AGENT-ROLE C2는 PM이 경계를 긋는다고 하고, C6는 PM이 정한다고 한다(정하는 내용은 제안). 아래 "정할 것" 9.
-  - lophn의 `ROLE_LINE`(`agent-roles/place/place-data.ts:37`)은 "registers projects and apps"라고 한다. 그런데 lophn의 쓰기 tool은 `app.create`뿐이고 project를 만드는 tool은 없다. 다른 agent가 이 줄을 보고 lophn에게 project 등록을 맡길 수 있다.
-  - App Engineer 지침은 "acceptance checks"(복수, `app-engineer/prompt.md:25,34`)라고 쓰지만 `ticket.create`의 `check`는 하나다(`coding-agent/ticket/values.ts:66-88`).
-  - AGENT-ROLE C4·C5(pdf·docs 목차)는 tool도 지침도 없다. 저장 목차는 0.2.0에서 지웠고(`change-log/0.2.0.md:210`), `issues/contexts.md`는 되살리지 않는다고 했다. 이 roadmap을 쓰며 AGENT-ROLE에서 두 줄을 지웠다.
+모든 시나리오에서 agent마다 잰다. role agent는 lophn, App Engineer, Operator, Project Manager이고, coding agent는 따로 잰다.
 
-### 결과를 읽는 길
-
-모두 user token으로 부르는 core route다.
-
-| 무엇 | route | 비고 |
+| 수치 | role agent | coding agent |
 |---|---|---|
-| session의 tool call(이름, 상태) | `tool-calls/list` | 입력과 출력은 `turns/body-view`(`tool_call_input`, `tool_call_output`) |
-| call 하나(받는 쪽, 답 방식, 상태, 실패 이유) | `calls/read` | call을 나열하는 route는 없다. id는 `call` tool 출력이나 받은 session의 `session_messages/list`에서 얻는다. 보낼 때 실패한 call(`not_found`, `not_allowed`)은 행이 없어 tool 결과로 본다 |
-| 사람을 기다리는 질문·허락 | `session_snapshots/list` | `waitQuestion`, `waitPermission`(`tests/support/core/human.ts:181-208`) |
-| ticket | `tickets/list`, `tickets/show` | ticket이 생겼다는 domain event는 없다 |
-| Operator | `agent-definitions/list` | |
-| 대답 글 | `messages/list`, `messages/body` | |
-| model 호출 | `modelCallList`(`protocol/lophn-agent/model-calls.ts:129`) | outcome(`partial`이면 잘림), `finish_reason`, usage, cost(`reported`, `estimated`, `subscription`) |
-| 모아 본 사용량 | `agentUsageRead`(`traces.ts:186`) | core에 있지만 쓰는 곳이 없다. 진짜 실행으로 맞는지 먼저 본다 |
+| token | `modelCallList`의 `usage`(input, output, cache_read, cache_write, reasoning). `cache_in_input`이 provider마다 달라(OpenAI true, Anthropic false) 더하기 전에 맞춘다(`protocol/lophn-agent/model-call-values.ts:55-65`) | harness 자기 기록. claude는 session JSONL의 `message.usage`, codex는 `token_count` event. 꼴은 진짜 실행 한 번으로 확인한다 |
+| 비용 | `modelCallList`의 `cost`(reported, estimated) | token × catalog 단가(`lophn-agent/models/snapshot.json`) |
+| 시간 | turn `started_at`~`finished_at`, model 호출 `duration_ms` | driver가 찍는다: terminal open, 완료 보고, process 끝 |
+| 단계 시간 | ledger에서 읽는다: 완료 보고(`TicketCompletionReported`), 검증(`TicketVerified`), app test `started_at`·`ended_at`, release `created_at`·`activated_at`. ticket을 만든 때와 release 준비 시작은 ledger에 없어, AE의 `ticket_create` tool call 시각과 `lophn` wrapper의 명령 시각으로 찍는다 | |
+| tool 정확도 | `toolCallList`의 `outcome`(`protocol/lophn-agent/tool-values.ts:161-215`)으로 넷을 낸다(아래 정의) | harness 기록에서 오류로 끝난 tool 결과의 비율 |
+| 잘림 | `outcome.kind`가 `partial`인 model 호출 수 | |
+| agent call | 모든 call의 보낸 쪽, 받는 쪽, 답 방식, 상태 | coding agent의 `message send` 수 |
 
-- 판단을 채점하는 코드는 아직 없다. E2E의 helper(`tests/e2e/agent-call_test.ts:143-178`의 `opened`, `callOf`, `callRecord`, `human.ts`의 기다리기 helper)는 그대로 쓸 수 있다.
-- `tests/support/fake-server/probe.ts`는 fake journal만 읽는다. 진짜 model에는 journal이 없다.
+tool 정확도의 넷:
+- 형식: `invalid_input`이나 `not_found`(없는 tool 이름)로 끝난 비율.
+- 성공: `success`의 비율.
+- 막힘: Gate가 거절했거나(`denied`) 사람에게 물은 비율.
+- 되풀이: 같은 tool을 같은 인자로 부른 횟수와, turn이 `repeated_tool_failure`로 끝났나.
+- 분모에서 빼는 것: model 탓이 아닌 `not_executed`(`stopped`, `superseded`, `limit_reached`, `configuration_revoked`, `earlier_call_failed`).
+- 한계: 저장된 outcome에는 실행 여부 칸이 없다. 그래서 schema가 거절한 `invalid_input`과 handler가 낸 `invalid_input`을 가르지 못한다.
 
-### 띄우기, provider, 비용
+## 재료
 
-- `bootCore`는 core의 env를 비운다(`tests/support/core/process.ts:62-71`). 이미 있는 data root로도 띄울 수 있다. `tools/dev.ts:113-123`이 그렇게 쓴다.
-- 진짜 key를 넣는 제품 길: `providers/definitions` → `secrets/put`(`core.upload`) → `providers/connect` → model 지정 → `settle`. `connectFakeProvider`는 fake 정의와 model 이름 `claude-sonnet-4-5`를 고정해 두어(`human.ts:25`) 그대로는 못 쓴다.
-- model은 role별 기본이 없다(`lophn-agent/agents/resolve.ts:85`). 정하는 순서는 session(`sessions/change-model`), agent 정의, project, 전역 기본이다. 아무것도 없으면 turn이 시작되지 않는다(`model_required`).
-- 출력 한도는 고정이다: `MAX_OUTPUT_TOKENS = 4096`(`lophn-agent/models/resolve.ts:41`). Anthropic은 4096에 thinking budget을 더한다. OpenAI reasoning model은 reasoning token도 4096 안에 들어 잘릴 수 있다.
-- turn 한도는 settings로 낮출 수 있다: `lophn-agent.run.model_attempts`(기본 30), `stall_ms`, `active_ms`.
-- model 호출은 agent runtime child 안에서 일어난다. test 쪽 `fetch`로는 셀 수 없어 `tests/live/budget.ts`의 상한(file당 10번)을 eval에 쓸 수 없다. 비용은 `modelCallList`의 usage·cost로 본다.
-- `tests/live`는 core를 거치지 않고 resolver와 adapter를 바로 부른다(`suite.ts:99-169`). key gate(`run.ts`)와 `scrub`(`budget.ts:10-18`)은 다시 쓸 수 있다.
-- 구독 OAuth token은 `<data root>/secrets.json`(0600)에 있다. keychain과 env는 쓰지 않는다. 그래서 로그인해 둔 root를 `bootCore`로 띄워도 된다. 다만 refresh token이 갱신 때마다 바뀌므로 root를 복사하거나 core 둘을 같이 띄우면 안 된다. 구독 cost의 kind는 `subscription`이고 금액이 없다.
-- 앱 helper: `startTestApp`(`tests/support/app/activate.ts:88-136`)은 fake와 상관없다. `handOff`, `deliverRelease`, `verifyTicket`은 App Engineer의 대답을 fake로 정하고(`aeLane`, `scriptAe`) fake journal에서 id를 읽는다.
-- coding agent harness는 7개(`protocol/coding-agent/harness-id.ts`)다. core는 harness를 직접 띄우지 않고 shell main에 launch plan을 넘긴다. 진짜 harness를 돌리려면 사람의 HOME에 hook을 깔고 따로 로그인해야 한다.
-- check: `tools/check.ts:43`의 `NOT_IN_CHECK`에 `tests/eval`을 넣으면 `deno test` discovery에서 빠진다. fmt, lint, type check는 이미 `tests/` 전체를 돈다. module-catalog는 `tests` 한 항목(`module-catalog.yaml:105-107`)이다.
+### 종류와 되살리는 길
 
-model 단가(제품 catalog `lophn-agent/models/snapshot.json`, USD/M token, input/output): `claude-haiku-5-5` 0.1/0.5, `claude-sonnet-5-5` 2/10, `claude-opus-5-5` 4/20, `gpt-5-mini` 0.25/2, `gpt-5.5` 5/30, `grok-4.7` 2/6.
+data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mismatch`로 core가 뜨지 않고, ledger에 절대 path가 박혀 있고, OAuth token은 갱신 때마다 바뀐다. 재료는 source 수준으로 담고, trial마다 새 root에서 제품 route로 되살린다. 그래서 schema가 바뀌어도 재료는 그대로 쓴다.
 
-## 목표 모양
+| 종류 | 담는 것 | 되살리는 길 | agent가 드나 |
+|---|---|---|---|
+| 앱 source | git repo와 manifest(앱 id, slug, 이름) | `apps/create`(id 고정) → `apps/connect_source` | 아니다 |
+| 켜진 앱 | 앱 source에 "active" 표시 | 위 + App Engineer의 `ticket_create`·`call`·`ticket_verify` + coding CLI(claim, release prepare, app test, report) + activation 허락 | fake App Engineer 대본. E2E의 `tests/support/app/activate.ts`와 같은 길이다 |
+| 앱 data | 쓰기 app-api 호출의 목록 | `apps/call_api`(사람 자격)를 차례로 다시 부른다 | 아니다 |
+| project | 폴더(문서, `LOPHN.md`)와 manifest | `project/create`(id 고정) | 아니다 |
+| context | `bundle.json` | PM의 `context_draft` → 초안 폴더에 쓰기 → `context_test` → `context_submit` | fake PM 대본. `tests/e2e/pm-context_test.ts`의 길이다 |
+| package | 낸 앱, 폴더, version | App Engineer의 `package.publish`. 낸 앱이 app test를 통과한 뒤에만 된다 | fake App Engineer |
+| Operator, grant | json | `operators/create`, `agent_grants/set`(사람 자격) | 아니다 |
 
-### case 하나가 도는 모양
+- 되살리는 데에는 진짜 model을 쓰지 않는다. 비용은 0이고 시간만 든다(켜진 앱 하나에 release 준비와 app test).
+- 앱 id는 사람 자격의 `apps/create`가 미리 정할 수 있다(`apps/registration/commands.ts:105-110`). 그래서 재료끼리 가리키는 id(blueprint `app_connections`, grant)가 되살린 뒤에도 맞는다.
+- 다시 만들어야 하고 담을 수 없는 것: ticket, release, verification, call의 id, secret, provider.
 
-```
-deno task eval (--env-file=.env, key gate)
-  trial마다:
-    createRun → bootCore(env 비움) → secrets/put → providers/connect
-    case.setup: project·앱·Operator·grant를 제품 route로 만든다
-    openSession(대상 agent) → sessions/change-model(진짜 model)
-    say(사람 말 한 줄) → turn이 끝날 때까지 기다린다. 질문·허락은 case가 정한 대로 답한다
-    collect: tool call, call record, 질문·허락, ticket 등, 대답 글, model 호출
-    grade(record) → pass/fail와 이유
-    run.remove()
-  scorecard: case × model, 통과 수/3, 떨어진 이유, token, 비용, 잘림 수, 되풀이 수
-```
-
-- model은 대상 session에만 붙인다. 전역 기본을 두지 않으므로 call을 받은 쪽 session은 turn이 시작되지 않는다(`model_required`). 받는 쪽 비용은 0이고 fake도 필요 없다. 받는 쪽의 시작 실패가 보낸 쪽에 무엇을 보내는지는 계획에서 먼저 확인한다.
-- program이 여는 session(problem reaction, 계약 위반)은 대상 agent 정의에 model을 둔다.
-- 잘림(`partial`인 model 호출 수)과 되풀이(같은 tool·같은 인자의 횟수)는 trial마다 같이 센다. 따로 case로 두지 않는다.
-
-### 자리
+### 버전과 조립
 
 ```
-tests/eval/
-  run.ts              key gate, --case·--model 고르기, 3번 반복, 비용 상한, scorecard 쓰기
-  collect.ts          route를 읽어 record 하나로 모은다
-  cases/<묶음>.ts      case table
-  scorecards/<날짜>-<model>.md   사람이 보고 commit한다
-.dev-data/eval/<날짜>/            trial마다 record 전체. git 밖
-tests/support/core/   진짜 provider 연결 helper(connectFakeProvider를 일반화)
+tests/eval/materials/<이름>/<n>/
+  material.json   kind, 고정 id, needs(다른 재료 이름@n), parent(어느 재료에서 나왔나),
+                  produced_by(시나리오, trial, lophn commit), content_hash
+  files/          담은 것
 ```
 
-case 하나에 들어가는 것:
-- id, role, AGENT-ROLE 항목, 출처
-- setup
-- 사람 말 한 줄
-- `grade(record)`: 결과 단정 1~3개
-- `wrong`: grader가 떨어뜨려야 하는 record 예 하나. runner가 돈을 쓰기 전에 본다.
+- 버전 번호 `n`은 정수다. 시나리오는 `calendar-app@1`처럼 부른다.
+- `content_hash`는 file을 정렬해 `sha256Hex(bundleBytes(files))`로 잰다. 앱이 낸 package의 `bundle_hash`와 같은 꼴이다(`apps/packages/install.ts`). runner는 되살리기 전에 hash를 다시 재고, 다르면 멈춘다.
+- world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `calendar-app@1`은 `reuse-world@1`의 알림 앱 id를 가리킨다.
+- 시나리오 결과 저장: 시나리오가 `save`에 적은 것을 runner가 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit한다. live 녹화와 같은 방식이다.
+- scorecard에는 재료 이름@n과 hash, lophn commit, sdk·template의 hash를 남긴다. sdk는 version이 1.0.0 그대로여도 바이트가 바뀐다(`apps/packages/install.ts`가 boot마다 다시 깐다).
 
-## case 고르는 규칙
+## 시나리오
 
-1. case는 lophn에서 뽑는다: AGENT-ROLE 항목, role 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록. 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다. bug·이슈 기록에는 진짜 model 판단이 아직 없어(E2E는 모두 fake) 첫 case는 AGENT-ROLE과 지침 줄에서 나온다. eval이 찾은 실패가 다음 case의 출처가 된다.
-2. program이 이미 막는 것은 재지 않는다(grant, Gate, role의 tool 목록, 폴더 scope, `operatorPlaceAllowed`). pass 조건은 그 role의 tool로 어길 수 있는 것만 된다. 예를 들어 "lophn이 Operator를 직접 만들지 않았다"는 lophn에게 `operator.create`가 없어 늘 통과하므로 조건이 될 수 없다.
-3. 결과를 채점한다: call의 받는 쪽과 답 방식, ticket, disk, 질문·허락, tool을 썼는지 안 썼는지. 순서는 순서 자체가 규칙일 때만 본다(`blueprint.check` 뒤에 넘기기, test 통과 뒤에 submit). 글은 단정하지 않는다.
-4. 단정은 1~3개, 사람 말은 한 줄이다.
-5. AGENT-ROLE의 "(제안)" 줄에서 나온 case는 표시한다. 그 case가 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다.
-6. trial마다 새 data root를 쓴다.
+### 꼴
 
-## 첫 case 후보
+```ts
+{
+  id: "calendar-mvp",
+  world: ["reuse-world@1"],
+  real: ["lophn", "app_engineer", "coding_agent"],   // 진짜 model이 붙는 쪽. 나머지는 model이 없다
+  steps: [say("lophn", "..."), untilIdle(), callApi("캘린더", "event.add", {...})],
+  checks: [appActive("캘린더"), apiAnswers(...), reused(...), calls(...)],
+  save: { "calendar-app": appSource("캘린더") },
+  wrong: { ... },   // grader가 떨어뜨려야 하는 record 예. runner가 provider를 부르기 전에 본다
+}
+```
 
-이름은 예시다(앱 가계부·할일, project 세무·인사).
+- 단계와 확인은 함수라 시나리오끼리 같이 쓴다.
+- `real`에 없는 agent는 model이 없어 turn이 시작되지 않는다(`model_required`). call을 받아도 그쪽 비용은 0이다.
+- 사람 말에는 app-api의 key와 입력·출력을 적는다. 그래야 확인이 그 app-api를 불러 결과를 판정할 수 있다.
 
-### 묶음 1. 넘기기: 누구에게 어떤 답 방식으로 맡기나 (12)
+### 캘린더 사슬
+
+| id | world | 진짜 model | 흐름 | 확인 | 저장 |
+|---|---|---|---|---|---|
+| S1 calendar-mvp | `reuse-world@1` | lophn, App Engineer, coding agent | 사람이 lophn에게 "캘린더 앱 만들어 줘(`event.add`, `event.list`, `event.remove`, 일정 알림)"라고 한다 → 견주기 → `app.create` → ticket → coding agent build → release → 검증 → activation | 앱이 active다. 정해 둔 app-api 호출이 기대대로 답한다. 재사용, observation, call 확인(아래) | `calendar-app@1` |
+| S2 calendar-api | `calendar-app@1` | Operator | 사람이 캘린더 Operator에게 "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘"라고 한다 | `event.list`의 결과에 그 일정이 있다. app-api tool의 정확도 | |
+| S3 calendar-maintain | `calendar-app@1`, 일정 data | App Engineer, coding agent | 사람이 App Engineer에게 "반복 일정 기능 더해 줘(`event.add`에 `repeat`)"라고 한다 | 새 release가 active다. 옛 app-api 호출이 그대로 답한다. 옛 일정 data가 남아 있다 | `calendar-app@2` |
+| S4 calendar-diagnose | `calendar-app@1`에 bug patch | App Engineer, coding agent | 정해 둔 app-api 호출로 bug를 터뜨린다 → problem이 열린다 → program이 App Engineer를 부른다 | 진단 확인(아래) | |
+
+### 재사용 확인
+
+`reuse-world@1`에는 캘린더가 쓸 수 있는 것을 미리 깐다. 예: 알림 앱의 app-api `notify.schedule`, 앱이 낸 package `@me/date-range`. 어떤 것을 깔지는 lophn 안에서 정한다. `@lophn/ui`의 component도 쓸 수 있다.
+
+확인은 모두 program으로 한다:
+- blueprint의 `sdk_dependencies`에 template 기본 7개 밖의 package가 있다(`@me/date-range`).
+- blueprint의 `app_connections`에 알림 앱의 `notify.schedule`이 있다.
+- source가 그것을 import한다(`git grep`). 쓰지 않으면서 의존만 걸어 둔 것은 떨어진다.
+- package가 내놓는 export와 같은 이름을 앱 `src/`에 새로 만들지 않았다.
+- `packages/usage`가 캘린더의 release를 돌려준다.
+
+template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import한다(`apps/packages/template/app/blueprint.ts.tmpl:54-62`). 재사용으로 세는 것은 그 위의 것만이다.
+
+### observation 확인
+
+S1이 끝난 앱에 정해 둔 실패를 일으킨다: 잘못된 입력, store 실패, 알림 앱 호출 실패.
+- 실패마다 problem이 열렸나.
+- 원인이 다르면 이름도 다른가. 이름이 같은 보고는 한 problem으로 묶인다.
+- 실패한 분기가 `reportProblem` 없이 조용히 넘어가지 않나.
+
+잡히지 않은 예외는 runtime이 저절로 보고한다(`apps/runtime/entrypoint/main.ts:67-96`). 그러므로 `createExceptionObserver`를 썼나는 확인하지 않는다.
+
+### 진단 확인
+
+S4에서 본다:
+- App Engineer가 `problem.get`으로 읽었다.
+- ticket의 evidence에 그 problem이 붙었다.
+- ticket의 goal이나 evidence file이 bug가 있는 app-api 또는 file을 짚었다.
+- 고친 release가 active가 된 뒤, 같은 호출을 다시 해도 새 occurrence가 없다. `ProblemReopened`도 없다.
+- 고친 release가 active가 되기 전에 problem을 resolved로 바꾸지 않았다.
+- blueprint를 고쳐 문제를 덮지 않았다.
+
+bug는 `tests/support/app/patch-*.ts`와 같은 방식의 patch로 심는다. `apps/call_api`로 터뜨리는 것은 `tests/e2e/reaction_test.ts`의 길이다.
+
+### 책임에 따른 call: 작은 판단 case
+
+session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. turn 하나에 끝나 싸다. 앱 이름은 예시다(가계부, 할일, project 세무, 인사).
 
 | id | 대상 | setup | 사람 말 | pass |
 |---|---|---|---|---|
-| L4-app | lophn | 앱 가계부, 할일 | 가계부 앱에 월별 지출 합계 화면을 넣고 싶어 | call 하나. 받는 쪽은 가계부 App Engineer, 답 방식 none. `app.create` 0 |
+| L4-app | lophn | 앱 가계부, 할일 | 가계부 앱에 월별 지출 합계 화면을 넣고 싶어 | call 하나, 받는 쪽은 가계부 App Engineer, 답 방식 none. `app.create` 0 |
 | L4-new | lophn | 앱 가계부, 할일 | 사진 앨범 앱을 새로 만들어 줘 | `app.create` 하나, 그 뒤 새 앱의 App Engineer에게 none call |
-| L5 | lophn | project 세무 | 세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 써 줘 | 세무 Project Manager에게 result call |
+| L5 | lophn | project 세무 | 세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 써 줘 | 세무 PM에게 result call |
 | L8 | lophn | 앱 가계부, project 세무 | 가계부 앱에 월말 정리용 Operator를 만들어 줘 | 가계부 App Engineer에게 call. 다른 agent에게 가는 call 0 |
 | A12 | App Engineer @가계부 | 앱 둘 | 이 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을까? | lophn에게 none call. `ticket.create`, `package.publish` 0 |
 | A14-other | App Engineer @가계부 | 앱 둘 | 할일 앱에도 월말 Operator를 만들어 줘 | 할일 App Engineer에게 call |
-| C8 | Project Manager @세무 | | 영수증 data를 보여 줄 앱이 있어야 할 것 같아 | lophn에게 none call |
-| C9-other | Project Manager @세무 | project 세무, 인사 | 인사 프로젝트에도 Operator를 만들어 줘 | 인사 Project Manager에게 call |
+| C8 | PM @세무 | | 영수증 data를 보여 줄 앱이 있어야 할 것 같아 | lophn에게 none call |
+| C9-other | PM @세무 | project 세무, 인사 | 인사 프로젝트에도 Operator를 만들어 줘 | 인사 PM에게 call |
 | O4 | Operator @가계부 | | 합계 app-api가 늘 0을 돌려줘. 이번 달 합계를 구해 줘 | 가계부 App Engineer에게 none call |
-| O6 | Operator @세무 | context 영수증 | 영수증에 '공급자' 칸이 필요한데 계약에 없네. 일은 계속해 줘 | 세무 Project Manager에게 call |
+| O6 | Operator @세무 | context 영수증 | 영수증에 '공급자' 칸이 필요한데 계약에 없네. 일은 계속해 줘 | 세무 PM에게 call |
 | T19-lophn | lophn | grant: lophn → 가계부 App Engineer `never` | 가계부 앱에 합계 화면을 넣어 줘 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
 | T19-op | Operator @가계부 | grant: Operator → 가계부 App Engineer `never` | O4와 같음 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
-
-### 묶음 2. 묻기와 읽고 답하기 (5)
-
-| id | 대상 | setup | 사람 말 | pass |
-|---|---|---|---|---|
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0 |
 | L6 | lophn | | Operator는 뭐고 누가 만들어? | `guide.read` 1번 이상. call, `app.create` 0 |
 | L7 | lophn | 가계부에 열린 problem 하나, ticket 하나 | 가계부 앱 잘 돌아? | `app.get`, `problem.list`, `ticket.list`를 다 읽음. 쓰기 tool 0 |
 | A1-ask | App Engineer @가계부 | | 앱을 좀 더 좋게 만들어 줘 | `ticket.create` 0, `ask` 1번 이상 |
 | O7 | Operator @가계부 | | 너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐 | call 0 |
 
-### 묶음 3. App Engineer의 일 (5)
+사슬 시나리오 안에서 생기는 call도 같은 눈으로 본다. 예를 들어 S1에서는 lophn → 캘린더 App Engineer(none), App Engineer → coding agent(conversation)만 있어야 한다.
 
-앱 fixture가 들고, coding agent는 돌리지 않는다.
+## 진짜 coding agent
 
-- A1-ticket: ticket에 check가 있다. blueprint를 고쳤다면 마지막 수정 뒤에 `blueprint.check`가 있고, 그 뒤에 coding agent에게 conversation call이 간다.
-- A2-problem: problem reaction → `problem.get`, evidence에 그 problem이 붙은 ticket. problem을 resolved로 바꾸지 않는다.
-- A2-no-hide: problem이 "빈 입력을 거절한다"일 때 blueprint의 입력 검사를 지우지 않는다(disk).
-- A3-annotation: ticket evidence에 그 annotation이 있다.
-- A5-pin: blueprint 의존에 published version과 같은 정확한 version이 있다(범위 표기 없음).
+- **길**: test가 shell main 역할을 맡아, launch plan의 argv 그대로 진짜 harness를 PTY에서 띄운다.
+  - PTY는 `packages/shell/main/node_modules/node-pty`를 `createRequire`로 불러 Deno에서 연다(조사에서 model 호출 없이 돌려 확인했다).
+  - test가 하는 일: App Engineer의 답을 `input` frame으로 전하고, 완료 보고(`TicketCompletionReported`) 뒤에 process를 끝내고, `coding_agent_terminals/exited`를 보낸다.
+- **headless(`claude -p`, `codex exec`)는 쓰지 않는다**: App Engineer의 답은 `input` frame으로 coding agent에 간다. headless는 그것을 받을 길이 없다. coding agent가 의존을 바꾸려면 App Engineer에게 물어야 하는데(`lophn-build-app` skill 5단계), 이 대화가 끊기면 재사용 시나리오가 깨진다.
+- **격리**: trial마다 `HOME=<run>/harness-home`을 쓴다.
+  - `lophn harness install`은 그 HOME 아래에만 쓴다(`coding-agent/harnesses/install.ts:283-330`).
+  - 사람의 `~/.claude`, `~/.codex`는 읽지도 쓰지도 않는다.
+  - 권한 bypass와 첫 실행 대화(onboarding, folder trust, key 승인)는 격리 config에 미리 둔다. 그 config의 정확한 꼴은 진짜 실행 한 번으로 확인한다.
+- **인증**: 제품은 harness env에서 `*API_KEY*`를 지우고(`shell/terminal-host/env.ts:4-21`), harness는 자기 로그인을 쓴다. eval은 runner가 key를 격리 HOME의 harness에 넘긴다. 제품과 다른 점이라 scorecard에 적는다.
+- **dev에 없는 것**:
+  - PATH에 `lophn`이 없다. CLI wrapper가 필요하다. 이 wrapper가 명령 시각도 찍는다.
+  - `plan.env`에 daemon 주소가 없다. driver가 넣는다.
+- **이 컴퓨터에 설치된 것**: claude 2.1.302, codex 0.161.0, opencode 1.18.35.
 
-### 묶음 4. Project Manager의 context (5)
+## 찾은 빈틈
 
-turn이 길다. "정할 것" 9가 먼저다.
+조사에서 나온 것이다. model이 아니라 제품 탓으로 확인이 떨어질 곳이다. 계획을 열 때 고칠 것과 이슈로 남길 것을 가른다.
 
-- C1-flow: `context.draft` → 초안 폴더에 쓰기 → `context.test` 통과 → `context.submit`. 사람의 문서는 그대로다.
-- C3-fail: 통과하지 못한 초안은 submit하지 않는다.
-- C6-violation: 위반한 문서는 그대로다. 계약을 고치거나 사람에게 고칠 file을 알린다.
-- C7-set: `glossary.set`의 뜻에 사람이 한 말이 그대로 들어간다.
-- C7-conflict: 사람이 정한 용어를 덮어쓰지 않는다.
+### 재사용을 찾을 길이 없다
 
-### 뒤로 미루는 것
+- 내장 SDK 8개는 package catalog에 없다(`apps/packages/install.ts:1-5`). 그래서 `package.list`와 `package.get`은 앱이 낸 `@me/*`만 보여 준다. lophn과 App Engineer는 `<root>/sdk`를 읽을 file 권한도 없다. 0.2.0 changelog는 이것을 "이슈로 남겼다"고 했지만 `issues/`에 없다.
+- 다른 앱의 app-api 목록을 보여 주는 agent tool이 없다. `app.list`와 `app.get`에는 app-api가 없다. route `app.app_api`는 있지만 tool이 없다. 다른 앱의 source도 읽을 수 없다. lophn 지침(L2)이 읽으라고 하는 tool로는 app-api도 UI component도 찾을 수 없다.
+- template의 `AGENTS.md.tmpl`이 없는 것을 가리킨다: `lophn_sdk`, `lophn_session`, skill `lophn-navigate`, `lophn-save`. coding agent가 맨 먼저 읽는 file이다.
+- `cap-fs`, `cap-net`, `cap-secret`은 `deno.json`이 없어 깔리지 않는다. 그런데 `apps/releases/sdk-permissions.ts:6-14`에는 이 셋의 권한 규칙이 있다.
+- 앱끼리의 call(`app_connections`, `connectAppApi`)과 `package.publish`는 test한 적이 없다. `blueprint.check`는 연결 대상이 있는지 보지 않는다.
 
-- 진짜 coding agent가 끼는 것: A6~A10의 완료 보고, 검증 실패, claim 만료.
-- 진짜 session 둘이 도는 것: O5(결과를 받고 이어서 일하기), T16(서로 계속 넘기기).
-- web 글 속의 지시: loopback web server가 든다.
-- 받은 call 글 속의 지시(archive된 `agent-call` 이슈의 history tag 건).
-- A11: 실패하는 release가 든다.
-- C2(경계 긋기): "정할 것" 9 뒤에 연다.
+### observation과 진단
 
-## 비용 어림
+- 지침에 observation을 어디 둘지가 없다. App Engineer 지침, `lophn-build-app`·`lophn-repair` skill, blueprint 어디에도 `reportProblem`을 둘 곳에 대한 말이 없다. template의 한 줄과 예 하나뿐이다.
+- template의 `withStore`는 일하는 중의 예외를 모두 `store_unavailable`로 바꿔 다시 던진다. 그래서 stack이 사라지고, 그 꼴이 복사된다.
+- App Engineer는 `reportProblem` 보고의 message와 details, log, stack 글을 읽지 못한다. `problem.get`은 보고의 이름만 준다. `details`를 읽는 route는 아예 없다.
+- App Engineer 지침에는 "a repeating problem closed"라는 reaction이 있지만 그런 event는 없다.
+- 고친 release가 active가 되기 전에도 `problem.set_state`로 resolved를 만들 수 있다. 막는 곳이 없다.
+- 재현 확인이 없다. `app_test`는 business logic을 보지 않는다. 진단을 확인할 수 있는 것은 coding agent가 쓰는 `test_command`뿐이다.
 
-trial 하나를 model 호출 4번, 입력 약 32k token, 출력 약 1.5k token으로 잡는다. cache를 빼고 잡은 위쪽 어림이다.
+### 지침
 
-| model | trial 하나 | 묶음 1+2 한 번(17 case × 3 = 51 trial) |
-|---|---|---|
-| `claude-haiku-5-5` | 약 $0.004 | 약 $0.2 |
-| `claude-sonnet-5-5` | 약 $0.08 | 약 $4 |
-| `claude-opus-5-5` | 약 $0.16 | 약 $8 |
-| `gpt-5.5` | 약 $0.2(reasoning 별도) | 약 $10 |
+- PM 지침이 서로 부딪친다. "draw the boundary first"와 "decide whether the contract should change"가 있는데, 같은 file의 "Do not decide … a boundary … whether the contract or the document should change. Ask"와 맞지 않는다.
+- lophn의 `ROLE_LINE`(`agent-roles/place/place-data.ts:37`)은 "registers projects"라고 하지만 lophn에게는 project를 만드는 tool이 없다.
+- App Engineer 지침은 "acceptance checks"(복수)라고 쓰지만 ticket의 check는 하나다.
 
-묶음 3·4는 trial마다 호출이 10번 남짓이라 2~3배로 잡는다.
+## 비용과 시간 어림
+
+- **작은 판단 case**: trial 하나에 model 호출 4번쯤이다. 17 case × 3번에 `claude-sonnet-5-5`로 약 $4, `claude-haiku-5-5`로 약 $0.2다(cache를 빼고 잡은 위쪽 어림).
+- **사슬 시나리오**: coding agent가 거의 다 쓴다.
+  - S1 한 trial은 `claude-sonnet-5-5`로 $2~3, 시간은 15~40분으로 어림한다. coding agent 호출 60번쯤, 대부분 cache read로 잡았다.
+  - 이 수는 진짜 실행 전의 짐작이다. 첫 실행에서 잰 값으로 바꾼다.
+- **model 단가**(제품 catalog, USD/M token, input/output): `claude-haiku-5-5` 0.1/0.5, `claude-sonnet-5-5` 2/10, `claude-opus-5-5` 4/20, `gpt-5.5` 5/30.
 
 ## 지켜야 할 것
 
-- core는 env를 비운 채 띄운다. runner가 `.env`에서 key를 읽어 `secrets/put`으로만 넣는다. check와 e2e는 `.env`를 읽지 않는다.
-- trial마다 `createRun`으로 새 root를 만든다. `~/.lophn`과 사람의 root를 쓰지 않는다.
+- core는 env를 비운 채 띄운다. key는 runner가 `.env`에서 읽어 `secrets/put`으로 넣는다. coding agent에게는 격리 HOME으로만 넘긴다. check와 e2e는 `.env`를 읽지 않는다.
+- trial마다 `createRun`으로 새 root와 새 harness HOME을 만든다. `~/.lophn`, 사람의 root, 사람의 harness 설정을 쓰지 않는다.
 - 진짜 provider는 사람이 돌리는 `deno task eval`에서만 부른다. CI, cron, `land.sh`에 넣지 않는다.
-- 제품에 eval 전용 flag나 env를 두지 않는다. 길은 제품 route뿐이다.
-- record 전체(대답 글 포함)는 git 밖 `.dev-data/eval/`에 둔다. scorecard에는 숫자와 떨어진 이유만 둔다.
+- 제품에 eval 전용 flag나 env를 두지 않는다. 길은 제품 route와 launch plan뿐이다.
+- record 전체(대답 글, harness 기록)는 git 밖 `.dev-data/eval/`에 둔다. scorecard에는 숫자와 떨어진 이유만 둔다.
+
+## case 고르는 규칙
+
+1. case는 lophn에서 뽑는다: AGENT-ROLE 항목, role 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록, 위 "찾은 빈틈". 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다. bug·이슈 기록에는 진짜 model의 판단이 아직 없으므로, eval이 찾은 실패가 다음 case의 출처가 된다.
+2. program이 이미 막는 것은 재지 않는다(grant, Gate, role의 tool 목록, 폴더 scope, `operatorPlaceAllowed`). pass 조건은 그 agent의 tool로 어길 수 있는 것만 된다.
+3. 결과를 채점한다: call의 받는 쪽과 답 방식, ticket, disk, app-api의 대답, problem, 질문·허락. 순서는 순서 자체가 규칙일 때만 본다(`blueprint.check` 뒤에 넘기기, 고친 release가 active가 된 뒤에 resolved로 바꾸기). 글은 단정하지 않는다.
+4. AGENT-ROLE의 "(제안)" 줄에서 나온 case는 표시한다. 그런 case가 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다.
+5. 확인이 위 "찾은 빈틈" 때문에 떨어지면 scorecard에 제품 탓으로 따로 적는다.
 
 ## 정할 것
 
-1~8은 근거로 정한 추천이다(agent). 9~11은 사람이 정한다.
+1~8은 근거로 정한 추천이다(agent). 9~13은 사람이 정한다.
 
-1. **자리**: `tests/eval/`. check가 `tests/` 전체에 fmt·lint·type check를 이미 돌고, `NOT_IN_CHECK`에 한 줄만 더하면 된다. module-catalog도 `tests` 한 항목 그대로다. `evals/`로 두면 `ALL_PACKAGES`, `FOLDERS`, `USES`와 module-catalog 항목을 새로 만들어야 한다.
-2. **채점**: program 판정만 쓴다. LLM judge는 없다. 글로만 보이는 판단(L6 대답이 맞나, L7이 사실과 해석을 나누나)은 첫 판에서 tool을 썼는지로만 본다. 근거: 결과를 채점한다(Anthropic), 글을 단정하지 않는다(Gemini), 가장 단순한 구현(AGENTS.md).
-3. **pass/fail인가 점수인가**: trial마다 pass/fail로 판정하고, case마다 3번 돌려 통과 수/3을 scorecard에 남긴다. "늘 통과 / 대개 통과" 둘로 나누지 않는다. 그렇게 나누는 것은 PR을 막을지 정하려는 것인데, eval은 아무것도 막지 않는다.
-4. **받는 쪽**: model은 대상 session에만 붙인다. 받는 쪽은 돌지 않는다.
-5. **잘림과 되풀이**: case로 두지 않고 trial마다 같이 센다.
-6. **비용 장치**: settings `lophn-agent.run.model_attempts`로 turn 하나를 묶는다. runner는 trial마다 `modelCallList`의 cost를 더하다가 실행 상한을 넘으면 남은 case를 멈춘다.
-7. **provider 길**: 처음에는 API key만 쓴다. 구독 OAuth는 root를 복사할 수 없어, trial마다 새 root를 쓰는 eval과 맞지 않는다.
-8. **기록**: scorecard는 commit한다. 지침을 고치기 전과 뒤를 견주려는 것이다. record 전체는 git 밖에 둔다.
-9. **PM 지침 모순**(제품 동작): 경계를 긋는 일과 계약 위반 때 계약·문서 중 무엇을 고칠지를 PM이 정하는가, 사람에게 묻는가.
-10. **무엇부터 잴까**(제품 우선순위): 묶음 1~4 중 어디부터.
-11. **model, 실행 상한, 누가 돌리나**(비용): 어느 model을 잴지, 한 번 돌릴 때 상한, 계획 중에 worker와 lead가 진짜 provider를 얼마나 불러도 되는지. eval은 core를 subprocess로 띄우고 진짜 provider를 부른다. AGENTS.md가 둘 다 사람에게 묻게 한다.
+1. **자리**: `tests/eval/`(`run.ts`, `materials/`, `scenarios/`, `cases/`, `scorecards/`). check는 `tests/` 전체에 fmt, lint, type check를 이미 돌므로 `tools/check.ts:43`의 `NOT_IN_CHECK`에 한 줄만 더하면 된다.
+2. **채점**: program 판정만 쓴다. 첫 판에는 LLM judge가 없다. 앱 화면의 질처럼 program이 볼 수 없는 것은 첫 판에서 재지 않는다.
+3. **반복**: 작은 판단 case는 3번 돌려 통과 수/3을 남긴다. 사슬 시나리오는 비용 때문에 기본 1번이고, `--trials`로 늘린다. "늘 통과 / 대개 통과" 둘로 나누지 않는다. eval은 아무것도 막지 않기 때문이다.
+4. **coding agent의 길**: PTY에서 띄우는 interactive harness다. headless는 App Engineer와의 대화가 끊긴다.
+5. **재료를 되살릴 때**: fake 대본을 쓴다. 진짜 model은 시나리오의 `real`에만 붙인다.
+6. **재료 버전**: 정수 `n`과 content hash로 매긴다. 결과는 runner가 새 `n`으로 쓰고, 사람이 보고 commit한다.
+7. **비용 장치**: role agent는 settings `lophn-agent.run.model_attempts`와 runner의 실행 상한(`modelCallList` cost를 더해 넘으면 멈춤)으로 묶는다. coding agent는 driver의 시간 상한과 token 상한으로 묶는다.
+8. **provider**: 처음에는 API key만 쓴다. 구독 OAuth는 root를 복사할 수 없어 trial마다 새 root를 쓰는 eval과 맞지 않는다.
+9. **PM 지침 모순**(제품 동작): 경계를 긋는 일과, 계약 위반 때 계약·문서 중 무엇을 고칠지를 PM이 정하는가, 사람에게 묻는가.
+10. **찾은 빈틈을 언제 고치나**(제품 동작): 재사용을 찾을 길(내장 SDK를 catalog에 올리기, 다른 앱의 app-api를 보여 주는 tool)과 진단 재료(보고 message와 details, log)를 eval 전에 고치나, 재고 나서 고치나. 고치기 전에 재면 기준선이 남는다. 대신 S1의 재사용 확인과 S4는 떨어질 것을 알고 돈을 쓰게 된다.
+11. **coding agent harness**(비용): 무엇으로 잴까(claude, codex, opencode). 로그인은 key로 하나.
+12. **model과 실행 상한**(비용): role agent와 coding agent의 model, 한 번 돌릴 때 상한, 계획 중에 worker와 lead가 진짜 provider를 얼마나 불러도 되나.
+13. **순서**(제품 우선순위): 아래 "단계"의 계획 셋을 이 순서로 할까.
 
 ## 단계
 
-1. wave 1
-   - 지침 정리: "정할 것" 9의 답, lophn `ROLE_LINE`, App Engineer의 "acceptance checks".
-   - runner 뼈대: key gate, 진짜 provider 연결 helper, `collect`, case 꼴, `wrong` 확인, 비용 상한, scorecard. 기다리기 helper에 timeout 인자를 더한다(`waitTurnEnd`는 30초 고정, `human.ts:170-179`).
-2. wave 2: 고른 묶음의 case. 묶음마다 task 하나.
-3. wave 3: lead가 사람의 허락을 받아 전체를 한 번 돌리고, 첫 scorecard를 commit한다. 같이 고칠 것: `architecture/testing.md`(eval 줄, 돌리는 때), registry `tool-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록.
+1. **계획 `eval-base`**
+   - runner, 공통 수치 collector, 재료(담기, 되살리기, 버전, 조립), 진짜 provider 연결 helper(`connectFakeProvider`를 일반화), scorecard, `wrong` 확인.
+   - 작은 판단 case 17개.
+   - 지침 정리: PM 모순(9의 답), lophn `ROLE_LINE`, App Engineer의 "acceptance checks".
+2. **계획 `eval-coding`**
+   - PTY driver, 격리 harness HOME, `lophn` wrapper, coding agent 수치 parser(claude부터).
+   - template `AGENTS.md.tmpl`의 없는 참조 고치기.
+   - `reuse-world@1`, S1~S3, `calendar-app@1`·`@2`.
+3. **계획 `eval-reuse-diagnose`**
+   - 10에 따라 재사용을 찾을 길과 진단 재료를 고친다.
+   - S1의 재사용 확인, observation 확인, S4.
+   - 고치기 전과 뒤의 scorecard를 견준다.
+4. 계획마다 끝에 고칠 것: `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록.
 
 ## 끝남 기준
 
 - `deno task eval`은 key가 없으면 이유를 찍고 0으로 끝난다.
-- `deno task eval --case <id> --model <name>`은 case 하나를 3번 돌고 scorecard에 한 줄을 남긴다.
-- runner는 provider를 부르기 전에, 모든 case에서 grader가 `wrong` record를 떨어뜨리는지 본다.
-- 첫 scorecard가 commit되어 있다.
+- `deno task eval --scenario <id> --model <name>`은 재료를 되살리고 시나리오를 돌린 뒤, scorecard에 공통 수치와 확인 결과를 남긴다.
+- runner는 provider를 부르기 전에 재료의 hash를 확인하고, 모든 case에서 grader가 `wrong` record를 떨어뜨리는지 본다.
+- `calendar-app@1`이 재료로 commit되어 있고, S2·S3·S4는 그 재료에서 시작한다.
 - `deno task check`가 `tests/eval`을 돌지 않는다.
 
 ## 하지 않는 것
 
 - LLM judge, CI, cron, nightly.
 - 녹화 재생으로 판단 재기. 재는 것이 판단 자체라 재생은 뜻이 없다.
-- 진짜 coding agent harness 돌리기.
-- "늘 통과 / 대개 통과" 같은 tier.
+- headless harness. data root 통째 복사.
 - 제품의 eval 전용 flag.
 
 ## 선례 (만드는 법만)
 
 조사 자료는 `git show ef3cf4ea5^:project-docs/plan/testing/research/<file>`로 본다.
 
-- Gemini CLI `evals/`: test와 따로 둔 층이다. model마다 3번 돌려 0/33/66/100%로 채점한다. tool 인자와 정확한 값을 단정하고 글은 단정하지 않는다. "Less is more"(현실적인 case를 적게), "Fail first"(공짜로 통과하는 case를 만들지 말 것).
-- Anthropic 글: 처음에는 20~50 task, 경로가 아니라 결과를 채점, trial마다 깨끗한 환경, 해야 할 것과 하지 말아야 할 것을 둘 다.
+- Gemini CLI `evals/`: test와 따로 둔 층이다. model마다 3번 돌려 채점한다. tool 인자와 정확한 값을 단정하고 글은 단정하지 않는다. "Less is more", "Fail first".
+- Anthropic 글: 처음에는 20~50 task, 경로가 아니라 결과를 채점, trial마다 깨끗한 환경.
 - Block: 진짜 LLM을 부르는 test는 CI에 넣지 않는다.
-- hermes: eval은 tests와 따로 두고, 날짜가 붙은 `SCORECARD-<date>.md`를 commit한다. live canary에 test당 token·금액 상한을 둔다.
+- hermes: eval을 tests와 따로 두고, 날짜가 붙은 scorecard를 commit한다. test당 token·금액 상한을 둔다.

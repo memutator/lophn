@@ -10,9 +10,8 @@
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
-// shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `npm run dev`는 main만
-// build하므로 `dev`와 `dev:mock`은 shell을 띄우기 전에 renderer를 먼저 build한다(옛 화면이 뜨지
-// 않게). `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
+// shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `dev`와 `dev:mock`은
+// renderer와 shell main을 build한 뒤(옛 화면이 뜨지 않게) electron을 `npm run` 없이 바로 띄운다. `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
 
@@ -159,22 +158,28 @@ function planCore(
   };
 }
 
-/** `deno task dev`의 shell main spawn 계획. */
+/** shell main bundle build 계획. */
+function planShellBuild(root: string): SpawnPlan {
+  return {
+    command: "node",
+    args: [`${root}/packages/shell/main/build.ts`],
+    env: {},
+  };
+}
+
+/**
+ * `deno task dev`의 shell main spawn 계획. `npm run`을 거치지 않고 electron을 바로 띄운다.
+ * npm이 넣는 `npm_*` 변수와 `node_modules/.bin` PATH가 terminal 탭의 shell까지 물려 내려가
+ * nvm 같은 도구가 경고하기 때문이다.
+ */
 function planShell(
   root: string,
   options: { dataRoot: string; env?: Record<string, string> },
 ): SpawnPlan {
+  const main = `${root}/packages/shell/main`;
   return {
-    command: "npm",
-    args: [
-      "--prefix",
-      `${root}/packages/shell/main`,
-      "run",
-      "dev",
-      "--",
-      "--home",
-      options.dataRoot,
-    ],
+    command: `${main}/node_modules/.bin/electron`,
+    args: [`${main}/dist/main.cjs`, "--home", options.dataRoot],
     // LOPHN_HOME은 --home이 정하므로 여기서는 넣지 않는다.
     env: { ...options.env },
   };
@@ -298,6 +303,8 @@ async function launch(
       await removeDataRoot(dataRoot);
     }
     await Deno.mkdir(dataRoot, { recursive: true, mode: 0o700 });
+    // 다른 도구가 `mkdir -p .dev-data/<하위>`로 먼저 만들면 775로 남는다. core는 0700이 아니면 뜨지 않는다.
+    await Deno.chmod(dataRoot, 0o700);
   } catch (error) {
     console.error(
       `deno task ${mode}: 개발 데이터 root를 만들지 못했다: ${
@@ -332,14 +339,21 @@ async function launch(
       group.stop();
       return { ok: false };
     }
-    const built = spawn(planRendererBuild(options.root), "build");
-    group.add(built);
-    if (!(await built.status).success) {
-      console.error(
-        `deno task ${mode}: renderer build가 실패했다. 옛 화면을 띄우지 않는다.`,
-      );
-      group.stop();
-      return { ok: false };
+    for (
+      const [plan, what] of [
+        [planRendererBuild(options.root), "renderer"],
+        [planShellBuild(options.root), "shell main"],
+      ] as const
+    ) {
+      const built = spawn(plan, "build");
+      group.add(built);
+      if (!(await built.status).success) {
+        console.error(
+          `deno task ${mode}: ${what} build가 실패했다. 옛 화면을 띄우지 않는다.`,
+        );
+        group.stop();
+        return { ok: false };
+      }
     }
     const shellEnv = { ...parentEnv };
     if (mode === "dev:mock") shellEnv.LOPHN_DEV_MOCK = "1";

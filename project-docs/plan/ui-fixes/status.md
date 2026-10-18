@@ -6,4 +6,4 @@ lead만 고친다. `tools/status.py ui-fixes build`가 `tasks/*.md`에서 id, �
 |---|---|---|---|---|---|---|---|
 | `uf-agents-scroll` | uf-agents-scroll | 1 | 없음 | merged | plan/ui-fixes | 00d8a6766 |  |
 | `uf-catalog-read` | uf-catalog-read | 1 | 없음 | merged | plan/ui-fixes | 44c508f60 |  |
-| `uf-model-field` | uf-model-field | 2 | uf-catalog-read | todo |  |  |  |
+| `uf-model-field` | uf-model-field | 2 | uf-catalog-read | merged | plan/ui-fixes | 9525c4372 |  |

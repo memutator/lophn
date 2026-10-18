@@ -18,6 +18,8 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-tab-kind` | bt-tab | 2 | bt-tab-page | merged | bt-tab/bt-tab-kind | 8bb323d9c |  |
 | `bt-tab-page` | bt-tab | 2 | bt-contract, bt-view | merged | bt-tab/bt-tab-page | 39c13995e |  |
 | `bt-view` | bt-view | 2 | bt-rules, bt-session, bt-contract | merged | bt-view/bt-view | 269e235ce |  |
+| `bt-devtools-main` | bt-devtools | 3 | bt-favicon-main | todo |  |  |  |
+| `bt-devtools-ui` | bt-devtools | 3 | bt-favicon-ui, bt-devtools-main | todo |  |  |  |
 | `bt-favicon-main` | bt-favicon | 3 | bt-view-layers, bt-webview-main | merged | bt-favicon/bt-favicon-main | 782fef943 |  |
 | `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main, bt-webview-ui | todo |  |  |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui, bt-menu-overlay | merged | bt-popup/bt-popup-float | 999669572 |  |

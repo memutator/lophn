@@ -3,7 +3,7 @@ import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { modelCallList } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 
-// trial 하나의 role agent, judge, 사람 역할 비용 상한. coding agent는 세지 않는다(token만 집계한다).
+// trial 하나의 role agent 비용 상한. judge와 사람 역할은 key 호출이 아니고 coding agent는 세지 않는다(token만 집계한다).
 export const TRIAL_CAP_USD = 50;
 
 const PRICED = ["reported", "estimated", "free"];
@@ -36,7 +36,6 @@ export async function roleSpendUsd(core: Core): Promise<number> {
 export function createSpendGuard(deps: {
   limitUsd: number;
   roleSpend: () => Promise<number>;
-  humanSpend: () => number;
   clock: Clock;
   everyMs?: number;
 }): { over(): Promise<string | null> } {
@@ -50,9 +49,8 @@ export function createSpendGuard(deps: {
         role = await deps.roleSpend();
         readAt = now;
       }
-      const total = role + deps.humanSpend();
-      return total > deps.limitUsd
-        ? `trial 비용 $${total.toFixed(4)} > 상한 $${deps.limitUsd}`
+      return role > deps.limitUsd
+        ? `trial 비용 $${role.toFixed(4)} > 상한 $${deps.limitUsd}`
         : null;
     },
   };

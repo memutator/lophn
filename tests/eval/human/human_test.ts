@@ -223,5 +223,4 @@ Deno.test("human question becomes a pending entry, goes to askAnswer only when a
   const rec = role.record();
   assertEquals(rec.answers[0].model, "m");
   assertEquals(rec.answers[0].error, null);
-  assertEquals(rec.cost_usd, 0);
 });

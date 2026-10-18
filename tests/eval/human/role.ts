@@ -61,7 +61,6 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
     definition: "",
     answers: [],
     decisions: [],
-    cost_usd: 0,
   };
   const fill = (d: HumanDefinition) => {
     definition = d;
@@ -138,7 +137,6 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
           answers,
           error,
           model: given.model,
-          cost_usd: 0,
         });
         if (sent.ok) {
           acted++;

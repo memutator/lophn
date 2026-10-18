@@ -1,6 +1,5 @@
 import type { Clock } from "../../../packages/base/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
-import { bootCore, createRun } from "../../support/core/mod.ts";
 import { runProgramChecks } from "../checks/mod.ts";
 import {
   type CodingDriver,
@@ -16,6 +15,8 @@ import {
   writeFullRecord,
 } from "../collect/mod.ts";
 import { loadCriterion } from "../criteria/mod.ts";
+import { queueRepeats } from "../experiment/repeat/mod.ts";
+import type { Variant } from "../experiment/variant/mod.ts";
 import { createHumanRole, type HumanRole } from "../human/mod.ts";
 import {
   type JudgeDefinition,
@@ -23,20 +24,14 @@ import {
   newJudgeItem,
   writePending,
 } from "../judge/mod.ts";
-import { attachRealModels, evalCoreSettings } from "../provider/mod.ts";
-import {
-  agentRefOf,
-  beginRestore,
-  endRestore,
-  restoreCoreEnv,
-  restoreWorld,
-  saveMaterials,
-} from "../restore/mod.ts";
+import { attachRealModels } from "../provider/mod.ts";
+import { agentRefOf, saveMaterials } from "../restore/mod.ts";
 import { measureCli, resolveVersion, seenComponents } from "../versions/mod.ts";
 import {
   type CheckResult,
   type CodingSummary,
   type CodingTrace,
+  type Criterion,
   type HumanSummary,
   isCodingAgent,
   type JudgeItem,
@@ -47,9 +42,11 @@ import {
   type TrialResult,
   type VersionRef,
 } from "../types.ts";
+import { serial } from "./mutex.ts";
 import { extraRoots } from "./roots.ts";
 import { createSpendGuard, roleSpendUsd } from "./spend.ts";
 import { CODING_TRIAL_LIMIT_MS, runSteps } from "./steps.ts";
+import { type Held, prepareTrialWorld, releaseWorld } from "./world.ts";
 
 export type TrialDeps = {
   clock: Clock;
@@ -62,12 +59,15 @@ export type TrialDeps = {
   judge: JudgeDefinition;
   log: (line: string) => void;
   registryDir: string;
-  trialBudgetUsd: number; // trial 하나의 role agent·judge·사람 역할 비용 상한
-  repoRoot: string; // `lophn` wrapper가 가리키는 checkout
+  trialBudgetUsd: number; // trial 하나의 role agent 비용 상한
+  variant: Variant; // core와 `lophn` wrapper가 가리키는 checkout
   hookRoot: string; // 사람이 설치한 hook이 가리키는 checkout. worktree가 지워져도 남는 곳이다
   binDir: string;
   home: string; // 사람의 HOME. Claude Code의 JSONL이 여기 있다
+  saveEnabled: boolean; // experiment의 산출물은 후보가 아니라 저장하지 않는다
   saved: { name: string; n: number }[]; // 이 run에서 후보로 쓴 재료. 하나라도 있으면 더 쓰지 않는다
+  repeatCriterion: Criterion; // 같은 호출을 되풀이했는지 보는 진단 criterion
+  live: Set<{ stop(): Promise<unknown> }>; // 도는 trial. 둘째 신호가 기다리지 않고 끈다
 };
 
 export type TrialOutcome = {
@@ -77,12 +77,11 @@ export type TrialOutcome = {
 };
 
 function humanSummary(human: HumanRole): HumanSummary {
-  const { answers, decisions, cost_usd } = human.record();
+  const { answers, decisions } = human.record();
   return {
     answered: answers.length,
     fallback: answers.filter((a) => a.error !== null).length,
     decisions: decisions.length,
-    cost_usd,
   };
 }
 
@@ -92,22 +91,16 @@ export async function runTrial(
   index: number,
 ): Promise<TrialOutcome> {
   const coding = scenario.real.some(isCodingAgent);
-  const run = await createRun();
-  let core: Awaited<ReturnType<typeof bootCore>> | undefined;
+  const held: Held = {};
   let driver: CodingDriver | undefined;
+  const live = { stop: () => Promise.all([driver?.stop(), held.core?.stop()]) };
+  deps.live.add(live);
   try {
-    core = await bootCore(run, {
-      settings: evalCoreSettings(),
-      env: await restoreCoreEnv(scenario.world),
-    });
-
-    const ctx = await beginRestore(core);
-    const restored = await restoreWorld(ctx, scenario.world);
-    if (!restored.ok) {
-      throw new Error(`되살리기 실패: ${restored.error.message}`);
-    }
-    await scenario.setup?.(ctx); // 안 쓴 fake는 endRestore가 닫는다. ticket 대본이 fake를 쓰므로 endRestore 앞이다
-    await endRestore(ctx);
+    const { run, core, ctx } = await prepareTrialWorld(
+      deps,
+      scenario,
+      held,
+    );
 
     await attachRealModels(core, {
       key: deps.key,
@@ -121,7 +114,7 @@ export async function runTrial(
     if (coding) {
       const prepared = await prepareCodingAgent({
         core,
-        root: deps.repoRoot,
+        root: deps.variant.root,
         hookRoot: deps.hookRoot,
         binDir: deps.binDir,
         model: deps.model,
@@ -134,7 +127,7 @@ export async function runTrial(
         clock: deps.clock,
         binDir: deps.binDir,
         outDir: `${deps.evalDir}/${deps.runId}/trial-${index}`,
-        root: deps.repoRoot,
+        root: deps.variant.root,
         log: deps.log,
         timeoutMs: CODING_TRIAL_LIMIT_MS,
       });
@@ -153,8 +146,7 @@ export async function runTrial(
     });
     const spend = createSpendGuard({
       limitUsd: deps.trialBudgetUsd,
-      roleSpend: () => roleSpendUsd(core!),
-      humanSpend: () => human?.record().cost_usd ?? 0,
+      roleSpend: () => roleSpendUsd(core),
       clock: deps.clock,
     });
 
@@ -258,45 +250,58 @@ export async function runTrial(
       deps.log(`채점 대기 ${deps.runId} ${judgeKey(index, check.id)}`);
     }
 
-    const components = await seenComponents(records);
-    if (!components.ok) {
-      throw new Error(`component 버전 확인 실패: ${components.error.message}`);
-    }
-    const refs = [...components.value];
-    // harness도 component다. 값은 prepareCodingAgent가 이미 잰 `claude --version`이다.
-    if (cliVersion !== undefined) {
-      refs.push(
-        (await resolveVersion(
-          deps.registryDir,
-          await measureCli("claude", cliVersion),
-        )).ref,
+    // 동시에 도는 trial이 같은 registry file을 쓰지 않게 줄 세운다.
+    const refs = await serial(async () => {
+      const components = await seenComponents(
+        records,
+        deps.variant.versionDeps,
       );
-    }
+      if (!components.ok) {
+        throw new Error(
+          `component 버전 확인 실패: ${components.error.message}`,
+        );
+      }
+      const found = [...components.value];
+      // harness도 component다. 값은 prepareCodingAgent가 이미 잰 `claude --version`이다.
+      if (cliVersion !== undefined) {
+        found.push(
+          (await resolveVersion(
+            deps.registryDir,
+            await measureCli("claude", cliVersion),
+          )).ref,
+        );
+      }
+      return found;
+    });
 
     // 통과한 첫 trial만 후보로 쓴다(--trials 3이 같은 산출물 후보를 셋 만들지 않게). 쓰기 실패는 점수가 아니다.
+    // 확인과 저장이 겹치면 동시 trial이 둘 다 저장하므로 함께 줄 세운다.
     const saved: { name: string; n: number }[] = [];
     if (
-      scenario.save !== undefined && deps.saved.length === 0 &&
+      deps.saveEnabled && scenario.save !== undefined &&
       settle.kind === "idle" && checks.every((c) => c.pass)
     ) {
-      const written = await saveMaterials(
-        { core, world: ctx.world, refs: scenario.world, trial },
-        scenario.save,
-        {
-          scenario: `${scenario.id}@${scenario.n}`,
-          trial: index,
-          run: deps.runId,
-        },
-      );
-      if (written.ok) {
-        for (const { name, n } of written.value) {
-          saved.push({ name, n });
-          deps.log(`후보: ${name}@${n}`);
+      await serial(async () => {
+        if (deps.saved.length > 0) return;
+        const written = await saveMaterials(
+          { core, world: ctx.world, refs: scenario.world, trial },
+          scenario.save!,
+          {
+            scenario: `${scenario.id}@${scenario.n}`,
+            trial: index,
+            run: deps.runId,
+          },
+        );
+        if (written.ok) {
+          for (const { name, n } of written.value) {
+            saved.push({ name, n });
+            deps.log(`후보: ${name}@${n}`);
+          }
+          deps.saved.push(...saved);
+        } else {
+          deps.log(`후보를 쓰지 못했다: ${written.error.message}`);
         }
-        deps.saved.push(...saved);
-      } else {
-        deps.log(`후보를 쓰지 못했다: ${written.error.message}`);
-      }
+      });
     }
 
     await writeFullRecord(deps.evalDir, deps.runId, index, {
@@ -304,12 +309,30 @@ export async function runTrial(
       judge,
       source: deps.source,
     });
+
+    // 같은 호출을 되풀이한 곳의 진단. 채점 대기 item만 두고 통과 판정에는 들지 않는다.
+    const repeats = await queueRepeats({
+      evalDir: deps.evalDir,
+      run: deps.runId,
+      clock: deps.clock,
+      criterion: deps.repeatCriterion,
+      judge: deps.judge,
+    }, trial);
+    if (repeats.length > 0) {
+      await Deno.writeTextFile(
+        `${deps.evalDir}/${deps.runId}/trial-${index}.repeat.json`,
+        JSON.stringify(repeats, null, 2) + "\n",
+      );
+      for (const r of repeats) deps.log(`채점 대기 ${deps.runId} ${r.key}`);
+    }
+
     const result: TrialResult = {
       index,
       settle,
       checks,
       judge,
       metrics: trial.metrics,
+      components: refs,
       ...(codingRecords && {
         coding: codingRecords.map(({ tail: _, ...rest }): CodingSummary =>
           rest
@@ -319,16 +342,19 @@ export async function runTrial(
     };
     return { result, components: refs, saved };
   } finally {
+    deps.live.delete(live);
     // 각 정리가 실패해도 다음을 한다. core log는 멈춘 이유를 아는 유일한 길이라 stop 뒤 지우기 전에 복사한다.
     await driver?.stop().catch(() => {});
-    await core?.stop().catch(() => {});
-    await Deno.mkdir(`${deps.evalDir}/${deps.runId}`, { recursive: true })
-      .then(() =>
-        Deno.copyFile(
-          `${run.dir}/core.log`,
-          `${deps.evalDir}/${deps.runId}/trial-${index}.core.log`,
-        )
-      ).catch(() => {});
-    await run.remove().catch(() => {});
+    await held.core?.stop().catch(() => {});
+    if (held.run !== undefined) {
+      await Deno.mkdir(`${deps.evalDir}/${deps.runId}`, { recursive: true })
+        .then(() =>
+          Deno.copyFile(
+            `${held.run!.dir}/core.log`,
+            `${deps.evalDir}/${deps.runId}/trial-${index}.core.log`,
+          )
+        ).catch(() => {});
+    }
+    await releaseWorld(held);
   }
 }

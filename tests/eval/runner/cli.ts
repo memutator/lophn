@@ -1,4 +1,3 @@
-import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import {
   createIdSource,
@@ -6,149 +5,31 @@ import {
   systemClock,
 } from "../../../packages/base/mod.ts";
 import { validateFixtures } from "../checks/mod.ts";
+import { codingTotals } from "../coding/metrics/mod.ts";
 import { loadCriterion } from "../criteria/mod.ts";
+import { createPool } from "../experiment/parallel/mod.ts";
+import { REPEAT_KIND } from "../experiment/repeat/mod.ts";
+import { outcomeOf } from "../experiment/spec/mod.ts";
+import { resolveVariant } from "../experiment/variant/mod.ts";
 import { loadJudgeDefinition } from "../judge/mod.ts";
 import { readAnthropicKey } from "../provider/mod.ts";
-import {
-  MATERIALS_ROOT,
-  orderMaterials,
-  verifyMaterial,
-} from "../restore/manifest.ts";
-import { codingTotals } from "../coding/metrics/mod.ts";
-import {
-  isCodingAgent,
-  parseRef,
-  refText,
-  type RunRecord,
-  type Scenario,
-  type TrialResult,
-  type VersionRef,
-} from "../types.ts";
-import {
-  captureSource,
-  checksVersion,
-  coreVersion,
-  criterionContent,
-  hashText,
-  judgeContent,
-  registerAuthored,
-  scenarioHash,
-} from "../versions/mod.ts";
+import { isCodingAgent, type TrialResult } from "../types.ts";
+import { captureSource, checksVersion, coreVersion } from "../versions/mod.ts";
 import { createCap } from "./cap.ts";
+import { trialDepsOf } from "./deps.ts";
 import { type Discovered, discoverScenarios } from "./discover.ts";
+import { REPO_ROOT, RUNS_DIR, useEvalTmp } from "./paths.ts";
+import { registerAll } from "./register.ts";
+import { runScenario, type ScenarioRun } from "./scenario.ts";
+import { installSignals } from "./signals.ts";
 import { TRIAL_CAP_USD } from "./spend.ts";
-import { runTrial, type TrialDeps } from "./trial.ts";
-import { runTrials } from "./trials.ts";
-
-const REPO_ROOT = new URL("../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
-const REGISTRY_DIR = new URL("../registry", import.meta.url).pathname;
-const RUNS_DIR = new URL("../runs", import.meta.url).pathname;
-// 전체 기록. worktree 루트의 .dev-data다.
-const EVAL_DIR = new URL("../../../.dev-data/eval", import.meta.url).pathname;
-
-// 짧은 전용 폴더. unix socket 경로가 108자를 넘지 않고, 사람이 Claude Code에서 한 번 신뢰하면 그 아래 trial 폴더마다 folder trust가 안 뜬다.
-const EVAL_TMP = "/tmp/lophn-eval";
 
 const USAGE =
   "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--trials N] [--budget <usd>] [--trial-budget <usd>]";
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
+// 채점 대기인 judge check는 떨어진 것이 아니다.
 export function passed(trial: TrialResult): boolean {
-  return trial.settle.kind === "idle" && trial.checks.every((c) => c.pass);
-}
-
-// 재료 hash를 확인하고 시나리오, 재료, criterion, judge를 registry에 올린다. 문제를 모아 돌려준다.
-async function registerAll(selected: Discovered[]): Promise<{
-  problems: string[];
-  materials: Map<string, VersionRef[]>;
-}> {
-  const problems: string[] = [];
-  const materials = new Map<string, VersionRef[]>();
-  const register = async (
-    ref: VersionRef,
-    hash: string,
-    content?: string,
-  ) => {
-    const result = await registerAuthored(REGISTRY_DIR, ref, hash, content);
-    if (!result.ok) problems.push(result.error.message);
-  };
-
-  for (const { scenario, path } of selected) {
-    await register(
-      { kind: "scenario", name: scenario.id, n: scenario.n },
-      await scenarioHash(path),
-    );
-    const ordered = await orderMaterials(MATERIALS_ROOT, scenario.world);
-    if (!ordered.ok) {
-      problems.push(`${scenario.id}: ${ordered.error.message}`);
-      continue;
-    }
-    const refs: VersionRef[] = [];
-    for (const material of ordered.value) {
-      const verified = await verifyMaterial(material);
-      if (!verified.ok) {
-        problems.push(
-          `${verified.error.message}. 내용이 바뀌었다. n을 올려라`,
-        );
-        continue;
-      }
-      const ref = parseRef(material.ref, "material");
-      refs.push(ref);
-      await register(ref, material.manifest.content_hash);
-    }
-    materials.set(scenario.id, refs);
-    for (const check of scenario.checks) {
-      if (check.kind !== "judge") continue;
-      const criterion = await loadCriterion(check.criterion);
-      const content = criterionContent(criterion);
-      await register(
-        parseRef(check.criterion, "criterion"),
-        await hashText(content),
-        content,
-      );
-    }
-  }
-  if (selected.some((s) => s.scenario.checks.some((c) => c.kind === "judge"))) {
-    const judge = await loadJudgeDefinition();
-    const content = judgeContent(judge);
-    await register(
-      { kind: "judge", name: "judge", n: judge.n },
-      await hashText(content),
-      content,
-    );
-  }
-  return { problems, materials };
-}
-
-function hasJudge(scenario: Scenario): boolean {
-  return scenario.checks.some((c) => c.kind === "judge");
-}
-
-// 사람이 hook을 개발 형태로 한 번 설치하는 checkout. worktree가 아니라 주 checkout이다(worktree는 지워진다).
-async function mainCheckout(): Promise<string> {
-  const out = await new Deno.Command("git", {
-    args: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    cwd: REPO_ROOT,
-    stdout: "piped",
-  }).output();
-  return dirname(new TextDecoder().decode(out.stdout).trim());
-}
-
-// 새 폴더마다 Claude Code가 folder trust를 묻는다. 사람이 TMPDIR를 정했으면 건드리지 않는다.
-async function useEvalTmp(): Promise<void> {
-  if (Deno.env.get("TMPDIR")) return;
-  const made = await Deno.stat(EVAL_TMP).then(() => false, () => true);
-  await Deno.mkdir(EVAL_TMP, { recursive: true });
-  Deno.env.set("TMPDIR", EVAL_TMP);
-  if (made) {
-    console.log(
-      `${EVAL_TMP}를 만들었다. Claude Code에서 이 폴더를 한 번 열어 신뢰한다(그 아래 trial 폴더에는 folder trust 질문이 안 뜬다)`,
-    );
-  }
+  return outcomeOf(trial, []).state !== "fail";
 }
 
 function codingLines(
@@ -188,9 +69,7 @@ function codingLines(
     lines.push(
       `  사람 역할: 답한 질문 ${sum((h) => h.answered)}(default ${
         sum((h) => h.fallback)
-      }), 결정 ${sum((h) => h.decisions)}, $${
-        sum((h) => h.cost_usd).toFixed(4)
-      }`,
+      }), 결정 ${sum((h) => h.decisions)}`,
     );
   }
   if (saved.length > 0) {
@@ -253,12 +132,7 @@ export async function main(args: string[]): Promise<number> {
   }
 
   const coding = selected.some((s) => s.scenario.real.some(isCodingAgent));
-  if (coding) {
-    await useEvalTmp();
-    if (trials > 1) {
-      console.log("coding 시나리오의 trial은 차례로만 돈다(병렬은 아직 없다)");
-    }
-  }
+  if (coding) await useEvalTmp();
 
   const { problems, materials } = await registerAll(selected);
   const fixtures = await validateFixtures(selected.map((s) => s.scenario));
@@ -276,117 +150,85 @@ export async function main(args: string[]): Promise<number> {
     return 0;
   }
 
-  const core = await coreVersion();
-  const checks = await checksVersion();
-  const source = await captureSource();
-  const judge = await loadJudgeDefinition();
+  const variant = await resolveVariant({ current: REPO_ROOT });
+  if (!variant.ok) {
+    console.log(variant.error.message);
+    return 1;
+  }
+  const core = await coreVersion(variant.value.versionDeps);
+  const checks = await checksVersion(variant.value.graderDeps);
+  const deps = await trialDepsOf({
+    key,
+    model: values.model!,
+    variant: variant.value,
+    trialBudgetUsd: trialBudget,
+    saveEnabled: true,
+    coding,
+    source: await captureSource(variant.value.versionDeps),
+    judge: await loadJudgeDefinition(),
+    repeatCriterion: await loadCriterion(REPEAT_KIND),
+  });
   const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
-  const cap = createCap(budget);
-  let stoppedByCap = false;
-  const repoRoot = REPO_ROOT;
-  const hookRoot = coding ? await mainCheckout() : repoRoot;
+  const cap = createCap(budget, console.log);
+  const pool = createPool({ budget: cap });
+  const stopSignals = installSignals(pool, deps.live, console.log);
 
-  for (const { scenario } of selected) {
-    const runId = ids.newId("run");
-    const started_at = systemClock.now();
-    const saved: { name: string; n: number }[] = [];
-    const deps: TrialDeps = {
-      clock: systemClock,
-      sleep,
-      key,
-      model: values.model!,
-      runId,
-      evalDir: EVAL_DIR,
-      source,
-      judge,
-      log: console.log,
-      registryDir: REGISTRY_DIR,
-      trialBudgetUsd: trialBudget,
-      repoRoot,
-      hookRoot,
-      binDir: `${EVAL_DIR}/bin`,
-      home: Deno.env.get("HOME") ?? "",
-      saved,
-    };
-    let outcomes;
-    try {
-      ({ outcomes, stoppedByCap } = await runTrials(
-        trials,
-        (index) => runTrial(deps, scenario, index),
-        cap,
-      ));
-    } catch (error) {
-      console.log(
-        `${scenario.id}: 멈춤: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return 1;
-    }
-    if (outcomes.length === 0) break;
-
-    const results = outcomes.map((o) => o.result);
-    const components = new Map<string, VersionRef>();
-    for (const o of outcomes) {
-      for (const ref of o.components) components.set(refText(ref), ref);
-    }
-    const criteria = scenario.checks.flatMap((c) =>
-      c.kind === "judge" ? [parseRef(c.criterion, "criterion")] : []
-    );
-    const record: RunRecord = {
-      id: runId,
-      started_at,
-      scenario: { kind: "scenario", name: scenario.id, n: scenario.n },
-      materials: materials.get(scenario.id) ?? [],
-      components: [...components.entries()].sort(([a], [b]) => a < b ? -1 : 1)
-        .map(([, ref]) => ref),
-      core,
-      grader: {
-        criteria,
-        judge: hasJudge(scenario)
-          ? { kind: "judge", name: "judge", n: judge.n }
-          : null,
+  const runs: (ScenarioRun & { scenario: Discovered["scenario"] })[] =
+    await Promise.all(selected.map(async ({ scenario }) => ({
+      scenario,
+      ...await runScenario({
+        scenario,
+        runId: ids.newId("run"),
+        deps,
+        pool,
+        next: (results) => results.length === 0 ? trials : 0,
+        materials: materials.get(scenario.id) ?? [],
+        core,
         checks,
-      },
-      model: values.model!,
-      source: { commit: source.commit, dirty: source.dirty },
-      trials: results,
-    };
-    await Deno.mkdir(RUNS_DIR, { recursive: true });
-    await Deno.writeTextFile(
-      `${RUNS_DIR}/${runId}.json`,
-      JSON.stringify(record, null, 2) + "\n",
-    );
+        runsDir: RUNS_DIR,
+      }),
+    })));
+  stopSignals();
 
+  for (const { scenario, record, saved } of runs) {
+    if (record === null) continue;
+    const results = record.trials;
     const failed = [
       ...new Set(
         results.flatMap((t) =>
-          t.checks.filter((c) => !c.pass).map((c) => c.id)
+          t.checks.filter((c) => !c.pass && !c.pending).map((c) => c.id)
         ),
       ),
     ];
-    const cost = results.reduce(
-      (sum, t) =>
-        sum + t.metrics.cost_usd + t.judge.reduce((s, j) => s + j.cost_usd, 0) +
-        (t.human?.cost_usd ?? 0),
+    const pending = results.reduce(
+      (n, t) => n + t.checks.filter((c) => c.pending).length,
       0,
     );
+    const cost = results.reduce((sum, t) => sum + t.metrics.cost_usd, 0);
     const lines = codingLines(results, saved);
     console.log(
       `${scenario.id}@${scenario.n}: ${
         results.filter(passed).length
       }/${results.length} trial 통과, 떨어진 check ${
         failed.length === 0 ? "없음" : failed.join(", ")
-      }, $${cost.toFixed(4)} (${runId})${
+      }${
+        pending > 0
+          ? `, 채점 대기 ${pending}건(deno task eval:judge ${record.id})`
+          : ""
+      }, $${cost.toFixed(4)} (${record.id})${
         lines.length === 0 ? "" : `\n${lines.join("\n")}`
       }`,
     );
-    if (stoppedByCap) break;
   }
+  const halted = pool.halted();
   console.log(
     `합계 $${cap.total().toFixed(4)} / 상한 $${budget}${
-      stoppedByCap ? ": 상한에 걸려 멈췄다" : ""
+      halted === "budget"
+        ? ": 상한에 걸려 멈췄다"
+        : halted === "stopped"
+        ? ": 신호로 멈췄다"
+        : ""
     }`,
   );
-  return 0;
+  return runs.some((r) => r.failed !== null) ? 1 : 0;
 }

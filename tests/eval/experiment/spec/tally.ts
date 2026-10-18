@@ -2,7 +2,6 @@ import type { TrialResult, VersionRef } from "../../types.ts";
 import type { Outcome, OutcomeState, PoolVerdict, Tally } from "./types.ts";
 
 // 채점 대기인 check는 pass:false라도 떨어진 것이 아니다. 이미 떨어진 것이 있으면 대기가 남아도 fail이다.
-// cost_usd의 judge item과 human 항은 옛 요약(key 호출 시절)의 비용을 잃지 않으려는 것이다. ex-cli가 그 칸을 지울 때 같이 지운다.
 export function outcomeOf(
   trial: TrialResult,
   runComponents: VersionRef[],
@@ -21,9 +20,7 @@ export function outcomeOf(
     state,
     pending,
     checks: Object.fromEntries(trial.checks.map((c) => [c.id, c.pass])),
-    cost_usd: trial.metrics.cost_usd +
-      trial.judge.reduce((sum, j) => sum + j.cost_usd, 0) +
-      (trial.human?.cost_usd ?? 0),
+    cost_usd: trial.metrics.cost_usd,
     components: trial.components ?? runComponents,
   };
 }

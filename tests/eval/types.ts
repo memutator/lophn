@@ -174,7 +174,7 @@ export type Scenario = {
   fixtures: Fixtures;
 };
 
-// ---- 수집한 기록 (모양의 출처는 ev-collect의 "기대하는 모양") ----
+// ---- 수집한 기록 ----
 
 export type PlaceName = { kind: "app" | "project"; id: string; name: string }; // name은 app.name, project.name
 
@@ -314,7 +314,7 @@ export type CodingRecord =
 // run 요약(commit)에는 터미널 글을 넣지 않는다. `human_input`은 요약에도 남는다(사람이 끼어든 run을 가려내야 하기 때문이다).
 export type CodingSummary = Omit<CodingRecord, "tail">;
 
-// 사람 역할이 한 일. 모양의 출처는 ec-human이다(model, 정의 버전, 답한 질문, 허락 결정).
+// 사람 역할이 한 일(정의 버전, 답한 질문, 허락 결정).
 export type HumanRecord = {
   definition: string; // `human@<n>` (human.json의 n)
   answers: {
@@ -325,7 +325,6 @@ export type HumanRecord = {
     answers: AskAnswer[]; // 낸 답
     error: string | null; // 모델 호출 오류(default로 채웠으면 이유), askAnswer 오류
     model: string | null; // 그 답을 낸 subagent의 model. 모르면 null
-    cost_usd: number;
   }[];
   decisions: {
     at: string;
@@ -338,7 +337,6 @@ export type HumanRecord = {
     rule: RequestChoice | null; // 시나리오 규칙. null이면 규칙 없음
     error: string | null;
   }[];
-  cost_usd: number; // answers[].cost_usd의 합
 };
 
 // run 요약(commit)에는 답 글을 넣지 않는다.
@@ -346,7 +344,6 @@ export type HumanSummary = {
   answered: number; // answers의 수
   fallback: number; // answers 가운데 error가 있는 것(default로 채운 답)
   decisions: number; // decisions의 수
-  cost_usd: number;
 };
 
 // ---- trial 기록 ----
@@ -379,7 +376,6 @@ export type JudgeItem = {
   quote: string | null;
   quote_found: boolean; // 인용이 input 안에 있나
   judge: string; // `judge@1`
-  cost_usd: number;
   error: string | null;
 };
 
@@ -397,7 +393,7 @@ export type TrialResult = {
   checks: CheckResult[];
   judge: JudgeItem[];
   metrics: Metrics;
-  components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다. ex-cli가 채운다
+  components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다
   record?: TrialRecord; // 전체 기록(.dev-data/eval)에만 있고 tests/eval/runs의 요약에는 없다
   coding?: CodingSummary[];
   human?: HumanSummary;

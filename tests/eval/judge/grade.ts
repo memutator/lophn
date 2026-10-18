@@ -25,7 +25,6 @@ export function newJudgeItem(
     quote: null,
     quote_found: false,
     judge: `judge@${judge.n}`,
-    cost_usd: 0,
     error: null,
   };
 }

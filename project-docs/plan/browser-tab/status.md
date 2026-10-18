@@ -16,6 +16,6 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-settings-clear` | bt-settings | 2 | bt-tab-page | todo |  |  |  |
 | `bt-tab-kind` | bt-tab | 2 | bt-tab-page | todo |  |  |  |
 | `bt-tab-page` | bt-tab | 2 | bt-contract, bt-view | todo |  |  |  |
-| `bt-view` | bt-view | 2 | bt-rules, bt-session, bt-contract | running | bt-view/bt-view |  |  |
+| `bt-view` | bt-view | 2 | bt-rules, bt-session, bt-contract | merged | bt-view/bt-view | 269e235ce |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui | todo |  |  |  |
 | `bt-gallery` | bt-gallery | 4 | 없음 | todo |  |  |  |

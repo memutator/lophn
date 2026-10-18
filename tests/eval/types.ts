@@ -8,8 +8,18 @@
 //   `TrialResult.record`, `SourceInfo.diff`, `SourceInfo.untracked`를 뺀 JSON이다.
 //   전체 기록은 `.dev-data/eval/<RunRecord.id>/`에 있다.
 // - `CheckInput.core`가 null이면 fixture 확인이다.
+// - `Metrics`는 role agent만 센다. coding agent의 token은 `TrialRecord.coding`에 있고 둘을 더하지 않는다(CLI 기록이라 칸이 반쯤만 겹친다).
 
+import type {
+  IntentKind,
+  RequestChoice,
+} from "../../packages/protocol/approvals/mod.ts";
 import type { Id } from "../../packages/protocol/base/mod.ts";
+import type { HarnessId } from "../../packages/protocol/coding-agent/mod.ts";
+import type {
+  AskAnswer,
+  AskQuestion,
+} from "../../packages/protocol/lophn-agent/ask-tool.ts";
 import type {
   AgentCallRecord,
   AgentRef,
@@ -63,9 +73,28 @@ export type RegistryEntry = {
 // project는 project.name(ASCII slug, 예 "tax"), Operator는 자기 name.
 export type Participant = Omit<NamedAgent, "role"> & { role: Role };
 
+// coding agent는 앱 하나에 붙는다. place.app은 app.name이다(Participant의 place와 같은 이름 규칙).
+// Step.say의 to는 Participant 그대로다(coding agent에게는 말하지 않는다).
+export type CodingParticipant = {
+  role: "coding_agent";
+  place: { app: string };
+};
+
+export function isCodingAgent(
+  participant: Participant | CodingParticipant,
+): participant is CodingParticipant {
+  return participant.role === "coding_agent";
+}
+
 export type Step =
   | { kind: "say"; to: Participant; text: string } // 사람 말 한 줄
-  | { kind: "untilIdle" }; // 진짜 model을 받은 참가자가 모두 쉴 때까지
+  | { kind: "untilIdle" } // 진짜 model을 받은 참가자가 모두 쉴 때까지
+  // world에 든 `call` 재료의 본문을 fake lophn 대본이 재료가 가리키는 받는 agent에게 `call`로 보낸다.
+  // material은 재료 이름(`calendar-call`)이다. runner가 scenario.world에서 `이름@n`을 찾는다.
+  | { kind: "deliver"; material: string }
+  // 켜진 앱의 app-api를 사람 자격으로 부른다(`apps/call_api`). app은 app.name이다. 앱이 낸 오류(outcome `failed`)는
+  // 단계 실패가 아니다(calendar-diagnose가 bug를 일부러 터뜨린다). `denied`·`unknown`은 던진다.
+  | { kind: "callApi"; app: string; api: string; input?: unknown };
 
 // 되살린 world. 키는 Participant에 쓰는 이름과 같다.
 export type WorldIds = {
@@ -96,7 +125,7 @@ export type JudgeCheck = {
   id: string;
   premise: string[]; // 먼저 통과해야 하는 같은 시나리오 program check id. 하나라도 떨어지면 judge를 부르지 않는다
   criterion: string; // `relay-complete@1`(name@n). parseRef(text, "criterion")로 푼다
-  input(input: CheckInput): string; // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다
+  input(input: CheckInput): string | Promise<string>; // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다. 끝난 world를 읽는 입력은 route를 불러 Promise다
 };
 
 export type Check = ProgramCheck | JudgeCheck;
@@ -116,13 +145,29 @@ export type Fixtures = {
   wrong: { trial: TrialRecord; fails: string[] }[]; // fails에 적은 program check id가 떨어져야 한다
 };
 
-// `save`는 이 계획에 없다(eval-coding이 더한다).
+// 적지 않은 종류는 "reject"다. 규칙에 없는 허락을 소리 없이 주지 않는다.
+// 앱 첫 activation은 `activation: "allow"`, Gate가 사람에게 묻는 app-api·MCP tool은 `app_api`·`mcp_tool`에 "once" 등을 적는다.
+export type ApproveRule = Partial<Record<IntentKind, RequestChoice>>;
+
+// card는 요구 카드 글이다(roadmap "요구 카드"). 이름@n으로 가리키지 않고 시나리오 file 안에 둔다.
+// 시나리오 hash가 시나리오 file로 재어지므로 카드를 고치면 시나리오 n이 오른다. 새 VersionKind가 필요 없다.
+export type HumanSpec = { card: string; approve: ApproveRule };
+
+// 시나리오가 끝난 world에서 남길 것. 키는 새 재료 이름(`calendar-app`), 값은 무엇을 남기나.
+// 쓰기는 runner가 `tests/eval/materials/<이름>/<n+1>/`에 한다.
+export type SaveSource =
+  | { kind: "active_app"; app: string } // 켜진 앱: source repo(blueprint 포함)와 manifest, active 표시
+  | { kind: "call"; app: string }; // lophn이 그 앱의 App Engineer에게 보낸 첫 call의 본문(SentCall.body)과 받는 쪽
+export type Save = Record<string, SaveSource>;
+
 export type Scenario = {
   id: string;
   n: number;
   proposal: boolean; // AGENT-ROLE의 "(제안)" 줄에서 나온 case. 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다
   world: string[]; // 재료 `이름@n` 목록. 되살리는 순서는 재료의 needs가 정한다
-  real: Participant[]; // 진짜 model을 받는 참가자. 나머지는 model이 없다
+  real: (Participant | CodingParticipant)[]; // 진짜 model을 받는 참가자. 나머지는 model이 없다
+  human?: HumanSpec; // 없으면 사람 역할이 없다(판단 case)
+  save?: Save; // 없으면 아무것도 남기지 않는다
   setup?: (ctx: SetupContext) => Promise<void>;
   steps: Step[];
   checks: Check[];
@@ -207,6 +252,102 @@ export type Metrics = {
   }[];
 };
 
+// ---- coding agent와 사람 역할의 기록 ----
+
+export type CodingEnd =
+  | "exited"
+  | "killed"
+  | "host_lost"
+  | "timeout"
+  | "no_session_start"
+  | "open_failed";
+
+// driver가 찍는 것. 시각은 Clock.now() 형식이다.
+export type CodingTrace = {
+  session: string; // ses_... (터미널 plan의 session)
+  app: string; // app_...
+  ticket: string; // tkt_...
+  harness: HarnessId; // 이 계획에서는 "claude"만
+  cwd: string; // 앱 source 폴더
+  command_log: string; // `lophn` wrapper 기록 file의 절대 경로(아래 형식)
+  attach_socket: string; // 사람이 이 session의 화면을 보는 unix socket 경로(`deno task eval:attach`). session이 끝나면 지워진다
+  human_input: boolean; // 사람이 `--write`로 붙어 키를 넣었다. 그 trial은 사람이 끼어든 것이다
+  opened_at: string | null; // open 요청이 ok로 끝난 시각. spawn이 실패하면 null
+  reported_at: string | null; // ticket이 reported가 된 것을 처음 본 시각
+  ended_at: string | null; // process가 끝난 시각
+  end: CodingEnd | null; // 아직 살아 있으면 null
+  exit_code: number | null;
+  tail: string; // 끝났을 때 터미널 출력의 마지막 4000자(제어 문자를 뺀 글). 전체 기록에만 남는다
+};
+
+// wrapper 기록 한 줄: `<ISO 시각>\t<arg1>\t<arg2>\t<arg3>\n`. 없는 인자는 빈 칸이다.
+// hook 호출(`hook claude Stop`)도 같은 file에 적힌다.
+export type CodingCommand = { at: string; name: string }; // name은 hook이 아닌 명령의 첫 두 단어(`ticket report`, `message send`)
+
+// Claude Code의 session JSONL(message.usage, tool_result)에서 읽은 것. 비용은 세지 않는다(사람).
+export type CodingUsage = {
+  files: number; // 읽은 jsonl 수(session + subagent)
+  models: string[]; // message.model의 고유값, 정렬
+  api_calls: number; // message.id 중복을 뺀 assistant 응답 수
+  input: number; // input_tokens
+  output: number; // output_tokens
+  cache_read: number; // cache_read_input_tokens
+  cache_write: number; // cache_creation_input_tokens
+  input_total: number; // input + cache_read + cache_write
+  cache_hit_rate: number | null; // cache_read / input_total. 분모 0이면 null
+  tool_results: number; // tool_result 블록 수
+  tool_errors: number; // 그중 is_error:true
+  tool_error_rate: number | null; // tool_errors / tool_results. 분모 0이면 null
+};
+
+export type CodingRecord =
+  & Omit<CodingTrace, "command_log" | "attach_socket">
+  & {
+    usage: CodingUsage | null; // JSONL을 못 읽으면 null
+    usage_error: string | null; // 못 읽은 이유 한 줄
+    commands: CodingCommand[]; // 시각 순서
+    message_send: number; // commands 가운데 `message send`의 수
+    permission_requests: number; // wrapper 기록의 `hook claude PermissionRequest` 수. 사람이 없는 터미널에서 permission 물음이 떴다는 기록이다
+  };
+
+// run 요약(commit)에는 터미널 글을 넣지 않는다. `human_input`은 요약에도 남는다(사람이 끼어든 run을 가려내야 하기 때문이다).
+export type CodingSummary = Omit<CodingRecord, "tail">;
+
+// 사람 역할이 한 일. 모양의 출처는 ec-human이다(model, 정의 버전, 답한 질문, 허락 결정).
+export type HumanRecord = {
+  model: string; // 쓴 model (human.json)
+  definition: string; // `human@<n>` (human.json의 n)
+  answers: {
+    at: string; // Clock
+    session: string;
+    tool_call: string;
+    questions: AskQuestion[]; // askRead로 읽은 질문 전부
+    answers: AskAnswer[]; // 낸 답
+    error: string | null; // 모델 호출 오류(default로 채웠으면 이유), askAnswer 오류
+    cost_usd: number;
+  }[];
+  decisions: {
+    at: string;
+    path: "turn" | "pending";
+    session: string | null;
+    request: string;
+    kind: IntentKind; // intent.kind
+    target: unknown; // intent.target 그대로
+    choice: string; // once | allow | reject
+    rule: RequestChoice | null; // 시나리오 규칙. null이면 규칙 없음
+    error: string | null;
+  }[];
+  cost_usd: number; // answers[].cost_usd의 합
+};
+
+// run 요약(commit)에는 답 글을 넣지 않는다.
+export type HumanSummary = {
+  answered: number; // answers의 수
+  fallback: number; // answers 가운데 error가 있는 것(default로 채운 답)
+  decisions: number; // decisions의 수
+  cost_usd: number;
+};
+
 // ---- trial 기록 ----
 
 // timeout이면 아직 시작 안 한 message나 session id를 unstarted에 담는다.
@@ -219,6 +360,8 @@ export type TrialRecord = {
   settle: Settle;
   sessions: SessionRecord[];
   metrics: Metrics; // sessions의 합
+  coding?: CodingRecord[]; // coding session마다 하나
+  human?: HumanRecord; // 사람 역할이 있는 시나리오만
 };
 
 // ---- judge, run ----
@@ -249,6 +392,8 @@ export type TrialResult = {
   judge: JudgeItem[];
   metrics: Metrics;
   record?: TrialRecord; // 전체 기록(.dev-data/eval)에만 있고 tests/eval/runs의 요약에는 없다
+  coding?: CodingSummary[];
+  human?: HumanSummary;
 };
 
 export type SourceInfo = {
@@ -277,7 +422,16 @@ export type RunRecord = {
 
 // ---- 재료 ----
 
-export type MaterialKind = "app" | "project" | "context" | "operator"; // eval-coding이 더한다
+// `app`은 앱 source만, `active_app`은 source에 active 표시와 release 이력을 얹은 것이다.
+export type MaterialKind =
+  | "app"
+  | "project"
+  | "context"
+  | "operator"
+  | "active_app"
+  | "app_data"
+  | "package"
+  | "call";
 
 // `tests/eval/materials/<이름>/<n>/material.json`의 내용이다. 이름과 n은 폴더가 정한다.
 export type MaterialManifest = {
@@ -316,6 +470,23 @@ export const say = (to: Participant, text: string): Step => ({
   text,
 });
 export const untilIdle = (): Step => ({ kind: "untilIdle" });
+export const codingAgent = (app: string): CodingParticipant => ({
+  role: "coding_agent",
+  place: { app },
+});
+export const deliver = (material: string): Step => ({
+  kind: "deliver",
+  material,
+});
+export const callApi = (app: string, api: string, input?: unknown): Step =>
+  input === undefined
+    ? { kind: "callApi", app, api }
+    : { kind: "callApi", app, api, input };
+export const activeApp = (app: string): SaveSource => ({
+  kind: "active_app",
+  app,
+});
+export const sentCall = (app: string): SaveSource => ({ kind: "call", app });
 
 // `kind:name@n`. 예: `material:apps-home@1`, `instruction:lophn@4`, `core:core@31`.
 export function refText(ref: VersionRef): string {

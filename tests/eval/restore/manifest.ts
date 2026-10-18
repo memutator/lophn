@@ -19,6 +19,10 @@ const ID_PREFIX = {
   project: "prj",
   context: "ctx",
   operator: "agt",
+  active_app: "app",
+  app_data: "app",
+  package: "app",
+  call: "app",
 } as const satisfies Record<MaterialKind, string>;
 
 export function splitRef(ref: string): { name: string; n: number } {

@@ -19,15 +19,17 @@ import {
   restoreWorld,
 } from "../restore/mod.ts";
 import { seenComponents } from "../versions/mod.ts";
-import type {
-  CheckResult,
-  JudgeItem,
-  Scenario,
-  Settle,
-  SourceInfo,
-  TrialRecord,
-  TrialResult,
-  VersionRef,
+import {
+  type CheckResult,
+  isCodingAgent,
+  type JudgeItem,
+  type Participant,
+  type Scenario,
+  type Settle,
+  type SourceInfo,
+  type TrialRecord,
+  type TrialResult,
+  type VersionRef,
 } from "../types.ts";
 import { readSnapshot, waitUntilIdle } from "./idle.ts";
 
@@ -68,7 +70,8 @@ export async function runTrial(
     await attachRealModels(core, {
       key: deps.key,
       model: deps.model,
-      real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
+      real: scenario.real.filter((p): p is Participant => !isCodingAgent(p))
+        .map((p) => agentRefOf(ctx.world, p)),
     });
 
     // 첫 step 직전이 t0다. collector가 이보다 먼저 시작한 turn(되살리기·setup의 흔적)을 뺀다.
@@ -150,7 +153,7 @@ export async function runTrial(
         {
           check: check.id,
           criterion,
-          input: check.input({ trial, core }),
+          input: await check.input({ trial, core }),
           judge: deps.judge,
         },
       );

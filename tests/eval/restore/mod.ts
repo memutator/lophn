@@ -1,6 +1,6 @@
 // trial마다 새 data root에 재료를 제품 route로 되살린다. 되살리는 동안만 fake provider를 전역 기본 model로 붙이고,
 // 끝나면 떼어 root에 model이 어디에도 없게 한다(진짜 model은 ev-provider가 붙인다).
-import { ok, type Result } from "../../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import {
   type AgentRef,
   modelDefaultChange,
@@ -46,6 +46,15 @@ async function restoreOne(
     case "operator":
       await restoreOperators(ctx, material);
       return ok(undefined);
+    case "active_app":
+    case "app_data":
+    case "package":
+    case "call":
+      return err({
+        code: "unavailable",
+        message:
+          `material kind ${material.manifest.kind} is restored by ec-restore`,
+      });
   }
 }
 

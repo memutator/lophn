@@ -39,7 +39,7 @@ export async function validateFixtures(
       for (const c of sc.checks) {
         if (c.kind !== "judge") continue;
         try {
-          if (c.input({ trial, core: null }).trim() === "") {
+          if ((await c.input({ trial, core: null })).trim() === "") {
             bad(`right[${i}]에서 judge ${c.id}의 input이 빈 글`);
           }
         } catch (e) {

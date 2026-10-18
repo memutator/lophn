@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-session` | bt-session | 1 | bt-rules | merged | bt-session/bt-session | bdb3af555 |  |
 | `bt-bookmark-ipc` | bt-bookmark | 2 | bt-bookmark-store, bt-view | merged | bt-bookmark/bt-bookmark-ipc | ac667e3d6 |  |
 | `bt-bookmark-store` | bt-bookmark | 2 | 없음 | merged | bt-bookmark/bt-bookmark-store | 639e1e033 |  |
-| `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | running | bt-bookmark/bt-bookmark-ui |  |  |
+| `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | merged | bt-bookmark/bt-bookmark-ui | 3b3cffd9f |  |
 | `bt-popup-host` | bt-popup | 2 | bt-view | merged | bt-popup/bt-popup-host | 589712cf6 |  |
 | `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | merged | bt-popup/bt-popup-tab | 0055e5f3f |  |
 | `bt-settings-bookmarks` | bt-settings | 2 | bt-settings-clear, bt-bookmark-ipc | merged | bt-settings/bt-settings-bookmarks | 4810cc5b3 |  |

@@ -272,3 +272,23 @@ renderer에서 command 봉투를 손으로 짜는 곳이 10개 file에 11곳이�
 정한 것: 봉투를 하나로 모은다. 화면마다 손으로 짠 봉투가 11벌이라 한 곳의 실수가 설정의 연결 기능 전체를 조용히 막았다.
 
 닫음: `packages/shell/renderer/command-call.ts`의 `commandBody`·`commandCall`이 protocol route를 받아 봉투를 만든다. compare는 type에서 필수라 빠뜨릴 수 없다. 설정, 대화, 앱, context, agent, 앱 상세, problem, 대기 목록, launcher의 손으로 짠 봉투를 모두 이 helper로 바꿨다. guard는 helper의 봉투가 compare 없는 route, compare 있는 route, confirmation 필수 route에서 `commandRequestSchema`를 통과하는지 본다.
+
+## 데스크톱이 CLI의 `--json` 결과를 `data` 칸에서 찾아 harness 감지가 늘 실패한다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/coding-agent]
+closed: fixed
+guard: packages/shell/main/desktop/coding-connection_test.ts "`lophn --json`의 성공 출력은 그대로 data가 되고 `{error}` 출력은 실패가 된다"
+```
+
+지금:
+- `packages/shell/main/desktop/coding-connection.ts`의 `childCliRunner`는 `lophn ... --json`의 stdout을 `{ data?, error? }`로 읽고 성공이면 `body.data`를 돌려준다.
+- CLI는 성공하면 data를 감싸지 않고 `JSON.stringify(data)` 한 줄을 쓴다(`packages/coding-agent/cli/output.ts`의 `result`). 실패만 `{ error }`로 감싼다.
+- 그래서 성공한 `harness detect`의 결과가 늘 `undefined`이고, `run`은 "Detection gave an unknown result."로 모든 harness를 unknown으로 둔다. `harness install`의 결과도 같은 길로 읽는다.
+
+영향: 데스크톱 앱에서 coding agent 감지와 hook·skill 설치가 결과를 읽지 못한다. 감지된 harness가 없으면 App Engineer가 ticket을 coding agent에게 맡기지 못한다.
+
+고치려면: `childCliRunner`가 성공 출력을 그대로 data로 받는다(`body?.error`가 없으면 `body` 전체가 data)(작음). 이 runner에 CLI 출력 꼴 하나로 test를 둔다. 추천.
+
+닫음: `childCliRunner`는 stdout JSON이 `{ error: { code, message } }` 꼴이면 실패로, 아니면 값 전체를 data로 돌려준다.

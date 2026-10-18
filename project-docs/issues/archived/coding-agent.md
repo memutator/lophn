@@ -379,3 +379,44 @@ guard: packages/core/apps/tickets/tickets_test.ts "examples check의 ticket은 �
 - app-api로 부를 수 없는 것(화면 모양)은 지금처럼 `text`로 판단하고 사람이 확인한다.
 
 닫음: `test_command`를 protocol, core, skill에서 지우고 check를 `app_test`, `examples`, `text` 셋으로 바꿨다. `examples`는 App Engineer가 쓴 app-api 예시(api, input, expect) 1~20개다. 완료 보고가 나면 Reactor handler가 core의 machine 자격으로 `examples` test를 요청하고(예시는 요청이 아니라 접수 준비가 ticket에서 읽는다), runner(`createRealAppDriver`의 `call`)가 보고된 release의 격리 사본에서 예시를 차례로 불러 비교한다. 규칙은 객체는 expect의 key가 모두 있고 값이 맞아야 하고(실제에 key가 더 있어도 된다), 배열은 길이와 원소가 맞아야 하고, 오류로 끝난 호출은 불일치다. 결과가 `VerificationRecorded`로 나면 다른 handler가 ticket에 결과를 남긴다. `ticket.verify`는 check가 `examples`인 ticket을 현재 check hash로 pass가 기록된 뒤에만 verified로 받는다(아니면 `conflict`). coding agent는 예시를 고치지 못하고 `lophn-repair`·`lophn-build-app` skill과 App Engineer 지침이 이 check를 쓴다.
+
+## 앱이 낸 package를 import한 앱은 app test에서 "선언하지 않은 의존"으로 떨어진다
+
+```yaml
+kind: bug
+modules: [packages/core/problems, packages/core/apps]
+closed: fixed
+guard: packages/core/problems/tests/app-test/generate_test.ts "선언한 @me package와 내장 SDK의 import는 의존 확인을 통과하고 선언하지 않은 @me import는 걸린다"
+```
+
+지금:
+- 앱이 낸 package는 `sdk/@me/<part>/<version>`에 깔린다(`packages/core/apps/packages/install.ts`의 `packageInstallPath`). 내장 SDK는 `sdk/<part>/<version>`이다.
+- app test의 의존 확인(`packages/core/problems/tests/app-test/generate.ts`의 `checkDependencies`)은 import 값을 `SDK_COPY = /^\.\/sdk\/([^/]+)\/([^/]+)\//`로 읽는다. `./sdk/@me/date-range/1.0.0/...`은 이름 `@me`, version `date-range`로 읽혀 blueprint에 선언한 의존과 맞지 않는다.
+- 그래서 `@me/*`를 의존에 적고 import한 앱은 그 import가 늘 "선언하지 않은 의존"이 된다.
+
+영향: 앱이 낸 package를 다른 앱이 쓰는 길이 막혀 있다. App Engineer가 `package.publish`로 낸 logic을 다른 앱이 쓰면 그 release는 app test를 넘지 못해 켜지지 않는다. eval의 재사용 확인(계획 `eval-coding`의 calendar-mvp)도 이 때문에 떨어진다.
+
+고치려면: `SDK_COPY`가 `@me/`를 건너뛰고 읽게 한다(`/^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//`, 작음). 이름 비교는 `item.name.split("/").pop()`이라 그대로 맞는다. `@me` package를 import하는 app test 입력 하나로 test를 둔다. 추천.
+
+닫음: `SDK_COPY`가 `./sdk/@me/<part>/<version>/`의 `@me/`를 건너뛰고 읽는다. 선언한 `@me` package의 import는 통과하고, 선언하지 않은 `@me` import는 여전히 "선언하지 않은 의존"으로 걸린다.
+
+## app test가 바꿀 것이 없는 write app-api를 떨어뜨린다
+
+```yaml
+kind: bug
+modules: [packages/core/problems]
+closed: fixed
+guard: packages/core/problems/tests/harness/checks_test.ts "바꿀 것이 없는 write app-api는 되돌리기 확인을 통과하고 되돌리지 못한 api와 호출에 실패한 api는 떨어진다"
+```
+
+지금: `packages/core/problems/tests/harness/checks.ts`의 `rewind`는 write app-api를 선언 순서대로 가장 단순한 입력으로 한 번씩 부르고, 그 호출이 data를 바꿨는지(`changed`)를 통과 조건에 넣는다(`run.called && run.changed && run.applied && run.restored`). 그래서 그 입력에서 바꿀 것이 없는 write app-api(없는 id를 지우는 `remove`처럼 맞게 짠 것)는 떨어진다.
+
+영향: coding agent가 맞게 짠 앱이 app test를 넘지 못한다. 넘기려면 바꿀 것이 없을 때도 무언가를 쓰게(지운 기록 표 등) 앱을 일그러뜨려야 한다. eval의 기준 캘린더 앱도 그렇게 짜야 한다.
+
+고치려면:
+- 바뀐 것이 없으면 그 api는 되돌릴 것이 없으니 되돌리기 확인을 통과로 둔다(작음). 잃는 것: 쓰기를 아예 못 하는 write app-api를 이 확인으로는 잡지 못한다. 추천.
+- 앞 호출이 만든 행(예: 앞선 `add`의 id)을 다음 호출의 입력으로 넣는다(중간). 입력 꼴마다 규칙이 필요하다.
+
+정한 것: 바뀐 것이 없으면 통과로 둔다(사람). changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어지게 한다. 계획 `found-bugs`가 한다.
+
+닫음: `rewind` check는 `run.called && (!run.changed || (run.applied && run.restored))`로 판정한다. driver(`packages/core/problems/tests/work/app-driver.ts`)는 changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어진다.

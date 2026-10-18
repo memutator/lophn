@@ -7,6 +7,7 @@ import { AgentsPage } from "../agents/agents-page.tsx";
 import { OPERATOR_ID } from "../agents/agent-key.ts";
 import { TAB_KEY } from "../contexts/tab-fields.ts";
 import type { TabItem } from "../model.ts";
+import { PaddedTab } from "../panes/padded-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -61,24 +62,26 @@ export const agentsKind: TabKindDef = {
     const agents = host.agents;
     if (agents === null) return null;
     return (
-      <AgentsPage
-        key={tab.key}
-        project={host.projectId}
-        projectName={host.projectTitle ?? ""}
-        source={agents.source}
-        agent={agentOf(tab)}
-        onAgent={(assignment) =>
-          host.patchTab(tab.key, () => ({
-            fields: assignment === null ? undefined : { agent: assignment },
+      <PaddedTab bare>
+        <AgentsPage
+          key={tab.key}
+          project={host.projectId}
+          projectName={host.projectTitle ?? ""}
+          source={agents.source}
+          agent={agentOf(tab)}
+          onAgent={(assignment) =>
+            host.patchTab(tab.key, () => ({
+              fields: assignment === null ? undefined : { agent: assignment },
+            }))}
+          contexts={(host.contexts?.list ?? []).map((item) => ({
+            id: item.id,
+            name: item.title,
           }))}
-        contexts={(host.contexts?.list ?? []).map((item) => ({
-          id: item.id,
-          name: item.title,
-        }))}
-        onEditInstructions={agents.editInstructions}
-        onAddExtension={agents.openExtensions}
-        onChanged={agents.changed}
-      />
+          onEditInstructions={agents.editInstructions}
+          onAddExtension={agents.openExtensions}
+          onChanged={agents.changed}
+        />
+      </PaddedTab>
     );
   },
 };

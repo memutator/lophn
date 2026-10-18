@@ -52,6 +52,13 @@
   padding: var(--space-8) var(--layout-pane-padding-wide);
 }
 
+/* 여백을 스스로 두는 탭(PaddedTab bare). 칸 안에서 scroll만 한다. */
+.scroll {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+}
+
 /* 칸에 남겨 둔 앱 패널 탭. 고른 탭만 보이고 나머지는 숨는다. */
 .kept {
   display: flex;

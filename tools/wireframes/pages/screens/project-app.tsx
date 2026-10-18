@@ -47,6 +47,7 @@ import {
 } from "./project-window.tsx";
 import workspace from "../../../../packages/shell/renderer/workspace/workspace.module.css";
 import paneStyles from "../../../../packages/shell/renderer/workspace/panes/panes.module.css";
+import { PaddedTab } from "../../../../packages/shell/renderer/workspace/panes/padded-tab.tsx";
 
 /** 별표 찍은 model. 찍은 순서 그대로 둔다(provider로 다시 묶지 않는다). */
 const FAVORITE_START: readonly string[] = ["GPT-6.1 Sol", "Sonnet 5.5"];
@@ -71,7 +72,14 @@ export interface ProjectAppProps {
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
 }
 
-const FLUSH = new Set(["search", "agent", "terminal", "document"]);
+const FLUSH = new Set([
+  "search",
+  "agent",
+  "terminal",
+  "document",
+  "agents",
+  "operator",
+]);
 
 export const CHAT_TAB: TabSpec = {
   key: "chat",
@@ -422,13 +430,19 @@ export function ProjectApp(
           />
         );
       case "agents":
-        return <AgentsBody open={open} />;
+        return (
+          <PaddedTab bare>
+            <AgentsBody open={open} />
+          </PaddedTab>
+        );
       case "operator":
         return (
-          <OperatorEditor
-            id={tab.sub ?? "new"}
-            onDone={() => close(tab.key)}
-          />
+          <PaddedTab bare>
+            <OperatorEditor
+              id={tab.sub ?? "new"}
+              onDone={() => close(tab.key)}
+            />
+          </PaddedTab>
         );
     }
   };

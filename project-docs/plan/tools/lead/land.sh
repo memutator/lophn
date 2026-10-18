@@ -14,6 +14,8 @@ cd "$L" || exit 1
 git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
 out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: full check failed"; exit 1; }
 if ls tests/e2e/*_test.ts >/dev/null 2>&1; then
+  # 새 lead worktree에는 앱 E2E가 쓰는 의존이 없다. 없으면 앱을 띄우는 E2E가 모두 실패한다.
+  out=$(deno task e2e:deps 2>&1) || { echo "$out" | tail -10; echo "STOP: e2e deps failed"; exit 1; }
   out=$(deno task e2e 2>&1) || { echo "$out" | tail -30; echo "STOP: e2e failed"; exit 1; }
 fi
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed"; echo "$BOOT" | tail -6; exit 1; }

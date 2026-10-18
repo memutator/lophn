@@ -250,13 +250,13 @@ export function createModelResolver(deps: ModelResolverDeps) {
       ? responsesPacker({
         model: limits.sent_model_name,
         images,
-        maxTokens: cappedOutput(limits.output_limit),
+        maxTokens: cappedOutput(limits),
         requestPatch,
       })
       : chatPacker({
         model: limits.sent_model_name,
         images,
-        maxTokens: cappedOutput(limits.output_limit),
+        maxTokens: cappedOutput(limits),
         provider: provider.definition.key,
         requestPatch,
       });

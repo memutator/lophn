@@ -395,7 +395,7 @@ export function createCompactor(
     const binding = resolved.value;
     const budget = inputBudget(
       binding.call.limits,
-      cappedOutput(binding.call.limits.output_limit),
+      cappedOutput(binding.call.limits),
     );
     if (!budget.ok) return failed("too_large");
     const limit: SummaryLimit = {

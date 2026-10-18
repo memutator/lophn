@@ -25,11 +25,18 @@ import type { InvokeModelCall } from "../providers/work.ts";
 // credential)은 앞 단계가 끝낸 CallModel이다. 이 묶음은 요청 번역(pack)과 호출(invoke)만 안다.
 
 // 한 호출이 쓰는 output의 상한이다. 보내는 max_tokens와 입력 예산이 남기는 output 몫이 같은 값이어야 한다:
-// vLLM 계열은 입력과 max_tokens의 합이 context를 넘으면 거절한다.
+// vLLM 계열은 입력과 max_tokens의 합이 context를 넘으면 거절한다. context의 4분의 1로도 묶어
+// 작은 context의 model이 창 대부분을 입력에 쓰게 한다.
 export const OUTPUT_CAP = 32000;
 
-export function cappedOutput(outputLimit: number): number {
-  return Math.min(OUTPUT_CAP, outputLimit);
+export function cappedOutput(
+  limits: { context_limit: number; output_limit: number },
+): number {
+  return Math.min(
+    OUTPUT_CAP,
+    limits.output_limit,
+    Math.floor(limits.context_limit / 4),
+  );
 }
 
 export type ModelBinding = {

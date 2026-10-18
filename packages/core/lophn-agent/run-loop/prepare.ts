@@ -500,7 +500,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_limit: model.call.limits.input_limit,
             output_limit: model.call.limits.output_limit,
           },
-          reserved_output: cappedOutput(model.call.limits.output_limit),
+          reserved_output: cappedOutput(model.call.limits),
         },
         session: read.value,
         notices,

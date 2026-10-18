@@ -15,7 +15,10 @@ export async function runTrials<T extends { result: TrialResult }>(
     const outcome = await runOne(index);
     outcomes.push(outcome);
     const { metrics, judge } = outcome.result;
-    cap.add(metrics.cost_usd + judge.reduce((sum, j) => sum + j.cost_usd, 0));
+    cap.add(
+      metrics.cost_usd + judge.reduce((sum, j) => sum + j.cost_usd, 0) +
+        (outcome.result.human?.cost_usd ?? 0),
+    );
     if (metrics.unpriced_calls > 0 && !warned) {
       warned = true;
       log("비용 모르는 call 있음: 합계 비용이 모자랄 수 있다");

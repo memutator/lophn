@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import {
   createIdSource,
@@ -13,7 +14,9 @@ import {
   orderMaterials,
   verifyMaterial,
 } from "../restore/manifest.ts";
+import { codingTotals } from "../coding/metrics/mod.ts";
 import {
+  isCodingAgent,
   parseRef,
   refText,
   type RunRecord,
@@ -33,16 +36,24 @@ import {
 } from "../versions/mod.ts";
 import { createCap } from "./cap.ts";
 import { type Discovered, discoverScenarios } from "./discover.ts";
-import { runTrial } from "./trial.ts";
+import { TRIAL_CAP_USD } from "./spend.ts";
+import { runTrial, type TrialDeps } from "./trial.ts";
 import { runTrials } from "./trials.ts";
 
+const REPO_ROOT = new URL("../../../", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
 const REGISTRY_DIR = new URL("../registry", import.meta.url).pathname;
 const RUNS_DIR = new URL("../runs", import.meta.url).pathname;
 // 전체 기록. worktree 루트의 .dev-data다.
 const EVAL_DIR = new URL("../../../.dev-data/eval", import.meta.url).pathname;
 
+// 짧은 전용 폴더. unix socket 경로가 108자를 넘지 않고, 사람이 Claude Code에서 한 번 신뢰하면 그 아래 trial 폴더마다 folder trust가 안 뜬다.
+const EVAL_TMP = "/tmp/lophn-eval";
+
 const USAGE =
-  "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--trials N] [--budget <usd>]";
+  "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--trials N] [--budget <usd>] [--trial-budget <usd>]";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -117,6 +128,77 @@ function hasJudge(scenario: Scenario): boolean {
   return scenario.checks.some((c) => c.kind === "judge");
 }
 
+// 사람이 hook을 개발 형태로 한 번 설치하는 checkout. worktree가 아니라 주 checkout이다(worktree는 지워진다).
+async function mainCheckout(): Promise<string> {
+  const out = await new Deno.Command("git", {
+    args: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    cwd: REPO_ROOT,
+    stdout: "piped",
+  }).output();
+  return dirname(new TextDecoder().decode(out.stdout).trim());
+}
+
+// 새 폴더마다 Claude Code가 folder trust를 묻는다. 사람이 TMPDIR를 정했으면 건드리지 않는다.
+async function useEvalTmp(): Promise<void> {
+  if (Deno.env.get("TMPDIR")) return;
+  const made = await Deno.stat(EVAL_TMP).then(() => false, () => true);
+  await Deno.mkdir(EVAL_TMP, { recursive: true });
+  Deno.env.set("TMPDIR", EVAL_TMP);
+  if (made) {
+    console.log(
+      `${EVAL_TMP}를 만들었다. Claude Code에서 이 폴더를 한 번 열어 신뢰한다(그 아래 trial 폴더에는 folder trust 질문이 안 뜬다)`,
+    );
+  }
+}
+
+function codingLines(
+  results: TrialResult[],
+  saved: { name: string; n: number }[],
+): string[] {
+  const lines: string[] = [];
+  const terminals = results.flatMap((t) => t.coding ?? []);
+  if (terminals.length > 0) {
+    const totals = codingTotals(terminals.map((t) => ({ ...t, tail: "" })));
+    const minutes = terminals.reduce(
+      (sum, t) =>
+        t.opened_at === null || t.ended_at === null
+          ? sum
+          : sum + (Date.parse(t.ended_at) - Date.parse(t.opened_at)) / 60_000,
+      0,
+    );
+    const tokens = totals === null
+      ? "token 모름"
+      : `token input ${totals.input} output ${totals.output} cache read ${totals.cache_read}`;
+    const permissions = terminals.reduce(
+      (n, t) => n + t.permission_requests,
+      0,
+    );
+    lines.push(
+      `  coding: ${tokens}, 터미널 ${terminals.length}개 ${
+        minutes.toFixed(1)
+      }분, permission 물음 ${permissions}, 사람 개입: ${
+        terminals.some((t) => t.human_input) ? "있음" : "없음"
+      }`,
+    );
+  }
+  const humans = results.flatMap((t) => t.human ?? []);
+  if (humans.length > 0) {
+    const sum = (pick: (h: (typeof humans)[number]) => number) =>
+      humans.reduce((n, h) => n + pick(h), 0);
+    lines.push(
+      `  사람 역할: 답한 질문 ${sum((h) => h.answered)}(default ${
+        sum((h) => h.fallback)
+      }), 결정 ${sum((h) => h.decisions)}, $${
+        sum((h) => h.cost_usd).toFixed(4)
+      }`,
+    );
+  }
+  if (saved.length > 0) {
+    lines.push(`  후보: ${saved.map((s) => `${s.name}@${s.n}`).join(", ")}`);
+  }
+  return lines;
+}
+
 export async function main(args: string[]): Promise<number> {
   let values;
   try {
@@ -128,6 +210,7 @@ export async function main(args: string[]): Promise<number> {
         model: { type: "string", default: "claude-sonnet-5-5" },
         trials: { type: "string", default: "1" },
         budget: { type: "string", default: "50" },
+        "trial-budget": { type: "string", default: String(TRIAL_CAP_USD) },
       },
     }));
   } catch (error) {
@@ -136,9 +219,13 @@ export async function main(args: string[]): Promise<number> {
   }
   const trials = Number(values.trials);
   const budget = Number(values.budget);
-  if (!Number.isInteger(trials) || trials < 1 || !(budget > 0)) {
+  const trialBudget = Number(values["trial-budget"]);
+  if (
+    !Number.isInteger(trials) || trials < 1 || !(budget > 0) ||
+    !(trialBudget > 0)
+  ) {
     console.log(
-      `--trials는 1 이상 정수, --budget은 0보다 커야 한다.\n${USAGE}`,
+      `--trials는 1 이상 정수, --budget과 --trial-budget은 0보다 커야 한다.\n${USAGE}`,
     );
     return 2;
   }
@@ -165,6 +252,14 @@ export async function main(args: string[]): Promise<number> {
     return 2;
   }
 
+  const coding = selected.some((s) => s.scenario.real.some(isCodingAgent));
+  if (coding) {
+    await useEvalTmp();
+    if (trials > 1) {
+      console.log("coding 시나리오의 trial은 차례로만 돈다(병렬은 아직 없다)");
+    }
+  }
+
   const { problems, materials } = await registerAll(selected);
   const fixtures = await validateFixtures(selected.map((s) => s.scenario));
   problems.push(...fixtures.problems);
@@ -188,11 +283,14 @@ export async function main(args: string[]): Promise<number> {
   const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
   const cap = createCap(budget);
   let stoppedByCap = false;
+  const repoRoot = REPO_ROOT;
+  const hookRoot = coding ? await mainCheckout() : repoRoot;
 
   for (const { scenario } of selected) {
     const runId = ids.newId("run");
     const started_at = systemClock.now();
-    const deps = {
+    const saved: { name: string; n: number }[] = [];
+    const deps: TrialDeps = {
       clock: systemClock,
       sleep,
       key,
@@ -202,6 +300,13 @@ export async function main(args: string[]): Promise<number> {
       source,
       judge,
       log: console.log,
+      registryDir: REGISTRY_DIR,
+      trialBudgetUsd: trialBudget,
+      repoRoot,
+      hookRoot,
+      binDir: `${EVAL_DIR}/bin`,
+      home: Deno.env.get("HOME") ?? "",
+      saved,
     };
     let outcomes;
     try {
@@ -262,15 +367,19 @@ export async function main(args: string[]): Promise<number> {
     ];
     const cost = results.reduce(
       (sum, t) =>
-        sum + t.metrics.cost_usd + t.judge.reduce((s, j) => s + j.cost_usd, 0),
+        sum + t.metrics.cost_usd + t.judge.reduce((s, j) => s + j.cost_usd, 0) +
+        (t.human?.cost_usd ?? 0),
       0,
     );
+    const lines = codingLines(results, saved);
     console.log(
       `${scenario.id}@${scenario.n}: ${
         results.filter(passed).length
       }/${results.length} trial 통과, 떨어진 check ${
         failed.length === 0 ? "없음" : failed.join(", ")
-      }, $${cost.toFixed(4)} (${runId})`,
+      }, $${cost.toFixed(4)} (${runId})${
+        lines.length === 0 ? "" : `\n${lines.join("\n")}`
+      }`,
     );
     if (stoppedByCap) break;
   }

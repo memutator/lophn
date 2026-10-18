@@ -69,7 +69,7 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
       const fact = found.value;
       if (
         fact === null || fact.app !== input.app || fact.result !== "pass" ||
-        (fact.kind !== "app_test" && fact.kind !== "test_command")
+        fact.kind !== "app_test"
       ) {
         return invalid(`${id} is not a passed app test of this app`);
       }

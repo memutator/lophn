@@ -13,16 +13,6 @@ const INCONCLUSIVE_ONLY = "이 종료는 inconclusive만 기록할 수 있다";
 
 const INCONCLUSIVE_REASONS = new Set(["timeout", "killed", "runner_lost"]);
 
-function kindShape(
-  verification: Verification,
-  evidence: PreparedResultEvidence,
-): boolean {
-  const frozen = evidence.frozen;
-  return verification.kind === "app_test"
-    ? frozen.blueprint !== null && frozen.sdk_dependencies !== null
-    : frozen.blueprint === null && frozen.sdk_dependencies === null;
-}
-
 export function judgeRecordable(
   verification: Verification,
   evidence: PreparedResultEvidence,
@@ -32,9 +22,6 @@ export function judgeRecordable(
   const execution = executionEvidenceListSchema.safeParse(
     evidence.execution_evidence,
   );
-  if (!kindShape(verification, evidence)) {
-    return err({ code: "conflict", message: CONFLICT });
-  }
   if (!frozen.success || !execution.success) {
     return err({ code: "invalid_input", message: INVALID });
   }
@@ -59,14 +46,6 @@ export function judgeRecordable(
         observed.request_hash !== verification.request_hash;
     });
   if (mismatched) return err({ code: "conflict", message: CONFLICT });
-  const exitMismatch = verification.kind === "test_command" &&
-    started.some((item) =>
-      item.end_reason === "exited" &&
-      item.exit_code !== evidence.frozen.method.expected_exit_code
-    );
-  if (exitMismatch && verification.result === "pass") {
-    return err({ code: "invalid_input", message: INCONCLUSIVE_ONLY });
-  }
   const forced =
     started.some((item) => INCONCLUSIVE_REASONS.has(item.end_reason)) ||
     !evidence.evidence_sufficient;

@@ -8,7 +8,7 @@ import { memoryLimitModeSchema } from "../supervision/supervision.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { problemCodeSchema } from "./problem-codes.ts";
 
-const TEST_KINDS = ["app_test", "test_command"] as const;
+const TEST_KINDS = ["app_test", "examples"] as const;
 const TEST_RESULTS = ["pass", "fail", "inconclusive"] as const;
 const TEST_SIDES = ["single", "before", "after"] as const;
 export const testKindSchema = z.enum(TEST_KINDS);
@@ -99,14 +99,10 @@ const frozenTestFields = {
   failure_paths: z.array(failurePathSchema).nullable(),
 };
 type FrozenTestValue = z.infer<z.ZodObject<typeof frozenTestFields>>;
-// app_test는 blueprint·SDK·실패 경로가 필수이고 test_command는 셋 다 없다.
-const validFrozenTest = (value: FrozenTestValue) => {
-  const appTest = value.blueprint !== null &&
-    value.sdk_dependencies !== null && value.failure_paths !== null;
-  const command = value.blueprint === null &&
-    value.sdk_dependencies === null && value.failure_paths === null;
-  return appTest || command;
-};
+// app_test와 examples 모두 blueprint·SDK·실패 경로가 필수다. bundle에서 나온 시험이다.
+const validFrozenTest = (value: FrozenTestValue) =>
+  value.blueprint !== null && value.sdk_dependencies !== null &&
+  value.failure_paths !== null;
 // Declaration coverage needs the frozen blueprint, so the runner checks it.
 export const frozenTestSchema = z.object(frozenTestFields).refine(
   validFrozenTest,
@@ -178,7 +174,7 @@ const verificationFields = {
 };
 type Connections = z.infer<z.ZodObject<typeof connectionFields>>;
 const validConnections = (value: Connections) =>
-  value.kind === "test_command" || value.ticket === null;
+  value.kind === "examples" || value.ticket === null;
 export const verificationSchema = z.object(verificationFields).refine(
   validConnections,
   {
@@ -402,7 +398,7 @@ const verificationRecordedPayloadSchema = z.object({
   test: sha256Schema,
   execution: sha256Schema,
 }).refine(
-  (value) => value.kind === "test_command" || value.ticket === undefined,
+  (value) => value.kind === "examples" || value.ticket === undefined,
   {
     message: "invalid kind connections",
   },

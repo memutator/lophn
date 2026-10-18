@@ -1,6 +1,9 @@
 // ticket의 값. 내용은 목표(goal) 하나, acceptance check 하나, 근거(evidence)다.
 import { z } from "zod";
 import { annotationReadSchema } from "../../apps/annotation.ts";
+import { appApiKeySchema } from "../../apps/channel-values.ts";
+import { canonicalize } from "../../../base/mod.ts";
+import { jsonValueSchema } from "../../base/json-values.ts";
 import { idSchema } from "../../base/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../../base/values.ts";
 import { codingSessionIdSchema } from "../token.ts";
@@ -50,34 +53,30 @@ export function ticketTitleOf(goal: string): string {
   return [...line.trim()].slice(0, TITLE_MAX_CODE_POINTS).join("");
 }
 
-// executable은 공백 금지. argv 항목은 공백을 그대로 둔다.
-const noShell = z.string().min(1).refine(
-  (value) => !value.includes("\u0000") && !/[\r\n]/.test(value),
-  { message: "shell string" },
-);
-const executableSchema = noShell.refine(
-  (value) =>
-    /\S/.test(value) && !/^[\\/]/.test(value) && !/^[A-Za-z]:/.test(value),
-  { message: "executable" },
-);
-
 const CHECK_TEXT_MAX_CODE_POINTS = 500;
+const EXAMPLE_STEPS_MAX = 20;
+const EXAMPLE_VALUE_MAX_BYTES = 8192;
 
-// acceptance check는 하나다. text는 App Engineer가 판단하는 글 조건이다.
+const exampleValueSchema = jsonValueSchema.refine(
+  (value) =>
+    new TextEncoder().encode(canonicalize(value)).byteLength <=
+      EXAMPLE_VALUE_MAX_BYTES,
+  { message: "example value is too large" },
+);
+
+// app-api 한 번의 호출 예시. 호출이 성공하면 그 result가 expect와 맞아야 한다.
+const exampleStepSchema = z.strictObject({
+  api: appApiKeySchema,
+  input: exampleValueSchema.optional(),
+  expect: exampleValueSchema,
+});
+
+// acceptance check는 하나다. examples는 program이 준비된 release에 불러 비교하는 app-api 예시이고,
+// text는 App Engineer가 판단하는 글 조건이다.
 export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
   z.strictObject({
-    kind: z.literal("test_command"),
-    executable: executableSchema,
-    argv: z.array(
-      z.string().refine((value) =>
-        !value.includes("\u0000") && !/[\r\n]/.test(value)
-      ),
-    ),
-    cwd: sourceRelativePathSchema,
-    timeout_ms: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    expected_exit_code: z.number().int().min(Number.MIN_SAFE_INTEGER).max(
-      Number.MAX_SAFE_INTEGER,
-    ),
+    kind: z.literal("examples"),
+    steps: z.array(exampleStepSchema).min(1).max(EXAMPLE_STEPS_MAX),
   }),
   z.strictObject({ kind: z.literal("app_test") }),
   z.strictObject({

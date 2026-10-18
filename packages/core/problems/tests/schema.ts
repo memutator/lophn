@@ -99,7 +99,7 @@ create table verifications (
   request_principal text not null,
   request_key text not null,
   request_hash text not null,
-  kind text not null check (kind in ('app_test', 'test_command')),
+  kind text not null check (kind in ('app_test', 'examples')),
   app text not null,
   target_bundle_hash text not null,
   target_release text,

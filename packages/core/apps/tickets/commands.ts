@@ -1,6 +1,7 @@
 // ticket 만들기·고치기·확인·취소. App Engineer가 만들고 고치고 확인(verify)하고 취소하며,
 // 확인됨은 App Engineer가 정한다. program은 판정하지 않는다.
-import { ok, type Result } from "../../../base/mod.ts";
+import { createHash } from "node:crypto";
+import { canonicalize, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import {
   ticketCancel,
@@ -130,6 +131,10 @@ export function createTicketCommands(): {
             compare.base_revision,
           )
         ) return conflict("ticket revision changed");
+        if (input.result === "verified") {
+          const gate = examplesPassed(tx, input.ticket, input.completion_seq);
+          if (!gate.ok) return gate;
+        }
         const revision = nextRevision(stored.revision);
         tx.sql.run(
           `INSERT INTO ticket_verdicts (ticket, completion_seq, result, note)
@@ -184,6 +189,36 @@ export function createTicketCommands(): {
       },
     },
   };
+}
+
+// examples check의 ticket은 그 보고의 예시가 지금 ticket의 check로 돌아 pass일 때만 verified가 된다.
+// 예시를 고친 뒤의 옛 결과는 check hash가 달라 근거가 아니다.
+function examplesPassed(
+  tx: Pick<Tx, "sql">,
+  ticket: string,
+  completionSeq: string,
+): Result<void> {
+  const row = tx.sql.get(
+    "SELECT acceptance_check FROM tickets WHERE id = ?",
+    [ticket],
+  );
+  const check = JSON.parse(String(row!["acceptance_check"]));
+  if (check.kind !== "examples") return ok(undefined);
+  const hash = createHash("sha256").update(canonicalize(check), "utf8")
+    .digest("hex");
+  const passed = tx.sql.get(
+    `SELECT 1 AS found
+     FROM ticket_check_results AS result
+     JOIN verifications AS verification ON verification.id = result.verification
+     WHERE result.ticket = ? AND result.completion_seq = ?
+       AND result.result = 'pass'
+       AND verification.ticket = ? AND verification.ticket_completion_seq = ?
+       AND verification.ticket_check_hash = ?`,
+    [ticket, completionSeq, ticket, completionSeq, hash],
+  );
+  return passed === undefined
+    ? conflict("the examples have not passed for this report")
+    : ok(undefined);
 }
 
 function stopCodingCalls(tx: Tx, ticket: string): Result<void> {

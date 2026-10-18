@@ -60,11 +60,11 @@ export function checkOutcomeOf(work: CheckWork): CheckOutcome | null {
   }
   return fromTests(
     work.verifications.filter((fact) =>
-      fact.kind === "test_command" && sameBundle(fact) &&
+      fact.kind === "examples" && sameBundle(fact) &&
       fact.ticket !== null && fact.ticket.ticket === work.ticket &&
       fact.ticket.completion_seq === work.completion_seq
     ),
-    "test command",
-    "the test command has not run for this report",
+    "examples",
+    "the examples have not run for this report",
   );
 }

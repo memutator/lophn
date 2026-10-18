@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
+import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { ok } from "../../../base/mod.ts";
+import { canonicalize, ok } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
@@ -229,5 +230,83 @@ Deno.test("확인됨은 App Engineer가 정하고 닫힌 ticket은 고칠 수 �
     blocked = true;
   }
   assert(blocked);
+  db.close();
+});
+
+Deno.test("examples check의 ticket은 예시가 맞지 않으면 verified가 되지 못하고, 맞으면 된다", () => {
+  const { tx, insert, row, db } = open();
+  // problems 표의 이 gate가 읽는 칸만 흉내 낸다.
+  db.exec(`CREATE TABLE verifications (
+    id TEXT PRIMARY KEY, ticket TEXT, ticket_completion_seq TEXT,
+    ticket_check_hash TEXT)`);
+  const check = {
+    kind: "examples",
+    steps: [{ api: "weekly.list", expect: { count: 4 } }],
+  };
+  const hashOf = (value: unknown) =>
+    createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
+  // completion seq는 표 전체에서 유일해서 ticket마다 다르다.
+  const seqs = new Map<string, string>();
+  const report = (
+    id: string,
+    result: string,
+    hash: string,
+    vrf: string,
+  ) => {
+    const seq = String(seqs.size + 1);
+    seqs.set(id, seq);
+    insert(id, APP_A, "reported", seq);
+    db.prepare(
+      `INSERT INTO ticket_completions
+         (ticket, seq, session, claim_seq, release, summary_hash, verifications)
+       VALUES (?, ?, ?, '2', ?, ?, '[]')`,
+    ).run(id, seq, SES_A, REL, HASH);
+    db.prepare("UPDATE tickets SET acceptance_check = ? WHERE id = ?").run(
+      JSON.stringify(check),
+      id,
+    );
+    db.prepare("INSERT INTO verifications VALUES (?, ?, ?, ?)").run(
+      vrf,
+      id,
+      seq,
+      hash,
+    );
+    db.prepare(
+      `INSERT INTO ticket_check_results
+         (ticket, completion_seq, result, reason, verification)
+       VALUES (?, ?, ?, 'r', ?)`,
+    ).run(id, seq, result, vrf);
+  };
+  const verify = (ticket: string, result: "verified" | "failed") =>
+    createTicketCommands().verify.handle(
+      tx,
+      engineer,
+      {
+        ticket,
+        base_revision: "1",
+        completion_seq: seqs.get(ticket)!,
+        result,
+      },
+      { base_revision: "1" },
+    );
+  const TKT_FAIL = "tkt_01hzzzzzzzzzzzzzzzzzzzzzzc";
+  const TKT_STALE = "tkt_01hzzzzzzzzzzzzzzzzzzzzzzd";
+  report(TKT_FAIL, "fail", hashOf(check), "vrf_01hzzzzzzzzzzzzzzzzzzzzzza");
+  // 옛 check로 통과한 결과는 지금 check의 근거가 아니다.
+  report(
+    TKT_STALE,
+    "pass",
+    hashOf({ kind: "text", text: "old" }),
+    "vrf_01hzzzzzzzzzzzzzzzzzzzzzzb",
+  );
+  report(TKT_A, "pass", hashOf(check), "vrf_01hzzzzzzzzzzzzzzzzzzzzzzc");
+  for (const id of [TKT_FAIL, TKT_STALE]) {
+    const blocked = verify(id, "verified");
+    assert(!blocked.ok && blocked.error.code === "conflict");
+    assertEquals(row(id)?.state, "reported");
+  }
+  assert(verify(TKT_FAIL, "failed").ok);
+  assert(verify(TKT_A, "verified").ok);
+  assertEquals(row(TKT_A)?.state, "verified");
   db.close();
 });

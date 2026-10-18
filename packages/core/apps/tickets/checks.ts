@@ -96,7 +96,7 @@ function loadCheckWork(
          FROM verifications
          WHERE app = ?
            AND ((kind = 'app_test' AND target_bundle_hash = ?)
-             OR (kind = 'test_command' AND ticket = ? AND ticket_completion_seq = ?))
+             OR (kind = 'examples' AND ticket = ? AND ticket_completion_seq = ?))
          ORDER BY cast(recorded_seq AS integer)
          LIMIT 500`,
         [app, release.bundle_hash, ticket, completionSeq],

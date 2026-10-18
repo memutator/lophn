@@ -466,3 +466,52 @@ guard: 없음
 정한 것: 위 추천대로 한다(사람).
 
 닫음: App Engineer가 source 없는 앱의 coding agent에게 call하면 core가 template을 `<data root>/apps/<id>/source`에 깔고 commit한 뒤 잇는다(`packages/core/apps/tickets/coding/scaffold-source.ts`의 `withScaffoldedSource`). 잇기로 agent runtime이 다시 뜨는 것은 도는 turn이 끝난 뒤다.
+
+## Claude Code가 coding session마다 folder trust를 묻는다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent, packages/protocol]
+closed: fixed
+guard: 없음
+```
+
+지금: Claude Code(2.1.302)는 처음 여는 폴더마다 folder trust 화면을 띄우고, 고를 때까지 hook이 돌지 않는다. 앱 source 폴더는 자기 `.git`을 가진 새 project라, 상위 폴더(`/tmp/lophn-eval`)를 믿어 두어도 다시 묻는다. 이 화면을 넘기는 CLI flag가 없어 launch plan(`packages/protocol/coding-agent/launch-plan.ts`)도 넘기지 못한다.
+
+영향: 사람이 터미널 앞에 없으면 첫 session이 trust 화면에서 멈춘다. 데스크톱에서는 사람이 앱마다 한 번 골라야 한다. eval의 calendar-diagnose 첫 run에서는 터미널 셋이 모두 이 화면에서 2분 뒤 `no_session_start`로 끊겼다.
+
+고치려면:
+- 제품: 첫 session을 열기 전에 사람에게 "Claude Code에서 이 폴더를 믿어야 한다"고 알린다(작음). 또는 `~/.claude.json`에 trust 기록을 쓴다(중간. 사람의 설정 file을 고친다).
+- eval: driver가 trust 화면 글을 보면 "Yes"를 고르고 기록에 남긴다(작음). 사람이 정했다.
+
+정한 것:
+- eval은 driver가 대신 고르고 `CodingTrace.trust_answered`에 남긴다(사람).
+- 제품은 "알린다"로 한다. 터미널을 열고 첫 hook 신호를 아직 안 낸 coding session을 대기 목록에 "터미널에서 Claude Code 확인이 필요할 수 있다"로 보이고, 누르면 그 탭으로 focus가 간다. 화면 글은 긁지 않고, `~/.claude.json`은 쓰지 않는다(사람).
+
+닫음: 제품은 알린다. 터미널을 열고 5초 안에 첫 hook 신호가 없는 coding session(첫 신호가 `SessionStarted`인 harness)을 shell renderer가 대기 목록에 `coding_start` 항목("Check the terminal")으로 넣고, 누르면 그 탭으로 focus가 간다. 첫 신호, `SessionEnded`, 터미널 exit, snapshot에서 들은 session이면 지운다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`). eval은 driver가 trust 화면에 답한다(`tests/eval/coding/driver/trust.ts`).
+
+## coding agent의 message에 App Engineer가 글로만 답하면 터미널에 가지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/coding-agent]
+closed: fixed
+guard: packages/core/lophn-agent/run-loop/input-text_test.ts
+```
+
+지금: coding agent가 `lophn message send`로 물으면 core가 그것을 맡긴 App Engineer에게 `reply: "none"` call로 넣는다(`packages/core/apps/tickets/coding/message.ts` `applyMessage`). 보낸 쪽이 agent가 아니라 call 행과 id가 없다. App Engineer가 보는 봉투는 `<lophn-call from="coding_agent:ses_…" call="" reply="none">`이다(`packages/core/lophn-agent/run-loop/input-text.ts` `callText`). 답하는 법은 `reply === "result"`일 때만 적힌다. App Engineer 지침(`packages/core/agent-roles/roles/app-engineer/prompt.md`)은 "Answer, or fix the blueprint and dependency and tell it"뿐이다. 터미널에 닿는 길은 `call`의 `to:{session}`, `reply:"conversation"`이다.
+- calendar-mvp 첫 run: App Engineer가 `to:{role:"coding_agent", place}`로 한 번 실패한 뒤 `to:{session}`로 답했고, coding agent는 이어 끝냈다.
+- 저장되지 않은 calendar-diagnose run: App Engineer가 `guide.read`·`ticket.get` 뒤 글로만 답했다(중국어였다). `coding_inputs`가 비었고, coding agent는 `Stop` 뒤 11분 동안 답을 기다리다 lead가 run을 멈췄다.
+- `lophn message send --help`는 `refs (선택, array)`로만 적어, coding agent가 객체를 넣고 `invalid_input`을 한 번 받았다.
+
+영향: App Engineer가 글로 답하면 coding agent는 답을 못 받고 멈춘다. 사람이 터미널을 보지 않으면 ticket이 끝나지 않는다.
+
+고치려면:
+- (가) 봉투와 지침: `from.kind === "coding_agent"`인 call의 봉투에 "글은 터미널에 가지 않는다. `call`의 `to:{session:<id>}`, `reply:"conversation"`으로 답한다" 한 줄을 넣고, App Engineer 지침에 같은 길을 적는다. `--help`에 refs가 ticket id 문자열의 배열이라고 적는다(작음). 봉투는 받은 turn과 뒤 이력에서 같은 함수로 만들어 cache가 깨지지 않는다. 지침을 고치면 prefix가 한 번 바뀐다.
+- (나) message를 call 행으로 남겨 `reply`로 답하게 한다(중간). call store와 `router.reply`가 coding session을 받는 쪽으로 다뤄야 하고, message마다 행이 생긴다.
+- (다) 그 turn의 마지막 글을 core가 터미널로 보낸다(중간). 그 글은 사람에게 쓴 요약이라 터미널에 잡음이 들어가고, 한 turn에 사람 말과 coding agent의 물음이 섞이면 가를 수 없다.
+추천: (가).
+
+정한 것: (가). 답할지와 무엇을 답할지는 App Engineer가 정하고, core는 글을 터미널로 보내지 않는다(사람).
+
+닫음: (가)로 고쳤다. `callText`(`packages/core/lophn-agent/run-loop/input-text.ts`)가 `from.kind === "coding_agent"`인 call의 봉투에 `Plain text does not reach its terminal. To answer, use call with to:{session:"<id>"} and reply:"conversation".`을 싣고, 받은 turn과 뒤 이력이 `from`만으로 같은 bytes를 만든다. App Engineer 지침도 같은 길과 `to:{role:"coding_agent", place}`는 새 ticket 맡기기 전용임을 적는다. `lophn message send --help`가 schema description을 보여 `refs`가 ticket id 문자열 배열임을 말한다.

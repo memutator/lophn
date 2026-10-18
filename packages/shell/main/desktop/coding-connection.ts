@@ -58,7 +58,7 @@ const defaultExec: ExecFile = (file, args, options) =>
     });
   });
 
-/** `lophn <args> --json`의 `data`. 실패하면 이유 한 줄. */
+/** `lophn <args> --json`이 찍은 값 그대로(성공은 감싸지 않는다). 실패하면 `{error}`의 이유 한 줄. */
 type CliRun = (
   args: string[],
 ) => Promise<{ ok: true; data: unknown } | { ok: false; message: string }>;
@@ -87,20 +87,20 @@ export function childCliRunner(options: {
       timeout: options.timeout_ms ?? 30_000,
       maxBuffer: 1 << 20,
     });
-    let body: { data?: unknown; error?: { message?: unknown } } | null;
+    let body: unknown;
     try {
       body = JSON.parse(ran.stdout);
     } catch {
       return { ok: false, message: "lophn gave no result" };
     }
-    if (body?.error !== undefined) {
-      const message = body.error?.message;
-      return {
-        ok: false,
-        message: typeof message === "string" ? message : "lophn refused",
-      };
+    const error = (body as { error?: { code?: unknown; message?: unknown } })
+      ?.error;
+    if (
+      typeof error?.code === "string" && typeof error.message === "string"
+    ) {
+      return { ok: false, message: error.message };
     }
-    return { ok: true, data: body?.data };
+    return { ok: true, data: body };
   };
 }
 

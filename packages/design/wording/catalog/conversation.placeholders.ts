@@ -118,13 +118,6 @@ export type ConversationPlaceholders = {
   "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
-  "conversation.label.cost-unknown": {
-    count: "number";
-  };
-  "conversation.label.cost-with-unknown": {
-    amount: "string";
-    count: "number";
-  };
   "conversation.label.delete-session": {
     title: "string";
   };

@@ -14,8 +14,6 @@ import {
   CallOpenScene,
   CallRepliesScene,
   ConversationScene,
-  CostScene,
-  CostUnknownScene,
   PermissionsScene,
   QuestionAnsweredScene,
   QuestionEndedScene,
@@ -57,10 +55,6 @@ const weekly = (chat: ChatInit, extra: Partial<ProjectAppProps> = {}) =>
 
 /** 대화 탭. 일하는 중 steer로 보낸 메시지, 앱 카드. */
 export const AgentConversation = ConversationScene;
-/** 입력칸 아래 줄의 추정 비용 합. */
-export const AgentCost = CostScene;
-/** 추정 비용 합 옆에 가격 모름 call 수가 붙은 줄. */
-export const AgentCostUnknown = CostUnknownScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
 /** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 꺼 둔 model은 목록에 없다. */

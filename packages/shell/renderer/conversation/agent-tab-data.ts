@@ -14,7 +14,6 @@ import type {
   AgentTabSource,
   AskedQuestion,
   Sender,
-  SessionCost,
   SessionEntry,
   SessionStatus,
   ThreadEntry,
@@ -358,8 +357,6 @@ export interface AgentTabData extends AgentTabList {
   readonly checkedAt: number | null;
   /** 보던 session이 없어졌다. */
   readonly gone: boolean;
-  /** 입력칸 아래 비용 한 줄. null은 아직 읽지 못했다. */
-  readonly cost: SessionCost | null;
   /** event가 알리지 않는 변경(rewind 등) 뒤에 현재 기록을 다시 읽는다. */
   readonly reload: () => Promise<void>;
 }
@@ -379,7 +376,6 @@ export function useAgentTabData(
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [threadFailed, setThreadFailed] = useState(false);
   const [gone, setGone] = useState(false);
-  const [cost, setCost] = useState<SessionCost | null>(null);
   const [asked, setAsked] = useState<
     ReadonlyMap<string, readonly AskedQuestion[]>
   >(new Map());
@@ -398,10 +394,6 @@ export function useAgentTabData(
       setCheckedAt(now());
       setThreadFailed(false);
       setGone(false);
-      // 비용은 대화가 서는 데 필요 없어 따로 읽는다. 읽지 못하면 앞의 값이 남는다.
-      void source.cost(session).then((spent) => {
-        if (spent.ok) setCost(spent.value);
-      });
     } else if (result.code === "not_found") setGone(true);
     else setThreadFailed(true);
   }, [source, session, now]);
@@ -481,7 +473,6 @@ export function useAgentTabData(
     checkedAt,
     failed: list.failed || threadFailed,
     gone,
-    cost,
     reload: readThread,
   };
 }

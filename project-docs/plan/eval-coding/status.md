@@ -15,6 +15,6 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-runner` | ec-runner | 3 | ec-driver, ec-metrics, ec-human, ec-restore | merged | ec-runner/ec-runner | fd1513173 |  |
 | `ec-world` | ec-world | 3 | ec-restore, ec-fix-publish | merged | ec-world/ec-world | 84f1caf07 |  |
 | `ec-scenarios` | ec-scenarios | 4 | ec-world, ec-calendar, ec-checks, ec-human | merged | ec-scenarios/ec-scenarios | cd143b96d |  |
-| `ec-fix-roots` | ec-fix-roots | 5 | 없음 | todo |  |  |  |
-| `ec-fix-source` | ec-fix-source | 5 | 없음 | todo |  |  |  |
-| `ec-fix-trust` | ec-fix-trust | 5 | 없음 | todo |  |  |  |
+| `ec-fix-roots` | ec-fix-roots | 5 | 없음 | running | ec-fix-roots/ec-fix-roots |  |  |
+| `ec-fix-source` | ec-fix-source | 5 | 없음 | running | ec-fix-source/ec-fix-source |  |  |
+| `ec-fix-trust` | ec-fix-trust | 5 | 없음 | running | ec-fix-trust/ec-fix-trust |  |  |

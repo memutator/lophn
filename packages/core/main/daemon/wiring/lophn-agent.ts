@@ -4,6 +4,8 @@ import { ok } from "../../../../base/mod.ts";
 import {
   profileImageRead,
   profileImageUpload,
+  providerRead,
+  type ProviderRecord,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
 import { appCreate } from "../../../../protocol/apps/mod.ts";
@@ -15,6 +17,7 @@ import {
 } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
+import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
 import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { WiringFactory } from "./context.ts";
@@ -93,7 +96,23 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             random: ctx.random,
           });
           ending = login.endAll;
-          return login;
+          // custom provider의 model 목록 읽기. login 바깥에 있어 ChatGPT 연결은 거치지 않는다.
+          return withProviderModelList(login, {
+            http: requests.fetch,
+            secrets: ctx.secretStore,
+            async readProvider(who, provider) {
+              const read = await ctx.runtime.readers.read(providerRead, who, {
+                provider,
+              });
+              if (read.ok) {
+                return ok(
+                  (read.value as { provider: ProviderRecord }).provider,
+                );
+              }
+              return read.error.code === "not_found" ? ok(null) : read;
+            },
+            newKey: () => crypto.randomUUID(),
+          });
         },
         memory: [...requests.handlers],
       });

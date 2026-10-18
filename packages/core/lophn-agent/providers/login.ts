@@ -130,9 +130,8 @@ export function withProviderLogin(
       return connected;
     }
     const record = (connected.value.result as { provider: unknown }).provider;
-    // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. runtime이 새 목적지로 다시 뜨는 중이면 실패하고,
-    // 그때는 token을 처음 건넬 때(prepareToken) 다시 읽는다.
-    const endpoint = reportedModelsEndpoint(target.definition);
+    // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. 실패하면 token을 처음 건넬 때(prepareToken) 다시 읽는다.
+    const endpoint = reportedModelsEndpoint(target);
     if (endpoint !== null) {
       void readReportedModels(deps.http, endpoint, tokens.access).then(
         (models) =>

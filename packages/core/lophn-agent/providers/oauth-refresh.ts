@@ -55,7 +55,7 @@ export function createProviderRefresher(deps: {
 
   // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
   function readModelsLater(provider: ProviderRecord): void {
-    const endpoint = reportedModelsEndpoint(provider.definition);
+    const endpoint = reportedModelsEndpoint(provider);
     if (endpoint === null || reads.has(provider.id)) return;
     const read = (async () => {
       const access = deps.secrets.get(providerTokenNames(provider.id).access);
@@ -181,7 +181,7 @@ export function createProviderRefresher(deps: {
       ) return undefined;
       const expires = Date.parse(provider.credential.expires_at ?? "");
       if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
-        // 연결 직후 runtime이 다시 뜨느라 첫 읽기가 실패했으면 여기서 다시 읽는다.
+        // 연결 직후 첫 읽기가 실패했으면 여기서 다시 읽는다.
         if (provider.credential.reported_models === null) {
           readModelsLater(provider);
         }

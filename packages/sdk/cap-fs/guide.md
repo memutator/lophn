@@ -2,10 +2,11 @@
 
 ## 목적
 
-허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다.
-이 package를 import해도 grant가 생기지 않는다. 실제 접근 범위는 앱 프로세스의
-Deno flag이고, 그 flag는 blueprint가 선언하고 사람이 grant한
-`fs.read`·`fs.write` 경로의 교집합이다.
+허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다. 이 package를
+import해도 grant가 생기지 않는다. 실제 접근 범위는 앱 프로세스의 Deno flag이고,
+그 flag는 blueprint가 선언하고 사람이 grant한 `fs.read`·`fs.write` 경로의
+교집합이다. 지금 되는 것: blueprint에 `fs.read`·`fs.write`와 경로를 선언하고,
+사람이 허락한 경로만 읽고 쓴다.
 
 ## 공개 API와 type
 
@@ -35,9 +36,9 @@ import {
 
 ## 요구 permission
 
-`fs.read`, `fs.write` 중 쓰는 쪽. 경로는 정확한 절대 경로이고 descendant만
-포함한다. 운영 bundle은 읽기만 되고 source·다른 앱 DB·플랫폼 credential·log는
-어느 grant로도 열리지 않는다.
+`fs.read`, `fs.write` 중 쓰는 쪽. 경로는 이미 있는 정확한 절대 경로이고(폴더는
+recursive로만 허락한다) descendant만 포함한다. 운영 bundle은 읽기만 되고
+source·다른 앱 DB·플랫폼 credential·log는 어느 grant로도 열리지 않는다.
 
 ## peer 의존
 

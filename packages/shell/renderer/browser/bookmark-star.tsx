@@ -1,5 +1,6 @@
 // 주소 칸 끝의 별. 빈 별은 눌러 더하고, 채운 별은 눌러 popover를 연다.
-// overlay api가 있으면 popover는 overlay view(title과 [Remove])라 page를 숨기지 않고, 없으면 DOM popover에서 title도 고친다.
+// 보통 탭(<webview>)은 DOM popover에서 title을 고치고 [Remove]할 수 있다. page가 DOM이라 popover가 위에 뜬다.
+// native popup 탭은 DOM popover가 view 밑에 깔리므로 overlay view(title과 [Remove])로 연다. 글 입력 칸은 없다.
 // Ctrl/Cmd+D는 `presses`가 올라 별을 누른 것과 같은 동작을 한다.
 import { useEffect, useRef, useState } from "react";
 import { Field, Input } from "@lophn/ui/input";
@@ -24,9 +25,9 @@ interface BookmarkStarProps {
   /** 올라갈 때마다 별을 누른 것과 같은 동작을 한다(Ctrl/Cmd+D). */
   presses: number;
   onNotice(text: string): void;
-  /** overlay api가 없는 창(dev mock, gallery)이면 null. */
+  /** native popup 탭의 overlay popover. 보통 탭과 overlay api가 없는 창이면 null이고 DOM popover를 쓴다. */
   openOverlay: OpenMenu | null;
-  /** popover가 열려 있는 동안 탭이 native view를 숨긴다. */
+  /** DOM popover가 열려 있는 동안 탭이 native view(DevTools, popup)를 숨긴다. <webview> page는 숨기지 않는다. */
   onOpenChange(open: boolean): void;
 }
 
@@ -87,7 +88,7 @@ export function BookmarkStar(props: BookmarkStarProps) {
         // 채우기 전의 누름은 trigger onClick이 더한다. 열고 닫기는 채운 별만 한다.
         onOpenChange={(next) => {
           if (existing === undefined) return;
-          // overlay가 있으면 DOM popover를 열지 않고 overlay popover를 연다.
+          // native popup 탭이면 DOM popover를 열지 않고 overlay popover를 연다.
           if (next && props.openOverlay !== null) press();
           else change(next);
         }}

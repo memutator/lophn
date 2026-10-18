@@ -436,6 +436,7 @@ function OpenTab(
           setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))}
         onNavigate={navigate}
         onMenuOpenChange={setMenuOpen}
+        native={native}
         devtools={devtools?.place ?? null}
         onDevtools={devtoolsAction}
       />

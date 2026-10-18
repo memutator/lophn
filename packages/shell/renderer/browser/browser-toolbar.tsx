@@ -37,6 +37,8 @@ interface BrowserToolbarProps {
   focusAddress: boolean;
   /** DOM menu와 별 popover가 열려 있는 동안 native view가 가리지 않도록 탭이 view를 숨긴다. overlay menu는 view 위에 그려져 부르지 않는다. */
   onMenuOpenChange(open: boolean): void;
+  /** 크기 준 popup의 native view 탭. DOM popover가 page 밑에 깔리므로 별 popover를 overlay로 연다. */
+  native: boolean;
   /** 지금 DevTools 자리. null이면 닫혀 있다. */
   devtools: DevtoolsPlace | null;
   onDevtools(action: DevtoolsPlace | "open" | "close"): void;
@@ -196,7 +198,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
         favicon={state.favicon}
         presses={props.bookmarkKey + keyPresses}
         onNotice={props.onNotice}
-        openOverlay={openMenu}
+        openOverlay={props.native ? openMenu : null}
         onOpenChange={props.onMenuOpenChange}
       />
       <BookmarkMenu

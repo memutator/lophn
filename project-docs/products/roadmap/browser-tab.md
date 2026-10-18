@@ -79,8 +79,10 @@
   - 검색어 처리는 하지 않는다.
 - **열기.** 새 탭(+) menu에 Browser를 더한다. 빈 주소 칸으로 열리고 focus가 그 칸에 간다.
 - **session.** 모든 browser 탭이 persistent partition 하나를 같이 쓴다(`persist:lophn-browser`). app view partition과 나누므로, browser page는 app 화면의 cookie와 storage를 보지 못한다.
-- **navigation.** main frame과 subframe 모두 http/https는 어느 host든 허락한다. localhost와 사설 IP도 허락한다.
-  - 그 밖의 scheme(`file:`, `lophn-*:`, `chrome:`, `javascript:`, custom protocol)은 막는다. `mailto:`처럼 OS가 다루는 것은 OS로 넘긴다.
+- **navigation.** http/https는 어느 host든 허락한다. localhost와 사설 IP도 허락한다.
+  - main frame은 http/https와 `about:blank`(popup)만 받는다. 최상위 `data:`, `blob:` navigation은 막는다(Chrome과 같다).
+  - subframe과 subresource는 `data:`, `blob:`, `about:`도 받는다. 실제 site가 쓴다(rea `requests.js`의 `ALLOWED_OPAQUE_SCHEMES`).
+  - 그 밖의 scheme(`file:`, `lophn-*:`, `chrome:`, `javascript:`, custom protocol)은 막는다. `mailto:`, `tel:`은 사용자 입력 뒤에만 OS로 넘긴다.
   - 결정은 `policy.js`처럼 순수 함수 하나가 `{allow, reason, external?}`로 낸다.
 - **popup.** browser 탭 안의 page가 `window.open`이나 `target=_blank`로 새 창을 여는 것이다. terminal의 CLI가 URL을 여는 것(2)과는 다르다.
   - 사용자 입력 뒤 5000ms 안에 생긴 것만 받는다. 입력이 없었던 popup은 거절하고 탭 toolbar에 한 줄로 알린다.
@@ -118,7 +120,7 @@
   - 예: `gh auth login`은 이미 로그인된 OS browser로 보내고, `vite`는 browser 탭에 띄우려면 web은 `system_browser`, local은 `browser_tab`으로 둔다.
 - **Settings에 Browser pane.** `SettingsPane`에 `browser`를 더한다. 담는 것:
   - 위 두 설정. Select로 고른다.
-  - [Clear browsing data]: 확인 dialog를 띄운 뒤 `persist:lophn-browser`의 cookie, site data(`fileSystems`, `indexedDB`, `localStorage`, `serviceWorkers`), cache를 지운다(rea `clearBrowsingData`). 열린 browser 탭은 다시 load한다. IPC 하나로 main이 한다.
+  - [Clear browsing data]: 확인 dialog를 띄운 뒤 `persist:lophn-browser`의 storage 전부(`clearStorageData()`를 인자 없이)와 cache를 지운다. rea가 쓴 storage 이름(`fileSystems`, `indexedDB` 등)은 Electron 44.5.1의 이름(`filesystem`, `indexdb`, `localstorage`, `serviceworkers`, `cachestorage`, `shadercache`)과 다르다. 열린 browser 탭은 다시 load한다. IPC 하나로 main이 한다.
 - **DevTools.** browser 탭 toolbar의 overflow menu에 Inspect를 둔다. 누르면 `openDevTools({mode: "detach"})`다.
   - browser view만 packaged에서도 `devTools: true`다. 다른 view는 `security.ts`의 `!packaged`를 그대로 따른다.
 - **dark mode.** `nativeTheme.themeSource`가 lophn theme을 따르므로, browser page의 `prefers-color-scheme`도 lophn theme을 따른다. 따로 만들 것은 없다.

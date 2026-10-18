@@ -34,9 +34,14 @@ export { PROJECT_GROCERY };
 /** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
 interface TabSpec {
   readonly key: string;
-  readonly kind: "document_editor" | "terminal";
+  readonly kind: "document_editor" | "terminal" | "app_panel";
   readonly title: string;
   readonly folder?: string;
+  /** app_panel 탭이 여는 앱과 그 화면 key. */
+  readonly app?: string;
+  readonly screen?: string;
+  /** coding terminal이면 harness 표지. 저장된 title이 없는 일반 terminal 탭은 시작할 때까지 이름이 비어 있다. */
+  readonly coding?: { readonly session: string; readonly product: string };
 }
 
 export interface PaneSpec {
@@ -44,10 +49,25 @@ export interface PaneSpec {
   readonly selected: string;
 }
 
+/** 떠 있는 탭. 저장된 layout의 floats 항목과 같은 모양이다. */
+export interface FloatSpec {
+  readonly tab: TabSpec;
+  readonly rect: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  };
+  readonly minimized?: boolean;
+  readonly originPane?: number;
+}
+
 interface MockDesktopProps {
   readonly route?: Route;
   /** 작업대의 칸 배치. 없으면 시드 배치다. */
   readonly panes?: readonly PaneSpec[];
+  /** 칸 위에 뜬 탭. 없으면 없다. */
+  readonly floats?: readonly FloatSpec[];
   /** 이 키의 터미널 탭을 열린 채로 시작한다. */
   readonly openTerminal?: string;
   /** 프로젝트가 하나도 없는 런처로 그린다. */
@@ -60,16 +80,30 @@ interface MockDesktopProps {
 
 // 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
 function storedTab(tab: TabSpec) {
+  if (tab.kind === "app_panel") {
+    return {
+      kind: tab.kind,
+      key: tab.key,
+      app: tab.app,
+      surface: tab.screen,
+    };
+  }
   return tab.kind === "terminal"
     ? {
       kind: tab.kind,
       key: tab.key,
       project_folder: tab.folder ?? "/home/mina/Documents/grocery",
+      ...(tab.coding === undefined
+        ? {}
+        : { coding: { ...tab.coding, title: tab.title } }),
     }
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }
 
-function layoutOf(panes: readonly PaneSpec[]) {
+function layoutOf(
+  panes: readonly PaneSpec[],
+  floats: readonly FloatSpec[],
+) {
   return {
     panes: panes.map((pane) => ({
       tabs: pane.tabs.map(storedTab),
@@ -77,6 +111,12 @@ function layoutOf(panes: readonly PaneSpec[]) {
     })),
     split_ratio: 0.5,
     focused_pane: 0,
+    floats: floats.map((float) => ({
+      tab: storedTab(float.tab),
+      rect: float.rect,
+      minimized: float.minimized ?? false,
+      origin_pane: float.originPane ?? 0,
+    })),
     information_panel: { open: false, tab: "info" },
   };
 }
@@ -91,7 +131,8 @@ const SETTINGS_PANE = {
 export type SettingsTab = keyof typeof SETTINGS_PANE;
 
 export function MockDesktop(props: MockDesktopProps) {
-  const { panes, openTerminal, core, settingsTab, emptyLauncher } = props;
+  const { panes, floats, openTerminal, core, settingsTab, emptyLauncher } =
+    props;
   const route = settingsTab === undefined
     ? props.route ?? LAUNCHER
     : openSettings(SETTINGS_PANE[settingsTab]);
@@ -103,7 +144,7 @@ export function MockDesktop(props: MockDesktopProps) {
         Promise.resolve({
           ok: true as const,
           available: true as const,
-          layout: layoutOf(panes),
+          layout: layoutOf(panes, floats ?? []),
         }),
     };
     const terminal = {
@@ -133,7 +174,7 @@ export function MockDesktop(props: MockDesktopProps) {
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, openTerminal, emptyLauncher]);
+  }, [panes, floats, openTerminal, emptyLauncher]);
   const { mock } = wiring;
   return (
     <AppViewsProvider value={mock.appViews}>

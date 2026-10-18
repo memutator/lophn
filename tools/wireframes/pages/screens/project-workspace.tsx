@@ -37,6 +37,12 @@ import {
   DeclaredSearchBoardPage,
   DeclaredSearchTablePage,
 } from "./contexts/context-pages.tsx";
+import {
+  FloatMinimized,
+  FloatOverApp,
+  FloatStack,
+  FloatTerminal,
+} from "./project-float/pages.tsx";
 import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
   MockDesktop,
@@ -97,6 +103,34 @@ export const projectWorkspaceArea: Area = {
       ),
     },
     {
+      id: "new-float-terminal",
+      title: "Project · floated terminal",
+      description:
+        "문서 두 탭이 docked된 칸 위에 terminal 하나가 패널로 떠 있다. 패널 머리의 단추는 접기, Dock, 닫기이고 머리를 끌어 옮기고 가장자리를 끌어 크기를 바꾼다.",
+      render: () => <FloatTerminal />,
+    },
+    {
+      id: "new-float-stack",
+      title: "Project · stacked floats",
+      description:
+        "패널 둘이 위아래로 겹쳐 있다. 아래는 문서, 위는 terminal이고 위쪽만 active이다. 아래 패널을 누르면 올라온다.",
+      render: () => <FloatStack />,
+    },
+    {
+      id: "new-float-minimized",
+      title: "Project · minimized floats",
+      description:
+        "접은 탭이 상단 bar에 칸(span)으로 줄지어 있고 폭이 모자라 넘치는 것은 +N 하나로 묶인다. 칸을 누르면 패널이 다시 펼쳐지고, +N은 나머지 목록을 연다.",
+      render: () => <FloatMinimized />,
+    },
+    {
+      id: "new-float-over-app",
+      title: "Project · float over an app panel",
+      description:
+        "docked 칸에 앱 패널 탭이 열려 있고 그 위에 terminal 패널이 떠 있다. 앱 view는 패널이 덮은 만큼 줄어들어 패널을 피한다.",
+      render: () => <FloatOverApp />,
+    },
+    {
       id: "new-explorer-root",
       title: "Sidebar · Explorer",
       description:
@@ -142,7 +176,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-editor-tab-menu",
       title: "Project · tab menu",
       description:
-        "탭을 오른쪽 클릭한 menu다. Close, Close Others, Close to the Right, Close Saved, Close All, Copy Path, Copy Relative Path, Reveal in Explorer 순이고 preview 탭이면 Keep Open이 더 있다.",
+        "탭을 오른쪽 클릭한 menu다. Close, Close Others, Close to the Right, Close Saved, Close All, Float, Copy Path, Copy Relative Path, Reveal in Explorer 순이고 preview 탭이면 Keep Open이 더 있다. Float는 탭을 칸에서 떼어 위에 띄운다.",
       render: () => <EditorTabMenu />,
     },
     {

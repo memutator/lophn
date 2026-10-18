@@ -36,6 +36,11 @@
       "**/*.js",
       "**/*.json",
       "**/*.jsonc"
+    ],
+    "exclude": [
+      "tests/eval/materials/",
+      "tests/eval/registry/",
+      "tests/eval/runs/"
     ]
   },
   "lint": {

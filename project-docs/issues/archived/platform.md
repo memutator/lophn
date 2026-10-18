@@ -262,3 +262,22 @@ guard: packages/core/problems/snapshots/work_test.ts
 정할 것: stack 없는 앱 crash를 무엇으로 묶을지(앱+release / 앱+release+exit code·signal).
 
 닫음: 앱 frame 위치를 못 푼 관측은 관측 종류·오류 이름·메시지·bundle hash의 hash로 묶는다(`observedErrorGroupKey`). 같은 release에서 같은 exit code나 signal로 거듭 죽으면 문제 하나다. 메시지에 시각이나 id가 섞인 view 오류는 여전히 따로 열린다.
+
+## ChatGPT로 로그인한 provider가 그 계정이 못 쓰는 model도 고르게 둔다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: packages/core/lophn-agent/providers/account-models_test.ts
+```
+
+지금: model 선택은 catalog에서 provider 정의 key(`openai`)가 같은 model을 모두 보인다(`models/resolve.ts`가 `provider_definition`과 model 이름으로 찾는다). ChatGPT 구독 token(Sign in with ChatGPT)은 계정마다 쓸 수 있는 model이 다르고, OpenAI 문서는 같은 Bearer로 `GET /v1/models`를 불러 `visibility == "list"`인 것만 보이라고 한다. lophn은 그 목록을 읽지 않는다.
+
+영향: ChatGPT로 연결한 사람이 계정이 못 쓰는 model(예: API 전용 `-pro` 변형)을 고를 수 있고, 고르면 turn이 provider 거절로 실패한다.
+
+고치려면:
+- 연결 뒤와 갱신 때 runtime이 `GET /v1/models`를 읽어 그 provider의 model block이나 고를 수 있는 목록으로 둔다(중간).
+- 추천: 위 안이다. 계정마다 다른 목록을 화면이 모르면 사람은 고른 뒤 실패해서야 안다.
+
+닫음: 연결 직후(`providers/login.ts`)와 token을 건넨 뒤(`providers/oauth-refresh.ts`, 갱신 직후와 목록이 아직 없을 때)에 core가 ChatGPT provider의 `GET /v1/models`를 발급자 대기열로 읽어 `credential.account_models`에 둔다(`RecordProviderAccountModels`). resolver(`models/resolve.ts`)는 목록 밖 model을 `not_found`로 거절하고 두 picker는 `accountAllows` 하나로 거른다. 목록이 `null`(못 읽음)이면 거르지 않는다. 응답의 칸 이름은 문서에서 옮긴 것이라 `deno task test:live:login`이 진짜 응답 모양으로 확인한다.

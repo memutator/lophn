@@ -52,6 +52,7 @@ export const appViewOpenSchema = z.object({
 export const viewBoundsRequestSchema = z.object({
   view_session: viewSession,
   bounds: viewBoundsSchema,
+  layer: z.number().int().min(0).max(32).optional(), // 없으면 0 = pane view. 1.. = floated view(floats 배열 index + 1). 클수록 위.
 }).strict();
 
 // 앱 place의 앱 화면이 project를 고르면 main에 알린다. null은 project에서 푼다.

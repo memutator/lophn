@@ -61,7 +61,8 @@ export const bookmarkRemoveSchema = z.object({ id: bookmarkId }).strict();
 
 export const browserViewStateSchema = z.object({
   view_session: viewSession,
-  url: address,
+  // main이 보내는 page 주소다. 길이로 거르면 state push가 소리 없이 버려진다.
+  url: z.string(),
   // 1024자까지 받는다. 자르기는 main이 한다.
   title: z.string().max(1024),
   loading: z.boolean(),

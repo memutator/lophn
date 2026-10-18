@@ -13,4 +13,5 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 | `wf-native` | wf-native | 2 | 없음 | merged | wf-native/wf-native | 08bdedee0 |  |
 | `wf-panel` | wf-panel | 2 | 없음 | merged | wf-panel/wf-panel | 6257dd6bf |  |
 | `wf-view-keep` | wf-view-keep | 2 | wf-native, wf-floated-wire | merged | wf-view-keep/wf-view-keep | 7310553a7 |  |
+| `wf-focus` | wf-focus | 3 | 없음 | todo |  |  |  |
 | `wf-gallery` | wf-gallery | 3 | 없음 | merged | wf-gallery/wf-gallery | 7ae06dfac |  |

@@ -7,7 +7,6 @@
 
 - test 층 다섯(`architecture/testing.md`)은 정해 둔 입력에 pass/fail이 결정적으로 갈리는 것만 본다. fake는 대답을 test가 정하므로 판단이 없다. live는 진짜 model을 부르지만 대답 내용을 보지 않는다(`tests/live/suite.ts:173-199`).
 - AGENT-ROLE의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 이런 줄은 role 지침과 model만 지키는데, 그것을 재는 장치가 없다.
-- lophn에는 진짜 role agent가 판단을 틀린 기록이 없다. E2E는 모두 fake model을 쓴다. `issues/mistakes.md`는 비어 있고, archive의 mistake 넷은 개발 worker가 한 것이다. 틀린 적이 없는 것이 아니라 아직 본 적이 없다.
 
 ## 지금 모양
 
@@ -113,7 +112,7 @@ case 하나에 들어가는 것:
 
 ## case 고르는 규칙
 
-1. case는 lophn에서 뽑는다: AGENT-ROLE 항목, role 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록. 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다.
+1. case는 lophn에서 뽑는다: AGENT-ROLE 항목, role 지침의 줄, architecture의 "지키는 것", lophn의 bug·이슈 기록. 다른 harness의 시나리오를 옮기지 않는다. 다른 harness는 만드는 법을 볼 때만 쓴다. bug·이슈 기록에는 진짜 model 판단이 아직 없어(E2E는 모두 fake) 첫 case는 AGENT-ROLE과 지침 줄에서 나온다. eval이 찾은 실패가 다음 case의 출처가 된다.
 2. program이 이미 막는 것은 재지 않는다(grant, Gate, role의 tool 목록, 폴더 scope, `operatorPlaceAllowed`). pass 조건은 그 role의 tool로 어길 수 있는 것만 된다. 예를 들어 "lophn이 Operator를 직접 만들지 않았다"는 lophn에게 `operator.create`가 없어 늘 통과하므로 조건이 될 수 없다.
 3. 결과를 채점한다: call의 받는 쪽과 답 방식, ticket, disk, 질문·허락, tool을 썼는지 안 썼는지. 순서는 순서 자체가 규칙일 때만 본다(`blueprint.check` 뒤에 넘기기, test 통과 뒤에 submit). 글은 단정하지 않는다.
 4. 단정은 1~3개, 사람 말은 한 줄이다.

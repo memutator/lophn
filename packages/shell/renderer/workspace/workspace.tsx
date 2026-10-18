@@ -302,7 +302,10 @@ export function Workspace(props: WorkspaceProps) {
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
         // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
-        if (restored) setView(restored);
+        if (restored) {
+          setView(restored);
+          setFloatFocused(false);
+        }
       }
       setReadyProject(projectId);
     };
@@ -392,6 +395,17 @@ export function Workspace(props: WorkspaceProps) {
   const updateRef = useRef(update);
   updateRef.current = update;
 
+  // focus가 맨 위 floated 패널에 있는지. 저장하지 않는다. 늘 한 곳(칸 또는 패널)만 focus 색이고
+  // 접히지 않은 패널이 없으면 칸이다.
+  const [floatFocused, setFloatFocused] = useState(false);
+  const inFloats = floatFocused && topFloat(view) !== undefined;
+  // 맨 위 패널이 접히거나 닫히면 focus는 칸으로 돌아간다.
+  const leaveTopFloat = (key: string) => {
+    if (topFloat(latest.current)?.tab.key !== key) return;
+    setFloatFocused(false);
+    focusPaneBody(latest.current.focusedPane);
+  };
+
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTabIn이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
   useEffect(() => {
@@ -414,6 +428,7 @@ export function Workspace(props: WorkspaceProps) {
   const removeTab = (key: string) => {
     const current = latest.current;
     if (isFloated(current, key)) {
+      leaveTopFloat(key);
       update(closeFloat(current, key));
       return;
     }
@@ -640,6 +655,7 @@ export function Workspace(props: WorkspaceProps) {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
       if (isFloated(latest.current, key)) {
+        setFloatFocused(true);
         update(restoreFloat(latest.current, key));
         return;
       }
@@ -647,6 +663,7 @@ export function Workspace(props: WorkspaceProps) {
         pane.tabs.some((tab) => tab.key === key)
       );
       if (at < 0) return;
+      setFloatFocused(false);
       update({
         ...latest.current,
         focusedPane: at,
@@ -871,6 +888,7 @@ export function Workspace(props: WorkspaceProps) {
         : undefined,
       go: (target) => {
         if (target.kind === "tab") {
+          setFloatFocused(false);
           update({
             ...view,
             focusedPane: target.pane,
@@ -886,16 +904,19 @@ export function Workspace(props: WorkspaceProps) {
         else if (target.action === "float") {
           const tab = focusTab(latest.current);
           if (tab !== undefined && mainSize !== undefined) {
+            setFloatFocused(true);
             update(floatTab(latest.current, tab.key, mainSize));
           }
         } else if (target.action === "dock") {
           const top = topFloat(latest.current);
           if (top === undefined) return;
+          setFloatFocused(false);
           update(dockTab(latest.current, top.tab.key));
           focusPaneBody(latest.current.focusedPane);
         } else if (target.action === "minimize") {
           const top = topFloat(latest.current);
           if (top !== undefined) {
+            leaveTopFloat(top.tab.key);
             update(minimizeFloat(latest.current, top.tab.key));
           }
         }
@@ -912,6 +933,7 @@ export function Workspace(props: WorkspaceProps) {
     const pane = current.panes[at];
     if (pane === undefined) return;
     const select = (paneAt: number, key: string) => {
+      setFloatFocused(false);
       update({
         ...latest.current,
         focusedPane: paneAt,
@@ -980,8 +1002,10 @@ export function Workspace(props: WorkspaceProps) {
         return;
       case "pane.focus": {
         const target = (arg ?? 1) - 1;
-        if (target === at || current.panes[target] === undefined) return;
-        update({ ...current, focusedPane: target });
+        if (current.panes[target] === undefined) return;
+        if (target === at && !inFloats) return;
+        setFloatFocused(false);
+        if (target !== at) update({ ...current, focusedPane: target });
         focusPaneBody(target);
         return;
       }
@@ -1136,8 +1160,10 @@ export function Workspace(props: WorkspaceProps) {
                     <MinimizedBar
                       items={view.floats.filter((item) => item.minimized)}
                       stripTab={stripTab}
-                      onRestore={(key) =>
-                        update(restoreFloat(latest.current, key))}
+                      onRestore={(key) => {
+                        setFloatFocused(true);
+                        update(restoreFloat(latest.current, key));
+                      }}
                       onDock={(key) => {
                         update(dockTab(latest.current, key));
                         focusPaneBody(latest.current.focusedPane);
@@ -1193,28 +1219,37 @@ export function Workspace(props: WorkspaceProps) {
                 )}
               <Panes
                 view={view}
+                focusedPane={inFloats ? null : view.focusedPane}
                 bodyWidth={contentWidth}
                 windowWidth={measuredWindow}
-                onSelect={(pane, key) =>
+                onSelect={(pane, key) => {
+                  setFloatFocused(false);
                   update({
                     ...view,
                     focusedPane: pane,
                     panes: view.panes.map((item, index) =>
                       index === pane ? { ...item, selected: key } : item
                     ),
-                  })}
+                  });
+                }}
                 onClose={close}
                 onCloseMany={(pane, scope, key) =>
                   void closeMany(pane, scope, key)}
                 onPin={(key) => update(pinTab(latest.current, key))}
                 onFloat={(_pane, key) => {
                   if (mainSize === undefined) return;
+                  setFloatFocused(true);
                   update(floatTab(latest.current, key, mainSize));
                 }}
                 pathOf={pathOfTab}
                 onCopyPath={copyPath}
                 onReveal={revealInExplorer}
-                onFocus={(pane) => update({ ...view, focusedPane: pane })}
+                onFocus={(pane) => {
+                  setFloatFocused(false);
+                  if (pane !== latest.current.focusedPane) {
+                    update({ ...latest.current, focusedPane: pane });
+                  }
+                }}
                 onMove={(key, toPane, before) =>
                   update(moveTab(view, key, toPane, before))}
                 onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
@@ -1263,17 +1298,26 @@ export function Workspace(props: WorkspaceProps) {
               />
               <Floats
                 floats={view.floats}
+                focused={inFloats}
                 area={mainSize}
                 stripTab={stripTab}
                 renderTab={renderTab}
                 renderKept={renderKept}
-                onRaise={(key) => update(raiseFloat(latest.current, key))}
+                onRaise={(key) => {
+                  setFloatFocused(true);
+                  const next = raiseFloat(latest.current, key);
+                  if (next !== latest.current) update(next);
+                }}
                 onRect={(key, rect) => {
                   if (mainSize === undefined) return;
                   update(setFloatRect(latest.current, key, rect, mainSize));
                 }}
-                onMinimize={(key) => update(minimizeFloat(latest.current, key))}
+                onMinimize={(key) => {
+                  leaveTopFloat(key);
+                  update(minimizeFloat(latest.current, key));
+                }}
                 onDock={(key) => {
+                  setFloatFocused(false);
                   update(dockTab(latest.current, key));
                   focusPaneBody(latest.current.focusedPane);
                 }}

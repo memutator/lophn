@@ -31,6 +31,8 @@ import styles from "./floats.module.css";
 
 interface FloatsProps {
   floats: readonly FloatItem[];
+  /** focus가 floats 층에 있는지. false면 맨 위 패널도 focus 색이 아니다. */
+  focused: boolean;
   /** `.content`의 크기. 아직 못 쟀으면 undefined이고 아무것도 그리지 않는다. */
   area: FloatArea | undefined;
   /** 제목 앞 아이콘 등 탭 줄이 그리는 모양(workspace의 stripTab). */
@@ -65,7 +67,7 @@ export function Floats(props: FloatsProps): ReactElement | null {
           item={item}
           area={area}
           layer={layer}
-          active={layer - 1 === top}
+          active={props.focused && layer - 1 === top}
         />
       ))}
     </div>
@@ -156,7 +158,7 @@ function FloatEntry(
         height={rect.height}
         active={active}
         hidden={item.minimized}
-        onRaise={active ? undefined : () => onRaise(tab.key)}
+        onRaise={() => onRaise(tab.key)}
         onMoveStart={(event) =>
           drag(event, (dx, dy) => movedRect(base, dx, dy, area))}
         onResizeStart={(edge: FloatEdge, event) =>

@@ -28,6 +28,8 @@ const PANE_PADDING_WIDE_MIN = 640;
 
 interface PanesProps {
   view: WorkspaceView;
+  /** focus 색을 가질 칸. 맨 위 floated 패널에 focus가 있으면 null이다. */
+  focusedPane: number | null;
   /** 칸을 그릴 본문 폭. */
   bodyWidth: number;
   /** 창 폭. 본문 여백을 정한다. */
@@ -72,6 +74,7 @@ interface PanesProps {
 export function Panes(
   {
     view,
+    focusedPane,
     bodyWidth,
     windowWidth,
     onSelect,
@@ -174,7 +177,7 @@ export function Panes(
               index={index}
               pane={view.panes[index]!}
               width={layout.visiblePanes === 2 && position === 0 ? width : null}
-              focused={view.focusedPane === index}
+              focused={focusedPane === index}
               wide={wide}
               end={end(index, position)}
               stripTab={stripTab}
@@ -189,9 +192,7 @@ export function Panes(
               onCopyPath={onCopyPath}
               onReveal={onReveal}
               onReorder={(key, before) => onMove(key, index, before)}
-              onFocus={() => {
-                if (view.focusedPane !== index) onFocus(index);
-              }}
+              onFocus={() => onFocus(index)}
             />
           </Fragment>
         );

@@ -1,8 +1,7 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 아직 계획으로 열지 않았다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
-옛 계획 `eval-base`의 brief 14개와 조사 자료는 git `e1787ca94:project-docs/plan/eval-base/`에 있다. 다시 열 때 재료로 쓰되, 계약(시나리오 꼴, run 기록)은 이 문서대로 다시 쓴다.
-계획이 land하면 이 설계를 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮긴다. architecture 문서는 지금 코드만 적기 때문이다.
+상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개)는 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 남은 계획 `eval-coding`과 `eval-experiment`는 열려 있고, 시작 조건은 각 README에 있다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
@@ -126,10 +125,14 @@ L4-new             lophn                          → calendar-call@1   등록�
 calendar-mvp       App Engineer + coding agent    → calendar-app@1    켜진 앱(blueprint, ticket, release 포함)
                    + 사람 역할                        인터뷰 → blueprint → ticket → build → 검증 → activation (session 하나)
   ├ calendar-api        Operator
-  ├ calendar-maintain   App Engineer + coding agent + 사람 역할   → calendar-app@2
-  ├ calendar-diagnose   App Engineer + coding agent
-  └ observation 확인    program이 실패를 일으킨다
+  ├ calendar-maintain   App Engineer + coding agent + 사람 역할   → calendar-app 새 n 후보
+  └ calendar-diagnose   App Engineer + coding agent
 ```
+
+계획 `eval-coding`에서 정한 것:
+- `calendar-call@1`과 `calendar-app@1`은 손으로 쓴 기준 재료다. 진짜 run이 낸 것은 새 n 후보다. 뒤 단위가 진짜 run의 질에 흔들리지 않는 고정 전제를 갖게 한다.
+- 재사용과 observation 확인은 calendar-mvp의 check다(calendar-mvp가 만든 앱에 실패를 일으켜 본다). 손으로 쓴 기준 앱으로 재면 App Engineer와 coding agent가 아니라 손으로 쓴 코드를 재게 된다.
+- `reuse-world@1`은 재료 둘로 둔다: `notify-app@1`(app-api `notify.schedule`이 있는 켜진 알림 앱)과 `date-range@1`(그 앱이 낸 package `@me/date-range`).
 
 ## check와 judge
 
@@ -509,7 +512,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - 이어 돌리기는 experiment가 고를 때만 한다. 앞 단위의 새 산출물은 사람이 commit해야 뒤 단위의 전제가 된다(agent).
 - activation 같은 사람의 허락은 시나리오의 허락 규칙대로 program이 제품 route로 준다(agent).
 - L4-new는 캘린더의 첫 단위를 겸한다. 사람 말을 캘린더 요청으로 두고 `calendar-call@1`을 남긴다(agent).
-- 자리는 `tests/eval/`다(자세한 폴더는 계획 `eval-base` README). `tests/eval`의 `*_test.ts`는 core와 provider 없이 도는 것만 두고 `deno task check`가 돈다. runner와 시나리오 file은 test file이 아니라 check가 돌리지 않는다. data 폴더(재료, registry, run 요약)는 `fmt.exclude`에 넣는다(agent).
+- 자리는 `tests/eval/`다(자세한 폴더는 `project-docs/architecture/eval.md`). `tests/eval`의 `*_test.ts`는 core와 provider 없이 도는 것만 두고 `deno task check`가 돈다. runner와 시나리오 file은 test file이 아니라 check가 돌리지 않는다. data 폴더(재료, registry, run 요약)는 `fmt.exclude`에 넣는다(agent).
 - 재료를 되살릴 때는 fake 대본을 쓴다. 진짜 model은 시나리오의 `real`에만 붙인다(agent).
 - 재료 버전은 정수 `n`과 content hash다. 결과는 runner가 새 `n`으로 쓰고, 사람이 보고 commit한다(agent).
 - coding agent는 PTY에서 띄우는 interactive CLI다. headless는 App Engineer와의 대화가 끊긴다(agent).
@@ -525,7 +528,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case 17개)는 land했다(`project-docs/architecture/eval.md`). 남은 계획 둘을 이 순서로 한다(사람). 앱 만들기를 가장 중요하게 보므로 진짜 coding agent를 둘째에 붙인다. `eval-experiment`가 land하기 전까지 experiment는 planner가 run 기록을 보고 손으로 고르고 돌린다.
 
-1. **`eval-coding`**: PTY driver, `lophn` wrapper, Claude Code 수치 parser, 사람 역할과 요구 카드, 허락 규칙, 재료 `reuse-world@1`·`calendar-call@1`·`calendar-app@1`, 캘린더 단위(calendar-mvp, calendar-api, calendar-maintain, calendar-diagnose)와 재사용·observation·진단 확인.
+1. **`eval-coding`**(열림, `project-docs/plan/eval-coding/`): PTY driver, `lophn` wrapper, Claude Code 수치 parser, 사람 역할과 요구 카드, 허락 규칙, 재료 `notify-app@1`·`date-range@1`·`calendar-call@1`·`calendar-app@1`, 캘린더 단위(calendar-mvp, calendar-api, calendar-maintain, calendar-diagnose)와 재사용·observation·진단 확인.
 2. **`eval-experiment`**: experiment spec, 본 component로 다시 돌릴 run 고르기, trial 정책, 병렬 실행과 예산 상한, gate의 dry run, runner와 experimenter가 일하는 법(skill), assembly의 prefix 유지 재기, 되풀이를 보는 judge(위 표의 "되풀이").
 
 계획마다 끝에 고칠 것: `project-docs/architecture/eval.md`(그 계획이 만든 것을 실제 코드 path로 더한다), `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`과 `architecture-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록, 이 문서에서 그 계획 몫을 지운다.

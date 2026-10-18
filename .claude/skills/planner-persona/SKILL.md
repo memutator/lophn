@@ -48,4 +48,5 @@ planner는 사람과 무엇을 할지 정하고, 그것을 계획으로 열어 l
 
 - push, force push, 기록 지우기, 병합 안 된 branch 삭제, 실제 model provider 호출, `~/.lophn`과 사람의 전역 harness 설정은 사람에게 묻는다.
 - lead의 worktree(`.claude/worktrees/plan-*`)와 `plan/*` branch를 건드리지 않는다.
+- lead가 `land.sh`를 도는 동안 main에 commit하지 않는다. main이 움직이면 fast-forward가 멈춘다. lead가 land를 알린 뒤에 commit한다.
 - 사람이 두고 간 file(commit 안 된 file)을 읽지 않은 채 commit하지 않는다. commit은 path로 add한다.

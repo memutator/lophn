@@ -13,7 +13,7 @@
   - 판단 case 17개 가운데 L4-new 말고는 바꾸지 않는다.
 - 돌리는 방식: worker를 쓴다. orchestrate skill대로 한다. task id는 `ec-`로 시작한다.
 - 순서: 계약(wave 1) → driver, token 집계, 사람 역할, 재료 되살리기, 앱 check(wave 2) → 재료 data와 runner(wave 3) → 시나리오(wave 4) → 문서(lead).
-- 시작 조건: 계획 `eval-base`가 main에 land한 뒤. wave 3(재료)은 `@me` package를 import한 앱이 app test에서 떨어지는 bug(`project-docs/issues/coding-agent.md`)가 고쳐진 뒤. 그 전에는 brief만 있다. land하면 planner가 `wrap-plan`으로 base를 닫고, 이 brief를 실제 코드와 대조해 맞춘 뒤 lead를 띄운다.
+- 시작 조건: 계획 `eval-base`가 main에 land한 뒤. wave 3(재료)은 계획 `found-bugs`의 `fb-sdk-me`(`@me` package를 import한 앱이 app test에서 떨어지는 bug)가 land한 뒤. 그 전에는 brief만 있다. land하면 planner가 `wrap-plan`으로 base를 닫고, 이 brief를 실제 코드와 대조해 맞춘 뒤 lead를 띄운다.
 
 ## 정한 것
 
@@ -22,6 +22,7 @@
   - launch plan으로 PTY를 열고, App Engineer의 답을 `input` frame으로 넘기고, 끝나면 `coding_agent_terminals/exited`를 보낸다.
   - env는 shell이 만드는 것과 같게 만든다. 가능하면 shell의 env 코드를 그대로 부른다.
 - **dev에 없는 것만 채운다**: PATH의 `lophn` wrapper(명령 시각도 찍는다)와 `plan.env`의 daemon 주소(agent).
+- **coding agent의 TUI는 사람이 열어 볼 수 있다**(사람): `deno task eval:attach [session]`이 driver가 연 local socket에 붙어, 내 터미널에 Claude Code 화면을 그대로 그린다. 붙을 때 지금 화면을 먼저 그리고, 내 터미널 크기로 PTY 크기를 맞춘다(데스크톱 탭이 하는 일과 같다). 기본은 보기만이다. `--write`를 주면 키를 넣을 수 있고, 그 trial에는 사람이 개입했다고 남는다. 칠 수 있는 동안에는 App Engineer의 입력이 기다린다(제품의 focus 규칙과 같다). 화면은 상태 판단에 쓰지 않는다.
 - **coding agent의 token**: lophn이 이미 usage를 남기는 길(hook 등)이 있으면 그것을 쓴다. 없으면 그 trial의 Claude Code session 기록(JSONL)에서 `message.usage`를 읽는다. 그 trial의 session file만, 읽기만 한다(agent, 사람: token만 집계).
 - **coding agent의 model**: `claude-sonnet-5-5`다. 제품 설정 길(Settings의 coding agent 기본 model, 또는 App Engineer call의 option)로 준다(사람: 대상 model은 모두 Sonnet 5.5).
 - **사람 역할**: 요구 카드를 받은 `claude-haiku-5-5`가 `ask`에 답한다(사람).

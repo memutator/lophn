@@ -6,7 +6,7 @@
 - 재료:
   - `project-docs/issues/platform.md`: "ChatGPT로 로그인한 provider가 그 계정이 못 쓰는 model도 고르게 둔다"
   - `project-docs/architecture/testing.md`의 live 줄과 "돌리는 때"
-  - `project-docs/plan/eval-base/research/infra.md` 4절(OAuth): token 저장 위치, 갱신, root를 복사하면 안 되는 이유
+  - `research/infra.md` 4절(OAuth): token 저장 위치, 갱신, root를 복사하면 안 되는 이유
   - `tests/live/`, `tests/support/fake-oauth/`
 - 범위 밖:
   - SuperGrok 계정의 model 목록. 같은 길이 필요해지면 그때 한다.

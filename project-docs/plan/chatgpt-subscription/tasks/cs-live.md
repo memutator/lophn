@@ -11,7 +11,7 @@ ChatGPT 구독 OAuth를 진짜로 확인하는 live 길을 둘로 만든다. `de
   - `tests/live/chatgpt_test.ts`
 - 읽을 것:
   - architecture: `project-docs/architecture/testing.md`의 live 줄과 "돌리는 때"
-  - 조사: `project-docs/plan/eval-base/research/infra.md` 1~4절(`tests/live`, 기존 data root 위의 `bootCore`, provider·model, OAuth 저장과 갱신)
+  - 조사: `project-docs/plan/chatgpt-subscription/research/infra.md` 1~4절(`tests/live`, 기존 data root 위의 `bootCore`, provider·model, OAuth 저장과 갱신)
   - 본보기: `tools/dev.ts`의 `plantFakeProvider`(기존 root에 hand-made `Run`으로 `bootCore`), `tests/support/fake-oauth/login.ts`(login → poll → 기본 model), `tests/e2e/oauth_test.ts`(구독 provider로 turn 하나), `tests/live/run.ts`·`openai_test.ts`(진입과 gate)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `tests`/live 관련 ID가 있으면 읽는다.
 - 계약:
@@ -28,7 +28,7 @@ ChatGPT 구독 OAuth를 진짜로 확인하는 live 길을 둘로 만든다. `de
 
 ## 할 일
 
-1. `tests/live/root.ts`(새 file; `tests/support/core/**`는 eval-base 계획이 소유해 여기 두지 않는다):
+1. `tests/live/root.ts`(새 file. `tests/support/core/**`는 고치지 않고 import만 한다):
    - `LIVE_HOME`(`<repo>/.dev-data/live/home`), `LIVE_RUN`(`<repo>/.dev-data/live/run`). repo 경로는 `import.meta.dirname`에서 구한다.
    - `liveRootReady(): Promise<boolean>`: `LIVE_HOME/secrets.json`이 있으면 true(로그인으로 token이 한 번 저장된 root).
    - `bootLiveCore(): Promise<Core>`: `LIVE_RUN/user-home`을 만들고 `bootCore({ dir: LIVE_RUN, home: LIVE_HOME, work: LIVE_RUN, remove: () => Promise.resolve() }, { settings: { "lophn-agent.run.model_attempts": 3 } })`. `settings`는 `settings.json`이 아직 없을 때만 쓰인다(`writeSettings`). `lophn-agent.run.model_attempts`가 선언된 key인지 `packages/core/lophn-agent/run-loop/limits.ts`에서 확인한다(선언 안 된 key가 있으면 file 전체가 거절된다). 이유: 구독 호출이 되풀이로 새지 않게 turn의 model 호출 시도를 3으로 묶는다.
@@ -83,6 +83,6 @@ ChatGPT 구독 OAuth를 진짜로 확인하는 live 길을 둘로 만든다. `de
 - 안 쓰게 된 export: 없음
 - 정한 것: root가 있는데 credential이 쓸 수 없으면 실패(README는 "이유를 찍고 넘어간다"; write-test는 조건이 안 맞아 조용히 통과하는 test를 금지한다. 넘기는 쪽을 원하면 test 첫머리에서 이유를 찍고 return으로 바꾼다. 열린 질문), 모델 호출 시도 3, 기본 model은 `LOPHN_LIVE_CHATGPT_MODEL` 또는 목록과 catalog의 첫 겹침
 - 넘길 줄: 없음
-- 계약 바꾸기 요청: `bootCore`·`Run`의 모양을 eval-base가 바꾸면(이 task는 `tests/support/core/mod.ts`를 import만 한다) `root.ts` 한 곳을 맞춘다.
+- 계약 바꾸기 요청: 없음. 이 task는 `tests/support/core/mod.ts`를 import만 한다.
 - **무겁게 짠 것**: 없음
 - **알려진 미완 동작**: 갱신 단정은 token이 55분쯤 지나야 채워진다. 로그인과 같은 session에서는 확인할 수 없다.

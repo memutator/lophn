@@ -95,4 +95,9 @@ modules: [packages/core/problems, packages/core/apps, packages/protocol, package
 - 지운다(작음): ticket check와 protocol에서 `test_command`를 빼고, 앱 업무의 확인은 `text`로만 한다. 잃는 것은 기능과 수리를 program이 확인할 길이다.
 - 추천: 살린다.
 
-정할 것: ticket의 `test_command` check를 살릴지 지울지.
+정한 것(사람): coding agent가 쓴 test를 돌리지 않는다. code를 쓴 쪽이 기준도 쓰면 자기 채점이 되기 때문이다. 대신 다음처럼 한다.
+- App Engineer가 사람의 요구에서 app-api 입력과 기대 결과의 예시를 뽑아 ticket에 적는다.
+- coding agent는 그 예시를 고칠 수 없다.
+- program이 준비된 release에 그 예시를 불러 결과를 비교한다. 맞아야 검증을 통과한다.
+- 반쯤 만든 `test_command`는 지운다.
+- app-api로 부를 수 없는 것(화면 모양)은 지금처럼 `text`로 판단하고 사람이 확인한다.

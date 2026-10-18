@@ -5,6 +5,7 @@
   - 앱이 외부 network, secret, 허락된 경로의 file을 쓸 수 있게 한다(cap 셋).
   - agent가 problem의 근거 본문을 읽을 수 있게 한다.
   - agent가 고치지 않은 problem을 닫지 못하게 한다.
+  - ticket을 App Engineer가 쓴 app-api 예시로 검증하게 한다.
 - 재료:
   - `project-docs/issues/reuse.md`: 세 이슈 모두
   - `project-docs/issues/problems.md`
@@ -29,10 +30,10 @@
 - 다른 앱의 app-api:
   - `app.app_api`를 감싼 read tool 하나를 lophn과 App Engineer의 tool 목록에만 넣는다(사람).
   - lophn과 App Engineer 지침에 이 tool을 쓰라는 줄을 더한다.
-  - App Engineer의 자격은 자기 앱으로 묶여 있어 다른 앱의 목록도 app-api도 못 읽는다. 사람의 결정대로 하려면 그 읽기를 넓혀야 한다. 넓히는 범위는 아래 "사람이 정할 것" 2다.
+  - App Engineer의 자격은 자기 앱으로 묶여 있어 다른 앱의 목록도 app-api도 못 읽는다. 사람의 결정대로, 모든 앱의 목록(이름, 설명)과 각 앱의 app-api 목록만 읽게 넓힌다. 다른 앱의 source, problem, ticket은 넓히지 않는다(agent).
 - cap 셋을 살린다(사람). 다만 셋의 core 쪽 사정이 다르다(`project-docs/issues/reuse.md`).
   - fs: `deno.json`(판 1.0.0)을 두고 coding agent skill의 SDK 목록에 더한다. 바로 한다.
-  - net과 secret: 아래 "사람이 정할 것" 1의 답이 오기 전에는 그 brief(`rd-cap-net-live`와 cap-net·cap-secret 부분)를 띄우지 않는다.
+  - net과 secret도 이번에 한다(사람). 구현은 `project-docs/issues/reuse.md`의 정한 것대로 한다: supervisor에 host 없는 net, 목적지 검사는 broker, loopback 목적지는 http, secret 전달 adapter. 확인은 앱 E2E 한 행이다.
 - 보고 본문: 이슈의 넷을 다 한다(agent, 이슈 추천).
   - `problem.get`의 latest에 보고 message 앞부분을 싣는다.
   - log 본문을 `problems.report_body`로 읽는 길을 App Engineer tool과 coding agent의 `problem more`에 더한다.
@@ -43,13 +44,17 @@
   - 사람은 지금처럼 바꿀 수 있다.
   - 고친 release 없이 닫을 일(예: 설정을 바꿔 고친 것)은 agent가 사람에게 묻는다.
 
+- ticket 검증(사람, `project-docs/issues/coding-agent.md`의 "`test_command` check…"):
+  - App Engineer가 ticket에 app-api 입력과 기대 결과의 예시를 적는다.
+  - program이 준비된 release에 그 예시를 불러 비교한다. 맞아야 `ticket.verify`가 통과한다.
+  - coding agent는 예시를 고치지 못한다.
+  - `test_command`는 protocol, core, skill에서 지운다.
+  - App Engineer 지침과 coding agent skill을 이에 맞춘다.
+  - 새 runner를 만들지 않는다. app test runner가 앱을 격리 사본에서 부르는 길을 다시 쓴다.
+
 ## 사람이 정할 것
 
-1. cap-net과 cap-secret(`project-docs/issues/reuse.md`의 정할 것):
-   - 앱 supervisor의 network를 여는 길. 하나는 host 없는 net을 주고 목적지 검사는 broker에 두는 것이다(추천). 다른 하나는 grant된 host 목록으로 열고 grant가 바뀌면 다시 띄우는 것이다.
-   - secret 전달 adapter를 이번에 같이 꽂을지.
-   - 확인용 앱 E2E 행. 기존 `tests/e2e/app-call_test.ts` table에 한 행을 둔다. 그 행을 두려면 loopback 목적지에 http를 허락해야 한다.
-2. App Engineer가 다른 앱을 읽는 범위. 추천은 읽기만 넓히는 것이다: 모든 앱의 목록(이름, 설명)과 각 앱의 app-api 목록. 다른 앱의 source, problem, ticket은 넓히지 않는다.
+없음.
 
 ## lead가 할 일
 

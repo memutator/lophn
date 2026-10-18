@@ -80,9 +80,7 @@ modules: [packages/sdk, packages/core/apps, packages/coding-agent]
 - 확인: 앱 E2E 한 행(loopback 목적지). broker가 https만 보내므로, loopback 목적지에는 http를 허락해야 행을 둘 수 있다.
 - 지운다(중간): SDK 셋, broker의 net·secret 통로, 권한 종류(`net.fetch`, `secret.use`, `fs.read`, `fs.write`)를 지운다. 앱은 외부 I/O를 못 하는 것으로 정한다.
 
-정한 것: 살린다(사람). 이 결정은 "core 쪽이 다 있다"는 앞의 잘못된 설명을 보고 내렸다. net과 secret은 위처럼 일이 더 든다. 그래서 다음 셋을 다시 묻는다.
-
-정할 것:
-- supervisor network를 여는 길(host 없는 net / grant 목록과 다시 띄우기).
-- secret 전달을 이번에 같이 할지.
-- loopback 목적지에 http를 허락할지.
+정한 것: 셋 다 이번에 살린다(사람). 앱은 사람이 켤 때 허락한 바깥 서비스(같은 컴퓨터의 서비스 포함)로만 나가고, 비밀값은 lophn이 붙여 보내며 앱은 값을 보지 못한다. 구현은 이렇게 한다(agent).
+- net: 앱 supervisor에 host 없는 net을 준다. 목적지 검사는 broker가 요청마다 한다. 앱 process에는 여전히 net이 없다. loopback 목적지에는 http를 허락하고, lophn 자기 port는 지금처럼 막는다.
+- secret: supervisor 조립이 secret 전달 adapter를 꽂는다.
+- 확인: 앱 E2E 한 행. loopback 목적지로 보낸다.

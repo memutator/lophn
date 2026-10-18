@@ -1,6 +1,6 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 첫 계획 `eval-base`를 열었다(`project-docs/plan/eval-base/`). 나머지 단계는 아직 계획으로 열지 않았다.
+상태: 로드맵. 아직 계획으로 열지 않았다. 첫 계획 `eval-base`는 brief까지 썼다가 이번 묶음에서 뺐다(사람). brief 14개와 조사 자료는 git의 `e1787ca94:project-docs/plan/eval-base/`에 있다. 다시 열 때 그것을 재료로 쓴다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
@@ -265,7 +265,7 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 
 eval 밖의 제품 고치기는 따로 계획을 열었다. 지침 정리(PM 모순, `ROLE_LINE`, template `AGENTS.md`, observation 지침)는 `prompt-text`가 맡는다. 재사용을 찾는 길과 진단 근거는 `reuse-diagnose`가 맡는다.
 
-1. **계획 `eval-base`**(열었다): runner, 공통 수치 collector, 재료, 진짜 provider 연결 helper, scorecard, `wrong` 확인, 작은 판단 case 17개.
+1. **계획 `eval-base`**(brief를 썼다가 뺐다. `e1787ca94:project-docs/plan/eval-base/`): runner, 공통 수치 collector, 재료, 진짜 provider 연결 helper, scorecard, `wrong` 확인, 작은 판단 case 17개.
 2. **계획 `eval-coding`**
    - PTY driver, 격리 harness HOME, `lophn` wrapper, coding agent 수치 parser. claude부터 한다.
    - codex는 `project-docs/issues/coding-agent.md`의 hook trust 이슈를 같이 본다.

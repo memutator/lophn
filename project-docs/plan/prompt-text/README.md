@@ -16,11 +16,11 @@
   - `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/coding-agent.md`
 - 범위 밖:
   - resolved 조건을 program이 막는 것, 새 agent tool, cap-fs·cap-net·cap-secret, skill의 SDK 목록에 cap 셋을 더하는 것. 모두 계획 `reuse-diagnose`가 한다.
-  - eval. 계획 `eval-base`가 한다.
+  - eval. `project-docs/products/roadmap/eval.md`의 몫이다.
 - 돌리는 방식: **worker를 쓰지 않는다.** lead가 lead worktree에서 task를 차례로 직접 고친다(사람이 정함: 패치가 좁은 계획은 lead 혼자 한다). orchestrate skill의 "lead는 기능 코드를 직접 짜지 않는다"는 이 계획에 적용하지 않는다. `tasks/*.md`와 `status.md`는 다른 계획과 소유를 가르고 끝남을 적으려고 둔다.
 - 단위: `tasks/*.md`의 "단위"가 정한다. task id는 `pt-`로 시작한다.
 - 순서: wave 하나. task끼리 소유가 겹치면 선행으로 줄 세운다.
-- 시작 조건: 없음. 계획 `settings-mcp`, `eval-base`와 같이 돌아도 소유가 겹치지 않는다.
+- 시작 조건: 없음. 계획 `settings-mcp`와 같이 돌아도 소유가 겹치지 않는다.
 
 ## 정한 것
 

@@ -5,6 +5,7 @@ import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import {
+  accountAllows,
   fitOptionValues,
   optionAxesOf,
   orderPicker,
@@ -16,13 +17,21 @@ import type {
   PickerModelRef,
   PickerModelRow,
 } from "../../conversation/model-picker/types.ts";
-import type { ModelFavorite, ModelsView } from "./source.ts";
+import type { ModelFavorite, ModelsView, ProviderChoice } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 
 /** picker 하나가 가진 화면 상태. 닫혀 있고 검색이 비어 있는 것이 처음이다. */
 interface PickerState {
   readonly open: boolean;
   readonly query: string;
+}
+
+/** 그 provider에서 고를 수 있는 catalog 항목. 계정이 못 쓰는 model은 뺀다. 고른 model을 찾는 entryOf는 거르지 않는다. */
+export function modelsOf(models: ModelsView, provider: ProviderChoice) {
+  return models.catalog.filter((entry) =>
+    entry.provider_definition === provider.definition &&
+    accountAllows(provider.accountModels, entry.model_name)
+  );
 }
 
 export function entryOf(models: ModelsView, model: PickerModelRef) {
@@ -89,14 +98,14 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
   const { models, state, current } = binding;
   const providers = models?.providers ?? [];
   const favorites = models?.favorites ?? [];
-  const available = providers.flatMap((provider) =>
-    (models?.catalog ?? [])
-      .filter((entry) => entry.provider_definition === provider.definition)
-      .map((entry) => ({
+  const available = models === null
+    ? []
+    : providers.flatMap((provider) =>
+      modelsOf(models, provider).map((entry) => ({
         provider: provider.id,
         model_name: entry.model_name,
       }))
-  );
+    );
   const layout = orderPicker({
     favorites,
     models: available,

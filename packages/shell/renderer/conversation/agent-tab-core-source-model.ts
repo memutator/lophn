@@ -93,6 +93,7 @@ export function createModelPart(env: Env): ModelPart {
           id: provider.id,
           name: provider.name,
           definition: provider.definition.key,
+          accountModels: provider.credential.account_models,
         })),
         catalog: entries,
         favorites: favorites.value.favorites.items.map((item) => ({

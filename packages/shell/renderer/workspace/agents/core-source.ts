@@ -180,8 +180,12 @@ export function coreAgentsSource(
   };
 
   const providers = async () => {
-    const rows: { id: string; name: string; definition: { key: string } }[] =
-      [];
+    const rows: {
+      id: string;
+      name: string;
+      definition: { key: string };
+      credential: { account_models: string[] | null };
+    }[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
       const result = await link.read<
@@ -423,6 +427,7 @@ export function coreAgentsSource(
           id: provider.id,
           name: provider.name,
           definition: provider.definition.key,
+          accountModels: provider.credential.account_models,
         })),
         catalog: catalog.value.entries,
         favorites: starred.value.items,

@@ -14,7 +14,7 @@ import {
   OptionAxes,
 } from "../../../conversation/model-picker/model-picker.tsx";
 import type { ModelSelectionView } from "../../../conversation/model-picker/types.ts";
-import { entryOf } from "../model-picker-data.ts";
+import { entryOf, modelsOf } from "../model-picker-data.ts";
 import type { ModelsView } from "../source.ts";
 import styles from "./agent-editor.module.css";
 
@@ -24,9 +24,9 @@ const keyOf = (choice: { provider: string; model_name: string }) =>
 
 /** 연결된 provider의 catalog에서 고를 수 있는 model. */
 function choicesOf(models: ModelsView | null) {
-  return (models?.providers ?? []).flatMap((provider) =>
-    (models?.catalog ?? [])
-      .filter((entry) => entry.provider_definition === provider.definition)
+  if (models === null) return [];
+  return models.providers.flatMap((provider) =>
+    modelsOf(models, provider)
       .map((entry) => ({
         value: keyOf({ provider: provider.id, model_name: entry.model_name }),
         label: t("agents.label.model-by-provider", {

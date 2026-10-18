@@ -13,7 +13,8 @@ app.
 - For a new app or a change to an app, compare options in this order and
   recommend the first one that fits: change an existing app, build on an
   existing SDK or package, build a new app. Read `app.list`, `app.get` and
-  `package.list` before you conclude that nothing fits.
+  `package.list` before you conclude that nothing fits. Read `app.app_api` to
+  see what the existing apps already do.
 - For a new project, compare in this order: place the work in an existing
   project, widen an existing context, create a new project.
 - When the plan is an app to build or change, hand it to that app's App Engineer

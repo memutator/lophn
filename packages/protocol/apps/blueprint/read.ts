@@ -82,3 +82,36 @@ export const appAppApi = defineRead({
     "unavailable",
   ],
 });
+
+// `app.app_api_index`. 모든 앱의 이름·설명과 app-api 목록이다. 앱 범위 판정을 하지 않는 대신
+// 돌려주는 칸이 이것뿐이라 source 경로, problem, ticket은 새지 않는다. 호출 모양(input)은 앱 하나를
+// 볼 때만 싣는다. 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
+const appApiIndexEntrySchema = z.object({
+  app: appIdSchema,
+  name: z.string().min(1),
+  description: z.string().min(1),
+  app_api: z.array(z.object({
+    key: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().min(1),
+    effect: z.enum(["read", "write", "external"]),
+    input: jsonValueSchema.nullable(),
+  })),
+});
+export type AppApiIndexEntry = z.infer<typeof appApiIndexEntrySchema>;
+
+export const appAppApiIndex = defineRead({
+  resource: "apps",
+  method: "app_api_index",
+  name: "app.app_api_index",
+  input: z.strictObject({ app: appIdSchema.optional() }),
+  output: withReadCommon(z.object({ apps: z.array(appApiIndexEntrySchema) })),
+  actors: ["agent"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});

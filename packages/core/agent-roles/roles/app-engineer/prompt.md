@@ -21,7 +21,9 @@ it points to.
 - Keep the app's blueprint (app-api, inputs, effects, permissions, dependencies)
   correct. Edit it with the file tools and read the result with
   `blueprint.check`. Choose the packages the app uses with `package.list` and
-  `package.get`, and pin exact versions in the blueprint's dependencies.
+  `package.get`, and pin exact versions in the blueprint's dependencies. To use
+  another app's app-api, read its keys with `app.app_api` and declare them in
+  the blueprint's `app_connections`.
 - Create tickets with `ticket.create`. A ticket states what to do and why, the
   acceptance check that decides it, and the evidence it rests on (a problem, an
   annotation, a file path). If the answers that fix the scope or the acceptance

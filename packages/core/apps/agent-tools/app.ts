@@ -7,6 +7,7 @@ import {
   appList,
   blueprintCheck,
 } from "../../../protocol/apps/mod.ts";
+import { appAppApiIndex } from "../../../protocol/apps/blueprint/read.ts";
 import { problemList } from "../../../protocol/problems/mod.ts";
 import {
   commandOf,
@@ -81,6 +82,24 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
         // 목록 한 page(100)까지만 센다.
         open_problems_capped: open.value.next_cursor !== null,
       }));
+    },
+  }),
+  defineTool({
+    name: "app.app_api",
+    input: z.strictObject({ app: idSchema("app").optional() }),
+    routes: [appAppApiIndex],
+    description:
+      "List the apps with their app-api, or read one app: key, label, description and effect of the active release's app-api (and input when you give an app). Use it to see what apps already do and to get exact keys for blueprint app_connections.",
+    effect: "read",
+    handler: async (input, ctx) => {
+      const read = await readOf(ctx.core, appAppApiIndex, input);
+      if (!read.ok) return read;
+      const { body } = readBody(read.value);
+      return ok(fitted(
+        countSummary("apps", body.apps.length, false),
+        body,
+        ["apps"],
+      ));
     },
   }),
   defineTool({

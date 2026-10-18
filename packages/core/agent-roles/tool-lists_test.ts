@@ -16,3 +16,14 @@ Deno.test("builtin tool wire names fit the provider rule and never collide", () 
     assertEquals(new Set(names).size, names.length, `${role} lists twice`);
   }
 });
+
+// 모든 앱의 app-api 목록은 사람이 lophn과 App Engineer로만 좁혔다.
+Deno.test("app.app_api is only in the lophn and App Engineer lists", () => {
+  for (const role of ROLES) {
+    assertEquals(
+      builtinToolNames(role).includes("app.app_api"),
+      role === "lophn" || role === "app_engineer",
+      role,
+    );
+  }
+});

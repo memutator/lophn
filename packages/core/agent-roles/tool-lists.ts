@@ -47,6 +47,9 @@ const READ_TOOLS = [
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
+// 모든 앱의 app-api 목록은 사람이 lophn과 App Engineer로만 좁혔다.
+const APP_API_TOOLS = ["app.app_api"] as const;
+
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
   app_engineer: [
@@ -77,6 +80,7 @@ export function builtinToolNames(role: Role): readonly string[] {
     ...COMMON_TOOLS,
     ...READ_TOOLS,
     ...(role === "lophn" ? LOPHN_ONLY_READ_TOOLS : WORK_TOOLS),
+    ...(role === "lophn" || role === "app_engineer" ? APP_API_TOOLS : []),
     ...ROLE_WRITE_TOOLS[role],
   ];
 }
@@ -110,6 +114,7 @@ export const TOOL_ORDER = [
   "problem.set_state",
   "app.list",
   "app.get",
+  "app.app_api",
   "app.create",
   "app.link_source",
   "blueprint.check",

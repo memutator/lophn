@@ -4,15 +4,22 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
+  type AppApiIndexEntry,
   type AppAppApi,
   appAppApi,
+  appAppApiIndex,
 } from "../../../protocol/apps/blueprint/read.ts";
 import type { Blueprint } from "./mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
-import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
+import {
+  appAccessDenied,
+  authorizeApp,
+  loadApp,
+  loadApps,
+} from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
 type ActiveBlueprint = {
@@ -33,8 +40,52 @@ function notFound(): Result<never> {
 
 export function createBlueprintReads(load: ActiveBlueprintLoader): {
   appApi: ReadDefinition<typeof appAppApi>;
+  appApiIndex: ReadDefinition<typeof appAppApiIndex>;
 } {
   return {
+    // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: App Engineer도 모든 앱의 목록과
+    // app-api 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
+    appApiIndex: {
+      route: appAppApiIndex,
+      handle(snapshot, _ctx, input) {
+        const listed = input.app === undefined
+          ? loadApps(snapshot.sql, "active")
+          : loadApp(snapshot.sql, input.app);
+        if (!listed.ok) return listed;
+        const apps = Array.isArray(listed.value)
+          ? listed.value
+          : listed.value?.status === "active"
+          ? [listed.value]
+          : [];
+        const entries: AppApiIndexEntry[] = [];
+        for (const app of apps) {
+          const active = load(snapshot.sql, app.id);
+          if (!active.ok) return active;
+          if (active.value === null) continue;
+          const { blueprint } = active.value;
+          entries.push({
+            app: app.id,
+            name: blueprint.name,
+            description: blueprint.description,
+            app_api: blueprint.app_api.map((api) => ({
+              key: api.key,
+              label: api.label,
+              description: api.description,
+              effect: api.effect,
+              input: input.app === undefined
+                ? null
+                : api.input as AppAppApi["input"],
+            })),
+          });
+        }
+        if (input.app !== undefined && entries.length === 0) return notFound();
+        return ok({
+          apps: entries,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
     appApi: {
       route: appAppApi,
       handle(snapshot, ctx, input) {

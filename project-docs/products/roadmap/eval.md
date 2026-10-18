@@ -198,20 +198,15 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 
 ### 재사용을 찾을 길이 없다
 
-- 내장 SDK 8개는 package catalog에 없다(`apps/packages/install.ts:1-5`). 그래서 `package.list`와 `package.get`은 앱이 낸 `@me/*`만 보여 준다. lophn과 App Engineer는 `<root>/sdk`를 읽을 file 권한도 없다. 0.2.0 changelog는 이것을 "이슈로 남겼다"고 했지만 `issues/`에 없다.
-- 다른 앱의 app-api 목록을 보여 주는 agent tool이 없다. `app.list`와 `app.get`에는 app-api가 없다. route `app.app_api`는 있지만 tool이 없다. 다른 앱의 source도 읽을 수 없다. lophn 지침(L2)이 읽으라고 하는 tool로는 app-api도 UI component도 찾을 수 없다.
 - template의 `AGENTS.md.tmpl`이 없는 것을 가리킨다: `lophn_sdk`, `lophn_session`, skill `lophn-navigate`, `lophn-save`. coding agent가 맨 먼저 읽는 file이다.
-- `cap-fs`, `cap-net`, `cap-secret`은 `deno.json`이 없어 깔리지 않는다. 그런데 `apps/releases/sdk-permissions.ts:6-14`에는 이 셋의 권한 규칙이 있다.
 - 앱끼리의 call(`app_connections`, `connectAppApi`)과 `package.publish`는 test한 적이 없다. `blueprint.check`는 연결 대상이 있는지 보지 않는다.
 
 ### observation과 진단
 
 - 지침에 observation을 어디 둘지가 없다. App Engineer 지침, `lophn-build-app`·`lophn-repair` skill, blueprint 어디에도 `reportProblem`을 둘 곳에 대한 말이 없다. template의 한 줄과 예 하나뿐이다.
 - template의 `withStore`는 일하는 중의 예외를 모두 `store_unavailable`로 바꿔 다시 던진다. 그래서 stack이 사라지고, 그 꼴이 복사된다.
-- App Engineer는 `reportProblem` 보고의 message와 details, log, stack 글을 읽지 못한다. `problem.get`은 보고의 이름만 준다. `details`를 읽는 route는 아예 없다.
+- 보고에 붙은 stack 글(`snapshot_stack`)을 읽는 route가 없다. message, details, log는 `problem.body`와 `problem body`로 읽는다.
 - App Engineer 지침에는 "a repeating problem closed"라는 reaction이 있지만 그런 event는 없다.
-- 고친 release가 active가 되기 전에도 `problem.set_state`로 resolved를 만들 수 있다. 막는 곳이 없다.
-- 재현 확인이 없다. `app_test`는 business logic을 보지 않는다. 진단을 확인할 수 있는 것은 coding agent가 쓰는 `test_command`뿐이다.
 
 ### 지침
 

@@ -32,6 +32,7 @@ domain event
 - Ledger 행은 고치거나 지우지 않는다. cursor와 근거 seq가 행 번호를 가리킨다. 지우는 것은 사람이 요청한 session delete 하나뿐이다.
 - 새 일 event만 reaction grant로 끌 수 있다. call 닫음은 끌 수 없다. 끄면 맡긴 call이 열린 채 남는다.
 - call 닫음 handler는 call 닫기와 App Engineer에게 넣는 입력을 같은 tx에서 한다. 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
+- program 일 event(`ApprovalDecided`, `TicketVerified`, `VerificationRecorded`)는 agent를 부르지 않고 program handler만 깨운다. `VerificationRecorded`는 test 결과를 기록하는 command(`RecordVerification`)가 같은 tx에서 쓰고, `examples` check의 결과를 ticket에 남기는 handler가 받는다. 다른 kind의 기록은 handler가 무시한다. 이 event가 Ledger에 있어야 core가 꺼졌다 켜져도 끝난 예시 검증의 결과가 ticket에 남는다.
 
 Bus와 Reactor
 - Bus에 내는 것은 반드시 commit 뒤다. command는 writer Worker에서 돌고 Bus는 main thread에 있어서, 낼 것을 모아 두었다가 commit된 결과와 함께 돌려받아 낸다. 되돌아간 tx의 것은 버린다. 먼저 내면 없던 일을 화면과 Reactor가 본다.

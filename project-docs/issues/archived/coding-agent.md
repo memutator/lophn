@@ -343,3 +343,39 @@ guard: 없음
 정한 것: reproduction test는 runner를 줄일 때 지운 길이라 되살리지 않는다. 지워도 잃는 기능이 없다(agent).
 
 닫음: `lophn-repair` skill이 ticket의 check 하나를 따르고, `app test`가 `unavailable`이면 돌리지 못한 확인과 이유를 보고 summary에 적게 한다. protocol과 core에서 `reproduction` 종류와 그 연결 칸(`problem`, `basis_seq`, `reports`, `before`, `after`), 동결 test의 `symptom`, 요청의 `ticket_source`를 지웠다. `test_command` check를 돌리는 일은 아래 열린 이슈에 남는다.
+
+## ticket의 `test_command` check를 runner가 돌리지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/problems, packages/core/apps, packages/protocol, packages/core/agent-roles, packages/coding-agent]
+closed: fixed
+guard: packages/core/apps/tickets/tickets_test.ts "examples check의 ticket은 예시가 맞지 않으면 verified가 되지 못하고, 맞으면 된다", tests/e2e/app-release_test.ts, packages/core/problems/tests/request-ports_test.ts, packages/core/problems/tests/harness/examples_test.ts
+```
+
+지금:
+- ticket의 check는 `app_test`, `test_command`, `text` 셋이다(`packages/protocol/coding-agent/ticket/values.ts`).
+- test 접수는 `test_command`를 받지 못한다. `packages/core/problems/tests/lifecycle.ts`의 `productAdmission`이 "app test만 접수하고 test_command는 준비할 수 없다"며 `unavailable`로 둔다.
+- runner(`packages/core/problems/tests/work/runner-service.ts`)도 `app_test`가 아닌 요청은 "이 runner가 실행하지 않는다"로 거절한다.
+- `ticket.verify`가 읽는 검증 행(`packages/core/apps/tickets/checks.ts`)은 `test_command`라면 그 ticket과 완료 보고에 붙은 행을 찾는다. 그런데 그 행이 생길 길이 없다.
+- `app_test`는 다섯 platform 검사(blueprint와 handler, 의존, 빈 migration, migration 올리기, rewind)뿐이라 앱의 업무 규칙을 보지 않는다.
+
+영향:
+- App Engineer가 "이 기능은 이렇게 동작해야 한다"를 program이 확인하는 check로 걸 길이 없다.
+- `test_command`로 건 ticket은 coding agent가 test를 요청할 수 없어 검증을 통과하지 못한다.
+- 수리 ticket에서 원래 증상이 고쳐졌는지(수리 전 실패, 수리 뒤 통과)를 보일 길도 없다.
+- 남는 것은 App Engineer가 글로 판단하는 `text`뿐이다.
+
+고치려면:
+- 살린다(중간): runner가 release bundle에서 앱의 test 명령을 돌리고, 결과를 검증 행으로 남긴다. 돌릴 때 sandbox와 memory 한도는 `app_test`와 같다. App Engineer 지침과 coding agent skill이 기능 ticket과 수리 ticket에 이 check를 쓴다.
+- 지운다(작음): ticket check와 protocol에서 `test_command`를 빼고, 앱 업무의 확인은 `text`로만 한다. 잃는 것은 기능과 수리를 program이 확인할 길이다.
+- 추천: 살린다.
+
+정한 것(사람): coding agent가 쓴 test를 돌리지 않는다. code를 쓴 쪽이 기준도 쓰면 자기 채점이 되기 때문이다. 대신 다음처럼 한다.
+- App Engineer가 사람의 요구에서 app-api 입력과 기대 결과의 예시를 뽑아 ticket에 적는다.
+- coding agent는 그 예시를 고칠 수 없다.
+- program이 준비된 release에 그 예시를 불러 결과를 비교한다. 맞아야 검증을 통과한다.
+- 반쯤 만든 `test_command`는 지운다.
+- app-api로 부를 수 없는 것(화면 모양)은 지금처럼 `text`로 판단하고 사람이 확인한다.
+
+닫음: `test_command`를 protocol, core, skill에서 지우고 check를 `app_test`, `examples`, `text` 셋으로 바꿨다. `examples`는 App Engineer가 쓴 app-api 예시(api, input, expect) 1~20개다. 완료 보고가 나면 Reactor handler가 core의 machine 자격으로 `examples` test를 요청하고(예시는 요청이 아니라 접수 준비가 ticket에서 읽는다), runner(`createRealAppDriver`의 `call`)가 보고된 release의 격리 사본에서 예시를 차례로 불러 비교한다. 규칙은 객체는 expect의 key가 모두 있고 값이 맞아야 하고(실제에 key가 더 있어도 된다), 배열은 길이와 원소가 맞아야 하고, 오류로 끝난 호출은 불일치다. 결과가 `VerificationRecorded`로 나면 다른 handler가 ticket에 결과를 남긴다. `ticket.verify`는 check가 `examples`인 ticket을 현재 check hash로 pass가 기록된 뒤에만 verified로 받는다(아니면 `conflict`). coding agent는 예시를 고치지 못하고 `lophn-repair`·`lophn-build-app` skill과 App Engineer 지침이 이 check를 쓴다.

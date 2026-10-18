@@ -1,12 +1,12 @@
-# reuse
-
-새 앱을 만들 때 이미 있는 것(내장 SDK, 앱이 낸 package, 다른 앱의 app-api)을 agent가 찾아 쓰는 길이다. architecture 문서는 아직 없다.
+# reuse (닫음)
 
 ## lophn과 App Engineer가 내장 SDK를 볼 길이 없다
 
 ```yaml
 kind: bug
 modules: [packages/core/apps, packages/core/agent-roles]
+closed: fixed
+guard: 없음
 ```
 
 지금:
@@ -27,11 +27,15 @@ modules: [packages/core/apps, packages/core/agent-roles]
 - lophn과 App Engineer의 file scope에 `<data root>/sdk` 읽기를 더하고, 지침에 path를 적는다. 크기는 작음이다. 다만 agent가 path를 알아야 하고, tool 하나로 보이지 않는다.
 - 추천: 첫째.
 
+닫음: `package.list`가 catalog 목록 뒤 `builtin` 칸에 설치 사본(`<data root>/sdk`)의 내장 SDK 이름과 판을 싣고, `package.get`은 `@lophn/`로 시작하는 이름이면 route `packages.builtin`(`packages/core/apps/packages/builtin.ts`)으로 설치 사본의 판과 `guide.md`를 읽는다. 본문이 tool 결과 상한을 넘으면 `guide_truncated`가 선다. `@lophn/ui`의 guide는 분류별 export index다. 내장 SDK는 catalog에 등록하지 않는다(설치 사본이 정본). lophn과 App Engineer의 file scope는 넓히지 않았다.
+
 ## 다른 앱의 app-api를 agent가 볼 tool이 없다
 
 ```yaml
 kind: bug
 modules: [packages/core/apps, packages/core/agent-roles]
+closed: fixed
+guard: packages/core/agent-roles/tool-lists_test.ts "app.app_api is only in the lophn and App Engineer lists", packages/core/apps/blueprint/reads_test.ts
 ```
 
 지금:
@@ -51,11 +55,15 @@ modules: [packages/core/apps, packages/core/agent-roles]
 
 정한 것: 다른 앱의 app-api 목록은 lophn과 App Engineer만 본다(사람).
 
+닫음: read tool `app.app_api`가 route `app.app_api_index`(`packages/core/apps/blueprint/reads.ts`의 `appApiIndex`)로 모든 active 앱의 이름·설명과 app-api 목록(key, label, description, effect)을 돌려주고, `app`을 주면 그 앱의 입력 모양도 싣는다. `tool-lists.ts`의 `APP_API_TOOLS`가 이 tool을 lophn과 App Engineer 목록에만 넣는다. 이 read는 앱 범위 판정을 하지 않는 대신 돌려주는 칸이 이것뿐이라 다른 앱의 source, problem, ticket은 열리지 않는다. 기존 `app.get`·`app.app_api` route의 자격 검사는 그대로다. lophn과 App Engineer 지침이 이 tool을 읽으라고 한다.
+
 ## cap-fs, cap-net, cap-secret이 깔리지 않아 앱이 외부 network, secret, 허락된 경로의 file을 못 쓴다
 
 ```yaml
 kind: bug
 modules: [packages/sdk, packages/core/apps, packages/coding-agent]
+closed: fixed
+guard: packages/core/apps/permissions/broker/net-fetch_test.ts, packages/core/apps/permissions/secret-value_test.ts, packages/core/secrets/file-attach_test.ts, packages/core/supervision/security/launch-spec_test.ts, tests/e2e/app-call_test.ts의 step net-fetch-loopback
 ```
 
 지금:
@@ -84,3 +92,5 @@ modules: [packages/sdk, packages/core/apps, packages/coding-agent]
 - net: 앱 supervisor에 host 없는 net을 준다. 목적지 검사는 broker가 요청마다 한다. 앱 process에는 여전히 net이 없다. loopback 목적지에는 http를 허락하고, lophn 자기 port는 지금처럼 막는다.
 - secret: supervisor 조립이 secret 전달 adapter를 꽂는다.
 - 확인: 앱 E2E 한 행. loopback 목적지로 보낸다.
+
+닫음: 세 SDK에 `deno.json`(판 1.0.0)을 두어 기동 설치가 깐다. coding agent skill `lophn-build-app`이 세 SDK를 말한다. 앱 supervisor는 host 없는 net(`net_any`)으로 뜨고(`launch-spec.ts`는 agent runtime과 apps supervisor만 허락), 목적지 검사는 broker의 `net/fetch`가 요청마다 선언 ∩ grant로 한다. loopback 목적지는 http, 나머지는 https이고 lophn 자기 port는 막는다. secret은 supervisor 조립이 꽂는 전달 adapter(`main/app-supervisor/secret-delivery.ts`)가 core route `apps.secret_value`로 값을 한 번 받아 같은 invocation의 같은 목적지 요청에만 `Authorization: Bearer`로 붙인다(만료 60초). core는 현재 선언 ∩ active grant로 다시 판정하고 알려진 값 registry가 값을 알 때만 건넨다. 앱은 값을 보지 못한다. 확인은 앱 E2E 한 행(loopback 서버, `Authorization` header)이다.

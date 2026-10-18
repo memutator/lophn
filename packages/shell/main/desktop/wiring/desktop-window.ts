@@ -14,6 +14,7 @@ import {
   type WindowConfig,
 } from "../window.ts";
 import { stateOf } from "../window-controls.ts";
+import type { WindowBounds } from "../../workspace/layout.ts";
 import type { ShellContext } from "./context.ts";
 
 /** 영역이 창을 열고 보이게 할 때 쓰는 통로. */
@@ -31,9 +32,7 @@ let shotSerial = 0;
  * preload가 받아 두었다가 renderer가 구독하면 넘긴다.
  */
 export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
-  const target =
-    [...ctx.windows].filter((window) => !window.isDestroyed()).at(-1) ??
-      openDesktopWindow(ctx);
+  const target = recentWindow(ctx) ?? openDesktopWindow(ctx);
   if (target === undefined) return;
   reveal(target, ctx.headless);
   const send = () => {
@@ -46,11 +45,16 @@ export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
   } else send();
 }
 
+// detached 창은 건너뛴다: 전역 키와 tray가 탭 하나만 든 창으로 가지 않게 한다.
+function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
+  return [...ctx.windows].filter((window) =>
+    !window.isDestroyed() && !ctx.detached.has(window)
+  ).at(-1);
+}
+
 /** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
 export function showDesktopWindow(ctx: ShellContext): void {
-  const recent = [...ctx.windows].filter((window) => !window.isDestroyed()).at(
-    -1,
-  );
+  const recent = recentWindow(ctx);
   if (recent === undefined) {
     openDesktopWindow(ctx);
     return;
@@ -58,8 +62,10 @@ export function showDesktopWindow(ctx: ShellContext): void {
   reveal(recent, ctx.headless);
 }
 
+/** `start`가 있으면 그 hash와 자리로 연다(detached 창). 개발용 시작 환경 변수는 보지 않는다. */
 export function openDesktopWindow(
   ctx: ShellContext,
+  start?: { hash: string; bounds?: WindowBounds },
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
   let created: BrowserWindow | undefined;
@@ -77,7 +83,10 @@ export function openDesktopWindow(
     // `LOPHN_SHELL_START=project:<id>`는 그 프로젝트 작업대부터, `settings`는 Settings부터,
     // `app:<id>`는 그 앱 공간부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
-    url: process.env.LOPHN_DEV_SEED === "1"
+    ...(start?.bounds ? { bounds: start.bounds } : {}),
+    url: start !== undefined
+      ? `${desktopUrl}${start.hash}`
+      : process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`

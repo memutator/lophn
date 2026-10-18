@@ -14,6 +14,7 @@ import { createShellContext } from "./wiring/context.ts";
 import * as core from "./wiring/core.ts";
 import * as crash from "./wiring/crash.ts";
 import * as desktop from "./wiring/desktop.ts";
+import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as feedback from "./wiring/feedback.ts";
 import * as layout from "./wiring/layout.ts";
@@ -37,6 +38,7 @@ const terminals = add(coding.register(ctx));
 add(layout.register(ctx));
 add(bookmarks.register(ctx));
 add(editor.register(ctx));
+add(detached.register(ctx, views));
 add(desktop.register(ctx, views, terminals));
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.

@@ -1,5 +1,6 @@
 // 창 하나의 모양. 시스템 제목 표시줄 없이 상단 바를 쓰고, 제목은 main이
 // 검증한 공간 이름에만 붙인다. Windows·Linux 창 단추는 OS가 아니라 상단 바가 그린다.
+import type { WindowBounds } from "../workspace/layout.ts";
 import { type WebPreferences, webPreferences } from "./security.ts";
 
 export const MIN_WINDOW_WIDTH = 960;
@@ -25,9 +26,13 @@ interface WindowOptions {
   spaceName?: string;
   preload: string;
   show?: boolean;
+  /** 이 자리와 크기로 연다(detached 창). 너비·높이는 최소 아래로 내려가지 않는다. */
+  bounds?: WindowBounds;
 }
 
 export interface WindowConfig {
+  x?: number;
+  y?: number;
   width: number;
   height: number;
   minWidth: number;
@@ -42,8 +47,9 @@ export interface WindowConfig {
 function windowConfig(options: WindowOptions): WindowConfig {
   const mac = options.platform === "darwin";
   return {
-    width: MIN_WINDOW_WIDTH,
-    height: MIN_WINDOW_HEIGHT,
+    ...(options.bounds ? { x: options.bounds.x, y: options.bounds.y } : {}),
+    width: Math.max(options.bounds?.width ?? 0, MIN_WINDOW_WIDTH),
+    height: Math.max(options.bounds?.height ?? 0, MIN_WINDOW_HEIGHT),
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     frame: false,

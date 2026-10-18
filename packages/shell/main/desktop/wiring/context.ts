@@ -67,6 +67,8 @@ export type ShellContext = {
   overlays: ReturnType<typeof electronOverlays>;
   /** 순서는 최근에 focus를 받은 창이 끝이다. 창 밖에서 온 일은 끝의 창에 시킨다. */
   windows: Set<BrowserWindow>;
+  /** detached 탭 창들. `windows`에도 들어 있다. 창 밖에서 온 일은 이 창으로 가지 않는다. */
+  detached: Set<BrowserWindow>;
   /** 앱 전용 창. shell 창이 아니라서 shortcut·intent·core 상태를 받지 않는다. */
   appWindowRefs: Map<string, BrowserWindow>;
   log: (message: string) => void;
@@ -143,6 +145,7 @@ export function createShellContext(): ShellContext {
     headless,
     overlays,
     windows,
+    detached: new Set(),
     appWindowRefs,
     log,
     core,

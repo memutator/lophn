@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "criterion",
+    "name": "relay-complete",
+    "n": 1,
+    "hash": "16f341c5bf57ccb454a284da0ff46967c276e30d2148c8a57c2bfc3aadcb27d0",
+    "content": "{\n  \"name\": \"relay-complete\",\n  \"pass\": [\n    \"all\"\n  ],\n  \"question\": \"The input has two sections. [HUMAN_REQUEST] is what a human asked an agent for. [CALL_BODY] is the message that agent then sent to another agent to do the work. Decide whether every concrete requirement the human stated (what to build or change, and any named feature, screen, data or constraint) is carried into the call body. Different wording is fine; a requirement that is missing or changed counts against it. Verdicts: all = every stated requirement is present in the call body; some_missing = at least one stated requirement is missing or changed; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for some_missing, the human's words that were lost or changed; for all, the call body's part that carries the requirements).\",\n  \"verdicts\": [\n    \"all\",\n    \"some_missing\",\n    \"cannot_tell\"\n  ]\n}"
+  }
+]

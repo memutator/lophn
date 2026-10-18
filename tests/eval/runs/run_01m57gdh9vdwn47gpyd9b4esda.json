@@ -1,0 +1,311 @@
+{
+  "id": "run_01m57gdh9vdwn47gpyd9b4esda",
+  "started_at": "2026-10-18T12:40:06.203Z",
+  "scenario": {
+    "kind": "scenario",
+    "name": "O7",
+    "n": 1
+  },
+  "materials": [
+    {
+      "kind": "material",
+      "name": "apps-home",
+      "n": 1
+    },
+    {
+      "kind": "material",
+      "name": "projects-home",
+      "n": 1
+    },
+    {
+      "kind": "material",
+      "name": "tax-receipts",
+      "n": 1
+    },
+    {
+      "kind": "material",
+      "name": "operators-home",
+      "n": 1
+    }
+  ],
+  "components": [
+    {
+      "kind": "assembly",
+      "name": "assembly",
+      "n": 1
+    },
+    {
+      "kind": "instruction",
+      "name": "operator",
+      "n": 1
+    },
+    {
+      "kind": "model",
+      "name": "claude-sonnet-5-5",
+      "n": 1
+    },
+    {
+      "kind": "runtime",
+      "name": "runtime",
+      "n": 1
+    },
+    {
+      "kind": "skill-description",
+      "name": "context-init",
+      "n": 1
+    },
+    {
+      "kind": "skill-description",
+      "name": "context-update",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ask",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "blueprint.check",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "call",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "cancel",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.search",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.test",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.violations",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.edit",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.glob",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.grep",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.write",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "guide.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "image.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "package.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "package.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "pdf.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.body",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "reply",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "session.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "settings.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "shell.run",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "skill.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "visual.show",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.fetch",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.search",
+      "n": 1
+    }
+  ],
+  "core": {
+    "kind": "core",
+    "name": "core",
+    "n": 1
+  },
+  "grader": {
+    "criteria": [],
+    "judge": null,
+    "checks": {
+      "kind": "checks",
+      "name": "checks",
+      "n": 1
+    }
+  },
+  "model": "claude-sonnet-5-5",
+  "source": {
+    "commit": "e4e8c16dc462203983ec7615f9825545aa6d6408",
+    "dirty": true
+  },
+  "trials": [
+    {
+      "index": 0,
+      "settle": {
+        "kind": "idle",
+        "unstarted": []
+      },
+      "checks": [
+        {
+          "id": "no-call",
+          "kind": "program",
+          "pass": true,
+          "reason": "call 0개 (기대 0)"
+        }
+      ],
+      "judge": [],
+      "metrics": {
+        "tokens": {
+          "input": 107,
+          "output": 326,
+          "cache_read": 10569,
+          "cache_write": 0,
+          "reasoning": 0,
+          "unknown_calls": 0
+        },
+        "input_total": 10676,
+        "cache_hit_rate": 0.9899775196702885,
+        "cost_usd": 0.024612,
+        "unpriced_calls": 0,
+        "time_ms": {
+          "turns": 3508,
+          "model_calls": 3444
+        },
+        "tools": {
+          "counted": 0,
+          "excluded": 0,
+          "format": 0,
+          "success": 0,
+          "blocked": 0,
+          "repeated_calls": 0,
+          "repeat_groups": 0,
+          "max_repeat": 0,
+          "repeated_failure_turns": 0
+        },
+        "truncated_calls": 0,
+        "agent_calls": []
+      }
+    }
+  ]
+}

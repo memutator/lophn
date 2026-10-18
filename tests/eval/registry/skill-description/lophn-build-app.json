@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill-description",
+    "name": "lophn-build-app",
+    "n": 1,
+    "hash": "1841f6fb4ad5a9849a68250e24699d4a422d3b079bddee21007205e9bb932223",
+    "content": "맡겨진 구현 ticket 하나로 lophn 앱을 만드는 절차. lophn CLI로 ticket 읽기와 claim, 구현, release 준비, 실제 테스트, preview, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않는다."
+  }
+]

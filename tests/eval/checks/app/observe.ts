@@ -111,13 +111,15 @@ function stopNotify(name: string): Around {
     await core.call(appDisableExecution, { app: notify.id }, {
       base_revision: notify.revision,
     });
+    // disable은 process가 끝나기 전에 돌아온다. termination_pending인 동안은 call이 아직 성공한다.
     await until(
       "알림 앱이 멈춤",
-      async () =>
-        (await core.call(appRuntime, { app: notify.id })).state.state !==
-            "running"
+      async () => {
+        const { state } = await core.call(appRuntime, { app: notify.id });
+        return state.state !== "running" && !state.termination_pending
           ? true
-          : undefined,
+          : undefined;
+      },
       10_000,
     ).catch(() => {});
     return async () => {

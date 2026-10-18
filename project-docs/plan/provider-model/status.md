@@ -9,5 +9,5 @@ lead만 고친다. `tools/status.py provider-model build`가 `tasks/*.md`에서 
 | `pm-model-rules` | pm-core | 2 | pm-reported-models | todo |  |  |  |
 | `pm-connect-flow` | pm-screens | 3 | 없음 | todo |  |  |  |
 | `pm-picker-data` | pm-screens | 3 | pm-custom-list, pm-model-rules | todo |  |  |  |
+| `pm-picker-ui` | pm-screens | 4 | pm-picker-data, pm-connect-flow | todo |  |  |  |
 | `pm-wireframes` | pm-wireframes | 5 | pm-picker-ui | todo |  |  |  |
-| `pm-picker-ui` | ? | None | 없음 | todo |  |  |  |

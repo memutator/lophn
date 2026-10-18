@@ -62,6 +62,7 @@ export function ConnectProviderHost(
     before: readonly string[] | null;
     onConnected?: (providerId: string | null) => void;
   }>({ before: null });
+  const afterDefault = useRef<(() => void) | null>(null);
   const stopWaiting = useRef<(() => void) | null>(null);
   useEffect(() => () => stopWaiting.current?.(), []);
 
@@ -79,10 +80,16 @@ export function ConnectProviderHost(
       id: string | null,
       onConnected?: (providerId: string | null) => void,
     ): Promise<void> => {
+      if (id !== null) {
+        const view = await agents.read();
+        if (view.ok && view.value.defaultModel === null) {
+          // 대화창과 picker가 한꺼번에 뜨지 않게 대화창이 닫힌 뒤에 알린다.
+          afterDefault.current = () => onConnected?.(id);
+          setPickDefault(true);
+          return;
+        }
+      }
       onConnected?.(id);
-      if (id === null) return;
-      const view = await agents.read();
-      if (view.ok && view.value.defaultModel === null) setPickDefault(true);
     },
     [agents],
   );
@@ -151,7 +158,12 @@ export function ConnectProviderHost(
           ? (
             <DefaultModelDialog
               agents={agents}
-              onClose={() => setPickDefault(false)}
+              onClose={() => {
+                setPickDefault(false);
+                const done = afterDefault.current;
+                afterDefault.current = null;
+                done?.();
+              }}
             />
           )
           : null}

@@ -58,5 +58,5 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **localhost와 사설 IP를 막지 않는다.** 가장 많이 쓸 곳이 사람의 dev server다. core API는 token으로 막혀 있어 OS browser보다 위험이 늘지 않는다.
 - **subresource 요청 guard(`webRequest.onBeforeRequest`)는 두지 않는다.** 이 partition에는 `lophn-shell`·`lophn-app` protocol handler가 없어 그 요청은 어차피 실패하고, navigation은 `decideNavigation`이 막는다.
 - **tab 수 cap을 두지 않는다.** pane 탭 상한 200개가 이미 있다.
-- **toolbar menu(overflow, bookmark)는 overlay view(`kind: "menu"`)로 띄운다.** native view는 DOM 위에 그려져 DOM menu가 그 밑에 깔린다. overlay는 native view 위에 그려지므로 page를 숨기지 않는다. 글 입력 칸이 있는 별 popover만 DOM으로 그리고, 열린 동안 그 탭의 native view를 숨긴다. overlay가 없는 창(dev mock, gallery)은 DOM menu와 숨기기로 그린다.
+- **toolbar menu(overflow, bookmark)와 채운 별의 popover는 overlay view(`kind: "menu"`, `"popover"`)로 띄운다.** native view는 DOM 위에 그려져 DOM menu가 그 밑에 깔린다. overlay는 native view 위에 그려지므로 page를 숨기지 않는다. overlay view는 `anchorRect` 크기로 잘리므로 부르는 쪽이 menu가 펼쳐질 상자 전체를 보낸다(`renderer/browser/overlay-menu.ts`). overlay에는 글 입력 칸이 없어 별 popover는 title과 [Remove]만 두고, title 고치기는 Settings의 Browser pane이 맡는다(사람). overlay가 없는 창(dev mock, gallery)은 DOM menu·popover를 그리고 열린 동안 native view를 숨긴다.
 - **page에 focus가 있을 때 Ctrl/Cmd+D는 main이 `bookmark-key` event로 보낸다.** 작업대 단축키 표에 넣지 않는다. terminal의 Ctrl+D(EOF)와 부딪힌다.

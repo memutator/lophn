@@ -2,7 +2,6 @@ import {
   type AttachedChip,
   type CallFrom,
   type CallRef,
-  type CallReply,
   INPUT_TAGS,
   type ReceivedMessage,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -105,7 +104,7 @@ export function inputText(
       return `<${tag}>\n${escapeClosing(body, tag)}\n</${tag}>`;
     }
     case "call":
-      return callText(input, input.reply);
+      return callText(input);
     case "reply": {
       const tag = INPUT_TAGS.reply;
       const lines = [wrap(tag, {
@@ -147,9 +146,10 @@ function noticeParts(input: RoutedInput): { kind: string; detail: string } {
   };
 }
 
-// reply가 null이면 답 방식을 모르는 것이다(history). 속성과 답하라는 줄을 모두 뺀다.
-function callText(input: RoutedInput, reply: CallReply | null): string {
+// 받은 call은 답 방식이 항상 있다. null이면 call이 아닌 기록(session이 자기 답으로 남긴 메시지)이라 속성을 뺀다.
+function callText(input: RoutedInput): string {
   const tag = INPUT_TAGS.call;
+  const { reply } = input;
   const lines = [wrap(tag, {
     from: fromText(input.from),
     call: input.call ?? "",
@@ -168,10 +168,13 @@ function callText(input: RoutedInput, reply: CallReply | null): string {
 }
 
 // 뒤 turn의 history에 들어가는 받은 메시지다. 받은 turn의 입력과 같은 함수로 싸서 출처 표지가 turn이 끝나도
-// 남게 한다. session 기록에는 입력 종류, call의 답 방식, reaction의 event type, 실패 이유가 없어
-// 봉투(from, call, reply_to)에서 종류를 되짚고 모르는 칸은 비운다. 사람 메시지는 싸지 않는다.
+// 남게 한다. 봉투가 싣는 칸(from, call, reply_to, reply, event, fail_reason)으로 받은 turn의 입력과 같은
+// 글을 만든다. 사람 메시지는 싸지 않는다.
 export function receivedText(
-  message: Pick<ReceivedMessage, "from" | "call" | "reply_to" | "refs">,
+  message: Pick<
+    ReceivedMessage,
+    "from" | "call" | "reply_to" | "refs" | "reply" | "event" | "fail_reason"
+  >,
   body: string,
 ): string {
   const { from } = message;
@@ -191,7 +194,7 @@ export function receivedText(
   } as const;
   if (from.kind === "program") {
     if (message.reply_to === null) {
-      return inputText({ ...base, kind: "reaction" });
+      return inputText({ ...base, kind: "reaction", event: message.event });
     }
     // program이 call에 되돌리는 것은 글이 없는 취소 알림과 글이 있는 실패 답이다.
     return body === ""
@@ -199,11 +202,10 @@ export function receivedText(
       : inputText({
         ...base,
         kind: "reply",
-        outcome: { state: "failed", reason: null },
+        outcome: { state: "failed", reason: message.fail_reason },
       });
   }
-  return inputText({
-    ...base,
-    kind: message.reply_to === null ? "call" : "reply",
-  });
+  return message.reply_to === null
+    ? inputText({ ...base, kind: "call", reply: message.reply })
+    : inputText({ ...base, kind: "reply" });
 }

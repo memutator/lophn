@@ -40,9 +40,9 @@ export function createReceivedRecorder(deps: { principal(): string }) {
       const from = input.from;
       tx.sql.run(
         `insert into messages (id, session, from_kind, from_ref, call,
-           reply_to, refs, delivery, turn, body, created_seq, created_at,
-           state_seq)
-         values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
+           reply_to, refs, reply, event, fail_reason, delivery, turn, body,
+           created_seq, created_at, state_seq)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
         [
           id,
           session,
@@ -55,6 +55,9 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           input.call,
           input.reply_to,
           JSON.stringify(input.refs),
+          input.kind === "call" ? input.reply : null,
+          input.kind === "reaction" ? input.event : null,
+          input.outcome?.reason ?? null,
           from.kind === "human" ? input.delivery : "next_turn",
           hash,
           seq,

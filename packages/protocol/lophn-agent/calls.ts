@@ -19,7 +19,7 @@ function obj<S extends z.ZodRawShape>(strict: boolean, shape: S) {
 }
 
 export const CALL_REPLIES = ["none", "result", "conversation"] as const;
-const callReplySchema = z.enum(CALL_REPLIES);
+export const callReplySchema = z.enum(CALL_REPLIES);
 export type CallReply = z.infer<typeof callReplySchema>;
 
 function fromSchemas(strict: boolean) {
@@ -105,7 +105,7 @@ export const CALL_FAIL_REASONS = [
   "receiver_ended",
   "lophn_restarted",
 ] as const;
-const callFailReasonSchema = z.enum(CALL_FAIL_REASONS);
+export const callFailReasonSchema = z.enum(CALL_FAIL_REASONS);
 export type CallFailReason = z.infer<typeof callFailReasonSchema>;
 
 // 끝난 call은 다시 열지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다.

@@ -4,9 +4,11 @@ import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
 import { userMessageContentInputSchema } from "./message-content.ts";
 import {
+  callFailReasonSchema,
   callFromOutputSchema,
   callRefOutputSchema,
   callRefSchema,
+  callReplySchema,
 } from "./calls.ts";
 
 // 사람의 보내기만 steer를 고른다. call, reply, reaction, notice는 항상 next_turn이라 값이 없다.
@@ -63,11 +65,17 @@ export const sendMessage = defineCommand({
 // 받는 session 기록의 메시지에 붙는 봉투 칸이다. 사람 메시지는 call, reply_to가 null이다.
 // annotation 이미지는 message part로 싣지 않는다. refs의 annotation id로 가리키고, prompt를 조립할 때
 // 그 id로 screenshot을 읽는다.
+// reply, event, fail_reason은 뒤 turn의 history가 받은 turn의 입력과 같은 글을 만들게 배달 때 싣는다.
+// 해당 종류가 아니면 null이다: reply는 call의 답 방식, event는 reaction의 event type, fail_reason은
+// program이 보낸 실패한 답의 이유.
 export const receivedEnvelopeSchema = z.object({
   from: callFromOutputSchema,
   call: idSchema("cal").nullable(),
   reply_to: idSchema("cal").nullable(),
   refs: z.array(callRefOutputSchema),
+  reply: callReplySchema.nullable(),
+  event: z.string().nullable(),
+  fail_reason: callFailReasonSchema.nullable(),
 });
 
 // 받는 쪽이 본문의 tag를 고르는 기준이다. coding_agent 메시지는 call 종류로 들어온다.

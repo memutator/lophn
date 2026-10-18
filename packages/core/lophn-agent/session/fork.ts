@@ -121,9 +121,9 @@ export function createForkCommand(
         const seq = nextMessageSeq(tx);
         tx.sql.run(
           `insert into messages (id, session, from_kind, from_ref, call,
-             reply_to, refs, delivery, turn, body, created_seq, created_at,
-             state_seq)
-           values (?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
+             reply_to, refs, reply, event, fail_reason, delivery, turn, body,
+             created_seq, created_at, state_seq)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
           [
             copy,
             input.id,
@@ -132,6 +132,9 @@ export function createForkCommand(
             original.call,
             original.reply_to,
             original.refs,
+            original.reply,
+            original.event,
+            original.fail_reason,
             original.delivery,
             original.body,
             seq,

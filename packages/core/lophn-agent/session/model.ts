@@ -99,6 +99,9 @@ create table messages (
   call text,
   reply_to text,
   refs text not null default '[]' check (json_valid(refs)),
+  reply text check (reply in ('none', 'result', 'conversation')),
+  event text,
+  fail_reason text check (fail_reason in ('not_found', 'not_allowed', 'closed', 'receiver_ended', 'lophn_restarted')),
   delivery text not null default 'next_turn' check (delivery in ('next_turn', 'steer')),
   turn text,
   body text not null check (length(body) = 64),
@@ -112,7 +115,7 @@ create index messages_session_created on messages (session, created_seq);
 create index messages_turn on messages (turn);
 create trigger messages_content_immutable
 before update of id, session, from_kind, from_ref, call, reply_to, refs,
-  delivery, body, created_seq, created_at on messages
+  reply, event, fail_reason, delivery, body, created_seq, created_at on messages
 begin
   select raise(abort, 'a confirmed message is never overwritten');
 end;
@@ -300,6 +303,9 @@ type MessageRow = {
   call: string | null;
   reply_to: string | null;
   refs: string;
+  reply: "none" | "result" | "conversation" | null;
+  event: string | null;
+  fail_reason: ReceivedMessage["fail_reason"];
   delivery: "next_turn" | "steer";
   turn: string | null;
   body: string;
@@ -309,7 +315,8 @@ type MessageRow = {
 };
 
 export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
-  reply_to, refs, delivery, turn, body, created_seq, created_at, state_seq`;
+  reply_to, refs, reply, event, fail_reason, delivery, turn, body, created_seq,
+  created_at, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
   return {
@@ -320,6 +327,9 @@ export function messageRowOf(row: SqlRow): MessageRow {
     call: text(row["call"]),
     reply_to: text(row["reply_to"]),
     refs: String(row["refs"]),
+    reply: text(row["reply"]) as MessageRow["reply"],
+    event: text(row["event"]),
+    fail_reason: text(row["fail_reason"]) as MessageRow["fail_reason"],
     delivery: String(row["delivery"]) as MessageRow["delivery"],
     turn: text(row["turn"]),
     body: String(row["body"]),
@@ -354,6 +364,9 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
     call: row.call,
     reply_to: row.reply_to,
     refs: JSON.parse(row.refs) as CallRef[],
+    reply: row.reply,
+    event: row.event,
+    fail_reason: row.fail_reason,
     turn: row.turn,
     delivery: row.delivery,
     body: row.body,

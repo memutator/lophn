@@ -12,5 +12,5 @@ lead만 고친다. `tools/status.py workspace-detach build`가 `tasks/*.md`에�
 | `wd-project-side` | wd-project-side | 2 | 없음 | merged | wd-project-side/wd-project-side | 501cc4ad0 |  |
 | `wd-transfer-kinds` | wd-transfer-kinds | 2 | 없음 | merged | wd-transfer-kinds/wd-transfer-kinds | 7fad62f70 |  |
 | `wd-window-ui` | wd-window-ui | 2 | 없음 | merged | wd-window-ui/wd-window-ui | 151ed481b |  |
-| `wd-gallery` | wd-gallery | 3 | 없음 | todo |  |  |  |
-| `wd-restore` | wd-restore | 3 | 없음 | todo |  |  |  |
+| `wd-gallery` | wd-gallery | 3 | 없음 | merged | wd-gallery/wd-gallery | bc3a91cd2 |  |
+| `wd-restore` | wd-restore | 3 | 없음 | running | wd-restore/wd-restore |  |  |

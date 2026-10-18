@@ -59,9 +59,9 @@ export const browser = {
   "settings.note.browser-clear-confirm":
     "This signs you out of every site in Browser tabs and reloads the open ones.",
   "settings.note.local-links":
-    "Where localhost and local network addresses (.local, private IPs) open when you open them in a terminal or Ctrl/Cmd-click them.",
+    "Where localhost and local network addresses (.local, private IPs) go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.note.web-links":
-    "Where public web addresses open when you open them in a terminal or Ctrl/Cmd-click them.",
+    "Where public web addresses go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.notice.bookmarks-empty":
     "No bookmarks yet. Click the star in a Browser tab's address bar to add one.",
   "settings.notice.browser-cleared": "Browsing data cleared.",

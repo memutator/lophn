@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py eval-experiment build`가 `tasks/*.md`에서
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ex-fix-calls-check` | ex-fix-calls-check | 1 | 없음 | running | ex-fix-calls-check/ex-fix-calls-check |  |  |
+| `ex-fix-calls-check` | ex-fix-calls-check | 1 | 없음 | merged | ex-fix-calls-check/ex-fix-calls-check | eec5ba0cd |  |
 | `ex-spec` | ex-spec | 1 | 없음 | running | ex-spec/ex-spec |  |  |
 | `ex-assembly` | ex-assembly | 2 | ex-spec | todo |  |  |  |
 | `ex-gate` | ex-gate | 2 | ex-spec | todo |  |  |  |

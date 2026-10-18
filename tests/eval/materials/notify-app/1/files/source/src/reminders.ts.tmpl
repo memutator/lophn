@@ -1,0 +1,46 @@
+// 앱의 업무 규칙. DB 구조와 질의는 이 앱에 남고 SDK로 올리지 않는다(apps/sdk#R36).
+import { type Migration, migrationOfSql, type Store } from "@lophn/cap-store";
+
+export type Reminder = { id: number; title: string; at: number };
+
+export const SCHEMA_VERSION = 1;
+export const LIST_LIMIT = 200;
+
+// DB schema 단계다. SQL은 migrations/에 있고 공개한 단계는 고치지 않고 새 단계를 더한다.
+export function migrations(): Migration[] {
+  const step = migrationOfSql(
+    0,
+    SCHEMA_VERSION,
+    Deno.readTextFileSync(new URL("../migrations/0-1.sql", import.meta.url)),
+  );
+  if (!step.ok) throw new Error(step.error.message);
+  return [step.value];
+}
+
+// preview·test는 여기서 schema를 맞춘다. 운영(live)은 activation 때 data worker가 이미 맞췄다.
+export async function ensureSchema(store: Store): Promise<void> {
+  if (store.schema() < SCHEMA_VERSION) {
+    await store.migrate(migrations(), { target: SCHEMA_VERSION });
+  }
+}
+
+// 알림을 저장만 한다. 시각이 되어 알려 주지는 않는다.
+export function addReminder(
+  store: Store,
+  title: string,
+  at: number,
+  createdAt: string,
+): Reminder {
+  const row = store.db
+    .prepare(
+      "insert into reminder (title, at, created_at) values (?, ?, ?) returning id",
+    )
+    .get(title, at, createdAt) as { id: number };
+  return { id: row.id, title, at };
+}
+
+export function listReminders(store: Store): Reminder[] {
+  return store.db
+    .prepare("select id, title, at from reminder order by at, id limit ?")
+    .all(LIST_LIMIT) as Reminder[];
+}

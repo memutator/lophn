@@ -1,0 +1,38 @@
+// en.ts에서 생성한다. 직접 고치지 않고 `deno task wording --check`로 맞춘다.
+import type { MessageKey } from "./en.ts";
+
+export type PlaceholderKinds = {
+  "common.summary.app": Record<never, never>;
+  "reminders.button.reload": Record<never, never>;
+  "reminders.empty.none": Record<never, never>;
+  "reminders.label.count": {
+    count: "plural";
+  };
+  "reminders.label.list": Record<never, never>;
+  "reminders.label.reminders": Record<never, never>;
+  "reminders.label.schedule": Record<never, never>;
+  "reminders.summary.list": Record<never, never>;
+  "reminders.summary.reminder-time": Record<never, never>;
+  "reminders.summary.reminder-title": Record<never, never>;
+  "reminders.summary.schedule": Record<never, never>;
+  "reminders.title.screen": Record<never, never>;
+};
+
+type ValueFor<T> = T extends "plural" | "number" ? number
+  : T extends "date" ? Date
+  : string;
+
+export type ValuesOf<K extends MessageKey> = {
+  [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
+};
+
+export type HasPlaceholders<K extends MessageKey> = [
+  keyof PlaceholderKinds[K],
+] extends [never] ? false
+  : true;
+
+type _SameKeys =
+  | Exclude<MessageKey, keyof PlaceholderKinds>
+  | Exclude<keyof PlaceholderKinds, MessageKey>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

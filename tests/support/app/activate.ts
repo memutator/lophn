@@ -18,7 +18,10 @@ import {
   appRuntime,
   type RuntimeObservation,
 } from "../../../packages/protocol/apps/mod.ts";
-import { ticketShow } from "../../../packages/protocol/coding-agent/ticket/mod.ts";
+import {
+  type AcceptanceCheck,
+  ticketShow,
+} from "../../../packages/protocol/coding-agent/ticket/mod.ts";
 import { codingCli } from "../coding/cli.ts";
 import type { Core } from "../core/mod.ts";
 import { runtimePids } from "../core/process.ts";
@@ -144,6 +147,11 @@ export function aeLane(app: TestApp) {
   };
 }
 
+const TEXT_CHECK: AcceptanceCheck = {
+  kind: "text",
+  text: "the work is done",
+};
+
 export const tool = (id: string, name: string, args: unknown) => ({
   kind: "tool" as const,
   calls: [{ id, name, arguments: JSON.stringify(args) }],
@@ -174,6 +182,7 @@ function scriptAe(
   app: TestApp,
   goal: string,
   tail: "verify" | "text",
+  check: AcceptanceCheck,
   ids: { create: string; call: string } = {
     create: "tc_create",
     call: "tc_call",
@@ -191,7 +200,7 @@ function scriptAe(
       reply: tool(ids.create, "ticket_create", {
         app: app.app,
         goal,
-        check: { kind: "text", text: "the work is done" },
+        check,
       }),
     },
     {
@@ -229,8 +238,9 @@ async function aeHandOff(
   app: TestApp,
   goal: string,
   tail: "verify" | "text",
+  check: AcceptanceCheck,
 ) {
-  scriptAe(fake, app, goal, tail);
+  scriptAe(fake, app, goal, tail, check);
   const turn = (await turnsOf(core, app.ae)).length;
   await say(core, app.ae, `App ${app.app}: ${goal}`);
   const opened = await explaining(
@@ -280,6 +290,7 @@ export async function handOff(
     app,
     options.goal ?? "Add a short note to the app",
     "text",
+    TEXT_CHECK,
   );
   return handed;
 }
@@ -302,7 +313,7 @@ export async function deliverRelease(
   core: Core,
   fake: FakeServer,
   app: TestApp,
-  options: { goal: string; verify?: boolean },
+  options: { goal: string; verify?: boolean; check?: AcceptanceCheck },
 ): Promise<{ ticket: string; release: string }> {
   const verify = options.verify ?? true;
   const handed = await aeHandOff(
@@ -311,6 +322,7 @@ export async function deliverRelease(
     app,
     options.goal,
     verify ? "verify" : "text",
+    options.check ?? TEXT_CHECK,
   );
   const { ticket } = handed;
   const release = await explaining(
@@ -438,12 +450,13 @@ export async function deliverRelease(
   return { ticket, release };
 }
 
-// `verify: false`로 멈춘 release의 ticket을 AE가 확인하게 한다.
+// `verify: false`로 멈춘 release의 ticket을 AE가 확인하게 한다. `refused`면 관문이 막아 ticket이 reported로 남는다.
 export async function verifyTicket(
   core: Core,
   fake: FakeServer,
   app: TestApp,
   ticket: string,
+  expected: "verified" | "reported" = "verified",
 ): Promise<void> {
   fake.script([
     {
@@ -462,7 +475,7 @@ export async function verifyTicket(
   );
   assertEquals(
     (await core.call(ticketShow, { ticket })).ticket.state,
-    "verified",
+    expected,
   );
 }
 

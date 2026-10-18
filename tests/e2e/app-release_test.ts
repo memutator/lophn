@@ -19,6 +19,10 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import { approvalsPending } from "../../packages/protocol/approvals/mod.ts";
 import {
+  type AcceptanceCheck,
+  ticketShow,
+} from "../../packages/protocol/coding-agent/ticket/mod.ts";
+import {
   approveActivation,
   deliverRelease,
   startTestApp,
@@ -30,6 +34,7 @@ import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider, until } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { lastToolResult } from "../support/fake-server/probe.ts";
 
 async function countFiles(dir: string): Promise<number> {
   let count = 0;
@@ -155,6 +160,88 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
     );
   } finally {
     for (const gateway of gateways) await gateway.close();
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
+});
+
+// App Engineer가 template의 app-api로 건 예시가 ticket 확인의 관문이 되는 길이다. core 하나에 행마다 template 앱을 새로 시작한다.
+// - contract: boundary `app-tickets`(examples check는 완료 보고 뒤 돌아 pass일 때만 `ticket.verify`를 통과시킨다), `app-releases`.
+// - 현실적 회귀: 예시가 release 준비/test 요청을 지나 돌지 않는다, 틀린 예시인데 verified가 된다.
+// - 왜 지금 test로 못 잡나: 관문(unit)과 예시 비교(harness)는 따로 본다. 보고 -> reactor -> app test runner(격리 사본의 앱 process) ->
+//   기록 -> verify가 process 경계를 건너 이어지는 것은 여기서만 보인다.
+// fake 대답: ticket_create·ticket_verify는 helper가 건다. 행 몫은 없다.
+type Example = Extract<AcceptanceCheck, { kind: "examples" }>["steps"][number];
+const examplesRows: {
+  name: string;
+  slug: string;
+  expect: Example["expect"];
+  result: "pass" | "fail";
+  state: "verified" | "reported";
+}[] = [
+  {
+    name: "맞는 예시는 pass가 되어 verified가 된다",
+    slug: "right",
+    expect: { rows: [], coverage: "complete" },
+    result: "pass",
+    state: "verified",
+  },
+  {
+    name: "틀린 예시는 fail이 되어 verified가 conflict로 막힌다",
+    slug: "wrong",
+    expect: { rows: [{ title: "never added" }] },
+    result: "fail",
+    state: "reported",
+  },
+];
+
+Deno.test("E2E App Engineer가 건 app-api 예시가 맞아야 ticket이 verified가 된다", async () => {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  let gateway: { close(): Promise<void> } | undefined;
+  try {
+    core = await bootCore(run, { env: await appCoreEnv() });
+    await connectFakeProvider(core, fake);
+    for (const row of examplesRows) {
+      // 터미널 frame은 접속한 shell main 하나가 받으므로 앞 행의 Gateway를 닫고 이 행의 앱이 새로 붙는다.
+      await gateway?.close();
+      const app = await startTestApp(core, fake, {
+        name: row.slug,
+        slug: row.slug,
+      });
+      gateway = app.gateway;
+      const delivered = await deliverRelease(core, fake, app, {
+        goal: `Make the first release of the ${row.slug} app`,
+        verify: false,
+        check: {
+          kind: "examples",
+          steps: [{ api: "list_items", expect: row.expect }],
+        },
+      });
+      // ledger: 보고 뒤 예시가 돌아 결과가 남는다.
+      const checked = await until("예시 결과가 남음", async () => {
+        const { ticket } = await core!.call(ticketShow, {
+          ticket: delivered.ticket,
+        });
+        return ticket.check_result ?? undefined;
+      }, 120_000);
+      assertEquals(checked.result, row.result, row.name);
+      await verifyTicket(core, fake, app, delivered.ticket, row.state);
+      // route: `verifyTicket`이 tickets/show의 상태를 본다.
+      // fake가 받은 요청: 막힌 ticket_verify는 conflict 결과로 App Engineer에게 돌아간다.
+      const verifyResult = fake.journal().filter((entry) =>
+        entry.lane === `ae-${app.app}`
+      ).map((entry) => lastToolResult(entry, "tc_verify") ?? "").join(" ");
+      assertEquals(
+        verifyResult.includes('"code":"conflict"'),
+        row.result === "fail",
+        verifyResult,
+      );
+    }
+  } finally {
+    await gateway?.close();
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

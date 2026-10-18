@@ -23,4 +23,4 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-fix-callid` | ec-fix-callid | 6 | 없음 | merged | ec-fix-callid/ec-fix-callid | 553793313 |  |
 | `ec-fix-idle` | ec-fix-idle | 6 | 없음 | merged | ec-fix-idle/ec-fix-idle | 8c21a9763 |  |
 | `ec-fix-testdefaults` | ec-fix-testdefaults | 6 | 없음 | merged | ec-fix-testdefaults/ec-fix-testdefaults | f8b454526 |  |
-| `ec-fix-trust-timing` | ec-fix-trust-timing | 6 | 없음 | todo |  |  |  |
+| `ec-fix-trust-timing` | ec-fix-trust-timing | 6 | 없음 | running | ec-fix-trust-timing/ec-fix-trust-timing |  |  |

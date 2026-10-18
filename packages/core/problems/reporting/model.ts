@@ -7,6 +7,7 @@ import {
   REPORTING_LIMITS,
 } from "../../../protocol/problems/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
+import type { ReleaseFact } from "../ports.ts";
 
 // 접수 공통 값: 재전송 비교와 접수 창.
 const CONFLICT = "같은 Report ID의 원주체나 내용이 다르다";
@@ -112,6 +113,21 @@ export function reopenDecision(
       releaseActivatedAt > problem.state_changed_at
     ? "reopen"
     : "accumulate";
+}
+
+// agent가 문제를 resolved로 바꿔도 되는지 정한다. 마지막 발생의 release보다 뒤에 activate된 다른
+// active release가 있을 때만 허용한다. 못 비교하면(모르는 release, 같은 release, activate 시각 없음)
+// 닫지 않는 쪽이 안전하다. 닫힌 문제에 같은 release의 새 발생이 쌓이면 아무도 모른다. 시각은 모두
+// 같은 형식의 At이라 글자 순서가 시간 순서다.
+export function agentResolveDecision(
+  input: { last: ReleaseFact | null; active: ReleaseFact | null },
+): "allow" | "no_fix_release" {
+  const { last, active } = input;
+  return last !== null && active !== null && last.id !== active.id &&
+      last.activated_at !== null && active.activated_at !== null &&
+      active.activated_at > last.activated_at
+    ? "allow"
+    : "no_fix_release";
 }
 
 // 같은 ID·principal·content hash 재전송은 원래 결과. 비교는 접수 행의

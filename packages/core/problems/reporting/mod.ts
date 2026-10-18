@@ -1,4 +1,5 @@
 export {
+  agentResolveDecision,
   conflict,
   findProblem,
   findReport,

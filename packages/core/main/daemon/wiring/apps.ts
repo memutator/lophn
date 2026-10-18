@@ -30,6 +30,7 @@ import {
   PACKAGE_PUBLISH_CONTEXT,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
+  withTestDefaults,
 } from "../../../apps/control.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
 import { secretValueHandler } from "../../../apps/permissions/mod.ts";
@@ -284,7 +285,10 @@ export const appsWiring: WiringFactory = () => {
       return ok({
         writer: (inner) =>
           withStartInvocation(
-            withReleasePreparation(inner, appsControl.commands),
+            withTestDefaults(
+              withReleasePreparation(inner, appsControl.commands),
+              appsControl.testDefaults,
+            ),
             { ledger, sql: link.sql, clock: ctx.clock, ids },
           ),
         memory: [

@@ -41,6 +41,7 @@ import { appAppApi } from "../../protocol/apps/blueprint/read.ts";
 import {
   observeException,
   problemReport,
+  requestTest,
 } from "../../protocol/problems/mod.ts";
 import type {
   AuthenticatedContext,
@@ -292,6 +293,12 @@ type AppsControl = {
   // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
+  // `app test`에서 빠진 target.bundle_hash와 test를 그 앱의 마지막으로 끝난 release 준비로 채운다.
+  // `withTestDefaults`가 writer 앞에서 부른다.
+  testDefaults(
+    app: string,
+    given: { bundle_hash?: string; test?: string },
+  ): Promise<Result<{ bundle_hash: string; test: string }>>;
   // 호출자가 그 앱을 열 수 있는지 보고 연결된 source 폴더를 돌려준다. 범위 밖이거나 연결이 없으면 `absent` 코드다.
   sourceRootOf(
     ctx: AuthenticatedContext,
@@ -483,6 +490,30 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     if (!source.ok) return source;
     return source.value === null ? refuse() : ok(source.value);
   };
+  // 앱마다 마지막으로 끝난 준비의 bundle hash다. 준비 상태가 supervisor 메모리에만 있어 core도 메모리로 둔다.
+  // 새 준비를 받으면 지운다: 끝나기 전에 옛 bundle로 test가 돌지 않게 한다.
+  const lastCompleted = new Map<string, string>();
+  async function testDefaults(
+    app: string,
+    given: { bundle_hash?: string; test?: string },
+  ): Promise<Result<{ bundle_hash: string; test: string }>> {
+    const bundleHash = given.bundle_hash ?? lastCompleted.get(app);
+    if (bundleHash === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "no finished release preparation: run release prepare and " +
+          "release status until completed, then app test",
+      });
+    }
+    const test = given.test ?? await deps.activation?.testOf(app, bundleHash);
+    if (test === undefined || test === null) {
+      return err({
+        code: "unavailable",
+        message: "the sealed bundle copy could not be read to derive the test",
+      });
+    }
+    return ok({ bundle_hash: bundleHash, test });
+  }
   const releasePrepareBundleHandler: MemoryHandler = async (ctx, input) => {
     const body = input as {
       app: string;
@@ -511,6 +542,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       source_path: source.value,
     });
     if (accepted.ok) {
+      lastCompleted.delete(body.app);
       finalizer?.watch(body.app, body.request_key, {
         commit: body.commit,
         actor: ctx.actor,
@@ -560,6 +592,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       if (!sealed.ok) {
         return err({ code: "unavailable", message: sealed.error.message });
       }
+      lastCompleted.set(body.app, read.value.bundle_hash);
     }
     if (finalizer === null) return read;
     // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
@@ -653,6 +686,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       [releasePreparation.name, releasePreparationHandler],
       [releaseCancelPreparation.name, releaseCancelHandler],
     ]),
+    testDefaults,
     sourceRootOf: releaseGate,
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
@@ -833,6 +867,43 @@ export function withReleasePreparation(
         first_seq: null,
         last_seq: null,
         wake: false,
+      });
+    },
+  };
+}
+
+type RequestTestBody = {
+  kind?: string;
+  app: string;
+  target: { bundle_hash?: string };
+  test?: string;
+};
+
+// `app test`(app_test)의 빠진 target.bundle_hash와 test를 writer 앞에서 채운다. 준 값은 그대로 쓴다.
+export function withTestDefaults(
+  writer: Writer,
+  defaults: AppsControl["testDefaults"],
+): Writer {
+  return {
+    ...writer,
+    async command(ctx, envelope) {
+      const body = envelope.input as RequestTestBody;
+      if (
+        envelope.command !== requestTest.name || body.kind !== "app_test" ||
+        (body.target.bundle_hash !== undefined && body.test !== undefined)
+      ) return await writer.command(ctx, envelope);
+      const filled = await defaults(body.app, {
+        bundle_hash: body.target.bundle_hash,
+        test: body.test,
+      });
+      if (!filled.ok) return filled;
+      return await writer.command(ctx, {
+        ...envelope,
+        input: {
+          ...body,
+          target: { ...body.target, bundle_hash: filled.value.bundle_hash },
+          test: filled.value.test,
+        },
       });
     },
   };

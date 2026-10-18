@@ -172,9 +172,9 @@ const verificationFields = {
   reason: nonempty,
   observations: sha256Schema,
 };
-type Connections = z.infer<z.ZodObject<typeof connectionFields>>;
-const validConnections = (value: Connections) =>
-  value.kind === "examples" || value.ticket === null;
+const validConnections = (
+  value: { kind: z.infer<typeof testKindSchema>; ticket: unknown },
+) => value.kind === "examples" || value.ticket === null;
 export const verificationSchema = z.object(verificationFields).refine(
   validConnections,
   {
@@ -188,18 +188,33 @@ export const verificationInputSchema = z.strictObject({
   ticket: ticketTestLinkInputSchema.nullable(),
 }).refine(validConnections, { message: "invalid kind connections" });
 
-export const requestTestInputSchema = z.strictObject({
+const requestTestFields = {
   request_key: idempotencyKeySchema,
-  ...connectionFields,
+  kind: testKindSchema,
+  app: idSchema("app"),
   // release와 ticket은 app_test에서 늘 null이라 agent가 쓰지 않고 생략하면 null이다.
-  target: z.strictObject({
-    ...targetFields,
-    release: targetFields.release.default(null),
-  }),
   ticket: ticketTestLinkInputSchema.nullable().default(null),
   // 이 요청의 실행 기한이다. 동결 test method의 timeout_ms보다 길어지지 않는다(runner가 둘 중 짧은
   // 쪽을 쓴다). 생략하면 method의 timeout_ms다. 요청 identity(request hash)에는 들어가지 않는다.
   timeout_ms: integer.min(1).max(TEST_EXECUTION_LIMITS.timeout_ms).optional(),
+};
+const releaseField = targetFields.release.default(null);
+// core 안에서 쓰는 꼴이다. 접수와 runner는 늘 bundle_hash와 test가 채워진 요청만 본다.
+export const requestTestInputSchema = z.strictObject({
+  ...requestTestFields,
+  target: z.strictObject({ ...targetFields, release: releaseField }),
+  test: sha256Schema,
+}).refine(validConnections, { message: "invalid kind connections" });
+export type RequestTestInput = z.output<typeof requestTestInputSchema>;
+// 호출하는 쪽이 보내는 꼴이다. app_test는 target.bundle_hash와 test를 빼면 core가 그 앱의 마지막으로
+// 끝난 release 준비 값으로 채운다(없으면 invalid_input). examples는 core만 내며 늘 채워서 보낸다.
+const requestTestCallSchema = z.strictObject({
+  ...requestTestFields,
+  target: z.strictObject({
+    bundle_hash: targetFields.bundle_hash.optional(),
+    release: releaseField,
+  }).prefault({}),
+  test: sha256Schema.optional(),
 }).refine(validConnections, { message: "invalid kind connections" });
 const requestTestOutputSchema = z.object({
   request_key: idempotencyKeySchema,
@@ -261,7 +276,7 @@ export const requestTest = defineCommand({
   resource: "problems",
   method: "request-test",
   name: "RequestTest",
-  input: requestTestInputSchema,
+  input: requestTestCallSchema,
   output: requestTestOutputSchema,
   actors: ["user", "coding_agent", "machine"],
   errors: [

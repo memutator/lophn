@@ -1,12 +1,15 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type CommandDefinition,
-  type Input,
   type RequestContext,
   TargetAuthorization,
   type Tx,
 } from "../../../protocol/server/mod.ts";
-import { requestTest } from "../../../protocol/problems/mod.ts";
+import {
+  requestTest,
+  type RequestTestInput,
+  requestTestInputSchema,
+} from "../../../protocol/problems/mod.ts";
 import {
   connectionOf,
   type PreparedAdmission,
@@ -40,7 +43,7 @@ const FORBIDDEN = "이 credential로는 할 수 없다";
 function handleRequestTest(
   tx: Tx,
   ctx: RequestContext,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
   admission: () => PreparedAdmission | null,
 ): Result<
   { request_key: string; accepted: boolean; result_ref: string | null }
@@ -333,11 +336,19 @@ export function appendActualSideStart(
 export const requestTestCommand: CommandDefinition<typeof requestTest> = {
   route: requestTest,
   handle(tx, ctx, input) {
+    // app_test의 빠진 값은 writer 앞(`withTestDefaults`)이 채운다. 채워지지 않고 온 요청은 받지 않는다.
+    const filled = requestTestInputSchema.safeParse(input);
+    if (!filled.success) {
+      return err({
+        code: "invalid_input",
+        message: "target.bundle_hash and test are required",
+      });
+    }
     return handleRequestTest(
       tx,
       ctx,
-      input,
-      () => tx.port(testAdmissionPort)(ctx, input),
+      filled.data,
+      () => tx.port(testAdmissionPort)(ctx, filled.data),
     );
   },
 };

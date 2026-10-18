@@ -100,14 +100,15 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    끝나면 `bundle_hash`와 `test`(고정 시험 hash)가 나온다. test는 이 bundle에
    대해서만 돌므로 source가 바뀌면 다시 준비한다. 준비는 activation이 아니다.
 8. 실제 테스트를 돌린다. `app test`는 플랫폼 검사다. 입력은
-   `{"kind":"app_test","request_key":"<새 key>","app":"<app>","target":{"bundle_hash":"<7의 값>"},"test":"<7의 test>"}`
-   뿐이다(release·ticket은 쓰지 않는다). `app test status`에 `request_key`를
-   주어 접수와 `result_ref`를 읽고, `app test result`에 `result_ref`를 주어
-   통과·실패와 이유를 읽는다. 결과는 runner가 낸 test result다. 실패·timeout·
-   미실행이면 원인을 고쳐 다시 준비하고 요청한다. 통과 전에 보고하지 않는다.
-   source가 바뀌면 이전 통과를 쓰지 않는다. 직접 돌린 shell 결과는 test result가
-   아니다. 예시는 보고한 뒤 program이 보고한 release로 돌린다. 예시의 api를 그
-   입력으로 불렀을 때 기대 결과가 나오도록 만든다.
+   `{"kind":"app_test","request_key":"<새 key>","app":"<app>"}` 뿐이다. bundle과
+   test는 core가 7에서 마지막으로 끝난 준비 값으로 채운다. `app test status`에
+   `request_key`를 주어 접수와 `result_ref`를 읽고, `app test result`에
+   `result_ref`를 주어 통과·실패와 이유를 읽는다. 결과는 runner가 낸 test
+   result다. 실패·timeout· 미실행이면 원인을 고쳐 다시 준비하고 요청한다. 통과
+   전에 보고하지 않는다. source가 바뀌면 이전 통과를 쓰지 않는다. 직접 돌린
+   shell 결과는 test result가 아니다. 예시는 보고한 뒤 program이 보고한
+   release로 돌린다. 예시의 api를 그 입력으로 불렀을 때 기대 결과가 나오도록
+   만든다.
 9. preview로 확인한다. `app preview start`로 fixture 격리 preview를 열고 화면과
    app api를 확인한 뒤 `app preview stop`으로 닫는다. preview 결과는 운영이
    정상이라는 증거가 아니다.

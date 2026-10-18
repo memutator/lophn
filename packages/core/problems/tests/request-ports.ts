@@ -1,13 +1,9 @@
 // problems test 요청의 제품 tx port다. 접수 준비는 같은 transaction에서 읽은 앱·release 사실로 만들고,
 // 결과 근거는 runner가 RecordVerification 앞에 남긴 기록을 읽는다. 하네스가 값을 밀어 넣는 길이 아니다.
-import type {
-  Input,
-  RequestContext,
-  Tx,
-} from "../../../protocol/server/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import {
   AppTestVerificationLookupPort,
-  type requestTest,
+  type RequestTestInput,
 } from "../../../protocol/problems/mod.ts";
 import { findAppTestVerification } from "./app-test-lookup.ts";
 import {
@@ -41,7 +37,7 @@ function read(tx: Tx, sql: string, params: (string | null)[]): Row {
 // 맞으면 core가 읽은 예시를 돌려주고, 어긋나면 null이다. 예시는 요청자가 보낸 값이 아니다.
 function examplesOf(
   tx: Tx,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
 ): HarnessExample[] | null {
   const link = input.ticket;
   if (link === null || link.check_index !== 0) return null;
@@ -80,7 +76,7 @@ export function admission(
   tx: Tx,
 ): (
   ctx: RequestContext,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
 ) => PreparedAdmission | null {
   return (ctx, input) => {
     let registered = false;

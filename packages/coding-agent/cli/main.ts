@@ -1,6 +1,7 @@
 // lophn CLI의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다.
 // 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN` 하나이고,
 // token이 없으면 core를 부르는 command는 아무것도 보내지 않는다.
+import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   CODING_TOKEN_ENV,
@@ -101,6 +102,35 @@ function inputOf(
   }
 }
 
+// 빠진 칸은 "필요하다", 틀린 칸은 기대하는 꼴을 말한다. agent가 입력을 다시 쓰는 데 이것만 보게 한다.
+function describeIssue(issue: z.core.$ZodIssue, candidate: unknown): string {
+  const path = issue.path.map(String);
+  const given = path.reduce<unknown>(
+    (value, key) =>
+      value !== null && typeof value === "object"
+        ? (value as Record<string, unknown>)[key]
+        : undefined,
+    candidate,
+  );
+  const field = path.join(".") || "(입력)";
+  if (issue.code === "unrecognized_keys") {
+    return `${field}: 모르는 칸 ${issue.keys.join(", ")}`;
+  }
+  if (given === undefined && issue.code === "invalid_type") {
+    return `${field}: 필요하다 (${issue.expected})`;
+  }
+  let expected: string;
+  if (issue.code === "invalid_type") expected = `${issue.expected} 이어야 한다`;
+  else if (issue.code === "invalid_format" && "pattern" in issue) {
+    expected = `${issue.pattern} 꼴이어야 한다`;
+  } else if (issue.code === "invalid_value") {
+    expected = `${issue.values.map(String).join(" | ")} 중 하나여야 한다`;
+  } else expected = issue.message;
+  return given === undefined
+    ? `${field}: 필요하다 (${expected})`
+    : `${field}: ${expected}`;
+}
+
 const COMMON_KEYS = ["json", "input", "input_file", "idempotency_key"];
 
 export async function cliMain(
@@ -169,12 +199,12 @@ export async function cliMain(
   }
   const checked = entry.input.safeParse(candidate);
   if (!checked.success) {
-    const field = checked.error.issues[0]?.path.join(".") ?? "";
     return await fail({
       code: "invalid_input",
-      message: field === ""
-        ? "command 입력이 맞지 않다"
-        : `${field}: 입력이 맞지 않다`,
+      message: `입력이 맞지 않다: ${
+        checked.error.issues.map((issue) => describeIssue(issue, candidate))
+          .join("; ")
+      }`,
     });
   }
   const input = Object.fromEntries(

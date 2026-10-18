@@ -2,8 +2,7 @@
 // 보고 release의 bundle 사본과 ticket의 예시로 runner와 같은 함수(deriveAppTest)가 구한다.
 // 예시 자체는 요청에 싣지 않는다: 접수 준비가 ticket에서 다시 읽어 접수 기록에 싣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Input } from "../../../protocol/server/mod.ts";
-import type { requestTest } from "../../../protocol/problems/mod.ts";
+import type { RequestTestInput } from "../../../protocol/problems/mod.ts";
 import { checkWorkSchema } from "../../apps/tickets/checker/mod.ts";
 import { deriveAppTest } from "./app-test/mod.ts";
 import { canonicalHash } from "./canonical.ts";
@@ -15,7 +14,7 @@ type ExamplesRequestDeps = {
     Result<unknown>
   >;
   // machine 자격으로 RequestTest를 낸다.
-  request(input: Input<typeof requestTest>): Promise<Result<unknown>>;
+  request(input: RequestTestInput): Promise<Result<unknown>>;
 };
 
 export function requestExamples(

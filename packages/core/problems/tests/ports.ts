@@ -2,7 +2,7 @@ import { definePort, type PortKey } from "../../../protocol/base/mod.ts";
 import type { Input, RequestContext } from "../../../protocol/server/mod.ts";
 import type {
   recordVerification,
-  requestTest,
+  RequestTestInput,
 } from "../../../protocol/problems/mod.ts";
 import type { PreparedAdmission, PreparedResultEvidence } from "./model.ts";
 
@@ -11,7 +11,7 @@ import type { PreparedAdmission, PreparedResultEvidence } from "./model.ts";
 export const testAdmissionPort: PortKey<
   (
     ctx: RequestContext,
-    input: Input<typeof requestTest>,
+    input: RequestTestInput,
   ) => PreparedAdmission | null
 > = definePort("problems.tests.admission");
 

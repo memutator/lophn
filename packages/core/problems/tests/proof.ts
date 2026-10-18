@@ -1,12 +1,11 @@
 import { hashCanonical } from "./canonical.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
-  Input,
   RequestContext,
   TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
 import { atSchema, sha256Schema } from "../../../protocol/base/mod.ts";
-import type { requestTest } from "../../../protocol/problems/mod.ts";
+import type { RequestTestInput } from "../../../protocol/problems/mod.ts";
 import {
   canonicalRequest,
   checkTestAuthority,
@@ -90,7 +89,7 @@ export function checkLifecycleProof(
 
 export function checkRequestAuthority(
   ctx: RequestContext,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
 ): Result<true> {
   if (!ctx.scope.operations.includes("RequestTest")) {
     return err({ code: "forbidden", message: FORBIDDEN });
@@ -111,7 +110,7 @@ export function checkRequestAuthority(
 
 export function checkPreparedAdmission(
   ctx: RequestContext,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
   prepared: PreparedAdmission | null,
 ): Result<PreparedAdmission & { canonical_input: string }> {
   const canonical = canonicalRequest(connectionOf(input));

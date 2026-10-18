@@ -12,7 +12,7 @@ import {
 } from "../../../protocol/server/mod.ts";
 import {
   observeTestRequest,
-  type requestTest,
+  type RequestTestInput,
   stageTestEvidence,
   startTestSide,
 } from "../../../protocol/problems/mod.ts";
@@ -223,7 +223,7 @@ export function stagedEvidence(
 // 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
 export function productAdmission(
   ctx: Pick<RequestContext, "principal">,
-  input: Input<typeof requestTest>,
+  input: RequestTestInput,
   facts: {
     runner_principal: string;
     app_registered: boolean;

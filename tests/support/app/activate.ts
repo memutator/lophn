@@ -363,19 +363,17 @@ export async function deliverRelease(
           }),
         ) as {
           status: string;
-          bundle_hash: string | null;
           release: string | null;
-          test: string | null;
         };
-      const prepared = await until(
+      await until(
         "release 준비가 끝남",
         async () => {
           const now = await status();
           if (now.status === "preparing") return undefined;
-          if (now.status !== "completed" || now.test === null) {
+          if (now.status !== "completed") {
             throw new Error(`release 준비가 ${now.status}로 끝났다`);
           }
-          return now as typeof now & { bundle_hash: string; test: string };
+          return now;
         },
         300_000,
       );
@@ -387,8 +385,6 @@ export async function deliverRelease(
           request_key: testKey,
           kind: "app_test",
           app: app.app,
-          target: { bundle_hash: prepared.bundle_hash },
-          test: prepared.test,
         }),
       );
       const verification = await until("app test 결과가 정해짐", async () => {

@@ -36,7 +36,7 @@
    - `package.list`의 `routes`에 `packagesBuiltin`을 더하고, catalog 뒤에 `builtin`을 붙인다. 설명을 "List the SDK built into lophn and the user packages (@me) with their versions."로 고친다.
    - `package.get`의 `routes`에 `packagesBuiltin`을 더한다. `name`이 `@lophn/`로 시작하면 catalog 대신 `packagesBuiltin`을 `{ name }`으로 불러 위 출력을 만든다. `version`을 주었는데 설치된 판과 다르면 `notFound`. 본문은 `TEXT_MAX_BYTES`로 자른다. 설명에 "built-in SDK names start with @lophn/"를 한 줄 더한다.
 5. agent credential 길(확인됨): `defineTool`이 `routes`의 이름을 tool의 `operations`로 만들고, `roleOperations`(`packages/core/agent-roles/credentials.ts`)가 그 합집합을 role의 상한으로 삼으며, 상한은 `agentRuntimePolicies`가 actor `agent`의 policy로 올린다. 그래서 route의 `actors`에 `agent`가 들어 있고 tool `routes`에 적히면 닿는다(`package.publish`가 같은 길이다). `package.list`·`package.get`은 모든 role의 읽기 tool이라 모든 role이 이 route를 부를 수 있다. 내장 SDK 안내는 비밀이 아니라 괜찮다.
-6. 확인(commit하지 않는다): `.dev-data/rd-sdk-builtin/`에 core를 한 번 띄워 `<data root>/sdk`를 만든 뒤(`LOPHN_HOME`, 끝나면 끈다), 같은 폴더의 임시 script에서 `readBuiltinSdk({ dataRoot })`를 직접 불러 목록에 `@lophn/ui`·`app-ui`·`blueprint`·`cap-app-api`·`cap-problem`·`cap-project`·`cap-store`·`wording`이 있고 `@lophn/ui`의 guide에 8개 분류가 들어 있고 `@lophn/cap-store` guide가 `guide.md`와 같음을 본다. (`cap-fs`·`cap-net`·`cap-secret`은 `rd-cap-sdk`가 land해야 보인다.)
+6. 확인(commit하지 않는다): `.dev-data/rd-sdk-builtin/`에 core를 한 번 띄워 `<data root>/sdk`를 만든 뒤(`LOPHN_HOME`, 끝나면 끈다), 같은 폴더의 임시 script에서 `readBuiltinSdk({ dataRoot })`를 직접 불러 목록에 `@lophn/ui`·`app-ui`·`blueprint`·`cap-app-api`·`cap-problem`·`cap-project`·`cap-store`·`wording`이 있고 `@lophn/ui`의 guide에 8개 분류가 들어 있고 `@lophn/cap-store` guide가 `guide.md`와 같음을 본다. (`cap-fs`·`cap-net`·`cap-secret`은 `rd-cap-fs`·`rd-cap-net-transport`·`rd-cap-secret-supervisor`가 land해야 보인다.)
 
 ## 끝남
 

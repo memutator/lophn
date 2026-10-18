@@ -6,9 +6,18 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 |---|---|---|---|---|---|---|---|
 | `rd-app-api-tool` | rd-app-api | 1 | 없음 | todo |  |  |  |
 | `rd-body-route` | rd-body | 1 | 없음 | todo |  |  |  |
-| `rd-cap-sdk` | rd-cap | 1 | 없음 | todo |  |  |  |
+| `rd-cap-fs` | rd-cap | 1 | 없음 | todo |  |  |  |
+| `rd-cap-net-transport` | rd-cap | 1 | 없음 | todo |  |  |  |
+| `rd-ex-shape` | rd-ex | 1 | 없음 | todo |  |  |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | todo |  |  |  |
 | `rd-sdk-builtin` | rd-sdk | 1 | 없음 | todo |  |  |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | todo |  |  |  |
 | `rd-body-tool` | rd-body | 2 | rd-body-route, rd-app-api-tool, rd-resolve-rule | todo |  |  |  |
-| `rd-cap-net-live` | rd-cap | 2 | rd-cap-sdk | todo |  |  |  |
+| `rd-cap-secret-core` | rd-cap-secret | 2 | rd-cap-net-transport | todo |  |  |  |
+| `rd-ex-driver` | rd-ex | 2 | rd-ex-shape | todo |  |  |  |
+| `rd-cap-secret-supervisor` | rd-cap-secret | 3 | rd-cap-secret-core | todo |  |  |  |
+| `rd-ex-request` | rd-ex | 3 | rd-ex-driver | todo |  |  |  |
+| `rd-ex-prompts` | rd-ex-prompts | 3 | rd-ex-shape | todo |  |  |  |
+| `rd-cap-net-live` | rd-cap-live | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
+| `rd-cap-skill` | rd-cap-skill | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
+| `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | todo |  |  |  |

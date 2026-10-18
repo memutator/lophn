@@ -52,6 +52,18 @@
   - App Engineer 지침과 coding agent skill을 이에 맞춘다.
   - 새 runner를 만들지 않는다. app test runner가 앱을 격리 사본에서 부르는 길을 다시 쓴다.
 
+- brief를 쓰며 정한 것(agent):
+  - 비밀값은 지금 `Authorization: Bearer`로만 붙인다. 다른 방식은 쓰는 앱이 생길 때 더한다(AGENTS.md "속도").
+  - App Engineer의 읽기는 기존 `app.list`·`app.get`·`app.app_api`의 자격 검사를 넓히지 않는다. 새 agent 전용 read `app.app_api_index`(앱 이름, 설명, app-api 목록)로 연다. 기존 검사는 problem과 ticket도 지키기 때문이다.
+  - 예시 비교 규칙: 객체는 `expect`의 key가 다 있고 값이 맞아야 한다(실제 결과에 key가 더 있어도 된다). 배열은 길이가 같고 원소가 차례로 맞아야 한다. 나머지는 `===`다. 오류로 끝난 호출은 불일치다.
+  - `ticket.verify`의 관문은 check가 `examples`인 ticket에만 건다. `app_test`와 `text`는 지금과 같다.
+  - 고친 길을 처음부터 끝까지 보는 자동 확인은 기존 E2E table에 행으로 더한다. 새 E2E file은 만들지 않는다.
+    - 예시 검증: 완료 보고 → 예시 실행 → 결과 → `ticket.verify`.
+    - agent 자격의 `problems.report_body` 읽기.
+    - cap-net·cap-secret의 loopback 호출.
+  - 한 줄 고침 셋은 worker가 소유한다: `packages/core/main/daemon/wiring/problems.ts`(`rd-body-route`), `packages/protocol/apps/registry.ts`·`packages/core/apps/register.ts`(`rd-app-api-tool`).
+  - schema step을 그 자리에서 고치므로 개발 data를 지운다.
+
 ## 사람이 정할 것
 
 없음.

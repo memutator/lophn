@@ -129,6 +129,8 @@ export interface FakeAgentsOptions {
   readonly hidden?: readonly HiddenModel[];
   /** [Refresh models]가 늘 실패한다(앞 목록은 그대로다). */
   readonly refreshFails?: boolean;
+  /** 사람이 정보를 읽은 뒤 다른 창이 판을 바꾼 상태다. 읽은 판으로 보내는 첫 저장·지우기는 conflict가 된다. */
+  readonly infoGoesStale?: boolean;
 }
 
 export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";
@@ -238,6 +240,7 @@ export function createFakeAgentsSource(
     seq: "1",
     items: options.providers === "custom" ? [CUSTOM_INFO] : [],
   };
+  let wentStale = false;
   const changeUserModels = (
     seq: string,
     items: readonly UserModelRecord[],
@@ -466,7 +469,12 @@ export function createFakeAgentsSource(
     },
 
     userModels() {
-      return Promise.resolve(ok(userModels));
+      const read = userModels;
+      if (options.infoGoesStale && !wentStale) {
+        wentStale = true;
+        userModels = { ...userModels, seq: String(Number(read.seq) + 1) };
+      }
+      return Promise.resolve(ok(read));
     },
 
     saveModelInfo(item, seq) {

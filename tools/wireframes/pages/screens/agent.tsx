@@ -26,6 +26,11 @@ import {
   ManageModelsConnect,
   ManageModelsCustom,
   ManageModelsRefreshFailed,
+  ModelInfoAdd,
+  ModelInfoConflict,
+  ModelInfoEdit,
+  ModelInfoManage,
+  ModelInfoPicker,
   ModelPickerEmpty,
   ModelPickerInherited,
 } from "./agent-pages.tsx";
@@ -178,8 +183,43 @@ export const agentArea: Area = {
       id: "new-manage-models-custom",
       title: "Agent · Manage models, custom provider",
       description:
-        "custom provider의 묶음이다. 머리에 [Refresh models]가 있고, 묶음 아래에 provider가 목록에 주지 않는 model 이름을 직접 더하는 칸이 있다.",
+        "custom provider의 묶음이다. 머리에 [Refresh models]가 있고, 줄마다 [Edit]이, 묶음 아래에 [Add model]이 있다. [Add model]은 provider가 목록에 주지 않는 model의 정보를 적는 form을 연다.",
       render: () => <ManageModelsCustom />,
+    },
+    {
+      id: "new-model-info-manage",
+      title: "Agent · Manage models, model info",
+      description:
+        "내장 provider(Anthropic)와 custom provider(Local server)를 같이 둔 창이다. 모든 줄에 입력 modality icon과 아는 경우 짧은 context(200K, 1M)가 보인다. catalog model은 읽기만 하고, custom provider의 줄에는 [Edit]이, 묶음 아래에는 [Add model]이 있다. 정보를 적은 deepseek-v4.1-flash는 provider가 알려 준 목록에 없어도 줄로 보인다.",
+      render: () => <ModelInfoManage />,
+    },
+    {
+      id: "new-model-info-add",
+      title: "Agent · model info, new model",
+      description:
+        "[Add model]을 눌러 연 빈 form이다. Manage models 창 위에 Dialog로 열린다. 한도 칸은 비어 있고 안 적었을 때 turn이 쓰는 기본값(131072, context와 같음, 4096)이 회색 placeholder로 보인다. 가격 칸도 비우면 모름이다.",
+      render: () => <ModelInfoAdd />,
+    },
+    {
+      id: "new-model-info-edit",
+      title: "Agent · model info, editing",
+      description:
+        "행의 [Edit]으로 연 채운 form이다. 이름은 읽기만 한다. 입력 media에 image가 켜져 있고, reasoning이 켜져 effort low·medium·high·maximum 중 기본 high, 가격 셋이 적혀 있다. 맨 아래 [Remove model]은 이 정보를 지운다.",
+      render: () => <ModelInfoEdit />,
+    },
+    {
+      id: "new-model-info-conflict",
+      title: "Agent · model info, stale save",
+      description:
+        "form을 연 사이 다른 창이 정보를 바꿔 [Save]가 conflict가 된 모습이다. form 값은 그대로 두고 form 안에 한 줄만 보인다. 판을 다시 읽었으니 한 번 더 누르면 저장된다.",
+      render: () => <ModelInfoConflict />,
+    },
+    {
+      id: "new-model-info-picker",
+      title: "Agent · model picker, custom model with effort",
+      description:
+        "정보를 적은 custom model(deepseek-v4.1-flash)을 고른 picker다. 적은 effort가 option 축(low·medium·high·maximum, 지금 high)으로 보인다. 정보가 없는 같은 provider의 model(llama-3.3-70b, qwen-3-coder)은 축이 없다.",
+      render: () => <ModelInfoPicker />,
     },
     {
       id: "new-manage-models-refresh-failed",

@@ -26,6 +26,7 @@ import {
 } from "./agent-tab/scenes.tsx";
 import {
   ANTHROPIC,
+  CUSTOM_INFO_MODEL,
   CUSTOM_PROVIDER,
   type FakeAgentsOptions as FakeEditorOptions,
   OPENAI,
@@ -115,6 +116,37 @@ export const ManageModelsConnect = () =>
   manage(MANAGE, [
     () => click("[data-manage-models] button", /^Connect provider$/),
   ]);
+
+// custom provider의 정보가 있는 model 행의 [Edit]을 눌러 form을 연다.
+const editInfo = () =>
+  click(`[data-model="${CUSTOM_INFO_MODEL}"] [data-edit-model]`);
+
+/** 내장(Anthropic)과 custom provider를 같이 둔 Manage models. 줄마다 입력 media icon과 context, custom 줄의 [Edit], 묶음 아래 [Add model]. */
+export const ModelInfoManage = () => manage({ providers: "custom" });
+/** [Add model]을 눌러 연 빈 form. 한도 칸에는 기본값이 회색 placeholder로 보인다. */
+export const ModelInfoAdd = () =>
+  manage({ providers: "custom" }, [
+    () => click("[data-manage-section=add-model] button"),
+  ]);
+/** 정보가 있는 model의 [Edit]으로 연 form. image 입력, effort 넷과 기본값, 가격이 채워져 있다. */
+export const ModelInfoEdit = () => manage({ providers: "custom" }, [editInfo]);
+/** 다른 창이 판을 바꾼 뒤 [Save]를 눌러 conflict 한 줄이 뜬 form. 값은 그대로다. */
+export const ModelInfoConflict = () =>
+  manage({ providers: "custom", infoGoesStale: true }, [
+    editInfo,
+    () => click("[role=dialog] button", /^Save$/),
+  ]);
+/** 정보를 적은 custom model을 고른 picker. 적은 effort가 option 축으로 보인다. */
+export const ModelInfoPicker = () =>
+  weekly({
+    stage: "report",
+    modelDemo: "picker",
+    picker: {
+      providers: "custom",
+      layer: "session",
+      current: CUSTOM_INFO_MODEL,
+    },
+  });
 /** model을 바꾼 뒤 provider가 요청을 거절한 오류 메시지. */
 export const AgentRequestError = RequestErrorScene;
 /** 받은 메시지의 보낸 쪽 chip 셋과 펼친 panel. */

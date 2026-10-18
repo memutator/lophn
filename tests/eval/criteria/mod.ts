@@ -6,6 +6,9 @@ export const CRITERIA_DIR = new URL("./", import.meta.url);
 export const INPUT_SECTIONS: Record<string, string[]> = {
   "relay-complete": ["HUMAN_REQUEST", "CALL_BODY"],
   "asks-gap": ["HUMAN_REQUEST", "QUESTIONS"],
+  "card-covered": ["CARD", "BLUEPRINT", "TICKETS"],
+  "asked-again": ["HUMAN_REQUEST", "QUESTIONS"],
+  "root-cause": ["BUG", "TICKET_GOALS", "EVIDENCE_FILES"],
 };
 
 export async function loadCriterion(ref: string): Promise<Criterion> {

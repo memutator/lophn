@@ -95,4 +95,4 @@ modules: [packages/core/problems, packages/core/agent-roles]
 - 지침에 "고친 release가 active가 된 뒤에만 resolved"를 쓴다(작음). program이 막지는 않는다.
 - 추천: 첫째.
 
-정할 것: agent가 problem을 닫는 조건을 program이 막을지(첫째), 지침에만 둘지(셋째).
+정한 것: program이 막는다(사람). agent 자격의 resolved는 마지막 발생의 release보다 뒤에 activate된 active release가 있을 때만 받는다. 사람은 지금처럼 바꾼다. App Engineer 지침에도 같은 조건을 쓴다.

@@ -12,6 +12,7 @@ import {
   type AskQuestion,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
+import { commandCall } from "../../../command-call.ts";
 import type { CoreSource } from "../connection.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 
@@ -96,20 +97,17 @@ export async function decideWaiting(
   }
   if (entry.kind === "activation" || entry.kind === "reaction") {
     // command는 입력을 봉투에 담아 보낸다. 같은 request의 같은 결정은 같은 key라 core가 한 번만 접수한다.
-    const decision = choice === "reject"
-      ? turnChoiceOf("reject", reason)
-      : { kind: "allow" as const };
-    const reply = await core.call({
-      kind: "command",
-      resource: approvalsDecide.resource,
-      method: approvalsDecide.method,
-      body: {
-        input: { request: entry.id, choice: decision },
-        idempotency_key: `approvals-decide-${entry.id}-${decision.kind}`,
-        compare: {},
-        prepared: [],
-      },
-    }).catch(() => null);
+    const why = reasonOf(reason);
+    const decision = choice !== "reject"
+      ? { kind: "allow" as const }
+      : why === undefined
+      ? { kind: "reject" as const }
+      : { kind: "reject" as const, reason: why };
+    const reply = await core.call(commandCall(approvalsDecide, {
+      input: { request: entry.id, choice: decision },
+      compare: {},
+      key: `approvals-decide-${entry.id}-${decision.kind}`,
+    })).catch(() => null);
     if (!reply) return UNAVAILABLE;
     if (!reply.ok) {
       return { ok: false, code: reply.error?.code ?? "unavailable" };

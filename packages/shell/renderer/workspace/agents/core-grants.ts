@@ -5,6 +5,7 @@ import {
   type AgentGrantEntry,
   agentKey,
 } from "../../../../protocol/approvals/grants.ts";
+import { agentGrantsSet } from "../../../../protocol/approvals/grants.ts";
 import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
@@ -164,7 +165,10 @@ export function saveGrants(
 ): Promise<ReadResult<null>> {
   const ref = refOf(place, key);
   if (ref === null) return Promise.resolve(unavailable);
-  return link.command("agent_grants", "set", { agent: ref, entries }).then(
+  return link.command(agentGrantsSet, {
+    input: { agent: ref, entries },
+    compare: {},
+  }).then(
     (reply) =>
       reply.ok ? { ok: true, value: null } : { ok: false, message: reply.code },
   );

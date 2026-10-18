@@ -3,6 +3,18 @@
 // schema로 이미 검사했으므로 화면이 읽는 field만 골라 source 모양으로 옮긴다. 실패는 core의 오류
 // code(`not_found`, `conflict`, `unavailable`…)를 message로 돌려준다. 색인(context worker)이 안 떠
 // 있으면 search·overview·input_options는 `unavailable`이고 화면은 그 상태를 보인다.
+import type { z } from "zod";
+
+import type { CommandRoute } from "../../../../protocol/base/route.ts";
+import {
+  bundleRollbackRoute,
+  contextArchiveRoute,
+  contextUnarchiveRoute,
+  glossaryRemoveRoute,
+  glossarySetRoute,
+  viewSaveRoute,
+} from "../../../../protocol/projects/context-api.ts";
+import { type CommandBody, commandCall } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type { ReadResult } from "../source.ts";
 import type {
@@ -53,25 +65,16 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
     return reply.ok ? { ok: true, value: reply.value as V } : failure(reply);
   };
 
-  const command = async <V>(
-    resource: string,
-    method: string,
-    input: unknown,
-    compare: Record<string, unknown> = {},
+  const command = async <R extends CommandRoute, V = z.output<R["output"]>>(
+    route: R,
+    body: Omit<CommandBody<R>, "key">,
   ): Promise<CommandResult<V>> => {
     let reply;
     try {
-      reply = await core.call({
-        kind: "command",
-        resource,
-        method,
-        body: {
-          input,
-          idempotency_key: `${resource}-${method}-${crypto.randomUUID()}`,
-          compare,
-          prepared: [],
-        },
-      });
+      reply = await core.call(commandCall(route, {
+        ...body,
+        key: `${route.resource}-${route.method}-${crypto.randomUUID()}`,
+      }));
     } catch {
       return { ok: false, message: "unavailable" };
     }
@@ -257,20 +260,28 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
       return result.ok ? { ok: true, value: result.value.contexts } : result;
     },
 
-    saveView: (request) => command("contexts", "save_view", request),
+    saveView: (request) =>
+      command(viewSaveRoute, { input: request, compare: {} }),
 
     glossarySet: (request, compare?: BaseRevision) =>
-      command("terms", "set", request, compare ? { ...compare } : {}),
+      command(glossarySetRoute, {
+        input: request,
+        compare: compare ? { ...compare } : {},
+      }),
 
     glossaryRemove: (request, compare) =>
-      command("terms", "remove", request, { ...compare }),
+      command(glossaryRemoveRoute, { input: request, compare: { ...compare } }),
 
     archive: ({ context, revision }) =>
-      command("contexts", "archive", { context }, { base_revision: revision }),
+      command(contextArchiveRoute, {
+        input: { context },
+        compare: { base_revision: revision },
+      }),
 
     unarchive: ({ context, revision }) =>
-      command("contexts", "unarchive", { context }, {
-        base_revision: revision,
+      command(contextUnarchiveRoute, {
+        input: { context },
+        compare: { base_revision: revision },
       }),
 
     // rollback의 비교 기준은 context의 revision이다: 읽은 뒤 다른 판이 적용되면 core가 거절한다.
@@ -279,12 +290,10 @@ export function coreContextsSource(core: CoreSource): ContextsSource {
         context: request.context,
       });
       if (!detail.ok) return detail;
-      return await command(
-        "contexts",
-        "rollback",
-        request,
-        { base_revision: detail.value.context.revision },
-      );
+      return await command(bundleRollbackRoute, {
+        input: request,
+        compare: { base_revision: detail.value.context.revision },
+      });
     },
   };
 }

@@ -1,5 +1,9 @@
 // Agents 통로가 core를 부르는 길. 응답은 main의 contract client가 route output schema로 이미 검사했으므로 화면이 읽는 field만
 // 골라 쓴다. 실패는 core의 오류 code(`not_found`, `conflict`, `unavailable`…)로 돌려준다.
+import type { z } from "zod";
+
+import type { CommandRoute } from "../../../../protocol/base/route.ts";
+import { type CommandBody, commandBody } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ReadResult } from "../source.ts";
@@ -28,12 +32,10 @@ export interface Link {
     body: Record<string, unknown>,
   ): Promise<ReadResult<V>>;
   /** 쓰기 route 하나. compare는 읽을 때의 hash 같은 비교 기준이다. */
-  command<V>(
-    resource: string,
-    method: string,
-    input: unknown,
-    compare?: Record<string, unknown>,
-  ): Promise<Reply<V>>;
+  command<R extends CommandRoute>(
+    route: R,
+    body: { input: unknown; compare: Record<string, unknown> },
+  ): Promise<Reply<z.output<R["output"]>>>;
 }
 
 export function createLink(core: CoreSource, random: () => string): Link {
@@ -69,13 +71,17 @@ export function createLink(core: CoreSource, random: () => string): Link {
     read: fetchValue("read"),
     memory: fetchValue("memory"),
     worker: fetchValue("worker"),
-    command: (resource, method, input, compare = {}) =>
-      call("command", resource, method, {
-        input,
-        idempotency_key: `${resource}-${method}-${random()}`,
-        compare,
-        prepared: [],
-      }) as Promise<Reply<never>>,
+    command: (route, body) =>
+      call(
+        "command",
+        route.resource,
+        route.method,
+        // 이 통로의 입력은 정의 draft처럼 route 입력보다 느슨한 모양이라 입력과 compare는 type을 좁히지 않는다.
+        commandBody(route, {
+          ...body,
+          key: `${route.resource}-${route.method}-${random()}`,
+        } as CommandBody<CommandRoute>),
+      ) as Promise<Reply<never>>,
   };
 }
 

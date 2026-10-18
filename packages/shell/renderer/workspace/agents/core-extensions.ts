@@ -1,5 +1,6 @@
 // skill·MCP server·instruction·model 기본값을 읽는 부분. agent 설정 화면과 Agents 탭이 같이 쓴다. 전역 층은 settings 읽기와
 // skills 읽기에서, project 층은 project 확장 설정에서 온다. 앱 자리에는 project 층이 없다.
+import { projectExtensionSettingsChange } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import {
@@ -108,17 +109,15 @@ export async function changeProjectSettings(
   if (!current.ok) return current;
   const next = edit(current.value);
   if (next === null) return { ok: false, message: "unavailable" };
-  const changed = await link.command(
-    "project-extension-settings",
-    "change",
-    {
+  const changed = await link.command(projectExtensionSettingsChange, {
+    input: {
       project,
       mcp_servers: next.servers,
       skills_off: next.skillsOff,
       mcp_off: next.mcpOff,
     },
-    { hash: current.value.hash },
-  );
+    compare: { hash: current.value.hash },
+  });
   return changed.ok
     ? { ok: true, value: null }
     : { ok: false, message: changed.code };

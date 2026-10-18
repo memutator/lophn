@@ -5,6 +5,8 @@ import type {
   ProblemDetailView,
   ProblemListItem,
 } from "../../../../../protocol/problems/mod.ts";
+import { problemSetState } from "../../../../../protocol/problems/problem-views.ts";
+import { commandBody } from "../../../command-call.ts";
 import type { CoreSource } from "../../../desktop/connection/connection.ts";
 import { issueRowOf, issueViewOf, type ReleaseNumbers } from "./core-read.ts";
 import type {
@@ -133,12 +135,17 @@ export function coreIssuesSource(core: CoreSource): IssuesSource {
 
     async setState(problem, state) {
       const key = crypto.randomUUID();
-      const reply = await call(core, "command", "problems", "set_state", {
-        input: { problem, state, key },
-        idempotency_key: key,
-        compare: {},
-        prepared: [],
-      });
+      const reply = await call(
+        core,
+        "command",
+        problemSetState.resource,
+        problemSetState.method,
+        commandBody(problemSetState, {
+          input: { problem, state, key },
+          compare: {},
+          key,
+        }),
+      );
       return reply.ok ? { ok: true, value: true } : reply;
     },
   };

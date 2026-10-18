@@ -8,6 +8,16 @@
 import type {
   AgentDefinitionRow,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import {
+  builtinAgentChange,
+  operatorChange,
+  operatorCreate,
+  operatorDelete,
+} from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import {
+  changeModelFavorites,
+  projectModelChange,
+} from "../../../../protocol/lophn-agent/models.ts";
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
@@ -392,10 +402,9 @@ export function coreAgentsSource(
     async setFavorites(items) {
       const current = await favorites();
       if (!current.ok) return current;
-      const changed = await link.command<
-        { favorites: { items: ModelFavorite[] } }
-      >("model-favorites", "change", { items }, {
-        settings_seq: current.value.seq,
+      const changed = await link.command(changeModelFavorites, {
+        input: { items },
+        compare: { settings_seq: current.value.seq },
       });
       return changed.ok
         ? { ok: true, value: changed.value.favorites.items }
@@ -475,15 +484,14 @@ export function coreAgentsSource(
       });
       const draft = input.definition;
       if (input.assignment === null) {
-        const created = await link.command<{ agent: string; hash: string }>(
-          "operators",
-          "create",
-          {
+        const created = await link.command(operatorCreate, {
+          input: {
             id: newOperatorId(bytes()),
             place: placeOf(input.place ?? project ?? ""),
             definition: draft,
           },
-        );
+          compare: {},
+        });
         return created.ok
           ? {
             ok: true,
@@ -497,14 +505,16 @@ export function coreAgentsSource(
       const operator = OPERATOR_ID.test(input.assignment);
       const ref = refOf(project, input.assignment);
       if (ref === null) return { ok: false, message: "not_found", issues: [] };
-      const saved = await link.command<{ hash: string }>(
-        operator ? "operators" : "builtin-agents",
-        "change",
-        operator
-          ? { agent: input.assignment, definition: draft }
-          : { agent: ref, definition: builtInDefinition(draft) },
-        { hash: input.hash },
-      );
+      const compare = { hash: input.hash };
+      const saved = operator
+        ? await link.command(operatorChange, {
+          input: { agent: input.assignment, definition: draft },
+          compare,
+        })
+        : await link.command(builtinAgentChange, {
+          input: { agent: ref, definition: builtInDefinition(draft) },
+          compare,
+        });
       return saved.ok
         ? {
           ok: true,
@@ -514,14 +524,10 @@ export function coreAgentsSource(
     },
 
     async deleteAgent(_project, key, hash) {
-      const deleted = await link.command(
-        "operators",
-        "delete",
-        { agent: key },
-        {
-          hash,
-        },
-      );
+      const deleted = await link.command(operatorDelete, {
+        input: { agent: key },
+        compare: { hash },
+      });
       return deleted.ok
         ? { ok: true, value: null }
         : { ok: false, message: deleted.code };
@@ -556,9 +562,9 @@ export function coreAgentsSource(
 
     async setProjectModel(project, choice) {
       if (isAppPlace(project)) return unavailable;
-      const changed = await link.command("project-model", "change", {
-        project,
-        model: choice,
+      const changed = await link.command(projectModelChange, {
+        input: { project, model: choice },
+        compare: {},
       });
       return changed.ok
         ? { ok: true, value: null }

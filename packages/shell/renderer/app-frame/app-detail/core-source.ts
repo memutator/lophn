@@ -11,7 +11,13 @@ import type {
   Rewind,
   RewindPlan,
 } from "../../../../protocol/apps/mod.ts";
+import type { z } from "zod";
+
+import type { CommandRoute } from "../../../../protocol/base/route.ts";
+import { activationActivatePrevious } from "../../../../protocol/apps/activation/activation.ts";
+import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
+import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import type {
   AccessView,
@@ -56,18 +62,23 @@ const read = <T>(
 ) => call<T>(core, "read", resource, method, body);
 
 /** 사람의 결정 command. 입력만 있고 비교·확인 참조는 없다. */
-const command = <T>(
+const command = <R extends CommandRoute>(
   core: CoreSource,
-  resource: string,
-  method: string,
-  input: unknown,
+  route: R,
+  input: z.input<R["input"]>,
 ) =>
-  call<T>(core, "command", resource, method, {
-    input,
-    idempotency_key: crypto.randomUUID(),
-    compare: {},
-    prepared: [],
-  });
+  call<z.output<R["output"]>>(
+    core,
+    "command",
+    route.resource,
+    route.method,
+    // compare를 선언한 route는 type이 막으므로 compare가 빈 route만 이 길을 쓴다.
+    commandBody(route, {
+      input,
+      compare: {} as CompareOf<R>,
+      key: crypto.randomUUID(),
+    }),
+  );
 
 interface Paged {
   next_cursor: string | null;
@@ -430,7 +441,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
     },
 
     async rollback(release) {
-      const reply = await command(core, "activations", "activate_previous", {
+      const reply = await command(core, activationActivatePrevious, {
         release,
         key: crypto.randomUUID(),
       });
@@ -490,7 +501,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
     },
 
     async revoke(grant) {
-      const reply = await command(core, "app_grants", "revoke", { grant });
+      const reply = await command(core, appGrantRevoke, { grant });
       return reply.ok ? { ok: true, value: true } : reply;
     },
 

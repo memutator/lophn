@@ -4,6 +4,13 @@ import type {
   FolderPickerApi,
   FolderPickReply,
 } from "../../../../ipc/folder-picker.ts";
+import type { CommandRoute } from "../../../../../protocol/base/route.ts";
+import { projectApi } from "../../../../../protocol/projects/project-api.ts";
+import {
+  type CommandBody,
+  commandCall,
+  type CompareOf,
+} from "../../../command-call.ts";
 import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
@@ -130,27 +137,21 @@ export async function createProject(
   const base = slugOf(draft.title);
   let last: SourceResult<ProjectItem> = { ok: false, code: "conflict" };
   for (let attempt = 1; attempt <= NAME_ATTEMPTS; attempt += 1) {
-    const reply = await core.call({
-      kind: "command",
-      resource: "projects",
-      method: "create",
-      body: {
-        input: {
-          id: draft.id,
-          name: slugAttempt(base, attempt),
-          title: draft.title,
-          purpose: draft.purpose,
-          folders: draft.folders.map((folder) => ({
-            path: folder.path,
-            description: folder.description,
-            subfolders: [],
-          })),
-        },
-        idempotency_key: `projects-create-${draft.id}-${attempt}`,
-        compare: {},
-        prepared: [],
+    const reply = await core.call(commandCall(projectApi.register, {
+      input: {
+        id: draft.id,
+        name: slugAttempt(base, attempt),
+        title: draft.title,
+        purpose: draft.purpose,
+        folders: draft.folders.map((folder) => ({
+          path: folder.path,
+          description: folder.description,
+          subfolders: [],
+        })),
       },
-    });
+      compare: {},
+      key: `projects-create-${draft.id}-${attempt}`,
+    }));
     if (reply.ok) {
       return { ok: true, value: projectItemOf(reply.value as ProjectValue) };
     }
@@ -160,23 +161,18 @@ export async function createProject(
   return last;
 }
 
-async function write(
+async function write<R extends CommandRoute>(
   core: CoreSource,
-  method: string,
+  route: R,
   input: unknown,
   baseRevision: string,
 ): Promise<SourceResult<ProjectItem>> {
-  const reply = await core.call({
-    kind: "command",
-    resource: "projects",
-    method,
-    body: {
-      input,
-      idempotency_key: `projects-${method}-${crypto.randomUUID()}`,
-      compare: { base_revision: baseRevision },
-      prepared: [],
-    },
-  });
+  const reply = await core.call(commandCall(route, {
+    input: input as CommandBody<R>["input"],
+    // 쓰는 route는 모두 base_revision 하나만 비교한다.
+    compare: { base_revision: baseRevision } as CompareOf<R>,
+    key: `projects-${route.method}-${crypto.randomUUID()}`,
+  }));
   return reply.ok
     ? { ok: true, value: projectItemOf(reply.value as ProjectValue) }
     : failed(reply);
@@ -206,7 +202,7 @@ export function coreProjectsSource(
     save: (project, change: ProjectChange) =>
       write(
         core,
-        "update",
+        projectApi.edit,
         { project: project.id, ...change },
         project.revision,
       ),
@@ -214,7 +210,7 @@ export function coreProjectsSource(
     setArchived: (project, archived) =>
       write(
         core,
-        archived ? "archive" : "unarchive",
+        archived ? projectApi.archive : projectApi.unarchive,
         { project: project.id },
         project.revision,
       ),
@@ -223,7 +219,7 @@ export function coreProjectsSource(
       const chosen = await pick("relocate");
       if (!chosen.ok) return chosen;
       if (chosen.path === null) return { ok: true, value: null };
-      return write(core, "relink_folder", {
+      return write(core, projectApi.relinkFolder, {
         project: project.id,
         folder_path: folder,
         new_path: chosen.path,

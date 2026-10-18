@@ -1,6 +1,8 @@
 // AppsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다.
+import { appArchive, appUnarchive } from "../../../protocol/apps/apps.ts";
 import type { CoreCall } from "../../ipc/core.ts";
+import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { AppRow, AppsSource, RunState, SourceResult } from "./source.ts";
 
@@ -77,18 +79,16 @@ export function coreAppsSource(core: CoreSource): AppsSource {
 
     async setArchived(app, archived) {
       // 성공 응답은 route output(App) 그대로다.
+      const route = archived ? appArchive : appUnarchive;
       const result = await call<AppValue>(
         core,
         "command",
-        archived ? "archive" : "unarchive",
-        {
+        route.method,
+        commandBody(route, {
           input: { app: app.id },
-          idempotency_key: `apps-${
-            archived ? "archive" : "unarchive"
-          }-${crypto.randomUUID()}`,
           compare: { base_revision: app.revision },
-          prepared: [],
-        },
+          key: `apps-${route.method}-${crypto.randomUUID()}`,
+        }),
       );
       return result.ok ? { ok: true, value: rowOf(result.value) } : result;
     },

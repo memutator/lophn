@@ -41,7 +41,6 @@ export interface BrowserContents extends AppViewContents {
   back(): void;
   forward(): void;
   reload(): void;
-  inspect(): void;
   /** 첫 load가 끝나면(실패도) 풀린다. Electron이 load를 시작한 popup contents에 쓴다. */
   firstLoad(): Promise<void>;
 }
@@ -74,12 +73,22 @@ export interface BrowserHooks {
   };
 }
 
+/** page에 붙인 DevTools view. project 창과 따로 뜬 OS 창 사이를 연결을 끊지 않고 옮긴다. */
+export interface DevtoolsContents extends AppViewContents {
+  toWindow(on: boolean, title: string): void;
+}
+
 export interface BrowserViewHost extends
   Pick<
     AppViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   > {
   create(hooks: BrowserHooks): BrowserContents;
+  /** page의 DevTools를 새 view에 연다. page가 이미 없으면 undefined. 연결이 끊기면 gone을 부른다. */
+  devtools(
+    page: BrowserContents,
+    gone: () => void,
+  ): DevtoolsContents | undefined;
 }
 
 interface BrowserViewsDeps {
@@ -106,6 +115,14 @@ interface Item {
 // native popup. guest는 위치를 renderer가 정하므로 Item만 갖는다.
 interface Entry extends Item, Omit<Placed, "contents"> {}
 
+// page 하나에 DevTools 하나. 따로 뜬 창에 있는 동안(inWindow)은 project 창에 붙이지 않는다.
+interface Devtools extends Placed {
+  devtools_session: string;
+  page: string;
+  contents: DevtoolsContents;
+  inWindow: boolean;
+}
+
 const notOpen = () => failure("invalid_input", "view is not open");
 
 export function createBrowserViews(deps: BrowserViewsDeps) {
@@ -117,6 +134,32 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     views: deps.host,
     record: () => {},
   });
+  const devtools = new Map<string, Devtools>();
+  const devPlacement = createPlacement<Devtools>({
+    views: deps.host,
+    record: () => {},
+  });
+
+  // 지도에서 먼저 빼서, 부수는 동안 온 gone이 다시 정리하지 않게 한다.
+  function closeDevtools(entry: Devtools, notify: boolean): void {
+    if (devtools.get(entry.devtools_session) !== entry) return;
+    devtools.delete(entry.devtools_session);
+    devPlacement.unmounted(entry);
+    entry.contents.destroy();
+    if (notify) {
+      deps.pushEvent(entry.window, {
+        kind: "devtools-closed",
+        view_session: entry.page,
+        devtools_session: entry.devtools_session,
+      });
+    }
+  }
+
+  function closeDevtoolsOf(page: string, notify: boolean): void {
+    for (const entry of [...devtools.values()]) {
+      if (entry.page === page) closeDevtools(entry, notify);
+    }
+  }
 
   function state(entry: Item): BrowserViewState {
     const page = entry.contents.page();
@@ -253,6 +296,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
   }
 
   function dispose(entry: Entry): void {
+    closeDevtoolsOf(entry.view_session, true);
     entries.delete(entry.view_session);
     placement.unmounted(entry);
     entry.contents.destroy();
@@ -283,7 +327,74 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
 
     /** guest contents가 부서졌다(renderer가 <webview>를 지웠거나 창이 닫혔다). */
     forgetGuest(view_session: string): void {
+      closeDevtoolsOf(view_session, true);
       guests.delete(view_session);
+    },
+
+    /** page의 DevTools를 page 옆 native view로 연다. page마다 하나다. */
+    openDevtools(
+      window: string,
+      view_session: string,
+    ): Outcome<{ devtools_session: string }> {
+      const page = ownedEntry(window, view_session);
+      if (page === undefined) return notOpen();
+      if ([...devtools.values()].some((item) => item.page === view_session)) {
+        return failure("conflict", "devtools are already open");
+      }
+      const devtools_session = `devtools-${page.contents.id}`;
+      const contents = deps.host.devtools(page.contents, () => {
+        const live = devtools.get(devtools_session);
+        if (live !== undefined) closeDevtools(live, true);
+      });
+      if (contents === undefined) return notOpen();
+      const entry: Devtools = {
+        devtools_session,
+        page: view_session,
+        window,
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        layer: 0,
+        contents,
+        generation: 0,
+        shown: false,
+        ready: false,
+        placed: false,
+        attached: false,
+        inWindow: false,
+      };
+      devtools.set(devtools_session, entry);
+      devPlacement.mounted(entry);
+      devPlacement.loaded(entry);
+      return { ok: true, value: { devtools_session } };
+    },
+
+    closeDevtools(window: string, devtools_session: string): Outcome<null> {
+      const entry = devtools.get(devtools_session);
+      if (entry?.window !== window) return notOpen();
+      closeDevtools(entry, false);
+      return { ok: true, value: null };
+    },
+
+    /** DevTools를 따로 뜬 OS 창으로 옮기거나(true) project 창으로 되돌린다(false). */
+    devtoolsWindow(
+      window: string,
+      devtools_session: string,
+      on: boolean,
+    ): Outcome<null> {
+      const entry = devtools.get(devtools_session);
+      if (entry?.window !== window) return notOpen();
+      if (on === entry.inWindow) return { ok: true, value: null };
+      if (on) {
+        devPlacement.hide(entry);
+        entry.inWindow = true;
+        entry.contents.toWindow(
+          true,
+          find(entry.page)?.contents.page().title ?? "",
+        );
+      } else {
+        entry.contents.toWindow(false, "");
+        entry.inWindow = false;
+      }
+      return { ok: true, value: null };
     },
 
     /** renderer가 popup으로 생긴 view에 탭을 만들었다. 그 창이 아직 가져가지 않은 view만 된다. */
@@ -321,7 +432,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     command(
       window: string,
       view_session: string,
-      command: "back" | "forward" | "reload" | "inspect",
+      command: "back" | "forward" | "reload",
     ): Outcome<null> {
       const entry = ownedEntry(window, view_session);
       if (entry === undefined) return notOpen();
@@ -345,16 +456,25 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
         push(native);
       } else if (command === "back") entry.contents.back();
       else if (command === "forward") entry.contents.forward();
-      else if (command === "reload") entry.contents.reload();
-      else entry.contents.inspect();
+      else entry.contents.reload();
       return { ok: true, value: null };
     },
 
-    has: (view_session: string) => entries.has(view_session),
+    // frame-router 길: native popup과 DevTools view. guest의 위치는 renderer CSS가 한다.
+    has: (view_session: string) =>
+      entries.has(view_session) || devtools.has(view_session),
 
-    owner: (view_session: string) => entries.get(view_session)?.window,
+    owner: (view_session: string) =>
+      (entries.get(view_session) ?? devtools.get(view_session))?.window,
 
     setBounds(view_session: string, bounds: ViewBounds, layer: number) {
+      const tool = devtools.get(view_session);
+      if (tool !== undefined) {
+        // 따로 뜬 창에 있는 동안 project 창의 자리는 쓰지 않는다.
+        return tool.inWindow
+          ? { ok: true as const, value: { generation: tool.generation } }
+          : devPlacement.setBounds(tool, bounds, layer);
+      }
       const entry = entries.get(view_session);
       return entry === undefined
         ? notOpen()
@@ -362,11 +482,19 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     },
 
     hide(view_session: string) {
+      const tool = devtools.get(view_session);
+      if (tool !== undefined) {
+        return tool.inWindow
+          ? { ok: true as const, value: { generation: tool.generation } }
+          : devPlacement.hide(tool);
+      }
       const entry = entries.get(view_session);
       return entry === undefined ? notOpen() : placement.hide(entry);
     },
 
     close(view_session: string): void {
+      const tool = devtools.get(view_session);
+      if (tool !== undefined) closeDevtools(tool, false);
       const entry = entries.get(view_session);
       if (entry !== undefined) dispose(entry);
     },
@@ -382,6 +510,9 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     },
 
     closeWindow(window: string): void {
+      for (const tool of [...devtools.values()]) {
+        if (tool.window === window) closeDevtools(tool, false);
+      }
       for (const entry of [...entries.values()]) {
         if (entry.window === window) dispose(entry);
       }
@@ -391,6 +522,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     },
 
     dispose(): void {
+      for (const tool of [...devtools.values()]) closeDevtools(tool, false);
       for (const entry of [...entries.values()]) dispose(entry);
       guests.clear();
     },

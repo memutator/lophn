@@ -6,6 +6,7 @@ import {
   type Event as ElectronEvent,
   type HandlerDetails,
   type WebContents,
+  webContents as electronContents,
   WebContentsView,
   type WindowOpenHandlerResponse,
 } from "electron";
@@ -19,7 +20,9 @@ import type {
   BrowserHooks,
   BrowserPage,
   BrowserViewHost,
+  DevtoolsContents,
 } from "./registry.ts";
+import { openDevtoolsView } from "./devtools.ts";
 import { decideNavigation } from "./navigation.ts";
 import { faviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
@@ -221,7 +224,6 @@ export function electronBrowserViews(
       back: () => contents.navigationHistory.goBack(),
       forward: () => contents.navigationHistory.goForward(),
       reload: () => contents.reload(),
-      inspect: () => contents.openDevTools({ mode: "detach" }),
       destroy() {
         if (release === undefined) return;
         release();
@@ -237,8 +239,30 @@ export function electronBrowserViews(
   return {
     guest: (contents, hooks) => adapt(contents, hooks),
     hasWindow: (ref) => live(ref) !== undefined,
+    devtools(page, gone) {
+      const target = electronContents.fromId(page.id);
+      if (target === undefined || target.isDestroyed()) return undefined;
+      const opened = openDevtoolsView({
+        target,
+        packaged: input.packaged,
+        headless: input.headless,
+        onGone: gone,
+      });
+      const adapter: DevtoolsContents = {
+        id: opened.view.webContents.id,
+        // DevTools frontend는 Electron이 load한다.
+        load: () => Promise.resolve(),
+        toWindow: opened.toWindow,
+        destroy() {
+          native.delete(adapter);
+          opened.destroy();
+        },
+      };
+      native.set(adapter, opened.view);
+      return adapter;
+    },
     create(hooks) {
-      // crash한 native popup을 다시 열 때 쓴다. browser view만 packaged에서도 DevTools를 연다(Inspect).
+      // crash한 native popup을 다시 열 때 쓴다. browser view만 packaged에서도 DevTools를 연다.
       return wrap(
         new WebContentsView(surfaceOptions({
           webPreferences: {

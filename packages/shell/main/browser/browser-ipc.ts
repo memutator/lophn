@@ -5,9 +5,15 @@ import {
   BROWSER_ADOPT_CHANNEL,
   BROWSER_CLEAR_DATA_CHANNEL,
   BROWSER_COMMAND_CHANNEL,
+  BROWSER_DEVTOOLS_CLOSE_CHANNEL,
+  BROWSER_DEVTOOLS_OPEN_CHANNEL,
+  BROWSER_DEVTOOLS_WINDOW_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
   browserAdoptSchema,
   browserCommandSchema,
+  browserDevtoolsCloseSchema,
+  browserDevtoolsOpenSchema,
+  browserDevtoolsWindowSchema,
   browserNavigateSchema,
   type BrowserReply,
   type BrowserViewState,
@@ -27,7 +33,13 @@ interface BrowserIpcDeps {
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<
     BrowserViews,
-    "adopt" | "navigate" | "command" | "reloadAll"
+    | "adopt"
+    | "navigate"
+    | "command"
+    | "reloadAll"
+    | "openDevtools"
+    | "closeDevtools"
+    | "devtoolsWindow"
   >;
   /** installBrowserSession이 돌려준 것. */
   clearData(): Promise<void>;
@@ -44,6 +56,12 @@ interface BrowserIpcHandlers {
   ): Promise<BrowserReply<BrowserViewState>>;
   command(event: IpcEvent, input: unknown): Promise<BrowserReply<null>>;
   clearData(event: IpcEvent): Promise<BrowserReply<null>>;
+  devtoolsOpen(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<BrowserReply<{ devtools_session: string }>>;
+  devtoolsClose(event: IpcEvent, input: unknown): Promise<BrowserReply<null>>;
+  devtoolsWindow(event: IpcEvent, input: unknown): Promise<BrowserReply<null>>;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -92,11 +110,46 @@ export function createBrowserIpc(deps: BrowserIpcDeps): BrowserIpcHandlers {
       if (!window.ok) return Promise.resolve(window);
       const checked = checkInput(browserCommandSchema, input);
       if (!checked.ok) return Promise.resolve(checked);
+      const { command } = checked.value;
+      // DevTools는 devtools channel이 연다.
+      if (command !== "back" && command !== "forward" && command !== "reload") {
+        return Promise.resolve({
+          ok: false,
+          error: { code: "invalid_input", message: "use the devtools channel" },
+        });
+      }
       return Promise.resolve(
-        deps.views.command(
+        deps.views.command(window.value, checked.value.view_session, command),
+      );
+    },
+    devtoolsOpen(event, input) {
+      const window = callerWindow(event);
+      if (!window.ok) return Promise.resolve(window);
+      const checked = checkInput(browserDevtoolsOpenSchema, input);
+      if (!checked.ok) return Promise.resolve(checked);
+      return Promise.resolve(
+        deps.views.openDevtools(window.value, checked.value.view_session),
+      );
+    },
+    devtoolsClose(event, input) {
+      const window = callerWindow(event);
+      if (!window.ok) return Promise.resolve(window);
+      const checked = checkInput(browserDevtoolsCloseSchema, input);
+      if (!checked.ok) return Promise.resolve(checked);
+      return Promise.resolve(
+        deps.views.closeDevtools(window.value, checked.value.devtools_session),
+      );
+    },
+    devtoolsWindow(event, input) {
+      const window = callerWindow(event);
+      if (!window.ok) return Promise.resolve(window);
+      const checked = checkInput(browserDevtoolsWindowSchema, input);
+      if (!checked.ok) return Promise.resolve(checked);
+      return Promise.resolve(
+        deps.views.devtoolsWindow(
           window.value,
-          checked.value.view_session,
-          checked.value.command,
+          checked.value.devtools_session,
+          checked.value.window,
         ),
       );
     },
@@ -130,6 +183,9 @@ const CHANNELS = [
   [BROWSER_NAVIGATE_CHANNEL, "navigate"],
   [BROWSER_COMMAND_CHANNEL, "command"],
   [BROWSER_CLEAR_DATA_CHANNEL, "clearData"],
+  [BROWSER_DEVTOOLS_OPEN_CHANNEL, "devtoolsOpen"],
+  [BROWSER_DEVTOOLS_CLOSE_CHANNEL, "devtoolsClose"],
+  [BROWSER_DEVTOOLS_WINDOW_CHANNEL, "devtoolsWindow"],
 ] as const;
 
 export function registerBrowserIpc(

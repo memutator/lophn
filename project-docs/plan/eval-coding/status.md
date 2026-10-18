@@ -19,3 +19,5 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-fix-roots` | ec-fix-roots | 5 | 없음 | merged | ec-fix-roots/ec-fix-roots | 572b7b9f0 |  |
 | `ec-fix-source` | ec-fix-source | 5 | 없음 | merged | ec-fix-source/ec-fix-source | 8e1170e19 |  |
 | `ec-fix-trust` | ec-fix-trust | 5 | 없음 | merged | ec-fix-trust/ec-fix-trust | b99249651 |  |
+| `ec-fix-apptest` | ec-fix-apptest | 6 | 없음 | todo |  |  |  |
+| `ec-fix-callid` | ec-fix-callid | 6 | 없음 | todo |  |  |  |

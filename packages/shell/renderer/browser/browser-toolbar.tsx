@@ -1,7 +1,7 @@
 // browser 탭 위쪽 줄: 뒤로·앞으로·새로 고침, 주소 칸, 별, bookmark menu, [Open in browser], overflow menu.
 // 단추는 오른쪽 끝 고정 열에 둔다. 아이콘은 icons/browser.ts만 쓴다.
 // Ctrl/Cmd+D는 focus가 page에 있으면 main이 event로 보내고(`bookmarkKey`), toolbar에 있으면 여기서 받는다.
-import { useId, useState } from "react";
+import { type MouseEventHandler, useId, useState } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
 import { IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
@@ -13,6 +13,7 @@ import { browserIcons } from "../icons/mod.ts";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
 import { BookmarkStar } from "./bookmark-star.tsx";
 import type { Bookmarks } from "./bookmarks.ts";
+import { useOverlayMenu } from "./overlay-menu.ts";
 import styles from "./browser-tab.module.css";
 
 interface BrowserToolbarProps {
@@ -32,7 +33,7 @@ interface BrowserToolbarProps {
   onNavigate(url: string): void;
   /** 열 때 주소 칸에 focus를 둔다(빈 주소로 연 새 탭). */
   focusAddress: boolean;
-  /** menu와 별 popover가 열려 있는 동안 native view가 가리지 않도록 탭이 view를 숨긴다. */
+  /** DOM menu와 별 popover가 열려 있는 동안 native view가 가리지 않도록 탭이 view를 숨긴다. overlay menu는 view 위에 그려져 부르지 않는다. */
   onMenuOpenChange(open: boolean): void;
 }
 
@@ -42,6 +43,8 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
   // null이면 사람이 고치는 중이 아니라 현재 url을 그대로 보인다.
   const [draft, setDraft] = useState<string | null>(null);
   const [keyPresses, setKeyPresses] = useState(0);
+  // overlay가 없는 창(dev mock, gallery)이면 null이고, menu는 DOM으로 그린다.
+  const openMenu = useOverlayMenu();
 
   const command = (name: "back" | "forward" | "reload" | "inspect") => {
     if (viewSession === null) return;
@@ -61,6 +64,21 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
     }).lophnShell;
     void shell?.openExternal?.(state.url);
   };
+
+  const inspect = {
+    id: "inspect",
+    label: t("browser.button.inspect"),
+    leading: <MenuIcon icon={browserIcons.inspect} />,
+    disabled: viewSession === null,
+  };
+  const moreButton = (onClick?: MouseEventHandler<HTMLButtonElement>) => (
+    <IconButton
+      icon={browserIcons.more}
+      label={t("browser.button.more")}
+      size="sm"
+      onClick={onClick}
+    />
+  );
 
   return (
     <div
@@ -135,6 +153,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
       <BookmarkMenu
         bookmarks={props.bookmarks}
         viewSession={viewSession}
+        openMenu={openMenu}
         open={props.onNavigate}
         onOpenChange={props.onMenuOpenChange}
       />
@@ -145,24 +164,29 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
         disabled={state.url === ""}
         onClick={openExternal}
       />
-      <Menu
-        items={[{
-          id: "inspect",
-          label: t("browser.button.inspect"),
-          leading: <MenuIcon icon={browserIcons.inspect} />,
-          disabled: viewSession === null,
-        }]}
-        onSelect={() => command("inspect")}
-        onOpenChange={props.onMenuOpenChange}
-        placement="beside"
-        trigger={
-          <IconButton
-            icon={browserIcons.more}
-            label={t("browser.button.more")}
-            size="sm"
+      {openMenu === null
+        ? (
+          <Menu
+            items={[inspect]}
+            onSelect={() => command("inspect")}
+            onOpenChange={props.onMenuOpenChange}
+            placement="beside"
+            trigger={moreButton()}
           />
-        }
-      />
+        )
+        : moreButton((event) => {
+          void openMenu(
+            event.currentTarget,
+            t("browser.button.more"),
+            [{
+              id: inspect.id,
+              label: inspect.label,
+              disabled: inspect.disabled,
+            }],
+          ).then((picked) => {
+            if (picked === inspect.id) command("inspect");
+          });
+        })}
     </div>
   );
 }

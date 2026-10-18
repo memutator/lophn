@@ -53,7 +53,10 @@ import {
 import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
-import { BrowserApiProvider } from "../browser/browser-api.tsx";
+import {
+  BrowserApiProvider,
+  BrowserOverlayProvider,
+} from "../browser/browser-api.tsx";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
@@ -168,33 +171,35 @@ mount(
   <div className={styles.root}>
     <AppViewsProvider value={appViews}>
       <BrowserApiProvider value={browser}>
-        <ConversationProvider deps={conversation}>
-          <EventsProvider client={events}>
-            <Desktop
-              source={core}
-              initial={start}
-              workspace={workspace}
-              editor={bench ? bench.editor : editor}
-              windowWidth={seed ? 1440 : undefined}
-              terminal={terminal}
-              catalog={catalog}
-              palette={palette}
-              projects={projects}
-              intents={bridges.lophnIntents}
-              apps={apps}
-              settings={settings}
-              settingsPanels={settingsPanels}
-              issues={issues}
-              appDetail={appDetail}
-              views={views}
-              annotate={annotate}
-              overlay={bridges.lophnShell}
-              feedback={feedback}
-              instructions={mock?.instructions ?? windowInstructionsSource()}
-              agentViewSource={agentViewSource}
-            />
-          </EventsProvider>
-        </ConversationProvider>
+        <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
+          <ConversationProvider deps={conversation}>
+            <EventsProvider client={events}>
+              <Desktop
+                source={core}
+                initial={start}
+                workspace={workspace}
+                editor={bench ? bench.editor : editor}
+                windowWidth={seed ? 1440 : undefined}
+                terminal={terminal}
+                catalog={catalog}
+                palette={palette}
+                projects={projects}
+                intents={bridges.lophnIntents}
+                apps={apps}
+                settings={settings}
+                settingsPanels={settingsPanels}
+                issues={issues}
+                appDetail={appDetail}
+                views={views}
+                annotate={annotate}
+                overlay={bridges.lophnShell}
+                feedback={feedback}
+                instructions={mock?.instructions ?? windowInstructionsSource()}
+                agentViewSource={agentViewSource}
+              />
+            </EventsProvider>
+          </ConversationProvider>
+        </BrowserOverlayProvider>
       </BrowserApiProvider>
     </AppViewsProvider>
   </div>,

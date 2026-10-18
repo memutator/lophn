@@ -9,12 +9,15 @@ import type { FrozenTest } from "../../../../protocol/problems/mod.ts";
 import { canonicalHash, canonicalJson } from "../canonical.ts";
 import {
   CHECK_DEFINITIONS_VERSION,
+  EXAMPLES_CHECK,
   REQUIRED_CHECKS,
 } from "../harness/definitions.ts";
+import type { HarnessExample } from "../harness/driver.ts";
 import { type BundleDependency, dependenciesHash } from "./generate.ts";
 
 const APP_TEST_TIMEOUT_MS = 240_000;
 const EXPECTED_TEXT = "every required check passes";
+const EXAMPLES_EXPECTED_TEXT = "every example matches";
 const ENVIRONMENT_TEXT = "problems/tests runner environment";
 
 type BundleFacts = {
@@ -87,6 +90,7 @@ export async function readBundleFacts(
 export async function deriveAppTest(
   bundle: string,
   bundleHash: string,
+  options: { examples?: readonly HarnessExample[] } = {},
 ): Promise<DeriveResult> {
   const read = await readBundleFacts(bundle);
   if (!read.ok) return read;
@@ -110,11 +114,23 @@ export async function deriveAppTest(
       code: store(
         encode(canonicalJson({ kind: "bundle", bundle_hash: bundleHash })),
       ),
-      input: store(encode(canonicalJson({
-        version: CHECK_DEFINITIONS_VERSION,
-        checks: REQUIRED_CHECKS,
-      }))),
-      expected: store(encode(EXPECTED_TEXT)),
+      // 예시 검증 실행은 예시를 고정 입력에 넣어, 요청한 쪽과 runner가 같은 예시를 돌리게 한다.
+      input: store(encode(canonicalJson(
+        options.examples === undefined
+          ? { version: CHECK_DEFINITIONS_VERSION, checks: REQUIRED_CHECKS }
+          : {
+            version: CHECK_DEFINITIONS_VERSION,
+            checks: [EXAMPLES_CHECK],
+            examples: options.examples,
+          },
+      ))),
+      expected: store(
+        encode(
+          options.examples === undefined
+            ? EXPECTED_TEXT
+            : EXAMPLES_EXPECTED_TEXT,
+        ),
+      ),
       method: {
         argv: ["test", "child_test.ts"],
         cwd: ".",

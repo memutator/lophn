@@ -10,6 +10,7 @@ import {
   readBundleFacts,
   serveRpc,
 } from "../mod.ts";
+import type { HarnessExample } from "../harness/mod.ts";
 import { createRealAppDriver, type RealDriverInput } from "./app-driver.ts";
 import { acceptAppTest, platformMemory } from "./runner-core.ts";
 
@@ -30,6 +31,8 @@ export type AppTestJob = {
   dependencies_hash: string;
   // 이전 release의 data schema(없으면 null).
   previous_schema: number | null;
+  // 있으면 ticket의 예시를 검증하는 실행이다(예시 검사만 돈다).
+  examples?: HarnessExample[];
   timeout_ms: number;
   // 접수한 요청의 실행 기한(RequestTest `timeout_ms`)이다. 동결 method의 timeout_ms보다 길어지지 않는다(짧은 쪽).
   request_timeout_ms?: number;
@@ -110,6 +113,7 @@ export async function runAppTestJob(
     dependencies: facts.dependencies,
     imports: facts.imports,
     frozen: { sdk_dependencies: job.dependencies_hash },
+    ...(job.examples === undefined ? {} : { examples: job.examples }),
   };
   const plan = generateAppTestChecks(input);
 

@@ -7,8 +7,9 @@ import type {
 } from "./driver.ts";
 import type { MigrationScenario } from "./driver.ts";
 import type { Emitter } from "./emit.ts";
+import { examples } from "./examples.ts";
 
-type Verdict = {
+export type Verdict = {
   met: boolean;
   reason: string;
   evidence: Record<string, unknown>;
@@ -153,6 +154,8 @@ function run(name: string, input: ChecksInput): Promise<Verdict> {
       return blueprintHandlerMatch(driver, plan);
     case "rewind":
       return rewind(driver, plan);
+    case "examples":
+      return examples(driver, plan);
     case "migration_empty":
       return migration(driver, plan, "empty");
     case "migration_upgrade":

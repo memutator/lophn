@@ -7,7 +7,11 @@ import {
   coverageOf,
   definitionOf,
 } from "../harness/definitions.ts";
-import type { HarnessPlan, HarnessPlanCheck } from "../harness/driver.ts";
+import type {
+  HarnessExample,
+  HarnessPlan,
+  HarnessPlanCheck,
+} from "../harness/driver.ts";
 
 type Precomputed = {
   status: "pass" | "fail" | "inconclusive";
@@ -48,6 +52,8 @@ export type AppTestInput = {
   imports: Readonly<Record<string, string>>;
   // FrozenTest.sdk_dependencies. 의존 목록의 hash와 같아야 한다.
   frozen: { sdk_dependencies: string };
+  // 있으면 ticket의 예시를 검증하는 실행이다. 예시 검사만 required이다.
+  examples?: readonly HarnessExample[];
 };
 
 export function dependenciesHash(
@@ -88,7 +94,10 @@ const REASONS: Record<CheckName, string> = {
   migration_upgrade: "이전 release schema에서 새 schema로 migration되는지",
   rewind:
     "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지",
+  examples: "ticket의 예시마다 app-api 호출 결과가 기대와 맞는지",
 };
+
+const EXAMPLES_RUN = "예시 검증 실행이다";
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const REGISTRY_IMPORT = /^(npm|jsr):(@[^/@]+\/[^/@]+|[^/@]+)@([^/]+)/;
@@ -170,14 +179,22 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
       applies ? precomputed : null,
     ));
 
-  add("blueprint_handler_match", true, "", null);
-  add("dependencies", true, "", checkDependencies(input));
+  const verifying = input.examples !== undefined;
+  add("blueprint_handler_match", !verifying, EXAMPLES_RUN, null);
+  add("dependencies", !verifying, EXAMPLES_RUN, checkDependencies(input));
   const usesData = input.data.schema > 0;
-  add("migration_empty", usesData, "DB를 쓰지 않는 앱(schema 0)이다", null);
+  add(
+    "migration_empty",
+    !verifying && usesData,
+    verifying ? EXAMPLES_RUN : "DB를 쓰지 않는 앱(schema 0)이다",
+    null,
+  );
   add(
     "migration_upgrade",
-    usesData && input.data.previous_schema !== null,
-    usesData
+    !verifying && usesData && input.data.previous_schema !== null,
+    verifying
+      ? EXAMPLES_RUN
+      : usesData
       ? "이전 release가 없어 이전 schema가 없다"
       : "DB를 쓰지 않는 앱(schema 0)이다",
     null,
@@ -185,7 +202,13 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
   const writes = input.app_api.filter((api) => api.effect === "write").map((
     api,
   ) => api.key);
-  add("rewind", writes.length > 0, "write app-api가 선언되지 않았다", null);
+  add(
+    "rewind",
+    !verifying && writes.length > 0,
+    verifying ? EXAMPLES_RUN : "write app-api가 선언되지 않았다",
+    null,
+  );
+  add("examples", verifying, "예시 검증이 아닌 실행이다", null);
 
   const harness: HarnessPlan = {
     bundle_hash: input.bundle_hash,
@@ -193,6 +216,7 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
     app_api: input.app_api.map((api) => api.key),
     write_api: writes,
     data: input.data,
+    examples: [...(input.examples ?? [])],
     checks: checks.filter((check) => check.source === "harness").map((
       { precomputed: _precomputed, coverage: _coverage, ...rest },
     ) => rest),

@@ -11,6 +11,7 @@ export {
 export type {
   AppDriver,
   Attestation,
+  HarnessExample,
   HarnessPlan,
   HarnessPlanCheck,
   MigrationScenario,

@@ -4,7 +4,7 @@ import { canonicalize } from "../../../../base/mod.ts";
 // 앱 test의 필수 검사 정의. runner의 불변 설치 자료이고 앱 bundle이 고칠 수 없다.
 // 검사마다 정의 digest가 있고 test 자식은 관측 frame의 actual에 그 digest를 실어 보낸다.
 // runner가 설치 자료의 digest와 다르면 검사가 바뀐 것으로 본다.
-export const CHECK_DEFINITIONS_VERSION = 1;
+export const CHECK_DEFINITIONS_VERSION = 2;
 
 export const REQUIRED_CHECKS = [
   // 선언한 app-api와 앱이 등록한 handler가 같고, 선언한 입력 계약을 어긴 입력은 거절된다.
@@ -16,7 +16,12 @@ export const REQUIRED_CHECKS = [
   // write app-api를 부른 뒤 core가 그 invocation의 changeset을 뒤집어 적용하면 DB 상태가 부르기 전과 같다.
   "rewind",
 ] as const;
-export type CheckName = (typeof REQUIRED_CHECKS)[number];
+// ticket의 app-api 예시를 순서대로 불러 견주는 검사. 예시 검증 실행에서만 required이고 REQUIRED_CHECKS와
+// 따로 돈다.
+export const EXAMPLES_CHECK = "examples";
+export type CheckName =
+  | (typeof REQUIRED_CHECKS)[number]
+  | typeof EXAMPLES_CHECK;
 
 // runner가 blueprint와 bundle 파일만으로 판정하는 검사와, test 자식이 앱을 구동해 판정하는 검사.
 type CheckSource = "runner" | "harness";
@@ -29,6 +34,7 @@ const SOURCES: Record<CheckName, CheckSource> = {
   migration_empty: "harness",
   migration_upgrade: "harness",
   rewind: "harness",
+  examples: "harness",
 };
 
 export function checkDigest(definition: CheckDefinition): string {
@@ -82,6 +88,11 @@ const COVERAGE: Record<CheckName, CheckCoverage> = {
       "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 업무 상태가 부르기 전과 같다",
     ],
     input_range: "write app-api마다 호출 1회와 rewind 1회",
+  },
+  examples: {
+    criteria: ["예시마다 app-api 호출 결과가 기대와 맞는다"],
+    input_range:
+      "ticket에 적힌 예시 순서대로, 빈 DB에서 시작한 같은 앱 process",
   },
 };
 

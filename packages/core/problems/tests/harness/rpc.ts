@@ -7,7 +7,7 @@ import type { AppDriver, Attestation } from "./driver.ts";
 const RPC_DIR = "rpc";
 const POLL_MS = 15;
 // 자식이 부를 수 있는 AppDriver 방법. runner 쪽 driver의 그 밖의 방법은 자식에 닿지 않는다.
-const METHODS = ["probe", "rejectsInvalidInput", "rewind", "migrate"];
+const METHODS = ["probe", "rejectsInvalidInput", "rewind", "call", "migrate"];
 
 type Request = { n: number; method: string; args: unknown[] };
 type Response =
@@ -50,6 +50,7 @@ export function rpcDriver(scratch: string): AppDriver {
     probe: () => call<Attestation>("probe"),
     rejectsInvalidInput: (api) => call<boolean>("rejectsInvalidInput", api),
     rewind: (api) => call("rewind", api),
+    call: (api, input) => call("call", api, input),
     migrate: (scenario) => call("migrate", scenario),
   };
 }

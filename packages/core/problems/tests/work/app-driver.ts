@@ -533,6 +533,38 @@ export async function createRealAppDriver(
           : "뒤집어 적용하니 호출 전 상태로 돌아왔다",
       };
     },
+    async call(api, value) {
+      const declaration = input.blueprint.app_api.find((item) =>
+        item.key === api
+      );
+      if (!declaration) return { status: "error", code: "not_found" };
+      await probeAttestation();
+      // rpc가 undefined를 null로 옮기므로 입력이 없는 app-api에는 null도 입력 없음으로 본다.
+      const omit = value === undefined ||
+        (value === null && declaration.input === null);
+      const answered = await control("/_lophn/control/call", {
+        invocation: ids.newId("inv"),
+        api,
+        ...(omit ? {} : { input: value }),
+        context: {
+          app: APP_ID,
+          release: null,
+          mode: "test",
+          project: null,
+          effect: declaration.effect,
+          caller: null,
+        },
+      });
+      const body = answered.body as {
+        status?: string;
+        result?: unknown;
+        error?: { code?: string };
+      } | null;
+      if (answered.status === 200 && body?.status === "ok") {
+        return { status: "ok", result: body.result };
+      }
+      return { status: "error", code: body?.error?.code ?? "internal" };
+    },
     async migrate(scenario) {
       migrations += 1;
       const area = `${work}/migration-${migrations}`;

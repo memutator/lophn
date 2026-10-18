@@ -35,6 +35,13 @@ export type RewindRun = {
   reason: string;
 };
 
+export type CallOutcome =
+  | { status: "ok"; result: unknown }
+  | { status: "error"; code: string };
+
+// ticket의 app-api 예시 하나. 호출이 성공하면 그 result가 expect와 맞아야 한다.
+export type HarnessExample = { api: string; input?: unknown; expect: unknown };
+
 // test 앱 자식을 실제 진입점으로 구동하는 쪽(runner)이 test 자식에 주는 통로다.
 // harness는 앱 code를 import하지 않고 이 통로로만 만진다.
 export type AppDriver = {
@@ -43,6 +50,8 @@ export type AppDriver = {
   rejectsInvalidInput(api: string): Promise<boolean>;
   // write app-api를 불러 changeset을 뒤집어 적용하고 DB 상태를 호출 전과 견준다.
   rewind(api: string): Promise<RewindRun>;
+  // app-api를 이 입력으로 불러 결과를 돌려준다. 앞선 호출이 만든 data는 뒤 호출에 보인다.
+  call(api: string, input: unknown): Promise<CallOutcome>;
   // 고정 fixture DB의 migration. 빈 DB 전체와 이전 release schema → 새 schema다.
   migrate(scenario: MigrationScenario): Promise<MigrationRun>;
 };
@@ -64,4 +73,6 @@ export type HarnessPlan = {
   // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema.
   data: { schema: number; previous_schema: number | null };
   checks: HarnessPlanCheck[];
+  // 예시 검증 실행의 예시. 아니면 빈 목록이다.
+  examples: HarnessExample[];
 };

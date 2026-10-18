@@ -18,7 +18,6 @@ import {
   readOf,
   TEXT_MAX_BYTES,
   type ToolDefinition,
-  unavailable,
 } from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
 import { packagePublishInputSchema } from "../../../protocol/apps/package-routes.ts";
@@ -46,21 +45,6 @@ function cutBytes(text: string): { text: string; truncated: boolean } {
   if (bytes.byteLength <= TEXT_MAX_BYTES) return { text, truncated: false };
   const cut = new TextDecoder().decode(bytes.slice(0, TEXT_MAX_BYTES));
   return { text: cut.replace(/\uFFFD$/, ""), truncated: true };
-}
-
-// 앱 source의 HEAD commit. git이 못 읽으면 null이다.
-async function headOf(source: string): Promise<string | null> {
-  try {
-    const out = await new Deno.Command("git", {
-      args: ["-C", source, "rev-parse", "HEAD"],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
-    const head = new TextDecoder().decode(out.stdout).trim();
-    return out.code === 0 && /^[0-9a-f]{40}$/.test(head) ? head : null;
-  } catch {
-    return null;
-  }
 }
 
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
@@ -159,7 +143,6 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "package.publish",
     input: packagePublishInputSchema.omit({
-      commit: true,
       key: true,
       path: true,
     }).extend({ path: sourceRelativePathSchema }),
@@ -171,13 +154,11 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       const rest = input;
       const app = await readOf(ctx.core, appGet, { app: rest.app });
       if (!app.ok) return app;
-      const source = app.value.app.source_path;
-      if (source === null) return invalid("the app has no source folder");
-      const commit = await headOf(source);
-      if (commit === null) return unavailable("the app source has no commit");
+      if (app.value.app.source_path === null) {
+        return invalid("the app has no source folder");
+      }
       const published = await readOf(ctx.core, packagePublish, {
         ...rest,
-        commit,
         key: ctx.tool_call,
       });
       if (!published.ok) return published;

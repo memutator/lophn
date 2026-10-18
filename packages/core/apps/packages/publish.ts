@@ -76,9 +76,22 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     }
     const source = await deps.sourceRootOf(input.app);
     if (!source.ok) return source;
-    const extracted = await extractCommit(deps.git ?? gitCommandRunner(), {
+    // agent runtime child는 git을 못 띄우므로 HEAD도 core가 읽는다.
+    const git = deps.git ?? gitCommandRunner();
+    const head = await git.run(["-C", source.value, "rev-parse", "HEAD"]);
+    if (!head.ok) {
+      return err({
+        code: "unavailable",
+        message: "cannot read HEAD of the app source (is anything committed?)",
+      });
+    }
+    const commit = new TextDecoder().decode(head.value).trim();
+    if (!/^[0-9a-f]{40}$/.test(commit)) {
+      return invalid("the app source HEAD is not a commit");
+    }
+    const extracted = await extractCommit(git, {
       sourceRoot: source.value,
-      commit: input.commit,
+      commit,
     });
     if (!extracted.ok) {
       const reason = extracted.error.reason;

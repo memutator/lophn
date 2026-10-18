@@ -62,7 +62,7 @@ export const packageRegisterVersion = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict"],
 });
 
-// App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. commit에서 파일을 읽는 I/O라 memory route이고,
+// App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
 export const packagePublishInputSchema = z.strictObject({
   app: appIdSchema,
@@ -74,8 +74,7 @@ export const packagePublishInputSchema = z.strictObject({
     (value) => !/[\r\n]/.test(value),
     { message: "description must be a single line" },
   ),
-  commit: z.string().regex(/^[0-9a-f]{40}$/),
-  // commit 안의 package 폴더.
+  // 앱 source HEAD commit 안의 package 폴더.
   path: relativePathSchema,
   guide: z.strictObject({
     purpose: z.string().regex(/\S/),

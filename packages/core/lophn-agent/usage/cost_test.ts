@@ -26,10 +26,11 @@ function basis(
   };
 }
 
-// 같은 call을 OpenAI 계열은 input에 cache를 포함해, Anthropic은 따로 보고한다.
+// adapter는 저장 전에 input에서 cache를 뺀다. OpenAI 계열(`cache_in_input: true`)도 Anthropic(`false`)도
+// 저장된 input은 새 입력뿐이다.
 function usage(cacheInInput: boolean): TokenUsage {
   return {
-    input: cacheInInput ? 211_000 : 1_000,
+    input: 1_000,
     output: 500,
     cache_read: 200_000,
     cache_write: 10_000,
@@ -40,7 +41,7 @@ function usage(cacheInInput: boolean): TokenUsage {
   };
 }
 
-Deno.test("cache는 두 번 세지 않고 각자 요율로 센다", () => {
+Deno.test("저장된 input에서 cache를 다시 빼지 않고 cache는 각자 요율로 센다", () => {
   const distinct = basis({ read: "0.3", write: "3.75" });
   // 0.003 + 0.06 + 0.0375 + 0.0075
   assertEquals(estimatedCost(usage(true), distinct).amount, "0.108");

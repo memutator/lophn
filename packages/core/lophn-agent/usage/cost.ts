@@ -61,8 +61,8 @@ function decimalMulDiv(tokens: bigint, rate: string): string {
 }
 
 // 그 call의 과금 token 구간. 새 입력, cache 읽기, cache 쓰기는 각자 요율로 센다(없는 cache 요율은 input 요율).
-// `cache_in_input`이 true인 protocol(OpenAI 계열)은 input에 cache가 이미 들어 있어 빼고, false나 null이면
-// input을 그대로 새 입력으로 본다. 그래서 cache가 한 번만 센다.
+// 저장된 input은 adapter가 이미 cache를 뺀 새 입력이다. `cache_in_input`은 provider가 원래 어떻게 세는지를 적은
+// 표시라 여기서 다시 빼지 않는다(빼면 OpenAI 계열의 cache가 두 번 빠진다).
 type ChargedTokens = {
   input: bigint | null;
   cacheRead: bigint;
@@ -74,15 +74,7 @@ type ChargedTokens = {
 function chargedTokens(usage: TokenUsage): ChargedTokens {
   const cacheRead = BigInt(usage.cache_read ?? 0);
   const cacheWrite = BigInt(usage.cache_write ?? 0);
-  let input: bigint | null = null;
-  if (usage.input !== null) {
-    input = BigInt(usage.input);
-    if (usage.cache_in_input === true) {
-      input = input > cacheRead + cacheWrite
-        ? input - cacheRead - cacheWrite
-        : 0n;
-    }
-  }
+  const input = usage.input === null ? null : BigInt(usage.input);
   const output = usage.output === null ? null : BigInt(usage.output);
   const reasoning = usage.reasoning === null ? null : BigInt(usage.reasoning);
   return { input, cacheRead, cacheWrite, output, reasoning };

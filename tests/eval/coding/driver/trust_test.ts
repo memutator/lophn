@@ -3,14 +3,26 @@ import { trustKeys } from "./trust.ts";
 
 // 엉뚱한 화면에 Enter를 넣으면 사람의 권한 물음에 답해 버린다.
 Deno.test("trustKeys picks Yes only on the folder trust screen", () => {
-  const trust = `Accessing workspace: /tmp/lophn-eval/app
+  // 첫 진짜 run의 tail. plain()을 거치면 공백이 없다.
+  const trust = `
+────────────────────────────────────────────────────────────────────────────────
+Accessingworkspace:
 
-Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source project, or work from your team).
+/tmp/lophn-eval/lophn-e2e-bd454300a2b24901/work/calendar
 
-❯ 1. No, exit
-  2. Yes, I trust this folder
+Quicksafetycheck:Isthisaprojectyoucreatedoroneyoutrust?(Likeyour
+owncode,awell-knownopensourceproject,orworkfromyourteam).Ifnot,
+takeamomenttoreviewwhat'sinthisfolderfirst.
 
-Enter to confirm · Esc to cancel`;
+ClaudeCode'llbeabletoread,edit,andexecutefileshere.
+
+Securityguide
+
+❯No,exit
+Yes,Itrustthisfolder
+
+Entertoconfirm·Esctocancel
+`;
   const prompt = `╭──────────────────╮
 │ > Try "fix lint errors"
 ╰──────────────────╯

@@ -237,6 +237,7 @@ export function startCodingDriver(deps: DriverDeps): CodingDriver {
       command_log: `${deps.outDir}/commands-${plan.session}.log`,
       attach_socket: "",
       human_input: false,
+      trust_answered: false,
       opened_at: null,
       reported_at: null,
       ended_at: null,

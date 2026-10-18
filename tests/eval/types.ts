@@ -272,6 +272,7 @@ export type CodingTrace = {
   command_log: string; // `lophn` wrapper 기록 file의 절대 경로(아래 형식)
   attach_socket: string; // 사람이 이 session의 화면을 보는 unix socket 경로(`deno task eval:attach`). session이 끝나면 지워진다
   human_input: boolean; // 사람이 `--write`로 붙어 키를 넣었다. 그 trial은 사람이 끼어든 것이다
+  trust_answered: boolean; // driver가 Claude Code의 folder trust 화면에서 "Yes"를 대신 골랐다. 제품 launch plan은 이 화면을 넘기지 못한다
   opened_at: string | null; // open 요청이 ok로 끝난 시각. spawn이 실패하면 null
   reported_at: string | null; // ticket이 reported가 된 것을 처음 본 시각
   ended_at: string | null; // process가 끝난 시각

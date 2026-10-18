@@ -4,5 +4,11 @@
     "name": "core",
     "n": 1,
     "hash": "d8cb1ef8ef1511770ec4c8ce1161dbdfc03121711f9c3544dacb69c5c77d67a9"
+  },
+  {
+    "kind": "core",
+    "name": "core",
+    "n": 2,
+    "hash": "c86724c13a5bb6f1399ddace1faf72794217d672dd38c6c938eca0ec0a06141a"
   }
 ]

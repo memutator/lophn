@@ -4,5 +4,11 @@
     "name": "package.publish",
     "n": 1,
     "hash": "d0da323dce5292065bddfee2c4c4d758fcca1cdfd17d58db0dca8e97f353a204"
+  },
+  {
+    "kind": "tool",
+    "name": "package.publish",
+    "n": 2,
+    "hash": "107885d5299b7acada6cadacca20be2cc0028972dd40ea3ccb59443e75e394e5"
   }
 ]

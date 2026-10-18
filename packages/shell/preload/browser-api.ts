@@ -10,6 +10,9 @@ import {
   BROWSER_ADOPT_CHANNEL,
   BROWSER_CLEAR_DATA_CHANNEL,
   BROWSER_COMMAND_CHANNEL,
+  BROWSER_DEVTOOLS_CLOSE_CHANNEL,
+  BROWSER_DEVTOOLS_OPEN_CHANNEL,
+  BROWSER_DEVTOOLS_WINDOW_CHANNEL,
   BROWSER_EVENT_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
   BROWSER_STATE_CHANNEL,
@@ -85,6 +88,20 @@ export function createBrowserApi(
       clearData: async () => {
         await call<null>(transport, BROWSER_CLEAR_DATA_CHANNEL, undefined);
       },
+      devtools: Object.freeze({
+        open: (input) =>
+          call<{ devtools_session: string }>(
+            transport,
+            BROWSER_DEVTOOLS_OPEN_CHANNEL,
+            input,
+          ),
+        close: async (input) => {
+          await call<null>(transport, BROWSER_DEVTOOLS_CLOSE_CHANNEL, input);
+        },
+        window: async (input) => {
+          await call<null>(transport, BROWSER_DEVTOOLS_WINDOW_CHANNEL, input);
+        },
+      }),
       subscribeState: (listener) =>
         subscribe(
           transport,

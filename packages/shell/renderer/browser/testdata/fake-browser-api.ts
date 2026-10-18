@@ -88,6 +88,12 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
       return Promise.resolve();
     },
     clearData: () => Promise.resolve(),
+    // dev mock·gallery에는 DevTools가 없다.
+    devtools: {
+      open: () => Promise.reject(new Error("unavailable")),
+      close: () => Promise.resolve(),
+      window: () => Promise.resolve(),
+    },
     subscribeState(listener) {
       stateListeners.add(listener);
       return () => stateListeners.delete(listener);

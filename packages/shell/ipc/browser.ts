@@ -17,6 +17,10 @@ export const BROWSER_ADOPT_CHANNEL = "shell:browser-adopt";
 export const BROWSER_NAVIGATE_CHANNEL = "shell:browser-navigate";
 export const BROWSER_COMMAND_CHANNEL = "shell:browser-command";
 export const BROWSER_CLEAR_DATA_CHANNEL = "shell:browser-clear-data";
+// DevTools는 page에 붙인 native view 하나다. 위치는 shell:view-bounds로 온다.
+export const BROWSER_DEVTOOLS_OPEN_CHANNEL = "shell:browser-devtools-open";
+export const BROWSER_DEVTOOLS_CLOSE_CHANNEL = "shell:browser-devtools-close";
+export const BROWSER_DEVTOOLS_WINDOW_CHANNEL = "shell:browser-devtools-window";
 export const BOOKMARKS_LIST_CHANNEL = "shell:bookmarks-list";
 export const BOOKMARKS_ADD_CHANNEL = "shell:bookmarks-add";
 export const BOOKMARKS_UPDATE_CHANNEL = "shell:bookmarks-update";
@@ -35,6 +39,20 @@ export const browserAdoptSchema = z.object({ view_session: viewSession })
 export const browserNavigateSchema = z.object({
   view_session: viewSession,
   input: address,
+}).strict();
+
+// 그 page의 DevTools를 연다. 이미 열려 있으면 conflict다. 답은 DevTools view의 session이다.
+export const browserDevtoolsOpenSchema = z.object({ view_session: viewSession })
+  .strict();
+
+export const browserDevtoolsCloseSchema = z.object({
+  devtools_session: viewSession,
+}).strict();
+
+// true면 DevTools view를 따로 뜬 OS 창으로 옮기고, false면 project 창으로 되돌린다. 연결은 끊기지 않는다.
+export const browserDevtoolsWindowSchema = z.object({
+  devtools_session: viewSession,
+  window: z.boolean(),
 }).strict();
 
 export const browserCommandSchema = z.object({
@@ -104,6 +122,12 @@ export const browserEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("close"), view_session: viewSession }).strict(),
   z.object({ kind: z.literal("bookmark-key"), view_session: viewSession })
     .strict(),
+  // DevTools view나 그 page가 사라졌거나 사람이 따로 뜬 DevTools 창을 닫았다.
+  z.object({
+    kind: z.literal("devtools-closed"),
+    view_session: viewSession,
+    devtools_session: viewSession,
+  }).strict(),
 ]);
 
 export const bookmarkReasonSchema = z.enum([
@@ -120,6 +144,9 @@ export const bookmarkReasonSchema = z.enum([
 export type BrowserAdopt = z.infer<typeof browserAdoptSchema>;
 export type BrowserNavigate = z.infer<typeof browserNavigateSchema>;
 export type BrowserCommand = z.infer<typeof browserCommandSchema>;
+export type BrowserDevtoolsOpen = z.infer<typeof browserDevtoolsOpenSchema>;
+export type BrowserDevtoolsClose = z.infer<typeof browserDevtoolsCloseSchema>;
+export type BrowserDevtoolsWindow = z.infer<typeof browserDevtoolsWindowSchema>;
 export type BookmarkAdd = z.infer<typeof bookmarkAddSchema>;
 export type BookmarkUpdate = z.infer<typeof bookmarkUpdateSchema>;
 export type BookmarkRemove = z.infer<typeof bookmarkRemoveSchema>;
@@ -162,6 +189,11 @@ export interface LophnBrowserApi {
   navigate(input: BrowserNavigate): Promise<BrowserViewState>;
   command(input: BrowserCommand): Promise<void>;
   clearData(): Promise<void>;
+  devtools: {
+    open(input: BrowserDevtoolsOpen): Promise<{ devtools_session: string }>;
+    close(input: BrowserDevtoolsClose): Promise<void>;
+    window(input: BrowserDevtoolsWindow): Promise<void>;
+  };
   subscribeState(listener: (state: BrowserViewState) => void): () => void;
   subscribeEvents(listener: (event: BrowserEvent) => void): () => void;
   bookmarks: {

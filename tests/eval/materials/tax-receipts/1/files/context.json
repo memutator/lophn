@@ -1,0 +1,6 @@
+{
+  "project": "tax",
+  "name": "receipts",
+  "title": "영수증",
+  "purpose": "세무 신고에 쓸 영수증을 모아 본다."
+}

@@ -1,0 +1,25 @@
+[
+  {
+    "place": {
+      "kind": "app",
+      "name": "가계부"
+    },
+    "definition": {
+      "name": "월말정리",
+      "body": "달이 끝나면 가계부 항목을 훑어 빠진 것과 겹친 것을 알려 준다."
+    }
+  },
+  {
+    "place": {
+      "kind": "project",
+      "name": "tax"
+    },
+    "definition": {
+      "name": "세무정리",
+      "body": "영수증 context를 읽어 신고에 쓸 항목을 정리해 알려 준다.",
+      "contexts": [
+        "receipts"
+      ]
+    }
+  }
+]

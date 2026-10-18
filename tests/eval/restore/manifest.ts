@@ -1,0 +1,141 @@
+// 재료는 `tests/eval/materials/<이름>/<n>/`의 `material.json`과 `files/`다. 내용 hash의 정본은 여기다.
+import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { idSchema } from "../../../packages/protocol/base/mod.ts";
+import type { MaterialKind, MaterialManifest } from "../types.ts";
+import { contentHash } from "./hash.ts";
+
+export const MATERIALS_ROOT = new URL("../materials", import.meta.url)
+  .pathname;
+
+export type MaterialFile = { path: string; bytes: Uint8Array };
+export type Material = {
+  ref: string;
+  manifest: MaterialManifest;
+  files: MaterialFile[];
+};
+
+const ID_PREFIX = {
+  app: "app",
+  project: "prj",
+  context: "ctx",
+  operator: "agt",
+} as const satisfies Record<MaterialKind, string>;
+
+export function splitRef(ref: string): { name: string; n: number } {
+  const at = ref.lastIndexOf("@");
+  const n = Number(ref.slice(at + 1));
+  if (at < 1 || !Number.isInteger(n) || n < 1) {
+    throw new Error(`invalid material ref: ${ref}`);
+  }
+  return { name: ref.slice(0, at), n };
+}
+
+async function readFiles(dir: string, prefix = ""): Promise<MaterialFile[]> {
+  const found: MaterialFile[] = [];
+  for await (const entry of Deno.readDir(`${dir}/${prefix}`)) {
+    const path = `${prefix}${entry.name}`;
+    if (entry.isDirectory) found.push(...await readFiles(dir, `${path}/`));
+    else found.push({ path, bytes: await Deno.readFile(`${dir}/${path}`) });
+  }
+  return found.sort((a, b) => a.path < b.path ? -1 : 1);
+}
+
+export async function loadMaterial(
+  root: string,
+  ref: string,
+): Promise<Material> {
+  const { name, n } = splitRef(ref);
+  const dir = `${root}/${name}/${n}`;
+  const manifest = JSON.parse(
+    await Deno.readTextFile(`${dir}/material.json`),
+  ) as MaterialManifest;
+  // 오타를 일찍 잡는다.
+  const prefix = ID_PREFIX[manifest.kind];
+  for (const id of Object.values(manifest.ids)) idSchema(prefix).parse(id);
+  return { ref, manifest, files: await readFiles(`${dir}/files`) };
+}
+
+export async function verifyMaterial(
+  material: Material,
+): Promise<Result<void>> {
+  if (await contentHash(material.files) !== material.manifest.content_hash) {
+    return err({
+      code: "conflict",
+      message: `material ${material.ref} content hash differs`,
+    });
+  }
+  return ok(undefined);
+}
+
+const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
+
+// commit된 재료를 덮어쓰지 않는다.
+export async function writeMaterial(
+  root: string,
+  name: string,
+  n: number,
+  manifest: Omit<MaterialManifest, "content_hash">,
+  files: MaterialFile[],
+): Promise<Result<void>> {
+  const dir = `${root}/${name}/${n}`;
+  try {
+    await Deno.stat(dir);
+    return err({
+      code: "conflict",
+      message: `material ${name}@${n} already exists`,
+    });
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  for (const file of files) {
+    const path = `${dir}/files/${file.path}`;
+    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await Deno.writeFile(path, file.bytes);
+  }
+  const content_hash = await contentHash(files);
+  await Deno.writeTextFile(
+    `${dir}/material.json`,
+    json({ ...manifest, content_hash }),
+  );
+  return ok(undefined);
+}
+
+// needs를 깊이 우선으로 따라 중복 없이 되살릴 순서로 늘어놓는다.
+export async function orderMaterials(
+  root: string,
+  refs: string[],
+): Promise<Result<Material[]>> {
+  const done = new Map<string, Material>();
+  const visiting = new Set<string>();
+  async function visit(ref: string): Promise<Result<void>> {
+    if (done.has(ref)) return ok(undefined);
+    if (visiting.has(ref)) {
+      return err({
+        code: "invalid_input",
+        message: `material cycle at ${ref}`,
+      });
+    }
+    visiting.add(ref);
+    const material = await loadMaterial(root, ref);
+    for (const need of material.manifest.needs) {
+      const result = await visit(need);
+      if (!result.ok) return result;
+    }
+    visiting.delete(ref);
+    done.set(ref, material);
+    return ok(undefined);
+  }
+  for (const ref of refs) {
+    const result = await visit(ref);
+    if (!result.ok) return result;
+  }
+  return ok([...done.values()]);
+}
+
+export function textOf(material: Material, path: string): string {
+  const file = material.files.find((item) => item.path === path);
+  if (file === undefined) {
+    throw new Error(`material ${material.ref} has no ${path}`);
+  }
+  return new TextDecoder().decode(file.bytes);
+}

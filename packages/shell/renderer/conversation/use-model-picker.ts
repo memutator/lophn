@@ -70,6 +70,11 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
       void apply(source.toggleFavorite(session, model, query)),
     onOptionChange: (axis, value) =>
       void apply(source.setModelOption(session, axis, value, query)),
+    custom: {
+      providers: view?.custom ?? [],
+      onUse: (provider, modelName) =>
+        void apply(source.chooseModel(session, { provider, modelName }, query)),
+    },
     onChangeDefaults: input.onChangeDefaults,
   };
 }

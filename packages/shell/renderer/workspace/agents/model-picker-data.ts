@@ -34,6 +34,19 @@ export function modelsOf(models: ModelsView, provider: ProviderChoice) {
   );
 }
 
+/**
+ * catalog에 model이 하나도 없는 provider(custom provider). 그 model은 이름을 직접 적어 고른다.
+ * catalog 전체를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로 없다고 말한다.
+ */
+export function customProvidersOf(models: ModelsView | null) {
+  if (models === null || models.catalog.length === 0) return [];
+  return models.providers.filter((provider) =>
+    !models.catalog.some((entry) =>
+      entry.provider_definition === provider.definition
+    )
+  ).map((provider) => ({ id: provider.id, name: provider.name }));
+}
+
 export function entryOf(models: ModelsView, model: PickerModelRef) {
   const provider = models.providers.find((item) => item.id === model.provider);
   return provider === undefined
@@ -177,6 +190,15 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         ...current,
         option_values: { ...current.option_values, [axis]: value },
       });
+    },
+    custom: {
+      providers: customProvidersOf(models),
+      onUse: (provider, modelName) =>
+        binding.choose({
+          provider,
+          model_name: modelName,
+          option_values: {},
+        }),
     },
     onChangeDefaults: binding.changeDefaults,
   };

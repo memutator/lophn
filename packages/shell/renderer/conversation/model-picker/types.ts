@@ -38,6 +38,12 @@ export interface PickerAxisView {
   }[];
 }
 
+/** model 목록이 없는 provider와, 거기에 model 이름을 적어 고르는 길. 없으면 빈 목록이다. */
+export interface CustomModelView {
+  readonly providers: readonly { readonly id: string; readonly name: string }[];
+  readonly onUse: (provider: string, modelName: string) => void;
+}
+
 export interface ModelPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,6 +63,7 @@ export interface ModelPickerProps {
   /** 별표를 눌렀다. 줄을 고른 것으로 치지 않는다. */
   onToggleFavorite: (model: PickerModelRef) => void;
   onOptionChange: (axis: string, value: string) => void;
+  custom: CustomModelView;
   /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. */
   onChangeDefaults: () => void;
 }

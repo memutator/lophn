@@ -21,6 +21,7 @@ export type ConversationPlaceholders = {
   "conversation.button.call-cancel": Record<never, never>;
   "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
+  "conversation.button.custom-model-use": Record<never, never>;
   "conversation.button.delete": Record<never, never>;
   "conversation.button.edit-open": Record<never, never>;
   "conversation.button.favorite-add": {
@@ -110,6 +111,9 @@ export type ConversationPlaceholders = {
   "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
+  "conversation.label.custom-model": {
+    provider: "string";
+  };
   "conversation.label.delete-session": {
     title: "string";
   };
@@ -301,6 +305,7 @@ export type ConversationPlaceholders = {
   "conversation.notice.call-working-together": {
     to: "string";
   };
+  "conversation.notice.custom-model": Record<never, never>;
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.no-model-options": Record<never, never>;

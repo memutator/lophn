@@ -383,6 +383,8 @@ export interface ModelView {
   readonly axes: readonly PickerAxisView[];
   readonly optionValues: Readonly<Record<string, string>>;
   readonly layout: PickerLayoutView;
+  /** model 목록이 없는 provider. 거기에는 model 이름을 적어 고른다. */
+  readonly custom: readonly { readonly id: string; readonly name: string }[];
 }
 
 export type GrantSetting = "allow" | "ask" | "deny";

@@ -55,6 +55,39 @@ function anthropicMaxTokens(
   return Math.min(outputLimit, MAX_OUTPUT_TOKENS + budget);
 }
 
+// catalog에 없는 model에 쓰는 기본 한계다. agent의 기본 prompt와 tool 정의만 수십 KB라 이보다 작으면 turn이 시작하지 못한다.
+const UNLISTED_LIMITS = {
+  context_limit: 131072,
+  input_limit: 131072,
+  output_limit: MAX_OUTPUT_TOKENS,
+  supports_tools: true,
+};
+
+// option 축을 모르는 model의 자리표시 항목이다(wire 변환이 항목을 읽는다).
+function unlistedEntry(
+  definition: string,
+  selection: ModelChoice,
+): CatalogEntry {
+  return {
+    provider_definition: definition,
+    model_name: selection.model_name,
+    context_limit: null,
+    input_limit: null,
+    output_limit: null,
+    supports_tools: null,
+    input_media: ["text"],
+    output_media: ["text"],
+    options: null,
+    preview: null,
+    deprecated: null,
+    source: "user",
+    source_revision: "unlisted",
+    checked_at: null,
+    received_at: null,
+    price_basis: null,
+  };
+}
+
 type ModelResolverDeps = {
   machine: CoreCall;
   // API key의 값을 전송 직전에 붙이는 port. 없으면 값이 있는 credential은 쓸 수 없다.
@@ -125,17 +158,23 @@ export function createModelResolver(deps: ModelResolverDeps) {
 
     const catalog = await deps.catalog();
     if (!catalog.ok) return catalog;
-    const entry = catalog.value.find((candidate) =>
+    const found = catalog.value.find((candidate) =>
       candidate.provider_definition === provider.definition.key &&
       candidate.model_name === selection.model_name
     );
-    // catalog에 없는 model은 한계와 option 축을 알 수 없어 쓰지 않는다. 명시 한계 보완은 아직 없다.
-    if (entry === undefined) {
+    // 목록이 없는 provider(사람이 붙인 custom provider)의 model은 한계와 option 축을 알 수 없다. 기본 한계로
+    // 돌고 option은 고를 수 없다. 목록이 있는 provider가 모르는 이름은 오타일 수 있어 쓰지 않는다.
+    const unlisted = found === undefined &&
+      !catalog.value.some((candidate) =>
+        candidate.provider_definition === provider.definition.key
+      );
+    if (found === undefined && !unlisted) {
       return err({
         code: "invalid_input",
         message: "the model is not in the catalog, so its limits are unknown",
       });
     }
+    const entry = found ?? unlistedEntry(provider.definition.key, selection);
     const resolved = resolveSelection(
       {
         purpose: input.purpose ?? "judgment",
@@ -147,12 +186,12 @@ export function createModelResolver(deps: ModelResolverDeps) {
         option_values: selection.option_values,
         needs_tools: true,
       },
-      entry,
+      found,
       {
         modelListed: (name) =>
           accountAllows(provider.credential.account_models, name),
       },
-      undefined,
+      unlisted ? UNLISTED_LIMITS : undefined,
     );
     if (!resolved.ok) return resolved;
     // default를 채운 option 값을 호출 형식의 표로 옮긴다. 표에 없는 값은 가까운 값으로 바꾸지 않고 실패한다.

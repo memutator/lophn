@@ -14,6 +14,7 @@ export const conversation = {
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.check-delivery": "Check whether it arrived",
+  "conversation.button.custom-model-use": "Use",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
   "conversation.button.favorite-add": "Add {model} to favorites",
@@ -93,6 +94,7 @@ export const conversation = {
   "conversation.label.call-working-together": "Working together",
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
+  "conversation.label.custom-model": "Model name on {provider}",
   "conversation.label.delete-session": "Delete {title}",
   "conversation.label.delivery-not-sent": "Not sent",
   "conversation.label.delivery-received": "Received",
@@ -231,6 +233,8 @@ export const conversation = {
   "conversation.notice.call-waiting": "Waiting for the answer from {to}.",
   "conversation.notice.call-working-together":
     "{to} is working on it. Messages go back and forth until it reports.",
+  "conversation.notice.custom-model":
+    "These providers have no model list. Type the model name the service expects.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.message-loading": "Loading this message.",

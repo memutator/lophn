@@ -11,6 +11,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import { CustomModelInput } from "./custom-model.tsx";
 import styles from "./model-picker.module.css";
 import type {
   ModelPickerProps,
@@ -20,6 +21,7 @@ import type {
 } from "./types.ts";
 
 export type {
+  CustomModelView,
   ModelPickerProps,
   ModelSelectionView,
   PickerAxisView,
@@ -170,7 +172,8 @@ function buttonText(props: ModelPickerProps): string {
 export function ModelPicker(props: ModelPickerProps): ReactNode {
   const { layout, current } = props;
   const empty = layout.favorites.length === 0 &&
-    layout.providers.every((group) => group.models.length === 0);
+    layout.providers.every((group) => group.models.length === 0) &&
+    props.custom.providers.length === 0;
   return (
     <Popover
       open={props.open}
@@ -245,9 +248,14 @@ export function ModelPicker(props: ModelPickerProps): ReactNode {
             </div>
           ))}
         </div>
-        <div className={styles.axes} data-picker-section="axes">
-          <OptionAxes selection={props} onChange={props.onOptionChange} />
-        </div>
+        <CustomModelInput custom={props.custom} />
+        {current.modelName === ""
+          ? null
+          : (
+            <div className={styles.axes} data-picker-section="axes">
+              <OptionAxes selection={props} onChange={props.onOptionChange} />
+            </div>
+          )}
         <div className={styles.foot} data-picker-section="defaults">
           <Button size="sm" variant="ghost" onClick={props.onChangeDefaults}>
             {t("conversation.button.change-defaults")}
@@ -274,6 +282,7 @@ export function ModelField(
     onChange,
     onOptionChange,
     overrideNote,
+    axesReady = true,
   }: {
     label: string;
     /** "Use project default — Haiku 5.5 (from Workspace)" 같은 따르기 선택지의 글. */
@@ -287,6 +296,8 @@ export function ModelField(
     onChange: (model: string | null) => void;
     onOptionChange: (axis: string, value: string) => void;
     overrideNote?: string;
+    /** option 축을 보일 수 있는지. catalog를 읽지 못했으면 false라 "No options"를 말하지 않는다. */
+    axesReady?: boolean;
   },
 ) {
   const effective = value ?? inherited;
@@ -299,9 +310,13 @@ export function ModelField(
           onValueChange={(next) => onChange(next === INHERIT ? null : next)}
         />
       </Field>
-      <div className={styles.fieldAxes}>
-        <OptionAxes selection={effective} onChange={onOptionChange} />
-      </div>
+      {axesReady && effective.model !== ""
+        ? (
+          <div className={styles.fieldAxes}>
+            <OptionAxes selection={effective} onChange={onOptionChange} />
+          </div>
+        )
+        : null}
       {value === null ? null : (
         <p className={styles.changedRow}>
           <span className={styles.changed}>

@@ -14,7 +14,8 @@ import {
   OptionAxes,
 } from "../../../conversation/model-picker/model-picker.tsx";
 import type { ModelSelectionView } from "../../../conversation/model-picker/types.ts";
-import { entryOf, modelsOf } from "../model-picker-data.ts";
+import { CustomModelInput } from "../../../conversation/model-picker/custom-model.tsx";
+import { customProvidersOf, entryOf, modelsOf } from "../model-picker-data.ts";
 import type { ModelsView } from "../source.ts";
 import styles from "./agent-editor.module.css";
 
@@ -22,10 +23,16 @@ import styles from "./agent-editor.module.css";
 const keyOf = (choice: { provider: string; model_name: string }) =>
   `${choice.provider}/${choice.model_name}`;
 
-/** 연결된 provider의 catalog에서 고를 수 있는 model. */
-function choicesOf(models: ModelsView | null) {
+/**
+ * 연결된 provider의 catalog에서 고를 수 있는 model. `chosen`은 지금 고른 값이다. 이름을 직접 적은 model처럼
+ * catalog에 없어도 선택지에 남아야 칸이 비어 보이지 않는다.
+ */
+function choicesOf(
+  models: ModelsView | null,
+  chosen: readonly (ModelChoice | null)[] = [],
+) {
   if (models === null) return [];
-  return models.providers.flatMap((provider) =>
+  const listed = models.providers.flatMap((provider) =>
     modelsOf(models, provider)
       .map((entry) => ({
         value: keyOf({ provider: provider.id, model_name: entry.model_name }),
@@ -37,6 +44,29 @@ function choicesOf(models: ModelsView | null) {
         model_name: entry.model_name,
       }))
   );
+  const extra = chosen.flatMap((choice) => {
+    const provider = choice === null
+      ? undefined
+      : models.providers.find((item) => item.id === choice.provider);
+    if (choice === null || provider === undefined) return [];
+    const value = keyOf(choice);
+    if (listed.some((item) => item.value === value)) return [];
+    return [{
+      value,
+      label: t("agents.label.model-by-provider", {
+        model: choice.model_name,
+        provider: provider.name,
+      }),
+      provider: provider.id,
+      model_name: choice.model_name,
+    }];
+  });
+  return [
+    ...listed,
+    ...extra.filter((item, at) =>
+      extra.findIndex((other) => other.value === item.value) === at
+    ),
+  ];
 }
 
 function selectionOf(
@@ -103,24 +133,33 @@ export function ModelField(
   { models, label, inheritLabel, inherited, value, overrideNote, onChange }:
     ModelFieldProps,
 ) {
+  const custom = {
+    providers: customProvidersOf(models),
+    onUse: (provider: string, modelName: string) =>
+      onChange({ provider, model_name: modelName, option_values: {} }),
+  };
   return (
-    <ConversationModelField
-      label={label}
-      inheritLabel={inheritLabel}
-      choices={choicesOf(models)}
-      inherited={selectionOf(models, inherited)}
-      value={value === null ? null : selectionOf(models, value)}
-      overrideNote={overrideNote}
-      onChange={(key) => onChange(key === null ? null : pick(models, key))}
-      onOptionChange={(axis, next) => {
-        const base = value ?? inherited;
-        if (base === null) return;
-        onChange({
-          ...base,
-          option_values: { ...base.option_values, [axis]: next },
-        });
-      }}
-    />
+    <>
+      <ConversationModelField
+        label={label}
+        inheritLabel={inheritLabel}
+        axesReady={models !== null}
+        choices={choicesOf(models, [value])}
+        inherited={selectionOf(models, inherited)}
+        value={value === null ? null : selectionOf(models, value)}
+        overrideNote={overrideNote}
+        onChange={(key) => onChange(key === null ? null : pick(models, key))}
+        onOptionChange={(axis, next) => {
+          const base = value ?? inherited;
+          if (base === null) return;
+          onChange({
+            ...base,
+            option_values: { ...base.option_values, [axis]: next },
+          });
+        }}
+      />
+      <CustomModelInput custom={custom} />
+    </>
   );
 }
 
@@ -156,7 +195,7 @@ export function DefaultModelField(
     <div className={styles.group}>
       <Field label={t("project-workspace.heading.agent-editor-model")}>
         <Select
-          options={choicesOf(models)}
+          options={choicesOf(models, [value])}
           value={selection.model === "" ? undefined : selection.model}
           placeholder={t("agents.label.no-model-chosen")}
           onValueChange={(key) => {
@@ -166,14 +205,22 @@ export function DefaultModelField(
         />
       </Field>
       {provider === undefined ? null : <ModelProvider name={provider.name} />}
-      <OptionAxes
-        selection={selection}
-        onChange={(axis, next) => {
-          if (value === null) return;
-          onChange({
-            ...value,
-            option_values: { ...value.option_values, [axis]: next },
-          });
+      {value === null || models === null ? null : (
+        <OptionAxes
+          selection={selection}
+          onChange={(axis, next) => {
+            onChange({
+              ...value,
+              option_values: { ...value.option_values, [axis]: next },
+            });
+          }}
+        />
+      )}
+      <CustomModelInput
+        custom={{
+          providers: customProvidersOf(models),
+          onUse: (provider, modelName) =>
+            onChange({ provider, model_name: modelName, option_values: {} }),
         }}
       />
     </div>

@@ -780,6 +780,7 @@ function modelView(scenario: PickerScenario, query: string): ModelView {
         }))
         .filter((group) => group.models.length > 0),
     },
+    custom: [],
   };
 }
 

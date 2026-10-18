@@ -319,10 +319,14 @@ function CustomProviderBody(
             onChange({ ...fields, baseUrl: event.currentTarget.value })}
         />
       </Field>
-      <ProtectedKeyNote
-        title={t("agents.label.providers-custom-key-title")}
-        text={t("agents.notice.providers-custom-key")}
-      />
+      {needsKey(fields.baseUrl)
+        ? (
+          <ProtectedKeyNote
+            title={t("agents.label.providers-custom-key-title")}
+            text={t("agents.notice.providers-custom-key")}
+          />
+        )
+        : null}
       {failed
         ? (
           <p

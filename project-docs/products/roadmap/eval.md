@@ -1,6 +1,6 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개)는 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 남은 계획 `eval-coding`과 `eval-experiment`는 열려 있고, 시작 조건은 각 README에 있다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개)와 `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위)은 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 남은 계획 `eval-experiment`는 열려 있고, 시작 조건은 그 README에 있다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
 계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
@@ -526,10 +526,9 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 ## 단계
 
-시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case 17개)는 land했다(`project-docs/architecture/eval.md`). 남은 계획 둘을 이 순서로 한다(사람). 앱 만들기를 가장 중요하게 보므로 진짜 coding agent를 둘째에 붙인다. `eval-experiment`가 land하기 전까지 experiment는 planner가 run 기록을 보고 손으로 고르고 돌린다.
+시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case 17개)와 `eval-coding`(진짜 coding agent와 캘린더 단위)은 land했다(`project-docs/architecture/eval.md`). 남은 계획은 하나다. `eval-experiment`가 land하기 전까지 experiment는 planner가 run 기록을 보고 손으로 고르고 돌린다.
 
-1. **`eval-coding`**(열림, `project-docs/plan/eval-coding/`): PTY driver, `lophn` wrapper, Claude Code 수치 parser, 사람 역할과 요구 카드, 허락 규칙, 재료 `notify-app@1`·`date-range@1`·`calendar-call@1`·`calendar-app@1`, 캘린더 단위(calendar-mvp, calendar-api, calendar-maintain, calendar-diagnose)와 재사용·observation·진단 확인.
-2. **`eval-experiment`**: experiment spec, 본 component로 다시 돌릴 run 고르기, trial 정책, 병렬 실행과 예산 상한, gate의 dry run, runner와 experimenter가 일하는 법(skill), assembly의 prefix 유지 재기, 되풀이를 보는 judge(위 표의 "되풀이").
+1. **`eval-experiment`**: experiment spec, 본 component로 다시 돌릴 run 고르기, trial 정책, 병렬 실행과 예산 상한, gate의 dry run, runner와 experimenter가 일하는 법(skill), assembly의 prefix 유지 재기, 되풀이를 보는 judge(위 표의 "되풀이").
 
 계획마다 끝에 고칠 것: `project-docs/architecture/eval.md`(그 계획이 만든 것을 실제 코드 path로 더한다), `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`과 `architecture-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록, 이 문서에서 그 계획 몫을 지운다.
 

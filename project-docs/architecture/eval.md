@@ -5,25 +5,32 @@
 ## 흐름
 
 ```
-deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd]
+deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [--trial-budget usd]
   tests/eval/run.ts → runner/cli.ts
     discover          scenarios/**/*.scenario.ts의 default export
     버전 확인          재료 hash(restore), 시나리오·criterion·judge hash(versions)를 registry와 댄다
     fixture 확인       checks/validate.ts: right는 모든 program check 통과, wrong은 적은 check가 떨어져야 한다
     key가 없으면       여기서 0으로 끝난다(진짜 provider를 부르지 않는다)
+    coding 시나리오면   TMPDIR이 비어 있을 때 /tmp/lophn-eval로 둔다(사람이 한 번 trust한 폴더)
     시나리오마다 trial마다 (runner/trials.ts, 상한 runner/cap.ts)
       runner/trial.ts
-        createRun · bootCore(evalCoreSettings())          tests/support/core, provider/settings.ts
+        createRun · bootCore(evalCoreSettings(), restoreCoreEnv(world))   tests/support/core, provider/, restore/env.ts
         beginRestore → restoreWorld(world) → setup → endRestore   restore/
-        attachRealModels(real)                            provider/attach.ts
+        attachRealModels(real 가운데 role agent)            provider/attach.ts
+        coding이면 prepareCodingAgent · startCodingDriver   coding/driver/
+        human이 있으면 createHumanRole(card, approve)        human/
         t0 ─────────────────────────────────────────────
-        say → waitUntilIdle                               runner/idle.ts
+        runSteps: say · deliver · callApi · untilIdle      runner/steps.ts, runner/idle.ts
+          쉬는 동안 human.tick(ask 답, 허락 결정), 비용 상한(runner/spend.ts)
+        driver.stop() · collectCoding(traces)              coding/metrics/
         collectSessions(roots, t0) · metricsOf · sumMetrics   collect/
-        runProgramChecks                                  checks/run.ts
+        runProgramChecks (끝난 world를 묻는 live check 포함)  checks/run.ts, checks/app/
         judgeItem (premise가 통과했을 때만)                judge/run.ts → Anthropic Messages API
-        seenComponents(records)                           versions/components.ts
+        seenComponents(records) (+ cli:claude)            versions/components.ts
+        통과한 첫 trial이면 saveMaterials(save)            restore/save.ts → materials/<이름>/<n+1>/
         writeFullRecord → .dev-data/eval/<run>/trial-N.json · core.log
       RunRecord 요약 → tests/eval/runs/<RunRecord.id>.json
+deno task eval:attach [session] [--write]  → 도는 Claude Code 화면을 내 터미널에 그린다   coding/driver/attach.ts
 deno task eval:scorecard            → tests/eval/scorecards/<date>.md     scorecard/main.ts
 deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 ```
@@ -32,17 +39,21 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 
 | 자리 | 하는 일 |
 |---|---|
-| `tests/eval/types.ts` | 계약. 버전, 참가자와 단계, check, 시나리오, 수집 기록, 수치, trial·run 기록, 재료, scorecard 행의 type과 `say`·`untilIdle`·`refText`·`parseRef` |
+| `tests/eval/types.ts` | 계약. 버전, 참가자(role agent와 `CodingParticipant`)와 단계(`say`, `untilIdle`, `deliver`, `callApi`), check, 시나리오(`human`, `save`), 수집 기록, 수치, coding agent·사람 역할 기록, trial·run 기록, 재료, scorecard 행의 type과 constructor |
 | `tests/eval/versions/` | hash 규칙(`hash.ts`), registry 읽기·쓰기(`registry.ts`), file을 component로 가르기(`files.ts`의 `classifyPath`, `TOOL_FILES`), 지금 checkout의 버전과 본 component(`components.ts`), 작성자가 n을 정하는 것의 hash(`authored.ts`), git 출처(`source.ts`) |
 | `tests/eval/registry/` | `<kind>/<name>.json`. n → hash, 글 component·criterion·judge는 내용도. commit한다 |
 | `tests/eval/materials/<이름>/<n>/` | `material.json`(kind, 고정 id, needs, parent, content_hash)과 `files/`. commit한다 |
-| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `context.ts`, `operators.ts`), setup helper(`setup.ts`: `openProblem`, `openTicket`, `excludeCall`) |
+| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `context.ts`, `operators.ts`, `active-app.ts`, `app-data.ts`, `package.ts`, `call.ts`), call 본문 보내기(`deliver.ts`), 산출물을 새 재료로 쓰기(`save.ts`), setup helper(`setup.ts`) |
+| `tests/eval/coding/driver/` | desktop shell의 터미널 몫. launch plan으로 PTY를 열고(shell의 `createCodingHost` 그대로), `lophn` wrapper(`wrapper.ts`), 보고 뒤 `/exit`와 끊기, attach socket(`screen.ts`, `attach.ts`), hook·skill 설치 확인(`prepare.ts`) |
+| `tests/eval/coding/metrics/` | Claude Code session JSONL의 token·tool 오류(`jsonl.ts`), wrapper 기록의 명령(`commands.ts`), `CodingRecord` 합치기(`record.ts`) |
+| `tests/eval/human/` | 사람 역할. 요구 카드로 `ask`에 답하기(`answer.ts`, `human.json`, `prompt.md`), 허락 규칙대로 결정하기(`approve.ts`), poll마다 한 번 처리(`role.ts`) |
+| `tests/eval/checks/app/` | 끝난 world를 보는 live check(앱이 켜졌나, app-api가 기대대로 답하나, 재사용, observation, 진단)와 그 judge 입력 |
 | `tests/eval/provider/` | `.env` key 읽기, core 설정(`EVAL_MODEL_ATTEMPTS`), `real` 참가자에게만 agent 층 model 붙이기 |
 | `tests/eval/collect/` | 제품 읽기 route로 session·turn·model call·tool call·call 읽기, 요청 body blob 읽기(`blob.ts`), 공통 수치(`metrics.ts`), 전체 기록 쓰기 |
 | `tests/eval/checks/` | program check builder(`calls.ts`, `tools.ts`), 기록 helper(`records.ts`), fixture builder(`fixtures.ts`), fixture 확인(`validate.ts`) |
 | `tests/eval/judge/`, `tests/eval/criteria/` | judge 정의(`judge.json`, `prompt.md`), judge 입력 조립(`input.ts`), 호출과 인용 검사(`run.ts`). criterion은 `criteria/<name>.json` |
-| `tests/eval/runner/` | CLI, 시나리오 찾기, 쉼 판정, trial 하나, trial 여럿과 비용 상한 |
-| `tests/eval/scenarios/<group>/` | 판단 case 17개. `lophn/`(8), `app-engineer/`(3), `project-manager/`(2), `operator/`(4). 같은 폴더의 `common.ts`는 시나리오가 아니다 |
+| `tests/eval/runner/` | CLI, 시나리오 찾기, 쉼 판정(`idle.ts`), 단계(`steps.ts`), trial 하나, trial 여럿과 run 비용 상한, trial 비용 상한(`spend.ts`) |
+| `tests/eval/scenarios/<group>/` | 판단 case 17개. `lophn/`(8), `app-engineer/`(3), `project-manager/`(2), `operator/`(4). 캘린더 단위 넷은 `calendar/`(calendar-mvp, calendar-api, calendar-maintain, calendar-diagnose). 같은 폴더의 `common.ts`·`spec.ts`·`dates.ts`는 시나리오가 아니다 |
 | `tests/eval/scorecard/` | run 요약 읽기, 시나리오마다 run 고르기와 낡음(`pick.ts`), markdown(`markdown.ts`), run diff(`diff.ts`) |
 | `tests/eval/runs/`, `tests/eval/scorecards/` | run 요약과 날짜가 붙은 scorecard. commit한다 |
 | `.dev-data/eval/<run>/` | trial마다 전체 기록(대답 글, 요청 body, diff)과 core.log. git 밖 |
@@ -60,17 +71,25 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 - **채점 순서.** program check가 먼저다. judge check는 `premise`의 program check가 모두 통과하고 trial이 `idle`로 끝났을 때만 부른다. verdict는 tool 입력 schema의 enum이고, 인용이 judge 입력 안에 글자 그대로 있어야 통과한다. 늘 `cannot_tell`을 허용하고, 점수 없이 verdict만 남긴다.
 - **비용 상한.** runner는 끝난 trial의 `cost_usd`(model call의 USD cost)와 judge 비용을 더해 `--budget`(기본 $50) 이상이면 새 trial을 띄우지 않는다. 값을 모르는 call(`unpriced_calls`)이 있으면 한 번 경고한다. 판단 case는 core 설정 `lophn-agent.run.model_attempts`를 15로 낮춰 돈다.
 - **`tests/eval`의 `*_test.ts`는 `deno task check`에서 돈다.** 그래서 모두 순수하다. core를 띄우지 않고, process·network·진짜 provider를 쓰지 않는다. runner와 시나리오 file은 test file이 아니다.
+- **coding agent는 사람 환경의 진짜 Claude Code다.** App Engineer가 맡기면 core가 만든 launch plan 그대로 driver가 PTY로 띄운다. 사람의 HOME, 설치된 Claude Code, 그 로그인을 그대로 쓴다. driver는 dev에 없는 것만 더한다: PATH 앞의 `lophn` wrapper(명령 시각을 기록 file에 적는다)와 `LOPHN_DAEMON_URL`. 상속 env에서 Claude Code 중첩 표시(`CLAUDE_CODE_CHILD_SESSION` 등, 있으면 session 기록을 안 쓴다)와 `ANTHROPIC_API_KEY`(eval의 `.env`에서 온 key라 Claude Code가 그것으로 과금하지 않게)를 지운다. model(`claude-sonnet-5-5`)과 harness는 제품 설정 `coding-agent.default_model`·`default_harness`로 준다.
+- **터미널 앞의 사람 몫은 한 번만 사람이 한다.** folder trust는 trial root를 `/tmp/lophn-eval` 아래에 두고 사람이 그 폴더를 한 번 믿는다. hook·skill은 사람이 main checkout의 wrapper(`.dev-data/eval/bin/lophn`)로 한 번 설치하고, runner는 `dry_run`으로 확인만 하며 없으면 명령을 찍고 멈춘다. permission 물음은 사람의 권한 설정 그대로이고, 뜨면 session이 `waiting`으로 남아 기록(`permission_requests`)에 든다. eval 전용 flag는 없다.
+- **coding agent 수치는 role agent 수치와 섞지 않는다.** `Metrics`는 role agent만 센다. coding agent의 token·tool 오류·명령은 `TrialRecord.coding`에 있다. token은 그 trial의 cwd에 해당하는 Claude Code session JSONL(subagent 포함)을 읽기만 해서 `message.id`로 중복을 빼고 센다. 비용은 세지 않는다.
+- **사람 역할은 카드와 허락 규칙만 따른다.** `ask`에는 요구 카드, 앞서 한 답, 질문만 본 model이 답하고 카드 밖 질문에는 "추천대로 해 줘"다. 허락은 시나리오의 `approve` 규칙대로 program이 제품 route로 낸다. 규칙에 없는 종류는 거절이다. 사람 역할이 있으면 `ask` 대기와 보류 허락은 쉼이 아니다.
+- **trial 상한.** role agent·judge·사람 역할의 비용이 trial마다 `--trial-budget`(기본 $50)을 넘으면 그 trial을 timeout으로 끝낸다. coding agent에는 돈 상한이 없고 시간 상한(`CODING_TRIAL_LIMIT_MS`, 90분)만 있다.
+- **check 순서가 실행 순서다.** `runProgramChecks`는 배열 순서대로 하나씩 돈다. 끝난 world를 바꾸는 check(observation 확인이 앱에 실패를 일으킨다)는 읽기만 하는 check 뒤에 둔다. live check는 fixture 확인(`core === null`)에서 건너뛴다.
+- **산출물은 후보 재료다.** 시나리오의 `save`는 통과한 첫 trial에서만 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit해야 뒤 단위의 전제가 된다. 뒤 단위는 손으로 쓴 기준 재료(`calendar-app@1`)에서 시작해 앞 run의 질에 흔들리지 않는다.
 - **요약과 전체 기록.** 요약(`tests/eval/runs/<RunRecord.id>.json`)은 버전, check verdict, judge item(입력, verdict, 인용), 공통 수치다. 대답 글, 요청 body, working tree diff는 `.dev-data/eval/<RunRecord.id>/`에만 둔다. `.dev-data`는 schema가 바뀌면 지우므로, 기준 run을 다시 쓰려면 요약이 그보다 오래 남아야 한다.
 
 ## 왜 이 모양인가
 
 - **제품 route로 되살린다.** data root를 복사하면 schema가 바뀔 때마다 재료가 깨진다. trial마다 새 root에서 제품 route로 되살리면 재료는 schema와 상관없는 작은 JSON과 file로 남는다.
-- **판단 case는 기록만으로 채점한다.** case가 묻는 것은 "누구에게 무엇을 맡겼나, 무엇을 물었나"다. 그래서 call과 tool call 기록으로 끝난다. 끝난 world에 묻는 check(앱이 답하나, release가 active인가)는 `eval-coding`이 더한다.
+- **판단 case는 기록만으로 채점한다.** case가 묻는 것은 "누구에게 무엇을 맡겼나, 무엇을 물었나"다. 그래서 call과 tool call 기록으로 끝난다. 끝난 world에 묻는 check(앱이 답하나, release가 active인가)는 앱을 만드는 단위만 쓴다(`checks/app/`).
 - **judge는 runner가 직접 부른다.** judge를 core의 agent로 돌리면 judge의 비용과 지침이 잴 대상에 섞인다. Messages API를 `fetch` 하나로 부르면 judge 버전이 `judge.json`과 `prompt.md` 두 file로 끝난다.
+- **coding agent는 사람 환경에서 띄운다.** 격리된 HOME에서 띄우면 로그인과 비용을 eval이 다뤄야 한다. 제품도 사람의 터미널에서 띄우므로 같은 길이 잴 대상에 맞다. eval은 token만 센다.
 - **case마다 right/wrong fixture를 둔다.** provider를 부르기 전에 check가 맞는 기록을 통과시키고 틀린 기록을 떨어뜨리는지 본다. check가 틀리면 돈을 쓰기 전에 드러난다.
 
 ## 아직 아닌 것
 
-- 진짜 coding agent(PTY), 사람 역할과 요구 카드, 켜진 앱·앱 data·package·call 재료, 캘린더 단위, 끝난 world를 묻는 check: 계획 `eval-coding`.
+- coding agent는 Claude Code뿐이다. codex와 opencode는 없다.
 - experiment spec, trial 정책, 병렬 실행, gate의 dry run, 되풀이를 보는 judge: 계획 `eval-experiment`. 지금은 `--trials N`만 있고 trial은 하나씩 돈다.
 - variant는 지금 checkout뿐이다. 고친 채 돌리면 working tree diff가 전체 기록에 남고 요약에는 `source.dirty`만 남는다.

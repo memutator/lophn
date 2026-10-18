@@ -5,12 +5,12 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `rd-app-api-tool` | rd-app-api | 1 | 없음 | running | rd-app-api/rd-app-api-tool |  |  |
-| `rd-body-route` | rd-body | 1 | 없음 | running | rd-body/rd-body-route |  |  |
+| `rd-body-route` | rd-body | 1 | 없음 | merged | rd-body/rd-body-route | 42331b3ee |  |
 | `rd-cap-fs` | rd-cap | 1 | 없음 | merged | rd-cap/rd-cap-fs | bbb2a6737 |  |
 | `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
 | `rd-ex-shape` | rd-ex | 1 | 없음 | running | rd-ex/rd-ex-shape |  |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | running | rd-resolve/rd-resolve-rule |  |  |
-| `rd-sdk-builtin` | rd-sdk | 1 | 없음 | todo |  |  |  |
+| `rd-sdk-builtin` | rd-sdk | 1 | 없음 | running | rd-sdk/rd-sdk-builtin |  |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | todo |  |  |  |
 | `rd-body-tool` | rd-body | 2 | rd-body-route, rd-app-api-tool, rd-resolve-rule | todo |  |  |  |
 | `rd-cap-secret-core` | rd-cap-secret | 2 | rd-cap-net-transport | todo |  |  |  |

@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py eval-base build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ev-contract` | ev-contract | 1 | 없음 | todo |  |  |  |
+| `ev-contract` | ev-contract | 1 | 없음 | merged | ev-contract/ev-contract | af3527145 |  |
 | `ev-checks` | ev-checks | 2 | ev-contract | todo |  |  |  |
 | `ev-collect` | ev-collect | 2 | ev-contract | todo |  |  |  |
 | `ev-judge` | ev-judge | 2 | ev-contract | todo |  |  |  |

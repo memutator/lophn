@@ -79,12 +79,11 @@ opencode(v1.18.35), omp(18.8.7)와 upstream pi, hermes(v0.21.6)를 소스로 읽
 
 - 4096 고정을 없앤다. 사람이 적은 output 한도가 이 상한에 묶이면 칸이 뜻이 없다. catalog model에도 같은 bug가 있다.
 - 보내는 `max_tokens`와 입력 예산이 남기는 몫을 같은 값으로 맞춘다. vLLM 계열은 입력과 `max_tokens`의 합이 context를 넘으면 거절한다.
-- 값은 "정할 것" 1번이다.
 
 ### 3. 비용
 
 - `estimatedCost`가 cache read·write를 각자 요율로 곱한다. 요율이 null이면 지금처럼 input 요율로 센다.
-- 대화 화면에 그 session의 추정 비용 합을 보인다. 자리는 "정할 것" 2번이다.
+- 대화 tab composer 아래 한 줄에 그 session의 추정 비용 합을 보인다.
   - `ReadAgentUsage`의 `session` filter를 쓴다.
   - 가격을 모르는 call이 있으면 그 수를 함께 보인다(합에서 빠졌다는 뜻).
   - 1센트 미만은 소수 넷째 자리까지 보인다.
@@ -124,17 +123,12 @@ opencode(v1.18.35), omp(18.8.7)와 upstream pi, hermes(v0.21.6)를 소스로 읽
 - `MODEL_MEDIA`에 `pdf`를 더한다(agent). models.dev가 쓰는 값 다섯과 icon 다섯이 맞는다. runtime은 계속 쓰지 않는다.
 - 가격은 비우면 모름, 0은 무료다(agent). opencode와 omp가 둘을 섞어 모르는 model이 free로 보인다.
 - 안 적은 한도는 null로 저장하고 화면은 기본값을 회색으로 보인다(agent, omp와 hermes 선례).
+- output 상한은 32000이다(사람). 보내는 `max_tokens`와 입력 예산이 남기는 몫을 모두 `min(output_limit, 32000)`으로 한다(opencode와 같은 값). 호출 하나의 최대 비용이 커지고 입력 예산이 최대 24000 token 준다.
+- 비용 합은 대화 tab composer 아래 한 줄에 보인다(사람): `$0.0123 · 가격 모름 2`.
 
 ## 정할 것
 
-1. **output 상한 값.**
-   - 추천: 보내는 `max_tokens`와 입력 예산이 남기는 몫을 모두 `min(output_limit, 32000)`으로 한다(opencode와 같은 값).
-   - 얻는 것: reasoning model의 긴 tool call이 잘리지 않는다.
-   - 잃는 것: 호출 하나의 최대 비용이 커진다. 입력 예산이 지금보다 최대 24000 token 줄어든다.
-   - 다른 안: `output_limit` 전부를 보낸다(omp). 1M context model은 output 한도가 384000이라 입력 예산이 크게 준다.
-2. **비용 합을 보일 자리.**
-   - 추천: 대화 tab composer 아래 한 줄에 `$0.0123 · 가격 모름 2`.
-   - 다른 안: session 머리, 또는 Settings에 사용량 화면 하나(agent별, 기간별). Settings 화면은 `ReadAgentUsage`가 이미 받는 filter로 만들 수 있지만 크다.
+없음.
 
 ## 단계
 

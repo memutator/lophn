@@ -24,17 +24,23 @@ import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
 import {
+  allTabs,
   applyDrag,
   breadcrumbs,
   clampSidebar,
+  closeFloat,
   type CloseScope,
   closeTab,
   closeTargets,
+  findTab,
+  isFloated,
+  mapTabs,
   moveTab,
   moveTabBy,
   openTabIn,
   pinTab,
   reopenTab,
+  restoreFloat,
   shiftTab,
   SIDEBAR_WIDTH,
   type SidebarState,
@@ -303,18 +309,11 @@ export function Workspace(props: WorkspaceProps) {
   >({});
   const positionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const withPositions = (next: WorkspaceView): WorkspaceView => ({
-    ...next,
-    panes: next.panes.map((pane) => ({
-      ...pane,
-      tabs: pane.tabs.map((tab) => {
-        const position = positions.current[tab.key] ?? tab.readPosition;
-        return position === undefined
-          ? tab
-          : { ...tab, readPosition: position };
-      }),
-    })),
-  });
+  const withPositions = (next: WorkspaceView): WorkspaceView =>
+    mapTabs(next, (tab) => {
+      const position = positions.current[tab.key] ?? tab.readPosition;
+      return position === undefined ? tab : { ...tab, readPosition: position };
+    });
 
   const persist = (next: WorkspaceView) => {
     void source.saveLayout(toStoredLayout({
@@ -381,6 +380,10 @@ export function Workspace(props: WorkspaceProps) {
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
     const current = latest.current;
+    if (isFloated(current, key)) {
+      update(closeFloat(current, key));
+      return;
+    }
     const at = current.panes.findIndex((item) =>
       item.tabs.some((candidate) => candidate.key === key)
     );
@@ -392,12 +395,9 @@ export function Workspace(props: WorkspaceProps) {
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
     const current = latest.current;
-    const holder = current.panes.findIndex((pane) =>
-      pane.tabs.some((candidate) => candidate.key === tab.key)
-    );
     const select = options?.select !== false;
     if (!select) {
-      if (holder >= 0) return;
+      if (findTab(current, tab.key) !== undefined) return;
       const target = current.focusedPane;
       update({
         ...current,
@@ -418,17 +418,13 @@ export function Workspace(props: WorkspaceProps) {
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
   const patchTab: TabHost["patchTab"] = (key, patch, options) => {
     const current = latest.current;
-    const next: WorkspaceView = {
-      ...current,
-      panes: current.panes.map((pane) => ({
-        ...pane,
-        tabs: pane.tabs.map((tab) =>
-          tab.key === key
-            ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
-            : tab
-        ),
-      })),
-    };
+    const next = mapTabs(
+      current,
+      (tab) =>
+        tab.key === key
+          ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
+          : tab,
+    );
     if (options?.later === true) {
       latest.current = next;
       setView(next);
@@ -610,6 +606,10 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
+      if (isFloated(latest.current, key)) {
+        update(restoreFloat(latest.current, key));
+        return;
+      }
       const at = latest.current.panes.findIndex((pane) =>
         pane.tabs.some((tab) => tab.key === key)
       );
@@ -652,13 +652,24 @@ export function Workspace(props: WorkspaceProps) {
   >([]);
   const rememberClosed = (key: string) => {
     const current = latest.current;
-    const pane = current.panes.findIndex((item) =>
-      item.tabs.some((tab) => tab.key === key)
-    );
-    if (pane < 0) return;
-    const tabs = current.panes[pane]!.tabs;
-    const index = tabs.findIndex((tab) => tab.key === key);
-    const tab = tabs[index]!;
+    const float = current.floats.find((item) => item.tab.key === key);
+    let pane: number;
+    let index: number;
+    let tab: TabItem;
+    if (float !== undefined) {
+      // 닫은 floated 탭은 docked로 돌아온다. 끝에 붙는다.
+      ({ tab } = float);
+      pane = float.originPane;
+      index = Number.MAX_SAFE_INTEGER;
+    } else {
+      pane = current.panes.findIndex((item) =>
+        item.tabs.some((candidate) => candidate.key === key)
+      );
+      if (pane < 0) return;
+      const tabs = current.panes[pane]!.tabs;
+      index = tabs.findIndex((candidate) => candidate.key === key);
+      tab = tabs[index]!;
+    }
     if (tabKindOf(tab.kind)?.noReopen) return;
     const position = positions.current[key] ?? tab.readPosition;
     closedTabs.current = [
@@ -672,12 +683,15 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
-  const close = (pane: number, key: string) => {
-    const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
+  // pane이 null이면 floated 탭이다.
+  const close = (pane: number | null, key: string) => {
+    const tab = pane === null
+      ? view.floats.find((item) => item.tab.key === key)?.tab
+      : view.panes[pane]?.tabs.find((item) => item.key === key);
     const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
     if (!confirm) {
       rememberClosed(key);
-      update(closeTab(view, pane, key));
+      removeTab(key);
       return;
     }
     void confirm.then((remove) => {
@@ -693,9 +707,7 @@ export function Workspace(props: WorkspaceProps) {
     const current = latest.current.panes[pane];
     if (current === undefined) return;
     for (const target of closeTargets(current, scope, key, isUnsaved)) {
-      const tab = latest.current.panes.flatMap((item) => item.tabs).find((
-        item,
-      ) => item.key === target);
+      const tab = findTab(latest.current, target);
       if (tab === undefined) continue;
       const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
       if (confirm && !(await confirm)) return;
@@ -745,7 +757,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
-    latest.current.panes.flatMap((pane) => pane.tabs).filter((tab) =>
+    allTabs(latest.current).filter((tab) =>
       tab.kind === "document_editor" &&
       (tab.key === path || tab.key.startsWith(`${path}/`))
     );

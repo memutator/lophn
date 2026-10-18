@@ -21,6 +21,7 @@ import type {
   BrowserViewHost,
 } from "./registry.ts";
 import { decideNavigation } from "./navigation.ts";
+import { faviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
 import { BROWSER_PARTITION } from "./session.ts";
 
@@ -167,6 +168,38 @@ export function electronBrowserViews(
       canGoBack: false,
       canGoForward: false,
     };
+    // favicon은 page가 알릴 때 그 page의 session으로 받는다. 다른 origin으로 가면 비우고, 그 사이
+    // 늦게 끝난 받기는 버린다(page가 바뀌면 번호가 오른다).
+    let favicon: string | undefined;
+    let faviconPage = 0;
+    let origin = "";
+    contents.on("did-navigate", (_event, url) => {
+      let next = "";
+      try {
+        next = new URL(url).origin;
+      } catch { /* 빈 page */ }
+      if (next === origin) return;
+      origin = next;
+      faviconPage += 1;
+      if (favicon !== undefined) {
+        favicon = undefined;
+        hooks.onChange();
+      }
+    });
+    contents.on("page-favicon-updated", (_event, favicons) => {
+      const url = favicons[0];
+      if (url === undefined) return;
+      const page = faviconPage;
+      void faviconData(url, (target) => contents.session.fetch(target)).then(
+        (data) => {
+          if (
+            data === null || page !== faviconPage || contents.isDestroyed()
+          ) return;
+          favicon = data;
+          hooks.onChange();
+        },
+      );
+    });
     const adapter: BrowserContents = {
       id: contents.id,
       load: (url) => contents.loadURL(url),
@@ -180,6 +213,7 @@ export function electronBrowserViews(
             loading: contents.isLoading(),
             canGoBack: contents.navigationHistory.canGoBack(),
             canGoForward: contents.navigationHistory.canGoForward(),
+            ...(favicon === undefined ? {} : { favicon }),
           };
         }
         return last;

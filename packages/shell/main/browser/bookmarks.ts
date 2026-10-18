@@ -25,6 +25,10 @@ type Outcome<T> = { ok: true; value: T } | {
 const TITLE_MAX = 200;
 const URL_MAX = 8192;
 const BOOKMARK_MAX = 1000;
+const FAVICON_MAX = 65536;
+
+// 선택 칸이라 favicon 없는 파일도 그대로 읽힌다. 맞지 않는 favicon이 든 파일은 다른 칸처럼 corrupt다.
+const favicon = z.string().max(FAVICON_MAX).startsWith("data:image/");
 
 const fileSchema = z.strictObject({
   version: z.literal(1),
@@ -33,6 +37,7 @@ const fileSchema = z.strictObject({
     title: z.string(),
     url: z.string(),
     created_at: z.string(),
+    favicon: favicon.optional(),
   })),
 });
 
@@ -121,7 +126,9 @@ export function createBookmarkStore(
 
   return {
     list,
-    add(input: { title: string; url: string }): Promise<Outcome<Bookmark>> {
+    add(
+      input: { title: string; url: string; favicon?: string },
+    ): Promise<Outcome<Bookmark>> {
       const title = checkTitle(input.title);
       if (title === undefined) {
         return Promise.resolve({ ok: false, reason: "title" });
@@ -142,6 +149,10 @@ export function createBookmarkStore(
           title,
           url,
           created_at: deps.clock.nowIso(),
+          // 규칙에 맞지 않는 favicon은 버리고 bookmark만 더한다.
+          ...(favicon.safeParse(input.favicon).success
+            ? { favicon: input.favicon }
+            : {}),
         };
         return {
           ok: true,

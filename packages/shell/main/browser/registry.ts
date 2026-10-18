@@ -32,6 +32,8 @@ export interface BrowserPage {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** page favicon의 data URL. 없으면 빠진다. */
+  favicon?: string;
 }
 
 export interface BrowserContents extends AppViewContents {
@@ -126,6 +128,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       loading: page.loading,
       canGoBack: page.canGoBack,
       canGoForward: page.canGoForward,
+      ...(page.favicon === undefined ? {} : { favicon: page.favicon }),
       health: entry.health,
     };
   }

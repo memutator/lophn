@@ -12,7 +12,7 @@
 
 roadmap "정한 것"을 그대로 따른다. 계획에서 더 정한 것:
 
-- output 상한은 32000이다(사람). 보내는 `max_tokens`는 OpenAI 계열 `min(output_limit, 32000)`, Anthropic `min(output_limit, 32000 + thinking 예산)`이다. 입력 예산이 남기는 output 몫(`run-loop/prepare.ts`, `session/compactor.ts`)도 `min(32000, output_limit)`이다. 상수는 하나만 둔다(agent).
+- output 상한은 32000이다(사람). 보내는 `max_tokens`는 OpenAI 계열 `min(output_limit, 32000)`, Anthropic `min(output_limit, 32000 + thinking 예산)`이다. 입력 예산이 남기는 output 몫(`run-loop/prepare.ts`, `session/compactor.ts`)도 `min(32000, output_limit)`이다. 상수는 하나만 둔다(agent). OpenAI 계열과 입력 예산 몫은 `floor(context_limit / 4)`로도 묶는다(agent): 32000만 걸면 context 32768·output 32768인 catalog model(`gemini-2.5-flash-image`)의 입력 예산이 24768에서 768로 준다. context 128K 이상은 영향이 없다.
 - 목록 밖 model의 기본 output 한도 4096은 그대로다(agent). 모르는 server에 큰 값을 보내 거절당하지 않게 하고, 더 쓰려면 사람이 적는다.
 - 저장 열쇠는 catalog와 같은 (provider definition key, model 이름)이다(agent). custom 정의 key는 연결 form의 Provider ID라 provider 하나에 하나다. provider를 끊었다 같은 ID로 다시 붙이면 적은 정보가 다시 보인다. 지우는 것은 사람의 [Remove model]뿐이다.
 - 받는 정의는 custom 정의뿐이다(agent). 내장 정의나 구독 OAuth 정의의 key로 오면 `invalid_input`이다.

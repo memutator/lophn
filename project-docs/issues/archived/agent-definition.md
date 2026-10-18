@@ -358,3 +358,60 @@ guard: 없음
 - 또는 `tool-batch.ts`가 `not_found` 대신 `control.tools`에 이유를 물어 그 code로 닫는다. agent가 이유를 들어야 할 근거가 문서에 생기면 이쪽이다.
 
 닫음: 이유 구별을 지웠다(app-api의 `missing.ts`, `missingReason` 인자, `MISSING_TOOL_MESSAGES`, `missingState`, prepare의 `offered`). 목록에 없는 tool은 `not_found` "tool is not available" 하나다. `grantAllows`는 쓰는 `tools/app-tools.ts` 안으로 옮겼다.
+
+## Project Manager 지침이 경계와 계약 위반 판단을 정하라고도 하고 물으라고도 한다
+
+```yaml
+kind: bug
+modules: [packages/core/agent-roles]
+closed: fixed
+guard: 없음
+```
+
+지금:
+- `packages/core/agent-roles/roles/project-manager/prompt.md`의 "What you do"는 두 가지를 PM의 일로 쓴다.
+  - "When a person or an agent asks for a context, draw the boundary first."
+  - 계약 위반 때 "decide whether the contract should change or the document is wrong."
+- 같은 file의 "What you do not do"는 반대로 말한다: "Do not decide what only the person can decide: a boundary, what a term means, whether the contract or the document should change. Ask with `ask`…"
+- `project-docs/products/AGENT-ROLE.md`의 C2는 PM이 경계를 긋는다고 하고, C6은 PM이 정한다고 한다(정하는 내용은 제안).
+
+영향:
+- context 요청이나 계약 위반 reaction(AGENT-ROLE E5)을 받은 PM은 같은 지침에서 "정하라"와 "정하지 말고 물어라"를 같이 받는다.
+- 어느 쪽을 따르느냐에 따라, 사람에게 묻지 않고 계약을 바꾸거나, 위반마다 사람의 답을 기다리며 아무것도 submit하지 않는다.
+- 사람은 PM이 어떻게 굴지 알 수 없다.
+
+고치려면:
+- PM이 정한다(작음): "What you do not do"에서 경계와 계약·문서 판단을 빼고, 용어의 뜻만 남긴다. 무엇을 왜 정했는지는 대답에 남긴다. AGENT-ROLE C2·C6과 맞는다.
+- 사람에게 묻는다(작음): "What you do"를 "안을 만들고 `ask`로 묻는다"로 바꾸고, AGENT-ROLE C2·C6을 고친다. 위반과 경계마다 사람의 답을 기다린다.
+- 추천: PM이 정한다. 통과한 초안은 사람 승인 없이 적용한다는 C3과 같은 쪽이다.
+
+정한 것: PM이 정한다(사람). "What you do not do"에는 용어의 뜻만 남기고, 경계와 계약·문서 판단은 PM이 정해 이유를 대답에 남긴다.
+
+닫음: PM 지침의 "What you do not do"는 용어의 뜻만 사람에게 묻게 하고, 경계와 계약 위반 판단은 PM이 정해 이유를 대답에 남기게 한다. AGENT-ROLE C6의 "(정하는 내용은 제안)"을 뗐다.
+
+## role 지침 세 곳이 코드에 없는 것을 말한다
+
+```yaml
+kind: bug
+modules: [packages/core/agent-roles]
+closed: fixed
+guard: 없음
+```
+
+지금:
+- lophn을 다른 agent에게 소개하는 줄이 project도 등록한다고 한다.
+  - `packages/core/agent-roles/place/place-data.ts`의 `ROLE_LINE.lophn`: "Plans work, registers projects and apps, and hands work to others."
+  - lophn의 쓰기 tool은 `app.create`뿐이고, project를 등록하는 tool은 없다(`packages/core/agent-roles/tool-lists.ts`).
+- App Engineer 지침(`packages/core/agent-roles/roles/app-engineer/prompt.md`)은 ticket의 "acceptance checks"(복수)라고 쓴다. 그런데 `ticket.create`의 `check`는 하나다(`packages/protocol/coding-agent/ticket/values.ts`).
+- 같은 지침은 reaction으로 "a repeating problem closed"를 든다. 실제 reaction은 앱이 거듭 죽어 자동 재시작을 멈춘 것이다(`AppRestartHalted`, `packages/core/events/reactor/session-opening.ts`).
+
+영향:
+- 다른 agent가 이 줄을 보고 lophn에게 project 등록을 맡기면, lophn은 할 수 없어 일이 돌아온다.
+- App Engineer가 check를 여럿 넣으려 하면 `invalid_input`으로 막혀 turn을 쓴다.
+- 재시작이 멈춘 reaction을 받은 App Engineer는 지침에서 그 경우를 찾지 못한다.
+
+고치려면: 세 문장을 코드에 맞게 고친다(작음).
+- lophn 줄: "Plans work, registers apps, and hands work to others."
+- App Engineer 지침: "the acceptance check", "the app stopped restarting after repeated crashes".
+
+닫음: `ROLE_LINE.lophn`은 "registers apps"만 말하고, App Engineer 지침은 "the acceptance check"와 "the app stopped restarting after repeated crashes"를 쓴다.

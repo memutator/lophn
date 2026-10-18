@@ -146,3 +146,20 @@ guard: packages/core/lophn-agent/run-loop/input-text_test.ts
 - 추천: history도 싼다. 막는 것이 "AI가 만든 글"이라 AGENTS.md "속도"의 남기는 쪽이다.
 
 닫음: `history.ts`가 사람 메시지가 아닌 받은 메시지를 `input-text.ts`의 `receivedText`로 싼다. 입력 종류는 봉투(`from`, `call`, `reply_to`)에서 되짚는다. compact와 prompt 조립은 `readSessionConversation`을 거쳐 같이 바뀐다.
+
+## 받은 turn의 입력과 뒤 turn의 history가 bytes로 다르다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: packages/core/lophn-agent/run-loop/input-text_test.ts
+```
+
+지금: 받은 turn의 입력은 call의 답 방식(`reply`), reaction의 event type, 실패 답의 이유를 태그 속성에 싣는다(`packages/core/lophn-agent/run-loop/input-text.ts`). 뒤 turn의 history는 session 기록에 그 칸이 없어 `receivedText`가 속성을 비운다(`packages/core/lophn-agent/session/history.ts`). 태그와 escape는 같다.
+
+영향: call·reaction을 받은 turn 다음 요청부터 그 메시지 자리의 prefix가 달라져 cache miss가 한 번 난다. 고치기 전(history가 원문)에도 같았다.
+
+고치려면: 받은 turn의 입력도 history와 같은 속성만 싣는다(작음. 답 방식은 call tool 결과나 본문 한 줄로 알린다). 또는 messages 행에 답 방식과 event type을 저장한다(중간, schema 변경). 추천: 앞의 것.
+
+닫음: 받은 봉투와 `messages` 표가 `reply`, `event`, `fail_reason`을 싣고, `receivedText`가 그것으로 받은 turn의 입력과 같은 글을 만든다. 답 방식 속성과 "answer with the reply tool" 줄은 그대로다. 개발 data는 새로 만든다.

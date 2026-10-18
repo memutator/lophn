@@ -7,9 +7,10 @@ import {
   loginComplete,
   type ProviderCredential,
   type ProviderRecord,
-  recordProviderAccountModels,
   recordProviderAvailability,
+  recordProviderModels,
   refreshProviderCredential,
+  refreshProviderModels,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -145,7 +146,8 @@ export function createProviderCommands(): {
   disconnect: CommandDefinition<typeof disconnectProvider>;
   refreshCredential: CommandDefinition<typeof refreshProviderCredential>;
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
-  recordAccountModels: CommandDefinition<typeof recordProviderAccountModels>;
+  recordModels: CommandDefinition<typeof recordProviderModels>;
+  refreshModels: CommandDefinition<typeof refreshProviderModels>;
   beginLogin: CommandDefinition<typeof loginBegin>;
   completeLogin: CommandDefinition<typeof loginComplete>;
   cancelLogin: CommandDefinition<typeof loginCancel>;
@@ -159,6 +161,16 @@ export function createProviderCommands(): {
         return err({
           code: "unavailable",
           message: "provider login runs outside the ledger writer",
+        });
+      },
+    },
+    // 목록 읽기는 network를 쓰므로 writer queue 앞의 처리기가 돌린다. 이 등록은 경로만 열어 둔다.
+    refreshModels: {
+      route: refreshProviderModels,
+      handle() {
+        return err({
+          code: "unavailable",
+          message: "provider model refresh runs outside the ledger writer",
         });
       },
     },
@@ -220,7 +232,7 @@ export function createProviderCommands(): {
           logged_in_at: tx.now(),
           refreshed_at: null,
           model_blocks: [],
-          account_models: null,
+          reported_models: null,
         });
         if (!credential.ok) return credential;
         const record = assertRecord({
@@ -330,14 +342,14 @@ export function createProviderCommands(): {
         });
       },
     },
-    // 계정이 쓸 수 있는 model 목록만 바꾼다. credential.revision은 올리지 않는다: 그 판은 model 호출 기록이 가리키는 데
+    // provider가 알려 준 model 목록만 바꾼다. credential.revision은 올리지 않는다: 그 판은 model 호출 기록이 가리키는 데
     // 쓰이고(credential_revision) 목록을 읽는 일이 호출 기록의 판을 흔들면 안 된다.
-    recordAccountModels: {
-      route: recordProviderAccountModels,
+    recordModels: {
+      route: recordProviderModels,
       handle(
         tx,
         _ctx,
-        input: Input<typeof recordProviderAccountModels>,
+        input: Input<typeof recordProviderModels>,
         compare,
       ) {
         const current = requireProvider(tx, input.provider);
@@ -347,12 +359,12 @@ export function createProviderCommands(): {
         const models = [...new Set(input.models)].sort();
         const checked = assertCredential({
           ...current.value.credential,
-          account_models: models,
+          reported_models: models,
         });
         if (!checked.ok) return checked;
         const revision = compare.revision + 1;
         tx.sql.run(
-          "update provider_credentials set account_models = ? where provider = ?",
+          "update provider_credentials set reported_models = ? where provider = ?",
           [JSON.stringify(models), input.provider],
         );
         tx.sql.run(

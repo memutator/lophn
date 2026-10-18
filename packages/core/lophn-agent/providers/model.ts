@@ -26,17 +26,17 @@ function credentialFromRow(
   provider: string,
 ): Result<ProviderCredential | null> {
   const row = sql.all(
-    "select kind, secret_name, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, account_models from provider_credentials where provider = ?",
+    "select kind, secret_name, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, reported_models from provider_credentials where provider = ?",
     [provider],
   )[0];
   if (row === undefined) return ok(null);
   const text = (value: unknown): string | null =>
     value === null ? null : String(value);
   const secretName = text(row["secret_name"]);
-  let accountModels: unknown = null;
-  if (row["account_models"] !== null) {
+  let reportedModels: unknown = null;
+  if (row["reported_models"] !== null) {
     try {
-      accountModels = JSON.parse(String(row["account_models"]));
+      reportedModels = JSON.parse(String(row["reported_models"]));
     } catch {
       return invalidStored();
     }
@@ -54,7 +54,7 @@ function credentialFromRow(
     logged_in_at: text(row["logged_in_at"]),
     refreshed_at: text(row["refreshed_at"]),
     model_blocks: modelBlocksFromRow(sql, provider),
-    account_models: accountModels as ProviderCredential["account_models"],
+    reported_models: reportedModels as ProviderCredential["reported_models"],
   };
   return assertCredential(value);
 }

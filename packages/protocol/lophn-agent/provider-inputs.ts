@@ -92,9 +92,13 @@ export const refreshProviderCredentialInputSchema = z.strictObject({
   { message: "refresh stores a new expiry or a safe unavailable state" },
 );
 
-export const recordProviderAccountModelsInputSchema = z.strictObject({
+export const recordProviderModelsInputSchema = z.strictObject({
   provider: idSchema("pvd"),
   models: z.array(nonblankSchema).min(1).max(2000),
+});
+
+export const refreshProviderModelsInputSchema = z.strictObject({
+  provider: idSchema("pvd"),
 });
 
 export const recordProviderAvailabilityInputSchema = z.strictObject({

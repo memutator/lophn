@@ -9,7 +9,7 @@ import {
   providerList,
   providerRead,
   type ProviderRecord,
-  recordProviderAccountModels,
+  recordProviderModels,
   refreshProviderCredential,
   ROLES,
 } from "../../../../protocol/lophn-agent/mod.ts";
@@ -70,7 +70,7 @@ const PROVIDER_REFRESH_CONTEXT: AuthenticatedContext = {
     operations: [
       providerRead.name,
       refreshProviderCredential.name,
-      recordProviderAccountModels.name,
+      recordProviderModels.name,
     ],
     targets: {},
   },
@@ -198,7 +198,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           }),
         recordModels: (provider, models) =>
           ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
-            command: recordProviderAccountModels.name,
+            command: recordProviderModels.name,
             input: { provider: provider.id, models },
             idempotency_key: crypto.randomUUID(),
             compare: { revision: provider.revision },

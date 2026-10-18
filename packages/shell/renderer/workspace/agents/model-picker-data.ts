@@ -5,7 +5,6 @@ import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import {
-  accountAllows,
   fitOptionValues,
   optionAxesOf,
   orderPicker,
@@ -30,7 +29,8 @@ interface PickerState {
 export function modelsOf(models: ModelsView, provider: ProviderChoice) {
   return models.catalog.filter((entry) =>
     entry.provider_definition === provider.definition &&
-    accountAllows(provider.accountModels, entry.model_name)
+    (provider.reportedModels === null ||
+      provider.reportedModels.includes(entry.model_name))
   );
 }
 

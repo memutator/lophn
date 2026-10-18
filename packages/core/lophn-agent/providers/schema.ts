@@ -34,7 +34,7 @@ create table provider_credentials (
   expires_at text,
   logged_in_at text,
   refreshed_at text,
-  account_models text,
+  reported_models text,
   check ((kind in ('api_key', 'oauth')) = (secret_name is not null)),
   check (
     (state = 'usage_wait') = (until is not null)

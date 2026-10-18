@@ -78,7 +78,7 @@ function setup(expiresAtMs: number) {
           : Promise.resolve(models());
       },
       recordModels: (provider, list) =>
-        Promise.resolve(commands.recordAccountModels.handle(
+        Promise.resolve(commands.recordModels.handle(
           tx,
           { actor: "machine" } as RequestContext,
           { provider: provider.id, models: list } as never,
@@ -172,7 +172,7 @@ Deno.test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도
   const first = t.refresher(token(), listed);
   assertEquals(await first.prepareToken(use), ok(undefined));
   await first.idle();
-  assertEquals(t.read().credential.account_models, kept);
+  assertEquals(t.read().credential.reported_models, kept);
 
   // 다시 갱신할 때 읽기가 던지거나 모양이 틀려도 token은 새로 저장되고 목록은 그대로다.
   for (const broken of [undefined, () => Response.json({ nope: 1 })]) {
@@ -182,6 +182,6 @@ Deno.test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도
     assertEquals(await again.prepareToken(use), ok(undefined));
     await again.idle();
     assertEquals(t.secrets.get(ACCESS), "A");
-    assertEquals(t.read().credential.account_models, kept);
+    assertEquals(t.read().credential.reported_models, kept);
   }
 });

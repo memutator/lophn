@@ -186,7 +186,7 @@ export function coreAgentsSource(
       id: string;
       name: string;
       definition: { key: string };
-      credential: { account_models: string[] | null };
+      credential: { reported_models: string[] | null };
     }[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
@@ -439,7 +439,7 @@ export function coreAgentsSource(
           id: provider.id,
           name: provider.name,
           definition: provider.definition.key,
-          accountModels: provider.credential.account_models,
+          reportedModels: provider.credential.reported_models,
         })),
         catalog: entries,
         favorites: starred.value.items,

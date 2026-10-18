@@ -75,7 +75,7 @@ Deno.test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회
     // 목록은 token을 건넨 뒤 뒤에서 읽는다.
     const models = await until("계정 model 목록", async () => {
       const read = await core.call(providerRead, { provider });
-      return read.provider.credential.account_models ?? undefined;
+      return read.provider.credential.reported_models ?? undefined;
     }, 20_000);
     const catalog = await core.call(modelCatalogRead, {
       provider_definition: "openai",

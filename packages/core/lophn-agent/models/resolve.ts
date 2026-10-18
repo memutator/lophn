@@ -1,8 +1,8 @@
 import { err, formatAt, ok, type Result } from "../../../base/mod.ts";
 import {
-  accountAllows,
   type CallModel,
   type CatalogEntry,
+  entitlementAllows,
   type ModelChoice,
   providerRead,
   type ProviderRecord,
@@ -189,7 +189,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
       found,
       {
         modelListed: (name) =>
-          accountAllows(provider.credential.account_models, name),
+          entitlementAllows(
+            credential.kind,
+            provider.credential.reported_models,
+            name,
+          ),
       },
       unlisted ? UNLISTED_LIMITS : undefined,
     );

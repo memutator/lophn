@@ -81,12 +81,53 @@ export function fitOptionValues(
   return { option_values, notices };
 }
 
-// 계정이 쓸 수 있는 model 목록(credential.account_models)으로 거른다. null은 아직 못 읽은 것이라 거르지 않는다.
-export function accountAllows(
-  accountModels: readonly string[] | null,
+// 고를 수 있는 model 하나다. entry는 catalog에 같은 이름이 있을 때만 채워지는 정보(한도·option)이고
+// 고를 수 있는지는 정하지 않는다.
+export type SelectableModel = {
+  model_name: string;
+  entry: CatalogEntry | null;
+};
+
+// provider가 알려 준 목록(reported)이 있으면 그 목록이 고를 수 있는 model 전부다.
+// null(못 읽음)이거나 빈 목록이면 그 정의의 catalog 항목 전부다. 빈 목록을 "전부 숨김"으로 읽으면
+// 읽기가 틀렸을 때 model이 모두 사라지므로 그렇게 읽지 않는다. 다른 정의의 항목은 섞지 않는다.
+export function selectableModels(input: {
+  definition: string;
+  catalog: readonly CatalogEntry[];
+  reported: readonly string[] | null;
+}): SelectableModel[] {
+  const own = input.catalog.filter((entry) =>
+    entry.provider_definition === input.definition
+  );
+  if (input.reported === null || input.reported.length === 0) {
+    return own.map((entry) => ({ model_name: entry.model_name, entry }));
+  }
+  return [...new Set(input.reported)].map((model_name) => ({
+    model_name,
+    entry: own.find((entry) => entry.model_name === model_name) ?? null,
+  }));
+}
+
+// 구독 OAuth provider의 목록만 계정의 허락 목록이다. custom·API key provider의 목록은 찾기 위한 것이다.
+function isEntitlement(kind: string, reported: readonly string[] | null) {
+  return kind === "oauth" && reported !== null;
+}
+
+// 허락 목록이 있으면 그 밖의 이름은 받지 않는다. 그 밖에는 항상 true다.
+export function entitlementAllows(
+  kind: string,
+  reported: readonly string[] | null,
   modelName: string,
 ): boolean {
-  return accountModels === null || accountModels.includes(modelName);
+  return !isEntitlement(kind, reported) || reported!.includes(modelName);
+}
+
+// 직접 적은 이름을 받을 수 있는가(= 허락 목록이 없는가).
+export function typedNameAllowed(
+  kind: string,
+  reported: readonly string[] | null,
+): boolean {
+  return !isEntitlement(kind, reported);
 }
 
 // 선택 화면의 순서 규칙이다. 즐겨찾기 목록은 별표를 찍은 순서의 ModelFavorites.items이고,

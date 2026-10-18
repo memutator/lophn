@@ -175,7 +175,7 @@ const credentialFields = {
   refreshed_at: atSchema.nullable(),
   model_blocks: z.array(modelBlockSchema),
   // ChatGPT 계정이 쓸 수 있는 model 이름이다. null은 아직 못 읽었다는 뜻이고 그때는 거르지 않는다.
-  account_models: z.array(nonblankSchema).nullable(),
+  reported_models: z.array(nonblankSchema).nullable(),
 };
 
 function credentialShape(value: {

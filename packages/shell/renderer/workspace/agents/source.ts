@@ -135,7 +135,7 @@ export interface ProviderChoice {
   readonly name: string;
   readonly definition: string;
   /** 계정이 쓸 수 있는 model 이름. null이면 아직 모르는 것이라 거르지 않는다. */
-  readonly accountModels: readonly string[] | null;
+  readonly reportedModels: readonly string[] | null;
 }
 
 export interface ModelFavorite {

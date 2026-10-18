@@ -297,7 +297,7 @@ export function createFakeAgentsSource(): FakeAgentsSource {
           id: ANTHROPIC,
           name: "Anthropic",
           definition: "anthropic",
-          accountModels: null,
+          reportedModels: null,
         }],
         catalog: CATALOG,
         favorites,

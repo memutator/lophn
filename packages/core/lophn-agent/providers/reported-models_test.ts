@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
-import { accountAllows } from "../../../protocol/lophn-agent/mod.ts";
-import { parseAccountModels, readAccountModels } from "./account-models.ts";
+import { entitlementAllows } from "../../../protocol/lophn-agent/mod.ts";
+import { parseReportedModels, readReportedModels } from "./reported-models.ts";
 
 // 응답이 어떤 모양이든 보이는 model을 숨기지 않는다. 읽지 못한 것은 null(거르지 않음)이다.
 Deno.test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 것만 빠진다", async () => {
@@ -26,7 +26,7 @@ Deno.test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 
     ],
   ];
   for (const [name, response, expected] of cases) {
-    const got = await readAccountModels(
+    const got = await readReportedModels(
       () => Promise.resolve(response),
       "https://example.test/models",
       "t",
@@ -34,14 +34,14 @@ Deno.test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 
     assertEquals(got, expected, name);
   }
   assertEquals(
-    await readAccountModels(
+    await readReportedModels(
       () => Promise.reject(new Error("deadline")),
       "https://example.test/models",
       "t",
     ),
     null,
   );
-  assertEquals(parseAccountModels('{"data":[]}'), null);
-  assertEquals(accountAllows(null, "anything"), true);
-  assertEquals(accountAllows(["a"], "b"), false);
+  assertEquals(parseReportedModels('{"data":[]}'), null);
+  assertEquals(entitlementAllows("oauth", null, "anything"), true);
+  assertEquals(entitlementAllows("oauth", ["a"], "b"), false);
 });

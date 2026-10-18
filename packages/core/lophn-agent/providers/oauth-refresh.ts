@@ -6,7 +6,10 @@ import type {
 } from "../../../protocol/secrets/mod.ts";
 import { type IssuerFetch, objectOf, positive, text } from "./oauth.ts";
 import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
-import { accountModelsEndpoint, readAccountModels } from "./account-models.ts";
+import {
+  readReportedModels,
+  reportedModelsEndpoint,
+} from "./reported-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
 // 할 때 core가 값을 건네기 직전에 부른다(runtime-secret.ts의 providerOAuth hook). 만료가 lead보다 가까우면
@@ -35,7 +38,7 @@ export function createProviderRefresher(deps: {
     provider: ProviderRecord,
     result: RefreshRecord,
   ): Promise<Result<unknown>>;
-  // RecordProviderAccountModels를 그 provider의 revision으로 부른다.
+  // RecordProviderModels를 그 provider의 revision으로 부른다.
   recordModels(
     provider: ProviderRecord,
     models: string[],
@@ -52,12 +55,16 @@ export function createProviderRefresher(deps: {
 
   // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
   function readModelsLater(provider: ProviderRecord): void {
-    const endpoint = accountModelsEndpoint(provider.definition);
+    const endpoint = reportedModelsEndpoint(provider.definition);
     if (endpoint === null || reads.has(provider.id)) return;
     const read = (async () => {
       const access = deps.secrets.get(providerTokenNames(provider.id).access);
       if (!access.ok) return;
-      const models = await readAccountModels(deps.http, endpoint, access.value);
+      const models = await readReportedModels(
+        deps.http,
+        endpoint,
+        access.value,
+      );
       if (models === null) return;
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
@@ -175,7 +182,7 @@ export function createProviderRefresher(deps: {
       const expires = Date.parse(provider.credential.expires_at ?? "");
       if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
         // 연결 직후 runtime이 다시 뜨느라 첫 읽기가 실패했으면 여기서 다시 읽는다.
-        if (provider.credential.account_models === null) {
+        if (provider.credential.reported_models === null) {
           readModelsLater(provider);
         }
         return undefined;

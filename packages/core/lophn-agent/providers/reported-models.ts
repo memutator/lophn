@@ -10,7 +10,7 @@ const VISIBLE = "list";
 
 // 보이는 id가 하나도 없으면 칸 이름이 틀렸거나 body가 다른 모양이다. 그때는 목록을 모른다고 본다(null):
 // 잘못 읽어서 model을 전부 숨기는 쪽이 못 읽는 쪽보다 나쁘다.
-export function parseAccountModels(body: string): string[] | null {
+export function parseReportedModels(body: string): string[] | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
@@ -33,7 +33,7 @@ export function parseAccountModels(body: string): string[] | null {
 }
 
 // 읽는 대상은 ChatGPT 로그인 provider뿐이다. SuperGrok·API key provider와 fake 발급자 정의(models_endpoint 없음)는 읽지 않는다.
-export function accountModelsEndpoint(
+export function reportedModelsEndpoint(
   definition: ProviderDefinition,
 ): string | null {
   return definition.oauth?.product === "chatgpt"
@@ -42,7 +42,7 @@ export function accountModelsEndpoint(
 }
 
 // 어떤 실패든 null이다(발급자 대기열 기한, runtime 없음, 200이 아님, 큰 body). token을 오류나 log에 싣지 않는다.
-export async function readAccountModels(
+export async function readReportedModels(
   http: IssuerFetch,
   endpoint: string,
   access: string,
@@ -56,7 +56,7 @@ export async function readAccountModels(
       },
     });
     return response.status === 200
-      ? parseAccountModels(await response.text())
+      ? parseReportedModels(await response.text())
       : null;
   } catch {
     return null;

@@ -20,11 +20,14 @@ import {
   loginCompleteOutputSchema,
   type ProviderDefinition,
   type ProviderRecord,
-  recordProviderAccountModels,
+  recordProviderModels,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 import type { CallbackListener } from "../extensions/mod.ts";
-import { accountModelsEndpoint, readAccountModels } from "./account-models.ts";
+import {
+  readReportedModels,
+  reportedModelsEndpoint,
+} from "./reported-models.ts";
 import { createProviderOAuth, type IssuerFetch } from "./oauth.ts";
 import {
   hostIdOf,
@@ -129,12 +132,12 @@ export function withProviderLogin(
     const record = (connected.value.result as { provider: unknown }).provider;
     // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. runtime이 새 목적지로 다시 뜨는 중이면 실패하고,
     // 그때는 token을 처음 건넬 때(prepareToken) 다시 읽는다.
-    const endpoint = accountModelsEndpoint(target.definition);
+    const endpoint = reportedModelsEndpoint(target.definition);
     if (endpoint !== null) {
-      void readAccountModels(deps.http, endpoint, tokens.access).then(
+      void readReportedModels(deps.http, endpoint, tokens.access).then(
         (models) =>
           models === null ? undefined : writer.command(ctx, {
-            command: recordProviderAccountModels.name,
+            command: recordProviderModels.name,
             input: { provider, models },
             idempotency_key: deps.newKey(),
             compare: { revision: (record as ProviderRecord).revision },

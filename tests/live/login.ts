@@ -13,7 +13,7 @@ import {
   providerRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { providerSecretName } from "../../packages/core/lophn-agent/providers/oauth-secrets.ts";
-import { parseAccountModels } from "../../packages/core/lophn-agent/providers/account-models.ts";
+import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import type { Core } from "../support/core/mod.ts";
 import { runtimePids } from "../support/core/process.ts";
 import { settle, until } from "../support/core/human.ts";
@@ -84,7 +84,7 @@ async function login(core: Core): Promise<number> {
   // core가 읽은 계정 model 목록(연결 직후 읽기는 runtime이 다시 뜨는 중이면 실패한다).
   const read = async () =>
     (await core.call(providerRead, { provider })).provider.credential
-      .account_models;
+      .reported_models;
   const fromCore = await until("계정 model 목록", async () => {
     return (await read()) ?? undefined;
   }, 15_000).catch(() => null);
@@ -177,7 +177,7 @@ async function diagnose(
     ),
   );
   console.log(`visibility 값 종류: ${[...kinds].join(", ")}`);
-  const names = parseAccountModels(body);
+  const names = parseReportedModels(body);
   console.log(`파서가 보이는 것으로 읽은 model: ${names?.length ?? "null"}개`);
   return names;
 }

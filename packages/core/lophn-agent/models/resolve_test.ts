@@ -34,7 +34,7 @@ function resolverFor(definitionKey: string) {
       logged_in_at: null,
       refreshed_at: null,
       model_blocks: [],
-      account_models: null,
+      reported_models: null,
     },
     revision: 1,
   };

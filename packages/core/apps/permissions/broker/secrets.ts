@@ -72,7 +72,7 @@ export type SecretUseService = {
   use(child: BrokerChild, body: unknown): Promise<Result<SecretUseOutput>>;
 };
 
-// platform SecretAllowance port의 판정이다. 같은 규칙을 broker와 platform이 함께 쓴다.
+// secret 허락 판정(`SecretAllowanceCheck`)의 규칙이다. 같은 규칙을 broker와 platform이 함께 쓴다.
 export function secretAllowed(
   scope: EffectiveScope,
   platformPorts: readonly number[],

@@ -13,6 +13,9 @@
   - `packages/core/apps/permissions/broker/net-fetch_test.ts`
   - `packages/core/apps/permissions/broker/invocations.ts`
   - `packages/sdk/cap-secret/**`
+  - `packages/core/main/daemon/wiring/apps.ts`(lead가 더함: `apps/secret_value` 등록 줄만)
+  - `packages/core/main/daemon/wiring/secrets.ts`(lead가 더함: `app_secret` 허락 줄만)
+  - `packages/core/apps/register.ts`, `packages/core/apps/permissions/secret-allowance.ts`(lead가 더함: 안 쓰게 된 `SecretAllowance` port 지우기만)
 - 읽을 것:
   - issue: `project-docs/issues/reuse.md`의 "cap-fs, cap-net, cap-secret이 깔리지 않아…"의 정한 것(secret)
   - architecture: `project-docs/architecture/agent-definition.md`("provider credential…은 ledger, event, log, 오류, model 입력에 없다"와 같은 원칙: 값은 로그·오류·응답에 없다), `project-docs/architecture/app-call.md`
@@ -49,3 +52,19 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 상대 서버가 응답 본문에 secret을 되돌려 주면 앱 응답에 들어간다(redaction은 core 경계에서만 한다). 없으면 "없음"
+
+## (lead가 더함) core 조립
+
+`rd-cap-secret-core`(merge됨)가 route `apps.secret_value`(machine 전용)와 `secretValueHandler`, `secretAllowanceOver`를 냈다. 그 등록이 이 task의 몫이다. handler만 있고 등록이 빠진 중간 상태를 두지 않기 위해서다.
+
+1. `packages/core/main/daemon/wiring/apps.ts`의 `memory:` 목록에 등록한다:
+   `["apps/secret_value", secretValueHandler({ attach: ctx.secretAttach, known: () => ctx.knownSecrets, observe: async (app) => { const r = await appsControl.client.observe(app); return r.ok ? ok(r.value) : r; } })]`.
+   이름은 실제 코드에서 확인한다.
+2. `packages/core/main/daemon/wiring/secrets.ts`의 `allowance`가 `app_secret`을 `secretAllowanceOver({ sql, declarations: (app) => releaseDeclarations.get(sql, app), platformPorts: apiPorts })`로 넘기게 한다.
+   - `sql`은 읽기 전용 ledger 연결이다.
+   - `platformPorts`는 apps 조립이 broker에 주는 것과 같다. 빠지면 loopback http 목적지가 core 자기 API port를 가리킬 수 있다.
+   - secrets 조립의 `prepare`가 apps의 `build`보다 먼저 돌므로, apps 쪽 허락은 늦게 묶는다(예: `ctx.peek`).
+3. `packages/core/apps/register.ts`가 등록하는 `SecretAllowance` port(`createSecretAllowance(tx)`)는 부르는 곳이 없다. 지우고, `secret-allowance.ts`에 `secretAllowanceOver` 하나만 남긴다.
+4. 확인:
+   - core 기동 두 번.
+   - 위험 test 하나(가장 싼 층): "앱 supervisor가 아닌 자격, grant 밖의 이름, grant 밖의 목적지, lophn 자기 port로는 `apps.secret_value`가 값을 주지 않는다." `rd-cap-secret-core`의 `file-attach_test.ts` 표와 겹치면 handler 쪽 행만 더한다.

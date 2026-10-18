@@ -294,6 +294,8 @@ export const modelCatalogRead = defineRead({
   input: z.strictObject({
     provider_definition: nonblankSchema.optional(),
     model_name: nonblankSchema.optional(),
+    // 앞선 응답의 next_cursor다. catalog 전체가 한 응답 한도를 넘으므로 page로 읽는다.
+    cursor: z.string().min(1).optional(),
   }),
   output: withReadCommon(z.object({
     state: catalogStateOutputSchema,

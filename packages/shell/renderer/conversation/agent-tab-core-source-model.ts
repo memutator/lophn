@@ -82,9 +82,9 @@ export function createModelPart(env: Env): ModelPart {
       (out) => out.providers,
     );
     if (!providers.ok) return providers;
-    const catalog = await env.read(modelCatalogRead, {});
+    const catalog = await env.pages(modelCatalogRead, {}, (out) => out.entries);
     // catalog를 읽지 못해도 현재 model의 이름은 보이도록 model 목록만 비운다.
-    const entries = catalog.ok ? catalog.value.entries : [];
+    const entries = catalog.ok ? catalog.value : [];
     const favorites = await env.read(modelFavoritesRead, {});
     if (!favorites.ok) return favorites;
     const value: Loaded = {

@@ -200,13 +200,6 @@ export const lophnAgentSettings = [
   ...Object.values(turnLimitSettings),
 ];
 
-// derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다.
-// pool read handler는 동기 Result를 돌려주므로 파일 읽기도
-// 동기여야 하는데, core module graph의 동기 file API는 platform/responsiveness
-// 검사가 막는다. 그래서 정의는 leaf의 createCatalogRead에 두고 파일 reader는
-// 조립이 끼운다. reader가 없으면 read는 unavailable이다. apiRead 경로는 snapshot을
-// 받지 않아 as_of_seq를 만들 수 없어 pool read로 둔다.
-
 // provider·credential ledger. 값은 `secrets.json`에만 있고 이곳에는 이름만 남는다.
 // model 기본값과 model call 기록·사용량 읽기. 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
@@ -600,6 +593,13 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   );
   const modelReads = createModelReads({
     projectExists: (sql, id) => ports.lookups.projectExists(sql, id),
+    readDerived(sql, name) {
+      const root = dataRootOf(sql, undefined);
+      if (!root.ok) return null;
+      return createNodeAgentFiles().read(
+        `${root.value}/derived/lophn-agent/${name}`,
+      );
+    },
   });
   const agentDeps: AgentDeps = {
     files: createNodeAgentFiles(),

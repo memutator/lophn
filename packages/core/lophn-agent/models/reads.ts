@@ -9,6 +9,7 @@ import type {
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
 import { GLOBAL_SCOPE, loadChoice, loadFavorites } from "./store.ts";
+import { bundledSnapshot } from "./snapshot-catalog.ts";
 import { createCatalogRead } from "./work.ts";
 
 // 읽기는 ledger snapshot에서 읽는다. 줄이 없으면 처음 값(null, 빈 목록)이다.
@@ -16,6 +17,8 @@ import { createCatalogRead } from "./work.ts";
 export function createModelReads(deps: {
   // project 표를 가진 module의 읽기다. 조립이 꽂는다.
   projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
+  // derived catalog 파일의 동기 reader다. 조립이 꽂는다.
+  readDerived(sql: ReadSnapshot["sql"], name: string): string | null;
 }): {
   modelDefault: ReadDefinition<typeof modelDefaultRead>;
   projectModel: ReadDefinition<typeof projectModelRead>;
@@ -56,8 +59,9 @@ export function createModelReads(deps: {
         });
       },
     },
-    // derived catalog read다. reader worker 등록과 함께
-    // leaf를 끼우고, core 정적 graph는 leaf import이 없다.
-    catalog: createCatalogRead(),
+    catalog: createCatalogRead({
+      readDerived: deps.readDerived,
+      snapshot: bundledSnapshot,
+    }),
   };
 }

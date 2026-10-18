@@ -317,22 +317,35 @@ function refreshDueAt(
     CATALOG_REFRESH_INTERVAL_MS;
 }
 
-// 동기 파일 읽기. read handler는 Promise를 돌려주지 않으므로 core read는 이것으로
-// derived 파일을 읽는다.
-type SyncFiles = { readTextFile(path: string): string };
+// read 응답 한도(READ_MAX_ROWS 500) 안에 두는 한 page의 row 예산이다. 중첩 배열의 항목도 row로 센다.
+const CATALOG_PAGE_ROWS = 400;
+
+function countRows(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.length + value.reduce((sum, item) => sum + countRows(item), 0);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.values(value).reduce<number>(
+      (sum, item) => sum + countRows(item),
+      0,
+    );
+  }
+  return 0;
+}
 
 type CatalogReadDeps = {
-  // derived catalog 파일의 sync reader. core 조립이 root와 함께 끼운다.
-  files: SyncFiles;
-  loadSnapshot: () => CatalogEntry[];
+  // derived 파일(catalog.json, catalog-state.json)의 동기 reader다. 파일이 없으면 null이다.
+  // read handler는 Promise를 돌려주지 않고 core graph는 동기 file API를 못 쓰므로 조립이 끼운다.
+  readDerived(sql: ReadSnapshot["sql"], name: string): string | null;
+  // 동봉 snapshot과 그 hash다. 정상 파일이 없을 때의 답이다.
+  snapshot: { entries: CatalogEntry[]; hash: string };
 };
 
-// catalog의 read 정의. derived 파일을 읽고, 정상 파일이 없으면 동봉 snapshot에서
-// 다시 만든다(plan 완료 1). refresh는 runtime 작업이므로 read는 여기 없다.
+// catalog의 read 정의. derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot으로 답한다.
+// refresh는 runtime 작업이므로 read는 여기 없다.
 export function createCatalogRead(
-  deps?: Partial<CatalogReadDeps>,
+  deps: CatalogReadDeps,
 ): ReadDefinition<typeof modelCatalogRead> {
-  const files = deps?.files as SyncFiles | undefined;
   return {
     route: modelCatalogRead,
     handle(
@@ -340,12 +353,6 @@ export function createCatalogRead(
       ctx: RequestContext,
       input: Input<typeof modelCatalogRead>,
     ): Result<Output<typeof modelCatalogRead>> {
-      if (typeof files?.readTextFile !== "function") {
-        return err({
-          code: "unavailable",
-          message: "catalog read 파일 reader가 없다",
-        });
-      }
       const actor = parseActor(ctx.actor);
       if (
         actor === undefined || !modelCatalogRead.actors.includes(actor.kind)
@@ -355,31 +362,21 @@ export function createCatalogRead(
           message: "catalog read actor 아니다",
         });
       }
-      let catalog: CatalogEntry[];
-      let state: CatalogState;
+      let catalog: CatalogEntry[] | undefined;
+      let state: CatalogState | undefined;
       try {
-        catalog = parseEntries(files.readTextFile("catalog.json")) ?? [];
-        state = parseState(files.readTextFile("catalog-state.json")) ??
-          undefined as unknown as CatalogState;
-      } catch {
-        return err({
-          code: "unavailable",
-          message: "catalog 파일을 읽지 못했다",
-        });
-      }
-      if (!state) {
-        // 정상 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
-        const snapshotLoader = deps?.loadSnapshot;
-        if (typeof snapshotLoader !== "function") {
-          return err({
-            code: "unavailable",
-            message: "catalog가 준비되지 않았다",
-          });
+        const catalogText = deps.readDerived(snapshot.sql, "catalog.json");
+        const stateText = deps.readDerived(snapshot.sql, "catalog-state.json");
+        if (catalogText !== null && stateText !== null) {
+          catalog = parseEntries(catalogText);
+          state = parseState(stateText);
         }
-        const fallback = snapshotLoader();
-        const validated = validateCatalogResponse(fallback);
-        if (!validated.ok) return validated;
-        catalog = validated.value;
+      } catch {
+        // 읽지 못한 파일은 없는 것과 같이 snapshot으로 답한다.
+      }
+      if (catalog === undefined || state === undefined) {
+        catalog = deps.snapshot.entries;
+        state = initialState(true, deps.snapshot.hash);
       }
       const visible = catalog.filter((entry) =>
         (input.provider_definition === undefined ||
@@ -387,22 +384,36 @@ export function createCatalogRead(
         (input.model_name === undefined ||
           entry.model_name === input.model_name)
       );
+      // catalog 전체는 read 응답 한도(500 row)를 크게 넘으므로 항목을 row 예산만큼 끊어 cursor로 잇는다.
+      // cursor는 필터를 거친 목록의 위치다. 필터는 매 요청이 같이 보낸다.
+      const start = input.cursor === undefined ? 0 : Number(input.cursor);
+      if (!Number.isSafeInteger(start) || start < 0) {
+        return err({
+          code: "invalid_input",
+          message: "cursor가 올바르지 않다",
+        });
+      }
       const views: Output<typeof modelCatalogRead>["entries"] = [];
-      for (const entry of visible) {
-        const checked = catalogEntryOutputSchema.safeParse(entry);
+      let rows = 0;
+      let next = start;
+      for (; next < visible.length; next += 1) {
+        const checked = catalogEntryOutputSchema.safeParse(visible[next]);
         if (!checked.success) {
           return err({
             code: "internal",
             message: "catalog 항목이 올바르지 않다",
           });
         }
+        const cost = 1 + countRows(checked.data);
+        if (views.length > 0 && rows + cost > CATALOG_PAGE_ROWS) break;
+        rows += cost;
         views.push(checked.data);
       }
       return ok({
         state,
         entries: views,
         as_of_seq: snapshot.as_of_seq,
-        next_cursor: null,
+        next_cursor: next < visible.length ? String(next) : null,
       });
     },
   };

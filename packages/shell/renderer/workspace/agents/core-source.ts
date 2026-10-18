@@ -55,6 +55,8 @@ import type {
 
 /** 목록을 끝까지 모을 때 page 상한. */
 const PAGE_LIMIT = 20;
+// catalog는 항목이 많아 page가 많다(page당 row 예산이 있다).
+const CATALOG_PAGE_LIMIT = 60;
 
 /** Operator ID의 본문: 소문자 Crockford base32 26자, 첫 글자는 0~7이다. */
 const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -414,12 +416,22 @@ export function coreAgentsSource(
     async models() {
       const registered = await providers();
       if (!registered.ok) return registered;
-      const catalog = await link.read<{ entries: CatalogEntry[] }>(
-        "agent-model-catalog",
-        "read",
-        {},
-      );
-      if (!catalog.ok) return catalog;
+      // catalog는 한 응답 한도를 넘어 cursor로 이어 읽는다.
+      const entries: CatalogEntry[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < CATALOG_PAGE_LIMIT; page += 1) {
+        const catalog = await link.read<
+          { entries: CatalogEntry[]; next_cursor: string | null }
+        >(
+          "agent-model-catalog",
+          "read",
+          cursor === undefined ? {} : { cursor },
+        );
+        if (!catalog.ok) return catalog;
+        entries.push(...catalog.value.entries);
+        if (catalog.value.next_cursor === null) break;
+        cursor = catalog.value.next_cursor;
+      }
       const starred = await favorites();
       if (!starred.ok) return starred;
       const view: ModelsView = {
@@ -429,7 +441,7 @@ export function coreAgentsSource(
           definition: provider.definition.key,
           accountModels: provider.credential.account_models,
         })),
-        catalog: catalog.value.entries,
+        catalog: entries,
         favorites: starred.value.items,
       };
       return { ok: true, value: view };

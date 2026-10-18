@@ -1,4 +1,5 @@
-/* 부모(position: relative) 안에 놓이는 패널. 위치와 크기는 inline style로 받는다. */
+/* 부모(position: relative) 안에 놓이는 패널. 위치와 크기는 inline style로 받는다. 모서리는 각지다.
+   칸과 탭 줄이 각진 shell 위에 떠서 같은 모양이어야 하고, 둥글면 native view(앱 화면)가 모서리에서 삐져나온다. */
 .panel {
   position: absolute;
   box-sizing: border-box;
@@ -6,7 +7,6 @@
   flex-direction: column;
   isolation: isolate;
   border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-md);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popover);

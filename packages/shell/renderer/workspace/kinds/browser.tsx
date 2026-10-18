@@ -1,7 +1,8 @@
 // browser 탭 kind. url만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
 import { t } from "@lophn/wording";
 
-import { BrowserTab } from "../../browser/browser-tab.tsx";
+import type { BrowserViewState } from "../../../ipc/browser.ts";
+import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
 import { readDevtools, setDevtools } from "./browser-devtools.tsx";
@@ -62,14 +63,51 @@ export const browserKind: TabKindDef = {
     if (typeof url !== "string" || url.length > MAX_URL) return null;
     return { kind: "browser", key: tab.key, url };
   },
+  // 보통 탭은 옮길 상태가 없다(받는 창이 저장된 url을 다시 load한다). 크기 준 popup의 native view는
+  // 닫지 않고 옮겨 window.opener를 지킨다.
+  transfer(tab, host) {
+    const devtools = readDevtools(tab.fields?.devtools);
+    if (tab.fields?.native !== true) {
+      // DevTools frontend는 옛 page가 사라지면 끊기므로 같이 닫는다.
+      if (devtools !== null) setDevtools(host, tab.key, null);
+      return Promise.resolve({ value: null, views: [] });
+    }
+    // 아직 adopt 중이면 옮길 view가 없으니 탭을 그대로 둔다.
+    const kept = host.viewKeeps.lookup<BrowserViewState>(tab.key);
+    if (kept === undefined) return Promise.resolve(null);
+    const views = [kept.session];
+    if (devtools !== null) {
+      views.push(devtools.session);
+      // floated DevTools 패널은 대상 탭과 같은 창에 있어야 해서 탭 안으로 바꿔 옮긴다.
+      if (devtools.place === "float") {
+        setDevtools(host, tab.key, { ...devtools, place: "right" });
+      }
+    }
+    return Promise.resolve({ value: { state: kept.state }, views });
+  },
+  // 받는 창의 BrowserTab이 mount될 때 take로 이 view를 이어 쓴다. DevTools는 탭의 fields.devtools가 이끈다.
+  receive(tab, transfer, host) {
+    const [session] = transfer.views;
+    const state = (transfer.value as { state?: BrowserViewState } | null)
+      ?.state;
+    if (
+      tab.fields?.native !== true || session === undefined ||
+      state?.view_session !== session
+    ) return;
+    host.viewKeeps.put(tab.key, { session, signature: KEEP_SIGNATURE, state });
+  },
   // 다른 탭으로 가도 page가 살아 있도록 keep만 쓴다. 숨김은 BrowserTab이 shown으로 맡는다.
   keep(tab, shown, host) {
     const url = tab.fields?.url;
     const adopt = tab.fields?.adopt;
-    // floated 탭의 층(floats index + 1). pane 탭은 0이다.
-    const layer =
-      host.view.floats.findIndex((item) => item.tab.key === tab.key) +
-      1;
+    // floated 탭의 층(floats index + 1). detached 창의 탭은 1(그 창의 유일한 view라 pane 탭으로 오인돼
+    // dock되지 않게 한다). pane 탭은 0이다.
+    const floated =
+      host.view.floats.findIndex((item) => item.tab.key === tab.key) + 1;
+    const layer = floated > 0 ||
+        !host.view.detached.some((item) => item.tab.key === tab.key)
+      ? floated
+      : 1;
     return (
       <BrowserTab
         url={typeof url === "string" ? url : ""}

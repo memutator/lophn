@@ -45,7 +45,7 @@ interface BrowserTabProps {
   url: string;
   /** false면 page를 남긴 채 숨긴다(다른 탭·다른 공간·접힌 패널). */
   shown: boolean;
-  /** floated 탭의 층(floats index + 1). pane 탭은 0이다. */
+  /** floated 탭의 층(floats index + 1). detached 창의 탭은 1, pane 탭은 0이다. */
   layer: number;
   /** 크기를 준 popup으로 생긴 native view 탭. pane으로 오면(dock) <webview> 탭으로 바꾼다. */
   native: boolean;
@@ -81,7 +81,7 @@ const DEVTOOLS_SIZE = 420;
 const DEVTOOLS_MIN = 240;
 const PAGE_MIN = 240;
 
-const KEEP_SIGNATURE = "browser";
+export const KEEP_SIGNATURE = "browser";
 
 type PageState = Omit<BrowserViewState, "view_session">;
 
@@ -175,7 +175,15 @@ function OpenTab(
   const lastNative = useRef<BrowserViewState | null>(null);
 
   const apply = (next: BrowserViewState) => {
-    if (native) lastNative.current = next;
+    if (native) {
+      lastNative.current = next;
+      // mount된 동안에도 Detach가 lookup으로 이 view와 최신 state를 찾게 한다.
+      callbacks.current.keeps.track(callbacks.current.keepKey, {
+        session: next.view_session,
+        signature: KEEP_SIGNATURE,
+        state: next,
+      });
+    }
     const { view_session: _session, ...rest } = next;
     const page = { ...rest, url: pageUrl(rest.url) };
     setState(page);

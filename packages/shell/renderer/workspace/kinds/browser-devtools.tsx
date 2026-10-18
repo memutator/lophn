@@ -130,6 +130,8 @@ export const browserDevtoolsKind: TabKindDef = {
   icon: browserIcons.inspect,
   // 닫으면 DevTools도 닫는다. 다시 열 수 있는 page 상태가 아니다.
   noReopen: true,
+  // 대상 browser 탭의 fields.devtools에 묶여, 따로 떼면 대상 탭을 바꿀 수 없다.
+  noDetach: true,
   fromStored: () => null,
   toStored: () => null,
   keep: (tab, shown, host) => (

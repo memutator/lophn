@@ -64,8 +64,6 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 - C1. 사람이나 agent가 context를 청하면, Project Manager가 계약과 검색 script를 만들거나 고친다.
 - C2. context를 나누거나 합칠 때, Project Manager는 context 사이 참조가 최소가 되게 경계를 긋는다.
 - C3. 계약과 검색 script를 고치면, 새 판은 격리 test를 통과할 때 사람 승인 없이 적용되고 그동안 다른 agent는 지금 판을 쓴다.
-- C4. pdf나 docs 문서의 목차가 필요하면, Project Manager만 그 목차를 만들고 고치고 지운다.
-- C5. 사람이 원본을 바꿨다며 pdf나 docs의 목차를 새로 만들어 달라고 하면, Project Manager가 그 목차를 다시 만든다.
 - C6. 문서가 계약을 어겨 program이 부르면, Project Manager가 위반 근거를 읽고 계약을 고칠지 사람에게 문서를 고치라고 할지 정한다. (정하는 내용은 제안)
 - C7. 용어의 뜻이 필요하면, Project Manager가 용어집을 정하고 고친다.
 - C8. 새 project나 앱이 필요하다고 판단하면, Project Manager는 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
@@ -126,7 +124,7 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 사람 ──────────────부름──────▶ lophn             : 원하는 것을 말할 때, 사용법이나 앱 상태를 물을 때
      ──────────────부름──────▶ App Engineer      : 앱을 만들거나 고쳐 달라고 할 때, annotation을 보낼 때
      ──────────────부름──────▶ Operator          : place의 일을 시킬 때
-     ──────────────부름──────▶ Project Manager   : context를 청할 때, pdf·docs 목차를 새로 뽑아 달라고 할 때
+     ──────────────부름──────▶ Project Manager   : context를 청할 때
 
 lophn ─────────call(none)────▶ App Engineer      : 기획이 앱을 만들거나 고치는 일로 정해졌을 때
       ───────call(result)────▶ Project Manager   : 기획에 자료 묶음이나 검색이 필요할 때

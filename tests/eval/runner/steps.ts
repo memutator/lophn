@@ -30,6 +30,7 @@ export type StepsContext = {
   setup: SetupContext;
   scenario: Scenario;
   roots: Map<string, string>; // collect가 시작할 session. say가 연 것과 deliver가 받는 쪽으로 찾은 것
+  fake: Set<string>; // deliver가 call을 보내려고 연 fake lophn session. root로 더하지 않는다
   human?: HumanRole;
   driver?: CodingDriver;
   over?: () => Promise<string | null>;
@@ -40,7 +41,7 @@ export type StepsContext = {
 };
 
 export async function runSteps(ctx: StepsContext): Promise<Settle> {
-  const { core, scenario, roots, human, driver, clock, log } = ctx;
+  const { core, scenario, roots, fake, human, driver, clock, log } = ctx;
   const coding = scenario.real.some(isCodingAgent);
   const wait = (): Promise<IdleResult> =>
     waitUntilIdle(
@@ -89,6 +90,7 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
         );
       }
       // fake lophn의 session은 root가 아니다. 그 fake model call이 수치와 component에 섞이면 안 된다.
+      if (call.from.kind === "agent") fake.add(call.from.session);
       roots.set(call.receiver_session, call.receiver_session);
     } else if (step.kind === "callApi") {
       const app = ctx.setup.world.apps[step.app];

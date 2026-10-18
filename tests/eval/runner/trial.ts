@@ -1,4 +1,5 @@
 import type { Clock } from "../../../packages/base/mod.ts";
+import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { bootCore, createRun } from "../../support/core/mod.ts";
 import { runProgramChecks } from "../checks/mod.ts";
 import {
@@ -41,6 +42,7 @@ import {
   type TrialResult,
   type VersionRef,
 } from "../types.ts";
+import { extraRoots } from "./roots.ts";
 import { createSpendGuard, roleSpendUsd } from "./spend.ts";
 import { CODING_TRIAL_LIMIT_MS, runSteps } from "./steps.ts";
 
@@ -155,11 +157,13 @@ export async function runTrial(
     const startedAt = deps.clock.now();
     const startedMs = deps.clock.nowMs();
     const roots = new Map<string, string>();
+    const fake = new Set<string>();
     const settle = await runSteps({
       core,
       setup: ctx,
       scenario,
       roots,
+      fake,
       human,
       driver,
       over: spend.over,
@@ -172,11 +176,18 @@ export async function runTrial(
     const finishedAt = deps.clock.now();
 
     // ask의 질문 글은 기다리는 동안에만 읽히므로 core를 끄기 전에 모은다.
-    const records = await collectSessions(
+    // callApi 같은 step이 깨운 role agent도 기록에 든다. 후보 가운데 t0 뒤 turn이 없는 것은 버린다.
+    const rootIds = [...roots.values()];
+    const extra = new Set(extraRoots(
+      (await core.call(sessionSnapshotsList, {})).snapshots,
+      rootIds,
+      fake,
+    ));
+    const records = (await collectSessions(
       { port: core, readBlob: diskBlobReader(run.home) },
-      [...roots.values()],
+      [...new Set([...rootIds, ...extra])],
       startedAt,
-    );
+    )).filter((r) => !extra.has(r.session) || r.turns.length > 0);
     // coding agent 수치는 role agent의 metrics와 섞지 않고 coding에만 둔다.
     const codingRecords = coding
       ? await collectCoding({ home: deps.home }, traces)

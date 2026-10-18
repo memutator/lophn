@@ -52,10 +52,9 @@ async function readWork(
 async function recordOutcome(
   client: TicketCheckClient,
   work: CheckWork,
+  outcome: NonNullable<ReturnType<typeof checkOutcomeOf>>,
   context: ReactorContext,
 ): Promise<Result<void>> {
-  const outcome = checkOutcomeOf(work);
-  if (outcome === null) return ok(undefined);
   const written = await client.record(
     {
       ticket: work.ticket,
@@ -87,14 +86,26 @@ export function createTicketCheckHandler(
       if (!read.ok) return read;
       const work = read.value;
       if (work === null) return ok(undefined);
-      if (work.check.kind === "examples") {
+      // release가 없으면 요청할 것이 없다. 아래 규칙이 inconclusive로 남긴다.
+      if (work.check.kind === "examples" && work.release !== null) {
         const requested = await client.requestExamples(
           input,
           await context.idempotencyKey("request_examples"),
         );
-        return requested.ok ? ok(undefined) : requested;
+        if (requested.ok) return ok(undefined);
+        // 다시 해도 바뀌지 않는 실패(예시를 test로 만들 수 없음)는 재시도하지 않고 fail로 남긴다. 아니면
+        // ticket이 결과 없이 남아 verify할 수 없다.
+        if (requested.error.code !== "invalid_input") return requested;
+        return await recordOutcome(client, work, {
+          result: "fail",
+          reason:
+            `the examples could not be prepared: ${requested.error.message}`,
+          verification: null,
+        }, context);
       }
-      return await recordOutcome(client, work, context);
+      const outcome = checkOutcomeOf(work);
+      if (outcome === null) return ok(undefined);
+      return await recordOutcome(client, work, outcome, context);
     },
   };
 }
@@ -113,9 +124,10 @@ export function createExamplesCheckHandler(
         completion_seq: ticket.completion_seq,
       });
       if (!read.ok) return read;
-      return read.value === null
+      const outcome = read.value === null ? null : checkOutcomeOf(read.value);
+      return read.value === null || outcome === null
         ? ok(undefined)
-        : await recordOutcome(client, read.value, context);
+        : await recordOutcome(client, read.value, outcome, context);
     },
   };
 }

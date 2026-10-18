@@ -46,8 +46,9 @@ export function requestExamples(
       release.bundle_hash,
       { examples: check.steps },
     );
+    // 봉인된 bundle 사본이 읽히지 않는 것은 다시 해도 바뀌지 않는다. 재시도하지 않게 invalid_input이다.
     if (!derived.ok) {
-      return err({ code: "unavailable", message: derived.reason });
+      return err({ code: "invalid_input", message: derived.reason });
     }
     const request_key = `examples:${work.ticket}:${work.completion_seq}`;
     const sent = await deps.request({

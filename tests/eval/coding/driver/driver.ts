@@ -17,6 +17,7 @@ import {
   serveScreen,
   socketPathOf,
 } from "./screen.ts";
+import { trustKeys } from "./trust.ts";
 
 export type DriverDeps = {
   core: Core;
@@ -41,6 +42,7 @@ const POLL_TICKET_MS = 2_000;
 const EXIT_AFTER_REPORT_MS = 10_000; // Stop hook이 core에 닿을 시간
 const KILL_AFTER_EXIT_MS = 15_000;
 const TAIL_CHARS = 4000;
+const TRUST_KEY_GAP_MS = 150; // 키 둘이 한 덩이로 합쳐지면 TUI가 못 읽을 수 있다
 
 type LaunchPlan = Extract<CodingTerminalRequest, { kind: "open" }>["plan"];
 
@@ -171,6 +173,25 @@ export function startCodingDriver(deps: DriverDeps): CodingDriver {
     });
   }
 
+  // SessionStart 전에 folder trust 화면이 떠 있으면 Yes를 고른다. 사람이 붙어 있으면 그가 끝낼 때까지 기다리고, 그 사이 사람이 골랐으면 넣지 않는다.
+  async function answerTrust(live: Live): Promise<void> {
+    if (trustKeys(await tailOf(live)) === null) return;
+    await gate.whenFree(live.ref!);
+    const keys = trustKeys(await tailOf(live));
+    if (keys === null) return;
+    for (const text of keys) {
+      await terminal.request({
+        type: "input",
+        terminal_ref: live.ref!,
+        generation: live.generation,
+        text,
+      });
+      await new Promise((resolve) => setTimeout(resolve, TRUST_KEY_GAP_MS));
+    }
+    live.trace.trust_answered = true;
+    deps.log(`folder trust 화면에 Yes를 골랐다: ${live.trace.session}`);
+  }
+
   async function watch(live: Live): Promise<void> {
     const { trace } = live;
     if (
@@ -183,13 +204,14 @@ export function startCodingDriver(deps: DriverDeps): CodingDriver {
       if (now - live.openedMs >= timeoutMs) {
         return await closeSession(live, "timeout");
       }
-      // trust 화면, login 화면, 잘못된 model flag 모두 hook이 안 도는 모양이다. 90분을 기다리지 않는다.
-      if (!live.startSeen && now - live.openedMs >= noSessionStartMs) {
+      if (!live.startSeen) {
         const log = await Deno.readTextFile(trace.command_log).catch(() => "");
         live.startSeen = log.includes("\thook\tclaude\tSessionStart");
-        if (!live.startSeen) {
-          return await closeSession(live, "no_session_start");
-        }
+      }
+      if (!live.startSeen && !trace.trust_answered) await answerTrust(live);
+      // login 화면, 잘못된 model flag, 답하지 못한 trust 화면 모두 hook이 안 도는 모양이다. 90분을 기다리지 않는다.
+      if (!live.startSeen && now - live.openedMs >= noSessionStartMs) {
+        return await closeSession(live, "no_session_start");
       }
       if (
         trace.reported_at === null && now - live.lastPollMs >= POLL_TICKET_MS

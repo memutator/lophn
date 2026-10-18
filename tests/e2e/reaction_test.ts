@@ -39,13 +39,19 @@ import {
 import {
   activateTestApp,
   aeLane,
+  tool,
   waitRunning,
 } from "../support/app/activate.ts";
 import { crashPatch } from "../support/app/patch-reaction.ts";
+import { REPORT_MARKER, reportPatch } from "../support/app/patch-report.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
-import { lastUserText } from "../support/fake-server/probe.ts";
+import {
+  idIn,
+  lastToolResult,
+  lastUserText,
+} from "../support/fake-server/probe.ts";
 import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 
 const SETTING = "reactions.problem_opened";
@@ -407,6 +413,79 @@ Deno.test("E2E 앱 process가 던진 오류는 문제가 되어 App Engineer를 
         ).length,
         1,
       );
+    });
+  } finally {
+    await app?.gateway.close().catch(() => {});
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
+});
+
+// 세 질문
+// - contract: boundary `problems`(agent가 보고 본문을 읽는 좁은 통로 `report_body`), `agent-roles`(App Engineer 자격의 operation 상한과
+//   자기 앱 조건), `events`(새 일 event는 App Engineer를 연다).
+// - 현실적 회귀: App Engineer가 보고한 앱의 message를 읽지 못하는 것(자격 검사가 process를 건너서 거절하거나 tool이 상한에 안 든다),
+//   tool 결과에 본문이 안 실리는 것.
+// - 왜 지금 test로 못 잡나: tool 목록·자격 상한·route actor는 unit이 따로 보지만, 앱 process의 보고 -> blob -> agent runtime child의
+//   tool -> core loopback의 agent 자격 검사는 process를 건너야 이어서 보인다.
+//
+// 앱을 activate하는 core라 위 test와 core를 같이 쓰지 못한다. view 오류 보고는 본문 blob이 없어서, 앱의 reportProblem이 message를
+// 남긴 문제를 쓴다. reaction session의 요청은 activation의 App Engineer 줄(`App <id>:`)에 걸리지 않아 기본 줄로 가고,
+// 그 대답 셋은 problem.get -> problem.body -> text다.
+Deno.test("E2E App Engineer는 앱이 보고한 message를 problem.body로 끝까지 읽는다", async (t) => {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  let app: Awaited<ReturnType<typeof activateTestApp>> | undefined;
+  try {
+    core = await bootCore(run, { env: await appCoreEnv() });
+    await connectFakeProvider(core, fake);
+    app = await activateTestApp(core, fake, {
+      name: "Reporter",
+      slug: "reporter",
+      patch: reportPatch,
+    });
+    const c = core;
+    const a = app;
+    await waitRunning(c, a);
+
+    await t.step("ae-reads-report-text", async () => {
+      fake.script([
+        {
+          reply: (request) =>
+            tool("tc_get", "problem_get", {
+              problem: idIn(lastUserText(request), "prb"),
+            }),
+        },
+        {
+          reply: (request) =>
+            tool("tc_body", "problem_body", {
+              report: idIn(lastToolResult(request, "tc_get") ?? "", "rpt"),
+              field: "report_text",
+            }),
+        },
+        { reply: { kind: "text", text: "noted" } },
+      ]);
+      const called = await c.call(appCallApi, {
+        target: { mode: "live", app: a.app, release: null },
+        api: "report",
+        caller: { kind: "person", view_session: "e2e" },
+      });
+      assertEquals(called.outcome.status, "succeeded");
+      const [opened] = await until("reaction session이 열림", async () => {
+        const found = await reactionSessions(c, a.app);
+        return found.length > 0 ? found : undefined;
+      });
+      await waitTurnEnd(c, opened!.session);
+      // ledger
+      const problems = (await c.call(problemList, { app: a.app })).problems;
+      assertEquals(problems.map((p) => p.name), ["e2e_report"]);
+      // fake: 읽은 본문이 다음 요청의 tool 결과에 실렸다.
+      const read = fake.journal().map((entry) =>
+        lastToolResult(entry, "tc_body")
+      ).find((result) => result !== undefined);
+      assert(read?.includes(REPORT_MARKER), String(read));
     });
   } finally {
     await app?.gateway.close().catch(() => {});

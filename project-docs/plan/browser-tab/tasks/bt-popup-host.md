@@ -55,3 +55,7 @@ browser 탭 안 page의 `window.open`·`target=_blank`를 main에서 받는다. 
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+- OAuth popup은 자주 `window.open("", name, features)`로 빈 창을 먼저 연 뒤 주소를 바꾼다. 이때 `setWindowOpenHandler`의 `details.url`이 무엇으로 오는지(`about:blank`인지 빈 글인지) 손으로 확인한다. `decidePopup`은 main frame에서 정확히 `about:blank`만 받으므로, 빈 글로 오면 `about:blank`로 바꿔 넘긴다. 확인한 값을 "정한 것"에 적는다.

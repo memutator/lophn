@@ -31,7 +31,6 @@ import {
   type ModelCommandDeps,
   modelSchemaSteps,
   snapshotCatalogEntry,
-  snapshotModelListed,
 } from "./models/mod.ts";
 import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
 import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
@@ -229,13 +228,11 @@ function providerDefinitionKey(
   }
 }
 
-// model 기본값 저장 검사 deps. 목록과 catalog는 동봉 snapshot에서 읽는다.
+// model 기본값 저장 검사 deps. catalog는 동봉 snapshot에서 읽는다.
 function modelCommandDeps(places: PlaceLookups, tx: Tx): ModelCommandDeps {
   return {
     projectExists: (id) => places.projectExists(tx.sql, id),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
-    modelListed: (providerDefinition, modelName) =>
-      snapshotModelListed(providerDefinition, modelName),
     catalogEntry: (providerDefinition, modelName) =>
       snapshotCatalogEntry(providerDefinition, modelName),
   };
@@ -455,6 +452,8 @@ function agentLookups(
     mcp: () => [],
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
+    projectModel: (place) =>
+      place?.kind === "project" ? loadChoice(sql, place.id) : null,
   };
 }
 

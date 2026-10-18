@@ -22,6 +22,7 @@ const lookups: AgentLookups = {
   skills: () => [],
   mcp: () => [],
   modelDefault: () => null,
+  projectModel: () => null,
 };
 
 Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름·삭제·없는 place로 만들어지지 않는다", async () => {

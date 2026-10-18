@@ -33,13 +33,16 @@ function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
 }
 
-// model은 agent 정의가 먼저이고 비면 전역 기본이다. 어느 층에도 없으면 null이다.
+// model은 agent 정의가 먼저이고 비면 project 층, 그 다음 전역 기본이다. 어느 층에도 없으면 null이다.
+// 출처가 global일 때만 turn 때 layers.ts가 전역 값으로 쓰므로 source를 정확히 내야 한다.
 function effectiveModel(
   context: AgentContext,
   loaded: Loaded,
 ): { value: ModelChoice; source: AgentValueLayer } | null {
   const own = loaded.definition?.model;
   if (own !== undefined) return { value: own, source: "agent" };
+  const project = context.lookups.projectModel(loaded.place);
+  if (project !== null) return { value: project, source: "project" };
   const global = context.lookups.modelDefault();
   return global === null ? null : { value: global, source: "global" };
 }

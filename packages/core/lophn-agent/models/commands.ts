@@ -23,8 +23,6 @@ import { GLOBAL_SCOPE, loadFavorites, saveChoice } from "./store.ts";
 export type ModelCommandDeps = {
   // provider 기록의 provider 정의 key다. 기록이 없으면 undefined다.
   definitionKey(provider: string): string | undefined;
-  // provider 정의의 확인된 model 목록에 그 이름이 있는지다. 목록을 확인하지 못했으면 null이다.
-  modelListed(definition: string, modelName: string): boolean | null;
   catalogEntry(
     definition: string,
     modelName: string,
@@ -44,9 +42,9 @@ function conflict(): Result<never> {
   return err({ code: "conflict", message: "settings seq가 바뀌었다" });
 }
 
-// 저장 때 provider 목록에 없는 이름은 거절하고 목록을 확인하지 못했으면 미확인으로 저장한다.
-// 고른 option 값은 그 model의 축과 값 안에 있어야 한다. catalog 항목이 없으면 축을 모르므로 값 없이만
-// 저장한다. 호출 때의 한계 검사는 turn 준비의 몫이다.
+// 직접 적은 이름은 목록에 없어도 저장한다(구독 계정의 허락 목록도 저장 때는 보지 않는다). 고른 option 값은
+// 그 model의 축과 값 안에 있어야 한다. catalog 항목이 없으면 축을 모르므로 값 없이만 저장한다.
+// 호출 때의 한계 검사는 turn 준비의 몫이다.
 function checkChoice(
   deps: ModelCommandDeps,
   slot: string,
@@ -57,12 +55,6 @@ function checkChoice(
     return err({
       code: "not_found",
       message: `${slot}: provider를 찾을 수 없다`,
-    });
-  }
-  if (deps.modelListed(definition, choice.model_name) === false) {
-    return err({
-      code: "invalid_input",
-      message: `${slot}: provider 목록에 없는 model 이름이다`,
     });
   }
   const entry = deps.catalogEntry(definition, choice.model_name);

@@ -23,16 +23,3 @@ export function snapshotCatalogEntry(
     entry.model_name === modelName
   ) ?? undefined;
 }
-
-// provider 정의 목록에 그 model 이름이 있는지다. snapshot에 그 provider 정의의 model이 하나도 없으면
-// 목록을 확인할 수 없으므로 null이고, 있으면 그 목록에 이름이 있는지다.
-export function snapshotModelListed(
-  providerDefinition: string,
-  modelName: string,
-): boolean | null {
-  const known = entries.filter((entry) =>
-    entry.provider_definition === providerDefinition
-  );
-  if (known.length === 0) return null;
-  return known.some((entry) => entry.model_name === modelName);
-}

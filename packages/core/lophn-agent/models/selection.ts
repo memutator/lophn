@@ -14,7 +14,8 @@ import { resolveOptionValues } from "./options.ts";
 // wire.ts의 translateOptions로 채운다. 여기서는 바꾸지 않은 model 이름과 빈 조각이다.
 
 type ProviderNames = {
-  // provider 목록에 그 model 이름이 있는지. 목록을 확인하지 못했으면 null이다.
+  // 구독 계정의 허락 목록이 이 이름을 허락하는지. false면 거절한다. catalog나 provider의 목록은 정하지
+  // 않는다. 허락 목록이 없으면 true(또는 확인하지 못해 null)다.
   modelListed(modelName: string): boolean | null;
 };
 
@@ -26,7 +27,6 @@ type NamedLimits = {
   supports_tools: boolean;
 };
 
-// 목록에 없는 이름은 저장 거절이고, 목록을 확인하지 못했으면 미확인으로 저장한다.
 // 첫 성공 호출에서 unverified 표시를 해제하는 것은 호출 기록의 몫이다.
 function verificationOf(
   listed: boolean | null,
@@ -124,10 +124,10 @@ export function resolveSelection(
 ): Result<ResolvedModel> {
   const listed = provider.modelListed(selection.model_name);
   if (listed === false) {
-    // provider의 현재 목록에 없으면 거절이다.
+    // 구독 계정의 허락 목록 밖이다.
     return err({
       code: "not_found",
-      message: "provider 목록에 없는 model 이름이다",
+      message: "계정이 허락한 model 목록에 없는 이름이다",
     });
   }
   const optionValues = selectedOptions(entry, selection.option_values);

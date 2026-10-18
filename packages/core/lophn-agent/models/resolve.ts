@@ -162,18 +162,10 @@ export function createModelResolver(deps: ModelResolverDeps) {
       candidate.provider_definition === provider.definition.key &&
       candidate.model_name === selection.model_name
     );
-    // 목록이 없는 provider(사람이 붙인 custom provider)의 model은 한계와 option 축을 알 수 없다. 기본 한계로
-    // 돌고 option은 고를 수 없다. 목록이 있는 provider가 모르는 이름은 오타일 수 있어 쓰지 않는다.
-    const unlisted = found === undefined &&
-      !catalog.value.some((candidate) =>
-        candidate.provider_definition === provider.definition.key
-      );
-    if (found === undefined && !unlisted) {
-      return err({
-        code: "invalid_input",
-        message: "the model is not in the catalog, so its limits are unknown",
-      });
-    }
+    // catalog에 없는 이름은 어느 provider에서든 한계와 option 축을 알 수 없다. 직접 적은 이름은 받고 기본 한계로
+    // 돌며 option은 고를 수 없다. 이름이 틀렸으면 provider 호출이 거절한다. 거절하는 것은 구독 계정의 허락 목록
+    // 밖 이름뿐이고 resolveSelection의 modelListed가 본다.
+    const unlisted = found === undefined;
     const entry = found ?? unlistedEntry(provider.definition.key, selection);
     const resolved = resolveSelection(
       {

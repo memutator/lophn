@@ -40,6 +40,8 @@ export type AgentLookups = {
   mcp(place: Place | null): McpTool[];
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
+  // project place의 model. project 층이 없는 place(앱, lophn)나 값이 없으면 null.
+  projectModel(place: Place | null): ModelChoice | null;
 };
 
 // project·앱·context 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.

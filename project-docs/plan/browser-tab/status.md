@@ -18,8 +18,10 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-tab-kind` | bt-tab | 2 | bt-tab-page | merged | bt-tab/bt-tab-kind | 8bb323d9c |  |
 | `bt-tab-page` | bt-tab | 2 | bt-contract, bt-view | merged | bt-tab/bt-tab-page | 39c13995e |  |
 | `bt-view` | bt-view | 2 | bt-rules, bt-session, bt-contract | merged | bt-view/bt-view | 269e235ce |  |
-| `bt-favicon-main` | bt-favicon | 3 | bt-view-layers | todo |  |  |  |
-| `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main | todo |  |  |  |
+| `bt-favicon-main` | bt-favicon | 3 | bt-view-layers, bt-webview-main | todo |  |  |  |
+| `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main, bt-webview-ui | todo |  |  |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui, bt-menu-overlay | merged | bt-popup/bt-popup-float | 999669572 |  |
 | `bt-view-layers` | bt-view-layers | 3 | bt-menu-overlay | merged | bt-view-layers/bt-view-layers | f226c42b2 |  |
+| `bt-webview-main` | bt-webview-main | 3 | bt-view-layers, bt-popup-float | todo |  |  |  |
+| `bt-webview-ui` | bt-webview-ui | 3 | bt-popup-float | todo |  |  |  |
 | `bt-gallery` | bt-gallery | 4 | 없음 | todo |  |  |  |

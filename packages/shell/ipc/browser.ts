@@ -87,6 +87,8 @@ const popupPlacementSchema = z.discriminatedUnion("kind", [
 
 // state는 "지금 값"이고 이쪽은 사건이다.
 // popup-blocked: 사용자 입력 없이 열려던 popup을 거절했다.
+// open-tab: 크기 없는 popup(target=_blank, 크기 없는 window.open)을 거절했고, renderer가 연 탭 뒤에
+// 그 url로 새 탭을 연다. opener는 끊긴다(크기 준 popup만 native view로 받아 opener를 지킨다).
 // close: page가 window.close()를 불렀다.
 // bookmark-key: page에 focus가 있을 때 Ctrl/Cmd+D가 눌렸다.
 export const browserEventSchema = z.discriminatedUnion("kind", [
@@ -98,6 +100,11 @@ export const browserEventSchema = z.discriminatedUnion("kind", [
   }).strict(),
   z.object({ kind: z.literal("popup-blocked"), view_session: viewSession })
     .strict(),
+  z.object({
+    kind: z.literal("open-tab"),
+    opener: viewSession,
+    url: z.string().max(8192),
+  }).strict(),
   z.object({ kind: z.literal("close"), view_session: viewSession }).strict(),
   z.object({ kind: z.literal("bookmark-key"), view_session: viewSession })
     .strict(),

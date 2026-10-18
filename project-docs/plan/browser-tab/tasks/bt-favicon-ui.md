@@ -3,7 +3,7 @@
 browser 탭과 bookmark 목록에 page favicon을 그린다. 사람이 Chrome처럼 보고 싶다고 했다(2026-10-18). main이 `BrowserViewState.favicon`과 `Bookmark.favicon`에 data URL을 싣는다(`bt-favicon-main`). favicon이 없으면 지금처럼 `Globe`다.
 
 - 단위: bt-favicon (wave 3)
-- 선행: bt-popup-float, bt-favicon-main
+- 선행: bt-popup-float, bt-favicon-main, bt-webview-ui
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/kinds/browser.tsx`
   - `packages/shell/renderer/browser/browser-tab.tsx`
@@ -54,3 +54,7 @@ browser 탭과 bookmark 목록에 page favicon을 그린다. 사람이 Chrome처
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+- 보통 탭은 이제 `<webview>`다(`bt-webview-ui`). renderer는 `<webview>`의 `page-favicon-updated` DOM event를 직접 쓰지 않는다(그 주소는 shell CSP에 막힌다). main이 미는 `BrowserViewState.favicon`(data URL)만 쓴다.

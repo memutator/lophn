@@ -3,7 +3,7 @@
 browser page의 favicon을 main이 받아 data URL로 바꿔 `BrowserViewState.favicon`에 싣고, bookmark에 favicon을 저장한다. 사람이 Chrome처럼 탭과 bookmark에 favicon을 보고 싶다고 했다(2026-10-18, roadmap의 "favicon 하지 않는다"를 뒤집음). shell 화면의 CSP는 `img-src 'self' data: blob:`이라 page의 favicon 주소를 화면에 그대로 줄 수 없고, shell 화면이 인터넷에 직접 요청하게 하지도 않는다.
 
 - 단위: bt-favicon (wave 3)
-- 선행: bt-view-layers
+- 선행: bt-view-layers, bt-webview-main
 - 소유(이 task만 고친다):
   - `packages/shell/main/browser/electron-view.ts`
   - `packages/shell/main/browser/registry.ts`
@@ -46,3 +46,7 @@ browser page의 favicon을 main이 받아 data URL로 바꿔 `BrowserViewState.f
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+- 보통 탭은 이제 `<webview>` guest다(`bt-webview-main`). guest contents에도 native popup과 같은 hook이 걸리므로 favicon hook도 그 한 곳에 둔다. favicon 받기는 `guest.session.fetch`(같은 `persist:lophn-browser`)다.

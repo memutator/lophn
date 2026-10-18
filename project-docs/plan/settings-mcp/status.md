@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py settings-mcp build`가 `tasks/*.md`에서 id
 | `sm-envelope-helper` | sm-envelope | 1 | 없음 | merged | plan/settings-mcp | 742b9ed13 |  |
 | `sm-envelope-sites` | sm-envelope | 2 | sm-envelope-helper | merged | plan/settings-mcp | 804b12273 |  |
 | `sm-mcp-settings-path` | sm-mcp | 3 | sm-envelope-helper | merged | plan/settings-mcp | 9a8c39dce |  |
-| `sm-mcp-operator-runtime` | sm-mcp | 4 | 없음 | todo |  |  |  |
+| `sm-mcp-operator-runtime` | sm-mcp | 4 | 없음 | merged | plan/settings-mcp | 91629981e |  |
 | `sm-mcp-operator-secret-name` | sm-mcp | 5 | sm-envelope-sites, sm-mcp-operator-runtime | todo |  |  |  |
 | `sm-mcp-operator-grants` | sm-mcp | 6 | sm-mcp-operator-secret-name, sm-mcp-operator-runtime, sm-envelope-sites | todo |  |  |  |
 | `sm-chip` | sm-chip | 7 | sm-envelope-helper | todo |  |  |  |

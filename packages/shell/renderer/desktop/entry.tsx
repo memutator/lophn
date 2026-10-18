@@ -41,6 +41,7 @@ import {
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import { coreReactionsSource } from "./settings/reactions/core-source.ts";
+import { windowBrowserSettings } from "./settings/browser/window-source.ts";
 import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
 import { coreAgentsSettingsSource } from "./settings/agents/core-source.ts";
 import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
@@ -86,6 +87,7 @@ const settingsPanels = mock?.settingsPanels ?? {
   reactions: coreReactionsSource(core),
   appearance: coreAppearanceSource(core),
   coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),
+  browser: windowBrowserSettings(),
 };
 const issues = mock?.issues ?? coreIssuesSource(core);
 // 작업대는 제품 core 통로로 읽고 쓴다.

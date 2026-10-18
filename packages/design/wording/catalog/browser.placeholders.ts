@@ -15,6 +15,15 @@ export type BrowserPlaceholders = {
   "browser.label.menu-browser": Record<never, never>;
   "browser.label.page": Record<never, never>;
   "browser.notice.popup-blocked": Record<never, never>;
+  "settings.button.browser-clear": Record<never, never>;
+  "settings.button.browser-clear-confirm": Record<never, never>;
+  "settings.error.browser-clear-failed": Record<never, never>;
+  "settings.heading.browser-data": Record<never, never>;
+  "settings.label.tab-browser": Record<never, never>;
+  "settings.note.browser-clear": Record<never, never>;
+  "settings.note.browser-clear-confirm": Record<never, never>;
+  "settings.notice.browser-cleared": Record<never, never>;
+  "settings.title.browser-clear": Record<never, never>;
 };
 
 type Area = typeof browser;

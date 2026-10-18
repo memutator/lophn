@@ -1,6 +1,7 @@
 import {
   Activity,
   Bot,
+  Globe,
   Palette,
   Plug,
   SlidersHorizontal,
@@ -13,6 +14,7 @@ import {
 export const settingsIcons = {
   general: SlidersHorizontal,
   appearance: Palette,
+  browser: Globe,
   providers: Plug,
   agents: Bot,
   tools: Wrench,

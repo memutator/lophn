@@ -11,6 +11,7 @@ import type { AuthWay } from "./source.ts";
 export type SettingsPane =
   | "general"
   | "appearance"
+  | "browser"
   | "providers"
   | "agents"
   | "tools"
@@ -48,6 +49,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "appearance",
         label: "settings.label.tab-appearance",
         icon: settingsIcons.appearance,
+      },
+      {
+        id: "browser",
+        label: "settings.label.tab-browser",
+        icon: settingsIcons.browser,
       },
     ],
   },

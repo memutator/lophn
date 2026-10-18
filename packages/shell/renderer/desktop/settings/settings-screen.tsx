@@ -6,6 +6,8 @@ import { t } from "@lophn/wording";
 
 import { AppearancePanel } from "./appearance/appearance-panel.tsx";
 import type { AppearanceSource } from "./appearance/source.ts";
+import { BrowserPanel } from "./browser/browser-panel.tsx";
+import type { BrowserSettingsSource } from "./browser/source.ts";
 import { AgentsPanel } from "./agents/agents-panel.tsx";
 import type { AgentsSettingsSource } from "./agents/settings-source.ts";
 import { CodingConnectionsPanel } from "./connections/connections-panel.tsx";
@@ -31,6 +33,7 @@ export type SettingsPanels = Pick<
   | "reactions"
   | "coding"
   | "appearance"
+  | "browser"
 >;
 
 interface SettingsScreenProps {
@@ -54,6 +57,8 @@ interface SettingsScreenProps {
   reactions?: ReactionsSource;
   /** Appearance 항목. 없으면 준비 전 안내다. */
   appearance?: AppearanceSource;
+  /** Browser 항목. 없으면 준비 전 안내다. */
+  browser?: BrowserSettingsSource;
 }
 
 // 표를 보이는 항목은 기둥을 더 넓게 쓴다.
@@ -71,6 +76,7 @@ export function SettingsScreen(
     diagnostics,
     reactions,
     appearance,
+    browser,
   }: SettingsScreenProps,
 ) {
   // Agents의 [Add server]는 server form을 가진 Tools and skills 항목으로 옮긴다(form을 두 벌 두지 않는다).
@@ -122,6 +128,12 @@ export function SettingsScreen(
         return <GeneralPanel source={source} onPane={onPane} />;
       case "appearance":
         return appearance && <AppearancePanel source={appearance} />;
+      case "browser":
+        return browser && (
+          <div className={styles.panel}>
+            <BrowserPanel source={browser} />
+          </div>
+        );
       case "providers":
         return providers && (
           <div className={styles.panel}>

@@ -10,6 +10,7 @@ import { fakeProviders } from "../settings/providers/testdata/fake-providers.ts"
 import { fakeAgents } from "../settings/agents/testdata/fake-agents.ts";
 import { fakeDiagnostics } from "../settings/diagnostics/testdata/fake-source.ts";
 import { fakeAppearance } from "../settings/appearance/testdata/fake-source.ts";
+import { fakeBrowserSettings } from "../settings/browser/testdata/fake-source.ts";
 import {
   fakeReactions,
   SAMPLE_MODES,
@@ -42,6 +43,7 @@ export function mockSettingsPanels(): SettingsPanels {
     reactions: fakeReactions({ modes: SAMPLE_MODES }).source,
     appearance: fakeAppearance().source,
     coding: fakeConnections().source,
+    browser: fakeBrowserSettings().source,
   };
 }
 

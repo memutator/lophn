@@ -5,5 +5,5 @@ lead만 고친다. `tools/status.py model-info build`가 `tasks/*.md`에서 id, 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `mi-core` | mi-core | 1 | 없음 | merged | mi-core/mi-core | 4919d311e |  |
-| `mi-shell` | mi-shell | 2 | mi-core | running | mi-shell/mi-shell |  |  |
-| `mi-wireframes` | mi-wireframes | 3 | mi-shell | todo |  |  |  |
+| `mi-shell` | mi-shell | 2 | mi-core | merged | mi-shell/mi-shell | 3595eda4d |  |
+| `mi-wireframes` | mi-wireframes | 3 | mi-shell | running | mi-wireframes/mi-wireframes |  |  |

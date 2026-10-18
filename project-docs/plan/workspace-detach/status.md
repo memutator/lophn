@@ -6,6 +6,7 @@ lead만 고친다. `tools/status.py workspace-detach build`가 `tasks/*.md`에�
 |---|---|---|---|---|---|---|---|
 | `wd-contract` | wd-contract | 1 | wd-layout | todo |  |  |  |
 | `wd-layout` | wd-layout | 1 | 없음 | todo |  |  |  |
+| `wd-browser` | wd-browser | 2 | wd-native-move | todo |  |  |  |
 | `wd-main` | wd-main | 2 | wd-native-move | todo |  |  |  |
 | `wd-native-move` | wd-native-move | 2 | 없음 | todo |  |  |  |
 | `wd-project-side` | wd-project-side | 2 | 없음 | todo |  |  |  |

@@ -1,22 +1,22 @@
 # wd-contract
 
-detached 창의 경계를 고정한다: project 창 ↔ main ↔ detached 창의 IPC channel과 입력·응답·push의 모양(`ipc/detached.ts`), preload 통로(`preload/detached-api.ts`)와 `window.lophnDetached` 노출, 그리고 탭 kind가 창 사이로 살아 있는 상태를 옮기는 `TabKindDef.transfer`/`receive`와 `TabHost.keeps`. 구현(main handler, detached 창 화면, project 창 연결, kind별 transfer)은 wave 2의 다른 task가 한다.
+detached 창의 경계를 고정한다: project 창 ↔ main ↔ detached 창의 IPC channel과 입력·응답·push의 모양(`ipc/detached.ts`), preload 통로(`preload/detached-api.ts`)와 `window.lophnDetached` 노출, 그리고 탭 kind가 창 사이로 살아 있는 상태를 옮기는 `TabKindDef.transfer`/`receive`/`noDetach`와 탭을 줄여 보내는 `slimDetachedTab`. 구현(main handler, detached 창 화면, project 창 연결, kind별 transfer)은 wave 2의 다른 task가 한다.
 
 - 단위: wd-contract (wave 1)
-- 선행: wd-layout. 둘 다 `workspace.tsx`를 고친다. 이 task는 그 파일에 두 줄만 더한다.
+- 선행: wd-layout. 둘 다 `workspace.tsx`를 고친다. 이 task는 그 파일에 한 줄만 더한다.
 - 소유(이 task만 고친다):
   - `packages/shell/ipc/detached.ts`
   - `packages/shell/preload/detached-api.ts`
   - `packages/shell/preload/shell.ts`
   - `packages/shell/renderer/workspace/kinds/kind.ts`
-  - `packages/shell/renderer/workspace/kinds/host.ts`
-  - `packages/shell/renderer/workspace/workspace.tsx` (`WorkspaceProps`에 `detached?` 한 줄, `host` 객체에 `keeps` 한 줄)
+  - `packages/shell/renderer/workspace/workspace.tsx` (`WorkspaceProps`에 `detached?` 한 줄)
 - 읽을 것:
   - 제품 결정: `project-docs/products/roadmap/workspace-float.md`의 "무엇을 만드나" 4(누가 layout을 갖나, 창을 닫을 때, 탭 옮기기)
   - 계획: `project-docs/plan/workspace-detach/README.md`의 "정한 것"
   - 본보기(꼴): `packages/shell/ipc/app-frame.ts`(channel 상수, strict zod schema, `ViewReply`), `packages/shell/preload/views-api.ts`(`call`, push 구독을 schema로 거르기), `packages/shell/ipc/window-controls.ts`
   - 노출 자리: `packages/shell/preload/shell.ts`의 `role === "shell"` 갈래(`lophnLayout`이 놓인 곳)
-  - 지금 코드: `renderer/workspace/kinds/kind.ts`(`TabKindDef`), `host.ts`(`TabHost`), `workspace.tsx`(`WorkspaceProps`, `host` 객체), `renderer/app-frame/view-keeps.ts`(`ViewKeeps` type)
+  - 지금 코드: `renderer/workspace/kinds/kind.ts`(`TabKindDef`. `noReopen` 같은 선택 칸이 있다), `host.ts`(`TabHost`. 이미 `viewKeeps: ViewKeeps`와 `openFloat(tab, size?)`, `openTab(tab, { select?, after? })`가 있다), `workspace.tsx`(`WorkspaceProps`)
+  - architecture: `project-docs/architecture/browser-tab.md`("다른 OS 창으로 탭을 옮기면 `<webview>` 탭은 다시 load된다"), `project-docs/architecture/workspace-layout.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `shell`, `project-docs/module-catalog.yaml`의 `packages/shell/ipc`, `packages/shell/preload`, `packages/shell/renderer`
 - 계약:
   - 쓰는 것: `wd-layout`의 `DetachedBounds` 모양(`{x, y, width, height}` 정수. `ipc/detached.ts`는 renderer를 import하지 않으므로 같은 모양을 zod로 따로 쓴다).
@@ -25,7 +25,7 @@ detached 창의 경계를 고정한다: project 창 ↔ main ↔ detached 창의
 
 ```ts
 // ipc/detached.ts
-// project 창 → main. 보낸 창이 project 창(detached 창이 아닌 desktop 창)이어야 한다.
+// project 창 → main. 보낸 창이 project 창(detached 창이 아닌 desktop 창)이어야 한다. `open`만 detached 창도 보낼 수 있다(그 창 안에서 열린 popup).
 export const DETACHED_OPEN_CHANNEL = "shell:detached-open";
 export const DETACHED_FOCUS_CHANNEL = "shell:detached-focus";
 export const DETACHED_CLOSE_CHANNEL = "shell:detached-close";
@@ -44,6 +44,9 @@ export const detachedTabSchema = z.looseObject({ key: z.string().min(1).max(4096
 export const tabTransferSchema = z.strictObject({ value: z.json(), views: z.array(viewSession).max(8) });
 export type TabTransfer = { value: unknown; views: string[] };
 
+/** IPC 한 번이 64KiB를 넘지 않게 tab.fields에서 직렬화 4096자를 넘는 값(browser favicon의 data URL)을 뺀 사본. 뺀 값은 page가 다시 알린다. 보내는 쪽(project 창, detached 창)이 tab을 main에 보낼 때마다 거친다. */
+export function slimDetachedTab<T extends { fields?: Readonly<Record<string, unknown>> }>(tab: T): T;
+
 // 입력(모두 strict. 한 번에 64KiB를 넘으면 ipc-guard가 거절한다)
 export const detachedOpenSchema = z.strictObject({ project: projectId, tab: detachedTabSchema, transfer: tabTransferSchema.nullable(), bounds: boundsSchema.nullable() });
 export const detachedFocusSchema = z.strictObject({ key: tabKey });
@@ -60,6 +63,7 @@ export type DetachedEvent =
   | { kind: "changed"; key: string; tab: DetachedTab }   // detached 창에서 탭 값이 바뀌었다(patchTab)
   | { kind: "open-tab"; tab: DetachedTab }               // detached 창이 project 창에 탭을 열라고 한다
   | { kind: "closed"; key: string }                       // detached 창이 탭을 닫았다(removeTab)
+  | { kind: "opened"; tab: DetachedTab; bounds: DetachedBounds } // detached 창이 또 하나의 detached 창을 열었다(그 안의 popup). 이 탭은 아직 layout에 없다
   | { kind: "moved" }                                     // detached 창을 옮기거나 크기를 바꿨다(layout을 다시 저장하라. wd-restore가 보낸다)
   // → detached 창
   | { kind: "dock-request" };                              // 창 닫기(×)가 눌렸다. [Dock]과 같게 하라
@@ -85,7 +89,7 @@ export interface LophnDetachedApi {
 }
 ```
 
-    - `open`의 오류: 같은 (project, key)의 detached 창이 이미 있으면 `conflict`(main이 그 창을 앞으로 가져온다), `transfer.views`에 보낸 창의 것이 아닌 view가 있으면 `invalid_input`, 창을 못 만들면 `unavailable`.
+    - `open`의 오류: 같은 (project, key)의 detached 창이 이미 있으면 `conflict`(main이 그 창을 앞으로 가져온다), `transfer.views`에 보낸 창의 것이 아닌 view가 있으면 `invalid_input`, 창을 못 만들면 `unavailable`. detached 창이 보내면 `project`가 그 창의 project와 같아야 하고(아니면 `invalid_input`) 새 창의 project 창(parent)은 보낸 창과 같다.
     - kind 계약(`kinds/kind.ts`의 `TabKindDef`에 옆으로 더한다. 옛 칸은 그대로다):
 
 ```ts
@@ -97,9 +101,11 @@ export interface LophnDetachedApi {
 transfer?(tab: TabItem, host: TabHost): Promise<TabTransfer | null>;
 /** 받는 창이 탭을 그리기 전에 부른다. transfer가 낸 값이 온다. 값 없이 되살린 탭(저장된 값만)에는 부르지 않는다. */
 receive?(tab: TabItem, transfer: TabTransfer, host: TabHost): void;
+/** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */
+readonly noDetach?: true;
 ```
 
-    - host 계약(`kinds/host.ts`의 `TabHost`): `readonly keeps: ViewKeeps;` — 창마다 하나인 native view 보관소. app view를 옮기는 kind가 `transfer`·`receive`에서 쓴다(모양은 `wd-native-move`가 넓힌다).
+    - native view를 옮기는 kind는 `TabHost`에 이미 있는 `viewKeeps`(창마다 하나인 보관소)를 쓴다. `ViewKeeps`의 `lookup`/`track`은 `wd-native-move`가 더한다.
     - `WorkspaceProps.detached?: LophnDetachedApi` — 없으면 Detach 항목과 단추를 두지 않는다(terminal·editor 통로와 같은 규칙).
 
 ## 할 일
@@ -107,13 +113,17 @@ receive?(tab: TabItem, transfer: TabTransfer, host: TabHost): void;
 1. `ipc/detached.ts`: 위 channel 상수, schema, type, `DetachedReply`, `LophnDetachedApi`를 쓴다. `viewSession`은 `ipc/app-frame.ts`의 규칙(1자 이상, 제어 문자 없음)과 같게 따로 쓴다. `projectId`는 `ipc/app-frame.ts`의 `prj_<ULID>` 규칙, `boundsSchema`는 x·y 정수 ±32768, width·height 정수 1..32768(`main/workspace/schema.ts`의 `windowBounds`와 같다). `DetachedTab`은 `detachedTabSchema`의 type이다. zod는 4.6.5(`z.looseObject`, `z.json`)이다.
 2. `preload/detached-api.ts`: `createDetachedApi(transport)`. `views-api.ts`의 `call`과 같은 규칙으로 invoke 실패를 `unavailable`로 바꾸고 응답 `ok: false`는 code만 실은 `Error`로 거절한다. `subscribe`는 `DETACHED_EVENT_CHANNEL`을 schema로 거른 것만 listener에 넘기고 해제 함수를 돌려준다. 어떤 invoke 실패에도 던지지 않고 거절만 한다. 구현 task가 없는 channel은 handler가 없어 `unavailable`로 거절된다.
 3. `preload/shell.ts`: `role === "shell"` 갈래에 `contextBridge.exposeInMainWorld("lophnDetached", createDetachedApi(ipcRenderer))`를 더한다. overlay에는 열지 않는다.
-4. `kinds/kind.ts`, `kinds/host.ts`: 위 칸을 더한다. `TabTransfer`는 `ipc/detached.ts`에서 import한다.
-5. `workspace.tsx`: `WorkspaceProps`에 `detached?: LophnDetachedApi`(주석 한 줄), `host` 객체에 `keeps,` 한 줄. 그 밖은 고치지 않는다.
+4. `kinds/kind.ts`: 위 칸(`transfer`, `receive`, `noDetach`)을 더한다. `TabTransfer`는 `ipc/detached.ts`에서 import한다.
+5. `workspace.tsx`: `WorkspaceProps`에 `detached?: LophnDetachedApi`(주석 한 줄). 그 밖은 고치지 않는다.
+6. `slimDetachedTab`을 `ipc/detached.ts`에 구현한다(순수 함수. 값 하나의 `JSON.stringify` 길이가 4096자를 넘는 `fields` 칸을 뺀다. `fields`가 없으면 그대로).
 
 ## 정한 것
 
 - 두 방향(project 창, detached 창)을 한 API로 묶었다(agent). 같은 renderer bundle과 preload를 쓰는 창이고, main이 보낸 창으로 역할을 가려 `forbidden`을 돌려준다. 통로를 둘로 가르면 preload·노출·type이 두 벌이 된다.
 - `transfer`는 `Promise<TabTransfer | null>`이다(agent). editor의 flush가 비동기이고, 실패하면 null로 "옮기지 않음"을 말해야 해서다.
+- `slimDetachedTab`을 계약 file에 둔다(agent). browser 탭의 `fields.favicon`(data URL, 65536자까지)이 `tab`과 같이 지나면 IPC 상한 64KiB를 넘어 `open`·`changed`·`dock`이 거절된다. 보내는 곳이 둘(project 창, detached 창)이라 한 곳에 둔다.
+- `open`을 detached 창도 보낼 수 있다(agent). detached 창 안의 browser popup을 또 다른 detached 창으로 열기 위해서다(README).
+- `noDetach`는 kind의 선택 칸이다(agent). DevTools 패널은 대상 browser 탭에 묶여 따로 떼면 대상 탭을 건드릴 수 없다.
 - `moved`는 이 계약에 처음부터 있다(agent). `wd-restore`가 보내기 전에는 아무도 받지 않는다. 그 사이 contract를 바꾸지 않으려는 것이다.
 
 ## 끝남
@@ -129,7 +139,7 @@ receive?(tab: TabItem, transfer: TabTransfer, host: TabHost): void;
 - 등록할 것: 없음
 - 안 쓰게 된 export: 없음
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: `workspace.tsx` 두 줄
+- 넘길 줄: `workspace.tsx` 한 줄
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"

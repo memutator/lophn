@@ -13,7 +13,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
      │  window.lophnBrowser (preload, project 창에만): navigate·command·adopt·devtools·clearData·bookmarks, state·event 구독
      ▼
  shell main
-   wiring/browser.ts ── project 창에만 webviewTag ── will-attach-webview ─▶ webview-guest.ts hardenWebviewAttach
+   wiring/browser.ts ── shell 창에만 webviewTag ── will-attach-webview ─▶ webview-guest.ts hardenWebviewAttach
    │                                                   (shell 문서에서 온 것만, partition 강제, preload 지우기, src는 decideNavigation)
    │                   did-attach-webview ─▶ registry guest 항목 "wv-<guest id>"
    registry.ts ── guest 항목(webview) · native 항목(popup) · DevTools 항목
@@ -42,7 +42,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 ## 지키는 것
 
 - **navigation 결정은 `main/browser/navigation.ts`의 순수 함수 `decideNavigation` 하나가 한다.** main frame은 http/https(어느 host든, localhost와 사설 IP 포함)와 정확히 `about:blank`만 받는다. 최상위 `data:`·`blob:`은 막는다. subframe은 http/https와 `data:`·`blob:`·`about:`도 받는다. 그 밖의 scheme(`file:`, `lophn-*:`, `chrome:`, `devtools:`, `javascript:`, custom protocol)은 두 frame 모두 막는다. main frame의 userinfo(`user:pass@`) URL은 막는다. 표는 `navigation_test.ts`가 지킨다.
-- **`<webview>`는 project 창(shell renderer)에서만, 우리 설정으로만 붙는다.** `webviewTag`는 project 창 하나만 켠다. `will-attach-webview`에서 shell 문서(`lophn-shell://desktop`)가 아닌 곳과 `persist:lophn-browser`가 아닌 partition은 거절하고, renderer가 넣은 `preload`·`webpreferences`·`disablewebsecurity`·`useragent`를 지우고, hardened `webPreferences`로 덮은 뒤 partition을 다시 넣는다(지우면 guest가 다른 session에 붙는다). 첫 `src`도 `decideNavigation`을 지나고, 못 지나면 `about:blank`다. 표는 `webview-guest_test.ts`가 지킨다.
+- **`<webview>`는 shell 창(shell renderer)에서만, 우리 설정으로만 붙는다.** `webviewTag`는 shell 창(`main/desktop/window.ts` `windowConfig`)만 켠다. 앱 전용 창과 secret 입력 창은 끈다. `will-attach-webview`에서 shell 문서(`lophn-shell://desktop`)가 아닌 곳과 `persist:lophn-browser`가 아닌 partition은 거절하고, renderer가 넣은 `preload`·`webpreferences`·`disablewebsecurity`·`useragent`를 지우고, hardened `webPreferences`로 덮은 뒤 partition을 다시 넣는다(지우면 guest가 다른 session에 붙는다). 첫 `src`도 `decideNavigation`을 지나고, 못 지나면 `about:blank`다. 표는 `webview-guest_test.ts`가 지킨다.
 - **`mailto:`·`tel:`만 OS로 넘기고, main frame에서 사용자 입력 직후일 때만 넘긴다.** subframe은 조용히 막는다. 주소 칸에 적은 `mailto:`는 page 입력이 아니라서 거절한다.
 - **사용자 입력은 contents마다 마지막 mouseDown·keyDown 시각이고, 5000ms 안이어야 fresh다(`activation.ts`).** popup, download, OS 넘기기가 이것을 본다. 시각은 인자(`nowMs`)로 받는다.
 - **크기 준 popup만 native view로 받아 `window.opener`를 남긴다.** Electron이 `createWindow`에 준 contents를 그대로 감싸야 opener가 남는다. 표준 Electron에는 그 contents를 `<webview>`에 넣는 길이 없다. popup contents는 opener의 session과 webPreferences를 물려받고 features로 바꾸지 못한다. 입력 없는 popup은 거절하고 `popup-blocked`를 알린다.

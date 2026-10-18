@@ -3,7 +3,7 @@
 main이 detached 창을 띄우고 project 창과 중계한다. `openDesktopWindow`가 hash와 bounds를 받아 shell 창을 하나 더 띄우고, `wiring/detached.ts`가 `wd-contract`의 channel 여덟 개를 처리한다: 창 만들기와 앱 view 옮기기(`open`), 탭 값 받기(`take`), 돌려보내기(`dock`), 바뀐 탭 값·탭 열기·탭 닫기 중계, 창 닫기(×) 가로채기, project 창이 닫히면 함께 닫기.
 
 - 단위: wd-main (wave 2)
-- 선행: wd-native-move. `AppViews.owns`·`moveViews`를 쓴다.
+- 선행: wd-native-move. `AppViews.owns`·`moveViews`(앱 view와 browser의 popup·DevTools를 모두 옮기는 항구)를 쓴다.
 - 소유(이 task만 고친다):
   - `packages/shell/main/desktop/detached/registry.ts`
   - `packages/shell/main/desktop/detached/ipc.ts`
@@ -16,12 +16,14 @@ main이 detached 창을 띄우고 project 창과 중계한다. `openDesktopWindo
   - 제품 결정: `project-docs/products/roadmap/workspace-float.md`의 "지금 코드"(창 여럿), "무엇을 만드나" 4(창, 누가 layout을 갖나, 창을 닫을 때), "정한 것"
   - 계획: `project-docs/plan/workspace-detach/README.md`의 "정한 것"
   - 본보기(IPC 꼴): `main/app-frame/view-ipc.ts`(`guard`: `checkCaller` 뒤 `checkInput`, 창은 sender로 main이 정한다, 응답 `ViewReply`), `main/desktop/core/layout-ipc.ts`, `main/desktop/window-controls.ts`
-  - 지금 코드(이 brief는 아래를 열어 확인한 것이다):
+  - architecture: `project-docs/architecture/browser-tab.md`(popup view의 소유 창은 opener의 창, `<webview>`는 옮기지 않는다)
+  - 지금 코드(main `5361104e8`을 열어 확인한 것이다):
     - `main/desktop/wiring/desktop-window.ts`: `openDesktopWindow(ctx)`(61행 근처)는 옵션이 없고 URL을 환경 변수로만 고른다. `create` 안에서 `windows.add(window)`, `overlays.attach`, `ctx.windowHooks.created`를 부르고 `closed` hook과 `windows.delete`를 단다. 창은 `create` 안에서 동기로 만들어져 함수가 돌려준다. `sendIntent`·`showDesktopWindow`는 `ctx.windows`의 "가장 최근 창"을 쓴다.
     - `main/desktop/window.ts`: `windowConfig`가 `MIN_WINDOW_WIDTH/HEIGHT`(960×600)를 너비·높이·최소로 쓰고 위치가 없다. `WindowConfig`에 `x`·`y`가 없다.
+    - `main/desktop/window.ts`의 `windowConfig`는 `webPreferences.webviewTag: true`를 **모든** desktop 창에 준다(browser-tab 문서와 `wiring/browser.ts` 주석은 "project 창만"이라 쓰지만 코드는 창을 가리지 않는다). 그래서 detached 창도 `<webview>`를 붙일 수 있고, `wiring/browser.ts`의 `windowHooks.created`가 거는 `will-attach-webview`·`did-attach-webview`(guest 등록)가 detached 창에도 걸린다. `ctx.windowHooks.closed`의 `views.closeWindow(ref)`가 창에 남은 popup·DevTools·guest를 폐기한다.
     - `main/desktop/wiring/context.ts`: `ShellContext`의 `windows`, `windowRef`, `windowOfRef`, `shellWindowOf`, `windowHooks`(`created`·`closed`), `quit`(`requested`, `active()`), `closeGuards`.
     - `main/desktop/wiring/editor.ts`: 창마다 `CloseGuard`를 `windowHooks.created`에서 달고 `guardWindowClose`가 `window.on("close")`에서 renderer에 저장을 묻는다(마지막 고침을 flush하고, 남으면 사람에게 묻는다). detached 창의 닫기 가로채기는 이 guard **뒤에** 돌아야 한다: 이 task의 `close` listener는 `openDesktopWindow`가 돌려준 뒤에 달므로 순서가 저절로 맞는다.
-    - `main/desktop/main.ts`: 영역 등록 순서. `main/desktop/ipc-guard.ts`: `checkCaller`는 sender webContents id로 본다(창이 여럿이어도 된다).
+    - `main/desktop/main.ts`: 영역 등록 순서(`browser.register` → `appViews.register(ctx, browserViews)` → … → `layout` → `bookmarks` → `editor` → `desktop`). `main/desktop/wiring/app-views.ts`는 `register(ctx, browser)`다. `main/desktop/ipc-guard.ts`: `checkCaller`는 sender webContents id로 본다(창이 여럿이어도 된다).
     - `main/app-frame/registry.ts`·`wiring/app-views.ts`: `wd-native-move`가 더한 `AppViews.owns`, `moveViews`. `closeWindow`는 닫힌 창에 남은 view를 폐기한다.
   - module: `project-docs/module-catalog.yaml`의 `packages/shell/main`
 - 계약:
@@ -42,7 +44,7 @@ detached: Set<BrowserWindow>;
 3. `context.ts`: `detached` Set을 더한다.
 4. `detached/registry.ts`(순수): detached 창 항목의 표. 항목은 `{ ref(detached 창), parent(project 창 ref), project, key, tab, transfer, silent }`. `add`, `byRef`, `byParentKey(parent, key)`, `childrenOf(parent)`, `remove(ref)`, `setTab`. Electron을 import하지 않는다.
 5. `detached/ipc.ts`: channel마다 handler를 만드는 함수. 의존은 인자로 받는다(`registry`, `ContentsRegistry`, `refOf(sender)`: sender가 보낸 창의 ref와 detached 창인지, `openWindow`, `closeWindow(ref)`, `focusWindow(ref)`, `send(ref, event)`, `owns`·`moveViews`). 모든 handler는 `view-ipc.ts`의 `guard`처럼 `checkCaller`(desktop 창 본문) → `checkInput`(`wd-contract`의 schema)를 차례로 보고 응답은 `DetachedReply`다. 보낸 창의 역할이 맞지 않으면 `forbidden`.
-   - `open`(project 창): 같은 (project, key) 항목이 있으면 그 창을 앞으로 가져오고 `conflict`. `transfer.views`가 모두 보낸 창의 view여야 한다(`owns`, 아니면 `invalid_input`). 창을 만들고(`#detached=<encodeURIComponent(tab.key)>`, `bounds`) 항목을 더한 뒤 `moveViews(보낸 창, 새 창, transfer.views)`. 옮기기가 실패하면 만든 창을 silent로 닫고 `unavailable`. 성공하면 `{ bounds: 만든 창의 getBounds() }`.
+   - `open`(project 창, 또는 detached 창 안에서 열린 popup): 보낸 창이 detached 창이면 `project`가 그 창 항목의 project와 같아야 하고(아니면 `invalid_input`) 새 항목의 parent는 그 창의 parent다. 같은 (project, key) 항목이 있으면 그 창을 앞으로 가져오고 `conflict`. `transfer.views`가 모두 보낸 창의 view여야 한다(`owns`, 아니면 `invalid_input`. 앱 view, popup, DevTools를 가리지 않는다). 창을 만들고(`#detached=<encodeURIComponent(tab.key)>`, `bounds`) 항목을 더한 뒤 `moveViews(보낸 창, 새 창, transfer.views)`. 옮기기가 실패하면 만든 창을 silent로 닫고 `unavailable`. 성공하면 `{ bounds: 만든 창의 getBounds() }`. 보낸 창이 detached 창이었으면 parent project 창에 `{ kind: "opened", tab, bounds }`도 보낸다(그 탭은 project 창 layout에 아직 없다).
    - `focus`: 보낸 창의 항목 (parent, key)이 없으면 `not_found`, 있으면 최소화를 풀고 앞으로 가져온다.
    - `close`: key면 그 창, null이면 보낸 창의 detached 창 전부를 silent로 닫는다(탭 값은 건드리지 않고 project 창에 event도 보내지 않는다).
    - `take`(detached 창): 그 창의 항목에서 `{ project, tab, transfer }`를 돌려준다(여러 번 불러도 같다). 항목이 없으면 `not_found`.

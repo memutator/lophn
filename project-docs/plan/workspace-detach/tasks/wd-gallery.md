@@ -12,8 +12,8 @@ wireframes gallery에 detached 창 하나(terminal)와 탭 menu의 Detach를 더
   - 제품 결정: `project-docs/products/roadmap/workspace-float.md`의 "무엇을 만드나" 5(wireframes gallery)
   - 규칙: `.claude/skills/ui-design/SKILL.md`
   - 본보기(화면): `tools/wireframes/pages/screens/project-float/pages.tsx`(`FloatTerminal`: `MockDesktop`에 `panes`·`floats`·`openTerminal`을 주는 꼴)와 `tools/wireframes/pages/screens/project-workspace.tsx`의 `new-float-*` page 등록
-  - 지금 코드(이 brief는 아래를 열어 확인한 것이다): `tools/wireframes/mock/mock-desktop.tsx`의 `MockDesktop`(props, `layoutOf`, `Desktop`에 넘기는 값, `TabSpec`, `fakeTerminal`), `tools/wireframes/pages/screens/project-files/tab-menu.tsx`(`EditorTabMenu`가 탭을 우클릭해 진짜 menu를 연다. 이 file은 고치지 않는다)
-  - 앞 task가 내놓은 것: `wd-window-ui`의 `openDetached(key)`와 `Desktop`의 `detached` prop, `DetachedSpace`, `wd-contract`의 `LophnDetachedApi`·`DetachedTaken`, `wd-project-side`의 Detach 항목·[Detach] 단추
+  - 지금 코드(main `5361104e8`을 열어 확인한 것이다): `tools/wireframes/mock/mock-desktop.tsx`의 `MockDesktop`(props에 `browser?: LophnBrowserApi`가 이미 있다, `layoutOf`, `Desktop`에 넘기는 값, `TabSpec`(`kind`에 `browser`가 있다), `fakeTerminal`, `BrowserApiProvider`), `tools/wireframes/pages/screens/project-files/tab-menu.tsx`(`EditorTabMenu`가 탭을 우클릭해 진짜 menu를 연다. 이 file은 고치지 않는다)
+  - 앞 task가 내놓은 것: `wd-window-ui`의 `openDetached(key)`와 `Desktop`의 `detached` prop, `DetachedSpace`, `wd-contract`의 `LophnDetachedApi`·`DetachedTaken`, `wd-project-side`의 Detach 항목·[Detach] 단추(`browser_devtools` 패널에는 없다)
   - module: `project-docs/module-catalog.yaml`의 `tools`
 - 계약:
   - 쓰는 것: 위 "앞 task가 내놓은 것".

@@ -16,30 +16,33 @@ project 창(Workspace)이 탭을 detach하고 돌려받는다. 탭 menu의 Detac
   - 계획: `project-docs/plan/workspace-detach/README.md`의 "정한 것"
   - architecture: `project-docs/architecture/workspace-layout.md`("지키는 것", 특히 focus와 ViewKeeps)
   - wording 규칙: `.claude/skills/wording/SKILL.md`
-  - 지금 코드(이 brief는 아래를 열어 확인한 것이다):
-    - `renderer/workspace/workspace.tsx`: `latest`·`update`·`persist`(저장), `openTab`(`openTabIn`), `removeTab`(floated면 `closeFloat`), `withPositions`, `keeps`(`createViewKeeps`)와 "layout에서 사라진 탭의 view를 닫는다" effect(`allTabs(view)`), `floatFocused`·`leaveTopFloat`·`focusPaneBody`, `terminal.store.onSelect` effect, `host: TabHost`, `Panes`·`Floats`에 넘기는 `onFloat`·`onDock`, 레이아웃을 읽는 `load` effect.
+  - architecture: `project-docs/architecture/browser-tab.md`(`<webview>`는 창마다 하나인 그릇에 탭 key당 한 번 만들고, 탭이 layout에서 사라질 때만 지운다)
+  - 지금 코드(main `5361104e8`을 열어 확인한 것이다):
+    - `renderer/workspace/workspace.tsx`: `latest`·`update`·`persist`(저장), `openTab`(`openTabIn(…, options?.after)`)과 `openFloatTab`, `removeTab`(floated면 `closeFloat`), `withPositions`, `keeps`(`createViewKeeps`)와 `webviews`(`createWebviewHost`)를 같이 비우는 "layout에서 사라진 탭의 view를 닫는다" effect(`allTabs(view)`), `floatFocused`·`leaveTopFloat`·`focusPaneBody`, `terminal.store.onSelect` effect, `host: TabHost`(`viewKeeps: keeps`, `openFloat: openFloatTab` 포함), `Panes`·`Floats`에 넘기는 `onFloat`·`onDock`, 레이아웃을 읽는 `load` effect.
     - `renderer/workspace/panes/panes.tsx`: 탭 menu 항목 배열(`id: "float"`)과 `chooseMenu`. `onFloat` prop 흐름.
-    - `renderer/workspace/floats/floats.tsx`: `FloatEntry`의 `actions`(minimize, dock, close).
+    - `renderer/workspace/floats/floats.tsx`: `FloatEntry`의 `actions`(minimize, dock, close). 패널 z-index는 층 번호 × 2이고 `Floats`가 `webviews` prop으로 `<WebviewLayer>`를 첫 자식에 둔다.
     - `renderer/icons/workspace.ts`: `workspaceIcons`.
-  - 앞 task가 내놓은 것: `wd-layout`(`detachTab`, `attachDetached`, `closeDetached`, `isDetached`, `DetachedItem`), `wd-contract`(`LophnDetachedApi`, `DetachedEvent`, `TabKindDef.transfer`/`receive`, `WorkspaceProps.detached`, `TabHost.keeps`)
+  - 앞 task가 내놓은 것: `wd-layout`(`detachTab`, `openDetachedTab`, `attachDetached`, `closeDetached`, `isDetached`, `DetachedItem`), `wd-contract`(`LophnDetachedApi`, `DetachedEvent`, `TabKindDef.transfer`/`receive`/`noDetach`, `slimDetachedTab`, `WorkspaceProps.detached`)
   - module: `project-docs/module-catalog.yaml`의 `packages/shell/renderer`
 - 계약:
   - 쓰는 것: 위 "앞 task가 내놓은 것". 창을 여는 `window.lophnDetached`는 `props.detached`로 받는다(entry가 `wd-window-ui`에서 넘긴다).
-  - 내놓는 것: `Workspace`가 detached 탭을 다루는 동작 전부. 다른 task가 기대는 새 export는 없다. `Panes`와 `Floats`는 `onDetach?`를 받는다: 없으면 항목·단추를 그리지 않는다.
+  - 내놓는 것: `Workspace`가 detached 탭을 다루는 동작 전부. 다른 task가 기대는 새 export는 없다. `Panes`와 `Floats`는 `onDetach?`와 `canDetach?: (tab: TabItem) => boolean`를 받는다: `onDetach`가 없거나 `canDetach`가 false이면 항목·단추를 그리지 않는다.
 
 ## 할 일
 
 1. 아이콘·wording: `icons/workspace.ts`에 `detach`(lucide 아이콘 하나, 이미 쓰는 것과 다른 것. 예 `ExternalLink`). `catalog/project.ts`에 `project-workspace.button.tab-detach`("Detach"), `project-workspace.button.float-detach`("Detach")를 더하고 `deno task wording`으로 placeholders를 다시 만든다(손으로 고치지 않는다).
-2. `panes.tsx`: `onDetach?: (pane: number, key: string) => void`. 있으면 탭 menu에서 Float 항목 바로 뒤에 `id: "detach"` 항목(`tab-detach`, `workspaceIcons.detach`)을 더하고 `chooseMenu`가 `onDetach`를 부른다.
-3. `floats.tsx`: `onDetach?: (key: string) => void`. 있으면 minimize 단추가 아닌 패널(접히지 않은 것)의 `actions`에서 Dock 뒤·Close 앞에 `data-float-action="detach"` 단추(`float-detach`)를 더한다.
+2. `panes.tsx`: `onDetach?: (pane: number, key: string) => void`, `canDetach?: (tab: TabItem) => boolean`. `onDetach`가 있고 `canDetach`가 true(없으면 true)이면 탭 menu에서 Float 항목 바로 뒤에 `id: "detach"` 항목(`tab-detach`, `workspaceIcons.detach`)을 더하고 `chooseMenu`가 `onDetach`를 부른다.
+3. `floats.tsx`: `onDetach?: (key: string) => void`, `canDetach?: (tab: TabItem) => boolean`. 있으면(`canDetach` 조건은 위와 같다) 접히지 않은 패널의 `actions`에서 Dock 뒤·Close 앞에 `data-float-action="detach"` 단추(`float-detach`)를 더한다.
 4. `workspace.tsx`:
-   - `detach(key)`: `findTab(latest.current, key)`가 있고 detached가 아닐 때만 한다. kind의 `transfer`를 부르고(`tabKindOf(tab.kind)?.transfer?.(tab, host) ?? { value: null, views: [] }`) null이면 아무것도 하지 않는다. 탭 값은 `withPositions`로 읽던 위치를 합친 것을 쓴다. `props.detached.open({ project: projectId, tab, transfer, bounds: null })`가 거절되면(`conflict`, `invalid_input`, `unavailable`) 아무것도 바꾸지 않는다. 성공하면 그 사이 탭이 닫혔는지 본다(없으면 `props.detached.close({ key })`로 만든 창을 닫는다). 있으면 floated 맨 위였으면 `leaveTopFloat`, 칸이면 `focusPaneBody`로 focus를 칸에 두고 `update(detachTab(latest.current, key, reply.bounds))`.
-   - `Panes`에 `onDetach`, `Floats`에 `onDetach`를 넘긴다(`props.detached`가 있을 때만). minimized 패널에는 단추가 없다.
+   - `detach(key)`: `findTab(latest.current, key)`가 있고 detached가 아니며 kind에 `noDetach`가 없을 때만 한다. kind의 `transfer`를 부르고(`tabKindOf(tab.kind)?.transfer?.(tab, host) ?? { value: null, views: [] }`) null이면 아무것도 하지 않는다. `transfer`가 탭 값을 바꿨을 수 있으니(browser가 `devtools` 칸을 비운다) 그 뒤에 `findTab(latest.current, key)`를 다시 읽고, `withPositions`로 읽던 위치를 합친 것을 `slimDetachedTab`으로 줄여 쓴다. `props.detached.open({ project: projectId, tab, transfer, bounds: null })`가 거절되면(`conflict`, `invalid_input`, `unavailable`) 아무것도 바꾸지 않는다. 성공하면 그 사이 탭이 닫혔는지 본다(없으면 `props.detached.close({ key })`로 만든 창을 닫는다). 있으면 floated 맨 위였으면 `leaveTopFloat`, 칸이면 `focusPaneBody`로 focus를 칸에 두고 `update(detachTab(latest.current, key, reply.bounds))`.
+   - `Panes`에 `onDetach`, `Floats`에 `onDetach`를 넘긴다(`props.detached`가 있을 때만). 둘에 `canDetach={(tab) => tabKindOf(tab.kind)?.noDetach !== true}`를 넘긴다. minimized 패널에는 단추가 없다.
+   - `<webview>` 그릇: 지금 effect는 `allTabs(view)`에 없는 key의 `keeps`·`webviews`를 지운다. detached 탭은 `allTabs`에 있어 project 창의 `<webview>`가 남아 page가 두 창에 산다. `webviews`는 panes와 floats의 탭 key(`detached`는 뺀 것)에 없는 key를 지우도록 바꾼다(`keeps`는 그대로 `allTabs`). 그러면 browser 탭을 Detach할 때 project 창의 `<webview>`가 지워지고, Dock하면 `BrowserTab`이 mount되며 같은 url로 새로 만든다.
    - event 구독: `useEffect(() => props.detached?.subscribe(handler), [props.detached])`. `handler`는 `latest.current`를 읽는다.
      - `docked`: `isDetached`가 아니면 무시한다. 탭 종류의 `receive`가 있고 `transfer`가 있으면 `receive(tab, transfer, host)`를 먼저 부른 뒤 `update(attachDetached(latest.current, key, event.tab as TabItem))`, `setFloatFocused(false)`, `focusPaneBody`.
      - `changed`: detached 항목의 tab을 event 값으로 바꾸고 저장한다(`update`와 같은 길. detached 항목만 바꾸는 작은 helper를 이 file 안에 둔다).
      - `open-tab`: `openTab(event.tab as TabItem)`.
      - `closed`: `update(closeDetached(latest.current, key))`.
+     - `opened`: `update(openDetachedTab(latest.current, event.tab as TabItem, event.bounds))`(detached 창 안의 popup. `transient`라 저장되지 않는다).
      - `moved`, `dock-request`: 무시한다(`moved`는 `wd-restore`가 쓴다).
    - detached 탭을 여는 길: `openTab`(여는 모든 길이 지난다)에서 `isDetached(current, tab.key)`면 `props.detached?.focus({ key })`만 하고 돌아온다. `terminal.store.onSelect` effect(대기 목록 카드의 [Answer in terminal])에도 같은 갈래를 더한다(`isDetached`면 그 창을 앞으로 가져온다).
    - `removeTab(key)`: detached 탭이면 `props.detached?.close({ key })` 뒤 `update(closeDetached(current, key))`(파일 이름 바꾸기·휴지통으로 열린 파일 탭을 닫을 때 지난다). `rememberClosed`는 detached 탭에 하지 않는다.

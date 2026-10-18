@@ -279,7 +279,7 @@ export async function runTrial(
     const saved: { name: string; n: number }[] = [];
     if (
       deps.saveEnabled && scenario.save !== undefined &&
-      settle.kind === "idle" && checks.every((c) => c.pass)
+      settle.kind === "idle" && checks.every((c) => c.pass || c.pending)
     ) {
       await serial(async () => {
         if (deps.saved.length > 0) return;

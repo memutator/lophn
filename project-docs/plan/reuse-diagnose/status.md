@@ -6,10 +6,10 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 |---|---|---|---|---|---|---|---|
 | `rd-app-api-tool` | rd-app-api | 1 | 없음 | running | rd-app-api/rd-app-api-tool |  |  |
 | `rd-body-route` | rd-body | 1 | 없음 | running | rd-body/rd-body-route |  |  |
-| `rd-cap-fs` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-fs |  |  |
+| `rd-cap-fs` | rd-cap | 1 | 없음 | merged | rd-cap/rd-cap-fs | bbb2a6737 |  |
 | `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
 | `rd-ex-shape` | rd-ex | 1 | 없음 | running | rd-ex/rd-ex-shape |  |  |
-| `rd-resolve-rule` | rd-resolve | 1 | 없음 | todo |  |  |  |
+| `rd-resolve-rule` | rd-resolve | 1 | 없음 | running | rd-resolve/rd-resolve-rule |  |  |
 | `rd-sdk-builtin` | rd-sdk | 1 | 없음 | todo |  |  |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | todo |  |  |  |
 | `rd-body-tool` | rd-body | 2 | rd-body-route, rd-app-api-tool, rd-resolve-rule | todo |  |  |  |

@@ -10,5 +10,11 @@
     "name": "checks",
     "n": 2,
     "hash": "f30db00c85bde5faf4293a72507f7b6a607deee87787c9f65196c9994f0402eb"
+  },
+  {
+    "kind": "checks",
+    "name": "checks",
+    "n": 3,
+    "hash": "9908bf8a9d6a5c1ddbc76e12c0ee7a12612f556aeb252aab1cb6647a1ba81028"
   }
 ]

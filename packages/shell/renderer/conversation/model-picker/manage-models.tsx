@@ -20,6 +20,10 @@ import type { ManageModelView, ManageProviderView } from "./types.ts";
 export interface ManageModelsProps {
   /** 아직 읽는 중이면 null이다. */
   providers: readonly ManageProviderView[] | null;
+  /** 연결한 provider의 목록을 읽은 결과 한 줄. */
+  notice?: string;
+  /** 열자마자 이 provider의 Add model form을 연다. lead는 form 맨 위 한 줄이다. */
+  initialForm?: { provider: string; lead: string };
   /** 읽지 못했다. 앞서 읽은 것이 있으면 그대로 두고 창 안에 한 줄만 보인다. */
   loadFailed?: boolean;
   onClose: () => void;
@@ -52,6 +56,7 @@ interface FormTarget {
   readonly provider: string;
   readonly modelName: string | null;
   readonly info: UserModelInfo | null;
+  readonly lead?: string;
 }
 
 /** context 한도의 짧은 글: 131072는 128K, 1000000은 1M. 1024의 배수는 1024로, 아니면 1000으로 센다. */
@@ -244,7 +249,11 @@ export function ManageModelsDialog(props: ManageModelsProps) {
   const [busy, setBusy] = useState(false);
   // 창 안 한 줄: 다시 읽기가 실패했다.
   const [refreshFailed, setRefreshFailed] = useState(false);
-  const [form, setForm] = useState<FormTarget | null>(null);
+  const [form, setForm] = useState<FormTarget | null>(() =>
+    props.initialForm === undefined
+      ? null
+      : { ...props.initialForm, modelName: null, info: null }
+  );
   const refresh = async (provider: string) => {
     setBusy(true);
     setRefreshFailed(false);
@@ -275,6 +284,15 @@ export function ManageModelsDialog(props: ManageModelsProps) {
               {t("conversation.button.connect-provider")}
             </Button>
           </div>
+          {props.notice === undefined ? null : (
+            <p
+              className={styles.note}
+              role="status"
+              data-manage-section="found"
+            >
+              {props.notice}
+            </p>
+          )}
           <Field label={t("conversation.label.search-models")}>
             <Input
               value={query}
@@ -321,6 +339,7 @@ export function ManageModelsDialog(props: ManageModelsProps) {
         <ModelInfoForm
           modelName={form.modelName}
           info={form.info}
+          lead={form.lead}
           onClose={() => setForm(null)}
           onSave={(modelName, info) =>
             props.onSaveInfo(form.provider, modelName, info)}

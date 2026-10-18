@@ -31,7 +31,7 @@ import {
   type FakeAgentsOptions as FakeEditorOptions,
   OPENAI,
 } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
-import { click, type Step } from "../../mock/drive.ts";
+import { click, press, type Step, type } from "../../mock/drive.ts";
 import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
 import { documentTab } from "../../mock/phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
@@ -136,6 +136,26 @@ export const ModelInfoConflict = () =>
     editInfo,
     () => click("[role=dialog] button", /^Save$/),
   ]);
+// Manage models의 [Connect provider]로 Custom provider를 붙인다: 목록에서 Custom provider를 고르고 form을 채워 [Connect]를 누른다.
+// 같은 id의 custom provider(Local server)를 agents fake가 알고, 연결 뒤 host가 목록을 한 번 읽는다.
+const CONNECT_CUSTOM: readonly Step[] = [
+  () => click("[data-manage-models] button", /^Connect provider$/),
+  () => press(`[data-available="custom"] [data-action="connect"]`),
+  () => type("[data-custom-field=id]", "local-server"),
+  () => type("[data-custom-field=name]", "Local server"),
+  () => type("[data-custom-field=url]", "https://llm.example.com/v1"),
+  () => click("[role=dialog] button", /^Connect$/),
+];
+
+/** Manage models에서 Custom provider를 붙이고 `/models` 목록을 읽은 직후. 새 provider 묶음이 맨 위에 있고 창 안에 "Found 2 models on Local server." 한 줄이 보인다. */
+export const ModelInfoConnectFound = () =>
+  manage({ providers: "custom", customListed: false }, CONNECT_CUSTOM);
+/** Manage models에서 Custom provider를 붙였는데 목록을 읽지 못한 직후. 그 provider의 Add model form이 바로 열려 있고 form 맨 위에 목록을 받지 못했다는 한 줄이 보인다. */
+export const ModelInfoConnectEmpty = () =>
+  manage(
+    { providers: "custom", customListed: false, refreshFails: true },
+    CONNECT_CUSTOM,
+  );
 /** 정보를 적은 custom model을 고른 picker. 적은 effort가 option 축으로 보인다. */
 export const ModelInfoPicker = () =>
   weekly({

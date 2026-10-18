@@ -66,7 +66,7 @@ const XAI_DEFINITION = definition("xai", "xAI", {
 });
 
 const CUSTOM_DEFINITION = definition("custom", "Custom provider", {
-  hint: "Any OpenAI-compatible endpoint",
+  hint: "Any server that speaks the OpenAI or Anthropic API",
   custom: true,
 });
 
@@ -124,6 +124,8 @@ interface FakeProvidersOptions {
   available?: readonly ProviderDefinitionRow[];
   /** 구독 로그인을 고르면 이 code로 기다림을 보이고 그만둘 때까지 끝나지 않는다(gallery가 기다림 화면을 고정한다). */
   signInWaits?: { userCode: string | null };
+  /** registerCustom이 만드는 provider의 id. agents fake가 같은 id의 custom provider를 알게 해, 연결 뒤 목록 읽기를 gallery가 보인다. */
+  customId?: string;
   /** 이 이름의 호출은 이 code로 실패한다. */
   failing?: Partial<
     Record<
@@ -198,7 +200,7 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
       connected = [
         ...connected,
         connection(
-          `pvd_fake_${++created}`,
+          options.customId ?? `pvd_fake_${++created}`,
           input.name,
           "custom",
           input.withKey ? "api_key" : "none",

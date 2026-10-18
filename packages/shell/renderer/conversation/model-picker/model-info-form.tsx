@@ -30,6 +30,8 @@ export interface ModelInfoFormProps {
   modelName: string | null;
   /** 고칠 model의 지금 정보. 새 model이거나 정보가 없으면 null이다. */
   info: UserModelInfo | null;
+  /** form 맨 위에 보일 한 줄(연결한 provider가 목록을 주지 않았다는 안내). */
+  lead?: string;
   onClose: () => void;
   onSave: (modelName: string, info: UserModelInfo) => Promise<ModelInfoOutcome>;
   /** 정보를 지운다. 고칠 때만 있다. */
@@ -325,6 +327,9 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
       }
     >
       <div className={styles.form} data-model-info="">
+        {props.lead === undefined
+          ? null
+          : <p className={styles.note} role="status">{props.lead}</p>}
         <Field label={t("conversation.label.model-name")} error={problems.name}>
           <Input
             autoComplete="off"

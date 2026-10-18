@@ -68,7 +68,7 @@ interface ProviderValue {
 type BuiltinDefinition = ProviderDefinition;
 type ProviderProtocol = ProviderDefinition["protocols"][number];
 
-/** 직접 만드는 OpenAI 호환 provider의 정의 key. */
+/** 직접 만드는 provider의 정의 key. */
 const CUSTOM = "custom";
 /** 한 번에 읽는 provider 목록 page 상한. */
 const PAGE_LIMIT = 20;
@@ -425,7 +425,7 @@ export function coreProviderSettingsSource(
       const definition: ProviderDefinition = {
         key: input.id,
         display_name: input.name,
-        protocols: ["openai-chat-completions"],
+        protocols: [input.protocol],
         auth_kinds: [input.withKey ? "api_key" : "none"],
         models_endpoint: remote ? `${base}/models` : null,
         oauth: null,
@@ -437,7 +437,7 @@ export function coreProviderSettingsSource(
         name: input.name,
         definition,
         endpoint: base,
-        protocol: "openai-chat-completions" as const,
+        protocol: input.protocol,
       };
       if (input.withKey) return connectWithKey(connect);
       const sent = await command(core, connectProvider, {

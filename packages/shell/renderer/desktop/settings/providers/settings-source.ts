@@ -35,9 +35,17 @@ export interface ProviderDefinitionRow {
     /** 단추 문구. ChatGPT는 OpenAI의 branding 규칙대로 "Continue with"다. */
     readonly button: "continue" | "sign-in";
   } | null;
-  /** 사람이 직접 만드는 OpenAI 호환 provider(ID·이름·Base URL 입력). */
+  /** 사람이 직접 만드는 provider(ID·이름·Base URL·API 입력). */
   readonly custom: boolean;
 }
+
+/** Custom provider가 말하는 API. 주소 뒤에 `/chat/completions`, `/responses`, `/messages`가 붙는다. */
+export const CUSTOM_PROTOCOLS = [
+  "openai-chat-completions",
+  "openai-responses",
+  "anthropic-messages",
+] as const;
+export type CustomProtocol = (typeof CUSTOM_PROTOCOLS)[number];
 
 /**
  * Custom provider 입력. API key 값은 이 모양에 없다: withKey가 참이면 보호 창이 열려 거기서 받는다.
@@ -48,6 +56,7 @@ export interface CustomProviderInput {
   readonly name: string;
   /** https 주소이거나 이 컴퓨터(127.0.0.1·::1·localhost)의 http 주소만 받는다. */
   readonly baseUrl: string;
+  readonly protocol: CustomProtocol;
   readonly withKey: boolean;
 }
 

@@ -292,6 +292,10 @@ export type AgentsPlaceholders = {
   "settings.heading.connected": Record<never, never>;
   "settings.label.agents-target": Record<never, never>;
   "settings.label.available-target": Record<never, never>;
+  "settings.label.api-anthropic-messages": Record<never, never>;
+  "settings.label.api-openai-chat-completions": Record<never, never>;
+  "settings.label.api-openai-responses": Record<never, never>;
+  "settings.label.custom-api": Record<never, never>;
   "settings.label.custom-id": Record<never, never>;
   "settings.label.custom-name": Record<never, never>;
   "settings.label.custom-provider-hint": Record<never, never>;
@@ -325,6 +329,7 @@ export type AgentsPlaceholders = {
   "settings.notice.choose-default-model": Record<never, never>;
   "settings.notice.custom-id-help": Record<never, never>;
   "settings.notice.custom-lead": Record<never, never>;
+  "settings.notice.custom-url-help": Record<never, never>;
   "settings.notice.none-connected": Record<never, never>;
   "settings.notice.provider-lead": Record<never, never>;
   "settings.notice.sign-in-browser": {

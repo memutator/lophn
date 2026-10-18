@@ -7,6 +7,7 @@ import type { AgentsSettingsSource } from "../../../packages/shell/renderer/desk
 import type { ProviderSettingsSource } from "../../../packages/shell/renderer/desktop/settings/providers/settings-source.ts";
 import { fakeAgents } from "../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
 import { fakeProviders } from "../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
+import { CUSTOM_PROVIDER } from "../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 
 export function GalleryConnectHost(
   { providers, agents, children }: {
@@ -16,7 +17,7 @@ export function GalleryConnectHost(
   },
 ) {
   const fallback = useMemo(() => ({
-    providers: fakeProviders().source,
+    providers: fakeProviders({ customId: CUSTOM_PROVIDER }).source,
     agents: fakeAgents().source,
   }), []);
   return (

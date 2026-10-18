@@ -284,9 +284,14 @@ export const agents = {
   "settings.heading.connected": "Connected",
   "settings.label.agents-target": "your agent settings",
   "settings.label.available-target": "the providers you can add",
+  "settings.label.api-anthropic-messages": "Anthropic Messages",
+  "settings.label.api-openai-chat-completions": "Chat Completions",
+  "settings.label.api-openai-responses": "Responses",
+  "settings.label.custom-api": "API",
   "settings.label.custom-id": "Provider ID",
   "settings.label.custom-name": "Display name",
-  "settings.label.custom-provider-hint": "Any OpenAI-compatible endpoint",
+  "settings.label.custom-provider-hint":
+    "Any server that speaks the OpenAI or Anthropic API",
   "settings.label.custom-url": "Base URL",
   "settings.label.extensions-target": "your tools and skills",
   "settings.label.login-signed-in": "Signed in",
@@ -312,7 +317,10 @@ export const agents = {
     "Agents use this model unless a project or an agent picks another. You can change it later in Settings → Agents.",
   "settings.notice.custom-id-help":
     "Lowercase letters, numbers, hyphens or underscores.",
-  "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
+  "settings.notice.custom-lead":
+    "Set up a server that speaks the OpenAI or Anthropic API.",
+  "settings.notice.custom-url-help":
+    "The address goes right before /chat/completions, /responses or /messages, for example https://api.example.com/v1.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.notice.provider-lead":
     "A provider is a service you connect with one key or sign-in. You pick models in the model picker and in Settings → Agents.",

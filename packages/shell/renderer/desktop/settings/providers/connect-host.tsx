@@ -9,6 +9,9 @@ import {
   useState,
 } from "react";
 
+import { t } from "@lophn/wording";
+
+import type { ManageModelsApi } from "../../../conversation/model-picker/manage-context.ts";
 import type { AgentsSettingsSource } from "../agents/settings-source.ts";
 import { ConnectProviderDialog } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
@@ -21,7 +24,12 @@ import type {
 
 export type ConnectProviderApi = {
   // Connect provider 대화창을 연다. 연결이 끝나면 새로 생긴 provider id(찾지 못하면 null)로 onConnected를 부른다.
-  open(options?: { onConnected?: (providerId: string | null) => void }): void;
+  // custom provider의 목록을 읽어 찾았으면 notice에 그 한 줄이 온다(다른 창이 이미 보였으면 없다).
+  open(
+    options?: {
+      onConnected?: (providerId: string | null, notice?: string) => void;
+    },
+  ): void;
 };
 
 export const ConnectProviderContext = createContext<ConnectProviderApi | null>(
@@ -49,8 +57,9 @@ interface ConnectProviderHostProps {
   children: ReactNode;
 }
 
-// 정의 고르기 → ConnectDialog는 open()으로 열고, 끝난 뒤에는 새 provider를 찾아 알리고 전역 기본 model이 없으면
-// 고르게 한다. key 연결은 보호 창이 따로 끝내므로 ConnectDialog가 끝났을 때는 아직 연결이 없을 수 있다: 그러면 창이 다시 focus를
+// 정의 고르기 → ConnectDialog는 open()으로 열고, 끝난 뒤에는 새 provider를 찾는다. custom provider면 model 목록을
+// 한 번 읽는다: 찾았으면 한 줄("N개 찾음")을 다음에 뜨는 창에 보이고, 목록이 없으면 그 provider의 Add model form과 함께
+// Manage models를 먼저 연다. 그다음 전역 기본 model이 없으면 고르게 한다. key 연결은 보호 창이 따로 끝내므로 ConnectDialog가 끝났을 때는 아직 연결이 없을 수 있다: 그러면 창이 다시 focus를
 // 받을 때 한 번만 더 읽고, 그래도 없으면 null로 끝낸다.
 export function ConnectProviderHost(
   { providers, agents, children }: ConnectProviderHostProps,
@@ -61,9 +70,12 @@ export function ConnectProviderHost(
   // open()으로 연 연결의 상태. 정의 고르기 전에 있던 provider id와 알릴 곳.
   const opened = useRef<{
     before: readonly string[] | null;
-    onConnected?: (providerId: string | null) => void;
+    onConnected?: (providerId: string | null, notice?: string) => void;
   }>({ before: null });
+  // 기본 model 대화창 안 한 줄(custom provider의 목록을 읽은 결과).
+  const [defaultNotice, setDefaultNotice] = useState<string | null>(null);
   const afterDefault = useRef<(() => void) | null>(null);
+  const manage = useRef<ManageModelsApi | null>(null);
   const stopWaiting = useRef<(() => void) | null>(null);
   useEffect(() => () => stopWaiting.current?.(), []);
 
@@ -76,29 +88,78 @@ export function ConnectProviderHost(
     [providers],
   );
 
+  // custom provider면 목록을 한 번 읽는다. 내장 provider는 null이다.
+  const readList = useCallback(
+    async (id: string): Promise<{ name: string; count: number } | null> => {
+      const read = await agents.editor.models();
+      const provider = read.ok
+        ? read.value.providers.find((item) => item.id === id)
+        : undefined;
+      if (provider === undefined || !provider.refreshable) return null;
+      const refreshed = await agents.editor.refreshModels(id);
+      const after = refreshed ? await agents.editor.models() : null;
+      const count = after?.ok
+        ? after.value.providers.find((item) => item.id === id)?.reportedModels
+          ?.length ?? 0
+        : 0;
+      return { name: provider.name, count };
+    },
+    [agents],
+  );
+
+  const chooseDefault = useCallback(
+    async (
+      id: string,
+      onConnected?: (providerId: string | null, notice?: string) => void,
+      notice?: string,
+    ): Promise<void> => {
+      const view = await agents.read();
+      if (view.ok && view.value.defaultModel === null) {
+        // 대화창과 picker가 한꺼번에 뜨지 않게 대화창이 닫힌 뒤에 알린다. 한 줄은 이 대화창이 보인다.
+        afterDefault.current = () => onConnected?.(id);
+        setDefaultNotice(notice ?? null);
+        setPickDefault(true);
+        return;
+      }
+      onConnected?.(id, notice);
+    },
+    [agents],
+  );
+
   const settle = useCallback(
     async (
       id: string | null,
-      onConnected?: (providerId: string | null) => void,
+      onConnected?: (providerId: string | null, notice?: string) => void,
     ): Promise<void> => {
-      if (id !== null) {
-        const view = await agents.read();
-        if (view.ok && view.value.defaultModel === null) {
-          // 대화창과 picker가 한꺼번에 뜨지 않게 대화창이 닫힌 뒤에 알린다.
-          afterDefault.current = () => onConnected?.(id);
-          setPickDefault(true);
-          return;
-        }
+      if (id === null) return onConnected?.(null);
+      const listed = await readList(id);
+      if (listed !== null && listed.count === 0) {
+        // 목록이 없으면 이름으로 더하게 한다. Manage models가 이미 landing을 정하므로 onConnected는 부르지 않는다.
+        manage.current?.open({
+          first: id,
+          addModel: {
+            provider: id,
+            lead: t("conversation.notice.models-not-listed", {
+              provider: listed.name,
+            }),
+          },
+          onClosed: () => void chooseDefault(id),
+        });
+        return;
       }
-      onConnected?.(id);
+      const notice = listed === null ? undefined : t(
+        "conversation.notice.models-found",
+        { count: listed.count, provider: listed.name },
+      );
+      return chooseDefault(id, onConnected, notice);
     },
-    [agents],
+    [readList, chooseDefault],
   );
 
   const afterConnect = useCallback(
     (
       before: readonly string[],
-      onConnected?: (providerId: string | null) => void,
+      onConnected?: (providerId: string | null, notice?: string) => void,
     ): void => {
       stopWaiting.current?.();
       void (async () => {
@@ -131,7 +192,9 @@ export function ConnectProviderHost(
   return (
     <ConnectProviderContext.Provider value={api}>
       <AfterConnectContext.Provider value={afterConnect}>
-        <ManageModelsHost source={agents.editor}>{children}</ManageModelsHost>
+        <ManageModelsHost source={agents.editor} apiRef={manage}>
+          {children}
+        </ManageModelsHost>
         {choosing
           ? (
             <ConnectProviderDialog
@@ -159,6 +222,7 @@ export function ConnectProviderHost(
           ? (
             <DefaultModelDialog
               agents={agents}
+              notice={defaultNotice ?? undefined}
               onClose={() => {
                 setPickDefault(false);
                 const done = afterDefault.current;

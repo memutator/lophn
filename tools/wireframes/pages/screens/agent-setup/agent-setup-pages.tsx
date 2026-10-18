@@ -12,7 +12,7 @@ import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
 import { SettingsFrame } from "../settings-frame.tsx";
 import { Driven } from "../../../mock/driven.tsx";
-import { click, find, press, type Step } from "../../../mock/drive.ts";
+import { click, find, press, type Step, type } from "../../../mock/drive.ts";
 
 const SIDEBAR = { foldersClosed: true } as const;
 
@@ -120,6 +120,20 @@ const CONNECT_OPENAI: readonly Step[] = [
 /** provider 연결 창. */
 export const SettingsConnectPage = () => (
   <Driven steps={CONNECT_OPENAI}>
+    <SettingsFrame pane="providers" />
+  </Driven>
+);
+
+/** Custom provider 연결 창. Provider ID, Display name, API(Chat Completions, Responses, Anthropic Messages 중 고르기), Base URL과 그 아래 주소 안내. 웹 주소라 key를 보호 입력으로 받는다는 안내가 보인다. */
+export const SettingsConnectCustomPage = () => (
+  <Driven
+    steps={[
+      () => press(`[data-available="custom"] [data-action="connect"]`),
+      () => type("[data-custom-field=id]", "hive"),
+      () => type("[data-custom-field=name]", "Hive"),
+      () => type("[data-custom-field=url]", "https://api.hive.example/v1"),
+    ]}
+  >
     <SettingsFrame pane="providers" />
   </Driven>
 );

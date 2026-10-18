@@ -1,4 +1,5 @@
 import {
+  type MutableRefObject,
   type ReactNode,
   useCallback,
   useEffect,
@@ -8,7 +9,11 @@ import {
 } from "react";
 
 import { setHidden } from "../../../../../protocol/lophn-agent/model-picker.ts";
-import { ManageModelsContext } from "../../../conversation/model-picker/manage-context.ts";
+import {
+  type ManageModelsApi,
+  ManageModelsContext,
+  type ManageModelsOptions,
+} from "../../../conversation/model-picker/manage-context.ts";
 import { ManageModelsDialog } from "../../../conversation/model-picker/manage-models.tsx";
 import type { ModelInfoOutcome } from "../../../conversation/model-picker/model-info-form.tsx";
 import type { ManageProviderView } from "../../../conversation/model-picker/types.ts";
@@ -33,14 +38,16 @@ type ManageSource = Pick<
 
 interface ManageModelsHostProps {
   source: ManageSource;
+  /** 연결 host가 창을 직접 열 수 있게 api를 담아 준다(provider를 붙인 뒤 Add model form과 함께 열기). */
+  apiRef?: MutableRefObject<ManageModelsApi | null>;
   children: ReactNode;
 }
 
 // picker의 Manage models 줄이 여는 창 하나를 화면 전체 위에 둔다. 자료는 열 때와 바꿀 때마다 source에서 읽는다.
 // 끄고 켜는 일은 쓰는 사이에 목록이 어긋나지 않게 하나씩 차례로 보낸다. 연결 대화창은 이 창을 닫지 않고 그 위에 열고,
-// 연결이 끝나면 새 provider의 묶음을 맨 위에 보인다.
+// 연결이 끝나면 새 provider의 묶음을 맨 위에 보인다. 열 때마다 창을 새로 세운다(key): 열 때 정한 form이 이미 열린 창에도 서게 한다.
 export function ManageModelsHost(
-  { source, children }: ManageModelsHostProps,
+  { source, apiRef, children }: ManageModelsHostProps,
 ): ReactNode {
   const connect = useConnectProvider();
   const [open, setOpen] = useState(false);
@@ -48,6 +55,10 @@ export function ManageModelsHost(
   const [user, setUser] = useState<UserModels | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [first, setFirst] = useState<string | null>(null);
+  const [landing, setLanding] = useState<
+    Pick<ManageModelsOptions, "notice" | "addModel"> & { key: number }
+  >({ key: 0 });
+  const closed = useRef<(() => void) | undefined>(undefined);
   const hidden = useRef<readonly HiddenModel[]>([]);
   // 저장·지우기의 compare 기준: 마지막으로 읽은 model 정보의 판.
   const userSeq = useRef("");
@@ -74,13 +85,20 @@ export function ManageModelsHost(
     setUser(readUser.value);
   }, [source]);
 
-  const api = useMemo(() => ({
-    open() {
-      setFirst(null);
+  const api = useMemo<ManageModelsApi>(() => ({
+    open(options) {
+      setFirst(options?.first ?? null);
+      setLanding((now) => ({
+        key: now.key + 1,
+        notice: options?.notice,
+        addModel: options?.addModel,
+      }));
+      closed.current = options?.onClosed;
       setOpen(true);
       void load();
     },
   }), [load]);
+  if (apiRef !== undefined) apiRef.current = api;
 
   const change = (
     targets: readonly { provider: string; model_name: string }[],
@@ -123,13 +141,22 @@ export function ManageModelsHost(
       {open
         ? (
           <ManageModelsDialog
+            key={landing.key}
             providers={providers}
+            notice={landing.notice}
+            initialForm={landing.addModel}
             loadFailed={loadFailed}
-            onClose={() => setOpen(false)}
+            onClose={() => {
+              setOpen(false);
+              const done = closed.current;
+              closed.current = undefined;
+              done?.();
+            }}
             onConnect={() =>
               connect?.open({
-                onConnected: (id) => {
+                onConnected: (id, notice) => {
                   setFirst(id);
+                  setLanding((now) => ({ key: now.key, notice }));
                   void load();
                 },
               })}

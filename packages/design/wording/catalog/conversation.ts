@@ -283,6 +283,10 @@ export const conversation = {
   "conversation.notice.model-media":
     "lophn sends only text and images today. Other media are stored and shown.",
   "conversation.notice.model-prices": "Blank means unknown. 0 means free.",
+  "conversation.notice.models-found":
+    "Found {count, plural, one {# model} other {# models}} on {provider}.",
+  "conversation.notice.models-not-listed":
+    "{provider} didn't list its models. Add them by name.",
   "conversation.notice.no-model-options": "No options for this model.",
   "conversation.notice.manage-models-lead":
     "Choose which models appear in the model picker.",

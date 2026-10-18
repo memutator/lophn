@@ -346,6 +346,13 @@ export type ConversationPlaceholders = {
   "conversation.notice.model-limits": Record<never, never>;
   "conversation.notice.model-media": Record<never, never>;
   "conversation.notice.model-prices": Record<never, never>;
+  "conversation.notice.models-found": {
+    count: "plural";
+    provider: "string";
+  };
+  "conversation.notice.models-not-listed": {
+    provider: "string";
+  };
   "conversation.notice.no-model-options": Record<never, never>;
   "conversation.notice.manage-models-lead": Record<never, never>;
   "conversation.notice.no-listed-models": Record<never, never>;

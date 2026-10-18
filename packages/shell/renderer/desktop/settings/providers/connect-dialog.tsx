@@ -1,18 +1,20 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Input } from "@lophn/ui/input";
+import { Field, Input, Select } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { waysOf } from "../model.ts";
 import { ProviderName } from "./provider-name.tsx";
-import type {
-  AuthWay,
-  CustomProviderInput,
-  ProviderDefinitionRow,
-  ProviderSettingsSource,
-  WindowOutcome,
+import {
+  type AuthWay,
+  CUSTOM_PROTOCOLS,
+  type CustomProtocol,
+  type CustomProviderInput,
+  type ProviderDefinitionRow,
+  type ProviderSettingsSource,
+  type WindowOutcome,
 } from "./settings-source.ts";
 import styles from "./connect-dialog.module.css";
 
@@ -27,7 +29,7 @@ interface ConnectDialogProps {
 
 // Connect dialog. 내장 정의는 "Connect <이름>" 제목 아래 그 정의가 지원하는 로그인 방법을 고르게 하고(model
 // 단계는 없다), 구독 로그인을 고르면 browser에서 마칠 때까지 기다림을 보인다(device code면 그 code를 크게).
-// custom 정의는 "Custom provider" 제목의 form(Provider ID, Display name, Base URL)과
+// custom 정의는 "Custom provider" 제목의 form(Provider ID, Display name, API, Base URL)과
 // [Cancel] [Connect]를 보인다. API key 값은 이 form이 받지 않는다: 웹 주소는 연결한 뒤 보호 창이 받고, 이 컴퓨터의
 // 주소는 key 없이 바로 연결한다. 인증 없음은 고르는 방법이 아니다.
 export function ConnectDialog(props: ConnectDialogProps): ReactNode {
@@ -263,6 +265,7 @@ function needsKey(value: string): boolean {
 interface CustomFields {
   readonly id: string;
   readonly name: string;
+  readonly protocol: CustomProtocol;
   readonly baseUrl: string;
 }
 
@@ -288,6 +291,7 @@ function CustomProviderBody(
       >
         <Input
           value={fields.id}
+          data-custom-field="id"
           autoComplete="off"
           onChange={(event) =>
             onChange({ ...fields, id: event.currentTarget.value })}
@@ -301,19 +305,33 @@ function CustomProviderBody(
       >
         <Input
           value={fields.name}
+          data-custom-field="name"
           autoComplete="off"
           onChange={(event) =>
             onChange({ ...fields, name: event.currentTarget.value })}
         />
       </Field>
+      <Field label={t("settings.label.custom-api")}>
+        <Select
+          value={fields.protocol}
+          onValueChange={(value) =>
+            onChange({ ...fields, protocol: value as CustomProtocol })}
+          options={CUSTOM_PROTOCOLS.map((protocol) => ({
+            value: protocol,
+            label: t(`settings.label.api-${protocol}`),
+          }))}
+        />
+      </Field>
       <Field
         label={t("settings.label.custom-url")}
+        help={t("settings.notice.custom-url-help")}
         error={fields.baseUrl !== "" && !urlOk
           ? t("settings.error.custom-url")
           : undefined}
       >
         <Input
           value={fields.baseUrl}
+          data-custom-field="url"
           autoComplete="off"
           onChange={(event) =>
             onChange({ ...fields, baseUrl: event.currentTarget.value })}
@@ -348,6 +366,7 @@ function CustomDialog(
   const [fields, setFields] = useState<CustomFields>({
     id: "",
     name: "",
+    protocol: "openai-chat-completions",
     baseUrl: "",
   });
   const [failed, setFailed] = useState(false);
@@ -364,6 +383,7 @@ function CustomDialog(
       id: fields.id,
       name: fields.name.trim(),
       baseUrl: fields.baseUrl.trim(),
+      protocol: fields.protocol,
       // 웹 주소는 key 없이 연결할 수 없다. key는 연결한 뒤 보호 창이 받는다.
       withKey: needsKey(fields.baseUrl),
     };

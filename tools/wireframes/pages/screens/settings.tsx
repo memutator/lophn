@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { openSettings } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   SettingsAgentsPage,
+  SettingsConnectCustomPage,
   SettingsConnectPage,
   SettingsDefaultModelPromptPage,
   SettingsLophnPage,
@@ -107,6 +108,13 @@ export const settingsArea: Area = {
       description:
         "provider 연결 창이다. API key는 이 창에서 받지 않고 보호 입력으로 받는다.",
       render: () => <SettingsConnectPage />,
+    },
+    {
+      id: "new-settings-connect-custom",
+      title: "Settings · connect a custom provider",
+      description:
+        "Custom provider 연결 창이다. Provider ID, Display name 아래에 API 고르기(Chat Completions가 기본, Responses, Anthropic Messages)가 있고, Base URL 아래 안내가 주소를 /chat/completions, /responses, /messages 바로 앞까지 쓰라고 알려 준다. 연결하면 provider의 model 목록을 한 번 읽는다.",
+      render: () => <SettingsConnectCustomPage />,
     },
     {
       id: "new-settings-default-model-prompt",

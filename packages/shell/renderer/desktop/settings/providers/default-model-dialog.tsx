@@ -13,12 +13,14 @@ import type {
 
 interface DefaultModelDialogProps {
   agents: AgentsSettingsSource;
+  /** custom provider의 목록을 읽은 결과 한 줄. */
+  notice?: string;
   onClose: () => void;
 }
 
 /** provider를 처음 붙인 뒤 전역 기본 model을 고르게 하는 대화창. 고르면 저장하고 닫는다. [Skip]은 저장 없이 닫는다. */
 export function DefaultModelDialog(
-  { agents, onClose }: DefaultModelDialogProps,
+  { agents, notice, onClose }: DefaultModelDialogProps,
 ): ReactNode {
   const [models, setModels] = useState<ModelsView | null>(null);
   const [failed, setFailed] = useState(false);
@@ -51,6 +53,7 @@ export function DefaultModelDialog(
     >
       {/* 이 대화창 안의 picker가 창을 또 쌓지 않게 Manage models 줄을 숨긴다. */}
       <ManageModelsContext.Provider value={null}>
+        {notice === undefined ? null : <p role="status">{notice}</p>}
         <p>{t("settings.notice.choose-default-model")}</p>
         <DefaultModelField
           models={models}

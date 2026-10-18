@@ -28,6 +28,8 @@ import {
   ManageModelsRefreshFailed,
   ModelInfoAdd,
   ModelInfoConflict,
+  ModelInfoConnectEmpty,
+  ModelInfoConnectFound,
   ModelInfoEdit,
   ModelInfoManage,
   ModelInfoPicker,
@@ -213,6 +215,20 @@ export const agentArea: Area = {
       description:
         "form을 연 사이 다른 창이 정보를 바꿔 [Save]가 conflict가 된 모습이다. form 값은 그대로 두고 form 안에 한 줄만 보인다. 판을 다시 읽었으니 한 번 더 누르면 저장된다.",
       render: () => <ModelInfoConflict />,
+    },
+    {
+      id: "new-model-info-connect-found",
+      title: "Agent · connect a custom provider, models found",
+      description:
+        'Manage models에서 Custom provider를 붙이면 연결 직후 provider의 model 목록을 한 번 읽는다. 찾았을 때 돌아온 창이다. 새 provider 묶음이 맨 위에 있고 창 안에 "Found 2 models on Local server." 한 줄이 보인다. 전역 기본 model이 없을 때는 이 한 줄이 기본 model 창에 보인다.',
+      render: () => <ModelInfoConnectFound />,
+    },
+    {
+      id: "new-model-info-connect-empty",
+      title: "Agent · connect a custom provider, no model list",
+      description:
+        "Custom provider를 붙였는데 목록을 읽지 못했거나 비어 있을 때(hive처럼 /models가 404)다. Manage models의 그 provider 묶음이 맨 위에 서고 Add model form이 바로 열려 있다. form 맨 위 한 줄이 목록을 받지 못했으니 이름으로 더하라고 알린다. 저장하고 창을 닫은 뒤 전역 기본 model이 없으면 기본 model 창이 이어진다.",
+      render: () => <ModelInfoConnectEmpty />,
     },
     {
       id: "new-model-info-picker",

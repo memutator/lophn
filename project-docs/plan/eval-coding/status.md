@@ -17,4 +17,4 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-scenarios` | ec-scenarios | 4 | ec-world, ec-calendar, ec-checks, ec-human | merged | ec-scenarios/ec-scenarios | cd143b96d |  |
 | `ec-fix-roots` | ec-fix-roots | 5 | 없음 | running | ec-fix-roots/ec-fix-roots |  |  |
 | `ec-fix-source` | ec-fix-source | 5 | 없음 | running | ec-fix-source/ec-fix-source |  |  |
-| `ec-fix-trust` | ec-fix-trust | 5 | 없음 | running | ec-fix-trust/ec-fix-trust |  |  |
+| `ec-fix-trust` | ec-fix-trust | 5 | 없음 | merged | ec-fix-trust/ec-fix-trust | b99249651 |  |

@@ -134,11 +134,14 @@ export async function readSessionConversation(
         BigInt(entry.created_seq) <= BigInt(covered.through_seq)
       ) continue;
       if (inHiddenRange(hidden, entry.created_seq)) continue;
-      // 받은 메시지는 모두 model에 들어가는 입력이다.
+      // 받은 메시지는 model에 들어간다. session이 자기 답으로 남긴 것은 model 자신의 말이라 assistant role이다.
       heard.push({
         id: entry.id,
         seq: BigInt(entry.created_seq),
-        role: "user",
+        role:
+          entry.from.kind === "agent" && entry.from.session === input.session
+            ? "assistant"
+            : "user",
         folded: folds.some((fold) =>
           BigInt(entry.created_seq) >= BigInt(fold.from_seq) &&
           BigInt(entry.created_seq) <= BigInt(fold.through_seq)
@@ -185,6 +188,12 @@ export async function readSessionConversation(
       const text = body.value.content.parts.flatMap((part) =>
         part.kind === "text" ? [part.text] : []
       ).join("\n");
+      if (entry.role === "assistant") {
+        if (text.trim() !== "") {
+          messages.push({ seq: entry.seq, role: "assistant", text });
+        }
+        continue;
+      }
       if (text.trim() === "" && entry.received.from.kind === "human") continue;
       messages.push({
         seq: entry.seq,

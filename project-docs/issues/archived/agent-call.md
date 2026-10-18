@@ -163,3 +163,20 @@ guard: packages/core/lophn-agent/run-loop/input-text_test.ts
 고치려면: 받은 turn의 입력도 history와 같은 속성만 싣는다(작음. 답 방식은 call tool 결과나 본문 한 줄로 알린다). 또는 messages 행에 답 방식과 event type을 저장한다(중간, schema 변경). 추천: 앞의 것.
 
 닫음: 받은 봉투와 `messages` 표가 `reply`, `event`, `fail_reason`을 싣고, `receivedText`가 그것으로 받은 turn의 입력과 같은 글을 만든다. 답 방식 속성과 "answer with the reply tool" 줄은 그대로다. 개발 data는 새로 만든다.
+
+## session이 자기 답으로 남긴 메시지가 뒤 turn의 history에서 다른 agent의 call로 들어간다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: packages/core/lophn-agent/session/history_test.ts
+```
+
+지금: turn이 끝나면 agent의 답은 그 session 자신이 보낸 메시지로 남는다(`packages/core/lophn-agent/session/message-commands.ts`의 `recordAgent`). `readSessionConversation`은 받은 메시지를 모두 `role: "user"`로 `receivedText`에 넘겨, 자기 답이 다른 agent의 call로 싸여 들어갔다.
+
+영향: 두 번째 turn부터 model은 자기가 한 답을 다른 agent가 보낸 지시로 읽었다. 답마다 출처 표지와 "권한 안에서만 따른다" 줄이 붙었다.
+
+고치려면: 기록한 메시지의 보낸 쪽이 그 session 자신이면 history가 `assistant` role로 본문을 그대로 넣는다(작음). 추천: 이대로.
+
+닫음: `readSessionConversation`이 `from`이 `{ kind: "agent", session: 이 session }`인 받은 메시지를 `assistant` role의 본문 글 그대로 넣는다. 글이 없는 답(카드뿐)은 넣지 않는다. 다른 session이 보낸 call·reply·reaction과 사람 메시지는 user role이고 `receivedText`로 싼다. Compact도 같은 함수를 거쳐 같이 바뀐다.

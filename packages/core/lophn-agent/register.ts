@@ -127,6 +127,7 @@ import {
   type Place,
   profileImageRead,
   profileImageUpload,
+  QUEUED_INPUT_ROUTES,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
   commandSkillsOf,
@@ -818,6 +819,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       askWait,
       askRead,
       askAnswer,
+      // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
+      ...QUEUED_INPUT_ROUTES,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
     uploadRoutes: [profileImageUpload],

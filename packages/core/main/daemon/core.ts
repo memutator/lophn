@@ -3,6 +3,7 @@ import { cryptoRandom } from "../../../base/random.ts";
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
+import type { Route } from "../../../protocol/base/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -259,6 +260,20 @@ async function open(
       runtime.writer,
     ),
   );
+  const memory = new Map([
+    ...runtime.memory.handlers,
+    ...merged((built) => built.memory),
+  ]);
+  // memory route는 등록(팀 registration)과 handler(wiring)가 따로 붙는다. 한쪽만 있으면 그 route가 늘
+  // not_found나 unavailable로 끝나는데 check와 기동은 통과했다. 그렇게 여러 번 빠졌다.
+  const unmatched = memoryRouteMismatch(allRoutes, memory);
+  if (unmatched.length > 0) {
+    await runtime.close();
+    return err({
+      code: "internal",
+      message: `memory route와 handler가 맞지 않는다: ${unmatched.join(", ")}`,
+    });
+  }
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -267,10 +282,7 @@ async function open(
       clock,
       writer: ctx.writer,
       reads: runtime.reads,
-      memory: new Map([
-        ...runtime.memory.handlers,
-        ...merged((built) => built.memory),
-      ]),
+      memory,
       bus: ctx.bus,
       gateway: ctx.gateway,
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
@@ -375,4 +387,19 @@ function seedOf(random: RandomSource): number {
   const bytes = new Uint8Array(4);
   random.fill(bytes);
   return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+}
+
+function memoryRouteMismatch(
+  routes: readonly Route[],
+  handlers: ReadonlyMap<string, unknown>,
+): string[] {
+  const registered = new Set(
+    routes.filter((route) => route.kind === "memory").map((route) =>
+      `${route.resource}/${route.method}`
+    ),
+  );
+  return [
+    ...[...registered].filter((key) => !handlers.has(key)),
+    ...[...handlers.keys()].filter((key) => !registered.has(key)),
+  ];
 }

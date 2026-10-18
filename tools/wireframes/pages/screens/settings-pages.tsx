@@ -2,6 +2,9 @@
 
 import { SettingsFrame } from "./settings-frame.tsx";
 
+/** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
+export const SettingsBack = () => <SettingsFrame pane="agents" />;
+
 /** Settings › General. */
 export const SettingsGeneral = () => <SettingsFrame pane="general" />;
 

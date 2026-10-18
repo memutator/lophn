@@ -13,6 +13,7 @@ import {
   SettingsAppearance,
   SettingsAppearancePresets,
   SettingsAppearancePresetsDark,
+  SettingsBack,
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
@@ -53,6 +54,13 @@ export const settingsArea: Area = {
       render: () => settings("diagnostics"),
     },
     {
+      id: "new-settings-back",
+      title: "Settings · Back",
+      description:
+        "Settings 머리 왼쪽의 [Back]이다. 누르면 Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 앞 화면이 없으면 launcher로 간다.",
+      render: () => <SettingsBack />,
+    },
+    {
       id: "new-settings-general",
       title: "Settings · General",
       description:
@@ -90,7 +98,7 @@ export const settingsArea: Area = {
       id: "new-settings-providers",
       title: "Settings · Providers",
       description:
-        "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 위 안내 문구가 model은 model picker와 Settings › Agents에서 고른다고 알려 준다. 계정 목록 같은 계정 기능은 없다.",
+        "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 위 안내 문구가 model은 model picker와 Settings › Agents에서 고른다고 알려 준다. 어느 model을 picker에 보일지는 여기가 아니라 Manage models 창에서 정한다. 머리 왼쪽에 [Back]이 있다.",
       render: () => <SettingsProvidersPage />,
     },
     {
@@ -104,14 +112,14 @@ export const settingsArea: Area = {
       id: "new-settings-default-model-prompt",
       title: "Settings · choose a default model",
       description:
-        '처음 provider를 붙였는데 전역 기본 model이 없을 때 연결이 끝나자마자 뜨는 "Choose a default model" 대화창이다. 안의 picker는 연결 창을 또 쌓지 않도록 Connect provider 줄이 없고, [Skip]으로 고르지 않고 닫을 수 있다.',
+        '처음 provider를 붙였는데 전역 기본 model이 없을 때 연결이 끝나자마자 뜨는 "Choose a default model" 대화창이다. 안의 picker는 창 위에 창을 겹치지 않도록 맨 아래 Manage models 줄이 없고, [Skip]으로 고르지 않고 닫을 수 있다.',
       render: () => <SettingsDefaultModelPromptPage />,
     },
     {
       id: "new-settings-agents",
       title: "Settings · Agents",
       description:
-        "전역 기본 model 하나(대화와 같은 picker 칸), lophn 카드(전체에 하나), 전역 지침, grant 기본값 설명이 있다. role별 기본 model과 요약용 model 줄은 없다.",
+        "전역 기본 model 하나(대화와 같은 picker 칸)와 lophn 카드(전체에 하나), 전역 지침, grant 기본값 설명이 있다. 그림은 기본 model 칸의 picker를 연 모습으로, 맨 아래 Manage models 줄 한 줄로 보일 model을 정한다. 기본 model은 여기서 정한다. role별 기본 model과 요약용 model 줄은 없다.",
       render: () => <SettingsAgentsPage />,
     },
     {

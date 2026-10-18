@@ -3,6 +3,7 @@
 import {
   createFakeAgentsSource,
   FAKE_GRANTS,
+  type FakeAgentsOptions as FakeEditorOptions,
   GLOBAL_LOPHN_MD,
   GLOBAL_MCP,
   GLOBAL_MODEL,
@@ -42,6 +43,8 @@ interface FakeAgentsOptions {
   view?: AgentsSettingsView;
   /** 전역 기본 model을 아직 고르지 않은 상태로 시작한다. */
   noDefaultModel?: boolean;
+  /** picker와 Manage models 창이 읽는 provider·model 상태. */
+  editor?: FakeEditorOptions;
   extensions?: ExtensionsView;
   /** 이 이름의 호출은 이 code로 실패한다. */
   failing?: Partial<Record<Failing, string>>;
@@ -79,7 +82,7 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
     failing[name] === undefined ? null : { ok: false, code: failing[name]! };
 
   const source: AgentsSettingsSource = {
-    editor: createFakeAgentsSource(),
+    editor: createFakeAgentsSource(options.editor),
     read() {
       counts.reads += 1;
       return Promise.resolve(

@@ -27,7 +27,7 @@ export const agentSettingsArea: Area = {
       id: "new-operator-editor",
       title: "Agent settings · Operator",
       description:
-        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, context, skill, MCP가 있다. Model 칸은 대화와 같은 picker이고 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, context, skill, MCP가 있다. Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <OperatorEditorPage />,
     },
     {

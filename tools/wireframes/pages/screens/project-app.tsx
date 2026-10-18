@@ -1,7 +1,7 @@
 // 동작하는 project 화면. 칸마다 탭 줄이 있고, 바로 가기 rail·sidebar·+ 메뉴·검색·상단 검색·toast·대화·문서의 링크가 탭을 열면
 // 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·Breadcrumbs·Palette·Menu와
 // 실제 sidebar(`ProjectSidebar`)·design `TabStrip`·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가 넘긴다).
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   PaletteButton,
@@ -25,6 +25,8 @@ import {
 import { TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation, type TabState } from "./conversation.tsx";
+import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
+import type { FakeAgentsOptions as FakeEditorOptions } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
 import { contextTab, documentTab } from "../../mock/phroner-data.ts";
@@ -67,6 +69,8 @@ export interface ProjectAppProps {
   readonly titleExtra?: ReactNode;
   /** 이 문서 탭(key)의 info 칸을 이 panel로 연 채 시작한다. */
   readonly info?: { readonly tab: string; readonly panel: InfoPanel };
+  /** Manage models 창이 읽는 provider와 model의 상태. 안 쓰면 기본 fake다. */
+  readonly models?: FakeEditorOptions;
 }
 
 const FLUSH = new Set([
@@ -190,8 +194,14 @@ export function ProjectApp(
     children,
     titleExtra,
     info: initialInfo,
+    models,
   }: ProjectAppProps,
 ) {
+  const agents = useMemo(
+    () =>
+      models === undefined ? undefined : fakeAgents({ editor: models }).source,
+    [],
+  );
   const [panes, setPanes] = useState(
     initial.map((pane) => ({ tabs: [...pane.tabs], selected: pane.selected })),
   );
@@ -447,7 +457,7 @@ export function ProjectApp(
   const crumbs = crumbsOf(focusTab);
   const items = paletteItems(paletteQuery);
   return (
-    <GalleryConnectHost>
+    <GalleryConnectHost agents={agents}>
       <div className={workspace.workspace}>
         <PageSidebar
           {...sidebar}

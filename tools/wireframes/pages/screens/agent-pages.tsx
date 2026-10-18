@@ -24,6 +24,13 @@ import {
   RewindScene,
   SenderChipsScene,
 } from "./agent-tab/scenes.tsx";
+import {
+  ANTHROPIC,
+  CUSTOM_PROVIDER,
+  type FakeAgentsOptions as FakeEditorOptions,
+  OPENAI,
+} from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import { click, type Step } from "../../mock/drive.ts";
 import { ProjectApp, type ProjectAppProps } from "./project-app.tsx";
 import { documentTab } from "../../mock/phroner-data.ts";
 import type { TabSpec } from "./project-window.tsx";
@@ -42,20 +49,21 @@ function withTab(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
   );
 }
 
-const weekly = (chat: ChatInit) => withTab(weeklyTab(chat));
+const weekly = (chat: ChatInit, extra: Partial<ProjectAppProps> = {}) =>
+  withTab(weeklyTab(chat), extra);
 
 /** 대화 탭. 일하는 중 steer로 보낸 메시지, 앱 카드. */
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
-/** model picker를 펼친 상태. 연결된 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). */
+/** model picker를 펼친 상태. 켠 model의 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). 꺼 둔 model은 목록에 없다. */
 export const AgentModelPicker = () =>
   weekly({
     stage: "report",
     modelDemo: "picker",
-    picker: { layer: "session" },
+    picker: { layer: "session", hidden: ["Haiku 5.5", "GPT-6.1 Mini"] },
   });
-/** 붙인 provider가 없는 picker. 안내와 Connect provider 줄만 있다. */
+/** 보일 model이 없는 picker(provider를 붙이지 않은 상태). 안내와 Manage models 줄만 있다. */
 export const ModelPickerEmpty = () =>
   weekly({
     stage: "report",
@@ -67,26 +75,46 @@ export const ModelPickerInherited = () =>
   weekly({
     stage: "report",
     modelDemo: "picker",
-    picker: { layer: "project" },
+    picker: { layer: "project", hidden: ["Haiku 5.5", "GPT-6.1 Mini"] },
   });
-/** custom provider(provider가 알려 준 목록)의 묶음이 있는 picker. */
-export const ModelPickerCustom = () =>
-  weekly({
-    stage: "report",
-    modelDemo: "picker",
-    picker: { providers: "custom", current: "llama-3.3-70b", layer: "session" },
+
+// Manage models 창이 읽는 상태. 셋이 연결돼 있고 Anthropic의 Haiku와 OpenAI의 Mini는 꺼져 있다.
+const MANAGE: FakeEditorOptions = {
+  providers: "several",
+  hidden: [
+    { provider: ANTHROPIC, model_name: "Haiku 5.5" },
+    { provider: OPENAI, model_name: "GPT-6.1 Mini" },
+  ],
+};
+
+// 대화의 picker를 열고 맨 아래 Manage models 줄을 눌러 창을 연다.
+const manage = (
+  models: FakeEditorOptions,
+  afterManage: readonly Step[] = [],
+) =>
+  weekly(
+    { stage: "report", modelDemo: "manage", afterManage },
+    { models },
+  );
+
+/** Manage models 창. 연결된 provider 셋의 묶음마다 provider toggle과 model toggle이 있고 일부 model이 꺼져 있다. */
+export const ManageModels = () => manage(MANAGE);
+/** custom provider의 묶음. 머리에 Refresh models가 있고 그 아래에 model 이름을 더하는 칸이 있다. */
+export const ManageModelsCustom = () =>
+  manage({
+    providers: "custom",
+    hidden: [{ provider: CUSTOM_PROVIDER, model_name: "qwen-3-coder" }],
   });
-/** [Refresh models]가 실패해 앞 목록이 그대로 있고 picker 안에 실패 한 줄이 있다. */
-export const ModelPickerRefreshFailed = () =>
-  weekly({
-    stage: "report",
-    modelDemo: "refresh",
-    picker: {
-      providers: "custom",
-      current: "llama-3.3-70b",
-      layer: "session",
-    },
-  });
+/** [Refresh models]가 실패해 앞 목록이 그대로 있고 창 안에 실패 한 줄이 보인다. */
+export const ManageModelsRefreshFailed = () =>
+  manage({ providers: "custom", refreshFails: true }, [
+    () => click("[data-refresh-models]"),
+  ]);
+/** [Connect provider]를 눌러 provider 연결 창이 Manage models 창 위에 열린 상태. */
+export const ManageModelsConnect = () =>
+  manage(MANAGE, [
+    () => click("[data-manage-models] button", /^Connect provider$/),
+  ]);
 /** model을 바꾼 뒤 provider가 요청을 거절한 오류 메시지. */
 export const AgentRequestError = RequestErrorScene;
 /** 받은 메시지의 보낸 쪽 chip 셋과 펼친 panel. */

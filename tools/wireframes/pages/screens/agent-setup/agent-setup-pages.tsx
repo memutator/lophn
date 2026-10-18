@@ -90,8 +90,13 @@ export const AgentGrantsAppPage = () =>
     () => press(`[data-grant-card="Budget tracker"] button[aria-expanded]`),
   ]);
 
-/** Settings › Agents. */
-export const SettingsAgentsPage = () => <SettingsFrame pane="agents" />;
+/** Settings › Agents. 전역 기본 model 칸의 picker를 연 상태: 맨 아래에 Manage models 줄이 있다. */
+export const SettingsAgentsPage = () => (
+  <SettingsFrame
+    pane="agents"
+    steps={[() => click("[data-model-field] [data-model-button]")]}
+  />
+);
 
 /** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
 export const SettingsLophnPage = () => (
@@ -125,13 +130,16 @@ const CONNECT_FIRST: readonly Step[] = [
   () => press(`[data-method="api_key"]`),
 ];
 
-/** 처음 provider를 붙인 직후. 전역 기본 model이 없어서 "Choose a default model" 대화창이 뜬다. */
+/** 처음 provider를 붙인 직후. 전역 기본 model이 없어서 "Choose a default model" 대화창이 뜨고 그 안의 picker를 연 상태다. 창 위에 창을 겹치지 않으므로 Manage models 줄이 없다. */
 export const SettingsDefaultModelPromptPage = () => (
   <SettingsFrame
     pane="providers"
     providers="none"
     noDefaultModel
-    steps={CONNECT_FIRST}
+    steps={[
+      ...CONNECT_FIRST,
+      () => click("[role=dialog] [data-model-button]"),
+    ]}
   />
 );
 

@@ -2,7 +2,10 @@
 // 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import type {
+  CatalogEntry,
+  ModelChoice,
+} from "../../../../protocol/lophn-agent/models.ts";
 import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
 import type { ReadResult } from "../source.ts";
 import {
@@ -110,15 +113,32 @@ const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
 /** gallery가 provider와 project 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 project 층 model 없음이다. */
 export interface FakeAgentsOptions {
-  /** none은 연결된 provider가 없다. custom은 내장 provider에 custom provider 하나를 더한다. */
-  readonly providers?: "none" | "built_in" | "custom";
+  /** none은 연결된 provider가 없다. several은 내장 provider 셋(Anthropic, OpenAI, xAI)이다. custom은 Anthropic에 custom provider 하나를 더한다. */
+  readonly providers?: "none" | "built_in" | "several" | "custom";
   /** custom provider의 model 목록을 읽어 둔 상태인가. 기본은 읽어 둔 상태다. */
   readonly customListed?: boolean;
   /** project 층에 처음부터 고른 model. */
   readonly projectModel?: ModelChoice;
+  /** 처음부터 끈 model. */
+  readonly hidden?: readonly HiddenModel[];
+  /** [Refresh models]가 늘 실패한다(앞 목록은 그대로다). */
+  readonly refreshFails?: boolean;
 }
 
-const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";
+export const XAI = "pvd_01arz3ndektsv4rrffq69g5fa3";
+export const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+
+// catalog는 Anthropic 셋뿐이라 OpenAI와 xAI의 model은 같은 모양의 항목을 이름과 정의만 바꿔 더한다.
+const OTHER_CATALOG: readonly CatalogEntry[] = [
+  ["openai", "GPT-6.1 Sol"],
+  ["openai", "GPT-6.1 Mini"],
+  ["xai", "Grok 4.7"],
+].map(([definition, name]) => ({
+  ...CATALOG[2],
+  provider_definition: definition,
+  model_name: name,
+}));
 
 export function createFakeAgentsSource(
   options: FakeAgentsOptions = {},
@@ -150,7 +170,7 @@ export function createFakeAgentsSource(
   const projectMcpOff = new Set(
     PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
   );
-  let hidden: readonly HiddenModel[] = [];
+  let hidden: readonly HiddenModel[] = options.hidden ?? [];
   // 사람이 custom provider에 더한 이름. 목록을 주지 않는 provider의 알려 준 목록이 된다.
   const typedNames: string[] = [];
 
@@ -312,17 +332,26 @@ export function createFakeAgentsSource(
 
     models(): Promise<ReadResult<ModelsView>> {
       const kind = options.providers ?? "built_in";
+      const builtIn = (id: string, name: string, definition: string) => ({
+        id,
+        name,
+        definition,
+        kind: "api_key",
+        revision: 1,
+        reportedModels: null,
+        refreshable: false,
+      });
       return Promise.resolve(ok({
         providers: [
-          ...(kind === "none" ? [] : [{
-            id: ANTHROPIC,
-            name: "Anthropic",
-            definition: "anthropic",
-            kind: "api_key",
-            revision: 1,
-            reportedModels: null,
-            refreshable: false,
-          }]),
+          ...(kind === "none"
+            ? []
+            : [builtIn(ANTHROPIC, "Anthropic", "anthropic")]),
+          ...(kind === "several"
+            ? [
+              builtIn(OPENAI, "OpenAI", "openai"),
+              builtIn(XAI, "xAI", "xai"),
+            ]
+            : []),
           ...(kind === "custom"
             ? [{
               id: CUSTOM_PROVIDER,
@@ -339,14 +368,16 @@ export function createFakeAgentsSource(
             }]
             : []),
         ],
-        catalog: CATALOG,
+        catalog: [...CATALOG, ...OTHER_CATALOG],
         hidden,
       }));
     },
 
     refreshModels(provider) {
       calls.push({ method: "refreshModels", provider });
-      if (takeChangeFailure() !== null) return Promise.resolve(false);
+      if (options.refreshFails || takeChangeFailure() !== null) {
+        return Promise.resolve(false);
+      }
       if (provider === CUSTOM_PROVIDER) {
         customListed = true;
         typedNames.length = 0;

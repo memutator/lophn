@@ -22,10 +22,12 @@ import {
   AgentSessionArchived,
   AgentSessions,
   AgentSessionsEdit,
-  ModelPickerCustom,
+  ManageModels,
+  ManageModelsConnect,
+  ManageModelsCustom,
+  ManageModelsRefreshFailed,
   ModelPickerEmpty,
   ModelPickerInherited,
-  ModelPickerRefreshFailed,
 } from "./agent-pages.tsx";
 
 export const agentArea: Area = {
@@ -148,15 +150,8 @@ export const agentArea: Area = {
       id: "new-agent-model-picker",
       title: "Agent · model picker",
       description:
-        "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 연결된 provider별 model이 provider 아이콘과 함께 나온다. 고른 model이 가진 option 축이 있고, 맨 아래에 Manage models 줄이 있다.",
+        "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 켜 둔 model이 provider 아이콘과 함께 provider별로 나온다. 꺼 둔 model(Haiku, GPT-6.1 Mini)은 없다. 고른 model의 option 축이 있고 맨 아래 Manage models 한 줄이 창을 연다. picker는 고르기만 한다.",
       render: () => <AgentModelPicker />,
-    },
-    {
-      id: "new-model-picker-empty",
-      title: "Agent · model picker, no provider",
-      description:
-        "붙인 provider가 없을 때다. 고를 model이 없다는 안내와 맨 아래 Connect provider 줄만 있다. 줄을 누르면 연결 창이 열린다.",
-      render: () => <ModelPickerEmpty />,
     },
     {
       id: "new-model-picker-inherited",
@@ -166,18 +161,39 @@ export const agentArea: Area = {
       render: () => <ModelPickerInherited />,
     },
     {
-      id: "new-model-picker-custom",
-      title: "Agent · model picker, custom provider",
+      id: "new-model-picker-empty",
+      title: "Agent · model picker, nothing shown",
       description:
-        "custom provider가 알려 준 model 목록이 한 묶음으로 보인다. catalog에 없는 model이라 option 축은 없다.",
-      render: () => <ModelPickerCustom />,
+        "보일 model이 하나도 없을 때다. 보일 model이 없다는 안내와 맨 아래 Manage models 줄만 있다. 줄을 누르면 Manage models 창이 열린다.",
+      render: () => <ModelPickerEmpty />,
     },
     {
-      id: "new-model-picker-refresh-failed",
-      title: "Agent · model picker, refresh failed",
+      id: "new-manage-models",
+      title: "Agent · Manage models",
       description:
-        "Refresh models를 눌렀지만 읽지 못한 상태다. 앞 목록은 그대로 있고 picker 안에 실패 한 줄이 보인다.",
-      render: () => <ModelPickerRefreshFailed />,
+        "picker의 Manage models 줄이 여는 창이다. 오른쪽 위 [Connect provider], 검색칸, provider마다 묶음이 있고 묶음 머리의 toggle이 그 provider의 model 전부를 켜고 끈다. model마다 toggle이 있고 꺼 둔 model(Haiku, GPT-6.1 Mini)은 picker에 보이지 않는다.",
+      render: () => <ManageModels />,
+    },
+    {
+      id: "new-manage-models-custom",
+      title: "Agent · Manage models, custom provider",
+      description:
+        "custom provider의 묶음이다. 머리에 [Refresh models]가 있고, 묶음 아래에 provider가 목록에 주지 않는 model 이름을 직접 더하는 칸이 있다.",
+      render: () => <ManageModelsCustom />,
+    },
+    {
+      id: "new-manage-models-refresh-failed",
+      title: "Agent · Manage models, refresh failed",
+      description:
+        "[Refresh models]를 눌렀지만 읽지 못한 상태다. 앞 목록은 그대로 있고 창 안에 실패 한 줄만 보인다.",
+      render: () => <ManageModelsRefreshFailed />,
+    },
+    {
+      id: "new-manage-models-connect",
+      title: "Agent · Manage models, connect provider",
+      description:
+        "창의 [Connect provider]를 누르면 provider 연결 창이 Manage models 창 위에 열린다. 붙이고 나면 창으로 돌아와 새 provider 묶음이 맨 위에 보인다.",
+      render: () => <ManageModelsConnect />,
     },
     {
       id: "new-agent-request-error",

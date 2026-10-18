@@ -1,5 +1,6 @@
 // agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn·Project
 // Manager·Operator 둘과 agent별 session, `/` 명령이다. model과 option은 models-data.ts(catalog)에서만 온다.
+import type { Step } from "./drive.ts";
 import type { ModelSelection } from "./model-options.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
 import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
@@ -7,8 +8,8 @@ import type { FakePicker } from "../../../packages/shell/renderer/conversation/a
 /** Weekly report session의 진행. report는 일이 끝난 모양이고 나머지는 사람을 기다리거나 답한 뒤다. */
 type ChatStage = "report" | "question" | "answered" | "approval";
 
-/** model picker를 연 채 시작할지. refresh는 연 뒤 첫 [Refresh models]까지 누른다. */
-type ModelDemo = "picker" | "refresh";
+/** model picker를 연 채 시작할지. manage는 연 뒤 맨 아래 Manage models 줄까지 눌러 창을 연다. */
+type ModelDemo = "picker" | "manage";
 
 /** session switcher를 어떻게 연 채 시작할지. edit는 이름 고치기 input과 삭제 확인을 같이 보인다. */
 type SwitcherDemo = "open" | "edit";
@@ -22,6 +23,8 @@ export interface ChatInit {
   readonly modelDemo?: ModelDemo;
   /** model picker가 보이는 provider와 model의 상태. */
   readonly picker?: FakePicker;
+  /** modelDemo가 manage일 때 창이 열린 뒤 이어서 누를 것. */
+  readonly afterManage?: readonly Step[];
   /** agent header의 session switcher를 연 채 시작한다. */
   readonly switcher?: SwitcherDemo;
   /** 입력칸에 이 글자를 넣고 시작한다("/"나 "/co"면 명령 메뉴가 열린다). */

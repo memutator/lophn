@@ -789,6 +789,8 @@ export interface FakePicker {
   readonly layer?: AgentValueLayer | null;
   /** 처음에 고른 model의 이름. 기본은 Sonnet 5.5다. */
   readonly current?: string;
+  /** Manage models에서 끈 model 이름. 목록에서 빠지지만 지금 고른 model은 꺼져 있어도 남는다. */
+  readonly hidden?: readonly string[];
 }
 
 function modelView(
@@ -797,8 +799,10 @@ function modelView(
   picker: FakePicker,
 ): ModelView {
   const needle = query.trim().toLowerCase();
+  const off = picker.hidden ?? [];
   const matches = (name: string) =>
-    needle === "" || name.toLowerCase().includes(needle);
+    (needle === "" || name.toLowerCase().includes(needle)) &&
+    (!off.includes(name) || name === scenario.current.modelName);
   const kind = picker.providers ?? "built_in";
   const builtIn = kind === "none" ? [] : LAYOUT_ALL.providers;
   const custom: PickerProviderGroup[] = kind === "custom"

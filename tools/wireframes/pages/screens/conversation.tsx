@@ -112,8 +112,9 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   if (chat.modelDemo !== undefined) {
     steps.push(() => click("[data-model-button]"));
   }
-  if (chat.modelDemo === "refresh") {
-    steps.push(() => click("[data-refresh-models]"));
+  if (chat.modelDemo === "manage") {
+    steps.push(() => click("[data-picker-section=foot] button"));
+    steps.push(...chat.afterManage ?? []);
   }
   if (chat.slash !== undefined) {
     const slash = chat.slash;

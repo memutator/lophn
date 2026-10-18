@@ -37,7 +37,8 @@ export interface WebPreferences {
   nodeIntegration: false;
   nodeIntegrationInSubFrames: false;
   nodeIntegrationInWorker: false;
-  webviewTag: false;
+  // project 창(window.ts)만 true다. browser 탭의 <webview>를 그 창에서만 붙인다.
+  webviewTag: boolean;
   allowRunningInsecureContent: false;
   devTools: boolean;
 }

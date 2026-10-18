@@ -1,5 +1,7 @@
-// browser contents의 window.open을 받는다. 사용자 입력이 있었던 것만 새 view로 열고(Electron의
-// createWindow가 만든 contents를 그대로 쓰므로 window.opener가 남는다), 나머지는 거절한다.
+// browser contents(<webview> guest와 native popup)의 window.open을 받는다. 사용자 입력이 있었던
+// 것만 연다. 크기 준 popup은 새 native view로 열고(Electron의 createWindow가 만든 contents를 그대로
+// 쓰므로 window.opener가 남는다), 크기 없는 popup은 거절하고 renderer에 새 탭을 열라고 알린다
+// (표준 Electron은 그 contents를 <webview>에 넣지 못해 opener가 끊긴다).
 import type {
   BrowserWindowConstructorOptions,
   HandlerDetails,
@@ -35,9 +37,13 @@ export function windowOpenHandler(
       else if (decision.external && activated) hooks.openExternal(details.url);
       return { action: "deny" };
     }
+    if (decision.placement.kind === "docked") {
+      hooks.popup.tab(decision.url);
+      return { action: "deny" };
+    }
     return {
       action: "allow",
-      // 탭이 된 popup은 opener 탭을 닫아도 독립된 탭으로 남는다.
+      // floated 탭이 된 popup은 opener 탭을 닫아도 남는다.
       outlivesOpener: true,
       overrideBrowserWindowOptions: input.overrides,
       createWindow(options) {

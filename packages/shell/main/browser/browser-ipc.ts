@@ -6,11 +6,9 @@ import {
   BROWSER_CLEAR_DATA_CHANNEL,
   BROWSER_COMMAND_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
-  BROWSER_OPEN_CHANNEL,
   browserAdoptSchema,
   browserCommandSchema,
   browserNavigateSchema,
-  browserOpenSchema,
   type BrowserReply,
   type BrowserViewState,
 } from "../../ipc/browser.ts";
@@ -29,17 +27,13 @@ interface BrowserIpcDeps {
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<
     BrowserViews,
-    "open" | "adopt" | "navigate" | "command" | "reloadAll"
+    "adopt" | "navigate" | "command" | "reloadAll"
   >;
   /** installBrowserSession이 돌려준 것. */
   clearData(): Promise<void>;
 }
 
 interface BrowserIpcHandlers {
-  open(
-    event: IpcEvent,
-    input: unknown,
-  ): Promise<BrowserReply<BrowserViewState>>;
   adopt(
     event: IpcEvent,
     input: unknown,
@@ -71,13 +65,6 @@ export function createBrowserIpc(deps: BrowserIpcDeps): BrowserIpcHandlers {
   }
 
   return {
-    async open(event, input) {
-      const window = callerWindow(event);
-      if (!window.ok) return window;
-      const checked = checkInput(browserOpenSchema, input);
-      if (!checked.ok) return checked;
-      return await deps.views.open(window.value, checked.value.url);
-    },
     adopt(event, input) {
       const window = callerWindow(event);
       if (!window.ok) return Promise.resolve(window);
@@ -139,7 +126,6 @@ interface BrowserIpcMain {
 }
 
 const CHANNELS = [
-  [BROWSER_OPEN_CHANNEL, "open"],
   [BROWSER_ADOPT_CHANNEL, "adopt"],
   [BROWSER_NAVIGATE_CHANNEL, "navigate"],
   [BROWSER_COMMAND_CHANNEL, "command"],

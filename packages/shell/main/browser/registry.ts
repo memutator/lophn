@@ -1,5 +1,6 @@
-// browser 탭의 native view 목록. view 하나는 contents 하나와 그 위치(placement)다. 앱 view
-// registry(app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않고, 위치·숨김만 같은
+// browser 탭의 page 목록. 보통 탭은 shell renderer의 <webview> guest(위치·숨김은 renderer CSS)이고,
+// 크기 준 popup만 native view(contents 하나와 그 위치 placement)다. 앱 view registry
+// (app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않고, native popup의 위치·숨김만 같은
 // createPlacement를 쓴다. 규칙(navigation·활동·주소 정리)은 이 폴더의 순수 모듈이 정한다.
 import type {
   BrowserEvent,
@@ -61,11 +62,13 @@ export interface BrowserHooks {
   popup: {
     /** 사용자 입력 없이 열려던 popup을 거절했다. */
     blocked(): void;
-    /** popup을 새 view로 등록한다. make가 만든 contents가 그 view의 것이다. */
+    /** 크기 준 popup을 native view로 등록한다. make가 만든 contents가 그 view의 것이다. */
     open(
       placement: PopupPlacement,
       make: (hooks: BrowserHooks) => BrowserContents,
     ): void;
+    /** 크기 없는 popup을 거절했다. renderer가 연 탭 뒤에 그 url로 새 탭을 연다. */
+    tab(url: string): void;
   };
 }
 
@@ -87,26 +90,33 @@ interface BrowserViewsDeps {
   pushEvent(window: string, event: BrowserEvent): void;
 }
 
-interface Entry extends Placed {
+interface Item {
   view_session: string;
+  window: string;
   contents: BrowserContents;
-  // popup으로 생긴 view는 renderer가 탭을 만들어 가져가기(adopt) 전까지 false다.
+  // popup으로 생긴 view는 renderer가 탭을 만들어 가져가기(adopt) 전까지 false다. guest는 늘 true다.
   adopted: boolean;
   health: ViewHealth;
   // crash한 contents를 다시 열 주소. 읽을 때마다 비어 있지 않은 마지막 값을 남긴다.
   lastUrl: string;
 }
 
+// native popup. guest는 위치를 renderer가 정하므로 Item만 갖는다.
+interface Entry extends Item, Omit<Placed, "contents"> {}
+
 const notOpen = () => failure("invalid_input", "view is not open");
 
 export function createBrowserViews(deps: BrowserViewsDeps) {
   const entries = new Map<string, Entry>();
+  const guests = new Map<string, Item>();
+  const find = (view_session: string): Item | undefined =>
+    entries.get(view_session) ?? guests.get(view_session);
   const placement = createPlacement<Entry>({
     views: deps.host,
     record: () => {},
   });
 
-  function state(entry: Entry): BrowserViewState {
+  function state(entry: Item): BrowserViewState {
     const page = entry.contents.page();
     if (page.url !== "") entry.lastUrl = page.url;
     return {
@@ -121,7 +131,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
   }
 
   // adopt 전 popup은 renderer에 탭이 없다. adopt가 지금 state로 답한다.
-  function push(entry: Entry): void {
+  function push(entry: Item): void {
     if (entry.adopted) deps.pushState(entry.window, state(entry));
   }
 
@@ -132,7 +142,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       deps.host.create(hooks),
   ): BrowserContents {
     const live = () => {
-      const entry = entries.get(view_session);
+      const entry = find(view_session);
       return entry?.contents === contents ? entry : undefined;
     };
     const contents: BrowserContents = make({
@@ -174,14 +184,27 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
           const opener = live();
           if (opener !== undefined) openPopup(opener, where, make);
         },
+        tab(url) {
+          const opener = live();
+          if (opener !== undefined) {
+            deps.pushEvent(opener.window, {
+              kind: "open-tab",
+              opener: view_session,
+              url,
+            });
+          }
+        },
       },
     });
     return contents;
   }
 
-  // 첫 load가 끝나면(실패도) 붙일 수 있다. 빈 주소 칸으로 연 view는 첫 navigate가 첫 load다.
-  function load(entry: Entry, url: string): void {
-    firstLoaded(entry, entry.contents.load(url));
+  // native popup은 첫 load가 끝나면(실패도) 붙일 수 있다. guest는 붙이는 일이 renderer 몫이다.
+  function load(entry: Item, url: string): void {
+    const loaded = entry.contents.load(url);
+    const native = entries.get(entry.view_session);
+    if (native === entry) firstLoaded(native, loaded);
+    else void loaded.catch(() => {});
   }
 
   function firstLoaded(entry: Entry, loaded: Promise<void>): void {
@@ -195,7 +218,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
 
   // 소유 창은 opener의 창이다. renderer가 adopt하지 않은 view는 그 창이 닫힐 때까지 남는다.
   function openPopup(
-    opener: Entry,
+    opener: Item,
     where: PopupPlacement,
     make: (hooks: BrowserHooks) => BrowserContents,
   ): void {
@@ -210,6 +233,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       ready: false,
       placed: false,
       attached: false,
+      layer: 0,
       adopted: false,
       health: "ok",
       lastUrl: "",
@@ -231,41 +255,32 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     entry.contents.destroy();
   }
 
-  function ownedEntry(window: string, view_session: string): Entry | undefined {
-    const entry = entries.get(view_session);
+  function ownedEntry(window: string, view_session: string): Item | undefined {
+    const entry = find(view_session);
     return entry?.window === window ? entry : undefined;
   }
 
   return {
-    open(window: string, url: string): Promise<Outcome<BrowserViewState>> {
-      if (!deps.host.hasWindow(window)) {
-        return Promise.resolve(failure("invalid_input", "window is not open"));
-      }
-      const view_session = deps.ids.viewSession();
-      const entry: Entry = {
+    /** shell 창에 붙은 <webview> guest를 등록한다. 위치·숨김은 renderer CSS가 한다. */
+    addGuest(
+      window: string,
+      view_session: string,
+      make: (hooks: BrowserHooks) => BrowserContents,
+    ): void {
+      const item: Item = {
         view_session,
         window,
-        bounds: { x: 0, y: 0, width: 0, height: 0 },
-        contents: spawn(view_session),
-        generation: 0,
-        shown: false,
-        ready: false,
-        placed: false,
-        attached: false,
+        contents: spawn(view_session, make),
         adopted: true,
         health: "ok",
         lastUrl: "",
       };
-      entries.set(view_session, entry);
-      placement.mounted(entry);
-      const address = normalizeAddress(url);
-      if (
-        address !== null &&
-        decideNavigation({ url: address, isMainFrame: true }).allow
-      ) {
-        load(entry, address);
-      }
-      return Promise.resolve({ ok: true, value: state(entry) });
+      guests.set(view_session, item);
+    },
+
+    /** guest contents가 부서졌다(renderer가 <webview>를 지웠거나 창이 닫혔다). */
+    forgetGuest(view_session: string): void {
+      guests.delete(view_session);
     },
 
     /** renderer가 popup으로 생긴 view에 탭을 만들었다. 그 창이 아직 가져가지 않은 view만 된다. */
@@ -307,15 +322,24 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     ): Outcome<null> {
       const entry = ownedEntry(window, view_session);
       if (entry === undefined) return notOpen();
-      if (command === "reload" && reopenable(entry.health)) {
-        // 깨진 contents는 reload로 살아나지 않는다. 같은 view_session에 새 contents를 만든다.
-        placement.unmounted(entry);
-        entry.contents.destroy();
-        entry.contents = spawn(view_session);
+      if (
+        command === "reload" && reopenable(entry.health) &&
+        guests.has(view_session)
+      ) {
+        // guest는 <webview>가 contents를 가진다. reload가 page process를 다시 띄운다.
         entry.health = "ok";
-        placement.mounted(entry);
-        if (entry.lastUrl !== "") load(entry, entry.lastUrl);
+        entry.contents.reload();
         push(entry);
+      } else if (command === "reload" && reopenable(entry.health)) {
+        const native = entry as Entry;
+        // 깨진 contents는 reload로 살아나지 않는다. 같은 view_session에 새 contents를 만든다.
+        placement.unmounted(native);
+        native.contents.destroy();
+        native.contents = spawn(view_session);
+        native.health = "ok";
+        placement.mounted(native);
+        if (native.lastUrl !== "") load(native, native.lastUrl);
+        push(native);
       } else if (command === "back") entry.contents.back();
       else if (command === "forward") entry.contents.forward();
       else if (command === "reload") entry.contents.reload();
@@ -327,11 +351,11 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
 
     owner: (view_session: string) => entries.get(view_session)?.window,
 
-    setBounds(view_session: string, bounds: ViewBounds) {
+    setBounds(view_session: string, bounds: ViewBounds, layer: number) {
       const entry = entries.get(view_session);
       return entry === undefined
         ? notOpen()
-        : placement.setBounds(entry, bounds);
+        : placement.setBounds(entry, bounds, layer);
     },
 
     hide(view_session: string) {
@@ -346,7 +370,7 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
 
     /** Clear browsing data 뒤. 빈 주소 칸과 crash한 view는 건드리지 않는다. */
     reloadAll(): void {
-      for (const entry of entries.values()) {
+      for (const entry of [...entries.values(), ...guests.values()]) {
         if (entry.health === "crashed" || entry.contents.page().url === "") {
           continue;
         }
@@ -358,10 +382,14 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
       for (const entry of [...entries.values()]) {
         if (entry.window === window) dispose(entry);
       }
+      for (const item of [...guests.values()]) {
+        if (item.window === window) guests.delete(item.view_session);
+      }
     },
 
     dispose(): void {
       for (const entry of [...entries.values()]) dispose(entry);
+      guests.clear();
     },
   };
 }

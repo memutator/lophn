@@ -1,6 +1,6 @@
-// browser 탭의 native view를 Electron에 잇는다. view는 persistent browser partition을 쓰고 preload가
-// 없다. 앱 view의 native map과는 따로 가진다. contents에 거는 hook은 한 함수로 묶어 popup으로 생긴
-// contents도 같은 규칙을 쓴다.
+// browser 탭의 page를 Electron에 잇는다. 보통 탭은 shell renderer의 <webview> guest이고, 크기 준
+// popup만 native view다. 둘 다 persistent browser partition을 쓰고 preload가 없다. contents에 거는
+// hook은 한 함수로 묶어 guest와 popup이 같은 규칙을 쓴다. native view는 앱 view의 map과 따로 가진다.
 import {
   type BrowserWindow,
   type Event as ElectronEvent,
@@ -38,7 +38,8 @@ type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
 const LOAD_ABORTED = -3;
 
 /**
- * contents에 navigation·활동·키·상태 hook을 건다. popup으로 생긴 contents도 이 함수를 지난다.
+ * contents에 navigation·활동·키·상태 hook을 건다. <webview> guest와 popup으로 생긴 contents가 모두
+ * 이 함수를 지난다.
  */
 function hookBrowserContents(
   contents: WebContents,
@@ -112,9 +113,14 @@ function hookBrowserContents(
   contents.once("destroyed", () => hooks.activation.forget(id));
 }
 
+export type ElectronBrowserViews = BrowserViewHost & {
+  /** shell 창에 붙은 <webview> guest contents에 hook을 건다. contents는 <webview>가 가진다. */
+  guest(contents: WebContents, hooks: BrowserHooks): BrowserContents;
+};
+
 export function electronBrowserViews(
   input: ElectronBrowserViewsInput,
-): BrowserViewHost {
+): ElectronBrowserViews {
   const native = new Map<AppViewContents, WebContentsView>();
 
   function live(ref: string): BrowserWindow | undefined {
@@ -127,7 +133,19 @@ export function electronBrowserViews(
     view: WebContentsView,
     hooks: BrowserHooks,
   ): BrowserContents {
-    const contents = view.webContents;
+    const adapter = adapt(view.webContents, hooks, () => {
+      native.delete(adapter);
+    });
+    native.set(adapter, view);
+    return adapter;
+  }
+
+  // view가 없으면(guest) contents를 부수는 일은 <webview>를 지우는 renderer 몫이다.
+  function adapt(
+    contents: WebContents,
+    hooks: BrowserHooks,
+    release?: () => void,
+  ): BrowserContents {
     hookBrowserContents(
       contents,
       hooks,
@@ -171,21 +189,22 @@ export function electronBrowserViews(
       reload: () => contents.reload(),
       inspect: () => contents.openDevTools({ mode: "detach" }),
       destroy() {
-        native.delete(adapter);
+        if (release === undefined) return;
+        release();
         if (contents.isDestroyed()) return;
         // 우리가 닫는 것은 page의 window.close()가 아니다.
         contents.removeAllListeners("close");
         contents.close();
       },
     };
-    native.set(adapter, view);
     return adapter;
   }
 
   return {
+    guest: (contents, hooks) => adapt(contents, hooks),
     hasWindow: (ref) => live(ref) !== undefined,
     create(hooks) {
-      // browser view만 packaged에서도 DevTools를 연다(Inspect).
+      // crash한 native popup을 다시 열 때 쓴다. browser view만 packaged에서도 DevTools를 연다(Inspect).
       return wrap(
         new WebContentsView(surfaceOptions({
           webPreferences: {

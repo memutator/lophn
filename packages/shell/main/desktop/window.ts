@@ -52,6 +52,8 @@ function windowConfig(options: WindowOptions): WindowConfig {
     ...(mac ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     webPreferences: {
       ...webPreferences(options.packaged),
+      // browser 탭의 <webview>. 붙일 때 설정은 browser/webview-guest.ts가 강제한다.
+      webviewTag: true,
       preload: options.preload,
     },
   };

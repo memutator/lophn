@@ -1,5 +1,6 @@
-// browser 탭: persistent session 정책, native view 목록, renderer IPC. 앱 view의 위치·숨김 길은
-// browser.frame으로 app-views.ts가 받는다.
+// browser 탭: persistent session 정책, project 창의 <webview> 붙이기 규칙과 guest 등록, 크기 준
+// popup의 native view 목록, renderer IPC. native popup의 위치·숨김 길은 browser.frame으로
+// app-views.ts가 받는다.
 import { app, type BrowserWindow, shell, type WebContentsView } from "electron";
 import { randomUUID } from "node:crypto";
 
@@ -22,6 +23,11 @@ import {
   removeBrowserIpc,
 } from "../../browser/browser-ipc.ts";
 import { installBrowserSession } from "../../browser/session.ts";
+import {
+  guestViewSession,
+  hardenWebviewAttach,
+} from "../../browser/webview-guest.ts";
+import { webPreferences } from "../security.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 export type BrowserWiring = Registered & {
@@ -94,6 +100,41 @@ export function register(ctx: ShellContext): BrowserWiring {
     }),
   );
   ctx.windowHooks.closed.push(({ ref }) => views.closeWindow(ref));
+
+  // project 창만 webviewTag가 켜져 있다(window.ts). 붙이기 전에 규칙을 강제하고, 붙은 guest에 hook을 건다.
+  ctx.windowHooks.created.push((window) => {
+    const contents = window.webContents;
+    contents.on("will-attach-webview", (event, prefs, params) => {
+      let fromShell = false;
+      try {
+        const url = new URL(contents.getURL());
+        fromShell = url.protocol === "lophn-shell:" && url.host === "desktop";
+      } catch {
+        // 아직 문서가 없으면 shell이 아니다.
+      }
+      const allowed = hardenWebviewAttach({
+        fromShell,
+        webPreferences: prefs as unknown as Record<string, unknown>,
+        params: params as unknown as Record<string, string>,
+        base: { ...webPreferences(app.isPackaged), devTools: true },
+      });
+      if (!allowed) {
+        event.preventDefault();
+        return;
+      }
+      // guest가 생기기 전에 partition의 정책을 깐다.
+      ensureSession();
+    });
+    contents.on("did-attach-webview", (_event, guest) => {
+      const view_session = guestViewSession(guest.id);
+      views.addGuest(
+        windowRef(window),
+        view_session,
+        (hooks) => host.guest(guest, hooks),
+      );
+      guest.once("destroyed", () => views.forgetGuest(view_session));
+    });
+  });
 
   return {
     views,

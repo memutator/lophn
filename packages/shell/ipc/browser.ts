@@ -57,7 +57,7 @@ export const browserDevtoolsWindowSchema = z.object({
 
 export const browserCommandSchema = z.object({
   view_session: viewSession,
-  command: z.enum(["back", "forward", "reload", "inspect"]),
+  command: z.enum(["back", "forward", "reload"]),
 }).strict();
 
 export const bookmarkAddSchema = z.object({

@@ -32,7 +32,9 @@ modules: [packages/coding-agent, packages/protocol]
 - 제품: 첫 session을 열기 전에 사람에게 "Claude Code에서 이 폴더를 믿어야 한다"고 알린다(작음). 또는 `~/.claude.json`에 trust 기록을 쓴다(중간. 사람의 설정 file을 고친다).
 - eval: driver가 trust 화면 글을 보면 "Yes"를 고르고 기록에 남긴다(작음). 사람이 정했다.
 
-정한 것: eval은 driver가 대신 고르고 `CodingTrace.trust_answered`에 남긴다(사람). 제품 쪽은 그대로 열어 둔다.
+정한 것:
+- eval은 driver가 대신 고르고 `CodingTrace.trust_answered`에 남긴다(사람).
+- 제품은 "알린다"로 한다. 터미널을 열고 첫 hook 신호를 아직 안 낸 coding session을 대기 목록에 "터미널에서 Claude Code 확인이 필요할 수 있다"로 보이고, 누르면 그 탭으로 focus가 간다. 화면 글은 긁지 않고, `~/.claude.json`은 쓰지 않는다(사람).
 
 ## coding agent의 message에 App Engineer가 글로만 답하면 터미널에 가지 않는다
 
@@ -53,3 +55,5 @@ modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/coding-
 - (나) message를 call 행으로 남겨 `reply`로 답하게 한다(중간). call store와 `router.reply`가 coding session을 받는 쪽으로 다뤄야 하고, message마다 행이 생긴다.
 - (다) 그 turn의 마지막 글을 core가 터미널로 보낸다(중간). 그 글은 사람에게 쓴 요약이라 터미널에 잡음이 들어가고, 한 turn에 사람 말과 coding agent의 물음이 섞이면 가를 수 없다.
 추천: (가).
+
+정한 것: (가). 답할지와 무엇을 답할지는 App Engineer가 정하고, core는 글을 터미널로 보내지 않는다(사람).

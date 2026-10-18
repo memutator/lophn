@@ -92,7 +92,7 @@ export type VerdictInput = {
 - 확정된 실패가 있으면 끝나지 않은 entry가 있어도 `reject`다. `inconclusive`는 확정된 실패가 없고 일부만 끝나지 않았을 때다. 이유: 예산을 쓰고도 더 돌려 봐야 아무것도 바뀌지 않는 경우에 결론을 미루지 않는다.
 - guard의 worse는 `fail` 과반 실패다. "기준보다 통과율이 낮다" 만으로는 worse가 아니라 `weaker` 표시다. 이유: 기준이 1/1이고 variant가 2/3인 경우 우연일 가능성이 높아 채택을 막으면 흔들리는 시나리오가 늘 채택을 막는다. 대신 `weaker`는 result에 남아 experimenter가 짚는다.
 - 판정 이유는 사람이 읽는 `reasons`와 숫자(`scenarios`)를 같이 남긴다. 해석은 하지 않는다(그것은 experimenter의 일이다). program이 쓴 result.json을 experimenter가 고치지 않는다. 뒤집자는 제안은 `report.md`에 이유와 함께 적고 사람이 정한다.
-- 비용은 variant trial의 `Outcome.cost_usd`(대상 + judge) 합이다. runner(Haiku)와 experimenter의 비용은 세지 않는다. 이유: 개발 쪽 agent의 비용이고 experiment 예산이 아니다. 예산 상한은 ex-parallel의 pool이 지킨다.
+- 비용은 variant trial의 `Outcome.cost_usd`(role agent의 model call 비용) 합이다. eval을 돌리는 agent와 그 subagent, experimenter의 비용은 세지 않는다. 이유: 개발 쪽 agent의 비용이고 experiment 예산이 아니다. 예산 상한은 ex-parallel의 pool이 지킨다.
 
 ## 끝남
 

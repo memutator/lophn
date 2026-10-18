@@ -4,12 +4,12 @@
   - 더하는 것: experiment spec, 바뀐 component를 본 run만 고르기, trial 정책, 병렬 실행과 예산, gate(check → 바뀐 곳 e2e → dry run), 다른 checkout에서 core 띄우기, 판정 규칙, 시나리오 고유 단어 경고, assembly의 prefix 재기, 되풀이 진단 judge, 채점과 사람 역할을 eval을 돌리는 agent로 옮기기, runner와 experimenter가 일하는 법.
 - 재료:
   - `project-docs/products/roadmap/eval.md`의 "experiment", "trial 수", "특정 시나리오에 맞추지 않기", "scorecard", "역할과 흐름", "병렬과 의존", "공통 수치"의 assembly 단락.
-  - 계획 `eval-base`의 README와 `tasks/*.md`(계약, runner, registry, scorecard), 계획 `eval-coding`의 README(coding agent trial).
+  - `project-docs/architecture/eval.md`와 `tests/eval`의 코드(eval-base, eval-coding은 land했다).
   - `project-docs/module-catalog.yaml`(gate가 e2e를 고르는 근거), `project-docs/architecture/testing.md`.
 - 범위 밖: 새 시나리오.
 - 돌리는 방식: worker를 쓴다. orchestrate skill대로 한다. task id는 `ex-`로 시작한다.
 - 순서: spec(wave 1) → 고르기, trial 정책, 판정, variant, gate, 병렬, 경고, assembly, 되풀이, agent 채점, agent 사람 역할(wave 2) → 입구(wave 3) → skill(wave 4) → 문서(lead).
-- 시작 조건: 계획 `eval-coding`이 main에 land한 뒤(사람: 순서는 base → coding → experiment). 그 전에는 brief만 있다. land하면 planner가 brief를 실제 코드와 대조해 맞춘 뒤 lead를 띄운다.
+- 시작 조건: 계획 `eval-coding`이 main에 land한 뒤(사람: 순서는 base → coding → experiment). land했고, planner가 brief를 land한 코드와 대조해 맞췄다.
 
 ## 정한 것
 
@@ -57,6 +57,12 @@
   - experimenter는 `claude-opus-5-5`다. 해석, 원인 가르기, 다음 spec 초안을 맡는다.
   - 일하는 법은 skill 둘로 둔다(agent).
 - **상한은 program이 지킨다**(agent).
+- **variant의 coding 길**: agent가 치는 CLI 명령과 skill 본문(`lophn guide`)은 variant 것이 돈다. 사람이 한 번 설치한 hook과 skill 설명은 주 checkout 것이다. 그래서 hook 처리 코드나 coding skill 설명을 고친 experiment는 coding 시나리오로 재지 않는다(agent). 이유: 설치를 variant마다 다시 하면 사람의 전역 설정을 고친다.
+- **사람이 키를 넣은 trial**(`coding[].human_input`)은 판정에 넣지 않고 찍기만 한다. 빠진 만큼 trial 정책이 더 돈다(agent).
+- **둘째 Ctrl+C도 도는 core와 Claude Code를 끊고 나간다**(agent). 남은 Claude Code는 사람의 로그인으로 계속 돈다.
+- **채점하고 답하는 subagent는 Haiku다**(사람: judge는 싼 model, 의심될 때 사람이 검증). type을 하나로 고정하고 model 이름을 기록한다.
+- **`judge@2`가 되면 commit된 run이 모두 낡음이다.** 첫 experiment 전에 기준 run을 main checkout에서 다시 돌린다(agent).
+- **calendar-mvp의 check `ae-calls-coding-only`를 고친다**: 열린 coding session에 `to:{session}`으로 보낸 답을 맞게 세고, 보낼 때 실패한 call은 세지 않는다(agent). 첫 run이 찾았다.
 
 ## 사람이 정할 것
 
@@ -78,7 +84,8 @@
 
 | id | wave | 선행 | 소유 | 하는 일 |
 |---|---|---|---|---|
-| `ex-spec` | 1 | 없음 | `tests/eval/experiment/spec/**`, `tests/eval/types.ts`(`TrialResult.components`) | spec 꼴, 읽기, 검사, 기록 file(`spec.json`, `result.json`, `report.md`)의 꼴 |
+| `ex-spec` | 1 | 없음 | `tests/eval/experiment/spec/**`, `tests/eval/types.ts`(`TrialResult.components`, `JudgeItem.state`·`model`, `CheckResult.pending`, `HumanRecord.answers[].model`), `tests/eval/judge/run.ts`·`tests/eval/human/role.ts`(그 칸에 맞추는 최소 고침) | spec 꼴, 읽기, 검사, 기록 file(`spec.json`, `result.json`, `report.md`)의 꼴 |
+| `ex-fix-calls-check` | 1 | 없음 | `tests/eval/checks/app/calls.ts`(`aeCallsOnlyToCodingAgent`), `tests/eval/checks/app/calls_test.ts` | 맞는 coding session 답을 틀리게 세는 check 고치기 |
 | `ex-select` | 2 | ex-spec | `tests/eval/experiment/select/**` | run 기록의 본 component로 다시 돌릴 run 고르기(target, guard, 그대로 씀), 기준 run 다시 쓰기 |
 | `ex-trials` | 2 | ex-spec | `tests/eval/experiment/trials/**` | trial 정책과 흔들리는 시나리오 찾기 |
 | `ex-verdict` | 2 | ex-spec | `tests/eval/experiment/verdict/**` | 판정 규칙 계산과 채택·기각 결과 |
@@ -90,5 +97,5 @@
 | `ex-repeat` | 2 | ex-spec, ex-judge-agent | `tests/eval/experiment/repeat/**`, `tests/eval/criteria/repeat-kind.json`, `tests/eval/criteria/mod.ts`(필요할 때만) | 되풀이 진단 judge. 채점 대기 item으로 두고 돌리는 agent가 채점한다 |
 | `ex-judge-agent` | 2 | ex-spec | `tests/eval/judge/**`, `tests/eval/scorecard/**`(채점 대기 보이기), `tests/eval/runner/trial.ts`(judge 덩어리만) | judge를 key 호출에서 agent 채점으로: 채점 대기 item file, `deno task eval:judge`(enum과 인용 확인 후 기록), 채점한 model 기록, `judge/run.ts`의 fetch 지우기 |
 | `ex-human-agent` | 2 | ex-spec, ex-judge-agent | `tests/eval/human/**`, `tests/eval/runner/trial.ts`(사람 역할 덩어리만) | 사람 역할을 key 호출에서 agent 답으로: 답 대기 질문 file, `deno task eval:answer`(답 file을 쓰고 trial을 쥔 runner가 다음 tick에 `askAnswer`를 부른다), `human/answer.ts`의 fetch 지우기 |
-| `ex-cli` | 3 | ex-select, ex-trials, ex-verdict, ex-variant, ex-gate, ex-parallel, ex-overfit, ex-assembly, ex-repeat, ex-judge-agent, ex-human-agent | `tests/eval/run.ts`, `tests/eval/runner/**`, `tests/eval/experiment/mod.ts`, `tests/eval/types.ts`(쓰지 않게 된 `cost_usd` 칸 지우기), `tests/eval/scorecard/**`(그 칸의 합 지우기) | `deno task eval:experiment <id>`와 `eval:gate`. 위 조각을 runner에 잇는다 |
-| `ex-skills` | 4 | ex-cli | `.claude/skills/eval-run/**`, `.claude/skills/eval-experiment/**` | runner(Haiku)와 experimenter(Opus)가 일하는 법 |
+| `ex-cli` | 3 | ex-select, ex-trials, ex-verdict, ex-variant, ex-gate, ex-parallel, ex-overfit, ex-assembly, ex-repeat, ex-judge-agent, ex-human-agent | `tests/eval/run.ts`, `tests/eval/runner/**`, `tests/eval/experiment/mod.ts`, `tests/eval/types.ts`(쓰지 않게 된 `cost_usd` 칸 지우기), `tests/eval/scorecard/**`·`tests/eval/judge/**`·`tests/eval/human/**`·`tests/eval/experiment/spec/**`(그 칸을 읽는 곳 지우기) | `deno task eval:experiment <id>`와 `eval:gate`. 위 조각을 runner에 잇는다 |
+| `ex-skills` | 4 | ex-cli | `.claude/skills/eval-run/**`, `.claude/skills/eval-experiment/**` | eval을 돌리는 agent와 experimenter(Opus)가 일하는 법 |

@@ -154,7 +154,7 @@ export type AssemblyReport = {
 // pending = pending이 true인 CheckResult의 id(= trial.judge에서 state가 "pending"인 item의 check).
 // state: settle이 timeout이거나 pending이 아닌 CheckResult가 하나라도 떨어졌으면 "fail"(채점이 남아 있어도 이미 떨어졌다).
 //        아니고 pending이 있으면 "pending". 아니면 "pass"(`runner/cli.ts`의 `passed()`, 곧 `settle.kind === "idle"`이고 모든 check 통과와 같다).
-// cost_usd = metrics.cost_usd + judge item의 cost_usd 합 + (trial.human?.cost_usd ?? 0). 옛 요약(key 호출 시절)의 judge·사람 역할 비용을 잃지 않으려는 것이다. 새 run은 둘 다 0이다.
+// cost_usd = metrics.cost_usd + judge item의 cost_usd 합 + (trial.human?.cost_usd ?? 0). 옛 요약(key 호출 시절)의 judge·사람 역할 비용을 잃지 않으려는 것이다. 새 run은 둘 다 0이다. ex-cli가 그 칸을 지울 때 이 두 항도 지운다.
 // components = trial.components ?? runComponents (run의 합집합).
 export function outcomeOf(trial: TrialResult, runComponents: VersionRef[]): Outcome;
 // checks가 null이면 o.state. 있으면 그 id 가운데: o.checks에 없거나 pending이 아닌데 false면 "fail"(없는 id는 실패: check 이름이 바뀐 것을 통과로 치지 않는다),

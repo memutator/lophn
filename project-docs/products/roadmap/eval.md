@@ -436,7 +436,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 ## 병렬과 의존
 
-- trial마다 root, port, harness HOME이 따로라 서로 막지 않는다.
+- trial마다 root와 port가 따로라 서로 막지 않는다. coding agent trial은 사람의 HOME과 Claude Code 로그인을 같이 쓰고, cwd와 session 기록만 따로다.
 - trial 하나가 끝나면 그 trial의 judge batch가 바로 돈다. 전체를 기다리지 않는다.
 - run 사이의 의존은 experiment가 이어 돌리기를 고를 때만 생긴다. 예: App Engineer instruction을 고친 뒤 새로 만든 앱에서 유지보수까지 나아지나를 보려면, calendar-mvp가 낸 `calendar-app@2`로 calendar-maintain이 뒤이어 돈다. 이어 돌리지 않으면 단위마다 commit된 전제에서 따로 돌아 서로 기다리지 않는다.
 - 같이 쓰는 한도: experiment 전체의 $ 상한 하나(넘으면 새 trial을 띄우지 않는다), provider rate limit, 기계 자원. coding agent trial은 무거워서 동시에 1~2개로 묶는다.

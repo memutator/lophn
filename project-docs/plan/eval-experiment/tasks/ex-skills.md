@@ -70,9 +70,10 @@ eval을 돌리는 개발 쪽 agent 둘이 일하는 법을 skill 둘로 쓴다. 
 ## 정한 것
 
 - **runner의 보고서는 `run.md`, experimenter의 해석은 `report.md`다.** roadmap은 runner가 "보고서를 쓴다"고, ex-spec은 `report.md`를 experimenter가 쓴다고 했다. 둘을 한 file로 하면 두 session이 서로의 글을 덮어쓸 수 있어 file을 나눴다.
-- **답하고 채점하는 subagent의 type은 한 가지로 고정해 쓰고 model 이름을 `--model`로 적는다.** 기본은 AGENTS.md의 worker 기본인 `sonnet-high`(`claude-sonnet-5-5`)다. 이유: 한 run 안에서 채점 model이 섞이면 읽기 어렵다. 다른 type을 쓰면 scorecard가 grader가 다른 run으로 따로 보인다(README). `run.md`는 program이 읽지 않고 commit한다(experiment 기록의 일부).
+- **답하고 채점하는 subagent의 type은 한 가지로 고정해 쓰고 model 이름을 `--model`로 적는다.** 기본은 `haiku-xhigh`(`claude-haiku-5-5`)다. 사람이 judge와 사람 역할을 싼 model로, Haiku를 믿고 쓰다 의심될 때 사람이 따로 검증하기로 정했다(roadmap "judge를 믿고 쓰기"). 이유: 한 run 안에서 채점 model이 섞이면 읽기 어렵다. 다른 type을 쓰면 scorecard가 grader가 다른 run으로 따로 보인다(README). `run.md`는 program이 읽지 않고 commit한다(experiment 기록의 일부).
 - **멈춤 기준은 10분(판단 case만)·30분(coding agent 포함)이고, 답 대기는 멈춤이 아니다.** roadmap에 숫자가 없다. 첫 experiment에서 재 보고 고친다.
 - **experimenter는 `result.json`의 칸 이름을 코드(`tests/eval/experiment/spec/types.ts`)에서 읽는다.** skill에 칸을 복사해 두지 않는다(복사본이 낡는다). 위 "읽는 순서"에 쓴 칸은 계획 기준이고, merge된 코드와 다르면 코드를 따라 skill을 쓴다.
+- **hook 처리 코드와 coding skill의 설명을 고친 experiment는 coding 시나리오로 재지 않는다.** experimenter skill에 적는다. 사람이 한 번 설치한 hook과 skill 설명은 주 checkout 것이라 variant에서도 그대로다. agent가 치는 CLI 명령과 skill 본문(`lophn guide`)은 variant 것이 돈다(planner).
 - **experimenter가 `report.md`에 쓰는 것 가운데 program이 낸 사실과 자기 추정을 섞지 않는다.** 원인 표의 "근거" 칸은 file과 id로 댄 사실만 쓰고, 추정은 "해석" 절에 쓴다. 이유: 사람이 judge와 판정을 의심할 때 근거를 따라갈 수 있어야 한다.
 
 ## 끝남

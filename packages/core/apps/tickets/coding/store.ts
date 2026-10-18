@@ -39,6 +39,7 @@ const COLUMNS =
   `session, app, ticket, call, harness, ended, started, heard, running, turn,
    permissions, inflight, external_session, prompt_pending, paste_until`;
 
+// createSql이 INTEGER를 bigint로 주므로 1n === 1이 거짓이다. Number로 바꿔 비교한다.
 function rowOf(row: Record<string, unknown>): SessionRow {
   return {
     session: String(row.session),
@@ -46,17 +47,17 @@ function rowOf(row: Record<string, unknown>): SessionRow {
     ticket: String(row.ticket),
     call: String(row.call),
     harness: row.harness as HarnessId,
-    ended: row.ended === 1,
-    started: row.started === 1,
-    heard: row.heard === 1,
-    running: row.running === 1,
+    ended: Number(row.ended) === 1,
+    started: Number(row.started) === 1,
+    heard: Number(row.heard) === 1,
+    running: Number(row.running) === 1,
     turn: row.turn === null ? null : String(row.turn),
     permissions: JSON.parse(String(row.permissions)) as string[],
-    inflight: row.inflight === 1,
+    inflight: Number(row.inflight) === 1,
     external_session: row.external_session === null
       ? null
       : String(row.external_session),
-    prompt_pending: row.prompt_pending === 1,
+    prompt_pending: Number(row.prompt_pending) === 1,
     paste_until: row.paste_until === null ? null : String(row.paste_until),
   };
 }

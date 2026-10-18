@@ -15,4 +15,4 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 | `wf-view-keep` | wf-view-keep | 2 | wf-native, wf-floated-wire | merged | wf-view-keep/wf-view-keep | 7310553a7 |  |
 | `wf-focus` | wf-focus | 3 | 없음 | merged | wf-focus/wf-focus | acd9e41eb |  |
 | `wf-gallery` | wf-gallery | 3 | 없음 | merged | wf-gallery/wf-gallery | 7ae06dfac |  |
-| `wf-tab-title` | wf-tab-title | 3 | 없음 | todo |  |  |  |
+| `wf-tab-title` | wf-tab-title | 3 | 없음 | running | wf-tab-title/wf-tab-title |  |  |

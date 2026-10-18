@@ -6,6 +6,7 @@ import { t } from "@lophn/wording";
 
 import styles from "../settings.module.css";
 import { BookmarkRows } from "./bookmark-rows.tsx";
+import { LinkRows } from "./link-rows.tsx";
 import type { BrowserSettingsSource } from "./source.ts";
 
 interface BrowserPanelProps {
@@ -44,6 +45,10 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
           {t("settings.heading.bookmarks")}
         </h2>
         <BookmarkRows source={source} />
+      </section>
+      <section className={styles.groupBlock}>
+        <h2 className={styles.groupTitle}>{t("settings.heading.links")}</h2>
+        <LinkRows source={source} />
       </section>
       <section className={styles.groupBlock}>
         <h2 className={styles.groupTitle}>

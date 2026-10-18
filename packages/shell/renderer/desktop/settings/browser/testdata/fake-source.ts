@@ -1,6 +1,10 @@
 // Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다.
 import type { Bookmark } from "../../../../../ipc/browser.ts";
-import type { BrowserSettingsSource, SourceResult } from "../source.ts";
+import type {
+  BrowserSettingsSource,
+  LinkValues,
+  SourceResult,
+} from "../source.ts";
 
 interface FakeBrowserSettingsOptions {
   /** 지우기가 거절되는 code. 없으면 지워진다. */
@@ -11,6 +15,10 @@ interface FakeBrowserSettingsOptions {
   corrupt?: boolean;
   /** 고치기와 지우기가 거절되는 BookmarkReason. 없으면 된다. */
   writeCode?: string;
+  /** 처음 link 열 곳. 없으면 둘 다 Browser tab이다. */
+  links?: Partial<LinkValues>;
+  /** link 고르기가 거절되는 code. 없으면 저장된다. */
+  linkCode?: string;
 }
 
 const sample = (n: number, title: string, url: string): Bookmark => ({
@@ -27,6 +35,11 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
     sample(2, "MDN Web Docs", "https://developer.mozilla.org/"),
     sample(3, "Example", "https://example.com/"),
   ];
+  let links: LinkValues = {
+    web_links: "browser_tab",
+    local_links: "browser_tab",
+    ...options.links,
+  };
   const listeners = new Set<() => void>();
   const changed = () => listeners.forEach((listener) => listener());
   const refused = (code: string): Promise<SourceResult<null>> =>
@@ -69,6 +82,16 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       if (options.writeCode) return refused(options.writeCode);
       list = list.filter((b) => b.id !== id);
       changed();
+      return Promise.resolve({ ok: true, value: null });
+    },
+    links() {
+      calls.push(["links"]);
+      return Promise.resolve({ ok: true, value: links });
+    },
+    chooseLink(id, value) {
+      calls.push(["chooseLink", id, value]);
+      if (options.linkCode) return refused(options.linkCode);
+      links = { ...links, [id]: value };
       return Promise.resolve({ ok: true, value: null });
     },
     watchBookmarks(listener) {

@@ -43,15 +43,25 @@ export const browser = {
     "The bookmarks file is damaged, so bookmarks can't be changed until it is fixed.",
   "settings.error.bookmarks-load-failed": "Could not load bookmarks.",
   "settings.error.browser-clear-failed": "Could not clear browsing data.",
+  "settings.error.links-load-failed": "Could not load link settings.",
   "settings.heading.bookmarks": "Bookmarks",
   "settings.heading.browser-data": "Browsing data",
+  "settings.heading.links": "Links",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
+  "settings.label.link-browser-tab": "Browser tab",
+  "settings.label.link-system-browser": "System browser",
+  "settings.label.local-links": "Local links",
   "settings.label.tab-browser": "Browser",
+  "settings.label.web-links": "Web links",
   "settings.note.browser-clear":
     "Signs you out of sites and removes cookies, site data, and cached files for the Browser tab.",
   "settings.note.browser-clear-confirm":
     "This signs you out of every site in Browser tabs and reloads the open ones.",
+  "settings.note.local-links":
+    "Where localhost and local network addresses (.local, private IPs) open when you open them in a terminal or Ctrl/Cmd-click them.",
+  "settings.note.web-links":
+    "Where public web addresses open when you open them in a terminal or Ctrl/Cmd-click them.",
   "settings.notice.bookmarks-empty":
     "No bookmarks yet. Click the star in a Browser tab's address bar to add one.",
   "settings.notice.browser-cleared": "Browsing data cleared.",

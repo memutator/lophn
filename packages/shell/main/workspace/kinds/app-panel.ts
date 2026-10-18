@@ -7,6 +7,7 @@ import { appId, tabKey } from "./values.ts";
 const layout = z.strictObject({
   kind: z.literal("app_panel"),
   key: tabKey,
+  title: z.string().min(1).max(200).optional(),
   app: appId,
   surface: z.string().min(1).max(128),
 });

@@ -26,12 +26,18 @@ export const appPanelKind: TabKindDef = {
   labelKey: "project-workspace.label.kind-app-panel",
   icon: workspaceIcons.appPanel,
   fromStored(stored, { key }) {
-    const { app, surface } = stored;
+    const { app, surface, title } = stored;
     if (
       typeof app !== "string" || !APP_ID.test(app) ||
       typeof surface !== "string" || surface.length < 1
     ) return null;
-    return { key, kind: "app_panel", title: "", app, screen: surface };
+    return {
+      key,
+      kind: "app_panel",
+      title: typeof title === "string" ? title : "",
+      app,
+      screen: surface,
+    };
   },
   toStored(tab) {
     if (
@@ -42,6 +48,7 @@ export const appPanelKind: TabKindDef = {
     return {
       kind: "app_panel",
       key: tab.key,
+      ...(tab.title.length > 0 ? { title: tab.title.slice(0, 200) } : {}),
       app: tab.app,
       surface: tab.screen,
     };

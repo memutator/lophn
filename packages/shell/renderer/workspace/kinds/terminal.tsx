@@ -91,7 +91,13 @@ export const terminalKind: TabKindDef = {
         };
       }
     }
-    return { key, kind: "terminal", title: "", folder };
+    const title = stored.title;
+    return {
+      key,
+      kind: "terminal",
+      title: typeof title === "string" ? title : "",
+      folder,
+    };
   },
   toStored(tab) {
     if (
@@ -103,6 +109,9 @@ export const terminalKind: TabKindDef = {
       kind: "terminal",
       key: tab.key,
       project_folder: tab.folder,
+      ...(coding !== null || tab.title.length < 1
+        ? {}
+        : { title: tab.title.slice(0, 200) }),
       ...(coding === null ? {} : {
         coding: {
           session: coding.session,

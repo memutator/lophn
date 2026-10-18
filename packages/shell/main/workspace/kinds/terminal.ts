@@ -7,6 +7,8 @@ import { idOf, tabKey } from "./values.ts";
 const layout = z.strictObject({
   kind: z.literal("terminal"),
   key: tabKey,
+  // plain terminal의 탭 제목. coding 탭은 `coding.title`을 쓴다.
+  title: z.string().min(1).max(200).optional(),
   project_folder: z.string().min(1).max(4096),
   // lophn(core 요청)이 연 coding 터미널 탭의 표지. 없으면 사람이 연 shell 탭이다.
   coding: z.strictObject({

@@ -34,9 +34,9 @@ eval에는 desktop shell이 없다. 이 task는 shell의 terminal 몫을 한다:
     - 순수: `driverEnv(inherited): Record<string, string>`, `evalPlan(plan, extras)`, `createFocusGate()`. 위험 test가 부른다.
     - 사람이 보는 길: `deno task eval:attach [session] [--write]`의 입구 `tests/eval/coding/driver/attach.ts`(lead가 deno task를 등록한다. 할 일 5의 e).
 
-## 결정 (사람이 확인하는 중이다. planner가 사람의 답을 받아 아래 "기본 경로"를 확정한다)
+## 결정 (사람이 추천대로 정했다. 아래 "기본 경로"가 정해진 길이다)
 
-세 결정이 사람에게 열려 있다. 이 brief는 planner의 **추천을 기본 경로**로 쓰고, 사람이 다른 선택을 하면 planner가 이 brief의 해당 줄을 고친다. 추천과 다른 선택에 걸린 구현(할 일 6)은 사람의 답이 brief에 적히기 전에는 만들지 않는다. 어느 쪽도 소리 없는 우회를 만들지 않는다.
+세 결정은 사람이 추천대로 정했다. 이 brief는 그 길만 쓴다. 소리 없는 우회를 만들지 않는다.
 
 1. **folder trust**: 추천 = trial의 root를 전용 폴더 하나(예 `/tmp/lophn-eval`. unix socket 경로 한도 때문에 짧게) 아래에 두고 사람이 그 폴더를 Claude Code에서 한 번 신뢰한다. runner가 `TMPDIR`를 거기로 둔다(ec-runner 몫. driver는 `TMPDIR`를 건드리지 않는다).
 2. **permission 물음**: 추천 = 사람 자신의 permission mode를 그대로 쓴다(eval 전용 flag 없음). 그래도 물음이 뜨면 session은 core에서 `waiting`으로 남고 `CodingRecord.permission_requests`(wrapper 기록의 `hook claude PermissionRequest` 수)로 기록된다.
@@ -131,13 +131,9 @@ eval에는 desktop shell이 없다. 이 task는 shell의 terminal 몫을 한다:
 - **client(`attach.ts`, `import.meta.main`일 때만 돈다)**: `deno task eval:attach [session] [--write]`. `session`은 id의 일부여도 된다(socket 이름과 끝이 맞는 것). 없으면 `<socketDir>`에서 가장 최근에 만든 socket을 쓴다. socket이 없거나 연결이 안 되면 이유 한 줄과 함께 종료 코드 1이다. stdin이 터미널(`Deno.stdin.isTerminal()`)이 아니면 던진다. 순서: 연결 → `Deno.stdin.setRaw(true)` → `hello`(크기는 `Deno.consoleSize()`) → `out`을 stdout에 그대로 쓴다. `SIGWINCH`마다 `resize`를 보낸다. stdin 입력: `0x1d`(Ctrl-])가 오면 detach(raw 모드를 풀고 종료 코드 0). 그 밖은 `--write`일 때만 `key`로 보내고 읽기 전용이면 버린다(Ctrl-C도 PTY에 닿지 않는다). 시작 전에 stderr에 한 줄(`읽기 전용. Ctrl-]로 나간다` / `키를 coding agent에 넣는다(--write). Ctrl-]로 나간다`)을 찍는다. 서버가 `end`를 보내면 raw 모드를 풀고 그 이유를 찍고 끝낸다. 어떤 경우든 `finally`에서 raw 모드를 푼다.
 - 이유: 사람이 token이 든 plan이나 로그가 아니라 Claude Code의 화면을 그대로 보고(trust 화면이 뜨면 `--write`로 한 번 답할 수도 있다), 제품의 "사람이 탭에 있으면 App Engineer의 입력이 기다린다" 규칙을 같게 지킨다. 화면 글은 사람에게만 가고 상태 판단에 쓰지 않는다.
 
-6. **(사람이 추천과 다른 선택을 한 때만. 결정 1·2의 선택지 (a)/(b)/(c)가 brief에 적히기 전에는 건너뛴다.)**
-   - (a)면 `evalPlan`이 `argv`에 정한 flag를 더하고(그 flag와 이유를 file 위 주석과 보고의 "제품과 다른 점"에 적는다), `prompt` 위치가 깨지지 않게 `--model` 앞이나 prompt 앞에만 더한다.
-   - (b)면 `CodingDriver`에 `screen(session): Promise<string>`(`tail` 계산과 같은 글)과 `type(session, text): Promise<void>`(`host.handle({ type: "input" ... })`)를 더하고 사람 역할(ec-human) 쪽의 소비는 ec-human과 ec-runner가 맡는다.
-   - (c)면 driver가 session 열림과 `tail` 경로를 stdout에 찍고 `noSessionStartMs`·`timeoutMs`를 끈다.
-7. `tests/eval/coding/driver/mod.ts`: 위 export를 다시 내보낸다.
-8. `tests/eval/coding/driver/env_test.ts`: 위험 test(아래).
-9. `tests/eval/coding/driver/focus.ts`: `createFocusGate`. `tests/eval/coding/driver/screen.ts`: 서버("사람이 붙는 길"). driver.ts가 session마다 부른다.
+6. `tests/eval/coding/driver/mod.ts`: 위 export를 다시 내보낸다.
+7. `tests/eval/coding/driver/env_test.ts`: 위험 test(아래).
+8. `tests/eval/coding/driver/focus.ts`: `createFocusGate`. `tests/eval/coding/driver/screen.ts`: 서버("사람이 붙는 길"). driver.ts가 session마다 부른다.
 10. `tests/eval/coding/driver/attach.ts`: client. `focus_test.ts`: 위험 test(아래).
 11. `host.ts`의 `createCodingTerminalRequests` 조립에서 `focus: { whenFree: () => Promise.resolve() }`를 `focus: gate`로 바꾼다.
 

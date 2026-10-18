@@ -13,7 +13,7 @@
   - 판단 case 17개 가운데 L4-new 말고는 바꾸지 않는다.
 - 돌리는 방식: worker를 쓴다. orchestrate skill대로 한다. task id는 `ec-`로 시작한다.
 - 순서: 계약(wave 1) → driver, token 집계, 사람 역할, 재료 되살리기, 앱 check(wave 2) → 재료 data와 runner(wave 3) → 시나리오(wave 4) → 문서(lead).
-- 시작 조건: 계획 `eval-base`가 main에 land한 뒤. wave 3(재료)은 계획 `found-bugs`의 `fb-sdk-me`(`@me` package를 import한 앱이 app test에서 떨어지는 bug)가 land한 뒤. 그 전에는 brief만 있다. land하면 planner가 `wrap-plan`으로 base를 닫고, 이 brief를 실제 코드와 대조해 맞춘 뒤 lead를 띄운다.
+- 시작 조건: 계획 `eval-base`가 main에 land한 뒤. wave 3(재료)은 계획 `found-bugs`의 `fb-sdk-me`(`@me` package를 import한 앱이 app test에서 떨어지는 bug)와 `fb-rewind-unchanged`(바꿀 것 없는 write app-api가 떨어지는 bug)가 land한 뒤. 그 전에는 brief만 있다. land하면 planner가 `wrap-plan`으로 base를 닫고, 이 brief를 실제 코드와 대조해 맞춘 뒤 lead를 띄운다.
 
 ## 정한 것
 
@@ -53,13 +53,19 @@ brief를 쓸 때 코드로 확인하고 brief에 적는다.
 - **coding agent의 model**: 그 model을 고르는 제품 길.
 - **coding token을 받는 길**: activate.ts의 "coding token은 Gateway `coding_terminal` frame으로만 받는다"가 진짜 CLI에서 어떻게 되는지.
 
+## 터미널 앞의 사람 몫(사람: 추천대로)
+
+제품은 이 셋을 터미널 앞의 사람에게 맡긴다(`project-docs/architecture/coding-agent.md`). eval에는 그 사람이 없어 이렇게 정했다.
+
+1. folder trust: Claude Code는 새 폴더마다 trust를 묻고, 그동안 hook이 돌지 않는다. 이 화면을 넘기는 flag는 없고, 믿은 상위 폴더 아래에서는 묻지 않는다. 그래서 trial root를 전용 폴더 `/tmp/lophn-eval` 아래에 두고, 사람이 그 폴더를 한 번 믿는다. runner가 `TMPDIR`을 그쪽으로 돌린다.
+2. 권한 물음: eval 전용 flag 없이 사람의 권한 mode를 그대로 쓴다. 그래도 뜬 물음은 `waiting`으로 남기고 기록한다.
+3. hook과 skill: 사람이 한 번 개발 실행 꼴(main checkout CLI 절대 path)로 설치한다. eval은 `dry_run`으로 확인만 하고 없으면 명령을 찍는다.
+
+1과 3은 첫 진짜 run 전에 사람이 한 번씩 한다. lead가 그때 사람에게 부탁한다.
+
 ## 사람이 정할 것
 
-터미널 앞의 사람 몫. 제품은 이 셋을 터미널 앞의 사람에게 맡긴다(`project-docs/architecture/coding-agent.md`). eval에는 그 사람이 없다. 추천을 기본 길로 brief에 적어 두고, 사람이 정하면 맞춘다.
-
-1. folder trust: Claude Code는 새 폴더마다 trust를 묻고, 그동안 hook이 돌지 않는다. 이 화면을 넘기는 flag는 없고, 믿은 상위 폴더 아래에서는 묻지 않는다. 추천: trial root를 전용 폴더 하나(예: `/tmp/lophn-eval`) 아래에 두고, 사람이 그 폴더를 한 번 믿는다. runner가 `TMPDIR`을 그쪽으로 돌린다.
-2. 권한 물음: 추천은 eval 전용 flag 없이 사람의 권한 mode를 그대로 쓴다. 그래도 뜬 물음은 `waiting`으로 남기고 기록한다.
-3. hook과 skill: 지금 설치되어 있지 않다. 추천: 사람이 한 번 개발 실행 꼴(main checkout CLI 절대 path)로 설치한다. eval은 `dry_run`으로 확인만 하고 없으면 명령을 찍는다.
+- 없음.
 
 ## lead가 할 일
 

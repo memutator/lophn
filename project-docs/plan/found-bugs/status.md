@@ -6,4 +6,5 @@ lead만 고친다. `tools/status.py found-bugs build`가 `tasks/*.md`에서 id, 
 |---|---|---|---|---|---|---|---|
 | `fb-cli-json` | fb-cli-json | 1 | 없음 | todo |  |  |  |
 | `fb-eval-dirty` | fb-eval-dirty | 1 | 없음 | todo |  |  |  |
+| `fb-rewind-unchanged` | fb-rewind-unchanged | 1 | 없음 | todo |  |  |  |
 | `fb-sdk-me` | fb-sdk-me | 1 | 없음 | todo |  |  |  |

@@ -51,9 +51,15 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    먼저 읽는다.
 4. 쓸 package를 찾는다. 새 code를 쓰기 전에 이 앱이 의존으로 선언한 package의
    API와 예제를 읽는다. 내장 SDK(`@lophn/app-ui`, `@lophn/blueprint`,
-   `@lophn/cap-*`)는 앱 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의
-   `guide.md`를, 사용자 package는 `package show`를 읽는다. 선언되지 않은
-   package는 쓸 수 없다. UI는 `@lophn/ui/<분류>`에서 import한다.
+   `@lophn/cap-app-api`, `@lophn/cap-store`, `@lophn/cap-problem`,
+   `@lophn/cap-project`, `@lophn/cap-fs`, `@lophn/cap-net`,
+   `@lophn/cap-secret`)는 앱 `.lophn/import-map.json`이 가리키는 설치 사본
+   폴더의 `guide.md`를, 사용자 package는 `package show`를 읽는다. 외부
+   network(`cap-net`, 사람이 켠 host·port와 같은 컴퓨터의 loopback 서비스), 앱에
+   값이 없는 secret(`cap-secret`, `cap-net` 요청에 lophn이 붙인다), 허락된
+   경로의 file(`cap-fs`)은 이 셋으로만 한다. 쓰려면 blueprint에 `permissions`와
+   `sdk_dependencies`가 있어야 하므로 5번처럼 App Engineer에게 청한다. 선언되지
+   않은 package는 쓸 수 없다. UI는 `@lophn/ui/<분류>`에서 import한다.
    - primitives: Button, Icon 등 기본 조작
    - input: form 칸과 filter
    - layout: AppShell, Grid, Card 같은 페이지 틀

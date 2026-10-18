@@ -1,20 +1,16 @@
 // <home>/shell/layout.json은 main만 쓴다. 원자 교체 temp 파일 뒤 rename이고,
 // 폴더 0700·파일 0600(Windows는 mode bit가 없어 기본 ACL이 사용자 limit이다)을
 // 유지한다. 본문·결정·token은 여기 남지 않는다.
-import { chmod, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
+import {
+  defaultStoreDeps,
+  fsError,
+  type StoreDeps,
+  type StoreResult,
+  writeFileAtomic,
+} from "./atomic-file.ts";
 import { type LayoutResult, parseLayoutFile } from "./layout.ts";
-
-type StoreError =
-  | { code: "not_a_directory"; message: string }
-  | { code: "unreadable"; message: string }
-  | { code: "unwritable"; message: string }
-  | { code: "internal"; message: string };
-
-type StoreResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: StoreError };
 
 /** layout.json 파일 경로. `<root>/shell/layout.json` 고정이다. */
 function layoutPath(dataRoot: string): string {
@@ -28,51 +24,12 @@ export interface LayoutStore {
   write(content: string): Promise<StoreResult<null>>;
 }
 
-/** chmod까지 store가 쓰는 최소 fs 폭. 테스트가 가짜를 끼운다. */
-interface StoreDeps {
-  chmod(path: string, mode: number): Promise<void>;
-  mkdir(
-    path: string,
-    options: { recursive: true; mode: number },
-  ): Promise<string | undefined>;
-  open(path: string, flags: string, mode: number): Promise<FileHandleLike>;
-  readFile(path: string): Promise<Uint8Array>;
-  rename(from: string, to: string): Promise<void>;
-  unlink(path: string): Promise<void>;
-}
-
-/** open이 돌려주는 최소 handle 폭. */
-interface FileHandleLike {
-  writeFile(data: string, options: { encoding: "utf8" }): Promise<void>;
-  chmod(mode: number): Promise<void>;
-  close(): Promise<void>;
-}
-
-/** Linux·macOS 0700 폴더·0600 파일. Windows는 동등 ACL이 사용자 limit이다. */
-const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
-
-const INTERNAL = "layout storage is not accessible";
-
-function fsError(code: StoreError["code"]): StoreError {
-  return { code, message: INTERNAL };
-}
-
 export function createLayoutStore(
   dataRoot: string,
   deps: Partial<StoreDeps> = {},
 ): LayoutStore {
-  const impl: StoreDeps = {
-    chmod,
-    mkdir,
-    open,
-    readFile,
-    rename,
-    unlink,
-    ...deps,
-  };
+  const impl: StoreDeps = { ...defaultStoreDeps, ...deps };
   const file = layoutPath(dataRoot);
-  const dir = dirname(file);
   return {
     async read(): Promise<StoreResult<LayoutResult | null>> {
       let raw: Uint8Array;
@@ -95,35 +52,8 @@ export function createLayoutStore(
       }
       return { ok: true, value: parseLayoutFile(parsed) };
     },
-    async write(content: string): Promise<StoreResult<null>> {
-      const temp = `${file}.tmp`;
-      try {
-        await impl.mkdir(dir, { recursive: true, mode: DIR_MODE });
-        // 같은 폴더 안 temp 파일 뒤 rename이 원자 교체다. 남은 temp는 먼저 뺀다.
-        await impl.unlink(temp).catch(() => {});
-        const handle = await impl.open(temp, "w", FILE_MODE);
-        try {
-          await handle.writeFile(content, { encoding: "utf8" });
-          await handle.chmod(FILE_MODE);
-        } finally {
-          await handle.close();
-        }
-        await impl.rename(temp, file);
-        // umask가 mode를 좁혔을 수 있다. rename 뒤 파일 mode를 고정한다.
-        await impl.chmod(file, FILE_MODE).catch(() => {});
-        return { ok: true, value: null };
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        // 직전 파일을 그대로 둔다. temp만 뺀다.
-        await impl.unlink(temp).catch(() => {});
-        if (code === "ENOTDIR" || code === "EEXIST" || code === "EISDIR") {
-          return { ok: false, error: fsError("not_a_directory") };
-        }
-        if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
-          return { ok: false, error: fsError("unwritable") };
-        }
-        return { ok: false, error: fsError("internal") };
-      }
+    write(content: string): Promise<StoreResult<null>> {
+      return writeFileAtomic(file, content, impl);
     },
   };
 }

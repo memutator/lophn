@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py eval-experiment build`가 `tasks/*.md`에서
 | `ex-spec` | ex-spec | 1 | 없음 | merged | ex-spec/ex-spec | 9765eacf6 |  |
 | `ex-assembly` | ex-assembly | 2 | ex-spec | merged | ex-assembly/ex-assembly | 3cc2b21d5 |  |
 | `ex-gate` | ex-gate | 2 | ex-spec | merged | ex-gate/ex-gate | f2326964a |  |
-| `ex-human-agent` | ex-human-agent | 2 | ex-spec, ex-judge-agent | running | ex-human-agent/ex-human-agent |  |  |
+| `ex-human-agent` | ex-human-agent | 2 | ex-spec, ex-judge-agent | merged | ex-human-agent/ex-human-agent | 06224279d |  |
 | `ex-judge-agent` | ex-judge-agent | 2 | ex-spec | merged | ex-judge-agent/ex-judge-agent | 1862fb958 |  |
 | `ex-overfit` | ex-overfit | 2 | ex-spec | merged | ex-overfit/ex-overfit | dd889d9b9 |  |
 | `ex-parallel` | ex-parallel | 2 | 없음 | merged | ex-parallel/ex-parallel | 1a1101bdf |  |

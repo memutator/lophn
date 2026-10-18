@@ -1,6 +1,6 @@
 ---
 name: lophn-repair
-description: "맡겨진 수리 ticket 하나로 lophn 앱의 문제를 고치는 절차. lophn CLI로 ticket 읽기와 claim, 문제 근거 읽기, 수정, release 준비, 원래 증상 테스트와 preview, claim 재확인, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않고 조사만 요청받으면 수리하지 않는다."
+description: "맡겨진 수리 ticket 하나로 lophn 앱의 문제를 고치는 절차. lophn CLI로 ticket 읽기와 claim, 문제 근거 읽기, 수정, release 준비, 실제 테스트와 preview, claim 재확인, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않고 조사만 요청받으면 수리하지 않는다."
 ---
 
 # lophn 수리
@@ -25,7 +25,8 @@ claim하지 않는다. claim은 ticket에만 있다. 통로는 `lophn` CLI 하�
 
 - ticket: `ticket list`, `ticket show`, `ticket claim`, `ticket renew`,
   `ticket report`
-- 문제: `problem list`, `problem show`, `problem more`, `problem diff`
+- 문제: `problem list`, `problem show`, `problem more`, `problem diff`,
+  `problem occurrence`, `problem body`
 - 앱: `app show`, `app status`, `app blueprint`, `app invocations`, `app logs`,
   `app test`, `app test status`, `app test result`, `app preview start`,
   `app preview stop`
@@ -38,8 +39,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 ## 순서
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 대상 문제, 증상, 근거, acceptance
-   check(하나. `app_test`, `test_command`, `text` 중 하나), 볼 곳과 지킬 것을
-   읽는다.
+   check(하나. `app_test`, `examples`, `text` 중 하나), 볼 곳과 지킬 것을
+   읽는다. check가 예시(`examples`)이면 api와 입력, 기대 결과를 그대로 읽는다.
+   수리 ticket의 예시는 원래 증상을 보이는 호출과 고쳐진 기대 결과다. 예시는
+   고치지 않는다. 틀린 것 같으면 `message send`로 App Engineer에게 청한다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    `claim_seq`와 `expires_at`을 기억하고 기한 전에 필요하면 `ticket renew`를
    부른다.
@@ -47,8 +50,11 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    순서는 [수리 조사 순서](references/investigation.md)를 따른다.
 4. 필요한 근거를 더 읽는다. 잘렸거나 부족한 것은 `problem more`에 문제와
    `kind`를 주어 한 종류씩 읽는다. 두 release 사이 source 차이는
-   `problem diff`로 읽는다. 앱 쪽 사실은 `app status`, `app invocations`,
-   `app logs`로 읽는다. 전체 목록이나 전체 log를 한 번에 가져오지 않는다.
+   `problem diff`로 읽는다. 이름이 붙은 보고 하나의 message 앞부분, details
+   hash, snapshot은 `problem occurrence`로 읽고, 그 보고의 message·details나
+   snapshot log의 본문이 필요하면 `problem body`를 offset으로 나눠 읽는다. 앱 쪽
+   사실은 `app status`, `app invocations`, `app logs`로 읽는다. 전체 목록이나
+   전체 log를 한 번에 가져오지 않는다.
 5. 고친다. 원인 가설을 세우고 최소 변경으로 source를 고친다. 먼저 원래 증상을
    재현하는 테스트를 앱 `tests/`에 만들고 `deno task test`로 수리 전에는
    실패하고 수리 뒤에는 통과하는 것을 직접 확인한다. 직접 돌린 결과는 test
@@ -59,16 +65,15 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 6. release를 준비한다. 변경한 source를 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. 준비가 끝나면
    `bundle_hash`와 `test`(고정 시험 hash)가 나온다. 준비는 activation이 아니다.
-7. 실제 테스트와 preview를 한다. `app test`의 `target.bundle_hash`와 `test`에
-   6에서 읽은 값을 넣어 ticket의 check를 요청한다. `app test`는 ticket의 check
-   하나를 돌리는 요청이다. `text` check는 runner가 돌리지 않는다. `app test`가
-   `unavailable`로 거절되면(check가 돌지 않는 경우) 다시 요청하지 않고, 돌리지
-   못한 확인으로 `ticket report`의 summary에 이유와 함께 적는다.
-   `app test status`로 `result_ref`를 읽고 `app test result`로 결과를 읽는다.
-   결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면 고쳐서
-   6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로 fixture
-   격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로 닫는다.
-   preview는 운영 정상의 증거가 아니다.
+7. 실제 테스트와 preview를 한다. `app test`는 플랫폼 검사다.
+   `target.bundle_hash`와 `test`에 6에서 읽은 값을 넣어 요청한다. 예시는 보고한
+   뒤 program이 보고한 release로 돌린다. 예시의 api를 그 입력으로 불렀을 때 기대
+   결과가 나오도록 고친다. `text` check는 runner가 돌리지 않는다(App Engineer가
+   판단한다). `app test status`로 `result_ref`를 읽고 `app test result`로 결과를
+   읽는다. 결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면
+   고쳐서 6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로
+   fixture 격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로
+   닫는다. preview는 운영 정상의 증거가 아니다.
 8. claim을 다시 확인한다. 보고하기 전에 `ticket show`로 이 claim이 아직 내 현재
    claim인지, 기한이 남았는지 본다. 만료·반납·회수로 claim을 잃었으면 보고를
    멈추고 `message send`로 알린다. 오래된 claim으로 결과를 제출하지 않는다.

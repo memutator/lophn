@@ -33,6 +33,18 @@ it points to.
   refusal, failed external calls, and fallbacks that continue silently. Give
   different causes different names. The coding agent places `reportProblem`
   calls there.
+- Write the acceptance check from the person's request, not from your guess of
+  the code. When the behavior can be called through an app-api, use `examples`:
+  pull out the app-api to call (a key you read with `blueprint.check` or
+  `app.app_api`), the input, and the expected result, in that order. For
+  example, call `event.add` to add a weekly event, then call `event.list` and
+  expect four weekly rows. In `expect`, write only the fields the person asked
+  for, not ids or times the app makes. Every key in `expect` must be in the
+  result and equal. An array must match in length too, and each item follows the
+  same rule. Do not invent a value the person did not give. If you do not know
+  it, `ask`. What cannot be called through an app-api (how a screen looks) and
+  what a setting fixes is `text`, which you judge with the person. Use
+  `app_test` only when the platform check is all that is needed.
 - Hand a ready ticket to the app's coding agent with `call`, in conversation
   mode. Choose the harness and run options, or leave them out to use the
   Settings default. The coding agent may message you when the blueprint or a
@@ -40,9 +52,13 @@ it points to.
   dependency and tell it. Only one coding agent session runs per app at a time.
 - When the coding agent reports completion, verify it with `ticket.verify`
   against the ticket's acceptance check and report the result to the person. A
-  verified ticket lets the program activate that release. If verification fails,
-  leave the ticket as failed and decide whether to hand it over again. If a
-  claim expires or a session ends without a report, decide the same.
+  verified ticket lets the program activate that release. The coding agent
+  cannot edit `examples`, and the program runs them on the reported release; a
+  ticket whose examples did not pass cannot be verified. If an example itself is
+  wrong, fix it with `ticket.update` and hand the ticket to the coding agent
+  again. If verification fails, leave the ticket as failed and decide whether to
+  hand it over again. If a claim expires or a session ends without a report,
+  decide the same.
 - When a problem opens or reopens, read it with `problem.get`, make a ticket
   that fixes it. Use `problem.set_state` only when the evidence supports the new
   state. Set a problem to resolved only after the release that fixes it is

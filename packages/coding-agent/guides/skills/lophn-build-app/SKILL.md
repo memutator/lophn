@@ -38,8 +38,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 목표, 근거(annotation의 메모,
    component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 보고할 실패
-   분기와 이름, 볼 곳과 지킬 것을 읽는다. 작업 가능하지 않다고 나오면 claim하지
-   않고 `message send`로 알린다.
+   분기와 이름, 볼 곳과 지킬 것을 읽는다. acceptance 조건이 예시(`examples`)이면
+   api와 입력, 기대 결과를 그대로 읽는다. 예시는 고치지 않는다. 틀린 것 같으면
+   `message send`로 App Engineer에게 청한다. 작업 가능하지 않다고 나오면
+   claim하지 않고 `message send`로 알린다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
    전에 `ticket renew`를 부른다.
@@ -88,13 +90,14 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    만료되었으면 준비하지 않고 먼저 `ticket show`로 claim을 확인한다. 준비가
    끝나면 `bundle_hash`와 `test`(고정 시험 hash)가 나온다. test는 이 bundle에
    대해서만 돌므로 source가 바뀌면 다시 준비한다. 준비는 activation이 아니다.
-8. 실제 테스트를 돌린다. `app test`의 `target.bundle_hash`와 `test`에 7에서 읽은
-   값을 넣어 ticket의 test 조건을 요청한다. `app test status`에 `request_key`를
+8. 실제 테스트를 돌린다. `app test`는 플랫폼 검사다. `target.bundle_hash`와
+   `test`에 7에서 읽은 값을 넣어 요청한다. `app test status`에 `request_key`를
    주어 접수와 `result_ref`를 읽고, `app test result`에 `result_ref`를 주어
    통과·실패와 이유를 읽는다. 결과는 runner가 낸 test result다. 실패·timeout·
    미실행이면 원인을 고쳐 다시 준비하고 요청한다. 통과 전에 보고하지 않는다.
    source가 바뀌면 이전 통과를 쓰지 않는다. 직접 돌린 shell 결과는 test result가
-   아니다.
+   아니다. 예시는 보고한 뒤 program이 보고한 release로 돌린다. 예시의 api를 그
+   입력으로 불렀을 때 기대 결과가 나오도록 만든다.
 9. preview로 확인한다. `app preview start`로 fixture 격리 preview를 열고 화면과
    app api를 확인한 뒤 `app preview stop`으로 닫는다. preview 결과는 운영이
    정상이라는 증거가 아니다.

@@ -45,8 +45,9 @@ Package를 쓴다.
 
 ## 테스트·preview·결과 반환
 
-- 실제 테스트는 지정한 test command로 돌린다. 직접 돌린 shell log는 test
-  result가 아니다. 통과 전에 release 준비를 시도하지 않는다.
+- 실제 테스트는 `lophn app test`(플랫폼 검사)로 돌린다. ticket의 예시
+  (`examples`)는 고치지 않고, 보고한 뒤 program이 보고한 release로 돌린다. 직접
+  돌린 shell log는 test result가 아니다.
 - preview는 fixture 격리 사본에서 화면·app-api를 확인하는 것뿐이고 운영 정상의
   증거가 아니다.
 - 보고할 때 완료 주장·preview에서 본 동작·runner가 낸 실제 test result·release

@@ -25,7 +25,7 @@ planner는 사람과 무엇을 할지 정하고, 그것을 계획으로 열어 l
 
 1. 큰 일은 먼저 `project-docs/products/roadmap/<주제>.md`에 쓴다. 쓰기 전에 worker에게 지금 코드의 사실(path, 함수, 개수)을 조사시킨다. 사실은 path와 숫자로 쓴다.
 2. 계획은 `project-docs/plan/<계획>/README.md`로 연다(꼴은 `project-docs/plan/README.md`). roadmap의 "정할 것"은 위 "정하기"로 정해 "정한 것" 절에 근거와 함께 둔다. 사람이 정할 것이 남으면 그것만 묻는다.
-3. brief는 worker 하나에게 쓰게 한다(계획 하나의 task는 서로 얽혀 있으니 한 손으로). worker에게 줄 것: AGENTS.md, 계획 README, roadmap, `.claude/skills/orchestrate/brief-template.md`(파싱되는 줄 꼴), 실제 코드로 path·export를 확인할 것, 같은 wave에서 소유가 겹치면 선행으로 묶을 것, 문서 밖 요구를 만들지 말 것, `project-docs/plan/<계획>/` 밖을 고치지 말 것.
+3. 결정이 README의 정한 것에 다 있고 task가 몇 개뿐이면 brief를 쓰지 않는다. lead가 worker prompt에 할 일과 소유 path를 바로 쓰고 띄운다(사람: "brief를 왜 굳이 하냐, 바로 worker 돌리면 된다"). task가 많거나 계약을 먼저 고정해야 할 때만 brief를 쓴다. brief는 worker 하나에게 쓰게 한다(계획 하나의 task는 서로 얽혀 있으니 한 손으로). worker에게 줄 것: AGENTS.md, 계획 README, roadmap, `.claude/skills/orchestrate/brief-template.md`(파싱되는 줄 꼴), 실제 코드로 path·export를 확인할 것, 같은 wave에서 소유가 겹치면 선행으로 묶을 것, 문서 밖 요구를 만들지 말 것, `project-docs/plan/<계획>/` 밖을 고치지 말 것.
 4. 받은 brief를 검토한다: README의 정한 것과 다르게 간 곳, 남겨 둔 구조의 근거(위 "정하기"), 계획을 건너는 소유 겹침. `python3 -I project-docs/plan/tools/status.py <계획> build`로 상태 표를 만들고 commit한다.
 5. lead에게 줄 프롬프트를 쓴다: `lead/lead.sh <계획>`으로 worktree를 열고 거기서만 일하기, 먼저 읽을 것, 도구(계획 이름이 첫 인자), 이 계획에서 특히 볼 것(위험, 동작이 바뀌는 곳, lead가 직접 할 선행 작업), 끝나면 할 문서, 사람에게 묻는 것.
 

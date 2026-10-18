@@ -1,5 +1,5 @@
 """사용: python3 -I prompt.py <계획> <id> <branch> [note]
-worker 지시문을 찍는다. 그대로 Agent prompt로 쓴다. main checkout의 것을 돌린다.
+worker 지시문을 영어로 찍는다(AGENTS.md: worker와는 영어로만 말한다). 그대로 Agent prompt로 쓴다. main checkout의 것을 돌린다.
 note는 이 task에만 해당하는 "알아 둘 것"이다."""
 import os, subprocess, sys
 if len(sys.argv) < 4:
@@ -8,30 +8,31 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 # task worktree는 main checkout의 .claude/worktrees/ 아래에 있다(lead worktree 안이 아니다).
 MAIN = os.path.dirname(subprocess.run(["git", "-C", ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, text=True).stdout.strip())
 plan, tid, branch = sys.argv[1], sys.argv[2], sys.argv[3]
-note = sys.argv[4] if len(sys.argv) > 4 else "없음"
+note = sys.argv[4] if len(sys.argv) > 4 else "none"
 if not os.path.exists(os.path.join(ROOT, "project-docs/plan", plan, "tasks", f"{tid}.md")):
     sys.exit(f"brief 없음: project-docs/plan/{plan}/tasks/{tid}.md")
-print(f"""lophn task `{tid}`를 해 줘.
+print(f"""Do the lophn task `{tid}`.
 
-- 작업 위치: {MAIN}/.claude/worktrees/{tid} (branch {branch}). 이 worktree 밖의 file은 고치지 않는다.
-- 먼저 읽을 것:
-  1. 작업 위치의 AGENTS.md (특히 "속도": 프로토타입이다. 가장 단순한 구현, 미리 일반화·방어 코드 금지)
-  2. {ROOT}/project-docs/plan/{plan}/tasks/{tid}.md (이 task의 brief. 끝의 "(lead가 더함)" 항목이 있으면 그것도 할 일이다)
-  3. brief의 "읽을 것"
-- 고칠 수 있는 것은 brief의 "소유" path뿐이다. "추가 소유"는 lead가 승인했으니 그 줄이 말한 범위만 같이 고친다. 자기 module의 내부 모양을 바꿔 남의 file이 컴파일되지 않으면 그 줄만 최소로 맞추고 보고의 "넘길 줄"에 적는다. 그 밖의 path가 필요하면 고치지 말고 보고한다.
-- brief의 "계약"에 적힌 고정된 계약(protocol, port, shell IPC, preload)은 고치지 않는다. 바꿀 것이 있으면 바꾸기 요청을 보고에 적는다. brief가 말하는 계약 이름이 main과 다르면 main의 계약이 맞다.
-- import를 끊으려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 `tools/check-deps.ts`의 이름 있는 예외로 두고 보고한다.
-- 지우거나 옮기거나 값을 바꾼 이름과 숫자(예: 1 MiB)는 `grep -rn`으로 찾아 주석과 오류 메시지에 남은 것도 고친다. 규칙을 옮기거나 모을 때 같은 표나 규칙이 이미 있으면 사본을 새로 만들지 않고 그것을 쓴다.
-- test는 깨지면 정말 곤란한 것에만 몇 개 쓴다(`.claude/skills/write-test`). E2E, 브라우저, 스크린샷, subprocess·서버를 띄우는 test는 새로 만들지 않는다(brief가 정한 `tests/e2e`의 flow만 예외).
-- Bash 호출마다 cwd와 shell 변수가 처음으로 돌아간다. 명령마다 `cd {MAIN}/.claude/worktrees/{tid}; ...`로 시작하거나 절대 경로를 쓴다. worktree 밖(main checkout)에서 돌리지 않는다.
-- 확인은 `deno task check:full`과 core 기동 두 번이다. core는 띄우기부터 끄기까지 Bash 호출 하나로 한다(같은 data root로 두 번): `cd {MAIN}/.claude/worktrees/{tid}; mkdir -m 700 -p .dev-data/{tid}; export LOPHN_HOME=$PWD/.dev-data/{tid}; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/{tid}/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID; head -5 .dev-data/{tid}/core.log`. `;`로 잇고 `&&` 사슬이나 `( ... )`로 묶어 background로 보내지 않는다(그러면 `$!`가 subshell이라 deno가 남는다). ps·fuser·ss로 찾지 않는다. pkill·killall은 쓰지 않는다. 실제 `~/.lophn`은 절대 건드리지 않는다.
-- 임시 file(move-files mapping, probe 출력 등)은 worktree 안 `.dev-data/{tid}/`에 둔다. session scratchpad는 같이 도는 다른 worker와 공유되어 같은 이름이면 서로 덮는다(남의 mapping으로 남의 file을 옮길 수 있다).
-- 명령이 auto mode classifier에 막히면 같은 일을 다른 명령으로 우회하지 않는다. 무엇이 막혔는지 보고하고 할 수 있는 데까지 한다.
-- 통과하면 이 branch에 commit한다. 메시지는 영어 명령형 한 줄과 본문, 끝에 `Co-Authored-By:` 줄(자기 model 이름). 요구 ID와 작업 번호는 넣지 않는다.
-- push, merge, rebase, 다른 branch 건드리기는 하지 않는다.
-- `packages/shell/main/node_modules`(symlink)와 `packages/shell/main/desktop/core/deno.lock`의 check 때 변경은 commit하지 않는다. 고친 file을 path로 add하고, commit 전에 `git diff --cached --stat`을 본다.
-- 자기 sub agent를 띄우지 않는다. project-docs는 고치지 않는다.
-- 막히면 추측으로 넘어가지 말고, 할 수 있는 데까지 하고 보고한다. 맡은 일을 "시간이 부족했다"며 남기지 않는다.
-- 보고는 brief의 "보고" 꼴로 짧게 쓴다. "무겁게 짠 것"(가장 단순한 구현보다 무겁게 짠 곳)과 "알려진 미완 동작" 칸을 빼지 않는다.
+- Work location: {MAIN}/.claude/worktrees/{tid} (branch {branch}). Do not edit any file outside this worktree.
+- Read first:
+  1. AGENTS.md in the work location (especially "속도": this is a prototype; simplest implementation, no speculative generalization or defensive code).
+  2. {ROOT}/project-docs/plan/{plan}/tasks/{tid}.md — the brief for this task (Korean). Items marked "(lead가 더함)" at the end are also part of the work.
+  3. The files listed under the brief's "읽을 것".
+- You may edit only the paths under the brief's "소유". "추가 소유" lines were approved by the lead; edit only the range they name. If changing your module's internal shape breaks compilation of someone else's file, adjust only that line minimally and list it under "넘길 줄" in your report. If you need any other path, do not edit it; report it.
+- Do not change fixed contracts named in the brief's "계약" (protocol, ports, shell IPC, preload). If one must change, write a change request in your report. If a contract name in the brief differs from main, main is right.
+- Never read another module's tables with direct SQL to cut an import. If an import cannot be cut, leave it as a named exception in `tools/check-deps.ts` and report it.
+- For every name or number you delete, move or change, `grep -rn` and fix comments and error messages that still mention it. When moving or merging a rule, reuse an existing table or rule instead of creating a copy.
+- Tests only for what would really hurt if broken (`.claude/skills/write-test`). Do not create new E2E, browser, screenshot, subprocess or server tests (only the `tests/e2e` rows the brief defines are allowed).
+- Each Bash call starts fresh (cwd and variables reset). Start every command with `cd {MAIN}/.claude/worktrees/{tid}; ...` or use absolute paths. Never run in the main checkout.
+- Verify with `deno task check:full` (it can take several minutes; run it in the background and wait for the notification) and two core boots. Boot core in a single Bash call, twice on the same data root: `cd {MAIN}/.claude/worktrees/{tid}; mkdir -m 700 -p .dev-data/{tid}; export LOPHN_HOME=$PWD/.dev-data/{tid}; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/{tid}/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID; head -5 .dev-data/{tid}/core.log`. Chain with `;`, not `&&` or `( ... )` (then `$!` is a subshell and deno stays alive). Never find processes with ps/fuser/ss; never use pkill/killall. Never touch the real `~/.lophn`.
+- Put temporary files (mappings, probe output) under `.dev-data/{tid}/` in the worktree. The session scratchpad is shared with other workers running at the same time, so the same file name overwrites theirs.
+- If the auto-mode classifier blocks a command, do not work around it with another command. Report what was blocked and do what you can.
+- When checks pass, commit on this branch: an English imperative subject line and a body, ending with a `Co-Authored-By:` line with your model name. No requirement ids or task numbers.
+- Do not push, merge, rebase, or touch other branches.
+- Do not commit changes to `packages/shell/main/node_modules` (symlink) or `packages/shell/main/desktop/core/deno.lock` made by the check. Add files by path and look at `git diff --cached --stat` before committing.
+- Do not start sub-agents. Do not edit project-docs.
+- Never call a real model provider.
+- If blocked, do not guess past it; do what you can and report. Do not leave assigned work undone for "lack of time".
+- Report in English, short, in the brief's "보고" shape. Never drop the "무겁게 짠 것" (where you built heavier than the simplest implementation) and "알려진 미완 동작" sections.
 
-알아 둘 것: {note}""")
+Notes from the lead: {note}""")

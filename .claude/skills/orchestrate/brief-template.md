@@ -22,7 +22,7 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 - 읽을 것:
   - architecture: `project-docs/architecture/<topic>.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `<boundary ID>`, `project-docs/module-catalog.yaml`의 `<module ID>`
-  - 본보기(화면): `tools/wireframes/frames/<frame>`
+  - 본보기(화면): `tools/wireframes/pages/screens/<영역>.tsx`
   - 제품 결정: `project-docs/PRODUCT.md`의 <절>
 - 계약:
   - 쓰는 것: <고정된 protocol, port, IPC의 file과 이름>
@@ -43,7 +43,7 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages.ts`, `deno.json`)
+- 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳

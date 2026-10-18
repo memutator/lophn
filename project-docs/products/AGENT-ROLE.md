@@ -43,7 +43,7 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 - A5. ticket을 맡기기 전에, App Engineer가 앱이 쓸 package와 정확한 version을 골라 blueprint의 의존에 고정한다.
 - A6. ticket이 준비되면, App Engineer가 harness와 실행 옵션(여는 방식 포함, 지금은 tui)을 고르고(정하지 않으면 Settings 기본) coding agent에게 맡긴다.
 - A7. coding agent의 메시지가 오면, App Engineer가 답하거나 blueprint와 의존을 고친다.
-- A8. coding agent가 완료를 보고하면, App Engineer가 ticket의 acceptance check로 검증하고 그 결과를 사람에게 올린다. 검증이 통과해 ticket이 확인됨이 되면 program이 그 release를 activate한다.
+- A8. coding agent가 완료를 보고하면, App Engineer가 ticket의 check로 검증하고 그 결과를 사람에게 올린다. check가 `examples`(App Engineer가 ticket에 쓴 app-api 예시)면 program이 보고된 release에서 예시를 불러 비교하고 결과를 ticket에 남기며, pass가 기록된 뒤에만 ticket이 확인됨이 된다. coding agent는 예시를 고치지 못한다. ticket이 확인됨이 되면 program이 그 release를 activate한다.
 - A9. 검증이 실패하면, App Engineer가 ticket을 확인 실패로 두고 다시 맡길지 정한다.
 - A10. claim이 만료되거나 coding agent session이 완료 보고 없이 끝나면, App Engineer가 그 ticket을 다시 맡길지 정한다. (다시 맡길지 정하는 것은 제안)
 - A11. activation이 실패해 program이 부르면, App Engineer가 실패 근거를 읽고 고칠 ticket을 만든다. (제안)
@@ -51,6 +51,7 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 - A13. 앱이 읽을 자료 묶음이 필요하면, App Engineer는 Project Manager에게 결과를 받는 call로 맡긴다. (제안)
 - A14. 사람이나 lophn이 그 앱의 Operator를 청하면, App Engineer가 그 앱에 Operator를 만들거나 고친다. 다른 앱의 Operator는 다루지 않는다.
 - A15. 앱을 만들거나 기능을 더하는 ticket을 만들 때, App Engineer는 보고할 실패 분기와 이름을 ticket에 적고, coding agent가 그 자리에 `reportProblem`을 둔다.
+- A16. 문제를 해결됨으로 닫을 때, App Engineer는 그 문제의 마지막 발생 뒤에 고친 release가 active가 된 뒤에만 닫을 수 있다(program이 막는다). 고친 release 없이 닫을 일이면 사람에게 묻는다.
 
 ### Operator
 

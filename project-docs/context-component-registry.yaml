@@ -56,7 +56,7 @@ components:
   - id: tool-check
     kind: tool
     roles: [all]
-    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, test를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, wording, kit, shell(fmt, lint, main, main test), test, wording·token 생성물 비교를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
     run: deno task check
     change_reasons:
@@ -327,7 +327,7 @@ components:
   - id: tool-lead
     kind: tool
     roles: [lead]
-    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. check:full과 deno task e2e 뒤), route 중복 검사와 core 두 번 기동(boot.sh).
+    description: lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. check:full과 e2e:deps, deno task e2e 뒤), route 중복 검사와 core 두 번 기동(boot.sh).
     path: project-docs/plan/tools/lead/
     run: project-docs/plan/tools/lead/lead.sh <계획> / launch.sh <계획> <id>... / prompt.py <계획> <id> <branch> "<알아 둘 것>" / merge.sh <계획> <id> / land.sh <계획>
     change_reasons:
@@ -356,12 +356,12 @@ components:
   - id: tool-test-live
     kind: tool
     roles: [lead]
-    description: 진짜 Anthropic·OpenAI를 부르는 provider live 시험. 사람이 key를 줄 때만 돈다. key가 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.
+    description: 진짜 Anthropic·OpenAI를 부르는 provider live 시험과, live 전용 root(.dev-data/live/home)에 사람이 저장한 ChatGPT 구독 로그인으로 도는 구독 OAuth 시험. 사람이 key를 주거나 login했을 때만 돈다. 둘 다 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.
     path: tests/live/
-    run: deno task test:live
+    run: deno task test:live / deno task test:live:login
     change_reasons:
       boundaries: [models]
-      paths: [packages/core/lophn-agent/models/snapshot.json]
+      paths: [packages/core/lophn-agent/models/snapshot.json, packages/core/lophn-agent/providers/reported-models.ts]
 
   # ── worker ──
 

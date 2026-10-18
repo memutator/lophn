@@ -29,7 +29,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 | 화면 모양 | `packages/shell/renderer/...` 해당 component와 `.module.css` |
 | 여러 화면이 쓰는 조각 | 사용자 앱도 쓸 범용이면 `packages/design/components/<분류>/<이름>/` (tsx, module.css), 그 분류의 `mod.ts`에 export. 분류는 primitives, input, layout, navigation, data, feedback, overlay, reading이고 지원 export는 `_shared`다. import는 `@lophn/ui/<분류>`(`_shared`는 `@lophn/ui/shared`, token은 `@lophn/ui`). lophn만의 뜻(session, agent, harness)이 박힌 것이면 `packages/shell/renderer/parts/<이름>/` (Avatar, VendorIcon, TabStrip) |
 | token(색, 간격, 글자) | `packages/design/tokens.ts`. 값을 CSS에 직접 쓰지 않고 token(var)을 쓴다 |
-| fake data | renderer의 `testdata/fake-source.ts`, `workspace/fake-source.ts`, `desktop/dev-mock/`. gallery의 예시 data는 `tools/wireframes/mock/`(예: `mock/phroner-data.ts`) |
+| fake data | renderer 영역마다 `fake-source.ts`와 `testdata/`(예: `workspace/fake-source.ts`, `desktop/settings/providers/testdata/`), `desktop/dev-mock/`. gallery의 예시 data는 `tools/wireframes/mock/`(예: `mock/phroner-data.ts`) |
 | kit page | `tools/wireframes/pages/kit/<분류>/` (분류마다 `page.tsx` 하나가 그 분류 `mod.ts`의 component를 실제 component로 상태별로 그린다), token은 `pages/kit/tokens/`, `@lophn/app-ui`는 `pages/kit/app-ui/` |
 | page 목록과 화면 연결 | 영역 file 하나가 자기 page를 낸다: `pages/kit/<분류>/index.tsx`, `pages/screens/<영역>.tsx`, `drafts/index.tsx`. `pages/index.ts`의 `GROUPS`(Kit · Screens · Drafts > 영역 > page)가 모은다 |
 
@@ -56,16 +56,6 @@ deno task check
 - step `kit`(`tools/check-kit.ts`)이 kit 동기화를 본다. (1) `tools/wireframes`의 CSS는 `drafts/` 안과 `gallery.module.css`, `pages/kit/kit.module.css`에만 있다. (2) 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component)마다 `pages/kit/` 아래에 한 번은 나온다. (3) design의 `.tsx`는 분류 폴더(8개와 `_shared`) 안에만 있고, 값을 내보내는 `export { … } from` 문마다 윗줄에 `//` 한 줄 문서가 있다. design에 component를 더하면 그 분류 kit page에 견본을 같이 더한다.
 - renderer를 바꿨으면 `deno run -A packages/shell/renderer/build.ts`로 bundle이 서는지도 본다.
 
-## 확정된 화면을 앱에 옮기기
-
-gallery가 이미 renderer component를 그리므로 따로 옮기는 단계는 없다. 6장 한 줄을 처리하는 순서:
-
-1. "옮길 곳" 칸의 폴더에서 component를 연다.
-2. component 자체를 고친다. gallery에서만 덮어쓰던 CSS나 look-alike가 남아 있으면 component로 합치고 gallery 쪽은 지운다(예: Toast 단추 위치).
-3. `deno task wireframes`로 gallery가 그 모양인지 본다.
-4. `deno task check`.
-5. 6장 그 줄을 지우거나 "옮김"으로 고치지 않는다. 문서는 사람이 정한다. 옮긴 줄은 보고에 적는다.
-
 ## 함정
 
 - gallery는 iframe 안 고정 크기 창이다. 화면 root는 `position: absolute; inset: 0`이고 `100vh`와 fixed 배치가 그대로 맞는다. root 높이를 body에 기대면 Radix modal(Select, Menu, Dialog)이 열릴 때 접혀 보인다(`main.tsx`).
@@ -76,4 +66,4 @@ gallery가 이미 renderer component를 그리므로 따로 옮기는 단계는 
   - shell CSP(`style-src 'self'`)는 HTML 글에서 읽은 `style` 속성을 막는다. SVG markup을 문자열로 넣을 때 색을 `style`에 두면 앱에서만 사라진다(파일 아이콘이 안 보인 일이 있다). data 속성과 module CSS로 칠한다. React `style` prop과 `el.style`(CSSOM)은 된다.
   - 위쪽 바는 창 끌기 영역이고 `-webkit-app-region`은 자식에게 이어진다. 바 안에서 absolute로 내려오는 panel은 `no-drag`를 주지 않으면 클릭과 scroll이 창 끌기로 먹힌다.
   - 팔레트와 dialog는 overlay라는 다른 문서다. desktop 창의 `data-theme`이 닿지 않고, top bar는 overlay 밖이라 scrim이 덮지 않는다(`chrome.css`의 `data-overlay-modal` 띠가 덮는다).
-- 모양이 6장 규칙과 부딪히면 임의로 정하지 말고 사람에게 묻는다.
+- 모양이 위 "모든 화면의 규칙"과 부딪히면 임의로 정하지 말고 사람에게 묻는다.

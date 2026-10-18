@@ -67,7 +67,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(blueprint, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
-내장 sdk는 package catalog에 등록하지 않는다. coding agent는 import map이 가리키는 설치 사본의 `guide.md`를 읽는다(`packages/coding-agent/guides/skills/lophn-build-app/SKILL.md`). `package list`·`package show`는 사용자 package 몫이다.
+내장 sdk는 package catalog에 등록하지 않는다. coding agent는 import map이 가리키는 설치 사본의 `guide.md`를 읽는다(`packages/coding-agent/guides/skills/lophn-build-app/SKILL.md`). coding agent의 `package list`·`package show`는 사용자 package 몫이다. App Engineer의 `package.list`는 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `package.get`은 `@lophn/` 이름이면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모아 guide로 준다.
 
 ## gallery가 정본이다
 

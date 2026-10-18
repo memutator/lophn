@@ -15,7 +15,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 1. 계약(protocol, port, shell IPC, preload, design 공용 부품)은 고정한 뒤 lead만 고친다. worker는 바꿀 것을 보고에 요청으로 적고, lead가 작은 commit으로 고쳐 영향받는 `running` worker에게 SendMessage로 알린다.
 2. 단위마다 소유 path만 고친다. 남의 file은 import만 한다. 남이 쓰는 export는 더하기만 하고, 안 쓰게 된 것은 보고하면 lead가 합친 뒤 지운다.
-3. 공용 등록 file은 lead가 합친다: `deno.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `pages.ts`. worker는 "등록할 것"을 보고에 적는다.
+3. 공용 등록 file은 lead가 합친다: `deno.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
 4. 옛것과 새것이 잠시 같이 있어도 된다. 호환 장치(옛 이름 읽기, 옛 경로)는 만들지 않는다. 여러 영역이 쓰던 옛 계약은 마지막 cleanup이 지운다.
 5. main과 plan branch는 늘 빠른 check가 통과한다. main에는 land.sh(rebase, full check, core 기동)를 거친 것만 올라간다.
 6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker는 최대 8개다(core type check 하나가 약 2.6GB. RAM에 맞춰 `status.py`의 `MAX_WORKERS`를 고친다). full check는 동시에 2개까지다.
@@ -44,6 +44,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 Agent tool로 띄운다: `subagent_type: sonnet-high`, `run_in_background: true`, prompt는 `python3 -I project-docs/plan/tools/lead/prompt.py <계획> <id> <branch> "<알아 둘 것>"`의 출력 그대로.
 - model은 `sonnet-high`다. `mimo-v2.6-flash`는 쓰지 않는다. worker는 자기 sub agent를 띄우지 않는다.
 - 폴링하지 않는다. 끝나면 알림이 온다. 그 사이 다른 slot을 채운다.
+- worker와의 대화(prompt, SendMessage)는 영어로만 한다(AGENTS.md). `prompt.py`도 영어로 찍는다. 사람에게 하는 보고는 한국어다.
 
 worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록도 고친다):
 - 작업 위치(worktree 절대 경로)와 "그 밖의 file은 고치지 않는다".
@@ -87,7 +88,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 `project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → plan branch 위로 rebase → worktree `check:full` → plan branch로 ff-merge → plan branch `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
 - `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 wording catalog다. catalog 충돌은 두 쪽 key를 다 남기고 `deno run --allow-read --allow-write packages/design/wording/generate.ts`를 다시 돌린다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
-- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → core 두 번 기동 → main fast-forward. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
+- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → (`tests/e2e`에 test가 있으면) `deno task e2e:deps`, `deno task e2e` → core 두 번 기동 → main fast-forward. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
 - 계획이 끝나면 계획 폴더를 지운 commit까지 land하고 lead worktree와 plan branch를 지운다(`git worktree remove`, `git branch -d plan/<계획>`).
 - push는 사람 확인 뒤에만 한다.
 
@@ -120,6 +121,10 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
   - 맡은 항목 일부를 "시간이 부족했다"며 남겼다. 다시 맡기면 끝냈다.
 - schema 칸 이름을 바꾼 task 뒤에 type 오류가 나면 먼저 칸 이름(`run` → `turn` 같은 것)이 어긋난 곳을 의심한다.
 - merge가 도는 동안 plan branch에 commit하지 않는다. merge.sh가 rebase한 뒤 ff하려다 `STOP: ff failed`로 멈춘다. status·이슈 commit은 merge 사이에 한다.
+- land가 도는 동안 main에 commit하지 않는다. land.sh가 ff하려다 `STOP: main ff failed`로 멈춘다(두 번 그랬다).
+- land.sh가 rebase 충돌로 멈추면 lead worktree에서 풀고 `git add`, `git rebase --continue` 뒤 land.sh를 다시 돈다. changelog 열린 판의 끝 항목은 다른 계획과 늘 부딪힌다: 둘 다 남긴다. plan branch를 손으로 `git rebase main`하는 명령은 분류기가 막았다(worker branch가 그 위에 있을 때). land.sh 길로 한다.
+- lead가 쓸 문서(이슈 닫기, changelog, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.
+- wiring에 memory handler만 붙이고 팀 registration의 `memoryRoutes`에 route를 빼면 요청이 늘 `not_found`인데 check와 기동은 통과했다(여섯 route가 그랬다). 지금은 core 기동이 둘을 대조해 멈춘다.
 - check가 `packages/shell/main/desktop/core/deno.lock`을 고쳐 둔다. lead worktree나 task worktree에 그 변경이 남아 있으면 rebase가 막히니 merge·land 전에 `git checkout --`로 되돌린다.
 - fix task가 merge되면, 같은 길을 쓰는 running worker에게 그 사실을 바로 알리고 commit이 있으면 lead가 그 branch를 rebase한다. worker는 rebase할 수 없어서 옛 base에서 이미 고친 bug를 다시 쫓는다(앱 E2E worker 셋이 한 시간 가까이 그랬다).
 - 같은 기계에서 E2E가 "부하 때문" flake로 보이면 먼저 사용자 단위로 공유하는 자원(`XDG_RUNTIME_DIR` 아래 socket, `/tmp`의 고정 이름)을 의심한다. 앱 start flake 둘이 core끼리 같은 socket 경로를 쓴 제품 bug였다.

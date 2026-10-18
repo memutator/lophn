@@ -25,5 +25,6 @@ export {
   registerAuthored,
   resolveVersion,
   TEXT_KINDS,
+  type VariantTexts,
 } from "./registry.ts";
 export { captureSource, denoGit, type Git } from "./source.ts";

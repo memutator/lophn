@@ -148,6 +148,8 @@ export type BootOptions = {
   settings?: Record<string, unknown>;
   /** core process의 env에 더하는 값(예 DENO_DIR, XDG_RUNTIME_DIR). LOPHN_HOME·HOME·PATH는 덮지 못한다. */
   env?: Record<string, string>;
+  /** 다른 checkout(worktree)의 core를 시험할 때만 준다. 기본은 이 file이 있는 checkout. */
+  repo?: string;
 };
 
 export type StartResult =
@@ -181,6 +183,7 @@ export async function startCore(
     `${run.dir}/user-home`,
     logPath,
     options.env,
+    options.repo,
   );
   if (!result.ok) return result;
   const spawned = result;

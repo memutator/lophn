@@ -176,3 +176,32 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
     assertEquals(c.group === "skill" ? `skill:${c.name}` : c.group, want, path);
   }
 });
+
+Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {
+  await withTemp(async (dir) => {
+    const root = `${dir}/root`;
+    const registryDir = `${dir}/registry`;
+    await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" });');
+    await write(root, TOOL_GUIDE, 'defineTool({ name: "guide.read" });');
+    const variantLophn = `${lophn.value}\nvariant edit`;
+    const texts = {
+      role_prompts: {
+        lophn: variantLophn,
+        project_manager: "pm",
+        app_engineer: "ae",
+        operator: "op",
+      },
+      guides: {},
+    };
+    const call = [modelCall(variantLophn)];
+    const seen = (deps: object) =>
+      seenComponents([{ model_calls: call, tool_calls: [] }], {
+        root,
+        registryDir,
+        ...deps,
+      });
+    assertEquals((await seen({})).ok, false);
+    const r = await seen({ texts });
+    assertEquals(r.ok, true);
+  });
+});

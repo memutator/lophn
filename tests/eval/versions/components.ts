@@ -28,6 +28,7 @@ import {
   REGISTRY_DIR,
   REPO_ROOT,
   resolveVersion,
+  type VariantTexts,
 } from "./registry.ts";
 
 const ROLES = ["lophn", "project_manager", "app_engineer", "operator"];
@@ -41,7 +42,12 @@ const WORLD_TOOL = /^(app__|mcp__|ext_)/;
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 
-async function readRole(role: string): Promise<string> {
+async function readRole(role: string, texts?: VariantTexts): Promise<string> {
+  if (texts !== undefined) {
+    const text = texts.role_prompts[role];
+    if (text === undefined) throw new Error(`role prompt missing: ${role}`);
+    return text;
+  }
   const text = await rolePrompt(role);
   if (!text.ok) throw new Error(`role prompt missing: ${role}`);
   return text.value;
@@ -102,8 +108,11 @@ async function textComponent(
   return { kind, name, hash: await hashText(content), content };
 }
 
-async function measureInstruction(role: string): Promise<Measured> {
-  return textComponent("instruction", role, await readRole(role));
+async function measureInstruction(
+  role: string,
+  texts?: VariantTexts,
+): Promise<Measured> {
+  return textComponent("instruction", role, await readRole(role, texts));
 }
 
 // 같은 model 이름이면 늘 같은 n이다.
@@ -168,7 +177,7 @@ export async function currentVersions(
   const dir = deps.registryDir ?? REGISTRY_DIR;
   const measured: Measured[] = [];
   for (const role of ROLES) {
-    measured.push(await measureInstruction(role));
+    measured.push(await measureInstruction(role, deps.texts));
   }
   for (const name of await skillNames(root)) {
     const folder = (await skillFolder(root, name))!;
@@ -179,8 +188,11 @@ export async function currentVersions(
     );
     measured.push(await measureSkillDescription(name, manifest.description));
   }
-  for (const topic of guideTopics()) {
-    measured.push(await measureGuide(topic, guideText(topic)!));
+  const guides = deps.texts?.guides;
+  for (const topic of guides ? Object.keys(guides) : guideTopics()) {
+    measured.push(
+      await measureGuide(topic, guides ? guides[topic] : guideText(topic)!),
+    );
   }
   const tools = await toolFileTable(root);
   for (const name of TOOL_ORDER) {
@@ -257,7 +269,9 @@ export async function seenComponents(
   if (calls.length === 0) return ok([]);
   try {
     const roleByText = new Map<string, string>();
-    for (const role of ROLES) roleByText.set(await readRole(role), role);
+    for (const role of ROLES) {
+      roleByText.set(await readRole(role, deps.texts), role);
+    }
     const wire = new Map(TOOL_ORDER.map((n) => [toWireToolName(n), n]));
     const tools = await toolFileTable(root);
     const measured = new Map<string, Measured>();
@@ -278,7 +292,7 @@ export async function seenComponents(
           `system[0] matches no role prompt: ${String(first).slice(0, 80)}`,
         );
       }
-      add(await measureInstruction(role));
+      add(await measureInstruction(role, deps.texts));
       for (const t of body.tools) {
         const wireName = String(t.name);
         if (WORLD_TOOL.test(wireName)) continue;
@@ -307,7 +321,7 @@ export async function seenComponents(
       if (folder !== null) add(await measureSkill(folder, name));
     }
     for (const topic of opened.guides) {
-      const text = guideText(topic);
+      const text = deps.texts ? deps.texts.guides[topic] : guideText(topic);
       if (text !== undefined) add(await measureGuide(topic, text));
     }
 

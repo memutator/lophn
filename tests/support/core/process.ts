@@ -9,7 +9,6 @@ const GONE_TIMEOUT_MS = 15_000;
 const POLL_MS = 50;
 
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
-const MAIN = `${REPO}/packages/core/main/daemon/main.ts`;
 
 export type Spawned = {
   ok: true;
@@ -54,13 +53,19 @@ export async function spawnCore(
   userHome: string,
   logPath: string,
   env: Record<string, string> = {},
+  repo: string = REPO,
 ): Promise<Spawned | SpawnFailed> {
   for (const name of FIXED_ENV) {
     if (name in env) throw new Error(`core env ${name}는 덮을 수 없다`);
   }
   const command = new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-all", MAIN, "--port=0"],
-    cwd: REPO,
+    args: [
+      "run",
+      "--allow-all",
+      `${repo}/packages/core/main/daemon/main.ts`,
+      "--port=0",
+    ],
+    cwd: repo,
     clearEnv: true,
     env: {
       LOPHN_HOME: home,

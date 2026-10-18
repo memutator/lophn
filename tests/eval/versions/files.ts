@@ -177,7 +177,7 @@ export async function coreVersion(deps: Deps = {}): Promise<VersionRef> {
 
 // `tests/eval/checks/**`의 file(`_test.ts` 제외) 전체의 버전.
 export async function checksVersion(deps: Deps = {}): Promise<VersionRef> {
-  const root = deps.root ?? REPO_ROOT;
+  const root = deps.checksRoot ?? deps.root ?? REPO_ROOT;
   const files =
     (await walkFiles(`${root}/tests/eval/checks`, "tests/eval/checks/"))
       .filter((f) => !f.endsWith("_test.ts")).sort();

@@ -242,7 +242,6 @@ export function productAdmission(
     runner_principal: facts.runner_principal,
     app_in_scope: facts.app_registered,
     refs_ok: facts.refs_ok,
-    unavailable: false,
     ...(facts.examples === undefined ? {} : { examples: facts.examples }),
   };
 }

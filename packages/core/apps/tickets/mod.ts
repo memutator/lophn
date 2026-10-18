@@ -17,6 +17,7 @@ export {
 export { createTicketCheckCommands, createTicketCheckReads } from "./checks.ts";
 export {
   checkOutcomeOf,
+  createExamplesCheckHandler,
   createTicketCheckHandler,
   type TicketCheckClient,
   ticketCheckWork,

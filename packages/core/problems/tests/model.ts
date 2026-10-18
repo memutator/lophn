@@ -87,7 +87,6 @@ export type PreparedAdmission = {
   runner_principal: string;
   app_in_scope: boolean;
   refs_ok: boolean;
-  unavailable: boolean;
   examples?: HarnessExample[];
 };
 

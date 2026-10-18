@@ -2,9 +2,11 @@ import { ok } from "../../../../base/mod.ts";
 import { ticketUploadSummary } from "../../../../protocol/coding-agent/ticket/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import {
+  createExamplesCheckHandler,
   createTicketCheckHandler,
   type TicketCheckClient,
 } from "../../../apps/tickets/mod.ts";
+import { requestExamples } from "../../../problems/tests/mod.ts";
 import { ticketSummaryUploadHandler } from "../../../apps/tickets/summary-upload.ts";
 import { ticketClaimSweepIntervalMs } from "../../../apps/tickets/register.ts";
 import { type WiringContext, type WiringFactory } from "./context.ts";
@@ -28,20 +30,51 @@ const ticketMachineContext: RequestContext = {
   credential_ref: "machine:ticket-claims",
 };
 
+// examples test 요청 자격이다. RequestTest는 scope.targets가 정확히 { app }이기를 요구하므로 앱마다
+// 만든다. machine 자격은 기동마다 새 값으로 덮이니 요청 때 기록한다.
+function examplesRequestContext(app: string): RequestContext {
+  return {
+    principal: "machine:ticket-examples",
+    actor: "machine",
+    scope: { operations: ["RequestTest"], targets: { app } },
+    conditions: {},
+    credential_ref: `machine:ticket-examples:${app}`,
+  };
+}
+
 export const appsTicketsWiring: WiringFactory = () => {
   let claimSweep: ReturnType<typeof setInterval> | undefined;
   return {
     name: "apps-tickets",
     records: () => [ticketMachineContext as never],
     build(ctx) {
-      // 완료 보고가 나면 check를 한 번 확인해 결과를 남긴다.
-      const client: TicketCheckClient = {
-        work: (input) =>
-          ctx.runtime.readers.read(
-            { resource: "tickets", method: "check_work" },
-            ticketMachineContext,
+      // 완료 보고가 나면 check를 한 번 확인해 결과를 남긴다. examples check는 test를 요청하고, 검증이
+      // 끝나면 그 결과를 남긴다.
+      const work: TicketCheckClient["work"] = (input) =>
+        ctx.runtime.readers.read(
+          { resource: "tickets", method: "check_work" },
+          ticketMachineContext,
+          input,
+        );
+      const examples = requestExamples({
+        dataRoot: ctx.root.path,
+        work,
+        request: async (input) => {
+          const requester = examplesRequestContext(input.app);
+          const recorded = await ctx.runtime.record(requester as never);
+          if (!recorded.ok) return recorded;
+          return ctx.writer.command(requester as never, {
+            command: "RequestTest",
             input,
-          ),
+            compare: {},
+            idempotency_key: input.request_key,
+            prepared: [],
+          });
+        },
+      });
+      const client: TicketCheckClient = {
+        work,
+        requestExamples: (input) => examples(input),
         record: (call, idempotencyKey) =>
           ctx.writer.command(ticketMachineContext as never, {
             command: "RecordTicketChecks",
@@ -54,6 +87,10 @@ export const appsTicketsWiring: WiringFactory = () => {
       ctx.reactor.on(
         "TicketCompletionReported",
         createTicketCheckHandler(client),
+      );
+      ctx.reactor.on(
+        "VerificationRecorded",
+        createExamplesCheckHandler(client),
       );
       return ok({
         uploads: [[

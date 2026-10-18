@@ -54,7 +54,8 @@ export const brokerSecretUseInputSchema = z.strictObject({
   input_hash: sha256Schema,
   name: secretNameSchema,
   destination: z.strictObject({
-    scheme: z.literal("https"),
+    // http는 loopback host의 목적지만이다(판정은 core의 secretAllowed).
+    scheme: z.enum(["http", "https"]),
     host: z.string().min(1),
     port: z.number().int().min(1).max(65535),
   }),

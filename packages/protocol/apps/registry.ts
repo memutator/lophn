@@ -36,6 +36,7 @@ import {
 import { APP_GRANT_ROUTES } from "./grants.ts";
 import { PACKAGE_ROUTES } from "./package-routes.ts";
 import { ACTIVATION_ROUTES } from "./activation/mod.ts";
+import { appsSecretValue } from "./secret-use.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
 import { RELEASE_ROUTES } from "./releases.ts";
 
@@ -68,6 +69,7 @@ export const ROUTES = [
   appRewinds,
   appProjects,
   appScreenFile,
+  appsSecretValue,
   ...APP_GRANT_ROUTES,
   ...PACKAGE_ROUTES,
   ...ACTIVATION_ROUTES,

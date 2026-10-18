@@ -3,8 +3,10 @@
 // 값 읽기 → transmit(value). 이름이 파일에 없으면 not_found다.
 //
 // 용도는 이름의 앞머리가 정한다: `provider.`는 provider credential, `mcp.`(사람이 넣은 MCP credential)와
-// `mcp-oauth.`(MCP OAuth token)는 외부 MCP credential이다. 그 밖의 이름은 보내지 않는다. 이름 공간이 갈라져 있어야
-// 설정이 다른 이름 공간의 이름을 가리켜도 그 값이 엉뚱한 목적지로 가지 않는다.
+// `mcp-oauth.`(MCP OAuth token)는 외부 MCP credential이다. 앞머리가 없는 이름은 앱 secret이고, 앱을 대신하는
+// 호출(context의 `conditions.app`)만 보낸다. 앱 호출이 앞의 셋을 가리키거나 앱 호출이 아닌 쪽이 앱 secret을
+// 가리키면 거절한다. 이름 공간이 갈라져 있어야 설정이 다른 이름 공간의 이름을 가리켜도 그 값이 엉뚱한
+// 목적지로 가지 않는다.
 import { err, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
@@ -26,12 +28,12 @@ type SecretDestinations = {
   ): readonly SecretDestination[] | Promise<readonly SecretDestination[]>;
 };
 
-function purposeOf(name: string): SecretPurpose | undefined {
+function purposeOf(name: string): SecretPurpose {
   if (name.startsWith("provider.")) return "provider_credential";
   if (name.startsWith("mcp.") || name.startsWith("mcp-oauth.")) {
     return "external_mcp_credential";
   }
-  return undefined;
+  return "app_secret";
 }
 
 const FORBIDDEN = {
@@ -54,7 +56,8 @@ export function createFileSecretAttach(options: {
       if (!options.processes(input.context)) return err(FORBIDDEN);
       const { name, destination } = input.use;
       const purpose = purposeOf(name);
-      if (purpose === undefined) return err(FORBIDDEN);
+      const forApp = input.context.conditions.app !== undefined;
+      if ((purpose === "app_secret") !== forApp) return err(FORBIDDEN);
       const granted = options.allowance({
         context: input.context,
         name,
@@ -62,9 +65,12 @@ export function createFileSecretAttach(options: {
         destination,
       });
       if (!granted.ok) return granted;
-      const allowed = await options.destinations.allowed(name);
-      if (!allowed.some((one) => sameDestination(one, destination))) {
-        return err(FORBIDDEN);
+      // 앱 secret의 목적지는 위 allowance(선언 ∩ grant)가 이미 정했다.
+      if (purpose !== "app_secret") {
+        const allowed = await options.destinations.allowed(name);
+        if (!allowed.some((one) => sameDestination(one, destination))) {
+          return err(FORBIDDEN);
+        }
       }
       const loaded = options.file.get(name);
       if (!loaded.ok) return loaded;

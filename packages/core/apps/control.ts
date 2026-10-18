@@ -26,6 +26,7 @@ import {
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
+  appsSecretValue,
   packageRegisterVersion,
   packagesGuideBody,
   previewsGet,
@@ -157,6 +158,8 @@ const SUPERVISOR_OPERATIONS = [
   activationComplete.name,
   activationFail.name,
   releasesGetRecord.name,
+  // 앱의 외부 요청에 붙일 secret 값을 core가 현재 grant로 다시 판정해 건넨다.
+  appsSecretValue.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, project 목록, 문제 보고, process
 // 관측뿐이다. 호출·목록은 앱 process의 broker가 그 자식의 credential로 core를 부른다.
@@ -191,6 +194,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appAppApi.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },
+    { name: appsSecretValue.name, actors: ["machine"], kind: "command" },
     ...[
       activationRecordBackup,
       activationRecordDataChange,

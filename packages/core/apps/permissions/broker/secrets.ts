@@ -21,7 +21,12 @@ import {
   unavailable,
 } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
-import { destinationAllowed, urlHost, urlPort } from "./net-fetch.ts";
+import {
+  destinationAllowed,
+  isLoopbackHost,
+  urlHost,
+  urlPort,
+} from "./net-fetch.ts";
 
 type SecretUseOutput = z.infer<typeof brokerSecretUseOutputSchema>;
 
@@ -72,8 +77,12 @@ export function secretAllowed(
   name: string,
   destination: SecretDestination | null,
 ): boolean {
-  if (destination === null || destination.kind !== "https") return false;
+  if (destination === null) return false;
   const url = new URL(destination.origin);
+  // http는 이 기계 밖으로 나가지 않는 loopback host만이다. net.fetch의 규칙과 같다.
+  if (destination.kind === "loopback_http" && !isLoopbackHost(urlHost(url))) {
+    return false;
+  }
   const granted = scope.access.some((entry) =>
     entry.kind === "secret.use" && entry.scope.name === name
   );
@@ -104,6 +113,9 @@ export function createSecretUseService(deps: SecretUseDeps): SecretUseService {
         host,
         port: input.destination.port,
       };
+      if (input.destination.scheme === "http" && !isLoopbackHost(host)) {
+        return refuse("net.fetch", { host, port: input.destination.port });
+      }
       const access = await currentAccess(deps.access, child);
       if (!access.ok) return access;
       const state = access.value;

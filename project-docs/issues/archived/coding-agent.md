@@ -420,3 +420,27 @@ guard: packages/core/problems/tests/harness/checks_test.ts "바꿀 것이 없는
 정한 것: 바뀐 것이 없으면 통과로 둔다(사람). changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어지게 한다. 계획 `found-bugs`가 한다.
 
 닫음: `rewind` check는 `run.called && (!run.changed || (run.applied && run.restored))`로 판정한다. driver(`packages/core/problems/tests/work/app-driver.ts`)는 changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어진다.
+
+## `package.publish`가 늘 "the app source has no commit"으로 떨어진다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/lophn-agent]
+closed: fixed
+guard: 없음
+```
+
+지금:
+- agent tool `package.publish`(`packages/core/apps/agent-tools/package.ts`)는 앱 source의 HEAD를 `headOf`가 `new Deno.Command("git", ...)`로 읽는다.
+- 이 handler는 agent runtime child 안에서 돈다. 그 process의 `allow_run`은 MCP server와 `/bin/sh`뿐이다(`packages/core/lophn-agent/tools/runtime-permissions.ts`). `git`을 띄우면 `NotCapable`이 나고 `headOf`는 `catch`에서 `null`을 돌려준다.
+- 그래서 tool은 늘 `unavailable`("the app source has no commit")로 답한다. commit이 있어도 같다.
+
+영향: App Engineer가 package를 낼 수 없다. 앱 사이 재사용 길이 처음부터 막혀 있다. eval의 `date-range@1` 재료(되살리기가 fake App Engineer의 `package.publish`를 쓴다)와 calendar-mvp의 재사용 확인이 되살리기에서 떨어진다.
+
+고치려면:
+- core 쪽 memory route `package.publish`(`packagePublish`)가 앱의 `source_path`에서 HEAD를 읽고, tool은 commit을 넘기지 않는다(작음). core process는 git을 이미 띄운다. tool 입력 schema에서 `commit`을 빼는 protocol 변경이 같이 간다. 추천.
+- agent runtime의 `allow_run`에 git 절대 경로를 더한다(작음). 잃는 것: agent runtime 안의 모든 tool이 git을 띄울 수 있게 된다. 평범한 `"git"`은 runtime이 다시 뜨지 못했다(절대 경로가 필요하다).
+
+정한 것: core의 route가 HEAD를 읽는다(사람).
+
+닫음: `packagePublishInputSchema`에 `commit`이 없다. route(`packages/core/apps/packages/publish.ts`의 `publishPackage`)가 core process에서 앱 source의 `git rev-parse HEAD`를 읽어 그 commit을 낸다. tool은 git을 띄우지 않는다.

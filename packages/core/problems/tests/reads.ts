@@ -89,11 +89,6 @@ function rowToVerification(row: Record<string, unknown>): Verification {
       bundle_hash: String(row.target_bundle_hash),
       release: row.target_release === null ? null : String(row.target_release),
     },
-    problem: null,
-    basis_seq: null,
-    reports: [],
-    before: null,
-    after: null,
     ticket: row.ticket === null ? null : {
       ticket: String(row.ticket),
       check_index: Number(row.ticket_check_index),
@@ -213,7 +208,6 @@ function readVerificationList(
   ctx: RequestContext,
   input: {
     app: string;
-    problem?: string;
     ticket?: string;
     kind?: Verification["kind"];
     cursor?: string;
@@ -229,14 +223,6 @@ function readVerificationList(
   const asOf = parseSeq(snapshot.as_of_seq);
   if (!after.ok) return err({ code: "invalid_input", message: "cursor" });
   if (!asOf.ok) return err({ code: "internal", message: "snapshot seq" });
-  // 문제와 이은 Verification은 없다. 문제로 거르면 결과가 없다.
-  if (input.problem !== undefined) {
-    return ok({
-      verifications: [],
-      as_of_seq: snapshot.as_of_seq,
-      next_cursor: null,
-    });
-  }
   const scopeColumns = new Set([
     "app",
     "request_principal",

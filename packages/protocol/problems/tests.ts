@@ -8,7 +8,7 @@ import { memoryLimitModeSchema } from "../supervision/supervision.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { problemCodeSchema } from "./problem-codes.ts";
 
-const TEST_KINDS = ["app_test", "reproduction", "test_command"] as const;
+const TEST_KINDS = ["app_test", "test_command"] as const;
 const TEST_RESULTS = ["pass", "fail", "inconclusive"] as const;
 const TEST_SIDES = ["single", "before", "after"] as const;
 export const testKindSchema = z.enum(TEST_KINDS);
@@ -97,20 +97,15 @@ const frozenTestFields = {
   blueprint: sha256Schema.nullable(),
   sdk_dependencies: sha256Schema.nullable(),
   failure_paths: z.array(failurePathSchema).nullable(),
-  symptom: sha256Schema.nullable(),
 };
 type FrozenTestValue = z.infer<z.ZodObject<typeof frozenTestFields>>;
-// app_test는 blueprint·SDK·실패 경로가, reproduction은 증상 판별이 필수다.
+// app_test는 blueprint·SDK·실패 경로가 필수이고 test_command는 셋 다 없다.
 const validFrozenTest = (value: FrozenTestValue) => {
   const appTest = value.blueprint !== null &&
-    value.sdk_dependencies !== null && value.failure_paths !== null &&
-    value.symptom === null;
-  const reproduction = value.symptom !== null && value.blueprint === null &&
-    value.sdk_dependencies === null && value.failure_paths === null;
+    value.sdk_dependencies !== null && value.failure_paths !== null;
   const command = value.blueprint === null &&
-    value.sdk_dependencies === null && value.failure_paths === null &&
-    value.symptom === null;
-  return appTest || reproduction || command;
+    value.sdk_dependencies === null && value.failure_paths === null;
+  return appTest || command;
 };
 // Declaration coverage needs the frozen blueprint, so the runner checks it.
 export const frozenTestSchema = z.object(frozenTestFields).refine(
@@ -166,11 +161,6 @@ const connectionFields = {
   kind: testKindSchema,
   app: idSchema("app"),
   target: testTargetSchema,
-  problem: idSchema("prb").nullable(),
-  basis_seq: positiveSeq.nullable(),
-  reports: z.array(idSchema("rpt")),
-  before: idSchema("rel").nullable(),
-  after: idSchema("rel").nullable(),
   ticket: ticketTestLinkSchema.nullable(),
   test: sha256Schema,
 };
@@ -187,19 +177,8 @@ const verificationFields = {
   observations: sha256Schema,
 };
 type Connections = z.infer<z.ZodObject<typeof connectionFields>>;
-const validConnections = (value: Connections) => {
-  if (value.kind === "reproduction") {
-    return value.problem !== null && value.basis_seq !== null &&
-      value.reports.length > 0 && value.before !== null &&
-      value.after !== null &&
-      value.before !== value.after && value.target.release === value.after &&
-      value.ticket === null;
-  }
-  return value.problem === null && value.basis_seq === null &&
-    value.reports.length === 0 && value.before === null &&
-    value.after === null &&
-    (value.kind === "test_command" || value.ticket === null);
-};
+const validConnections = (value: Connections) =>
+  value.kind === "test_command" || value.ticket === null;
 export const verificationSchema = z.object(verificationFields).refine(
   validConnections,
   {
@@ -221,13 +200,6 @@ export const requestTestInputSchema = z.strictObject({
   // 이 요청의 실행 기한이다. 동결 test method의 timeout_ms보다 길어지지 않는다(runner가 둘 중 짧은
   // 쪽을 쓴다). 생략하면 method의 timeout_ms다. 요청 identity(request hash)에는 들어가지 않는다.
   timeout_ms: integer.min(1).max(TEST_EXECUTION_LIMITS.timeout_ms).optional(),
-  // coding agent의 reproduction 요청이 기대는 ticket의 현재 claim이다. core가 접수 때 그 연결의 현재 claim과 맞는지
-  // 다시 확인한다. 권한 확인이라 요청 identity(request hash)에는
-  // 들어가지 않는다. 사람·machine 요청은 싣지 않는다.
-  ticket_source: z.strictObject({
-    ticket: idSchema("tkt"),
-    claim_seq: positiveSeq,
-  }).optional(),
 }).refine(validConnections, { message: "invalid kind connections" });
 const requestTestOutputSchema = z.object({
   request_key: idempotencyKeySchema,
@@ -270,16 +242,10 @@ const getVerificationOutputSchema = withReadCommon(
 );
 const listVerificationsInputSchema = z.strictObject({
   app: idSchema("app"),
-  problem: idSchema("prb").optional(),
   ticket: idSchema("tkt").optional(),
   kind: testKindSchema.optional(),
   cursor: nonempty.optional(),
-}).refine(
-  (value) => value.problem === undefined || value.ticket === undefined,
-  {
-    message: "filter by problem or ticket, not both",
-  },
-);
+});
 const listVerificationsOutputSchema = withReadCommon(z.object({
   verifications: z.array(verificationSchema),
 }));
@@ -431,19 +397,12 @@ const verificationRecordedPayloadSchema = z.object({
   kind: testKindSchema,
   app: idSchema("app"),
   target: testTargetSchema,
-  problem: idSchema("prb").optional(),
-  basis_seq: positiveSeq.optional(),
   ticket: ticketTestLinkSchema.optional(),
   result: testResultSchema,
   test: sha256Schema,
   execution: sha256Schema,
 }).refine(
-  (value) =>
-    value.kind === "reproduction"
-      ? value.problem !== undefined && value.basis_seq !== undefined &&
-        value.ticket === undefined
-      : value.problem === undefined && value.basis_seq === undefined &&
-        (value.kind === "test_command" || value.ticket === undefined),
+  (value) => value.kind === "test_command" || value.ticket === undefined,
   {
     message: "invalid kind connections",
   },

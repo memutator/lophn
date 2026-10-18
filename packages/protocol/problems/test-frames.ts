@@ -11,7 +11,6 @@ export const testObservationFrameSchema = z.strictObject({
   test_hash: sha256Schema,
   name: z.string().regex(/\S/),
   actual: z.json(),
-  symptom_reproduced: z.boolean().optional(),
   expectation_met: z.boolean().optional(),
   reason: z.string().regex(/\S/),
 }).refine(

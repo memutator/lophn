@@ -45,9 +45,6 @@ function handleRequestTest(
 ): Result<
   { request_key: string; accepted: boolean; result_ref: string | null }
 > {
-  if (input.kind === "reproduction") {
-    return err({ code: "invalid_input", message: "받지 않는 test 종류다" });
-  }
   const allowed = checkRequestAuthority(ctx, input);
   if (!allowed.ok) return allowed;
   const existing = loadRecords(tx.sql, ctx.principal, input.request_key);

@@ -7,7 +7,7 @@ import { definePort, type PortKey } from "../base/ports.ts";
 export type AppTestVerificationFact = {
   id: string;
   app: string;
-  kind: "app_test" | "reproduction" | "test_command";
+  kind: "app_test" | "test_command";
   result: "pass" | "fail" | "inconclusive";
   // 테스트 대상이 된 완성 bundle의 hash.
   bundle_hash: string;

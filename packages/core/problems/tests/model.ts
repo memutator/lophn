@@ -50,11 +50,6 @@ export type TestConnection = {
   kind: Verification["kind"];
   app: string;
   target: Verification["target"];
-  problem: string | null;
-  basis_seq: string | null;
-  reports: string[];
-  before: string | null;
-  after: string | null;
   ticket: Verification["ticket"];
   test: string;
   // 접수한 요청의 실행 기한이다. 요청 identity가 아니라 runner에 넘길 값만이다.
@@ -129,11 +124,6 @@ export function connectionOf(
     kind: input.kind,
     app: input.app,
     target: { ...input.target },
-    problem: input.problem,
-    basis_seq: input.basis_seq,
-    reports: [...input.reports],
-    before: input.before,
-    after: input.after,
     ticket: input.ticket ? { ...input.ticket } : null,
     test: input.test,
   };
@@ -143,9 +133,6 @@ export function canonicalRequest(input: TestConnection): Result<string> {
   try {
     canonicalJson(input);
   } catch {
-    return err({ code: "invalid_input", message: INVALID });
-  }
-  if (new Set(input.reports).size !== input.reports.length) {
     return err({ code: "invalid_input", message: INVALID });
   }
   const parsed = requestTestInputSchema.safeParse({

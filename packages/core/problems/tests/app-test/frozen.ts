@@ -126,7 +126,6 @@ export async function deriveAppTest(
       sdk_dependencies: dependencies,
       // app test에서는 비워 둔다.
       failure_paths: [],
-      symptom: null,
     };
     const test = store(encode(canonicalJson(frozen)));
     if (test !== canonicalHash(frozen)) {

@@ -14,7 +14,11 @@ import { tmpdir } from "node:os";
 
 import { checkExternalUrl } from "../../app-frame/external-link.ts";
 import { createBridge } from "../../browser-bridge/bridge.ts";
-import { LINK_SETTING_KEYS, linkPrefsOf } from "../../browser-bridge/policy.ts";
+import {
+  isRelayableUrl,
+  LINK_SETTING_KEYS,
+  linkPrefsOf,
+} from "../../browser-bridge/policy.ts";
 import { prepareRunDir } from "../../browser-bridge/run-dir.ts";
 import { writeShim } from "../../browser-bridge/shim.ts";
 import { listenBridge } from "../../browser-bridge/socket.ts";
@@ -32,8 +36,28 @@ function isAlive(pid: number): boolean {
 
 export function createBridgeWiring(
   ctx: ShellContext,
-): { bridge: TerminalBridge | null; stop(): void } {
-  if (process.platform === "win32") return { bridge: null, stop() {} };
+): { bridge: TerminalBridge; stop(): void } {
+  // URL을 잃지 않으려고 bridge가 꺼져도 link 클릭은 OS browser로 연다.
+  function openExternal(url: string) {
+    if (checkExternalUrl(url) === undefined || ctx.headless.headless) return;
+    shell.openExternal(url).catch(() =>
+      ctx.log("cannot hand the link to the OS")
+    );
+  }
+  const off = {
+    bridge: {
+      issue: () => null,
+      bind() {},
+      revoke() {},
+      ack() {},
+      openLink: ({ url }: { url: string }) => {
+        if (isRelayableUrl(url)) openExternal(url);
+        return Promise.resolve();
+      },
+    },
+    stop() {},
+  };
+  if (process.platform === "win32") return off;
 
   const run = prepareRunDir({
     dataRoot: ctx.dataRoot,
@@ -57,7 +81,7 @@ export function createBridgeWiring(
   });
   if (!run.ok) {
     ctx.log(`browser bridge is off: ${run.error.message}`);
-    return { bridge: null, stop() {} };
+    return off;
   }
   const { dir, socket, shim, script } = run.value;
   const removeDir = () => {
@@ -75,7 +99,7 @@ export function createBridgeWiring(
   } catch (cause) {
     ctx.log(`browser bridge is off: cannot write the shim (${String(cause)})`);
     removeDir();
-    return { bridge: null, stop() {} };
+    return off;
   }
 
   const bridge = createBridge({
@@ -92,12 +116,7 @@ export function createBridgeWiring(
       [...ctx.windows].filter((window) => !window.isDestroyed()).map((
         window,
       ) => window.webContents),
-    openExternal(url) {
-      if (checkExternalUrl(url) === undefined || ctx.headless.headless) return;
-      shell.openExternal(url).catch(() =>
-        ctx.log("cannot hand the link to the OS")
-      );
-    },
+    openExternal,
     timers: {
       after: (ms, runLater) => {
         const timer = setTimeout(runLater, ms);

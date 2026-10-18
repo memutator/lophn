@@ -231,7 +231,7 @@ export function register(ctx: ShellContext): Coding {
     },
     host: terminals,
     coding: codingTerminals,
-    bridge: bridgeWiring.bridge ?? undefined,
+    bridge: bridgeWiring.bridge,
   });
   registerTerminalIpc(ipc, terminalIpc);
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.

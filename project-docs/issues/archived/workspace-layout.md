@@ -1,4 +1,4 @@
-# workspace-layout
+# workspace-layout (닫음)
 
 project 창의 탭 자리(docked, floated, minimized)와 layout 저장. architecture: `project-docs/architecture/workspace-layout.md`.
 
@@ -6,7 +6,9 @@ project 창의 탭 자리(docked, floated, minimized)와 layout 저장. architec
 
 ```yaml
 kind: bug
-modules: [packages/shell/renderer]
+modules: [packages/shell/renderer, packages/shell/main]
+closed: fixed
+guard: 없음
 ```
 
 - 지금: `renderer/workspace/kinds/terminal.tsx`의 `fromStored`는 coding이 아닌 terminal을 `title: ""`로 되살리고, 제목은 PTY가 뜬 뒤 `onStarted`의 `patchTab`이 채운다. `kinds/app-panel.tsx`는 `toStored`에 제목을 남기지 않고 `fromStored`가 `title: ""`를 내며, 앱을 고를 때 말고는 제목을 채우는 곳이 없다. 탭 줄(`parts/tab-strip/tab-strip.tsx`), floated 패널 bar(`workspace/floats/floats.tsx`), 접힌 span(`workspace/minimized/minimized-bar.tsx`)은 `tab.title`을 그대로 그린다.
@@ -14,3 +16,4 @@ modules: [packages/shell/renderer]
 - 고치려면:
   - 작음(추천): 두 kind의 `toStored`·`fromStored`가 제목을 저장하고 되살린다. layout schema의 그 kind 탭 schema에 `title` 칸을 더한다(판 2 안에서, 개발 data는 지운다).
   - 작음: 그리는 세 곳이 빈 제목이면 kind 이름(`tabKindLabel`)을 쓴다. 저장은 그대로지만 terminal 여럿이 모두 "Terminal"로 보인다.
+- 닫음: plain terminal과 app panel 탭이 `layout.json`에 선택 칸 `title`을 남기고 되살린다(main `workspace/kinds/terminal.ts`·`app-panel.ts`의 schema, renderer `kinds/terminal.tsx`·`app-panel.tsx`의 `toStored`·`fromStored`). coding terminal은 전처럼 `coding.title`이다.

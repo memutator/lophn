@@ -91,13 +91,14 @@ async function rewind(
   // write app-api를 선언 순서대로 부른다. 앞선 호출이 만든 상태가 뒤 호출의 앞선 상태가 된다.
   const runs: Record<string, RewindRun> = {};
   for (const api of plan.write_api) runs[api] = await driver.rewind(api);
+  // 바꾼 것이 없으면 되돌릴 것이 없다(없는 id를 지우는 remove처럼 맞게 짠 api).
   const failed = Object.entries(runs).filter(([, run]) =>
-    !(run.called && run.changed && run.applied && run.restored)
+    !(run.called && (!run.changed || (run.applied && run.restored)))
   );
   return {
     met: failed.length === 0,
     reason: failed.length === 0
-      ? "write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다"
+      ? "write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다. 바꾼 것이 없는 api는 되돌릴 것이 없다"
       : `되돌리지 못한 write app-api가 있다: ${
         failed.map(([api, run]) => `${api}(${run.reason})`).join(", ")
       }`,

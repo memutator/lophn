@@ -497,6 +497,7 @@ export async function createRealAppDriver(
         return {
           ...none,
           called: true,
+          changed,
           reason: "호출이 changeset을 내지 않았다",
         };
       }

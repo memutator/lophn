@@ -3,17 +3,23 @@ import type { browser } from "./browser.ts";
 
 export type BrowserPlaceholders = {
   "browser.button.back": Record<never, never>;
+  "browser.button.bookmark-add": Record<never, never>;
+  "browser.button.bookmark-edit": Record<never, never>;
+  "browser.button.bookmarks": Record<never, never>;
   "browser.button.forward": Record<never, never>;
   "browser.button.inspect": Record<never, never>;
   "browser.button.more": Record<never, never>;
   "browser.button.open-external": Record<never, never>;
   "browser.button.reload": Record<never, never>;
+  "browser.error.bookmark-limit": Record<never, never>;
+  "browser.heading.palette-bookmarks": Record<never, never>;
   "browser.label.address": Record<never, never>;
   "browser.label.address-placeholder": Record<never, never>;
   "browser.label.browser": Record<never, never>;
   "browser.label.kind": Record<never, never>;
   "browser.label.menu-browser": Record<never, never>;
   "browser.label.page": Record<never, never>;
+  "browser.notice.no-bookmarks": Record<never, never>;
   "browser.notice.popup-blocked": Record<never, never>;
   "settings.button.bookmark-edit": Record<never, never>;
   "settings.button.bookmark-remove": Record<never, never>;

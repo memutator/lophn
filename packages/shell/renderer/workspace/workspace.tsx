@@ -83,6 +83,7 @@ import { openContext } from "./kinds/context.tsx";
 import { openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
+import { useBookmarks } from "../browser/bookmarks.ts";
 import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
@@ -187,6 +188,7 @@ export function Workspace(props: WorkspaceProps) {
   // Agents 탭과 sidebar의 Agent 모양의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const agentsSource = source.agentsSource;
   const browserApi = useBrowserApi();
+  const bookmarkList = useBookmarks();
   const sidebarAgents = useSidebarAgents(agentsSource, projectId);
   const { sessions: sessionStates } = useSessions();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
@@ -822,6 +824,7 @@ export function Workspace(props: WorkspaceProps) {
       view,
       files: loaded.files,
       contexts: contextList,
+      bookmarks: bookmarkList.state === "ok" ? bookmarkList.bookmarks : [],
       terminal: terminal !== undefined,
       platform: palette.platform,
       search: palette.search
@@ -838,6 +841,7 @@ export function Workspace(props: WorkspaceProps) {
           });
         } else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "context") openContext(host, target.id);
+        else if (target.kind === "bookmark") openBrowserTab(host, target.url);
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "settings") onSettings();
         else if (target.action === "terminal") openTerminalTab(host);

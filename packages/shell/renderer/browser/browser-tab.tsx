@@ -1,6 +1,6 @@
 // browser 탭 본문. toolbar 아래 page region 자리에 main이 native view를 붙인다. 탭 kind가 url을
 // 저장하고 다시 주지만 view는 처음 열 때만 그 url로 연다. native view는 DOM 위에 그려지므로
-// 알림은 toolbar와 region 사이 줄에 둔다.
+// 알림은 toolbar와 region 사이 줄에 둔다. 주소가 빈 탭은 native view 대신 bookmark 목록을 그린다.
 import { useEffect, useRef, useState } from "react";
 import { ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
@@ -15,7 +15,9 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { useViewBounds } from "../app-frame/embedded-view.tsx";
 import { useBrowserApi } from "./browser-api.tsx";
+import { useBookmarks } from "./bookmarks.ts";
 import { BrowserToolbar } from "./browser-toolbar.tsx";
+import { BlankTabPage } from "./blank-tab-page.tsx";
 import styles from "./browser-tab.module.css";
 
 interface BrowserTabProps {
@@ -32,6 +34,8 @@ interface BrowserTabProps {
   onPopup(event: Extract<BrowserEvent, { kind: "popup" }>): void;
   /** 이 탭의 page가 window.close()를 불렀다. */
   onCloseRequested(): void;
+  /** 새 탭 화면의 bookmark를 새 탭에서 연다. */
+  onOpenInNewTab(url: string): void;
 }
 
 type PageState = Omit<BrowserViewState, "view_session">;
@@ -69,7 +73,11 @@ function OpenTab(
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   // 값이 올 때마다 새로 띄우도록 번호를 key로 쓴다. null이면 알림 없음.
-  const [popup, setPopup] = useState<number | null>(null);
+  const [notice, setNotice] = useState<
+    { n: number; text: string; error: boolean } | null
+  >(null);
+  const [bookmarkKey, setBookmarkKey] = useState(0);
+  const bookmarks = useBookmarks();
   const [menuOpen, setMenuOpen] = useState(false);
   const region = useRef<HTMLDivElement | null>(null);
   const firstUrl = useRef(props.url);
@@ -103,11 +111,19 @@ function OpenTab(
     });
     const offEvents = browser.subscribeEvents((event) => {
       if (event.kind === "popup-blocked" && event.view_session === opened) {
-        setPopup((count) => (count ?? 0) + 1);
+        setNotice((last) => ({
+          n: (last?.n ?? 0) + 1,
+          text: t("browser.notice.popup-blocked"),
+          error: false,
+        }));
       } else if (event.kind === "popup" && event.opener === opened) {
         callbacks.current.onPopup(event);
       } else if (event.kind === "close" && event.view_session === opened) {
         callbacks.current.onCloseRequested();
+      } else if (
+        event.kind === "bookmark-key" && event.view_session === opened
+      ) {
+        setBookmarkKey((count) => count + 1);
       }
     });
     setFailed(false);
@@ -164,6 +180,12 @@ function OpenTab(
       .catch(() => {});
   };
 
+  const navigate = (url: string) => {
+    if (viewSession === null) return;
+    void browser.navigate({ view_session: viewSession, input: url })
+      .catch(() => {});
+  };
+
   return (
     <div className={styles.tab}>
       <BrowserToolbar
@@ -171,15 +193,21 @@ function OpenTab(
         viewSession={viewSession}
         state={state}
         focusAddress={props.url === "" && shown}
+        bookmarks={bookmarks}
+        bookmarkKey={bookmarkKey}
+        onNotice={(text) =>
+          setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))}
+        onNavigate={navigate}
         onMenuOpenChange={setMenuOpen}
       />
-      {popup === null ? null : (
+      {notice === null ? null : (
         <div className={styles.notice}>
           <Toast
-            key={popup}
-            title={t("browser.notice.popup-blocked")}
+            key={notice.n}
+            title={notice.text}
+            tone={notice.error ? "error" : "neutral"}
             duration="brief"
-            onClose={() => setPopup(null)}
+            onClose={() => setNotice(null)}
           />
         </div>
       )}
@@ -193,6 +221,14 @@ function OpenTab(
           )
           : state.health === "crashed"
           ? <ErrorState target={t("browser.label.page")} onRetry={reload} />
+          : state.url === "" && viewSession !== null
+          ? (
+            <BlankTabPage
+              bookmarks={bookmarks}
+              onOpen={navigate}
+              onOpenInNewTab={props.onOpenInNewTab}
+            />
+          )
           : null}
       </div>
     </div>

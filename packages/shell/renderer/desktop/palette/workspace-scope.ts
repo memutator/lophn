@@ -1,5 +1,5 @@
-// 프로젝트 작업대의 팔레트 행. 열린 탭·파일·컨텍스트·행동 순서이고
-// 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, Context 탭 열기, 행동)으로만 간다.
+// 프로젝트 작업대의 팔레트 행. 열린 탭·파일·컨텍스트·bookmark·행동 순서이고
+// 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, Context 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
 import { commandLabel } from "../../../ipc/keybindings.ts";
@@ -40,6 +40,7 @@ type WorkspaceTarget =
     readonly document: { readonly id: string; readonly title: string };
   }
   | { readonly kind: "context"; readonly id: string }
+  | { readonly kind: "bookmark"; readonly url: string }
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
 interface WorkspaceScopeInput {
@@ -47,6 +48,12 @@ interface WorkspaceScopeInput {
   readonly files: readonly FileRow[];
   /** 이 프로젝트의 context. 고르면 그 Context 탭이 열린다. */
   readonly contexts: readonly ContextListItem[];
+  /** 읽은 bookmark. 목록을 못 읽었으면 비운다. 고르면 새 browser 탭에서 열린다. */
+  readonly bookmarks: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly url: string;
+  }[];
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
   readonly platform: WindowPlatform;
@@ -168,6 +175,14 @@ export function workspaceScope(
           kind: "context" as const,
           id: item.id.slice(CONTEXT_PALETTE_PREFIX.length),
         },
+      })),
+      ...input.bookmarks.map((item) => ({
+        group: "bookmarks" as const,
+        key: `bookmark:${item.id}`,
+        label: item.title,
+        detail: item.url,
+        icon: "bookmark" as const,
+        target: { kind: "bookmark" as const, url: item.url },
       })),
       ...actions(input),
     ],

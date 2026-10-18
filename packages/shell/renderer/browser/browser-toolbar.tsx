@@ -1,5 +1,6 @@
-// browser 탭 위쪽 줄: 뒤로·앞으로·새로 고침, 주소 칸, [Open in browser], overflow menu.
+// browser 탭 위쪽 줄: 뒤로·앞으로·새로 고침, 주소 칸, 별, bookmark menu, [Open in browser], overflow menu.
 // 단추는 오른쪽 끝 고정 열에 둔다. 아이콘은 icons/browser.ts만 쓴다.
+// Ctrl/Cmd+D는 focus가 page에 있으면 main이 event로 보내고(`bookmarkKey`), toolbar에 있으면 여기서 받는다.
 import { useId, useState } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
 import { IconButton } from "@lophn/ui/primitives";
@@ -7,7 +8,11 @@ import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
+import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import { browserIcons } from "../icons/mod.ts";
+import { BookmarkMenu } from "./bookmark-menu.tsx";
+import { BookmarkStar } from "./bookmark-star.tsx";
+import type { Bookmarks } from "./bookmarks.ts";
 import styles from "./browser-tab.module.css";
 
 interface BrowserToolbarProps {
@@ -16,11 +21,18 @@ interface BrowserToolbarProps {
   viewSession: string | null;
   state: Pick<
     BrowserViewState,
-    "url" | "canGoBack" | "canGoForward"
+    "url" | "title" | "canGoBack" | "canGoForward"
   >;
+  bookmarks: Bookmarks;
+  /** main이 page에서 받은 Ctrl/Cmd+D의 횟수. */
+  bookmarkKey: number;
+  /** 별이 알릴 거절 문장. 탭이 toolbar 아래에 띄운다. */
+  onNotice(text: string): void;
+  /** 이 탭에서 주소로 간다(bookmark menu). */
+  onNavigate(url: string): void;
   /** 열 때 주소 칸에 focus를 둔다(빈 주소로 연 새 탭). */
   focusAddress: boolean;
-  /** menu가 열려 있는 동안 native view가 menu를 가리지 않도록 탭이 view를 숨긴다. */
+  /** menu와 별 popover가 열려 있는 동안 native view가 가리지 않도록 탭이 view를 숨긴다. */
   onMenuOpenChange(open: boolean): void;
 }
 
@@ -29,6 +41,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
   const id = useId();
   // null이면 사람이 고치는 중이 아니라 현재 url을 그대로 보인다.
   const [draft, setDraft] = useState<string | null>(null);
+  const [keyPresses, setKeyPresses] = useState(0);
 
   const command = (name: "back" | "forward" | "reload" | "inspect") => {
     if (viewSession === null) return;
@@ -50,7 +63,23 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
   };
 
   return (
-    <div className={styles.toolbar} data-browser-toolbar="">
+    <div
+      className={styles.toolbar}
+      data-browser-toolbar=""
+      onKeyDown={(event) => {
+        const mac = currentPlatform() === "mac";
+        if (
+          event.key.toLowerCase() === "d" &&
+          (mac
+            ? event.metaKey && !event.ctrlKey
+            : event.ctrlKey && !event.metaKey) &&
+          !event.altKey && !event.shiftKey
+        ) {
+          event.preventDefault();
+          setKeyPresses((count) => count + 1);
+        }
+      }}
+    >
       <IconButton
         icon={browserIcons.back}
         label={t("browser.button.back")}
@@ -95,6 +124,20 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
           />
         </FieldContext.Provider>
       </div>
+      <BookmarkStar
+        bookmarks={props.bookmarks}
+        url={state.url}
+        title={state.title}
+        presses={props.bookmarkKey + keyPresses}
+        onNotice={props.onNotice}
+        onOpenChange={props.onMenuOpenChange}
+      />
+      <BookmarkMenu
+        bookmarks={props.bookmarks}
+        viewSession={viewSession}
+        open={props.onNavigate}
+        onOpenChange={props.onMenuOpenChange}
+      />
       <IconButton
         icon={browserIcons.openExternal}
         label={t("browser.button.open-external")}

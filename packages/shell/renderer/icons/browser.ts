@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Bookmark,
   Code,
   EllipsisVertical,
   ExternalLink,
@@ -20,4 +21,5 @@ export const browserIcons = {
   more: EllipsisVertical,
   inspect: Code,
   star: Star,
+  bookmarks: Bookmark,
 } as const satisfies Record<string, LucideIcon>;

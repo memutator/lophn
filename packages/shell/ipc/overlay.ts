@@ -32,6 +32,7 @@ const PALETTE_ICONS = [
   "screen",
   "terminal",
   "panel",
+  "bookmark",
 ] as const;
 const overlayModelSchema = z.object({
   label: z.string().max(256),

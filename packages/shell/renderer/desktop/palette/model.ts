@@ -6,15 +6,17 @@ export type PaletteGroup =
   | "tabs"
   | "files"
   | "contexts"
+  | "bookmarks"
   | "actions"
   | "projects"
   | "apps";
 
-/** 프로젝트 작업대: 열린 탭·파일·컨텍스트·행동. */
+/** 프로젝트 작업대: 열린 탭·파일·컨텍스트·bookmark·행동. */
 export const WORKSPACE_GROUPS: readonly PaletteGroup[] = [
   "tabs",
   "files",
   "contexts",
+  "bookmarks",
   "actions",
 ];
 

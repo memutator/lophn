@@ -6,7 +6,8 @@ import type {
   LophnBrowserApi,
 } from "../../../ipc/browser.ts";
 
-export function fakeBrowserApi(): {
+/** `corrupt`면 목록 파일이 깨진 것처럼 읽기는 `corrupt` 상태이고 쓰기는 거절된다. */
+export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
   api: LophnBrowserApi;
   push(event: BrowserEvent): void;
   set(patch: Partial<BrowserViewState>): void;
@@ -100,8 +101,20 @@ export function fakeBrowserApi(): {
       return () => eventListeners.delete(listener);
     },
     bookmarks: {
-      list: () => Promise.resolve({ state: "ok", bookmarks: [...bookmarks] }),
+      list: () =>
+        Promise.resolve(
+          options.corrupt
+            ? { state: "corrupt" }
+            : { state: "ok", bookmarks: [...bookmarks] },
+        ),
       add(input) {
+        if (options.corrupt) return Promise.reject(new Error("corrupt"));
+        if (input.title.trim() === "") {
+          return Promise.reject(new Error("title"));
+        }
+        if (bookmarks.some((item) => item.url === input.url)) {
+          return Promise.reject(new Error("duplicate"));
+        }
         const bookmark: Bookmark = {
           id: `fake-bookmark-${bookmarks.length + 1}`,
           created_at: new Date(0).toISOString(),
@@ -112,6 +125,10 @@ export function fakeBrowserApi(): {
         return Promise.resolve(bookmark);
       },
       update(input) {
+        if (options.corrupt) return Promise.reject(new Error("corrupt"));
+        if (input.title?.trim() === "") {
+          return Promise.reject(new Error("title"));
+        }
         const index = bookmarks.findIndex((item) => item.id === input.id);
         if (index < 0) return Promise.reject(new Error("missing"));
         const { id: _id, ...patch } = input;
@@ -120,6 +137,7 @@ export function fakeBrowserApi(): {
         return Promise.resolve(bookmarks[index]!);
       },
       remove({ id }) {
+        if (options.corrupt) return Promise.reject(new Error("corrupt"));
         const index = bookmarks.findIndex((item) => item.id === id);
         if (index >= 0) bookmarks.splice(index, 1);
         for (const listener of bookmarkListeners) listener();

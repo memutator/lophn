@@ -77,6 +77,7 @@ export const browserKind: TabKindDef = {
             fields: { url: "", adopt: event.view_session },
           }, { after: tab.key })}
         onCloseRequested={() => host.removeTab(tab.key)}
+        onOpenInNewTab={(next) => openBrowserTab(host, next)}
         onState={(state) =>
           host.patchTab(tab.key, (current) => ({
             title: nameOf(state.title, state.url),

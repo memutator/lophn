@@ -1,0 +1,84 @@
+/* 채운 별: 선 아이콘의 안쪽을 글자색으로 칠한다. */
+.filled {
+  display: contents;
+}
+
+.filled svg {
+  fill: currentColor;
+}
+
+.popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--chip-width);
+  padding: var(--space-2);
+  box-sizing: border-box;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* 새 탭 화면: 최대 폭을 둔 기둥을 가로 가운데에 놓는다. */
+.list {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--page-list);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--space-1);
+  width: 100%;
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  border: none;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--color-surface-subtle);
+}
+
+.row:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.title {
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.note {
+  max-width: var(--page-list);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  box-sizing: border-box;
+  color: var(--color-text-secondary);
+}

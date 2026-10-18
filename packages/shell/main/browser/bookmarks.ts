@@ -9,27 +9,13 @@ import {
   type StoreDeps,
   writeFileAtomic,
 } from "../workspace/atomic-file.ts";
+import type {
+  Bookmark,
+  BookmarkList,
+  BookmarkReason,
+} from "../../ipc/browser.ts";
 
-export type Bookmark = {
-  id: string;
-  title: string;
-  url: string;
-  created_at: string;
-};
-
-export type BookmarkReason =
-  | "url"
-  | "title"
-  | "duplicate"
-  | "limit"
-  | "corrupt"
-  | "missing"
-  | "unreadable"
-  | "unwritable";
-
-export type BookmarkList =
-  | { state: "ok"; bookmarks: Bookmark[] }
-  | { state: "corrupt" };
+export type { Bookmark, BookmarkList, BookmarkReason };
 
 type Outcome<T> = { ok: true; value: T } | {
   ok: false;

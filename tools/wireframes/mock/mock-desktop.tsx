@@ -14,6 +14,7 @@ import {
 import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
 import {
   LAUNCHER,
+  openDetached,
   openSettings,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
@@ -23,6 +24,10 @@ import { EventsProvider } from "../../../packages/shell/renderer/desktop/connect
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
 import type { LophnBrowserApi } from "../../../packages/shell/ipc/browser.ts";
+import type {
+  DetachedTaken,
+  LophnDetachedApi,
+} from "../../../packages/shell/ipc/detached.ts";
 import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
 import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
 import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
@@ -82,6 +87,27 @@ interface MockDesktopProps {
   readonly settingsTab?: SettingsTab;
   /** browser 탭 통로. page가 fake(`fakeBrowserApi`)로 bookmark와 사건을 정할 때 준다. 없으면 dev mock 것이다. */
   readonly browser?: LophnBrowserApi;
+  /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
+  readonly detachedTab?: TabSpec;
+}
+
+// detached 통로의 가짜. preload가 없는 browser에는 없어서, 탭 menu의 Detach와 [Detach] 단추를 그리고 detached 창이 탭을 받게 한다.
+function fakeDetached(taken?: DetachedTaken): LophnDetachedApi {
+  return {
+    open: () =>
+      Promise.resolve({ bounds: { x: 0, y: 0, width: 960, height: 600 } }),
+    focus: () => Promise.resolve(),
+    close: () => Promise.resolve(),
+    take: () =>
+      taken === undefined
+        ? Promise.reject(new Error("not_found"))
+        : Promise.resolve(taken),
+    dock: () => Promise.resolve(),
+    changed: () => Promise.resolve(),
+    openTab: () => Promise.resolve(),
+    remove: () => Promise.resolve(),
+    subscribe: () => () => {},
+  };
 }
 
 // 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
@@ -143,7 +169,10 @@ export type SettingsTab = keyof typeof SETTINGS_PANE;
 export function MockDesktop(props: MockDesktopProps) {
   const { panes, floats, openTerminal, core, settingsTab, emptyLauncher } =
     props;
-  const route = settingsTab === undefined
+  const { detachedTab } = props;
+  const route = detachedTab !== undefined
+    ? openDetached(detachedTab.key)
+    : settingsTab === undefined
     ? props.route ?? LAUNCHER
     : openSettings(SETTINGS_PANE[settingsTab]);
   const wiring = useMemo(() => {
@@ -164,8 +193,17 @@ export function MockDesktop(props: MockDesktopProps) {
       confirmClose: () => Promise.resolve(false),
     };
     if (openTerminal !== undefined) terminal.store.request(openTerminal);
+    const { title, key, kind, folder } = detachedTab ?? {};
+    const detached = fakeDetached(
+      detachedTab === undefined ? undefined : {
+        project: PROJECT_GROCERY,
+        tab: { key: key!, kind: kind!, title, folder } as DetachedTaken["tab"],
+        transfer: null,
+      },
+    );
     return {
       mock,
+      detached,
       projects: emptyLauncher === true
         ? {
           ...mock.projects,
@@ -184,7 +222,7 @@ export function MockDesktop(props: MockDesktopProps) {
       events: createEventClient(mock.events),
       settingsPanels: mock.settingsPanels,
     };
-  }, [panes, floats, openTerminal, emptyLauncher]);
+  }, [panes, floats, openTerminal, emptyLauncher, detachedTab]);
   const { mock } = wiring;
   return (
     <BrowserApiProvider value={props.browser ?? mock.browser}>
@@ -197,6 +235,7 @@ export function MockDesktop(props: MockDesktopProps) {
               workspace={wiring.workspace}
               editor={mock.editor}
               terminal={wiring.terminal}
+              detached={wiring.detached}
               catalog={mock.catalog}
               projects={wiring.projects}
               apps={wiring.apps}

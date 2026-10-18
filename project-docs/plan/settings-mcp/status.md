@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py settings-mcp build`가 `tasks/*.md`에서 id
 | `sm-mcp-operator-runtime` | sm-mcp | 4 | 없음 | merged | plan/settings-mcp | 91629981e |  |
 | `sm-mcp-operator-secret-name` | sm-mcp | 5 | sm-envelope-sites, sm-mcp-operator-runtime | merged | plan/settings-mcp | 944c29662 |  |
 | `sm-mcp-operator-grants` | sm-mcp | 6 | sm-mcp-operator-secret-name, sm-mcp-operator-runtime, sm-envelope-sites | merged | plan/settings-mcp | 75458e72c |  |
-| `sm-chip` | sm-chip | 7 | sm-envelope-helper | todo |  |  |  |
+| `sm-chip` | sm-chip | 7 | sm-envelope-helper | merged | plan/settings-mcp | ee457007b |  |

@@ -6,6 +6,7 @@ import {
   AppEngineerEditorPage,
   OperatorCreatePage,
   OperatorEditorPage,
+  OperatorModelPickerPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
 
@@ -26,8 +27,15 @@ export const agentSettingsArea: Area = {
       id: "new-operator-editor",
       title: "Agent settings · Operator",
       description:
-        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, context, skill, MCP가 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, context, skill, MCP가 있다. Model 칸은 대화와 같은 picker이고 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <OperatorEditorPage />,
+    },
+    {
+      id: "new-operator-model-picker",
+      title: "Agent settings · Operator model picker",
+      description:
+        'Operator의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, Favorites, provider별 model이 있다. 맨 아래에 Connect provider 줄이 있다(Change defaults…는 대화의 picker에만 있다). 칸 아래 한 줄이 층이다.',
+      render: () => <OperatorModelPickerPage />,
     },
     {
       id: "new-operator-create",

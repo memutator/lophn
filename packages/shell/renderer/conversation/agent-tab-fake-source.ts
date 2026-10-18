@@ -27,6 +27,7 @@ import type {
   PickerProviderGroup,
 } from "./model-picker/types.ts";
 import type { SlashGroupView } from "./slash-menu/types.ts";
+import { t } from "@lophn/wording";
 import {
   HAIKU,
   LAYOUT_ALL,
@@ -759,11 +760,25 @@ const REWIND_PREVIEW: RewindPreviewView = {
   ],
 };
 
+const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder"];
+
+// custom provider의 model은 catalog가 정의별로만 정보를 주므로 option 축이 없다.
+const customScenario = (modelName: string): PickerScenario => ({
+  current: { provider: CUSTOM_PROVIDER, modelName },
+  currentLabel: modelName,
+  axes: [],
+  optionValues: {},
+});
+
 const SCENARIOS: Readonly<Record<string, PickerScenario>> = {
   "Sonnet 5.5": SONNET,
   "Opus 5.5": OPUS,
   "Haiku 5.5": HAIKU,
   "GPT-6.1 Sol": SOL,
+  ...Object.fromEntries(
+    CUSTOM_MODELS.map((name) => [name, customScenario(name)]),
+  ),
 };
 
 /** gallery가 model picker의 상태를 정하는 설정. 기본은 내장 provider 셋과 global 층이다. */
@@ -774,10 +789,11 @@ export interface FakePicker {
   readonly customListed?: boolean;
   /** 지금 model이 온 층. */
   readonly layer?: AgentValueLayer | null;
+  /** 처음에 고른 model의 이름. 기본은 Sonnet 5.5다. */
+  readonly current?: string;
+  /** [Refresh models]가 실패한다. */
+  readonly refreshFails?: boolean;
 }
-
-const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
-const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder"];
 
 function modelView(
   scenario: PickerScenario,
@@ -806,11 +822,15 @@ function modelView(
     }]
     : [];
   const groups = [...builtIn, ...custom];
+  // provider가 없으면 고른 model도 없다(core가 current null일 때 내는 값과 같다).
+  const none = kind === "none";
   return {
-    current: scenario.current,
-    currentLabel: scenario.currentLabel,
-    axes: scenario.axes,
-    optionValues: scenario.optionValues,
+    current: none ? { provider: "", modelName: "" } : scenario.current,
+    currentLabel: none
+      ? t("project-workspace.label.agent-no-model")
+      : scenario.currentLabel,
+    axes: none ? [] : scenario.axes,
+    optionValues: none ? {} : scenario.optionValues,
     layout: {
       favorites: kind === "none"
         ? []
@@ -1003,7 +1023,7 @@ export function createFakeAgentTabSource(
       view.queued.some((item) => item.id === queued)
     )?.[0];
   const scenarioOf = (session: string | null) =>
-    models.get(session ?? "new") ?? SONNET;
+    models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
 
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
@@ -1056,6 +1076,7 @@ export function createFakeAgentTabSource(
     toggleFavorite: (session, _model, query) =>
       ok(pickerView(scenarioOf(session), query)),
     refreshModels() {
+      if (picker.refreshFails === true) return Promise.resolve(false);
       customListed = true;
       return Promise.resolve(true);
     },

@@ -2,12 +2,13 @@
 // Manager·Operator 둘과 agent별 session, `/` 명령이다. model과 option은 models-data.ts(catalog)에서만 온다.
 import type { ModelSelection } from "./model-options.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
+import type { FakePicker } from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 
 /** Weekly report session의 진행. report는 일이 끝난 모양이고 나머지는 사람을 기다리거나 답한 뒤다. */
 type ChatStage = "report" | "question" | "answered" | "approval";
 
-/** model picker를 연 채 시작할지. */
-type ModelDemo = "picker";
+/** model picker를 연 채 시작할지. refresh는 연 뒤 첫 [Refresh models]까지 누른다. */
+type ModelDemo = "picker" | "refresh";
 
 /** session switcher를 어떻게 연 채 시작할지. edit는 이름 고치기 input과 삭제 확인을 같이 보인다. */
 type SwitcherDemo = "open" | "edit";
@@ -19,6 +20,8 @@ export interface ChatInit {
   readonly agent?: string;
   /** composer의 model picker를 연 채 시작한다. */
   readonly modelDemo?: ModelDemo;
+  /** model picker가 보이는 provider와 model의 상태. */
+  readonly picker?: FakePicker;
   /** agent header의 session switcher를 연 채 시작한다. */
   readonly switcher?: SwitcherDemo;
   /** 입력칸에 이 글자를 넣고 시작한다("/"나 "/co"면 명령 메뉴가 열린다). */

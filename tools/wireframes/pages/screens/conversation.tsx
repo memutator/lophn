@@ -112,6 +112,9 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   if (chat.modelDemo !== undefined) {
     steps.push(() => click("[data-model-button]"));
   }
+  if (chat.modelDemo === "refresh") {
+    steps.push(() => click("[data-refresh-models]"));
+  }
   if (chat.slash !== undefined) {
     const slash = chat.slash;
     steps.push(() => type(COMPOSER, slash));
@@ -138,7 +141,10 @@ export function Conversation(
   },
 ) {
   const { scene, archived } = sceneOf(tab);
-  const source = useMemo(() => createFakeAgentTabSource({ scene }), [scene]);
+  const source = useMemo(
+    () => createFakeAgentTabSource({ scene, picker: tab.chat?.picker }),
+    [scene, tab.key],
+  );
   const [drafts] = useState(() => new DraftStore());
   const [client] = useState(() => createEventClient(createFakeSource()));
   const [session, setSession] = useState<string | null>(

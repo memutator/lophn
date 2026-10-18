@@ -40,6 +40,8 @@ type Failing =
 
 interface FakeAgentsOptions {
   view?: AgentsSettingsView;
+  /** 전역 기본 model을 아직 고르지 않은 상태로 시작한다. */
+  noDefaultModel?: boolean;
   extensions?: ExtensionsView;
   /** 이 이름의 호출은 이 code로 실패한다. */
   failing?: Partial<Record<Failing, string>>;
@@ -65,7 +67,8 @@ const EXTENSIONS: ExtensionsView = {
 };
 
 export function fakeAgents(options: FakeAgentsOptions = {}) {
-  let view = options.view ?? VIEW;
+  let view = options.view ??
+    (options.noDefaultModel ? { ...VIEW, defaultModel: null } : VIEW);
   let skills: readonly SkillRow[] = (options.extensions ?? EXTENSIONS).skills;
   let servers: readonly McpRow[] = (options.extensions ?? EXTENSIONS).servers;
   const calls: AgentsCall[] = [];

@@ -10,7 +10,10 @@ import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/setti
 import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
 import { fakeAppearance } from "../../../../packages/shell/renderer/desktop/settings/appearance/testdata/fake-source.ts";
 import type { AppearanceValues } from "../../../../packages/shell/renderer/desktop/settings/appearance/source.ts";
+import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
+import { fakeProviders } from "../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
+import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 
 interface SettingsFrameProps {
@@ -20,6 +23,10 @@ interface SettingsFrameProps {
   readonly requiredEmpty?: boolean;
   /** Appearance 줄의 처음 값. 안 쓴 줄은 기본이다. */
   readonly appearance?: Partial<AppearanceValues>;
+  /** 연결된 provider. none은 하나도 없고 some은 Anthropic만 있다. 안 쓰면 셋이 연결된 모양이다. */
+  readonly providers?: "none" | "some";
+  /** 전역 기본 model을 아직 고르지 않았다. */
+  readonly noDefaultModel?: boolean;
   /** mount 뒤에 차례로 하는 동작. */
   readonly steps?: readonly Step[];
 }
@@ -31,6 +38,8 @@ export function SettingsFrame(
     pane = "general",
     requiredEmpty = false,
     appearance,
+    providers,
+    noDefaultModel = false,
     steps = [],
   }: SettingsFrameProps = {},
 ) {
@@ -41,29 +50,36 @@ export function SettingsFrame(
     () => requiredEmpty ? mock.settings : fakeSettings().source,
     [mock, requiredEmpty],
   );
-  const panels = useMemo(
-    () =>
-      appearance === undefined ? mock.settingsPanels : {
-        ...mock.settingsPanels,
-        appearance: fakeAppearance({ values: appearance }).source,
-      },
-    [mock, appearance],
-  );
+  // host가 Settings 화면과 같은 provider·기본 model source를 읽어야 연결 뒤에 새 provider를 찾는다.
+  const panels = useMemo(() => ({
+    ...mock.settingsPanels,
+    ...(appearance === undefined
+      ? {}
+      : { appearance: fakeAppearance({ values: appearance }).source }),
+    ...(providers === undefined
+      ? {}
+      : { providers: fakeProviders({ preset: providers }).source }),
+    ...(noDefaultModel
+      ? { agents: fakeAgents({ noDefaultModel }).source }
+      : {}),
+  }), [mock, appearance, providers, noDefaultModel]);
   useDrive(() => runSteps(steps));
   return (
     <EventsProvider client={client}>
-      <SettingsSpace
-        source={mock.catalog}
-        settingsPane={pane}
-        windowWidth={1280}
-        onLauncher={noop}
-        onApp={noop}
-        settings={settings}
-        settingsPanels={panels}
-        onInstructions={noop}
-        onOpenSession={noop}
-        onAnswerInTerminal={noop}
-      />
+      <GalleryConnectHost providers={panels.providers} agents={panels.agents}>
+        <SettingsSpace
+          source={mock.catalog}
+          settingsPane={pane}
+          windowWidth={1280}
+          onLauncher={noop}
+          onApp={noop}
+          settings={settings}
+          settingsPanels={panels}
+          onInstructions={noop}
+          onOpenSession={noop}
+          onAnswerInTerminal={noop}
+        />
+      </GalleryConnectHost>
     </EventsProvider>
   );
 }

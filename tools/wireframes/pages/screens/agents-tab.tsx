@@ -8,6 +8,7 @@ import {
   APP_ID,
   createFakeAgentsSource,
   FAKE_AGENTS,
+  type FakeAgentsOptions,
   PROJECT_CONTEXTS,
   PROJECT_ID,
   PROJECT_NAME,
@@ -58,13 +59,15 @@ export function AgentsBody({ open }: { open: Open }) {
 
 /** agent 하나의 설정 탭. id가 "new"면 새 Operator다. steps는 gallery가 상태를 고정하려고 mount 뒤에 누를 것이다. */
 export function OperatorEditor(
-  { id, onDone, steps = [] }: {
+  { id, onDone, steps = [], source: options }: {
     id: string;
     onDone: () => void;
     steps?: readonly Step[];
+    /** provider와 project 층 model의 상태. */
+    source?: FakeAgentsOptions;
   },
 ) {
-  const source = useMemo(() => createFakeAgentsSource(), []);
+  const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
   return (
     <div>

@@ -48,9 +48,46 @@ const weekly = (chat: ChatInit) => withTab(weeklyTab(chat));
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
-/** model picker를 펼친 상태. Favorites 묶음이 맨 위이고 고른 model의 option 축만 보인다. */
+/** model picker를 펼친 상태. 연결된 provider 묶음, Favorites, 고른 model의 option 축, 맨 아래 Connect provider와 Change defaults…, 머리의 층 한 줄("이 대화"). */
 export const AgentModelPicker = () =>
-  weekly({ stage: "report", modelDemo: "picker" });
+  weekly({
+    stage: "report",
+    modelDemo: "picker",
+    picker: { layer: "session" },
+  });
+/** 붙인 provider가 없는 picker. 안내와 Connect provider 줄만 있다. */
+export const ModelPickerEmpty = () =>
+  weekly({
+    stage: "report",
+    modelDemo: "picker",
+    picker: { providers: "none", layer: null },
+  });
+/** 이 대화에서 model을 고르지 않아 project default를 따르는 picker. */
+export const ModelPickerInherited = () =>
+  weekly({
+    stage: "report",
+    modelDemo: "picker",
+    picker: { layer: "project" },
+  });
+/** custom provider(provider가 알려 준 목록)의 묶음과 이름 직접 적기 줄이 있는 picker. */
+export const ModelPickerCustom = () =>
+  weekly({
+    stage: "report",
+    modelDemo: "picker",
+    picker: { providers: "custom", current: "llama-3.3-70b", layer: "session" },
+  });
+/** [Refresh models]가 실패해 앞 목록이 그대로 있고 picker 안에 실패 한 줄이 있다. */
+export const ModelPickerRefreshFailed = () =>
+  weekly({
+    stage: "report",
+    modelDemo: "refresh",
+    picker: {
+      providers: "custom",
+      current: "llama-3.3-70b",
+      layer: "session",
+      refreshFails: true,
+    },
+  });
 /** model을 바꾼 뒤 provider가 요청을 거절한 오류 메시지. */
 export const AgentRequestError = RequestErrorScene;
 /** 받은 메시지의 보낸 쪽 chip 셋과 펼친 panel. */

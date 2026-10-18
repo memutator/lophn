@@ -22,6 +22,10 @@ import {
   AgentSessionArchived,
   AgentSessions,
   AgentSessionsEdit,
+  ModelPickerCustom,
+  ModelPickerEmpty,
+  ModelPickerInherited,
+  ModelPickerRefreshFailed,
 } from "./agent-pages.tsx";
 
 export const agentArea: Area = {
@@ -144,8 +148,36 @@ export const agentArea: Area = {
       id: "new-agent-model-picker",
       title: "Agent · model picker",
       description:
-        "composer의 model을 누르면 Favorites가 맨 위에, 그 아래 provider별 model이 provider 아이콘과 함께 나온다. option 축은 고른 model이 가진 것만 보이고 따로 붙는 안내 문구는 없다.",
+        "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, Favorites, 연결된 provider별 model이 provider 아이콘과 함께 나온다. 고른 model이 가진 option 축이 있고, 맨 아래에 Connect provider 줄과 Change defaults…가 있다.",
       render: () => <AgentModelPicker />,
+    },
+    {
+      id: "new-model-picker-empty",
+      title: "Agent · model picker, no provider",
+      description:
+        "붙인 provider가 없을 때다. 고를 model이 없다는 안내와 맨 아래 Connect provider 줄만 있다. 줄을 누르면 연결 창이 열린다.",
+      render: () => <ModelPickerEmpty />,
+    },
+    {
+      id: "new-model-picker-inherited",
+      title: "Agent · model picker, project default",
+      description:
+        "이 대화에서 model을 고르지 않아 project default를 따르는 상태다. 머리의 층 한 줄이 project default를 말한다. 목록에서 고르면 이 대화의 model이 된다.",
+      render: () => <ModelPickerInherited />,
+    },
+    {
+      id: "new-model-picker-custom",
+      title: "Agent · model picker, custom provider",
+      description:
+        "custom provider가 알려 준 model 목록이 한 묶음으로 보인다. 묶음 머리에 Refresh models 단추가 있고 목록 아래에 model 이름을 직접 적는 줄이 있다. catalog에 없는 model이라 option 축은 없다.",
+      render: () => <ModelPickerCustom />,
+    },
+    {
+      id: "new-model-picker-refresh-failed",
+      title: "Agent · model picker, refresh failed",
+      description:
+        "Refresh models를 눌렀지만 읽지 못한 상태다. 앞 목록은 그대로 있고 picker 안에 실패 한 줄이 보인다.",
+      render: () => <ModelPickerRefreshFailed />,
     },
     {
       id: "new-agent-request-error",

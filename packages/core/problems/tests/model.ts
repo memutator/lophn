@@ -14,6 +14,7 @@ import {
   type Verification,
   verificationInputSchema,
 } from "../../../protocol/problems/mod.ts";
+import type { HarnessExample } from "./harness/driver.ts";
 
 // platform writer는 scope.operations에 route.name을 넣는다. 동의어를 만들지 않는다.
 const RECORD_VERIFICATION = "RecordVerification";
@@ -54,6 +55,9 @@ export type TestConnection = {
   test: string;
   // 접수한 요청의 실행 기한이다. 요청 identity가 아니라 runner에 넘길 값만이다.
   request_timeout_ms?: number;
+  // kind examples 접수 때 core가 ticket에서 읽어 싣는 예시다. 요청자가 보낸 값이 아니고 요청 identity
+  // (canonical request)에도 들어가지 않는다: `test` hash가 이 예시를 이미 묶고 runner가 다시 맞춰 본다.
+  examples?: HarnessExample[];
 };
 
 export type RequestRecord = {
@@ -84,6 +88,7 @@ export type PreparedAdmission = {
   app_in_scope: boolean;
   refs_ok: boolean;
   unavailable: boolean;
+  examples?: HarnessExample[];
 };
 
 export type SideStart = {

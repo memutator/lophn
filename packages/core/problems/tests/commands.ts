@@ -47,6 +47,10 @@ function handleRequestTest(
 > {
   const allowed = checkRequestAuthority(ctx, input);
   if (!allowed.ok) return allowed;
+  // examples 요청은 보고를 받은 core(machine)만 낸다. 예시는 App Engineer만 쓰는 ticket 칸이다.
+  if (input.kind === "examples" && ctx.actor !== "machine") {
+    return err({ code: "forbidden", message: FORBIDDEN });
+  }
   const existing = loadRecords(tx.sql, ctx.principal, input.request_key);
   const prior = existing.find((record) => record.phase === "accepted") ??
     existing[0];
@@ -86,6 +90,9 @@ function handleRequestTest(
       ...(input.timeout_ms === undefined
         ? {}
         : { request_timeout_ms: input.timeout_ms }),
+      ...(checked.value.examples === undefined
+        ? {}
+        : { examples: checked.value.examples }),
     },
   });
   if (!appended.ok) return appended;

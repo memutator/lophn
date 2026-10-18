@@ -182,6 +182,13 @@ function collectorFor(
 
 const NOW = () => new Date().toISOString();
 
+// examples 요청의 고정 시험은 core가 접수 기록에 실은 예시로 만든다. 요청의 `test`와 다르면 준비 실패다.
+function deriveOptions(connection: TestConnection) {
+  return connection.kind === "examples" && connection.examples
+    ? { examples: connection.examples }
+    : {};
+}
+
 function proofOf(
   job: JobCommon,
   phase: "preparation_failed" | "start_attempt" | "start_unknown" | "recovery",
@@ -345,15 +352,17 @@ async function runRequest(
   };
 
   const connection = job.connection;
-  if (connection.kind !== "app_test") {
-    return await unrunnable(
-      `${connection.kind} 요청은 이 runner가 실행하지 않는다`,
-    );
+  if (connection.kind !== "app_test" && connection.kind !== "examples") {
+    return await unrunnable(`알 수 없는 kind의 요청이다: ${connection.kind}`);
   }
   const root = options.root ?? Deno.env.get("LOPHN_HOME") ?? "";
   const bundle =
     `${root}/apps/${job.app}/bundles/${connection.target.bundle_hash}`;
-  const derived = await deriveAppTest(bundle, connection.target.bundle_hash);
+  const derived = await deriveAppTest(
+    bundle,
+    connection.target.bundle_hash,
+    deriveOptions(connection),
+  );
   if (!derived.ok) return await unrunnable(derived.reason);
   if (derived.value.test_hash !== connection.test) {
     return await unrunnable(
@@ -389,6 +398,7 @@ async function runRequest(
     dependencies_hash: test.frozen.sdk_dependencies ?? "",
     // 접수한 요청은 이전 release의 data schema를 싣지 않는다. 이전 release 없음으로 다루고 이유를 둔다.
     previous_schema: null,
+    ...deriveOptions(connection),
     timeout_ms: frozenTimeout,
     ...(connection.request_timeout_ms === undefined
       ? {}
@@ -565,6 +575,7 @@ async function recoverRequest(
   const derived = await deriveAppTest(
     `${root}/apps/${job.app}/bundles/${bundleHash}`,
     bundleHash,
+    deriveOptions(job.connection),
   );
   if (!derived.ok || derived.value.test_hash !== job.connection.test) {
     return {

@@ -137,7 +137,7 @@ export function checkPreparedAdmission(
   return ok({ ...prepared, canonical_input: canonical.value });
 }
 
-// app test와 test command는 side가 single 하나다.
+// app test와 examples 실행은 side가 single 하나다.
 export function sideAllowed(side: string): boolean {
   return side === "single";
 }

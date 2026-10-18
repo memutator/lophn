@@ -17,6 +17,7 @@ import {
   startTestSide,
 } from "../../../protocol/problems/mod.ts";
 import { canonicalJson, hashCanonical } from "./canonical.ts";
+import type { HarnessExample } from "./harness/driver.ts";
 import { appendActualSideStart, appendRequestObservation } from "./commands.ts";
 import {
   canonicalRequest,
@@ -217,9 +218,9 @@ export function stagedEvidence(
   return null;
 }
 
-// 제품 접수의 준비 값이다. app test만 접수하고 examples는 준비할 수 없다(unavailable).
-// 앱·참조의 존재는 조립(core)이 같은 transaction에서 읽은 사실이다. app test의 대상
-// bundle·고정 시험의 일치는 runner가 시작 전에 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
+// 제품 접수의 준비 값이다. 앱·참조의 존재는 조립(core)이 같은 transaction에서 읽은 사실이고, examples
+// 요청의 예시도 그 사실로 core가 ticket에서 읽어 싣는다. 대상 bundle·고정 시험의 일치는 runner가 시작 전에
+// 준비 단계에서 확인하고 어긋나면 준비 실패로 이유를 남긴다.
 export function productAdmission(
   ctx: Pick<RequestContext, "principal">,
   input: Input<typeof requestTest>,
@@ -227,6 +228,7 @@ export function productAdmission(
     runner_principal: string;
     app_registered: boolean;
     refs_ok: boolean;
+    examples?: HarnessExample[];
   },
 ): PreparedAdmission | null {
   const canonical = canonicalRequest(connectionOf(input));
@@ -240,7 +242,8 @@ export function productAdmission(
     runner_principal: facts.runner_principal,
     app_in_scope: facts.app_registered,
     refs_ok: facts.refs_ok,
-    unavailable: input.kind === "examples",
+    unavailable: false,
+    ...(facts.examples === undefined ? {} : { examples: facts.examples }),
   };
 }
 

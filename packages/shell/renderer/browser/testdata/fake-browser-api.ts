@@ -21,7 +21,6 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
   // 아직 열린 view가 없을 때 set한 값은 다음에 열리는 view의 바탕이 된다.
   let template: Partial<BrowserViewState> = {};
   let latest: string | null = null;
-  let count = 0;
 
   const emit = (state: BrowserViewState) => {
     states.set(state.view_session, state);
@@ -44,6 +43,7 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
     };
     states.set(view_session, blank);
     history.set(view_session, { urls: [blank.url], at: 0 });
+    latest = view_session;
     return blank;
   };
   // 이동 기록의 위치에 맞춰 url과 앞뒤 가능 여부를 맞춘다.
@@ -62,24 +62,6 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
   };
 
   const api: LophnBrowserApi = {
-    open({ url }) {
-      count += 1;
-      const view_session = `fake-view-${count}`;
-      const state: BrowserViewState = {
-        view_session,
-        url,
-        title: "",
-        loading: false,
-        canGoBack: false,
-        canGoForward: false,
-        health: "ok",
-        ...template,
-      };
-      history.set(view_session, { urls: [state.url], at: 0 });
-      latest = view_session;
-      states.set(view_session, state);
-      return Promise.resolve(state);
-    },
     adopt({ view_session }) {
       return Promise.resolve(need(view_session));
     },

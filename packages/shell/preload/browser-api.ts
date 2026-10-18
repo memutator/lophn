@@ -12,7 +12,6 @@ import {
   BROWSER_COMMAND_CHANNEL,
   BROWSER_EVENT_CHANNEL,
   BROWSER_NAVIGATE_CHANNEL,
-  BROWSER_OPEN_CHANNEL,
   BROWSER_STATE_CHANNEL,
   browserEventSchema,
   type BrowserReply,
@@ -76,8 +75,6 @@ export function createBrowserApi(
 ): LophnBrowserApi {
   return Object.freeze(
     {
-      open: (input) =>
-        call<BrowserViewState>(transport, BROWSER_OPEN_CHANNEL, input),
       adopt: (input) =>
         call<BrowserViewState>(transport, BROWSER_ADOPT_CHANNEL, input),
       navigate: (input) =>

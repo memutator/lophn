@@ -13,7 +13,6 @@ const bookmarkId = z.string().min(1).max(128);
 // page favicon. shell CSP가 img-src data:만 받으므로 main이 받아 data URL로 바꾼 것만 싣는다.
 const favicon = z.string().max(65536).startsWith("data:image/");
 
-export const BROWSER_OPEN_CHANNEL = "shell:browser-open";
 export const BROWSER_ADOPT_CHANNEL = "shell:browser-adopt";
 export const BROWSER_NAVIGATE_CHANNEL = "shell:browser-navigate";
 export const BROWSER_COMMAND_CHANNEL = "shell:browser-command";
@@ -27,9 +26,6 @@ export const BROWSER_STATE_CHANNEL = "shell:browser-state";
 export const BROWSER_EVENT_CHANNEL = "shell:browser-event";
 // payload 없음. 받은 쪽이 목록을 다시 읽는다.
 export const BOOKMARKS_CHANGED_CHANNEL = "shell:bookmarks-changed";
-
-// 빈 글은 빈 주소 칸으로 연다.
-export const browserOpenSchema = z.object({ url: address }).strict();
 
 // popup으로 생긴 view를 이 탭이 가져온다.
 export const browserAdoptSchema = z.object({ view_session: viewSession })
@@ -121,7 +117,6 @@ export const bookmarkReasonSchema = z.enum([
   "unwritable",
 ]);
 
-export type BrowserOpen = z.infer<typeof browserOpenSchema>;
 export type BrowserAdopt = z.infer<typeof browserAdoptSchema>;
 export type BrowserNavigate = z.infer<typeof browserNavigateSchema>;
 export type BrowserCommand = z.infer<typeof browserCommandSchema>;
@@ -163,7 +158,6 @@ export type BrowserReply<T> =
  * bookmarks의 거절은 Error.message가 BookmarkReason이고, 나머지 거절은 code다.
  */
 export interface LophnBrowserApi {
-  open(input: BrowserOpen): Promise<BrowserViewState>;
   adopt(input: BrowserAdopt): Promise<BrowserViewState>;
   navigate(input: BrowserNavigate): Promise<BrowserViewState>;
   command(input: BrowserCommand): Promise<void>;

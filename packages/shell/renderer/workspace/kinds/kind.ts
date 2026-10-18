@@ -6,6 +6,7 @@ import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 import type { IconProps } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/wording";
 
+import type { TabTransfer } from "../../../ipc/detached.ts";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 
@@ -29,6 +30,16 @@ export interface TabKindDef {
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */
   readonly noReopen?: true;
+  /** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */
+  readonly noDetach?: true;
+  /**
+   * 탭을 다른 창으로 옮기기 전에 살아 있는 상태를 꺼낸다(`toStored` 값만으로는 옮겨지지 않는 것).
+   * 보내는 창에서 돈다. null이면 옮기지 않는다(탭은 그대로 둔다). 선언하지 않은 kind는 `{ value: null, views: [] }`로 본다.
+   * value는 JSON이고 main을 거쳐 같은 project의 창에만 간다.
+   */
+  transfer?(tab: TabItem, host: TabHost): Promise<TabTransfer | null>;
+  /** 받는 창이 탭을 그리기 전에 부른다. transfer가 낸 값이 온다. 값 없이 되살린 탭(저장된 값만)에는 부르지 않는다. */
+  receive?(tab: TabItem, transfer: TabTransfer, host: TabHost): void;
   /** 팔레트 탭 행의 아이콘. 없으면 일반 탭이다. */
   readonly paletteIcon?: "terminal";
   /**

@@ -12,6 +12,7 @@ import {
 import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
+import { createDetachedApi } from "./detached-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
@@ -110,6 +111,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnAppWindows",
     createAppWindowsApi(ipcRenderer),
+  );
+  // detached 창으로 탭 옮기기. project 창과 detached 창이 같이 쓰고, 보낸 창의 역할은 main이 가린다.
+  contextBridge.exposeInMainWorld(
+    "lophnDetached",
+    createDetachedApi(ipcRenderer),
   );
   // 파일 읽고 쓰기·watch. 경로는 renderer가 보내고 디스크는 main이 만진다.
   contextBridge.exposeInMainWorld("lophnFiles", createFilesApi(ipcRenderer));

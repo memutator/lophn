@@ -80,6 +80,7 @@ import {
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
 import type { Command } from "../../ipc/keybindings.ts";
+import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
 import {
   focusTab,
@@ -150,6 +151,8 @@ export interface WorkspaceProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 항목을 두지 않는다. */
   terminal?: TerminalDeps;
+  /** detached 창 통로. 없으면 Detach 항목과 단추를 두지 않는다. */
+  detached?: LophnDetachedApi;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
   onOpenApp?: (app: string) => void;
   /**

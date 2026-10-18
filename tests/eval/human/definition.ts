@@ -1,8 +1,5 @@
 export type HumanDefinition = {
   n: number;
-  model: string;
-  max_tokens: number;
-  price_usd_per_mtok: { input: number; output: number };
   prompt: string;
 };
 
@@ -16,5 +13,5 @@ export async function loadHumanDefinition(): Promise<HumanDefinition> {
   const prompt = await Deno.readTextFile(
     new URL("./prompt.md", import.meta.url),
   );
-  return { ...meta, prompt };
+  return { n: meta.n, prompt };
 }

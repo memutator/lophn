@@ -144,10 +144,12 @@ export async function runTrial(
     }
     const human = scenario.human === undefined ? undefined : createHumanRole({
       port: core,
-      fetch: (url, init) => fetch(url, init),
-      apiKey: deps.key,
       clock: deps.clock,
       spec: scenario.human,
+      evalDir: deps.evalDir,
+      run: deps.runId,
+      trial: index,
+      log: deps.log,
     });
     const spend = createSpendGuard({
       limitUsd: deps.trialBudgetUsd,

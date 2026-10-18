@@ -20,5 +20,5 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-ex-prompts` | rd-ex-prompts | 3 | rd-ex-shape | merged | rd-ex-prompts/rd-ex-prompts | 7b12ccd60 |  |
 | `rd-cap-net-live` | rd-cap-live | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
 | `rd-cap-skill` | rd-cap-skill | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
-| `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | todo |  |  |  |
+| `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | running | rd-ex/rd-ex-trigger |  |  |
 | `rd-ex-e2e` | rd-ex | 5 | rd-ex-trigger, rd-cap-net-live | todo |  |  |  |

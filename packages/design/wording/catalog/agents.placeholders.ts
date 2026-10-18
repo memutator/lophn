@@ -277,6 +277,7 @@ export type AgentsPlaceholders = {
   "settings.button.disconnect": Record<never, never>;
   "settings.button.edit": Record<never, never>;
   "settings.button.save": Record<never, never>;
+  "settings.button.skip": Record<never, never>;
   "settings.error.connect-failed": Record<never, never>;
   "settings.error.custom-id": Record<never, never>;
   "settings.error.custom-name": Record<never, never>;
@@ -326,6 +327,7 @@ export type AgentsPlaceholders = {
   };
   "settings.label.status-connected": Record<never, never>;
   "settings.label.status-needs-sign-in": Record<never, never>;
+  "settings.notice.choose-default-model": Record<never, never>;
   "settings.notice.custom-id-help": Record<never, never>;
   "settings.notice.custom-lead": Record<never, never>;
   "settings.notice.none-connected": Record<never, never>;
@@ -346,6 +348,7 @@ export type AgentsPlaceholders = {
   "settings.status.sign-in-problem": Record<never, never>;
   "settings.status.sign-in-waiting": Record<never, never>;
   "settings.status.usage-limit": Record<never, never>;
+  "settings.title.choose-default-model": Record<never, never>;
   "settings.title.connect-provider": {
     name: "string";
   };

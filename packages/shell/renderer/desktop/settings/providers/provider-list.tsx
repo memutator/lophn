@@ -2,11 +2,12 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
-import { commonIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { wayLabel } from "../model.ts";
+import { AvailableList, type Loaded, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
+import { useAfterConnect } from "./connect-host.tsx";
 import { ProviderName } from "./provider-name.tsx";
 import type {
   ProviderDefinitionRow,
@@ -19,11 +20,6 @@ interface ProviderListProps {
   source: ProviderSettingsSource;
 }
 
-type Loaded<Row> =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly rows: readonly Row[] };
-
 // Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값 칸이 없다. 위는 연결된 provider
 // (vendor 아이콘과 이름, 로그인 방법 badge, [Disconnect]; 사용량 대기나 사용 불가일 때만 그 상태와 다음 행동 한 줄)이고
 // 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는 연결 하나다. [+ Connect]는 Connect dialog를
@@ -32,27 +28,17 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [connected, setConnected] = useState<Loaded<ProviderRow>>({
     state: "loading",
   });
-  const [available, setAvailable] = useState<Loaded<ProviderDefinitionRow>>({
-    state: "loading",
-  });
+  const { available, load: loadAvailable, retry: retryAvailable } =
+    useAvailable(source);
   const [failed, setFailed] = useState(false);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
   const [leaving, setLeaving] = useState<ProviderRow | null>(null);
+  const afterConnect = useAfterConnect();
 
   // 다시 읽다 실패해도 이미 보이는 목록은 지우지 않는다(처음 읽기만 실패를 보인다).
   const loadConnected = useCallback(async (): Promise<void> => {
     const read = await source.connected();
     setConnected((previous) =>
-      read.ok
-        ? { state: "ready", rows: read.value }
-        : previous.state === "ready"
-        ? previous
-        : { state: "failed" }
-    );
-  }, [source]);
-  const loadAvailable = useCallback(async (): Promise<void> => {
-    const read = await source.available();
-    setAvailable((previous) =>
       read.ok
         ? { state: "ready", rows: read.value }
         : previous.state === "ready"
@@ -136,59 +122,24 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         <h2 className={styles.sectionTitle}>
           {t("settings.heading.add-provider")}
         </h2>
-        {available.state === "failed"
-          ? (
-            <ErrorState
-              target={t("settings.label.available-target")}
-              onRetry={() => {
-                setAvailable({ state: "loading" });
-                void loadAvailable();
-              }}
-            />
-          )
-          : (
-            <Loading
-              loading={available.state === "loading"}
-              placeholder={<Skeleton lines={3} />}
-            >
-              <ul className={styles.group}>
-                {(available.state === "ready" ? available.rows : []).map((
-                  definition,
-                ) => (
-                  <li
-                    key={definition.key}
-                    className={styles.item}
-                    data-available={definition.key}
-                  >
-                    <span className={styles.identity}>
-                      <ProviderName name={definition.name} />
-                      {definition.hint === null
-                        ? null
-                        : (
-                          <span className={styles.hint} data-hint="">
-                            {definition.hint}
-                          </span>
-                        )}
-                    </span>
-                    <Button
-                      size="sm"
-                      icon={commonIcons.add}
-                      data-action="connect"
-                      onClick={() => setTarget(definition)}
-                    >
-                      {t("settings.button.connect")}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </Loading>
-          )}
+        <AvailableList
+          available={available}
+          onRetry={retryAvailable}
+          onChoose={setTarget}
+        />
       </section>
       <ConnectDialog
         source={source}
         definition={target}
         onClose={() => setTarget(null)}
-        onConnected={reload}
+        onConnected={() => {
+          reload();
+          afterConnect(
+            connected.state === "ready"
+              ? connected.rows.map((row) => row.id)
+              : [],
+          );
+        }}
       />
       <Dialog
         open={leaving !== null}

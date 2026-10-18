@@ -36,6 +36,7 @@ import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
 import type { SettingsPanels } from "./settings/settings-screen.tsx";
+import { ConnectProviderHost } from "./settings/providers/connect-host.tsx";
 import { applyAppearance } from "./settings/appearance/model.ts";
 import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
@@ -378,7 +379,7 @@ export function Desktop(
     );
   }
   // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
-  return (
+  const tree = (
     <PaletteProvider deps={palette} onLauncher={launcher}>
       <DefaultToastHandler
         openSession={openSession}
@@ -399,4 +400,15 @@ export function Desktop(
         : null}
     </PaletteProvider>
   );
+  // model picker 같은 곳에서도 provider 연결 화면을 열 수 있게 화면 전체를 감싼다.
+  return settingsPanels?.providers && settingsPanels.agents
+    ? (
+      <ConnectProviderHost
+        providers={settingsPanels.providers}
+        agents={settingsPanels.agents}
+      >
+        {tree}
+      </ConnectProviderHost>
+    )
+    : tree;
 }

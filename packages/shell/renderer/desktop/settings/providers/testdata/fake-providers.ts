@@ -70,13 +70,16 @@ const CUSTOM_DEFINITION = definition("custom", "Custom provider", {
   custom: true,
 });
 
-const AVAILABLE: readonly ProviderDefinitionRow[] = [
+const OTHER_DEFINITIONS: readonly ProviderDefinitionRow[] = [
   definition("google", "Google", { hint: "Gemini models" }),
   definition("openrouter", "OpenRouter", {
     hint: "Models from many providers",
   }),
   CUSTOM_DEFINITION,
 ];
+
+// 연결 상태의 기본 모양: 셋이 연결돼 있고 나머지가 Add a provider에 있다.
+const AVAILABLE = OTHER_DEFINITIONS;
 
 /** 끊은 뒤 다시 연결할 수 있게 연결된 provider의 정의를 key로 찾는다. */
 const DEFINITIONS: Readonly<Record<string, ProviderDefinitionRow>> = {
@@ -90,7 +93,33 @@ type ProviderCall =
   | readonly ["connect", string, Exclude<AuthWay, "none">]
   | readonly ["custom", CustomProviderInput];
 
+/** gallery와 mock이 고르는 연결 상태. "none"은 하나도 연결하지 않았고 "some"은 Anthropic만 연결했다. 기본은 셋이 연결된 모양이다. */
+type Preset = "none" | "some";
+
+const PRESETS: Record<
+  Preset,
+  {
+    connected: readonly ProviderRow[];
+    available: readonly ProviderDefinitionRow[];
+  }
+> = {
+  none: {
+    connected: [],
+    available: [
+      ANTHROPIC_DEFINITION,
+      OPENAI_DEFINITION,
+      XAI_DEFINITION,
+      ...OTHER_DEFINITIONS,
+    ],
+  },
+  some: {
+    connected: [CONNECTED[0]],
+    available: [OPENAI_DEFINITION, XAI_DEFINITION, ...OTHER_DEFINITIONS],
+  },
+};
+
 interface FakeProvidersOptions {
+  preset?: Preset;
   connected?: readonly ProviderRow[];
   available?: readonly ProviderDefinitionRow[];
   /** 구독 로그인을 고르면 이 code로 기다림을 보이고 그만둘 때까지 끝나지 않는다(gallery가 기다림 화면을 고정한다). */
@@ -105,8 +134,12 @@ interface FakeProvidersOptions {
 }
 
 export function fakeProviders(options: FakeProvidersOptions = {}) {
-  let connected = [...(options.connected ?? CONNECTED)];
-  let available = [...(options.available ?? AVAILABLE)];
+  const preset = options.preset === undefined
+    ? undefined
+    : PRESETS[options.preset];
+  let connected = [...(options.connected ?? preset?.connected ?? CONNECTED)];
+  let available = [...(options.available ?? preset?.available ?? AVAILABLE)];
+  let created = 0;
   const calls: ProviderCall[] = [];
   const failing = options.failing ?? {};
   const ok = <T>(value: T): SourceResult<T> => ({ ok: true, value });
@@ -145,11 +178,33 @@ export function fakeProviders(options: FakeProvidersOptions = {}) {
           )
         );
       }
-      return Promise.resolve(fail("connect") ?? ok(null));
+      const failed = fail("connect");
+      if (failed) return Promise.resolve(failed);
+      // 연결이 되면 그 정의는 연결된 목록으로 옮겨 간다(host가 새 provider를 찾는다).
+      const chosen = available.find((item) => item.key === key);
+      if (chosen !== undefined) {
+        available = available.filter((item) => item !== chosen);
+        connected = [
+          ...connected,
+          connection(`pvd_fake_${++created}`, chosen.name, key, way),
+        ];
+      }
+      return Promise.resolve(ok(null));
     },
     registerCustom(input) {
       calls.push(["custom", input]);
-      return Promise.resolve(fail("custom") ?? ok(null));
+      const failed = fail("custom");
+      if (failed) return Promise.resolve(failed);
+      connected = [
+        ...connected,
+        connection(
+          `pvd_fake_${++created}`,
+          input.name,
+          "custom",
+          input.withKey ? "api_key" : "none",
+        ),
+      ];
+      return Promise.resolve(ok(null));
     },
   };
   return { source, calls };

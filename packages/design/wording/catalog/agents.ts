@@ -264,6 +264,7 @@ export const agents = {
   "settings.button.disconnect": "Disconnect",
   "settings.button.edit": "Edit",
   "settings.button.save": "Save",
+  "settings.button.skip": "Skip",
   "settings.error.connect-failed":
     "Couldn't connect. Nothing changed. Try again.",
   "settings.error.custom-id":
@@ -309,12 +310,14 @@ export const agents = {
   "settings.label.sign-in-how": "How do you want to sign in to {name}?",
   "settings.label.status-connected": "Connected",
   "settings.label.status-needs-sign-in": "Needs sign-in",
+  "settings.notice.choose-default-model":
+    "Agents use this model unless a project or an agent picks another. You can change it later in Settings → Agents.",
   "settings.notice.custom-id-help":
     "Lowercase letters, numbers, hyphens or underscores.",
   "settings.notice.custom-lead": "Set up an OpenAI-compatible provider.",
   "settings.notice.none-connected": "No providers are connected yet.",
   "settings.notice.provider-lead":
-    "A provider is a service you connect with one key or sign-in. You choose models per agent and per session, not here.",
+    "A provider is a service you connect with one key or sign-in. You pick models in the model picker and in Settings → Agents.",
   "settings.notice.sign-in-browser":
     "Finish signing in to {product} in your browser.",
   "settings.notice.sign-in-code":
@@ -339,6 +342,7 @@ export const agents = {
   "settings.status.sign-in-waiting": "Waiting for you to finish signing in.",
   "settings.status.usage-limit":
     "Usage limit reached. Wait for the limit to reset.",
+  "settings.title.choose-default-model": "Choose a default model",
   "settings.title.connect-provider": "Connect {name}",
   "settings.title.custom-provider": "Custom provider",
 } as const;

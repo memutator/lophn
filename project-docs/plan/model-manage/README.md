@@ -33,7 +33,7 @@
   - 머리: "Manage models", 설명 한 줄(picker에 보일 model을 고른다), 오른쪽 위 "+ Connect provider".
   - 검색 칸 하나. provider마다 묶음이다. 묶음 머리는 vendor 아이콘, provider 이름, provider toggle(그 provider의 model 전부 켜기·끄기)이다. 그 아래 model마다 toggle이다.
   - custom provider 묶음 머리에는 "Refresh models"가 있다. 실패하면 앞 목록이 그대로이고 창 안에 한 줄로 알린다.
-  - custom provider가 목록을 주지 않으면(`reported_models`가 null이거나 빈 목록) 그 묶음에 model 이름을 더하는 칸이 있다. 더한 이름은 그 provider의 `reported_models`에 들어간다(사람 자격의 `RecordProviderModels`, compare `revision`). 새 저장 칸을 만들지 않는다(agent). 목록을 주는 provider에는 이 칸이 없다.
+  - custom provider 묶음에는 model 이름을 더하는 칸이 있다. 더한 이름은 그 provider의 `reported_models`에 들어간다(사람 자격의 `RecordProviderModels`, compare `revision`). 새 저장 칸을 만들지 않는다(agent). Refresh가 성공하면 provider가 준 목록으로 바뀐다: 목록을 주는 provider에는 이름을 더할 일이 없다(agent). "목록이 없을 때만" 두면 이름 하나를 더한 뒤 칸이 사라져서 바꿨다.
   - "+ Connect provider"는 지금의 provider 연결 창(`ConnectProviderDialog`)을 연다. 붙이고 나면 Manage models 창으로 돌아와 그 provider 묶음이 맨 위에 보인다.
 - 보일 model:
   - 즐겨찾기를 없애고 켜기·끄기 하나로 둔다(사람). 저장된 즐겨찾기는 옮기지 않고 버린다(AGENTS.md "호환성").

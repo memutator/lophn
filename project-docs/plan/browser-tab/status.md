@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-bookmark-store` | bt-bookmark | 2 | 없음 | merged | bt-bookmark/bt-bookmark-store | 639e1e033 |  |
 | `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | todo |  |  |  |
 | `bt-popup-host` | bt-popup | 2 | bt-view | merged | bt-popup/bt-popup-host | 589712cf6 |  |
-| `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | running | bt-popup/bt-popup-tab |  |  |
+| `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | merged | bt-popup/bt-popup-tab | 0055e5f3f |  |
 | `bt-settings-bookmarks` | bt-settings | 2 | bt-settings-clear, bt-bookmark-ipc | merged | bt-settings/bt-settings-bookmarks | 4810cc5b3 |  |
 | `bt-settings-clear` | bt-settings | 2 | bt-tab-page | merged | bt-settings/bt-settings-clear | e84fc37cd |  |
 | `bt-tab-kind` | bt-tab | 2 | bt-tab-page | merged | bt-tab/bt-tab-kind | 8bb323d9c |  |

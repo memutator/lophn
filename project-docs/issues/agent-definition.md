@@ -33,7 +33,7 @@ modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/protoco
 - 지운다(작음): protocol 칸, 정의 file 키, `serversOf`의 agent 층, renderer type, Operator 편집 화면의 server 단추와 form, 그 wireframe을 지운다. 잃는 것은 지금도 못 쓰는 Operator별 MCP다. 이미 `mcp_servers`가 든 정의 file은 `unknown_field`로 거절된다(호환 장치를 두지 않는다).
 - 추천: 지운다. 필요해지면 그때 화면·승인과 같이 짠다.
 
-정한 것: 지운다(사람: 추천대로).
+정한 것: 살린다(사람: Operator에게도 자기 MCP server가 필요하다). runtime이 Operator 정의 층의 server를 읽어 쓰게 하고, Deno 권한과 Grants 목록도 그 층을 알게 한다. 정의가 바뀌면 runtime을 다시 띄운다. server를 넣는 길은 지금처럼 사람의 화면(Operator 편집)뿐이다. agent의 `operator.create`·`operator.update`는 실행 명령을 정하는 입력이라 계속 받지 않는다. 앞서 "지운다"로 적은 것은 사람의 답을 잘못 읽은 것이다.
 
 ## Project Manager 지침이 경계와 계약 위반 판단을 정하라고도 하고 물으라고도 한다
 

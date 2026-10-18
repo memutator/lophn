@@ -1,8 +1,8 @@
-# settings-mcp: 설정 화면을 고치고 반쯤 만든 MCP 길을 지운다
+# settings-mcp: 설정 화면을 고치고 반쯤 만든 MCP 길을 정리한다
 
 - 목표:
   - 설정 화면에서 provider 연결과 기본 model 바꾸기가 다시 되게 한다. renderer가 command 봉투를 만드는 helper를 하나로 모은다.
-  - 반쯤 만든 MCP 길 둘을 지운다.
+  - 반쯤 만든 MCP 길 둘을 정리한다. 설정 통로의 죽은 MCP 함수는 지우고, Operator 정의의 MCP server 층은 살려 runtime이 쓰게 한다.
   - 보낸 chip이 대화에 남게 한다.
 - 재료:
   - `project-docs/issues/shell.md`
@@ -23,7 +23,12 @@
 
 - 봉투: 대화의 `CommandBody`처럼 protocol route를 받아 input과 compare type을 route에서 꺼내는 helper 하나를 renderer에 둔다. 손으로 짠 봉투 11곳이 모두 그것만 쓴다. guard는 그 helper가 만든 봉투가 `commandRequestSchema`를 통과하는지 보는 test 하나다. process를 띄우지 않는다(이슈의 정한 것).
 - 설정 통로의 MCP 함수와 그것만 쓰는 type, 구현, fake를 지운다(이슈의 정한 것).
-- Operator 정의의 `mcp_servers` 층을 지운다: protocol 칸, 정의 file 키, `serversOf`의 agent 층, renderer type. 잃는 것은 지금도 못 쓰는 Operator별 MCP다(사람: 추천대로).
+- Operator 정의의 `mcp_servers` 층을 살린다(사람: Operator에게도 자기 MCP server가 필요하다).
+  - runtime이 turn 준비 때 그 층을 읽는다(`loadMcp`가 agent를 넘기고 `serversOf`의 agent 층을 쓴다).
+  - runtime의 Deno 권한(`mcp-snapshot`)과 Grants 목록(`agent-mcp-tools/list`)이 그 층을 안다.
+  - 정의가 바뀌면 runtime child를 다시 띄운다.
+  - server를 넣는 길은 사람의 Operator 편집 화면뿐이다. agent의 `operator.create`·`operator.update`는 실행 명령을 정하는 입력이라 계속 받지 않는다.
+  - 권한과 승인은 project 층의 server와 같은 규칙을 쓴다. 새 규칙을 만들지 않는다.
 - chip: `attachedFields`에 optional `context`를 더하고, `sendText`가 chip마다 `attached` part를 본문에 쓴다. `retryTurn`은 본문의 `attached` part로 `SendMessage.attached`를 다시 만든다(이슈의 정한 것).
 
 ## 사람이 정할 것

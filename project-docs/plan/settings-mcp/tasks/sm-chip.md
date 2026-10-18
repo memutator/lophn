@@ -2,7 +2,7 @@
 
 composer에서 보낸 context·위반 chip이 대화에 남게 한다. 본문에 chip마다 `attached` part를 쓰고, 실패한 turn을 다시 보낼 때 그 part로 `SendMessage.attached`를 되살려 agent가 처음에 받은 위반을 잃지 않게 한다.
 
-- 단위: sm-chip (wave 5)
+- 단위: sm-chip (wave 7)
 - 선행: sm-envelope-helper
 - 소유(이 task만 고친다):
   - `packages/protocol/lophn-agent/message-content.ts`

@@ -9,6 +9,7 @@ import {
   type ReactionEventType,
 } from "../approvals/mod.ts";
 import { defineEvent, type EventDefinition } from "../base/event.ts";
+import { verificationRecorded } from "../problems/tests.ts";
 
 // domain event는 Ledger에 남고 Reactor가 반응한다. 이 목록 밖의 변경은 domain event를 만들지 않는다.
 // 같은 tx 규칙: 아래 event는 그 도메인 상태를 바꾸는 command가 같은 transaction에서 쓴다.
@@ -112,6 +113,7 @@ export const DOMAIN_EVENTS = [
   codingSessionEndedUnreported,
   approvalDecided,
   ticketVerified,
+  verificationRecorded,
 ] as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number]["type"];
@@ -143,6 +145,7 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(codingSessionEndedUnreported),
   domainEventEnvelopeSchema(approvalDecided),
   domainEventEnvelopeSchema(ticketVerified),
+  domainEventEnvelopeSchema(verificationRecorded),
 ]);
 export type DomainEvent = z.infer<typeof domainEventSchema>;
 
@@ -160,6 +163,7 @@ const DOMAIN_EVENT_KINDS = {
   CodingSessionEndedUnreported: "call_closing",
   ApprovalDecided: "program",
   TicketVerified: "program",
+  VerificationRecorded: "program",
 } as const satisfies Record<DomainEventType, DomainEventKind>;
 
 // 새 일 다섯은 approvals의 REACTION_EVENT_TYPES와 같다. 어긋나면 type 오류다.

@@ -46,10 +46,9 @@ modules: [packages/core/apps, packages/core/agent-roles]
 - lophn 지침의 "change an existing app" 견주기가 앱 이름과 한 줄 설명으로만 된다.
 - App Engineer는 blueprint `app_connections`에 정확한 app-api key를 적어야 한다(`packages/protocol/apps/blueprint/uses.ts`). 그런데 그 key를 읽을 길이 없다. 사람이 key를 말해 주지 않으면 같은 기능을 새 앱 안에 다시 만든다.
 
-고치려면:
-- `app.get` tool이 active release의 app-api 목록(key, label, description, effect)을 같이 돌려준다. 크기는 작음이고, tool 수가 늘지 않는다.
-- `app.app_api`를 감싼 tool을 새로 둔다. 크기는 작음이지만, 모든 role의 tool 정의가 하나 는다.
-- 추천: 첫째.
+고치려면: `app.app_api`를 감싼 read tool을 새로 두고, lophn과 App Engineer의 tool 목록(`packages/core/agent-roles/tool-lists.ts`)에만 넣는다(작음). 돌려주는 것은 active release의 app-api 목록(key, label, description, effect)이다. 모든 role이 가진 `app.get`에 싣지 않는 것은 아래 정한 것 때문이다. 같은 tool이 role마다 다른 것을 돌려주지 않게 한다.
+
+정한 것: 다른 앱의 app-api 목록은 lophn과 App Engineer만 본다(사람).
 
 ## cap-fs, cap-net, cap-secret이 깔리지 않아 앱이 외부 network, secret, 허락된 경로의 file을 못 쓴다
 
@@ -76,4 +75,4 @@ modules: [packages/sdk, packages/core/apps, packages/coding-agent]
 - 지운다(중간): SDK 셋, broker의 net·secret 통로, 권한 종류(`net.fetch`, `secret.use`, `fs.read`, `fs.write`)를 지운다. 앱은 외부 I/O를 못 하는 것으로 정한다.
 - 추천: 살린다. core 쪽이 다 있어, 잃는 것 없이 기능이 생긴다.
 
-정할 것: 앱의 외부 network, secret, file 접근을 제품 기능으로 살릴지 지울지.
+정한 것: 살린다(사람). 셋에 `deno.json`을 두고, 앱 E2E 한 행으로 확인하고, coding agent skill의 SDK 목록에 더한다.

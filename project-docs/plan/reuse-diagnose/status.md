@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
 | `rd-ex-shape` | rd-ex | 1 | 없음 | merged | rd-ex/rd-ex-shape | 1b94a58ac |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | merged | rd-resolve/rd-resolve-rule | 90effff01 |  |
-| `rd-sdk-builtin` | rd-sdk | 1 | 없음 | running | rd-sdk/rd-sdk-builtin |  |  |
+| `rd-sdk-builtin` | rd-sdk | 1 | 없음 | merged | rd-sdk/rd-sdk-builtin | fb3311889 |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | running | rd-body/rd-body-cli |  |  |
 | `rd-body-tool` | rd-body | 2 | rd-body-route, rd-app-api-tool, rd-resolve-rule | todo |  |  |  |
 | `rd-cap-secret-core` | rd-cap-secret | 2 | rd-cap-net-transport | todo |  |  |  |

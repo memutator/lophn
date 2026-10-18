@@ -9,6 +9,7 @@ import {
   blueprintCheck,
   packagePublish,
   packageRegisterVersion,
+  packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
@@ -67,6 +68,7 @@ import {
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { checkBlueprint } from "../../../apps/blueprint/check.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
+import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
 import {
   findAppTestVerification,
   findPassedAppTest,
@@ -299,6 +301,10 @@ export const appsWiring: WiringFactory = () => {
                   "not_found",
                 ),
             }),
+          ],
+          [
+            `${packagesBuiltin.resource}/${packagesBuiltin.method}`,
+            readBuiltinSdk({ dataRoot: ctx.root.path }),
           ],
           [
             `${packagePublish.resource}/${packagePublish.method}`,

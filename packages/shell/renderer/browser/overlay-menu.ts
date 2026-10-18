@@ -37,6 +37,13 @@ let serial = 0;
 const ROW = 32;
 const PAD = 4;
 
+// 한글 등 ASCII 밖 글자는 ASCII의 두 배 폭으로 어림한다.
+function textWidth(text: string): number {
+  let sum = 0;
+  for (const char of text) sum += char.codePointAt(0)! > 0x7f ? 16 : 8;
+  return sum;
+}
+
 function menuBox(
   trigger: DOMRect,
   label: string,
@@ -44,12 +51,12 @@ function menuBox(
   kind: "menu" | "popover",
 ) {
   // popover의 머리글 한 줄은 menu 줄과 같은 높이로 어림한다.
-  const heading = kind === "popover" ? label.length : 0;
+  const heading = kind === "popover" ? textWidth(label) : 0;
   const longest = Math.max(
     heading,
-    ...choices.map((choice) => choice.label.length),
+    ...choices.map((choice) => textWidth(choice.label)),
   );
-  const width = Math.min(360, Math.max(160, longest * 8 + 40));
+  const width = Math.min(360, Math.max(160, longest + 40));
   const height = (choices.length + (kind === "popover" ? 1 : 0)) * ROW +
     PAD * 2;
   const maxWidth = Math.max(1, Math.floor(globalThis.innerWidth));

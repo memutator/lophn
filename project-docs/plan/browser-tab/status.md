@@ -21,5 +21,5 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-favicon-main` | bt-favicon | 3 | bt-view-layers | todo |  |  |  |
 | `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main | todo |  |  |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui, bt-menu-overlay | running | bt-popup/bt-popup-float |  |  |
-| `bt-view-layers` | bt-view-layers | 3 | bt-menu-overlay | running | bt-view-layers/bt-view-layers |  |  |
+| `bt-view-layers` | bt-view-layers | 3 | bt-menu-overlay | merged | bt-view-layers/bt-view-layers | f226c42b2 |  |
 | `bt-gallery` | bt-gallery | 4 | 없음 | todo |  |  |  |

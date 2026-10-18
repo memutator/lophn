@@ -35,10 +35,10 @@ add(annotate.register(ctx, views));
 add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
-add(layout.register(ctx));
 add(bookmarks.register(ctx));
 add(editor.register(ctx));
-add(detached.register(ctx, views));
+const detachedWindows = add(detached.register(ctx, views));
+add(layout.register(ctx, detachedWindows));
 add(desktop.register(ctx, views, terminals));
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.

@@ -335,6 +335,16 @@ export function Workspace(props: WorkspaceProps) {
         if (restored) {
           setView(restored);
           setFloatFocused(false);
+          // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
+          // transfer가 없어 terminal은 PTY에 다시 붙지 못한다(재시작과 같다).
+          for (const item of restored.detached) {
+            void props.detached?.open({
+              project: projectId,
+              tab: item.tab,
+              transfer: null,
+              bounds: item.bounds,
+            }).catch(() => {});
+          }
         }
       }
       setReadyProject(projectId);
@@ -793,6 +803,9 @@ export function Workspace(props: WorkspaceProps) {
       update(attachDetached(current, event.key, tab));
       setFloatFocused(false);
       focusPaneBody(latest.current.focusedPane);
+    } else if (event.kind === "moved") {
+      // main이 저장할 때 살아 있는 창의 bounds를 채운다.
+      persistRef.current(current);
     } else if (event.kind === "changed") {
       if (!isDetached(current, event.key)) return;
       update({

@@ -55,6 +55,8 @@ interface LayoutIpcDeps {
     width: number;
     height: number;
   } | null;
+  /** 이 창에 딸린 살아 있는 detached 창의 bounds(탭 key별). 저장할 때 renderer가 보낸 값을 덮어쓴다. */
+  detachedBounds(event: IpcEvent): ReadonlyMap<string, WindowBounds>;
 }
 
 function clampInt(
@@ -125,6 +127,12 @@ export function registerLayoutIpc(
       if (!parsed.ok) {
         return { ok: false, code: "invalid_input", message: "" };
       }
+      const live = deps.detachedBounds(event);
+      const detached = parsed.value.detached.map((item) => {
+        const key = (item.tab as { key?: unknown } | null)?.key;
+        const bounds = typeof key === "string" ? live.get(key) : undefined;
+        return bounds === undefined ? item : { ...item, bounds };
+      });
       const valid = validateLayout({
         schema_version: SCHEMA_VERSION,
         project: parsed.value.project,
@@ -133,7 +141,7 @@ export function registerLayoutIpc(
         split_ratio: parsed.value.split_ratio,
         focused_pane: parsed.value.focused_pane,
         floats: parsed.value.floats,
-        detached: parsed.value.detached,
+        detached,
         window_bounds: clampBounds(deps.bounds(event)),
       });
       if (!valid.ok) {

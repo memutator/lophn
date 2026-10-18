@@ -39,8 +39,51 @@ async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-// guide.md가 있으면 그것이다. 없고 components/<분류>/mod.ts가 있으면(@lophn/ui) 분류마다 mod.ts 원문을 잇는다:
-// "언제 쓰나" 한 줄이 그 주석에 있어서 따로 쓰면 낡는다. 둘 다 없으면 null이다.
+// components/<분류>/mod.ts에서 분류의 index를 줄 단위로 뽑는다. export 문 바로 위 `//` 주석이 "언제 쓰나" 한 줄이라
+// 따로 쓰면 낡는다. type export와 주석 없는 export는 뺀다.
+function indexOfCategory(category: string, mod: string): string {
+  // 첫 줄은 분류 설명이라 다음 export의 주석에 섞지 않는다.
+  const [summary, ...body] = mod.split("\n");
+  const lines = [
+    `## ${category}`,
+    "",
+    summary.replace(/^\/\/ ?/, ""),
+    `import from \`@lophn/ui/${category}\``,
+    "",
+  ];
+  let comment: string[] = [];
+  let statement: string | null = null;
+  for (const line of body) {
+    if (statement !== null) {
+      statement += ` ${line.trim()}`;
+    } else if (line.startsWith("//")) {
+      comment.push(line.slice(2).trim());
+      continue;
+    } else if (line.startsWith("export {")) {
+      statement = line;
+    } else {
+      comment = [];
+      continue;
+    }
+    if (!statement.includes("}")) continue;
+    const names = statement.slice(
+      statement.indexOf("{") + 1,
+      statement.indexOf("}"),
+    )
+      .split(",").map((part) => part.trim()).filter((part) =>
+        part !== "" && !part.startsWith("type ")
+      );
+    if (names.length > 0 && comment.length > 0) {
+      lines.push(`- ${names.join(", ")}: ${comment.join(" ")}`);
+    }
+    statement = null;
+    comment = [];
+  }
+  return lines.join("\n");
+}
+
+// guide.md가 있으면 그것이다. 없고 components/<분류>/mod.ts가 있으면(@lophn/ui) 분류마다 export 이름과 "언제 쓰나"
+// 한 줄의 index를 잇는다. 둘 다 없으면 null이다.
 async function guideOf(folder: string): Promise<string | null> {
   const written = await readTextOrNull(`${folder}/guide.md`);
   if (written !== null) return written;
@@ -50,7 +93,7 @@ async function guideOf(folder: string): Promise<string | null> {
     const mod = await readTextOrNull(
       `${folder}/components/${category}/mod.ts`,
     );
-    if (mod !== null) sections.push(`## ${category}\n\n${mod}`);
+    if (mod !== null) sections.push(indexOfCategory(category, mod));
   }
   return sections.length === 0 ? null : sections.join("\n\n");
 }

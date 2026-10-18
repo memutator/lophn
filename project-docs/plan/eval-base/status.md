@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py eval-base build`가 `tasks/*.md`에서 id, �
 | `ev-provider` | ev-provider | 2 | ev-contract | merged | ev-provider/ev-provider | 1c8abfb95 |  |
 | `ev-restore` | ev-restore | 2 | ev-contract | merged | ev-restore/ev-restore | fe19e3ae3 |  |
 | `ev-versions` | ev-versions | 2 | ev-contract | merged | ev-versions/ev-versions | 98e1dda90 |  |
-| `ev-cases-lophn` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | todo |  |  |  |
-| `ev-cases-roles` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | todo |  |  |  |
-| `ev-runner` | ev-runner | 3 | ev-versions, ev-restore, ev-provider, ev-collect, ev-checks, ev-judge | todo |  |  |  |
-| `ev-scorecard` | ev-scorecard | 3 | ev-versions, ev-collect | todo |  |  |  |
+| `ev-cases-lophn` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | running | ev-cases/ev-cases-lophn |  |  |
+| `ev-cases-roles` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | running | ev-cases/ev-cases-roles |  |  |
+| `ev-runner` | ev-runner | 3 | ev-versions, ev-restore, ev-provider, ev-collect, ev-checks, ev-judge | running | ev-runner/ev-runner |  |  |
+| `ev-scorecard` | ev-scorecard | 3 | ev-versions, ev-collect | running | ev-scorecard/ev-scorecard |  |  |

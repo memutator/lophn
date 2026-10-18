@@ -50,6 +50,18 @@ export const terminalFocusSessionSchema = z.object({
   session: z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
 }).strict();
 
+/** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 main이 정한다. */
+export const terminalLinkSchema = z.object({
+  terminal_ref: ref,
+  url: z.string().max(8192),
+}).strict();
+
+/** main이 push한 bridge 요청에 renderer가 browser 탭을 열었는지 답한다. */
+export const terminalBridgeAckSchema = z.object({
+  request: z.string().min(1).max(64),
+  opened: z.boolean(),
+}).strict();
+
 export type TerminalOpen = { project: string; folder_ref?: string };
 export type TerminalInput = {
   terminal_ref: string;
@@ -71,6 +83,14 @@ export type TerminalFocus = {
 };
 
 export type TerminalFocusSession = { session: string };
+export type TerminalLink = { terminal_ref: string; url: string };
+export type TerminalBridgeAck = { request: string; opened: boolean };
+/** terminal 안 프로그램이 URL을 browser 탭으로 열어 달라고 했다. */
+export type TerminalBridgeOpen = {
+  request: string;
+  terminal_ref: string;
+  url: string;
+};
 
 type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
@@ -175,6 +195,12 @@ export interface TerminalApi {
   focusSession(
     input: TerminalFocusSession,
   ): Promise<TerminalCall<TerminalReply>>;
+  /** terminal에서 Ctrl/Cmd-click한 link를 main에 넘긴다. */
+  openLink(input: TerminalLink): Promise<TerminalCall<null>>;
+  /** main이 push한 bridge 요청에 browser 탭을 열었는지 답한다. */
+  ackBridgeOpen(input: TerminalBridgeAck): Promise<TerminalCall<null>>;
+  /** main이 URL을 browser 탭으로 열어 달라고 push한다. 구독 해지를 돌려준다. */
+  onBridgeOpen(listener: (open: TerminalBridgeOpen) => void): () => void;
   /** main이 새 터미널(coding 탭 포함)을 열거나 상태가 바뀔 때마다 runtime을 보낸다. 구독 해지를 돌려준다. */
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
 }
@@ -188,3 +214,6 @@ export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
 export const TERMINAL_FOCUS_SESSION_CHANNEL = "shell:terminal-focus-session";
+export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
+export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
+export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";

@@ -1,16 +1,20 @@
 // shell renderer가 쓰는 터미널 통로. 채널 이름과 Electron event는 closure 안에만 있다.
 // 출력은 renderer가 snapshot으로 당겨 읽는다. 터미널 출력을 다른 곳으로 보내지 않는다.
 import {
+  TERMINAL_BRIDGE_ACK_CHANNEL,
+  TERMINAL_BRIDGE_OPEN_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
   TERMINAL_FOCUS_SESSION_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
+  TERMINAL_LINK_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
   TERMINAL_SNAPSHOT_CHANNEL,
   TERMINAL_STATE_CHANNEL,
   type TerminalApi,
+  type TerminalBridgeOpen,
   type TerminalCall,
   type TerminalRuntime,
 } from "../ipc/terminal.ts";
@@ -41,6 +45,13 @@ function isRuntime(value: unknown): value is TerminalRuntime {
     typeof (value as { terminal_ref?: unknown }).terminal_ref === "string";
 }
 
+function isBridgeOpen(value: unknown): value is TerminalBridgeOpen {
+  if (typeof value !== "object" || value === null) return false;
+  const open = value as Record<string, unknown>;
+  return typeof open.request === "string" &&
+    typeof open.terminal_ref === "string" && typeof open.url === "string";
+}
+
 export function createTerminalApi(transport: TerminalTransport): TerminalApi {
   async function invoke<T>(
     channel: string,
@@ -62,6 +73,16 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
       snapshot: (input) => invoke(TERMINAL_SNAPSHOT_CHANNEL, input),
       focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
       focusSession: (input) => invoke(TERMINAL_FOCUS_SESSION_CHANNEL, input),
+      openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
+      ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),
+      onBridgeOpen(listener) {
+        const callback = (_event: unknown, payload: unknown) => {
+          if (isBridgeOpen(payload)) listener(payload);
+        };
+        transport.on(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
+        return () =>
+          transport.removeListener(TERMINAL_BRIDGE_OPEN_CHANNEL, callback);
+      },
       onRuntime(listener) {
         const callback = (_event: unknown, payload: unknown) => {
           if (isRuntime(payload)) listener(payload);

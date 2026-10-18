@@ -115,6 +115,9 @@ export function codingBridge(
       }),
     focus: () => ok(null),
     focusSession: reply,
+    openLink: () => ok(null),
+    ackBridgeOpen: () => ok(null),
+    onBridgeOpen: () => () => {},
     onRuntime(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

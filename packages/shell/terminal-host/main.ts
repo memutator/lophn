@@ -32,6 +32,8 @@ export type HostRequest =
     folders: readonly FolderRecord[];
     columns: number;
     rows: number;
+    /** shell env에 더할 값. 다시 시작해도 같은 값을 쓴다. */
+    env?: Record<string, string>;
   }
   | {
     // core가 보낸 plan을 main이 다시 검사해 넘긴다. host가 plan을 한 번 더 검사한다.
@@ -86,6 +88,8 @@ type Session = {
   group: ProcessGroup | null;
   /** 사람이 보낸 입력. 재시작 때 재생하지 않는다. */
   typed: string[];
+  /** open 요청이 더한 env. restart가 이어 쓴다. */
+  env?: Record<string, string>;
 };
 
 type Host = {
@@ -209,6 +213,7 @@ function createHost(deps: HostDeps): Host {
     if (!program) return reject("spawn_failed", "login shell was not found");
 
     const terminalRef = previous?.runtime.terminal_ref ?? `term_${++seq}`;
+    const shellEnv = request.env ?? previous?.env;
     const generation = previous ? previous.runtime.generation + 1 : 1;
     const runtime: TerminalRuntime = {
       terminal_ref: terminalRef,
@@ -232,6 +237,7 @@ function createHost(deps: HostDeps): Host {
       handle: null,
       group: null,
       typed: [],
+      env: shellEnv,
     };
     sessions.set(terminalRef, session);
     try {
@@ -239,7 +245,8 @@ function createHost(deps: HostDeps): Host {
         file: program.file,
         args: program.args,
         cwd: checked.path,
-        env: stripPlatformEnv(deps.env),
+        // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
+        env: { ...stripPlatformEnv(deps.env), ...shellEnv },
         columns: request.columns,
         rows: request.rows,
         controlFd: deps.controlFd,

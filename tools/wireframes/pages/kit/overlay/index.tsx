@@ -10,7 +10,7 @@ export const overlayArea: Area = {
       id: "kit-overlay",
       title: "Kit · overlay",
       description:
-        "@lophn/ui/overlay의 Menu·Popover·Tooltip·Dialog·Sheet·Palette·Toast를 열어 둔 채로 보이고, 예제 overlays를 연다.",
+        "@lophn/ui/overlay의 Menu·Popover·Tooltip·Dialog·Sheet·FloatPanel·Palette·Toast를 열어 둔 채로 보이고, 예제 overlays를 연다.",
       render: () => <KitOverlay />,
     },
   ],

@@ -115,6 +115,9 @@ export type ProjectPlaceholders = {
   "project-workspace.button.explorer-rename": Record<never, never>;
   "project-workspace.button.explorer-reveal": Record<never, never>;
   "project-workspace.button.explorer-trash": Record<never, never>;
+  "project-workspace.button.float-close": Record<never, never>;
+  "project-workspace.button.float-dock": Record<never, never>;
+  "project-workspace.button.float-minimize": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.manage-agents": Record<never, never>;
   "project-workspace.button.move-pane": Record<never, never>;

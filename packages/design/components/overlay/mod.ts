@@ -17,6 +17,12 @@ export {
 } from "./dialog/dialog.tsx";
 // backdrop 없이 뒤 화면을 두고 여는 면. 참고하며 입력할 때 쓴다. 답이 먼저면 Dialog다.
 export { Sheet, type SheetProps } from "./sheet/sheet.tsx";
+// 부모 안에서 옮기고 크기를 바꾸는 패널의 껍데기. 위치는 부모가 정하고 끌기 논리는 갖지 않는다. 뒤 화면을 막는 면은 Dialog나 Sheet다.
+export {
+  type FloatEdge,
+  FloatPanel,
+  type FloatPanelProps,
+} from "./float-panel/float-panel.tsx";
 // 검색해서 고르는 명령·이동 창. 목록이 길 때 쓰고 짧은 목록은 Select나 Menu다.
 export {
   Palette,

@@ -1,9 +1,12 @@
 // Kit · overlay. @lophn/ui/overlay의 모든 component를 실제로 그린다. 닫혀 있다가 열리는 modal(Menu·Dialog·Palette)은
 // 열면 page 전체가 inert가 되어 Light·Dark 단추까지 막히므로 단추로 연다. 열린 면은 Stage 상자 안에 그린다.
 import { type ReactNode, useState } from "react";
-import { Button, FileIcon, IconButton } from "@lophn/ui/primitives";
+import { FileText, Minimize2, PanelTop, X } from "lucide-react";
+import { t } from "@lophn/wording";
+import { Button, FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import {
   Dialog,
+  FloatPanel,
   Menu,
   MenuIcon,
   Palette,
@@ -265,6 +268,62 @@ export function KitOverlay() {
             </Stage>
           </div>
         </Row>
+      </Section>
+      <Section
+        title="FloatPanel"
+        note="부모 안에서 옮기고 크기를 바꾸는 패널 껍데기. 끌기 논리는 없어서 여기서는 손으로 끌리지 않는다. 위쪽이 active(테두리 강조), 아래쪽이 inactive. 가장자리 여덟 군데에 resize 손잡이가 겹쳐 있다."
+      >
+        <Stage height={360}>
+          {() => (
+            <>
+              <FloatPanel
+                title="Other notes"
+                icon={<Icon icon={FileText} pixels={14} />}
+                x={500}
+                y={150}
+                width={380}
+                height={200}
+              >
+                <div style={{ padding: "var(--space-4)" }}>
+                  Version 3, saved 2 hours ago.
+                </div>
+              </FloatPanel>
+              <FloatPanel
+                title="notes.md"
+                icon={<FileIcon name="notes.md" />}
+                x={40}
+                y={24}
+                width={420}
+                height={220}
+                active
+                actions={
+                  <>
+                    <IconButton
+                      icon={Minimize2}
+                      label={t("project-workspace.button.float-minimize")}
+                      size="sm"
+                    />
+                    <IconButton
+                      icon={PanelTop}
+                      label={t("project-workspace.button.float-dock")}
+                      size="sm"
+                    />
+                    <IconButton
+                      icon={X}
+                      label={t("project-workspace.button.float-close")}
+                      size="sm"
+                    />
+                  </>
+                }
+              >
+                <div style={{ padding: "var(--space-4)" }}>
+                  Version 3, saved 2 hours ago. 3 contexts include this
+                  document.
+                </div>
+              </FloatPanel>
+            </>
+          )}
+        </Stage>
       </Section>
       <Section
         title="Palette"

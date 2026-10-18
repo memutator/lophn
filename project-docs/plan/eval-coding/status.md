@@ -13,5 +13,5 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-calendar` | ec-calendar | 3 | ec-restore, ec-world | todo |  |  |  |
 | `ec-fix-publish` | ec-fix-publish | 3 | 없음 | merged | ec-fix-publish/ec-fix-publish | 945279c30 |  |
 | `ec-runner` | ec-runner | 3 | ec-driver, ec-metrics, ec-human, ec-restore | running | ec-runner/ec-runner |  |  |
-| `ec-world` | ec-world | 3 | ec-restore, ec-fix-publish | todo |  |  |  |
+| `ec-world` | ec-world | 3 | ec-restore, ec-fix-publish | running | ec-world/ec-world |  |  |
 | `ec-scenarios` | ec-scenarios | 4 | ec-world, ec-calendar, ec-checks, ec-human | todo |  |  |  |

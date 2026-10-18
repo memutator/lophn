@@ -9,6 +9,7 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
+import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { Intent } from "../../../protocol/approvals/intent.ts";
@@ -385,6 +386,10 @@ export interface ModelView {
   readonly layout: PickerLayoutView;
   /** model 목록이 없는 provider. 거기에는 model 이름을 적어 고른다. */
   readonly custom: readonly { readonly id: string; readonly name: string }[];
+  /** model 이름을 직접 적어 고를 수 있는 provider. 비면 입력 줄을 숨긴다. */
+  readonly typed: readonly { readonly id: string; readonly name: string }[];
+  /** 지금 model이 온 층. 알 수 없으면 null이다. */
+  readonly layer: AgentValueLayer | null;
 }
 
 export type GrantSetting = "allow" | "ask" | "deny";
@@ -494,6 +499,8 @@ export interface AgentTabSource {
     value: string,
     query: string,
   ): Promise<SourceResult<ModelView>>;
+  /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
+  refreshModels(provider: string): Promise<boolean>;
   /** 즐겨찾기는 session이 아니라 사람의 것이다. session은 돌려줄 ModelView를 위해 받는다. */
   toggleFavorite(
     session: string | null,

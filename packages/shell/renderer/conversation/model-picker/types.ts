@@ -1,5 +1,6 @@
 // model picker가 받는 화면 값. 그리는 쪽(model-picker.tsx)과 값을 만드는 쪽이 같이 쓰며,
 // CSS를 부르는 component 없이 type만 가져올 수 있게 따로 둔다.
+import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 
 /** model 하나. 같은 이름이 provider마다 있을 수 있어 provider와 이름의 쌍으로 구별한다. */
 export interface PickerModelRef {
@@ -20,6 +21,8 @@ export interface PickerProviderGroup {
   /** 묶음 머리 글(Anthropic 등). */
   readonly label: string;
   readonly models: readonly PickerModelRow[];
+  /** 이 provider의 model 목록을 다시 읽을 수 있는가(custom provider). */
+  readonly refreshable: boolean;
 }
 
 /** 검색을 반영한 목록. Favorites는 별표를 찍은 순서 그대로이고 검색 중에도 먼저다. */
@@ -44,6 +47,12 @@ export interface CustomModelView {
   readonly onUse: (provider: string, modelName: string) => void;
 }
 
+/** 이름을 직접 적어 고를 수 있는 provider와 그 길. 모두 빠지면 providers가 빈 배열이고 입력 줄을 숨긴다. */
+export interface TypedModelView {
+  readonly providers: readonly { readonly id: string; readonly name: string }[];
+  readonly onUse: (provider: string, modelName: string) => void;
+}
+
 export interface ModelPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,6 +73,11 @@ export interface ModelPickerProps {
   onToggleFavorite: (model: PickerModelRef) => void;
   onOptionChange: (axis: string, value: string) => void;
   custom: CustomModelView;
+  typed: TypedModelView;
+  /** 지금 model이 온 층. session 층은 대화 source만 안다. 어디에도 없으면 null이다. */
+  layer: AgentValueLayer | null;
+  /** provider의 model 목록을 다시 읽는다. 성공하면 true다. */
+  onRefreshModels: (provider: string) => Promise<boolean>;
   /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. */
   onChangeDefaults: () => void;
 }

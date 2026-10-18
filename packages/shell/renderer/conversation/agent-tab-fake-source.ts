@@ -21,7 +21,11 @@ import type {
 } from "./agent-tab-source.ts";
 import { EMPTY_THREAD } from "./agent-tab-source.ts";
 import { attachedPartsOf } from "./attached-chips.ts";
-import type { PickerModelRef } from "./model-picker/types.ts";
+import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import type {
+  PickerModelRef,
+  PickerProviderGroup,
+} from "./model-picker/types.ts";
 import type { SlashGroupView } from "./slash-menu/types.ts";
 import {
   HAIKU,
@@ -762,18 +766,56 @@ const SCENARIOS: Readonly<Record<string, PickerScenario>> = {
   "GPT-6.1 Sol": SOL,
 };
 
-function modelView(scenario: PickerScenario, query: string): ModelView {
+/** gallery가 model picker의 상태를 정하는 설정. 기본은 내장 provider 셋과 global 층이다. */
+export interface FakePicker {
+  /** none은 연결된 provider가 없다. custom은 내장 셋에 custom provider 하나를 더한다. */
+  readonly providers?: "none" | "built_in" | "custom";
+  /** custom provider의 model 목록을 읽어 둔 상태인가. 기본은 읽어 둔 상태다. */
+  readonly customListed?: boolean;
+  /** 지금 model이 온 층. */
+  readonly layer?: AgentValueLayer | null;
+}
+
+const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder"];
+
+function modelView(
+  scenario: PickerScenario,
+  query: string,
+  picker: FakePicker,
+  customListed: boolean,
+): ModelView {
   const needle = query.trim().toLowerCase();
   const matches = (name: string) =>
     needle === "" || name.toLowerCase().includes(needle);
+  const kind = picker.providers ?? "built_in";
+  const builtIn = kind === "none" ? [] : LAYOUT_ALL.providers;
+  const custom: PickerProviderGroup[] = kind === "custom"
+    ? [{
+      provider: CUSTOM_PROVIDER,
+      label: "Local server",
+      models: customListed
+        ? CUSTOM_MODELS.map((modelName) => ({
+          provider: CUSTOM_PROVIDER,
+          providerLabel: "Local server",
+          modelName,
+          starred: false,
+        }))
+        : [],
+      refreshable: true,
+    }]
+    : [];
+  const groups = [...builtIn, ...custom];
   return {
     current: scenario.current,
     currentLabel: scenario.currentLabel,
     axes: scenario.axes,
     optionValues: scenario.optionValues,
     layout: {
-      favorites: LAYOUT_ALL.favorites.filter((row) => matches(row.modelName)),
-      providers: LAYOUT_ALL.providers
+      favorites: kind === "none"
+        ? []
+        : LAYOUT_ALL.favorites.filter((row) => matches(row.modelName)),
+      providers: groups
         .map((group) => ({
           ...group,
           models: group.models.filter((row) => matches(row.modelName)),
@@ -781,6 +823,11 @@ function modelView(scenario: PickerScenario, query: string): ModelView {
         .filter((group) => group.models.length > 0),
     },
     custom: [],
+    typed: [
+      ...builtIn.map((group) => ({ id: group.provider, name: group.label })),
+      ...custom.map((group) => ({ id: group.provider, name: group.label })),
+    ],
+    layer: picker.layer === undefined ? "global" : picker.layer,
   };
 }
 
@@ -853,8 +900,12 @@ function fail<T>(code: string): Promise<SourceResult<T>> {
 const DONE = ok<void>(undefined);
 
 export function createFakeAgentTabSource(
-  options: { scene?: AgentTabScene } = {},
+  options: { scene?: AgentTabScene; picker?: FakePicker } = {},
 ): AgentTabSource {
+  const picker = options.picker ?? {};
+  let customListed = picker.customListed ?? true;
+  const pickerView = (scenario: PickerScenario, query: string) =>
+    modelView(scenario, query, picker, customListed);
   const data = sceneData(options.scene ?? "report");
   const bodies = new Map<string, readonly BodyPart[]>(
     Object.entries(data.bodies ?? {}),
@@ -986,11 +1037,11 @@ export function createFakeAgentTabSource(
         : fail("not_found");
     },
 
-    model: (session, query) => ok(modelView(scenarioOf(session), query)),
+    model: (session, query) => ok(pickerView(scenarioOf(session), query)),
     chooseModel(session, model: PickerModelRef, query) {
       const target = SCENARIOS[model.modelName] ?? SONNET;
       models.set(session ?? "new", target);
-      return ok(modelView(target, query));
+      return ok(pickerView(target, query));
     },
     setModelOption(session, axis, value, query) {
       const current = scenarioOf(session);
@@ -999,10 +1050,14 @@ export function createFakeAgentTabSource(
         optionValues: { ...current.optionValues, [axis]: value },
       };
       models.set(session ?? "new", next);
-      return ok(modelView(next, query));
+      return ok(pickerView(next, query));
     },
     toggleFavorite: (session, _model, query) =>
-      ok(modelView(scenarioOf(session), query)),
+      ok(pickerView(scenarioOf(session), query)),
+    refreshModels() {
+      customListed = true;
+      return Promise.resolve(true);
+    },
 
     commands: (session, query) => ok(filterGroups(query, session !== null)),
     runCommand: () => DONE,

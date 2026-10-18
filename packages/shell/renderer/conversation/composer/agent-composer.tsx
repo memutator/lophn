@@ -43,6 +43,7 @@ interface AgentComposerProps {
     | "chooseModel"
     | "setModelOption"
     | "toggleFavorite"
+    | "refreshModels"
   >;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;

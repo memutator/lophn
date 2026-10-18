@@ -8,12 +8,19 @@ import {
   type ModelChoice,
   modelFavoritesRead,
 } from "../../../protocol/lophn-agent/models.ts";
-import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
-import { providerList } from "../../../protocol/lophn-agent/providers.ts";
+import {
+  agentDefinitionRead,
+  type AgentValueLayer,
+} from "../../../protocol/lophn-agent/agent-definitions.ts";
+import {
+  providerList,
+  refreshProviderModels,
+} from "../../../protocol/lophn-agent/providers.ts";
 import { changeSessionModel } from "../../../protocol/lophn-agent/sessions.ts";
 import {
   type PickerBinding,
   pickerProps,
+  providerChoiceOf,
 } from "../workspace/agents/model-picker-data.ts";
 import type { ModelFavorite, ModelsView } from "../workspace/agents/source.ts";
 import type { PickerModelRef } from "./model-picker/types.ts";
@@ -38,6 +45,14 @@ interface Loaded {
 interface Context extends Loaded {
   readonly record: AgentSession | null;
   readonly current: ModelChoice | null;
+  /** current가 온 층. current가 없으면 null이다. */
+  readonly layer: AgentValueLayer | null;
+}
+
+/** agent가 쓰는 model과 그것이 온 층(정의·project·Workspace 기본). */
+interface Inherited {
+  readonly model: ModelChoice | null;
+  readonly layer: AgentValueLayer | null;
 }
 
 interface ModelPart {
@@ -66,11 +81,13 @@ interface ModelPart {
    * 실패를 알리지 않는다(그 session은 agent 기본값을 따른다).
    */
   applyPending(session: string, stateSeq: string): Promise<void>;
+  /** custom provider의 model 목록을 다시 읽는다. 성공하면 읽어 둔 model 자료를 비우고 true를 돌려준다. */
+  refreshModels(provider: string): Promise<boolean>;
 }
 
 export function createModelPart(env: Env): ModelPart {
   const loaded: Memo<Loaded> = memo(env.now, MODEL_TTL_MS);
-  const defaultModel: Memo<ModelChoice | null> = memo(env.now, MODEL_TTL_MS);
+  const defaultModel: Memo<Inherited> = memo(env.now, MODEL_TTL_MS);
   let pending: ModelChoice | null = null;
 
   async function readModels(): Promise<SourceResult<Loaded>> {
@@ -89,12 +106,9 @@ export function createModelPart(env: Env): ModelPart {
     if (!favorites.ok) return favorites;
     const value: Loaded = {
       models: {
-        providers: providers.value.map((provider) => ({
-          id: provider.id,
-          name: provider.name,
-          definition: provider.definition.key,
-          reportedModels: provider.credential.reported_models,
-        })),
+        providers: providers.value.map((provider) =>
+          providerChoiceOf(provider, entries)
+        ),
         catalog: entries,
         favorites: favorites.value.favorites.items.map((item) => ({
           provider: item.provider,
@@ -108,12 +122,16 @@ export function createModelPart(env: Env): ModelPart {
   }
 
   /** 이 agent가 쓰는 model(정의·Workspace 기본값을 합친 값). */
-  async function defaultFor(): Promise<SourceResult<ModelChoice | null>> {
+  async function defaultFor(): Promise<SourceResult<Inherited>> {
     const known = defaultModel.get();
     if (known !== undefined) return { ok: true, value: known };
     const read = await env.read(agentDefinitionRead, { agent: env.agent });
     if (!read.ok) return read;
-    const value = read.value.effective.model?.value ?? null;
+    const effective = read.value.effective.model;
+    const value: Inherited = {
+      model: effective?.value ?? null,
+      layer: effective?.source ?? null,
+    };
     defaultModel.set(value);
     return { ok: true, value };
   }
@@ -132,12 +150,14 @@ export function createModelPart(env: Env): ModelPart {
     let current: ModelChoice | null = record === null
       ? pending
       : record.model_selection;
+    let layer: AgentValueLayer | null = current === null ? null : "session";
     if (current === null) {
       const fallback = await defaultFor();
       if (!fallback.ok) return fallback;
-      current = fallback.value;
+      current = fallback.value.model;
+      layer = fallback.value.layer;
     }
-    return { ok: true, value: { ...models.value, record, current } };
+    return { ok: true, value: { ...models.value, record, current, layer } };
   }
 
   function binding(
@@ -145,14 +165,17 @@ export function createModelPart(env: Env): ModelPart {
     current: ModelChoice | null,
     query: string,
     capture: Partial<PickerBinding>,
+    layer: AgentValueLayer | null = null,
   ): PickerBinding {
     return {
       models,
       state: { open: false, query },
       setState: () => {},
       current,
+      layer,
       choose: () => {},
       setFavorites: () => {},
+      refreshModels: () => Promise.resolve(false),
       changeDefaults: () => {},
       ...capture,
     };
@@ -162,8 +185,9 @@ export function createModelPart(env: Env): ModelPart {
     models: ModelsView,
     current: ModelChoice | null,
     query: string,
+    layer: AgentValueLayer | null,
   ): ModelView {
-    const props = pickerProps(binding(models, current, query, {}));
+    const props = pickerProps(binding(models, current, query, {}, layer));
     return {
       current: props.current,
       currentLabel: props.currentLabel,
@@ -171,6 +195,8 @@ export function createModelPart(env: Env): ModelPart {
       optionValues: props.optionValues,
       layout: props.layout,
       custom: props.custom.providers,
+      typed: props.typed.providers,
+      layer: props.layer,
     };
   }
 
@@ -209,7 +235,12 @@ export function createModelPart(env: Env): ModelPart {
       if (!read.ok) return read;
       return {
         ok: true,
-        value: viewOf(read.value.models, read.value.current, query),
+        value: viewOf(
+          read.value.models,
+          read.value.current,
+          query,
+          read.value.layer,
+        ),
       };
     },
 
@@ -226,7 +257,10 @@ export function createModelPart(env: Env): ModelPart {
       if (chosen === null) return { ok: false, code: "invalid_input" };
       const stored = await store(session, record, chosen);
       if (!stored.ok) return stored;
-      return { ok: true, value: viewOf(models, stored.value, query) };
+      return {
+        ok: true,
+        value: viewOf(models, stored.value, query, "session"),
+      };
     },
 
     async setModelOption(session, axis, value, query) {
@@ -242,13 +276,16 @@ export function createModelPart(env: Env): ModelPart {
       if (chosen === null) return { ok: false, code: "invalid_input" };
       const stored = await store(session, record, chosen);
       if (!stored.ok) return stored;
-      return { ok: true, value: viewOf(models, stored.value, query) };
+      return {
+        ok: true,
+        value: viewOf(models, stored.value, query, "session"),
+      };
     },
 
     async toggleFavorite(session, model, query) {
       const read = await context(session);
       if (!read.ok) return read;
-      const { models, current, seq } = read.value;
+      const { models, current, seq, layer } = read.value;
       let items: readonly ModelFavorite[] | null = null;
       pickerProps(binding(models, current, query, {
         setFavorites: (next) => {
@@ -271,8 +308,20 @@ export function createModelPart(env: Env): ModelPart {
           { ...models, favorites: written.value.favorites.items },
           current,
           query,
+          layer,
         ),
       };
+    },
+
+    async refreshModels(provider) {
+      const refreshed = await env.command(refreshProviderModels, {
+        input: { provider },
+        compare: {},
+        key: `providers-refresh-models-${provider}-${env.now()}`,
+      });
+      if (!refreshed.ok) return false;
+      loaded.clear();
+      return true;
     },
 
     async applyPending(session, stateSeq) {

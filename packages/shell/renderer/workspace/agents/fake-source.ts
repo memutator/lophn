@@ -73,7 +73,8 @@ type FakeCall =
     assignment: string;
     entries: readonly AgentGrantEntry[];
   }
-  | { method: "setFavorites"; items: readonly ModelFavorite[] };
+  | { method: "setFavorites"; items: readonly ModelFavorite[] }
+  | { method: "refreshModels"; provider: string };
 
 interface FakeAgentsSource extends AgentsSource {
   /** 보낸 명령을 순서대로. */
@@ -106,7 +107,21 @@ const BUILT_IN_ICON: Record<string, string> = {
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
-export function createFakeAgentsSource(): FakeAgentsSource {
+/** gallery가 provider와 project 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 project 층 model 없음이다. */
+export interface FakeAgentsOptions {
+  /** none은 연결된 provider가 없다. custom은 내장 provider에 custom provider 하나를 더한다. */
+  readonly providers?: "none" | "built_in" | "custom";
+  /** custom provider의 model 목록을 읽어 둔 상태인가. 기본은 읽어 둔 상태다. */
+  readonly customListed?: boolean;
+  /** project 층에 처음부터 고른 model. */
+  readonly projectModel?: ModelChoice;
+}
+
+const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+
+export function createFakeAgentsSource(
+  options: FakeAgentsOptions = {},
+): FakeAgentsSource {
   const calls: FakeCall[] = [];
   let version = 0;
   const nextHash = () => String(++version).padStart(64, "0");
@@ -125,7 +140,8 @@ export function createFakeAgentsSource(): FakeAgentsSource {
   const grants = new Map<string, readonly AgentGrantEntry[]>(
     Object.entries(FAKE_GRANTS),
   );
-  let projectModel: ModelChoice | null = null;
+  let projectModel: ModelChoice | null = options.projectModel ?? null;
+  let customListed = options.customListed ?? true;
   // 층에서 끈 skill(project 층)과 끈 MCP server(project 층).
   const projectSkillOff = new Set(
     PROJECT_SKILLS.filter((row) => !row.on).map((row) => row.name),
@@ -292,16 +308,40 @@ export function createFakeAgentsSource(): FakeAgentsSource {
     },
 
     models(): Promise<ReadResult<ModelsView>> {
+      const kind = options.providers ?? "built_in";
       return Promise.resolve(ok({
-        providers: [{
-          id: ANTHROPIC,
-          name: "Anthropic",
-          definition: "anthropic",
-          reportedModels: null,
-        }],
+        providers: [
+          ...(kind === "none" ? [] : [{
+            id: ANTHROPIC,
+            name: "Anthropic",
+            definition: "anthropic",
+            kind: "api_key",
+            reportedModels: null,
+            refreshable: false,
+          }]),
+          ...(kind === "custom"
+            ? [{
+              id: CUSTOM_PROVIDER,
+              name: "Local server",
+              definition: "custom_openai",
+              kind: "api_key",
+              reportedModels: customListed
+                ? ["llama-3.3-70b", "qwen-3-coder"]
+                : null,
+              refreshable: true,
+            }]
+            : []),
+        ],
         catalog: CATALOG,
         favorites,
       }));
+    },
+
+    refreshModels(provider) {
+      calls.push({ method: "refreshModels", provider });
+      if (takeChangeFailure() !== null) return Promise.resolve(false);
+      if (provider === CUSTOM_PROVIDER) customListed = true;
+      return Promise.resolve(true);
     },
 
     setFavorites(items) {

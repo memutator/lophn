@@ -103,16 +103,19 @@ const ANTHROPIC_GROUP: PickerProviderGroup = {
   provider: ANTHROPIC,
   label: "Anthropic",
   models: [OPUS_ROW, SONNET_ROW, HAIKU_ROW],
+  refreshable: false,
 };
 const OPENAI_GROUP: PickerProviderGroup = {
   provider: OPENAI,
   label: "OpenAI",
   models: [SOL_ROW, MINI_ROW],
+  refreshable: false,
 };
 const XAI_GROUP: PickerProviderGroup = {
   provider: XAI,
   label: "xAI",
   models: [GROK_ROW],
+  refreshable: false,
 };
 
 /**

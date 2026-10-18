@@ -3,12 +3,19 @@
 // 돌려주는 연결만 한다. model 이름과 option 이름·값은 모두 catalog가 주고 화면 코드에는 없다.
 import { t } from "@lophn/wording";
 
-import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type {
+  CatalogEntry,
+  ModelChoice,
+} from "../../../../protocol/lophn-agent/models.ts";
 import {
   fitOptionValues,
   optionAxesOf,
   orderPicker,
+  type SelectableModel,
+  selectableModels,
   toggleFavorite,
+  typedNameAllowed,
 } from "../../../../protocol/lophn-agent/model-picker.ts";
 import type {
   ModelPickerProps,
@@ -25,26 +32,51 @@ interface PickerState {
   readonly query: string;
 }
 
-/** 그 provider에서 고를 수 있는 catalog 항목. 계정이 못 쓰는 model은 뺀다. 고른 model을 찾는 entryOf는 거르지 않는다. */
-export function modelsOf(models: ModelsView, provider: ProviderChoice) {
-  return models.catalog.filter((entry) =>
-    entry.provider_definition === provider.definition &&
-    (provider.reportedModels === null ||
-      provider.reportedModels.includes(entry.model_name))
-  );
+/** 그 provider에서 고를 수 있는 model. 어느 것을 고를 수 있는지는 protocol의 selectableModels가 정한다. 고른 model을 찾는 entryOf는 거르지 않는다. */
+export function modelsOf(
+  models: ModelsView,
+  provider: ProviderChoice,
+): SelectableModel[] {
+  return selectableModels({
+    definition: provider.definition,
+    catalog: models.catalog,
+    reported: provider.reportedModels,
+  });
 }
 
-/**
- * catalog에 model이 하나도 없는 provider(custom provider). 그 model은 이름을 직접 적어 고른다.
- * catalog 전체를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로 없다고 말한다.
- */
+/** catalog에 그 정의의 model이 하나도 없는 provider(custom). catalog를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로 아니라고 말한다. */
+export function isCustomDefinition(
+  catalog: readonly CatalogEntry[],
+  definition: string,
+) {
+  return catalog.length > 0 &&
+    !catalog.some((entry) => entry.provider_definition === definition);
+}
+
+/** core의 provider 한 줄을 화면이 쓰는 ProviderChoice로 옮긴다. */
+export function providerChoiceOf(
+  provider: {
+    id: string;
+    name: string;
+    definition: { key: string };
+    credential: { kind: string; reported_models: readonly string[] | null };
+  },
+  catalog: readonly CatalogEntry[],
+): ProviderChoice {
+  return {
+    id: provider.id,
+    name: provider.name,
+    definition: provider.definition.key,
+    kind: provider.credential.kind,
+    reportedModels: provider.credential.reported_models,
+    refreshable: isCustomDefinition(catalog, provider.definition.key),
+  };
+}
+
+/** 옛 custom 입력 줄이 쓴다. 이름을 직접 적는 길이 `typed`로 옮겨 가면 지운다. */
 export function customProvidersOf(models: ModelsView | null) {
-  if (models === null || models.catalog.length === 0) return [];
-  return models.providers.filter((provider) =>
-    !models.catalog.some((entry) =>
-      entry.provider_definition === provider.definition
-    )
-  ).map((provider) => ({ id: provider.id, name: provider.name }));
+  return (models?.providers ?? []).filter((provider) => provider.refreshable)
+    .map((provider) => ({ id: provider.id, name: provider.name }));
 }
 
 export function entryOf(models: ModelsView, model: PickerModelRef) {
@@ -82,9 +114,13 @@ export interface PickerBinding {
   readonly setState: (state: PickerState) => void;
   /** 이 칸의 지금 model(고른 값 또는 상속하는 값). 어디에도 없으면 null이다. */
   readonly current: ModelChoice | null;
+  /** 지금 model이 온 층. 알 수 없으면 null이다. */
+  readonly layer: AgentValueLayer | null;
   /** 새로 고른 값. */
   readonly choose: (choice: ModelChoice) => void;
   readonly setFavorites: (items: readonly ModelFavorite[]) => void;
+  /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
+  readonly refreshModels: (provider: string) => Promise<boolean>;
   /** "Change defaults…". */
   readonly changeDefaults: () => void;
 }
@@ -139,6 +175,8 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
     starred: starred(model),
   });
   const label = modelLabelOf(models);
+  const refreshable = (provider: string) =>
+    providers.find((item) => item.id === provider)?.refreshable ?? false;
   const choiceOf = (model: PickerModelRef): ModelChoice => {
     const entry = models === null ? undefined : entryOf(models, model);
     return {
@@ -170,6 +208,7 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         provider: group.provider,
         label: nameOf(group.provider),
         models: group.models.map(row),
+        refreshable: refreshable(group.provider),
       })),
     },
     onQueryChange: (query) => binding.setState({ ...state, query }),
@@ -200,6 +239,15 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
           option_values: {},
         }),
     },
+    typed: {
+      providers: providers.filter((provider) =>
+        typedNameAllowed(provider.kind, provider.reportedModels)
+      ).map((provider) => ({ id: provider.id, name: provider.name })),
+      onUse: (provider, modelName) =>
+        binding.choose(choiceOf({ provider, modelName })),
+    },
+    layer: binding.layer,
+    onRefreshModels: binding.refreshModels,
     onChangeDefaults: binding.changeDefaults,
   };
 }

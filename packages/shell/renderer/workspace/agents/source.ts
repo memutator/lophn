@@ -134,8 +134,12 @@ export interface ProviderChoice {
   readonly id: string;
   readonly name: string;
   readonly definition: string;
-  /** 계정이 쓸 수 있는 model 이름. null이면 아직 모르는 것이라 거르지 않는다. */
+  /** credential 종류(`oauth`, `api_key` …). 이름을 직접 적을 수 있는지 가른다. */
+  readonly kind: string;
+  /** provider가 알려 준 model 이름. null이면 아직 모르는 것이다. */
   readonly reportedModels: readonly string[] | null;
+  /** model 목록을 다시 읽을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
+  readonly refreshable: boolean;
 }
 
 export interface ModelFavorite {
@@ -225,6 +229,8 @@ export interface AgentsSource {
   list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
   overview(project: string): Promise<ReadResult<AgentsOverview>>;
   models(): Promise<ReadResult<ModelsView>>;
+  /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
+  refreshModels(provider: string): Promise<boolean>;
   /** 별표 목록 전체를 새 순서로 바꾸고 바뀐 목록을 돌려준다. */
   setFavorites(
     items: readonly ModelFavorite[],

@@ -18,6 +18,7 @@ import {
   changeModelFavorites,
   projectModelChange,
 } from "../../../../protocol/lophn-agent/models.ts";
+import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -37,6 +38,7 @@ import {
   readServers,
   readSkills,
 } from "./core-extensions.ts";
+import { providerChoiceOf } from "./model-picker-data.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import type {
   AgentDetail,
@@ -186,7 +188,7 @@ export function coreAgentsSource(
       id: string;
       name: string;
       definition: { key: string };
-      credential: { reported_models: string[] | null };
+      credential: { kind: string; reported_models: string[] | null };
     }[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
@@ -435,16 +437,21 @@ export function coreAgentsSource(
       const starred = await favorites();
       if (!starred.ok) return starred;
       const view: ModelsView = {
-        providers: registered.value.map((provider) => ({
-          id: provider.id,
-          name: provider.name,
-          definition: provider.definition.key,
-          reportedModels: provider.credential.reported_models,
-        })),
+        providers: registered.value.map((provider) =>
+          providerChoiceOf(provider, entries)
+        ),
         catalog: entries,
         favorites: starred.value.items,
       };
       return { ok: true, value: view };
+    },
+
+    async refreshModels(provider) {
+      const refreshed = await link.command(refreshProviderModels, {
+        input: { provider },
+        compare: {},
+      });
+      return refreshed.ok;
     },
 
     async setFavorites(items) {

@@ -4,5 +4,5 @@ lead만 고친다. `tools/status.py coding-handoff build`가 `tasks/*.md`에서 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ch-reply` | ch-reply | 1 | 없음 | todo |  |  |  |
-| `ch-trust` | ch-trust | 1 | 없음 | todo |  |  |  |
+| `ch-reply` | ch-reply | 1 | 없음 | running | ch-reply/ch-reply |  |  |
+| `ch-trust` | ch-trust | 1 | 없음 | running | ch-trust/ch-trust |  |  |

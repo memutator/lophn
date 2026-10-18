@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-human` | ec-human | 2 | ec-contract | merged | ec-human/ec-human | c232aa80d |  |
 | `ec-metrics` | ec-metrics | 2 | ec-contract | merged | ec-metrics/ec-metrics | e2e1ed6b4 |  |
 | `ec-restore` | ec-restore | 2 | ec-contract | merged | ec-restore/ec-restore | 32ef4a99e |  |
-| `ec-calendar` | ec-calendar | 3 | ec-restore, ec-world | running | ec-calendar/ec-calendar |  |  |
+| `ec-calendar` | ec-calendar | 3 | ec-restore, ec-world | merged | ec-calendar/ec-calendar | b17fd5d71 |  |
 | `ec-fix-publish` | ec-fix-publish | 3 | 없음 | merged | ec-fix-publish/ec-fix-publish | 945279c30 |  |
 | `ec-runner` | ec-runner | 3 | ec-driver, ec-metrics, ec-human, ec-restore | merged | ec-runner/ec-runner | fd1513173 |  |
 | `ec-world` | ec-world | 3 | ec-restore, ec-fix-publish | merged | ec-world/ec-world | 84f1caf07 |  |

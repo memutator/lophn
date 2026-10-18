@@ -9,6 +9,7 @@ export const INPUT_SECTIONS: Record<string, string[]> = {
   "card-covered": ["CARD", "BLUEPRINT", "TICKETS"],
   "asked-again": ["HUMAN_REQUEST", "QUESTIONS"],
   "root-cause": ["BUG", "TICKET_GOALS", "EVIDENCE_FILES"],
+  "repeat-kind": ["REPEATED_CALL", "TIMELINE"],
 };
 
 export async function loadCriterion(ref: string): Promise<Criterion> {

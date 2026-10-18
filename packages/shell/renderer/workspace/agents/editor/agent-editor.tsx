@@ -232,6 +232,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const save = () => {
     void source.saveAgent(project, {
       assignment: detail.assignment,
+      draftId: detail.draftId,
       place: fresh ? place.slice(place.indexOf(":") + 1) : null,
       definition,
       hash: detail.hash,

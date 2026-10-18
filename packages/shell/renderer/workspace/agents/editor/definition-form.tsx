@@ -210,6 +210,8 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const [addServer, setAddServer] = useState(false);
   const fresh = detail.assignment === null;
   const builtIn = detail.kind === "built_in";
+  // credential 이름이 쓰는 이 Operator의 id. 내장 role은 정의에 server를 두지 않아 없다.
+  const operatorId = detail.assignment ?? detail.draftId;
   const issuesOf = (name: FieldName) =>
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
@@ -413,12 +415,10 @@ export function DefinitionForm(props: DefinitionFormProps) {
             set("mcp_off", on ? rest : [...rest, { server_name: name }]);
           }}
         />
-        {addServer
+        {builtIn || operatorId === null ? null : addServer
           ? (
             <ServerForm
-              scope={detail.place.kind === "project" && detail.place.id !== null
-                ? detail.place.id
-                : "global"}
+              scope={operatorId}
               taken={[...detail.mcpServers, ...own].map((row) => row.name)}
               onCancel={() => setAddServer(false)}
               onAdd={(server: McpServer) => {

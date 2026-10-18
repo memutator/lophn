@@ -20,7 +20,13 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
+import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
+import {
+  enterSecret,
+  windowSecretInputOpener,
+} from "../../desktop/settings/core-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import { isAppPlace, keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
 import { readGrants, saveGrants } from "./core-grants.ts";
@@ -62,6 +68,8 @@ interface AgentsDeps {
   random: () => string;
   /** 새 Operator ID의 무작위 byte. 테스트가 고정한다. */
   bytes: () => Uint8Array;
+  /** MCP credential을 받는 보호 입력 창. */
+  openSecret: SecretInputOpenApi["open"] | undefined;
 }
 
 function windowInstructions(): InstructionsApi | undefined {
@@ -120,6 +128,9 @@ export function coreAgentsSource(
   const random = deps.random ?? (() => crypto.randomUUID());
   const bytes = deps.bytes ??
     (() => crypto.getRandomValues(new Uint8Array(26)));
+  const openSecret = "openSecret" in deps
+    ? deps.openSecret
+    : windowSecretInputOpener();
   const link: Link = createLink(core, random);
 
   // 읽은 profile 이미지의 blob URL. 키는 `<agent key>/<이미지 이름>`이다. 이름은 `avatar.<ext>` 하나뿐이라
@@ -222,6 +233,25 @@ export function coreAgentsSource(
     return { ok: true, value: rows };
   };
 
+  // 이번 저장에서 새로 생긴 bearer·api_key server의 값을 보호 입력으로 받는다. 값은 이 파일을 지나지 않는다.
+  // 저장은 이미 끝났다. 창을 열지 못하거나 취소해도 되돌리지 않는다(전역 server 추가와 같다).
+  const enterNewCredentials = async (
+    servers: readonly McpServer[],
+    before: readonly McpServer[],
+  ) => {
+    for (const server of servers) {
+      if (server.transport !== "http") continue;
+      if (before.some((one) => one.name === server.name)) continue;
+      const auth = server.http.auth;
+      if (auth.kind !== "bearer" && auth.kind !== "api_key") continue;
+      await enterSecret(openSecret, {
+        name: auth.credential.secret,
+        purpose: "mcp",
+        subject: server.name,
+      });
+    }
+  };
+
   // 이 agent가 model을 고르지 않을 때 따르는 값. 위 층이 준 값이면 그대로, 아니면 전역 기본이다.
   const inheritedOf = async (
     effective: {
@@ -283,6 +313,7 @@ export function coreAgentsSource(
       ok: true,
       value: {
         assignment: key,
+        draftId: null,
         role: value.role,
         kind: value.role === "operator" ? "operator" : "built_in",
         place: placeView,
@@ -450,6 +481,7 @@ export function coreAgentsSource(
       const global = await readGlobalModel(link);
       const detail: AgentDetail = {
         assignment: null,
+        draftId: newOperatorId(bytes()),
         role: "operator",
         kind: "operator",
         place: current,
@@ -484,27 +516,36 @@ export function coreAgentsSource(
       });
       const draft = input.definition;
       if (input.assignment === null) {
+        const id = input.draftId ?? newOperatorId(bytes());
         const created = await link.command(operatorCreate, {
           input: {
-            id: newOperatorId(bytes()),
+            id,
             place: placeOf(input.place ?? project ?? ""),
             definition: draft,
           },
           compare: {},
         });
-        return created.ok
-          ? {
-            ok: true,
-            value: {
-              assignment: created.value.agent,
-              hash: created.value.hash,
-            },
-          }
-          : failed(created);
+        if (!created.ok) return failed(created);
+        await enterNewCredentials(draft.mcp_servers ?? [], []);
+        return {
+          ok: true,
+          value: {
+            assignment: created.value.agent,
+            hash: created.value.hash,
+          },
+        };
       }
       const operator = OPERATOR_ID.test(input.assignment);
       const ref = refOf(project, input.assignment);
       if (ref === null) return { ok: false, message: "not_found", issues: [] };
+      // 이번 저장에서 새로 생긴 server를 가리려고 저장 전 정의의 server 이름을 읽는다.
+      const before = operator && (draft.mcp_servers ?? []).length > 0
+        ? await link.read<{ definition: AgentDraft | null }>(
+          "agent-definitions",
+          "read",
+          { agent: ref },
+        )
+        : null;
       const compare = { hash: input.hash };
       const saved = operator
         ? await link.command(operatorChange, {
@@ -515,12 +556,18 @@ export function coreAgentsSource(
           input: { agent: ref, definition: builtInDefinition(draft) },
           compare,
         });
-      return saved.ok
-        ? {
-          ok: true,
-          value: { assignment: input.assignment, hash: saved.value.hash },
-        }
-        : failed(saved);
+      if (!saved.ok) return failed(saved);
+      // 저장 전 정의를 읽지 못했으면 어느 server가 새 것인지 몰라 값을 묻지 않는다.
+      if (before === null || before.ok) {
+        await enterNewCredentials(
+          draft.mcp_servers ?? [],
+          before?.ok ? before.value.definition?.mcp_servers ?? [] : [],
+        );
+      }
+      return {
+        ok: true,
+        value: { assignment: input.assignment, hash: saved.value.hash },
+      };
     },
 
     async deleteAgent(_project, key, hash) {

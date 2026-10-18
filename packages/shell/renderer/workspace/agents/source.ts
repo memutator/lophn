@@ -92,6 +92,11 @@ export interface PlaceView {
 /** editor 하나가 여는 agent의 값. 새 Operator는 assignment와 hash가 null이다. */
 export interface AgentDetail {
   readonly assignment: string | null;
+  /**
+   * 새 Operator가 저장 전에 미리 가진 id(`agt_…`). credential 이름 `mcp.<agt id>.<server>`에 id가 먼저 필요해서다.
+   * 저장된 agent는 null이다.
+   */
+  readonly draftId: string | null;
   readonly role: Role;
   readonly kind: "built_in" | "operator";
   readonly place: PlaceView;
@@ -147,6 +152,8 @@ export interface ModelsView {
 export interface SaveInput {
   /** 새 Operator는 null이다. */
   readonly assignment: string | null;
+  /** 새 Operator가 만들 때 쓸 id(`AgentDetail.draftId`). 저장된 agent는 null이다. */
+  readonly draftId: string | null;
   /** 새 Operator를 놓을 곳의 id. 저장된 agent는 쓰지 않는다. */
   readonly place: string | null;
   readonly definition: AgentDraft;

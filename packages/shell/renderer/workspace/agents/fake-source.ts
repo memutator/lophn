@@ -226,6 +226,7 @@ export function createFakeAgentsSource(): FakeAgentsSource {
     const model = inheritedModel(item);
     return {
       assignment: key,
+      draftId: null,
       role: item.role,
       kind: row.kind,
       place: placeOf(item),
@@ -322,6 +323,7 @@ export function createFakeAgentsSource(): FakeAgentsSource {
       return Promise.resolve(ok(
         {
           assignment: null,
+          draftId: `agt_${`nw${created + 1}`.padStart(26, "0")}`,
           role: "operator",
           kind: "operator",
           place: app
@@ -381,7 +383,7 @@ export function createFakeAgentsSource(): FakeAgentsSource {
         }
       }
       created += 1;
-      const key = input.assignment ??
+      const key = input.assignment ?? input.draftId ??
         `agt_${`nw${created}`.padStart(26, "0")}`;
       const hash = nextHash();
       stored.set(key, {

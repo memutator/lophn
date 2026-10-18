@@ -21,7 +21,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-devtools-main` | bt-devtools | 3 | bt-favicon-main | running | bt-devtools/bt-devtools-main |  |  |
 | `bt-devtools-ui` | bt-devtools | 3 | bt-favicon-ui, bt-devtools-main | todo |  |  |  |
 | `bt-favicon-main` | bt-favicon | 3 | bt-view-layers, bt-webview-main | merged | bt-favicon/bt-favicon-main | 782fef943 |  |
-| `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main, bt-webview-ui | running | bt-favicon/bt-favicon-ui |  |  |
+| `bt-favicon-ui` | bt-favicon | 3 | bt-popup-float, bt-favicon-main, bt-webview-ui | merged | bt-favicon/bt-favicon-ui | 9963908c9 |  |
 | `bt-popup-float` | bt-popup | 3 | bt-popup-tab, bt-bookmark-ui, bt-menu-overlay | merged | bt-popup/bt-popup-float | 999669572 |  |
 | `bt-view-layers` | bt-view-layers | 3 | bt-menu-overlay | merged | bt-view-layers/bt-view-layers | f226c42b2 |  |
 | `bt-webview-main` | bt-webview-main | 3 | bt-view-layers, bt-popup-float | merged | bt-webview-main/bt-webview-main | 3347f036c |  |

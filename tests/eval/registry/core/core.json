@@ -16,5 +16,11 @@
     "name": "core",
     "n": 3,
     "hash": "c9330124d10580bb5469e83b2a93eb6b4e98616d3ad2a394c79754638061d468"
+  },
+  {
+    "kind": "core",
+    "name": "core",
+    "n": 4,
+    "hash": "d32adb1c3706b90772d17e578033e410c2ebe9060e50c23ff12ccb2290a1656c"
   }
 ]

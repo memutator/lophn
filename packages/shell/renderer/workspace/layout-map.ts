@@ -76,6 +76,7 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
     panes,
     splitRatio: typeof value.split_ratio === "number" ? value.split_ratio : 0.5,
     focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
+    floats: [],
   };
 }
 

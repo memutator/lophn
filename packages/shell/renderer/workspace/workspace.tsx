@@ -150,6 +150,7 @@ function freshView(): WorkspaceView {
     panes: [{ tabs: [], selected: null }],
     splitRatio: 0.5,
     focusedPane: 0,
+    floats: [],
   };
 }
 

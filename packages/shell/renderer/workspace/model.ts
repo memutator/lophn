@@ -90,6 +90,8 @@ export interface TabItem {
    * 다시 열면 모두 고정 탭이다.
    */
   readonly preview?: boolean;
+  /** popup 같은 잠깐 떴다 사라지는 탭. 저장하지 않는다. dockTab이 지운다. */
+  readonly transient?: boolean;
 }
 
 export interface PaneState {
@@ -102,7 +104,35 @@ export interface WorkspaceView {
   /** 왼쪽 칸 비율. 0보다 크고 1보다 작다. */
   readonly splitRatio: number;
   readonly focusedPane: number;
+  /** workspace 위에 뜬 패널. 배열 순서가 위아래 순서다(마지막이 맨 위). */
+  readonly floats: readonly FloatItem[];
 }
+
+/** workspace `.content` 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */
+export interface FloatRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** floats 층이 차지하는 칸. `.content`의 크기다. */
+export interface FloatArea {
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface FloatItem {
+  readonly tab: TabItem;
+  /** minimized여도 접기 전 rect를 지킨다. */
+  readonly rect: FloatRect;
+  readonly minimized: boolean;
+  /** 떠 온 pane 번호. dockTab이 쓴다. */
+  readonly originPane: number;
+}
+
+export const FLOAT_MIN: FloatArea = { width: 320, height: 200 };
+export type FloatEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 /** 칸이 비면 선택을 지우고, 선택 탭이 없으면 첫 탭을 고른다. */
 export function normalizePane(pane: PaneState): PaneState {
@@ -211,7 +241,7 @@ export function reopenTab(
   pane: number,
   index: number,
 ): WorkspaceView {
-  if (holderOf(view, tab.key) >= 0) return view;
+  if (findTab(view, tab.key) !== undefined) return view;
   const target = Math.min(Math.max(pane, 0), view.panes.length - 1);
   const reopened = { ...tab, preview: false };
   return {
@@ -226,6 +256,7 @@ export function reopenTab(
   };
 }
 
+// pane 전용이다. floats까지 보려면 findTab.
 function holderOf(view: WorkspaceView, key: string): number {
   return view.panes.findIndex((pane) =>
     pane.tabs.some((tab) => tab.key === key)
@@ -242,6 +273,7 @@ export function openTabIn(
   tab: TabItem,
   isUnsaved: (key: string) => boolean,
 ): WorkspaceView {
+  if (isFloated(view, tab.key)) return restoreFloat(view, tab.key);
   const holder = holderOf(view, tab.key);
   const target = holder >= 0 ? holder : view.focusedPane;
   const panes = view.panes.map((pane, index) => {
@@ -372,6 +404,259 @@ function dropEmptyPane(view: WorkspaceView): WorkspaceView {
     return { ...view, panes: [{ tabs: [], selected: null }], focusedPane: 0 };
   }
   return { ...view, panes: kept, focusedPane: 0 };
+}
+
+const FLOAT_SHARE = 0.6;
+
+function newFloat(
+  tab: TabItem,
+  area: FloatArea,
+  originPane: number,
+): FloatItem {
+  const width = Math.round(area.width * FLOAT_SHARE);
+  const height = Math.round(area.height * FLOAT_SHARE);
+  const rect = clampFloatRect({
+    x: Math.round((area.width - width) / 2),
+    y: Math.round((area.height - height) / 2),
+    width,
+    height,
+  }, area);
+  return { tab, rect, minimized: false, originPane };
+}
+
+/** 새 탭을 곧바로 floated로 연다(popup용). 같은 key가 이미 있으면 그대로다. */
+export function openFloat(
+  view: WorkspaceView,
+  tab: TabItem,
+  area: FloatArea,
+): WorkspaceView {
+  if (findTab(view, tab.key) !== undefined) return view;
+  return {
+    ...view,
+    floats: [...view.floats, newFloat(tab, area, view.focusedPane)],
+  };
+}
+
+/** pane의 탭을 floated로 만든다. preview 표시를 지운다. pane에 없으면 그대로다. */
+export function floatTab(
+  view: WorkspaceView,
+  key: string,
+  area: FloatArea,
+): WorkspaceView {
+  const pane = holderOf(view, key);
+  if (pane < 0) return view;
+  const found = view.panes[pane]!.tabs.find((item) => item.key === key)!;
+  const closed = closeTab(view, pane, key);
+  return {
+    ...closed,
+    floats: [
+      ...closed.floats,
+      newFloat({ ...found, preview: false }, area, pane),
+    ],
+  };
+}
+
+/** floated 탭을 떠 온 pane 끝에 넣고 고른다. 그 pane이 없으면 focus pane. */
+export function dockTab(view: WorkspaceView, key: string): WorkspaceView {
+  const item = view.floats.find((float) => float.tab.key === key);
+  if (item === undefined) return view;
+  const target = item.originPane < view.panes.length
+    ? item.originPane
+    : view.focusedPane;
+  const { transient: _transient, ...rest } = item.tab;
+  const tab = { ...rest, preview: false };
+  return {
+    ...view,
+    focusedPane: target,
+    panes: view.panes.map((pane, index) =>
+      index === target ? { tabs: [...pane.tabs, tab], selected: key } : pane
+    ),
+    floats: view.floats.filter((float) => float.tab.key !== key),
+  };
+}
+
+function changeFloat(
+  view: WorkspaceView,
+  key: string,
+  change: (item: FloatItem) => FloatItem,
+): WorkspaceView {
+  const at = view.floats.findIndex((float) => float.tab.key === key);
+  if (at < 0) return view;
+  const item = view.floats[at]!;
+  const next = change(item);
+  if (next === item) return view;
+  return {
+    ...view,
+    floats: view.floats.map((float, index) => index === at ? next : float),
+  };
+}
+
+export function minimizeFloat(view: WorkspaceView, key: string): WorkspaceView {
+  return changeFloat(
+    view,
+    key,
+    (item) => item.minimized ? item : { ...item, minimized: true },
+  );
+}
+
+/** minimized를 풀고 맨 위로 올린다. */
+export function restoreFloat(view: WorkspaceView, key: string): WorkspaceView {
+  const item = view.floats.find((float) => float.tab.key === key);
+  if (item === undefined) return view;
+  const top = view.floats[view.floats.length - 1] === item;
+  if (!item.minimized && top) return view;
+  return {
+    ...view,
+    floats: [
+      ...view.floats.filter((float) => float !== item),
+      { ...item, minimized: false },
+    ],
+  };
+}
+
+/** 맨 위로 올린다. 이미 맨 위면 같은 참조다. */
+export function raiseFloat(view: WorkspaceView, key: string): WorkspaceView {
+  const item = view.floats.find((float) => float.tab.key === key);
+  if (item === undefined || view.floats[view.floats.length - 1] === item) {
+    return view;
+  }
+  return {
+    ...view,
+    floats: [...view.floats.filter((float) => float !== item), item],
+  };
+}
+
+export function closeFloat(view: WorkspaceView, key: string): WorkspaceView {
+  if (!isFloated(view, key)) return view;
+  return { ...view, floats: view.floats.filter((f) => f.tab.key !== key) };
+}
+
+export function setFloatRect(
+  view: WorkspaceView,
+  key: string,
+  rect: FloatRect,
+  area: FloatArea,
+): WorkspaceView {
+  const clamped = clampFloatRect(rect, area);
+  return changeFloat(view, key, (item) => {
+    const same = item.rect.x === clamped.x && item.rect.y === clamped.y &&
+      item.rect.width === clamped.width && item.rect.height === clamped.height;
+    return same ? item : { ...item, rect: clamped };
+  });
+}
+
+/** area 안으로 당긴다. 크기는 FLOAT_MIN 이상(area가 더 작으면 area), 위치는 area 안. */
+export function clampFloatRect(rect: FloatRect, area: FloatArea): FloatRect {
+  const width = Math.min(
+    area.width,
+    Math.max(FLOAT_MIN.width, Math.round(rect.width)),
+  );
+  const height = Math.min(
+    area.height,
+    Math.max(FLOAT_MIN.height, Math.round(rect.height)),
+  );
+  return {
+    x: Math.min(area.width - width, Math.max(0, Math.round(rect.x))),
+    y: Math.min(area.height - height, Math.max(0, Math.round(rect.y))),
+    width,
+    height,
+  };
+}
+
+/** 패널 이동. start에서 (dx,dy)만큼 옮긴 사각형을 area 안으로 가둔다. */
+export function movedRect(
+  start: FloatRect,
+  dx: number,
+  dy: number,
+  area: FloatArea,
+): FloatRect {
+  return clampFloatRect({ ...start, x: start.x + dx, y: start.y + dy }, area);
+}
+
+/** 가장자리·모서리 resize. 반대쪽 가장자리를 고정하고 FLOAT_MIN과 area 안으로 가둔다. */
+export function resizedRect(
+  start: FloatRect,
+  edge: FloatEdge,
+  dx: number,
+  dy: number,
+  area: FloatArea,
+): FloatRect {
+  const minW = Math.min(FLOAT_MIN.width, area.width);
+  const minH = Math.min(FLOAT_MIN.height, area.height);
+  let left = start.x;
+  let top = start.y;
+  let right = start.x + start.width;
+  let bottom = start.y + start.height;
+  if (edge.includes("w")) left = Math.min(Math.max(left + dx, 0), right - minW);
+  if (edge.includes("e")) {
+    right = Math.max(Math.min(right + dx, area.width), left + minW);
+  }
+  if (edge.includes("n")) top = Math.min(Math.max(top + dy, 0), bottom - minH);
+  if (edge.includes("s")) {
+    bottom = Math.max(Math.min(bottom + dy, area.height), top + minH);
+  }
+  return clampFloatRect(
+    { x: left, y: top, width: right - left, height: bottom - top },
+    area,
+  );
+}
+
+/** pane과 floats를 모두 본다. */
+export function findTab(view: WorkspaceView, key: string): TabItem | undefined {
+  return allTabs(view).find((tab) => tab.key === key);
+}
+
+export function isFloated(view: WorkspaceView, key: string): boolean {
+  return view.floats.some((float) => float.tab.key === key);
+}
+
+/** panes 순서, 그 뒤 floats 순서. */
+export function allTabs(view: WorkspaceView): TabItem[] {
+  return [
+    ...view.panes.flatMap((pane) => pane.tabs),
+    ...view.floats.map((float) => float.tab),
+  ];
+}
+
+/** panes와 floats의 모든 탭에 change를 적용한다. 바뀐 것이 없으면 view 그대로다. */
+export function mapTabs(
+  view: WorkspaceView,
+  change: (tab: TabItem) => TabItem,
+): WorkspaceView {
+  let changed = false;
+  const apply = (tab: TabItem) => {
+    const next = change(tab);
+    if (next !== tab) changed = true;
+    return next;
+  };
+  const panes = view.panes.map((pane) => ({
+    ...pane,
+    tabs: pane.tabs.map(apply),
+  }));
+  const floats = view.floats.map((float) => ({
+    ...float,
+    tab: apply(float.tab),
+  }));
+  return changed ? { ...view, panes, floats } : view;
+}
+
+/**
+ * 저장할 view. transient 탭을 panes와 floats에서 뺀다. 빠진 탭이 선택이었으면 normalizePane이
+ * 다른 탭을 고르고, 칸이 비면 칸을 접는다.
+ */
+export function storableView(view: WorkspaceView): WorkspaceView {
+  if (!allTabs(view).some((tab) => tab.transient === true)) return view;
+  const panes = view.panes.map((pane) =>
+    normalizePane({
+      tabs: pane.tabs.filter((tab) => tab.transient !== true),
+      selected: pane.selected,
+    })
+  );
+  return dropEmptyPane({
+    ...view,
+    panes,
+    floats: view.floats.filter((float) => float.tab.transient !== true),
+  });
 }
 
 interface SplitLayout {

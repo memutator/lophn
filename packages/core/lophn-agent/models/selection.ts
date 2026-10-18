@@ -14,8 +14,8 @@ import { resolveOptionValues } from "./options.ts";
 // wire.ts의 translateOptions로 채운다. 여기서는 바꾸지 않은 model 이름과 빈 조각이다.
 
 type ProviderNames = {
-  // 구독 계정의 허락 목록이 이 이름을 허락하는지. false면 거절한다. catalog나 provider의 목록은 정하지
-  // 않는다. 허락 목록이 없으면 true(또는 확인하지 못해 null)다.
+  // false는 구독 계정의 허락 목록 밖이라 거절한다. true는 catalog나 provider가 알려 준 목록에 있는 이름이고
+  // null은 아무 목록에도 없는 직접 적은 이름(미확인)이다. 목록은 고를 수 있는지를 정하지 않는다.
   modelListed(modelName: string): boolean | null;
 };
 
@@ -180,7 +180,10 @@ export function resolveSelection(
       output_limit: explicit.output_limit,
       supports_tools: explicit.supports_tools,
       price_basis: null,
-      basis: { source: "user_explicit" },
+      basis: {
+        source: "user_explicit",
+        model_listed: listed === true ? "provider_list" : "unknown",
+      },
     };
   } else {
     return err({

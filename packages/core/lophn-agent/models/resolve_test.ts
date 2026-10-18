@@ -82,6 +82,8 @@ Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 
     account: Account;
     name: string;
     accepted: boolean;
+    // 직접 적은 이름은 어느 목록에도 없으면 미확인으로 기록한다.
+    listed?: "provider_list" | "unknown";
   }[] = [
     // catalog만 있는 provider의 catalog 밖 이름
     {
@@ -89,6 +91,7 @@ Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 
       account: { kind: "none", reported_models: null },
       name: "claude-typed",
       accepted: true,
+      listed: "unknown",
     },
     // custom provider가 알려 준 목록 밖 이름
     {
@@ -109,6 +112,7 @@ Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 
       account: { kind: "oauth", reported_models: ["allowed"] },
       name: "allowed",
       accepted: true,
+      listed: "provider_list",
     },
   ];
   for (const row of cases) {
@@ -118,6 +122,13 @@ Deno.test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 
     assertEquals(bound.ok, row.accepted, JSON.stringify(bound));
     if (bound.ok) {
       assertEquals(bound.value.call.limits.context_limit, 131072);
+      if (row.listed !== undefined) {
+        assertEquals(
+          (bound.value.call.catalog_basis as Record<string, string>)
+            .model_listed,
+          row.listed,
+        );
+      }
     } else {
       assertEquals(bound.error.code, "not_found");
     }

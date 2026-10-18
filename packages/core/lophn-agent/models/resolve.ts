@@ -180,12 +180,19 @@ export function createModelResolver(deps: ModelResolverDeps) {
       },
       found,
       {
+        // false는 구독 계정의 허락 목록 밖이다. true는 catalog나 provider가 알려 준 목록에 있는 이름이고, 아무도
+        // 올리지 않은 직접 적은 이름은 null(미확인)이다.
         modelListed: (name) =>
-          entitlementAllows(
-            credential.kind,
-            provider.credential.reported_models,
-            name,
-          ),
+          !entitlementAllows(
+              credential.kind,
+              credential.reported_models,
+              name,
+            )
+            ? false
+            : found !== undefined ||
+                credential.reported_models?.includes(name) === true
+            ? true
+            : null,
       },
       unlisted ? UNLISTED_LIMITS : undefined,
     );

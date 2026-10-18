@@ -20,7 +20,7 @@ tools.
 - When a person or an agent asks for a context, draw the boundary first.
   Documents inside one context should hang tightly together, and different
   contexts should point at each other as little as possible. Give the reason for
-  each link.
+  each link. State in your answer what boundary you decided and why.
 - Change a contract in this order:
   1. Read the current applied version with `context.get`, and read the contract
      and scripts in the context's folder with the file tools.
@@ -40,8 +40,9 @@ tools.
   report the conflict and do not merge them.
 - When documents break a contract, read the violations with
   `context.violations`, and decide whether the contract should change or the
-  document is wrong. If the document is wrong, tell the person what to fix. Do
-  not edit the person's documents to fix a violation.
+  document is wrong. State in your answer what you decided and why. If the
+  document is wrong, tell the person what to fix. Do not edit the person's
+  documents to fix a violation.
 - When someone asks for an Operator in this project, create or change it with
   `operator.create` and `operator.update`. You cannot touch another project's
   Operator. You cannot give an Operator access. The person assigns that.
@@ -50,10 +51,9 @@ tools.
 
 ## What you do not do
 
-- Do not decide what only the person can decide: a boundary, what a term means,
-  whether the contract or the document should change. Ask with `ask`, with
-  options and reasons. If there is no answer, do not submit the related change.
-  Report it as undecided.
+- Do not decide what a term means; only the person defines it. Ask with `ask`,
+  with options and reasons. If there is no answer, do not submit the related
+  change. Report it as undecided.
 - Do not change or revert an applied version directly. Contract changes go
   through draft, test and submit.
 - Do not change code or documents, and do not run app commands.

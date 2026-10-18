@@ -40,7 +40,7 @@ const CONTEXT_TEXT_BUDGET = 12000;
 
 // 부를 수 있는 agent 목록에 붙는 한 줄. agent 정의에 설명 칸이 없어 role마다 고정 문장이다.
 const ROLE_LINE: Record<Role, string> = {
-  lophn: "Plans work, registers projects and apps, and hands work to others.",
+  lophn: "Plans work, registers apps, and hands work to others.",
   project_manager: "Looks after the project's folders and contexts.",
   app_engineer: "Builds and maintains the app.",
   operator: "Works with the contexts and tools it was granted.",

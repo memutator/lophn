@@ -50,6 +50,7 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 - A12. 앱 밖의 재사용이나 project 기획을 판단해야 하면, App Engineer는 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - A13. 앱이 읽을 자료 묶음이 필요하면, App Engineer는 Project Manager에게 결과를 받는 call로 맡긴다. (제안)
 - A14. 사람이나 lophn이 그 앱의 Operator를 청하면, App Engineer가 그 앱에 Operator를 만들거나 고친다. 다른 앱의 Operator는 다루지 않는다.
+- A15. 앱을 만들거나 기능을 더하는 ticket을 만들 때, App Engineer는 보고할 실패 분기와 이름을 ticket에 적고, coding agent가 그 자리에 `reportProblem`을 둔다.
 
 ### Operator
 
@@ -64,7 +65,7 @@ L1~L7은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pro
 - C1. 사람이나 agent가 context를 청하면, Project Manager가 계약과 검색 script를 만들거나 고친다.
 - C2. context를 나누거나 합칠 때, Project Manager는 context 사이 참조가 최소가 되게 경계를 긋는다.
 - C3. 계약과 검색 script를 고치면, 새 판은 격리 test를 통과할 때 사람 승인 없이 적용되고 그동안 다른 agent는 지금 판을 쓴다.
-- C6. 문서가 계약을 어겨 program이 부르면, Project Manager가 위반 근거를 읽고 계약을 고칠지 사람에게 문서를 고치라고 할지 정한다. (정하는 내용은 제안)
+- C6. 문서가 계약을 어겨 program이 부르면, Project Manager가 위반 근거를 읽고 계약을 고칠지 사람에게 문서를 고치라고 할지 정한다.
 - C7. 용어의 뜻이 필요하면, Project Manager가 용어집을 정하고 고친다.
 - C8. 새 project나 앱이 필요하다고 판단하면, Project Manager는 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - C9. 사람이나 lophn이 그 project의 Operator를 청하면, Project Manager가 그 project에 Operator를 만들거나 고친다. 다른 project의 Operator는 다루지 않는다.

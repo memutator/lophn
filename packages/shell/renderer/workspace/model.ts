@@ -90,7 +90,7 @@ export interface TabItem {
    * 다시 열면 모두 고정 탭이다.
    */
   readonly preview?: boolean;
-  /** popup 같은 잠깐 떴다 사라지는 탭. 저장하지 않는다. dockTab이 지운다. */
+  /** popup 같은 잠깐 떴다 사라지는 탭. 저장하지 않는다. dockTab·attachDetached가 지운다. */
   readonly transient?: boolean;
 }
 
@@ -106,6 +106,8 @@ export interface WorkspaceView {
   readonly focusedPane: number;
   /** workspace 위에 뜬 패널. 배열 순서가 위아래 순서다(마지막이 맨 위). */
   readonly floats: readonly FloatItem[];
+  /** workspace 밖 OS 창으로 뗀 탭. 배열 순서는 뗀 순서다. */
+  readonly detached: readonly DetachedItem[];
 }
 
 /** workspace `.content` 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */
@@ -114,6 +116,20 @@ export interface FloatRect {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+}
+
+/** 창 bounds. OS 화면 좌표 정수 사각형이다. FloatRect와 모양은 같지만 기준이 `.content`가 아니라 화면이다. */
+export interface DetachedBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** detached 창 하나가 가진 탭. 배열 순서는 뗀 순서다. */
+export interface DetachedItem {
+  readonly tab: TabItem;
+  readonly bounds: DetachedBounds;
 }
 
 /** floats 층이 차지하는 칸. `.content`의 크기다. */
@@ -275,6 +291,8 @@ export function openTabIn(
   isUnsaved: (key: string) => boolean,
   after?: string,
 ): WorkspaceView {
+  // detached 탭은 새로 붙이지 않는다. 그 창을 앞으로 가져오는 일은 호출하는 쪽이 한다.
+  if (isDetached(view, tab.key)) return view;
   if (isFloated(view, tab.key)) return restoreFloat(view, tab.key);
   const holder = holderOf(view, tab.key);
   const afterHolder = after === undefined ? -1 : holderOf(view, after);
@@ -554,6 +572,85 @@ export function closeFloat(view: WorkspaceView, key: string): WorkspaceView {
   return { ...view, floats: view.floats.filter((f) => f.tab.key !== key) };
 }
 
+/**
+ * pane이나 floats의 탭을 detached로 만든다(배열 끝). preview 표시를 지운다. transient는 그대로 두고
+ * attach할 때 지운다. pane에서 빠진 칸 정리는 closeTab과 같다. 이미 detached이거나 없으면 그대로다.
+ */
+export function detachTab(
+  view: WorkspaceView,
+  key: string,
+  bounds: DetachedBounds,
+): WorkspaceView {
+  const pane = holderOf(view, key);
+  if (pane >= 0) {
+    const found = view.panes[pane]!.tabs.find((item) => item.key === key)!;
+    const closed = closeTab(view, pane, key);
+    return {
+      ...closed,
+      detached: [...closed.detached, {
+        tab: { ...found, preview: false },
+        bounds,
+      }],
+    };
+  }
+  const float = view.floats.find((item) => item.tab.key === key);
+  if (float === undefined) return view;
+  return {
+    ...view,
+    floats: view.floats.filter((item) => item !== float),
+    detached: [...view.detached, {
+      tab: { ...float.tab, preview: false },
+      bounds,
+    }],
+  };
+}
+
+/** 새 탭을 곧바로 detached로 연다(detached 창 안에서 열린 popup). 같은 key가 이미 있으면 그대로다. */
+export function openDetachedTab(
+  view: WorkspaceView,
+  tab: TabItem,
+  bounds: DetachedBounds,
+): WorkspaceView {
+  if (findTab(view, tab.key) !== undefined) return view;
+  return { ...view, detached: [...view.detached, { tab, bounds }] };
+}
+
+/**
+ * detached 탭을 focus pane 끝에 넣고 고른다. preview·transient 표시를 지운다. tab을 주면 detached
+ * 창에서 바뀐 그 값으로 바꿔 붙인다.
+ */
+export function attachDetached(
+  view: WorkspaceView,
+  key: string,
+  tab?: TabItem,
+): WorkspaceView {
+  const item = view.detached.find((detached) => detached.tab.key === key);
+  if (item === undefined) return view;
+  const { transient: _transient, ...rest } = tab ?? item.tab;
+  const attached = { ...rest, preview: false };
+  return {
+    ...view,
+    panes: view.panes.map((pane, index) =>
+      index === view.focusedPane
+        ? { tabs: [...pane.tabs, attached], selected: key }
+        : pane
+    ),
+    detached: view.detached.filter((detached) => detached !== item),
+  };
+}
+
+/** detached 항목을 버린다(탭을 닫는다). */
+export function closeDetached(
+  view: WorkspaceView,
+  key: string,
+): WorkspaceView {
+  if (!isDetached(view, key)) return view;
+  return {
+    ...view,
+    detached: view.detached.filter((item) => item.tab.key !== key),
+  };
+}
+
 export function setFloatRect(
   view: WorkspaceView,
   key: string,
@@ -624,7 +721,7 @@ export function resizedRect(
   );
 }
 
-/** pane과 floats를 모두 본다. */
+/** pane, floats, detached를 모두 본다. */
 export function findTab(view: WorkspaceView, key: string): TabItem | undefined {
   return allTabs(view).find((tab) => tab.key === key);
 }
@@ -633,15 +730,20 @@ export function isFloated(view: WorkspaceView, key: string): boolean {
   return view.floats.some((float) => float.tab.key === key);
 }
 
-/** panes 순서, 그 뒤 floats 순서. */
+export function isDetached(view: WorkspaceView, key: string): boolean {
+  return view.detached.some((item) => item.tab.key === key);
+}
+
+/** panes 순서, 그 뒤 floats, 그 뒤 detached 순서. */
 export function allTabs(view: WorkspaceView): TabItem[] {
   return [
     ...view.panes.flatMap((pane) => pane.tabs),
     ...view.floats.map((float) => float.tab),
+    ...view.detached.map((item) => item.tab),
   ];
 }
 
-/** panes와 floats의 모든 탭에 change를 적용한다. 바뀐 것이 없으면 view 그대로다. */
+/** panes, floats, detached의 모든 탭에 change를 적용한다. 바뀐 것이 없으면 view 그대로다. */
 export function mapTabs(
   view: WorkspaceView,
   change: (tab: TabItem) => TabItem,
@@ -660,11 +762,15 @@ export function mapTabs(
     ...float,
     tab: apply(float.tab),
   }));
-  return changed ? { ...view, panes, floats } : view;
+  const detached = view.detached.map((item) => ({
+    ...item,
+    tab: apply(item.tab),
+  }));
+  return changed ? { ...view, panes, floats, detached } : view;
 }
 
 /**
- * 저장할 view. transient 탭을 panes와 floats에서 뺀다. 빠진 탭이 선택이었으면 normalizePane이
+ * 저장할 view. transient 탭을 panes, floats, detached에서 뺀다. 빠진 탭이 선택이었으면 normalizePane이
  * 다른 탭을 고르고, 칸이 비면 칸을 접는다.
  */
 export function storableView(view: WorkspaceView): WorkspaceView {
@@ -679,6 +785,7 @@ export function storableView(view: WorkspaceView): WorkspaceView {
     ...view,
     panes,
     floats: view.floats.filter((float) => float.tab.transient !== true),
+    detached: view.detached.filter((item) => item.tab.transient !== true),
   });
 }
 

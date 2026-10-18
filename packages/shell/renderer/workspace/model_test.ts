@@ -2,14 +2,20 @@ import { assertEquals } from "@std/assert";
 
 import {
   allTabs,
+  attachDetached,
+  closeDetached,
   closeFloat,
   closeTab,
   closeTargets,
+  detachTab,
   dockTab,
+  findTab,
   floatTab,
+  isDetached,
   minimizeFloat,
   moveTab,
   moveTabBy,
+  openDetachedTab,
   openFloat,
   openTabIn,
   type PaneState,
@@ -33,6 +39,7 @@ const viewOf = (pane: PaneState): WorkspaceView => ({
   splitRatio: 0.5,
   focusedPane: 0,
   floats: [],
+  detached: [],
 });
 
 Deno.test("저장 안 된 preview 탭은 다음 preview가 바꿔 쓰지 않고 고정 탭으로 남는다", () => {
@@ -79,8 +86,9 @@ Deno.test("한 칸에서 왼쪽·오른쪽으로 옮겨 나눠도 탭이 사라�
   assertEquals(reopenTab(reopened, tab("x"), 0, 0), reopened);
 });
 
-Deno.test("float, dock, minimize, restore, raise, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {
+Deno.test("float, dock, minimize, restore, raise, detach, attach, close를 이어서 해도 탭이 사라지거나 둘이 되지 않는다", () => {
   const area = { width: 1000, height: 700 };
+  const bounds = { x: 100, y: 80, width: 800, height: 600 };
   const start: WorkspaceView = {
     panes: [
       { tabs: [tab("a"), tab("b"), tab("c")], selected: "a" },
@@ -102,9 +110,27 @@ Deno.test("float, dock, minimize, restore, raise, close를 이어서 해도 탭�
         originPane: 1,
       },
     ],
+    detached: [{ tab: tab("h"), bounds }],
   };
-  const all = ["a", "b", "c", "d", "e", "f", "g"];
-  const steps: [string, (v: WorkspaceView) => WorkspaceView, string?][] = [
+  const known = new Set(["a", "b", "c", "d", "e", "f", "g", "h"]);
+  // no-op이어도 key마다 한 곳 불변은 지켜지므로, 옮기는 step은 key가 어디에 있어야 하는지도 본다.
+  type Place = "pane" | "float" | "detached";
+  const placeOf = (v: WorkspaceView, key: string): Place | undefined =>
+    v.panes.some((pane) => pane.tabs.some((t) => t.key === key))
+      ? "pane"
+      : v.floats.some((float) => float.tab.key === key)
+      ? "float"
+      : isDetached(v, key)
+      ? "detached"
+      : undefined;
+  // 셋째는 이 step이 닫는 key, 넷째는 이 step이 새로 여는 key, 다섯째는 step 뒤 key의 자리다.
+  const steps: [
+    string,
+    (v: WorkspaceView) => WorkspaceView,
+    string?,
+    string?,
+    [string, Place]?,
+  ][] = [
     ["float a", (v) => floatTab(v, "a", area)],
     ["float d", (v) => floatTab(v, "d", area)],
     ["float e (오른쪽 칸이 빈다)", (v) => floatTab(v, "e", area)],
@@ -113,14 +139,121 @@ Deno.test("float, dock, minimize, restore, raise, close를 이어서 해도 탭�
     ["restore g", (v) => restoreFloat(v, "g")],
     ["raise a", (v) => raiseFloat(v, "a")],
     [
+      "detach pane tab b",
+      (v) => detachTab(v, "b", bounds),
+      undefined,
+      undefined,
+      [
+        "b",
+        "detached",
+      ],
+    ],
+    [
+      "detach minimized a",
+      (v) => detachTab(v, "a", bounds),
+      undefined,
+      undefined,
+      [
+        "a",
+        "detached",
+      ],
+    ],
+    [
+      "detach floated g",
+      (v) => detachTab(v, "g", bounds),
+      undefined,
+      undefined,
+      [
+        "g",
+        "detached",
+      ],
+    ],
+    ["detach b again", (v) => detachTab(v, "b", bounds)],
+    ["detach unknown", (v) => detachTab(v, "zzz", bounds)],
+    [
+      "openDetachedTab new i",
+      (v) => openDetachedTab(v, tab("i"), bounds),
+      undefined,
+      "i",
+      ["i", "detached"],
+    ],
+    ["openDetachedTab detached b", (v) => openDetachedTab(v, tab("b"), bounds)],
+    ["openDetachedTab pane c", (v) => openDetachedTab(v, tab("c"), bounds)],
+    [
+      "openTabIn detached b",
+      (v) => openTabIn(v, tab("b"), () => false, "c"),
+      ,
+      ,
+      ["b", "detached"],
+    ],
+    [
+      "reopenTab detached b",
+      (v) => reopenTab(v, tab("b"), 0, 0),
+      undefined,
+      undefined,
+      [
+        "b",
+        "detached",
+      ],
+    ],
+    [
+      "floatTab detached b",
+      (v) => floatTab(v, "b", area),
+      undefined,
+      undefined,
+      [
+        "b",
+        "detached",
+      ],
+    ],
+    [
+      "openFloat detached b",
+      (v) => openFloat(v, tab("b"), area),
+      undefined,
+      undefined,
+      [
+        "b",
+        "detached",
+      ],
+    ],
+    ["dock detached b", (v) => dockTab(v, "b"), undefined, undefined, [
+      "b",
+      "detached",
+    ]],
+    ["closeFloat detached b", (v) => closeFloat(v, "b")],
+    ["attach b", (v) => attachDetached(v, "b"), undefined, undefined, [
+      "b",
+      "pane",
+    ]],
+    [
+      "attach a (바뀐 탭)",
+      (v) => attachDetached(v, "a", { ...tab("a"), title: "A" }),
+      undefined,
+      undefined,
+      ["a", "pane"],
+    ],
+    ["attach unknown", (v) => attachDetached(v, "zzz")],
+    ["close detached h", (v) => closeDetached(v, "h"), "h"],
+    ["close detached unknown", (v) => closeDetached(v, "zzz")],
+    [
       "openFloat sized b (이미 있는 key)",
       (v) => openFloat(v, tab("b"), area, { width: 100, height: 100 }),
     ],
     ["openTabIn floated d", (v) => openTabIn(v, tab("d"), () => false)],
-    ["reopenTab floated f", (v) => reopenTab(v, tab("f"), 0, 0)],
+    ["reopenTab floated d", (v) => reopenTab(v, tab("d"), 0, 0)],
     ["dock e (칸이 사라져 focus pane)", (v) => dockTab(v, "e")],
     ["dock f", (v) => dockTab(v, "f")],
-    ["close g", (v) => closeFloat(v, "g"), "g"],
+    [
+      "detach pane tab f",
+      (v) => detachTab(v, "f", bounds),
+      undefined,
+      undefined,
+      [
+        "f",
+        "detached",
+      ],
+    ],
+    ["close g", (v) => closeDetached(v, "g"), "g"],
     ["float b", (v) => floatTab(v, "b", area)],
     ["close d", (v) => closeFloat(v, "d"), "d"],
     ["dock a", (v) => dockTab(v, "a")],
@@ -128,19 +261,23 @@ Deno.test("float, dock, minimize, restore, raise, close를 이어서 해도 탭�
       const at = v.panes.findIndex((p) => p.tabs.some((t) => t.key === "c"));
       return closeTab(v, at, "c");
     }, "c"],
+    ["close detached i", (v) => closeDetached(v, "i"), "i"],
     ["float unknown", (v) => floatTab(v, "zzz", area)],
   ];
   let view = start;
-  const closed = new Set<string>();
-  for (const [name, run, close] of steps) {
+  for (const [name, run, close, open, at] of steps) {
     view = run(view);
-    if (close !== undefined) closed.add(close);
+    if (at !== undefined) assertEquals(placeOf(view, at[0]), at[1], name);
+    if (name === "attach b") {
+      assertEquals(view.panes[view.focusedPane]!.selected, "b", name);
+    }
+    if (name === "attach a (바뀐 탭)") {
+      assertEquals(findTab(view, "a")!.title, "A", name);
+    }
+    if (close !== undefined) known.delete(close);
+    if (open !== undefined) known.add(open);
     const keys = allTabs(view).map((t) => t.key);
-    assertEquals(
-      [...keys].sort(),
-      all.filter((k) => !closed.has(k)),
-      name,
-    );
+    assertEquals([...keys].sort(), [...known].sort(), name);
     assertEquals(new Set(keys).size, keys.length, name);
     for (const pane of view.panes) {
       assertEquals(
@@ -179,13 +316,21 @@ Deno.test("transient 탭은 저장할 view에 없다", () => {
         originPane: 0,
       },
     ],
+    detached: [
+      { tab: transient("t4"), bounds: { x: 0, y: 0, width: 400, height: 300 } },
+    ],
   };
   const stored = storableView(view);
   assertEquals(allTabs(stored).map((t) => t.key), ["a", "f"]);
   assertEquals(stored.panes.length, 1);
   assertEquals(stored.panes[0]!.selected, "a");
   assertEquals(stored.focusedPane, 0);
-  // dock하면 고른 것이니 저장해도 된다.
+  // dock·attach하면 고른 것이니 저장해도 된다.
+  const attached = attachDetached(view, "t4");
+  assertEquals(
+    allTabs(storableView(attached)).map((t) => t.key).includes("t4"),
+    true,
+  );
   const docked = dockTab(view, "t3");
   assertEquals(
     allTabs(storableView(docked)).map((t) => t.key).includes("t3"),

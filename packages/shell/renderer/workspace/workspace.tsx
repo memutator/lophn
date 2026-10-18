@@ -183,6 +183,7 @@ function freshView(): WorkspaceView {
     splitRatio: 0.5,
     focusedPane: 0,
     floats: [],
+    detached: [],
   };
 }
 

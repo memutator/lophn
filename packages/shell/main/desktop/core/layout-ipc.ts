@@ -33,6 +33,8 @@ const saveInput = z.strictObject({
   split_ratio: z.number(),
   focused_pane: z.number().int().min(0).max(1),
   floats: z.array(z.unknown()).max(20),
+  detached: z.array(z.strictObject({ tab: z.unknown(), bounds: z.unknown() }))
+    .max(20),
 });
 
 interface LayoutIpcMain {
@@ -131,6 +133,7 @@ export function registerLayoutIpc(
         split_ratio: parsed.value.split_ratio,
         focused_pane: parsed.value.focused_pane,
         floats: parsed.value.floats,
+        detached: parsed.value.detached,
         window_bounds: clampBounds(deps.bounds(event)),
       });
       if (!valid.ok) {

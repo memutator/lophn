@@ -1,5 +1,6 @@
 // 화면 탭(TabItem)과 layout 파일 탭을 오간다. 파일에 남는 것은 schema 필드뿐이다.
 import {
+  type DetachedItem,
   type FloatItem,
   normalizePane,
   type PaneState,
@@ -76,6 +77,29 @@ function floatFromStored(value: unknown): FloatItem | null {
   };
 }
 
+/** 저장된 detached 탭. 탭이나 bounds를 맞출 수 없으면 null이다. */
+function detachedFromStored(value: unknown): DetachedItem | null {
+  if (typeof value !== "object" || value === null) return null;
+  const item = value as Record<string, unknown>;
+  const tab = tabFromStored(item.tab);
+  const bounds = item.bounds as Record<string, unknown> | null | undefined;
+  if (
+    tab === null || typeof bounds !== "object" || bounds === null ||
+    ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger)
+  ) {
+    return null;
+  }
+  return {
+    tab,
+    bounds: {
+      x: bounds.x as number,
+      y: bounds.y as number,
+      width: bounds.width as number,
+      height: bounds.height as number,
+    },
+  };
+}
+
 /** 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다. */
 export function viewFromStored(layout: unknown): WorkspaceView | null {
   if (typeof layout !== "object" || layout === null) return null;
@@ -84,6 +108,7 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
     split_ratio?: number;
     focused_pane?: number;
     floats?: unknown;
+    detached?: unknown;
   };
   if (!Array.isArray(value.panes)) return null;
   const panes: PaneState[] = value.panes.map((pane) =>
@@ -110,6 +135,12 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
         return item === null ? [] : [item];
       })
       : [],
+    detached: Array.isArray(value.detached)
+      ? value.detached.flatMap((entry) => {
+        const item = detachedFromStored(entry);
+        return item === null ? [] : [item];
+      })
+      : [],
   };
 }
 
@@ -129,6 +160,10 @@ export function toStoredLayout(input: {
     rect: FloatItem["rect"];
     minimized: boolean;
     origin_pane: number;
+  }[];
+  detached: {
+    tab: Record<string, unknown>;
+    bounds: DetachedItem["bounds"];
   }[];
 } {
   const view = storableView(input.view);
@@ -159,6 +194,10 @@ export function toStoredLayout(input: {
       origin_pane: float.originPane === 1 ? 1 : 0,
     }];
   }).slice(0, 20);
+  const detached = view.detached.flatMap((item) => {
+    const tab = toStoredTab(item.tab);
+    return tab === null ? [] : [{ tab, bounds: item.bounds }];
+  }).slice(0, 20);
   return {
     project: input.project,
     last_space: input.lastSpace,
@@ -166,5 +205,6 @@ export function toStoredLayout(input: {
     split_ratio: ratio,
     focused_pane: focused,
     floats,
+    detached,
   };
 }

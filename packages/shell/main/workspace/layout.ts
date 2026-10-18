@@ -43,12 +43,12 @@ export function parseLayoutFile(value: unknown): LayoutResult {
 
 /**
  * registry에 없는 kind(지운 옛 kind 포함)의 탭은 placeholder 없이 건너뛰고 나머지 탭의 순서·선택을
- * 지킨다. 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. floated 탭은 그 항목째 건너뛴다. 그 밖의
+ * 지킨다. 선택 탭이 건너뛴 탭이면 첫 남은 탭으로 옮긴다. floated·detached 탭은 그 항목째 건너뛴다. 그 밖의
  * 모양 오류는 손대지 않고 schema 검증이 손상으로 판단한다.
  */
 function skipUnregisteredTabs(value: unknown): unknown {
   const layout = (value as { layout?: unknown } | null)?.layout as
-    | { panes?: unknown; floats?: unknown }
+    | { panes?: unknown; floats?: unknown; detached?: unknown }
     | null
     | undefined;
   if (typeof layout !== "object" || layout === null) return value;
@@ -87,8 +87,21 @@ function skipUnregisteredTabs(value: unknown): unknown {
       floats = kept;
     }
   }
+  let detached = layout.detached;
+  if (Array.isArray(detached)) {
+    const kept = detached.filter((item: unknown) =>
+      registered((item as { tab?: unknown } | null)?.tab)
+    );
+    if (kept.length !== detached.length) {
+      changed = true;
+      detached = kept;
+    }
+  }
   if (!changed) return value;
-  return { ...(value as object), layout: { ...layout, panes, floats } };
+  return {
+    ...(value as object),
+    layout: { ...layout, panes, floats, detached },
+  };
 }
 
 /** file schema의 layout을 감싼다. */

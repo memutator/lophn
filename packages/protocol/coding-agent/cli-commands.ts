@@ -239,8 +239,8 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   token(
     "problem body",
     reportBody,
-    (reportBody.input as z.ZodObject).extend({
-      field: z.enum(["report_text", "report_details", "snapshot_logs"]),
+    reportBody.input.extend({
+      field: reportBody.input.shape.field.exclude(["feedback_state"]),
       length_bytes: z.number().int().min(1).max(262_144).default(65_536),
     }),
     reportBody.output,

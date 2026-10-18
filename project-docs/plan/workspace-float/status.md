@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 | `wf-layout-schema` | wf-layout | 1 | wf-layout-model | merged | wf-layout/wf-layout-schema | ed8e735a3 |  |
 | `wf-entry` | wf-entry | 2 | wf-minimized | todo |  |  |  |
 | `wf-floated-layer` | wf-floated | 2 | wf-panel, wf-native, wf-floated-wire, wf-view-keep | todo |  |  |  |
-| `wf-floated-wire` | wf-floated | 2 | 없음 | running | wf-floated/wf-floated-wire |  |  |
+| `wf-floated-wire` | wf-floated | 2 | 없음 | merged | wf-floated/wf-floated-wire | aa83d364d |  |
 | `wf-minimized` | wf-minimized | 2 | wf-floated-layer | todo |  |  |  |
 | `wf-native` | wf-native | 2 | 없음 | running | wf-native/wf-native |  |  |
 | `wf-panel` | wf-panel | 2 | 없음 | running | wf-panel/wf-panel |  |  |

@@ -2,12 +2,20 @@ import type { InstructionsPlace } from "../../ipc/instructions.ts";
 import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다.
-type Space = "launcher" | "settings" | "project" | "app" | "instructions";
+type Space =
+  | "launcher"
+  | "settings"
+  | "project"
+  | "app"
+  | "instructions"
+  | "detached";
 
 export interface Route {
   readonly space: Space;
   /** project 공간의 프로젝트 id. 다른 공간은 없다. */
   readonly project?: string;
+  /** detached 공간이 그리는 탭의 key. 탭 값은 main에서 받고 이 key는 공간을 고르는 데만 쓴다. */
+  readonly detached?: string;
   /** app 공간의 앱 id. 다른 공간은 없다. */
   readonly app?: string;
   /** settings 공간에서 처음 보일 항목. 없으면 General이다. */
@@ -54,4 +62,9 @@ export function openApp(app: string, session?: string): Route {
   return session === undefined
     ? { space: "app", app }
     : { space: "app", app, session };
+}
+
+/** detached 창(탭 하나만 그리는 OS 창)으로 시작한다. */
+export function openDetached(key: string): Route {
+  return { space: "detached", detached: key };
 }

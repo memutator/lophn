@@ -92,6 +92,7 @@ export const project = {
   "file-search.notice.type-text":
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
+  "project-workspace.button.detached-dock": "Dock",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
   "project-workspace.button.explorer-copy-path": "Copy Path",
   "project-workspace.button.explorer-copy-relative-path": "Copy Relative Path",

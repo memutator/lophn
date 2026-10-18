@@ -104,6 +104,7 @@ export type ProjectPlaceholders = {
   "file-search.notice.no-matches": Record<never, never>;
   "file-search.notice.type-text": Record<never, never>;
   "file-search.notice.unavailable": Record<never, never>;
+  "project-workspace.button.detached-dock": Record<never, never>;
   "project-workspace.button.explorer-collapse-all": Record<never, never>;
   "project-workspace.button.explorer-copy-path": Record<never, never>;
   "project-workspace.button.explorer-copy-relative-path": Record<never, never>;

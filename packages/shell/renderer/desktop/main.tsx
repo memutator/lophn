@@ -20,6 +20,8 @@ import {
   type InstructionsSource,
 } from "../editor/instructions-entry.tsx";
 import { Workspace } from "../workspace/workspace.tsx";
+import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
+import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
@@ -89,6 +91,8 @@ interface DesktopProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
   overlay?: OverlayApi;
+  /** detached 창 통로. 없으면 Detach 항목과 detached 공간을 두지 않는다. */
+  detached?: LophnDetachedApi;
 }
 
 // toast 행동의 기본 처리. 지금 보이는 화면이 처리하지 못한 행동(그 화면이 false를 돌렸다)을 다른 화면으로 가서
@@ -154,6 +158,7 @@ export function Desktop(
     issues,
     agentViewSource,
     overlay,
+    detached,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -306,12 +311,26 @@ export function Desktop(
         onOpenApp={apps ? appSpace : undefined}
         editor={editor}
         terminal={terminal}
+        detached={detached}
         agentViewSource={agentViewSource}
         session={route.session}
         projectManager={route.projectManager}
         open={route.open}
       />
     );
+  } else if (route.space === "detached") {
+    // 창이 detached 탭 하나만 그리므로 core가 준비되기 전에 런처로 떨어지지 않는다.
+    space = detached && workspace && live
+      ? (
+        <DetachedSpace
+          api={detached}
+          workspace={workspace}
+          editor={editor}
+          terminal={terminal}
+          agentViewSource={agentViewSource}
+        />
+      )
+      : null;
   } else if (
     route.space === "instructions" && route.instructions && instructions &&
     editor && live
@@ -401,8 +420,10 @@ export function Desktop(
         goApp={(app) => setRoute(openApp(app))}
       />
       {space}
-      {overlay ? <ToastHost overlay={overlay} /> : null}
-      {intents
+      {overlay && route.space !== "detached"
+        ? <ToastHost overlay={overlay} />
+        : null}
+      {intents && route.space !== "detached"
         ? (
           <DesktopIntents
             intents={intents}

@@ -7,6 +7,7 @@ import { windowEditorDeps } from "../editor/window-deps.ts";
 import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import {
   openApp,
+  openDetached,
   openInstructions,
   openProject,
   openSettings,
@@ -53,6 +54,7 @@ import {
 import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
+import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import {
   BrowserApiProvider,
   BrowserOverlayProvider,
@@ -102,6 +104,7 @@ const agentViewSource = mock?.agentViewSource ??
   coreAgentTabSourceFactory(core);
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
+// `#detached=<탭 key>`는 main이 띄우는 detached 창이다.
 // `#instructions=global`·`#instructions=project:<id>`면
 // 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
@@ -117,6 +120,8 @@ const start: Route | undefined = seed
   })
   : location.hash.startsWith("#app=")
   ? openApp(location.hash.slice("#app=".length))
+  : location.hash.startsWith("#detached=")
+  ? openDetached(decodeURIComponent(location.hash.slice("#detached=".length)))
   : location.hash === "#settings"
   ? openSettings()
   : undefined;
@@ -136,6 +141,7 @@ const bridges = globalThis as {
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
   lophnBrowser?: LophnBrowserApi;
+  lophnDetached?: LophnDetachedApi;
 };
 const views: LophnShellViewsApi | undefined = mock?.views ??
   (typeof bridges.lophnShell?.openApp === "function"
@@ -196,6 +202,7 @@ mount(
                 feedback={feedback}
                 instructions={mock?.instructions ?? windowInstructionsSource()}
                 agentViewSource={agentViewSource}
+                detached={bridges.lophnDetached}
               />
             </EventsProvider>
           </ConversationProvider>

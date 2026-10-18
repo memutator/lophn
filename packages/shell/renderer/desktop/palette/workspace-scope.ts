@@ -9,7 +9,11 @@ import {
 } from "../../workspace/contexts/context-palette-group.ts";
 import type { ContextListItem } from "../../workspace/contexts/source.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
-import type { WorkspaceView } from "../../workspace/model.ts";
+import type {
+  FloatItem,
+  TabItem,
+  WorkspaceView,
+} from "../../workspace/model.ts";
 import type { FileRow } from "../../workspace/source.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
@@ -20,7 +24,13 @@ import {
 } from "./model.ts";
 import type { PaletteScope } from "./session.ts";
 
-type WorkspaceAction = "launcher" | "settings" | "terminal";
+type WorkspaceAction =
+  | "launcher"
+  | "settings"
+  | "terminal"
+  | "float"
+  | "dock"
+  | "minimize";
 
 type WorkspaceTarget =
   | { readonly kind: "tab"; readonly pane: number; readonly key: string }
@@ -67,6 +77,17 @@ function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
   );
 }
 
+/** focus 칸의 고른 탭. */
+export function focusTab(view: WorkspaceView): TabItem | undefined {
+  const pane = view.panes[view.focusedPane];
+  return pane?.tabs.find((tab) => tab.key === pane.selected);
+}
+
+/** 가장 위의 접히지 않은 floated 패널. */
+export function topFloat(view: WorkspaceView): FloatItem | undefined {
+  return view.floats.findLast((item) => !item.minimized);
+}
+
 function actions(
   input: WorkspaceScopeInput,
 ): PaletteEntry<WorkspaceTarget>[] {
@@ -104,6 +125,15 @@ function actions(
       ]
       : []),
     action("settings", t("common.button.palette-settings"), "screen"),
+    ...(focusTab(input.view)
+      ? [action("float", t("common.button.palette-float-tab"), "tab")]
+      : []),
+    ...(topFloat(input.view)
+      ? [
+        action("dock", t("common.button.palette-dock-panel"), "panel"),
+        action("minimize", t("common.button.palette-minimize-panel"), "panel"),
+      ]
+      : []),
   ];
 }
 

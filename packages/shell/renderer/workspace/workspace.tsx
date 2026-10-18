@@ -35,6 +35,7 @@ import {
   closeTargets,
   dockTab,
   findTab,
+  floatTab,
   isFloated,
   mapTabs,
   minimizeFloat,
@@ -79,7 +80,11 @@ import {
 } from "../desktop/palette/host.tsx";
 import type { Command } from "../../ipc/keybindings.ts";
 import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
-import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
+import {
+  focusTab,
+  topFloat,
+  workspaceScope,
+} from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { ContextChipView } from "../conversation/composer/types.ts";
@@ -878,6 +883,22 @@ export function Workspace(props: WorkspaceProps) {
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "settings") onSettings();
         else if (target.action === "terminal") openTerminalTab(host);
+        else if (target.action === "float") {
+          const tab = focusTab(latest.current);
+          if (tab !== undefined && mainSize !== undefined) {
+            update(floatTab(latest.current, tab.key, mainSize));
+          }
+        } else if (target.action === "dock") {
+          const top = topFloat(latest.current);
+          if (top === undefined) return;
+          update(dockTab(latest.current, top.tab.key));
+          focusPaneBody(latest.current.focusedPane);
+        } else if (target.action === "minimize") {
+          const top = topFloat(latest.current);
+          if (top !== undefined) {
+            update(minimizeFloat(latest.current, top.tab.key));
+          }
+        }
       },
     })
   );
@@ -1186,6 +1207,10 @@ export function Workspace(props: WorkspaceProps) {
                 onCloseMany={(pane, scope, key) =>
                   void closeMany(pane, scope, key)}
                 onPin={(key) => update(pinTab(latest.current, key))}
+                onFloat={(_pane, key) => {
+                  if (mainSize === undefined) return;
+                  update(floatTab(latest.current, key, mainSize));
+                }}
                 pathOf={pathOfTab}
                 onCopyPath={copyPath}
                 onReveal={revealInExplorer}

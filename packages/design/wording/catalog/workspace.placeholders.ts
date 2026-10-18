@@ -2,7 +2,10 @@
 import type { workspace } from "./workspace.ts";
 
 export type WorkspacePlaceholders = {
+  "common.button.palette-dock-panel": Record<never, never>;
+  "common.button.palette-float-tab": Record<never, never>;
   "common.button.palette-launcher": Record<never, never>;
+  "common.button.palette-minimize-panel": Record<never, never>;
   "common.button.palette-open": Record<never, never>;
   "common.button.palette-settings": Record<never, never>;
   "common.button.palette-terminal": Record<never, never>;

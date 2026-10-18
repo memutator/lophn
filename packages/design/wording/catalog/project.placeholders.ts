@@ -141,6 +141,7 @@ export type ProjectPlaceholders = {
   "project-workspace.button.tab-close-saved": Record<never, never>;
   "project-workspace.button.tab-copy-path": Record<never, never>;
   "project-workspace.button.tab-copy-relative-path": Record<never, never>;
+  "project-workspace.button.tab-float": Record<never, never>;
   "project-workspace.button.tab-keep-open": Record<never, never>;
   "project-workspace.button.tab-reveal": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;

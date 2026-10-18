@@ -1,5 +1,8 @@
 export const workspace = {
+  "common.button.palette-dock-panel": "Dock panel",
+  "common.button.palette-float-tab": "Float tab",
   "common.button.palette-launcher": "Back to launcher",
+  "common.button.palette-minimize-panel": "Minimize panel",
   "common.button.palette-open": "Search and commands",
   "common.button.palette-settings": "Open Settings",
   "common.button.palette-terminal": "Open terminal",

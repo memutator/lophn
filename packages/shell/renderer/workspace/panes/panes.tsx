@@ -38,6 +38,8 @@ interface PanesProps {
   onCloseMany: (pane: number, scope: CloseScope, key: string) => void;
   /** preview 탭을 고정한다(탭 double-click, menu의 Keep Open). */
   onPin: (key: string) => void;
+  /** 탭 menu의 Float. */
+  onFloat: (pane: number, key: string) => void;
   /** 탭이 파일이면 그 경로. 아니면 null이다. 경로 복사·Explorer에서 보기가 이 탭에만 생긴다. */
   pathOf: (tab: TabItem) => string | null;
   onCopyPath: (path: string, relative: boolean) => void;
@@ -76,6 +78,7 @@ export function Panes(
     onClose,
     onCloseMany,
     onPin,
+    onFloat,
     pathOf,
     onCopyPath,
     onReveal,
@@ -182,6 +185,7 @@ export function Panes(
               onClose={(key) => onClose(index, key)}
               onCloseMany={(scope, key) => onCloseMany(index, scope, key)}
               onPin={onPin}
+              onFloat={(key) => onFloat(index, key)}
               onCopyPath={onCopyPath}
               onReveal={onReveal}
               onReorder={(key, before) => onMove(key, index, before)}
@@ -212,6 +216,7 @@ interface PaneViewProps {
   onClose: (key: string) => void;
   onCloseMany: (scope: CloseScope, key: string) => void;
   onPin: (key: string) => void;
+  onFloat: (key: string) => void;
   onCopyPath: (path: string, relative: boolean) => void;
   onReveal: (path: string) => void;
   onReorder: (key: string, before: string | null) => void;
@@ -234,6 +239,7 @@ function PaneView(
     onClose,
     onCloseMany,
     onPin,
+    onFloat,
     onCopyPath,
     onReveal,
     onReorder,
@@ -275,6 +281,12 @@ function PaneView(
       label: t("project-workspace.button.tab-close-all"),
       leading: <MenuIcon icon={workspaceIcons.closeAll} />,
     },
+    {
+      id: "float",
+      label: t("project-workspace.button.tab-float"),
+      leading: <MenuIcon icon={workspaceIcons.float} />,
+      separatorBefore: true,
+    },
     ...(menuPath === null ? [] : [
       {
         id: "copy-path",
@@ -310,6 +322,7 @@ function PaneView(
     else if (id === "right") onCloseMany("right", menuTab.key);
     else if (id === "saved") onCloseMany("saved", menuTab.key);
     else if (id === "all") onCloseMany("all", menuTab.key);
+    else if (id === "float") onFloat(menuTab.key);
     else if (id === "keep-open") onPin(menuTab.key);
     else if (menuPath !== null) {
       if (id === "copy-path") onCopyPath(menuPath, false);

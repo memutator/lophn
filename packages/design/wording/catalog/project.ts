@@ -124,6 +124,7 @@ export const project = {
   "project-workspace.button.tab-close-saved": "Close Saved",
   "project-workspace.button.tab-copy-path": "Copy Path",
   "project-workspace.button.tab-copy-relative-path": "Copy Relative Path",
+  "project-workspace.button.tab-float": "Float",
   "project-workspace.button.tab-keep-open": "Keep Open",
   "project-workspace.button.tab-reveal": "Reveal in Explorer",
   "project-workspace.empty.no-folders": "No project folder.",

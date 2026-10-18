@@ -6,7 +6,6 @@ import {
   createChildBlobPrepare,
 } from "../../../storage/blobs/child-prepare.ts";
 import { problemsReportDefinitions } from "../../../problems/register.ts";
-import { authorize } from "../../../server/identity/mod.ts";
 import {
   COLLECTOR_CREDENTIAL_OPERATIONS,
   COLLECTOR_ROUTES,
@@ -15,7 +14,10 @@ import {
 } from "../../../problems/reporting/collector.ts";
 import { snapshotLogsEnvironment } from "../../../problems/snapshots/logs-read.ts";
 import type { SnapshotLogsEnvironment } from "../../../problems/snapshots/mod.ts";
-import { openConnection } from "../../../storage/ledger/mod.ts";
+import {
+  createTargetAuthorizer,
+  openConnection,
+} from "../../../storage/ledger/mod.ts";
 import {
   COLLECTOR_KIND,
   reportCollectorSpec,
@@ -72,7 +74,7 @@ export const problemsWiring: WiringFactory = () => {
     operations: () => collectorOperationPolicies(),
     build(ctx) {
       return ok({
-        // 보고의 사람 글·log·화면 상태만 읽는 좁은 route. 일반 `blobs/read`는 coding 연결에 열지 않는다.
+        // 보고의 글·details·log·화면 상태만 읽는 좁은 route. 일반 `blobs/read`는 coding 연결에 열지 않는다.
         reads(reads) {
           reads.set(
             `${reportBody.resource}/${reportBody.method}`,
@@ -178,7 +180,7 @@ async function startCollector(
   }
 }
 
-// /problems/report_body. owner_kind가 `report`로 고정이고 field는 사람 글·log·화면 상태뿐이다.
+// /problems/report_body. owner_kind가 `report`로 고정이고 field는 글·details·log·화면 상태뿐이다.
 // 보고는 이 자격으로 `problem.get_occurrence`가 읽을 수 있어야 하고(없는 대상과 범위 밖은 같은 not_found), 바이트를
 // 읽기 시작할 때와 반환 직전에 보고의 앱·문제 target을 현재 credential로 다시 검사한다. 글은 core
 // 알려진 값 pipe를 지난 것만 내보낸다(끝내지 못하면 unavailable).
@@ -234,7 +236,14 @@ async function reportBodyHandler(
     },
     (current) => {
       const live = currentCredential(ctx.ledgerPath, current.credential_ref);
-      return live.ok ? authorize(live.value, reportBody.name, target) : live;
+      // 위쪽 snapshotLogs.view와 같은 규칙이다. agent 자격의 고정 조건(session·turn)은 target에 채워야 통과한다.
+      return live.ok
+        ? createTargetAuthorizer(live.value)(
+          live.value,
+          reportBody.name,
+          target,
+        )
+        : live;
     },
   );
   if (!read.ok) return read.error.code === "unavailable" ? read : notFound;

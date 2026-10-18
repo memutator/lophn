@@ -42,6 +42,10 @@ interface PanesProps {
   onPin: (key: string) => void;
   /** 탭 menu의 Float. */
   onFloat: (pane: number, key: string) => void;
+  /** 탭 menu의 Detach. 없으면 항목을 두지 않는다. */
+  onDetach?: (pane: number, key: string) => void;
+  /** Detach할 수 있는 탭인지. 없으면 모두 할 수 있다. */
+  canDetach?: (tab: TabItem) => boolean;
   /** 탭이 파일이면 그 경로. 아니면 null이다. 경로 복사·Explorer에서 보기가 이 탭에만 생긴다. */
   pathOf: (tab: TabItem) => string | null;
   onCopyPath: (path: string, relative: boolean) => void;
@@ -82,6 +86,8 @@ export function Panes(
     onCloseMany,
     onPin,
     onFloat,
+    onDetach,
+    canDetach,
     pathOf,
     onCopyPath,
     onReveal,
@@ -189,6 +195,8 @@ export function Panes(
               onCloseMany={(scope, key) => onCloseMany(index, scope, key)}
               onPin={onPin}
               onFloat={(key) => onFloat(index, key)}
+              onDetach={onDetach && ((key) => onDetach(index, key))}
+              canDetach={canDetach}
               onCopyPath={onCopyPath}
               onReveal={onReveal}
               onReorder={(key, before) => onMove(key, index, before)}
@@ -218,6 +226,8 @@ interface PaneViewProps {
   onCloseMany: (scope: CloseScope, key: string) => void;
   onPin: (key: string) => void;
   onFloat: (key: string) => void;
+  onDetach?: (key: string) => void;
+  canDetach?: (tab: TabItem) => boolean;
   onCopyPath: (path: string, relative: boolean) => void;
   onReveal: (path: string) => void;
   onReorder: (key: string, before: string | null) => void;
@@ -241,6 +251,8 @@ function PaneView(
     onCloseMany,
     onPin,
     onFloat,
+    onDetach,
+    canDetach,
     onCopyPath,
     onReveal,
     onReorder,
@@ -288,6 +300,13 @@ function PaneView(
       leading: <MenuIcon icon={workspaceIcons.float} />,
       separatorBefore: true,
     },
+    ...(onDetach && (canDetach?.(menuTab) ?? true)
+      ? [{
+        id: "detach",
+        label: t("project-workspace.button.tab-detach"),
+        leading: <MenuIcon icon={workspaceIcons.detach} />,
+      }]
+      : []),
     ...(menuPath === null ? [] : [
       {
         id: "copy-path",
@@ -324,6 +343,7 @@ function PaneView(
     else if (id === "saved") onCloseMany("saved", menuTab.key);
     else if (id === "all") onCloseMany("all", menuTab.key);
     else if (id === "float") onFloat(menuTab.key);
+    else if (id === "detach") onDetach?.(menuTab.key);
     else if (id === "keep-open") onPin(menuTab.key);
     else if (menuPath !== null) {
       if (id === "copy-path") onCopyPath(menuPath, false);

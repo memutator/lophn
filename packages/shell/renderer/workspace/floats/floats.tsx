@@ -44,6 +44,10 @@ interface FloatsProps {
   onRect(key: string, rect: FloatRect): void;
   onMinimize(key: string): void;
   onDock(key: string): void;
+  /** 없으면 [Detach] 단추를 두지 않는다. */
+  onDetach?(key: string): void;
+  /** Detach할 수 있는 탭인지. 없으면 모두 할 수 있다. */
+  canDetach?(tab: TabItem): boolean;
   onClose(key: string): void;
   /**
    * browser 탭의 <webview> 그릇. 패널과 같은 stacking context에 있어야 floated browser 탭이 자기
@@ -101,6 +105,8 @@ function FloatEntry(
     onRect,
     onMinimize,
     onDock,
+    onDetach,
+    canDetach,
     onClose,
   }: FloatEntryProps,
 ) {
@@ -184,6 +190,14 @@ function FloatEntry(
               t("project-workspace.button.float-dock"),
               () => onDock(tab.key),
             )}
+            {onDetach && !item.minimized && (canDetach?.(tab) ?? true)
+              ? action(
+                "detach",
+                workspaceIcons.detach,
+                t("project-workspace.button.float-detach"),
+                () => onDetach(tab.key),
+              )
+              : null}
             {action(
               "close",
               workspaceIcons.close,

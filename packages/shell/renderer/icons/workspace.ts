@@ -7,6 +7,7 @@ import {
   Columns2,
   Copy,
   Dock,
+  ExternalLink,
   FileCheck,
   FilePlus,
   FileText,
@@ -68,8 +69,9 @@ export const workspaceIcons = {
   // floated 패널 위 bar의 [Minimize]와 [Dock].
   minimize: Minus,
   dock: Dock,
-  // 탭 menu의 [Float].
+  // 탭 menu의 [Float]와 [Detach], floated 패널 bar의 [Detach].
   float: PictureInPicture2,
+  detach: ExternalLink,
   // 접힌 항목을 접기 전 자리로 되돌린다.
   restore: Maximize2,
 } as const satisfies Record<string, LucideIcon>;

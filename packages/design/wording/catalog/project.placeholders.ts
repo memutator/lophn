@@ -116,6 +116,7 @@ export type ProjectPlaceholders = {
   "project-workspace.button.explorer-reveal": Record<never, never>;
   "project-workspace.button.explorer-trash": Record<never, never>;
   "project-workspace.button.float-close": Record<never, never>;
+  "project-workspace.button.float-detach": Record<never, never>;
   "project-workspace.button.float-dock": Record<never, never>;
   "project-workspace.button.float-minimize": Record<never, never>;
   "project-workspace.button.float-restore": Record<never, never>;
@@ -141,6 +142,7 @@ export type ProjectPlaceholders = {
   "project-workspace.button.tab-close-saved": Record<never, never>;
   "project-workspace.button.tab-copy-path": Record<never, never>;
   "project-workspace.button.tab-copy-relative-path": Record<never, never>;
+  "project-workspace.button.tab-detach": Record<never, never>;
   "project-workspace.button.tab-float": Record<never, never>;
   "project-workspace.button.tab-keep-open": Record<never, never>;
   "project-workspace.button.tab-reveal": Record<never, never>;

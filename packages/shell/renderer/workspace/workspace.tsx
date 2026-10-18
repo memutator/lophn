@@ -27,20 +27,25 @@ import { startPointerDrag } from "./drag.ts";
 import {
   allTabs,
   applyDrag,
+  attachDetached,
   breadcrumbs,
   clampSidebar,
+  closeDetached,
   closeFloat,
   type CloseScope,
   closeTab,
   closeTargets,
+  detachTab,
   dockTab,
   findTab,
   floatTab,
+  isDetached,
   isFloated,
   mapTabs,
   minimizeFloat,
   moveTab,
   moveTabBy,
+  openDetachedTab,
   openFloat,
   openTabIn,
   pinTab,
@@ -80,7 +85,11 @@ import {
   usePaletteScope,
 } from "../desktop/palette/host.tsx";
 import type { Command } from "../../ipc/keybindings.ts";
-import type { LophnDetachedApi } from "../../ipc/detached.ts";
+import {
+  type DetachedEvent,
+  type LophnDetachedApi,
+  slimDetachedTab,
+} from "../../ipc/detached.ts";
 import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
 import {
   focusTab,
@@ -400,8 +409,13 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     const live = new Set(allTabs(view).map((tab) => tab.key));
     for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
+    // detached 탭의 <webview>는 그 창이 갖는다. 여기 남기면 page가 두 창에 산다.
+    const shown = new Set([
+      ...view.panes.flatMap((pane) => pane.tabs),
+      ...view.floats.map((float) => float.tab),
+    ].map((tab) => tab.key));
     for (const key of webviews.keys()) {
-      if (!live.has(key)) webviews.release(key);
+      if (!shown.has(key)) webviews.release(key);
     }
   }, [view, keeps, webviews]);
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
@@ -451,6 +465,11 @@ export function Workspace(props: WorkspaceProps) {
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
     const current = latest.current;
+    if (isDetached(current, key)) {
+      void props.detached?.close({ key }).catch(() => {});
+      update(closeDetached(current, key));
+      return;
+    }
     if (isFloated(current, key)) {
       leaveTopFloat(key);
       update(closeFloat(current, key));
@@ -467,6 +486,11 @@ export function Workspace(props: WorkspaceProps) {
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
     const current = latest.current;
+    // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다.
+    if (isDetached(current, tab.key)) {
+      void props.detached?.focus({ key: tab.key }).catch(() => {});
+      return;
+    }
     const select = options?.select !== false;
     if (!select) {
       if (findTab(current, tab.key) !== undefined) return;
@@ -697,6 +721,10 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
+      if (isDetached(latest.current, key)) {
+        void props.detached?.focus({ key }).catch(() => {});
+        return;
+      }
       if (isFloated(latest.current, key)) {
         setFloatFocused(true);
         update(restoreFloat(latest.current, key));
@@ -715,7 +743,83 @@ export function Workspace(props: WorkspaceProps) {
         ),
       });
     });
-  }, [terminal]);
+  }, [terminal, props.detached]);
+
+  // 탭을 OS 창으로 뗀다. 순서는 transfer, 창 열기, 성공했을 때만 layout 바꾸기다. 어느 단계에서
+  // 실패해도 layout은 그대로라 탭이 사라지지 않는다.
+  const detach = async (key: string) => {
+    const api = props.detached;
+    const first = findTab(latest.current, key);
+    if (api === undefined || first === undefined) return;
+    if (isDetached(latest.current, key)) return;
+    const def = tabKindOf(first.kind);
+    if (def?.noDetach === true) return;
+    const transfer = await (def?.transfer?.(first, hostRef.current) ??
+      { value: null, views: [] });
+    if (transfer === null) return;
+    // transfer가 탭 값을 바꿨을 수 있고 그 사이 탭이 닫혔을 수 있다.
+    const tab = findTab(withPositions(latest.current), key);
+    if (tab === undefined) return;
+    let bounds;
+    try {
+      ({ bounds } = await api.open({
+        project: projectId,
+        tab: slimDetachedTab(tab),
+        transfer,
+        bounds: null,
+      }));
+    } catch {
+      return;
+    }
+    const now = latest.current;
+    if (findTab(now, key) === undefined) {
+      void api.close({ key }).catch(() => {});
+      return;
+    }
+    if (isFloated(now, key)) leaveTopFloat(key);
+    else focusPaneBody(now.focusedPane);
+    update(detachTab(latest.current, key, bounds));
+  };
+
+  // 최신 작업대를 보도록 ref로 건넨다.
+  const onDetachedEvent = (event: DetachedEvent) => {
+    const current = latest.current;
+    if (event.kind === "docked") {
+      if (!isDetached(current, event.key)) return;
+      const tab = event.tab as TabItem;
+      if (event.transfer !== null) {
+        tabKindOf(tab.kind)?.receive?.(tab, event.transfer, hostRef.current);
+      }
+      update(attachDetached(current, event.key, tab));
+      setFloatFocused(false);
+      focusPaneBody(latest.current.focusedPane);
+    } else if (event.kind === "changed") {
+      if (!isDetached(current, event.key)) return;
+      update({
+        ...current,
+        detached: current.detached.map((item) =>
+          item.tab.key === event.key
+            ? { ...item, tab: event.tab as TabItem }
+            : item
+        ),
+      });
+    } else if (event.kind === "open-tab") openTab(event.tab as TabItem);
+    else if (event.kind === "closed") update(closeDetached(current, event.key));
+    else if (event.kind === "opened") {
+      update(openDetachedTab(current, event.tab as TabItem, event.bounds));
+    }
+  };
+  const onDetachedEventRef = useRef(onDetachedEvent);
+  onDetachedEventRef.current = onDetachedEvent;
+  useEffect(
+    () =>
+      props.detached?.subscribe((event) => onDetachedEventRef.current(event)),
+    [props.detached],
+  );
+  // project를 떠나면 이 project의 detached 창을 닫는다. 상태는 layout의 detached로 남아 다시 열 때 되살아난다.
+  useEffect(() => () => {
+    void props.detached?.close({ key: null }).catch(() => {});
+  }, [projectId, props.detached]);
 
   const renderTab = (tab: TabItem, active: boolean): ReactNode | null =>
     tabKindOf(tab.kind)?.render?.(tab, active, host) ?? null;
@@ -1104,6 +1208,12 @@ export function Workspace(props: WorkspaceProps) {
   );
   useMainCommand((command) => runRef.current(command));
 
+  const canDetach = (tab: TabItem) => tabKindOf(tab.kind)?.noDetach !== true;
+  const detachProps = props.detached === undefined ? {} : {
+    onDetach: (_pane: number, key: string) => void detach(key),
+    canDetach,
+  };
+
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
   return (
@@ -1290,6 +1400,7 @@ export function Workspace(props: WorkspaceProps) {
                     setFloatFocused(true);
                     update(floatTab(latest.current, key, mainSize));
                   }}
+                  {...detachProps}
                   pathOf={pathOfTab}
                   onCopyPath={copyPath}
                   onReveal={revealInExplorer}
@@ -1374,6 +1485,10 @@ export function Workspace(props: WorkspaceProps) {
                     focusPaneBody(latest.current.focusedPane);
                   }}
                   onClose={(key) => close(null, key)}
+                  {...(props.detached === undefined ? {} : {
+                    onDetach: (key: string) => void detach(key),
+                    canDetach,
+                  })}
                   webviews={<WebviewLayer host={webviews} />}
                 />
               </div>

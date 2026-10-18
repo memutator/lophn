@@ -33,6 +33,7 @@ import {
   harnessDetectionSchema,
 } from "../../../../protocol/coding-agent/mod.ts";
 import { word } from "../wording.ts";
+import { createBridgeWiring } from "./bridge.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
 
 type CallSession = {
@@ -216,6 +217,7 @@ export function register(ctx: ShellContext): Coding {
   const mockFolder = process.env.LOPHN_DEV_MOCK === "1"
     ? join(dataRoot, "mock-terminal")
     : null;
+  const bridgeWiring = createBridgeWiring(ctx);
   const terminalIpc = createTerminalIpc({
     registry: overlays.overlayRegistry(),
     focus: terminalFocus,
@@ -229,6 +231,7 @@ export function register(ctx: ShellContext): Coding {
     },
     host: terminals,
     coding: codingTerminals,
+    bridge: bridgeWiring.bridge ?? undefined,
   });
   registerTerminalIpc(ipc, terminalIpc);
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.
@@ -254,6 +257,7 @@ export function register(ctx: ShellContext): Coding {
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);
       terminals.stop();
+      bridgeWiring.stop();
     },
   };
 }

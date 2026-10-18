@@ -4,6 +4,8 @@
 import type { ZodType } from "zod";
 
 import {
+  type TerminalBridgeAck,
+  terminalBridgeAckSchema,
   type TerminalClose,
   terminalCloseSchema,
   type TerminalFocus,
@@ -12,6 +14,8 @@ import {
   terminalFocusSessionSchema,
   type TerminalInput,
   terminalInputSchema,
+  type TerminalLink,
+  terminalLinkSchema,
   type TerminalOpen,
   terminalOpenSchema,
   type TerminalReply,
@@ -30,6 +34,7 @@ import {
   type IpcEvent,
   type IpcResult,
 } from "../desktop/ipc-guard.ts";
+import type { TerminalBridge } from "../browser-bridge/types.ts";
 
 type FocusTable = {
   focused(
@@ -64,6 +69,10 @@ export type TerminalIpc = {
     event: IpcEvent,
     input: unknown,
   ): Promise<IpcResult<TerminalReply>>;
+  /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 bridge가 정한다. */
+  link(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
+  bridgeAck(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -92,6 +101,8 @@ export function createTerminalIpc(deps: {
   confirmClose?: (runtime: TerminalRuntime) => Promise<boolean>;
   /** coding session ↔ 터미널 탭 표. 탭 runtime을 창에 다시 알리고 돌려준다. */
   coding?: { reveal(session: string): TerminalRuntime | undefined };
+  /** 꺼져 있으면(win32, 준비 실패) 없다. shell 탭은 OS browser를 쓴다. */
+  bridge?: TerminalBridge;
 }): TerminalIpc {
   async function guarded<T>(
     event: IpcEvent,
@@ -110,6 +121,7 @@ export function createTerminalIpc(deps: {
     open: (event, input) =>
       guarded<TerminalOpen>(event, terminalOpenSchema, input, async (value) => {
         const folders = await deps.folders.folders(value.project);
+        const issued = deps.bridge?.issue() ?? null;
         const reply = await deps.host.request({
           type: "open",
           project: value.project,
@@ -117,7 +129,11 @@ export function createTerminalIpc(deps: {
           folders,
           columns: 80,
           rows: 24,
+          ...(issued === null ? {} : { env: issued.env }),
         });
+        if (issued !== null && reply.ok) {
+          deps.bridge?.bind(issued.key, reply.runtime.terminal_ref);
+        }
         // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다.
         if (!reply.ok && reply.reason === "choose_folder") {
           return {
@@ -186,7 +202,11 @@ export function createTerminalIpc(deps: {
               };
             }
           }
-          return await deps.host.request({ type: "close", ...value });
+          const reply = await deps.host.request({ type: "close", ...value });
+          if (reply.ok && reply.runtime.state === "exited") {
+            deps.bridge?.revoke(value.terminal_ref);
+          }
+          return reply;
         },
       ),
     restart: (event, input) =>
@@ -223,6 +243,25 @@ export function createTerminalIpc(deps: {
       } else {
         deps.focus.blur(event.sender.id, value.terminal_ref);
       }
+      return Promise.resolve({ ok: true, value: null });
+    },
+    link: async (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      const parsed = checkInput<TerminalLink>(terminalLinkSchema, input);
+      if (!parsed.ok) return parsed;
+      await deps.bridge?.openLink(parsed.value);
+      return { ok: true, value: null };
+    },
+    bridgeAck: (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return Promise.resolve(caller);
+      const parsed = checkInput<TerminalBridgeAck>(
+        terminalBridgeAckSchema,
+        input,
+      );
+      if (!parsed.ok) return Promise.resolve(parsed);
+      deps.bridge?.ack(parsed.value.request, parsed.value.opened);
       return Promise.resolve({ ok: true, value: null });
     },
     focusSession: (event, input) =>

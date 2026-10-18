@@ -53,8 +53,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    재현하는 테스트를 앱 `tests/`에 만들고 `deno task test`로 수리 전에는
    실패하고 수리 뒤에는 통과하는 것을 직접 확인한다. 직접 돌린 결과는 test
    result가 아니므로 보고 summary에 "수행한 확인"으로 적는다. 기존 fixture와
-   ticket의 지킬 것을 보존한다. 테스트 기대값을 낮춰서 문제를 숨기지
-   않는다. blueprint나 의존을 바꿔야 하면 직접 고치지 않고 `message send`로 App
+   ticket의 지킬 것을 보존한다. 테스트 기대값을 낮춰서 문제를 숨기지 않는다.
+   blueprint나 의존을 바꿔야 하면 직접 고치지 않고 `message send`로 App
    Engineer에게 청한다.
 6. release를 준비한다. 변경한 source를 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. 준비가 끝나면

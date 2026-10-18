@@ -70,6 +70,7 @@ export const appPanelKind: TabKindDef = {
         app={tab.app}
         screen={tab.screen}
         shown={shown}
+        keepKey={tab.key}
         onOpenAppSpace={onOpenApp}
       />
     );

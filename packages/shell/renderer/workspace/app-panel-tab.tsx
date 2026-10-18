@@ -1,7 +1,8 @@
 // 프로젝트 작업대의 앱 패널 탭. blueprint가 panel
 // 크기를 선언한 화면만 탭에 열고, 전체 화면만 선언한 앱은 앱 공간으로 열기를 안내한다. 탭의
 // 앱 view는 앱 공간과 같은 앱·판·mode 신원과 격리로 main이 열고(size만 panel), 크롬은 이 탭의
-// shell renderer가 그린다. 탭이 안 보이면 view를 남긴 채 숨기고, 닫으면 폐기한다.
+// shell renderer가 그린다. 탭이 안 보이거나 다시 mount돼도 view는 남겨 숨기고, 탭이
+// layout에서 사라지면 폐기한다.
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { List, ListItem } from "@lophn/ui/data";
@@ -142,6 +143,8 @@ interface AppPanelTabProps {
   screen: string;
   /** 칸에 보이는 고른 탭인지. false면 view를 남긴 채 숨긴다. */
   shown: boolean;
+  /** Float·Dock·접기로 다시 mount해도 view를 이어 쓰는 이름(탭 key). */
+  keepKey?: string;
   onOpenAppSpace?: (app: string) => void;
 }
 
@@ -149,7 +152,7 @@ type Facts = AppRead | null;
 
 /** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
 export function AppPanelTab(
-  { project, app, screen, shown, onOpenAppSpace }: AppPanelTabProps,
+  { project, app, screen, shown, keepKey, onOpenAppSpace }: AppPanelTabProps,
 ) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<Facts>(null);
@@ -225,6 +228,7 @@ export function AppPanelTab(
           size="panel"
           label={facts.value.name}
           shown={shown}
+          keepKey={keepKey}
           onState={setState}
           renderFailure={(code) =>
             // 패널을 선언하지 않은 화면은 줄여 열지 않고 앱 공간으로 안내한다.

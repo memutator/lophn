@@ -103,7 +103,9 @@ import { DraftStore } from "../conversation/drafts.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import {
   createViewCovers,
+  createViewKeeps,
   ViewCoversProvider,
+  ViewKeepsProvider,
 } from "../app-frame/embedded-view.tsx";
 import styles from "./workspace.module.css";
 
@@ -228,6 +230,14 @@ export function Workspace(props: WorkspaceProps) {
   // 앱 패널 view가 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
+  // 탭 view의 보관소. 닫는 일은 아래 effect가 정한다.
+  const closeViewRef = useRef<(session: string) => void>(() => {});
+  closeViewRef.current = (session) =>
+    void appViews?.views.closeView({ view_session: session }).catch(() => {});
+  const keeps = useMemo(
+    () => createViewKeeps((session) => closeViewRef.current(session)),
+    [],
+  );
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
@@ -350,6 +360,18 @@ export function Workspace(props: WorkspaceProps) {
     positionTimer.current = null;
     persistRef.current(latest.current);
   }, []);
+
+  // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
+  useEffect(() => {
+    const live = new Set(allTabs(view).map((tab) => tab.key));
+    for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
+  }, [view, keeps]);
+  // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
+  useEffect(() => () => {
+    queueMicrotask(() => {
+      for (const key of keeps.keys()) keeps.release(key);
+    });
+  }, [keeps]);
 
   const update = (next: WorkspaceView) => {
     latest.current = next;
@@ -990,210 +1012,217 @@ export function Workspace(props: WorkspaceProps) {
 
   return (
     <ViewCoversProvider value={covers}>
-      <div className={styles.workspace} data-space="project" ref={frameRef}>
-        {sidebarShown.mode === "hidden" ? null : (
-          <ProjectSidebar
-            mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
-            width={sidebarShown.width}
-            project={loaded.project}
-            source={source}
-            contextPanel={contextsSource === undefined ? null : (
-              <ContextSidebar
-                source={contextsSource}
-                project={projectId}
-                onLoaded={setContextList}
-                onOpenContext={(item) =>
-                  openContext(host, item.id, undefined, item.title)}
-                onOpenSavedView={(view) =>
-                  openSearchFor(host, {
-                    context: view.context,
-                    search: view.search,
-                    inputs: view.inputs,
-                    page: 0,
-                    savedView: view.id,
-                  })}
-              />
-            )}
-            agents={sidebarAgents.agents}
-            sessions={panelSessions(
-              sessionStates,
-              sidebarAgents.agents,
-              projectId,
-              knownSessions,
-            )}
-            current={currentTab?.kind === "document_editor"
-              ? currentTab.key
-              : null}
-            onLauncher={onLauncher}
-            onToggle={toggleSidebar}
-            reveal={reveal}
-            focusExplorer={explorerFocus}
-            onOpenFile={(path, keep) =>
-              openFile(host, path, { preview: keep !== true })}
-            onMove={moveFile}
-            onTrash={trashFile}
-            onRail={onRail}
-            onAgent={(agent) =>
-              openAgent(host, { agent: agent.assignment, name: agent.name })}
-            onSession={(session) => {
-              const row = sidebarAgents.agents.find((agent) =>
-                agent.assignment === session.agent
-              );
-              if (row !== undefined) {
-                openAgent(host, {
-                  agent: row.assignment,
-                  name: row.name,
-                  session: session.id,
-                });
-              }
-            }}
-            onManage={() => openAgents(host)}
-            onResizeStart={(event) => {
-              const start = sidebar.chosenWidth;
-              const startShown = sidebarShown.width;
-              let last = start;
-              startPointerDrag(event, {
-                move: (dx) => {
-                  last = clampSidebar(startShown + dx);
-                  setSidebar((current) => ({ ...current, chosenWidth: last }));
-                },
-                finish: (outcome) => {
-                  const applied = applyDrag(start, last, outcome);
-                  setSidebar((current) => ({
-                    ...current,
-                    chosenWidth: applied,
-                  }));
-                  if (outcome.type === "drag-end") setUserChoseWidth(true);
-                },
-              });
-            }}
-          />
-        )}
-        <div className={styles.main}>
-          <div className={styles.topBar}>
-            <TopBar
-              leading={
-                <span className={styles.leading}>
-                  {sidebarShown.launcherInTopBar
-                    ? <LauncherButton onLauncher={onLauncher} />
-                    : null}
-                  <Breadcrumbs crumbs={crumbs} />
-                </span>
-              }
-              trailing={
-                <span className={styles.trailing}>
-                  <WaitingLayer
-                    onOpenSession={(session) =>
-                      runToastAction({ kind: "session", session })}
-                    onAnswerInTerminal={(session) =>
-                      void terminal?.store.focusSession(session)}
+      <ViewKeepsProvider value={keeps}>
+        <div className={styles.workspace} data-space="project" ref={frameRef}>
+          {sidebarShown.mode === "hidden" ? null : (
+            <ProjectSidebar
+              mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
+              width={sidebarShown.width}
+              project={loaded.project}
+              source={source}
+              contextPanel={contextsSource === undefined
+                ? null
+                : (
+                  <ContextSidebar
+                    source={contextsSource}
+                    project={projectId}
+                    onLoaded={setContextList}
+                    onOpenContext={(item) =>
+                      openContext(host, item.id, undefined, item.title)}
+                    onOpenSavedView={(view) =>
+                      openSearchFor(host, {
+                        context: view.context,
+                        search: view.search,
+                        inputs: view.inputs,
+                        page: 0,
+                        savedView: view.id,
+                      })}
                   />
-                  {noticesHidden && hasNotices
-                    ? (
-                      <Tooltip
-                        content={t("project-workspace.button.show-notices")}
-                      >
-                        <IconButton
-                          icon={workspaceIcons.notices}
-                          label={t("project-workspace.button.show-notices")}
-                          data-show-notices=""
-                          onClick={() => setNoticesHidden(false)}
-                        />
-                      </Tooltip>
-                    )
-                    : null}
-                  <PaletteButton />
-                  <SettingsEntry onSettings={() => onSettings()} />
-                </span>
-              }
-            />
-          </div>
-          <div className={styles.content} ref={mainRef}>
-            {noticesHidden
-              ? null
-              : (
-                <div className={styles.notices} data-notices="">
-                  {loaded.failed
-                    ? (
-                      <NoticeCard
-                        tone="error"
-                        data={{ "data-load-failed": "" }}
-                        text={t("project-workspace.error.load-failed")}
-                        onDismiss={hideNotices}
-                      />
-                    )
-                    : null}
-                </div>
+                )}
+              agents={sidebarAgents.agents}
+              sessions={panelSessions(
+                sessionStates,
+                sidebarAgents.agents,
+                projectId,
+                knownSessions,
               )}
-            <Panes
-              view={view}
-              bodyWidth={contentWidth}
-              windowWidth={measuredWindow}
-              onSelect={(pane, key) =>
-                update({
-                  ...view,
-                  focusedPane: pane,
-                  panes: view.panes.map((item, index) =>
-                    index === pane ? { ...item, selected: key } : item
-                  ),
-                })}
-              onClose={close}
-              onCloseMany={(pane, scope, key) =>
-                void closeMany(pane, scope, key)}
-              onPin={(key) => update(pinTab(latest.current, key))}
-              pathOf={pathOfTab}
-              onCopyPath={copyPath}
-              onReveal={revealInExplorer}
-              onFocus={(pane) => update({ ...view, focusedPane: pane })}
-              onMove={(key, toPane, before) =>
-                update(moveTab(view, key, toPane, before))}
-              onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
-              newTab={
-                <NewTabMenu
-                  onOpen={readContexts}
-                  {...(pickFile === undefined ? {} : {
-                    onDocument: () =>
-                      void pickFile().then((path) => {
-                        if (path !== null) openFile(host, path);
-                      }),
-                  })}
-                  {...(terminal === undefined
-                    ? {}
-                    : { onTerminal: () => openTerminalTab(host) })}
-                  {...(agentView === null ? {} : {
-                    agents: sidebarAgents.agents.map((agent) => ({
-                      id: agent.assignment,
-                      name: agent.name,
-                      profile: agent.profile,
-                    })),
-                    onAgent: (id: string) => {
-                      const row = sidebarAgents.agents.find((agent) =>
-                        agent.assignment === id
-                      );
-                      if (row !== undefined) {
-                        openAgent(host, { agent: id, name: row.name });
-                      }
-                    },
-                  })}
-                  {...(contexts === null ? {} : {
-                    contexts: contextList,
-                    onContext: (id: string) => openContext(host, id),
-                  })}
-                  {...(source.searchSource === undefined ? {} : {
-                    onSearch: () => openSearchShortcut(host),
-                  })}
-                  {...(host.appScreens
-                    ? { onAppPanel: () => openAppPanel(host) }
-                    : {})}
-                />
-              }
-              stripTab={stripTab}
-              renderTab={renderTab}
-              renderKept={renderKept}
+              current={currentTab?.kind === "document_editor"
+                ? currentTab.key
+                : null}
+              onLauncher={onLauncher}
+              onToggle={toggleSidebar}
+              reveal={reveal}
+              focusExplorer={explorerFocus}
+              onOpenFile={(path, keep) =>
+                openFile(host, path, { preview: keep !== true })}
+              onMove={moveFile}
+              onTrash={trashFile}
+              onRail={onRail}
+              onAgent={(agent) =>
+                openAgent(host, { agent: agent.assignment, name: agent.name })}
+              onSession={(session) => {
+                const row = sidebarAgents.agents.find((agent) =>
+                  agent.assignment === session.agent
+                );
+                if (row !== undefined) {
+                  openAgent(host, {
+                    agent: row.assignment,
+                    name: row.name,
+                    session: session.id,
+                  });
+                }
+              }}
+              onManage={() => openAgents(host)}
+              onResizeStart={(event) => {
+                const start = sidebar.chosenWidth;
+                const startShown = sidebarShown.width;
+                let last = start;
+                startPointerDrag(event, {
+                  move: (dx) => {
+                    last = clampSidebar(startShown + dx);
+                    setSidebar((current) => ({
+                      ...current,
+                      chosenWidth: last,
+                    }));
+                  },
+                  finish: (outcome) => {
+                    const applied = applyDrag(start, last, outcome);
+                    setSidebar((current) => ({
+                      ...current,
+                      chosenWidth: applied,
+                    }));
+                    if (outcome.type === "drag-end") setUserChoseWidth(true);
+                  },
+                });
+              }}
             />
+          )}
+          <div className={styles.main}>
+            <div className={styles.topBar}>
+              <TopBar
+                leading={
+                  <span className={styles.leading}>
+                    {sidebarShown.launcherInTopBar
+                      ? <LauncherButton onLauncher={onLauncher} />
+                      : null}
+                    <Breadcrumbs crumbs={crumbs} />
+                  </span>
+                }
+                trailing={
+                  <span className={styles.trailing}>
+                    <WaitingLayer
+                      onOpenSession={(session) =>
+                        runToastAction({ kind: "session", session })}
+                      onAnswerInTerminal={(session) =>
+                        void terminal?.store.focusSession(session)}
+                    />
+                    {noticesHidden && hasNotices
+                      ? (
+                        <Tooltip
+                          content={t("project-workspace.button.show-notices")}
+                        >
+                          <IconButton
+                            icon={workspaceIcons.notices}
+                            label={t("project-workspace.button.show-notices")}
+                            data-show-notices=""
+                            onClick={() => setNoticesHidden(false)}
+                          />
+                        </Tooltip>
+                      )
+                      : null}
+                    <PaletteButton />
+                    <SettingsEntry onSettings={() => onSettings()} />
+                  </span>
+                }
+              />
+            </div>
+            <div className={styles.content} ref={mainRef}>
+              {noticesHidden
+                ? null
+                : (
+                  <div className={styles.notices} data-notices="">
+                    {loaded.failed
+                      ? (
+                        <NoticeCard
+                          tone="error"
+                          data={{ "data-load-failed": "" }}
+                          text={t("project-workspace.error.load-failed")}
+                          onDismiss={hideNotices}
+                        />
+                      )
+                      : null}
+                  </div>
+                )}
+              <Panes
+                view={view}
+                bodyWidth={contentWidth}
+                windowWidth={measuredWindow}
+                onSelect={(pane, key) =>
+                  update({
+                    ...view,
+                    focusedPane: pane,
+                    panes: view.panes.map((item, index) =>
+                      index === pane ? { ...item, selected: key } : item
+                    ),
+                  })}
+                onClose={close}
+                onCloseMany={(pane, scope, key) =>
+                  void closeMany(pane, scope, key)}
+                onPin={(key) => update(pinTab(latest.current, key))}
+                pathOf={pathOfTab}
+                onCopyPath={copyPath}
+                onReveal={revealInExplorer}
+                onFocus={(pane) => update({ ...view, focusedPane: pane })}
+                onMove={(key, toPane, before) =>
+                  update(moveTab(view, key, toPane, before))}
+                onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+                newTab={
+                  <NewTabMenu
+                    onOpen={readContexts}
+                    {...(pickFile === undefined ? {} : {
+                      onDocument: () =>
+                        void pickFile().then((path) => {
+                          if (path !== null) openFile(host, path);
+                        }),
+                    })}
+                    {...(terminal === undefined
+                      ? {}
+                      : { onTerminal: () => openTerminalTab(host) })}
+                    {...(agentView === null ? {} : {
+                      agents: sidebarAgents.agents.map((agent) => ({
+                        id: agent.assignment,
+                        name: agent.name,
+                        profile: agent.profile,
+                      })),
+                      onAgent: (id: string) => {
+                        const row = sidebarAgents.agents.find((agent) =>
+                          agent.assignment === id
+                        );
+                        if (row !== undefined) {
+                          openAgent(host, { agent: id, name: row.name });
+                        }
+                      },
+                    })}
+                    {...(contexts === null ? {} : {
+                      contexts: contextList,
+                      onContext: (id: string) => openContext(host, id),
+                    })}
+                    {...(source.searchSource === undefined ? {} : {
+                      onSearch: () => openSearchShortcut(host),
+                    })}
+                    {...(host.appScreens
+                      ? { onAppPanel: () => openAppPanel(host) }
+                      : {})}
+                  />
+                }
+                stripTab={stripTab}
+                renderTab={renderTab}
+                renderKept={renderKept}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </ViewKeepsProvider>
     </ViewCoversProvider>
   );
 }

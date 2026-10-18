@@ -28,6 +28,7 @@ import {
   startBoundsRelay,
   type ViewCovers,
 } from "./bounds.ts";
+import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
 import styles from "./embedded-view.module.css";
 
 const ViewCoversContext = createContext<ViewCovers | null>(null);
@@ -35,6 +36,15 @@ const ViewCoversContext = createContext<ViewCovers | null>(null);
 /** 창마다 하나. 본문을 덮는 패널과 앱 view 자리가 같은 목록을 본다. */
 export const ViewCoversProvider = ViewCoversContext.Provider;
 export { createViewCovers };
+
+const ViewKeepsContext = createContext<ViewKeeps | null>(null);
+
+/**
+ * 창(Workspace)마다 하나. keepKey를 준 EmbeddedView는 unmount돼도 view를 닫지 않고 여기 숨겨
+ * 두었다가 같은 key로 다시 mount하면 같은 view를 쓴다. 없으면 keepKey는 무시된다.
+ */
+export const ViewKeepsProvider = ViewKeepsContext.Provider;
+export { createViewKeeps };
 
 const ViewLayerContext = createContext(0);
 
@@ -72,6 +82,11 @@ interface EmbeddedViewProps extends AppViewOpen {
   shown?: boolean;
   onState?(state: AppFrameViewState): void;
   /**
+   * 탭 key처럼 mount가 바뀌어도 같은 view를 이어 쓸 이름. 주면 unmount할 때 view를 닫지 않고
+   * 숨겨 보관하며, 닫는 일은 보관소의 주인이 한다. ViewKeepsProvider가 없으면 무시된다.
+   */
+  keepKey?: string;
+  /**
    * 열기 실패를 그 자리 안내로 바꾼다. code는 main이 준 거절 code다. null이면 기본 오류와
    * 다시 열기를 둔다.
    */
@@ -89,6 +104,8 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const covers = useContext(ViewCoversContext);
   const layer = useContext(ViewLayerContext);
+  const keeps = useContext(ViewKeepsContext);
+  const keepKey = keeps === null ? undefined : props.keepKey;
   const layerRef = useRef(layer);
   layerRef.current = layer;
   const relayRef = useRef<{ refresh(): void } | null>(null);
@@ -101,12 +118,14 @@ export function EmbeddedView(props: EmbeddedViewProps) {
   stateListener.current = onState;
   const failedListener = useRef(props.onFailed);
   failedListener.current = props.onFailed;
+  // 보관할 때 함께 넘길 마지막 state.
+  const lastState = useRef<AppFrameViewState | null>(null);
 
-  // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다.
+  // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다(keepKey가 있으면 보관한다).
   useEffect(() => {
     let alive = true;
-    let opened: string | null = null;
     setPhase("opening");
+    lastState.current = null;
     const input: AppViewOpen = {
       app,
       mode,
@@ -118,35 +137,59 @@ export function EmbeddedView(props: EmbeddedViewProps) {
         ? {}
         : { card: { message: cardMessage, block: cardBlock } }),
     };
-    views.openApp(input).then(
-      (state) => {
-        if (!alive) {
-          void views.closeView({ view_session: state.view_session })
-            .catch(() => {});
-          return;
-        }
-        opened = state.view_session;
-        setViewSession(state.view_session);
-        setPhase("ready");
-        stateListener.current?.(state);
-      },
-      (error: unknown) => {
-        if (!alive) return;
-        const code = error instanceof Error ? error.message : "unavailable";
-        setFailure(code);
-        setPhase("failed");
-        failedListener.current?.(code);
-      },
-    );
+    const signature = [app, mode, release, project, screen, size].join("\n");
+    const dispose = (state: AppFrameViewState) => {
+      if (keepKey !== undefined && keeps !== null) {
+        keeps.put(keepKey, {
+          session: state.view_session,
+          signature,
+          state,
+        });
+      } else {
+        void views.closeView({ view_session: state.view_session })
+          .catch(() => {});
+      }
+    };
+    const show = (state: AppFrameViewState) => {
+      lastState.current = state;
+      setViewSession(state.view_session);
+      setPhase("ready");
+      stateListener.current?.(state);
+    };
+    const kept = keepKey === undefined || keeps === null
+      ? undefined
+      : keeps.take(keepKey, signature);
+    if (kept !== undefined) {
+      show(kept.state);
+    } else {
+      views.openApp(input).then(
+        (state) => {
+          if (!alive) {
+            dispose(state);
+            return;
+          }
+          show(state);
+        },
+        (error: unknown) => {
+          if (!alive) return;
+          const code = error instanceof Error ? error.message : "unavailable";
+          setFailure(code);
+          setPhase("failed");
+          failedListener.current?.(code);
+        },
+      );
+    }
     return () => {
       alive = false;
       setViewSession(null);
-      if (opened !== null) {
-        void views.closeView({ view_session: opened }).catch(() => {});
+      if (lastState.current !== null) {
+        dispose(lastState.current);
       }
     };
   }, [
     views,
+    keeps,
+    keepKey,
     app,
     mode,
     release,
@@ -162,6 +205,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     if (viewSession === null) return;
     return views.subscribeViewState((state) => {
       if (state.view_session === viewSession) {
+        lastState.current = state;
         stateListener.current?.(state);
       }
     });

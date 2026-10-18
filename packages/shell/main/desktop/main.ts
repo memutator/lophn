@@ -6,6 +6,7 @@ import * as appearance from "./wiring/appearance.ts";
 import * as annotate from "./wiring/annotate.ts";
 import * as appCalls from "./wiring/app-calls.ts";
 import * as appViews from "./wiring/app-views.ts";
+import * as bookmarks from "./wiring/bookmarks.ts";
 import * as browser from "./wiring/browser.ts";
 import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
@@ -34,6 +35,7 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(layout.register(ctx));
+add(bookmarks.register(ctx));
 add(editor.register(ctx));
 add(desktop.register(ctx, views, terminals));
 

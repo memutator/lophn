@@ -60,6 +60,7 @@ export const conversation = {
     "Enter a number like 0.15, or leave it blank.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
+  "conversation.error.load-models": "Couldn't load models. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",

@@ -46,6 +46,7 @@ export function ManageModelsHost(
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelsView | null>(null);
   const [user, setUser] = useState<UserModels | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [first, setFirst] = useState<string | null>(null);
   const hidden = useRef<readonly HiddenModel[]>([]);
   // 저장·지우기의 compare 기준: 마지막으로 읽은 model 정보의 판.
@@ -61,7 +62,12 @@ export function ManageModelsHost(
       source.models(),
       source.userModels(),
     ]);
-    if (!alive.current || !read.ok || !readUser.ok) return;
+    if (!alive.current) return;
+    if (!read.ok || !readUser.ok) {
+      setLoadFailed(true);
+      return;
+    }
+    setLoadFailed(false);
     hidden.current = read.value.hidden;
     userSeq.current = readUser.value.seq;
     setModels(read.value);
@@ -118,6 +124,7 @@ export function ManageModelsHost(
         ? (
           <ManageModelsDialog
             providers={providers}
+            loadFailed={loadFailed}
             onClose={() => setOpen(false)}
             onConnect={() =>
               connect?.open({

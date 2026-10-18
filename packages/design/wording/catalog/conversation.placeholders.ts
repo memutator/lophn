@@ -61,6 +61,7 @@ export type ConversationPlaceholders = {
   "conversation.error.model-name-required": Record<never, never>;
   "conversation.error.model-price-invalid": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
+  "conversation.error.load-models": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.refresh-models": Record<never, never>;

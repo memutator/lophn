@@ -329,7 +329,7 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           <Input
             autoComplete="off"
             value={form.name}
-            readOnly={editing}
+            disabled={editing}
             onChange={(event) => set({ name: event.currentTarget.value })}
           />
         </Field>

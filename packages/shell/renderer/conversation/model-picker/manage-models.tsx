@@ -20,6 +20,8 @@ import type { ManageModelView, ManageProviderView } from "./types.ts";
 export interface ManageModelsProps {
   /** 아직 읽는 중이면 null이다. */
   providers: readonly ManageProviderView[] | null;
+  /** 읽지 못했다. 앞서 읽은 것이 있으면 그대로 두고 창 안에 한 줄만 보인다. */
+  loadFailed?: boolean;
   onClose: () => void;
   /** [Connect provider]. 연결 대화창이 이 창 위에 열린다. */
   onConnect: () => void;
@@ -280,14 +282,16 @@ export function ManageModelsDialog(props: ManageModelsProps) {
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
           </Field>
-          {refreshFailed
+          {refreshFailed || props.loadFailed
             ? (
               <p
                 className={styles.note}
                 role="status"
                 data-manage-section="problem"
               >
-                {t("conversation.error.refresh-models")}
+                {props.loadFailed
+                  ? t("conversation.error.load-models")
+                  : t("conversation.error.refresh-models")}
               </p>
             )
             : null}

@@ -30,6 +30,29 @@ type Pending = {
 
 let serial = 0;
 
+// overlay view는 anchorRect 합집합 크기로만 열리고 menu는 그 왼쪽 위에서 그려진다. 그래서 trigger가 아니라 menu가 차지할 상자를 보낸다.
+// 줄 높이 32(--menu-row)와 위아래 padding 4는 design Menu의 값이다. 폭은 글자 수로 어림한다.
+const ROW = 32;
+const PAD = 4;
+
+function menuBox(trigger: DOMRect, choices: readonly MenuChoice[]) {
+  const longest = Math.max(0, ...choices.map((choice) => choice.label.length));
+  const width = Math.min(360, Math.max(160, longest * 8 + 40));
+  const height = choices.length * ROW + PAD * 2;
+  const maxWidth = Math.max(1, Math.floor(globalThis.innerWidth));
+  const maxHeight = Math.max(1, Math.floor(globalThis.innerHeight));
+  const w = Math.min(width, maxWidth);
+  // 두 trigger 모두 toolbar 오른쪽 끝에 있어 오른쪽 가장자리를 맞춘다.
+  const x = Math.min(Math.max(0, Math.round(trigger.right - w)), maxWidth - w);
+  const y = Math.min(Math.max(0, Math.round(trigger.bottom)), maxHeight - 1);
+  return {
+    x,
+    y,
+    width: w,
+    height: Math.max(1, Math.min(height, maxHeight - y)),
+  };
+}
+
 export function useOverlayMenu(): OpenMenu | null {
   const overlay = useBrowserOverlay();
   const consumer = useRef<ReturnType<typeof overlayConsumer> | null>(null);
@@ -62,6 +85,7 @@ export function useOverlayMenu(): OpenMenu | null {
     if (made === null || pending.current !== null) return null;
     const requestId = `browser-menu-${++serial}`;
     const box = trigger.getBoundingClientRect();
+    const shown = choices.slice(0, MENU_LIMIT);
     let settle!: (id: string | null) => void;
     const answer = new Promise<string | null>((resolve) => settle = resolve);
     const mine: Pending = { requestId, identity: null, settle };
@@ -69,13 +93,8 @@ export function useOverlayMenu(): OpenMenu | null {
     const opened = await made.open({
       requestId,
       kind: "menu",
-      anchorRect: {
-        x: Math.max(0, Math.round(box.x)),
-        y: Math.max(0, Math.round(box.y)),
-        width: Math.max(1, Math.round(box.width)),
-        height: Math.max(1, Math.round(box.height)),
-      },
-      model: { label, choices: choices.slice(0, MENU_LIMIT) },
+      anchorRect: menuBox(box, shown),
+      model: { label, choices: shown },
     }, trigger);
     if (pending.current !== mine) return answer;
     if (opened.ok) mine.identity = opened.value;

@@ -61,7 +61,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    `sdk_dependencies`가 있어야 하므로 5번처럼 App Engineer에게 청한다. 앱
    `deno.json`의 `imports`에도 같은 이름과 판을 더한다(예:
    `"@lophn/cap-net": "lophn-sdk:@lophn/cap-net@1.0.0/mod.ts"`). 둘이 다르면
-   release 준비가 거절한다. 선언되지 않은 package는 쓸 수 없다. UI는 `@lophn/ui/<분류>`에서 import한다.
+   release 준비가 거절한다. 선언되지 않은 package는 쓸 수 없다. UI는
+   `@lophn/ui/<분류>`에서 import한다.
    - primitives: Button, Icon 등 기본 조작
    - input: form 칸과 filter
    - layout: AppShell, Grid, Card 같은 페이지 틀

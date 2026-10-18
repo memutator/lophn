@@ -1,0 +1,328 @@
+# ev-contract
+
+eval의 계약 file `tests/eval/types.ts` 하나를 만든다. 다른 ev-* task가 모두 이 이름과 칸에 기댄다. type, 상수 한 줄짜리, 아주 작은 constructor(`say`, `untilIdle`, `refText`, `parseRef`)만 둔다. protocol과 test support에 있는 type은 import해서 쓰고 다시 정의하지 않는다.
+
+- 단위: ev-contract (wave 1)
+- 선행: 없음
+- 소유(이 task만 고친다):
+  - `tests/eval/types.ts`
+- 읽을 것:
+  - 설계 정본: `project-docs/products/roadmap/eval.md`의 "domain model", "run", "공통 수치", "재료", "시나리오", "check와 judge"
+  - 계획: `project-docs/plan/eval-base/README.md`의 "자리"와 "계약"
+  - architecture: `project-docs/architecture/testing.md`(tests 층), `project-docs/architecture/agent-call.md`(call)
+  - protocol(import할 것): `packages/protocol/lophn-agent/places.ts`(`Role`, `AgentRef`), `calls.ts`(`NamedAgent`, `AgentCallRecord`, `CallReply`, `CallState`, `CallFailReason`), `turn-values.ts`(`TurnRecord`), `model-call-values.ts`(`ModelCallRecord`), `tool-values.ts`(`ToolCall`, `ToolOutcome`), `packages/protocol/base/ids.ts`(`Id`)
+  - test 쪽: `tests/support/core/mod.ts`(`Core`), `tests/support/fake-server/mod.ts`(`FakeServer` type)
+  - 이 type을 쓰는 쪽의 기대: `ev-collect.md`의 "기대하는 모양"(아래 record 꼴의 출처)
+- 계약:
+  - 쓰는 것: 위 protocol type, `Core`, `FakeServer`(모두 type만 import한다)
+  - 내놓는 것: 아래 "할 일 1"의 type과 "할 일 2"의 함수. 이름과 칸이 곧 계약이다.
+
+## 할 일
+
+1. `tests/eval/types.ts`를 만든다. 아래 꼴 그대로 쓴다(칸 이름과 의미). 주석은 "왜"만 쓰고 짧게 한다.
+
+```ts
+import type { Id } from "../../packages/protocol/base/mod.ts";
+import type {
+  AgentCallRecord,
+  AgentRef,
+  CallFailReason,
+  CallReply,
+  CallState,
+  ModelCallRecord,
+  NamedAgent,
+  Role,
+  ToolCall,
+  ToolOutcome,
+  TurnRecord,
+} from "../../packages/protocol/lophn-agent/mod.ts";
+import type { Core } from "../support/core/mod.ts";
+import type { FakeServer } from "../support/fake-server/mod.ts";
+
+// ---- 버전 ----
+
+export type VersionKind =
+  | "material" | "scenario" | "criterion" | "judge" | "checks" | "core"
+  | "instruction" | "skill" | "skill-description" | "guide" | "tool"
+  | "assembly" | "runtime" | "template" | "model" | "cli";
+
+// `kind:name@n`이 한 버전의 이름이다. core, assembly, runtime, checks는 name이 kind와 같다(`core:core@31`).
+export type VersionRef = { kind: VersionKind; name: string; n: number };
+
+export type RegistryEntry = {
+  kind: VersionKind;
+  name: string;
+  n: number;
+  hash: string;       // sha256 hex
+  content?: string;   // 글 component와 criterion, judge일 때만
+};
+
+// ---- 참가자와 단계 ----
+
+// 글(place, name)은 call 도구의 `to`가 맞추는 이름과 같다: 앱은 app.name(예 "가계부"),
+// project는 project.name(ASCII slug, 예 "tax"), Operator는 자기 name.
+export type Participant = Omit<NamedAgent, "role"> & { role: Role };
+
+export type Step =
+  | { kind: "say"; to: Participant; text: string }   // 사람 말 한 줄
+  | { kind: "untilIdle" };                           // 진짜 model을 받은 참가자가 모두 쉴 때까지
+
+// 되살린 world. 키는 Participant에 쓰는 이름과 같다.
+export type WorldIds = {
+  apps: Record<string, Id<"app">>;        // app.name → id
+  projects: Record<string, Id<"prj">>;    // project.name → id
+  folders: Record<string, string>;        // project.name → 되살린 폴더의 절대 경로
+  contexts: Record<string, string>;       // context name → ctx id
+  operators: Record<string, Id<"agt">>;   // Operator name → id
+};
+
+export type SetupContext = { core: Core; fake: FakeServer; world: WorldIds };
+
+// ---- check ----
+
+export type CheckOutcome = { pass: boolean; reason: string };   // reason은 한 줄
+
+// core가 null이면 fixture를 확인하는 중이다. 이 계획의 판단 case check는 core를 쓰지 않는다.
+export type CheckInput = { trial: TrialRecord; core: Core | null };
+
+export type ProgramCheck = {
+  kind: "program";
+  id: string;
+  run(input: CheckInput): CheckOutcome | Promise<CheckOutcome>;
+};
+
+export type JudgeCheck = {
+  kind: "judge";
+  id: string;
+  premise: string[];       // 먼저 통과해야 하는 같은 시나리오 program check id. 하나라도 떨어지면 judge를 부르지 않는다
+  criterion: string;       // `relay-complete@1`(name@n). parseRef(text, "criterion")로 푼다
+  input(input: CheckInput): string;   // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다
+};
+
+export type Check = ProgramCheck | JudgeCheck;
+
+export type Criterion = {
+  name: string;
+  n: number;
+  question: string;
+  verdicts: string[];   // 늘 "cannot_tell"을 포함한다
+  pass: string[];       // 통과로 치는 verdict. verdicts의 부분집합이고 cannot_tell은 들지 않는다
+};
+
+// ---- 시나리오 ----
+
+export type Fixtures = {
+  right: TrialRecord[];                                  // 모든 program check를 통과해야 한다
+  wrong: { trial: TrialRecord; fails: string[] }[];      // fails에 적은 program check id가 떨어져야 한다
+};
+
+// `save`는 이 계획에 없다(eval-coding이 더한다).
+export type Scenario = {
+  id: string;
+  n: number;
+  proposal: boolean;          // AGENT-ROLE의 "(제안)" 줄에서 나온 case. 떨어지면 model보다 그 줄이나 지침이 틀렸을 수 있다
+  world: string[];            // 재료 `이름@n` 목록. 되살리는 순서는 재료의 needs가 정한다
+  real: Participant[];        // 진짜 model을 받는 참가자. 나머지는 model이 없다
+  setup?: (ctx: SetupContext) => Promise<void>;
+  steps: Step[];
+  checks: Check[];
+  fixtures: Fixtures;
+};
+
+// ---- 수집한 기록 (모양의 출처는 ev-collect의 "기대하는 모양") ----
+
+export type PlaceName = { kind: "app" | "project"; id: string; name: string };   // name은 app.name, project.name
+
+export type CollectedModelCall = {
+  call: ModelCallRecord;
+  request: unknown | null;   // 보낸 body(JSON). 못 읽으면 null
+};
+
+export type CollectedToolCall = {
+  call: ToolCall;
+  input: unknown | null;     // turnBodyView tool_call_input의 value
+  output: unknown | null;    // turnBodyView tool_call_output의 value(ToolResult). output hash가 있을 때만
+  body_truncated: boolean;   // 둘 중 하나가 64KiB에서 잘렸다
+};
+
+export type SentCall = {
+  tool_call: string;                    // tcl_...
+  order: number;                        // 이 session이 보낸 `call` tool call 순서. 0부터
+  to: unknown;                          // `call` 입력의 to 그대로
+  reply: CallReply;                     // 입력의 reply
+  body: string;                         // 입력의 body
+  outcome: ToolOutcome | null;          // `call` tool call의 outcome. Gate가 막으면 not_executed/denied
+  call: string | null;                  // cal_... tool이 success로 끝났을 때 output.content.call
+  state: CallState | null;              // output.content.state
+  fail_reason: CallFailReason | null;   // output.content.fail_reason
+  record: AgentCallRecord | null;       // callRead 결과. call이 null이거나 행이 없으면 null
+  receiver: AgentRef | null;            // record.to에서 풀린 받는 agent. 모르면 null
+  receiver_session: string | null;      // record.receiver_session
+  receiver_place: PlaceName | null;
+};
+
+export type SessionRecord = {
+  session: string;
+  agent: AgentRef;
+  place: PlaceName | null;
+  turns: TurnRecord[];
+  model_calls: CollectedModelCall[];   // modelCallList 순서(id 순)
+  tool_calls: CollectedToolCall[];     // toolCallList 순서(id 순 = 시간 순)
+  sent_calls: SentCall[];              // call은 여기에만 있다
+};
+
+// ---- 수치 ----
+
+export type Metrics = {
+  tokens: {
+    input: number; output: number; cache_read: number; cache_write: number;
+    reasoning: number; unknown_calls: number;
+  };
+  input_total: number;            // input + cache_read + cache_write (input을 아는 call만)
+  cache_hit_rate: number | null;  // cache_read / input_total. 분모 0이면 null
+  cost_usd: number;               // reported·estimated·free 가운데 USD만
+  unpriced_calls: number;         // 끝났는데 위에 못 든 cost(subscription, unknown, 다른 통화)
+  time_ms: { turns: number; model_calls: number };
+  tools: {
+    counted: number; excluded: number; format: number; success: number; blocked: number;
+    repeated_calls: number; repeat_groups: number; max_repeat: number;
+    repeated_failure_turns: number;
+  };
+  truncated_calls: number;        // outcome.kind가 partial인 model call
+  agent_calls: {
+    receiver_role: string | null; reply: CallReply; state: CallState | null; failed: boolean;
+  }[];
+};
+
+// ---- trial 기록 ----
+
+// timeout이면 아직 시작 안 한 message나 session id를 unstarted에 담는다.
+export type Settle = { kind: "idle" | "timeout"; unstarted: string[] };
+
+export type TrialRecord = {
+  index: number;           // 0부터
+  started_at: string;      // t0. 되살리기, setup, model 붙이기가 끝난 뒤 첫 단계 직전
+  finished_at: string;
+  settle: Settle;
+  sessions: SessionRecord[];
+  metrics: Metrics;        // sessions의 합
+};
+
+// ---- judge, run ----
+
+export type JudgeItem = {
+  check: string;            // JudgeCheck.id
+  criterion: string;        // `relay-complete@1`
+  input: string;
+  verdict: string | null;   // judge 오류면 null
+  quote: string | null;
+  quote_found: boolean;     // 인용이 input 안에 있나
+  judge: string;            // `judge@1`
+  cost_usd: number;
+  error: string | null;
+};
+
+export type CheckResult = {
+  id: string;
+  kind: "program" | "judge";
+  pass: boolean;
+  reason: string;
+};
+
+export type TrialResult = {
+  index: number;
+  settle: Settle;
+  checks: CheckResult[];
+  judge: JudgeItem[];
+  metrics: Metrics;
+  record?: TrialRecord;     // 전체 기록(.dev-data/eval)에만 있고 tests/eval/runs의 요약에는 없다
+};
+
+export type SourceInfo = {
+  commit: string;
+  dirty: boolean;           // packages, deno.json, deno.lock에 commit 안 된 변경이 있나
+  diff?: string;            // 전체 기록에만 있다
+  untracked?: string[];     // 전체 기록에만 있다
+};
+
+export type RunRecord = {
+  id: string;               // `tests/eval/runs/<id>.json`의 이름이자 `.dev-data/eval/<id>/`의 이름
+  started_at: string;
+  scenario: VersionRef;     // kind "scenario"
+  materials: VersionRef[];  // kind "material"
+  components: VersionRef[]; // 진짜 model이 본 것. trial 전체의 합집합
+  core: VersionRef;         // kind "core"
+  grader: {
+    criteria: VersionRef[]; // kind "criterion"
+    judge: VersionRef | null;   // kind "judge". judge check가 없으면 null
+    checks: VersionRef;     // kind "checks". tests/eval/checks 전체의 버전
+  };
+  model: string;            // 요청한 model 이름
+  source: SourceInfo;
+  trials: TrialResult[];
+};
+
+// ---- 재료 ----
+
+export type MaterialKind = "app" | "project" | "context" | "operator";   // eval-coding이 더한다
+
+// `tests/eval/materials/<이름>/<n>/material.json`의 내용이다. 이름과 n은 폴더가 정한다.
+export type MaterialManifest = {
+  kind: MaterialKind;
+  ids: Record<string, string>;     // 되살린 뒤에도 같아야 하는 고정 id
+  needs: string[];                 // 다른 재료 `이름@n`
+  parent: string | null;           // 이 재료가 나온 재료 `이름@n`
+  produced_by: { scenario: string; trial: number; run: string } | null;
+  content_hash: string;
+};
+
+// ---- scorecard ----
+
+export type ScorecardRow = {
+  scenario: VersionRef;
+  proposal: boolean;
+  run: string | null;              // 고른 run의 id. 없으면 null
+  stale: string[];                 // 낡은 이유. 비어 있으면 유효하다
+  passed: number;                  // 통과한 trial 수
+  trials: number;
+  checks: { id: string; kind: "program" | "judge"; passed: number; of: number; reasons: string[] }[];
+  metrics: Metrics | null;         // trial 전체의 합
+};
+```
+
+   - 위 꼴에서 칸을 늘리거나 줄여야 하면 고치지 말고 보고의 "계약 바꾸기 요청"에 적는다. 단 protocol import가 실제 export와 안 맞아 type check가 깨지면 export 이름에 맞게 고치고 보고에 적는다.
+   - 위 꼴에 없는 것: `save`, `ToolCallEntry`, `ModelCallEntry`, `CallEntry`, `TrialRecord.calls`. call은 `SessionRecord.sent_calls`에만 있다.
+2. 같은 file에 아래 함수를 둔다. 이것들이 이 task에서 값을 가진 코드의 전부다.
+
+```ts
+export const say = (to: Participant, text: string): Step => ({ kind: "say", to, text });
+export const untilIdle = (): Step => ({ kind: "untilIdle" });
+// `kind:name@n`. 예: `material:apps-home@1`, `instruction:lophn@4`, `core:core@31`.
+export function refText(ref: VersionRef): string;
+// refText의 반대. kind를 안 쓴 글(`apps-home@1`)은 두 번째 인자 kind를 쓴다. 형식이 틀리면 throw한다.
+export function parseRef(text: string, kind?: VersionKind): VersionRef;
+```
+
+   - `parseRef`는 `@` 뒤가 양의 정수가 아니면 throw한다. name에는 `:`와 `@`가 들지 않는다는 가정으로 `lastIndexOf("@")`와 첫 `:`로 가른다. `.`이나 `-`가 든 name(`claude-sonnet-5-5`, `app.create`)은 그대로 된다.
+3. 관례를 file 위 주석으로 못 박는다(다른 task가 이 관례에 기댄다). 한 줄씩:
+   - 시나리오 file은 `tests/eval/scenarios/<group>/<id>.scenario.ts`이고 `export default`로 `Scenario` 하나를 내놓는다. 같은 폴더의 다른 file(`common.ts` 등)은 시나리오가 아니고, 공용 index file은 없다. 찾는 쪽은 `**/*.scenario.ts`를 glob한다.
+   - run 요약은 `tests/eval/runs/<RunRecord.id>.json`이고 `RunRecord`에서 `TrialResult.record`, `SourceInfo.diff`, `SourceInfo.untracked`를 뺀 JSON이다. 전체 기록은 `.dev-data/eval/<RunRecord.id>/`에 있다.
+   - `CheckInput.core`가 null이면 fixture 확인이다.
+
+## 끝남
+
+- `deno task check`가 통과한다(`tests/eval/types.ts`도 type check를 받는다).
+- 위험 test: 없음 (type과 한 줄짜리 함수뿐이다. 판정이 없다.)
+- 위 type과 `say`, `untilIdle`, `refText`, `parseRef`가 모두 export된다.
+
+## 보고
+
+- 바꾼 file
+- 통과한 check
+- 등록할 것: 없음
+- 안 쓰게 된 export: 없음
+- 정한 것: 문서에 답이 없어 worker가 정한 것
+- 넘길 줄: 남의 file을 최소로 맞춘 곳
+- 계약 바꾸기 요청
+- **무겁게 짠 것**: 없으면 "없음"
+- **알려진 미완 동작**: 없으면 "없음"

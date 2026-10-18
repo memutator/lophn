@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 | `wf-floated-layer` | wf-floated | 2 | wf-panel, wf-native, wf-floated-wire, wf-view-keep | todo |  |  |  |
 | `wf-floated-wire` | wf-floated | 2 | 없음 | merged | wf-floated/wf-floated-wire | aa83d364d |  |
 | `wf-minimized` | wf-minimized | 2 | wf-floated-layer | todo |  |  |  |
-| `wf-native` | wf-native | 2 | 없음 | running | wf-native/wf-native |  |  |
+| `wf-native` | wf-native | 2 | 없음 | merged | wf-native/wf-native | 08bdedee0 |  |
 | `wf-panel` | wf-panel | 2 | 없음 | running | wf-panel/wf-panel |  |  |
 | `wf-view-keep` | wf-view-keep | 2 | wf-native, wf-floated-wire | todo |  |  |  |
 | `wf-gallery` | wf-gallery | 3 | 없음 | todo |  |  |  |

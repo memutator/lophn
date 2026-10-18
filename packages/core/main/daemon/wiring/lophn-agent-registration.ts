@@ -43,6 +43,9 @@ installPlaceEnvironment({
         return found.ok ? found.value as never : null;
       },
       projectByName(name: string) {
+        // 받는 쪽은 id, 이름 어느 쪽으로 적어도 같은 project다.
+        const byId = projectInfoOf(sql, ANY_FOLDER, { id: name });
+        if (byId.ok && byId.value !== null) return byId.value as never;
         const found = projectInfoOf(sql, ANY_FOLDER, { name });
         return found.ok ? found.value as never : null;
       },
@@ -52,10 +55,10 @@ installPlaceEnvironment({
         appOf(sql.get("select * from apps where id = ?", [id])),
       appByName: (name: string) =>
         appOf(
-          sql.get("select * from apps where slug = ? or name = ?", [
-            name,
-            name,
-          ]),
+          sql.get(
+            "select * from apps where id = ? or slug = ? or name = ?",
+            [name, name, name],
+          ),
         ),
     };
     const operators = operatorDirectory(sql);

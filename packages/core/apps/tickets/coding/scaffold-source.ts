@@ -17,14 +17,14 @@ type ScaffoldTarget = {
   revision: string;
 };
 
-// call의 받는 이름이 source 없는 앱의 coding agent일 때 그 앱이다. 이름 풀기는 Router와 같다(slug 또는 name).
+// call의 받는 이름이 source 없는 앱의 coding agent일 때 그 앱이다. 이름 풀기는 Router와 같다(id, slug 또는 name).
 export function sourcelessAppNamed(
   sql: Pick<Sql, "get">,
   name: string,
 ): ScaffoldTarget | null {
   const row = sql.get(
-    "select id, slug, name, revision from apps where (slug = ? or name = ?) and source_path is null",
-    [name, name],
+    "select id, slug, name, revision from apps where (id = ? or slug = ? or name = ?) and source_path is null",
+    [name, name, name],
   );
   return row === undefined ? null : {
     id: String(row["id"]),

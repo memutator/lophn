@@ -43,6 +43,7 @@ import {
   turnBody,
   turnList,
   turnRead,
+  userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { appRuntime } from "../../../protocol/apps/mod.ts";
 import {
@@ -71,6 +72,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   turnRead,
   agentDefinitionRead,
   providerRead,
+  // 사람이 적은 custom model 정보(catalog user 층). model resolver가 turn마다 읽는다.
+  userModelInfoRead,
   modelDefaultRead,
   // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
   projectModelRead,

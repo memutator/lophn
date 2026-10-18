@@ -17,6 +17,7 @@ type Publish = {
   path: string;
   permissions: string[];
   guide: { purpose: string; api: string; examples: string };
+  exports?: string[]; // 재사용 확인(checks/app/reuse.ts)이 읽는다. tool 입력이 아니다
 };
 
 // 낸 앱의 App Engineer가 `package.publish`를 부른다. 앱은 켜져 있어야 한다(app test를 통과한 release가 있다).
@@ -25,7 +26,7 @@ export async function restorePackage(
   material: Material,
 ): Promise<Result<void>> {
   const { core, fake } = ctx;
-  const { app: appName, ...spec } = JSON.parse(
+  const { app: appName, exports: _exports, ...spec } = JSON.parse(
     textOf(material, "publish.json"),
   ) as Publish;
   const app = ctx.world.apps[appName];

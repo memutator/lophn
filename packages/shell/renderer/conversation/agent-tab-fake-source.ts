@@ -29,6 +29,7 @@ import type {
 import type { SlashGroupView } from "./slash-menu/types.ts";
 import { t } from "@lophn/wording";
 import {
+  effortLowToMax,
   HAIKU,
   LAYOUT_ALL,
   OPUS,
@@ -761,14 +762,16 @@ const REWIND_PREVIEW: RewindPreviewView = {
 };
 
 const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
-const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder"];
+// 앞 둘은 provider가 알려 준 이름이고, 마지막은 사람이 정보(effort 포함)를 적은 model이다.
+const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder", "deepseek-v4.1-flash"];
+const CUSTOM_WITH_INFO = "deepseek-v4.1-flash";
 
-// custom provider의 model은 catalog가 정의별로만 정보를 주므로 option 축이 없다.
+// 알려 준 이름만 있는 custom provider model은 catalog 항목이 없어 option 축이 없다. 사람이 적은 effort는 축이 된다.
 const customScenario = (modelName: string): PickerScenario => ({
   current: { provider: CUSTOM_PROVIDER, modelName },
   currentLabel: modelName,
-  axes: [],
-  optionValues: {},
+  axes: modelName === CUSTOM_WITH_INFO ? [effortLowToMax] : [],
+  optionValues: modelName === CUSTOM_WITH_INFO ? { effort: "high" } : {},
 });
 
 const SCENARIOS: Readonly<Record<string, PickerScenario>> = {

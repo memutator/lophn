@@ -14,7 +14,7 @@ function row(provider: string, modelName: string): PickerModelRef {
 }
 
 // effort 값의 id는 contract의 이름이고 표시 이름은 고정이다(very_high는 XHigh).
-const effortLowToMax: PickerAxisView = {
+export const effortLowToMax: PickerAxisView = {
   id: "effort",
   label: "Effort",
   values: [

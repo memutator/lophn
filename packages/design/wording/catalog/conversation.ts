@@ -3,7 +3,7 @@ export const conversation = {
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.skill-command-request":
     'Use the "{skill}" skill for this request.',
-  "conversation.button.add-model": "Add",
+  "conversation.button.add-model": "Add model",
   "conversation.button.approval-allow": "Allow",
   "conversation.button.approval-allow-always": "Always allow",
   "conversation.button.approval-allow-once": "Allow once",
@@ -17,6 +17,7 @@ export const conversation = {
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
+  "conversation.button.edit-model": "Edit",
   "conversation.button.fork": "Fork",
   "conversation.button.fork-here": "Fork from here",
   "conversation.button.hidden-hide": "Hide",
@@ -29,6 +30,7 @@ export const conversation = {
   "conversation.button.question-submit": "Submit",
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.recap-dismiss": "Dismiss",
+  "conversation.button.remove-model": "Remove model",
   "conversation.button.refresh-models": "Refresh models",
   "conversation.button.remove-context": "Remove context",
   "conversation.button.rename": "Rename",
@@ -45,7 +47,17 @@ export const conversation = {
   "conversation.empty.no-messages":
     "Nothing here yet. Write what you need below.",
   "conversation.error.action-failed": "That didn't work. Try again.",
-  "conversation.error.add-model": "Couldn't add that model name. Try again.",
+  "conversation.error.model-effort-none": "Choose at least one effort.",
+  "conversation.error.model-info-conflict":
+    "This model's details changed elsewhere. The latest is loaded; save again to keep your edits.",
+  "conversation.error.model-info-failed":
+    "Couldn't save this model. Try again.",
+  "conversation.error.model-info-remove-failed":
+    "Couldn't remove this model. Try again.",
+  "conversation.error.model-limit-invalid": "Enter a whole number above 0.",
+  "conversation.error.model-name-required": "Enter the model name.",
+  "conversation.error.model-price-invalid":
+    "Enter a number like 0.15, or leave it blank.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
@@ -97,7 +109,6 @@ export const conversation = {
   "conversation.label.call-working-together": "Working together",
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
-  "conversation.label.custom-model": "Model name on {provider}",
   "conversation.label.delete-session": "Delete {title}",
   "conversation.label.delivery-not-sent": "Not sent",
   "conversation.label.delivery-received": "Received",
@@ -118,9 +129,33 @@ export const conversation = {
   "conversation.label.grant-deny": "Not allowed",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-changed": "Changed",
+  "conversation.label.media-audio": "Audio",
+  "conversation.label.media-image": "Image",
+  "conversation.label.media-pdf": "PDF",
+  "conversation.label.media-text": "Text",
+  "conversation.label.media-video": "Video",
+  "conversation.label.model-context": "Context: {limit} tokens",
+  "conversation.label.model-context-limit": "Context limit",
+  "conversation.label.model-effort-default": "Default effort",
+  "conversation.label.model-effort-model": "Model default",
+  "conversation.label.model-effort-values": "Efforts to offer",
+  "conversation.label.model-input-limit": "Input limit",
+  "conversation.label.model-input-limit-default": "Same as context",
+  "conversation.label.model-input-media": "Input media",
   "conversation.label.model-layer":
     "Using: {layer, select, session {this conversation} agent {this agent} project {project default} other {Workspace default}}",
   "conversation.label.model-list": "Models",
+  "conversation.label.model-name": "Model name",
+  "conversation.label.model-output-limit": "Output limit",
+  "conversation.label.model-output-media": "Output media",
+  "conversation.label.model-price-cache-read": "Cache read",
+  "conversation.label.model-price-cache-write": "Cache write",
+  "conversation.label.model-price-input": "Input",
+  "conversation.label.model-price-output": "Output",
+  "conversation.label.model-price-unknown": "Unknown",
+  "conversation.label.model-prices": "Price per 1M tokens (USD)",
+  "conversation.label.model-reasoning": "Reasoning effort",
+  "conversation.label.model-tools": "Tool support",
   "conversation.label.model-unknown": "Model",
   "conversation.label.more-actions": "More",
   "conversation.label.next-turn": "Next turn",
@@ -239,15 +274,19 @@ export const conversation = {
   "conversation.notice.call-working-together":
     "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.custom-model":
-    "Add a model name this provider doesn't list.",
+    "Add models this provider doesn't list, and tell lophn what they can do.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.message-loading": "Loading this message.",
+  "conversation.notice.model-limits": "Blank limits use the defaults shown.",
+  "conversation.notice.model-media":
+    "lophn sends only text and images today. Other media are stored and shown.",
+  "conversation.notice.model-prices": "Blank means unknown. 0 means free.",
   "conversation.notice.no-model-options": "No options for this model.",
   "conversation.notice.manage-models-lead":
     "Choose which models appear in the model picker.",
   "conversation.notice.no-listed-models":
-    "No models listed yet. Refresh the list, or add a name.",
+    "No models listed yet. Refresh the list, or add a model.",
   "conversation.notice.no-models": "No models match.",
   "conversation.notice.no-providers": "No providers connected.",
   "conversation.notice.no-shown-models":
@@ -328,9 +367,11 @@ export const conversation = {
   "conversation.rewind.running":
     "Stop the work in progress first, then rewind.",
   "conversation.rewind.start-failed": "Couldn't start the rewind. Try again.",
+  "conversation.title.add-model": "Add model",
   "conversation.title.approval-change": "{agent} wants to change settings",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.call-handed": "Handed to {to}",
+  "conversation.title.edit-model": "Edit model",
   "conversation.title.manage-models": "Manage models",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.question-asking": "{agent} is asking",

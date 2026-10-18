@@ -21,7 +21,7 @@ import type {
   PickerAxisView,
   PickerModelRef,
 } from "../../conversation/model-picker/types.ts";
-import type { ModelsView, ProviderChoice } from "./source.ts";
+import type { ModelsView, ProviderChoice, UserModels } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 
 /** picker 하나가 가진 화면 상태. 닫혀 있고 검색이 비어 있는 것이 처음이다. */
@@ -42,13 +42,18 @@ export function modelsOf(
   });
 }
 
-/** catalog에 그 정의의 model이 하나도 없는 provider(custom). catalog를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로 아니라고 말한다. */
+/**
+ * catalog에 그 정의의 model이 하나도 없는 provider(custom). catalog를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로
+ * 아니라고 말한다. 사람이 적은 항목(user)은 custom 정의에도 생기므로 세지 않는다.
+ */
 export function isCustomDefinition(
   catalog: readonly CatalogEntry[],
   definition: string,
 ) {
   return catalog.length > 0 &&
-    !catalog.some((entry) => entry.provider_definition === definition);
+    !catalog.some((entry) =>
+      entry.source !== "user" && entry.provider_definition === definition
+    );
 }
 
 /** core의 provider 한 줄을 화면이 쓰는 ProviderChoice로 옮긴다. */
@@ -57,7 +62,6 @@ export function providerChoiceOf(
     id: string;
     name: string;
     definition: { key: string };
-    revision: number;
     credential: { kind: string; reported_models: readonly string[] | null };
   },
   catalog: readonly CatalogEntry[],
@@ -67,7 +71,6 @@ export function providerChoiceOf(
     name: provider.name,
     definition: provider.definition.key,
     kind: provider.credential.kind,
-    revision: provider.revision,
     reportedModels: provider.credential.reported_models,
     refreshable: isCustomDefinition(catalog, provider.definition.key),
   };
@@ -200,11 +203,12 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
 }
 
 /**
- * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 끈 여부를 싣는다.
- * `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
+ * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 끈 여부, catalog가 아는
+ * 입력 media·context, 사람이 적은 정보를 싣는다. `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
  */
 export function manageProviders(
   models: ModelsView,
+  user: UserModels,
   first: string | null,
 ): ManageProviderView[] {
   const hidden = new Set(
@@ -215,12 +219,21 @@ export function manageProviders(
   const views = models.providers.map((provider): ManageProviderView => ({
     id: provider.id,
     name: provider.name,
-    models: modelsOf(models, provider).map((entry) => ({
-      modelName: entry.model_name,
-      hidden: hidden.has(JSON.stringify([provider.id, entry.model_name])),
+    models: modelsOf(models, provider).map((selectable) => ({
+      modelName: selectable.model_name,
+      hidden: hidden.has(
+        JSON.stringify([provider.id, selectable.model_name]),
+      ),
+      inputMedia: selectable.entry?.input_media ?? null,
+      contextLimit: selectable.entry?.context_limit ?? null,
+      info:
+        user.items.find((item) =>
+          item.provider_definition === provider.definition &&
+          item.model_name === selectable.model_name
+        )?.info ?? null,
     })),
     refreshable: provider.refreshable,
-    canAddName: provider.refreshable,
+    editable: provider.refreshable,
   }));
   return [
     ...views.filter((view) => view.id === first),

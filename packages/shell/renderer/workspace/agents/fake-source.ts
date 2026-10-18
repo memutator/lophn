@@ -2,9 +2,12 @@
 // 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type {
-  CatalogEntry,
-  ModelChoice,
+import {
+  type CatalogEntry,
+  effortAxisOf,
+  type ModelChoice,
+  type UserModelItem,
+  type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
 import type { ReadResult } from "../source.ts";
@@ -40,6 +43,8 @@ import type {
   ModelsView,
   SaveInput,
   SaveResult,
+  UserModelKey,
+  UserModels,
 } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
@@ -78,7 +83,8 @@ type FakeCall =
   }
   | { method: "setHidden"; items: readonly HiddenModel[] }
   | { method: "refreshModels"; provider: string }
-  | { method: "addModelName"; provider: string; modelName: string };
+  | { method: "saveModelInfo"; item: UserModelItem; seq: string }
+  | { method: "removeModelInfo"; key: UserModelKey; seq: string };
 
 interface FakeAgentsSource extends AgentsSource {
   /** 보낸 명령을 순서대로. */
@@ -128,6 +134,58 @@ export interface FakeAgentsOptions {
 export const OPENAI = "pvd_01arz3ndektsv4rrffq69g5fa2";
 export const XAI = "pvd_01arz3ndektsv4rrffq69g5fa3";
 export const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
+const CUSTOM_DEFINITION = "custom_openai";
+/** custom provider에서 사람이 정보를 적은 model. provider가 알려 준 목록에는 없다. */
+export const CUSTOM_INFO_MODEL = "deepseek-v4.1-flash";
+
+const SAVED_AT = "2026-10-18T09:00:00.000Z";
+
+const CUSTOM_INFO: UserModelRecord = {
+  provider_definition: CUSTOM_DEFINITION,
+  model_name: CUSTOM_INFO_MODEL,
+  info: {
+    context_limit: 1_000_000,
+    input_limit: null,
+    output_limit: 32_000,
+    supports_tools: true,
+    input_media: ["text", "image"],
+    output_media: ["text"],
+    effort: {
+      values: ["low", "medium", "high", "maximum"],
+      default_value: "high",
+    },
+    price: {
+      input: "0.14",
+      output: "0.28",
+      cache_read: "0.014",
+      cache_write: null,
+    },
+  },
+  saved_at: SAVED_AT,
+};
+
+// core가 user 정보로 만드는 catalog 항목 중 화면이 읽는 칸만 같은 모양으로 채운다.
+function userEntryOf(record: UserModelRecord): CatalogEntry {
+  const { info } = record;
+  return {
+    provider_definition: record.provider_definition,
+    model_name: record.model_name,
+    context_limit: info.context_limit,
+    input_limit: info.input_limit,
+    output_limit: info.output_limit,
+    supports_tools: info.supports_tools,
+    input_media: info.input_media,
+    output_media: info.output_media,
+    options: info.effort === null ? [] : [effortAxisOf(info.effort)],
+    preview: null,
+    deprecated: null,
+    source: "user",
+    source_revision: SAVED_AT,
+    checked_at: null,
+    received_at: SAVED_AT,
+    price_basis: null,
+  };
+}
 
 // catalog는 Anthropic 셋뿐이라 OpenAI와 xAI의 model은 같은 모양의 항목을 이름과 정의만 바꿔 더한다.
 const OTHER_CATALOG: readonly CatalogEntry[] = [
@@ -139,6 +197,10 @@ const OTHER_CATALOG: readonly CatalogEntry[] = [
   provider_definition: definition,
   model_name: name,
 }));
+
+const sameKey = (first: UserModelKey, second: UserModelKey) =>
+  first.provider_definition === second.provider_definition &&
+  first.model_name === second.model_name;
 
 export function createFakeAgentsSource(
   options: FakeAgentsOptions = {},
@@ -171,8 +233,21 @@ export function createFakeAgentsSource(
     PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
   );
   let hidden: readonly HiddenModel[] = options.hidden ?? [];
-  // 사람이 custom provider에 더한 이름. 목록을 주지 않는 provider의 알려 준 목록이 된다.
-  const typedNames: string[] = [];
+  // 사람이 적은 custom provider model 정보. custom provider를 붙인 상태에서만 처음부터 하나가 있다.
+  let userModels: UserModels = {
+    seq: "1",
+    items: options.providers === "custom" ? [CUSTOM_INFO] : [],
+  };
+  const changeUserModels = (
+    seq: string,
+    items: readonly UserModelRecord[],
+  ): ReadResult<UserModels> => {
+    const failure = takeChangeFailure();
+    if (failure !== null) return failure;
+    if (seq !== userModels.seq) return { ok: false, message: "conflict" };
+    userModels = { seq: String(Number(seq) + 1), items };
+    return ok(userModels);
+  };
 
   let saveFailure:
     | { issues: readonly AgentDefinitionIssue[]; code: string }
@@ -180,7 +255,7 @@ export function createFakeAgentsSource(
   let changeFailure: string | null = null;
   let overviewFailure: string | null = null;
 
-  const takeChangeFailure = (): ReadResult<null> | null => {
+  const takeChangeFailure = (): { ok: false; message: string } | null => {
     if (changeFailure === null) return null;
     const message = changeFailure;
     changeFailure = null;
@@ -337,7 +412,6 @@ export function createFakeAgentsSource(
         name,
         definition,
         kind: "api_key",
-        revision: 1,
         reportedModels: null,
         refreshable: false,
       });
@@ -356,19 +430,20 @@ export function createFakeAgentsSource(
             ? [{
               id: CUSTOM_PROVIDER,
               name: "Local server",
-              definition: "custom_openai",
+              definition: CUSTOM_DEFINITION,
               kind: "api_key",
-              revision: 1,
               reportedModels: customListed
-                ? ["llama-3.3-70b", "qwen-3-coder", ...typedNames]
-                : typedNames.length > 0
-                ? [...typedNames]
+                ? ["llama-3.3-70b", "qwen-3-coder"]
                 : null,
               refreshable: true,
             }]
             : []),
         ],
-        catalog: [...CATALOG, ...OTHER_CATALOG],
+        catalog: [
+          ...CATALOG,
+          ...OTHER_CATALOG,
+          ...userModels.items.map(userEntryOf),
+        ],
         hidden,
       }));
     },
@@ -380,7 +455,6 @@ export function createFakeAgentsSource(
       }
       if (provider === CUSTOM_PROVIDER) {
         customListed = true;
-        typedNames.length = 0;
       }
       return Promise.resolve(true);
     },
@@ -391,10 +465,25 @@ export function createFakeAgentsSource(
       return Promise.resolve(ok(items));
     },
 
-    addModelName(provider, modelName) {
-      calls.push({ method: "addModelName", provider, modelName });
-      if (!typedNames.includes(modelName)) typedNames.push(modelName);
-      return Promise.resolve(ok(null));
+    userModels() {
+      return Promise.resolve(ok(userModels));
+    },
+
+    saveModelInfo(item, seq) {
+      calls.push({ method: "saveModelInfo", item, seq });
+      const record: UserModelRecord = { ...item, saved_at: SAVED_AT };
+      return Promise.resolve(changeUserModels(seq, [
+        ...userModels.items.filter((one) => !sameKey(one, item)),
+        record,
+      ]));
+    },
+
+    removeModelInfo(key, seq) {
+      calls.push({ method: "removeModelInfo", key, seq });
+      return Promise.resolve(changeUserModels(
+        seq,
+        userModels.items.filter((one) => !sameKey(one, key)),
+      ));
     },
 
     readAgent(_project, key) {

@@ -14,6 +14,8 @@ import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts
 import type {
   CatalogEntry,
   ModelChoice,
+  UserModelItem,
+  UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { Role } from "../../../../protocol/lophn-agent/places.ts";
@@ -136,8 +138,6 @@ export interface ProviderChoice {
   readonly definition: string;
   /** credential 종류(`oauth`, `api_key` …). */
   readonly kind: string;
-  /** provider 기록의 판. 사람이 model 이름을 더할 때(RecordProviderModels) compare 기준이다. */
-  readonly revision: number;
   /** provider가 알려 준 model 이름. null이면 아직 모르는 것이다. */
   readonly reportedModels: readonly string[] | null;
   /** model 목록을 다시 읽을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
@@ -146,6 +146,18 @@ export interface ProviderChoice {
 
 export interface HiddenModel {
   readonly provider: string;
+  readonly model_name: string;
+}
+
+/** 사람이 적은 model 정보 전체와 그 판. 저장·지우기의 compare 기준이다. */
+export interface UserModels {
+  readonly seq: string;
+  readonly items: readonly UserModelRecord[];
+}
+
+/** 사람이 적은 model 정보의 열쇠: catalog와 같은 (provider 정의 key, model 이름)이다. */
+export interface UserModelKey {
+  readonly provider_definition: string;
   readonly model_name: string;
 }
 
@@ -237,11 +249,18 @@ export interface AgentsSource {
   setHidden(
     items: readonly HiddenModel[],
   ): Promise<ReadResult<readonly HiddenModel[]>>;
-  /**
-   * 목록을 주지 않는 custom provider에 model 이름을 더한다: 그 provider의 알려 준 목록에 이름을 덧붙여
-   * 저장한다(있던 이름은 그대로).
-   */
-  addModelName(provider: string, modelName: string): Promise<ReadResult<null>>;
+  /** 사람이 적은 custom provider model 정보와 그 판. */
+  userModels(): Promise<ReadResult<UserModels>>;
+  /** model 정보 하나를 더하거나 고친다. 판이 어긋나면 message가 conflict다. */
+  saveModelInfo(
+    item: UserModelItem,
+    seq: string,
+  ): Promise<ReadResult<UserModels>>;
+  /** model 정보 하나를 지운다. 판이 어긋나면 message가 conflict다. */
+  removeModelInfo(
+    key: UserModelKey,
+    seq: string,
+  ): Promise<ReadResult<UserModels>>;
   /** project가 null이면 lophn 전체의 설정이다. */
   readAgent(
     project: string | null,

@@ -10,18 +10,25 @@ import {
 import { setHidden } from "../../../../../protocol/lophn-agent/model-picker.ts";
 import { ManageModelsContext } from "../../../conversation/model-picker/manage-context.ts";
 import { ManageModelsDialog } from "../../../conversation/model-picker/manage-models.tsx";
+import type { ModelInfoOutcome } from "../../../conversation/model-picker/model-info-form.tsx";
 import type { ManageProviderView } from "../../../conversation/model-picker/types.ts";
 import { manageProviders } from "../../../workspace/agents/model-picker-data.ts";
 import type {
   AgentsSource,
   HiddenModel,
   ModelsView,
+  UserModels,
 } from "../../../workspace/agents/source.ts";
 import { useConnectProvider } from "./connect-host.tsx";
 
 type ManageSource = Pick<
   AgentsSource,
-  "models" | "refreshModels" | "setHidden" | "addModelName"
+  | "models"
+  | "refreshModels"
+  | "setHidden"
+  | "userModels"
+  | "saveModelInfo"
+  | "removeModelInfo"
 >;
 
 interface ManageModelsHostProps {
@@ -38,8 +45,11 @@ export function ManageModelsHost(
   const connect = useConnectProvider();
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelsView | null>(null);
+  const [user, setUser] = useState<UserModels | null>(null);
   const [first, setFirst] = useState<string | null>(null);
   const hidden = useRef<readonly HiddenModel[]>([]);
+  // 저장·지우기의 compare 기준: 마지막으로 읽은 model 정보의 판.
+  const userSeq = useRef("");
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const alive = useRef(true);
   useEffect(() => () => {
@@ -47,10 +57,15 @@ export function ManageModelsHost(
   }, []);
 
   const load = useCallback(async (): Promise<void> => {
-    const read = await source.models();
-    if (!alive.current || !read.ok) return;
+    const [read, readUser] = await Promise.all([
+      source.models(),
+      source.userModels(),
+    ]);
+    if (!alive.current || !read.ok || !readUser.ok) return;
     hidden.current = read.value.hidden;
+    userSeq.current = readUser.value.seq;
     setModels(read.value);
+    setUser(readUser.value);
   }, [source]);
 
   const api = useMemo(() => ({
@@ -75,9 +90,24 @@ export function ManageModelsHost(
     });
   };
 
-  const providers: ManageProviderView[] | null = models === null
-    ? null
-    : manageProviders(models, first);
+  // 저장이나 지우기가 끝나면 catalog의 user 층도 바뀌므로 둘 다 다시 읽는다. 판이 어긋났으면 읽은 값으로 form을 이어 가게 한다.
+  const changeInfo = async (
+    provider: string,
+    change: (definition: string) => ReturnType<AgentsSource["saveModelInfo"]>,
+  ): Promise<ModelInfoOutcome> => {
+    const definition = models?.providers.find((item) => item.id === provider)
+      ?.definition;
+    if (definition === undefined) return "failed";
+    const changed = await change(definition);
+    if (changed.ok || changed.message === "conflict") await load();
+    if (changed.ok) return "saved";
+    return changed.message === "conflict" ? "conflict" : "failed";
+  };
+
+  const providers: ManageProviderView[] | null =
+    models === null || user === null
+      ? null
+      : manageProviders(models, user, first);
   const modelsOf = (provider: string) =>
     providers?.find((item) => item.id === provider)?.models ?? [];
 
@@ -111,11 +141,19 @@ export function ManageModelsHost(
               if (refreshed) await load();
               return refreshed;
             }}
-            onAddName={async (provider, modelName) => {
-              const added = await source.addModelName(provider, modelName);
-              if (added.ok) await load();
-              return added.ok;
-            }}
+            onSaveInfo={(provider, modelName, info) =>
+              changeInfo(provider, (definition) =>
+                source.saveModelInfo({
+                  provider_definition: definition,
+                  model_name: modelName,
+                  info,
+                }, userSeq.current))}
+            onRemoveInfo={(provider, modelName) =>
+              changeInfo(provider, (definition) =>
+                source.removeModelInfo({
+                  provider_definition: definition,
+                  model_name: modelName,
+                }, userSeq.current))}
           />
         )
         : null}

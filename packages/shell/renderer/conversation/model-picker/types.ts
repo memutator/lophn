@@ -1,6 +1,10 @@
 // model picker가 받는 화면 값. 그리는 쪽(model-picker.tsx)과 값을 만드는 쪽이 같이 쓰며,
 // CSS를 부르는 component 없이 type만 가져올 수 있게 따로 둔다.
 import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type { UserModelInfo } from "../../../../protocol/lophn-agent/models.ts";
+import type { MODEL_MEDIA } from "../../../../protocol/lophn-agent/resolved-model.ts";
+
+export type ModelMedia = (typeof MODEL_MEDIA)[number];
 
 /** model 하나. 같은 이름이 provider마다 있을 수 있어 provider와 이름의 쌍으로 구별한다. */
 export interface PickerModelRef {
@@ -63,17 +67,26 @@ export interface FollowView {
   readonly onFollow: () => void;
 }
 
+/** Manage models 창의 model 한 줄. */
+export interface ManageModelView {
+  readonly modelName: string;
+  readonly hidden: boolean;
+  /** catalog가 아는 입력 media. 모르면 null이다. */
+  readonly inputMedia: readonly ModelMedia[] | null;
+  /** catalog가 아는 context 한도. 모르면 null이다. */
+  readonly contextLimit: number | null;
+  /** 사람이 적은 정보. 없으면 null이다. */
+  readonly info: UserModelInfo | null;
+}
+
 /** Manage models 창의 provider 묶음 하나. */
 export interface ManageProviderView {
   readonly id: string;
   readonly name: string;
   /** 이 provider에서 고를 수 있는 model과 끈 여부. */
-  readonly models: readonly {
-    readonly modelName: string;
-    readonly hidden: boolean;
-  }[];
+  readonly models: readonly ManageModelView[];
   /** model 목록을 다시 읽을 수 있는 provider(custom)다. */
   readonly refreshable: boolean;
-  /** 이름을 더하는 칸을 보이는가: custom provider다. 다시 읽으면 목록이 provider가 알린 것으로 바뀐다. */
-  readonly canAddName: boolean;
+  /** model 정보를 적을 수 있는가: custom provider다. catalog에 있는 provider의 model은 읽기만 한다. */
+  readonly editable: boolean;
 }

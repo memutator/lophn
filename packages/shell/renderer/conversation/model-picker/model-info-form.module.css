@@ -1,0 +1,58 @@
+/* model 정보 form. 이름, 한도 셋, 스위치와 icon toggle 줄, effort, 가격 순으로 한 기둥이다. 줄의 조작은 오른쪽 끝에 둔다. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: var(--space-0);
+}
+
+.limits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(var(--space-0), 1fr));
+  gap: var(--space-4);
+}
+
+.priceFields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(var(--space-0), 1fr));
+  gap: var(--space-4);
+}
+
+.prices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.lineLabel {
+  color: var(--color-text-primary);
+}
+
+.toggles,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.error {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}

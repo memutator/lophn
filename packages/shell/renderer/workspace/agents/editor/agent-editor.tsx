@@ -39,7 +39,9 @@ export type AgentEditorSource = Pick<
   | "models"
   | "refreshModels"
   | "setHidden"
-  | "addModelName"
+  | "userModels"
+  | "saveModelInfo"
+  | "removeModelInfo"
   | "grants"
   | "setGrants"
 >;

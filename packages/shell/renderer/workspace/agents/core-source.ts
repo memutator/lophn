@@ -17,11 +17,10 @@ import {
 import {
   changeHiddenModels,
   projectModelChange,
+  removeUserModelInfo,
+  saveUserModelInfo,
 } from "../../../../protocol/lophn-agent/models.ts";
-import {
-  recordProviderModels,
-  refreshProviderModels,
-} from "../../../../protocol/lophn-agent/providers.ts";
+import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -56,6 +55,7 @@ import type {
   ReadResult,
   SaveInput,
   SaveResult,
+  UserModels,
 } from "./source.ts";
 
 /** 목록을 끝까지 모을 때 page 상한. */
@@ -77,35 +77,6 @@ interface AgentsDeps {
   bytes: () => Uint8Array;
   /** MCP credential을 받는 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
-}
-
-/**
- * custom provider의 알려 준 목록에 이름을 덧붙인다. 지금 목록을 읽어 그 위에 더하고 읽은 판을 compare로 보내,
- * 그 사이에 목록이 바뀌었으면 core가 conflict로 거절해 아무것도 쓰지 않는다(있던 이름을 덮어쓰지 않는다).
- */
-async function addReportedModel(
-  link: Link,
-  provider: string,
-  modelName: string,
-): Promise<ReadResult<null>> {
-  const read = await link.read<
-    {
-      provider: {
-        revision: number;
-        credential: { reported_models: string[] | null };
-      };
-    }
-  >("providers", "read", { provider });
-  if (!read.ok) return read;
-  const existing = read.value.provider.credential.reported_models ?? [];
-  if (existing.includes(modelName)) return { ok: true, value: null };
-  const written = await link.command(recordProviderModels, {
-    input: { provider, models: [...existing, modelName] },
-    compare: { revision: read.value.provider.revision },
-  });
-  return written.ok
-    ? { ok: true, value: null }
-    : { ok: false, message: written.code };
 }
 
 function windowInstructions(): InstructionsApi | undefined {
@@ -220,7 +191,6 @@ export function coreAgentsSource(
       id: string;
       name: string;
       definition: { key: string };
-      revision: number;
       credential: { kind: string; reported_models: string[] | null };
     }[] = [];
     let cursor: string | undefined;
@@ -250,6 +220,17 @@ export function coreAgentsSource(
           })),
           seq: result.value.hidden.settings_seq,
         },
+      }
+      : result;
+  };
+
+  // 사람이 적은 model 정보. 읽기 입력에 cursor가 없어 한 번에 읽는다.
+  const userModels = async (): Promise<ReadResult<UserModels>> => {
+    const result = await link.read<UserModels>("user-model-info", "read", {});
+    return result.ok
+      ? {
+        ok: true,
+        value: { seq: result.value.seq, items: result.value.items },
       }
       : result;
   };
@@ -499,8 +480,28 @@ export function coreAgentsSource(
         : { ok: false, message: changed.code };
     },
 
-    async addModelName(provider, modelName) {
-      return await addReportedModel(link, provider, modelName);
+    async userModels() {
+      return await userModels();
+    },
+
+    async saveModelInfo(item, seq) {
+      const saved = await link.command(saveUserModelInfo, {
+        input: item,
+        compare: { seq },
+      });
+      return saved.ok
+        ? { ok: true, value: saved.value }
+        : { ok: false, message: saved.code };
+    },
+
+    async removeModelInfo(key, seq) {
+      const removed = await link.command(removeUserModelInfo, {
+        input: key,
+        compare: { seq },
+      });
+      return removed.ok
+        ? { ok: true, value: removed.value }
+        : { ok: false, message: removed.code };
     },
 
     readAgent: (project, key) => detailOf(project, key),

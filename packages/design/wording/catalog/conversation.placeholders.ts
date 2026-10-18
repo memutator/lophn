@@ -24,6 +24,7 @@ export type ConversationPlaceholders = {
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.delete": Record<never, never>;
   "conversation.button.edit-open": Record<never, never>;
+  "conversation.button.edit-model": Record<never, never>;
   "conversation.button.fork": Record<never, never>;
   "conversation.button.fork-here": Record<never, never>;
   "conversation.button.hidden-hide": Record<never, never>;
@@ -36,6 +37,7 @@ export type ConversationPlaceholders = {
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
   "conversation.button.recap-dismiss": Record<never, never>;
+  "conversation.button.remove-model": Record<never, never>;
   "conversation.button.refresh-models": Record<never, never>;
   "conversation.button.remove-context": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
@@ -51,7 +53,13 @@ export type ConversationPlaceholders = {
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.error.action-failed": Record<never, never>;
-  "conversation.error.add-model": Record<never, never>;
+  "conversation.error.model-effort-none": Record<never, never>;
+  "conversation.error.model-info-conflict": Record<never, never>;
+  "conversation.error.model-info-failed": Record<never, never>;
+  "conversation.error.model-info-remove-failed": Record<never, never>;
+  "conversation.error.model-limit-invalid": Record<never, never>;
+  "conversation.error.model-name-required": Record<never, never>;
+  "conversation.error.model-price-invalid": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
@@ -109,9 +117,6 @@ export type ConversationPlaceholders = {
   "conversation.label.call-working-together": Record<never, never>;
   "conversation.label.coding-queued": Record<never, never>;
   "conversation.label.composer-message": Record<never, never>;
-  "conversation.label.custom-model": {
-    provider: "string";
-  };
   "conversation.label.delete-session": {
     title: "string";
   };
@@ -140,10 +145,36 @@ export type ConversationPlaceholders = {
   "conversation.label.grant-deny": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-changed": Record<never, never>;
+  "conversation.label.media-audio": Record<never, never>;
+  "conversation.label.media-image": Record<never, never>;
+  "conversation.label.media-pdf": Record<never, never>;
+  "conversation.label.media-text": Record<never, never>;
+  "conversation.label.media-video": Record<never, never>;
+  "conversation.label.model-context": {
+    limit: "string";
+  };
+  "conversation.label.model-context-limit": Record<never, never>;
+  "conversation.label.model-effort-default": Record<never, never>;
+  "conversation.label.model-effort-model": Record<never, never>;
+  "conversation.label.model-effort-values": Record<never, never>;
+  "conversation.label.model-input-limit": Record<never, never>;
+  "conversation.label.model-input-limit-default": Record<never, never>;
+  "conversation.label.model-input-media": Record<never, never>;
   "conversation.label.model-layer": {
     layer: "string";
   };
   "conversation.label.model-list": Record<never, never>;
+  "conversation.label.model-name": Record<never, never>;
+  "conversation.label.model-output-limit": Record<never, never>;
+  "conversation.label.model-output-media": Record<never, never>;
+  "conversation.label.model-price-cache-read": Record<never, never>;
+  "conversation.label.model-price-cache-write": Record<never, never>;
+  "conversation.label.model-price-input": Record<never, never>;
+  "conversation.label.model-price-output": Record<never, never>;
+  "conversation.label.model-price-unknown": Record<never, never>;
+  "conversation.label.model-prices": Record<never, never>;
+  "conversation.label.model-reasoning": Record<never, never>;
+  "conversation.label.model-tools": Record<never, never>;
   "conversation.label.model-unknown": Record<never, never>;
   "conversation.label.more-actions": Record<never, never>;
   "conversation.label.next-turn": Record<never, never>;
@@ -311,6 +342,9 @@ export type ConversationPlaceholders = {
   "conversation.notice.custom-model": Record<never, never>;
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
+  "conversation.notice.model-limits": Record<never, never>;
+  "conversation.notice.model-media": Record<never, never>;
+  "conversation.notice.model-prices": Record<never, never>;
   "conversation.notice.no-model-options": Record<never, never>;
   "conversation.notice.manage-models-lead": Record<never, never>;
   "conversation.notice.no-listed-models": Record<never, never>;
@@ -374,6 +408,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.rewind.running": Record<never, never>;
   "conversation.rewind.start-failed": Record<never, never>;
+  "conversation.title.add-model": Record<never, never>;
   "conversation.title.approval-change": {
     agent: "string";
   };
@@ -384,6 +419,7 @@ export type ConversationPlaceholders = {
   "conversation.title.call-handed": {
     to: "string";
   };
+  "conversation.title.edit-model": Record<never, never>;
   "conversation.title.manage-models": Record<never, never>;
   "conversation.title.permissions": {
     agent: "string";

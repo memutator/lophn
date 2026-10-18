@@ -80,16 +80,21 @@ const SPEED = axis("speed", "Speed", [
   ["fast", "Fast"],
 ], "standard");
 
-function entry(name: string, options: readonly OptionAxis[]): CatalogEntry {
+function entry(
+  name: string,
+  options: readonly OptionAxis[],
+  contextLimit: number,
+  inputMedia: CatalogEntry["input_media"],
+): CatalogEntry {
   return {
     provider_definition: "anthropic",
     model_name: name,
-    context_limit: null,
+    context_limit: contextLimit,
     input_limit: null,
     output_limit: null,
     supports_tools: null,
-    input_media: null,
-    output_media: null,
+    input_media: inputMedia,
+    output_media: ["text"],
     options: [...options],
     preview: null,
     deprecated: null,
@@ -102,9 +107,9 @@ function entry(name: string, options: readonly OptionAxis[]): CatalogEntry {
 }
 
 export const CATALOG: readonly CatalogEntry[] = [
-  entry("Sonnet 5.5", [EFFORT]),
-  entry("Opus 5.5", [EFFORT, SPEED]),
-  entry("Haiku 5.5", []),
+  entry("Sonnet 5.5", [EFFORT], 1_000_000, ["text", "image", "pdf"]),
+  entry("Opus 5.5", [EFFORT, SPEED], 1_000_000, ["text", "image", "pdf"]),
+  entry("Haiku 5.5", [], 200_000, ["text", "image"]),
 ];
 
 // ---- 정의 ----

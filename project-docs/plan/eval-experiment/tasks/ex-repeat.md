@@ -7,7 +7,7 @@ trial에서 같은 tool을 같은 인자로 3번 이상 부른 곳을 찾아, "�
 - 소유(이 task만 고친다):
   - `tests/eval/experiment/repeat/**`
   - `tests/eval/criteria/repeat-kind.json`
-  - `tests/eval/criteria/mod.ts` 안의 `repeat-kind` 항목 한 줄(landed 파일이 criterion마다 항목을 요구할 때만. ev-judge가 만든 파일이라 그 한 줄만 더하고 나머지는 고치지 않는다)
+  - `tests/eval/criteria/mod.ts`의 `INPUT_SECTIONS`에 `repeat-kind` 한 줄(criterion마다 항목이 있는 record다. 그 한 줄만 더하고 나머지는 고치지 않는다)
 - 읽을 것:
   - roadmap: `project-docs/products/roadmap/eval.md`의 "check와 judge"(표의 "되풀이" 줄, "judge를 믿고 쓰기"), "공통 수치"(tool 정확도의 "되풀이")
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것"의 되풀이 judge)
@@ -37,8 +37,8 @@ trial에서 같은 tool을 같은 인자로 3번 이상 부른 곳을 찾아, "�
    - `same_mistake`: 되풀이 사이에 아무것도 바뀌지 않았고, 되풀이마다 같은 실패나 새 정보 없는 결과가 돌아왔다.
    - `cannot_tell`: 입력으로 정할 수 없다.
 2. `find.ts`: `findRepeatGroups`.
-   - session마다 `tool_calls`를 본다. 묶는 키는 (`call.tool`, `call.input`(hash))다. 같은 입력은 같은 hash다(입력 blob이 canonical JSON이다. `ev-collect.md`).
-   - 센 대상은 `state === "finished"`이고 재시도에 밀리지 않은 행이다(`retry_of`로 다른 행이 이 행의 id를 가리키면 뺀다). `outcome.kind === "not_executed"`인 행은 `code`가 `denied`·`rejected`가 아니면 뺀다(model 탓이 아니다. ev-collect의 tool 정확도 규칙과 같다). 막힌(`denied`) call을 같은 인자로 거듭 부른 것은 되풀이에 든다.
+   - session마다 `tool_calls`를 본다. 묶는 키는 (`call.tool`, `call.input`(hash))다. 같은 입력은 같은 hash다(입력 blob이 canonical JSON이다. `tests/eval/collect/metrics.ts`도 `${tool}\n${input}`으로 묶는다).
+   - 센 대상은 `state === "finished"`이고 재시도에 밀리지 않은 행이다(`retry_of`로 다른 행이 이 행의 id를 가리키면 뺀다). `outcome.kind === "not_executed"`인 행은 `code`가 `denied`·`rejected`가 아니면 뺀다(model 탓이 아니다. `collect/metrics.ts`의 tool 정확도 규칙과 같다). 막힌(`denied`) call을 같은 인자로 거듭 부른 것은 되풀이에 든다.
    - 크기가 `minCount` 이상인 묶음만 낸다. `timeline`은 그 묶음의 첫 call과 마지막 call 사이의 `tool_calls` 구간이다.
 3. `input.ts`: `repeatKindInput`은 `joinInput`으로 두 칸을 만든다.
    - `REPEATED_CALL`: `tool: <tool>`, `times: <count>`, `input: <첫 call의 input JSON>`(2000자까지, 넘으면 `…(truncated)`). input이 null이면 `(input not available)`.
@@ -54,9 +54,9 @@ trial에서 같은 tool을 같은 인자로 3번 이상 부른 곳을 찾아, "�
 - **채점은 다른 judge item과 같은 길이다.** 돌리는 agent가 item마다 새 subagent로 채점하고 `eval:judge`로 적는다. 입력은 `show`가 보이는 글 하나뿐이다. 그래서 TIMELINE이 판단에 필요한 모든 것이어야 한다.
 - **judge 입력에 되풀이 사이의 call을 넣는다.** roadmap 표는 "그 call 셋과 결과"라고만 적었는데, 인자가 같은 call 셋만으로는 "다른 방법을 시도했나"를 판단할 수 없다. 그래서 첫 되풀이부터 마지막 되풀이까지의 그 session의 tool call 줄(tool, 입력 요약, 결과)을 같이 준다. transcript 전체는 주지 않는다(roadmap의 입력 규칙).
 - **묶음은 trial당 3개까지 대기에 둔다.** 크기가 큰 순서다. 이유: 돌리는 agent가 채점할 subagent 수를 묶음 수에 비례해 늘리지 않으려는 것이다. 남은 묶음은 `findRepeatGroups`에는 있어도 `queueRepeats`가 쓰지 않는다.
-- **실패한 tool call의 안내 글은 없다.** output blob이 success일 때만 남기 때문이다(ev-collect). 실패 줄은 `outcome`의 kind와 code만 보인다.
+- **실패한 tool call의 안내 글은 없다.** output blob이 success일 때만 남기 때문이다(`CollectedToolCall.output`). 실패 줄은 `outcome`의 kind와 code만 보인다.
 - **coding agent의 tool call은 보지 않는다.** `SessionRecord`에 role agent session만 있다(coding agent는 `eval-coding`이 CLI 기록에서 따로 센다).
-- **`INPUT_SECTIONS`(`tests/eval/criteria/mod.ts`)는 landed 파일이 필요로 할 때만 `repeat-kind: ["REPEATED_CALL", "TIMELINE"]` 한 줄을 더한다.** 이 한 줄만 이 task의 소유다(계획 조정). 칸 이름은 criterion의 `question`과 `input.ts`와 같아야 한다. 파일이 항목을 요구하지 않으면 건드리지 않는다.
+- **`INPUT_SECTIONS`(`tests/eval/criteria/mod.ts`)에 `"repeat-kind": ["REPEATED_CALL", "TIMELINE"]` 한 줄을 더한다.** 이 한 줄만 이 task의 소유다(계획 조정). 칸 이름은 criterion의 `question`과 `input.ts`와 같아야 한다. 지금 이 record를 읽는 코드는 없고 criterion마다 칸 이름을 적어 두는 관례다.
 
 ## 끝남
 

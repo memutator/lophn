@@ -49,7 +49,7 @@ experiment = component 하나를 X@a → X@b로 바꾸고, X@a를 본 run만 다
 
 | 종류 | 예 | 담는 것 |
 |---|---|---|
-| 재료 | `reuse-world@1`, `calendar-call@1`, `calendar-app@1` | 시작 world의 조각이자 시나리오의 산출물(아래 "재료") |
+| 재료 | `notify-app@1`, `calendar-call@1`, `calendar-app@1` | 시작 world의 조각이자 시나리오의 산출물(아래 "재료") |
 | component | `instruction:lophn@3`, `skill:lophn-build-app@2`, `guide:roles-and-grants@1`, `tool:call@1`, `assembly@5`, `runtime@7`, `template:app@4`, `model:claude-sonnet-5-5`, `cli:claude@2.1.302` | model을 둘러싼 harness의 조각 |
 | checks | `checks@3` | program check helper(`tests/eval/checks/`). grader의 한 조각이다 |
 | core | `core@31` | eval이 띄우는 코드 가운데 component가 아닌 것 전부: core daemon, CLI, protocol, SDK. 버전 하나로 매긴다 |
@@ -267,7 +267,7 @@ tests/eval/materials/<이름>/<n>/
 ```
 
 - `content_hash`는 file을 정렬해 `sha256Hex(bundleBytes(files))`로 잰다. 앱이 낸 package의 `bundle_hash`와 같은 꼴이다(`apps/packages/install.ts`). runner는 되살리기 전에 hash를 다시 재고, 다르면 멈춘다.
-- world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `calendar-call@1`은 `reuse-world@1`의 알림 앱 id를 가리킨다.
+- world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `date-range@1`은 `notify-app@1`의 알림 앱이 낸 package다.
 - 시나리오 결과 저장: 시나리오가 `save`에 적은 것을 runner가 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit한다.
 
 ## 시나리오
@@ -277,7 +277,7 @@ tests/eval/materials/<이름>/<n>/
 ```ts
 {
   id: "calendar-mvp",
-  world: ["reuse-world@1", "calendar-call@1"],          // 전제 재료
+  world: ["notify-app@1", "date-range@1", "calendar-call@1"],   // 전제 재료
   real: ["app_engineer", "coding_agent"],               // 진짜 model이 붙는 쪽. 나머지는 model이 없다
   human: { card: "calendar-owner@1", approve: { activation: "allow" } },  // 사람 역할과 허락 규칙
   steps: [deliver("calendar-call"), untilIdle()],
@@ -295,8 +295,8 @@ tests/eval/materials/<이름>/<n>/
 
 | id | world | 진짜 model | 흐름 | 확인 | 저장 |
 |---|---|---|---|---|---|
-| L4-new | `reuse-world@1` | lophn | 사람이 lophn에게 "캘린더 앱 만들어 줘(`event.add`, `event.list`, `event.remove`, 일정 알림)"라고 한다 → 견주기 → `app.create` → App Engineer에게 call | `app.create` 하나, 그 뒤 새 앱의 App Engineer에게 none call. call 본문이 요구를 옮겼나(judge) | `calendar-call@1` |
-| calendar-mvp | `reuse-world@1`, `calendar-call@1` | App Engineer, coding agent, 사람 역할 | call이 App Engineer에게 간다 → 인터뷰 → blueprint → ticket → coding agent build → release → 검증 → activation. App Engineer session 하나 | 앱이 active다. 정해 둔 app-api 호출이 기대대로 답한다. 요구 카드가 blueprint와 ticket에 담겼다(judge). 재사용, observation, call 확인(아래) | `calendar-app@1` |
+| L4-new | `notify-app@1`, `date-range@1` | lophn | 사람이 lophn에게 "캘린더 앱 만들어 줘(`event.add`, `event.list`, `event.remove`, 일정 알림)"라고 한다 → 견주기 → `app.create` → App Engineer에게 call | `app.create` 하나, 그 뒤 새 앱의 App Engineer에게 none call. call 본문이 요구를 옮겼나(judge) | `calendar-call@1` |
+| calendar-mvp | `notify-app@1`, `date-range@1`, `calendar-call@1` | App Engineer, coding agent, 사람 역할 | call이 App Engineer에게 간다 → 인터뷰 → blueprint → ticket → coding agent build → release → 검증 → activation. App Engineer session 하나 | 앱이 active다. 정해 둔 app-api 호출이 기대대로 답한다. 요구 카드가 blueprint와 ticket에 담겼다(judge). 재사용, observation, call 확인(아래) | `calendar-app@1` |
 | calendar-api | `calendar-app@1` | Operator | 사람이 캘린더 Operator에게 "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘"라고 한다 | `event.list`의 결과에 그 일정이 있다. app-api tool의 정확도 | |
 | calendar-maintain | `calendar-app@1`, 일정 data | App Engineer, coding agent, 사람 역할 | 사람이 App Engineer에게 "반복 일정 기능 더해 줘(`event.add`에 `repeat`)"라고 한다 | 새 release가 active다. 옛 app-api 호출이 그대로 답한다. 옛 일정 data가 남아 있다 | `calendar-app@2` |
 | calendar-diagnose | `calendar-app@1`에 bug patch | App Engineer, coding agent | 정해 둔 app-api 호출로 bug를 터뜨린다 → problem이 열린다 → program이 App Engineer를 부른다 | 진단 확인(아래) | |
@@ -318,7 +318,7 @@ calendar-mvp와 calendar-maintain에서 사람 역할이 쓰는 카드다. 시�
 
 ### 재사용 확인
 
-`reuse-world@1`에는 캘린더가 쓸 수 있는 것을 미리 깐다. 예: 알림 앱의 app-api `notify.schedule`, 앱이 낸 package `@me/date-range`. 어떤 것을 깔지는 lophn 안에서 정한다. `@lophn/ui`의 component도 쓸 수 있다.
+`notify-app@1`과 `date-range@1`에는 캘린더가 쓸 수 있는 것을 미리 깐다: 알림 앱의 app-api `notify.schedule`, 그 앱이 낸 package `@me/date-range`. `@lophn/ui`의 component도 쓸 수 있다.
 
 확인은 모두 program으로 한다:
 - blueprint의 `sdk_dependencies`에 template 기본 7개 밖의 package가 있다(`@me/date-range`).
@@ -357,7 +357,7 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | id | 대상 | setup | 사람 말 | pass |
 |---|---|---|---|---|
 | L4-app | lophn | 앱 가계부, 할일 | 가계부 앱에 월별 지출 합계 화면을 넣고 싶어 | call 하나, 받는 쪽은 가계부 App Engineer, 답 방식 none. `app.create` 0 |
-| L4-new | lophn | `reuse-world@1` | 캘린더 앱 만들어 줘(`event.add`, `event.list`, `event.remove`, 일정 알림) | `app.create` 하나, 그 뒤 새 앱의 App Engineer에게 none call |
+| L4-new | lophn | `notify-app@1`, `date-range@1` | 캘린더 앱 만들어 줘(`event.add`, `event.list`, `event.remove`, 일정 알림) | `app.create` 하나, 그 뒤 새 앱의 App Engineer에게 none call |
 | L5 | lophn | project 세무 | 세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 써 줘 | 세무 PM에게 result call |
 | L8 | lophn | 앱 가계부, project 세무 | 가계부 앱에 월말 정리용 Operator를 만들어 줘 | 가계부 App Engineer에게 call. 다른 agent에게 가는 call 0 |
 | A12 | App Engineer @가계부 | 앱 둘 | 이 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을까? | lophn에게 none call. `ticket.create`, `package.publish` 0 |

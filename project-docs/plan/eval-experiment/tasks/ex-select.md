@@ -9,11 +9,12 @@ committed run 요약에서 experiment가 다시 돌릴 시나리오를 고른다
 - 읽을 것:
   - 설계 정본: `project-docs/products/roadmap/eval.md`의 "experiment"(다시 돌린다 / 돌리지 않는다 / 기준 쪽도 새로 돌리지 않는다, 예), "trial 수"(같은 구성으로 돈 trial은 experiment를 넘어 쌓인다), "scorecard"(낡은 run은 표시만)
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것": 기준 구성은 main checkout에서 잰 버전이다, guard는 spec에 쓰지 않고 run 기록으로 program이 고른다)
-  - 먼저 끝난 brief: `project-docs/plan/eval-experiment/tasks/ex-spec.md`(type과 세는 함수), `project-docs/plan/eval-base/tasks/ev-scorecard.md`("고르기"의 `Current`, `staleReasons`와 낡음의 이유 규칙), `ev-contract.md`(`RunRecord`의 `components`, `scenario`, `source`)
+  - 먼저 끝난 brief: `project-docs/plan/eval-experiment/tasks/ex-spec.md`(type과 세는 함수)
+  - 지금 코드(main에 있다): `tests/eval/scorecard/pick.ts`(`Current`, `staleReasons`와 낡음의 이유 규칙), `tests/eval/types.ts`(`RunRecord`의 `components`, `scenario`, `source`), `tests/eval/versions/components.ts`(`currentVersions`의 키 `${kind}:${name}`)
 - 계약:
   - 쓰는 것:
     - `tests/eval/types.ts`(main에 있다): `RunRecord`, `TrialResult`(`components?`는 ex-spec이 더한다), `Scenario`, `VersionRef`, `refText`
-    - `tests/eval/scorecard/pick.ts`(ev-scorecard): `type Current = { scenarios: Pick<Scenario, "id" | "n" | "proposal" | "world" | "checks">[]; versions: Map<string, VersionRef>; judge: VersionRef | null; model: string }`, `staleReasons(run: RunRecord, scenario: Current["scenarios"][number], current: Current): string[]`(비어 있으면 유효한 run)
+    - `tests/eval/scorecard/pick.ts`: `type Current = { scenarios: Pick<Scenario, "id" | "n" | "proposal" | "world" | "checks">[]; versions: Map<string, VersionRef>; judge: VersionRef | null; model: string }`, `staleReasons(run: RunRecord, scenario: Current["scenarios"][number], current: Current): string[]`(비어 있으면 유효한 run)
     - `tests/eval/experiment/spec/mod.ts`(ex-spec): `ExperimentSpec`, `PlanEntry`, `Role`, `Outcome`(`components` 칸 포함), `outcomeOf(trial: TrialResult, runComponents: VersionRef[]): Outcome`
     - `packages/base/mod.ts`: `Result`, `ok`, `err`
   - 내놓는 것(`tests/eval/experiment/select/mod.ts`):
@@ -24,7 +25,7 @@ committed run 요약에서 experiment가 다시 돌릴 시나리오를 고른다
 
 ## 할 일
 
-1. **기준 run 모으기** (`baseline.ts`). `current`는 호출하는 쪽(ex-cli)이 **기준(main) checkout**의 `currentVersions`로 만든다. variant checkout의 것이 아니다. 이유: 채택은 고친 것을 main에 넣는 것이라 기준 구성은 main에서 잰 버전이다(README). 낡음 규칙은 ev-scorecard의 `staleReasons` 그대로 쓴다. 새로 쓰지 않는다.
+1. **기준 run 모으기** (`baseline.ts`). `current`는 호출하는 쪽(ex-cli)이 **기준(main) checkout**의 `currentVersions`로 만든다. variant checkout의 것이 아니다. 이유: 채택은 고친 것을 main에 넣는 것이라 기준 구성은 main에서 잰 버전이다(README). 낡음 규칙은 `scorecard/pick.ts`의 `staleReasons` 그대로 쓴다. 새로 쓰지 않는다.
 
 ```ts
 export type Baseline = {
@@ -91,6 +92,6 @@ export function changedComponents(base: Map<string, VersionRef>, variant: Map<st
 - 안 쓰게 된 export: 없음
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳
-- 계약 바꾸기 요청: eval-base의 `staleReasons`·`Current`가 export 이름이나 위치(`scorecard/pick.ts`)와 다르면 맞춘 이름을 적는다. 고치지 않는다.
+- 계약 바꾸기 요청: `scorecard/pick.ts`의 `staleReasons`·`Current`가 위 모양과 다르면 맞춘 이름을 적는다. 고치지 않는다(`ex-judge-agent`가 `scorecard/**`를 고치지만 `pick.ts`는 바꾸지 않는다).
 - **무겁게 짠 것**: 가장 단순한 구현보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: `TrialResult.components`가 없는 옛 run 요약은 run의 합집합으로 대신하므로 X를 안 본 trial이 기준 통과율에 섞인다. 새 run은 ex-cli가 `components`를 채운다.

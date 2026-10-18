@@ -1,6 +1,6 @@
 # ex-spec
 
-experiment 기록 폴더 `tests/eval/experiments/<id>/`의 꼴을 만든다: 사람이 돌리기 전에 쓰는 `spec.json`, program이 쓰는 `result.json`, experimenter가 쓰는 `report.md`. spec 읽기와 검사(경계는 eval-base의 `Result`), spec이 harness 고침보다 먼저 commit됐는지 보는 규칙, 그리고 뒤 task(ex-select, ex-trials, ex-verdict)가 같이 쓰는 type과 세는 함수를 이 task가 내놓는다.
+experiment 기록 폴더 `tests/eval/experiments/<id>/`의 꼴을 만든다: 사람이 돌리기 전에 쓰는 `spec.json`, program이 쓰는 `result.json`, experimenter가 쓰는 `report.md`. spec 읽기와 검사(경계는 `packages/base`의 `Result`), spec이 harness 고침보다 먼저 commit됐는지 보는 규칙, 그리고 뒤 task(ex-select, ex-trials, ex-verdict)가 같이 쓰는 type과 세는 함수를 이 task가 내놓는다.
 
 - 단위: ex-spec (wave 1)
 - 선행: 없음
@@ -9,10 +9,11 @@ experiment 기록 폴더 `tests/eval/experiments/<id>/`의 꼴을 만든다: 사
   - `tests/eval/types.ts`: 아래 "할 일 1"의 마지막에 적은 칸만 더하고 고친다(`TrialResult.components?`, `JudgeItem.state`·`model`, `CheckResult.pending?`, `HumanRecord`의 `model` 이동). 그 밖의 줄은 고치지 않는다.
 - 읽을 것:
   - 설계 정본: `project-docs/products/roadmap/eval.md`의 "experiment"(표, 예), "trial 수", "특정 시나리오에 맞추지 않기", "역할과 흐름"(spec은 harness를 고치기 전에 확정한다), "정한 것"(채택 규칙, 판정 규칙은 program이 계산한다)
-  - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것": experiment 기록, spec의 칸, 판정, 기준 구성, trial 정책). `project-docs/plan/eval-coding/README.md`(이 계획은 그 뒤에 시작한다)
+  - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것": experiment 기록, spec의 칸, 판정, 기준 구성, trial 정책)
+  - 지금 eval이 하는 것: `project-docs/architecture/eval.md`(eval-base와 eval-coding은 main에 있다)
   - 진단 type의 칸: `project-docs/plan/eval-experiment/tasks/ex-overfit.md`(`OverfitWarning`), `ex-repeat.md`(`RepeatFinding`), `ex-assembly.md`(`AssemblyReport`). 이 task가 type을 정의하고 세 task가 여기서 import한다.
-  - 먼저 끝난 계획의 코드와 brief(`tests/eval/types.ts`는 main에 있다. 이름과 칸은 그 file이 정본이다): `project-docs/plan/eval-base/tasks/ev-contract.md`(`RunRecord`, `TrialResult`, `CheckResult`, `JudgeItem`, `Scenario`, `VersionRef`, `VersionKind`, `refText`, `parseRef`), `ev-scorecard.md`(run 요약을 읽는 쪽. `tests/eval/runs/<id>.json`)
-  - 본보기(registry 파일을 읽고 쓰는 꼴, `JSON.stringify(value, null, 2) + "\n"`): `project-docs/plan/eval-base/tasks/ev-versions.md`의 "registry"
+  - 코드(main에 있다. 이름과 칸은 이 file들이 정본이다): `tests/eval/types.ts`(`RunRecord`, `TrialResult`, `CheckResult`, `JudgeItem`, `HumanRecord`, `HumanSummary`, `Scenario`, `VersionRef`, `VersionKind`, `refText`, `parseRef`), `tests/eval/scorecard/runs.ts`(`readRuns`: run 요약 `tests/eval/runs/<id>.json`을 읽는 쪽), `tests/eval/scorecard/pick.ts`(`Current`, `staleReasons`), `tests/eval/runner/cli.ts`의 `passed(trial)`(trial 통과의 정의)
+  - 본보기(registry 파일을 읽고 쓰는 꼴, `JSON.stringify(value, null, 2) + "\n"`): `tests/eval/versions/registry.ts`(`readEntries`, `registerAuthored`)
   - 경계 규칙: `AGENTS.md`의 "코드"(오류 코드 일곱, `packages/base`의 `Result`)
   - 코드: `packages/base/mod.ts`(`Result`, `ok`, `err`, `LophnError`, `sha256Hex`), `deno.json`의 `zod`(`npm:zod@4.6.5`, 이미 있는 의존)
 - 계약:
@@ -143,17 +144,17 @@ export type AssemblyReport = {
      - `model: string | null;` 채점한 model 이름. pending이면 null. 다른 model이 채점한 run은 grader가 다르다는 뜻이다(README).
      - 이 두 칸의 값을 채우는 일(대기 item 쓰기, `deno task eval:judge`, 검사)은 `ex-judge-agent`가 한다. 이 task는 칸 이름과 뜻만 정한다. 채점 대기 check는 `pass: false`, `reason`은 "채점 대기"로 둔다.
      - `CheckResult`에 `pending?: boolean;`을 더한다. 채점 대기인 judge check에서만 true다. 이유: scorecard와 runner가 judge item을 읽지 않고도 대기를 안다. `eval:judge`가 채점을 적으면 `pending`을 지우고 `pass`를 다시 정한다.
-     - `HumanRecord`(`TrialRecord.human`의 type)에서 맨 위 `model: string`을 지우고, `answers[]`의 각 항목에 `model: string | null;`을 더한다(그 답을 낸 subagent의 model. 모르면 null). 이유: 사람 역할 답도 agent가 띄운 subagent가 하므로 model이 답마다 다르다. 이 type을 쓰는 쪽(`tests/eval/human/**`, collect, runner)이 type check에서 깨지면 최소로 맞추고 보고의 "넘길 줄"에 적는다.
+     - `HumanRecord`(`TrialRecord.human`의 type)에서 맨 위 `model: string`을 지우고, `answers[]`의 각 항목에 `model: string | null;`을 더한다(그 답을 낸 subagent의 model. 모르면 null). 이유: 사람 역할 답도 agent가 띄운 subagent가 하므로 model이 답마다 다르다. 이 type을 쓰는 곳은 `tests/eval/human/role.ts` 하나다(`createHumanRole`의 `record` literal에서 `model: ""`을 지우고, `fill`의 `record.model = d.model`을 지우고, `rec.answers.push({...})`에 `model: def.model`을 더한다. 곧 `ex-human-agent`가 다시 쓴다). 그 밖에서 type check가 깨지면 최소로 맞추고 보고의 "넘길 줄"에 적는다.
      - 이제 쓰이지 않게 된 `cost_usd` 칸(`JudgeItem.cost_usd`, `HumanRecord`의 `cost_usd`와 `HumanSummary.cost_usd`)은 지우지 않는다. ex-cli(wave 3)가 그 값을 읽는 코드와 함께 지운다.
-     - `tests/eval/judge/run.ts`의 `judgeItem`이 `JudgeItem`을 만드는 유일한 곳이라 칸이 required이면 type check가 깨진다. 그 file은 `ex-judge-agent`가 곧 다시 쓰므로 이 task는 최소만 맞춘다: 시작 literal에 `state: "judged"`, `model: judge.model`을 더하고 `error`가 채워지는 자리에서 `state`를 `"error"`로 바꾼다. 보고의 "넘길 줄"에 적는다.
+     - `tests/eval/judge/run.ts`의 `judgeItem`이 `JudgeItem`을 만드는 유일한 곳이라 칸이 required이면 type check가 깨진다. 그 file은 `ex-judge-agent`가 곧 다시 쓰므로 이 task는 최소만 맞춘다: 시작 literal에 `state: "judged"`, `model: judge.model`을 더한다. `error`를 채우고 돌려주는 return이 여럿이라(network, http, no verdict, verdict not allowed, no quote, quote not in input) return마다 고치지 말고 함수 본문을 안쪽 함수로 옮겨 바깥에서 `error !== null`이면 `state: "error"`로 바꿔 돌려준다. `run_test.ts`는 `state`를 보지 않으므로 그대로 둔다(곧 `ex-judge-agent`가 지운다). 보고의 "넘길 줄"에 적는다.
    - `tests/eval/types.ts`의 `TrialResult`에 `components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다. ex-cli가 채운다`를 더한다. 이유: 합집합만으로는 X@a를 본 run 안에서도 X를 안 본 trial이 기준 통과율에 섞인다. 없는 옛 run 요약은 합집합으로 대신한다(호환 장치가 아니라 칸이 선택이라서 생기는 읽는 쪽 규칙이다).
 2. **세는 함수** (`tally.ts`). 기준 run 모으기(ex-select), trial 정책(ex-trials), 판정(ex-verdict)이 같은 눈금으로 센다.
 
 ```ts
 // pending = pending이 true인 CheckResult의 id(= trial.judge에서 state가 "pending"인 item의 check).
 // state: settle이 timeout이거나 pending이 아닌 CheckResult가 하나라도 떨어졌으면 "fail"(채점이 남아 있어도 이미 떨어졌다).
-//        아니고 pending이 있으면 "pending". 아니면 "pass"(ev-runner의 "trial 통과"와 같다).
-// cost_usd = metrics.cost_usd + judge item의 cost_usd 합.
+//        아니고 pending이 있으면 "pending". 아니면 "pass"(`runner/cli.ts`의 `passed()`, 곧 `settle.kind === "idle"`이고 모든 check 통과와 같다).
+// cost_usd = metrics.cost_usd + judge item의 cost_usd 합 + (trial.human?.cost_usd ?? 0). 옛 요약(key 호출 시절)의 judge·사람 역할 비용을 잃지 않으려는 것이다. 새 run은 둘 다 0이다.
 // components = trial.components ?? runComponents (run의 합집합).
 export function outcomeOf(trial: TrialResult, runComponents: VersionRef[]): Outcome;
 // checks가 null이면 o.state. 있으면 그 id 가운데: o.checks에 없거나 pending이 아닌데 false면 "fail"(없는 id는 실패: check 이름이 바뀐 것을 통과로 치지 않는다),
@@ -232,8 +233,8 @@ export function listSpecIds(dir: string): Promise<string[]>;
 - 기록 폴더는 `tests/eval/experiments/<id>/`(data)이고 코드는 `tests/eval/experiment/`(단수)다. 이름이 비슷하니 헷갈리지 않게 한다. 데이터 폴더는 첫 experiment가 만들고, `fmt.exclude`는 lead가 올린다.
 - 판정 규칙은 spec에 값이 아니라 이름(`default@1`)으로 둔다. 이유: 규칙은 program이 계산하는 것이라 값을 spec에 풀어 쓰면 program이 읽지 못한 칸이 생긴다. 규칙의 정의는 ex-verdict의 코드와 그 brief에 있다. 규칙을 바꾸면 이름을 올린다. trial 수(`trials`)와 예산(`budget_usd`)만 spec의 값이다.
 - spec의 `change.to`는 고치기 전에 쓰므로 n은 짐작이다(registry에서 그 name의 가장 큰 n + 1이 보통이다). 돌린 뒤 variant에서 잰 실제 버전이 `change.to`와 n이 다르면 막지 않고 `result.json`의 `changed`와 `reasons`에 남긴다. 이유: spec은 고친 뒤 못 바꾸는데, 옛 내용으로 되돌아가는 고침은 옛 n을 받는다.
-- `model`은 experiment가 쓰는 model이다. 기준 run을 고르는 낡음 판정(ev-scorecard의 `Current.model`)과 variant trial에 쓴다. ex-cli는 experiment에 `--model`을 받지 않고 이 값만 쓴다.
-- run은 file 이름이 아니라 JSON 안의 `RunRecord.id`로 가리킨다(`start_run`, `baseline_runs`, `variant_runs`). eval-base의 runner가 file 이름을 `id`와 다르게 지을 수 있다.
+- `model`은 experiment가 쓰는 model이다. 기준 run을 고르는 낡음 판정(`scorecard/pick.ts`의 `Current.model`)과 variant trial에 쓴다. ex-cli는 experiment에 `--model`을 받지 않고 이 값만 쓴다.
+- run은 file 이름이 아니라 JSON 안의 `RunRecord.id`로 가리킨다(`start_run`, `baseline_runs`, `variant_runs`). 지금 runner는 file 이름을 `id`와 같게 짓지만(`tests/eval/runs/<id>.json`) 읽는 쪽이 이름에 기대지 않게 한다.
 - `EXPERIMENT_KINDS`에서 `model`과 `cli`를 뺐다. 이유: 그 둘은 checkout을 바꾸는 길이 아니라 설정이나 설치로 바뀌고, variant 경로(`ex-variant`)가 다루지 않는다. 필요해지면 그때 더한다.
 - guard 칸을 spec에 두지 않는다(README). 그래서 `PlanEntry.role`의 `guard`는 ex-select만 만든다.
 

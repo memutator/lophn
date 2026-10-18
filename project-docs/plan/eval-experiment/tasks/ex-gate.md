@@ -12,7 +12,7 @@ harness를 고친 checkout을 진짜 model로 돌리기 전에 거르는 gate �
   - architecture: `project-docs/architecture/testing.md`("층", "가짜 셋", "돌리는 때": e2e는 file 순서대로 돌고 전체가 10분 안이어야 한다)
   - catalog: `project-docs/module-catalog.yaml`(`modules[].path` → `boundary`), `project-docs/boundary-catalog.yaml`(`elements`의 `children` tree. `tools/check-modules.ts`가 같은 tree를 읽는 본보기)
   - 코드: `tools/check.ts`의 `changedFiles`(바뀐 file을 `git merge-base HEAD main`부터의 `git diff --name-only`와 `git ls-files -o --exclude-standard`로 정한다. 같은 규칙을 쓴다), `deno.json`의 `e2e` task(`deno test --allow-all --no-check tests/e2e`), `tests/e2e/*_test.ts`의 머리 주석(`// - contract: boundary \`router\`(...), \`agent-sessions\`(...)` 꼴)
-  - eval-base brief: `ev-restore.md`(`beginRestore`, `restoreWorld`, `endRestore`, 재료 hash 확인), `ev-checks.md`(`validateFixtures`), `ev-runner.md`("할 일 3"의 trial 순서 1~2), `ev-versions.md`(`classifyPath`, `Git`, `denoGit`)
+  - landed 코드(정본): `tests/eval/restore/mod.ts`(`beginRestore`, `restoreWorld`, `endRestore`), `tests/eval/checks/validate.ts`(`validateFixtures`), `tests/eval/runner/trial.ts`의 `runTrial` 앞부분(`createRun` → `bootCore` → `beginRestore` → `restoreWorld` → `scenario.setup` → `endRestore`), `tests/eval/versions/{files,source}.ts`(`classifyPath`, `Git`, `denoGit`)
   - eval-experiment: `ex-variant.md`(`Variant`, `explainBreak`)
 - 계약:
   - 쓰는 것:
@@ -90,6 +90,7 @@ harness를 고친 checkout을 진짜 model로 돌리기 전에 거르는 gate �
 - e2e를 고르는 기준은 바뀐 file이다. spec의 "바꾸는 것"(component X@a → X@b)에서 file을 거꾸로 찾지 않는다. 이유: 작업 중 실제로 바뀐 file이 진실이고, spec과 어긋나면(다른 file도 고쳤으면) gate가 더 많이 돌아 안전한 쪽이다. 어긋남 자체는 ex-cli가 `currentVersions` 차이로 따로 알린다.
 - 글 component(`instruction`, `guide`, `skill`) file은 e2e를 고르지 않는다. `template`은 앱 e2e가 쓰므로 module로 고른다.
 - 앞 단계가 실패하면 멈춘다. 이유: dry run과 e2e는 느리고, check가 깨진 checkout에서는 뜻이 없다.
+- coding agent가 든 시나리오의 dry run도 되살리기와 setup까지다. PTY, `claude`, 전역 hook 확인은 하지 않는다(그것은 trial 앞의 `prepareCodingAgent`가 본다. 모자라면 trial이 role agent 호출 전에 거기서 멈춘다).
 - dry run은 차례로 돈다(병렬 없음). 이유: 단순함. 시나리오가 많아지면 ex-parallel의 pool을 쓰게 바꾼다.
 - gate는 key를 읽지 않는다. `eval:gate` task는 `--env-file`을 쓰지 않는다(ex-cli).
 

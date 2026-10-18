@@ -28,7 +28,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 입력 하나가 turn 하나이고 turn이 token이라 재시도가 곧 비용이다.
 - 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. "있으면 보내고 없으면 연다"를 기본으로 두지 않는다.
   - session을 열 때마다 token이 든다. "열린 session, 없으면 새 session"은 놓치면 안 되는 사실(coding agent의 완료 보고와 메시지, claim 만료, 보고 없는 끝)을 맡긴 App Engineer에게 돌려줄 때만 쓴다.
-- 이름은 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 not_found, 같은 이름이 여럿이면 invalid_input이다.
+- 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 not_found, 같은 이름이 여럿이면 invalid_input이다.
 - 실패는 조용히 버리지 않고 한 번만 알린다. 보낼 때 바로 아는 배달 실패(not_found, not_allowed, closed)는 agent에게 call tool 결과(`state: failed`, 이유)로만 돌려준다. 배달 뒤에 늦게 아는 실패(receiver_ended: 받은 session이 답 없이 끝남, lophn_restarted)는 tool 결과가 이미 돌아간 뒤라 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
   - 같은 실패를 tool 결과와 입력 둘로 받으면 agent가 두 번 반응한다. 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
 - 부를 수 있는 session 목록의 상태는 running, idle, unknown이다. 허락 기다림(waiting)은 reader가 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.

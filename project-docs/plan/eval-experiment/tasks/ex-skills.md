@@ -12,7 +12,7 @@ eval을 돌리는 개발 쪽 agent 둘이 일하는 법을 skill 둘로 쓴다. 
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것"의 runner·experimenter, 판정, 기준 구성, trial 정책, 예산)
   - 채점과 사람 역할: `ex-judge-agent.md`(`deno task eval:judge <run>`, `show`, `set`, 정상 채점은 덮지 않는다), `ex-human-agent.md`(`deno task eval:answer <run>`, `show`, `set`), `ex-repeat.md`(진단 item)
   - 같은 계획의 brief(merge된 코드가 정본이고 brief는 그 뒤 이름과 어긋나면 코드를 따른다): `ex-spec.md`(`spec.json`, `result.json`, `report.md`의 꼴. `ExperimentResult`의 칸. 경고와 진단은 `overfit?`, `repeats?`, `assembly?`에 있다), `ex-cli.md`(`deno task eval:experiment`, `eval:gate`의 인자, 출력, 종료 코드), `ex-verdict.md`(판정 규칙 `default@1`), `ex-trials.md`(trial 정책), `ex-overfit.md`, `ex-repeat.md`, `ex-assembly.md`(경고와 진단이 어디에 남는지)
-  - eval-base brief: `project-docs/plan/eval-base/tasks/ev-runner.md`(`deno task eval`의 옵션과 종료 코드, run 요약과 full record의 자리), `ev-scorecard.md`(`deno task eval:scorecard`와 diff), `ev-judge.md`(`JudgeItem`: verdict, 인용, `quote_found`, `error`)
+  - eval-base와 eval-coding은 main에 있고 그 brief는 계획 폴더에 더 없다. 정본은 `project-docs/architecture/eval.md`와 코드다: `tests/eval/runner/cli.ts`(`deno task eval`의 `USAGE`: `--scenario <id>... | --all`, `--model`, `--trials`, `--budget`, `--trial-budget`와 종료 코드), `tests/eval/scorecard/main.ts`(`deno task eval:scorecard`, diff), `tests/eval/types.ts`(`JudgeItem`: verdict, 인용, `quote_found`, `error`), `tests/eval/coding/driver/attach.ts`(`deno task eval:attach`)
   - 본보기(skill의 꼴): `.claude/skills/write-test/SKILL.md`, `.claude/skills/issue/SKILL.md`, `.claude/skills/orchestrate/SKILL.md`. frontmatter는 `name`과 `description` 둘뿐이다. description은 "언제 쓰는가"를 한 문단으로 쓴다.
   - 등록 방식: `project-docs/context-component-registry.yaml`(skill은 `kind: skill`, `path: .claude/skills/<이름>/`. 등록은 lead가 한다)
   - 문서 path 검사: `tools/check-docs.ts`(skill 안의 backtick 저장소 path는 `packages/`, `project-docs/`, `tools/`, `.claude/`로 시작하면 실제로 있어야 하고 `<...>`가 든 path는 건너뛴다. `tests/...`는 검사하지 않는다)
@@ -37,11 +37,13 @@ eval을 돌리는 개발 쪽 agent 둘이 일하는 법을 skill 둘로 쓴다. 
      4. `deno task eval:answer <run> set <key> --model <그 subagent의 model 이름> <<'EOF' ... EOF`로 넣는다(질문마다 subagent 하나. 한 subagent에 질문 여럿을 몰지 않고, 앞 subagent를 이어 쓰지 않는다).
      - 이유: 사람 역할은 질문, 요구 카드, 앞서 자기가 한 답만 아는 사람이다. 돌리는 쪽의 가설과 진행에 끌리지 않게 하려는 것이다.
    - **채점하기**(stdout에 `채점 대기 <run> <key>`가 뜨거나 `deno task eval:judge <run>`이 목록을 낼 때): 위와 같은 절차로 `deno task eval:judge <run> show <key>`의 전문만 새 subagent에 주고, 마지막 글의 `{"verdict": "...", "quote": "..."}`를 `deno task eval:judge <run> set <key> --model <name> <<'EOF' ... EOF`로 넣는다. program이 enum과 인용을 검사해 `error`로 남길 수 있다. 오류로 기록된 item만 새 subagent로 다시 채점할 수 있다. **정상으로 기록된 채점은 다시 하지 않는다**(program이 거절한다). 질문과 달리 채점은 trial이 끝난 뒤에 몰아서 해도 된다. 진단 item(`repeat-kind`)도 같은 목록에 있고 같은 절차다.
+   - **coding agent 시나리오가 든 run**(calendar-mvp 등): 진짜 Claude Code가 사람의 로그인으로 PTY에서 돈다. runner가 알아야 할 것만 쓴다. ① 전역 hook·skill은 사람이 미리 설치해 둔다. CLI가 "전역 hook·skill이 없다"며 사람이 칠 명령을 찍고 멈추면 그 명령을 대신 치지 않고 caller에게 보고한다(`~/.claude/settings.json`은 사람의 것이다). ② 처음에는 `/tmp/lophn-eval`을 만들었다는 안내가 나온다. 이 폴더에서 Claude Code가 처음 신뢰를 묻는 것은 사람이 한다. ③ 화면을 보려면 `deno task eval:attach [session]`을 **읽기 전용으로만** 쓴다. `--write`로 키를 넣으면 trial에 사람 개입(`human_input`)이 남아 결과가 사람 손을 탄다. coding trial이 둘 동시에 돌면 session을 준다(안 주면 가장 최근 것에 붙는다). ④ coding trial 하나는 최대 90분이다. stdout이 오래 조용한 것은 이상이 아니다(위 멈춤 기준).
    - **하지 않는 것**(각각 이유 한 줄):
      - runner 자신이 답하거나 채점하지 않는다. 직접 판단하면 돌리는 쪽의 가설이 판단에 들어간다. subagent의 답을 고치거나 골라 쓰지 않는다(code fence 벗기기만).
      - 결과를 고치지 않는다: `result.json`, `tests/eval/runs/*.json`, `.dev-data/eval/`(채점 대기·답 file 포함)를 손으로 고치지 않는다. 판정과 기록의 정본이다. CLI(`eval:judge`, `eval:answer`)로만 적는다.
      - 떨어진 trial만 골라 다시 돌리지 않는다. 몇 번 더 돌릴지는 program의 trial 정책이 정한다. 통과할 때까지 돌리면 결과를 고르는 일이 된다.
      - 상한을 넘기지 않는다: `budget_usd`나 `--budget`을 올리지 않고, 예산이 끊은 experiment(`inconclusive`)를 caller가 시키지 않았는데 이어 돌리지 않는다.
+     - Claude Code 전역 설정(`harness install`, `~/.claude/`)과 `~/.lophn`을 건드리지 않는다. 사람의 환경이다(AGENTS.md).
      - 시킨 것 말고 다른 experiment나 `deno task eval --all`을 돌리지 않는다. 진짜 provider는 비용이 든다(AGENTS.md "사람에게 묻는 것").
      - key를 찍거나 옮기지 않는다. `.env`를 열지 않는다. CLI가 key 없이 0으로 끝나면 그대로 보고한다.
      - 해석하지 않는다. 원인 추정, 판정 뒤집기, 다음 고칠 것을 쓰지 않는다. experimenter의 일이다.

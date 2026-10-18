@@ -29,7 +29,7 @@ judge를 runner가 `.env` key로 Anthropic API를 부르는 길에서, eval을 �
     - `readPending(evalDir: string, run: string): Promise<PendingJudge[]>`: 폴더가 없으면 `[]`. key 순.
     - `outstanding(entries: PendingJudge[]): PendingJudge[]`: `item.state === "pending"`인 것. ex-cli가 "채점이 다 들어왔나"를 볼 때 쓴다.
     - `foldJudge(trials: TrialResult[], entries: PendingJudge[]): TrialResult[]`: 순수 함수. `kind: "check"` entry마다 그 trial의 `judge` 가운데 `check`가 같은 item을 entry의 item으로 바꾸고, 같은 id의 `CheckResult`를 `pass = judgePassed(criterion, item)`, `reason`, `CheckResult.pending`(없애거나 거짓)으로 고친다. `"diagnosis"`는 건드리지 않는다. 입력을 바꾸지 않고 새 값을 돌려준다.
-    - `foldRun(args: { evalDir: string; runsDir: string; run: string }): Promise<boolean>`: `readPending`으로 entry를 읽어 run 요약(`<runsDir>/<run>.json`. 이 이름이 없으면 폴더의 `*.json`을 읽어 `id`가 `run`인 파일)의 `trials`를 `foldJudge`한 결과로 다시 쓰고(`JSON.stringify(v, null, 2) + "\n"`), `<evalDir>/<run>/trial-<i>.json`이 있으면 그 파일의 `judge`도 같은 item으로 바꿔 다시 쓴다. 요약이 아직 없으면(runner가 시나리오 끝에 쓴다) 아무것도 쓰지 않고 `false`. ex-cli가 요약을 쓰기 직전에 `foldJudge(results, await readPending(...))`를 불러 이미 들어온 채점을 합친다.
+    - `foldRun(args: { evalDir: string; runsDir: string; run: string }): Promise<boolean>`: `readPending`으로 entry를 읽어 run 요약(`<runsDir>/<run>.json`. runner가 요약 file 이름을 `RunRecord.id`로 짓는다)의 `trials`를 `foldJudge`한 결과로 다시 쓰고(`JSON.stringify(v, null, 2) + "\n"`), `<evalDir>/<run>/trial-<i>.json`이 있으면 그 파일의 `judge`도 같은 item으로 바꿔 다시 쓴다. 요약이 아직 없으면(runner가 시나리오 끝에 쓴다) 아무것도 쓰지 않고 `false`. ex-cli가 요약을 쓰기 직전에 `foldJudge(results, await readPending(...))`를 불러 이미 들어온 채점을 합친다.
   - `tests/eval/judge/main.ts`: `deno task eval:judge`의 입구(아래 할 일 5). lead가 `deno.json`에 task를 올린다.
 
 ### types.ts 변경(ex-spec이 한다. 이 task는 고치지 않는다)
@@ -83,7 +83,7 @@ pending?: boolean;    // judge check가 채점 대기다. 이때 pass는 false�
    premise가 떨어졌거나 timeout인 judge check는 지금처럼 item 없이 fail로 둔다(건드리지 않는다).
 8. scorecard(`tests/eval/scorecard/**`): 채점 대기를 따로 보인다.
    - `markdown.ts`: 표의 judge 칸에 대기가 있으면 `1/3 (대기 2)`처럼 대기 수를 덧붙인다(대기 수는 `runs`의 그 run `trials[].checks[].pending`에서 센다. `ScorecardRow`는 고치지 않는다). "judge verdict" 표에 `model` 칸을 더하고, 대기 item은 verdict 칸에 `채점 대기`, 오류는 지금처럼 `!`. 끝의 "judge 비용 합" 줄을 지운다(비용이 더는 없다).
-   - `diff.ts`: judge verdict 줄에 대기는 `대기`, 값에는 채점 model을 붙인다(`all(claude-sonnet-5-5)`). 두 run의 채점 model 집합이 다르면 "재료와 core" 절 옆의 grader 줄에 `judge model a / b`를 낸다. 이유: 다른 model이 채점한 run은 grader가 달라 따로 보여야 한다(README).
+   - `diff.ts`: judge verdict 줄에 대기는 `대기`, 값에는 채점 model을 붙인다(`all(claude-sonnet-5-5)`). 두 run의 채점 model 집합이 다르면 `diffRuns`의 `other` 목록("재료와 core" 절)에 `judge model a / b` 줄을 더한다. 이유: 다른 model이 채점한 run은 grader가 달라 따로 보여야 한다(README).
    - `pick.ts`: 바꾸지 않는다. 채점 model은 낡음 이유가 아니다(지금 채점할 model이라는 기준이 없다).
    - `scorecard_test.ts`가 깨지면 새 칸에 맞게 고친다(새 test를 더하지 않는다).
 9. test(아래)와 `judge/mod.ts` 정리.

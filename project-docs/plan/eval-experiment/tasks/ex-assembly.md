@@ -10,12 +10,12 @@ prompt assembly를 바꾼 experiment가 진짜 model을 부르기 전에 prefix 
   - roadmap: `project-docs/products/roadmap/eval.md`의 "공통 수치" 끝 단락(assembly를 바꾼 experiment), "지켜야 할 것"(녹화 재생은 판단 재기에는 안 쓰고 조립 재기에만 쓴다)
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것"의 assembly의 prefix 재기)
   - architecture: `project-docs/architecture/agent-definition.md`(prompt 조립, cache 경계), `project-docs/architecture/testing.md`(fake server)
-  - eval-base: `ev-collect.md`("기대하는 모양"의 `CollectedModelCall.request`, 그리고 `request` body를 data root의 blob file에서 읽는 이유), `ev-runner.md`(trial 순서, full record를 `.dev-data/eval/<run>/trial-<index>.json`에 `{ trial, judge, source }`로 쓴다, trial이 끝나면 `run.remove()`), `ev-provider.md`(`attachRealModels`의 `endpoint`), `ev-restore.md`(`beginRestore`/`endRestore`), `ev-versions.md`("알아 둘 코드 사실"의 Anthropic body 꼴)
+  - landed 코드(정본. eval-base brief는 계획 폴더에 더 없다): `tests/eval/types.ts`의 `CollectedModelCall.request`와 `tests/eval/collect/{read,blob}.ts`(`request` body를 data root의 blob file에서 읽는 이유), `tests/eval/runner/trial.ts`(trial 순서. full record를 `writeFullRecord`로 `.dev-data/eval/<run>/trial-<index>.json`에 `{ trial, judge, source }`로 쓴다, 끝나면 `run.remove()`), `tests/eval/provider/attach.ts`(`attachRealModels`의 `endpoint`), `tests/eval/restore/mod.ts`(`beginRestore`/`endRestore`), `tests/eval/versions/components.ts`의 `bodyOf`(Anthropic body 꼴)
   - 코드: `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`(`assembleTurnPrompt`, `cache_boundaries`의 hash 만드는 법), `packages/core/lophn-agent/prompt-assembly/layers.ts`(`anthropicSystem`, `anthropicTools`), `packages/core/lophn-agent/models/binding.ts`(`anthropicPacker`: wire body는 tools → system → messages이고 system 블록의 `cache_control`이 경계 표시, messages에는 경계 표시가 없다), `packages/core/lophn-agent/run-loop/core-ports.ts`(`modelAttempt`: `context_basis` blob의 내용), `tests/support/fake-server/{mod,types}.ts`(`startFakeServer`, `Reply`, `Step`, `JournalEntry`)
 - 계약:
   - 쓰는 것:
     - `tests/eval/experiment/spec/mod.ts`(ex-spec): `type AssemblyReport`, `LayerStat`, `SideStat`.
-    - eval-base가 만든 것:
+    - main에 있는 것:
       - `tests/eval/types.ts`: `TrialRecord`, `SessionRecord`, `CollectedModelCall`(`call: ModelCallRecord`, `request: unknown | null`), `Scenario`, `Settle`.
       - `packages/base/mod.ts`: `canonicalize`, `sha256Hex`, `Result`, `ok`, `err`.
       - `tests/support/fake-server/mod.ts`: `startFakeServer`, 그리고 type `FakeServer`, `Reply`, `Step`, `JournalEntry`.
@@ -57,6 +57,7 @@ type AssemblyReport = {
 - **`context_basis`를 읽는 길은 없다.** `ReadTurnBody`(`turnBody`)의 kind는 `turn_basis`, `turn_resolved`, `model_call_output`, `tool_call_output`뿐이고, `blob.read`는 `model_call/context_basis`를 `general_read: false`로 막는다(`packages/core/lophn-agent/usage/commands.ts`). data root의 blob file(`<home>/blobs/sha256/<앞 2자>/<나머지>`)로만 읽히는데, 그 root는 trial이 끝나면 지워지고(`run.remove()`), eval-base의 collect는 `request`만 full record에 남긴다. 그래서 이 task는 `context_basis`를 쓰지 않는다.
 - **대신 보낸 요청 body에서 같은 hash를 다시 계산한다.** Anthropic wire body는 `tools`(정렬된 `{name, description, input_schema}`), `system`(`{type:"text", text, cache_control?}` 블록들), `messages`이고, 위 hash 식이 쓰는 입력이 이 `tools`와 `system`뿐이다(`anthropicPacker`는 `boundaries`를 모두 끈다). 그래서 body에서 `canonicalize(body.tools ?? [])`로 시작해 system 블록을 이어 계산하면 `cache_boundaries`와 같은 값이 나온다. fake provider가 받는 body도 같은 wire body라 variant 쪽도 이 함수 하나로 잰다. 제품의 식이 바뀌면 어긋나므로 그 일치를 test로 지킨다(아래).
 - **model 답(output)도 full record에 없다.** `CollectedModelCall`에는 `request`뿐이고 root가 지워진다. 대신 call k의 답은 같은 session의 call k+1 요청의 마지막 assistant message에 들어 있다(history에 붙는다). text 조각과 `tool_use`(id, name, input)에서 fake `Reply`를 다시 만든다. 마지막 call의 답은 알 수 없어 `{ kind: "text", text: "done" }`을 준다(그 요청은 이미 재생에서 받으므로 재는 데는 지장이 없다).
+- 지금 trial은 `say`가 연 root뿐 아니라 callApi·deliver가 깨운 role agent session도 기록에 넣는다(`runner/roots.ts`의 `extraRoots`, t0 뒤 turn이 있는 것만). 그래서 calendar 시나리오 trial은 model을 받은 session이 여럿이라 아래 조건에서 `not_replayable`이 되는 일이 많다. 판단 case(`lophn/`, `operator/`, `project-manager/`, `app-engineer/`)가 주 대상이다.
 - 제품이 보내는 요청에서 경계 표시는 system 블록에만 있다(`final_user`, `tools`는 꺼짐). 그래서 prefix 유지는 system 블록 hash로 충분하고 messages는 재지 않는다.
 
 ## 할 일
@@ -75,7 +76,7 @@ type AssemblyReport = {
    - `firstDivergence(recorded: unknown[], replayed: unknown[]): { at: number; reason: string } | null`: 요청 수가 다르면 `min+1` 번째에서, 아니면 `traceOf`가 처음 다른 call(1부터)에서. 이유 글에 두 trace의 다른 자리를 한 줄로 담는다.
    - `sideStat(calls: Boundary[][]): SideStat`: 위 `LayerStat` 정의대로. 한 call에 어떤 layer가 없으면 그 쌍은 안 같다(깨짐)로 센다.
 4. `replay.ts`: `measureAssembly`, 순서:
-   1. `scriptOf(trial)` 실패면 `not_replayable` 보고서.
+   1. `args.scenario`에 coding agent 참가자(`real`의 `role === "coding_agent"`)나 `human`이 있으면 재생하지 않고 `not_replayable`("coding agent·사람 역할이 든 시나리오는 재생하지 않는다"). 이유: PTY와 사람 역할은 fake provider 재생에 없다. 아니면 `scriptOf(trial)`이 실패할 때 `not_replayable` 보고서.
    2. baseline = 녹화한 `requests`에서 `prefixBoundaries`로 잰 `SideStat`.
    3. `fake = await startFake()`, `fake.script(replies.map((reply) => ({ reply })))`. 줄이 모자라면 fake가 400으로 답하고 journal에 `mismatch`가 남는다. 이것이 "더 많은 요청이 왔다"는 어긋남이다. `fallback`은 주지 않는다.
    4. `await port.run({ scenario, checkout, model, endpoint: fake.url })`. `finally`에서 `fake.close()`. `settle.kind === "timeout"`이면 `diverged`로 두되 이유에 timeout을 적는다.
@@ -111,6 +112,6 @@ type AssemblyReport = {
 - 안 쓰게 된 export: 없음
 - 정한 것: 위 "정한 것" 밖에서 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳(없어야 한다)
-- 계약 바꾸기 요청: `AssemblyReport`가 ex-spec과 달라 막히는 곳. `CollectedModelCall`에 `output`을 담게 하면 답을 다음 요청에서 되살리지 않아도 된다(eval-base ev-collect). 필요하면 여기 적는다.
+- 계약 바꾸기 요청: `AssemblyReport`가 ex-spec과 달라 막히는 곳. `CollectedModelCall`에 `output`을 담게 하면 답을 다음 요청에서 되살리지 않아도 된다(`tests/eval/collect`). 필요하면 여기 적는다.
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 재생은 모델이 만든 id(trial 안에서 `app.create` 등이 낸 id)를 뒤 call의 인자에 쓴 trial에서 어긋난다(root마다 id가 달라 tool이 실패한다). 재료의 고정 id(`manifest.ids`)는 같아서 괜찮다. 이 경우 `diverged`로 낸다. session이 둘 이상 model을 받는 trial과 coding agent trial은 재생하지 않는다. `ReplayPort`를 실제 core로 돌려 본 확인은 ex-cli와 lead의 몫이다.

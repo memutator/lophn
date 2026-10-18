@@ -9,11 +9,11 @@ experiment의 trial 정책을 program 규칙으로 만든다: 기본은 1번, gu
 - 읽을 것:
   - 설계 정본: `project-docs/products/roadmap/eval.md`의 "trial 수"(정책 네 줄, "이 정책은 experiment의 판정 규칙에 같이 적는다"), "experiment"의 예(guard 6 × 1 + target 2 × 1~3 = 8~12 trial. 늘 3번씩이면 24 trial)
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것"의 trial 정책)
-  - 먼저 끝난 brief: `project-docs/plan/eval-experiment/tasks/ex-spec.md`(`Policy`, `Role`, `Outcome`, `PlanEntry`, `outcomeOf`, `goalPassed`, `tallyOf`, `poolVerdict`), `project-docs/plan/eval-base/tasks/ev-contract.md`(`RunRecord`의 `scenario`, `materials`, `components`, `core`, `grader`, `model`, `trials`)
+  - 먼저 끝난 brief: `project-docs/plan/eval-experiment/tasks/ex-spec.md`(`Policy`, `Role`, `Outcome`, `PlanEntry`, `outcomeOf`, `goalPassed`, `tallyOf`, `poolVerdict`), `tests/eval/types.ts`(main에 있다. `RunRecord`의 `scenario`, `materials`, `components`, `core`, `grader`, `model`, `trials`)
 - 계약:
   - 쓰는 것:
     - `tests/eval/types.ts`(main에 있다): `RunRecord`, `TrialResult`(`components?`는 ex-spec이 더한다), `refText`
-    - `tests/eval/experiment/spec/mod.ts`(ex-spec): `Policy = { base: number; max: number }`, `Role`, `Outcome = { index; passed; checks: Record<string, boolean>; cost_usd; components }`, `PlanEntry`, `outcomeOf`, `goalPassed(o, checks)`, `goalState(o, checks): "pass" | "fail" | "pending"`, `tallyOf(outcomes, checks)`(채점 대기 trial은 `Tally.pending`에만 센다), `poolVerdict(tally): "pass" | "fail" | "split" | "none"`, `outcomeOf(trial, runComponents)`
+    - `tests/eval/experiment/spec/mod.ts`(ex-spec): `Policy = { base: number; max: number }`, `Role`, `Outcome = { index; passed; state: "pass" | "fail" | "pending"; pending: string[]; checks: Record<string, boolean>; cost_usd; components }`, `PlanEntry`, `outcomeOf`, `goalPassed(o, checks)`, `goalState(o, checks): "pass" | "fail" | "pending"`, `tallyOf(outcomes, checks)`(채점 대기 trial은 `Tally.pending`에만 센다), `poolVerdict(tally): "pass" | "fail" | "split" | "none"`, `outcomeOf(trial, runComponents)`
   - 내놓는 것(`tests/eval/experiment/trials/mod.ts`):
     - `nextTrials(state: TrialState, policy: Policy): number`
     - `flakyScenarios(runs: RunRecord[], scenarios: { id: string; n: number }[]): Set<string>`
@@ -48,7 +48,7 @@ export function nextTrials(state: TrialState, policy: Policy): number;
 // source(commit, dirty)는 뺀다: commit이 달라도 같은 버전이면 같은 구성이다.
 export function versionKey(run: RunRecord, trial: TrialResult): string;
 // scenarios의 (id, n)마다: run.scenario.name === id 이고 run.scenario.n === n 인 run의 trial을 versionKey로 묶고,
-// 묶음 안의 trial(outcomeOf)에 passed가 true와 false가 모두 있으면 그 id를 담는다.
+// 묶음 안의 trial(`outcomeOf`)에 `state`가 `"pass"`인 것과 `"fail"`인 것이 모두 있으면 그 id를 담는다. `"pending"`(채점 대기)은 아직 정해지지 않았으므로 세지 않는다.
 // run은 file 이름이 아니라 JSON 안의 id로 가리킨다.
 export function flakyScenarios(runs: RunRecord[], scenarios: { id: string; n: number }[]): Set<string>;
 ```
@@ -56,7 +56,7 @@ export function flakyScenarios(runs: RunRecord[], scenarios: { id: string; n: nu
    - run 하나가 trial 둘 이상을 가져 안에서 갈린 것도 같은 묶음이라 잡힌다(trial마다 본 component가 다르면 묶음이 갈린다). 다른 run과 묶음이 같으면 그 trial도 한데 센다.
    - 세는 대상은 모든 run이다. 기준 run뿐 아니라 이전 experiment의 variant run도 들어 있다(`tests/eval/runs/`에 같은 형식으로 쌓인다). 그러니 X@b로 돈 run과 X@a로 돈 run은 `components`가 달라 묶음이 갈린다. 서로 섞이지 않는다.
    - 시나리오 n이 지금과 다른 run은 센 적 없다. 이유: 시나리오를 고치면 다른 시나리오다.
-   - timeout으로 떨어진 trial(`settle.kind === "timeout"`)도 `passed: false`로 센다. 이유: 같은 버전에서 어떨 땐 통과하고 어떨 땐 멈췄다면 흔들리는 것이다.
+   - timeout으로 떨어진 trial(`settle.kind === "timeout"`)도 `state: "fail"`로 센다. 이유: 같은 버전에서 어떨 땐 통과하고 어떨 땐 멈췄다면 흔들리는 것이다.
 3. **어림** (`estimate.ts`). roadmap "experiment"는 예산 칸에 "돌기 전에 어림을 찍는다"고 한다. ex-cli가 시작 전에 찍고, 상한(`spec.budget_usd`)이 worst보다 작으면 경고한다.
 
 ```ts

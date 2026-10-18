@@ -7,18 +7,18 @@ core를 다른 checkout(git worktree)에서 띄우는 길과, 그 checkout에서
 - 소유(이 task만 고친다):
   - `tests/eval/experiment/variant/**`
   - `tests/support/core/{mod,process}.ts` (core를 띄울 checkout을 고르는 옵션 하나만 더한다. 지금 이 두 file을 소유한 task는 없다)
-  - `tests/eval/versions/**` (아래 "할 일 6"의 최소 수정만. eval-base `ev-versions`가 land한 코드가 이미 같은 일을 하면 건드리지 않는다)
+  - `tests/eval/versions/**` (아래 "할 일 6"의 최소 수정만. main의 `Deps`는 `{ root?, registryDir? }`뿐이고 `checksRoot`·`texts`는 아직 없다(확인함). 이미 있으면 건드리지 않는다)
 - 읽을 것:
   - 설계 정본: `project-docs/products/roadmap/eval.md`의 "domain model"(grader는 대상의 checkout에서 가져오지 않는다), "버전"(variant는 제품이 값을 정하는 길로만 바꾼다, 재료는 checkout이 달라도 같은 재료로 돈다, route가 크게 다르면 되살리기가 깨지고 runner는 이유를 찍고 멈춘다), "지켜야 할 것"
-  - 계획: `project-docs/plan/eval-experiment/README.md`("variant"), `project-docs/plan/eval-base/README.md`("정한 것"의 variant)
+  - 계획: `project-docs/plan/eval-experiment/README.md`("variant"), `project-docs/architecture/eval.md`("지키는 것", "아직 아닌 것"의 variant)
   - architecture: `project-docs/architecture/testing.md`("`tests/support`", "E2E 실행 폴더")
-  - eval-base brief: `ev-versions.md`(`Deps`, `currentVersions`, `seenComponents`, `checksVersion`, `coreVersion`, `captureSource`, `classifyPath`), `ev-provider.md`(설정 key를 문자열로 쓴 이유: variant core 코드에 기대지 않으려는 것), `ev-restore.md`(재료 hash 규칙을 core 코드에서 import하지 않고 따로 둔 이유)
+  - landed 코드(정본. eval-base brief는 계획 폴더에 더 없다): `tests/eval/versions/{registry,components,files,source}.ts`(`Deps`, `currentVersions`, `seenComponents`, `checksVersion`, `coreVersion`, `captureSource`, `classifyPath`), `tests/eval/provider/settings.ts`(설정 key를 문자열로 쓴 이유: variant core 코드에 기대지 않으려는 것), `tests/eval/restore/{manifest,hash}.ts`(재료 hash 규칙을 core 코드에서 import하지 않고 따로 둔 이유)
   - 코드: `tests/support/core/process.ts`(`REPO`, `MAIN`, `spawnCore`가 `cwd: REPO`로 `deno run --allow-all <REPO>/packages/core/main/daemon/main.ts --port=0`을 띄운다), `tests/support/core/mod.ts`(`BootOptions`, `startCore`, `bootCore`), `tests/support/core/try-boot.ts`, `tools/worktree-prep.ts`(worktree에 shell main의 `node_modules`를 main checkout에서 잇는다. git worktree가 아니면 실패), `tests/support/coding/deps.ts`(`e2eDenoDir` = 그 checkout의 `.dev-data/e2e/deno-dir`)
 - 계약:
   - 쓰는 것:
     - `packages/base/mod.ts`의 `Result`, `ok`, `err`
     - `tests/support/core/mod.ts`의 `Run`, `Core`, `BootOptions`, `bootCore`
-    - eval-base `tests/eval/versions/mod.ts`: `Deps`(`{ root?, registryDir? }`). 이 task가 `Deps`에 칸 둘(`checksRoot?`, `texts?`)을 더한다(할 일 6).
+    - `tests/eval/versions/mod.ts`: `Deps`(`{ root?, registryDir? }`). 이 task가 `Deps`에 칸 둘(`checksRoot?`, `texts?`)을 더한다(할 일 6).
   - 내놓는 것(`tests/eval/experiment/variant/mod.ts`). ex-gate, ex-cli, ex-assembly가 기댄다:
     ```ts
     export type Variant = {
@@ -44,9 +44,11 @@ core를 다른 checkout(git worktree)에서 띄우는 길과, 그 checkout에서
 
 - core는 `spawnCore`가 `REPO`(= `tests/support/core/process.ts`가 있는 checkout)의 `packages/core/main/daemon/main.ts`를 `cwd: REPO`로 띄운다. 그래서 지금은 `tests/support`를 import한 checkout의 core만 뜬다. variant는 이 `REPO`를 고르는 것 하나면 된다. core가 띄우는 agent runtime, app supervisor는 daemon 코드가 자기 checkout에서 띄우므로 따라온다. cwd가 variant라서 `deno.json`, `deno.lock`(frozen)도 variant 것을 쓴다.
 - eval의 route 호출은 지금 checkout의 `packages/protocol`로 한다. variant가 protocol이나 route를 바꿨으면 되살리기가 `invalid_input`이나 `not_found`로 깨진다. 이것은 막지 않고 이유를 찍고 멈춘다(roadmap). 제품에 호환 장치를 두지 않는다.
-- ev-versions의 `instruction`과 `guide`는 `rolePrompt(role)`, `guideText(topic)`를 import해서 잰다(`packages/core/agent-roles/roles/prompts.ts`, `guides.ts`가 `.md`를 `with { type: "text" }`로 묶어 가져온다). import는 지금 프로세스의 checkout 것이다. 그대로면 variant core가 보낸 요청 body의 role 블록이 지금 checkout의 `rolePrompt`와 달라 `seenComponents`가 `invalid_input`으로 거절한다(ev-versions "role 블록이 어느 role과도 같지 않은 body는 거절한다"). 그래서 variant의 글을 따로 읽어 `Deps.texts`로 넘겨야 한다.
+- `tests/eval/versions/components.ts`의 `instruction`과 `guide`는 `rolePrompt(role)`, `guideText(topic)`를 import해서 잰다(`packages/core/agent-roles/roles/prompts.ts`, `guides.ts`가 `.md`를 `with { type: "text" }`로 묶어 가져온다). import는 지금 프로세스의 checkout 것이다. 그대로면 variant core가 보낸 요청 body의 role 블록이 지금 checkout의 `rolePrompt`와 달라 `seenComponents`가 `invalid_input`으로 거절한다(`seenComponents`의 "system[0] matches no role prompt" `invalid_input`). 그래서 variant의 글을 따로 읽어 `Deps.texts`로 넘겨야 한다.
 - `currentVersions(deps)`는 `checks`도 잰다(`checksVersion`이 `<root>/tests/eval/checks/**`를 hash하고 registry에 n을 붙인다). variant root를 그대로 주면 variant의 (없거나 옛) checks를 registry에 새 n으로 올려 버린다. 그래서 `checksRoot`가 필요하다.
-- `tests/support/coding/deps.ts`의 `e2eDenoDir()`는 그 checkout의 `.dev-data/e2e/deno-dir`다. `.dev-data/`는 git이 무시하므로 새 worktree는 비어 있다.
+- `tests/support/coding/deps.ts`의 `e2eDenoDir()`는 그 checkout의 `.dev-data/e2e/deno-dir`다. `.dev-data/`는 git이 무시하므로 새 worktree는 비어 있다. 단 trial의 core env는 eval 프로세스(= 지금 checkout)의 `restoreCoreEnv` → `appCoreEnv()`가 만든다. 그래서 variant core도 `DENO_DIR`은 지금 checkout의 `.dev-data/e2e/deno-dir`를 받는다. variant의 deno-dir는 gate의 e2e(variant에서 도는 `deno test`)만 쓴다.
+- core는 `clearEnv: true`로 뜨고 `LOPHN_HOME`, `HOME`, `PATH`, `DENO_DIR`(와 `BootOptions.env`)만 받는다. eval 프로세스가 건 `TMPDIR`(`/tmp/lophn-eval`)는 core에 가지 않는다. trial 폴더(`createRun`)는 eval 프로세스 쪽 `TMPDIR` 아래에 생기므로 variant에서도 같다. 앱 socket은 `XDG_RUNTIME_DIR` 아래 data root마다 나뉜다.
+- coding agent trial의 터미널 host(`tests/eval/coding/driver/host.ts`)는 지금 checkout의 `packages/shell`과 `packages/shell/main/node_modules`(node-pty)를 쓴다(`CHECKOUT`). variant에는 shell main의 `node_modules`가 필요 없다. variant 쪽으로 바뀌는 것은 core와, `lophn` wrapper가 여는 `packages/coding-agent/cli`뿐이다.
 
 ## 할 일
 
@@ -63,11 +65,11 @@ core를 다른 checkout(git worktree)에서 띄우는 길과, 그 checkout에서
 4. **prepare** (`variant/prepare.ts`). 이미 한 일이면 다시 해도 같다(idempotent).
    - `deno run --allow-all <지금>/tools/worktree-prep.ts <path>`를 cwd `<지금>`에서 돌린다. 실패하면 stderr를 담아 `unavailable`. 이유: worktree가 `npm ci` 없이 check를 돌게 하는 도구라 gate의 `deno task check`가 필요로 한다.
    - e2e deno-dir: `<path>/.dev-data/e2e/deno-dir`가 없고 `<지금>/.dev-data/e2e/deno-dir`가 비어 있지 않으면 `<path>/.dev-data/e2e/`를 만들고 그 폴더로 symlink한다. 이유: gate의 e2e가 variant의 `tests/support/coding/deps.ts`로 이 폴더를 읽는다. cache라 같이 써도 된다. 지금 checkout 쪽도 비었으면 아무것도 하지 않는다(e2e가 `deno task e2e:deps`를 하라고 스스로 알린다).
-   - core 입구 cache: cwd `<path>`에서 `deno cache packages/core/main/daemon/main.ts packages/core/main/agent-runtime/main.ts packages/core/main/app-supervisor/main.ts`. 이유: variant가 의존을 새로 더했으면 첫 boot가 내려받느라 hello 제한(30초, `HELLO_TIMEOUT_MS`)을 넘긴다. 실패하면 `unavailable`.
+   - core 입구 cache: cwd `<path>`에서 `deno cache packages/core/main/daemon/main.ts packages/core/main/agent-runtime/main.ts packages/core/main/app-supervisor/main.ts packages/core/main/worker/main.ts`. 이유: variant가 의존을 새로 더했으면 첫 boot가 내려받느라 hello 제한(30초, `HELLO_TIMEOUT_MS`)을 넘긴다. 실패하면 `unavailable`.
 5. **variant의 글 읽기** (`variant/texts.ts`). `variantTexts(root, io): Promise<Result<VariantTexts>>`.
    - `VariantTexts = { role_prompts: Record<string, string>; guides: Record<string, string> }`. 이 type은 `tests/eval/versions`의 `Deps` 옆에 둔다(할 일 6). role id는 `lophn`, `project_manager`, `app_engineer`, `operator`, guide는 `guideTopics()` 전부.
    - cwd를 `root`로 하고 `deno eval`로 variant의 `./packages/core/agent-roles/roles/prompts.ts`(`rolePrompt`는 `Result<string>`을 돌려준다), `./packages/core/agent-roles/roles/guides.ts`(`guideTopics`, `guideText`)를 import해 위 값을 JSON 한 줄로 찍게 한다. stdout을 parse한다. 실패나 `!ok`면 `unavailable`("variant의 role prompt를 읽지 못했다: ..."). 이유: `.md`를 text로 묶어 가져오는 코드라 지금 프로세스에서 variant file을 dynamic import하면 import map(`deno.json`)이 어느 checkout 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌리는 것이 가장 단순하다.
-6. **ev-versions 최소 수정** (`tests/eval/versions/**`). 이미 landed 코드가 아래를 하면 건너뛰고 보고에 적는다.
+6. **`tests/eval/versions` 최소 수정** (`tests/eval/versions/**`). 이미 landed 코드가 아래를 하면 건너뛰고 보고에 적는다.
    - `Deps`에 `checksRoot?: string`(기본 `root`)과 `texts?: VariantTexts`를 더한다. `checksVersion(deps)`는 `deps.checksRoot ?? deps.root`를 쓴다. `currentVersions`는 그 `Deps`를 `checksVersion`에 그대로 넘긴다.
    - `instruction`과 `guide` 측정, `seenComponents`의 role 블록 대조, 연 guide 확인이 `rolePrompt`/`guideText`/`guideTopics`를 부르는 자리에서 `deps.texts`가 있으면 그것을 쓴다(`texts.role_prompts[role]`, `texts.guides[topic]`). 없으면 지금처럼 import를 쓴다.
    - 기존 test는 그대로 통과해야 한다. 새 칸을 쓰는 test는 하나(아래 위험 test 3)만 더한다.
@@ -97,8 +99,9 @@ core를 다른 checkout(git worktree)에서 띄우는 길과, 그 checkout에서
 - 통과한 check
 - 등록할 것: 없음(`tests/eval/experiment/variant/`는 data 폴더가 아니다)
 - 안 쓰게 된 export: 없음
-- 정한 것: 위 "정한 것"과 다르게 한 것, `Variant`·`VariantIo`·`VariantTexts` 꼴이 달라졌으면 그 이유, ev-versions 수정(할 일 6)을 한 것인지 이미 있던 것인지
+- 정한 것: 위 "정한 것"과 다르게 한 것, `Variant`·`VariantIo`·`VariantTexts` 꼴이 달라졌으면 그 이유, `tests/eval/versions` 수정(할 일 6)을 한 것인지 이미 있던 것인지
 - 넘길 줄: `tests/eval/versions/**`를 고친 곳
 - 계약 바꾸기 요청: 고정된 계약(`tests/eval/types.ts`)을 바꿔야 하면 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
-- **알려진 미완 동작**: variant가 protocol·route를 바꾸면 되살리기가 깨진다(막지 않고 `explainBreak`로 멈춘다). worktree가 아닌 checkout(복사한 폴더)은 지원하지 않는다. coding agent의 `lophn` wrapper(eval-coding의 driver)가 어느 checkout의 CLI를 부르는지는 이 task가 정하지 않는다. ec-driver는 checkout root를 인자(`repoRoot`)로 받으므로 ex-cli가 `variant.root`를 넘기고, wrapper 폴더(`binDir`)는 variant마다 따로 둔다.
+- **알려진 미완 동작**: variant가 protocol·route를 바꾸면 되살리기가 깨진다(막지 않고 `explainBreak`로 멈춘다). worktree가 아닌 checkout(복사한 폴더)은 지원하지 않는다. variant가 tool을 더하거나 이름을 바꾸면 `currentVersions`·`seenComponents`가 거절한다(`TOOL_ORDER`, `toWireToolName`이 지금 checkout 것이라 variant의 새 tool 이름이 표에 없다. `invalid_input`). tool 정의를 바꾸는 experiment는 기존 tool의 내용을 고치는 것까지만 잰다. variant가 앱 의존을 새로 더하면 variant에서 `deno task e2e:deps`를 다시 돌려야 한다(deno-dir를 symlink로 같이 쓰므로 한 번이면 된다).
+- coding agent: wrapper는 ex-cli가 `prepareCodingAgent({ root: variant.root, hookRoot, binDir })`로 만든다. agent가 치는 `lophn`은 PATH 앞의 variant wrapper(variant의 CLI)로 간다. 그러나 사람이 한 번 설치한 hook은 주 checkout의 wrapper를 **절대 경로로 직접** 부르고(`wrapper.ts`는 PATH를 보지 않는다) 그 wrapper는 주 checkout의 `packages/coding-agent/cli/main.ts`를 연다. 그래서 variant trial에서도 `lophn hook claude <Event>`는 주 checkout의 CLI가 처리한다. hook·CLI 코드(`packages/coding-agent/cli`)를 고친 experiment는 hook 쪽 고침이 trial에 안 닿는다. planner가 정할 것(hook을 `lophn` PATH 꼴로 다시 설치할지, 그런 experiment는 이 길로 안 재기로 할지). 이 task는 정하지 않는다.

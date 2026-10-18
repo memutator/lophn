@@ -13,5 +13,5 @@ lead만 고친다. `tools/status.py eval-base build`가 `tasks/*.md`에서 id, �
 | `ev-versions` | ev-versions | 2 | ev-contract | merged | ev-versions/ev-versions | 98e1dda90 |  |
 | `ev-cases-lophn` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | merged | ev-cases/ev-cases-lophn | a6a7e03b1 |  |
 | `ev-cases-roles` | ev-cases | 3 | ev-restore, ev-checks, ev-judge | merged | ev-cases/ev-cases-roles | 1eda45ae3 |  |
-| `ev-runner` | ev-runner | 3 | ev-versions, ev-restore, ev-provider, ev-collect, ev-checks, ev-judge | running | ev-runner/ev-runner |  |  |
-| `ev-scorecard` | ev-scorecard | 3 | ev-versions, ev-collect | running | ev-scorecard/ev-scorecard |  |  |
+| `ev-runner` | ev-runner | 3 | ev-versions, ev-restore, ev-provider, ev-collect, ev-checks, ev-judge | merged | ev-runner/ev-runner | 8896a7669 |  |
+| `ev-scorecard` | ev-scorecard | 3 | ev-versions, ev-collect | merged | ev-scorecard/ev-scorecard | 90b5c34b7 |  |

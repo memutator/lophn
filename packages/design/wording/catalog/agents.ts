@@ -3,7 +3,7 @@ export const agents = {
   "agents.button.settings-open-lophn": "Open lophn settings",
   "agents.heading.settings-default-model": "Default model",
   "agents.heading.settings-grant-defaults": "Grant defaults",
-  "agents.label.providers-custom-key-title": "API key (optional)",
+  "agents.label.providers-custom-key-title": "API key",
   "agents.label.providers-key-hint": "Typed in a protected prompt",
   "agents.label.settings-instructions-path": "~/.lophn/LOPHN.md",
   "agents.label.settings-lophn-chip": "One for all of lophn",

@@ -81,3 +81,4 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 - **harness의 권한 물음에 lophn 화면으로 답하지 않는다.** 제품마다 물음의 모양이 달라 그 UI를 두면 쓸데없이 깨지기 쉬운 의존이 생긴다. focus를 옮기는 것은 제품과 상관없다.
 - **상태·정산·call 닫기를 같은 transaction에서 고친다.** session 상태가 writer 쪽 표에 있고 상태를 고치는 일이 정산, call 닫기와 한 transaction이어야 하므로, hook, 터미널 결과, Reactor, 메시지가 모두 command 하나로 writer에 들어간다.
 - **사람은 coding agent와 직접 이야기하지 않는다.** 사람은 App Engineer에게 청하고, coding agent가 사람에게 말을 거는 길은 없다. 막히면 App Engineer에게 메시지를 보낸다. 닫혀 있으면 그 앱의 새 App Engineer session이 받는다.
+- **메시지의 답은 App Engineer가 `call`로 보내야 터미널에 간다.** App Engineer가 `to:{session:"<봉투의 coding agent session>"}`, `reply:"conversation"`으로 `call`하면 Router가 열린 coding session을 `open_session`으로 풀고 transport가 PTY에 넣는다. 글로만 답하면(사람에게 한 요약 포함) coding agent는 받지 못한다. 그래서 coding agent가 보낸 call의 봉투가 이 길을 한 줄로 알린다([agent-call.md](agent-call.md)). core는 글을 대신 보내지 않는다. 답할지, 무엇을 답할지는 App Engineer가 정한다.

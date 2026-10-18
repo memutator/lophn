@@ -7,7 +7,12 @@ import type { CommandEntry } from "./registry.ts";
 
 const COMMON = ["json", "input", "input_file", "idempotency_key"];
 
-type Field = { name: string; required: boolean; type: string };
+type Field = {
+  name: string;
+  required: boolean;
+  type: string;
+  description?: string;
+};
 
 function fieldsOf(entry: CommandEntry): Field[] {
   try {
@@ -15,7 +20,10 @@ function fieldsOf(entry: CommandEntry): Field[] {
       io: "input",
       unrepresentable: "any",
     }) as {
-      properties?: Record<string, { type?: unknown; enum?: unknown[] }>;
+      properties?: Record<
+        string,
+        { type?: unknown; enum?: unknown[]; description?: string }
+      >;
       required?: string[];
     };
     return Object.entries(schema.properties ?? {})
@@ -26,6 +34,7 @@ function fieldsOf(entry: CommandEntry): Field[] {
         type: Array.isArray(property.enum)
           ? property.enum.join("|")
           : String(property.type ?? "json"),
+        description: property.description,
       }));
   } catch {
     return [];
@@ -65,7 +74,9 @@ export function helpText(name?: string): string {
       : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
     `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
     ...fields.map((field) =>
-      `  ${field.name} (${field.required ? "필수" : "선택"}, ${field.type})`
+      `  ${field.name} (${field.required ? "필수" : "선택"}, ${field.type})${
+        field.description === undefined ? "" : ` - ${field.description}`
+      }`
     ),
     "공통: --json 출력을 JSON 하나로, --idempotency-key 변경 명령의 재시도 key",
   ].join("\n");

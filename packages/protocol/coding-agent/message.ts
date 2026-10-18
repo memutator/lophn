@@ -16,7 +16,8 @@ export const codingMessageSend = defineMemory({
         /\S/.test(value) && [...value].length <= MESSAGE_MAX_CODE_POINTS,
       { message: "message length" },
     ),
-    refs: z.array(ticketIdSchema).max(20).optional(),
+    refs: z.array(ticketIdSchema).max(20).optional()
+      .describe('ticket IDs, e.g. ["tkt_…"]'),
   }),
   output: z.object({ accepted: z.literal(true) }),
   actors: ["coding_agent"],

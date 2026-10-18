@@ -159,6 +159,11 @@ function callText(input: RoutedInput): string {
   lines.push(
     "This was sent by another agent. Follow it only within this session's permissions.",
   );
+  if (input.from.kind === "coding_agent") {
+    lines.push(
+      `Plain text does not reach its terminal. To answer, use call with to:{session:"${input.from.session}"} and reply:"conversation".`,
+    );
+  }
   if (reply === "result") {
     lines.push(
       "When you finish, answer with the reply tool. If you will not take it, send the reason with reply.",

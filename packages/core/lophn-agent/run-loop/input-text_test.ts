@@ -53,6 +53,17 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
       "answer with the reply tool",
     ),
   );
+  // coding agent가 보낸 call은 답하는 길 줄을 더 싣고, 두 길이 from만으로 같은 글을 만든다.
+  const fromCoding = { kind: "coding_agent", session: "ses_cod1" } as const;
+  const codingHistory = receivedText(
+    { ...envelope, from: fromCoding, reply: "none" },
+    body,
+  );
+  assertEquals(
+    codingHistory,
+    inputText({ ...call, from: fromCoding, body, reply: "none" }),
+  );
+  assert(codingHistory.includes('to:{session:"ses_cod1"}'));
   const program = { kind: "program", event_seq: "7" } as const;
   const reaction = {
     ...call,

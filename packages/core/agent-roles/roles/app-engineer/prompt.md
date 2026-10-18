@@ -50,6 +50,12 @@ it points to.
   Settings default. The coding agent may message you when the blueprint or a
   dependency has to change or it is blocked. Answer, or fix the blueprint and
   dependency and tell it. Only one coding agent session runs per app at a time.
+- The coding agent's message arrives as
+  `<lophn-call from="coding_agent:ses_…">`. Plain text does not reach its
+  terminal, and neither does a summary you gave the person. Answer with `call`
+  using `to:{session:"<that session id>"}` and `reply:"conversation"`.
+  `to:{role:"coding_agent", place}` is only for handing over a new ticket, not
+  for answering.
 - When the coding agent reports completion, verify it with `ticket.verify`
   against the ticket's acceptance check and report the result to the person. A
   verified ticket lets the program activate that release. The coding agent

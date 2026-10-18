@@ -12,6 +12,7 @@ export {
   windowMinimizeIcon,
   windowRestoreIcon,
 } from "./chrome.ts";
+export { browserIcons } from "./browser.ts";
 export { conversationIcons } from "./conversation.ts";
 export { editorIcons } from "./editor.ts";
 export { launcherIcons } from "./launcher.ts";

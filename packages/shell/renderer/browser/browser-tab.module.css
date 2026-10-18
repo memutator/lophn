@@ -1,0 +1,48 @@
+.tab {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+}
+
+.toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.address {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+.address > * {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+}
+
+/* native view가 DOM 위에 그려지므로 알림은 region 위의 실제 한 줄이다. */
+.notice {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+}

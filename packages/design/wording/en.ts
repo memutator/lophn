@@ -2,6 +2,7 @@
 // 영역을 더하려면 import 한 줄, AREAS 한 칸, en의 spread 한 칸을 더하고 placeholders.ts에도 한 칸을 더한다.
 import { agents } from "./catalog/agents.ts";
 import { appSpace } from "./catalog/app-space.ts";
+import { browser } from "./catalog/browser.ts";
 import { common } from "./catalog/common.ts";
 import { contexts } from "./catalog/contexts.ts";
 import { conversation } from "./catalog/conversation.ts";
@@ -14,6 +15,7 @@ import { workspaceSettings } from "./catalog/workspace-settings.ts";
 export const AREAS = {
   agents,
   "app-space": appSpace,
+  browser,
   common,
   contexts,
   conversation,
@@ -26,6 +28,7 @@ export const AREAS = {
 export const en = {
   ...agents,
   ...appSpace,
+  ...browser,
   ...common,
   ...contexts,
   ...conversation,

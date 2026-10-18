@@ -1,6 +1,7 @@
 // 개발 확인 전용. 주소에 `mock`이 있을 때만 Desktop의 모든 통로를 메모리 가짜로 채워 core 없이
 // 모든 화면을 보게 한다(`deno task dev:mock`). 제품 경로는 주소 flag 없이 이 값을 만들지 않고,
 // 가짜 통로는 core·파일·secret·coding agent에 닿지 않는다.
+import type { LophnBrowserApi } from "../../../ipc/browser.ts";
 import type { LophnShellAnnotateApi } from "../../../ipc/annotation.ts";
 import type { LophnShellFeedbackBegin } from "../../../ipc/feedback.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";
@@ -18,6 +19,7 @@ import type { SettingsSource } from "../settings/source.ts";
 import type { ProjectsSource } from "../launcher/projects/source.ts";
 import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
+import { fakeBrowserApi } from "../../browser/testdata/fake-browser-api.ts";
 import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
 import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
@@ -52,6 +54,7 @@ export interface DevMock {
   readonly annotate: LophnShellAnnotateApi;
   readonly appViews: AppViewsDeps;
   readonly feedback: LophnShellFeedbackBegin;
+  readonly browser: LophnBrowserApi;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentTabSourceFactory;
   /** 대기 목록이 읽는 event 연결(fake Gateway). */
@@ -114,6 +117,7 @@ export function devMock(
     annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
     feedback: mockFeedback(),
+    browser: fakeBrowserApi().api,
     agentViewSource: mockAgentTabSource(),
     events: mockEvents(),
     instructions: mockInstructions(),

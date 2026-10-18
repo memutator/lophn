@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-app-api-tool` | rd-app-api | 1 | 없음 | merged | rd-app-api/rd-app-api-tool | 34ca01530 |  |
 | `rd-body-route` | rd-body | 1 | 없음 | merged | rd-body/rd-body-route | 42331b3ee |  |
 | `rd-cap-fs` | rd-cap | 1 | 없음 | merged | rd-cap/rd-cap-fs | bbb2a6737 |  |
-| `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
+| `rd-cap-net-transport` | rd-cap | 1 | 없음 | merged | rd-cap/rd-cap-net-transport | 45b44db38 |  |
 | `rd-ex-shape` | rd-ex | 1 | 없음 | merged | rd-ex/rd-ex-shape | 1b94a58ac |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | merged | rd-resolve/rd-resolve-rule | 90effff01 |  |
 | `rd-sdk-builtin` | rd-sdk | 1 | 없음 | merged | rd-sdk/rd-sdk-builtin | fb3311889 |  |

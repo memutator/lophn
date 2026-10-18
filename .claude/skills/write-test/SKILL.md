@@ -45,7 +45,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 - 사람의 data root(`~/.lophn`)를 쓰지 않는다. 임시 폴더와 비운 환경(`clearEnv`, 임시 HOME)을 쓴다.
 - 자원 정리 검사(`sanitizeOps`, `sanitizeResources`)를 끄지 않는다.
 - test file은 대상 바로 옆에 `*_test.ts`로 둔다. helper는 작게 둔다. 거대한 시나리오 helper를 만들지 않는다.
-- model이 끼는 부분은 fake로 본다: loop는 scripted model(`tests/support/loop`), provider wire는 녹화 재생 `fetch`(`tests/support/wire`)와 `tests/fixtures/provider/`, core E2E와 `deno task dev`는 fake server(`tests/support/fake-server`). model 판단의 품질은 test가 아니라 eval이 잰다.
+- model이 끼는 부분은 fake로 본다: loop는 scripted model(`tests/support/loop`), provider wire는 녹화 재생 `fetch`(`tests/support/wire`)와 `tests/fixtures/provider/`, core E2E와 `deno task dev`는 fake server(`tests/support/fake-server`). model 판단의 품질은 test가 아니라 eval(`tests/eval`, `project-docs/architecture/eval.md`)이 잰다.
 
 ## 층
 
@@ -55,6 +55,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 | harness | `tests/harness`(loop, wire) | `deno task check` |
 | E2E | `tests/e2e` | `deno task e2e`(앱 flow 전에 `deno task e2e:deps` 한 번). lead가 merge 전에 새 file을 10번, land 전에 전체 |
 | live | `tests/live` | `deno task test:live`. 사람이 key를 주거나 `deno task test:live:login`으로 ChatGPT 구독 로그인을 저장했을 때만 |
+| eval (test 아님) | `tests/eval` | `deno task eval`. 사람이 진짜 provider 호출을 허락했을 때만. model 판단의 품질을 잰다. 그 안의 `*_test.ts`는 순수 unit이라 `deno task check`가 돈다(core, process, network, 진짜 provider 없음) |
 
 새 E2E flow는 contract 하나에 test 하나, 가장 싼 층, 세 질문(contract, 현실적 회귀, 왜 지금 test로 못 잡나)을 따른다.
 

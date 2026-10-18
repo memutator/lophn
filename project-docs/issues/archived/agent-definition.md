@@ -415,3 +415,25 @@ guard: 없음
 - App Engineer 지침: "the acceptance check", "the app stopped restarting after repeated crashes".
 
 닫음: `ROLE_LINE.lophn`은 "registers apps"만 말하고, App Engineer 지침은 "the acceptance check"와 "the app stopped restarting after repeated crashes"를 쓴다.
+
+## agent 정의의 MCP server 층이 type과 정의 file에만 있다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/agent-roles, packages/protocol, packages/shell/renderer]
+closed: fixed
+guard: packages/core/lophn-agent/extensions/mcp-toolkit_test.ts "Operator 정의 층의 server는 그 Operator의 turn 준비에만 연결된다", packages/core/lophn-agent/extensions/mcp-server_test.ts "mcp secret 이름은 그 이름을 쓰는 server의 origin으로만 간다"
+```
+
+지금: Operator 정의의 `mcp_servers`가 protocol(`packages/protocol/lophn-agent/operators.ts`의 `operatorDefinitionSchema`), 정의 file 키, renderer type(`packages/shell/renderer/workspace/agents/source.ts`)에 있다. `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `serversOf(place, agent)`도 agent 층을 겹친다. 그러나 붙이는 길이 없다. 화면의 draft(`packages/shell/renderer/workspace/agents/core-source.ts`)는 `mcp_off`만 보내고, 화면 목록(같은 폴더 `core-extensions.ts`)은 전역과 project 층만 그리고, `packages/core/agent-roles/tools/operator.ts`는 실행 파일을 정하는 입력이라 `mcp_servers`를 일부러 받지 않는다. 쓰는 쪽도 없다. turn 준비(`run-loop/prepare.ts`의 `loadMcp`)는 `agent`를 넘기지 않고 runtime의 Deno 권한(`extensions/mcp-snapshot.ts`)과 Grants 목록(`agent-mcp-tools/list`)도 이 층을 모른다.
+
+영향: Operator 편집 화면(`packages/shell/renderer/workspace/agents/editor/definition-form.tsx`)에는 server를 더하는 단추와 form이 있다. `packages/shell/renderer/workspace/agents/core-source.ts`의 `saveAgent`가 정의를 통째로 보내므로, 거기서 넣은 server는 정의 file에 저장된다. 그런데 runtime은 그 server를 조용히 쓰지 않는다. 사람이 정의 file을 손으로 고쳐 넣어도 같다. agent의 `operator.create`·`operator.update` tool로는 넣을 수 없다. Operator마다 MCP server를 다르게 주는 기능은 지금 없는데, 화면은 있는 것처럼 보인다.
+
+고치려면:
+- 살린다(중간): resolved agent에 `mcp_servers`를 싣고 `loadMcp`가 넘긴다. Deno `--allow-net`·`--allow-run`에 정의 층을 더하고 정의가 바뀌면 child를 다시 띄운다. 화면 입력을 열고, 실행 파일을 정하는 입력이라 승인 경계를 다시 정한다.
+- 지운다(작음): protocol 칸, 정의 file 키, `serversOf`의 agent 층, renderer type, Operator 편집 화면의 server 단추와 form, 그 wireframe을 지운다. 잃는 것은 지금도 못 쓰는 Operator별 MCP다. 이미 `mcp_servers`가 든 정의 file은 `unknown_field`로 거절된다(호환 장치를 두지 않는다).
+- 추천: 지운다. 필요해지면 그때 화면·승인과 같이 짠다.
+
+정한 것: 살린다(사람: Operator에게도 자기 MCP server가 필요하다). runtime이 Operator 정의 층의 server를 읽어 쓰게 하고, Deno 권한과 Grants 목록도 그 층을 알게 한다. 정의가 바뀌면 runtime을 다시 띄운다. server를 넣는 길은 지금처럼 사람의 화면(Operator 편집)뿐이다. agent의 `operator.create`·`operator.update`는 실행 명령을 정하는 입력이라 계속 받지 않는다. 앞서 "지운다"로 적은 것은 사람의 답을 잘못 읽은 것이다.
+
+닫음: 살렸다. turn 준비(`run-loop/prepare.ts`의 `loadMcp`)가 Operator 정의의 `mcp_servers`를 agent 층으로 넘기고(`agents/layers.ts`), `serversOf`의 겹치기가 그 층을 마지막에 얹는다. runtime child의 Deno 권한(`extensions/mcp-snapshot.ts`의 `operators`)과 `mcp.` secret 목적지가 모든 Operator의 정의 층 server를 읽고(`main/daemon/wiring/operator-mcp.ts`), 정의가 바뀌면 기존 poll이 child를 다시 띄운다. Grants 목록(`agent-mcp-tools/list`)은 Operator id를 함께 받아 그 Operator의 정의 층을 더한다. 정의 층 server의 credential 이름은 `mcp.<agt id>.<server>`이고 편집 화면이 저장 뒤 보호 입력으로 값을 받는다. 내장 role 편집 화면에는 Add server가 없다. agent의 `operator.create`·`operator.update`는 계속 `mcp_servers`를 받지 않는다. 정의 층 server의 OAuth 로그인 길은 없다(편집 화면은 none·bearer·api_key만 받는다).

@@ -46,7 +46,7 @@ interface BrowserTabProps {
   adopt?: string;
   /** adopt 응답을 받았다. 부른 쪽이 `adopt`를 지운다. */
   onAdopted(): void;
-  onState(state: { url: string; title: string }): void;
+  onState(state: { url: string; title: string; favicon?: string }): void;
   /** 이 탭의 page가 크기를 준 popup을 열었다(native view). */
   onPopup(event: Extract<BrowserEvent, { kind: "popup" }>): void;
   /** 이 탭의 page가 크기 없는 popup을 열려 했다. 그 url로 새 탭을 연다. */
@@ -140,7 +140,10 @@ function OpenTab(
   const region = useRef<HTMLDivElement | null>(null);
   // adopt는 한 번만 한다. 끝나거나 거절되면 비워서, 다시 시도할 때는 빈 page를 연다.
   const adoptId = useRef(props.adopt);
-  const reported = useRef({ url: props.url, title: "" });
+  const reported = useRef<{ url: string; title: string; favicon?: string }>({
+    url: props.url,
+    title: "",
+  });
   const callbacks = useRef(props);
   callbacks.current = props;
   // 보관소에 넘길 native view의 마지막 state. view가 아직 없으면 null.
@@ -153,10 +156,15 @@ function OpenTab(
     setState(page);
     if (
       page.url !== reported.current.url ||
-      page.title !== reported.current.title
+      page.title !== reported.current.title ||
+      page.favicon !== reported.current.favicon
     ) {
-      reported.current = { url: page.url, title: page.title };
-      callbacks.current.onState({ url: page.url, title: page.title });
+      reported.current = {
+        url: page.url,
+        title: page.title,
+        favicon: page.favicon,
+      };
+      callbacks.current.onState(reported.current);
     }
   };
   const applyRef = useRef(apply);

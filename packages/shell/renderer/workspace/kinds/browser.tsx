@@ -2,6 +2,7 @@
 import { t } from "@lophn/wording";
 
 import { BrowserTab } from "../../browser/browser-tab.tsx";
+import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -40,6 +41,11 @@ export const browserKind: TabKindDef = {
   kind: "browser",
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,
+  // page favicon(main이 준 data URL). 저장하지 않으므로 다시 열면 page가 다시 알린다.
+  iconOf(tab) {
+    const favicon = tab.fields?.favicon;
+    return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;
+  },
   fromStored(stored, { key }) {
     const { url } = stored;
     if (typeof url !== "string" || url.length > MAX_URL) return null;
@@ -104,7 +110,11 @@ export const browserKind: TabKindDef = {
         onState={(state) =>
           host.patchTab(tab.key, (current) => ({
             title: nameOf(state.title, state.url),
-            fields: { ...current.fields, url: state.url },
+            fields: {
+              ...current.fields,
+              url: state.url,
+              favicon: state.favicon,
+            },
           }), { later: true })}
       />
     );

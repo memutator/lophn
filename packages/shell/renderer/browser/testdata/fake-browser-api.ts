@@ -6,6 +6,10 @@ import type {
   LophnBrowserApi,
 } from "../../../ipc/browser.ts";
 
+// 주소가 있는 page가 받는 가짜 favicon. dev mock·gallery에서 favicon 자리를 보인다.
+const SAMPLE_FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23e8710a'/%3E%3C/svg%3E";
+
 /** `corrupt`면 목록 파일이 깨진 것처럼 읽기는 `corrupt` 상태이고 쓰기는 거절된다. */
 export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
   api: LophnBrowserApi;
@@ -51,9 +55,11 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
     const record = history.get(view_session)!;
     record.at = index;
     const state = need(view_session);
+    const url = record.urls[index] ?? "";
     const next = {
       ...state,
-      url: record.urls[index] ?? "",
+      url,
+      favicon: url === "" ? undefined : SAMPLE_FAVICON,
       canGoBack: index > 0,
       canGoForward: index < record.urls.length - 1,
     };

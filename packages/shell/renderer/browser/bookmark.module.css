@@ -36,8 +36,8 @@
 .row {
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  row-gap: var(--space-1);
+  align-items: center;
+  column-gap: var(--space-3);
   width: 100%;
   margin: var(--space-0);
   padding: var(--space-4) var(--space-5);
@@ -48,6 +48,14 @@
   font-family: var(--font-sans);
   text-align: left;
   cursor: pointer;
+}
+
+/* 새 탭 목록 줄의 이름과 host. favicon 오른쪽에 위아래로 놓는다. */
+.text {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--space-1);
+  min-width: var(--space-0);
 }
 
 .row:hover {
@@ -81,4 +89,10 @@
   padding: var(--space-8) var(--layout-pane-padding-wide);
   box-sizing: border-box;
   color: var(--color-text-secondary);
+}
+
+/* favicon: 아이콘 자리와 같은 크기로, 줄어들지 않는다. */
+.favicon {
+  flex: none;
+  object-fit: contain;
 }

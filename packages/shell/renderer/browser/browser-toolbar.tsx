@@ -22,7 +22,7 @@ interface BrowserToolbarProps {
   viewSession: string | null;
   state: Pick<
     BrowserViewState,
-    "url" | "title" | "canGoBack" | "canGoForward"
+    "url" | "title" | "favicon" | "canGoBack" | "canGoForward"
   >;
   bookmarks: Bookmarks;
   /** main이 page에서 받은 Ctrl/Cmd+D의 횟수. */
@@ -146,6 +146,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
         bookmarks={props.bookmarks}
         url={state.url}
         title={state.title}
+        favicon={state.favicon}
         presses={props.bookmarkKey + keyPresses}
         onNotice={props.onNotice}
         openOverlay={openMenu}

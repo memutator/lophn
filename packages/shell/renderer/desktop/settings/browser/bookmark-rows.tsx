@@ -1,13 +1,12 @@
 // Settings › Browser의 bookmark 목록. 더한 순서대로 줄마다 title, URL, [Edit], [Remove]다.
 // 파일이 깨져 있으면 목록 대신 오류만 보인다. 고치기·지우기를 막고 덮어쓰는 길은 두지 않는다.
 import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
-import { Button, Icon } from "@lophn/ui/primitives";
+import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
-import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
-import { browserIcons } from "../../../icons/mod.ts";
 import type { Bookmark } from "../../../../ipc/browser.ts";
+import { Favicon } from "../../../browser/favicon.tsx";
 import styles from "../settings.module.css";
 import type { BookmarkList, BrowserSettingsSource } from "./source.ts";
 
@@ -171,7 +170,7 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
     <li className={styles.line} data-bookmark={bookmark.id}>
       <div className={styles.lineMain}>
         <span className={styles.productName}>
-          <Icon icon={browserIcons.globe} pixels={iconPixels("base")} />
+          <Favicon src={bookmark.favicon} />
           {bookmark.title}
         </span>
         <span

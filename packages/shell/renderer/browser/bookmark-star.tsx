@@ -19,6 +19,8 @@ interface BookmarkStarProps {
   url: string;
   /** 지금 page의 title. 비면 url의 host로 더한다. */
   title: string;
+  /** 지금 page의 favicon(data URL). 있으면 bookmark에 같이 저장한다. */
+  favicon?: string;
   /** 올라갈 때마다 별을 누른 것과 같은 동작을 한다(Ctrl/Cmd+D). */
   presses: number;
   onNotice(text: string): void;
@@ -42,9 +44,11 @@ export function BookmarkStar(props: BookmarkStarProps) {
     props.onOpenChange(next);
   };
   const add = () =>
-    bookmarks.add({ title: title || hostOf(url), url }).catch((error) =>
-      onNotice(bookmarkReasonText(error))
-    );
+    bookmarks.add({
+      title: title || hostOf(url),
+      url,
+      ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
+    }).catch((error) => onNotice(bookmarkReasonText(error)));
   const press = () => {
     if (disabled) return;
     if (existing === undefined) void add();

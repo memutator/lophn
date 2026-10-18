@@ -1,10 +1,12 @@
 // toolbar의 bookmark 단추. 목록 순서대로 title이고, 고르면 지금 탭에서 그 주소로 간다.
+import type { ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
-import { Menu } from "@lophn/ui/overlay";
+import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import { browserIcons } from "../icons/mod.ts";
 import type { Bookmarks } from "./bookmarks.ts";
+import { Favicon } from "./favicon.tsx";
 import type { OpenMenu } from "./overlay-menu.ts";
 
 interface BookmarkMenuProps {
@@ -25,6 +27,8 @@ export function BookmarkMenu(props: BookmarkMenuProps) {
     label: string;
     textValue?: string;
     disabled?: boolean;
+    favicon?: string;
+    leading?: ReactNode;
   }[] = bookmarks.state === "corrupt"
     ? [{
       id: "corrupt",
@@ -47,6 +51,12 @@ export function BookmarkMenu(props: BookmarkMenuProps) {
       id: item.id,
       label: item.title,
       textValue: item.title,
+      favicon: item.favicon,
+      leading: (
+        <MenuIcon>
+          <Favicon src={item.favicon} />
+        </MenuIcon>
+      ),
     }));
   const label = t("browser.button.bookmarks");
   const disabled = props.viewSession === null || bookmarks.state === "loading";
@@ -71,6 +81,7 @@ export function BookmarkMenu(props: BookmarkMenuProps) {
               id: item.id,
               label: item.label.slice(0, 256),
               disabled: item.disabled,
+              ...(item.favicon === undefined ? {} : { image: item.favicon }),
             })),
           ).then(pick);
         }}

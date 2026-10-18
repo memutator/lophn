@@ -4,6 +4,7 @@ import type { MouseEvent } from "react";
 import { t } from "@lophn/wording";
 
 import { type Bookmarks, hostOf } from "./bookmarks.ts";
+import { Favicon } from "./favicon.tsx";
 import styles from "./bookmark.module.css";
 
 interface BlankTabPageProps {
@@ -48,8 +49,11 @@ export function BlankTabPage(
               if (event.button === 1) onOpenInNewTab(item.url);
             }}
           >
-            <span className={styles.title}>{item.title}</span>
-            <span className={styles.host}>{hostOf(item.url)}</span>
+            <Favicon src={item.favicon} />
+            <span className={styles.text}>
+              <span className={styles.title}>{item.title}</span>
+              <span className={styles.host}>{hostOf(item.url)}</span>
+            </span>
           </button>
         </li>
       ))}

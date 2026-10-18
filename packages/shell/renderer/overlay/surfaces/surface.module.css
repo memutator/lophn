@@ -7,6 +7,13 @@
 }
 
 /* menu·popover는 trigger 상자(표면 rect)를 그대로 anchor로 삼는다. */
+/* menu 항목 앞의 favicon. 아이콘 칸을 채운다. */
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .anchorBox {
   position: absolute;
   inset: var(--space-0);

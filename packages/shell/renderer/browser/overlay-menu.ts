@@ -9,6 +9,8 @@ import { useBrowserOverlay } from "./browser-api.tsx";
 export interface MenuChoice {
   id: string;
   label: string;
+  /** icon 자리에 그릴 data URL(favicon). */
+  image?: string;
   disabled?: boolean;
 }
 

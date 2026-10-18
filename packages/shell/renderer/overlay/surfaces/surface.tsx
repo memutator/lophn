@@ -5,6 +5,7 @@ import { Button, type IconProps } from "@lophn/ui/primitives";
 import {
   Dialog,
   Menu,
+  MenuIcon,
   Palette,
   Popover,
   PopoverRow,
@@ -84,7 +85,17 @@ function SurfaceView(
           open
           onOpenChange={onOpenChange}
           trigger={boxAnchor}
-          items={choices}
+          items={choices.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            disabled: choice.disabled,
+            // browser favicon(data URL). 장식이라 이름은 label이 맡는다.
+            leading: choice.image === undefined ? undefined : (
+              <MenuIcon>
+                <img className={styles.image} src={choice.image} alt="" />
+              </MenuIcon>
+            ),
+          }))}
           onSelect={select}
           placement="beside"
         />

@@ -11,8 +11,8 @@ const positiveIntegerSchema = z.number().int().positive();
 const nonnegativeIntegerSchema = z.number().int().nonnegative();
 export const nonnegativeDecimalSchema = z.string().regex(/^\d+(?:\.\d+)?$/);
 
-const effortValueSchema = z.enum(EFFORT_VALUES);
-type EffortValue = z.infer<typeof effortValueSchema>;
+export const effortValueSchema = z.enum(EFFORT_VALUES);
+export type EffortValue = z.infer<typeof effortValueSchema>;
 // 화면에 보이는 이름이다. 문구 자체는 shell/wording의 영어 message key가 감싼다.
 export const EFFORT_LABELS = {
   off: "Off",
@@ -24,8 +24,8 @@ export const EFFORT_LABELS = {
   maximum: "Max",
 } as const satisfies Record<EffortValue, string>;
 
-export const MODEL_MEDIA = ["text", "image", "audio", "video"] as const;
-const mediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
+export const MODEL_MEDIA = ["text", "image", "audio", "video", "pdf"] as const;
+export const modelMediaSchema = z.array(z.enum(MODEL_MEDIA)).refine(
   (values) => values.includes("text") && new Set(values).size === values.length,
   { message: "media must include text without duplicates" },
 );
@@ -106,8 +106,8 @@ const resolvedModelFields = {
   input_limit: positiveIntegerSchema,
   output_limit: positiveIntegerSchema,
   supports_tools: z.boolean(),
-  input_media: mediaSchema,
-  output_media: mediaSchema,
+  input_media: modelMediaSchema,
+  output_media: modelMediaSchema,
   price_basis: priceBasisSchema.nullable(),
   basis: jsonObjectSchema,
 };

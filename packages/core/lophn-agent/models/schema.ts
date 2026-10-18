@@ -7,6 +7,9 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // 다시 Connect하기 전까지 일을 시작하지 않는다. 저장할 때 provider가 있는지는 command가 본다.
 // 끈 model 목록의 compare 기준은 model_hidden_seq 한 줄이다. 목록을 바꿀 때마다 하나 올린다.
 // 기본이 "켬"이라 끈 것만 적는다.
+// model_user_info는 사람이 custom provider model에 적은 정보다. 열쇠는 catalog와 같은 (provider 정의 key,
+// model 이름)이고 info는 CatalogEntry 모양으로 합칠 칸의 JSON이다. provider를 끊어도 지우지 않는다: 같은
+// 정의 key로 다시 붙이면 적은 정보가 다시 보인다. compare 기준은 model_user_info_seq 한 줄이다.
 
 export const modelSchemaSteps: readonly SchemaStep[] = [
   {
@@ -24,6 +27,17 @@ create table model_hidden (
   primary key (provider, model_name)
 ) strict;
 create table model_hidden_seq (
+  one integer primary key check (one = 1),
+  seq integer not null check (seq >= 0)
+) strict;
+create table model_user_info (
+  provider_definition text not null check (length(trim(provider_definition)) > 0),
+  model_name text not null check (length(trim(model_name)) > 0),
+  info text not null,
+  saved_at text not null,
+  primary key (provider_definition, model_name)
+) strict;
+create table model_user_info_seq (
   one integer primary key check (one = 1),
   seq integer not null check (seq >= 0)
 ) strict;`,

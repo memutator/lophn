@@ -1,0 +1,242 @@
+import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
+import { err, ok } from "../../../base/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
+import {
+  type CatalogEntry,
+  providerRead,
+  type ProviderRecord,
+  type UserModelInfo,
+  userModelInfoRead,
+} from "../../../protocol/lophn-agent/mod.ts";
+import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
+import { createModelCommands } from "./commands.ts";
+import { createModelResolver } from "./resolve.ts";
+import { modelSchemaSteps } from "./schema.ts";
+import { loadUserModels } from "./store.ts";
+import { checkEntryOf, userEntryOf } from "./user-entry.ts";
+import { createCatalogRead } from "./work.ts";
+import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
+
+const DEFINITION = "my-hive";
+const PROVIDER = "pvd_00000000000000000000000000";
+const MODEL = "deepseek-v4";
+const user = { actor: "user" } as RequestContext;
+
+function open() {
+  const db = new DatabaseSync(":memory:");
+  for (const step of modelSchemaSteps) db.exec(step.sql);
+  const sql = {
+    run: (query: string, params: never[]) => {
+      const result = db.prepare(query).run(...params);
+      return {
+        changes: result.changes,
+        lastInsertRowid: result.lastInsertRowid,
+      };
+    },
+    get: (query: string, params: never[]) =>
+      db.prepare(query).get(...params) as Record<string, never> | undefined,
+    all: (query: string, params: never[]) =>
+      db.prepare(query).all(...params) as Record<string, never>[],
+  };
+  const tx = { sql, now: () => "2026-10-18T00:00:00.000Z" } as unknown as Tx;
+  const commands = createModelCommands({
+    definitionKey: () => DEFINITION,
+    catalogEntry: (definition, name) => checkEntryOf(sql, definition, name),
+    projectExists: () => true,
+  });
+  return { db, sql, tx, commands };
+}
+
+const info = (overrides: Partial<UserModelInfo> = {}): UserModelInfo => ({
+  context_limit: null,
+  input_limit: null,
+  output_limit: null,
+  supports_tools: null,
+  input_media: ["text", "image"],
+  output_media: ["text"],
+  effort: { values: ["low", "high", "maximum"], default_value: null },
+  price: null,
+  ...overrides,
+});
+
+const catalogEntry = (context_limit: number): CatalogEntry => ({
+  ...userEntryOf({
+    provider_definition: DEFINITION,
+    model_name: MODEL,
+    info: info(),
+    saved_at: "2026-10-18T00:00:00.000Z",
+  }),
+  context_limit,
+  options: null,
+  source: "models_dev",
+});
+
+Deno.test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 catalog 항목을 이긴다", () => {
+  const { db, sql, tx, commands } = open();
+  try {
+    const saved = commands.saveUserInfo.handle(tx, user, {
+      provider_definition: DEFINITION,
+      model_name: MODEL,
+      info: info({ context_limit: 1_000_000 }),
+    }, { seq: "0" });
+    assert(saved.ok);
+    // refresh 앞뒤로 derived catalog의 내용이 달라도 사람이 적은 항목이 남는다.
+    for (const catalogContext of [8000, 64000]) {
+      const read = createCatalogRead({
+        readDerived: () => null,
+        snapshot: { entries: [catalogEntry(catalogContext)], hash: "h" },
+        userEntries: (s) => loadUserModels(s).items.map(userEntryOf),
+      });
+      const result = read.handle(
+        { sql, as_of_seq: 1 } as unknown as ReadSnapshot,
+        user,
+        { provider_definition: DEFINITION },
+      );
+      assert(result.ok);
+      assertEquals(result.value.entries.length, 1);
+      assertEquals(result.value.entries[0].source, "user");
+      assertEquals(result.value.entries[0].context_limit, 1_000_000);
+    }
+  } finally {
+    db.close();
+  }
+});
+
+Deno.test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 reasoning_effort가 되고 안 적은 한도는 기본값이다", async () => {
+  const { db, sql, tx, commands } = open();
+  try {
+    const choice = {
+      provider: PROVIDER,
+      model_name: MODEL,
+      option_values: { effort: "maximum" },
+    };
+    // 정보를 적기 전에는 effort를 고를 수 없다.
+    assertEquals(
+      commands.changeDefault.handle(tx, user, { default: choice }, {})
+        .ok,
+      false,
+    );
+    const save = (overrides: Partial<UserModelInfo>, seq: string) =>
+      commands.saveUserInfo.handle(tx, user, {
+        provider_definition: DEFINITION,
+        model_name: MODEL,
+        info: info(overrides),
+      }, { seq });
+    assert(save({}, "0").ok);
+    assert(
+      commands.changeDefault.handle(tx, user, { default: choice }, {})
+        .ok,
+    );
+
+    const provider = {
+      id: PROVIDER,
+      name: "mine",
+      definition: {
+        key: DEFINITION,
+        display_name: DEFINITION,
+        protocols: ["openai-chat-completions"],
+        auth_kinds: ["none"],
+        models_endpoint: null,
+        oauth: null,
+        revision: "test",
+      },
+      endpoint: "http://127.0.0.1:1",
+      protocol: "openai-chat-completions",
+      credential: {
+        kind: "none",
+        secret_ref: null,
+        revision: 1,
+        state: "available",
+        unavailable_reason: null,
+        until: null,
+        expires_at: null,
+        logged_in_at: null,
+        refreshed_at: null,
+        model_blocks: [],
+        reported_models: null,
+      },
+      revision: 1,
+    } as unknown as ProviderRecord;
+    const resolve = createModelResolver({
+      machine: (path) =>
+        Promise.resolve(
+          path === routePath(providerRead)
+            ? ok({ provider, as_of_seq: "0", next_cursor: null })
+            : path === routePath(userModelInfoRead)
+            ? ok({ ...loadUserModels(sql), as_of_seq: "0", next_cursor: null })
+            : err({ code: "not_found", message: path }),
+        ),
+      catalog: () => Promise.resolve(ok([])),
+    });
+    const bodyOf = async () => {
+      const bound = await resolve({ model: choice });
+      assert(bound.ok, JSON.stringify(bound));
+      const packed = bound.value.pack({
+        system: [{ layer: "role", text: "x" }],
+        tools: [],
+        messages: [{ role: "user", parts: [{ kind: "text", text: "hi" }] }],
+      });
+      return {
+        bound: bound.value,
+        body: packed.body as Record<string, unknown>,
+      };
+    };
+
+    const defaults = await bodyOf();
+    assertEquals(defaults.body["reasoning_effort"], "max");
+    assertEquals(defaults.bound.call.limits.context_limit, 131072);
+    assertEquals(defaults.bound.call.limits.input_limit, 131072);
+    assertEquals(defaults.bound.call.limits.output_limit, 4096);
+    assertEquals(defaults.body["max_tokens"], 4096);
+    assert(defaults.bound.inputMedia.includes("image"));
+
+    assert(
+      save({ context_limit: 1_000_000, output_limit: 100_000 }, "1").ok,
+    );
+    const set = await bodyOf();
+    assertEquals(set.bound.call.limits.context_limit, 1_000_000);
+    assertEquals(set.bound.call.limits.input_limit, 1_000_000);
+    assertEquals(set.body["max_tokens"], 32000);
+  } finally {
+    db.close();
+  }
+});
+
+Deno.test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거절한다", () => {
+  const { db, sql, tx, commands } = open();
+  try {
+    const key = { provider_definition: DEFINITION, model_name: MODEL };
+    const stale = commands.saveUserInfo.handle(tx, user, {
+      ...key,
+      info: info(),
+    }, { seq: "7" });
+    assert(!stale.ok);
+    assertEquals(stale.error.code, "conflict");
+    assertEquals(loadUserModels(sql).items, []);
+
+    const builtin = commands.saveUserInfo.handle(tx, user, {
+      provider_definition: "anthropic",
+      model_name: MODEL,
+      info: info(),
+    }, { seq: "0" });
+    assert(!builtin.ok);
+    assertEquals(builtin.error.code, "invalid_input");
+
+    const saved = commands.saveUserInfo.handle(tx, user, {
+      ...key,
+      info: info(),
+    }, { seq: "0" });
+    assert(saved.ok);
+    assertEquals(saved.value.seq, "1");
+
+    const removed = commands.removeUserInfo.handle(tx, user, key, {
+      seq: "0",
+    });
+    assert(!removed.ok);
+    assertEquals(removed.error.code, "conflict");
+    assertEquals(loadUserModels(sql).items.length, 1);
+  } finally {
+    db.close();
+  }
+});

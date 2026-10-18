@@ -5,6 +5,8 @@ import {
   type ModelChoice,
   modelDefaultChange,
   projectModelChange,
+  removeUserModelInfo,
+  saveUserModelInfo,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -13,7 +15,14 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { validateOptionValues } from "./options.ts";
-import { GLOBAL_SCOPE, loadHidden, saveChoice } from "./store.ts";
+import { builtinProviderDefinition } from "../providers/mod.ts";
+import {
+  bumpUserModelsSeq,
+  GLOBAL_SCOPE,
+  loadHidden,
+  loadUserModels,
+  saveChoice,
+} from "./store.ts";
 
 // 등록 순서: actor 검사 → 입력(schema는 registry, provider·목록·option은 여기) → CAS → 쓰기.
 // 짧은 transaction 하나다. 바뀐 것은 command의 결과를 받은 화면이 다시 읽어 안다.
@@ -80,6 +89,8 @@ export function createModelCommands(
   changeDefault: CommandDefinition<typeof modelDefaultChange>;
   changeProject: CommandDefinition<typeof projectModelChange>;
   changeHidden: CommandDefinition<typeof changeHiddenModels>;
+  saveUserInfo: CommandDefinition<typeof saveUserModelInfo>;
+  removeUserInfo: CommandDefinition<typeof removeUserModelInfo>;
 } {
   const resolve = (tx: Tx): ModelCommandDeps =>
     typeof deps === "function" ? deps(tx) : deps;
@@ -148,6 +159,51 @@ export function createModelCommands(
         return ok({
           hidden: { items: input.items, settings_seq: nextSeq },
         });
+      },
+    },
+    saveUserInfo: {
+      route: saveUserModelInfo,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        // 내장·구독 OAuth 정의의 catalog를 사람이 덮는 길은 없다. custom 정의의 key만 받는다.
+        if (builtinProviderDefinition(input.provider_definition).ok) {
+          return err({
+            code: "invalid_input",
+            message: "model info can only be saved for a custom provider",
+          });
+        }
+        const current = loadUserModels(tx.sql);
+        if (current.seq !== compare.seq) return conflict();
+        tx.sql.run(
+          `insert into model_user_info (provider_definition, model_name, info, saved_at)
+           values (?, ?, ?, ?)
+           on conflict (provider_definition, model_name) do update set
+             info = excluded.info, saved_at = excluded.saved_at`,
+          [
+            input.provider_definition,
+            input.model_name,
+            JSON.stringify(input.info),
+            tx.now(),
+          ],
+        );
+        bumpUserModelsSeq(tx.sql, current.seq);
+        return ok(loadUserModels(tx.sql));
+      },
+    },
+    removeUserInfo: {
+      route: removeUserModelInfo,
+      handle(tx, ctx, input, compare) {
+        const person = requireUser(ctx);
+        if (!person.ok) return person;
+        const current = loadUserModels(tx.sql);
+        if (current.seq !== compare.seq) return conflict();
+        tx.sql.run(
+          "delete from model_user_info where provider_definition = ? and model_name = ?",
+          [input.provider_definition, input.model_name],
+        );
+        bumpUserModelsSeq(tx.sql, current.seq);
+        return ok(loadUserModels(tx.sql));
       },
     },
   };

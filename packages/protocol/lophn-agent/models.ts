@@ -6,7 +6,11 @@ import { jsonObjectSchema } from "../base/json-values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   EFFORT_LABELS,
+  type EffortValue,
+  effortValueSchema,
   MODEL_MEDIA,
+  modelMediaSchema,
+  nonnegativeDecimalSchema,
   priceBasisOutputSchema,
   priceBasisSchema,
 } from "./resolved-model.ts";
@@ -287,6 +291,131 @@ export const hiddenModelsRead = defineRead({
   errors: [...readErrors],
 });
 
+// 사람이 custom provider model에 적은 정보다. 칸 이름과 모양은 CatalogEntry를 따르고, core가 이것으로
+// source가 "user"인 항목을 만들어 catalog의 user 층에 합친다. null은 "안 적음"이다(한도·tool 지원은 turn이
+// 목록 밖 기본값으로 채우고, effort null은 option 없음, price null은 가격 모름).
+const userEffortFields = {
+  // 약한 값에서 강한 값 순서다.
+  values: z.array(effortValueSchema).min(1),
+  // null이면 model에 맡긴다.
+  default_value: effortValueSchema.nullable(),
+};
+const userPriceFields = {
+  input: nonnegativeDecimalSchema.nullable(),
+  output: nonnegativeDecimalSchema.nullable(),
+  cache_read: nonnegativeDecimalSchema.nullable(),
+  cache_write: nonnegativeDecimalSchema.nullable(),
+};
+
+// 사람이 고른 effort가 core가 만드는 축이 된다. label은 고정이고 wire·budget은 없다.
+export function effortAxisOf(
+  effort: {
+    values: readonly EffortValue[];
+    default_value: EffortValue | null;
+  },
+): OptionAxis {
+  return {
+    id: OPTION_AXIS_EFFORT,
+    label: "Effort",
+    values: effort.values.map((value) => ({
+      value,
+      label: EFFORT_LABELS[value],
+      wire: null,
+    })),
+    default_value: effort.default_value,
+    budget: null,
+  };
+}
+
+// 순서·중복·기본 값 검사는 effort 축의 기존 검사를 그대로 쓴다.
+const validEffort = (effort: Parameters<typeof effortAxisOf>[0]) =>
+  optionAxisSchema.safeParse(effortAxisOf(effort)).success;
+const invalidEffort = { message: "invalid effort values" };
+
+const userInfoFields = {
+  context_limit: positiveIntegerSchema.nullable(),
+  input_limit: positiveIntegerSchema.nullable(),
+  output_limit: positiveIntegerSchema.nullable(),
+  supports_tools: z.boolean().nullable(),
+  input_media: modelMediaSchema,
+  output_media: modelMediaSchema,
+};
+const userModelInfoSchema = z.strictObject({
+  ...userInfoFields,
+  effort: z.strictObject(userEffortFields).refine(validEffort, invalidEffort)
+    .nullable(),
+  price: z.strictObject(userPriceFields).nullable(),
+});
+const userModelInfoOutputSchema = z.object({
+  ...userInfoFields,
+  effort: z.object(userEffortFields).refine(validEffort, invalidEffort)
+    .nullable(),
+  price: z.object(userPriceFields).nullable(),
+});
+export type UserModelInfo = z.infer<typeof userModelInfoSchema>;
+
+const userModelKeyFields = {
+  provider_definition: nonblankSchema,
+  model_name: nonblankSchema,
+};
+const userModelItemSchema = z.strictObject({
+  ...userModelKeyFields,
+  info: userModelInfoSchema,
+});
+// saved_at은 저장한 시각이다. 가격 근거(price_basis.checked_at)가 된다.
+const userModelRecordOutputSchema = z.object({
+  ...userModelKeyFields,
+  info: userModelInfoOutputSchema,
+  saved_at: atSchema,
+});
+const userModelsOutputFields = {
+  seq: seqSchema,
+  items: z.array(userModelRecordOutputSchema),
+};
+export type UserModelItem = z.infer<typeof userModelItemSchema>;
+export type UserModelRecord = z.infer<typeof userModelRecordOutputSchema>;
+
+const userModelsSeqCompare = z.strictObject({ seq: seqSchema });
+const userModelErrors = [
+  "invalid_input",
+  "unauthorized",
+  "forbidden",
+  "conflict",
+] as const;
+
+// custom provider model 하나의 정보를 더하거나 고친다. 내장·구독 OAuth 정의의 key는 invalid_input이다.
+export const saveUserModelInfo = defineCommand({
+  resource: "user-model-info",
+  method: "save",
+  name: "SaveUserModelInfo",
+  input: userModelItemSchema,
+  output: z.object(userModelsOutputFields),
+  compare: userModelsSeqCompare,
+  actors: ["user"],
+  errors: [...userModelErrors],
+});
+
+export const removeUserModelInfo = defineCommand({
+  resource: "user-model-info",
+  method: "remove",
+  name: "RemoveUserModelInfo",
+  input: z.strictObject(userModelKeyFields),
+  output: z.object(userModelsOutputFields),
+  compare: userModelsSeqCompare,
+  actors: ["user"],
+  errors: [...userModelErrors],
+});
+
+export const userModelInfoRead = defineRead({
+  resource: "user-model-info",
+  method: "read",
+  name: "ReadUserModelInfo",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object(userModelsOutputFields)),
+  actors: readActors,
+  errors: [...readErrors],
+});
+
 export const modelCatalogRead = defineRead({
   resource: "agent-model-catalog",
   method: "read",
@@ -372,6 +501,9 @@ export const MODEL_ROUTES = [
   projectModelChange,
   changeHiddenModels,
   hiddenModelsRead,
+  saveUserModelInfo,
+  removeUserModelInfo,
+  userModelInfoRead,
   modelCatalogRead,
 ] as const;
 

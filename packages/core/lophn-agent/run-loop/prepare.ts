@@ -62,7 +62,7 @@ import {
   type TurnSeat,
 } from "./core-ports.ts";
 import { readSessionConversation } from "../session/history.ts";
-import type { ModelBinding } from "../models/binding.ts";
+import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
 import { inputText } from "./input-text.ts";
 import type { TurnStart } from "./work.ts";
@@ -166,7 +166,6 @@ type PreparerDeps = {
   skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
-  reservedOutput?: number;
 };
 
 type PreparedTurn = {
@@ -501,10 +500,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_limit: model.call.limits.input_limit,
             output_limit: model.call.limits.output_limit,
           },
-          reserved_output: Math.min(
-            deps.reservedOutput ?? 8000,
-            model.call.limits.output_limit,
-          ),
+          reserved_output: cappedOutput(model.call.limits.output_limit),
         },
         session: read.value,
         notices,

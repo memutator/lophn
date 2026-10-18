@@ -2,13 +2,20 @@ import {
   hiddenModelsRead,
   modelDefaultRead,
   projectModelRead,
+  userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
-import { GLOBAL_SCOPE, loadChoice, loadHidden } from "./store.ts";
+import {
+  GLOBAL_SCOPE,
+  loadChoice,
+  loadHidden,
+  loadUserModels,
+} from "./store.ts";
+import { userEntryOf } from "./user-entry.ts";
 import { bundledSnapshot } from "./snapshot-catalog.ts";
 import { createCatalogRead } from "./work.ts";
 
@@ -23,6 +30,7 @@ export function createModelReads(deps: {
   modelDefault: ReadDefinition<typeof modelDefaultRead>;
   projectModel: ReadDefinition<typeof projectModelRead>;
   hidden: ReadDefinition<typeof hiddenModelsRead>;
+  userInfo: ReadDefinition<typeof userModelInfoRead>;
   catalog: ReturnType<typeof createCatalogRead>;
 } {
   return {
@@ -59,8 +67,19 @@ export function createModelReads(deps: {
         });
       },
     },
+    userInfo: {
+      route: userModelInfoRead,
+      handle(snapshot) {
+        return ok({
+          ...loadUserModels(snapshot.sql),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
     catalog: createCatalogRead({
       readDerived: deps.readDerived,
+      userEntries: (sql) => loadUserModels(sql).items.map(userEntryOf),
       snapshot: bundledSnapshot,
     }),
   };

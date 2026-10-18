@@ -125,8 +125,7 @@ export function createCatalogRefresher(
         // 깨진 catalog 파일은 갱신 전체 거절 사유가 아니라 snapshot 복구 대상이다.
         return ok(layers);
       }
-      layers.models_dev = entries.filter((entry) => entry.source !== "user");
-      layers.user = entries.filter((entry) => entry.source === "user");
+      layers.models_dev = entries;
     } catch {
       // catalog 파일이 없으면 snapshot에서 다시 만든다(plan 완료 1).
       return ok(layers);
@@ -159,9 +158,7 @@ export function createCatalogRefresher(
     } catch {
       state = undefined;
     }
-    if (
-      layered.value.models_dev.length === 0 && layered.value.user.length === 0
-    ) {
+    if (layered.value.models_dev.length === 0) {
       const rebuilt = await rebuildFromSnapshot();
       if (!rebuilt.ok) return rebuilt;
       cached = rebuilt.value;
@@ -339,6 +336,8 @@ type CatalogReadDeps = {
   readDerived(sql: ReadSnapshot["sql"], name: string): string | null;
   // 동봉 snapshot과 그 hash다. 정상 파일이 없을 때의 답이다.
   snapshot: { entries: CatalogEntry[]; hash: string };
+  // 사람이 적은 model 정보(user 층)다. 같은 열쇠의 catalog 항목을 이긴다. derived 파일에는 쓰지 않는다.
+  userEntries(sql: ReadSnapshot["sql"]): CatalogEntry[];
 };
 
 // catalog의 read 정의. derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot으로 답한다.
@@ -378,7 +377,22 @@ export function createCatalogRead(
         catalog = deps.snapshot.entries;
         state = initialState(true, deps.snapshot.hash);
       }
-      const visible = catalog.filter((entry) =>
+      // user 층이 같은 열쇠의 항목을 이긴다. 나머지 항목의 순서는 그대로 둔다(cursor가 위치다).
+      const typed = deps.userEntries(snapshot.sql);
+      const typedKeys = new Set(
+        typed.map((entry) =>
+          `${entry.provider_definition}\u0000${entry.model_name}`
+        ),
+      );
+      const merged = [
+        ...catalog.filter((entry) =>
+          !typedKeys.has(
+            `${entry.provider_definition}\u0000${entry.model_name}`,
+          )
+        ),
+        ...typed,
+      ];
+      const visible = merged.filter((entry) =>
         (input.provider_definition === undefined ||
           entry.provider_definition === input.provider_definition) &&
         (input.model_name === undefined ||

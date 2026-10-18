@@ -6,8 +6,10 @@ import {
   type ModelChoice,
   providerRead,
   type ProviderRecord,
+  userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { resolveSelection, translateOptions } from "./mod.ts";
+import { userEntryOf } from "./user-entry.ts";
 import {
   type AuthKind,
   type AuthTransport,
@@ -23,8 +25,10 @@ import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
   anthropicPacker,
+  cappedOutput,
   chatPacker,
   type ModelBinding,
+  OUTPUT_CAP,
   responsesPacker,
 } from "./binding.ts";
 
@@ -39,8 +43,6 @@ import {
 // 건네는 값을 인증 transport가 전송 직전에만 붙인다. OAuth token은 core가 건네기 직전에 만료가 가까우면
 // 갱신한다. 값을 받지 못하면 요청을 보내지 않는다.
 
-const MAX_OUTPUT_TOKENS = 4096;
-
 // Anthropic은 thinking 예산보다 max_tokens가 커야 요청을 받는다. 예산이 있으면 답에 쓸 몫을 그 위에 더한다.
 function anthropicMaxTokens(
   request_patch: { thinking?: unknown },
@@ -52,16 +54,30 @@ function anthropicMaxTokens(
   const budget = typeof thinking?.budget_tokens === "number"
     ? thinking.budget_tokens
     : 0;
-  return Math.min(outputLimit, MAX_OUTPUT_TOKENS + budget);
+  return Math.min(outputLimit, OUTPUT_CAP + budget);
 }
 
-// catalog에 없는 model에 쓰는 기본 한계다. agent의 기본 prompt와 tool 정의만 수십 KB라 이보다 작으면 turn이 시작하지 못한다.
+// catalog에 없는 model, 그리고 사람이 안 적은 칸에 쓰는 기본 한계다. agent의 기본 prompt와 tool 정의만 수십 KB라
+// 이보다 작으면 turn이 시작하지 못한다. output은 모르는 server에 큰 max_tokens를 보내 거절당하지 않게 작게 둔다.
 const UNLISTED_LIMITS = {
   context_limit: 131072,
   input_limit: 131072,
-  output_limit: MAX_OUTPUT_TOKENS,
+  output_limit: 4096,
   supports_tools: true,
 };
+
+// 사람이 적은 항목의 안 적은 한도(null)를 칸마다 기본값으로 채운다. input은 정해진 context를 따른다.
+function withDefaultLimits(entry: CatalogEntry): CatalogEntry {
+  if (entry.source !== "user") return entry;
+  const context = entry.context_limit ?? UNLISTED_LIMITS.context_limit;
+  return {
+    ...entry,
+    context_limit: context,
+    input_limit: entry.input_limit ?? context,
+    output_limit: entry.output_limit ?? UNLISTED_LIMITS.output_limit,
+    supports_tools: entry.supports_tools ?? UNLISTED_LIMITS.supports_tools,
+  };
+}
 
 // option 축을 모르는 model의 자리표시 항목이다(wire 변환이 항목을 읽는다).
 function unlistedEntry(
@@ -158,10 +174,19 @@ export function createModelResolver(deps: ModelResolverDeps) {
 
     const catalog = await deps.catalog();
     if (!catalog.ok) return catalog;
-    const found = catalog.value.find((candidate) =>
-      candidate.provider_definition === provider.definition.key &&
-      candidate.model_name === selection.model_name
+    // 사람이 적은 정보가 user 층이라 같은 열쇠의 catalog 항목을 이긴다.
+    const typed = await readOf(deps.machine, userModelInfoRead, {});
+    if (!typed.ok) return typed;
+    const record = typed.value.items.find((item) =>
+      item.provider_definition === provider.definition.key &&
+      item.model_name === selection.model_name
     );
+    const found = record !== undefined
+      ? withDefaultLimits(userEntryOf(record))
+      : catalog.value.find((candidate) =>
+        candidate.provider_definition === provider.definition.key &&
+        candidate.model_name === selection.model_name
+      );
     // catalog에 없는 이름은 어느 provider에서든 한계와 option 축을 알 수 없다. 직접 적은 이름은 받고 기본 한계로
     // 돌며 option은 고를 수 없다. 이름이 틀렸으면 provider 호출이 거절한다. 거절하는 것은 구독 계정의 허락 목록
     // 밖 이름뿐이고 resolveSelection의 modelListed가 본다.
@@ -189,7 +214,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
               name,
             )
             ? false
-            : found !== undefined ||
+            : (found !== undefined && found.source !== "user") ||
                 credential.reported_models?.includes(name) === true
             ? true
             : null,
@@ -225,13 +250,13 @@ export function createModelResolver(deps: ModelResolverDeps) {
       ? responsesPacker({
         model: limits.sent_model_name,
         images,
-        maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
+        maxTokens: cappedOutput(limits.output_limit),
         requestPatch,
       })
       : chatPacker({
         model: limits.sent_model_name,
         images,
-        maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
+        maxTokens: cappedOutput(limits.output_limit),
         provider: provider.definition.key,
         requestPatch,
       });

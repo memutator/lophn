@@ -85,7 +85,7 @@ Deno.test("models.dev 응답이 lophn 항목으로 바뀐다", () => {
       .map((axis) => [axis.values.map((v) => v.value), axis.default_value]),
     [[["minimal", "low", "medium", "high"], "medium"]],
   );
-  assertEquals(gpt5.input_media, ["text", "image"]);
+  assertEquals(gpt5.input_media, ["text", "image", "pdf"]);
   assertEquals(gpt5.input_limit, 272000);
   const axis = (claude.options as {
     values: { value: string }[];

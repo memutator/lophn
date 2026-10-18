@@ -28,5 +28,6 @@ export { createModelCommands, type ModelCommandDeps } from "./commands.ts";
 export { createModelReads } from "./reads.ts";
 export { resolveSelection } from "./selection.ts";
 export { snapshotCatalogEntry } from "./snapshot-catalog.ts";
+export { checkEntryOf } from "./user-entry.ts";
 export { resolveOptionValues, validateOptionValues } from "./options.ts";
 export { translateOptions } from "./wire.ts";

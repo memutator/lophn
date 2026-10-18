@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ModelChoice } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import { snapshotCatalogEntry, validateOptionValues } from "../models/mod.ts";
+import { checkEntryOf, validateOptionValues } from "../models/mod.ts";
 
 // 세션에 저장하기 전 model 선택 검사다. 기본값 저장과 같은 규칙이다.
 // - provider 기록이 없으면 not_found.
@@ -21,7 +21,7 @@ export function checkSessionModel(
   if (typeof definition !== "string" || definition.length === 0) {
     return err({ code: "not_found", message: "the provider is not found" });
   }
-  const entry = snapshotCatalogEntry(definition, choice.model_name);
+  const entry = checkEntryOf(tx.sql, definition, choice.model_name);
   if (entry === undefined) {
     return Object.keys(choice.option_values).length === 0
       ? ok(undefined)

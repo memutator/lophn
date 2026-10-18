@@ -48,3 +48,26 @@ Deno.test("selectableModels: 알려 준 목록이 있으면 그 목록, 없거�
     [{ model_name: "m1", entry: b1 }],
   );
 });
+
+Deno.test("selectableModels: 사람이 정보를 적은 항목은 알려 준 목록에 없어도 더해지고 목록에 있으면 한 번만 나온다", () => {
+  const typed = { ...entry("a", "typed"), source: "user" } as CatalogEntry;
+  const m1 = { ...entry("a", "m1"), source: "user" } as CatalogEntry;
+  const withUser = [m1, a2, typed];
+  assertEquals(
+    selectableModels({
+      definition: "a",
+      catalog: withUser,
+      reported: ["m1", "x"],
+    }),
+    [
+      { model_name: "m1", entry: m1 },
+      { model_name: "x", entry: null },
+      { model_name: "typed", entry: typed },
+    ],
+  );
+  assertEquals(
+    selectableModels({ definition: "a", catalog: withUser, reported: null })
+      .map((model) => model.model_name),
+    ["m1", "m2", "typed"],
+  );
+});

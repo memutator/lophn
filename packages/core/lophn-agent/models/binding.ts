@@ -24,6 +24,14 @@ import type { InvokeModelCall } from "../providers/work.ts";
 // 선택한 provider adapter와 고정한 model 선택을 loop가 쓰는 한 묶음으로 만든다. 선택·검증(catalog,
 // credential)은 앞 단계가 끝낸 CallModel이다. 이 묶음은 요청 번역(pack)과 호출(invoke)만 안다.
 
+// 한 호출이 쓰는 output의 상한이다. 보내는 max_tokens와 입력 예산이 남기는 output 몫이 같은 값이어야 한다:
+// vLLM 계열은 입력과 max_tokens의 합이 context를 넘으면 거절한다.
+export const OUTPUT_CAP = 32000;
+
+export function cappedOutput(outputLimit: number): number {
+  return Math.min(OUTPUT_CAP, outputLimit);
+}
+
 export type ModelBinding = {
   call: CallModel;
   // model이 받는 입력 media. image를 받지 못하면 image tool을 주지 않는다.

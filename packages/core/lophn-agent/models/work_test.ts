@@ -18,6 +18,7 @@ for (
     const read = createCatalogRead({
       readDerived: () => derived,
       snapshot: bundledSnapshot,
+      userEntries: () => [],
     });
     const result = read.handle(
       { sql: {}, as_of_seq: 1 } as unknown as ReadSnapshot,
@@ -39,6 +40,7 @@ Deno.test("catalog를 cursor로 이어 읽으면 snapshot 전체가 한도 안�
   const read = createCatalogRead({
     readDerived: () => null,
     snapshot: bundledSnapshot,
+    userEntries: () => [],
   });
   const names: string[] = [];
   let cursor: string | undefined;

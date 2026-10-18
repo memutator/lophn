@@ -30,7 +30,7 @@ import { estimatedCost } from "../usage/mod.ts";
 import { resolveTurnAgent } from "../agents/layers.ts";
 import type { AgentRoleTable } from "../agents/role-table.ts";
 import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
-import type { ModelBinding } from "../models/binding.ts";
+import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import {
   type BlobPort,
   type RedactText,
@@ -48,9 +48,6 @@ import { readSessionConversation } from "./history.ts";
 
 // 요약하지 않고 원문으로 남기는 최근 사람 메시지 수.
 const KEEP_RECENT = 3;
-
-// 요약 call이 예약하는 출력 크기. 요약 본문 상한(summaryOutputCap)은 최대 4,000 token이라 그만큼 예약한다.
-const RESERVED_OUTPUT = 4000;
 
 // 요약 call 하나의 크기다. input은 입력 예산이고 body는 요약 본문 상한(summaryOutputCap(input))이다.
 type SummaryLimit = { input: number; body: number };
@@ -398,7 +395,7 @@ export function createCompactor(
     const binding = resolved.value;
     const budget = inputBudget(
       binding.call.limits,
-      Math.min(RESERVED_OUTPUT, binding.call.limits.output_limit),
+      cappedOutput(binding.call.limits.output_limit),
     );
     if (!budget.ok) return failed("too_large");
     const limit: SummaryLimit = {

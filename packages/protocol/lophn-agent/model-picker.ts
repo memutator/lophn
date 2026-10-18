@@ -88,9 +88,10 @@ export type SelectableModel = {
   entry: CatalogEntry | null;
 };
 
-// provider가 알려 준 목록(reported)이 있으면 그 목록이 고를 수 있는 model 전부다.
-// null(못 읽음)이거나 빈 목록이면 그 정의의 catalog 항목 전부다. 빈 목록을 "전부 숨김"으로 읽으면
-// 읽기가 틀렸을 때 model이 모두 사라지므로 그렇게 읽지 않는다. 다른 정의의 항목은 섞지 않는다.
+// provider가 알려 준 목록(reported)이 있으면 그 목록이 기본이다. null(못 읽음)이거나 빈 목록이면 그 정의의
+// catalog 항목 전부다. 빈 목록을 "전부 숨김"으로 읽으면 읽기가 틀렸을 때 model이 모두 사라지므로 그렇게 읽지
+// 않는다. 어느 쪽이든 사람이 정보를 적은(source가 "user") 그 정의의 항목은 목록에 없어도 더한다. 다른 정의의
+// 항목은 섞지 않는다.
 export function selectableModels(input: {
   definition: string;
   catalog: readonly CatalogEntry[];
@@ -99,13 +100,21 @@ export function selectableModels(input: {
   const own = input.catalog.filter((entry) =>
     entry.provider_definition === input.definition
   );
-  if (input.reported === null || input.reported.length === 0) {
-    return own.map((entry) => ({ model_name: entry.model_name, entry }));
-  }
-  return [...new Set(input.reported)].map((model_name) => ({
-    model_name,
-    entry: own.find((entry) => entry.model_name === model_name) ?? null,
-  }));
+  const base: SelectableModel[] =
+    input.reported === null || input.reported.length === 0
+      ? own.map((entry) => ({ model_name: entry.model_name, entry }))
+      : [...new Set(input.reported)].map((model_name) => ({
+        model_name,
+        entry: own.find((entry) => entry.model_name === model_name) ?? null,
+      }));
+  const listed = new Set(base.map((model) => model.model_name));
+  const typed = own.filter((entry) =>
+    entry.source === "user" && !listed.has(entry.model_name)
+  );
+  return [
+    ...base,
+    ...typed.map((entry) => ({ model_name: entry.model_name, entry })),
+  ];
 }
 
 // 구독 OAuth provider의 목록만 계정의 허락 목록이다. custom·API key provider의 목록은 찾기 위한 것이다.

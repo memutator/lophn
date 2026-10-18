@@ -26,11 +26,11 @@ import {
 } from "../../protocol/lophn-agent/ask-tool.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
+  checkEntryOf,
   createModelCommands,
   createModelReads,
   type ModelCommandDeps,
   modelSchemaSteps,
-  snapshotCatalogEntry,
 } from "./models/mod.ts";
 import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
 import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
@@ -228,13 +228,13 @@ function providerDefinitionKey(
   }
 }
 
-// model 기본값 저장 검사 deps. catalog는 동봉 snapshot에서 읽는다.
+// model 기본값 저장 검사 deps. 항목은 사람이 적은 정보(user 층)와 동봉 snapshot에서 읽는다.
 function modelCommandDeps(places: PlaceLookups, tx: Tx): ModelCommandDeps {
   return {
     projectExists: (id) => places.projectExists(tx.sql, id),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
     catalogEntry: (providerDefinition, modelName) =>
-      snapshotCatalogEntry(providerDefinition, modelName),
+      checkEntryOf(tx.sql, providerDefinition, modelName),
   };
 }
 
@@ -719,6 +719,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       modelCommands.changeDefault,
       modelCommands.changeProject,
       modelCommands.changeHidden,
+      modelCommands.saveUserInfo,
+      modelCommands.removeUserInfo,
       usage.start,
       usage.finish,
       usage.supplement,
@@ -761,6 +763,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       modelReads.modelDefault,
       modelReads.projectModel,
       modelReads.hidden,
+      modelReads.userInfo,
       modelReads.catalog,
       usageReads.read,
       usageReads.list,
@@ -839,6 +842,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         modelReads.modelDefault,
         modelReads.projectModel,
         modelReads.hidden,
+        modelReads.userInfo,
         modelReads.catalog,
         usageReads.read,
         usageReads.list,

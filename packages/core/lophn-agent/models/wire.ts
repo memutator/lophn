@@ -89,8 +89,14 @@ const responsesEffort: EffortPiece = (value) => {
   return name === undefined ? undefined : { reasoning: { effort: name } };
 };
 
+// Chat Completions 호환 server(deepseek-v4 계열)는 max를 받는다. OpenAI Responses는 받지 않는다.
+const CHAT_EFFORT_NAMES: Readonly<Record<string, string>> = {
+  ...REASONING_EFFORT_NAMES,
+  maximum: "max",
+};
+
 const chatEffort: EffortPiece = (value) => {
-  const name = lookup(REASONING_EFFORT_NAMES, value);
+  const name = lookup(CHAT_EFFORT_NAMES, value);
   return name === undefined ? undefined : { reasoning_effort: name };
 };
 

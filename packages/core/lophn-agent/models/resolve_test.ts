@@ -4,6 +4,7 @@ import { routePath } from "../../../protocol/base/mod.ts";
 import {
   providerRead,
   type ProviderRecord,
+  userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { builtinProviderDefinition } from "../providers/definitions.ts";
 import { bundledSnapshot } from "./snapshot-catalog.ts";
@@ -61,6 +62,8 @@ function resolverFor(
       Promise.resolve(
         path === routePath(providerRead)
           ? ok({ provider, as_of_seq: "0", next_cursor: null })
+          : path === routePath(userModelInfoRead)
+          ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
           : err({ code: "not_found", message: path }),
       ),
     attach: {} as never,

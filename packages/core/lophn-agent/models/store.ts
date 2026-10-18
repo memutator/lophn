@@ -1,6 +1,8 @@
 import type {
   HiddenModels,
   ModelChoice,
+  UserModelInfo,
+  UserModelRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
@@ -65,4 +67,48 @@ export function loadHidden(sql: Query): HiddenModels {
     })),
     settings_seq: String(seq?.["seq"] ?? 0),
   };
+}
+
+function userRecord(row: Record<string, unknown>): UserModelRecord {
+  return {
+    provider_definition: String(row["provider_definition"]),
+    model_name: String(row["model_name"]),
+    info: JSON.parse(String(row["info"])) as UserModelInfo,
+    saved_at: String(row["saved_at"]),
+  };
+}
+
+const USER_COLUMNS = "provider_definition, model_name, info, saved_at";
+
+export function loadUserModels(
+  sql: Query,
+): { seq: string; items: UserModelRecord[] } {
+  const rows = sql.all(
+    `select ${USER_COLUMNS} from model_user_info order by provider_definition, model_name`,
+    [],
+  );
+  const seq = sql.get("select seq from model_user_info_seq", []);
+  return { seq: String(seq?.["seq"] ?? 0), items: rows.map(userRecord) };
+}
+
+export function loadUserModel(
+  sql: Pick<Sql, "get">,
+  definition: string,
+  modelName: string,
+): UserModelRecord | undefined {
+  const row = sql.get(
+    `select ${USER_COLUMNS} from model_user_info where provider_definition = ? and model_name = ?`,
+    [definition, modelName],
+  );
+  return row === undefined ? undefined : userRecord(row);
+}
+
+export function bumpUserModelsSeq(sql: Pick<Sql, "run">, seq: string): string {
+  const next = String(Number(seq) + 1);
+  sql.run(
+    `insert into model_user_info_seq (one, seq) values (1, ?)
+     on conflict (one) do update set seq = excluded.seq`,
+    [next],
+  );
+  return next;
 }

@@ -248,6 +248,15 @@ components:
     change_reasons:
       boundaries: [app-tickets, sdk]
 
+  - id: architecture-workspace-layout
+    kind: doc
+    roles: [planner, lead]
+    description: project 창의 탭 자리(docked, floated, minimized), floats 층, native view 세 층과 cover, app panel view 보관, layout.json 저장.
+    path: project-docs/architecture/workspace-layout.md
+    change_reasons:
+      boundaries: [shell]
+      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/app-frame/view-order.ts, packages/shell/renderer/app-frame/bounds.ts, packages/shell/renderer/app-frame/view-keeps.ts]
+
   - id: architecture-ui-kit
     kind: doc
     roles: [planner, lead, designer]

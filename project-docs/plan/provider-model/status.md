@@ -8,6 +8,6 @@ lead만 고친다. `tools/status.py provider-model build`가 `tasks/*.md`에서 
 | `pm-custom-list` | pm-core | 2 | pm-reported-models | merged | pm-core/pm-custom-list | 1fd62ad73 |  |
 | `pm-model-rules` | pm-core | 2 | pm-reported-models | merged | pm-core/pm-model-rules | 44622bf21 |  |
 | `pm-connect-flow` | pm-screens | 3 | 없음 | running | pm-screens/pm-connect-flow |  |  |
-| `pm-picker-data` | pm-screens | 3 | pm-custom-list, pm-model-rules | todo |  |  |  |
+| `pm-picker-data` | pm-screens | 3 | pm-custom-list, pm-model-rules | running | pm-screens/pm-picker-data |  |  |
 | `pm-picker-ui` | pm-screens | 4 | pm-picker-data, pm-connect-flow | todo |  |  |  |
 | `pm-wireframes` | pm-wireframes | 5 | pm-picker-ui | todo |  |  |  |

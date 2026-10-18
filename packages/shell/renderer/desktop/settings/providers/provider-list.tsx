@@ -4,10 +4,14 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
+import {
+  type ManageModelsApi,
+  useManageModels,
+} from "../../../conversation/model-picker/manage-context.ts";
 import { wayLabel } from "../model.ts";
 import { AvailableList, type Loaded, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
-import { useAfterConnect } from "./connect-host.tsx";
+import { type ListedModels, useAfterConnect } from "./connect-host.tsx";
 import { ProviderName } from "./provider-name.tsx";
 import type {
   ProviderDefinitionRow,
@@ -23,7 +27,8 @@ interface ProviderListProps {
 // Settings › Providers. provider는 연결과 인증만 다룬다: model 고르기·기본값 칸이 없다. 위는 연결된 provider
 // (vendor 아이콘과 이름, 로그인 방법 badge, [Disconnect]; 사용량 대기나 사용 불가일 때만 그 상태와 다음 행동 한 줄)이고
 // 아래는 Add a provider 목록(줄마다 [+ Connect])이다. provider 하나에는 연결 하나다. [+ Connect]는 Connect dialog를
-// 연다(connect-dialog.tsx). [Disconnect]는 화면 안 Dialog로 한 번 묻는다.
+// 연다(connect-dialog.tsx). [Disconnect]는 화면 안 Dialog로 한 번 묻는다. custom provider를 붙이면 model 목록을 읽은 결과
+// ("N개 찾음" 또는 "목록 없음")가 그 줄 아래에 남고 [Manage models]나 [Add model]이 그 창을 연다.
 export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [connected, setConnected] = useState<Loaded<ProviderRow>>({
     state: "loading",
@@ -34,6 +39,11 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
   const [leaving, setLeaving] = useState<ProviderRow | null>(null);
   const afterConnect = useAfterConnect();
+  const manage = useManageModels();
+  // custom provider를 붙인 뒤 읽은 model 목록의 결과. 이 화면을 떠날 때까지 그 줄 아래에 둔다.
+  const [listed, setListed] = useState<Readonly<Record<string, ListedModels>>>(
+    {},
+  );
 
   // 다시 읽다 실패해도 이미 보이는 목록은 지우지 않는다(처음 읽기만 실패를 보인다).
   const loadConnected = useCallback(async (): Promise<void> => {
@@ -61,6 +71,7 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
   async function disconnect(row: ProviderRow): Promise<void> {
     setLeaving(null);
     setFailed(false);
+    setListed(({ [row.id]: _, ...rest }) => rest);
     const done = await source.disconnect(row.id);
     if (!done.ok) setFailed(true);
     reload();
@@ -103,6 +114,8 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
                       <ConnectedItem
                         key={row.id}
                         row={row}
+                        listed={listed[row.id]}
+                        manage={manage}
                         onDisconnect={() => setLeaving(row)}
                       />
                     ))}
@@ -138,6 +151,7 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
             connected.state === "ready"
               ? connected.rows.map((row) => row.id)
               : [],
+            (id, result) => setListed((now) => ({ ...now, [id]: result })),
           );
         }}
       />
@@ -175,7 +189,12 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
 }
 
 function ConnectedItem(
-  { row, onDisconnect }: { row: ProviderRow; onDisconnect: () => void },
+  { row, listed, manage, onDisconnect }: {
+    row: ProviderRow;
+    listed: ListedModels | undefined;
+    manage: ManageModelsApi | null;
+    onDisconnect: () => void;
+  },
 ): ReactNode {
   const status = statusOf(row);
   return (
@@ -196,6 +215,45 @@ function ConnectedItem(
             {status.text}
           </p>
         )}
+      {listed === undefined ? null : (
+        <div
+          className={styles.result}
+          data-models-result={listed.count > 0 ? "found" : "empty"}
+        >
+          <p className={styles.resultText}>
+            {listed.count > 0
+              ? t("conversation.notice.models-found", {
+                count: listed.count,
+                provider: listed.name,
+              })
+              : t("conversation.notice.models-not-listed", {
+                provider: listed.name,
+              })}
+          </p>
+          {manage === null ? null : (
+            <Button
+              size="sm"
+              data-action={listed.count > 0 ? "manage-models" : "add-model"}
+              onClick={() =>
+                manage.open(
+                  listed.count > 0 ? { first: row.id } : {
+                    first: row.id,
+                    addModel: {
+                      provider: row.id,
+                      lead: t("conversation.notice.models-not-listed", {
+                        provider: listed.name,
+                      }),
+                    },
+                  },
+                )}
+            >
+              {listed.count > 0
+                ? t("conversation.button.manage-models")
+                : t("conversation.button.add-model")}
+            </Button>
+          )}
+        </div>
+      )}
     </li>
   );
 }

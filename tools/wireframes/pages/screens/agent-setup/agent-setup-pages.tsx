@@ -124,6 +124,41 @@ export const SettingsConnectPage = () => (
   </Driven>
 );
 
+// Add a provider의 Custom provider를 골라 form을 채우고 [Connect]를 누른다. agents fake가 같은 id의 custom provider(Local server)를 안다.
+const CONNECT_CUSTOM: readonly Step[] = [
+  () => press(`[data-available="custom"] [data-action="connect"]`),
+  () => type("[data-custom-field=id]", "local-server"),
+  () => type("[data-custom-field=name]", "Local server"),
+  () => type("[data-custom-field=url]", "https://llm.example.com/v1"),
+  () => click("[role=dialog] button", /^Connect$/),
+];
+
+/** Custom provider를 붙이고 목록을 찾은 직후. 전역 기본 model이 있어 다른 창이 뜨지 않는다. 그 provider 줄 아래에 "Found 2 models on Local server."와 [Manage models]가 남는다. */
+export const SettingsProvidersConnectedFoundPage = () => (
+  <SettingsFrame
+    pane="providers"
+    customList="found"
+    steps={[
+      ...CONNECT_CUSTOM,
+      async () => {
+        await find("[data-models-result=found]");
+      },
+    ]}
+  />
+);
+
+/** Custom provider를 붙였는데 목록이 없어 Manage models가 Add model form과 함께 떴다가 닫은 뒤. 그 줄 아래에 "Local server didn't list its models. Add them by name."과 [Add model]이 남는다. */
+export const SettingsProvidersConnectedEmptyPage = () => (
+  <SettingsFrame
+    pane="providers"
+    customList="empty"
+    steps={[
+      ...CONNECT_CUSTOM,
+      () => click("[role=dialog] button", /^Close$/),
+    ]}
+  />
+);
+
 /** Custom provider 연결 창. Provider ID, Display name, API(Chat Completions, Responses, Anthropic Messages 중 고르기), Base URL과 그 아래 주소 안내. 웹 주소라 key를 보호 입력으로 받는다는 안내가 보인다. */
 export const SettingsConnectCustomPage = () => (
   <Driven

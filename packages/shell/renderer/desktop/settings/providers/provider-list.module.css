@@ -89,6 +89,22 @@
   line-height: var(--type-small-line);
 }
 
+/* custom provider를 붙인 뒤 model 목록을 읽은 결과 한 줄. 글은 왼쪽, 행동 단추는 줄 오른쪽 끝이다. */
+.result {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.resultText {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
 .notice,
 .empty {
   margin: var(--space-3) var(--space-0) var(--space-0);

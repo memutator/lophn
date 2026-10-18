@@ -7,6 +7,8 @@ import {
   SettingsConnectPage,
   SettingsDefaultModelPromptPage,
   SettingsLophnPage,
+  SettingsProvidersConnectedEmptyPage,
+  SettingsProvidersConnectedFoundPage,
   SettingsProvidersPage,
   SettingsToolsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
@@ -101,6 +103,20 @@ export const settingsArea: Area = {
       description:
         "provider마다 연결 하나다. 연결된 것은 끊고 나머지는 [+ Connect]로 연결한다. 위 안내 문구가 model은 model picker와 Settings › Agents에서 고른다고 알려 준다. 어느 model을 picker에 보일지는 여기가 아니라 Manage models 창에서 정한다. 머리 왼쪽에 [Back]이 있다.",
       render: () => <SettingsProvidersPage />,
+    },
+    {
+      id: "new-settings-providers-connected-found",
+      title: "Settings · Providers, custom provider connected, models found",
+      description:
+        'Custom provider를 붙이고 목록을 찾은 직후다. 전역 기본 model이 이미 있어 다른 창이 뜨지 않으므로, 결과를 그 provider 줄 아래 한 줄로 보인다: "Found 2 models on Local server."와 오른쪽 끝 [Manage models](그 provider 묶음이 맨 위로 열린다). 이 화면을 떠날 때까지 남는다.',
+      render: () => <SettingsProvidersConnectedFoundPage />,
+    },
+    {
+      id: "new-settings-providers-connected-empty",
+      title: "Settings · Providers, custom provider connected, no model list",
+      description:
+        'Custom provider를 붙였는데 /models 목록이 없을 때(hive처럼 404)다. Manage models가 그 provider의 Add model form과 함께 먼저 열리고, 닫은 뒤에도 provider 줄 아래에 "Local server didn\'t list its models. Add them by name."과 오른쪽 끝 [Add model](그 form이 열린 채 Manage models가 다시 열린다)이 남는다.',
+      render: () => <SettingsProvidersConnectedEmptyPage />,
     },
     {
       id: "new-settings-connect",

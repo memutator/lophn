@@ -41,13 +41,19 @@ export function useConnectProvider(): ConnectProviderApi | null {
   return useContext(ConnectProviderContext);
 }
 
-// 연결 하나가 끝난 뒤의 뒤처리(새 provider 찾기, 기본 model 고르게 하기)를 host가 맡는다. 인자는 연결하기 전에 있던 provider id들이다.
-const AfterConnectContext = createContext<(before: readonly string[]) => void>(
-  () => {},
-);
+/** custom provider의 목록을 읽은 결과. count가 0이면 목록이 없다. */
+export type ListedModels = { name: string; count: number };
+
+// 연결 하나가 끝난 뒤의 뒤처리(새 provider 찾기, 기본 model 고르게 하기)를 host가 맡는다. 인자는 연결하기 전에 있던 provider id들이고,
+// onListed는 custom provider의 목록을 읽은 결과를 받는다.
+type AfterConnect = (
+  before: readonly string[],
+  onListed?: (providerId: string, listed: ListedModels) => void,
+) => void;
+const AfterConnectContext = createContext<AfterConnect>(() => {});
 
 /** Settings → Providers 화면이 자기 ConnectDialog 뒤에 부른다. host 밖이면 아무 일도 하지 않는다. */
-export function useAfterConnect(): (before: readonly string[]) => void {
+export function useAfterConnect(): AfterConnect {
   return useContext(AfterConnectContext);
 }
 
@@ -58,7 +64,7 @@ interface ConnectProviderHostProps {
 }
 
 // 정의 고르기 → ConnectDialog는 open()으로 열고, 끝난 뒤에는 새 provider를 찾는다. custom provider면 model 목록을
-// 한 번 읽는다: 찾았으면 한 줄("N개 찾음")을 다음에 뜨는 창에 보이고, 목록이 없으면 그 provider의 Add model form과 함께
+// 한 번 읽는다: 찾았으면 한 줄("N개 찾음")을 다음에 뜨는 창에 보이고(Settings → Providers는 읽은 결과를 onListed로도 받아 그 줄에 보인다), 목록이 없으면 그 provider의 Add model form과 함께
 // Manage models를 먼저 연다. 그다음 전역 기본 model이 없으면 고르게 한다. key 연결은 보호 창이 따로 끝내므로 ConnectDialog가 끝났을 때는 아직 연결이 없을 수 있다: 그러면 창이 다시 focus를
 // 받을 때 한 번만 더 읽고, 그래도 없으면 null로 끝낸다.
 export function ConnectProviderHost(
@@ -90,7 +96,7 @@ export function ConnectProviderHost(
 
   // custom provider면 목록을 한 번 읽는다. 내장 provider는 null이다.
   const readList = useCallback(
-    async (id: string): Promise<{ name: string; count: number } | null> => {
+    async (id: string): Promise<ListedModels | null> => {
       const read = await agents.editor.models();
       const provider = read.ok
         ? read.value.providers.find((item) => item.id === id)
@@ -130,9 +136,11 @@ export function ConnectProviderHost(
     async (
       id: string | null,
       onConnected?: (providerId: string | null, notice?: string) => void,
+      onListed?: (providerId: string, listed: ListedModels) => void,
     ): Promise<void> => {
       if (id === null) return onConnected?.(null);
       const listed = await readList(id);
+      if (listed !== null) onListed?.(id, listed);
       if (listed !== null && listed.count === 0) {
         // 목록이 없으면 이름으로 더하게 한다. Manage models가 이미 landing을 정하므로 onConnected는 부르지 않는다.
         manage.current?.open({
@@ -160,14 +168,17 @@ export function ConnectProviderHost(
     (
       before: readonly string[],
       onConnected?: (providerId: string | null, notice?: string) => void,
+      onListed?: (providerId: string, listed: ListedModels) => void,
     ): void => {
       stopWaiting.current?.();
       void (async () => {
         const found = await newProvider(before);
-        if (found !== null) return settle(found, onConnected);
+        if (found !== null) return settle(found, onConnected, onListed);
         const retry = () => {
           stopWaiting.current = null;
-          void newProvider(before).then((id) => settle(id, onConnected));
+          void newProvider(before).then((id) =>
+            settle(id, onConnected, onListed)
+          );
         };
         globalThis.addEventListener?.("focus", retry, { once: true });
         stopWaiting.current = () =>
@@ -191,7 +202,9 @@ export function ConnectProviderHost(
 
   return (
     <ConnectProviderContext.Provider value={api}>
-      <AfterConnectContext.Provider value={afterConnect}>
+      <AfterConnectContext.Provider
+        value={(before, onListed) => afterConnect(before, undefined, onListed)}
+      >
         <ManageModelsHost source={agents.editor} apiRef={manage}>
           {children}
         </ManageModelsHost>

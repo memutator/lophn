@@ -1,11 +1,16 @@
-// 탭 줄 끝의 새 탭(+) menu. Document · Terminal · Agent ▸ · Context ▸ · Search · App panel이고 항목마다
+// 탭 줄 끝의 새 탭(+) menu. Document · Terminal · Browser · Agent ▸ · Context ▸ · Search · App panel이고 항목마다
 // 아이콘이 붙는다. Agent와 Context는 같은 menu가 그 목록으로 바뀐다(Radix menu는 한 번에 한 단계만 보인다).
 // 부르는 쪽이 통로가 있는 항목의 핸들러만 준다. 핸들러가 없는 항목은 두지 않는다.
 import { type ReactNode, useRef, useState } from "react";
 import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
 import { FileIcon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
-import { commonIcons, paletteIcons, workspaceIcons } from "../icons/mod.ts";
+import {
+  browserIcons,
+  commonIcons,
+  paletteIcons,
+  workspaceIcons,
+} from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import styles from "./add-tab-menu.module.css";
@@ -19,6 +24,7 @@ interface NewTabAgent {
 interface NewTabMenuProps {
   onDocument?: () => void;
   onTerminal?: () => void;
+  onBrowser?: () => void;
   /** 주면 Agent ▸ 항목이 있고 이 목록으로 바뀐다. */
   agents?: readonly NewTabAgent[];
   onAgent?: (agent: string) => void;
@@ -61,6 +67,13 @@ export function NewTabMenu(props: NewTabMenuProps) {
       id: "terminal",
       label: t("project-workspace.label.menu-terminal"),
       leading: lead(workspaceIcons.terminal),
+    });
+  }
+  if (props.onBrowser) {
+    root.push({
+      id: "browser",
+      label: t("browser.label.menu-browser"),
+      leading: lead(browserIcons.globe),
     });
   }
   if (props.agents !== undefined && props.onAgent) {
@@ -136,6 +149,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
     }
     if (id === "document") props.onDocument?.();
     else if (id === "terminal") props.onTerminal?.();
+    else if (id === "browser") props.onBrowser?.();
     else if (id === "search") props.onSearch?.();
     else if (id === "app-panel") props.onAppPanel?.();
     else if (id.startsWith("agent:")) props.onAgent?.(id.slice(6));

@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { agentKind } from "./agent.ts";
 import { agentsKind } from "./agents.ts";
 import { appPanelKind } from "./app-panel.ts";
+import { browserKind } from "./browser.ts";
 import { contextKind } from "./context.ts";
 import { contextsKind } from "./contexts.ts";
 import { documentEditorKind } from "./document-editor.ts";
@@ -21,6 +22,7 @@ const BUILT_IN_TAB_KINDS = [
   searchKind,
   agentsKind,
   agentKind,
+  browserKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

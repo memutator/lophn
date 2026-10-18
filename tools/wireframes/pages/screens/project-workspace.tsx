@@ -45,6 +45,24 @@ import {
 } from "./project-float/pages.tsx";
 import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
+  BrowserBlank,
+  BrowserBookmarkMenu,
+  BrowserDevtoolsBottom,
+  BrowserDevtoolsFloat,
+  BrowserDevtoolsMenu,
+  BrowserDevtoolsRight,
+  BrowserNewTabBookmarks,
+  BrowserOauthPopup,
+  BrowserOverflowMenu,
+  BrowserPaletteBookmark,
+  BrowserPopupBlocked,
+  BrowserPopupNewTab,
+  BrowserStarEmpty,
+  BrowserStarFilled,
+  BrowserTabPage,
+  NewTabMenuBrowser,
+} from "./browser/pages.tsx";
+import {
   MockDesktop,
   type PaneSpec,
   PROJECT_GROCERY,
@@ -131,6 +149,117 @@ export const projectWorkspaceArea: Area = {
       render: () => <FloatOverApp />,
     },
     {
+      id: "browser-tab",
+      title: "Browser · tab",
+      description:
+        "https page를 연 browser 탭이다. toolbar는 뒤로, 앞으로, 새로 고침, 주소 칸(끝에 별), Bookmarks, Open in browser, 더 보기이고 탭 이름은 page title, 아이콘은 site favicon이다. page는 `<webview>`라 gallery에서는 빈 자리로 그린다.",
+      render: () => <BrowserTabPage />,
+    },
+    {
+      id: "browser-blank",
+      title: "Browser · blank tab",
+      description:
+        "새 탭 menu의 Browser로 연 빈 주소 칸이다. 주소 칸에 focus가 있고, bookmark가 없어 빈 상태 글이 보인다.",
+      render: () => <BrowserBlank />,
+    },
+    {
+      id: "browser-popup-blocked",
+      title: "Browser · popup blocked",
+      description:
+        "page가 사용자 입력 없이 새 창을 열려다 거절되었다는 한 줄 안내다. toolbar 아래 toast로 뜬다.",
+      render: () => <BrowserPopupBlocked />,
+    },
+    {
+      id: "browser-oauth-popup",
+      title: "Browser · sign-in popup",
+      description:
+        "로그인 page가 크기를 준 popup을 열어 작은 floated browser 탭(accounts.google.com)으로 떴다. 저장되지 않고, Dock하면 같은 주소의 보통 탭이 된다.",
+      render: () => <BrowserOauthPopup />,
+    },
+    {
+      id: "browser-popup-new-tab",
+      title: "Browser · link opened in a new tab",
+      description:
+        "크기 없는 popup(target=_blank link)은 연 탭 바로 뒤에 새 browser 탭으로 열린다.",
+      render: () => <BrowserPopupNewTab />,
+    },
+    {
+      id: "browser-overflow-menu",
+      title: "Browser · more menu",
+      description:
+        "toolbar 끝의 더 보기 menu다. DevTools가 닫혀 있으면 Inspect 하나다. 앱에서는 page 위 overlay로 뜨고 gallery는 같은 menu를 DOM으로 그린다.",
+      render: () => <BrowserOverflowMenu />,
+    },
+    {
+      id: "browser-devtools-right",
+      title: "Browser · DevTools on the right",
+      description:
+        "Inspect로 연 DevTools가 page 오른쪽에 붙었다. 가운데 경계를 끌어 크기를 바꾼다. DevTools는 native view라 gallery에서는 빈 자리다.",
+      render: () => <BrowserDevtoolsRight />,
+    },
+    {
+      id: "browser-devtools-bottom",
+      title: "Browser · DevTools at the bottom",
+      description: "DevTools를 page 아래에 붙였다.",
+      render: () => <BrowserDevtoolsBottom />,
+    },
+    {
+      id: "browser-devtools-float",
+      title: "Browser · floating DevTools",
+      description:
+        "DevTools만 떼어 workspace 위 floated 패널로 띄웠다. 패널 bar의 단추로 다시 page 옆에 붙이거나 따로 창으로 옮긴다.",
+      render: () => <BrowserDevtoolsFloat />,
+    },
+    {
+      id: "browser-devtools-menu",
+      title: "Browser · DevTools menu",
+      description:
+        "DevTools가 열려 있을 때의 더 보기 menu다. 오른쪽, 아래, 띄우기, 따로 창, 닫기가 있고 지금 자리는 잠겨 있다.",
+      render: () => <BrowserDevtoolsMenu />,
+    },
+    {
+      id: "new-tab-menu-browser",
+      title: "Browser · new tab menu",
+      description:
+        "탭 줄 끝의 + menu에 Browser가 있다. 고르면 빈 주소 칸의 browser 탭이 열린다.",
+      render: () => <NewTabMenuBrowser />,
+    },
+    {
+      id: "browser-star-empty",
+      title: "Browser · bookmark star",
+      description:
+        "아직 bookmark가 아닌 page다. 주소 칸 끝의 별이 비어 있고 누르거나 Ctrl/Cmd+D를 누르면 bookmark가 된다.",
+      render: () => <BrowserStarEmpty />,
+    },
+    {
+      id: "browser-star-filled",
+      title: "Browser · bookmark popover",
+      description:
+        "bookmark인 page의 채운 별을 눌러 popover가 열렸다. title을 고치고 [Remove]로 지운다.",
+      render: () => <BrowserStarFilled />,
+    },
+    {
+      id: "browser-bookmark-menu",
+      title: "Browser · bookmarks menu",
+      description:
+        "toolbar의 Bookmarks 단추 menu다. 더한 순서대로 favicon과 title이고, favicon이 없는 bookmark는 Globe다. 고르면 지금 탭에서 연다.",
+      render: () => <BrowserBookmarkMenu />,
+    },
+    {
+      id: "browser-new-tab-bookmarks",
+      title: "Browser · new tab with bookmarks",
+      description:
+        "빈 주소 칸으로 연 새 탭이 page 자리에 bookmark 목록(favicon, title, host)을 보인다. 누르면 지금 탭에서, Ctrl/Cmd-click은 새 탭에서 연다.",
+      render: () => <BrowserNewTabBookmarks />,
+    },
+    {
+      id: "browser-palette-bookmark",
+      title: "Browser · bookmarks in the palette",
+      description:
+        "Ctrl+K 팔레트에 글자를 치면 Bookmarks 묶음에 이름이 맞는 bookmark가 favicon과 함께 나온다. 고르면 새 browser 탭에서 열린다.",
+      render: () => <BrowserPaletteBookmark />,
+    },
+    {
       id: "new-explorer-root",
       title: "Sidebar · Explorer",
       description:
@@ -183,7 +312,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tab-menu",
       title: "Project · new tab menu",
       description:
-        "탭 줄 끝의 + 메뉴를 펼친 상태다. Agent 하위 메뉴에 lophn, Project Manager, Operator가 있고 Agents(관리 탭)와 New context 항목은 없다.",
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn, Project Manager, Operator가 있다. Agents(관리 탭)와 New context 항목은 없다.",
       render: () => <NewTabMenu />,
     },
     {

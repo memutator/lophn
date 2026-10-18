@@ -504,6 +504,7 @@ type NewTabPick =
   | `agent-operator:${string}`
   | `context:${string}`
   | "search"
+  | "browser"
   | "app-panel";
 
 const CONTEXT_CHOICES = [
@@ -532,6 +533,7 @@ export function PageNewTabMenu(
     <NewTabMenu
       onDocument={() => onPick("document")}
       onTerminal={() => onPick("terminal")}
+      onBrowser={() => onPick("browser")}
       agents={AGENTS.map((agent) => ({
         id: agent.assignment,
         name: agent.name,

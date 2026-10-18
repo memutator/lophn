@@ -1,6 +1,8 @@
 // Settings의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { SettingsFrame } from "./settings-frame.tsx";
+import { click } from "../../mock/drive.ts";
+import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
 export const SettingsBack = () => <SettingsFrame pane="agents" />;
@@ -48,3 +50,52 @@ export const SettingsReactions = () => <SettingsFrame pane="reactions" />;
 
 /** Settings › Diagnostics. */
 export const SettingsDiagnostics = () => <SettingsFrame pane="diagnostics" />;
+
+const icon = (fill: string) =>
+  `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='3' fill='%23${fill}'/%3E%3C/svg%3E`;
+const mark = (
+  n: number,
+  title: string,
+  url: string,
+  favicon?: string,
+): Bookmark => ({
+  id: `bookmark-${n}`,
+  title,
+  url,
+  created_at: "2026-10-19T00:00:00.000Z",
+  ...(favicon === undefined ? {} : { favicon }),
+});
+// 셋째는 favicon이 없어 Globe로 보인다.
+const BOOKMARKS: Bookmark[] = [
+  mark(1, "Deno", "https://deno.com/", icon("1f2937")),
+  mark(2, "MDN Web Docs", "https://developer.mozilla.org/", icon("2563eb")),
+  mark(3, "Grocery dev server", "http://localhost:5173/"),
+];
+
+/** Settings › Browser: Bookmarks와 Browsing data([Clear browsing data]). */
+export const SettingsBrowser = () => (
+  <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
+);
+
+/** Settings › Browser: [Clear browsing data]를 눌러 확인 dialog가 열린 상태. */
+export const SettingsBrowserClearData = () => (
+  <SettingsFrame
+    pane="browser"
+    browser={{ bookmarks: BOOKMARKS }}
+    steps={[() => click("[data-browser-clear]")]}
+  />
+);
+
+/** Settings › Browser: bookmark 목록. 한 줄은 [Edit]을 눌러 title·URL 입력으로 바뀌었다. */
+export const SettingsBrowserBookmarks = () => (
+  <SettingsFrame
+    pane="browser"
+    browser={{ bookmarks: BOOKMARKS }}
+    steps={[() => click("[data-bookmark-edit]", undefined, 1)]}
+  />
+);
+
+/** Settings › Browser: bookmarks.json이 깨져 목록 자리에 오류 문장만 있다. 고치는 길은 열지 않는다. */
+export const SettingsBrowserBookmarksCorrupt = () => (
+  <SettingsFrame pane="browser" browser={{ corrupt: true }} />
+);

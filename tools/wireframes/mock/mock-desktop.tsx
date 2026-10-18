@@ -21,6 +21,8 @@ import type { SettingsPane } from "../../../packages/shell/renderer/desktop/sett
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
+import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
+import type { LophnBrowserApi } from "../../../packages/shell/ipc/browser.ts";
 import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
 import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
 import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
@@ -34,12 +36,14 @@ export { PROJECT_GROCERY };
 /** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
 interface TabSpec {
   readonly key: string;
-  readonly kind: "document_editor" | "terminal" | "app_panel";
+  readonly kind: "document_editor" | "terminal" | "app_panel" | "browser";
   readonly title: string;
   readonly folder?: string;
   /** app_panel 탭이 여는 앱과 그 화면 key. */
   readonly app?: string;
   readonly screen?: string;
+  /** browser 탭이 처음 여는 주소. 빈 글이면 빈 주소 칸이다. */
+  readonly url?: string;
   /** coding terminal이면 harness 표지. 저장된 title이 없는 일반 terminal 탭은 시작할 때까지 이름이 비어 있다. */
   readonly coding?: { readonly session: string; readonly product: string };
 }
@@ -76,10 +80,15 @@ interface MockDesktopProps {
   readonly core?: CoreSource;
   /** Settings에서 처음 보일 항목. 주면 route 대신 Settings를 연다. */
   readonly settingsTab?: SettingsTab;
+  /** browser 탭 통로. page가 fake(`fakeBrowserApi`)로 bookmark와 사건을 정할 때 준다. 없으면 dev mock 것이다. */
+  readonly browser?: LophnBrowserApi;
 }
 
 // 저장된 layout의 탭 모양으로 바꾼다. 문서 탭은 key가 곧 path이고, 터미널 탭은 연 폴더를 갖는다.
 function storedTab(tab: TabSpec) {
+  if (tab.kind === "browser") {
+    return { kind: tab.kind, key: tab.key, url: tab.url ?? "" };
+  }
   if (tab.kind === "app_panel") {
     return {
       kind: tab.kind,
@@ -126,6 +135,7 @@ const SETTINGS_PANE = {
   coding: "coding",
   general: "general",
   diagnostics: "diagnostics",
+  browser: "browser",
 } as const satisfies Record<string, SettingsPane>;
 
 export type SettingsTab = keyof typeof SETTINGS_PANE;
@@ -177,29 +187,31 @@ export function MockDesktop(props: MockDesktopProps) {
   }, [panes, floats, openTerminal, emptyLauncher]);
   const { mock } = wiring;
   return (
-    <AppViewsProvider value={mock.appViews}>
-      <ConversationProvider deps={wiring.conversation}>
-        <EventsProvider client={wiring.events}>
-          <Desktop
-            source={core ?? mock.core}
-            initial={route}
-            workspace={wiring.workspace}
-            editor={mock.editor}
-            terminal={wiring.terminal}
-            catalog={mock.catalog}
-            projects={wiring.projects}
-            apps={wiring.apps}
-            settings={mock.settings}
-            settingsPanels={wiring.settingsPanels}
-            issues={mock.issues}
-            appDetail={mock.appDetail}
-            views={mock.views}
-            annotate={mock.annotate}
-            feedback={mock.feedback}
-            instructions={mock.instructions}
-          />
-        </EventsProvider>
-      </ConversationProvider>
-    </AppViewsProvider>
+    <BrowserApiProvider value={props.browser ?? mock.browser}>
+      <AppViewsProvider value={mock.appViews}>
+        <ConversationProvider deps={wiring.conversation}>
+          <EventsProvider client={wiring.events}>
+            <Desktop
+              source={core ?? mock.core}
+              initial={route}
+              workspace={wiring.workspace}
+              editor={mock.editor}
+              terminal={wiring.terminal}
+              catalog={mock.catalog}
+              projects={wiring.projects}
+              apps={wiring.apps}
+              settings={mock.settings}
+              settingsPanels={wiring.settingsPanels}
+              issues={mock.issues}
+              appDetail={mock.appDetail}
+              views={mock.views}
+              annotate={mock.annotate}
+              feedback={mock.feedback}
+              instructions={mock.instructions}
+            />
+          </EventsProvider>
+        </ConversationProvider>
+      </AppViewsProvider>
+    </BrowserApiProvider>
   );
 }

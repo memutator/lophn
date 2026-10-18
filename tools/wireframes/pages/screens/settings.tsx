@@ -17,6 +17,10 @@ import {
   SettingsAppearancePresets,
   SettingsAppearancePresetsDark,
   SettingsBack,
+  SettingsBrowser,
+  SettingsBrowserBookmarks,
+  SettingsBrowserBookmarksCorrupt,
+  SettingsBrowserClearData,
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
@@ -33,7 +37,7 @@ export const settingsArea: Area = {
   id: "settings",
   title: "Settings",
   summary:
-    "Settings의 General, Appearance, Providers, Agents, Tools, Coding agents, Reactions, Diagnostics.",
+    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Reactions, Diagnostics.",
   pages: [
     {
       id: "settings-coding",
@@ -173,6 +177,34 @@ export const settingsArea: Area = {
       description:
         "새 일을 여는 domain event 다섯마다 Off, Open without asking, Ask를 고른다. 기본은 열고 묻지 않음이고, 항목마다 어느 agent의 session이 열리는지 한 줄이 있다.",
       render: () => <SettingsReactions />,
+    },
+    {
+      id: "settings-browser",
+      title: "Settings · Browser",
+      description:
+        "browser 탭의 Bookmarks 목록과 Browsing data 구역이다. [Clear browsing data]는 모든 browser 탭이 같이 쓰는 로그인과 site data, cache를 지운다.",
+      render: () => <SettingsBrowser />,
+    },
+    {
+      id: "settings-browser-clear-data",
+      title: "Settings · Browser · clear browsing data",
+      description:
+        "[Clear browsing data]를 눌러 확인 dialog가 열렸다. 지우면 열린 browser 탭을 다시 load한다.",
+      render: () => <SettingsBrowserClearData />,
+    },
+    {
+      id: "settings-browser-bookmarks",
+      title: "Settings · Browser · bookmarks",
+      description:
+        "bookmark 목록이다. 줄마다 favicon, title, URL, [Edit], [Remove]이고 favicon이 없으면 Globe다. 둘째 줄은 [Edit]을 눌러 title·URL 입력으로 바뀌었다.",
+      render: () => <SettingsBrowserBookmarks />,
+    },
+    {
+      id: "settings-browser-bookmarks-corrupt",
+      title: "Settings · Browser · damaged bookmarks file",
+      description:
+        "bookmarks.json이 깨져 목록 자리에 오류 문장만 있다. 덮어쓰지 않으려고 고치거나 지우는 단추를 두지 않는다.",
+      render: () => <SettingsBrowserBookmarksCorrupt />,
     },
     {
       id: "new-settings-diagnostics",

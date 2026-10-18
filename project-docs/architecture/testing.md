@@ -11,7 +11,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 | harness wire | provider adapter, 실패 분류, 호출당 idle | 녹화·손 fixture를 `fetch`로 재생 | `tests/harness/wire/` | `deno task check` |
 | core E2E | core daemon, agent runtime·worker·app child 전부 | HTTP fake server | `tests/e2e/` | `deno task e2e` |
 | provider live | 진짜 provider와 model | 없음 | `tests/live/` | `deno task test:live` |
-| eval (test 아님) | core, 진짜 model(`real` 참가자만), judge | 나머지 참가자는 model 없음 | `tests/eval/` | `deno task eval` |
+| eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | `tests/eval/` | `deno task eval`, `deno task eval:experiment <id>` |
 
 - `tools/check.ts`는 `tests`를 package 하나로 본다. 어느 package가 바뀌어도 `tests`의 fmt, lint, `deno check`, harness와 support의 `*_test.ts`가 같이 돈다.
 - `tests/e2e`와 `tests/live`는 check의 `deno test`에 들지 않는다. `deno.json`의 `test.exclude`를 쓰지 않고 `--ignore`로 뺀다. `test.exclude`에 든 폴더는 인자로 직접 줘도 돌지 않아 `deno task e2e`가 못 돈다. CLI `--ignore`는 root `deno.json`의 `exclude`를 대체하므로 check는 그 목록(`DENO_EXCLUDED`)을 같이 준다.
@@ -83,7 +83,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 - `deno task test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `deno task e2e`와 check는 `.env`를 읽지 않는다. 돌 것이 없으면(key도 live root도 없음) 이유를 찍고 0으로 끝난다. key가 있는 provider의 file과, live root가 있으면 `chatgpt_test.ts`가 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
   - ChatGPT 구독은 key가 아니라 사람의 진짜 로그인이다. `deno task test:live:login`이 core를 live 전용 root `.dev-data/live/home`(log와 user-home은 `.dev-data/live/run`)에 띄워 로그인을 한 번 저장하고(같은 컴퓨터의 browser가 필요하다), 계정 model 목록 응답 모양과 기본 model을 찍는다. `test:live`는 그 root에 core를 띄워 구독 token으로 turn 하나를 돌리고 계정 model 목록과 `billing_route == subscription`을 단정한다. 갱신은 token 만료 5분 전 안에만 일어나 단정은 그때만 돈다(로그인하고 약 55분 뒤 한 번 더 돌린다. 아니면 "확인하지 못했다"를 찍는다). 쓸 수 없는 credential이면 test가 실패한다.
   - 이 root는 복사하지 않는다(refresh token이 갱신 때마다 회전한다). core 하나만 띄우고 두 task를 동시에 돌리지 않는다. 코드는 root를 지우지 않으며 지우려면 사람이 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live`를 한다. 이 root는 schema가 바뀌면 못 뜨고 그때 지우고 다시 로그인한다.
-- `deno task eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. role 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `deno task eval:scorecard`로 scorecard를 다시 쓴다. run 요약(`tests/eval/runs/`)과 scorecard(`tests/eval/scorecards/`)는 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `deno task check`가 돌린다.
+- `deno task eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. role 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `deno task eval:scorecard`로 scorecard를 다시 쓴다. harness를 고친 것은 commit한 spec으로 `deno task eval:experiment <id>`가 판정한다(`.claude/skills/eval-run/SKILL.md`). 둘 다 judge item과 `ask`가 대기로 남아 eval을 돌리는 agent가 `eval:judge`, `eval:answer`로 채워야 끝난다. run 요약(`tests/eval/runs/`), scorecard(`tests/eval/scorecards/`), experiment 기록(`tests/eval/experiments/`)은 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `deno task check`가 돌린다.
 - `deno task dev`: `tools/dev.ts`가 앱 전에 core를 한 번 띄워 고정 port(기본 7499)의 fake server를 `providers/connect`로 심는다. `LOPHN_LIVE_PROVIDER=1`이면 심지 않는다.
 
 ## case 고르는 규칙

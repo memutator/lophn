@@ -192,7 +192,7 @@ components:
   - id: architecture-eval
     kind: doc
     roles: [planner, lead, worker]
-    description: eval 층. 흐름(runner → 되살리기 → model 붙이기 → t0 → 단계 → 수집 → check·judge → 요약), tests/eval 자리, 지키는 것(real만 model, key, t0 자르기, 요청 body blob, token·tool 수치 규칙, 버전 hash와 registry, 채점 순서, 비용 상한, 요약과 전체 기록).
+    description: eval 층. 흐름(runner → 되살리기 → model 붙이기 → t0 → 단계 → 수집 → check·judge → 요약), tests/eval 자리, 지키는 것(real만 model, key, t0 자르기, 요청 body blob, token·tool 수치 규칙, 버전 hash와 registry, 채점 대기와 순서, 비용 상한, 요약과 전체 기록), experiment(commit된 spec, 판정 default@1, trial 정책, variant와 grader, gate, 경고와 진단).
     path: project-docs/architecture/eval.md
     change_reasons:
       paths: [tests/eval/, tests/support/core/]
@@ -398,9 +398,9 @@ components:
   - id: tool-eval
     kind: tool
     roles: [planner, lead]
-    description: 진짜 model로 판단 case를 돌리는 eval runner와 scorecard. 시나리오마다 재료로 world를 되살리고 real 참가자에게만 model을 붙여 돌린 뒤 program check와 Haiku judge로 채점한다. run 요약은 tests/eval/runs/, scorecard는 tests/eval/scorecards/에 쓰고 commit한다. key가 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. 사람이 진짜 provider 호출을 허락했을 때만 key로 돈다.
+    description: 진짜 model로 판단 case를 돌리는 eval runner와 scorecard. 시나리오마다 재료로 world를 되살리고 real 참가자에게만 model을 붙여 돌린 뒤 program check로 채점하고 judge item과 사람 역할의 질문은 대기 file로 남겨 eval을 돌리는 agent가 채운다. experiment는 commit된 spec으로 판정을 tests/eval/experiments/<id>/result.json에 쓴다. run 요약은 tests/eval/runs/, scorecard는 tests/eval/scorecards/에 쓰고 commit한다. key가 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. 사람이 진짜 provider 호출을 허락했을 때만 key로 돈다.
     path: tests/eval/
-    run: deno task eval (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / deno task eval:scorecard [diff <runA> <runB>]
+    run: deno task eval (--scenario <id> | --all) [--model m] [--trials N] [--budget usd] / deno task eval:experiment <id> [--checkout path] / deno task eval:gate <id> / deno task eval:judge <run> / deno task eval:answer <run> / deno task eval:scorecard [diff <runA> <runB>]
     change_reasons:
       paths: [tests/support/core/, packages/protocol/lophn-agent/]
       note: 읽는 route, call 모양, tool 정의 file, 요청 body blob 배치가 바뀔 때.

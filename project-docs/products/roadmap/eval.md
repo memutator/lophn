@@ -526,9 +526,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 ## 단계
 
-시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case 17개)와 `eval-coding`(진짜 coding agent와 캘린더 단위)은 land했다(`project-docs/architecture/eval.md`). 남은 계획은 하나다. `eval-experiment`가 land하기 전까지 experiment는 planner가 run 기록을 보고 손으로 고르고 돌린다.
-
-1. **`eval-experiment`**: experiment spec, 본 component로 다시 돌릴 run 고르기, trial 정책, 병렬 실행과 예산 상한, gate의 dry run, runner와 experimenter가 일하는 법(skill), assembly의 prefix 유지 재기, 되풀이를 보는 judge(위 표의 "되풀이").
+시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case 17개), `eval-coding`(진짜 coding agent와 캘린더 단위), `eval-experiment`(spec, run 고르기, trial 정책, 병렬과 예산, gate, variant, 판정, 경고와 진단, agent 채점과 사람 역할, runner·experimenter skill)는 land했다(`project-docs/architecture/eval.md`). 남은 계획은 없다. 고칠 것은 experiment의 `report.md`가 제안한다.
 
 계획마다 끝에 고칠 것: `project-docs/architecture/eval.md`(그 계획이 만든 것을 실제 코드 path로 더한다), `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`과 `architecture-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록, 이 문서에서 그 계획 몫을 지운다.
 

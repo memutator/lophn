@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 | `bt-rules` | bt-rules | 1 | 없음 | merged | bt-rules/bt-rules | 547b9b0c0 |  |
 | `bt-session` | bt-session | 1 | bt-rules | merged | bt-session/bt-session | bdb3af555 |  |
 | `bt-bookmark-ipc` | bt-bookmark | 2 | bt-bookmark-store, bt-view | todo |  |  |  |
-| `bt-bookmark-store` | bt-bookmark | 2 | 없음 | running | bt-bookmark/bt-bookmark-store |  |  |
+| `bt-bookmark-store` | bt-bookmark | 2 | 없음 | merged | bt-bookmark/bt-bookmark-store | 639e1e033 |  |
 | `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | todo |  |  |  |
 | `bt-popup-host` | bt-popup | 2 | bt-view | todo |  |  |  |
 | `bt-popup-tab` | bt-popup | 2 | bt-popup-host, bt-tab-kind | todo |  |  |  |

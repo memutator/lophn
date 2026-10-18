@@ -1,8 +1,5 @@
 export type JudgeDefinition = {
   n: number;
-  model: string;
-  max_tokens: number;
-  price_usd_per_mtok: { input: number; output: number };
   prompt: string;
 };
 

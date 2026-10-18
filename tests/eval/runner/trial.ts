@@ -17,7 +17,12 @@ import {
 } from "../collect/mod.ts";
 import { loadCriterion } from "../criteria/mod.ts";
 import { createHumanRole, type HumanRole } from "../human/mod.ts";
-import { type JudgeDefinition, judgeItem, judgePassed } from "../judge/mod.ts";
+import {
+  type JudgeDefinition,
+  judgeKey,
+  newJudgeItem,
+  writePending,
+} from "../judge/mod.ts";
 import { attachRealModels, evalCoreSettings } from "../provider/mod.ts";
 import {
   agentRefOf,
@@ -70,8 +75,6 @@ export type TrialOutcome = {
   components: VersionRef[];
   saved: { name: string; n: number }[]; // 이 trial이 후보로 쓴 재료
 };
-
-const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
 function humanSummary(human: HumanRole): HumanSummary {
   const { answers, decisions, cost_usd } = human.record();
@@ -227,24 +230,30 @@ export async function runTrial(
         continue;
       }
       const criterion = await loadCriterion(check.criterion);
-      const item = await judgeItem(
-        { fetch: (url, init) => fetch(url, init), apiKey: deps.key },
-        {
-          check: check.id,
-          criterion,
-          input: await check.input({ trial, core }),
-          judge: deps.judge,
-        },
-      );
+      const item = newJudgeItem({
+        check: check.id,
+        criterion,
+        input: await check.input({ trial, core }),
+        judge: deps.judge,
+      });
+      await writePending(deps.evalDir, {
+        key: judgeKey(index, check.id),
+        run: deps.runId,
+        trial: index,
+        kind: "check",
+        asked_at: deps.clock.now(),
+        criterion,
+        item,
+      });
       judge.push(item);
       checks.push({
         id: check.id,
         kind: "judge",
-        pass: judgePassed(criterion, item),
-        reason: oneLine(
-          item.error ?? `${item.verdict}: "${item.quote ?? ""}"`,
-        ),
+        pass: false,
+        pending: true,
+        reason: "채점 대기",
       });
+      deps.log(`채점 대기 ${deps.runId} ${judgeKey(index, check.id)}`);
     }
 
     const components = await seenComponents(records);

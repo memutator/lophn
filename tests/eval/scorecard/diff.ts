@@ -153,7 +153,9 @@ function checkSection(a: RunRecord, b: RunRecord): string[] {
     v === undefined ? "-" : `${v.passed}/${v.of}`;
   const verdicts = (r: RunRecord, id: string) =>
     r.trials.flatMap((t) => t.judge).filter((j) => j.check === id).map((j) =>
-      j.verdict ?? `error`
+      j.state === "pending"
+        ? "대기"
+        : `${j.verdict ?? "error"}(${j.model ?? "-"})`
     );
   const lines = ["| check | a | b | |", "|---|---|---|---|"];
   for (const id of new Set([...ta.keys(), ...tb.keys()])) {
@@ -225,6 +227,18 @@ function metricsSection(a: RunRecord, b: RunRecord): string[] {
   return lines;
 }
 
+// 다른 model이 채점한 run은 grader가 달라 따로 보인다.
+function judgeModelChange(a: RunRecord, b: RunRecord): string[] {
+  const models = (r: RunRecord) =>
+    [
+      ...new Set(
+        r.trials.flatMap((t) => t.judge).map((j) => j.model ?? "대기"),
+      ),
+    ].sort().join(", ");
+  const [x, y] = [models(a), models(b)];
+  return x === y ? [] : [`judge model ${x || "-"} / ${y || "-"}`];
+}
+
 export async function diffRuns(
   a: RunRecord,
   b: RunRecord,
@@ -243,6 +257,7 @@ export async function diffRuns(
     ),
     ...versionChanges("checks", [a.grader.checks], [b.grader.checks]),
     ...(a.model === b.model ? [] : [`model ${a.model} → ${b.model}`]),
+    ...judgeModelChange(a, b),
   ];
   return [
     `# diff ${a.id} → ${b.id}`,

@@ -20,6 +20,15 @@ export function renderScorecard(
   opts: { date: string; model: string },
 ): string {
   const label = (r: ScorecardRow) => `${r.scenario.name}@${r.scenario.n}`;
+  const byId = new Map(runs.map((r) => [r.id, r]));
+  // 채점 대기는 통과로 세지 않는다. 숫자 옆에 따로 보인다.
+  const judgeCell = (r: ScorecardRow) => {
+    const sum = sumOf(r, "judge");
+    const run = r.run === null ? undefined : byId.get(r.run);
+    const pending =
+      run?.trials.flatMap((t) => t.checks).filter((c) => c.pending).length ?? 0;
+    return pending > 0 ? `${sum} (대기 ${pending})` : sum;
+  };
   const out: string[] = [
     `# scorecard ${opts.date}`,
     "",
@@ -37,7 +46,7 @@ export function renderScorecard(
           r.run ?? "-",
           `${r.passed}/${r.trials}`,
           sumOf(r, "program"),
-          sumOf(r, "judge"),
+          judgeCell(r),
           m === null
             ? "-"
             : m.cost_usd.toFixed(4) + (m.unpriced_calls > 0 ? "+?" : ""),
@@ -65,31 +74,27 @@ export function renderScorecard(
   );
 
   out.push("", "## judge verdict", "");
-  const byId = new Map(runs.map((r) => [r.id, r]));
   const verdicts: string[] = [];
-  let judgeCost = 0;
   for (const r of rows) {
     const run = r.run === null ? undefined : byId.get(r.run);
     for (const item of run?.trials.flatMap((t) => t.judge) ?? []) {
-      judgeCost += item.cost_usd;
       const bad = item.error !== null || item.verdict === "cannot_tell";
+      const verdict = item.state === "pending"
+        ? "채점 대기"
+        : `${bad ? "!" : ""}${cell(item.verdict ?? `error: ${item.error}`)}`;
       verdicts.push(
-        `| ${label(r)} | ${item.check} | ${item.criterion} | ${bad ? "!" : ""}${
-          cell(item.verdict ?? `error: ${item.error}`)
-        } | ${cell(item.quote ?? "-")} | ${runFile(run!.id)} |`,
+        `| ${label(r)} | ${item.check} | ${item.criterion} | ${
+          item.model ?? "-"
+        } | ${verdict} | ${cell(item.quote ?? "-")} | ${runFile(run!.id)} |`,
       );
     }
   }
   out.push(
     ...(verdicts.length > 0
       ? [
-        "| 시나리오 | check | criterion | verdict | 인용 | run file |",
-        "|---|---|---|---|---|---|",
+        "| 시나리오 | check | criterion | model | verdict | 인용 | run file |",
+        "|---|---|---|---|---|---|---|",
         ...verdicts,
-        "",
-        `judge 비용 합: ${
-          judgeCost.toFixed(4)
-        } USD (위 표의 비용은 대상 비용만이다)`,
       ]
       : ["없음"]),
   );

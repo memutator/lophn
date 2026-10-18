@@ -3,7 +3,6 @@ import { z } from "zod";
 import { annotationReadSchema } from "../../apps/annotation.ts";
 import { appApiKeySchema } from "../../apps/channel-values.ts";
 import { canonicalize } from "../../../base/mod.ts";
-import { jsonValueSchema } from "../../base/json-values.ts";
 import { idSchema } from "../../base/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../../base/values.ts";
 import { codingSessionIdSchema } from "../token.ts";
@@ -57,7 +56,8 @@ const CHECK_TEXT_MAX_CODE_POINTS = 500;
 const EXAMPLE_STEPS_MAX = 20;
 const EXAMPLE_VALUE_MAX_BYTES = 8192;
 
-const exampleValueSchema = jsonValueSchema.refine(
+// tool 입력이라 JSON Schema로 바뀌어야 한다. z.custom은 바뀌지 않아 turn 준비가 깨진다.
+const exampleValueSchema = z.json().refine(
   (value) =>
     new TextEncoder().encode(canonicalize(value)).byteLength <=
       EXAMPLE_VALUE_MAX_BYTES,

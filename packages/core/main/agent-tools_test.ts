@@ -5,6 +5,7 @@ import { ticketCreate } from "../../protocol/coding-agent/ticket/mod.ts";
 import { roleOperations } from "../agent-roles/credentials.ts";
 import { FILE_HOOKS } from "../agent-roles/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
+import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.
 Deno.test("App Engineer의 credential 상한에 ticket.create tool이 부르는 route 이름이 든다", () => {
@@ -25,4 +26,17 @@ Deno.test("role 목록의 모든 이름에 정의가 있고 모든 정의가 어
   const listed = new Set(ROLES.flatMap((role) => builtinToolNames(role)));
   assertEquals([...listed].filter((name) => !defined.has(name)), []);
   assertEquals([...defined].filter((name) => !listed.has(name)), []);
+});
+
+// tool 입력 하나라도 JSON Schema로 바뀌지 않으면 그 role의 turn이 준비 단계에서 조용히 멈춘다.
+Deno.test("모든 내장 tool의 입력이 model에 보낼 JSON Schema로 바뀐다", () => {
+  const failed: string[] = [];
+  for (const tool of agentTools({ file: FILE_HOOKS })) {
+    try {
+      inputJsonSchema(tool);
+    } catch {
+      failed.push(tool.name);
+    }
+  }
+  assertEquals(failed, []);
 });

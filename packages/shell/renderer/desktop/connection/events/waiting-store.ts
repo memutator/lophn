@@ -4,6 +4,8 @@ import type {
   PendingApproval,
   TurnPermissionRequest,
 } from "../../../../../protocol/approvals/mod.ts";
+import { HOOK_EVENT_TABLE } from "../../../../../protocol/coding-agent/hook-signal.ts";
+import type { HarnessId } from "../../../../../protocol/coding-agent/harnesses.ts";
 import type {
   BusEvent,
   EventCondition,
@@ -12,6 +14,7 @@ import type {
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
 import type { z } from "zod";
+import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
 import { readPendingApprovals, readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
@@ -40,6 +43,8 @@ export type WaitingEntry =
     readonly request: TurnPermissionRequest;
   }
   | Common & { readonly kind: "question"; readonly request: QuestionRequest }
+  // 터미널을 열었는데 첫 hook 신호가 없다. folder trust 같은 확인에서 멈췄을 수 있다. id는 start:<session>이다.
+  | Common & { readonly kind: "coding_start" }
   | Common & {
     readonly kind: "activation" | "reaction";
     readonly request: PendingApproval;
@@ -53,6 +58,7 @@ export interface WaitingState {
 const WAITING_CONDITION: EventCondition = {
   types: [
     "SessionStarted",
+    "SessionEnded",
     "PermissionRequested",
     "PermissionResolved",
     "QuestionAsked",
@@ -69,6 +75,24 @@ export function approvalWaitingKind(
   return kind === "activation" || kind === "reaction" ? kind : null;
 }
 
+/**
+ * 정상 시작의 SessionStart는 이보다 빨리 온다고 보고 정한 값이다(근거 기록 없음). 이보다 늦으면 항목이 뜬다.
+ */
+const STARTING_QUIET_MS = 5000;
+
+/** `setTimeout` 꼴. 전역을 읽지 않으려고 인자로 받는다. */
+export interface Timer {
+  set(run: () => void, ms: number): unknown;
+  clear(handle: unknown): void;
+}
+
+/** 첫 신호가 SessionStarted인 harness만 터미널 시작 뒤 첫 신호를 기다릴 수 있다. */
+function startsWithSessionStart(product: string | undefined): boolean {
+  const table = HOOK_EVENT_TABLE[product as HarnessId];
+  return table !== undefined &&
+    Object.values(table).includes("SessionStarted");
+}
+
 interface WaitingStore {
   get(): WaitingState;
   subscribe(listener: () => void): () => void;
@@ -81,6 +105,8 @@ interface WaitingStore {
 export function createWaitingStore(
   client: EventClient,
   now: () => string,
+  terminals: Pick<TerminalApi, "onRuntime"> | null,
+  timer: Timer,
 ): WaitingStore {
   const state = createValueStore<WaitingState>({ entries: [], count: 0 });
   let entries = new Map<string, WaitingEntry>();
@@ -89,6 +115,48 @@ export function createWaitingStore(
     string,
     { agent: CallAgent; place: Place | null }
   >();
+
+  // 터미널을 열고 첫 신호를 기다리는 coding session. 항목이 뜬 뒤에도 끝날 때까지 남는다.
+  const waitingStart = new Map<string, unknown>();
+  // 첫 신호를 들었거나 끝난 session. runtime이 state마다 다시 와도 다시 세지 않는다.
+  const done = new Set<string>();
+
+  function stopWaitingStart(session: string) {
+    done.add(session);
+    if (!waitingStart.has(session)) return false;
+    timer.clear(waitingStart.get(session));
+    waitingStart.delete(session);
+    return entries.delete(`start:${session}`);
+  }
+
+  function watchStart(runtime: TerminalRuntime) {
+    const coding = runtime.coding_session;
+    if (runtime.launch_kind !== "coding_tui" || !coding) return;
+    const session = coding.session;
+    if (done.has(session)) return;
+    if (runtime.state === "exited" || runtime.state === "unknown") {
+      if (stopWaitingStart(session)) publish();
+      return;
+    }
+    if (
+      waitingStart.has(session) || !startsWithSessionStart(runtime.product)
+    ) return;
+    waitingStart.set(
+      session,
+      timer.set(() => {
+        const known = sessions.get(session);
+        put({
+          id: `start:${session}`,
+          kind: "coding_start",
+          session,
+          agent: known?.agent ?? { role: "coding_agent", app: coding.app },
+          place: known?.place ?? { kind: "app", id: coding.app },
+          receivedAt: now(),
+        });
+        publish();
+      }, STARTING_QUIET_MS),
+    );
+  }
 
   function publish() {
     const list = [...entries.values()];
@@ -160,7 +228,11 @@ export function createWaitingStore(
           agent: event.payload.agent,
           place: event.payload.place,
         });
-        return;
+        if (!stopWaitingStart(event.session)) return;
+        break;
+      case "SessionEnded":
+        if (!stopWaitingStart(event.session)) return;
+        break;
       case "PermissionRequested":
         put(permission(event.payload.request, event.at));
         break;
@@ -215,6 +287,14 @@ export function createWaitingStore(
   function replace(
     read: { snapshots: SessionSnapshot[]; approvals: PendingApproval[] },
   ) {
+    // snapshot에서 첫 신호를 들은 session이거나 없는 session은 기다리지 않는다.
+    for (const session of [...waitingStart.keys()]) {
+      const snapshot = read.snapshots.find((one) => one.session === session);
+      if (snapshot?.state !== "unknown") stopWaitingStart(session);
+    }
+    const starts = [...entries.values()].filter((entry) =>
+      entry.kind === "coding_start"
+    );
     const next = replaceTurnRequests(read.snapshots);
     for (const request of read.approvals) {
       const kind = approvalWaitingKind(request);
@@ -223,6 +303,7 @@ export function createWaitingStore(
     next.sort((a, b) => a.receivedAt < b.receivedAt ? -1 : 1);
     entries = new Map();
     for (const entry of next) put(entry);
+    for (const entry of starts) put(entry);
     publish();
   }
 
@@ -246,10 +327,16 @@ export function createWaitingStore(
       publish();
     },
     start() {
-      return client.subscribe(
+      const stopRuntime = terminals?.onRuntime(watchStart);
+      const stopEvents = client.subscribe(
         WAITING_CONDITION,
         syncOnReady({ read: readAll, replace, apply }),
       );
+      return () => {
+        stopRuntime?.();
+        stopEvents();
+        for (const handle of waitingStart.values()) timer.clear(handle);
+      };
     },
   };
 }

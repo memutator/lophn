@@ -116,6 +116,8 @@ export const data = {
   "waiting.notice.app-resource": "Uses {target}.",
   "waiting.notice.coding":
     "A coding agent is waiting for your answer in its terminal tab.",
+  "waiting.notice.coding-start":
+    "The coding agent hasn't reported in yet. You may need to confirm something in its terminal tab, such as trusting the folder.",
   "waiting.notice.decide-failed": "Couldn't send your answer. Try again.",
   "waiting.notice.empty": "No notifications.",
   "waiting.notice.mcp-tool": "Uses {target}, a tool on an outside server.",
@@ -156,6 +158,7 @@ export const data = {
   "waiting.title.app-api": "Use {api} in {app}",
   "waiting.title.app-resource": "Use a resource outside the app",
   "waiting.title.coding": "Permission request in the terminal",
+  "waiting.title.coding-start": "Check the terminal",
   "waiting.title.mcp-tool": "Use the {tool} tool",
   "waiting.title.question": "Question",
   "waiting.title.reaction": "Open a session with {agent}?",

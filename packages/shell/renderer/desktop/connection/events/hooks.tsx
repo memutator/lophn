@@ -8,6 +8,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import type { TerminalApi } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
 import {
   createSessionEventsStore,
@@ -38,7 +39,12 @@ export function EventsProvider(
 ) {
   const stores = useMemo<Stores>(() => ({
     client,
-    waiting: createWaitingStore(client, () => new Date().toISOString()),
+    waiting: createWaitingStore(
+      client,
+      () => new Date().toISOString(),
+      (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
+      { set: setTimeout, clear: clearTimeout },
+    ),
     sessions: createSessionsStore(client),
     sessionEvents: createSessionEventsStore(client),
   }), [client]);

@@ -149,6 +149,7 @@ export type DataPlaceholders = {
     target: "string";
   };
   "waiting.notice.coding": Record<never, never>;
+  "waiting.notice.coding-start": Record<never, never>;
   "waiting.notice.decide-failed": Record<never, never>;
   "waiting.notice.empty": Record<never, never>;
   "waiting.notice.mcp-tool": {
@@ -208,6 +209,7 @@ export type DataPlaceholders = {
   };
   "waiting.title.app-resource": Record<never, never>;
   "waiting.title.coding": Record<never, never>;
+  "waiting.title.coding-start": Record<never, never>;
   "waiting.title.mcp-tool": {
     tool: "string";
   };

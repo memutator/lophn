@@ -115,6 +115,8 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   const store = createWaitingStore(
     createEventClient(source),
     () => "2026-10-16T09:00:01.000Z",
+    null,
+    { set: setTimeout, clear: clearTimeout },
   );
   const stop = store.start();
   await settle();

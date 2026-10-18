@@ -270,6 +270,12 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         title: t("waiting.title.coding"),
         description: t("waiting.notice.coding"),
       };
+    case "coding_start":
+      return {
+        ...base,
+        title: t("waiting.title.coding-start"),
+        description: t("waiting.notice.coding-start"),
+      };
     case "question":
       return {
         ...base,

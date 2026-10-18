@@ -18,7 +18,10 @@ import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
 
 const GROUPS = [
-  { title: "waiting.label.group-permission", kinds: ["permission", "coding"] },
+  {
+    title: "waiting.label.group-permission",
+    kinds: ["permission", "coding", "coding_start"],
+  },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-approval", kinds: ["activation", "reaction"] },
 ] as const;
@@ -131,6 +134,7 @@ export function WaitingPanel(
       case "permission":
         return <PermissionCard key={entry.id} {...props} />;
       case "coding":
+      case "coding_start":
         return (
           <CodingCard
             key={entry.id}

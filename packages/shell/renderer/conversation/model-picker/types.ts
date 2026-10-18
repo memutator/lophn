@@ -74,6 +74,6 @@ export interface ManageProviderView {
   }[];
   /** model 목록을 다시 읽을 수 있는 provider(custom)다. */
   readonly refreshable: boolean;
-  /** 이름을 더하는 칸을 보이는가: 목록을 주지 않는 custom provider다. */
+  /** 이름을 더하는 칸을 보이는가: custom provider다. 다시 읽으면 목록이 provider가 알린 것으로 바뀐다. */
   readonly canAddName: boolean;
 }

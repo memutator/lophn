@@ -239,7 +239,7 @@ export const conversation = {
   "conversation.notice.call-working-together":
     "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.custom-model":
-    "This provider doesn't list its models. Add the names you want to use.",
+    "Add a model name this provider doesn't list.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.message-loading": "Loading this message.",

@@ -220,9 +220,7 @@ export function manageProviders(
       hidden: hidden.has(JSON.stringify([provider.id, entry.model_name])),
     })),
     refreshable: provider.refreshable,
-    canAddName: provider.refreshable &&
-      (provider.reportedModels === null ||
-        provider.reportedModels.length === 0),
+    canAddName: provider.refreshable,
   }));
   return [
     ...views.filter((view) => view.id === first),

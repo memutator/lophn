@@ -331,7 +331,7 @@ export function createFakeAgentsSource(
               kind: "api_key",
               revision: 1,
               reportedModels: customListed
-                ? ["llama-3.3-70b", "qwen-3-coder"]
+                ? ["llama-3.3-70b", "qwen-3-coder", ...typedNames]
                 : typedNames.length > 0
                 ? [...typedNames]
                 : null,
@@ -347,7 +347,10 @@ export function createFakeAgentsSource(
     refreshModels(provider) {
       calls.push({ method: "refreshModels", provider });
       if (takeChangeFailure() !== null) return Promise.resolve(false);
-      if (provider === CUSTOM_PROVIDER) customListed = true;
+      if (provider === CUSTOM_PROVIDER) {
+        customListed = true;
+        typedNames.length = 0;
+      }
       return Promise.resolve(true);
     },
 

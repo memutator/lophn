@@ -5,12 +5,13 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `ec-contract` | ec-contract | 1 | 없음 | merged | ec-contract/ec-contract | 543714263 |  |
-| `ec-checks` | ec-checks | 2 | ec-contract | running | ec-checks/ec-checks |  |  |
-| `ec-driver` | ec-driver | 2 | ec-contract | running | ec-driver/ec-driver |  |  |
-| `ec-human` | ec-human | 2 | ec-contract | running | ec-human/ec-human |  |  |
-| `ec-metrics` | ec-metrics | 2 | ec-contract | running | ec-metrics/ec-metrics |  |  |
-| `ec-restore` | ec-restore | 2 | ec-contract | running | ec-restore/ec-restore |  |  |
+| `ec-checks` | ec-checks | 2 | ec-contract | merged | ec-checks/ec-checks | 2573b5b89 |  |
+| `ec-driver` | ec-driver | 2 | ec-contract | merged | ec-driver/ec-driver | 129c83391 |  |
+| `ec-human` | ec-human | 2 | ec-contract | merged | ec-human/ec-human | c232aa80d |  |
+| `ec-metrics` | ec-metrics | 2 | ec-contract | merged | ec-metrics/ec-metrics | e2e1ed6b4 |  |
+| `ec-restore` | ec-restore | 2 | ec-contract | merged | ec-restore/ec-restore | 32ef4a99e |  |
 | `ec-calendar` | ec-calendar | 3 | ec-restore, ec-world | todo |  |  |  |
+| `ec-fix-publish` | ec-fix-publish | 3 | 없음 | todo |  |  |  |
 | `ec-runner` | ec-runner | 3 | ec-driver, ec-metrics, ec-human, ec-restore | todo |  |  |  |
-| `ec-world` | ec-world | 3 | ec-restore | todo |  |  |  |
+| `ec-world` | ec-world | 3 | ec-restore, ec-fix-publish | todo |  |  |  |
 | `ec-scenarios` | ec-scenarios | 4 | ec-world, ec-calendar, ec-checks, ec-human | todo |  |  |  |

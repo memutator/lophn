@@ -3,7 +3,7 @@
 캘린더 단위들이 깔고 시작하는 world의 재료 셋을 손으로 만든다: 켜진 알림 앱 `notify-app@1`(app-api `notify.schedule`), 그 앱이 낸 package `date-range@1`(`@me/date-range`), 그리고 L4-new의 산출물을 손으로 쓴 `calendar-call@1`(등록된 캘린더 앱과 App Engineer에게 간 call 본문). 데이터 file을 쓰는 일이다. 코드는 앱 source뿐이고 제품 길(ec-restore의 `restoreWorld`)로 되살려져 실제로 켜지고 package가 나가는지까지 확인한다.
 
 - 단위: ec-world (wave 3)
-- 선행: ec-restore
+- 선행: ec-restore, ec-fix-publish. 되살리기가 fake App Engineer의 `package.publish`로 `@me/date-range`를 낸다.
 - 소유(이 task만 고친다):
   - `tests/eval/materials/notify-app/**`
   - `tests/eval/materials/date-range/**`

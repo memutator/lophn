@@ -16,7 +16,7 @@ export interface FloatPanelProps {
   y: number;
   width: number;
   height: number;
-  // 맨 위 패널. 테두리를 강조한다.
+  // 맨 위 패널. 위 bar의 강조선이 focus 색이 된다.
   active?: boolean;
   // 그리지 않되 mount는 유지한다.
   hidden?: boolean;

@@ -1,6 +1,10 @@
 // settings 통로들(일반·providers·agents)이 같이 쓰는 core 부르기와 보호 입력 창 열기. 응답은 main의
 // contract client가 route output schema로 이미 검사했다. secret 값은 이 파일을 지나지 않는다: key는
 // 보호 입력 창이 받고 여기서는 창 열기만 한다.
+import type { z } from "zod";
+
+import type { CommandRoute } from "../../../../protocol/base/route.ts";
+import { type CommandBody, commandBody } from "../../command-call.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type {
@@ -26,18 +30,18 @@ export async function call<T>(
   }
 }
 
-export function command<T>(
+export function command<R extends CommandRoute>(
   core: CoreSource,
-  resource: string,
-  method: string,
-  body: { input: unknown; compare?: unknown; key: string },
-): Promise<SourceResult<T>> {
-  return call<T>(core, "command", resource, method, {
-    input: body.input,
-    idempotency_key: body.key,
-    ...(body.compare === undefined ? {} : { compare: body.compare }),
-    prepared: [],
-  });
+  route: R,
+  body: CommandBody<R>,
+): Promise<SourceResult<z.output<R["output"]>>> {
+  return call(
+    core,
+    "command",
+    route.resource,
+    route.method,
+    commandBody(route, body),
+  );
 }
 
 /** preload의 보호 입력 창 열기. 없는 창에서는 undefined다. */

@@ -17,6 +17,14 @@ import type {
 } from "../../../../ipc/confirmation.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
+import {
+  connectProvider,
+  disconnectProvider,
+  loginBegin,
+  loginCancel,
+  loginComplete,
+} from "../../../../../protocol/lophn-agent/providers.ts";
+import type { ProviderDefinition } from "../../../../../protocol/lophn-agent/provider-values.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import {
   call,
@@ -57,15 +65,8 @@ interface ProviderValue {
 }
 
 /** `providers/definitions`가 주는 내장 정의. 연결 창이 그대로 싣기 때문에 원본을 쥔다. */
-interface BuiltinDefinition {
-  key: string;
-  display_name: string;
-  protocols: string[];
-  auth_kinds: AuthWay[];
-  models_endpoint: string | null;
-  oauth: { product: "chatgpt" | "supergrok" } | null;
-  revision: string;
-}
+type BuiltinDefinition = ProviderDefinition;
+type ProviderProtocol = ProviderDefinition["protocols"][number];
 
 /** 직접 만드는 OpenAI 호환 provider의 정의 key. */
 const CUSTOM = "custom";
@@ -220,7 +221,7 @@ export function coreProviderSettingsSource(
   /** 내장 정의의 연결 주소와 protocol. 주소를 알 수 없는 정의는 연결하지 않는다. */
   function routeOf(
     definition: BuiltinDefinition,
-  ): { endpoint: string; protocol: string } | null {
+  ): { endpoint: string; protocol: ProviderProtocol } | null {
     const endpoint = baseOf(definition.models_endpoint);
     const protocol = definition.protocols[0];
     return endpoint === null || protocol === undefined
@@ -235,9 +236,9 @@ export function coreProviderSettingsSource(
   async function connectWithKey(input: {
     id: string;
     name: string;
-    definition: unknown;
+    definition: ProviderDefinition;
     endpoint: string;
-    protocol: string;
+    protocol: ProviderProtocol;
   }): Promise<WindowOutcome> {
     const secret = `provider.${input.id.slice("pvd_".length)}`;
     const entered = await enterSecret(openSecret, {
@@ -247,8 +248,9 @@ export function coreProviderSettingsSource(
     });
     if (!entered.ok) return entered;
     if (entered.value === "cancelled") return { ok: true, value: null };
-    const sent = await command(core, "providers", "connect", {
+    const sent = await command(core, connectProvider, {
       input: { ...input, auth_kind: "api_key", credential: { secret } },
+      compare: {},
       key: `provider-connect-${random()}`,
     });
     if (sent.ok) return { ok: true, value: null };
@@ -270,24 +272,22 @@ export function coreProviderSettingsSource(
     const route = routeOf(definition);
     if (route === null) return UNAVAILABLE;
     const id = idFor(definition.key);
-    const begun = await command<{
-      login: string;
-      interval_ms: number;
-      sign_in: { url: string; user_code: string | null };
-    }>(core, "providers", "login-begin", {
+    const begun = await command(core, loginBegin, {
       input: {
         provider: id,
         name: definition.display_name,
         definition,
         ...route,
       },
+      compare: {},
       key: `login-begin-${random()}`,
     });
     if (!begun.ok) return begun;
     const login = begun.value.login;
     const cancel = () =>
-      command(core, "providers", "login-cancel", {
+      command(core, loginCancel, {
         input: { provider: id, login },
+        compare: {},
         key: `login-cancel-${random()}`,
       });
     let opened = false;
@@ -313,10 +313,9 @@ export function coreProviderSettingsSource(
         await cancel();
         return { ok: false, code: "cancelled" };
       }
-      const step = await command<
-        { state: "pending"; interval_ms: number } | { state: "connected" }
-      >(core, "providers", "login-complete", {
+      const step = await command(core, loginComplete, {
         input: { provider: id, login },
+        compare: {},
         key: `login-complete-${random()}`,
       });
       if (!step.ok) {
@@ -383,11 +382,10 @@ export function coreProviderSettingsSource(
         return UNAVAILABLE;
       }
       if ("error" in handle) return { ok: false, code: handle.error.code };
-      const sent = await call(core, "command", "providers", "disconnect", {
+      const sent = await command(core, disconnectProvider, {
         input: { provider },
-        idempotency_key: `provider-disconnect-${random()}`,
+        key: `provider-disconnect-${random()}`,
         compare: { revision: read.value.provider.revision },
-        prepared: [],
         confirmation: handle.confirmation,
       });
       if (!sent.ok) return sent;
@@ -424,7 +422,7 @@ export function coreProviderSettingsSource(
       if (remote && !input.withKey) {
         return { ok: false, code: "invalid_input" };
       }
-      const definition = {
+      const definition: ProviderDefinition = {
         key: input.id,
         display_name: input.name,
         protocols: ["openai-chat-completions"],
@@ -439,11 +437,12 @@ export function coreProviderSettingsSource(
         name: input.name,
         definition,
         endpoint: base,
-        protocol: "openai-chat-completions",
+        protocol: "openai-chat-completions" as const,
       };
       if (input.withKey) return connectWithKey(connect);
-      const sent = await command(core, "providers", "connect", {
+      const sent = await command(core, connectProvider, {
         input: { ...connect, auth_kind: "none", credential: null },
+        compare: {},
         key: `provider-connect-${random()}`,
       });
       return sent.ok ? { ok: true, value: null } : sent;

@@ -6,8 +6,10 @@
 // thread·안내를 한꺼번에 읽고 창에 탭이 여럿일 수 있어, 같은 core 통로로 가는 호출은 한 번에 몇 개만 보낸다.
 import type { z } from "zod";
 
+import type { CommandRoute } from "../../../protocol/base/route.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { type CommandBody, commandBody } from "../command-call.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
 
 /** 이 source가 묶인 agent. factory가 받는 인자 그대로다. */
@@ -47,23 +49,12 @@ interface CallableRoute {
 
 type In<R extends CallableRoute> = z.input<R["input"]>;
 type Out<R extends CallableRoute> = z.output<R["output"]>;
-type CompareOf<R> = R extends { readonly compare?: infer C extends z.ZodType }
-  ? z.input<C>
-  : Record<string, never>;
 
 /** 읽기와 memory route. */
 type PlainRoute = CallableRoute & { readonly kind: "read" | "memory" };
-type CommandOf = CallableRoute & { readonly kind: "command" };
 type ListRoute = PlainRoute & {
   readonly output: z.ZodType<{ next_cursor: string | null }>;
 };
-
-interface CommandBody<R extends CommandOf> {
-  readonly input: In<R>;
-  readonly compare: CompareOf<R>;
-  /** idempotency key. 같은 key로 다시 보내면 core가 이전 결과를 돌려준다. */
-  readonly key: string;
-}
 
 /** 목록을 끝까지(또는 상한까지) 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 50;
@@ -126,7 +117,7 @@ export interface Env {
     input: In<R>,
   ): Promise<SourceResult<Out<R>>>;
   /** command 하나. 성공 응답은 route output 그대로다. */
-  command<R extends CommandOf>(
+  command<R extends CommandRoute>(
     route: R,
     body: CommandBody<R>,
   ): Promise<SourceResult<Out<R>>>;
@@ -176,13 +167,7 @@ export function createEnv(
     agent: agentRefOf(target),
     now,
     read: (route, input) => call(route.kind as "read" | "memory", route, input),
-    command: (route, body) =>
-      call("command", route, {
-        input: body.input,
-        idempotency_key: body.key,
-        compare: body.compare,
-        prepared: [],
-      }),
+    command: (route, body) => call("command", route, commandBody(route, body)),
     async pages<R extends ListRoute, T>(
       route: R,
       input: Omit<In<R>, "cursor">,

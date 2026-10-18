@@ -8,6 +8,7 @@
 //   (settings 화면)이 연결하므로 openInstructions는 unavailable이다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
 // - 전역 skill 목록: global-skills/read. 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { createLink } from "../../../workspace/agents/core-link.ts";
@@ -151,8 +152,9 @@ export function coreAgentsSettingsSource(
     },
 
     async changeDefaultModel(choice) {
-      const changed = await command(core, "model-default", "change", {
+      const changed = await command(core, modelDefaultChange, {
         input: { default: choice },
+        compare: {},
         key: `model-default-${random()}`,
       });
       return changed.ok ? { ok: true, value: null } : changed;

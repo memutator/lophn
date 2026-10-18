@@ -17,7 +17,7 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-ex-driver` | rd-ex | 2 | rd-ex-shape | running | rd-ex/rd-ex-driver |  |  |
 | `rd-cap-secret-supervisor` | rd-cap-secret | 3 | rd-cap-secret-core | todo |  |  |  |
 | `rd-ex-request` | rd-ex | 3 | rd-ex-driver | todo |  |  |  |
-| `rd-ex-prompts` | rd-ex-prompts | 3 | rd-ex-shape | running | rd-ex-prompts/rd-ex-prompts |  |  |
+| `rd-ex-prompts` | rd-ex-prompts | 3 | rd-ex-shape | merged | rd-ex-prompts/rd-ex-prompts | 7b12ccd60 |  |
 | `rd-cap-net-live` | rd-cap-live | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
 | `rd-cap-skill` | rd-cap-skill | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
 | `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | todo |  |  |  |

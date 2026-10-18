@@ -21,6 +21,7 @@
     "check:full": "deno run --allow-all tools/check.ts --full",
     "eval": "deno run --allow-all --env-file=.env tests/eval/run.ts",
     "eval:attach": "deno run --allow-all tests/eval/coding/driver/attach.ts",
+    "eval:judge": "deno run --allow-all tests/eval/judge/main.ts",
     "eval:scorecard": "deno run --allow-all tests/eval/scorecard/main.ts",
     "wording": "deno run --allow-read --allow-write packages/design/wording/generate.ts",
     "e2e": "deno test --allow-all --no-check tests/e2e",

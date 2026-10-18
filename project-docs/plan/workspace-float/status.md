@@ -6,10 +6,10 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 |---|---|---|---|---|---|---|---|
 | `wf-layout-model` | wf-layout | 1 | 없음 | merged | wf-layout/wf-layout-model | 87fd27363 |  |
 | `wf-layout-schema` | wf-layout | 1 | wf-layout-model | merged | wf-layout/wf-layout-schema | ed8e735a3 |  |
-| `wf-entry` | wf-entry | 2 | wf-minimized | todo |  |  |  |
+| `wf-entry` | wf-entry | 2 | wf-minimized | running | wf-entry/wf-entry |  |  |
 | `wf-floated-layer` | wf-floated | 2 | wf-panel, wf-native, wf-floated-wire, wf-view-keep | merged | wf-floated/wf-floated-layer | d9a36f92a |  |
 | `wf-floated-wire` | wf-floated | 2 | 없음 | merged | wf-floated/wf-floated-wire | aa83d364d |  |
-| `wf-minimized` | wf-minimized | 2 | wf-floated-layer | running | wf-minimized/wf-minimized |  |  |
+| `wf-minimized` | wf-minimized | 2 | wf-floated-layer | merged | wf-minimized/wf-minimized | 6857a7ed2 |  |
 | `wf-native` | wf-native | 2 | 없음 | merged | wf-native/wf-native | 08bdedee0 |  |
 | `wf-panel` | wf-panel | 2 | 없음 | merged | wf-panel/wf-panel | 6257dd6bf |  |
 | `wf-view-keep` | wf-view-keep | 2 | wf-native, wf-floated-wire | merged | wf-view-keep/wf-view-keep | 7310553a7 |  |

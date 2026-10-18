@@ -10,7 +10,7 @@ import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { commonIcons } from "../../icons/mod.ts";
-import { ModelField } from "./editor/model-field.tsx";
+import { ModelField, type ModelFieldSource } from "./editor/model-field.tsx";
 import { McpList, ROLE_LABEL, SkillList } from "./editor/parts.tsx";
 import styles from "./agents-tab.module.css";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
@@ -21,6 +21,8 @@ interface AgentsTabProps {
   readonly projectName: string;
   readonly overview: AgentsOverview;
   readonly models: ModelsView | null;
+  /** Model 칸이 목록을 다시 읽고 별표를 쓰는 통로. */
+  readonly source: ModelFieldSource;
   readonly imageSrc: ImageSrc;
   /** 카드의 [Open]. 같은 탭 안에서 그 agent의 editor를 연다. */
   readonly onOpenAgent: (assignment: string) => void;
@@ -222,6 +224,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
       >
         <ModelField
           models={props.models}
+          source={props.source}
           label={t("project-workspace.heading.agent-editor-model")}
           inheritLabel={inherited === null
             ? t("project-workspace.label.agent-editor-model-unset")
@@ -231,6 +234,9 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
             })}
           inherited={inherited}
           value={overview.projectModel.chosen}
+          layer={overview.projectModel.chosen === null
+            ? (inherited === null ? null : "global")
+            : "project"}
           overrideNote={t("agents.label.model-overrides", { layer: "global" })}
           onChange={props.onProjectModel}
         />

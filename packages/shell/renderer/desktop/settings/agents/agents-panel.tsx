@@ -169,6 +169,7 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               </p>
               <DefaultModelField
                 models={models}
+                source={source.editor}
                 value={chosen}
                 onChange={(choice) => {
                   setPicked(choice);

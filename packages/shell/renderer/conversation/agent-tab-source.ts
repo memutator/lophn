@@ -384,8 +384,6 @@ export interface ModelView {
   readonly axes: readonly PickerAxisView[];
   readonly optionValues: Readonly<Record<string, string>>;
   readonly layout: PickerLayoutView;
-  /** model 목록이 없는 provider. 거기에는 model 이름을 적어 고른다. */
-  readonly custom: readonly { readonly id: string; readonly name: string }[];
   /** model 이름을 직접 적어 고를 수 있는 provider. 비면 입력 줄을 숨긴다. */
   readonly typed: readonly { readonly id: string; readonly name: string }[];
   /** 지금 model이 온 층. 알 수 없으면 null이다. */

@@ -41,12 +41,6 @@ export interface PickerAxisView {
   }[];
 }
 
-/** model 목록이 없는 provider와, 거기에 model 이름을 적어 고르는 길. 없으면 빈 목록이다. */
-export interface CustomModelView {
-  readonly providers: readonly { readonly id: string; readonly name: string }[];
-  readonly onUse: (provider: string, modelName: string) => void;
-}
-
 /** 이름을 직접 적어 고를 수 있는 provider와 그 길. 모두 빠지면 providers가 빈 배열이고 입력 줄을 숨긴다. */
 export interface TypedModelView {
   readonly providers: readonly { readonly id: string; readonly name: string }[];
@@ -72,19 +66,22 @@ export interface ModelPickerProps {
   /** 별표를 눌렀다. 줄을 고른 것으로 치지 않는다. */
   onToggleFavorite: (model: PickerModelRef) => void;
   onOptionChange: (axis: string, value: string) => void;
-  custom: CustomModelView;
   typed: TypedModelView;
   /** 지금 model이 온 층. session 층은 대화 source만 안다. 어디에도 없으면 null이다. */
   layer: AgentValueLayer | null;
   /** provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   onRefreshModels: (provider: string) => Promise<boolean>;
-  /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. */
+  /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. 대화 picker만 이 줄을 보인다. */
   onChangeDefaults: () => void;
+  /** option 축을 보일 수 있는지. catalog를 읽지 못했으면 false라 "No options"를 말하지 않는다. 없으면 true다. */
+  axesReady?: boolean;
+  /** 위 층의 값을 따르는 줄. Operator와 project의 Model 칸만 가진다. */
+  follow?: FollowView;
 }
 
-/** form 칸이 보이는 model 하나와 그 model의 option. `model`은 선택지의 value이다. */
-export interface ModelSelectionView {
-  readonly model: string;
-  readonly axes: readonly PickerAxisView[];
-  readonly optionValues: Readonly<Record<string, string>>;
+/** 목록 맨 위의 "Use project default — X" 줄. `on`이면 지금 이 칸은 따르는 중이다. 고르면 `onFollow`를 부른다. */
+export interface FollowView {
+  readonly label: string;
+  readonly on: boolean;
+  readonly onFollow: () => void;
 }

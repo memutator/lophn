@@ -20,6 +20,7 @@ export type ConversationPlaceholders = {
   "conversation.button.attach": Record<never, never>;
   "conversation.button.call-cancel": Record<never, never>;
   "conversation.button.change-defaults": Record<never, never>;
+  "conversation.button.connect-provider": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.custom-model-use": Record<never, never>;
   "conversation.button.delete": Record<never, never>;
@@ -41,6 +42,7 @@ export type ConversationPlaceholders = {
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
   "conversation.button.recap-dismiss": Record<never, never>;
+  "conversation.button.refresh-models": Record<never, never>;
   "conversation.button.remove-context": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
@@ -58,6 +60,7 @@ export type ConversationPlaceholders = {
   "conversation.error.load-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
+  "conversation.error.refresh-models": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
   "conversation.error.too-long": Record<never, never>;
   "conversation.label.approval": Record<never, never>;
@@ -143,6 +146,9 @@ export type ConversationPlaceholders = {
   "conversation.label.grant-deny": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-changed": Record<never, never>;
+  "conversation.label.model-layer": {
+    layer: "string";
+  };
   "conversation.label.model-list": Record<never, never>;
   "conversation.label.model-unknown": Record<never, never>;
   "conversation.label.more-actions": Record<never, never>;
@@ -277,6 +283,7 @@ export type ConversationPlaceholders = {
     count: "plural";
     tool: "string";
   };
+  "conversation.label.typed-provider": Record<never, never>;
   "conversation.label.view-compact": Record<never, never>;
   "conversation.label.view-detail": Record<never, never>;
   "conversation.label.view-everything": Record<never, never>;
@@ -309,7 +316,9 @@ export type ConversationPlaceholders = {
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.no-model-options": Record<never, never>;
+  "conversation.notice.no-listed-models": Record<never, never>;
   "conversation.notice.no-models": Record<never, never>;
+  "conversation.notice.no-providers": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;

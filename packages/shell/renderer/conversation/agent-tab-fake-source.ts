@@ -820,9 +820,10 @@ function modelView(
           ...group,
           models: group.models.filter((row) => matches(row.modelName)),
         }))
-        .filter((group) => group.models.length > 0),
+        .filter((group) =>
+          group.models.length > 0 || (group.refreshable && needle === "")
+        ),
     },
-    custom: [],
     typed: [
       ...builtIn.map((group) => ({ id: group.provider, name: group.label })),
       ...custom.map((group) => ({ id: group.provider, name: group.label })),

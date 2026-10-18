@@ -37,6 +37,8 @@ export type AgentEditorSource = Pick<
   | "uploadImage"
   | "imageSrc"
   | "models"
+  | "refreshModels"
+  | "setFavorites"
   | "grants"
   | "setGrants"
 >;
@@ -345,6 +347,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             definition={definition}
             issues={state.issues}
             models={models}
+            source={source}
             placeName={props.projectName}
             contexts={props.contexts}
             place={place}

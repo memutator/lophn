@@ -126,10 +126,6 @@ export type AgentsPlaceholders = {
   "agents.label.layer-builtin": Record<never, never>;
   "agents.label.layer-global": Record<never, never>;
   "agents.label.layer-project": Record<never, never>;
-  "agents.label.model-by-provider": {
-    model: "string";
-    provider: "string";
-  };
   "agents.label.model-inherit": {
     layer: "string";
     model: "string";
@@ -149,7 +145,6 @@ export type AgentsPlaceholders = {
     kind: "string";
   };
   "agents.label.protected-key": Record<never, never>;
-  "agents.label.provider": Record<never, never>;
   "agents.label.role-project-manager": Record<never, never>;
   "agents.label.tab-definition": Record<never, never>;
   "agents.label.tab-grants": Record<never, never>;

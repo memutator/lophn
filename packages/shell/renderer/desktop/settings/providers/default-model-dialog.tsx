@@ -51,6 +51,7 @@ export function DefaultModelDialog(
       <p>{t("settings.notice.choose-default-model")}</p>
       <DefaultModelField
         models={models}
+        source={agents.editor}
         value={null}
         onChange={(choice) => void choose(choice)}
       />

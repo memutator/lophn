@@ -115,9 +115,8 @@ export const agents = {
   "agents.label.layer-builtin": "Built-in",
   "agents.label.layer-global": "Workspace",
   "agents.label.layer-project": "Project",
-  "agents.label.model-by-provider": "{model} \u00b7 {provider}",
   "agents.label.model-inherit":
-    "Use {layer, select, project {project} other {Workspace}} default \u2014 {model}{layer, select, project { (from project)} other {}}",
+    "Use {layer, select, project {project} other {Workspace}} default \u2014 {model}",
   "agents.label.model-overrides":
     "Overrides {layer, select, project {project} other {Workspace}}",
   "agents.label.no-model-chosen": "No model chosen yet",
@@ -128,7 +127,6 @@ export const agents = {
   "agents.label.place-named":
     "{name} \u00b7 {kind, select, app {app} other {project}}",
   "agents.label.protected-key": "Key or token",
-  "agents.label.provider": "Provider",
   "agents.label.role-project-manager": "Project Manager",
   "agents.label.tab-definition": "Definition",
   "agents.label.tab-grants": "Grants",

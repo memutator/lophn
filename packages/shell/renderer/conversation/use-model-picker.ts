@@ -33,7 +33,7 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ModelView | null>(null);
-  // 목록을 다시 읽은 뒤 view를 새로 읽게 하는 신호.
+  // 목록을 다시 읽은 뒤 view를 새로 읽게 하는 신호. 열 때마다도 읽어 연결한 provider가 보이게 한다.
   const [reads, setReads] = useState(0);
 
   // session이 바뀌면 열린 picker와 검색어는 옛 session의 것이다.
@@ -50,7 +50,7 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
     return () => {
       live = false;
     };
-  }, [source, session, query, reads]);
+  }, [source, session, query, reads, open]);
 
   const apply = async (call: Promise<SourceResult<ModelView>>) => {
     const result = await call;
@@ -76,11 +76,6 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
       void apply(source.toggleFavorite(session, model, query)),
     onOptionChange: (axis, value) =>
       void apply(source.setModelOption(session, axis, value, query)),
-    custom: {
-      providers: view?.custom ?? [],
-      onUse: (provider, modelName) =>
-        void apply(source.chooseModel(session, { provider, modelName }, query)),
-    },
     typed: {
       providers: view?.typed ?? [],
       onUse: (provider, modelName) =>

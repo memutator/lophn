@@ -136,6 +136,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         projectName={props.projectName}
         overview={overview.value}
         models={models}
+        source={source}
         imageSrc={(assignment, image) =>
           source.imageSrc(project, assignment, image)}
         onOpenAgent={(assignment) => props.onAgent(assignment)}

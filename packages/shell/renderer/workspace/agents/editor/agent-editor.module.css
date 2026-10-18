@@ -309,22 +309,6 @@
   background: var(--status-warning-marker);
 }
 
-/* model 칸의 provider 줄 */
-.modelProvider {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-}
-
-.vendorName {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 /* agent 층에서 server를 더하는 form */
 .serverForm {
   display: flex;

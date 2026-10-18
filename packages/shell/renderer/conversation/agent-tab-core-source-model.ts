@@ -194,7 +194,6 @@ export function createModelPart(env: Env): ModelPart {
       axes: props.axes,
       optionValues: props.optionValues,
       layout: props.layout,
-      custom: props.custom.providers,
       typed: props.typed.providers,
       layer: props.layer,
     };

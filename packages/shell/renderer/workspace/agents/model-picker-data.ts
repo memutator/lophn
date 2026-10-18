@@ -73,12 +73,6 @@ export function providerChoiceOf(
   };
 }
 
-/** 옛 custom 입력 줄이 쓴다. 이름을 직접 적는 길이 `typed`로 옮겨 가면 지운다. */
-export function customProvidersOf(models: ModelsView | null) {
-  return (models?.providers ?? []).filter((provider) => provider.refreshable)
-    .map((provider) => ({ id: provider.id, name: provider.name }));
-}
-
 export function entryOf(models: ModelsView, model: PickerModelRef) {
   const provider = models.providers.find((item) => item.id === model.provider);
   return provider === undefined
@@ -204,12 +198,26 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         ...row(model),
         starred: true,
       })),
-      providers: layout.providers.map((group) => ({
-        provider: group.provider,
-        label: nameOf(group.provider),
-        models: group.models.map(row),
-        refreshable: refreshable(group.provider),
-      })),
+      providers: [
+        ...layout.providers.map((group) => ({
+          provider: group.provider,
+          label: nameOf(group.provider),
+          models: group.models.map(row),
+          refreshable: refreshable(group.provider),
+        })),
+        // 목록을 아직 읽지 못한 custom provider도 묶음 머리가 있어야 [Refresh models]가 보인다. 검색 중에는 숨긴다.
+        ...(state.query.trim() !== ""
+          ? []
+          : providers.filter((provider) =>
+            provider.refreshable &&
+            !layout.providers.some((group) => group.provider === provider.id)
+          ).map((provider) => ({
+            provider: provider.id,
+            label: provider.name,
+            models: [],
+            refreshable: true,
+          }))),
+      ],
     },
     onQueryChange: (query) => binding.setState({ ...state, query }),
     onPick: (model) => binding.choose(choiceOf(model)),
@@ -229,15 +237,6 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         ...current,
         option_values: { ...current.option_values, [axis]: value },
       });
-    },
-    custom: {
-      providers: customProvidersOf(models),
-      onUse: (provider, modelName) =>
-        binding.choose({
-          provider,
-          model_name: modelName,
-          option_values: {},
-        }),
     },
     typed: {
       providers: providers.filter((provider) =>

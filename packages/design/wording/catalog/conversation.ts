@@ -13,6 +13,7 @@ export const conversation = {
   "conversation.button.attach": "Add attachment",
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.change-defaults": "Change defaults…",
+  "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.custom-model-use": "Use",
   "conversation.button.delete": "Delete",
@@ -30,6 +31,7 @@ export const conversation = {
   "conversation.button.question-submit": "Submit",
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.recap-dismiss": "Dismiss",
+  "conversation.button.refresh-models": "Refresh models",
   "conversation.button.remove-context": "Remove context",
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
@@ -50,6 +52,8 @@ export const conversation = {
   "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",
+  "conversation.error.refresh-models":
+    "Couldn't refresh the model list. Try again.",
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
@@ -116,6 +120,8 @@ export const conversation = {
   "conversation.label.grant-deny": "Not allowed",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-changed": "Changed",
+  "conversation.label.model-layer":
+    "Using: {layer, select, session {this conversation} agent {this agent} project {project default} other {Workspace default}}",
   "conversation.label.model-list": "Models",
   "conversation.label.model-unknown": "Model",
   "conversation.label.more-actions": "More",
@@ -206,6 +212,7 @@ export const conversation = {
     "{count, plural, one {Read # document} other {Read # documents}}",
   "conversation.label.tool-used":
     "{count, plural, one {Used {tool}} other {Used {tool} # times}}",
+  "conversation.label.typed-provider": "Provider for the model name",
   "conversation.label.view-compact": "Compact",
   "conversation.label.view-detail": "View detail",
   "conversation.label.view-everything": "Everything",
@@ -234,12 +241,15 @@ export const conversation = {
   "conversation.notice.call-working-together":
     "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.custom-model":
-    "These providers have no model list. Type the model name the service expects.",
+    "A model that isn't listed can still be used by its name.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.no-model-options": "No options for this model.",
+  "conversation.notice.no-listed-models":
+    "No models listed yet. Refresh to read the list.",
   "conversation.notice.no-models": "No models match.",
+  "conversation.notice.no-providers": "No providers connected.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
   "conversation.notice.not-sent":

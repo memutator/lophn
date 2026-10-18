@@ -17,7 +17,7 @@ import type {
   PlaceChoice,
 } from "../source.ts";
 import type { McpRow } from "../views.ts";
-import { ModelField } from "./model-field.tsx";
+import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
   InstructionsBlock,
   McpList,
@@ -193,6 +193,8 @@ interface DefinitionFormProps {
   readonly definition: AgentDraft;
   readonly issues: readonly AgentDefinitionIssue[];
   readonly models: ModelsView | null;
+  /** Model 칸이 목록을 다시 읽고 별표를 쓰는 통로. */
+  readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;
   readonly contexts: readonly ContextOption[];
@@ -345,10 +347,14 @@ export function DefinitionForm(props: DefinitionFormProps) {
       <div className={styles.group} data-field="model">
         <ModelField
           models={models}
+          source={props.source}
           label={t("project-workspace.heading.agent-editor-model")}
           inheritLabel={inheritLabel}
           inherited={inherited?.value ?? null}
           value={definition.model ?? null}
+          layer={definition.model === undefined
+            ? inherited?.source ?? null
+            : "agent"}
           overrideNote={t("agents.label.model-overrides", { layer })}
           onChange={(choice) => set("model", choice ?? undefined)}
         />

@@ -22,6 +22,8 @@
     "eval": "deno run --allow-all --env-file=.env tests/eval/run.ts",
     "eval:answer": "deno run --allow-all tests/eval/human/main.ts",
     "eval:attach": "deno run --allow-all tests/eval/coding/driver/attach.ts",
+    "eval:experiment": "deno run --allow-all --env-file=.env tests/eval/run.ts experiment",
+    "eval:gate": "deno run --allow-all tests/eval/run.ts gate",
     "eval:judge": "deno run --allow-all tests/eval/judge/main.ts",
     "eval:scorecard": "deno run --allow-all tests/eval/scorecard/main.ts",
     "wording": "deno run --allow-read --allow-write packages/design/wording/generate.ts",

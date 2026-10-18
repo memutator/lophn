@@ -17,5 +17,5 @@ lead만 고친다. `tools/status.py eval-experiment build`가 `tasks/*.md`에서
 | `ex-trials` | ex-trials | 2 | ex-spec | merged | ex-trials/ex-trials | b17cc8b3f |  |
 | `ex-variant` | ex-variant | 2 | 없음 | merged | ex-variant/ex-variant | 27cc58f13 |  |
 | `ex-verdict` | ex-verdict | 2 | ex-spec | merged | ex-verdict/ex-verdict | a2a9e1fd5 |  |
-| `ex-cli` | ex-cli | 3 | ex-select, ex-trials, ex-verdict, ex-variant, ex-gate, ex-parallel, ex-overfit, ex-assembly, ex-repeat, ex-judge-agent, ex-human-agent | todo |  |  |  |
+| `ex-cli` | ex-cli | 3 | ex-select, ex-trials, ex-verdict, ex-variant, ex-gate, ex-parallel, ex-overfit, ex-assembly, ex-repeat, ex-judge-agent, ex-human-agent | merged | ex-cli/ex-cli | 69ed77f08 |  |
 | `ex-skills` | ex-skills | 4 | ex-cli | todo |  |  |  |

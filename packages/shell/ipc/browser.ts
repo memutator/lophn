@@ -10,6 +10,8 @@ const viewSession = z.string().min(1).refine(noControl);
 const address = z.string().max(8192);
 const bookmarkTitle = z.string().max(200);
 const bookmarkId = z.string().min(1).max(128);
+// page favicon. shell CSP가 img-src data:만 받으므로 main이 받아 data URL로 바꾼 것만 싣는다.
+const favicon = z.string().max(65536).startsWith("data:image/");
 
 export const BROWSER_OPEN_CHANNEL = "shell:browser-open";
 export const BROWSER_ADOPT_CHANNEL = "shell:browser-adopt";
@@ -47,6 +49,7 @@ export const browserCommandSchema = z.object({
 export const bookmarkAddSchema = z.object({
   title: bookmarkTitle,
   url: address,
+  favicon: favicon.optional(),
 }).strict();
 
 export const bookmarkUpdateSchema = z.object({
@@ -65,6 +68,7 @@ export const browserViewStateSchema = z.object({
   url: z.string(),
   // 1024자까지 받는다. 자르기는 main이 한다.
   title: z.string().max(1024),
+  favicon: favicon.optional(),
   loading: z.boolean(),
   canGoBack: z.boolean(),
   canGoForward: z.boolean(),
@@ -127,6 +131,7 @@ export interface Bookmark {
   title: string;
   url: string;
   created_at: string;
+  favicon?: string;
 }
 
 // 목록이 깨진 것은 오류가 아니라 상태다. 화면이 목록 자리에 보여야 한다. 쓰기만 corrupt로 거절된다.

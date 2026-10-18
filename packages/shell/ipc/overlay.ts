@@ -52,6 +52,8 @@ const overlayModelSchema = z.object({
       detail: z.string().max(256).optional(),
       hint: z.string().max(32).optional(),
       icon: z.enum(PALETTE_ICONS).optional(),
+      // icon 대신 그릴 작은 이미지(browser favicon). data URL만 받는다.
+      image: z.string().max(65536).startsWith("data:image/").optional(),
     }).strict(),
   ).max(64).refine((items) =>
     new Set(items.map((item) => item.id)).size === items.length

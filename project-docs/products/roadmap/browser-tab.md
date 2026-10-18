@@ -8,7 +8,7 @@
 
 - workspace에는 terminal, document editor, app panel 같은 탭 kind가 8개 있다. 그런데 web page를 여는 kind는 없다. terminal에서 `vite`를 띄우거나 `gh auth login`을 하면 OS browser로 넘어가서, lophn 창과 browser 창을 오가야 한다.
 - terminal의 child process가 여는 URL은 `$BROWSER`를 보지만 lophn은 이것을 다루지 않는다(packages/와 project-docs/ grep 결과 0건).
-- lophn은 Electron 44.5.1을 쓰고, app 화면을 이미 `WebContentsView`로 pane 위에 겹쳐 띄운다. 그래서 browser는 탭 kind 하나를 더하고 그 view 길을 다시 쓰면 된다.
+- lophn은 Electron 44.5.1을 쓴다. browser는 탭 kind 하나를 더해 해결했다. 보통 탭은 shell renderer의 `<webview>`이고, 크기 준 popup과 DevTools만 app 화면처럼 native `WebContentsView`다(`project-docs/architecture/browser-tab.md`).
 
 ## 지금 코드
 
@@ -49,7 +49,7 @@
 - **lophn 설정 길.** core가 `declareSetting`으로 설정 key를 선언한다(`packages/core/config/shell-settings.ts`에 `shell.*` 10개). shell은 `memory:settings/list`와 `memory:settings/update`로 읽고 쓴다.
   - General은 `shell.*`를 보이지 않는다(`renderer/desktop/settings/general/model.ts`의 `SHOWN_ELSEWHERE`). Appearance처럼 따로 만든 pane이 보인다(`SettingsPane`, `renderer/desktop/settings/model.ts`).
   - main은 renderer가 IPC로 보낸 값을 검사해서 쓴다(`main/desktop/wiring/appearance.ts`). 그 CSS는 `lophn-shell:`과 `lophn-app:` 문서에만 넣는다. 그래서 browser page에는 들어가지 않는다.
-  - Chromium userData는 `<dataRoot>/shell/browser`다(`main/desktop/paths.ts:48` `browserDataPath`). persistent partition도 그 아래에 생긴다.
+  - Chromium userData는 `<dataRoot>/shell/browser`다(`main/desktop/paths.ts`의 `browserDataPath`). persistent partition도 그 아래에 생긴다.
 - `test/`: Node test 61개와 Electron check 5개.
 
 ## 무엇을 만드나

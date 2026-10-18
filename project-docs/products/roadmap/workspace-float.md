@@ -65,7 +65,8 @@ browser popup    →  floated로 태어남
   - **terminal**: `terminal_ref`와 `generation`을 넘긴다. 받는 창은 `snapshot`을 0부터 받고 focus를 등록한다. PTY는 그대로 산다.
   - **editor**: 보내기 전에 `detach(path)`로 flush하고, 받는 창은 disk에서 다시 연다. flush가 실패하면 옮기지 않고 탭을 그대로 둔다. 저장 안 된 글을 잃지 않는다.
   - **agent**: `DraftStore`의 그 탭 draft를 같이 넘긴다.
-  - **app_panel, browser**: `WebContentsView`를 닫지 않고, 한 창에서 `removeChildView`하고 다른 창에서 `addChildView`한다. registry의 `entry.window`와 `owner()`, `closeWindow`를 함께 고친다. browser page를 다시 load하면 쓰던 form과 OAuth popup의 `window.opener`가 사라진다.
+  - **app_panel, browser popup·DevTools**: native `WebContentsView`를 닫지 않고, 한 창에서 `removeChildView`하고 다른 창에서 `addChildView`한다. 소유 창은 app view는 `main/app-frame/registry.ts`, popup·DevTools는 `main/browser/registry.ts`의 `window`다. popup을 다시 load하면 OAuth의 `window.opener`가 사라진다.
+  - **보통 browser 탭**: `<webview>` guest는 처음 붙은 창의 page에 묶여 옮길 수 없다. `toStored`의 URL로 다시 연다. cookie는 partition에 남고 page 상태는 사라진다(사람, `architecture/browser-tab.md`).
   - 나머지(`contexts`, `context`, `search`, `agents`)는 `toStored` 값으로 다시 연다.
 - **detached 창 안의 popup.** detached 창에는 floats 층이 없다. 거기서 열린 browser popup은 `features`의 크기로 detached 창 하나로 연다(Chrome과 같다).
 

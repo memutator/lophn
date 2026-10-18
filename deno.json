@@ -43,7 +43,8 @@
     "exclude": [
       "tests/eval/materials/",
       "tests/eval/registry/",
-      "tests/eval/runs/"
+      "tests/eval/runs/",
+      "tests/eval/experiments/"
     ]
   },
   "lint": {

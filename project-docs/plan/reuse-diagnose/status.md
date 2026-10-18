@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-body-route` | rd-body | 1 | 없음 | merged | rd-body/rd-body-route | 42331b3ee |  |
 | `rd-cap-fs` | rd-cap | 1 | 없음 | merged | rd-cap/rd-cap-fs | bbb2a6737 |  |
 | `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
-| `rd-ex-shape` | rd-ex | 1 | 없음 | running | rd-ex/rd-ex-shape |  |  |
+| `rd-ex-shape` | rd-ex | 1 | 없음 | merged | rd-ex/rd-ex-shape | 1b94a58ac |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | running | rd-resolve/rd-resolve-rule |  |  |
 | `rd-sdk-builtin` | rd-sdk | 1 | 없음 | running | rd-sdk/rd-sdk-builtin |  |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | todo |  |  |  |

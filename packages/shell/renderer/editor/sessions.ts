@@ -179,6 +179,19 @@ export class EditorSessions {
   }
 
   /**
+   * 그 파일의 마지막 고침을 지금 쓴다. session이 없으면 true. 디스크가 편집기 글을 가졌을 때만
+   * true다(쓰기 실패·충돌·결과 불명이면 false이고 글은 session에 남는다). 사람에게 묻지 않고
+   * 화면 수도 건드리지 않는다(탭이 아직 mount된 채 창 사이 이동에 쓴다).
+   */
+  async flush(path: string): Promise<boolean> {
+    const entry = this.#entries.get(path);
+    if (!entry) return true;
+    const settled = await entry.session.flush();
+    this.#changed(path);
+    return settled;
+  }
+
+  /**
    * 탭 닫기. 마지막 고침을 보낸다. 실패·불명·충돌이 남으면 사람에게 묻고 계속 편집을 고르면
    * false다(탭을 남긴다).
    */

@@ -5,6 +5,7 @@
 import { conversationIcons } from "../../icons/mod.ts";
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
+import type { Draft } from "../../conversation/drafts.ts";
 import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
@@ -178,6 +179,26 @@ export const agentKind: TabKindDef = {
       work_place: { kind: "project", id: place },
       ...(session === null ? {} : { session }),
     };
+  },
+  // 작성 중 말을 넘긴다. session 탭은 그 session의 draft 하나, 새 session 탭은 key를 탭이 모르므로
+  // `new:` draft 전부다. store가 창마다 하나라 받는 창의 같은 key에 이미 글이 있으면 덮지 않는다.
+  transfer(tab, host) {
+    const drafts = host.agentView?.drafts;
+    if (!drafts) return Promise.resolve({ value: null, views: [] });
+    const session = sessionOf(tab);
+    const found = drafts.entries((key) =>
+      session === null ? key.startsWith("new:") : key === session
+    );
+    return Promise.resolve({ value: { drafts: found }, views: [] });
+  },
+  receive(_tab, { value }, host) {
+    const drafts = host.agentView?.drafts;
+    const moved = (value as { drafts?: unknown } | null)?.drafts;
+    if (!drafts || !Array.isArray(moved)) return;
+    for (const [key, draft] of moved as [string, Draft][]) {
+      if (drafts.draft(key).text !== "") continue;
+      drafts.save(key, draft);
+    }
   },
   // agent·session은 현재 보기에 싣지 않는다. 대화 내용은 agent가 알 일이 아니다.
   render(tab, _active, host) {

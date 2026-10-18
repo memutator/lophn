@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FileIcon } from "@lophn/ui/primitives";
 
 import { workspaceIcons } from "../../icons/mod.ts";
+import { transferEditor } from "../../editor/transfer.ts";
 import { DocumentView } from "../../editor/document-view.tsx";
 import { fileNameOf, isInsideFolders } from "../../editor/model.ts";
 import { DocumentContexts } from "../contexts/document-contexts.tsx";
@@ -119,6 +120,13 @@ export const documentEditorKind: TabKindDef = {
       path: tab.key,
       ...(position === undefined ? {} : { read_position: position }),
     };
+  },
+  // 받는 창은 디스크에서 다시 연다. 마지막 고침이 디스크에 닿지 않으면 옮기지 않는다.
+  transfer(tab, host) {
+    const sessions = host.props.editor?.sessions;
+    return sessions
+      ? transferEditor(sessions, tab.key)
+      : Promise.resolve({ value: null, views: [] });
   },
   render(tab, _active, host) {
     return <FileTab key={tab.key} tab={tab} host={host} />;

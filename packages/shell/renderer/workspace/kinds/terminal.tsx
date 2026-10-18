@@ -121,6 +121,31 @@ export const terminalKind: TabKindDef = {
       }),
     };
   },
+  // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
+  // 보내는 창의 store 항목은 보내기가 실패해 탭이 남을 수 있어 지우지 않는다.
+  transfer(tab, host) {
+    const entry = host.props.terminal?.store.get(tab.key);
+    const value = entry?.terminalRef == null ? null : {
+      terminal_ref: entry.terminalRef,
+      generation: entry.generation,
+      folder_ref: entry.folderRef,
+      session: entry.session,
+    };
+    return Promise.resolve({ value, views: [] });
+  },
+  receive(tab, { value }, host) {
+    const moved = value as Record<string, unknown> | null;
+    if (
+      typeof moved?.terminal_ref !== "string" ||
+      typeof moved.generation !== "number"
+    ) return;
+    host.props.terminal?.store.adopt(tab.key, {
+      terminalRef: moved.terminal_ref,
+      generation: moved.generation,
+      folderRef: typeof moved.folder_ref === "string" ? moved.folder_ref : null,
+      session: typeof moved.session === "string" ? moved.session : null,
+    });
+  },
   render(tab, active, host) {
     const terminal = host.props.terminal;
     if (!terminal) return null;

@@ -52,6 +52,11 @@ export class DraftStore {
     return this.#drafts.get(session) ?? EMPTY_DRAFT;
   }
 
+  /** key가 맞는 draft 전부(창 사이 이동용). */
+  entries(match: (key: string) => boolean): [string, Draft][] {
+    return [...this.#drafts].filter(([key]) => match(key));
+  }
+
   save(session: string, patch: Partial<Draft>): void {
     this.#drafts.set(session, { ...this.draft(session), ...patch });
     this.#notify();

@@ -94,6 +94,27 @@ export class TerminalStore {
     this.#changed();
   }
 
+  /**
+   * 다른 창에서 옮겨 온 runtime을 탭으로 둔다. PTY는 그대로이고 탭 화면이 처음 그릴 때
+   * snapshot을 0부터 받아 phase를 정한다.
+   */
+  adopt(
+    key: string,
+    moved: {
+      terminalRef: string;
+      generation: number;
+      folderRef: string | null;
+      session: string | null;
+    },
+  ): void {
+    this.#entries.set(key, {
+      requested: true,
+      phase: { kind: "opening" },
+      ...moved,
+    });
+    this.#changed();
+  }
+
   /** session의 터미널 탭 key. 이 창에 없으면 null이다. */
   tabOfSession(session: string): string | null {
     for (const [key, entry] of this.#entries) {

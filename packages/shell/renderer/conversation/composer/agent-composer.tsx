@@ -22,6 +22,7 @@ import {
 import type {
   AgentTabSource,
   PermissionsView as PermissionsData,
+  SessionCost,
 } from "../agent-tab-source.ts";
 import type { Draft } from "../drafts.ts";
 import { ModelPicker } from "../model-picker/model-picker.tsx";
@@ -68,6 +69,8 @@ interface AgentComposerProps {
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
   permissions: PermissionsData | null;
+  /** 이 session의 추정 비용. 읽기 전이거나 새 session이면 null이다. */
+  cost: SessionCost | null;
   onDraft: (patch: Partial<Pick<Draft, "text" | "selection">>) => void;
   /** chip 하나의 ✕. 그 chip을 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
   onRemoveChip: (id: string) => void;
@@ -83,6 +86,22 @@ interface AgentComposerProps {
   onCommand: (entry: SlashEntryView, argument: string) => void;
   /** model·명령 목록을 읽지 못했다. */
   onProblem: () => void;
+}
+
+/** 1센트 미만은 소수 넷째 자리까지, 그 위는 둘째 자리까지 보인다. */
+function costText(cost: SessionCost | null): string | null {
+  if (cost === null) return null;
+  const amount = cost.amount === null
+    ? null
+    : `$${cost.amount.toFixed(cost.amount < 0.01 ? 4 : 2)}`;
+  if (cost.unknown === 0) return amount;
+  if (amount === null) {
+    return t("conversation.label.cost-unknown", { count: cost.unknown });
+  }
+  return t("conversation.label.cost-with-unknown", {
+    amount,
+    count: cost.unknown,
+  });
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -117,6 +136,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onRun: props.onCommand,
     onProblem: props.onProblem,
   });
+  const spent = costText(props.cost);
   const canSend = !locked && !offline && !tooLong &&
     (draft.text.trim().length > 0 || chips.length > 0);
 
@@ -317,6 +337,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
           )}
         </Popover>
+        {spent === null
+          ? null
+          : <span className={styles.cost} data-session-cost="">{spent}</span>}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import type {
   QuestionAnswer,
   QueuedView,
   RewindPreviewView,
+  SessionCost,
   SessionEntry,
   SourceResult,
   ThreadEntry,
@@ -70,6 +71,10 @@ export const AGENT_TAB_SCENES = [
   "approval-settings",
   "approval-states",
   "rewind",
+  /** 끝난 일 하나에 입력칸 아래 비용 한 줄(금액만). */
+  "cost",
+  /** 비용 한 줄에 가격 모름 call 수가 더해진 모습. */
+  "cost-unknown",
   /** session이 아직 없는 새 대화. */
   "empty",
 ] as const;
@@ -335,6 +340,8 @@ interface SceneData {
 function sceneData(scene: AgentTabScene): SceneData {
   switch (scene) {
     case "report":
+    case "cost":
+    case "cost-unknown":
       return {
         agent: LOPHN,
         title: "Week 41 summary",
@@ -908,6 +915,13 @@ function fail<T>(code: string): Promise<SourceResult<T>> {
 
 const DONE = ok<void>(undefined);
 
+const NO_COST: SessionCost = { amount: null, unknown: 0 };
+
+const COSTS: Partial<Record<AgentTabScene, SessionCost>> = {
+  cost: { amount: 0.0123, unknown: 0 },
+  "cost-unknown": { amount: 0.0123, unknown: 2 },
+};
+
 export function createFakeAgentTabSource(
   options: { scene?: AgentTabScene; picker?: FakePicker } = {},
 ): AgentTabSource {
@@ -1065,6 +1079,7 @@ export function createFakeAgentTabSource(
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
     recap: () => ok(RECAP),
+    cost: () => ok(COSTS[options.scene ?? "report"] ?? NO_COST),
 
     send({ session, id, text, delivery, chips }) {
       bodies.set(id, [

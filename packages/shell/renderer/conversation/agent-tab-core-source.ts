@@ -39,6 +39,7 @@ import {
   deleteSessionOf,
   forkSessionOf,
   openSession,
+  readCost,
   readFace,
   readPermissions,
   readSessions,
@@ -102,6 +103,7 @@ function createSource(
     runCommand: (session, entry, key) => runCommand(env, session, entry, key),
     permissions: () => readPermissions(env),
     recap: () => recap(),
+    cost: (session) => readCost(env, session),
 
     send: (input) => sendText(env, input),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),

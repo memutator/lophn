@@ -9,6 +9,7 @@ import {
   SETTINGS_EDIT_DEFAULT_ASK,
 } from "../../../protocol/approvals/grants.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
+import { agentUsageRead } from "../../../protocol/lophn-agent/traces.ts";
 import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   type AgentSession,
@@ -34,6 +35,7 @@ import type {
   GrantRow,
   GrantSetting,
   PermissionsView,
+  SessionCost,
   SessionEntry,
   SessionStatus,
   SourceResult,
@@ -169,6 +171,38 @@ export async function readPermissions(
   const rows = await readGrantRows(env);
   if (!rows.ok) return rows;
   return { ok: true, value: { grants: rows.value, session: [] } };
+}
+
+// ---------------------------------------------------------------- 비용
+
+/** session record에는 연 시각이 없다. session 필터가 범위를 정하므로 기간의 시작은 가장 이른 시각이다. */
+const FROM_START = "1970-01-01T00:00:00.000Z";
+
+/** USD 중 estimated와 reported를 합하고, 가격을 모르는 call 수를 센다. subscription과 free는 금액에 넣지 않는다. */
+export async function readCost(
+  env: Env,
+  session: string,
+): Promise<SourceResult<SessionCost>> {
+  const read = await env.read(agentUsageRead, {
+    session,
+    from_at: FROM_START,
+    through_at: env.nowIso(),
+  });
+  if (!read.ok) return read;
+  let amount: number | null = null;
+  let unknown = 0;
+  for (const total of read.value.totals) {
+    for (const cost of total.costs) {
+      if (cost.kind === "unknown") unknown += cost.calls;
+      else if (
+        (cost.kind === "estimated" || cost.kind === "reported") &&
+        cost.currency === "USD" && cost.amount !== null
+      ) {
+        amount = (amount ?? 0) + Number(cost.amount);
+      }
+    }
+  }
+  return { ok: true, value: { amount, unknown } };
 }
 
 // ---------------------------------------------------------------- 얼굴 읽기

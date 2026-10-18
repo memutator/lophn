@@ -25,6 +25,10 @@ function Scene({ sub, chat }: { sub: string; chat?: ChatInit }) {
   );
 }
 
+/** 끝난 일 하나. 입력칸 아래 줄에 그 session의 추정 비용 합이 보인다. */
+export const CostScene = () => <Scene sub="cost" />;
+/** 추정 비용 합에 가격을 모르는 call 수가 붙는다. */
+export const CostUnknownScene = () => <Scene sub="cost-unknown" />;
 /** 대화와 보내기: 일하는 중에 steer로 보낸 메시지에는 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. */
 export const ConversationScene = () => <Scene sub="working" />;
 /** 일하는 중에 보낸 메시지가 composer 위에 "다음 turn" 줄로 쌓인다. 줄 오른쪽 끝의 [Send now]를 누르면 도는 turn에 steer로 들어간다. */

@@ -114,6 +114,7 @@ type ViewData = Pick<
   | "connection"
   | "checkedAt"
   | "gone"
+  | "cost"
   | "reload"
 >;
 
@@ -132,6 +133,7 @@ function NewSession(props: AgentViewProps) {
     connection: "live",
     checkedAt: null,
     gone: false,
+    cost: null,
     reload: list.refresh,
   };
   return <Screen {...props} data={data} />;
@@ -597,6 +599,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
+          cost={data.cost}
           onDraft={(patch) => drafts.save(key, patch)}
           onRemoveChip={(id) =>
             setChips(chips.filter((chip) => chip.id !== id))}

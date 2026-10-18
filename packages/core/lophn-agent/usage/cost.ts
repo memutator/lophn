@@ -60,21 +60,32 @@ function decimalMulDiv(tokens: bigint, rate: string): string {
   return trim(scaled, 6);
 }
 
-// 그 call의 과금 token 구간: 새 입력 + cache 읽기·쓰기는 input 요율에,
-// reasoning은 reasoning 요율이 있을 때만 각각 곱한다(이중 과금 없음).
+// 그 call의 과금 token 구간. 새 입력, cache 읽기, cache 쓰기는 각자 요율로 센다(없는 cache 요율은 input 요율).
+// `cache_in_input`이 true인 protocol(OpenAI 계열)은 input에 cache가 이미 들어 있어 빼고, false나 null이면
+// input을 그대로 새 입력으로 본다. 그래서 cache가 한 번만 센다.
 type ChargedTokens = {
   input: bigint | null;
+  cacheRead: bigint;
+  cacheWrite: bigint;
   output: bigint | null;
   reasoning: bigint | null;
 };
 
 function chargedTokens(usage: TokenUsage): ChargedTokens {
-  const input = usage.input === null ? null : BigInt(usage.input) +
-    BigInt(usage.cache_read ?? 0) +
-    BigInt(usage.cache_write ?? 0);
+  const cacheRead = BigInt(usage.cache_read ?? 0);
+  const cacheWrite = BigInt(usage.cache_write ?? 0);
+  let input: bigint | null = null;
+  if (usage.input !== null) {
+    input = BigInt(usage.input);
+    if (usage.cache_in_input === true) {
+      input = input > cacheRead + cacheWrite
+        ? input - cacheRead - cacheWrite
+        : 0n;
+    }
+  }
   const output = usage.output === null ? null : BigInt(usage.output);
   const reasoning = usage.reasoning === null ? null : BigInt(usage.reasoning);
-  return { input, output, reasoning };
+  return { input, cacheRead, cacheWrite, output, reasoning };
 }
 
 // 추정 금액. 겹치지 않는 과금 token 구간 × 당시 요율을 십진수로 더한다.
@@ -95,35 +106,35 @@ export function estimatedCost(
   if (tokens.input === null || tokens.output === null) {
     return { amount: null, rate_basis: null };
   }
+  const cacheReadRate = rate.cache_read ?? rate.input;
+  const cacheWriteRate = rate.cache_write ?? rate.input;
   // 별도 추론 요율이 있으면 출력에서 추론을 빼고 각각 곱한다.
   let output = tokens.output;
+  const charged: [string, bigint, string][] = [
+    ["input", tokens.input, rate.input],
+    ["cache_read", tokens.cacheRead, cacheReadRate],
+    ["cache_write", tokens.cacheWrite, cacheWriteRate],
+  ];
   if (rate.reasoning !== null && tokens.reasoning !== null) {
     if (usage.reasoning_in_output !== false) {
       output = output > tokens.reasoning ? output - tokens.reasoning : 0n;
     }
-    const total = decimalSum(
-      decimalSum(mulDiv(tokens.input, rate.input), mulDiv(output, rate.output)),
-      mulDiv(tokens.reasoning, rate.reasoning),
-    );
-    return {
-      amount: total,
-      rate_basis: rateBasisOf(basis, rate, usage),
-    };
+    charged.push(["reasoning", tokens.reasoning, rate.reasoning]);
   }
-  const total = decimalSum(
-    mulDiv(tokens.input, rate.input),
-    mulDiv(output, rate.output),
+  charged.push(["output", output, rate.output]);
+  const amount = charged.reduce(
+    (total, [, count, per]) => decimalSum(total, mulDiv(count, per)),
+    "0",
   );
-  return {
-    amount: total,
-    rate_basis: rateBasisOf(basis, rate, usage),
-  };
+  return { amount, rate_basis: rateBasisOf(basis, rate, usage, charged) };
 }
 
+// 어느 token에 어느 요율을 곱했는지 남긴다. cache 요율이 없어 input 요율로 센 것도 여기서 보인다.
 function rateBasisOf(
   basis: PriceBasis,
   rate: PriceRate,
   usage: TokenUsage,
+  charged: readonly (readonly [string, bigint, string])[],
 ): unknown {
   return {
     source: basis.source,
@@ -131,6 +142,12 @@ function rateBasisOf(
     checked_at: basis.checked_at,
     rates: [rate],
     tokens: usage,
+    charged: Object.fromEntries(
+      charged.map(([name, count, per]) => [
+        name,
+        { tokens: count.toString(), rate: per },
+      ]),
+    ),
     per_unit: TOKENS_PER_UNIT,
   };
 }

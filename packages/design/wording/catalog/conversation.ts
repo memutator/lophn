@@ -110,6 +110,9 @@ export const conversation = {
   "conversation.label.call-working-together": "Working together",
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
+  "conversation.label.cost-unknown": "Price unknown {count, number}",
+  "conversation.label.cost-with-unknown":
+    "{amount} · Price unknown {count, number}",
   "conversation.label.delete-session": "Delete {title}",
   "conversation.label.delivery-not-sent": "Not sent",
   "conversation.label.delivery-received": "Received",

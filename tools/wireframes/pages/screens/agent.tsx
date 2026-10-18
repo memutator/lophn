@@ -9,6 +9,8 @@ import {
   AgentCommands,
   AgentCommandsFiltered,
   AgentConversation,
+  AgentCost,
+  AgentCostUnknown,
   AgentModelPicker,
   AgentPermissions,
   AgentQuestion,
@@ -48,6 +50,20 @@ export const agentArea: Area = {
       description:
         "일하는 중인 Agent 탭이다. 도는 turn에 steer로 들어간 메시지에 steer 표시가 붙고, 시각 블록은 앱 카드뿐이다. 일하는 중 composer에는 Stop과 Send만 있고, 입력칸 아래에 권한 요약 한 줄이 있다.",
       render: () => <AgentConversation />,
+    },
+    {
+      id: "new-conversation-cost",
+      title: "Agent · session cost",
+      description:
+        "입력칸 아래 줄 오른쪽 끝에 그 session의 추정 비용 합이 조용한 보조 글로 보인다. 1센트 미만은 소수 넷째 자리까지($0.0046), 그 위는 둘째 자리까지 보인다. 쓴 돈이 없고 가격 모르는 call도 없으면 줄이 없다.",
+      render: () => <AgentCost />,
+    },
+    {
+      id: "new-conversation-cost-unknown",
+      title: "Agent · session cost, price unknown",
+      description:
+        '추정 비용 합 옆에 가격을 모르는 call 수가 " · Price unknown 2"로 붙는다. 그 call은 합에 들지 않았다는 뜻이다. 합할 금액이 없고 모르는 call만 있으면 "Price unknown N" 하나만 보인다.',
+      render: () => <AgentCostUnknown />,
     },
     {
       id: "new-agent-queued-message",

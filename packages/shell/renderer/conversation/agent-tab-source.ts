@@ -405,6 +405,16 @@ export interface PermissionsView {
   readonly session: readonly string[];
 }
 
+// ---- 비용 ----
+
+/** session의 추정 비용. 금액은 USD 중 estimated와 reported의 합이다. */
+export interface SessionCost {
+  /** 합. 합칠 금액이 없으면 null이다. */
+  readonly amount: number | null;
+  /** 가격을 모르는 call 수. 합에 들지 않았다. */
+  readonly unknown: number;
+}
+
 // ---- rewind ----
 
 /** 이 session이 고른 시점 뒤에 앱에 한 write. 결과를 모르는 write는 되돌릴 수 없다. */
@@ -511,6 +521,8 @@ export interface AgentTabSource {
   permissions(session: string | null): Promise<SourceResult<PermissionsView>>;
   /** `/recap`. 이력에 들어가지 않는 요약이다. */
   recap(session: string): Promise<SourceResult<readonly string[]>>;
+  /** 입력칸 아래 비용 한 줄. 그 session의 처음부터 지금까지 합이다. */
+  cost(session: string): Promise<SourceResult<SessionCost>>;
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;

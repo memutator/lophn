@@ -21,6 +21,8 @@ import {
   SettingsBrowserBookmarks,
   SettingsBrowserBookmarksCorrupt,
   SettingsBrowserClearData,
+  SettingsBrowserLinks,
+  SettingsBrowserLinksSystem,
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
@@ -184,6 +186,20 @@ export const settingsArea: Area = {
       description:
         "browser 탭의 Bookmarks 목록과 Browsing data 구역이다. [Clear browsing data]는 모든 browser 탭이 같이 쓰는 로그인과 site data, cache를 지운다.",
       render: () => <SettingsBrowser />,
+    },
+    {
+      id: "settings-browser-links",
+      title: "Settings · Browser · links",
+      description:
+        "Links 구역이다. terminal에서 연 web link와 local link(localhost, 사설 주소)를 각각 Browser tab이나 System browser로 열도록 고른다. 기본은 둘 다 Browser tab이다.",
+      render: () => <SettingsBrowserLinks />,
+    },
+    {
+      id: "settings-browser-links-system",
+      title: "Settings · Browser · links to the system browser",
+      description:
+        "web link는 System browser, local link는 Browser tab이다. `gh auth login`이 연 주소는 OS browser로, `vite`가 낸 주소는 browser 탭으로 가는 설정이다.",
+      render: () => <SettingsBrowserLinksSystem />,
     },
     {
       id: "settings-browser-clear-data",

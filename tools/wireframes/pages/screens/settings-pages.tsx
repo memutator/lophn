@@ -77,6 +77,19 @@ export const SettingsBrowser = () => (
   <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
 );
 
+/** Settings › Browser: Links 구역. web과 local link 둘 다 Browser tab으로 연다. */
+export const SettingsBrowserLinks = () => (
+  <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
+);
+
+/** Settings › Browser: web link는 System browser, local link는 Browser tab으로 여는 설정. */
+export const SettingsBrowserLinksSystem = () => (
+  <SettingsFrame
+    pane="browser"
+    browser={{ bookmarks: BOOKMARKS, links: { web_links: "system_browser" } }}
+  />
+);
+
 /** Settings › Browser: [Clear browsing data]를 눌러 확인 dialog가 열린 상태. */
 export const SettingsBrowserClearData = () => (
   <SettingsFrame

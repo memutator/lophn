@@ -15,6 +15,7 @@ import { fakeProviders } from "../../../../packages/shell/renderer/desktop/setti
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
+import type { LinkValues } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
@@ -34,6 +35,8 @@ interface SettingsFrameProps {
   readonly browser?: {
     readonly bookmarks?: Bookmark[];
     readonly corrupt?: boolean;
+    /** Links 줄의 처음 값. 안 쓴 줄은 Browser tab이다. */
+    readonly links?: Partial<LinkValues>;
   };
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";

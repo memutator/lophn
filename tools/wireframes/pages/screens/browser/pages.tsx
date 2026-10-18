@@ -68,11 +68,27 @@ const GOOGLE = {
   url: "https://accounts.google.com/",
 } as const;
 
+const TERM = { key: "term_1", kind: "terminal", title: "grocery" } as const;
+const VITE = {
+  key: "browser-vite",
+  kind: "browser",
+  title: "Vite + React",
+  url: "http://localhost:5173/",
+} as const;
+
 const DENO_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, DENO], selected: DENO.key },
 ];
 const BLANK_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, BLANK], selected: BLANK.key },
+];
+// terminal이 낸 주소를 bridge가 연 모양. 칸이 둘이면 반대쪽 칸, 하나면 terminal 바로 뒤다.
+const BRIDGE_PANES: readonly PaneSpec[] = [
+  { tabs: [TERM], selected: TERM.key },
+  { tabs: [VITE], selected: VITE.key },
+];
+const BRIDGE_ONE_PANE: readonly PaneSpec[] = [
+  { tabs: [NOTES, TERM, VITE], selected: VITE.key },
 ];
 // 로그인 page가 크기를 준 window.open(width=500,height=600)으로 뜬 작은 패널.
 const OAUTH_FLOAT: FloatSpec = {
@@ -151,6 +167,25 @@ export function BrowserBlank() {
     />
   );
 }
+
+function BridgeTab({ panes }: { panes: readonly PaneSpec[] }) {
+  const fake = useFake();
+  useDrive(() => showPage(fake, VITE.key, [VITE.url], VITE.title));
+  return (
+    <MockDesktop
+      route={openProject(PROJECT_GROCERY)}
+      panes={panes}
+      openTerminal={TERM.key}
+      browser={fake.api}
+    />
+  );
+}
+
+/** terminal의 vite 주소를 Ctrl/Cmd-click하거나 `$BROWSER`가 불러 반대쪽 칸에 browser 탭이 열렸다. */
+export const BrowserBridgePane = () => <BridgeTab panes={BRIDGE_PANES} />;
+
+/** 칸이 하나면 terminal 바로 뒤에 browser 탭을 열고 그 탭을 고른다. */
+export const BrowserBridgeOnePane = () => <BridgeTab panes={BRIDGE_ONE_PANE} />;
 
 // 안내 toast는 2초 뒤 스스로 닫힌다. gallery에서 보이도록 같은 사건을 그보다 자주 다시 보낸다.
 const BLOCKED_AGAIN_MS = 1500;

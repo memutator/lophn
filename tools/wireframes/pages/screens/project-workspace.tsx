@@ -47,6 +47,8 @@ import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
   BrowserBlank,
   BrowserBookmarkMenu,
+  BrowserBridgeOnePane,
+  BrowserBridgePane,
   BrowserDevtoolsBottom,
   BrowserDevtoolsFloat,
   BrowserDevtoolsMenu,
@@ -481,6 +483,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "선언된 검색의 board 결과(Experiments by status)다. 같은 탭에서 다른 검색을 고른 모양이다.",
       render: () => <DeclaredSearchBoardPage />,
+    },
+    {
+      id: "browser-bridge-pane",
+      title: "Browser · opened by a terminal link",
+      description:
+        "terminal에서 `vite`가 낸 주소를 Ctrl/Cmd-click하거나 `$BROWSER`가 불러서 반대쪽 칸에 browser 탭이 열린 모양이다. 왼쪽 칸의 terminal 탭은 그대로 선택되어 있다.",
+      render: () => <BrowserBridgePane />,
+    },
+    {
+      id: "browser-bridge-one-pane",
+      title: "Browser · opened by a terminal link (one pane)",
+      description:
+        "칸이 하나면 terminal 바로 뒤에 browser 탭을 열고 그 탭을 고른다.",
+      render: () => <BrowserBridgeOnePane />,
     },
   ],
 };

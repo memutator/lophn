@@ -7,6 +7,7 @@ App Engineer가 보고의 본문을 읽게 한다. `problem.get`의 latest에 me
 - 소유(이 task만 고친다):
   - `packages/core/problems/agent-tools.ts`
   - `packages/core/agent-roles/tool-lists.ts`
+  - `tests/e2e/reaction_test.ts`(lead가 더함: 아래 E2E 행 하나만)
 - 읽을 것:
   - issue: `project-docs/issues/problems.md`의 "agent가 보고의 message, details, stack, log 본문을 읽을 길이 없다"(추천: 넷 다. 이 task는 tool 쪽 셋: latest의 message, 본문 읽기 tool, tool 설명), "고친 release 없이 resolved로…"의 program 쪽
   - architecture: `project-docs/architecture/agent-definition.md`("role의 tool 목록은 코드가 고정하고…", "agent credential의 operation 상한은 tool이 core에 부르는 route 이름이다", "tool 결과는 model에 약 24 KiB까지만 싣는다", "tool은 자원 하나에 동사 하나")
@@ -46,3 +47,12 @@ App Engineer가 보고의 본문을 읽게 한다. `problem.get`의 latest에 me
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: agent 자격으로 `problem.body`를 부르는 길은 자동 test가 없다.
+
+## (lead가 더함) E2E 행 하나
+
+- `tests/e2e/reaction_test.ts`의 table에 행 하나를 더한다. 새 file은 만들지 않는다(사람이 행으로 승인함).
+  1. 앱이 `reportProblem`으로 message를 남긴 problem이 열린다.
+  2. 이 행에서 App Engineer는 fake 대답으로 `problem.body`(`field: "report_text"`)를 부른다.
+  3. fake가 받은 다음 요청의 tool 결과에 그 message 글이 있다.
+- 지키는 것은 "agent 자격으로 보고 본문을 읽는 길이 끝까지 닿는다"이다. `rd-body-route`가 고친 자격 검사가 process를 건너서도 맞는지 본다.
+- `project-docs/architecture/testing.md`의 case 규칙을 따른다: 단계 6, fake 대답 3, 단정 3 이하. 새 E2E 행은 10번 연속 통과한 뒤 넣는다. lead가 merge 전에 돌린다.

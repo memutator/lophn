@@ -4,11 +4,11 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `rd-app-api-tool` | rd-app-api | 1 | 없음 | todo |  |  |  |
-| `rd-body-route` | rd-body | 1 | 없음 | todo |  |  |  |
-| `rd-cap-fs` | rd-cap | 1 | 없음 | todo |  |  |  |
-| `rd-cap-net-transport` | rd-cap | 1 | 없음 | todo |  |  |  |
-| `rd-ex-shape` | rd-ex | 1 | 없음 | todo |  |  |  |
+| `rd-app-api-tool` | rd-app-api | 1 | 없음 | running | rd-app-api/rd-app-api-tool |  |  |
+| `rd-body-route` | rd-body | 1 | 없음 | running | rd-body/rd-body-route |  |  |
+| `rd-cap-fs` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-fs |  |  |
+| `rd-cap-net-transport` | rd-cap | 1 | 없음 | running | rd-cap/rd-cap-net-transport |  |  |
+| `rd-ex-shape` | rd-ex | 1 | 없음 | running | rd-ex/rd-ex-shape |  |  |
 | `rd-resolve-rule` | rd-resolve | 1 | 없음 | todo |  |  |  |
 | `rd-sdk-builtin` | rd-sdk | 1 | 없음 | todo |  |  |  |
 | `rd-body-cli` | rd-body | 2 | rd-body-route | todo |  |  |  |
@@ -21,3 +21,4 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-cap-net-live` | rd-cap-live | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
 | `rd-cap-skill` | rd-cap-skill | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | todo |  |  |  |
 | `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | todo |  |  |  |
+| `rd-ex-e2e` | rd-ex | 5 | rd-ex-trigger, rd-cap-net-live | todo |  |  |  |

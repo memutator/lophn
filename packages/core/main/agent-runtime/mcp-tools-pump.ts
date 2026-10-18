@@ -31,7 +31,10 @@ function abortableWait(ms: number, signal: AbortSignal): Promise<void> {
 export async function startMcpToolsPump(options: {
   // machine 자격의 core loopback이다.
   call: CoreCall;
-  list(place: AgentPlace | null): Promise<Result<McpToolServer[]>>;
+  list(
+    place: AgentPlace | null,
+    agent: string | null,
+  ): Promise<Result<McpToolServer[]>>;
   signal: AbortSignal;
   idleMs?: number;
   wait?: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -45,7 +48,7 @@ export async function startMcpToolsPump(options: {
       const request = taken.ok ? taken.value.request : null;
       if (request !== null) {
         worked = true;
-        const listed = await options.list(request.place);
+        const listed = await options.list(request.place, request.agent);
         if (listed.ok) {
           await options.call(routePath(mcpToolsRequestDone), {
             id: request.id,

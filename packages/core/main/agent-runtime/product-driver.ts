@@ -114,6 +114,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     // 만들어 넘기므로 productDriver 호출마다 하나를 만든다.
     const mcpKit = createMcpToolkit({
       machine: calls.machine,
+      operatorRef: ROLE_TABLE.operatorRef,
       connections: mcpConnectionsDeps(calls.secrets),
     });
     const preparer = createTurnPreparer({

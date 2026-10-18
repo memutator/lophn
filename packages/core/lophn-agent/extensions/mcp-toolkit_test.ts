@@ -31,6 +31,7 @@ function toolkit(connected: string[]) {
   }];
   return createMcpToolkit({
     machine: () => Promise.resolve(ok({ settings })),
+    operatorRef: (agent) => ({ role: "operator", agent }) as never,
     connections: {} as never,
     create: () => connections,
   }).toolkit("asg");

@@ -70,6 +70,7 @@ async function appCatalog(
 async function mcpCatalog(
   link: Link,
   place: string | null,
+  ref: AgentRef,
 ): Promise<GrantCatalog["mcpServers"]> {
   const body = place === null
     ? null
@@ -77,7 +78,7 @@ async function mcpCatalog(
   const read = await link.memory<{ servers: McpToolServer[] }>(
     "agent-mcp-tools",
     "list",
-    { place: body },
+    { place: body, agent: ref.role === "operator" ? ref.agent : null },
   );
   if (!read.ok) return [];
   return read.value.servers.filter((one) => one.reason === null).map((one) => ({
@@ -143,7 +144,7 @@ export async function readGrants(
   // MCP 연결이 느린 서버가 있어도 다른 목록이 그만큼 더 늦지 않게 함께 읽는다. agent 목록은 appCatalog가
   // 채우는 앱 이름을 쓰므로 그 뒤에 읽는다.
   const [mcpServers, [apps, agents]] = await Promise.all([
-    mcpCatalog(link, place),
+    mcpCatalog(link, place, ref),
     appCatalog(link, names).then(async (apps) =>
       [apps, await agentCatalog(link, ref, names)] as const
     ),

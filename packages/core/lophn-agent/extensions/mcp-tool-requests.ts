@@ -17,7 +17,7 @@ import type { AuthDeadline } from "./mod.ts";
 const MCP_TOOLS_WAIT_MS = 15_000;
 
 type Entry = {
-  request: { id: string; place: AgentPlace | null };
+  request: { id: string; place: AgentPlace | null; agent: string | null };
   taken: boolean;
   settle(servers: McpToolServer[]): void;
 };
@@ -57,7 +57,7 @@ export function createMcpToolRequests(options: {
     return new Promise((resolve) => {
       const stop = new AbortController();
       entries.set(id, {
-        request: { id, place: parsed.data.place },
+        request: { id, place: parsed.data.place, agent: parsed.data.agent },
         taken: false,
         settle: (servers) => {
           stop.abort();

@@ -240,7 +240,8 @@ export const mcpAuthCancel = defineMemory({
 // MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
 // runtime이 `request-take`·`request-done`으로 가져가 답한다(발급자 요청 `issuer-requests.ts`와 같은 길). 그 대기열 상태를 쥔 memory
 // route라서 reader Worker의 read로는 못 한다. place는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
-// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다.
+// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다. agent는 Grants를 여는 Operator의 id다: 그 Operator 정의 층의
+// 서버를 마지막 층으로 더한다. Operator가 아니면 null이다.
 //
 // 서버마다 reason이 목록을 못 읽은 이유다. null이면 읽었다. 아니면 tools는 빈 배열이다.
 // - disabled: 설정에서 꺼진 서버.
@@ -265,7 +266,10 @@ export const mcpToolsList = defineMemory({
   resource: "agent-mcp-tools",
   method: "list",
   name: "ListMcpTools",
-  input: z.strictObject({ place: mcpAuthPlaceSchema }),
+  input: z.strictObject({
+    place: mcpAuthPlaceSchema,
+    agent: idSchema("agt").nullable(),
+  }),
   output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
   actors: ["user"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
@@ -283,6 +287,7 @@ export const mcpToolsRequestTake = defineMemory({
     request: z.strictObject({
       id: z.string().min(1).max(64),
       place: mcpAuthPlaceSchema,
+      agent: idSchema("agt").nullable(),
     }).nullable(),
   }),
   actors: ["machine"],

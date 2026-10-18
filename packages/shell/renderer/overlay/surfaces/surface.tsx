@@ -55,8 +55,10 @@ function SurfaceView(
   };
   const { label, text, choices } = surface.model;
   const enabled = choices.filter((choice) => !choice.disabled);
-  // 연 자리는 shell renderer에 있다. overlay 안 표면은 rect 왼쪽 위 크기 없는 anchor에서 그린다.
+  // 연 자리는 shell renderer에 있다. tooltip 등은 rect 왼쪽 위 크기 없는 anchor에서 그리고,
+  // menu·popover는 rect가 trigger 상자라 그 상자 전체가 anchor다.
   const anchor = <span className={styles.anchor} />;
+  const boxAnchor = <span className={styles.anchorBox} />;
   const shared = { container: host, returnFocus: false } as const;
   const buttons = choices.map((choice, index) => (
     <Button
@@ -81,10 +83,10 @@ function SurfaceView(
           {...shared}
           open
           onOpenChange={onOpenChange}
-          trigger={anchor}
+          trigger={boxAnchor}
           items={choices}
           onSelect={select}
-          placement="corner"
+          placement="beside"
         />
       );
     case "popover":
@@ -93,8 +95,8 @@ function SurfaceView(
           {...shared}
           open
           onOpenChange={onOpenChange}
-          trigger={anchor}
-          placement="corner"
+          trigger={boxAnchor}
+          placement="beside"
         >
           {label && <p className={styles.label}>{label}</p>}
           {text !== undefined && <p className={styles.text}>{text}</p>}

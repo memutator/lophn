@@ -33,7 +33,8 @@ export function BookmarkStar(props: BookmarkStarProps) {
   const existing = bookmarks.bookmarks.find((item) => item.url === url);
   const disabled = url === "" || bookmarks.state !== "ok";
   const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLSpanElement>(null);
+  // 채운 별의 감싸는 span은 display: contents라 상자가 없다. overlay에는 별 단추의 상자를 anchor로 보낸다.
+  const anchor = useRef<HTMLButtonElement>(null);
   const shown = open && existing !== undefined;
 
   const change = (next: boolean) => {
@@ -75,7 +76,6 @@ export function BookmarkStar(props: BookmarkStarProps) {
 
   return (
     <span
-      ref={anchor}
       className={existing === undefined ? undefined : styles.filled}
     >
       <Popover
@@ -89,6 +89,7 @@ export function BookmarkStar(props: BookmarkStarProps) {
         }}
         trigger={
           <IconButton
+            ref={anchor}
             icon={browserIcons.star}
             label={existing === undefined
               ? t("browser.button.bookmark-add")

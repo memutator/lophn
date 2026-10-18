@@ -32,44 +32,16 @@ type Pending = {
 
 let serial = 0;
 
-// overlay view는 anchorRect 합집합 크기로만 열리고 menu는 그 왼쪽 위에서 그려진다. 그래서 trigger가 아니라 menu가 차지할 상자를 보낸다.
-// 줄 높이 32(--menu-row)와 위아래 padding 4는 design Menu의 값이다. 폭은 글자 수로 어림한다.
-const ROW = 32;
-const PAD = 4;
-
-// 한글 등 ASCII 밖 글자는 ASCII의 두 배 폭으로 어림한다.
-function textWidth(text: string): number {
-  let sum = 0;
-  for (const char of text) sum += char.codePointAt(0)! > 0x7f ? 16 : 8;
-  return sum;
-}
-
-function menuBox(
-  trigger: DOMRect,
-  label: string,
-  choices: readonly MenuChoice[],
-  kind: "menu" | "popover",
-) {
-  // popover의 머리글 한 줄은 menu 줄과 같은 높이로 어림한다.
-  const heading = kind === "popover" ? textWidth(label) : 0;
-  const longest = Math.max(
-    heading,
-    ...choices.map((choice) => textWidth(choice.label)),
-  );
-  const width = Math.min(360, Math.max(160, longest + 40));
-  const height = (choices.length + (kind === "popover" ? 1 : 0)) * ROW +
-    PAD * 2;
-  const maxWidth = Math.max(1, Math.floor(globalThis.innerWidth));
-  const maxHeight = Math.max(1, Math.floor(globalThis.innerHeight));
-  const w = Math.min(width, maxWidth);
-  // 두 trigger 모두 toolbar 오른쪽 끝에 있어 오른쪽 가장자리를 맞춘다.
-  const x = Math.min(Math.max(0, Math.round(trigger.right - w)), maxWidth - w);
-  const y = Math.min(Math.max(0, Math.round(trigger.bottom)), maxHeight - 1);
+// overlay view는 본문 전체를 덮고 menu·popover는 anchorRect(trigger 상자)에서 Radix가 자리를 잡는다. 크기는 어림하지 않는다.
+function triggerRect(trigger: HTMLElement) {
+  const box = trigger.getBoundingClientRect();
+  const x = Math.max(0, Math.floor(box.left));
+  const y = Math.max(0, Math.floor(box.top));
   return {
     x,
     y,
-    width: w,
-    height: Math.max(1, Math.min(height, maxHeight - y)),
+    width: Math.ceil(box.right) - x,
+    height: Math.ceil(box.bottom) - y,
   };
 }
 
@@ -103,9 +75,18 @@ export function useOverlayMenu(): OpenMenu | null {
   const open = useCallback<OpenMenu>(
     async (trigger, label, choices, kind = "menu") => {
       const made = consumer.current;
-      if (made === null || pending.current !== null) return null;
+      if (made === null) return null;
+      // 눈에 안 보이는 trigger(크기 0)로는 열 자리를 알 수 없다.
+      const anchorRect = triggerRect(trigger);
+      if (anchorRect.width < 1 || anchorRect.height < 1) return null;
+      // 새로 열 때 아직 떠 있는 이전 menu·popover는 닫고 새것으로 바꾼다.
+      const previous = pending.current;
+      if (previous !== null) {
+        pending.current = null;
+        if (previous.identity) void made.close(previous.identity);
+        previous.settle(null);
+      }
       const requestId = `browser-menu-${++serial}`;
-      const box = trigger.getBoundingClientRect();
       const shown = choices.slice(0, MENU_LIMIT);
       let settle!: (id: string | null) => void;
       const answer = new Promise<string | null>((resolve) => settle = resolve);
@@ -114,10 +95,14 @@ export function useOverlayMenu(): OpenMenu | null {
       const opened = await made.open({
         requestId,
         kind,
-        anchorRect: menuBox(box, label, shown, kind),
+        anchorRect,
         model: { label, choices: shown },
       }, trigger);
-      if (pending.current !== mine) return answer;
+      if (pending.current !== mine) {
+        // 여는 사이 다른 open이 이 요청을 밀어냈다. 이미 열린 표면은 남기지 않는다.
+        if (opened.ok) void made.close(opened.value);
+        return answer;
+      }
       if (opened.ok) mine.identity = opened.value;
       else {
         pending.current = null;

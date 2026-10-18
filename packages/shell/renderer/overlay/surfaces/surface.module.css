@@ -6,6 +6,12 @@
   height: var(--space-0);
 }
 
+/* menu·popover는 trigger 상자(표면 rect)를 그대로 anchor로 삼는다. */
+.anchorBox {
+  position: absolute;
+  inset: var(--space-0);
+}
+
 .label {
   margin: var(--space-0);
   padding: var(--space-2) var(--space-4);

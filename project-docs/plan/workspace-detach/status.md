@@ -8,9 +8,9 @@ lead만 고친다. `tools/status.py workspace-detach build`가 `tasks/*.md`에�
 | `wd-layout` | wd-layout | 1 | 없음 | merged | wd-layout/wd-layout | 7a3a1c82d |  |
 | `wd-browser` | wd-browser | 2 | wd-native-move | todo |  |  |  |
 | `wd-main` | wd-main | 2 | wd-native-move | todo |  |  |  |
-| `wd-native-move` | wd-native-move | 2 | 없음 | todo |  |  |  |
-| `wd-project-side` | wd-project-side | 2 | 없음 | todo |  |  |  |
-| `wd-transfer-kinds` | wd-transfer-kinds | 2 | 없음 | todo |  |  |  |
-| `wd-window-ui` | wd-window-ui | 2 | 없음 | todo |  |  |  |
+| `wd-native-move` | wd-native-move | 2 | 없음 | running | wd-native-move/wd-native-move |  |  |
+| `wd-project-side` | wd-project-side | 2 | 없음 | running | wd-project-side/wd-project-side |  |  |
+| `wd-transfer-kinds` | wd-transfer-kinds | 2 | 없음 | merged | wd-transfer-kinds/wd-transfer-kinds | 7fad62f70 |  |
+| `wd-window-ui` | wd-window-ui | 2 | 없음 | running | wd-window-ui/wd-window-ui |  |  |
 | `wd-gallery` | wd-gallery | 3 | 없음 | todo |  |  |  |
 | `wd-restore` | wd-restore | 3 | 없음 | todo |  |  |  |

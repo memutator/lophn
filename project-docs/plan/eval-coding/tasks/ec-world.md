@@ -19,7 +19,7 @@
   - 제품 규칙(app test): `packages/core/problems/tests/app-test/generate.ts`(필수 검사), `packages/core/problems/tests/harness/checks.ts`, `packages/core/problems/tests/work/app-driver.ts`의 `validValue`·`invalidValue`
 - 계약:
   - 쓰는 것:
-    - ec-restore의 재료 꼴(`ec-restore.md`)과 `restoreWorld(ctx, refs, options?)`, `deliverCall`, `restoreCoreEnv`. eval-base의 `tests/eval/restore/manifest.ts`의 `contentHash`, `loadMaterial`, `verifyMaterial`.
+    - ec-restore의 재료 꼴(`ec-restore.md`)과 `restoreWorld(ctx, refs, root?)`, `deliverCall`, `restoreCoreEnv`. eval-base의 `tests/eval/restore/hash.ts`의 `contentHash`, `manifest.ts`의 `loadMaterial`, `verifyMaterial`.
     - `MaterialManifest`(`tests/eval/types.ts`)와 `MaterialKind`의 `active_app`·`package`·`call`(ec-contract).
   - 내놓는 것:
     - 재료 `notify-app@1`, `date-range@1`, `calendar-call@1`(아래 "할 일"의 자리). 이름과 고정 id가 곧 계약이다. `ec-calendar`와 `ec-scenarios`가 이 이름·id·app-api를 쓴다.
@@ -104,7 +104,7 @@
 
 ## 제품 빈틈 (이 task는 제품 코드를 고치지 않는다)
 
-- **app test의 의존 검사가 `@me` package를 쓰는 앱을 거절한다.** `packages/core/problems/tests/app-test/generate.ts`의 `checkDependencies`는 bundle import map 값 `./sdk/…`를 `SDK_COPY = /^\.\/sdk\/([^/]+)\/([^/]+)\//`로 푼다. 내장 SDK는 `./sdk/<part>/<version>/`라 맞지만 `@me` package는 설치 사본 경로가 `./sdk/@me/<part>/<version>/`(`packageInstallPath`)라서 `copy[1]`이 `@me`, `copy[2]`가 part가 되어, 선언한 의존과 이름·version이 맞지 않아 `undeclared`(= `선언하지 않은 의존을 import한다`)로 떨어진다. 확인한 입력: 의존 `{ name: "@me/date-range", version: "1.0.0", source: "package" }`와 import `./sdk/@me/date-range/1.0.0/mod.ts`(`dependenciesHash`로 맞춘 frozen hash)를 `generateAppTestChecks`에 주면 `dependencies` 검사가 `fail`이다. 고치는 방향은 정규식이 `@me/`를 받는 것이다(`/^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//`). 이 task의 앱(알림 앱)은 `@me` package를 import하지 않으므로 영향이 없다. 영향을 받는 것은 `@me/date-range`를 쓰는 캘린더 앱(`ec-calendar`)이다. 이 빈틈이 main에 고쳐지기 전에는 `calendar-app@1`이 켜지지 않는다. 고치는 일은 이 계획 밖의 별도 제품 수정이고 이 wave가 돌기 전에 main에 들어간다(planner 결정). 이 task는 영향이 없으므로 들어갔는지 확인만 하고, 들어가지 않았으면 보고에 적는다.
+- **app test의 의존 검사가 `@me` package를 쓰는 앱을 거절한다.** `packages/core/problems/tests/app-test/generate.ts`의 `checkDependencies`는 bundle import map 값 `./sdk/…`를 `SDK_COPY = /^\.\/sdk\/([^/]+)\/([^/]+)\//`로 푼다. 내장 SDK는 `./sdk/<part>/<version>/`라 맞지만 `@me` package는 설치 사본 경로가 `./sdk/@me/<part>/<version>/`(`packageInstallPath`)라서 `copy[1]`이 `@me`, `copy[2]`가 part가 되어, 선언한 의존과 이름·version이 맞지 않아 `undeclared`(= `선언하지 않은 의존을 import한다`)로 떨어진다. 확인한 입력: 의존 `{ name: "@me/date-range", version: "1.0.0", source: "package" }`와 import `./sdk/@me/date-range/1.0.0/mod.ts`(`dependenciesHash`로 맞춘 frozen hash)를 `generateAppTestChecks`에 주면 `dependencies` 검사가 `fail`이다. 고치는 방향은 정규식이 `@me/`를 받는 것이다(`/^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//`). 이 task의 앱(알림 앱)은 `@me` package를 import하지 않으므로 영향이 없다. 영향을 받는 것은 `@me/date-range`를 쓰는 캘린더 앱(`ec-calendar`)이다. 이 빈틈이 main에 고쳐지기 전에는 `calendar-app@1`이 켜지지 않는다. 고치는 일은 이 계획 밖의 별도 제품 수정이다(계획 `found-bugs`가 이 wave 전에 main에 넣는다). 이 task는 영향이 없으므로 들어갔는지 확인만 하고, 들어가지 않았으면 보고에 적는다.
 - 그 밖에 `package.publish`를 제품 길로 끝까지 지나는 test가 없다(roadmap "제품 빈틈"). ec-restore의 package 되살리기가 처음이다. 막히는 곳(Gate가 묻는지, source commit에 `path`가 없는지)이 있으면 그대로 보고한다.
 
 ## 끝남

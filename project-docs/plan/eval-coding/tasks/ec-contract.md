@@ -1,20 +1,20 @@
 # ec-contract
 
-eval-base가 land한 `tests/eval/types.ts`에 eval-coding이 필요한 type과 한 줄짜리 constructor를 더한다. 고치는 곳은 아래 "할 일"에 줄 단위로 적은 것뿐이고 나머지는 land한 file 그대로 둔다. 같은 task에서 land한 `tests/eval/checks/`의 두 줄(judge `input`의 await, program check의 순서)도 고친다.
+eval-base가 land한 `tests/eval/types.ts`(main 9ddeca36f)에 eval-coding이 필요한 type과 한 줄짜리 constructor를 더한다. 고치는 곳은 아래 "할 일"에 줄 단위로 적은 것뿐이고 나머지는 land한 file 그대로 둔다. type을 넓히면 land한 코드 다섯 곳이 type check에 걸리므로(할 일 12) 그 줄만 최소로 맞춘다.
 
 - 단위: ec-contract (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `tests/eval/types.ts`
   - `tests/eval/checks/validate.ts`
-  - `tests/eval/checks/run.ts`
+  - `tests/eval/checks/run_test.ts`(새 file)
 - 읽을 것:
   - 계획: `project-docs/plan/eval-coding/README.md`(task 표, "정한 것")
-  - eval-base: land한 `tests/eval/types.ts`(이 brief의 "할 일"은 그 file의 줄에 맞춘 것이다), `project-docs/plan/eval-base/tasks/ev-contract.md`, `ev-checks.md`(`runProgramChecks`, `validateFixtures`)
+  - eval-base(land함): `project-docs/architecture/eval.md`, `tests/eval/types.ts`(이 brief의 "할 일"은 그 file의 줄에 맞춘 것이다), `tests/eval/checks/run.ts`·`validate.ts`·`validate_test.ts`, `tests/eval/restore/manifest.ts`·`mod.ts`, `tests/eval/runner/trial.ts`
   - 설계: `project-docs/products/roadmap/eval.md`의 "참가자", "재료"(종류와 되살리는 길), "시나리오"(꼴, 요구 카드), "공통 수치"(coding agent 열)
   - protocol(import할 것): `packages/protocol/approvals/mod.ts`의 `IntentKind`, `RequestChoice`, `packages/protocol/coding-agent/mod.ts`의 `HarnessId`, `packages/protocol/lophn-agent/ask-tool.ts`의 `AskQuestion`, `AskAnswer`
 - 계약:
-  - 쓰는 것: land한 `tests/eval/types.ts`. (2026-10-18 main에는 `types.ts`만 있다. `tests/eval/checks/`가 land하지 않았으면 그 두 file의 일은 "넘길 줄"에 적고 하지 않는다. 이 task는 eval-base 전체가 land한 뒤에 시작한다.)
+  - 쓰는 것: land한 `tests/eval/types.ts`와 `tests/eval/checks/`. (main의 `types.ts`는 eval-base의 ev-contract가 만든 것과 byte로 같다.)
   - 내놓는 것: 아래 type과 함수. 이름과 칸이 곧 계약이다. 쓰는 쪽: `ec-driver`(`CodingTrace`), `ec-metrics`(`CodingUsage`, `CodingCommand`, `CodingRecord`), `ec-human`(`HumanSpec`, `ApproveRule`, `HumanRecord`), `ec-restore`(`Save`, `SaveSource`, `MaterialKind`), `ec-checks`, `ec-runner`, `ec-scenarios`.
 
 ## 할 일
@@ -74,10 +74,9 @@ export type Step =
   input(input: CheckInput): string | Promise<string>; // judge가 받는 쪼인 입력. 인용은 이 글 안에 있어야 한다. 끝난 world를 읽는 입력은 route를 불러 Promise다
 ```
 
-   이 type을 부르는 쪽은 await한다. `tests/eval/checks/validate.ts`의 `validateFixtures`가 judge check의 `input`을 right trial마다 한 번 부르는 곳을 `await check.input(...)`으로 고친다(던지거나 reject하면 문제로 보고하는 try/catch가 있으면 그 안에 둔다). runner의 await는 `ec-runner`가 한다. fixture 확인은 `core: null`이므로 route를 부르는 입력은 `core === null`일 때 fixture 기록만 읽도록 쓰는 쪽(ec-checks)이 맡는다.
+   이 type을 부르는 쪽은 await한다. `tests/eval/checks/validate.ts`의 judge 입력 확인(land한 코드: `if (c.input({ trial, core: null }).trim() === "") {`)을 `if ((await c.input({ trial, core: null })).trim() === "") {`로 고친다. 그 `try`/`catch`는 그대로다(reject도 "input 오류"로 보고된다). runner의 await(`tests/eval/runner/trial.ts`의 `input: check.input({ trial, core })`)는 type check가 걸리므로 이 task가 `input: await check.input({ trial, core })` 한 줄로 맞춘다(할 일 12). 끝난 world를 읽는 입력은 fixture 확인(`core: null`)에서 route를 부를 수 없으므로 `core === null`일 때 fixture 기록만 읽도록 쓰는 쪽(ec-checks)이 맡는다.
 
-5. `tests/eval/checks/run.ts`의 `runProgramChecks`가 check를 **배열 순서대로 하나씩** 기다리며 도는지 본다(observation 확인은 앱에 실패를 일으켜 world를 바꾸므로 뒤 check가 앞 check의 효과를 본다). `Promise.all`처럼 겹쳐 돌면 `for ... of` + `await`로 고친다. 이미 순서대로면 코드는 그대로 두고 file 위에 "순서대로 돈다. 앞 check가 world를 바꾼다" 한 줄 주석만 더한다. 어느 쪽인지 보고에 적는다.
-
+5. `tests/eval/checks/run.ts`의 `runProgramChecks`는 land한 코드가 이미 check를 배열 순서대로 하나씩 `await`한다(`for (const check of checks)` 안의 `await check.run(input)`, 던지면 그 check만 떨어지고 뒤 check는 돈다). 코드는 고치지 않는다. 이 순서에 observation 확인이 기댄다(앞 check가 앱에 실패를 일으켜 world를 바꾼다). 지켜 두려고 `tests/eval/checks/run_test.ts`(새 file)에 test 하나를 쓴다(아래 "끝남").
 6. 사람 역할과 save, 시나리오. land한 `Scenario` 위에 더하고(`// \`save\`는 이 계획에 없다(eval-coding이 더한다).` 주석 줄은 지운다), `Scenario`의 `real`을 바꾸고 두 칸을 더한다.
 
 ```ts
@@ -144,6 +143,8 @@ export type CodingTrace = {
   harness: HarnessId; // 이 계획에서는 "claude"만
   cwd: string; // 앱 source 폴더
   command_log: string; // `lophn` wrapper 기록 file의 절대 경로(아래 형식)
+  attach_socket: string; // 사람이 이 session의 화면을 보는 unix socket 경로(`deno task eval:attach`). session이 끝나면 지워진다
+  human_input: boolean; // 사람이 `--write`로 붙어 키를 넣었다. 그 trial은 사람이 끼어든 것이다
   opened_at: string | null; // open 요청이 ok로 끝난 시각. spawn이 실패하면 null
   reported_at: string | null; // ticket이 reported가 된 것을 처음 본 시각
   ended_at: string | null; // process가 끝난 시각
@@ -172,7 +173,7 @@ export type CodingUsage = {
   tool_error_rate: number | null; // tool_errors / tool_results. 분모 0이면 null
 };
 
-export type CodingRecord = Omit<CodingTrace, "command_log"> & {
+export type CodingRecord = Omit<CodingTrace, "command_log" | "attach_socket"> & {
   usage: CodingUsage | null; // JSONL을 못 읽으면 null
   usage_error: string | null; // 못 읽은 이유 한 줄
   commands: CodingCommand[]; // 시각 순서
@@ -180,7 +181,7 @@ export type CodingRecord = Omit<CodingTrace, "command_log"> & {
   permission_requests: number; // wrapper 기록의 `hook claude PermissionRequest` 수. 사람이 없는 터미널에서 permission 물음이 떴다는 기록이다
 };
 
-// run 요약(commit)에는 터미널 글을 넣지 않는다.
+// run 요약(commit)에는 터미널 글을 넣지 않는다. `human_input`은 요약에도 남는다(사람이 끼어든 run을 가려내야 하기 때문이다).
 export type CodingSummary = Omit<CodingRecord, "tail">;
 
 // 사람 역할이 한 일. 모양의 출처는 ec-human이다(model, 정의 버전, 답한 질문, 허락 결정).
@@ -260,12 +261,17 @@ export const sentCall = (app: string): SaveSource => ({ kind: "call", app });
 ```
 
 11. file 위 관례 주석에 한 줄을 더한다: "`Metrics`는 role agent만 센다. coding agent의 token은 `TrialRecord.coding`에 있고 둘을 더하지 않는다(CLI 기록이라 칸이 반쯤만 겹친다)."
-12. 그 밖의 칸은 건드리지 않는다. 칸을 더 늘리거나 줄여야 하면 고치지 말고 "계약 바꾸기 요청"에 적는다. protocol import 이름이 실제 export와 안 맞으면 export 이름에 맞게 고치고 보고에 적는다.
+12. land한 코드를 최소로 맞춘다(type을 넓히면 `deno task check`가 깨지는 곳이다. 다른 task의 file이지만 wave 1이라 겹치지 않는다. 이 줄들만 고치고 "넘길 줄"에 적는다).
+    - `tests/eval/restore/manifest.ts`의 `ID_PREFIX`(`as const satisfies Record<MaterialKind, string>`): 새 종류 넷을 `active_app: "app"`, `app_data: "app"`, `package: "app"`, `call: "app"`로 더한다(`idSchema(prefix)`가 칸 하나를 요구한다. `ec-restore`가 종류마다 맞게 바꾼다).
+    - `tests/eval/restore/mod.ts`의 `restoreOne`(`switch (material.manifest.kind)`가 `Promise<Result<void>>`를 돌려준다): 새 종류 넷의 `case`를 모아 `return err({ code: "unavailable", message: \`material kind ${material.manifest.kind} is restored by ec-restore\` })`를 더한다(`err`를 `packages/base/mod.ts` import에 더한다. 지금은 `ok, type Result`만 가져온다).
+    - `tests/eval/runner/trial.ts`: `real: scenario.real.map((p) => agentRefOf(ctx.world, p))`를 `real: scenario.real.filter((p): p is Participant => !isCodingAgent(p)).map((p) => agentRefOf(ctx.world, p))`로, `input: check.input({ trial, core })`를 `input: await check.input({ trial, core })`로 고친다(`Participant`, `isCodingAgent`를 `../types.ts`에서 import). coding agent에게는 agent 층 model을 붙이지 않는다(CLI가 자기 login으로 돈다).
+    - 그 밖에 type check가 걸리는 곳이 있으면 같은 방식으로 최소로 맞춘다.
+13. 그 밖의 칸은 건드리지 않는다. 칸을 더 늘리거나 줄여야 하면 고치지 말고 "계약 바꾸기 요청"에 적는다. protocol import 이름이 실제 export와 안 맞으면 export 이름에 맞게 고치고 보고에 적는다.
 
 ## 끝남
 
-- `deno task check`가 통과한다. eval-base의 fixture와 시나리오 file이 새 type으로도 type check를 받는다. `real`을 `Participant[]`로 읽는 곳이나 `input`을 string으로 읽는 곳이 깨지면 그 줄만 최소로 맞추고 "넘길 줄"에 적는다.
-- 위험 test: "`runProgramChecks`는 check를 배열 순서대로 하나씩 돌고, 앞 check가 던져도 뒤 check가 돈다." (land한 `tests/eval/checks/`의 test file에 case가 없으면 가짜 check 둘로 하나만 더한다. 이미 있으면 더하지 않는다. 순서가 깨지면 observation 확인이 조용히 틀려진다.) 그 밖의 type과 constructor는 test하지 않는다.
+- `deno task check`가 통과한다. 판단 case 17개의 시나리오와 fixture, `tests/eval/**`의 기존 test가 새 type으로도 통과한다.
+- 위험 test: "`runProgramChecks`는 check를 배열 순서대로 하나씩 돌고(앞 check가 바꾼 상태를 뒤 check가 본다), 앞 check가 던져도 뒤 check가 돈다." (`run_test.ts`. 가짜 program check 셋: 첫째가 공유 변수를 바꾸고, 둘째가 그 변수를 읽어 통과하고, 셋째가 던진다. 순서가 깨지면 observation 확인이 조용히 틀려진다. 그 밖의 type과 constructor는 test하지 않는다.)
 - 위 type과 `isCodingAgent`, `codingAgent`, `deliver`, `callApi`, `activeApp`, `sentCall`이 export된다.
 - `types.ts`에 `HumanRole`을 만들지 않는다(그 이름은 ec-human의 runtime handle type이다. `types.ts`의 것은 `HumanSpec`·`HumanRecord`·`HumanSummary`).
 
@@ -278,6 +284,5 @@ export const sentCall = (app: string): SaveSource => ({ kind: "call", app });
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳
 - 계약 바꾸기 요청
-- `runProgramChecks`가 원래 순서대로 돌았는지, 고쳤는지
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"

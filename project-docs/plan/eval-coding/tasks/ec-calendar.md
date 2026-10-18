@@ -12,14 +12,14 @@
   - 설계: `project-docs/products/roadmap/eval.md`의 "캘린더 단위", "요구 카드", "재사용 확인", "observation 확인", "진단 확인"
   - 계획: `project-docs/plan/eval-coding/README.md`의 "정한 것"(`calendar-app@1`은 손으로 쓴 기준 앱, bug는 재료 `calendar-app-bug@1`, 일정 data는 `calendar-data@1`)
   - 같은 계획의 brief: `ec-world.md`(앱 source를 scaffold해 손보는 순서, "정한 것", "캘린더와 알림 app-api 정본", 제품 빈틈. 이 brief가 같은 글을 쓴다), `ec-restore.md`의 "재료 file 꼴 (정본)"
-  - eval-base brief: `project-docs/plan/eval-base/tasks/ev-restore.md`(`material.json`, `contentHash`)
+  - eval-base brief: `project-docs/plan/eval-base/tasks/ev-restore.md`와 landed된 `tests/eval/restore/hash.ts`의 `contentHash`, `manifest.ts`(`material.json` 꼴)
   - 앱 template과 SDK: `packages/core/apps/packages/template/app/`, `packages/sdk/cap-app-api/guide.md`(`connectAppApi`, `readResult`, `AppApiRejection`), `packages/sdk/cap-problem/guide.md`(이름으로 묶기), `packages/sdk/cap-store/guide.md`
   - 본보기: `tests/support/app/patch-report.ts`·`patch-reaction.ts`(template 위에 app-api를 더하고 bug를 심는 모양), `tests/e2e/reaction_test.ts`(`appCallApi`로 problem을 터뜨리는 길)
   - 제품 규칙: `project-docs/architecture/app-call.md`(앱끼리의 호출은 core를 지나고 Gate는 `app.call` grant로 판정한다), `packages/protocol/apps/blueprint/uses.ts`(`app_connections`의 `app`은 앱 id, `app_api`는 정확한 key, `reason` 필수), `packages/core/apps/permissions/effective.ts`(`app.call` grant는 activation 허락이 주고 대상 앱이 live이며 그 app-api가 있을 때만 된다)
 - 계약:
   - 쓰는 것:
     - `ec-world`의 재료: `notify-app@1`(고정 id `app_0000000000000000000000ntfy`, app-api `notify.schedule`·`notify.list`), `date-range@1`(`@me/date-range` 1.0.0: `toDate`, `formatLocal`, `weekRange`, `DateParts`).
-    - ec-restore의 재료 꼴(`active_app`·`app_data`)과 `restoreWorld(ctx, refs, options?)`, `restoreCoreEnv`.
+    - ec-restore의 재료 꼴(`active_app`·`app_data`)과 `restoreWorld(ctx, refs, root?)`, `restoreCoreEnv`.
   - 내놓는 것:
     - 재료 `calendar-app@1`, `calendar-app-bug@1`, `calendar-data@1`. 고정 id(캘린더 앱 `app_0000000000000000000000cdr1`)와 app-api(아래 정본)가 곧 계약이다. `ec-checks`와 `ec-scenarios`가 이 key·입력·출력·문제 이름을 쓴다.
 
@@ -86,7 +86,7 @@
 
 ## 제품 빈틈 (이 task는 제품 코드를 커밋하지 않는다)
 
-- **app test가 `@me` package를 쓰는 앱을 거절한다**(`ec-world.md`의 "제품 빈틈" 첫 항목이 근거와 재현을 갖는다). `packages/core/problems/tests/app-test/generate.ts`의 `SDK_COPY`가 `./sdk/@me/<part>/<version>/`를 못 풀어 `@me/date-range` import를 "선언하지 않은 의존"으로 본다. 이 앱의 `restoreWorld`가 이 때문에 `app test`가 `fail`이면 `calendar-app@1`은 main에서 켜지지 않는다. 이 수정은 이 계획 밖의 별도 제품 수정으로, 이 wave가 돌기 전에 main에 들어간다(planner 결정). 먼저 들어갔는지 확인한다.
+- **app test가 `@me` package를 쓰는 앱을 거절한다**(`ec-world.md`의 "제품 빈틈" 첫 항목이 근거와 재현을 갖는다). `packages/core/problems/tests/app-test/generate.ts`의 `SDK_COPY`가 `./sdk/@me/<part>/<version>/`를 못 풀어 `@me/date-range` import를 "선언하지 않은 의존"으로 본다. 이 앱의 `restoreWorld`가 이 때문에 `app test`가 `fail`이면 `calendar-app@1`은 main에서 켜지지 않는다. 이 수정은 이 계획 밖의 별도 제품 수정으로, 계획 `found-bugs`가 이 wave 전에 main에 넣는다. 먼저 들어갔는지 확인한다.
 - 수정이 아직 들어가지 않았을 때만 로컬에서 확인한다(들어갔으면 이 항목은 건너뛴다): `SDK_COPY`를 `/^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//`로 임시로 고치고 위 3번을 돌린 뒤 **되돌린다**(`git checkout -- packages/core/problems/tests/app-test/generate.ts`). 임시 고침이 commit이나 보고한 file 목록에 들어가면 안 된다. 이 패치 하나로 나머지가 모두 통과하는지가 보고할 내용이다.
 - **write app-api는 빈 DB에서 fixture로 DB를 바꿔야 app test를 통과한다**(위 5번). 삭제·수정처럼 대상 행이 있어야 바뀌는 write는 coding agent가 만들 때도 같은 벽을 만난다. calendar-mvp에서 진짜 coding agent가 `event.remove`를 어떻게 푸는지가 첫 run에서 보일 것이다. 이 벽 자체를 제품 빈틈으로 보고에 적는다.
 

@@ -29,9 +29,10 @@ eval에는 desktop shell이 없다. 이 task는 shell의 terminal 몫을 한다:
     - `startCodingDriver(deps: DriverDeps): CodingDriver`: trial마다 하나. Gateway 연결을 이 driver가 연다(`connectGateway(core)`). `coding_terminal` frame을 읽는 연결은 이것 하나여야 한다. runner는 같은 frame을 다른 데서 읽지 않는다.
     - `type CodingDriver = { active(): number; traces(): CodingTrace[]; stop(): Promise<CodingTrace[]> }`: `active()`는 process가 살아 있는 session 수(runner가 "coding session도 기다린다"에 쓴다), `traces()`는 지금까지 연 session의 기록(진행 중은 `end: null`), `stop()`은 남은 process를 `close`로 끝내고(끝난 이유 `killed`) Gateway를 닫고 전체 trace를 돌려준다.
     - `type PrepareDeps = { core: Core; root: string; hookRoot?: string; binDir: string; model: string; clock: Clock; install: "check" }`. `root`는 `lophn` wrapper가 가리키는 checkout이다(기본: 지금 checkout. eval-experiment가 variant checkout을 넘긴다). `hookRoot`는 사람이 전역 hook으로 설치한 wrapper가 속한 checkout이다(기본: 지금 checkout, 할 일 3의 4). `binDir`은 `root`의 wrapper 폴더(`<root>/.dev-data/eval/bin`)이고 runner가 정한다
-    - `type DriverDeps = { core: Core; clock: Clock; binDir: string; outDir: string; root: string; timeoutMs?: number; noSessionStartMs?: number }`. 기본 `timeoutMs` 90분, `noSessionStartMs` 120초. `outDir`은 trial의 폴더이고 session마다 `commands-<session>.log`(wrapper 기록)를 여기에 둔다.
+    - `type DriverDeps = { core: Core; clock: Clock; binDir: string; outDir: string; root: string; socketDir?: string; log: (line: string) => void; timeoutMs?: number; noSessionStartMs?: number }`. `socketDir` 기본은 `/tmp/lophn-eval/sock`(unix socket 경로는 108자 안이어야 하므로 짧게). `log`는 runner의 `deps.log`다. 기본 `timeoutMs` 90분, `noSessionStartMs` 120초. `outDir`은 trial의 폴더이고 session마다 `commands-<session>.log`(wrapper 기록)를 여기에 둔다.
     - `claudeVersion(claude: string): Promise<string>`: `claude --version`의 첫 낱말(`2.1.302`). model 호출이 없다.
-    - 순수: `driverEnv(inherited): Record<string, string>`, `evalPlan(plan, extras)`. 위험 test가 부른다.
+    - 순수: `driverEnv(inherited): Record<string, string>`, `evalPlan(plan, extras)`, `createFocusGate()`. 위험 test가 부른다.
+    - 사람이 보는 길: `deno task eval:attach [session] [--write]`의 입구 `tests/eval/coding/driver/attach.ts`(lead가 deno task를 등록한다. 할 일 5의 e).
 
 ## 결정 (사람이 확인하는 중이다. planner가 사람의 답을 받아 아래 "기본 경로"를 확정한다)
 
@@ -115,27 +116,45 @@ eval에는 desktop shell이 없다. 이 task는 shell의 terminal 몫을 한다:
      b. **완료 보고**: 2초마다 `core.call(ticketShow, { ticket })`의 `ticket.state`가 `reported` 또는 `verified`이면 `reported_at`을 한 번 찍고, 10초(Stop hook이 core에 닿을 시간) 뒤에 `host.handle({ type: "input", terminal_ref, generation, text: "/exit\r" })`로 Claude Code를 끝낸다(사람이 `/exit`을 치는 것과 같다. `exit_code` 0 → `exited`). 15초 안에 안 끝나면 `{ type: "close", ... }`(SIGHUP, 제품의 탭 닫기와 같다). 이유: roadmap은 "완료 보고 뒤에 process를 끝낸다"이고, 끝나야 core가 session을 정산하고 앱의 coding session 줄이 풀린다. 완료 보고 뒤 App Engineer가 고치라고 메시지를 보내면 session은 이미 끝났으므로 `input`은 `no_terminal`로 실패하고 App Engineer는 새 call로 새 session을 연다(제품에서 사람이 탭을 닫은 뒤와 같다).
      c. **시작 감시(결정 1의 기본)**: `opened_at` 뒤 `noSessionStartMs`가 지나도록 command log에 `\thook\tclaude\tSessionStart` 줄이 없으면 `close`하고 `end: "no_session_start"`.
      d. **상한**: `opened_at` 뒤 `timeoutMs`가 지나면 `close`하고 `end: "timeout"`.
+     e. **사람이 보는 화면**(사람: coding agent의 TUI를 직접 열어 본다. log를 tail하는 것이 아니다). 아래 "사람이 붙는 길"을 session마다 하나 세운다. 화면은 사람이 보는 것뿐이다. 상태 판단에는 쓰지 않는다(`tail` 진단 외).
    - `end`는 처음 정해진 값을 덮지 않는다. `stop()`은 남은 session을 `close`(`end` 비었으면 `killed`)로 끝내고 각 process의 exit를 15초까지 기다린 뒤 `gateway.close()`한다. `active()`는 `ended_at === null`이고 `end === null`인 session 수.
    - 시각은 `clock.now()`. 시간 상한 감시는 `setTimeout`을 쓰되 `stop()`이 모두 지운다(떠 있는 timer가 test나 process를 붙잡지 않게).
+### 사람이 붙는 길 (할 일 5의 e, 9~11)
+
+- **서버(driver 안, session마다 하나)**: open이 ok가 되면 `<socketDir>/<session의 끝 12자>.sock`에 `Deno.listen({ transport: "unix", path })`를 연다(폴더는 `0700`으로 만들고, 같은 이름의 옛 file은 지운다. 경로가 100자를 넘으면 던진다). 경로를 `trace.attach_socket`에 쓰고 `deps.log(\`coding agent 화면: deno task eval:attach ${session} (키 입력은 --write)\`)`를 한 번 찍는다(runner가 사람에게 보이는 줄이다). session이 끝나면(`ended_at`) 접속을 닫고 file을 지운다. `stop()`도 같다.
+- **연결 규칙**: 줄 단위 JSON. client → 서버: `{"t":"hello","write":boolean,"cols":n,"rows":n}`(첫 줄), `{"t":"resize","cols":n,"rows":n}`, `{"t":"key","data":"<입력 글>"}`. 서버 → client: `{"t":"out","data":"<chunk>"}`, `{"t":"end","reason":"<CodingEnd 또는 closed>"}`.
+- **화면**: `hello`를 받으면 먼저 `host.handle({ type: "snapshot", terminal_ref, after_seq: 0 })`의 `output[].chunk`를 순서대로 `out`으로 보내 현재 화면을 그린다(ring buffer가 가진 만큼. `dropped_output`이 true면 앞에 `\r\n[eval: 앞부분이 잘렸다]\r\n`을 먼저 보낸다). 그 뒤 150ms마다 마지막으로 보낸 seq 뒤의 새 chunk만 `out`으로 보낸다. 같은 session에 여러 client가 붙어도 각자 seq를 따로 쥔다. session이 끝나면 `end`를 보내고 닫는다.
+- **크기**: `hello`와 `resize`의 `cols`·`rows`로 `host.handle({ type: "resize", terminal_ref, generation, columns, rows })`를 부른다(desktop 탭이 크기를 보내는 것과 같다. 처음 open은 `requests.ts`의 80×24다). 보기만 하는 client도 크기를 보낸다.
+- **읽기 전용이 기본이다**: `write: false`인 client의 `key`는 버린다. `write: true`일 때만 `key.data`를 `host.handle({ type: "input", terminal_ref, generation, text })`로 PTY에 넣는다. 처음으로 키가 들어가면 `trace.human_input = true`로 두고(되돌리지 않는다) `deps.log("사람이 coding agent에 키를 넣었다: <session>")`를 찍는다.
+- **App Engineer의 input은 사람 입력을 기다린다**: `createFocusGate()`(순수, 아래)를 `createCodingTerminalRequests`의 `focus`로 준다(`focus.whenFree(terminalRef)`는 `requests.ts`가 `input` frame마다 부른다. 제품에서는 사람이 그 탭에 focus해 있는 동안 쥐는 규칙이다). `write: true` client가 붙어 있는 동안 그 `terminalRef`는 쥔 것이고, 모두 떨어지면(접속이 닫히거나 session이 끝나면) 푼다. driver 자신의 `/exit`·`close`는 이 gate를 거치지 않는다.
+- **`createFocusGate()`**: `{ hold(ref): () => void; whenFree(ref): Promise<void> }`. `hold`는 쥐고 푸는 함수를 돌려준다(같은 ref에 여러 번 쥐면 센다). `whenFree`는 쥔 게 없으면 바로, 있으면 모두 풀릴 때 풀린다.
+- **client(`attach.ts`, `import.meta.main`일 때만 돈다)**: `deno task eval:attach [session] [--write]`. `session`은 id의 일부여도 된다(socket 이름과 끝이 맞는 것). 없으면 `<socketDir>`에서 가장 최근에 만든 socket을 쓴다. socket이 없거나 연결이 안 되면 이유 한 줄과 함께 종료 코드 1이다. stdin이 터미널(`Deno.stdin.isTerminal()`)이 아니면 던진다. 순서: 연결 → `Deno.stdin.setRaw(true)` → `hello`(크기는 `Deno.consoleSize()`) → `out`을 stdout에 그대로 쓴다. `SIGWINCH`마다 `resize`를 보낸다. stdin 입력: `0x1d`(Ctrl-])가 오면 detach(raw 모드를 풀고 종료 코드 0). 그 밖은 `--write`일 때만 `key`로 보내고 읽기 전용이면 버린다(Ctrl-C도 PTY에 닿지 않는다). 시작 전에 stderr에 한 줄(`읽기 전용. Ctrl-]로 나간다` / `키를 coding agent에 넣는다(--write). Ctrl-]로 나간다`)을 찍는다. 서버가 `end`를 보내면 raw 모드를 풀고 그 이유를 찍고 끝낸다. 어떤 경우든 `finally`에서 raw 모드를 푼다.
+- 이유: 사람이 token이 든 plan이나 로그가 아니라 Claude Code의 화면을 그대로 보고(trust 화면이 뜨면 `--write`로 한 번 답할 수도 있다), 제품의 "사람이 탭에 있으면 App Engineer의 입력이 기다린다" 규칙을 같게 지킨다. 화면 글은 사람에게만 가고 상태 판단에 쓰지 않는다.
+
 6. **(사람이 추천과 다른 선택을 한 때만. 결정 1·2의 선택지 (a)/(b)/(c)가 brief에 적히기 전에는 건너뛴다.)**
    - (a)면 `evalPlan`이 `argv`에 정한 flag를 더하고(그 flag와 이유를 file 위 주석과 보고의 "제품과 다른 점"에 적는다), `prompt` 위치가 깨지지 않게 `--model` 앞이나 prompt 앞에만 더한다.
    - (b)면 `CodingDriver`에 `screen(session): Promise<string>`(`tail` 계산과 같은 글)과 `type(session, text): Promise<void>`(`host.handle({ type: "input" ... })`)를 더하고 사람 역할(ec-human) 쪽의 소비는 ec-human과 ec-runner가 맡는다.
    - (c)면 driver가 session 열림과 `tail` 경로를 stdout에 찍고 `noSessionStartMs`·`timeoutMs`를 끈다.
 7. `tests/eval/coding/driver/mod.ts`: 위 export를 다시 내보낸다.
-8. `tests/eval/coding/driver/env_test.ts`: 위험 test 하나(아래).
+8. `tests/eval/coding/driver/env_test.ts`: 위험 test(아래).
+9. `tests/eval/coding/driver/focus.ts`: `createFocusGate`. `tests/eval/coding/driver/screen.ts`: 서버("사람이 붙는 길"). driver.ts가 session마다 부른다.
+10. `tests/eval/coding/driver/attach.ts`: client. `focus_test.ts`: 위험 test(아래).
+11. `host.ts`의 `createCodingTerminalRequests` 조립에서 `focus: { whenFree: () => Promise.resolve() }`를 `focus: gate`로 바꾼다.
 
 ## 끝남
 
 - `deno task check`가 통과한다.
-- 위험 test: "`driverEnv`가 중첩 표시 변수(`CLAUDE_CODE_CHILD_SESSION` 등)를 지우고 다른 변수는 그대로 두며, `evalPlan`이 `plan.env`의 `LOPHN_CODING_TOKEN`을 지우거나 바꾸지 않고 `LOPHN_DAEMON_URL`·`LOPHN_EVAL_COMMAND_LOG`·`PATH`(앞에 `binDir`)만 더한다." (순수 함수 test. PTY·process·network를 쓰지 않는다. 전자가 틀리면 Claude Code가 기록을 안 써서 수치가 비고, 후자가 틀리면 CLI가 core에 못 닿는다.)
-- PTY나 Claude Code를 띄우는 test는 만들지 않는다. 대신 임시 script(scratchpad, commit 안 함)로 `prepareCodingAgent` 앞부분(감지·설정·install 확인)을 `bootCore`+fake로 한 번 돌려 본다. 진짜 Claude Code를 띄우는 확인은 lead가 하는 첫 run에서 한다(실제 model 호출이라 사람에게 묻는다).
-- 남지 않음: 새 file만 만들었다. `packages/`·`tests/support/`는 고치지 않았다.
+- 위험 test 둘:
+  1. (`focus_test.ts`) "`createFocusGate`는 쥔 동안 `whenFree`가 풀리지 않고, 모두 풀면 풀린다." (순수 test. 풀리지 않으면 App Engineer의 입력이 사람 키 입력과 섞여 TUI가 망가진다. 제품 규칙을 같게 지키는 곳이다.)
+  2. (`env_test.ts`) "`driverEnv`가 중첩 표시 변수(`CLAUDE_CODE_CHILD_SESSION` 등)를 지우고 다른 변수는 그대로 두며, `evalPlan`이 `plan.env`의 `LOPHN_CODING_TOKEN`을 지우거나 바꾸지 않고 `LOPHN_DAEMON_URL`·`LOPHN_EVAL_COMMAND_LOG`·`PATH`(앞에 `binDir`)만 더한다." (순수 함수 test. PTY·process·socket·network를 쓰지 않는다. 전자가 틀리면 Claude Code가 기록을 안 써서 수치가 비고, 후자가 틀리면 CLI가 core에 못 닿는다.)
+- PTY·socket·Claude Code를 띄우는 test는 만들지 않는다. 대신 임시 script(scratchpad, commit 안 함)로 `prepareCodingAgent` 앞부분(감지·설정·install 확인)을 `bootCore`+fake로 한 번 돌려 본다. 진짜 Claude Code를 띄우는 확인은 lead가 하는 첫 run에서 한다(실제 model 호출이라 사람에게 묻는다).
+- 남지 않음: `terminal-<session>.log`·`live-terminal.log`·`tail -F`·`screen_log`는 만들지 않는다. 새 file만 만들었다. `packages/`·`tests/support/`는 고치지 않았다.
 
 ## 보고
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: `deno task check`의 import 경계(`tools/check-deps.ts`)가 `tests/eval`에서 `packages/shell`을 import하는 것을 거절하면 그 규칙과 파일을 적는다(고치지 않는다)
+- 등록할 것: `deno.json`의 task `eval:attach`(`deno run --allow-all tests/eval/coding/driver/attach.ts`)를 lead가 더한다. `deno task check`의 import 경계(`tools/check-deps.ts`)가 `tests/eval`에서 `packages/shell`을 import하는 것을 거절하면 그 규칙과 파일을 적는다(고치지 않는다)
 - 안 쓰게 된 export: 없음
 - 정한 것: 문서에 답이 없어 worker가 정한 것
 - 넘길 줄: 남의 file을 최소로 맞춘 곳

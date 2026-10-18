@@ -9,7 +9,7 @@
 - 읽을 것:
   - 계획: `project-docs/plan/eval-coding/README.md`("정한 것"의 coding agent token)
   - 설계: `project-docs/products/roadmap/eval.md`의 "공통 수치"(coding agent 열), "진짜로 도는 것"
-  - eval-base brief: `project-docs/plan/eval-base/tasks/ev-collect.md`(role agent 쪽 `Metrics`. 이 task는 그것과 합치지 않는다)
+  - eval-base(land함): `project-docs/architecture/eval.md`, `tests/eval/collect/`(`metrics.ts`: role agent 쪽 `Metrics`. 이 task는 그것과 합치지 않는다)
   - 이 task가 쓰는 type: `tests/eval/types.ts`의 `CodingTrace`, `CodingUsage`, `CodingCommand`, `CodingRecord`(ec-contract). 모양은 `ec-contract.md` 할 일 8.
   - `packages/base/mod.ts`의 `Result`, `ok`, `err`
 - 계약:
@@ -22,7 +22,7 @@
     - `readClaudeUsage(home: string, cwd: string): Promise<Result<CodingUsage>>`: 폴더를 읽기만 한다.
     - `parseCommandLog(text: string): CodingCommand[]`: 순수 함수.
     - `countHook(text: string, event: string): number`: 순수 함수. wrapper 기록에서 `hook\tclaude\t<event>` 줄의 수(`PermissionRequest`).
-    - `codingRecordOf(trace: CodingTrace, commands: CodingCommand[], usage: Result<CodingUsage>, permissionRequests: number): CodingRecord`: 순수 함수.
+    - `codingRecordOf(trace: CodingTrace, commands: CodingCommand[], usage: Result<CodingUsage>, permissionRequests: number): CodingRecord`: 순수 함수. trace에서 `command_log`와 `attach_socket`만 빼고 나머지(`human_input` 포함)를 그대로 복사한다.
     - `codingTotals(records: CodingRecord[]): CodingUsage | null`: trial 안 session들의 합(`models`는 합집합, 비율은 합에서 다시 계산, usage가 하나도 없으면 null).
     - `collectCoding(deps: { home: string }, traces: CodingTrace[]): Promise<CodingRecord[]>`: trace마다 `command_log`를 읽어(없으면 빈 목록) `parseCommandLog`, `countHook`, `readClaudeUsage`를 불러 `codingRecordOf`로 합친다. runner(ec-runner)가 부른다. 시각순 안정 정렬은 trace 순서를 유지한다.
 

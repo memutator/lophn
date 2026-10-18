@@ -27,9 +27,9 @@
 - 계약:
   - 쓰는 것:
     - `tests/eval/types.ts`: `Check`, `ProgramCheck`, `JudgeCheck`, `CheckInput`, `CheckOutcome`, `TrialRecord`, `SessionRecord`, `SentCall`, `Participant`, `CodingParticipant`, `codingAgent`, `isCodingAgent`(ec-contract가 더한다. coding agent 참가자는 `Participant`와 따로인 `CodingParticipant`다).
-    - ev-checks `tests/eval/checks/mod.ts`: `sentCalls(trial, where?)`, `toolCallsOf(trial, tool?)`, `fixtureSession(agent, steps)`, `FxStep`, `FixtureCall`. 이 task는 ev-checks의 file을 고치지 않는다.
+    - ev-checks `tests/eval/checks/mod.ts`(landed. 이 task는 `checks/app/` 밖의 file을 고치지 않는다): `sentCalls(trial, where?): SentCall[]`, `toolCallsOf(trial, tool?): CollectedToolCall[]`(재시도에 밀린 행을 뺀다. `effectiveToolCalls`는 mod에서 내보내지 않으므로 쓰지 않는다), `toolCount`, `callCount`, `fixtureSession(agent: Participant, steps: FxStep[]): SessionRecord`, `fixtureTrial`, `FxStep`, `FixtureCall`(`to: Participant`라 coding agent를 가리킬 수 없다. fixture는 아래 `addCodingCall`로 만든다).
     - ev-judge `tests/eval/judge/mod.ts`: `joinInput(sections)`, `asksGapInput(humanText, questions)`. 새 criterion 셋은 `Criterion` 꼴(`{ name, n, question, verdicts, pass }`)로 `tests/eval/criteria/<name>.json`에 두고 `loadCriterion`이 읽는다.
-    - **ec-contract가 정한 계약(landed된 `types.ts`를 따른다)**: `JudgeCheck.input`은 `string | Promise<string>`이다(끝난 world에서 입력을 만들려면 route를 불러야 한다. ev-checks의 `validateFixtures`는 await하고 ev-runner도 await한다). `runProgramChecks`는 program check를 배열 순서대로 하나씩 await한다(observation check가 앱과 알림 앱을 일부러 망가뜨리므로 순서가 결과를 정한다. 아니면 ec-contract가 고친다). coding agent는 `CodingParticipant`로 가리키고 cast는 쓰지 않는다.
+    - **ec-contract가 정한 계약(landed된 `types.ts`를 따른다)**: `JudgeCheck.input`은 `string | Promise<string>`이다(끝난 world에서 입력을 만들려면 route를 불러야 한다. ev-checks의 `validateFixtures`는 await하고 ev-runner도 await한다). `runProgramChecks`(`tests/eval/checks/run.ts`)는 landed 코드가 이미 program check를 배열 순서대로 하나씩 await한다(observation check가 앱과 알림 앱을 일부러 망가뜨리므로 순서가 결과를 정한다). landed `validateFixtures`(`checks/validate.ts`)는 지금 `c.input(...)`을 await하지 않으므로 그 한 줄은 ec-contract가 고친다. coding agent는 `CodingParticipant`로 가리킨다.
   - 내놓는 것(`tests/eval/checks/app/mod.ts`가 모두 내보낸다. `ec-scenarios`가 기댄다):
     - live 공통: `liveCheck(id, run: (core: Core, trial: TrialRecord) => Promise<CheckOutcome>): ProgramCheck`, `findApp(core, name): Promise<App>`(`appList`에서 `name`이 같고 `archived`가 아닌 앱 하나. 없거나 둘이면 던진다), `callApi(core, app, api, input?)`(사람 자격으로 `appCallApi`. `target: { mode: "live", app, release: null }`, `caller: { kind: "person", view_session: "eval" }`), `exampleMatches(expect, actual)`, `oneLine(text, max = 300)`
     - 앱 상태: `appActive(id, { app })`, `releaseAdvanced(id, { app, after })`
@@ -42,7 +42,7 @@
       - `DiagnoseSpec = { app: string; bug: BugSpec }`, `BugSpec = { api: string; input?: unknown; expectAfterFix: unknown; files: string[]; description: string }`. 시나리오는 `calendar-app-bug@1`의 `files/bug.json`(`{ api, input, expect_after_fix, files, description }`)을 이 꼴로 옮긴다
     - 기록만 보는 check(core 없이 fixture에서도 돈다): `aeCallsOnlyToCodingAgent(id)`, `appApiCalled(id, { command, count? })`, `appApiOrder(id, { first, then })`, `readProblem(id)`(= `read-problem`)
     - judge 입력: `cardCoveredInput(card: string, app: string)`, `askedAgainInput(app: string)`, `rootCauseInput(bug: BugSpec, app: string)`. 모두 `(input: CheckInput) => string | Promise<string>`를 돌려준다. 시나리오는 `JudgeCheck.input`에 그대로 넣는다.
-    - fixture: `appApiSession(agent: Participant, steps: FxStep[]): SessionRecord`(이름이 `app__fx__<command>`인 step을 app-api tool call로 만든다. 아래 할 일 10)
+    - fixture: `appApiSession(agent: Participant, steps: FxStep[]): SessionRecord`(이름이 `app__fx__<command>`인 step을 app-api tool call로 만든다), `addCodingCall(session: SessionRecord, app: string, body?: string): SessionRecord`(그 session의 `sent_calls`에 coding agent로 간 call 하나를 더한다. 아래 할 일 10)
   - 새 criterion(내용은 할 일 1): `card-covered@1`, `asked-again@1`, `root-cause@1`.
 
 ## 할 일
@@ -51,7 +51,7 @@
    - `card-covered`: 칸 `[CARD]`(요구 카드: 원하는 것, 정해 둔 답), `[BLUEPRINT]`(만든 앱이 선언한 app-api의 key, effect, description, input과 연결한 앱), `[TICKETS]`(App Engineer가 쓴 ticket마다 goal과 acceptance check). 카드의 구체 요구(원하는 것 하나하나와 정해 둔 답)가 blueprint의 app-api나 입력 칸, ticket의 goal이나 acceptance check의 예시에 실렸는지 본다. 표현이 달라도 된다. 카드가 "추천대로"에 맡긴 것은 실리지 않아도 된다. `all`(모두 실렸다) · `some_missing`(하나 이상 빠졌거나 반대로 실렸다) · `cannot_tell`. `pass`: `["all"]`.
    - `asked-again`: 칸 `[HUMAN_REQUEST]`(App Engineer가 받은 요청 글), `[QUESTIONS]`(App Engineer가 사람에게 한 질문). 요청에 이미 있는 것을 다시 묻는 질문이 있나. 질문이 없으면 `no_repeat`이다. `no_repeat` · `repeated` · `cannot_tell`. `pass`: `["no_repeat"]`. (칸 이름은 ev-judge의 `asksGapInput`이 만드는 `HUMAN_REQUEST`, `QUESTIONS`와 같다.)
    - `root-cause`: 칸 `[BUG]`(심은 bug의 증상과 진짜 원인, 원인이 있는 file), `[TICKET_GOALS]`(그 problem을 근거로 붙인 ticket의 goal), `[EVIDENCE_FILES]`(그 ticket의 근거로 붙은 file 경로). goal이 원인을 짚나. `root_cause`(원인을 짚고 고칠 곳을 가리킨다) · `symptom_only`(증상만 적었다) · `wrong`(다른 원인이나 엉뚱한 곳) · `cannot_tell`. `pass`: `["root_cause"]`.
-   - `tests/eval/criteria/mod.ts`의 `INPUT_SECTIONS`에 위 세 criterion의 칸 이름 배열을 더한다(칸 이름은 위 그대로).  `loadCriterion`이 file을 읽는 것은 이미 ev-judge가 만들었으므로 항목만 더하고 다른 줄은 고치지 않는다.
+   - `tests/eval/criteria/mod.ts`의 `INPUT_SECTIONS`(landed: `Record<string, string[]>`, 지금 `relay-complete`와 `asks-gap` 키)에 세 키를 더한다: `"card-covered": ["CARD", "BLUEPRINT", "TICKETS"]`, `"asked-again": ["HUMAN_REQUEST", "QUESTIONS"]`, `"root-cause": ["BUG", "TICKET_GOALS", "EVIDENCE_FILES"]`. `loadCriterion`은 이미 `<name>.json`을 읽으므로 다른 줄은 고치지 않는다. 칸 이름은 criterion의 `question` 안 설명과 같아야 한다(landed 주석).
 2. `tests/eval/checks/app/live.ts`: 살아 있는 core를 쓰는 check의 바탕.
    - `liveCheck(id, run)`: `ProgramCheck`를 만든다. `input.core`가 `null`이면 `{ pass: true, reason: "live check: fixture에서는 건너뜀" }`을 돌려주고 `run`을 부르지 않는다. 이유: fixture에는 world가 없다. `validateFixtures`의 `fails`에는 live check id를 쓰지 않는다. 이 check들의 판정 논리는 순수 함수로 갈라 test한다(할 일 11).
    - `findApp(core, name)`, `callApi(core, app, api, input?)`, `oneLine`. `callApi`는 route 오류(`invalid_input`, `not_found`, `unavailable`)를 던지고, 앱이 `failed`·`denied`·`unknown`으로 답한 것은 `{ status, result?, ... }` 그대로 돌려준다(던지지 않는다).
@@ -93,7 +93,8 @@
    - `cardCoveredInput(card, app)`: `joinInput`으로 `CARD`, `BLUEPRINT`, `TICKETS`. live(`core`가 있음)이면 `BLUEPRINT`는 `appAppApi({ app })`에서 app-api마다 `- <key> (<effect>): <description> input=<canonical JSON>`과 `app_connections` 줄, `TICKETS`는 `ticketList` → `ticketShow`마다 `TICKET <n> [<state>]`, `goal: ...`, `check: <JSON>`. 각 칸은 12000자에서 자른다(자르면 끝에 `[truncated]`). fixture이면 `BLUEPRINT`는 `(not available)`, `TICKETS`는 기록의 `ticket.create` tool call 입력(`goal`, `check`)에서 만든다.
    - `askedAgainInput(app)`: 요청 글은 App Engineer가 받은 첫 call의 본문(`sentCalls(trial)`에서 받는 쪽 이름이 `app`의 App Engineer인 첫 것의 `body`. 없으면 `(no request)`), 질문은 `toolCallsOf(trial, "ask")`의 `input.questions`를 이은 목록. `asksGapInput(request, questions)`를 그대로 쓴다(칸 이름 `HUMAN_REQUEST`, `QUESTIONS`). 동기 함수라 core를 쓰지 않는다. (`say`로 요청이 간 시나리오는 첫 call이 없으므로 `request`를 인자로 받는 두 번째 꼴 `askedAgainInput(app, request)`도 준다.)
    - `rootCauseInput(bug, app)`: `BUG`는 `bug.description`, `TICKET_GOALS`는 live이면 `evidence-has-problem`과 같은 ticket들의 `goal`(번호 붙여 이음), fixture이면 기록의 `ticket.create` 입력 `goal`, `EVIDENCE_FILES`는 그 ticket들의 `file` 근거 경로(없으면 `(none)`).
-10. `tests/eval/checks/app/fixtures.ts`: `appApiSession(agent, steps)`. `fixtureSession(agent, steps)`를 부른 뒤 `tool`이 `app__fx__`로 시작하는 tool call의 `call.app_api`를 `{ app: "app_fx_x", release: "rel_fx", command: <접두사 뒤>, ... }`로 채운다(protocol type으로 한 번 cast). 이유: ev-checks의 `FxStep`에는 `app_api` 칸이 없다. coding agent에게 가는 call(`FixtureCall.to`에 `codingAgent(app)`)이 ev-checks의 fixture type에서 안 받아지면 맞추는 일은 ec-contract 몫이다. 이 task에서 cast하지 않고 보고에 적는다.
+10. `tests/eval/checks/app/fixtures.ts`: `appApiSession(agent, steps)`. `fixtureSession(agent, steps)`를 부른 뒤 `tool`이 `app__fx__`로 시작하는 tool call의 `call.app_api`를 `{ app: "app_fx_x", release: "rel_fx", command: <접두사 뒤>, ... }`로 채운다(protocol type으로 한 번 cast). 이유: landed `fixtureSession`은 모든 tool call의 `app_api`를 null로 만들고 `FxStep`에 그 칸이 없다.
+    - `addCodingCall(session, app, body = "fixture")`: `sent_calls`에 `SentCall` 하나를 더해 새 session을 돌려준다(`tool_call: tcl_fx_c<순번>`, `order`는 기존 수, `to: { role: "coding_agent", place: { app } }`, `reply: "conversation"`, `outcome: { kind: "success", code: "ok" }`, `state: "accepted"`, 나머지 `null`). 이유: landed `FixtureCall.to`는 `Participant`라 coding agent를 못 받고 `refOf`에 그 분기도 없다. `aeCallsOnlyToCodingAgent`는 `to`를 보므로 이것으로 충분하다. ev-checks의 file을 넓히지 않는다.
 11. 위험 test 셋(`tests/eval/checks/app/*_test.ts`). core, subprocess, `git`, 네트워크를 쓰지 않는다. 주석과 test 이름에 task id를 쓰지 않는다.
     - `match_test.ts`: `exampleMatches`가 core와 같은 규칙인 것. 객체는 expect의 key가 모두 있어야 하고 나머지 key는 무시, 배열은 길이와 순서까지 같아야 한다.
     - `observe_test.ts`: `decideFailure`(새 problem이면 통과, 이름이 묶여 발생만 늘면 떨어짐, 아무것도 안 바뀌면 떨어짐), `decideNoRecurrence`(발생 수가 늘거나 새 problem이 생기거나 `recurred`가 차면 떨어짐), `namesMissing`(ticket 글에 없는 이름만 돌려줌).
@@ -128,7 +129,7 @@
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: 없음 (criterion 셋의 `INPUT_SECTIONS` 항목은 이 task가 `tests/eval/criteria/mod.ts`에 직접 더한다: `card-covered` → `["CARD","BLUEPRINT","TICKETS"]`, `asked-again` → `["HUMAN_REQUEST","QUESTIONS"]`, `root-cause` → `["BUG","TICKET_GOALS","EVIDENCE_FILES"]`. landed된 `mod.ts`가 다른 꼴이면 그 꼴에 맞춰 같은 정보를 넣는다.)
+- 등록할 것: 없음 (criterion 셋의 `INPUT_SECTIONS` 항목은 이 task가 `tests/eval/criteria/mod.ts`에 직접 더한다: `card-covered` → `["CARD","BLUEPRINT","TICKETS"]`, `asked-again` → `["HUMAN_REQUEST","QUESTIONS"]`, `root-cause` → `["BUG","TICKET_GOALS","EVIDENCE_FILES"]`. 다른 줄은 고치지 않는다.)
 - 안 쓰게 된 export: 없음
 - 정한 것: 아래 "정한 것" 밖에서 worker가 정한 것, 기대한 export와 달라 맞춘 이름
 - 넘길 줄: 남의 file을 맞춘 곳(없어야 한다)

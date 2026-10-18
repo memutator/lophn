@@ -200,6 +200,7 @@ function PaletteSurface(
     detail: choice.detail,
     hint: choice.hint,
     icon: choice.icon ? PALETTE_ICONS[choice.icon] : undefined,
+    image: choice.image,
   }));
   return (
     <Palette

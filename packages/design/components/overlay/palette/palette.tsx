@@ -27,6 +27,8 @@ export interface PaletteItem {
   // 행 오른쪽의 키 이름. 호출자가 플랫폼에 맞게 쓴다.
   hint?: string;
   icon?: LucideIcon;
+  // icon 자리에 대신 그릴 작은 이미지(data URL, 예: site favicon). 장식이라 이름은 label이 맡는다.
+  image?: string;
 }
 
 export interface PaletteProps {
@@ -106,13 +108,23 @@ export function Palette(
           onPointerMove={() => setActive(index)}
           onClick={() => onSelect(item.id)}
         >
-          {item.icon && (
-            <Icon
-              icon={item.icon}
-              pixels={iconPixels("base")}
-              className={styles.icon}
-            />
-          )}
+          {item.image !== undefined
+            ? (
+              <img
+                className={cx(styles.icon, styles.image)}
+                src={item.image}
+                alt=""
+                width={iconPixels("base")}
+                height={iconPixels("base")}
+              />
+            )
+            : item.icon && (
+              <Icon
+                icon={item.icon}
+                pixels={iconPixels("base")}
+                className={styles.icon}
+              />
+            )}
           <span className={styles.text}>
             <span className={styles.label}>{item.label}</span>
             {item.detail && (

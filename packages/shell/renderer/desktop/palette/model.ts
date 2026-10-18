@@ -47,6 +47,8 @@ export interface PaletteEntry<T> {
   readonly detail?: string;
   readonly hint?: string;
   readonly icon: PaletteIcon;
+  /** icon 대신 그릴 작은 이미지(bookmark favicon, data URL). */
+  readonly image?: string;
   readonly target: T;
   /** 검색이 이미 고른 행. 이름으로 다시 거르지 않는다. */
   readonly found?: boolean;
@@ -116,6 +118,7 @@ export function paletteModel<T>(
       label: clip(row.label, 256),
       group: clip(groupLabel(row.group), 64),
       icon: row.icon,
+      ...(row.image ? { image: row.image } : {}),
       ...(row.detail ? { detail: clip(row.detail, 256) } : {}),
       ...(row.hint ? { hint: clip(row.hint, 32) } : {}),
     };

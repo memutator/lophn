@@ -58,6 +58,10 @@
   color: var(--color-text-muted);
 }
 
+.image {
+  object-fit: contain;
+}
+
 .list {
   max-height: calc(var(--palette-item) * 8);
   padding: var(--space-2);

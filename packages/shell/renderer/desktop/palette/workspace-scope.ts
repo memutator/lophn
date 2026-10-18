@@ -53,6 +53,7 @@ interface WorkspaceScopeInput {
     readonly id: string;
     readonly title: string;
     readonly url: string;
+    readonly favicon?: string;
   }[];
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
@@ -182,6 +183,7 @@ export function workspaceScope(
         label: item.title,
         detail: item.url,
         icon: "bookmark" as const,
+        ...(item.favicon ? { image: item.favicon } : {}),
         target: { kind: "bookmark" as const, url: item.url },
       })),
       ...actions(input),

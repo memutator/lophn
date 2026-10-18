@@ -4,6 +4,6 @@ lead만 고친다. `tools/status.py chatgpt-subscription build`가 `tasks/*.md`�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `cs-models-account` | cs-models | 1 | 없음 | todo |  |  |  |
+| `cs-models-account` | cs-models | 1 | 없음 | merged | plan/chatgpt-subscription | 2158f869e |  |
 | `cs-live` | cs-live | 2 | cs-models-account | todo |  |  |  |
 | `cs-models-picker` | cs-models | 2 | cs-models-account | todo |  |  |  |

@@ -160,8 +160,21 @@ export function Desktop(
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
+  // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) 런처로 간다.
+  const beforeSettings = useRef<Route | null>(null);
   // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
   const settingsSpace = (pane?: SettingsPane) => {
+    // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일,
+    // Project Manager, 문제)은 버려 돌아올 때 다시 일어나지 않게 한다.
+    const global = route.space === "instructions" &&
+      route.instructions?.layer === "global";
+    if (route.space !== "settings" && !global) {
+      beforeSettings.current = route.space === "project" && route.project
+        ? openProject(route.project, { session: route.session })
+        : route.space === "app" && route.app
+        ? openApp(route.app, route.session)
+        : route;
+    }
     setVisits((value) => value + 1);
     setRoute(openSettings(pane));
   };
@@ -350,6 +363,7 @@ export function Desktop(
         settingsPane={route.settingsPane}
         windowWidth={windowWidth}
         onLauncher={launcher}
+        onBack={() => setRoute(beforeSettings.current ?? LAUNCHER)}
         onProject={(project) => setRoute(openProject(project))}
         onOpenFile={(project, file) =>
           setRoute(openProject(project, { open: file }))}

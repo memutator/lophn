@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
@@ -10,6 +11,7 @@ import {
   type SidebarState,
   sidebarView,
 } from "../../workspace/model.ts";
+import { commonIcons } from "../../icons/mod.ts";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
 import { SettingsSidebar } from "./sidebar/sidebar.tsx";
 import {
@@ -32,6 +34,8 @@ interface SettingsSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
+  /** Settings를 열기 전 화면으로 돌아간다. 머리의 [Back]이 쓴다. */
+  onBack: () => void;
   /** 프로젝트 작업대로 간다. 창 팔레트의 프로젝트 행이 쓴다. */
   onProject?: (project: string) => void;
   /** 그 project 창에서 그 파일을 연다. 창 팔레트의 파일 행이 쓴다. */
@@ -59,6 +63,7 @@ export function SettingsSpace(
     settingsPane: initialPane,
     windowWidth,
     onLauncher,
+    onBack,
     onProject,
     onOpenFile,
     onApp,
@@ -137,6 +142,15 @@ export function SettingsSpace(
           <TopBar
             leading={
               <span className={styles.leading}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={commonIcons.back}
+                  data-settings-back=""
+                  onClick={onBack}
+                >
+                  {t("common.button.back")}
+                </Button>
                 {shown.launcherInTopBar
                   ? <LauncherButton onLauncher={onLauncher} />
                   : null}

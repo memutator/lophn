@@ -72,6 +72,7 @@ export function SettingsFrame(
           settingsPane={pane}
           windowWidth={1280}
           onLauncher={noop}
+          onBack={noop}
           onApp={noop}
           settings={settings}
           settingsPanels={panels}

@@ -23,10 +23,10 @@ export function routeFrame(
     owner: (view_session) =>
       browser.owner(view_session) ?? appFrame.owner(view_session),
     // visibility가 창 본문과 교차한 ViewBounds만 넘긴다.
-    setBounds: (view_session, bounds) =>
+    setBounds: (view_session, bounds, layer = 0) =>
       browser.has(view_session)
-        ? browser.setBounds(view_session, bounds as ViewBounds)
-        : appFrame.setBounds(view_session, bounds),
+        ? browser.setBounds(view_session, bounds as ViewBounds, layer)
+        : appFrame.setBounds(view_session, bounds, layer),
     hide: (view_session) =>
       browser.has(view_session)
         ? browser.hide(view_session)

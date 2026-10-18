@@ -15,6 +15,7 @@ import { fakeProviders } from "../../../../packages/shell/renderer/desktop/setti
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
+import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 
@@ -34,6 +35,8 @@ interface SettingsFrameProps {
     readonly bookmarks?: Bookmark[];
     readonly corrupt?: boolean;
   };
+  /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
+  readonly customList?: "found" | "empty";
   /** mount 뒤에 차례로 하는 동작. */
   readonly steps?: readonly Step[];
 }
@@ -48,6 +51,7 @@ export function SettingsFrame(
     providers,
     noDefaultModel = false,
     browser,
+    customList,
     steps = [],
   }: SettingsFrameProps = {},
 ) {
@@ -73,7 +77,19 @@ export function SettingsFrame(
     ...(browser === undefined
       ? {}
       : { browser: fakeBrowserSettings(browser).source }),
-  }), [mock, appearance, providers, noDefaultModel, browser]);
+    // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
+    ...(customList === undefined ? {} : {
+      providers: fakeProviders({ preset: providers, customId: CUSTOM_PROVIDER })
+        .source,
+      agents: fakeAgents({
+        editor: {
+          providers: "custom",
+          customListed: false,
+          refreshFails: customList === "empty",
+        },
+      }).source,
+    }),
+  }), [mock, appearance, providers, noDefaultModel, browser, customList]);
   useDrive(() => runSteps(steps));
   return (
     <EventsProvider client={client}>

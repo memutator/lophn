@@ -1,10 +1,13 @@
 // 세 질문
 // - contract: boundary `app-runtime`·`app-spi`(app-api 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
-//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(app-api tool).
+//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(app-api tool),
+//   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
-//   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것.
+//   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것, net/fetch가 실제 core에서 나가지 못하는 것과
+//   secret 사용이 늘 `unavailable`이었던 것.
 // - 왜 지금 test로 못 잡나: 한도 관계는 `fit_test`, `supervisor-link_test`가 상수로만 본다. 실제 pipe를 지나는 호출과
-//   agent -> core -> 앱 process 왕복은 process를 건너야 한다.
+//   agent -> core -> 앱 process 왕복은 process를 건너야 한다. net·secret의 unit은 `transport`를 끼워 넣어 supervisor
+//   권한(host 없는 --allow-net)과 process 경계를 지나지 않는다.
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
 // 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 api로 끝나는 이름을 골라 부르는 함수 대답이다. tool
@@ -27,6 +30,7 @@ import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { callPatch } from "../support/app/patch-call.ts";
+import { netFetchPatch } from "../support/app/patch-net.ts";
 import { projectScopePatch } from "../support/app/patches.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
@@ -45,6 +49,21 @@ import {
 import { lastToolResult, toolNames } from "../support/fake-server/probe.ts";
 
 const user = { kind: "person", view_session: "e2e" } as const;
+
+// net-fetch-loopback 행의 loopback 상대다. 받은 요청 수와 Authorization을 남기고 JSON을 돌려준다.
+function startLoopback() {
+  const seen: (string | null)[] = [];
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    (request) => {
+      seen.push(request.headers.get("authorization"));
+      return Response.json({ hello: "net" });
+    },
+  );
+  return { seen, port: server.addr.port, close: () => server.shutdown() };
+}
+
+const NET_SECRET = "e2e.net.token";
 
 // 요청의 tool 목록에서 api로 끝나는 app-api tool을 골라 부른다.
 function callApp(id: string, api: string, input: unknown) {
@@ -82,15 +101,20 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
   const fake = await startFakeServer();
   let core: Core | undefined;
   let app: TestApp | undefined;
+  const loopback = startLoopback();
+  const token = crypto.randomUUID();
   try {
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
+    const put = await core.upload(NET_SECRET, new TextEncoder().encode(token));
+    assert(put.ok, "secrets/put가 거절됐다");
     app = await activateTestApp(core, fake, {
       name: "Calls",
       slug: "calls",
       patch: async (dir) => {
         await callPatch(dir);
         await projectScopePatch(dir);
+        await netFetchPatch(dir, { port: loopback.port, secret: NET_SECRET });
       },
     });
     const id = app.app;
@@ -189,6 +213,28 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
       assertEquals((await c.call(approvalsPending, {})).requests, []);
       // app state
       assert((await items(c, id)).includes("by-hand"));
+    });
+
+    await t.step("net-fetch-loopback", async () => {
+      const called = await c.call(appCallApi, {
+        target,
+        api: "fetch_local",
+        caller: user,
+      });
+      // route: 앱이 secret 값을 모르므로 응답 어디에도 값이 없다.
+      assertEquals(called.outcome, {
+        status: "succeeded",
+        result: { status: 200, body: { hello: "net" } },
+      });
+      assert(!JSON.stringify(called).includes(token));
+      // loopback 서버
+      assertEquals(loopback.seen, [`Bearer ${token}`]);
+      // ledger
+      assert(called.invocation !== null);
+      const { invocation } = await c.call(appInvocation, {
+        invocation: called.invocation,
+      });
+      assertEquals(invocation?.status, "succeeded");
     });
 
     await t.step("input-too-large", async () => {
@@ -319,6 +365,7 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
   } finally {
     await app?.gateway.close().catch(() => {});
     await core?.kill().catch(() => {});
+    await loopback.close();
     await fake.close();
     await run.remove();
   }

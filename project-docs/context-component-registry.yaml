@@ -40,6 +40,12 @@ roles:
   - id: designer
     description: wireframe gallery와 화면 모양, 화면 문구를 고친다.
 
+  - id: runner
+    description: eval experiment나 deno task eval을 돌리고, 질문 답과 judge 채점을 item마다 새 subagent에게 시키고, run.md에 사실을 적는다.
+
+  - id: experimenter
+    description: eval experiment의 판정을 해석하고 원인을 가르고, 의심스러운 judge 판단을 짚고, 다음 spec 초안을 쓴다.
+
 components:
 
   # ── all ──
@@ -490,6 +496,28 @@ components:
     run: deno run --allow-net=models.dev --allow-read --allow-write tools/models-snapshot.ts [--from <api.json>]
     change_reasons:
       boundaries: [models]
+
+  # ── runner ──
+
+  - id: skill-eval-run
+    kind: skill
+    roles: [runner]
+    description: eval CLI를 돌리고 진행을 보고, 질문 답과 judge 채점을 새 subagent(haiku-xhigh)에게 시켜 넣고, 멈춘 run을 알아채고, run.md를 쓰는 절차.
+    path: .claude/skills/eval-run/
+    change_reasons:
+      paths: [tests/eval/run.ts, deno.json, tests/eval/experiment/spec/types.ts]
+      note: eval CLI의 인자, stdout 줄, 채점·답 절차가 바뀔 때.
+
+  # ── experimenter ──
+
+  - id: skill-eval-experiment
+    kind: skill
+    roles: [experimenter]
+    description: experiment 판정을 해석하고 떨어진 trial의 원인(model, 제품, judge)을 가르고, 의심스러운 judge 판단을 적고, 다음 spec 초안을 쓰는 절차와 report.md 꼴.
+    path: .claude/skills/eval-experiment/
+    change_reasons:
+      paths: [tests/eval/run.ts, deno.json, tests/eval/experiment/spec/types.ts]
+      note: 판정 규칙이나 result.json의 칸이 바뀔 때.
 
   # ── designer ──
 

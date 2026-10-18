@@ -17,7 +17,7 @@ import {
   serveScreen,
   socketPathOf,
 } from "./screen.ts";
-import { trustKeys } from "./trust.ts";
+import { DOWN, ENTER, trustCursor } from "./trust.ts";
 
 export type DriverDeps = {
   core: Core;
@@ -42,7 +42,8 @@ const POLL_TICKET_MS = 2_000;
 const EXIT_AFTER_REPORT_MS = 10_000; // Stop hook이 core에 닿을 시간
 const KILL_AFTER_EXIT_MS = 15_000;
 const TAIL_CHARS = 4000;
-const TRUST_KEY_GAP_MS = 150; // 키 둘이 한 덩이로 합쳐지면 TUI가 못 읽을 수 있다
+const TRUST_QUIET_MS = 1_000; // trust 화면은 다시 그려지며 선택이 처음으로 돌아가므로, 출력이 이만큼 멈춘 뒤에 키를 넣는다
+const TRUST_MAX_ROUNDS = 15;
 
 type LaunchPlan = Extract<CodingTerminalRequest, { kind: "open" }>["plan"];
 
@@ -174,22 +175,33 @@ export function startCodingDriver(deps: DriverDeps): CodingDriver {
   }
 
   // SessionStart 전에 folder trust 화면이 떠 있으면 Yes를 고른다. 사람이 붙어 있으면 그가 끝낼 때까지 기다리고, 그 사이 사람이 골랐으면 넣지 않는다.
+  // 출력이 멈춘 뒤에만 키를 넣고, 커서가 Yes에 있는 것을 화면으로 본 뒤에만 Enter를 넣는다.
   async function answerTrust(live: Live): Promise<void> {
-    if (trustKeys(await tailOf(live)) === null) return;
+    if (trustCursor(await tailOf(live)) === null) return;
     await gate.whenFree(live.ref!);
-    const keys = trustKeys(await tailOf(live));
-    if (keys === null) return;
-    for (const text of keys) {
-      await terminal.request({
+    if (live.trace.human_input) return;
+    const send = (text: string) =>
+      terminal.request({
         type: "input",
         terminal_ref: live.ref!,
         generation: live.generation,
         text,
       });
-      await new Promise((resolve) => setTimeout(resolve, TRUST_KEY_GAP_MS));
+    for (let round = 0; round < TRUST_MAX_ROUNDS; round++) {
+      if (live.trace.ended_at !== null) return;
+      const before = await tailOf(live);
+      await new Promise((resolve) => setTimeout(resolve, TRUST_QUIET_MS));
+      const after = await tailOf(live);
+      if (after !== before) continue;
+      const cursor = trustCursor(after);
+      if (cursor === null) return;
+      await send(cursor === "yes" ? ENTER : DOWN);
+      if (cursor === "yes") {
+        live.trace.trust_answered = true;
+        deps.log(`folder trust 화면에 Yes를 골랐다: ${live.trace.session}`);
+        return;
+      }
     }
-    live.trace.trust_answered = true;
-    deps.log(`folder trust 화면에 Yes를 골랐다: ${live.trace.session}`);
   }
 
   async function watch(live: Live): Promise<void> {

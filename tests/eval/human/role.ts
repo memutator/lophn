@@ -47,7 +47,6 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
   const earlier: EarlierAnswer[] = [];
   let definition = deps.definition;
   const record: HumanRecord = {
-    model: "",
     definition: "",
     answers: [],
     decisions: [],
@@ -55,7 +54,6 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
   };
   const fill = (d: HumanDefinition) => {
     definition = d;
-    record.model = d.model;
     record.definition = `human@${d.n}`;
   };
   if (definition) fill(definition);
@@ -114,6 +112,7 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
           questions,
           answers: result.answers,
           error,
+          model: def.model,
           cost_usd: result.cost_usd,
         });
         rec.cost_usd += result.cost_usd;

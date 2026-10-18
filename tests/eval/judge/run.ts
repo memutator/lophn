@@ -22,11 +22,26 @@ export async function judgeItem(
     judge: JudgeDefinition;
   },
 ): Promise<JudgeItem> {
+  const item = await judgeCall(deps, args);
+  return item.error === null ? item : { ...item, state: "error" };
+}
+
+async function judgeCall(
+  deps: { fetch: JudgeFetch; apiKey: string },
+  args: {
+    check: string;
+    criterion: Criterion;
+    input: string;
+    judge: JudgeDefinition;
+  },
+): Promise<JudgeItem> {
   const { check, criterion, input, judge } = args;
   const item: JudgeItem = {
     check,
     criterion: `${criterion.name}@${criterion.n}`,
     input,
+    state: "judged",
+    model: judge.model,
     verdict: null,
     quote: null,
     quote_found: false,

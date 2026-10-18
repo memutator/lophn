@@ -316,7 +316,6 @@ export type CodingSummary = Omit<CodingRecord, "tail">;
 
 // 사람 역할이 한 일. 모양의 출처는 ec-human이다(model, 정의 버전, 답한 질문, 허락 결정).
 export type HumanRecord = {
-  model: string; // 쓴 model (human.json)
   definition: string; // `human@<n>` (human.json의 n)
   answers: {
     at: string; // Clock
@@ -325,6 +324,7 @@ export type HumanRecord = {
     questions: AskQuestion[]; // askRead로 읽은 질문 전부
     answers: AskAnswer[]; // 낸 답
     error: string | null; // 모델 호출 오류(default로 채웠으면 이유), askAnswer 오류
+    model: string | null; // 그 답을 낸 subagent의 model. 모르면 null
     cost_usd: number;
   }[];
   decisions: {
@@ -371,7 +371,11 @@ export type JudgeItem = {
   check: string; // JudgeCheck.id
   criterion: string; // `relay-complete@1`
   input: string;
-  verdict: string | null; // judge 오류면 null
+  // pending = program이 쪼인 입력만 두고 아직 채점 전(verdict·quote null, error null). judged = 답이 들어와 검사를 통과했다.
+  // error = enum 밖의 답이나 입력에 없는 인용으로 걸러졌다.
+  state: "pending" | "judged" | "error";
+  model: string | null; // 채점한 model. pending이면 null. 다른 model이 채점한 run은 grader가 다르다
+  verdict: string | null; // 채점 전이거나 judge 오류면 null
   quote: string | null;
   quote_found: boolean; // 인용이 input 안에 있나
   judge: string; // `judge@1`
@@ -384,6 +388,7 @@ export type CheckResult = {
   kind: "program" | "judge";
   pass: boolean;
   reason: string;
+  pending?: boolean; // 채점 대기인 judge check만 true. pass는 false다. 채점이 들어오면 지우고 pass를 다시 정한다
 };
 
 export type TrialResult = {
@@ -392,6 +397,7 @@ export type TrialResult = {
   checks: CheckResult[];
   judge: JudgeItem[];
   metrics: Metrics;
+  components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다. ex-cli가 채운다
   record?: TrialRecord; // 전체 기록(.dev-data/eval)에만 있고 tests/eval/runs의 요약에는 없다
   coding?: CodingSummary[];
   human?: HumanSummary;

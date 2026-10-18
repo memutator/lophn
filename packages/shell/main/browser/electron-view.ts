@@ -10,6 +10,7 @@ import {
   type WindowOpenHandlerResponse,
 } from "electron";
 
+import type { AppViewOrder } from "../app-frame/view-order.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
 import type { AppViewContents } from "../app-frame/view-model.ts";
@@ -27,8 +28,8 @@ interface ElectronBrowserViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
   packaged: boolean;
   headless: HeadlessMode;
-  /** view를 붙인 뒤 그 창의 shell overlay를 맨 위로 다시 둔다. */
-  raise(window: BrowserWindow): void;
+  /** 창마다 하나인 native view 층 순서. 앱 view와 같이 쓴다. */
+  orderOf(window: BrowserWindow): AppViewOrder<WebContentsView>;
 }
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
@@ -196,14 +197,11 @@ export function electronBrowserViews(
         hooks,
       );
     },
-    attach(ref, adapter, bounds) {
+    attach(ref, adapter, bounds, layer) {
       const window = live(ref);
       const view = native.get(adapter);
       if (window === undefined || view === undefined) return false;
-      if (!window.contentView.children.includes(view)) {
-        window.contentView.addChildView(view);
-        input.raise(window);
-      }
+      input.orderOf(window).attach(view, layer);
       view.setBounds(bounds);
       return true;
     },
@@ -211,7 +209,7 @@ export function electronBrowserViews(
       const window = live(ref);
       const view = native.get(adapter);
       if (window === undefined || view === undefined) return;
-      window.contentView.removeChildView(view);
+      input.orderOf(window).remove(view);
     },
     focused(adapter) {
       // Electron이 부순 view는 webContents가 비어 있다.

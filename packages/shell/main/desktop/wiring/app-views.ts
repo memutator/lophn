@@ -19,7 +19,7 @@ import {
   removeViewIpc,
 } from "../../app-frame/view-ipc.ts";
 import { createViewVisibility } from "../../app-frame/visibility.ts";
-import { type BrowserFrame, routeFrame } from "../../browser/frame-router.ts";
+import { routeFrame } from "../../browser/frame-router.ts";
 import {
   createAppWindowIpc,
   registerAppWindowIpc,
@@ -36,6 +36,7 @@ import {
 } from "../os-entry/entry.ts";
 import type { OpenIntent } from "../open-intent.ts";
 import { TOP_BAR_HEIGHT } from "../window.ts";
+import type { BrowserWiring } from "./browser.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 /** 뒤 영역이 쓰는 앱 view 값. */
@@ -49,7 +50,7 @@ export type AppViews = Registered & {
 
 export function register(
   ctx: ShellContext,
-  browser: { frame: BrowserFrame },
+  browser: Pick<BrowserWiring, "frame" | "orderOf">,
 ): AppViews {
   const {
     here,
@@ -73,7 +74,7 @@ export function register(
     preload: join(here, "preload-app.cjs"),
     packaged: app.isPackaged,
     headless,
-    raise: (window) => overlays.raise(window),
+    orderOf: browser.orderOf,
   });
   const appFrame = createAppFrame({
     connector: ctx.appConnector,

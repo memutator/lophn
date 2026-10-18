@@ -1,12 +1,13 @@
 // browser 탭: persistent session 정책, native view 목록, renderer IPC. 앱 view의 위치·숨김 길은
 // browser.frame으로 app-views.ts가 받는다.
-import { app, shell } from "electron";
+import { app, type BrowserWindow, shell, type WebContentsView } from "electron";
 import { randomUUID } from "node:crypto";
 
 import {
   BROWSER_EVENT_CHANNEL,
   BROWSER_STATE_CHANNEL,
 } from "../../../ipc/browser.ts";
+import { windowViewOrders } from "../../app-frame/view-order.ts";
 import { createActivation } from "../../browser/activation.ts";
 import { electronBrowserViews } from "../../browser/electron-view.ts";
 import { electronBrowserSession } from "../../browser/electron-session.ts";
@@ -26,6 +27,8 @@ import type { Registered, ShellContext } from "./context.ts";
 export type BrowserWiring = Registered & {
   views: BrowserViews;
   frame: BrowserFrame;
+  /** 창마다 하나인 native view 층 순서. 앱 view가 같은 것을 쓴다. */
+  orderOf: ReturnType<typeof windowViewOrders<BrowserWindow, WebContentsView>>;
 };
 
 export function register(ctx: ShellContext): BrowserWiring {
@@ -42,11 +45,14 @@ export function register(ctx: ShellContext): BrowserWiring {
       platform: process.platform,
     });
 
+  const orderOf = windowViewOrders<BrowserWindow, WebContentsView>((window) =>
+    overlays.raise(window)
+  );
   const host = electronBrowserViews({
     windowOf: (ref) => windowOfRef(ref),
     packaged: app.isPackaged,
     headless,
-    raise: (window) => overlays.raise(window),
+    orderOf,
   });
 
   const sendTo = (channel: string) => (ref: string, payload: unknown) => {
@@ -92,6 +98,7 @@ export function register(ctx: ShellContext): BrowserWiring {
   return {
     views,
     frame: views,
+    orderOf,
     stop() {
       removeBrowserIpc(ipc);
       views.dispose();

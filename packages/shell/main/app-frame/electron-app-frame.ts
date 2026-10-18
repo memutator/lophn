@@ -13,7 +13,7 @@ import {
 import { FEEDBACK_LIMITS } from "../../ipc/feedback.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
-import { appViewOrder } from "./view-order.ts";
+import type { AppViewOrder } from "./view-order.ts";
 import type { AppViewContents, AppViewHost, ViewBounds } from "./registry.ts";
 import type { AppSessionHandle } from "./session-policy.ts";
 
@@ -23,8 +23,8 @@ interface ElectronAppViewsInput {
   preload: string;
   packaged: boolean;
   headless: HeadlessMode;
-  /** 앱 view를 붙인 뒤 그 창의 shell overlay를 맨 위로 다시 둔다. */
-  raise(window: BrowserWindow): void;
+  /** 창마다 하나인 native view 층 순서. browser view와 같이 쓴다. */
+  orderOf(window: BrowserWindow): AppViewOrder<WebContentsView>;
 }
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
@@ -38,23 +38,6 @@ export function electronAppViews(input: ElectronAppViewsInput): {
   const painted = new Map<AppViewContents, NativeImage>();
   // renderer가 사라진 view. 그 뒤로는 찍을 화면이 없다.
   const gone = new Set<AppViewContents>();
-  // 창마다 하나. 창이 닫혀 WeakMap에서 사라지면 기억도 함께 사라진다.
-  const orders = new WeakMap<
-    BrowserWindow,
-    ReturnType<typeof appViewOrder<WebContentsView>>
-  >();
-  function orderOf(window: BrowserWindow) {
-    let order = orders.get(window);
-    if (order === undefined) {
-      order = appViewOrder<WebContentsView>(
-        window.contentView,
-        () => input.raise(window),
-      );
-      orders.set(window, order);
-    }
-    return order;
-  }
-
   function live(ref: string): BrowserWindow | undefined {
     const window = input.windowOf(ref);
     return window === undefined || window.isDestroyed() ? undefined : window;
@@ -114,7 +97,7 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       const window = live(ref);
       const view = native.get(adapter);
       if (window === undefined || view === undefined) return false;
-      orderOf(window).attach(view, layer);
+      input.orderOf(window).attach(view, layer);
       view.setBounds(bounds);
       return true;
     },
@@ -122,7 +105,7 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       const window = live(ref);
       const view = native.get(adapter);
       if (window === undefined || view === undefined) return;
-      orderOf(window).remove(view);
+      input.orderOf(window).remove(view);
     },
     focused(adapter) {
       const view = native.get(adapter);

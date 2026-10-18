@@ -26,7 +26,7 @@ export function viewOrder<T>(host: ViewHost<T>) {
 }
 
 /**
- * 앱 view의 세 층: pane view(layer 0) < floated view(layer 1..) < overlay. 같은 층에서는
+ * native view의 세 층(앱 view와 browser view가 같이 쓴다): pane view(layer 0) < floated view(layer 1..) < overlay. 같은 층에서는
  * 나중에 붙은 것이 위다. 창마다 하나를 만든다. Electron의 addChildView는 이미 child인
  * view를 다시 넣으면 맨 위로 옮기므로, 붙인 view와 그 위에 있어야 할 view를 차례로 다시 넣는다.
  */
@@ -53,5 +53,22 @@ export function appViewOrder<T>(host: ViewHost<T>, raiseOverlay: () => void) {
       if (at >= 0) attached.splice(at, 1);
       host.removeChildView(view);
     },
+  };
+}
+
+export type AppViewOrder<T> = ReturnType<typeof appViewOrder<T>>;
+
+/** 창마다 하나의 층 순서. 창이 닫혀 WeakMap에서 사라지면 기억도 함께 사라진다. */
+export function windowViewOrders<W extends { contentView: ViewHost<T> }, T>(
+  raiseOverlay: (window: W) => void,
+): (window: W) => AppViewOrder<T> {
+  const orders = new WeakMap<W, AppViewOrder<T>>();
+  return (window) => {
+    let order = orders.get(window);
+    if (order === undefined) {
+      order = appViewOrder<T>(window.contentView, () => raiseOverlay(window));
+      orders.set(window, order);
+    }
+    return order;
   };
 }

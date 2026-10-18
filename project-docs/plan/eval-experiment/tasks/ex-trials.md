@@ -13,7 +13,7 @@ experiment의 trial 정책을 program 규칙으로 만든다: 기본은 1번, gu
 - 계약:
   - 쓰는 것:
     - `tests/eval/types.ts`(main에 있다): `RunRecord`, `TrialResult`(`components?`는 ex-spec이 더한다), `refText`
-    - `tests/eval/experiment/spec/mod.ts`(ex-spec): `Policy = { base: number; max: number }`, `Role`, `Outcome = { index; passed; checks: Record<string, boolean>; cost_usd; components }`, `PlanEntry`, `outcomeOf`, `goalPassed(o, checks)`, `tallyOf(outcomes, checks)`, `poolVerdict(tally): "pass" | "fail" | "split" | "none"`, `outcomeOf(trial, runComponents)`
+    - `tests/eval/experiment/spec/mod.ts`(ex-spec): `Policy = { base: number; max: number }`, `Role`, `Outcome = { index; passed; checks: Record<string, boolean>; cost_usd; components }`, `PlanEntry`, `outcomeOf`, `goalPassed(o, checks)`, `goalState(o, checks): "pass" | "fail" | "pending"`, `tallyOf(outcomes, checks)`(채점 대기 trial은 `Tally.pending`에만 센다), `poolVerdict(tally): "pass" | "fail" | "split" | "none"`, `outcomeOf(trial, runComponents)`
   - 내놓는 것(`tests/eval/experiment/trials/mod.ts`):
     - `nextTrials(state: TrialState, policy: Policy): number`
     - `flakyScenarios(runs: RunRecord[], scenarios: { id: string; n: number }[]): Set<string>`
@@ -38,8 +38,8 @@ export function nextTrials(state: TrialState, policy: Policy): number;
    규칙은 이 순서로 처음 맞는 것이 이긴다. `n = state.variant.length`, `start = flaky ? policy.max : policy.base`.
    1. `n >= policy.max` → 0.
    2. `n < start` → `start - n`. 처음 단계다. 흔들리는 시나리오는 처음부터 `max`번 돈다.
-   3. target과 case(결과가 판정을 정하는 쪽): variant에 `goalPassed(o, state.checks)`인 trial이 하나라도 있으면 `policy.max - n`, 없으면 0. 이유: roadmap "target이 나아지면 더 돌려 확인한다. 채택을 한 번의 결과로 정하지 않는다. 나아지지 않으면 거기서 멈춘다". case도 채택을 정하므로 같은 눈금으로 센다.
-   4. guard: `poolVerdict(tallyOf(state.variant, null))`가 `poolVerdict(tallyOf(state.baseline, null))`와 다르면 `policy.max - n`, 같으면 0. 이유: roadmap "guard가 기준과 다른 verdict를 내면 그 case만 더 돌려, 우연인지 나빠진 것인지 가른다". 기준이 `split`(기준 쪽에서 trial끼리 갈렸다)이면 variant가 `pass`나 `fail`이어도 다르므로 늘린다. 기준 verdict가 `fail`인데 variant가 `pass`로 나아져도 다르므로 늘린다(README는 "다른 verdict"라고만 했다. 나아진 쪽을 건너뛰면 아끼지만 정책을 글자 그대로 따랐다).
+   3. target과 case(결과가 판정을 정하는 쪽): variant에 `goalState(o, state.checks) === "pending"`인 trial이 하나라도 있으면 0(채점이 들어올 때까지 정하지 않는다. ex-cli는 채점 뒤 이 함수를 다시 부른다). 아니고 `goalPassed(o, state.checks)`인 trial이 하나라도 있으면 `policy.max - n`, 없으면 0. 이유: roadmap "target이 나아지면 더 돌려 확인한다. 채택을 한 번의 결과로 정하지 않는다. 나아지지 않으면 거기서 멈춘다". case도 채택을 정하므로 같은 눈금으로 센다.
+   4. guard: variant에 `goalState(o, null) === "pending"`인 trial이 있으면 0(위와 같은 이유). 아니면 `poolVerdict(tallyOf(state.variant, null))`가 `poolVerdict(tallyOf(state.baseline, null))`와 다르면 `policy.max - n`, 같으면 0. 이유: roadmap "guard가 기준과 다른 verdict를 내면 그 case만 더 돌려, 우연인지 나빠진 것인지 가른다". 기준이 `split`(기준 쪽에서 trial끼리 갈렸다)이면 variant가 `pass`나 `fail`이어도 다르므로 늘린다. 기준 verdict가 `fail`인데 variant가 `pass`로 나아져도 다르므로 늘린다(README는 "다른 verdict"라고만 했다. 나아진 쪽을 건너뛰면 아끼지만 정책을 글자 그대로 따랐다).
 2. **갈리는 시나리오** (`flaky.ts`). "같은 버전"은 run이 가리킨 버전이 모두 같은 것이다.
 
 ```ts

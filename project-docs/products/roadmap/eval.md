@@ -103,7 +103,7 @@ check는 run 기록과 끝난 world를 함께 본다. 판단 case는 기록만�
 
 - role agent: lophn, App Engineer, Operator, Project Manager. lophn ledger로 잰다.
 - coding agent: CLI를 PTY에서 띄우고 CLI 자기 기록으로 잰다. 그래서 공통 수치 칸이 role agent와 반쯤만 겹친다.
-- 사람 역할: App Engineer의 `ask`에 답한다. 시나리오마다 고정한 요구 카드를 받은 `claude-haiku-5-5`가 카드 안에서만 답한다(아래 "요구 카드"). 허락은 시나리오의 허락 규칙대로 program이 준다(아래 "진짜로 도는 것").
+- 사람 역할: App Engineer의 `ask`에 답한다. eval을 돌리는 agent가 질문마다 새 subagent를 띄워, 시나리오의 요구 카드 안에서만 답하게 한다(아래 "요구 카드"). 허락은 시나리오의 허락 규칙대로 program이 준다(아래 "진짜로 도는 것").
 - `real`에 없는 agent는 model이 없어 turn이 시작되지 않는다(`model_required`). call을 받아도 그쪽 비용은 0이다.
 
 ## 단위와 의존
@@ -147,7 +147,7 @@ run 기록 + 끝난 world → program check · 공통 수치 → 전제 통과?
 - criterion 하나에 판단 하나. verdict는 작은 enum이고, 억지로 고르지 않게 늘 `cannot_tell`을 둔다. 1~10 같은 점수는 쓰지 않는다.
 - 입력은 program이 고른다: 사실과 수치, 그리고 고른 글 조각. 전체 transcript는 주지 않는다. 받는 쪽이 틀린 call처럼 전제가 떨어지면 judge는 돌지 않는다.
 - verdict마다 입력에서 인용 하나를 대게 한다. 인용이 입력에 정말 있는지 program이 보고, 없으면 judge 오류로 남긴다.
-- 판단 하나는 runner session의 context를 보지 않는 새 호출이다. program이 judge item마다 judge model을 부른다. 입력이 고정이라 사람이 나중에 같은 입력으로 다시 볼 수 있다.
+- 판단은 eval을 돌리는 agent가 맡는다. program은 judge item(고정된 criterion, verdict enum, 쪼인 입력)을 "채점 대기"로 file에 두고, 돌리는 agent가 item마다 새 subagent를 띄워 그 item만 보고 채점하게 한 뒤 `deno task eval:judge`로 적는다. 판단이 돌리는 쪽의 진행 상황이나 가설에 끌리지 않게 하려는 것이다. 입력이 고정이라 사람이 나중에 같은 입력으로 다시 볼 수 있다.
 - judge verdict도 check라 시나리오 통과에 든다. scorecard는 program check와 judge check를 갈라 보인다.
 - runner는 provider를 부르기 전에 모든 시나리오에서 program check가 right fixture를 통과시키고 wrong fixture를 떨어뜨리는지 본다.
 
@@ -160,7 +160,7 @@ run 기록 + 끝난 world → program check · 공통 수치 → 전제 통과?
 
 ### judge를 믿고 쓰기
 
-- judge는 `claude-haiku-5-5`를 믿고 쓴다. 정해 둔 검증 절차는 두지 않는다. 의심될 때 사람이 따로 검증한다.
+- judge는 eval을 돌리는 agent가 띄운 subagent의 판단을 믿고 쓴다. 정해 둔 검증 절차는 두지 않는다. 의심될 때 사람이 따로 검증한다. 채점한 model은 item마다 기록되고, judge 버전은 채점 안내 글의 버전이다.
 - 그러려고 judge item마다 고정 입력, criterion@n, verdict, 인용을 run 기록에 남기고, scorecard의 verdict에서 바로 연다.
 - experimenter는 해석하면서 이상해 보이는 judge 판단을 보고서에 따로 적는다. 예: program이 확인한 사실과 어긋나는 verdict, `cannot_tell`이 몰린 criterion.
 - judge 비용은 대상 비용과 따로 적는다.
@@ -313,7 +313,7 @@ calendar-mvp와 calendar-maintain에서 사람 역할이 쓰는 카드다. 시�
 모르는 것: 색, 정렬 → "추천대로 해 줘"
 ```
 
-- 사람 역할(`claude-haiku-5-5`)은 질문, 카드, 앞서 자기가 한 답만 보고 답한다. 카드 밖 질문에는 "추천대로 해 줘"라고 답한다.
+- 사람 역할(돌리는 agent가 질문마다 띄우는 새 subagent)은 질문, 카드, 앞서 자기가 한 답만 보고 답하고, 답은 `deno task eval:answer`로 넣는다. 카드 밖 질문에는 "추천대로 해 줘"라고 답한다.
 - check: 카드의 요구가 blueprint와 ticket의 examples에 담겼나(judge), 요청에 이미 있던 것을 다시 묻지 않았나(judge), 질문 수(수치).
 
 ### 재사용 확인
@@ -409,8 +409,8 @@ coding agent에 대해:
  │        ▼
  │   gate: deno task check → 바뀐 곳의 e2e → 고른 시나리오의 dry run(fake provider)   (실패하면 다시 고친다)
  │        ▼ 통과
- │   runner(싼 model): eval CLI를 돌리고 진행을 보고, 보고서를 쓴다
- │   program: run을 병렬·의존 순서로 돌리고, 수치, program check, judge 호출, 판정 규칙, 상한
+ │   runner(eval을 돌리는 agent): eval CLI를 돌리고 진행을 보고, 질문과 judge item마다 새 subagent로 답하고 채점하고, 보고서를 쓴다
+ │   program: run을 병렬·의존 순서로 돌리고, 수치, program check, judge item, 판정 규칙, 상한
  │        ▼
  │   experimenter(비싼 model): 판정 결과 해석, 원인 가르기, 다음 제안
  └────────┘
@@ -420,8 +420,8 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 | 역할 | model | 하는 것 | 하지 않는 것 |
 |---|---|---|---|
-| program | 없음 | gate, run 실행, 재료 되살리기, 공통 수치, program check, judge 호출, 판정 규칙 계산, 돈·시간 상한 | 해석 |
-| runner · judge | `claude-haiku-5-5` | eval CLI 돌리기, cron처럼 진행 확인, 멈춘 run 알아채기, 보고서 쓰기. judge 판단(item마다 새 호출) | 결과 고치기, 떨어진 trial만 골라 다시 돌리기, 상한 넘기기 |
+| program | 없음 | gate, run 실행, 재료 되살리기, 공통 수치, program check, judge item 만들기와 채점 기록 확인(enum, 인용), 판정 규칙 계산, 돈·시간 상한 | 해석 |
+| runner · judge · 사람 역할 | eval을 돌리는 agent(지금은 lead, 뒤에는 더 싼 session) | eval CLI 돌리기, cron처럼 진행 확인, 멈춘 run 알아채기, 보고서 쓰기. judge item과 App Engineer의 질문마다 새 subagent를 띄워 채점하고 답한다 | 결과 고치기, 떨어진 trial만 골라 다시 돌리기, 상한 넘기기 |
 | experimenter | `claude-opus-5-5` | 판정 결과 해석, 떨어진 run을 읽고 원인 가르기(model 탓, 제품 탓, judge 탓), 이상해 보이는 judge 판단 짚기, 다음 고칠 것과 다음 experiment spec 초안 | 판정 규칙의 결과를 혼자 뒤집기. 뒤집으려면 이유를 적고 사람이 정한다 |
 | planner + 사람 | | 무엇을 고칠지 정하기, experiment spec 확정, 의심되는 judge 판단 검증 | |
 | worker · lead | | harness 고침 | |
@@ -488,8 +488,8 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - trial을 늘 3번씩 돌리지 않는다(사람). 1번이 기본이고, 기준과 달라진 guard, 나아진 target, 흔들리는 것으로 알려진 시나리오만 3번까지 늘린다(agent).
 - 시나리오는 산출물로 나뉜 단위다. 뒤 단위는 앞 단위를 다시 돌리지 않고 commit된 산출물을 전제로 쓴다(사람).
 - agent loop 중간에서는 끊지 않는다. 인터뷰 → blueprint → ticket → build → activation은 App Engineer session 하나라 한 시나리오다(사람).
-- runner와 judge는 `claude-haiku-5-5`, experimenter는 `claude-opus-5-5`다(사람).
-- 사람 역할은 요구 카드를 받은 `claude-haiku-5-5`다(사람).
+- eval은 agent session이 돌린다. 채점과 사람 역할도 그 agent가 맡는다. runner가 key로 judge와 사람 역할을 따로 부르지 않는다(사람). experimenter는 `claude-opus-5-5`다(사람).
+- 사람 역할은 돌리는 agent가 질문마다 띄우는 새 subagent가 요구 카드로 답한다(사람).
 - 처음 잴 coding agent CLI는 Claude Code다(사람). codex는 hook trust 이슈와 함께 뒤에 variant로 더한다.
 - 대상 model은 진짜 model을 받는 쪽 모두 `claude-sonnet-5-5`다(사람).
 - 첫 상한은 매우 넉넉하게 둔다(사람). role agent와 judge는 판단 case 한 번 돌릴 때 $50, 시나리오 한 trial $50, experiment 하나 $100로 시작하고, 첫 실행에서 잰 값으로 줄인다(agent).
@@ -497,10 +497,10 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - Claude Code는 App Engineer의 call로 lophn이 제품 길 그대로, 사용자 환경에서 띄운다. 띄우는 길은 e2e의 영역이라 eval은 로그인, 격리, 비용을 다루지 않는다(사람).
 - 계획 순서는 `eval-base` → `eval-coding` → `eval-experiment`다(사람).
 - 채택 규칙: 실패를 처음 보여 준 case 하나만으로는 고친 것을 남기지 않는다. 고치기 전에 같은 규칙을 시험하는 case를 하나 더 써 두고, 둘 다 통과해야 남긴다(사람).
-- judge는 Haiku를 믿고 쓴다. 의심될 때만 사람이 따로 검증한다(사람).
+- judge는 돌리는 agent가 item마다 띄우는 새 subagent다. 그 판단을 믿고 쓰고, 의심될 때만 사람이 따로 검증한다(사람).
 - 흐름: experimenter 결과 → planner와 의논 → harness 고침 → 바뀐 곳의 e2e 먼저 → eval을 필요한 만큼 병렬·의존 순서로(사람).
 - 판정 규칙은 program이 계산하고 experimenter는 해석한다. 뒤집으려면 이유를 적고 사람이 정한다(agent).
-- judge 판단은 item마다 고정 입력만 보는 새 호출이다(agent).
+- judge 판단은 item마다 고정 입력만 보는 새 subagent다(사람). program은 enum 밖의 답과 입력에 없는 인용을 지금처럼 걸러 낸다(agent).
 - 돈과 시간 상한은 program이 지킨다(agent).
 - gate에 고른 시나리오의 dry run(fake provider)을 더한다(agent).
 - grader는 대상의 checkout에서 가져오지 않는다(agent).

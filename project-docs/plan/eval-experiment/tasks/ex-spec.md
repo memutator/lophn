@@ -6,7 +6,7 @@ experiment 기록 폴더 `tests/eval/experiments/<id>/`의 꼴을 만든다: 사
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `tests/eval/experiment/spec/**`
-  - `tests/eval/types.ts`: `TrialResult`에 칸 하나(`components?: VersionRef[]`)만 더한다. 그 밖의 줄은 고치지 않는다(아래 "할 일 1"의 마지막).
+  - `tests/eval/types.ts`: 아래 "할 일 1"의 마지막에 적은 칸만 더하고 고친다(`TrialResult.components?`, `JudgeItem.state`·`model`, `CheckResult.pending?`, `HumanRecord`의 `model` 이동). 그 밖의 줄은 고치지 않는다.
 - 읽을 것:
   - 설계 정본: `project-docs/products/roadmap/eval.md`의 "experiment"(표, 예), "trial 수", "특정 시나리오에 맞추지 않기", "역할과 흐름"(spec은 harness를 고치기 전에 확정한다), "정한 것"(채택 규칙, 판정 규칙은 program이 계산한다)
   - 계획: `project-docs/plan/eval-experiment/README.md`("정한 것": experiment 기록, spec의 칸, 판정, 기준 구성, trial 정책). `project-docs/plan/eval-coding/README.md`(이 계획은 그 뒤에 시작한다)
@@ -56,8 +56,16 @@ export type Role = "target" | "guard" | "case";
 
 // 한 trial의 결과 한 줄. 모든 task가 같은 눈금으로 세려고 여기서 만든다.
 // components = 그 trial에서 진짜 model이 본 것. TrialResult.components가 없으면 run의 합집합을 쓴다(outcomeOf의 둘째 인자).
-export type Outcome = { index: number; passed: boolean; checks: Record<string, boolean>; cost_usd: number; components: VersionRef[] };
-export type Tally = { passed: number; trials: number };
+// state = trial 전체의 상태. 채점 대기인 judge check가 있고 이미 떨어진 것이 없으면 "pending"(아직 정해지지 않았다).
+// pending = 채점 대기인 judge check id. passed = (state === "pass").
+// checks에서 채점 대기 check는 false로 둔다. 통과가 아니라 정해지지 않은 것이라 pending에서 가른다.
+export type OutcomeState = "pass" | "fail" | "pending";
+export type Outcome = {
+  index: number; passed: boolean; state: OutcomeState; pending: string[];
+  checks: Record<string, boolean>; cost_usd: number; components: VersionRef[];
+};
+// trials = 정해진 trial 수(pass + fail). pending = 채점 대기라 세지 않은 trial 수.
+export type Tally = { passed: number; trials: number; pending: number };
 export type PoolVerdict = "pass" | "fail" | "split" | "none";
 
 // ex-select가 고르고 ex-trials, ex-verdict가 읽는 한 시나리오의 자리.
@@ -105,7 +113,8 @@ export type ExperimentResult = {
 export type OverfitWarning = { scenario: string; component: string; file: string; kind: "name" | "phrase"; term: string; line: string };
 
 // ex-repeat이 낸다. 같은 tool을 같은 인자로 3번 이상 부른 곳 하나를 repeat-kind judge가 본 결과.
-export type RepeatFinding = { session: string; tool: string; count: number; calls: string[]; item: JudgeItem };
+// trial과 key는 채점 대기 entry를 다시 찾는 칸이고(key는 ex-judge-agent의 judgeKey(trial, check)), item은 만든 때의 대기 item이다. 채점이 들어온 최신 item은 key의 entry에서 읽는다.
+export type RepeatFinding = { trial: number; session: string; tool: string; count: number; calls: string[]; key: string; item: JudgeItem };
 
 // ex-assembly가 낸다. layer별 prefix hash가 앞 call과 같은 비율을 녹화한 쪽(baseline)과 다시 조립한 쪽(variant)에서 잰 값.
 export type LayerStat = {
@@ -129,16 +138,29 @@ export type AssemblyReport = {
 ```
 
    - 진단 type의 칸은 ex-overfit, ex-repeat, ex-assembly의 brief 그대로다. 그쪽이 칸을 바꾸자고 하면 이 task가 따라간다.
+   - `tests/eval/types.ts`의 `JudgeItem`에 두 칸을 더한다(2026-10 사람 결정: 채점은 key 호출이 아니라 eval을 돌리는 agent가 한다. README "채점과 사람 역할은 eval을 돌리는 agent가 맡는다"). 지금 `JudgeItem`은 `check, criterion, input, verdict, quote, quote_found, judge, cost_usd, error`다.
+     - `state: "pending" | "judged" | "error";` pending = program이 쪼인 입력만 file에 두고 아직 채점하지 않았다(`verdict`·`quote`는 null, `quote_found` false, `cost_usd` 0, `error` null). judged = verdict와 인용이 들어왔고 검사를 통과했다. error = enum 밖의 답이나 입력에 없는 인용으로 걸러졌다(`error`에 이유, `verdict`는 받은 값 그대로 둘 수 있다).
+     - `model: string | null;` 채점한 model 이름. pending이면 null. 다른 model이 채점한 run은 grader가 다르다는 뜻이다(README).
+     - 이 두 칸의 값을 채우는 일(대기 item 쓰기, `deno task eval:judge`, 검사)은 `ex-judge-agent`가 한다. 이 task는 칸 이름과 뜻만 정한다. 채점 대기 check는 `pass: false`, `reason`은 "채점 대기"로 둔다.
+     - `CheckResult`에 `pending?: boolean;`을 더한다. 채점 대기인 judge check에서만 true다. 이유: scorecard와 runner가 judge item을 읽지 않고도 대기를 안다. `eval:judge`가 채점을 적으면 `pending`을 지우고 `pass`를 다시 정한다.
+     - `HumanRecord`(`TrialRecord.human`의 type)에서 맨 위 `model: string`을 지우고, `answers[]`의 각 항목에 `model: string | null;`을 더한다(그 답을 낸 subagent의 model. 모르면 null). 이유: 사람 역할 답도 agent가 띄운 subagent가 하므로 model이 답마다 다르다. 이 type을 쓰는 쪽(`tests/eval/human/**`, collect, runner)이 type check에서 깨지면 최소로 맞추고 보고의 "넘길 줄"에 적는다.
+     - 이제 쓰이지 않게 된 `cost_usd` 칸(`JudgeItem.cost_usd`, `HumanRecord`의 `cost_usd`와 `HumanSummary.cost_usd`)은 지우지 않는다. ex-cli(wave 3)가 그 값을 읽는 코드와 함께 지운다.
+     - `tests/eval/judge/run.ts`의 `judgeItem`이 `JudgeItem`을 만드는 유일한 곳이라 칸이 required이면 type check가 깨진다. 그 file은 `ex-judge-agent`가 곧 다시 쓰므로 이 task는 최소만 맞춘다: 시작 literal에 `state: "judged"`, `model: judge.model`을 더하고 `error`가 채워지는 자리에서 `state`를 `"error"`로 바꾼다. 보고의 "넘길 줄"에 적는다.
    - `tests/eval/types.ts`의 `TrialResult`에 `components?: VersionRef[]; // 이 trial에서 진짜 model이 본 것. RunRecord.components는 trial 전체의 합집합이라 trial마다는 모른다. ex-cli가 채운다`를 더한다. 이유: 합집합만으로는 X@a를 본 run 안에서도 X를 안 본 trial이 기준 통과율에 섞인다. 없는 옛 run 요약은 합집합으로 대신한다(호환 장치가 아니라 칸이 선택이라서 생기는 읽는 쪽 규칙이다).
 2. **세는 함수** (`tally.ts`). 기준 run 모으기(ex-select), trial 정책(ex-trials), 판정(ex-verdict)이 같은 눈금으로 센다.
 
 ```ts
-// passed = settle이 idle이고 모든 CheckResult가 pass(ev-runner의 "trial 통과"와 같다).
+// pending = pending이 true인 CheckResult의 id(= trial.judge에서 state가 "pending"인 item의 check).
+// state: settle이 timeout이거나 pending이 아닌 CheckResult가 하나라도 떨어졌으면 "fail"(채점이 남아 있어도 이미 떨어졌다).
+//        아니고 pending이 있으면 "pending". 아니면 "pass"(ev-runner의 "trial 통과"와 같다).
 // cost_usd = metrics.cost_usd + judge item의 cost_usd 합.
 // components = trial.components ?? runComponents (run의 합집합).
 export function outcomeOf(trial: TrialResult, runComponents: VersionRef[]): Outcome;
-// checks가 null이면 o.passed. 있으면 그 id가 모두 o.checks에 있고 true일 때만 참(없는 id는 거짓: check 이름이 바뀐 것을 통과로 치지 않는다).
-export function goalPassed(o: Outcome, checks: string[] | null): boolean;
+// checks가 null이면 o.state. 있으면 그 id 가운데: o.checks에 없거나 pending이 아닌데 false면 "fail"(없는 id는 실패: check 이름이 바뀐 것을 통과로 치지 않는다),
+// 아니고 pending에 든 id가 있으면 "pending", 아니면 "pass".
+export function goalState(o: Outcome, checks: string[] | null): OutcomeState;
+export function goalPassed(o: Outcome, checks: string[] | null): boolean;   // goalState === "pass". 채점 대기는 통과가 아니다
+// goalState가 pass면 passed와 trials를, fail이면 trials를, pending이면 pending만 늘린다.
 export function tallyOf(outcomes: Outcome[], checks: string[] | null): Tally;
 // trials 0 → "none". passed*2 > trials → "pass". passed*2 < trials → "fail". 같으면 "split".
 export function poolVerdict(t: Tally): PoolVerdict;
@@ -218,7 +240,7 @@ export function listSpecIds(dir: string): Promise<string[]>;
 ## 끝남
 
 - `deno task check`가 통과한다.
-- 위험 test(`spec_test.ts`, 최대 셋):
+- 위험 test(`spec_test.ts`, 최대 셋. 채점 대기를 세는 규칙(`outcomeOf`, `goalState`, `tallyOf`)은 ex-verdict의 test가 판정으로 본다):
   - "미리 쓴 case가 없거나 target과 같은 시나리오이면, 두 component를 한 번에 바꾸면, grader·core kind를 바꾸면 spec을 거절한다": `parseSpec`을 표로. 위 3번의 거절마다 한 줄씩, 올바른 spec 한 줄은 통과.
   - "spec commit이 없거나 dirty이거나 variant가 그 위에 있지 않거나 case가 spec commit에 없으면 거절한다": `checkSpecLocked`를 표로. 모두 맞는 사실 하나는 통과.
   - "판정이 난 result.json은 덮이지 않고 inconclusive는 덮인다": 임시 폴더에서 `writeResult`.
@@ -232,6 +254,6 @@ export function listSpecIds(dir: string): Promise<string[]>;
 - 안 쓰게 된 export: 없음
 - 정한 것: 문서에 답이 없어 worker가 정한 것. 위 "정한 것"과 다르게 했으면 이유를 적는다.
 - 넘길 줄: 남의 file을 최소로 맞춘 곳
-- 계약 바꾸기 요청: `TrialResult.components?` 말고 `tests/eval/types.ts`를 바꿔야 하면 고치지 말고 여기 적는다
+- 계약 바꾸기 요청: `TrialResult.components?`, `JudgeItem.state`, `JudgeItem.model` 말고 `tests/eval/types.ts`를 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: spec이 고침보다 먼저라는 사실(`LockFacts`)은 이 task가 모으지 않는다. ex-cli가 git으로 모아야 한다. 이 task만으로는 `LockFacts`를 부르는 곳이 없다.

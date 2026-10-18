@@ -23,7 +23,7 @@ trial을 동시에 돌리는 pool을 만든다. 종류(kind)마다 동시 수 �
     export type Job<T> = {
       id: string;                                   // 로그용. 예 "L4-app#1"
       kind: TrialKind;
-      run(): Promise<{ value: T; cost_usd: number }>;   // cost_usd는 대상 비용 + judge 비용의 합
+      run(): Promise<{ value: T; cost_usd: number }>;   // cost_usd는 trial의 role agent 비용. 채점과 사람 역할은 agent가 하므로 key 비용이 없다
     };
     export type JobResult<T> =
       | { status: "done"; id: string; value: T; cost_usd: number }
@@ -57,7 +57,7 @@ trial을 동시에 돌리는 pool을 만든다. 종류(kind)마다 동시 수 �
 ## 정한 것
 
 - pool은 trial 정책을 모른다. 정책(몇 번 더 돌릴지)은 ex-trials가 정하고, ex-cli가 "한 시나리오 안에서 `await pool.submit(...)` 한 뒤 결과를 보고 `submit`을 또 부르는" 흐름으로 잇는다. 이유: 정책이 결과에 따라 job을 더해야 하는데 pool이 미리 job 목록을 받으면 그것을 못 한다. `submit` 하나가 가장 단순하다.
-- 예산은 job이 끝난 뒤에 센다. 그래서 동시에 도는 만큼(최대 `4 + 2` 개) 예산을 넘겨 쓸 수 있다. 이유: 도는 trial의 비용은 끝나야 안다(`modelCallList`의 cost를 더하고 judge가 나중에 돈다). 넘는 폭은 한 trial 상한($50, eval-base) 이내로 본다. 더 줄이려면 job이 `cost_so_far`를 알리게 해야 하는데 지금은 필요 없다.
+- 예산은 job이 끝난 뒤에 센다. 그래서 동시에 도는 만큼(최대 `4 + 2` 개) 예산을 넘겨 쓸 수 있다. 이유: 도는 trial의 비용은 끝나야 안다(`modelCallList`의 cost를 더한다). 넘는 폭은 한 trial 상한($50, eval-base) 이내로 본다. 더 줄이려면 job이 `cost_so_far`를 알리게 해야 하는데 지금은 필요 없다.
 - `Budget`은 `createCap` 모양(`add`, `exceeded`, `total`)을 구조로만 받는다. 이유: eval-base의 `runner/`를 이 task가 import하면 방향이 거꾸로다.
 - `stop()`은 SIGINT 같은 신호를 ex-cli가 걸어 부른다. 이유: roadmap "runner는 보고, 이상하면 멈추라고 요청한다". 돈이 새지 않게 새 job만 막는다.
 
@@ -80,4 +80,4 @@ trial을 동시에 돌리는 pool을 만든다. 종류(kind)마다 동시 수 �
 - 넘길 줄: 없음
 - 계약 바꾸기 요청: 없으면 "없음"
 - **무겁게 짠 것**: 없으면 "없음"
-- **알려진 미완 동작**: 예산 초과 폭(동시에 도는 trial의 비용)을 미리 막지 못한다. provider rate limit은 보지 않는다(judge가 4개 동시에 부르는 정도는 괜찮다고 본다).
+- **알려진 미완 동작**: 예산 초과 폭(동시에 도는 trial의 비용)을 미리 막지 못한다. provider rate limit은 보지 않는다(role agent가 4개 동시에 부르는 정도는 괜찮다고 본다).

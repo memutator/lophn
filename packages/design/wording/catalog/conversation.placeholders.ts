@@ -8,6 +8,7 @@ export type ConversationPlaceholders = {
   "conversation.body.skill-command-request": {
     skill: "string";
   };
+  "conversation.button.add-model": Record<never, never>;
   "conversation.button.approval-allow": Record<never, never>;
   "conversation.button.approval-allow-always": Record<never, never>;
   "conversation.button.approval-allow-once": Record<never, never>;
@@ -19,23 +20,16 @@ export type ConversationPlaceholders = {
   };
   "conversation.button.attach": Record<never, never>;
   "conversation.button.call-cancel": Record<never, never>;
-  "conversation.button.change-defaults": Record<never, never>;
   "conversation.button.connect-provider": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
-  "conversation.button.custom-model-use": Record<never, never>;
   "conversation.button.delete": Record<never, never>;
   "conversation.button.edit-open": Record<never, never>;
-  "conversation.button.favorite-add": {
-    model: "string";
-  };
-  "conversation.button.favorite-remove": {
-    model: "string";
-  };
   "conversation.button.fork": Record<never, never>;
   "conversation.button.fork-here": Record<never, never>;
   "conversation.button.hidden-hide": Record<never, never>;
   "conversation.button.hidden-show": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
+  "conversation.button.manage-models": Record<never, never>;
   "conversation.button.model-reset": Record<never, never>;
   "conversation.button.permissions-edit": Record<never, never>;
   "conversation.button.question-next": Record<never, never>;
@@ -57,6 +51,7 @@ export type ConversationPlaceholders = {
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.error.action-failed": Record<never, never>;
+  "conversation.error.add-model": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
@@ -140,7 +135,6 @@ export type ConversationPlaceholders = {
   "conversation.label.evidence-problem": Record<never, never>;
   "conversation.label.evidence-session": Record<never, never>;
   "conversation.label.evidence-ticket": Record<never, never>;
-  "conversation.label.favorites": Record<never, never>;
   "conversation.label.grant-allow": Record<never, never>;
   "conversation.label.grant-ask": Record<never, never>;
   "conversation.label.grant-deny": Record<never, never>;
@@ -268,6 +262,9 @@ export type ConversationPlaceholders = {
   "conversation.label.slash-unknown": {
     name: "string";
   };
+  "conversation.label.provider-toggle": {
+    provider: "string";
+  };
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-working": Record<never, never>;
   "conversation.label.steer": Record<never, never>;
@@ -283,7 +280,6 @@ export type ConversationPlaceholders = {
     count: "plural";
     tool: "string";
   };
-  "conversation.label.typed-provider": Record<never, never>;
   "conversation.label.view-compact": Record<never, never>;
   "conversation.label.view-detail": Record<never, never>;
   "conversation.label.view-everything": Record<never, never>;
@@ -316,9 +312,11 @@ export type ConversationPlaceholders = {
   "conversation.notice.decide-failed": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.no-model-options": Record<never, never>;
+  "conversation.notice.manage-models-lead": Record<never, never>;
   "conversation.notice.no-listed-models": Record<never, never>;
   "conversation.notice.no-models": Record<never, never>;
   "conversation.notice.no-providers": Record<never, never>;
+  "conversation.notice.no-shown-models": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
@@ -386,6 +384,7 @@ export type ConversationPlaceholders = {
   "conversation.title.call-handed": {
     to: "string";
   };
+  "conversation.title.manage-models": Record<never, never>;
   "conversation.title.permissions": {
     agent: "string";
   };

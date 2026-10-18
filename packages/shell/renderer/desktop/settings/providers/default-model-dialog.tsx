@@ -3,7 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
-import { ConnectProviderContext } from "./connect-host.tsx";
+import { ManageModelsContext } from "../../../conversation/model-picker/manage-context.ts";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
 import type {
@@ -49,8 +49,8 @@ export function DefaultModelDialog(
       title={t("settings.title.choose-default-model")}
       actions={<Button onClick={onClose}>{t("settings.button.skip")}</Button>}
     >
-      {/* 이 대화창 안의 picker가 연결 대화창을 또 쌓지 않게 Connect provider 줄을 숨긴다. */}
-      <ConnectProviderContext.Provider value={null}>
+      {/* 이 대화창 안의 picker가 창을 또 쌓지 않게 Manage models 줄을 숨긴다. */}
+      <ManageModelsContext.Provider value={null}>
         <p>{t("settings.notice.choose-default-model")}</p>
         <DefaultModelField
           models={models}
@@ -61,7 +61,7 @@ export function DefaultModelDialog(
         {failed
           ? <p role="status">{t("settings.agents.action-failed")}</p>
           : null}
-      </ConnectProviderContext.Provider>
+      </ManageModelsContext.Provider>
     </Dialog>
   );
 }

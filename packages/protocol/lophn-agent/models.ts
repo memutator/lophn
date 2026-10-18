@@ -215,38 +215,38 @@ export const catalogStateSchema = z.strictObject(stateFields);
 const catalogStateOutputSchema = z.object(stateFields);
 export type CatalogState = z.infer<typeof catalogStateSchema>;
 
-// 즐겨찾기 순서는 별표를 찍은 순서이고 새로 찍은 것이 맨 끝이다. provider로 다시 묶지 않는다.
-const favoriteFields = {
+// 끈 model 목록이다. 기본이 "켬"이라 끈 것만 적는다. 새 model과 새 provider는 적지 않아도 켜져 있다.
+const hiddenFields = {
   provider: idSchema("pvd"),
   model_name: nonblankSchema,
 };
-const modelFavoriteSchema = z.strictObject(favoriteFields);
-const modelFavoriteOutputSchema = z.object(favoriteFields);
+const hiddenModelSchema = z.strictObject(hiddenFields);
+const hiddenModelOutputSchema = z.object(hiddenFields);
 
-function uniqueFavorites(
+function uniqueHidden(
   items: readonly { provider: string; model_name: string }[],
 ): boolean {
   return new Set(items.map((item) => `${item.provider}\0${item.model_name}`))
     .size === items.length;
 }
-const duplicateFavorite = { message: "duplicate favorite" };
-const modelFavoritesItemsSchema = z.array(modelFavoriteSchema).refine(
-  uniqueFavorites,
-  duplicateFavorite,
+const duplicateHidden = { message: "duplicate hidden model" };
+const hiddenModelsItemsSchema = z.array(hiddenModelSchema).refine(
+  uniqueHidden,
+  duplicateHidden,
 );
-const favoritesOutputItemsSchema = z.array(modelFavoriteOutputSchema).refine(
-  uniqueFavorites,
-  duplicateFavorite,
+const hiddenOutputItemsSchema = z.array(hiddenModelOutputSchema).refine(
+  uniqueHidden,
+  duplicateHidden,
 );
-const modelFavoritesSchema = z.strictObject({
-  items: modelFavoritesItemsSchema,
+const hiddenModelsSchema = z.strictObject({
+  items: hiddenModelsItemsSchema,
   settings_seq: seqSchema,
 });
-const modelFavoritesOutputSchema = z.object({
-  items: favoritesOutputItemsSchema,
+const hiddenModelsOutputSchema = z.object({
+  items: hiddenOutputItemsSchema,
   settings_seq: seqSchema,
 });
-export type ModelFavorites = z.infer<typeof modelFavoritesSchema>;
+export type HiddenModels = z.infer<typeof hiddenModelsSchema>;
 
 const readErrors = [
   "invalid_input",
@@ -259,13 +259,13 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 // 바꾸는 slot만 싣는다. null은 그 slot을 비운다. 나머지 slot은 그대로다.
 const settingsSeqCompare = z.strictObject({ settings_seq: seqSchema });
 
-// 순서 있는 목록을 통째로 바꾼다. 별표를 찍고 끄는 일, 끌어 옮기는 일이 모두 새 순서 하나다.
-export const changeModelFavorites = defineCommand({
-  resource: "model-favorites",
+// 끈 목록을 통째로 바꾼다. model 하나를 끄고 켜는 일도, provider 전체를 끄고 켜는 일도 새 목록 하나다.
+export const changeHiddenModels = defineCommand({
+  resource: "hidden-models",
   method: "change",
-  name: "ChangeModelFavorites",
-  input: z.strictObject({ items: modelFavoritesItemsSchema }),
-  output: z.object({ favorites: modelFavoritesOutputSchema }),
+  name: "ChangeHiddenModels",
+  input: z.strictObject({ items: hiddenModelsItemsSchema }),
+  output: z.object({ hidden: hiddenModelsOutputSchema }),
   compare: settingsSeqCompare,
   actors: ["user"],
   errors: [
@@ -277,12 +277,12 @@ export const changeModelFavorites = defineCommand({
   ],
 });
 
-export const modelFavoritesRead = defineRead({
-  resource: "model-favorites",
+export const hiddenModelsRead = defineRead({
+  resource: "hidden-models",
   method: "read",
-  name: "ReadModelFavorites",
+  name: "ReadHiddenModels",
   input: z.strictObject({}),
-  output: withReadCommon(z.object({ favorites: modelFavoritesOutputSchema })),
+  output: withReadCommon(z.object({ hidden: hiddenModelsOutputSchema })),
   actors: readActors,
   errors: [...readErrors],
 });
@@ -370,8 +370,8 @@ export const MODEL_ROUTES = [
   modelDefaultChange,
   projectModelRead,
   projectModelChange,
-  changeModelFavorites,
-  modelFavoritesRead,
+  changeHiddenModels,
+  hiddenModelsRead,
   modelCatalogRead,
 ] as const;
 

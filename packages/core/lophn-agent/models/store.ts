@@ -1,12 +1,12 @@
 import type {
+  HiddenModels,
   ModelChoice,
-  ModelFavorites,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
-// ledger 표에서 model 선택과 즐겨찾기를 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
+// ledger 표에서 model 선택과 끈 model을 읽는다. command(CAS 비교)와 read가 같은 모양을 쓴다.
 
 export const GLOBAL_SCOPE = "global";
 
@@ -52,12 +52,12 @@ export function saveChoice(
   );
 }
 
-export function loadFavorites(sql: Query): ModelFavorites {
+export function loadHidden(sql: Query): HiddenModels {
   const rows = sql.all(
-    "select provider, model_name from model_favorites order by rank",
+    "select provider, model_name from model_hidden order by provider, model_name",
     [],
   );
-  const seq = sql.get("select seq from model_favorites_seq", []);
+  const seq = sql.get("select seq from model_hidden_seq", []);
   return {
     items: rows.map((row) => ({
       provider: String(row["provider"]),

@@ -193,7 +193,7 @@ interface DefinitionFormProps {
   readonly definition: AgentDraft;
   readonly issues: readonly AgentDefinitionIssue[];
   readonly models: ModelsView | null;
-  /** Model 칸이 목록을 다시 읽고 별표를 쓰는 통로. */
+  /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;

@@ -15,10 +15,13 @@ import {
   operatorDelete,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
-  changeModelFavorites,
+  changeHiddenModels,
   projectModelChange,
 } from "../../../../protocol/lophn-agent/models.ts";
-import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
+import {
+  recordProviderModels,
+  refreshProviderModels,
+} from "../../../../protocol/lophn-agent/providers.ts";
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -46,7 +49,7 @@ import type {
   AgentListRow,
   AgentsOverview,
   AgentsSource,
-  ModelFavorite,
+  HiddenModel,
   ModelsView,
   PlaceChoice,
   PlaceView,
@@ -74,6 +77,35 @@ interface AgentsDeps {
   bytes: () => Uint8Array;
   /** MCP credential을 받는 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
+}
+
+/**
+ * custom provider의 알려 준 목록에 이름을 덧붙인다. 지금 목록을 읽어 그 위에 더하고 읽은 판을 compare로 보내,
+ * 그 사이에 목록이 바뀌었으면 core가 conflict로 거절해 아무것도 쓰지 않는다(있던 이름을 덮어쓰지 않는다).
+ */
+async function addReportedModel(
+  link: Link,
+  provider: string,
+  modelName: string,
+): Promise<ReadResult<null>> {
+  const read = await link.read<
+    {
+      provider: {
+        revision: number;
+        credential: { reported_models: string[] | null };
+      };
+    }
+  >("providers", "read", { provider });
+  if (!read.ok) return read;
+  const existing = read.value.provider.credential.reported_models ?? [];
+  if (existing.includes(modelName)) return { ok: true, value: null };
+  const written = await link.command(recordProviderModels, {
+    input: { provider, models: [...existing, modelName] },
+    compare: { revision: read.value.provider.revision },
+  });
+  return written.ok
+    ? { ok: true, value: null }
+    : { ok: false, message: written.code };
 }
 
 function windowInstructions(): InstructionsApi | undefined {
@@ -188,6 +220,7 @@ export function coreAgentsSource(
       id: string;
       name: string;
       definition: { key: string };
+      revision: number;
       credential: { kind: string; reported_models: string[] | null };
     }[] = [];
     let cursor: string | undefined;
@@ -203,19 +236,19 @@ export function coreAgentsSource(
     return { ok: true as const, value: rows };
   };
 
-  const favorites = async () => {
+  const hiddenModels = async () => {
     const result = await link.read<
-      { favorites: { items: ModelFavorite[]; settings_seq: string } }
-    >("model-favorites", "read", {});
+      { hidden: { items: HiddenModel[]; settings_seq: string } }
+    >("hidden-models", "read", {});
     return result.ok
       ? {
         ok: true as const,
         value: {
-          items: result.value.favorites.items.map((item) => ({
+          items: result.value.hidden.items.map((item) => ({
             provider: item.provider,
             model_name: item.model_name,
           })),
-          seq: result.value.favorites.settings_seq,
+          seq: result.value.hidden.settings_seq,
         },
       }
       : result;
@@ -434,14 +467,14 @@ export function coreAgentsSource(
         if (catalog.value.next_cursor === null) break;
         cursor = catalog.value.next_cursor;
       }
-      const starred = await favorites();
-      if (!starred.ok) return starred;
+      const hidden = await hiddenModels();
+      if (!hidden.ok) return hidden;
       const view: ModelsView = {
         providers: registered.value.map((provider) =>
           providerChoiceOf(provider, entries)
         ),
         catalog: entries,
-        favorites: starred.value.items,
+        hidden: hidden.value.items,
       };
       return { ok: true, value: view };
     },
@@ -454,16 +487,20 @@ export function coreAgentsSource(
       return refreshed.ok;
     },
 
-    async setFavorites(items) {
-      const current = await favorites();
+    async setHidden(items) {
+      const current = await hiddenModels();
       if (!current.ok) return current;
-      const changed = await link.command(changeModelFavorites, {
+      const changed = await link.command(changeHiddenModels, {
         input: { items },
         compare: { settings_seq: current.value.seq },
       });
       return changed.ok
-        ? { ok: true, value: changed.value.favorites.items }
+        ? { ok: true, value: changed.value.hidden.items }
         : { ok: false, message: changed.code };
+    },
+
+    async addModelName(provider, modelName) {
+      return await addReportedModel(link, provider, modelName);
     },
 
     readAgent: (project, key) => detailOf(project, key),

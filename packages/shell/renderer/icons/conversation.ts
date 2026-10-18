@@ -16,7 +16,6 @@ import {
   Search,
   SearchCheck,
   Square,
-  Star,
   X,
 } from "lucide-react";
 
@@ -38,6 +37,5 @@ export const conversationIcons = {
   removeContext: X,
   expand: ChevronDown,
   search: Search,
-  favorite: Star,
   current: Check,
 } as const satisfies Record<string, LucideIcon>;

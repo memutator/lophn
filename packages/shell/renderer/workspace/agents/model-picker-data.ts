@@ -14,16 +14,14 @@ import {
   orderPicker,
   type SelectableModel,
   selectableModels,
-  toggleFavorite,
-  typedNameAllowed,
 } from "../../../../protocol/lophn-agent/model-picker.ts";
 import type {
+  ManageProviderView,
   ModelPickerProps,
   PickerAxisView,
   PickerModelRef,
-  PickerModelRow,
 } from "../../conversation/model-picker/types.ts";
-import type { ModelFavorite, ModelsView, ProviderChoice } from "./source.ts";
+import type { ModelsView, ProviderChoice } from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 
 /** picker 하나가 가진 화면 상태. 닫혀 있고 검색이 비어 있는 것이 처음이다. */
@@ -59,6 +57,7 @@ export function providerChoiceOf(
     id: string;
     name: string;
     definition: { key: string };
+    revision: number;
     credential: { kind: string; reported_models: readonly string[] | null };
   },
   catalog: readonly CatalogEntry[],
@@ -68,6 +67,7 @@ export function providerChoiceOf(
     name: provider.name,
     definition: provider.definition.key,
     kind: provider.credential.kind,
+    revision: provider.revision,
     reportedModels: provider.credential.reported_models,
     refreshable: isCustomDefinition(catalog, provider.definition.key),
   };
@@ -112,11 +112,6 @@ export interface PickerBinding {
   readonly layer: AgentValueLayer | null;
   /** 새로 고른 값. */
   readonly choose: (choice: ModelChoice) => void;
-  readonly setFavorites: (items: readonly ModelFavorite[]) => void;
-  /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
-  readonly refreshModels: (provider: string) => Promise<boolean>;
-  /** "Change defaults…". */
-  readonly changeDefaults: () => void;
 }
 
 const NONE: PickerModelRef = { provider: "", modelName: "" };
@@ -140,7 +135,6 @@ function axesOf(
 export function pickerProps(binding: PickerBinding): ModelPickerProps {
   const { models, state, current } = binding;
   const providers = models?.providers ?? [];
-  const favorites = models?.favorites ?? [];
   const available = models === null
     ? []
     : providers.flatMap((provider) =>
@@ -150,27 +144,16 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
       }))
     );
   const layout = orderPicker({
-    favorites,
+    hidden: models?.hidden ?? [],
     models: available,
+    current: current === null
+      ? null
+      : { provider: current.provider, model_name: current.model_name },
     query: state.query,
   });
   const nameOf = (id: string) =>
     providers.find((provider) => provider.id === id)?.name ?? id;
-  const starred = (model: { provider: string; model_name: string }) =>
-    favorites.some((item) =>
-      item.provider === model.provider && item.model_name === model.model_name
-    );
-  const row = (
-    model: { provider: string; model_name: string },
-  ): PickerModelRow => ({
-    provider: model.provider,
-    providerLabel: nameOf(model.provider),
-    modelName: model.model_name,
-    starred: starred(model),
-  });
   const label = modelLabelOf(models);
-  const refreshable = (provider: string) =>
-    providers.find((item) => item.id === provider)?.refreshable ?? false;
   const choiceOf = (model: PickerModelRef): ModelChoice => {
     const entry = models === null ? undefined : entryOf(models, model);
     return {
@@ -194,43 +177,17 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
     optionValues: current?.option_values ?? {},
     query: state.query,
     layout: {
-      favorites: layout.favorites.map((model) => ({
-        ...row(model),
-        starred: true,
-      })),
-      providers: [
-        ...layout.providers.map((group) => ({
-          provider: group.provider,
-          label: nameOf(group.provider),
-          models: group.models.map(row),
-          refreshable: refreshable(group.provider),
+      providers: layout.providers.map((group) => ({
+        provider: group.provider,
+        label: nameOf(group.provider),
+        models: group.models.map((model) => ({
+          provider: model.provider,
+          modelName: model.model_name,
         })),
-        // 목록을 아직 읽지 못한 custom provider도 묶음 머리가 있어야 [Refresh models]가 보인다. 검색 중에는 숨긴다.
-        ...(state.query.trim() !== ""
-          ? []
-          : providers.filter((provider) =>
-            provider.refreshable &&
-            !layout.providers.some((group) => group.provider === provider.id)
-          ).map((provider) => ({
-            provider: provider.id,
-            label: provider.name,
-            models: [],
-            refreshable: true,
-          }))),
-      ],
+      })),
     },
     onQueryChange: (query) => binding.setState({ ...state, query }),
     onPick: (model) => binding.choose(choiceOf(model)),
-    onToggleFavorite: (model) =>
-      binding.setFavorites(
-        toggleFavorite(
-          favorites.map((item) => ({
-            provider: item.provider,
-            model_name: item.model_name,
-          })),
-          { provider: model.provider, model_name: model.modelName },
-        ),
-      ),
     onOptionChange: (axis, value) => {
       if (current === null) return;
       binding.choose({
@@ -238,15 +195,37 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
         option_values: { ...current.option_values, [axis]: value },
       });
     },
-    typed: {
-      providers: providers.filter((provider) =>
-        typedNameAllowed(provider.kind, provider.reportedModels)
-      ).map((provider) => ({ id: provider.id, name: provider.name })),
-      onUse: (provider, modelName) =>
-        binding.choose(choiceOf({ provider, modelName })),
-    },
     layer: binding.layer,
-    onRefreshModels: binding.refreshModels,
-    onChangeDefaults: binding.changeDefaults,
   };
+}
+
+/**
+ * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 끈 여부를 싣는다.
+ * `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
+ */
+export function manageProviders(
+  models: ModelsView,
+  first: string | null,
+): ManageProviderView[] {
+  const hidden = new Set(
+    models.hidden.map((item) =>
+      JSON.stringify([item.provider, item.model_name])
+    ),
+  );
+  const views = models.providers.map((provider): ManageProviderView => ({
+    id: provider.id,
+    name: provider.name,
+    models: modelsOf(models, provider).map((entry) => ({
+      modelName: entry.model_name,
+      hidden: hidden.has(JSON.stringify([provider.id, entry.model_name])),
+    })),
+    refreshable: provider.refreshable,
+    canAddName: provider.refreshable &&
+      (provider.reportedModels === null ||
+        provider.reportedModels.length === 0),
+  }));
+  return [
+    ...views.filter((view) => view.id === first),
+    ...views.filter((view) => view.id !== first),
+  ];
 }

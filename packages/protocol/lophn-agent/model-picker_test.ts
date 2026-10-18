@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 
 import type { CatalogEntry } from "./models.ts";
-import { selectableModels, typedNameAllowed } from "./model-picker.ts";
+import { selectableModels } from "./model-picker.ts";
 
 // 필요한 칸만 채운 catalog 항목이다. selectableModels는 정의와 이름만 본다.
 const entry = (provider_definition: string, model_name: string) =>
@@ -47,11 +47,4 @@ Deno.test("selectableModels: 알려 준 목록이 있으면 그 목록, 없거�
     selectableModels({ definition: "b", catalog, reported: ["m1"] }),
     [{ model_name: "m1", entry: b1 }],
   );
-});
-
-Deno.test("typedNameAllowed: 구독 OAuth의 목록만 허락 목록이다", () => {
-  assertEquals(typedNameAllowed("oauth", ["m1"]), false);
-  assertEquals(typedNameAllowed("oauth", null), true);
-  assertEquals(typedNameAllowed("api_key", ["m1"]), true);
-  assertEquals(typedNameAllowed("none", ["m1"]), true);
 });

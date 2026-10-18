@@ -134,25 +134,27 @@ export interface ProviderChoice {
   readonly id: string;
   readonly name: string;
   readonly definition: string;
-  /** credential 종류(`oauth`, `api_key` …). 이름을 직접 적을 수 있는지 가른다. */
+  /** credential 종류(`oauth`, `api_key` …). */
   readonly kind: string;
+  /** provider 기록의 판. 사람이 model 이름을 더할 때(RecordProviderModels) compare 기준이다. */
+  readonly revision: number;
   /** provider가 알려 준 model 이름. null이면 아직 모르는 것이다. */
   readonly reportedModels: readonly string[] | null;
   /** model 목록을 다시 읽을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
   readonly refreshable: boolean;
 }
 
-export interface ModelFavorite {
+export interface HiddenModel {
   readonly provider: string;
   readonly model_name: string;
 }
 
-/** model picker를 그릴 자료. */
+/** model picker와 Manage models 창을 그릴 자료. */
 export interface ModelsView {
   readonly providers: readonly ProviderChoice[];
   readonly catalog: readonly CatalogEntry[];
-  /** 별표를 찍은 순서 그대로. */
-  readonly favorites: readonly ModelFavorite[];
+  /** 사람이 끈 model. 여기 없는 model은 켜져 있다. */
+  readonly hidden: readonly HiddenModel[];
 }
 
 export interface SaveInput {
@@ -231,10 +233,15 @@ export interface AgentsSource {
   models(): Promise<ReadResult<ModelsView>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
-  /** 별표 목록 전체를 새 순서로 바꾸고 바뀐 목록을 돌려준다. */
-  setFavorites(
-    items: readonly ModelFavorite[],
-  ): Promise<ReadResult<readonly ModelFavorite[]>>;
+  /** 끈 model 목록 전체를 바꾸고 바뀐 목록을 돌려준다. */
+  setHidden(
+    items: readonly HiddenModel[],
+  ): Promise<ReadResult<readonly HiddenModel[]>>;
+  /**
+   * 목록을 주지 않는 custom provider에 model 이름을 더한다: 그 provider의 알려 준 목록에 이름을 덧붙여
+   * 저장한다(있던 이름은 그대로).
+   */
+  addModelName(provider: string, modelName: string): Promise<ReadResult<null>>;
   /** project가 null이면 lophn 전체의 설정이다. */
   readAgent(
     project: string | null,

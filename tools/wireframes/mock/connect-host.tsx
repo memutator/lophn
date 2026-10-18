@@ -1,5 +1,5 @@
 // 제품 Desktop이 화면 전체를 감싸는 ConnectProviderHost를 gallery 화면도 같이 쓴다. 감싸지 않으면 model picker의
-// Connect provider 줄이 숨는다. 화면이 provider·기본 model 상태를 정했으면 그 source를 넘기고, 아니면 기본 fake다.
+// Manage models 줄이 숨는다. 화면이 provider·기본 model 상태를 정했으면 그 source를 넘기고, 아니면 기본 fake다.
 import { type ReactNode, useMemo } from "react";
 
 import { ConnectProviderHost } from "../../../packages/shell/renderer/desktop/settings/providers/connect-host.tsx";

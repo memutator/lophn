@@ -249,7 +249,6 @@ export function ChatShell(
             if (entry.name === "recap") setView("recap");
           }}
           onProblem={() => {}}
-          onChangeDefaults={() => {}}
         />
       </div>
     </div>

@@ -3,26 +3,23 @@
 // props로 옮긴다), 여기는 core에서 읽은 자료를 그 규칙에 먹이고 고른 값을 session에만 저장하는 연결이다. model 이름과
 // option 값은 모두 catalog가 준다. 바꾼 값 맞춤은 안내 없이 조용히 맞춘다.
 import {
-  changeModelFavorites,
+  type CatalogEntry,
+  hiddenModelsRead,
   modelCatalogRead,
   type ModelChoice,
-  modelFavoritesRead,
 } from "../../../protocol/lophn-agent/models.ts";
 import {
   agentDefinitionRead,
   type AgentValueLayer,
 } from "../../../protocol/lophn-agent/agent-definitions.ts";
-import {
-  providerList,
-  refreshProviderModels,
-} from "../../../protocol/lophn-agent/providers.ts";
+import { providerList } from "../../../protocol/lophn-agent/providers.ts";
 import { changeSessionModel } from "../../../protocol/lophn-agent/sessions.ts";
 import {
   type PickerBinding,
   pickerProps,
   providerChoiceOf,
 } from "../workspace/agents/model-picker-data.ts";
-import type { ModelFavorite, ModelsView } from "../workspace/agents/source.ts";
+import type { ModelsView } from "../workspace/agents/source.ts";
 import type { PickerModelRef } from "./model-picker/types.ts";
 import type { AgentSession } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import type { ModelView, SourceResult } from "./agent-tab-source.ts";
@@ -34,15 +31,11 @@ import {
 } from "./agent-tab-core-source-env.ts";
 import { readSession } from "./agent-tab-core-source-sessions.ts";
 
-/** 읽은 model 자료와 agent 기본 model을 기억하는 시간. 검색어를 칠 때마다 다시 읽지 않게 한다. */
+/** catalog와 agent 기본 model을 기억하는 시간. 검색어를 칠 때마다 다시 읽지 않게 한다. */
 const MODEL_TTL_MS = 5000;
 
-interface Loaded {
+interface Context {
   readonly models: ModelsView;
-  readonly seq: string;
-}
-
-interface Context extends Loaded {
   readonly record: AgentSession | null;
   readonly current: ModelChoice | null;
   /** current가 온 층. current가 없으면 null이다. */
@@ -71,54 +64,48 @@ interface ModelPart {
     value: string,
     query: string,
   ): Promise<SourceResult<ModelView>>;
-  toggleFavorite(
-    session: string | null,
-    model: PickerModelRef,
-    query: string,
-  ): Promise<SourceResult<ModelView>>;
   /**
    * session을 열기 전에 고른 model을 방금 연 session에 저장하고 비운다. 저장하지 못해도 session은 열렸으므로
    * 실패를 알리지 않는다(그 session은 agent 기본값을 따른다).
    */
   applyPending(session: string, stateSeq: string): Promise<void>;
-  /** custom provider의 model 목록을 다시 읽는다. 성공하면 읽어 둔 model 자료를 비우고 true를 돌려준다. */
-  refreshModels(provider: string): Promise<boolean>;
 }
 
 export function createModelPart(env: Env): ModelPart {
-  const loaded: Memo<Loaded> = memo(env.now, MODEL_TTL_MS);
+  // catalog는 크고 자주 바뀌지 않아 기억한다. provider와 끈 model은 Manage models 창에서 바뀌므로 매번 읽는다.
+  const catalog: Memo<readonly CatalogEntry[]> = memo(env.now, MODEL_TTL_MS);
   const defaultModel: Memo<Inherited> = memo(env.now, MODEL_TTL_MS);
   let pending: ModelChoice | null = null;
 
-  async function readModels(): Promise<SourceResult<Loaded>> {
-    const known = loaded.get();
-    if (known !== undefined) return { ok: true, value: known };
+  async function readModels(): Promise<SourceResult<ModelsView>> {
     const providers = await env.pages(
       providerList,
       {},
       (out) => out.providers,
     );
     if (!providers.ok) return providers;
-    const catalog = await env.pages(modelCatalogRead, {}, (out) => out.entries);
-    // catalog를 읽지 못해도 현재 model의 이름은 보이도록 model 목록만 비운다.
-    const entries = catalog.ok ? catalog.value : [];
-    const favorites = await env.read(modelFavoritesRead, {});
-    if (!favorites.ok) return favorites;
-    const value: Loaded = {
-      models: {
+    let entries = catalog.get();
+    if (entries === undefined) {
+      const read = await env.pages(modelCatalogRead, {}, (out) => out.entries);
+      // catalog를 읽지 못해도 현재 model의 이름은 보이도록 model 목록만 비운다.
+      entries = read.ok ? read.value : [];
+      if (read.ok) catalog.set(entries);
+    }
+    const hidden = await env.read(hiddenModelsRead, {});
+    if (!hidden.ok) return hidden;
+    return {
+      ok: true,
+      value: {
         providers: providers.value.map((provider) =>
           providerChoiceOf(provider, entries)
         ),
         catalog: entries,
-        favorites: favorites.value.favorites.items.map((item) => ({
+        hidden: hidden.value.hidden.items.map((item) => ({
           provider: item.provider,
           model_name: item.model_name,
         })),
       },
-      seq: favorites.value.favorites.settings_seq,
     };
-    loaded.set(value);
-    return { ok: true, value };
   }
 
   /** 이 agent가 쓰는 model(정의·Workspace 기본값을 합친 값). */
@@ -157,7 +144,10 @@ export function createModelPart(env: Env): ModelPart {
       current = fallback.value.model;
       layer = fallback.value.layer;
     }
-    return { ok: true, value: { ...models.value, record, current, layer } };
+    return {
+      ok: true,
+      value: { models: models.value, record, current, layer },
+    };
   }
 
   function binding(
@@ -174,9 +164,6 @@ export function createModelPart(env: Env): ModelPart {
       current,
       layer,
       choose: () => {},
-      setFavorites: () => {},
-      refreshModels: () => Promise.resolve(false),
-      changeDefaults: () => {},
       ...capture,
     };
   }
@@ -194,7 +181,6 @@ export function createModelPart(env: Env): ModelPart {
       axes: props.axes,
       optionValues: props.optionValues,
       layout: props.layout,
-      typed: props.typed.providers,
       layer: props.layer,
     };
   }
@@ -279,48 +265,6 @@ export function createModelPart(env: Env): ModelPart {
         ok: true,
         value: viewOf(models, stored.value, query, "session"),
       };
-    },
-
-    async toggleFavorite(session, model, query) {
-      const read = await context(session);
-      if (!read.ok) return read;
-      const { models, current, seq, layer } = read.value;
-      let items: readonly ModelFavorite[] | null = null;
-      pickerProps(binding(models, current, query, {
-        setFavorites: (next) => {
-          items = next;
-        },
-      })).onToggleFavorite(model);
-      if (items === null) return { ok: false, code: "invalid_input" };
-      const written = await env.command(changeModelFavorites, {
-        input: { items },
-        compare: { settings_seq: seq },
-        key: `model-favorites-change-${seq}-${await keyTag(
-          JSON.stringify(items),
-        )}`,
-      });
-      if (!written.ok) return written;
-      loaded.clear();
-      return {
-        ok: true,
-        value: viewOf(
-          { ...models, favorites: written.value.favorites.items },
-          current,
-          query,
-          layer,
-        ),
-      };
-    },
-
-    async refreshModels(provider) {
-      const refreshed = await env.command(refreshProviderModels, {
-        input: { provider },
-        compare: {},
-        key: `providers-refresh-models-${provider}-${env.now()}`,
-      });
-      if (!refreshed.ok) return false;
-      loaded.clear();
-      return true;
     },
 
     async applyPending(session, stateSeq) {

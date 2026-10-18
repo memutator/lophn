@@ -60,7 +60,7 @@ export interface AgentViewHost {
   openFile?: (path: string) => void;
   /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
   openPermissions: () => void;
-  /** Change defaults…(defaults)와 `/skills`·`/mcp`가 Settings › Agents로 간다. */
+  /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
   openAgentSettings: (target: "defaults" | "skills" | "mcp") => void;
   /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다. */
   openForked: (session: string) => void;
@@ -607,7 +607,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           onStop={() => void stop()}
           onCommand={runSlash}
           onProblem={fail}
-          onChangeDefaults={() => host.openAgentSettings("defaults")}
         />
       </div>
     </section>

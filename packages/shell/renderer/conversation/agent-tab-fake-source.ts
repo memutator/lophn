@@ -785,21 +785,16 @@ const SCENARIOS: Readonly<Record<string, PickerScenario>> = {
 export interface FakePicker {
   /** none은 연결된 provider가 없다. custom은 내장 셋에 custom provider 하나를 더한다. */
   readonly providers?: "none" | "built_in" | "custom";
-  /** custom provider의 model 목록을 읽어 둔 상태인가. 기본은 읽어 둔 상태다. */
-  readonly customListed?: boolean;
   /** 지금 model이 온 층. */
   readonly layer?: AgentValueLayer | null;
   /** 처음에 고른 model의 이름. 기본은 Sonnet 5.5다. */
   readonly current?: string;
-  /** [Refresh models]가 실패한다. */
-  readonly refreshFails?: boolean;
 }
 
 function modelView(
   scenario: PickerScenario,
   query: string,
   picker: FakePicker,
-  customListed: boolean,
 ): ModelView {
   const needle = query.trim().toLowerCase();
   const matches = (name: string) =>
@@ -810,15 +805,10 @@ function modelView(
     ? [{
       provider: CUSTOM_PROVIDER,
       label: "Local server",
-      models: customListed
-        ? CUSTOM_MODELS.map((modelName) => ({
-          provider: CUSTOM_PROVIDER,
-          providerLabel: "Local server",
-          modelName,
-          starred: false,
-        }))
-        : [],
-      refreshable: true,
+      models: CUSTOM_MODELS.map((modelName) => ({
+        provider: CUSTOM_PROVIDER,
+        modelName,
+      })),
     }]
     : [];
   const groups = [...builtIn, ...custom];
@@ -832,22 +822,13 @@ function modelView(
     axes: none ? [] : scenario.axes,
     optionValues: none ? {} : scenario.optionValues,
     layout: {
-      favorites: kind === "none"
-        ? []
-        : LAYOUT_ALL.favorites.filter((row) => matches(row.modelName)),
       providers: groups
         .map((group) => ({
           ...group,
           models: group.models.filter((row) => matches(row.modelName)),
         }))
-        .filter((group) =>
-          group.models.length > 0 || (group.refreshable && needle === "")
-        ),
+        .filter((group) => group.models.length > 0),
     },
-    typed: [
-      ...builtIn.map((group) => ({ id: group.provider, name: group.label })),
-      ...custom.map((group) => ({ id: group.provider, name: group.label })),
-    ],
     layer: picker.layer === undefined ? "global" : picker.layer,
   };
 }
@@ -924,9 +905,8 @@ export function createFakeAgentTabSource(
   options: { scene?: AgentTabScene; picker?: FakePicker } = {},
 ): AgentTabSource {
   const picker = options.picker ?? {};
-  let customListed = picker.customListed ?? true;
   const pickerView = (scenario: PickerScenario, query: string) =>
-    modelView(scenario, query, picker, customListed);
+    modelView(scenario, query, picker);
   const data = sceneData(options.scene ?? "report");
   const bodies = new Map<string, readonly BodyPart[]>(
     Object.entries(data.bodies ?? {}),
@@ -1072,13 +1052,6 @@ export function createFakeAgentTabSource(
       };
       models.set(session ?? "new", next);
       return ok(pickerView(next, query));
-    },
-    toggleFavorite: (session, _model, query) =>
-      ok(pickerView(scenarioOf(session), query)),
-    refreshModels() {
-      if (picker.refreshFails === true) return Promise.resolve(false);
-      customListed = true;
-      return Promise.resolve(true);
     },
 
     commands: (session, query) => ok(filterGroups(query, session !== null)),

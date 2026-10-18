@@ -9,25 +9,15 @@ export interface PickerModelRef {
   readonly modelName: string;
 }
 
-export interface PickerModelRow extends PickerModelRef {
-  /** 줄에 보이는 provider 이름. Favorites 줄에서 어느 provider의 것인지 알린다. */
-  readonly providerLabel: string;
-  /** 별표가 켜졌는지. Favorites 줄은 항상 켜져 있고, provider 묶음 줄은 즐겨찾기에 있으면 켜진다. */
-  readonly starred: boolean;
-}
-
 export interface PickerProviderGroup {
   readonly provider: string;
   /** 묶음 머리 글(Anthropic 등). */
   readonly label: string;
-  readonly models: readonly PickerModelRow[];
-  /** 이 provider의 model 목록을 다시 읽을 수 있는가(custom provider). */
-  readonly refreshable: boolean;
+  readonly models: readonly PickerModelRef[];
 }
 
-/** 검색을 반영한 목록. Favorites는 별표를 찍은 순서 그대로이고 검색 중에도 먼저다. */
+/** 검색을 반영한 목록. 끈 model은 없고, 지금 model은 꺼져 있어도 있다. */
 export interface PickerLayoutView {
-  readonly favorites: readonly PickerModelRow[];
   readonly providers: readonly PickerProviderGroup[];
 }
 
@@ -39,12 +29,6 @@ export interface PickerAxisView {
     readonly value: string;
     readonly label: string;
   }[];
-}
-
-/** 이름을 직접 적어 고를 수 있는 provider와 그 길. 모두 빠지면 providers가 빈 배열이고 입력 줄을 숨긴다. */
-export interface TypedModelView {
-  readonly providers: readonly { readonly id: string; readonly name: string }[];
-  readonly onUse: (provider: string, modelName: string) => void;
 }
 
 export interface ModelPickerProps {
@@ -63,16 +47,9 @@ export interface ModelPickerProps {
   layout: PickerLayoutView;
   onQueryChange: (query: string) => void;
   onPick: (model: PickerModelRef) => void;
-  /** 별표를 눌렀다. 줄을 고른 것으로 치지 않는다. */
-  onToggleFavorite: (model: PickerModelRef) => void;
   onOptionChange: (axis: string, value: string) => void;
-  typed: TypedModelView;
   /** 지금 model이 온 층. session 층은 대화 source만 안다. 어디에도 없으면 null이다. */
   layer: AgentValueLayer | null;
-  /** provider의 model 목록을 다시 읽는다. 성공하면 true다. */
-  onRefreshModels: (provider: string) => Promise<boolean>;
-  /** "Change defaults…" 를 눌렀다. Settings › Agents로 간다. 대화 picker만 이 줄을 보인다. */
-  onChangeDefaults: () => void;
   /** option 축을 보일 수 있는지. catalog를 읽지 못했으면 false라 "No options"를 말하지 않는다. 없으면 true다. */
   axesReady?: boolean;
   /** 위 층의 값을 따르는 줄. Operator와 project의 Model 칸만 가진다. */
@@ -84,4 +61,19 @@ export interface FollowView {
   readonly label: string;
   readonly on: boolean;
   readonly onFollow: () => void;
+}
+
+/** Manage models 창의 provider 묶음 하나. */
+export interface ManageProviderView {
+  readonly id: string;
+  readonly name: string;
+  /** 이 provider에서 고를 수 있는 model과 끈 여부. */
+  readonly models: readonly {
+    readonly modelName: string;
+    readonly hidden: boolean;
+  }[];
+  /** model 목록을 다시 읽을 수 있는 provider(custom)다. */
+  readonly refreshable: boolean;
+  /** 이름을 더하는 칸을 보이는가: 목록을 주지 않는 custom provider다. */
+  readonly canAddName: boolean;
 }

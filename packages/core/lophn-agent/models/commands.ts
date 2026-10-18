@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type CatalogEntry,
-  changeModelFavorites,
+  changeHiddenModels,
   type ModelChoice,
   modelDefaultChange,
   projectModelChange,
@@ -13,7 +13,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { validateOptionValues } from "./options.ts";
-import { GLOBAL_SCOPE, loadFavorites, saveChoice } from "./store.ts";
+import { GLOBAL_SCOPE, loadHidden, saveChoice } from "./store.ts";
 
 // 등록 순서: actor 검사 → 입력(schema는 registry, provider·목록·option은 여기) → CAS → 쓰기.
 // 짧은 transaction 하나다. 바뀐 것은 command의 결과를 받은 화면이 다시 읽어 안다.
@@ -79,7 +79,7 @@ export function createModelCommands(
 ): {
   changeDefault: CommandDefinition<typeof modelDefaultChange>;
   changeProject: CommandDefinition<typeof projectModelChange>;
-  changeFavorites: CommandDefinition<typeof changeModelFavorites>;
+  changeHidden: CommandDefinition<typeof changeHiddenModels>;
 } {
   const resolve = (tx: Tx): ModelCommandDeps =>
     typeof deps === "function" ? deps(tx) : deps;
@@ -114,39 +114,39 @@ export function createModelCommands(
         return ok({ model: input.model });
       },
     },
-    changeFavorites: {
-      route: changeModelFavorites,
+    changeHidden: {
+      route: changeHiddenModels,
       handle(tx, ctx, input, compare) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        // 즐겨찾기는 catalog에서 사라져도 지우지 않는다. 목록과 catalog는 보지 않고 provider만 본다.
+        // 끈 model은 catalog에서 사라져도 지우지 않는다. 목록과 catalog는 보지 않고 provider만 본다.
         const known = resolve(tx);
         for (const item of input.items) {
           if (known.definitionKey(item.provider) === undefined) {
             return err({
               code: "not_found",
-              message: "즐겨찾기의 provider를 찾을 수 없다",
+              message: "끈 model의 provider를 찾을 수 없다",
             });
           }
         }
-        const current = loadFavorites(tx.sql);
+        const current = loadHidden(tx.sql);
         if (current.settings_seq !== compare.settings_seq) return conflict();
         const nextSeq = String(Number(current.settings_seq) + 1);
         tx.sql.run(
-          `insert into model_favorites_seq (one, seq) values (1, ?)
+          `insert into model_hidden_seq (one, seq) values (1, ?)
            on conflict (one) do update set seq = excluded.seq`,
           [nextSeq],
         );
-        // 목록을 통째로 바꾼다. rank를 0부터 빈틈 없이 다시 매긴다.
-        tx.sql.run("delete from model_favorites", []);
-        input.items.forEach((item, rank) => {
+        // 목록을 통째로 바꾼다.
+        tx.sql.run("delete from model_hidden", []);
+        for (const item of input.items) {
           tx.sql.run(
-            "insert into model_favorites (provider, model_name, rank) values (?, ?, ?)",
-            [item.provider, item.model_name, rank],
+            "insert into model_hidden (provider, model_name) values (?, ?)",
+            [item.provider, item.model_name],
           );
-        });
+        }
         return ok({
-          favorites: { items: input.items, settings_seq: nextSeq },
+          hidden: { items: input.items, settings_seq: nextSeq },
         });
       },
     },

@@ -97,9 +97,6 @@ function createSource(
       modelPart.chooseModel(session, model, query),
     setModelOption: (session, axis, value, query) =>
       modelPart.setModelOption(session, axis, value, query),
-    toggleFavorite: (session, model, query) =>
-      modelPart.toggleFavorite(session, model, query),
-    refreshModels: (provider) => modelPart.refreshModels(provider),
 
     commands: (session, query) => readCommands(env, session, query, agentName),
     runCommand: (session, entry, key) => runCommand(env, session, entry, key),

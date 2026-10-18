@@ -3,6 +3,7 @@ export const conversation = {
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.skill-command-request":
     'Use the "{skill}" skill for this request.',
+  "conversation.button.add-model": "Add",
   "conversation.button.approval-allow": "Allow",
   "conversation.button.approval-allow-always": "Always allow",
   "conversation.button.approval-allow-once": "Allow once",
@@ -12,19 +13,16 @@ export const conversation = {
   "conversation.button.archived-toggle": "Archived ({count, number})",
   "conversation.button.attach": "Add attachment",
   "conversation.button.call-cancel": "Cancel",
-  "conversation.button.change-defaults": "Change defaults…",
   "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",
-  "conversation.button.custom-model-use": "Use",
   "conversation.button.delete": "Delete",
   "conversation.button.edit-open": "Open",
-  "conversation.button.favorite-add": "Add {model} to favorites",
-  "conversation.button.favorite-remove": "Remove {model} from favorites",
   "conversation.button.fork": "Fork",
   "conversation.button.fork-here": "Fork from here",
   "conversation.button.hidden-hide": "Hide",
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
+  "conversation.button.manage-models": "Manage models",
   "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
   "conversation.button.question-next": "Next",
@@ -47,6 +45,7 @@ export const conversation = {
   "conversation.empty.no-messages":
     "Nothing here yet. Write what you need below.",
   "conversation.error.action-failed": "That didn't work. Try again.",
+  "conversation.error.add-model": "Couldn't add that model name. Try again.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
@@ -114,7 +113,6 @@ export const conversation = {
   "conversation.label.evidence-problem": "Problem",
   "conversation.label.evidence-session": "Session",
   "conversation.label.evidence-ticket": "Ticket",
-  "conversation.label.favorites": "Favorites",
   "conversation.label.grant-allow": "Runs without asking",
   "conversation.label.grant-ask": "Asks first",
   "conversation.label.grant-deny": "Not allowed",
@@ -202,6 +200,7 @@ export const conversation = {
   "conversation.label.since-now": "now",
   "conversation.label.slash-menu": "Commands",
   "conversation.label.slash-unknown": "Unknown command: /{name}",
+  "conversation.label.provider-toggle": "Show all {provider} models",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
@@ -212,7 +211,6 @@ export const conversation = {
     "{count, plural, one {Read # document} other {Read # documents}}",
   "conversation.label.tool-used":
     "{count, plural, one {Used {tool}} other {Used {tool} # times}}",
-  "conversation.label.typed-provider": "Provider for the model name",
   "conversation.label.view-compact": "Compact",
   "conversation.label.view-detail": "View detail",
   "conversation.label.view-everything": "Everything",
@@ -241,15 +239,19 @@ export const conversation = {
   "conversation.notice.call-working-together":
     "{to} is working on it. Messages go back and forth until it reports.",
   "conversation.notice.custom-model":
-    "A model that isn't listed can still be used by its name.",
+    "This provider doesn't list its models. Add the names you want to use.",
   "conversation.notice.decide-failed":
     "Couldn't send your decision. Try again.",
   "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.no-model-options": "No options for this model.",
+  "conversation.notice.manage-models-lead":
+    "Choose which models appear in the model picker.",
   "conversation.notice.no-listed-models":
-    "No models listed yet. Refresh to read the list.",
+    "No models listed yet. Refresh the list, or add a name.",
   "conversation.notice.no-models": "No models match.",
   "conversation.notice.no-providers": "No providers connected.",
+  "conversation.notice.no-shown-models":
+    "No models are shown. Choose some with Manage models.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
   "conversation.notice.not-sent":
@@ -329,6 +331,7 @@ export const conversation = {
   "conversation.title.approval-change": "{agent} wants to change settings",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.call-handed": "Handed to {to}",
+  "conversation.title.manage-models": "Manage models",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.question-asking": "{agent} is asking",
   "conversation.title.recap": "Recap",

@@ -42,8 +42,6 @@ interface AgentComposerProps {
     | "model"
     | "chooseModel"
     | "setModelOption"
-    | "toggleFavorite"
-    | "refreshModels"
   >;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
@@ -85,8 +83,6 @@ interface AgentComposerProps {
   onCommand: (entry: SlashEntryView, argument: string) => void;
   /** model·명령 목록을 읽지 못했다. */
   onProblem: () => void;
-  /** model picker의 "Change defaults…". */
-  onChangeDefaults: () => void;
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -111,7 +107,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     source: props.source,
     session: props.session,
     onProblem: props.onProblem,
-    onChangeDefaults: props.onChangeDefaults,
   });
   const slash = useSlashMenu({
     source: props.source,

@@ -26,7 +26,6 @@ import { TerminalBody } from "./bodies.tsx";
 import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation, type TabState } from "./conversation.tsx";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
-import { FavoritesContext } from "../../../../packages/shell/renderer/conversation/model-picker/model-picker.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
 import { contextTab, documentTab } from "../../mock/phroner-data.ts";
 import { ContextsList } from "./contexts/contexts-list.tsx";
@@ -49,9 +48,6 @@ import {
 import workspace from "../../../../packages/shell/renderer/workspace/workspace.module.css";
 import paneStyles from "../../../../packages/shell/renderer/workspace/panes/panes.module.css";
 import { PaddedTab } from "../../../../packages/shell/renderer/workspace/panes/padded-tab.tsx";
-
-/** 별표 찍은 model. 찍은 순서 그대로 둔다(provider로 다시 묶지 않는다). */
-const FAVORITE_START: readonly string[] = ["GPT-6.1 Sol", "Sonnet 5.5"];
 
 export interface PaneInit {
   readonly tabs: readonly TabSpec[];
@@ -211,7 +207,6 @@ export function ProjectApp(
     ),
   );
   const [answer, setAnswer] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<readonly string[]>(FAVORITE_START);
   const [tabStates, setTabStates] = useState<
     Readonly<Record<string, TabState>>
   >({});
@@ -453,112 +448,98 @@ export function ProjectApp(
   const items = paletteItems(paletteQuery);
   return (
     <GalleryConnectHost>
-      <FavoritesContext.Provider
-        value={{
-          names: favorites,
-          toggle: (name) =>
-            setFavorites((now) =>
-              now.includes(name)
-                ? now.filter((item) => item !== name)
-                : [...now, name]
-            ),
-        }}
-      >
-        <div className={workspace.workspace}>
-          <PageSidebar
-            {...sidebar}
-            collapsed={collapsed}
-            onToggle={() => setCollapsed(!collapsed)}
-            onRail={rail}
-            onOpenFile={(id) => open(documentTab(id))}
-            onOpenContext={(name) => open(contextTab(name))}
-            onAgent={(id) => open(newConversationTab(id))}
-            onManage={() => open(AGENTS_TAB)}
-            onSession={(row) => open(sessionTab(row))}
-            onSavedView={(view) => open(savedViewTab(view))}
-          />
-          <div className={workspace.main}>
-            <div className={workspace.topBar}>
-              <TopBar
-                platform="linux"
-                leading={
-                  <div className={workspace.leading}>
-                    {collapsed
-                      ? <LauncherButton onLauncher={() => {}} />
-                      : null}
-                    <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
-                  </div>
-                }
-                trailing={
-                  <div className={workspace.trailing}>
-                    {titleExtra}
-                    <PaletteButton onClick={() => setPalette(true)} />
-                  </div>
-                }
-              />
-            </div>
-            <div className={paneStyles.panes}>
-              {panes.map((pane, index) => {
-                return (
-                  <section key={index} className={paneStyles.pane}>
-                    <TabStrip
-                      tabs={stripTabsOf(pane.tabs, tabStates)}
-                      selected={pane.selected}
-                      focused={index === 0}
-                      end={
-                        <PageNewTabMenu
-                          onPick={pick}
-                          startOpen={newTabOpen && index === 0}
-                        />
-                      }
-                      onSelect={(key) =>
-                        setPanes((current) =>
-                          current.map((item, at) =>
-                            at === index ? { ...item, selected: key } : item
-                          )
-                        )}
-                      onClose={close}
-                    />
-                    {pane.tabs.map((tab) => (
-                      <div
-                        key={tab.key}
-                        hidden={tab.key !== pane.selected}
-                        className={`${paneStyles.body} ${
-                          FLUSH.has(tab.kind) ? paneStyles.flush : ""
-                        }`}
-                      >
-                        {body(tab)}
-                      </div>
-                    ))}
-                    {index === 0 ? overlay : null}
-                  </section>
-                );
-              })}
-            </div>
-          </div>
-          {children}
-          <Palette
-            open={palette}
-            onOpenChange={(next) => {
-              setPalette(next);
-              if (!next) setPaletteQuery("");
-            }}
-            title="Command palette"
-            items={items}
-            onQueryChange={setPaletteQuery}
-            onSelect={(id) => {
-              const chosen = PALETTE.find((item) => item.id === id);
-              if (chosen) open(chosen.tab());
-              else if (id === "browse") open(documentTab(DIALOG_FILE));
-              else if (id.startsWith("path:")) {
-                open(documentTab(id.slice("path:".length)));
+      <div className={workspace.workspace}>
+        <PageSidebar
+          {...sidebar}
+          collapsed={collapsed}
+          onToggle={() => setCollapsed(!collapsed)}
+          onRail={rail}
+          onOpenFile={(id) => open(documentTab(id))}
+          onOpenContext={(name) => open(contextTab(name))}
+          onAgent={(id) => open(newConversationTab(id))}
+          onManage={() => open(AGENTS_TAB)}
+          onSession={(row) => open(sessionTab(row))}
+          onSavedView={(view) => open(savedViewTab(view))}
+        />
+        <div className={workspace.main}>
+          <div className={workspace.topBar}>
+            <TopBar
+              platform="linux"
+              leading={
+                <div className={workspace.leading}>
+                  {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
+                  <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
+                </div>
               }
-              setPalette(false);
-              setPaletteQuery("");
-            }}
-          />
+              trailing={
+                <div className={workspace.trailing}>
+                  {titleExtra}
+                  <PaletteButton onClick={() => setPalette(true)} />
+                </div>
+              }
+            />
+          </div>
+          <div className={paneStyles.panes}>
+            {panes.map((pane, index) => {
+              return (
+                <section key={index} className={paneStyles.pane}>
+                  <TabStrip
+                    tabs={stripTabsOf(pane.tabs, tabStates)}
+                    selected={pane.selected}
+                    focused={index === 0}
+                    end={
+                      <PageNewTabMenu
+                        onPick={pick}
+                        startOpen={newTabOpen && index === 0}
+                      />
+                    }
+                    onSelect={(key) =>
+                      setPanes((current) =>
+                        current.map((item, at) =>
+                          at === index ? { ...item, selected: key } : item
+                        )
+                      )}
+                    onClose={close}
+                  />
+                  {pane.tabs.map((tab) => (
+                    <div
+                      key={tab.key}
+                      hidden={tab.key !== pane.selected}
+                      className={`${paneStyles.body} ${
+                        FLUSH.has(tab.kind) ? paneStyles.flush : ""
+                      }`}
+                    >
+                      {body(tab)}
+                    </div>
+                  ))}
+                  {index === 0 ? overlay : null}
+                </section>
+              );
+            })}
+          </div>
         </div>
-      </FavoritesContext.Provider>
+        {children}
+        <Palette
+          open={palette}
+          onOpenChange={(next) => {
+            setPalette(next);
+            if (!next) setPaletteQuery("");
+          }}
+          title="Command palette"
+          items={items}
+          onQueryChange={setPaletteQuery}
+          onSelect={(id) => {
+            const chosen = PALETTE.find((item) => item.id === id);
+            if (chosen) open(chosen.tab());
+            else if (id === "browse") open(documentTab(DIALOG_FILE));
+            else if (id.startsWith("path:")) {
+              open(documentTab(id.slice("path:".length)));
+            }
+            setPalette(false);
+            setPaletteQuery("");
+          }}
+        />
+      </div>
     </GalleryConnectHost>
   );
 }

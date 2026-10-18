@@ -33,7 +33,7 @@ import type {
   AgentsOverview,
   AgentsSource,
   GrantsView,
-  ModelFavorite,
+  HiddenModel,
   ModelsView,
   SaveInput,
   SaveResult,
@@ -73,8 +73,9 @@ type FakeCall =
     assignment: string;
     entries: readonly AgentGrantEntry[];
   }
-  | { method: "setFavorites"; items: readonly ModelFavorite[] }
-  | { method: "refreshModels"; provider: string };
+  | { method: "setHidden"; items: readonly HiddenModel[] }
+  | { method: "refreshModels"; provider: string }
+  | { method: "addModelName"; provider: string; modelName: string };
 
 interface FakeAgentsSource extends AgentsSource {
   /** 보낸 명령을 순서대로. */
@@ -149,7 +150,9 @@ export function createFakeAgentsSource(
   const projectMcpOff = new Set(
     PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
   );
-  let favorites: readonly ModelFavorite[] = [];
+  let hidden: readonly HiddenModel[] = [];
+  // 사람이 custom provider에 더한 이름. 목록을 주지 않는 provider의 알려 준 목록이 된다.
+  const typedNames: string[] = [];
 
   let saveFailure:
     | { issues: readonly AgentDefinitionIssue[]; code: string }
@@ -316,6 +319,7 @@ export function createFakeAgentsSource(
             name: "Anthropic",
             definition: "anthropic",
             kind: "api_key",
+            revision: 1,
             reportedModels: null,
             refreshable: false,
           }]),
@@ -325,15 +329,18 @@ export function createFakeAgentsSource(
               name: "Local server",
               definition: "custom_openai",
               kind: "api_key",
+              revision: 1,
               reportedModels: customListed
                 ? ["llama-3.3-70b", "qwen-3-coder"]
+                : typedNames.length > 0
+                ? [...typedNames]
                 : null,
               refreshable: true,
             }]
             : []),
         ],
         catalog: CATALOG,
-        favorites,
+        hidden,
       }));
     },
 
@@ -344,10 +351,16 @@ export function createFakeAgentsSource(
       return Promise.resolve(true);
     },
 
-    setFavorites(items) {
-      calls.push({ method: "setFavorites", items });
-      favorites = items;
+    setHidden(items) {
+      calls.push({ method: "setHidden", items });
+      hidden = items;
       return Promise.resolve(ok(items));
+    },
+
+    addModelName(provider, modelName) {
+      calls.push({ method: "addModelName", provider, modelName });
+      if (!typedNames.includes(modelName)) typedNames.push(modelName);
+      return Promise.resolve(ok(null));
     },
 
     readAgent(_project, key) {

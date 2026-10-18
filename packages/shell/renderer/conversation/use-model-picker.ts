@@ -18,14 +18,11 @@ interface ModelPickerInput {
     | "model"
     | "chooseModel"
     | "setModelOption"
-    | "toggleFavorite"
-    | "refreshModels"
   >;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
   /** 읽거나 쓰기가 실패했다. */
   onProblem: () => void;
-  onChangeDefaults: () => void;
 }
 
 export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
@@ -33,8 +30,6 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ModelView | null>(null);
-  // 목록을 다시 읽은 뒤 view를 새로 읽게 하는 신호. 열 때마다도 읽어 연결한 provider가 보이게 한다.
-  const [reads, setReads] = useState(0);
 
   // session이 바뀌면 열린 picker와 검색어는 옛 session의 것이다.
   useEffect(() => {
@@ -50,7 +45,7 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
     return () => {
       live = false;
     };
-  }, [source, session, query, reads, open]);
+  }, [source, session, query, open]);
 
   const apply = async (call: Promise<SourceResult<ModelView>>) => {
     const result = await call;
@@ -69,24 +64,11 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerProps {
     axes: view?.axes ?? [],
     optionValues: view?.optionValues ?? {},
     query,
-    layout: view?.layout ?? { favorites: [], providers: [] },
+    layout: view?.layout ?? { providers: [] },
     onQueryChange: setQuery,
     onPick: (model) => void apply(source.chooseModel(session, model, query)),
-    onToggleFavorite: (model) =>
-      void apply(source.toggleFavorite(session, model, query)),
     onOptionChange: (axis, value) =>
       void apply(source.setModelOption(session, axis, value, query)),
-    typed: {
-      providers: view?.typed ?? [],
-      onUse: (provider, modelName) =>
-        void apply(source.chooseModel(session, { provider, modelName }, query)),
-    },
     layer: view?.layer ?? null,
-    onRefreshModels: async (provider) => {
-      const refreshed = await source.refreshModels(provider);
-      if (refreshed) setReads((count) => count + 1);
-      return refreshed;
-    },
-    onChangeDefaults: input.onChangeDefaults,
   };
 }

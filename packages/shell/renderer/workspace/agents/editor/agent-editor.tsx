@@ -38,7 +38,8 @@ export type AgentEditorSource = Pick<
   | "imageSrc"
   | "models"
   | "refreshModels"
-  | "setFavorites"
+  | "setHidden"
+  | "addModelName"
   | "grants"
   | "setGrants"
 >;

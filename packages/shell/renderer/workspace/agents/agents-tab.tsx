@@ -21,7 +21,7 @@ interface AgentsTabProps {
   readonly projectName: string;
   readonly overview: AgentsOverview;
   readonly models: ModelsView | null;
-  /** Model 칸이 목록을 다시 읽고 별표를 쓰는 통로. */
+  /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
   readonly imageSrc: ImageSrc;
   /** 카드의 [Open]. 같은 탭 안에서 그 agent의 editor를 연다. */

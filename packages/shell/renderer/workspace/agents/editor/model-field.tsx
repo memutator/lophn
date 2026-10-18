@@ -1,5 +1,5 @@
 // Model 칸. 대화와 같은 picker(conversation/model-picker)를 칸 모양 trigger로 감싼다. 선택지·option 축·정렬은 모두
-// catalog가 주고 화면 코드에는 model 이름도 option 값도 없다. 목록은 열 때마다 다시 읽어 방금 연결한 provider가 보이게 한다.
+// catalog가 주고 화면 코드에는 model 이름도 option 값도 없다. 목록은 열 때마다 다시 읽어 Manage models 창에서 바꾼 것이 보이게 한다.
 import { useRef, useState } from "react";
 import { t } from "@lophn/wording";
 
@@ -11,11 +11,8 @@ import { pickerProps } from "../model-picker-data.ts";
 import type { AgentsSource, ModelsView } from "../source.ts";
 import styles from "./agent-editor.module.css";
 
-/** 칸이 목록을 다시 읽고, 별표를 쓰고, custom provider의 목록을 새로 읽는 통로. */
-export type ModelFieldSource = Pick<
-  AgentsSource,
-  "models" | "refreshModels" | "setFavorites"
->;
+/** 칸이 목록을 다시 읽는 통로. */
+export type ModelFieldSource = Pick<AgentsSource, "models">;
 
 function useFieldPicker(
   { models, source, current, layer, choose }: {
@@ -49,13 +46,6 @@ function useFieldPicker(
       current,
       layer,
       choose,
-      setFavorites: (items) => void source?.setFavorites(items).then(reload),
-      refreshModels: async (provider) => {
-        const refreshed = await source?.refreshModels(provider) ?? false;
-        if (refreshed) reload();
-        return refreshed;
-      },
-      changeDefaults: () => {},
     }),
     axesReady: shown !== null,
   };

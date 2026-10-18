@@ -13,6 +13,7 @@ import type { AgentsSettingsSource } from "../agents/settings-source.ts";
 import { ConnectProviderDialog } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
 import { DefaultModelDialog } from "./default-model-dialog.tsx";
+import { ManageModelsHost } from "./manage-models-host.tsx";
 import type {
   ProviderDefinitionRow,
   ProviderSettingsSource,
@@ -130,7 +131,7 @@ export function ConnectProviderHost(
   return (
     <ConnectProviderContext.Provider value={api}>
       <AfterConnectContext.Provider value={afterConnect}>
-        {children}
+        <ManageModelsHost source={agents.editor}>{children}</ManageModelsHost>
         {choosing
           ? (
             <ConnectProviderDialog

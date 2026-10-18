@@ -1,6 +1,6 @@
 import {
+  hiddenModelsRead,
   modelDefaultRead,
-  modelFavoritesRead,
   projectModelRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
@@ -8,7 +8,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
-import { GLOBAL_SCOPE, loadChoice, loadFavorites } from "./store.ts";
+import { GLOBAL_SCOPE, loadChoice, loadHidden } from "./store.ts";
 import { bundledSnapshot } from "./snapshot-catalog.ts";
 import { createCatalogRead } from "./work.ts";
 
@@ -22,7 +22,7 @@ export function createModelReads(deps: {
 }): {
   modelDefault: ReadDefinition<typeof modelDefaultRead>;
   projectModel: ReadDefinition<typeof projectModelRead>;
-  favorites: ReadDefinition<typeof modelFavoritesRead>;
+  hidden: ReadDefinition<typeof hiddenModelsRead>;
   catalog: ReturnType<typeof createCatalogRead>;
 } {
   return {
@@ -49,11 +49,11 @@ export function createModelReads(deps: {
         });
       },
     },
-    favorites: {
-      route: modelFavoritesRead,
+    hidden: {
+      route: hiddenModelsRead,
       handle(snapshot) {
         return ok({
-          favorites: loadFavorites(snapshot.sql),
+          hidden: loadHidden(snapshot.sql),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

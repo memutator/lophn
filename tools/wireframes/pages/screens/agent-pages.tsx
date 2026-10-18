@@ -48,7 +48,7 @@ const weekly = (chat: ChatInit) => withTab(weeklyTab(chat));
 export const AgentConversation = ConversationScene;
 /** 일하는 중에 보낸 메시지가 쌓인 "다음 turn" 줄과 [Send now]. */
 export const AgentQueuedMessage = QueuedMessageScene;
-/** model picker를 펼친 상태. 연결된 provider 묶음, Favorites, 고른 model의 option 축, 맨 아래 Connect provider와 Change defaults…, 머리의 층 한 줄("이 대화"). */
+/** model picker를 펼친 상태. 연결된 provider 묶음, 고른 model의 option 축, 맨 아래 Manage models 줄, 머리의 층 한 줄("이 대화"). */
 export const AgentModelPicker = () =>
   weekly({
     stage: "report",
@@ -69,7 +69,7 @@ export const ModelPickerInherited = () =>
     modelDemo: "picker",
     picker: { layer: "project" },
   });
-/** custom provider(provider가 알려 준 목록)의 묶음과 이름 직접 적기 줄이 있는 picker. */
+/** custom provider(provider가 알려 준 목록)의 묶음이 있는 picker. */
 export const ModelPickerCustom = () =>
   weekly({
     stage: "report",
@@ -85,7 +85,6 @@ export const ModelPickerRefreshFailed = () =>
       providers: "custom",
       current: "llama-3.3-70b",
       layer: "session",
-      refreshFails: true,
     },
   });
 /** model을 바꾼 뒤 provider가 요청을 거절한 오류 메시지. */

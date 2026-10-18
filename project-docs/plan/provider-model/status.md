@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py provider-model build`가 `tasks/*.md`에서 
 | `pm-connect-flow` | pm-screens | 3 | 없음 | merged | pm-screens/pm-connect-flow | c26564925 |  |
 | `pm-picker-data` | pm-screens | 3 | pm-custom-list, pm-model-rules | merged | pm-screens/pm-picker-data | 1356cd84f |  |
 | `pm-picker-ui` | pm-screens | 4 | pm-picker-data, pm-connect-flow | merged | pm-screens/pm-picker-ui | 2ad7be3ed |  |
-| `pm-wireframes` | pm-wireframes | 5 | pm-picker-ui | running | pm-wireframes/pm-wireframes |  |  |
+| `pm-wireframes` | pm-wireframes | 5 | pm-picker-ui | merged | pm-wireframes/pm-wireframes | 25d0cb367 |  |

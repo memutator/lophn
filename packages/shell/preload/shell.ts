@@ -22,6 +22,7 @@ import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createAppearanceApi } from "./appearance-api.ts";
+import { createBrowserApi } from "./browser-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
@@ -116,6 +117,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnLayout",
     createLayoutApi(ipcRenderer),
+  );
+  // browser 탭. 주소·명령·bookmark 요청만 보내고 view와 저장은 main이 한다.
+  contextBridge.exposeInMainWorld(
+    "lophnBrowser",
+    createBrowserApi(ipcRenderer),
   );
   // [Instructions]: 지침 파일을 같은 편집기로 연다. 경로는 main에만 있다.
   contextBridge.exposeInMainWorld(

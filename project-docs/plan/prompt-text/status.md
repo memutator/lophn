@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py prompt-text build`가 `tasks/*.md`에서 id,
 | `pt-coding-skills` | pt-coding-skills | 1 | 없음 | merged | plan/prompt-text | 6f40f107e |  |
 | `pt-received-input` | pt-received-input | 1 | 없음 | todo |  |  |  |
 | `pt-reproduction-remove` | pt-reproduction-remove | 1 | 없음 | merged | plan/prompt-text | bf83775c5 |  |
-| `pt-role-prompts` | pt-role-prompts | 1 | 없음 | todo |  |  |  |
+| `pt-role-prompts` | pt-role-prompts | 1 | 없음 | merged | plan/prompt-text | d66b7ab80 |  |

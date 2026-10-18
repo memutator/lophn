@@ -21,21 +21,33 @@ import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { openProjectManager } from "./reactions/project-manager.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
+import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
 import {
+  allTabs,
   applyDrag,
   breadcrumbs,
   clampSidebar,
+  closeFloat,
   type CloseScope,
   closeTab,
   closeTargets,
+  dockTab,
+  findTab,
+  floatTab,
+  isFloated,
+  mapTabs,
+  minimizeFloat,
   moveTab,
   moveTabBy,
   openFloat,
   openTabIn,
   pinTab,
+  raiseFloat,
   reopenTab,
+  restoreFloat,
+  setFloatRect,
   shiftTab,
   SIDEBAR_WIDTH,
   type SidebarState,
@@ -56,6 +68,7 @@ import {
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
+import { Floats } from "./floats/floats.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
@@ -68,7 +81,11 @@ import {
 } from "../desktop/palette/host.tsx";
 import type { Command } from "../../ipc/keybindings.ts";
 import { focusPaneBody, useKeybindings } from "./use-keybindings.ts";
-import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
+import {
+  focusTab,
+  topFloat,
+  workspaceScope,
+} from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { ContextChipView } from "../conversation/composer/types.ts";
@@ -85,6 +102,11 @@ import { openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
+import {
+  createWebviewHost,
+  WebviewHostProvider,
+  WebviewLayer,
+} from "../browser/webview-host.tsx";
 import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
@@ -101,7 +123,9 @@ import { DraftStore } from "../conversation/drafts.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import {
   createViewCovers,
+  createViewKeeps,
   ViewCoversProvider,
+  ViewKeepsProvider,
 } from "../app-frame/embedded-view.tsx";
 import styles from "./workspace.module.css";
 
@@ -228,6 +252,16 @@ export function Workspace(props: WorkspaceProps) {
   // 앱 패널 view가 같이 보는 목록.
   const covers = useMemo(createViewCovers, []);
   const appViews = useAppViews();
+  // 탭 view의 보관소. 닫는 일은 아래 effect가 정한다.
+  const closeViewRef = useRef<(session: string) => void>(() => {});
+  closeViewRef.current = (session) =>
+    void appViews?.views.closeView({ view_session: session }).catch(() => {});
+  // browser 탭의 <webview> 그릇. 창마다 하나이고 탭 key당 <webview> 하나다(옮기면 다시 load된다).
+  const webviews = useMemo(createWebviewHost, []);
+  const keeps = useMemo(
+    () => createViewKeeps((session) => closeViewRef.current(session)),
+    [],
+  );
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
@@ -281,7 +315,10 @@ export function Workspace(props: WorkspaceProps) {
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
         // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
-        if (restored) setView(restored);
+        if (restored) {
+          setView(restored);
+          setFloatFocused(false);
+        }
       }
       setReadyProject(projectId);
     };
@@ -309,18 +346,11 @@ export function Workspace(props: WorkspaceProps) {
   >({});
   const positionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const withPositions = (next: WorkspaceView): WorkspaceView => ({
-    ...next,
-    panes: next.panes.map((pane) => ({
-      ...pane,
-      tabs: pane.tabs.map((tab) => {
-        const position = positions.current[tab.key] ?? tab.readPosition;
-        return position === undefined
-          ? tab
-          : { ...tab, readPosition: position };
-      }),
-    })),
-  });
+  const withPositions = (next: WorkspaceView): WorkspaceView =>
+    mapTabs(next, (tab) => {
+      const position = positions.current[tab.key] ?? tab.readPosition;
+      return position === undefined ? tab : { ...tab, readPosition: position };
+    });
 
   const persist = (next: WorkspaceView) => {
     void source.saveLayout(toStoredLayout({
@@ -358,6 +388,21 @@ export function Workspace(props: WorkspaceProps) {
     persistRef.current(latest.current);
   }, []);
 
+  // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
+  useEffect(() => {
+    const live = new Set(allTabs(view).map((tab) => tab.key));
+    for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
+    for (const key of webviews.keys()) {
+      if (!live.has(key)) webviews.release(key);
+    }
+  }, [view, keeps, webviews]);
+  // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
+  useEffect(() => () => {
+    queueMicrotask(() => {
+      for (const key of keeps.keys()) keeps.release(key);
+    });
+  }, [keeps]);
+
   const update = (next: WorkspaceView) => {
     latest.current = next;
     setView(next);
@@ -365,6 +410,17 @@ export function Workspace(props: WorkspaceProps) {
   };
   const updateRef = useRef(update);
   updateRef.current = update;
+
+  // focus가 맨 위 floated 패널에 있는지. 저장하지 않는다. 늘 한 곳(칸 또는 패널)만 focus 색이고
+  // 접히지 않은 패널이 없으면 칸이다.
+  const [floatFocused, setFloatFocused] = useState(false);
+  const inFloats = floatFocused && topFloat(view) !== undefined;
+  // 맨 위 패널이 접히거나 닫히면 focus는 칸으로 돌아간다.
+  const leaveTopFloat = (key: string) => {
+    if (topFloat(latest.current)?.tab.key !== key) return;
+    setFloatFocused(false);
+    focusPaneBody(latest.current.focusedPane);
+  };
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTabIn이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
@@ -387,6 +443,11 @@ export function Workspace(props: WorkspaceProps) {
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
     const current = latest.current;
+    if (isFloated(current, key)) {
+      leaveTopFloat(key);
+      update(closeFloat(current, key));
+      return;
+    }
     const at = current.panes.findIndex((item) =>
       item.tabs.some((candidate) => candidate.key === key)
     );
@@ -398,12 +459,9 @@ export function Workspace(props: WorkspaceProps) {
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
     const current = latest.current;
-    const holder = current.panes.findIndex((pane) =>
-      pane.tabs.some((candidate) => candidate.key === tab.key)
-    );
     const select = options?.select !== false;
     if (!select) {
-      if (holder >= 0) return;
+      if (findTab(current, tab.key) !== undefined) return;
       const target = current.focusedPane;
       update({
         ...current,
@@ -434,17 +492,13 @@ export function Workspace(props: WorkspaceProps) {
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
   const patchTab: TabHost["patchTab"] = (key, patch, options) => {
     const current = latest.current;
-    const next: WorkspaceView = {
-      ...current,
-      panes: current.panes.map((pane) => ({
-        ...pane,
-        tabs: pane.tabs.map((tab) =>
-          tab.key === key
-            ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
-            : tab
-        ),
-      })),
-    };
+    const next = mapTabs(
+      current,
+      (tab) =>
+        tab.key === key
+          ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
+          : tab,
+    );
     if (options?.later === true) {
       latest.current = next;
       setView(next);
@@ -628,10 +682,16 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
+      if (isFloated(latest.current, key)) {
+        setFloatFocused(true);
+        update(restoreFloat(latest.current, key));
+        return;
+      }
       const at = latest.current.panes.findIndex((pane) =>
         pane.tabs.some((tab) => tab.key === key)
       );
       if (at < 0) return;
+      setFloatFocused(false);
       update({
         ...latest.current,
         focusedPane: at,
@@ -670,13 +730,24 @@ export function Workspace(props: WorkspaceProps) {
   >([]);
   const rememberClosed = (key: string) => {
     const current = latest.current;
-    const pane = current.panes.findIndex((item) =>
-      item.tabs.some((tab) => tab.key === key)
-    );
-    if (pane < 0) return;
-    const tabs = current.panes[pane]!.tabs;
-    const index = tabs.findIndex((tab) => tab.key === key);
-    const tab = tabs[index]!;
+    const float = current.floats.find((item) => item.tab.key === key);
+    let pane: number;
+    let index: number;
+    let tab: TabItem;
+    if (float !== undefined) {
+      // 닫은 floated 탭은 docked로 돌아온다. 끝에 붙는다.
+      ({ tab } = float);
+      pane = float.originPane;
+      index = Number.MAX_SAFE_INTEGER;
+    } else {
+      pane = current.panes.findIndex((item) =>
+        item.tabs.some((candidate) => candidate.key === key)
+      );
+      if (pane < 0) return;
+      const tabs = current.panes[pane]!.tabs;
+      index = tabs.findIndex((candidate) => candidate.key === key);
+      tab = tabs[index]!;
+    }
     if (tabKindOf(tab.kind)?.noReopen) return;
     const position = positions.current[key] ?? tab.readPosition;
     closedTabs.current = [
@@ -690,12 +761,15 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // 확인이 필요한 kind는 사람이 확인해야 닫는다. 취소하면 탭을 유지한다.
-  const close = (pane: number, key: string) => {
-    const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
+  // pane이 null이면 floated 탭이다.
+  const close = (pane: number | null, key: string) => {
+    const tab = pane === null
+      ? view.floats.find((item) => item.tab.key === key)?.tab
+      : view.panes[pane]?.tabs.find((item) => item.key === key);
     const confirm = tab ? tabKindOf(tab.kind)?.beforeClose?.(tab, host) : null;
     if (!confirm) {
       rememberClosed(key);
-      update(closeTab(view, pane, key));
+      removeTab(key);
       return;
     }
     void confirm.then((remove) => {
@@ -711,9 +785,7 @@ export function Workspace(props: WorkspaceProps) {
     const current = latest.current.panes[pane];
     if (current === undefined) return;
     for (const target of closeTargets(current, scope, key, isUnsaved)) {
-      const tab = latest.current.panes.flatMap((item) => item.tabs).find((
-        item,
-      ) => item.key === target);
+      const tab = findTab(latest.current, target);
       if (tab === undefined) continue;
       const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
       if (confirm && !(await confirm)) return;
@@ -763,7 +835,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
-    latest.current.panes.flatMap((pane) => pane.tabs).filter((tab) =>
+    allTabs(latest.current).filter((tab) =>
       tab.kind === "document_editor" &&
       (tab.key === path || tab.key.startsWith(`${path}/`))
     );
@@ -845,6 +917,7 @@ export function Workspace(props: WorkspaceProps) {
         : undefined,
       go: (target) => {
         if (target.kind === "tab") {
+          setFloatFocused(false);
           update({
             ...view,
             focusedPane: target.pane,
@@ -858,6 +931,25 @@ export function Workspace(props: WorkspaceProps) {
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "settings") onSettings();
         else if (target.action === "terminal") openTerminalTab(host);
+        else if (target.action === "float") {
+          const tab = focusTab(latest.current);
+          if (tab !== undefined && mainSize !== undefined) {
+            setFloatFocused(true);
+            update(floatTab(latest.current, tab.key, mainSize));
+          }
+        } else if (target.action === "dock") {
+          const top = topFloat(latest.current);
+          if (top === undefined) return;
+          setFloatFocused(false);
+          update(dockTab(latest.current, top.tab.key));
+          focusPaneBody(latest.current.focusedPane);
+        } else if (target.action === "minimize") {
+          const top = topFloat(latest.current);
+          if (top !== undefined) {
+            leaveTopFloat(top.tab.key);
+            update(minimizeFloat(latest.current, top.tab.key));
+          }
+        }
       },
     })
   );
@@ -871,6 +963,7 @@ export function Workspace(props: WorkspaceProps) {
     const pane = current.panes[at];
     if (pane === undefined) return;
     const select = (paneAt: number, key: string) => {
+      setFloatFocused(false);
       update({
         ...latest.current,
         focusedPane: paneAt,
@@ -939,8 +1032,10 @@ export function Workspace(props: WorkspaceProps) {
         return;
       case "pane.focus": {
         const target = (arg ?? 1) - 1;
-        if (target === at || current.panes[target] === undefined) return;
-        update({ ...current, focusedPane: target });
+        if (current.panes[target] === undefined) return;
+        if (target === at && !inFloats) return;
+        setFloatFocused(false);
+        if (target !== at) update({ ...current, focusedPane: target });
         focusPaneBody(target);
         return;
       }
@@ -998,213 +1093,279 @@ export function Workspace(props: WorkspaceProps) {
 
   return (
     <ViewCoversProvider value={covers}>
-      <div className={styles.workspace} data-space="project" ref={frameRef}>
-        {sidebarShown.mode === "hidden" ? null : (
-          <ProjectSidebar
-            mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
-            width={sidebarShown.width}
-            project={loaded.project}
-            source={source}
-            contextPanel={contextsSource === undefined ? null : (
-              <ContextSidebar
-                source={contextsSource}
-                project={projectId}
-                onLoaded={setContextList}
-                onOpenContext={(item) =>
-                  openContext(host, item.id, undefined, item.title)}
-                onOpenSavedView={(view) =>
-                  openSearchFor(host, {
-                    context: view.context,
-                    search: view.search,
-                    inputs: view.inputs,
-                    page: 0,
-                    savedView: view.id,
+      <ViewKeepsProvider value={keeps}>
+        <WebviewHostProvider value={webviews}>
+          <div className={styles.workspace} data-space="project" ref={frameRef}>
+            {sidebarShown.mode === "hidden" ? null : (
+              <ProjectSidebar
+                mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
+                width={sidebarShown.width}
+                project={loaded.project}
+                source={source}
+                contextPanel={contextsSource === undefined
+                  ? null
+                  : (
+                    <ContextSidebar
+                      source={contextsSource}
+                      project={projectId}
+                      onLoaded={setContextList}
+                      onOpenContext={(item) =>
+                        openContext(host, item.id, undefined, item.title)}
+                      onOpenSavedView={(view) =>
+                        openSearchFor(host, {
+                          context: view.context,
+                          search: view.search,
+                          inputs: view.inputs,
+                          page: 0,
+                          savedView: view.id,
+                        })}
+                    />
+                  )}
+                agents={sidebarAgents.agents}
+                sessions={panelSessions(
+                  sessionStates,
+                  sidebarAgents.agents,
+                  projectId,
+                  knownSessions,
+                )}
+                current={currentTab?.kind === "document_editor"
+                  ? currentTab.key
+                  : null}
+                onLauncher={onLauncher}
+                onToggle={toggleSidebar}
+                reveal={reveal}
+                focusExplorer={explorerFocus}
+                onOpenFile={(path, keep) =>
+                  openFile(host, path, { preview: keep !== true })}
+                onMove={moveFile}
+                onTrash={trashFile}
+                onRail={onRail}
+                onAgent={(agent) =>
+                  openAgent(host, {
+                    agent: agent.assignment,
+                    name: agent.name,
                   })}
+                onSession={(session) => {
+                  const row = sidebarAgents.agents.find((agent) =>
+                    agent.assignment === session.agent
+                  );
+                  if (row !== undefined) {
+                    openAgent(host, {
+                      agent: row.assignment,
+                      name: row.name,
+                      session: session.id,
+                    });
+                  }
+                }}
+                onManage={() => openAgents(host)}
+                onResizeStart={(event) => {
+                  const start = sidebar.chosenWidth;
+                  const startShown = sidebarShown.width;
+                  let last = start;
+                  startPointerDrag(event, {
+                    move: (dx) => {
+                      last = clampSidebar(startShown + dx);
+                      setSidebar((current) => ({
+                        ...current,
+                        chosenWidth: last,
+                      }));
+                    },
+                    finish: (outcome) => {
+                      const applied = applyDrag(start, last, outcome);
+                      setSidebar((current) => ({
+                        ...current,
+                        chosenWidth: applied,
+                      }));
+                      if (outcome.type === "drag-end") setUserChoseWidth(true);
+                    },
+                  });
+                }}
               />
             )}
-            agents={sidebarAgents.agents}
-            sessions={panelSessions(
-              sessionStates,
-              sidebarAgents.agents,
-              projectId,
-              knownSessions,
-            )}
-            current={currentTab?.kind === "document_editor"
-              ? currentTab.key
-              : null}
-            onLauncher={onLauncher}
-            onToggle={toggleSidebar}
-            reveal={reveal}
-            focusExplorer={explorerFocus}
-            onOpenFile={(path, keep) =>
-              openFile(host, path, { preview: keep !== true })}
-            onMove={moveFile}
-            onTrash={trashFile}
-            onRail={onRail}
-            onAgent={(agent) =>
-              openAgent(host, { agent: agent.assignment, name: agent.name })}
-            onSession={(session) => {
-              const row = sidebarAgents.agents.find((agent) =>
-                agent.assignment === session.agent
-              );
-              if (row !== undefined) {
-                openAgent(host, {
-                  agent: row.assignment,
-                  name: row.name,
-                  session: session.id,
-                });
-              }
-            }}
-            onManage={() => openAgents(host)}
-            onResizeStart={(event) => {
-              const start = sidebar.chosenWidth;
-              const startShown = sidebarShown.width;
-              let last = start;
-              startPointerDrag(event, {
-                move: (dx) => {
-                  last = clampSidebar(startShown + dx);
-                  setSidebar((current) => ({ ...current, chosenWidth: last }));
-                },
-                finish: (outcome) => {
-                  const applied = applyDrag(start, last, outcome);
-                  setSidebar((current) => ({
-                    ...current,
-                    chosenWidth: applied,
-                  }));
-                  if (outcome.type === "drag-end") setUserChoseWidth(true);
-                },
-              });
-            }}
-          />
-        )}
-        <div className={styles.main}>
-          <div className={styles.topBar}>
-            <TopBar
-              leading={
-                <span className={styles.leading}>
-                  {sidebarShown.launcherInTopBar
-                    ? <LauncherButton onLauncher={onLauncher} />
-                    : null}
-                  <Breadcrumbs crumbs={crumbs} />
-                </span>
-              }
-              trailing={
-                <span className={styles.trailing}>
-                  <WaitingLayer
-                    onOpenSession={(session) =>
-                      runToastAction({ kind: "session", session })}
-                    onAnswerInTerminal={(session) =>
-                      void terminal?.store.focusSession(session)}
-                  />
-                  {noticesHidden && hasNotices
-                    ? (
-                      <Tooltip
-                        content={t("project-workspace.button.show-notices")}
-                      >
-                        <IconButton
-                          icon={workspaceIcons.notices}
-                          label={t("project-workspace.button.show-notices")}
-                          data-show-notices=""
-                          onClick={() => setNoticesHidden(false)}
-                        />
-                      </Tooltip>
-                    )
-                    : null}
-                  <PaletteButton />
-                  <SettingsEntry onSettings={() => onSettings()} />
-                </span>
-              }
-            />
-          </div>
-          <div className={styles.content} ref={mainRef}>
-            {noticesHidden
-              ? null
-              : (
-                <div className={styles.notices} data-notices="">
-                  {loaded.failed
-                    ? (
-                      <NoticeCard
-                        tone="error"
-                        data={{ "data-load-failed": "" }}
-                        text={t("project-workspace.error.load-failed")}
-                        onDismiss={hideNotices}
+            <div className={styles.main}>
+              <div className={styles.topBar}>
+                <TopBar
+                  leading={
+                    <span className={styles.leading}>
+                      {sidebarShown.launcherInTopBar
+                        ? <LauncherButton onLauncher={onLauncher} />
+                        : null}
+                      <Breadcrumbs crumbs={crumbs} />
+                      <MinimizedBar
+                        items={view.floats.filter((item) => item.minimized)}
+                        stripTab={stripTab}
+                        onRestore={(key) => {
+                          setFloatFocused(true);
+                          update(restoreFloat(latest.current, key));
+                        }}
+                        onDock={(key) => {
+                          update(dockTab(latest.current, key));
+                          focusPaneBody(latest.current.focusedPane);
+                        }}
+                        onClose={(key) => close(null, key)}
                       />
-                    )
-                    : null}
-                </div>
-              )}
-            <Panes
-              view={view}
-              bodyWidth={contentWidth}
-              windowWidth={measuredWindow}
-              onSelect={(pane, key) =>
-                update({
-                  ...view,
-                  focusedPane: pane,
-                  panes: view.panes.map((item, index) =>
-                    index === pane ? { ...item, selected: key } : item
-                  ),
-                })}
-              onClose={close}
-              onCloseMany={(pane, scope, key) =>
-                void closeMany(pane, scope, key)}
-              onPin={(key) => update(pinTab(latest.current, key))}
-              pathOf={pathOfTab}
-              onCopyPath={copyPath}
-              onReveal={revealInExplorer}
-              onFocus={(pane) => update({ ...view, focusedPane: pane })}
-              onMove={(key, toPane, before) =>
-                update(moveTab(view, key, toPane, before))}
-              onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
-              newTab={
-                <NewTabMenu
-                  onOpen={readContexts}
-                  {...(pickFile === undefined ? {} : {
-                    onDocument: () =>
-                      void pickFile().then((path) => {
-                        if (path !== null) openFile(host, path);
-                      }),
-                  })}
-                  {...(terminal === undefined
-                    ? {}
-                    : { onTerminal: () => openTerminalTab(host) })}
-                  {...(browserApi === null
-                    ? {}
-                    : { onBrowser: () => openBrowserTab(host) })}
-                  {...(agentView === null ? {} : {
-                    agents: sidebarAgents.agents.map((agent) => ({
-                      id: agent.assignment,
-                      name: agent.name,
-                      profile: agent.profile,
-                    })),
-                    onAgent: (id: string) => {
-                      const row = sidebarAgents.agents.find((agent) =>
-                        agent.assignment === id
-                      );
-                      if (row !== undefined) {
-                        openAgent(host, { agent: id, name: row.name });
-                      }
-                    },
-                  })}
-                  {...(contexts === null ? {} : {
-                    contexts: contextList,
-                    onContext: (id: string) => openContext(host, id),
-                  })}
-                  {...(source.searchSource === undefined ? {} : {
-                    onSearch: () => openSearchShortcut(host),
-                  })}
-                  {...(host.appScreens
-                    ? { onAppPanel: () => openAppPanel(host) }
-                    : {})}
+                    </span>
+                  }
+                  trailing={
+                    <span className={styles.trailing}>
+                      <WaitingLayer
+                        onOpenSession={(session) =>
+                          runToastAction({ kind: "session", session })}
+                        onAnswerInTerminal={(session) =>
+                          void terminal?.store.focusSession(session)}
+                      />
+                      {noticesHidden && hasNotices
+                        ? (
+                          <Tooltip
+                            content={t("project-workspace.button.show-notices")}
+                          >
+                            <IconButton
+                              icon={workspaceIcons.notices}
+                              label={t("project-workspace.button.show-notices")}
+                              data-show-notices=""
+                              onClick={() => setNoticesHidden(false)}
+                            />
+                          </Tooltip>
+                        )
+                        : null}
+                      <PaletteButton />
+                      <SettingsEntry onSettings={() => onSettings()} />
+                    </span>
+                  }
                 />
-              }
-              stripTab={stripTab}
-              renderTab={renderTab}
-              renderKept={renderKept}
-            />
+              </div>
+              <div className={styles.content} ref={mainRef}>
+                {noticesHidden
+                  ? null
+                  : (
+                    <div className={styles.notices} data-notices="">
+                      {loaded.failed
+                        ? (
+                          <NoticeCard
+                            tone="error"
+                            data={{ "data-load-failed": "" }}
+                            text={t("project-workspace.error.load-failed")}
+                            onDismiss={hideNotices}
+                          />
+                        )
+                        : null}
+                    </div>
+                  )}
+                <Panes
+                  view={view}
+                  focusedPane={inFloats ? null : view.focusedPane}
+                  bodyWidth={contentWidth}
+                  windowWidth={measuredWindow}
+                  onSelect={(pane, key) => {
+                    setFloatFocused(false);
+                    update({
+                      ...view,
+                      focusedPane: pane,
+                      panes: view.panes.map((item, index) =>
+                        index === pane ? { ...item, selected: key } : item
+                      ),
+                    });
+                  }}
+                  onClose={close}
+                  onCloseMany={(pane, scope, key) =>
+                    void closeMany(pane, scope, key)}
+                  onPin={(key) => update(pinTab(latest.current, key))}
+                  onFloat={(_pane, key) => {
+                    if (mainSize === undefined) return;
+                    setFloatFocused(true);
+                    update(floatTab(latest.current, key, mainSize));
+                  }}
+                  pathOf={pathOfTab}
+                  onCopyPath={copyPath}
+                  onReveal={revealInExplorer}
+                  onFocus={(pane) => {
+                    setFloatFocused(false);
+                    if (pane !== latest.current.focusedPane) {
+                      update({ ...latest.current, focusedPane: pane });
+                    }
+                  }}
+                  onMove={(key, toPane, before) =>
+                    update(moveTab(view, key, toPane, before))}
+                  onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+                  newTab={
+                    <NewTabMenu
+                      onOpen={readContexts}
+                      {...(pickFile === undefined ? {} : {
+                        onDocument: () =>
+                          void pickFile().then((path) => {
+                            if (path !== null) openFile(host, path);
+                          }),
+                      })}
+                      {...(terminal === undefined
+                        ? {}
+                        : { onTerminal: () => openTerminalTab(host) })}
+                      {...(browserApi === null
+                        ? {}
+                        : { onBrowser: () => openBrowserTab(host) })}
+                      {...(agentView === null ? {} : {
+                        agents: sidebarAgents.agents.map((agent) => ({
+                          id: agent.assignment,
+                          name: agent.name,
+                          profile: agent.profile,
+                        })),
+                        onAgent: (id: string) => {
+                          const row = sidebarAgents.agents.find((agent) =>
+                            agent.assignment === id
+                          );
+                          if (row !== undefined) {
+                            openAgent(host, { agent: id, name: row.name });
+                          }
+                        },
+                      })}
+                      {...(contexts === null ? {} : {
+                        contexts: contextList,
+                        onContext: (id: string) => openContext(host, id),
+                      })}
+                      {...(source.searchSource === undefined ? {} : {
+                        onSearch: () => openSearchShortcut(host),
+                      })}
+                      {...(host.appScreens
+                        ? { onAppPanel: () => openAppPanel(host) }
+                        : {})}
+                    />
+                  }
+                  stripTab={stripTab}
+                  renderTab={renderTab}
+                  renderKept={renderKept}
+                />
+                <Floats
+                  floats={view.floats}
+                  focused={inFloats}
+                  area={mainSize}
+                  stripTab={stripTab}
+                  renderTab={renderTab}
+                  renderKept={renderKept}
+                  onRaise={(key) => {
+                    setFloatFocused(true);
+                    const next = raiseFloat(latest.current, key);
+                    if (next !== latest.current) update(next);
+                  }}
+                  onRect={(key, rect) => {
+                    if (mainSize === undefined) return;
+                    update(setFloatRect(latest.current, key, rect, mainSize));
+                  }}
+                  onMinimize={(key) => {
+                    leaveTopFloat(key);
+                    update(minimizeFloat(latest.current, key));
+                  }}
+                  onDock={(key) => {
+                    setFloatFocused(false);
+                    update(dockTab(latest.current, key));
+                    focusPaneBody(latest.current.focusedPane);
+                  }}
+                  onClose={(key) => close(null, key)}
+                  webviews={<WebviewLayer host={webviews} />}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </WebviewHostProvider>
+      </ViewKeepsProvider>
     </ViewCoversProvider>
   );
 }

@@ -27,10 +27,24 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
     states.set(state.view_session, state);
     for (const listener of stateListeners) listener(state);
   };
+  // dev mock·gallery에는 <webview>가 없어 그릇이 가짜 session(`fake-wv-<key>`)을 준다. 처음 보는
+  // session은 빈 page로 만든다.
   const need = (view_session: string) => {
     const state = states.get(view_session);
-    if (state === undefined) throw new Error("not_found");
-    return state;
+    if (state !== undefined) return state;
+    const blank: BrowserViewState = {
+      view_session,
+      url: "",
+      title: "",
+      loading: false,
+      canGoBack: false,
+      canGoForward: false,
+      health: "ok",
+      ...template,
+    };
+    states.set(view_session, blank);
+    history.set(view_session, { urls: [blank.url], at: 0 });
+    return blank;
   };
   // 이동 기록의 위치에 맞춰 url과 앞뒤 가능 여부를 맞춘다.
   const at = (view_session: string, index: number) => {
@@ -74,15 +88,15 @@ export function fakeBrowserApi(options: { corrupt?: boolean } = {}): {
       if (text === "" || /\s/.test(text)) {
         return Promise.reject(new Error("invalid_input"));
       }
-      const record = history.get(view_session);
       need(view_session);
+      const record = history.get(view_session);
       const url = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
       record!.urls = [...record!.urls.slice(0, record!.at + 1), url];
       return Promise.resolve(at(view_session, record!.urls.length - 1));
     },
     command({ view_session, command }) {
-      const record = history.get(view_session);
       need(view_session);
+      const record = history.get(view_session);
       if (command === "back") at(view_session, Math.max(0, record!.at - 1));
       else if (command === "forward") {
         at(view_session, Math.min(record!.urls.length - 1, record!.at + 1));

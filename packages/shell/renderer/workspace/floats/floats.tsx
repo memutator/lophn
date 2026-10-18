@@ -45,14 +45,17 @@ interface FloatsProps {
   onMinimize(key: string): void;
   onDock(key: string): void;
   onClose(key: string): void;
+  /**
+   * browser 탭의 <webview> 그릇. 패널과 같은 stacking context에 있어야 floated browser 탭이 자기
+   * 패널 바로 위에 온다. 옮기면 page가 다시 load되므로 패널이 없을 때도 늘 같은 자리에 둔다.
+   */
+  webviews?: ReactNode;
 }
 
-export function Floats(props: FloatsProps): ReactElement | null {
+export function Floats(props: FloatsProps): ReactElement {
   const { floats, area } = props;
   // 0인 칸은 못 잰 것과 같다. 0x0으로 가둔 rect가 저장되면 layout 저장이 통째로 거절된다.
-  if (area === undefined || area.width === 0 || area.height === 0) {
-    return null;
-  }
+  const measured = area !== undefined && area.width > 0 && area.height > 0;
   const top = floats.findLastIndex((item) => !item.minimized);
   // raise가 요소를 재배열하면 안의 focus와 scroll(terminal, editor)이 날아가므로 key 순으로 고정한다.
   const ordered = floats
@@ -60,16 +63,19 @@ export function Floats(props: FloatsProps): ReactElement | null {
     .sort((a, b) => a.item.tab.key < b.item.tab.key ? -1 : 1);
   return (
     <div className={styles.floats} data-floats="">
-      {ordered.map(({ item, layer }) => (
-        <FloatEntry
-          key={item.tab.key}
-          {...props}
-          item={item}
-          area={area}
-          layer={layer}
-          active={props.focused && layer - 1 === top}
-        />
-      ))}
+      {props.webviews}
+      {measured
+        ? ordered.map(({ item, layer }) => (
+          <FloatEntry
+            key={item.tab.key}
+            {...props}
+            item={item}
+            area={area}
+            layer={layer}
+            active={props.focused && layer - 1 === top}
+          />
+        ))
+        : null}
     </div>
   );
 }
@@ -147,7 +153,8 @@ function FloatEntry(
     </Tooltip>
   );
   return (
-    <div className={styles.layer} style={{ zIndex: layer }}>
+    // 층 L의 패널은 z-index 2L이다. 그 사이 2L+1에 floated browser 탭의 <webview>가 온다(webview-host).
+    <div className={styles.layer} style={{ zIndex: layer * 2 }}>
       <FloatPanel
         ref={ref}
         title={tab.title}

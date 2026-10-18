@@ -6,7 +6,7 @@
   pointer-events: none;
 }
 
-/* 패널마다 하나. z-index는 floats 배열 순서(층 번호)다. DOM 순서는 바꾸지 않는다. */
+/* 패널마다 하나. z-index는 floats 배열 순서(층 번호)의 2배다(사이에 browser 탭의 <webview>가 온다). DOM 순서는 바꾸지 않는다. */
 .layer {
   position: absolute;
   inset: var(--space-0);

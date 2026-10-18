@@ -1,0 +1,14 @@
+/* floats 층 안의 그릇. 자기 stacking context를 만들지 않아 안의 <webview>가 패널과 z-index로 섞인다. */
+.layer {
+  position: absolute;
+  inset: var(--space-0);
+  pointer-events: none;
+}
+
+.page {
+  position: absolute;
+  display: flex;
+  border: none;
+  pointer-events: auto;
+  background: var(--color-surface-base);
+}

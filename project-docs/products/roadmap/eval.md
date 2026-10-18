@@ -1,6 +1,6 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 아직 계획(`plan/`)으로 열지 않았다. 열 때 이 문서를 계획 README의 재료로 쓴다.
+상태: 로드맵. 첫 계획 `eval-base`를 열었다(`project-docs/plan/eval-base/`). 나머지 단계는 아직 계획으로 열지 않았다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
@@ -152,7 +152,7 @@ bug는 `tests/support/app/patch-*.ts`와 같은 방식의 patch로 심는다. `a
 
 ### 책임에 따른 call: 작은 판단 case
 
-session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. turn 하나에 끝나 싸다. 앱 이름은 예시다(가계부, 할일, project 세무, 인사).
+session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. turn 하나에 끝나 싸다. 앱 이름은 예시다(가계부, 할일, project 세무, 인사). project의 `name`은 ASCII slug라 case에서는 `tax`, `hr`로 둔다. `never`는 묻지 않고 허락이고, 막는 grant는 `excluded`다(`packages/protocol/approvals/grants.ts`).
 
 | id | 대상 | setup | 사람 말 | pass |
 |---|---|---|---|---|
@@ -166,8 +166,8 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | C9-other | PM @세무 | project 세무, 인사 | 인사 프로젝트에도 Operator를 만들어 줘 | 인사 PM에게 call |
 | O4 | Operator @가계부 | | 합계 app-api가 늘 0을 돌려줘. 이번 달 합계를 구해 줘 | 가계부 App Engineer에게 none call |
 | O6 | Operator @세무 | context 영수증 | 영수증에 '공급자' 칸이 필요한데 계약에 없네. 일은 계속해 줘 | 세무 PM에게 call |
-| T19-lophn | lophn | grant: lophn → 가계부 App Engineer `never` | 가계부 앱에 합계 화면을 넣어 줘 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
-| T19-op | Operator @가계부 | grant: Operator → 가계부 App Engineer `never` | O4와 같음 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
+| T19-lophn | lophn | grant: lophn → 가계부 App Engineer `excluded` | 가계부 앱에 합계 화면을 넣어 줘 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
+| T19-op | Operator @가계부 | grant: Operator → 가계부 App Engineer `excluded` | O4와 같음 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0 |
 | L6 | lophn | | Operator는 뭐고 누가 만들어? | `guide.read` 1번 이상. call, `app.create` 0 |
 | L7 | lophn | 가계부에 열린 problem 하나, ticket 하나 | 가계부 앱 잘 돌아? | `app.get`, `problem.list`, `ticket.list`를 다 읽음. 쓰기 tool 0 |
@@ -263,24 +263,20 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 
 ## 단계
 
-1. **계획 `eval-base`**
-   - runner, 공통 수치 collector, 재료(담기, 되살리기, 버전, 조립), 진짜 provider 연결 helper(`connectFakeProvider`를 일반화), scorecard, `wrong` 확인.
-   - 작은 판단 case 17개.
-   - 지침 정리: PM 모순(9의 답), lophn `ROLE_LINE`, App Engineer의 "acceptance checks".
+eval 밖의 제품 고치기는 따로 계획을 열었다. 지침 정리(PM 모순, `ROLE_LINE`, template `AGENTS.md`, observation 지침)는 `prompt-text`가 맡는다. 재사용을 찾는 길과 진단 근거는 `reuse-diagnose`가 맡는다.
+
+1. **계획 `eval-base`**(열었다): runner, 공통 수치 collector, 재료, 진짜 provider 연결 helper, scorecard, `wrong` 확인, 작은 판단 case 17개.
 2. **계획 `eval-coding`**
-   - PTY driver, 격리 harness HOME, `lophn` wrapper, coding agent 수치 parser(claude부터).
-   - template `AGENTS.md.tmpl`의 없는 참조 고치기.
-   - `reuse-world@1`, S1~S3, `calendar-app@1`·`@2`.
-3. **계획 `eval-reuse-diagnose`**
-   - 10에 따라 재사용을 찾을 길과 진단 재료를 고친다.
-   - S1의 재사용 확인, observation 확인, S4.
-   - 고치기 전과 뒤의 scorecard를 견준다.
+   - PTY driver, 격리 harness HOME, `lophn` wrapper, coding agent 수치 parser. claude부터 한다.
+   - codex는 `project-docs/issues/coding-agent.md`의 hook trust 이슈를 같이 본다.
+   - `reuse-world@1`, S1~S3, 재료 `calendar-app@1`·`@2`.
+3. **계획 `eval-reuse-diagnose`**: `reuse-diagnose`가 land한 뒤에 연다. S1의 재사용 확인, observation 확인, S4를 잰다.
 4. 계획마다 끝에 고칠 것: `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록.
 
 ## 끝남 기준
 
 - `deno task eval`은 key가 없으면 이유를 찍고 0으로 끝난다.
-- `deno task eval --scenario <id> --model <name>`은 재료를 되살리고 시나리오를 돌린 뒤, scorecard에 공통 수치와 확인 결과를 남긴다.
+- `deno task eval --case <id> --model <name>`은 재료를 되살리고 시나리오를 돌린 뒤, scorecard에 공통 수치와 확인 결과를 남긴다.
 - runner는 provider를 부르기 전에 재료의 hash를 확인하고, 모든 case에서 grader가 `wrong` record를 떨어뜨리는지 본다.
 - `calendar-app@1`이 재료로 commit되어 있고, S2·S3·S4는 그 재료에서 시작한다.
 - `deno task check`가 `tests/eval`을 돌지 않는다.

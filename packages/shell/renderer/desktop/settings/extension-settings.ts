@@ -1,5 +1,5 @@
-// 확장 설정(skill 폴더·MCP server 목록)을 settings route로 읽고 바꾸는 부분. 일반 설정 통로
-// (core-source.ts)와 Agents 통로(agents/core-source.ts)가 같이 쓴다. 모양은 contract
+// 확장 설정(skill 폴더·MCP server 목록)을 settings route로 읽고 바꾸는 부분. Agents 통로
+// (agents/core-source.ts)가 쓴다. 모양은 contract
 // (`lophn-agent.extensions.skill_folders`·`lophn-agent.extensions.mcp_servers` 설정 정의)에서
 // 이 화면이 읽는 field만 옮긴 것이다. credential 값은 어디에도 없고 보관 이름과 저장 여부만 있다.
 import type { CoreSource } from "../connection/connection.ts";
@@ -62,7 +62,7 @@ export interface AuthStateValue {
 }
 
 /** 로그인이 필요한 방식(OAuth)으로 켜져 있는 server. 로그인 상태를 묻는 대상이다. */
-export function signsIn(server: McpServerValue): boolean {
+function signsIn(server: McpServerValue): boolean {
   return server.enabled && server.http?.auth.kind === "oauth2";
 }
 

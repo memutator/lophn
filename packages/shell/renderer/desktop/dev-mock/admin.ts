@@ -5,7 +5,6 @@ import {
   declared,
   fakeSettings,
   SAMPLE_DECLARED,
-  server,
 } from "../settings/testdata/fake-settings.ts";
 import { fakeProviders } from "../settings/providers/testdata/fake-providers.ts";
 import { fakeAgents } from "../settings/agents/testdata/fake-agents.ts";
@@ -32,17 +31,6 @@ export function mockSettings(): SettingsSource {
         enum: ["sonnet", "opus"],
       }),
     ],
-    settings: {
-      folders: ["/home/mina/skills/notes"],
-      servers: [
-        server("docs-search", { transport: "http", auth: "none" }),
-        server("local-files", {
-          transport: "stdio",
-          auth: "none",
-          enabled: false,
-        }),
-      ],
-    },
   }).source;
 }
 

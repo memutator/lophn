@@ -53,3 +53,12 @@ main이 알린 popup(`popup` event)을 renderer에서 열린 탭 바로 뒤의 d
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음". `window.close()` event가 main에서 오지 않는다고 `bt-popup-host`가 보고했으면 그 사실을 적는다.
+
+## lead가 더함
+
+bt-popup-host가 merge되며 정해진 것(`packages/shell/main/browser/registry.ts`, `popup-host.ts`):
+- page의 `window.close()`는 `webContents`의 `close` event로 오고 main이 `close` BrowserEvent를 보낸다. 그 직후 contents가 부서진다. 닫는 일은 renderer가 탭을 지워(`closeView`) 한다.
+- adopt 전에도 `close` event가 올 수 있다(popup이 바로 닫힘). `adopt` prop의 `view_session`으로 온 `close`도 adopt 응답 전부터 `onCloseRequested`로 넘긴다.
+- adopt되지 않은 view에는 state push가 없다. state는 adopt 응답에 실려 온다.
+- 없는 view나 다른 창의 view를 adopt하면 `invalid_input`, 이미 adopt된 view는 `forbidden`으로 거절된다(`not_found`는 오지 않는다). 거절되면 그 탭은 `ErrorState`를 보이고 다시 adopt하지 않는다.
+- popup은 opener 탭을 닫아도 남는다(`outlivesOpener: true`). `onPopup`의 `after` 탭이 그새 닫혔으면 `after` 없이 연 것과 같다.

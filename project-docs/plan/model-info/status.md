@@ -6,4 +6,4 @@ lead만 고친다. `tools/status.py model-info build`가 `tasks/*.md`에서 id, 
 |---|---|---|---|---|---|---|---|
 | `mi-core` | mi-core | 1 | 없음 | merged | mi-core/mi-core | 4919d311e |  |
 | `mi-shell` | mi-shell | 2 | mi-core | merged | mi-shell/mi-shell | 3595eda4d |  |
-| `mi-wireframes` | mi-wireframes | 3 | mi-shell | running | mi-wireframes/mi-wireframes |  |  |
+| `mi-wireframes` | mi-wireframes | 3 | mi-shell | merged | mi-wireframes/mi-wireframes | 549ecc5a1 |  |

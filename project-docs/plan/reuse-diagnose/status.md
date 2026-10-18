@@ -21,4 +21,4 @@ lead만 고친다. `tools/status.py reuse-diagnose build`가 `tasks/*.md`에서 
 | `rd-cap-skill` | rd-cap-skill | 4 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs | merged | rd-cap-skill/rd-cap-skill | ed57591f1 |  |
 | `rd-ex-e2e` | rd-ex | 4 | rd-ex-trigger, rd-body-tool | merged | rd-ex/rd-ex-e2e | 1ca139e4e |  |
 | `rd-ex-trigger` | rd-ex | 4 | rd-ex-request | merged | rd-ex/rd-ex-trigger | 56a1e250b |  |
-| `rd-cap-net-live` | rd-cap-live | 5 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs, rd-ex-e2e | todo |  |  |  |
+| `rd-cap-net-live` | rd-cap-live | 5 | rd-cap-net-transport, rd-cap-secret-supervisor, rd-cap-fs, rd-ex-e2e | running | rd-cap-live/rd-cap-net-live |  |  |

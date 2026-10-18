@@ -22,11 +22,14 @@ function nameOf(title: string, url: string): string {
   return t("browser.label.kind");
 }
 
+function newKey(): string {
+  return `browser-${Date.now().toString(36)}-${++browserCount}`;
+}
+
 /** 사람이 연 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. */
 export function openBrowserTab(host: TabHost, url?: string): void {
-  const key = `browser-${Date.now().toString(36)}-${++browserCount}`;
   host.openTab({
-    key,
+    key: newKey(),
     kind: "browser",
     title: nameOf("", url ?? ""),
     fields: { url: url ?? "" },
@@ -55,10 +58,25 @@ export const browserKind: TabKindDef = {
   // 다른 탭으로 가도 page가 살아 있도록 keep만 쓴다. view의 숨김은 BrowserTab이 shown으로 맡는다.
   keep(tab, shown, host) {
     const url = tab.fields?.url;
+    const adopt = tab.fields?.adopt;
     return (
       <BrowserTab
         url={typeof url === "string" ? url : ""}
+        adopt={typeof adopt === "string" ? adopt : undefined}
         shown={shown}
+        onAdopted={() =>
+          host.patchTab(tab.key, (current) => ({
+            fields: { ...current.fields, adopt: undefined },
+          }))}
+        // floated popup도 여기서는 docked로 연다.
+        onPopup={(event) =>
+          host.openTab({
+            key: newKey(),
+            kind: "browser",
+            title: nameOf("", ""),
+            fields: { url: "", adopt: event.view_session },
+          }, { after: tab.key })}
+        onCloseRequested={() => host.removeTab(tab.key)}
         onState={(state) =>
           host.patchTab(tab.key, (current) => ({
             title: nameOf(state.title, state.url),

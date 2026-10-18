@@ -415,7 +415,7 @@ export function Workspace(props: WorkspaceProps) {
       });
       return;
     }
-    update(openTabIn(current, tab, isUnsaved));
+    update(openTabIn(current, tab, isUnsaved, options?.after));
   };
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.

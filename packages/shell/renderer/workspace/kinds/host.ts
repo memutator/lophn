@@ -76,9 +76,13 @@ export interface TabHost {
   /**
    * focus 칸 끝에 붙이고 고른다. 같은 key가 그 칸에 있으면 고르기만 한다. `preview` 탭은 그 칸의
    * preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은 남긴다). `select: false`면 붙이기만 하고
-   * 보고 있는 탭을 바꾸지 않는다(core 요청으로 열리는 coding 터미널 탭).
+   * 보고 있는 탭을 바꾸지 않는다(core 요청으로 열리는 coding 터미널 탭). `after`는 그 key의
+   * 탭이 있는 칸에서 그 탭 바로 뒤에 넣는다(그 탭이 없으면 없는 것과 같다).
    */
-  openTab(tab: TabItem, options?: { readonly select?: boolean }): void;
+  openTab(
+    tab: TabItem,
+    options?: { readonly select?: boolean; readonly after?: string },
+  ): void;
   /**
    * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은
    * 바뀜은 `later`로 저장을 잠깐 모은다.

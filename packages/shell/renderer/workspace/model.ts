@@ -267,15 +267,22 @@ function holderOf(view: WorkspaceView, key: string): number {
  * 탭을 focus 칸에 열고 고른다. 이미 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고르고, 고정으로
  * 여는 길(preview가 아닌 탭)이면 preview를 푼다. preview 탭은 그 칸의 preview 자리를 바꿔 쓰되,
  * 저장 안 된 변경이 있는 탭은 사라지지 않게 고정 탭으로 남기고 새 preview를 뒤에 붙인다.
+ * `after` 탭이 칸에 있으면 새 탭은 그 칸의 그 탭 바로 뒤에 붙는다(없으면 focus 칸 끝).
  */
 export function openTabIn(
   view: WorkspaceView,
   tab: TabItem,
   isUnsaved: (key: string) => boolean,
+  after?: string,
 ): WorkspaceView {
   if (isFloated(view, tab.key)) return restoreFloat(view, tab.key);
   const holder = holderOf(view, tab.key);
-  const target = holder >= 0 ? holder : view.focusedPane;
+  const afterHolder = after === undefined ? -1 : holderOf(view, after);
+  const target = holder >= 0
+    ? holder
+    : afterHolder >= 0
+    ? afterHolder
+    : view.focusedPane;
   const panes = view.panes.map((pane, index) => {
     if (index !== target) return pane;
     if (holder >= 0) {
@@ -294,7 +301,13 @@ export function openTabIn(
       ? pane.tabs.find((item) => item.preview === true)
       : undefined;
     if (old === undefined) {
-      return { tabs: [...pane.tabs, tab], selected: tab.key };
+      const at = pane.tabs.findIndex((item) => item.key === after);
+      return {
+        tabs: at < 0
+          ? [...pane.tabs, tab]
+          : [...pane.tabs.slice(0, at + 1), tab, ...pane.tabs.slice(at + 1)],
+        selected: tab.key,
+      };
     }
     if (!isUnsaved(old.key)) {
       return {

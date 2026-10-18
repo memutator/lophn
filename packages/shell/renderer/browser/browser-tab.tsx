@@ -6,7 +6,11 @@ import { ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
-import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
+import type {
+  BrowserEvent,
+  BrowserViewState,
+  LophnBrowserApi,
+} from "../../ipc/browser.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { useViewBounds } from "../app-frame/embedded-view.tsx";
@@ -19,7 +23,15 @@ interface BrowserTabProps {
   url: string;
   /** false면 view를 남긴 채 숨긴다(다른 탭·다른 공간). */
   shown: boolean;
+  /** main이 만든 popup view의 session. 있으면 처음 열 때 `open` 대신 이 view를 가져온다. */
+  adopt?: string;
+  /** adopt 응답을 받았다. 부른 쪽이 `adopt`를 지운다. */
+  onAdopted(): void;
   onState(state: { url: string; title: string }): void;
+  /** 이 탭의 page가 연 popup. */
+  onPopup(event: Extract<BrowserEvent, { kind: "popup" }>): void;
+  /** 이 탭의 page가 window.close()를 불렀다. */
+  onCloseRequested(): void;
 }
 
 type PageState = Omit<BrowserViewState, "view_session">;
@@ -61,14 +73,20 @@ function OpenTab(
   const [menuOpen, setMenuOpen] = useState(false);
   const region = useRef<HTMLDivElement | null>(null);
   const firstUrl = useRef(props.url);
+  // adopt는 한 번만 한다. 끝나거나 거절되면 비워서, 다시 시도할 때는 새 view를 연다.
+  const adoptId = useRef(props.adopt);
   const reported = useRef({ url: props.url, title: "" });
   const stateListener = useRef(props.onState);
   stateListener.current = props.onState;
+  const callbacks = useRef(props);
+  callbacks.current = props;
 
   // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다.
   useEffect(() => {
     let alive = true;
-    let opened: string | null = null;
+    // adopt는 응답 전에도 이 view의 close가 올 수 있어 처음부터 안다.
+    const adopting = adoptId.current;
+    let opened: string | null = adopting ?? null;
     const apply = (next: BrowserViewState) => {
       const { view_session: _session, ...page } = next;
       setState(page);
@@ -86,10 +104,17 @@ function OpenTab(
     const offEvents = browser.subscribeEvents((event) => {
       if (event.kind === "popup-blocked" && event.view_session === opened) {
         setPopup((count) => (count ?? 0) + 1);
+      } else if (event.kind === "popup" && event.opener === opened) {
+        callbacks.current.onPopup(event);
+      } else if (event.kind === "close" && event.view_session === opened) {
+        callbacks.current.onCloseRequested();
       }
     });
     setFailed(false);
-    browser.open({ url: firstUrl.current }).then(
+    const got = adopting === undefined
+      ? browser.open({ url: firstUrl.current })
+      : browser.adopt({ view_session: adopting });
+    got.then(
       (next) => {
         if (!alive) {
           void views.closeView({ view_session: next.view_session })
@@ -99,9 +124,19 @@ function OpenTab(
         opened = next.view_session;
         setViewSession(next.view_session);
         apply(next);
+        if (adopting !== undefined) {
+          adoptId.current = undefined;
+          callbacks.current.onAdopted();
+        }
       },
       () => {
-        if (alive) setFailed(true);
+        if (!alive) return;
+        // 거절된 view는 우리 것이 아니라 닫지 않는다.
+        if (adopting !== undefined) {
+          adoptId.current = undefined;
+          opened = null;
+        }
+        setFailed(true);
       },
     );
     return () => {

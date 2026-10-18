@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py settings-mcp build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `sm-envelope-helper` | sm-envelope | 1 | 없음 | merged | plan/settings-mcp | 742b9ed13 |  |
-| `sm-envelope-sites` | sm-envelope | 2 | sm-envelope-helper | todo |  |  |  |
+| `sm-envelope-sites` | sm-envelope | 2 | sm-envelope-helper | merged | plan/settings-mcp | 804b12273 |  |
 | `sm-mcp-settings-path` | sm-mcp | 3 | sm-envelope-helper | todo |  |  |  |
 | `sm-mcp-operator-runtime` | sm-mcp | 4 | 없음 | todo |  |  |  |
 | `sm-mcp-operator-secret-name` | sm-mcp | 5 | sm-envelope-sites, sm-mcp-operator-runtime | todo |  |  |  |

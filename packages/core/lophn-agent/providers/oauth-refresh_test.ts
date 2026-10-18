@@ -10,6 +10,7 @@ import { providerSchemaSteps } from "./schema.ts";
 
 const ID = "pvd_00000000000000000000000001";
 const ACCESS = "provider.00000000000000000000000001";
+const MODELS_URL = "https://api.openai.com/v1/models";
 const NOW = Date.parse("2026-10-17T00:00:00.000Z");
 const at = (ms: number) => new Date(ms).toISOString();
 
@@ -52,7 +53,8 @@ function setup(expiresAtMs: number) {
     assert(found.ok && found.value !== null);
     return found.value;
   };
-  const refresher = (answer: Response) =>
+  // models: 계정 model 목록 GET의 답이다(없으면 발급자 대기열이 닿지 못한 것처럼 던진다).
+  const refresher = (answer: Response, models?: () => Response) =>
     createProviderRefresher({
       readProvider: (provider) => Promise.resolve(loadProvider(sql, provider)),
       secrets: {
@@ -69,7 +71,19 @@ function setup(expiresAtMs: number) {
           return Promise.resolve(ok({ names: [] }) as never);
         },
       },
-      http: () => Promise.resolve(answer),
+      http: (url) => {
+        if (url !== MODELS_URL) return Promise.resolve(answer);
+        return models === undefined
+          ? Promise.reject(new Error("no runtime"))
+          : Promise.resolve(models());
+      },
+      recordModels: (provider, list) =>
+        Promise.resolve(commands.recordAccountModels.handle(
+          tx,
+          { actor: "machine" } as RequestContext,
+          { provider: provider.id, models: list } as never,
+          { revision: provider.revision },
+        )),
       record: (provider, result) =>
         Promise.resolve(commands.refreshCredential.handle(
           tx,
@@ -86,7 +100,12 @@ function setup(expiresAtMs: number) {
       nowMs: () => NOW,
       leadMs: 5 * 60_000,
     });
-  return { secrets, read, refresher };
+  const expire = (ms: number) =>
+    db.prepare(
+      "update provider_credentials set expires_at = ? where provider = ?",
+    )
+      .run(at(ms), ID);
+  return { secrets, read, refresher, expire };
 }
 
 const use = {
@@ -135,4 +154,34 @@ Deno.test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 c
     [untouched, later.secrets.get(`${ACCESS}.refresh`), later.read().revision],
     [undefined, "OLD-REFRESH", 1],
   );
+});
+
+Deno.test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱신은 성공하며 앞서 저장한 목록이 남는다", async () => {
+  const token = () =>
+    Response.json({ access_token: "A", refresh_token: "R", expires_in: 3600 });
+  const listed = () =>
+    Response.json({
+      data: [
+        { id: "gpt-5", visibility: "list" },
+        { id: "gpt-5-pro", visibility: "hide" },
+        { id: "gpt-5-mini" },
+      ],
+    });
+  const kept = ["gpt-5", "gpt-5-mini"];
+  const t = setup(NOW + 60_000);
+  const first = t.refresher(token(), listed);
+  assertEquals(await first.prepareToken(use), ok(undefined));
+  await first.idle();
+  assertEquals(t.read().credential.account_models, kept);
+
+  // 다시 갱신할 때 읽기가 던지거나 모양이 틀려도 token은 새로 저장되고 목록은 그대로다.
+  for (const broken of [undefined, () => Response.json({ nope: 1 })]) {
+    t.secrets.set(ACCESS, "OLD-ACCESS");
+    t.expire(NOW + 60_000);
+    const again = t.refresher(token(), broken);
+    assertEquals(await again.prepareToken(use), ok(undefined));
+    await again.idle();
+    assertEquals(t.secrets.get(ACCESS), "A");
+    assertEquals(t.read().credential.account_models, kept);
+  }
 });

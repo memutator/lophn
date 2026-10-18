@@ -1,5 +1,6 @@
 import { err, formatAt, ok, type Result } from "../../../base/mod.ts";
 import {
+  accountAllows,
   type CallModel,
   type CatalogEntry,
   type ModelChoice,
@@ -147,7 +148,10 @@ export function createModelResolver(deps: ModelResolverDeps) {
         needs_tools: true,
       },
       entry,
-      { modelListed: () => true },
+      {
+        modelListed: (name) =>
+          accountAllows(provider.credential.account_models, name),
+      },
       undefined,
     );
     if (!resolved.ok) return resolved;

@@ -28,7 +28,8 @@ const issuerRequestSchema = z.strictObject({
   method: z.enum(["GET", "POST"]),
   headers: z.record(
     z.string().regex(/^[A-Za-z0-9-]{1,64}$/),
-    z.string().max(512),
+    // Bearer + ChatGPT access token(JWT)이 512자를 넘는다.
+    z.string().max(4096),
   ),
   // GET이면 빈 문자열이다.
   body: z.string().max(ISSUER_REQUEST_BODY_MAX),

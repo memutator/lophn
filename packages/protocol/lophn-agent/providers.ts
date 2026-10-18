@@ -13,6 +13,7 @@ import {
   providerListInputSchema,
   providerReadInputSchema,
   providerRevisionCompareSchema,
+  recordProviderAccountModelsInputSchema,
   recordProviderAvailabilityInputSchema,
   refreshProviderCredentialInputSchema,
 } from "./provider-inputs.ts";
@@ -101,6 +102,18 @@ export const recordProviderAvailability = defineCommand({
   errors: [...machineErrors, "not_found"],
 });
 
+export const recordProviderAccountModels = defineCommand({
+  resource: "provider-credentials",
+  method: "record-account-models",
+  name: "RecordProviderAccountModels",
+  input: recordProviderAccountModelsInputSchema,
+  output: providerOutput,
+  compare: providerRevisionCompareSchema,
+  // user: login 처리기가 사람의 context로 부른다. executor가 writer에서도 actors를 검사한다.
+  actors: ["user", "machine"],
+  errors: [...machineErrors, "not_found"],
+});
+
 export const providerRead = defineRead({
   resource: "providers",
   method: "read",
@@ -174,4 +187,5 @@ export const PROVIDER_ROUTES = [
   loginCancel,
   refreshProviderCredential,
   recordProviderAvailability,
+  recordProviderAccountModels,
 ] as const;

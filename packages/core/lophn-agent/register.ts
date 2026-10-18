@@ -711,6 +711,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       commands.disconnect,
       commands.refreshCredential,
       commands.recordAvailability,
+      commands.recordAccountModels,
       commands.beginLogin,
       commands.completeLogin,
       commands.cancelLogin,

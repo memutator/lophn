@@ -6,6 +6,7 @@ import type {
 } from "../../../protocol/secrets/mod.ts";
 import { type IssuerFetch, objectOf, positive, text } from "./oauth.ts";
 import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
+import { accountModelsEndpoint, readAccountModels } from "./account-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
 // 할 때 core가 값을 건네기 직전에 부른다(runtime-secret.ts의 providerOAuth hook). 만료가 lead보다 가까우면
@@ -15,6 +16,8 @@ import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
 // - 발급자가 grant를 거절하면(400·401, invalid_grant) credential을 revoked로 하고 token을 건네지 않는다.
 // - 그 밖의 실패(발급자에 닿지 못함, 5xx, 이상한 응답)는 지금 token이 아직 살아 있으면 그대로 건넨다.
 // token과 응답 본문은 오류·log에 싣지 않는다.
+// ChatGPT 계정의 model 목록은 token을 건넨 뒤에 읽는다(갱신 직후, 그리고 목록이 아직 없을 때). 읽는 데 발급자 대기열
+// 기한(8초)까지 걸릴 수 있어 token을 기다리게 하지 않는다. 실패는 삼키고 앞서 저장한 목록은 남긴다.
 
 const ACCESS_DEFAULT_S = 3_600;
 const ACCESS_NAME = /^provider\.([^.]+)$/;
@@ -32,10 +35,36 @@ export function createProviderRefresher(deps: {
     provider: ProviderRecord,
     result: RefreshRecord,
   ): Promise<Result<unknown>>;
+  // RecordProviderAccountModels를 그 provider의 revision으로 부른다.
+  recordModels(
+    provider: ProviderRecord,
+    models: string[],
+  ): Promise<Result<unknown>>;
   nowMs(): number;
   leadMs: number;
-}): { prepareToken(use: SecretFileUse): Promise<Result<void> | undefined> } {
+}): {
+  prepareToken(use: SecretFileUse): Promise<Result<void> | undefined>;
+  // 뒤에서 도는 목록 읽기가 끝나기를 기다린다(test와 정지용).
+  idle(): Promise<void>;
+} {
   const flights = new Map<string, Promise<Result<void>>>();
+  const reads = new Map<string, Promise<void>>();
+
+  // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
+  function readModelsLater(provider: ProviderRecord): void {
+    const endpoint = accountModelsEndpoint(provider.definition);
+    if (endpoint === null || reads.has(provider.id)) return;
+    const read = (async () => {
+      const access = deps.secrets.get(providerTokenNames(provider.id).access);
+      if (!access.ok) return;
+      const models = await readAccountModels(deps.http, endpoint, access.value);
+      if (models === null) return;
+      const latest = await deps.readProvider(provider.id);
+      if (!latest.ok || latest.value === null) return;
+      await deps.recordModels(latest.value, models);
+    })().catch(() => {}).finally(() => reads.delete(provider.id));
+    reads.set(provider.id, read);
+  }
 
   async function refresh(provider: ProviderRecord): Promise<Result<void>> {
     const oauth = provider.definition.oauth;
@@ -130,6 +159,9 @@ export function createProviderRefresher(deps: {
   }
 
   return {
+    async idle() {
+      await Promise.all([...reads.values()]);
+    },
     async prepareToken(use) {
       const name = ACCESS_NAME.exec(use.name);
       if (name === null) return undefined;
@@ -142,6 +174,10 @@ export function createProviderRefresher(deps: {
       ) return undefined;
       const expires = Date.parse(provider.credential.expires_at ?? "");
       if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
+        // 연결 직후 runtime이 다시 뜨느라 첫 읽기가 실패했으면 여기서 다시 읽는다.
+        if (provider.credential.account_models === null) {
+          readModelsLater(provider);
+        }
         return undefined;
       }
       const running = flights.get(provider.id);
@@ -150,7 +186,9 @@ export function createProviderRefresher(deps: {
         flights.delete(provider.id)
       );
       flights.set(provider.id, flight);
-      return await flight;
+      const refreshed = await flight;
+      if (refreshed.ok) readModelsLater(provider);
+      return refreshed;
     },
   };
 }

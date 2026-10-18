@@ -106,6 +106,7 @@ async function attempt(c: Case) {
               logged_in_at: new Date(NOW).toISOString(),
               refreshed_at: null,
               model_blocks: [],
+              account_models: null,
             },
             revision: 1,
           },

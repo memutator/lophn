@@ -81,6 +81,14 @@ export function fitOptionValues(
   return { option_values, notices };
 }
 
+// 계정이 쓸 수 있는 model 목록(credential.account_models)으로 거른다. null은 아직 못 읽은 것이라 거르지 않는다.
+export function accountAllows(
+  accountModels: readonly string[] | null,
+  modelName: string,
+): boolean {
+  return accountModels === null || accountModels.includes(modelName);
+}
+
 // 선택 화면의 순서 규칙이다. 즐겨찾기 목록은 별표를 찍은 순서의 ModelFavorites.items이고,
 // 이 규칙은 그 순서를 바꾸지 않는다.
 

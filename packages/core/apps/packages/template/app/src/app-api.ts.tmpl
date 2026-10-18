@@ -14,7 +14,8 @@ const defaults: Deps = {
   now: () => new Date().toISOString(),
 };
 
-// 저장소를 열고 일을 한다. 저장소가 실패하면 이름과 message로 보고하고 호출자에게는 이유 없는 거절만 돌려준다.
+// 저장소를 열고 일을 한다. 저장소를 여는 데 실패하면 이름과 message로 보고하고 호출자에게는 이유 없는 거절만
+// 돌려준다. 업무 일의 예외는 그대로 던져 진입점이 stack과 함께 보고한다.
 // 보고가 실패해도 업무 응답은 막지 않는다. 입력·DB 내용은 보고에 넣지 않는다.
 // 연결은 process에 하나라 호출마다 닫지 않는다. write 호출의 변경 기록(changeset)이 연결에 걸려 있어서, 닫으면
 // 그 호출의 변경이 사라져 되돌릴 수 없다.
@@ -23,17 +24,17 @@ async function withStore<T>(
   name: string,
   work: (store: Store) => T,
 ): Promise<T> {
+  let store: Store;
   try {
-    const store = deps.openStore();
+    store = deps.openStore();
     await ensureSchema(store);
-    return work(store);
-  } catch (error) {
-    if (error instanceof AppApiRejection) throw error;
+  } catch {
     reportProblem("store_unavailable", "the item store could not be opened", {
       api: name,
     });
     throw new AppApiRejection("unavailable", "the item store is unavailable");
   }
+  return work(store);
 }
 
 export function listItemsHandler(deps: Deps = defaults) {

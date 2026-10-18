@@ -33,3 +33,22 @@ modules: [packages/shell/renderer]
 - 둔다: 전역 MCP 화면을 일반 설정 통로로 되돌릴 계획이 있을 때.
 
 정한 것: 지운다. 잃는 기능이 없는 죽은 코드다(issue skill "정하기"). (agent)
+
+## 설정 화면의 command가 compare를 빼서 provider 연결과 기본 model 바꾸기가 모두 거절된다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+```
+
+지금: `packages/shell/renderer/desktop/settings/core-call.ts`의 `command()`는 `compare`를 받지 않으면 봉투에서 그 칸을 뺀다. command 봉투(`packages/protocol/base/envelope.ts`의 `commandRequestSchema`)는 compare가 없는 route에도 `compare: {}`를 요구하는 strict object라, main의 contract client(`packages/shell/main/desktop/core/client.ts`의 `openSession` → `packages/protocol/client/client.ts`)가 core에 보내기 전에 `invalid_input`으로 돌려준다. 이 helper로 compare 없이 보내는 곳은 `settings/providers/core-source.ts`의 `connectWithKey`(API key 연결), key 없는 custom provider 연결, `signIn`의 `login-begin`·`login-complete`·`login-cancel`, `settings/agents/core-source.ts`의 `changeDefaultModel`이다. 재현: 실제 core에 화면의 `coreProviderSettingsSource`를 main의 `openSession`·`nodeFetch`로 붙여 `connect("openai", "oauth")`를 부르면 `providers/definitions` read는 성공하고 `login-begin`이 `invalid_input`이다.
+
+renderer에서 command 봉투를 손으로 짜는 곳이 10개 file에 11곳이다. type이 compare를 강제하는 곳은 대화의 `conversation/agent-tab-core-source-env.ts`(`CommandBody`) 하나이고, 나머지는 `compare: {}`를 손으로 적는다.
+
+영향: 사람이 설정 화면에서 provider를 하나도 붙이지 못한다. API key, custom, ChatGPT·SuperGrok 로그인 모두 "Couldn't connect"로 끝나고 browser도 열리지 않는다. Agents 탭에서 기본 model도 바꾸지 못한다. dev는 `tools/dev.ts`가 fake provider를 core에 직접 연결해 두어 드러나지 않았다. 화면 test는 가짜 CoreSource를 쓰고 e2e는 core에 봉투를 직접 만들어 불러서, 화면이 만든 봉투를 contract schema로 보는 곳이 없다.
+
+고치려면:
+- 설정 helper만 고친다(작음): 늘 `compare: body.compare ?? {}`를 보낸다. 손으로 짠 봉투 11벌은 그대로다.
+- 봉투를 하나로 모은다(작음~중간): 대화의 `CommandBody`처럼 protocol route를 받아 input·compare type을 route에서 꺼내는 helper 하나를 renderer에 두고 11곳이 그것만 쓴다. compare가 없는 route는 type이 `{}`를 강제한다. guard는 그 helper가 만든 봉투가 `commandRequestSchema`를 통과하는지 보는 test 하나(process 없이).
+
+정한 것: 봉투를 하나로 모은다. 화면마다 손으로 짠 봉투가 11벌이라 한 곳의 실수가 설정의 연결 기능 전체를 조용히 막았다.

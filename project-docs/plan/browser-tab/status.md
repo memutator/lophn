@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py browser-tab build`가 `tasks/*.md`에서 id,
 |---|---|---|---|---|---|---|---|
 | `bt-contract` | bt-contract | 1 | 없음 | merged | bt-contract/bt-contract | 589033281 |  |
 | `bt-rules` | bt-rules | 1 | 없음 | merged | bt-rules/bt-rules | 547b9b0c0 |  |
-| `bt-session` | bt-session | 1 | bt-rules | todo |  |  |  |
+| `bt-session` | bt-session | 1 | bt-rules | merged | bt-session/bt-session | bdb3af555 |  |
 | `bt-bookmark-ipc` | bt-bookmark | 2 | bt-bookmark-store, bt-view | todo |  |  |  |
 | `bt-bookmark-store` | bt-bookmark | 2 | 없음 | todo |  |  |  |
 | `bt-bookmark-ui` | bt-bookmark | 2 | bt-popup-tab, bt-bookmark-ipc | todo |  |  |  |

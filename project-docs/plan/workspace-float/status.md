@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py workspace-float build`가 `tasks/*.md`에서
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `wf-layout-model` | wf-layout | 1 | 없음 | running | wf-layout/wf-layout-model |  |  |
-| `wf-layout-schema` | wf-layout | 1 | wf-layout-model | todo |  |  |  |
+| `wf-layout-model` | wf-layout | 1 | 없음 | merged | wf-layout/wf-layout-model | 87fd27363 |  |
+| `wf-layout-schema` | wf-layout | 1 | wf-layout-model | running | wf-layout/wf-layout-schema |  |  |
 | `wf-entry` | wf-entry | 2 | wf-minimized | todo |  |  |  |
 | `wf-floated-layer` | wf-floated | 2 | wf-panel, wf-native, wf-floated-wire, wf-view-keep | todo |  |  |  |
 | `wf-floated-wire` | wf-floated | 2 | 없음 | todo |  |  |  |

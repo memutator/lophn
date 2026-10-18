@@ -14,6 +14,7 @@ import type {
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { useViewBounds } from "../app-frame/embedded-view.tsx";
+import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserApi } from "./browser-api.tsx";
 import { useBookmarks } from "./bookmarks.ts";
 import { BrowserToolbar } from "./browser-toolbar.tsx";
@@ -25,6 +26,12 @@ interface BrowserTabProps {
   url: string;
   /** false면 view를 남긴 채 숨긴다(다른 탭·다른 공간). */
   shown: boolean;
+  /**
+   * Float·Dock으로 다시 mount해도 view를 이어 쓰는 보관소와 탭 key. unmount하면 view를 닫지 않고
+   * 여기 숨기며, 닫는 일은 보관소의 주인(Workspace)이 한다.
+   */
+  keeps: ViewKeeps;
+  keepKey: string;
   /** main이 만든 popup view의 session. 있으면 처음 열 때 `open` 대신 이 view를 가져온다. */
   adopt?: string;
   /** adopt 응답을 받았다. 부른 쪽이 `adopt`를 지운다. */
@@ -37,6 +44,8 @@ interface BrowserTabProps {
   /** 새 탭 화면의 bookmark를 새 탭에서 연다. */
   onOpenInNewTab(url: string): void;
 }
+
+const KEEP_SIGNATURE = "browser";
 
 type PageState = Omit<BrowserViewState, "view_session">;
 
@@ -89,13 +98,25 @@ function OpenTab(
   const callbacks = useRef(props);
   callbacks.current = props;
 
-  // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다.
+  // 여는 동안 이 자리가 사라지면 늦게 온 view를 보관소에 넘긴다(탭이 남았으면 다시 mount가 꺼낸다).
   useEffect(() => {
     let alive = true;
+    // 보관 중인 view가 있으면 열지도 가져오지도 않고 그대로 쓴다.
+    const { keeps, keepKey } = callbacks.current;
+    const kept = keeps.take<BrowserViewState>(keepKey, KEEP_SIGNATURE);
     // adopt는 응답 전에도 이 view의 close가 올 수 있어 처음부터 안다.
-    const adopting = adoptId.current;
-    let opened: string | null = adopting ?? null;
+    const adopting = kept === undefined ? adoptId.current : undefined;
+    let opened: string | null = kept?.session ?? adopting ?? null;
+    // 숨기기 직전에 보관소에 넘길 마지막 state. view가 아직 없으면 null.
+    let last: BrowserViewState | null = null;
+    const dispose = (next: BrowserViewState) =>
+      keeps.put(keepKey, {
+        session: next.view_session,
+        signature: KEEP_SIGNATURE,
+        state: next,
+      });
     const apply = (next: BrowserViewState) => {
+      last = next;
       const { view_session: _session, ...page } = next;
       setState(page);
       if (
@@ -127,42 +148,49 @@ function OpenTab(
       }
     });
     setFailed(false);
-    const got = adopting === undefined
-      ? browser.open({ url: firstUrl.current })
-      : browser.adopt({ view_session: adopting });
-    got.then(
-      (next) => {
-        if (!alive) {
-          void views.closeView({ view_session: next.view_session })
-            .catch(() => {});
-          return;
-        }
-        opened = next.view_session;
-        setViewSession(next.view_session);
-        apply(next);
-        if (adopting !== undefined) {
-          adoptId.current = undefined;
-          callbacks.current.onAdopted();
-        }
-      },
-      () => {
-        if (!alive) return;
-        // 거절된 view는 우리 것이 아니라 닫지 않는다.
-        if (adopting !== undefined) {
-          adoptId.current = undefined;
-          opened = null;
-        }
-        setFailed(true);
-      },
-    );
+    if (kept !== undefined) {
+      setViewSession(kept.session);
+      apply(kept.state);
+      // 가져오는 응답 전에 다시 mount됐으면 adopt 표시가 남아 있다.
+      if (adoptId.current !== undefined) {
+        adoptId.current = undefined;
+        callbacks.current.onAdopted();
+      }
+    } else {
+      const got = adopting === undefined
+        ? browser.open({ url: firstUrl.current })
+        : browser.adopt({ view_session: adopting });
+      got.then(
+        (next) => {
+          if (!alive) {
+            dispose(next);
+            return;
+          }
+          opened = next.view_session;
+          setViewSession(next.view_session);
+          apply(next);
+          if (adopting !== undefined) {
+            adoptId.current = undefined;
+            callbacks.current.onAdopted();
+          }
+        },
+        () => {
+          if (!alive) return;
+          // 거절된 view는 우리 것이 아니라 닫지 않는다.
+          if (adopting !== undefined) {
+            adoptId.current = undefined;
+            opened = null;
+          }
+          setFailed(true);
+        },
+      );
+    }
     return () => {
       alive = false;
       offState();
       offEvents();
       setViewSession(null);
-      if (opened !== null) {
-        void views.closeView({ view_session: opened }).catch(() => {});
-      }
+      if (last !== null) dispose(last);
     };
   }, [browser, views, attempt]);
 

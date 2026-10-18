@@ -425,9 +425,15 @@ function newFloat(
   tab: TabItem,
   area: FloatArea,
   originPane: number,
+  size?: FloatArea,
 ): FloatItem {
-  const width = Math.round(area.width * FLOAT_SHARE);
-  const height = Math.round(area.height * FLOAT_SHARE);
+  // 크기를 먼저 최소·area 안으로 맞춘 뒤 그 크기로 가운데에 둔다.
+  const { width, height } = clampFloatRect({
+    x: 0,
+    y: 0,
+    width: size?.width ?? area.width * FLOAT_SHARE,
+    height: size?.height ?? area.height * FLOAT_SHARE,
+  }, area);
   const rect = clampFloatRect({
     x: Math.round((area.width - width) / 2),
     y: Math.round((area.height - height) / 2),
@@ -437,16 +443,20 @@ function newFloat(
   return { tab, rect, minimized: false, originPane };
 }
 
-/** 새 탭을 곧바로 floated로 연다(popup용). 같은 key가 이미 있으면 그대로다. */
+/**
+ * 새 탭을 곧바로 floated로 연다(popup용). size를 주면 그 크기로 가운데에 열고(최소 크기와
+ * area 안으로 맞춘다) 없으면 area의 60%다. 같은 key가 이미 있으면 그대로다.
+ */
 export function openFloat(
   view: WorkspaceView,
   tab: TabItem,
   area: FloatArea,
+  size?: FloatArea,
 ): WorkspaceView {
   if (findTab(view, tab.key) !== undefined) return view;
   return {
     ...view,
-    floats: [...view.floats, newFloat(tab, area, view.focusedPane)],
+    floats: [...view.floats, newFloat(tab, area, view.focusedPane, size)],
   };
 }
 

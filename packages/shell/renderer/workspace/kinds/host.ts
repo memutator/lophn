@@ -2,6 +2,7 @@
 // 통로를 건드린다.
 
 import type { TabItem, WorkspaceView } from "../model.ts";
+import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
 import type { SearchTabState } from "../contexts/search-tab.tsx";
 import type { ContextsSource } from "../contexts/source.ts";
@@ -73,6 +74,8 @@ export interface TabHost {
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   readonly view: WorkspaceView;
+  /** 탭 view의 보관소. Float·Dock으로 다시 mount되어도 browser view를 이어 쓰는 데 쓴다. */
+  readonly viewKeeps: ViewKeeps;
   /**
    * focus 칸 끝에 붙이고 고른다. 같은 key가 그 칸에 있으면 고르기만 한다. `preview` 탭은 그 칸의
    * preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은 남긴다). `select: false`면 붙이기만 하고
@@ -82,6 +85,14 @@ export interface TabHost {
   openTab(
     tab: TabItem,
     options?: { readonly select?: boolean; readonly after?: string },
+  ): void;
+  /**
+   * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 `.content` 가운데에 열고 없으면 지금
+   * 크기의 60%다. `.content`를 아직 못 쟀으면 칸에 붙여 연다. 열고 나면 floats 층에 focus가 간다.
+   */
+  openFloat(
+    tab: TabItem,
+    size?: { readonly width: number; readonly height: number },
   ): void;
   /**
    * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은

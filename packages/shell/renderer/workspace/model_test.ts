@@ -10,6 +10,7 @@ import {
   minimizeFloat,
   moveTab,
   moveTabBy,
+  openFloat,
   openTabIn,
   type PaneState,
   raiseFloat,
@@ -111,6 +112,10 @@ Deno.test("float, dock, minimize, restore, raise, close를 이어서 해도 탭�
     ["minimize a", (v) => minimizeFloat(v, "a")],
     ["restore g", (v) => restoreFloat(v, "g")],
     ["raise a", (v) => raiseFloat(v, "a")],
+    [
+      "openFloat sized b (이미 있는 key)",
+      (v) => openFloat(v, tab("b"), area, { width: 100, height: 100 }),
+    ],
     ["openTabIn floated d", (v) => openTabIn(v, tab("d"), () => false)],
     ["reopenTab floated f", (v) => reopenTab(v, tab("f"), 0, 0)],
     ["dock e (칸이 사라져 focus pane)", (v) => dockTab(v, "e")],

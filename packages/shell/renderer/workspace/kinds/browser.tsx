@@ -3,6 +3,7 @@ import { t } from "@lophn/wording";
 
 import { BrowserTab } from "../../browser/browser-tab.tsx";
 import { browserIcons } from "../../icons/mod.ts";
+import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -64,18 +65,27 @@ export const browserKind: TabKindDef = {
         url={typeof url === "string" ? url : ""}
         adopt={typeof adopt === "string" ? adopt : undefined}
         shown={shown}
+        keeps={host.viewKeeps}
+        keepKey={tab.key}
         onAdopted={() =>
           host.patchTab(tab.key, (current) => ({
             fields: { ...current.fields, adopt: undefined },
           }))}
-        // floated popup도 여기서는 docked로 연다.
-        onPopup={(event) =>
-          host.openTab({
+        // 크기를 준 popup은 floated 탭으로 뜨고, 아니면 연 탭 바로 뒤에 붙는다.
+        onPopup={(event) => {
+          const popup: TabItem = {
             key: newKey(),
             kind: "browser",
             title: nameOf("", ""),
             fields: { url: "", adopt: event.view_session },
-          }, { after: tab.key })}
+          };
+          const { placement } = event;
+          if (placement.kind === "floated") {
+            host.openFloat({ ...popup, transient: true }, placement);
+          } else {
+            host.openTab(popup, { after: tab.key });
+          }
+        }}
         onCloseRequested={() => host.removeTab(tab.key)}
         onOpenInNewTab={(next) => openBrowserTab(host, next)}
         onState={(state) =>

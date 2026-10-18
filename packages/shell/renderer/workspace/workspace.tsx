@@ -32,6 +32,7 @@ import {
   closeTargets,
   moveTab,
   moveTabBy,
+  openFloat,
   openTabIn,
   pinTab,
   reopenTab,
@@ -420,6 +421,16 @@ export function Workspace(props: WorkspaceProps) {
     update(openTabIn(current, tab, isUnsaved, options?.after));
   };
 
+  // popup 같은 탭을 floated로 연다. `.content`를 못 쟀으면 칸에 붙인다.
+  const openFloatTab: TabHost["openFloat"] = (tab, size) => {
+    if (mainSize === undefined) {
+      openTab(tab);
+      return;
+    }
+    setFloatFocused(true);
+    update(openFloat(latest.current, tab, mainSize, size));
+  };
+
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
   const patchTab: TabHost["patchTab"] = (key, patch, options) => {
     const current = latest.current;
@@ -549,7 +560,9 @@ export function Workspace(props: WorkspaceProps) {
     props,
     appScreens: appViews?.screens !== undefined,
     view,
+    viewKeeps: keeps,
     openTab,
+    openFloat: openFloatTab,
     patchTab,
     removeTab,
     document: { noteReadPosition: notePosition },

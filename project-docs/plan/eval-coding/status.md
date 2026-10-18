@@ -22,4 +22,4 @@ lead만 고친다. `tools/status.py eval-coding build`가 `tasks/*.md`에서 id,
 | `ec-fix-apptest` | ec-fix-apptest | 6 | 없음 | merged | ec-fix-apptest/ec-fix-apptest | 982332bf8 |  |
 | `ec-fix-callid` | ec-fix-callid | 6 | 없음 | merged | ec-fix-callid/ec-fix-callid | 553793313 |  |
 | `ec-fix-idle` | ec-fix-idle | 6 | 없음 | running | ec-fix-idle/ec-fix-idle |  |  |
-| `ec-fix-testdefaults` | ec-fix-testdefaults | 6 | 없음 | running | ec-fix-testdefaults/ec-fix-testdefaults |  |  |
+| `ec-fix-testdefaults` | ec-fix-testdefaults | 6 | 없음 | merged | ec-fix-testdefaults/ec-fix-testdefaults | f8b454526 |  |

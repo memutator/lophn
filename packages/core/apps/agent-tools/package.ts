@@ -2,6 +2,7 @@ import { ok } from "../../../base/mod.ts";
 import {
   appGet,
   packagePublish,
+  packagesBuiltin,
   packagesGuideBody,
   packagesList,
   packagesUsage,
@@ -39,6 +40,14 @@ function newer(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+// 안내 본문을 tool 결과 상한(TEXT_MAX_BYTES)으로 자른다. 잘린 멀티바이트는 버린다.
+function cutBytes(text: string): { text: string; truncated: boolean } {
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.byteLength <= TEXT_MAX_BYTES) return { text, truncated: false };
+  const cut = new TextDecoder().decode(bytes.slice(0, TEXT_MAX_BYTES));
+  return { text: cut.replace(/\uFFFD$/, ""), truncated: true };
+}
+
 // 앱 source의 HEAD commit. git이 못 읽으면 null이다.
 async function headOf(source: string): Promise<string | null> {
   try {
@@ -58,17 +67,19 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "package.list",
     input: none,
-    routes: [packagesList],
+    routes: [packagesList, packagesBuiltin],
     description:
-      "List the SDK and user packages with their description and versions.",
+      "List the SDK built into lophn and the user packages (@me) with their versions.",
     effect: "read",
     handler: async (_input, ctx) => {
       const read = await readOf(ctx.core, packagesList, {});
       if (!read.ok) return read;
+      const builtin = await readOf(ctx.core, packagesBuiltin, {});
+      if (!builtin.ok) return builtin;
       const { body, more } = readBody(read.value);
       return ok(fitted(
         countSummary("packages", body.packages.length, more),
-        body,
+        { ...body, builtin: builtin.value.packages },
         ["packages"],
       ));
     },
@@ -79,12 +90,36 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       name: nonblank,
       version: nonblank.optional(),
     }),
-    routes: [packagesVersions, packagesUsage, packagesGuideBody],
+    routes: [
+      packagesVersions,
+      packagesUsage,
+      packagesGuideBody,
+      packagesBuiltin,
+    ],
     description:
-      "Read one package: its guide (purpose, API and types, examples), required permissions and the apps that use the version. Without version the newest one.",
+      "Read one package: its guide (purpose, API and types, examples), required permissions and the apps that use the version. Without version the newest one. Built-in SDK names start with @lophn/.",
     effect: "read",
     handler: async (input, ctx) => {
       const { name, version } = input;
+      if (name.startsWith("@lophn/")) {
+        const read = await readOf(ctx.core, packagesBuiltin, { name });
+        if (!read.ok) return read;
+        const [installed] = read.value.packages;
+        if (installed === undefined) return notFound("package not found");
+        if (version !== undefined && version !== installed.version) {
+          return notFound("package version not found");
+        }
+        const guide = read.value.guide;
+        const cut = guide === null ? null : cutBytes(guide.text);
+        return ok(fitted(`package ${name}@${installed.version}`, {
+          name,
+          version: installed.version,
+          builtin: true,
+          guide: cut?.text ?? null,
+          guide_truncated: (guide?.truncated ?? false) ||
+            (cut?.truncated ?? false),
+        }));
+      }
       const versions = await readOf(ctx.core, packagesVersions, { name });
       if (!versions.ok) return versions;
       const all = versions.value.versions;

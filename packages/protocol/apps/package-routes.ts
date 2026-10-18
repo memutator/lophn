@@ -98,6 +98,40 @@ export const packagePublish = defineMemory({
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
+// 설치 사본의 내장 SDK(@lophn/*) 목록과 안내. catalog가 아니라 `<data root>/sdk`가 정본이라 disk를 읽는 memory route다.
+// lophn과 App Engineer는 그 폴더를 직접 읽을 수 없다. name이 없으면 설치된 것 전부(이름순)이고 guide는 null,
+// name이 있으면 packages는 그 하나이고 guide는 본문이다. 설치되지 않은 이름은 not_found다.
+export const packagesBuiltinInputSchema = z.strictObject({
+  name: packageNameSchema.refine((name) => name.startsWith("@lophn/"), {
+    message: "built-in package name must be @lophn/...",
+  }).optional(),
+});
+export const builtinPackageSchema = z.object({
+  name: packageNameSchema,
+  version: packageVersionNameSchema,
+  has_guide: z.boolean(),
+});
+export const packagesBuiltinOutputSchema = z.object({
+  packages: z.array(builtinPackageSchema),
+  guide: z.object({ text: z.string(), truncated: z.boolean() }).nullable(),
+});
+export type BuiltinPackage = z.infer<typeof builtinPackageSchema>;
+export const packagesBuiltin = defineMemory({
+  resource: "packages",
+  method: "builtin",
+  name: "packages.builtin",
+  input: packagesBuiltinInputSchema,
+  output: packagesBuiltinOutputSchema,
+  actors: ["agent"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "unavailable",
+    "forbidden",
+    "unauthorized",
+  ],
+});
+
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [
   "invalid_input",
@@ -213,6 +247,7 @@ export const packagesUsage = defineRead({
 export const PACKAGE_ROUTES = [
   packageRegisterVersion,
   packagePublish,
+  packagesBuiltin,
   packagesList,
   packagesVersions,
   packagesGuide,

@@ -11,6 +11,7 @@ export {
 export { createSdkReads } from "./reads.ts";
 export { sdkSchemaSteps } from "./schema.ts";
 export { packageInstallPath } from "./install.ts";
+export { readBuiltinSdk } from "./builtin.ts";
 export { publishPackage } from "./publish.ts";
 export {
   devImportMap,

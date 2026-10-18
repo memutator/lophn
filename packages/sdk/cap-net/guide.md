@@ -2,9 +2,9 @@
 
 ## 목적
 
-timeout과 retry가 있는 외부 fetch client다. 앱 프로세스에는 외부
-net flag가 없고, 요청은 broker의 전송부가 매번 정확한 host·port·redirect를
-선언∩grant로 검사한 뒤 보낸다. import는 grant를 주지 않는다.
+timeout과 retry가 있는 외부 fetch client다. 앱 프로세스에는 외부 net flag가
+없고, 요청은 broker의 전송부가 매번 정확한 host·port·redirect를 선언∩grant로
+검사한 뒤 보낸다. import는 grant를 주지 않는다.
 
 loopback 듣기는 별도 package가 없다. `Deno.serve`를 쓴다. 주소와 permission
 제한은 apps/permissions를 따른다.
@@ -17,7 +17,8 @@ import { createNetClient, netFetch } from "@lophn/cap-net";
 
 - `netFetch({ host, port, path, method? }, options?)` — command 안에서 부른다.
   `{ status, body }`를 돌려준다. host·port는 grant에 적힌 정확한 값이다. 요청은
-  https이고 header·body·credential은 앱이 붙이지 않는다. 인증이 필요하면
+  https이고, loopback host는 http다. 사람이 켠 host·port만 나간다.
+  header·body·credential은 앱이 붙이지 않는다. 인증이 필요하면
   `@lophn/cap-secret`을 쓴다.
 - `createNetClient({ host?, sleep? })` — 시험이나 preview에서 host를 바꿔
   끼운다.

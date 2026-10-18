@@ -33,6 +33,14 @@ const UNSAFE_GRANT = /[,\u0000-\u001f\u007f]/;
 // deno-lint-ignore no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
+// host 없는 --allow-net은 agent runtime(web.fetch)과 apps supervisor(broker net/fetch)만 받는다.
+// 목적지 판정은 두 곳 모두 코드가 요청마다 한다. supervisor는 lophn의 코드이고 앱 process가 아니다.
+// 그 판정이 틀리면 supervisor가 아무 곳이나 간다. kind 문자열은 apps 모듈을 import하지 않으려고 적는다.
+const NET_ANY_KINDS: readonly string[] = [
+  "lophn-agent/runtime",
+  "apps/supervisor",
+];
+
 function forbiddenFlag(value: string): boolean {
   return FORBIDDEN_FLAGS.some((flag) => value.includes(flag));
 }
@@ -64,8 +72,8 @@ export function checkLaunchSpec(
   if (grants.some((grant) => UNSAFE_GRANT.test(grant))) {
     return reject("permission entry must be a single item");
   }
-  if (spec.net_any && spec.kind !== "lophn-agent/runtime") {
-    return reject("net_any is only for the agent runtime");
+  if (spec.net_any && !NET_ANY_KINDS.includes(spec.kind)) {
+    return reject("net_any is only for the agent runtime and apps supervisor");
   }
   for (const host of spec.allow_net) {
     if (host.includes("*") || host.includes(" ")) {
@@ -88,7 +96,7 @@ export function launchArgv(spec: KindLaunchSpec): string[] {
     "--no-prompt",
     ...flag("allow-read", spec.allow_read),
     ...flag("allow-write", spec.allow_write),
-    // net_any는 host 없는 --allow-net이다. agent runtime만 켠다.
+    // net_any는 host 없는 --allow-net이다. agent runtime과 apps supervisor만 켠다.
     ...(spec.net_any ? ["--allow-net"] : flag("allow-net", spec.allow_net)),
     ...flag("allow-run", spec.allow_run),
     ...flag("allow-sys", spec.allow_sys),

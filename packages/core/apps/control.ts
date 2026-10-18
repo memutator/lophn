@@ -784,6 +784,8 @@ export function appSupervisorSpec(input: {
       "lophn.invalid",
       ...allSlotSockets(sockets).map((path) => `unix:${path}`),
     ],
+    // broker net/fetch가 요청마다 목적지를 검사하고 나간다. 앱 process에는 net이 없다.
+    net_any: true,
     allow_run: [Deno.execPath(), "/usr/bin/kill"],
     allow_sys: ["uid"],
     allow_env: [

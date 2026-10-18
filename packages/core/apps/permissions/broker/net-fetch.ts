@@ -26,7 +26,7 @@ type NetFetchDeps = {
   access: BrokerAccess;
   // 실제 전송. 기본은 전역 fetch다. redirect는 이 서비스가 직접 따라가므로 manual로 부른다.
   transport?: typeof globalThis.fetch;
-  // 운영 전송은 https다. 시험의 local fake server만 http를 넣는다.
+  // 정하지 않으면 loopback host는 http, 그 밖은 https다. 시험이 넣는 값이 이긴다.
   scheme?: "https" | "http";
   // 앱이 닿는 loopback에서 막을 플랫폼의 실제 port와 설정 port.
   platformPorts: readonly number[];
@@ -116,7 +116,9 @@ async function readCapped(
 
 export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
   const send = deps.transport ?? globalThis.fetch;
-  const scheme = deps.scheme ?? "https";
+  // 사람이 켠 같은 컴퓨터의 서비스를 부르려는 것이다. 기계 밖으로 나가지 않는 loopback에만 http를 허락한다.
+  const schemeFor = (host: string): "https" | "http" =>
+    deps.scheme ?? (isLoopbackHost(host) ? "http" : "https");
   const timeout = deps.timeoutMs ?? NET_FETCH_TIMEOUT_MS;
   const limit = deps.maxBytes ?? NET_FETCH_MAX_BYTES;
   const maxRedirects = deps.maxRedirects ?? NET_FETCH_MAX_REDIRECTS;
@@ -145,7 +147,7 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
       const method = input.method.toUpperCase();
       if (!METHODS.has(method)) return invalid("method is not supported");
       if (!input.path.startsWith("/")) return invalid("path must be absolute");
-      const origin = `${scheme}://${
+      const origin = `${schemeFor(host)}://${
         host.includes(":") ? `[${host}]` : host
       }:${input.port}`;
       let target: URL;
@@ -185,9 +187,11 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
           } catch {
             return unavailable("redirect target is invalid");
           }
-          // redirect는 새 전송이다. 목적지가 grant 밖이거나 scheme이 바뀌면 거절한다.
+          // redirect는 새 전송이다. 목적지가 grant 밖이거나 scheme이 그 목적지 규칙과 다르거나
+          // https에서 http로 내려가면 거절한다. http는 loopback에서 loopback으로만 이어진다.
           if (
-            next.protocol !== `${scheme}:` ||
+            next.protocol !== `${schemeFor(urlHost(next))}:` ||
+            (current.protocol === "https:" && next.protocol === "http:") ||
             !destinationAllowed(
               state,
               deps.platformPorts,

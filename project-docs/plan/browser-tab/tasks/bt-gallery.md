@@ -71,3 +71,10 @@ wireframes gallery에 browser 화면을 더한다. gallery는 따로 그리지 �
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+wave 2·3에서 바뀐 것을 gallery에도 반영한다(실제 component를 쓴다).
+- toolbar menu(overflow, bookmark)와 채운 별 popover는 앱에서 overlay로 뜬다. gallery에는 overlay가 없으니 DOM 길로 그려진다. 그대로 쓴다.
+- 탭과 bookmark 목록(toolbar menu, 새 탭 목록, Settings 목록, palette)에 favicon이 보인다. favicon이 없는 항목(`Globe`)도 하나 둔다.
+- OAuth popup으로 뜬 floated browser 탭은 `project-docs/architecture/workspace-layout.md`의 floats 층 component를 쓴다.

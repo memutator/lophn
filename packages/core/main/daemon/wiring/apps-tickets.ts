@@ -37,7 +37,8 @@ function examplesRequestContext(app: string): RequestContext {
     principal: "machine:ticket-examples",
     actor: "machine",
     scope: { operations: ["RequestTest"], targets: { app } },
-    conditions: {},
+    // 대상 판정은 conditions의 app을 본다. 비면 RequestTest가 forbidden이다(coding token과 같은 꼴).
+    conditions: { app },
     credential_ref: `machine:ticket-examples:${app}`,
   };
 }

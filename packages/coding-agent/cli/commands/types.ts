@@ -57,6 +57,8 @@ const READ_WORDS = [
   "invocations",
   "logs",
   "more",
+  "occurrence",
+  "body",
   "diff",
   "result",
   "detect",

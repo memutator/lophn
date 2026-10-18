@@ -20,9 +20,11 @@ import {
 } from "../problems/tests.ts";
 import {
   problemGet,
+  problemGetOccurrence,
   problemList,
   problemMore,
 } from "../problems/problem-views.ts";
+import { reportBody } from "../problems/report-body.ts";
 import { CODING_SKILL_NAMES } from "./harness-adapter.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
 import { codingHook, HOOK_ROUTES } from "./hook.ts";
@@ -227,6 +229,22 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
   ),
   token("problem show", problemGet, problemGet.input, problemGet.output),
   token("problem more", problemMore, problemMore.input, problemMore.output),
+  token(
+    "problem occurrence",
+    problemGetOccurrence,
+    problemGetOccurrence.input,
+    problemGetOccurrence.output,
+  ),
+  // feedback_state는 problem report의 등록된 blob field가 아니라 늘 실패하므로 고르지 못하게 뺀다.
+  token(
+    "problem body",
+    reportBody,
+    (reportBody.input as z.ZodObject).extend({
+      field: z.enum(["report_text", "report_details", "snapshot_logs"]),
+      length_bytes: z.number().int().min(1).max(262_144).default(65_536),
+    }),
+    reportBody.output,
+  ),
   token(
     "problem diff",
     codingSourceDiff,

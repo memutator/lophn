@@ -39,3 +39,4 @@ const agent = createLophnAgent({
 export const lophnAgentDefinitions = agent.lophnAgentDefinitions;
 export const createReaderRegistration = agent.createReaderRegistration;
 export const operatorDirectory = createOperatorDirectory(agent.openAgents);
+export const operatorMcpServers = agent.operatorMcpServers;

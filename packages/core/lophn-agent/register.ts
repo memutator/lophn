@@ -55,6 +55,7 @@ import {
   type AgentLookups,
   createAgentCommands,
   createAgentReads,
+  listOperators,
   loadAgent,
   openAgentContext,
   type PlaceLookups,
@@ -139,10 +140,12 @@ import {
   type McpRuntimeServer,
   type PlaceFiles,
   type ProjectLayer,
+  runtimeServerOfLayer,
   type SkillSources,
   type SyncSkillFiles,
 } from "./extensions/mod.ts";
 import type { AgentRoleTable } from "./agents/role-table.ts";
+import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
 import { agentRuntimePermissions } from "./tools/runtime-permissions.ts";
 import {
   extensionSettings,
@@ -612,6 +615,29 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     return openAgentContext(agentDeps, sql);
   }
 
+  // 모든 Operator 정의 층의 MCP 서버다. runtime child의 권한과 `mcp.` secret 목적지가 이 목록을 읽는다. 정의 파일이
+  // 틀린 Operator는 건너뛴다(project 층이 틀린 파일을 건너뛰는 것과 같다).
+  function operatorMcpServers(
+    sql: Pick<Tx["sql"], "get" | "all">,
+  ): Result<OperatorMcpEntry[]> {
+    const context = openAgents(sql);
+    if (!context.ok) return context;
+    const listed = listOperators(context.value);
+    if (!listed.ok) return listed;
+    const found: OperatorMcpEntry[] = [];
+    for (const loaded of listed.value) {
+      const { definition, place } = loaded;
+      if (loaded.issues.length > 0 || definition === null || place === null) {
+        continue;
+      }
+      if (!("mcp_servers" in definition)) continue;
+      for (const server of definition.mcp_servers ?? []) {
+        found.push({ place, server: runtimeServerOfLayer(server, place) });
+      }
+    }
+    return ok(found);
+  }
+
   // skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
   const skillsReads = createSkillsRead({
     projectLayer: ports.projectLayer,
@@ -834,5 +860,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     };
   }
 
-  return { lophnAgentDefinitions, createReaderRegistration, openAgents };
+  return {
+    lophnAgentDefinitions,
+    createReaderRegistration,
+    openAgents,
+    operatorMcpServers,
+  };
 }

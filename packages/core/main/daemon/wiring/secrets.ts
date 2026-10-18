@@ -2,6 +2,7 @@ import { err, ok } from "../../../../base/mod.ts";
 import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
 import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
+import { readOperatorMcp } from "./operator-mcp.ts";
 import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
 import {
   secretDelete,
@@ -76,6 +77,7 @@ export const secretsWiring: WiringFactory = () => {
             mcpServers: () =>
               mcpServerSnapshot(ctx.ledgerPath, {
                 projectLayer: PROJECT_LAYER,
+                operators: () => readOperatorMcp(ctx.ledgerPath),
               }),
             secrets: file,
           }),

@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentPlace,
-  type McpServer,
   type McpToolServer,
   projectExtensionSettingsRead,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -35,16 +34,6 @@ import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 // 연결 표의 server 알림은 표 없이 온다(list_changed 알림만 서버 이름을 아는 것).
 // 상태는 (assignment, server)마다 하나다.
 type RefreshState = "fresh" | "refreshing" | "failed";
-
-// agent 정의 층이다. agent가 가진 서버와, 아래 층에서 끈 서버 이름이다.
-type McpAgentLayer = {
-  servers: readonly McpServer[];
-  off: readonly string[];
-};
-
-// 어느 서버를 연결하나. `place`는 그 agent가 놓인 곳이다(project 층은 project place만 있다). `skip`은 agent 정의가
-// 끈 서버 이름이고 `agent`가 있으면 그 층이 대신한다.
-type McpSourceInput = McpSourceOptions & { agent?: McpAgentLayer };
 
 type McpToolkitDeps = {
   // machine 자격의 loopback. 사람의 registry(settings/get)를 읽는다.
@@ -134,7 +123,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // 그 층이 없는 것과 같다: 위 층만 남긴다(fails closed).
   async function serversOf(
     place: AgentPlace | null,
-    agent: McpAgentLayer | undefined,
+    agent: McpSourceOptions["agent"],
   ): Promise<Result<readonly McpRuntimeServer[]>> {
     const global = await registeredServers();
     if (!global.ok) return global;
@@ -258,7 +247,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
 
   function makeToolkit(assignmentId: string): McpToolkit {
     return {
-      async source(assignment: string, options?: McpSourceInput) {
+      async source(assignment: string, options?: McpSourceOptions) {
         const registered = await serversOf(
           options?.place ?? null,
           options?.agent,

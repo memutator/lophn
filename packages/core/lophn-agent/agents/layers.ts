@@ -3,6 +3,7 @@ import {
   type AgentDefinitionIssue,
   agentDefinitionRead,
   agentSessionRead,
+  type McpServer,
   type McpTool,
   type ModelChoice,
   type Place,
@@ -54,9 +55,11 @@ export async function resolveTurnAgent(
     activeContexts(place: Place | null): Promise<Result<string[]>>;
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     // 어느 tool을 켜는지는 resolve가 정한다.
+    // servers는 Operator 정의가 가진 서버다. 다른 role과 정의가 없는 agent는 비어 있다.
     mcp(
       off: ReadonlySet<string>,
       place: Place | null,
+      servers?: readonly McpServer[],
     ): Promise<readonly McpTool[]>;
   },
 ): Promise<Result<TurnAgent>> {
@@ -90,7 +93,10 @@ export async function resolveTurnAgent(
       .filter((entry) => entry.original_tool === undefined)
       .map((entry) => entry.server_name),
   );
-  const mcp = await input.mcp(serversOff, place);
+  const ownServers = definition !== null && "mcp_servers" in definition
+    ? definition.mcp_servers ?? []
+    : [];
+  const mcp = await input.mcp(serversOff, place, ownServers);
 
   // 정의 읽기의 model은 agent 정의가 먼저이고 비면 전역 기본이다. 출처가 전역일 때만 전역 층의 값이다.
   const effective = read.value.effective.model;

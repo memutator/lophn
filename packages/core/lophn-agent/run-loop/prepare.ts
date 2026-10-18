@@ -13,6 +13,7 @@ import {
   type AgentSession,
   agentSessionRead,
   finishTurn,
+  type McpServer,
   type ModelChoice,
   type Place,
   type Role,
@@ -82,11 +83,13 @@ import {
 // 이 turn의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어 buildMcpTools로 정의를
 // 만들고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
 // 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
-// skip은 agent 정의가 통째로 끈 서버이고 연결하지 않는다.
+// skip은 agent 정의가 통째로 끈 서버이고 연결하지 않는다. agent는 그 agent 정의 층이다: 정의가 가진 서버와, 아래
+// 층(전역, project)에서 끈 서버 이름이다.
 export type McpSourceOptions = {
   place?: AgentPlace | null;
   skip?: ReadonlySet<string>;
   only?: ReadonlySet<string>;
+  agent?: { servers: readonly McpServer[]; off: readonly string[] };
 };
 
 export type McpToolkit = {
@@ -635,8 +638,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       skills: skills.filter((entry) => entry.enabled).map((entry) =>
         entry.name
       ),
-      mcp: async (off, place) => {
-        mcp = await loadMcp(start.session, { place, skip: off });
+      mcp: async (off, place, ownServers) => {
+        mcp = await loadMcp(start.session, {
+          place,
+          skip: off,
+          agent: { servers: ownServers ?? [], off: [...off] },
+        });
         return (mcp.source?.tools ?? []).map((tool) => ({
           server_name: tool.server,
           original_tool: tool.original,

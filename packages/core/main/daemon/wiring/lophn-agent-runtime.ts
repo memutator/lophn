@@ -45,6 +45,7 @@ import { appSocketRoot } from "../../../apps/control.ts";
 import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-roles/skills/root.ts";
 import { agentTools } from "../../agent-tools.ts";
+import { readOperatorMcp } from "./operator-mcp.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -239,7 +240,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           providerOAuth: refresher.prepareToken,
         }),
         readMcpServers: () =>
-          mcpServerSnapshot(ctx.ledgerPath, { projectLayer: PROJECT_LAYER }),
+          mcpServerSnapshot(ctx.ledgerPath, {
+            projectLayer: PROJECT_LAYER,
+            operators: () => readOperatorMcp(ctx.ledgerPath),
+          }),
         bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
         readPlaceFolders: () =>
           Promise.resolve(ledgerSnapshot(

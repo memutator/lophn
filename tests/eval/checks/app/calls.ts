@@ -32,8 +32,13 @@ function successCalls(
   trial: Parameters<typeof toolCallsOf>[0],
   command: string,
 ) {
+  // 제품은 tool_calls.app_api를 되돌리기 binding이 있을 때만 채운다. app-api tool 이름은
+  // `app__<앱>__<api>`(밖의 글자는 밑줄, 뒤에 hash가 붙을 수 있다)라 이름으로도 맞춘다.
+  const wire = `__${command.replace(/[^A-Za-z0-9_-]/g, "_")}`;
   return toolCallsOf(trial).filter((c) =>
-    c.call.app_api?.command === command && c.call.outcome?.kind === "success"
+    (c.call.app_api?.command === command ||
+      (c.call.tool.startsWith("app__") && c.call.tool.includes(wire))) &&
+    c.call.outcome?.kind === "success"
   );
 }
 

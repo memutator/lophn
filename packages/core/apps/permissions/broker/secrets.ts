@@ -1,6 +1,7 @@
 // broker `/_lophn/broker/secrets/use`. 앱 입력은 SecretUseContext와 목적지뿐이고 원값을 읽거나
 // 바꾸는 통로가 아니다. 선언 이름∩grant와 그 목적지의 net.fetch host·port를 검사한 뒤 플랫폼
-// 전송부가 전송 직전에 인증 값을 붙이고, 앱에는 안전한 사용 결과만 돌려준다.
+// net/fetch가 전송 직전에 인증 값을 붙이고(redirect로 목적지가 바뀌면 net/fetch가 다시 판정한다), 앱에는
+// 안전한 사용 결과만 돌려준다.
 // 누가 command를 불렀는지(사람 화면·agent·다른 앱)로 막지 않는다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
@@ -45,16 +46,17 @@ type SecretDeliveryRequest = {
   inputHash: string;
   name: string;
   destination: SecretUseDestination;
-  // 전송부가 redirect·목적지 변경을 만날 때마다 부른다. 거절이면 그 전달을 멈춘다.
-  recheck(destination: SecretUseDestination): Promise<Result<void>>;
 };
 
-// platform/secrets의 전송 부착 경계(secret.send)를 감싼 포트다. 원값은 이 모양 어디에도 없다.
+// 전송 부착 경계를 감싼 포트다. `use`가 성공하면 같은 invocation의 net/fetch가 `attached`로 값을 찾아
+// 붙일 준비가 된 것이고, 앱에 돌려주는 모양에는 원값이 없다.
 export interface SecretDelivery {
   use(request: SecretDeliveryRequest): Promise<Result<{ sent: true }>>;
+  // net/fetch가 목적지 요청을 보내기 직전에 읽는다. 없거나 만료됐으면 undefined다.
+  attached(invocation: string, host: string, port: number): string | undefined;
 }
 
-// platform/redaction의 알려진 값 등록이다. 등록에 성공해야 값이 경계를 나갈 수 있다.
+// 알려진 값 등록이다. 등록에 성공해야 값이 경계를 나갈 수 있다.
 export interface RedactionGate {
   ensure(name: string): Promise<Result<void>> | Result<void>;
 }
@@ -149,27 +151,6 @@ export function createSecretUseService(deps: SecretUseDeps): SecretUseService {
         inputHash: input.input_hash,
         name: input.name,
         destination,
-        async recheck(next) {
-          // 인증을 받은 목적지와 다른 host로는 넘기지 않고, 같은 host도 현재 범위 안에서만 간다.
-          if (next.scheme !== destination.scheme || next.host !== host) {
-            return refuse("net.fetch", { host: next.host, port: next.port });
-          }
-          const again = await currentAccess(deps.access, child);
-          if (!again.ok) return again;
-          if (
-            again.value === null ||
-            !secretGranted(again.value, input.name) ||
-            !destinationAllowed(
-              again.value,
-              deps.platformPorts,
-              next.host,
-              next.port,
-            )
-          ) {
-            return refuse("net.fetch", { host: next.host, port: next.port });
-          }
-          return ok(undefined);
-        },
       });
       if (!sent.ok) return sent;
       return ok({ used: true });

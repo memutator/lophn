@@ -97,6 +97,7 @@ import {
   type SupervisorBroker,
 } from "./broker.ts";
 import { lineRedactor } from "./log-redact.ts";
+import { createSecretDelivery, registeredByCore } from "./secret-delivery.ts";
 import { readRecordState, recordInput } from "./record.ts";
 
 // control socket 요청(probe·open·close·shutdown)의 응답 한도와 기한이다. 호출·적용은 relay가 따로 쥔다.
@@ -445,6 +446,33 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   };
 
   const toCore = { post: io.post, bearer: () => hello.credential };
+  // 앱 secret 값은 supervisor의 machine credential로 core에서 받는다. 앱 process는 이 route를 부르지 못한다.
+  const secrets = {
+    delivery: createSecretDelivery({
+      nowMs: () => io.clock.nowMs(),
+      async core(path, body) {
+        if (hello.credential === "") {
+          return err({ code: "unavailable", message: "core is not connected" });
+        }
+        let reply: { status: number; body: unknown };
+        try {
+          reply = await io.post(path, hello.credential, body);
+        } catch {
+          return err({ code: "unavailable", message: "core is unreachable" });
+        }
+        if (reply.status === 200) return ok(reply.body);
+        const refused = (reply.body as { error?: { message?: unknown } } | null)
+          ?.error;
+        return err({
+          code: errorCodeOf(reply.status, reply.body),
+          message: typeof refused?.message === "string"
+            ? refused.message
+            : "core refused the request",
+        });
+      },
+    }),
+    redaction: registeredByCore,
+  };
   const brokerAdapters: BrokerAdapters = {
     access: createCoreBrokerAccess(toCore),
     ready,
@@ -452,6 +480,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     projects,
     platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
     problems: problemsFor,
+    secrets,
     ...(io.brokerAdapters ?? {}),
   };
   const broker = createSupervisorBroker({ adapters: brokerAdapters });

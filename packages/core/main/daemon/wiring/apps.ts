@@ -32,6 +32,7 @@ import {
   withReleasePreparation,
 } from "../../../apps/control.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
+import { secretValueHandler } from "../../../apps/permissions/mod.ts";
 import {
   type ChangesetBlobs,
   closeUnfinishedInvocations,
@@ -289,6 +290,18 @@ export const appsWiring: WiringFactory = () => {
         memory: [
           ["apps/call_api", callApiHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
+          // supervisor(machine)가 앱 요청에 붙일 secret 값을 받는다. 현재 grant 판정은 secretAttach가 한다.
+          [
+            "apps/secret_value",
+            secretValueHandler({
+              attach: ctx.secretAttach,
+              known: () => ctx.knownSecrets,
+              observe: async (app) => {
+                const observed = await appsControl.client.observe(app);
+                return observed.ok ? ok(observed.value) : observed;
+              },
+            }),
+          ],
           [
             `${blueprintCheck.resource}/${blueprintCheck.method}`,
             checkBlueprint({

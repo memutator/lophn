@@ -1,5 +1,5 @@
 // secret은 읽을 수 없다. 이 client는 "이 secret을 이 목적지로 보낼 때 플랫폼 전송부가 인증 값을
-// 붙여 달라"는 요청 하나만 낸다. 값 읽기·생성·교체·삭제 통로는 없다. secret 값의
+// 붙여 달라"는 요청 하나만 낸다. 같은 command 안에서 그 목적지로 netFetch하면 broker가 Authorization으로 붙인다. 값 읽기·생성·교체·삭제 통로는 없다. secret 값의
 // 저장과 변경은 사람의 확인과 OS 보관 경계를 지난다.
 import {
   CapabilityError,
@@ -12,7 +12,7 @@ import { type CapHost, readHost } from "./host.ts";
 export const SECRETS_USE_PATH = "/_lophn/broker/secrets/use";
 
 export type SecretDestination = {
-  // grant가 허락한 정확한 host와 port다. 전송은 항상 https다.
+  // grant가 허락한 정확한 host와 port다. 전송은 https이고, 이 기계 밖으로 나가지 않는 loopback만 http다.
   host: string;
   port: number;
 };
@@ -34,6 +34,13 @@ export type SecretStandIn = SecretClient & {
   // 대역이 받은 사용 요청. 시험과 preview 확인용이다.
   readonly uses: readonly SecretUseRequest[];
 };
+
+// broker(net.fetch)가 http를 허락하는 host와 같은 규칙이다. SDK는 apps 구현을 import하지 않는다.
+function isLoopback(host: string): boolean {
+  const lower = host.toLowerCase();
+  return lower === "localhost" || lower === "::1" || lower === "::" ||
+    lower === "0.0.0.0" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(lower);
+}
 
 function invalid(message: string): CapabilityError {
   return new CapabilityError({ code: "invalid_input", message });
@@ -118,7 +125,7 @@ export function createSecretClient(deps: SecretClientDeps = {}): SecretClient {
           input_hash: context.inputHash,
           name: request.name,
           destination: {
-            scheme: "https",
+            scheme: isLoopback(request.destination.host) ? "http" : "https",
             host: request.destination.host,
             port: request.destination.port,
           },

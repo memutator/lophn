@@ -26,7 +26,6 @@ import { rewindSchemaSteps } from "./rewind/mod.ts";
 import {
   createGrantCommands,
   createGrantsReads,
-  createSecretAllowance,
   currentDeclarations,
   permissionsSchemaSteps,
 } from "./permissions/mod.ts";
@@ -59,7 +58,6 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import { packagesGuideBody } from "../../protocol/apps/mod.ts";
-import { SecretAllowance } from "../../protocol/secrets/mod.ts";
 import type { WorkerRoute } from "../../protocol/base/mod.ts";
 import type {
   ReaderRegistration,
@@ -223,11 +221,6 @@ export function createLedgerRegistration(
         create: (tx) => ({
           get: (app: string) => lookupAppRegistration(tx.sql, app),
         }),
-      },
-      // 앱 secret 전송의 현재 grant 판정이다.
-      {
-        key: SecretAllowance,
-        create: (tx) => createSecretAllowance(tx),
       },
       // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
       // 준비 때 고정한 blueprint에서 만든 값을 읽는다.

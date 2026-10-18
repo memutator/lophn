@@ -2,11 +2,11 @@
 
 ## 목적
 
-grant 범위의 secret 사용 client다. secret 값은 읽을 수 없다. 이
-client는 "이 secret을 이 목적지로 보낼 때 플랫폼 전송부가 인증 값을 붙여 달라"는
-요청 하나만 내고 안전한 사용 결과만 받는다. secret의 생성·교체·삭제와 원값 읽기
-통로는 없다. 그것은 사람의 확인과 OS 보관 경계를 지난다. import는 grant를 주지
-않는다.
+grant 범위의 secret 사용 client다. secret 값은 읽을 수 없다. 이 client는 "이
+secret을 이 목적지로 보낼 때 플랫폼 전송부가 인증 값을 붙여 달라"는 요청 하나만
+내고 안전한 사용 결과만 받는다. 값은 `netFetch`가 보낼 때 lophn이 붙인다.
+secret의 생성·교체·삭제와 원값 읽기 통로는 없다. 그것은 사람의 확인과 OS 보관
+경계를 지난다. import는 grant를 주지 않는다.
 
 ## 공개 API와 type
 
@@ -14,10 +14,15 @@ client는 "이 secret을 이 목적지로 보낼 때 플랫폼 전송부가 인�
 import { useSecret } from "@lophn/cap-secret";
 ```
 
-- `useSecret({ name, destination: { host, port } })` — app-api handler 안에서 부른다.
-  `{ used: true }`를 돌려준다. 목적지는 https이고 `net.fetch` grant가 허락한
-  정확한 host·port여야 한다. 호출마다 사람 확인을 받지 않고, app-api를 부른
-  쪽(사람 화면·agent·다른 앱)으로 막지도 않는다.
+- `useSecret({ name, destination: { host, port } })` — app-api handler 안에서
+  부른다. `{ used: true }`를 돌려준다. `useSecret`을 부른 같은 command 안에서 그
+  destination으로 `netFetch`하면 lophn이 `Authorization: Bearer <값>`으로
+  붙인다. 값은 앱에 없다. 다른 command나 다른 목적지(redirect로 바뀐 곳
+  포함)에는 붙지 않고, 준비한 값은 60초 뒤 사라진다. 사람이 `secrets/put`으로
+  넣은 이름과 blueprint의 `secret.use`·`net.fetch`, 사람의 허락이 필요하다.
+  목적지는 https이고 이 기계 밖으로 나가지 않는 loopback만 http이며, `net.fetch`
+  grant가 허락한 정확한 host·port여야 한다. 호출마다 사람 확인을 받지 않고,
+  app-api를 부른 쪽(사람 화면·agent·다른 앱)으로 막지도 않는다.
 - `createSecretClient({ host?, standIn? })` — host를 바꿔 끼운다.
 - `createSecretStandIn({ allowed? })` — preview·test의 대역이다. live가 아닌
   mode에서는 broker에도 외부에도 나가지 않고 `{ used: true, standIn: true }`만
@@ -44,10 +49,12 @@ import { useSecret } from "@lophn/cap-secret";
 ```ts
 import { useSecret } from "@lophn/cap-secret";
 
-await useSecret({
-  name: "calendar.token",
-  destination: { host: "api.example.com", port: 443 },
-});
+import { netFetch } from "@lophn/cap-net";
+
+const destination = { host: "api.example.com", port: 443 };
+await useSecret({ name: "calendar.token", destination });
+// lophn이 Authorization: Bearer <값>을 붙여 보낸다.
+const events = await netFetch({ ...destination, path: "/events" });
 ```
 
 ## version 정책

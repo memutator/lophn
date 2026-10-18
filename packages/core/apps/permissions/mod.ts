@@ -81,8 +81,5 @@ export {
   type ProblemReportService,
   type ProblemsReport,
 } from "./broker/problems.ts";
-export {
-  createSecretAllowance,
-  secretAllowanceOver,
-} from "./secret-allowance.ts";
+export { secretAllowanceOver } from "./secret-allowance.ts";
 export { secretValueHandler } from "./secret-value.ts";

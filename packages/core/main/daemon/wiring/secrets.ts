@@ -1,4 +1,6 @@
 import { err, ok } from "../../../../base/mod.ts";
+import { secretAllowanceOver } from "../../../apps/permissions/mod.ts";
+import { releaseDeclarations } from "../../../apps/releases/mod.ts";
 import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
 import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
@@ -45,25 +47,47 @@ export const secretsWiring: WiringFactory = () => {
       ctx.provide("secretStore", store);
       // 값을 다 알기 전(open 전, 못 읽는 동안)에는 ready가 false라서 redactor가 막는다.
       ctx.provide("knownSecrets", store.known);
-      // provider와 MCP credential만 허용한다. 앱 secret은 아직 소유 concern이 없어 거절한다(fail-closed).
-      // process는 관측한 감독 상태로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.
+      // provider·MCP credential은 목적지를 이름 공간(destinations)이 정한다. 앱 secret은 현재 선언 ∩ active grant가
+      // 정하고, 앱 호출마다 읽기 연결을 열어 판정한다(apps build보다 먼저 만들어지므로 API port는 늦게 읽는다).
+      // process는 관측한 감독 상태(io 또는 apps supervisor)로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.
       // 목적지는 이름 공간마다 부를 때 읽는다(lophn-agent/secret-destinations.ts).
       ctx.provide(
         "secretAttach",
         createFileSecretAttach({
           file,
-          allowance: (allowed) =>
-            allowed.purpose === "provider_credential" ||
-              allowed.purpose === "external_mcp_credential"
-              ? ok(undefined)
-              : err({
-                code: "forbidden",
-                message: "secret 전송을 허용하지 않는다",
-              }),
-          processes: (context) =>
-            context.conditions.process !== undefined &&
-            ctx.peek.io?.observation(context.conditions.process).available ===
-              true,
+          allowance: (allowed) => {
+            if (allowed.purpose !== "app_secret") {
+              return allowed.purpose === "provider_credential" ||
+                  allowed.purpose === "external_mcp_credential"
+                ? ok(undefined)
+                : err({
+                  code: "forbidden",
+                  message: "secret 전송을 허용하지 않는다",
+                });
+            }
+            const opened = openConnection(ctx.ledgerPath);
+            if (!opened.ok) return opened;
+            const { sql } = opened.value;
+            try {
+              return secretAllowanceOver({
+                sql,
+                declarations: (app) => releaseDeclarations.get(sql, app),
+                platformPorts: () => {
+                  const port = ctx.peek.server?.port ?? 0;
+                  return port === 0 ? [] : [port];
+                },
+              })(allowed);
+            } finally {
+              opened.value.close();
+            }
+          },
+          processes: (context) => {
+            const process = context.conditions.process;
+            return process !== undefined &&
+              (ctx.peek.io?.observation(process).available === true ||
+                ctx.peek.appsSupervision?.observation(process).available ===
+                  true);
+          },
           destinations: createSecretDestinations({
             providers(name) {
               const opened = openConnection(ctx.ledgerPath);

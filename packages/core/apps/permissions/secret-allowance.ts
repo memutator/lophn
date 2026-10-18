@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Tx } from "../../../protocol/server/mod.ts";
 import type { SecretAllowanceCheck } from "../../../protocol/secrets/mod.ts";
-import { type AppDeclarations, declarationsOf } from "./declarations.ts";
+import type { AppDeclarations } from "./declarations.ts";
 import { effectiveScope } from "./effective.ts";
 import { secretAllowed } from "./broker/secrets.ts";
 import { loadGrants } from "./store.ts";
@@ -12,23 +11,11 @@ const DENIED = {
 };
 
 type AllowanceSource = {
-  sql: Pick<Tx["sql"], "get" | "all">;
+  sql: Parameters<typeof loadGrants>[0];
   declarations(app: string): Result<AppDeclarations | null>;
   // 앱이 grant로 닿는 loopback에서 막을 플랫폼의 실제 port. 없으면 막지 않는다.
   platformPorts?: () => readonly number[];
 };
-
-// platform SecretAllowance port의 apps 구현이다.
-// 현재 release 선언 ∩ 현재 active grant만 본다. 누가 command를 불렀는지는 보지 않는다.
-// 부른 Tx의 snapshot 위에서 판정하므로 회수는 다음 사용부터 거절된다.
-export function createSecretAllowance(
-  tx: Pick<Tx, "port" | "sql">,
-): SecretAllowanceCheck {
-  return secretAllowanceOver({
-    sql: tx.sql,
-    declarations: (app) => declarationsOf(tx, app),
-  });
-}
 
 // 앱은 context의 principal이 아니라 `conditions.app`·`conditions.release`가 정한다. 값을 건네는 호출자는
 // supervisor의 machine 자격이고 앱은 그 호출이 대신하는 대상이기 때문이다. core 메인 스레드가 Tx 없이

@@ -30,6 +30,12 @@ type NetFetchDeps = {
   scheme?: "https" | "http";
   // 앱이 닿는 loopback에서 막을 플랫폼의 실제 port와 설정 port.
   platformPorts: readonly number[];
+  // 같은 invocation에서 `secrets/use`로 받아 둔 인증 값. 목적지(host·port)가 같을 때만 Authorization으로 붙는다.
+  secrets?: (
+    invocation: string,
+    host: string,
+    port: number,
+  ) => string | undefined;
   timeoutMs?: number;
   maxBytes?: number;
   maxRedirects?: number;
@@ -165,12 +171,20 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
       let currentMethod = method;
       while (true) {
         let response: Response;
+        // 목적지가 바뀐 hop은 값을 다시 찾으므로 redirect로 다른 host에 값이 새지 않는다.
+        const secret = input.invocation === null ? undefined : deps.secrets?.(
+          input.invocation,
+          urlHost(current),
+          urlPort(current),
+        );
         try {
           response = await send(current, {
             method: currentMethod,
             redirect: "manual",
             signal: AbortSignal.timeout(timeout),
-            headers: {},
+            headers: secret === undefined
+              ? {}
+              : { Authorization: `Bearer ${secret}` },
           });
         } catch {
           return unavailable("request failed");

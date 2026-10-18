@@ -1,8 +1,7 @@
 // 앱 자식마다 broker socket을 열고 서비스 어댑터를 조립한다.
 // 업무 규칙은 packages/core/apps/permissions/broker에 있고 여기는 자식 연결 하나에 서비스를 달고 자식이
 // 끝나면 정리하는 연결만 한다. 신원은 자식 연결이 정한다: 서비스는 본문의 신원 주장을 쓰지 않는다.
-// 모르는 경로는 없는 경로와 같은 not_found이고, 아직 이어지지 않은 외부 통로(secret 전송)는
-// 경로를 없애지 않고 서비스의 검사를 지난 뒤 unavailable로 닫는다.
+// 모르는 경로는 없는 경로와 같은 not_found다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AppCallPort,
@@ -40,33 +39,22 @@ export type BrokerAdapters = {
   netTransport?: typeof globalThis.fetch;
   netScheme?: "https" | "http";
   problems: (child: BrokerChild) => ProblemsReport;
-  secrets?: { delivery: SecretDelivery; redaction: RedactionGate };
+  secrets: { delivery: SecretDelivery; redaction: RedactionGate };
 };
 
-const NOT_CONNECTED = "this path is not connected to its platform service";
-
-// 아직 platform 쪽 실제 경로가 없는 통로다. 서비스가 선언·grant·mode 검사를 마친 뒤에만 닿으므로
-// 허락 범위 밖 요청은 평소와 같은 forbidden이고, 허락된 요청만 unavailable이다. 성공을 꾸미지 않는다.
-const closedSecretDelivery: SecretDelivery = {
-  use: () =>
-    Promise.resolve(err({ code: "unavailable", message: NOT_CONNECTED })),
-};
-const closedRedaction: RedactionGate = {
-  ensure: () => err({ code: "unavailable", message: NOT_CONNECTED }),
-};
 // 자식 하나가 쓰는 broker 서비스들이다. 연결의 신원은 서비스 호출마다 endpoint가 넘긴다.
 function servicesFor(
   child: BrokerChild,
   adapters: BrokerAdapters,
 ): BrokerServices {
   const ports = adapters.platformPorts();
-  const secrets = adapters.secrets ??
-    { delivery: closedSecretDelivery, redaction: closedRedaction };
   return {
     ready: createReadyService({ receiver: adapters.ready }),
     net: createNetFetchService({
       access: adapters.access,
       platformPorts: ports,
+      secrets: (invocation, host, port) =>
+        adapters.secrets.delivery.attached(invocation, host, port),
       ...(adapters.netTransport === undefined
         ? {}
         : { transport: adapters.netTransport }),
@@ -76,8 +64,8 @@ function servicesFor(
     }),
     secrets: createSecretUseService({
       access: adapters.access,
-      delivery: secrets.delivery,
-      redaction: secrets.redaction,
+      delivery: adapters.secrets.delivery,
+      redaction: adapters.secrets.redaction,
       platformPorts: ports,
     }),
     problems: createProblemReportService({

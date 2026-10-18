@@ -32,7 +32,10 @@ export interface Placed {
 type Generation = Outcome<{ generation: number }>;
 
 export function createPlacement<T extends Placed>(deps: {
-  views: AppViewHost;
+  views: Pick<
+    AppViewHost,
+    "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
+  >;
   record(entry: T, event: ViewEvent): void;
 }) {
   function place(entry: T): void {

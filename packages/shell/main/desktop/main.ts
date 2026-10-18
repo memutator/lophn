@@ -1,11 +1,12 @@
 // 조립만 한다. 창·single instance·scheme 규칙은 각 모듈에 있고, 영역마다 `wiring/`의
-// 한 file이 자기 값을 등록한다. 순서는 core 연결 → 앱 view → 나머지, 창 열기는 맨 끝이다.
+// 한 file이 자기 값을 등록한다. 순서는 core 연결 → browser 탭 → 앱 view → 나머지, 창 열기는 맨 끝이다.
 import { app } from "electron";
 
 import * as appearance from "./wiring/appearance.ts";
 import * as annotate from "./wiring/annotate.ts";
 import * as appCalls from "./wiring/app-calls.ts";
 import * as appViews from "./wiring/app-views.ts";
+import * as browser from "./wiring/browser.ts";
 import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
 import { createShellContext } from "./wiring/context.ts";
@@ -24,7 +25,8 @@ const add = <T extends { stop(): void }>(area: T): T => {
 
 add(crash.register(ctx));
 add(core.register(ctx));
-const views = add(appViews.register(ctx));
+const browserViews = add(browser.register(ctx));
+const views = add(appViews.register(ctx, browserViews));
 add(appCalls.register(ctx, views));
 add(feedback.register(ctx, views));
 add(annotate.register(ctx, views));

@@ -19,6 +19,7 @@ import {
   removeViewIpc,
 } from "../../app-frame/view-ipc.ts";
 import { createViewVisibility } from "../../app-frame/visibility.ts";
+import { type BrowserFrame, routeFrame } from "../../browser/frame-router.ts";
 import {
   createAppWindowIpc,
   registerAppWindowIpc,
@@ -46,7 +47,10 @@ export type AppViews = Registered & {
   openIntent(intent: OpenIntent): void;
 };
 
-export function register(ctx: ShellContext): AppViews {
+export function register(
+  ctx: ShellContext,
+  browser: { frame: BrowserFrame },
+): AppViews {
   const {
     here,
     headless,
@@ -112,7 +116,8 @@ export function register(ctx: ShellContext): AppViews {
 
   // native view 배치. renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
   const viewVisibility = createViewVisibility({
-    frame: appFrame,
+    // browser 탭의 view는 앱 registry에 없다. view_session으로 갈라 보낸다.
+    frame: routeFrame(appFrame, browser.frame),
     geometry: {
       // overlay와 같은 창 본문이다. 상단 바는 shell 크롬이라 앱 view가 덮지 않는다.
       body(ref) {

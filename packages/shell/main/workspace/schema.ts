@@ -1,4 +1,4 @@
-// WorkspaceLayout 값. 파일 계약 첫 판이다.
+// WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이 있다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
@@ -6,7 +6,7 @@ import { z } from "zod";
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const LAYOUT_SCHEMA_VERSION = 1;
+export const LAYOUT_SCHEMA_VERSION = 2;
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
@@ -40,7 +40,7 @@ const layoutPaneSchema = z.strictObject({
   { message: "selected_tab is not in tabs" },
 );
 
-// 창 bounds는 화면 상의 정수 rectangle이다. 음수·과도한 크기는 받지 않는다.
+// 정수 rectangle. 창 bounds와 floated 탭의 rect가 같이 쓴다. 과도한 크기는 받지 않는다.
 const windowBounds = z.strictObject({
   x: z.number().int().min(-32768).max(32768),
   y: z.number().int().min(-32768).max(32768),
@@ -50,7 +50,15 @@ const windowBounds = z.strictObject({
 
 export type WindowBounds = z.infer<typeof windowBounds>;
 
-// WorkspaceLayout. 승인·credential·앱 업무 상태·preview는 schema에 없다.
+// 떠 있는 탭. rect는 workspace 안의 CSS px이고 minimized여도 접기 전 값을 지닌다.
+const layoutFloatSchema = z.strictObject({
+  tab: layoutTabSchema,
+  rect: windowBounds,
+  minimized: z.boolean(),
+  origin_pane: z.number().int().min(0).max(1),
+});
+
+// WorkspaceLayout. 승인·credential·앱 업무 상태·preview·transient 탭은 schema에 없다.
 export const workspaceLayoutSchema = z.strictObject({
   schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
   project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
@@ -59,6 +67,7 @@ export const workspaceLayoutSchema = z.strictObject({
   panes: z.array(layoutPaneSchema).min(1).max(2),
   split_ratio: z.number().finite().gt(0).lt(1),
   focused_pane: z.number().int().min(0).max(1),
+  floats: z.array(layoutFloatSchema).max(20),
 }).refine(
   (layout) => layout.focused_pane < layout.panes.length,
   { message: "focused_pane is not a valid pane index" },

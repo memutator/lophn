@@ -1,7 +1,9 @@
 // 화면 탭(TabItem)과 layout 파일 탭을 오간다. 파일에 남는 것은 schema 필드뿐이다.
 import {
+  type FloatItem,
   normalizePane,
   type PaneState,
+  storableView,
   type TabItem,
   type WorkspaceView,
 } from "./model.ts";
@@ -49,6 +51,31 @@ function toStoredTab(tab: TabItem): Record<string, unknown> | null {
   }) ?? null;
 }
 
+/** 저장된 떠 있는 탭. 탭이나 rect를 맞출 수 없으면 null이다. */
+function floatFromStored(value: unknown): FloatItem | null {
+  if (typeof value !== "object" || value === null) return null;
+  const float = value as Record<string, unknown>;
+  const tab = tabFromStored(float.tab);
+  const rect = float.rect as Record<string, unknown> | null | undefined;
+  if (
+    tab === null || typeof rect !== "object" || rect === null ||
+    ![rect.x, rect.y, rect.width, rect.height].every(Number.isInteger)
+  ) {
+    return null;
+  }
+  return {
+    tab,
+    rect: {
+      x: rect.x as number,
+      y: rect.y as number,
+      width: rect.width as number,
+      height: rect.height as number,
+    },
+    minimized: float.minimized === true,
+    originPane: float.origin_pane === 1 ? 1 : 0,
+  };
+}
+
 /** 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다. */
 export function viewFromStored(layout: unknown): WorkspaceView | null {
   if (typeof layout !== "object" || layout === null) return null;
@@ -56,6 +83,7 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
     panes?: { tabs?: unknown[]; selected_tab?: string | null }[];
     split_ratio?: number;
     focused_pane?: number;
+    floats?: unknown;
   };
   if (!Array.isArray(value.panes)) return null;
   const panes: PaneState[] = value.panes.map((pane) =>
@@ -76,7 +104,12 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
     panes,
     splitRatio: typeof value.split_ratio === "number" ? value.split_ratio : 0.5,
     focusedPane: focused >= 0 && focused < panes.length ? focused : 0,
-    floats: [],
+    floats: Array.isArray(value.floats)
+      ? value.floats.flatMap((float) => {
+        const item = floatFromStored(float);
+        return item === null ? [] : [item];
+      })
+      : [],
   };
 }
 
@@ -91,8 +124,15 @@ export function toStoredLayout(input: {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
   split_ratio: number;
   focused_pane: number;
+  floats: {
+    tab: Record<string, unknown>;
+    rect: FloatItem["rect"];
+    minimized: boolean;
+    origin_pane: number;
+  }[];
 } {
-  const panes = input.view.panes.slice(0, 2).map((pane) => {
+  const view = storableView(input.view);
+  const panes = view.panes.slice(0, 2).map((pane) => {
     const tabs = pane.tabs.flatMap((tab) => {
       const stored = toStoredTab(tab);
       return stored === null ? [] : [stored];
@@ -103,18 +143,28 @@ export function toStoredLayout(input: {
     return { tabs, selected_tab: selected };
   });
   const kept = panes.length > 0 ? panes : [{ tabs: [], selected_tab: null }];
-  const ratio = input.view.splitRatio > 0 && input.view.splitRatio < 1
-    ? input.view.splitRatio
+  const ratio = view.splitRatio > 0 && view.splitRatio < 1
+    ? view.splitRatio
     : 0.5;
-  const focused = input.view.focusedPane >= 0 &&
-      input.view.focusedPane < kept.length
-    ? input.view.focusedPane
+  const focused = view.focusedPane >= 0 &&
+      view.focusedPane < kept.length
+    ? view.focusedPane
     : 0;
+  const floats = view.floats.flatMap((float) => {
+    const tab = toStoredTab(float.tab);
+    return tab === null ? [] : [{
+      tab,
+      rect: float.rect,
+      minimized: float.minimized,
+      origin_pane: float.originPane === 1 ? 1 : 0,
+    }];
+  }).slice(0, 20);
   return {
     project: input.project,
     last_space: input.lastSpace,
     panes: kept,
     split_ratio: ratio,
     focused_pane: focused,
+    floats,
   };
 }

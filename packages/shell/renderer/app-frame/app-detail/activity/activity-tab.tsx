@@ -1,8 +1,7 @@
-// Activity 탭. 호출 기록 목록, 한 호출을 펼친 세부, project로 거르기, 그리고 rewind panel로 가는 단추.
+// Activity 탭. 호출 기록 목록, 한 호출을 펼친 세부, 그리고 rewind panel로 가는 단추.
 // 성공한 읽기는 기록하지 않는다. 호출 성공은 업무가 맞다는 뜻이 아니다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Select } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
 
 import { Loadable } from "../loadable.tsx";
@@ -35,13 +34,10 @@ interface ActivityTabProps {
   onOpenSession?: (session: string) => void;
 }
 
-const ALL_PROJECTS = "all";
-
 export function ActivityTab(
   { app, name, source, now, onOpenSession }: ActivityTabProps,
 ) {
   const [open, setOpen] = useState<string | null>(null);
-  const [project, setProject] = useState(ALL_PROJECTS);
   const [rewind, setRewind] = useState<string | null>(null);
   if (rewind !== null) {
     return (
@@ -63,8 +59,6 @@ export function ActivityTab(
         now={now}
         open={open}
         onOpen={setOpen}
-        project={project}
-        onProject={setProject}
         onRewind={setRewind}
         onOpenSession={onOpenSession}
       />
@@ -149,9 +143,8 @@ function CalledBy(
 }
 
 function Detail(
-  { row, projectName, onOpenSession }: {
+  { row, onOpenSession }: {
     row: ActivityRow;
-    projectName: string | null;
     onOpenSession?: (session: string) => void;
   },
 ) {
@@ -166,12 +159,6 @@ function Detail(
               row={row}
               onOpenSession={onOpenSession}
             />,
-          ],
-          [
-            t("app-detail.label.fact-project"),
-            row.project === null
-              ? t("app-detail.label.no-project-level")
-              : (projectName ?? row.project),
           ],
           [
             t("app-detail.label.fact-input-fingerprint"),
@@ -209,8 +196,6 @@ function ActivityList(
     now,
     open,
     onOpen,
-    project,
-    onProject,
     onRewind,
     onOpenSession,
   }: {
@@ -219,8 +204,6 @@ function ActivityList(
     now: () => Date;
     open: string | null;
     onOpen: (id: string | null) => void;
-    project: string;
-    onProject: (project: string) => void;
     onRewind: (id: string) => void;
     onOpenSession?: (session: string) => void;
   },
@@ -238,8 +221,6 @@ function ActivityList(
           now={now}
           open={open}
           onOpen={onOpen}
-          project={project}
-          onProject={onProject}
           onRewind={onRewind}
           onOpenSession={onOpenSession}
         />
@@ -249,44 +230,19 @@ function ActivityList(
 }
 
 function ActivityRows(
-  { view, now, open, onOpen, project, onProject, onRewind, onOpenSession }: {
+  { view, now, open, onOpen, onRewind, onOpenSession }: {
     view: ActivityView;
     now: () => Date;
     open: string | null;
     onOpen: (id: string | null) => void;
-    project: string;
-    onProject: (project: string) => void;
     onRewind: (id: string) => void;
     onOpenSession?: (session: string) => void;
   },
 ) {
-  const names = new Map(view.projects.map((item) => [item.id, item.name]));
-  // 앱 단위(project가 없는) 호출은 어느 project를 골라도 보인다.
-  const rows = view.rows.filter((row) =>
-    project === ALL_PROJECTS || row.project === project || row.project === null
-  );
+  const rows = view.rows;
   return (
     <>
       <div className={styles.filters}>
-        <div className={styles.filterField}>
-          <Field label={t("app-detail.label.filter-project")}>
-            <Select
-              size="sm"
-              value={project}
-              onValueChange={onProject}
-              options={[
-                {
-                  value: ALL_PROJECTS,
-                  label: t("app-detail.label.all-projects"),
-                },
-                ...view.projects.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                })),
-              ]}
-            />
-          </Field>
-        </div>
         <p className={styles.muted}>{t("app-detail.note.activity-scope")}</p>
       </div>
       {rows.length === 0
@@ -340,15 +296,10 @@ function ActivityRows(
                       <Mono>{callName(row)}</Mono>
                     </button>
                     <span className={styles.muted}>
-                      {row.project === null
-                        ? t("app-detail.label.no-project")
-                        : (names.get(row.project) ?? row.project)}
                       {row.earlier && row.releaseNumber !== null
-                        ? ` · ${
-                          t("app-detail.label.from-release", {
-                            release: releaseName(row.releaseNumber),
-                          })
-                        }`
+                        ? t("app-detail.label.from-release", {
+                          release: releaseName(row.releaseNumber),
+                        })
                         : ""}
                     </span>
                   </span>
@@ -373,9 +324,6 @@ function ActivityRows(
                   ? (
                     <Detail
                       row={row}
-                      projectName={row.project === null
-                        ? null
-                        : (names.get(row.project) ?? null)}
                       onOpenSession={onOpenSession}
                     />
                   )

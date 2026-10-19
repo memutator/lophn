@@ -205,7 +205,6 @@ export function withStartInvocation(
           reason: before === attestation.release ? "restart" : "activation",
         },
         caller: null,
-        project: null,
         effect: "write",
         started_at: input.data.started_at ?? deps.clock.now(),
         input_hash: null,

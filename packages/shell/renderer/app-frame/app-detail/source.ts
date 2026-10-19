@@ -159,7 +159,6 @@ export interface ActivityRow {
   /** app-api 이름. 앱 시작과 data 변경은 null이다. */
   readonly api: string | null;
   readonly kind: "tool" | "start" | "data_change";
-  readonly project: string | null;
   readonly effect: Effect;
   readonly state: CallState;
   /** 되돌림이 이 호출을 되돌렸다. */
@@ -175,8 +174,6 @@ export interface ActivityRow {
 
 export interface ActivityView {
   readonly rows: readonly ActivityRow[];
-  /** project 거르기 선택지. 보관한 project도 있다. */
-  readonly projects: readonly { readonly id: string; readonly name: string }[];
 }
 
 export type RewindOutcome = "undone" | "stays" | "cannot";

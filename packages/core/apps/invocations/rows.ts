@@ -38,7 +38,6 @@ export function invocationFromRow(
     mode: row.mode,
     operation: operation.value,
     caller,
-    project: row.project ?? null,
     effect: row.effect,
     status: row.status,
     started_at: row.started_at ?? null,

@@ -115,7 +115,6 @@ async function write(
       turn: `trn_${n(value)}` as Id<"trn">,
       tool_call: `tcl_${n(value)}` as Id<"tcl">,
     },
-    project: null,
     effect: "write",
     started_at: AT,
     input_hash: null,

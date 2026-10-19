@@ -16,7 +16,6 @@ const FROZEN_COLUMNS = [
   "caller_kind",
   "session",
   "turn",
-  "project",
   "effect",
   "status",
   "started_at",
@@ -39,7 +38,6 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app')),
       session TEXT,
       turn TEXT,
-      project TEXT,
       effect TEXT NOT NULL CHECK (effect IN ('read', 'write', 'external')),
       status TEXT NOT NULL CHECK (
         status IN ('running', 'succeeded', 'failed', 'denied', 'unknown')
@@ -65,7 +63,7 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       ${HEX64("changeset_hash")}
     ) STRICT;
     CREATE INDEX invocations_app_release_mode_id ON invocations (app, release, mode, id);
-    CREATE INDEX invocations_app_project_id ON invocations (app, project, id);
+    CREATE INDEX invocations_app_id ON invocations (app, id);
     CREATE INDEX invocations_session_turn_id ON invocations (session, turn, id);
     CREATE INDEX invocations_status_id ON invocations (status, id);
     CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations

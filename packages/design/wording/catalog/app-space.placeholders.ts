@@ -51,7 +51,6 @@ export type AppSpacePlaceholders = {
   "app-detail.heading.what-was-rewound": Record<never, never>;
   "app-detail.label.access-target": Record<never, never>;
   "app-detail.label.activity-target": Record<never, never>;
-  "app-detail.label.all-projects": Record<never, never>;
   "app-detail.label.all-statuses": Record<never, never>;
   "app-detail.label.call-data-change": Record<never, never>;
   "app-detail.label.call-start": Record<never, never>;
@@ -98,7 +97,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.fact-first": Record<never, never>;
   "app-detail.label.fact-input-fingerprint": Record<never, never>;
   "app-detail.label.fact-last": Record<never, never>;
-  "app-detail.label.fact-project": Record<never, never>;
   "app-detail.label.fact-reason": Record<never, never>;
   "app-detail.label.fact-release": Record<never, never>;
   "app-detail.label.fact-reports": Record<never, never>;
@@ -110,7 +108,6 @@ export type AppSpacePlaceholders = {
     release: "string";
   };
   "app-detail.label.filter-period": Record<never, never>;
-  "app-detail.label.filter-project": Record<never, never>;
   "app-detail.label.filter-status": Record<never, never>;
   "app-detail.label.from-release": {
     release: "string";
@@ -130,8 +127,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.loss-drop-column": Record<never, never>;
   "app-detail.label.loss-drop-table": Record<never, never>;
   "app-detail.label.loss-narrow-type": Record<never, never>;
-  "app-detail.label.no-project": Record<never, never>;
-  "app-detail.label.no-project-level": Record<never, never>;
   "app-detail.label.nothing-changed": Record<never, never>;
   "app-detail.label.occurrence-app-error": Record<never, never>;
   "app-detail.label.occurrence-report": Record<never, never>;

@@ -36,7 +36,6 @@ export function listInvocations(
     params.push(value);
   };
   equals("app", filter.app);
-  equals("project", filter.project);
   equals("session", filter.session);
   equals("turn", filter.turn);
   equals("effect", filter.effect);
@@ -74,9 +73,9 @@ export function insertInvocation(
   tx.sql.run(
     `INSERT INTO invocations
       (id, app, release, mode, operation, caller, caller_kind, session, turn,
-       project, effect, status, started_at, finished_at, input_hash, summary,
+       effect, status, started_at, finished_at, input_hash, summary,
        detail_hash, changeset_hash, changeset_size, reverted_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       invocation.id,
       invocation.app,
@@ -87,7 +86,6 @@ export function insertInvocation(
       caller?.kind ?? null,
       caller?.kind === "agent" ? caller.session : null,
       caller?.kind === "agent" ? caller.turn : null,
-      invocation.project,
       invocation.effect,
       invocation.status,
       invocation.started_at,

@@ -86,7 +86,6 @@ function invocation(
     mode: "live",
     operation: { kind: "tool", tool: "app.save" },
     caller: null,
-    project: null,
     effect: "write",
     status: "succeeded",
     started_at: "2026-10-16T00:00:00.000Z",

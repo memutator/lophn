@@ -506,18 +506,12 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
     },
 
     async activity(app) {
-      const [invocations, projects, releases, active] = await Promise.all([
+      const [invocations, releases, active] = await Promise.all([
         read<{ invocations: AppInvocation[] }>(core, "apps", "invocations", {
           app,
           mode: "live",
           limit: ACTIVITY_LIMIT,
         }),
-        read<{ projects: { id: string; name: string }[] }>(
-          core,
-          "apps",
-          "projects",
-          {},
-        ),
         releaseRecords(core, app),
         activeRelease(core, app),
       ]);
@@ -542,7 +536,6 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
             ? invocation.operation.tool
             : null,
           kind: kindOf(invocation.operation),
-          project: invocation.project,
           effect: invocation.effect,
           state: stateOf(invocation),
           undone: invocation.reverted_by !== null,
@@ -560,13 +553,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
           ? 1
           : b.at.localeCompare(a.at)
       );
-      return {
-        ok: true,
-        value: {
-          rows,
-          projects: projects.ok ? projects.value.projects : [],
-        },
-      };
+      return { ok: true, value: { rows } };
     },
 
     async rewindPlan(app, from) {

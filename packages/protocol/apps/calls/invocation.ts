@@ -3,7 +3,7 @@ import { withReadCommon } from "../../base/envelope.ts";
 import { idSchema } from "../../base/ids.ts";
 import { defineRead } from "../../base/route.ts";
 import { atSchema, sha256Schema } from "../../base/values.ts";
-import { appIdSchema, projectIdSchema } from "../../projects/values.ts";
+import { appIdSchema } from "../../projects/values.ts";
 import {
   invocationIdSchema,
   releaseIdSchema,
@@ -54,7 +54,6 @@ export const appInvocationSchema = z.object({
   mode: runtimeModeSchema,
   operation: appInvocationOperationSchema,
   caller: appApiCallerSchema.nullable(),
-  project: projectIdSchema.nullable(),
   effect: invocationEffectSchema,
   status: appInvocationStatusSchema,
   started_at: atSchema.nullable(),
@@ -93,7 +92,6 @@ const APP_INVOCATIONS_MAX_COUNT = 200;
 // session·turn 필터는 session·turn별 write 목록에 쓴다.
 export const appInvocationsInputSchema = z.strictObject({
   app: appIdSchema.optional(),
-  project: projectIdSchema.optional(),
   session: idSchema("ses").optional(),
   turn: idSchema("trn").optional(),
   effect: invocationEffectSchema.optional(),

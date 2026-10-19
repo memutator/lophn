@@ -80,7 +80,6 @@ function row(
   at: string,
   caller: Caller,
   api: string | null,
-  project: string | null,
   effect: ActivityRow["effect"],
   state: ActivityRow["state"],
   result: string,
@@ -92,7 +91,6 @@ function row(
     caller,
     api,
     kind: api === null ? "start" : "tool",
-    project,
     effect,
     state,
     undone: false,
@@ -104,16 +102,12 @@ function row(
   };
 }
 
-const PHRONER = "prj_01h455vb4pex5v6nkc6gd5fd01";
-const GROCERY = "prj_01h455vb4pex5v6nkc6gd5fd02";
-
 const ACTIVITY: readonly ActivityRow[] = [
   row(
     "inv_41",
     "2026-10-15T14:41:00",
     { kind: "app", app: CUSTOMERS, appName: "Customers", releaseNumber: 12 },
     "orders.attachNote",
-    GROCERY,
     "write",
     "waiting",
     "Waiting behind the running write",
@@ -123,7 +117,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:39:00",
     YOU,
     "orders.create",
-    PHRONER,
     "write",
     "done",
     "Created order 1043",
@@ -133,7 +126,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:38:00",
     ANALYST,
     "orders.exportToSheet",
-    PHRONER,
     "external",
     "done",
     "Sent 31 rows to the Orders digest sheet",
@@ -143,7 +135,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:36:00",
     ANALYST,
     "orders.refund",
-    PHRONER,
     "write",
     "unknown",
     "Result unknown. lophn stopped during the call",
@@ -153,7 +144,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:32:00",
     YOU,
     "orders.markShipped",
-    PHRONER,
     "write",
     "done",
     "Order 1042 marked shipped",
@@ -163,7 +153,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:22:00",
     YOU,
     "orders.markShipped",
-    PHRONER,
     "write",
     "done",
     "Order 1041 marked shipped",
@@ -174,7 +163,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:20:00",
     ANALYST,
     "orders.cancel",
-    GROCERY,
     "write",
     "done",
     "Order 1040 cancelled",
@@ -185,7 +173,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T14:11:00",
     YOU,
     "orders.list",
-    PHRONER,
     "read",
     "failed",
     "Failed: the query timed out",
@@ -194,7 +181,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "inv_05",
     "2026-10-15T13:58:00",
     { kind: "start", reason: "activation" },
-    null,
     null,
     "write",
     "done",
@@ -205,7 +191,6 @@ const ACTIVITY: readonly ActivityRow[] = [
     "2026-10-15T13:20:00",
     YOU,
     "orders.markShipped",
-    PHRONER,
     "write",
     "done",
     "Order 1039 marked shipped",
@@ -416,10 +401,6 @@ export function fakeDetail(options: FakeOptions = {}) {
     activity: () =>
       reply("activity", {
         rows: ACTIVITY,
-        projects: [
-          { id: PHRONER, name: "phroner" },
-          { id: GROCERY, name: "grocery" },
-        ],
       }),
     rewindPlan: (_app, from) => {
       calls.push(["rewindPlan", from]);

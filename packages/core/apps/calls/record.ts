@@ -85,7 +85,6 @@ export function closedRow(
   return {
     ...base,
     ...closed,
-    project: null,
     detail_hash: null,
     changeset: null,
     reverted_by: null,

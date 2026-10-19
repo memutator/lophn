@@ -272,7 +272,6 @@ export function createAppCalls(
       if (record) {
         const begun = deps.ledger.begin({
           ...base,
-          project: null,
           started_at: startedAt,
         });
         if (!begun.ok) return begun;

@@ -197,7 +197,6 @@ export type ProjectPlaceholders = {
   "project-workspace.label.root-folder": Record<never, never>;
   "project-workspace.label.sidebar-tab-agent": Record<never, never>;
   "project-workspace.label.sidebar-tab-artifact": Record<never, never>;
-  "project-workspace.label.sidebar-tab-context": Record<never, never>;
   "project-workspace.label.sidebar-tab-explorer": Record<never, never>;
   "project-workspace.label.tab-unsaved": Record<never, never>;
   "project-workspace.notice.explorer-delete-file": {

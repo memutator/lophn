@@ -22,6 +22,11 @@ guard: 없음
 
 ```yaml
 kind: bug
+
+## detached 창의 TabHost slice가 Workspace의 사본이다
+
+```yaml
+kind: defect
 modules: [packages/shell/renderer]
 closed: fixed
 guard: 없음
@@ -31,3 +36,8 @@ guard: 없음
 - 영향: minimized나 다른 자리로 옮기는 사이에 app view가 죽거나 연결이 끊기면, 다시 편 탭이 "정상"으로 보이고 [새 view 열기]가 안 나온다. 사람은 빈 화면이나 멈춘 앱을 보고 탭을 닫았다 열어야 한다.
 - 고치려면: `ViewKeeps`가 보관하는 동안 `subscribeViewState`를 하나 들어 그 session의 `state`를 갱신한다(추천, 몇 줄). 또는 `take` 뒤에 main에 지금 state를 묻는다(새 IPC가 필요하다).
 - 닫음: `ViewKeeps.watch`가 `subscribeViewState`를 창마다 한 번 들어, mount된 view든 보관 중인 view든 session이 같은 `state`를 최신으로 갱신한다(`renderer/app-frame/view-keeps.ts`, `embedded-view.tsx`가 mount 때 `watch`를 건다). 다시 mount(`take`)와 Detach(`lookup`)가 접힌 사이의 unresponsive·crashed·connection 상태를 본다.
+
+- 지금: `renderer/workspace/detached/detached-space.tsx`의 `DetachedTab`이 `Workspace`(`renderer/workspace/workspace.tsx`)가 `TabHost`를 만드는 줄을 따라 썼다: `useSidebarAgents`·`useSessions`·`useConversation`과 `localDrafts`, `contexts` slice(`readContexts`, `titleOf`, `openPath`, `askProjectManager`), `agentView`·`agents` slice, `createViewCovers`·`createViewKeeps`·`createWebviewHost`와 provider. 벌써 갈라졌다: `contexts.openPath`가 상대 path를 `Workspace`처럼 열린 파일 목록에서 찾지 않고 첫 폴더에 붙인다.
+- 영향: `TabHost` slice를 고치면 두 곳을 고쳐야 하고, 빠뜨리면 같은 탭이 detached 창에서만 다르게 동작한다(위 `openPath`처럼 다른 폴더의 같은 이름 파일을 연다).
+- 고치려면: 두 곳이 같이 쓰는 hook(`useTabHostSlices(project, sources)`)으로 slice를 모은다(중간). 추천.
+- 닫음: `renderer/workspace/use-tab-host-slices.ts`의 `useTabHostSlices`가 `Workspace`와 `DetachedTab`의 sidebar agents·sessions·conversation·drafts·contexts·agent view·agents slice와 view 보관소(covers, keeps, webviews)를 한 곳에서 만든다. detached 창의 `contexts.openPath`도 이제 열린 파일 목록을 먼저 본다.

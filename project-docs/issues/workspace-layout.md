@@ -54,15 +54,3 @@ modules: [packages/shell/renderer, packages/shell/main]
 
 고치려면: `open`의 `bounds`에 opener 창 가운데 `size` 크기를 넣고, main이 detached 창에만 작은 최소 크기를 쓴다(작음). 지금 최소 크기를 다른 창과 같게 둔 것은 따로 정할 근거가 없어서다.
 
-## detached 창의 TabHost slice가 Workspace의 사본이다
-
-```yaml
-kind: defect
-modules: [packages/shell/renderer]
-```
-
-지금: `renderer/workspace/detached/detached-space.tsx`의 `DetachedTab`이 `Workspace`(`renderer/workspace/workspace.tsx`)가 `TabHost`를 만드는 줄을 따라 썼다: `useSidebarAgents`·`useSessions`·`useConversation`과 `localDrafts`, `contexts` slice(`readContexts`, `titleOf`, `openPath`, `askProjectManager`), `agentView`·`agents` slice, `createViewCovers`·`createViewKeeps`·`createWebviewHost`와 provider. 벌써 갈라졌다: `contexts.openPath`가 상대 path를 `Workspace`처럼 열린 파일 목록에서 찾지 않고 첫 폴더에 붙인다.
-
-영향: `TabHost` slice를 고치면 두 곳을 고쳐야 하고, 빠뜨리면 같은 탭이 detached 창에서만 다르게 동작한다(위 `openPath`처럼 다른 폴더의 같은 이름 파일을 연다).
-
-고치려면: 두 곳이 같이 쓰는 hook(`useTabHostSlices(project, sources)`)으로 slice를 모은다(중간). 추천.

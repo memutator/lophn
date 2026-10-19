@@ -1,11 +1,4 @@
-import {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -15,7 +8,6 @@ import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { SettingsEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
-import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { openProjectManager } from "./reactions/project-manager.ts";
@@ -68,9 +60,7 @@ import { ContextSidebar } from "./contexts/context-sidebar.tsx";
 import {
   agentByRole,
   type KnownSessions,
-  openedProjectManagerSession,
   panelSessions,
-  sessionDot,
 } from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
 import { Floats } from "./floats/floats.tsx";
@@ -99,24 +89,14 @@ import {
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { ContextChipView } from "../conversation/composer/types.ts";
-import type {
-  AgentsSlice,
-  AgentViewSlice,
-  ContextsSlice,
-  TabHost,
-} from "./kinds/host.ts";
-import type { ContextListItem } from "./contexts/source.ts";
-import { useSidebarAgents } from "./agents/sidebar-agents.ts";
+import type { TabHost } from "./kinds/host.ts";
+import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import { openContext } from "./kinds/context.tsx";
 import { openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
-import {
-  createWebviewHost,
-  WebviewHostProvider,
-  WebviewLayer,
-} from "../browser/webview-host.tsx";
+import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
 import { openAgents } from "./kinds/agents.tsx";
 import { openContexts } from "./kinds/contexts.tsx";
 import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
@@ -132,12 +112,7 @@ import {
 } from "../terminal/use-bridge-open-requests.ts";
 import { openCodingTerminal } from "./kinds/terminal.tsx";
 import { NoticeCard } from "./notice-card.tsx";
-import { useConversation } from "../conversation/window-deps.tsx";
-import { DraftStore } from "../conversation/drafts.ts";
-import { useAppViews } from "../app-frame/app-views.tsx";
 import {
-  createViewCovers,
-  createViewKeeps,
   ViewCoversProvider,
   ViewKeepsProvider,
 } from "../app-frame/embedded-view.tsx";
@@ -186,7 +161,6 @@ interface Loaded {
 }
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
-const NO_CONTEXTS: readonly ContextListItem[] = [];
 const CLOSED_TABS_MAX = 10;
 
 function freshView(): WorkspaceView {
@@ -227,14 +201,34 @@ export function Workspace(props: WorkspaceProps) {
   } = props;
   // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
   const contextsSource = source.contextsSource;
-  // Agents 탭과 sidebar의 Agent 모양의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
-  const agentsSource = source.agentsSource;
   const browserApi = useBrowserApi();
   const bookmarkList = useBookmarks();
-  const sidebarAgents = useSidebarAgents(agentsSource, projectId);
-  const { sessions: sessionStates } = useSessions();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
   const agentViewSource = props.agentViewSource;
+  const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
+  const {
+    sidebarAgents,
+    sessionStates,
+    contextList,
+    setContextList,
+    readContexts,
+    contexts,
+    agentView,
+    agents,
+    covers,
+    appViews,
+    keeps,
+    webviews,
+  } = useTabHostSlices({
+    project: projectId,
+    source,
+    agentViewSource,
+    host: () => host,
+    projectView: loaded.project,
+    files: loaded.files,
+    onSettings,
+    onProjectInstructions,
+  });
   // sidebar session 줄의 제목과 시각. session store는 싣지 않아 agent마다 대화 source의 session 목록에서 읽는다.
   const [knownSessions, setKnownSessions] = useState<KnownSessions>(
     new Map(),
@@ -266,20 +260,6 @@ export function Workspace(props: WorkspaceProps) {
       live = false;
     };
   }, [agentViewSource, sidebarAgents.agents, projectId, sessionIds]);
-  // 앱 패널 view가 같이 보는 목록.
-  const covers = useMemo(createViewCovers, []);
-  const appViews = useAppViews();
-  // 탭 view의 보관소. 닫는 일은 아래 effect가 정한다.
-  const closeViewRef = useRef<(session: string) => void>(() => {});
-  closeViewRef.current = (session) =>
-    void appViews?.views.closeView({ view_session: session }).catch(() => {});
-  // browser 탭의 <webview> 그릇. 창마다 하나이고 탭 key당 <webview> 하나다(옮기면 다시 load된다).
-  const webviews = useMemo(createWebviewHost, []);
-  const keeps = useMemo(
-    () => createViewKeeps((session) => closeViewRef.current(session)),
-    [],
-  );
-  const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
   const [view, setView] = useState<WorkspaceView>(freshView);
@@ -292,34 +272,19 @@ export function Workspace(props: WorkspaceProps) {
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
   const hasNotices = loaded.failed;
-  const conversation = useConversation();
-  // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
-  const localDrafts = useMemo(() => new DraftStore(), []);
-  // 이 project의 context 목록. 여는 때(Contexts 탭, sidebar의 Context 모양, 새 탭 menu)만 읽는다.
-  const [contextList, setContextList] = useState<readonly ContextListItem[]>(
-    NO_CONTEXTS,
-  );
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
   const mainSize = useObservedSize(mainRef);
   const measuredWindow = frameSize?.width ?? windowWidth;
 
-  const readContexts = () => {
-    if (contextsSource === undefined) return;
-    void contextsSource.list(projectId).then((read) => {
-      if (read.ok) setContextList(read.value);
-    });
-  };
-
   useEffect(() => {
     let live = true;
     const load = async () => {
-      const [project, layout, files, contexts] = await Promise.all([
+      const [project, layout, files] = await Promise.all([
         source.project(projectId),
         source.readLayout(projectId),
         source.files(projectId),
-        contextsSource?.list(projectId),
       ]);
       if (!live) return;
       setLoaded({
@@ -328,7 +293,6 @@ export function Workspace(props: WorkspaceProps) {
         files: files.ok ? files.value : [],
         failed: !project.ok,
       });
-      if (contexts?.ok) setContextList(contexts.value);
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
         // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
@@ -353,7 +317,7 @@ export function Workspace(props: WorkspaceProps) {
     return () => {
       live = false;
     };
-  }, [projectId, source, contextsSource]);
+  }, [projectId, source]);
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
@@ -548,23 +512,6 @@ export function Workspace(props: WorkspaceProps) {
     } else update(next);
   };
 
-  // 검색 결과·Overview 예시의 도메인 객체는 그 파일 탭으로 간다. 경로는 연결 폴더 기준 상대 경로이거나
-  // 절대 경로다.
-  const openPath = (path: string) => {
-    if (path.startsWith("/")) {
-      openFile(host, path);
-      return;
-    }
-    const folders = loaded.project?.folders ?? [];
-    const row = loaded.files.find((item) =>
-      item.path === path || item.path.endsWith(`/${path}`)
-    );
-    const folder = row?.folder ??
-      (folders.find((item) => item.found) ?? folders[0])?.path;
-    if (folder === undefined) return;
-    openFile(host, `${folder.replace(/\/+$/, "")}/${path}`);
-  };
-
   // 팔레트 파일 행이 주는 문서 행을 파일 탭으로 연다. id가 경로면 그대로 연다.
   const openDocumentRow = (row: { id: string }) => {
     if (row.id.startsWith("/")) {
@@ -589,18 +536,6 @@ export function Workspace(props: WorkspaceProps) {
     return true;
   };
 
-  // Project Manager에게 묻는 단추(askProjectManager). 열린 PM session이 있으면 그 탭에, 없으면 새 PM 탭에 chip을 붙인다.
-  const askPm = (chips: readonly ContextChipView[]) => {
-    const row = agentByRole(sidebarAgents.agents, "project_manager");
-    if (agentViewSource === undefined || row === undefined) return;
-    openAgent(host, {
-      agent: row.assignment,
-      name: row.name,
-      session: openedProjectManagerSession(sessionStates, projectId),
-      chips,
-    });
-  };
-
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
   const openSessionTab = (session: string): boolean => {
     const entry = panelSessions(
@@ -615,37 +550,6 @@ export function Workspace(props: WorkspaceProps) {
     if (row === undefined || agentViewSource === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name, session });
     return true;
-  };
-
-  const contexts: ContextsSlice | null = contextsSource === undefined ? null : {
-    source: contextsSource,
-    list: contextList,
-    titleOf: (id) => contextList.find((item) => item.id === id)?.title,
-    refresh: readContexts,
-    openPath,
-    openSearch: (state) => openSearchFor(host, state),
-    askProjectManager: askPm,
-  };
-
-  const agentView: AgentViewSlice | null = agentViewSource === undefined
-    ? null
-    : {
-      factory: agentViewSource,
-      drafts: conversation?.drafts ?? localDrafts,
-      ...(conversation?.now === undefined ? {} : { now: conversation.now }),
-      openFile: (path) => openFile(host, path),
-      profileOf: (agent) =>
-        sidebarAgents.agents.find((row) => row.assignment === agent)?.profile,
-      dotOf: (session) => sessionDot(sessionStates, session),
-      openSettings: () => onSettings("tools"),
-      openConnections: () => onSettings("providers"),
-    };
-
-  const agents: AgentsSlice | null = agentsSource === undefined ? null : {
-    source: agentsSource,
-    changed: sidebarAgents.reload,
-    editInstructions: () => onProjectInstructions?.(),
-    openExtensions: () => onSettings("tools"),
   };
 
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인은 모두 kind의 선언에서 오고

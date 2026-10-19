@@ -63,3 +63,5 @@ modules: [tests]
 고치려면:
 - 계획 `domain-rename`이 끝난 뒤 material을 새 판(`2/`)으로 다시 만든다(중간. 이름이 그 계획에서 한 번 더 바뀌므로 한 번에 한다). 추천.
 - 지금 `1/`을 새 이름으로 고친다(작음. `domain-rename` 뒤 다시 고쳐야 하고, 판을 고치면 옛 run과 비교가 틀린다).
+
+정한 것: 앞의 것. `domain-rename` 뒤 새 판으로 다시 만든다. `domain-rename` README의 "뒤에 할 일"에 e2e 다시 쓰기와 함께 적혀 있다(agent).

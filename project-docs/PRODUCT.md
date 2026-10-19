@@ -50,7 +50,7 @@ lophn 안에서는 이렇게 나뉜다.
 | 주체 | 맡는 일 |
 |---|---|
 | 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다 |
-| lophn agent | 무엇을 만들고 고칠지 정한다(App Engineer, Project Manager). 쓰고 돌본다(Operator). 코드를 짜지 않는다 |
+| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며, Project Manager는 한 project의 kind와 앱을 맡는다). 쓰고 돌본다(Operator). 코드를 짜지 않는다 |
 | coding agent | 어떻게 만들지 정하고 코드를 짠다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
 | lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 problem, grant 판정, invocation 기록과 rewind, event |
 
@@ -93,7 +93,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 **MVP**
 - 데스크톱 앱(shell)과 로컬 core
-- lophn agent: App Engineer, Project Manager, Operator
+- lophn agent: lophn, Project Manager, Operator
 - coding agent 연결: 터미널 탭의 TUI, CLI, MCP
 - 앱: blueprint, release, 실행, data, ticket, problem
 - context: 계약과 검색 script

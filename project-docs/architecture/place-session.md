@@ -1,14 +1,13 @@
 # place-session
 
-lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 대화가 session이다. 이 문서는 어떤 agent가 어느 place에 몇 개 있는지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, 권한 request, 허락)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 허락이 새거나, 되돌린 대화에 낡은 요청이 남는다.
+lophn의 agent는 place(project 하나)에 놓이고, 그 agent와 하는 대화가 session이다. 이 문서는 어떤 agent가 어느 place에 몇 개 있는지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, 권한 request, 허락)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 허락이 새거나, 되돌린 대화에 낡은 요청이 남는다.
 
 ## 흐름
 
 ```
  project 등록 ──▶ Project Manager 정의 (project마다 하나)        ┐
- 앱 만들기    ──▶ App Engineer 정의 (앱마다 하나)                 ├ agents: 정의는 project 폴더가 아니라
- 첫 기동      ──▶ lophn 정의 (전체에 하나)                       │ lophn data 안에 있는 파일
- 사람이 만듦  ──▶ Operator 정의 (project나 앱에 여럿)            ┘
+ 첫 기동      ──▶ lophn 정의 (전체에 하나)                       ├ agents: 정의는 project 폴더가 아니라
+ 사람이 만듦  ──▶ Operator 정의 (project에 여럿)                 ┘ lophn data 안에 있는 파일
 
  session 열기 ◀── person | Router(call: 새 session) | Reactor(reaction)
     │ role+place 고정 (agent-sessions)
@@ -30,7 +29,8 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
   - agent 정의, grant, 지침, file 범위가 모두 role+place에서 나온다. 열린 session의 role이나 place를 바꾸면 이미 쌓인 대화와 허락이 다른 agent의 것이 된다.
 - session을 여는 길은 사람, Router(call의 새 session), Reactor(reaction)이고 모두 같은 연산으로 연다.
   - 열 때의 검사(role과 place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
-- lophn은 전체에 하나, Project Manager는 project마다 하나, App Engineer는 앱마다 하나다. 더하거나 지우지 않는다. Operator만 사람이 만들고 지운다.
+- role은 셋이다. lophn은 전체에 하나, Project Manager는 project마다 하나, Operator는 사람이 project에 만든 만큼이다. lophn과 Project Manager는 더하거나 지우지 않고 Operator만 사람이 만들고 지운다.
+  - place는 project 하나다. 앱은 project 하나에 묶여(`App.project`) 앱 place도 App Engineer도 없고, 앱의 일은 그 project의 Project Manager가 맡는다. coding agent는 lophn 밖의 제품이고 coding session의 place도 앱의 project다.
   - 정의는 파일이라 DB tx에 묶을 수 없다. 만들기는 멱등이다(있으면 그대로, 빈 파일). 등록과 파일 만들기 사이에 죽어도 다음 호출이 이어 만든다.
 - session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다(coding agent session은 process로 끝난다).
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
@@ -48,17 +48,20 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 범위는 place가 정한다: Project Manager는 그 project 폴더와 kind 파일(`kinds.yaml`) 하나, App Engineer는 앱 source 폴더, project의 Operator는 그 폴더를 읽고 쓴다. 앱 place의 Operator는 앱 source 폴더를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
+- file tool의 범위는 place가 정한다: Project Manager는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다), artifacts 폴더, kind 파일(`kinds.yaml`) 하나, 그 project 앱의 source 폴더, project 층 skill 폴더(`<data>/projects/<prj>/skills`)를 읽고 쓴다. project의 Operator는 project 폴더들과 artifacts 폴더를 읽고 쓴다. lophn은 등록된 모든 project 폴더를 읽기만 한다.
   - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
-  - 이 표는 `packages/core/agent-roles/place/place-folders.ts`의 `placeScope` 하나다. turn의 file tool 범위, rewind의 쓰기 폴더, agent runtime process의 Deno 권한이 모두 이것으로 만든다. 목록이 둘이면 한쪽만 고쳐 어긋난다.
+  - 앱의 data와 release 사본(`<data>/projects/<prj>/app/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 role의 범위에도 없다. 앱 data는 app-api로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`app/source`)이거나 사람이 이은 폴더이고, Project Manager의 범위는 그 source 폴더 하나다. skill 폴더는 PM 정의를 만들 때 core가 함께 만든다(없는 폴더는 file tool이 건너뛴다).
+  - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 PM의 범위 밖이다. 사람이 editor로 고친다.
+  - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 사람의 첫 project 폴더이고, 폴더가 없는 project는 `<data>/projects/<prj>`다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
+  - `placeScope`(`packages/core/agent-roles/place/place-folders.ts`)가 role과 place에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. agent runtime process의 Deno 권한은 session이 아니라 process 하나의 것이라 `placeScope`를 거치지 않고 같은 파일의 `runtimeFolders`가 모든 project의 합으로 만든다. 폴더 종류를 더하면 두 곳을 같이 고친다. 한쪽만 고치면 file tool은 열렸는데 child가 거절하거나 그 반대가 된다.
   - kind 파일은 폴더가 아니라 파일 하나로 연다. 같은 폴더의 agent 정의와 `extensions.json`은 열지 않는다(`project-docs/architecture/kinds.md`).
-  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더와 앱 source 폴더 전체의 합이다. session마다의 범위는 file tool이 지킨다. kind 파일은 project마다 그 파일 하나만 쓰기를 연다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
+  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더, 모든 project의 artifacts 폴더와 skill 폴더, 열린 앱의 source 폴더 전체의 합(읽기와 쓰기)에 project마다 kind 파일 하나의 쓰기를 더한 것이다. session마다의 범위는 file tool이 지킨다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
 
 ## 왜 이 모양인가
 
 - **agent는 place에 놓이고 session은 그 agent의 대화다.** 옛 assignment 상태 machine(누가 무엇을 맡았나)은 place에 놓인 agent와 agent grant로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 grant다.
-- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 등록하고 그 앱의 App Engineer에게 call로 맡긴다), 구현은 coding agent가 한다.
-- **App Engineer의 project 지침은 앱 source가 등록 project 안에 있을 때만 읽는다.** source를 임의 위치에 둘 수 있어서, 없으면 project 지침 없이 돈다.
+- **Project Manager가 앱의 일도 맡는다. 앱 place와 App Engineer는 없다.** 앱이 project 하나에 묶이므로 앱 place를 따로 두면 같은 project에 agent가 둘 놓여 지침, file 범위, reaction이 둘로 갈린다. Project Manager는 project마다 하나, session은 여럿이다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 project에 등록하고 그 project의 Project Manager에게 call로 맡긴다), 구현은 coding agent가 한다. 맞는 project가 없으면 lophn이 사람에게 묻는다. project는 사람만 등록한다.
+- **project 지침은 앱 source가 어디에 있든 그 project의 것을 읽는다.** 앱이 project에 묶여 있어 source를 임의 위치에 두어도 지침이 빠지지 않는다.
 - **"이 session 동안" 허락은 메모리에 둔다.** Claude Code, Codex, Gemini CLI, Hermes가 모두 process 메모리에 두고 재시작이나 resume에서 되살리지 않는다. session 기록에 쓰는 harness는 없다(OpenCode, Goose, Cline은 session 범위가 아예 없다). 다시 묻는 것은 안전한 쪽 실패다. 세부는 approval.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** 허락을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.
 - **checkpoint는 turn을 시작한 입력에만 둔다.** steer로 도는 turn에 끼어든 메시지는 turn의 경계가 아니라서 돌아갈 시점이 아니다.

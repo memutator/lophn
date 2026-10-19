@@ -1,6 +1,6 @@
 ---
 name: eval-run
-description: lophn eval experiment나 `deno task eval`을 돌리고, 진행을 보고, App Engineer의 질문에 답하고 judge item을 채점하고(item마다 새 subagent), 멈춘 run을 알아채고, 실행 기록(run.md)을 쓸 때 쓴다. eval을 돌리는 agent session(runner)이 읽는다. 해석과 원인 추정은 이 skill의 일이 아니다(eval-experiment).
+description: lophn eval experiment나 `deno task eval`을 돌리고, 진행을 보고, agent의 질문에 답하고 judge item을 채점하고(item마다 새 subagent), 멈춘 run을 알아채고, 실행 기록(run.md)을 쓸 때 쓴다. eval을 돌리는 agent session(runner)이 읽는다. 해석과 원인 추정은 이 skill의 일이 아니다(eval-experiment).
 ---
 
 # eval 돌리기 (runner)

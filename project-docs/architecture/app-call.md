@@ -35,6 +35,7 @@
   - 끝난 turn이나 꺼진 판의 호출이 실수로 섞이면 Gate와 기록이 틀린다. agent와 앱은 늘 live 활성 release만 부른다.
 - tool 호출은 project를 싣지 않고 invocation에도 project가 없다. 어느 project가 불렀는지는 부른 session의 place로 안다.
   - 앱 code가 project별로 data를 나누는 관례는 core가 지키지 못한다. 그래서 project 범위 선언과 호출의 project를 지웠다.
+- 다른 project의 agent는 앱의 `public` tool만 본다. 같은 project의 agent는 모든 tool을 본다. 어느 project의 agent인지는 session의 place가 정한다(`agent-definition.md`).
 - Gate의 사람 대기는 write 줄에 서기 전에 끝낸다. 허락은 줄을 얻은 뒤 실행 직전에 consume한다(한 번 쓰는 허락이면 그때 소비).
   - 사람이 답하는 몇 분 동안 앱의 write를 막지 않는다. 그사이 intent가 달라졌거나 허락이 이미 쓰였으면 실행하지 않는다.
 - write와 external은 앱마다 한 번에 하나다. core의 줄과 앱 process 안의 mutex, 두 겹이다. read는 동시에 돈다.

@@ -31,7 +31,8 @@ domain event
 - 상태를 바꾸는 command와 같은 tx에서 쓴다. 따로 쓰면 꺼진 사이 상태만 바뀌고 반응이 영영 빠진다.
 - Ledger 행은 고치거나 지우지 않는다. cursor와 근거 seq가 행 번호를 가리킨다. 지우는 것은 사람이 요청한 session delete 하나뿐이다.
 - 새 일 event만 reaction grant로 끌 수 있다. call 닫음은 끌 수 없다. 끄면 맡긴 call이 열린 채 남는다.
-- call 닫음 handler는 call 닫기와 App Engineer에게 넣는 입력을 같은 tx에서 한다. 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
+- 새 일 event를 받는 agent는 늘 한 project의 Project Manager다. 앱에 관한 event(문제 열림·다시 열림, 재시작 멈춤, activation 실패)는 앱이 묶인 project의 Project Manager가 받고, `KindViolationFound`와 `PublicToolsChanged`는 payload의 project의 Project Manager가 받는다. `PublicToolsChanged`는 공개 tool이 바뀌거나 지워진 release가 project마다 하나씩 낸다.
+- call 닫음 handler는 call 닫기와 Project Manager에게 넣는 입력을 같은 tx에서 한다. 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
 - program 일 event(`ApprovalDecided`, `TicketVerified`, `VerificationRecorded`)는 agent를 부르지 않고 program handler만 깨운다. `VerificationRecorded`는 test 결과를 기록하는 command(`RecordVerification`)가 같은 tx에서 쓰고, `examples` check의 결과를 ticket에 남기는 handler가 받는다. 다른 kind의 기록은 handler가 무시한다. 이 event가 Ledger에 있어야 core가 꺼졌다 켜져도 끝난 예시 검증의 결과가 ticket에 남는다.
 
 Bus와 Reactor

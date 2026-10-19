@@ -179,7 +179,7 @@ elements:
 
   - id: user-package
     kind: extension
-    description: App Engineer가 올린 사용자 package.
+    description: 앱의 Project Manager가 올린 사용자 package.
     depends_on:
       - sdk
 

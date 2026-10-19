@@ -29,7 +29,8 @@ project의 문서가 어떤 모양이어야 하는지는 kind 파일(`kinds.yaml
 
 - kind 파일은 project마다 하나이고 자리는 `<data>/projects/<prj>/kinds.yaml`이다(`kindsFilePath`, `packages/protocol/projects/kinds-file.ts`). release도 draft도 거치지 않는다. 파일이 없으면 그 project에는 kind가 없다.
   - 판(draft, test, submit)이 하던 일은 검사와 되돌리기다. 검사는 바뀔 때 program이 하고, 되돌리기는 rewind가 한다.
-- kind 파일을 쓰는 것은 그 project의 Project Manager뿐이다. file 범위에 그 파일 하나를 file 항목으로 더한다(`placeScope`). Operator, lophn, App Engineer의 범위에는 없다.
+- kind 파일을 쓰는 것은 그 project의 Project Manager뿐이다. file 범위에 그 파일 하나를 file 항목으로 더한다(`placeScope`). Operator와 lophn의 범위에는 없다.
+  - 사람의 폴더가 없는 project에서도 쓴다. 상대 경로의 기준(`base`)이 `<data>/projects/<prj>`라 상대 경로 `kinds.yaml`이 이 파일이다.
   - `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)는 file 항목이면 그 경로 하나만 연다. 아직 없는 파일도 부모 폴더가 있으면 연다. 같은 폴더에는 agent 정의(`agents/`)와 `extensions.json`이 있어 폴더째 열지 않는다.
   - rewind 기록의 root는 그 파일의 부모 폴더다. rewind는 root를 쓰기 폴더 목록과 맞춰 보므로 `placeFoldersOf`가 file 항목을 부모 폴더로 바꿔 준다. 쓰기 허락은 file tool이 그 파일 하나로 좁힌다.
   - agent runtime의 Deno 쓰기 권한은 project마다 `kinds.yaml` 하나다(`runtimeFoldersOf`). 파일 하나만 쓰기 허락이면 Deno는 이미 있는 부모 폴더의 `mkdir`도 거절하므로 `file.write`는 부모 폴더가 없을 때만 만든다.

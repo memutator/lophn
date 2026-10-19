@@ -46,7 +46,7 @@ export function queryOf(filters: Filters, now: Date): OrdersQuery {
   };
 }
 
-// `call`은 앱 view의 `lophnApp.call`이다.
+// `call`은 앱 view의 `lophnApp.callTool`이다.
 export function OrdersFilters(
   { now, call }: {
     now: Date;

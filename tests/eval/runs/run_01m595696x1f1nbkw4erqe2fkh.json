@@ -1,0 +1,543 @@
+{
+  "id": "run_01m595696x1f1nbkw4erqe2fkh",
+  "started_at": "2026-10-19T04:02:23.069Z",
+  "scenario": {
+    "kind": "scenario",
+    "name": "L1",
+    "n": 1
+  },
+  "materials": [],
+  "components": [
+    {
+      "kind": "assembly",
+      "name": "assembly",
+      "n": 1
+    },
+    {
+      "kind": "instruction",
+      "name": "lophn",
+      "n": 1
+    },
+    {
+      "kind": "model",
+      "name": "claude-sonnet-5-5",
+      "n": 1
+    },
+    {
+      "kind": "runtime",
+      "name": "runtime",
+      "n": 2
+    },
+    {
+      "kind": "skill-description",
+      "name": "context-init",
+      "n": 1
+    },
+    {
+      "kind": "skill-description",
+      "name": "context-update",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.app_api",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.create",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ask",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "blueprint.check",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "call",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "cancel",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.search",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.test",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "context.violations",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.glob",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.grep",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "guide.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "image.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "instructions.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "package.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "package.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "pdf.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.body",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "problem.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "reply",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "session.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "settings.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "skill.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "visual.show",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.fetch",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.search",
+      "n": 1
+    }
+  ],
+  "core": {
+    "kind": "core",
+    "name": "core",
+    "n": 6
+  },
+  "grader": {
+    "criteria": [
+      {
+        "kind": "criterion",
+        "name": "asks-gap",
+        "n": 1
+      }
+    ],
+    "judge": {
+      "kind": "judge",
+      "name": "judge",
+      "n": 2
+    },
+    "checks": {
+      "kind": "checks",
+      "name": "checks",
+      "n": 4
+    }
+  },
+  "model": "claude-sonnet-5-5",
+  "source": {
+    "commit": "6f7f32408a2d902d0d75c9e090cd3ea4c253b283",
+    "dirty": false
+  },
+  "trials": [
+    {
+      "index": 0,
+      "settle": {
+        "kind": "idle",
+        "unstarted": []
+      },
+      "checks": [
+        {
+          "id": "asked",
+          "kind": "program",
+          "pass": true,
+          "reason": "ask 1번 (기대 1..∞)"
+        },
+        {
+          "id": "no-app-create",
+          "kind": "program",
+          "pass": true,
+          "reason": "app.create 0번 (기대 0)"
+        },
+        {
+          "id": "no-call",
+          "kind": "program",
+          "pass": true,
+          "reason": "call 0개 (기대 0)"
+        },
+        {
+          "id": "asks-gap",
+          "kind": "judge",
+          "pass": true,
+          "reason": "asks_gap: \"Q1: 가계부로 가장 하고 싶은 게 뭔가요?\""
+        }
+      ],
+      "judge": [
+        {
+          "check": "asks-gap",
+          "criterion": "asks-gap@1",
+          "input": "[HUMAN_REQUEST]\n가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어\n\n[QUESTIONS]\nQ1: 가계부로 가장 하고 싶은 게 뭔가요?\n- 지출/수입 기록: 날짜·금액·카테고리를 직접 입력\n- 월별 통계: 카테고리별 합계, 월별 추이 보기\n- 예산 관리: 카테고리별 월 예산과 초과 알림\n- 고정지출/구독: 반복되는 지출 관리\nQ2: 데이터는 어떻게 넣고 싶나요?\n- 직접 입력: 가장 단순하고 바로 시작 가능\n- CSV 가져오기: 카드사/은행 내역 파일을 불러오기\n- 둘 다: 직접 입력 + CSV 가져오기\nQ3: 누가 쓰나요?\n- 나 혼자: 개인용\n- 가족/공동: 여러 명이 같이 기록 (구분 필요)",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "asks_gap",
+          "quote": "Q1: 가계부로 가장 하고 싶은 게 뭔가요?",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        }
+      ],
+      "metrics": {
+        "tokens": {
+          "input": 784,
+          "output": 566,
+          "cache_read": 10794,
+          "cache_write": 10794,
+          "reasoning": 0,
+          "unknown_calls": 0
+        },
+        "input_total": 22372,
+        "cache_hit_rate": 0.48247809762202754,
+        "cost_usd": 0.035292000000000004,
+        "unpriced_calls": 0,
+        "time_ms": {
+          "turns": 0,
+          "model_calls": 6071
+        },
+        "tools": {
+          "counted": 2,
+          "excluded": 0,
+          "format": 0,
+          "success": 2,
+          "blocked": 0,
+          "repeated_calls": 0,
+          "repeat_groups": 0,
+          "max_repeat": 0,
+          "repeated_failure_turns": 0
+        },
+        "truncated_calls": 0,
+        "agent_calls": []
+      },
+      "components": [
+        {
+          "kind": "assembly",
+          "name": "assembly",
+          "n": 1
+        },
+        {
+          "kind": "instruction",
+          "name": "lophn",
+          "n": 1
+        },
+        {
+          "kind": "model",
+          "name": "claude-sonnet-5-5",
+          "n": 1
+        },
+        {
+          "kind": "runtime",
+          "name": "runtime",
+          "n": 2
+        },
+        {
+          "kind": "skill-description",
+          "name": "context-init",
+          "n": 1
+        },
+        {
+          "kind": "skill-description",
+          "name": "context-update",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.app_api",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.create",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ask",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "blueprint.check",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "call",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "cancel",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "context.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "context.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "context.search",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "context.test",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "context.violations",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.glob",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.grep",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "guide.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "image.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "instructions.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "package.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "package.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "pdf.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "problem.body",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "problem.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "problem.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "release.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "release.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "reply",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "session.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "settings.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "skill.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "visual.show",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "web.fetch",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "web.search",
+          "n": 1
+        }
+      ]
+    }
+  ]
+}

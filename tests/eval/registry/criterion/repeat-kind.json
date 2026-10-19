@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "criterion",
+    "name": "repeat-kind",
+    "n": 1,
+    "hash": "dd25971384de3dd6cea0273b9d61e250f512fdc08e5af071c01891310a6031b5",
+    "content": "{\n  \"name\": \"repeat-kind\",\n  \"pass\": [\n    \"different_attempts\"\n  ],\n  \"question\": \"In one session a model called the same tool several times with exactly the same input. [REPEATED_CALL] is that tool and input. [TIMELINE] lists the session's tool calls from the first repeat to the last repeat, one per line; repeated calls start with '*' and each line ends with its result. Decide what the model did between the repeats. Verdicts: different_attempts = between the repeats the model changed its approach (a different tool or a different target), or it re-checked something that changes over time, so the same call could have returned a different result; same_mistake = nothing changed between the repeats and each repeat got the same failure or a result with no new information; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for same_mistake, a repeated line; for different_attempts, the line that shows the change).\",\n  \"verdicts\": [\n    \"different_attempts\",\n    \"same_mistake\",\n    \"cannot_tell\"\n  ]\n}"
+  }
+]

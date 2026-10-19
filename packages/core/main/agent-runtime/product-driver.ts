@@ -318,10 +318,13 @@ export function startTurnPump(options: {
   compactor?: Compactor;
   // Disconnect한 provider로 진행 중인 turn을 멈추게 하는 알림을 매 주기 훑는다.
   providerWatch?: Pick<ProviderWatch, "poll">;
+  // turn 준비·시작이 던진 예외를 남긴다. 같은 오류가 이어지면 처음 한 번만 부른다.
+  report?(text: string): void;
   signal: AbortSignal;
   idleMs?: number;
 }): Promise<void> {
   const idleMs = options.idleMs ?? PUMP_IDLE_MS;
+  let lastFailure: string | undefined;
   return (async () => {
     while (!options.signal.aborted) {
       let started = false;
@@ -333,8 +336,16 @@ export function startTurnPump(options: {
       try {
         const next = await options.driver.startNext();
         started = next.kind === "started" || next.kind === "not_started";
-      } catch {
-        // 한 번의 실패가 pump를 끝내지 않는다. 다음 주기에 다시 본다.
+        lastFailure = undefined;
+      } catch (error) {
+        // 한 번의 실패가 pump를 끝내지 않는다. 다음 주기에 다시 본다. 이유를 안 남기면 받은 메시지가 turn이 되지 않는 까닭을 아무도 모른다.
+        const text = `turn start failed: ${
+          error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : String(error)
+        }`;
+        if (text !== lastFailure) options.report?.(text);
+        lastFailure = text;
       }
       try {
         const compacted = await options.compactor?.next();

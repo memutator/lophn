@@ -301,6 +301,18 @@ async function startAgentRuntime(input: {
           revokeProvider: (provider) => driver!.revokeProvider(provider),
         }),
         ...(compactor === undefined ? {} : { compactor }),
+        // diagnostic log는 분류만 받으므로 원문(단계, 오류 이름, message)은 stderr 진단에 둔다.
+        report: (text) => {
+          void diagnostics.write(text);
+          void send(
+            child,
+            crashDiagnostic({
+              component: "lophn-agent/runtime",
+              location: CRASH_LOCATIONS.agentRuntime,
+              at: systemClock.now(),
+            }),
+          );
+        },
         signal: pumpStop.signal,
       });
     }

@@ -6,19 +6,19 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `dp-app-project` | app-binding | 1 | 없음 | merged | app-binding/dp-app-project | a226d53be |  |
 | `dp-project-folderless` | app-binding | 1 | 없음 | merged | app-binding/dp-project-folderless | 50c060875 |  |
-| `dp-eval` | evals | 2 | 없음 | todo |  |  |  |
-| `dp-agents-core` | place-core | 2 | 없음 | todo |  |  |  |
+| `dp-eval` | evals | 2 | 없음 | running | evals/dp-eval |  |  |
+| `dp-agents-core` | place-core | 2 | 없음 | running | place-core/dp-agents-core |  |  |
 | `dp-operator-skills` | place-core | 2 | dp-agents-core, dp-agent-roles-scope | todo |  |  |  |
-| `dp-place-events` | place-core | 2 | 없음 | todo |  |  |  |
+| `dp-place-events` | place-core | 2 | 없음 | running | place-core/dp-place-events |  |  |
 | `dp-place-protocol` | place-core | 2 | dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval | todo |  |  |  |
-| `dp-agent-roles-prompt` | role-merge | 2 | 없음 | todo |  |  |  |
+| `dp-agent-roles-prompt` | role-merge | 2 | 없음 | running | role-merge/dp-agent-roles-prompt |  |  |
 | `dp-agent-roles-scope` | role-merge | 2 | dp-agents-core | todo |  |  |  |
-| `dp-coding-text` | role-merge | 2 | 없음 | todo |  |  |  |
+| `dp-coding-text` | role-merge | 2 | 없음 | running | role-merge/dp-coding-text |  |  |
 | `dp-shell-agents` | shell-place | 2 | 없음 | todo |  |  |  |
 | `dp-shell-app-space` | shell-place | 2 | 없음 | todo |  |  |  |
 | `dp-shell-launcher` | shell-place | 2 | dp-shell-agents | todo |  |  |  |
 | `dp-problems-core` | storage | 2 | dp-storage-apps | todo |  |  |  |
-| `dp-storage-apps` | storage | 2 | 없음 | todo |  |  |  |
+| `dp-storage-apps` | storage | 2 | 없음 | running | storage/dp-storage-apps |  |  |
 | `dp-lophn-map` | map | 3 | dp-usage-read | todo |  |  |  |
 | `dp-package-owner` | map | 3 | 없음 | todo |  |  |  |
 | `dp-usage-read` | map | 3 | 없음 | todo |  |  |  |

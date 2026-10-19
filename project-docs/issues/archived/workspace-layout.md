@@ -65,3 +65,15 @@ modules: [packages/shell/renderer]
 - 영향: detached browser 탭에서 DevTools를 floated로 옮긴 사람은 DevTools를 잃는다. 다시 보려면 자리를 다시 골라야 한다.
 - 고치려면: (1) detached 창에서는 자리 menu에 `float`를 두지 않는다(작음, 추천). (2) detached 창의 `openFloat`가 DevTools 패널을 받으면 `window`로 바꾼다(작음).
 - 닫음: detached 창 안의 browser toolbar는 DevTools 자리 menu에서 `float`를 뺀다. `DetachedTab`이 `DetachedWindowProvider`(`renderer/browser/detached-window.ts`)로 알리고 `BrowserToolbar`가 읽는다.
+
+## detached 창 안의 popup이 features의 크기를 따르지 않는다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/shell/main]
+```
+
+- 지금: detached 창 안에서 크기 준 popup이 열리면 `host.openFloat(tab, size)`가 `lophnDetached.open({ bounds: null })`로 또 하나의 detached 창을 연다(`renderer/workspace/detached/detached-space.tsx`). `size`를 버리고 main은 기본 창 크기(960×600, 최소도 같다, `main/desktop/window.ts`)로 연다. roadmap은 "`features`의 크기로 연다(Chrome과 같다)"였다.
+- 영향: detached browser 탭에서 OAuth 로그인 popup이 작은 창이 아니라 큰 창으로 뜬다. 동작은 된다.
+- 고치려면: `open`의 `bounds`에 opener 창 가운데 `size` 크기를 넣고, main이 detached 창에만 작은 최소 크기를 쓴다(작음). 지금 최소 크기를 다른 창과 같게 둔 것은 따로 정할 근거가 없어서다.
+- 닫음: `DetachedTab`의 `openFloat`가 opener 창 가운데 popup `size`(page 영역이라 상단 바 높이를 더한다)를 `open`의 bounds로 보낸다. main은 detached 창에만 최소 크기 320×240을 쓰고(`window.ts`의 `detached` 옵션) 화면 작업 영역 안으로 당긴다.

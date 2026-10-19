@@ -84,6 +84,7 @@ export function openDesktopWindow(
     // `app:<id>`는 그 앱 공간부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     ...(start?.bounds ? { bounds: start.bounds } : {}),
+    detached: start !== undefined,
     url: start !== undefined
       ? `${desktopUrl}${start.hash}`
       : process.env.LOPHN_DEV_SEED === "1"

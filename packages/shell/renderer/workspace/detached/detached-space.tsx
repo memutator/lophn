@@ -45,6 +45,23 @@ interface DetachedSpaceProps {
 // take()는 bounds를 주지 않는다. 이 창에서는 읽는 곳이 없어 자리표시다.
 const BOUNDS: DetachedBounds = { x: 0, y: 0, width: 1, height: 1 };
 
+// 상단 바 높이. main/desktop/window.ts의 TOP_BAR_HEIGHT와 같다. features의 크기는 page 영역이라 더한다.
+const TOP_BAR_HEIGHT = 36;
+
+// popup을 이 창 가운데에 popup 크기로 연다. 화면 밖으로 나가는 것은 main이 작업 영역 안으로 당긴다.
+function centeredOnOpener(
+  size: { readonly width: number; readonly height: number },
+): DetachedBounds {
+  const width = Math.round(size.width);
+  const height = Math.round(size.height + TOP_BAR_HEIGHT);
+  return {
+    x: Math.round(globalThis.screenX + (globalThis.outerWidth - width) / 2),
+    y: Math.round(globalThis.screenY + (globalThis.outerHeight - height) / 2),
+    width,
+    height,
+  };
+}
+
 type Taken =
   | { state: "loading" }
   | { state: "failed" }
@@ -171,14 +188,14 @@ function DetachedTab(
       void api.openTab({ tab: slimDetachedTab(next) }).catch(() => {});
     },
     // 크기 준 popup(adopt)만 또 하나의 detached 창으로 옮긴다. DevTools 패널 같은 것은 이 창에 둘 수 없다.
-    openFloat: (next) => {
+    openFloat: (next, size) => {
       const adopt = next.fields?.adopt;
       if (typeof adopt !== "string") return;
       void api.open({
         project,
         tab: slimDetachedTab(next),
         transfer: { value: null, views: [adopt] },
-        bounds: null,
+        bounds: size === undefined ? null : centeredOnOpener(size),
       }).catch(() => {});
     },
     patchTab: (target, patch) => {

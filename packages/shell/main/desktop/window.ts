@@ -5,6 +5,9 @@ import { type WebPreferences, webPreferences } from "./security.ts";
 
 export const MIN_WINDOW_WIDTH = 960;
 export const MIN_WINDOW_HEIGHT = 600;
+/** detached 창의 최소 크기. 크기 준 popup(OAuth 로그인 등)이 features의 작은 크기로 열려야 한다. */
+export const MIN_DETACHED_WIDTH = 320;
+export const MIN_DETACHED_HEIGHT = 240;
 
 /** 상단 바 높이. */
 export const TOP_BAR_HEIGHT = 36;
@@ -28,6 +31,8 @@ interface WindowOptions {
   show?: boolean;
   /** 이 자리와 크기로 연다(detached 창). 너비·높이는 최소 아래로 내려가지 않는다. */
   bounds?: WindowBounds;
+  /** detached 창이면 작은 최소 크기를 쓴다. bounds가 없으면 기본 크기로 연다. */
+  detached?: boolean;
 }
 
 export interface WindowConfig {
@@ -46,12 +51,14 @@ export interface WindowConfig {
 
 function windowConfig(options: WindowOptions): WindowConfig {
   const mac = options.platform === "darwin";
+  const minWidth = options.detached ? MIN_DETACHED_WIDTH : MIN_WINDOW_WIDTH;
+  const minHeight = options.detached ? MIN_DETACHED_HEIGHT : MIN_WINDOW_HEIGHT;
   return {
     ...(options.bounds ? { x: options.bounds.x, y: options.bounds.y } : {}),
-    width: Math.max(options.bounds?.width ?? 0, MIN_WINDOW_WIDTH),
-    height: Math.max(options.bounds?.height ?? 0, MIN_WINDOW_HEIGHT),
-    minWidth: MIN_WINDOW_WIDTH,
-    minHeight: MIN_WINDOW_HEIGHT,
+    width: Math.max(options.bounds?.width ?? MIN_WINDOW_WIDTH, minWidth),
+    height: Math.max(options.bounds?.height ?? MIN_WINDOW_HEIGHT, minHeight),
+    minWidth,
+    minHeight,
     frame: false,
     title: windowTitle(options.spaceName),
     autoHideMenuBar: true,

@@ -36,16 +36,3 @@ modules: [packages/shell/renderer, packages/shell/main]
 
 고치려면: (1) main이 조용히 닫은 detached 창 항목의 마지막 탭 값과 transfer를 (project, key)로 이 실행 동안 들고 있다가 같은 key의 `open({ transfer: null })`에 쓴다(중간). terminal의 마지막 `terminal_ref`·`generation`은 detached 창이 `changed`로 알리는 탭 값에 실어야 한다. (2) 떠날 때 detached 창을 닫지 않고 dock시킨다(작음, 대신 다시 열 때 창이 돌아오지 않는다). 추천: (1).
 
-## detached 창 안의 popup이 features의 크기를 따르지 않는다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer, packages/shell/main]
-```
-
-지금: detached 창 안에서 크기 준 popup이 열리면 `host.openFloat(tab, size)`가 `lophnDetached.open({ bounds: null })`로 또 하나의 detached 창을 연다(`renderer/workspace/detached/detached-space.tsx`). `size`를 버리고 main은 기본 창 크기(960×600, 최소도 같다, `main/desktop/window.ts`)로 연다. roadmap은 "`features`의 크기로 연다(Chrome과 같다)"였다.
-
-영향: detached browser 탭에서 OAuth 로그인 popup이 작은 창이 아니라 큰 창으로 뜬다. 동작은 된다.
-
-고치려면: `open`의 `bounds`에 opener 창 가운데 `size` 크기를 넣고, main이 detached 창에만 작은 최소 크기를 쓴다(작음). 지금 최소 크기를 다른 창과 같게 둔 것은 따로 정할 근거가 없어서다.
-

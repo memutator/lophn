@@ -9,7 +9,7 @@ import { clampToWorkAreas } from "../detached/bounds.ts";
 import { createDetachedIpc } from "../detached/ipc.ts";
 import { DetachedRegistry } from "../detached/registry.ts";
 import { reveal } from "../headless.ts";
-import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from "../window.ts";
+import { MIN_DETACHED_HEIGHT, MIN_DETACHED_WIDTH } from "../window.ts";
 import { openDesktopWindow } from "./desktop-window.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -51,11 +51,11 @@ export function register(ctx: ShellContext, views: AppViews): Detached {
         : { ref: windowRef(window), detached: ctx.detached.has(window) };
     },
     openWindow: (start) => {
-      // 되살릴 때 저장된 자리가 지금 화면 밖일 수 있어 화면 안으로 당긴다.
+      // 되살릴 때 저장된 자리와 popup이 opener 가운데에 잡은 자리가 지금 화면 밖일 수 있어 화면 안으로 당긴다.
       const bounds = start.bounds === undefined ? undefined : clampToWorkAreas(
         start.bounds,
         screen.getAllDisplays().map((display) => display.workArea),
-        { width: MIN_WINDOW_WIDTH, height: MIN_WINDOW_HEIGHT },
+        { width: MIN_DETACHED_WIDTH, height: MIN_DETACHED_HEIGHT },
       );
       const window = openDesktopWindow(ctx, {
         ...start,

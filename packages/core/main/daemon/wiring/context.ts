@@ -19,6 +19,7 @@ import type {
   ApiServer,
   ApiServerOptions,
   FileStreamHandler,
+  McpEndpoint,
   MemoryHandler,
   ReadHandler,
   UploadHandler,
@@ -28,6 +29,7 @@ import type {
   OperationPolicy,
 } from "../../../server/identity/mod.ts";
 import type {
+  AppApiCallPath,
   AppIntake,
   AppRewind,
   AppViewSignal,
@@ -129,6 +131,8 @@ export type Built = {
   workers?: NonNullable<ApiServerOptions["workers"]>;
   // `overlayReads` 같은 덧씌우기. runtime이 연 read 등록에 더한다.
   reads?: (reads: Map<string, ReadHandler>) => void;
+  // coding agent의 MCP endpoint. 하나만 낸다.
+  mcp?: McpEndpoint;
 };
 
 type Wiring = {
@@ -223,6 +227,8 @@ type Late = {
   appViewSignal: AppViewSignal;
   // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
   appIntake: AppIntake;
+  // 앱 tool 호출 길. coding agent MCP가 preview 호출에 쓴다.
+  appCallPath: AppApiCallPath;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
   // annotations가 받는 것. Router(places-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.
@@ -275,6 +281,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   bundleLocator: true,
   appViewSignal: true,
   appIntake: true,
+  appCallPath: true,
   invocationLedger: true,
   appRewind: true,
   annotationDelivery: true,

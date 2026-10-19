@@ -288,6 +288,7 @@ async function open(
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
+      mcp: builts.find((built) => built.mcp)?.mcp,
       // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
       uploads: merged((built) => built.uploads),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.

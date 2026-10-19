@@ -1,5 +1,6 @@
 import type { Clock, Logger } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import { CODING_MCP_PATH } from "../../protocol/coding-agent/mod.ts";
 import {
   DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
@@ -36,6 +37,7 @@ import {
   headerBytes,
   MAX_HEADER_BYTES,
 } from "./request.ts";
+import type { McpEndpoint } from "./mcp.ts";
 import { isSubscribePath, RouteRegistry } from "./routes.ts";
 import { acceptSocket, attachSession, gatewayAllowed } from "./socket.ts";
 
@@ -63,6 +65,8 @@ export type ApiServerOptions = {
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
   registry?: RouteRegistry;
+  // coding agent의 MCP endpoint(`/mcp`). 없으면 unavailable이다.
+  mcp?: McpEndpoint;
   // command·HTTP·event 입장 한도(responsiveness 2.3 표). 없으면 createAdmission()이다.
   admission?: Admission;
   // stream 응답에서 소비자가 다음 조각을 당기지 않고 기다리는 최대 시간. 넘으면 응답을 끊고
@@ -226,6 +230,14 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       // stream 응답은 본문이 끝날 때까지 입장 자리를 붙잡는다. 아래 finally는 그때 풀지 않는다.
       let streaming = false;
       try {
+        if (url.pathname === CODING_MCP_PATH) {
+          return options.mcp
+            ? await options.mcp.handle(decision.context, request)
+            : json(failure({
+              code: "unavailable",
+              message: "mcp unavailable",
+            }));
+        }
         const entry = registry.lookup(url.pathname);
         if (!entry) {
           return json(failure({

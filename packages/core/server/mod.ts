@@ -22,6 +22,12 @@ export {
   type RequestFailure,
 } from "./request.ts";
 export {
+  createMcpEndpoint,
+  type McpCallResult,
+  type McpEndpoint,
+  type McpTools,
+} from "./mcp.ts";
+export {
   isCommandRoute,
   isFileRoute,
   isMemoryRoute,

@@ -39,3 +39,4 @@ export * from "./source-diff.ts";
 export * from "./harness-report.ts";
 export * from "./terminal-requests.ts";
 export * from "./transport.ts";
+export * from "./mcp.ts";

@@ -1,6 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { cryptoRandom, manualClock } from "../../../base/mod.ts";
-import { CODING_CLI_COMMANDS } from "../../../protocol/coding-agent/mod.ts";
+import {
+  CODING_CLI_COMMANDS,
+  CODING_MCP_OPERATION,
+} from "../../../protocol/coding-agent/mod.ts";
 import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import { createCodingTokens } from "./coding-token.ts";
 import { type OperationPolicy } from "./model.ts";
@@ -11,6 +14,7 @@ const id = (prefix: string, n: number) =>
 
 const tokenRoutes = [
   ticketUploadSummary.name,
+  CODING_MCP_OPERATION,
   ...CODING_CLI_COMMANDS.flatMap((command) =>
     command.auth === "coding_token" && command.route ? [command.route.name] : []
   ),

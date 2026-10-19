@@ -47,7 +47,7 @@ async function appCatalog(
     names.set(app.id, app.name);
     if (app.status !== "active") continue;
     // 활성 release가 없는 앱은 blueprint가 없다. 붙일 수 없어 목록에서 뺀다.
-    const blueprint = await link.read<BlueprintValue>("apps", "blueprint", {
+    const blueprint = await link.read<BlueprintValue>("apps", "app_api", {
       app: app.id,
     });
     if (!blueprint.ok) continue;

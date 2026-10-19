@@ -73,6 +73,13 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
               description: tool.description,
               effect: tool.effect,
               public: tool.public,
+              // 호출 모양은 앱 하나를 볼 때만 싣는다.
+              ...(input.app === undefined ? {} : {
+                inputSchema: tool.inputSchema as AppTool["inputSchema"],
+                ...(tool.outputSchema === undefined ? {} : {
+                  outputSchema: tool.outputSchema as AppTool["outputSchema"],
+                }),
+              }),
             })),
           });
         }

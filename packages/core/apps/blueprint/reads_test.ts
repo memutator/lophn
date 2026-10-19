@@ -60,9 +60,11 @@ Deno.test("App Engineer 자격은 다른 앱의 tool 목록을 읽지만 다른 
   assert(list.ok);
   assertEquals(list.value.apps.map((entry) => entry.app), [APP_A, APP_B]);
   assertEquals(list.value.apps[1].tools[0].name, "add");
+  assert(!("inputSchema" in list.value.apps[1].tools[0]));
   const one = reads.appApiIndex.handle(snapshot, ctx, { app: APP_B });
   assert(one.ok);
-  assertEquals(one.value.apps[0].tools[0].public, false);
+  assertEquals(one.value.apps[0].tools[0].inputSchema, { type: "object" });
+  assert(!("outputSchema" in one.value.apps[0].tools[0]));
 
   const authorize = createTargetAuthorizer(ctx);
   for (const operation of ["problem.get", "ListTickets"]) {

@@ -40,7 +40,7 @@ export interface AppViewsDeps {
   views: LophnShellViewsApi;
   app(app: string): Promise<AppRead>;
   /**
-   * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언(apps/blueprint). 없으면 앱 패널 열기를 두지
+   * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언(apps/app_api). 없으면 앱 패널 열기를 두지
    * 않는다.
    */
   screens?(): Promise<ScreensRead>;
@@ -113,7 +113,7 @@ const APP_PAGE_LIMIT = 10;
 
 /**
  * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언. 활성 앱 목록(core `apps.list`)에서
- * 판이 채택된 앱의 blueprint(`apps.blueprint`)를 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
+ * 판이 채택된 앱의 blueprint(`apps.app_api`)를 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
  * 목록을 읽지 못하면 실패다.
  */
 export function coreAppScreens(core: CoreSource): NonNullable<
@@ -143,7 +143,7 @@ export function coreAppScreens(core: CoreSource): NonNullable<
       const reply = await core.call({
         kind: "read",
         resource: "apps",
-        method: "blueprint",
+        method: "app_api",
         body: { app: app.id },
       });
       if (!reply.ok) continue;

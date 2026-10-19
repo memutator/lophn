@@ -72,6 +72,10 @@ kinds with `kind.list` and `kind.check`.
   you do not know it, `ask`. What cannot be called through an app-api (how a
   screen looks) and what a setting fixes is `text`, which you judge with the
   person. Use `app_test` only when the platform check is all that is needed.
+- A ticket that adds or changes a write tool must have an `examples` check whose
+  steps call that tool in its real order (create, then change). The release's
+  rewind check cannot prove a write tool's undo from made-up input, so these
+  examples are the only real proof, and a ticket without them raises no problem.
 - Hand a ready ticket to this project's coding agent with `call` using
   `to:{role:"coding_agent", place:{app:"<the app's name>"}}`, in conversation
   mode. Choose the harness and run options, or leave them out to use the

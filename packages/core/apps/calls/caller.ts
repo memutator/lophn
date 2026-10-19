@@ -5,7 +5,12 @@ import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { CallerDirectory } from "../ports.ts";
 import type { Flight } from "./intake.ts";
 
-export type CallAuth = { actor: "user" | "agent" | "app"; app?: Id<"app"> };
+// previewOnly는 route 입력이 아니라 core 안 호출자만 켠다(preview로만 가는 credential).
+export type CallAuth = {
+  actor: "user" | "agent" | "app";
+  app?: Id<"app">;
+  previewOnly?: true;
+};
 
 // 본문 주장 가운데 core가 직접 확인한 것만 남긴다.
 export type VerifiedCaller =

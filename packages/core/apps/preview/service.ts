@@ -14,6 +14,7 @@ import type {
 } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
+import type { ToolDeclaration } from "../blueprint/mod.ts";
 import type { FlagSet } from "../permissions/mod.ts";
 import type { PreviewArea } from "./area.ts";
 import {
@@ -45,6 +46,8 @@ export type PreviewBundle = {
   entry: string;
   importMap: string;
   app_api: readonly string[];
+  // bundle blueprint의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
+  tools: readonly ToolDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
   // bundle 파일 중 그 hash의 byte. fixture는 bundle 안의 파일이다.
@@ -97,6 +100,21 @@ export type PreviewService = {
   ): Promise<Result<StopOutput>>;
   // 지난 실행이 남긴 disposable 영역을 지운다. core 시작이 한 번 부른다.
   discardStale(): Promise<void>;
+  // 아래 둘은 core 안에서만 부른다. route 권한 검사(gate)를 거치지 않으므로 부르는 쪽이 앱을 정한다.
+  // 그 앱의 지금 preview. 없으면 null.
+  current(app: string): Promise<Result<CurrentPreview | null>>;
+  // 그 nonce가 앱의 지금 preview가 아니면 null.
+  declared(
+    app: string,
+    process_nonce: string,
+  ): Promise<Result<readonly ToolDeclaration[] | null>>;
+};
+
+export type CurrentPreview = {
+  process_nonce: string;
+  ready: boolean;
+  bundle_hash: string;
+  tools: readonly ToolDeclaration[];
 };
 
 function notFound(): Result<never> {
@@ -137,12 +155,17 @@ export function unattachedPreviewService(): PreviewService {
     get: down,
     stop: down,
     discardStale: () => Promise.resolve(),
+    current: down,
+    declared: down,
   };
 }
 
 export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
   // 이 service가 시작한 살아 있는 preview. 앱마다 하나다.
-  const live = new Map<string, string>();
+  const live = new Map<
+    string,
+    { nonce: string; tools: readonly ToolDeclaration[]; bundle_hash: string }
+  >();
 
   async function gate(
     ctx: AuthenticatedContext,
@@ -169,7 +192,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
   }
 
   async function forget(app: string, nonce: string): Promise<void> {
-    if (live.get(app) === nonce) live.delete(app);
+    if (live.get(app)?.nonce === nonce) live.delete(app);
     await deps.area.discard(app, nonce);
   }
 
@@ -213,9 +236,9 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       // 같은 앱의 이전 preview는 종료를 확인한 뒤에만 새 것을 만든다(같은 socket 자리를 쓴다).
       const previous = live.get(input.app);
       if (previous !== undefined) {
-        const stopped = await deps.supervisor.stop(input.app, previous);
+        const stopped = await deps.supervisor.stop(input.app, previous.nonce);
         if (!stopped.ok) return stopped;
-        await forget(input.app, previous);
+        await forget(input.app, previous.nonce);
       }
       const nonce = deps.nonce();
       if (!validNonce(nonce)) {
@@ -250,14 +273,18 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         await deps.area.discard(input.app, nonce);
         return started;
       }
-      live.set(input.app, nonce);
+      live.set(input.app, {
+        nonce,
+        tools: bundle.tools,
+        bundle_hash: input.bundle_hash,
+      });
       return ok({ process_nonce: nonce, ready: false });
     },
     async get(ctx, input) {
       const gated = await gate(ctx, "previews.get", input.app);
       if (!gated.ok) return gated;
-      const nonce = input.process_nonce ?? live.get(input.app);
-      if (nonce === undefined || live.get(input.app) !== nonce) {
+      const nonce = input.process_nonce ?? live.get(input.app)?.nonce;
+      if (nonce === undefined || live.get(input.app)?.nonce !== nonce) {
         return ok({ observation: null, observed_at: null });
       }
       const observed = await deps.supervisor.observe(input.app, nonce);
@@ -275,7 +302,9 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     async stop(ctx, input) {
       const gated = await gate(ctx, "previews.stop", input.app);
       if (!gated.ok) return gated;
-      if (live.get(input.app) !== input.process_nonce) return notFound();
+      if (live.get(input.app)?.nonce !== input.process_nonce) {
+        return notFound();
+      }
       const stopped = await deps.supervisor.stop(
         input.app,
         input.process_nonce,
@@ -286,5 +315,27 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       return ok({ stopped: true });
     },
     discardStale: () => deps.area.discardAll(),
+    async current(app) {
+      const entry = live.get(app);
+      if (entry === undefined) return ok(null);
+      const observed = await deps.supervisor.observe(app, entry.nonce);
+      if (!observed.ok) return observed;
+      if (observed.value === null) {
+        await forget(app, entry.nonce);
+        return ok(null);
+      }
+      return ok({
+        process_nonce: entry.nonce,
+        ready: observed.value.ready,
+        bundle_hash: entry.bundle_hash,
+        tools: entry.tools,
+      });
+    },
+    declared(app, process_nonce) {
+      const entry = live.get(app);
+      return Promise.resolve(
+        ok(entry?.nonce === process_nonce ? entry.tools : null),
+      );
+    },
   };
 }

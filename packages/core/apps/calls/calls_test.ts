@@ -39,7 +39,12 @@ type Handler = (
 function setup() {
   const sent: { app: Id<"app">; request: ProcessCallRequest }[] = [];
   const records = new Map<string, AppInvocation>();
-  const state = { release: REL, handler: null as Handler | null };
+  const state = {
+    release: REL,
+    handler: null as Handler | null,
+    // 지금 preview의 선언. nonce가 다르면 선언이 없다.
+    preview: { nonce: "pv-nonce-1", effects: {} as Record<string, string> },
+  };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
     begin: (row) => {
@@ -85,6 +90,14 @@ function setup() {
           release: state.release,
           effect: api.startsWith("w.") ? "write" : "read",
         }),
+      findPreview: (_app, nonce, api) => {
+        const effect = nonce === state.preview.nonce
+          ? state.preview.effects[api]
+          : undefined;
+        return Promise.resolve(
+          ok(effect === undefined ? null : { effect: effect as "write" }),
+        );
+      },
     },
     apps: {
       activeRelease: () => ok(state.release),
@@ -404,4 +417,45 @@ Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 
     }),
     null,
   );
+});
+
+Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 남기지 않는다", async () => {
+  const t = setup();
+  const a = newApp();
+  const preview = (api: string, nonce = "pv-nonce-1"): ToolCallInput => ({
+    ...person(a, api),
+    target: { mode: "preview", app: a, process_nonce: nonce },
+  });
+  const only = { actor: "user" as const, previewOnly: true as const };
+
+  // live target과 사람이 아닌 호출자는 앱 process에 아무것도 보내지 않는다.
+  const live = await t.path.call(person(a, "r.get"), only);
+  assert(!live.ok && live.error.code === "forbidden");
+  const agent = await t.path.call({
+    ...preview("r.get"),
+    caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+  }, { actor: "agent", previewOnly: true });
+  assert(!agent.ok && agent.error.code === "forbidden");
+  assertEquals(t.sent.length, 0);
+
+  // release 없는 새 tool도 그 preview bundle의 선언 effect로 간다. 기록은 없다.
+  t.state.preview.effects["w.new"] = "write";
+  const done = await t.path.call(preview("w.new"), only);
+  assert(done.ok && done.value.invocation === null);
+  assertEquals(status(done), "succeeded");
+  assertEquals(t.sent.length, 1);
+  assertEquals(t.sent[0].request.context.effect, "write");
+  assertEquals(t.sent[0].request.context.release, null);
+
+  // 선언 없는 tool과 지금 preview가 아닌 nonce는 보내지 않는다.
+  assertEquals(
+    status(await t.path.call(preview("w.none"), only)),
+    "not_declared",
+  );
+  assertEquals(
+    status(await t.path.call(preview("w.new", "pv-nonce-2"), only)),
+    "not_declared",
+  );
+  assertEquals(t.sent.length, 1);
+  assertEquals(t.records.size, 0);
 });

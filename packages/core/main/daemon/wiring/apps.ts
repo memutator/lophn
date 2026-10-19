@@ -193,7 +193,7 @@ export const appsWiring: WiringFactory = () => {
       const states = appStatesOf(link.sql);
       const { path, intake } = createAppCalls({
         callers,
-        lookup: appApiLookupOf(link.sql),
+        lookup: appApiLookupOf(link.sql, appsControl.previews),
         apps: states,
         ledger,
         link: appsControl.link,

@@ -11,7 +11,10 @@ import {
   dataChangeSchema,
   lossOfStepSql,
 } from "../../../../protocol/apps/mod.ts";
-import { validateBlueprint } from "../../blueprint/mod.ts";
+import {
+  type ToolDeclaration,
+  validateBlueprint,
+} from "../../blueprint/mod.ts";
 import {
   appFlags,
   type FlagSet,
@@ -38,6 +41,7 @@ type BundleParts = {
   entry: string;
   importMap: string;
   app_api: string[];
+  tools: ToolDeclaration[];
   screens: ScreenSizes;
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
@@ -151,6 +155,7 @@ export async function readBundleCopy(
     entry: `${root}/${manifest.entrypoint}`,
     importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
     app_api: blueprint.value.tools.map((tool) => tool.name),
+    tools: blueprint.value.tools,
     screens: Object.fromEntries(
       blueprint.value.screens.map((screen) => [screen.key, [...screen.sizes]]),
     ),
@@ -232,6 +237,7 @@ export function createCopyPreviewBundles(options: {
         entry: parts.entry,
         importMap: parts.importMap,
         app_api: parts.app_api,
+        tools: parts.tools,
         screens: parts.screens,
         dataSchema: parts.dataSchema,
         async fixture(hash) {

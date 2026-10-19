@@ -4,6 +4,7 @@ import type { Actor } from "../../protocol/base/actor.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
 import type { At } from "../../protocol/base/values.ts";
+import type { CallAuth } from "./calls/caller.ts";
 import type {
   AppApiTarget,
   AppInvocation,
@@ -36,7 +37,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
 export interface AppApiCallPath {
   call(
     input: ToolCallInput,
-    auth: { actor: "user" | "agent" | "app"; app?: Id<"app"> },
+    auth: CallAuth,
   ): Promise<Result<ToolCallOutput>>;
 }
 
@@ -57,6 +58,7 @@ export interface CallerDirectory {
 /**
  * 구현: app-calls-assembly(`core/apps/blueprint` 읽기). 쓰는 곳: app-calls-path.
  * 활성 release(release가 null일 때) 또는 고정 release의 blueprint 선언. 없는 app-api는 null.
+ * `findPreview`는 그 앱의 지금 preview(nonce가 맞을 때)가 띄운 bundle의 선언이다.
  */
 export interface AppApiLookup {
   find(
@@ -69,6 +71,11 @@ export interface AppApiLookup {
       effect: "read" | "write" | "external";
     } | null
   >;
+  findPreview(
+    app: Id<"app">,
+    process_nonce: string,
+    api: string,
+  ): Promise<Result<{ effect: "read" | "write" | "external" } | null>>;
 }
 
 /**

@@ -102,6 +102,7 @@ import {
   type PreviewBundles,
   type PreviewReleases,
   type PreviewService,
+  unattachedPreviewService,
 } from "./preview/service.ts";
 
 export const APPS_SUPERVISOR_KIND = "apps/supervisor";
@@ -308,6 +309,8 @@ type AppsControl = {
   readonly client: SupervisorClient;
   // core가 앱 process를 부르는 길(`apps.call`·`apps.apply`).
   readonly link: AppProcessLink;
+  // 호출 경로가 preview 선언을 읽는다(core 안에서만 쓴다).
+  readonly previews: PreviewService;
   // runtime이 읽는 현재 ledger 사실(App 한 행과 active grant).
   readonly facts: ConnectFacts;
   // 원하는 앱 상태를 supervisor에 알린다. 마지막 상태를 기억해 supervisor가 다시 떠도
@@ -722,6 +725,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     channel,
     client,
     link,
+    previews: previewService ?? unattachedPreviewService(),
     facts,
     reconcile: reconcileApp,
     activation,

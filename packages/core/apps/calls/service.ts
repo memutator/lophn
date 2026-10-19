@@ -77,6 +77,10 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
 
 type Phase = "gate" | "queued" | "sent";
 
+function forbidden(message: string): Result<never> {
+  return err({ code: "forbidden", message });
+}
+
 export function createAppCalls(
   deps: AppCallsDeps,
 ): { path: AppApiCallPath; intake: AppIntake } {
@@ -110,9 +114,14 @@ export function createAppCalls(
     return ok(denied(code, base.id));
   }
 
+  // preview 호출은 release가 없을 수 있어 기록 base가 아니라 보내는 값만 쥔다.
+  type RequestBase = Pick<CallRecordBase, "id" | "app" | "mode" | "effect"> & {
+    release: Id<"rel"> | null;
+  };
+
   function requestOf(
     input: ToolCallInput,
-    base: CallRecordBase,
+    base: RequestBase,
   ): ProcessCallRequest {
     return {
       invocation: base.id,
@@ -120,7 +129,7 @@ export function createAppCalls(
       ...(input.input === undefined ? {} : { input: input.input }),
       context: {
         app: base.app,
-        release: base.mode === "live" ? base.release : null,
+        release: base.release,
         mode: base.mode,
         effect: base.effect,
         caller: input.caller,
@@ -132,6 +141,15 @@ export function createAppCalls(
     input: ToolCallInput,
     auth: CallAuth,
   ): Promise<Result<ToolCallOutput>> {
+    // preview만 부르는 credential이 live로 새면 안 된다. 어떤 조회보다 앞에서 막는다.
+    if (auth.previewOnly) {
+      if (input.caller.kind !== "person") {
+        return forbidden("only a person can use a previews-only credential");
+      }
+      if (input.target.mode === "live") {
+        return forbidden("this credential calls previews only");
+      }
+    }
     const verified = verifyCaller(input, auth, {
       callers: deps.callers,
       activeRelease: deps.apps.activeRelease,
@@ -142,16 +160,17 @@ export function createAppCalls(
 
     const target = input.target;
     const app = target.app as Id<"app">;
-    const live = target.mode === "live";
-    if (live) await intake.admit(app);
+    if (target.mode === "live") await intake.admit(app);
 
     const archived = deps.apps.archived(app);
     if (!archived.ok) return archived;
     if (archived.value) return ok(denied("app_archived", null));
 
+    if (target.mode === "preview") return callPreview(input, target);
+
     const found = deps.lookup.find(
       app,
-      live ? target.release as Id<"rel"> | null : null,
+      target.release as Id<"rel"> | null,
       input.tool,
     );
     if (!found.ok) return found;
@@ -176,18 +195,56 @@ export function createAppCalls(
     );
     if (refused !== null) return recordDenied(base, refused);
 
-    // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 기록·Gate·줄 앞에서 거절한다.
+    const tooBig = checkSize(input, base);
+    if (tooBig !== null) return tooBig;
+
+    return run(input, caller, base);
+  }
+
+  // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 기록·Gate·줄 앞에서 거절한다.
+  function checkSize(
+    input: ToolCallInput,
+    base: RequestBase,
+  ): Result<never> | null {
     const bytes = new TextEncoder().encode(
       JSON.stringify(requestOf(input, base)),
     ).length;
-    if (bytes > CALL_BODY_MAX_BYTES) {
-      return err({
-        code: "invalid_input",
-        message: "call body exceeds the size limit",
-      });
-    }
+    if (bytes <= CALL_BODY_MAX_BYTES) return null;
+    return err({
+      code: "invalid_input",
+      message: "call body exceeds the size limit",
+    });
+  }
 
-    return run(input, caller, base, target);
+  // preview는 일회용 DB라 rewind 대상이 아니고 release가 없을 수 있어 ledger를 쓰지 않는다.
+  // 부른 쪽은 사람뿐이라(verifyCaller) Gate도 줄도 없다.
+  async function callPreview(
+    input: ToolCallInput,
+    target: Extract<AppApiTarget, { mode: "preview" }>,
+  ): Promise<Result<ToolCallOutput>> {
+    const app = target.app as Id<"app">;
+    const found = await deps.lookup.findPreview(
+      app,
+      target.process_nonce,
+      input.tool,
+    );
+    if (!found.ok) return found;
+    if (found.value === null) return ok(denied("not_declared", null));
+    const base: RequestBase = {
+      id: deps.ids.newId("inv") as Id<"inv">,
+      app,
+      release: null,
+      mode: "preview",
+      effect: found.value.effect,
+    };
+    const tooBig = checkSize(input, base);
+    if (tooBig !== null) return tooBig;
+    const sent = await deps.link.call(target, requestOf(input, base));
+    if (!sent.sent) return ok(denied("app_unavailable", null));
+    return ok({
+      invocation: null,
+      outcome: settleResponse(sent.response).outcome,
+    });
   }
 
   // 여기부터 호출은 도는 호출이다. drain이 기다리고 abandon이 닫는다.
@@ -195,10 +252,8 @@ export function createAppCalls(
     input: ToolCallInput,
     caller: VerifiedCaller,
     base: CallRecordBase,
-    target: AppApiTarget,
   ): Promise<Result<ToolCallOutput>> {
     const app = base.app;
-    const live = target.mode === "live";
     let phase: Phase = "gate";
     let startedAt = deps.clock.now();
     let abandoned = false;
@@ -211,7 +266,7 @@ export function createAppCalls(
       id: base.id,
       app,
       release: base.release,
-      mode: target.mode,
+      mode: "live",
       parent: caller.kind === "app" ? caller.parent.id : null,
       async abandon() {
         abandoned = true;
@@ -245,7 +300,6 @@ export function createAppCalls(
 
       // write와 external은 앱마다 줄을 선다. read는 바로 간다.
       if (base.effect === "read") return execute(false);
-      if (!live) return execute(true);
       phase = "queued";
       const release = await queue.acquire(app);
       if (release === null || abandoned) return null;
@@ -256,9 +310,11 @@ export function createAppCalls(
       }
     }
 
-    const processTarget: AppApiTarget = live
-      ? { mode: "live", app, release: base.release }
-      : target;
+    const processTarget: AppApiTarget = {
+      mode: "live",
+      app,
+      release: base.release,
+    };
 
     async function execute(
       record: boolean,

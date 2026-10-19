@@ -15,6 +15,7 @@ export {
 export { createFsPreviewArea, type PreviewArea } from "./area.ts";
 export {
   createPreviewService,
+  type CurrentPreview,
   type PreviewBundle,
   type PreviewBundles,
   type PreviewReleases,

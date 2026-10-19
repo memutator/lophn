@@ -29,6 +29,7 @@ import type {
 } from "../server/mod.ts";
 import { createTargetAuthorizer, type Writer } from "../storage/ledger/mod.ts";
 import { loadApp } from "./registration/mod.ts";
+import type { PreviewService } from "./preview/mod.ts";
 import { loadActiveBlueprint, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
 import { bundleCopyPath } from "./releases/mod.ts";
@@ -134,8 +135,18 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
 }
 
 // release에 고정한 blueprint의 tool 선언. release가 null이면 지금 활성 release다.
-export function appApiLookupOf(sql: Pick<Sql, "get" | "all">): AppApiLookup {
+// preview 선언은 그 preview가 띄운 bundle의 것이다. 아직 release가 없어도 찾는다.
+export function appApiLookupOf(
+  sql: Pick<Sql, "get" | "all">,
+  previews: Pick<PreviewService, "declared">,
+): AppApiLookup {
   return {
+    async findPreview(app, nonce, api) {
+      const declared = await previews.declared(app, nonce);
+      if (!declared.ok) return declared;
+      const tool = declared.value?.find((entry) => entry.name === api);
+      return ok(tool === undefined ? null : { effect: tool.effect });
+    },
     find(app, release, api) {
       const stored = loadActiveBlueprint(sql, app, release ?? undefined);
       if (!stored.ok) return stored;

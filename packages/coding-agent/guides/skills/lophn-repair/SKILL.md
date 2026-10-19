@@ -40,7 +40,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 대상 문제, 증상, 근거, acceptance
    check(하나. `app_test`, `examples`, `text` 중 하나), 볼 곳과 지킬 것을
-   읽는다. check가 예시(`examples`)이면 api와 입력, 기대 결과를 그대로 읽는다.
+   읽는다. check가 예시(`examples`)이면 tool과 입력, 기대 결과를 그대로 읽는다.
    수리 ticket의 예시는 원래 증상을 보이는 호출과 고쳐진 기대 결과다. 예시는
    고치지 않는다. 틀린 것 같으면 `message send`로 App Engineer에게 청한다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
@@ -68,7 +68,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 7. 실제 테스트와 preview를 한다. `app test`는 플랫폼 검사다. 입력은
    `{"kind":"app_test","request_key":"<새 key>","app":"<app>"}` 뿐이다. bundle과
    test는 core가 6에서 마지막으로 끝난 준비 값으로 채운다. 예시는 보고한 뒤
-   program이 보고한 release로 돌린다. 예시의 api를 그 입력으로 불렀을 때 기대
+   program이 보고한 release로 돌린다. 예시의 tool을 그 입력으로 불렀을 때 기대
    결과가 나오도록 고친다. `text` check는 runner가 돌리지 않는다(App Engineer가
    판단한다). `app test status`로 `result_ref`를 읽고 `app test result`로 결과를
    읽는다. 결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면

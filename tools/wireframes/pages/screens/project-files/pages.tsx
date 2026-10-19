@@ -59,17 +59,6 @@ export function ExplorerRootMenu() {
   );
 }
 
-/** sidebar · Context. contexts 목록과 saved views만 보인다. */
-export function ContextSidebar() {
-  const tab = documentTab(EXP);
-  return (
-    <ProjectApp
-      sidebar={{ mode: "context", savedActive: "running" }}
-      panes={[{ tabs: [tab], selected: tab.key }]}
-    />
-  );
-}
-
 /** 문서 탭 · 편집. 디스크에 저장되는 중이다. 판 번호도 형식 문제 표시도 없다. */
 export function MarkdownEditing() {
   return solo(documentTab(EXP, { editing: true, status: "saving" }));
@@ -159,12 +148,6 @@ export function FileConflictCompare() {
   return solo(
     documentTab(EXP, { editing: true, status: "conflict", compare: true }),
   );
-}
-
-/** 문서 탭의 정보 패널 · Contexts. 내용은 그대로이고 탭은 Info와 Contexts 둘이다. */
-export function DocumentInfoContexts() {
-  const tab = documentTab(EXP);
-  return solo(tab, { info: { tab: tab.key, panel: "contexts" } });
 }
 
 /** project의 LOPHN.md는 일반 파일이라 따로 둔 진입 없이 일반 문서 탭으로 열린다. */

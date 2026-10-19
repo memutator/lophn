@@ -2,8 +2,6 @@ import type { Area } from "../types.ts";
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   AgentsGroup,
-  ContextSidebar,
-  DocumentInfoContexts,
   ExplorerHead,
   ExplorerMove,
   ExplorerNewExists,
@@ -33,10 +31,6 @@ import {
   SidebarCollapsed,
   TabKinds,
 } from "./project-pages.tsx";
-import {
-  DeclaredSearchBoardPage,
-  DeclaredSearchTablePage,
-} from "./contexts/context-pages.tsx";
 import {
   FloatMinimized,
   FloatOverApp,
@@ -273,15 +267,8 @@ export const projectWorkspaceArea: Area = {
       id: "new-explorer-root",
       title: "Sidebar · Explorer",
       description:
-        "sidebar 맨 위 밑줄 탭(Explorer, Context, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘과 하위 폴더가 이름과 경로로 보인다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
+        "sidebar 맨 위 밑줄 탭(Explorer, Agent)에서 Explorer를 고른 모양이다. 루트는 작은 대문자 이름 한 줄 머리이고, 그 menu를 연 상태로 연결한 폴더 둘과 하위 폴더가 이름과 경로로 보인다. tree에는 차분한 파일 종류 아이콘이 붙는다.",
       render: () => <ExplorerRootMenu />,
-    },
-    {
-      id: "new-sidebar-context",
-      title: "Sidebar · Context",
-      description:
-        "sidebar 맨 위 밑줄 탭에서 Context를 고른 모양이다. contexts 목록과 saved views만 보이고 saved view 이름을 누르면 결과 탭이 열린다.",
-      render: () => <ContextSidebar />,
     },
     {
       id: "new-agent-sidebar",
@@ -294,14 +281,14 @@ export const projectWorkspaceArea: Area = {
       id: "new-sidebar-collapsed",
       title: "Sidebar · collapsed",
       description:
-        "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Contexts, Saved views, Agent, Search이고 Search는 project 키워드 검색을 연다.",
+        "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Agent, Search이고 Search는 project 키워드 검색을 연다.",
       render: () => <SidebarCollapsed />,
     },
     {
       id: "new-project-tabs",
       title: "Project · tab kinds",
       description:
-        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Context, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭 줄은 앱 공간 pane과 같은 component이고, 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
+        "한 칸에 md 문서, JSON 파일, project 키워드 검색, Terminal 탭이 같이 열려 있고 오른쪽 칸에 lophn Agent 탭이 있다. 탭 줄은 앱 공간 pane과 같은 component이고, 탭마다 아이콘과 이름만 있다. 파일은 파일 종류 아이콘, agent는 profile 아이콘이다.",
       render: () => <TabKinds />,
     },
     {
@@ -322,7 +309,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tab-menu",
       title: "Project · new tab menu",
       description:
-        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn, Project Manager, Operator가 있다. Agents(관리 탭)와 New context 항목은 없다.",
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn, Project Manager, Operator가 있다. Agents(관리 탭) 항목은 없다.",
       render: () => <NewTabMenu />,
     },
     {
@@ -413,15 +400,8 @@ export const projectWorkspaceArea: Area = {
       id: "new-document-tab-info",
       title: "Document · info panel",
       description:
-        "문서 탭 오른쪽에 본문 위로 떠서 열리는 정보 panel이다. 탭은 Info와 Contexts 둘이고 Info에 경로, 크기, 바뀐 시각, Outline이 있다. 본문 폭은 줄지 않는다.",
+        "문서 탭 오른쪽에 본문 위로 떠서 열리는 정보 panel이다. Info에 경로, 크기, 바뀐 시각, Outline이 있다. 본문 폭은 줄지 않는다.",
       render: () => <DocumentTabInfo />,
-    },
-    {
-      id: "new-document-tab-contexts",
-      title: "Document · info panel, Contexts",
-      description:
-        "같은 panel에서 Contexts 탭을 연 상태다. 이 문서를 다루는 context를 보인다.",
-      render: () => <DocumentInfoContexts />,
     },
     {
       id: "new-viewer-text",
@@ -477,20 +457,6 @@ export const projectWorkspaceArea: Area = {
       description:
         "결과를 눌러 연 뒤다. 오른쪽 문서가 일치한 줄로 scroll해 칠해져 있고 view bar에 Line 16이 보인다. 왼쪽 검색 탭은 그대로 남는다.",
       render: () => <FileSearchOpened />,
-    },
-    {
-      id: "new-search-table",
-      title: "Search · declared (table)",
-      description:
-        "context 계약에 선언된 검색의 table 결과다. 입력 form, page 이동, 개체 링크가 있다. project 키워드 검색과는 다른 탭이다.",
-      render: () => <DeclaredSearchTablePage />,
-    },
-    {
-      id: "new-search-board",
-      title: "Search · declared (board)",
-      description:
-        "선언된 검색의 board 결과(Experiments by status)다. 같은 탭에서 다른 검색을 고른 모양이다.",
-      render: () => <DeclaredSearchBoardPage />,
     },
     {
       id: "browser-bridge-pane",

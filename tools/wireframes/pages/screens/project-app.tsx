@@ -23,16 +23,12 @@ import {
   sessionTab,
 } from "../../mock/agents-data.ts";
 import { TerminalBody } from "./bodies.tsx";
-import { ContextBody, type SubTab } from "./context-body.tsx";
 import { Conversation, type TabState } from "./conversation.tsx";
 import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
 import type { FakeAgentsOptions as FakeEditorOptions } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
-import { contextTab, documentTab } from "../../mock/phroner-data.ts";
-import { ContextsList } from "./contexts/contexts-list.tsx";
-import { DeclaredSearch } from "./contexts/declared-search.tsx";
-import { HostProvider } from "../../mock/contexts/open-tab.ts";
+import { documentTab } from "../../mock/phroner-data.ts";
 import { FileSearch } from "./project-files/file-search.tsx";
 import {
   crumbsOfPath,
@@ -99,10 +95,6 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
   switch (tab.kind) {
     case "document":
       return crumbsOfPath(tab.sub ?? tab.title);
-    case "context":
-      return ["phroner", tab.title, "Context"];
-    case "contexts":
-      return ["phroner", "Contexts"];
     case "search":
       return ["phroner", tab.sub === "files" ? "Search files" : "Search"];
     case "terminal":
@@ -116,7 +108,7 @@ function crumbsOf(tab: TabSpec | undefined): string[] {
   }
 }
 
-// 상단 검색(돋보기·Ctrl+K)의 후보. "eval"을 치면 Contexts 묶음에 eval이 나오고, 파일은 경로로 연다.
+// 상단 검색(돋보기·Ctrl+K)의 후보. 파일은 이름이나 경로로 연다.
 const FILE_ITEM = (path: string): PaletteItem & { tab: () => TabSpec } => ({
   id: `file:${path}`,
   group: "Files",
@@ -127,22 +119,6 @@ const FILE_ITEM = (path: string): PaletteItem & { tab: () => TabSpec } => ({
 });
 
 const PALETTE: readonly (PaletteItem & { tab: () => TabSpec })[] = [
-  {
-    id: "context:eval",
-    group: "Contexts",
-    label: "eval",
-    detail: "Context",
-    icon: workspaceIcons.context,
-    tab: () => contextTab("eval"),
-  },
-  {
-    id: "context:harness",
-    group: "Contexts",
-    label: "harness",
-    detail: "Context",
-    icon: workspaceIcons.context,
-    tab: () => contextTab("harness"),
-  },
   FILE_ITEM("eval/experiments/exp-008-query-tools.md"),
   FILE_ITEM("eval/rubrics/query-hygiene.json"),
   FILE_ITEM("eval/scenarios/query-leave-still/r1.yaml"),
@@ -235,7 +211,7 @@ export function ProjectApp(
     return () => removeEventListener("keydown", listen);
   }, []);
 
-  // 이미 열린 탭이면 그 칸에서 고르고(Context 탭은 다른 하위 탭을, 문서 탭은 다른 줄을 달라면 그쪽으로), 아니면 첫 칸 끝에 더해
+  // 이미 열린 탭이면 그 칸에서 고르고(문서 탭은 다른 줄을 달라면 그쪽으로), 아니면 첫 칸 끝에 더해
   // 고른다. `other`면 둘째 칸에 연다(없으면 칸을 하나 더 만든다).
   const open = (tab: TabSpec, other = false) =>
     setPanes((current) => {
@@ -246,10 +222,7 @@ export function ProjectApp(
         return current.map((pane, index) =>
           index !== at ? pane : {
             tabs: pane.tabs.map((item) =>
-              item.key === tab.key && tab.sub !== undefined &&
-                item.kind === "context"
-                ? { ...item, sub: tab.sub, rev: (item.rev ?? 0) + 1 }
-                : item.key === tab.key && tab.file?.line !== undefined
+              item.key === tab.key && tab.file?.line !== undefined
                 ? { ...item, file: tab.file, rev: (item.rev ?? 0) + 1 }
                 : item
             ),
@@ -314,32 +287,17 @@ export function ProjectApp(
       title: "phroner",
     });
   };
-  // 선언된 검색(saved view의 결과)과 project 키워드 검색은 서로 다른 탭이다. 키워드 검색은 context 없이 열린다.
-  const searchTab: TabSpec = {
-    key: "search",
-    kind: "search",
-    title: "phroner",
-  };
+  // project 키워드 검색 탭.
   const filesTab: TabSpec = {
     key: "search:files",
     kind: "search",
     title: "phroner",
     sub: "files",
   };
-  const savedViewTab = (view: string): TabSpec => ({
-    key: `search:saved:${view}`,
-    kind: "search",
-    title: view === "running" ? "Running experiments" : "Findings for C-049",
-    sub: view === "running" ? "experiments" : undefined,
-  });
-
   const rail = (action: RailAction) => {
     if (action === "terminal") newTerminal();
     else if (action === "search") open(filesTab);
-    else if (action === "saved") open(searchTab);
-    else if (action === "contexts") {
-      open({ key: "contexts", kind: "contexts", title: "phroner" });
-    } else open(newConversationTab("lophn"));
+    else if (action === "agent") open(newConversationTab("lophn"));
   };
 
   const pick = (choice: string) => {
@@ -350,9 +308,6 @@ export function ProjectApp(
     else if (choice.startsWith("agent-operator:")) {
       open(newConversationTab(choice.slice("agent-operator:".length)));
     } else if (choice === "search") open(filesTab);
-    else if (choice.startsWith("context:")) {
-      open(contextTab(choice.slice("context:".length)));
-    }
   };
 
   const body = (tab: TabSpec): ReactNode => {
@@ -364,7 +319,6 @@ export function ProjectApp(
             key={tab.rev ?? 0}
             path={tab.sub ?? tab.title}
             file={tab.file}
-            open={open}
             info={info[tab.key] ?? null}
             onInfo={(panel) => setInfo({ ...info, [tab.key]: panel })}
             onToggleInfo={() => {
@@ -381,39 +335,14 @@ export function ProjectApp(
             }}
           />
         );
-      case "context":
-        return (
-          <ContextBody
-            key={tab.rev ?? 0}
-            name={tab.title}
-            initial={(tab.sub as SubTab | undefined) ?? "overview"}
-            open={open}
-          />
-        );
-      case "contexts":
-        return (
-          <HostProvider value={{ open, opened: 0 }}>
-            <ContextsList />
-          </HostProvider>
-        );
       case "search":
-        if (tab.sub === "files") {
-          return (
-            <FileSearch
-              open={open}
-              initialQuery={tab.find?.query}
-              initialFolder={tab.find?.folder}
-              opened={tab.find?.opened}
-            />
-          );
-        }
         return (
-          <HostProvider value={{ open, opened: 0 }}>
-            <DeclaredSearch
-              initial={tab.sub === "experiments" ? "experiments" : "findings"}
-              typed={tab.sub === "typed"}
-            />
-          </HostProvider>
+          <FileSearch
+            open={open}
+            initialQuery={tab.find?.query}
+            initialFolder={tab.find?.folder}
+            opened={tab.find?.opened}
+          />
         );
       case "terminal":
         return <TerminalBody />;
@@ -465,11 +394,9 @@ export function ProjectApp(
           onToggle={() => setCollapsed(!collapsed)}
           onRail={rail}
           onOpenFile={(id) => open(documentTab(id))}
-          onOpenContext={(name) => open(contextTab(name))}
           onAgent={(id) => open(newConversationTab(id))}
           onManage={() => open(AGENTS_TAB)}
           onSession={(row) => open(sessionTab(row))}
-          onSavedView={(view) => open(savedViewTab(view))}
         />
         <div className={workspace.main}>
           <div className={workspace.topBar}>

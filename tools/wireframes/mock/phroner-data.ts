@@ -37,17 +37,3 @@ export const documentTab = (path: string, file?: FileInit): TabSpec => ({
 });
 
 export const findingTab = (id: string) => documentTab(findingPath(id));
-
-export const contextTab = (name: string, sub?: string): TabSpec => ({
-  key: `context:${name}`,
-  kind: "context",
-  title: name,
-  sub,
-});
-
-/** 문서가 어느 context의 자료인지(역조회). 없으면 null. */
-export function contextOf(path: string): string | null {
-  return path.startsWith("eval/") || path.startsWith("loop/findings/")
-    ? "eval"
-    : null;
-}

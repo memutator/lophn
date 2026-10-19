@@ -5,12 +5,6 @@ import type { TabSpec } from "./project-window.tsx";
 
 const DOC_PATH = "eval/experiments/exp-008-query-tools.md";
 const DOC = documentTab(DOC_PATH);
-const context = (sub: string): TabSpec => ({
-  key: "context:eval",
-  kind: "context",
-  title: "eval",
-  sub,
-});
 const FILES_SEARCH: TabSpec = {
   key: "search:files",
   kind: "search",
@@ -30,13 +24,13 @@ const left = (selected: TabSpec, ...others: TabSpec[]): PaneInit => ({
   selected: selected.key,
 });
 
-/** 탭 kind. 문서(md)·text 파일·키워드 검색·Context·Terminal 탭과 오른쪽 칸의 Agent 탭. */
+/** 탭 kind. 문서(md)·text 파일·키워드 검색·Terminal 탭과 오른쪽 칸의 Agent 탭. */
 export function TabKinds() {
   return (
     <ProjectApp
       sidebar={{ current: DOC_PATH }}
       panes={[
-        left(DOC, JSON_FILE, FILES_SEARCH, context("overview"), TERMINAL),
+        left(DOC, JSON_FILE, FILES_SEARCH, TERMINAL),
         chat,
       ]}
     />
@@ -62,7 +56,7 @@ export function EditorTabs() {
   );
 }
 
-/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Context ▸, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents(관리 탭)와 New context는 없다. */
+/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents(관리 탭)는 없다. */
 export function NewTabMenu() {
   return (
     <ProjectApp
@@ -73,7 +67,7 @@ export function NewTabMenu() {
   );
 }
 
-/** 접힌 sidebar = 바로 가기 rail. 위에서부터 펼치기·Terminal·Contexts·Saved views·Agent·Search이고, Search의 tooltip이 보인다. */
+/** 접힌 sidebar = 바로 가기 rail. 위에서부터 펼치기·Terminal·Agent·Search이고, Search의 tooltip이 보인다. */
 export function SidebarCollapsed() {
   return (
     <ProjectApp
@@ -93,7 +87,7 @@ export function DocumentTabPage() {
   );
 }
 
-/** 문서 탭에서 info를 열었다. 그 칸 오른쪽에 붙고 Info(경로·크기·바뀐 시각)와 Outline이 보인다. 탭은 Info와 Contexts 둘이다. */
+/** 문서 탭에서 info를 열었다. 그 칸 오른쪽에 붙고 Info(경로·크기·바뀐 시각)와 Outline이 보인다. */
 export function DocumentTabInfo() {
   return (
     <ProjectApp

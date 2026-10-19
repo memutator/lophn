@@ -19,7 +19,6 @@ import {
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
-import { ContextSidebar } from "../../../../packages/shell/renderer/workspace/contexts/context-sidebar.tsx";
 import {
   ProjectSidebar,
   type SidebarTab,
@@ -33,11 +32,6 @@ import {
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
 import {
-  createFakeContextsSource,
-  VIEW_C049,
-  VIEW_RUNNING,
-} from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
-import {
   AGENT_ROWS,
   type AgentProfile,
   type ChatInit,
@@ -50,8 +44,6 @@ import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.
 
 type TabKind =
   | "document"
-  | "context"
-  | "contexts"
   | "search"
   | "terminal"
   | "agent"
@@ -60,8 +52,6 @@ type TabKind =
 
 const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
   document: workspaceIcons.documentEditor,
-  context: workspaceIcons.context,
-  contexts: workspaceIcons.context,
   search: paletteIcons.search,
   terminal: workspaceIcons.terminal,
   agent: conversationIcons.dock,
@@ -73,9 +63,9 @@ export interface TabSpec {
   readonly key: string;
   readonly kind: TabKind;
   readonly title: string;
-  /** Context 탭이 여는 하위 탭, 문서 탭의 경로 같은 탭 하나의 설정. */
+  /** 문서 탭의 경로 같은 탭 하나의 설정. */
   readonly sub?: string;
-  /** 이미 열린 Context 탭을 다른 하위 탭으로 다시 열 때 올린다. 본문이 새로 그려진다. */
+  /** 이미 열린 문서 탭을 다른 줄로 다시 열 때 올린다. 본문이 새로 그려진다. */
   readonly rev?: number;
   /** 대화 탭의 시작 상태(어느 대화인지, 열린 menu). */
   readonly chat?: ChatInit;
@@ -107,7 +97,6 @@ function tabTitle(tab: TabSpec): string {
   const named: Partial<Record<TabKind, string>> = {
     search: "Search",
     terminal: "Terminal",
-    contexts: "Contexts",
   };
   return named[tab.kind] ?? tab.title;
 }
@@ -145,7 +134,6 @@ export interface SidebarSpec {
   readonly current?: string;
   /** 오른쪽 클릭 menu가 열린 행. 실제 menu가 그 행에서 열린다. */
   readonly menuFor?: string;
-  readonly savedActive?: string;
   /** 접힌 sidebar로 시작한다. */
   readonly collapsed?: boolean;
   /** rail의 이 단추 tooltip을 열어 둔 채로 그린다. */
@@ -182,13 +170,10 @@ interface SidebarProps extends SidebarSpec {
   readonly onToggle: () => void;
   readonly onRail: (action: RailAction) => void;
   readonly onOpenFile: (id: string) => void;
-  readonly onOpenContext: (name: string) => void;
   readonly onAgent: (agent: string) => void;
   readonly onManage: () => void;
   /** session을 누르면 그 session 탭을 연다. */
   readonly onSession?: (row: SessionRow) => void;
-  /** saved view 이름을 누르면 그 결과를 연다. 없으면 Saved views 탭 단추와 같다. */
-  readonly onSavedView?: (view: string) => void;
 }
 
 // ---- sidebar에 넘기는 고정 data ----
@@ -274,7 +259,6 @@ const PANEL_SESSIONS: readonly PanelSession[] = SESSIONS.flatMap((row) => {
 });
 
 const DEMO_SOURCE = fakeWorkspaceSource();
-const CONTEXTS = createFakeContextsSource();
 
 const absolute = (path: string) =>
   path.startsWith("/") ? path : `${FAKE_PROJECT_FOLDER}/${path}`;
@@ -425,33 +409,9 @@ function useSidebarScript(
   }, []);
 }
 
-/** Context 모양의 본문: 실제 `ContextSidebar`가 fake 통로의 context 목록과 saved views를 읽어 그린다. */
-function PageContextPanel(
-  { savedActive, onOpenContext, onSavedView }: {
-    savedActive?: string;
-    onOpenContext: (name: string) => void;
-    onSavedView: (view: string) => void;
-  },
-) {
-  return (
-    <ContextSidebar
-      source={CONTEXTS}
-      project={PROJECT_ID}
-      activeSavedView={savedActive === "running"
-        ? VIEW_RUNNING
-        : savedActive === "c-049"
-        ? VIEW_C049
-        : undefined}
-      onOpenContext={(item) => onOpenContext(item.title)}
-      onOpenSavedView={(view) =>
-        onSavedView(view.id === VIEW_RUNNING ? "running" : "c-049")}
-    />
-  );
-}
-
 /**
  * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn·Project Manager·Operator 둘과
- * 그 session)를 넘긴다. 접으면 바로 가기 rail이 된다: 펼치기 · Terminal · Contexts · Saved views · Agent · Search.
+ * 그 session)를 넘긴다. 접으면 바로 가기 rail이 된다: 펼치기 · Terminal · Agent · Search.
  */
 export function PageSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -463,13 +423,7 @@ export function PageSidebar(props: SidebarProps) {
         width={props.collapsed ? 56 : 240}
         project={PROJECT}
         source={DEMO_SOURCE}
-        contextPanel={
-          <PageContextPanel
-            savedActive={props.savedActive}
-            onOpenContext={props.onOpenContext}
-            onSavedView={props.onSavedView ?? (() => props.onRail("saved"))}
-          />
-        }
+        contextPanel={null}
         agents={AGENTS}
         sessions={PANEL_SESSIONS}
         current={props.current === undefined ? null : absolute(props.current)}
@@ -502,19 +456,13 @@ type NewTabPick =
   | "agent-lophn"
   | "agent-project-manager"
   | `agent-operator:${string}`
-  | `context:${string}`
   | "search"
   | "browser"
   | "app-panel";
 
-const CONTEXT_CHOICES = [
-  { id: "eval", title: "eval" },
-  { id: "harness", title: "harness" },
-];
-
 /**
- * 탭 줄 끝의 + menu. 실제 `NewTabMenu`이고 Agent ▸(agent 목록)와 Context ▸는 같은 menu가 다음 단계로 바뀐다.
- * Agents(관리 탭) 항목과 New context 항목은 없다.
+ * 탭 줄 끝의 + menu. 실제 `NewTabMenu`이고 Agent ▸(agent 목록)는 같은 menu가 다음 단계로 바뀐다.
+ * Agents(관리 탭) 항목은 없다.
  */
 export function PageNewTabMenu(
   { onPick, startOpen = false }: {
@@ -547,8 +495,6 @@ export function PageNewTabMenu(
             ? "agent-project-manager"
             : `agent-operator:${id}`,
         )}
-      contexts={CONTEXT_CHOICES}
-      onContext={(id) => onPick(`context:${id}`)}
       onSearch={() => onPick("search")}
       onAppPanel={() => onPick("app-panel")}
     />

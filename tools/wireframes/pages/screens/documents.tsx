@@ -1,12 +1,10 @@
 // 문서 탭. 탭 key는 파일 경로이고 확장자로 viewer를 고른다(md, text, 이미지, pdf). 본문이 탭 바로 아래부터 시작하고
-// 조작은 탭 안 맨 위의 view bar에 있다. Info는 그 칸 오른쪽에 붙어 본문 위로 뜬다(Info · Contexts, Outline은 Info 안).
+// 조작은 탭 안 맨 위의 view bar에 있다. Info는 그 칸 오른쪽에 붙어 본문 위로 뜬다(Outline은 Info 안).
 // 틀·view bar·정보 panel·편집기·viewer는 모두 renderer 편집기(`packages/shell/renderer/editor`)의 component이고,
 // 이 파일은 고정 data(`editor/fake-source.ts`)와 gallery의 열기·상태 props를 이어 준다.
 import { useEffect, useRef, useState } from "react";
 import { type ReadingWidthSetting, useReadingWidth } from "@lophn/ui/layout";
 
-import { DocumentContexts } from "../../../../packages/shell/renderer/workspace/contexts/document-contexts.tsx";
-import { createFakeContextsSource } from "../../../../packages/shell/renderer/workspace/contexts/fake-source.ts";
 import { FileFrame } from "../../../../packages/shell/renderer/editor/file-frame.tsx";
 import {
   factsOf,
@@ -35,13 +33,9 @@ import {
   PdfViewer,
   TextEditor,
 } from "./project-files/viewers.tsx";
-import { contextOf, contextTab } from "../../mock/phroner-data.ts";
-import type { TabSpec } from "./project-window.tsx";
 
-type Open = (tab: TabSpec) => void;
-
-/** Info 칸의 탭. Info와 Contexts 둘이다. */
-export type InfoPanel = "info" | "contexts";
+/** Info 칸의 탭. */
+export type InfoPanel = "info";
 
 // gallery는 읽기 폭을 기본으로 고정한다.
 const READING_WIDTH: ReadingWidthSetting = {
@@ -58,9 +52,8 @@ const textOf = (path: string) => fakeTextOf(path) ?? "";
  * 다른 칸은 덮지 않는다. `file`은 이 탭의 시작 상태(저장 상태, 밖에서 바뀐 알림, 열린 줄)다.
  */
 export function DocumentPane(
-  { path, open, info, editing, onEditing, file }: {
+  { path, info, editing, onEditing, file }: {
     path: string;
-    open: Open;
     info: InfoPanel | null;
     onInfo?: (panel: InfoPanel) => void;
     onToggleInfo?: () => void;
@@ -84,7 +77,6 @@ export function DocumentPane(
   const article = useRef<HTMLDivElement>(null);
   const editor = useRef<MarkdownEditorHandle>(null);
   const [current, setCurrent] = useState(outline?.[0]?.key);
-  const [source] = useState(() => createFakeContextsSource());
   // 검색 결과로 열린 줄이 있으면 그 줄로 간다.
   useEffect(() => {
     if (file?.line === undefined || kind !== "markdown") return;
@@ -110,7 +102,6 @@ export function DocumentPane(
     : reloaded
     ? <ReloadedToast onDismiss={() => setReloaded(false)} />
     : null;
-  const contextName = contextOf(path);
   return (
     <FileFrame
       path={path}
@@ -132,15 +123,6 @@ export function DocumentPane(
             .find((element) => element.textContent?.trim() === section.title);
           heading?.scrollIntoView({ block: "start", behavior: "smooth" });
         },
-        contexts: (
-          <DocumentContexts
-            source={source}
-            project="prj"
-            path={path}
-            onOpenContext={() =>
-              contextName === null ? undefined : open(contextTab(contextName))}
-          />
-        ),
       }}
       initialInfo={info ?? undefined}
       onDelete={() => Promise.resolve(true)}

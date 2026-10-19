@@ -6,8 +6,7 @@
 // fake data와 고정 도구는 `mock/`에 둔다.
 //
 // 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
-// Export panel, Documents 화면, Contexts(Focus) 화면, context Materials의
-// Baseline·Reference·Follow-changes 묶음.
+// Export panel, Documents 화면.
 import { draftsArea } from "../drafts/index.tsx";
 import { appUiArea } from "./kit/app-ui/index.tsx";
 import { dataArea } from "./kit/data/index.tsx";
@@ -22,7 +21,6 @@ import { tokensArea } from "./kit/tokens/index.tsx";
 import { agentArea } from "./screens/agent.tsx";
 import { agentSettingsArea } from "./screens/agent-settings.tsx";
 import { appSpaceArea } from "./screens/app-space.tsx";
-import { contextsArea } from "./screens/contexts.tsx";
 import { launcherArea } from "./screens/launcher.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
@@ -60,7 +58,6 @@ export const GROUPS: readonly Group[] = [
       projectWorkspaceArea,
       agentArea,
       agentSettingsArea,
-      contextsArea,
       appSpaceArea,
       settingsArea,
       questionsArea,

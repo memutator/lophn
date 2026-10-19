@@ -49,7 +49,7 @@ const PALETTE_ITEMS: readonly PaletteItem[] = [
     label: "Things to confirm",
     group: "Go to",
     hint: "G C",
-    icon: paletteIcons.context,
+    icon: paletteIcons.bookmark,
   },
   {
     id: "doc",
@@ -242,8 +242,7 @@ export function KitOverlay() {
                   title="Document details"
                   actions={<Button>Close</Button>}
                 >
-                  Version 3, saved 2 hours ago. 3 contexts include this
-                  document.
+                  Version 3, saved 2 hours ago. 3 notes link to this document.
                 </Sheet>
               )}
             </Stage>
@@ -261,8 +260,7 @@ export function KitOverlay() {
                   title="Document details"
                   actions={<Button>Close</Button>}
                 >
-                  Version 3, saved 2 hours ago. 3 contexts include this
-                  document.
+                  Version 3, saved 2 hours ago. 3 notes link to this document.
                 </Sheet>
               )}
             </Stage>
@@ -317,8 +315,7 @@ export function KitOverlay() {
                 }
               >
                 <div style={{ padding: "var(--space-4)" }}>
-                  Version 3, saved 2 hours ago. 3 contexts include this
-                  document.
+                  Version 3, saved 2 hours ago. 3 notes link to this document.
                 </div>
               </FloatPanel>
             </>

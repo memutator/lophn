@@ -22,7 +22,7 @@
   - 본보기(화면): 사람이 고른 `de-drafts`의 `domain-artifacts-*` page와 `domain-artifacts-single`, `tools/wireframes/pages/screens/artifact.tsx`(sidebar Artifacts list·empty page)
   - 본보기(코드): `packages/shell/renderer/workspace/sidebar/artifact-panel.tsx`, `packages/shell/renderer/artifact/use-artifact-list.ts`
 - 계약:
-  - 고른 모양: (사람이 고른 뒤 lead가 채운다. 예: `domain-artifacts-a`)
+  - 고른 모양: `domain-artifacts-a`(domain 제목 아래 접는 묶음)와 `domain-artifacts-single`(domain이 하나면 묶음 제목 없이). 사람이 2026-10-19에 골랐다.
   - 쓰는 것: `ArtifactsSlice.items`(`ArtifactListItem & {domain}`), `WorkspaceSource.domains(project)`의 `DomainView`(domain 이름·제목·목적)
   - 내놓는 것: `ArtifactPanel({domains, items, onOpen(domain, name)})`. domain이 하나뿐이면 묶음 제목·배지 없이 지금처럼 한 줄 목록이다.
 

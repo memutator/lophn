@@ -28,7 +28,7 @@
   - 제품 결정: `project-docs/plan/domain-entity/README.md`의 "화면", "앱의 domain"(마지막 domain은 보관하지 못한다), `project-docs/products/roadmap/domain.md`
   - 본보기(화면): 사람이 고른 `de-drafts`의 page(`tools/wireframes/drafts/domain/pages.tsx`)와 그 전 화면 `tools/wireframes/pages/screens/project-workspace.tsx`, `app-space.tsx`
 - 계약:
-  - 고른 모양: (사람이 고른 뒤 lead가 채운다. 예: project `domain-project-a`, 앱 공간 `domain-app-b`)
+  - 고른 모양: project는 `domain-project-a`(sidebar 네 번째 탭 Domains. 240px에서 탭 이름 넷이 잘리는 것을 같이 푼다: 탭 이름을 줄이거나 아이콘으로), 빈 상태 `domain-project-empty`, 만들기 `domain-create-dialog`. 앱 공간은 `domain-app-b`(App details의 Domains 절)와 `domain-app-last`(마지막 domain은 Archive를 끄고 tooltip). 사람이 2026-10-19에 골랐다.
   - 쓰는 것: `WorkspaceSource.domains(project)`·`DomainView`(`de-shell-artifact-data`가 놓았다), core command `domain.create`·`domain.archive`·`domain.unarchive`(`de-domain-core`), core read `domain.list`, `domainDocFile`·`DOMAIN_DOC_FILE`(`packages/protocol/domains/paths.ts`)
   - 내놓는 것: `WorkspaceSource`에 `createDomain(owner, {name, title, purpose})`·`archiveDomain(domain)`·`unarchiveDomain(domain)`. `InstructionsPlace`(`ipc/instructions.ts`)에 `{layer: "domain", place: dom_…}`(편집기가 `domainDocFile`을 연다).
 

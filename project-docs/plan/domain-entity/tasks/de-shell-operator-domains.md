@@ -21,7 +21,7 @@
   - 본보기(화면): 사람이 고른 `de-drafts`의 `domain-operator-*` page, `tools/wireframes/pages/screens/agent-settings.tsx`와 `agent-setup/`
   - 본보기(코드): `packages/shell/renderer/workspace/agents/editor/{definition-form,grants-model,grants-panel}.tsx|ts`, `core-source.ts`, `source.ts`
 - 계약:
-  - 고른 모양: (사람이 고른 뒤 lead가 채운다. 예: `domain-operator-a`)
+  - 고른 모양: `domain-operator-b`(Domains checkbox 목록, Skills는 고른 domain별로 묶음). 앱 Operator(`domain-operator-app`)는 A로 그려져 있지만 같은 B 모양을 앱 place에 쓴다(지침 층 안내만 다르다). 사람이 2026-10-19에 골랐다.
   - 쓰는 것: Operator 정의의 `domains`(`operatorDefinitionSchema`), core read `domain.list`, `AppTool.domain`(tool의 domain 이름), `ReadAgentDefinition`의 `definition.domains`, skill 목록의 `domain`(`de-agents-domains`가 낸 `SkillEntry.domain`을 `skills` read가 싣는다면 쓴다. 싣지 않으면 domain별 skill 목록은 `domainList` + 각 domain의 skill read로 읽는다)
   - 내놓는 것: `AgentsSource`에 `domains(place)`(그 place 그릇의 active domain 목록). `appsFor(apps, agentDomains)`(`editor/grants-model.ts`)는 agent가 고른 domain(없으면 그릇의 전부)에 든 domain의 tool은 모두, 그 밖은 public만 남긴다.
 

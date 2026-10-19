@@ -21,6 +21,7 @@ const open: ReactionGrant = {
   AppRestartHalted: "ask",
   ReleaseActivationFailed: "open",
   ContextViolationFound: "open",
+  KindViolationFound: "open",
 };
 
 function grants(

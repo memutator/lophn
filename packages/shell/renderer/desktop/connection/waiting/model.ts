@@ -106,6 +106,7 @@ const EVENT_LABELS = {
   AppRestartHalted: "waiting.label.event-app-restart-halted",
   ReleaseActivationFailed: "waiting.label.event-activation-failed",
   ContextViolationFound: "waiting.label.event-context-violation",
+  KindViolationFound: "waiting.label.event-kind-violation",
 } as const;
 
 const DECLARED_LABELS = {
@@ -331,7 +332,7 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         : null;
       const eventText = event === null ? "" : t(EVENT_LABELS[event]);
       const opens = t(
-        event === "ContextViolationFound"
+        event === "ContextViolationFound" || event === "KindViolationFound"
           ? "waiting.label.agent-project-manager"
           : "waiting.label.agent-app-engineer",
       );

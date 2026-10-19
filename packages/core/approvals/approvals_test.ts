@@ -168,6 +168,7 @@ function makeKit(
             AppRestartHalted: "open",
             ReleaseActivationFailed: "open",
             ContextViolationFound: "open",
+            KindViolationFound: "open",
           })),
         setAlways: () => Promise.resolve(ok(undefined)),
       },

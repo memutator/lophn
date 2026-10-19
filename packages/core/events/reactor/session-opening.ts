@@ -92,6 +92,17 @@ function callOf(event: NewWork): Omit<CallEnvelope, "call"> {
           `A new context violation was found in this project. Check: ${event.payload.check}, context: ${event.payload.context}.`,
         refs: [],
       };
+    case "KindViolationFound":
+      return {
+        ...base,
+        to: {
+          kind: "new_session",
+          agent: { role: "project_manager", project: event.payload.project },
+        },
+        body:
+          "New kind violations were found in this project. Read them with kind.check.",
+        refs: [],
+      };
   }
 }
 
@@ -186,5 +197,6 @@ export function registerNewWorkHandlers(
     "ContextViolationFound",
     handlerFor("ContextViolationFound", deps),
   );
+  reactor.on("KindViolationFound", handlerFor("KindViolationFound", deps));
   deps.approvals.registerApplier("reaction", applier(deps));
 }

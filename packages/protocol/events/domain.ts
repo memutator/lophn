@@ -55,6 +55,15 @@ export const contextViolationFound = defineEvent("ContextViolationFound", {
   }),
 });
 
+// count는 이번 호출에서 새로 열렸거나 다시 열린 위반 수다.
+export const kindViolationFound = defineEvent("KindViolationFound", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    project: idSchema("prj"),
+    count: z.number().int().min(1),
+  }),
+});
+
 // session은 완료를 보고한 coding session이다. lophn이 다시 켜진 뒤 Reactor가 call을 찾는 데 쓴다.
 export const ticketCompletionReported = defineEvent(
   "TicketCompletionReported",
@@ -108,6 +117,7 @@ export const DOMAIN_EVENTS = [
   appRestartHalted,
   releaseActivationFailed,
   contextViolationFound,
+  kindViolationFound,
   ticketCompletionReported,
   ticketClaimExpired,
   codingSessionEndedUnreported,
@@ -140,6 +150,7 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(appRestartHalted),
   domainEventEnvelopeSchema(releaseActivationFailed),
   domainEventEnvelopeSchema(contextViolationFound),
+  domainEventEnvelopeSchema(kindViolationFound),
   domainEventEnvelopeSchema(ticketCompletionReported),
   domainEventEnvelopeSchema(ticketClaimExpired),
   domainEventEnvelopeSchema(codingSessionEndedUnreported),
@@ -158,6 +169,7 @@ const DOMAIN_EVENT_KINDS = {
   AppRestartHalted: "new_work",
   ReleaseActivationFailed: "new_work",
   ContextViolationFound: "new_work",
+  KindViolationFound: "new_work",
   TicketCompletionReported: "call_closing",
   TicketClaimExpired: "call_closing",
   CodingSessionEndedUnreported: "call_closing",

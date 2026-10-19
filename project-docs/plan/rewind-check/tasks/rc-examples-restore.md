@@ -37,3 +37,9 @@ ticket `examples` 검사가 모든 예시를 통과한 뒤, 예시의 write 호�
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- 추가 소유: `packages/core/problems/tests/app-test/generate.ts`의 `rewind` 검사 설명 한 줄(96행 근처, "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지"). 호출이 성공한 write만 되돌리기를 보고, 호출이 실패한 tool은 증명 못 함이며 검사를 떨어뜨리지 않는다는 뜻으로 고친다(`rc-unproven`이 `harness/definitions.ts`를 이미 고쳤다. 그 글과 맞춘다).
+- `rc-restore` 보고: 실패한 호출(error)의 `CallOutcome`에는 changeset이 없다. examples는 오류로 끝난 호출을 불일치로 보아 거기서 멈추므로 restore까지 가지 않는다. 그 순서를 바꾸지 않는다.
+- driver의 비교 기준(baseline)은 앱을 처음 띄울 때(seed 뒤, 첫 호출 전) 잡힌다. examples는 첫 호출 전에 다른 write를 하지 않으므로 그 기준이 "첫 호출 전 상태"다.

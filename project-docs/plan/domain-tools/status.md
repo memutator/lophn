@@ -15,4 +15,4 @@ lead만 고친다. `tools/status.py domain-tools build`가 `tasks/*.md`에서 id
 | `dt-examples` | domain-tools | 3 | dt-call-route | merged | domain-tools/dt-examples | 84eda3d1d |  |
 | `dt-mcp-endpoint` | domain-tools | 3 | 없음 | merged | domain-tools/dt-mcp-endpoint | bc7b2bbfe |  |
 | `dt-mcp-harness` | domain-tools | 3 | dt-mcp-endpoint | merged | domain-tools/dt-mcp-harness | 2046c6abe |  |
-| `dt-preview-fix` | domain-tools | 4 | dt-mcp-harness | todo |  |  |  |
+| `dt-preview-fix` | domain-tools | 4 | dt-mcp-harness | running | domain-tools/dt-preview-fix |  |  |

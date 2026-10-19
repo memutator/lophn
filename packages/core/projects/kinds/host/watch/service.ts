@@ -6,8 +6,8 @@
 //   (`<data>/domains/<dom>/`, 재귀 아님, `kinds.yaml` 이벤트만 본다). 보관된 domain·그릇은 보지 않는다.
 // - 합침: detector가 500ms 동안 합친다. 창이 닫히면 `catchUp(domain)`(force sync)를 한 번 부르고, 그 응답이
 //   적용 중인 kinds 파일 hash와 달라졌으면(`kinds.yaml`이 바뀌었다) 그 domain의 감시를 다시 정한다.
-// - 없는 폴더: 열지 못하면 건너뛴다. domain 폴더는 만들지 않는다(처음 쓰는 agent가 만든다). 그 domain은 다음 다시
-//   정하기(command)에서 다시 시도한다.
+// - 없는 폴더: 열지 못하면 건너뛴다. domain 폴더는 감시를 열기 전에 만든다(처음 쓴 `kinds.yaml`을 놓치지 않으려고).
+//   만들지 못하면 건너뛰고 그 domain은 다음 다시 정하기(command)에서 다시 시도한다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
 import type { Result } from "../../../../../base/mod.ts";
@@ -48,6 +48,8 @@ type KindsWatchDeps = {
   catchUp(domain: string): Promise<Result<KindsSyncResponse>>;
   // 제품은 `Deno.watchFs`.
   watchFs: WatchFs;
+  // domain 폴더를 만든다. 기본은 `Deno.mkdir(path, { recursive: true })`.
+  ensureDir?(path: string): Promise<void>;
   log?(message: string): void;
 };
 
@@ -174,8 +176,15 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     }
 
     // PM이 처음 kinds.yaml을 쓸 때 폴더 감시가 이미 열려 있어야 한다.
-    // domain 폴더는 만들지 않는다(처음 쓰는 agent가 만든다). 없으면 감시가 열리지 않고 incomplete라 다음에 다시 시도한다.
+    // 폴더가 없으면 감시가 열리지 않아 처음 쓴 kinds.yaml을 놓치므로 먼저 만든다. 못 만들면 incomplete라 다음에 다시 시도한다.
     const kindsDir = domainFolder(deps.dataRoot, domain);
+    try {
+      await (deps.ensureDir ??
+        ((path) => Deno.mkdir(path, { recursive: true })))(kindsDir);
+    } catch (error) {
+      entry.incomplete = true;
+      deps.log?.(`kinds watch: ${kindsDir}: ${String(error)}`);
+    }
     const file = detector([{ path: "", recursive: false }]);
     const onlyKinds: ChangeDetector = {
       ...file.made,

@@ -50,7 +50,7 @@ function handleRequestTest(
 > {
   const allowed = checkRequestAuthority(ctx, input);
   if (!allowed.ok) return allowed;
-  // examples 요청은 보고를 받은 core(machine)만 낸다. 예시는 App Engineer만 쓰는 ticket 칸이다.
+  // examples 요청은 보고를 받은 core(machine)만 낸다. 예시는 Project Manager만 쓰는 ticket 칸이다.
   if (input.kind === "examples" && ctx.actor !== "machine") {
     return err({ code: "forbidden", message: FORBIDDEN });
   }

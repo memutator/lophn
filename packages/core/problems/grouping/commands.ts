@@ -18,18 +18,12 @@ import {
   type ProblemRow,
 } from "../reporting/mod.ts";
 
-// 사람은 모든 문제의 상태를 바꾼다. App Engineer(agent)는 자기 앱의 문제만 바꾼다. 그 밖의 자격은
-// 막는다. App Engineer는 session의 역할과 앱이 정한다.
-function mayChange(tx: Tx, ctx: RequestContext, problem: ProblemRow): boolean {
+// 사람은 모든 문제의 상태를 바꾼다. Project Manager(agent)는 자기 앱의 문제만 바꾼다. 그 밖의 자격은
+// 막는다. Project Manager의 앱은 자격의 `conditions.app`이 정한다.
+function mayChange(ctx: RequestContext, problem: ProblemRow): boolean {
   const actor = parseActor(ctx.actor);
   if (actor?.kind === "user") return true;
-  if (actor?.kind !== "agent") return false;
-  const session = tx.sql.get(
-    "select role, app from sessions where id = ?",
-    [actor.id],
-  );
-  return session !== undefined && session["role"] === "app_engineer" &&
-    session["app"] === problem.app;
+  return actor?.kind === "agent" && ctx.conditions.app === problem.app;
 }
 
 // agent가 resolved로 바꾸려면 마지막 발생의 release보다 뒤에 activate된 active release가 있어야 한다.
@@ -66,7 +60,7 @@ function handleSetProblemState(
   if (problem === null) {
     return err({ code: "not_found", message: NOT_FOUND });
   }
-  if (!mayChange(tx, ctx, problem)) {
+  if (!mayChange(ctx, problem)) {
     return err({ code: "forbidden", message: "이 문제의 상태를 바꿀 수 없다" });
   }
   if (

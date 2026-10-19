@@ -59,6 +59,7 @@ export const appsTicketsWiring: WiringFactory = () => {
         );
       const examples = requestExamples({
         dataRoot: ctx.root.path,
+        ledgerPath: ctx.ledgerPath,
         work,
         request: async (input) => {
           const requester = examplesRequestContext(input.app);

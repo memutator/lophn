@@ -3,6 +3,7 @@ import { ok } from "../../../base/mod.ts";
 import { assembleException } from "./work.ts";
 
 const APP = `app_${"0".repeat(26)}`;
+const PROJECT = `prj_${"0".repeat(26)}`;
 const HASH = "a".repeat(64);
 
 function screenMap(source: string, mappings: string): string {
@@ -19,7 +20,7 @@ function screenMap(source: string, mappings: string): string {
 Deno.test("assembleException: stack이 가리킨 화면의 map으로 source 위치를 푼다", async () => {
   const dataRoot = await Deno.makeTempDir();
   try {
-    const copy = `${dataRoot}/apps/${APP}/bundles/${HASH}`;
+    const copy = `${dataRoot}/projects/${PROJECT}/app/bundles/${HASH}`;
     await Deno.mkdir(`${copy}/screens/a`, { recursive: true });
     await Deno.mkdir(`${copy}/screens/b`, { recursive: true });
     await Deno.writeTextFile(
@@ -59,7 +60,7 @@ Deno.test("assembleException: stack이 가리킨 화면의 map으로 source 위�
               size_bytes: 1,
             })),
         },
-        folder: { appsRoot: dataRoot },
+        folder: { bundleCopy: () => Promise.resolve(copy) },
         nowAt: "2026-10-17T00:00:00.000Z",
         principal: "machine:test",
       },
@@ -100,7 +101,7 @@ Deno.test("assembleException: stack 없는 같은 이유의 관측은 같은 gro
         blobPrepare: {
           prepare: () => Promise.reject(new Error("no blob expected")),
         },
-        folder: { appsRoot: null },
+        folder: { bundleCopy: null },
         nowAt: "2026-10-17T00:00:00.000Z",
         principal: "machine:test",
       },

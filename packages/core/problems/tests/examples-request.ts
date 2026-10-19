@@ -3,12 +3,17 @@
 // 예시 자체는 요청에 싣지 않는다: 접수 준비가 ticket에서 다시 읽어 접수 기록에 싣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RequestTestInput } from "../../../protocol/problems/mod.ts";
+import { appBundleCopy } from "../../../protocol/apps/mod.ts";
+import { appProjectOf } from "../../apps/lookups.ts";
 import { checkWorkSchema } from "../../apps/tickets/checker/mod.ts";
+import { openConnection } from "../../storage/ledger/mod.ts";
 import { deriveAppTest } from "./app-test/mod.ts";
 import { canonicalHash } from "./canonical.ts";
 
 type ExamplesRequestDeps = {
   dataRoot: string;
+  // 앱의 project를 읽는 ledger. bundle 사본이 project 아래라 경로를 만들 때 쓴다.
+  ledgerPath: string;
   // `ticket.check_work` read와 같은 모양이다(`TicketCheckClient.work`).
   work(input: { ticket: string; completion_seq: string }): Promise<
     Result<unknown>
@@ -16,6 +21,18 @@ type ExamplesRequestDeps = {
   // machine 자격으로 RequestTest를 낸다.
   request(input: RequestTestInput): Promise<Result<unknown>>;
 };
+
+function projectOf(ledgerPath: string, app: string): string | null {
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return null;
+  try {
+    return appProjectOf(opened.value.sql, app);
+  } catch {
+    return null;
+  } finally {
+    opened.value.close();
+  }
+}
 
 export function requestExamples(
   deps: ExamplesRequestDeps,
@@ -40,8 +57,12 @@ export function requestExamples(
         message: "the ticket has no examples check or no reported release",
       });
     }
+    const project = projectOf(deps.ledgerPath, work.app);
+    if (project === null) {
+      return err({ code: "unavailable", message: "the app is unavailable" });
+    }
     const derived = await deriveAppTest(
-      `${deps.dataRoot}/apps/${work.app}/bundles/${release.bundle_hash}`,
+      appBundleCopy(deps.dataRoot, project, release.bundle_hash),
       release.bundle_hash,
       { examples: check.steps },
     );

@@ -197,7 +197,7 @@ function relatedProblems(
   });
 }
 
-// coding agent와 App Engineer가 종류를 골라 읽는 문제의 더 많은 근거다. 종류마다 한 표 읽기이고
+// coding agent와 Project Manager가 종류를 골라 읽는 문제의 더 많은 근거다. 종류마다 한 표 읽기이고
 // 외부를 부르지 않는다. 열람 범위는 `problem.get`과 같다.
 export const problemMoreRead: ReadDefinition<typeof problemMore> = {
   route: problemMore,

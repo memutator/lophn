@@ -23,9 +23,7 @@ import {
 export type { PreparedSnapshotBlob, SnapshotBlobPrepare };
 
 // contracts REPORTING_LIMITS의 값이다(sdk-report.ts). problems는 platform을
-// import하지 않으므로 이 leaf가 상수만 반복한다. bundle 사본 위치 규칙
-// (`apps/<app ID>/bundles/<hash>`)은 releases/bundle/seal.ts와 같다. contracts의
-// 경로 함수가 problems에서 닿지 않으므로 이 leaf가 문자만 반복한다.
+// import하지 않으므로 이 leaf가 상수만 반복한다.
 const LIMITS = {
   snapshot_assembly_ms: 2_000,
   snapshot_frames: 32,
@@ -35,29 +33,10 @@ const LIMITS = {
   stack_bytes: 16_384,
 } as const;
 
-// 당시 release의 읽기 전용 bundle 사본 위치. appIdSchema·hash 검사는
-// seal.ts의 bundleCopyPath와 같은 규칙이다.
-function bundleCopyPath(
-  dataRoot: string,
-  app: string,
-  bundleHash: string,
-): Result<string, SourceMapFailure> {
-  if (!/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(app)) {
-    return err({ code: "invalid_input", message: "app id is not an app id" });
-  }
-  if (!/^[0-9a-f]{64}$/.test(bundleHash)) {
-    return err({
-      code: "invalid_input",
-      message: "bundle hash is not a sha256",
-    });
-  }
-  return ok(`${dataRoot}/apps/${app}/bundles/${bundleHash}`);
-}
-
-// 당시 release의 읽기 전용 준비 폴더 출처. data root의 apps 부분만 받는다.
+// 당시 release의 읽기 전용 준비 폴더 출처. 사본 위치는 project 아래라(appBundleCopy) 호출자가
+// project를 알아 풀어 준다. 못 찾으면 null이다.
 type PreparedFolderSource = {
-  // `apps` 부모 폴더(abs path). collector 등록 spec의 allow_read와 같다.
-  appsRoot: string | null;
+  bundleCopy: ((bundleHash: string) => Promise<string | null>) | null;
 };
 
 // stack을 잘라 준비 바이트로 만든다. redaction 대체 문자는 그대로 보존한다.
@@ -91,7 +70,6 @@ function stackBytesOf(stack: string, limit: number): {
 async function resolveStackFrames(
   folder: PreparedFolderSource,
   evidence: {
-    app: string;
     bundle_hash: string | null;
     // raw TS/TSX stack 원문. caller가 redaction을 통과시킨 값이다.
     stack: string | null;
@@ -100,28 +78,24 @@ async function resolveStackFrames(
   if (evidence.stack === null) {
     return [];
   }
-  if (folder.appsRoot === null || evidence.bundle_hash === null) {
+  if (folder.bundleCopy === null || evidence.bundle_hash === null) {
     return [];
   }
-  const copy = bundleCopyPath(
-    folder.appsRoot,
-    evidence.app,
-    evidence.bundle_hash,
-  );
-  if (!copy.ok) {
+  const copy = await folder.bundleCopy(evidence.bundle_hash);
+  if (copy === null) {
     return [];
   }
   // 화면 JS를 가리킨 stack은 그 화면의 map으로 앱 source 위치를 푼다. 사본 안 화면 JS의
   // 생성 위치를 그대로 frame으로 두면 앱 source를 잇지 못하므로 framesInsideBundle보다 먼저 한다.
-  const manifest = await readBundleManifest(copy.value);
+  const manifest = await readBundleManifest(copy);
   const mapped = manifest.ok
-    ? await frameFromScreenMap(copy.value, evidence.stack)
+    ? await frameFromScreenMap(copy, evidence.stack)
     : null;
   if (mapped !== null) {
     return [mapped];
   }
   // 준비 폴더 안 TS stack은 이미 원본 상대 path·함수다. source map을 거치지 않는다.
-  return await framesInsideBundle(copy.value, evidence.stack) ?? [];
+  return await framesInsideBundle(copy, evidence.stack) ?? [];
 }
 
 // 화면 JS 파일(`/screens/<key>/main.js`). stack file은 URL이든 path든 이 꼴로 끝난다.
@@ -531,7 +505,6 @@ export async function assembleException(
   }
   const stack = rawError.stack;
   const frames = await resolveStackFrames(deps.folder, {
-    app: evidence.app,
     bundle_hash: evidence.bundle_hash,
     stack,
   });

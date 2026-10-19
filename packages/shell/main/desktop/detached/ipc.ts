@@ -12,6 +12,7 @@ import {
   DETACHED_REMOVE_CHANNEL,
   DETACHED_TAKE_CHANNEL,
   type DetachedBounds,
+  detachedChangedSchema,
   detachedCloseSchema,
   detachedDockSchema,
   type DetachedEvent,
@@ -134,14 +135,20 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
       ...(body.bounds === null ? {} : { bounds: body.bounds }),
     });
     if (created === undefined) return fail("unavailable", "no window");
+    // project를 떠나며 조용히 닫은 창의 값은 transfer 없이 다시 여는 이번에만 쓴다. 쓰든 안 쓰든 여기서 지워 PTY를 두 창이 갖지 않게 한다.
+    const kept = entries.takeKept(body.project, body.tab.key);
     entries.add({
       ref: created.ref,
       parent,
       project: body.project,
       key: body.tab.key,
       tab: body.tab,
-      transfer: body.transfer,
+      transfer: body.transfer ?? (kept === null ? null : {
+        value: kept,
+        views: [],
+      }),
       silent: false,
+      resume: body.transfer === null ? kept : null,
     });
     const moved = deps.moveViews(sender.ref, created.ref, views);
     if (!moved.ok) {
@@ -181,7 +188,12 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
       : [entries.byParentKey(sender.ref, body.key)].filter((entry) =>
         entry !== undefined
       );
-    for (const entry of targets) closeSilently(entry.ref);
+    for (const entry of targets) {
+      // 전부 닫는 것(null)은 project를 떠나는 길이다. 다시 열 때 이어 붙게 값을 들어 둔다.
+      if (body.key === null) entries.keep(entry);
+      else entries.takeKept(entry.project, entry.key);
+      closeSilently(entry.ref);
+    }
     return { ok: true, value: null };
   };
 
@@ -225,17 +237,19 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
       tab: body.tab,
       transfer: body.transfer,
     });
+    entries.takeKept(entry.project, entry.key);
     closeSilently(sender.ref);
     return { ok: true, value: null };
   };
 
   const changed: Handler = (event, input) => {
-    const checked = guard(event, detachedTabInputSchema, input, "detached");
+    const checked = guard(event, detachedChangedSchema, input, "detached");
     if (!checked.ok) return checked;
     const { sender, input: body } = checked.value;
     const entry = entries.byRef(sender.ref);
     if (entry === undefined) return fail("not_found", "no detached window");
     entries.setTab(sender.ref, body.tab);
+    if (body.resume !== undefined) entries.setResume(sender.ref, body.resume);
     deps.send(entry.parent, { kind: "changed", key: entry.key, tab: body.tab });
     return { ok: true, value: null };
   };
@@ -256,6 +270,7 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     const entry = entries.byRef(checked.value.sender.ref);
     if (entry === undefined) return fail("not_found", "no detached window");
     deps.send(entry.parent, { kind: "closed", key: entry.key });
+    entries.takeKept(entry.project, entry.key);
     closeSilently(entry.ref);
     return { ok: true, value: null };
   };

@@ -68,6 +68,17 @@ export function openCodingTerminal(
   }, { select: false });
 }
 
+// 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다.
+function runtimeOf(tab: TabItem, host: TabHost) {
+  const entry = host.props.terminal?.store.get(tab.key);
+  return entry?.terminalRef == null ? null : {
+    terminal_ref: entry.terminalRef,
+    generation: entry.generation,
+    folder_ref: entry.folderRef,
+    session: entry.session,
+  };
+}
+
 export const terminalKind: TabKindDef = {
   kind: "terminal",
   labelKey: "project-workspace.label.kind-terminal",
@@ -124,15 +135,9 @@ export const terminalKind: TabKindDef = {
   // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
   // 보내는 창의 store 항목은 보내기가 실패해 탭이 남을 수 있어 지우지 않는다.
   transfer(tab, host) {
-    const entry = host.props.terminal?.store.get(tab.key);
-    const value = entry?.terminalRef == null ? null : {
-      terminal_ref: entry.terminalRef,
-      generation: entry.generation,
-      folder_ref: entry.folderRef,
-      session: entry.session,
-    };
-    return Promise.resolve({ value, views: [] });
+    return Promise.resolve({ value: runtimeOf(tab, host), views: [] });
   },
+  resume: runtimeOf,
   receive(tab, { value }, host) {
     const moved = value as Record<string, unknown> | null;
     if (

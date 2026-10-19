@@ -228,6 +228,26 @@ function DetachedTab(
     if (taken.transfer !== null) def?.receive?.(tab, taken.transfer, host);
   }
 
+  // project를 떠나 이 창이 조용히 닫힌 뒤 같은 탭이 다시 열릴 때 main이 쓸 값(terminal의 PTY 참조)을 알린다.
+  // 창마다 TerminalStore가 따로라 참조는 여기서만 안다. 탭 값이 아니라 layout에 저장되지 않는다.
+  const reportedResume = useRef<string | undefined>(undefined);
+  const reportResume = () => {
+    const resume = def?.resume?.(tabRef.current, hostRef.current);
+    if (resume === undefined) return;
+    const json = JSON.stringify(resume);
+    if (json === reportedResume.current) return;
+    reportedResume.current = json;
+    void api.changed({ tab: slimDetachedTab(tabRef.current), resume })
+      .catch(() => {});
+  };
+  const reportResumeRef = useRef(reportResume);
+  reportResumeRef.current = reportResume;
+  const terminalStore = terminal?.store;
+  useEffect(() => {
+    reportResumeRef.current();
+    return terminalStore?.subscribe(() => reportResumeRef.current());
+  }, [terminalStore]);
+
   // [Dock]과 창 닫기는 같은 흐름이다. transfer가 null이거나 dock이 거절되면 창과 탭은 그대로다.
   const docking = useRef(false);
   const dock = async () => {

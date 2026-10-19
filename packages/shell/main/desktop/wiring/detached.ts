@@ -104,6 +104,7 @@ export function register(ctx: ShellContext, views: AppViews): Detached {
   ctx.windowHooks.closed.push(({ ref }) => {
     // project 창이 닫히면 그 창의 detached 창도 함께 닫는다.
     for (const child of entries.childrenOf(ref)) {
+      entries.keep(child);
       entries.silence(child.ref);
       live(child.ref)?.close();
     }
@@ -125,6 +126,7 @@ export function register(ctx: ShellContext, views: AppViews): Detached {
   return {
     stop() {
       for (const [channel] of handlers) ipc.removeHandler(channel);
+      entries.clearKept();
     },
     boundsOf(parent) {
       const result = new Map<string, WindowBounds>();

@@ -72,9 +72,15 @@ export const detachedDockSchema = z.strictObject({
   tab: detachedTabSchema,
   transfer: tabTransferSchema,
 });
-// changed, open-tab
+// open-tab
 export const detachedTabInputSchema = z.strictObject({
   tab: detachedTabSchema,
+});
+// changed. resume은 창이 조용히 닫힌 뒤(project를 떠남) 같은 key를 다시 열 때 main이 transfer로 쓰는 값이다(kind의 `resume`).
+// 없으면 main이 든 값을 그대로 두고 null이면 지운다. 디스크에는 쓰지 않는다.
+export const detachedChangedSchema = z.strictObject({
+  tab: detachedTabSchema,
+  resume: z.json().optional(),
 });
 
 // schema의 z.infer는 DetachedTab·TabTransfer를 받지 못해 입력 type은 따로 쓴다.
@@ -169,7 +175,7 @@ export interface LophnDetachedApi {
   // detached 창
   take(): Promise<DetachedTaken>;
   dock(input: DetachedDockInput): Promise<void>;
-  changed(input: { tab: DetachedTab }): Promise<void>;
+  changed(input: { tab: DetachedTab; resume?: unknown }): Promise<void>;
   openTab(input: { tab: DetachedTab }): Promise<void>;
   remove(): Promise<void>;
   // 양쪽

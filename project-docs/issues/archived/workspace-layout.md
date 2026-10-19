@@ -77,3 +77,15 @@ modules: [packages/shell/renderer, packages/shell/main]
 - 영향: detached browser 탭에서 OAuth 로그인 popup이 작은 창이 아니라 큰 창으로 뜬다. 동작은 된다.
 - 고치려면: `open`의 `bounds`에 opener 창 가운데 `size` 크기를 넣고, main이 detached 창에만 작은 최소 크기를 쓴다(작음). 지금 최소 크기를 다른 창과 같게 둔 것은 따로 정할 근거가 없어서다.
 - 닫음: `DetachedTab`의 `openFloat`가 opener 창 가운데 popup `size`(page 영역이라 상단 바 높이를 더한다)를 `open`의 bounds로 보낸다. main은 detached 창에만 최소 크기 320×240을 쓰고(`window.ts`의 `detached` 옵션) 화면 작업 영역 안으로 당긴다.
+
+## project를 떠났다 돌아온 detached terminal이 PTY에 다시 붙지 못한다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/shell/main]
+```
+
+- 지금: project 창을 닫거나 다른 공간으로 가면 `Workspace`가 `lophnDetached.close({ key: null })`로 detached 창을 조용히 닫는다(`renderer/workspace/workspace.tsx`). 다시 열면 저장된 값으로 `open({ transfer: null })`만 부른다. terminal 탭의 `terminal_ref`는 `transfer`로만 오고 detached 창의 `TerminalStore`(창마다 `sessionStorage`)는 창과 같이 사라졌으므로, 새 창의 `TerminalTab`(`renderer/terminal/terminal-tab.tsx`)은 runtime 없는 끝난 탭으로 그린다. 같은 실행 안이면 PTY는 terminal host에 그대로 돌고 있다.
+- 영향: 같은 실행에서 project를 다시 열기만 해도 detached terminal의 출력과 돌던 명령(dev server, coding agent)에 다시 닿을 수 없다. PTY는 앱을 끌 때까지 남는다. docked·floated terminal은 같은 경우에 다시 붙는다.
+- 고치려면: (1) main이 조용히 닫은 detached 창 항목의 마지막 탭 값과 transfer를 (project, key)로 이 실행 동안 들고 있다가 같은 key의 `open({ transfer: null })`에 쓴다(중간). terminal의 마지막 `terminal_ref`·`generation`은 detached 창이 `changed`로 알리는 탭 값에 실어야 한다. (2) 떠날 때 detached 창을 닫지 않고 dock시킨다(작음, 대신 다시 열 때 창이 돌아오지 않는다). 추천: (1).
+- 닫음: detached 창이 `changed`의 `resume`(kind의 `resume`, terminal은 PTY 참조)을 알리고 main이 `DetachedRegistry`에 이 실행 동안만 들고 있다가, project를 떠나며 조용히 닫힌 창의 값을 (project, key)로 남겨 같은 key의 `open({ transfer: null })`에 한 번 쓰고 지운다. 개별 close·dock·remove와 앱 종료에서도 지우고 디스크에는 쓰지 않는다.

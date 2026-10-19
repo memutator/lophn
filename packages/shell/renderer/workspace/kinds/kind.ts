@@ -38,6 +38,11 @@ export interface TabKindDef {
    * value는 JSON이고 main을 거쳐 같은 project의 창에만 간다.
    */
   transfer?(tab: TabItem, host: TabHost): Promise<TabTransfer | null>;
+  /**
+   * detached 창이 project를 떠나며 조용히 닫힌 뒤 같은 탭을 다시 열 때 이어 붙을 값(terminal의 PTY 참조).
+   * 부수 효과 없이 지금 값을 읽는다. 선언하지 않은 kind는 이어 붙을 것이 없다. 값은 JSON이고 main이 이 실행 동안만 든다.
+   */
+  resume?(tab: TabItem, host: TabHost): unknown;
   /** 받는 창이 탭을 그리기 전에 부른다. transfer가 낸 값이 온다. 값 없이 되살린 탭(저장된 값만)에는 부르지 않는다. */
   receive?(tab: TabItem, transfer: TabTransfer, host: TabHost): void;
   /** 팔레트 탭 행의 아이콘. 없으면 일반 탭이다. */

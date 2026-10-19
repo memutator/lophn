@@ -101,11 +101,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       const projects = new Map(
         listed.ok ? listed.value.apps.map((a) => [a.id, a.project]) : [],
       );
-      const home = ctx.place === null
-        ? null
-        : ctx.place.kind === "project"
-        ? ctx.place.id
-        : projects.get(ctx.place.id);
+      const home = ctx.place?.id ?? null;
       const { body } = readBody({
         ...read.value,
         apps: read.value.apps.map((entry) =>

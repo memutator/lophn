@@ -49,6 +49,7 @@ export type CallAgent = z.infer<typeof callAgentOutputSchema>;
 // agent가 tool에 쓰는 받는 이름이다. 정확히 맞는 것만 푼다. lophn은 place가 없고 Operator는 name을 준다.
 const namedAgentSchema = z.strictObject({
   role: z.union([roleSchema, z.literal("coding_agent")]),
+  // `{ app }`는 coding_agent의 이름 풀기에만 쓴다(앱 place가 아니다).
   place: z.union([
     z.strictObject({ project: z.string().min(1) }),
     z.strictObject({ app: z.string().min(1) }),

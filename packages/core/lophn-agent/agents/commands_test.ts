@@ -43,7 +43,7 @@ Deno.test("Operator만 사람이 만들고 지운다: built-in 정의는 이름�
       );
 
     // built-in 이름을 Operator가 쓰지 못한다.
-    for (const name of ["lophn", "Project Manager", "app engineer"]) {
+    for (const name of ["lophn", "Project Manager"]) {
       const made = create(name);
       assert(!made.ok);
       assertEquals(made.error.code, "invalid_input");

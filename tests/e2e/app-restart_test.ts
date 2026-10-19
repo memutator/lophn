@@ -6,7 +6,7 @@
 // - 왜 지금 test로 못 잡나: `closeUnfinishedInvocations`는 unit으로 볼 수 있어도 core 재시작 ↔ supervisor ↔ 앱 process가 실제로
 //   다시 뜨는 것과 두 process가 한 DB를 안 여는 것은 process를 건너야 한다.
 //
-// fake 대답: 앱 activation helper의 App Engineer 대답뿐이다(README 정한 것 11의 예외).
+// fake 대답: 앱 activation helper의 Project Manager 대답뿐이다(README 정한 것 11의 예외).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {

@@ -13,20 +13,20 @@
 // 접수되는 쪽은 여기서 돌리지 않는다: release가 있으려면 준비(build)와 app test를 지나야 해서 `app-release`가 맡는다.
 //
 // `unclaimed-end`·`claimed-end` 행(coding-end-without-report)은 완료 보고 없이 터미널 process가 끝나는 두 길을 본다.
-// - contract: boundary `app-tickets`·`router`(끝나는 길마다 call은 한 번만 닫히고 맡긴 App Engineer는 같은 사실을 한 번만 받는다),
+// - contract: boundary `app-tickets`·`router`(끝나는 길마다 call은 한 번만 닫히고 맡긴 Project Manager는 같은 사실을 한 번만 받는다),
 //   `external-coding-agent`(session의 끝은 터미널 process의 exit으로만 안다).
-// - 현실적 회귀: 보고 없이 끝난 session의 call이 `accepted`로 영영 남아 ticket이 잠기는 것, 같은 끝을 App Engineer가 두 번 받아
+// - 현실적 회귀: 보고 없이 끝난 session의 call이 `accepted`로 영영 남아 ticket이 잠기는 것, 같은 끝을 Project Manager가 두 번 받아
 //   두 번 반응하는 것(Router와 Reactor가 모두 알리는 경우), claim이 반납되지 않아 같은 ticket을 다시 맡길 수 없는 것.
 // - 왜 못 잡나: `apps/tickets/coding` 단위 test는 event와 command를 직접 부르고, shell 역할의 `exited`에서 Reactor, Router,
-//   App Engineer의 새 turn까지 process를 건너는 흐름은 E2E에 없다.
+//   Project Manager의 새 turn까지 process를 건너는 흐름은 E2E에 없다.
 //
-// `open-session`·`closed-session` 행(coding-message-to-ae)은 coding agent의 막힘이 맡긴 App Engineer에게 가는 두 길을 본다.
-// - contract: boundary `router`·`app-tickets`·`coding-agent-cli-interface`(coding agent의 막힘은 맡긴 App Engineer에게 가고,
+// `open-session`·`closed-session` 행(coding-message-to-ae)은 coding agent의 막힘이 맡긴 Project Manager에게 가는 두 길을 본다.
+// - contract: boundary `router`·`app-tickets`·`coding-agent-cli-interface`(coding agent의 막힘은 맡긴 Project Manager에게 가고,
 //   닫혀 있으면 그 앱의 새 session이 받는다), `agent-sessions`.
 // - 현실적 회귀: archive된 session이 메시지를 삼켜 막힘이 아무에게도 안 가는 것, 새 session을 열지 않고 오류로 끝나는 것,
 //   메시지가 맡긴 call을 닫아 대화가 끊기는 것.
 // - 왜 못 잡나: `apps/tickets/coding` 단위 test와 Router unit은 `open_session_or_new`의 풀기를 따로 본다. CLI token ->
-//   `send_message` route -> Router -> 새 App Engineer session의 turn까지 이어지는 길은 process를 건너야 한다.
+//   `send_message` route -> Router -> 새 Project Manager session의 turn까지 이어지는 길은 process를 건너야 한다.
 //
 // `queue-then-open` 행(coding-one-per-app)은 같은 앱의 둘째 맡기기가 줄에 섰다가 앞 session이 끝나면 열리는 것을 본다.
 // - contract: boundary `app-tickets`·`router`(앱 하나에 coding session은 하나이고 나머지는 줄에 선다), `external-coding-agent`.
@@ -50,7 +50,7 @@
 // - 왜 못 잡나: unit은 그 module이 만든 값만 본다. token은 registry 메모리에만 있어서, 실제 core가 돈 뒤 SQLite·WAL·blob·log를
 //   byte로 훑는 이 단계가 유일한 방어다.
 //
-// fake 대답: App Engineer의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
+// fake 대답: Project Manager의 ticket_create·call 대답은 맡기기 helper(`handOff`·`createTicket`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 //
 // 이 file은 coding 길 E2E 전체의 틀이다: core 하나에 ROWS table의 행이 차례로 돈다. 행은 앱을 새로 만든다.
@@ -63,6 +63,7 @@ import {
   callRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { appList } from "../../packages/protocol/apps/mod.ts";
 import { CODING_TOKEN_ENV } from "../../packages/protocol/coding-agent/mod.ts";
 import { ticketShow } from "../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
@@ -232,7 +233,7 @@ const ROWS: Row[] = [
       // CLI: 끝내기 전에는 통한다.
       assertEquals((await cli.run("ticket list")).code, 0);
 
-      // session을 끝내면 call이 닫히며 App Engineer에게 reaction turn이 하나 더 돈다(맡기기 helper가 건 대답이 받는다).
+      // session을 끝내면 call이 닫히며 Project Manager에게 reaction turn이 하나 더 돈다(맡기기 helper가 건 대답이 받는다).
       await exitTerminal(core, terminal);
       await waitTurnEnd(core, a.ae, 1);
 
@@ -327,7 +328,7 @@ const ROWS: Row[] = [
     },
   },
   {
-    // 메시지는 맡긴 call을 닫지 않고 열린 App Engineer session의 입력이 된다.
+    // 메시지는 맡긴 call을 닫지 않고 열린 Project Manager session의 입력이 된다.
     name: "open-session",
     async run(ctx) {
       const { core, fake } = ctx;
@@ -367,7 +368,7 @@ const ROWS: Row[] = [
     },
   },
   {
-    // 맡긴 session이 archive되어 있으면 그 앱의 새 App Engineer session이 받는다.
+    // 맡긴 session이 archive되어 있으면 그 앱의 새 Project Manager session이 받는다.
     name: "closed-session",
     async run(ctx) {
       const { core, fake } = ctx;
@@ -386,12 +387,19 @@ const ROWS: Row[] = [
         body: "BLUEPRINT-MARK needs a new field",
       });
       assertEquals(sent.code, 0, JSON.stringify(sent.value));
-      const open = await until("새 App Engineer session이 열림", async () => {
-        const { sessions } = await core.call(agentSessionList, {
-          agent: { role: "app_engineer", app: app.app },
-        });
-        return sessions.length > 0 ? sessions : undefined;
-      });
+      const open = await until(
+        "새 Project Manager session이 열림",
+        async () => {
+          const { apps } = await core.call(appList, {});
+          const { sessions } = await core.call(agentSessionList, {
+            agent: {
+              role: "project_manager",
+              project: apps.find((one) => one.id === app.app)!.project,
+            },
+          });
+          return sessions.length > 0 ? sessions : undefined;
+        },
+      );
       // route(user): 열린 session은 하나이고 옛 session은 archive에 남았다.
       assertEquals(open.length, 1);
       assertNotEquals(open[0].id, app.ae);
@@ -426,7 +434,7 @@ const ROWS: Row[] = [
         1,
       );
 
-      // 앞 session을 끝내면 그 call이 닫히며 App Engineer에게 reaction turn이 하나 더 돈다.
+      // 앞 session을 끝내면 그 call이 닫히며 Project Manager에게 reaction turn이 하나 더 돈다.
       fake.script([{ reply: { kind: "text", text: "noted" } }], aeLane(app));
       await exitTerminal(core, first.terminal);
       const frame = await app.gateway.next(

@@ -112,7 +112,7 @@ const HARNESS_DOMAIN_PROTOCOLS = [
   "projects",
   "coding-agent",
 ];
-const ROLE_NAMES = new Set(["project_manager", "app_engineer", "operator"]);
+const ROLE_NAMES = new Set(["project_manager", "operator"]);
 const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
   [
     "packages/core/lophn-agent/run-loop/runtime-access.ts",

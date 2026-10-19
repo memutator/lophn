@@ -1,6 +1,6 @@
 // 세 질문
 // - contract: boundary `events`(새 일 event는 Reactor가 reaction grant대로 session을 연다. 끌 수 있고, 물으면 사람이 허락해야 하고,
-//   효과는 한 번이다), `approvals`(보류 request는 재시작에 남고 적용 때 다시 검사한다), `router`(program이 App Engineer session을 연다).
+//   효과는 한 번이다), `approvals`(보류 request는 재시작에 남고 적용 때 다시 검사한다), `router`(program이 Project Manager session을 연다).
 // - 현실적 회귀: 허락 없이 "물음"인데 session이 열리는 것, 끈 뒤에도 보류 request가 적용되는 것, 재시작 뒤 request가 사라지거나
 //   두 번 적용되어 session이 둘 열리는 것, 문제가 열렸는데 Reactor가 그 event를 못 받는 것(collector worker -> core -> Reactor가 끊김).
 // - 왜 지금 test로 못 잡나: `reactor_test`·`approvals_test`는 handler와 판정을 fake port로 본다. 문제 접수(collector worker child) ->
@@ -14,6 +14,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
   appCreate,
+  appList,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
 import {
@@ -89,10 +90,14 @@ async function reportViewError(core: Core, app: string): Promise<string> {
   return accepted.problem;
 }
 
-// 그 앱의 App Engineer session 중 program 메시지로 열린 것과 그 메시지가 가리키는 문제들이다.
+// 그 앱 project의 Project Manager session 중 program 메시지로 열린 것과 그 메시지가 가리키는 문제들이다.
 async function reactionSessions(core: Core, app: string) {
+  const { apps } = await core.call(appList, {});
   const { sessions } = await core.call(agentSessionList, {
-    agent: { role: "app_engineer", app },
+    agent: {
+      role: "project_manager",
+      project: apps.find((one) => one.id === app)!.project,
+    },
   });
   const found: { session: string; problems: string[] }[] = [];
   for (const { id } of sessions) {
@@ -281,14 +286,14 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
 
 // 세 질문
 // - contract: boundary `problems`(앱 process의 처리 안 된 오류는 문제가 되고 한 번만 열린다), `app-runtime`(거듭 죽으면 자동
-//   재시작을 멈추고 `AppRestartHalted`를 낸다), `events`(새 일 event는 reaction grant대로 App Engineer를 연다).
+//   재시작을 멈추고 `AppRestartHalted`를 낸다), `events`(새 일 event는 reaction grant대로 Project Manager를 연다).
 // - 현실적 회귀: 앱이 죽는데 문제가 안 열리는 것(보고가 exit에 먼저 잘림), 같은 오류가 보고마다 새 문제를 여는 것, crash 횟수
 //   계산이 어긋나 멈추지 않고 영영 되살리거나 너무 일찍 멈추는 것, 멈췄는데 아무도 부르지 않는 것.
 // - 왜 지금 test로 못 잡나: 재시작 정책은 순수 규칙 unit이 있어도 실제 process 종료 -> supervisor -> command -> ledger ->
 //   Reactor -> Router -> agent runtime의 turn은 이어서 본 적이 없다. SDK 오류 관측이 실제 exit와 경쟁하는 것은 process를
 //   건너야 보인다.
 //
-// 앱을 activate하는 데 core가 앱 test용 env를 필요로 해서 위 test와 core를 같이 쓰지 못한다. App Engineer 줄(앱 activation helper의
+// 앱을 activate하는 데 core가 앱 test용 env를 필요로 해서 위 test와 core를 같이 쓰지 못한다. Project Manager 줄(앱 activation helper의
 // 줄이라 대답 3개 상한의 예외, README 정한 것 11)은 reaction session마다 text 하나다. supervisor가 여는 stack 없는
 // `unexpected_exit` 문제는 같은 exit code끼리 한 문제로 묶이지만 넉넉히 건다.
 // 문제는 SDK가 보고한 `Error`만 센다.
@@ -320,7 +325,7 @@ const restarted = (core: Core, app: string, before: string) =>
       : undefined;
   }, 60_000);
 
-Deno.test("E2E 앱 process가 던진 오류는 문제가 되어 App Engineer를 부르고, 거듭 죽으면 자동 재시작이 멈추며 App Engineer를 다시 부른다", async (t) => {
+Deno.test("E2E 앱 process가 던진 오류는 문제가 되어 Project Manager를 부르고, 거듭 죽으면 자동 재시작이 멈추며 Project Manager를 다시 부른다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -425,17 +430,17 @@ Deno.test("E2E 앱 process가 던진 오류는 문제가 되어 App Engineer를 
 });
 
 // 세 질문
-// - contract: boundary `problems`(agent가 보고 본문을 읽는 좁은 통로 `report_body`), `agent-roles`(App Engineer 자격의 operation 상한과
-//   자기 앱 조건), `events`(새 일 event는 App Engineer를 연다).
-// - 현실적 회귀: App Engineer가 보고한 앱의 message를 읽지 못하는 것(자격 검사가 process를 건너서 거절하거나 tool이 상한에 안 든다),
+// - contract: boundary `problems`(agent가 보고 본문을 읽는 좁은 통로 `report_body`), `agent-roles`(Project Manager 자격의 operation 상한과
+//   자기 앱 조건), `events`(새 일 event는 Project Manager를 연다).
+// - 현실적 회귀: Project Manager가 보고한 앱의 message를 읽지 못하는 것(자격 검사가 process를 건너서 거절하거나 tool이 상한에 안 든다),
 //   tool 결과에 본문이 안 실리는 것.
 // - 왜 지금 test로 못 잡나: tool 목록·자격 상한·route actor는 unit이 따로 보지만, 앱 process의 보고 -> blob -> agent runtime child의
 //   tool -> core loopback의 agent 자격 검사는 process를 건너야 이어서 보인다.
 //
 // 앱을 activate하는 core라 위 test와 core를 같이 쓰지 못한다. view 오류 보고는 본문 blob이 없어서, 앱의 reportProblem이 message를
-// 남긴 문제를 쓴다. reaction session의 요청은 activation의 App Engineer 줄(`App <id>:`)에 걸리지 않아 기본 줄로 가고,
+// 남긴 문제를 쓴다. reaction session의 요청은 activation의 Project Manager 줄(`App <id>:`)에 걸리지 않아 기본 줄로 가고,
 // 그 대답 셋은 problem.get -> problem.body -> text다.
-Deno.test("E2E App Engineer는 앱이 보고한 message를 problem.body로 끝까지 읽는다", async (t) => {
+Deno.test("E2E Project Manager는 앱이 보고한 message를 problem.body로 끝까지 읽는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;

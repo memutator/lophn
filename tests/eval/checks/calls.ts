@@ -115,9 +115,7 @@ function targetKey(c: SentCall): string {
       ? ""
       : r.role === "operator"
       ? r.agent
-      : r.role === "project_manager"
-      ? r.project
-      : ""; // Role 합집합에 남은 앱 갈래
+      : r.project;
     return `${r.role}#${id}`;
   }
   return `session#${to.session ?? ""}`;

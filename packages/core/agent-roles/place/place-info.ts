@@ -50,7 +50,7 @@ export type PlaceData = {
   app: (PlaceApp & { blueprint: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
-  // 쓰고 있는 kind 글. lophn·App Engineer와 kind가 없는 project는 null.
+  // 쓰고 있는 kind 글. lophn과 kind가 없는 project는 null.
   kinds: PlaceKinds | null;
   // Project Manager가 쓸 kinds 파일 경로. 파일이 아직 없어도 경로는 안다.
   kindsFile: string | null;
@@ -69,7 +69,6 @@ export type PlaceData = {
 export const ROLE_LABEL: Record<Role, string> = {
   lophn: "lophn",
   project_manager: "Project Manager",
-  app_engineer: "App Engineer",
   operator: "Operator",
 };
 

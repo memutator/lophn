@@ -37,9 +37,6 @@ export function createPlaceRoleRules(
           ? fail("not_found", "project not found")
           : ok({ role: "project_manager", project: project.id });
       }
-      // protocol의 Role 합집합이 줄 때까지 type이 요구하는 갈래다.
-      case "app_engineer":
-        return fail("invalid_input", "there is no such role");
       case "operator": {
         if (named.name === undefined) {
           return fail("invalid_input", "an Operator is named");
@@ -55,8 +52,7 @@ export function createPlaceRoleRules(
         }
         const matches = deps.operators.operators().filter((operator) =>
           operator.name === named.name &&
-          (at === null ||
-            (operator.place.kind === at.kind && operator.place.id === at.id))
+          (at === null || operator.place.id === at.id)
         );
         if (matches.length === 0) {
           return fail("not_found", "operator not found");
@@ -78,8 +74,6 @@ export function createPlaceRoleRules(
           return "lophn";
         case "project_manager":
           return deps.projects.project(ref.project as Id<"prj">)?.name ?? "";
-        case "app_engineer":
-          return "";
         case "operator":
           return deps.operators.operator(ref.agent)?.name ?? "";
       }

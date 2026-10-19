@@ -7,7 +7,7 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답뿐이라 행의 상한(3)에 세지 않는다(README 정한 것
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 Project Manager 대답뿐이라 행의 상한(3)에 세지 않는다(README 정한 것
 // 11). `session-rewind-with-app`은 case마다 agent의 앱 호출과 끝 text, 둘이다.
 import { assert, assertEquals } from "@std/assert";
 import {

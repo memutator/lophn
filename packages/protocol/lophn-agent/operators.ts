@@ -34,7 +34,7 @@ export type OperatorDefinition = z.infer<typeof operatorDefinitionSchema>;
 
 // operator.update용. 보낸 칸만 바꾼다.
 
-// 내장 role(lophn, Project Manager, App Engineer)의 정의. 사람이 고치는 것은 지침, model, skill 고르기·MCP 끄기뿐이다.
+// 내장 role(lophn, Project Manager)의 정의. 사람이 고치는 것은 지침, model, skill 고르기·MCP 끄기뿐이다.
 // 이름과 profile은 role이 고정하고 tool 목록은 role이 정한다.
 const builtinKeys = {
   model: true,

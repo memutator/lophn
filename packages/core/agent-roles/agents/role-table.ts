@@ -13,8 +13,6 @@ import { lophnAgentsFolder, placeAgentsFolder } from "../place/data-folder.ts";
 const PROFILES: Record<Role, Profile> = {
   lophn: { kind: "icon", icon: "dock" },
   project_manager: { kind: "icon", icon: "contexts" },
-  // protocol의 Role 합집합이 줄 때까지 Record<Role, …>이 요구하는 항목이다.
-  app_engineer: { kind: "icon", icon: "apps" },
   operator: { kind: "icon", icon: "roles" },
 };
 
@@ -37,9 +35,6 @@ export const ROLE_TABLE: AgentRoleTable = {
           folder: placeAgentsFolder(root, { kind: "project", id: ref.project }),
           file: BUILTIN_FILES.project_manager,
         };
-      // protocol의 Role 합집합이 줄 때까지 type이 요구하는 갈래다.
-      case "app_engineer":
-        return null;
       case "operator":
         return operatorPlace === undefined ? null : {
           folder: placeAgentsFolder(root, operatorPlace),

@@ -96,7 +96,7 @@ export const appCreate = defineCommand({
   actors: ["user", "coding_agent", "agent"],
   errors: ["forbidden", "invalid_input", "not_found", "conflict"],
 });
-// source 연결은 user, 그 앱 범위 connection, 그 앱의 App Engineer만 받는다.
+// source 연결은 user, 그 앱 범위 connection, 그 앱 project의 Project Manager만 받는다.
 export const appConnectSource = defineCommand({
   resource: "apps",
   method: "connect_source",

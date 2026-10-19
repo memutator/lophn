@@ -193,9 +193,7 @@ export function turnSkillReader(
       snapshot ??= createSkillSnapshot(deps, {
         id: session.id as Id<"ses">,
         role: session.agent.role,
-        project: session.place?.kind === "project"
-          ? session.place.id as Id<"prj">
-          : null,
+        project: (session.place?.id ?? null) as Id<"prj"> | null,
         skills: [],
       });
       return (await snapshot).reader.read(id, name, path);

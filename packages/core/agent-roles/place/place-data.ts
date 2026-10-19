@@ -61,7 +61,6 @@ const ROLE_LINE: Record<Role, string> = {
   lophn: "Plans work, registers apps, and hands work to others.",
   project_manager:
     "Looks after the project's folders, its kinds, its app and its skills.",
-  app_engineer: "Builds and maintains the app.",
   operator: "Works with the kinds and tools it was granted.",
 };
 
@@ -307,9 +306,9 @@ async function readPlaceData(
   if (!sendable.ok) return sendable;
   const labels = new Map<string, string | null>();
   const labelOf = async (
-    at: { kind: "project" | "app"; id: string } | null,
+    at: { kind: "project"; id: string } | null,
   ): Promise<string | null> => {
-    if (at === null || at.kind === "app") return null;
+    if (at === null) return null;
     const key = `${at.kind}:${at.id}`;
     if (labels.has(key)) return labels.get(key) ?? null;
     let name = at.id;
@@ -351,7 +350,7 @@ async function readPlaceData(
     const add = async (
       ref: AgentRef,
       name: string,
-      at: { kind: "project" | "app"; id: string } | null,
+      at: { kind: "project"; id: string } | null,
     ) => {
       if (excluded.has(agentKey(ref)) || agentKey(ref) === own) return;
       const found: PlaceAgent = {

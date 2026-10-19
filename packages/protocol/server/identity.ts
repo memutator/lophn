@@ -53,7 +53,7 @@ export const credentialConditionsSchema = z.strictObject({
   diagnostic_scope: z.string().regex(/\S/).nullable().optional(),
   // coding agent의 현재 위치 근거. 인증 경계가 연결·session 기록에서 정하며 요청 body·header 값이 아니다.
   cwd: cwdConditionSchema.optional(),
-  // App Engineer run이 이번 handoff에서 읽을 수 있는 고정 근거(문서, 판) 목록이다. 발급 때 core가 run의
+  // Project Manager run이 이번 handoff에서 읽을 수 있는 고정 근거(문서, 판) 목록이다. 발급 때 core가 run의
   // handoff 출처 참조에서 정하며 child 요청 값이 아니다. 이 목록의 판만 담당 앱 밖에서도 판 주소로 열린다.
   evidence: z.array(z.strictObject({
     document: idSchema("doc"),

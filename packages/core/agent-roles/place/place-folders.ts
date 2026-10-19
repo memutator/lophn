@@ -2,7 +2,7 @@ import type { Role } from "../../../protocol/lophn-agent/mod.ts";
 
 export type PlaceFacts = {
   role: Role;
-  place: { kind: "project" | "app"; id: string } | null;
+  place: { kind: "project"; id: string } | null;
   // place가 project일 때 그 project의 등록 폴더(position 순)
   projectFolders: readonly string[];
   // place가 project일 때 그 project의 artifacts 폴더
@@ -32,7 +32,7 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   if (role === "lophn") {
     return { read: [...facts.allProjectFolders], write: [] };
   }
-  if (place?.kind === "project") {
+  if (place !== null) {
     // 상대 path의 기준은 사람의 첫 project 폴더이고, 폴더가 없는 project는 data 폴더다.
     const base = facts.projectFolders[0] ?? facts.dataFolder ?? undefined;
     const withBase = (folders: string[]): FolderScope => ({

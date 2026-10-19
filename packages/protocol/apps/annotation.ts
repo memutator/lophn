@@ -137,7 +137,7 @@ export const annotationUploadScreenshot = defineUpload({
 
 // 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
-// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
+// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 project Project Manager의 session이다(없으면 null, 새 session).
 // artifact이면 pane에 열려 있는 그 project의 Project Manager session이고, core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
 export const annotationSendInputSchema = z.strictObject({
   target: annotationTargetSchema,

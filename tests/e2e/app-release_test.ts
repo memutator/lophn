@@ -7,7 +7,7 @@
 // - 왜 지금 test로 못 잡나: 각 닫음이 "실제 template 앱으로 손으로 확인하지 않았다"였다. 이 길을 지나는 test가 없고 unit은 단계
 //   하나씩만 본다.
 //
-// fake 대답: App Engineer의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`)가 거는 것이라 행의 fake
+// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
@@ -164,7 +164,7 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
   }
 });
 
-// App Engineer가 template의 app-api로 건 예시가 ticket 확인의 관문이 되는 길이다. core 하나에 행마다 template 앱을 새로 시작한다.
+// Project Manager가 template의 app-api로 건 예시가 ticket 확인의 관문이 되는 길이다. core 하나에 행마다 template 앱을 새로 시작한다.
 // - contract: boundary `app-tickets`(examples check는 완료 보고 뒤 돌아 pass일 때만 `ticket.verify`를 통과시킨다), `app-releases`.
 // - 현실적 회귀: 예시가 release 준비/test 요청을 지나 돌지 않는다, 틀린 예시인데 verified가 된다.
 // - 왜 지금 test로 못 잡나: 관문(unit)과 예시 비교(harness)는 따로 본다. 보고 -> reactor -> app test runner(격리 사본의 앱 process) ->
@@ -194,7 +194,7 @@ const examplesRows: {
   },
 ];
 
-Deno.test("E2E App Engineer가 건 app-api 예시가 맞아야 ticket이 verified가 된다", async () => {
+Deno.test("E2E Project Manager가 건 app-api 예시가 맞아야 ticket이 verified가 된다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -228,7 +228,7 @@ Deno.test("E2E App Engineer가 건 app-api 예시가 맞아야 ticket이 verifie
       assertEquals(checked.result, row.result, row.name);
       await verifyTicket(core, fake, app, delivered.ticket, row.state);
       // route: `verifyTicket`이 tickets/show의 상태를 본다.
-      // fake가 받은 요청: 막힌 ticket_verify는 conflict 결과로 App Engineer에게 돌아간다.
+      // fake가 받은 요청: 막힌 ticket_verify는 conflict 결과로 Project Manager에게 돌아간다.
       const verifyResult = fake.journal().filter((entry) =>
         entry.lane === `ae-${app.app}`
       ).map((entry) => lastToolResult(entry, "tc_verify") ?? "").join(" ");

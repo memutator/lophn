@@ -70,8 +70,6 @@ function roleLabel(agent: CallAgent["role"]): string {
       return t("waiting.label.agent-lophn");
     case "project_manager":
       return t("waiting.label.agent-project-manager");
-    case "app_engineer":
-      return t("waiting.label.agent-project-manager");
     case "operator":
       return t("waiting.label.agent-operator");
     case "coding_agent":

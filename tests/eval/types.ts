@@ -71,9 +71,8 @@ export type RegistryEntry = {
 
 // 글(place, name)은 call 도구의 `to`가 맞추는 이름과 같다: project는 project.name(예 "tax". 앱의 project는
 // `<slug>-project`, 예 "ledger-project"), Operator는 자기 name. 앱의 일은 그 project의 Project Manager가 맡는다.
-// Role 합집합에 아직 남은 앱 갈래는 참가자로 쓰지 않는다.
 export type Participant = Omit<NamedAgent, "role"> & {
-  role: Exclude<Role, "app_engineer">;
+  role: Role;
 };
 
 // coding agent는 앱 하나에 붙는다. place.app은 app.name이다(Participant의 place와 같은 이름 규칙).

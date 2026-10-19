@@ -34,18 +34,16 @@ export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 const AGENT_KINDS = ["built_in", "operator"] as const;
 export const agentKindSchema = z.enum(AGENT_KINDS);
 
-// 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project나 앱 아래에 있다.
-export const agentPlaceSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
-  z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
-]);
-export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("project"), id: idSchema("prj") }),
-  z.object({ kind: z.literal("app"), id: idSchema("app") }),
-]);
+// 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project 아래에 있다.
+export const agentPlaceSchema = z.strictObject({
+  kind: z.literal("project"),
+  id: idSchema("prj"),
+});
+export const agentPlaceOutputSchema = z.object({
+  kind: z.literal("project"),
+  id: idSchema("prj"),
+});
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
-
-// Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
 
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
@@ -183,7 +181,7 @@ export const agentDefinitionOutputSchema = z.object({
 });
 
 // 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
-// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills_off.1`, `model.api_key`)이고
+// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 
 // 오류 details에 싣는 항목별 이유의 모양이다. 저장 거절(invalid_input)의 details가 이것이다.
@@ -208,6 +206,5 @@ export type AgentCounts = z.infer<typeof agentCountsSchema>;
 export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
   lophn: "lophn",
   project_manager: "Project Manager",
-  app_engineer: "App Engineer",
   operator: "Operator",
 };

@@ -7,13 +7,9 @@
 // - 현실적 회귀: session 도중 grant가 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, notice에 앱이 쓴 글(tool 설명)이 들어가 같은 재료가 같은 bytes가 아니게 되는 것, grant 없는 Operator에 앱 tool이 보이는 것, `operator.create`에 grant 칸이 생겨 agent가 자기 권한을 넓히는 것.
 // - 왜 지금 test로 못 잡나: `turn-prompt`와 `tool-lists`의 unit은 입력으로 받은 목록만 본다. 사람이 grant를 session 도중 바꾸는 일, agent runtime child가 session마다 고정한 목록을 지키는 일, `operator.create`의 입력 schema가 model 요청에 실리는 모양은 process를 건너야 보인다.
 //
-// operator-project-write 행(app-no-project-write)의 세 질문:
-// - contract: boundary `agent-roles`·`agent-tools`(앱 place의 Operator는 앱 source를 읽기만 하고 file tool의 쓰기 범위는 place가 정한다).
-// - 현실적 회귀: 문서와 prompt가 약속한 쓰기를 구현하다 앱 source 쓰기까지 열리는 것, 범위 규칙이 바뀌어 앱 Operator가 project 폴더나 앱 source에 쓰는 것. agent runtime child의 Deno 권한은 모든 project 폴더와 앱 source를 쓸 수 있어 tool 범위가 마지막 한 겹이다.
-// - 왜 지금 test로 못 잡나: `place-folders_test`는 `placeScope` 함수만 본다. 실제 file tool이 child process 안에서 그 범위를 지키는 것은 process를 건너야 보인다.
 //
 // 준비: core 하나, 앱 하나, project 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱 activation의 fake 대답
-// (App Engineer·coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
+// (coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
@@ -337,58 +333,6 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
       ),
       [],
     );
-
-    // app-no-project-write: 앱 place의 Operator는 project 폴더에도 앱 source에도 쓰지 못한다.
-    // 거절된 쓰기는 같은 reply의 나머지 call을 막으므로(tool-batch) 쓰기마다 reply를 나눈다.
-    const writeAt = (path: string) => ({
-      reply: {
-        kind: "tool" as const,
-        calls: [{
-          id: "t1",
-          name: "file_write",
-          arguments: JSON.stringify({ path, content: "x" }),
-        }],
-      },
-    });
-    fake.reset();
-    fake.script([
-      writeAt(`${folder}/export.md`),
-      writeAt(`${app.source}/export.md`),
-      text,
-    ]);
-    const appOperator = core.ids.newId("agt");
-    await core.call(operatorCreate, {
-      id: appOperator,
-      place: { kind: "app", id },
-      definition: { name: "AppPlace", body: "use the assigned app" },
-    });
-    const appSession = await openSession(core, {
-      role: "operator",
-      agent: appOperator,
-    });
-    await say(core, appSession, "export the items");
-    await waitTurnEnd(core, appSession);
-    // disk
-    assertEquals(
-      await Deno.lstat(`${folder}/export.md`).then(() => true, () => false),
-      false,
-    );
-    const status = await new Deno.Command("git", {
-      args: ["status", "--porcelain"],
-      cwd: app.source,
-      stdout: "piped",
-    }).output();
-    assertEquals(new TextDecoder().decode(status.stdout), "");
-    // ledger
-    const { tool_calls: exportCalls } = await core.call(toolCallList, {
-      session: appSession,
-    });
-    assertEquals(exportCalls.map((call) => call.outcome), [
-      { kind: "failure", code: "forbidden" },
-      { kind: "failure", code: "forbidden" },
-    ]);
-    // fake
-    assert(lastToolResult(fake.journal()[2], "t1")?.includes("forbidden"));
   } finally {
     await app?.gateway.close();
     await core?.kill().catch(() => {});

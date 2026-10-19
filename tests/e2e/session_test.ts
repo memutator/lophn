@@ -36,11 +36,6 @@ import {
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { approvalsDecideTurn } from "../../packages/protocol/approvals/mod.ts";
-import {
-  appConnectSource,
-  appCreate,
-} from "../../packages/protocol/apps/mod.ts";
-import { operatorCreate } from "../../packages/protocol/lophn-agent/mod.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   bootCore,
@@ -62,7 +57,6 @@ import {
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
 import { toolNames } from "../support/fake-server/probe.ts";
-import { openAppProject } from "../support/app/activate.ts";
 
 const LOPHN: AgentRef = { role: "lophn" };
 
@@ -420,21 +414,6 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
       },
     );
 
-    await t.step("unknown-app: 없는 app에는 session을 열 수 없다", async () => {
-      const agent: AgentRef = {
-        role: "app_engineer",
-        app: c.ids.newId("app"),
-      };
-      const refused = await c.tryCall(openAgentSession, {
-        id: c.ids.newId("ses"),
-        agent,
-        opening_context: null,
-      });
-      assert(!refused.ok);
-      assertEquals(refused.error.code, "conflict");
-      assertEquals((await c.call(agentSessionList, { agent })).sessions, []);
-    });
-
     await t.step(
       "unknown-operator: 없는 Operator에는 session을 열 수 없다",
       async () => {
@@ -447,42 +426,6 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         assert(!refused.ok);
         assertEquals(refused.error.code, "not_found");
         assertEquals((await c.call(agentSessionList, { agent })).sessions, []);
-      },
-    );
-
-    await t.step(
-      "call-wrong-kind: project place의 App Engineer를 call로 열 수 없다",
-      async () => {
-        f.reset();
-        const { pm } = await newProject(c, "call-wrong-kind");
-        f.script([
-          {
-            reply: {
-              kind: "tool",
-              calls: [callTool({
-                role: "app_engineer",
-                place: { project: "call-wrong-kind" },
-              })],
-            },
-          },
-          textReply("done"),
-        ]);
-        const caller = await openSession(c, LOPHN);
-        await say(c, caller, "call an app engineer");
-        const turn = await waitTurnEnd(c, caller);
-
-        assert(toolResultOf(f, "t1").includes("invalid_input"));
-        assertEquals(
-          (await c.call(agentSessionList, { agent: pm })).sessions,
-          [],
-        );
-        const { tool_calls } = await c.call(toolCallList, { turn: turn.id });
-        assertEquals(
-          tool_calls.filter((item) => item.tool === "call").map((item) =>
-            item.outcome
-          ),
-          [{ kind: "failure", code: "invalid_input" }],
-        );
       },
     );
 
@@ -535,72 +478,6 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         });
         // disk
         assert(!await exists(`${folder}/new.md`));
-      },
-    );
-
-    await t.step(
-      "app-operator-reads-not-writes: 앱 Operator는 source를 읽고 쓰기는 forbidden이다",
-      async () => {
-        f.reset();
-        const before = await runtimePids(c.run.home);
-        const app = await c.call(appCreate, {
-          slug: "scope-app",
-          project: await openAppProject(c, "scope-app"),
-          name: "Scope App",
-          description: "scope check",
-        }, {});
-        const source = `${c.run.work}/app-src`;
-        await Deno.mkdir(source);
-        await Deno.writeTextFile(`${source}/main.ts`, "export const v = 1;");
-        await c.call(appConnectSource, { app: app.id, source_path: source }, {
-          base_revision: app.revision,
-        });
-        await settle(c, before);
-        const agent = c.ids.newId("agt");
-        await c.call(operatorCreate, {
-          id: agent,
-          place: { kind: "app", id: app.id },
-          definition: { name: "reviewer", body: "review" },
-        });
-        const session = await openSession(c, { role: "operator", agent });
-        f.script([
-          {
-            reply: {
-              kind: "tool",
-              calls: [
-                {
-                  id: "t-read",
-                  name: "file_read",
-                  arguments: JSON.stringify({ path: `${source}/main.ts` }),
-                },
-                {
-                  id: "t-write",
-                  name: "file_write",
-                  arguments: JSON.stringify({
-                    path: `${source}/main.ts`,
-                    content: "changed",
-                  }),
-                },
-              ],
-            },
-          },
-          textReply("done"),
-        ]);
-        await say(c, session, "read and write");
-        const turn = await waitTurnEnd(c, session);
-
-        // fake
-        assert(toolResultOf(f, "t-read").includes("export const v = 1;"));
-        // ledger
-        assertEquals(await outcomesOf(c, turn.id), {
-          "t-read": { kind: "success", code: "ok" },
-          "t-write": { kind: "failure", code: "forbidden" },
-        });
-        // disk
-        assertEquals(
-          await Deno.readTextFile(`${source}/main.ts`),
-          "export const v = 1;",
-        );
       },
     );
 

@@ -9,7 +9,7 @@
 //
 // 행의 fake 대답이 3개를 넘는다(README 정한 것 11의 예외): 보내는 session A와 받는 session B가 각자 turn을 돌고 서로의 입력을
 // 기다려야 하는 flow라 한 행이 4~9개가 된다. 대신 단계와 단정 상한은 지킨다. 줄은 요청의 tool 목록으로 가른다
-// (lophn은 app_create, PM은 operator_create(app_create·ticket_create 없이), App Engineer는 ticket_create, 그 외 call을 가진 것은 Operator).
+// (lophn은 app_create, PM은 operator_create(app_create·ticket_create 없이), Project Manager는 ticket_create, 그 외 call을 가진 것은 Operator).
 //
 // call-dedup 행은 두지 않는다. 같은 reply에 같은 tool call id를 두 번 넣어도 core는 tool call마다 새 tcl id를 만들고
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
@@ -53,7 +53,7 @@ import {
   lastToolResult,
   toolNames,
 } from "../support/fake-server/probe.ts";
-import { openAppProject } from "../support/app/activate.ts";
+import { appProjectName, openAppProject } from "../support/app/activate.ts";
 
 const names = (request: JournalEntry) => toolNames(request);
 const LOPHN: Lane = {
@@ -395,7 +395,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
     );
 
     await step(
-      "operator-to-ae: Operator가 App Engineer를 부르면 같은 왕복이 돈다",
+      "operator-to-app-pm: Operator가 앱 project의 Project Manager를 부르면 같은 왕복이 돈다",
       async () => {
         fake.reset();
         const app = await c.call(appCreate, {
@@ -404,7 +404,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
           name: "Ledger App",
           description: "Keep a ledger.",
         }, {});
-        const ae: AgentRef = { role: "app_engineer", app: app.id };
+        const ae: AgentRef = { role: "project_manager", project: app.project };
         const agent = c.ids.newId("agt");
         await c.call(operatorCreate, {
           id: agent,
@@ -418,7 +418,10 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         });
         fake.script([
           callStep(
-            { role: "app_engineer", place: { app: "Ledger App" } },
+            {
+              role: "project_manager",
+              place: { project: appProjectName("ledger-app") },
+            },
             "result",
             "need fix",
           ),
@@ -430,7 +433,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
           text("replied"),
         ], AE);
         const o = await openSession(c, operator);
-        await say(c, o, "ask the app engineer");
+        await say(c, o, "ask the app project manager");
         const b = await opened(c, ae, []);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, o, 1);
@@ -438,11 +441,11 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: call이 done이다.
         assertEquals((await callRecord(c, await callOf(c, b))).state, "done");
-        // fake: Operator의 셋째 요청에 App Engineer의 답이 있다.
+        // fake: Operator의 셋째 요청에 Project Manager의 답이 있다.
         assert(
           JSON.stringify(lane(fake, "operator")[2].body).includes("fixed"),
         );
-        // route: App Engineer session이 하나 열렸다.
+        // route: Project Manager session이 하나 열렸다.
         assertEquals((await sessionIds(c, ae)).length, 1);
       },
     );

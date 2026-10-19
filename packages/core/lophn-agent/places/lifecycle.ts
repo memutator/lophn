@@ -32,10 +32,7 @@ function placeUsable(
   deps: PlaceDeps,
   place: Place,
 ): Result<void> {
-  // Place 합집합에 app이 남아 있는 동안 project가 아닌 place는 없는 곳으로 본다.
-  const info = place.kind === "project"
-    ? deps.projects.project(place.id as Id<"prj">)
-    : null;
+  const info = deps.projects.project(place.id as Id<"prj">);
   if (info === null) return fail("conflict", "the place does not exist");
   if (info.archived) return fail("conflict", "the place is archived");
   return ok(undefined);
@@ -98,7 +95,7 @@ export function startSession(
     [
       input.id,
       input.agent.role,
-      kind === "project" ? id : null,
+      id,
       operatorId,
       kind,
       id,

@@ -1,13 +1,13 @@
 // 세 질문
 // - contract: boundary `apps`(annotation 저장은 앱 하나 범위이고 신원은 shell main이 정한 값으로 들어온다),
-//   `router`(전달은 그 앱 App Engineer에게 사람 메시지 하나다), `agent-tools`(`image_read`가 `annotation:<id>`를 core가
+//   `router`(전달은 그 앱 Project Manager에게 사람 메시지 하나다), `agent-tools`(`image_read`가 `annotation:<id>`를 core가
 //   agent 자격의 앱으로 거른 screenshot으로 연다), `core-api`.
-// - 현실적 회귀: 다른 앱의 annotation(앱 화면 속 정보, screenshot)을 다른 앱의 App Engineer가 읽는 것, 보내기가 다른 앱의
+// - 현실적 회귀: 다른 앱의 annotation(앱 화면 속 정보, screenshot)을 다른 앱의 Project Manager가 읽는 것, 보내기가 다른 앱의
 //   session으로 가는 것, 저장한 screenshot이 model에 실리지 않는 것(blob 경로·권한).
-// - 왜 지금 test가 못 잡나: `annotations_test.ts`는 저장과 읽기를 따로 보고, upload → blob → Router → App Engineer turn →
+// - 왜 지금 test가 못 잡나: `annotations_test.ts`는 저장과 읽기를 따로 보고, upload → blob → Router → Project Manager turn →
 //   runtime의 `image_read` → model 요청까지 이어지는 길은 process를 건너야 한다.
 //
-// `archived-app` 행: boundary `apps`·`router`(보관한 앱은 새 입력을 받지 않는다), 회귀는 보관한 앱의 App Engineer에게
+// `archived-app` 행: boundary `apps`·`router`(보관한 앱은 새 입력을 받지 않는다), 회귀는 보관한 앱의 Project Manager에게
 // 새 session이 열리거나 저장이 거절됐는데 메시지가 먼저 가는 것, `annotations_test.ts`는 저장 command의 거절만 보고
 // 보내기 → 저장 → 전달에서 전달이 일어나지 않음(session이 열리지 않음)은 Router 쪽 상태까지 읽어야 보인다.
 //
@@ -54,6 +54,9 @@ type Ctx = {
   fake: FakeServer;
   a: string;
   b: string;
+  // a와 b 앱의 project. 그 project의 Project Manager가 annotation을 받는다.
+  pa: string;
+  pb: string;
   // new-session이 보낸 A의 annotation. other-app이 쓴다.
   annotationOfA?: string;
 };
@@ -135,7 +138,7 @@ const ROWS: Row[] = [
   {
     name: "new-session",
     async run(ctx) {
-      const { core, fake, a } = ctx;
+      const { core, fake, a, pa } = ctx;
       fake.reset();
       fake.script([
         {
@@ -157,7 +160,7 @@ const ROWS: Row[] = [
       const { session } = await core.call(agentSessionRead, {
         session: sent.session,
       });
-      assertEquals(session.agent, { role: "app_engineer", app: a });
+      assertEquals(session.agent, { role: "project_manager", project: pa });
       const messages = await humanMessagesOf(core, sent.session);
       assertEquals(messages.length, 1);
       assertEquals(messages[0].refs, [{ kind: "annotation", id: annotation }]);
@@ -181,9 +184,12 @@ const ROWS: Row[] = [
   {
     name: "open-session",
     async run(ctx) {
-      const { core, fake, a } = ctx;
+      const { core, fake, a, pa } = ctx;
       fake.reset();
-      const session = await openSession(core, { role: "app_engineer", app: a });
+      const session = await openSession(core, {
+        role: "project_manager",
+        project: pa as never,
+      });
       fake.script([{ reply: { kind: "text", text: "noted" } }]);
       const { sent } = await ship(ctx, a, session, false);
       const turn = await waitTurnEnd(core, session, 0);
@@ -207,10 +213,13 @@ const ROWS: Row[] = [
   {
     name: "other-app",
     async run(ctx) {
-      const { core, fake, a, b, annotationOfA } = ctx;
+      const { core, fake, a, pb, annotationOfA } = ctx;
       assert(annotationOfA, "new-session 행이 먼저 돌아야 한다");
       fake.reset();
-      const session = await openSession(core, { role: "app_engineer", app: b });
+      const session = await openSession(core, {
+        role: "project_manager",
+        project: pb as never,
+      });
       fake.script([
         { reply: callImage(annotationOfA) },
         { reply: { kind: "text", text: "cannot" } },
@@ -265,7 +274,7 @@ const ROWS: Row[] = [
 
       // inbox
       const { sessions } = await core.call(agentSessionList, {
-        agent: { role: "app_engineer", app: c },
+        agent: { role: "project_manager", project: created.project },
         archived: "include",
       });
       assertEquals(sessions.length, 0);
@@ -273,7 +282,7 @@ const ROWS: Row[] = [
   },
 ];
 
-Deno.test("annotation 묶음은 그 앱 App Engineer에게만 가고 screenshot은 그 앱 App Engineer만 model에 싣는다", async (t) => {
+Deno.test("annotation 묶음은 그 앱 project의 Project Manager에게만 가고 screenshot은 그 Project Manager만 model에 싣는다", async (t) => {
   const run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -288,11 +297,15 @@ Deno.test("annotation 묶음은 그 앱 App Engineer에게만 가고 screenshot�
         name: slug,
         description: `app ${slug}`,
       }, {});
+    const appA = await app("annotation-a");
+    const appB = await app("annotation-b");
     const ctx: Ctx = {
       core,
       fake,
-      a: (await app("annotation-a")).id,
-      b: (await app("annotation-b")).id,
+      a: appA.id,
+      b: appB.id,
+      pa: appA.project,
+      pb: appB.project,
     };
     for (const row of ROWS) {
       await t.step(row.name, () => row.run(ctx));

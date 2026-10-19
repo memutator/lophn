@@ -18,8 +18,6 @@ export const agentGrantsGetRead: ReadDefinition<typeof agentGrantsGet> = {
       const own = row === undefined ? undefined : agentRefOfColumns({
         role: String(row["role"]) as never,
         project: row["project"] === null ? null : String(row["project"]),
-        // Role 합집합에 app_engineer가 남아 있는 동안 ref 변환이 요구하는 열 자리다.
-        app: null,
         operator: row["operator"] === null ? null : String(row["operator"]),
       });
       if (own === undefined || agentKey(own) !== agentKey(input.agent)) {

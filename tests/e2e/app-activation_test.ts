@@ -1,7 +1,7 @@
 // 세 질문
 // - contract: boundary `app-releases`·`app-data`(migration 전에 복구본을 ledger에 확정하고, 실패하면 복원하고 이전 release를
 //   다시 띄운다. 실패 기록과 event는 같은 tx. 더 새 release가 시작되면 이전 보류 request를 취소한다. 허락은 접수와 적용이
-//   따로라 재시작에 다시 적용한다), `approvals`(선언이 넓어지면 다시 묻는다), `events`(실패가 program -> App Engineer
+//   따로라 재시작에 다시 적용한다), `approvals`(선언이 넓어지면 다시 묻는다), `events`(실패가 program -> Project Manager
 //   reaction으로 이어진다).
 // - 현실적 회귀: migration이 실패했는데 data가 반쯤 바뀐 채 남는 것, 이전 release가 안 뜨는 것, 실패 기록이 없거나 App
 //   Engineer가 모르는 것(두 번 이상 고친 흔적: archived/activation.md의 끊긴 시도·복구본 보존), 선언이 넓어졌는데 묻지 않고
@@ -9,7 +9,7 @@
 // - 왜 지금 test가 못 잡나: 순서와 복원은 unit이 일부 있지만 이전 process 종료 확인, 실제 DB 복원, 새 process 준비 모드,
 //   허락의 재적용은 process를 건너야 한다.
 //
-// fake 대답: App Engineer의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`)가 거는 것이라 행의 fake
+// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`)가 거는 것이라 행의 fake
 // 대답 상한(3)에 세지 않는다(README 정한 것 11). 행마다 줄을 새로 걸어야 하므로 `fake.reset()`을 먼저 한다(그래야 helper가
 // journal에서 이번 ticket을 고른다). 실패한 release의 reaction turn은 새 session이라 기본 줄이 받고, 거기 text 1개를 건다.
 //
@@ -185,7 +185,7 @@ Deno.test("E2E release activation은 실패하면 data와 이전 release를 그�
       (event.event as { subject: string }).subject,
       failing.release,
     );
-    // fake: App Engineer가 이 실패를 안다(새 session의 reaction turn이 기본 줄로 온다).
+    // fake: Project Manager가 이 실패를 안다(새 session의 reaction turn이 기본 줄로 온다).
     const reaction = await until("AE reaction turn 요청", () =>
       Promise.resolve(
         fake.journal().find((entry) =>

@@ -30,7 +30,7 @@ export function withPublicOnly(
       place = read.ok ? read.value.place : null;
     }
     if (place === null) return null;
-    return place.kind === "project" ? place.id : await appProject(place.id);
+    return place.id;
   }
 
   const load: AppApiToolkit["load"] = async (agent) => {

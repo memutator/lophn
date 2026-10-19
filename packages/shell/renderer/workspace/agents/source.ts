@@ -33,8 +33,8 @@ import type {
 
 export type { ReadResult };
 
-/** 이 화면이 다루는 role. protocol의 Role이 줄면(place 정리) Role로 바꾼다. */
-export type AgentRole = Exclude<Role, "app_engineer">;
+/** 이 화면이 다루는 role. */
+export type AgentRole = Role;
 
 /**
  * 목록의 줄. `assignment`는 agent를 가리키는 값이다: 내장 role은 role 이름이고 Operator는 `agt_…` ID다

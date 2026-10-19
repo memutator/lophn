@@ -195,6 +195,6 @@ export const problemSetState = defineCommand({
   }),
   output: z.object({ problem: problemRecordSchema }),
   actors: ["agent", "user"],
-  // forbidden: App Engineer는 자기 앱의 문제만 바꾼다.
+  // forbidden: Project Manager는 자기 앱의 문제만 바꾼다.
   errors: ["not_found", "forbidden", "invalid_input"],
 });

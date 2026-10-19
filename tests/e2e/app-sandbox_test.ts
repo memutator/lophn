@@ -6,7 +6,7 @@
 // - 왜 지금 test가 못 잡나: `sandbox-boundary_test.ts`는 flag를 만드는 쪽을 subprocess 한 번으로 본다. 실제 activation을 거친
 //   앱 process가 정말 막는지는 안 본다.
 //
-// fake 대답: App Engineer의 ticket_create·call·ticket_verify는 앱 activation helper(`activateTestApp`)가 거는 것이라 case의
+// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`activateTestApp`)가 거는 것이라 case의
 // fake 대답 상한(3)에 세지 않는다(README 정한 것 11). 이 case 자신은 model을 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import {

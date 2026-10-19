@@ -57,7 +57,6 @@ const AGENT_LABELS = {
   lophn: "waiting.label.agent-lophn",
   operator: "waiting.label.agent-operator",
   project_manager: "waiting.label.agent-project-manager",
-  app_engineer: "waiting.label.agent-project-manager",
   coding_agent: "waiting.label.agent-coding",
 } as const;
 
@@ -77,9 +76,7 @@ function metaOf(entry: WaitingEntry): string {
     : t("waiting.label.agent-lophn");
   const place = entry.place === null
     ? ""
-    : entry.place.kind === "project"
-    ? t("waiting.label.place-project", { id: shortId(entry.place.id) })
-    : t("waiting.label.place-app", { id: shortId(entry.place.id) });
+    : t("waiting.label.place-project", { id: shortId(entry.place.id) });
   const session = entry.session === null
     ? ""
     : t("waiting.label.session", { id: shortId(entry.session) });

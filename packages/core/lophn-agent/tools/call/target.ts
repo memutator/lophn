@@ -33,20 +33,25 @@ async function operatorOf(
 
 async function placeOf(
   ctx: ToolContext,
-  place: NonNullable<NamedAgent["place"]>,
+  place: { project: string },
 ): Promise<Place | null> {
-  if ("project" in place) {
-    const read = await readOf(ctx.core, projectList, {});
-    const found = read.ok
-      ? read.value.projects.find((project) => project.name === place.project)
-      : undefined;
-    return found === undefined ? null : { kind: "project", id: found.id };
-  }
+  const read = await readOf(ctx.core, projectList, {});
+  const found = read.ok
+    ? read.value.projects.find((project) => project.name === place.project)
+    : undefined;
+  return found === undefined ? null : { kind: "project", id: found.id };
+}
+
+// coding agent는 앱에 묶여 있고 `{ app }` 이름은 그 앱을 가리킨다(앱 place가 아니다).
+async function codingAgentOf(
+  ctx: ToolContext,
+  name: string,
+): Promise<CallAgent | null> {
   const read = await readOf(ctx.core, appList, {});
   const found = read.ok
-    ? read.value.apps.find((app) => app.name === place.app)
+    ? read.value.apps.find((app) => app.name === name)
     : undefined;
-  return found === undefined ? null : { kind: "app", id: found.id };
+  return found === undefined ? null : { role: "coding_agent", app: found.id };
 }
 
 async function named(
@@ -54,23 +59,24 @@ async function named(
   to: NamedAgent,
 ): Promise<CallAgent | null> {
   if (to.role === "lophn") return { role: "lophn" };
-  const place = to.place === undefined ? null : await placeOf(ctx, to.place);
+  if (to.role === "coding_agent") {
+    return to.place !== undefined && "app" in to.place
+      ? await codingAgentOf(ctx, to.place.app)
+      : null;
+  }
+  const place = to.place === undefined || "app" in to.place
+    ? null
+    : await placeOf(ctx, to.place);
   if (to.place !== undefined && place === null) return null;
   switch (to.role) {
     case "project_manager":
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
         : null;
-    case "coding_agent":
-      return place?.kind === "app"
-        ? { role: "coding_agent", app: place.id }
-        : null;
     case "operator":
       return to.name === undefined
         ? null
         : await operatorOf(ctx, to.name, place);
-    default:
-      return null;
   }
 }
 
@@ -91,13 +97,10 @@ async function openSession(
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
         : null;
-    case "coding_agent":
-      return place?.kind === "app"
-        ? { role: "coding_agent", app: place.id }
-        : null;
     case "operator":
       return await operatorOf(ctx, row.name, place);
-    default:
+    case "coding_agent":
+      // session의 place는 앱의 project라 앱을 알 수 없다. 열린 coding session은 이름으로 부른다.
       return null;
   }
 }

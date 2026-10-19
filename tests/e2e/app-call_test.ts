@@ -11,7 +11,7 @@
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
 // 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 api로 끝나는 이름을 골라 부르는 함수 대답이다. tool
-// 이름 규칙(`app__<앱 id>__<api>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 App Engineer
+// 이름 규칙(`app__<앱 id>__<api>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 Project Manager
 // 대답은 행 몫에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {

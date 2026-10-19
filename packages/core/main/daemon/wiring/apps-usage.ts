@@ -37,8 +37,7 @@ function portsOf(sql: Query): UsagePorts {
           return projectOf(
             placeDepsOf(sql).operators.operator(agent.agent)?.place,
           );
-        default:
-          // lophn은 project가 없다. app_engineer는 Role 합집합이 줄 때까지 남은 갈래다.
+        case "lophn":
           return null;
       }
     },

@@ -10,9 +10,9 @@ const APP_A = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const APP_B = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const AGENT = "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza";
 
-// App Engineer(앱 A에 묶임)는 다른 앱의 tool 목록은 읽지만 problem·ticket은 여전히 not_found다.
+// 앱 A에 묶인 Project Manager는 다른 앱의 tool 목록은 읽지만 problem·ticket은 여전히 not_found다.
 // 목록 route가 앱 범위 판정을 하지 않는 것이 problem·ticket으로 번지면 다른 앱 데이터가 샌다.
-Deno.test("App Engineer 자격은 다른 앱의 tool 목록을 읽지만 다른 앱의 problem·ticket은 여전히 not_found다", () => {
+Deno.test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다른 앱의 problem·ticket은 여전히 not_found다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   for (const [id, slug] of [[APP_A, "a"], [APP_B, "b"]]) {

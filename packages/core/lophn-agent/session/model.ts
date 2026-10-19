@@ -221,8 +221,7 @@ export function placeOf(row: AgentSessionRow): Place | null {
 }
 
 export function agentRefOf(row: AgentSessionRow): AgentRef {
-  // protocol의 Role 합집합이 줄기 전까지 ref 변환이 요구하는 열 자리만 채운다.
-  return agentRefOfColumns({ ...row, app: null });
+  return agentRefOfColumns(row);
 }
 
 // 같은 agent인지 가르는 조건. 정체성 열은 role이 정한다.

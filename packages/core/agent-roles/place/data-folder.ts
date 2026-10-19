@@ -7,7 +7,7 @@ export function projectsDataArea(root: string): string {
   return `${root}/projects`;
 }
 
-// project의 data 폴더. 앱 place는 없다(protocol의 Place 합집합이 줄면 type도 project만 받는다).
+// project의 data 폴더.
 export function placeDataFolder(root: string, place: Place): string {
   return `${projectsDataArea(root)}/${place.id}`;
 }

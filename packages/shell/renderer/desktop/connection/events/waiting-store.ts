@@ -146,7 +146,7 @@ export function createWaitingStore(
           kind: "coding_start",
           session,
           agent: known?.agent ?? { role: "coding_agent", app },
-          place: known?.place ?? { kind: "app", id: app },
+          place: known?.place ?? null,
           receivedAt: now(),
         });
         publish();
@@ -198,15 +198,12 @@ export function createWaitingStore(
     kind: "activation" | "reaction",
   ): WaitingEntry {
     const actor = request.intent.actor;
-    const target = request.intent.target;
     return {
       id: request.id,
       kind,
       session: null,
       agent: actor.kind === "agent" ? actor.agent : null,
-      place: target.kind === "activation"
-        ? { kind: "app", id: target.app }
-        : null,
+      place: null,
       receivedAt: request.created_at,
       request,
     };

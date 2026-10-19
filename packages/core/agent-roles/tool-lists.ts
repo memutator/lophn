@@ -51,8 +51,6 @@ const APP_API_TOOLS = ["app.app_api"] as const;
 
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
-  // 아래 app_engineer는 protocol의 Role 합집합이 아직 요구해서 남은 빈 항목이다.
-  app_engineer: [],
   operator: [],
   project_manager: [
     "ticket.create",

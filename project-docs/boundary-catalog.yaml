@@ -41,9 +41,9 @@ elements:
         description: project place와 그 폴더의 파일(문서).
         children:
 
-          - id: contexts
+          - id: kinds
             kind: component
-            description: project 파일 위의 결정적 도메인 계약과 검색 script.
+            description: project의 kind 파일(kinds.yaml)과 그것으로 문서를 읽고 검사하고 조회하는 pipeline.
 
       - id: apps
         kind: subsystem

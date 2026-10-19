@@ -29,7 +29,7 @@ import { questionsArea } from "./screens/questions.tsx";
 import { settingsArea } from "./screens/settings.tsx";
 import type { Area, Group, Page } from "./types.ts";
 
-export const GROUPS: readonly Group[] = [
+const ALL_GROUPS: readonly Group[] = [
   {
     id: "kit",
     title: "Kit",
@@ -76,6 +76,14 @@ export const GROUPS: readonly Group[] = [
     areas: [draftsArea],
   },
 ];
+
+// page가 없는 영역(Drafts를 모두 Screens로 옮긴 뒤 같은)은 싣지 않는다. 목록이 첫 page로 링크를 건다.
+export const GROUPS: readonly Group[] = ALL_GROUPS
+  .map((group) => ({
+    ...group,
+    areas: group.areas.filter((area) => area.pages.length > 0),
+  }))
+  .filter((group) => group.areas.length > 0);
 
 export interface Located {
   readonly group: Group;

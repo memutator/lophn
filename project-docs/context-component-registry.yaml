@@ -257,7 +257,7 @@ components:
   - id: architecture-browser-tab
     kind: doc
     roles: [planner, lead]
-    description: workspace의 browser 탭이 인터넷 page를 여는 길. navigation·popup·permission·download 규칙, persistent session, bookmark 저장.
+    description: workspace의 browser 탭이 인터넷 page를 여는 길. navigation·popup·permission·download 규칙, persistent session, bookmark 저장, terminal의 `$BROWSER`·Ctrl/Cmd-click link를 browser 탭으로 넘기는 bridge.
     path: project-docs/architecture/browser-tab.md
     change_reasons:
       boundaries: [shell]

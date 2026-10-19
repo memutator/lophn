@@ -6,7 +6,7 @@
 
 ```
 Settings › Appearance (renderer/desktop/settings/appearance)
-  고르면 core 선언 설정 shell.*에 저장 ──────────────┐
+  고르면 core 선언 설정 shell.*(아래 표의 key)에 저장 ─┐
   시작 때 core가 준비되면 같은 설정을 읽는다           │
         │ lophnAppearance.set(Appearance 아홉 값)      │
         ▼                                              │

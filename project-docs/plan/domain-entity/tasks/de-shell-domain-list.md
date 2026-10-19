@@ -59,3 +59,8 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- wording catalog `domain.ts`와 `tools/wireframes/mock/domain/`은 이 wave에서 이 task만 고친다. `de-shell-operator-domains`·`de-shell-artifact-domain`은 그 key와 mock을 읽기만 한다.
+- `workspace.tsx`의 `<ArtifactPanel …>` props 줄과 `use-tab-host-slices.ts`는 `de-shell-artifact-domain`이 고친다. Domains 탭의 목록은 탭 안에서 `source.domains(project)`로 따로 읽고, 만들기·보관 뒤 다시 읽는다.

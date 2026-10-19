@@ -8,8 +8,6 @@
   - `packages/shell/renderer/workspace/agents/`
   - `packages/design/wording/catalog/agents.ts`
   - `packages/design/wording/catalog/agents.placeholders.ts`
-  - `packages/design/wording/catalog/domain.ts`
-  - `packages/design/wording/catalog/domain.placeholders.ts`
   - `tools/wireframes/mock/agents-data.ts`
   - `tools/wireframes/pages/screens/agent-settings.tsx`
   - `tools/wireframes/pages/screens/agent-setup/`
@@ -27,10 +25,10 @@
 
 ## 할 일
 
-1. 편집 화면: `editor/definition-form.tsx`에 고른 Draft의 Domains 칸을 올린다(다중 선택, 비면 "All domains of this project/app"). 값은 정의의 `domains`(id 목록)로 저장하고, 읽을 때 지금 그릇에 없는 id는 칸에서 빼고 안내 한 줄을 보인다. `core-source.ts`가 `domains`를 읽고 쓰고, `source.ts`와 `fake-source.ts`/`fake-data.ts`에 `domains(place)`를 더한다.
+1. 편집 화면: `editor/definition-form.tsx`에 고른 Draft(`domain-operator-b`)의 Domains 칸을 올린다(checkbox 목록, 하나도 고르지 않으면 "All domains of this project/app"). Skills는 고른 domain별로 묶는다. 값은 정의의 `domains`(id 목록)로 저장하고, 읽을 때 지금 그릇에 없는 id는 칸에서 빼고 안내 한 줄을 보인다. `core-source.ts`가 `domains`를 읽고 쓰고, `source.ts`와 `fake-source.ts`/`fake-data.ts`에 `domains(place)`를 더한다.
 2. Skills 칸: 고른 domain의 skill만 목록에 보인다. 이미 고른 이름이 목록 밖이면(domain을 바꿨다) 칸에서 빼고 저장 전에 알린다.
 3. grants: `grants-model.ts`의 `appsFor`를 위 계약대로 바꾼다. `GrantApi`에 `domain`(이름)을 싣고(`core-grants.ts`가 `tools[].domain`을 읽는다) 앱의 domain 이름 → id는 `domains(place)`가 아니라 앱의 `domainList`로 얻는다(앱 place 밖 앱은 읽을 수 없으니 public만 남는다). `grants-model_test.ts`를 새 규칙으로 쓴다.
-4. wording: Draft의 `domain` 영역 key를 쓴다(안 쓰는 key는 지우지 않는다. `de-final`이 지운다). `agents` 영역에 필요한 key를 더하고 `deno task wording`으로 생성물을 맞춘다.
+4. wording: Draft의 `domain` 영역 key는 읽기만 한다(그 catalog는 `de-shell-domain-list`만 고친다). 새 key는 `agents` 영역에 더하고 `deno task wording`으로 생성물을 맞춘다.
 5. wireframe: 고른 page를 `agent-settings.tsx`/`agent-setup/`의 Operator 편집 page에 반영한다(고르지 않은 Draft는 건드리지 않는다).
 
 ## 끝남
@@ -51,3 +49,7 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- wording catalog `domain.ts`는 같은 wave의 `de-shell-domain-list`만 고친다(orchestrate: catalog는 한 worker에게만). 이 task는 그 영역 key를 쓰기만 하고 새 key는 `agents` 영역에 둔다.

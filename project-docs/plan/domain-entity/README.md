@@ -8,13 +8,34 @@
 - **재료:**
   - `project-docs/products/roadmap/domain.md`(이 계획의 근거. "모양"과 "정한 것")
   - architecture: `kinds.md`, `artifact.md`, `app-call.md`, `place-session.md`, `agent-definition.md`, `annotation.md`, `coding-agent.md`, `activation.md`, `layers.md`, `workspace-layout.md`
-  - 되돌릴 것의 본보기: 계획 `domain-place` 전의 코드. main `ecda3b15e` 이전 기록의 `packages/core/agent-roles/roles/app-engineer/`, app place, App Engineer 정의·tool 목록·reaction, `<data>/apps/<app>/` 자리. 그 계획의 changelog 항목은 `project-docs/products/change-log/0.5.0.md`의 "앱을 project 하나에 묶고…"다.
+  - 되돌릴 것의 본보기: 계획 `domain-place`의 commit과 그 앞 코드다. `34b2b3542^`, `a66724c30^`, `71c7bcad7^`, `9a18bd8af`, `5d9017800`, `8836b2caa`, `9fe28a39b`, `ca54aa272`, `212513bcb`, `d6b39fe34`. 그 계획의 changelog 항목은 `project-docs/products/change-log/0.5.0.md`의 "앱을 project 하나에 묶고…"다.
   - `project-docs/products/AGENT-ROLE.md`, `project-docs/PRODUCT.md`
 - **범위 밖:**
   - 새 제품 동작. 예외는 domain을 두고 되돌리는 데 필요한 것뿐이다.
   - e2e 다시 쓰기, eval 자료 다시 만들기. 이 계획 뒤에 연다.
 - **돌리는 방식:** worker를 쓴다. orchestrate skill대로 한다. task id는 `de-`로 시작한다.
 - **시작 조건:** 열린 다른 계획이 없다. brief는 지금 main을 보고 쓴다.
+- **단위와 순서:** `tasks/*.md`가 정한다(25개).
+  - wave 1
+    - `de-place-restore`: codemod. Role·Place를 넓히고 `domain-place`의 합침을 type·harness 수준에서 되돌린다. 가장 길다.
+    - `de-domain-core`: domain entity
+    - `de-tool-domain`: tool 선언의 `domain` 칸
+    - `de-drafts`: 화면 Drafts
+  - wave 2: 14개. 10개는 바로 돌고, 4개는 선행 하나씩을 기다린다.
+    - domain을 agent·turn·tool에 싣기
+    - App Engineer role과 지침 되살리기
+    - event·coding 받는 쪽 되돌리기
+    - 앱 저장 자리 되돌리기
+    - kind·공개 tool·package를 domain 단위로
+    - shell의 app space·agents 되돌리기
+    - artifact data
+  - wave 3: `de-place-info`, `de-apps-unbind`
+  - wave 4: `de-names-tool`(`app_api` 계열 이름 codemod)
+  - wave 5: 화면 셋(사람이 Drafts에서 고른 뒤), `de-final`(정리와 남지 않음 grep)
+- **lead가 미리 할 것**
+  - `de-domain-core` 전: 빈 `packages/core/domains/mod.ts`를 만든다. `module-catalog.yaml`과 `boundary-catalog.yaml`에 `domains`를 더한다. 그래야 worker의 check-modules가 통과한다.
+  - wave 1 뒤: `protocol/mod.ts`와 `assembly.ts`에 등록한다. 자리표 `domains` 문자열을 `idSchema("dom")`로 좁힌다.
+  - wave 5 뒤: gallery `GROUPS`에 domain 화면을 더하고 문서를 고친다.
 
 ## 정한 것
 
@@ -65,6 +86,40 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획을 위해 
   - artifact 목록이 domain 단위가 되는 것
   - ui-design skill대로 Drafts를 먼저 그리고, 사람이 고른 뒤 renderer로 옮긴다.
 - **나누는 법:** 되돌리기(role, place, 앱 자리)와 domain entity(protocol, registry)는 계약이 얽힌다. 계약을 먼저 고정하고 영역별로 나눌지, 큰 task 하나로 할지는 brief가 실제 코드를 보고 정한다. 병렬을 최대로 한다.
+
+## brief를 쓰며 정한 것 (planner 검토)
+
+brief worker가 정했고 planner가 받은 것:
+- **domain 이름:** slug이고 보관한 것까지 전체에서 유일하다. 이름 바꾸기와 owner 옮기기는 없다. `domain.archive`·`domain.unarchive`(사람만)를 둔다. 마지막 domain 규칙에 보관이 필요하다.
+- **앱의 domain:** `app.create`가 같은 tx에서 domain `{name: 앱 slug, title: 앱 이름, purpose: 설명}`을 만든다. 그 이름이 이미 있으면 앱을 만들지 않는다(`conflict`). lophn이 다른 이름을 고른다.
+- **agent tool 이름:** `domain__<domain>__<tool>`
+- **`DOMAIN.md` 층:** agent의 domain을 한 층 글로 합친다. 24000자를 넘으면 뒤 domain부터 목적 한 줄로 줄인다.
+- **`ResolvedAgent.domains`:** 고른 것, 또는 그릇의 active domain 전부다. `ToolContext.domains`로 간다.
+- **kind와 problem:** kind와 problem tool은 domain이 둘 이상이면 `domain`을 받는다. route는 `{domain}`을 받는다. `problem.sync_project`·`list_project`는 `problem.sync_domain`·`list_domain`, 표는 `domain_problems`가 된다.
+- **event 받는 쪽:** `KindViolationFound{domain}`, `PublicToolsChanged{release, domain, change, tools}`는 그 domain 그릇의 PM이나 App Engineer에게 간다.
+- **annotation target:** `app | artifact{domain, name} | file{project}`다. file은 사람의 `.html`이다.
+- **role tool**
+  - PM은 ticket, problem, package, source 연결 tool과 `app.app_api`를 잃는다.
+  - App Engineer와 lophn은 `app.tools`(`app.app_api`에서 바뀐 이름)를 쓴다.
+  - 모두 `domain.list`·`domain.get`을 쓰고, PM과 App Engineer는 `domain.create`를 쓴다.
+  - 내장 skill `kinds-yaml`은 PM과 App Engineer가 받는다.
+- **이름**
+  - approval intent kind는 `app_tool`이다(`mcp_tool`과 짝).
+  - route는 `app.tools`·`app.tool_index`다.
+  - SDK는 `@lophn/cap-tool`이다.
+
+planner가 고친 것(brief와 다르면 이것을 따른다. lead가 해당 brief를 고쳐 띄운다):
+- **Operator는 `DOMAIN.md`를 쓰지 않는다.** 고른 domain의 `artifacts/`만 쓴다. `DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer만 쓴다.
+  - 근거: 예전에 Operator는 context 계약을 바꾸지 않고 PM에게 call했다(AGENT-ROLE O6). 같은 자리다.
+  - 대상 brief: `de-place-info`(file 범위)
+- **`domain.create`는 Gate에 묻지 않는다.**
+  - 근거: 예전 context 만들기도 Gate가 없었다. 그릇 안에 만드는 것이라 권한이 넓어지지 않는다.
+  - 대상 brief: `de-roles-core`, `de-domain-core`
+- **package 주인은 domain이 아니라 앱이다(`owner_app`).**
+  - 근거: package는 앱 코드에서 publish되고, 코드의 주인은 App Engineer다. 다른 그릇에서 난 package bug는 그 앱의 App Engineer에게 call한다.
+  - 대상 brief: `de-app-domains`
+- `layers.md`의 core 층 이름 "domain"이 새 module `domains`와 부딪힌다. lead 문서 작업에서 다른 말로 고친다.
+- `artifactNameSchema`는 `protocol/domains`로 옮긴다.
 
 ## e2e
 

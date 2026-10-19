@@ -164,7 +164,9 @@ async function callerName(
   caller: AppApiCaller | null,
 ): Promise<string> {
   if (caller === null) return t("conversation.label.rewind-item-app");
-  if (caller.kind === "person") return t("contexts.label.glossary-by-user");
+  if (caller.kind === "person") {
+    return t("conversation.label.rewind-caller-person");
+  }
   if (caller.kind === "agent") {
     const read = await readSession(env, caller.session);
     return read.ok ? roleLabel(read.value.agent.role) : caller.session;

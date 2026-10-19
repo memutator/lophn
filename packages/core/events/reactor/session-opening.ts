@@ -81,17 +81,6 @@ function callOf(event: NewWork): Omit<CallEnvelope, "call"> {
           `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,
         refs: [{ kind: "ticket", ticket: event.payload.ticket }],
       };
-    case "ContextViolationFound":
-      return {
-        ...base,
-        to: {
-          kind: "new_session",
-          agent: { role: "project_manager", project: event.payload.project },
-        },
-        body:
-          `A new context violation was found in this project. Check: ${event.payload.check}, context: ${event.payload.context}.`,
-        refs: [],
-      };
     case "KindViolationFound":
       return {
         ...base,
@@ -192,10 +181,6 @@ export function registerNewWorkHandlers(
   reactor.on(
     "ReleaseActivationFailed",
     handlerFor("ReleaseActivationFailed", deps),
-  );
-  reactor.on(
-    "ContextViolationFound",
-    handlerFor("ContextViolationFound", deps),
   );
   reactor.on("KindViolationFound", handlerFor("KindViolationFound", deps));
   deps.approvals.registerApplier("reaction", applier(deps));

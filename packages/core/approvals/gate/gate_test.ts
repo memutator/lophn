@@ -20,7 +20,6 @@ const open: ReactionGrant = {
   ProblemReopened: "off",
   AppRestartHalted: "ask",
   ReleaseActivationFailed: "open",
-  ContextViolationFound: "open",
   KindViolationFound: "open",
 };
 

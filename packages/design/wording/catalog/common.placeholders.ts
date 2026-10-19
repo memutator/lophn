@@ -104,7 +104,6 @@ export type CommonPlaceholders = {
   "common.title.pick-folder-relocate": Record<never, never>;
   "common.title.quit": Record<never, never>;
   "common.title.register-coding-agent": Record<never, never>;
-  "contexts.label.glossary-by-user": Record<never, never>;
   "document.button.check-again": Record<never, never>;
   "document.button.read": Record<never, never>;
   "document.label.saving": Record<never, never>;

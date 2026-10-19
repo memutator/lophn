@@ -46,15 +46,6 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
   }),
 });
 
-export const contextViolationFound = defineEvent("ContextViolationFound", {
-  subject: idSchema("prj"),
-  payload: z.strictObject({
-    project: idSchema("prj"),
-    context: idSchema("ctx"),
-    check: idSchema("chk"),
-  }),
-});
-
 // count는 이번 호출에서 새로 열렸거나 다시 열린 위반 수다.
 export const kindViolationFound = defineEvent("KindViolationFound", {
   subject: idSchema("prj"),
@@ -116,7 +107,6 @@ export const DOMAIN_EVENTS = [
   problemReopened,
   appRestartHalted,
   releaseActivationFailed,
-  contextViolationFound,
   kindViolationFound,
   ticketCompletionReported,
   ticketClaimExpired,
@@ -149,7 +139,6 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(problemReopened),
   domainEventEnvelopeSchema(appRestartHalted),
   domainEventEnvelopeSchema(releaseActivationFailed),
-  domainEventEnvelopeSchema(contextViolationFound),
   domainEventEnvelopeSchema(kindViolationFound),
   domainEventEnvelopeSchema(ticketCompletionReported),
   domainEventEnvelopeSchema(ticketClaimExpired),
@@ -168,7 +157,6 @@ const DOMAIN_EVENT_KINDS = {
   ProblemReopened: "new_work",
   AppRestartHalted: "new_work",
   ReleaseActivationFailed: "new_work",
-  ContextViolationFound: "new_work",
   KindViolationFound: "new_work",
   TicketCompletionReported: "call_closing",
   TicketClaimExpired: "call_closing",

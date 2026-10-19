@@ -85,7 +85,6 @@ export const common = {
   "common.title.quit": "Quit lophn?",
   "common.title.register-coding-agent":
     "Register lophn with this coding agent?",
-  "contexts.label.glossary-by-user": "You",
   "document.button.check-again": "Check again",
   "document.button.read": "Read",
   "document.label.saving": "Saving…",

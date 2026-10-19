@@ -109,6 +109,10 @@ export function agentRefOf(
         : undefined;
       return { role, project: found(world.projects[project ?? ""], project) };
     }
+    case "app_engineer": {
+      const app = place !== undefined && "app" in place ? place.app : undefined;
+      return { role, app: found(world.apps[app ?? ""], app) };
+    }
     case "operator":
       return { role, agent: found(world.operators[name ?? ""], name) };
   }

@@ -106,11 +106,10 @@ async function saveCall(deps: Deps, appName: string): Promise<Result<Saved>> {
       item.receiver?.role === "app_engineer" &&
       item.receiver.app === app.id
     );
-  const place = sent?.receiver_place;
-  if (sent === undefined || place === null || place === undefined) {
+  if (sent === undefined) {
     return err({
       code: "not_found",
-      message: `no call to the Project Manager of ${appName}`,
+      message: `no call to the App Engineer of ${appName}`,
     });
   }
   return ok({
@@ -121,7 +120,7 @@ async function saveCall(deps: Deps, appName: string): Promise<Result<Saved>> {
       {
         path: "call.json",
         bytes: json({
-          to: { role: "project_manager", place: { project: place.name } },
+          to: { role: "app_engineer", place: { app: appName } },
           reply: sent.reply,
           body: sent.body,
         }),

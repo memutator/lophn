@@ -2,6 +2,7 @@
 // 이 file은 operator 폴더 시나리오의 hash에 든다.
 import type { Participant } from "../../types.ts";
 
+// ledger-project는 apps-home이 앱 옆에 만든 보통 project다(`restoreAppProject`).
 export const OP_월말정리: Participant = {
   role: "operator",
   name: "월말정리",
@@ -12,9 +13,9 @@ export const OP_세무정리: Participant = {
   name: "세무정리",
   place: { project: "tax" },
 };
-export const PM_ledger: Participant = {
-  role: "project_manager",
-  place: { project: "ledger-project" },
+export const AE_가계부: Participant = {
+  role: "app_engineer",
+  place: { app: "가계부" },
 };
 export const PM_tax: Participant = {
   role: "project_manager",

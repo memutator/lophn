@@ -4,22 +4,22 @@ import { type CallWhere, sentCalls, toolCallsOf } from "../../checks/mod.ts";
 import type { Participant, TrialRecord } from "../../types.ts";
 
 export const LOPHN: Participant = { role: "lophn" };
-// 앱마다 project가 하나씩 있다. 이름은 apps-home 같은 재료가 만든 `<slug>-project`다.
-export const PM_ledger: Participant = {
-  role: "project_manager",
-  place: { project: "ledger-project" },
+// 앱의 일은 그 앱의 App Engineer가 받는다. 이름은 app.name이다.
+export const AE_가계부: Participant = {
+  role: "app_engineer",
+  place: { app: "가계부" },
 };
-export const PM_todo: Participant = {
-  role: "project_manager",
-  place: { project: "todo-project" },
+export const AE_할일: Participant = {
+  role: "app_engineer",
+  place: { app: "할일" },
 };
-export const PM_calendar: Participant = {
-  role: "project_manager",
-  place: { project: "calendar-project" },
+export const AE_캘린더: Participant = {
+  role: "app_engineer",
+  place: { app: "캘린더" },
 };
-export const PM_notify: Participant = {
-  role: "project_manager",
-  place: { project: "notify-project" },
+export const AE_알림: Participant = {
+  role: "app_engineer",
+  place: { app: "알림" },
 };
 export const PM_tax: Participant = {
   role: "project_manager",

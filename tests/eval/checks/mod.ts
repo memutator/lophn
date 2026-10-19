@@ -11,4 +11,4 @@ export type { CallWhere } from "./records.ts";
 export { runProgramChecks } from "./run.ts";
 export { validateFixtures } from "./validate.ts";
 export { fixtureAppCreate, fixtureSession, fixtureTrial } from "./fixtures.ts";
-export type { FixtureCall, FixtureTarget, FxStep } from "./fixtures.ts";
+export type { FixtureCall, FxStep } from "./fixtures.ts";

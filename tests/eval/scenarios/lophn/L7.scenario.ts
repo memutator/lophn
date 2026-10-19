@@ -16,7 +16,7 @@ const READS = [read("problem.list"), read("ticket.list")];
 
 const scenario: Scenario = {
   id: "L7",
-  n: 3,
+  n: 4,
   proposal: true,
   world: ["apps-home@1"],
   real: [LOPHN],

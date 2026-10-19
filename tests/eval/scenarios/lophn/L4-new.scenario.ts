@@ -3,13 +3,12 @@ import {
   callAfterAppCreate,
   fixtureAppCreate,
   fixtureSession,
-  type FixtureTarget,
   fixtureTrial,
   toolCount,
 } from "../../checks/mod.ts";
 import { relayCompleteInput } from "../../judge/mod.ts";
 import { say, type Scenario, sentCall, untilIdle } from "../../types.ts";
-import { firstCallBody, LOPHN, PM_notify } from "./common.ts";
+import { AE_알림, AE_캘린더, firstCallBody, LOPHN, PM_tax } from "./common.ts";
 
 // 산출물 call이 calendar-call의 후보가 되어 calendar-mvp의 apiAnswers가 그 call로 만든 앱을 부르므로,
 // 사람 말에 tool key와 입력·출력이 있어야 lophn이 옮길 수 있다. 알림 앱·package, 알림 시각, 주의 정의는 일부러 쓰지 않는다.
@@ -22,19 +21,9 @@ const REQUEST =
 const BODY =
   `캘린더 앱을 만든다. 사람이 원하는 것: 일정을 넣고, 목록으로 보고, 지우고, 일정 전에 알림을 받는 것. tool은 아래 key와 입력·출력으로 만든다. 시각은 쓰는 사람의 지역 시각이다.\n${API}`;
 
-// Participant에 App Engineer가 아직 없어 fixture 받는 쪽 type으로 둔다.
-const ENGINEER_calendar: FixtureTarget = {
-  role: "app_engineer",
-  place: { app: "캘린더" },
-};
-const ENGINEER_notify: FixtureTarget = {
-  role: "app_engineer",
-  place: { app: "알림" },
-};
-
 const scenario: Scenario = {
   id: "L4-new",
-  n: 4,
+  n: 5,
   proposal: true,
   world: ["notify-app@2", "date-range@2"],
   real: [LOPHN],
@@ -61,7 +50,7 @@ const scenario: Scenario = {
       fixtureTrial([
         fixtureSession(LOPHN, [
           fixtureAppCreate("캘린더"),
-          { call: { to: ENGINEER_calendar, reply: "none", body: BODY } },
+          { call: { to: AE_캘린더, reply: "none", body: BODY } },
         ]),
       ]),
     ],
@@ -77,7 +66,7 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
-            { call: { to: PM_notify, reply: "none", body: BODY } },
+            { call: { to: PM_tax, reply: "none", body: BODY } },
           ]),
         ]),
         fails: ["app-create-once", "call-after-app-create"],
@@ -86,7 +75,7 @@ const scenario: Scenario = {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
             fixtureAppCreate("캘린더"),
-            { call: { to: ENGINEER_notify, reply: "none", body: BODY } },
+            { call: { to: AE_알림, reply: "none", body: BODY } },
           ]),
         ]),
         fails: ["call-after-app-create"],

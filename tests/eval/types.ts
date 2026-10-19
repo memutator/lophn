@@ -69,12 +69,9 @@ export type RegistryEntry = {
 
 // ---- 참가자와 단계 ----
 
-// 글(place, name)은 call 도구의 `to`가 맞추는 이름과 같다: project는 project.name(예 "tax". 앱의 project는
-// `<slug>-project`, 예 "ledger-project"), Operator는 자기 name. 앱의 일은 그 project의 Project Manager가 맡는다.
-// App Engineer는 아직 참가자로 쓰지 않는다.
-export type Participant = Omit<NamedAgent, "role"> & {
-  role: Exclude<Role, "app_engineer">;
-};
+// 글(place, name)은 call 도구의 `to`가 맞추는 이름과 같다: 앱은 app.name(예 "가계부"), project는 project.name
+// (예 "tax"), Operator는 자기 name. 앱의 일은 그 앱의 App Engineer가 맡는다.
+export type Participant = Omit<NamedAgent, "role"> & { role: Role };
 
 // coding agent는 앱 하나에 붙는다. place.app은 app.name이다(Participant의 place와 같은 이름 규칙).
 // Step.say의 to는 Participant 그대로다(coding agent에게는 말하지 않는다).
@@ -159,7 +156,7 @@ export type HumanSpec = { card: string; approve: ApproveRule };
 // 쓰기는 runner가 `tests/eval/materials/<이름>/<n+1>/`에 한다.
 export type SaveSource =
   | { kind: "active_app"; app: string } // 켜진 앱: source repo(blueprint 포함)와 manifest, active 표시
-  | { kind: "call"; app: string }; // lophn이 그 앱의 Project Manager에게 보낸 첫 call의 본문(SentCall.body)과 받는 쪽
+  | { kind: "call"; app: string }; // lophn이 그 앱의 App Engineer에게 보낸 첫 call의 본문(SentCall.body)과 받는 쪽
 export type Save = Record<string, SaveSource>;
 
 export type Scenario = {
@@ -178,7 +175,7 @@ export type Scenario = {
 
 // ---- 수집한 기록 ----
 
-export type PlaceName = { kind: "project"; id: string; name: string }; // name은 project.name
+export type PlaceName = { kind: "app" | "project"; id: string; name: string }; // name은 app.name이나 project.name
 
 export type CollectedModelCall = {
   call: ModelCallRecord;

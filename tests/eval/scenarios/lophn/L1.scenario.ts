@@ -14,7 +14,7 @@ const REQUEST = "가계부 비슷한 걸 만들고 싶은데 아직 잘 모르�
 
 const scenario: Scenario = {
   id: "L1",
-  n: 3,
+  n: 4,
   proposal: true,
   world: [],
   real: [LOPHN],

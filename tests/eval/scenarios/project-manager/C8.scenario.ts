@@ -15,7 +15,7 @@ const TO_LOPHN = { target: LOPHN, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "C8",
-  n: 2,
+  n: 3,
   proposal: true,
   world: ["projects-home@1"],
   real: [PM_tax],

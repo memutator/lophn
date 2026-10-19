@@ -17,13 +17,8 @@ import type {
 
 const AT = "2026-01-01T00:00:00.000Z";
 
-// 받는 쪽. Participant에 App Engineer가 들어오면 이 type은 Participant로 접는다.
-export type FixtureTarget =
-  | Participant
-  | { role: "app_engineer"; place: { app: string } };
-
 export type FixtureCall = {
-  to: FixtureTarget;
+  to: Participant;
   reply: CallReply;
   fail?: "denied" | "not_found" | "not_allowed" | "closed";
   body?: string;
@@ -40,9 +35,12 @@ export type FxStep =
   }
   | { call: FixtureCall };
 
-function placeName(p: FixtureTarget): PlaceName | null {
+function placeName(p: Participant): PlaceName | null {
   const place = p.place;
-  if (place === undefined || !("project" in place)) return null;
+  if (place === undefined) return null;
+  if ("app" in place) {
+    return { kind: "app", id: `app_fx_${place.app}`, name: place.app };
+  }
   return {
     kind: "project",
     id: `prj_fx_${place.project}`,
@@ -50,7 +48,7 @@ function placeName(p: FixtureTarget): PlaceName | null {
   };
 }
 
-function refOf(p: FixtureTarget): AgentRef {
+function refOf(p: Participant): AgentRef {
   const place = placeName(p);
   switch (p.role) {
     case "lophn":
@@ -60,7 +58,7 @@ function refOf(p: FixtureTarget): AgentRef {
     case "operator":
       return { role: "operator", agent: `agt_fx_${p.name ?? ""}` } as AgentRef;
     case "app_engineer":
-      return { role: "app_engineer", app: `app_fx_${p.place.app}` };
+      return { role: "app_engineer", app: place!.id } as AgentRef;
   }
 }
 

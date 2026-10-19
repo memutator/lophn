@@ -13,7 +13,7 @@ const REQUEST = "인사 프로젝트에도 Operator를 만들어 줘";
 
 const scenario: Scenario = {
   id: "C9-other",
-  n: 2,
+  n: 3,
   proposal: false,
   world: ["projects-home@1"],
   real: [PM_tax],

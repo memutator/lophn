@@ -6,6 +6,7 @@ import {
 } from "../../../packages/core/agent-roles/roles/guides.ts";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
+import type { Role } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { toWireToolName } from "../../../packages/protocol/lophn-agent/tool-catalog.ts";
 import type {
   CollectedModelCall,
@@ -31,7 +32,14 @@ import {
   type VariantTexts,
 } from "./registry.ts";
 
-const ROLES = ["lophn", "project_manager", "operator"];
+// Role이 늘면 type check가 여기서 빠짐을 잡는다.
+const ROLE_SET: Record<Role, true> = {
+  lophn: true,
+  project_manager: true,
+  app_engineer: true,
+  operator: true,
+};
+export const ROLES = Object.keys(ROLE_SET);
 const SKILL_ROOTS = [
   "packages/core/agent-roles/skills",
   "packages/coding-agent/guides/skills",

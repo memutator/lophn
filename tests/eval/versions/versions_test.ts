@@ -189,6 +189,7 @@ Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거�
       role_prompts: {
         lophn: variantLophn,
         project_manager: "pm",
+        app_engineer: "ae",
         operator: "op",
       },
       guides: {},

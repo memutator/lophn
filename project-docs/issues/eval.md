@@ -56,7 +56,7 @@ kind: bug
 modules: [tests]
 ```
 
-지금: `tests/eval/materials/{calendar-app,calendar-app-bug,notify-app}/1/files/source`의 `blueprint.ts.tmpl`은 선언을 `app_api[]`(`key`, `label`, `input`, `project_scope`)로 쓰고, `src/app-api.ts.tmpl`과 `tests/*_test.ts.tmpl`은 `appApi`, `AppApiRejection`, `registeredAppApis`를 쓴다. 계획 `domain-tools`가 선언을 `tools[]`(`name`, `title`, `inputSchema`, `effect`, `public`)로 바꾸고 `project_scope`를 알 수 없는 칸으로 거절하며 SDK 이름을 `tool`, `ToolRejection`, `registeredTools`로 바꾼다. 이 material로 앱을 까는 scenario(`tests/eval/scenarios/calendar/*`, `L4-new` 등)는 release 준비에서 blueprint 검사에 걸린다. 계획 `domain-entity`부터는 tool 선언마다 `domain`(그 앱의 domain 이름)도 필수다(`packages/protocol/apps/blueprint/app-api.ts`의 `validateScreensAndTools`).
+지금: `tests/eval/materials/{calendar-app,calendar-app-bug,notify-app}/1/files/source`의 `blueprint.ts.tmpl`은 선언을 `app_api[]`(`key`, `label`, `input`, `project_scope`)로 쓰고, `src/app-api.ts.tmpl`과 `tests/*_test.ts.tmpl`은 `appApi`, `AppApiRejection`, `registeredAppApis`를 쓴다. 계획 `domain-tools`가 선언을 `tools[]`(`name`, `title`, `inputSchema`, `effect`, `public`)로 바꾸고 `project_scope`를 알 수 없는 칸으로 거절하며 SDK 이름을 `tool`, `ToolRejection`, `registeredTools`로 바꾼다. 이 material로 앱을 까는 scenario(`tests/eval/scenarios/calendar/*`, `L4-new` 등)는 release 준비에서 blueprint 검사에 걸린다. 계획 `domain-entity`부터는 tool 선언마다 `domain`(그 앱의 domain 이름)도 필수다(`packages/protocol/apps/blueprint/tools.ts`의 `validateScreensAndTools`).
 
 영향: 이 material을 쓰는 eval experiment가 앱을 깔지 못해 돌지 않는다.
 

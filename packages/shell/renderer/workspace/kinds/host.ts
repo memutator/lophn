@@ -4,12 +4,9 @@
 import type { TabItem, WorkspaceView } from "../model.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
-import type { SearchTabState } from "../contexts/search-tab.tsx";
-import type { ContextsSource } from "../contexts/source.ts";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
-import type { ContextChipView } from "../../conversation/composer/types.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
@@ -17,23 +14,6 @@ import type { TabDot } from "../../parts/tab-strip/tab-strip.tsx";
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {
   noteReadPosition(document: string, position: ReadPosition): void;
-}
-
-/** Contexts·Context·Search 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.contexts는 null이다. */
-export interface ContextsSlice {
-  readonly source: ContextsSource;
-  /** 이 프로젝트의 context 목록. 여는 때(Contexts 탭, sidebar의 Context 모양, 새 탭 menu)만 읽어 둔다. */
-  readonly list: readonly { readonly id: string; readonly title: string }[];
-  /** 목록에 있는 context의 이름. */
-  titleOf(context: string): string | undefined;
-  /** context를 보관하거나 풀었다. 작업대가 가진 목록을 다시 읽는다. */
-  refresh(): void;
-  /** 고른 검색이나 저장한 보기를 그 context의 Search 탭에서 연다. 열려 있으면 그 탭을 고른다. */
-  openSearch(state: SearchTabState): void;
-  /** 검색 결과·Overview 예시의 도메인 객체를 그 파일 탭으로 연다. 상대 경로는 연결 폴더 기준이다. */
-  openPath(path: string): void;
-  /** Project Manager의 Agent 탭을 연다. 열린 PM session이 있으면 그 탭을, 없으면 새 탭을 연다. chips는 넘길 위반 근거이고 다음에 보내는 말에 실려 간다. */
-  askProjectManager(chips?: readonly ContextChipView[]): void;
 }
 
 /** Agents 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.agents는 null이다. */
@@ -105,7 +85,6 @@ export interface TabHost {
   ): void;
   removeTab(key: string): void;
   readonly document: DocumentSlice;
-  readonly contexts: ContextsSlice | null;
   readonly agents: AgentsSlice | null;
   readonly agentView: AgentViewSlice | null;
 }

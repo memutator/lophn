@@ -1,6 +1,6 @@
 // 제품 core 통로의 WorkspaceSource. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다.
 // 응답은 main의 contract client가 route output schema로 이미 검사했다. 아래 응답 모양은
-// projects.get, documents.list·get, context.list, files.list schema에서 작업대가 읽는 field만
+// projects.get, documents.list·get, files.list schema에서 작업대가 읽는 field만
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
 import type { FilesApi } from "../../ipc/files.ts";
@@ -10,7 +10,6 @@ import type {
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
-import { coreContextsSource } from "./contexts/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
   FileOpResult,
@@ -194,9 +193,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
   return {
     project,
-
-    // Contexts·Context·Search 탭은 같은 core 통로로 읽고 보낸다.
-    contextsSource: coreContextsSource(core),
 
     // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),

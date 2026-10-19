@@ -8,8 +8,6 @@ import { agentsKind } from "./agents.tsx";
 import { appPanelKind } from "./app-panel.tsx";
 import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
-import { contextKind } from "./context.tsx";
-import { contextsKind } from "./contexts.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
 import type { TabKindDef } from "./kind.ts";
 import { searchKind } from "./search.tsx";
@@ -19,8 +17,6 @@ const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   appPanelKind,
   terminalKind,
-  contextsKind,
-  contextKind,
   searchKind,
   agentsKind,
   agentKind,

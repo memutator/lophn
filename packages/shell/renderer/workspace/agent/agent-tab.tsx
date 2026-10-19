@@ -7,7 +7,6 @@ import {
   AgentView,
   type AgentViewHost,
 } from "../../conversation/agent-view.tsx";
-import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
 import type { AgentViewSlice } from "../kinds/host.ts";
 import styles from "./agent-tab.module.css";
 
@@ -23,8 +22,6 @@ interface AgentTabProps {
   /** 지금 탭 제목. source가 읽은 agent 이름과 다를 때만 고친다. */
   title: string;
   onTitle: (name: string) => void;
-  chips?: readonly ContextChipView[];
-  onChips: (chips: readonly ContextChipView[]) => void;
 }
 
 export function AgentTab(props: AgentTabProps) {
@@ -60,8 +57,6 @@ export function AgentTab(props: AgentTabProps) {
       session={props.session}
       onSessionChange={props.onSession}
       host={props.host}
-      {...(props.chips === undefined ? {} : { contextChips: props.chips })}
-      onContextChips={props.onChips}
       {...(slice.now === undefined ? {} : { now: slice.now })}
     />
   );

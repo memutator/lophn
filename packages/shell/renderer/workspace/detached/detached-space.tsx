@@ -26,7 +26,7 @@ import {
 import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import type { FileRow, ProjectView, WorkspaceSource } from "../source.ts";
+import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { useTabHostSlices } from "../use-tab-host-slices.ts";
 import { tabKindOf } from "../kinds/registry.ts";
 import type { TabHost } from "../kinds/host.ts";
@@ -121,14 +121,10 @@ function DetachedTab(
   const def = tabKindOf(tab.kind);
 
   const [projectView, setProjectView] = useState<ProjectView | null>(null);
-  const [files, setFiles] = useState<readonly FileRow[]>([]);
   useEffect(() => {
     let live = true;
     void workspace.project(project).then((read) => {
       if (live && read.ok) setProjectView(read.value);
-    });
-    void workspace.files(project).then((read) => {
-      if (live && read.ok) setFiles(read.value);
     });
     return () => {
       live = false;
@@ -138,7 +134,6 @@ function DetachedTab(
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
   const {
-    contexts,
     agentView,
     agents,
     covers,
@@ -149,8 +144,6 @@ function DetachedTab(
     source: workspace,
     agentViewSource,
     host: () => hostRef.current,
-    projectView,
-    files,
     onSettings: noop,
   });
   const key = taken.tab.key;
@@ -214,7 +207,6 @@ function DetachedTab(
       if (target === tabRef.current.key) void api.remove().catch(() => {});
     },
     document: { noteReadPosition: noop },
-    contexts,
     agents,
     agentView,
   };

@@ -1,6 +1,5 @@
-// 탭 안 정보 panel. 본문 위에 떠서 그 칸 오른쪽에 붙고 본문 폭은 줄지 않는다. 탭은 Info와
-// Contexts 둘이고 Outline은 Info 안에 있다. Contexts 탭의 내용은 부른 쪽이 끼운다.
-import type { ReactNode } from "react";
+// 탭 안 정보 panel. 본문 위에 떠서 그 칸 오른쪽에 붙고 본문 폭은 줄지 않는다. 탭은 Info 하나이고
+// Outline은 Info 안에 있다.
 import { Button } from "@lophn/ui/primitives";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { formatRelativeTime, t } from "@lophn/wording";
@@ -8,7 +7,7 @@ import { formatRelativeTime, t } from "@lophn/wording";
 import { formatSize, type OutlineSection } from "../model.ts";
 import styles from "./info-panel.module.css";
 
-export type InfoTabId = "info" | "contexts";
+export type InfoTabId = "info";
 
 export interface FileInfoPanelProps {
   tab: InfoTabId;
@@ -24,8 +23,6 @@ export interface FileInfoPanelProps {
   /** 지금 읽는 절의 key. */
   currentKey?: string;
   onJump: (section: OutlineSection) => void;
-  /** Contexts 탭의 내용. 통로가 없으면 탭을 두지 않는다. */
-  contexts?: ReactNode;
   now?: () => number;
 }
 
@@ -40,7 +37,6 @@ export function FileInfoPanel(
     outline,
     currentKey,
     onJump,
-    contexts,
     now = Date.now,
   }: FileInfoPanelProps,
 ) {
@@ -49,9 +45,6 @@ export function FileInfoPanel(
       <Tabs value={tab} onValueChange={(value) => onTab(value as InfoTabId)}>
         <TabList>
           <Tab value="info">{t("document.button.info")}</Tab>
-          {contexts === undefined
-            ? null
-            : <Tab value="contexts">{t("document.label.contexts")}</Tab>}
         </TabList>
         <TabPanel value="info">
           <dl className={styles.facts} data-info-facts="">
@@ -112,9 +105,6 @@ export function FileInfoPanel(
             </>
           )}
         </TabPanel>
-        {contexts === undefined
-          ? null
-          : <TabPanel value="contexts">{contexts}</TabPanel>}
       </Tabs>
     </aside>
   );

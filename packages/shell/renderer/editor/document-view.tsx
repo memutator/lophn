@@ -1,7 +1,6 @@
 // 파일 탭 본문. 탭 key는 파일 경로이고 확장자로 viewer를 고른다: md는 live preview 편집기, JSON·
 // YAML·코드 같은 text는 CodeMirror 편집기, 이미지와 pdf는 보기만 한다. 파일은 shell main이
 // 디스크에서 직접 읽고 쓴다(project 밖 파일도 같다).
-import type { ReactNode } from "react";
 
 import { fileKindOf } from "./model.ts";
 import { MediaFileView } from "./media-file-view.tsx";
@@ -34,8 +33,6 @@ export interface DocumentViewProps extends EditorDeps {
   line?: number;
   /** 같은 줄을 다시 열 때 바뀐다. 줄로 다시 scroll한다. */
   lineNonce?: number;
-  /** Info의 Contexts 탭 내용. 없으면 그 탭을 두지 않는다. */
-  contexts?: (path: string) => ReactNode;
   /** 지우기. 지웠으면 true, 못 지웠으면 false다. 탭을 닫는 일은 부른 쪽이 한다. */
   onDelete: () => Promise<boolean>;
   onMeta?: (meta: DocumentTabMeta) => void;

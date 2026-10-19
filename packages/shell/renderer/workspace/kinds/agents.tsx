@@ -5,7 +5,7 @@ import { t } from "@lophn/wording";
 
 import { AgentsPage } from "../agents/agents-page.tsx";
 import { OPERATOR_ID } from "../agents/agent-key.ts";
-import { TAB_KEY } from "../contexts/tab-fields.ts";
+import { TAB_KEY } from "../agent/tab-fields.ts";
 import type { TabItem } from "../model.ts";
 import { PaddedTab } from "../panes/padded-tab.tsx";
 import type { TabHost } from "./host.ts";

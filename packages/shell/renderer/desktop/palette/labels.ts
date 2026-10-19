@@ -14,8 +14,6 @@ export function groupLabel(group: PaletteGroup): string {
       return t("common.heading.palette-tabs");
     case "files":
       return t("common.heading.palette-files");
-    case "contexts":
-      return t("common.heading.palette-contexts");
     case "bookmarks":
       return t("browser.heading.palette-bookmarks");
     case "actions":

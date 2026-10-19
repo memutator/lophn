@@ -12,7 +12,6 @@ import {
   conversationIcons,
   editorIcons,
   settingsIcons,
-  workspaceIcons,
 } from "../../icons/mod.ts";
 import styles from "./slash-menu.module.css";
 import type {
@@ -61,7 +60,6 @@ const ICONS: Readonly<Record<string, IconType>> = {
   "new-app": commonIcons.apps,
   "repair-app": editorIcons.restore,
   "check-contracts": editorIcons.problem,
-  "new-context": workspaceIcons.context,
 };
 
 function iconOf(entry: SlashEntryView): IconType {

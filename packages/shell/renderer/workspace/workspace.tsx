@@ -56,7 +56,6 @@ import {
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/rail.tsx";
-import { ContextSidebar } from "./contexts/context-sidebar.tsx";
 import {
   agentByRole,
   type KnownSessions,
@@ -88,18 +87,15 @@ import {
 } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
-import type { ContextChipView } from "../conversation/composer/types.ts";
 import type { TabHost } from "./kinds/host.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
-import { openContext } from "./kinds/context.tsx";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
 import { openAgents } from "./kinds/agents.tsx";
-import { openContexts } from "./kinds/contexts.tsx";
-import { openSearchFor, openSearchShortcut } from "./kinds/search.tsx";
+import { openSearchShortcut } from "./kinds/search.tsx";
 import { tabKindOf } from "./kinds/registry.ts";
 import { openFile } from "./kinds/document-editor.tsx";
 import { openTerminal as openTerminalTab } from "./kinds/terminal.tsx";
@@ -148,8 +144,8 @@ export interface WorkspaceProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
-  /** 처음 열 때 한 번 Project Manager를 위반(context와 검사)을 붙여 연다. */
-  projectManager?: { readonly context: string; readonly check: string };
+  /** 처음 열 때 한 번 Project Manager를 연다. */
+  projectManager?: true;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
   open?: { readonly path: string; readonly line?: number };
 }
@@ -199,8 +195,6 @@ export function Workspace(props: WorkspaceProps) {
     onProjectInstructions,
     terminal,
   } = props;
-  // Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지 않는다.
-  const contextsSource = source.contextsSource;
   const browserApi = useBrowserApi();
   const bookmarkList = useBookmarks();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
@@ -209,10 +203,6 @@ export function Workspace(props: WorkspaceProps) {
   const {
     sidebarAgents,
     sessionStates,
-    contextList,
-    setContextList,
-    readContexts,
-    contexts,
     agentView,
     agents,
     covers,
@@ -224,8 +214,6 @@ export function Workspace(props: WorkspaceProps) {
     source,
     agentViewSource,
     host: () => host,
-    projectView: loaded.project,
-    files: loaded.files,
     onSettings,
     onProjectInstructions,
   });
@@ -289,13 +277,12 @@ export function Workspace(props: WorkspaceProps) {
       if (!live) return;
       setLoaded({
         project: project.ok ? project.value : null,
-        // 파일 목록은 팔레트와 검색 결과 링크만 쓴다. 읽지 못해도 작업대는 그대로 연다.
+        // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
         files: files.ok ? files.value : [],
         failed: !project.ok,
       });
       if (layout.ok && layout.available) {
         const restored = viewFromStored(layout.layout);
-        // 복원한 Context 탭은 읽은 뒤 스스로 이름을 얻는다.
         if (restored) {
           setView(restored);
           setFloatFocused(false);
@@ -525,14 +512,11 @@ export function Workspace(props: WorkspaceProps) {
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
-  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. chips가 있으면 첫 말 전에 붙인다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
-  const openRole = (
-    role: "lophn" | "project_manager",
-    chips?: readonly ContextChipView[],
-  ): boolean => {
+  // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
+  const openRole = (role: "lophn" | "project_manager"): boolean => {
     const row = agentByRole(sidebarAgents.agents, role);
     if (agentViewSource === undefined || row === undefined) return false;
-    openAgent(host, { agent: row.assignment, name: row.name, chips });
+    openAgent(host, { agent: row.assignment, name: row.name });
     return true;
   };
 
@@ -566,7 +550,6 @@ export function Workspace(props: WorkspaceProps) {
     patchTab,
     removeTab,
     document: { noteReadPosition: notePosition },
-    contexts,
     agents,
     agentView,
   };
@@ -587,12 +570,11 @@ export function Workspace(props: WorkspaceProps) {
   useToastHandler({
     project: projectId,
     openSession: openSessionTab,
-    openProjectManager: (context, check) =>
-      openProjectManager(reactionEnv, { context, check }),
+    openProjectManager: () => openProjectManager(reactionEnv),
   });
 
   // 시작 route(session·Project Manager·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
-  const started = useRef<{ session?: string; pm?: object; open?: object }>({});
+  const started = useRef<{ session?: string; pm?: true; open?: object }>({});
   useEffect(() => {
     if (readyProject !== projectId) return;
     const { session, projectManager, open } = props;
@@ -605,7 +587,7 @@ export function Workspace(props: WorkspaceProps) {
     }
     if (
       projectManager !== undefined && started.current.pm !== projectManager &&
-      openProjectManager(reactionEnv, projectManager)
+      openProjectManager(reactionEnv)
     ) {
       started.current.pm = projectManager;
     }
@@ -912,30 +894,10 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // 접힌 sidebar의 바로 가기 rail. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
-  const openContextsTab = () => {
-    readContexts();
-    openContexts(host);
-  };
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "agent") openRole("lophn");
-    else if (action === "search") openSearchShortcut(host);
-    else if (contexts === null) return;
-    else if (action === "contexts") openContextsTab();
-    else {
-      // 저장한 보기는 context의 Search 탭에 있다. 첫 context의 Search 탭을 연다.
-      const first = contextList[0];
-      if (first === undefined) openContextsTab();
-      else {
-        openSearchFor(host, {
-          context: first.id,
-          search: null,
-          inputs: {},
-          page: 0,
-          savedView: null,
-        });
-      }
-    }
+    else openSearchShortcut(host);
   };
 
   const pickFile = filePicker();
@@ -946,7 +908,6 @@ export function Workspace(props: WorkspaceProps) {
     workspaceScope({
       view,
       files: loaded.files,
-      contexts: contextList,
       bookmarks: bookmarkList.state === "ok" ? bookmarkList.bookmarks : [],
       terminal: terminal !== undefined,
       platform: palette.platform,
@@ -964,7 +925,6 @@ export function Workspace(props: WorkspaceProps) {
             ),
           });
         } else if (target.kind === "document") openDocumentRow(target.document);
-        else if (target.kind === "context") openContext(host, target.id);
         else if (target.kind === "bookmark") openBrowserTab(host, target.url);
         else if (target.action === "launcher") onLauncher();
         else if (target.action === "settings") onSettings();
@@ -1146,25 +1106,6 @@ export function Workspace(props: WorkspaceProps) {
                 width={sidebarShown.width}
                 project={loaded.project}
                 source={source}
-                contextPanel={contextsSource === undefined
-                  ? null
-                  : (
-                    <ContextSidebar
-                      source={contextsSource}
-                      project={projectId}
-                      onLoaded={setContextList}
-                      onOpenContext={(item) =>
-                        openContext(host, item.id, undefined, item.title)}
-                      onOpenSavedView={(view) =>
-                        openSearchFor(host, {
-                          context: view.context,
-                          search: view.search,
-                          inputs: view.inputs,
-                          page: 0,
-                          savedView: view.id,
-                        })}
-                    />
-                  )}
                 agents={sidebarAgents.agents}
                 sessions={panelSessions(
                   sessionStates,
@@ -1334,7 +1275,6 @@ export function Workspace(props: WorkspaceProps) {
                   onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
                   newTab={
                     <NewTabMenu
-                      onOpen={readContexts}
                       {...(pickFile === undefined ? {} : {
                         onDocument: () =>
                           void pickFile().then((path) => {
@@ -1361,10 +1301,6 @@ export function Workspace(props: WorkspaceProps) {
                             openAgent(host, { agent: id, name: row.name });
                           }
                         },
-                      })}
-                      {...(contexts === null ? {} : {
-                        contexts: contextList,
-                        onContext: (id: string) => openContext(host, id),
                       })}
                       {...(source.searchSource === undefined ? {} : {
                         onSearch: () => openSearchShortcut(host),

@@ -1,8 +1,7 @@
-// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 밑줄 글자 탭 Explorer / Context / Agent
-// 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다. Context 모양의 본문은 부르는 쪽이 slot으로 준다.
+// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 밑줄 글자 탭 Explorer / Agent
+// 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다.
 import {
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
   useEffect,
   useState,
 } from "react";
@@ -21,14 +20,14 @@ import type { SidebarAgent } from "./sidebar-agent.ts";
 import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
 import styles from "./project-sidebar.module.css";
 
-export type SidebarTab = "explorer" | "context" | "agent";
+export type SidebarTab = "explorer" | "agent";
 
 export interface Reveal {
   readonly path: string;
   readonly nonce: number;
 }
 
-const TABS: readonly SidebarTab[] = ["explorer", "context", "agent"];
+const TABS: readonly SidebarTab[] = ["explorer", "agent"];
 
 interface ProjectSidebarProps {
   mode: "open" | "collapsed";
@@ -36,8 +35,6 @@ interface ProjectSidebarProps {
   project: ProjectView | null;
   /** Explorer가 폴더를 읽는 통로. */
   source: WorkspaceSource;
-  /** Context 모양의 본문. */
-  contextPanel: ReactNode;
   /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값). */
   agents: readonly SidebarAgent[];
   sessions: readonly PanelSession[];
@@ -72,7 +69,6 @@ export function ProjectSidebar(
     width,
     project,
     source,
-    contextPanel,
     agents,
     sessions,
     current = null,
@@ -172,7 +168,6 @@ export function ProjectSidebar(
                   />
                 )
               : null}
-            {tab === "context" ? contextPanel : null}
             {tab === "agent"
               ? (
                 <AgentPanel

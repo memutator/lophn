@@ -12,7 +12,7 @@ interface ReactionHost {
   readonly project: string;
   /** 이 project의 session이면 그 Agent 탭을 열고 true. 아니면 false. */
   openSession(session: string): boolean;
-  openProjectManager(context: string, check: string): boolean;
+  openProjectManager(): boolean;
 }
 
 export function useToastHandler(host: ReactionHost): void {
@@ -31,7 +31,7 @@ export function useToastHandler(host: ReactionHost): void {
           return action.session !== null && current.openSession(action.session);
         case "project-manager":
           return action.project === current.project &&
-            current.openProjectManager(action.context, action.check);
+            current.openProjectManager();
       }
     }), [setOpen]);
 }

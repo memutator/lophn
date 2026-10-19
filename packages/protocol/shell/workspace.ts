@@ -12,15 +12,6 @@ const TAB_PAGE_SIZE = 20;
 // 화면 상태 문자열은 80자를 넘기면 원값 대신 안전한 형태로 줄인다.
 const VIEW_STRING_MAX_CHARS = 80;
 
-// Context 탭의 하위 탭. 순서가 화면 순서다.
-const CONTEXT_SUB_TABS = [
-  "overview",
-  "search",
-  "violations",
-  "glossary",
-  "contract",
-] as const;
-
 const WINDOW_REF = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 const viewString = z.string().min(1).max(VIEW_STRING_MAX_CHARS);
@@ -30,7 +21,6 @@ const generationSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const windowRefSchema = z.string().regex(WINDOW_REF);
 
 const sessionIdSchema = idSchema("ses");
-const contextIdSchema = idSchema("ctx");
 
 function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
@@ -68,24 +58,10 @@ const viewTabSchema = z.discriminatedUnion("kind", [
     // 아직 서지 않았으면 없다.
     view_session: viewString.optional(),
   }),
-  z.strictObject({ ...tabBase, kind: z.literal("contexts") }),
   // Agents 탭은 project에 하나이고 대상 필드가 없다. 열어 둔 agent는 layout 파일에만 남는다.
   z.strictObject({ ...tabBase, kind: z.literal("agents") }),
   // Agent 탭도 종류와 선택 여부만이다. agent·자리·session은 layout 파일에만 남고 대화 내용은 넣지 않는다.
   z.strictObject({ ...tabBase, kind: z.literal("agent") }),
-  z.strictObject({
-    ...tabBase,
-    kind: z.literal("context"),
-    context: contextIdSchema,
-    sub_tab: z.enum(CONTEXT_SUB_TABS),
-  }),
-  z.strictObject({
-    ...tabBase,
-    kind: z.literal("search"),
-    context: contextIdSchema,
-    // 선언된 검색의 key만 둔다. 채운 입력과 결과 줄은 넣지 않는다.
-    declared_search: viewString.optional(),
-  }),
 ]);
 
 const tabPageSchema = z.array(viewTabSchema).max(TAB_PAGE_SIZE);
@@ -109,21 +85,8 @@ const viewTabOutputSchema = z.discriminatedUnion("kind", [
     surface: viewString,
     view_session: viewString.optional(),
   }),
-  z.object({ ...tabBase, kind: z.literal("contexts") }),
   z.object({ ...tabBase, kind: z.literal("agents") }),
   z.object({ ...tabBase, kind: z.literal("agent") }),
-  z.object({
-    ...tabBase,
-    kind: z.literal("context"),
-    context: contextIdSchema,
-    sub_tab: z.enum(CONTEXT_SUB_TABS),
-  }),
-  z.object({
-    ...tabBase,
-    kind: z.literal("search"),
-    context: contextIdSchema,
-    declared_search: viewString.optional(),
-  }),
 ]);
 
 const tabPageOutputSchema = z.array(viewTabOutputSchema).max(

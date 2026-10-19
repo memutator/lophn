@@ -107,9 +107,7 @@ export function FileFrame(
         {tab === null ? null : (
           <FileInfoPanel
             {...info}
-            tab={info.contexts === undefined && tab === "contexts"
-              ? "info"
-              : tab}
+            tab={tab}
             onTab={setTab}
             path={path}
             outside={outside}

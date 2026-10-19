@@ -104,7 +104,6 @@ function ReadyTextFile(
     outside = false,
     line,
     lineNonce,
-    contexts,
     onDelete,
     initialInfo,
     initialPosition,
@@ -369,7 +368,6 @@ function ReadyTextFile(
         outline: sections,
         currentKey: currentKey ?? sections?.[0]?.key,
         onJump: jump,
-        contexts: contexts?.(path),
         now,
       }}
       initialInfo={initialInfo}

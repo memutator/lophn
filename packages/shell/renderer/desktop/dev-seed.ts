@@ -1,14 +1,10 @@
 // 개발 확인 전용. LOPHN_DEV_SEED가 있을 때만 프로젝트 작업대를 가짜 통로로 연다.
 // 제품 경로에는 없고 core를 부르지 않는다. check는 이 변수를 주지 않는다.
 import {
-  EXPERIMENT_NAMES,
-  experimentPath,
-} from "../workspace/contexts/fake-source.ts";
-import {
   FAKE_PROJECT_FOLDER,
   fakeWorkspaceSource,
 } from "../workspace/fake-source.ts";
-import type { FileRow, WorkspaceSource } from "../workspace/source.ts";
+import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { fakeEditorFiles } from "../editor/fake-source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
@@ -77,49 +73,6 @@ const SEED_DOCUMENTS: Record<string, { info: SeedInfo; text: string }> = {
   },
 };
 
-// mock 모드의 context 화면 예시(검색 결과·Overview 예시·위반)가 가리키는 문서. 문서 목록에는 오르지
-// 않고 경로로만 찾아 열린다.
-const CONTEXT_FOLDER = FAKE_PROJECT_FOLDER;
-const CONTEXT_DOCUMENTS: Record<string, { info: SeedInfo; text: string }> =
-  Object.fromEntries([
-    ...Object.entries(EXPERIMENT_NAMES).map(([id, name]) => ({
-      id,
-      path: experimentPath(id),
-      title: `${id} ${name}`,
-    })),
-    ...Array.from({ length: 14 }, (_, index) => {
-      const id = `F-${String(index + 1).padStart(3, "0")}`;
-      return { id, path: `loop/findings/${id}.md`, title: `${id} finding` };
-    }),
-    {
-      id: "shared-overview",
-      path: "docs/shared-overview.md",
-      title: "Shared overview",
-    },
-  ].map((item) => {
-    const id = `doc_ctx_${item.id}`;
-    return [id, {
-      info: {
-        id,
-        title: item.title,
-        fileName: item.path.split("/").at(-1)!,
-        path: item.path,
-      },
-      text:
-        `# ${item.title}\n\nAn example document the context screens link to.`,
-    }];
-  }));
-
-/** mock 모드 작업대의 파일 목록에 더하는, context 화면 예시 문서의 파일 행. */
-export function contextExampleFiles(): readonly FileRow[] {
-  return Object.values(CONTEXT_DOCUMENTS).map((seeded) => ({
-    folder: CONTEXT_FOLDER,
-    path: seeded.info.path!,
-    document: seeded.info.id,
-    title: seeded.info.title,
-  }));
-}
-
 /** mock 모드의 [Instructions] 편집기가 여는 문서. 문서 목록에는 오르지 않는다. */
 export const SEED_INSTRUCTIONS_DOCUMENT = "doc_instructions";
 
@@ -140,7 +93,6 @@ function seededEditor(): EditorDeps {
   for (
     const seeded of [
       ...Object.values(SEED_DOCUMENTS),
-      ...Object.values(CONTEXT_DOCUMENTS),
       INSTRUCTIONS_SEED,
     ]
   ) {

@@ -3,10 +3,7 @@
 // kind를 더하는 일은 파일 하나와 registry.ts의 한 줄이다.
 import type { z } from "zod";
 
-type PlaceholderReason =
-  | "app_unavailable"
-  | "context_missing"
-  | "search_missing";
+type PlaceholderReason = "app_unavailable";
 
 type RestoredTab =
   | { kind: "tab"; tab: { kind: string; key: string } }
@@ -22,10 +19,6 @@ type RestoredTab =
 interface RestoreTargets {
   /** 앱이 살아 있고 실행 가능한지. */
   app(app: string): Promise<boolean>;
-  /** 이 프로젝트에 속한 보관되지 않은 context가 있는지. */
-  context(context: string): Promise<boolean>;
-  /** context의 적용된 계약이 그 이름의 검색을 아직 선언하는지. */
-  declaredSearch(context: string, search: string): Promise<boolean>;
 }
 
 interface ReadPosition {

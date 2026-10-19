@@ -6,11 +6,9 @@ import { conversationIcons } from "../../icons/mod.ts";
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
-import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
   agentOf,
-  chipsOf,
   placeOf,
   SESSION_ID,
   sessionOf,
@@ -35,23 +33,20 @@ interface OpenAgentInput {
   readonly name: string;
   /** 열어 볼 session. 없으면 첫 말을 보낼 때 만드는 새 session이다. */
   readonly session?: string | null;
-  /** 탭에 붙는 context(계약 위반 toast가 여는 Project Manager의 위반 근거). 다음에 보내는 말에 실려 가고, 보낼 때까지 아무것도 보내지 않는다. */
-  readonly chips?: readonly ContextChipView[];
 }
 
 function agentTabs(host: TabHost): TabItem[] {
   return allTabs(host.view).filter((tab) => tab.kind === "agent");
 }
 
-/** 같은 agent의 같은 session이거나, 같은 agent의 아직 말하지 않은 같은 시작(첫 context)인 열린 탭. */
+/** 같은 agent의 같은 session이거나, 같은 agent의 아직 말하지 않은 열린 탭. */
 function reusable(host: TabHost, input: OpenAgentInput): TabItem | undefined {
   const session = input.session ?? null;
-  const ids = (input.chips ?? []).map((chip) => chip.id).join();
   return agentTabs(host).find((tab) => {
     if (agentOf(tab) !== input.agent) return false;
-    if (session !== null) return sessionOf(tab) === session;
-    return sessionOf(tab) === null &&
-      chipsOf(tab).map((chip) => chip.id).join() === ids;
+    return session === null
+      ? sessionOf(tab) === null
+      : sessionOf(tab) === session;
   });
 }
 
@@ -85,22 +80,13 @@ export function distinctAgentTab(view: WorkspaceView, tab: TabItem): TabItem {
 }
 
 /**
- * Agent 탭을 연다. 같은 agent의 같은 session이 열려 있거나 아직 말하지 않은 같은 시작의 탭이 있으면 새로
+ * Agent 탭을 연다. 같은 agent의 같은 session이 열려 있거나 아직 말하지 않은 탭이 있으면 새로
  * 만들지 않고 그 탭을 고른다. 그 밖에는 그 agent의 새 탭이다. 통로가 없으면 열지 않는다.
  */
 export function openAgent(host: TabHost, input: OpenAgentInput): void {
   if (host.agentView === null) return;
   const found = reusable(host, input);
   if (found !== undefined) {
-    // 열린 session의 탭에는 새 chip만 더한다.
-    const added = (input.chips ?? []).filter((chip) =>
-      !chipsOf(found).some((have) => have.id === chip.id)
-    );
-    if (input.session != null && added.length > 0) {
-      host.patchTab(found.key, (current) => ({
-        fields: { ...current.fields, chips: [...chipsOf(current), ...added] },
-      }));
-    }
     host.openTab(found);
     return;
   }
@@ -113,9 +99,6 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
       agent: input.agent,
       place: host.projectId,
       ...(session === null ? {} : { session }),
-      ...(input.chips === undefined || input.chips.length === 0
-        ? {}
-        : { chips: input.chips }),
     },
   });
 }
@@ -231,7 +214,6 @@ export const agentKind: TabKindDef = {
     if (slice === null) return <AgentNotReady />;
     // 다른 project의 자리로 저장된 탭은 이 project의 agent로 바꾸어 읽지 않는다.
     if (place !== host.projectId) return null;
-    const chips = chipsOf(tab);
     return (
       <AgentTab
         key={tab.key}
@@ -239,26 +221,16 @@ export const agentKind: TabKindDef = {
         place={place}
         slice={slice}
         session={sessionOf(tab)}
-        // 말을 시작하면 첫 context는 쓸모를 다한다. 새 탭 상태로 되돌아오지 않게 비운다.
         onSession={(session) =>
           host.patchTab(tab.key, (current) => {
-            const { chips: _chips, session: _session, ...rest } =
-              current.fields ?? {};
+            const { session: _session, ...rest } = current.fields ?? {};
             return {
               fields: session === null ? rest : { ...rest, session },
-            };
-          })}
-        onChips={(next) =>
-          host.patchTab(tab.key, (current) => {
-            const { chips: _chips, ...rest } = current.fields ?? {};
-            return {
-              fields: next.length === 0 ? rest : { ...rest, chips: next },
             };
           })}
         host={viewHost(tab, host, slice)}
         title={tab.title}
         onTitle={(name) => host.patchTab(tab.key, () => ({ title: name }))}
-        {...(chips.length === 0 ? {} : { chips })}
       />
     );
   },

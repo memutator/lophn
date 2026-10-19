@@ -423,7 +423,6 @@ export function PageSidebar(props: SidebarProps) {
         width={props.collapsed ? 56 : 240}
         project={PROJECT}
         source={DEMO_SOURCE}
-        contextPanel={null}
         agents={AGENTS}
         sessions={PANEL_SESSIONS}
         current={props.current === undefined ? null : absolute(props.current)}

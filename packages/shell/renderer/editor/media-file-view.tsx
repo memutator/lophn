@@ -60,7 +60,6 @@ export function MediaFileView(props: DocumentViewProps) {
         size: file.size,
         outline: null,
         onJump: () => {},
-        contexts: props.contexts?.(path),
         now: props.now,
       }}
       initialInfo={props.initialInfo}

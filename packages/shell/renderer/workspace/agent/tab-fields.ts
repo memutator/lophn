@@ -1,5 +1,4 @@
-// Agent 탭이 TabItem.fields에 두는 값(agent·work_place·session)의 읽기와 쓰기. layout 파일에 남는 것은 이 셋뿐이고, chips는 탭을 연 순간의 메모리 값이다(저장하지 않는다).
-import type { ContextChipView } from "../../conversation/composer/agent-composer.tsx";
+// Agent 탭이 TabItem.fields에 두는 값(agent·work_place·session)의 읽기와 쓰기. layout 파일에 남는 것은 이 셋뿐이다.
 import type { TabItem } from "../model.ts";
 
 export const SESSION_ID = /^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
@@ -27,10 +26,4 @@ export function sessionOf(tab: TabItem): string | null {
   return typeof session === "string" && SESSION_ID.test(session)
     ? session
     : null;
-}
-
-/** 새 session의 첫 말 전에 붙은 context chip. 저장하지 않는다. */
-export function chipsOf(tab: TabItem): readonly ContextChipView[] {
-  const chips = tab.fields?.chips;
-  return Array.isArray(chips) ? (chips as readonly ContextChipView[]) : [];
 }

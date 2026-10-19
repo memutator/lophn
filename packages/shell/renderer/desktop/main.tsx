@@ -123,9 +123,9 @@ function DefaultToastHandler(
           current.goApp(action.app);
           return true;
         case "project-manager":
-          current.goProject(openProject(action.project, {
-            projectManager: { context: action.context, check: action.check },
-          }));
+          current.goProject(
+            openProject(action.project, { projectManager: true }),
+          );
           return true;
       }
     }), [setOpen]);

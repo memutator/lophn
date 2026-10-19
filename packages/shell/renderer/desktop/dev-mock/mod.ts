@@ -21,9 +21,8 @@ import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import { fakeBrowserApi } from "../../browser/testdata/fake-browser-api.ts";
 import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
-import { contextExampleFiles, seedWorkbench } from "../dev-seed.ts";
+import { seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
-import { createFakeContextsSource } from "../../workspace/contexts/fake-source.ts";
 import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
 import {
   mockAppDetail,
@@ -83,17 +82,8 @@ export function devMock(
     // 어느 카드를 열어도 같은 시드 작업대다. 제목만 카드의 것을 쓴다.
     workspace: {
       ...bench.source,
-      // Contexts·Context·Search 탭은 화면 시험이 쓰는 fake를 그대로 읽는다. 만드는 중인 context도 있다.
-      contextsSource: createFakeContextsSource({ drafting: true }),
       // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
       agentsSource: createFakeAgentsSource(),
-      // 검색 결과·Overview 예시가 가리키는 문서도 파일로 잡혀 탭으로 열린다.
-      files: async (project) => {
-        const read = await bench.source.files(project);
-        return read.ok
-          ? { ok: true, value: [...read.value, ...contextExampleFiles()] }
-          : read;
-      },
       project: async (id) => {
         const read = await bench.source.project(id);
         const cards = await projects.list();

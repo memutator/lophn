@@ -1,13 +1,8 @@
-// 프로젝트 작업대의 팔레트 행. 열린 탭·파일·컨텍스트·bookmark·행동 순서이고
-// 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, Context 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
+// 프로젝트 작업대의 팔레트 행. 열린 탭·파일·bookmark·행동 순서이고
+// 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
 import { t } from "@lophn/wording";
 
 import { commandLabel } from "../../../ipc/keybindings.ts";
-import {
-  CONTEXT_PALETTE_PREFIX,
-  contextPaletteItems,
-} from "../../workspace/contexts/context-palette-group.ts";
-import type { ContextListItem } from "../../workspace/contexts/source.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import type {
   FloatItem,
@@ -39,15 +34,12 @@ type WorkspaceTarget =
     readonly kind: "document";
     readonly document: { readonly id: string; readonly title: string };
   }
-  | { readonly kind: "context"; readonly id: string }
   | { readonly kind: "bookmark"; readonly url: string }
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
 interface WorkspaceScopeInput {
   readonly view: WorkspaceView;
   readonly files: readonly FileRow[];
-  /** 이 프로젝트의 context. 고르면 그 Context 탭이 열린다. */
-  readonly contexts: readonly ContextListItem[];
   /** 읽은 bookmark. 목록을 못 읽었으면 비운다. 고르면 새 browser 탭에서 열린다. */
   readonly bookmarks: readonly {
     readonly id: string;
@@ -163,18 +155,6 @@ export function workspaceScope(
         target: {
           kind: "document" as const,
           document: { id: file.document, title: file.title },
-        },
-      })),
-      // 항목의 이름·보조 글·id는 Contexts 묶음(contextPaletteItems)이 정한 그대로다.
-      ...contextPaletteItems(input.contexts).map((item) => ({
-        group: "contexts" as const,
-        key: item.id,
-        label: item.label,
-        ...(item.detail ? { detail: item.detail } : {}),
-        icon: "context" as const,
-        target: {
-          kind: "context" as const,
-          id: item.id.slice(CONTEXT_PALETTE_PREFIX.length),
         },
       })),
       ...input.bookmarks.map((item) => ({

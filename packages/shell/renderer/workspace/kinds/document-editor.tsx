@@ -7,11 +7,9 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import { transferEditor } from "../../editor/transfer.ts";
 import { DocumentView } from "../../editor/document-view.tsx";
 import { fileNameOf, isInsideFolders } from "../../editor/model.ts";
-import { DocumentContexts } from "../contexts/document-contexts.tsx";
 import type { TabItem } from "../model.ts";
 import type { WorkspaceSource } from "../source.ts";
 import type { TabHost } from "./host.ts";
-import { openContext } from "./context.tsx";
 import type { TabKindDef } from "./kind.ts";
 
 /**
@@ -68,7 +66,6 @@ function FileTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   const editor = host.props.editor;
   const folders = useProjectFolders(host.props.source, host.projectId);
   if (!editor) return null;
-  const contexts = host.contexts;
   return (
     <DocumentView
       key={tab.key}
@@ -78,14 +75,6 @@ function FileTab({ tab, host }: { tab: TabItem; host: TabHost }) {
       outside={folders !== null && !isInsideFolders(tab.key, folders)}
       line={lineOf(tab)}
       lineNonce={typeof tab.fields?.nonce === "number" ? tab.fields.nonce : 0}
-      contexts={contexts === null ? undefined : (path) => (
-        <DocumentContexts
-          source={contexts.source}
-          project={host.projectId}
-          path={path}
-          onOpenContext={(context) => openContext(host, context)}
-        />
-      )}
       onDelete={async () => {
         const reply = await editor.sessions.files.delete({ path: tab.key });
         if (reply.ok) host.removeTab(tab.key);

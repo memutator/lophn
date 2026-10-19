@@ -1,9 +1,8 @@
-// 작업대가 읽는 통로. documents의 projects get·문서 목록·
-// documents/contexts(활성 context 목록)의 read 결과와 layout 저장·복원만 담는다.
+// 작업대가 읽는 통로. documents의 projects get·문서 목록 read 결과와
+// layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
-import type { ContextsSource } from "./contexts/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
 
 /** 연결 폴더. 하위 폴더 경로는 이 폴더 기준 상대 경로다. */
@@ -63,11 +62,6 @@ export interface WorkspaceSource {
   trash(path: string): Promise<FileOpResult>;
   /** OS 파일 관리자에서 보인다. */
   reveal(path: string): Promise<FileOpResult>;
-  /**
-   * Contexts·Context·Search 탭의 통로. 없으면 그 탭과 여는 길을 두지
-   * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.
-   */
-  readonly contextsSource?: ContextsSource;
   /**
    * Agents 탭과 sidebar의 Agents 묶음의 통로. 없으면 그 탭과 여는 길을 두지
    * 않는다. coreWorkspaceSource가 core 통로를 넣고 mock 모드는 fake를 넣는다.

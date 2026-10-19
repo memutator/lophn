@@ -1,4 +1,4 @@
-/* 다음 단계가 있는 항목(Agent, Context)은 줄 끝에 ›가 붙는다. */
+/* 다음 단계가 있는 항목(Agent)은 줄 끝에 ›가 붙는다. */
 .more {
   display: flex;
   flex: 1;

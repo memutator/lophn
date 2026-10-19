@@ -26,11 +26,8 @@ export interface Route {
   readonly issueProblem?: string;
   /** project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
-  /** project 공간에서 그 project의 Project Manager를 위반(context와 검사)을 붙여 열어 시작한다. */
-  readonly projectManager?: {
-    readonly context: string;
-    readonly check: string;
-  };
+  /** project 공간에서 그 project의 Project Manager를 열어 시작한다. */
+  readonly projectManager?: true;
   /** project 공간에서 열어 시작할 파일. path는 디스크의 절대 경로다. */
   readonly open?: { readonly path: string; readonly line?: number };
 }

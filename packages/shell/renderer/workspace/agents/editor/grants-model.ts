@@ -10,10 +10,26 @@ import {
   SETTINGS_EDIT_DEFAULT_ASK,
 } from "../../../../../protocol/approvals/grants.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+import type { GrantApp } from "../source.ts";
 
 type AppEntry = Extract<AgentGrantEntry, { kind: "app" }>;
 type ToolEntry = Extract<AgentGrantEntry, { kind: "mcp_tool" }>;
 type AgentEntry = Extract<AgentGrantEntry, { kind: "agent" }>;
+
+/**
+ * 붙일 수 있는 앱 목록. 다른 project의 앱은 public tool만 남기고, 남은 tool이 없는 앱은 뺀다(place가 null인
+ * lophn은 모든 앱이 다른 project다). 이미 붙은 entry는 건드리지 않는다: 실행 때 목록에서 빠질 뿐이다.
+ */
+export function appsFor(
+  apps: readonly GrantApp[],
+  place: string | null,
+): GrantApp[] {
+  return apps.flatMap((app) => {
+    if (app.project === place) return [app];
+    const apis = app.apis.filter((api) => api.public);
+    return apis.length === 0 ? [] : [{ ...app, apis }];
+  });
+}
 
 /** 대상 하나에 사람이 정한 것. ask가 없으면 효과별 기본값이다. */
 export interface Pick {

@@ -23,6 +23,8 @@ export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
 const NOTES_SYNC_ID = id("app", "ns1");
+// Notes sync는 다른 project의 앱이다. 이 project의 agent에게는 public tool만 보인다.
+const OTHER_PROJECT_ID = id("prj", "ot1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
 
@@ -305,18 +307,26 @@ function api(
   detail: string,
   effect: "read" | "write" | "external",
   addedIn: string | null = null,
+  isPublic = false,
 ) {
-  return { api: name, detail, effect, addedIn };
+  return { api: name, detail, effect, addedIn, public: isPublic };
 }
 
 const APPS: readonly GrantApp[] = [
   {
     app: APP_ID,
     name: APP_NAME,
+    project: PROJECT_ID,
     release: "1.4",
     apis: [
-      api("list_expenses", "Lists the expenses of a month", "read"),
-      api("get_budget", "Reads the budget and what is left", "read"),
+      api("list_expenses", "Lists the expenses of a month", "read", null, true),
+      api(
+        "get_budget",
+        "Reads the budget and what is left",
+        "read",
+        null,
+        true,
+      ),
       api("summarize_month", "Totals a month by category", "read"),
       api("add_expense", "Adds one expense", "write"),
       api(
@@ -333,10 +343,11 @@ const APPS: readonly GrantApp[] = [
   {
     app: EVAL_BOARD_ID,
     name: "Eval board",
+    project: PROJECT_ID,
     release: "0.9",
     apis: [
-      api("list_runs", "Lists eval runs", "read"),
-      api("get_run", "Reads one run with its scores", "read"),
+      api("list_runs", "Lists eval runs", "read", null, true),
+      api("get_run", "Reads one run with its scores", "read", null, true),
       api("pin_run", "Pins a run to the board", "write"),
       api("post_to_chat", "Posts a run summary to the team chat", "external"),
     ],
@@ -344,9 +355,10 @@ const APPS: readonly GrantApp[] = [
   {
     app: NOTES_SYNC_ID,
     name: "Notes sync",
+    project: OTHER_PROJECT_ID,
     release: "2.1",
     apis: [
-      api("list_notes", "Lists notes", "read"),
+      api("list_notes", "Lists notes", "read", null, true),
       api("push_note", "Sends a note to the cloud", "external"),
     ],
   },

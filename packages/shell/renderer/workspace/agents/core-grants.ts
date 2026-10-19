@@ -12,6 +12,7 @@ import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { McpToolServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import { refOf } from "./agent-key.ts";
 import { type Link, unavailable } from "./core-link.ts";
+import { appsFor } from "./editor/grants-model.ts";
 import type {
   GrantApp,
   GrantCatalog,
@@ -22,6 +23,7 @@ import type {
 interface AppRow {
   id: string;
   name: string;
+  project: string;
 }
 
 interface BlueprintValue {
@@ -29,6 +31,7 @@ interface BlueprintValue {
     name: string;
     description: string;
     effect: "read" | "write" | "external";
+    public: boolean;
   }[];
 }
 
@@ -54,12 +57,14 @@ async function appCatalog(
     found.push({
       app: app.id,
       name: app.name,
+      project: app.project,
       release: null,
       apis: blueprint.value.tools.map((command) => ({
         api: command.name,
         detail: command.description,
         effect: command.effect,
         addedIn: null,
+        public: command.public,
       })),
     });
   }
@@ -151,7 +156,7 @@ export async function readGrants(
     ok: true,
     value: {
       entries: grant.value.grant.entries,
-      catalog: { apps, mcpServers, agents },
+      catalog: { apps: appsFor(apps, place), mcpServers, agents },
     },
   };
 }

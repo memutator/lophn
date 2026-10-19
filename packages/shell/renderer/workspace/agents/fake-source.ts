@@ -30,6 +30,7 @@ import {
   PROJECT_SKILLS,
 } from "./fake-data.ts";
 import { keyOf } from "./agent-key.ts";
+import { appsFor } from "./editor/grants-model.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -609,11 +610,12 @@ export function createFakeAgentsSource(
       return Promise.resolve(ok(null));
     },
 
-    grants(_project, key): Promise<ReadResult<GrantsView>> {
+    grants(project, key): Promise<ReadResult<GrantsView>> {
       return Promise.resolve(ok({
         entries: grants.get(key) ?? [],
         catalog: {
           ...GRANT_CATALOG,
+          apps: appsFor(GRANT_CATALOG.apps, project),
           // 자기 자신은 부를 대상이 아니다.
           agents: GRANT_CATALOG.agents.filter((target) =>
             target.agent.role === "coding_agent" ||

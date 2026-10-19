@@ -202,10 +202,14 @@ interface GrantApi {
   readonly effect: Effect;
   /** 새 release가 더한 app-api면 그 release 이름. 알 수 없으면 null이다. */
   readonly addedIn: string | null;
+  /** 다른 project에 보이는 tool인가. */
+  readonly public: boolean;
 }
 
 export interface GrantApp {
   readonly app: string;
+  /** 앱의 project id. agent의 place와 같으면 모든 tool이, 다르면 public tool만 붙일 수 있다. */
+  readonly project: string;
   readonly name: string;
   readonly release: string | null;
   readonly apis: readonly GrantApi[];

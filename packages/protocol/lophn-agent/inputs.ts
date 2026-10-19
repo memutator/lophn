@@ -16,12 +16,6 @@ const INPUT_DELIVERIES = ["next_turn", "steer"] as const;
 export const inputDeliverySchema = z.enum(INPUT_DELIVERIES);
 export type InputDelivery = z.infer<typeof inputDeliverySchema>;
 
-// 사람이 composer에 붙인 것이다. 지금은 file만 있고, shell은 만들지 않는다.
-const attachedChipSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("file"), path: z.string().min(1) }),
-]);
-export type AttachedChip = z.infer<typeof attachedChipSchema>;
-
 // annotation 묶음도 같은 입력이다. 묶음이 만든 본문은 content에 담고 refs로 가리킨다.
 // delivery가 steer인데 session이 돌고 있지 않으면 next_turn과 같다(core handler).
 const sendMessageInputSchema = z.strictObject({
@@ -29,7 +23,6 @@ const sendMessageInputSchema = z.strictObject({
   session: idSchema("ses"),
   content: userMessageContentInputSchema,
   delivery: inputDeliverySchema,
-  attached: z.array(attachedChipSchema),
   refs: z.array(callRefSchema),
 });
 

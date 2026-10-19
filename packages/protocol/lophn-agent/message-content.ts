@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
-import { ATTACHED_KINDS } from "./input-tags.ts";
 
 // 본문 blob 하나의 정규 직렬화 상한이다. 요청은 본문 값을 싣고 RPC JSON 상한이 256KiB
 // 이므로 id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
@@ -15,17 +14,6 @@ export const MESSAGE_BODY_OWNER_KIND = "message";
 export const MESSAGE_BODY_FIELD = "body";
 const encoder = new TextEncoder();
 
-// 사람이 composer chip으로 붙인 것. 이름과 한 줄만 싣고 상세는 tool로 읽는다.
-// 파일은 path를 더한다.
-const attachedFields = {
-  kind: z.literal("attached"),
-  attached: z.enum(ATTACHED_KINDS),
-  name: z.string().min(1),
-  path: z.string().min(1).optional(),
-};
-const attachedPartInputSchema = z.strictObject(attachedFields);
-const attachedPartSchema = z.object(attachedFields);
-
 // `visual.show`가 대화에 보이는 앱 카드. view는 앱 blueprint 화면 key다.
 const appCardFields = {
   kind: z.literal("app_card"),
@@ -37,12 +25,10 @@ const appCardPartSchema = z.object(appCardFields);
 
 const messagePartInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("text"), text: z.string() }),
-  attachedPartInputSchema,
   appCardPartInputSchema,
 ]);
 const messagePartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
-  attachedPartSchema,
   appCardPartSchema,
 ]);
 
@@ -78,13 +64,10 @@ const textPartInput = z.strictObject({
   text: z.string(),
 });
 
-// 사람 메시지는 글과 composer chip(attached)을 받는다.
+// 사람 메시지는 글만 받는다.
 export const userMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
-  parts: z.array(z.discriminatedUnion("kind", [
-    textPartInput,
-    attachedPartInputSchema,
-  ])).min(1),
+  parts: z.array(textPartInput).min(1),
 }).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
   message: "message content is too large",
 });

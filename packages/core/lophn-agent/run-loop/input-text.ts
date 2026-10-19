@@ -1,5 +1,4 @@
 import {
-  type AttachedChip,
   type CallFrom,
   type CallRef,
   INPUT_TAGS,
@@ -66,14 +65,6 @@ function refLines(refs: readonly CallRef[]): string[] {
   ];
 }
 
-// 사람이 composer에 붙인 것. 이름만 싣고 상세는 tool로 읽는다.
-export function attachedText(attached: readonly AttachedChip[]): string {
-  const tag = INPUT_TAGS.attached;
-  return attached.map((chip) =>
-    `${open(tag, { kind: "file", name: chip.path })}</${tag}>`
-  ).join("\n");
-}
-
 function wrap(
   tag: string,
   attributes: Record<string, string>,
@@ -82,17 +73,12 @@ function wrap(
   return `${open(tag, attributes)}\n${escapeBody(body)}\n</${tag}>`;
 }
 
-export function inputText(
-  input: RoutedInput,
-  attached: readonly AttachedChip[] = [],
-): string {
+export function inputText(input: RoutedInput): string {
   switch (input.kind) {
     case "message": {
-      const chips = attachedText(attached);
-      const body = chips === "" ? input.body : `${chips}\n${input.body}`;
-      if (input.delivery !== "steer") return body;
+      if (input.delivery !== "steer") return input.body;
       const tag = INPUT_TAGS.steer;
-      return `<${tag}>\n${escapeClosing(body, tag)}\n</${tag}>`;
+      return `<${tag}>\n${escapeClosing(input.body, tag)}\n</${tag}>`;
     }
     case "call":
       return callText(input);

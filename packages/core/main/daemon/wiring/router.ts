@@ -308,7 +308,6 @@ export const routerWiring: WiringFactory = () => {
             parts: [{ kind: "text", text: input.text }],
           },
           delivery: "next_turn",
-          attached: [],
           refs: input.annotations.map((id) => ({ kind: "annotation", id })),
         });
         if (!sent.ok) return sent;

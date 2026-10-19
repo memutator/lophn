@@ -64,7 +64,6 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
         parts: [{ kind: "text", text: "steer text" }],
       },
       delivery: "steer",
-      attached: [],
       refs: [],
     })).message;
     await decide(core, session, request, "allow");

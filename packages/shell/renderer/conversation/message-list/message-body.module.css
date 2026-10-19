@@ -54,15 +54,6 @@
   line-height: var(--type-caption-line);
 }
 
-/* composer chip으로 붙인 것의 이름. */
-.attached {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  overflow-wrap: anywhere;
-}
-
 /* 글 안 artifact path link. path 글자가 link이고 앞에 kind 아이콘이 붙는다. */
 .link {
   display: inline-flex;

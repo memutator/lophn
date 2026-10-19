@@ -150,7 +150,6 @@ export async function say(
     session,
     content: { schema_version: 1, parts: [{ kind: "text", text }] },
     delivery: "next_turn",
-    attached: [],
     refs: [],
   });
   return { message: sent.message };

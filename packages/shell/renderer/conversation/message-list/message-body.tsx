@@ -68,12 +68,6 @@ export function MessageBody(
                   title={part.view}
                 />
               );
-            case "attached":
-              return (
-                <p key={index} className={styles.attached} data-attached="">
-                  {part.name}
-                </p>
-              );
           }
         })}
       </div>

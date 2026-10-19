@@ -26,7 +26,6 @@ import type {
 import type { Id } from "../../../protocol/base/ids.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
-import { attachedText } from "../run-loop/input-text.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
 import { createCheckpoint, hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
@@ -263,12 +262,11 @@ function sendWith(
   if (written.value.replayed) {
     return ok({ message: input.id, state_seq: written.value.state_seq });
   }
-  const chips = attachedText(input.attached);
   const routed = deps.router.route(tx, {
     from: { kind: "human" },
     to: { session: input.session as Id<"ses"> },
     reply: "none",
-    body: chips === "" ? written.value.text : `${chips}\n${written.value.text}`,
+    body: written.value.text,
     refs: input.refs,
     reply_to: null,
     dedup: null,

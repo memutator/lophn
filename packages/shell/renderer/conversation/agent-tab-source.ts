@@ -66,11 +66,6 @@ export interface SessionEntry {
 /** 본문의 한 part. */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
-  | {
-    readonly kind: "attached";
-    readonly attached: string;
-    readonly name: string;
-  }
   | { readonly kind: "app_card"; readonly app: string; readonly view: string };
 
 // ---- 보낸 쪽 ----

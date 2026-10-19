@@ -93,7 +93,6 @@ function trySay(core: Core, session: string, text: string) {
     session,
     content: { schema_version: 1, parts: [{ kind: "text", text }] },
     delivery: "next_turn",
-    attached: [],
     refs: [],
   });
 }

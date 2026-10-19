@@ -158,7 +158,6 @@ export function sendText(
         parts: [{ kind: "text", text: input.text }],
       },
       delivery: input.delivery,
-      attached: [],
       refs: [],
     },
     compare: {},
@@ -230,7 +229,6 @@ export async function retryTurn(
   const parts: UserPart[] = [];
   for (const part of body.value.content.parts) {
     if (part.kind === "text") parts.push({ kind: "text", text: part.text });
-    else if (part.kind === "attached") parts.push({ ...part });
   }
   if (parts.length === 0) return { ok: false, code: "invalid_input" };
   let id = retryIds.get(turn);
@@ -245,7 +243,6 @@ export async function retryTurn(
         session: body.value.session,
         content: { schema_version: 1, parts },
         delivery: "next_turn",
-        attached: [],
         refs: [],
       },
       compare: {},

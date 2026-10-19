@@ -7,7 +7,6 @@ export const INPUT_TAGS = {
   reaction: "lophn-reaction",
   notice: "lophn-notice",
   steer: "lophn-steer",
-  attached: "lophn-attached",
   annotation: "lophn-annotation",
   untrusted: "lophn-untrusted",
 } as const;
@@ -18,7 +17,6 @@ export const INPUT_TAG_ATTRIBUTES = {
   reply: ["call", "from", "status", "reason"],
   reaction: ["event", "seq"],
   notice: ["kind"],
-  attached: ["kind", "name"],
   annotation: ["n", "kind", "app", "release", "view", "project", "artifact"],
   untrusted: ["source"],
   steer: [],
@@ -32,8 +30,6 @@ const NOTICE_KINDS = [
   "call_cancelled",
 ] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
-
-export const ATTACHED_KINDS = ["file"] as const;
 
 export const UNTRUSTED_SOURCES = ["web.search", "web.fetch"] as const;
 export type UntrustedSource = (typeof UNTRUSTED_SOURCES)[number];

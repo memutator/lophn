@@ -648,10 +648,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     lookups: (sql) => ({
       skillSources: () => globalSkillSources(sql, ports),
       skillsOff: () => registeredSkillsOff(sql),
-      projectExists: (id) =>
-        placeExists(ports.lookups, sql, { kind: "project", id }),
-      projectDomains: (id) =>
-        ports.lookups.domains(sql, { kind: "project", id }),
+      placeExists: (place) => placeExists(ports.lookups, sql, place),
+      placeDomains: (place) => ports.lookups.domains(sql, place),
     }),
   });
   const projectExtensionDeps = {

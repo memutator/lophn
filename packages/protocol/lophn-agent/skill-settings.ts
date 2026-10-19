@@ -34,14 +34,19 @@ const skillEntrySchema = z.object({
   source: skillSourceSchema,
   enabled: z.boolean(),
   can_disable: z.boolean(),
+  // domain 층 skill이면 그 domain id다. 내장·전역 skill은 null이다.
+  domain: z.string().min(1).nullable(),
 });
 export type SkillEntry = z.infer<typeof skillEntrySchema>;
 
-// agent 설정 화면이 보는 skill 목록이다. `project`를 주면 전역과 내장에 그 project의 domain 층을 더한다. 같은 이름은
+// agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 그릇의 domain 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
 const skillsReadInputSchema = z.strictObject({
   project: idSchema("prj").optional(),
+  app: idSchema("app").optional(),
+}).refine((input) => input.project === undefined || input.app === undefined, {
+  message: "pass project or app, not both",
 });
 
 export const skillsRead = defineRead({

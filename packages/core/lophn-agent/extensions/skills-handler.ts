@@ -1,5 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { skillsRead } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentPlace,
+  skillsRead,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
   Output,
@@ -19,7 +22,7 @@ import {
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// `ReadSkills` handler다. 내장, 전역, (project를 주면) 그 project의 domain 층을 합친 skill 목록과
+// `ReadSkills` handler다. 내장, 전역, (project나 app을 주면) 그 그릇의 domain 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도
 // 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 role을 가리지
 // 않고 모두 낸다(어느 role의 것인지는 선언이 말한다).
@@ -30,9 +33,9 @@ type SkillsReadLookups = {
   skillSources(): Omit<SkillSources, "domains">;
   // 전역에서 끈 skill의 정확한 이름이다.
   skillsOff(): readonly string[];
-  projectExists(project: string): boolean;
-  // 그 project 그릇의 active domain이다(이름순).
-  projectDomains(project: string): readonly { id: string; name: string }[];
+  placeExists(place: AgentPlace): boolean;
+  // 그 그릇의 active domain이다(이름순).
+  placeDomains(place: AgentPlace): readonly { id: string; name: string }[];
 };
 
 type SkillsReadDeps = {
@@ -58,33 +61,46 @@ export function createSkillsRead(deps: SkillsReadDeps): {
         const lookups = deps.lookups(snapshot.sql);
         let off = [...lookups.skillsOff()];
         let domains: DomainStore[] = [];
-        if (input.project !== undefined) {
-          if (!lookups.projectExists(input.project)) {
-            return err({ code: "not_found", message: "project not found" });
+        const place: AgentPlace | null = input.project !== undefined
+          ? { kind: "project", id: input.project }
+          : input.app !== undefined
+          ? { kind: "app", id: input.app }
+          : null;
+        if (place !== null) {
+          if (!lookups.placeExists(place)) {
+            return err({
+              code: "not_found",
+              message: `${place.kind} not found`,
+            });
           }
           const root = dataRootOf(snapshot.sql, deps.dataRoot);
           if (!root.ok) return root;
-          domains = lookups.projectDomains(input.project).map((domain) => ({
+          domains = lookups.placeDomains(place).map((domain) => ({
             domain: domain.id,
             folder: deps.projectLayer.domains.skillsFolder(
               root.value,
               domain.id,
             ),
           }));
-          // 파일이 없거나 틀렸으면 이 project에서 끈 것이 없다. 틀린 파일은 설정을 읽는 쪽이 알린다.
-          try {
-            const text = deps.files.read(
-              deps.projectLayer.extensionsFile(root.value, input.project),
-            );
-            const parsed = text === null ? null : parseProjectExtensions(text);
-            if (parsed !== null && parsed.ok) {
-              off = [...new Set([...off, ...parsed.value.skills_off])];
+          // 앱 그릇에는 project 층 설정이 없다. 파일이 없거나 틀렸으면 이 project에서 끈 것이 없다.
+          // 틀린 파일은 설정을 읽는 쪽이 알린다.
+          if (input.project !== undefined) {
+            try {
+              const text = deps.files.read(
+                deps.projectLayer.extensionsFile(root.value, input.project),
+              );
+              const parsed = text === null
+                ? null
+                : parseProjectExtensions(text);
+              if (parsed !== null && parsed.ok) {
+                off = [...new Set([...off, ...parsed.value.skills_off])];
+              }
+            } catch {
+              return err({
+                code: "unavailable",
+                message: "project extensions file could not be read",
+              });
             }
-          } catch {
-            return err({
-              code: "unavailable",
-              message: "project extensions file could not be read",
-            });
           }
         }
         let listing: ReturnType<typeof listSkillsSync>;
@@ -101,7 +117,14 @@ export function createSkillsRead(deps: SkillsReadDeps): {
           });
         }
         return ok({
-          skills: listing.entries.map(({ domain: _domain, ...row }) => row),
+          skills: listing.entries.map((entry) => ({
+            name: entry.name,
+            description: entry.description,
+            source: entry.source,
+            enabled: entry.enabled,
+            can_disable: entry.can_disable,
+            domain: entry.domain,
+          })),
           skills_off: off,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

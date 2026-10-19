@@ -63,7 +63,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **Orleans식 "없으면 만든다"를 버렸다.** session을 여는 것이 token이라 보내는 쪽이 명시해야 한다.
 - **dead letter를 버렸다.** 조용히 버리면 보낸 agent는 일이 진행 중인 줄 안다. Erlang monitor의 DOWN처럼 이유를 돌려준다.
 - **상태는 accepted, done, failed, cancelled 넷이다. `sent`와 `declined`가 없다.** Router가 행 만들기와 입력 넣기를 한 번에 해서 sent로 머무는 때가 없다. declined와 done을 나눠도 program이 다르게 하는 일이 없고, "맡지 않겠다"는 글은 보낸 agent가 읽을 의미다. 그래서 맡지 않을 때도 reply로 이유를 보낸다. 봉투의 여는 방식 칸(tab, tui, headless)도 transport마다 값이 하나뿐이라 뺐다. 되살리고 싶어지면 이 이유를 먼저 본다.
-- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록은 prompt가 아니라 tool result로만 주어 prompt cache를 깨지 않는다. grant가 deny인 상대는 목록에서 숨기되 호출 때 Gate가 다시 판정한다.
+- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. grant가 deny인 상대는 목록에서 숨기되 호출 때 Gate가 다시 판정한다. place prompt의 "Agents you can call"은 ID 없이 role과 이름만 싣고, session이 아직 없는 상대(lophn, 활성 project의 Project Manager, 활성 앱의 App Engineer, 정의에 있는 Operator)도 넣는다. call이 새 session을 열 수 있기 때문이다. 자기 grant에서 excluded인 상대와 자기 자신은 뺀다. grant를 못 읽으면 session 없는 상대는 싣지 않는다.
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **두 transport, 한 protocol.** 봉투, 받는 곳, 상태는 lophn session과 coding session이 같이 쓰고 배달만 다르다(입력함 / PTY, idle일 때만 넣는다). coding agent는 끝을 hook과 process 종료로도 알 수 있어서 그 경로만 Reactor를 거친다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

@@ -17,6 +17,8 @@ modules: [tests]
 - symlink 대신 variant에서 `deno task e2e:deps`를 돌린다(작음. 처음 한 번 내려받는 시간이 든다). 추천.
 - symlink를 두고 core에 실제 경로(realpath)를 넘긴다(작음. 왜 symlink 경로가 깨지는지 확인이 먼저다).
 
+정한 것: 앞의 것. variant에서 `deno task e2e:deps`를 돌린다. 원인을 몰라도 지금 checkout과 같은 길이라 맞다(agent).
+
 ## L7의 `read-all`은 `app.get` 이름만 받는다
 
 ```yaml
@@ -30,6 +32,8 @@ modules: [tests]
 
 고치려면: check를 "앱 상태 읽기 하나(`app.get` 또는 `app.list`)와 problem·ticket 읽기"로 넓히고 시나리오 n을 올린다(작음). 추천.
 
+정한 것: 추천안(agent).
+
 ## T19-op은 막힌 call이 생기지 않아 재지 못한다
 
 ```yaml
@@ -42,3 +46,5 @@ modules: [tests]
 영향: T19-op은 늘 떨어지고 guard로도 아무것도 재지 않는다.
 
 고치려면: 요청이 막힌 상대를 이름으로 가리키게 시나리오를 고치거나(작음), 막힌 call이 없으면 실패가 아니라 "재지 못함"으로 두는 check로 바꾼다(작음). planner가 고른다.
+
+정한 것: 앞의 것. 요청이 막힌 상대를 이름으로 가리키게 고친다. 목록에 없는 상대를 이름으로 부르면 Router가 grant로 막고, 그 뒤 다른 agent에게 돌려 시키지 않는지가 이 case가 재려는 것이다. 뒤의 것은 case가 거의 늘 "재지 못함"이 되어 guard로 쓸 수 없다(agent).

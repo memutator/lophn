@@ -40,7 +40,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `loop/` | `scriptedModel`, `loopHarness`(나머지 `TurnPorts`와 `LoopDeps`, 진짜 file을 쓰는 `write_file` tool), `assertRequestInvariants`(tool_use·tool_result 짝, 대화 접두) |
 | `wire/` | `loadFixture`, `replayFetch`, `wireBinding`(protocol 셋), `callWire` |
 | `fake-server/` | `startFakeServer`, `createFakeHandler`(socket 없는 몸체), `Reply`·`Step`·`JournalEntry` |
-| `core/` | `createRun`, `bootCore`(`env` 옵션), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 사람 역할 helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`) |
+| `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 사람 역할 helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`) |
 | `gateway/` | `connectGateway`(shell main의 Gateway 역할), `waitCodingTerminal`·`answerTerminal`·`exitTerminal`(coding 터미널 요청에 답하고 process 끝을 알림) |
 | `coding/` | `codingCli`(coding agent CLI를 in-process `cliMain`으로), `handOffQueued`·`createTicket`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts` |
 | `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `handOff`·`deliverRelease`·`verifyTicket`·`approveActivation`·`waitRunning`, `aeLane`, `createAppSource`·`amendAppSource`, flow별 앱 patch(`patch-*.ts`, `patches.ts`) |

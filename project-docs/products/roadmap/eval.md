@@ -1,6 +1,6 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개)와 `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위)은 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 남은 계획 `eval-experiment`는 열려 있고, 시작 조건은 그 README에 있다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점)는 모두 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
 계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
@@ -163,7 +163,7 @@ run 기록 + 끝난 world → program check · 공통 수치 → 전제 통과?
 - judge는 eval을 돌리는 agent가 띄운 subagent의 판단을 믿고 쓴다. 정해 둔 검증 절차는 두지 않는다. 의심될 때 사람이 따로 검증한다. 채점한 model은 item마다 기록되고, judge 버전은 채점 안내 글의 버전이다.
 - 그러려고 judge item마다 고정 입력, criterion@n, verdict, 인용을 run 기록에 남기고, scorecard의 verdict에서 바로 연다.
 - experimenter는 해석하면서 이상해 보이는 judge 판단을 보고서에 따로 적는다. 예: program이 확인한 사실과 어긋나는 verdict, `cannot_tell`이 몰린 criterion.
-- judge 비용은 대상 비용과 따로 적는다.
+- judge는 eval을 돌리는 agent의 subagent가 채점하므로 judge 비용은 run 기록의 비용(`cost_usd`)에 들지 않는다.
 
 ## experiment
 
@@ -191,10 +191,10 @@ eval 결과를 보고 harness를 고친 뒤, 그 고침을 검증하는 단위�
 
 ### trial 수
 
-trial은 1번이 기본이다. 결과가 판정을 바꿀 수 있을 때만 늘린다(최대 3번).
+trial은 1번이 기본이다. 결과가 판정을 바꿀 수 있을 때만 늘린다(spec의 `trials.max`까지, 최대 5번).
 - guard가 기준과 다른 verdict를 내면 그 case만 더 돌려, 우연인지 나빠진 것인지 가른다.
 - target이 나아지면 더 돌려 확인한다. 채택을 한 번의 결과로 정하지 않는다. 나아지지 않으면 거기서 멈춘다.
-- 같은 버전에서 trial끼리 결과가 갈린 적이 있는 시나리오는 처음부터 3번 돈다.
+- 같은 버전에서 trial끼리 결과가 갈린 적이 있는 시나리오는 처음부터 max번 돈다.
 - 같은 구성으로 돈 trial은 experiment를 넘어 쌓인다. 기준 쪽 통과율은 따로 돌리지 않아도 점점 정확해진다.
 - 이 정책은 experiment의 판정 규칙에 같이 적는다.
 
@@ -455,7 +455,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 - **작은 판단 case**: trial 하나에 model 호출 4번쯤이다. 17 case를 1번씩 `claude-sonnet-5-5`로 돌리면 약 $1.3, `claude-haiku-5-5`로 약 $0.07이다(cache를 빼고 잡은 위쪽 어림).
 - **calendar-mvp**: coding agent가 거의 다 쓴다. 한 trial은 `claude-sonnet-5-5`로 $2~3, 시간은 15~40분으로 어림한다. coding agent 호출 60번쯤, 대부분 cache read로 잡았다. 사람 역할(Haiku) 몫은 작다.
-- **judge**: 입력이 쪼여 있어 item 하나에 $0.001 아래다.
+- **judge**: 입력이 쪼여 있어 item 하나가 작다. eval을 돌리는 agent의 subagent가 하므로 program은 비용을 세지 않는다.
 - **experimenter**: 보고서와 떨어진 run을 읽는 만큼 든다. 첫 experiment에서 잰다.
 - 이 수는 진짜 실행 전의 짐작이다. 첫 실행에서 잰 값으로 바꾼다.
 - **model 단가**(제품 catalog, USD/M token, input/output): `claude-haiku-5-5` 0.1/0.5, `claude-sonnet-5-5` 2/10, `claude-opus-5-5` 4/20, `gpt-5.5` 5/30.

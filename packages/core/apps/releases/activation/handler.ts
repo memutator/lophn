@@ -1,5 +1,6 @@
 // activation을 여는 Reactor handler 둘과 보류 request의 applier. `TicketVerified`가 계기이고, 선언이 넓어지거나
 // data 손실 migration이 있을 때만 사람에게 묻는다(보류 request). 묻지 않거나 사람이 허락하면 그 앱의 activation을 곧바로 시작한다.
+// 다른 project가 쓰는 공개 tool을 지우는 release는 묻기 전에 막는다(release는 prepared로 남는다).
 // 앱에 이미 돌고 있는 activation이 있으면 conflict다. 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type {
@@ -21,6 +22,8 @@ type ActivationHandlerDeps = {
     get(id: string): Result<ReleaseRecord | null>;
     // 지금 active grant·active release와 견준 비교.
     comparison(release: ReleaseRecord): Promise<Result<ActivationComparison>>;
+    // 다른 project가 쓰는 공개 tool을 지우는 release면 true다(PM에게 알리는 일까지 한다). 읽지 못하면 err이고 시작하지 않는다.
+    blocked(release: ReleaseRecord): Promise<Result<boolean>>;
   };
   approvals: {
     createPending(intent: Intent): Promise<Result<PendingApproval>>;
@@ -48,6 +51,9 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
     release: ReleaseRecord,
     seq: string,
   ): Promise<Result<void>> {
+    const blocked = await deps.releases.blocked(release);
+    if (!blocked.ok) return blocked;
+    if (blocked.value) return ok(undefined);
     const comparison = await deps.releases.comparison(release);
     if (!comparison.ok) return comparison;
     if (!asksFor(comparison.value)) {
@@ -112,6 +118,9 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
         ) {
           return await judge(found.value, event.seq);
         }
+        const blocked = await deps.releases.blocked(found.value);
+        if (!blocked.ok) return blocked;
+        if (blocked.value) return ok(undefined);
         return deps.enqueue(
           found.value.app,
           found.value.id,

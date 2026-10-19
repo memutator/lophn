@@ -185,7 +185,20 @@ export const activationStart = defineCommand({
     previous_release: releaseIdSchema.nullable(),
   }),
   actors: machine,
-  errors: ["forbidden", "conflict", "invalid_input"],
+  errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
+});
+
+// 시작하기 전에 판정 handler가 부른다. release가 지울 공개 tool을 다른 project가 쓰면 막힌 사실을 PM에게 알리는
+// event를 같은 transaction에 내고 blocked true를 돌려준다. 막지 않으면 아무것도 쓰지 않는다.
+// 같은 release의 반복 호출은 idempotency key가 같아 event를 한 번만 낸다.
+export const activationBlock = defineCommand({
+  resource: "activations",
+  method: "block",
+  name: "activation.block",
+  input: z.strictObject({ release: releaseIdSchema }),
+  output: z.object({ blocked: z.boolean() }),
+  actors: machine,
+  errors: ["forbidden", "conflict", "unavailable", "internal"],
 });
 
 export const activationRecordBackup = defineCommand({
@@ -331,6 +344,7 @@ export const releasesGetRecord = defineRead({
 
 export const ACTIVATION_ROUTES = [
   activationStart,
+  activationBlock,
   activationRecordBackup,
   activationRecordDataChange,
   activationRecordDataRestore,

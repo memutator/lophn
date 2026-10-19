@@ -23,6 +23,7 @@ import type {
   PendingApproval,
 } from "../../../../protocol/approvals/mod.ts";
 import {
+  activationBlock,
   type ActivationComparison,
   activationComplete,
   type ActivationDataResult,
@@ -366,17 +367,19 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       : ok(ctx);
   }
 
+  // once이면 key를 그대로 써서 같은 호출이 같은 결과를 돌려받는다.
   async function sendValue(
     command: string,
     input: unknown,
     key: string,
+    once = false,
   ): Promise<Result<unknown>> {
     const ctx = machine();
     if (!ctx.ok) return ctx;
     const sent = deps.command(ctx.value, {
       command,
       input,
-      idempotency_key: `${key}-${crypto.randomUUID()}`,
+      idempotency_key: once ? key : `${key}-${crypto.randomUUID()}`,
       compare: {},
       prepared: [],
     });
@@ -679,6 +682,17 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         ledgerRead((sql) => findReleaseForTicket(sql, ticket)),
       get: currentRelease,
       comparison: comparisonOf,
+      async blocked(release) {
+        const done = await sendValue(
+          activationBlock.name,
+          { release: release.id },
+          `activation-block-${release.id}`,
+          true,
+        );
+        return done.ok
+          ? ok((done.value as { blocked: boolean }).blocked)
+          : done;
+      },
     },
     approvals: {
       createPending: (intent) =>

@@ -9,6 +9,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   activationActivatePrevious,
   type ActivationAttempt,
+  activationBlock,
   activationComplete,
   type ActivationDataResult,
   activationFail,
@@ -21,7 +22,10 @@ import {
   type ReleaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import { releaseActivationFailed } from "../../../protocol/events/mod.ts";
+import {
+  publicToolsChanged,
+  releaseActivationFailed,
+} from "../../../protocol/events/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
@@ -47,9 +51,11 @@ import {
   createDataRecordStore,
   discardBackups,
 } from "../data/mod.ts";
+import { appProjectOf } from "../lookups.ts";
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";
+import { blockedToolsOf, changeNoticesOf } from "./public-tools.ts";
 import {
   insertRelease,
   loadActiveRelease,
@@ -183,6 +189,8 @@ function activatingOf(tx: Pick<Tx, "sql">, app: string): string | null {
   return row === undefined ? null : String(row.id);
 }
 
+const BLOCKED_MESSAGE = "release removes public tools used by another project";
+
 function outputRelease(release: ReleaseRecord): Release {
   return {
     ...release,
@@ -195,6 +203,7 @@ export function createReleaseCommands(): {
   prepare: CommandDefinition<typeof releasePrepare>;
   prepareBundle: CommandDefinition<typeof releasePrepareBundle>;
   startActivation: CommandDefinition<typeof activationStart>;
+  blockActivation: CommandDefinition<typeof activationBlock>;
   completeActivation: CommandDefinition<typeof activationComplete>;
   failActivation: CommandDefinition<typeof activationFail>;
   activatePrevious: CommandDefinition<typeof activationActivatePrevious>;
@@ -235,6 +244,10 @@ export function createReleaseCommands(): {
         ) {
           return invalid("the data schema differs from the active release");
         }
+        // 판정 handler만 믿지 않는다. 읽기에 실패해도 막는다.
+        const blocked = blockedToolsOf(tx, release);
+        if (!blocked.ok) return blocked;
+        if (blocked.value.length > 0) return conflict(BLOCKED_MESSAGE);
         const activation: ActivationAttempt = {
           attempt: tx.newId("act"),
           previous_release: active.value?.id ?? null,
@@ -252,9 +265,43 @@ export function createReleaseCommands(): {
         });
       },
     },
+    // 시작 전 막기. 막으면 PM을 부를 event를 낸다. release는 prepared로 남는다.
+    blockActivation: {
+      route: activationBlock,
+      handle(tx, ctx, input) {
+        const actor = requireMachine(ctx, "activation.block");
+        if (!actor.ok) return actor;
+        const found = releaseAndApp(
+          tx,
+          ctx,
+          activationBlock.name,
+          input.release,
+          unreachableTarget,
+        );
+        if (!found.ok) return found;
+        const { release } = found.value;
+        if (release.status !== "prepared" && release.status !== "superseded") {
+          return conflict("the release cannot be activated from its status");
+        }
+        const blocked = blockedToolsOf(tx, release);
+        if (!blocked.ok) return blocked;
+        if (blocked.value.length === 0) return ok({ blocked: false });
+        const project = appProjectOf(tx.sql, release.app);
+        if (project === null) {
+          return err({ code: "internal", message: "app has no project" });
+        }
+        tx.emit(publicToolsChanged, release.app, {
+          release: release.id,
+          project,
+          change: "blocked",
+          tools: blocked.value,
+        } as never);
+        return ok({ blocked: true });
+      },
+    },
     // activation 확정. 같은 시도와 실제 데이터 결과·준비 확인(hash·handler·schema)을 확인한 뒤 새 active 참조,
     // 이전 superseded, 앱 이름·설명 갱신(첫 성공은 run_enabled), 앱 grant 맞추기, 복구본 정리를 한 transaction으로
-    // 바꾼다. 응답을 잃은 재전송은 같은 결과를 돌려준다. 성공은 event가 아니다.
+    // 바꾼다. 응답을 잃은 재전송은 같은 결과를 돌려준다. 성공은 event가 아니지만 tool 선언이 바뀌었으면 PublicToolsChanged를 낸다.
     completeActivation: {
       route: activationComplete,
       handle(tx, ctx, input) {
@@ -295,6 +342,9 @@ export function createReleaseCommands(): {
         if (stored.value === null) return absent();
         const proven = checkReady(tx, release, activation, input, stored.value);
         if (!proven.ok) return proven;
+        // 사용 관계는 이전 release가 아직 active일 때 읽어야 이전 선언으로 센다.
+        const notices = changeNoticesOf(tx, release);
+        if (!notices.ok) return notices;
         const at = tx.now();
         const nextApp = {
           ...app,
@@ -330,6 +380,14 @@ export function createReleaseCommands(): {
           "granted",
         );
         if (!synced.ok) return synced;
+        for (const notice of notices.value) {
+          tx.emit(publicToolsChanged, release.app, {
+            release: release.id,
+            project: notice.project,
+            change: "changed",
+            tools: notice.tools,
+          } as never);
+        }
         // 복구본은 필요 없다. 기다리던 이전으로 돌아가기 요청도 이 앱의 지금 상태에서는 낡았다.
         const discarded = discardBackups(tx, release.app);
         if (!discarded.ok) return discarded;
@@ -430,6 +488,10 @@ export function createReleaseCommands(): {
         if (activatingOf(tx, release.app) !== null) {
           return conflict("an activation is in progress for the app");
         }
+        // 시작이 거절할 요청을 남기면 sweep이 계속 다시 시도한다.
+        const blocked = blockedToolsOf(tx, release);
+        if (!blocked.ok) return blocked;
+        if (blocked.value.length > 0) return conflict(BLOCKED_MESSAGE);
         tx.sql.run(
           `INSERT INTO activation_requests (release, requested_at)
            VALUES (?, ?) ON CONFLICT (release) DO NOTHING`,

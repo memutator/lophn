@@ -16,16 +16,21 @@
   - 외부 MCP server tool에 invocation과 rewind 주기. 지금처럼 session ToolCall만 남는다.
   - e2e. 아래 "e2e" 절을 따른다.
 - 돌리는 방식: worker를 쓴다. orchestrate skill대로 한다. task id는 `dt-`로 시작한다.
-- 단위와 순서: `tasks/*.md`가 정한다. 큰 줄기는 아래와 같다.
-  - wave 1: 계약. blueprint의 tool 선언 모양, 호출 route와 invocation operation 모양, SDK API 이름, bridge IPC
-  - wave 2: 아래를 같이 한다.
-    - core 호출 길
-    - SDK와 앱 runtime entrypoint
-    - agent tool projection
-    - shell 화면 bridge와 project picker 지우기
-    - ticket examples와 test runner
-    - coding agent CLI·skill 문구
-  - wave 3: core MCP endpoint와 coding agent harness 연결
+- 단위와 순서: `tasks/*.md`가 정한다.
+  - wave 1(사슬):
+    - `dt-decl`: 선언 모양과 `public`
+    - `dt-call-route`: `app.call_tool`, 호출 길에서 project 지우기
+  - wave 2:
+    - `dt-invocation-project`
+    - `dt-preview-call`(`dt-invocation-project` 뒤)
+    - `dt-sdk`
+    - `dt-agent-tools`
+    - `dt-shell-bridge`
+    - `dt-examples`
+    - `dt-coding-text`
+  - wave 3(사슬):
+    - `dt-mcp-endpoint`
+    - `dt-mcp-harness`
 - 시작 조건: 없다. 계획 `domain-kinds`, `domain-place`, `artifact`와 같이 돈다.
 
 ## 정한 것
@@ -61,6 +66,35 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획에서 새�
     - 근거: coding agent는 자기 코드를 확인하려고 부른다. AI가 만든 코드와 agent의 실수로 사용자 data를 잃지 않게 한다(AGENTS.md "속도").
     - preview 호출은 지금처럼 invocation과 rewind가 없다.
   - harness가 이 endpoint를 쓰게 하는 설정은 harness마다 brief가 실제 launch 코드(`packages/coding-agent/harnesses/`)를 보고 정한다. 예: Claude Code의 MCP 설정.
+- **brief를 쓰며 정한 것**(brief worker, planner 검토)
+  - **선언:** `{name, title, description, inputSchema | null, outputSchema?, effect, public}`이다. `label`은 `title`이 된다. 이름은 1..64자 `[A-Za-z0-9_.-]`이다.
+  - **annotation:** effect에서 만든다(`toMcpTool`, `toolAnnotations`).
+  - **route:** `app.call_tool`(`appCallTool`)이다. invocation operation은 `{kind: "tool", tool}`이다. 읽기 route `app.app_api`·`app.app_api_index`는 이름을 두고 출력 key만 `tools`가 된다.
+  - **bridge:** `window.lophnApp.callTool(tool, input)`이다. IPC는 `app:call-tool`이다.
+  - **preview 호출은 invocation을 남기지 않는다.** 지금은 mode=preview 행을 남긴다. 하지만 ledger의 `release`가 NOT NULL이라 release 없는 bundle은 남길 수 없다.
+    - preview 호출이 tool을 preview bundle의 blueprint에서 찾게 고친다(`dt-preview-call`). 지금은 활성 release에서 찾아 새 tool이 `not_declared`가 된다.
+  - **coding agent MCP 호출의 caller:** `person` caller로 들어간다. auth는 `{actor: "user", previewOnly: true}`다.
+    - 새 caller kind를 만들면 ledger CHECK, switch, rewind를 고쳐야 한다. 그런데 preview 호출은 기록이 없다.
+    - `previewOnly`가 호출 길 자체에서 live를 막는다. 왜 person인지는 그 자리 주석에 적는다.
+  - **MCP endpoint**
+    - POST만 받는다. SSE와 `Mcp-Session-Id`는 없고, batch는 거절한다.
+    - `tools/list`는 preview가 돌면 그 bundle의 선언, 아니면 활성 release의 선언이다. `listChanged`는 없다.
+    - 자격은 coding token의 새 operation `coding.mcp`다.
+  - **harness**
+    - Claude Code: `--mcp-config <json>`(prompt 뒤에 둔다)
+    - Codex: `-c mcp_servers.lophn.*`
+    - OpenCode: `OPENCODE_CONFIG_CONTENT`
+    - token은 env(`LOPHN_CODING_TOKEN`)로만 준다. 사람의 전역 설정에는 쓰지 않는다.
+    - Gemini, pi, Hermes, OpenClaw는 잇지 않는다.
+  - **이름 경계(`domain-rename`에 넘긴다):** 아래 이름은 이 계획에서 두고 `domain-rename`이 바꾼다.
+    - approval intent kind `app_api`
+    - grant 칸(`app_apis`, `apis`)
+    - attestation·desired·probe의 `app_api`
+    - `app_connections[].app_api`
+    - process-wire·broker의 `api`
+    - SDK package 이름 `@lophn/cap-app-api`
+    - file·폴더 이름(`app-api.ts`, `tools/app-api/`)
+    - session `tool_calls.app_api`
 - **test(AGENTS.md "속도")**
   - 위험 test: coding agent MCP의 `tools/call`이 live로 가지 않는다. 다른 ticket·앱의 tool이 `tools/list`에 없다. write tool 호출이 지금처럼 invocation과 changeset을 남긴다(이미 있는 test를 옮겨 살린다).
   - 화면과 이름은 test하지 않는다.
@@ -92,15 +126,20 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획에서 새�
 
 ## lead가 할 일
 
-- **wave 2를 띄우기 전에:** 계약 task가 merge되면 선언 모양, route 이름, SDK 이름, bridge IPC가 brief와 같은지 본다.
-  - 계약 task가 land하면 planner(`lophn-7e`)에게 알린다. `domain-place`가 `public`을 기다린다.
+- **wave 2를 띄우기 전에:** wave 1이 merge되면 선언 모양, route 이름, SDK 이름, bridge IPC가 brief와 같은지 본다.
+  - wave 1을 land하고 planner(`lophn-7e`)에게 알린다. `domain-place` wave 3이 `public`을 기다리므로 wave 1은 따로 먼저 land한다.
+- **`dt-mcp-endpoint` 뒤:** 아래를 등록한다.
+  - `core/main/daemon/assembly.ts`의 `WIRINGS`에 `wiring/coding-mcp.ts`
+  - `Built`의 mcp 칸
+- **rebase 충돌:** `wiring/{apps,projects,context}.ts`와 wording catalog는 두 쪽을 다 남긴다.
+- **HTTP 수준 MCP test:** brief는 handler 수준 test만 쓴다. HTTP 수준 test가 필요하면 사람에게 묻는다.
 - **merge 때마다:** wording 생성과 등록 file(`protocol/**/mod.ts`, core wiring, `deno.json`)을 고친다.
 - **wave 3 뒤(손으로):** 확인할 것은 아래다. fake model server를 쓰고, 사람의 `~/.lophn`은 건드리지 않는다.
   - `deno task dev`로 앱 하나에 ticket을 맡긴다.
   - coding agent terminal에서 preview를 띄운 뒤 MCP로 그 앱 tool을 부를 수 있다.
   - preview가 없으면 `unavailable`이다.
 - **다 끝나면**
-  - `architecture/app-call.md`를 고친다. tool 선언, 호출 route, project 범위 지움, MCP endpoint를 적는다.
+  - `architecture/app-call.md`를 고친다. tool 선언, 호출 route, project 범위 지움, preview 호출이 기록을 남기지 않음, MCP endpoint를 적는다.
   - `architecture/coding-agent.md`에 coding agent MCP를 적는다.
   - `boundary-catalog.yaml`에 MCP endpoint interface를 더한다.
   - changelog 열린 판에 항목을 덧붙인다.

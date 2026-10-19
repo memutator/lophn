@@ -14,16 +14,28 @@
   - tool을 부르는 view(live view). 인터넷 page의 annotation. 공유와 내보내기. 대화 안에 live로 끼워 그리기(roadmap "하지 않는 것").
   - e2e. 아래 "e2e" 절을 따른다.
 - 돌리는 방식: worker를 쓴다. orchestrate skill대로 한다. task id는 `af-`로 시작한다.
-- 단위와 순서: `tasks/*.md`가 정한다. 큰 줄기는 roadmap "단계"의 다섯이다.
+- 단위와 순서: `tasks/*.md`가 정한다.
   - wave 1:
-    - 봉한 scheme과 path 해석(shell main)
-    - annotation target 계약(protocol)
-    - artifact 자리를 file 범위에 넣기
+    - `af-artifact-values`: protocol 공용 값
+    - `af-sandbox`: 봉한 scheme, path 해석
+    - `af-artifact-files`: 목록, source, watch
+    - `af-artifact-ipc`: shell IPC·preload 계약, annotate 일반화
+    - `af-annotation-target`: annotation target 계약
+    - `af-file-scope`: `artifacts/`를 file 범위에
+    - `af-wireframes`: Drafts
   - wave 2:
-    - artifact 탭과 project의 artifact 목록(shell)
-    - prompt의 artifact 목록, 대화 link, 내장 guide
-    - annotation 받는 쪽(core)
-  - wave 3: gallery와 문구
+    - `af-artifact-view`: 봉한 view registry
+    - `af-artifact-tab`: 탭
+    - `af-artifact-sidebar`: sidebar 목록
+    - `af-artifact-links`: 대화 link
+    - `af-prompt-list`: prompt 목록
+    - `af-guide`: 내장 guide
+    - `af-annotation-receiver`: 받는 쪽
+    - `af-annotation-read`: `annotations.get`
+  - wave 3:
+    - `af-gallery`: Drafts를 Screens로
+    - `af-wording`: 문구 점검
+  - **화면 task는 사람 리뷰를 기다린다.** wave 2의 `af-artifact-tab`, `af-artifact-sidebar`, `af-artifact-links`는 사람이 gallery의 Drafts(`af-wireframes`)를 보고 모양을 고른 뒤에 띄운다(ui-design skill). 나머지 wave 2 task는 기다리지 않는다.
 - 시작 조건: 계획 `browser-tab`은 land하고 닫혔다(`77bfac2d1`). 이 계획은 다른 계획을 기다리지 않는다. `domain-kinds`, `domain-tools`, `domain-place`와 같이 돈다.
 
 ## 정한 것
@@ -49,6 +61,7 @@ roadmap `artifact.md`와 `domain.md`의 "정한 것"은 다시 적지 않는다.
 
 - 이 계획은 e2e를 돌리지도 고치지도 않는다.
 - land는 `LOPHN_LAND_SKIP_E2E=1 project-docs/plan/tools/lead/land.sh artifact`로 돈다.
+- `tests/e2e/annotation_test.ts`는 옛 `annotationSend` 입력(`app:`)을 쓰므로 `af-annotation-target` 뒤에 맞지 않는다. 고치지 않고 e2e 다시 쓰기 계획에 넘긴다.
 
 ## 같이 도는 계획
 
@@ -65,12 +78,25 @@ roadmap `artifact.md`와 `domain.md`의 "정한 것"은 다시 적지 않는다.
 | `packages/shell/main/app-frame/annotate.ts` | `domain-tools`(app-frame bridge 쪽) |
 | `packages/protocol/shell/workspace.ts`(tab kind), shell sidebar·add-tab menu·`use-tab-host-slices.ts`·`editor/model.ts`(`fileKindOf`) | `domain-kinds`(contexts 화면 지움), `domain-place`(앱 place 화면) |
 | `packages/core/agent-roles/credentials.ts`(`annotations.get`) | `domain-place`(App Engineer 지움) |
-| `packages/design/wording/catalog/*`, `tools/wireframes/pages/index.ts` | 모두 |
+| `packages/shell/main/app-frame/{annotate,registry}.ts`, `main/browser/frame-router.ts`, `main/desktop/{main.ts,wiring/app-views.ts,wiring/annotate.ts}` | `domain-tools`(`dt-shell-bridge`) |
+| `packages/shell/renderer/workspace/{workspace.tsx,kinds/host.ts,use-tab-host-slices.ts,sidebar/project-sidebar.tsx}` | `domain-kinds`, `domain-place` |
+| `packages/protocol/server/identity.ts`(credential 조건 `project`), `packages/core/agent-roles/credentials.ts` | `domain-place`(`dp-agent-roles-scope`). 두 계획이 같은 이름의 조건을 만들면 하나로 합친다 |
+| `packages/core/main/daemon/wiring/router.ts`, `core/apps/annotations/*` | `domain-place`(`dp-place-events`: 앱 annotation 받는 쪽을 PM으로). artifact 쪽은 따로 둔 함수(`sendArtifact`, `deliverArtifact`)라 rebase 때 두 쪽을 다 남긴다 |
+| `packages/core/lophn-agent/session/rewind/*` | `domain-place`(`dp-agents-core`) |
+| `packages/core/agent-roles/roles/{guides.ts,*/prompt.md}`, `place-info.ts` | `domain-place`(`dp-agent-roles-prompt`) |
+| `packages/core/main/agent-runtime/product-driver.ts`, `protocol/lophn-agent/input-tags.ts` | 모두 가능 |
+| `packages/design/wording/catalog/*`, `tools/wireframes/pages/index.ts`, `tools/wireframes/{mock/mock-desktop.tsx,drafts/index.tsx}` | 모두 |
+
+- **`app_engineer`:** `af-file-scope`와 `af-annotation-read`는 지금 `app_engineer` 줄을 본다. `domain-place`가 그 role을 지운다. 나중에 land하는 쪽이 맞춘다.
+
+- **runtime 쓰기 권한:** `domain-kinds`와 `domain-place`가 agent runtime의 `<data>/projects` 쓰기(`draftRoot`)를 좁힌다. 그러니 그 넓은 권한에 기대지 않는다. 이 계획의 자리(`artifacts/`, project skill 폴더)는 runtime 쓰기 목록에 따로 더한다. 먼저 land한 쪽 위에서 맞춘다.
 
 ## lead가 할 일
 
 - **wave 2를 띄우기 전에:** annotation target 계약과 봉한 scheme의 IPC가 brief와 같은지 본다.
 - **merge 때마다:** wording 생성, gallery `pages/index.ts`, 등록 file을 고친다.
+  - `af-artifact-values` 뒤: `packages/protocol/projects/mod.ts`에 `export * from "./artifact.ts"`를 더한다.
+  - `af-gallery` 뒤: gallery `GROUPS`에 `artifactArea`를 더한다.
 - **wave 2 뒤(손으로):** fake model server를 쓰고, 사람의 `~/.lophn`은 건드리지 않는다. `deno task dev`로 roadmap "끝남 기준"을 본다.
   - Operator가 쓴 artifact가 link로 열린다.
   - data 파일을 더하면 다시 load된다.

@@ -26,7 +26,7 @@
 ### view 길
 
 - **앱 view**(`packages/shell/main/app-frame/`): `lophn-app://` scheme, 앱마다 partition, `preload-app`(`window.lophnApp` bridge와 annotate layer)이다.
-- **browser view**(계획 `browser-tab`, 아직 plan branch에만 있다)
+- **browser view**(계획 `browser-tab`, land하고 닫혔다. `77bfac2d1`)
   - `main/browser/registry.ts`가 앱 registry와 따로 view를 갖는다. `main/browser/frame-router.ts`가 placement와 visibility를 앱 view와 같이 쓰게 나눈다. preload는 없다.
   - navigation 규칙(`main/browser/navigation.ts`의 `decideNavigation`)은 main frame에서 http, https, `about:blank` 밖을 막는다. custom scheme도 막는다.
 - **appearance CSS:** `lophn-shell:`과 `lophn-app:` 문서에만 넣는다(`main/desktop/wiring/appearance.ts`).

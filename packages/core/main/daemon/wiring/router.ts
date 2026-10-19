@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
@@ -27,6 +28,9 @@ import {
   rejected,
 } from "../../../lophn-agent/session/message-body.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
+import { artifactsFolder } from "../../../agent-roles/place/data-folder.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
 import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
 import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import {
@@ -249,6 +253,72 @@ export const routerWiring: WiringFactory = () => {
                 message: "not an open session of this app's engineer",
               });
             }
+          }
+          const message = ids.newId("msg");
+          const sent = await run(sendMessage, {
+            id: message,
+            session,
+            content: {
+              schema_version: 1,
+              parts: [{ kind: "text", text: input.text }],
+            },
+            delivery: "next_turn",
+            attached: [],
+            refs: input.annotations.map((id) => ({ kind: "annotation", id })),
+          });
+          if (!sent.ok) return sent;
+          return ok({ session, message });
+        },
+        // 받는 쪽 후보 순서: (a) 그 artifact 폴더에 마지막으로 쓴 열린 session(rewind 기록), (b) 그 project의 PM.
+        // 입력 session은 (b)에서만 쓴다. 사람의 `.html`(name이 null)은 (a)가 없다.
+        async deliverArtifact(input) {
+          let session: string | null = null;
+          if (input.name !== null) {
+            const name = input.name;
+            const root = await realpath(
+              artifactsFolder(ctx.root.path, input.project),
+            ).catch(() => null);
+            if (root !== null) {
+              const found = ledgerSnapshot(
+                ctx.ledgerPath,
+                (lookup) => lastArtifactWriter(lookup.sql, { root, name }),
+              );
+              if (!found.ok) return found;
+              session = found.value?.session ?? null;
+            }
+          }
+          if (session === null && input.session !== null) {
+            const found = await ctx.runtime.readers.read(
+              agentSessionRead,
+              ANNOTATION_DELIVERY_CONTEXT,
+              { session: input.session },
+            );
+            if (!found.ok) return found;
+            const { agent, lifecycle } = (found.value as {
+              session: {
+                agent: { role: string; project?: string };
+                lifecycle: string;
+              };
+            }).session;
+            if (
+              agent.role !== "project_manager" ||
+              agent.project !== input.project || lifecycle !== "open"
+            ) {
+              return err({
+                code: "conflict",
+                message: "not an open session of this project's manager",
+              });
+            }
+            session = input.session;
+          }
+          if (session === null) {
+            const opened = await run(openAgentSession, {
+              id: ids.newId("ses"),
+              agent: { role: "project_manager", project: input.project },
+              opening_context: null,
+            });
+            if (!opened.ok) return opened;
+            session = (opened.value as { id: string }).id;
           }
           const message = ids.newId("msg");
           const sent = await run(sendMessage, {

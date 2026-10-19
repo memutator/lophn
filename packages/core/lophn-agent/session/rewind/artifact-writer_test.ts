@@ -1,0 +1,117 @@
+import { assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
+import type { Sql } from "../../../../protocol/server/mod.ts";
+import { conversationSchemaSteps } from "../model.ts";
+import { turnSchemaSteps } from "../../run-loop/schema.ts";
+import { toolsSchemaSteps } from "../../tools/model.ts";
+import { lastArtifactWriter, revertSchemaSteps } from "./mod.ts";
+
+const ROOT_A = "/data/projects/prj_a/artifacts";
+const ROOT_B = "/data/projects/prj_b/artifacts";
+
+function setup() {
+  const db = new DatabaseSync(":memory:");
+  db.exec("pragma foreign_keys = off");
+  for (
+    const step of [
+      ...conversationSchemaSteps,
+      ...turnSchemaSteps,
+      ...toolsSchemaSteps,
+      ...revertSchemaSteps,
+    ]
+  ) db.exec(step.sql);
+  const sql: Sql = {
+    run: (query, params) => db.prepare(query).run(...params),
+    get: (query, params) => db.prepare(query).get(...params) as never,
+    all: (query, params) => db.prepare(query).all(...params) as never,
+  };
+  let seq = 0;
+  // session 하나와 그 turn의 checkpoint 하나를 만든다.
+  const session = (
+    id: string,
+    o: { role?: string; project: string; lifecycle?: string },
+  ) => {
+    const role = o.role ?? "project_manager";
+    const app = role === "app_engineer";
+    sql.run(
+      `insert into sessions (id, role, project, app, operator, place_kind, place_id, lifecycle, created_seq, state_seq)
+       values (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+      [
+        id,
+        role,
+        app ? null : o.project,
+        app ? "app_1" : null,
+        role === "operator" ? "agt_1" : null,
+        app ? "app" : "project",
+        app ? "app_1" : o.project,
+        o.lifecycle ?? "open",
+      ],
+    );
+    sql.run("insert into checkpoints (message, session) values (?, ?)", [
+      `msg_${id}`,
+      id,
+    ]);
+  };
+  const write = (
+    session: string,
+    root: string,
+    path: string,
+    revertedBy: string | null = null,
+  ) => {
+    sql.run(
+      `insert into rewind_files
+         (tool_call, root, path, checkpoint, seq, before_exists, after_exists, after_sha256, reverted_by)
+       values (?, ?, ?, ?, ?, 0, 1, ?, ?)`,
+      [
+        `tcl_${++seq}`,
+        root,
+        path,
+        `msg_${session}`,
+        seq,
+        "a".repeat(64),
+        revertedBy,
+      ],
+    );
+  };
+  return { sql, session, write };
+}
+
+Deno.test("artifact annotation의 받는 쪽은 그 project의 열린 PM·Operator가 마지막으로 쓴 session이다", () => {
+  const { sql, session, write } = setup();
+  session("ses_a", { project: "prj_a" });
+  session("ses_b", { project: "prj_b" });
+  session("ses_closed", { project: "prj_a", lifecycle: "archived" });
+  session("ses_op", { project: "prj_a", role: "operator" });
+  session("ses_ae", { project: "prj_a", role: "app_engineer" });
+  const find = (root: string, name: string) =>
+    lastArtifactWriter(sql, { root, name })?.session ?? null;
+
+  // 같은 이름이 두 project에 있어도 그 project의 root에 쓴 session만 나온다.
+  write("ses_a", ROOT_A, "report/index.html");
+  write("ses_b", ROOT_B, "report/index.html");
+  assertEquals(find(ROOT_A, "report"), "ses_a");
+  assertEquals(find(ROOT_B, "report"), "ses_b");
+
+  // 이름은 접두사 폴더로만 맞춘다: 비슷한 이름과 like 특수 문자는 맞지 않는다.
+  assertEquals(find(ROOT_A, "repo"), null);
+  assertEquals(find(ROOT_A, "rep%"), null);
+  assertEquals(find(ROOT_A, "r_port"), null);
+
+  // 닫힌 session과 다른 role(app_engineer)의 쓰기는 건너뛰고 앞선 쓰기로 간다.
+  write("ses_closed", ROOT_A, "report/new.html");
+  write("ses_ae", ROOT_A, "report/ae.html");
+  assertEquals(find(ROOT_A, "report"), "ses_a");
+
+  // Operator의 더 나중 쓰기가 이긴다.
+  write("ses_op", ROOT_A, "report/op.html");
+  assertEquals(find(ROOT_A, "report"), "ses_op");
+
+  // 되돌려진 쓰기는 마지막으로 쓴 것이 아니다.
+  sql.run("update rewind_files set reverted_by = 'rev_1' where path = ?", [
+    "report/op.html",
+  ]);
+  assertEquals(find(ROOT_A, "report"), "ses_a");
+
+  // 기록이 없으면 null이다.
+  assertEquals(find(ROOT_A, "none"), null);
+});

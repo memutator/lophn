@@ -7,6 +7,7 @@ export {
 } from "./record.ts";
 export { createRewindStore, type RewindStore } from "./store.ts";
 export { deleteSessionReverts, eraseSessionStore } from "./erase.ts";
+export { lastArtifactWriter } from "./artifact-writer.ts";
 export { sweepRewindStore } from "./sweep.ts";
 export {
   findUninstalled,

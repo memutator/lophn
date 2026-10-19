@@ -22,7 +22,7 @@ async function withTemp(run: (dir: string) => Promise<void>) {
   }
 }
 
-Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이고 작성자가 정한 n의 내용이 바뀌면 거절한다", async () => {
+Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이다. 작성자가 정한 n은 건너뛰어 올릴 수 있고 max 이하의 새 n과 n의 내용이 바뀐 것은 거절한다", async () => {
   await withTemp(async (dir) => {
     const at = async (hash: string) =>
       (await resolveVersion(dir, { kind: "tool", name: "ask", hash })).ref.n;
@@ -42,9 +42,10 @@ Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 
         await code(1, "x"),
         await code(1, "y"),
         await code(3, "z"),
-        await code(2, "z"),
+        await code(2, "w"),
+        await code(3, "q"),
       ],
-      [true, false, "conflict", "invalid_input", true],
+      [true, false, "conflict", true, "invalid_input", "conflict"],
     );
   });
 });

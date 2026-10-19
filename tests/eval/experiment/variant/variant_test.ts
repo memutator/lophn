@@ -18,8 +18,6 @@ function fakeIo(files: string[]) {
         stderr: "",
       });
     },
-    symlink: () => Promise.resolve(),
-    mkdir: () => Promise.resolve(),
   };
   return { io, runs };
 }

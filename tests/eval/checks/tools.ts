@@ -25,13 +25,19 @@ export function toolCount(
   };
 }
 
-export function toolsCalled(id: string, tools: string[]): ProgramCheck {
+// 배열 항목은 그 가운데 하나가 불렸으면 된다.
+export function toolsCalled(
+  id: string,
+  tools: (string | string[])[],
+): ProgramCheck {
   return {
     kind: "program",
     id,
     run({ trial }) {
       const called = new Set(effectiveToolCalls(trial).map((c) => c.call.tool));
-      const missing = tools.filter((t) => !called.has(t));
+      const missing = tools.filter((t) =>
+        ![t].flat().some((name) => called.has(name))
+      ).map((t) => [t].flat().join("|"));
       return {
         pass: missing.length === 0,
         reason: missing.length === 0

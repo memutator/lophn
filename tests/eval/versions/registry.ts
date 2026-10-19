@@ -132,12 +132,13 @@ export async function registerAuthored(
         message: `${ref.kind}:${ref.name}@${ref.n} 내용이 바뀌었다. n을 올려라`,
       });
     }
-    if (ref.n !== maxN(entries) + 1) {
+    // 빈 n을 건너뛰어도 받는다. 시나리오 file의 n이 registry보다 앞서는 일이 흔하다.
+    if (ref.n <= maxN(entries)) {
       return err({
         code: "invalid_input",
         message: `${ref.kind}:${ref.name}@${ref.n}의 n은 ${
-          maxN(entries) + 1
-        }여야 한다`,
+          maxN(entries)
+        }보다 커야 한다`,
       });
     }
     await append(dir, entries, entryOf(ref, hash, content));

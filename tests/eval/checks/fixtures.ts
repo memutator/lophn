@@ -17,8 +17,13 @@ import type {
 
 const AT = "2026-01-01T00:00:00.000Z";
 
+// 받는 쪽. Participant에 App Engineer가 들어오면 이 type은 Participant로 접는다.
+export type FixtureTarget =
+  | Participant
+  | { role: "app_engineer"; place: { app: string } };
+
 export type FixtureCall = {
-  to: Participant;
+  to: FixtureTarget;
   reply: CallReply;
   fail?: "denied" | "not_found" | "not_allowed" | "closed";
   body?: string;
@@ -35,7 +40,7 @@ export type FxStep =
   }
   | { call: FixtureCall };
 
-function placeName(p: Participant): PlaceName | null {
+function placeName(p: FixtureTarget): PlaceName | null {
   const place = p.place;
   if (place === undefined || !("project" in place)) return null;
   return {
@@ -45,7 +50,7 @@ function placeName(p: Participant): PlaceName | null {
   };
 }
 
-function refOf(p: Participant): AgentRef {
+function refOf(p: FixtureTarget): AgentRef {
   const place = placeName(p);
   switch (p.role) {
     case "lophn":
@@ -54,6 +59,8 @@ function refOf(p: Participant): AgentRef {
       return { role: "project_manager", project: place!.id } as AgentRef;
     case "operator":
       return { role: "operator", agent: `agt_fx_${p.name ?? ""}` } as AgentRef;
+    case "app_engineer":
+      return { role: "app_engineer", app: `app_fx_${p.place.app}` };
   }
 }
 
@@ -99,11 +106,11 @@ export function fixtureTrial(sessions: SessionRecord[]): TrialRecord {
   };
 }
 
-export function fixtureAppCreate(name: string, project: string): FxStep {
+export function fixtureAppCreate(name: string): FxStep {
   return {
     tool: "app.create",
     effect: "write",
-    input: { project, name, purpose: `${name} fixture` },
+    input: { name, purpose: `${name} fixture` },
     output: { status: "success", content: { id: `app_fx_${name}` } },
   };
 }

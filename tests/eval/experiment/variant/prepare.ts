@@ -33,16 +33,22 @@ export async function prepareVariant(
     });
   }
 
-  // gate의 e2e가 variant의 tests/support/coding/deps.ts로 이 폴더를 읽는다. cache라 같이 써도 된다.
-  const currentDir = `${current}/${E2E_DENO_DIR}`;
-  const filled = await io.nonEmpty(currentDir);
-  if (filled && !await io.exists(`${path}/${E2E_DENO_DIR}`)) {
-    await io.mkdir(`${path}/.dev-data/e2e`);
-    await io.symlink(currentDir, `${path}/${E2E_DENO_DIR}`);
+  // gate의 e2e가 variant의 tests/support/coding/deps.ts로 이 폴더를 읽는다. 현재 checkout 것을 symlink로 이으면
+  // 앱 release 준비의 esbuild가 떨어지므로 variant가 자기 deps를 받는다.
+  if (!await io.nonEmpty(`${path}/${E2E_DENO_DIR}`)) {
+    const deps = await io.run([Deno.execPath(), "task", "e2e:deps"], path);
+    if (deps.code !== 0) {
+      return err({
+        code: "unavailable",
+        message: `e2e:deps가 실패했다: ${deps.stderr.trim()}`,
+      });
+    }
   }
 
   // variant가 의존을 새로 더했으면 첫 boot가 내려받느라 hello 제한을 넘긴다. trial의 core는 지금 checkout의
   // e2e deno-dir를 쓰므로 거기에 받는다.
+  const currentDir = `${current}/${E2E_DENO_DIR}`;
+  const filled = await io.nonEmpty(currentDir);
   const cache = await io.run(
     [Deno.execPath(), "cache", ...CORE_ENTRIES],
     path,

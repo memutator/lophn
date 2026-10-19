@@ -21,7 +21,7 @@ const BODY = `사람 요청: ${REQUEST}`;
 
 const scenario: Scenario = {
   id: "L4-app",
-  n: 2,
+  n: 3,
   proposal: true,
   world: ["apps-home@1"],
   real: [LOPHN],
@@ -53,7 +53,7 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
-            fixtureAppCreate("캘린더", "calendar-project"),
+            fixtureAppCreate("캘린더"),
             { call: { to: PM_calendar, reply: "none", body: BODY } },
           ]),
         ]),

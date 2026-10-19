@@ -14,7 +14,7 @@ const REQUEST = "가계부 비슷한 걸 만들고 싶은데 아직 잘 모르�
 
 const scenario: Scenario = {
   id: "L1",
-  n: 2,
+  n: 3,
   proposal: true,
   world: [],
   real: [LOPHN],
@@ -58,7 +58,7 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
-            fixtureAppCreate("가계부2", "ledger-project"),
+            fixtureAppCreate("가계부2"),
           ]),
         ]),
         fails: ["asked", "no-app-create"],

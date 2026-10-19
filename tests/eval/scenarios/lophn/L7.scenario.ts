@@ -11,15 +11,12 @@ import { say, type Scenario, untilIdle } from "../../types.ts";
 import { LOPHN } from "./common.ts";
 
 const REQUEST = "가계부 앱 잘 돌아?";
-const READS = [
-  { tool: "app.get", effect: "read" as const },
-  { tool: "problem.list", effect: "read" as const },
-  { tool: "ticket.list", effect: "read" as const },
-];
+const read = (tool: string) => ({ tool, effect: "read" as const });
+const READS = [read("problem.list"), read("ticket.list")];
 
 const scenario: Scenario = {
   id: "L7",
-  n: 2,
+  n: 3,
   proposal: true,
   world: ["apps-home@1"],
   real: [LOPHN],
@@ -29,21 +26,35 @@ const scenario: Scenario = {
   },
   steps: [say(LOPHN, REQUEST), untilIdle()],
   checks: [
-    toolsCalled("read-all", ["app.get", "problem.list", "ticket.list"]),
+    toolsCalled("read-all", [
+      ["app.get", "app.list"],
+      "problem.list",
+      "ticket.list",
+    ]),
     noWriteTools("no-write"),
   ],
   fixtures: {
-    right: [fixtureTrial([fixtureSession(LOPHN, READS)])],
+    right: [
+      fixtureTrial([fixtureSession(LOPHN, [read("app.get"), ...READS])]),
+      fixtureTrial([fixtureSession(LOPHN, [read("app.list"), ...READS])]),
+    ],
     wrong: [
       {
-        trial: fixtureTrial([fixtureSession(LOPHN, READS.slice(0, 2))]),
+        trial: fixtureTrial([
+          fixtureSession(LOPHN, [read("app.get"), read("problem.list")]),
+        ]),
+        fails: ["read-all"],
+      },
+      {
+        trial: fixtureTrial([fixtureSession(LOPHN, READS)]),
         fails: ["read-all"],
       },
       {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
+            read("app.get"),
             ...READS,
-            fixtureAppCreate("가계부2", "ledger-project"),
+            fixtureAppCreate("가계부2"),
           ]),
         ]),
         fails: ["no-write"],

@@ -13,8 +13,6 @@ export type VariantIo = {
     cwd: string,
     env?: Record<string, string>,
   ): Promise<RunOutput>;
-  symlink(target: string, path: string): Promise<void>;
-  mkdir(path: string): Promise<void>;
 };
 
 export const denoIo: VariantIo = {
@@ -58,6 +56,4 @@ export const denoIo: VariantIo = {
       stderr: text.decode(out.stderr),
     };
   },
-  symlink: (target, path) => Deno.symlink(target, path),
-  mkdir: (path) => Deno.mkdir(path, { recursive: true }),
 };

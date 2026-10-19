@@ -1,7 +1,7 @@
 // ticket의 값. 내용은 목표(goal) 하나, acceptance check 하나, 근거(evidence)다.
 import { z } from "zod";
 import { annotationReadSchema } from "../../apps/annotation.ts";
-import { appApiKeySchema } from "../../apps/channel-values.ts";
+import { toolNameSchema } from "../../apps/channel-values.ts";
 import { canonicalize } from "../../../base/mod.ts";
 import { idSchema } from "../../base/ids.ts";
 import { atSchema, seqSchema, sha256Schema } from "../../base/values.ts";
@@ -64,14 +64,14 @@ const exampleValueSchema = z.json().refine(
   { message: "example value is too large" },
 );
 
-// app-api 한 번의 호출 예시. 호출이 성공하면 그 result가 expect와 맞아야 한다.
+// tool 한 번의 호출 예시. 호출이 성공하면 그 result가 expect와 맞아야 한다.
 const exampleStepSchema = z.strictObject({
-  api: appApiKeySchema,
+  tool: toolNameSchema,
   input: exampleValueSchema.optional(),
   expect: exampleValueSchema,
 });
 
-// acceptance check는 하나다. examples는 program이 준비된 release에 불러 비교하는 app-api 예시이고,
+// acceptance check는 하나다. examples는 program이 준비된 release에 불러 비교하는 tool 예시이고,
 // text는 App Engineer가 판단하는 글 조건이다.
 export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
   z.strictObject({

@@ -32,18 +32,18 @@ function head(value: unknown): string {
   return new TextDecoder().decode(bytes.slice(0, EVIDENCE_VALUE_MAX_BYTES));
 }
 
-// 예시를 순서대로 불러 첫 불일치에서 멈춘다. reason에는 값이 아니라 위치와 api만 쓴다.
+// 예시를 순서대로 불러 첫 불일치에서 멈춘다. reason에는 값이 아니라 위치와 tool만 쓴다.
 export async function examples(
   driver: AppDriver,
   plan: HarnessPlan,
 ): Promise<Verdict> {
   const steps = plan.examples.length;
   for (const [index, example] of plan.examples.entries()) {
-    const outcome = await driver.call(example.api, example.input);
+    const outcome = await driver.call(example.tool, example.input);
     const matched = outcome.status === "ok" &&
       exampleMatches(example.expect, outcome.result);
     if (matched) continue;
-    const where = `step ${index + 1} ${example.api}`;
+    const where = `step ${index + 1} ${example.tool}`;
     return {
       met: false,
       reason: outcome.status === "ok"
@@ -52,7 +52,7 @@ export async function examples(
       evidence: {
         steps,
         failed_step: index,
-        api: example.api,
+        tool: example.tool,
         expected: head(example.expect),
         actual: head(
           outcome.status === "ok" ? outcome.result : { error: outcome.code },
@@ -66,7 +66,7 @@ export async function examples(
     evidence: {
       steps,
       failed_step: null,
-      api: null,
+      tool: null,
       expected: null,
       actual: null,
     },

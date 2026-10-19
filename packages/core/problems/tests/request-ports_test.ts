@@ -16,7 +16,7 @@ const REL = "rel_01hzzzzzzzzzzzzzzzzzzzzzza";
 const BUNDLE = "b".repeat(64);
 const CHECK = {
   kind: "examples",
-  steps: [{ api: "add", input: { a: 1 }, expect: { sum: 1 } }],
+  steps: [{ tool: "add", input: { a: 1 }, expect: { sum: 1 } }],
 };
 
 function open() {

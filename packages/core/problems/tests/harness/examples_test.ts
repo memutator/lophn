@@ -25,8 +25,8 @@ Deno.test("예시와 맞지 않는 결과는 불일치이고 맞는 결과는 �
 function fake(outcomes: CallOutcome[]): { driver: AppDriver; calls: string[] } {
   const calls: string[] = [];
   const driver = {
-    call(api: string) {
-      calls.push(api);
+    call(tool: string) {
+      calls.push(tool);
       return Promise.resolve(outcomes.shift()!);
     },
   } as unknown as AppDriver;
@@ -34,14 +34,14 @@ function fake(outcomes: CallOutcome[]): { driver: AppDriver; calls: string[] } {
 }
 
 const plan = (
-  steps: { api: string; expect: unknown }[],
+  steps: { tool: string; expect: unknown }[],
 ): HarnessPlan => ({ examples: steps } as unknown as HarnessPlan);
 
 Deno.test("예시 검사는 맞지 않는 첫 단계에서 멈추고 모두 맞아야 통과한다", async () => {
   const steps = [
-    { api: "a.one", expect: { n: 1 } },
-    { api: "a.two", expect: [1] },
-    { api: "a.three", expect: "x" },
+    { tool: "a.one", expect: { n: 1 } },
+    { tool: "a.two", expect: [1] },
+    { tool: "a.three", expect: "x" },
   ];
   const stopped = fake([
     { status: "ok", result: { n: 1, extra: true } },
@@ -72,7 +72,7 @@ Deno.test("예시 검사는 맞지 않는 첫 단계에서 멈추고 모두 맞�
   // 큰 결과도 frame 한도 안에 들도록 자른다.
   const big = await examples(
     fake([{ status: "ok", result: "y".repeat(100_000) }]).driver,
-    plan([{ api: "a.one", expect: "z" }]),
+    plan([{ tool: "a.one", expect: "z" }]),
   );
   assertEquals((big.evidence["actual"] as string).length <= 2048, true);
 });

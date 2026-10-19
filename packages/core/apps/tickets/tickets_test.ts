@@ -241,7 +241,7 @@ Deno.test("examples check의 ticket은 예시가 맞지 않으면 verified가 �
     ticket_check_hash TEXT)`);
   const check = {
     kind: "examples",
-    steps: [{ api: "weekly.list", expect: { count: 4 } }],
+    steps: [{ tool: "weekly.list", expect: { count: 4 } }],
   };
   const hashOf = (value: unknown) =>
     createHash("sha256").update(canonicalize(value), "utf8").digest("hex");

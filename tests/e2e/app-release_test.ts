@@ -215,7 +215,7 @@ Deno.test("E2E App Engineer가 건 app-api 예시가 맞아야 ticket이 verifie
         verify: false,
         check: {
           kind: "examples",
-          steps: [{ api: "list_items", expect: row.expect }],
+          steps: [{ tool: "list_items", expect: row.expect }],
         },
       });
       // ledger: 보고 뒤 예시가 돌아 결과가 남는다.

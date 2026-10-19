@@ -39,19 +39,19 @@ export type CallOutcome =
   | { status: "ok"; result: unknown }
   | { status: "error"; code: string };
 
-// ticket의 app-api 예시 하나. 호출이 성공하면 그 result가 expect와 맞아야 한다.
-export type HarnessExample = { api: string; input?: unknown; expect: unknown };
+// ticket의 tool 예시 하나. 호출이 성공하면 그 result가 expect와 맞아야 한다.
+export type HarnessExample = { tool: string; input?: unknown; expect: unknown };
 
 // test 앱 자식을 실제 진입점으로 구동하는 쪽(runner)이 test 자식에 주는 통로다.
 // harness는 앱 code를 import하지 않고 이 통로로만 만진다.
 export type AppDriver = {
   probe(): Promise<Attestation>;
   // 선언한 입력 계약을 어긴 입력으로 app-api를 불러 입력 검증에서 거절됐는지 돌려준다.
-  rejectsInvalidInput(api: string): Promise<boolean>;
+  rejectsInvalidInput(tool: string): Promise<boolean>;
   // write app-api를 불러 changeset을 뒤집어 적용하고 DB 상태를 호출 전과 견준다.
-  rewind(api: string): Promise<RewindRun>;
+  rewind(tool: string): Promise<RewindRun>;
   // app-api를 이 입력으로 불러 결과를 돌려준다. 앞선 호출이 만든 data는 뒤 호출에 보인다.
-  call(api: string, input: unknown): Promise<CallOutcome>;
+  call(tool: string, input: unknown): Promise<CallOutcome>;
   // 고정 fixture DB의 migration. 빈 DB 전체와 이전 release schema → 새 schema다.
   migrate(scenario: MigrationScenario): Promise<MigrationRun>;
 };

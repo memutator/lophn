@@ -16,7 +16,7 @@ export const REQUIRED_CHECKS = [
   // write app-api를 부른 뒤 core가 그 invocation의 changeset을 뒤집어 적용하면 DB 상태가 부르기 전과 같다.
   "rewind",
 ] as const;
-// ticket의 app-api 예시를 순서대로 불러 견주는 검사. 예시 검증 실행에서만 required이고 REQUIRED_CHECKS와
+// ticket의 tool 예시를 순서대로 불러 견주는 검사. 예시 검증 실행에서만 required이고 REQUIRED_CHECKS와
 // 따로 돈다.
 export const EXAMPLES_CHECK = "examples";
 export type CheckName =
@@ -90,7 +90,7 @@ const COVERAGE: Record<CheckName, CheckCoverage> = {
     input_range: "write app-api마다 호출 1회와 rewind 1회",
   },
   examples: {
-    criteria: ["예시마다 app-api 호출 결과가 기대와 맞는다"],
+    criteria: ["예시마다 tool 호출 결과가 기대와 맞는다"],
     input_range:
       "ticket에 적힌 예시 순서대로, 빈 DB에서 시작한 같은 앱 process",
   },

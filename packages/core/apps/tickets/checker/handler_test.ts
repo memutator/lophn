@@ -20,7 +20,7 @@ Deno.test("an examples check that cannot be prepared is recorded as fail, not re
           release: { id: REL, app: APP, bundle_hash: "a".repeat(64) },
           check: {
             kind: "examples",
-            steps: [{ api: "notes.list", expect: [] }],
+            steps: [{ tool: "notes.list", expect: [] }],
           },
           verifications: [],
         },

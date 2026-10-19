@@ -94,7 +94,7 @@ const REASONS: Record<CheckName, string> = {
   migration_upgrade: "이전 release schema에서 새 schema로 migration되는지",
   rewind:
     "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지",
-  examples: "ticket의 예시마다 app-api 호출 결과가 기대와 맞는지",
+  examples: "ticket의 예시마다 tool 호출 결과가 기대와 맞는지",
 };
 
 const EXAMPLES_RUN = "예시 검증 실행이다";

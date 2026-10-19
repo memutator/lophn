@@ -15,6 +15,17 @@
   - 앱 화면
   - e2e 다시 쓰기, eval 자료 다시 만들기. 이 계획 뒤에 따로 연다.
 - **돌리는 방식:** worker를 쓴다. orchestrate skill대로 한다. task id는 `ds-`로 시작한다.
+- **단위와 순서:** `tasks/*.md`가 정한다.
+  - wave 1
+    - `ds-rename`: codemod다. 옛 project entity를 domain으로 바꾼다(id `dom_`, Place, role `domain_engineer`, `<data>/domains/`, 표, route, module 자리). 약 600 file이다.
+    - `ds-wireframe-drafts`: 사람이 고를 화면 Drafts
+  - wave 2: `ds-project-registry`. 가벼운 project registry, `domain_projects` 연결 표, 사람만 잇고 끊는다.
+  - wave 3: `ds-scope`, `ds-kinds-projects`, `ds-shell-launcher`, `ds-shell-agents`
+  - wave 4: `ds-shell-window`, `ds-coding-location`, `ds-tool-rename`
+  - wave 5: `ds-leftover`
+  - **land:** wave 1(순수 이름 바꾸기) 뒤에 한 번 land한다. wave 2~5는 같이 land한다. `ds-shell-window`가 merge되기 전에는 shell 화면이 반만 옮겨진 상태이기 때문이다.
+  - **화면 task:** `ds-shell-launcher`, `ds-shell-agents`, `ds-shell-window`는 사람이 Drafts에서 고른 뒤 띄운다. lead가 각 brief의 "고른 안" 절을 채운다.
+  - **`ds-rename`이 크다:** worker가 멈추면 같은 worker에게 이어 시키거나 영역으로 나눈다.
 - **시작 조건:** 앞 계획 넷과 `rewind-check`가 모두 main에 land하고 닫혔다(main `ecda3b15e` 이후). brief는 지금 main을 보고 쓴다.
 
 ## 정한 것
@@ -73,7 +84,9 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획을 위해 
   - `project-docs/architecture/domain.md`를 새로 쓴다. project와 domain, N:M 연결, file 범위, 지침 층, place, role을 적는다. `kinds.md`, `artifact.md`를 가리킨다.
   - place-session, agent-definition, app-call, coding-agent, annotation, workspace-layout, kinds, artifact, layers를 고친다.
   - PRODUCT 2절·3절·6절과 AGENT-ROLE 전체(PM → Domain Engineer, project와 domain)를 고친다.
-  - `boundary-catalog.yaml`, `module-catalog.yaml`, `context-component-registry.yaml`을 고친다.
+  - `boundary-catalog.yaml`, `module-catalog.yaml`, `context-component-registry.yaml`을 고친다. boundary ID `projects`는 domain 경계로 바꾸고, 새 project 경계를 더한다.
+  - `architecture/layers.md`의 "domain"(core 층 이름 projects·apps·problems)이 새 domain 개념과 부딪힌다. 다른 말로 고친다.
+  - PRODUCT의 context 말과 `.claude/skills/issue/SKILL.md` 주제 목록의 `contexts`를 고친다(문서라 lead가 한다).
   - `products/roadmap/domain.md`는 남은 몫(앱 화면, activation 때 알리기 등)만 남기고 줄인다.
   - changelog `0.5.0`에 항목을 덧붙인다.
 - **사람에게 묻는 것:** 화면 모양, subprocess·Electron test를 새로 만들 때.

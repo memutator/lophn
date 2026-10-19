@@ -103,12 +103,8 @@ export const agents = {
   "agents.label.grants-target": "the grants",
   "agents.label.grants-tools-summary":
     "{used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
-  "agents.label.instructions-head-folder":
-    "Project instructions \u00b7 LOPHN.md in {project} \u2014 the project folder this Operator works in",
   "agents.label.instructions-head-placed":
     "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent placed there",
-  "agents.label.instructions-head-source":
-    "Project instructions \u00b7 LOPHN.md in {project} \u2014 the project that holds {app}'s source",
   "agents.label.instructions-head-unknown":
     "Project instructions \u00b7 LOPHN.md",
   "agents.label.layer-agent": "This agent",
@@ -121,11 +117,8 @@ export const agents = {
     "Overrides {layer, select, project {project} other {Workspace}}",
   "agents.label.no-model-chosen": "No model chosen yet",
   "agents.label.place": "Place",
-  "agents.label.place-choice":
-    "{name} ({kind, select, app {app} other {project}})",
   "agents.label.place-lophn": "All of lophn",
-  "agents.label.place-named":
-    "{name} \u00b7 {kind, select, app {app} other {project}}",
+  "agents.label.place-named": "{name} \u00b7 project",
   "agents.label.protected-key": "Key or token",
   "agents.label.role-project-manager": "Project Manager",
   "agents.label.tab-definition": "Definition",
@@ -152,7 +145,7 @@ export const agents = {
   "agents.notice.name-fixed-lophn":
     "There is one lophn for everything. The name can't be changed.",
   "agents.notice.name-fixed-role":
-    "Every {owner, select, app {app} other {project}} has one {role}. The name can't be changed.",
+    "Every project has one {role}. The name can't be changed.",
   "agents.notice.place-help":
     "Where this Operator works. Its sessions open in that place.",
   "agents.notice.profile-help":
@@ -162,7 +155,7 @@ export const agents = {
   "agents.notice.server-name-help":
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
   "agents.notice.skills-agent-only":
-    "The chip says which layer a skill comes from. A switch here changes only this agent.",
+    "The chip says which layer a skill comes from. Switch a skill off to leave it out for this agent. A skill that is off in a layer above stays off.",
   "agents.title.change-failed": "Couldn't change that",
   "agents.title.delete-failed": "Couldn't delete",
   "agents.title.providers-disconnect": "Disconnect {name}?",
@@ -224,7 +217,6 @@ export const agents = {
   "project-workspace.label.instructions-shared":
     "Shared by every agent in {project}",
   "project-workspace.label.open-agent-named": "Open {name}",
-  "project-workspace.label.role-app-engineer": "App Engineer",
   "project-workspace.label.role-lophn": "lophn",
   "project-workspace.label.role-operators": "Operators",
   "project-workspace.notice.agent-editor-delete-body":

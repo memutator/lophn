@@ -60,12 +60,8 @@ async function placeNameOf(
   place: Place | null,
 ): Promise<SourceResult<string>> {
   if (place === null) return { ok: true, value: "" };
-  if (place.kind === "project") {
-    const read = await env.read(projectGet, { project: place.id });
-    return read.ok ? { ok: true, value: read.value.project.title } : read;
-  }
-  const read = await env.read(appGet, { app: place.id });
-  return read.ok ? { ok: true, value: read.value.app.name } : read;
+  const read = await env.read(projectGet, { project: place.id });
+  return read.ok ? { ok: true, value: read.value.project.title } : read;
 }
 
 function roleLabel(agent: CallAgent["role"]): string {
@@ -75,7 +71,7 @@ function roleLabel(agent: CallAgent["role"]): string {
     case "project_manager":
       return t("waiting.label.agent-project-manager");
     case "app_engineer":
-      return t("waiting.label.agent-app-engineer");
+      return t("waiting.label.agent-project-manager");
     case "operator":
       return t("waiting.label.agent-operator");
     case "coding_agent":
@@ -200,7 +196,7 @@ export async function readFace(
     profile: profile.kind === "icon"
       ? { kind: "icon", icon: profile.icon }
       : { kind: "initial", text: name.slice(0, 1) },
-    place: { kind: place?.kind ?? "project", name: named.value },
+    place: { kind: "project", name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {
       count: grants.value.filter((row) => row.setting === "allow").length,
     }),

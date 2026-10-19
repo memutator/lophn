@@ -1,4 +1,4 @@
-// 지침 파일([Instructions])을 같은 편집기로 여는 경계. renderer는 층(전역·project·app)과
+// 지침 파일([Instructions])을 같은 편집기로 여는 경계. renderer는 층(전역·project)과
 // 그 자리 id만 보낸다. exact 등록 경로·instruction target 이름은 main이 resolve하고 renderer에는
 // 문서 id만 돌려준다. 파일이 아직 없으면 문서도 없고, 사람의 첫 저장이 파일을 만든다.
 import { z } from "zod";
@@ -11,10 +11,6 @@ const instructionsPlaceSchema = z.discriminatedUnion("layer", [
     layer: z.literal("project"),
     place: z.string().regex(/^prj_[0-9a-z]{26}$/),
   }),
-  z.strictObject({
-    layer: z.literal("app"),
-    place: z.string().regex(/^app_[0-9a-z]{26}$/),
-  }),
 ]);
 
 export const instructionsOpenSchema = z.strictObject({
@@ -23,8 +19,7 @@ export const instructionsOpenSchema = z.strictObject({
 
 export type InstructionsPlace =
   | { readonly layer: "global" }
-  | { readonly layer: "project"; readonly place: string }
-  | { readonly layer: "app"; readonly place: string };
+  | { readonly layer: "project"; readonly place: string };
 
 /** renderer가 구별하는 실패. 경로·OS 오류 원문은 싣지 않는다. */
 type EditorFailure =

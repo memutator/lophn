@@ -57,7 +57,7 @@ const AGENT_LABELS = {
   lophn: "waiting.label.agent-lophn",
   operator: "waiting.label.agent-operator",
   project_manager: "waiting.label.agent-project-manager",
-  app_engineer: "waiting.label.agent-app-engineer",
+  app_engineer: "waiting.label.agent-project-manager",
   coding_agent: "waiting.label.agent-coding",
 } as const;
 
@@ -330,11 +330,7 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         ? intent.target.event
         : null;
       const eventText = event === null ? "" : t(EVENT_LABELS[event]);
-      const opens = t(
-        event === "KindViolationFound"
-          ? "waiting.label.agent-project-manager"
-          : "waiting.label.agent-app-engineer",
-      );
+      const opens = t("waiting.label.agent-project-manager");
       const detail = Object.keys(intent.input).length === 0
         ? null
         : json(intent.input);

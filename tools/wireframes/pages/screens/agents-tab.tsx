@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { AgentsPage } from "../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import { AgentEditor } from "../../../../packages/shell/renderer/workspace/agents/editor/agent-editor.tsx";
 import {
-  APP_ID,
   createFakeAgentsSource,
   FAKE_AGENTS,
   type FakeAgentsOptions,
@@ -71,7 +70,7 @@ export function OperatorEditor(
     <div>
       <AgentEditor
         source={source}
-        project={id === "app_engineer" ? APP_ID : PROJECT_ID}
+        project={PROJECT_ID}
         projectName={PROJECT_NAME}
         agent={id === "new" ? null : id}
         onDone={onDone}

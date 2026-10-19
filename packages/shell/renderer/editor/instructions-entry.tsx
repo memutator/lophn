@@ -1,6 +1,5 @@
 // [Instructions] 진입. 지침 파일은 일반 경로 파일이라 같은 파일 편집기로 연다. 전역·project 자리의
 // 경로는 shell main(`InstructionsApi`)이 알려 주고, 없는 파일은 빈 buffer로 열려 첫 저장이 만든다.
-// 앱 층 지침은 없다.
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";

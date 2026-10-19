@@ -118,7 +118,7 @@ function DefaultToastHandler(
             current.openSession(action.session);
             return true;
           }
-          // 앱의 App Engineer session은 아직 없다. 그 앱 공간으로 간다.
+          // 열린 session이 없는 반응(앱 재시작 중단)은 그 앱 공간으로 간다.
           if (action.app === undefined) return false;
           current.goApp(action.app);
           return true;
@@ -197,7 +197,7 @@ export function Desktop(
     else setRoute(openProject(target.project, { open: target.file }));
   };
 
-  // session을 그 session이 있는 창에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간이다.
+  // session을 그 session이 있는 project 창에서 연다.
   // place가 없는 lophn의 session은 마지막으로 연 project 창에서 연다. project를 연 적이 없으면 런처로 간다.
   const { sessions } = useSessions();
   const lastProject = useRef<string | null>(null);
@@ -213,8 +213,7 @@ export function Desktop(
       ?.place;
     if (place?.kind === "project") {
       setRoute(openProject(place.id, { session }));
-    } else if (place?.kind === "app") setRoute(openApp(place.id, session));
-    else if (lastProject.current !== null) {
+    } else if (lastProject.current !== null) {
       setRoute(openProject(lastProject.current, { session }));
     } else launcher();
   };
@@ -340,10 +339,6 @@ export function Desktop(
         agents={workspace?.agentsSource}
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
-        onInstructions={instructions
-          ? () =>
-            setRoute(openInstructions({ layer: "app", place: route.app! }))
-          : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
         annotate={annotate}

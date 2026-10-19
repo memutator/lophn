@@ -3,7 +3,6 @@ import {
   AgentGrantsAppPage,
   AgentGrantsPage,
   AgentServerFormPage,
-  AppEngineerEditorPage,
   OperatorCreatePage,
   OperatorEditorPage,
   OperatorModelPickerPage,
@@ -14,7 +13,7 @@ export const agentSettingsArea: Area = {
   id: "agent-settings",
   title: "Agent settings",
   summary:
-    "프로젝트 Agents 탭, Operator·App Engineer 편집, MCP server 추가, 권한 grants.",
+    "프로젝트 Agents 탭, Operator·Project Manager 편집, MCP server 추가, 권한 grants.",
   pages: [
     {
       id: "new-project-agents",
@@ -41,15 +40,8 @@ export const agentSettingsArea: Area = {
       id: "new-operator-create",
       title: "Agent settings · new Operator",
       description:
-        "같은 화면에서 새 Operator를 만든다. 놓을 곳(project나 앱)을 고르고, 앱을 고르면 일할 project 폴더를 고른다. Grants 탭은 만든 뒤에 열린다.",
+        "같은 화면에서 새 Operator를 만든다. 놓을 project를 고른다. Grants 탭은 만든 뒤에 열린다.",
       render: () => <OperatorCreatePage />,
-    },
-    {
-      id: "new-agent-editor-app-engineer",
-      title: "Agent settings · App Engineer",
-      description:
-        "고정 role agent의 설정이다. 이름은 고정이고 놓인 곳은 앱이다. 지침 블록에 앱 source가 속한 등록 project의 LOPHN.md가 나온다.",
-      render: () => <AppEngineerEditorPage />,
     },
     {
       id: "new-agent-mcp-server-form",

@@ -13,7 +13,7 @@ import type { TabKindDef } from "./kind.ts";
 
 const AGENTS_TAB_KEY = "agents";
 
-const BUILT_IN_KEYS = ["lophn", "project_manager", "app_engineer"];
+const BUILT_IN_KEYS = ["lophn", "project_manager"];
 
 // agent key는 내장 role 이름이거나 Operator의 `agt_…` ID다.
 const isAgentKey = (value: unknown): value is string =>

@@ -9,12 +9,7 @@ import { t } from "@lophn/wording";
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { commonIcons } from "../../../icons/mod.ts";
-import type {
-  AgentDetail,
-  AgentDraft,
-  ModelsView,
-  PlaceChoice,
-} from "../source.ts";
+import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpRow } from "../views.ts";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
@@ -41,7 +36,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   profile: "profile",
   body: "instructions",
   model: "model",
-  skills_off: "skills",
+  skills: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",
 };
@@ -78,20 +73,11 @@ function Group(
   );
 }
 
-const placeValue = (place: PlaceChoice) => `${place.kind}:${place.id}`;
-
 function instructionsHead(detail: AgentDetail, placeName: string): string {
   const project = detail.instructions?.project ??
     (detail.place.kind === "project" ? placeName : null);
-  if (project === null) return t("agents.label.instructions-head-unknown");
-  if (detail.role === "app_engineer") {
-    return t("agents.label.instructions-head-source", {
-      project,
-      app: detail.place.name,
-    });
-  }
-  return detail.place.kind === "app"
-    ? t("agents.label.instructions-head-folder", { project })
+  return project === null
+    ? t("agents.label.instructions-head-unknown")
     : t("agents.label.instructions-head-placed", { project });
 }
 
@@ -127,7 +113,7 @@ interface DefinitionFormProps {
   readonly models: ModelsView | null;
   /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
-  /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
+  /** agent가 놓인 곳의 이름(Agents 탭이 열린 project). */
   readonly placeName: string;
   /** 새 Operator를 놓을 곳. */
   readonly place: string;
@@ -154,7 +140,21 @@ export function DefinitionForm(props: DefinitionFormProps) {
     value: unknown,
   ) => onChange(withField(definition, key, value));
 
-  const skillsOff = definition.skills_off ?? [];
+  // 정의의 skills는 받을 이름이고 비면 보이는 skill을 모두 받는다. 화면은 받지 않는 줄을 꺼진 줄로 그린다.
+  const picked = definition.skills ?? [];
+  const received = detail.skills.filter((row) => !row.builtIn && row.on).map((
+    row,
+  ) => row.name);
+  const skillsOff = picked.length === 0
+    ? []
+    : received.filter((name) => !picked.includes(name));
+  const toggleSkill = (name: string, on: boolean) => {
+    const base = picked.length === 0 ? received : picked;
+    const next = on
+      ? [...new Set([...base, name])]
+      : base.filter((one) => one !== name);
+    set("skills", received.every((one) => next.includes(one)) ? [] : next);
+  };
   const mcpOff = (definition.mcp_off ?? []).filter((entry) =>
     entry.original_tool === undefined
   ).map((entry) => entry.server_name);
@@ -176,13 +176,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
     ? t("agents.label.place-lophn")
     : t("agents.label.place-named", {
       name: detail.place.name,
-      kind: detail.place.kind,
     });
   const fixedName = builtIn
     ? (detail.role === "lophn"
       ? t("agents.notice.name-fixed-lophn")
       : t("agents.notice.name-fixed-role", {
-        owner: detail.role === "app_engineer" ? "app" : "project",
         role: detail.effective.name.value,
       }))
     : null;
@@ -238,11 +236,8 @@ export function DefinitionForm(props: DefinitionFormProps) {
           >
             <Select
               options={detail.places.map((place) => ({
-                value: placeValue(place),
-                label: t("agents.label.place-choice", {
-                  name: place.name,
-                  kind: place.kind,
-                }),
+                value: place.id,
+                label: place.name,
               }))}
               value={props.place}
               onValueChange={props.onPlace}
@@ -295,13 +290,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
           items={detail.skills}
           offNames={skillsOff}
           lockOff
-          onToggle={(name, on) =>
-            set(
-              "skills_off",
-              on
-                ? skillsOff.filter((one) => one !== name)
-                : [...skillsOff.filter((one) => one !== name), name],
-            )}
+          onToggle={toggleSkill}
         />
         <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
         <Issues issues={issuesOf("skills")} />

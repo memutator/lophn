@@ -27,7 +27,7 @@ export function useToastHandler(host: ReactionHost): void {
           setOpen(true);
           return true;
         case "session":
-          // session이 없는 쪽은 앱의 App Engineer session이다. 앱 공간이 연다.
+          // session이 없는 쪽은 앱 재시작 중단 반응이다. 앱 공간으로 가는 기본 처리기가 맡는다.
           return action.session !== null && current.openSession(action.session);
         case "project-manager":
           return action.project === current.project &&

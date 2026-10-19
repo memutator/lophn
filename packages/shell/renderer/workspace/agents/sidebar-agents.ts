@@ -6,7 +6,7 @@ import type { SidebarAgent } from "../sidebar/agents-section.tsx";
 import type { AgentsSource } from "./source.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
-const ORDER = { lophn: 0, project_manager: 1, app_engineer: 2, operator: 3 };
+const ORDER = { lophn: 0, project_manager: 1, operator: 2 };
 
 export function useSidebarAgents(
   source: AgentsSource | undefined,
@@ -20,10 +20,8 @@ export function useSidebarAgents(
     void source.list(project).then((result) => {
       if (!live || !result.ok) return;
       setAgents(
-        // App Engineer는 앱 공간의 agent라 project sidebar에 없다.
-        [...result.value].sort((a, b) => ORDER[a.role] - ORDER[b.role]).flatMap(
+        [...result.value].sort((a, b) => ORDER[a.role] - ORDER[b.role]).map(
           (row) => {
-            if (row.role === "app_engineer") return [];
             const profile: AvatarProfile = row.profile.kind === "icon"
               ? { kind: "icon", icon: row.profile.icon }
               : {
@@ -34,14 +32,14 @@ export function useSidebarAgents(
                   row.profile.image,
                 ),
               };
-            return [{
+            return {
               assignment: row.assignment,
               role: row.role,
               name: row.name,
               profile,
               // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.
               waiting: false,
-            }];
+            };
           },
         ),
       );

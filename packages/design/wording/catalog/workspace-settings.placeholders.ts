@@ -171,9 +171,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.problems-detail_collection.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
   "settings.reaction.kind-violation-when": Record<never, never>;
-  "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.reaction.opens-project-manager": Record<never, never>;
-  "settings.reaction.opens-release-engineer": Record<never, never>;
   "settings.reaction.problem-opened-when": Record<never, never>;
   "settings.reaction.problem-reopened-when": Record<never, never>;
   "settings.reaction.restart-halted-when": Record<never, never>;

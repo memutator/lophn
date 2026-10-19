@@ -4,7 +4,7 @@ import { approvalWaitingKind } from "./waiting-store.ts";
 
 export type ReactionAction =
   | { kind: "waiting" }
-  /** session이 null이고 app이 있으면 호스트가 그 앱의 App Engineer 열린 session을 찾아 연다. */
+  /** session이 null이고 app이 있으면 호스트가 그 앱 공간을 연다. */
   | { kind: "session"; session: string | null; app?: string }
   | { kind: "project-manager"; project: string };
 
@@ -72,7 +72,7 @@ export function reactionsOf(
         },
       );
     case "AppRestartHalted":
-      // 반응이 여는 App Engineer session은 나중에 SessionStarted로 생기니 지금은 session id를 모른다.
+      // 반응이 여는 session은 나중에 SessionStarted로 생기니 지금은 session id를 모른다.
       return toast(
         "restart-halted",
         event.seq,

@@ -1,5 +1,5 @@
-// AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. phroner project에 Project Manager · Operator 둘이,
-// 앱 Budget tracker에 App Engineer가 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
+// AgentsSource의 메모리 구현. dev mock 작업대와 gallery가 쓴다. phroner project에 Project Manager · Operator 둘이
+// 있는 상태에서 시작하고, 저장·삭제·model·켬·끔·grant가 메모리에서 이어지며 쓰는 명령을
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
@@ -13,8 +13,6 @@ import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
 import type { ReadResult } from "../source.ts";
 import {
   ANTHROPIC,
-  APP_ID,
-  APP_NAME,
   AVATAR_SRC,
   BUILT_IN_SKILLS,
   CATALOG,
@@ -31,7 +29,7 @@ import {
   PROJECT_NAME,
   PROJECT_SKILLS,
 } from "./fake-data.ts";
-import { isAppPlace, keyOf } from "./agent-key.ts";
+import { keyOf } from "./agent-key.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -50,8 +48,6 @@ import type { McpRow, SkillRow } from "./views.ts";
 
 export {
   ANTHROPIC,
-  APP_ID,
-  APP_NAME,
   EVAL_ANALYST_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
@@ -111,7 +107,6 @@ const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
 const BUILT_IN_ICON: Record<string, string> = {
   lophn: "dock",
   project_manager: "contexts",
-  app_engineer: "apps",
 };
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
@@ -289,12 +284,12 @@ export function createFakeAgentsSource(
   const rowOf = (key: string, item: Stored): AgentListRow => {
     const definition = item.definition;
     const atProject = item.place === "project";
-    const skillsOff = definition.skills_off ?? [];
+    const picked = definition.skills ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
-    const skills =
-      skillsFor(item, atProject).filter((row) =>
-        row.on && !skillsOff.includes(row.name)
-      ).length;
+    const skills = skillsFor(item, atProject).filter((row) =>
+      row.on &&
+      (picked.length === 0 || row.builtIn || picked.includes(row.name))
+    ).length;
     const own =
       (definition.mcp_servers ?? []).filter((server) => server.enabled)
         .length;
@@ -330,8 +325,6 @@ export function createFakeAgentsSource(
   const placeOf = (item: Stored) =>
     item.place === "none"
       ? { kind: "none" as const, id: null, name: "All of lophn" }
-      : item.place === "app"
-      ? { kind: "app" as const, id: APP_ID, name: APP_NAME }
       : { kind: "project" as const, id: PROJECT, name: PROJECT_NAME };
 
   const detailOf = (key: string): AgentDetail => {
@@ -362,13 +355,10 @@ export function createFakeAgentsSource(
     };
   };
 
-  const here = (project: string) => {
-    const app = isAppPlace(project);
-    return [...stored].filter(([, item]) =>
-      item.place === "none" ||
-      item.place === (app ? "app" : "project")
+  const here = () =>
+    [...stored].filter(([, item]) =>
+      item.place === "none" || item.place === "project"
     );
-  };
 
   return {
     calls,
@@ -383,26 +373,25 @@ export function createFakeAgentsSource(
       overviewFailure = code;
     },
 
-    list(project) {
+    list() {
       return Promise.resolve(
-        ok(here(project).map(([key, item]) => rowOf(key, item))),
+        ok(here().map(([key, item]) => rowOf(key, item))),
       );
     },
 
-    overview(project): Promise<ReadResult<AgentsOverview>> {
+    overview(): Promise<ReadResult<AgentsOverview>> {
       if (overviewFailure !== null) {
         const message = overviewFailure;
         overviewFailure = null;
         return Promise.resolve({ ok: false, message });
       }
-      const atProject = !isAppPlace(project);
       return Promise.resolve(ok({
-        agents: here(project).filter(([, item]) => item.place !== "none")
+        agents: here().filter(([, item]) => item.place !== "none")
           .map(([key, item]) => rowOf(key, item)),
         instructions: { text: LOPHN_MD, project: PROJECT_NAME },
         projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
-        skills: skillsFor({ role: "operator" } as Stored, atProject),
-        mcpServers: mcpFor(atProject),
+        skills: skillsFor({ role: "operator" } as Stored, true),
+        mcpServers: mcpFor(true),
       }));
     },
 
@@ -502,16 +491,13 @@ export function createFakeAgentsSource(
 
     newOperator(project) {
       const inherited = projectModel ?? GLOBAL_MODEL;
-      const app = isAppPlace(project);
       return Promise.resolve(ok(
         {
           assignment: null,
           draftId: `agt_${`nw${created + 1}`.padStart(26, "0")}`,
           role: "operator",
           kind: "operator",
-          place: app
-            ? { kind: "app", id: project, name: APP_NAME }
-            : { kind: "project", id: project, name: PROJECT_NAME },
+          place: { kind: "project", id: project, name: PROJECT_NAME },
           definition: { body: "" },
           hash: null,
           effective: {
@@ -523,13 +509,10 @@ export function createFakeAgentsSource(
             source: projectModel === null ? "global" : "project",
           },
           issues: [],
-          skills: skillsFor({ role: "operator" } as Stored, !app),
-          mcpServers: mcpFor(!app),
+          skills: skillsFor({ role: "operator" } as Stored, true),
+          mcpServers: mcpFor(true),
           instructions: { text: LOPHN_MD, project: PROJECT_NAME },
-          places: [
-            { kind: "project", id: PROJECT, name: PROJECT_NAME },
-            { kind: "app", id: APP_ID, name: APP_NAME },
-          ],
+          places: [{ id: PROJECT, name: PROJECT_NAME }],
         } satisfies AgentDetail,
       ));
     },
@@ -571,8 +554,7 @@ export function createFakeAgentsSource(
       const hash = nextHash();
       stored.set(key, {
         role: existing?.role ?? "operator",
-        place: existing?.place ??
-          (input.place !== null && isAppPlace(input.place) ? "app" : "project"),
+        place: existing?.place ?? "project",
         name: input.definition.name ?? existing?.name ?? "",
         summary: existing?.summary ?? "",
         definition: input.definition,

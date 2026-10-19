@@ -1,8 +1,5 @@
 // AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentRef로
 // 가리키고 화면에는 key(agent-key.ts)로 나간다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
-// 아래는 route가 없어 unavailable로 답하는 것이다.
-// - project 층 model 고르기
-// - project 층 skill 켬·끔, 전역 server를 project 층에서 켬·끔
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
 import type {
@@ -31,7 +28,7 @@ import {
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
-import { isAppPlace, keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
+import { keyOf, OPERATOR_ID, refOf } from "./agent-key.ts";
 import { readGrants, saveGrants } from "./core-grants.ts";
 import {
   changeProjectSettings,
@@ -46,6 +43,7 @@ import type {
   AgentDetail,
   AgentDraft,
   AgentListRow,
+  AgentRole,
   AgentsOverview,
   AgentsSource,
   HiddenModel,
@@ -93,16 +91,13 @@ function newOperatorId(bytes: Uint8Array): string {
   return `agt_${body}`;
 }
 
-const placeOf = (place: string) => ({
-  kind: isAppPlace(place) ? "app" as const : "project" as const,
-  id: place,
-});
+const placeOf = (place: string) => ({ kind: "project" as const, id: place });
 
-// 정의 파일의 칸 가운데 이 role이 가질 수 있는 것만 보낸다: 내장 role은 model·skill·MCP 끄기와 지침뿐이다.
+// 정의 파일의 칸 가운데 이 role이 가질 수 있는 것만 보낸다: 내장 role은 model·받을 skill·MCP 끄기와 지침뿐이다.
 function builtInDefinition(draft: AgentDraft) {
   return {
     ...(draft.model === undefined ? {} : { model: draft.model }),
-    ...(draft.skills_off === undefined ? {} : { skills_off: draft.skills_off }),
+    ...(draft.skills === undefined ? {} : { skills: draft.skills }),
     ...(draft.mcp_off === undefined ? {} : { mcp_off: draft.mcp_off }),
     body: draft.body,
   };
@@ -111,7 +106,7 @@ function builtInDefinition(draft: AgentDraft) {
 function toRow(row: AgentDefinitionRow): AgentListRow {
   return {
     assignment: keyOf(row.agent),
-    role: row.agent.role,
+    role: row.agent.role as AgentRole,
     kind: row.kind,
     name: row.name,
     profile: row.profile,
@@ -170,14 +165,8 @@ export function coreAgentsSource(
     }
   };
 
-  // 놓인 곳의 이름(project의 title, 앱의 name). 읽지 못하면 빈 글이다.
+  // 놓인 project의 title. 읽지 못하면 빈 글이다.
   const nameOf = async (place: string): Promise<string> => {
-    if (isAppPlace(place)) {
-      const app = await link.read<{ app: { name: string } }>("apps", "get", {
-        app: place,
-      });
-      return app.ok ? app.value.app.name : "";
-    }
     const project = await link.read<{ project: { title: string } }>(
       "projects",
       "get",
@@ -296,7 +285,7 @@ export function coreAgentsSource(
     if (ref === null) return { ok: false, message: "not_found" };
     const read = await link.read<{
       role: AgentDetail["role"];
-      place: { kind: "project" | "app"; id: string } | null;
+      place: { kind: "project"; id: string } | null;
       definition: AgentDraft | null;
       hash: string | null;
       effective: {
@@ -320,14 +309,12 @@ export function coreAgentsSource(
     const where = value.place;
     const placeView: PlaceView = where === null
       ? { kind: "none", id: null, name: "" }
-      : { kind: where.kind, id: where.id, name: await nameOf(where.id) };
+      : { kind: "project", id: where.id, name: await nameOf(where.id) };
     const skills = await readSkills(link, where?.id ?? null, value.role);
     if (!skills.ok) return skills;
     const servers = await readServers(link, where?.id ?? null);
     if (!servers.ok) return servers;
-    const text = where === null
-      ? null
-      : await instructionsOf(value.role, where.id);
+    const text = where === null ? null : await instructionsOf(where.id);
     if (value.effective.profile.value.kind === "image") {
       await loadImage(place, key, value.effective.profile.value.image);
     }
@@ -349,51 +336,19 @@ export function coreAgentsSource(
         issues: value.issues,
         skills: skills.value,
         mcpServers: servers.value,
-        instructions: where === null
-          ? null
-          : { text: text?.text ?? "", project: text?.project ?? null },
+        instructions: text,
         places: [],
       },
     };
   };
 
-  // project 지침. project 자리는 그 project의 것이고, 앱의 App Engineer는 앱 source가 속한 등록 project의 것이다.
-  // 앱 Operator는 쓸 project 폴더가 없어 project 지침이 없다.
+  // project 지침. 그 project 폴더의 LOPHN.md다.
   const instructionsOf = async (
-    role: AgentDetail["role"],
     place: string,
-  ): Promise<{ text: string; project: string | null } | null> => {
-    if (!isAppPlace(place)) {
-      return {
-        text: await readInstructions(link, instructions, "project", place),
-        project: await nameOf(place),
-      };
-    }
-    if (role !== "app_engineer") return { text: "", project: null };
-    const app = await link.read<{ app: { source_path: string | null } }>(
-      "apps",
-      "get",
-      { app: place },
-    );
-    const path = app.ok ? app.value.app.source_path : null;
-    if (path === null) return { text: "", project: null };
-    const owner = await link.read<{ project: { id: string; title: string } }>(
-      "projects",
-      "resolve",
-      { path },
-    );
-    return owner.ok
-      ? {
-        text: await readInstructions(
-          link,
-          instructions,
-          "project",
-          owner.value.project.id,
-        ),
-        project: owner.value.project.title,
-      }
-      : { text: "", project: null };
-  };
+  ): Promise<{ text: string; project: string }> => ({
+    text: await readInstructions(link, instructions, place),
+    project: await nameOf(place),
+  });
 
   return {
     list,
@@ -406,21 +361,17 @@ export function coreAgentsSource(
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
       const global = await readGlobalModel(link);
-      const chosen = isAppPlace(project) ? null : await link.read<
-        { model: ModelChoice | null }
-      >("project-model", "read", { project });
-      const text = await instructionsOf(
-        isAppPlace(project) ? "app_engineer" : "project_manager",
-        project,
+      const chosen = await link.read<{ model: ModelChoice | null }>(
+        "project-model",
+        "read",
+        { project },
       );
+      const text = await instructionsOf(project);
       const view: AgentsOverview = {
         agents: agents.value.filter((row) => row.role !== "lophn"),
-        instructions: {
-          text: text?.text ?? "",
-          project: text?.project ?? null,
-        },
+        instructions: text,
         projectModel: {
-          chosen: chosen?.ok ? chosen.value.model : null,
+          chosen: chosen.ok ? chosen.value.model : null,
           inherited: global.ok ? global.value : null,
         },
         skills: skills.value,
@@ -508,45 +459,31 @@ export function coreAgentsSource(
 
     async newOperator(project) {
       const current: PlaceChoice = {
-        ...placeOf(project),
+        id: project,
         name: await nameOf(project),
       };
       const projects = await link.read<
         { projects: { id: string; title: string }[] }
       >("projects", "list", {});
-      const apps = await link.read<
-        { apps: { id: string; name: string; status: string }[] }
-      >(
-        "apps",
-        "list",
-        {},
-      );
-      const others: PlaceChoice[] = [
-        ...(projects.ok
+      const others: PlaceChoice[] =
+        (projects.ok
           ? projects.value.projects.map((one): PlaceChoice => ({
-            kind: "project",
             id: one.id,
             name: one.title,
           }))
-          : []),
-        ...(apps.ok
-          ? apps.value.apps.filter((one) => one.status === "active").map((
-            one,
-          ): PlaceChoice => ({ kind: "app", id: one.id, name: one.name }))
-          : []),
-      ].filter((one) => one.id !== project);
+          : []).filter((one) => one.id !== project);
       const skills = await readSkills(link, project, "operator");
       if (!skills.ok) return skills;
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
-      const text = await instructionsOf("operator", project);
+      const text = await instructionsOf(project);
       const global = await readGlobalModel(link);
       const detail: AgentDetail = {
         assignment: null,
         draftId: newOperatorId(bytes()),
         role: "operator",
         kind: "operator",
-        place: current,
+        place: { kind: "project", ...current },
         definition: { body: "" },
         hash: null,
         effective: {
@@ -559,10 +496,7 @@ export function coreAgentsSource(
         issues: [],
         skills: skills.value,
         mcpServers: servers.value,
-        instructions: {
-          text: text?.text ?? "",
-          project: text?.project ?? null,
-        },
+        instructions: text,
         places: [current, ...others],
       };
       return { ok: true, value: detail };
@@ -670,7 +604,6 @@ export function coreAgentsSource(
     imageSrc: (_project, key, image) => images.get(`${key}/${image}`) ?? "",
 
     async setProjectModel(project, choice) {
-      if (isAppPlace(project)) return unavailable;
       const changed = await link.command(projectModelChange, {
         input: { project, model: choice },
         compare: {},
@@ -680,9 +613,8 @@ export function coreAgentsSource(
         : { ok: false, message: changed.code };
     },
 
-    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다.
+    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다(agent 정의의 skills와 다른 층이다).
     setSkill(project, name, on) {
-      if (isAppPlace(project)) return Promise.resolve(unavailable);
       return changeProjectSettings(link, project, (current) => ({
         ...current,
         skillsOff: on
@@ -693,7 +625,6 @@ export function coreAgentsSource(
 
     // project 층 server는 enabled를 바꾸고, 전역 server는 이 project에서 끈 이름(mcp_off)에 넣고 뺀다.
     setMcp(project, name, on) {
-      if (isAppPlace(project)) return Promise.resolve(unavailable);
       return changeProjectSettings(link, project, (current) => {
         if (current.servers.some((server) => server.name === name)) {
           return {

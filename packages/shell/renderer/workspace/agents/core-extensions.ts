@@ -1,5 +1,5 @@
 // skill·MCP server·instruction·model 기본값을 읽는 부분. agent 설정 화면과 Agents 탭이 같이 쓴다. 전역 층은 settings 읽기와
-// skills 읽기에서, project 층은 project 확장 설정에서 온다. 앱 자리에는 project 층이 없다.
+// skills 읽기에서, project 층은 project 확장 설정에서 온다.
 import { projectExtensionSettingsChange } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -10,7 +10,6 @@ import {
 import type { Role } from "../../../../protocol/lophn-agent/places.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { ReadResult } from "../source.ts";
-import { isAppPlace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
@@ -29,7 +28,7 @@ export async function readSkills(
   role: Role | null,
 ): Promise<ReadResult<SkillRow[]>> {
   const result = await link.read<{ skills: SkillEntry[] }>("skills", "read", {
-    ...(place !== null && !isAppPlace(place) ? { project: place } : {}),
+    ...(place !== null ? { project: place } : {}),
   });
   if (!result.ok) return result;
   return {
@@ -130,7 +129,7 @@ export async function readServers(
 ): Promise<ReadResult<McpRow[]>> {
   const global = await readGlobalServers(link);
   if (!global.ok) return global;
-  if (place === null || isAppPlace(place)) return global;
+  if (place === null) return global;
   const project = await readProjectSettings(link, place);
   if (!project.ok) return project;
   const overridden = new Set(project.value.servers.map((one) => one.name));
@@ -170,12 +169,13 @@ export async function readGlobalModel(
 export async function readInstructions(
   link: Link,
   instructions: InstructionsApi | undefined,
-  layer: "project" | "app",
   place: string,
 ): Promise<string> {
   if (instructions === undefined) return "";
   try {
-    const opened = await instructions.open({ target: { layer, place } });
+    const opened = await instructions.open({
+      target: { layer: "project", place },
+    });
     if (
       !opened.ok || opened.value.document === null ||
       opened.value.version === null

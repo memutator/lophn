@@ -1,7 +1,6 @@
 // [Instructions]: 지침 파일(LOPHN.md)의 경로를 알려 준다. 편집기는 이 경로를 일반 파일처럼 열고,
 // 파일이 없으면 빈 buffer로 열려 사람의 첫 저장(base_hash null)이 만든다.
 // 전역은 data root 바로 아래 LOPHN.md, project는 그 project의 첫 등록 폴더 바로 아래 LOPHN.md다.
-// 앱 층은 없다.
 import { join } from "node:path";
 
 import type {
@@ -27,11 +26,8 @@ export function createInstructions(options: InstructionsOptions): Instructions {
     if (place.layer === "global") {
       return join(options.dataRoot, INSTRUCTION_FILE_NAME);
     }
-    if (place.layer === "project") {
-      const folder = await options.firstFolder(place.place);
-      return folder === null ? null : join(folder, INSTRUCTION_FILE_NAME);
-    }
-    return null;
+    const folder = await options.firstFolder(place.place);
+    return folder === null ? null : join(folder, INSTRUCTION_FILE_NAME);
   }
 
   return {

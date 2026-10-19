@@ -45,7 +45,6 @@ export const data = {
   "waiting.label.activation-first":
     "Declared by this version (nothing was active before)",
   "waiting.label.activation-new": "New since the last version",
-  "waiting.label.agent-app-engineer": "App Engineer",
   "waiting.label.agent-coding": "Coding agent",
   "waiting.label.agent-lophn": "lophn",
   "waiting.label.agent-operator": "Operator",

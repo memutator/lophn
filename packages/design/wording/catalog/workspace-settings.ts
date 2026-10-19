@@ -46,7 +46,7 @@ export const workspaceSettings = {
   "settings.intro.appearance":
     "How lophn looks. Changes apply as soon as you choose.",
   "settings.intro.coding":
-    "Products on this computer that App Engineers can hand a task to.",
+    "Products on this computer that Project Managers can hand a task to.",
   "settings.intro.diagnostics":
     "Whether each part of lophn can be used right now. Checks run only when you press the button.",
   "settings.intro.general":
@@ -159,7 +159,7 @@ export const workspaceSettings = {
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
   "settings.note.coding-default-used":
-    "Used when an App Engineer does not pick one.",
+    "Used when a Project Manager does not pick one.",
   "settings.note.coding-defaults-saved": "Saved.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
@@ -170,7 +170,7 @@ export const workspaceSettings = {
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
   "settings.note.reactions-ask":
-    "Ask puts a request in the waiting list and opens the session when you allow it. Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
+    "Ask puts a request in the waiting list and opens the session when you allow it. Events that close a task handed to a Project Manager are not listed; they always reach that Project Manager.",
   "settings.problems-detail_collection.help":
     "Keep a snapshot with each reported problem.",
   "settings.problems-detail_collection.name": "Collect problem details",
@@ -178,12 +178,8 @@ export const workspaceSettings = {
     "A new release could not be activated.",
   "settings.reaction.kind-violation-when":
     "A project gets kind violations it did not have at the last check.",
-  "settings.reaction.opens-app-engineer":
-    "Opens: a new session for that app's App Engineer.",
   "settings.reaction.opens-project-manager":
     "Opens: a new session for that project's Project Manager.",
-  "settings.reaction.opens-release-engineer":
-    "Opens: a new session for that release's App Engineer.",
   "settings.reaction.problem-opened-when":
     "An app reports a problem for the first time.",
   "settings.reaction.problem-reopened-when":

@@ -10,7 +10,7 @@ import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { McpToolServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
-import { isAppPlace, refOf } from "./agent-key.ts";
+import { refOf } from "./agent-key.ts";
 import { type Link, unavailable } from "./core-link.ts";
 import type {
   GrantApp,
@@ -72,9 +72,7 @@ async function mcpCatalog(
   place: string | null,
   ref: AgentRef,
 ): Promise<GrantCatalog["mcpServers"]> {
-  const body = place === null
-    ? null
-    : { kind: isAppPlace(place) ? "app" : "project", id: place };
+  const body = place === null ? null : { kind: "project", id: place };
   const read = await link.memory<{ servers: McpToolServer[] }>(
     "agent-mcp-tools",
     "list",

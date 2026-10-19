@@ -9,7 +9,7 @@ import type { SourceResult } from "../source.ts";
 
 export type { HarnessName, HarnessSettingsView, SourceResult };
 
-/** App Engineer가 제품을 고르지 않았을 때 쓰는 값. 비어 있으면 제품의 기본을 따른다. */
+/** Project Manager가 제품을 고르지 않았을 때 쓰는 값. 비어 있으면 제품의 기본을 따른다. */
 export interface CodingDefaults {
   readonly harness: HarnessName | null;
   /** 빈 글이면 제품의 기본 model이다. */

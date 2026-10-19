@@ -108,11 +108,11 @@ const LOPHN: AgentFace = {
     "Permissions: 4 run freely · 3 ask first · 1 allowed in this session",
 };
 
-const APP_ENGINEER: AgentFace = {
-  role: "app_engineer",
-  name: "App Engineer",
-  profile: { kind: "icon", icon: "apps" },
-  place: { kind: "app", name: "Eval board" },
+const PROJECT_MANAGER: AgentFace = {
+  role: "project_manager",
+  name: "Project Manager",
+  profile: { kind: "icon", icon: "contexts" },
+  place: { kind: "project", name: "phroner" },
   permissionSummary: LOPHN.permissionSummary,
 };
 
@@ -451,7 +451,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         { id: sessionId(9), title: "Claude Code · Eval board" },
       );
       return {
-        agent: APP_ENGINEER,
+        agent: PROJECT_MANAGER,
         title: "Eval board keeps crashing",
         entries: [
           received(

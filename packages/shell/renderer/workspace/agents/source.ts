@@ -33,13 +33,16 @@ import type {
 
 export type { ReadResult };
 
+/** 이 화면이 다루는 role. protocol의 Role이 줄면(place 정리) Role로 바꾼다. */
+export type AgentRole = Exclude<Role, "app_engineer">;
+
 /**
  * 목록의 줄. `assignment`는 agent를 가리키는 값이다: 내장 role은 role 이름이고 Operator는 `agt_…` ID다
  * (agent-key.ts). 소비자가 이 값을 그대로 돌려주면 source가 푼다.
  */
 export interface AgentListRow {
   readonly assignment: string;
-  readonly role: Role;
+  readonly role: AgentRole;
   readonly kind: "built_in" | "operator";
   readonly name: string;
   readonly profile: Profile;
@@ -54,7 +57,7 @@ export interface AgentListRow {
 
 /** Agents 탭 본문 한 번에 필요한 값. */
 export interface AgentsOverview {
-  /** Project Manager(앱 자리면 App Engineer)와 Operator들 순서의 목록. lophn은 전역이라 이 탭에 없다. */
+  /** Project Manager와 Operator들 순서의 목록. lophn은 전역이라 이 탭에 없다. */
   readonly agents: readonly AgentListRow[];
   /** 같이 쓰는 `LOPHN.md`. 파일이 없거나 읽을 수 없으면 빈 글이다. */
   readonly instructions: ProjectInstructionsView;
@@ -70,14 +73,15 @@ export interface AgentsOverview {
 }
 
 /**
- * 정의 파일 한 개의 값. Operator는 모든 칸이 있고 내장 role은 model·skills_off·mcp_off·body만 있다.
+ * 정의 파일 한 개의 값. Operator는 모든 칸이 있고 내장 role은 model·skills·mcp_off·body만 있다.
+ * `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다.
  * 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
   readonly name?: string;
   readonly profile?: Profile;
   readonly model?: ModelChoice;
-  readonly skills_off?: readonly string[];
+  readonly skills?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
   readonly body: string;
@@ -85,7 +89,7 @@ export interface AgentDraft {
 
 /** agent가 놓인 곳. lophn은 놓인 곳이 없다. */
 export interface PlaceView {
-  readonly kind: "project" | "app" | "none";
+  readonly kind: "project" | "none";
   readonly id: string | null;
   readonly name: string;
 }
@@ -98,7 +102,7 @@ export interface AgentDetail {
    * 저장된 agent는 null이다.
    */
   readonly draftId: string | null;
-  readonly role: Role;
+  readonly role: AgentRole;
   readonly kind: "built_in" | "operator";
   readonly place: PlaceView;
   /** 정의 파일의 내용. 파일이 없거나 틀렸으면 본문만 빈 정의다. */
@@ -114,7 +118,7 @@ export interface AgentDetail {
   readonly inheritedModel: Sourced<ModelChoice> | null;
   /** 파일이 틀렸다면 읽기가 알린 항목별 이유다. */
   readonly issues: readonly AgentDefinitionIssue[];
-  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
+  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 받을 것은 정의의 skills가 말한다. */
   readonly skills: readonly SkillRow[];
   /** 전역과 project 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */
   readonly mcpServers: readonly McpRow[];
@@ -125,7 +129,6 @@ export interface AgentDetail {
 }
 
 export interface PlaceChoice {
-  readonly kind: "project" | "app";
   readonly id: string;
   readonly name: string;
 }
@@ -290,7 +293,7 @@ export interface AgentsSource {
     project: string,
     choice: ModelChoice | null,
   ): Promise<ReadResult<null>>;
-  /** project 층에서 skill을 켜고 끈다. agent 층은 정의의 skills_off로 저장한다. */
+  /** project 층에서 skill을 켜고 끈다. agent 층은 정의의 skills로 저장한다. */
   setSkill(
     project: string,
     name: string,

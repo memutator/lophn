@@ -111,15 +111,8 @@ export type AgentsPlaceholders = {
     total: "number";
     asking: "plural";
   };
-  "agents.label.instructions-head-folder": {
-    project: "string";
-  };
   "agents.label.instructions-head-placed": {
     project: "string";
-  };
-  "agents.label.instructions-head-source": {
-    project: "string";
-    app: "string";
   };
   "agents.label.instructions-head-unknown": Record<never, never>;
   "agents.label.layer-agent": Record<never, never>;
@@ -135,14 +128,9 @@ export type AgentsPlaceholders = {
   };
   "agents.label.no-model-chosen": Record<never, never>;
   "agents.label.place": Record<never, never>;
-  "agents.label.place-choice": {
-    name: "string";
-    kind: "string";
-  };
   "agents.label.place-lophn": Record<never, never>;
   "agents.label.place-named": {
     name: "string";
-    kind: "string";
   };
   "agents.label.protected-key": Record<never, never>;
   "agents.label.role-project-manager": Record<never, never>;
@@ -162,7 +150,6 @@ export type AgentsPlaceholders = {
   "agents.notice.lophn-no-project": Record<never, never>;
   "agents.notice.name-fixed-lophn": Record<never, never>;
   "agents.notice.name-fixed-role": {
-    owner: "string";
     role: "string";
   };
   "agents.notice.place-help": Record<never, never>;
@@ -238,7 +225,6 @@ export type AgentsPlaceholders = {
   "project-workspace.label.open-agent-named": {
     name: "string";
   };
-  "project-workspace.label.role-app-engineer": Record<never, never>;
   "project-workspace.label.role-lophn": Record<never, never>;
   "project-workspace.label.role-operators": Record<never, never>;
   "project-workspace.notice.agent-editor-delete-body": Record<never, never>;

@@ -71,9 +71,6 @@ export const OperatorModelPickerPage = () =>
 /** 새 Operator를 만든다. 놓을 곳을 고른다. */
 export const OperatorCreatePage = () => editor("new");
 
-/** App Engineer의 설정. project 지침은 앱 source가 속한 등록 project의 것이다. */
-export const AppEngineerEditorPage = () => editor("app_engineer");
-
 /** agent 층에서 MCP server를 더하는 form을 연 상태. */
 export const AgentServerFormPage = () =>
   editor(EVAL_ANALYST_ID, [

@@ -1,5 +1,6 @@
 // WorkspaceSource의 메모리 구현. dev seed와 화면 시험이 쓴다. 연결 폴더 둘(하위 폴더 하나 포함)과 폴더별
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
+import { fakeDomainStore } from "./domains/fake-domains.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type {
   DomainView,
@@ -111,6 +112,8 @@ interface FakeWorkspaceOptions {
   readonly missing?: readonly string[];
   /** 읽기에 실패하는 폴더 경로. */
   readonly failing?: readonly string[];
+  /** project의 domain. 기본은 FAKE_DOMAINS다. */
+  readonly domains?: readonly DomainView[];
 }
 
 export function fakeWorkspaceSource(
@@ -118,6 +121,7 @@ export function fakeWorkspaceSource(
 ): WorkspaceSource {
   const missing = options.missing ?? [];
   const failing = options.failing ?? [];
+  const domainStore = fakeDomainStore(options.domains ?? FAKE_DOMAINS);
   const mounts: Mount[] = [
     { path: FAKE_PROJECT_FOLDER, nodes: clone(PHRONER) },
     { path: FAKE_NOTES_FOLDER, nodes: clone(NOTES) },
@@ -207,7 +211,8 @@ export function fakeWorkspaceSource(
       return done;
     },
     reveal: () => done,
-    domains: () => Promise.resolve({ ok: true, value: FAKE_DOMAINS }),
+    ...domainStore.actions,
+    domains: () => Promise.resolve({ ok: true, value: domainStore.active() }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "no layout" }),

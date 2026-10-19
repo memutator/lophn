@@ -4,8 +4,16 @@ export const domain = {
   "domain.button.create": "Create domain",
   "domain.button.new": "New domain",
   "domain.button.open-doc": "Open DOMAIN.md",
+  "domain.button.undo": "Undo",
   "domain.empty.project":
     "This project has no domains yet. Add one for each area of work, such as experiments or findings, so agents get kinds, skills and artifacts for it.",
+  "domain.error.archive-refused": "Couldn't archive {title}.",
+  "domain.error.create-failed": "Couldn't create the domain. Try again.",
+  "domain.error.load-failed": "Couldn't load the domains.",
+  "domain.error.name-invalid":
+    "Use lowercase letters, digits and single hyphens, starting with a letter.",
+  "domain.error.name-taken":
+    "A domain with this name already exists. Names stay taken even after a domain is archived.",
   "domain.heading.list": "Domains",
   "domain.label.all-domains": "All domains",
   "domain.label.counts":
@@ -30,6 +38,7 @@ export const domain = {
   "domain.notice.all-of-app": "All domains of this app.",
   "domain.notice.all-of-project": "All domains of this project.",
   "domain.notice.app-last": "An app keeps at least one domain.",
+  "domain.notice.archived": "Archived {title}.",
   "domain.notice.only-chosen":
     "Only the chosen domains' DOMAIN.md, kinds and skills reach this Operator.",
   "domain.notice.skills-filtered":

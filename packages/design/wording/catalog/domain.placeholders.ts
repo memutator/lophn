@@ -7,7 +7,15 @@ export type DomainPlaceholders = {
   "domain.button.create": Record<never, never>;
   "domain.button.new": Record<never, never>;
   "domain.button.open-doc": Record<never, never>;
+  "domain.button.undo": Record<never, never>;
   "domain.empty.project": Record<never, never>;
+  "domain.error.archive-refused": {
+    title: "string";
+  };
+  "domain.error.create-failed": Record<never, never>;
+  "domain.error.load-failed": Record<never, never>;
+  "domain.error.name-invalid": Record<never, never>;
+  "domain.error.name-taken": Record<never, never>;
   "domain.heading.list": Record<never, never>;
   "domain.label.all-domains": Record<never, never>;
   "domain.label.counts": {
@@ -38,6 +46,9 @@ export type DomainPlaceholders = {
   "domain.notice.all-of-app": Record<never, never>;
   "domain.notice.all-of-project": Record<never, never>;
   "domain.notice.app-last": Record<never, never>;
+  "domain.notice.archived": {
+    title: "string";
+  };
   "domain.notice.only-chosen": Record<never, never>;
   "domain.notice.skills-filtered": Record<never, never>;
   "domain.title.create": Record<never, never>;

@@ -29,6 +29,32 @@ export interface DomainView {
   readonly status: "active" | "archived";
 }
 
+/** domain을 담는 그릇. */
+export interface DomainOwner {
+  readonly kind: "project" | "app";
+  readonly id: string;
+}
+
+/** 새 domain 입력. name은 slug이고 만든 뒤 바꿀 수 없다. */
+export interface DomainDraft {
+  readonly name: string;
+  readonly title: string;
+  readonly purpose: string;
+}
+
+/** domain을 바꾸는 일의 결과. 실패는 core의 오류 code와 그 이유(화면이 그대로 보인다)다. */
+export type DomainOpResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+/** project 창과 앱 공간이 같이 쓰는 domain 쓰기. */
+export interface DomainActions {
+  createDomain(owner: DomainOwner, draft: DomainDraft): Promise<DomainOpResult>;
+  /** 앱의 마지막 active domain이면 core가 `conflict`로 거절한다. */
+  archiveDomain(domain: string): Promise<DomainOpResult>;
+  unarchiveDomain(domain: string): Promise<DomainOpResult>;
+}
+
 /** 폴더 한 단계의 항목. 이름순이다. */
 export interface FolderEntry {
   readonly name: string;
@@ -59,7 +85,7 @@ export type LayoutRead =
   | { ok: true; available: false; reason: string }
   | { ok: false; message: string };
 
-export interface WorkspaceSource {
+export interface WorkspaceSource extends DomainActions {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
   list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;

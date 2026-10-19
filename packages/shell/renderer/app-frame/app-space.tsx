@@ -71,6 +71,8 @@ interface AppSpaceProps {
   agentViewSource?: AgentTabSourceFactory;
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
   onInstructions?: () => void;
+  /** 앱 상세 Domains 줄 menu의 Open DOMAIN.md. domain id를 준다. 없으면 그 항목은 아무것도 하지 않는다. */
+  onDomainDoc?: (domain: string) => void;
   /** Settings로 간다(Agent 칸·관리 칸의 기본 model·확장 등록·연결). 없으면 그 단추는 아무것도 하지 않는다. */
   onSettings?: (pane?: SettingsPane) => void;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
@@ -158,6 +160,7 @@ export function AppSpace(
     agents,
     agentViewSource,
     onInstructions,
+    onDomainDoc,
     onSettings,
     windowWidth,
     onLauncher,
@@ -542,6 +545,7 @@ export function AppSpace(
                   name={row.name}
                   source={detail}
                   onInstructions={onInstructions}
+                  onOpenDomainDoc={onDomainDoc}
                   onOpenSession={showSession}
                   initialTab={issueProblem !== undefined ? "issues" : undefined}
                   issues={issues

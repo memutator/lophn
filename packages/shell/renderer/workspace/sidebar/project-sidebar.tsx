@@ -1,5 +1,5 @@
-// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 밑줄 글자 탭 Explorer / Agent / Artifacts
-// 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다.
+// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 아이콘 탭 Explorer / Agent / Artifacts / Domains
+// 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다. 탭이 넷이라 240px에서 글자 이름이 잘려 아이콘만 두고 이름은 tooltip이다.
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -7,28 +7,52 @@ import {
   useState,
 } from "react";
 import { TabStrip } from "../../parts/tab-strip/tab-strip.tsx";
-import { IconButton } from "@lophn/ui/primitives";
+import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { iconPixels } from "@lophn/ui/shared";
+import {
+  artifactIcons,
+  commonIcons,
+  conversationIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import { AgentPanel } from "./agent-panel.tsx";
+import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { Rail, type RailAction } from "./rail.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
 import styles from "./project-sidebar.module.css";
 
-export type SidebarTab = "explorer" | "agent" | "artifact";
+export type SidebarTab = "explorer" | "agent" | "artifact" | "domain";
 
 export interface Reveal {
   readonly path: string;
   readonly nonce: number;
 }
 
-const TABS: readonly SidebarTab[] = ["explorer", "agent", "artifact"];
+const TABS: readonly SidebarTab[] = [
+  "explorer",
+  "agent",
+  "artifact",
+  "domain",
+];
+
+const TAB_ICONS = {
+  explorer: workspaceIcons.folder,
+  agent: conversationIcons.dock,
+  artifact: artifactIcons.kind,
+  domain: commonIcons.series,
+} as const;
+
+const tabLabel = (key: SidebarTab) =>
+  key === "domain"
+    ? t("domain.label.sidebar-tab")
+    : t(`project-workspace.label.sidebar-tab-${key}`);
 
 interface ProjectSidebarProps {
   mode: "open" | "collapsed";
@@ -41,6 +65,8 @@ interface ProjectSidebarProps {
   sessions: readonly PanelSession[];
   /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
   artifactPanel?: ReactNode;
+  /** Domains 줄 menu의 Open DOMAIN.md. 주지 않으면 아무것도 하지 않는다. */
+  onOpenDomainDoc?: (domain: string) => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
@@ -75,6 +101,7 @@ export function ProjectSidebar(
     agents,
     sessions,
     artifactPanel = null,
+    onOpenDomainDoc,
     current = null,
     initialTab = "explorer",
     reveal = null,
@@ -141,10 +168,20 @@ export function ProjectSidebar(
         <>
           <TabStrip
             compact
-            tabs={TABS.map((key) => ({
-              key,
-              title: t(`project-workspace.label.sidebar-tab-${key}`),
-            }))}
+            tabs={TABS.map((key) => {
+              const label = tabLabel(key);
+              return {
+                key,
+                title: "",
+                icon: (
+                  <Tooltip content={label}>
+                    <span role="img" aria-label={label}>
+                      <Icon icon={TAB_ICONS[key]} pixels={iconPixels("base")} />
+                    </span>
+                  </Tooltip>
+                ),
+              };
+            })}
             selected={tab}
             onSelect={(key) => setTab(key as SidebarTab)}
           />
@@ -184,6 +221,16 @@ export function ProjectSidebar(
               )
               : null}
             {tab === "artifact" ? artifactPanel : null}
+            {tab === "domain" && project !== null
+              ? (
+                <DomainPanel
+                  key={project.id}
+                  project={project.id}
+                  source={source}
+                  onOpenDoc={onOpenDomainDoc ?? (() => {})}
+                />
+              )
+              : null}
           </div>
         </>
       )}

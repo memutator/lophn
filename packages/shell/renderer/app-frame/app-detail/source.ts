@@ -2,6 +2,7 @@
 // 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
 // 이 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../../source-result.ts";
+import type { DomainActions, DomainView } from "../../workspace/source.ts";
 
 export type { SourceResult };
 
@@ -218,7 +219,19 @@ interface StartedPreview {
   readonly nonce: string;
 }
 
-export interface AppDetailSource {
+// ---- Domains ----
+
+/** 앱의 active domain 하나와 그 domain의 tool 수. */
+export interface AppDomainRow extends DomainView {
+  readonly tools: number;
+  /** 다른 그릇이 grant 받아 쓸 수 있는 tool 수. */
+  readonly shared: number;
+}
+
+export interface AppDetailSource extends DomainActions {
+  /** 앱의 active domain들. tool 수는 active release의 선언에서 센다(release가 없으면 0). */
+  domains(app: string): Promise<SourceResult<readonly AppDomainRow[]>>;
+
   versions(app: string): Promise<SourceResult<VersionView>>;
   /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
   changes(release: string): Promise<SourceResult<ReleaseChanges>>;

@@ -1,9 +1,12 @@
 // app-detail의 가짜 통로. core를 부르지 않고 부른 것을 기록한다. Orders 앱의 release r5~r7, 바깥 자원,
 // 호출 기록이 들어 있다. 적용 중·적용 실패·거두기 정리 중·rewind 각 단계는 인자로 고른다.
+import { fakeDomainStore } from "../../../workspace/domains/fake-domains.ts";
+import type { DomainView } from "../../../workspace/source.ts";
 import type {
   AccessView,
   ActivityRow,
   AppDetailSource,
+  AppDomainRow,
   AppToolRow,
   Caller,
   ReleaseCard,
@@ -18,6 +21,38 @@ import type {
 
 const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
 const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
+
+// Orders 앱의 domain 셋.
+const DOMAINS: readonly DomainView[] = [
+  {
+    id: "dom_01h455vb4pex5v6nkc6gd5fd01",
+    name: "orders",
+    title: "Orders",
+    purpose: "Orders and their life from placed to shipped.",
+    status: "active",
+  },
+  {
+    id: "dom_01h455vb4pex5v6nkc6gd5fd02",
+    name: "shipping",
+    title: "Shipping",
+    purpose: "Carriers, labels and tracking.",
+    status: "active",
+  },
+  {
+    id: "dom_01h455vb4pex5v6nkc6gd5fd03",
+    name: "customers",
+    title: "Customers",
+    purpose: "Who orders and where it ships.",
+    status: "active",
+  },
+];
+
+// domain별 tool 수(전체, public). 새로 만든 domain은 0이다.
+const TOOLS: Readonly<Record<string, readonly [number, number]>> = {
+  orders: [6, 2],
+  shipping: [3, 1],
+  customers: [2, 0],
+};
 
 const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
@@ -244,6 +279,8 @@ export function fakeDetail(options: FakeOptions = {}) {
   const requested = new Set(options.revoking ?? []);
   let finishRewindWith: ((result: RewindResult) => void) | null = null;
   let rewinding = false;
+  // 앱의 domain은 0개가 되지 못한다(마지막 보관은 거절).
+  const domainStore = fakeDomainStore(DOMAINS, true);
 
   const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
     calls.push([name]);
@@ -374,6 +411,20 @@ export function fakeDetail(options: FakeOptions = {}) {
   };
 
   const source: AppDetailSource = {
+    ...domainStore.actions,
+    domains: () => {
+      calls.push(["domains"]);
+      const rows: AppDomainRow[] = domainStore.active().map((row) => ({
+        ...row,
+        tools: TOOLS[row.name]?.[0] ?? 0,
+        shared: TOOLS[row.name]?.[1] ?? 0,
+      }));
+      return Promise.resolve(
+        failing.has("domains")
+          ? { ok: false, code: "unavailable" }
+          : { ok: true, value: rows },
+      );
+    },
     versions: () => reply("versions", versionsView()),
     changes: (id) => {
       calls.push(["changes", id]);

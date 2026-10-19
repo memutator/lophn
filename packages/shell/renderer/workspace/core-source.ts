@@ -10,6 +10,7 @@ import type {
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
+import { coreDomainActions } from "./domains/core-calls.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
   DomainView,
@@ -199,6 +200,8 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
   return {
     project,
+
+    ...coreDomainActions(core),
 
     // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),

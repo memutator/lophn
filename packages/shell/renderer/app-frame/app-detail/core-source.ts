@@ -19,12 +19,15 @@ import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
+import { coreDomainActions } from "../../workspace/domains/core-calls.ts";
+import type { DomainView } from "../../workspace/source.ts";
 import type {
   AccessView,
   ActivationStep,
   ActivityRow,
   AgentRole,
   AppDetailSource,
+  AppDomainRow,
   AppToolRow,
   Caller,
   CallState,
@@ -369,6 +372,42 @@ function rewindOutcome(item: RewindPlan["items"][number]) {
 
 export function coreAppDetailSource(core: CoreSource): AppDetailSource {
   return {
+    ...coreDomainActions(core),
+
+    async domains(app) {
+      const [list, declared] = await Promise.all([
+        collect<DomainView, { domains: DomainView[] } & Paged>(
+          core,
+          "domains",
+          "list",
+          { owner: { kind: "app", id: app }, status: "active" },
+          (page) => page.domains,
+        ),
+        read<{ tools: { domain: string; public: boolean }[] }>(
+          core,
+          "apps",
+          "tools",
+          { app },
+        ),
+      ]);
+      if (!list.ok) return list;
+      // active release가 없는 앱은 tool을 읽지 못한다. 그래도 domain 목록은 보인다.
+      const tools = declared.ok ? declared.value.tools : [];
+      const rows: AppDomainRow[] = list.value.map((domain) => {
+        const own = tools.filter((tool) => tool.domain === domain.name);
+        return {
+          id: domain.id,
+          name: domain.name,
+          title: domain.title,
+          purpose: domain.purpose,
+          status: domain.status,
+          tools: own.length,
+          shared: own.filter((tool) => tool.public).length,
+        };
+      });
+      return { ok: true, value: rows };
+    },
+
     async versions(app) {
       const [releases, active, queue] = await Promise.all([
         releaseRecords(core, app),

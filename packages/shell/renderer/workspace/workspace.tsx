@@ -87,6 +87,7 @@ import {
   workspaceScope,
 } from "../desktop/palette/workspace-scope.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
+import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import type { TabHost } from "./kinds/host.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
@@ -513,6 +514,14 @@ export function Workspace(props: WorkspaceProps) {
     const folder = file.folder ?? loaded.project?.folders[0]?.path;
     if (folder === undefined) return;
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
+  };
+
+  // domain의 DOMAIN.md를 파일 탭으로 연다. 경로는 main이 알려 주고 없는 파일은 첫 저장이 만든다.
+  const openDomainDoc = async (domain: string) => {
+    const reply = await windowInstructionsSource()?.open({
+      target: { layer: "domain", place: domain },
+    });
+    if (reply?.ok) openFile(host, reply.value.path);
   };
 
   // 이 project의 role로 agent를 찾아 그 Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
@@ -1152,6 +1161,7 @@ export function Workspace(props: WorkspaceProps) {
                   }
                 }}
                 onManage={() => openAgents(host)}
+                onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
                 onResizeStart={(event) => {
                   const start = sidebar.chosenWidth;
                   const startShown = sidebarShown.width;

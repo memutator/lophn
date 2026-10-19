@@ -41,6 +41,9 @@ modules:
   - path: packages/core/diagnostics
     boundary: diagnostics
 
+  - path: packages/core/domains
+    boundary: domains
+
   - path: packages/core/events
     boundary: events
 

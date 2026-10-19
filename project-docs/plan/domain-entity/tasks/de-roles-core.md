@@ -20,7 +20,7 @@ role 층의 코드(tool 목록, credential, role 표, built-in 정의 만들기,
 - 계약:
   - 쓰는 것: `de-domain-core`의 `DOMAIN_AGENT_TOOLS`(`packages/core/domains/agent-tools.ts`)와 `domainList`·`domainGet`, `de-place-restore`가 넓힌 `Role`·`Place`·`AgentRef`
   - 내놓는 것
-    - role 목록: `app_engineer`는 `ticket.create`·`ticket.update`·`ticket.verify`·`ticket.cancel`·`problem.set_state`·`app.link_source`·`package.publish`·`operator.create`·`operator.update`·`domain.create`와 `app.app_api`를 갖는다. `project_manager`는 `operator.create`·`operator.update`·`domain.create`만 쓴다(ticket·problem·source 연결·package는 없다). 모든 role이 `domain.list`·`domain.get`을 읽는다. `app.app_api`는 lophn과 App Engineer다.
+    - role 목록: `app_engineer`는 `ticket.create`·`ticket.update`·`ticket.verify`·`ticket.cancel`·`problem.set_state`·`app.link_source`·`package.publish`·`operator.create`·`operator.update`·`domain.create`와 `app.app_api`를 갖는다. `project_manager`는 `operator.create`·`operator.update`·`domain.create`만 쓴다(ticket·problem·source 연결·package는 없다). 모든 role이 `domain.list`·`domain.get`을 읽는다. `app.app_api`는 lophn과 App Engineer다. `domain.create`는 Gate에 묻지 않는다(`de-domain-core`의 정의에 `gate`가 없다. role 쪽에서 Gate나 승인 표에 `domain.create`를 더하지 않는다).
     - credential 조건: App Engineer는 `conditions.app`(담당 앱), 프로젝트 place의 PM·Operator는 `conditions.project`, 앱 place의 Operator와 lophn은 조건이 없다. PM의 `conditions.app`은 없어진다(`agentConditions`의 `app` 입력이 App Engineer 전용이 된다).
     - Operator tool: `operator.create`·`operator.update`의 place 입력이 `{project: 이름}`과 `{app: 이름}` 둘이고, 입력에 `domains`(그 그릇의 domain **이름** 목록. tool이 id로 바꿔 정의에 쓴다)가 생긴다. `operatorPlaceAllowed`는 PM은 자기 project, App Engineer는 자기 앱의 Operator만 허락한다.
 

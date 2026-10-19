@@ -1,6 +1,6 @@
 # de-tool-domain
 
-앱 tool 선언에 `domain`(그 앱의 domain 이름) 칸을 필수로 더한다. 정본 검사(`validateBlueprint`), 읽기 모양(`AppTool`, app-api index), SDK 작성형, 앱 template, 사람이 읽는 SDK guide가 대상이다. 앱의 domain 목록을 아는 쪽(release 준비 검사)은 이 task가 아니라 `de-release-domain`이다. 이 task는 "목록을 주면 그 안에 있는 domain만 받는" 선택 인자까지만 만든다.
+앱 tool 선언에 `domain`(그 앱의 domain 이름) 칸을 필수로 더한다. 정본 검사(`validateBlueprint`), 읽기 모양(`AppTool`, app-api index), SDK 작성형, 앱 template, 사람이 읽는 SDK guide가 대상이다. 앱의 domain 목록을 아는 쪽(release 준비 검사)은 이 task가 아니라 `de-app-domains`다. 이 task는 "목록을 주면 그 안에 있는 domain만 받는" 선택 인자까지만 만든다.
 
 - 단위: tool-domain (wave 1)
 - 선행: 없음
@@ -51,4 +51,4 @@
 - 넘길 줄
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
-- **알려진 미완 동작**: release 준비·`blueprint.check`가 아직 앱의 domain 목록을 주지 않는다(`de-release-domain`)
+- **알려진 미완 동작**: release 준비·`blueprint.check`가 아직 앱의 domain 목록을 주지 않는다(`de-app-domains`)

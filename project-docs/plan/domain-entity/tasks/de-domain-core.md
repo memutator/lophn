@@ -26,7 +26,7 @@ domain entity(`dom_`)를 새로 만든다. protocol 계약(id, 값, route, event
     - `packages/protocol/domains/values.ts`에 `artifactNameSchema`(= `slugSchema`)도 둔다.
     - `packages/protocol/domains/mod.ts`: 위를 모두 내보내고 `ROUTES`를 준다.
     - `packages/core/domains/lookups.ts`: wiring이 SQL 없이 부르는 읽기 함수 `domainsOfOwner(sql, owner, status?)`, `domainOwnerOf(sql, domain)`, `domainIdsOfOwner(sql, owner)`, `activeDomainIds(sql)`.
-    - `packages/core/domains/agent-tools.ts`: `DOMAIN_AGENT_TOOLS`(`domain.list`, `domain.get`, `domain.create`. `defineTool`, protocol·base·`lophn-agent/tools/spi.ts`만 import한다. `domain.list`는 입력 없이 부른 agent의 그릇 domain 목록, `domain.create`는 `{name, title, purpose}`로 부른 agent의 그릇(PM은 project, App Engineer는 app)에 만든다. 그릇은 입력으로 받지 않고 `ToolContext.place`에서 정한다. `domain.create`의 effect는 `write`이고 Gate는 기본 규칙 그대로다).
+    - `packages/core/domains/agent-tools.ts`: `DOMAIN_AGENT_TOOLS`(`domain.list`, `domain.get`, `domain.create`. `defineTool`, protocol·base·`lophn-agent/tools/spi.ts`만 import한다. `domain.list`는 입력 없이 부른 agent의 그릇 domain 목록, `domain.create`는 `{name, title, purpose}`로 부른 agent의 그릇(PM은 project, App Engineer는 app)에 만든다. 그릇은 입력으로 받지 않고 `ToolContext.place`에서 정한다. `domain.create`의 effect는 `write`이고 Gate에 묻지 않는다(정의에 `gate`를 두지 않는다. 그릇 안에 만드는 것이라 권한이 넓어지지 않는다. 예전 context 만들기도 Gate가 없었다)).
 
 ## 할 일
 

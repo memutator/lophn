@@ -70,6 +70,10 @@ elements:
             kind: component
             description: 앱을 만들거나 고치는 작업 카드와 그 claim.
 
+      - id: domains
+        kind: subsystem
+        description: core의 domain entity(project나 app 안의 책임 경계)와 그 owner 규칙.
+
       - id: problems
         kind: subsystem
         description: 앱 문제의 감지, 증거, 확인, 닫기.

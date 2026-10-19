@@ -34,6 +34,7 @@ const ID_PREFIXES = {
   rwd: "Rewind",
   ann: "Annotation",
   anb: "AnnotationBatch",
+  dom: "Domain",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

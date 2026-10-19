@@ -81,3 +81,16 @@ export function projectRootsOf(sql: ReadSql, project: string): string[] | null {
   if (row === undefined || row["status"] !== "active") return null;
   return projectFolderPaths(sql, project);
 }
+
+// project의 보관 여부. 없으면 null이다.
+export function projectStatusOf(
+  sql: ReadSql,
+  id: string,
+): "active" | "archived" | null {
+  const row = sql.get("select status from projects where id = ?", [id]);
+  return row === undefined
+    ? null
+    : row["status"] === "archived"
+    ? "archived"
+    : "active";
+}

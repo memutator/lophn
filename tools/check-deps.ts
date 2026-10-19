@@ -67,7 +67,7 @@ function numberedName(segment: string): boolean {
 const CORE_DOMAIN_EDGES = new Set(["problems>apps"]);
 const CORE_HARNESS = "lophn-agent";
 const CORE_ROLES = "agent-roles";
-const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
+const CORE_DOMAINS = new Set(["projects", "apps", "problems", "domains"]);
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
   return parts[0] === "packages" && parts[1] === "core" && parts.length > 3

@@ -43,3 +43,16 @@ export function appOfProject(sql: ReadSql, project: string): string | null {
   const row = sql.get("select id from apps where project = ?", [project]);
   return row === undefined ? null : String(row["id"]);
 }
+
+// 앱의 보관 여부. 없으면 null이다.
+export function appStatusOf(
+  sql: ReadSql,
+  id: string,
+): "active" | "archived" | null {
+  const row = sql.get("select status from apps where id = ?", [id]);
+  return row === undefined
+    ? null
+    : row["status"] === "archived"
+    ? "archived"
+    : "active";
+}

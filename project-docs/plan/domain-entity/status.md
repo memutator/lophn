@@ -22,8 +22,8 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-shell-agents` | shell | 2 | 없음 | merged | shell/de-shell-agents | 33f083320 |  |
 | `de-shell-app-space` | shell | 2 | 없음 | merged | shell/de-shell-app-space | 885fa7c1a |  |
 | `de-shell-artifact-data` | shell | 2 | de-routing-events | merged | shell/de-shell-artifact-data | c2beef144 |  |
-| `de-apps-unbind` | apps | 3 | 없음 | todo |  |  |  |
-| `de-place-info` | roles | 3 | 없음 | todo |  |  |  |
+| `de-apps-unbind` | apps | 3 | 없음 | running | apps/de-apps-unbind |  |  |
+| `de-place-info` | roles | 3 | 없음 | running | roles/de-place-info |  |  |
 | `de-names-tool` | names | 4 | 없음 | todo |  |  |  |
 | `de-final` | final | 5 | de-shell-domain-list, de-shell-operator-domains, de-shell-artifact-domain | todo |  |  |  |
 | `de-shell-artifact-domain` | shell-domains | 5 | 없음 | todo |  |  | 사람이 de-drafts의 모양을 고른 뒤 띄운다(brief의 고른 모양 줄을 채운다) |

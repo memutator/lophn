@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py domain-tools build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `dt-call-route` | domain-tools | 1 | dt-decl | merged | domain-tools/dt-call-route | ce889f5b6 |  |
 | `dt-decl` | domain-tools | 1 | 없음 | merged | domain-tools/dt-decl | 37280763a |  |
-| `dt-agent-tools` | domain-tools | 2 | dt-call-route | running | domain-tools/dt-agent-tools |  |  |
+| `dt-agent-tools` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-agent-tools | a19f59a58 |  |
 | `dt-coding-text` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-coding-text | 7b97f429b |  |
 | `dt-invocation-project` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-invocation-project | 14ad22c6d |  |
 | `dt-preview-call` | domain-tools | 2 | dt-invocation-project | merged | domain-tools/dt-preview-call | 5ac7b9e00 |  |

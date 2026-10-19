@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../../base/ids.ts";
+import { projectIdSchema } from "../../projects/values.ts";
 import { dataChangeSchema } from "../releases.ts";
 import {
   activationAttemptIdSchema,
@@ -20,6 +21,8 @@ const activationDataJobKindSchema = z.enum(ACTIVATION_DATA_JOB_KINDS);
 const jobFields = {
   kind: activationDataJobKindSchema,
   app: idSchema("app"),
+  // 앱의 저장 자리(`<data>/projects/<project>/app`)를 만드는 데 쓴다.
+  project: projectIdSchema,
   release: idSchema("rel"),
   attempt: activationAttemptIdSchema,
   data_path: z.string().min(1),

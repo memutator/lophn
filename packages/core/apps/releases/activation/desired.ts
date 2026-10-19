@@ -104,14 +104,14 @@ export async function dataChangesOf(
   return ok(changes.sort((a, b) => a.from - b.from));
 }
 
-// 앱의 bundle 사본을 읽는다. 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나
+// 앱의 bundle 사본을 읽는다(사본은 앱이 묶인 project 아래에 있다). 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나
 // import map·blueprint를 읽지 못하면 unavailable이다. 사본 파일은 읽기만 한다.
 export async function readBundleCopy(
   dataRoot: string,
-  app: string,
+  owner: { app: string; project: string },
   bundleHash: string,
 ): Promise<Result<BundleParts | undefined>> {
-  const copy = bundleCopyPath(dataRoot, app, bundleHash);
+  const copy = bundleCopyPath(dataRoot, owner.project, bundleHash);
   if (!copy.ok) return ok(undefined);
   const root = copy.value;
   let manifestText: string;
@@ -147,7 +147,7 @@ export async function readBundleCopy(
   } catch {
     return unavailable("bundle blueprint is invalid");
   }
-  const blueprint = validateBlueprint(raw, { app });
+  const blueprint = validateBlueprint(raw, { app: owner.app });
   if (!blueprint.ok) return unavailable("bundle blueprint is invalid");
   return ok({
     root,
@@ -228,8 +228,8 @@ export function createCopyPreviewBundles(options: {
   platformPorts: () => readonly number[];
 }): PreviewBundles {
   return {
-    async open(app, bundleHash) {
-      const read = await readBundleCopy(options.dataRoot, app, bundleHash);
+    async open(owner, bundleHash) {
+      const read = await readBundleCopy(options.dataRoot, owner, bundleHash);
       if (!read.ok) return read;
       if (read.value === undefined) return ok(undefined);
       const parts = read.value;

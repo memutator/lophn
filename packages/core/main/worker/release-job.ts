@@ -4,7 +4,7 @@ import { prepareFromSource } from "../../apps/releases/prepare/from-source.ts";
 
 type ReleaseJobInput = {
   dataRoot: string;
-  app: string;
+  project: string;
   sourceRoot: string;
   commit: string;
 };

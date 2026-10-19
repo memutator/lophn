@@ -3,9 +3,9 @@
 export { createPreviewLauncher, type PreviewLauncher } from "./launcher.ts";
 export { previewFlagsViolation } from "./flags.ts";
 export {
+  appFolderOfPreview,
   PREVIEW_STARTING,
   PREVIEW_UNAVAILABLE,
-  previewDirectory,
   type PreviewLaunch,
   type PreviewObservationWire,
   type PreviewScope,

@@ -1,10 +1,13 @@
 // 읽기 전용 bundle 사본과 seal.
-// 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
+// 사본은 `projects/<project ID>/app/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
 // 그 안의 정규 `blueprint.json` 자리는 problems test runner가 쓴다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import type { BundleManifest } from "../../../../protocol/apps/mod.ts";
 import {
-  appIdSchema,
+  appBundleCopy,
+  type BundleManifest,
+} from "../../../../protocol/apps/mod.ts";
+import {
+  projectIdSchema,
   relativePathSchema,
 } from "../../../../protocol/projects/mod.ts";
 import { sha256Schema } from "../../../../protocol/base/mod.ts";
@@ -18,15 +21,17 @@ type SealFailure = {
 const FILE_MODE = 0o444;
 const DIRECTORY_MODE = 0o555;
 
-// bundle 사본 위치 규칙. contracts에 경로 함수가 없으므로
-// 이 leaf가 계산한다. app ID와 hash를 검사하지 않으면 data root 밖으로 나간다.
+// bundle 사본 위치. 경로 규칙은 protocol의 appBundleCopy가 갖고, 여기서는 hash 모양을 Result로 검사한다.
 export function bundleCopyPath(
   dataRoot: string,
-  app: string,
+  project: string,
   bundleHash: string,
 ): Result<string, SealFailure> {
-  if (!appIdSchema.safeParse(app).success) {
-    return err({ code: "invalid_input", message: "app id is not an app id" });
+  if (!projectIdSchema.safeParse(project).success) {
+    return err({
+      code: "invalid_input",
+      message: "project id is not a project id",
+    });
   }
   if (!sha256Schema.safeParse(bundleHash).success) {
     return err({
@@ -34,7 +39,7 @@ export function bundleCopyPath(
       message: "bundle hash is not a sha256",
     });
   }
-  return ok(`${dataRoot}/apps/${app}/bundles/${bundleHash}`);
+  return ok(appBundleCopy(dataRoot, project, bundleHash));
 }
 
 // 정규 blueprint.json 자리. bundle 사본 안의 고정 이름이다.

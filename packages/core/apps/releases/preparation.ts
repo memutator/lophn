@@ -13,6 +13,8 @@ type PreparationStatus =
 
 export type PreparationJob = {
   app: string;
+  // 앱이 묶인 project. 준비 자식이 쓰는 앱 폴더를 정한다.
+  project: string;
   commit: string;
   request_key: string;
   // 연결된 source 경계다. core가 앱 등록에서 읽어 보낸다.

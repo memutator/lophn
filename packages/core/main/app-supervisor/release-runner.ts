@@ -1,5 +1,5 @@
 // release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다.
-// supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더에만
+// supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더(`projects/<project>/app`)에만
 // 한다. 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
@@ -12,7 +12,10 @@ import {
   cacheBuildTools,
   esbuildBinaries,
 } from "../../apps/releases/ui-build/binaries.ts";
-import { RELEASE_PREPARATION_LIMIT_MS } from "../../../protocol/apps/mod.ts";
+import {
+  appFolder,
+  RELEASE_PREPARATION_LIMIT_MS,
+} from "../../../protocol/apps/mod.ts";
 
 const JOB = new URL("../worker/release-job.ts", import.meta.url).pathname;
 const REPO = new URL("../../../../", import.meta.url).pathname.replace(
@@ -28,7 +31,7 @@ export function createChildPreparationRunner(options: {
 }): PreparationRunner {
   return {
     async run(job: PreparationJob, signal: AbortSignal) {
-      const appRoot = `${options.dataRoot}/apps/${job.app}`;
+      const appRoot = appFolder(options.dataRoot, job.project);
       const deno = options.deno();
       // 자식은 시작할 때 이미 받아 둔 esbuild 실행 파일만 `--allow-run`에 담을 수 있다. 빈 deno-dir(새 기계)에서는
       // 아직 없으므로 자식을 띄우기 전에 build 도구를 받아 둔다.
@@ -54,7 +57,7 @@ export function createChildPreparationRunner(options: {
           JOB,
           JSON.stringify({
             dataRoot: options.dataRoot,
-            app: job.app,
+            project: job.project,
             sourceRoot: job.source_path,
             commit: job.commit,
           }),

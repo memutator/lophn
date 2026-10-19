@@ -4,6 +4,7 @@
 // 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
 // staging은 끝나면 늘 지운다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
 import { devImportMap } from "../../packages/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
@@ -28,7 +29,7 @@ import {
 
 type SourcePrepareInput = {
   dataRoot: string;
-  app: string;
+  project: string;
   sourceRoot: string;
   commit: string;
 };
@@ -231,7 +232,7 @@ export async function prepareFromSource(
   if (!copies.ok) return fail(copies.error.reason);
 
   if (aborted()) return fail("cancelled");
-  const stagingParent = `${input.dataRoot}/apps/${input.app}/staging`;
+  const stagingParent = appStagingFolder(input.dataRoot, input.project);
   const staging = `${stagingParent}/${crypto.randomUUID()}`;
   try {
     await Deno.mkdir(staging, { recursive: true });
@@ -320,7 +321,7 @@ export async function prepareFromSource(
 
     return await prepareRelease({
       dataRoot: input.dataRoot,
-      app: input.app,
+      project: input.project,
       sourceRoot: input.sourceRoot,
       commit: input.commit,
       entrypoint: platformEntry.entrypoint,

@@ -77,7 +77,7 @@ function createReleaseWorker(
 function isPrepareInput(value: unknown): value is PrepareReleaseInput {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
-  return typeof record.app === "string" &&
+  return typeof record.project === "string" &&
     typeof record.sourceRoot === "string" &&
     typeof record.commit === "string" &&
     typeof record.entrypoint === "string" &&

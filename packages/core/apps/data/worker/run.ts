@@ -2,7 +2,11 @@
 // 한 앱 DB(`<data 영역>/app.sqlite`)에 단독 접근한다. migration 자식만
 // network·secret·외부 파일·subprocess 권한이 없다. kind와 root는 환경으로만 받고 credential은 받지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { decodeActivationDataJobInput } from "../../../../protocol/apps/mod.ts";
+import {
+  appDataFolder,
+  appFolder,
+  decodeActivationDataJobInput,
+} from "../../../../protocol/apps/mod.ts";
 import { runDataJob } from "./job.ts";
 import { type MigrationScript, scriptFromBundle } from "./migrate.ts";
 
@@ -10,7 +14,7 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// job 한 줄을 root 아래 그 앱의 데이터 영역에서 돌린다. migrate는 bundle 사본의 단계 파일
+// job 한 줄을 root 아래 그 앱의 데이터 영역(`projects/<project>/app/data`)에서 돌린다. migrate는 bundle 사본의 단계 파일
 // (`migrations/<from>-<to>.sql`)을 release의 data_changes와 hash로 맞춰 읽는다. bundle은 그 앱의 사본이어야 한다.
 async function runDataJobLine(
   root: string,
@@ -22,7 +26,7 @@ async function runDataJobLine(
   } catch {
     return invalid("invalid data job input");
   }
-  const dataArea = `${root}/apps/${input.app}/data`;
+  const dataArea = appDataFolder(root, input.project);
   const context = { dataArea, databasePath: `${dataArea}/app.sqlite` };
   // 첫 activation 전의 앱은 데이터 영역이 아직 없다. 이 작업이 그 영역(과 앱 폴더)만 만든다.
   try {
@@ -37,7 +41,7 @@ async function runDataJobLine(
     const outcome = await runDataJob(context, line);
     return outcome.ok ? outcome : err(outcome.error);
   }
-  const bundles = `${root}/apps/${input.app}/bundles/`;
+  const bundles = `${appFolder(root, input.project)}/bundles/`;
   if (
     input.bundle_path === undefined || !input.bundle_path.startsWith(bundles) ||
     input.bundle_path.slice(bundles.length).includes("/") ||

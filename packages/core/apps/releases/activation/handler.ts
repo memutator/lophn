@@ -88,7 +88,7 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
       name: APPROVAL_DECIDED_HANDLER,
       async handle(event) {
         const { kind, decision, applied } = event.payload;
-        // 거절이면 release는 prepared로 남고 App Engineer가 사람에게 올린다.
+        // 거절이면 release는 prepared로 남고 Project Manager가 사람에게 올린다.
         if (kind !== "activation" || decision !== "allow") {
           return ok(undefined);
         }

@@ -344,7 +344,7 @@ export function createReleaseCommands(): {
         });
       },
     },
-    // activation 실패. 실패 근거와 이전 활성 참조를 남기고 그 앱의 App Engineer를 부를 domain event를 같은
+    // activation 실패. 실패 근거와 이전 활성 참조를 남기고 그 앱의 Project Manager를 부를 domain event를 같은
     // transaction에 쓴다. 데이터가 바뀌었을 수 있는 시도(backup 확정)는 복원 결과가 있어야 실패로 닫는다.
     failActivation: {
       route: activationFail,

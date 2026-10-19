@@ -246,6 +246,7 @@ export type SupervisorClient = {
     app: string;
     commit: string;
     request_key: string;
+    project: string;
     source_path: string;
   }): Promise<Result<ReleasePreparationWire>>;
   releasePreparation(

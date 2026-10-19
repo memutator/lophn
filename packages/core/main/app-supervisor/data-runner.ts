@@ -2,7 +2,11 @@
 // 한 앱의 데이터 영역만 쓸 수 있고 network·secret·환경·subprocess 권한이 없다.
 // supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
+import {
+  appDataFolder,
+  appFolder,
+  decodeActivationDataJobInput,
+} from "../../../protocol/apps/mod.ts";
 
 const JOB = new URL("../worker/data-job.ts", import.meta.url).pathname;
 const REPO = new URL("../../../../", import.meta.url).pathname.replace(
@@ -33,7 +37,7 @@ export function createChildDataRunner(options: {
       if (input.app !== app) {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
-      const appRoot = `${options.dataRoot}/apps/${app}`;
+      const appRoot = appFolder(options.dataRoot, input.project);
       const child = new Deno.Command(options.deno(), {
         clearEnv: true,
         env: {
@@ -47,7 +51,7 @@ export function createChildDataRunner(options: {
           `--config=${REPO}/deno.json`,
           // 그 앱의 폴더만 읽고(bundle 사본·backup) 데이터 영역에만 쓴다.
           `--allow-read=${appRoot},${REPO},${options.denoDir}`,
-          `--allow-write=${appRoot}/data`,
+          `--allow-write=${appDataFolder(options.dataRoot, input.project)}`,
           JOB,
           options.dataRoot,
         ],

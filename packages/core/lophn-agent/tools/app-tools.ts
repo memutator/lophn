@@ -4,24 +4,23 @@ import {
   type InputSchema,
   type ToolCallOutput,
 } from "../../../protocol/apps/mod.ts";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type { AppTool } from "../../../protocol/apps/blueprint/read.ts";
 import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
-import { appApiInput } from "./app-api/input.ts";
+import { toolInput } from "./app-api/input.ts";
 import { appApiToolName } from "./app-api/name.ts";
 import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 
-// 앱 app-api tool. 허락된 앱의 활성 release 선언에서 app-api 하나마다 tool 하나를 만든다. 호출은 core의
+// 앱 tool. 허락된 앱의 활성 release 선언에서 tool 하나마다 agent tool 하나를 만든다. 호출은 core의
 // 호출 경로 route(`app.call_tool`) 하나로 간다. 부른 쪽 확인, Gate, invocation 기록,
 // 결과 모름은 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
 export const APP_TOOL_CONTRACT = appCallTool.name;
 
-// agent grant가 이 app-api를 부르게 두는가. 앱을 할당하지 않았거나 api를 뺐으면 아니다.
+// agent grant가 이 tool을 부르게 두는가. 앱을 할당하지 않았거나 tool을 뺐으면 아니다.
 function grantAllows(
   entries: readonly AgentGrantEntry[],
   app: string,
@@ -45,10 +44,8 @@ export type AppApiView = {
 };
 
 export type AppApiSource = {
-  // 지금은 쓰지 않는다. project 범위 입력이 없어져 place가 입력 모양을 바꾸지 않는다.
-  place: Place | null;
   views: readonly AppApiView[];
-  // agent grant의 entries. 앱 단위 할당과 app-api별 빼기가 들어 있다.
+  // agent grant의 entries. 앱 단위 할당과 tool별 빼기가 들어 있다.
   entries: readonly AgentGrantEntry[];
 };
 
@@ -58,7 +55,7 @@ export type AppApiTool = {
   api: string;
 };
 
-// 앱 ∩ 선언 ∩ agent grant만 정의가 된다. 하나라도 빠지면 정의가 없다. 순서는 앱, api 키 순이다.
+// 앱 ∩ 선언 ∩ agent grant만 정의가 된다. 하나라도 빠지면 정의가 없다. 순서는 앱, tool 이름 순이다.
 export async function buildAppApiTools(
   source: AppApiSource,
 ): Promise<readonly AppApiTool[]> {
@@ -72,21 +69,20 @@ export async function buildAppApiTools(
       const name = await appApiToolName(view.app, api.name);
       if (names.has(name)) continue;
       names.add(name);
-      const shape = appApiInput(api.inputSchema as InputSchema | null);
+      const shape = toolInput(api.inputSchema as InputSchema | null);
       const definition: ToolDefinition = {
         name,
         description:
-          `App ${view.name} (${view.app}), app-api ${api.name}: ${api.title}. ${api.description}`,
+          `App ${view.name} (${view.app}), tool ${api.name}: ${api.title}. ${api.description}`,
         input: shape.validator,
         inputSchema: shape.jsonSchema,
         effect: api.effect,
         origin: "app",
         handler: async (input, ctx) => {
-          const { input: appInput } = shape.split(input);
           const reply = await readOf(ctx.core, appCallTool, {
             target: { mode: "live", app: view.app, release: null },
             tool: api.name,
-            ...(appInput === undefined ? {} : { input: appInput }),
+            ...(api.inputSchema === null ? {} : { input }),
             caller: callerOf(ctx),
           });
           if (!reply.ok) return reply;
@@ -137,7 +133,7 @@ function resultOf(
   effect: AppTool["effect"],
   output: ToolCallOutput,
 ): ToolResult {
-  const label = `app-api ${api} of ${appName}`;
+  const label = `tool ${api} of ${appName}`;
   const { invocation, outcome } = output;
   switch (outcome.status) {
     case "succeeded": {

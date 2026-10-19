@@ -1,7 +1,7 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
-import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import type { Grants } from "../../approvals/ports.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
@@ -11,7 +11,7 @@ import {
   buildAppApiTools,
 } from "./app-tools.ts";
 
-// agent runtime의 app-api 연결. session을 시작할 때 agent grant에서 할당된 앱을 읽고, 그 앱의 활성 release
+// agent runtime의 앱 tool 연결. session을 시작할 때 agent grant에서 할당된 앱을 읽고, 그 앱의 활성 release
 // 선언을 읽어 tool 정의를 만든다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
 type AppApiLoad = Pick<AppApiSource, "views" | "entries">;
@@ -19,10 +19,7 @@ type AppApiLoad = Pick<AppApiSource, "views" | "entries">;
 export type AppApiToolkit = {
   // 지금의 선언과 grant.
   load(agent: AgentRef): Promise<Result<AppApiLoad>>;
-  define(
-    agent: AgentRef,
-    place: Place | null,
-  ): Promise<Result<readonly AppApiTool[]>>;
+  define(agent: AgentRef): Promise<Result<readonly AppApiTool[]>>;
 };
 
 export function createAppApiToolkit(options: {
@@ -54,10 +51,10 @@ export function createAppApiToolkit(options: {
 
   return {
     load,
-    async define(agent, place) {
+    async define(agent) {
       const loaded = await load(agent);
       if (!loaded.ok) return loaded;
-      return ok(await buildAppApiTools({ place, ...loaded.value }));
+      return ok(await buildAppApiTools(loaded.value));
     },
   };
 }

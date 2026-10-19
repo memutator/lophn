@@ -328,10 +328,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const appApi = apiKit === undefined || loadedApi === null || !loadedApi.ok
       ? null
       : {
-        tools: await buildAppApiTools({
-          place: session.place,
-          ...loadedApi.value,
-        }),
+        tools: await buildAppApiTools(loadedApi.value),
       };
 
     const model = await deps.resolveModel({ model: agent.model });

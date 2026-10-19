@@ -91,7 +91,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app").optional() }),
     routes: [appAppApiIndex],
     description:
-      "List the apps with their app-api, or read one app: key, label, description and effect of the active release's app-api (and input when you give an app). Use it to see what apps already do and to get exact keys for blueprint app_connections.",
+      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appAppApiIndex, input);

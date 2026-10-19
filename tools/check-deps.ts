@@ -63,9 +63,8 @@ function numberedName(segment: string): boolean {
 
 // core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < role 층(agent-roles)·domain(projects, apps, problems) < main(조립).
 // harness와 바닥은 role 층과 domain을 모르고, role 층과 domain은 서로 모른다. 둘 다 harness는 쓸 수 있다.
-// domain끼리는 problems → apps, projects → apps만 된다(project-docs/architecture/layers.md).
-// projects → apps: writer·reader Worker가 직접 여는 projects/contexts/ledger/deps.ts가 releases store를 읽는다.
-const CORE_DOMAIN_EDGES = new Set(["problems>apps", "projects>apps"]);
+// domain끼리는 problems → apps만 된다(project-docs/architecture/layers.md).
+const CORE_DOMAIN_EDGES = new Set(["problems>apps"]);
 const CORE_HARNESS = "lophn-agent";
 const CORE_ROLES = "agent-roles";
 const CORE_DOMAINS = new Set(["projects", "apps", "problems"]);
@@ -100,7 +99,7 @@ function coreLayerViolation(file: string, target: string): string | undefined {
     CORE_DOMAINS.has(from) && CORE_DOMAINS.has(to) &&
     !CORE_DOMAIN_EDGES.has(`${from}>${to}`)
   ) {
-    return `domain끼리는 problems → apps, projects → apps만: ${from} → ${to}`;
+    return `domain끼리는 problems → apps만: ${from} → ${to}`;
   }
 }
 

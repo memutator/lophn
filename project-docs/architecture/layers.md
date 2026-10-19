@@ -57,8 +57,6 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 - 막는 것: harness가 꽂히는 쪽을 알게 되는 것(domain이나 role을 더하고 뺄 때마다 harness를 고치게 된다). role 규칙과 domain 구현이 엉키는 것. domain 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
 - 둘을 다 알아야 하는 일(domain의 읽기 함수를 role 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps의 lookups와 role 명령, Operator place 규칙을 `lophn-agent/register.ts`의 factory에 꽂는다.
 - 처음 규칙은 "domain끼리 import 금지"였다. 한 방향 의존은 해가 없고 problems → apps는 자연스러워 방향 규칙으로 바꿨다.
-- 아직 못 끊은 예외 하나를 `tools/check-deps.ts`가 이름으로 허용한다.
-  - projects → apps: writer·reader Worker가 직접 여는 `projects/contexts/ledger/deps.ts`가 app-api의 effect를 알려고 releases store를 읽는다. wiring이 값을 넘길 길이 없다.
 - import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 
 ## 두지 않는 규칙

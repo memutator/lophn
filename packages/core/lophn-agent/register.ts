@@ -436,7 +436,7 @@ function agentLookups(
     skills: (place) =>
       place === null
         ? globalSkillNames(sql, layers)
-        : registryOf()?.skills(place).entries.map((entry) => entry.name) ?? [],
+        : registryOf()?.skills(place).entries ?? [],
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent grant가 정한다.
     mcp: () => [],
     // 전역 기본 model.
@@ -446,16 +446,16 @@ function agentLookups(
   };
 }
 
-// 전역 층에서 발견하는 skill 이름이다. 전역에서 끈 것은 뺀다.
+// 전역 층에서 발견하는 skill이다. 전역에서 끈 것은 뺀다.
 function globalSkillNames(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
-): string[] {
+) {
   return listSkillsSync(
     skillFiles,
     { ...globalSkillSources(sql, layers), project: null },
     { role: null, off: registeredSkillsOff(sql) },
-  ).entries.filter((entry) => entry.enabled).map((entry) => entry.name);
+  ).entries.filter((entry) => entry.enabled);
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는

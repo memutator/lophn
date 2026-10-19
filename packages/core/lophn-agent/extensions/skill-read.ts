@@ -9,6 +9,7 @@ import {
   SKILL_MANIFEST,
   type SkillEntry,
   type SkillFilesPort,
+  skillReceived,
   type SkillSkipped,
 } from "./skills.ts";
 
@@ -69,9 +70,7 @@ export async function createSkillSnapshot(
   const entries: readonly SkillEntry[] = found.ok
     ? found.value.entries.map((entry) => ({
       ...entry,
-      enabled: entry.enabled &&
-        (!entry.can_disable || session.skills.length === 0 ||
-          session.skills.includes(entry.name)),
+      enabled: entry.enabled && skillReceived(entry, session.skills),
     }))
     : [];
   const skipped = found.ok ? found.value.skipped : [];

@@ -13,7 +13,11 @@ import {
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
 import type { AgentRoleTable } from "./role-table.ts";
-import { resolveAgent, type ResolvedAgent } from "./resolve.ts";
+import {
+  type AvailableSkill,
+  resolveAgent,
+  type ResolvedAgent,
+} from "./resolve.ts";
 
 // turn을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로 모은다: session(agent와 고른
 // model), 정의 파일(전역 기본 model 포함), project 층 model. 정의 파일은 core가
@@ -46,7 +50,7 @@ export async function resolveTurnAgent(
   machine: CoreCall,
   input: {
     session: string;
-    skills: readonly string[];
+    skills: readonly AvailableSkill[];
     // role이 고정한 tool 이름 목록이다. role은 정의를 읽어야 알므로 함수로 받는다.
     roleTools(role: Role): readonly string[];
     // role마다 다른 값과 규칙. role 층이 정해 조립이 넘긴다.

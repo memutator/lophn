@@ -3,6 +3,7 @@ import { ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Role } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
+import { receivedSkills } from "../agents/resolve.ts";
 import { mergeSkillLayers, type SkillFilesPort } from "./skills.ts";
 import { listSkillsSync, type SyncSkillFiles } from "./skills-sync.ts";
 
@@ -208,34 +209,53 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
   assertEquals(replaced.map((one) => one.enabled), [true]);
 });
 
-Deno.test("the agent gets only the skills it chose, and all of them when it chose none", async () => {
+Deno.test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
   const { port } = treeOf({
+    "/b/context-init/SKILL.md": skillFile("context-init", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
     "/g/b/SKILL.md": skillFile("b", "B"),
   });
   const deps: SkillSnapshotDeps = {
     port,
-    builtin_root: null,
+    builtin_root: "/b",
     personal_store: null,
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
     project: () => Promise.resolve({ store: null, off: [] }),
   };
-  const enabledOf = async (skills: string[]) => {
+  const receivedOf = async (skills: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
-      role: "operator",
+      role: "project_manager",
       project: PROJECT,
       skills,
     });
-    const read = await snapshot.reader.read(SESSION, "b");
+    const code = async (name: string) => {
+      const read = await snapshot.reader.read(SESSION, name);
+      return read.ok ? "ok" : read.error.code;
+    };
+    const listed = snapshot.skills.filter((s) => s.enabled).map((s) => s.name);
+    const available = snapshot.skills.map((s) => ({
+      name: s.name,
+      can_disable: s.name !== "context-init",
+    }));
     return {
-      listed: snapshot.skills.filter((s) => s.enabled).map((s) => s.name),
-      code: read.ok ? "ok" : read.error.code,
+      listed,
+      // resolve가 받는 이름도 목록과 같다.
+      resolved: receivedSkills(available, skills),
+      b: await code("b"),
+      builtin: await code("context-init"),
     };
   };
-  assertEquals(await enabledOf([]), { listed: ["a", "b"], code: "ok" });
-  assertEquals(await enabledOf(["a", "missing"]), {
-    listed: ["a"],
-    code: "forbidden",
+  assertEquals(await receivedOf([]), {
+    listed: ["a", "b", "context-init"],
+    resolved: ["a", "b", "context-init"],
+    b: "ok",
+    builtin: "ok",
+  });
+  assertEquals(await receivedOf(["a", "missing"]), {
+    listed: ["a", "context-init"],
+    resolved: ["a", "context-init"],
+    b: "forbidden",
+    builtin: "ok",
   });
 });

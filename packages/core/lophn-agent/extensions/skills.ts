@@ -234,6 +234,16 @@ export function mergeSkillLayers<T extends SkillCandidate>(
     });
 }
 
+// agent가 받는 skill인지다. 정의가 고른 이름이 없으면 모두 받고, 있으면 고른 것만 받는다. 끌 수 없는 내장 skill은
+// 고르지 않아도 받는다. 프롬프트 목록, skill.read, `/` 메뉴, resolve가 모두 이 규칙을 쓴다.
+export function skillReceived(
+  skill: { name: string; can_disable: boolean },
+  chosen: readonly string[],
+): boolean {
+  return !skill.can_disable || chosen.length === 0 ||
+    chosen.includes(skill.name);
+}
+
 // ---- 발견 ----
 
 type Candidate = SkillCandidate & {

@@ -627,9 +627,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       session: start.session,
       roleTools: deps.roleTools,
       roles: deps.roles,
-      skills: skills.filter((entry) => entry.enabled).map((entry) =>
-        entry.name
-      ),
+      skills: skills.filter((entry) => entry.enabled),
       mcp: async (off, place, ownServers) => {
         mcp = await loadMcp(start.session, {
           place,

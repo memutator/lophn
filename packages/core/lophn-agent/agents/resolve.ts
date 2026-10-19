@@ -17,6 +17,7 @@ import {
   type Role,
   rolePlaceFits,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { skillReceived } from "../extensions/skills.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
 import type { AgentRoleTable } from "./role-table.ts";
 
@@ -24,11 +25,14 @@ import type { AgentRoleTable } from "./role-table.ts";
 // 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
 
 // 제품이 고정하거나 다른 concern이 정하는 값이다. 테스트가 작은 값으로 바꿔 끼운다.
+// 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지를 같이 알린다.
+export type AvailableSkill = { name: string; can_disable: boolean };
+
 type ResolveEnvironment = {
   // 정의에 profile이 없을 때의 기본 icon.
   default_profile: Profile;
   // 이 place에서 쓸 수 있는 skill 이름과 MCP tool. 전역 층과 project 층을 이름 단위로 합친 것이다(등록 순서).
-  skills: readonly string[];
+  skills: readonly AvailableSkill[];
   mcp: readonly McpTool[];
 };
 
@@ -82,7 +86,7 @@ export type ResolvedAgent = {
 // - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP·다른 agent는 agent grant가
 //   session을 시작할 때 붙인다.
 // - skills는 환경이 준 것(전역과 project 층을 합친 것) 가운데 정의의 skills에 고른 것(환경 순서)이고, 고른 것이
-//   없으면 환경이 준 것 전부다. mcp는 환경이 준 것 가운데 mcp_off에 없는 것(등록 순서)이다.
+//   없으면 환경이 준 것 전부다. 끌 수 없는 내장 skill은 고르지 않아도 받는다. mcp는 환경이 준 것 가운데 mcp_off에 없는 것(등록 순서)이다.
 //   등록에 없는 이름은 무시한다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 // - sources: 값마다 그 값을 준 층. 정의는 칸을 실제로 가질 때만(profile·model·본문·비어 있지 않은 목록)
@@ -160,14 +164,14 @@ export async function resolveAgent(
   return ok({ ...value, hash: await fingerprint(value) });
 }
 
-// 받는 skill: 고른 이름이 없으면 환경이 준 것 전부, 있으면 그 가운데 고른 것(환경 순서)이다.
+// 받는 skill 이름이다(환경 순서). 규칙은 `skillReceived`다.
 export function receivedSkills(
-  available: readonly string[],
+  available: readonly AvailableSkill[],
   chosen: readonly string[],
 ): string[] {
-  return chosen.length === 0
-    ? [...available]
-    : available.filter((name) => chosen.includes(name));
+  return available.filter((skill) => skillReceived(skill, chosen)).map((
+    skill,
+  ) => skill.name);
 }
 
 function copy<T>(value: T): T {

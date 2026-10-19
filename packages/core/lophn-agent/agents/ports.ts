@@ -6,6 +6,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { AgentRoleTable } from "./role-table.ts";
+import type { AvailableSkill } from "./resolve.ts";
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
 // 읽기(snapshot)와 쓰기(Tx)가 같은 `lookups`를 쓰도록 sql만 받는 factory로 둔다.
@@ -31,7 +32,7 @@ export type AgentLookups = {
   places(): Place[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 project 층을 더한 것이고
   // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
-  skills(place: Place | null): string[];
+  skills(place: Place | null): readonly AvailableSkill[];
   mcp(place: Place | null): McpTool[];
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;

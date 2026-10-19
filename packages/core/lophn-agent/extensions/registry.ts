@@ -17,7 +17,7 @@ import {
   mergeMcpLayers,
   runtimeServerOfLayer,
 } from "./mcp-server.ts";
-import { builtinForRole } from "./skills.ts";
+import { builtinForRole, skillReceived } from "./skills.ts";
 import {
   listSkillsSync,
   type SkillListing,
@@ -135,8 +135,6 @@ export function commandSkillsOf(
     name: entry.name,
     description: entry.description,
     origin: entry.source,
-    selected: entry.enabled &&
-      (!entry.can_disable || chosen.length === 0 ||
-        chosen.includes(entry.name)),
+    selected: entry.enabled && skillReceived(entry, chosen),
   }));
 }

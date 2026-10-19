@@ -20,7 +20,7 @@ const REQUEST =
 
 const scenario: Scenario = {
   id: "O6",
-  n: 3,
+  n: 4,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_세무정리],

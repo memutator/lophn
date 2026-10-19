@@ -1,23 +1,59 @@
+import { z } from "zod";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { domainKindsFile } from "../../../packages/protocol/domains/mod.ts";
+import {
+  domainCreate,
+  domainKindsFile,
+} from "../../../packages/protocol/domains/mod.ts";
+import { settle } from "../../support/core/human.ts";
+import { runtimePids } from "../../support/core/process.ts";
 import type { SetupContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// kind 파일은 release 없이 바로 쓰이므로 domain 폴더(data root 아래)에 놓기만 하면 된다.
-// spec.domain은 domain id다. world에 domain 표가 생길 때까지 자료가 id를 직접 적는다.
+const specSchema = z.strictObject({
+  project: z.string(),
+  domain: domainCreate.input.pick({
+    id: true,
+    name: true,
+    title: true,
+    purpose: true,
+  }).required({ id: true }),
+});
+
+// kind 파일은 domain 폴더에 있으므로 project 안에 domain을 먼저 만든다. 고정 id는 사람만 정할 수 있고(Core.call은 user token),
+// 다른 재료처럼 trial마다 같은 world가 되도록 spec에 적는다. kind 파일은 release 없이 바로 쓰이므로 놓기만 하면 된다.
 export async function restoreKinds(
   ctx: SetupContext,
   material: Material,
 ): Promise<Result<void>> {
-  const spec = JSON.parse(textOf(material, "spec.json")) as { domain?: string };
-  if (spec.domain === undefined) {
+  const parsed = specSchema.safeParse(
+    JSON.parse(textOf(material, "spec.json")),
+  );
+  if (!parsed.success) {
     return err({
       code: "invalid_input",
-      message: "kinds: spec.json needs a domain id",
+      message:
+        "kinds: spec.json needs {project, domain: {id, name, title, purpose}}",
     });
   }
-  const path = domainKindsFile(ctx.core.run.home, spec.domain);
+  const spec = parsed.data;
+  const project = ctx.world.projects[spec.project];
+  if (project === undefined) {
+    return err({
+      code: "not_found",
+      message: `kinds: project ${spec.project} is not restored`,
+    });
+  }
+  const { core } = ctx;
+  // domain보다 먼저 놓는다. 만든 뒤에 쓰면 core가 이미 kind 파일 없음으로 읽은 것이 최대 2초 남는다.
+  const path = domainKindsFile(core.run.home, spec.domain.id);
   await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
   await Deno.writeTextFile(path, textOf(material, "kinds.yaml"));
+  // domain을 만들면 core가 agent runtime child를 새 권한으로 다시 띄운다.
+  const before = await runtimePids(core.run.home);
+  await core.call(domainCreate, {
+    ...spec.domain,
+    owner: { kind: "project", id: project },
+  });
+  await settle(core, before);
   return ok(undefined);
 }

@@ -1,0 +1,15 @@
+{
+  "kind": "operator",
+  "ids": {
+    "월말정리": "agt_0000000000000000000000ag01",
+    "세무정리": "agt_0000000000000000000000ag02"
+  },
+  "needs": [
+    "apps-home@1",
+    "projects-home@1",
+    "tax-kinds@2"
+  ],
+  "parent": null,
+  "produced_by": null,
+  "content_hash": "1ff5240f2f1f783ac59742b6ad97e6bbbbd750a49f12e71f5e19699cff3a66e2"
+}

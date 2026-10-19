@@ -1,0 +1,9 @@
+{
+  "project": "tax",
+  "domain": {
+    "id": "dom_0000000000000000000000tx01",
+    "name": "receipts",
+    "title": "영수증",
+    "purpose": "세금 신고에 쓸 영수증을 모은다."
+  }
+}

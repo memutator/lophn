@@ -9,18 +9,14 @@ import {
 } from "../../checks/mod.ts";
 import { relayCompleteInput } from "../../judge/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
-import {
-  O4_REQUEST,
-  OP_월말정리,
-  OPERATOR_WORLD,
-  PM_ledger,
-} from "./common.ts";
+import { OP_월말정리, OPERATOR_WORLD, PM_ledger } from "./common.ts";
 
+const O4_REQUEST = "합계 tool이 늘 0을 돌려줘. 이번 달 합계를 구해 줘";
 const TO_PM = { target: PM_ledger, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "O4",
-  n: 3,
+  n: 4,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_월말정리],

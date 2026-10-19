@@ -22,13 +22,10 @@ export const PM_tax: Participant = {
 };
 export const LOPHN: Participant = { role: "lophn" };
 
-// operators-home@3는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
+// operators-home@4는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
 export const OPERATOR_WORLD = [
   "apps-home@1",
   "projects-home@1",
-  "tax-kinds@1",
-  "operators-home@3",
+  "tax-kinds@2",
+  "operators-home@4",
 ];
-
-// O4와 T19-op가 같은 말을 쓴다.
-export const O4_REQUEST = "합계 tool이 늘 0을 돌려줘. 이번 달 합계를 구해 줘";

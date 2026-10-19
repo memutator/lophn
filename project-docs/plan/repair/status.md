@@ -11,6 +11,6 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 | `rp-reaction-dup` | core | 1 | rp-app-test-stuck | todo |  |  |  |
 | `rp-turn-prep-log` | core | 1 | 없음 | running | core/rp-turn-prep-log |  |  |
 | `rp-eval-calendar` | eval | 1 | 없음 | running | eval/rp-eval-calendar |  |  |
-| `rp-eval-misc` | eval | 1 | 없음 | running | eval/rp-eval-misc |  |  |
+| `rp-eval-misc` | eval | 1 | 없음 | merged | eval/rp-eval-misc | a90be32d7 |  |
 | `rp-eval-operator` | eval | 1 | 없음 | running | eval/rp-eval-operator |  |  |
 | `rp-fetch-check` | tools | 1 | 없음 | running | tools/rp-fetch-check |  |  |

@@ -68,6 +68,11 @@ export const kindFieldSchema = z.strictObject({
     "capture",
     "capture goes with from: path",
   );
+  need(
+    field.from === undefined || field.list !== true,
+    "list",
+    "a path capture is one value, so it cannot be a list",
+  );
 });
 export type KindField = z.infer<typeof kindFieldSchema>;
 

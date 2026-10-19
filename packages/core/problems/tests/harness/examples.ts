@@ -33,16 +33,25 @@ function head(value: unknown): string {
 }
 
 // 예시를 순서대로 불러 첫 불일치에서 멈춘다. reason에는 값이 아니라 위치와 tool만 쓴다.
+// 모두 맞으면 write가 남긴 changeset을 뒤집어 첫 호출 전 상태로 돌아오는지 본다. 돌아온 write tool이 proven이다.
 export async function examples(
   driver: AppDriver,
   plan: HarnessPlan,
 ): Promise<Verdict> {
   const steps = plan.examples.length;
+  const changesets: string[] = [];
+  const writers: string[] = [];
   for (const [index, example] of plan.examples.entries()) {
     const outcome = await driver.call(example.tool, example.input);
     const matched = outcome.status === "ok" &&
       exampleMatches(example.expect, outcome.result);
-    if (matched) continue;
+    if (matched) {
+      if (outcome.status === "ok" && outcome.changeset !== undefined) {
+        changesets.push(outcome.changeset);
+        writers.push(example.tool);
+      }
+      continue;
+    }
     const where = `step ${index + 1} ${example.tool}`;
     return {
       met: false,
@@ -57,18 +66,36 @@ export async function examples(
         actual: head(
           outcome.status === "ok" ? outcome.result : { error: outcome.code },
         ),
+        restore: null,
+        proven: [],
       },
+    };
+  }
+  const evidence = {
+    steps,
+    failed_step: null,
+    tool: null,
+    expected: null,
+    actual: null,
+  };
+  if (changesets.length === 0) {
+    return {
+      met: true,
+      reason: "every example matches",
+      evidence: { ...evidence, restore: null, proven: [] },
+    };
+  }
+  const restore = await driver.restore(changesets);
+  if (!restore.applied || !restore.restored) {
+    return {
+      met: false,
+      reason: `예시의 write를 되돌리지 못했다: ${restore.reason}`,
+      evidence: { ...evidence, restore, proven: [] },
     };
   }
   return {
     met: true,
-    reason: "every example matches",
-    evidence: {
-      steps,
-      failed_step: null,
-      tool: null,
-      expected: null,
-      actual: null,
-    },
+    reason: "every example matches and the writes were restored",
+    evidence: { ...evidence, restore, proven: [...new Set(writers)] },
   };
 }

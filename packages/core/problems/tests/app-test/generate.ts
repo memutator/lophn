@@ -93,7 +93,7 @@ const REASONS: Record<CheckName, string> = {
   migration_empty: "빈 test DB에 전체 migration이 적용되는지",
   migration_upgrade: "이전 release schema에서 새 schema로 migration되는지",
   rewind:
-    "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지",
+    "호출이 성공한 write app-api는 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지. 호출이 실패한 tool은 증명 못 함이고 검사를 떨어뜨리지 않는다",
   examples: "ticket의 예시마다 tool 호출 결과가 기대와 맞는지",
 };
 

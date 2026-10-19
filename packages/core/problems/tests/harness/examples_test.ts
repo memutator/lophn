@@ -1,5 +1,10 @@
 import { assertEquals } from "@std/assert";
-import type { AppDriver, CallOutcome, HarnessPlan } from "./driver.ts";
+import type {
+  AppDriver,
+  CallOutcome,
+  HarnessPlan,
+  RestoreRun,
+} from "./driver.ts";
 import { exampleMatches, examples } from "./examples.ts";
 
 Deno.test("예시와 맞지 않는 결과는 불일치이고 맞는 결과는 일치다", () => {
@@ -75,4 +80,54 @@ Deno.test("예시 검사는 맞지 않는 첫 단계에서 멈추고 모두 맞�
     plan([{ tool: "a.one", expect: "z" }]),
   );
   assertEquals((big.evidence["actual"] as string).length <= 2048, true);
+});
+
+Deno.test("예시가 모두 맞고 write를 되돌려야 통과하며 예시가 틀리면 restore를 부르지 않는다", async () => {
+  const steps = [
+    { tool: "a.write", expect: { n: 1 } },
+    { tool: "a.read", expect: { n: 1 } },
+    { tool: "a.write", expect: { n: 2 } },
+  ];
+  const outcomes = (): CallOutcome[] => [
+    { status: "ok", result: { n: 1 }, changeset: "c1" },
+    { status: "ok", result: { n: 1 } },
+    { status: "ok", result: { n: 2 }, changeset: "c2" },
+  ];
+  const withRestore = (outcomes: CallOutcome[], run: RestoreRun) => {
+    const received: (readonly string[])[] = [];
+    const { driver } = fake(outcomes);
+    driver.restore = (changesets) => {
+      received.push(changesets);
+      return Promise.resolve(run);
+    };
+    return { driver, received };
+  };
+
+  const ok = withRestore(outcomes(), {
+    applied: true,
+    restored: true,
+    reason: "",
+  });
+  const passed = await examples(ok.driver, plan(steps));
+  assertEquals(passed.met, true);
+  assertEquals(ok.received, [["c1", "c2"]]);
+  assertEquals(passed.evidence["proven"], ["a.write"]);
+
+  const bad = withRestore(outcomes(), {
+    applied: true,
+    restored: false,
+    reason: "row differs",
+  });
+  const failed = await examples(bad.driver, plan(steps));
+  assertEquals(failed.met, false);
+  assertEquals(failed.reason, "예시의 write를 되돌리지 못했다: row differs");
+  assertEquals(failed.evidence["proven"], []);
+
+  const wrong = withRestore(
+    [{ status: "ok", result: { n: 9 }, changeset: "c1" }],
+    { applied: true, restored: true, reason: "" },
+  );
+  const mismatch = await examples(wrong.driver, plan(steps));
+  assertEquals(mismatch.evidence["failed_step"], 0);
+  assertEquals(wrong.received, []);
 });

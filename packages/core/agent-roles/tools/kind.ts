@@ -34,7 +34,7 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
       "sort: [{ field, dir }]; fields: the fields to return; limit (default 50, max 200); cursor: next_cursor of the previous page. " +
       "aggregate: [{ op: count|sum|min|max, field, as }] with one optional group_by field (cannot be combined with sort, fields, limit or cursor). " +
       "Documents with unreadable or mistyped values are left out and counted in skipped; read kind.check for why. " +
-      "Relations are not followed: call it again with the id you got, for example list vendor, then list receipt where vendor eq that id.",
+      "Relations are not followed: call it again with the key you got, for example list vendor, then list receipt where vendor eq that key.",
     effect: "read",
     handler: async (input, ctx) => {
       const project = projectOf(ctx);

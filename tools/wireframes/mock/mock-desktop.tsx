@@ -23,6 +23,12 @@ import { createEventClient } from "../../../packages/shell/renderer/desktop/conn
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
+import {
+  AnnotateApiProvider,
+  ArtifactApiProvider,
+} from "../../../packages/shell/renderer/artifact/artifact-api.tsx";
+import type { LophnArtifactApi } from "../../../packages/shell/ipc/artifact.ts";
+import type { LophnShellAnnotateApi } from "../../../packages/shell/ipc/annotation.ts";
 import type { LophnBrowserApi } from "../../../packages/shell/ipc/browser.ts";
 import type {
   DetachedTaken,
@@ -41,7 +47,12 @@ export { PROJECT_GROCERY };
 /** 작업대 탭 배치. 저장된 layout과 같은 모양이다(workspace/layout-map.ts). */
 interface TabSpec {
   readonly key: string;
-  readonly kind: "document_editor" | "terminal" | "app_panel" | "browser";
+  readonly kind:
+    | "document_editor"
+    | "terminal"
+    | "app_panel"
+    | "browser"
+    | "artifact";
   readonly title: string;
   readonly folder?: string;
   /** app_panel 탭이 여는 앱과 그 화면 key. */
@@ -49,6 +60,9 @@ interface TabSpec {
   readonly screen?: string;
   /** browser 탭이 처음 여는 주소. 빈 글이면 빈 주소 칸이다. */
   readonly url?: string;
+  /** artifact 탭이 여는 대상. name은 project의 artifact, path는 사람의 폴더에 있는 .html이다. */
+  readonly name?: string;
+  readonly path?: string;
   /** coding terminal이면 harness 표지. 저장된 title이 없는 일반 terminal 탭은 시작할 때까지 이름이 비어 있다. */
   readonly coding?: { readonly session: string; readonly product: string };
 }
@@ -87,6 +101,10 @@ interface MockDesktopProps {
   readonly settingsTab?: SettingsTab;
   /** browser 탭 통로. page가 fake(`fakeBrowserApi`)로 bookmark와 사건을 정할 때 준다. 없으면 dev mock 것이다. */
   readonly browser?: LophnBrowserApi;
+  /** artifact 탭 통로. page가 fake(`fakeArtifactApi`)로 정한다. 없으면 통로 없는 창이다. */
+  readonly artifact?: LophnArtifactApi;
+  /** annotate 통로. page가 fake(`fakeAnnotate`)로 처음 목록을 정한다. 없으면 dev mock 것이다. */
+  readonly annotate?: LophnShellAnnotateApi;
   /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
   readonly detachedTab?: TabSpec;
 }
@@ -114,6 +132,21 @@ function fakeDetached(taken?: DetachedTaken): LophnDetachedApi {
 function storedTab(tab: TabSpec) {
   if (tab.kind === "browser") {
     return { kind: tab.kind, key: tab.key, url: tab.url ?? "" };
+  }
+  if (tab.kind === "artifact") {
+    return tab.name !== undefined
+      ? {
+        kind: tab.kind,
+        key: tab.key,
+        project: PROJECT_GROCERY,
+        name: tab.name,
+      }
+      : {
+        kind: tab.kind,
+        key: tab.key,
+        project: PROJECT_GROCERY,
+        path: tab.path,
+      };
   }
   if (tab.kind === "app_panel") {
     return {
@@ -224,33 +257,38 @@ export function MockDesktop(props: MockDesktopProps) {
     };
   }, [panes, floats, openTerminal, emptyLauncher, detachedTab]);
   const { mock } = wiring;
+  const annotate = props.annotate ?? mock.annotate;
   return (
     <BrowserApiProvider value={props.browser ?? mock.browser}>
-      <AppViewsProvider value={mock.appViews}>
-        <ConversationProvider deps={wiring.conversation}>
-          <EventsProvider client={wiring.events}>
-            <Desktop
-              source={core ?? mock.core}
-              initial={route}
-              workspace={wiring.workspace}
-              editor={mock.editor}
-              terminal={wiring.terminal}
-              detached={wiring.detached}
-              catalog={mock.catalog}
-              projects={wiring.projects}
-              apps={wiring.apps}
-              settings={mock.settings}
-              settingsPanels={wiring.settingsPanels}
-              issues={mock.issues}
-              appDetail={mock.appDetail}
-              views={mock.views}
-              annotate={mock.annotate}
-              feedback={mock.feedback}
-              instructions={mock.instructions}
-            />
-          </EventsProvider>
-        </ConversationProvider>
-      </AppViewsProvider>
+      <ArtifactApiProvider value={props.artifact ?? null}>
+        <AnnotateApiProvider value={annotate}>
+          <AppViewsProvider value={mock.appViews}>
+            <ConversationProvider deps={wiring.conversation}>
+              <EventsProvider client={wiring.events}>
+                <Desktop
+                  source={core ?? mock.core}
+                  initial={route}
+                  workspace={wiring.workspace}
+                  editor={mock.editor}
+                  terminal={wiring.terminal}
+                  detached={wiring.detached}
+                  catalog={mock.catalog}
+                  projects={wiring.projects}
+                  apps={wiring.apps}
+                  settings={mock.settings}
+                  settingsPanels={wiring.settingsPanels}
+                  issues={mock.issues}
+                  appDetail={mock.appDetail}
+                  views={mock.views}
+                  annotate={annotate}
+                  feedback={mock.feedback}
+                  instructions={mock.instructions}
+                />
+              </EventsProvider>
+            </ConversationProvider>
+          </AppViewsProvider>
+        </AnnotateApiProvider>
+      </ArtifactApiProvider>
     </BrowserApiProvider>
   );
 }

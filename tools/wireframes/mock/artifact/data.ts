@@ -1,27 +1,26 @@
-// artifact wireframe의 가짜 data. 실제로는 program이 domain의 `artifacts/*/index.html`에서 `<title>`과
-// `<meta name="description">`을 읽어 만든다.
-export interface ArtifactRow {
-  /** 폴더 이름(slug). 신원의 한 쪽이다. */
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-}
+// artifact gallery의 가짜 data. 실제로는 program이 domain의 `artifacts/*/index.html`에서 `<title>`과
+// `<meta name="description">`을 읽어 목록을 만든다.
+import type { ArtifactListItem } from "../../../../packages/shell/ipc/artifact.ts";
+import type { AnnotateState } from "../../../../packages/shell/ipc/annotation.ts";
 
-export const ARTIFACTS: readonly ArtifactRow[] = [
+export const ARTIFACTS: readonly ArtifactListItem[] = [
   {
     name: "spending",
     title: "Monthly spending",
     description: "What went out this month, by category, as bars.",
+    modified: "2026-10-19T09:12:00Z",
   },
   {
     name: "tax-deadlines",
     title: "Tax deadlines",
     description: "Every filing date for the year with the ones due soon first.",
+    modified: "2026-10-18T16:40:00Z",
   },
   {
     name: "receipts-q3",
     title: "Receipts, third quarter",
     description: "Receipts grouped by vendor with the totals that need review.",
+    modified: "2026-10-12T11:05:00Z",
   },
 ];
 
@@ -39,26 +38,22 @@ export const SPENDING_BARS = [
 
 /** 사람의 폴더에 있는 `.html`을 연 탭. root는 그 파일이 든 폴더다. */
 export const FILE_TAB = {
-  file: "2026-report.html",
+  path: "/home/mina/Documents/taxes/2026-report.html",
   title: "Annual report 2026",
-  folder: "~/Documents/taxes",
 } as const;
 
 /** annotate 목록. label은 page layer가 만든다(component 이름이 없으면 role과 글자). */
-export const ANNOTATIONS = [
+export const ANNOTATIONS: AnnotateState["items"] = [
   {
     n: 1,
-    kind: "element" as const,
+    kind: "element",
     label: "div · Dining",
     note: "This looks high. Split out the delivery orders.",
   },
   {
     n: 2,
-    kind: "element" as const,
+    kind: "element",
     label: "div · Rent",
     note: "Add last month next to it.",
   },
-] as const;
-
-/** 보낼 곳. 그 artifact 폴더에 마지막으로 쓴 session의 agent다. */
-export const WRITER = "Operator";
+];

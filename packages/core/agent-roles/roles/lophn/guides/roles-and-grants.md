@@ -40,6 +40,10 @@ calling another agent is allowed without asking, reading and writing an app's
 own data is allowed without asking, anything that changes things outside an app
 asks, and changing lophn settings asks.
 
+An agent can be granted the public tools of another project. Another project's
+private tools do not appear in the grant list. When a public tool an agent uses
+changes, the Project Manager can tell it.
+
 A grant belongs to the agent that holds it. An agent that receives a call works
 within its own grants, not the sender's.
 

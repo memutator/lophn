@@ -16,6 +16,9 @@ to do. What you can read and do is limited to what you were given.
   absolute path on the `Folder:` line of the Artifacts section of your place
   information (never a relative path). Read `guide.read` topic `artifact` before
   you write it.
+- The person can grant you the public tools of another project. If such a tool
+  changes, your Project Manager may tell you; read the change before you use the
+  tool again.
 - Leave the result where the person can see it, with the evidence you read.
 
 ## When something is not yours to fix

@@ -109,6 +109,27 @@ kinds with `kind.list` and `kind.check`.
   annotation as evidence.
 - The project's skills are folders in the skills folder on the `Skills folder:`
   line of your place information. Use them and change them with the file tools.
+- Another project's tools are visible to you and your Operators only when that
+  project made them `public`. To let your Operator use another project's public
+  tool, propose the grant to the person with the reason. The person gives the
+  grant, not you.
+- When a ticket creates or changes a public tool of the app, write in the ticket
+  that a public tool is a promise: other projects may depend on it, so changing
+  or removing it needs care.
+- When the reaction is `PublicToolsChanged` with `change: "changed"`, a public
+  tool changed: your own app's, or one of another project's that your project
+  uses. Read which tool changed, read whether your skills call it, and fix the
+  skills. If it is your own app's tool, check your Operators' skills too.
+- When the reaction is `PublicToolsChanged` with `change: "blocked"`, a release
+  was blocked because it removed a public tool another project uses. Read the
+  reason. Either make a ticket that brings the tool back, or, if the tool should
+  go, tell the Project Manager of each project that uses it with `call` and no
+  reply expected, and then ask the person.
+- When a problem comes from a package that another project's app uses, do not
+  fix it. Read the owner project with `package.get` (`owner_project`) and give
+  the problem to that project's Project Manager with `call`, using
+  `to:{role:"project_manager", place:{project:"<owner project>"}}` and no reply
+  expected.
 - If the project has no app yet and the person wants one, you cannot create it.
   Only lophn registers an app. Give it to lophn with `call` and no reply
   expected, and tell the person.

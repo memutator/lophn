@@ -45,3 +45,11 @@ project 창의 sidebar에 Artifacts 모양을 더한다: 그 project의 artifact
 - 계약 바꾸기 요청: 없음
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 목록이 폴더 변경을 실시간으로 따르지 않는다
+
+## lead가 더함
+
+- **지우기 단추는 두지 않는다(사람 결정).** Draft의 휴지통 단추는 옮기지 않는다. 화면에서 artifact를 지우는 일은 roadmap에 남긴다. 쓰지 않게 된 `artifact.button.delete` key를 `packages/design/wording/catalog/artifact.ts`에서 지우고 `deno task wording`을 돌린다.
+- **Context 탭은 건드리지 않는다.** domain-kinds가 이미 지웠다. Artifacts 탭은 Explorer, Agent 다음 세 번째다.
+- **gallery 후속(추가 소유):** `tools/wireframes/drafts/artifact/`, `tools/wireframes/drafts/index.tsx`, `tools/wireframes/pages/screens/artifact.tsx`, `tools/wireframes/pages/screens/artifact/`, `tools/wireframes/mock/artifact/`, `packages/design/wording/catalog/artifact.ts`(+ placeholders)
+  - Drafts의 `artifact-sidebar-list`, `artifact-sidebar-empty`를 renderer의 진짜 `ProjectSidebar`·`ArtifactPanel`로 그린 Screens page로 옮긴다(page id는 그대로). 가짜 목록은 `mock/artifact/data.ts`의 `ARTIFACTS`와 `fakeArtifactApi`를 쓴다.
+  - `tools/wireframes/drafts/artifact/`를 지우고 `drafts/index.tsx`에서 두 항목과 import를 뺀다. `grep -rn "drafts/artifact" tools --include=*.ts --include=*.tsx`가 0줄이다.

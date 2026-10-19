@@ -53,3 +53,15 @@ modules: [packages/shell/renderer]
 - 영향: floated·detached agent 탭이 있거나 detached 창에서 같은 agent의 새 대화를 열면 새 탭 대신 이미 있는 대화가 앞에 온다. 사람은 새 대화를 열 수 없고, 아직 말하지 않은 같은 시작의 탭을 찾는 재사용도 floated·detached 탭을 놓친다.
 - 고치려면: (1) `freshKey`·`agentTabs`가 `allTabs(host.view)`를 본다(작음). project 창 안의 겹침이 없어진다. (2) detached 창에서 연 agent 새 탭은 project 창이 `open-tab`을 받을 때 key가 겹치고 session이 다르면 새 번호로 바꿔 연다(작음). 추천: 둘 다.
 - 닫음: `freshKey`와 `agentTabs`가 `allTabs(host.view)`를 본다. detached 창이 연 agent 새 탭은 project 창이 `open-tab`을 받을 때 `distinctAgentTab`이 key가 겹치고 session이 다르면 새 번호로 바꿔 연다(`renderer/workspace/kinds/agent.tsx`).
+
+## detached 창에서 DevTools를 floated로 옮기면 DevTools가 보이지 않는다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+```
+
+- 지금: DevTools 자리 menu(`renderer/browser/browser-toolbar.tsx`의 `float`)를 고르면 `setDevtools`(`renderer/workspace/kinds/browser-devtools.tsx`)가 탭의 `fields.devtools.place`를 `float`로 바꾸고 `host.openFloat`로 `browser_devtools` 패널을 연다. detached 창의 `host.openFloat`는 `fields.adopt`가 있는 popup만 열고 나머지는 아무것도 하지 않는다(`renderer/workspace/detached/detached-space.tsx`). 그 창에는 floats 층이 없다. 그래서 탭은 DevTools를 탭 안(`right`·`bottom`)에도 따로 뜬 창(`window`)에도 그리지 않는다.
+- 영향: detached browser 탭에서 DevTools를 floated로 옮긴 사람은 DevTools를 잃는다. 다시 보려면 자리를 다시 골라야 한다.
+- 고치려면: (1) detached 창에서는 자리 menu에 `float`를 두지 않는다(작음, 추천). (2) detached 창의 `openFloat`가 DevTools 패널을 받으면 `window`로 바꾼다(작음).
+- 닫음: detached 창 안의 browser toolbar는 DevTools 자리 menu에서 `float`를 뺀다. `DetachedTab`이 `DetachedWindowProvider`(`renderer/browser/detached-window.ts`)로 알리고 `BrowserToolbar`가 읽는다.

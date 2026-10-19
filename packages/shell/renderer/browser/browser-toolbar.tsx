@@ -14,6 +14,7 @@ import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import { browserIcons } from "../icons/mod.ts";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
 import { BookmarkStar } from "./bookmark-star.tsx";
+import { useInDetachedWindow } from "./detached-window.ts";
 import type { Bookmarks } from "./bookmarks.ts";
 import { useOverlayMenu } from "./overlay-menu.ts";
 import styles from "./browser-tab.module.css";
@@ -82,6 +83,7 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
   const [keyPresses, setKeyPresses] = useState(0);
   // overlay가 없는 창(dev mock, gallery)이면 null이고, menu는 DOM으로 그린다.
   const openMenu = useOverlayMenu();
+  const detached = useInDetachedWindow();
 
   const command = (name: "back" | "forward" | "reload") => {
     if (viewSession === null) return;
@@ -110,12 +112,13 @@ export function BrowserToolbar(props: BrowserToolbarProps) {
       icon: browserIcons.inspect,
       disabled: viewSession === null,
     }]
-    : DEVTOOLS_ITEMS.map((item) => ({
-      id: item.id as DevtoolsAction,
-      label: t(item.label),
-      icon: item.icon,
-      disabled: item.id === props.devtools,
-    }));
+    : DEVTOOLS_ITEMS.filter((item) => !detached || item.id !== "float")
+      .map((item) => ({
+        id: item.id as DevtoolsAction,
+        label: t(item.label),
+        icon: item.icon,
+        disabled: item.id === props.devtools,
+      }));
   const pick = (id: string) => {
     const found = devtoolsItems.find((item) => item.id === id);
     if (found !== undefined && !found.disabled) props.onDevtools(found.id);

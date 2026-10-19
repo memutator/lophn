@@ -36,19 +36,6 @@ modules: [packages/shell/renderer, packages/shell/main]
 
 고치려면: (1) main이 조용히 닫은 detached 창 항목의 마지막 탭 값과 transfer를 (project, key)로 이 실행 동안 들고 있다가 같은 key의 `open({ transfer: null })`에 쓴다(중간). terminal의 마지막 `terminal_ref`·`generation`은 detached 창이 `changed`로 알리는 탭 값에 실어야 한다. (2) 떠날 때 detached 창을 닫지 않고 dock시킨다(작음, 대신 다시 열 때 창이 돌아오지 않는다). 추천: (1).
 
-## detached 창에서 DevTools를 floated로 옮기면 DevTools가 보이지 않는다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer]
-```
-
-지금: DevTools 자리 menu(`renderer/browser/browser-toolbar.tsx`의 `float`)를 고르면 `setDevtools`(`renderer/workspace/kinds/browser-devtools.tsx`)가 탭의 `fields.devtools.place`를 `float`로 바꾸고 `host.openFloat`로 `browser_devtools` 패널을 연다. detached 창의 `host.openFloat`는 `fields.adopt`가 있는 popup만 열고 나머지는 아무것도 하지 않는다(`renderer/workspace/detached/detached-space.tsx`). 그 창에는 floats 층이 없다. 그래서 탭은 DevTools를 탭 안(`right`·`bottom`)에도 따로 뜬 창(`window`)에도 그리지 않는다.
-
-영향: detached browser 탭에서 DevTools를 floated로 옮긴 사람은 DevTools를 잃는다. 다시 보려면 자리를 다시 골라야 한다.
-
-고치려면: (1) detached 창에서는 자리 menu에 `float`를 두지 않는다(작음, 추천). (2) detached 창의 `openFloat`가 DevTools 패널을 받으면 `window`로 바꾼다(작음).
-
 ## detached 창 안의 popup이 features의 크기를 따르지 않는다
 
 ```yaml

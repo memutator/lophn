@@ -18,6 +18,7 @@ import {
   ViewCoversProvider,
   ViewKeepsProvider,
 } from "../../app-frame/embedded-view.tsx";
+import { DetachedWindowProvider } from "../../browser/detached-window.ts";
 import {
   WebviewHostProvider,
   WebviewLayer,
@@ -247,33 +248,35 @@ function DetachedTab(
     <ViewCoversProvider value={covers}>
       <ViewKeepsProvider value={keeps}>
         <WebviewHostProvider value={webviews}>
-          <div className={styles.window}>
-            <TopBar
-              leading={
-                <>
-                  {icon}
-                  <span className={styles.title} data-detached-title>
-                    {tab.title}
-                  </span>
-                </>
-              }
-              trailing={
-                <Tooltip content={label}>
-                  <IconButton
-                    icon={workspaceIcons.dock}
-                    label={label}
-                    size="sm"
-                    data-detached-action="dock"
-                    onClick={() => void dock()}
-                  />
-                </Tooltip>
-              }
-            />
-            <div className={styles.body}>
-              {body}
-              <WebviewLayer host={webviews} />
+          <DetachedWindowProvider value>
+            <div className={styles.window}>
+              <TopBar
+                leading={
+                  <>
+                    {icon}
+                    <span className={styles.title} data-detached-title>
+                      {tab.title}
+                    </span>
+                  </>
+                }
+                trailing={
+                  <Tooltip content={label}>
+                    <IconButton
+                      icon={workspaceIcons.dock}
+                      label={label}
+                      size="sm"
+                      data-detached-action="dock"
+                      onClick={() => void dock()}
+                    />
+                  </Tooltip>
+                }
+              />
+              <div className={styles.body}>
+                {body}
+                <WebviewLayer host={webviews} />
+              </div>
             </div>
-          </div>
+          </DetachedWindowProvider>
         </WebviewHostProvider>
       </ViewKeepsProvider>
     </ViewCoversProvider>

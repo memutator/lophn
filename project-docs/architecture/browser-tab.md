@@ -35,7 +35,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
    page의 window.close() ─▶ webContents "close" ─▶ close event ─▶ renderer가 탭을 지운다
 
  DevTools: ⋮ Inspect ─▶ devtools.open ─▶ 새 WebContentsView에 setDevToolsWebContents + openDevTools ─▶ "devtools-<page id>"
-   자리: 탭 안 오른쪽·아래(경계 막대로 크기) / floated 패널(browser_devtools kind, transient) / 따로 뜬 OS 창(devtools.window)
+   자리: 탭 안 오른쪽·아래(경계 막대로 크기) / floated 패널(browser_devtools kind, transient. detached 창의 자리 menu에는 없다) / 따로 뜬 OS 창(devtools.window)
    자리를 바꿀 때 다시 열지 않고 view를 옮긴다
 
  terminal bridge (shell 탭만, Linux·macOS)

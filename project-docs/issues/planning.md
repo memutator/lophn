@@ -20,6 +20,7 @@ modules: [tools]
 | `domain-place` | 23 | 약 35분 |
 | `domain-kinds` | 18 | 약 38분 |
 | `domain-split` | 11 | 약 35분(모델이 바뀌어 버림) |
+| `domain-entity` | 25 | 약 50분 |
 
 네 계획을 같이 열 때는 계획마다 worker를 하나씩 두어 병렬로 돌았다. 계획 하나 안에서는 늘 직렬이다.
 

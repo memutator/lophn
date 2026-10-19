@@ -76,13 +76,17 @@ Rules:
   write each step as the tool to call (`tool`, a key you read with
   `blueprint.check` or `app.tools`), the input, and the expected result, in that
   order. For example, call `event.add` to add a weekly event, then call
-  `event.list` and expect four weekly rows. In `expect`, write only the fields
-  the person asked for, not ids or times the app makes. Every key in `expect`
-  must be in the result and equal. An array must match in length too, and each
-  item follows the same rule. Do not invent a value the person did not give. If
-  you do not know it, `ask`. What cannot be called through a tool (how a screen
-  looks) and what a setting fixes is `text`, which you judge with the person.
-  Use `app_test` only when the platform check is all that is needed.
+  `event.list` and expect four weekly rows. A read tool returns an object with
+  `rows` (and `coverage`, `freshness`, `continuation`), so write `expect` in
+  that shape, never as a bare array:
+  `{ "rows": [{ "title": "Standup" }, ...four
+  items] }`. In `expect`, write
+  only the fields the person asked for, not ids or times the app makes. Every
+  key in `expect` must be in the result and equal. An array must match in length
+  too, and each item follows the same rule. Do not invent a value the person did
+  not give. If you do not know it, `ask`. What cannot be called through a tool
+  (how a screen looks) and what a setting fixes is `text`, which you judge with
+  the person. Use `app_test` only when the platform check is all that is needed.
 - A ticket that adds or changes a write tool must have an `examples` check whose
   steps call that tool in its real order (create, then change). The release's
   rewind check cannot prove a write tool's undo from made-up input, so these

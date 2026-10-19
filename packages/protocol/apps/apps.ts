@@ -154,7 +154,8 @@ const readErrors = [
   "not_found",
   "unavailable",
 ] as const;
-const readActors = ["user", "coding_agent", "agent", "app"] as const;
+// machine은 agent runtime이 앱의 project를 읽는다(다른 project 앱의 비공개 tool 거르기).
+const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 export const appList = defineRead({
   resource: "apps",
   method: "list",

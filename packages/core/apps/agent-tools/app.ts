@@ -89,14 +89,32 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "app.app_api",
     input: z.strictObject({ app: idSchema("app").optional() }),
-    routes: [appAppApiIndex],
+    routes: [appAppApiIndex, appList],
     description:
       "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appAppApiIndex, input);
       if (!read.ok) return read;
-      const { body } = readBody(read.value);
+      // 다른 project 앱의 비공개 tool은 뺀다. 앱의 project나 부른 agent의 project를 모르면 뺀다.
+      const listed = await readOf(ctx.core, appList, { limit: 1000 });
+      const projects = new Map(
+        listed.ok ? listed.value.apps.map((a) => [a.id, a.project]) : [],
+      );
+      const home = ctx.place === null
+        ? null
+        : ctx.place.kind === "project"
+        ? ctx.place.id
+        : projects.get(ctx.place.id);
+      const { body } = readBody({
+        ...read.value,
+        apps: read.value.apps.map((entry) =>
+          home != null &&
+            projects.get(entry.app) === home
+            ? entry
+            : { ...entry, tools: entry.tools.filter((tool) => tool.public) }
+        ),
+      });
       return ok(fitted(
         countSummary("apps", body.apps.length, false),
         body,

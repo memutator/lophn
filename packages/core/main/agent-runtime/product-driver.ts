@@ -9,6 +9,7 @@ import {
   agentGrantsGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
+import { appGet } from "../../../protocol/apps/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
@@ -59,6 +60,7 @@ import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
 import { agentTools } from "../agent-tools.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppApiToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
+import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { FILE_HOOKS } from "../../agent-roles/hooks.ts";
 
@@ -79,15 +81,27 @@ function productToolkit(options: {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
     // 허락된 앱의 app-api tool. grant는 machine 자격의 loopback으로 읽는다.
-    appApi: createAppApiToolkit({
-      machine: options.machine,
-      grants: {
-        async agentGrant(agent) {
-          const read = await readOf(options.machine, agentGrantsGet, { agent });
-          return read.ok ? ok(read.value.grant) : read;
+    // 다른 project 앱의 비공개 tool은 목록에서 뺀다.
+    appApi: withPublicOnly(
+      createAppApiToolkit({
+        machine: options.machine,
+        grants: {
+          async agentGrant(agent) {
+            const read = await readOf(options.machine, agentGrantsGet, {
+              agent,
+            });
+            return read.ok ? ok(read.value.grant) : read;
+          },
+        },
+      }),
+      {
+        machine: options.machine,
+        async appProject(app) {
+          const read = await readOf(options.machine, appGet, { app });
+          return read.ok ? read.value.app.project : null;
         },
       },
-    }),
+    ),
     ...(options.mcp === undefined ? {} : { mcp: options.mcp }),
   };
 }

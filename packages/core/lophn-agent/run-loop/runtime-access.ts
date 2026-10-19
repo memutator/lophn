@@ -40,7 +40,7 @@ import {
   turnRead,
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { appRuntime } from "../../../protocol/apps/mod.ts";
+import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
   agentGrantsGet,
   applyApprovedAction,
@@ -115,8 +115,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // app-api tool의 정의 재료(활성 release 선언과 agent grant)를 읽는다.
+  // app-api tool의 정의 재료(활성 release 선언과 agent grant)와 앱의 project(다른 project 앱의 비공개 tool 거르기)를 읽는다.
   appAppApi,
+  appGet,
   agentGrantsGet,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,

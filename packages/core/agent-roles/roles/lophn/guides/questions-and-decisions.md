@@ -18,12 +18,12 @@ answer to the agent. It does not grant access by itself.
 
 ## Permission requests
 
-Some actions need your permission when an agent tries them: an app-api or MCP
+Some actions need your permission when an agent tries them: an app tool or MCP
 tool the agent must ask about, a change to lophn settings, an activation that
 widens what an app may do, or a reaction that opens a session. Each appears as a
 request in the conversation and in the waiting list, and as a toast.
 
-For an app-api or MCP tool you can allow once, allow for this session, allow
+For an app tool or MCP tool you can allow once, allow for this session, allow
 always, or reject with a reason. Allow always changes that agent's grant to no
 longer ask. Allow for this session is forgotten when the session closes. For the
 other kinds you allow or reject. There is no default choice. Closing a card is

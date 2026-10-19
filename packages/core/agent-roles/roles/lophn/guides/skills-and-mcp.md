@@ -12,9 +12,12 @@ and stays within 1,024 characters. A file that does not match is left out and
 you are told why.
 
 lophn reads skills in three layers: the skills that shipped with lophn, your
-global skills, and the project's skills. If the same name appears in more than
-one layer, the last layer wins (project over global over built-in). It does not
-download or install a skill for you.
+global skills, and the skills of a domain, which live in the `skills` folder of
+that domain. A domain's skills are written by the Project Manager or App
+Engineer that looks after it. An agent sees the skills of the domains it works
+with, so an Operator chooses among the skills of the domains it was given. If
+the same name appears in more than one layer, the last layer wins (domain over
+global over built-in). It does not download or install a skill for you.
 
 The agent sees each skill's name and description only. It reads the body with
 `skill.read` when it needs it. A skill body cannot add a tool, grant access,

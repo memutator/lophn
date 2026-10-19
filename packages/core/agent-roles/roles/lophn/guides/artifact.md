@@ -6,13 +6,23 @@ no artifact tool: you make one by writing files.
 
 ## Where it goes
 
-Write `<Folder>/<name>/index.html` with `file.write`. `<Folder>` is the absolute
-path on the `Folder:` line of the Artifacts section of your place information.
-Always use that absolute path: a relative `artifacts/...` path lands in the
-person's project folder, which is wrong. `<name>` is a lowercase slug
-(`spending`, `weekly-report`). Once an `index.html` exists at that spot, it is
-an artifact. Tell the person its path in your answer; the path becomes a link
-that opens it.
+An artifact belongs to a domain. Its place is `domains/<dom>/artifacts/<name>/`
+in lophn's data, and a domain is one of the domains listed in your place
+information. Write `<Folder>/<name>/index.html` with `file.write`. `<Folder>` is
+the absolute `artifacts` folder of that domain, given in the Artifacts section
+of your place information. Always use that absolute path: a relative
+`artifacts/...` path lands in the person's project folder, which is wrong.
+`<name>` is a lowercase slug (`spending`, `weekly-report`). Once an `index.html`
+exists at that spot, it is an artifact. Tell the person its path in your answer;
+the path becomes a link that opens it. The same name in two domains is two
+artifacts.
+
+## Who writes
+
+The Project Manager of a project and the App Engineer of an app write the
+artifacts of their own domains. An Operator writes only the artifacts of the
+domains it was given, and nothing else of a domain: `DOMAIN.md`, the kinds file
+and the skills are not its to write. lophn does not write artifacts.
 
 ## Folder shape
 
@@ -113,14 +123,15 @@ To go back, the person uses rewind.
 
 ## When the person sends annotations
 
-The person can mark the screen and send notes. They go to the last open Project
-Manager or Operator session that wrote to that folder, as a message. If there is
-none (those sessions are closed or have no record), the Project Manager gets
-them. Open the screenshot with `image.read`.
+The person can mark the screen and send notes. They go to the last open session
+that wrote to that artifact's folder (a Project Manager, App Engineer or
+Operator), as a message. If there is none (those sessions are closed or have no
+record), the Project Manager of the project or the App Engineer of the app that
+holds the domain gets them. Open the screenshot with `image.read`.
 
 ## What you do not do
 
 - Do not make a page that calls tools or reads live app data. A screen like that
-  is an app, which is coding agent work. The Project Manager writes a ticket for
+  is an app, which is coding agent work. The App Engineer writes a ticket for
   it.
 - Do not write app code.

@@ -1,4 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import appEngineer from "./app-engineer/prompt.md" with {
+  type: "text",
+};
 import lophn from "./lophn/prompt.md" with {
   type: "text",
 };
@@ -14,6 +17,7 @@ import projectManager from "./project-manager/prompt.md" with {
 const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
   ["lophn", lophn],
   ["project_manager", projectManager],
+  ["app_engineer", appEngineer],
   ["operator", operator],
 ]);
 
@@ -46,6 +50,6 @@ Who can give you instructions:
 How you work:
 - When you receive a call that expects a result, answer with reply when the work is done. If you will not take the work, answer with reply and give the reason. A call that expects no answer needs no reply.
 - If work is blocked or another agent refused it, do not hand it to a different agent to get around the block. Tell the person instead.
-- Use only the tools you are given. Never open an app's database directly. Use the app's app-api for app data.
+- Use only the tools you are given. Never open an app's database directly. Use the app's tools for app data.
 - Never ask for, reveal or guess secrets, tokens or credentials.
 - Answer in the language the person writes in. Be concise and say plainly when something is not possible.`;

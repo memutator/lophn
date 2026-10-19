@@ -8,7 +8,9 @@
 // - 왜 지금 test로 못 잡나: `turn-prompt`와 `tool-lists`의 unit은 입력으로 받은 목록만 본다. 사람이 grant를 session 도중 바꾸는 일, agent runtime child가 session마다 고정한 목록을 지키는 일, `operator.create`의 입력 schema가 model 요청에 실리는 모양은 process를 건너야 보인다.
 //
 //
-// 준비: core 하나, 앱 하나, project 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱 activation의 fake 대답
+// 준비: core 하나, 앱 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱 tool은 비공개라 그 domain을 맡은
+// agent만 본다. Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-no-grant만 project를
+// 따로 열어 Project Manager를 쓴다. 앱 activation의 fake 대답
 // (coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
 import {
@@ -25,6 +27,7 @@ import type { AgentGrantEntry } from "../../packages/protocol/approvals/mod.ts";
 import {
   agentDefinitionList,
   operatorCreate,
+  type Place,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
@@ -53,14 +56,14 @@ import {
 // 행 하나의 준비. 단계 한 개로 센다. entries가 null이면 grant를 한 번도 set하지 않은 Operator다.
 async function operatorWith(
   core: Core,
-  project: string,
+  place: Place,
   name: string,
   entries: AgentGrantEntry[] | null,
 ): Promise<{ session: string; ref: { role: "operator"; agent: string } }> {
   const agent = core.ids.newId("agt");
   await core.call(operatorCreate, {
     id: agent,
-    place: { kind: "project", id: project },
+    place,
     definition: { name, body: "use the assigned app" },
   });
   const ref = { role: "operator", agent } as const;
@@ -122,6 +125,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     const { project } = await openProject(core, folder);
     app = await activateTestApp(core, fake, { name: "Notes", slug: "notes" });
     const id = app.app;
+    const appPlace = { kind: "app", id } as const;
     const ask: AgentGrantEntry[] = [{
       kind: "app",
       app: id,
@@ -134,7 +138,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
       { reply: callAddItem("op-first") },
       text,
     ]);
-    const first = await operatorWith(core, project, "Assigned", [
+    const first = await operatorWith(core, appPlace, "Assigned", [
       { kind: "app", app: id, tools: [] },
     ]);
     await say(core, first.session, "add op-first");
@@ -166,7 +170,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
       },
       text,
     ]);
-    const excluded = await operatorWith(core, project, "Excluded", [{
+    const excluded = await operatorWith(core, appPlace, "Excluded", [{
       kind: "app",
       app: id,
       tools: [{ tool: "add_item", setting: "excluded" }],
@@ -191,7 +195,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // ask-reject: 묻기로 한 write는 사람이 거절하면 실행되지 않고, 막힌 호출도 기록에 남는다.
     fake.reset();
     fake.script([{ reply: callAddItem("op-held") }, text]);
-    const held = await operatorWith(core, project, "AskReject", ask);
+    const held = await operatorWith(core, appPlace, "AskReject", ask);
     await say(core, held.session, "add op-held");
     const heldAsk = await waitPermission(core, held.session);
     await decide(core, held.session, heldAsk.request, "reject");
@@ -209,7 +213,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // ask-allow: 사람이 답하는 동안 앱의 write는 막히지 않고, 허락하면 agent의 write가 실행된다.
     fake.reset();
     fake.script([{ reply: callAddItem("op-allowed") }, text]);
-    const waiting = await operatorWith(core, project, "AskAllow", ask);
+    const waiting = await operatorWith(core, appPlace, "AskAllow", ask);
     await say(core, waiting.session, "add op-allowed");
     const waitingAsk = await waitPermission(core, waiting.session);
     // app state: 허락 대기 중의 사람 write
@@ -245,7 +249,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // no-grant: grant 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
     fake.reset();
     fake.script([text]);
-    const bare = await operatorWith(core, project, "NoGrant", null);
+    const bare = await operatorWith(core, appPlace, "NoGrant", null);
     await say(core, bare.session, "hello");
     await waitTurnEnd(core, bare.session);
     // fake
@@ -257,7 +261,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // grant-added: session 도중 grant를 더해도 tool 목록은 그대로이고, 알림은 program이 쓴 문장으로 tool 이름만 말한다.
     fake.reset();
     fake.script([text, text]);
-    const added = await operatorWith(core, project, "GrantAdded", []);
+    const added = await operatorWith(core, appPlace, "GrantAdded", []);
     await say(core, added.session, "first");
     await waitTurnEnd(core, added.session, 0);
     const entries: AgentGrantEntry[] = [{ kind: "app", app: id, tools: [] }];

@@ -7,7 +7,7 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 Project Manager 대답뿐이라 행의 상한(3)에 세지 않는다(README 정한 것
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답뿐이라 행의 상한(3)에 세지 않는다(README 정한 것
 // 11). `session-rewind-with-app`은 case마다 agent의 앱 호출과 끝 text, 둘이다.
 import { assert, assertEquals } from "@std/assert";
 import {
@@ -20,6 +20,7 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import { agentGrantsSet } from "../../packages/protocol/approvals/mod.ts";
 import {
+  operatorCreate,
   rewindList,
   sessionRewind,
   sessionRewindPreview,
@@ -212,9 +213,17 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
     ]!;
     assertEquals(await titles(core, live), [kept_title]);
 
-    // session-rewind-with-app: lophn session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
+    // session-rewind-with-app: 앱 place Operator session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
+    // 비공개 tool은 그 domain을 맡은 agent만 보고, 앱 place의 Operator는 앱의 domain을 모두 맡는다.
+    const agent = core.ids.newId("agt");
+    await core.call(operatorCreate, {
+      id: agent,
+      place: { kind: "app", id: live.app },
+      definition: { name: "Writer", body: "use the app" },
+    });
+    const operator = { role: "operator", agent } as const;
     await core.call(agentGrantsSet, {
-      agent: { role: "lophn" },
+      agent: operator,
       entries: [{ kind: "app", app: live.app, tools: [] }],
     });
     for (const choose of [true, false]) {
@@ -223,7 +232,7 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       fake!.script([addItemTool(title), {
         reply: { kind: "text", text: "added" },
       }]);
-      const session = await openSession(core, { role: "lophn" });
+      const session = await openSession(core, operator);
       const { message } = await say(core, session, `add ${title}`);
       await waitTurnEnd(core, session);
       assert((await titles(core, live)).includes(title));

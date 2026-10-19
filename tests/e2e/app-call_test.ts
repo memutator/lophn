@@ -11,8 +11,8 @@
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
 // 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool
-// 이름 규칙(`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 Project Manager
-// 대답은 행 몫에 세지 않는다(README 정한 것 11).
+// 이름 규칙(`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다
+// (비공개 tool은 그 domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   appCallTool,
@@ -26,7 +26,10 @@ import {
   approvalsDecideTurn,
   approvalsPending,
 } from "../../packages/protocol/approvals/mod.ts";
-import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
+import {
+  operatorCreate,
+  toolCallList,
+} from "../../packages/protocol/lophn-agent/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { callPatch } from "../support/app/patch-call.ts";
@@ -117,8 +120,16 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
     const id = app.app;
     const c = core;
     const target = { mode: "live", app: id, release: null } as const;
+    // 앱의 비공개 tool은 그 domain을 맡은 agent만 본다. 앱 place의 Operator는 앱의 domain을 모두 맡는다.
+    const agent = c.ids.newId("agt");
+    await c.call(operatorCreate, {
+      id: agent,
+      place: { kind: "app", id },
+      definition: { name: "Caller", body: "use the app" },
+    });
+    const operator = { role: "operator", agent } as const;
     await c.call(agentGrantsSet, {
-      agent: { role: "lophn" },
+      agent: operator,
       entries: [{ kind: "app", app: id, tools: [] }],
     });
 
@@ -128,7 +139,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
         { reply: callApp("t1", "add_item", { title: "first" }) },
         text("done"),
       ]);
-      const session = await openSession(c, { role: "lophn" });
+      const session = await openSession(c, operator);
       await say(c, session, "add an item");
       const turn = await waitTurnEnd(c, session);
       const { tool_calls } = await c.call(toolCallList, { session });
@@ -268,7 +279,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
           { reply: ping("p2") },
           text("done"),
         ]);
-        const session = await openSession(c, { role: "lophn" });
+        const session = await openSession(c, operator);
         granted = session;
         await say(c, session, "ping twice");
         const { request } = await waitPermission(c, session);
@@ -300,7 +311,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
           { reply: callApp("p3", "external_ping", {}) },
           text("done"),
         ]);
-        const session = await openSession(c, { role: "lophn" });
+        const session = await openSession(c, operator);
         assertNotEquals(session, granted);
         await say(c, session, "ping once");
         // route

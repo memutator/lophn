@@ -1,5 +1,6 @@
 import { readImage } from "../file/image.ts";
 import { readPdf } from "../file/pdf.ts";
+import { outlineFile } from "../file/outline.ts";
 import { readFile } from "../file/read.ts";
 import { globFiles, grepFiles } from "../file/search.ts";
 import { editFile, writeFile } from "../file/write.ts";
@@ -13,7 +14,7 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 const path = z.string().min(1);
 const lineCount = z.number().int().positive();
 
-// place 폴더 안의 file tool 일곱 개. agent runtime 안에서 돌고 쓰기의 Gate와 쓰기 기록은 hook이 맡는다.
+// place 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기의 Gate와 쓰기 기록은 hook이 맡는다.
 
 export const createFileTools = (
   hooks: FileHooks,
@@ -79,6 +80,15 @@ export const createFileTools = (
       "Search text files with a regular expression. Returns path:line:text. glob narrows the files.",
     effect: "read",
     handler: (input, ctx) => grepFiles(input, ctx),
+  }),
+  defineTool({
+    name: "file.outline",
+    input: z.strictObject({ path }),
+    routes: [],
+    description:
+      "Show the heading tree of a markdown file with the line range of each section. Read a section with file.read using offset and limit.",
+    effect: "read",
+    handler: (input, ctx) => outlineFile(input, ctx),
   }),
   defineTool({
     name: "pdf.read",

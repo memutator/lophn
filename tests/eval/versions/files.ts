@@ -25,6 +25,7 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/lophn-agent/tools/bundles/shell.ts",
   "packages/core/agent-roles/tools/operator.ts",
   "packages/core/agent-roles/tools/context.ts",
+  "packages/core/agent-roles/tools/kind.ts",
   "packages/core/agent-roles/tools/instructions.ts",
   "packages/core/agent-roles/tools/guide.ts",
 ];

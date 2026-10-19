@@ -120,6 +120,10 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: agent runtime이 열 core route 목록이 projects·apps protocol의 route 값을 직접 import한다",
   ],
   [
+    "packages/core/lophn-agent/tools/file/outline.ts",
+    "못 옮김: file.outline이 projects protocol의 parseOutline으로 md 제목 tree를 만든다",
+  ],
+  [
     "packages/core/lophn-agent/tools/app-api/input.ts",
     "못 옮김: 동적 app-api tool이 apps protocol의 입력 type을 쓴다(domain tool로 옮기지 않았다)",
   ],

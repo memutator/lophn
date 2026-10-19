@@ -94,7 +94,7 @@ roadmap "정한 것"(앱 place를 두지 않는다, 재사용은 package, home d
 
 ## e2e
 
-- 이 계획은 e2e를 돌리지도 고치지도 않는다.
+- 이 계획은 e2e를 돌리지 않고 새로 쓰지 않는다. `check:full`이 `tests/e2e`도 type check한다. 그래서 type check를 막는 곳만 입력 모양을 기계적으로 고친다. 돌리지는 않는다.
 - land는 `LOPHN_LAND_SKIP_E2E=1 project-docs/plan/tools/lead/land.sh domain-place`로 돈다.
 
 ## 같이 도는 계획

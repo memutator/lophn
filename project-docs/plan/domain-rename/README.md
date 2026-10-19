@@ -28,11 +28,12 @@
   - wording
   - agent tool 접두(`app__`)
 - **app이라는 이름을 어디까지 남기나:** 앱 runtime·release·ticket 같은 engineering 장치의 module 이름(`packages/core/apps`)을 남길지가 걸린다. roadmap "정한 것"은 "앱"을 화면 문구로 남길 수 있다고 했다.
+- **앞 계획이 남긴 자리:** `artifact` 계획은 `artifactNameSchema`를 `packages/protocol/projects/values.ts`(`slugSchema` 옆)에 두었다. `packages/protocol/projects/artifact.ts`는 shell main의 node test 때문에 import 없는 file이다.
 - **나누는 법:** 이름 바꾸기는 package를 건너 type check가 한 번에 맞아야 한다. 그래서 codemod task 하나로 할지, 계약을 먼저 고정한 뒤 영역별로 나눌지는 brief가 정한다.
 
 ## e2e
 
-- 이 계획은 e2e를 돌리지도 고치지도 않는다.
+- 이 계획은 e2e를 돌리지 않고 새로 쓰지 않는다. `check:full`이 `tests/e2e`도 type check한다. 그래서 type check를 막는 곳만 입력 모양을 기계적으로 고친다. 돌리지는 않는다.
 - land는 `LOPHN_LAND_SKIP_E2E=1 project-docs/plan/tools/lead/land.sh domain-rename`로 돈다.
 
 ## lead가 할 일

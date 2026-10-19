@@ -59,7 +59,7 @@ roadmap `artifact.md`와 `domain.md`의 "정한 것"은 다시 적지 않는다.
 
 ## e2e
 
-- 이 계획은 e2e를 돌리지도 고치지도 않는다.
+- 이 계획은 e2e를 돌리지 않고 새로 쓰지 않는다. `check:full`이 `tests/e2e`도 type check한다. 그래서 type check를 막는 곳만 입력 모양을 기계적으로 고친다. 돌리지는 않는다.
 - land는 `LOPHN_LAND_SKIP_E2E=1 project-docs/plan/tools/lead/land.sh artifact`로 돈다.
 - `tests/e2e/annotation_test.ts`는 옛 `annotationSend` 입력(`app:`)을 쓰므로 `af-annotation-target` 뒤에 맞지 않는다. 고치지 않고 e2e 다시 쓰기 계획에 넘긴다.
 

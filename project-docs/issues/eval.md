@@ -65,3 +65,18 @@ modules: [tests]
 - 지금 `1/`을 새 이름으로 고친다(작음. `domain-entity` 뒤 다시 고쳐야 하고, 판을 고치면 옛 run과 비교가 틀린다).
 
 정한 것: 앞의 것. `domain-entity` 뒤 새 판으로 다시 만든다. `domain-entity` README의 "뒤에 할 일"에 e2e 다시 쓰기와 함께 적혀 있다(agent).
+
+## tax-kinds material이 kind 파일을 project에 둔다
+
+```yaml
+kind: bug
+modules: [tests]
+```
+
+지금: `tests/eval/materials/tax-kinds/1/files/spec.json`은 `{"project": "tax"}`로 kind 파일을 놓을 자리를 가리킨다. 계획 `domain-entity`부터 kind 파일은 domain마다 하나이고(`<data>/domains/<dom>/kinds.yaml`), `restoreKinds`(`tests/eval/restore/kinds.ts`)는 `{"domain": "dom_…"}`를 받으며 그 밖은 `invalid_input`이다.
+
+영향: 이 material을 쓰는 kind scenario가 복원 단계에서 멈춘다.
+
+고치려면: 위 "eval materials의 앱 source가 옛 app-api 선언과 SDK 이름을 쓴다"와 같이 새 판(`2/`)을 만들 때 project 안에 domain을 하나 만들고 그 domain을 가리키게 한다(작음). 추천.
+
+정한 것: 추천안. eval 자료를 다시 만드는 계획에서 같이 한다(agent).

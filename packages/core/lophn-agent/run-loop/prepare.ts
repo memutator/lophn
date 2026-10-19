@@ -373,7 +373,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const externalByName = new Map(
       external.map((tool) => [tool.definition.name, tool]),
     );
-    // 이 session의 고정 목록(첫 turn에 만든 것). 정의가 handler를 들지 않은 tool(외부 MCP·context)은 이 turn의
+    // 이 session의 고정 목록(첫 turn에 만든 것). 정의가 handler를 들지 않은 tool(외부 MCP)은 이 turn의
     // handler를 붙인다.
     const fixed = fixedBySession.get(seat.session)!;
     const legacy = new Map<string, ToolHandler>([

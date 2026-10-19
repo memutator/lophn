@@ -59,7 +59,7 @@ const ICONS: Readonly<Record<string, IconType>> = {
   recap: conversationIcons.result,
   "new-app": commonIcons.apps,
   "repair-app": editorIcons.restore,
-  "check-contracts": editorIcons.problem,
+  "check-kinds": editorIcons.problem,
 };
 
 function iconOf(entry: SlashEntryView): IconType {

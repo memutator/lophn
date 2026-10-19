@@ -1,4 +1,4 @@
-// 다른 화면(contexts/pm-session, app-space/side-pane)이 쓰는 Agent 대화의 틀과 부품. 안은 renderer의 대화 component이고, 이
+// 다른 화면(app-space/side-pane)이 쓰는 Agent 대화의 틀과 부품. 안은 renderer의 대화 component이고, 이
 // file은 이 화면들이 쓰는 이름과 props(agent 이름 글, 보기 상세를 받는 children)로 맞추는 얇은 adapter다.
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 

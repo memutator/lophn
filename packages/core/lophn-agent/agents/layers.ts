@@ -16,7 +16,7 @@ import type { AgentRoleTable } from "./role-table.ts";
 import { resolveAgent, type ResolvedAgent } from "./resolve.ts";
 
 // turn을 준비할 때 resolved agent를 만드는 길이다. 층은 core의 읽기 route로 모은다: session(agent와 고른
-// model), 정의 파일(전역 기본 model 포함), project 층 model, place의 active context. 정의 파일은 core가
+// model), 정의 파일(전역 기본 model 포함), project 층 model. 정의 파일은 core가
 // 읽어 검사한 값이고 runtime은 파일을 직접 열지 않는다. 합치는 규칙은 agents의 resolveAgent다.
 
 // 시작할 수 없는 이유. 영구히 없는 필수 설정·대상이라 turn을 이유와 함께 끝낸다.

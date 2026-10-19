@@ -10,8 +10,8 @@ export const NEW_APP_PROMPT =
 export const REPAIR_APP_PROMPT =
   "Something broke in one of my apps. Find out which app and what went wrong, look at what happened, and fix it. Tell me what you found before you change anything.";
 
-export const CHECK_CONTRACTS_PROMPT =
-  "Check every context in this project against its documents. List each place where a context and its documents disagree, and tell me what you would change.";
+export const CHECK_KINDS_PROMPT =
+  "Run kind.check for this project. For each violation, say whether the kinds file or the document is wrong and what you would change. Do not edit the documents.";
 
 function promptCommand(
   name: string,
@@ -31,7 +31,7 @@ function promptCommand(
 }
 
 // role 명령은 role마다의 목록 하나다. protocol의 ROLE_COMMAND_NAMES와 같아야 한다.
-// lophn은 New app · Repair app, Project Manager는 Check contracts, App Engineer와 Operator는 빈 목록이다.
+// lophn은 New app · Repair app, Project Manager는 Check kinds, App Engineer와 Operator는 빈 목록이다.
 export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
   lophn: [
     promptCommand(
@@ -49,10 +49,10 @@ export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
   ],
   project_manager: [
     promptCommand(
-      "check-contracts",
-      "Check contracts",
-      "Check every context against its documents",
-      CHECK_CONTRACTS_PROMPT,
+      "check-kinds",
+      "Check kinds",
+      "Check the project's documents against its kinds",
+      CHECK_KINDS_PROMPT,
     ),
   ],
   app_engineer: [],

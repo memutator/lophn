@@ -50,7 +50,7 @@ const requestFields = {
   // 준비한 input blob의 크기. 있으면 command가 영구 참조를 등록한다.
   input_size: blobSizeSchema.optional(),
   // 앱 command 원래 호출의 계약이다(app command tool만 싣는다). app·release·command·
-  // blueprint_hash·permission_basis(grant·scope·basis_seq)와 definition·context 근거를 가진다.
+  // blueprint_hash·permission_basis(grant·scope·basis_seq)와 definition 근거를 가진다.
   // 기록이 이 열로 묶여 revert가 앱의 선언된 revert command를 부른다.
   app_api: toolCallOutputSchema.shape.app_api.optional(),
 };

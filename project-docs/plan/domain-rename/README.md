@@ -65,4 +65,5 @@
 ## 이 계획 뒤에 할 일
 
 - e2e 다시 쓰기 계획을 연다. 다섯 계획은 e2e를 돌리지 않았고, type check만 맞췄다.
-- eval materials(calendar-app, calendar-app-bug, notify-app)를 새 판으로 다시 만든다. 옛 `app_api` 선언과 SDK 이름을 써서 release 준비에서 걸린다(`project-docs/issues/eval.md`).
+- eval materials(calendar-app, calendar-app-bug, notify-app)를 새 판으로 다시 만든다. 옛 `app_api` 선언과 SDK 이름을 써서 release 준비에서 걸린다(`project-docs/issues/eval.md`). 그 `AGENTS.md.tmpl`에 "App Engineer"도 남아 있다(`domain-place`가 넘김).
+- e2e를 다시 쓸 때 `issues/agent-call.md`의 "e2e의 PM 줄이 PM 요청을 옛 ae 줄로 보낸다"를 같이 본다. 다섯 계획 모두 e2e를 돌리지 않았고, type만 맞췄다. 손 확인(preview, MCP, activation)만 돌렸다.

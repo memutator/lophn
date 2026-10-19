@@ -12,6 +12,6 @@ lead만 고친다. `tools/status.py domain-tools build`가 `tasks/*.md`에서 id
 | `dt-preview-call` | domain-tools | 2 | dt-invocation-project | merged | domain-tools/dt-preview-call | 5ac7b9e00 |  |
 | `dt-sdk` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-sdk | 7b5c6992e |  |
 | `dt-shell-bridge` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-shell-bridge | 8a15ba0c2 |  |
-| `dt-examples` | domain-tools | 3 | dt-call-route | running | domain-tools/dt-examples |  |  |
+| `dt-examples` | domain-tools | 3 | dt-call-route | merged | domain-tools/dt-examples | 84eda3d1d |  |
 | `dt-mcp-endpoint` | domain-tools | 3 | 없음 | merged | domain-tools/dt-mcp-endpoint | bc7b2bbfe |  |
 | `dt-mcp-harness` | domain-tools | 3 | dt-mcp-endpoint | running | domain-tools/dt-mcp-harness |  |  |

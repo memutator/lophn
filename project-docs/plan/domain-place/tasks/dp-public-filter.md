@@ -45,3 +45,8 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: turn마다 앱당 읽기가 두 번 늘어난다. 줄인다면 `domain-tools`가 `AppApiView`에 project를 싣게 한다
 - **알려진 미완 동작**: 이미 session에 고정된 tool 목록은 session 도중 grant가 바뀌어도 그대로다(지금 규칙)
+
+## lead가 더함
+
+- `domain-tools`의 `dt-agent-tools`(main `b729bc5d5`)가 toolkit에서 place를 지웠다. `define(agent: AgentRef)`이고 `AppApiSource.place`는 없다. agent tool 입력은 `toolInput`이다. 위 "계약"과 할 일 2의 `define(agent, place)`는 이 모양으로 읽는다.
+- 그래서 호출 agent의 project는 toolkit에서 받지 못한다. turn의 agent와 place에서 얻는다. PM은 `AgentRef.project`, Operator는 정의의 place(resolved agent나 `ctx.place`), lophn은 없음(모든 앱을 다른 project로 본다). `define`을 부르는 자리에서 place를 얻을 수 있으면 `withPublicOnly`가 그것을 받는다. 길을 고른 이유를 보고의 "정한 것"에 적는다.

@@ -51,10 +51,10 @@ Deno.test("app.app_api는 맡지 않은 domain의 비공개 tool을 싣지 않�
           })),
         },
     ));
-  const names = async (domains: string[], place: ToolContext["place"]) => {
+  const names = async (domains: string[]) => {
     const result = await handler(
       {},
-      { core, domains, place } as unknown as ToolContext,
+      { core, domains } as unknown as ToolContext,
     );
     if (!result.ok) throw new Error("app.app_api failed");
     const body = result.value.content as unknown as {
@@ -62,10 +62,6 @@ Deno.test("app.app_api는 맡지 않은 domain의 비공개 tool을 싣지 않�
     };
     return body.apps[0].tools.map((t) => t.name);
   };
-  assertEquals(await names([ITEMS], null), ["mine", "open"]);
-  assertEquals(await names([], null), ["open"]);
-  assertEquals(
-    await names([], { kind: "app", id: APP } as ToolContext["place"]),
-    ["mine", "theirs", "open"],
-  );
+  assertEquals(await names([ITEMS]), ["mine", "open"]);
+  assertEquals(await names([]), ["open"]);
 });

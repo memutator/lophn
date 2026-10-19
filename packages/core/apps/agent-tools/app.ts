@@ -97,8 +97,8 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appAppApiIndex, input);
       if (!read.ok) return read;
-      // 다른 domain의 비공개 tool은 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`이고 비면 그 그릇의 전부다
-      // (앱을 그릇으로 둔 agent는 그 앱의 domain 전부). 앱의 domain을 읽지 못하면 그 앱은 public tool만 둔다.
+      // 다른 domain의 비공개 tool은 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`다(그릇의 active domain id
+      // 목록이 이미 풀려 있다). 앱의 domain을 읽지 못하면 그 앱은 public tool만 둔다.
       const apps = [];
       for (const entry of read.value.apps) {
         const listed = await readOf(ctx.core, domainList, {
@@ -108,14 +108,12 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
         const ids = new Map(
           listed.ok ? listed.value.domains.map((d) => [d.name, d.id]) : [],
         );
-        const whole = ctx.domains.length === 0 && ctx.place?.kind === "app" &&
-          ctx.place.id === entry.app;
         apps.push({
           ...entry,
           tools: entry.tools.filter((tool) => {
             const id = ids.get(tool.domain);
             return tool.public ||
-              (id !== undefined && (whole || ctx.domains.includes(id)));
+              (id !== undefined && ctx.domains.includes(id));
           }),
         });
       }

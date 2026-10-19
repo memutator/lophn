@@ -7,16 +7,27 @@
 // - 왜 지금 test로 못 잡나: 각 닫음이 "실제 template 앱으로 손으로 확인하지 않았다"였다. 이 길을 지나는 test가 없고 unit은 단계
 //   하나씩만 본다.
 //
-// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`)가 거는 것이라 행의 fake
-// 대답 상한(3)에 세지 않는다(README 정한 것 11).
+// `coding-mcp-preview-only` step은 앱이 live로 뜬 뒤 같은 앱에 coding session을 하나 더 열어 MCP 호출이 가는 곳을 본다.
+// - contract: boundary `coding-agent-mcp`(MCP tools/call은 token 앱의 지금 도는 preview로만 가고, 없으면 `unavailable`이며 live는
+//   어떤 경우에도 부르지 않는다), `app-data`(live data와 ledger).
+// - 현실적 회귀: preview가 없거나 ready 전일 때 호출이 live로 떨어진다, preview 호출이 live ledger나 live process로 간다(target·
+//   `previewOnly` 섞임), coding token의 operation 목록에 `coding.mcp`가 빠져 실제 token으로는 endpoint가 닫힌다, server가 `/mcp`를
+//   route하지 않는다.
+// - 왜 지금 test로 못 잡나: `serve_test.ts`는 preview와 호출 길을 가짜 deps로 끼운다. 실제 token 발급(Gateway frame) -> server 인증 ->
+//   앱 호출 길 -> supervisor의 preview process는 process를 건너야 보인다.
+//
+// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`deliverRelease`·`handOff`)가 거는 것이라
+// 행의 fake 대답 상한(3)에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
   appCallTool,
   appGet,
+  appInvocations,
   appRuntime,
   RELEASE_FILE_MAX_COUNT,
 } from "../../packages/protocol/apps/mod.ts";
+import { previewsGet } from "../../packages/protocol/apps/previews.ts";
 import { approvalsPending } from "../../packages/protocol/approvals/mod.ts";
 import {
   type AcceptanceCheck,
@@ -25,15 +36,24 @@ import {
 import {
   approveActivation,
   deliverRelease,
+  handOff,
   startTestApp,
   verifyTicket,
   waitRunning,
 } from "../support/app/activate.ts";
+import { codingCli } from "../support/coding/cli.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
+import { mcpRequest } from "../support/coding/mcp.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import { connectFakeProvider, until } from "../support/core/human.ts";
+import {
+  connectFakeProvider,
+  turnsOf,
+  until,
+  waitTurnEnd,
+} from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { lastToolResult } from "../support/fake-server/probe.ts";
+import { exitTerminal } from "../support/gateway/shell.ts";
 
 async function countFiles(dir: string): Promise<number> {
   let count = 0;
@@ -52,7 +72,13 @@ async function activationRequests(core: Core, app: string) {
   );
 }
 
-Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 뒤 첫 activation 허락으로만 뜨고, 거절하면 뜨지 않는다", async () => {
+type McpResult = {
+  content: { text: string }[];
+  structuredContent?: { rows: { title: string }[] };
+  isError?: true;
+};
+
+Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 뒤 첫 activation 허락으로만 뜨고, 거절하면 뜨지 않는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -120,6 +146,91 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
       caller: { kind: "person", view_session: "e2e" },
     });
     assertEquals(called.outcome.status, "succeeded");
+
+    await t.step(
+      "coding-mcp-preview-only: coding agent의 MCP 호출은 그 앱의 preview에만 닿고 live ledger와 data는 그대로다",
+      async () => {
+        const handed = await handOff(core!, fake, first, {
+          goal: "Check the app tools on a preview",
+        });
+        const invocations = async () =>
+          (await core!.call(appInvocations, { app: first.app })).invocations
+            .length;
+        const before = await invocations();
+        const mcp = async (method: string, params?: unknown) =>
+          (await mcpRequest(core!, handed.token, method, params)).body as {
+            result: McpResult & { tools: { name: string }[] };
+          };
+        const addItem = {
+          name: "add_item",
+          arguments: { title: "from preview" },
+        };
+
+        // preview가 없으면 활성 release의 선언은 보여도 호출은 live로 떨어지지 않고 unavailable이다.
+        await mcp("initialize", {});
+        const names = (await mcp("tools/list")).result.tools.map((tool) =>
+          tool.name
+        ).sort();
+        const none = (await mcp("tools/call", addItem)).result;
+
+        const cli = codingCli(core!, handed.token);
+        const started = await cli.run("app preview start", {
+          input: {
+            app: first.app,
+            bundle_hash: record.bundle_hash,
+            release: delivered.release,
+            fixture_hash: null,
+          },
+        });
+        assertEquals(started.code, 0, JSON.stringify(started.value));
+        const { process_nonce } = started.value as { process_nonce: string };
+        await until(
+          "preview가 ready",
+          async () =>
+            (await core!.call(previewsGet, { app: first.app, process_nonce }))
+              .observation?.ready || undefined,
+        );
+
+        const added = (await mcp("tools/call", addItem)).result;
+        const listed = (await mcp("tools/call", { name: "list_items" }))
+          .result;
+
+        const stopped = await cli.run("app preview stop", {
+          app: first.app,
+          process_nonce,
+        });
+        assertEquals(stopped.code, 0, JSON.stringify(stopped.value));
+        const turn = (await turnsOf(core!, first.ae)).length;
+        await exitTerminal(core!, handed.terminal);
+        await waitTurnEnd(core!, first.ae, turn);
+
+        // MCP 응답
+        assertEquals(names, ["add_item", "list_items"]);
+        assertEquals(none.isError, true);
+        assert(none.content[0]!.text.startsWith("unavailable:"));
+        assertEquals(added.isError, undefined);
+        assert(
+          listed.structuredContent!.rows.some((row) =>
+            row.title === "from preview"
+          ),
+        );
+        // ledger: preview 호출은 invocation을 남기지 않는다.
+        assertEquals(await invocations(), before);
+        // live data
+        const live = await core!.call(appCallTool, {
+          target: { mode: "live", app: first.app, release: null },
+          tool: "list_items",
+          caller: { kind: "person", view_session: "e2e" },
+        });
+        assert(live.outcome.status === "succeeded");
+        assertEquals(
+          (live.outcome.result as { rows: { title: string }[] }).rows.some(
+            (row) => row.title === "from preview",
+          ),
+          false,
+        );
+      },
+    );
 
     // first-activation-rejected: 첫 activation을 거절하면 앱은 뜨지 않고 release는 prepared로 남는다.
     // 터미널 frame은 접속한 shell main 하나가 받으므로 앞 앱의 Gateway를 닫고 둘째 앱이 새로 붙는다.

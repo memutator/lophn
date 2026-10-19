@@ -57,7 +57,7 @@ interface AppSpaceProps {
   views?: LophnShellViewsApi;
   /** [Report a problem] 통로. 없으면 깃발 단추를 두지 않는다. */
   feedback?: LophnShellFeedbackBegin;
-  /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
+  /** 운영 패널의 app-detail 통로. 앱의 project도 여기서 읽는다. 없으면 app-detail 탭과 agent select를 두지 않는다. */
   detail?: AppDetailSource;
   /** 운영 패널 Issues 탭의 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
@@ -146,6 +146,26 @@ function useEntry(
   return entry;
 }
 
+// 앱이 속한 project(앱 record의 `project`). 못 읽으면 agent select를 두지 않는다.
+function useAppProject(
+  detail: AppDetailSource | undefined,
+  app: string,
+): string | undefined {
+  const [project, setProject] = useState<string>();
+  useEffect(() => {
+    setProject(undefined);
+    if (detail === undefined) return;
+    let live = true;
+    void detail.project(app).then((result) => {
+      if (live && result.ok) setProject(result.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [detail, app]);
+  return project;
+}
+
 export function AppSpace(
   {
     app,
@@ -191,6 +211,7 @@ export function AppSpace(
   );
   const [panelOpen, setPanelOpen] = useState(issueProblem !== undefined);
   const [opened, setOpened] = useState(false);
+  const appProject = useAppProject(detail, app);
   const agentList = useAppAgents(agents, appProject);
   const paneShown = pane !== null && agents !== undefined &&
     appProject !== undefined;
@@ -564,7 +585,7 @@ export function AppSpace(
             state={paneShown ? pane : null}
             app={app}
             {...(appProject === undefined ? {} : { project: appProject })}
-            projectName={projectName ?? row?.name ?? ""}
+            projectName={row?.name ?? ""}
             {...(agents === undefined ? {} : { source: agents })}
             agents={agentList.agents}
             {...(agentViewSource === undefined ? {} : { agentViewSource })}

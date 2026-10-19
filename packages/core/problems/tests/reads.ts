@@ -16,6 +16,7 @@ import {
   verificationSchema,
 } from "../../../protocol/problems/mod.ts";
 import {
+  appAllowed,
   canListVerifications,
   canReadOwnRequest,
   canReadVerification,
@@ -29,7 +30,7 @@ import { canonicalJson } from "./canonical.ts";
 const NOT_FOUND = "기록을 찾을 수 없다";
 
 function verificationScope(
-  ctx: Pick<RequestContext, "scope">,
+  ctx: RequestContext,
   row: Record<string, unknown>,
 ): boolean {
   return Object.keys(ctx.scope.targets).every((key) =>
@@ -40,7 +41,7 @@ function verificationScope(
       "request_hash",
       "ticket",
     ].includes(key)
-  ) && scopeCovers(ctx.scope, row);
+  ) && scopeCovers(ctx, row);
 }
 
 const ROW_TARGET_KEYS = [
@@ -69,12 +70,6 @@ function hasReadOperation(ctx: RequestContext): boolean {
   return ctx.scope.operations.includes("GetVerification");
 }
 
-function sameApp(
-  ctx: RequestContext,
-  row: Record<string, unknown>,
-): boolean {
-  return JSON.stringify(ctx.scope.targets.app) === JSON.stringify(row.app);
-}
 const FORBIDDEN_READ = "이 credential로는 할 수 없다";
 
 function rowToVerification(row: Record<string, unknown>): Verification {
@@ -176,7 +171,7 @@ function readVerification(
     }
   }
   if (!row) return err({ code: "not_found", message: NOT_FOUND });
-  if (!hasReadOperation(ctx) || !sameApp(ctx, row)) {
+  if (!hasReadOperation(ctx) || !appAllowed(ctx, row.app)) {
     return err({ code: "forbidden", message: FORBIDDEN_READ });
   }
   if (!verificationScope(ctx, row)) {

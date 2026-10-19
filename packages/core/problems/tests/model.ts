@@ -173,6 +173,11 @@ function targetMatches(
     JSON.stringify(scope.targets[key]) === JSON.stringify(expected);
 }
 
+// user token에는 app target이 없고 어느 앱의 검사 결과든 읽는다. 앱에 묶인 자격(coding token 등)은 자기 앱만이다.
+export function appAllowed(ctx: RequestContext, app: unknown): boolean {
+  return ctx.actor === "user" || targetMatches(ctx.scope, "app", app);
+}
+
 type TestAuthority = {
   runner_principal: string;
   app: string;
@@ -258,7 +263,7 @@ export function canReadVerification(
   if (!hasOperation(ctx.scope, READ_VERIFICATION)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  if (!targetMatches(ctx.scope, "app", facts.app)) {
+  if (!appAllowed(ctx, facts.app)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   const allowed = authorize(ctx, READ_VERIFICATION, facts);
@@ -273,21 +278,21 @@ export function canListVerifications(
   if (!hasOperation(ctx.scope, LIST_VERIFICATIONS)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  if (!targetMatches(ctx.scope, "app", app)) {
+  if (!appAllowed(ctx, app)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   return ok(true);
 }
 
 export function scopeCovers(
-  scope: CredentialScope,
+  ctx: RequestContext,
   facts: Record<string, unknown>,
 ): boolean {
-  for (const [key, expected] of Object.entries(scope.targets)) {
+  for (const [key, expected] of Object.entries(ctx.scope.targets)) {
     if (facts[key] === undefined) return false;
     if (JSON.stringify(facts[key]) !== JSON.stringify(expected)) return false;
   }
-  return targetMatches(scope, "app", facts.app);
+  return appAllowed(ctx, facts.app);
 }
 
 export function parseVerification(value: unknown): Result<Verification> {

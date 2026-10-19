@@ -19,4 +19,5 @@ export * from "./problem-report.ts";
 export * from "./problem-views.ts";
 export * from "./sdk-problem.ts";
 export * from "./problem-feedback.ts";
+export * from "./project-problems.ts";
 export { ROUTES } from "./registry.ts";

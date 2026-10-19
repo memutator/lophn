@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `dk-event` | event | 1 | 없음 | merged | event/dk-event | 6fb20e64b |  |
 | `dk-kinds-contract` | kinds | 1 | 없음 | merged | kinds/dk-kinds-contract | d30670d52 |  |
-| `dk-problem-contract` | problem | 1 | dk-kinds-contract | todo |  |  |  |
+| `dk-problem-contract` | problem | 1 | dk-kinds-contract | merged | problem/dk-problem-contract | bdc10e140 |  |
 | `dk-agent-tools` | agent-tools | 2 | 없음 | todo |  |  |  |
 | `dk-kinds-host` | kinds | 2 | 없음 | todo |  |  |  |
 | `dk-kinds-worker` | kinds | 2 | 없음 | todo |  |  |  |

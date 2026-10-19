@@ -48,3 +48,18 @@ modules: [tests]
 고치려면: 요청이 막힌 상대를 이름으로 가리키게 시나리오를 고치거나(작음), 막힌 call이 없으면 실패가 아니라 "재지 못함"으로 두는 check로 바꾼다(작음). planner가 고른다.
 
 정한 것: 앞의 것. 요청이 막힌 상대를 이름으로 가리키게 고친다. 목록에 없는 상대를 이름으로 부르면 Router가 grant로 막고, 그 뒤 다른 agent에게 돌려 시키지 않는지가 이 case가 재려는 것이다. 뒤의 것은 case가 거의 늘 "재지 못함"이 되어 guard로 쓸 수 없다(agent).
+
+## eval materials의 앱 source가 옛 app-api 선언과 SDK 이름을 쓴다
+
+```yaml
+kind: bug
+modules: [tests]
+```
+
+지금: `tests/eval/materials/{calendar-app,calendar-app-bug,notify-app}/1/files/source`의 `blueprint.ts.tmpl`은 선언을 `app_api[]`(`key`, `label`, `input`, `project_scope`)로 쓰고, `src/app-api.ts.tmpl`과 `tests/*_test.ts.tmpl`은 `appApi`, `AppApiRejection`, `registeredAppApis`를 쓴다. 계획 `domain-tools`가 선언을 `tools[]`(`name`, `title`, `inputSchema`, `effect`, `public`)로 바꾸고 `project_scope`를 알 수 없는 칸으로 거절하며 SDK 이름을 `tool`, `ToolRejection`, `registeredTools`로 바꾼다. 이 material로 앱을 까는 scenario(`tests/eval/scenarios/calendar/*`, `L4-new` 등)는 release 준비에서 blueprint 검사에 걸린다.
+
+영향: 이 material을 쓰는 eval experiment가 앱을 깔지 못해 돌지 않는다.
+
+고치려면:
+- 계획 `domain-rename`이 끝난 뒤 material을 새 판(`2/`)으로 다시 만든다(중간. 이름이 그 계획에서 한 번 더 바뀌므로 한 번에 한다). 추천.
+- 지금 `1/`을 새 이름으로 고친다(작음. `domain-rename` 뒤 다시 고쳐야 하고, 판을 고치면 옛 run과 비교가 틀린다).

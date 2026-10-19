@@ -79,3 +79,8 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**: 이미 만든 앱(개발 data)의 source는 옛 이름을 쓰므로 새로 만든다
+
+## lead가 더함
+
+- `dt-decl`이 `packages/sdk/app-ui/use-app-api.ts`의 `AppApiSpec`을 `{ key: string; label: string }` 로컬 type으로 바꿔 두었다. 계약대로 `ToolSpec = Pick<ToolDeclaration, "name" | "title">`로 되돌린다.
+- `tests/eval/materials/*`와 `tests/eval/registry/*`는 옛 이름을 쓰지만 이 task가 고치지 않는다(이슈 `project-docs/issues/eval.md`).

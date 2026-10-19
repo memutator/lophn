@@ -77,3 +77,8 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**: 앱 화면은 project 없이 열린다. 앱이 project에 묶이는 것은 `domain-place`다
+
+## lead가 더함
+
+- `packages/shell/main/app-frame/app-call.ts`에 file 안 `interface AppApiDeclaration`(17행 근처)이 남아 있다. `dt-decl`이 protocol의 같은 이름을 지웠다. 새 선언 모양(`name`, `title`, `effect`, `hasInput`)으로 바꾸며 이름도 `ToolDeclaration` 같은 것으로 바꾼다.
+- `packages/shell/main/desktop/wiring/app-views.ts`의 앱 전용 창 주석(196행 근처)이 "`/apps/blueprint`가 정한다. 아직 core 통로가 없어 unavailable"이라고 적혀 있다. 코드는 이미 `apps/app_api`를 읽는다. 주석을 지금 코드에 맞춘다.

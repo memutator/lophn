@@ -50,3 +50,8 @@ agent가 앱 tool을 받는 길을 새 선언 모양으로 다시 쓰고, agent 
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- `dt-decl`이 `app-api/input.ts`의 project 처리를 이미 지웠다(`appApiInput(schema)`, `input_test.ts` 삭제). `AppApiSource.place`는 `prepare.ts`가 넘겨서 "안 쓴다" 주석과 함께 남아 있다. 할 일 1·3·4대로 지운다.
+- `app.app_api_index`는 입력에 `app`이 있을 때만 tool 항목에 `inputSchema`(인자 없으면 `null`)와 `outputSchema`(선언했을 때만)를 싣는다. 전체 목록에서는 두 칸이 없다. agent tool `app.app_api`의 description(할 일 5)을 이 모양에 맞춘다.

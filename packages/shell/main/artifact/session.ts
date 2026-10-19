@@ -1,5 +1,6 @@
 // 봉한 artifact partition의 정책. 세 겹 장벽: scheme 안에서만 읽기(handleProtocol), 응답 CSP(serve.ts),
 // 죽은 proxy(전송 차단). CSP는 약속이고 죽은 proxy는 실제 차단이라, proxy가 안 먹으면 봉하지 못한 것으로 보고 던진다.
+// proxy는 loopback까지 거치게 해 두므로(electron-session.ts), proxy가 없으면 닿을 loopback 서버를 probe가 친다.
 export const ARTIFACT_SCHEME = "lophn-artifact";
 export const ARTIFACT_PARTITION = "persist:lophn-artifact";
 
@@ -11,8 +12,8 @@ export interface ArtifactSessionHandle {
   denyPermissions(): void;
   onDownload(listener: (event: { preventDefault(): void }) => void): void;
   setProxy(rules: string): Promise<void>;
-  /** 요청이 성공하면 true. */
-  probe(url: string): Promise<boolean>;
+  /** 이 session으로 닿을 loopback 서버를 쳐서, 응답이 오면(proxy가 안 먹으면) true. */
+  probe(): Promise<boolean>;
   handleProtocol(
     scheme: string,
     handler: (request: Request) => Promise<Response>,
@@ -27,7 +28,7 @@ export async function sealArtifactSession(
   handle.denyPermissions();
   handle.onDownload((event) => event.preventDefault());
   await handle.setProxy(DEAD_PROXY);
-  if (await handle.probe("https://127.0.0.1/")) {
+  if (await handle.probe()) {
     throw new Error("artifact partition could not be network-sealed");
   }
   handle.handleProtocol(ARTIFACT_SCHEME, serve);

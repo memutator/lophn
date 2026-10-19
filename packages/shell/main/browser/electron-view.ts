@@ -53,9 +53,10 @@ function hookBrowserContents(
   const id = contents.id;
   contents.setWindowOpenHandler(windowOpen);
 
-  // 입력 없이 mailto:로 OS 앱을 열지 못하게 fresh activation일 때만 넘긴다. main frame은
-  // will-navigate와 will-frame-navigate가 함께 올 수 있으므로 OS로 넘기는 일은 will-frame-navigate가 하지 않는다.
-  const guard = (handOff: boolean) => (event: NavigationEvent) => {
+  // 입력 없이 mailto:로 OS 앱을 열지 못하게 fresh activation일 때만 넘긴다. Electron 44에서 main frame은
+  // will-frame-navigate가 먼저 오고, 거기서 막으면 will-navigate는 오지 않는다. 그래서
+  // will-navigate는 듣지 않고 will-frame-navigate와 will-redirect에서 넘긴다(external은 main frame에만 선다).
+  const guard = (event: NavigationEvent) => {
     const decision = decideNavigation({
       url: event.url,
       isMainFrame: event.isMainFrame,
@@ -63,15 +64,13 @@ function hookBrowserContents(
     if (decision.allow) return;
     event.preventDefault();
     if (
-      handOff && event.isMainFrame && decision.external &&
-      hooks.activation.fresh(id)
+      event.isMainFrame && decision.external && hooks.activation.fresh(id)
     ) {
       hooks.openExternal(event.url);
     }
   };
-  contents.on("will-navigate", guard(true));
-  contents.on("will-redirect", guard(true));
-  contents.on("will-frame-navigate", guard(false));
+  contents.on("will-frame-navigate", guard);
+  contents.on("will-redirect", guard);
   contents.on("will-attach-webview", (event) => event.preventDefault());
 
   // before-input-event는 keyboard만 준다. mouse는 input-event로 듣는다.

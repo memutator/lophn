@@ -2,6 +2,7 @@
 // 통과한 test가 있어야 하고, 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { z } from "zod";
+import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   PackagePublishInput,
   PackageRegisterVersionInput,
@@ -32,6 +33,8 @@ type PublishDeps = {
   // 앱에 연결된 source 폴더(app.source_path). 연결 안 된 앱은 err다.
   sourceRootOf: (app: string) => Promise<Result<string>> | Result<string>;
   verification: AppTestVerificationLookup;
+  // 앱이 묶인 project. 앱이 없으면 null이다.
+  projectOf: (app: string) => string | null;
   prepareBlob: PrepareBlob;
   // machine 자격으로 package.register_version을 ledger command로 넣는다.
   registerVersion: (
@@ -111,6 +114,10 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     if (files.length === 0) {
       return invalid("package folder is missing or empty in the commit");
     }
+    const project = deps.projectOf(input.app);
+    if (project === null) {
+      return err({ code: "internal", message: "the app has no project" });
+    }
     const path = packageInstallPath(input.name, input.version);
     if (!path.ok) return path;
 
@@ -128,6 +135,7 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
       description: input.description,
       kind: null,
       version: input.version,
+      owner_project: project as Id<"prj">,
       permissions: input.permissions,
       bundle_hash: prepared.value.bundleHash,
       guide_hash: prepared.value.guideHash,

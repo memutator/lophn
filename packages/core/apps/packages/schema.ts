@@ -12,7 +12,8 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [{
       description TEXT NOT NULL CHECK (
         length(description) > 0 AND instr(description, char(10)) = 0
         AND instr(description, char(13)) = 0
-      )
+      ),
+      owner_project TEXT
     ) STRICT;
     CREATE INDEX packages_name ON packages (name);
     CREATE TRIGGER packages_no_delete BEFORE DELETE ON packages

@@ -109,6 +109,7 @@ function registered(
   packageId: string,
   name: string,
   description: string,
+  owner: Package["owner_project"],
   version: string,
 ): Result<{ package: Package; version: PackageVersion }> {
   const versions = loadVersions(tx.sql, packageId);
@@ -117,7 +118,13 @@ function registered(
     return err({ code: "internal", message: "registered version is missing" });
   }
   return ok({
-    package: { id: packageId, name, description, versions },
+    package: {
+      id: packageId,
+      name,
+      description,
+      owner_project: owner,
+      versions,
+    },
     version: published,
   });
 }
@@ -137,8 +144,8 @@ export function createSdkCommands(): {
           const id = tx.newId("pkg");
           const seq = emitRegistered(tx, id, input);
           tx.sql.run(
-            "INSERT INTO packages (id, name, description) VALUES (?, ?, ?)",
-            [id, input.name, input.description],
+            "INSERT INTO packages (id, name, description, owner_project) VALUES (?, ?, ?, ?)",
+            [id, input.name, input.description, input.owner_project],
           );
           insertVersion(tx, id, input);
           const guide = registerGuide(tx, input, seq);
@@ -148,11 +155,24 @@ export function createSdkCommands(): {
             id,
             input.name,
             input.description,
+            input.owner_project,
             input.version,
           );
         }
         const packageId = current["id"] as string;
         const description = current["description"] as string;
+        // 주인이 없는 옛 package는 지금 publish하는 project가 주인이 된다.
+        const owner = (current["owner_project"] as Package["owner_project"]) ??
+          input.owner_project;
+        if (owner !== input.owner_project) {
+          return forbidden("a package is versioned by its owner project");
+        }
+        if (current["owner_project"] === null) {
+          tx.sql.run("UPDATE packages SET owner_project = ? WHERE id = ?", [
+            owner,
+            packageId,
+          ]);
+        }
         const stored = loadStoredVersion(tx, packageId, input.version);
         if (stored !== undefined) {
           // 같은 name·version은 byte·guide hash·permission을 덮지 않는다. 모두 같으면
@@ -166,6 +186,7 @@ export function createSdkCommands(): {
             packageId,
             input.name,
             description,
+            owner,
             input.version,
           );
         }
@@ -179,6 +200,7 @@ export function createSdkCommands(): {
           packageId,
           input.name,
           description,
+          owner,
           input.version,
         );
       },

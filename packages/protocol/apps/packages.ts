@@ -38,6 +38,8 @@ export const packageSchema = z.object({
   }),
   // 새 package는 종류가 없다(null이나 없음). 옛 값만 남는다.
   kind: packageKindSchema.nullish(),
+  // 처음 publish한 앱의 project. 옛 값은 null이고 다음에 publish한 project가 주인이 된다.
+  owner_project: idSchema("prj").nullable(),
   versions: z.array(packageVersionSchema).min(1).refine(
     (values) =>
       new Set(values.map((value) => value.version)).size === values.length,

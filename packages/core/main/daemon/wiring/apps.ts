@@ -66,6 +66,7 @@ import {
 } from "../../../apps/routes.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { checkBlueprint } from "../../../apps/blueprint/check.ts";
+import { appProjectOf } from "../../../apps/lookups.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
 import {
@@ -319,6 +320,7 @@ export const appsWiring: WiringFactory = () => {
               dataRoot: ctx.root.path,
               sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
               verification: (id) => findAppTestVerification(link.sql, id),
+              projectOf: (app) => appProjectOf(link.sql, app),
               prepareBlob: (call) => ctx.blobRelay.prepare(call),
               registerVersion: async (input) => {
                 const key = `package-publish-${await sha256Hex(

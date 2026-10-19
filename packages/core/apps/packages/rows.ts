@@ -10,9 +10,11 @@ export function packageFromRow(
   const id = row["id"];
   const name = row["name"];
   const description = row["description"];
+  const owner = row["owner_project"];
   if (
     typeof id !== "string" || typeof name !== "string" ||
-    typeof description !== "string"
+    typeof description !== "string" ||
+    (owner !== null && typeof owner !== "string")
   ) {
     return err({ code: "internal", message: "invalid stored package" });
   }
@@ -23,6 +25,7 @@ export function packageFromRow(
     id,
     name,
     description,
+    owner_project: owner as Package["owner_project"],
     versions: [...versions],
   });
 }

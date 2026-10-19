@@ -19,6 +19,7 @@ import {
   TEXT_MAX_BYTES,
   type ToolDefinition,
 } from "../../lophn-agent/tools/spi.ts";
+import { projectList } from "../../../protocol/projects/mod.ts";
 import { z } from "zod";
 import { packagePublishInputSchema } from "../../../protocol/apps/package-routes.ts";
 import { sourceRelativePathSchema } from "../../../protocol/coding-agent/ticket/mod.ts";
@@ -47,23 +48,41 @@ function cutBytes(text: string): { text: string; truncated: boolean } {
   return { text: cut.replace(/\uFFFD$/, ""), truncated: true };
 }
 
+// 주인 project의 id와 이름. 주인이 없거나 project가 목록에 없으면 null이다.
+function ownerOf(
+  projects: readonly { id: string; name: string }[],
+  id: string | null,
+): { id: string; name: string } | null {
+  const found = projects.find((item) => item.id === id);
+  return found === undefined ? null : { id: found.id, name: found.name };
+}
+
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "package.list",
     input: none,
-    routes: [packagesList, packagesBuiltin],
+    routes: [packagesList, packagesBuiltin, projectList],
     description:
-      "List the SDK built into lophn and the user packages (@me) with their versions.",
+      "List the SDK built into lophn and the user packages (@me) with their versions and owner project. Owner project: report problems of a package to its Project Manager.",
     effect: "read",
     handler: async (_input, ctx) => {
       const read = await readOf(ctx.core, packagesList, {});
       if (!read.ok) return read;
       const builtin = await readOf(ctx.core, packagesBuiltin, {});
       if (!builtin.ok) return builtin;
+      const projects = await readOf(ctx.core, projectList, {});
+      if (!projects.ok) return projects;
       const { body, more } = readBody(read.value);
       return ok(fitted(
         countSummary("packages", body.packages.length, more),
-        { ...body, builtin: builtin.value.packages },
+        {
+          ...body,
+          packages: body.packages.map((pkg) => ({
+            ...pkg,
+            owner_project: ownerOf(projects.value.projects, pkg.owner_project),
+          })),
+          builtin: builtin.value.packages,
+        },
         ["packages"],
       ));
     },
@@ -79,9 +98,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       packagesUsage,
       packagesGuideBody,
       packagesBuiltin,
+      projectList,
     ],
     description:
-      "Read one package: its guide (purpose, API and types, examples), required permissions and the apps that use the version. Without version the newest one. Built-in SDK names start with @lophn/.",
+      "Read one package: its guide (purpose, API and types, examples), required permissions, owner project and the apps that use the version. Without version the newest one. Built-in SDK names start with @lophn/. Owner project: report problems of a package to its Project Manager.",
     effect: "read",
     handler: async (input, ctx) => {
       const { name, version } = input;
@@ -111,6 +131,8 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
         ? [...all].sort((a, b) => newer(a.version, b.version)).at(-1)
         : all.find((entry) => entry.version === version);
       if (chosen === undefined) return notFound("package version not found");
+      const projects = await readOf(ctx.core, projectList, {});
+      if (!projects.ok) return projects;
       const usage = await readOf(ctx.core, packagesUsage, {
         name,
         version: chosen.version,
@@ -131,6 +153,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`package ${name}@${chosen.version}`, {
         name,
         version: chosen.version,
+        owner_project: ownerOf(
+          projects.value.projects,
+          versions.value.owner_project,
+        ),
         permissions: chosen.permissions ?? [],
         other_versions: all.map((entry) => entry.version),
         used_by: usage.value.usages,

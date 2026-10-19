@@ -126,6 +126,7 @@ export function createSdkReads(): {
         }
         return ok({
           name: input.name,
+          owner_project: pkg.value.owner_project,
           versions: pkg.value.versions,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

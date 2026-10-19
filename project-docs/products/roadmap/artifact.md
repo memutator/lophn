@@ -1,7 +1,7 @@
 # artifact: 남은 일
 
 상태: 로드맵. 계획 `artifact`가 artifact model, artifact 탭, prompt 목록과 대화 link, 내장 guide, artifact annotation을 land했다. 흐름과 지키는 것은 `project-docs/architecture/artifact.md`다. 남은 것은 아래뿐이다.
-배경 문서: `project-docs/architecture/artifact.md`, `project-docs/products/roadmap/domain.md`("view와 artifact").
+배경 문서: `project-docs/architecture/artifact.md`, `project-docs/products/roadmap/domain.md`("artifact").
 
 ## 남은 일
 
@@ -18,4 +18,4 @@
 - **artifact 공유, 내보내기, 판 기록.** 파일 rewind가 있다. 사람이 lophn 밖에서 봐야 하면 [폴더 열기]나 내보내기를 그때 붙인다.
 - **외부 library와 CDN.**
 - **대화 안에 artifact를 live로 끼워 그리기.** link로 탭을 연다.
-- **tool을 부르는 view.** 앱 화면의 일이다(`domain.md`).
+- **tool을 부르는 화면.** 앱의 일이다(`domain.md`).

@@ -2,7 +2,7 @@
 
 상태: 로드맵. 2026-10-19 사람과 planner가 방향을 정했고, 사람이 정할 것은 모두 정했다.
 배경 문서: `project-docs/PRODUCT.md` 2절(사용자의 도메인과 lophn의 도메인)·3절(책임 분배), `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/app-call.md`, `project-docs/issues/contexts.md`.
-이 문서에 걸린 roadmap: `artifact.md`(view의 정적 끝), `app-preview.md`(tool과 view를 fixture로 돌려 보기). 둘은 이 문서의 단계에 맞춰 다시 쓴다.
+이 문서에 걸린 roadmap: `artifact.md`(agent가 쓴 결과 문서), `app-preview.md`(만드는 중인 앱을 fixture로 돌려 보기). 둘은 이 문서의 단계에 맞춰 다시 쓴다.
 
 ## 왜
 
@@ -130,16 +130,17 @@ project와 domain은 다른 것이고 **N:M**이다. DDD에서 저장소와 boun
   - `LOPHN.md`는 그 project에서 일하는 누구나 읽는 project 지침으로 남는다. 이 저장소의 `AGENTS.md`와 `.claude/skills/eval-*`의 관계와 같다.
 - **연결을 누가 정하나:** 사람이다. domain을 project에 이으면 그 domain agent가 그 폴더를 읽고 쓰게 되므로 권한 결정이다. lophn과 Domain Engineer는 제안만 한다.
 
-domain 하나는 여섯 가지를 가진다.
+domain 하나는 아래를 가진다.
 
 | 층 | 무엇 | 지금 어디 있나 |
 |---|---|---|
 | 재료 | 파일(등록한 폴더)과 구조화된 저장소(sqlite) | project 폴더, 앱 data |
 | tool | 재료를 읽고 쓰는 결정적 program. 출처는 내장, package, domain 셋이다 | app-api 구현, context search·check |
 | interface | tool 가운데 공개한 것과 그 선언. 모양은 MCP tool이고, 바깥 client에는 core가 MCP로 내놓는다 | blueprint, `app-tools.ts`, grant |
-| view | HTML. data 파일만 그리는 것부터 tool을 부르는 것까지 한 종류이고, capability만 다르다 | 앱 화면, artifact(roadmap) |
+| 앱 | domain의 software. 화면, domain tool, data를 갖고 release를 거친다. 사람이 열어 쓰고 agent는 그 tool을 부른다 | 지금 앱 |
+| artifact | agent가 파일로 쓴 결과 문서(HTML과 data 파일). 앱이 아니라 결과다 | 계획 `artifact` |
 | 글 | 뜻, 쓰는 법, program이 검사하지 못하는 규칙. agent가 읽는다 | `LOPHN.md`, context glossary |
-| skill | domain 안의 일 하나의 절차. tool, 글, view를 엮는다. domain 책임의 하위 단위가 될 수 있다 | project 층 skill 폴더, Operator 정의의 `skills_off` |
+| skill | domain 안의 일 하나의 절차. tool, 글, 앱, artifact를 엮는다. domain 책임의 하위 단위가 될 수 있다 | project 층 skill 폴더, Operator 정의의 `skills_off` |
 
 tool은 출처가 셋이다.
 - **내장 tool:** lophn이 모든 domain에 준다. item 목록과 조회(조건, 정렬, 집계), 형식 검사다. domain은 kind 파일(`kinds.yaml`)만 적는다. 코드도 process도 release도 없다(아래 "재료 schema"와 "내장 tool").
@@ -153,7 +154,7 @@ tool은 출처가 셋이다.
 - 내장 tool: `list`(예: 2026년 2월 카드 영수증), `check`
 - domain tool: `deductible_total(year)`. 카드와 현금을 나누고 공제 한도를 적용하는 그 사람의 세금 규칙이다
 - 공개: `deductible_total`
-- view: 처음에는 `artifacts/spending/`(정적)이다. 자주 보면 `deductible_total`을 부르는 앱 화면으로 키운다.
+- artifact: `artifacts/spending/`(지출 그래프). 사람이 매일 쓰는 화면이 필요해지면 그것은 Domain Engineer가 ticket으로 만드는 앱이다.
 - 글: "공제"의 뜻, "10만 원 넘는 지출에는 영수증이 있어야 한다"는 규칙
 - 쓰는 다른 domain: 가계 domain의 공개 `expenses.list`. 세금 domain은 가계 domain의 다른 것을 모른다.
 - skill:
@@ -228,7 +229,7 @@ kinds:
   - Domain Engineer가 `file.write`로 고친다. 고친 것은 rewind된다.
   - 파일이 바뀌면 program이 검사한다. 맞으면 바로 그것을 쓴다. 틀리면(잘못된 glob, 없는 `ref` 대상, 두 kind가 겹치는 glob) problem을 올리고 앞의 맞던 kind 파일을 계속 쓴다.
   - 근거: 판(draft, test, submit)이 하던 일은 검사와 되돌리기다. 검사는 바뀔 때 program이 하고, 되돌리기는 rewind가 한다. 문서만 있는 domain을 코드 release 장치에 묶지 않는다(AGENTS.md "속도").
-- **manifest(tool, view, permission, 의존 package)는 domain의 source 폴더에 두고 release를 거친다.** 지금 앱의 blueprint와 source 폴더 자리다. coding agent가 같은 폴더에 domain tool 코드를 쓴다.
+- **manifest(tool, 화면, permission, 의존 package)는 domain의 source 폴더에 두고 release를 거친다.** 지금 앱의 blueprint와 source 폴더 자리다. coding agent가 같은 폴더에 domain tool 코드를 쓴다.
 
 파싱과 indexing은 program이 한다. agent는 파싱하지 않는다.
 
@@ -290,7 +291,7 @@ list {
 - `skipped`를 꼭 돌려준다. 빠진 것을 모르면 agent가 결과를 전부로 믿는다.
 - relation은 두 번 부른다. 예: "Blue Bottle 영수증"은 먼저 `list vendor where name = Blue Bottle`로 key를 얻고, 그 key로 `list receipt where vendor = <key>`를 부른다.
 - query 엔진은 lophn 코드라 한 번 test해 두면 된다. domain마다 search example을 쓰지 않는다.
-- 잃는 것은 사람이 쓰던 search tab(입력 form)과 board, relation을 따라가는 한 번짜리 query다. 사람이 보고 싶으면 view로 만든다.
+- 잃는 것은 사람이 쓰던 search tab(입력 form)과 board, relation을 따라가는 한 번짜리 query다. 사람이 보고 싶으면 artifact나 앱으로 만든다.
 
 **`check`:** 그 domain의 형식 검사를 지금 돌려 위반 목록을 돌려준다. watch와 release가 쓰는 것과 같은 검사다.
 
@@ -302,26 +303,18 @@ list {
 - **pdf의 목차는 program이 뽑지 않는다.** 사람이 청하면 agent가 목차 md를 옆에 쓴다(PRODUCT 3절의 예와 같다). 그 md에 `file.outline`을 쓴다.
 - **절을 item으로 다뤄야 하면 domain tool로 짠다.** 예: 규정 문서의 조항마다 칸을 붙여 조회하는 경우다.
 
-### view와 artifact
+### artifact
 
-- **artifact는 kind가 아니라 view다.** kind는 그 domain의 사실(영수증)이고 program이 파싱하고 검사한다. view는 그것을 사람에게 보이는 방법이다.
+- **artifact는 kind도 앱도 아니다.** kind는 그 domain의 사실(영수증)이고 program이 파싱하고 검사한다. 앱은 domain의 software다(화면, tool, data, release). artifact는 agent가 파일로 쓴 결과 문서다.
 - **artifact 하나는 둘로 나뉜다.**
 
   | 부분 | 층 |
   |---|---|
-  | `artifacts/<이름>/index.html`(template) | view |
+  | `artifacts/<이름>/index.html`(template) | 결과 문서 |
   | `artifacts/<이름>/data/*.json` | 재료. 보통 agent가 tool(예: `list`의 집계)을 불러 만든다 |
 
 - **data 파일은 기본으로 kind가 아니다.** template이 기대하는 모양이 자주 깨지면, 그때 Domain Engineer가 `data/*.json`을 kind로 선언해 program이 검사하게 한다.
-- **view의 두 끝**
-
-  | | 정적 view(artifact) | 앱 화면 |
-  |---|---|---|
-  | 무엇 | data 파일만 그린다 | bridge로 tool을 부른다 |
-  | 누가 쓰나 | role agent가 파일로 직접 쓴다 | coding agent가 짠다 |
-  | release | 거치지 않는다. 파일이라 rewind된다 | manifest에 선언하고 release를 거친다. tool의 판과 함께 움직이는 코드이기 때문이다 |
-  | 지금 무엇 | artifact roadmap | 앱 화면 |
-
+- **앱과 다르다.** artifact는 role agent가 파일로 쓰고 release를 거치지 않는다(rewind로 되돌린다). 앱은 coding agent가 짜고 release를 거친다. 같은 내용을 사람이 매일 쓰는 화면으로 만들어야 하면 Domain Engineer가 ticket으로 앱을 만든다. artifact와 앱을 한 장치로 합치지 않는다.
 - **자리:** lophn의 자리 `<data>/domains/<domain>/artifacts/<이름>/`이다("폴더"). 사람의 폴더가 없는 domain도 artifact를 둘 수 있다.
 - **찾는 법:** artifact는 `artifacts/*/index.html` 관례 자리로 찾는다. 그래서 program이 domain의 artifact 목록을 결정적으로 만든다. 무엇을 보이는 artifact인지는 domain 글에 적는다.
 - **artifact 전용 tool을 두지 않는다.** `artifact.show`(대화 card)도 `artifact.publish`(만들기)도 두지 않는다.
@@ -399,7 +392,7 @@ core는 domain이 무슨 뜻인지 모른다. 아래 모양으로 들어온 것�
 | `rules` 6종 | 칸의 속성이 된다: 필수, 값 type, 허용 값, key 유일, 참조 있음, pattern. `count_range`는 지운다 | 따로 rule 목록과 id를 두지 않는다 |
 | type·field `visibility` | 지운다 | 다른 domain은 재료를 보지 않고 공개 tool만 쓴다 |
 | 선언한 `searches` | 대부분 내장 `list`(부를 때 조건, 정렬)가 된다. 그 domain만의 계산이 든 것만 domain tool로 짠다 | 미리 선언하고 example까지 쓰던 일이 사라진다 |
-| result view(`table`, `board`) | 사람이 보고 싶으면 view로 만든다 | view 층의 일이다 |
+| result view(`table`, `board`) | 사람이 보고 싶으면 artifact나 앱으로 만든다 | |
 | `saved_views` | 지운다. 자주 보는 것은 view나 skill로 둔다 | |
 | bundle `examples` | kind schema는 지금 파일로 형식 검사를 한다. domain tool은 호출 예시와 기대값으로 check한다 | |
 | `glossary` | domain 글(`LOPHN.md`) | 글은 agent가 읽는다 |
@@ -431,7 +424,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 | role | 몇 | 하는 일 |
 |---|---|---|
 | lophn | 전체에 하나 | 경계를 넘는 판단을 한다: 새 domain, 나누기와 합치기의 제안, 재사용, package로 빼기. domain들의 **지도**(이름, 목적, 공개 tool, 설치한 package, 사용 관계)만 본다. 그 밖에 안내(L6)와 상태 확인(L7)을 한다 |
-| Domain Engineer | domain마다 하나 | 사람 옆에서 domain을 모델링한다. 글과 manifest를 쓰고, tool과 view를 기획하고, ticket을 coding agent에게 맡기고, check와 problem에 대응한다. 코드는 짜지 않는다. 지금의 PM과 App Engineer를 합친 자리다 |
+| Domain Engineer | domain마다 하나 | 사람 옆에서 domain을 모델링한다. 글과 manifest를 쓰고, tool과 앱 화면을 기획하고, ticket을 coding agent에게 맡기고, check와 problem에 대응한다. 코드는 짜지 않는다. 지금의 PM과 App Engineer를 합친 자리다 |
 | Operator | domain마다 여럿 | domain 안에서 tool로 일상 업무를 한다. 맡을 일을 skill로 좁힐 수 있다. 범위는 사람이 grant로 정한다 |
 | coding agent | ticket마다 | 바깥 harness다. domain tool과 앱 화면 코드를 짠다 |
 
@@ -461,12 +454,12 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 - core는 관측과 test 같은 것을 자기가 아는 형식으로 받아 처리한다. 앱과 context가 하던 일을 한 가지 모양으로 합친다.
 - lophn agent는 FDE 같은 자리다. domain 안의 일은 domain마다 하나인 Domain Engineer가 한다.
 - skill은 정형화하지 않은 agent용 지침이다. program이 파싱하지 않고, 판단이 필요하면 Domain Engineer에게 맡긴다.
-- 앱 place를 두지 않는다. place는 domain 하나다. 여러 domain이 다시 쓰는 것은 data 없는 package(view template과 tool 코드)이고, 어느 domain과도 상관없는 앱은 작은 domain 하나다. 앱 place를 두면 쓰는 domain의 data가 앱 저장소에 쌓여 경계를 core가 지키지 못한다.
+- 앱 place를 두지 않는다. place는 domain 하나다. 여러 domain이 다시 쓰는 것은 data 없는 package(화면 template과 tool 코드)이고, 어느 domain과도 상관없는 앱은 작은 domain 하나다. 앱 place를 두면 쓰는 domain의 data가 앱 저장소에 쌓여 경계를 core가 지키지 못한다.
 - artifact는 lophn의 자리(`<data>/domains/<domain>/artifacts/`)에 둔다.
 - 사람의 폴더가 없는 domain(folder 0개)도 등록할 수 있다. 앱 data만 있는 domain을 위한 것이다(2026-10-19). project와 domain을 나눈 뒤에는 "project에 잇지 않은 domain"이다.
 - project와 domain은 다른 것이고 N:M이다(2026-10-19). project는 폴더·창·terminal·coding agent의 자리이고, domain은 agent·kind·앱·skill·artifact·grant가 붙는 책임 경계다. 둘은 연결 하나로 잇고, domain마다 재료 path 목록은 두지 않는다("project와 domain").
 - 화면 말: domain은 "Domain", role은 "Domain Engineer", project는 "Project", 앱은 "App" 그대로다.
-- role agent가 정적 view(HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, 앱 화면)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
+- role agent가 artifact(정적 HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, 앱 화면)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
 - 경계를 넘는 판단(경계 자르기, 재사용, export)은 lophn이 한다. 따로 Architect role을 두지 않는다.
 - Operator의 skill을 domain이 다룬다. 책임의 기본 단위는 domain 경계이고, skill은 그 하위 단위가 될 수 있다.
 
@@ -507,7 +500,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 | `domain-split` | 지금 project entity를 domain으로 바꾸고, 가벼운 project를 새로 두고, 둘을 N:M으로 잇는다. `project_manager`를 Domain Engineer로 바꾼다. 문서를 모은다(2026-10-19 "project와 domain"에 따라 `domain-rename`을 바꿈) | 넷이 land한 뒤 |
 
 - e2e는 이 다섯 계획에서 돌리지도 고치지도 않는다. land는 `LOPHN_LAND_SKIP_E2E=1`로 돈다. 지운 기능의 e2e file은 그 기능을 지우는 task가 지운다. 나머지는 `domain-split` 뒤 따로 다시 쓴다.
-- 앱 화면과 artifact를 한 view 모양으로 합치고 artifact를 앱 화면으로 키우는 길은 필요해지면 연다. tool을 부르는 view는 지금의 앱 화면이고, "앱 화면"라는 말은 쓰지 않는다(앱 view의 live·preview mode와 헷갈린다).
+- 앱과 artifact를 한 장치로 합치지 않는다. 앱은 앱이고, artifact는 agent가 쓴 결과 문서다(2026-10-19 사람). "live view"라는 말은 쓰지 않는다.
 
 test(AGENTS.md "속도", `write-test` skill):
 - agent의 file 범위가 자기 domain의 재료 밖으로 나가지 않는다. 다른 domain의 비공개 tool이 agent tool 목록과 MCP `tools/list`에 나오지 않는다. 권한 경계다.
@@ -517,7 +510,7 @@ test(AGENTS.md "속도", `write-test` skill):
 계획 끝에 고칠 것:
 - `project-docs/architecture/domain.md`를 새로 쓴다.
 - `architecture/place-session.md`, `app-call.md`, `agent-definition.md`, `annotation.md`를 고친다.
-- PRODUCT 2절, 3절(정적 view를 role agent가 쓴다), 6절과 AGENT-ROLE 전체(role 표, L, A, C, O 줄)를 고친다.
+- PRODUCT 2절, 3절(artifact를 role agent가 쓴다), 6절과 AGENT-ROLE 전체(role 표, L, A, C, O 줄)를 고친다.
 - `boundary-catalog.yaml`(`projects`, `contexts`, `apps` 경계)과 `module-catalog.yaml`을 고친다.
 - `issues/contexts.md`를 닫는다.
 

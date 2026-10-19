@@ -49,6 +49,7 @@
   - `grep -rnE 'kind: "project"' packages/core packages/protocol packages/coding-agent packages/sdk`가 0줄이다(Place는 `domain`).
   - 옛 data 경로: `grep -rnE '"projects"|/projects/|projectsDataArea' packages tools tests --include=*.ts --include=*.tsx`는 새 project 등록(`resource: "projects"`)과 project 창 쪽만 남는다. 줄마다 뜻을 보고한다.
   - `app_api` 계열: `grep -rnE "app_api|appApi|app-api|app_apis|AppApi|APP_API|app__|context_binding" packages tools tests`
+  - 연결 표 흔적: `grep -rnE "domain_projects|link_project|linkProject" packages tools tests`
   - 중복 정의: `grep -rnE "domainList|domainGet" packages`는 `domainApi` 정의 안뿐이다.
   - `grep -rn "TODO\|FIXME" packages tools`는 이 계획 이전 것 말고 없다.
 

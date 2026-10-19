@@ -7,7 +7,6 @@ lead만 고친다. `tools/status.py domain-split build`가 `tasks/*.md`에서 id
 | `ds-wireframe-drafts` | drafts | 1 | 없음 | todo |  |  |  |
 | `ds-rename` | rename | 1 | 없음 | todo |  |  |  |
 | `ds-project-registry` | registry | 2 | ds-rename | todo |  |  |  |
-| `ds-kinds-projects` | kinds | 3 | ds-project-registry | todo |  |  |  |
 | `ds-scope` | scope | 3 | ds-project-registry | todo |  |  |  |
 | `ds-shell-agents` | shell | 3 | ds-project-registry | todo |  |  |  |
 | `ds-shell-launcher` | shell | 3 | ds-project-registry | todo |  |  |  |

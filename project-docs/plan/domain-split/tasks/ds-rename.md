@@ -1,6 +1,6 @@
 # ds-rename
 
-지금 `project` entity(책임 경계를 이룬 것: 폴더, kind 파일, 앱, PM, Operator, skill, artifact, grant, 문제)의 이름을 저장소 전체에서 한 번에 `domain`으로 바꾼다. id `prj_` → `dom_`, Place `{kind:"project"}` → `{kind:"domain"}`, role `project_manager` → `domain_engineer`("Domain Engineer"), lophn 자리 `<data>/projects/<prj>/` → `<data>/domains/<dom>/`, 이 이름을 단 module·file·표·route·wording을 모두 바꾼다. 동작은 바꾸지 않는다. 이 task가 끝난 상태("R")에서 domain은 아직 폴더를 가진다. 가벼운 새 `project`와 N:M 연결은 다음 wave(`ds-project-registry`)가 만든다.
+지금 `project` entity(책임 경계를 이룬 것: 폴더, kind 파일, 앱, PM, Operator, skill, artifact, grant, 문제)의 이름을 저장소 전체에서 한 번에 `domain`으로 바꾼다. id `prj_` → `dom_`, Place `{kind:"project"}` → `{kind:"domain"}`, role `project_manager` → `domain_engineer`("Domain Engineer"), lophn 자리 `<data>/projects/<prj>/` → `<data>/domains/<dom>/`, 이 이름을 단 module·file·표·route·wording을 모두 바꾼다. 동작은 바꾸지 않는다. 이 task가 끝난 상태("R")에서 domain은 아직 폴더를 가진다. 가벼운 새 `project`와 domain의 필수 `project` 칸(1:N)은 다음 wave(`ds-project-registry`)가 만든다.
 
 **나누는 방식(이 계획의 첫 brief라 여기에 정한다): 계약 먼저 + 영역별 task가 아니라 codemod task 하나다.**
 - 이유 1: 바뀌는 이름이 계약 자체다. `Place["kind"]`는 zod literal이고(`packages/protocol/lophn-agent/places.ts`), role 표(`ROLES`)·`agentRefSchema`·id 접두(`idSchema("prj")`)·표 column(`sessions.project`, `apps.project`)·route resource(`projects`)가 모두 이름 하나다. 옛것과 새것을 나란히 둘 수 없다(호환 장치 금지). 영역마다 따로 바꾸면 어느 branch도 혼자서는 `check:full`을 통과하지 못해 merge할 수 없다.

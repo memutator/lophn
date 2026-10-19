@@ -19,8 +19,8 @@
   - wave 1
     - `ds-rename`: codemod다. 옛 project entity를 domain으로 바꾼다(id `dom_`, Place, role `domain_engineer`, `<data>/domains/`, 표, route, module 자리). 약 600 file이다.
     - `ds-wireframe-drafts`: 사람이 고를 화면 Drafts
-  - wave 2: `ds-project-registry`. 가벼운 project registry와 domain의 project 칸(필수). domain을 만들 때 사람이 project를 고른다.
-  - wave 3: `ds-scope`, `ds-kinds-projects`, `ds-shell-launcher`, `ds-shell-agents`
+  - wave 2: `ds-project-registry`. 가벼운 project registry와 domain의 project 칸(필수). domain을 만들 때 사람이 project를 고른다. kind root는 domain의 project 폴더에서 온다(따로 task 없음).
+  - wave 3: `ds-scope`, `ds-shell-launcher`, `ds-shell-agents`
   - wave 4: `ds-shell-window`, `ds-coding-location`, `ds-tool-rename`
   - wave 5: `ds-leftover`
   - **land:** wave 1(순수 이름 바꾸기) 뒤에 한 번 land한다. wave 2~5는 같이 land한다. `ds-shell-window`가 merge되기 전에는 shell 화면이 반만 옮겨진 상태이기 때문이다.

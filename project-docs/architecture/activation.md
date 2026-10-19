@@ -31,6 +31,7 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 
 계기와 묻는 조건
 - 계기는 ticket 확인됨이고 release 준비만으로는 시작하지 않는다. Project Manager가 검증하기 전의 것을 운영에 올리지 않으려는 것이다.
+- app test가 되돌리기를 증명하지 못한 write tool(만든 입력의 호출이 실패함)은 activation을 막지 않는다. examples ticket이면 examples run이 남은 것을 앱 problem으로 알린다(`coding-agent.md`). 막으면 앞선 상태가 있어야 하는 tool을 가진 정상 앱이 올라가지 못한다.
 - 계기가 domain event라서 꺼졌다 켜져도 Reactor가 이어 간다. handler는 다시 불려도 안전하다. 이은 release가 prepared가 아니면 아무것도 하지 않는다.
 - 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 app-api 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 app-api가 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.

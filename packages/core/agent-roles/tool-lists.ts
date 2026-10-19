@@ -38,6 +38,8 @@ const READ_TOOLS = [
   "release.get",
   "kind.list",
   "kind.check",
+  "domain.list",
+  "domain.get",
   "guide.read",
   "settings.get",
   "visual.show",
@@ -46,7 +48,7 @@ const READ_TOOLS = [
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-// 모든 앱의 app-api 목록은 lophn과 Project Manager로만 좁혔다(앱 연결을 옮기는 동안의 임시).
+// 모든 앱의 app-api 목록은 사람이 lophn과 App Engineer로만 좁혔다.
 const APP_API_TOOLS = ["app.app_api"] as const;
 
 const ROLE_WRITE_TOOLS = {
@@ -61,19 +63,13 @@ const ROLE_WRITE_TOOLS = {
     "package.publish",
     "operator.create",
     "operator.update",
+    "domain.create",
   ],
   operator: [],
-  // 앱 연결을 옮기는 동안의 임시다. App Engineer와 같은 목록이다.
   project_manager: [
-    "ticket.create",
-    "ticket.update",
-    "ticket.verify",
-    "ticket.cancel",
-    "problem.set_state",
-    "app.link_source",
-    "package.publish",
     "operator.create",
     "operator.update",
+    "domain.create",
   ],
 } as const satisfies Record<Role, readonly string[]>;
 
@@ -84,7 +80,7 @@ export function builtinToolNames(role: Role): readonly string[] {
     ...COMMON_TOOLS,
     ...READ_TOOLS,
     ...(role === "lophn" ? LOPHN_ONLY_READ_TOOLS : WORK_TOOLS),
-    ...(role === "lophn" || role === "project_manager" ? APP_API_TOOLS : []),
+    ...(role === "lophn" || role === "app_engineer" ? APP_API_TOOLS : []),
     ...ROLE_WRITE_TOOLS[role],
   ];
 }
@@ -121,6 +117,9 @@ export const TOOL_ORDER = [
   "app.list",
   "app.get",
   "app.app_api",
+  "domain.list",
+  "domain.get",
+  "domain.create",
   "app.create",
   "app.link_source",
   "blueprint.check",

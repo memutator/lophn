@@ -1,6 +1,7 @@
 import { TOOL_ORDER } from "../agent-roles/tool-lists.ts";
 import { ROLE_AGENT_TOOLS } from "../agent-roles/tools/mod.ts";
 import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
+import { DOMAIN_AGENT_TOOLS } from "../domains/agent-tools.ts";
 import { PROBLEMS_AGENT_TOOLS } from "../problems/agent-tools.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
 import { CALL_TOOLS } from "../lophn-agent/tools/bundles/call.ts";
@@ -26,6 +27,7 @@ export function agentTools(
     ...WEB_TOOLS,
     ...APPS_AGENT_TOOLS,
     ...PROBLEMS_AGENT_TOOLS,
+    ...DOMAIN_AGENT_TOOLS,
     ...ROLE_AGENT_TOOLS,
     ...CALL_TOOLS,
     ...ASK_TOOLS,

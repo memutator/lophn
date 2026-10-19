@@ -7,6 +7,7 @@ import {
   type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { appList } from "../../../protocol/apps/mod.ts";
+import { domainList, domainNameSchema } from "../../../protocol/domains/mod.ts";
 import { projectList } from "../../../protocol/projects/mod.ts";
 import { settingsEditIntent } from "../../lophn-agent/tool-judgment/intents.ts";
 import { operatorPlaceAllowed } from "./operator-place.ts";
@@ -39,6 +40,30 @@ const operatorPlace = z.union([
   z.strictObject({ project: nonblank }),
   z.strictObject({ app: nonblank }),
 ]);
+
+// 입력의 domain은 이름이다. 정의에는 id로 쓰므로 그 place 그릇의 domain에서 찾아 바꾼다.
+const domainNames = z.array(domainNameSchema);
+
+async function domainIdsOf(
+  names: readonly string[],
+  place: Place,
+  ctx: ToolContext,
+): Promise<Result<string[]>> {
+  const read = await readOf(ctx.core, domainList, {
+    owner: place as never,
+    status: "active",
+  });
+  if (!read.ok) return read;
+  const ids: string[] = [];
+  for (const name of names) {
+    const found = read.value.domains.find((domain) => domain.name === name);
+    if (found === undefined) {
+      return invalid(`domain ${name} is not in this ${place.kind}`);
+    }
+    ids.push(found.id);
+  }
+  return ok(ids);
+}
 
 // 설정 고치기라 실행 전에 Gate에 묻는다. grant는 입력에 없고 사람이 정한다.
 function gateFor(id: string | null, ctx: ToolContext): GateRequest {
@@ -95,18 +120,25 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
     input: operatorDefinition.extend({
       place: operatorPlace,
       name: agentNameSchema,
+      domains: domainNames.optional(),
     }).strict(),
-    routes: [projectList, appList, operatorCreate],
+    routes: [projectList, appList, domainList, operatorCreate],
     description:
-      "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills, mcp_off and instructions (body). Its grants are given by the person.",
+      "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills, domains (names of the domains in your place), mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
     gate: (input, ctx) => gateFor(input.name, ctx),
     handler: async (input, ctx) => {
-      const { place, ...definition } = input;
+      const { place, domains, ...rest } = input;
       const target = await resolvePlace(place, ctx);
       if (!target.ok) return target;
       if (!operatorPlaceAllowed(ctx.role, ctx.place, target.value)) {
         return forbidden("an Operator of another place");
+      }
+      const definition = { ...rest } as typeof rest & { domains?: string[] };
+      if (domains !== undefined) {
+        const ids = await domainIdsOf(domains, target.value, ctx);
+        if (!ids.ok) return ids;
+        definition.domains = ids.value;
       }
       const made = await commandOf(
         ctx.core,
@@ -123,14 +155,20 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
     name: "operator.update",
     input: operatorDefinition.partial().extend({
       operator: agentNameSchema,
+      domains: domainNames.optional(),
     }).strict(),
-    routes: [agentDefinitionList, agentDefinitionRead, operatorChange],
+    routes: [
+      agentDefinitionList,
+      agentDefinitionRead,
+      domainList,
+      operatorChange,
+    ],
     description:
       "Change an Operator of your own place by its name. Only the fields you send change.",
     effect: "write",
     gate: (input, ctx) => gateFor(input.operator, ctx),
     handler: async (input, ctx) => {
-      const { operator, ...patch } = input;
+      const { operator, domains, ...rest } = input;
       if (ctx.place === null) return forbidden("an Operator of another place");
       const listed = await readOf(ctx.core, agentDefinitionList, {
         place: ctx.place,
@@ -154,6 +192,12 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
         row.agent.role !== "operator" || definition === null || hash === null
       ) {
         return invalid("the Operator file is broken");
+      }
+      const patch = { ...rest } as typeof rest & { domains?: string[] };
+      if (domains !== undefined) {
+        const ids = await domainIdsOf(domains, row.place, ctx);
+        if (!ids.ok) return ids;
+        patch.domains = ids.value;
       }
       const changed = await commandOf(
         ctx.core,

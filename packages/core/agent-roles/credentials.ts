@@ -7,6 +7,7 @@ import {
   stageRewindFile,
 } from "../../protocol/lophn-agent/mod.ts";
 import { kindGet, projectApi } from "../../protocol/projects/mod.ts";
+import { domainGet, domainList } from "../../protocol/domains/mod.ts";
 import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
@@ -29,6 +30,8 @@ import { builtinToolNames } from "./tool-lists.ts";
 // `place/place-data.ts`가 읽는 route와 같아야 한다.
 const PLACE_READS: readonly string[] = [
   kindGet.name,
+  domainList.name,
+  domainGet.name,
   projectApi.get.name,
   projectApi.list.name,
   appGet.name,
@@ -80,19 +83,16 @@ export function roleOperations(
   ];
 }
 
-// agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나를 `app` 조건으로 고정한다.
-// project place의 PM과 Operator는 그 project를
-// `project` 조건으로 고정한다. PM은 그 project의 앱(있으면)도 `app` 조건으로 고정한다: 티켓·문제·annotation·
-// package·source 연결의 담당 앱은 이 조건이 정하고, 다른 앱의 자료는 요청 범위 밖이라 없는 자료와 같은 답이다.
-// 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
+// agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
+// `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
+// 같은 답이다. project place의 PM과 Operator는 그 project를 `project` 조건으로 고정한다. 앱 place의 Operator와
+// lophn은 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
 export function agentConditions(input: {
   session: string;
   turn: string;
   process: string;
   role: string;
   place: { kind: string; id: string } | null;
-  // 그 project의 앱 id. wiring이 turn마다 읽어 넣는다
-  app?: string | null;
 }): {
   session: string;
   turn: string;
@@ -111,14 +111,6 @@ export function agentConditions(input: {
   if (
     (input.role === "project_manager" || input.role === "operator") &&
     input.place?.kind === "project"
-  ) {
-    return {
-      ...base,
-      project: input.place.id,
-      ...(input.role === "project_manager" && input.app
-        ? { app: input.app }
-        : {}),
-    };
-  }
+  ) return { ...base, project: input.place.id };
   return base;
 }

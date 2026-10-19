@@ -11,6 +11,10 @@ Deno.test("an Operator is changed only in the caller's own place", () => {
     ["project_manager", project("prj_a"), project("prj_a"), true],
     ["project_manager", project("prj_a"), project("prj_b"), false],
     ["project_manager", project("prj_a"), app("prj_a"), false],
+    ["app_engineer", app("app_a"), app("app_a"), true],
+    ["app_engineer", app("app_a"), app("app_b"), false],
+    ["app_engineer", app("app_a"), project("app_a"), false],
+    ["project_manager", project("prj_a"), app("app_a"), false],
     ["lophn", null, project("prj_a"), false],
     ["operator", project("prj_a"), project("prj_a"), false],
   ];

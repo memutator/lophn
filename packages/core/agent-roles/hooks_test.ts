@@ -20,7 +20,14 @@ Deno.test("writeGate는 어느 폴더의 LOPHN.md에만 settings_edit Gate 요�
       id: null,
     });
   }
-  for (const path of ["README.md", "notes/lophn.md", "LOPHN.md.bak"]) {
+  for (
+    const path of [
+      "README.md",
+      "notes/lophn.md",
+      "LOPHN.md.bak",
+      "domains/sales/DOMAIN.md",
+    ]
+  ) {
     assertEquals(FILE_HOOKS.writeGate(path, ctx), null, path);
   }
 });

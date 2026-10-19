@@ -8,14 +8,19 @@ import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.
-Deno.test("Project Manager의 credential 상한에 ticket.create tool이 부르는 route 이름이 든다", () => {
+Deno.test("App Engineer의 credential 상한에 ticket.create tool이 부르는 route 이름이 들고 Project Manager의 상한에는 없다", () => {
   const operations = roleOperations(
-    "project_manager",
+    "app_engineer",
     agentTools({ file: FILE_HOOKS }),
   );
   assert(operations.includes(ticketCreate.name));
   assertEquals(ticketCreate.name, "CreateTicket");
   assert(!operations.includes("ticket.create"));
+  const manager = roleOperations(
+    "project_manager",
+    agentTools({ file: FILE_HOOKS }),
+  );
+  assert(!manager.includes(ticketCreate.name));
 });
 
 // selectTools는 정의 없는 이름을 조용히 건너뛴다. 어긋나면 agent가 그 tool을 말없이 못 본다.

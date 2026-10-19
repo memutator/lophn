@@ -5,13 +5,13 @@ import type { CommandEntry, Role } from "../../protocol/lophn-agent/mod.ts";
 // 쓴 글(인자)은 접수할 때 이 글 뒤에 붙는다.
 
 export const NEW_APP_PROMPT =
-  "I want to start a new app. Ask me what it should do and who it is for, one question at a time. Then decide with me which project it belongs in, and set it up with me.";
+  "I want to start a new app. Ask me what it should do and who it is for, one question at a time. Then set it up with me.";
 
 export const REPAIR_APP_PROMPT =
   "Something broke in one of my apps. Find out which app and what went wrong, look at what happened, and fix it. Tell me what you found before you change anything.";
 
 export const CHECK_KINDS_PROMPT =
-  "Run kind.check for this project. For each violation, say whether the kinds file or the document is wrong and what you would change. Do not edit the documents.";
+  "Run kind.check for each domain of this project. For each violation, say whether the kinds file or the document is wrong and what you would change. Do not edit the documents.";
 
 function promptCommand(
   name: string,

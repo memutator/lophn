@@ -2,7 +2,6 @@ import type { Result } from "../../../base/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileSystem } from "../../lophn-agent/agents/ports.ts";
 import { createAgentStore } from "../../lophn-agent/agents/store.ts";
-import { PROJECT_LAYER } from "../place/project-layer.ts";
 import { ROLE_TABLE } from "./role-table.ts";
 
 // built-in agent의 정의 파일을 만들어 둔다. 파일이 이미 있으면 그대로다(여러 번 불러도 하나다).
@@ -31,12 +30,15 @@ export function ensureLophn(deps: EnsureDeps): Result<void> {
   return ensure(deps, { role: "lophn" });
 }
 
-// project마다 Project Manager 하나. PM이 쓰는 project 층 skill 폴더도 함께 만든다: 없는 폴더는 file tool의
-// 범위가 건너뛴다. 폴더는 core 쪽에서 만든다(agent runtime child의 Deno 권한으로는 부모 폴더 쓰기가 막힌다).
+// project마다 Project Manager 하나.
 export function ensureProjectManager(
   deps: EnsureDeps,
   project: string,
 ): Result<void> {
-  deps.files.ensureFolder(PROJECT_LAYER.skillsFolder(deps.root, project));
   return ensure(deps, { role: "project_manager", project: project as never });
+}
+
+// 앱마다 App Engineer 하나.
+export function ensureAppEngineer(deps: EnsureDeps, app: string): Result<void> {
+  return ensure(deps, { role: "app_engineer", app: app as never });
 }

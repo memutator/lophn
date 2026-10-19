@@ -32,11 +32,13 @@ import {
   visibleContexts,
 } from "./place-info.ts";
 import { placeScope } from "./place-folders.ts";
+import type { ArtifactEntry } from "./artifact-list.ts";
 
 // artifacts 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type PlaceFiles = {
   artifactsFolder(project: string): string | null;
   ensureDir(path: string): Promise<void>;
+  listArtifacts(folder: string): Promise<readonly ArtifactEntry[]>;
 };
 
 // prompt의 place 정보 재료를 turn의 agent 자격으로 core 읽기에서 모은다. turn마다 한 번 읽는다.
@@ -147,6 +149,7 @@ async function readPlaceData(
   let projectFolders: string[] = [];
   let draftFolders: string[] = [];
   let artifacts: string | null = null;
+  let artifactItems: readonly ArtifactEntry[] = [];
   let appSource: string | null = null;
   const allProjectFolders: string[] = [];
 
@@ -166,6 +169,9 @@ async function readPlaceData(
           await files.ensureDir(folder);
           artifacts = folder;
         } catch { /* 폴더가 없으면 범위에서 빠진다 */ }
+        if (artifacts !== null) {
+          artifactItems = await files.listArtifacts(artifacts).catch(() => []);
+        }
       }
     }
   } else if (place?.kind === "app") {
@@ -397,6 +403,9 @@ async function readPlaceData(
       apps: appItems,
       projects: projectList,
       release,
+      artifacts: artifacts === null
+        ? null
+        : { folder: artifacts, items: artifactItems },
     },
     scope,
   });

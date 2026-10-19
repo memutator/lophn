@@ -42,6 +42,8 @@ import {
   type PlaceFiles,
 } from "../../agent-roles/place/place-data.ts";
 import { isAbsolute } from "node:path";
+import { lstat, open, readdir } from "node:fs/promises";
+import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
 import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
@@ -97,6 +99,21 @@ function placeFiles(): PlaceFiles {
         ? artifactsFolder(home, project)
         : null,
     ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
+    listArtifacts: (folder) =>
+      listArtifactEntries(folder, {
+        readdir,
+        lstat,
+        async readHead(path, bytes) {
+          const handle = await open(path, "r");
+          try {
+            const buffer = new Uint8Array(bytes);
+            const { bytesRead } = await handle.read(buffer, 0, bytes, 0);
+            return new TextDecoder().decode(buffer.subarray(0, bytesRead));
+          } finally {
+            await handle.close();
+          }
+        },
+      }),
   };
 }
 

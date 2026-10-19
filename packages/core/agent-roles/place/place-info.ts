@@ -9,6 +9,7 @@ import type {
   PlaceAgent,
   PlaceContext,
 } from "../../lophn-agent/prompt-assembly/model.ts";
+import type { ArtifactEntry } from "./artifact-list.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 role별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
@@ -45,6 +46,8 @@ export type PlaceData = {
   projects: readonly { name: string; purpose: string }[];
   // App Engineer만. 활성 release가 없으면 null.
   release: { version: string; api_names: readonly string[] } | null;
+  // project의 PM과 Operator만. 폴더를 정할 수 없으면 null.
+  artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -128,6 +131,27 @@ function listLines(
   return [title, ...sorted.map((i) => `- ${i.name}: ${i.purpose}`)];
 }
 
+// prompt 안의 글이라 앞쪽만 싣는다.
+const ARTIFACT_LIST_MAX = 50;
+
+function artifactLines(
+  artifacts: NonNullable<PlaceData["artifacts"]>,
+): string[] {
+  const sorted = [...artifacts.items].sort((a, b) => cmp(a.name, b.name));
+  const shown = sorted.slice(0, ARTIFACT_LIST_MAX);
+  const lines = ["Artifacts", `Folder: ${artifacts.folder}`];
+  for (const a of shown) {
+    const description = a.description === "" ? "" : ` — ${a.description}`;
+    lines.push(
+      `- ${a.name}: ${a.title}${description} (artifacts/${a.name}/index.html)`,
+    );
+  }
+  if (sorted.length > shown.length) {
+    lines.push(`${sorted.length - shown.length} more`);
+  }
+  return lines;
+}
+
 // 예산 안이면 full, 넘으면 names(이름과 한 줄), 그래도 넘으면 count다. lophn은 목록이라 names부터 시작한다.
 function contextLines(
   role: Role,
@@ -171,6 +195,12 @@ export function placeInfo(role: Role, data: PlaceData, budget: number): string {
   }
   if (role === "lophn" || role === "operator") {
     sections.push(listLines("Apps", data.apps));
+  }
+  if (
+    (role === "project_manager" || role === "operator") &&
+    data.artifacts !== null
+  ) {
+    sections.push(artifactLines(data.artifacts));
   }
   sections.push(
     contextLines(

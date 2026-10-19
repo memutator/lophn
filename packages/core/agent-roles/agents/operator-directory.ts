@@ -27,6 +27,9 @@ export function createOperatorDirectory(
           id: operatorIdOf(loaded.ref) as OperatorInfo["id"],
           name: nameOf(ROLE_TABLE, loaded),
           place: loaded.place,
+          domains: loaded.definition !== null && "domains" in loaded.definition
+            ? loaded.definition.domains ?? []
+            : [],
         }
         : null;
     return {

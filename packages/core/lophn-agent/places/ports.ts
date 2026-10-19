@@ -19,6 +19,8 @@ export type OperatorInfo = {
   id: Id<"agt">;
   name: string;
   place: Place;
+  // 정의 file이 고른 domain id. 안 골랐으면 빈 목록이다.
+  domains: readonly string[];
 };
 
 export interface OperatorDirectory {

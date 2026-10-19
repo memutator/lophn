@@ -211,7 +211,7 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
 
 Deno.test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
   const { port } = treeOf({
-    "/b/context-init/SKILL.md": skillFile("context-init", "BUILTIN"),
+    "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
     "/g/b/SKILL.md": skillFile("b", "B"),
   });
@@ -236,25 +236,25 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
     const listed = snapshot.skills.filter((s) => s.enabled).map((s) => s.name);
     const available = snapshot.skills.map((s) => ({
       name: s.name,
-      can_disable: s.name !== "context-init",
+      can_disable: s.name !== "kinds-yaml",
     }));
     return {
       listed,
       // resolve가 받는 이름도 목록과 같다.
       resolved: receivedSkills(available, skills),
       b: await code("b"),
-      builtin: await code("context-init"),
+      builtin: await code("kinds-yaml"),
     };
   };
   assertEquals(await receivedOf([]), {
-    listed: ["a", "b", "context-init"],
-    resolved: ["a", "b", "context-init"],
+    listed: ["a", "b", "kinds-yaml"],
+    resolved: ["a", "b", "kinds-yaml"],
     b: "ok",
     builtin: "ok",
   });
   assertEquals(await receivedOf(["a", "missing"]), {
-    listed: ["a", "context-init"],
-    resolved: ["a", "context-init"],
+    listed: ["a", "kinds-yaml"],
+    resolved: ["a", "kinds-yaml"],
     b: "forbidden",
     builtin: "ok",
   });

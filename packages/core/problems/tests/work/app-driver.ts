@@ -276,6 +276,7 @@ export async function createRealAppDriver(
     });
 
   let opened: Child | undefined;
+  let baseline: string | undefined;
   let app: Child | undefined;
   let appGone = false;
   async function ensureApp(): Promise<Child> {
@@ -283,6 +284,8 @@ export async function createRealAppDriver(
     if (app && !appGone) return app;
     appGone = false;
     await seedData();
+    // restore가 견줄 첫 호출 전 상태다. 앱을 처음 띄우는 때 한 번만 잡는다.
+    baseline ??= dataState();
     app = await spawn();
     void app.exited.then(() => {
       appGone = true;
@@ -343,6 +346,25 @@ export async function createRealAppDriver(
     } finally {
       db.close();
     }
+  }
+
+  // 받은 changeset(오래된 것부터)을 최신부터 뒤집어 한 번에 적용한다. rewind와 restore가 함께 쓴다.
+  async function invertAndApply(
+    changesets: readonly string[],
+  ): Promise<{ applied: boolean } | { failure: string }> {
+    const inverted = invertAll(
+      changesets.map((text) => new Uint8Array(Buffer.from(text, "base64"))),
+    );
+    if (!inverted.ok) return { failure: inverted.error.message };
+    const applied = await control("/_lophn/control/apply", {
+      changesets: inverted.value.map((bytes) =>
+        Buffer.from(bytes).toString("base64")
+      ),
+    });
+    return {
+      applied: (applied.body as { status?: string } | null)?.status ===
+        "applied",
+    };
   }
 
   async function probeAttestation() {
@@ -509,24 +531,16 @@ export async function createRealAppDriver(
           reason: "호출이 changeset을 내지 않았다",
         };
       }
-      const inverted = invertAll([
-        new Uint8Array(Buffer.from(body.changeset, "base64")),
-      ]);
-      if (!inverted.ok) {
+      const reverted = await invertAndApply([body.changeset]);
+      if ("failure" in reverted) {
         return {
           ...none,
           called: true,
           changed,
-          reason: `changeset을 뒤집지 못했다: ${inverted.error.message}`,
+          reason: `changeset을 뒤집지 못했다: ${reverted.failure}`,
         };
       }
-      const applied = await control("/_lophn/control/apply", {
-        changesets: inverted.value.map((bytes) =>
-          Buffer.from(bytes).toString("base64")
-        ),
-      });
-      const done = (applied.body as { status?: string } | null)?.status ===
-        "applied";
+      const done = reverted.applied;
       const restored = dataState() === before;
       return {
         called: true,
@@ -570,12 +584,38 @@ export async function createRealAppDriver(
       const body = answered.body as {
         status?: string;
         result?: unknown;
+        changeset?: string | null;
         error?: { code?: string };
       } | null;
       if (answered.status === 200 && body?.status === "ok") {
-        return { status: "ok", result: body.result };
+        return {
+          status: "ok",
+          result: body.result,
+          ...(body.changeset ? { changeset: body.changeset } : {}),
+        };
       }
       return { status: "error", code: body?.error?.code ?? "internal" };
+    },
+    async restore(changesets) {
+      await probeAttestation();
+      const reverted = await invertAndApply(changesets);
+      if ("failure" in reverted) {
+        return {
+          applied: false,
+          restored: false,
+          reason: `changeset을 뒤집지 못했다: ${reverted.failure}`,
+        };
+      }
+      const restored = dataState() === baseline;
+      return {
+        applied: reverted.applied,
+        restored,
+        reason: !reverted.applied
+          ? "뒤집은 changeset이 적용되지 않았다"
+          : !restored
+          ? "적용 뒤 DB 상태가 첫 호출 전과 다르다"
+          : "뒤집어 적용하니 첫 호출 전 상태로 돌아왔다",
+      };
     },
     async migrate(scenario) {
       migrations += 1;

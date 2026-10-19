@@ -35,8 +35,16 @@ export type RewindRun = {
   reason: string;
 };
 
+// 모은 changeset을 최신부터 뒤집어 한 번에 적용한 결과다. 비교 기준은 driver가 처음 앱을 부르기 전의 DB 상태다.
+export type RestoreRun = {
+  applied: boolean;
+  restored: boolean;
+  reason: string;
+};
+
 export type CallOutcome =
-  | { status: "ok"; result: unknown }
+  // changeset은 base64다. write·external 호출이 DB를 바꿨을 때만 있다.
+  | { status: "ok"; result: unknown; changeset?: string }
   | { status: "error"; code: string };
 
 // ticket의 tool 예시 하나. 호출이 성공하면 그 result가 expect와 맞아야 한다.
@@ -52,6 +60,8 @@ export type AppDriver = {
   rewind(tool: string): Promise<RewindRun>;
   // app-api를 이 입력으로 불러 결과를 돌려준다. 앞선 호출이 만든 data는 뒤 호출에 보인다.
   call(tool: string, input: unknown): Promise<CallOutcome>;
+  // call이 돌려준 changeset을 호출 순서대로 받아 최신부터 뒤집어 적용하고 첫 호출 전 DB 상태와 견준다.
+  restore(changesets: readonly string[]): Promise<RestoreRun>;
   // 고정 fixture DB의 migration. 빈 DB 전체와 이전 release schema → 새 schema다.
   migrate(scenario: MigrationScenario): Promise<MigrationRun>;
 };

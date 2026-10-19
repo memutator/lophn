@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py domain-tools build`가 `tasks/*.md`에서 id
 | `dt-agent-tools` | domain-tools | 2 | dt-call-route | todo |  |  |  |
 | `dt-coding-text` | domain-tools | 2 | dt-call-route | running | domain-tools/dt-coding-text |  |  |
 | `dt-examples` | domain-tools | 2 | dt-call-route | todo |  |  |  |
-| `dt-invocation-project` | domain-tools | 2 | dt-call-route | running | domain-tools/dt-invocation-project |  |  |
+| `dt-invocation-project` | domain-tools | 2 | dt-call-route | merged | domain-tools/dt-invocation-project | 14ad22c6d |  |
 | `dt-preview-call` | domain-tools | 2 | dt-invocation-project | todo |  |  |  |
 | `dt-sdk` | domain-tools | 2 | dt-call-route | running | domain-tools/dt-sdk |  |  |
 | `dt-shell-bridge` | domain-tools | 2 | dt-call-route | todo |  |  |  |

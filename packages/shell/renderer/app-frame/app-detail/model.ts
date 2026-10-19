@@ -121,6 +121,7 @@ export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
 const ROLE_TEXT: Record<AgentRole, () => string> = {
   lophn: () => t("app-detail.label.role-lophn"),
   project_manager: () => t("app-detail.label.role-project-manager"),
+  app_engineer: () => t("app-detail.label.role-app-engineer"),
   operator: () => t("app-detail.label.role-operator"),
 };
 

@@ -1,5 +1,5 @@
 // 앱 공간 위쪽 바의 agent select. 앱 공간은 lophn sidebar를 쓰지 않으므로
-// 이 select가 agent를 여는 유일한 길이다(알림의 [Ask Project Manager]는 select를 거치지 않는다).
+// 이 select가 agent를 여는 유일한 길이다(알림의 [Ask App Engineer]는 select를 거치지 않는다).
 // 화면 값은 lophn-agent/agents의 목록 줄에서 부르는 쪽이 만든 view 값이다. renderer는 protocol을
 // type check하지 않으므로 id는 문자열로 받는다.
 import type { ReactElement } from "react";
@@ -10,12 +10,9 @@ import { iconPixels } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import type { AgentListRow } from "../workspace/agents/source.ts";
-
 import styles from "./agent-select.module.css";
 
-// select는 lophn, Project Manager, Operator만 보인다.
-type AppSpaceAgentRole = AgentListRow["role"];
+type AppSpaceAgentRole = "lophn" | "app_engineer" | "operator";
 
 /** select 항목 하나. */
 export interface AppSpaceAgent {
@@ -29,7 +26,7 @@ export interface AppSpaceAgent {
 
 interface AgentSelectProps {
   /**
-   * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, Project Manager, 이 앱 project의 Operator들(들어온 순서).
+   * 부르는 쪽이 읽은 agent. 순서는 component가 정한다: lophn, App Engineer, 이 앱의 Operator들(들어온 순서).
    */
   agents: readonly AppSpaceAgent[];
   /** 옆 pane이 열려 있으면 단추가 눌린 모양이다. */
@@ -44,7 +41,7 @@ interface AgentSelectProps {
  * 약속하는 DOM(test가 단언):
  * - 닫힌 모습: 글자 없는 아이콘 단추 `button[data-agent-select][aria-haspopup="menu"]` 하나(Agent 아이콘과 chevron, 접근 이름 "Agent").
  *   열기 전에는 `role=menu`가 없다. 앱 view의 상태(crash·멈춤)와 상관없이 props만으로 열린다. 옆 pane이 열려 있으면 `aria-pressed`다.
- * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, Project Manager, Operator들(들어온 순서), Manage 순서로 있다.
+ * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, App Engineer, Operator들(들어온 순서), Manage 순서로 있다.
  *   agent 항목은 `[data-agent=<assignment>]`이고 안에 avatar(`[data-avatar]`)와 이름 `[data-agent-name]`이 이 순서로
  *   있다. Manage는 `[data-agent-manage]` "Manage"이며 `[data-agent]`가 아니다.
  * - agent 항목을 고르면 `onOpenAgent(assignment)` 한 번, Manage를 고르면 `onManage()` 한 번만 부르고 menu는 닫힌다.
@@ -100,13 +97,13 @@ export function AgentSelect(
 // 항목 id가 assignment(`asg_…`)와 겹치지 않는 Manage의 id.
 const MANAGE = "manage";
 
-/** lophn, Project Manager, Operator들(들어온 순서). */
+/** lophn, App Engineer, Operator들(들어온 순서). */
 function ordered(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {
   const pick = (role: AppSpaceAgentRole) =>
     agents.filter((agent) => agent.role === role);
   return [
     ...pick("lophn"),
-    ...pick("project_manager"),
+    ...pick("app_engineer"),
     ...pick("operator"),
   ];
 }

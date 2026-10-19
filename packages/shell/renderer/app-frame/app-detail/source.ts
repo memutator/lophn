@@ -127,6 +127,7 @@ export interface AccessView {
 export type AgentRole =
   | "lophn"
   | "project_manager"
+  | "app_engineer"
   | "operator";
 
 export type Caller =
@@ -218,8 +219,6 @@ interface StartedPreview {
 }
 
 export interface AppDetailSource {
-  /** 이 앱이 속한 project. 앱 공간이 그 project의 agent를 연다. */
-  project(app: string): Promise<SourceResult<string>>;
   versions(app: string): Promise<SourceResult<VersionView>>;
   /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
   changes(release: string): Promise<SourceResult<ReleaseChanges>>;

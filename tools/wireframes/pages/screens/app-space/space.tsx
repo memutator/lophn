@@ -134,7 +134,7 @@ const GRANTS: Record<string, string> = {
 };
 const AGENT_KEY: Record<string, string> = {
   lophn: "lophn",
-  "Project Manager": "project_manager",
+  "App Engineer": "app_engineer",
 };
 const TAB_LABEL = {
   version: "app-detail.label.tab-version",
@@ -302,9 +302,7 @@ export function AppSpace(props: AppSpaceProps = {}) {
     // 터미널만 있는 장면은 coding 요청이 agent 탭을 함께 연다. panel과 함께 쓰면 요청이 탭을 더하지 않으니 select로 연다.
     if (pane !== undefined && (terminal === undefined || panel !== undefined)) {
       await press("[data-agent-select]");
-      await click(
-        `[data-agent="${AGENT_KEY[pane.agent ?? "Project Manager"]}"]`,
-      );
+      await click(`[data-agent="${AGENT_KEY[pane.agent ?? "App Engineer"]}"]`);
     }
     if (props.annotate !== undefined) {
       await click('[data-app-bar="annotate"]');

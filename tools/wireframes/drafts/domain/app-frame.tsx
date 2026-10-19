@@ -27,7 +27,7 @@ const noop = () => {};
 
 const SELECT_AGENTS: readonly AppSpaceAgent[] = AGENTS.map((agent) => ({
   assignment: agent.id,
-  role: agent.role,
+  role: agent.role === "project_manager" ? "app_engineer" : agent.role,
   name: agent.name,
   profile: { kind: "icon", icon: agent.icon },
 }));
@@ -117,7 +117,7 @@ export function DraftAppSpace(
               details={details}
               state={null}
               app={APP}
-              projectName=""
+              appName=""
               agents={SELECT_AGENTS}
               opened={false}
               onOpenedClose={noop}

@@ -19,7 +19,6 @@ import type {
 const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
 const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
 
-const PROJECT = "prj_01h455vb4pex5v6nkc6gd5fd01";
 const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
 const R5 = "rel_01h455vb4pex5v6nkc6gd5fd05";
@@ -44,8 +43,6 @@ type ActivationFake = "applied" | "applying" | "failed";
 type RewindFake = "applied" | "conflict" | "pending";
 
 interface FakeOptions {
-  /** 앱이 속한 project. 기본은 PROJECT. */
-  project?: string;
   /** Version 탭이 보이는 상태. 기본은 applied. */
   activation?: ActivationFake;
   /** 거두기 정리. pending이면 요청 뒤 정리 중으로 남고 finishCleanup()으로 끝낸다. */
@@ -440,7 +437,6 @@ export function fakeDetail(options: FakeOptions = {}) {
           }]
           : [],
       }),
-    project: () => reply("project", options.project ?? PROJECT),
     stopPreview: (app, preview) => {
       calls.push(["stopPreview", app, preview.nonce]);
       return Promise.resolve();

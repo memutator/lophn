@@ -12,7 +12,7 @@ interface SpaceReactionHost {
   readonly app: string;
   /**
    * session이 있으면 이 앱의 agent session일 때 pane을 그 session으로 열고 true. session이 없으면 이 앱의
-   * Project Manager 새 대화를 연다. 이 앱의 것이 아니면 false.
+   * App Engineer 새 대화를 연다. 이 앱의 것이 아니면 false.
    */
   openSession(session: string | null, app: string | undefined): boolean;
 }

@@ -631,16 +631,6 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
       };
     },
 
-    async project(app) {
-      const result = await read<{ app: { project: string } }>(
-        core,
-        "apps",
-        "get",
-        { app },
-      );
-      return result.ok ? { ok: true, value: result.value.app.project } : result;
-    },
-
     async stopPreview(app, preview) {
       await read(core, "previews", "stop", {
         app,

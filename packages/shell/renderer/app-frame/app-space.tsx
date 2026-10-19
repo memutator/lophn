@@ -57,14 +57,14 @@ interface AppSpaceProps {
   views?: LophnShellViewsApi;
   /** [Report a problem] 통로. 없으면 깃발 단추를 두지 않는다. */
   feedback?: LophnShellFeedbackBegin;
-  /** 운영 패널의 app-detail 통로. 앱의 project도 여기서 읽는다. 없으면 app-detail 탭과 agent select를 두지 않는다. */
+  /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   detail?: AppDetailSource;
   /** 운영 패널 Issues 탭의 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
   issues?: IssuesSource;
   /** 있으면 운영 패널을 Issues 탭으로, 그 문제를 고른 채 연다. */
   issueProblem?: string;
   /**
-   * 이 앱 project의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
+   * 이 앱 자리의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
    */
   agents?: AgentsSource;
   /** Agent 칸이 agent 하나의 통로를 얻는 함수. 없으면 칸이 "준비 안 됨"이다. */
@@ -146,26 +146,6 @@ function useEntry(
   return entry;
 }
 
-// 앱이 속한 project(앱 record의 `project`). 못 읽으면 agent select를 두지 않는다.
-function useAppProject(
-  detail: AppDetailSource | undefined,
-  app: string,
-): string | undefined {
-  const [project, setProject] = useState<string>();
-  useEffect(() => {
-    setProject(undefined);
-    if (detail === undefined) return;
-    let live = true;
-    void detail.project(app).then((result) => {
-      if (live && result.ok) setProject(result.value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [detail, app]);
-  return project;
-}
-
 export function AppSpace(
   {
     app,
@@ -211,10 +191,8 @@ export function AppSpace(
   );
   const [panelOpen, setPanelOpen] = useState(issueProblem !== undefined);
   const [opened, setOpened] = useState(false);
-  const appProject = useAppProject(detail, app);
-  const agentList = useAppAgents(agents, appProject);
-  const paneShown = pane !== null && agents !== undefined &&
-    appProject !== undefined;
+  const agentList = useAppAgents(agents, app);
+  const paneShown = pane !== null && agents !== undefined;
   const terminalShown = terminal !== undefined && coding !== null &&
     agents !== undefined;
   const tabs: PanelTab[] = [
@@ -266,7 +244,7 @@ export function AppSpace(
     showTab("agent");
   }
 
-  // 이 앱의 agent session이면 pane을 그 session으로 연다. session이 없으면 이 앱 project의 Project Manager 열린 session이다.
+  // 이 앱의 agent session이면 pane을 그 session으로 연다. session이 없으면 이 앱의 App Engineer 열린 session이다.
   function openSession(
     target: string | null,
     forApp: string | undefined,
@@ -275,12 +253,12 @@ export function AppSpace(
     if (target === null) {
       if (forApp !== app) return false;
       const latest = sessions.filter((item) =>
-        item.ended === null && item.agent?.role === "project_manager" &&
-        item.agent.project === appProject
+        item.ended === null && item.agent?.role === "app_engineer" &&
+        item.agent.app === app
       ).at(-1);
       setPane({
         mode: "agent",
-        assignment: "project_manager",
+        assignment: "app_engineer",
         session: latest?.session ?? null,
       });
     } else {
@@ -288,9 +266,7 @@ export function AppSpace(
       if (agent === undefined || agent === null) return false;
       if (agent.role === "lophn") {
         setPane({ mode: "agent", assignment: keyOf(agent), session: target });
-      } else if (
-        agent.role === "project_manager" && agent.project === appProject
-      ) {
+      } else if (agent.role === "app_engineer" && agent.app === app) {
         setPane({ mode: "agent", assignment: keyOf(agent), session: target });
       } else if (
         agent.role === "operator" &&
@@ -335,8 +311,7 @@ export function AppSpace(
     // 패널이 안 보이면 열되, 열린 탭이 없던 때만 agent를 보인다.
     if (!panelVisible || shownTab === null) {
       setPane((current) =>
-        current ??
-          { mode: "agent", assignment: "project_manager", session: null }
+        current ?? { mode: "agent", assignment: "app_engineer", session: null }
       );
       setPanelTab("agent");
     }
@@ -389,7 +364,7 @@ export function AppSpace(
 
   async function sendAnnotations(): Promise<void> {
     const receiver = pane?.mode === "agent" &&
-        pane.assignment === "project_manager"
+        pane.assignment === "app_engineer"
       ? pane.session
       : null;
     const sent = await annotating.send(receiver);
@@ -584,8 +559,7 @@ export function AppSpace(
               : null}
             state={paneShown ? pane : null}
             app={app}
-            {...(appProject === undefined ? {} : { project: appProject })}
-            projectName={row?.name ?? ""}
+            appName={row?.name ?? ""}
             {...(agents === undefined ? {} : { source: agents })}
             agents={agentList.agents}
             {...(agentViewSource === undefined ? {} : { agentViewSource })}

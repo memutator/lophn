@@ -13,4 +13,4 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-calendar` | eval | 1 | tr-eval-apps, tr-eval-app-engineer | merged | eval/tr-eval-calendar | c14d53630 |  |
 | `tr-eval-checks` | eval | 1 | tr-eval-apps | merged | eval/tr-eval-checks | 2bfa9d1de |  |
 | `tr-eval-operator` | eval | 1 | 없음 | merged | eval/tr-eval-operator | 3107caba9 |  |
-| `tr-e2e-budget` | e2e | 2 | 없음 | todo |  |  |  |
+| `tr-e2e-budget` | e2e | 2 | 없음 | todo |  |  | 띄우지 않음: wave 1 뒤 전체 e2e 30 file 59 test 통과, 8m29s(9분 안) |

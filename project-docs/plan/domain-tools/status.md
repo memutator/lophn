@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py domain-tools build`가 `tasks/*.md`에서 id
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `dt-call-route` | domain-tools | 1 | dt-decl | running | domain-tools/dt-call-route |  |  |
+| `dt-call-route` | domain-tools | 1 | dt-decl | merged | domain-tools/dt-call-route | ce889f5b6 |  |
 | `dt-decl` | domain-tools | 1 | 없음 | merged | domain-tools/dt-decl | 37280763a |  |
 | `dt-agent-tools` | domain-tools | 2 | dt-call-route | todo |  |  |  |
 | `dt-coding-text` | domain-tools | 2 | dt-call-route | todo |  |  |  |

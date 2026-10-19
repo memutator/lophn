@@ -3,11 +3,10 @@ import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type { ToolContext } from "../../lophn-agent/tools/spi.ts";
 import { KIND_TOOLS } from "./kind.ts";
 
-// project place가 아닌 곳에서는 core를 부르지 않고 거절한다. 다른 project를 읽을 길이 없어야 한다.
-Deno.test("kind tools refuse outside a project place without calling core", async () => {
+// place가 없는 곳(lophn)에서는 core를 부르지 않고 거절한다. 다른 project를 읽을 길이 없어야 한다.
+Deno.test("kind tools refuse without a place without calling core", async () => {
   const places: [string, Place | null][] = [
     ["lophn", null],
-    ["app", { kind: "app", id: "app_a", project: null } as unknown as Place],
   ];
   for (const [role, place] of places) {
     const ctx = {

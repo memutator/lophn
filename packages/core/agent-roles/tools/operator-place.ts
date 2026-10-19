@@ -7,7 +7,6 @@ export function operatorPlaceAllowed(
   ownPlace: Place | null,
   target: Place,
 ): boolean {
-  if (ownPlace === null || ownPlace.kind !== target.kind) return false;
-  return role === "project_manager" && ownPlace.kind === "project" &&
-    ownPlace.id === target.id;
+  if (ownPlace === null) return false;
+  return role === "project_manager" && ownPlace.id === target.id;
 }

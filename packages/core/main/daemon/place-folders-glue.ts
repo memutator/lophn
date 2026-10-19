@@ -42,7 +42,9 @@ export function placeFoldersOf(
   const { sql } = lookup;
   const kind = found["place_kind"];
   const id = String(found["place_id"]);
-  const place: PlaceFacts["place"] = kind === "project" ? { kind, id } : null;
+  const place: PlaceFacts["place"] = kind === null
+    ? null
+    : { kind: "project", id };
   const app = place === null ? null : appOfProject(sql, id);
   const facts: PlaceFacts = {
     role,

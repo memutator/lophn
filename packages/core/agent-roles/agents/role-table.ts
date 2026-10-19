@@ -45,11 +45,10 @@ export const ROLE_TABLE: AgentRoleTable = {
   agentsFolderOf: placeAgentsFolder,
   builtinRefs: (places) => [
     { role: "lophn" },
-    ...places.flatMap((place) =>
-      place.kind === "project"
-        ? [{ role: "project_manager" as const, project: place.id }]
-        : []
-    ),
+    ...places.map((place) => ({
+      role: "project_manager" as const,
+      project: place.id,
+    })),
   ],
   operatorRef: (id) => ({ role: "operator", agent: id as never }),
   kindOf: (role) => role === "operator" ? "operator" : "built_in",

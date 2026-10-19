@@ -18,7 +18,7 @@ const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
 // 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱 또는 project 하나, 사람과 machine은
-// 전체(null)다. 앱도 project도 조건에 없는 agent(앱 place의 Operator, lophn)는 읽을 수 없다.
+// 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는 읽을 수 없다.
 type Scope = { app: string } | { project: string } | null;
 
 function callerScope(

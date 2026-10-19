@@ -133,7 +133,7 @@ async function readPlaceData(
   let kindsFile: string | null = null;
   const allProjectFolders: string[] = [];
 
-  if (place?.kind === "project") {
+  if (place) {
     const read = await projectOf(place.id);
     if (!read.ok) return read;
     project = placeProject(read.value);

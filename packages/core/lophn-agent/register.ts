@@ -411,7 +411,7 @@ function placeExists(
   sql: Pick<Tx["sql"], "get" | "all">,
   place: Place,
 ): boolean {
-  return place.kind === "project" && places.projectExists(sql, place.id);
+  return places.projectExists(sql, place.id);
 }
 
 // agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
@@ -441,8 +441,7 @@ function agentLookups(
     mcp: () => [],
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
-    projectModel: (place) =>
-      place?.kind === "project" ? loadChoice(sql, place.id) : null,
+    projectModel: (place) => place ? loadChoice(sql, place.id) : null,
   };
 }
 

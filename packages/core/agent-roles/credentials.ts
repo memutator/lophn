@@ -105,7 +105,7 @@ export function agentConditions(input: {
   };
   if (
     (input.role === "project_manager" || input.role === "operator") &&
-    input.place?.kind === "project"
+    input.place
   ) {
     return {
       ...base,

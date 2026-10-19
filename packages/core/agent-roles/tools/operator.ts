@@ -60,7 +60,7 @@ async function resolvePlace(
   ctx: ToolContext,
 ): Promise<Result<Place>> {
   const value = place.project;
-  if (ctx.place?.kind === "project" && ctx.place.id === value) {
+  if (ctx.place?.id === value) {
     return ok(ctx.place);
   }
   const read = await readOf(ctx.core, projectList, {});

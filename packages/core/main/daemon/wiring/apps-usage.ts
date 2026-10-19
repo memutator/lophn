@@ -16,9 +16,9 @@ import type { Sql } from "../../../../protocol/server/mod.ts";
 type Query = Pick<Sql, "get" | "all">;
 
 function projectOf(
-  place: { kind: string; id: string } | null | undefined,
+  place: { id: string } | null | undefined,
 ): Id<"prj"> | null {
-  return place?.kind === "project" ? place.id as Id<"prj"> : null;
+  return place ? place.id as Id<"prj"> : null;
 }
 
 function portsOf(sql: Query): UsagePorts {

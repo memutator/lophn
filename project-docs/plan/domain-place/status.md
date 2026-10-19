@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `dp-app-project` | app-binding | 1 | 없음 | todo |  |  |  |
-| `dp-project-folderless` | app-binding | 1 | 없음 | todo |  |  |  |
+| `dp-app-project` | app-binding | 1 | 없음 | running | app-binding/dp-app-project |  |  |
+| `dp-project-folderless` | app-binding | 1 | 없음 | running | app-binding/dp-project-folderless |  |  |
 | `dp-eval` | evals | 2 | 없음 | todo |  |  |  |
 | `dp-agents-core` | place-core | 2 | 없음 | todo |  |  |  |
 | `dp-operator-skills` | place-core | 2 | dp-agents-core, dp-agent-roles-scope | todo |  |  |  |

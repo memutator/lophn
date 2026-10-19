@@ -1,9 +1,5 @@
 import { runPlatformIo } from "./io.ts";
 import {
-  CONTEXTS_KIND,
-  runContextsWorker,
-} from "../../projects/contexts/worker/run.ts";
-import {
   KINDS_WORKER_KIND,
   runKindsWorker,
 } from "../../projects/kinds/worker/run.ts";
@@ -21,7 +17,6 @@ const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
 > = {
   "platform/io": runPlatformIo,
-  [CONTEXTS_KIND]: runContextsWorker,
   [KINDS_WORKER_KIND]: runKindsWorker,
   "apps/release": runReleaseWorker,
   [TEST_RUNNER_KIND]: async () => {

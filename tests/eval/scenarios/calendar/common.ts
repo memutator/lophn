@@ -16,12 +16,17 @@ import { nextWeekTuesdays } from "./dates.ts";
 import { APP, OPERATOR } from "./spec.ts";
 
 export const LOPHN: Participant = { role: "lophn" };
-export const AE: Participant = { role: "app_engineer", place: { app: APP } };
+// 캘린더 앱은 `<slug>-project` project에 묶인다(calendar-app·calendar-call 같은 앱 재료가 만든다).
+const PROJECT = "calendar-project";
+export const PM: Participant = {
+  role: "project_manager",
+  place: { project: PROJECT },
+};
 export const CODING = codingAgent(APP);
 export const OP: Participant = {
   role: "operator",
   name: OPERATOR,
-  place: { app: APP },
+  place: { project: PROJECT },
 };
 
 // calendar-app@1에는 Operator가 없으므로 setup에서 제품 route로 만든다. model은 runner가 붙인다.
@@ -30,7 +35,7 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
   const app = ctx.world.apps[APP]!;
   await ctx.core.call(operatorCreate, {
     id,
-    place: { kind: "app", id: app },
+    place: { kind: "project", id: ctx.world.projects[PROJECT]! },
     definition: {
       name: OPERATOR,
       body: `${APP} 앱의 app-api로 일정을 넣고 보여 준다.`,
@@ -43,14 +48,14 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
   ctx.world.operators[OPERATOR] = id;
 }
 
-// calendar-mvp와 calendar-maintain: App Engineer가 ticket을 만들고 verify했다.
-export function aeTicketChecks(): ProgramCheck[] {
+// calendar-mvp와 calendar-maintain: Project Manager가 ticket을 만들고 verify했다.
+export function pmTicketChecks(): ProgramCheck[] {
   return [
-    toolCount("ae-ticket-created", {
+    toolCount("pm-ticket-created", {
       tool: "ticket.create",
       count: { min: 1 },
     }),
-    toolCount("ae-ticket-verified", {
+    toolCount("pm-ticket-verified", {
       tool: "ticket.verify",
       count: { min: 1 },
       success: true,

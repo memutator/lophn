@@ -13,7 +13,7 @@ import type { SetupContext } from "../types.ts";
 import { loadMaterial, MATERIALS_ROOT, textOf } from "./manifest.ts";
 
 type CallSpec = {
-  to: { role: string; place: { app: string } };
+  to: { role: string; place: { project: string } };
   reply: string;
   body: string;
 };
@@ -34,10 +34,10 @@ export async function deliverCall(
     });
   }
   const spec = JSON.parse(textOf(material, "call.json")) as CallSpec;
-  if (ctx.world.apps[spec.to.place.app] === undefined) {
+  if (ctx.world.projects[spec.to.place.project] === undefined) {
     return err({
       code: "invalid_input",
-      message: `call ${ref}: app ${spec.to.place.app} not restored`,
+      message: `call ${ref}: project ${spec.to.place.project} not restored`,
     });
   }
   const { core } = ctx;

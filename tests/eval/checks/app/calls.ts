@@ -3,17 +3,17 @@ import type { ProgramCheck } from "../../types.ts";
 import { type Count, countOk, countText } from "../calls.ts";
 import { toolCallsOf } from "../records.ts";
 
-// calendar-mvp 안에서 App Engineer가 보내는 call은 coding agent로만 간다.
+// calendar-mvp 안에서 Project Manager가 보내는 call은 coding agent로만 간다.
 // 새 coding session은 to.role, 이미 열린 coding session은 to.session으로 받는다.
 // 보낼 때 실패한 call은 받는 쪽에 닿지 않았으니 세지 않는다(재시도 비용은 tool 정확도가 센다).
-// lophn이 App Engineer에게 보내는 첫 call(fake 대본)은 lophn session의 것이라 세지 않는다.
-export function aeCallsOnlyToCodingAgent(id: string): ProgramCheck {
+// lophn이 Project Manager에게 보내는 첫 call(fake 대본)은 lophn session의 것이라 세지 않는다.
+export function pmCallsOnlyToCodingAgent(id: string): ProgramCheck {
   return {
     kind: "program",
     id,
     run({ trial }) {
       const all = trial.sessions
-        .filter((s) => s.agent.role === "app_engineer")
+        .filter((s) => s.agent.role === "project_manager")
         .flatMap((s) => s.sent_calls);
       const calls = all.filter((c) =>
         c.outcome?.kind === "success" && c.state !== "failed"
@@ -32,8 +32,8 @@ export function aeCallsOnlyToCodingAgent(id: string): ProgramCheck {
       return {
         pass: calls.length > 0 && wrong.length === 0,
         reason: calls.length === 0
-          ? `App Engineer가 보낸 call이 없음(보낼 때 실패한 ${skipped}개 뺌)`
-          : `App Engineer call ${calls.length}개(보낼 때 실패한 ${skipped}개 뺌) 중 coding agent 대화가 아닌 것 ${wrong.length}개`,
+          ? `Project Manager가 보낸 call이 없음(보낼 때 실패한 ${skipped}개 뺌)`
+          : `Project Manager call ${calls.length}개(보낼 때 실패한 ${skipped}개 뺌) 중 coding agent 대화가 아닌 것 ${wrong.length}개`,
       };
     },
   };
@@ -94,7 +94,7 @@ export function appApiOrder(
   };
 }
 
-// AE가 problem을 읽었나.
+// Project Manager가 problem을 읽었나.
 export function readProblem(id: string): ProgramCheck {
   return {
     kind: "program",
@@ -106,7 +106,7 @@ export function readProblem(id: string): ProgramCheck {
         ).filter((c) =>
           c.call.outcome?.kind === "success" &&
           trial.sessions.some((s) =>
-            s.agent.role === "app_engineer" && s.tool_calls.includes(c)
+            s.agent.role === "project_manager" && s.tool_calls.includes(c)
           )
         ).length;
       return { pass: n > 0, reason: `problem 읽기 성공 ${n}번` };

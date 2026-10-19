@@ -11,7 +11,7 @@ const WHERE = { target: PM_tax, reply: "result" } as const;
 
 const scenario: Scenario = {
   id: "L5",
-  n: 1,
+  n: 2,
   proposal: true,
   world: ["projects-home@1"],
   real: [LOPHN],

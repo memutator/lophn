@@ -5,16 +5,16 @@ import type { Participant } from "../../types.ts";
 export const OP_월말정리: Participant = {
   role: "operator",
   name: "월말정리",
-  place: { app: "가계부" },
+  place: { project: "ledger-project" },
 };
 export const OP_세무정리: Participant = {
   role: "operator",
   name: "세무정리",
   place: { project: "tax" },
 };
-export const AE_가계부: Participant = {
-  role: "app_engineer",
-  place: { app: "가계부" },
+export const PM_ledger: Participant = {
+  role: "project_manager",
+  place: { project: "ledger-project" },
 };
 export const PM_tax: Participant = {
   role: "project_manager",
@@ -22,12 +22,12 @@ export const PM_tax: Participant = {
 };
 export const LOPHN: Participant = { role: "lophn" };
 
-// operators-home@2는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
+// operators-home@3는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
 export const OPERATOR_WORLD = [
   "apps-home@1",
   "projects-home@1",
   "tax-kinds@1",
-  "operators-home@2",
+  "operators-home@3",
 ];
 
 // O4와 T19-op가 같은 말을 쓴다.

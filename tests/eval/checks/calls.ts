@@ -38,7 +38,7 @@ export function callCount(
   };
 }
 
-// 새 앱을 만든 뒤에 그 앱의 App Engineer에게 보낸 call이 있나(L4-new).
+// 새 앱을 만든 뒤에 그 앱이 묶인 project의 Project Manager에게 보낸 call이 있나(L4-new). app.create의 project는 이름이나 id다.
 export function callAfterAppCreate(
   id: string,
   opts: { reply: CallReply },
@@ -50,10 +50,9 @@ export function callAfterAppCreate(
       const created = effectiveToolCalls(trial).filter((c) =>
         c.call.tool === "app.create" && c.call.outcome?.kind === "success"
       ).flatMap((c) => {
-        const appId = (c.output as { content?: { id?: unknown } } | null)
-          ?.content?.id;
-        return typeof appId === "string"
-          ? [{ tool_call: c.call.id, appId }]
+        const project = (c.input as { project?: unknown } | null)?.project;
+        return typeof project === "string"
+          ? [{ tool_call: c.call.id, project }]
           : [];
       });
       if (created.length === 0) {
@@ -63,14 +62,16 @@ export function callAfterAppCreate(
       const hit = created.some((app) =>
         calls.some((c) =>
           c.tool_call > app.tool_call && c.reply === opts.reply &&
-          c.receiver?.role === "app_engineer" && c.receiver.app === app.appId
+          c.receiver?.role === "project_manager" &&
+          (c.receiver.project === app.project ||
+            c.receiver_place?.name === app.project)
         )
       );
       return {
         pass: hit,
         reason: hit
-          ? "새 앱의 App Engineer에게 보냄"
-          : "새 앱의 App Engineer에게 보낸 call 없음",
+          ? "새 앱 project의 Project Manager에게 보냄"
+          : "새 앱 project의 Project Manager에게 보낸 call 없음",
       };
     },
   };
@@ -114,9 +115,9 @@ function targetKey(c: SentCall): string {
       ? ""
       : r.role === "operator"
       ? r.agent
-      : r.role === "app_engineer"
-      ? r.app
-      : r.project;
+      : r.role === "project_manager"
+      ? r.project
+      : ""; // Role 합집합에 남은 앱 갈래
     return `${r.role}#${id}`;
   }
   return `session#${to.session ?? ""}`;

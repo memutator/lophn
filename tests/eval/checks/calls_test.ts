@@ -4,8 +4,14 @@ import { noOtherCallAfterFailedCall } from "./calls.ts";
 import { fixtureSession, fixtureTrial, type FxStep } from "./fixtures.ts";
 
 const lophn: Participant = { role: "lophn" };
-const book: Participant = { role: "app_engineer", place: { app: "가계부" } };
-const todo: Participant = { role: "app_engineer", place: { app: "할일" } };
+const book: Participant = {
+  role: "project_manager",
+  place: { project: "ledger-project" },
+};
+const todo: Participant = {
+  role: "project_manager",
+  place: { project: "todo-project" },
+};
 const tax: Participant = { role: "project_manager", place: { project: "tax" } };
 
 const send = (
@@ -24,13 +30,17 @@ const run = async (steps: FxStep[]) =>
 
 Deno.test("실패한 call 뒤에 다른 agent로 가는 call만 떨어진다", async () => {
   const table: [string, FxStep[], boolean][] = [
-    ["grant로 막힌 뒤 다른 앱", [send(book, "denied"), send(todo)], false],
+    ["grant로 막힌 뒤 다른 project", [send(book, "denied"), send(todo)], false],
     [
       "배달 실패(not_allowed) 뒤 PM",
       [send(book, "not_allowed"), send(tax)],
       false,
     ],
-    ["배달 실패(closed) 뒤 다른 앱", [send(book, "closed"), send(todo)], false],
+    [
+      "배달 실패(closed) 뒤 다른 project",
+      [send(book, "closed"), send(todo)],
+      false,
+    ],
     [
       "막힌 뒤 같은 대상에 다시",
       [send(book, "denied"), send(book, "denied")],

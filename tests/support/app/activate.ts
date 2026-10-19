@@ -1,8 +1,8 @@
-// test용 앱을 제품의 길로 activate하는 준비다: apps/create → apps/connect_source → App Engineer의 ticket →
+// test용 앱을 제품의 길로 activate하는 준비다: apps/create → apps/connect_source → Project Manager의 ticket →
 // coding agent(CLI)의 claim·release 준비·app test·보고 → ticket.verify → 사람의 activation 허락 → 앱 process.
 // data root에 release를 직접 깔지 않는다. coding token은 Gateway `coding_terminal` frame으로만 받는다.
 //
-// App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `ticket_create`가 있고 본문에
+// Project Manager의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `ticket_create`가 있고 본문에
 // 이 앱의 사람 메시지(`App <id>:`)가 있는 요청이 받는다. 앱 id만으로 가르면 다른 앱의 id를 싣는 prompt와 섞인다.
 import { assertEquals } from "@std/assert";
 import { releasesListRecords } from "../../../packages/protocol/apps/activation/activation.ts";
@@ -47,11 +47,12 @@ import { type AppPatch, createAppSource } from "./source.ts";
 
 export type TestApp = {
   app: string;
+  project: string; // 앱이 묶인 project. 그 Project Manager가 앱의 일을 맡는다
   slug: string;
   name: string;
   source: string;
   commit: string;
-  ae: string;
+  ae: string; // Project Manager session. e2e가 이 이름으로 읽는다
   gateway: Gateway;
 };
 
@@ -89,14 +90,18 @@ async function revisionOf(core: Core, app: string): Promise<string> {
   return (await core.call(appGet, { app })).app.revision;
 }
 
+// 앱의 project 이름이다. Project Manager를 이름으로 가리키는 쪽(eval 시나리오)이 같은 규칙을 쓴다.
+export const appProjectName = (slug: string) => `${slug}-project`;
+
 // 앱은 project 하나에 묶이므로 사람이 먼저 project를 등록한다. 폴더는 run의 work 아래 `<slug>-project` 하나다.
 export async function openAppProject(
   core: Core,
   slug: string,
 ): Promise<string> {
-  const folder = `${core.run.work}/${slug}-project`;
+  const name = appProjectName(slug);
+  const folder = `${core.run.work}/${name}`;
   await Deno.mkdir(folder, { recursive: true });
-  return (await openProject(core, folder, `${slug}-project`)).project;
+  return (await openProject(core, folder, name)).project;
 }
 
 export async function startTestApp(
@@ -116,7 +121,7 @@ export async function startTestApp(
     title: options.name,
     ...(options.patch === undefined ? {} : { patch: options.patch }),
   });
-  // source 폴더는 AE의 place 폴더라, 연결하면 core가 1초 polling으로 agent runtime child를 새 권한으로 다시 띄운다.
+  // source 폴더는 Project Manager의 place 폴더라, 연결하면 core가 1초 polling으로 agent runtime child를 새 권한으로 다시 띄운다.
   // 그 사이 시작한 turn은 끊기므로 새 child가 ready가 될 때까지 기다린다.
   const before = await runtimePids(core.run.home);
   await core.call(
@@ -125,9 +130,9 @@ export async function startTestApp(
     { base_revision: await revisionOf(core, created.id) },
   );
   if (before.length > 0) await settle(core, before);
-  // 이 grant 줄이 없으면 AE의 call이 not_allowed다.
+  // 이 grant 줄이 없으면 Project Manager의 call이 not_allowed다.
   await core.call(agentGrantsSet, {
-    agent: { role: "app_engineer", app: created.id },
+    agent: { role: "project_manager", project },
     entries: [{
       kind: "agent",
       agent: { role: "coding_agent", app: created.id },
@@ -136,12 +141,10 @@ export async function startTestApp(
   });
   const gateway = await connectGateway(core);
   await reportHarness(core);
-  const ae = await openSession(core, {
-    role: "app_engineer",
-    app: created.id,
-  });
+  const ae = await openSession(core, { role: "project_manager", project });
   return {
     app: created.id,
+    project,
     slug: options.slug,
     name: options.name,
     source: source.dir,
@@ -188,7 +191,7 @@ function ticketIn(
   return ticket;
 }
 
-// AE가 ticket을 만들어 coding agent에게 call하고(①②③) 끝에 `tail`로 이어지는 줄을 건다.
+// Project Manager가 ticket을 만들어 coding agent에게 call하고(①②③) 끝에 `tail`로 이어지는 줄을 건다.
 // tool call id는 같은 session의 맡기기마다 달라야 한다(`call`의 dedup과 `ticket_create`의 idempotency key).
 function scriptAe(
   fake: FakeServer,
@@ -258,7 +261,7 @@ async function aeHandOff(
   await say(core, app.ae, `App ${app.app}: ${goal}`);
   const opened = await explaining(
     async () =>
-      `AE turn ${turn} 상태: ${
+      `PM turn ${turn} 상태: ${
         (await turnsOf(core, app.ae))[turn]?.state ?? "없음"
       }, fake 요청 ${fake.journal().length}개, ${await appStateOf(
         core,
@@ -458,7 +461,7 @@ export async function deliverRelease(
   return { ticket, release };
 }
 
-// `verify: false`로 멈춘 release의 ticket을 AE가 확인하게 한다. `refused`면 관문이 막아 ticket이 reported로 남는다.
+// `verify: false`로 멈춘 release의 ticket을 Project Manager가 확인하게 한다. `refused`면 관문이 막아 ticket이 reported로 남는다.
 export async function verifyTicket(
   core: Core,
   fake: FakeServer,

@@ -46,7 +46,7 @@ export type FileGroup =
 const ROLES = "packages/core/agent-roles/roles";
 const NO_PACKAGE = /^packages\/(shell|design)\//;
 const INSTRUCTION = new RegExp(
-  `^${ROLES}/(lophn|project-manager|app-engineer|operator)/prompt\\.md$`,
+  `^${ROLES}/(lophn|project-manager|operator)/prompt\\.md$`,
 );
 const GUIDE = new RegExp(`^${ROLES}/lophn/guides/[^/]+\\.md$`);
 const SKILL =

@@ -37,10 +37,12 @@ export type FxStep =
 
 function placeName(p: Participant): PlaceName | null {
   const place = p.place;
-  if (place === undefined) return null;
-  return "app" in place
-    ? { kind: "app", id: `app_fx_${place.app}`, name: place.app }
-    : { kind: "project", id: `prj_fx_${place.project}`, name: place.project };
+  if (place === undefined || !("project" in place)) return null;
+  return {
+    kind: "project",
+    id: `prj_fx_${place.project}`,
+    name: place.project,
+  };
 }
 
 function refOf(p: Participant): AgentRef {
@@ -50,8 +52,6 @@ function refOf(p: Participant): AgentRef {
       return { role: "lophn" };
     case "project_manager":
       return { role: "project_manager", project: place!.id } as AgentRef;
-    case "app_engineer":
-      return { role: "app_engineer", app: place!.id } as AgentRef;
     case "operator":
       return { role: "operator", agent: `agt_fx_${p.name ?? ""}` } as AgentRef;
   }
@@ -99,11 +99,11 @@ export function fixtureTrial(sessions: SessionRecord[]): TrialRecord {
   };
 }
 
-export function fixtureAppCreate(name: string): FxStep {
+export function fixtureAppCreate(name: string, project: string): FxStep {
   return {
     tool: "app.create",
     effect: "write",
-    input: { name, purpose: `${name} fixture` },
+    input: { project, name, purpose: `${name} fixture` },
     output: { status: "success", content: { id: `app_fx_${name}` } },
   };
 }

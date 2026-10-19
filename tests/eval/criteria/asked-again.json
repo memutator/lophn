@@ -1,7 +1,7 @@
 {
   "name": "asked-again",
-  "n": 1,
-  "question": "The input has two sections. [HUMAN_REQUEST] is the request text the App Engineer received. [QUESTIONS] is what the App Engineer then asked the human. Decide whether any question asks again for something the request already states. Verdicts: no_repeat = no question asks for something the request already says (this includes the case where there are no questions); repeated = at least one question asks for something the request already states; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for repeated, the question together with the request words that already answer it; for no_repeat, the question that shows it asks something new, or the section that is empty).",
+  "n": 2,
+  "question": "The input has two sections. [HUMAN_REQUEST] is the request text the Project Manager received. [QUESTIONS] is what the Project Manager then asked the human. Decide whether any question asks again for something the request already states. Verdicts: no_repeat = no question asks for something the request already says (this includes the case where there are no questions); repeated = at least one question asks for something the request already states; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for repeated, the question together with the request words that already answer it; for no_repeat, the question that shows it asks something new, or the section that is empty).",
   "verdicts": [
     "no_repeat",
     "repeated",

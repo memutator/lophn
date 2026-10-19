@@ -9,7 +9,6 @@ import type { Id } from "../../../packages/protocol/base/mod.ts";
 import {
   approveActivation,
   deliverRelease,
-  openAppProject,
   type TestApp,
   waitRunning,
 } from "../../support/app/activate.ts";
@@ -18,6 +17,7 @@ import { openSession, settle } from "../../support/core/human.ts";
 import { connectGateway } from "../../support/gateway/mod.ts";
 import { reportHarness } from "../../support/gateway/shell.ts";
 import type { SetupContext } from "../types.ts";
+import { restoreAppProject } from "./apps.ts";
 import { git } from "./git.ts";
 import { type Material, textOf } from "./manifest.ts";
 
@@ -57,7 +57,7 @@ export async function restoreActiveApp(
   let gateway: TestApp["gateway"] | undefined;
   try {
     fake.reset();
-    const project = await openAppProject(core, spec.slug);
+    const project = await restoreAppProject(ctx, spec.slug);
     await core.call(appCreate, {
       id,
       slug: spec.slug,
@@ -75,9 +75,9 @@ export async function restoreActiveApp(
       { base_revision: (await core.call(appGet, { app: id })).app.revision },
     );
     if (before.length > 0) await settle(core, before);
-    // 이 grant 줄이 없으면 App Engineer의 call이 not_allowed다.
+    // 이 grant 줄이 없으면 Project Manager의 call이 not_allowed다.
     await core.call(agentGrantsSet, {
-      agent: { role: "app_engineer", app: id },
+      agent: { role: "project_manager", project },
       entries: [{
         kind: "agent",
         agent: { role: "coding_agent", app: id },
@@ -92,7 +92,8 @@ export async function restoreActiveApp(
       name: spec.name,
       source: dir,
       commit,
-      ae: await openSession(core, { role: "app_engineer", app: id }),
+      project,
+      ae: await openSession(core, { role: "project_manager", project }),
       gateway,
     };
     const { release } = await deliverRelease(core, fake, app, {

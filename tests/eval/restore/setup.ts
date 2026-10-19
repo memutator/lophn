@@ -1,6 +1,7 @@
 // 시나리오 `setup`이 `SetupContext`를 받아 부르는 helper다.
 import { agentGrantsSet } from "../../../packages/protocol/approvals/mod.ts";
 import { settingsUpdate } from "../../../packages/protocol/config/mod.ts";
+import { appGet } from "../../../packages/protocol/apps/mod.ts";
 import { ticketList } from "../../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
   observeViewError,
@@ -40,7 +41,7 @@ export async function openProblem(
 ): Promise<{ problem: string }> {
   const { core } = ctx;
   const id = appOf(ctx, app);
-  // 기본(open)이면 App Engineer session이 열려 fake 대본을 쓴다.
+  // 기본(open)이면 Project Manager session이 열려 fake 대본을 쓴다.
   await core.call(settingsUpdate, {
     changes: [{
       key: "reactions.problem_opened",
@@ -81,7 +82,7 @@ export async function openProblem(
   return { problem: accepted.problem };
 }
 
-// ticket은 App Engineer만 만든다. fake 대본으로 App Engineer가 `ticket_create`를 부르게 한다.
+// ticket은 앱의 Project Manager만 만든다. fake 대본으로 그가 `ticket_create`를 부르게 한다.
 export async function openTicket(
   ctx: SetupContext,
   app: string,
@@ -107,7 +108,8 @@ export async function openTicket(
     },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openSession(core, { role: "app_engineer", app: id });
+  const { project } = (await core.call(appGet, { app: id })).app;
+  const session = await openSession(core, { role: "project_manager", project });
   await say(core, session, `App ${id}: open a ticket`);
   await waitTurnEnd(core, session);
   const listed = await core.call(ticketList, { app: id, state: "open" });

@@ -19,7 +19,7 @@ const READS = [
 
 const scenario: Scenario = {
   id: "L7",
-  n: 1,
+  n: 2,
   proposal: true,
   world: ["apps-home@1"],
   real: [LOPHN],
@@ -41,7 +41,10 @@ const scenario: Scenario = {
       },
       {
         trial: fixtureTrial([
-          fixtureSession(LOPHN, [...READS, fixtureAppCreate("가계부2")]),
+          fixtureSession(LOPHN, [
+            ...READS,
+            fixtureAppCreate("가계부2", "ledger-project"),
+          ]),
         ]),
         fails: ["no-write"],
       },

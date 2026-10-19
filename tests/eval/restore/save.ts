@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { releasesGetRecord } from "../../../packages/protocol/apps/activation/activation.ts";
-import { appGet } from "../../../packages/protocol/apps/mod.ts";
+import { appGet, appList } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import type {
   MaterialKind,
@@ -95,27 +95,33 @@ async function saveActiveApp(
 }
 
 async function saveCall(deps: Deps, appName: string): Promise<Result<Saved>> {
+  // lophn이 trial 안에서 만든 앱은 world에 없어 이름으로 찾는다.
+  const { apps } = await deps.core.call(appList, {});
+  const app = apps.find((item) => item.name === appName);
+  if (app === undefined) {
+    return err({ code: "not_found", message: `app ${appName} not found` });
+  }
   const sent = deps.trial.sessions.flatMap((session) => session.sent_calls)
     .find((item: SentCall) =>
-      item.receiver?.role === "app_engineer" &&
-      item.receiver_place?.name === appName
+      item.receiver?.role === "project_manager" &&
+      item.receiver.project === app.project
     );
   const place = sent?.receiver_place;
   if (sent === undefined || place === null || place === undefined) {
     return err({
       code: "not_found",
-      message: `no call to the App Engineer of ${appName}`,
+      message: `no call to the Project Manager of ${appName}`,
     });
   }
   return ok({
     kind: "call",
-    ids: { [place.name]: place.id },
+    ids: { [appName]: app.id },
     files: [
-      await appFile(deps.core, place.id),
+      await appFile(deps.core, app.id),
       {
         path: "call.json",
         bytes: json({
-          to: { role: "app_engineer", place: { app: appName } },
+          to: { role: "project_manager", place: { project: place.name } },
           reply: sent.reply,
           body: sent.body,
         }),

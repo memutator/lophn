@@ -6,13 +6,13 @@ import {
   toolCount,
 } from "../../checks/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
-import { AE_가계부, LOPHN } from "./common.ts";
+import { LOPHN, PM_ledger } from "./common.ts";
 
 const REQUEST = "Operator는 뭐고 누가 만들어?";
 
 const scenario: Scenario = {
   id: "L6",
-  n: 1,
+  n: 2,
   proposal: true,
   world: [],
   real: [LOPHN],
@@ -37,7 +37,7 @@ const scenario: Scenario = {
         trial: fixtureTrial([
           fixtureSession(LOPHN, [
             { tool: "guide.read", effect: "read" },
-            { call: { to: AE_가계부, reply: "result" } },
+            { call: { to: PM_ledger, reply: "result" } },
           ]),
         ]),
         fails: ["no-call"],

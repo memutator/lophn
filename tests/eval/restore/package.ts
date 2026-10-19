@@ -1,6 +1,9 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { releasesListRecords } from "../../../packages/protocol/apps/activation/activation.ts";
-import { packagesVersions } from "../../../packages/protocol/apps/mod.ts";
+import {
+  appGet,
+  packagesVersions,
+} from "../../../packages/protocol/apps/mod.ts";
 import { approvalsPending } from "../../../packages/protocol/approvals/mod.ts";
 import { tool } from "../../support/app/activate.ts";
 import { openSession, say, waitTurnEnd } from "../../support/core/human.ts";
@@ -20,7 +23,7 @@ type Publish = {
   exports?: string[]; // 재사용 확인(checks/app/reuse.ts)이 읽는다. tool 입력이 아니다
 };
 
-// 낸 앱의 App Engineer가 `package.publish`를 부른다. 앱은 켜져 있어야 한다(app test를 통과한 release가 있다).
+// 낸 앱의 Project Manager가 `package.publish`를 부른다. 앱은 켜져 있어야 한다(app test를 통과한 release가 있다).
 export async function restorePackage(
   ctx: SetupContext,
   material: Material,
@@ -58,8 +61,9 @@ export async function restorePackage(
       toolNames(request).includes("package_publish") &&
       JSON.stringify(request.body).includes(`App ${app}:`),
   });
-  const ae = await openSession(core, { role: "app_engineer", app });
-  await say(core, ae, `App ${app}: publish ${spec.name}`);
+  const { project } = (await core.call(appGet, { app })).app;
+  const pm = await openSession(core, { role: "project_manager", project });
+  await say(core, pm, `App ${app}: publish ${spec.name}`);
   const reason = async () => {
     const last = fake.journal().map((entry) => lastToolResult(entry)).filter((
       text,
@@ -72,7 +76,7 @@ export async function restorePackage(
     }`;
   };
   try {
-    await waitTurnEnd(core, ae);
+    await waitTurnEnd(core, pm);
   } catch (error) {
     return err({
       code: "unavailable",

@@ -8,10 +8,10 @@ import {
 import { relayCompleteInput } from "../../judge/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
 import {
-  AE_가계부,
   LOPHN,
   OP_세무정리,
   OPERATOR_WORLD,
+  PM_ledger,
   PM_tax,
 } from "./common.ts";
 
@@ -20,7 +20,7 @@ const REQUEST =
 
 const scenario: Scenario = {
   id: "O6",
-  n: 2,
+  n: 3,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_세무정리],
@@ -61,7 +61,7 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(OP_세무정리, [
-            { call: { to: AE_가계부, reply: "none" } },
+            { call: { to: PM_ledger, reply: "none" } },
           ]),
         ]),
         fails: ["call-to-tax-pm"],

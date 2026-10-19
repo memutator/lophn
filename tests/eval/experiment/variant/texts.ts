@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../../packages/base/mod.ts";
 import type { VariantTexts } from "../../versions/mod.ts";
 import type { VariantIo } from "./io.ts";
 
-const ROLES = ["lophn", "project_manager", "app_engineer", "operator"];
+const ROLES = ["lophn", "project_manager", "operator"];
 
 // .md를 text로 묶어 가져오는 코드라 이 프로세스에서 variant file을 import하면 import map이 어느 checkout
 // 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.

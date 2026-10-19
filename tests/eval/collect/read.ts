@@ -1,5 +1,4 @@
 import type { Route } from "../../../packages/protocol/base/mod.ts";
-import { appList } from "../../../packages/protocol/apps/mod.ts";
 import { projectList } from "../../../packages/protocol/projects/mod.ts";
 import {
   type AgentRef,
@@ -56,28 +55,17 @@ async function readAll<T>(
   return all;
 }
 
-type Names = { app: Map<string, string>; project: Map<string, string> };
+type Names = { project: Map<string, string> };
 
 async function readNames(port: ReadPort): Promise<Names> {
-  const apps = await readAll(async (cursor) => {
-    const out = (await read(port, appList, { cursor }))!;
-    return { items: out.apps, next_cursor: out.next_cursor };
-  });
   const projects = await readAll(async (cursor) => {
     const out = (await read(port, projectList, { cursor }))!;
     return { items: out.projects, next_cursor: out.next_cursor };
   });
-  return {
-    app: new Map(apps.map((a) => [a.id, a.name])),
-    project: new Map(projects.map((p) => [p.id, p.name])),
-  };
+  return { project: new Map(projects.map((p) => [p.id, p.name])) };
 }
 
 function placeOf(agent: AgentRef, names: Names): PlaceName | null {
-  if (agent.role === "app_engineer") {
-    const name = names.app.get(agent.app);
-    return name === undefined ? null : { kind: "app", id: agent.app, name };
-  }
   if (agent.role === "project_manager") {
     const name = names.project.get(agent.project);
     return name === undefined

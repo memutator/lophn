@@ -8,11 +8,11 @@ Deno.test("extraRoots: adds woken role agents, not coding, known roots or the fa
     [
       snap("ses_said", "lophn"),
       snap("ses_fake", "lophn"),
-      snap("ses_engineer", "app_engineer"),
+      snap("ses_pm", "project_manager"),
       snap("ses_coding", "coding_agent"),
     ],
     ["ses_said"],
     new Set(["ses_fake"]),
   );
-  assertEquals(got, ["ses_engineer"]);
+  assertEquals(got, ["ses_pm"]);
 });

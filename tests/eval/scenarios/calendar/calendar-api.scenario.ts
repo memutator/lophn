@@ -7,7 +7,7 @@ import {
 } from "../../checks/app/mod.ts";
 import { callCount, fixtureTrial } from "../../checks/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
-import { AE, createCalendarOperator, eventInCalendar, OP } from "./common.ts";
+import { createCalendarOperator, eventInCalendar, OP, PM } from "./common.ts";
 import { SAY_API } from "./spec.ts";
 
 const ADD = { tool: "app__fx__event.add", effect: "write" } as const;
@@ -15,7 +15,7 @@ const LIST = { tool: "app__fx__event.list" } as const;
 
 const scenario: Scenario = {
   id: "calendar-api",
-  n: 1,
+  n: 2,
   proposal: false,
   world: ["calendar-app@1"],
   setup: createCalendarOperator,
@@ -44,7 +44,7 @@ const scenario: Scenario = {
           appApiSession(OP, [
             ADD,
             LIST,
-            { call: { to: AE, reply: "none", body: "fixture" } },
+            { call: { to: PM, reply: "none", body: "fixture" } },
           ]),
         ]),
         fails: ["no-agent-calls"],

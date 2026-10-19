@@ -1,8 +1,8 @@
 {
   "to": {
-    "role": "app_engineer",
+    "role": "project_manager",
     "place": {
-      "app": "캘린더"
+      "project": "calendar-project"
     }
   },
   "reply": "none",

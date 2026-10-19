@@ -2,7 +2,7 @@
 import { appAppApi } from "../../../../packages/protocol/apps/blueprint/read.ts";
 import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
 import { asksGapInput, joinInput } from "../../judge/mod.ts";
-import type { CheckInput, TrialRecord } from "../../types.ts";
+import type { CheckInput, Participant, TrialRecord } from "../../types.ts";
 import { sentCalls, toolCallsOf } from "../records.ts";
 import type { BugSpec } from "./diagnose.ts";
 import { findApp } from "./live.ts";
@@ -87,15 +87,15 @@ export function cardCoveredInput(
   };
 }
 
-// request가 없으면 App Engineer가 받은 첫 call의 본문이다. `say`로 요청이 간 시나리오는 request를 넘긴다.
+// request가 없으면 Project Manager가 받은 첫 call의 본문이다. `say`로 요청이 간 시나리오는 request를 넘긴다.
 export function askedAgainInput(
-  app: string,
+  pm: Participant,
   request?: string,
 ): (input: CheckInput) => string {
   return ({ trial }) => {
     const text = request ??
       sentCalls(trial, {
-        target: { role: "app_engineer", place: { app } },
+        target: pm,
       })[0]?.body ?? "(no request)";
     const questions = toolCallsOf(trial, "ask").flatMap((c) =>
       (c.input as { questions?: AskInput["questions"] } | null)?.questions ??

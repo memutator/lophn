@@ -11,7 +11,6 @@ import {
   turnBodyView,
   turnList,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { appList } from "../../../packages/protocol/apps/mod.ts";
 import { projectList } from "../../../packages/protocol/projects/mod.ts";
 import { collectSessions, type ReadPort } from "./read.ts";
 
@@ -60,7 +59,7 @@ const toolCalls = [
 const inputs: Record<string, unknown> = {
   tcl_old: { to: { role: "lophn" }, reply: "none", body: "old" },
   tcl_blocked: {
-    to: { role: "app_engineer", place: { app: "x" } },
+    to: { role: "project_manager", place: { project: "hr" } },
     reply: "none",
     body: "blocked",
   },
@@ -76,8 +75,6 @@ const port: ReadPort = {
   async tryCall(route: unknown, input: unknown) {
     const i = input as Record<string, string>;
     switch (route) {
-      case appList:
-        return ok({ apps: [] });
       case projectList:
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
       case agentSessionRead:

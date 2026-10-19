@@ -31,7 +31,7 @@ import {
   type VariantTexts,
 } from "./registry.ts";
 
-const ROLES = ["lophn", "project_manager", "app_engineer", "operator"];
+const ROLES = ["lophn", "project_manager", "operator"];
 const SKILL_ROOTS = [
   "packages/core/agent-roles/skills",
   "packages/coding-agent/guides/skills",

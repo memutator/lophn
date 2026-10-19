@@ -1,4 +1,4 @@
-// 사람이 그 터미널에 키를 넣는 동안 App Engineer의 input을 붙잡는다. 제품에서 사람이 탭에 focus해 있는 동안 쥐는 규칙과 같다.
+// 사람이 그 터미널에 키를 넣는 동안 Project Manager의 input을 붙잡는다. 제품에서 사람이 탭에 focus해 있는 동안 쥐는 규칙과 같다.
 
 export type FocusGate = {
   hold(ref: string): () => void;

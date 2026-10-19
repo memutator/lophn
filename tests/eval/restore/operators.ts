@@ -9,24 +9,18 @@ export async function restoreOperators(
   material: Material,
 ): Promise<void> {
   const operators = JSON.parse(textOf(material, "operators.json")) as {
-    place: { kind: "app" | "project"; name: string };
+    place: { project: string };
     definition: { name: string; body: string };
   }[];
   for (const { place, definition } of operators) {
-    const placeId = place.kind === "app"
-      ? ctx.world.apps[place.name]
-      : ctx.world.projects[place.name];
-    if (placeId === undefined) {
-      throw new Error(
-        `operator place ${place.kind} ${place.name} not restored`,
-      );
+    const project = ctx.world.projects[place.project];
+    if (project === undefined) {
+      throw new Error(`operator project ${place.project} not restored`);
     }
     const id = material.manifest.ids[definition.name] as Id<"agt">;
     await ctx.core.call(operatorCreate, {
       id,
-      place: place.kind === "app"
-        ? { kind: "app", id: placeId }
-        : { kind: "project", id: placeId },
+      place: { kind: "project", id: project },
       definition,
     });
     ctx.world.operators[definition.name] = id;

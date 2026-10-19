@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-control-regex -- 터미널 출력의 escape sequence를 지우려면 제어 문자를 세야 한다.
 // eval에는 desktop shell이 없다. core가 Gateway로 보낸 `coding_terminal` frame으로 진짜 Claude Code를 PTY에서 띄우고,
-// App Engineer의 답을 넣고, 끝나면 core에 알린다. 상태는 hook과 process exit로만 안다. 화면 글은 진단(`tail`)과 사람에게 보이는 데만 쓴다.
+// Project Manager의 답을 넣고, 끝나면 core에 알린다. 상태는 hook과 process exit로만 안다. 화면 글은 진단(`tail`)과 사람에게 보이는 데만 쓴다.
 import type { Clock } from "../../../../packages/base/mod.ts";
 import type { CodingTerminalRequest } from "../../../../packages/protocol/coding-agent/mod.ts";
 import type { GatewayServerFrame } from "../../../../packages/protocol/events/mod.ts";

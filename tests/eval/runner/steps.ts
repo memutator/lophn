@@ -20,7 +20,7 @@ import { type IdleResult, readSnapshot, waitUntilIdle } from "./idle.ts";
 
 // coding 시나리오 trial 하나의 상한. t0부터 잰다.
 export const CODING_TRIAL_LIMIT_MS = 90 * 60_000;
-// callApi 뒤 ProblemOpened가 App Engineer 입력이 되기까지의 틈을 다음 untilIdle이 넘게 한다.
+// callApi 뒤 ProblemOpened가 Project Manager 입력이 되기까지의 틈을 다음 untilIdle이 넘게 한다.
 const CODING_QUIET_MS = 3_000;
 // 활성화 허락 뒤 앱 process가 뜨고 release가 끝나기까지 아무도 일하지 않는 사이.
 const CODING_GRACE_MS = 10_000;
@@ -114,7 +114,7 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       }
     } else {
       let idle = await wait();
-      // 완료 보고 없이 CLI가 멈췄거나 보고 뒤 process가 안 끝났다. 끊으면 core가 App Engineer에게 알려 새 turn이 열릴 수 있다.
+      // 완료 보고 없이 CLI가 멈췄거나 보고 뒤 process가 안 끝났다. 끊으면 core가 Project Manager에게 알려 새 turn이 열릴 수 있다.
       if (idle.kind === "idle" && driver !== undefined && driver.active() > 0) {
         log("터미널이 남은 채 쉬어 끊고 다시 기다린다");
         await driver.stop();

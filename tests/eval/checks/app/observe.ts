@@ -3,6 +3,7 @@
 // 보고되면 묶여서 새 id가 안 생긴다. 그래서 "원인이 다르면 이름도 다른가"를 한 번에 본다.
 import { DatabaseSync } from "node:sqlite";
 import {
+  appDataFolder,
   appDisableExecution,
   appEnableExecution,
   appGet,
@@ -75,7 +76,7 @@ async function observeFailure(
   probe: Probe,
   around?: Around,
 ): Promise<CheckOutcome> {
-  // 끄지 않으면 새 problem마다 진짜 App Engineer session이 열린다.
+  // 끄지 않으면 새 problem마다 진짜 Project Manager session이 열린다.
   await core.call(settingsUpdate, {
     changes: [{
       key: "reactions.problem_opened",
@@ -137,7 +138,7 @@ function renameTables(appName: string): Around {
   return async (core) => {
     const app = await findApp(core, appName);
     const db = new DatabaseSync(
-      `${core.run.home}/apps/${app.id}/data/app.sqlite`,
+      `${appDataFolder(core.run.home, app.project)}/app.sqlite`,
     );
     try {
       db.exec("PRAGMA busy_timeout = 5000");

@@ -11,6 +11,9 @@
   - `tools/wireframes/pages/screens/app-space.tsx`
   - `tools/wireframes/pages/screens/app-space/`
   - `tools/wireframes/mock/app-space/`
+- 추가 소유(lead가 더함. `AppPanelTabProps.project`의 선언과 넘기는 쪽만 지운다):
+  - `packages/shell/renderer/workspace/app-panel-tab.tsx`
+  - `packages/shell/renderer/workspace/kinds/app-panel.tsx`
 - 읽을 것:
   - architecture: `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/workspace-layout.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `shell`, `project-docs/module-catalog.yaml`의 `packages/shell/renderer`
@@ -50,3 +53,7 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- `AppPanelTabProps.project`를 지운다. `domain-tools`의 `dt-shell-bridge`가 `<EmbeddedView project=…>`를 빼서 선언(`packages/shell/renderer/workspace/app-panel-tab.tsx`)과 넘기는 쪽(`packages/shell/renderer/workspace/kinds/app-panel.tsx`)에 쓰이지 않는 칸으로 남았다. 앱의 project는 앱 record(`App.project`)가 안다.

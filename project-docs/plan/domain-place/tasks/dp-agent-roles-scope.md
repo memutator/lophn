@@ -72,3 +72,9 @@ App Engineer가 갖던 tool 목록, file 범위, 자격 조건, Operator 관리�
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**: 자격에 `conditions.app`이 생기면 `packages/core/storage/ledger/target-authorization.ts`의 `outsideBoundApp`(context·document target을 앱 밖으로 막는다)이 PM에게도 걸린다. `domain-kinds`가 context 읽기를 지우기 전에 land하면 PM의 context 읽기가 잠시 막힌다
+
+## lead가 더함
+
+- `draftRoot`는 좁히지 않는다. `domain-kinds`의 `dk-prompt-place`가 `runtimeFoldersOf`(`packages/core/main/daemon/place-folders-glue.ts`)에서 `draftRoot`를 지우고 project마다 `kindsFilePath`를 file 항목으로 넣는다(`runtimeFolders` 입력의 `draftRoot`가 `kindsFiles`로 바뀐다). `artifact`는 같은 함수에 `artifactFolders`를 더했다. project skill 폴더는 그 옆에 폴더 항목 하나로 더한다. 띄울 때 그 변경이 base에 있으면 그 위에서, 없으면 `draftRoot` 줄은 그대로 두고 skill 폴더만 더한다(lead가 rebase 때 두 쪽을 맞춘다).
+- `artifact`가 `credentials.ts`에서 `annotationsGet`을 PM·Operator에게 열었고 `agentConditions`에 `project` 조건을 더했다. `conditions.app`은 그 옆에 더한다. 같은 뜻의 조건을 둘로 만들지 않는다.
+- Deno 권한 함정: 쓰기 허락이 file 하나뿐이면 이미 있는 부모 폴더라도 `Deno.mkdir(parent, {recursive: true})`가 NotCapable로 거절된다. skill 폴더는 core 쪽(`ensureProjectManager`)에서 만들고, runtime child 안에서 만들지 않는다.

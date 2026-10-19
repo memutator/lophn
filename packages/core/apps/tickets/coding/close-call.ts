@@ -1,10 +1,9 @@
-// 맡긴 coding call을 닫고 맡긴 Project Manager("열린 session, 없으면 새 session")에게 그 사실을 새 입력으로
+// 맡긴 coding call을 닫고 맡긴 App Engineer("열린 session, 없으면 새 session")에게 그 사실을 새 입력으로
 // 넣는다. 같은 tx 안에서 call을 닫으므로 Router의 실패 알림이 같은 사실을 한 번 더 보내지 않는다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { ok, type Result } from "../../../../base/mod.ts";
 import type { CallRef } from "../../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { createCallStore, routerFor } from "../../../router/mod.ts";
-import { appProjectOf } from "../../lookups.ts";
 
 // 입력 본문은 고정 문구다. 본문 blob을 미리 준비해 둘 수 있어야 하므로 session마다 다른 값을 넣지 않는다.
 export const CODING_REACTION_TEXTS = {
@@ -47,16 +46,12 @@ export function closeCall(tx: Tx, input: {
       ? []
       : [{ kind: "session", session: input.session }]),
   ] as CallRef[];
-  const project = appProjectOf(tx.sql, input.app);
-  if (project === null) {
-    return err({ code: "internal", message: "the app has no project" });
-  }
   const routed = router.value.route(tx, {
     from: { kind: "program", event_seq: input.seq },
     to: {
       kind: "open_session_or_new",
       session: record.from.session,
-      agent: { role: "project_manager", project },
+      agent: { role: "app_engineer", app: input.app },
     } as never,
     reply: "none",
     body: CODING_REACTION_TEXTS[input.event],

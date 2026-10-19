@@ -26,12 +26,8 @@ function setup() {
       ...codingSchemaSteps,
     ]
   ) db.exec(step.sql);
-  db.exec(
-    "CREATE TABLE apps (id TEXT PRIMARY KEY, source_path TEXT, project TEXT)",
-  );
-  db.prepare(
-    "INSERT INTO apps VALUES (?, '/work/app', 'prj_01hzzzzzzzzzzzzzzzzzzzzzzz')",
-  ).run(APP);
+  db.exec("CREATE TABLE apps (id TEXT PRIMARY KEY, source_path TEXT)");
+  db.prepare("INSERT INTO apps VALUES (?, '/work/app')").run(APP);
   for (const n of [1, 2]) {
     db.prepare(
       `INSERT INTO tickets (id, app, state, goal, acceptance_check, revision)

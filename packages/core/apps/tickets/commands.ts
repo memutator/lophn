@@ -1,5 +1,5 @@
-// ticket 만들기·고치기·확인·취소. Project Manager가 만들고 고치고 확인(verify)하고 취소하며,
-// 확인됨은 Project Manager가 정한다. program은 판정하지 않는다.
+// ticket 만들기·고치기·확인·취소. App Engineer가 만들고 고치고 확인(verify)하고 취소하며,
+// 확인됨은 App Engineer가 정한다. program은 판정하지 않는다.
 import { createHash } from "node:crypto";
 import { canonicalize, ok, type Result } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
@@ -41,7 +41,7 @@ export function createTicketCommands(): {
       route: ticketCreate,
       handle(tx, ctx, input) {
         if (!agentActor(ctx.actor)) {
-          return forbidden("only a Project Manager creates tickets");
+          return forbidden("only an App Engineer creates tickets");
         }
         const scope = checkApp(tx.port, ctx, input.app);
         if (!scope.ok) return scope;
@@ -80,7 +80,7 @@ export function createTicketCommands(): {
       route: ticketUpdate,
       handle(tx, ctx, input) {
         if (!agentActor(ctx.actor)) {
-          return forbidden("only a Project Manager updates tickets");
+          return forbidden("only an App Engineer updates tickets");
         }
         const loaded = loadTicket(tx.sql, input.ticket);
         if (!loaded.ok) return loaded;
@@ -110,7 +110,7 @@ export function createTicketCommands(): {
       route: ticketVerify,
       handle(tx, ctx, input, compare) {
         if (!agentActor(ctx.actor)) {
-          return forbidden("only a Project Manager verifies tickets");
+          return forbidden("only an App Engineer verifies tickets");
         }
         const loaded = loadTicket(tx.sql, input.ticket);
         if (!loaded.ok) return loaded;

@@ -191,7 +191,7 @@ Deno.test("session이 끝나면 claim을 반납하고 보고가 없었으면 eve
   db.close();
 });
 
-Deno.test("확인됨은 Project Manager가 정하고 닫힌 ticket은 고칠 수 없다", () => {
+Deno.test("확인됨은 App Engineer가 정하고 닫힌 ticket은 고칠 수 없다", () => {
   const { tx, insert, row, events, reported, db } = open();
   insert(TKT_A, APP_A, "reported");
   reported(TKT_A, SES_A);

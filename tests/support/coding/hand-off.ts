@@ -1,7 +1,7 @@
-// Project Manager가 ticket을 만들거나 coding agent에게 맡기는 준비다. `handOff`(터미널이 열리는 데까지)는
+// App Engineer가 ticket을 만들거나 coding agent에게 맡기는 준비다. `handOff`(터미널이 열리는 데까지)는
 // `tests/support/app/activate.ts`가 내놓고, 여기에는 그것이 못 하는 두 가지만 둔다: ticket만 만들기, 줄에 서는 맡기기.
 //
-// Project Manager의 fake 대답은 session 하나의 줄(lane)로 건다. 줄 이름과 match는 activate.ts의 `aeLane`이라, 같은 앱의
+// App Engineer의 fake 대답은 session 하나의 줄(lane)로 건다. 줄 이름과 match는 activate.ts의 `aeLane`이라, 같은 앱의
 // 앞 맡기기가 건 줄의 queue를 대체한다. tool call id는 맡기기마다 다르게 둔다: 같은 session에서 id가 겹치면 `call`의
 // dedup(보낸 session + tool call id)과 `ticket_create`의 idempotency key에 걸려 새 일이 안 생긴다.
 import type { HarnessId } from "../../../packages/protocol/coding-agent/mod.ts";

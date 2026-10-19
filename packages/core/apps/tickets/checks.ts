@@ -164,7 +164,7 @@ export function createTicketCheckCommands(): {
           ])!["acceptance_check"],
         )));
         if (check.kind === "text") {
-          return invalid("a text check is judged by the Project Manager");
+          return invalid("a text check is judged by the App Engineer");
         }
         if (input.result !== "pass" && !/\S/.test(input.reason)) {
           return invalid("a result that is not pass needs a reason");

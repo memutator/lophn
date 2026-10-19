@@ -34,11 +34,12 @@ const readCallRead: ReadDefinition<typeof callRead> = {
   },
 };
 
-// Project Manager는 place가 곧 정체성이다. Operator의 place는 describe가 안다.
+// Project Manager와 App Engineer는 place가 곧 정체성이다. Operator의 place는 describe가 안다.
 function placeOf(agent: CallAgent): Place | null {
   if (agent.role === "project_manager") {
     return { kind: "project", id: agent.project };
   }
+  if (agent.role === "app_engineer") return { kind: "app", id: agent.app };
   return null;
 }
 

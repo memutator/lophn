@@ -7,16 +7,14 @@ import {
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { Place } from "../../../../protocol/lophn-agent/places.ts";
-import { appProjectOf } from "../../lookups.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 
-// coding session의 place는 앱의 project place다. 앱 필수 칸이라 project가 없는 일은 없다.
+// coding session의 place는 앱이다. 터미널은 app space에 열린다. 앱이 없으면 null이다.
 export function codingPlace(sql: Reader, app: string): Place | null {
-  const project = appProjectOf(sql, app);
-  return project === null
+  return sql.get("select id from apps where id = ?", [app]) === undefined
     ? null
-    : { kind: "project", id: project as Id<"prj"> };
+    : { kind: "app", id: app as Id<"app"> };
 }
 
 type SessionState = "running" | "waiting" | "idle" | "unknown";

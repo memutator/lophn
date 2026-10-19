@@ -15,7 +15,7 @@ export const notFound = (message: string): Result<never> =>
 const unavailable = (message: string): Result<never> =>
   err({ code: "unavailable", message });
 
-// ticket을 만들고 고치고 확인하는 주체는 Project Manager(agent)다. 취소는 사람도 한다.
+// ticket을 만들고 고치고 확인하는 주체는 App Engineer(agent)다. 취소는 사람도 한다.
 export function agentActor(actor: string): boolean {
   return parseActor(actor)?.kind === "agent";
 }
@@ -31,7 +31,7 @@ export function codingSessionOf(actor: string): string | undefined {
 
 type PortOf = <T>(key: PortKey<T>) => T;
 
-// 호출자가 묶인 앱. coding session은 token의 앱 하나(CodingSessionLookup), Project Manager는
+// 호출자가 묶인 앱. coding session은 token의 앱 하나(CodingSessionLookup), App Engineer는
 // 자격 조건의 앱이다. 묶이지 않은 호출자(사람, machine)는 null이다.
 export function boundApp(
   port: PortOf,

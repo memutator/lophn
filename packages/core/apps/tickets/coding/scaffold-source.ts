@@ -13,7 +13,6 @@ import { startFailure } from "./launch.ts";
 
 type ScaffoldTarget = {
   id: string;
-  project: string;
   slug: string;
   name: string;
   revision: string;
@@ -25,12 +24,11 @@ export function sourcelessAppNamed(
   name: string,
 ): ScaffoldTarget | null {
   const row = sql.get(
-    "select id, project, slug, name, revision from apps where (id = ? or slug = ? or name = ?) and source_path is null",
+    "select id, slug, name, revision from apps where (id = ? or slug = ? or name = ?) and source_path is null",
     [name, name, name],
   );
   return row === undefined ? null : {
     id: String(row["id"]),
-    project: String(row["project"]),
     slug: String(row["slug"]),
     name: String(row["name"]),
     revision: String(row["revision"]),
@@ -130,7 +128,7 @@ async function scaffold(
   }
 }
 
-// `call`이 source 없는 앱의 coding agent에게 가면 보내기 전에 source를 깔고 잇는다. 잇기는 보낸 Project Manager의
+// `call`이 source 없는 앱의 coding agent에게 가면 보내기 전에 source를 깔고 잇는다. 잇기는 보낸 App Engineer의
 // 자격으로 한다(자기 앱의 source 연결은 그 자격이 이미 가진다).
 export function withScaffoldedSource(
   inner: Writer,

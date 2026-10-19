@@ -49,7 +49,7 @@ export function createTicketReads(): {
     list: {
       route: ticketList,
       handle(snapshot, ctx, input) {
-        // 앱에 묶인 호출자(coding session, Project Manager)는 그 앱의 ticket만 본다.
+        // 앱에 묶인 호출자(coding session, App Engineer)는 그 앱의 ticket만 본다.
         const bound = boundApp(snapshot.port, ctx);
         if (!bound.ok) return bound;
         if (

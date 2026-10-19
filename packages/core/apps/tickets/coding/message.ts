@@ -1,10 +1,9 @@
-// coding agent가 CLI로 보낸 메시지를 맡긴 Project Manager("열린 session, 없으면 새 session")에게 넣는다.
+// coding agent가 CLI로 보낸 메시지를 맡긴 App Engineer("열린 session, 없으면 새 session")에게 넣는다.
 // session 기록 밖의 ledger에는 쓰지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { CallRef } from "../../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { createCallStore, routerFor } from "../../../router/mod.ts";
-import { appProjectOf } from "../../lookups.ts";
 import { loadSession } from "./store.ts";
 
 export function applyMessage(tx: Tx, input: {
@@ -23,10 +22,6 @@ export function applyMessage(tx: Tx, input: {
       message: "the assigning session is gone",
     });
   }
-  const project = appProjectOf(tx.sql, row.app);
-  if (project === null) {
-    return err({ code: "internal", message: "the app has no project" });
-  }
   const router = routerFor(tx);
   if (!router.ok) return router;
   const refs = [
@@ -41,7 +36,7 @@ export function applyMessage(tx: Tx, input: {
     to: {
       kind: "open_session_or_new",
       session: call.from.session,
-      agent: { role: "project_manager", project },
+      agent: { role: "app_engineer", app: row.app },
     } as never,
     reply: "none",
     body: input.body,

@@ -1,4 +1,4 @@
-// 출처: roadmap eval "캘린더 단위". 일정 data가 든 켜진 앱에 기능(반복 일정)을 더해도 옛 data와 app-api가 남는지 본다.
+// 출처: roadmap eval "캘린더 단위". 일정 data가 든 켜진 앱에 기능(반복 일정)을 더해도 옛 data와 tool이 남는지 본다.
 import {
   addCodingCall,
   apiAnswers,

@@ -7,7 +7,7 @@ import {
   appList,
   blueprintCheck,
 } from "../../../protocol/apps/mod.ts";
-import { appAppApiIndex } from "../../../protocol/apps/blueprint/read.ts";
+import { appToolIndex } from "../../../protocol/apps/blueprint/read.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { problemList } from "../../../protocol/problems/mod.ts";
 import {
@@ -86,14 +86,14 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     },
   }),
   defineTool({
-    name: "app.app_api",
+    name: "app.tools",
     input: z.strictObject({ app: idSchema("app").optional() }),
-    routes: [appAppApiIndex, domainList],
+    routes: [appToolIndex, domainList],
     description:
       "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Tools of other domains show only when public. Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
     effect: "read",
     handler: async (input, ctx) => {
-      const read = await readOf(ctx.core, appAppApiIndex, input);
+      const read = await readOf(ctx.core, appToolIndex, input);
       if (!read.ok) return read;
       // 다른 domain의 비공개 tool은 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`다(그릇의 active domain id
       // 목록이 이미 풀려 있다). 앱의 domain을 읽지 못하면 그 앱은 public tool만 둔다.

@@ -70,14 +70,14 @@ export async function rewindPatch(dir: string): Promise<void> {
 `,
   );
   await replaceOnce(
-    `${dir}/src/app-api.ts`,
-    `  appApi("add_item", addItemHandler(deps));`,
-    `  appApi("add_item", addItemHandler(deps));
-  appApi("add_blob", (input) =>
+    `${dir}/src/tools.ts`,
+    `  tool("add_item", addItemHandler(deps));`,
+    `  tool("add_item", addItemHandler(deps));
+  tool("add_blob", (input) =>
     withStore(deps, "add_blob", (store) => {
       const kb = (input as { kb?: unknown } | null)?.kb;
       if (!Number.isInteger(kb) || (kb as number) < 1 || (kb as number) > 200) {
-        throw new AppApiRejection("invalid_input", "kb is out of range");
+        throw new ToolRejection("invalid_input", "kb is out of range");
       }
       store.db.prepare("insert into blob (body) values (?)").run(
         "x".repeat((kb as number) * 1024),
@@ -85,14 +85,14 @@ export async function rewindPatch(dir: string): Promise<void> {
       return { kb };
     }));
   // touched는 touch_blob이 고친 row(길이가 KiB의 배수가 아니다)의 수다.
-  appApi("count_blobs", () =>
+  tool("count_blobs", () =>
     withStore(deps, "count_blobs", (store) =>
       readResult([
         store.db.prepare(
           "select count(*) as count, coalesce(sum(length(body) % 1024 != 0), 0) as touched from blob",
         ).get() as { count: number; touched: number },
       ], { coverage: "complete", freshness: "fresh" })));
-  appApi("touch_blob", () =>
+  tool("touch_blob", () =>
     withStore(deps, "touch_blob", (store) => {
       store.db.prepare(
         "update blob set body = body || 'y' where id = (select min(id) from blob)",

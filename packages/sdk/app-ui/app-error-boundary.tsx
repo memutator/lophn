@@ -5,7 +5,7 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { componentMark, iconPixels } from "@lophn/ui/shared";
 import styles from "./state.module.css";
 
-// 앱 preload가 main world에서 듣는 DOM event다(packages/shell/preload/app-api.ts). detail은 {name, message}다.
+// 앱 preload가 main world에서 듣는 DOM event다(packages/shell/preload/app-tool.ts). detail은 {name, message}다.
 export const RENDER_ERROR_EVENT = "lophn:render-error";
 
 export interface AppErrorBoundaryProps {

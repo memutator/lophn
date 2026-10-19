@@ -7,13 +7,13 @@ import { canonicalize } from "../../../../base/mod.ts";
 export const CHECK_DEFINITIONS_VERSION = 2;
 
 export const REQUIRED_CHECKS = [
-  // 선언한 app-api와 앱이 등록한 handler가 같고, 선언한 입력 계약을 어긴 입력은 거절된다.
+  // 선언한 tool과 앱이 등록한 handler가 같고, 선언한 입력 계약을 어긴 입력은 거절된다.
   "blueprint_handler_match",
   // 선언한 의존과 import가 같고 version이 정확하다.
   "dependencies",
   "migration_empty",
   "migration_upgrade",
-  // write app-api를 부른 뒤 core가 그 invocation의 changeset을 뒤집어 적용하면 DB 상태가 부르기 전과 같다.
+  // write tool을 부른 뒤 core가 그 invocation의 changeset을 뒤집어 적용하면 DB 상태가 부르기 전과 같다.
   "rewind",
 ] as const;
 // ticket의 tool 예시를 순서대로 불러 견주는 검사. 예시 검증 실행에서만 required이고 REQUIRED_CHECKS와
@@ -55,10 +55,10 @@ export type CheckCoverage = { criteria: string[]; input_range: string };
 const COVERAGE: Record<CheckName, CheckCoverage> = {
   blueprint_handler_match: {
     criteria: [
-      "선언 app-api 집합과 등록 handler 집합이 같다",
+      "선언 tool 집합과 등록 handler 집합이 같다",
       "입력 계약을 어긴 입력이 거절된다",
     ],
-    input_range: "준비 attestation 한 번과 app-api마다 잘못된 입력 1개",
+    input_range: "준비 attestation 한 번과 tool마다 잘못된 입력 1개",
   },
   dependencies: {
     criteria: [
@@ -85,10 +85,10 @@ const COVERAGE: Record<CheckName, CheckCoverage> = {
   },
   rewind: {
     criteria: [
-      "호출이 성공한 write app-api는 changeset을 뒤집어 적용하면 업무 상태가 부르기 전과 같다",
-      "호출이 실패한 write app-api는 증명 못 함으로 증거에 싣고 검사를 떨어뜨리지 않는다",
+      "호출이 성공한 write tool은 changeset을 뒤집어 적용하면 업무 상태가 부르기 전과 같다",
+      "호출이 실패한 write tool은 증명 못 함으로 증거에 싣고 검사를 떨어뜨리지 않는다",
     ],
-    input_range: "write app-api마다 호출 1회와 rewind 1회",
+    input_range: "write tool마다 호출 1회와 rewind 1회",
   },
   examples: {
     criteria: ["예시마다 tool 호출 결과가 기대와 맞는다"],

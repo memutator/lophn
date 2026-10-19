@@ -17,8 +17,8 @@ export {
   diagnosisChecks,
 } from "./diagnose.ts";
 export {
-  appApiCalled,
-  appApiOrder,
+  appToolCalled,
+  appToolOrder,
   pmCallsOnlyToCodingAgent,
   readProblem,
 } from "./calls.ts";
@@ -27,4 +27,4 @@ export {
   cardCoveredInput,
   rootCauseInput,
 } from "./judge-input.ts";
-export { addCodingCall, appApiSession } from "./fixtures.ts";
+export { addCodingCall, appToolSession } from "./fixtures.ts";

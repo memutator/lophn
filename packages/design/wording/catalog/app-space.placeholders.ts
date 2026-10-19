@@ -70,7 +70,7 @@ export type AppSpacePlaceholders = {
   "app-detail.label.calls-held": Record<never, never>;
   "app-detail.label.came-back": Record<never, never>;
   "app-detail.label.cancelled": Record<never, never>;
-  "app-detail.label.changes-app-api": Record<never, never>;
+  "app-detail.label.changes-tool": Record<never, never>;
   "app-detail.label.changes-loss": Record<never, never>;
   "app-detail.label.changes-resource": Record<never, never>;
   "app-detail.label.changes-wider": Record<never, never>;

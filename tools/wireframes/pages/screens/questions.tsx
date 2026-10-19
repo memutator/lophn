@@ -29,7 +29,7 @@ export const questionsArea: Area = {
       id: "new-waiting-permission",
       title: "Waiting · permission requests",
       description:
-        "권한 요청 셋의 세부를 펼친 상태다. 대상, 정규화한 입력, 효과가 program 문구로만 보인다. app-api와 MCP tool은 선택지 넷이고 설정 고치기는 Allow와 Deny다.",
+        "권한 요청 셋의 세부를 펼친 상태다. 대상, 정규화한 입력, 효과가 program 문구로만 보인다. tool과 MCP tool은 선택지 넷이고 설정 고치기는 Allow와 Deny다.",
       render: () => <WaitingPermission />,
     },
     {
@@ -43,7 +43,7 @@ export const questionsArea: Area = {
       id: "new-waiting-activation",
       title: "Waiting · activation approval",
       description:
-        "activation 허락 카드의 세부를 펼친 상태다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 app-api 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
+        "activation 허락 카드의 세부를 펼친 상태다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 tool 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
       render: () => <WaitingActivation />,
     },
     {

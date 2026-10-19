@@ -16,7 +16,7 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
 - `validateInput(schema, value)` — tool 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `Blueprint`, `ScreenDeclaration`, `ToolDeclaration`, `ToolEffect`,
-  `AppApiUseDeclaration`, `PermissionRequirement`, `SDKDependency`,
+  `AppToolUseDeclaration`, `PermissionRequirement`, `SDKDependency`,
   `ValidationResult`, `ValidationError`
 
 ## blueprint 칸
@@ -34,7 +34,7 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
   하나이고, 앱을 만들면 앱 이름의 domain이 하나 생긴다. 다른 domain은 사람이나
   App Engineer가 `domain.create`로 만든 뒤 쓴다.
 - `app_connections` — 이 앱이 부를 다른 앱의 tool이다. 항목은
-  `{app, app_api: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
+  `{app, tools: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
 
 ## 요구 permission
 

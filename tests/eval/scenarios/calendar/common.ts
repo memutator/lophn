@@ -38,12 +38,12 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
     place: { kind: "project", id: ctx.world.projects[PROJECT]! },
     definition: {
       name: OPERATOR,
-      body: `${APP} 앱의 app-api로 일정을 넣고 보여 준다.`,
+      body: `${APP} 앱의 tool로 일정을 넣고 보여 준다.`,
     },
   });
   await ctx.core.call(agentGrantsSet, {
     agent: { role: "operator", agent: id },
-    entries: [{ kind: "app", app, apis: [] }],
+    entries: [{ kind: "app", app, tools: [] }],
   });
   ctx.world.operators[OPERATOR] = id;
 }

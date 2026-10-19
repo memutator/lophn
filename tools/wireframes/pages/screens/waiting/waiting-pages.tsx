@@ -8,7 +8,7 @@ import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/c
 import {
   ACTIVATION,
   allItems,
-  APP_API_CALL,
+  APP_TOOL_CALL,
   CONFIG_EDIT,
   createFakeWaiting,
   EXTERNAL_CALL,
@@ -40,7 +40,7 @@ const sid = (prefix: string, n: number) =>
 const AT = "2026-10-16T09:00:00.000Z";
 
 // 반응 층이 읽는 것과 같은 event를 fake로 만들어 reactionsOf에 넣는다. 정적 화면이라 overlay 창은 쓰지 않는다.
-const permission = APP_API_CALL();
+const permission = APP_TOOL_CALL();
 const FAKE_EVENTS = [
   {
     session: permission.session.id,
@@ -154,9 +154,9 @@ export const WaitingList = () => (
   <Over items={allItems()} initial={{ open: true }} />
 );
 
-/** 권한 요청 셋을 세부까지 펼친 상태: 대상, 정규화한 입력, 효과가 보인다. app-api와 MCP tool은 선택지가 넷이고 설정 고치기는 둘이다. */
+/** 권한 요청 셋을 세부까지 펼친 상태: 대상, 정규화한 입력, 효과가 보인다. tool과 MCP tool은 선택지가 넷이고 설정 고치기는 둘이다. */
 export const WaitingPermission = () => {
-  const items = [APP_API_CALL(), CONFIG_EDIT(), EXTERNAL_CALL()];
+  const items = [APP_TOOL_CALL(), CONFIG_EDIT(), EXTERNAL_CALL()];
   return (
     <Over
       items={items}
@@ -167,7 +167,7 @@ export const WaitingPermission = () => {
 
 /** 거절 이유: Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다. */
 export const WaitingDenyReason = () => {
-  const items = [APP_API_CALL(), EXTERNAL_CALL()];
+  const items = [APP_TOOL_CALL(), EXTERNAL_CALL()];
   return (
     <Over
       items={items}

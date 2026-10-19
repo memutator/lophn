@@ -7,7 +7,7 @@ import {
 } from "../../../base/mod.ts";
 import type { IdSource } from "../../../base/mod.ts";
 import type {
-  AppApiTarget,
+  AppToolTarget,
   ProcessCallRequest,
   ToolCallInput,
   ToolCallOutput,
@@ -16,16 +16,16 @@ import type {
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
 import type {
-  AppApiCallPath,
-  AppApiLookup,
   AppIntake,
   AppProcessLink,
+  AppToolCallPath,
+  AppToolLookup,
   CallerDirectory,
   InvocationLedger,
 } from "../ports.ts";
 import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
-import { appApiIntent, askGate } from "./gate.ts";
+import { appToolIntent, askGate } from "./gate.ts";
 import {
   createIntake,
   type Flight,
@@ -54,7 +54,7 @@ export interface AppStates {
 
 export type AppCallsDeps = {
   callers: CallerDirectory;
-  lookup: AppApiLookup;
+  lookup: AppToolLookup;
   apps: AppStates;
   ledger: InvocationLedger;
   link: AppProcessLink;
@@ -72,7 +72,7 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   call_too_deep: "the call chain is too deep",
   app_archived: "the app is archived",
   app_unavailable: "the app is not running",
-  not_declared: "the app does not declare this app-api",
+  not_declared: "the app does not declare this tool",
 };
 
 type Phase = "gate" | "queued" | "sent";
@@ -83,7 +83,7 @@ function forbidden(message: string): Result<never> {
 
 export function createAppCalls(
   deps: AppCallsDeps,
-): { path: AppApiCallPath; intake: AppIntake } {
+): { path: AppToolCallPath; intake: AppIntake } {
   const queue = createWriteQueue();
   const intake = createIntake({
     queue,
@@ -125,7 +125,7 @@ export function createAppCalls(
   ): ProcessCallRequest {
     return {
       invocation: base.id,
-      api: input.tool,
+      tool: input.tool,
       ...(input.input === undefined ? {} : { input: input.input }),
       context: {
         app: base.app,
@@ -220,7 +220,7 @@ export function createAppCalls(
   // 부른 쪽은 사람뿐이라(verifyCaller) Gate도 줄도 없다.
   async function callPreview(
     input: ToolCallInput,
-    target: Extract<AppApiTarget, { mode: "preview" }>,
+    target: Extract<AppToolTarget, { mode: "preview" }>,
   ): Promise<Result<ToolCallOutput>> {
     const app = target.app as Id<"app">;
     const found = await deps.lookup.findPreview(
@@ -283,9 +283,9 @@ export function createAppCalls(
     // 본 일이 끝난 뒤에 abandon이 닫았으면 null이다. 이미 부른 쪽에 결과가 갔다.
     async function work(): Promise<Result<ToolCallOutput> | null> {
       if (caller.kind !== "person") {
-        const intent = appApiIntent(
+        const intent = appToolIntent(
           caller,
-          { app, api: input.tool },
+          { app, tool: input.tool },
           base.effect,
           input.input,
         );
@@ -310,7 +310,7 @@ export function createAppCalls(
       }
     }
 
-    const processTarget: AppApiTarget = {
+    const processTarget: AppToolTarget = {
       mode: "live",
       app,
       release: base.release,

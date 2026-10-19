@@ -79,8 +79,8 @@ export function id(value: unknown, prefix: string): string | undefined {
   return;
 }
 
-// appApiKeySchema와 같은 검사다.
-export function appApiKey(value: unknown): string | undefined {
+// toolKeySchema와 같은 검사다.
+export function appToolKey(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length === 0) return;
   if (value.trim() !== value || CONTROL.test(value) || value.includes("*")) {
     return;

@@ -1,6 +1,6 @@
-// 재시작 E2E용 patch다. template 위에 write app-api `slow_write {title}`와 read app-api `count_slow`를 더한다.
+// 재시작 E2E용 patch다. template 위에 write tool `slow_write {title}`와 read tool `count_slow`를 더한다.
 // slow_write는 row를 넣고 live에서는 응답하지 않고 오래 기다린다. platform app test(mode "test")의 rewind 검사는 write
-// app-api를 불러 돌아오기를 기다리므로 test에서는 기다리지 않는다.
+// tool을 불러 돌아오기를 기다리므로 test에서는 기다리지 않는다.
 
 async function replaceOnce(
   path: string,
@@ -43,20 +43,20 @@ export async function slowPatch(dir: string): Promise<void> {
       {
         key: "add_item",`,
   );
-  const api = `${dir}/src/app-api.ts`;
+  const api = `${dir}/src/tools.ts`;
   await replaceOnce(
     api,
-    `import { appApi, AppApiRejection, readResult } from "@lophn/cap-app-api";`,
+    `import { readResult, tool, ToolRejection } from "@lophn/cap-tool";`,
     `import {
-  appApi,
-  AppApiRejection,
+  tool,
+  ToolRejection,
   currentContext,
   readResult,
-} from "@lophn/cap-app-api";`,
+} from "@lophn/cap-tool";`,
   );
   await replaceOnce(
     api,
-    `export function registerAppApis(deps: Deps = defaults): void {`,
+    `export function registerTools(deps: Deps = defaults): void {`,
     `const SLOW_WAIT_MS = 600_000;
 
 export function slowWriteHandler(deps: Deps = defaults) {
@@ -64,7 +64,7 @@ export function slowWriteHandler(deps: Deps = defaults) {
     const title = String((input as { title?: unknown } | null)?.title ?? "")
       .trim();
     if (title === "") {
-      throw new AppApiRejection("invalid_input", "the item title is empty");
+      throw new ToolRejection("invalid_input", "the item title is empty");
     }
     const item = await withStore(
       deps,
@@ -78,14 +78,14 @@ export function slowWriteHandler(deps: Deps = defaults) {
   };
 }
 
-export function registerAppApis(deps: Deps = defaults): void {`,
+export function registerTools(deps: Deps = defaults): void {`,
   );
   await replaceOnce(
     api,
-    `  appApi("add_item", addItemHandler(deps));`,
-    `  appApi("add_item", addItemHandler(deps));
-  appApi("slow_write", slowWriteHandler(deps));
-  appApi("count_slow", () =>
+    `  tool("add_item", addItemHandler(deps));`,
+    `  tool("add_item", addItemHandler(deps));
+  tool("slow_write", slowWriteHandler(deps));
+  tool("count_slow", () =>
     withStore(
       deps,
       "count_slow",

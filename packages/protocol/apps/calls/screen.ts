@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { defineFile } from "../../base/route.ts";
 import { screenKeySchema } from "../channel-values.ts";
-import { appApiTargetSchema } from "./call.ts";
+import { appToolTargetSchema } from "./call.ts";
 
 // core가 UI bundle 사본의 byte를 내준다. path는 그 screen 아래 상대 경로다.
 const appScreenFileInputSchema = z.strictObject({
-  target: appApiTargetSchema,
+  target: appToolTargetSchema,
   screen: screenKeySchema,
   path: z.string().min(1),
 });

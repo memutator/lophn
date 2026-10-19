@@ -20,16 +20,16 @@ async function blueprintHandlerMatch(
   plan: HarnessPlan,
 ): Promise<Verdict> {
   const attestation = await driver.probe();
-  const declared = [...plan.app_api].sort();
-  const registered = [...attestation.app_api].sort();
+  const declared = [...plan.tools].sort();
+  const registered = [...attestation.tools].sort();
   const same = declared.length === registered.length &&
     declared.every((key, index) => key === registered[index]);
   const bundle = attestation.bundle_hash === plan.bundle_hash;
   const nonce = attestation.process_nonce !== "";
   const accepted: string[] = [];
   if (same && bundle && nonce) {
-    for (const api of declared) {
-      if (!await driver.rejectsInvalidInput(api)) accepted.push(api);
+    for (const tool of declared) {
+      if (!await driver.rejectsInvalidInput(tool)) accepted.push(tool);
     }
   }
   return {
@@ -37,12 +37,12 @@ async function blueprintHandlerMatch(
     reason: !bundle
       ? "준비 attestation의 bundle hash가 고정 bundle과 다르다"
       : !same
-      ? "blueprint 선언 app-api와 실제 등록 handler가 다르다"
+      ? "blueprint 선언 tool과 실제 등록 handler가 다르다"
       : !nonce
       ? "준비 attestation에 process nonce가 없다"
       : accepted.length > 0
-      ? "입력 계약을 어긴 입력이 거절되지 않는 app-api가 있다"
-      : "선언 app-api와 등록 handler가 일치하고 잘못된 입력은 거절된다",
+      ? "입력 계약을 어긴 입력이 거절되지 않는 tool이 있다"
+      : "선언 tool과 등록 handler가 일치하고 잘못된 입력은 거절된다",
     evidence: {
       declared,
       registered,
@@ -88,11 +88,11 @@ async function rewind(
   driver: AppDriver,
   plan: HarnessPlan,
 ): Promise<Verdict> {
-  // write app-api를 선언 순서대로 부른다. 앞선 호출이 만든 상태가 뒤 호출의 앞선 상태가 된다.
+  // write tool을 선언 순서대로 부른다. 앞선 호출이 만든 상태가 뒤 호출의 앞선 상태가 된다.
   const runs: Record<string, RewindRun> = {};
-  for (const api of plan.write_api) runs[api] = await driver.rewind(api);
-  // 바꾼 것이 없으면 되돌릴 것이 없다(없는 id를 지우는 remove처럼 맞게 짠 api).
-  // 호출이 실패한 api는 만든 입력이 맞지 않은 것일 수 있어 fail이 아니라 증명 못 함이다.
+  for (const tool of plan.write_api) runs[tool] = await driver.rewind(tool);
+  // 바꾼 것이 없으면 되돌릴 것이 없다(없는 id를 지우는 remove처럼 맞게 짠 tool).
+  // 호출이 실패한 tool은 만든 입력이 맞지 않은 것일 수 있어 fail이 아니라 증명 못 함이다.
   const entries = Object.entries(runs);
   const failed = entries.filter(([, run]) =>
     run.called && run.changed && !(run.applied && run.restored)
@@ -101,16 +101,16 @@ async function rewind(
   const unprovenNote = unproven.length === 0
     ? ""
     : `. 증명 못 한 tool: ${
-      unproven.map(([api, run]) => `${api}(${run.reason})`).join(", ")
+      unproven.map(([tool, run]) => `${tool}(${run.reason})`).join(", ")
     }`;
   return {
     met: failed.length === 0,
     reason: failed.length === 0
-      ? `호출이 성공한 write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다. 바꾼 것이 없는 api는 되돌릴 것이 없다${unprovenNote}`
-      : `되돌리지 못한 write app-api가 있다: ${
-        failed.map(([api, run]) => `${api}(${run.reason})`).join(", ")
+      ? `호출이 성공한 write tool마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다. 바꾼 것이 없는 tool은 되돌릴 것이 없다${unprovenNote}`
+      : `되돌리지 못한 write tool이 있다: ${
+        failed.map(([tool, run]) => `${tool}(${run.reason})`).join(", ")
       }${unprovenNote}`,
-    evidence: { runs, unproven: unproven.map(([api]) => api) },
+    evidence: { runs, unproven: unproven.map(([tool]) => tool) },
   };
 }
 

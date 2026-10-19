@@ -10,7 +10,7 @@ import {
   runtimeModeSchema,
 } from "../channel-values.ts";
 import { invocationSummarySchema } from "../invocations.ts";
-import { appApiCallerSchema } from "./caller.ts";
+import { appToolCallerSchema } from "./caller.ts";
 import { toolNameSchema } from "../channel-values.ts";
 
 const sequence = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -53,7 +53,7 @@ export const appInvocationSchema = z.object({
   release: releaseIdSchema,
   mode: runtimeModeSchema,
   operation: appInvocationOperationSchema,
-  caller: appApiCallerSchema.nullable(),
+  caller: appToolCallerSchema.nullable(),
   effect: invocationEffectSchema,
   status: appInvocationStatusSchema,
   started_at: atSchema.nullable(),

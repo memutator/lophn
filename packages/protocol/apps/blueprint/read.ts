@@ -53,9 +53,9 @@ const appDeclarationsSchema = z.object({
   permissions: z.array(permissionRequirementSchema),
   app_connections: z.array(z.object({
     app: appIdSchema,
-    app_api: z.array(z.string().min(1)),
+    tools: z.array(z.string().min(1)),
   })),
-  app_api: z.array(z.string().min(1)),
+  tools: z.array(z.string().min(1)),
 });
 
 const appBlueprintOutputSchema = withReadCommon(z.object({
@@ -70,10 +70,10 @@ const appBlueprintOutputSchema = withReadCommon(z.object({
   evidence: appBlueprintEvidenceSchema,
 }));
 
-export const appAppApi = defineRead({
+export const appTools = defineRead({
   resource: "apps",
-  method: "app_api",
-  name: "app.app_api",
+  method: "tools",
+  name: "app.tools",
   input: appInputSchema.extend({ release: releaseIdSchema.optional() }),
   output: appBlueprintOutputSchema,
   actors: ["user", "coding_agent", "agent", "app", "machine"],
@@ -86,11 +86,11 @@ export const appAppApi = defineRead({
   ],
 });
 
-// `app.app_api_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
+// `app.tool_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
 // 돌려주는 칸이 이것뿐이라 source 경로, problem, ticket은 새지 않는다. 호출 모양(inputSchema, outputSchema)은
 // 입력에 app이 있을 때만 싣는다(전체 목록에서는 칸이 없다). 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
 // inputSchema는 인자가 없으면 null, outputSchema는 선언했을 때만 있다.
-const appApiIndexEntrySchema = z.object({
+const appToolIndexEntrySchema = z.object({
   app: appIdSchema,
   name: z.string().min(1),
   description: z.string().min(1),
@@ -105,14 +105,14 @@ const appApiIndexEntrySchema = z.object({
     outputSchema: jsonValueSchema.optional(),
   })),
 });
-export type AppApiIndexEntry = z.infer<typeof appApiIndexEntrySchema>;
+export type AppToolIndexEntry = z.infer<typeof appToolIndexEntrySchema>;
 
-export const appAppApiIndex = defineRead({
+export const appToolIndex = defineRead({
   resource: "apps",
-  method: "app_api_index",
-  name: "app.app_api_index",
+  method: "tool_index",
+  name: "app.tool_index",
   input: z.strictObject({ app: appIdSchema.optional() }),
-  output: withReadCommon(z.object({ apps: z.array(appApiIndexEntrySchema) })),
+  output: withReadCommon(z.object({ apps: z.array(appToolIndexEntrySchema) })),
   actors: ["agent"],
   errors: [
     "invalid_input",

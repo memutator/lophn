@@ -1,4 +1,4 @@
-// 앱 view의 고정 blueprint를 core의 `apps/app_api`로 읽는다. 읽는 release는 view가 묶인 것이라
+// 앱 view의 고정 blueprint를 core의 `apps/tools`로 읽는다. 읽는 release는 view가 묶인 것이라
 // 지금 active release가 달라도 view가 보는 선언 그대로다. release 없는 preview는 이 read로 알 수
 // 없어 unavailable이다.
 import { type CallResult, failure, type Outcome } from "./app-connection.ts";

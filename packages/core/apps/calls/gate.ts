@@ -28,15 +28,15 @@ function asObject(input: JsonValue | undefined): JsonObject {
 }
 
 // agent와 앱만 Gate를 거친다. 사람 자신의 동작은 거치지 않는다.
-export function appApiIntent(
+export function appToolIntent(
   caller: Exclude<VerifiedCaller, { kind: "person" }>,
-  target: { app: Id<"app">; api: string },
+  target: { app: Id<"app">; tool: string },
   effect: Intent["effect"],
   input: JsonValue | undefined,
 ): Intent {
   const common = {
-    kind: "app_api",
-    target: { kind: "app_api", ...target },
+    kind: "app_tool",
+    target: { kind: "app_tool", ...target },
     effect,
     input: asObject(input),
   } as const;

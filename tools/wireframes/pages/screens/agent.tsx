@@ -102,7 +102,7 @@ export const agentArea: Area = {
       id: "new-agent-approval",
       title: "Agent · approval card",
       description:
-        "app-api나 MCP tool의 승인 카드다. 확인 창 없이 Allow once, Allow for this session, Always allow, Deny로 바로 결정한다. 내용은 program 문구(대상, 입력, 효과)다.",
+        "tool이나 MCP tool의 승인 카드다. 확인 창 없이 Allow once, Allow for this session, Always allow, Deny로 바로 결정한다. 내용은 program 문구(대상, 입력, 효과)다.",
       render: () => <AgentApproval />,
     },
     {

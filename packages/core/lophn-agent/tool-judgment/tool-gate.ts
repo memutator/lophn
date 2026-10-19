@@ -52,7 +52,7 @@ export type ToolGateDeps = {
     Approvals,
     "judge" | "openTurnRequest" | "waitTurnDecision" | "consumeTurnAllow"
   >;
-  // 앱 app-api는 tool 이름에서 앱과 api를 풀고 효과를 활성 release 선언에서 읽는다.
+  // 앱 tool은 tool 이름에서 앱과 tool을 풀고 효과를 활성 release 선언에서 읽는다.
   // 외부 MCP tool은 readOnlyHint가 참이면 read, 아니면 external이다.
   // 읽지 못하거나 정의가 사라졌으면 err이고 호출은 막힌다.
   resolve(

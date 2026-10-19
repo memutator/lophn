@@ -12,7 +12,7 @@ function dependencyCheck(
   const plan = generateAppTestChecks({
     bundle_hash: "bundle",
     test_hash: "test",
-    app_api: [],
+    tools: [],
     data: { schema: 0, previous_schema: null },
     dependencies,
     imports,

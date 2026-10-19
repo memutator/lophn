@@ -1,5 +1,5 @@
 // composer 위 승인 카드와 결정 뒤 대화에 남는 접힌 줄. 확인 창 없이 카드에서 바로 결정한다.
-// 선택지는 request가 가진 `choices` 그대로다(app-api·MCP tool은 넷, 나머지는 허락과 거절). [Deny]는 이유 칸을
+// 선택지는 request가 가진 `choices` 그대로다(tool·MCP tool은 넷, 나머지는 허락과 거절). [Deny]는 이유 칸을
 // 열고 비워도 된다. 카드를 닫거나 가만히 두는 것은 결정이 아니다.
 import { type ReactElement, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";

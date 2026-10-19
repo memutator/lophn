@@ -6,7 +6,7 @@ import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema, seqSchema, sha256Schema } from "../base/values.ts";
 import { type IntentKind, intentSchema } from "./intent.ts";
 
-// app-api, MCP tool의 선택지.
+// tool, MCP tool의 선택지.
 const TURN_CHOICES = ["once", "session", "always", "reject"] as const;
 // activation, 설정 고치기, reaction의 선택지.
 const ALLOW_REJECT_CHOICES = ["allow", "reject"] as const;
@@ -16,11 +16,11 @@ const requestChoiceSchema = z.enum([
 ]);
 export type RequestChoice = z.infer<typeof requestChoiceSchema>;
 
-// app_api 호출 주체가 앱이거나 app_resource, agent_call은 물음이 나오지 않으므로 allow·reject로 둔다.
+// app_tool 호출 주체가 앱이거나 app_resource, agent_call은 물음이 나오지 않으므로 allow·reject로 둔다.
 export function choicesFor(
   kind: IntentKind,
 ): readonly RequestChoice[] {
-  return kind === "app_api" || kind === "mcp_tool"
+  return kind === "app_tool" || kind === "mcp_tool"
     ? TURN_CHOICES
     : ALLOW_REJECT_CHOICES;
 }

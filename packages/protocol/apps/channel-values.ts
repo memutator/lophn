@@ -33,19 +33,19 @@ export type ChannelMode = z.infer<typeof runtimeModeSchema>;
 
 export const screenSizeSchema = z.enum(["full", "panel", "card"]);
 
-// app-api key. 존재·grant 판정은 runtime이다. blueprint tool 이름은 toolNameSchema가 검사한다.
-export const appApiKeySchema = z.string().refine(
+// tool key. 존재·grant 판정은 runtime이다. blueprint tool 이름은 toolNameSchema가 검사한다.
+export const toolKeySchema = z.string().refine(
   (value) =>
     value.length > 0 && value.trim() === value && !/\p{Cc}/u.test(value) &&
     !value.includes("*"),
   {
     message:
-      "app-api key cannot be empty, padded, a wildcard, or contain controls",
+      "tool key cannot be empty, padded, a wildcard, or contain controls",
   },
 );
 
-// tool 이름. MCP tool 이름 문자 집합이고 blueprint 선언 검사(blueprint/app-api.ts)와 같은 규칙이다.
-// 길이는 agent tool 이름(`app__<app>__<tool>`)에 들어가도록 64다.
+// tool 이름. MCP tool 이름 문자 집합이고 blueprint 선언 검사(blueprint/tools.ts)와 같은 규칙이다.
+// 길이는 agent tool 이름(`domain__<domain>__<tool>`)에 들어가도록 64다.
 export const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/, {
   message: "tool name must be 1-64 characters of letters, digits, _ - .",
 });

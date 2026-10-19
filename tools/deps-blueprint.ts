@@ -16,7 +16,7 @@ const CONTRACT_FILES = new Set([
   "packages/protocol/apps/blueprint/json.ts",
   "packages/protocol/apps/blueprint/schema.ts",
   "packages/protocol/apps/blueprint/scope.ts",
-  "packages/protocol/apps/blueprint/app-api.ts",
+  "packages/protocol/apps/blueprint/tools.ts",
   "packages/protocol/apps/blueprint/uses.ts",
   "packages/protocol/apps/blueprint/value.ts",
 ]);

@@ -46,7 +46,7 @@ const handler = secretValueHandler({
           release: RELEASE,
           permissions: scopes.map((one) => ({ ...one, reason: "test" })),
           app_connections: [],
-          app_api: [],
+          tools: [],
         }),
       platformPorts: () => [PORT],
     }),

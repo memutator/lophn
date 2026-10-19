@@ -32,7 +32,7 @@ function setup(
             access: granted.map((scope) => ({ kind: "net.fetch", scope })),
             app_calls: [],
           },
-          app_api: ["demo.run"],
+          tools: ["demo.run"],
         })),
     },
     ...(secrets === undefined ? {} : { secrets }),

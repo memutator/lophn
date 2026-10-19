@@ -45,7 +45,6 @@ type PreviewSupervisor = {
 export type PreviewBundle = {
   entry: string;
   importMap: string;
-  app_api: readonly string[];
   // bundle blueprint의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
   tools: readonly ToolDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
@@ -257,7 +256,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         nonce,
         release: input.release,
         bundleHash: input.bundle_hash,
-        app_api: [...bundle.app_api],
+        tools: bundle.tools.map((tool) => tool.name),
         screens: { ...bundle.screens },
         dataSchema: bundle.dataSchema,
         flags: {

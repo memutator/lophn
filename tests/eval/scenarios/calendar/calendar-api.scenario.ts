@@ -1,9 +1,9 @@
-// 출처: roadmap eval "캘린더 단위". Operator가 켜진 캘린더의 app-api로 사람 말대로 일정을 넣고 목록을 본다.
-// app-api tool 정확도는 check가 아니라 공통 수치(Metrics.tools)로 scorecard에서 읽는다.
+// 출처: roadmap eval "캘린더 단위". Operator가 켜진 캘린더의 tool로 사람 말대로 일정을 넣고 목록을 본다.
+// tool 정확도는 check가 아니라 공통 수치(Metrics.tools)로 scorecard에서 읽는다.
 import {
-  appApiCalled,
-  appApiOrder,
-  appApiSession,
+  appToolCalled,
+  appToolOrder,
+  appToolSession,
 } from "../../checks/app/mod.ts";
 import { callCount, fixtureTrial } from "../../checks/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
@@ -22,26 +22,26 @@ const scenario: Scenario = {
   real: [OP],
   steps: [say(OP, SAY_API), untilIdle()],
   checks: [
-    appApiCalled("added", { command: "event.add" }),
-    appApiCalled("listed", { command: "event.list" }),
-    appApiOrder("list-after-add", { first: "event.add", then: "event.list" }),
+    appToolCalled("added", { command: "event.add" }),
+    appToolCalled("listed", { command: "event.list" }),
+    appToolOrder("list-after-add", { first: "event.add", then: "event.list" }),
     callCount("no-agent-calls", { count: 0 }),
     eventInCalendar,
   ],
   fixtures: {
-    right: [fixtureTrial([appApiSession(OP, [ADD, LIST])])],
+    right: [fixtureTrial([appToolSession(OP, [ADD, LIST])])],
     wrong: [
       {
-        trial: fixtureTrial([appApiSession(OP, [LIST])]),
+        trial: fixtureTrial([appToolSession(OP, [LIST])]),
         fails: ["added", "list-after-add"],
       },
       {
-        trial: fixtureTrial([appApiSession(OP, [LIST, ADD])]),
+        trial: fixtureTrial([appToolSession(OP, [LIST, ADD])]),
         fails: ["list-after-add"],
       },
       {
         trial: fixtureTrial([
-          appApiSession(OP, [
+          appToolSession(OP, [
             ADD,
             LIST,
             { call: { to: PM, reply: "none", body: "fixture" } },

@@ -23,8 +23,8 @@ type AccessEntry = {
 
 export type EffectiveScope = {
   access: AccessEntry[];
-  // 부르는 앱이 target마다 실제 부를 수 있는 app-api. 방향은 caller → target 하나다.
-  app_calls: { app: string; app_api: string[] }[];
+  // 부르는 앱이 target마다 실제 부를 수 있는 tool. 방향은 caller → target 하나다.
+  app_calls: { app: string; tools: string[] }[];
 };
 
 type EffectiveInput = {
@@ -33,7 +33,7 @@ type EffectiveInput = {
   declarations: AppDeclarations | null;
   // 이 앱과 다른 앱의 grant가 섞여 있어도 된다. active이고 이 앱의 것만 쓴다.
   grants: readonly AppGrant[];
-  // target 앱의 현재 app-api key. 모르는 앱은 undefined이고 호출 범위가 없다.
+  // target 앱의 현재 tool key. 모르는 앱은 undefined이고 호출 범위가 없다.
   targetCommands(app: string): readonly string[] | undefined;
 };
 
@@ -75,11 +75,11 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
     )
   );
 
-  const appCalls: { app: string; app_api: string[] }[] = [];
+  const appCalls: { app: string; tools: string[] }[] = [];
   for (const target of sorted(declarations.app_connections.map((c) => c.app))) {
     const declared = new Set(
       declarations.app_connections.filter((c) => c.app === target)
-        .flatMap((c) => c.app_api),
+        .flatMap((c) => c.tools),
     );
     const live = new Set(input.targetCommands(target) ?? []);
     const allowed = new Set<string>();
@@ -87,12 +87,12 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
       if (grant.scope.kind !== "app.call" || grant.scope.app !== target) {
         continue;
       }
-      for (const command of grant.scope.app_apis) allowed.add(command);
+      for (const command of grant.scope.app_tools) allowed.add(command);
     }
-    const app_api = sorted(
+    const tools = sorted(
       [...allowed].filter((c) => declared.has(c) && live.has(c)),
     );
-    if (app_api.length > 0) appCalls.push({ app: target, app_api });
+    if (tools.length > 0) appCalls.push({ app: target, tools });
   }
 
   return { access, app_calls: appCalls };

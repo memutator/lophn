@@ -32,22 +32,22 @@ export const gate = (intent: Intent, grants: GateGrants): GateVerdict => {
     case "activation": {
       const comparison = activationComparisonSchema.safeParse(intent.input);
       if (!comparison.success) return ASK;
-      const { first, added_resources, added_app_apis, loss_steps } =
+      const { first, added_resources, added_tools, loss_steps } =
         comparison.data;
       const changed = first || added_resources.length > 0 ||
-        added_app_apis.length > 0 || loss_steps.length > 0;
+        added_tools.length > 0 || loss_steps.length > 0;
       return changed ? ASK : RUN;
     }
     case "app_resource":
       return intent.actor.kind === "app"
         ? appScopeVerdict(grants.app, intent.actor.app, target.scope)
         : NOT_GRANTED;
-    case "app_api":
+    case "app_tool":
       if (intent.actor.kind === "app") {
         return appScopeVerdict(grants.app, intent.actor.app, {
           kind: "app.call",
           app: target.app,
-          app_apis: [target.api],
+          app_tools: [target.tool],
         });
       }
       return agentVerdict(intent, grants);
@@ -63,12 +63,12 @@ function agentVerdict(intent: Intent, grants: GateGrants): GateVerdict {
   const entries = grants.agent.entries;
   const target = intent.target;
   switch (target.kind) {
-    case "app_api": {
+    case "app_tool": {
       const entry = entries.find((one) =>
         one.kind === "app" && one.app === target.app
       );
       if (entry === undefined || entry.kind !== "app") return NOT_GRANTED;
-      const override = entry.apis.find((one) => one.api === target.api);
+      const override = entry.tools.find((one) => one.tool === target.tool);
       if (override?.setting === "excluded") {
         return { verdict: "deny", reason: "excluded" };
       }
@@ -143,7 +143,7 @@ function covers(grant: AppGrantScope, wanted: AppGrantScope): boolean {
       return wanted.kind === "secret.use" && wanted.name === grant.name;
     case "app.call":
       return wanted.kind === "app.call" && wanted.app === grant.app &&
-        wanted.app_apis.every((api) => grant.app_apis.includes(api));
+        wanted.app_tools.every((tool) => grant.app_tools.includes(tool));
   }
 }
 

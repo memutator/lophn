@@ -3,7 +3,7 @@
 
 import {
   APP_ID,
-  type AppApiUseDeclaration,
+  type AppToolUseDeclaration,
   exactKeys,
   invalid,
   isObject,
@@ -20,15 +20,15 @@ export function validateUses(
   dependencyItems: unknown[],
   owner: string | undefined,
 ): ValidationResult<{
-  connections: AppApiUseDeclaration[];
+  connections: AppToolUseDeclaration[];
   dependencies: SDKDependency[];
 }> {
-  const connections: AppApiUseDeclaration[] = [];
+  const connections: AppToolUseDeclaration[] = [];
   for (const item of connectionItems) {
     if (!isObject(item)) return invalid("app connection must be an object");
-    const bad = exactKeys(item, ["app", "app_api", "reason"], [
+    const bad = exactKeys(item, ["app", "tools", "reason"], [
       "app",
-      "app_api",
+      "tools",
       "reason",
     ]);
     if (bad) return invalid(`app connection ${bad}`);
@@ -38,26 +38,26 @@ export function validateUses(
     if (owner !== undefined && item.app === owner) {
       return invalid("app connection cannot target the owner app");
     }
-    if (!Array.isArray(item.app_api) || item.app_api.length === 0) {
-      return invalid("app connection app_api must be nonempty");
+    if (!Array.isArray(item.tools) || item.tools.length === 0) {
+      return invalid("app connection tools must be nonempty");
     }
     if (
-      item.app_api.some((name) =>
+      item.tools.some((name) =>
         typeof name !== "string" || name.trim() !== name ||
         !nonBlank(name) || name.includes("*")
       )
     ) {
-      return invalid("app connection app-api must be an exact key");
+      return invalid("app connection tool must be an exact key");
     }
-    if (unique(item.app_api as string[], "app-api")) {
-      return invalid("duplicate app-api");
+    if (unique(item.tools as string[], "tool")) {
+      return invalid("duplicate tool");
     }
     if (!nonBlank(item.reason)) {
       return invalid("app connection reason is blank");
     }
     connections.push({
       app: item.app,
-      app_api: [...item.app_api as string[]].sort(),
+      tools: [...item.tools as string[]].sort(),
       reason: item.reason,
     });
   }

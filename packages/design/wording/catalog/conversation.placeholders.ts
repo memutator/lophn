@@ -96,8 +96,8 @@ export type ConversationPlaceholders = {
   "conversation.label.approval-settings-setting": Record<never, never>;
   "conversation.label.approval-settings-skill": Record<never, never>;
   "conversation.label.approval-target": Record<never, never>;
-  "conversation.label.approval-target-app-api": {
-    api: "string";
+  "conversation.label.approval-target-tool": {
+    tool: "string";
     app: "string";
   };
   "conversation.label.approval-target-mcp-tool": {

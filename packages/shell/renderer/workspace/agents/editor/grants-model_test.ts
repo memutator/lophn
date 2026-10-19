@@ -25,23 +25,23 @@ Deno.test("agent 부르기를 끄면 줄이 excluded로 남고, 줄 없는 agent
 });
 
 Deno.test("다른 앱의 tool은 public만 붙일 수 있고, agent가 놓인 앱의 tool은 모두 보인다", () => {
-  const api = (name: string, isPublic: boolean) => ({
-    api: name,
+  const tool = (name: string, isPublic: boolean) => ({
+    tool: name,
     detail: "",
     effect: "read" as const,
     addedIn: null,
     public: isPublic,
   });
-  const app = (id: string, apis: GrantApp["apis"]) =>
-    ({ app: id, name: id, release: null, apis }) as GrantApp;
+  const app = (id: string, tools: GrantApp["tools"]) =>
+    ({ app: id, name: id, release: null, tools }) as GrantApp;
   const apps = [
-    app("app_mine", [api("open", true), api("secret", false)]),
-    app("app_other", [api("open", true), api("secret", false)]),
-    app("app_closed", [api("secret", false)]),
+    app("app_mine", [tool("open", true), tool("secret", false)]),
+    app("app_other", [tool("open", true), tool("secret", false)]),
+    app("app_closed", [tool("secret", false)]),
   ];
 
   const seen = (place: string | null) =>
-    appsFor(apps, place).map((one) => [one.app, one.apis.map((a) => a.api)]);
+    appsFor(apps, place).map((one) => [one.app, one.tools.map((a) => a.tool)]);
   assertEquals(seen("app_mine"), [
     ["app_mine", ["open", "secret"]],
     ["app_other", ["open"]],

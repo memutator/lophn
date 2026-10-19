@@ -1,5 +1,5 @@
 import { ok } from "../../../base/mod.ts";
-import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../protocol/apps/blueprint/read.ts";
 import { recordMessage } from "../../../protocol/lophn-agent/mod.ts";
 import { cardViewDeclared } from "./app-card.ts";
 import {
@@ -22,13 +22,13 @@ export const VISUAL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "visual.show",
     input: z.strictObject({ app: idSchema("app"), view: nonblank }),
-    routes: [appAppApi, recordMessage],
+    routes: [appTools, recordMessage],
     description:
       "Show an app card in the conversation. view is a screen key of the app's blueprint that declares the card size.",
     effect: "read",
     handler: async (input, ctx) => {
       const { app, view } = input;
-      const blueprint = await readOf(ctx.core, appAppApi, { app });
+      const blueprint = await readOf(ctx.core, appTools, { app });
       if (!blueprint.ok) return blueprint;
       if (!cardViewDeclared(blueprint.value.screens, view)) {
         return notFound("the app has no such card view");

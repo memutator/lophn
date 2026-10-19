@@ -7,7 +7,7 @@ import { parseProcessCall, type ProcessCall } from "./wire.ts";
 import { isJson } from "./wire-check.ts";
 import type { RuntimeState } from "./state.ts";
 import { readRejection } from "../../invocations/context.ts";
-import { ensureAppApiPort } from "./app-api-port.ts";
+import { ensureAppToolPort } from "./tool-port.ts";
 
 export type InvokeResult = { status: number; body: unknown };
 
@@ -79,11 +79,11 @@ async function run(
   record: boolean,
 ): Promise<InvokeResult> {
   const declaration = state.blueprint.tools.find((tool) =>
-    tool.name === call.api
+    tool.name === call.tool
   );
-  if (!declaration) return failed("not_found", "app-api is not declared", null);
-  const port = ensureAppApiPort();
-  const handler = port.handlers().find((item) => item.api === call.api);
+  if (!declaration) return failed("not_found", "tool is not declared", null);
+  const port = ensureAppToolPort();
+  const handler = port.handlers().find((item) => item.tool === call.tool);
   if (!handler) {
     return failed("not_found", "handler is not registered", null);
   }
@@ -100,7 +100,7 @@ async function run(
           release: state.identity.release,
           mode: state.identity.mode,
           invocation: call.invocation,
-          api: call.api,
+          tool: call.tool,
           // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에 묶였음을
           // broker가 확인하는 근거다.
           inputHash: inputHashOf(input.value),

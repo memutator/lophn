@@ -1,6 +1,6 @@
 // 세 질문(행을 더하는 task는 자기 행의 질문을 아래에 한 줄씩 더한다)
 // - contract: boundary `agent-tools`·`app-runtime`(앱 ∩ release 선언 ∩ agent grant만 tool이 되고 호출은 core를 지나 기록된다), `approvals`(사람이 뺀 것은 요청에 없고 묻기로 한 것은 결정 전에 실행되지 않는다).
-// - 현실적 회귀: grant를 풀 때 `excluded`가 무시되어 뺀 app-api가 요청에 남는 것, 할당하지 않은 앱이나 선언에 없는 app-api가 tool이 되는 것, "물음"인데 허락 전에 write가 실행되는 것, 사람이 답하는 동안 앱의 write 줄이 막히는 것.
+// - 현실적 회귀: grant를 풀 때 `excluded`가 무시되어 뺀 tool이 요청에 남는 것, 할당하지 않은 앱이나 선언에 없는 tool이 agent의 tool 목록에 오르는 것, "물음"인데 허락 전에 write가 실행되는 것, 사람이 답하는 동안 앱의 write 줄이 막히는 것.
 // - 왜 지금 test로 못 잡나: `app-tools`의 unit은 grant와 선언의 조합 함수만 본다. 사람의 `agent_grants/set`이 저장되고, agent runtime child가 읽고, model 요청에 실리고, 호출이 core를 지나 앱 process에서 실행되는 왕복은 process를 건너야 보인다.
 // operator-grants 행(grant-added·no-grant·pm-creates-no-grant)의 세 질문:
 // - contract: boundary `run-loop`·`agent-tools`(tool 목록은 session을 시작할 때 고정하고 바뀐 것은 program이 쓴 고정 알림으로만 간다), `agents`·`approvals`(Operator 정의를 만드는 길은 grant를 주지 못하고 grant는 사람의 `agent_grants/set`뿐이다).
@@ -15,7 +15,7 @@ import {
   appCallTool,
   appInvocations,
 } from "../../packages/protocol/apps/mod.ts";
-import { appAppApi } from "../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../packages/protocol/apps/blueprint/read.ts";
 import {
   agentGrantsGet,
   agentGrantsSet,
@@ -108,7 +108,7 @@ async function sessionWrites(core: Core, app: string, session: string) {
   return (await core.call(appInvocations, { app, session })).invocations;
 }
 
-Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것은 요청에 없으며, 묻기로 한 write는 사람의 결정 전에 실행되지 않는다", async () => {
+Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르고, 사람이 뺀 것은 요청에 없으며, 묻기로 한 write는 사람의 결정 전에 실행되지 않는다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -125,17 +125,17 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     const ask: AgentGrantEntry[] = [{
       kind: "app",
       app: id,
-      apis: [{ api: "add_item", setting: "ask" }],
+      tools: [{ tool: "add_item", setting: "ask" }],
     }];
 
-    // app-api: 앱을 할당하면 선언된 app-api 둘이 tool이 되고, 부르면 core를 지나 앱이 실행하고 기록이 남는다.
+    // tool: 앱을 할당하면 선언된 tool 둘이 agent의 tool 목록에 오르고, 부르면 core를 지나 앱이 실행하고 기록이 남는다.
     fake.reset();
     fake.script([
       { reply: callAddItem("op-first") },
       text,
     ]);
     const first = await operatorWith(core, project, "Assigned", [
-      { kind: "app", app: id, apis: [] },
+      { kind: "app", app: id, tools: [] },
     ]);
     await say(core, first.session, "add op-first");
     await waitTurnEnd(core, first.session);
@@ -158,7 +158,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     // app state
     assert((await itemsOf(core, id)).includes("op-first"));
 
-    // excluded: 사람이 뺀 app-api는 요청에 없고, model이 그래도 부르면 core에 닿지 않는다.
+    // excluded: 사람이 뺀 tool은 요청에 없고, model이 그래도 부르면 core에 닿지 않는다.
     fake.reset();
     fake.script([
       {
@@ -169,7 +169,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     const excluded = await operatorWith(core, project, "Excluded", [{
       kind: "app",
       app: id,
-      apis: [{ api: "add_item", setting: "excluded" }],
+      tools: [{ tool: "add_item", setting: "excluded" }],
     }]);
     await say(core, excluded.session, "add op-excluded");
     await waitTurnEnd(core, excluded.session);
@@ -221,7 +221,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     });
     assertEquals(user.outcome.status, "succeeded");
     assertEquals(await sessionWrites(core, id, waiting.session), []);
-    // app-api 물음의 선택지는 allow가 아니라 once·session·always·reject다.
+    // tool 물음의 선택지는 allow가 아니라 once·session·always·reject다.
     await core.call(approvalsDecideTurn, {
       session: waiting.session,
       request: waitingAsk.request,
@@ -260,7 +260,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     const added = await operatorWith(core, project, "GrantAdded", []);
     await say(core, added.session, "first");
     await waitTurnEnd(core, added.session, 0);
-    const entries: AgentGrantEntry[] = [{ kind: "app", app: id, apis: [] }];
+    const entries: AgentGrantEntry[] = [{ kind: "app", app: id, tools: [] }];
     await core.call(agentGrantsSet, { agent: added.ref, entries });
     await say(core, added.session, "second");
     await waitTurnEnd(core, added.session, 1);
@@ -274,7 +274,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     assert(notice.includes("tools_changed"));
     assert(notice.includes(`domain__${app.slug}__list_items`));
     assert(notice.includes(`domain__${app.slug}__add_item`));
-    const blueprint = await core.call(appAppApi, { app: id });
+    const blueprint = await core.call(appTools, { app: id });
     for (const api of blueprint.tools) {
       assert(!notice.includes(api.description));
     }

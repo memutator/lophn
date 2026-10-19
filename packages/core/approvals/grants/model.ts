@@ -20,22 +20,22 @@ export function withNever(
   target: Intent["target"],
 ): Result<AgentGrantEntry[]> {
   switch (target.kind) {
-    case "app_api": {
+    case "app_tool": {
       const entry = entries.find((one) =>
         one.kind === "app" && one.app === target.app
       );
       if (entry === undefined || entry.kind !== "app") {
         return failure("not_found", "agent grant has no entry for this app");
       }
-      const current = entry.apis.find((one) => one.api === target.api);
+      const current = entry.tools.find((one) => one.tool === target.tool);
       if (current?.setting === "excluded") {
-        return failure("conflict", "app-api is excluded for this agent");
+        return failure("conflict", "tool is excluded for this agent");
       }
-      const apis = [
-        ...entry.apis.filter((one) => one.api !== target.api),
-        { api: target.api, setting: "never" as const },
+      const tools = [
+        ...entry.tools.filter((one) => one.tool !== target.tool),
+        { tool: target.tool, setting: "never" as const },
       ];
-      return ok(replace(entries, { ...entry, apis }));
+      return ok(replace(entries, { ...entry, tools }));
     }
     case "mcp_tool":
     case "agent_call": {

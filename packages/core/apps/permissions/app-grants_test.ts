@@ -66,7 +66,7 @@ Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지
     // ① 선언이 같으면 비교가 비고 grant는 그대로다.
     assertEquals(compareDeclarations(active(), one), {
       added_resources: [],
-      added_app_apis: [],
+      added_tools: [],
     });
     const before = active();
     assert(syncAppGrants(tx, APP, one, "not_needed").ok);

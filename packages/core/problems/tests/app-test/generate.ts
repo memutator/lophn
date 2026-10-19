@@ -43,7 +43,7 @@ export type BundleDependency = {
 export type AppTestInput = {
   bundle_hash: string;
   test_hash: string;
-  app_api: readonly { key: string; effect: "read" | "write" | "external" }[];
+  tools: readonly { key: string; effect: "read" | "write" | "external" }[];
   // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema. 이전 release가
   // 없으면 previous_schema는 null이다.
   data: { schema: number; previous_schema: number | null };
@@ -88,12 +88,12 @@ function planCheck(
 
 const REASONS: Record<CheckName, string> = {
   blueprint_handler_match:
-    "선언한 app-api와 실제 등록 handler가 일치하고 잘못된 입력이 거절되는지",
+    "선언한 tool과 실제 등록 handler가 일치하고 잘못된 입력이 거절되는지",
   dependencies: "bundle의 import가 선언한 의존을 정확한 version으로 가리키는지",
   migration_empty: "빈 test DB에 전체 migration이 적용되는지",
   migration_upgrade: "이전 release schema에서 새 schema로 migration되는지",
   rewind:
-    "호출이 성공한 write app-api는 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지. 호출이 실패한 tool은 증명 못 함이고 검사를 떨어뜨리지 않는다",
+    "호출이 성공한 write tool은 changeset을 뒤집어 적용하면 원래 상태로 돌아오는지. 호출이 실패한 tool은 증명 못 함이고 검사를 떨어뜨리지 않는다",
   examples: "ticket의 예시마다 tool 호출 결과가 기대와 맞는지",
 };
 
@@ -199,13 +199,13 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
       : "DB를 쓰지 않는 앱(schema 0)이다",
     null,
   );
-  const writes = input.app_api.filter((api) => api.effect === "write").map((
-    api,
-  ) => api.key);
+  const writes = input.tools.filter((tool) => tool.effect === "write").map((
+    tool,
+  ) => tool.key);
   add(
     "rewind",
     !verifying && writes.length > 0,
-    verifying ? EXAMPLES_RUN : "write app-api가 선언되지 않았다",
+    verifying ? EXAMPLES_RUN : "write tool이 선언되지 않았다",
     null,
   );
   add("examples", verifying, "예시 검증이 아닌 실행이다", null);
@@ -213,7 +213,7 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
   const harness: HarnessPlan = {
     bundle_hash: input.bundle_hash,
     test_hash: input.test_hash,
-    app_api: input.app_api.map((api) => api.key),
+    tools: input.tools.map((tool) => tool.key),
     write_api: writes,
     data: input.data,
     examples: [...(input.examples ?? [])],

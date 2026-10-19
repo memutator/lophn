@@ -8,7 +8,7 @@ import {
   encodeChangeset,
   installCapHost,
 } from "./cap-host.ts";
-import { ensureAppApiPort } from "./app-api-port.ts";
+import { ensureAppToolPort } from "./tool-port.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
 import { attestation } from "./control.ts";
 
@@ -52,7 +52,7 @@ export function startRuntime(deps: {
     dataPath: parsed.data_path,
     store,
     post: (path, body) => state.broker.post(path, body),
-    current: () => ensureAppApiPort().current(),
+    current: () => ensureAppToolPort().current(),
   }));
   // 앱 code를 불러오는 동안 등록 handler가 DB를 쓸 수 있다. 이 구간의 변경도 changeset으로 뜬다.
   store.begin();

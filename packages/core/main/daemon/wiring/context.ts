@@ -29,9 +29,9 @@ import type {
   OperationPolicy,
 } from "../../../server/identity/mod.ts";
 import type {
-  AppApiCallPath,
   AppIntake,
   AppRewind,
+  AppToolCallPath,
   AppViewSignal,
   BundleLocator,
   CallerDirectory,
@@ -228,7 +228,7 @@ type Late = {
   // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
   appIntake: AppIntake;
   // 앱 tool 호출 길. coding agent MCP가 preview 호출에 쓴다.
-  appCallPath: AppApiCallPath;
+  appCallPath: AppToolCallPath;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
   // annotations가 받는 것. Router(places-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.

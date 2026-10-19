@@ -1,11 +1,11 @@
 export { currentContext, registeredTools, runWith, tool } from "./handlers.ts";
 export type {
-  AppApiCaller,
-  AppApiPort,
+  AppToolCaller,
+  AppToolPort,
   InvocationContext,
   RegisteredHandler,
 } from "./context.ts";
-export { APP_API_PORT } from "./context.ts";
+export { APP_TOOL_PORT } from "./context.ts";
 export { ToolRejection } from "./rejection.ts";
 export type { RejectionCode } from "./rejection.ts";
 export { TRACE_NAME_MAX_CHARS, traceName } from "./trace.ts";

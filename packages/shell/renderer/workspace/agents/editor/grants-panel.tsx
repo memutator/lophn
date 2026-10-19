@@ -1,5 +1,5 @@
 // agent grant 화면. 사람이 이 agent에게 앱, 외부 MCP tool, 부를 수 있는 다른 agent, 설정 고치기를 붙이고 대상마다 실행 때
-// 묻는지를 정한다. 효과별 기본값을 위에 보이고, 앱은 펼치면 app-api마다 빼거나 묻는지를 바꾼다. 바꾼 것은 바로 entries로 나간다.
+// 묻는지를 정한다. 효과별 기본값을 위에 보이고, 앱은 펼치면 tool마다 빼거나 묻는지를 바꾼다. 바꾼 것은 바로 entries로 나간다.
 import { type ReactNode, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { Field, Select, Switch } from "@lophn/ui/input";
@@ -17,8 +17,8 @@ import { commonIcons } from "../../../icons/mod.ts";
 import type { GrantCatalog } from "../source.ts";
 import {
   agentEntryOf,
-  apiPick,
   appEntryOf,
+  appToolPick,
   CALL_DEFAULT_ASK,
   callPick,
   defaultAskOf,
@@ -30,7 +30,7 @@ import {
   settingsEntryOf,
   toolEntryOf,
   toolPick,
-  withApiPick,
+  withAppToolPick,
   withCallPick,
   withSettingsPick,
   withToolPick,
@@ -61,7 +61,7 @@ interface Target {
   readonly effect?: Effect;
   readonly defaultAsk: AskSetting;
   readonly pick: Pick;
-  /** 새 release가 더한 app-api면 그 release 이름. */
+  /** 새 release가 더한 tool이면 그 release 이름. */
   readonly addedIn?: string | null;
 }
 
@@ -339,7 +339,7 @@ export function GrantsPanel(
                 setEntry(entries, {
                   kind: "app",
                   app: app as `app_${string}`,
-                  apis: [],
+                  tools: [],
                 }),
               )}
           />
@@ -348,21 +348,21 @@ export function GrantsPanel(
           ? <p className={styles.empty}>{t("agents.empty.grants-apps")}</p>
           : apps.map((app) => {
             const entry = appEntryOf(entries, app.app)!;
-            const rows = app.apis.map((api): Target => ({
-              id: api.api,
-              name: api.api,
-              detail: api.detail,
-              effect: api.effect,
-              defaultAsk: defaultAskOf(api.effect),
-              pick: apiPick(entry, api.api),
-              addedIn: api.addedIn,
+            const rows = app.tools.map((tool): Target => ({
+              id: tool.tool,
+              name: tool.tool,
+              detail: tool.detail,
+              effect: tool.effect,
+              defaultAsk: defaultAskOf(tool.effect),
+              pick: appToolPick(entry, tool.tool),
+              addedIn: tool.addedIn,
             }));
             return (
               <TargetCard
                 key={app.app}
                 name={app.name}
                 summary={app.release === null
-                  ? t("agents.label.grants-apis-summary", {
+                  ? t("agents.label.grants-app-tools-summary", {
                     used: used(rows),
                     total: rows.length,
                     asking: asking(rows),
@@ -384,14 +384,14 @@ export function GrantsPanel(
                     )),
                 }}
               >
-                {app.apis.map((api, index) => (
+                {app.tools.map((tool, index) => (
                   <GrantRow
-                    key={api.api}
+                    key={tool.tool}
                     target={rows[index]}
                     onPick={(pick) =>
                       onChange(setEntry(
                         entries,
-                        withApiPick(entry, api.api, api.effect, pick),
+                        withAppToolPick(entry, tool.tool, tool.effect, pick),
                       ))}
                   />
                 ))}

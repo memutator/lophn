@@ -1,4 +1,4 @@
-// Access 탭. 앱이 activation 때 받은 바깥 자원과 다른 앱 app-api를 보이고 거둔다. 만들지는 않는다.
+// Access 탭. 앱이 activation 때 받은 바깥 자원과 다른 앱 tool을 보이고 거둔다. 만들지는 않는다.
 // [Revoke]는 확인 창 없이 바로 요청을 접수한다. 거두기는 요청 접수(새 호출 즉시 막힘)와 실제 정리
 // (이전 process 종료 확인 뒤 새 범위로 다시 시작)를 나눠 보인다.
 import { useEffect, useState } from "react";
@@ -75,14 +75,14 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
   );
 }
 
-type Row = AccessView["resources"][number] | AccessView["appApis"][number];
+type Row = AccessView["resources"][number] | AccessView["appTools"][number];
 
 /** 이 화면이 접수했거나 core가 정리 중이라고 한 grant. */
 const asked = (row: Row, requested: ReadonlySet<string>) =>
   requested.has(row.grant) || row.revoking;
 
 function stillCleaning(view: AccessView, requested: ReadonlySet<string>) {
-  return [...view.resources, ...view.appApis].some((row) =>
+  return [...view.resources, ...view.appTools].some((row) =>
     asked(row, requested) && !row.revoked
   );
 }
@@ -146,7 +146,7 @@ function AccessBody(
   const resources = view.resources.filter((row) =>
     !row.revoked || asked(row, requested)
   );
-  const appApis = view.appApis.filter((row) =>
+  const appTools = view.appTools.filter((row) =>
     !row.revoked || asked(row, requested)
   );
   return (
@@ -185,35 +185,35 @@ function AccessBody(
           )}
       </Section>
       <Section title={t("app-detail.heading.other-apps")}>
-        {appApis.length === 0
+        {appTools.length === 0
           ? <p className={styles.muted}>{t("app-detail.note.no-other-apps")}</p>
           : (
-            <ul className={styles.list} data-app-apis="">
-              {appApis.map((row) => {
+            <ul className={styles.list} data-tools="">
+              {appTools.map((row) => {
                 const stage = stageOf(row, requested);
                 return (
                   <li
                     key={row.grant}
                     className={styles.item}
-                    data-app-api-grant={row.app}
+                    data-tool-grant={row.app}
                   >
                     <div className={styles.rowText}>
                       <span className={styles.rowTitle}>
                         {row.appName ??
                           t("app-detail.label.caller-app-unnamed")}
                         {" › "}
-                        {row.apis.map((item, index) => (
-                          <span key={item.api}>
+                        {row.tools.map((item, index) => (
+                          <span key={item.tool}>
                             {index === 0 ? "" : ", "}
-                            <Mono>{item.api}</Mono>
+                            <Mono>{item.tool}</Mono>
                           </span>
                         ))}
                       </span>
                       <span className={styles.muted}>
                         {t("app-detail.note.may-call")}
-                        {row.apis.map((item) =>
+                        {row.tools.map((item) =>
                           item.effect === null ? null : (
-                            <span key={item.api}>
+                            <span key={item.tool}>
                               {" "}
                               <EffectPill effect={item.effect} />
                             </span>

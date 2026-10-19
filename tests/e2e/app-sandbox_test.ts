@@ -21,7 +21,7 @@ import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
-Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 network에 닿지 못하고 정상 api는 계속 된다", async () => {
+Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와 network에 닿지 못하고 정상 tool은 계속 된다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -47,10 +47,10 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
       .observation?.process_nonce;
     assert(nonce !== undefined);
 
-    const call = (api: string, input?: Record<string, string>) =>
+    const call = (tool: string, input?: Record<string, string>) =>
       core!.call(appCallTool, {
         target: { mode: "live", app: app.app, release: null },
-        tool: api,
+        tool,
         ...(input === undefined ? {} : { input }),
         caller: { kind: "person", view_session: "e2e" },
       });
@@ -59,7 +59,7 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
       outside: `${outside}/x.txt`,
       url: `${fake.url}/probe`,
     });
-    // route: 세 칸이 모두 막혔고, 정상 api는 그 뒤에도 된다
+    // route: 세 칸이 모두 막혔고, 정상 tool은 그 뒤에도 된다
     const outcome = escaped.outcome;
     assert(outcome.status === "succeeded", JSON.stringify(outcome));
     const rows = (outcome.result as { rows: unknown[] }).rows;

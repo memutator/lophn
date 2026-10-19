@@ -1,4 +1,4 @@
-// agent grant를 읽고 저장하는 부분과 붙일 수 있는 대상 목록. 붙은 것은 agent_grants가, 붙일 수 있는 앱과 app-api는
+// agent grant를 읽고 저장하는 부분과 붙일 수 있는 대상 목록. 붙은 것은 agent_grants가, 붙일 수 있는 앱과 tool은
 // 앱 목록과 활성 release의 blueprint가, 부를 수 있는 agent는 agent 정의 목록이 말한다.
 // 붙일 수 있는 MCP tool은 core가 서버에 연결해 읽은 목록(agent-mcp-tools/list)이 말한다.
 import {
@@ -50,7 +50,7 @@ async function appCatalog(
     names.set(app.id, app.name);
     if (app.status !== "active") continue;
     // 활성 release가 없는 앱은 blueprint가 없다. 붙일 수 없어 목록에서 뺀다.
-    const blueprint = await link.read<BlueprintValue>("apps", "app_api", {
+    const blueprint = await link.read<BlueprintValue>("apps", "tools", {
       app: app.id,
     });
     if (!blueprint.ok) continue;
@@ -58,8 +58,8 @@ async function appCatalog(
       app: app.id,
       name: app.name,
       release: null,
-      apis: blueprint.value.tools.map((command) => ({
-        api: command.name,
+      tools: blueprint.value.tools.map((command) => ({
+        tool: command.name,
         detail: command.description,
         effect: command.effect,
         addedIn: null,

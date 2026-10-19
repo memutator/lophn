@@ -56,6 +56,6 @@ export function saveAgentGrant(
   );
 }
 
-// release에서 빠진 app-api의 override를 모든 agent grant에서 지운다.
-// 새로 더해진 app-api는 apis에 없으므로 효과별 기본값으로 들어온다. 사람이 바꾼 것은 그대로다.
+// release에서 빠진 tool의 override를 모든 agent grant에서 지운다.
+// 새로 더해진 tool은 tools에 없으므로 효과별 기본값으로 들어온다. 사람이 바꾼 것은 그대로다.
 // activation 성공 단계가 부른다.

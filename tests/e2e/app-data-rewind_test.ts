@@ -40,18 +40,18 @@ import { toolNames } from "../support/fake-server/probe.ts";
 
 type Rows<T> = { rows: T[] };
 
-// 앱 api를 사람이 부른다. 읽기는 invocation 기록이 없어 id가 null이다.
-async function call(core: Core, app: TestApp, api: string, input?: unknown) {
+// 앱 tool을 사람이 부른다. 읽기는 invocation 기록이 없어 id가 null이다.
+async function call(core: Core, app: TestApp, tool: string, input?: unknown) {
   const done = await core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    tool: api,
+    tool,
     ...(input === undefined ? {} : { input: input as never }),
     caller: { kind: "person", view_session: "e2e" },
   });
   assertEquals(
     done.outcome.status,
     "succeeded",
-    `${api}: ${JSON.stringify(done.outcome)}`,
+    `${tool}: ${JSON.stringify(done.outcome)}`,
   );
   return done as typeof done & { invocation: string };
 }
@@ -215,7 +215,7 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
     // session-rewind-with-app: lophn session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
     await core.call(agentGrantsSet, {
       agent: { role: "lophn" },
-      entries: [{ kind: "app", app: live.app, apis: [] }],
+      entries: [{ kind: "app", app: live.app, tools: [] }],
     });
     for (const choose of [true, false]) {
       const title = choose ? "by-agent-chosen" : "by-agent-skipped";

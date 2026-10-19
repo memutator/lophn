@@ -1,6 +1,6 @@
 // 의존성 없는 blueprint 정본.
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
-// no-input hash의 정규 JSON null은 app-api·schema·release 결합을 대신하지 않는다.
+// no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
 import {
   asJson,
@@ -319,7 +319,7 @@ export function validateInput(
   if (schema === null) {
     return value === undefined
       ? { ok: true, value: undefined }
-      : invalid("app-api accepts no input");
+      : invalid("tool accepts no input");
   }
   const parsed = validateSchemaNode(schema, "input");
   if (!parsed.ok) return parsed;
@@ -338,7 +338,7 @@ export async function canonicalInputHash(
 ): Promise<ValidationResult<string>> {
   const validated = validateInput(schema, value);
   if (!validated.ok) return validated;
-  // 입력이 없으면 정규 JSON null을 hash한다. 이 hash는 app·release·app-api·schema를 묶지 않는다.
+  // 입력이 없으면 정규 JSON null을 hash한다. 이 hash는 app·release·tool·schema를 묶지 않는다.
   const encoded = new TextEncoder().encode(
     canonicalJson(validated.value === undefined ? null : validated.value),
   );

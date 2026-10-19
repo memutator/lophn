@@ -46,7 +46,7 @@ export function createBrokerClient(deps: {
     // 다른 앱 호출. 부른 쪽은 core가 정한다.
     appsCall(body: {
       target_app: string;
-      api: string;
+      tool: string;
       input?: unknown;
       parent_invocation: string | null;
     }) {

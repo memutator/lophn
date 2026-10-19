@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { ToolRejection } from "@lophn/cap-app-api";
+import { ToolRejection } from "@lophn/cap-tool";
 import { openStore, type Store } from "@lophn/cap-store";
-import { addItemHandler, listItemsHandler } from "../src/app-api.ts";
+import { addItemHandler, listItemsHandler } from "../src/tools.ts";
 import {
   addItem,
   ensureSchema,

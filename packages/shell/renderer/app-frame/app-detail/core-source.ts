@@ -4,9 +4,9 @@
 import type {
   ActivationComparison,
   ActivationQueueEntry,
-  AppApiCaller,
   AppGrant,
   AppInvocation,
+  AppToolCaller,
   ReleaseRecord,
   Rewind,
   RewindPlan,
@@ -24,8 +24,8 @@ import type {
   ActivationStep,
   ActivityRow,
   AgentRole,
-  AppApiRow,
   AppDetailSource,
+  AppToolRow,
   Caller,
   CallState,
   Effect,
@@ -323,7 +323,7 @@ function lookups(core: CoreSource) {
 }
 
 async function callerOf(
-  caller: AppApiCaller | null,
+  caller: AppToolCaller | null,
   start: "activation" | "restart",
   names: ReturnType<typeof lookups>,
 ): Promise<Caller> {
@@ -414,11 +414,11 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
       const previous = comparison.previous_release === null
         ? null
         : await names.releaseNumber(comparison.previous_release);
-      const addedAppApis = await Promise.all(
-        comparison.added_app_apis.map(async (item) => ({
+      const addedTools = await Promise.all(
+        comparison.added_tools.map(async (item) => ({
           app: item.app,
           appName: await names.appName(item.app),
-          api: item.api,
+          tool: item.tool,
         })),
       );
       const value: ReleaseChanges = {
@@ -426,7 +426,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
         toNumber: record.value.release.number,
         first: comparison.first,
         addedResources: comparison.added_resources,
-        addedAppApis,
+        addedTools,
         lossSteps: comparison.loss_steps.map((step) => ({
           from: step.from,
           to: step.to,
@@ -459,7 +459,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
       if (!result.ok) return result;
       const names = lookups(core);
       const resources: ResourceRow[] = [];
-      const appApis: AppApiRow[] = [];
+      const appTools: AppToolRow[] = [];
       for (const grant of result.value) {
         const scope = grant.scope;
         if (scope.kind !== "app.call") {
@@ -472,7 +472,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
           read<{ tools: { name: string; effect: Effect }[] }>(
             core,
             "apps",
-            "app_api",
+            "tools",
             {
               app: scope.app,
             },
@@ -483,20 +483,20 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
             ? declared.value.tools.map((tool) => [tool.name, tool.effect])
             : [],
         );
-        appApis.push({
+        appTools.push({
           grant: grant.id,
           app: scope.app,
           appName,
-          apis: scope.app_apis.map((api) => ({
-            api,
-            effect: effects.get(api) ?? null,
+          tools: scope.app_tools.map((tool) => ({
+            tool,
+            effect: effects.get(tool) ?? null,
           })),
           grantedAt: grant.created_at,
           revoking: false,
           revoked: grant.status === "revoked",
         });
       }
-      const view: AccessView = { resources, appApis };
+      const view: AccessView = { resources, appTools };
       return { ok: true, value: view };
     },
 
@@ -532,7 +532,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
             startReason(invocation.operation),
             names,
           ),
-          api: invocation.operation.kind === "tool"
+          tool: invocation.operation.kind === "tool"
             ? invocation.operation.tool
             : null,
           kind: kindOf(invocation.operation),
@@ -570,7 +570,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
         plan.items.map(async (item) => ({
           invocation: item.invocation,
           at: item.started_at,
-          api: item.operation.kind === "tool" ? item.operation.tool : null,
+          tool: item.operation.kind === "tool" ? item.operation.tool : null,
           kind: kindOf(item.operation),
           effect: item.effect,
           caller: await callerOf(
@@ -624,7 +624,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
           running: result.value.plan.items.filter((item) => item.running)
             .map((item) => ({
               invocation: item.invocation,
-              api: item.operation.kind === "tool" ? item.operation.tool : null,
+              tool: item.operation.kind === "tool" ? item.operation.tool : null,
               at: item.started_at,
             })),
         },

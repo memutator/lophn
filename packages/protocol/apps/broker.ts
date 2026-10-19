@@ -3,13 +3,13 @@ import { secretNameSchema } from "../secrets/secrets.ts";
 import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
 import { reportAcceptanceSchema } from "../problems/reports.ts";
 import {
-  appApiKeySchema,
   invocationIdSchema,
   jsonValueSchema,
   processNonceSchema,
   releaseIdSchema,
   runtimeModeSchema,
   sha256Schema,
+  toolKeySchema,
 } from "./channel-values.ts";
 import { readyAttestationInputSchema } from "./runtime.ts";
 
@@ -34,7 +34,7 @@ export const brokerReadyInputSchema = z.strictObject({
 export const brokerNetFetchInputSchema = z.strictObject({
   ...childFields,
   invocation: invocationIdSchema.nullable(),
-  command: appApiKeySchema,
+  command: toolKeySchema,
   host: z.string().min(1),
   port: z.number().int().min(1).max(65535),
   method: z.string().min(1),
@@ -50,7 +50,7 @@ export const brokerSecretUseInputSchema = z.strictObject({
   ...childFields,
   release: releaseIdSchema,
   invocation: invocationIdSchema.nullable(),
-  command: appApiKeySchema,
+  command: toolKeySchema,
   input_hash: sha256Schema,
   name: secretNameSchema,
   destination: z.strictObject({

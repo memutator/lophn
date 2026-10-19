@@ -8,10 +8,10 @@ import {
   releaseIdSchema,
   toolNameSchema,
 } from "../channel-values.ts";
-import { appApiCallerSchema } from "./caller.ts";
+import { appToolCallerSchema } from "./caller.ts";
 
 // live의 release가 null이면 지금 활성 release다.
-export const appApiTargetSchema = z.discriminatedUnion("mode", [
+export const appToolTargetSchema = z.discriminatedUnion("mode", [
   z.strictObject({
     mode: z.literal("live"),
     app: appIdSchema,
@@ -23,17 +23,17 @@ export const appApiTargetSchema = z.discriminatedUnion("mode", [
     process_nonce: processNonceSchema,
   }),
 ]);
-export type AppApiTarget = z.infer<typeof appApiTargetSchema>;
+export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 
 // 규칙(core가 판정한다).
 // - caller.kind는 route의 actor와 맞아야 한다(user는 person, agent는 agent, app은 app).
 //   맞지 않으면 forbidden이다.
 // - agent와 app은 target.mode가 live이고 release가 null이다.
 const toolCallInputSchema = z.strictObject({
-  target: appApiTargetSchema,
+  target: appToolTargetSchema,
   tool: toolNameSchema,
   input: jsonValueSchema.optional(),
-  caller: appApiCallerSchema,
+  caller: appToolCallerSchema,
 });
 export type ToolCallInput = z.infer<typeof toolCallInputSchema>;
 

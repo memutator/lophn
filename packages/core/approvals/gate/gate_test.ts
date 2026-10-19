@@ -38,11 +38,11 @@ function grants(
 const agentActor = { kind: "agent", agent: AGENT, session: SESSION } as const;
 const origin = { kind: "event", seq: "1" } as unknown as Intent["origin"];
 
-function appApi(effect: Intent["effect"]): Intent {
+function appTool(effect: Intent["effect"]): Intent {
   return {
-    kind: "app_api",
+    kind: "app_tool",
     actor: agentActor,
-    target: { kind: "app_api", app: APP, api: "notes.add" },
+    target: { kind: "app_tool", app: APP, tool: "notes.add" },
     effect,
     input: {},
     origin,
@@ -61,8 +61,8 @@ function other(target: Intent["target"], actor: Intent["actor"]): Intent {
 }
 
 const appEntry = (
-  apis: { api: string; setting: "excluded" | "never" | "ask" }[],
-): AgentGrantEntry => ({ kind: "app", app: APP, apis });
+  tools: { tool: string; setting: "excluded" | "never" | "ask" }[],
+): AgentGrantEntry => ({ kind: "app", app: APP, tools });
 
 function appGrant(scope: GateGrants["app"][number]["scope"]) {
   return {
@@ -91,7 +91,7 @@ function activation(input: Record<string, unknown>): Intent {
       previous_release: REL,
       first: false,
       added_resources: [],
-      added_app_apis: [],
+      added_tools: [],
       loss_steps: [],
       ...input,
     },
@@ -109,25 +109,25 @@ const reaction = (event: keyof ReactionGrant) =>
   );
 
 const cases: [string, Intent, GateGrants, GateVerdict][] = [
-  ["read는 기본 run", appApi("read"), grants([appEntry([])]), run],
-  ["write는 기본 run", appApi("write"), grants([appEntry([])]), run],
-  ["external은 기본 ask", appApi("external"), grants([appEntry([])]), ask],
+  ["read는 기본 run", appTool("read"), grants([appEntry([])]), run],
+  ["write는 기본 run", appTool("write"), grants([appEntry([])]), run],
+  ["external은 기본 ask", appTool("external"), grants([appEntry([])]), ask],
   [
     "never override로 external run",
-    appApi("external"),
-    grants([appEntry([{ api: "notes.add", setting: "never" }])]),
+    appTool("external"),
+    grants([appEntry([{ tool: "notes.add", setting: "never" }])]),
     run,
   ],
   [
     "excluded는 deny",
-    appApi("read"),
-    grants([appEntry([{ api: "notes.add", setting: "excluded" }])]),
+    appTool("read"),
+    grants([appEntry([{ tool: "notes.add", setting: "excluded" }])]),
     deny("excluded"),
   ],
-  ["앱 entry 없음은 deny", appApi("read"), grants([]), deny("not_granted")],
+  ["앱 entry 없음은 deny", appTool("read"), grants([]), deny("not_granted")],
   [
     "agent grant 없음은 deny",
-    appApi("read"),
+    appTool("read"),
     grants(null),
     deny("not_granted"),
   ],
@@ -223,17 +223,17 @@ const cases: [string, Intent, GateGrants, GateVerdict][] = [
   ],
   [
     "앱이 다른 앱을 부르는 것은 app.call 범위 안에서만 run",
-    other({ kind: "app_api", app: APP, api: "notes.add" }, appActor),
+    other({ kind: "app_tool", app: APP, tool: "notes.add" }, appActor),
     grants(null, [
-      appGrant({ kind: "app.call", app: APP, app_apis: ["notes.add"] }),
+      appGrant({ kind: "app.call", app: APP, app_tools: ["notes.add"] }),
     ]),
     run,
   ],
   [
-    "앱이 범위 밖 app-api를 부르면 deny",
-    other({ kind: "app_api", app: APP, api: "notes.drop" }, appActor),
+    "앱이 범위 밖 tool을 부르면 deny",
+    other({ kind: "app_tool", app: APP, tool: "notes.drop" }, appActor),
     grants(null, [
-      appGrant({ kind: "app.call", app: APP, app_apis: ["notes.add"] }),
+      appGrant({ kind: "app.call", app: APP, app_tools: ["notes.add"] }),
     ]),
     deny("not_granted"),
   ],

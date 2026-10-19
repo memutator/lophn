@@ -28,19 +28,19 @@ const EFFECTS = {
   external: "conversation.label.approval-effect-external",
 } as const;
 
-// 카드에 오는 것은 app-api, MCP tool, 설정 고치기다. 나머지는 물음이 나오지 않는다.
+// 카드에 오는 것은 tool, MCP tool, 설정 고치기다. 나머지는 물음이 나오지 않는다.
 export function subjectOf(intent: Intent): { subject: string; target: string } {
   const target = intent.target;
   switch (target.kind) {
-    case "app_api": {
+    case "app_tool": {
       const app = t("conversation.label.approval-app", {
         id: shortId(target.app),
       });
       return {
-        subject: target.api,
-        target: t("conversation.label.approval-target-app-api", {
+        subject: target.tool,
+        target: t("conversation.label.approval-target-tool", {
           app,
-          api: target.api,
+          tool: target.tool,
         }),
       };
     }

@@ -379,7 +379,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       compare: {},
       prepared: [],
     });
-    if (sent === undefined) return unavailable("app-api are unavailable");
+    if (sent === undefined) return unavailable("tool are unavailable");
     return await sent;
   }
 
@@ -459,7 +459,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           attestation: {
             release: attestation.release,
             bundle_hash: attestation.bundleHash,
-            app_api: attestation.app_api,
+            tools: attestation.tools,
             data_schema: attestation.dataSchema,
             process_nonce: processNonce,
             connection_ok: true as const,

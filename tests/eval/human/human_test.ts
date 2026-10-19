@@ -60,7 +60,7 @@ function fakePort(
             permission_requests: [{
               id: "apr_turn",
               session: "ses_a",
-              intent: { kind: "app_api", target: { kind: "app_api" } },
+              intent: { kind: "app_tool", target: { kind: "app_tool" } },
               choices: ["once", "session", "always", "reject"],
             }],
           }],
@@ -122,7 +122,7 @@ Deno.test("human role decides only by the scenario rule and once per request", a
     "allow",
   ]);
 
-  const session = await run({ app_api: "session" });
+  const session = await run({ app_tool: "session" });
   const sessionTurn = session.calls.find((c) =>
     c.key === "approvals/decide_turn"
   );
@@ -131,7 +131,7 @@ Deno.test("human role decides only by the scenario rule and once per request", a
   assertEquals((sessionPend?.input.choice as { kind: string }).kind, "reject");
 
   // 규칙 값이 선택지에 없으면 만들어 내지 않고 거절한다. allow만 once로 좁힌다.
-  const narrowed = await run({ app_api: "allow", activation: "once" });
+  const narrowed = await run({ app_tool: "allow", activation: "once" });
   assertEquals(
     narrowed.calls.find((c) => c.key === "approvals/decide_turn")?.input.choice,
     { kind: "once" },

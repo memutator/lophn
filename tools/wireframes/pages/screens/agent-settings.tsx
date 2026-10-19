@@ -77,7 +77,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants-app",
       title: "Agent settings · grants, app expanded",
       description:
-        "앱 하나를 펼쳐 app-api마다 넣음과 뺌, 묻는지를 보인다. 뺀 것, 사람이 바꾼 것(Changed by you, Reset), 새 release가 더해 기본값으로 들어온 것이 한 표에 있다.",
+        "앱 하나를 펼쳐 tool마다 넣음과 뺌, 묻는지를 보인다. 뺀 것, 사람이 바꾼 것(Changed by you, Reset), 새 release가 더해 기본값으로 들어온 것이 한 표에 있다.",
       render: () => <AgentGrantsAppPage />,
     },
   ],

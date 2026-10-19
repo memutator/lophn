@@ -1,6 +1,6 @@
 // 세 질문
-// - contract: boundary `app-runtime`·`app-spi`(app-api 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
-//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(app-api tool),
+// - contract: boundary `app-runtime`·`app-spi`(tool 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
+//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(tool),
 //   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
 //   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것, net/fetch가 실제 core에서 나가지 못하는 것과
@@ -10,8 +10,8 @@
 //   권한(host 없는 --allow-net)과 process 경계를 지나지 않는다.
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
-// 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 api로 끝나는 이름을 골라 부르는 함수 대답이다. tool
-// 이름 규칙(`domain__<domain>__<api>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 Project Manager
+// 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool
+// 이름 규칙(`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. 앱 activation helper의 Project Manager
 // 대답은 행 몫에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
@@ -63,11 +63,11 @@ function startLoopback() {
 
 const NET_SECRET = "e2e.net.token";
 
-// 요청의 tool 목록에서 api로 끝나는 app-api tool을 골라 부른다.
-function callApp(id: string, api: string, input: unknown) {
+// 요청의 tool 목록에서 tool로 끝나는 tool을 골라 부른다.
+function callApp(id: string, tool: string, input: unknown) {
   return (request: JournalEntry) => {
-    const name = toolNames(request).find((item) => item.endsWith(`__${api}`));
-    if (name === undefined) throw new Error(`${api} tool이 요청에 없다`);
+    const name = toolNames(request).find((item) => item.endsWith(`__${tool}`));
+    if (name === undefined) throw new Error(`${tool} tool이 요청에 없다`);
     return {
       kind: "tool" as const,
       calls: [{ id, name, arguments: JSON.stringify(input) }],
@@ -94,7 +94,7 @@ async function items(core: Core, app: string): Promise<string> {
   return JSON.stringify(listed.outcome);
 }
 
-Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 process가 실행하고 기록되며, frame 한도를 넘는 write도 성공으로 닫힌다", async (t) => {
+Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 실행하고 기록되며, frame 한도를 넘는 write도 성공으로 닫힌다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -119,7 +119,7 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
     const target = { mode: "live", app: id, release: null } as const;
     await c.call(agentGrantsSet, {
       agent: { role: "lophn" },
-      entries: [{ kind: "app", app: id, apis: [] }],
+      entries: [{ kind: "app", app: id, tools: [] }],
     });
 
     await t.step("agent-calls-app", async () => {

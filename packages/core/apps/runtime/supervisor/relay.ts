@@ -3,7 +3,7 @@
 // 보낸 뒤 답을 받지 못했는지(`response: null`, 결과 모름)를 구별하는 것이 이 module의 일이다.
 // socket I/O는 주입받는다.
 import {
-  type AppApiTarget,
+  type AppToolTarget,
   PROCESS_PATHS,
   type ProcessApplyRequest,
   type ProcessApplyResponse,
@@ -47,7 +47,7 @@ type CallOutput =
   | { sent: true; response: ProcessCallResponse | null };
 
 type Relay = {
-  call(target: AppApiTarget, request: ProcessCallRequest): Promise<CallOutput>;
+  call(target: AppToolTarget, request: ProcessCallRequest): Promise<CallOutput>;
   // 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
   apply(
     app: string,

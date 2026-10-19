@@ -3,8 +3,8 @@
 import type {
   AccessView,
   ActivityRow,
-  AppApiRow,
   AppDetailSource,
+  AppToolRow,
   Caller,
   ReleaseCard,
   ReleaseChanges,
@@ -79,7 +79,7 @@ function row(
   id: string,
   at: string,
   caller: Caller,
-  api: string | null,
+  tool: string | null,
   effect: ActivityRow["effect"],
   state: ActivityRow["state"],
   result: string,
@@ -89,14 +89,14 @@ function row(
     id,
     at,
     caller,
-    api,
-    kind: api === null ? "start" : "tool",
+    tool,
+    kind: tool === null ? "start" : "tool",
     effect,
     state,
     undone: false,
     releaseNumber: 7,
     earlier: false,
-    inputHash: api === null ? null : "sha256:41c9e07b",
+    inputHash: tool === null ? null : "sha256:41c9e07b",
     result,
     ...more,
   };
@@ -208,7 +208,7 @@ function planItem(
   return {
     invocation: source.id,
     at: source.at ?? "",
-    api: source.api,
+    tool: source.tool,
     kind: source.kind,
     effect: source.effect,
     caller: source.caller,
@@ -222,10 +222,10 @@ const changesTo = (fromNumber: number): ReleaseChanges => ({
   toNumber: fromNumber + 1,
   first: false,
   addedResources: ["api.shipbob.com"],
-  addedAppApis: [{
+  addedTools: [{
     app: INVENTORY,
     appName: "Inventory",
-    api: "stock.reserve",
+    tool: "stock.reserve",
   }],
   lossSteps: [{
     from: 4,
@@ -302,17 +302,17 @@ export function fakeDetail(options: FakeOptions = {}) {
       revoking: requested.has(grant) && !revoked.has(grant),
       revoked: revoked.has(grant),
     });
-    const appApi = (
+    const appTool = (
       grant: string,
       app: string,
       appName: string,
-      api: string,
+      tool: string,
       effect: "read" | "write",
-    ): AppApiRow => ({
+    ): AppToolRow => ({
       grant,
       app,
       appName,
-      apis: [{ api, effect }],
+      tools: [{ tool, effect }],
       grantedAt: "2026-10-15T13:58:00",
       revoking: requested.has(grant) && !revoked.has(grant),
       revoked: revoked.has(grant),
@@ -338,15 +338,15 @@ export function fakeDetail(options: FakeOptions = {}) {
           "2026-10-12T10:05:00",
         ),
       ],
-      appApis: [
-        appApi(
+      appTools: [
+        appTool(
           GRANT_LOOKUP,
           CUSTOMERS,
           nameOf(CUSTOMERS, "Customers"),
           "customers.lookup",
           "read",
         ),
-        appApi(
+        appTool(
           GRANT_RESERVE,
           INVENTORY,
           nameOf(INVENTORY, "Inventory"),
@@ -432,7 +432,7 @@ export function fakeDetail(options: FakeOptions = {}) {
         running: rewinding
           ? [{
             invocation: "inv_38",
-            api: "orders.exportToSheet",
+            tool: "orders.exportToSheet",
             at: "2026-10-15T14:38:00",
           }]
           : [],

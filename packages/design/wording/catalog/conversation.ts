@@ -94,7 +94,7 @@ export const conversation = {
   "conversation.label.approval-settings-setting": "A setting",
   "conversation.label.approval-settings-skill": "A skill",
   "conversation.label.approval-target": "Target",
-  "conversation.label.approval-target-app-api": "{api} in {app}",
+  "conversation.label.approval-target-tool": "{tool} in {app}",
   "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
   "conversation.label.approval-target-other": "Other request",
   "conversation.label.archived": "Archived",

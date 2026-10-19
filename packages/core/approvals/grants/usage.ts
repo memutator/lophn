@@ -30,8 +30,8 @@ export function appGrantees(
       grantees.push({
         agent: parsed.data.agent,
         excluded: new Set(
-          entry.apis.filter((one) => one.setting === "excluded").map((one) =>
-            one.api
+          entry.tools.filter((one) => one.setting === "excluded").map((one) =>
+            one.tool
           ),
         ),
       });

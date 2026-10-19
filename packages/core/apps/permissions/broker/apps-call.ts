@@ -1,4 +1,4 @@
-// broker `/_lophn/broker/apps/call`. 앱이 다른 앱의 app-api를 부르는 길이다. 부른 쪽은 자식 연결이
+// broker `/_lophn/broker/apps/call`. 앱이 다른 앱의 tool을 부르는 길이다. 부른 쪽은 자식 연결이
 // 정하고 core가 target과 Gate를 판정한다. 요청의 `parent_invocation`은 core가 그 앱의 진행 중
 // invocation인지 확인한다. 이 서비스는 요청 모양을 검사하고 core 호출 경로로 넘기기만 한다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -40,7 +40,7 @@ export function createAppsCallService(deps: {
       }
       const called = await deps.core.call(child, {
         target: { mode: "live", app: input.target_app, release: null },
-        tool: input.api,
+        tool: input.tool,
         ...(input.input === undefined ? {} : { input: input.input }),
         caller: {
           kind: "app",

@@ -167,7 +167,7 @@ export function connectTools(
       try {
         response = await port.post(APP_CALL_PATH, {
           target_app: app,
-          api: name,
+          tool: name,
           ...(input === undefined ? {} : { input }),
           parent_invocation: currentContext()?.invocation ?? null,
         });

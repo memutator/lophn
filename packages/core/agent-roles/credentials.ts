@@ -11,10 +11,7 @@ import { domainGet, domainList } from "../../protocol/domains/mod.ts";
 import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
-import {
-  appAppApi,
-  appAppApiIndex,
-} from "../../protocol/apps/blueprint/read.ts";
+import { appToolIndex, appTools } from "../../protocol/apps/blueprint/read.ts";
 import { appUsage } from "../../protocol/apps/usage.ts";
 import { packagesList, packagesUsage } from "../../protocol/apps/mod.ts";
 import { AGENT_BASE_OPERATIONS } from "../lophn-agent/run-loop/mod.ts";
@@ -36,9 +33,9 @@ const PLACE_READS: readonly string[] = [
   projectApi.list.name,
   appGet.name,
   appList.name,
-  appAppApi.name,
+  appTools.name,
   // lophn의 project 지도: 공개 tool, 사용 관계, 앱이 쓰는 package. 사용 관계는 lophn session만 받는다.
-  appAppApiIndex.name,
+  appToolIndex.name,
   appUsage.name,
   packagesList.name,
   packagesUsage.name,

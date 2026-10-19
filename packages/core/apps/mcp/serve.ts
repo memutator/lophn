@@ -8,7 +8,7 @@ import { type JsonValue, parseActor } from "../../../protocol/base/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { McpCallResult, McpTools } from "../../server/mod.ts";
 import type { ToolDeclaration } from "../blueprint/mod.ts";
-import type { AppApiCallPath } from "../ports.ts";
+import type { AppToolCallPath } from "../ports.ts";
 import type { CurrentPreview } from "../preview/mod.ts";
 
 export type CodingMcpDeps = {
@@ -17,7 +17,7 @@ export type CodingMcpDeps = {
   previews: { current(app: string): Promise<Result<CurrentPreview | null>> };
   // 활성 release의 tool 선언. 활성 release가 없으면 빈 목록이다.
   activeTools(app: string): Result<readonly ToolDeclaration[]>;
-  calls: AppApiCallPath;
+  calls: AppToolCallPath;
 };
 
 const NO_PREVIEW =

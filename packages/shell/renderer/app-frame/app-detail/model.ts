@@ -143,11 +143,11 @@ export function callerText(caller: Caller): string {
 
 /** 호출 이름. 앱 시작과 data 변경은 정해진 말이다. */
 export function callName(
-  row: Pick<ActivityRow, "kind" | "api">,
+  row: Pick<ActivityRow, "kind" | "tool">,
 ): string {
   if (row.kind === "start") return t("app-detail.label.call-start");
   if (row.kind === "data_change") return t("app-detail.label.call-data-change");
-  return row.api ?? "";
+  return row.tool ?? "";
 }
 
 export function callStateText(row: ActivityRow): string {

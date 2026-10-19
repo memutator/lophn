@@ -61,7 +61,7 @@ export type DataPlaceholders = {
   "waiting.label.agent-operator": Record<never, never>;
   "waiting.label.agent-project-manager": Record<never, never>;
   "waiting.label.agent-reaction": Record<never, never>;
-  "waiting.label.declared-app-api": Record<never, never>;
+  "waiting.label.declared-tool": Record<never, never>;
   "waiting.label.declared-file-read": Record<never, never>;
   "waiting.label.declared-file-write": Record<never, never>;
   "waiting.label.declared-listen": Record<never, never>;
@@ -115,9 +115,9 @@ export type DataPlaceholders = {
   "waiting.label.settled-denied": Record<never, never>;
   "waiting.label.settled-failed": Record<never, never>;
   "waiting.label.show-details": Record<never, never>;
-  "waiting.label.target-app-api": {
+  "waiting.label.target-tool": {
     app: "string";
-    api: "string";
+    tool: "string";
   };
   "waiting.label.target-mcp-tool": {
     server: "string";
@@ -138,13 +138,13 @@ export type DataPlaceholders = {
   "waiting.notice.agent-call": {
     agent: "string";
   };
-  "waiting.notice.app-api-external": {
+  "waiting.notice.tool-external": {
     target: "string";
   };
-  "waiting.notice.app-api-read": {
+  "waiting.notice.tool-read": {
     target: "string";
   };
-  "waiting.notice.app-api-write": {
+  "waiting.notice.tool-write": {
     target: "string";
   };
   "waiting.notice.app-resource": {
@@ -205,8 +205,8 @@ export type DataPlaceholders = {
     app: "string";
   };
   "waiting.title.agent-call": Record<never, never>;
-  "waiting.title.app-api": {
-    api: "string";
+  "waiting.title.tool": {
+    tool: "string";
     app: "string";
   };
   "waiting.title.app-resource": Record<never, never>;

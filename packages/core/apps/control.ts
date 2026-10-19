@@ -37,7 +37,7 @@ import {
   releasePrepareBundle,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
-import { appAppApi } from "../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../protocol/apps/blueprint/read.ts";
 import {
   observeException,
   problemReport,
@@ -152,7 +152,7 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStopped.name,
   appRecordUnavailable.name,
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다.
-  appAppApi.name,
+  appTools.name,
   appGrantsList.name,
   // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
   // 시작은 사람 approval의 적용(`apply_approved_action`)이다.
@@ -193,7 +193,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
     // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
     { name: appLogs.name, actors: ["machine"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
-    { name: appAppApi.name, actors: ["machine"], kind: "command" },
+    { name: appTools.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },
     { name: appsSecretValue.name, actors: ["machine"], kind: "command" },
     ...[

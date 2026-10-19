@@ -6,7 +6,7 @@ import { defineMemory, defineRead } from "../../base/route.ts";
 import { atSchema } from "../../base/values.ts";
 import { appIdSchema } from "../../projects/values.ts";
 import { invocationIdSchema, releaseIdSchema } from "../channel-values.ts";
-import { appApiCallerSchema } from "./caller.ts";
+import { appToolCallerSchema } from "./caller.ts";
 import {
   appInvocationOperationSchema,
   invocationEffectSchema,
@@ -19,7 +19,7 @@ const rewindPlanItemSchema = z.strictObject({
   invocation: invocationIdSchema,
   started_at: atSchema,
   operation: appInvocationOperationSchema,
-  caller: appApiCallerSchema.nullable(),
+  caller: appToolCallerSchema.nullable(),
   effect: invocationEffectSchema,
   reverts_db: z.boolean(),
   external: z.boolean(),

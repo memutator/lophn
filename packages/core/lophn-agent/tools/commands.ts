@@ -85,7 +85,7 @@ function checkRevision(
 
 const INSERT = `insert into tool_calls (
   id, turn, model_call, response_key, response_order, tool, definition_revision,
-  effect, app_api, confirm, extension, input, output, retry_of, attempt,
+  effect, app_tool, confirm, extension, input, output, retry_of, attempt,
   retry_at, decision, state, state_seq, started_at, finished_at, duration_ms,
   outcome, result
 ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -115,7 +115,7 @@ function insertCall(
     input.definition_revision,
     input.effect,
     // 앱 command 원래 호출의 계약이다(app command tool만 싣는다).
-    input.app_api === undefined ? null : JSON.stringify(input.app_api),
+    input.app_tool === undefined ? null : JSON.stringify(input.app_tool),
     input.confirm ? 1 : 0,
     input.extension === null ? null : JSON.stringify(input.extension),
     input.input,

@@ -112,11 +112,11 @@ function agentIntent(
   };
 }
 
-export const APP_API_CALL = () =>
+export const APP_TOOL_CALL = () =>
   turnRequest(11, OPERATOR_SESSION, 1, {
     intent: agentIntent(OPERATOR_SESSION, {
-      kind: "app_api",
-      target: { kind: "app_api", app: BUDGET, api: "entries.create" },
+      kind: "app_tool",
+      target: { kind: "app_tool", app: BUDGET, tool: "entries.create" },
       effect: "write",
       input: { category: "refunds", amount: 1800, month: "2026-09" },
     }),
@@ -148,8 +148,8 @@ export const CONFIG_EDIT = () =>
 export const CODING_ASK = () =>
   turnRequest(14, CODING_SESSION, 2, {
     intent: agentIntent(CODING_SESSION, {
-      kind: "app_api",
-      target: { kind: "app_api", app: ORDERS, api: "orders.list" },
+      kind: "app_tool",
+      target: { kind: "app_tool", app: ORDERS, tool: "orders.list" },
       effect: "read",
       input: {},
     }),
@@ -208,7 +208,7 @@ export const ACTIVATION = () =>
           "secret.use:PAYMENTS_KEY",
           "fs.write:/exports/**",
         ],
-        added_app_apis: [{ app: INVENTORY, api: "stock.adjust" }],
+        added_tools: [{ app: INVENTORY, tool: "stock.adjust" }],
         loss_steps: [{
           from: 3,
           to: 4,
@@ -238,7 +238,7 @@ export const FIRST_ACTIVATION = () =>
           "secret.use:RATES_KEY",
           "fs.read:/imports/**",
         ],
-        added_app_apis: [{ app: ORDERS, api: "refunds.create" }],
+        added_tools: [{ app: ORDERS, tool: "refunds.create" }],
         loss_steps: [],
       },
       { role: "app_engineer", app: BUDGET },
@@ -278,7 +278,7 @@ type Item = ReturnType<typeof turnRequest> | PendingApproval | "question";
 
 /** 모든 종류가 섞인 한 목록. */
 export const allItems = (): readonly Item[] => [
-  APP_API_CALL(),
+  APP_TOOL_CALL(),
   CODING_ASK(),
   "question",
   ACTIVATION(),

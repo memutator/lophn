@@ -157,7 +157,7 @@ Deno.test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 
     "/domains/list": {
       domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
     },
-    "/apps/app_api_index": {
+    "/apps/tool_index": {
       apps: [{
         app: APP,
         name: "Ledger",

@@ -45,7 +45,7 @@ async function request(
   return reply.value;
 }
 
-export function createAppApi(transport: AppTransport): LophnApp {
+export function createAppTool(transport: AppTransport): LophnApp {
   return Object.freeze({
     callTool: (tool: string, input: unknown) =>
       request(transport, APP_CALL_TOOL_CHANNEL, { tool, input }),

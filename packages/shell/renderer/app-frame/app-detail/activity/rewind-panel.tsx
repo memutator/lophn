@@ -325,7 +325,7 @@ function Progress(
                 count: running.length,
                 calls: running
                   .map((item) =>
-                    `${item.api ?? t("app-detail.label.call-start")}, ${
+                    `${item.tool ?? t("app-detail.label.call-start")}, ${
                       callTime(item.at, now())
                     }`
                   )

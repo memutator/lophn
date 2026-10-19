@@ -1,9 +1,9 @@
 import type { CheckDefinition } from "./definitions.ts";
 
-// 앱이 바로 낸 ReadyAttestation의 test 자식 쪽 모양이다. `app_api`는 등록된 app-api key다.
+// 앱이 바로 낸 ReadyAttestation의 test 자식 쪽 모양이다. `tools`는 등록된 tool key다.
 export type Attestation = {
   bundle_hash: string;
-  app_api: string[];
+  tools: string[];
   data_schema: number;
   process_nonce: string;
 };
@@ -22,7 +22,7 @@ type MigrationRun = {
   reason: string;
 };
 
-// write app-api 하나를 fixture 입력으로 부르고 changeset을 뒤집어 적용한 결과다.
+// write tool 하나를 fixture 입력으로 부르고 changeset을 뒤집어 적용한 결과다.
 export type RewindRun = {
   // 호출이 성공했는지.
   called: boolean;
@@ -54,11 +54,11 @@ export type HarnessExample = { tool: string; input?: unknown; expect: unknown };
 // harness는 앱 code를 import하지 않고 이 통로로만 만진다.
 export type AppDriver = {
   probe(): Promise<Attestation>;
-  // 선언한 입력 계약을 어긴 입력으로 app-api를 불러 입력 검증에서 거절됐는지 돌려준다.
+  // 선언한 입력 계약을 어긴 입력으로 tool을 불러 입력 검증에서 거절됐는지 돌려준다.
   rejectsInvalidInput(tool: string): Promise<boolean>;
-  // write app-api를 불러 changeset을 뒤집어 적용하고 DB 상태를 호출 전과 견준다.
+  // write tool을 불러 changeset을 뒤집어 적용하고 DB 상태를 호출 전과 견준다.
   rewind(tool: string): Promise<RewindRun>;
-  // app-api를 이 입력으로 불러 결과를 돌려준다. 앞선 호출이 만든 data는 뒤 호출에 보인다.
+  // tool을 이 입력으로 불러 결과를 돌려준다. 앞선 호출이 만든 data는 뒤 호출에 보인다.
   call(tool: string, input: unknown): Promise<CallOutcome>;
   // call이 돌려준 changeset을 호출 순서대로 받아 최신부터 뒤집어 적용하고 첫 호출 전 DB 상태와 견준다.
   restore(changesets: readonly string[]): Promise<RestoreRun>;
@@ -76,9 +76,9 @@ export type HarnessPlanCheck = CheckDefinition & {
 export type HarnessPlan = {
   bundle_hash: string;
   test_hash: string;
-  // 선언한 app-api key.
-  app_api: string[];
-  // 그 가운데 write app-api key.
+  // 선언한 tool key.
+  tools: string[];
+  // 그 가운데 write tool key.
   write_api: string[];
   // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema.
   data: { schema: number; previous_schema: number | null };

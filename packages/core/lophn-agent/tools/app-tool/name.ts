@@ -9,7 +9,7 @@ import {
 // 이름이다. 이름을 parse하지 않는다. 이름 → (앱, tool)은 정의 목록이 안다.
 const HASH_LENGTH = 8;
 
-export async function appApiToolName(
+export async function appToolName(
   domain: string,
   tool: string,
 ): Promise<string> {

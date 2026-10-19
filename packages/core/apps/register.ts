@@ -189,8 +189,8 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.appApi,
-      blueprintReads.appApiIndex,
+      blueprintReads.appTool,
+      blueprintReads.appToolIndex,
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,
@@ -253,8 +253,8 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.appApi,
-      blueprintReads.appApiIndex,
+      blueprintReads.appTool,
+      blueprintReads.appToolIndex,
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,

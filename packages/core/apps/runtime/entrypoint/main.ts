@@ -3,7 +3,7 @@
 import { createIdSource, systemClock } from "@lophn/base";
 import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS } from "./limits.ts";
-import { ensureAppApiPort } from "./app-api-port.ts";
+import { ensureAppToolPort } from "./tool-port.ts";
 import { publishReady, startRuntime } from "./startup.ts";
 import { startControlServer } from "./control-server.ts";
 import { parseAppStart } from "./start-input.ts";
@@ -76,7 +76,7 @@ async function main(deps: MainDeps): Promise<void> {
     deps.problemTransport && observer.createProblemReporter &&
     observer.installProblemReporter
   ) {
-    const schedule = ensureAppApiPort();
+    const schedule = ensureAppToolPort();
     observer.installProblemReporter(observer.createProblemReporter({
       transport: deps.problemTransport,
       now: () => clock.now(),

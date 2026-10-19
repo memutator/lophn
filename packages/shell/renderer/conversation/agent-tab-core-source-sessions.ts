@@ -110,20 +110,20 @@ async function grantRowsOf(
     switch (entry.kind) {
       case "app": {
         const name = await appNameOf(env, entry.app);
-        if (entry.apis.length === 0) {
+        if (entry.tools.length === 0) {
           rows.push({
             target: name,
             effect: "app",
             setting: settingOf(undefined, DEFAULT_ASK.write),
           });
         }
-        for (const api of entry.apis) {
+        for (const tool of entry.tools) {
           rows.push({
-            target: `${name} · ${api.api}`,
+            target: `${name} · ${tool.tool}`,
             effect: "app",
-            setting: api.setting === "excluded"
+            setting: tool.setting === "excluded"
               ? "deny"
-              : settingOf(api.setting, DEFAULT_ASK.write),
+              : settingOf(tool.setting, DEFAULT_ASK.write),
           });
         }
         break;

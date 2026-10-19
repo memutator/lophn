@@ -166,7 +166,7 @@ When a question is about one project, read that project's LOPHN.md first.`,
         option_values: { effort: "high", speed: "standard" },
       },
       body:
-        "Keep the app small. Change one app-api at a time and run the app's test before you ask me to check it.",
+        "Keep the app small. Change one tool at a time and run the app's test before you ask me to check it.",
       skills: ["plain-writing", "cite-documents"],
       mcp_off: [{ server_name: "fetch" }],
     },
@@ -336,14 +336,14 @@ export const PROJECT_MCP: readonly McpRow[] = [
 
 // ---- agent grant ----
 
-function api(
+function tool(
   name: string,
   detail: string,
   effect: "read" | "write" | "external",
   addedIn: string | null = null,
   isPublic = false,
 ) {
-  return { api: name, detail, effect, addedIn, public: isPublic };
+  return { tool: name, detail, effect, addedIn, public: isPublic };
 }
 
 const APPS: readonly GrantApp[] = [
@@ -351,46 +351,52 @@ const APPS: readonly GrantApp[] = [
     app: APP_ID,
     name: APP_NAME,
     release: "1.4",
-    apis: [
-      api("list_expenses", "Lists the expenses of a month", "read", null, true),
-      api(
+    tools: [
+      tool(
+        "list_expenses",
+        "Lists the expenses of a month",
+        "read",
+        null,
+        true,
+      ),
+      tool(
         "get_budget",
         "Reads the budget and what is left",
         "read",
         null,
         true,
       ),
-      api("summarize_month", "Totals a month by category", "read"),
-      api("add_expense", "Adds one expense", "write"),
-      api(
+      tool("summarize_month", "Totals a month by category", "read"),
+      tool("add_expense", "Adds one expense", "write"),
+      tool(
         "set_alert_threshold",
         "Sets when the app warns about spending",
         "write",
       ),
-      api("delete_expense", "Deletes one expense", "write"),
-      api("export_to_sheet", "Sends a month to a spreadsheet", "external"),
-      api("send_report_mail", "Mails the monthly report", "external", "1.4"),
-      api("tag_expense", "Puts a tag on an expense", "write", "1.4"),
+      tool("delete_expense", "Deletes one expense", "write"),
+      tool("export_to_sheet", "Sends a month to a spreadsheet", "external"),
+      tool("send_report_mail", "Mails the monthly report", "external", "1.4"),
+      tool("tag_expense", "Puts a tag on an expense", "write", "1.4"),
     ],
   },
   {
     app: EVAL_BOARD_ID,
     name: "Eval board",
     release: "0.9",
-    apis: [
-      api("list_runs", "Lists eval runs", "read", null, true),
-      api("get_run", "Reads one run with its scores", "read", null, true),
-      api("pin_run", "Pins a run to the board", "write"),
-      api("post_to_chat", "Posts a run summary to the team chat", "external"),
+    tools: [
+      tool("list_runs", "Lists eval runs", "read", null, true),
+      tool("get_run", "Reads one run with its scores", "read", null, true),
+      tool("pin_run", "Pins a run to the board", "write"),
+      tool("post_to_chat", "Posts a run summary to the team chat", "external"),
     ],
   },
   {
     app: NOTES_SYNC_ID,
     name: "Notes sync",
     release: "2.1",
-    apis: [
-      api("list_notes", "Lists notes", "read", null, true),
-      api("push_note", "Sends a note to the cloud", "external"),
+    tools: [
+      tool("list_notes", "Lists notes", "read", null, true),
+      tool("push_note", "Sends a note to the cloud", "external"),
     ],
   },
 ];
@@ -463,31 +469,31 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AgentGrantEntry[]>> =
       {
         kind: "app",
         app: APP_ID,
-        apis: [
-          { api: "set_alert_threshold", setting: "ask" },
-          { api: "delete_expense", setting: "excluded" },
+        tools: [
+          { tool: "set_alert_threshold", setting: "ask" },
+          { tool: "delete_expense", setting: "excluded" },
         ],
       },
-      { kind: "app", app: EVAL_BOARD_ID, apis: [] },
+      { kind: "app", app: EVAL_BOARD_ID, tools: [] },
       ...allTools(),
       { kind: "agent", agent: PM_REF },
       { kind: "agent", agent: PLANNER_REF },
     ],
-    [EXPERIMENT_PLANNER_ID]: [{ kind: "app", app: EVAL_BOARD_ID, apis: [] }],
+    [EXPERIMENT_PLANNER_ID]: [{ kind: "app", app: EVAL_BOARD_ID, tools: [] }],
     lophn: [
-      { kind: "app", app: APP_ID, apis: [] },
-      { kind: "app", app: EVAL_BOARD_ID, apis: [] },
+      { kind: "app", app: APP_ID, tools: [] },
+      { kind: "app", app: EVAL_BOARD_ID, tools: [] },
       { kind: "agent", agent: PM_REF },
       { kind: "agent", agent: ENGINEER_REF },
       { kind: "settings" },
     ],
     project_manager: [
-      { kind: "app", app: APP_ID, apis: [] },
+      { kind: "app", app: APP_ID, tools: [] },
       ...allTools(),
       { kind: "settings" },
     ],
     app_engineer: [
-      { kind: "app", app: APP_ID, apis: [] },
+      { kind: "app", app: APP_ID, tools: [] },
       ...allTools(),
       { kind: "agent", agent: PM_REF },
     ],

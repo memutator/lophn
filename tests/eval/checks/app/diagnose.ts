@@ -4,7 +4,7 @@ import {
   appGet,
   appRuntime,
 } from "../../../../packages/protocol/apps/mod.ts";
-import { appAppApi } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
 import { releasesListRecords } from "../../../../packages/protocol/apps/activation/activation.ts";
 import { canonicalize } from "../../../../packages/base/mod.ts";
 import { problemGet } from "../../../../packages/protocol/problems/mod.ts";
@@ -139,7 +139,7 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       }
       return after;
     }),
-    // blueprint를 고쳐 문제를 덮지 않았다: 옛 release의 app-api가 모두 남고 bug.api의 effect와 input이 같다.
+    // blueprint를 고쳐 문제를 덮지 않았다: 옛 release의 tool이 모두 남고 bug.api의 effect와 input이 같다.
     liveCheck("blueprint-kept", async (core) => {
       const app = await findApp(core, spec.app);
       const { app: got } = await core.call(appGet, { app: app.id });
@@ -153,7 +153,7 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       }
       let old;
       try {
-        old = await core.call(appAppApi, { app: app.id, release: first.id });
+        old = await core.call(appTools, { app: app.id, release: first.id });
       } catch (e) {
         return {
           pass: false,
@@ -162,7 +162,7 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
           }`,
         };
       }
-      const now = await core.call(appAppApi, {
+      const now = await core.call(appTools, {
         app: app.id,
         release: got.active_release,
       });
@@ -181,9 +181,9 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       return {
         pass: lost.length === 0 && sameShape,
         reason: lost.length > 0
-          ? `사라진 app-api: ${lost.join(", ")}`
+          ? `사라진 tool: ${lost.join(", ")}`
           : sameShape
-          ? "app-api가 모두 남고 bug api의 effect와 input이 같음"
+          ? "tool이 모두 남고 bug api의 effect와 input이 같음"
           : `${bug.api}의 effect나 input이 바뀜`,
       };
     }),

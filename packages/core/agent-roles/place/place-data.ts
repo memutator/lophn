@@ -1,8 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { agentGrantsGet, agentKey } from "../../../protocol/approvals/mod.ts";
 import {
-  appAppApi,
-  appAppApiIndex,
+  appToolIndex,
+  appTools,
 } from "../../../protocol/apps/blueprint/read.ts";
 import {
   appGet,
@@ -193,11 +193,11 @@ async function readPlaceData(
         : `${appSource}/blueprint.ts`,
     };
     if (found.active_release !== null) {
-      const apis = await readOf(call, appAppApi, { app: found.id });
-      if (apis.ok) {
+      const tools = await readOf(call, appTools, { app: found.id });
+      if (tools.ok) {
         release = {
-          version: apis.value.release,
-          api_names: apis.value.tools.map((tool) => tool.name),
+          version: tools.value.release,
+          tool_names: tools.value.tools.map((tool) => tool.name),
         };
       }
     }
@@ -312,7 +312,7 @@ async function readPlaceData(
         : read;
     });
     const records: DomainRecord[] = domainRecords.ok ? domainRecords.value : [];
-    const index = await readOf(call, appAppApiIndex, {});
+    const index = await readOf(call, appToolIndex, {});
     const toolsOf = new Map(
       (index.ok ? index.value.apps : []).map((a) => [a.app, a.tools]),
     );

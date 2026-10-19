@@ -164,7 +164,7 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
   }
 });
 
-// Project Manager가 template의 app-api로 건 예시가 ticket 확인의 관문이 되는 길이다. core 하나에 행마다 template 앱을 새로 시작한다.
+// Project Manager가 template의 tool로 건 예시가 ticket 확인의 관문이 되는 길이다. core 하나에 행마다 template 앱을 새로 시작한다.
 // - contract: boundary `app-tickets`(examples check는 완료 보고 뒤 돌아 pass일 때만 `ticket.verify`를 통과시킨다), `app-releases`.
 // - 현실적 회귀: 예시가 release 준비/test 요청을 지나 돌지 않는다, 틀린 예시인데 verified가 된다.
 // - 왜 지금 test로 못 잡나: 관문(unit)과 예시 비교(harness)는 따로 본다. 보고 -> reactor -> app test runner(격리 사본의 앱 process) ->
@@ -194,7 +194,7 @@ const examplesRows: {
   },
 ];
 
-Deno.test("E2E Project Manager가 건 app-api 예시가 맞아야 ticket이 verified가 된다", async () => {
+Deno.test("E2E Project Manager가 건 tool 예시가 맞아야 ticket이 verified가 된다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;

@@ -11,7 +11,7 @@ import styles from "../app-detail.module.css";
 
 export function hasChanges(changes: ReleaseChanges): boolean {
   return changes.addedResources.length > 0 ||
-    changes.addedAppApis.length > 0 || changes.lossSteps.length > 0;
+    changes.addedTools.length > 0 || changes.lossSteps.length > 0;
 }
 
 export function Changes({ changes }: { changes: ReleaseChanges }) {
@@ -25,7 +25,7 @@ export function Changes({ changes }: { changes: ReleaseChanges }) {
   const losses = changes.lossSteps.flatMap((step) =>
     step.loss.map((loss) => lossText(loss))
   );
-  const wider = changes.addedResources.length + changes.addedAppApis.length > 0;
+  const wider = changes.addedResources.length + changes.addedTools.length > 0;
   return (
     <Section title={title}>
       {!wider && losses.length === 0
@@ -45,18 +45,18 @@ export function Changes({ changes }: { changes: ReleaseChanges }) {
                       <Mono>{name}</Mono>
                     </div>
                   ))}
-                  {changes.addedAppApis.map((item) => (
+                  {changes.addedTools.map((item) => (
                     <div
-                      key={`${item.app}:${item.api}`}
+                      key={`${item.app}:${item.tool}`}
                       className={styles.diffRow}
                     >
                       <DiffMark kind="add" />
-                      <span>{t("app-detail.label.changes-app-api")}</span>
+                      <span>{t("app-detail.label.changes-tool")}</span>
                       <Mono>
                         {`${
                           item.appName ??
                             t("app-detail.label.caller-app-unnamed")
-                        } › ${item.api}`}
+                        } › ${item.tool}`}
                       </Mono>
                     </div>
                   ))}

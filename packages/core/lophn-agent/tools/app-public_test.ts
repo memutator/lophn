@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import { withPublicOnly } from "./app-public.ts";
-import type { AppApiToolkit } from "./app-toolkit.ts";
+import type { AppToolkit } from "./app-toolkit.ts";
 
 const ULID = "01arz3ndektsv4rrffq69g5fav";
 const APP_A = `app_${ULID}`;
@@ -31,11 +31,11 @@ const views = [APP_A, APP_B].map((app) => ({
 const entries = [APP_A, APP_B].map((app) => ({
   kind: "app" as const,
   app,
-  apis: [],
+  tools: [],
 }));
 const inner = {
   load: () => Promise.resolve(ok({ views, entries })),
-} as unknown as AppApiToolkit;
+} as unknown as AppToolkit;
 
 // domain id는 `<앱>/<이름>`. unreadable 앱은 domain을 읽지 못한다.
 const idOf = (app: string, name: string) => `${app}/${name}`;

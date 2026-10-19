@@ -31,5 +31,4 @@ export const OPERATOR_WORLD = [
 ];
 
 // O4와 T19-op가 같은 말을 쓴다.
-export const O4_REQUEST =
-  "합계 app-api가 늘 0을 돌려줘. 이번 달 합계를 구해 줘";
+export const O4_REQUEST = "합계 tool이 늘 0을 돌려줘. 이번 달 합계를 구해 줘";

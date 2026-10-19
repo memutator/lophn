@@ -1,5 +1,5 @@
 // 앱 호출·rewind·화면 file route의 core 쪽 얇은 처리기와, 호출 경로가 앱 module의 읽기에 기대는
-// 두 port(`AppApiLookup`, `AppStates`)의 ledger 구현. 업무 규칙은 calls·invocations·rewind·screens에 있고
+// 두 port(`AppToolLookup`, `AppStates`)의 ledger 구현. 업무 규칙은 calls·invocations·rewind·screens에 있고
 // 여기는 route의 credential과 입력을 그 module에 맞춰 넘기기만 한다.
 import { Buffer } from "node:buffer";
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -36,9 +36,9 @@ import { bundleCopyPath } from "./releases/mod.ts";
 import { createAppRewindCommand } from "./rewind/mod.ts";
 import { type ScreenFileDeps, serveScreenFile } from "./screens/mod.ts";
 import type {
-  AppApiCallPath,
-  AppApiLookup,
   AppRewind,
+  AppToolCallPath,
+  AppToolLookup,
   BundleLocator,
   InvocationLedger,
 } from "./ports.ts";
@@ -48,7 +48,7 @@ function forbidden(message: string): Result<never> {
 }
 
 // `app.call_tool`. 부른 쪽 종류는 credential의 actor가 정한다(본문의 caller는 호출 경로가 맞춰 본다).
-export function callToolHandler(path: AppApiCallPath): MemoryHandler {
+export function callToolHandler(path: AppToolCallPath): MemoryHandler {
   return (ctx, input) => {
     const actor = parseActor(ctx.actor);
     if (actor?.kind === "user" || actor?.kind === "agent") {
@@ -136,25 +136,25 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
 
 // release에 고정한 blueprint의 tool 선언. release가 null이면 지금 활성 release다.
 // preview 선언은 그 preview가 띄운 bundle의 것이다. 아직 release가 없어도 찾는다.
-export function appApiLookupOf(
+export function appToolLookupOf(
   sql: Pick<Sql, "get" | "all">,
   previews: Pick<PreviewService, "declared">,
-): AppApiLookup {
+): AppToolLookup {
   return {
-    async findPreview(app, nonce, api) {
+    async findPreview(app, nonce, tool) {
       const declared = await previews.declared(app, nonce);
       if (!declared.ok) return declared;
-      const tool = declared.value?.find((entry) => entry.name === api);
-      return ok(tool === undefined ? null : { effect: tool.effect });
+      const found = declared.value?.find((entry) => entry.name === tool);
+      return ok(found === undefined ? null : { effect: found.effect });
     },
-    find(app, release, api) {
+    find(app, release, tool) {
       const stored = loadActiveBlueprint(sql, app, release ?? undefined);
       if (!stored.ok) return stored;
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
       const declared = stored.value.blueprint.tools.find((entry) =>
-        entry.name === api
+        entry.name === tool
       );
       if (declared === undefined) return ok(null);
       return ok({

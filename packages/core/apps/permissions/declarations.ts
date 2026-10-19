@@ -2,21 +2,21 @@ import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import { definePort } from "../../../protocol/base/mod.ts";
 import type {
-  AddedAppApi,
+  AddedTool,
   AppGrant,
   GrantPermissionRequirement,
 } from "../../../protocol/apps/mod.ts";
 
 // grant가 기대는 현재 release의 선언이다. releases(apps/releases)가 고정 blueprint에서
 // 만들어 port로 내놓는다. permissions는 blueprint 내용을 읽거나 해석하지 않는다.
-// 앱 grant와 닿는 것은 바깥 자원 요구(permissions)와 다른 앱 app-api 선언(app_connections)이다.
+// 앱 grant와 닿는 것은 바깥 자원 요구(permissions)와 다른 앱 tool 선언(app_connections)이다.
 export type AppDeclarations = {
   release: string;
   permissions: readonly GrantPermissionRequirement[];
-  // 이 앱이 부르겠다고 선언한 다른 앱의 app-api.
-  app_connections: readonly { app: string; app_api: readonly string[] }[];
+  // 이 앱이 부르겠다고 선언한 다른 앱의 tool.
+  app_connections: readonly { app: string; tools: readonly string[] }[];
   // 현재 blueprint의 command key 전체. broker가 호출한 command가 선언된 것인지 본다.
-  app_api: readonly string[];
+  tools: readonly string[];
 };
 
 export interface CurrentDeclarations {
@@ -95,12 +95,12 @@ export function resourceLabel(scope: ResourceScope): string {
 
 type DeclarationGap = {
   added_resources: string[];
-  added_app_apis: AddedAppApi[];
+  added_tools: AddedTool[];
 };
 
 // 선언한 것 가운데 지금 active grant가 덮지 않는 것이다. activation에서 묻는 판정의 한 곳이다.
 // 이전 release와 따로 비교하지 않는다. 선언이 그대로면 빈 목록이다.
-// 자기 앱 app-api는 grant가 아니라 agent grant가 받으므로 보지 않는다.
+// 자기 앱 tool은 grant가 아니라 agent grant가 받으므로 보지 않는다.
 export function compareDeclarations(
   grants: readonly AppGrant[],
   declarations: Pick<AppDeclarations, "permissions" | "app_connections">,
@@ -113,9 +113,9 @@ export function compareDeclarations(
   const calls = new Map<string, Set<string>>();
   for (const grant of active) {
     if (grant.scope.kind !== "app.call") continue;
-    const apis = calls.get(grant.scope.app) ?? new Set<string>();
-    for (const api of grant.scope.app_apis) apis.add(api);
-    calls.set(grant.scope.app, apis);
+    const tools = calls.get(grant.scope.app) ?? new Set<string>();
+    for (const tool of grant.scope.app_tools) tools.add(tool);
+    calls.set(grant.scope.app, tools);
   }
 
   const resources = new Map<string, true>();
@@ -125,19 +125,21 @@ export function compareDeclarations(
       resources.set(resourceLabel(scope), true);
     }
   }
-  const apis: AddedAppApi[] = [];
+  const added: AddedTool[] = [];
   for (const connection of declarations.app_connections) {
     const have = calls.get(connection.app);
-    for (const api of new Set(connection.app_api)) {
-      if (!have?.has(api)) {
-        apis.push({ app: connection.app as AddedAppApi["app"], api });
+    for (const tool of new Set(connection.tools)) {
+      if (!have?.has(tool)) {
+        added.push({ app: connection.app as AddedTool["app"], tool });
       }
     }
   }
-  apis.sort((a, b) => `${a.app}:${a.api}`.localeCompare(`${b.app}:${b.api}`));
+  added.sort((a, b) =>
+    `${a.app}:${a.tool}`.localeCompare(`${b.app}:${b.tool}`)
+  );
   return {
     added_resources: [...resources.keys()].sort(),
-    added_app_apis: apis,
+    added_tools: added,
   };
 }
 
@@ -156,7 +158,7 @@ export function declaredScopes(
     if (connection.app === app) continue;
     const merged = new Set([
       ...(calls.get(connection.app) ?? []),
-      ...connection.app_api,
+      ...connection.tools,
     ]);
     calls.set(connection.app, [...merged].sort());
   }

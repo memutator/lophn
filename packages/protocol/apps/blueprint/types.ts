@@ -1,6 +1,6 @@
 // 의존성 없는 blueprint 정본.
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
-// no-input hash의 정규 JSON null은 app-api·schema·release 결합을 대신하지 않는다.
+// no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
 export type JsonValue =
   | null
@@ -90,9 +90,9 @@ export type PermissionRequirement = {
   reason: string;
 };
 
-export type AppApiUseDeclaration = {
+export type AppToolUseDeclaration = {
   app: string;
-  app_api: string[];
+  tools: string[];
   reason: string;
 };
 
@@ -107,7 +107,7 @@ export type Blueprint = {
   screens: ScreenDeclaration[];
   tools: ToolDeclaration[];
   permissions: PermissionRequirement[];
-  app_connections: AppApiUseDeclaration[];
+  app_connections: AppToolUseDeclaration[];
   sdk_dependencies: SDKDependency[];
 };
 

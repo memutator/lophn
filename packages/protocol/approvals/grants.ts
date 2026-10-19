@@ -3,7 +3,7 @@ import { canonicalize } from "../../base/canonical-json.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { appApiKeySchema } from "../apps/channel-values.ts";
+import { toolKeySchema } from "../apps/channel-values.ts";
 import { callAgentSchema } from "../lophn-agent/calls.ts";
 import { type AgentRef, agentRefSchema } from "../lophn-agent/places.ts";
 
@@ -28,13 +28,13 @@ export const SETTINGS_EDIT_DEFAULT_ASK: AskSetting = "ask";
 
 // agent grant의 한 대상. 같은 대상은 entries 안에서 하나다.
 const agentGrantEntrySchema = z.discriminatedUnion("kind", [
-  // 앱 하나를 할당하면 app-api 전부가 대상이다. apis에는 사람이 바꾼 것만 든다.
-  // 빠진 app-api는 효과별 기본값이다. excluded는 그 agent가 부르지 못한다.
+  // 앱 하나를 할당하면 tool 전부가 대상이다. tools에는 사람이 바꾼 것만 든다.
+  // 빠진 tool은 효과별 기본값이다. excluded는 그 agent가 부르지 못한다.
   z.strictObject({
     kind: z.literal("app"),
     app: idSchema("app"),
-    apis: z.array(z.strictObject({
-      api: appApiKeySchema,
+    tools: z.array(z.strictObject({
+      tool: toolKeySchema,
       setting: z.enum(["excluded", "never", "ask"]),
     })),
   }),
@@ -84,7 +84,7 @@ const entriesSchema = z.array(agentGrantEntrySchema).refine(
     if (new Set(keys).size !== keys.length) return false;
     return entries.every((entry) =>
       entry.kind !== "app" ||
-      new Set(entry.apis.map((one) => one.api)).size === entry.apis.length
+      new Set(entry.tools.map((one) => one.tool)).size === entry.tools.length
     );
   },
   { message: "duplicate grant target" },
@@ -146,7 +146,7 @@ export const agentGrantsGet = defineRead({
   name: "GetAgentGrant",
   input: z.strictObject({ agent: agentRefSchema }),
   output: withReadCommon(z.object({ grant: agentGrantSchema })),
-  // machine은 agent runtime이 app-api tool을 고를 때 읽는다. agent는 자기 grant만 읽는다(place prompt의 부를 수 있는 목록).
+  // machine은 agent runtime이 tool을 고를 때 읽는다. agent는 자기 grant만 읽는다(place prompt의 부를 수 있는 목록).
   actors: ["user", "machine", "agent"],
   errors: [...readErrors],
 });

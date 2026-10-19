@@ -124,13 +124,17 @@ export function syncAppGrants(
     );
     const declared = want.calls.get(target) ?? [];
     const have = new Set(
-      mine.flatMap((grant) => (grant.scope as { app_apis: string[] }).app_apis),
+      mine.flatMap((grant) =>
+        (grant.scope as { app_tools: string[] }).app_tools
+      ),
     );
-    const apis = allowed ? declared : declared.filter((api) => have.has(api));
-    const desired = apis.length === 0 ? undefined : canonicalize({
+    const tools = allowed
+      ? declared
+      : declared.filter((tool) => have.has(tool));
+    const desired = tools.length === 0 ? undefined : canonicalize({
       kind: "app.call",
       app: target,
-      app_apis: apis,
+      app_tools: tools,
     });
     let kept = false;
     for (const grant of mine) {
@@ -143,7 +147,7 @@ export function syncAppGrants(
     }
     if (desired !== undefined && !kept) {
       const done = create(
-        { kind: "app.call", app: target, app_apis: apis } as AppGrantScope,
+        { kind: "app.call", app: target, app_tools: tools } as AppGrantScope,
       );
       if (!done.ok) return done;
     }

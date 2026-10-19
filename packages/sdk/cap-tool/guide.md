@@ -1,4 +1,4 @@
-# @lophn/cap-app-api
+# @lophn/cap-tool
 
 ## 목적
 
@@ -9,7 +9,7 @@ handler로 돌려준다.
 ## 공개 API와 type
 
 ```ts
-import { currentContext, runWith, tool, traceName } from "@lophn/cap-app-api";
+import { currentContext, runWith, tool, traceName } from "@lophn/cap-tool";
 ```
 
 - `tool(name, handle)` — blueprint `tools`에 선언한 `name`의 handler를 등록한다.
@@ -33,7 +33,7 @@ import { currentContext, runWith, tool, traceName } from "@lophn/cap-app-api";
   handler 오류), `denied`(Gate 막음 등 handler까지 가지 못함), `unknown`(결과
   모름) 가운데 하나다. `unknown`은 자동으로 다시 부르지 않는다. 호출 자체가
   실패하면 `ok: false`다.
-- type: `InvocationContext`, `AppApiCaller`, `RegisteredHandler`, `ReadQuery`,
+- type: `InvocationContext`, `AppToolCaller`, `RegisteredHandler`, `ReadQuery`,
   `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
   `RejectionCode`, `ToolClient`, `ToolOutcome`, `ToolCallOutput`, `AppResult`
 
@@ -56,7 +56,7 @@ handler 등록과 문맥 전달은 요구 permission이 없다. `connectTools`�
 ## 예제
 
 ```ts
-import { tool } from "@lophn/cap-app-api";
+import { tool } from "@lophn/cap-tool";
 
 tool("usage.sync", async (input) => {
   return await sync(input);

@@ -713,9 +713,9 @@ const RECAP: readonly string[] = [
 
 const PERMISSIONS_VIEW: PermissionsView = {
   grants: [
-    { target: "Eval board app-apis", effect: "Read", setting: "allow" },
-    { target: "Eval board app-apis", effect: "Write", setting: "allow" },
-    { target: "Eval board app-apis", effect: "Outside lophn", setting: "ask" },
+    { target: "Eval board tools", effect: "Read", setting: "allow" },
+    { target: "Eval board tools", effect: "Write", setting: "allow" },
+    { target: "Eval board tools", effect: "Outside lophn", setting: "ask" },
     { target: "github MCP tools", effect: "Read only", setting: "allow" },
     { target: "github MCP tools", effect: "Other tools", setting: "ask" },
     { target: "Other agents", effect: "Hand over a task", setting: "allow" },

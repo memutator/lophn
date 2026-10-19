@@ -741,7 +741,7 @@ function checkReady(
     result: ActivationDataResult;
     attestation: ReadyAttestation;
   },
-  stored: { declarations: { app_api: readonly string[] } },
+  stored: { declarations: { tools: readonly string[] } },
 ): Result<void> {
   const { result, attestation } = input;
   if (
@@ -762,8 +762,8 @@ function checkReady(
   if (!recorded) {
     return unavailable("the data change is not recorded");
   }
-  const declared = [...stored.declarations.app_api].sort();
-  const reported = [...attestation.app_api].sort();
+  const declared = [...stored.declarations.tools].sort();
+  const reported = [...attestation.tools].sort();
   if (
     attestation.release !== release.id ||
     attestation.bundle_hash !== release.bundle_hash ||

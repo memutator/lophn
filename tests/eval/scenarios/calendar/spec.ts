@@ -1,4 +1,4 @@
-// 캘린더 단위 시나리오 넷이 같이 쓰는 이름, 요구 카드, app-api 호출 script. 시나리오가 아니라 runner가 읽지 않는다.
+// 캘린더 단위 시나리오 넷이 같이 쓰는 이름, 요구 카드, tool 호출 script. 시나리오가 아니라 runner가 읽지 않는다.
 // 값은 tests/eval/materials의 notify-app, date-range, calendar-call, calendar-app, calendar-app-bug, calendar-data에서 옮겼다.
 // 이 file은 calendar 폴더 시나리오의 hash에 든다: 값을 고치면 시나리오 n을 올린다.
 import type {
@@ -27,12 +27,12 @@ export const CARD_MVP = `원하는 것: 일정 추가·목록·삭제, 일정 �
 
 export const CARD_MAINTAIN =
   `원하는 것: 반복 일정. event.add에 repeat 입력("none" 또는 "weekly", 주지 않으면 "none")을 더한다
-정해 둔 답: 반복은 매주(weekly)만. weekly이면 start부터 매주 같은 요일·같은 시각으로 모두 4번 나타난다. 지금 있는 일정과 app-api 이름·입력, 알림은 시작 10분 전, 한 주는 월요일~일요일 그대로
+정해 둔 답: 반복은 매주(weekly)만. weekly이면 start부터 매주 같은 요일·같은 시각으로 모두 4번 나타난다. 지금 있는 일정과 tool 이름·입력, 알림은 시작 10분 전, 한 주는 월요일~일요일 그대로
 모르는 것: 그 밖의 전부 → "추천대로 해 줘"`;
 
 // 사람 역할이 없는 단위지만 카드를 둔다: Project Manager가 ask하면 답할 사람이 없어 상한까지 멈춘다.
 export const CARD_DIAGNOSE =
-  `원하는 것: 이 문제가 다시 나지 않게 고쳐 줘. 이미 쓰는 app-api의 이름과 입력은 바꾸지 마
+  `원하는 것: 이 문제가 다시 나지 않게 고쳐 줘. 이미 쓰는 tool의 이름과 입력은 바꾸지 마
 모르는 것: 그 밖의 전부 → "추천대로 해 줘"`;
 
 // ---- 사람 말 ----
@@ -43,7 +43,7 @@ export const SAY_MAINTAIN =
 export const SAY_API =
   "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘";
 
-// ---- app-api 호출 script ----
+// ---- tool 호출 script ----
 
 type Start = {
   year: number;

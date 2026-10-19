@@ -51,8 +51,8 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from "../tools/mod.ts";
-import type { AppApiToolkit } from "../tools/app-toolkit.ts";
-import { buildAppApiTools } from "../tools/app-tools.ts";
+import type { AppToolkit } from "../tools/app-toolkit.ts";
+import { buildAppTools } from "../tools/app-tools.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import type { AgentRoleTable } from "../agents/role-table.ts";
@@ -112,8 +112,8 @@ export type Toolkit = {
   handlers(seat: TurnSeat, agent: CoreCall): ReadonlyMap<string, ToolHandler>;
   // 외부 MCP tool 등록이다. 없으면 external 정의가 없다.
   mcp?(session: string): McpToolkit | undefined;
-  // 허락된 앱의 app-api tool 정의와 목록에 없는 이유 구별이다. 없으면 app-api tool이 없다.
-  appApi?: AppApiToolkit;
+  // 허락된 앱의 tool 정의와 목록에 없는 이유 구별이다. 없으면 tool이 없다.
+  appTool?: AppToolkit;
 };
 
 // ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, Router, 질문, 폴더 범위,
@@ -356,35 +356,35 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // 허락된 앱의 app-api tool이다. 선언이나 grant를 읽지 못하면 그 앱은 없는 것과 같다.
-    const apiKit = deps.toolkit.appApi;
+    // 허락된 앱의 tool이다. 선언이나 grant를 읽지 못하면 그 앱은 없는 것과 같다.
+    const apiKit = deps.toolkit.appTool;
     const loadedApi = apiKit === undefined
       ? null
       : await apiKit.load(session.agent);
-    const appApi = apiKit === undefined || loadedApi === null || !loadedApi.ok
+    const appTool = apiKit === undefined || loadedApi === null || !loadedApi.ok
       ? null
       : {
-        tools: await buildAppApiTools(loadedApi.value),
+        tools: await buildAppTools(loadedApi.value),
       };
 
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
-    // role이 고정한 목록에 이 turn이 닿는 app-api와 외부 MCP tool을 더한다.
+    // role이 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다.
     const current: readonly ToolDefinition[] = [
       ...selectTools(
         deps.roleTools(session.agent.role),
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
       ),
-      ...(appApi?.tools ?? []).map((tool) => tool.definition),
+      ...(appTool?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
       current,
-      appApi,
+      appTool,
       external,
       model: model.value,
       seat,

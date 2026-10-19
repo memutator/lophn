@@ -21,7 +21,7 @@ create table tool_calls (
   tool text not null check (length(trim(tool)) > 0),
   definition_revision text not null check (length(trim(definition_revision)) > 0),
   effect text not null check (effect in ('read', 'write', 'external')),
-  app_api text check (app_api is null or json_valid(app_api)),
+  app_tool text check (app_tool is null or json_valid(app_tool)),
   confirm integer not null check (confirm in (0, 1)),
   extension text check (extension is null or json_valid(extension)),
   input text not null,
@@ -103,7 +103,7 @@ export function callFromRow(
     tool: String(row["tool"]),
     definition_revision: String(row["definition_revision"]),
     effect: row["effect"] as ToolCall["effect"],
-    app_api: parseJson(row["app_api"]) as ToolCall["app_api"],
+    app_tool: parseJson(row["app_tool"]) as ToolCall["app_tool"],
     confirm: row["confirm"] === 1 || row["confirm"] === 1n,
     extension: parseJson(row["extension"]) as ToolCall["extension"],
     input: String(row["input"]),
@@ -126,7 +126,7 @@ export function callFromRow(
 }
 
 const CALL_COLUMNS = `id, turn, model_call, response_key, response_order, tool,
-  definition_revision, effect, app_api, confirm, extension, input, output,
+  definition_revision, effect, app_tool, confirm, extension, input, output,
   retry_of, attempt, retry_at, decision, state, state_seq, started_at,
   finished_at, duration_ms, outcome, result`;
 

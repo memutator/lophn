@@ -19,7 +19,7 @@ const call = {
 
 // 열 때의 지문과 실행 직전의 지문을 비교하는 Approvals fake. 허락은 한 번만 쓰인다.
 function setup(verdict: GateVerdict, decision: TurnDecision) {
-  const live = { api: "notes.add" };
+  const live = { tool: "notes.add" };
   let opened = "";
   let used = false;
   const gate = createToolGate({
@@ -40,8 +40,8 @@ function setup(verdict: GateVerdict, decision: TurnDecision) {
     },
     resolve: () =>
       ok({
-        kind: "app_api" as const,
-        target: { kind: "app_api", app: APP, api: live.api } as never,
+        kind: "app_tool" as const,
+        target: { kind: "app_tool", app: APP, tool: live.tool } as never,
         effect: "write" as const,
       }),
   });
@@ -58,7 +58,7 @@ Deno.test("허락은 그 intent에 한 번만 쓰이고 실행 직전에 달라�
   const moved = setup(ask, once);
   const wait = moved.gate;
   const pending = wait.check(call);
-  moved.live.api = "notes.remove";
+  moved.live.tool = "notes.remove";
   assertEquals(await pending, { kind: "changed" });
 
   assertEquals(

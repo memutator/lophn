@@ -4,7 +4,7 @@
 // 이 모양으로만 말한다.
 import { z } from "zod";
 import {
-  appApiTargetSchema,
+  appToolTargetSchema,
   processApplyResponseSchema,
   processCallRequestSchema,
   processCallResponseSchema,
@@ -61,7 +61,7 @@ export const desiredAppSchema = z.strictObject({
   bundleHash: sha256,
   runEnabled: z.boolean(),
   archived: z.boolean(),
-  app_api: z.array(z.string().min(1)),
+  tools: z.array(z.string().min(1)),
   screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
   flags: flagsSchema,
@@ -86,7 +86,7 @@ const observationWireSchema = z.strictObject({
   bundle_hash: sha256.nullable(),
   process_nonce: z.string(),
   endpoint: z.string(),
-  app_api: z.array(z.string()),
+  tools: z.array(z.string()),
   screens: z.record(z.string(), z.array(screenSize)),
   ready: z.boolean(),
   accepting: z.boolean(),
@@ -133,7 +133,7 @@ export const previewLaunchSchema = z.strictObject({
   nonce: previewNonceSchema,
   release: releaseId.nullable(),
   bundleHash: sha256,
-  app_api: z.array(z.string().min(1)),
+  tools: z.array(z.string().min(1)),
   screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
   flags: flagsSchema,
@@ -188,7 +188,7 @@ export const activationPrepareOutputSchema = z.discriminatedUnion("ok", [
     attestation: z.strictObject({
       release: releaseId,
       bundle_hash: sha256,
-      app_api: z.array(z.string()),
+      tools: z.array(z.string()),
       data_schema: z.number().int().nonnegative(),
     }),
   }),
@@ -214,7 +214,7 @@ export const releaseCancelOutputSchema = z.strictObject({
 
 // 호출 중계. 앱에 보내지 못했으면 `sent: false`, 보낸 뒤 연결이 끊기거나 시간이 넘으면 `response: null`이다.
 export const callInputSchema = z.strictObject({
-  target: appApiTargetSchema,
+  target: appToolTargetSchema,
   request: processCallRequestSchema,
 });
 export const callOutputSchema = z.discriminatedUnion("sent", [

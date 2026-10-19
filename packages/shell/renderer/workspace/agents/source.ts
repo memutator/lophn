@@ -194,11 +194,11 @@ export type SaveResult =
   };
 
 /** grant 대상 하나의 효과. 다른 agent 부르기는 read로 센다. */
-interface GrantApi {
-  readonly api: string;
+interface GrantTool {
+  readonly tool: string;
   readonly detail: string;
   readonly effect: Effect;
-  /** 새 release가 더한 app-api면 그 release 이름. 알 수 없으면 null이다. */
+  /** 새 release가 더한 tool이면 그 release 이름. 알 수 없으면 null이다. */
   readonly addedIn: string | null;
   /** 다른 project에 보이는 tool인가. */
   readonly public: boolean;
@@ -208,7 +208,7 @@ export interface GrantApp {
   readonly app: string;
   readonly name: string;
   readonly release: string | null;
-  readonly apis: readonly GrantApi[];
+  readonly tools: readonly GrantTool[];
 }
 
 interface GrantMcpTool {

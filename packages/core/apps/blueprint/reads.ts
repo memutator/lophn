@@ -1,13 +1,13 @@
-// `app.app_api`. 앱 하나의 active release에 고정된 blueprint를 tool·화면의 설명으로 읽는다.
+// `app.tools`. 앱 하나의 active release에 고정된 blueprint를 tool·화면의 설명으로 읽는다.
 // 정본은 release에 고정한 blueprint이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
-  type AppApiIndexEntry,
-  appAppApi,
-  appAppApiIndex,
   type AppTool,
+  appToolIndex,
+  type AppToolIndexEntry,
+  appTools,
 } from "../../../protocol/apps/blueprint/read.ts";
 import type { Blueprint } from "./mod.ts";
 import type {
@@ -39,14 +39,14 @@ function notFound(): Result<never> {
 }
 
 export function createBlueprintReads(load: ActiveBlueprintLoader): {
-  appApi: ReadDefinition<typeof appAppApi>;
-  appApiIndex: ReadDefinition<typeof appAppApiIndex>;
+  appTool: ReadDefinition<typeof appTools>;
+  appToolIndex: ReadDefinition<typeof appToolIndex>;
 } {
   return {
     // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: Project Manager도 모든 앱의 목록과
     // tool 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
-    appApiIndex: {
-      route: appAppApiIndex,
+    appToolIndex: {
+      route: appToolIndex,
       handle(snapshot, _ctx, input) {
         const listed = input.app === undefined
           ? loadApps(snapshot.sql, "active")
@@ -57,7 +57,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
           : listed.value?.status === "active"
           ? [listed.value]
           : [];
-        const entries: AppApiIndexEntry[] = [];
+        const entries: AppToolIndexEntry[] = [];
         for (const app of apps) {
           const active = load(snapshot.sql, app.id);
           if (!active.ok) return active;
@@ -92,14 +92,14 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
         });
       },
     },
-    appApi: {
-      route: appAppApi,
+    appTool: {
+      route: appTools,
       handle(snapshot, ctx, input) {
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         // 없는 앱·범위 밖 앱·active release 없는 앱은 같은 답이다.
         if (app.value === null) return notFound();
-        const access = authorizeApp(snapshot.port, ctx, appAppApi.name, {
+        const access = authorizeApp(snapshot.port, ctx, appTools.name, {
           kind: "app",
           app: app.value,
         });
@@ -141,9 +141,9 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
             permissions: blueprint.permissions as never,
             app_connections: blueprint.app_connections.map((use) => ({
               app: use.app,
-              app_api: [...use.app_api],
+              tools: [...use.tools],
             })),
-            app_api: blueprint.tools.map((tool) => tool.name),
+            tools: blueprint.tools.map((tool) => tool.name),
           },
           // 설명·구조·test는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장되고
           // test 통과는 release에 고정한 같은 hash의 app test 참조다.

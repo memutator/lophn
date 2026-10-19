@@ -40,7 +40,6 @@ type BundleParts = {
   manifest: BundleManifest;
   entry: string;
   importMap: string;
-  app_api: string[];
   tools: ToolDeclaration[];
   screens: ScreenSizes;
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
@@ -165,7 +164,6 @@ export async function readBundleCopy(
     manifest,
     entry: `${root}/${manifest.entrypoint}`,
     importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
-    app_api: blueprint.value.tools.map((tool) => tool.name),
     tools: blueprint.value.tools,
     screens: Object.fromEntries(
       blueprint.value.screens.map((screen) => [screen.key, [...screen.sizes]]),
@@ -222,7 +220,7 @@ export function desiredFromBundle(
     bundleHash: input.bundleHash,
     runEnabled: input.runEnabled,
     archived: input.archived,
-    app_api: parts.app_api,
+    tools: parts.tools.map((tool) => tool.name),
     screens: parts.screens,
     dataSchema: input.dataSchema,
     flags: input.flags,
@@ -253,7 +251,6 @@ export function createCopyPreviewBundles(options: {
       const bundle: PreviewBundle = {
         entry: parts.entry,
         importMap: parts.importMap,
-        app_api: parts.app_api,
         tools: parts.tools,
         screens: parts.screens,
         dataSchema: parts.dataSchema,

@@ -95,7 +95,7 @@ export type Step =
   // world에 든 `call` 재료의 본문을 fake lophn 대본이 재료가 가리키는 받는 agent에게 `call`로 보낸다.
   // material은 재료 이름(`calendar-call`)이다. runner가 scenario.world에서 `이름@n`을 찾는다.
   | { kind: "deliver"; material: string }
-  // 켜진 앱의 app-api를 사람 자격으로 부른다(`apps/call_tool`). app은 app.name이다. 앱이 낸 오류(outcome `failed`)는
+  // 켜진 앱의 tool을 사람 자격으로 부른다(`apps/call_tool`). app은 app.name이다. 앱이 낸 오류(outcome `failed`)는
   // 단계 실패가 아니다(calendar-diagnose가 bug를 일부러 터뜨린다). `denied`·`unknown`은 던진다.
   | { kind: "callApi"; app: string; api: string; input?: unknown };
 
@@ -148,7 +148,7 @@ export type Fixtures = {
 };
 
 // 적지 않은 종류는 "reject"다. 규칙에 없는 허락을 소리 없이 주지 않는다.
-// 앱 첫 activation은 `activation: "allow"`, Gate가 사람에게 묻는 app-api·MCP tool은 `app_api`·`mcp_tool`에 "once" 등을 적는다.
+// 앱 첫 activation은 `activation: "allow"`, Gate가 사람에게 묻는 tool·MCP tool은 `app_tool`·`mcp_tool`에 "once" 등을 적는다.
 export type ApproveRule = Partial<Record<IntentKind, RequestChoice>>;
 
 // card는 요구 카드 글이다(roadmap "요구 카드"). 이름@n으로 가리키지 않고 시나리오 file 안에 둔다.

@@ -1,7 +1,7 @@
 // 재사용 확인. 켜진 release의 code만 센다: source는 working tree가 아니라 active release의 code_commit이다.
 // 선언(blueprint)·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
 import { appGet } from "../../../../packages/protocol/apps/mod.ts";
-import { appAppApi } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
 import {
   packagesUsage,
   packagesVersions,
@@ -21,7 +21,7 @@ export type ReuseSpec = {
 export const TEMPLATE_SDK_NAMES = [
   "@lophn/blueprint",
   "@lophn/cap-problem",
-  "@lophn/cap-app-api",
+  "@lophn/cap-tool",
   "@lophn/cap-store",
   "@lophn/ui",
   "@lophn/app-ui",
@@ -171,9 +171,9 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
     }),
     reuseCheck("reuse-app-connection", spec, async (core, src) => {
       const target = await findApp(core, notify.app);
-      const blueprint = await core.call(appAppApi, { app: src.app.id });
+      const blueprint = await core.call(appTools, { app: src.app.id });
       const hit = blueprint.declarations.app_connections.some((c) =>
-        c.app === target.id && c.app_api.includes(notify.api)
+        c.app === target.id && c.tools.includes(notify.api)
       );
       return {
         pass: hit,
@@ -194,7 +194,7 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
       const importing = lines.filter((h) =>
         !isTest(h.path) && importsPackage(h.text, pkg.name)
       );
-      const connecting = await grepFiles(src.dir, src.commit, "connectAppApi");
+      const connecting = await grepFiles(src.dir, src.commit, "connectTools");
       const naming = await grepFiles(src.dir, src.commit, notify.api);
       const calling = [...connecting].filter((f) =>
         naming.has(f) && !isTest(f)

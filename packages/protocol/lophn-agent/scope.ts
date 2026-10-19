@@ -33,20 +33,20 @@ export const workPlaceOutputSchema = z.discriminatedUnion(
 );
 
 // apps/blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
-export const appApiKeySchema = z.string().min(1).refine(
+export const toolKeySchema = z.string().min(1).refine(
   (value) =>
     value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),
-  { message: "app-api key cannot be blank, a wildcard, or contain controls" },
+  { message: "tool key cannot be blank, a wildcard, or contain controls" },
 );
 
 const APP_COMMAND_EFFECTS = ["read", "write", "external"] as const;
 
-const appApiEffectSchema = z.enum(APP_COMMAND_EFFECTS);
+const appToolEffectSchema = z.enum(APP_COMMAND_EFFECTS);
 
 const agentAppScopeEntryFields = {
   app: idSchema("app"),
-  app_api: z.array(appApiKeySchema).min(1),
-  effects: z.array(appApiEffectSchema).min(1),
+  tools: z.array(toolKeySchema).min(1),
+  effects: z.array(appToolEffectSchema).min(1),
   revert_required: z.boolean(),
   confirm_allowed: z.boolean(),
 };
@@ -58,20 +58,20 @@ function uniqueList<T>(values: readonly T[]): boolean {
 // 현재 grant·역할 판정이 아니라 StartRun에 싣는 condition의 local shape.
 const agentAppScopeEntrySchema = z.strictObject(agentAppScopeEntryFields)
   .refine(
-    (value) => uniqueList(value.app_api) && uniqueList(value.effects),
-    { message: "duplicate app-api or effect" },
+    (value) => uniqueList(value.tools) && uniqueList(value.effects),
+    { message: "duplicate tool or effect" },
   ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
-    { message: "revert_required applies only when a write app-api is present" },
+    { message: "revert_required applies only when a write tool is present" },
   );
 
 const agentAppScopeEntryOutputSchema = z.object(agentAppScopeEntryFields)
   .refine(
-    (value) => uniqueList(value.app_api) && uniqueList(value.effects),
-    { message: "duplicate app-api or effect" },
+    (value) => uniqueList(value.tools) && uniqueList(value.effects),
+    { message: "duplicate tool or effect" },
   ).refine(
     (value) => !value.revert_required || value.effects.includes("write"),
-    { message: "revert_required applies only when a write app-api is present" },
+    { message: "revert_required applies only when a write tool is present" },
   );
 
 const agentAppScopeFields = {

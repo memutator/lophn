@@ -87,7 +87,7 @@ export const appSpaceArea: Area = {
       id: "new-app-access",
       title: "App space · Access",
       description:
-        "앱이 activation 때 허락받은 바깥 자원(network host, secret 이름, 파일)과 다른 앱 app-api를 보이고 [Revoke]로 거둔다. 예전 Connections 탭을 합쳤고 만들기 단추는 없다.",
+        "앱이 activation 때 허락받은 바깥 자원(network host, secret 이름, 파일)과 다른 앱 tool을 보이고 [Revoke]로 거둔다. 예전 Connections 탭을 합쳤고 만들기 단추는 없다.",
       render: () => <AccessGrants />,
     },
     {

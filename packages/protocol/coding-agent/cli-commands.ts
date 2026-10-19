@@ -5,7 +5,7 @@
 // 알려 주는 앱 id를 입력에 넣어야 한다.
 import { z } from "zod";
 import { appGet } from "../apps/apps.ts";
-import { appAppApi } from "../apps/blueprint/read.ts";
+import { appTools } from "../apps/blueprint/read.ts";
 import { appInvocations } from "../apps/calls/invocation.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
@@ -182,7 +182,7 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     previewsStop.output,
   ),
   token("app status", appRuntime, appRuntime.input, appRuntime.output),
-  token("app blueprint", appAppApi, appAppApi.input, appAppApi.output),
+  token("app blueprint", appTools, appTools.input, appTools.output),
   token(
     "app invocations",
     appInvocations,

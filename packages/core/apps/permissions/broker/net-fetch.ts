@@ -145,7 +145,7 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
       const state = access.value;
       if (
         state === null ||
-        !state.app_api.includes(input.command) ||
+        !state.tools.includes(input.command) ||
         !destinationAllowed(state, deps.platformPorts, host, input.port)
       ) {
         return refuse("net.fetch", exact);

@@ -52,9 +52,9 @@ const context = (actor: string): RequestContext => ({
 
 function externalCall(session: string, input = {}): Intent {
   return {
-    kind: "app_api",
+    kind: "app_tool",
     actor: { kind: "agent", agent: AGENT, session },
-    target: { kind: "app_api", app: APP, api: "mail.send" },
+    target: { kind: "app_tool", app: APP, tool: "mail.send" },
     effect: "external",
     input,
     origin: {
@@ -76,7 +76,7 @@ function activation(release: string): Intent {
       previous_release: null,
       first: true,
       added_resources: [],
-      added_app_apis: [],
+      added_tools: [],
       loss_steps: [],
     },
     origin: { kind: "activation", app: APP, release },
@@ -151,7 +151,7 @@ function makeKit(
   });
   const grant: AgentGrant = {
     agent: AGENT,
-    entries: [{ kind: "app", app: APP, apis: [] }],
+    entries: [{ kind: "app", app: APP, tools: [] }],
   };
   const published: BusEvent[] = [];
   // 앞 호출의 결과를 보존한 채 같은 DB에 다시 붙인다(재시작).

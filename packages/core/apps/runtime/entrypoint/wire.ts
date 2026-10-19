@@ -2,7 +2,7 @@
 // Zod schema와 같은 판정이어야 하고, 앱 프로세스는 Zod를 싣지 않는다.
 import type { Json } from "./wire-check.ts";
 import {
-  appApiKey,
+  appToolKey,
   BASE64,
   exact,
   id,
@@ -62,7 +62,7 @@ function caller(value: unknown): InvocationCaller | undefined {
 
 export type ProcessCall = {
   invocation: string;
-  api: string;
+  tool: string;
   input?: Json;
   context: {
     app: string;
@@ -77,15 +77,15 @@ export type ProcessCall = {
 export function parseProcessCall(value: unknown): ProcessCall | undefined {
   const source = record(value);
   if (
-    !source || exact(source, ["invocation", "api", "input", "context"], [
+    !source || exact(source, ["invocation", "tool", "input", "context"], [
       "invocation",
-      "api",
+      "tool",
       "context",
     ])
   ) return;
   const invocation = id(source.invocation, "inv");
-  const api = appApiKey(source.api);
-  if (!invocation || !api) return;
+  const tool = appToolKey(source.tool);
+  if (!invocation || !tool) return;
   if (source.input !== undefined && !isJson(source.input)) return;
   const context = record(source.context);
   if (
@@ -115,7 +115,7 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
   ) return;
   return {
     invocation,
-    api,
+    tool,
     ...(source.input === undefined ? {} : { input: source.input }),
     context: { app, release, mode, effect, caller: from },
   };

@@ -8,8 +8,8 @@ import {
   seededRandom,
 } from "../../../base/mod.ts";
 import type {
-  AppApiCaller,
   AppInvocation,
+  AppToolCaller,
   ProcessCallRequest,
   ProcessCallResponse,
   ToolCallInput,
@@ -85,14 +85,14 @@ function setup() {
         ok(tool === TCL ? { agent: { role: "lophn" }, place: null } : null),
     },
     lookup: {
-      find: (_app, _release, api) =>
+      find: (_app, _release, tool) =>
         ok({
           release: state.release,
-          effect: api.startsWith("w.") ? "write" : "read",
+          effect: tool.startsWith("w.") ? "write" : "read",
         }),
-      findPreview: (_app, nonce, api) => {
+      findPreview: (_app, nonce, tool) => {
         const effect = nonce === state.preview.nonce
-          ? state.preview.effects[api]
+          ? state.preview.effects[tool]
           : undefined;
         return Promise.resolve(
           ok(effect === undefined ? null : { effect: effect as "write" }),
@@ -113,10 +113,10 @@ function setup() {
   return { ...calls, sent, records, state };
 }
 
-function person(app: Id<"app">, api: string): ToolCallInput {
+function person(app: Id<"app">, tool: string): ToolCallInput {
   return {
     target: { mode: "live", app, release: null },
-    tool: api,
+    tool: tool,
     caller: { kind: "person", view_session: "v1" },
   };
 }
@@ -125,17 +125,17 @@ function appCaller(
   from: Id<"app">,
   to: Id<"app">,
   parent: string | null,
-  api = "r.get",
+  tool = "r.get",
 ): ToolCallInput {
   return {
     target: { mode: "live", app: to, release: null },
-    tool: api,
+    tool: tool,
     caller: {
       kind: "app",
       app: from,
       release: REL,
       parent_invocation: parent,
-    } as AppApiCaller,
+    } as AppToolCaller,
   };
 }
 
@@ -274,15 +274,15 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
   // 같은 앱의 write 하나만 돌고 나머지 하나는 기다린다.
   assertEquals(t.sent.length, 3);
   const aWrites = t.sent.filter(
-    (s) => s.app === a && s.request.api.startsWith("w."),
+    (s) => s.app === a && s.request.tool.startsWith("w."),
   );
   assertEquals(aWrites.length, 1);
   assertEquals(
-    t.sent.filter((s) => s.app === a && s.request.api === "r.get").length,
+    t.sent.filter((s) => s.app === a && s.request.tool === "r.get").length,
     1,
   );
   assertEquals(
-    t.sent.filter((s) => s.app === other).map((s) => s.request.api),
+    t.sent.filter((s) => s.app === other).map((s) => s.request.tool),
     ["w.one"],
   );
   const first = aWrites[0];
@@ -292,8 +292,8 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
   assertEquals(t.sent.length, 4);
   assertEquals(
     t.sent
-      .filter((s) => s.app === a && s.request.api.startsWith("w."))
-      .map((s) => s.request.api)
+      .filter((s) => s.app === a && s.request.tool.startsWith("w."))
+      .map((s) => s.request.tool)
       .sort(),
     ["w.one", "w.two"],
   );
@@ -422,8 +422,8 @@ Deno.test("changeset_dropped가 있는 응답은 unknown이 아니라 닫히고 
 Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 남기지 않는다", async () => {
   const t = setup();
   const a = newApp();
-  const preview = (api: string, nonce = "pv-nonce-1"): ToolCallInput => ({
-    ...person(a, api),
+  const preview = (tool: string, nonce = "pv-nonce-1"): ToolCallInput => ({
+    ...person(a, tool),
     target: { mode: "preview", app: a, process_nonce: nonce },
   });
   const only = { actor: "user" as const, previewOnly: true as const };

@@ -14,7 +14,7 @@ async function replaceOnce(
 export const REPORT_MARKER = "e2e-report-body-marker";
 
 /**
- * read app-api `report`를 더한다. handler는 `reportProblem`으로 message를 남기고 보고가 끝나길 기다린다.
+ * read tool `report`를 더한다. handler는 `reportProblem`으로 message를 남기고 보고가 끝나길 기다린다.
  * blueprint 선언과 handler가 같아 platform app test를 통과한다.
  */
 export async function reportPatch(dir: string): Promise<void> {
@@ -33,12 +33,12 @@ export async function reportPatch(dir: string): Promise<void> {
       {
         key: "add_item",`,
   );
-  const api = `${dir}/src/app-api.ts`;
+  const api = `${dir}/src/tools.ts`;
   await replaceOnce(
     api,
-    `  appApi("add_item", addItemHandler(deps));`,
-    `  appApi("add_item", addItemHandler(deps));
-  appApi("report", async () => {
+    `  tool("add_item", addItemHandler(deps));`,
+    `  tool("add_item", addItemHandler(deps));
+  tool("report", async () => {
     await reportProblem(
       "e2e_report",
       "${REPORT_MARKER}: the sync step failed twice",

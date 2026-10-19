@@ -49,7 +49,7 @@ Deno.test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다�
     principal: AGENT,
     actor: AGENT,
     scope: {
-      operations: ["app.app_api_index", "problem.get", "ListTickets"],
+      operations: ["app.tool_index", "problem.get", "ListTickets"],
       targets: {},
     },
     conditions: { app: APP_A },
@@ -57,12 +57,12 @@ Deno.test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다�
   };
   const snapshot = { sql, as_of_seq: "1", port: () => undefined } as never;
 
-  const list = reads.appApiIndex.handle(snapshot, ctx, {});
+  const list = reads.appToolIndex.handle(snapshot, ctx, {});
   assert(list.ok);
   assertEquals(list.value.apps.map((entry) => entry.app), [APP_A, APP_B]);
   assertEquals(list.value.apps[1].tools[0].name, "add");
   assert(!("inputSchema" in list.value.apps[1].tools[0]));
-  const one = reads.appApiIndex.handle(snapshot, ctx, { app: APP_B });
+  const one = reads.appToolIndex.handle(snapshot, ctx, { app: APP_B });
   assert(one.ok);
   assertEquals(one.value.apps[0].tools[0].inputSchema, { type: "object" });
   assert(!("outputSchema" in one.value.apps[0].tools[0]));

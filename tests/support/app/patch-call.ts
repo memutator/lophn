@@ -1,4 +1,4 @@
-// app-api 호출 길(call)의 E2E가 쓰는 patch다. template에 app-api 셋을 더한다. blueprint 선언과 handler를 같이 더해
+// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 셋을 더한다. blueprint 선언과 handler를 같이 더해
 // platform app test(선언과 등록 handler가 같다, 되돌림)를 통과해야 한다. write의 fixture 입력은 선언에서 가장 단순한
 // 값(`kb`는 minimum)으로 만들어지므로 입력이 그 값으로도 성공해야 한다.
 //
@@ -70,10 +70,10 @@ create table note (
       {
         key: "add_item",`,
   );
-  const api = `${dir}/src/app-api.ts`;
+  const api = `${dir}/src/tools.ts`;
   await replaceOnce(
     api,
-    `export function registerAppApis(deps: Deps = defaults): void {`,
+    `export function registerTools(deps: Deps = defaults): void {`,
     `function putNote(store: Store, text: string): { rows: number } {
   store.db.prepare("insert into note (text) values (?)").run(text);
   const row = store.db.prepare("select count(*) as total from note").get() as {
@@ -82,8 +82,8 @@ create table note (
   return { rows: row.total };
 }
 
-export function registerAppApis(deps: Deps = defaults): void {
-  appApi("big_write", async (input: unknown) => {
+export function registerTools(deps: Deps = defaults): void {
+  tool("big_write", async (input: unknown) => {
     const kb = Number((input as { kb?: unknown } | null)?.kb);
     return await withStore(
       deps,
@@ -91,10 +91,10 @@ export function registerAppApis(deps: Deps = defaults): void {
       (store) => putNote(store, "x".repeat(kb * 1024)),
     );
   });
-  appApi("put_text", async (input: unknown) => {
+  tool("put_text", async (input: unknown) => {
     const text = String((input as { text?: unknown } | null)?.text ?? "");
     return await withStore(deps, "put_text", (store) => putNote(store, text));
   });
-  appApi("external_ping", () => ({ ok: true }));`,
+  tool("external_ping", () => ({ ok: true }));`,
   );
 }

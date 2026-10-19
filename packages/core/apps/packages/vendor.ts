@@ -26,7 +26,7 @@ const BLUEPRINT: VendorRule = {
       "schema.ts",
       "scope.ts",
       "uses.ts",
-      "app-api.ts",
+      "tools.ts",
       "value.ts",
     ].map((file) => [
       `protocol/apps/blueprint/${file}`,

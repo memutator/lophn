@@ -3,7 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import { seqSchema } from "../base/values.ts";
 import { activationComparisonSchema } from "../apps/activation/activation.ts";
-import { appApiKeySchema } from "../apps/channel-values.ts";
+import { toolKeySchema } from "../apps/channel-values.ts";
 import { appGrantSchema } from "../apps/grants.ts";
 import { appGrantScopeSchema } from "../apps/permissions.ts";
 import { callAgentSchema } from "../lophn-agent/calls.ts";
@@ -17,7 +17,7 @@ import {
 
 // app_resource는 앱의 바깥 자원(network host, secret, 파일) 사용이다.
 const INTENT_KINDS = [
-  "app_api",
+  "app_tool",
   "mcp_tool",
   "agent_call",
   "settings_edit",
@@ -41,9 +41,9 @@ const intentActorSchema = z.discriminatedUnion("kind", [
 
 export const intentTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({
-    kind: z.literal("app_api"),
+    kind: z.literal("app_tool"),
     app: idSchema("app"),
-    api: appApiKeySchema,
+    tool: toolKeySchema,
   }),
   z.strictObject({
     kind: z.literal("mcp_tool"),
@@ -93,15 +93,15 @@ const intentOriginSchema = z.discriminatedUnion("kind", [
     app: idSchema("app"),
     release: idSchema("rel"),
   }),
-  // 앱이 다른 앱의 app-api를 부른 호출. 도는 부모 invocation이다. 부모를 모르면 부르지 못한다.
+  // 앱이 다른 앱의 tool을 부른 호출. 도는 부모 invocation이다. 부모를 모르면 부르지 못한다.
   z.strictObject({ kind: z.literal("app"), invocation: idSchema("inv") }),
 ]);
 
-// effect는 호출하는 쪽이 읽어 넣는다: app-api는 활성 release 선언, MCP tool은 readOnlyHint.
+// effect는 호출하는 쪽이 읽어 넣는다: tool은 활성 release 선언, MCP tool은 readOnlyHint.
 // agent_call은 read, settings_edit는 write다. reaction과 activation은 read로 두고
 // Gate는 effect 대신 grant로 판정한다.
 // input은 정규화한 입력이다. activation의 input은 선언 비교 값이고 activationComparisonSchema를 따른다.
-// Gate 판정: activation이면 first이거나 added_resources, added_app_apis, loss_steps 가운데
+// Gate 판정: activation이면 first이거나 added_resources, added_tools, loss_steps 가운데
 // 하나라도 비어 있지 않을 때 ask다.
 export const intentSchema = z.strictObject({
   kind: intentKindSchema,
@@ -120,7 +120,7 @@ export const intentSchema = z.strictObject({
 );
 export type Intent = z.infer<typeof intentSchema>;
 
-// grant 밖(대상이 grant에 없음), agent grant에서 뺀 app-api, reaction grant가 꺼짐.
+// grant 밖(대상이 grant에 없음), agent grant에서 뺀 tool, reaction grant가 꺼짐.
 const GATE_DENY_REASONS = [
   "not_granted",
   "excluded",

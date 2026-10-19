@@ -28,7 +28,7 @@ async function rewindFrame(run: Omit<RewindRun, "reason">) {
   return frames[0];
 }
 
-Deno.test("호출이 성공하고 되돌리기가 틀린 write app-api는 떨어지고 호출이 실패한 api는 떨어지지 않고 unproven에 실린다", async () => {
+Deno.test("호출이 성공하고 되돌리기가 틀린 write tool은 떨어지고 호출이 실패한 tool은 떨어지지 않고 unproven에 실린다", async () => {
   const rows: [string, Omit<RewindRun, "reason">, boolean, string[]][] = [
     [
       "바꾼 것이 없다",

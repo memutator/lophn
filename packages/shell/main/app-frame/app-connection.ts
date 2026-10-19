@@ -165,7 +165,7 @@ export function createAppConnector(call: CoreCaller) {
     app: string,
     release: string,
   ): Promise<Set<string> | undefined> {
-    const reply = await call("read", "apps", "app_api", { app, release });
+    const reply = await call("read", "apps", "tools", { app, release });
     if (!reply.ok) return undefined;
     const value = record(reply.value);
     const permissions = record(value?.declarations)?.permissions;

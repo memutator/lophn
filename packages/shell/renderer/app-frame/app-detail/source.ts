@@ -66,10 +66,10 @@ export interface ReleaseChanges {
   readonly toNumber: number;
   readonly first: boolean;
   readonly addedResources: readonly string[];
-  readonly addedAppApis: readonly {
+  readonly addedTools: readonly {
     readonly app: string;
     readonly appName: string | null;
-    readonly api: string;
+    readonly tool: string;
   }[];
   readonly lossSteps: readonly {
     readonly from: number;
@@ -100,13 +100,13 @@ export interface ResourceRow {
   readonly revoked: boolean;
 }
 
-/** 다른 앱의 app-api를 부를 수 있는 grant 하나. */
-export interface AppApiRow {
+/** 다른 앱의 tool을 부를 수 있는 grant 하나. */
+export interface AppToolRow {
   readonly grant: string;
   readonly app: string;
   readonly appName: string | null;
-  readonly apis: readonly {
-    readonly api: string;
+  readonly tools: readonly {
+    readonly tool: string;
     /** 그 앱이 선언한 효과. 읽지 못하면 null이다. */
     readonly effect: Effect | null;
   }[];
@@ -119,7 +119,7 @@ export interface AppApiRow {
 
 export interface AccessView {
   readonly resources: readonly ResourceRow[];
-  readonly appApis: readonly AppApiRow[];
+  readonly appTools: readonly AppToolRow[];
 }
 
 // ---- Activity ----
@@ -156,8 +156,8 @@ export interface ActivityRow {
   /** 끝난 시각, 아직이면 시작 시각, 둘 다 없으면 null(ISO). */
   readonly at: string | null;
   readonly caller: Caller;
-  /** app-api 이름. 앱 시작과 data 변경은 null이다. */
-  readonly api: string | null;
+  /** tool 이름. 앱 시작과 data 변경은 null이다. */
+  readonly tool: string | null;
   readonly kind: "tool" | "start" | "data_change";
   readonly effect: Effect;
   readonly state: CallState;
@@ -181,7 +181,7 @@ export type RewindOutcome = "undone" | "stays" | "cannot";
 export interface RewindItem {
   readonly invocation: string;
   readonly at: string;
-  readonly api: string | null;
+  readonly tool: string | null;
   readonly kind: ActivityRow["kind"];
   readonly effect: Effect;
   readonly caller: Caller | null;
@@ -202,7 +202,7 @@ interface RewindProgress {
   /** 끝나기를 기다리는 호출. */
   readonly running: readonly {
     readonly invocation: string;
-    readonly api: string | null;
+    readonly tool: string | null;
     readonly at: string;
   }[];
 }
@@ -226,7 +226,7 @@ export interface AppDetailSource {
   rollback(release: string): Promise<SourceResult<true>>;
 
   access(app: string): Promise<SourceResult<AccessView>>;
-  /** 바깥 자원이나 다른 앱 app-api를 거둔다. 요청 접수까지다. 정리는 읽기로 본다. */
+  /** 바깥 자원이나 다른 앱 tool을 거둔다. 요청 접수까지다. 정리는 읽기로 본다. */
   revoke(grant: string): Promise<SourceResult<true>>;
 
   activity(app: string): Promise<SourceResult<ActivityView>>;

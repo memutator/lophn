@@ -6,11 +6,11 @@ import { defineCommand, defineRead } from "../../base/route.ts";
 import { idempotencyKeySchema, withReadCommon } from "../../base/envelope.ts";
 import { preparedBlobSchema } from "../../storage/blob.ts";
 import {
-  appApiKeySchema,
   appIdSchema,
   approvalIdSchema,
   invocationIdSchema,
   releaseIdSchema,
+  toolKeySchema,
 } from "../channel-values.ts";
 import { readyAttestationSchema } from "../runtime.ts";
 import {
@@ -101,12 +101,12 @@ export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
 // 선언 비교. 카드에는 이 넷만 보인다.
 // 묻는 규칙: grant 덮음으로 정한다. 새 release의 선언 가운데 지금 active grant가 덮지 않는 항목이
 // 있으면 묻는다. 이전 release와 선언을 따로 비교하지 않는다.
-// first이거나 added_resources, added_app_apis, loss_steps 가운데 하나라도 비어 있지 않으면 묻는다.
-const addedAppApiSchema = z.object({
+// first이거나 added_resources, added_tools, loss_steps 가운데 하나라도 비어 있지 않으면 묻는다.
+const addedToolSchema = z.object({
   app: appIdSchema,
-  api: appApiKeySchema,
+  tool: toolKeySchema,
 });
-export type AddedAppApi = z.infer<typeof addedAppApiSchema>;
+export type AddedTool = z.infer<typeof addedToolSchema>;
 
 export const activationComparisonSchema = z.object({
   previous_release: releaseIdSchema.nullable(),
@@ -114,8 +114,8 @@ export const activationComparisonSchema = z.object({
   first: z.boolean(),
   // 선언한 바깥 자원(network host, secret, 파일) 가운데 active grant가 덮지 않는 것. 이름은 permissionLabel 규칙을 따른다.
   added_resources: z.array(z.string().min(1)),
-  // 선언한 다른 앱의 app-api 가운데 active grant가 덮지 않는 것.
-  added_app_apis: z.array(addedAppApiSchema),
+  // 선언한 다른 앱의 tool 가운데 active grant가 덮지 않는 것.
+  added_tools: z.array(addedToolSchema),
   // 이번 activation이 지나는 migration 단계 가운데 loss가 비지 않은 것.
   loss_steps: z.array(z.object({
     from: z.number().int().nonnegative().max(MAX),

@@ -1,6 +1,6 @@
 // 의존성 없는 blueprint 정본.
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
-// no-input hash의 정규 JSON null은 app-api·schema·release 결합을 대신하지 않는다.
+// no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
 import {
   APP_ID,
@@ -20,7 +20,7 @@ import {
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
-import { validateScreensAndTools } from "./app-api.ts";
+import { validateScreensAndTools } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { permissionScope, scopeKey } from "./scope.ts";
 

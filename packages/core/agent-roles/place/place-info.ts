@@ -73,7 +73,7 @@ export type PlaceData = {
   // lophn만. domain마다 한 덩어리의 지도
   map: readonly MapDomain[];
   // 앱 place만. 앱의 활성 release가 없으면 null.
-  release: { version: string; api_names: readonly string[] } | null;
+  release: { version: string; tool_names: readonly string[] } | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -100,10 +100,10 @@ function appLines(
   if (app.source !== null) lines.push(`${indent}Source folder: ${app.source}`);
   lines.push(`${indent}Blueprint: ${app.blueprint}`);
   if (release !== null) {
-    const apis = release.api_names.length > 0
-      ? [...release.api_names].sort(cmp).join(", ")
+    const tools = release.tool_names.length > 0
+      ? [...release.tool_names].sort(cmp).join(", ")
       : "none";
-    lines.push(`${indent}Active release: ${release.version}. app-api: ${apis}`);
+    lines.push(`${indent}Active release: ${release.version}. tools: ${tools}`);
   }
   return lines;
 }

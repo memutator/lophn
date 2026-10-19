@@ -155,7 +155,7 @@ export function createReleaseFinalizer(
       compare: {},
       prepared: [],
     });
-    if (sent === undefined) return unavailable("app-api are unavailable");
+    if (sent === undefined) return unavailable("tool are unavailable");
     const done = await sent;
     if (!done.ok) return done;
     watched.delete(keyOf(snapshot.app, snapshot.request_key));

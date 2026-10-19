@@ -17,9 +17,9 @@ export function declarationsOfBlueprint(
       .permissions as unknown as readonly GrantPermissionRequirement[],
     app_connections: blueprint.app_connections.map((use) => ({
       app: use.app,
-      app_api: [...use.app_api],
+      tools: [...use.tools],
     })),
-    app_api: blueprint.tools.map((tool) => tool.name),
+    tools: blueprint.tools.map((tool) => tool.name),
   };
 }
 

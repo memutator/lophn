@@ -55,7 +55,7 @@ export const agents = {
   "agents.button.remove-server": "Remove server",
   "agents.empty.grants-agents": "It can't hand tasks to other agents.",
   "agents.empty.grants-apps":
-    "No apps. An assigned app brings all of its app-apis.",
+    "No apps. An assigned app brings all of its tools.",
   "agents.empty.grants-tools": "No MCP tools.",
   "agents.heading.grants-agents": "Agents it can call",
   "agents.heading.grants-apps": "Apps",
@@ -93,10 +93,10 @@ export const agents = {
   "agents.label.grant-left-out": "Left out",
   "agents.label.grant-new-in": "New in {release}",
   "agents.label.grant-when-runs": "When {name} runs",
-  "agents.label.grants-apis-summary":
-    "{used, number} of {total, number} app-apis \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
+  "agents.label.grants-app-tools-summary":
+    "{used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
   "agents.label.grants-apps-summary":
-    "release {release} \u00b7 {used, number} of {total, number} app-apis \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
+    "release {release} \u00b7 {used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
   "agents.label.grants-settings-detail":
     "LOPHN.md, agent definitions, skills and Settings",
   "agents.label.grants-settings-name": "Change settings and instructions",
@@ -134,7 +134,7 @@ export const agents = {
     "An app has no project instructions. Only the instructions below apply here.",
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
   "agents.notice.grants-defaults-help":
-    "These are the starting values. You can change any app-api or tool below. A new release's app-apis start with the default again; what you changed stays.",
+    "These are the starting values. You can change any tool below. A new release's tools start with the default again; what you changed stays.",
   "agents.notice.grants-lead":
     "What {name} can use besides its own tools. Each item says whether it asks you first. Anything you don't add here, {name} can't use.",
   "agents.notice.grants-settings-help":

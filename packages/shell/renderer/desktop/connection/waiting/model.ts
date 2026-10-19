@@ -150,19 +150,19 @@ function scopeText(scope: AppGrantScope): string {
     case "secret.use":
       return `${t(DECLARED_LABELS[scope.kind])} ${scope.name}`;
     case "app.call":
-      return `${t("waiting.label.declared-app-api")} ${
+      return `${t("waiting.label.declared-tool")} ${
         t("waiting.label.place-app", { id: shortId(scope.app) })
-      } › ${scope.app_apis.join(", ")}`;
+      } › ${scope.app_tools.join(", ")}`;
   }
 }
 
 function targetOf(intent: Intent): string {
   const target = intent.target;
   switch (target.kind) {
-    case "app_api":
-      return t("waiting.label.target-app-api", {
+    case "app_tool":
+      return t("waiting.label.target-tool", {
         app: t("waiting.label.place-app", { id: shortId(target.app) }),
-        api: target.api,
+        tool: target.tool,
       });
     case "mcp_tool":
       return t("waiting.label.target-mcp-tool", {
@@ -188,17 +188,17 @@ function titleAndDescription(
 ): { title: string; description: string } {
   const t_ = intent.target;
   switch (t_.kind) {
-    case "app_api":
+    case "app_tool":
       return {
-        title: t("waiting.title.app-api", {
-          api: t_.api,
+        title: t("waiting.title.tool", {
+          tool: t_.tool,
           app: t("waiting.label.place-app", { id: shortId(t_.app) }),
         }),
         description: intent.effect === "read"
-          ? t("waiting.notice.app-api-read", { target })
+          ? t("waiting.notice.tool-read", { target })
           : intent.effect === "write"
-          ? t("waiting.notice.app-api-write", { target })
-          : t("waiting.notice.app-api-external", { target }),
+          ? t("waiting.notice.tool-write", { target })
+          : t("waiting.notice.tool-external", { target }),
       };
     case "mcp_tool":
       return {
@@ -242,11 +242,11 @@ function activationView(request: PendingApproval) {
   const comparison = parsed.success ? parsed.data : null;
   const added: Line[] = [
     ...declaredLines(comparison?.added_resources ?? []),
-    ...(comparison?.added_app_apis ?? []).map((use) => ({
-      label: t("waiting.label.declared-app-api"),
+    ...(comparison?.added_tools ?? []).map((use) => ({
+      label: t("waiting.label.declared-tool"),
       value: `${
         t("waiting.label.place-app", { id: shortId(use.app) })
-      } › ${use.api}`,
+      } › ${use.tool}`,
     })),
   ];
   const loss: Line[] = (comparison?.loss_steps ?? []).flatMap((step) =>

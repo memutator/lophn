@@ -49,13 +49,13 @@ export function widenPatch2(dir: string): Promise<void> {
 
 /** handler 파일에 주석 한 줄을 더한다. bundle과 release는 새로 생기고 schema와 선언은 그대로다. 몇 번이든 얹을 수 있다. */
 export async function codeOnlyPatch(dir: string): Promise<void> {
-  const api = `${dir}/src/app-api.ts`;
+  const api = `${dir}/src/tools.ts`;
   const text = await Deno.readTextFile(api);
   const count = text.split("// code-only change").length;
   await Deno.writeTextFile(api, `${text}// code-only change ${count}\n`);
 }
 
-/** read app-api `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
+/** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
 export async function slowReadPatch(dir: string): Promise<void> {
   await replaceOnce(
     `${dir}/blueprint.ts`,
@@ -80,10 +80,10 @@ export async function slowReadPatch(dir: string): Promise<void> {
         key: "add_item",`,
   );
   await replaceOnce(
-    `${dir}/src/app-api.ts`,
-    `  appApi("add_item", addItemHandler(deps));`,
-    `  appApi("add_item", addItemHandler(deps));
-  appApi("delay", async (input: unknown) => {
+    `${dir}/src/tools.ts`,
+    `  tool("add_item", addItemHandler(deps));`,
+    `  tool("add_item", addItemHandler(deps));
+  tool("delay", async (input: unknown) => {
     const ms = Number((input as { ms?: unknown } | null)?.ms ?? 0);
     await new Promise((resolve) => setTimeout(resolve, ms));
     return readResult([{ waited: ms }], {

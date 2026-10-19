@@ -6,8 +6,8 @@ import type { SessionAllowances } from "../ports.ts";
 export function allowanceKey(intent: Intent): string | null {
   const target = intent.target;
   switch (target.kind) {
-    case "app_api":
-      return canonicalize(["app_api", target.app, target.api]);
+    case "app_tool":
+      return canonicalize(["app_tool", target.app, target.tool]);
     case "mcp_tool":
       return canonicalize(["mcp_tool", target.server, target.tool]);
     case "settings_edit":

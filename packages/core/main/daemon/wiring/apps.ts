@@ -55,8 +55,8 @@ import type {
   InvocationLedger,
 } from "../../../apps/ports.ts";
 import {
-  appApiLookupOf,
   appStatesOf,
+  appToolLookupOf,
   bundleLocatorOf,
   callToolHandler,
   mainRead,
@@ -213,7 +213,7 @@ export const appsWiring: WiringFactory = () => {
       const states = appStatesOf(link.sql);
       const { path, intake } = createAppCalls({
         callers,
-        lookup: appApiLookupOf(link.sql, appsControl.previews),
+        lookup: appToolLookupOf(link.sql, appsControl.previews),
         apps: states,
         ledger,
         link: appsControl.link,

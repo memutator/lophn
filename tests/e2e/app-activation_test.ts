@@ -61,10 +61,10 @@ import { reportHarness } from "../support/gateway/shell.ts";
 
 const person = { kind: "person", view_session: "e2e" } as const;
 
-function call(core: Core, app: string, api: string, input?: unknown) {
+function call(core: Core, app: string, tool: string, input?: unknown) {
   return core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    tool: api,
+    tool,
     ...(input === undefined ? {} : { input: input as never }),
     caller: person,
   });

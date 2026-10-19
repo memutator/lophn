@@ -43,8 +43,8 @@ import { createNetClient, netFetch } from "@lophn/cap-net";
 
 ## peer 의존
 
-정확한 peer는 없다(단독 사용). command 문맥은 `@lophn/cap-app-api`의 handler
-안에서 이어진다.
+정확한 peer는 없다(단독 사용). command 문맥은 `@lophn/cap-tool`의 handler 안에서
+이어진다.
 
 ## 예제
 

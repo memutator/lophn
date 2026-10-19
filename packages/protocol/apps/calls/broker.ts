@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { problemReportInputSchema } from "../../problems/problem-report.ts";
 import {
-  appApiKeySchema,
   invocationIdSchema,
   jsonValueSchema,
   processNonceSchema,
   runtimeModeSchema,
+  toolKeySchema,
 } from "../channel-values.ts";
 import { appIdSchema } from "../../projects/values.ts";
 import { toolCallOutputSchema } from "./call.ts";
@@ -25,7 +25,7 @@ const childFields = {
 export const brokerAppCallInputSchema = z.strictObject({
   ...childFields,
   target_app: appIdSchema,
-  api: appApiKeySchema,
+  tool: toolKeySchema,
   input: jsonValueSchema.optional(),
   parent_invocation: invocationIdSchema.nullable(),
 });

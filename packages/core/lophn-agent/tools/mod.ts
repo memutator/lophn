@@ -12,12 +12,12 @@ export {
 } from "./registry.ts";
 export {
   APP_TOOL_CONTRACT,
-  type AppApiSource,
-  type AppApiTool,
-  type AppApiView,
-  buildAppApiTools,
+  type AppToolEntry,
+  type AppToolSource,
+  type AppToolView,
+  buildAppTools,
 } from "./app-tools.ts";
-export { type AppApiToolkit, createAppApiToolkit } from "./app-toolkit.ts";
+export { type AppToolkit, createAppToolkit } from "./app-toolkit.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {
   limitJson,

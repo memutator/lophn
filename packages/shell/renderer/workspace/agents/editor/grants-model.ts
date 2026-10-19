@@ -1,5 +1,5 @@
 // agent grant 화면의 순수한 계산. entries(계약의 AgentGrantEntry 배열)에서 대상 줄의 상태를 읽고, 줄을 바꾼 새 entries를 만든다.
-// 사람이 바꾼 것만 entries에 든다: 앱 안의 app-api는 apis에 든 것만 바꾼 것이고, 나머지는 효과별 기본값이다.
+// 사람이 바꾼 것만 entries에 든다: 앱 안의 tool은 tools에 든 것만 바꾼 것이고, 나머지는 효과별 기본값이다.
 import {
   type AgentGrantEntry,
   agentGrantEntryKey,
@@ -27,8 +27,8 @@ export function appsFor(
 ): GrantApp[] {
   return apps.flatMap((app) => {
     if (app.app === place) return [app];
-    const apis = app.apis.filter((api) => api.public);
-    return apis.length === 0 ? [] : [{ ...app, apis }];
+    const tools = app.tools.filter((tool) => tool.public);
+    return tools.length === 0 ? [] : [{ ...app, tools }];
   });
 }
 
@@ -71,30 +71,30 @@ export const appEntryOf = (
 ): AppEntry | undefined =>
   entries.find((one): one is AppEntry => one.kind === "app" && one.app === app);
 
-/** 앱 안 app-api 하나의 상태. 목록에 없으면 기본값이다. */
-export function apiPick(entry: AppEntry, api: string): Pick {
-  const found = entry.apis.find((one) => one.api === api);
+/** 앱 안 tool 하나의 상태. 목록에 없으면 기본값이다. */
+export function appToolPick(entry: AppEntry, tool: string): Pick {
+  const found = entry.tools.find((one) => one.tool === tool);
   if (found === undefined) return KEPT;
   return found.setting === "excluded"
     ? { removed: true }
     : { removed: false, ask: found.setting };
 }
 
-/** app-api 하나의 상태를 바꾼 앱 entry. 기본값과 같으면 목록에서 뺀다. */
-export function withApiPick(
+/** tool 하나의 상태를 바꾼 앱 entry. 기본값과 같으면 목록에서 뺀다. */
+export function withAppToolPick(
   entry: AppEntry,
-  api: string,
+  tool: string,
   effect: Effect,
   pick: Pick,
 ): AppEntry {
-  const rest = entry.apis.filter((one) => one.api !== api);
+  const rest = entry.tools.filter((one) => one.tool !== tool);
   if (pick.removed) {
-    return { ...entry, apis: [...rest, { api, setting: "excluded" }] };
+    return { ...entry, tools: [...rest, { tool, setting: "excluded" }] };
   }
   if (pick.ask === undefined || pick.ask === defaultAskOf(effect)) {
-    return { ...entry, apis: rest };
+    return { ...entry, tools: rest };
   }
-  return { ...entry, apis: [...rest, { api, setting: pick.ask }] };
+  return { ...entry, tools: [...rest, { tool, setting: pick.ask }] };
 }
 
 export const toolEntryOf = (

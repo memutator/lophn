@@ -7,8 +7,8 @@ import {
   parseControlShutdown,
 } from "./wire.ts";
 import type { RuntimeState } from "./state.ts";
-import { readAppApiPort } from "../../invocations/context.ts";
-import { ensureAppApiPort } from "./app-api-port.ts";
+import { readAppToolPort } from "../../invocations/context.ts";
+import { ensureAppToolPort } from "./tool-port.ts";
 
 type ControlResult =
   | { status: number; body: unknown }
@@ -18,23 +18,23 @@ function error(status: number, code: string, message: string): ControlResult {
   return { status, error: { code, message } };
 }
 
-// 보고의 `app_api` 칸은 등록된 app-api key다.
+// 보고의 `tools` 칸은 등록된 tool key다.
 export function attestation(state: RuntimeState) {
-  ensureAppApiPort();
-  const port = readAppApiPort();
+  ensureAppToolPort();
+  const port = readAppToolPort();
   return {
     release: state.identity.release,
     bundle_hash: state.identity.bundleHash,
-    app_api: port ? port.handlers().map((handler) => handler.api) : [],
+    tools: port ? port.handlers().map((handler) => handler.tool) : [],
     data_schema: state.dataSchema,
     process_nonce: state.identity.processNonce,
     connection_ok: true as const,
   };
 }
 
-function appApisMatchBlueprint(state: RuntimeState): boolean {
+function appToolsMatchBlueprint(state: RuntimeState): boolean {
   const declared = state.blueprint.tools.map((tool) => tool.name).sort();
-  const registered = [...attestation(state).app_api].sort();
+  const registered = [...attestation(state).tools].sort();
   return declared.length === registered.length &&
     declared.every((key, index) => key === registered[index]);
 }
@@ -49,11 +49,11 @@ export function handleControl(
     if (!input || input.process_nonce !== state.identity.processNonce) {
       return error(401, "unauthorized", "probe nonce mismatch");
     }
-    if (!appApisMatchBlueprint(state)) {
+    if (!appToolsMatchBlueprint(state)) {
       return error(
         409,
         "conflict",
-        "registered app-api differ from the blueprint",
+        "registered tool differ from the blueprint",
       );
     }
     state.ready = true;

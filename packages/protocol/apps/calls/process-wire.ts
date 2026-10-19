@@ -7,8 +7,8 @@ import {
   releaseIdSchema,
   runtimeModeSchema,
 } from "../channel-values.ts";
-import { appApiCallerSchema } from "./caller.ts";
-import { appApiKeySchema } from "../channel-values.ts";
+import { appToolCallerSchema } from "./caller.ts";
+import { toolKeySchema } from "../channel-values.ts";
 import { invocationEffectSchema } from "./invocation.ts";
 
 // core와 앱 process 사이. 앱 process는 supervisor만 이 socket으로 부른다.
@@ -22,14 +22,14 @@ const base64Schema = z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/);
 
 export const processCallRequestSchema = z.strictObject({
   invocation: invocationIdSchema,
-  api: appApiKeySchema,
+  tool: toolKeySchema,
   input: jsonValueSchema.optional(),
   context: z.strictObject({
     app: appIdSchema,
     release: releaseIdSchema.nullable(),
     mode: runtimeModeSchema,
     effect: invocationEffectSchema,
-    caller: appApiCallerSchema.nullable(),
+    caller: appToolCallerSchema.nullable(),
   }),
 });
 export type ProcessCallRequest = z.infer<typeof processCallRequestSchema>;

@@ -52,7 +52,7 @@ export const data = {
   "waiting.label.agent-operator": "Operator",
   "waiting.label.agent-project-manager": "Project Manager",
   "waiting.label.agent-reaction": "Reaction",
-  "waiting.label.declared-app-api": "Other app",
+  "waiting.label.declared-tool": "Other app",
   "waiting.label.declared-file-read": "File (read)",
   "waiting.label.declared-file-write": "File (write)",
   "waiting.label.declared-listen": "Listens on",
@@ -100,7 +100,7 @@ export const data = {
   "waiting.label.settled-denied": "Denied",
   "waiting.label.settled-failed": "Allowed, not applied",
   "waiting.label.show-details": "Show details",
-  "waiting.label.target-app-api": "{app} › {api}",
+  "waiting.label.target-tool": "{app} › {tool}",
   "waiting.label.target-mcp-tool": "{server} › {tool}",
   "waiting.label.trigger":
     "{count, plural, =0 {Notifications} one {# notification} other {# notifications}}",
@@ -111,10 +111,10 @@ export const data = {
   "waiting.notice.activation-since":
     "Since the last version: {declared, plural, one {# new declaration} other {# new declarations}}, {lost, plural, one {# data-loss step} other {# data-loss steps}}.",
   "waiting.notice.agent-call": "Sends work to {agent}.",
-  "waiting.notice.app-api-external":
+  "waiting.notice.tool-external":
     "Does something outside lophn through {target}.",
-  "waiting.notice.app-api-read": "Reads data from {target}.",
-  "waiting.notice.app-api-write": "Changes data in {target}.",
+  "waiting.notice.tool-read": "Reads data from {target}.",
+  "waiting.notice.tool-write": "Changes data in {target}.",
   "waiting.notice.app-resource": "Uses {target}.",
   "waiting.notice.coding":
     "A coding agent is waiting for your answer in its terminal tab.",
@@ -157,7 +157,7 @@ export const data = {
   "waiting.toast-restart-halted.title": "App restart halted",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.agent-call": "Send work to another agent",
-  "waiting.title.app-api": "Use {api} in {app}",
+  "waiting.title.tool": "Use {tool} in {app}",
   "waiting.title.app-resource": "Use a resource outside the app",
   "waiting.title.coding": "Permission request in the terminal",
   "waiting.title.coding-start": "Check the terminal",

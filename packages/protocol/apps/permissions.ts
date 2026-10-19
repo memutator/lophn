@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { appApiKeySchema } from "./channel-values.ts";
+import { toolKeySchema } from "./channel-values.ts";
 import { hostOf } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
@@ -50,7 +50,7 @@ const documentScopeSchema = z.strictObject({
 });
 const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
-  app_apis: uniqueList(appApiKeySchema),
+  app_tools: uniqueList(toolKeySchema),
 });
 
 export const permissionRequirementSchema = z.strictObject({

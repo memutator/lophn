@@ -3,7 +3,7 @@
 // 같은 시점으로 되돌아간다. 편집 undo와 되돌린 구간 redo는 없다.
 import { t } from "@lophn/wording";
 
-import type { AppApiCaller } from "../../../protocol/apps/calls/caller.ts";
+import type { AppToolCaller } from "../../../protocol/apps/calls/caller.ts";
 import { appRewindPlan } from "../../../protocol/apps/calls/rewind.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
 import { receivedMessageList } from "../../../protocol/lophn-agent/received-messages.ts";
@@ -161,7 +161,7 @@ function operationText(
 
 async function callerName(
   env: Env,
-  caller: AppApiCaller | null,
+  caller: AppToolCaller | null,
 ): Promise<string> {
   if (caller === null) return t("conversation.label.rewind-item-app");
   if (caller.kind === "person") {

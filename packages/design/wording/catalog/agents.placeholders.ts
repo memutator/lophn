@@ -92,7 +92,7 @@ export type AgentsPlaceholders = {
   "agents.label.grant-when-runs": {
     name: "string";
   };
-  "agents.label.grants-apis-summary": {
+  "agents.label.grants-app-tools-summary": {
     used: "number";
     total: "number";
     asking: "plural";

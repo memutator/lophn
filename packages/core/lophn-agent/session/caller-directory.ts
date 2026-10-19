@@ -13,7 +13,7 @@ type CallerOf = {
   ): Result<{ agent: AgentRef; place: Place | null } | null>;
 };
 
-// app-api를 부른 tool call이 지금 도는 turn의 것인지 확인하고 그 agent와 놓인 곳을 준다. 아니면 null.
+// tool을 부른 tool call이 지금 도는 turn의 것인지 확인하고 그 agent와 놓인 곳을 준다. 아니면 null.
 export function createCallerDirectory(sql: Sql): CallerOf {
   return {
     agentToolCall(session, turn, toolCall) {

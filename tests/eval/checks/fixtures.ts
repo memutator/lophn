@@ -135,7 +135,7 @@ export function fixtureSession(
       tool: f.tool,
       definition_revision: "fx",
       effect: f.effect,
-      app_api: null,
+      app_tool: null,
       confirm: false,
       extension: null,
       input: "fx",

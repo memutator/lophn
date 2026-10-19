@@ -49,7 +49,7 @@ export const appSpace = {
   "app-detail.label.calls-held": "Calls that arrive now wait",
   "app-detail.label.came-back": "This problem came back",
   "app-detail.label.cancelled": "Cancelled",
-  "app-detail.label.changes-app-api": "Another app's app-api",
+  "app-detail.label.changes-tool": "Another app's tool",
   "app-detail.label.changes-loss": "Steps that can lose data",
   "app-detail.label.changes-resource": "Outside resource",
   "app-detail.label.changes-wider": "Wider declarations",

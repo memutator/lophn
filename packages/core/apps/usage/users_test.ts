@@ -32,7 +32,7 @@ Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 dom
   const grant = (agent: unknown) =>
     db.prepare("INSERT INTO agent_grants VALUES (?, ?)").run(
       JSON.stringify(agent),
-      JSON.stringify([{ kind: "app", app: APP, apis: [] }]),
+      JSON.stringify([{ kind: "app", app: APP, tools: [] }]),
     );
   db.exec(`CREATE TABLE agent_grants (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);

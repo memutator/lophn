@@ -1,6 +1,6 @@
 // 앱 안 blueprint 자리. 정본 검증기를 그대로 다시 내보낸다.
 export type {
-  AppApiUseDeclaration,
+  AppToolUseDeclaration,
   Blueprint,
   BlueprintOptions,
   InputSchema,

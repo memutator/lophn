@@ -1,5 +1,5 @@
 // judge가 받는 입력을 만든다. fixture(core === null)에서도 빈 글이 아닌 글을 돌려준다.
-import { appAppApi } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
 import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
 import { asksGapInput, joinInput } from "../../judge/mod.ts";
 import type { CheckInput, Participant, TrialRecord } from "../../types.ts";
@@ -60,7 +60,7 @@ export function cardCoveredInput(
       tickets = ticketLines(createdTickets(trial));
     } else {
       const found = await findApp(core, app);
-      const bp = await core.call(appAppApi, { app: found.id });
+      const bp = await core.call(appTools, { app: found.id });
       blueprint = [
         ...bp.tools.map((a) =>
           `- ${a.name} (${a.effect}): ${a.description} input=${
@@ -68,7 +68,7 @@ export function cardCoveredInput(
           }`
         ),
         ...bp.declarations.app_connections.map((c) =>
-          `connection: ${c.app} -> ${c.app_api.join(", ")}`
+          `connection: ${c.app} -> ${c.tools.join(", ")}`
         ),
       ].join("\n");
       tickets = ticketLines(

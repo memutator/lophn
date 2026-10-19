@@ -1,6 +1,6 @@
 // 공개 SDK. 정본 검증기는 protocol/apps/blueprint의 의존성 없는 파일들이다.
 export type {
-  AppApiUseDeclaration,
+  AppToolUseDeclaration,
   Blueprint,
   BlueprintOptions,
   InputSchema,

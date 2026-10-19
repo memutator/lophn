@@ -9,7 +9,7 @@ export type ApiStep = {
   expect: unknown | ((result: unknown) => string | null);
 };
 
-// 정해 둔 app-api 호출을 차례로 하고 첫 불일치에서 멈춘다.
+// 정해 둔 tool 호출을 차례로 하고 첫 불일치에서 멈춘다.
 export function apiAnswers(
   id: string,
   opts: { app: string; steps: ApiStep[] },

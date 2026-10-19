@@ -6,9 +6,9 @@ import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
 import type { At } from "../../protocol/base/values.ts";
 import type { CallAuth } from "./calls/caller.ts";
 import type {
-  AppApiTarget,
   AppInvocation,
   appInvocationsInputSchema,
+  AppToolTarget,
   ProcessApplyRequest,
   ProcessApplyResponse,
   ProcessCallRequest,
@@ -28,13 +28,13 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * write 줄 세우기, 앱 process 전달, 결과를 모두 이 호출 하나가 한다.
  *
  * Gate는 port를 새로 만들지 않고 `core/approvals/ports.ts`의 `Approvals`를 직접 쓴다. 순서:
- * - actor가 agent·app이면 intent `{kind: "app_api", actor, target: {app, api}, effect, input, origin}`을
+ * - actor가 agent·app이면 intent `{kind: "app_tool", actor, target: {app, tool}, effect, input, origin}`을
  *   만들어 `judge(intent)`를 부른다. 사람 화면(`person`)은 Gate를 거치지 않는다.
  * - `deny`면 `denied(gate_blocked)`.
  * - `ask`면 `openTurnRequest` -> `waitTurnDecision`. reject는 `denied(rejected)`, cancelled는 `denied(cancelled)`.
  * - 허락이면 앱 process에 보내기 직전에 `consumeTurnAllow`.
  */
-export interface AppApiCallPath {
+export interface AppToolCallPath {
   call(
     input: ToolCallInput,
     auth: CallAuth,
@@ -57,14 +57,14 @@ export interface CallerDirectory {
 
 /**
  * 구현: app-calls-assembly(`core/apps/blueprint` 읽기). 쓰는 곳: app-calls-path.
- * 활성 release(release가 null일 때) 또는 고정 release의 blueprint 선언. 없는 app-api는 null.
+ * 활성 release(release가 null일 때) 또는 고정 release의 blueprint 선언. 없는 tool은 null.
  * `findPreview`는 그 앱의 지금 preview(nonce가 맞을 때)가 띄운 bundle의 선언이다.
  */
-export interface AppApiLookup {
+export interface AppToolLookup {
   find(
     app: Id<"app">,
     release: Id<"rel"> | null,
-    api: string,
+    tool: string,
   ): Result<
     {
       release: Id<"rel">;
@@ -74,7 +74,7 @@ export interface AppApiLookup {
   findPreview(
     app: Id<"app">,
     process_nonce: string,
-    api: string,
+    tool: string,
   ): Promise<Result<{ effect: "read" | "write" | "external" } | null>>;
 }
 
@@ -132,7 +132,7 @@ export interface InvocationLedger {
  */
 export interface AppProcessLink {
   call(
-    target: AppApiTarget,
+    target: AppToolTarget,
     request: ProcessCallRequest,
   ): Promise<
     | { sent: false; error: LophnError }
@@ -182,7 +182,7 @@ export interface AppRewind {
 /** 구현: lead 조립(releases의 bundle 사본과 preview 영역). 쓰는 곳: app-calls-screens. */
 export interface BundleLocator {
   /** 그 target의 UI bundle 사본 폴더 경로. 없으면 `not_found`. */
-  dir(target: AppApiTarget): Result<string>;
+  dir(target: AppToolTarget): Result<string>;
 }
 
 /**

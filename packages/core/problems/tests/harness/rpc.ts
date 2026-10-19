@@ -55,9 +55,9 @@ export function rpcDriver(scratch: string): AppDriver {
   }
   return {
     probe: () => call<Attestation>("probe"),
-    rejectsInvalidInput: (api) => call<boolean>("rejectsInvalidInput", api),
-    rewind: (api) => call("rewind", api),
-    call: (api, input) => call("call", api, input),
+    rejectsInvalidInput: (tool) => call<boolean>("rejectsInvalidInput", tool),
+    rewind: (tool) => call("rewind", tool),
+    call: (tool, input) => call("call", tool, input),
     restore: (changesets) => call("restore", changesets),
     migrate: (scenario) => call("migrate", scenario),
   };

@@ -102,7 +102,7 @@ export async function runAppTestJob(
   const input: AppTestInput = {
     bundle_hash: job.bundle_hash,
     test_hash: job.test_hash,
-    app_api: blueprint.tools.map((tool) => ({
+    tools: blueprint.tools.map((tool) => ({
       key: tool.name,
       effect: tool.effect,
     })),

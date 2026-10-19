@@ -19,7 +19,7 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 시작을 미리 남길 호출: write·external app-api와 앱 시작. 읽기는 실패했을 때 끝에서 한 번에 남기고,
+// 시작을 미리 남길 호출: write·external tool과 앱 시작. 읽기는 실패했을 때 끝에서 한 번에 남기고,
 // data_change는 이미 일어난 일이라 끝에서 한 번에 남긴다.
 
 // `running`만 종료 상태로 간다. 종료 상태는 바뀌지 않는다.

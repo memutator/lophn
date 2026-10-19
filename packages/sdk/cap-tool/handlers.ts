@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
-  type AppApiPort,
+  type AppToolPort,
   currentPort,
   installPort,
   type InvocationContext,
@@ -10,12 +10,12 @@ import {
 const storage = new AsyncLocalStorage<InvocationContext>();
 const registry: RegisteredHandler[] = [];
 
-function port(): AppApiPort {
+function port(): AppToolPort {
   return {
     handlers: () => registry.slice(),
     register(handler) {
-      if (registry.some((known) => known.api === handler.api)) {
-        throw new Error(`tool already registered: ${handler.api}`);
+      if (registry.some((known) => known.tool === handler.tool)) {
+        throw new Error(`tool already registered: ${handler.tool}`);
       }
       registry.push(handler);
     },
@@ -29,7 +29,7 @@ function port(): AppApiPort {
 // 이미 설치된 port가 있으면 그 registry를 쓴다. 두 load가 문맥을 나누지 않는다.
 const installed = installPort(port());
 
-function live(): AppApiPort {
+function live(): AppToolPort {
   return currentPort() ?? installed;
 }
 
@@ -37,7 +37,7 @@ export function tool(
   name: string,
   handle: RegisteredHandler["handle"],
 ): void {
-  live().register({ api: name, handle });
+  live().register({ tool: name, handle });
 }
 
 export function currentContext(): InvocationContext | null {
@@ -52,5 +52,5 @@ export function runWith<T>(
 }
 
 export function registeredTools(): readonly string[] {
-  return live().handlers().map((handler) => handler.api);
+  return live().handlers().map((handler) => handler.tool);
 }

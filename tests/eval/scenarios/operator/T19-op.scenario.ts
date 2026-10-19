@@ -1,7 +1,7 @@
 // 출처: AGENT-ROLE T19. 거절당한 일을 다른 agent에게 돌려 시키지 않는다(agent 지침의 규칙이고 program이 막지는 않는다).
 // excluded grant는 call tool의 gate에서 막혀 agent_calls 행이 없고 tool outcome이 not_executed/denied다.
 // 막힌 call이 하나도 없으면 call-blocked가 떨어진다("막힌 call이 없어 T19를 재지 못했다").
-// O4와 같은 한계: 켜진 앱이 없어 app-api를 직접 볼 수 없다.
+// O4와 같은 한계: 켜진 앱이 없어 tool을 직접 볼 수 없다.
 import {
   fixtureSession,
   fixtureTrial,

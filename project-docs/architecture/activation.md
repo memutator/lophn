@@ -30,14 +30,14 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 ## 지키는 것
 
 계기와 묻는 조건
-- 계기는 ticket 확인됨이고 release 준비만으로는 시작하지 않는다. Project Manager가 검증하기 전의 것을 운영에 올리지 않으려는 것이다.
+- 계기는 ticket 확인됨이고 release 준비만으로는 시작하지 않는다. App Engineer가 검증하기 전의 것을 운영에 올리지 않으려는 것이다.
 - app test가 되돌리기를 증명하지 못한 write tool(만든 입력의 호출이 실패함)은 activation을 막지 않는다. examples ticket이면 examples run이 남은 것을 앱 problem으로 알린다(`coding-agent.md`). 막으면 앞선 상태가 있어야 하는 tool을 가진 정상 앱이 올라가지 못한다.
 - 계기가 domain event라서 꺼졌다 켜져도 Reactor가 이어 간다. handler는 다시 불려도 안전하다. 이은 release가 prepared가 아니면 아무것도 하지 않는다.
-- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 app-api 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 app-api가 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
+- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 tool이 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 - 사람이 허락한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 grant가 바뀔 수 있다.
-- 새 release가 다른 project가 쓰는 공개 tool을 지우면 activation은 시작되지 않고 release는 `prepared`로 남는다. 막기는 machine command `activation.block`이 막힌 사실을 event와 같은 tx로 남긴다(오류를 내는 command는 event를 되돌리기 때문이다).
-- release가 active가 되어 공개 tool이 바뀌거나 지워지면 그 앱 project의 Project Manager와 그 tool을 쓰는 다른 project의 Project Manager에게 `PublicToolsChanged`를 낸다(project마다 하나). 막혔을 때는 그 앱 project의 Project Manager에게만 낸다.
+- 새 release가 다른 domain이 쓰는 공개 tool을 지우면 activation은 시작되지 않고 release는 `prepared`로 남는다. 막기는 machine command `activation.block`이 막힌 사실을 event와 같은 tx로 남긴다(오류를 내는 command는 event를 되돌리기 때문이다).
+- release가 active가 되어 공개 tool이 바뀌거나 지워지면 그 tool의 domain과 그 tool을 쓰는 다른 domain마다 `PublicToolsChanged{domain, change: changed}`를 낸다(domain마다 하나). 받는 쪽은 그 domain 그릇의 Project Manager나 App Engineer다. 막혔을 때는 `change: blocked`를 지운 tool의 domain마다 낸다. 그 domain은 이 앱의 것이라 받는 쪽은 그 앱의 App Engineer다. 단위와 규칙은 `architecture/domain.md`다.
 - 보류 request는 approvals의 `Approvals` port(`request(id)`, `pending()`)로만 읽는다. approvals 표를 건너 읽으면 그 표 모양이 바뀔 때 activation이 조용히 깨진다.
 - 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 새 ticket 확인이나 새 release가 계기다. 실패는 다시 시도하지 않고 실패로 끝낸다.
 - 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지지만 Reactor가 cursor 뒤의 event부터 다시 반응한다.
@@ -55,7 +55,7 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - commit 뒤의 실패(업무 통로를 못 엶)는 복원하지 않고 같은 release를 다시 띄운다. ledger가 이미 새 release를 채택했고, 옛 복구본으로 덮으면 새 release가 받은 데이터를 잃는다.
 - 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
 - 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
-- 실패 기록과 `ReleaseActivationFailed`는 같은 tx다. 기록이 없는 실패나 기록만 있고 Project Manager가 모르는 실패가 없게 한다.
+- 실패 기록과 `ReleaseActivationFailed`는 같은 tx다. 기록이 없는 실패나 기록만 있고 App Engineer가 모르는 실패가 없게 한다.
 - 더 새 release의 activation이 시작되면 이전 release를 기다리던 보류 request를 취소한다.
 
 ## 왜 이 모양인가

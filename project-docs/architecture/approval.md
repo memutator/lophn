@@ -35,7 +35,7 @@ agent, 앱, program이 하는 동작마다 "해도 되나"를 정하는 장치�
 - 이미 grant한 것은 다시 묻지 않는다. 새 release가 선언을 넓힐 때 늘어난 부분만 다시 정한다.
 - agent는 자기 grant만 읽는다(`GetAgentGrant`, place prompt의 "Agents you can call"이 session 없는 상대를 grant로 거를 때). 남의 grant는 `forbidden`이다.
 - agent는 자기 grant를 넓히지 못한다. grant 고치기는 사람만, agent의 설정 고치기는 기본 물음이다. "항상"을 골라도 이미 목록에 있는 대상을 묻지 않음으로 바꿀 뿐 새 대상을 열지 못한다.
-- agent grant의 줄마다 설정은 묻지 않음(`never`), 물음(`ask`), 뺌(`excluded`, 늘 거절)이다. agent call은 상대가 grant에 줄이 없어도 묻지 않고 부른다(AGENT-ROLE T4). 앱의 app-api와 MCP tool은 줄이 있어야 열리고, 그 안에서 빠진 api는 효과별 기본 묻기를 따른다.
+- agent grant의 줄마다 설정은 묻지 않음(`never`), 물음(`ask`), 뺌(`excluded`, 늘 거절)이다. agent call은 상대가 grant에 줄이 없어도 묻지 않고 부른다(AGENT-ROLE T4). 앱 tool과 MCP tool은 줄이 있어야 열리고, 그 안에서 빠진 tool은 효과별 기본 묻기를 따른다. 줄이 있어도 agent가 맡지 않은 domain의 비공개 tool은 열리지 않는다(`architecture/domain.md`).
 - agent call은 call tool이 turn 안에서 먼저 묻고, Router는 tx 안에서 한 번 더 판정만 한다. deny는 늘 거절하고, 물음은 turn에서 허락받았다는 표시가 있을 때만 통과한다. tx 안에서는 사람에게 물을 수 없고, Gate가 순수 함수라 tx 안에서 부를 수 있다.
 
 request
@@ -63,4 +63,4 @@ request
 - request에 `decided_by` 칸을 두지 않았다. 물음일 때만 request가 생기고 결정은 늘 사람이다. LLM judge가 들어오면 더한다.
 - "이 session 동안"의 수명은 Claude Code, Codex, Gemini CLI, Hermes를 보고 정했다. 모두 메모리이고 resume이나 재시작에서 되살리지 않는다.
 - 경계(sandbox)는 따로 두지 않는다. 조사한 harness 여덟 가운데 기본으로 켜는 것은 Codex 하나다. lophn agent는 coding agent보다 직접 하는 일이 적고 place가 범위다. 효과를 "되돌릴 수 있나"로 다시 정의하고 shell을 범위로 판정하는 안은 검토 뒤 거뒀다.
-- 결과 본문을 믿는 문제는 grant와 따로다. web 검색과 읽기 결과만 바깥 글로 감싸고, app-api와 외부 MCP 결과는 감싸지 않는다. 조사한 harness 일곱 가운데 다섯이 감싸지 않고, 신뢰 표시는 모두 call 승인에만 쓴다.
+- 결과 본문을 믿는 문제는 grant와 따로다. web 검색과 읽기 결과만 바깥 글로 감싸고, 앱 tool과 외부 MCP 결과는 감싸지 않는다. 조사한 harness 일곱 가운데 다섯이 감싸지 않고, 신뢰 표시는 모두 call 승인에만 쓴다.

@@ -43,6 +43,7 @@ modules:
 
   - path: packages/core/domains
     boundary: domains
+    notes: domain entity의 표와 command·읽기와 agent tool(domain.list·get·create). projects·apps를 import하지 않고 그릇 확인은 wiring이 꽂는 port(ownerLookupPort)다. 앱을 만드는 command는 domainProvisioningPort로 같은 tx에서 첫 domain을 만든다.
 
   - path: packages/core/events
     boundary: events
@@ -53,7 +54,7 @@ modules:
 
   - path: packages/core/agent-roles
     boundary: agent-roles
-    notes: lophn role 층. role별 tool 목록, role 규칙이 든 tool, credential의 role 몫, role prompt·guide, place 정보, role 명령, file tool hook, role 표, Operator 조회, place 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill. harness(lophn-agent) 위에 있고 domain과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
+    notes: lophn role 층. role별 tool 목록, role 규칙이 든 tool, credential의 role 몫, role prompt·guide, place 정보, role 명령, file tool hook, role 표, Operator 조회, place 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill. harness(lophn-agent) 위에 있고 feature module과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent
@@ -67,10 +68,11 @@ modules:
 
   - path: packages/core/projects
     boundary: projects
+    notes: kind pipeline(projects/kinds/)이 여기 있지만 kind 파일은 domain마다 하나이고 domain 그릇(project의 폴더들, 앱 source)을 훑는다. kind 파일 자리는 protocol/domains/paths.ts다.
 
   - path: packages/core/router
     boundary: router
-    notes: 사람 메시지, call tool, Reactor에서 온 입력을 session 입력함으로 보낸다. domain module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
+    notes: 사람 메시지, call tool, Reactor에서 온 입력을 session 입력함으로 보낸다. feature module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
 
   - path: packages/core/secrets
     boundary: secrets

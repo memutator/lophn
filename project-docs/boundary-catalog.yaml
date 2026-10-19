@@ -30,7 +30,7 @@ elements:
 
   - id: core
     kind: subsystem
-    description: lophn의 domain 로직과 그 바닥.
+    description: lophn의 업무 로직(feature module)과 그 바닥.
     depends_on:
       - protocol
       - base
@@ -43,11 +43,11 @@ elements:
 
           - id: kinds
             kind: component
-            description: project의 kind 파일(kinds.yaml)과 그것으로 문서를 읽고 검사하고 조회하는 pipeline.
+            description: domain의 kind 파일(kinds.yaml)과 그것으로 문서를 읽고 검사하고 조회하는 pipeline.
 
       - id: apps
         kind: subsystem
-        description: 사람이 만들고 쓰는 앱.
+        description: 사람이 만들고 쓰는 앱. project에 묶이지 않는 그릇이고 앱마다 App Engineer가 있다.
         children:
 
           - id: app-releases
@@ -72,19 +72,19 @@ elements:
 
       - id: domains
         kind: subsystem
-        description: core의 domain entity(project나 app 안의 책임 경계)와 그 owner 규칙.
+        description: domain entity(project나 app 안의 책임 경계)와 그 owner·이름 규칙. kind 파일, DOMAIN.md, skill, artifact, 앱 tool이 이 단위로 모인다.
 
       - id: problems
         kind: subsystem
-        description: 앱 문제의 감지, 증거, 확인, 닫기.
+        description: 앱 문제의 감지, 증거, 확인, 닫기와 domain의 kind 위반 problem.
 
       - id: agent-roles
         kind: component
-        description: lophn role 층. role마다의 tool 목록, prompt, place 정보, 명령, role 표(built-in 이름·기본 profile·정의 file 자리), place 폴더 규칙, data root 아래 자리, 내장 skill.
+        description: lophn role 층(lophn, Project Manager, App Engineer, Operator). role마다의 tool 목록, prompt, place 정보, 명령, role 표(built-in 이름·기본 profile·정의 file 자리), place 폴더 규칙, data root 아래 자리, 내장 skill.
 
       - id: lophn-agent
         kind: subsystem
-        description: lophn 안의 agent를 정의하고 돌리는 harness. role 이름과 domain route를 모르고 등록받은 tool로 돈다.
+        description: lophn 안의 agent를 정의하고 돌리는 harness. role 이름과 feature module의 route를 모르고 등록받은 tool로 돈다.
         children:
 
           - id: agents
@@ -183,7 +183,7 @@ elements:
 
   - id: user-package
     kind: extension
-    description: 앱의 Project Manager가 올린 사용자 package.
+    description: 앱의 App Engineer가 올린 사용자 package.
     depends_on:
       - sdk
 
@@ -239,12 +239,13 @@ interfaces:
 
   - id: agent-tool-spi
     kind: interface
-    description: domain이 agent tool을 등록하는 계약.
+    description: feature module이 agent tool을 등록하는 계약.
     interface_type: spi
     defined_by: agent-tools
     provided_by:
       - apps
       - problems
+      - domains
       - agent-roles
     used_by:
       - run-loop

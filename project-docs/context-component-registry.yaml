@@ -157,7 +157,7 @@ components:
   - id: architecture-layers
     kind: doc
     roles: [planner, lead]
-    description: core 층과 import 방향, 그 이유. harness와 domain의 구분.
+    description: core 층과 import 방향, 그 이유. harness와 feature module의 구분.
     path: project-docs/architecture/layers.md
     change_reasons:
       boundaries: [core, lophn-agent, agent-roles, agent-tool-spi]
@@ -217,7 +217,7 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: agent와 앱이 앱의 app-api를 부르는 길. 줄, 기록, rewind.
+    description: agent와 앱이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 줄, 기록, rewind.
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
@@ -265,7 +265,7 @@ components:
   - id: architecture-artifact
     kind: doc
     roles: [planner, lead]
-    description: agent가 project의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
+    description: agent가 domain의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
     path: project-docs/architecture/artifact.md
     change_reasons:
       boundaries: [shell, agent-roles, agent-sessions, router]
@@ -302,11 +302,21 @@ components:
   - id: architecture-kinds
     kind: doc
     roles: [planner, lead]
-    description: project의 kind 파일과 그 자리, 바뀔 때 검사, kinds worker pipeline, kind.list·kind.check, 위반이 project problem이 되는 길, prompt의 kind 글.
+    description: domain의 kind 파일과 그 자리, 바뀔 때 검사, kinds worker pipeline, kind.list·kind.check, 위반이 domain problem이 되는 길, prompt의 kind 글.
     path: project-docs/architecture/kinds.md
     change_reasons:
-      boundaries: [kinds, problems]
-      paths: [packages/core/agent-roles/place/place-folders.ts, packages/core/lophn-agent/tools/file/scope.ts, packages/core/lophn-agent/prompt-assembly/kind-text.ts]
+      boundaries: [kinds, problems, domains]
+      paths: [packages/core/agent-roles/place/place-folders.ts, packages/core/lophn-agent/prompt-assembly/kind-text.ts, packages/protocol/domains/paths.ts]
+
+  - id: architecture-domain
+    kind: doc
+    roles: [planner, lead]
+    description: domain entity(project나 app 안의 책임 경계). owner, 앱의 첫 domain, 지침 층과 Operator 좁히기, 앱 tool의 domain, 다른 domain의 비공개 tool 거르기, domain 사이 장치(release 막기, 깨우기, lophn 지도, package 주인).
+    path: project-docs/architecture/domain.md
+    change_reasons:
+      boundaries: [domains, apps, agent-roles, agents, agent-tools, problems, kinds]
+      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/]
+      note: domain을 만들거나 보관하는 규칙, 앱 tool의 domain 칸, 맡은 domain을 정하는 규칙이 바뀔 때.
 
   - id: skill-planner-persona
     kind: skill
@@ -453,7 +463,7 @@ components:
   - id: tool-check-deps
     kind: tool
     roles: [worker]
-    description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·domain 금지, role 층 ↔ domain 금지, domain 방향과 이름 있는 예외), harness 폴더의 domain protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, 의존성 판 고정을 본다. check의 deps 단계.
+    description: package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·feature module 금지, role 층 ↔ feature module 금지, feature module 방향과 이름 있는 예외), harness 폴더의 feature module protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, 의존성 판 고정을 본다. check의 deps 단계.
     path: tools/check-deps.ts
     run: deno task check
     change_reasons:

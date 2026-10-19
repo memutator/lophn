@@ -54,7 +54,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 ## 앱 길
 
-앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: core가 깐 template을 앱 source로 복사해 `apps/create`(앱이 묶일 project를 먼저 등록해 준다) → `apps/connect_source` → Project Manager의 ticket 맡기기(fake 대답) → coding agent 역할의 claim·`release prepare`·`app test`·`ticket report`(CLI) → `ticket.verify` → activation 허락. data root에 release를 직접 깔지 않는다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 template 위에 얹는 patch다.
+앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: core가 깐 template을 앱 source로 복사해 `apps/create` → `apps/connect_source` → App Engineer의 ticket 맡기기(fake 대답) → coding agent 역할의 claim·`release prepare`·`app test`·`ticket report`(CLI) → `ticket.verify` → activation 허락. data root에 release를 직접 깔지 않는다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 template 위에 얹는 patch다.
 
 - ticket의 check를 정하는 행은 `deliverRelease`에 `check`를 주고 `verify: false`로 보고에서 멈춘 뒤, program이 예시를 돌려 `tickets/show`에 결과를 남기기를 기다리고 `verifyTicket`으로 통과(verified)나 막힘(reported에 머묾, `conflict`)을 본다. 맞는 예시와 틀린 예시를 table의 두 행으로 둔다(`app-release_test.ts`). 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다. 앱 process의 보고 본문 읽기는 `reaction_test.ts`의 행이 다룬다(`patch-report.ts`).
 - coding token은 Gateway `coding_terminal` frame의 `plan.env`로만 받는다. test가 token을 만들거나 core 안에서 꺼내지 않는다. Gateway 연결은 principal마다 4개 한도라 행마다 그 행의 앱 Gateway를 닫는다.

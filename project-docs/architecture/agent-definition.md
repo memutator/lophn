@@ -1,6 +1,6 @@
 # agent-definition
 
-lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn마다 model 요청 하나로 조립된다. 이 조립에는 `agents`, `agent-roles`(role 층), `agent-tools`, `run-loop`, 지침 파일, skill, `projects`·`apps`가 주는 place 정보가 모두 들어간다. 어려운 점은 두 가지다. 사람이 고친 지침이 며칠씩 열린 session에 닿아야 하고, 그러면서 prompt cache가 깨지지 않아야 한다. 그리고 prompt에 들어오는 글(다른 agent, web, 문서)이 사람의 지시로 읽히면 안 된다.
+lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn마다 model 요청 하나로 조립된다. 이 조립에는 `agents`, `agent-roles`(role 층), `agent-tools`, `run-loop`, 지침 파일, skill, `projects`·`apps`·`domains`가 주는 place 정보가 모두 들어간다. 어려운 점은 두 가지다. 사람이 고친 지침이 며칠씩 열린 session에 닿아야 하고, 그러면서 prompt cache가 깨지지 않아야 한다. 그리고 prompt에 들어오는 글(다른 agent, web, 문서)이 사람의 지시로 읽히면 안 된다.
 
 ## 흐름
 
@@ -8,15 +8,15 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
  run-loop: turn 시작 때 한 번 읽어 그 turn의 판을 고정한다
    agents ─────── role(고정) + place + 설정 층 ─▶ resolved agent
    agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 kind 글,
-                  role 표(built-in 이름·기본 profile·정의 file 자리), 설정 층의 project 자리, 내장 skill
-   agent-tools ── 조립이 넘긴 tool 정의(범용·domain·role 층) 중 role 목록에 든 것 + grant가 붙인 tool(app-api, 외부 MCP)
-   지침 파일 ──── 전역 · project LOPHN.md · agent 지침
-   skill ──────── 내장 · 전역 · project
-   place 정보 ─── 같은 place의 agent, kind 글, project의 앱, lophn은 project 지도 (잘 안 바뀌는 것만)
+                  role 표(built-in 이름·기본 profile·정의 file 자리), 설정 층의 project 자리와 domain 자리, 내장 skill
+   agent-tools ── 조립이 넘긴 tool 정의(범용·domain·role 층) 중 role 목록에 든 것 + grant가 붙인 tool(앱 tool, 외부 MCP)
+   지침 파일 ──── 전역 · project LOPHN.md · 맡은 domain의 DOMAIN.md · agent 지침
+   skill ──────── 내장 · 전역 · domain
+   place 정보 ─── 같은 place의 agent, 맡은 domain 목록과 artifact 목록과 kind 글, lophn은 project·앱 목록과 domain 지도 (잘 안 바뀌는 것만)
         │
         ▼  assemble (순수 함수. I/O 없음)
    system  1 제품 고정 규칙 + role 지침   ← cache 경계
-           2 지침 층 (전역, LOPHN.md, agent)   ← cache 경계
+           2 지침 층 (전역, LOPHN.md, DOMAIN.md, agent)   ← cache 경계
            3 skill 목록 (이름과 설명)
            4 place 정보                    ← cache 경계
    tools[] 정렬된 정의
@@ -32,25 +32,26 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **같은 재료는 같은 bytes다.** 정렬하고, 시각·무작위에 기대지 않는다. tag 목록도 코드에서 끼우지 않고 고정 문장으로 둔다. 뭔가 하나라도 흔들리면 cache 경계가 매번 달라진다.
 - **사람이 쓴 지침은 조용히 빼지 않는다.** 한 층이라도 못 읽거나 상한을 넘으면 turn을 시작하지 않는다. 빠진 채 일하면 사람이 모른다. 읽은 지침은 redaction을 거치고, 끝나지 않으면 역시 시작하지 않는다.
 - **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. MCP server의 층은 전역, project, Operator 정의 순이다(`mcp_servers`는 Operator 정의에만 있다). 단 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
-  - 층의 자리(project 층의 skill 폴더와 `extensions.json`)와 내장 skill 폴더(`packages/core/agent-roles/skills/`)는 role 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.
+  - 층의 자리(domain 층의 skill 폴더와 project 층의 `extensions.json`)와 내장 skill 폴더(`packages/core/agent-roles/skills/`)는 role 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.
 - **`AGENTS.md`는 읽지 않는다.** 지침은 `LOPHN.md`뿐이다. 다른 도구의 지침이 섞이면 사람이 무엇이 prompt에 들어가는지 모른다.
-- **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다.
+- **lophn은 place가 없어 project 지침을 prompt에 넣지 않고 tool로 읽는다.** project를 가리지 못한 채 아무 project의 지침을 싣는 것을 막는다. 앱 place의 agent에게는 project 지침이 없다.
+- **`DOMAIN.md`는 그 agent가 맡은 domain의 것만 지침 층에 실린다.** 글이 예산(24000자)을 넘으면 넘은 domain부터 목적 한 줄로 줄인다. 규칙은 `architecture/domain.md`다.
 - **Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다.** 본문 속 `lophn-` tag는 escape하고 속성 값은 scrub한다. 사람의 steer만 `<lophn-steer>` 모양을 믿는다고 고정 본문에 적는다. 받은 메시지, 알림, tool 결과는 허락도 사람의 지시도 아니다. 받은 메시지는 뒤 turn의 이력에서도 받은 turn의 입력과 같은 bytes로 싼다(봉투가 답 방식, reaction event, 실패 이유를 저장한다. `agent-call.md`).
-- **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, app-api, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 grant로 배정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.
+- **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, 앱 tool, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 grant로 배정한 순간 믿는다는 철학이고, 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다.
 - **Operator 정의 층의 MCP server는 그 Operator의 turn과 Grants 목록에만 닿는다.** turn 준비가 그 Operator의 `mcp_servers`만 agent 층으로 넘기고, Grants 목록 요청(`agent-mcp-tools/list`)도 Operator id를 실어 같은 층을 더한다. 반면 runtime child의 Deno 권한(`--allow-run`·`--allow-net`)과 `mcp.` secret 목적지는 모든 Operator의 정의 층을 합친 목록을 본다(권한은 child 하나가 쥔다). 정의가 바뀌면 같은 poll이 child를 다시 띄운다. 정의 층 server의 credential 이름은 `mcp.<agt id>.<서버>`라 다른 층·다른 Operator와 겹치지 않는다. 이름 접두는 core가 강제하지 않고 편집 화면이 만든다. 정의 file을 쓰는 것은 사람뿐이다.
-- **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 grant로 app-api, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
+- **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 grant로 앱 tool, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
 - **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 agent grant 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다. 목록은 role 층(`agent-roles/tool-lists.ts`)에 있고, 목록의 이름마다 정의가 있고 정의마다 어느 목록에 든다(`main/agent-tools_test.ts`). 어긋나면 agent가 그 tool을 말없이 못 본다.
-- **모든 앱의 app-api 목록을 읽는 tool(`app.app_api`)은 lophn과 Project Manager 목록에만 있다.** 새 앱을 청받았을 때 이미 있는 기능을 찾고, Project Manager가 blueprint `app_connections`에 정확한 app-api key를 적으려는 것이다. 읽기 전용 route `app.app_api_index`가 active 앱의 이름·설명과 tool(name, title, description, effect, public)만 주고, 앱 하나를 지정하면 `inputSchema`와 선언된 `outputSchema`도 준다. 이 route는 앱 범위 판정을 하지 않는다. Project Manager의 자격이 자기 project의 앱 하나(`conditions.app`)로 묶여 있어 기존 `app.list`·`app.get`·`app.app_api`의 검사는 그대로 두고, 돌려주는 칸을 이것으로 한정해 다른 앱의 source, problem, ticket은 열리지 않게 했다.
-- **다른 project 앱의 비공개 tool은 agent의 tool 목록에도 `app.app_api` 결과에도 없다.** agent는 자기 project 앱의 tool을 모두 보고, 다른 project 앱은 `public`인 tool만 본다(project가 없는 lophn은 `public`만 본다). 앱의 project나 부른 agent의 project를 읽지 못하면 뺀다(막는 쪽으로 실패한다). 걸러내기는 grant가 붙인 app-api tool을 모으는 자리(`packages/core/lophn-agent/tools/app-public.ts`)와 `app.app_api`의 결과 두 곳에서 같은 규칙으로 한다.
-- **내장 SDK(`@lophn/*`)는 package tool이 설치 사본에서 읽는다.** `package.list`는 catalog의 앱 package 뒤에 `builtin` 칸을 싣고 `package.get`은 `@lophn/` 이름이면 `packages.builtin`으로 설치 사본(`<data root>/sdk`)의 판과 `guide.md`를 읽는다. 내장 SDK는 catalog에 등록하지 않고 설치 사본이 정본이다. lophn과 Project Manager는 그 폴더를 file tool로 읽지 못하므로 tool이 대신 읽어 준다.
+- **모든 앱의 tool 목록을 읽는 tool(`app.tools`)은 lophn과 App Engineer 목록에만 있다.** 새 앱을 청받았을 때 이미 있는 기능을 찾고, App Engineer가 blueprint `app_connections`에 정확한 tool key를 적으려는 것이다. 읽기 전용 route `app.tool_index`가 active 앱의 이름·설명과 tool(name, title, description, effect, public, domain)만 주고, 앱 하나를 지정하면 `inputSchema`와 선언된 `outputSchema`도 준다. 이 route는 앱 범위 판정을 하지 않는다. App Engineer의 자격이 자기 앱 하나(`conditions.app`)로 묶여 있어 기존 `app.list`·`app.get`의 검사는 그대로 두고, 돌려주는 칸을 이것으로 한정해 다른 앱의 source, problem, ticket은 열리지 않게 했다.
+- **다른 domain의 비공개 tool은 agent의 tool 목록에도 `app.tools` 결과에도 없다.** agent는 맡은 domain의 tool을 모두 보고, 다른 domain(같은 앱의 다른 domain 포함)은 `public`인 tool만 본다(domain이 없는 lophn은 `public`만 본다). tool의 domain이나 부른 agent의 domain을 읽지 못하면 뺀다(막는 쪽으로 실패한다). 걸러내기는 grant가 붙인 앱 tool을 모으는 자리(`packages/core/lophn-agent/tools/app-public.ts`)와 `app.tools`의 결과 두 곳에서 같은 규칙으로 한다. 규칙은 `architecture/domain.md`다.
+- **내장 SDK(`@lophn/*`)는 package tool이 설치 사본에서 읽는다.** `package.list`는 catalog의 앱 package 뒤에 `builtin` 칸을 싣고 `package.get`은 `@lophn/` 이름이면 `packages.builtin`으로 설치 사본(`<data root>/sdk`)의 판과 `guide.md`를 읽는다. 내장 SDK는 catalog에 등록하지 않고 설치 사본이 정본이다. 어느 role도 그 폴더를 file tool로 읽지 못하므로 tool이 대신 읽어 준다.
 - **보고 본문은 `problem.body`로 읽는다.** `problem.get`은 보고의 이름과 근거(error frames, invocation, log 줄 수), message 앞 2,000자, details hash를 주고, message 전문, `report_details`, log 본문은 `problem.body`(`problems.report_body`)가 16 KiB씩 이어 준다. 본문은 core의 알려진 값 pipe를 지난 글이다.
 - **agent는 고친 release가 active가 되기 전에는 problem을 resolved로 바꾸지 못한다.** `problem.set_state`가 마지막 발생의 release보다 뒤에 activate된 다른 active release가 있을 때만 받고 아니면 `conflict`다. 비교할 수 없으면(모르는 release, 같은 release, activate 시각 없음) 닫지 않는다. 닫힌 problem은 그 뒤의 발생이 해결 시각 뒤에 activate된 release에서 났을 때만 다시 열리므로, 고친 release 없이 닫으면 같은 release의 새 발생이 쌓이기만 하고 아무도 모른다. 사람은 이 조건 없이 바꾸고, 고친 release 없이 닫을 일은 agent가 사람에게 `ask`한다.
 - **agent credential의 operation 상한은 tool이 core에 부르는 route 이름이다.** core는 route 이름으로 대조하므로 tool 이름(`ticket.create`)을 넣으면 command가 `forbidden`이다. tool 정의는 helper가 부르는 것까지 `routes`에 적고, 상한은 role 목록 tool의 route 합집합에 place 읽기, rewind, Gate 대기 같은 보조 operation을 더한 것이다. place 읽기(`agent-roles/credentials.ts`의 `PLACE_READS`)에는 prompt의 "Agents you can call"을 채우는 Operator 정의 목록과 자기 grant 읽기(`GetAgentGrant`)도 들어 있다.
 - **"tool 정의가 바뀌었나"는 정의에서 계산한다.** 이름, 설명, 입력 JSON schema, effect의 hash다. 따로 들고 다니는 판 번호를 두지 않는다. 손으로 올리는 번호는 잊히고, 정의가 같으면 release가 바뀌어도 알림이 나가지 않는 것이 맞다.
 - **효과(read, write, external)는 model에 보이는 정의에 넣지 않는다.** registry와 Gate만 안다. model이 효과를 보고 Gate를 피해 가려 하지 않게 한다.
 - **file tool은 place 폴더 안에 가둔다.** realpath로 판정하고, 새 파일이면 가장 가까운 상위 폴더의 realpath에 이름을 붙여 판정한다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되므로 거절한다. 읽기·쓰기·shell은 Gate를 거치지 않는다. 대신 `LOPHN.md` 쓰기만 설정 고치기로 묻는다.
-- **agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다.** agent가 자기 정의나 지침을 file tool로 고쳐 grant를 우회하지 못한다.
-- **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 앱 data는 app-api로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
+- **agent 정의는 lophn data에 있어 file tool이 닿지 않는다.** agent가 자기 정의를 file tool로 고쳐 grant를 우회하지 못한다. 지침 파일 가운데 `LOPHN.md` 쓰기만 설정 고치기로 묻고, domain 폴더의 `DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer가 Gate 없이 쓴다(rewind로 되돌린다).
+- **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 앱 data는 앱 tool로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
 - **Operator 정의를 만들고 고치는 tool은 grant를 주지 못한다.** grant는 사람이 할당한다. agent가 자기 권한을 넓히는 길이 없어야 한다.
 - **tool 결과는 model에 약 24 KiB까지만 싣는다.** shell도 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시로 바꾼다. 오류는 끝에 나오므로 뒤를 버리지 않는다. 출력 많은 명령 한 번이 context를 채우지 않게 한다.
 - **model 요청에 싣는 이미지는 그 turn의 최신 둘뿐이다.** 오래된 이미지 조각은 빼고 짝 tool 결과 글 끝에 `[image omitted]`를 붙인다. 요청 body 전체를 blob으로 저장하고 그 상한이 16 MiB라, 이미지가 쌓이면 model call을 보내지 못한다. 입력 예산은 이미지를 base64 byte가 아니라 이미지당 고정 token(4096)으로 센다. byte=token 가정은 이미지에 맞지 않아 screenshot 하나로 `context_limit`이 난다.
@@ -68,25 +69,25 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **model을 고르는 세 자리(대화의 picker, Settings → Agents의 Default model, Operator·project 정의의 Model 칸)는 같은 picker이고 고르기만 한다(`conversation/model-picker/model-picker.tsx`).** 붙인 provider의 model 가운데 켠 것만 provider별로 보이고, 지금 고른 model은 꺼져 있어도 보인다. 지금 model이 어느 층(이 대화 > agent 정의 > project > 전역 기본값)에서 왔는지 한 줄로 보인다. 정의 읽기의 `effective.model.source`는 project place에서 agent가 고르지 않았고 project에 model이 있으면 `project`다. 맨 아래 "Manage models" 줄이 Manage models 창(`model-picker/manage-models.tsx`, host는 `desktop/settings/providers/manage-models-host.tsx`)을 연다. 그 창에서 provider마다, model마다 켜고 끄고, "+ Connect provider"로 연결 창(`connect-host.tsx`)을 연다. 붙이면 그 provider 묶음이 맨 위에 온다. model 행에는 입력 형식 icon과 context가 보인다. custom provider 묶음에는 목록 다시 읽기와 [Add model]이 있고 model 행마다 [Edit]이 있다. 둘 다 model 정보 form(`model-picker/model-info-form.tsx`)을 연다. 저장한 정보는 user 층이라 다시 읽기가 목록을 provider 것으로 바꿔도 그 model이 남는다. 끈 model은 전역 목록 하나(`ReadHiddenModels`·`ChangeHiddenModels`, 칸 `provider`·`model_name`)에 적는다. 기본이 켬이라 새 provider와 새 model은 켜져 나온다. 전역 기본 model이 없을 때 provider를 붙이면 기본 model 고르기 창이 뜬다. 그 창의 picker에는 Manage models 줄이 없다.
 - **compact는 사람이 부를 때만 한다.** 같은 model이 요약하고, 요약 대상 원문은 data 경계로 감싸 지시로 읽히지 않게 한다. 입력이 예산을 넘으면 call을 보내지 않고 turn이 `context_limit`으로 실패한다. 자동 compact는 없다.
 - **skill은 목록(이름과 설명)만 prompt에 넣고 본문은 tool로 읽는다.** 꺼진 skill은 목록에서 빼고 읽기도 막는다. 도는 turn은 시작 때 읽은 판을 쓴다.
-- **agent 정의의 `skills`는 받을 skill을 이름으로 고른다.** 비어 있으면 환경이 준 skill(전역과 project 층)을 모두 받고, 이름이 있으면 그 이름만 받는다. 끌 수 없는 내장 skill은 고르지 않아도 늘 받는다. prompt의 skill 목록, `skill.read`, `/` 메뉴가 같은 규칙(`skillReceived`)을 쓴다. Operator 정의와 built-in 정의가 이 칸을 쓰고, 전역과 project 층의 끄기 설정(`skills_off`)은 그대로 층마다 있다.
-- **사람이 붙인 파일(`<lophn-attached>`)은 이름과 경로만 싣는다.** 상세는 agent가 tool로 읽는다. 사람이 붙인 글 전체가 prompt를 부풀리거나 지시로 읽히지 않게 한다. 지금 shell에는 붙이는 곳이 없다(context·위반 chip은 지웠다).
+- **agent 정의의 `domains`와 `skills`는 일할 domain과 받을 skill을 고른다.** `domains`가 비어 있으면 그릇의 active domain 전부를, 있으면 그 가운데 고른 것을 맡는다(`ResolvedAgent.domains`). 받을 skill은 환경이 준 skill(내장, 전역, domain 층) 가운데 전역·내장 skill과 맡은 domain의 skill이 후보이고, `skills`가 비어 있으면 후보 전부를, 이름이 있으면 그 이름만 받는다. 끌 수 없는 내장 skill은 고르지 않아도 늘 받는다. prompt의 skill 목록, `skill.read`, `/` 메뉴가 같은 규칙(`skillReceived`)을 쓴다. Operator 정의와 built-in 정의가 이 칸을 쓰고, 전역과 project 층의 끄기 설정(`skills_off`)은 그대로 층마다 있다.
+- **사람이 붙인 파일(`<lophn-attached>`)은 이름과 경로만 싣는다.** 상세는 agent가 tool로 읽는다. 사람이 붙인 글 전체가 prompt를 부풀리거나 지시로 읽히지 않게 한다. 지금 shell에는 붙이는 곳이 없다.
 - **place 정보에는 잘 안 바뀌는 목록만 넣는다.** 열린 session 목록과 앱 화면 상태는 넣지 않는다. 화면에서 본 것은 annotation이나 메시지로만 들어온다.
-- **lophn의 place 정보에는 project 지도가 실린다.** project마다 이름, 목적, 앱, 앱의 활성 release가 내놓은 공개 tool(키, effect, 설명), 설치한 package(`이름@version`), 그 공개 tool을 쓰는 다른 project를 이름 순으로 program이 결정적으로 조립한다. 쓰는 관계는 `app.usage`가 grant와 invocation 기록(부른 session의 place)에서 읽고, 다른 project의 관계를 보는 lophn session만 읽는다. 예산을 넘으면 tool 설명을 빼고(short), 그래도 넘으면 project와 앱 이름만 싣는다(bare). 같은 package나 공개 tool을 여러 project가 쓰는지는 지도에 있고, 그 뜻을 읽어 기획에 쓰는 것은 lophn이다.
-- **kind 글은 program이 쓰고 있는 kind 파일에서 결정적으로 조립한다.** kind 이름, 한 줄, glob, key, 칸 이름과 type만 싣는다. 같은 kind 파일이면 같은 글이고, 바뀜은 그 파일의 hash로 본다(`project-docs/architecture/kinds.md`).
+- **lophn의 place 정보에는 domain 지도가 실린다.** domain마다 이름, 주인(project나 앱), 목적, 주인 앱의 활성 release가 내놓은 그 domain의 공개 tool(키, effect, 설명), 그 공개 tool을 쓰는 다른 domain을 이름 순으로 program이 결정적으로 조립한다. 설치한 package(`이름@version`)는 domain이 아니라 주인 앱의 줄에 붙는다. 쓰는 관계는 `app.usage`가 grant와 invocation 기록(부른 session이 맡은 domain)에서 읽고, 다른 domain의 관계를 보는 lophn session만 읽는다. 예산을 넘으면 tool 설명을 빼고(short), 그래도 넘으면 domain 이름과 주인만 싣는다(bare). 같은 package나 공개 tool을 여러 domain이 쓰는지는 지도에 있고, 그 뜻을 읽어 기획에 쓰는 것은 lophn이다.
+- **kind 글은 program이 쓰고 있는 domain의 kind 파일에서 결정적으로 조립한다.** domain마다 한 덩이로, kind 이름, 한 줄, glob, key, 칸 이름과 type만 싣는다. 같은 kind 파일이면 같은 글이고, 바뀜은 그 파일의 hash로 본다(`project-docs/architecture/kinds.md`).
 - **사람에게 묻는 중 사람이 그 session에 메시지를 보내면 기다림을 끝내고 그 메시지를 tool 결과로 넘긴다.** 그것이 답인지는 LLM이 읽는다. harness가 뜻을 가리지 않는다.
 
 ## 왜 이 모양인가
 
 - **지침 반영: 대화 끝에 덧붙이기.** 조사한 harness는 세 갈래다. session 시작에 고정(Claude Code, Hermes)은 며칠 열린 lophn session에서 `LOPHN.md` 수정이 안 닿는다. 매 call 다시 조립(Goose)은 call마다 prefix가 흔들린다. 바뀐 것을 대화 끝에 notice로 알리는 Codex와 OpenCode를 따르되, system은 turn 시작마다 지금 지침으로 만든다. 지침은 거의 안 바뀌어 편집 뒤 첫 turn의 cache miss 한 번이 싸고, notice를 session 기록에 저장해 prefix를 고정하는 쪽은 비용이 크다. 옛 설계(매 model call 직전에 다시 읽기)는 Goose 쪽이었고 버렸다.
 - **sandbox를 따로 두지 않는다.** 조사한 harness 여덟 가운데 경계를 기본으로 켜는 것은 Codex 하나다. lophn agent는 coding agent보다 직접 하는 일이 적고 place가 범위를 정한다. 대신 경로 가두기와 환경 변수 목록을 둔다.
-- **MCP와 app-api 결과를 감싸지 않는다.** 일곱 harness 가운데 다섯이 그대로 넣고, server 신뢰 표시로 결과 처리를 바꾸는 곳은 없다. 감싸는 것은 아무도 배정하지 않은 web 결과뿐이다.
+- **MCP와 앱 tool 결과를 감싸지 않는다.** 일곱 harness 가운데 다섯이 그대로 넣고, server 신뢰 표시로 결과 처리를 바꾸는 곳은 없다. 감싸는 것은 아무도 배정하지 않은 web 결과뿐이다.
 - **tool은 자원 하나에 동사 하나(`<자원>.<동사>`).** 효과, 쓸 수 있는 role, 상태 전이의 전제, 결과 모양 가운데 하나라도 다르면 나눈다. Gate, rewind, role 목록이 모두 tool 단위이기 때문이다. 거르기와 범위만 다르면 인자로 합친다.
 - **일의 흐름은 tool로 만들지 않는다.** `app.plan` 같은 흐름 tool을 버리고 지침과 skill이 primitive를 엮게 했다. 예: 문제로 ticket 만들기는 `problem.get`과 근거를 붙인 `ticket.create`다.
-- **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다. 이미지 결과는 JSON 글이 아니라 `tool_result_image` 조각으로 싣는다. Project Manager는 같은 `image.read`로 annotation screenshot(`annotation:<id>`)도 연다(annotation).
+- **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다. 이미지 결과는 JSON 글이 아니라 `tool_result_image` 조각으로 싣는다. App Engineer는 같은 `image.read`로 annotation screenshot(`annotation:<id>`)도 연다(annotation).
 - **role 고정 목록과 grant가 옛 preset과 tool 묶음을 대신한다.** 사람이 tool 목록을 고치는 길을 없애고, 권한을 바꾸는 길을 grant 하나로 모았다.
 - **place 정보는 목록만 prompt에, 내용은 tool로.** 목록이 없으면 model은 그것이 있는 줄 몰라 찾지 않는다(skill 목록과 같은 이유).
 - **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn이 감지한 사실이고 그 값은 lophn과 사람의 앱에서 온다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
 - **model catalog는 OpenCode 꼴이다.** OpenCode와 Codex는 catalog snapshot을 넣고 실행 때 받는다. 손으로 쓴 목록은 새 model이 나와도 판을 올리기 전에는 쓸 수 없다. models.dev 항목의 `limit.input`이 없으면 context 한도를 입력 한계로 두고, 출력 예약은 입력 예산이 따로 뺀다.
 - **오래된 이미지만 빼고 기록은 그대로 둔다.** tool 호출 기록과 그 출력 blob에는 이미지 base64가 남는다. 기록에서 빼는 길은 model call이 막히지 않으니 실제로 막힐 때 한다.
 - **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.
-- **kind 글은 project place만 받는다.** project place의 PM과 Operator가 그 project의 kind를 모두 받는다. Operator가 kind를 골라 받던 정의 칸(`contexts`)은 두지 않는다. 일을 좁히는 것은 skill이다.
+- **kind 글은 맡은 domain의 것만 받는다.** PM과 App Engineer는 그릇의 domain 전부를, Operator는 고른 domain을 받는다. 일을 좁히는 것은 `domains`와 skill이다. kind 글, `DOMAIN.md`, 앱 tool이 모두 같은 domain 단위로 좁혀지므로 따로 고르는 칸을 두지 않는다.

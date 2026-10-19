@@ -5,7 +5,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 ## 흐름
 
 ```
- command (domain 변경) ─ domain event, 상태 변경과 같은 tx ─▶ Ledger(events 표, append-only)
+ command (상태 변경) ─ domain event, 상태 변경과 같은 tx ─▶ Ledger(events 표, append-only)
         │                                                        │ cursor 뒤부터 읽음
         └ commit 뒤 같은 event ─▶ Bus(메모리) ──깨우기──▶ Reactor ─▶ handler ─▶ Router ─▶ 받는 session
                                     ▲                                 └▶ 보류 request (approvals)
@@ -31,8 +31,8 @@ domain event
 - 상태를 바꾸는 command와 같은 tx에서 쓴다. 따로 쓰면 꺼진 사이 상태만 바뀌고 반응이 영영 빠진다.
 - Ledger 행은 고치거나 지우지 않는다. cursor와 근거 seq가 행 번호를 가리킨다. 지우는 것은 사람이 요청한 session delete 하나뿐이다.
 - 새 일 event만 reaction grant로 끌 수 있다. call 닫음은 끌 수 없다. 끄면 맡긴 call이 열린 채 남는다.
-- 새 일 event를 받는 agent는 늘 한 project의 Project Manager다. 앱에 관한 event(문제 열림·다시 열림, 재시작 멈춤, activation 실패)는 앱이 묶인 project의 Project Manager가 받고, `KindViolationFound`와 `PublicToolsChanged`는 payload의 project의 Project Manager가 받는다. `PublicToolsChanged`는 공개 tool이 바뀌거나 지워진 release가 project마다 하나씩 낸다.
-- call 닫음 handler는 call 닫기와 Project Manager에게 넣는 입력을 같은 tx에서 한다. 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
+- 새 일 event를 받는 agent는 늘 한 그릇의 Project Manager 또는 App Engineer다. 앱에 관한 event(문제 열림·다시 열림, 재시작 멈춤, activation 실패)는 그 앱의 App Engineer가 받고, `KindViolationFound`와 `PublicToolsChanged`는 payload의 domain 그릇의 Project Manager(project)나 App Engineer(앱)가 받는다(`agentOfDomain`, `architecture/domain.md`). owner가 보관됐거나 없으면 `not_found`다. `PublicToolsChanged`는 공개 tool이 바뀌거나 지워진 release가 domain마다 하나씩 낸다.
+- call 닫음 handler는 call 닫기와 맡긴 App Engineer에게 넣는 입력을 같은 tx에서 한다. 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
 - program 일 event(`ApprovalDecided`, `TicketVerified`, `VerificationRecorded`)는 agent를 부르지 않고 program handler만 깨운다. `VerificationRecorded`는 test 결과를 기록하는 command(`RecordVerification`)가 같은 tx에서 쓰고, `examples` check의 결과를 ticket에 남기는 handler가 받는다. 다른 kind의 기록은 handler가 무시한다. 이 event가 Ledger에 있어야 core가 꺼졌다 켜져도 끝난 예시 검증의 결과가 ticket에 남는다.
 
 Bus와 Reactor
@@ -57,11 +57,11 @@ agent event와 화면
 
 ## 왜 이 모양인가
 
-- 모든 domain 변경을 event로 만들던 옛 구조는 type이 150개 가까이 되었고 화면 구독도 ledger를 읽었다. 이력과 감사는 쓰는 곳이 없어서 반응이 필요한 10개 안팎만 남겼다. 상태는 각 domain 표가 정본이다.
+- 모든 변경을 event로 만들던 옛 구조는 type이 150개 가까이 되었고 화면 구독도 ledger를 읽었다. 이력과 감사는 쓰는 곳이 없어서 반응이 필요한 10개 안팎만 남겼다. 상태는 각 module의 표가 정본이다.
 - 일반 change notification(어느 대상이 바뀜)은 두지 않았다. 받을 화면이 없다. 열린 앱 화면을 다시 그리는 것만 남지 않는 event 하나로 둔다.
 - agent event를 저장하는 안은 버렸다. 조사한 harness(Claude Code, Codex, OpenCode, Hermes 등)와 paseo 모두 대화는 session 기록이 정본이고 event는 흘리는 신호다. seq와 replay는 비용만 든다. 대신 snapshot에 대기 중인 요청까지 담아, 늦게 붙은 화면도 답을 기다리는 요청을 본다.
 - agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. turn 시작 신호가 없는 곳(Claude Code)과 session 시작이 첫 turn인 곳(Hermes, OpenClaw)이 있어서, coding agent는 harness가 알려 준 것만 바꾸고 나머지는 process 종료로 알거나 unknown으로 둔다.
 - coding agent의 "끝남"은 turn 종료가 아니라 CLI 완료 보고다. turn이 끝난 것은 멈췄다는 뜻일 뿐 일을 해냈다는 뜻이 아니다.
 - Reactor를 rule engine으로 만드는 안과 lophn 사용자에게 hook을 여는 안은 하지 않았다. handler는 평범한 코드다.
-- 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. Operator가 read app-api로 읽는다.
+- 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. Operator가 읽기 앱 tool로 읽는다.
 - 새 일 handler는 agent를 직접 부르지 않고 approvals를 거친다. 꺼짐, 묻지 않음, 물음을 reaction grant 하나로 정하려는 것이다(`approval.md`).

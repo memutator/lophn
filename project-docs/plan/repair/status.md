@@ -13,4 +13,4 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 | `rp-eval-calendar` | eval | 1 | 없음 | running | eval/rp-eval-calendar |  |  |
 | `rp-eval-misc` | eval | 1 | 없음 | merged | eval/rp-eval-misc | a90be32d7 |  |
 | `rp-eval-operator` | eval | 1 | 없음 | merged | eval/rp-eval-operator | 56ffb4920 |  |
-| `rp-fetch-check` | tools | 1 | 없음 | running | tools/rp-fetch-check |  |  |
+| `rp-fetch-check` | tools | 1 | 없음 | merged | tools/rp-fetch-check | 583822fe2 |  |

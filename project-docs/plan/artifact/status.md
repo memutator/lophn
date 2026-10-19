@@ -11,13 +11,13 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 | `af-file-scope` | artifact-scope | 1 | af-artifact-values | merged | artifact-scope/af-file-scope | 6d2f53182 |  |
 | `af-wireframes` | artifact-screen | 1 | 없음 | merged | artifact-screen/af-wireframes | 23c67e629 |  |
 | `af-artifact-ipc` | artifact-view | 1 | 없음 | merged | artifact-view/af-artifact-ipc | fb4d2643c |  |
-| `af-annotation-read` | artifact-annotation | 2 | 없음 | running | artifact-annotation/af-annotation-read |  |  |
-| `af-annotation-receiver` | artifact-annotation | 2 | 없음 | running | artifact-annotation/af-annotation-receiver |  |  |
-| `af-guide` | artifact-scope | 2 | 없음 | running | artifact-scope/af-guide |  |  |
-| `af-prompt-list` | artifact-scope | 2 | 없음 | running | artifact-scope/af-prompt-list |  |  |
+| `af-annotation-read` | artifact-annotation | 2 | 없음 | merged | artifact-annotation/af-annotation-read | 80729559c |  |
+| `af-annotation-receiver` | artifact-annotation | 2 | 없음 | merged | artifact-annotation/af-annotation-receiver | 1858e5a30 |  |
+| `af-guide` | artifact-scope | 2 | 없음 | merged | artifact-scope/af-guide | 0a8f51b55 |  |
+| `af-prompt-list` | artifact-scope | 2 | 없음 | merged | artifact-scope/af-prompt-list | 73ded07ac |  |
 | `af-artifact-links` | artifact-screen | 2 | af-artifact-tab | todo |  |  |  |
 | `af-artifact-sidebar` | artifact-screen | 2 | af-artifact-tab | todo |  |  |  |
 | `af-artifact-tab` | artifact-screen | 2 | 없음 | todo |  |  |  |
-| `af-artifact-view` | artifact-view | 2 | 없음 | running | artifact-view/af-artifact-view |  |  |
+| `af-artifact-view` | artifact-view | 2 | 없음 | merged | artifact-view/af-artifact-view | a2c046b44 |  |
 | `af-gallery` | artifact-screen | 3 | 없음 | todo |  |  |  |
 | `af-wording` | artifact-wording | 3 | 없음 | todo |  |  |  |

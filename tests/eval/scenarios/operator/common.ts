@@ -2,11 +2,11 @@
 // 이 file은 operator 폴더 시나리오의 hash에 든다.
 import type { Participant } from "../../types.ts";
 
-// ledger-project는 apps-home이 앱 옆에 만든 보통 project다(`restoreAppProject`).
+// 앱 place의 Operator라 그 앱의 domain을 맡는다.
 export const OP_월말정리: Participant = {
   role: "operator",
   name: "월말정리",
-  place: { project: "ledger-project" },
+  place: { app: "가계부" },
 };
 export const OP_세무정리: Participant = {
   role: "operator",
@@ -23,10 +23,10 @@ export const PM_tax: Participant = {
 };
 export const LOPHN: Participant = { role: "lophn" };
 
-// operators-home@4는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
+// operators-home@5는 앞의 셋을 needs로 갖지만, runner는 world에 적힌 재료마다 hash를 확인하고 등록하므로 넷을 다 적는다.
 export const OPERATOR_WORLD = [
   "apps-home@1",
   "projects-home@1",
   "tax-kinds@2",
-  "operators-home@4",
+  "operators-home@5",
 ];

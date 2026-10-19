@@ -2,7 +2,7 @@
 // excluded grant는 call tool의 gate에서 막혀 agent_calls 행이 없고 tool outcome이 not_executed/denied다.
 // 막힌 call이 하나도 없으면 call-blocked가 떨어진다("막힌 call이 없어 T19를 재지 못했다").
 // 부를 수 있는 목록에 excluded 상대가 나오지 않아(place-data.ts) 이름 없이는 막힌 call이 생기지 않는다. 그래서 사람 말이 상대를 이름으로 가리킨다.
-// O4와 같은 한계: 켜진 앱이 없어 tool을 직접 볼 수 없다.
+// 한계: apps-home의 가계부는 켜진 앱이 아니라 tool을 직접 볼 수 없다.
 import {
   fixtureSession,
   fixtureTrial,
@@ -18,7 +18,7 @@ const REQUEST =
 
 const scenario: Scenario = {
   id: "T19-op",
-  n: 5,
+  n: 6,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_월말정리],

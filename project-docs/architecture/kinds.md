@@ -60,4 +60,4 @@ project의 문서가 어떤 모양이어야 하는지는 kind 파일(`kinds.yaml
 - **문서 위반이 막지 않는다.** 문서는 사람의 것이다. 막으면 schema를 바꿀 때마다 일이 멈춘다. 위반은 problem으로 올리고, schema와 문서 가운데 무엇을 고칠지는 PM이 판단한다.
 - **검사는 별도 process가 한다.** 사람의 파일을 파싱하는 일을 core 밖 sandbox에 둔다. core는 감시와 dispatcher, problem 쪽 command만 맡는다. core domain끼리 import하지 않으므로(`project-docs/architecture/layers.md`) 위반은 worker 답으로 실어 오고 problem 쪽에는 route 이름으로 command를 낸다.
 - **조회는 부를 때 짠다.** context는 PM이 search를 미리 선언했다. 이제 agent가 prompt의 kind 글을 보고 `kind.list`의 조건, 정렬, 집계를 부를 때 준다. 조건 schema는 세 층(묶음, 묶음, leaf)까지만 풀어 쓴다. tool 입력이 `z.toJSONSchema`로 model에 가는데 재귀는 `$ref`가 되고, 층마다 크기가 곱으로 늘기 때문이다.
-- **앱 problem 표와 합치지 않았다.** 앱 problem은 report·occurrence·snapshot·release에 묶여 있다. project 위반을 거기 끼우면 무겁다. id 접두(`prb`)만 같다. 한 목록으로 합칠지는 `domain-rename` 뒤에 본다.
+- **앱 problem 표와 합치지 않았다.** 앱 problem은 report·occurrence·snapshot·release에 묶여 있다. project 위반을 거기 끼우면 무겁다. id 접두(`prb`)만 같다. 한 목록으로 합칠지는 `domain-entity` 뒤에 본다.

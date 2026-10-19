@@ -18,4 +18,6 @@ modules: [packages/core/lophn-agent, packages/core/agent-roles]
 - `shell.run`을 OS sandbox(bubblewrap 등)로 범위 폴더만 보이게 띄우고, 쓰기는 rewind 기록을 위해 막는다(읽기 전용). 중간~큼. 플랫폼마다 다르다.
 - effect를 `external`로 바꿔 Gate가 묻게 한다. 작음. 그러나 묻기로 실수를 막지 않는다는 PRODUCT 4절과 어긋난다.
 
-추천: 첫째. 코딩은 coding agent의 일이고, domain agent에게 shell이 필요한 경우를 아직 보지 못했다. 정할 것: domain agent에게서 `shell.run`을 뺄지(제품 동작, 사람).
+추천: 첫째. 코딩은 coding agent의 일이고, domain agent에게 shell이 필요한 경우를 아직 보지 못했다.
+
+정한 것(사람, 2026-10-19): 일단 그대로 둔다.

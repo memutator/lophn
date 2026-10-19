@@ -7,7 +7,10 @@ import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
-const slug = z.string().max(63).regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
+// artifact 이름(폴더 이름). protocol slugSchema의 사본이다.
+export const artifactNameSchema = z.string().max(63).regex(
+  /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/,
+);
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const viewSession = z.string().min(1).refine(noControl);
 
@@ -20,7 +23,11 @@ export const ARTIFACT_EVENT_CHANNEL = "shell:artifact-event";
 
 // artifact는 project의 artifacts 폴더 안 이름이고, file은 사람이 고른 절대 path의 .html이다.
 export const artifactSourceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("artifact"), project: projectId, name: slug })
+  z.object({
+    kind: z.literal("artifact"),
+    project: projectId,
+    name: artifactNameSchema,
+  })
     .strict(),
   z.object({
     kind: z.literal("file"),

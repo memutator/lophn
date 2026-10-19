@@ -1,16 +1,13 @@
 // artifact의 공통 값과 순수 함수. shell main(목록), core(prompt의 목록), renderer(대화 글의 link)가
-// 같은 규칙을 써야 하므로 protocol에 둔다. 의존성·IO가 없다.
+// 같은 규칙을 써야 하므로 protocol에 둔다. shell main(node test, noUncheckedIndexedAccess tsc)도 import하므로
+// import를 두지 않는다. 이름 schema는 values.ts의 artifactNameSchema다.
 
-import { slugSchema } from "./values.ts";
-
-// artifact는 project 폴더 아래 `artifacts/<name>/index.html` 하나와 선택적인 `data/_entries.json`이다.
+// artifact는 project의 lophn data 폴더 아래 `artifacts/<name>/`이고 입구는 `index.html`이다.
+// `data/_entries.json`은 view가 만드는 가상 file이다.
 export const ARTIFACTS_FOLDER = "artifacts";
 export const ARTIFACT_ENTRY = "index.html";
 export const ARTIFACT_DATA_FOLDER = "data";
 export const ARTIFACT_ENTRIES_FILE = "_entries.json";
-
-// 이름이 곧 폴더 이름이라 slug다.
-export const artifactNameSchema = slugSchema;
 
 export type ArtifactMeta = { title: string; description: string };
 
@@ -33,7 +30,7 @@ function clean(raw: string, max: number): string {
 function attr(tag: string, name: string): string | null {
   const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i")
     .exec(tag);
-  return m ? (m[1] ?? m[2]) : null;
+  return m ? (m[1] ?? m[2] ?? null) : null;
 }
 
 // 호출하는 쪽이 HTML 앞쪽만 넘긴다. 제목과 설명은 HTML에서 읽는다.
@@ -42,7 +39,7 @@ export function parseArtifactMeta(
   fallbackTitle: string,
 ): ArtifactMeta {
   const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  const title = titleMatch ? clean(titleMatch[1], TITLE_MAX) : "";
+  const title = titleMatch ? clean(titleMatch[1] ?? "", TITLE_MAX) : "";
   let description = "";
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     if (attr(tag, "name")?.trim().toLowerCase() === "description") {

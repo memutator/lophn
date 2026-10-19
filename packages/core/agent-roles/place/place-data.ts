@@ -320,7 +320,7 @@ async function readPlaceData(
     projectFolders,
     artifactsFolder: artifacts,
     kindsFile,
-    appSource: null,
+    appSource: app?.source ?? null,
     allProjectFolders,
   });
   return ok({

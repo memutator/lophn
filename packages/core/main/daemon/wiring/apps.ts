@@ -53,16 +53,13 @@ import type {
   BundleLocator,
   CallerDirectory,
   InvocationLedger,
-  ProjectDirectory,
 } from "../../../apps/ports.ts";
 import {
   appApiLookupOf,
   appStatesOf,
   bundleLocatorOf,
-  callApiHandler,
+  callToolHandler,
   mainRead,
-  PROJECTS_READ_KEY,
-  projectsRead,
   rewindHandler,
   screenFileStream,
   withStartInvocation,
@@ -97,9 +94,6 @@ import {
   type WiringContext,
   type WiringFactory,
 } from "./context.ts";
-
-const notAttached = <T>(): Result<T> =>
-  err({ code: "unavailable", message: "this dependency is not attached" });
 
 export const appsWiring: WiringFactory = () => {
   let control: AppsControl | undefined;
@@ -196,14 +190,9 @@ export const appsWiring: WiringFactory = () => {
 
       const callers: CallerDirectory = createCallerDirectory(link.sql);
       ctx.provide("callerDirectory", callers);
-      const projects: ProjectDirectory = {
-        list: () => ctx.peek.projectDirectory?.list() ?? notAttached(),
-        get: (id) => ctx.peek.projectDirectory?.get(id) ?? notAttached(),
-      };
       const states = appStatesOf(link.sql);
       const { path, intake } = createAppCalls({
         callers,
-        projects,
         lookup: appApiLookupOf(link.sql),
         apps: states,
         ledger,
@@ -292,7 +281,7 @@ export const appsWiring: WiringFactory = () => {
             { ledger, sql: link.sql, clock: ctx.clock, ids },
           ),
         memory: [
-          ["apps/call_api", callApiHandler(path)],
+          ["apps/call_tool", callToolHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
           // supervisor(machine)가 앱 요청에 붙일 secret 값을 받는다. 현재 grant 판정은 secretAttach가 한다.
           [
@@ -359,7 +348,6 @@ export const appsWiring: WiringFactory = () => {
           appsControl.overlayReads(reads);
           reads.set("apps/rewind_plan", mainRead(rewindReads.plan, link.sql));
           reads.set("apps/rewinds", mainRead(rewindReads.list, link.sql));
-          reads.set(PROJECTS_READ_KEY, projectsRead(projects, link.sql));
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
           // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.
           reads.set(

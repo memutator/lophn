@@ -1,5 +1,5 @@
 // supervisor가 지금 쥔 앱 프로세스의 관측과 core가 읽는 앱 사실의 모양. 서명 연결은 없다:
-// 앱 호출은 core의 `app.call_api`를 거치고 앱에 직접 닿는 길은 없다.
+// 앱 호출은 core의 `app.call_tool`를 거치고 앱에 직접 닿는 길은 없다.
 import type { Result } from "../../../base/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/mod.ts";
 

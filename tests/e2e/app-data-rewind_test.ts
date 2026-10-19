@@ -11,7 +11,7 @@
 // 11). `session-rewind-with-app`은 case마다 agent의 앱 호출과 끝 text, 둘이다.
 import { assert, assertEquals } from "@std/assert";
 import {
-  appCallApi,
+  appCallTool,
   appInvocations,
   appRewind,
   appRewindPlan,
@@ -42,9 +42,9 @@ type Rows<T> = { rows: T[] };
 
 // 앱 api를 사람이 부른다. 읽기는 invocation 기록이 없어 id가 null이다.
 async function call(core: Core, app: TestApp, api: string, input?: unknown) {
-  const done = await core.call(appCallApi, {
+  const done = await core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    api,
+    tool: api,
     ...(input === undefined ? {} : { input: input as never }),
     caller: { kind: "person", view_session: "e2e" },
   });

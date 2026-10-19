@@ -158,7 +158,7 @@ export interface ActivityRow {
   readonly caller: Caller;
   /** app-api 이름. 앱 시작과 data 변경은 null이다. */
   readonly api: string | null;
-  readonly kind: "api" | "start" | "data_change";
+  readonly kind: "tool" | "start" | "data_change";
   readonly project: string | null;
   readonly effect: Effect;
   readonly state: CallState;

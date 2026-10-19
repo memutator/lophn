@@ -3,24 +3,24 @@
 // invocation인지 확인한다. 이 서비스는 요청 모양을 검사하고 core 호출 경로로 넘기기만 한다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type AppApiCallInput,
-  type AppApiCallOutput,
   brokerAppCallInputSchema,
   brokerAppCallOutputSchema,
+  type ToolCallInput,
+  type ToolCallOutput,
 } from "../../../../protocol/apps/calls/mod.ts";
 import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
-// core의 `app.call_api`를 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
+// core의 `app.call_tool`를 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
 export interface AppCallPort {
   call(
     child: BrokerChild,
-    input: AppApiCallInput,
-  ): Promise<Result<AppApiCallOutput>>;
+    input: ToolCallInput,
+  ): Promise<Result<ToolCallOutput>>;
 }
 
 export type AppsCallService = {
-  call(child: BrokerChild, body: unknown): Promise<Result<AppApiCallOutput>>;
+  call(child: BrokerChild, body: unknown): Promise<Result<ToolCallOutput>>;
 };
 
 export function createAppsCallService(deps: {
@@ -40,7 +40,7 @@ export function createAppsCallService(deps: {
       }
       const called = await deps.core.call(child, {
         target: { mode: "live", app: input.target_app, release: null },
-        api: input.api,
+        tool: input.api,
         ...(input.input === undefined ? {} : { input: input.input }),
         caller: {
           kind: "app",

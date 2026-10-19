@@ -11,13 +11,13 @@ import {
 } from "../channel-values.ts";
 import { invocationSummarySchema } from "../invocations.ts";
 import { appApiCallerSchema } from "./caller.ts";
-import { appApiKeySchema } from "../channel-values.ts";
+import { toolNameSchema } from "../channel-values.ts";
 
 const sequence = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 // data_change는 옛 모양 그대로다.
 export const appInvocationOperationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("api"), api: appApiKeySchema }),
+  z.object({ kind: z.literal("tool"), tool: toolNameSchema }),
   z.object({
     kind: z.literal("start"),
     reason: z.enum(["activation", "restart"]),

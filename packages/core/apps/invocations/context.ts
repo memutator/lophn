@@ -18,8 +18,6 @@ export type InvocationContext = {
   release: string | null;
   mode: "live" | "preview" | "test";
   invocation: string | null;
-  // project 범위 app-api가 아니면 null이다.
-  project: string | null;
   // 이 호출의 app-api key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
   api?: string | null;
   inputHash?: string | null;

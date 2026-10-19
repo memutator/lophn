@@ -9,7 +9,6 @@ export type Flight = {
   release: Id<"rel">;
   mode: "live" | "preview";
   parent: Id<"inv"> | null;
-  project: Id<"prj"> | null;
   // 결과 모름으로 닫아 부른 쪽에 돌려준다.
   abandon(): Promise<void>;
 };

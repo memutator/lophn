@@ -91,7 +91,7 @@ function row(
     at,
     caller,
     api,
-    kind: api === null ? "start" : "api",
+    kind: api === null ? "start" : "tool",
     project,
     effect,
     state,

@@ -5,8 +5,6 @@ import type { Id } from "../../protocol/base/ids.ts";
 import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
 import type { At } from "../../protocol/base/values.ts";
 import type {
-  AppApiCallInput,
-  AppApiCallOutput,
   AppApiTarget,
   AppInvocation,
   appInvocationsInputSchema,
@@ -14,17 +12,18 @@ import type {
   ProcessApplyResponse,
   ProcessCallRequest,
   ProcessCallResponse,
-  ProjectSummary,
   Rewind,
   RewindPlan,
+  ToolCallInput,
+  ToolCallOutput,
 } from "../../protocol/apps/calls/mod.ts";
 
 // app-calls module들이 서로 기대는 port. 구현은 각 task가, 가짜 구현은 쓰는 쪽 시험이 만든다.
 export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
 
 /**
- * 구현: app-calls-path. 쓰는 곳: `app.call_api` route handler(app-calls-assembly), 앱 process broker 서비스.
- * `auth`는 route가 확인한 credential이다. 부른 쪽 확인, project 정하기, Gate, invocation 기록,
+ * 구현: app-calls-path. 쓰는 곳: `app.call_tool` route handler(app-calls-assembly), 앱 process broker 서비스.
+ * `auth`는 route가 확인한 credential이다. 부른 쪽 확인, Gate, invocation 기록,
  * write 줄 세우기, 앱 process 전달, 결과를 모두 이 호출 하나가 한다.
  *
  * Gate는 port를 새로 만들지 않고 `core/approvals/ports.ts`의 `Approvals`를 직접 쓴다. 순서:
@@ -36,9 +35,9 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  */
 export interface AppApiCallPath {
   call(
-    input: AppApiCallInput,
+    input: ToolCallInput,
     auth: { actor: "user" | "agent" | "app"; app?: Id<"app"> },
-  ): Promise<Result<AppApiCallOutput>>;
+  ): Promise<Result<ToolCallOutput>>;
 }
 
 /**
@@ -53,12 +52,6 @@ export interface CallerDirectory {
   ): Result<
     { agent: AgentRef; place: Place | null } | null
   >;
-}
-
-/** 구현: lead 조립(projects module의 읽기). 쓰는 곳: app-calls-path, `app.projects` handler. */
-export interface ProjectDirectory {
-  list(): Result<readonly ProjectSummary[]>;
-  get(id: Id<"prj">): Result<ProjectSummary | null>;
 }
 
 /**

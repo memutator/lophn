@@ -358,7 +358,7 @@ const startReason = (operation: AppInvocation["operation"]) =>
     : "activation" as const;
 
 const kindOf = (operation: AppInvocation["operation"]) =>
-  operation.kind === "api" ? "api" as const : operation.kind;
+  operation.kind === "tool" ? "tool" as const : operation.kind;
 
 function rewindOutcome(item: RewindPlan["items"][number]) {
   if (item.external) return "stays" as const;
@@ -538,8 +538,8 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
             startReason(invocation.operation),
             names,
           ),
-          api: invocation.operation.kind === "api"
-            ? invocation.operation.api
+          api: invocation.operation.kind === "tool"
+            ? invocation.operation.tool
             : null,
           kind: kindOf(invocation.operation),
           project: invocation.project,
@@ -583,7 +583,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
         plan.items.map(async (item) => ({
           invocation: item.invocation,
           at: item.started_at,
-          api: item.operation.kind === "api" ? item.operation.api : null,
+          api: item.operation.kind === "tool" ? item.operation.tool : null,
           kind: kindOf(item.operation),
           effect: item.effect,
           caller: await callerOf(
@@ -637,7 +637,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
           running: result.value.plan.items.filter((item) => item.running)
             .map((item) => ({
               invocation: item.invocation,
-              api: item.operation.kind === "api" ? item.operation.api : null,
+              api: item.operation.kind === "tool" ? item.operation.tool : null,
               at: item.started_at,
             })),
         },

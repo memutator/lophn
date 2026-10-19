@@ -9,11 +9,11 @@ import {
 } from "../../../base/mod.ts";
 import type {
   AppApiCaller,
-  AppApiCallInput,
-  AppApiCallOutput,
   AppInvocation,
   ProcessCallRequest,
   ProcessCallResponse,
+  ToolCallInput,
+  ToolCallOutput,
 } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
@@ -79,10 +79,6 @@ function setup() {
       agentToolCall: (_s, _t, tool) =>
         ok(tool === TCL ? { agent: { role: "lophn" }, place: null } : null),
     },
-    projects: {
-      list: () => ok([]),
-      get: (id) => ok({ id, name: "p", purpose: "", archived: false }),
-    },
     lookup: {
       find: (_app, _release, api) =>
         ok({
@@ -104,10 +100,10 @@ function setup() {
   return { ...calls, sent, records, state };
 }
 
-function person(app: Id<"app">, api: string): AppApiCallInput {
+function person(app: Id<"app">, api: string): ToolCallInput {
   return {
     target: { mode: "live", app, release: null },
-    api,
+    tool: api,
     caller: { kind: "person", view_session: "v1" },
   };
 }
@@ -117,10 +113,10 @@ function appCaller(
   to: Id<"app">,
   parent: string | null,
   api = "r.get",
-): AppApiCallInput {
+): ToolCallInput {
   return {
     target: { mode: "live", app: to, release: null },
-    api,
+    tool: api,
     caller: {
       kind: "app",
       app: from,
@@ -156,7 +152,7 @@ const okResponse: ProcessCallResponse = {
   changeset: null,
 };
 
-function status(result: Result<AppApiCallOutput>): string {
+function status(result: Result<ToolCallOutput>): string {
   assert(result.ok);
   return result.value.outcome.status === "denied"
     ? result.value.outcome.denial.code
@@ -167,7 +163,7 @@ Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invo
   const t = setup();
   const a = newApp();
   const b = newApp();
-  const rows: [string, Promise<Result<AppApiCallOutput>>][] = [
+  const rows: [string, Promise<Result<ToolCallOutput>>][] = [
     // 사람 credential로 agent라고 주장
     [
       "kind",
@@ -301,12 +297,30 @@ Deno.test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈�
   );
 });
 
+Deno.test("write tool 호출은 응답의 changeset을 붙여 invocation을 닫고, 성공한 read는 기록을 남기지 않는다", async () => {
+  const t = setup();
+  const a = newApp();
+  t.state.handler = () =>
+    Promise.resolve({ status: "ok", result: 1, changeset: btoa("cs") });
+
+  const write = await t.path.call(person(a, "w.one"), { actor: "user" });
+  assertEquals(status(write), "succeeded");
+  const row = t.records.get(write.ok ? write.value.invocation! : "");
+  assertEquals(row?.status, "succeeded");
+  assert(row?.changeset);
+
+  const before = t.records.size;
+  const read = await t.path.call(person(a, "r.get"), { actor: "user" });
+  assert(read.ok && read.value.invocation === null);
+  assertEquals(t.records.size, before);
+});
+
 Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접수를 닫은 동안 온 호출은 붙잡혔다가 열리면 넘어간다", async () => {
   const t = setup();
   const apps = Array.from({ length: 10 }, newApp);
 
   // 앱 i가 앱 i+1을 잇달아 부른다. 마지막 결과를 그대로 올려 준다.
-  const results: AppApiCallOutput[] = [];
+  const results: ToolCallOutput[] = [];
   t.state.handler = async (request, app) => {
     const next = apps[apps.indexOf(app) + 1];
     if (next === undefined) return okResponse;
@@ -337,7 +351,7 @@ Deno.test("호출 루프와 깊이 8 초과는 handler 전에 거절되고, 접�
       appCaller(app, apps[0], request.invocation),
       { actor: "app", app },
     );
-    results.push(loop.ok ? loop.value : ({} as AppApiCallOutput));
+    results.push(loop.ok ? loop.value : ({} as ToolCallOutput));
     return okResponse;
   };
   await t.path.call(person(apps[0], "r.get"), { actor: "user" });

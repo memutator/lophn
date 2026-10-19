@@ -71,7 +71,6 @@ import {
   type AppCallPort,
   type BrokerChild,
   type ProblemsReport,
-  type ProjectsPort,
   type ReadyReceiver,
   socketFlags,
 } from "../../apps/permissions/mod.ts";
@@ -80,11 +79,9 @@ import {
   reportAcceptanceSchema,
 } from "../../../protocol/problems/mod.ts";
 import {
-  appApiCallOutputSchema,
-  appCallApi,
-  appProjects,
-  brokerProjectsListOutputSchema,
+  appCallTool,
   processApplyRequestSchema,
+  toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { createCoreBrokerAccess } from "./access.ts";
 import {
@@ -418,29 +415,14 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     async call(child, input) {
       const answered = await asChild(
         child,
-        `${appCallApi.resource}/${appCallApi.method}`,
+        `${appCallTool.resource}/${appCallTool.method}`,
         input,
       );
       if (!answered.ok) return answered;
-      const parsed = appApiCallOutputSchema.safeParse(answered.value);
+      const parsed = toolCallOutputSchema.safeParse(answered.value);
       return parsed.success ? ok(parsed.data) : err({
         code: "unavailable",
         message: "core answered the app call badly",
-      });
-    },
-  };
-  const projects: ProjectsPort = {
-    async list(child) {
-      const answered = await asChild(
-        child,
-        `${appProjects.resource}/${appProjects.method}`,
-        {},
-      );
-      if (!answered.ok) return answered;
-      const parsed = brokerProjectsListOutputSchema.safeParse(answered.value);
-      return parsed.success ? ok(parsed.data.projects) : err({
-        code: "unavailable",
-        message: "core answered the project list badly",
       });
     },
   };
@@ -477,7 +459,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     access: createCoreBrokerAccess(toCore),
     ready,
     appCall,
-    projects,
     platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
     problems: problemsFor,
     secrets,

@@ -12,7 +12,7 @@
 // ask-then-off가 허락 적용 시점에 본다.
 import { assert, assertEquals } from "@std/assert";
 import {
-  appCallApi,
+  appCallTool,
   appCreate,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
@@ -294,9 +294,9 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
 const CRASH_LIMIT_EXIT = 6;
 
 const crash = async (core: Core, app: string) => {
-  const called = await core.call(appCallApi, {
+  const called = await core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    api: "crash",
+    tool: "crash",
     caller: { kind: "person", view_session: "e2e" },
   });
   // 응답을 보낸 뒤 죽으므로 결과를 모를 수는 있어도 거절되거나 handler가 실패해서는 안 된다.
@@ -467,9 +467,9 @@ Deno.test("E2E App Engineer는 앱이 보고한 message를 problem.body로 끝�
         },
         { reply: { kind: "text", text: "noted" } },
       ]);
-      const called = await c.call(appCallApi, {
+      const called = await c.call(appCallTool, {
         target: { mode: "live", app: a.app, release: null },
-        api: "report",
+        tool: "report",
         caller: { kind: "person", view_session: "e2e" },
       });
       assertEquals(called.outcome.status, "succeeded");

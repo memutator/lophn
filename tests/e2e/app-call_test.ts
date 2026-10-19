@@ -15,7 +15,7 @@
 // 대답은 행 몫에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
-  appCallApi,
+  appCallTool,
   appInvocation,
   appInvocations,
   appRewindPlan,
@@ -31,12 +31,10 @@ import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
-import { projectScopePatch } from "../support/app/patches.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
-  openProject,
   openSession,
   say,
   waitPermission,
@@ -88,9 +86,9 @@ async function nonceOf(core: Core, app: string): Promise<string> {
 }
 
 async function items(core: Core, app: string): Promise<string> {
-  const listed = await core.call(appCallApi, {
+  const listed = await core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    api: "list_items",
+    tool: "list_items",
     caller: user,
   });
   return JSON.stringify(listed.outcome);
@@ -113,7 +111,6 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
       slug: "calls",
       patch: async (dir) => {
         await callPatch(dir);
-        await projectScopePatch(dir);
         await netFetchPatch(dir, { port: loopback.port, secret: NET_SECRET });
       },
     });
@@ -159,9 +156,9 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
 
     await t.step("big-changeset", async () => {
       const nonce = await nonceOf(c, id);
-      const called = await c.call(appCallApi, {
+      const called = await c.call(appCallTool, {
         target,
-        api: "big_write",
+        tool: "big_write",
         input: { kb: 300 },
         caller: user,
       });
@@ -194,9 +191,9 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
     });
 
     await t.step("call-from-person", async () => {
-      const called = await c.call(appCallApi, {
+      const called = await c.call(appCallTool, {
         target,
-        api: "add_item",
+        tool: "add_item",
         input: { title: "by-hand" },
         caller: user,
       });
@@ -216,9 +213,9 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
     });
 
     await t.step("net-fetch-loopback", async () => {
-      const called = await c.call(appCallApi, {
+      const called = await c.call(appCallTool, {
         target,
-        api: "fetch_local",
+        tool: "fetch_local",
         caller: user,
       });
       // route: 앱이 secret 값을 모르므로 응답 어디에도 값이 없다.
@@ -241,9 +238,9 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
       const nonce = await nonceOf(c, id);
       const before = (await c.call(appInvocations, { app: id })).invocations
         .length;
-      const refused = await c.tryCall(appCallApi, {
+      const refused = await c.tryCall(appCallTool, {
         target,
-        api: "put_text",
+        tool: "put_text",
         input: { text: "a".repeat(CALL_BODY_MAX_BYTES + 1) },
         caller: user,
       });
@@ -257,46 +254,6 @@ Deno.test("E2E agent·사람 화면의 app-api 호출은 core를 지나 앱 proc
       );
       // process
       assertEquals(await nonceOf(c, id), nonce);
-    });
-
-    await t.step("project-scope", async () => {
-      fake.reset();
-      fake.script([
-        { reply: callApp("t1", "list_in_project", {}) },
-        text("done"),
-      ]);
-      const folder = `${run.work}/proj`;
-      await Deno.mkdir(folder);
-      const { project } = await openProject(c, folder);
-      await c.call(agentGrantsSet, {
-        agent: { role: "project_manager", project },
-        entries: [{ kind: "app", app: id, apis: [] }],
-      });
-      const session = await openSession(c, {
-        role: "project_manager",
-        project,
-      });
-      await say(c, session, "which project");
-      await waitTurnEnd(c, session);
-      const { tool_calls } = await c.call(toolCallList, { session });
-      // ledger: 성공한 read는 invocation을 남기지 않으므로 agent의 tool call 기록으로 본다.
-      assertEquals(tool_calls.map((call) => call.outcome?.kind), ["success"]);
-      // fake: project에 놓인 agent는 project를 고르지 못한다.
-      const first = fake.journal()[0].body as {
-        tools: {
-          name: string;
-          input_schema: { properties?: Record<string, unknown> };
-        }[];
-      };
-      const defined = first.tools.find((item) =>
-        item.name.endsWith("__list_in_project")
-      );
-      assert(defined !== undefined);
-      assertEquals(defined.input_schema.properties?.["project"], undefined);
-      // app state
-      assert(
-        (lastToolResult(fake.journal()[1], "t1") ?? "").includes(project),
-      );
     });
 
     // 한 session에서 허락한 "이 session 동안"은 그 session에만 유효하다. 두 session을 case 둘로 나눈다.

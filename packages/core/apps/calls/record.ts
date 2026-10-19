@@ -1,8 +1,8 @@
 import type {
-  AppApiDenial,
-  AppApiOutcome,
   AppInvocation,
   ProcessCallResponse,
+  ToolDenial,
+  ToolOutcome,
 } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 
@@ -16,23 +16,22 @@ export type CallRecordBase =
     id: Id<"inv">;
     app: Id<"app">;
     release: Id<"rel">;
-    project: Id<"prj"> | null;
   };
 
 export type Settled = {
   status: "succeeded" | "failed" | "unknown";
   summary: AppInvocation["summary"];
-  outcome: AppApiOutcome;
+  outcome: ToolOutcome;
 };
 
 export function deniedOutcome(
-  code: AppApiDenial["code"],
+  code: ToolDenial["code"],
   message: string,
-): AppApiOutcome {
+): ToolOutcome {
   return { status: "denied", denial: { code, message } };
 }
 
-export function deniedSummary(code: AppApiDenial["code"]) {
+export function deniedSummary(code: ToolDenial["code"]) {
   return { outcome: "denied", error_code: code };
 }
 
@@ -86,6 +85,7 @@ export function closedRow(
   return {
     ...base,
     ...closed,
+    project: null,
     detail_hash: null,
     changeset: null,
     reverted_by: null,

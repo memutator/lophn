@@ -8,13 +8,11 @@ import {
   runtimeModeSchema,
 } from "../channel-values.ts";
 import { appIdSchema } from "../../projects/values.ts";
-import { appApiCallOutputSchema } from "./call.ts";
-import { projectSummarySchema } from "./project.ts";
+import { toolCallOutputSchema } from "./call.ts";
 
 // 앱 process가 broker socket으로 부르는 경로.
 export const APP_BROKER_PATHS = {
   call: "/_lophn/broker/apps/call",
-  projects: "/_lophn/broker/projects/list",
   problemsReport: "/_lophn/broker/problems/report",
 } as const;
 
@@ -24,7 +22,6 @@ const childFields = {
   mode: runtimeModeSchema,
 };
 
-// project 칸이 없다. core가 부른 invocation의 project를 넘긴다.
 export const brokerAppCallInputSchema = z.strictObject({
   ...childFields,
   target_app: appIdSchema,
@@ -32,12 +29,7 @@ export const brokerAppCallInputSchema = z.strictObject({
   input: jsonValueSchema.optional(),
   parent_invocation: invocationIdSchema.nullable(),
 });
-export const brokerAppCallOutputSchema = appApiCallOutputSchema;
-
-export const brokerProjectsListInputSchema = z.strictObject(childFields);
-export const brokerProjectsListOutputSchema = z.object({
-  projects: z.array(projectSummarySchema),
-});
+export const brokerAppCallOutputSchema = toolCallOutputSchema;
 
 export const brokerReportProblemInputSchema = problemReportInputSchema
   .safeExtend(

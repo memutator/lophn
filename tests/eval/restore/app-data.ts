@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { appCallApi } from "../../../packages/protocol/apps/mod.ts";
+import { appCallTool } from "../../../packages/protocol/apps/mod.ts";
 import type { JsonValue } from "../../../packages/protocol/base/mod.ts";
 import type { SetupContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
@@ -23,9 +23,9 @@ export async function restoreAppData(
     });
   }
   for (const [index, call] of calls.entries()) {
-    const { outcome } = await ctx.core.call(appCallApi, {
+    const { outcome } = await ctx.core.call(appCallTool, {
       target: { mode: "live", app: apps[index]!, release: null },
-      api: call.api,
+      tool: call.api,
       ...(call.input === undefined ? {} : { input: call.input }),
       caller: { kind: "person", view_session: "eval" },
     });

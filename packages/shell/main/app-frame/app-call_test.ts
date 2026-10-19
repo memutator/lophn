@@ -75,9 +75,8 @@ test("페이지가 보낸 앱·release·project·caller 주장은 쓰이지 않�
   assert.deepEqual(done, { ok: true, value: 1 });
   assert.deepEqual(sent, [{
     target: { mode: "live", app: APP, release: RELEASE },
-    api: "add",
+    tool: "add",
     input: { a: 1 },
-    project: PROJECT,
     caller: { kind: "person", view_session: "view-1" },
   }]);
 });

@@ -4,7 +4,7 @@ import type {
   JsonValue,
 } from "../../../protocol/base/json-values.ts";
 import type { Intent } from "../../../protocol/approvals/mod.ts";
-import type { AppApiDenial } from "../../../protocol/apps/calls/mod.ts";
+import type { ToolDenial } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
 import type { VerifiedCaller } from "./caller.ts";
@@ -14,7 +14,7 @@ type GateCheck =
   | {
     pass: false;
     code: Extract<
-      AppApiDenial["code"],
+      ToolDenial["code"],
       "gate_blocked" | "rejected" | "cancelled"
     >;
   };

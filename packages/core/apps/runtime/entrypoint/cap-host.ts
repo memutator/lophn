@@ -1,4 +1,4 @@
-// cap-net·cap-secret·cap-store·cap-project가 앱 프로세스 host에 닿는 전역 port다. SDK는
+// cap-net·cap-secret·cap-store가 앱 프로세스 host에 닿는 전역 port다. SDK는
 // packages/core/apps를 import하지 않아서 두 쪽이 같은 symbol과 모양으로 맞춘다(packages/sdk/cap-net/host.ts).
 // 자식 credential과 process nonce는 이 port 안에만 있고 앱 코드와 SDK는 보지 못한다. 이 port가 없으면
 // capability는 unavailable이다.
@@ -82,7 +82,6 @@ type CapHostPort = {
     inputHash: string;
     release: string | null;
     invocation: string | null;
-    project: string | null;
   } | null;
 };
 
@@ -136,7 +135,6 @@ export function createCapHost(deps: {
         inputHash: context.inputHash,
         release: context.release,
         invocation: context.invocation,
-        project: context.project,
       };
     },
   };

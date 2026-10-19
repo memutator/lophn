@@ -1,5 +1,5 @@
-// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱 호출·project
-// 목록)는 모두 대역이고, 운영과 mode로만 구별되는 보고(problems) 서비스는 주입받아 그대로 쓴다.
+// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱 호출)는
+// 모두 대역이고, 운영과 mode로만 구별되는 보고(problems) 서비스는 주입받아 그대로 쓴다.
 // problems test runner의 mode=test 자식도 같은 묶음을 쓴다(core/problems/tests/work/app-driver.ts).
 import type {
   BrokerServices,
@@ -14,7 +14,6 @@ import {
   createPreviewExternalService,
   type PreviewExternalService,
 } from "./external.ts";
-import { createPreviewProjectsService } from "./projects.ts";
 import {
   createPreviewSecretService,
   type PreviewSecretService,
@@ -45,7 +44,6 @@ export function createPreviewBrokerServices(
       net: external,
       secrets,
       appsCall,
-      projects: createPreviewProjectsService(),
       ...(options.problems ? { problems: options.problems } : {}),
     },
     appsCall,
@@ -60,6 +58,5 @@ export type { PreviewSecretService } from "./secret.ts";
 export {
   createPreviewAppsCallService,
   createPreviewExternalService,
-  createPreviewProjectsService,
   createPreviewSecretService,
 };

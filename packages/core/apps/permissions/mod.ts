@@ -67,11 +67,6 @@ export {
   createAppsCallService,
 } from "./broker/apps-call.ts";
 export {
-  createProjectsListService,
-  type ProjectsListService,
-  type ProjectsPort,
-} from "./broker/projects.ts";
-export {
   createReadyService,
   type ReadyReceiver,
   type ReadyService,

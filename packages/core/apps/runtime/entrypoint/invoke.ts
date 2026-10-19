@@ -100,7 +100,6 @@ async function run(
           release: state.identity.release,
           mode: state.identity.mode,
           invocation: call.invocation,
-          project: call.context.project,
           api: call.api,
           // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에 묶였음을
           // broker가 확인하는 근거다.

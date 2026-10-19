@@ -16,7 +16,7 @@
 // (App Engineer·coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
 import {
-  appCallApi,
+  appCallTool,
   appInvocations,
 } from "../../packages/protocol/apps/mod.ts";
 import { appAppApi } from "../../packages/protocol/apps/blueprint/read.ts";
@@ -95,9 +95,9 @@ const appToolsOf = (fake: FakeServer, index = 0) =>
 
 // 앱 화면의 사람이 읽는 list_items 결과를 글로 돌려준다.
 async function itemsOf(core: Core, app: string): Promise<string> {
-  const called = await core.call(appCallApi, {
+  const called = await core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    api: "list_items",
+    tool: "list_items",
     caller: { kind: "person", view_session: "e2e" },
   });
   assertEquals(called.outcome.status, "succeeded");
@@ -215,9 +215,9 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     await say(core, waiting.session, "add op-allowed");
     const waitingAsk = await waitPermission(core, waiting.session);
     // app state: 허락 대기 중의 사람 write
-    const user = await core.call(appCallApi, {
+    const user = await core.call(appCallTool, {
       target: { mode: "live", app: id, release: null },
-      api: "add_item",
+      tool: "add_item",
       input: { title: "op-user" },
       caller: { kind: "person", view_session: "e2e" },
     });

@@ -1,7 +1,7 @@
 import type { Clock } from "../../../packages/base/mod.ts";
 import {
-  type AppApiCallInput,
-  appCallApi,
+  appCallTool,
+  type ToolCallInput,
 } from "../../../packages/protocol/apps/mod.ts";
 import { callRead } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { openSession, say } from "../../support/core/human.ts";
@@ -97,11 +97,11 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       if (app === undefined) {
         throw new Error(`callApi: 앱 ${step.app}을 못 푼다`);
       }
-      const called = await core.call(appCallApi, {
+      const called = await core.call(appCallTool, {
         target: { mode: "live", app, release: null },
-        api: step.api,
+        tool: step.api,
         ...(step.input !== undefined &&
-          { input: step.input as AppApiCallInput["input"] }),
+          { input: step.input as ToolCallInput["input"] }),
         caller: { kind: "person", view_session: "eval" },
       });
       const { outcome } = called;

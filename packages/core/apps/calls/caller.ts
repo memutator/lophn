@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AppApiCallInput } from "../../../protocol/apps/calls/mod.ts";
+import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentRef, Place } from "../../../protocol/lophn-agent/places.ts";
 import type { CallerDirectory } from "../ports.ts";
@@ -33,7 +33,7 @@ function forbidden(message: string): Result<never> {
 }
 
 export function verifyCaller(
-  input: AppApiCallInput,
+  input: ToolCallInput,
   auth: CallAuth,
   checks: CallerChecks,
 ): Result<VerifiedCaller> {

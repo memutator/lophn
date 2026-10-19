@@ -15,11 +15,9 @@ import {
   createBrokerHub,
   createNetFetchService,
   createProblemReportService,
-  createProjectsListService,
   createReadyService,
   createSecretUseService,
   type ProblemsReport,
-  type ProjectsPort,
   type ReadyReceiver,
   type RedactionGate,
   type SecretDelivery,
@@ -30,9 +28,8 @@ export type BrokerAdapters = {
   access: BrokerAccess;
   // 앱 시작이 DB를 바꿨을 때 앱 process가 `ready`로 보낸 changeset을 받는다.
   ready: ReadyReceiver;
-  // 다른 앱 호출과 project 목록은 그 자식의 app credential로 core의 호출 경로를 부른다.
+  // 다른 앱 호출은 그 자식의 app credential로 core의 호출 경로를 부른다.
   appCall: AppCallPort;
-  projects: ProjectsPort;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
@@ -72,7 +69,6 @@ function servicesFor(
       problems: adapters.problems(child),
     }),
     appsCall: createAppsCallService({ core: adapters.appCall }),
-    projects: createProjectsListService({ core: adapters.projects }),
   };
 }
 

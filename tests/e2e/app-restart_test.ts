@@ -10,12 +10,12 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
-  appApiCallOutputSchema,
-  appCallApi,
+  appCallTool,
   type AppInvocation,
   appInvocations,
   appRewindPlan,
   appRuntime,
+  toolCallOutputSchema,
 } from "../../packages/protocol/apps/mod.ts";
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
 import { slowPatch } from "../support/app/patch-restart.ts";
@@ -32,7 +32,7 @@ import { startFakeServer } from "../support/fake-server/mod.ts";
 const caller = { kind: "person", view_session: "e2e" } as const;
 
 // 앱 process가 죽었을 때 코드가 정한 unknown 이유다. core가 다시 켜진 이유(core_restarted)는 다른 행이 본다.
-const unknownReasons: readonly string[] = (appApiCallOutputSchema.shape.outcome
+const unknownReasons: readonly string[] = (toolCallOutputSchema.shape.outcome
   .options.find((option) => option.shape.status.value === "unknown") as
     | { shape: { reason: { options: readonly string[] } } }
     | undefined)!.shape.reason.options.filter((reason) =>
@@ -70,9 +70,9 @@ async function startSlowWrite(core: Core, app: TestApp, title: string) {
     ) => item.id),
   );
   let early: unknown;
-  const call = core.call(appCallApi, {
+  const call = core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    api: "slow_write",
+    tool: "slow_write",
     input: { title },
     caller,
   }).catch((error) => {
@@ -113,9 +113,9 @@ async function invocationOf(
 }
 
 async function countSlow(core: Core, app: TestApp): Promise<number> {
-  const called = await core.call(appCallApi, {
+  const called = await core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    api: "count_slow",
+    tool: "count_slow",
     caller,
   });
   assertEquals(

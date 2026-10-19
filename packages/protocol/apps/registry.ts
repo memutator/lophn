@@ -15,10 +15,9 @@ import {
 import { appAppApi, appAppApiIndex } from "./blueprint/read.ts";
 import { blueprintCheck } from "./blueprint/check.ts";
 import {
-  appCallApi,
+  appCallTool,
   appInvocation,
   appInvocations,
-  appProjects,
   appRewind,
   appRewindPlan,
   appRewinds,
@@ -61,13 +60,12 @@ export const ROUTES = [
   appAppApi,
   appAppApiIndex,
   blueprintCheck,
-  appCallApi,
+  appCallTool,
   appInvocations,
   appInvocation,
   appRewindPlan,
   appRewind,
   appRewinds,
-  appProjects,
   appScreenFile,
   appsSecretValue,
   ...APP_GRANT_ROUTES,

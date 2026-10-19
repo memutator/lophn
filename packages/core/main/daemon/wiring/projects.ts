@@ -31,13 +31,7 @@ import {
   createContextsWatch,
   denoWatchFs,
 } from "../../../projects/contexts/watch/service.ts";
-import {
-  projectInfoList,
-  projectInfoOf,
-} from "../../../projects/registry/mod.ts";
-import { createFolderResolver } from "../../../projects/registry/folder-resolver.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
-import type { ProjectDirectory } from "../../../apps/ports.ts";
 import { createWorkerChannel, type WiringFactory } from "./context.ts";
 
 // context worker 일의 입력(적용 판·검사할 후보 판)과 활성 context 목록을 reader에서 읽는 자격. core가
@@ -95,30 +89,6 @@ export const projectsWiring: WiringFactory = () => {
       if (!opened.ok) return opened;
       const connection = opened.value;
       directoryLink = connection;
-      const folders = createFolderResolver();
-      const summary = (info: {
-        id: string;
-        name: string;
-        purpose: string;
-        archived: boolean;
-      }) => ({
-        id: info.id as never,
-        name: info.name,
-        purpose: info.purpose,
-        archived: info.archived,
-      });
-      const directory: ProjectDirectory = {
-        list() {
-          const listed = projectInfoList(connection.sql, folders);
-          return listed.ok ? ok(listed.value.map(summary)) : listed;
-        },
-        get(id) {
-          const found = projectInfoOf(connection.sql, folders, { id });
-          if (!found.ok) return found;
-          return ok(found.value === null ? null : summary(found.value));
-        },
-      };
-      ctx.provide("projectDirectory", directory);
       // 제출할 초안 폴더의 bundle.json. 폴더는 판의 project·context로 찾는다.
       const draftFolders = createContextFolders(ctx.root.path);
       const draftContent = async (bundle: string): Promise<unknown> => {

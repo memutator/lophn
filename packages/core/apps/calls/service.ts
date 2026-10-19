@@ -7,11 +7,11 @@ import {
 } from "../../../base/mod.ts";
 import type { IdSource } from "../../../base/mod.ts";
 import type {
-  AppApiCallInput,
-  AppApiCallOutput,
-  AppApiDenial,
   AppApiTarget,
   ProcessCallRequest,
+  ToolCallInput,
+  ToolCallOutput,
+  ToolDenial,
 } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Approvals } from "../../approvals/ports.ts";
@@ -22,7 +22,6 @@ import type {
   AppProcessLink,
   CallerDirectory,
   InvocationLedger,
-  ProjectDirectory,
 } from "../ports.ts";
 import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
@@ -34,7 +33,6 @@ import {
   type Timers,
 } from "./intake.ts";
 import { checkCallChain } from "./loop.ts";
-import { pickProject } from "./project.ts";
 import { createWriteQueue } from "./queue.ts";
 import {
   type CallRecordBase,
@@ -56,7 +54,6 @@ export interface AppStates {
 
 export type AppCallsDeps = {
   callers: CallerDirectory;
-  projects: ProjectDirectory;
   lookup: AppApiLookup;
   apps: AppStates;
   ledger: InvocationLedger;
@@ -67,15 +64,12 @@ export type AppCallsDeps = {
   timers?: Timers;
 };
 
-const DENIAL_MESSAGES: Record<AppApiDenial["code"], string> = {
+const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   gate_blocked: "the call is not granted",
   rejected: "the person rejected the call",
   cancelled: "the request was cancelled",
   call_loop: "the app is already in the call chain",
   call_too_deep: "the call chain is too deep",
-  project_required: "this app-api needs a project",
-  project_mismatch: "the project does not fit this call",
-  project_not_found: "the project does not exist",
   app_archived: "the app is archived",
   app_unavailable: "the app is not running",
   not_declared: "the app does not declare this app-api",
@@ -93,17 +87,17 @@ export function createAppCalls(
   });
 
   function denied(
-    code: AppApiDenial["code"],
+    code: ToolDenial["code"],
     invocation: Id<"inv"> | null,
-  ): AppApiCallOutput {
+  ): ToolCallOutput {
     return { invocation, outcome: deniedOutcome(code, DENIAL_MESSAGES[code]) };
   }
 
   // handler까지 가지 못한 호출을 한 번에 남긴다.
   async function recordDenied(
     base: CallRecordBase,
-    code: AppApiDenial["code"],
-  ): Promise<Result<AppApiCallOutput>> {
+    code: ToolDenial["code"],
+  ): Promise<Result<ToolCallOutput>> {
     const recorded = await deps.ledger.recordOnce(
       closedRow(base, {
         status: "denied",
@@ -117,18 +111,17 @@ export function createAppCalls(
   }
 
   function requestOf(
-    input: AppApiCallInput,
+    input: ToolCallInput,
     base: CallRecordBase,
   ): ProcessCallRequest {
     return {
       invocation: base.id,
-      api: input.api,
+      api: input.tool,
       ...(input.input === undefined ? {} : { input: input.input }),
       context: {
         app: base.app,
         release: base.mode === "live" ? base.release : null,
         mode: base.mode,
-        project: base.project,
         effect: base.effect,
         caller: input.caller,
       },
@@ -136,9 +129,9 @@ export function createAppCalls(
   }
 
   async function call(
-    input: AppApiCallInput,
+    input: ToolCallInput,
     auth: CallAuth,
-  ): Promise<Result<AppApiCallOutput>> {
+  ): Promise<Result<ToolCallOutput>> {
     const verified = verifyCaller(input, auth, {
       callers: deps.callers,
       activeRelease: deps.apps.activeRelease,
@@ -159,44 +152,22 @@ export function createAppCalls(
     const found = deps.lookup.find(
       app,
       live ? target.release as Id<"rel"> | null : null,
-      input.api,
+      input.tool,
     );
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
     const { release, effect } = found.value;
-    // project 범위 선언은 없어졌다. 호출 길의 project 처리는 dt-call-route가 지운다.
-    const scoped = false;
 
     const base: CallRecordBase = {
       id: deps.ids.newId("inv") as Id<"inv">,
       app,
       release,
       mode: target.mode,
-      operation: { kind: "api", api: input.api },
+      operation: { kind: "tool", tool: input.tool },
       caller: input.caller,
-      project: null,
       effect,
       input_hash: await fingerprint(input.input ?? null),
     };
-
-    const picked = pickProject(
-      scoped,
-      input.project as Id<"prj"> | null | undefined,
-      caller.kind === "agent"
-        ? { kind: "agent", place: caller.place }
-        : caller.kind === "app"
-        ? { kind: "app", project: caller.parent.project }
-        : { kind: "person" },
-    );
-    if (!picked.ok) return recordDenied(base, picked.code);
-    base.project = picked.project;
-    if (picked.project !== null) {
-      const project = deps.projects.get(picked.project);
-      if (!project.ok) return project;
-      if (project.value === null) {
-        return recordDenied(base, "project_not_found");
-      }
-    }
 
     const parent = caller.kind === "app" ? caller.parent : null;
     const refused = checkCallChain(
@@ -221,18 +192,18 @@ export function createAppCalls(
 
   // 여기부터 호출은 도는 호출이다. drain이 기다리고 abandon이 닫는다.
   async function run(
-    input: AppApiCallInput,
+    input: ToolCallInput,
     caller: VerifiedCaller,
     base: CallRecordBase,
     target: AppApiTarget,
-  ): Promise<Result<AppApiCallOutput>> {
+  ): Promise<Result<ToolCallOutput>> {
     const app = base.app;
     const live = target.mode === "live";
     let phase: Phase = "gate";
     let startedAt = deps.clock.now();
     let abandoned = false;
-    let forced!: (result: Result<AppApiCallOutput>) => void;
-    const forcedResult = new Promise<Result<AppApiCallOutput>>((resolve) => {
+    let forced!: (result: Result<ToolCallOutput>) => void;
+    const forcedResult = new Promise<Result<ToolCallOutput>>((resolve) => {
       forced = resolve;
     });
 
@@ -242,7 +213,6 @@ export function createAppCalls(
       release: base.release,
       mode: target.mode,
       parent: caller.kind === "app" ? caller.parent.id : null,
-      project: base.project,
       async abandon() {
         abandoned = true;
         if (phase !== "sent") {
@@ -256,11 +226,11 @@ export function createAppCalls(
     let consume: (() => Promise<Result<void>>) | null = null;
 
     // 본 일이 끝난 뒤에 abandon이 닫았으면 null이다. 이미 부른 쪽에 결과가 갔다.
-    async function work(): Promise<Result<AppApiCallOutput> | null> {
+    async function work(): Promise<Result<ToolCallOutput> | null> {
       if (caller.kind !== "person") {
         const intent = appApiIntent(
           caller,
-          { app, api: input.api },
+          { app, api: input.tool },
           base.effect,
           input.input,
         );
@@ -292,7 +262,7 @@ export function createAppCalls(
 
     async function execute(
       record: boolean,
-    ): Promise<Result<AppApiCallOutput> | null> {
+    ): Promise<Result<ToolCallOutput> | null> {
       if (consume !== null) {
         const used = await consume();
         if (abandoned) return null;
@@ -300,7 +270,11 @@ export function createAppCalls(
       }
       startedAt = deps.clock.now();
       if (record) {
-        const begun = deps.ledger.begin({ ...base, started_at: startedAt });
+        const begun = deps.ledger.begin({
+          ...base,
+          project: null,
+          started_at: startedAt,
+        });
         if (!begun.ok) return begun;
       }
       phase = "sent";
@@ -353,7 +327,7 @@ export function createAppCalls(
   async function closeUnknown(
     base: CallRecordBase,
     startedAt: string,
-  ): Promise<Result<AppApiCallOutput>> {
+  ): Promise<Result<ToolCallOutput>> {
     const settled = unknownSettled();
     const finishedAt = deps.clock.now();
     const closed = base.effect === "read"
@@ -379,7 +353,7 @@ export function createAppCalls(
     base: CallRecordBase,
     startedAt: string,
     settled: Settled,
-  ): Promise<Result<AppApiCallOutput>> {
+  ): Promise<Result<ToolCallOutput>> {
     const recorded = await deps.ledger.recordOnce(closedRow(base, {
       status: settled.status,
       started_at: startedAt,

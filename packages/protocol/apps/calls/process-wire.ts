@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { appIdSchema, projectIdSchema } from "../../projects/values.ts";
+import { appIdSchema } from "../../projects/values.ts";
 import { appStartInputSchema } from "../app-start.ts";
 import {
   invocationIdSchema,
@@ -28,7 +28,6 @@ export const processCallRequestSchema = z.strictObject({
     app: appIdSchema,
     release: releaseIdSchema.nullable(),
     mode: runtimeModeSchema,
-    project: projectIdSchema.nullable(),
     effect: invocationEffectSchema,
     caller: appApiCallerSchema.nullable(),
   }),

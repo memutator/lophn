@@ -1,13 +1,11 @@
-// 앱 호출·rewind·project 목록·화면 file route의 core 쪽 얇은 처리기와, 호출 경로가 앱 module의 읽기에 기대는
+// 앱 호출·rewind·화면 file route의 core 쪽 얇은 처리기와, 호출 경로가 앱 module의 읽기에 기대는
 // 두 port(`AppApiLookup`, `AppStates`)의 ledger 구현. 업무 규칙은 calls·invocations·rewind·screens에 있고
 // 여기는 route의 credential과 입력을 그 module에 맞춰 넘기기만 한다.
 import { Buffer } from "node:buffer";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type AppApiCallInput,
-  appProjects,
   type AppScreenFileInput,
-  type ProjectSummary,
+  type ToolCallInput,
 } from "../../protocol/apps/mod.ts";
 import { parseActor } from "../../protocol/base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
@@ -42,22 +40,21 @@ import type {
   AppRewind,
   BundleLocator,
   InvocationLedger,
-  ProjectDirectory,
 } from "./ports.ts";
 
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
 }
 
-// `app.call_api`. 부른 쪽 종류는 credential의 actor가 정한다(본문의 caller는 호출 경로가 맞춰 본다).
-export function callApiHandler(path: AppApiCallPath): MemoryHandler {
+// `app.call_tool`. 부른 쪽 종류는 credential의 actor가 정한다(본문의 caller는 호출 경로가 맞춰 본다).
+export function callToolHandler(path: AppApiCallPath): MemoryHandler {
   return (ctx, input) => {
     const actor = parseActor(ctx.actor);
     if (actor?.kind === "user" || actor?.kind === "agent") {
-      return path.call(input as AppApiCallInput, { actor: actor.kind });
+      return path.call(input as ToolCallInput, { actor: actor.kind });
     }
     if (actor?.kind === "app") {
-      return path.call(input as AppApiCallInput, {
+      return path.call(input as ToolCallInput, {
         actor: "app",
         app: actor.id as Id<"app">,
       });
@@ -100,30 +97,6 @@ export function mainRead(
       input as never,
     );
 }
-
-// `app.projects`. 보관한 project도 싣는다.
-export function projectsRead(
-  projects: ProjectDirectory,
-  sql: Pick<Sql, "get">,
-): ReadHandler {
-  return () => {
-    const listed = projects.list();
-    if (!listed.ok) return listed;
-    return ok({
-      projects: listed.value.map((project: ProjectSummary) => ({
-        id: project.id,
-        name: project.name,
-        purpose: project.purpose,
-        archived: project.archived,
-      })),
-      as_of_seq: headSeq(sql),
-      next_cursor: null,
-    });
-  };
-}
-
-export const PROJECTS_READ_KEY =
-  `${appProjects.resource}/${appProjects.method}`;
 
 // `app.screen_file`. media type 형식은 `type/subtype`만 받으므로 매개변수(charset)는 뗀다.
 export function screenFileStream(deps: ScreenFileDeps): FileStreamHandler {

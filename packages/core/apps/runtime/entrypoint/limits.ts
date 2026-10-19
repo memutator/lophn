@@ -22,7 +22,6 @@ export const BROKER_PATHS = {
   problemsReport: "/_lophn/broker/problems/report",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: "/_lophn/broker/apps/call",
-  projectsList: "/_lophn/broker/projects/list",
 } as const;
 
 export const SOCKET_HOST = "lophn.invalid";

@@ -1,9 +1,9 @@
 // 끝난 world(살아 있는 core)를 보는 check의 바탕.
 import {
   type App,
-  type AppApiOutcome,
-  appCallApi,
+  appCallTool,
   appList,
+  type ToolOutcome,
 } from "../../../../packages/protocol/apps/mod.ts";
 import {
   problemList,
@@ -50,10 +50,10 @@ export async function callApi(
   app: string,
   api: string,
   input?: unknown,
-): Promise<AppApiOutcome> {
-  const { outcome } = await core.call(appCallApi, {
+): Promise<ToolOutcome> {
+  const { outcome } = await core.call(appCallTool, {
     target: { mode: "live", app: app as App["id"], release: null },
-    api,
+    tool: api,
     ...(input === undefined ? {} : { input: input as never }),
     caller: { kind: "person", view_session: "eval" },
   });

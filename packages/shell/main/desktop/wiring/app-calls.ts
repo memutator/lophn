@@ -1,4 +1,4 @@
-// 앱 호출과 앱 preload IPC. 호출은 core의 `app.call_api`로 가고 고정 blueprint는 `app.app_api`로 읽는다.
+// 앱 호출과 앱 preload IPC. 호출은 core의 `app.call_tool`로 가고 고정 blueprint는 `app.app_api`로 읽는다.
 import { createAppCall } from "../../app-frame/app-call.ts";
 import { registerAppIpc, removeAppIpc } from "../../app-frame/app-ipc.ts";
 import { createBlueprintSource } from "../../app-frame/blueprint-source.ts";

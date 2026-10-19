@@ -23,7 +23,7 @@ import {
   releasesGetRecord,
 } from "../../packages/protocol/apps/activation/activation.ts";
 import {
-  appCallApi,
+  appCallTool,
   appGet,
   appInvocation,
   appRewindPlan,
@@ -62,9 +62,9 @@ import { reportHarness } from "../support/gateway/shell.ts";
 const person = { kind: "person", view_session: "e2e" } as const;
 
 function call(core: Core, app: string, api: string, input?: unknown) {
-  return core.call(appCallApi, {
+  return core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    api,
+    tool: api,
     ...(input === undefined ? {} : { input: input as never }),
     caller: person,
   });

@@ -1,7 +1,7 @@
 // core 안 apps 제어 조립. runtime·logs read의 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로,
 // release 준비·activation 진행, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/core/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
-// 앱 호출(`app.call_api`)·invocation·rewind는 wiring/apps.ts가 각 module을 잇는다.
+// 앱 호출(`app.call_tool`)·invocation·rewind는 wiring/apps.ts가 각 module을 잇는다.
 import {
   type Clock,
   createIdSource,
@@ -17,11 +17,10 @@ import {
   activationRecordDataChange,
   activationRecordDataRestore,
   activationStart,
-  appCallApi,
+  appCallTool,
   type AppGrant,
   appGrantsList,
   appLogs,
-  appProjects,
   appRecordStarted,
   appRecordStopped,
   appRecordUnavailable,
@@ -162,11 +161,10 @@ const SUPERVISOR_OPERATIONS = [
   // 앱의 외부 요청에 붙일 secret 값을 core가 현재 grant로 다시 판정해 건넨다.
   appsSecretValue.name,
 ];
-// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, project 목록, 문제 보고, process
-// 관측뿐이다. 호출·목록은 앱 process의 broker가 그 자식의 credential로 core를 부른다.
+// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, 문제 보고, process
+// 관측뿐이다. 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다.
 const APP_CHILD_OPERATIONS = [
-  appCallApi.name,
-  appProjects.name,
+  appCallTool.name,
   problemReport.name,
   observeException.name,
 ];
@@ -184,12 +182,10 @@ export function appsOperationPolicies(): OperationPolicy[] {
     // 앱 호출은 사람(전체 user 상한)과 agent, 호출한 앱 자신(child credential)이 한다. machine은 앱 child
     // credential을 발급하는 경로의 상한이다.
     {
-      name: appCallApi.name,
+      name: appCallTool.name,
       actors: ["machine", "agent", "app"],
       kind: "command",
     },
-    // 앱이 project 목록을 읽는다(사람은 전체 user 상한).
-    { name: appProjects.name, actors: ["app"], kind: "read" },
     // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
     { name: appLogs.name, actors: ["machine"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.

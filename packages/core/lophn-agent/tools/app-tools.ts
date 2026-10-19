@@ -1,8 +1,8 @@
 import { ok } from "../../../base/mod.ts";
 import {
-  type AppApiCallOutput,
-  appCallApi,
+  appCallTool,
   type InputSchema,
+  type ToolCallOutput,
 } from "../../../protocol/apps/mod.ts";
 import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type { AppTool } from "../../../protocol/apps/blueprint/read.ts";
@@ -16,10 +16,10 @@ import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 
 // 앱 app-api tool. 허락된 앱의 활성 release 선언에서 app-api 하나마다 tool 하나를 만든다. 호출은 core의
-// 호출 경로 route(`app.call_api`) 하나로 간다. 부른 쪽 확인, project 정하기, Gate, invocation 기록,
+// 호출 경로 route(`app.call_tool`) 하나로 간다. 부른 쪽 확인, Gate, invocation 기록,
 // 결과 모름은 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
-export const APP_TOOL_CONTRACT = appCallApi.name;
+export const APP_TOOL_CONTRACT = appCallTool.name;
 
 // agent grant가 이 app-api를 부르게 두는가. 앱을 할당하지 않았거나 api를 뺐으면 아니다.
 function grantAllows(
@@ -83,9 +83,9 @@ export async function buildAppApiTools(
         origin: "app",
         handler: async (input, ctx) => {
           const { input: appInput } = shape.split(input);
-          const reply = await readOf(ctx.core, appCallApi, {
+          const reply = await readOf(ctx.core, appCallTool, {
             target: { mode: "live", app: view.app, release: null },
-            api: api.name,
+            tool: api.name,
             ...(appInput === undefined ? {} : { input: appInput }),
             caller: callerOf(ctx),
           });
@@ -135,7 +135,7 @@ function resultOf(
   appName: string,
   api: string,
   effect: AppTool["effect"],
-  output: AppApiCallOutput,
+  output: ToolCallOutput,
 ): ToolResult {
   const label = `app-api ${api} of ${appName}`;
   const { invocation, outcome } = output;

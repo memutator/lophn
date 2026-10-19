@@ -12,7 +12,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
-  appCallApi,
+  appCallTool,
   appGet,
   appRuntime,
   RELEASE_FILE_MAX_COUNT,
@@ -29,7 +29,6 @@ import {
   verifyTicket,
   waitRunning,
 } from "../support/app/activate.ts";
-import { projectScopePatch } from "../support/app/patches.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider, until } from "../support/core/human.ts";
@@ -66,7 +65,6 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
     const first = await startTestApp(core, fake, {
       name: "Notes",
       slug: "notes",
-      patch: projectScopePatch,
     });
     gateways.push(first.gateway);
     const delivered = await deliverRelease(core, fake, first, {
@@ -116,9 +114,9 @@ Deno.test("E2E template 앱이 제품의 길로 release 준비를 지나 확인 
     );
     // process: 앱 process가 실제로 답했다
     assertEquals(observed.ready, true);
-    const called = await core.call(appCallApi, {
+    const called = await core.call(appCallTool, {
       target: { mode: "live", app: first.app, release: null },
-      api: "list_items",
+      tool: "list_items",
       caller: { kind: "person", view_session: "e2e" },
     });
     assertEquals(called.outcome.status, "succeeded");

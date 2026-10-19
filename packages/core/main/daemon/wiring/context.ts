@@ -34,7 +34,6 @@ import type {
   BundleLocator,
   CallerDirectory,
   InvocationLedger,
-  ProjectDirectory,
 } from "../../../apps/ports.ts";
 import type { KnownSecretMatch, Writer } from "../../../storage/ledger/mod.ts";
 import type { RestartOwner } from "../../../storage/migration/mod.ts";
@@ -217,10 +216,9 @@ type Late = {
   reactor: Reactor;
   // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
   approvals: ApprovalsService;
-  // apps가 받는 것. callerDirectory는 apps가 lophn-agent session 표로 채우고, projects(projectDirectory)와 releases(bundleLocator)가 채운다.
+  // apps가 받는 것. callerDirectory는 apps가 lophn-agent session 표로 채우고, releases(bundleLocator)가 채운다.
   // 없으면 apps wiring이 "아직 없음"이나 대체 구현으로 돈다.
   callerDirectory: CallerDirectory;
-  projectDirectory: ProjectDirectory;
   bundleLocator: BundleLocator;
   appViewSignal: AppViewSignal;
   // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
@@ -274,7 +272,6 @@ const LATE_KEYS: Record<keyof Late, true> = {
   reactor: true,
   approvals: true,
   callerDirectory: true,
-  projectDirectory: true,
   bundleLocator: true,
   appViewSignal: true,
   appIntake: true,

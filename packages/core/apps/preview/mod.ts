@@ -26,7 +26,6 @@ export {
   createPreviewAppsCallService,
   createPreviewBrokerServices,
   createPreviewExternalService,
-  createPreviewProjectsService,
   createPreviewSecretService,
   type PreviewAppsCallService,
   type PreviewExternalService,

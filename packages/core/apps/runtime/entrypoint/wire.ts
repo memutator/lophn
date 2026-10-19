@@ -68,7 +68,6 @@ export type ProcessCall = {
     app: string;
     release: string | null;
     mode: RuntimeMode;
-    project: string | null;
     effect: InvocationEffect;
     caller: InvocationCaller | null;
   };
@@ -95,14 +94,12 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
       "app",
       "release",
       "mode",
-      "project",
       "effect",
       "caller",
     ])
   ) return;
   const app = id(context.app, "app");
   const release = context.release === null ? null : id(context.release, "rel");
-  const project = context.project === null ? null : id(context.project, "prj");
   const mode = context.mode === "live" || context.mode === "preview" ||
       context.mode === "test"
     ? context.mode
@@ -113,14 +110,14 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
     : undefined;
   const from = context.caller === null ? null : caller(context.caller);
   if (
-    !app || release === undefined || project === undefined || !mode ||
+    !app || release === undefined || !mode ||
     !effect || from === undefined
   ) return;
   return {
     invocation,
     api,
     ...(source.input === undefined ? {} : { input: source.input }),
-    context: { app, release, mode, project, effect, caller: from },
+    context: { app, release, mode, effect, caller: from },
   };
 }
 

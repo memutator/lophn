@@ -43,7 +43,7 @@ export function createBrokerClient(deps: {
         ...(startChangeset === null ? {} : { start_changeset: startChangeset }),
       });
     },
-    // 다른 앱 호출. 부른 쪽과 project는 core가 정한다.
+    // 다른 앱 호출. 부른 쪽은 core가 정한다.
     appsCall(body: {
       target_app: string;
       api: string;
@@ -51,9 +51,6 @@ export function createBrokerClient(deps: {
       parent_invocation: string | null;
     }) {
       return post(BROKER_PATHS.appsCall, body);
-    },
-    projectsList() {
-      return post(BROKER_PATHS.projectsList, {});
     },
   };
 }

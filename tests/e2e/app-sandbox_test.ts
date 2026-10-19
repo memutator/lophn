@@ -10,7 +10,7 @@
 // fake 대답 상한(3)에 세지 않는다(README 정한 것 11). 이 case 자신은 model을 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import {
-  appCallApi,
+  appCallTool,
   appInvocations,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
@@ -48,9 +48,9 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
     assert(nonce !== undefined);
 
     const call = (api: string, input?: Record<string, string>) =>
-      core!.call(appCallApi, {
+      core!.call(appCallTool, {
         target: { mode: "live", app: app.app, release: null },
-        api,
+        tool: api,
         ...(input === undefined ? {} : { input }),
         caller: { kind: "person", view_session: "e2e" },
       });

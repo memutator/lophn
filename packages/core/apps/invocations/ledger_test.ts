@@ -108,7 +108,7 @@ async function write(
     app: APP,
     release,
     mode: "live",
-    operation: { kind: "api", api: "app.save" },
+    operation: { kind: "tool", tool: "app.save" },
     caller: {
       kind: "agent",
       session: `ses_${n(1)}` as Id<"ses">,

@@ -10,7 +10,6 @@ import type { SecretUseService } from "./secrets.ts";
 import type { ProblemReportService } from "./problems.ts";
 import type { ReadyService } from "./ready.ts";
 import type { AppsCallService } from "./apps-call.ts";
-import type { ProjectsListService } from "./projects.ts";
 
 const BROKER_ROUTES = {
   ready: "/_lophn/broker/ready",
@@ -19,7 +18,6 @@ const BROKER_ROUTES = {
   problemsReport: APP_BROKER_PATHS.problemsReport,
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
-  projectsList: APP_BROKER_PATHS.projects,
 } as const;
 
 const BROKER_BODY_MAX_BYTES = 1_048_576;
@@ -30,7 +28,6 @@ export type BrokerServices = {
   secrets?: SecretUseService;
   problems?: ProblemReportService;
   appsCall?: AppsCallService;
-  projects?: ProjectsListService;
 };
 
 export type BrokerSession = {
@@ -50,7 +47,7 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { ready, net, secrets, problems, appsCall, projects } = services;
+  const { ready, net, secrets, problems, appsCall } = services;
   if (ready) {
     table.set(
       BROKER_ROUTES.ready,
@@ -68,9 +65,6 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (appsCall) {
     table.set(BROKER_ROUTES.appsCall, (c, b) => appsCall.call(c, b));
-  }
-  if (projects) {
-    table.set(BROKER_ROUTES.projectsList, (c, b) => projects.list(c, b));
   }
   return table;
 }

@@ -152,10 +152,10 @@ export async function readRewindPoints(
 // ---------------------------------------------------------------- 사전 검사
 
 function operationText(
-  operation: { kind: string; api?: string },
+  operation: { kind: string; tool?: string },
 ): string {
-  return operation.kind === "api" && operation.api !== undefined
-    ? operation.api
+  return operation.kind === "tool" && operation.tool !== undefined
+    ? operation.tool
     : operation.kind;
 }
 

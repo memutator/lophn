@@ -1,6 +1,6 @@
-// `app:call`의 main service. 앱 preload가 보낸 `{api, input}`만 받고, 앱·release·mode·project는
+// `app:call`의 main service. 앱 preload가 보낸 `{api, input}`만 받고, 앱·release·mode는
 // IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). api는 그 view의 고정 blueprint가
-// 선언한 것만 core의 `app.call_api`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락과
+// 선언한 것만 core의 `app.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락과
 // 사람 결정은 core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
@@ -116,9 +116,6 @@ const DENIAL_CODES: Readonly<Record<string, string>> = {
   not_declared: "forbidden",
   call_loop: "conflict",
   call_too_deep: "conflict",
-  project_mismatch: "conflict",
-  project_required: "invalid_input",
-  project_not_found: "invalid_input",
   app_archived: "unavailable",
   app_unavailable: "unavailable",
 };
@@ -216,7 +213,7 @@ export function createAppCall(deps: AppCallDeps) {
         ? undefined
         : call.input;
 
-      const reply = await deps.call("memory", "apps", "call_api", {
+      const reply = await deps.call("memory", "apps", "call_tool", {
         target: view.target.mode === "live"
           ? {
             mode: "live",
@@ -228,11 +225,8 @@ export function createAppCall(deps: AppCallDeps) {
             app: view.target.app,
             process_nonce: view.binding.processNonce,
           },
-        api: declared.key,
+        tool: declared.key,
         ...(input === undefined ? {} : { input }),
-        ...(view.target.project === null
-          ? {}
-          : { project: view.target.project }),
         caller: { kind: "person", view_session: view.view_session },
       }).catch(() => ({
         ok: false as const,

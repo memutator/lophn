@@ -106,6 +106,7 @@ const EVENT_LABELS = {
   AppRestartHalted: "waiting.label.event-app-restart-halted",
   ReleaseActivationFailed: "waiting.label.event-activation-failed",
   KindViolationFound: "waiting.label.event-kind-violation",
+  PublicToolsChanged: "waiting.label.event-public-tools-changed",
 } as const;
 
 const DECLARED_LABELS = {

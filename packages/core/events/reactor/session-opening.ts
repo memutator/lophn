@@ -1,4 +1,4 @@
-// 새 일을 여는 domain event 다섯의 공통 handler. reaction grant를 보고 끄거나(off), 열고 묻지 않거나(open),
+// 새 일을 여는 domain event의 공통 handler. reaction grant를 보고 끄거나(off), 열고 묻지 않거나(open),
 // 보류 request를 만든다(ask). 여는 일은 Router에 program call을 보내는 것이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
@@ -51,6 +51,7 @@ async function projectOf(
     case "AppRestartHalted":
       return await deps.appProject(event.subject);
     case "KindViolationFound":
+    case "PublicToolsChanged":
       return ok(event.payload.project);
   }
 }
@@ -114,6 +115,17 @@ function callOf(
           "New kind violations were found in this project. Read them with kind.check.",
         refs: [],
       };
+    case "PublicToolsChanged": {
+      const tools = event.payload.tools.join(", ");
+      return {
+        ...base,
+        to: manager,
+        body: event.payload.change === "changed"
+          ? `A tool of an app you use or own changed (${tools}). Re-check the skills that call it.`
+          : `A release was blocked because it removes public tools that other projects use (${tools}).`,
+        refs: [],
+      };
+    }
   }
 }
 
@@ -207,5 +219,6 @@ export function registerNewWorkHandlers(
     handlerFor("ReleaseActivationFailed", deps),
   );
   reactor.on("KindViolationFound", handlerFor("KindViolationFound", deps));
+  reactor.on("PublicToolsChanged", handlerFor("PublicToolsChanged", deps));
   deps.approvals.registerApplier("reaction", applier(deps));
 }

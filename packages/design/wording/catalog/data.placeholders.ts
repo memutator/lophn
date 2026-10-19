@@ -72,6 +72,7 @@ export type DataPlaceholders = {
   "waiting.label.event-activation-failed": Record<never, never>;
   "waiting.label.event-app-restart-halted": Record<never, never>;
   "waiting.label.event-kind-violation": Record<never, never>;
+  "waiting.label.event-public-tools-changed": Record<never, never>;
   "waiting.label.event-problem-opened": Record<never, never>;
   "waiting.label.event-problem-reopened": Record<never, never>;
   "waiting.label.fact-detail": Record<never, never>;

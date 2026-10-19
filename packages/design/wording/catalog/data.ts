@@ -63,6 +63,7 @@ export const data = {
   "waiting.label.event-activation-failed": "An activation failed",
   "waiting.label.event-app-restart-halted": "App restarts were halted",
   "waiting.label.event-kind-violation": "A kind rule was broken",
+  "waiting.label.event-public-tools-changed": "A public tool changed",
   "waiting.label.event-problem-opened": "A problem was opened",
   "waiting.label.event-problem-reopened": "A problem was reopened",
   "waiting.label.fact-detail": "Detail",

@@ -1,4 +1,4 @@
-// Reactions가 읽고 쓰는 통로. 새 일을 여는 domain event 다섯마다 고른 방식은 선언 설정
+// Reactions가 읽고 쓰는 통로. 새 일을 여는 domain event마다 고른 방식은 선언 설정
 // (`reactions.<event>`)이다. 모양은 protocol(approvals의 reaction grant)에서 이 화면이 쓰는 것만 옮긴 것이다.
 import type { SourceResult } from "../source.ts";
 
@@ -11,6 +11,7 @@ export const REACTION_EVENTS = [
   "AppRestartHalted",
   "ReleaseActivationFailed",
   "KindViolationFound",
+  "PublicToolsChanged",
 ] as const;
 
 export type ReactionEvent = typeof REACTION_EVENTS[number];

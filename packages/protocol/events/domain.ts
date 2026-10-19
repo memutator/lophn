@@ -55,6 +55,17 @@ export const kindViolationFound = defineEvent("KindViolationFound", {
   }),
 });
 
+// project는 깨울 PM의 project다. 한 사실에 project마다 event 하나를 낸다. tools는 바뀌거나 막힌 공개 tool 이름이다.
+export const publicToolsChanged = defineEvent("PublicToolsChanged", {
+  subject: idSchema("app"),
+  payload: z.strictObject({
+    release: idSchema("rel"),
+    project: idSchema("prj"),
+    change: z.enum(["changed", "blocked"]),
+    tools: z.array(z.string().min(1)),
+  }),
+});
+
 // session은 완료를 보고한 coding session이다. lophn이 다시 켜진 뒤 Reactor가 call을 찾는 데 쓴다.
 export const ticketCompletionReported = defineEvent(
   "TicketCompletionReported",
@@ -108,6 +119,7 @@ export const DOMAIN_EVENTS = [
   appRestartHalted,
   releaseActivationFailed,
   kindViolationFound,
+  publicToolsChanged,
   ticketCompletionReported,
   ticketClaimExpired,
   codingSessionEndedUnreported,
@@ -140,6 +152,7 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(appRestartHalted),
   domainEventEnvelopeSchema(releaseActivationFailed),
   domainEventEnvelopeSchema(kindViolationFound),
+  domainEventEnvelopeSchema(publicToolsChanged),
   domainEventEnvelopeSchema(ticketCompletionReported),
   domainEventEnvelopeSchema(ticketClaimExpired),
   domainEventEnvelopeSchema(codingSessionEndedUnreported),
@@ -158,6 +171,7 @@ const DOMAIN_EVENT_KINDS = {
   AppRestartHalted: "new_work",
   ReleaseActivationFailed: "new_work",
   KindViolationFound: "new_work",
+  PublicToolsChanged: "new_work",
   TicketCompletionReported: "call_closing",
   TicketClaimExpired: "call_closing",
   CodingSessionEndedUnreported: "call_closing",
@@ -166,7 +180,7 @@ const DOMAIN_EVENT_KINDS = {
   VerificationRecorded: "program",
 } as const satisfies Record<DomainEventType, DomainEventKind>;
 
-// 새 일 다섯은 approvals의 REACTION_EVENT_TYPES와 같다. 어긋나면 type 오류다.
+// 새 일은 approvals의 REACTION_EVENT_TYPES와 같다. 어긋나면 type 오류다.
 type NewWorkTypes = {
   [T in DomainEventType]: (typeof DOMAIN_EVENT_KINDS)[T] extends "new_work" ? T
     : never;

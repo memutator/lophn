@@ -124,6 +124,7 @@ export const workspaceSettings = {
   "settings.label.reaction-open": "Open without asking",
   "settings.label.reaction-problem-opened": "Problem opened",
   "settings.label.reaction-problem-reopened": "Problem reopened",
+  "settings.label.reaction-public-tools-changed": "Public tool changed",
   "settings.label.reaction-restart-halted": "App restart halted",
   "settings.label.reactions-target": "your reaction settings",
   "settings.label.reading-width": "Reading width",
@@ -184,6 +185,8 @@ export const workspaceSettings = {
     "An app reports a problem for the first time.",
   "settings.reaction.problem-reopened-when":
     "A problem marked resolved shows up again in the active release.",
+  "settings.reaction.public-tools-changed-when":
+    "A release changes or is blocked from removing a public tool that an app you use or own offers.",
   "settings.reaction.restart-halted-when":
     "An app kept crashing and lophn stopped restarting it.",
   "settings.shell-density.help":

@@ -1,4 +1,4 @@
-// Reactions의 순수 규칙: event 다섯 줄의 글과 선택지. 기본은 열고 묻지 않음이다.
+// Reactions의 순수 규칙: event 줄의 글과 선택지. 기본은 열고 묻지 않음이다.
 import type { MessageKey } from "@lophn/wording";
 
 import type { ReactionEvent, ReactionMode, ReactionModes } from "./source.ts";
@@ -45,6 +45,12 @@ export const REACTION_ROWS: readonly ReactionRow[] = [
     when: "settings.reaction.kind-violation-when",
     opens: "settings.reaction.opens-project-manager",
   },
+  {
+    event: "PublicToolsChanged",
+    name: "settings.label.reaction-public-tools-changed",
+    when: "settings.reaction.public-tools-changed-when",
+    opens: "settings.reaction.opens-project-manager",
+  },
 ];
 
 export const MODE_OPTIONS: readonly {
@@ -75,4 +81,5 @@ export const DEFAULT_MODES: ReactionModes = {
   AppRestartHalted: DEFAULT_MODE,
   ReleaseActivationFailed: DEFAULT_MODE,
   KindViolationFound: DEFAULT_MODE,
+  PublicToolsChanged: DEFAULT_MODE,
 };

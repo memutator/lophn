@@ -117,6 +117,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.reaction-open": Record<never, never>;
   "settings.label.reaction-problem-opened": Record<never, never>;
   "settings.label.reaction-problem-reopened": Record<never, never>;
+  "settings.label.reaction-public-tools-changed": Record<never, never>;
   "settings.label.reaction-restart-halted": Record<never, never>;
   "settings.label.reactions-target": Record<never, never>;
   "settings.label.reading-width": Record<never, never>;
@@ -174,6 +175,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.reaction.opens-project-manager": Record<never, never>;
   "settings.reaction.problem-opened-when": Record<never, never>;
   "settings.reaction.problem-reopened-when": Record<never, never>;
+  "settings.reaction.public-tools-changed-when": Record<never, never>;
   "settings.reaction.restart-halted-when": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;
   "settings.shell-density.name": Record<never, never>;

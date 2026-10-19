@@ -104,6 +104,7 @@ export const REACTION_EVENT_TYPES = [
   "AppRestartHalted",
   "ReleaseActivationFailed",
   "KindViolationFound",
+  "PublicToolsChanged",
 ] as const;
 export const reactionEventTypeSchema = z.enum(REACTION_EVENT_TYPES);
 export type ReactionEventType = z.infer<typeof reactionEventTypeSchema>;
@@ -120,6 +121,7 @@ export const reactionGrantSchema = z.strictObject({
   AppRestartHalted: reactionModeSchema,
   ReleaseActivationFailed: reactionModeSchema,
   KindViolationFound: reactionModeSchema,
+  PublicToolsChanged: reactionModeSchema,
 });
 export type ReactionGrant = z.infer<typeof reactionGrantSchema>;
 

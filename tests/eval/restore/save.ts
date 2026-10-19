@@ -141,8 +141,9 @@ async function nextN(root: string, name: string): Promise<number> {
   return max + 1;
 }
 
-// parent는 저장하는 app id가 든 재료(둘 이상이면 n이 큰 것), needs는 나머지 가운데 켜진 앱과 package다.
-function relations(
+// parent는 저장하는 app id가 든 재료(둘 이상이면 n이 큰 것), needs는 parent의 needs와 나머지 가운데 켜진 앱과 package다.
+// 자식은 parent를 되살리지 않으므로 parent가 기대던 재료를 자식이 직접 이어야 혼자 풀 수 있다.
+export function relations(
   materials: Material[],
   ids: Record<string, string>,
 ): Pick<MaterialManifest, "needs" | "parent"> {
@@ -150,13 +151,15 @@ function relations(
   const owners = materials.filter((item) =>
     Object.values(item.manifest.ids).some((id) => saved.has(id))
   ).sort((a, b) => splitRef(a.ref).n - splitRef(b.ref).n);
-  const parent = owners.at(-1)?.ref ?? null;
+  const top = owners.at(-1);
+  const parent = top?.ref ?? null;
+  const others = materials.filter((item) =>
+    item.ref !== parent &&
+    (item.manifest.kind === "active_app" || item.manifest.kind === "package")
+  ).map((item) => item.ref);
   return {
     parent,
-    needs: materials.filter((item) =>
-      item.ref !== parent &&
-      (item.manifest.kind === "active_app" || item.manifest.kind === "package")
-    ).map((item) => item.ref),
+    needs: [...new Set([...(top?.manifest.needs ?? []), ...others])],
   };
 }
 

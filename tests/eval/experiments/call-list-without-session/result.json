@@ -1,0 +1,503 @@
+{
+  "id": "call-list-without-session",
+  "decision": "reject",
+  "rule": "default@1",
+  "spec_hash": "47be9dec90d77076de1dac2d297059bffc0459206b21894fc22693676dd49b7a",
+  "spec_commit": "a0e4152afa36b192fc7a84cd2efc45778bf2a6c3",
+  "changed": [
+    {
+      "from": "core:core@6",
+      "to": "core:core@7"
+    },
+    {
+      "from": "runtime:runtime@2",
+      "to": "runtime:runtime@3"
+    }
+  ],
+  "mixed": true,
+  "scenarios": [
+    {
+      "scenario": "A14-other",
+      "n": 1,
+      "role": "target",
+      "checks": [
+        "call-to-todo-ae"
+      ],
+      "baseline_runs": [
+        "run_01m595aeq6hqzrf00b6vfa93av",
+        "run_01m596gc4ebrn4bg32t7h3w46m"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983ysdqsp56pwmnh745040"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "fail",
+      "weaker": false,
+      "note": "variant 0/1, baseline 0/2: 통과하지 못했다"
+    },
+    {
+      "scenario": "O4",
+      "n": 1,
+      "role": "target",
+      "checks": [
+        "call-to-gagyebu-ae-none"
+      ],
+      "baseline_runs": [
+        "run_01m596gc4ebrn4bg32t7h3w46z"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0z7"
+      ],
+      "variant": {
+        "passed": 3,
+        "trials": 3,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 3/3, baseline 0/1: 나아졌다"
+    },
+    {
+      "scenario": "A12",
+      "n": 1,
+      "role": "case",
+      "checks": [
+        "call-to-lophn"
+      ],
+      "baseline_runs": [
+        "run_01m595aeq6hqzrf00b6vfa93at",
+        "run_01m596gc4ebrn4bg32t7h3w46k"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0z8"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "fail",
+      "weaker": false,
+      "note": "variant 0/1, baseline 0/2: 통과하지 못했다"
+    },
+    {
+      "scenario": "C9-other",
+      "n": 1,
+      "role": "case",
+      "checks": [
+        "call-to-hr-pm"
+      ],
+      "baseline_runs": [
+        "run_01m595aeq6hqzrf00b6vfa93ax",
+        "run_01m596gc4ebrn4bg32t7h3w46p"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0z9"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "fail",
+      "weaker": false,
+      "note": "variant 0/1, baseline 0/2: 통과하지 못했다"
+    },
+    {
+      "scenario": "A1-ask",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595aeq5axvq3xa4bdt9mjnk",
+        "run_01m596gc4ctqcfg1041qjmkjb7"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0za"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "C8",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595aeq6hqzrf00b6vfa93aw",
+        "run_01m596gc4ebrn4bg32t7h3w46n"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zb"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "L1",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696x1f1nbkw4erqe2fkh",
+        "run_01m596gc4ebrn4bg32t7h3w46q"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zc"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "L4-app",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1fa",
+        "run_01m596gc4ebrn4bg32t7h3w46r"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zd"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "L4-new",
+      "n": 2,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m59593fe7zn8bc4dze5wqsqp",
+        "run_01m596gc4ebrn4bg32t7h3w46s"
+      ],
+      "baseline": {
+        "passed": 1,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0ze"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 3
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+3 채점 대기), baseline 1/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "L5",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1fc",
+        "run_01m596gc4ebrn4bg32t7h3w46t"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zf"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "L6",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1fd",
+        "run_01m596gc4ebrn4bg32t7h3w46v"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zg"
+      ],
+      "variant": {
+        "passed": 1,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 1/1, baseline 2/2: 통과"
+    },
+    {
+      "scenario": "L7",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1fe",
+        "run_01m596gc4ebrn4bg32t7h3w46w"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zh"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 0/1, baseline 0/2: 통과"
+    },
+    {
+      "scenario": "L8",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1ff",
+        "run_01m596gc4ebrn4bg32t7h3w46x"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zj"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다"
+    },
+    {
+      "scenario": "O6",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m596gc4ebrn4bg32t7h3w470"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zk"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 0,
+        "pending": 1
+      },
+      "remaining": 0,
+      "status": "incomplete",
+      "weaker": false,
+      "note": "variant 0/0 (+1 채점 대기), baseline 0/1: 끝나지 않았다"
+    },
+    {
+      "scenario": "O7",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m596gc4ebrn4bg32t7h3w471"
+      ],
+      "baseline": {
+        "passed": 1,
+        "trials": 1,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zm"
+      ],
+      "variant": {
+        "passed": 1,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 1/1, baseline 1/1: 통과"
+    },
+    {
+      "scenario": "T19-lophn",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m595696ysream9m5bfvfw1fg",
+        "run_01m596gc4ebrn4bg32t7h3w46y"
+      ],
+      "baseline": {
+        "passed": 2,
+        "trials": 2,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zn"
+      ],
+      "variant": {
+        "passed": 1,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 1/1, baseline 2/2: 통과"
+    },
+    {
+      "scenario": "T19-op",
+      "n": 1,
+      "role": "guard",
+      "checks": null,
+      "baseline_runs": [
+        "run_01m596gc4ebrn4bg32t7h3w472"
+      ],
+      "baseline": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "variant_runs": [
+        "run_01m5983yse5w4he31ag1a6j0zp"
+      ],
+      "variant": {
+        "passed": 0,
+        "trials": 1,
+        "pending": 0
+      },
+      "remaining": 0,
+      "status": "ok",
+      "weaker": false,
+      "note": "variant 0/1, baseline 0/1: 통과"
+    }
+  ],
+  "keep": [],
+  "excluded": [],
+  "reasons": [
+    "reject: target 1/2 ok, case 0/2 ok, guard 5/13 ok",
+    "target A14-other: variant 0/1, baseline 0/2: 통과하지 못했다",
+    "case A12: variant 0/1, baseline 0/2: 통과하지 못했다",
+    "case C9-other: variant 0/1, baseline 0/2: 통과하지 못했다",
+    "guard A1-ask: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard C8: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard L1: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard L4-app: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard L4-new: variant 0/0 (+3 채점 대기), baseline 1/2: 끝나지 않았다",
+    "guard L5: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard L8: variant 0/0 (+1 채점 대기), baseline 2/2: 끝나지 않았다",
+    "guard O6: variant 0/0 (+1 채점 대기), baseline 0/1: 끝나지 않았다",
+    "섞인 변경이다: core:core@6→core:core@7"
+  ],
+  "cost_usd": 0.5228309999999999,
+  "stopped_by_budget": false,
+  "decided_at": "2026-10-19T04:55:11.878Z"
+}

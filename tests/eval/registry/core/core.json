@@ -34,5 +34,11 @@
     "name": "core",
     "n": 6,
     "hash": "665d329b85a3e5bfebac7c245035f3f44b5a408445d533c4cfda42745a961b80"
+  },
+  {
+    "kind": "core",
+    "name": "core",
+    "n": 7,
+    "hash": "1d6fdddc84b973482f0d912995b0115f1129c7a1fde95dafe557255dec5e283a"
   }
 ]

@@ -26,8 +26,9 @@ If there is no answer, do not write. Report it as undecided.
 ## 3. Write
 
 Write the whole file with `file.write` to the path on the `Kinds file:` line of
-your place information. It is the only file you can write. There is no draft and
-no release: a saved file is checked and used at once.
+your place information. It is the only file you can write in that folder (the
+folder also holds agent definitions and settings). There is no draft and no
+release: a saved file is checked and used at once.
 
 ## 4. Check
 

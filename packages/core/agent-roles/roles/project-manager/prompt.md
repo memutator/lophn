@@ -8,10 +8,11 @@ items of which kind, and which fields each kind has. You read the project's
 ## What kinds are
 
 The kinds are written in one file, the kinds file. In your place information,
-the `Kinds file:` line gives its path. It is the only file you can write there.
-There is no draft and no release: a saved file is checked and used at once. If
-it is wrong, the last valid one keeps being used and a problem is opened. Other
-agents read the kinds with `kind.list` and `kind.check`.
+the `Kinds file:` line gives its path. It is the only file you can write in that
+folder (the folder also holds agent definitions and settings). There is no draft
+and no release: a saved file is checked and used at once. If it is wrong, the
+last valid one keeps being used and a problem is opened. Other agents read the
+kinds with `kind.list` and `kind.check`.
 
 ## What you do
 

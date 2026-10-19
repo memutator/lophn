@@ -3,6 +3,7 @@ import {
   problemGet,
   problemGetOccurrence,
   problemList,
+  problemListProject,
   problemSetState,
   reportBody,
 } from "../../protocol/problems/mod.ts";
@@ -11,6 +12,7 @@ import {
   countSummary,
   defineTool,
   fitted,
+  invalid,
   readBody,
   readOf,
   type ToolDefinition,
@@ -28,19 +30,41 @@ export const PROBLEMS_AGENT_TOOLS: readonly ToolDefinition[] = [
     name: "problem.list",
     input: z.strictObject({
       app: idSchema("app").optional(),
+      project: idSchema("prj").optional(),
       state: problemStateSchema.optional(),
       since: atSchema.optional(),
       until: atSchema.optional(),
     }),
-    routes: [problemList],
+    routes: [problemList, problemListProject],
     description:
-      "List problems, optionally of one app, one state or a period of last occurrence (since, until).",
+      "List problems, optionally of one app, one state or a period of last occurrence (since, until). Pass `project` to list the kind violations of a project instead of app problems (only `state` can go with it; its states are open and resolved).",
     effect: "read",
     handler: async (input, ctx) => {
+      const { project, ...appFilter } = input;
+      if (project !== undefined) {
+        if (Object.keys(appFilter).some((k) => k !== "state")) {
+          return invalid("project can only be combined with state");
+        }
+        const state = appFilter.state;
+        if (state === "ignored") {
+          return invalid("project problems are open or resolved");
+        }
+        const listed = await readOf(ctx.core, problemListProject, {
+          project,
+          ...(state === undefined ? {} : { state }),
+        });
+        if (!listed.ok) return listed;
+        const { body, more } = readBody(listed.value);
+        return ok(fitted(
+          countSummary("problems", body.problems.length, more),
+          body,
+          ["problems"],
+        ));
+      }
       const read = await readOf(
         ctx.core,
         problemList,
-        input,
+        appFilter,
       );
       if (!read.ok) return read;
       const { body, more } = readBody(read.value);

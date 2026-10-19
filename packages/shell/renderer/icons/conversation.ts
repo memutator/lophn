@@ -16,7 +16,6 @@ import {
   Search,
   SearchCheck,
   Square,
-  X,
 } from "lucide-react";
 
 // 대화 도크가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
@@ -34,7 +33,6 @@ export const conversationIcons = {
   jumpLatest: ArrowDown,
   result: FileText,
   attach: Plus,
-  removeContext: X,
   expand: ChevronDown,
   search: Search,
   current: Check,

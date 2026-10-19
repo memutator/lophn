@@ -52,7 +52,6 @@ export type ProjectPlaceholders = {
   "document.label.compare-disk": Record<never, never>;
   "document.label.compare-mine": Record<never, never>;
   "document.label.conflict": Record<never, never>;
-  "document.label.contexts": Record<never, never>;
   "document.label.find": Record<never, never>;
   "document.label.find-count": {
     current: "number";
@@ -185,15 +184,12 @@ export type ProjectPlaceholders = {
   "project-workspace.label.kind-terminal": Record<never, never>;
   "project-workspace.label.menu-agent": Record<never, never>;
   "project-workspace.label.menu-app-panel": Record<never, never>;
-  "project-workspace.label.menu-context": Record<never, never>;
   "project-workspace.label.menu-document": Record<never, never>;
   "project-workspace.label.menu-search": Record<never, never>;
   "project-workspace.label.menu-terminal": Record<never, never>;
   "project-workspace.label.minimized": Record<never, never>;
   "project-workspace.label.path": Record<never, never>;
   "project-workspace.label.rail-agent": Record<never, never>;
-  "project-workspace.label.rail-contexts": Record<never, never>;
-  "project-workspace.label.rail-saved": Record<never, never>;
   "project-workspace.label.rail-search": Record<never, never>;
   "project-workspace.label.rail-shortcuts": Record<never, never>;
   "project-workspace.label.rail-terminal": Record<never, never>;

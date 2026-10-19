@@ -171,7 +171,6 @@ export const agents = {
   "agents.title.upload-failed": "Couldn't upload",
   "project-workspace.button.add-server": "Add server",
   "project-workspace.button.add-skill": "Add skill",
-  "project-workspace.button.agent-editor-add-context": "Add context",
   "project-workspace.button.agent-editor-delete": "Delete Operator",
   "project-workspace.button.agent-editor-delete-confirm": "Delete",
   "project-workspace.button.agent-editor-edit-project": "Edit LOPHN.md",
@@ -180,14 +179,11 @@ export const agents = {
   "project-workspace.button.edit-instructions": "Edit",
   "project-workspace.button.new-operator": "New Operator",
   "project-workspace.button.open-agent": "Open",
-  "project-workspace.empty.agent-editor-no-contexts":
-    "No contexts. This operator works with project documents only.",
   "project-workspace.empty.agent-editor-no-project":
     "This project has no instructions yet.",
   "project-workspace.empty.no-instructions": "LOPHN.md is empty.",
   "project-workspace.empty.no-mcp-servers": "No MCP servers registered yet.",
   "project-workspace.empty.no-skills": "No skills registered yet.",
-  "project-workspace.heading.agent-editor-contexts": "Contexts",
   "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
   "project-workspace.heading.agent-editor-mcp": "MCP servers",
   "project-workspace.heading.agent-editor-model": "Model",
@@ -210,7 +206,6 @@ export const agents = {
   "project-workspace.label.agent-editor-model-unset":
     "Use project default — none chosen yet",
   "project-workspace.label.agent-editor-name": "Name",
-  "project-workspace.label.agent-editor-remove-context": "Remove {name}",
   "project-workspace.label.agent-kind-operator": "Operator",
   "project-workspace.label.agent-no-model": "No model",
   "project-workspace.label.agents-target": "the agents",
@@ -235,7 +230,7 @@ export const agents = {
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
-    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} missingReference {Something this refers to no longer exists} archivedReference {This context is archived, so pick an active one} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and Workspace defaults.",
   "project-workspace.notice.agent-editor-save-first":

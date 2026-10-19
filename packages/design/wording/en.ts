@@ -5,7 +5,6 @@ import { appSpace } from "./catalog/app-space.ts";
 import { artifact } from "./catalog/artifact.ts";
 import { browser } from "./catalog/browser.ts";
 import { common } from "./catalog/common.ts";
-import { contexts } from "./catalog/contexts.ts";
 import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
 import { project } from "./catalog/project.ts";
@@ -19,7 +18,6 @@ export const AREAS = {
   artifact,
   browser,
   common,
-  contexts,
   conversation,
   data,
   project,
@@ -33,7 +31,6 @@ export const en = {
   ...artifact,
   ...browser,
   ...common,
-  ...contexts,
   ...conversation,
   ...data,
   ...project,

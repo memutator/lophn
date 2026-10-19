@@ -32,7 +32,6 @@ export const conversation = {
   "conversation.button.recap-dismiss": "Dismiss",
   "conversation.button.remove-model": "Remove model",
   "conversation.button.refresh-models": "Refresh models",
-  "conversation.button.remove-context": "Remove context",
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
   "conversation.button.retry": "Retry",

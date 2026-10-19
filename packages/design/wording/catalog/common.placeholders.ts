@@ -42,7 +42,6 @@ export type CommonPlaceholders = {
   };
   "common.heading.count": Record<never, never>;
   "common.heading.group": Record<never, never>;
-  "common.heading.palette-contexts": Record<never, never>;
   "common.label.all-of": {
     dimension: "string";
   };
@@ -105,10 +104,7 @@ export type CommonPlaceholders = {
   "common.title.pick-folder-relocate": Record<never, never>;
   "common.title.quit": Record<never, never>;
   "common.title.register-coding-agent": Record<never, never>;
-  "contexts.empty.tab-none": Record<never, never>;
-  "contexts.label.frame-chip": Record<never, never>;
-  "contexts.label.rail-contexts": Record<never, never>;
-  "contexts.label.rail-search": Record<never, never>;
+  "contexts.label.glossary-by-user": Record<never, never>;
   "document.button.check-again": Record<never, never>;
   "document.button.read": Record<never, never>;
   "document.label.saving": Record<never, never>;

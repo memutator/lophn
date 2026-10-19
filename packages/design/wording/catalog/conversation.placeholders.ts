@@ -39,7 +39,6 @@ export type ConversationPlaceholders = {
   "conversation.button.recap-dismiss": Record<never, never>;
   "conversation.button.remove-model": Record<never, never>;
   "conversation.button.refresh-models": Record<never, never>;
-  "conversation.button.remove-context": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.retry": Record<never, never>;

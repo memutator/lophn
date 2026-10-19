@@ -5,7 +5,6 @@ import type { AppSpacePlaceholders } from "./catalog/app-space.placeholders.ts";
 import type { ArtifactPlaceholders } from "./catalog/artifact.placeholders.ts";
 import type { BrowserPlaceholders } from "./catalog/browser.placeholders.ts";
 import type { CommonPlaceholders } from "./catalog/common.placeholders.ts";
-import type { ContextsPlaceholders } from "./catalog/contexts.placeholders.ts";
 import type { ConversationPlaceholders } from "./catalog/conversation.placeholders.ts";
 import type { DataPlaceholders } from "./catalog/data.placeholders.ts";
 import type { ProjectPlaceholders } from "./catalog/project.placeholders.ts";
@@ -19,7 +18,6 @@ export type PlaceholderKinds =
   & ArtifactPlaceholders
   & BrowserPlaceholders
   & CommonPlaceholders
-  & ContextsPlaceholders
   & ConversationPlaceholders
   & DataPlaceholders
   & ProjectPlaceholders

@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-problem-contract` | problem | 1 | dk-kinds-contract | merged | problem/dk-problem-contract | bdc10e140 |  |
 | `dk-agent-tools` | agent-tools | 2 | 없음 | running | agent-tools/dk-agent-tools |  |  |
 | `dk-kinds-host` | kinds | 2 | 없음 | merged | kinds/dk-kinds-host | 8b114a399 |  |
-| `dk-kinds-worker` | kinds | 2 | 없음 | running | kinds/dk-kinds-worker |  |  |
+| `dk-kinds-worker` | kinds | 2 | 없음 | merged | kinds/dk-kinds-worker | 586630cf6 |  |
 | `dk-problem-core` | problem | 2 | 없음 | running | problem/dk-problem-core |  |  |
 | `dk-prompt-place` | prompt | 2 | 없음 | todo |  |  |  |
 | `dk-chips-reactions` | chips | 3 | dk-shell-workspace | todo |  |  |  |

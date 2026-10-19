@@ -31,7 +31,7 @@
 - **계획 사이 문(status.py가 보지 않는다. lead가 planner의 말을 기다린다)**
   - **wave 3 전체:** `domain-tools` wave 1(`dt-decl`, `dt-call-route`)이 main에 land한 뒤 연다. `public` 칸과 invocation operation 모양을 읽는다.
   - **`dp-storage-apps`, `dp-problems-core`:** 위와 같은 때에 연다. `dt-call-route`가 preview adapter, runtime entrypoint, `wiring/apps.ts`, `control.ts`, `routes.ts`를 크게 고치므로 그 뒤에 자리를 옮기는 편이 충돌이 적다.
-  - **`dp-shell-launcher`:** 사람에게 먼저 묻는다. project 등록 화면을 바꾼다(folder 0개).
+  - **`dp-shell-launcher`:** 사람이 folder 0개 등록을 허용으로 정했다. 문이 열렸다.
 - 시작 조건: 없다. wave 3만 위의 조건이 있다. 계획 `domain-kinds`, `domain-tools`, `artifact`와 같이 돈다.
 
 ## 정한 것
@@ -42,7 +42,7 @@ roadmap "정한 것"(앱 place를 두지 않는다, 재사용은 package, home d
   - 앱 record에 project 칸이 생긴다. 필수이고, project 하나에 앱 하나다.
   - 앱을 만들 때 project를 고른다. 맞는 project가 없으면 lophn이 사람에게 project를 만들자고 묻는다(`ask`). project 등록은 지금처럼 사람만 한다(`project.create`의 actor는 `user`).
   - 근거: 앱 data의 경계를 core가 지키려면 앱이 어느 project 것인지가 data에 있어야 한다. 지금은 `source_path`가 project 폴더 안에 있는지로만 이어진다(`tools/context/visible.ts`의 `projectOfApp`).
-- **folder 0개인 project:** 앱 data만 있는 project를 위해 사람의 폴더 없이 등록할 수 있게 한다. 그 project의 `LOPHN.md`는 lophn data 자리(`<data>/projects/<prj>/LOPHN.md`)에 둔다.
+- **folder 0개인 project:** 앱 data만 있는 project를 위해 사람의 폴더 없이 등록할 수 있게 한다(사람이 정했다, 2026-10-19). 그 project의 `LOPHN.md`는 lophn data 자리(`<data>/projects/<prj>/LOPHN.md`)에 둔다.
 - **앱 저장 자리:** `<data>/apps/<app>/`를 `<data>/projects/<prj>/app/` 아래로 옮긴다. 대상은 data, release 사본, 기본 source 자리다. 사람이 이은 source 폴더는 그대로 둔다. 개발 data는 새로 만든다.
 - **place:** `Place`는 project 하나다(`packages/protocol/lophn-agent/places.ts`). 앱 place, 앱 place의 Operator, App Engineer 정의 자리는 지운다.
 - **PM이 App Engineer의 일을 맡는다**

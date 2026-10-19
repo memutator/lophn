@@ -440,6 +440,7 @@ domain의 저장 자리는 둘이다.
 - skill은 정형화하지 않은 agent용 지침이다. program이 파싱하지 않고, 판단이 필요하면 Domain Engineer에게 맡긴다.
 - 앱 place를 두지 않는다. place는 domain 하나다. 여러 domain이 다시 쓰는 것은 data 없는 package(view template과 tool 코드)이고, 어느 domain과도 상관없는 앱은 작은 domain 하나다. 앱 place를 두면 쓰는 domain의 data가 앱 저장소에 쌓여 경계를 core가 지키지 못한다.
 - artifact는 lophn의 자리(`<data>/domains/<domain>/artifacts/`)에 둔다.
+- 사람의 폴더가 없는 domain(folder 0개)도 등록할 수 있다. 앱 data만 있는 domain을 위한 것이다(2026-10-19).
 - role agent가 정적 view(HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, live view)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
 - 경계를 넘는 판단(경계 자르기, 재사용, export)은 lophn이 한다. 따로 Architect role을 두지 않는다.
 - Operator의 skill을 domain이 다룬다. 책임의 기본 단위는 domain 경계이고, skill은 그 하위 단위가 될 수 있다.

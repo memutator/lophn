@@ -249,7 +249,7 @@ Deno.test("agent 자격은 artifact target annotation을 읽지 못하고 사람
   world.close();
 });
 
-Deno.test("project 조건 agent는 자기 project의 artifact annotation만 읽고 묶이지 않은 agent는 읽지 못한다", async () => {
+Deno.test("project 조건 agent는 자기 project의 artifact annotation만, app 조건도 있으면 자기 앱 것도 읽고 묶이지 않은 agent는 읽지 못한다", async () => {
   const world = open();
   const other = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
   const send = async (target: unknown) => {
@@ -287,6 +287,16 @@ Deno.test("project 조건 agent는 자기 project의 artifact annotation만 읽�
   assertEquals(code(get(project, app!)), "not_found");
   assertEquals(code(get({}, mine!)), "forbidden");
   assertEquals(code(get({}, app!)), "forbidden");
+  // 앱이 있는 project의 Project Manager는 둘 다 가진다.
+  const both = { app: APP, project: PROJECT };
+  assertEquals(code(get(both, app!)), "ok");
+  assertEquals(code(get(both, mine!)), "ok");
+  assertEquals(code(get(both, theirs!)), "not_found");
+  const otherApp = await send({
+    kind: "app",
+    app: "app_01hzzzzzzzzzzzzzzzzzzzzzzb",
+  });
+  assertEquals(code(get(both, otherApp!)), "not_found");
   for (const id of [mine, theirs, app]) {
     assert(
       createAnnotationReads().get.handle(

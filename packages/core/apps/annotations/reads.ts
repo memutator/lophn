@@ -17,9 +17,9 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱 또는 project 하나, 사람과 machine은
-// 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는 읽을 수 없다.
-type Scope = { app: string } | { project: string } | null;
+// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱과 project(둘 다 올 수 있다. 앱이 있는
+// project의 Project Manager), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는 읽을 수 없다.
+type Scope = { app?: string; project?: string } | null;
 
 function callerScope(
   snapshot: ReadSnapshot,
@@ -42,8 +42,12 @@ function callerScope(
   }
   if (actor?.kind !== "agent") return ok(null);
   const { app, project } = ctx.conditions;
-  if (app !== undefined) return ok({ app });
-  if (project !== undefined) return ok({ project });
+  if (app !== undefined || project !== undefined) {
+    return ok({
+      ...(app !== undefined && { app }),
+      ...(project !== undefined && { project }),
+    });
+  }
   return err({
     code: "forbidden",
     message: "annotation is not readable without an app or project",
@@ -55,9 +59,10 @@ function inScope(
   target: { kind: string; app?: string; project?: string },
 ): boolean {
   if (scope === null) return true;
-  return "app" in scope
-    ? target.kind === "app" && target.app === scope.app
-    : target.kind === "artifact" && target.project === scope.project;
+  return target.kind === "app"
+    ? scope.app !== undefined && target.app === scope.app
+    : target.kind === "artifact" && scope.project !== undefined &&
+      target.project === scope.project;
 }
 
 export function createAnnotationReads(): {

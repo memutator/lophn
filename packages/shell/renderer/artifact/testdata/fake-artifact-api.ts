@@ -13,6 +13,8 @@ export function fakeArtifactApi(
     /** 목록은 이 domain 하나에만 있다(기본은 fake project의 첫 domain). */
     artifacts?: readonly ArtifactListItem[];
     domain?: string;
+    /** domain id마다 따로 주는 목록. 있으면 `artifacts`와 `domain`보다 먼저 본다. */
+    perDomain?: Readonly<Record<string, readonly ArtifactListItem[]>>;
     title?: string;
   } = {},
 ): {
@@ -47,7 +49,9 @@ export function fakeArtifactApi(
     reload: () => Promise.resolve(null),
     list: ({ domain }) =>
       Promise.resolve({
-        artifacts: domain === (options.domain ?? FAKE_DOMAINS[0]!.id)
+        artifacts: options.perDomain !== undefined
+          ? [...(options.perDomain[domain] ?? [])]
+          : domain === (options.domain ?? FAKE_DOMAINS[0]!.id)
           ? [...(options.artifacts ?? [])]
           : [],
       }),

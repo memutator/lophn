@@ -1,7 +1,7 @@
 import type { Area } from "../types.ts";
 import { ChatLink } from "./artifact/chat-link.tsx";
 import { ArtifactScene } from "./artifact/scene.tsx";
-import { ArtifactSidebar } from "./artifact/sidebar.tsx";
+import { ArtifactSidebar, ArtifactSidebarSingle } from "./artifact/sidebar.tsx";
 
 export const artifactArea: Area = {
   id: "artifact",
@@ -48,14 +48,21 @@ export const artifactArea: Area = {
       id: "artifact-sidebar-list",
       title: "Artifact · sidebar list",
       description:
-        "project sidebar의 Artifacts 탭에 artifact가 있을 때의 목록이다. 탭은 Explorer, Agent, Artifacts 순으로 Artifacts가 세 번째이고, 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이다. 줄을 누르면 그 artifact가 탭으로 열린다.",
+        "project sidebar의 Artifacts 탭에 domain이 둘 이상일 때의 목록이다. domain 제목 아래에 artifact 묶음이 서고 제목을 누르면 묶음이 접힌다(제목 오른쪽 끝에 개수). 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이고 누르면 그 artifact가 탭으로 열린다. artifact가 없는 domain은 묶음에 안내 한 문장이 선다.",
       render: () => <ArtifactSidebar />,
+    },
+    {
+      id: "artifact-sidebar-single",
+      title: "Artifact · sidebar one domain",
+      description:
+        "domain이 하나뿐인 project의 Artifacts 목록이다. 묶음 제목 없이 한 줄 목록이다. 고정 크기 칸에 목록만 그린다.",
+      render: () => <ArtifactSidebarSingle />,
     },
     {
       id: "artifact-sidebar-empty",
       title: "Artifact · sidebar empty",
       description:
-        "artifact가 하나도 없을 때의 Artifacts 탭이다. 본문에는 단추 없이 안내 한 문장만 있다.",
+        "artifact가 하나도 없을 때(domain 개수와 상관없이)의 Artifacts 탭이다. 본문에는 단추 없이 안내 한 문장만 있다.",
       render: () => <ArtifactSidebar empty />,
     },
   ],

@@ -24,6 +24,22 @@ export const ARTIFACTS: readonly ArtifactListItem[] = [
   },
 ];
 
+/** 둘째 domain(research)의 artifact. */
+export const RESEARCH_ARTIFACTS: readonly ArtifactListItem[] = [
+  {
+    name: "reading-list",
+    title: "Reading list",
+    description: "Papers and posts to read next, grouped by topic.",
+    modified: "2026-10-17T14:20:00Z",
+  },
+  {
+    name: "interview-notes",
+    title: "Interview notes",
+    description: "What each person said, with the quotes that repeat.",
+    modified: "2026-10-10T10:00:00Z",
+  },
+];
+
 export const SPENDING = ARTIFACTS[0]!;
 
 /** 막대 하나의 값. 높이는 가장 큰 값 대비 비율이다. */

@@ -21,7 +21,7 @@ import {
   openedProjectManagerSession,
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
-import type { WorkspaceSource } from "./source.ts";
+import type { DomainView, WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 
 interface TabHostSlicesInput {
@@ -51,18 +51,20 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
-  // 대화 글의 artifact link가 쓰는 목록. 창이 mount될 때 한 번 읽는다.
-  const [domains, setDomains] = useState<readonly string[]>([]);
+  // 창이 mount될 때 한 번 읽는다. 대화 글의 artifact link와 sidebar의 Artifacts 묶음이 쓴다.
+  const [domains, setDomains] = useState<readonly DomainView[]>([]);
   useEffect(() => {
     let live = true;
     void source.domains(project).then((read) => {
-      if (live && read.ok) setDomains(read.value.map((domain) => domain.id));
+      if (live && read.ok) setDomains(read.value);
     });
     return () => {
       live = false;
     };
   }, [source, project]);
-  const artifactList = useArtifactList(domains);
+  const artifactList = useArtifactList(
+    domains.map((domain) => domain.id),
+  );
   const artifactNames = useMemo(
     () =>
       artifactList.items.map((item) => ({

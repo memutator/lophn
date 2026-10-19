@@ -1,78 +1,192 @@
 import { assert, assertEquals } from "@std/assert";
-import { type PlaceData, placeInfo, type PlaceProject } from "./place-info.ts";
+import { err, ok } from "../../../base/mod.ts";
+import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
+import type { CoreCall } from "../../lophn-agent/run-loop/core-call.ts";
+import { placeData, type PlaceFiles } from "./place-data.ts";
 
-function project(id: string, name: string): PlaceProject {
-  return { id, name, purpose: `${name} purpose`, folders: [], subfolders: [] };
+const id = (prefix: string, n: string) => `${prefix}_0${"0".repeat(24)}${n}`;
+const APP = id("app", "1");
+const DOM_A = id("dom", "1");
+const DOM_B = id("dom", "2");
+const common = { as_of_seq: "1", next_cursor: null };
+
+function domain(dom: string, name: string, owner = APP) {
+  return {
+    id: dom,
+    name,
+    title: `${name} title`,
+    purpose: `${name} purpose`,
+    owner: { kind: "app", id: owner },
+    revision: "1",
+    status: "active",
+  };
 }
 
-const data: PlaceData = {
-  self: { role: "operator", name: "Mina" },
-  project: project("prj_1", "own"),
-  app: null,
-  agents: [],
-  kinds: null,
-  kindsFile: null,
-  apps: [],
-  projects: [],
-  release: null,
-  artifacts: null,
-  skillsFolder: null,
+const app = {
+  id: APP,
+  slug: "ledger",
+  project: id("prj", "1"),
+  name: "Ledger",
+  description: "keeps the books",
+  planning_version: null,
+  source_path: "/src/ledger",
+  active_release: null,
+  revision: "1",
+  run_enabled: false,
+  status: "active",
 };
 
-Deno.test("PM의 place 정보에 artifact 목록이 이름 순으로 실리고 50개를 넘으면 줄어든다", () => {
-  const items = Array.from({ length: 52 }, (_, i) => ({
-    name: `a${String(i).padStart(2, "0")}`,
-    title: `Title ${i}`,
-    description: i === 0 ? "" : "desc",
-  }));
-  const text = placeInfo("project_manager", {
-    ...data,
-    self: { role: "project_manager", name: "own" },
-    artifacts: { folder: "/data/artifacts", items: items.reverse() },
-  }, 100_000);
-  assert(text.includes("Folder: /data/artifacts"));
-  assert(text.includes("- a00: Title 0 (artifacts/a00/index.html)"));
-  assert(text.includes("- a01: Title 1 — desc (artifacts/a01/index.html)"));
-  assert(!text.includes("a50:"));
-  assertEquals(text.split("\n").filter((l) => l === "2 more").length, 1);
-  assert(!placeInfo("operator", data, 100_000).includes("Artifacts"));
+const files: PlaceFiles = {
+  domainFolder: (dom) => `/d/${dom}`,
+  dataFolder: (place) => `/data/${place.id}`,
+  ensureDir: () => Promise.resolve(),
+  listArtifacts: (folder) =>
+    Promise.resolve([{
+      name: folder.includes(DOM_A) ? "a-page" : "b-page",
+      title: "T",
+      description: "",
+    }]),
+};
+
+function agent(role: string, place: unknown, domains: string[]) {
+  return {
+    agent: role === "lophn" ? { role } : { role, app: APP },
+    role,
+    place,
+    name: "x",
+    domains,
+  } as unknown as ResolvedAgent;
+}
+
+// 응답은 route의 output schema로 다시 검사되므로 모양이 틀리면 읽기가 실패해 시험이 깨진다.
+function fakeCall(replies: Record<string, unknown>): CoreCall {
+  return (path, body) => {
+    const reply = replies[path];
+    if (typeof reply === "function") {
+      return Promise.resolve(ok((reply as (b: unknown) => unknown)(body)));
+    }
+    return Promise.resolve(
+      reply === undefined
+        ? err({ code: "not_found", message: path })
+        : ok({ ...common, ...(reply as object) }),
+    );
+  };
+}
+
+const appPlace = { kind: "app", id: APP };
+
+Deno.test("domain A만 고른 Operator의 범위와 place 정보에는 A의 것만 있고 App Engineer에는 그릇의 domain 전부가 있다", async () => {
+  const kind = (name: string) => ({
+    name,
+    summary: `${name} doc`,
+    files: ["*.md"],
+    key: "path",
+    fields: {},
+  });
+  const call = fakeCall({
+    "/apps/get": { app },
+    "/calls/sendable": { sessions: [], queued_coding: [] },
+    "/domains/list": {
+      domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
+    },
+    "/kinds/get": (body: unknown) => {
+      const dom = (body as { domain: string }).domain;
+      return {
+        domain: dom,
+        status: {
+          file: `/d/${dom}/kinds.yaml`,
+          state: "valid",
+          using: "current",
+          errors: [],
+          applied_hash: "a".repeat(64),
+        },
+        kinds: [kind(dom === DOM_A ? "note" : "secret")],
+      };
+    },
+  });
+  const operator = await placeData(
+    call,
+    agent("operator", appPlace, [DOM_A]),
+    files,
+  );
+  assert(operator.ok);
+  const text = operator.value.place.text;
+  assert(text.includes("alpha") && text.includes("note"));
+  assert(text.includes("a-page") && text.includes(`/d/${DOM_A}/artifacts`));
+  for (const other of ["beta", "secret", "b-page", DOM_B]) {
+    assert(!text.includes(other), other);
+  }
+  // DOMAIN.md·kinds.yaml·skills/가 든 domain 폴더는 Operator에게 열리지 않는다
+  assert(!text.includes(`Folder: /d/${DOM_A}\n`));
+  assertEquals(operator.value.scope, {
+    read: ["/src/ledger", `/d/${DOM_A}/artifacts`],
+    write: [`/d/${DOM_A}/artifacts`],
+    base: "/src/ledger",
+  });
+
+  const engineer = await placeData(
+    call,
+    agent("app_engineer", appPlace, [DOM_A, DOM_B]),
+    files,
+  );
+  assert(engineer.ok);
+  for (const seen of ["alpha", "beta", "note", "secret", "a-page", "b-page"]) {
+    assert(engineer.value.place.text.includes(seen), seen);
+  }
+  assert(engineer.value.place.text.includes(`Folder: /d/${DOM_A}\n`));
+  assertEquals(engineer.value.scope.write, [
+    "/src/ledger",
+    `/d/${DOM_A}`,
+    `/d/${DOM_B}`,
+  ]);
 });
 
-Deno.test("lophn의 지도는 이름 순이고 빈 덩어리는 줄을 빼며 앱 글은 한 줄로 접힌다", () => {
-  const text = placeInfo("lophn", {
-    ...data,
-    self: { role: "lophn", name: "lophn" },
-    project: null,
-    projects: [
-      {
-        name: "zeta",
-        purpose: "Z",
-        app: null,
-        tools: [],
-        packages: [],
-        usedBy: [],
-      },
-      {
-        name: "alpha",
-        purpose: "A",
-        app: "Ledger",
-        tools: [
-          { key: "b", effect: "write", description: "line one\nline two" },
-          { key: "a", effect: "read", description: "x".repeat(300) },
-        ],
-        packages: ["@me/z@1.0.0", "@lophn/ui@2.0.0"],
-        usedBy: [{ tool: "a", project: "zeta" }],
-      },
-    ],
-  }, 100_000);
-  const lines = text.split("\n");
-  assertEquals(lines.slice(lines.indexOf("Projects")), [
-    "Projects",
-    "Project alpha: A",
-    "  App: Ledger",
-    `  Public tools: a (read) ${"x".repeat(100)}…; b (write) line one line two`,
-    "  Packages: @lophn/ui@2.0.0, @me/z@1.0.0",
-    "  Used by other projects: a ← zeta",
-    "Project zeta: Z",
-  ]);
+Deno.test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에 실린다", async () => {
+  const tool = (name: string, isPublic: boolean) => ({
+    name,
+    title: name,
+    description: `${name} does it`,
+    effect: "read",
+    public: isPublic,
+    domain: "alpha",
+  });
+  const call = fakeCall({
+    "/projects/list": { projects: [] },
+    "/apps/list": { apps: [app] },
+    "/calls/sendable": { sessions: [], queued_coding: [] },
+    "/domains/list": {
+      domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
+    },
+    "/apps/app_api_index": {
+      apps: [{
+        app: APP,
+        name: "Ledger",
+        description: "keeps the books",
+        tools: [tool("show", true), tool("hidden", false)],
+      }],
+    },
+    "/apps/usage": {
+      uses: [{ app: APP, tool: "show", domain: DOM_B, source: "grant" }],
+    },
+    "/packages/list": {
+      packages: [{
+        id: id("pkg", "1"),
+        name: "@me/ui",
+        description: "ui",
+        owner_app: APP,
+        versions: [{
+          version: "1.0.0",
+          bundle_hash: "b".repeat(64),
+          guide_hash: "c".repeat(64),
+        }],
+      }],
+    },
+  });
+  const read = await placeData(call, agent("lophn", null, []), files);
+  assert(read.ok);
+  const text = read.value.place.text;
+  assert(text.includes("show (read) show does it"));
+  assert(!text.includes("hidden"));
+  assert(text.includes("show ← beta"));
+  assert(text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"));
 });

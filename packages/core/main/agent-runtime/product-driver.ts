@@ -49,10 +49,8 @@ import {
 import { isAbsolute } from "node:path";
 import { lstat, open, readdir } from "node:fs/promises";
 import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
-import {
-  artifactsFolder,
-  placeDataFolder,
-} from "../../agent-roles/place/data-folder.ts";
+import { placeDataFolder } from "../../agent-roles/place/data-folder.ts";
+import { domainFolder } from "../../../protocol/domains/paths.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -142,22 +140,14 @@ function productToolkit(options: {
   };
 }
 
-// artifacts 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
+// domain 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
 function placeFiles(): PlaceFiles {
   const home = Deno.env.get("LOPHN_HOME");
+  const root = home !== undefined && isAbsolute(home) ? home : null;
   return {
-    artifactsFolder: (project) =>
-      home !== undefined && isAbsolute(home)
-        ? artifactsFolder(home, project)
-        : null,
-    skillsFolder: (project) =>
-      home !== undefined && isAbsolute(home)
-        ? PROJECT_LAYER.skillsFolder(home, project)
-        : null,
-    dataFolder: (project) =>
-      home !== undefined && isAbsolute(home)
-        ? placeDataFolder(home, { kind: "project", id: project as never })
-        : null,
+    domainFolder: (domain) => root === null ? null : domainFolder(root, domain),
+    dataFolder: (place) =>
+      root === null ? null : placeDataFolder(root, place as never),
     ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
     listArtifacts: (folder) =>
       listArtifactEntries(folder, {

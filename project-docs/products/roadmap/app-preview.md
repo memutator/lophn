@@ -1,14 +1,14 @@
 # app preview: 만드는 중인 앱을 사람이 본다
 
 상태: 로드맵. 2026-10-18 사람이 방향을 내고 planner가 정리했다. 2026-10-19 사람이 정할 것을 정했다.
-2026-10-19: `domain.md`가 앱을 domain에 흡수하고 app-api를 MCP tool로 바꾼다. 이 문서의 "지금 코드"와 "무엇을 만드나"는 `domain.md` 2·3단계 뒤 "domain의 tool과 live view를 fixture로 돌려 보기"로 다시 쓴다. 아래 결정은 그대로 간다.
+2026-10-19: 앱 interface가 app-api에서 MCP tool(blueprint `tools[]`)로 바뀌었다(`domain.md`, 계획 `domain-entity`). 아래 "지금 코드"는 그 앞 기준이므로 계획을 열 때 코드와 다시 맞춘다. 아래 결정은 그대로 간다.
 배경 문서: `project-docs/architecture/app-call.md`(preview mode), `project-docs/architecture/annotation.md`, `project-docs/architecture/coding-agent.md`, `project-docs/products/AGENT-ROLE.md` K2.
 
 ## 왜
 
 - 사람은 activation 전에 앱 화면을 볼 수 없다. coding agent가 만든 화면이 맞는지는 activation 뒤에야 확인한다.
 - core에는 preview가 있고 coding agent skill도 그것을 쓴다(아래). 하지만 shell에서 그것을 여는 곳이 없다. 반쯤 만든 길이다.
-- 사람이 처음 떠올린 것은 browser 탭에 띄운 dev server였다. 하지만 localhost page에는 `window.lophnApp` bridge, view 신원, grant가 없어 app-api가 돌지 않는다. 그래서 미리보기는 browser 탭이 아니라 preview mode의 앱 view로 한다.
+- 사람이 처음 떠올린 것은 browser 탭에 띄운 dev server였다. 하지만 localhost page에는 `window.lophnApp` bridge, view 신원, grant가 없어 앱 tool 호출이 돌지 않는다. 그래서 미리보기는 browser 탭이 아니라 preview mode의 앱 view로 한다.
 
 ## 지금 코드
 

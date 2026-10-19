@@ -1,6 +1,6 @@
 # coding-agent
 
-Project Manager가 ticket을 외부 coding agent에게 맡기는 길(session, 터미널, CLI, ticket)이다. `project-docs/architecture/coding-agent.md`.
+App Engineer가 ticket을 외부 coding agent에게 맡기는 길(session, 터미널, CLI, ticket)이다. `project-docs/architecture/coding-agent.md`.
 
 ## codex는 새로 놓은 hook을 사람이 `/hooks`에서 trust해야 쓴다
 

@@ -197,3 +197,22 @@ guard: packages/core/problems/tests/harness/checks_test.ts, packages/core/proble
   3. harness가 앱 test·examples 안의 호출마다 changeset을 받을 수 있는지 확인한다.
 
 닫음: harness가 process wire에 `context.project`를 싣지 않는다. app test `rewind`는 호출이 성공한 write만 되돌려 보고, 호출이 실패한 tool은 "증명 못 함"(증거 `unproven`, pass 이유 한 줄)으로 두어 떨어뜨리지 않는다(`packages/core/problems/tests/harness/checks.ts`). ticket `examples`는 모두 맞으면 예시 write의 changeset을 뒤집어 첫 호출 전으로 돌아오는지 보고 아니면 fail이다(`harness/examples.ts`, 증거 `proven`). examples run이 끝나면 같은 bundle app test의 증명 못 함에서 그 examples가 증명한 tool을 뺀 것을 앱 problem `rewind_unproven`으로 알린다(`packages/core/problems/tests/unproven.ts`, `work/runner-service.ts`). user token도 검사 결과를 읽는다. examples가 아닌 ticket을 알리지 않는 것은 열린 이슈로 남는다.
+
+## app test 검사별 detail을 아무도 읽지 못한다
+
+```yaml
+kind: defect
+modules: [packages/core/problems, packages/core/storage]
+closed: kept
+guard: 없음
+```
+
+지금: 검사마다의 이유와 증거는 verification의 `observations` blob에 있다. 그 칸은 `general_read: false`로 등록돼(`packages/core/problems/tests/blobs.ts`의 `TEST_BLOB_FIELDS`) `blob.read`가 어느 actor에게도 주지 않는다(`packages/core/storage/blobs/refs.ts`의 `generalReadAllowed`). `GetVerification`의 `detail: true`는 별도 권한을 보지만(`packages/core/problems/tests/reads.ts`의 `readVerification`) 허락돼도 hash만 든 같은 Verification을 돌려준다. 그래서 detail은 disk에서만 읽힌다.
+
+영향: 검사가 떨어진 이유를 coding agent와 사람이 화면·CLI로 볼 수 없다. 계획 `rewind-check` 진단은 data root의 blob 파일을 직접 열어 원인을 찾았다. fail 이유 한 줄에 검사별 이유를 실어 지금 필요한 만큼은 보인다. 증명 못 한 write tool도 같은 까닭에 core가 app test pass 이유 한 줄을 parse해 읽는다(`packages/core/problems/tests/unproven.ts`의 `unprovenOfReason`).
+
+고치려면:
+- 그대로 둔다(비용 0). fail 이유 한 줄이 검사별 이유를 싣는다. 추천.
+- `detail: true`가 허락된 자격에 observations 내용을 싣는다(작음~중간. 그 blob에 앱 출력이 들어 있어 누가 읽을지 정해야 한다).
+
+닫음: 남긴다. 검사가 떨어지면 fail 이유 한 줄이 검사별 이름과 이유(`필수 검사 N개가 통과하지 못했다: <검사>(<이유>)`, `app-test/judge.ts`의 `judgeAppTest`)를 싣고 coding agent와 사람은 그 줄을 읽는다. 증명 못 한 write tool도 pass 이유 한 줄에 실려 core가 그 줄을 읽는다(`unprovenOfReason`). observations blob의 원문(앱 출력이 든다)은 읽을 사람이 필요해질 때 `detail: true` 자격과 함께 정한다.

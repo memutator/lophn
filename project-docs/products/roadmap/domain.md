@@ -90,9 +90,8 @@
 ## 남은 일
 
 - 계획 `domain-entity`는 land했다: domain entity를 두고, `domain-place`가 합친 것을 되돌리고, domain 단위로 맞췄다(changelog `0.5.0`).
-- **그 뒤:**
-  - e2e 다시 쓰기: 앞 계획들은 e2e를 돌리지 않고 type만 맞췄다.
-  - eval 자료 다시 만들기: `project-docs/issues/eval.md`
+- 계획 `test-restore`가 e2e와 eval을 새 설계로 되살렸다. land는 다시 e2e를 돈다.
+- **그 뒤:** 바꾼 eval 시나리오를 진짜 model로 한 번씩 돌린다(changelog `0.5.0` 후속).
 - **필요해지면:**
   - examples가 아닌 ticket의 "증명 못 함" 알리기(`issues/activation.md`)
   - artifact를 화면에서 지우기(`roadmap/artifact.md`)

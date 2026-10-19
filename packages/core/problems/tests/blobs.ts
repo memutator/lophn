@@ -40,6 +40,8 @@ export const TEST_BLOB_PURPOSES = [
   }),
   defineBlobPurpose({ purpose: "test_output", max_size_bytes: 1024 * 1024 }),
 ];
+// observations(검사별 이유와 증거)에는 앱 출력이 들어 있어 어느 actor에게도 읽기를 주지 않는다.
+// 사람과 coding agent에게는 fail·pass 이유 한 줄이 검사별 이름과 이유를 싣는다(app-test/judge.ts).
 export const TEST_BLOB_FIELDS = [
   ...FIELDS.map((field) =>
     defineBlobField({

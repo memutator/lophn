@@ -14,11 +14,11 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | todo |  |  |  |
 | `de-agents-domains` | harness | 2 | 없음 | running | harness/de-agents-domains |  |  |
 | `de-tool-filter` | harness | 2 | 없음 | running | harness/de-tool-filter |  |  |
-| `de-turn-domains` | harness | 2 | 없음 | running | harness/de-turn-domains |  |  |
+| `de-turn-domains` | harness | 2 | 없음 | merged | harness/de-turn-domains | bfda0d81c |  |
 | `de-roles-core` | roles | 2 | 없음 | running | roles/de-roles-core |  |  |
 | `de-roles-text` | roles | 2 | 없음 | running | roles/de-roles-text |  |  |
 | `de-coding-routing` | routing | 2 | 없음 | running | routing/de-coding-routing |  |  |
-| `de-routing-events` | routing | 2 | 없음 | running | routing/de-routing-events |  |  |
+| `de-routing-events` | routing | 2 | 없음 | merged | routing/de-routing-events | 2b80d0ee0 |  |
 | `de-shell-agents` | shell | 2 | 없음 | running | shell/de-shell-agents |  |  |
 | `de-shell-app-space` | shell | 2 | 없음 | running | shell/de-shell-app-space |  |  |
 | `de-shell-artifact-data` | shell | 2 | de-routing-events | todo |  |  |  |

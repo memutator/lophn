@@ -37,6 +37,11 @@ import {
 import { sha256Hex } from "../../../../base/mod.ts";
 import { appBundleCopy } from "../../../../protocol/apps/mod.ts";
 import { canonicalHash } from "../canonical.ts";
+import {
+  UNPROVEN_PROBLEM,
+  unprovenAfterExamples,
+  unprovenMessage,
+} from "../unproven.ts";
 import { TEST_RUNNER_KIND } from "./runner-core.ts";
 import {
   type AppTestHooks,
@@ -66,6 +71,10 @@ type RunJob = JobCommon & {
   // 앱 보고를 mode=test·진단 scope로 접수하게 하는 요청별 app credential이다.
   report_credential: string;
   diagnostic_scope: string;
+  // examples 요청에서만 있다. 같은 bundle app test가 증명 못 한 write tool과, 그 가운데 남은 것을 앱의
+  // problem으로 알리는 live app credential이다.
+  app_test_unproven?: string[];
+  unproven_credential?: string;
 };
 
 type RecoverJob = JobCommon & {
@@ -525,12 +534,49 @@ async function runRequest(
         `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
     };
   }
+  await reportUnproven(job, fetcher, judgment, recorded.value.verification);
   return {
     state: "recorded",
     reason: judgment.reason,
     verification: recorded.value.verification,
     result: judgment.result,
   };
+}
+
+// examples 결과가 기록된 뒤, 같은 bundle app test가 증명 못 한 write tool에서 이 examples가 증명한 것을 뺀
+// 나머지를 앱의 problem으로 알린다. 알리기에 실패해도 결과 기록은 그대로다.
+async function reportUnproven(
+  job: RunJob,
+  fetcher: LoopbackFetch,
+  judgment: { result: string; actuals: Record<string, unknown> },
+  verification: string,
+): Promise<void> {
+  if (job.unproven_credential === undefined) return;
+  const result = judgment.result;
+  if (result !== "pass" && result !== "fail" && result !== "inconclusive") {
+    return;
+  }
+  const proven =
+    (judgment.actuals.examples as { proven?: string[] } | undefined)?.proven ??
+      [];
+  const tools = unprovenAfterExamples({
+    appTestUnproven: job.app_test_unproven,
+    examples: { result, proven },
+  });
+  if (tools.length === 0) return;
+  await post(
+    fetcher,
+    job.api_port,
+    job.unproven_credential,
+    problemReport.method,
+    {
+      // 같은 examples run은 같은 report id라 다시 보내도 한 번만 접수된다.
+      report_id: verification.replace("vrf_", "rpt_"),
+      name: UNPROVEN_PROBLEM,
+      message: unprovenMessage(tools),
+      observed_at: NOW(),
+    },
+  );
 }
 
 // runner가 바뀐 뒤 이미 시작 시도를 남긴 요청을 이어받는다. 다시 시작하지 않는다. 실제 시작을 관측한

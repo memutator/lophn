@@ -30,6 +30,8 @@ import {
   TEST_RECOVERY_PRINCIPAL,
   TEST_RUNNER_PRINCIPAL,
 } from "./mod.ts";
+import { findPassedAppTestReason } from "./app-test-lookup.ts";
+import { unprovenOfReason } from "./unproven.ts";
 import type { ChildBlobPolicy } from "../../storage/blobs/child-prepare.ts";
 import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 import { TEST_RUNNER_KIND } from "./runner.ts";
@@ -143,6 +145,33 @@ function reportContext(
   };
 }
 
+// examples run이 끝난 뒤 앱의 problem으로 알리는 app credential이다. problem에 붙는 것은 live 보고뿐이라
+// mode는 live이고 release가 필수다. 보고는 runner가 이 credential로 한다.
+function unprovenContext(request: OpenTestRequest): CredentialIssue | null {
+  const { bundle_hash, release } = request.payload.target;
+  if (release === null) return null;
+  return {
+    actor: `app:${request.app}`,
+    principal: REPORT_PRINCIPAL,
+    scope: {
+      operations: [problemReport.name],
+      targets: {
+        app: request.app,
+        release,
+        process: REPORT_PROCESS,
+        mode: "live",
+      },
+    },
+    conditions: {
+      app: request.app,
+      release,
+      process: REPORT_PROCESS,
+      mode: "live",
+      bundle_hash,
+    },
+  };
+}
+
 export function startTestControl(deps: TestControlDeps): TestControl {
   const pollMs = deps.pollMs ?? 500;
   const now = deps.nowMs ?? Date.now;
@@ -187,10 +216,42 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     }
   }
 
+  // examples 요청이면 같은 bundle app test가 증명 못 한 write tool을 읽어 runner에 넘긴다. runner가 이
+  // examples가 증명한 것을 빼고 남은 것을 보고한다.
+  function unprovenOf(
+    request: OpenTestRequest,
+  ): { tools: string[]; context: CredentialIssue } | undefined {
+    if (request.payload.kind !== "examples") return undefined;
+    const context = unprovenContext(request);
+    if (context === null || connection === undefined || !connection.ok) {
+      return undefined;
+    }
+    let reason: string | undefined;
+    try {
+      reason = findPassedAppTestReason(
+        connection.value.sql,
+        request.app,
+        request.payload.target.bundle_hash,
+      );
+    } catch {
+      return undefined;
+    }
+    const tools = reason === undefined ? [] : unprovenOfReason(reason);
+    return tools.length === 0 ? undefined : { tools, context };
+  }
+
   async function send(
     op: string,
-    contexts: { runner: CredentialIssue; report?: CredentialIssue },
-    body: (token: string, report: string | undefined) => unknown,
+    contexts: {
+      runner: CredentialIssue;
+      report?: CredentialIssue;
+      unproven?: CredentialIssue;
+    },
+    body: (
+      token: string,
+      report: string | undefined,
+      unproven: string | undefined,
+    ) => unknown,
   ): Promise<Result<Outcome>> {
     const runner = await deps.issue(contexts.runner);
     if (!runner.ok) return runner;
@@ -201,16 +262,29 @@ export function startTestControl(deps: TestControlDeps): TestControl {
       runner.value.revoke();
       return report;
     }
+    const unproven = contexts.unproven
+      ? await deps.issue(contexts.unproven)
+      : undefined;
+    if (unproven && !unproven.ok) {
+      runner.value.revoke();
+      if (report?.ok) report.value.revoke();
+      return unproven;
+    }
     try {
       const answered = await deps.channel.request(
         op,
-        body(runner.value.token, report?.ok ? report.value.token : undefined),
+        body(
+          runner.value.token,
+          report?.ok ? report.value.token : undefined,
+          unproven?.ok ? unproven.value.token : undefined,
+        ),
         JOB_TIMEOUT_MS,
       );
       return answered.ok ? ok(answered.value as Outcome) : answered;
     } finally {
       runner.value.revoke();
       if (report?.ok) report.value.revoke();
+      if (unproven?.ok) unproven.value.revoke();
     }
   }
 
@@ -220,13 +294,15 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     slotOf.set(key, slot);
     const born = generation;
     const scope = `app-test-${request.request_key}`;
+    const unproven = unprovenOf(request);
     void send(
       TEST_RUN_OP,
       {
         runner: runnerContext(TEST_RUNNER_PRINCIPAL, request),
         report: reportContext(request, scope),
+        unproven: unproven?.context,
       },
-      (token, report) => ({
+      (token, report, unprovenToken) => ({
         request_principal: request.request_principal,
         request_key: request.request_key,
         request_hash: request.request_hash,
@@ -238,6 +314,10 @@ export function startTestControl(deps: TestControlDeps): TestControl {
         slot,
         report_credential: report,
         diagnostic_scope: scope,
+        ...(unproven === undefined ? {} : {
+          app_test_unproven: unproven.tools,
+          unproven_credential: unprovenToken,
+        }),
       }),
     ).then((done) => {
       if (!done.ok) {

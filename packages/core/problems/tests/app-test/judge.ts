@@ -3,6 +3,7 @@ import type {
   TestResult,
 } from "../../../../protocol/problems/mod.ts";
 import { canonicalHash } from "../canonical.ts";
+import { unprovenNote } from "../unproven.ts";
 import type { AppTestPlan, PlanCheck } from "./generate.ts";
 
 // 통과가 증명하는 범위. 검사한 고정 기준과 입력 범위는 runner의 설치 자료다.
@@ -195,11 +196,7 @@ export function judgeAppTest(input: {
   }
   const unproven = (actuals.rewind as { unproven?: string[] } | undefined)
     ?.unproven ?? [];
-  const note = unproven.length === 0
-    ? ""
-    : `. 증명 못 한 write tool: ${
-      unproven.join(", ")
-    }(만든 입력의 호출이 실패했다)`;
+  const note = unprovenNote(unproven);
   return {
     result: "pass",
     reason: `모든 필수 검사가 실제로 통과했다${note}`,

@@ -28,7 +28,7 @@
   - wording
   - agent tool 접두(`app__`)
 - **app이라는 이름을 어디까지 남기나:** 앱 runtime·release·ticket 같은 engineering 장치의 module 이름(`packages/core/apps`)을 남길지가 걸린다. roadmap "정한 것"은 "앱"을 화면 문구로 남길 수 있다고 했다.
-- **앞 계획이 남긴 자리:** `artifact` 계획은 `artifactNameSchema`를 `packages/protocol/projects/values.ts`(`slugSchema` 옆)에 두었다. `packages/protocol/projects/artifact.ts`는 shell main의 node test 때문에 import 없는 file이다.
+- **앞 계획이 남긴 자리:** `artifact` 계획의 artifact 자리는 `<data>/projects/<prj>/artifacts/`, 신원은 `{project, name}`이다. `artifactNameSchema`는 `packages/protocol/projects/values.ts`(`slugSchema` 옆)에 두었다. `packages/protocol/projects/artifact.ts`는 shell main의 node test 때문에 import 없는 file이다.
 - **`domain-tools`가 남긴 이름:** 아래는 `domain-tools`가 바꾸지 않고 넘긴 이름이다.
   - approval intent kind `app_api`
   - grant 칸(`app_apis`, `apis`)

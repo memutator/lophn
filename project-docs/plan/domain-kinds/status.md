@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-agent-tools` | agent-tools | 2 | 없음 | merged | agent-tools/dk-agent-tools | 6e0c708b4 |  |
 | `dk-kinds-host` | kinds | 2 | 없음 | merged | kinds/dk-kinds-host | 8b114a399 |  |
 | `dk-kinds-worker` | kinds | 2 | 없음 | merged | kinds/dk-kinds-worker | 586630cf6 |  |
-| `dk-problem-core` | problem | 2 | 없음 | running | problem/dk-problem-core |  |  |
+| `dk-problem-core` | problem | 2 | 없음 | merged | problem/dk-problem-core | af08a7c3a |  |
 | `dk-prompt-place` | prompt | 2 | 없음 | merged | prompt/dk-prompt-place | b5ace21ab |  |
 | `dk-chips-reactions` | chips | 3 | dk-shell-workspace | todo |  |  |  |
 | `dk-delete-context-tools` | cleanup | 3 | dk-operator-contexts | todo |  |  |  |

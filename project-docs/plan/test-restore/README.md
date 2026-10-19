@@ -22,7 +22,7 @@
   - 그대로 통과: 손대지 않는다.
   - 지금 설계에 그 flow가 있다: 새 설계로 다시 쓴다.
   - 그 flow가 없어졌다: 지운다. 예: context, project 범위 app-api.
-- **새 e2e flow는 사람에게 묻고 만든다**(AGENTS.md "사람에게 묻는 것"). brief는 새 flow를 따로 task로 두고, lead는 사람이 고른 것만 띄운다. 후보는 process를 건너야만 깨지는 것(testing.md 규칙 3)이다.
+- **새 e2e flow 셋을 만든다**(사람이 셋 다 골랐다, 2026-10-20). process를 건너야만 깨지는 것들이다(testing.md 규칙 3).
   - Operator를 domain으로 좁히면 agent runtime child가 받는 prompt와 tool 목록에 그 domain 것만 있다.
   - coding agent가 coding token으로 core MCP endpoint를 불러 자기 앱 preview의 tool을 부른다. live로는 가지 않는다.
   - kind 파일 위반이 kinds worker process를 거쳐 domain problem으로 오른다.
@@ -52,11 +52,10 @@ worker model은 사람이 정했다: Opus 5.5.
 
 ## lead가 할 일
 
-- **새 flow task 전에:** 사람에게 새 flow 후보를 보이고 고르게 한다.
 - **merge 때마다:** 다시 쓴 e2e file을 10번 연속 돌린다(`deno task e2e:deps` 뒤 `deno test --allow-all --no-check tests/e2e/<file>`). 끝난 뒤 `/tmp/lophn-e2e-*`와 core process가 남지 않았는지 본다.
 - **다 끝나면**
   - 전체 `deno task e2e`가 10분 안에 통과한다.
   - 마지막 land를 e2e 포함으로 한다.
   - `architecture/testing.md`(e2e file 목록과 앱 길)와 `architecture/eval.md`(자료 판)를 고친다. 이슈를 닫는다.
   - changelog `0.5.0`에 항목을 덧붙인다.
-- **사람에게 묻는 것:** 새 e2e flow, 진짜 model eval run, 시간 예산을 넘길 때.
+- **사람에게 묻는 것:** 위 셋 밖의 새 e2e flow, 진짜 model eval run, 시간 예산을 넘길 때.

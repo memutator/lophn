@@ -36,11 +36,6 @@ export {
   type InstructionTexts,
   type SeenBasis,
 } from "./basis.ts";
-export {
-  buildContextText,
-  type ContextRead,
-  renderContextText,
-} from "./context-text.ts";
 export { buildKindText, type FolderRead, renderKindText } from "./kind-text.ts";
 export { type SkillListItem, skillListText } from "./skill-list.ts";
 export {

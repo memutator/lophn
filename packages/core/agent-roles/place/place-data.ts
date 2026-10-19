@@ -8,17 +8,9 @@ import {
   callSendable,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  contextContractRoute,
-  contextGetRoute,
-  glossaryListRoute,
-  kindGet,
-  projectApi,
-} from "../../../protocol/projects/mod.ts";
-import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
+import { kindGet, projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
-  buildContextText,
   buildKindText,
   type FolderRead,
   type PlaceAgent,
@@ -386,69 +378,4 @@ export async function placeData(
     },
     scope,
   });
-}
-
-type LoadedContext = {
-  name: string;
-  version: string;
-  text: ContextText | null;
-};
-
-// `context.get` tool이 쓰는 context 하나의 글. 지우는 날까지 prompt는 이 글을 쓰지 않는다.
-// context 하나의 글. 읽지 못한 것은 글 없이 둔다(이름과 한 줄만 보인다). 목록도 못 읽으면 null이다.
-export async function readContext(
-  call: CoreCall,
-  id: string,
-  projectOf: (id: string) => Promise<Result<ProjectRecord>>,
-): Promise<LoadedContext | null> {
-  const got = await readOf(call, contextGetRoute, { context: id });
-  if (!got.ok || got.value.applied === null) return null;
-  const c = got.value.context;
-  const number = got.value.applied.number;
-  const base: LoadedContext = {
-    name: c.title,
-    version: `r${number}`,
-    text: null,
-  };
-  const [contract, glossary, owner] = await Promise.all([
-    readOf(call, contextContractRoute, { context: id }),
-    readOf(call, glossaryListRoute, { context: id }),
-    projectOf(c.project),
-  ]);
-  const content = contract.ok ? contract.value.content : null;
-  if (content === null || !glossary.ok || !owner.ok) return base;
-  const folders = placeProject(owner.value);
-  return {
-    ...base,
-    text: buildContextText({
-      name: c.title,
-      version: number ?? 0,
-      purpose: c.purpose,
-      project: {
-        name: folders.name,
-        purpose: folders.purpose,
-        folders: folders.folders,
-        subfolders: folders.subfolders,
-      },
-      types: content.contract.types.map((type) => ({
-        name: type.name,
-        summary: type.summary,
-        fields: type.fields.map((f) => ({ name: f.name })),
-        relations: type.relations.map((r) => ({
-          label: r.label,
-          to: r.to,
-          cardinality: r.cardinality,
-        })),
-      })),
-      searches: content.searches.map((s) => ({
-        name: s.name,
-        title: s.title,
-        inputs: s.inputs.map((i) => ({ name: i.name, required: i.required })),
-      })),
-      glossary: glossary.value.entries.map((e) => ({
-        term: e.term,
-        meaning: e.meaning,
-      })),
-    }),
-  };
 }

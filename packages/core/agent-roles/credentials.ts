@@ -6,14 +6,7 @@ import {
   ROLES,
   stageRewindFile,
 } from "../../protocol/lophn-agent/mod.ts";
-import {
-  contextContractRoute,
-  contextGetRoute,
-  contextListRoute,
-  glossaryListRoute,
-  kindGet,
-  projectApi,
-} from "../../protocol/projects/mod.ts";
+import { kindGet, projectApi } from "../../protocol/projects/mod.ts";
 import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
@@ -26,14 +19,10 @@ import {
 } from "../lophn-agent/tools/mod.ts";
 import { builtinToolNames } from "./tool-lists.ts";
 
-// prompt의 place 정보(project·앱·context 글·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
+// prompt의 place 정보(project·앱·kind 글·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
 // 자격으로 읽으므로 모든 역할의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.
 // `place/place-data.ts`가 읽는 route와 같아야 한다.
 const PLACE_READS: readonly string[] = [
-  contextListRoute.name,
-  contextGetRoute.name,
-  contextContractRoute.name,
-  glossaryListRoute.name,
   kindGet.name,
   projectApi.get.name,
   projectApi.list.name,

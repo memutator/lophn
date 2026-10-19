@@ -1,5 +1,4 @@
 import type { ToolDefinition } from "../../lophn-agent/tools/spi.ts";
-import { CONTEXT_TOOLS } from "./context.ts";
 import { GUIDE_TOOLS } from "./guide.ts";
 import { INSTRUCTION_TOOLS } from "./instructions.ts";
 import { KIND_TOOLS } from "./kind.ts";
@@ -10,6 +9,5 @@ export const ROLE_AGENT_TOOLS: readonly ToolDefinition[] = [
   ...GUIDE_TOOLS,
   ...INSTRUCTION_TOOLS,
   ...OPERATOR_TOOLS,
-  ...CONTEXT_TOOLS,
   ...KIND_TOOLS,
 ];

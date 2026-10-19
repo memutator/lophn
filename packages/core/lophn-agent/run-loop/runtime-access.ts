@@ -1,9 +1,4 @@
 import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
-import {
-  contextContractRoute,
-  contextGetRoute,
-  contextListRoute,
-} from "../../../protocol/projects/mod.ts";
 import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
 import {
   agentDefinitionRead,
@@ -120,11 +115,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // turn 준비가 resolved agent의 층(자리의 active context)과 선언 검색 tool의 정의 재료(고른 context의 적용된 판:
-  // 계약·검색)를 turn을 시작하기 전에 읽는다.
-  contextListRoute,
-  contextGetRoute,
-  contextContractRoute,
   // app-api tool의 정의 재료(활성 release 선언과 agent grant)를 읽는다.
   appAppApi,
   agentGrantsGet,

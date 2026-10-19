@@ -35,7 +35,6 @@ export * from "./inputs.ts";
 export * from "./tool-catalog.ts";
 export * from "./ask-tool.ts";
 export * from "./input-tags.ts";
-export * from "./context-text.ts";
 export * from "./kind-text.ts";
 export * from "./received-messages.ts";
 export * from "./agent-definitions.ts";

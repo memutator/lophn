@@ -31,11 +31,6 @@ export interface ProjectDirectory {
   // 정확히 맞는 이름만.
   projectByName(name: string): ProjectInfo | null;
   list(): readonly ProjectInfo[];
-  contextsOf(project: Id<"prj">): readonly {
-    id: Id<"ctx">;
-    name: string;
-    status: "active" | "archived" | "drafting";
-  }[];
 }
 
 type AppInfo = {

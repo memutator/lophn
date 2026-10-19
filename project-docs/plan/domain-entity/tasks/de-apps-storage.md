@@ -50,7 +50,7 @@
 3. `problems/` 쪽 읽기: bundle 사본은 `<data>/apps/<app>/bundles/<hash>`다. `collector.ts`(966째 줄 근처 `projects/*/app/bundles/<hash>` 탐색)는 `apps/*/bundles/<hash>` 탐색으로, `snapshots/source-map.ts`·`work.ts`, `packages/core/problems/tests/{commands,control,examples-request,runner}.ts`, `packages/core/problems/tests/work/runner-service.ts`, `grouping/commands.ts`, `repairs/more.ts`가 `864bc084a`의 역이다.
 4. 앱 process의 sandbox 경계를 되돌린다: `apps/permissions/sandbox-boundary_test.ts`의 보호 root와 "자기 앱 밖은 못 연다" 사례가 `<data>/apps/<app>/…`(자기 앱의 data·bundle·source) 기준이다. 이 test는 위험 test다(아래).
 5. `tests/support/app/activate.ts`·`tests/support/coding/prepare-deps.ts`·`tests/eval/checks/app/observe.ts`: 앱을 만들거나 저장 자리를 계산하는 줄을 앱 id 기준으로 맞춘다(앱 만들기의 `project` 인자는 이 task가 건드리지 않는다. `de-apps-unbind`가 푼다).
-6. `appProjectOf`를 부르던 저장 자리 줄은 모두 없앤다(저장 자리는 앱 id만으로 정해진다). `appProjectOf` 정의(`apps/lookups.ts`)는 지우지 않는다. 단 `releases/commands.ts`의 `activationBlock`·`completeActivation`이 `PublicToolsChanged`를 낼 때 읽는 `appProjectOf`(289째·384째 줄 근처)와 `main/daemon/wiring/apps.ts`의 package 주인 `projectOf`(323째 줄)는 `de-public-tools`의 몫이라 건드리지 않는다.
+6. `appProjectOf`를 부르던 저장 자리 줄은 모두 없앤다(저장 자리는 앱 id만으로 정해진다). `appProjectOf` 정의(`apps/lookups.ts`)는 지우지 않는다. 단 `releases/commands.ts`의 `activationBlock`·`completeActivation`이 `PublicToolsChanged`를 낼 때 읽는 `appProjectOf`(289째·384째 줄 근처)와 `main/daemon/wiring/apps.ts`의 package 주인 `projectOf`(323째 줄)는 `de-app-domains`의 몫이라 건드리지 않는다.
 
 ## 정한 것
 

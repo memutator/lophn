@@ -11,4 +11,8 @@ export {
   instructionFilesOverCore,
 } from "./read.ts";
 export { previewInstruction } from "./preview.ts";
-export { readTurnInstructions, type TurnInstructionLayer } from "./turn.ts";
+export {
+  readTurnInstructions,
+  type TurnDomain,
+  type TurnInstructionLayer,
+} from "./turn.ts";

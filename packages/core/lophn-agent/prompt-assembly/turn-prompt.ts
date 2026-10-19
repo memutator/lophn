@@ -69,6 +69,7 @@ export type TurnPromptResult =
 const INSTRUCTION_TITLE = {
   global: "Global instructions",
   project: "Project instructions (LOPHN.md)",
+  domain: "Domain instructions (DOMAIN.md)",
   agent: "Agent instructions",
 } as const;
 

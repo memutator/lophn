@@ -29,3 +29,11 @@ export function agentFilePathOf(
   );
   return slot === null ? null : `${slot.folder}/${slot.file}`;
 }
+
+// 어느 role이든 자기 place 그릇의 domain만 읽는다. lophn은 place가 없어 읽을 domain이 없다.
+export function mayReadDomain(
+  place: Place | null,
+  owner: { kind: string; id: string },
+): boolean {
+  return place !== null && place.kind === owner.kind && place.id === owner.id;
+}

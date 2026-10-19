@@ -40,6 +40,7 @@ import {
   turnRead,
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
   agentGrantsGet,
@@ -116,9 +117,11 @@ export const RUNTIME_MACHINE_ROUTES = [
   takeRewindSummaryRequest,
   finishRewindSummary,
   // app-api tool의 정의 재료(활성 release 선언과 agent grant)와 앱의 project(다른 project 앱의 비공개 tool 거르기)를 읽는다.
+  // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
   appAppApi,
   appGet,
   agentGrantsGet,
+  domainList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
 ] as const;

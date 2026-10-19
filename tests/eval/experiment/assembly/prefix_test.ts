@@ -29,7 +29,12 @@ Deno.test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 
         input_schema: { type: "object" },
       },
     ],
-    instructions: { global: "be brief", project: "", agent: "no emoji" },
+    instructions: {
+      global: "be brief",
+      project: "",
+      domain: "",
+      agent: "no emoji",
+    },
     skills: [{ name: "calendar", description: "plan days", enabled: true }],
     place: {
       text: "# Place\nproject p1",

@@ -82,7 +82,8 @@ export type BlockedReason =
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
 
-// place 정보에서 notice와 판 비교(basis)가 쓰는 kind 글이다. hash는 쓰고 있는 kinds 파일의 hash다(판 번호가 없다).
+// place 정보에서 notice와 판 비교(basis)가 쓰는 kind 글이다. hash는 호출하는 쪽이 domain별로 쓰고 있는 kinds 파일의
+// hash를 이어 낸 하나의 값이다(판 번호가 없다).
 export type PlaceKinds = { hash: string; text: KindText };
 
 export type PlaceAgent = {

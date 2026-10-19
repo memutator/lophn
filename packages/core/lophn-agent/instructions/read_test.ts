@@ -6,6 +6,7 @@ import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
+import { domainsSchemaSteps } from "../../domains/schema.ts";
 import { projectsSchemaSteps } from "../../projects/registry/schema.ts";
 import { conversationSchemaSteps } from "../session/model.ts";
 import { createReaderRegistration } from "../../main/daemon/wiring/instructions-registration.ts";
@@ -14,6 +15,8 @@ const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
 const PRJ_C = "prj_00000000000000000000000003";
 const APP = "app_00000000000000000000000001";
+const DOM_A = "dom_00000000000000000000000001";
+const DOM_APP = "dom_00000000000000000000000002";
 
 function sessionId(n: number) {
   return `ses_${String(n).padStart(26, "0")}`;
@@ -34,7 +37,13 @@ function setup() {
     "rules of C",
   );
   const db = new DatabaseSync(join(root, "ledger.db"));
-  for (const step of [...projectsSchemaSteps, ...conversationSchemaSteps]) {
+  for (
+    const step of [
+      ...projectsSchemaSteps,
+      ...conversationSchemaSteps,
+      ...domainsSchemaSteps,
+    ]
+  ) {
     db.exec(step.sql);
   }
   for (
@@ -52,6 +61,13 @@ function setup() {
   db.prepare(
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
+  Deno.mkdirSync(join(root, "domains", DOM_A), { recursive: true });
+  Deno.writeTextFileSync(join(root, "domains", DOM_A, "DOMAIN.md"), "doc of A");
+  const addDomain = db.prepare(
+    "insert into domains values (?, ?, ?, '', ?, ?, '1', 'active')",
+  );
+  addDomain.run(DOM_A, "da", "da", "project", PRJ_A);
+  addDomain.run(DOM_APP, "dapp", "dapp", "app", APP);
   const insert = db.prepare(
     `insert into sessions (id, role, project, app, place_kind, place_id,
        created_seq, state_seq) values (?, ?, ?, ?, ?, ?, 1, 1)`,
@@ -107,6 +123,34 @@ Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽�
         `${session} ${project}`,
       );
     }
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+Deno.test("domain 층은 session의 place 그릇에 든 domain의 DOMAIN.md만 읽는다", () => {
+  const { root, snapshot } = setup();
+  try {
+    const handler = createReaderRegistration().reads[0] as ReadDefinition<
+      typeof instructionsGet
+    >;
+    const of = (session: number, domain: string | undefined) => {
+      const result = handler.handle(
+        snapshot,
+        {} as never,
+        { session: sessionId(session), layer: "domain", domain } as never,
+      );
+      if (!result.ok) return result.error.code;
+      return result.value.file === null
+        ? null
+        : atob(result.value.file.content_base64);
+    };
+    assertEquals(of(2, DOM_A), "doc of A"); // PM A는 자기 project의 domain
+    assertEquals(of(4, DOM_A), "forbidden"); // 다른 project의 PM
+    assertEquals(of(1, DOM_A), "forbidden"); // lophn은 place가 없다
+    assertEquals(of(3, DOM_A), "forbidden"); // 앱 engineer는 다른 그릇
+    assertEquals(of(3, DOM_APP), null); // 자기 앱의 domain, 파일은 아직 없다
+    assertEquals(of(2, undefined), "invalid_input");
   } finally {
     Deno.removeSync(root, { recursive: true });
   }

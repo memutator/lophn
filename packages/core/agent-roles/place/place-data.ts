@@ -152,8 +152,11 @@ async function readPlaceData(
           kinds = {
             hash: status.applied_hash,
             text: buildKindText({
-              kinds: got.value.kinds,
-              warning: status.state === "invalid",
+              domains: [{
+                name: project.name,
+                kinds: got.value.kinds,
+                warning: status.state === "invalid",
+              }],
             }),
           };
         }

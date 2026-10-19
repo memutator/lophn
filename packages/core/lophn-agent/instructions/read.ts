@@ -51,12 +51,20 @@ export function decodeInstructionFile(
 export function instructionFilesOverCore(
   session: Id<"ses">,
   call: (
-    input: { session: Id<"ses">; layer: InstructionLayerKind },
+    input: {
+      session: Id<"ses">;
+      layer: InstructionLayerKind;
+      domain?: Id<"dom">;
+    },
   ) => Promise<Result<{ file: InstructionReadFile | null }>>,
 ): InstructionFiles {
   return {
-    async read(layer) {
-      const read = await call({ session, layer });
+    async read(layer, domain) {
+      const read = await call({
+        session,
+        layer,
+        ...(domain === undefined ? {} : { domain: domain as Id<"dom"> }),
+      });
       if (!read.ok) return read;
       return read.value.file === null
         ? ok(null)

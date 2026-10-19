@@ -3,8 +3,10 @@
 import { placeDataFolder } from "../../../agent-roles/place/data-folder.ts";
 import {
   agentFilePathOf,
+  mayReadDomain,
   mayReadOtherProject,
 } from "../../../agent-roles/place/instruction-rules.ts";
+import { domainOwnerOf } from "../../../domains/lookups.ts";
 import { createInstructionReads } from "../../../lophn-agent/instructions/files.ts";
 import {
   projectExists,
@@ -21,5 +23,7 @@ export function createReaderRegistration(): ReaderRegistration {
       placeDataFolder(root, { kind: "project", id: project }),
     agentFilePathOf,
     mayReadOtherProject,
+    domainOwnerOf,
+    mayReadDomain,
   });
 }

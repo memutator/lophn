@@ -27,8 +27,10 @@ import { createListSettingsReader } from "../../config/mod.ts";
 import {
   type InstructionDeps,
   readTurnInstructions,
+  type TurnDomain,
   type TurnInstructionLayer,
 } from "../instructions/mod.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import type { SkillEntry } from "../extensions/mod.ts";
 import { abortableWait } from "./retry.ts";
 import { TURN_LIMIT_SETTING_KEYS, turnLimitsOf } from "./limits.ts";
@@ -264,13 +266,49 @@ function noticeText(body: string): string {
   });
 }
 
+// prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜지고, domain 층 skill은 agent가 맡은 domain의 것만 켜진다.
+export function promptSkills(
+  entries: readonly SkillEntry[],
+  resolved: Pick<ResolvedAgent, "skills" | "domains">,
+) {
+  return entries.map((entry) => ({
+    name: entry.name,
+    description: entry.description,
+    enabled: entry.enabled && resolved.skills.includes(entry.name) &&
+      (entry.domain === null || resolved.domains.includes(entry.domain)),
+  }));
+}
+
 // 없는 층은 빈 글이다.
 function instructionTexts(
   layers: readonly TurnInstructionLayer[],
 ): InstructionTexts {
-  const texts: InstructionTexts = { global: "", project: "", agent: "" };
+  const texts: InstructionTexts = {
+    global: "",
+    project: "",
+    domain: "",
+    agent: "",
+  };
   for (const layer of layers) texts[layer.layer] = layer.text ?? "";
   return texts;
+}
+
+// agent가 맡은 domain의 이름과 purpose다(이름은 turn.ts가 순서를 정한다). turn을 시작하기 전이라 agent credential이
+// 아직 없어 machine 자격으로 그릇의 domain 목록을 읽는다. 읽지 못하면 domain 층만 비우고 turn은 계속한다(prompt를
+// 줄이는 쪽으로 실패한다).
+async function readTurnDomains(
+  machine: CoreCall,
+  agent: ResolvedAgent,
+): Promise<TurnDomain[]> {
+  if (agent.domains.length === 0 || agent.place === null) return [];
+  const listed = await readOf(machine, domainList, {
+    owner: agent.place,
+    limit: 1000,
+  });
+  if (!listed.ok) return [];
+  return listed.value.domains
+    .filter((domain) => agent.domains.includes(domain.id))
+    .map(({ id, name, purpose }) => ({ id, name, purpose }));
 }
 
 export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
@@ -481,14 +519,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
           })),
           instructions,
-          // 발견한 skill 중 agent가 끄지 않은 이름만 켜진다.
-          skills: ((await deps.skills?.(resolved.place)) ?? []).map((
-            entry,
-          ) => ({
-            name: entry.name,
-            description: entry.description,
-            enabled: entry.enabled && resolved.skills.includes(entry.name),
-          })),
+          skills: promptSkills(
+            (await deps.skills?.(resolved.place)) ?? [],
+            resolved,
+          ),
           place: placed.value.place,
           ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
             ? { seen: seenAtStart.basis }
@@ -655,6 +689,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           deps.instructions.files,
       },
       { role: session.agent.role },
+      await readTurnDomains(machine, agent),
     );
     if (instructions.status === "blocked") {
       return await closeUnstarted(

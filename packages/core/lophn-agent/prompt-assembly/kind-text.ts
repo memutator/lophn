@@ -31,35 +31,51 @@ export type KindRead = {
   }>;
 };
 
+function kindEntries(
+  kinds: readonly KindRead[],
+): KindText["domains"][number]["kinds"] {
+  return [...kinds].sort((a, b) => cmp(a.name, b.name)).map((kind) => ({
+    name: kind.name,
+    summary: kind.summary,
+    files: [...kind.files],
+    key: kind.key,
+    fields: Object.entries(kind.fields).sort(([a], [b]) => cmp(a, b))
+      .map(([name, field]) => ({
+        name,
+        type: field.type,
+        required: field.required ?? false,
+        list: field.list ?? false,
+        detail: field.type === "enum"
+          ? (field.values ?? []).join(", ")
+          : field.type === "ref"
+          ? field.to ?? null
+          : null,
+      })),
+  }));
+}
+
+// domain 이름순으로 조립한다.
 export function buildKindText(
-  read: { kinds: readonly KindRead[]; warning: boolean },
+  read: {
+    domains: readonly {
+      name: string;
+      kinds: readonly KindRead[];
+      warning: boolean;
+    }[];
+  },
 ): KindText {
   return kindTextSchema.parse({
-    kinds: [...read.kinds].sort((a, b) => cmp(a.name, b.name)).map((kind) => ({
-      name: kind.name,
-      summary: kind.summary,
-      files: kind.files,
-      key: kind.key,
-      fields: Object.entries(kind.fields).sort(([a], [b]) => cmp(a, b))
-        .map(([name, field]) => ({
-          name,
-          type: field.type,
-          required: field.required ?? false,
-          list: field.list ?? false,
-          detail: field.type === "enum"
-            ? (field.values ?? []).join(", ")
-            : field.type === "ref"
-            ? field.to ?? null
-            : null,
-        })),
+    domains: [...read.domains].sort((a, b) => cmp(a.name, b.name)).map((d) => ({
+      domain: d.name,
+      kinds: kindEntries(d.kinds),
+      warning: d.warning,
     })),
-    warning: read.warning,
   });
 }
 
-function fullLines(text: KindText): string[] {
+function fullLines(kinds: KindText["domains"][number]["kinds"]): string[] {
   const lines: string[] = [];
-  for (const kind of text.kinds) {
+  for (const kind of kinds) {
     lines.push(`- ${kind.name}: ${kind.summary}`);
     lines.push(`  Files: ${kind.files.join(", ")}. Key: ${kind.key}.`);
     for (const field of kind.fields) {
@@ -76,25 +92,29 @@ function fullLines(text: KindText): string[] {
   return lines;
 }
 
+// 글은 `Domain <name>` 머리 아래 domain마다 한 덩이다. level은 전체 예산에 걸려 모든 domain에 같이 쓴다.
 // `names`는 kind 이름만, `count`는 개수와 읽는 tool 안내만 쓴다.
 export function renderKindText(text: KindText, level: KindTextLevel): string {
-  let lines: string[];
-  if (level === "full") lines = fullLines(text);
-  else if (level === "names") {
-    lines = [`Kinds: ${text.kinds.map((k) => k.name).join(", ")}`];
-  } else {
-    lines = [
-      `${text.kinds.length} kinds. Inspect them with ${
-        toWireToolName("kind.check")
-      } and read documents with ${toWireToolName("kind.list")}.`,
-    ];
-  }
-  if (text.warning) {
-    lines.push(
-      `The kinds file has errors; ${
-        toWireToolName("kind.check")
-      } lists them. The previous version is in use.`,
-    );
+  const lines: string[] = [];
+  for (const { domain, kinds, warning } of text.domains) {
+    lines.push(`Domain ${domain}`);
+    if (level === "full") lines.push(...fullLines(kinds));
+    else if (level === "names") {
+      lines.push(`Kinds: ${kinds.map((k) => k.name).join(", ")}`);
+    } else {
+      lines.push(
+        `${kinds.length} kinds. Inspect them with ${
+          toWireToolName("kind.check")
+        } and read documents with ${toWireToolName("kind.list")}.`,
+      );
+    }
+    if (warning) {
+      lines.push(
+        `The kinds file has errors; ${
+          toWireToolName("kind.check")
+        } lists them. The previous version is in use.`,
+      );
+    }
   }
   return `<${KIND_TEXT_TAG}>\n${
     escapeTagBody(lines.join("\n"))

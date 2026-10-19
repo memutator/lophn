@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-app-domains` | apps | 2 | de-apps-storage | todo |  |  |  |
 | `de-apps-storage` | apps | 2 | 없음 | running | apps/de-apps-storage |  |  |
 | `de-public-tools` | apps | 2 | de-apps-storage, de-routing-events | todo |  |  |  |
-| `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | todo |  |  |  |
+| `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | running | domain-kinds/de-kinds-domain |  |  |
 | `de-agents-domains` | harness | 2 | 없음 | running | harness/de-agents-domains |  |  |
 | `de-tool-filter` | harness | 2 | 없음 | running | harness/de-tool-filter |  |  |
 | `de-turn-domains` | harness | 2 | 없음 | merged | harness/de-turn-domains | bfda0d81c |  |
@@ -21,7 +21,7 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-routing-events` | routing | 2 | 없음 | merged | routing/de-routing-events | 2b80d0ee0 |  |
 | `de-shell-agents` | shell | 2 | 없음 | running | shell/de-shell-agents |  |  |
 | `de-shell-app-space` | shell | 2 | 없음 | running | shell/de-shell-app-space |  |  |
-| `de-shell-artifact-data` | shell | 2 | de-routing-events | todo |  |  |  |
+| `de-shell-artifact-data` | shell | 2 | de-routing-events | running | shell/de-shell-artifact-data |  |  |
 | `de-apps-unbind` | apps | 3 | 없음 | todo |  |  |  |
 | `de-place-info` | roles | 3 | 없음 | todo |  |  |  |
 | `de-names-tool` | names | 4 | 없음 | todo |  |  |  |

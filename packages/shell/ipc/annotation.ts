@@ -73,10 +73,11 @@ export interface LophnShellAnnotateApi {
   subscribeState(listener: (state: AnnotateState) => void): () => void;
 }
 
-// artifact의 name은 project의 artifacts 폴더 안 이름이고, null이면 사람의 폴더에 있는 .html이다.
+// artifact는 domain의 artifacts 폴더 안 이름이고, file은 사람의 폴더에 있는 .html(그 project)이다.
 export type AnnotateTarget =
   | { kind: "app"; app: string; release: string | null; screen: string }
-  | { kind: "artifact"; project: string; name: string | null };
+  | { kind: "artifact"; domain: string; name: string }
+  | { kind: "file"; project: string };
 
 /**
  * main 안의 view 쪽 port(type만). 구현은 view registry가

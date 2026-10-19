@@ -104,7 +104,7 @@ export function register(
         return window === undefined ? undefined : windowRef(window);
       },
       views,
-      list: (project) => listArtifacts(ctx.dataRoot, project, nodeArtifactFs),
+      list: (domain) => listArtifacts(ctx.dataRoot, domain, nodeArtifactFs),
     }),
   );
   ctx.windowHooks.closed.push(({ ref }) => views.closeWindow(ref));

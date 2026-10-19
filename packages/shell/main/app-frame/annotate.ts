@@ -272,7 +272,7 @@ export function createAnnotate(deps: AnnotateDeps) {
         const sent = await deps.core.call("memory", "annotations", "send", {
           target: target.kind === "app"
             ? { kind: "app", app: target.app }
-            : { kind: "artifact", project: target.project, name: target.name },
+            : target,
           session: request.session,
           annotations,
         });

@@ -60,7 +60,8 @@ interface TabSpec {
   readonly screen?: string;
   /** browser 탭이 처음 여는 주소. 빈 글이면 빈 주소 칸이다. */
   readonly url?: string;
-  /** artifact 탭이 여는 대상. name은 project의 artifact, path는 사람의 폴더에 있는 .html이다. */
+  /** artifact 탭이 여는 대상. (domain, name)은 domain의 artifact, path는 사람의 폴더에 있는 .html이다. */
+  readonly domain?: string;
   readonly name?: string;
   readonly path?: string;
   /** coding terminal이면 harness 표지. 저장된 title이 없는 일반 terminal 탭은 시작할 때까지 이름이 비어 있다. */
@@ -138,7 +139,7 @@ function storedTab(tab: TabSpec) {
       ? {
         kind: tab.kind,
         key: tab.key,
-        project: PROJECT_GROCERY,
+        domain: tab.domain,
         name: tab.name,
       }
       : {

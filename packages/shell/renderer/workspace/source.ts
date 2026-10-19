@@ -20,6 +20,15 @@ export interface ProjectView {
   readonly folders: readonly ProjectFolderView[];
 }
 
+/** domain.list 결과에서 화면이 쓰는 부분. */
+export interface DomainView {
+  readonly id: string;
+  readonly name: string;
+  readonly title: string;
+  readonly purpose: string;
+  readonly status: "active" | "archived";
+}
+
 /** 폴더 한 단계의 항목. 이름순이다. */
 export interface FolderEntry {
   readonly name: string;
@@ -69,6 +78,8 @@ export interface WorkspaceSource {
   readonly agentsSource?: AgentsSource;
   /** project 키워드 검색 통로. 없으면 Search 탭과 여는 길을 두지 않는다. */
   readonly searchSource?: FileSearchSource;
+  /** project가 가진 active domain들. */
+  domains(project: string): Promise<ReadResult<readonly DomainView[]>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   readLayout(project: string): Promise<LayoutRead>;

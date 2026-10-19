@@ -8,21 +8,24 @@ import { useArtifactList } from "../../artifact/use-artifact-list.ts";
 import styles from "./artifact-panel.module.css";
 
 export function ArtifactPanel(
-  { project, onOpen }: { project: string; onOpen: (name: string) => void },
+  { domains, onOpen }: {
+    domains: readonly string[];
+    onOpen: (domain: string, name: string) => void;
+  },
 ) {
-  const { items } = useArtifactList(project);
+  const { items } = useArtifactList(domains);
   if (items.length === 0) {
     return <p className={styles.empty}>{t("artifact.empty.none")}</p>;
   }
   return (
     <ul className={styles.rows} aria-label={t("artifact.label.list")}>
       {items.map((item) => (
-        <li key={item.name}>
+        <li key={`${item.domain}/${item.name}`}>
           <button
             type="button"
             className={styles.row}
             data-artifact={item.name}
-            onClick={() => onOpen(item.name)}
+            onClick={() => onOpen(item.domain, item.name)}
           >
             <span className={styles.icon}>
               <Icon icon={artifactIcons.kind} pixels={iconPixels("base")} />

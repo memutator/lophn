@@ -26,7 +26,7 @@ interface ArtifactIpcDeps {
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<ArtifactViews, "open" | "reload">;
-  list(project: string): Promise<ArtifactListItem[]>;
+  list(domain: string): Promise<ArtifactListItem[]>;
 }
 
 interface ArtifactIpcHandlers {
@@ -83,7 +83,7 @@ export function createArtifactIpc(deps: ArtifactIpcDeps): ArtifactIpcHandlers {
       if (!checked.ok) return checked;
       return {
         ok: true,
-        value: { artifacts: await deps.list(checked.value.project) },
+        value: { artifacts: await deps.list(checked.value.domain) },
       };
     },
   };

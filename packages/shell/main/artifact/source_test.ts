@@ -8,7 +8,7 @@ import { nodeArtifactFs, resolveSource } from "./source.ts";
 
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "lophn-artifact-source-"));
-  const artifacts = join(root, "projects", "p", "artifacts");
+  const artifacts = join(root, "domains", "dom_a", "artifacts");
   await mkdir(artifacts, { recursive: true });
   return { root, artifacts };
 }
@@ -20,19 +20,26 @@ test("artifact 이름이 slug가 아니거나 폴더가 artifacts 밖을 가리�
     await mkdir(outside);
     await writeFile(join(outside, "index.html"), "<html></html>");
     await symlink(outside, join(artifacts, "escape"));
+    // 다른 domain의 artifact를 가리키는 symlink도 artifacts 밖이다.
+    const other = join(root, "domains", "dom_b", "artifacts", "theirs");
+    await mkdir(other, { recursive: true });
+    await writeFile(join(other, "index.html"), "<html></html>");
+    await symlink(other, join(artifacts, "borrowed"));
     await mkdir(join(artifacts, "good"));
     await writeFile(join(artifacts, "good", "index.html"), "<html></html>");
 
     const open = (name: string) =>
       resolveSource(
         root,
-        { kind: "artifact", project: "p", name },
+        { kind: "artifact", domain: "dom_a", name },
         nodeArtifactFs,
       );
     const bad = await open("../outside");
     assert.equal(!bad.ok && bad.error.code, "invalid_input");
     const escaped = await open("escape");
     assert.equal(!escaped.ok && escaped.error.code, "not_found");
+    const borrowed = await open("borrowed");
+    assert.equal(!borrowed.ok && borrowed.error.code, "not_found");
     const good = await open("good");
     assert.equal(good.ok && good.value.entry, "index.html");
   } finally {

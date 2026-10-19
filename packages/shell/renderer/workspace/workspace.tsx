@@ -203,6 +203,7 @@ export function Workspace(props: WorkspaceProps) {
   const agentViewSource = props.agentViewSource;
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   const {
+    domains,
     sidebarAgents,
     sessionStates,
     agentView,
@@ -1117,8 +1118,8 @@ export function Workspace(props: WorkspaceProps) {
                 )}
                 artifactPanel={
                   <ArtifactPanel
-                    project={projectId}
-                    onOpen={(name) => openArtifact(host, projectId, name)}
+                    domains={domains}
+                    onOpen={(domain, name) => openArtifact(host, domain, name)}
                   />
                 }
                 current={currentTab?.kind === "document_editor"

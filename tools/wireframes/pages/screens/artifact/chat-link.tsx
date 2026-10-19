@@ -1,4 +1,4 @@
-// 대화 글 안 artifact link. 진짜 MessageBody가 이 project의 artifact 목록(ArtifactsSlice)으로 path를 link로 그린다.
+// 대화 글 안 artifact link. 진짜 MessageBody가 이 project의 domain artifact 목록(ArtifactsSlice)으로 path를 link로 그린다.
 // 목록에 없는 path는 link가 아닌 글 그대로다. hover한 모양은 mount 뒤 link에 pointer를 올려 만든다.
 import type { ReactNode } from "react";
 
@@ -10,14 +10,17 @@ import {
 import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
 import type { BodyState } from "../../../../../packages/shell/renderer/conversation/drafts.ts";
 import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/workspace/kinds/host.ts";
+import { FAKE_DOMAINS } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
 import { ARTIFACTS } from "../../../mock/artifact/data.ts";
 import { find, useDrive, wait } from "../../../mock/drive.ts";
 
 const noop = () => {};
+const DOMAIN = FAKE_DOMAINS[0]!.id;
+const FOLDER = `domains/${DOMAIN}/artifacts`;
 
 const SLICE: ArtifactsSlice = {
-  items: ARTIFACTS,
-  names: ARTIFACTS.map((item) => item.name),
+  items: ARTIFACTS.map((item) => ({ ...item, domain: DOMAIN })),
+  names: ARTIFACTS.map((item) => ({ domain: DOMAIN, name: item.name })),
   open: noop,
   reload: noop,
 };
@@ -89,13 +92,13 @@ export function ChatLink() {
       <Turn
         id="msg_link_1"
         time="10:42"
-        text="Written to artifacts/tax-deadlines/index.html. The older draft in artifacts/old-draft/index.html is gone, so it stays plain text."
+        text={`Written to ${FOLDER}/tax-deadlines/index.html. The older draft in ${FOLDER}/old-draft/index.html is gone, so it stays plain text.`}
       />
       <UserMessage>Show this month's spending as a chart.</UserMessage>
       <Turn
         id="msg_link_2"
         time="10:44"
-        text="Done. I wrote the chart to artifacts/spending/index.html and put the figures in its data folder."
+        text={`Done. I wrote the chart to ${FOLDER}/spending/index.html and put the figures in its data folder.`}
       />
     </Chat>
   );

@@ -41,7 +41,7 @@ export const artifactArea: Area = {
       id: "artifact-chat-link",
       title: "Artifact · chat link",
       description:
-        "대화 글 안에서 그 project의 artifact path가 link로 그려진 모양이다. 앞에 종류 아이콘이 붙고 hover하면 제목, 설명, 누르면 하는 일이 뜬다. 목록에 없는 path는 link가 아닌 글 그대로다.",
+        "대화 글 안에서 그 project의 domain artifact path가 link로 그려진 모양이다. 앞에 종류 아이콘이 붙고 hover하면 제목, 설명, 누르면 하는 일이 뜬다. 목록에 없는 path는 link가 아닌 글 그대로다.",
       render: () => <ChatLink />,
     },
     {

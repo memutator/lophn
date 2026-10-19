@@ -5,11 +5,14 @@ import type {
   ArtifactViewState,
   LophnArtifactApi,
 } from "../../../ipc/artifact.ts";
+import { FAKE_DOMAINS } from "../../workspace/fake-source.ts";
 
 export function fakeArtifactApi(
   options: {
     missing?: boolean;
+    /** 목록은 이 domain 하나에만 있다(기본은 fake project의 첫 domain). */
     artifacts?: readonly ArtifactListItem[];
+    domain?: string;
     title?: string;
   } = {},
 ): {
@@ -42,7 +45,12 @@ export function fakeArtifactApi(
       return Promise.resolve(latest);
     },
     reload: () => Promise.resolve(null),
-    list: () => Promise.resolve({ artifacts: [...(options.artifacts ?? [])] }),
+    list: ({ domain }) =>
+      Promise.resolve({
+        artifacts: domain === (options.domain ?? FAKE_DOMAINS[0]!.id)
+          ? [...(options.artifacts ?? [])]
+          : [],
+      }),
     subscribeState(listener) {
       stateListeners.add(listener);
       return () => stateListeners.delete(listener);

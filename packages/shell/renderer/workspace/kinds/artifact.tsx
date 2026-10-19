@@ -1,4 +1,4 @@
-// artifact 탭 kind. project의 artifact(name) 또는 사람의 폴더에 있는 .html(path) 하나를 보인다. layout에는 대상만
+// artifact 탭 kind. domain의 artifact(domain, name) 또는 사람의 폴더에 있는 .html(project, path) 하나를 보인다. layout에는 대상만
 // 남기고 title은 page가 알려 주는 대로 탭 이름에 쓴다. view는 다른 탭으로 가도 남기고 숨긴다(BrowserTab과 같다).
 import { ArtifactTab } from "../../artifact/artifact-tab.tsx";
 import { fileNameOf } from "../../editor/model.ts";
@@ -10,17 +10,17 @@ import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import type { TabItem } from "../model.ts";
 
-/** project의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
+/** domain의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
 export function openArtifact(
   host: TabHost,
-  project: string,
+  domain: string,
   name: string,
 ): void {
   host.openTab({
-    key: `artifact:${project}:${name}`,
+    key: `artifact:${domain}:${name}`,
     kind: "artifact",
     title: name,
-    fields: { project, name },
+    fields: { domain, name },
   });
 }
 
@@ -35,10 +35,13 @@ export function openArtifactFile(host: TabHost, path: string): void {
 }
 
 function sourceOf(tab: TabItem): ArtifactSource | null {
-  const { project, name, path } = tab.fields ?? {};
-  if (typeof project !== "string") return null;
-  if (typeof name === "string") return { kind: "artifact", project, name };
-  if (typeof path === "string") return { kind: "file", project, path };
+  const { domain, name, project, path } = tab.fields ?? {};
+  if (typeof domain === "string" && typeof name === "string") {
+    return { kind: "artifact", domain, name };
+  }
+  if (typeof project === "string" && typeof path === "string") {
+    return { kind: "file", project, path };
+  }
   return null;
 }
 
@@ -47,12 +50,11 @@ export const artifactKind: TabKindDef = {
   labelKey: "artifact.label.kind",
   icon: artifactIcons.kind,
   fromStored(stored, { key }) {
-    const { project, name, path } = stored;
-    if (typeof project !== "string") return null;
-    if (typeof name === "string") {
-      return { key, kind: "artifact", title: name, fields: { project, name } };
+    const { domain, name, project, path } = stored;
+    if (typeof domain === "string" && typeof name === "string") {
+      return { key, kind: "artifact", title: name, fields: { domain, name } };
     }
-    if (typeof path === "string") {
+    if (typeof project === "string" && typeof path === "string") {
       return {
         key,
         kind: "artifact",
@@ -69,7 +71,7 @@ export const artifactKind: TabKindDef = {
       ? {
         kind: "artifact",
         key: tab.key,
-        project: source.project,
+        domain: source.domain,
         name: source.name,
       }
       : {

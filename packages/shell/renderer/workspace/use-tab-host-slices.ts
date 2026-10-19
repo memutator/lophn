@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
@@ -52,9 +52,23 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
   // 대화 글의 artifact link가 쓰는 목록. 창이 mount될 때 한 번 읽는다.
-  const artifactList = useArtifactList(project);
+  const [domains, setDomains] = useState<readonly string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void source.domains(project).then((read) => {
+      if (live && read.ok) setDomains(read.value.map((domain) => domain.id));
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, project]);
+  const artifactList = useArtifactList(domains);
   const artifactNames = useMemo(
-    () => artifactList.items.map((item) => item.name),
+    () =>
+      artifactList.items.map((item) => ({
+        domain: item.domain,
+        name: item.name,
+      })),
     [artifactList.items],
   );
   const hostRef = useRef(input.host);
@@ -108,7 +122,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       artifacts: {
         items: artifactList.items,
         names: artifactNames,
-        open: (name) => openArtifact(hostRef.current(), project, name),
+        open: (domain, name) => openArtifact(hostRef.current(), domain, name),
         reload: artifactList.reload,
       },
     };
@@ -121,6 +135,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   };
 
   return {
+    domains,
     sidebarAgents,
     sessionStates,
     agentView,

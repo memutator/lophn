@@ -1,19 +1,17 @@
 // artifact 탭이 열 대상(artifact 또는 사람의 .html)을 root와 입구 file로 푼다.
 // file 시스템은 인자로 받는다. renderer가 사람의 폴더 어느 곳이든 열 수 있어서 file 대상은
-// project 폴더 안인지 보지 않는다.
+// project 폴더 안인지 보지 않는다. artifact는 domain 자리의 artifacts 폴더 안만 연다.
 import type { Stats } from "node:fs";
 import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, sep } from "node:path";
 
 import { err, ok, type Result } from "../../../base/result.ts";
 import { artifactNameSchema } from "../../ipc/artifact.ts";
-import {
-  ARTIFACT_ENTRY,
-  ARTIFACTS_FOLDER,
-} from "../../../protocol/projects/artifact.ts";
+import { ARTIFACT_ENTRY } from "../../../protocol/domains/artifact.ts";
+import { domainArtifactsFolder } from "../../../protocol/domains/paths.ts";
 
 export type ArtifactSource =
-  | { kind: "artifact"; project: string; name: string }
+  | { kind: "artifact"; domain: string; name: string }
   | { kind: "file"; project: string; path: string };
 
 export type ResolvedSource = {
@@ -58,7 +56,7 @@ export async function resolveSource(
   if (!artifactNameSchema.safeParse(source.name).success) {
     return err({ code: "invalid_input", message: "invalid artifact name" });
   }
-  const folder = join(dataRoot, "projects", source.project, ARTIFACTS_FOLDER);
+  const folder = domainArtifactsFolder(dataRoot, source.domain);
   try {
     const root = await fs.realpath(join(folder, source.name));
     // artifact 폴더가 artifacts 밖을 가리키는 symlink면 닫는다.

@@ -95,7 +95,7 @@ const notOpen = () => failure("invalid_input", "view is not open");
 
 const sameSource = (a: ArtifactSource, b: ArtifactSource) =>
   a.kind === "artifact"
-    ? b.kind === "artifact" && a.project === b.project && a.name === b.name
+    ? b.kind === "artifact" && a.domain === b.domain && a.name === b.name
     : b.kind === "file" && a.project === b.project && a.path === b.path;
 
 export function createArtifactViews(deps: ArtifactViewsDeps) {
@@ -177,11 +177,13 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
     return {
       view_session: entry.view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
-      target: {
-        kind: "artifact",
-        project: entry.source.project,
-        name: entry.source.kind === "artifact" ? entry.source.name : null,
-      },
+      target: entry.source.kind === "artifact"
+        ? {
+          kind: "artifact",
+          domain: entry.source.domain,
+          name: entry.source.name,
+        }
+        : { kind: "file", project: entry.source.project },
       pageUrl: () => contents.pageUrl(),
       current,
       send(channel, payload) {

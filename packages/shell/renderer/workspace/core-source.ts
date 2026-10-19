@@ -12,6 +12,7 @@ import type { CoreSource } from "../desktop/connection/connection.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
+  DomainView,
   FileOpResult,
   FileRow,
   LayoutRead,
@@ -35,6 +36,11 @@ interface ProjectGetValue {
       subfolders?: { path: string }[];
     }[];
   };
+}
+
+interface DomainListValue {
+  domains: DomainView[];
+  next_cursor: string | null;
 }
 
 interface DocumentListValue {
@@ -217,6 +223,27 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
     rename: (from, to) => fileOp((bridge) => bridge.rename({ from, to })),
     trash: (path) => fileOp((bridge) => bridge.delete({ path })),
     reveal: (path) => fileOp((bridge) => bridge.reveal({ path })),
+
+    domains: (id) =>
+      collect<DomainView>(
+        core,
+        "domains",
+        "list",
+        { owner: { kind: "project", id }, status: "active" },
+        (value) => {
+          const page = value as DomainListValue;
+          return {
+            items: page.domains.map((domain) => ({
+              id: domain.id,
+              name: domain.name,
+              title: domain.title,
+              purpose: domain.purpose,
+              status: domain.status,
+            })),
+            next: page.next_cursor,
+          };
+        },
+      ),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

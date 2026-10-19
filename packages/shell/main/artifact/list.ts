@@ -1,11 +1,11 @@
-// project의 artifact 목록. artifacts/ 바로 아래 slug 폴더 중 index.html이 일반 file인 것만 센다.
+// domain의 artifact 목록. artifacts/ 바로 아래 slug 폴더 중 index.html이 일반 file인 것만 센다.
 import { join } from "node:path";
 
 import {
   ARTIFACT_ENTRY,
-  ARTIFACTS_FOLDER,
   parseArtifactMeta,
-} from "../../../protocol/projects/artifact.ts";
+} from "../../../protocol/domains/artifact.ts";
+import { domainArtifactsFolder } from "../../../protocol/domains/paths.ts";
 import { artifactNameSchema } from "../../ipc/artifact.ts";
 import type { ArtifactFs } from "./source.ts";
 
@@ -21,10 +21,10 @@ const HEAD_BYTES = 64 * 1024;
 
 export async function listArtifacts(
   dataRoot: string,
-  project: string,
+  domain: string,
   fs: ArtifactFs,
 ): Promise<ArtifactListItem[]> {
-  const folder = join(dataRoot, "projects", project, ARTIFACTS_FOLDER);
+  const folder = domainArtifactsFolder(dataRoot, domain);
   let names: string[];
   try {
     names = await fs.readdir(folder);

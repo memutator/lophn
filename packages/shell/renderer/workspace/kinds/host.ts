@@ -51,14 +51,14 @@ export interface AgentViewSlice {
   projectManagerSession(): string | null;
   /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */
   nameOf(session: string): string | undefined;
-  /** 이 project의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
+  /** 이 project의 domain들의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
   readonly artifacts: ArtifactsSlice;
 }
 
 export interface ArtifactsSlice {
-  readonly items: readonly ArtifactListItem[];
-  readonly names: readonly string[];
-  open(name: string): void;
+  readonly items: readonly (ArtifactListItem & { domain: string })[];
+  readonly names: readonly { domain: string; name: string }[];
+  open(domain: string, name: string): void;
   /** 목록을 다시 읽는다. agent가 방금 만든 artifact를 알아보려고 쓴다. */
   reload(): void;
 }

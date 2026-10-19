@@ -2,6 +2,7 @@
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type {
+  DomainView,
   FolderEntry,
   ProjectFolderView,
   ReadResult,
@@ -45,6 +46,24 @@ const NOTES: readonly Node[] = [
   folder("meetings", file("2026-10-12.md"), file("2026-10-05.md")),
   file("ideas.md"),
   file("todo.md"),
+];
+
+// gallery용 domain 둘. id는 shell IPC의 domain id 모양이다.
+export const FAKE_DOMAINS: readonly DomainView[] = [
+  {
+    id: "dom_01j9z3k5q8x2r4m6n7p8t9v0wa",
+    name: "finances",
+    title: "Finances",
+    purpose: "Track spending and tax deadlines.",
+    status: "active",
+  },
+  {
+    id: "dom_01j9z3k5q8x2r4m6n7p8t9v0wb",
+    name: "research",
+    title: "Research",
+    purpose: "Keep reading notes and reports.",
+    status: "active",
+  },
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
@@ -188,6 +207,7 @@ export function fakeWorkspaceSource(
       return done;
     },
     reveal: () => done,
+    domains: () => Promise.resolve({ ok: true, value: FAKE_DOMAINS }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "no layout" }),

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
+const domainId = z.string().regex(new RegExp(`^dom_${ULID}$`));
 // artifact 이름(폴더 이름). protocol slugSchema의 사본이다.
 export const artifactNameSchema = z.string().max(63).regex(
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/,
@@ -21,11 +22,11 @@ export const ARTIFACT_LIST_CHANNEL = "shell:artifact-list";
 export const ARTIFACT_STATE_CHANNEL = "shell:artifact-state";
 export const ARTIFACT_EVENT_CHANNEL = "shell:artifact-event";
 
-// artifact는 project의 artifacts 폴더 안 이름이고, file은 사람이 고른 절대 path의 .html이다.
+// artifact는 domain의 artifacts 폴더 안 이름이고, file은 사람이 고른 절대 path의 .html이다(domain이 없다).
 export const artifactSourceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("artifact"),
-    project: projectId,
+    domain: domainId,
     name: artifactNameSchema,
   })
     .strict(),
@@ -40,7 +41,7 @@ export const artifactOpenSchema = z.object({ source: artifactSourceSchema })
   .strict();
 export const artifactReloadSchema = z.object({ view_session: viewSession })
   .strict();
-export const artifactListSchema = z.object({ project: projectId }).strict();
+export const artifactListSchema = z.object({ domain: domainId }).strict();
 
 export const artifactViewStateSchema = z.object({
   view_session: viewSession,

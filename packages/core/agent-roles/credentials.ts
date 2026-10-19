@@ -10,7 +10,12 @@ import { kindGet, projectApi } from "../../protocol/projects/mod.ts";
 import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
-import { appAppApi } from "../../protocol/apps/blueprint/read.ts";
+import {
+  appAppApi,
+  appAppApiIndex,
+} from "../../protocol/apps/blueprint/read.ts";
+import { appUsage } from "../../protocol/apps/usage.ts";
+import { packagesList, packagesUsage } from "../../protocol/apps/mod.ts";
 import { AGENT_BASE_OPERATIONS } from "../lophn-agent/run-loop/mod.ts";
 import {
   runOperations,
@@ -29,6 +34,11 @@ const PLACE_READS: readonly string[] = [
   appGet.name,
   appList.name,
   appAppApi.name,
+  // lophn의 project 지도: 공개 tool, 사용 관계, 앱이 쓰는 package. 사용 관계는 lophn session만 받는다.
+  appAppApiIndex.name,
+  appUsage.name,
+  packagesList.name,
+  packagesUsage.name,
   callSendable.name,
   // 아직 session이 없는 상대도 부를 수 있는 목록: 후보(Operator 정의)와 자기 grant의 excluded 줄.
   agentDefinitionList.name,

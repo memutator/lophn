@@ -37,3 +37,42 @@ Deno.test("PM의 place 정보에 artifact 목록이 이름 순으로 실리고 5
   assertEquals(text.split("\n").filter((l) => l === "2 more").length, 1);
   assert(!placeInfo("operator", data, 100_000).includes("Artifacts"));
 });
+
+Deno.test("lophn의 지도는 이름 순이고 빈 덩어리는 줄을 빼며 앱 글은 한 줄로 접힌다", () => {
+  const text = placeInfo("lophn", {
+    ...data,
+    self: { role: "lophn", name: "lophn" },
+    project: null,
+    projects: [
+      {
+        name: "zeta",
+        purpose: "Z",
+        app: null,
+        tools: [],
+        packages: [],
+        usedBy: [],
+      },
+      {
+        name: "alpha",
+        purpose: "A",
+        app: "Ledger",
+        tools: [
+          { key: "b", effect: "write", description: "line one\nline two" },
+          { key: "a", effect: "read", description: "x".repeat(300) },
+        ],
+        packages: ["@me/z@1.0.0", "@lophn/ui@2.0.0"],
+        usedBy: [{ tool: "a", project: "zeta" }],
+      },
+    ],
+  }, 100_000);
+  const lines = text.split("\n");
+  assertEquals(lines.slice(lines.indexOf("Projects")), [
+    "Projects",
+    "Project alpha: A",
+    "  App: Ledger",
+    `  Public tools: a (read) ${"x".repeat(100)}…; b (write) line one line two`,
+    "  Packages: @lophn/ui@2.0.0, @me/z@1.0.0",
+    "  Used by other projects: a ← zeta",
+    "Project zeta: Z",
+  ]);
+});

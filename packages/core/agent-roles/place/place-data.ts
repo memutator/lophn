@@ -1,7 +1,15 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { agentGrantsGet, agentKey } from "../../../protocol/approvals/mod.ts";
-import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
-import { appList } from "../../../protocol/apps/mod.ts";
+import {
+  appAppApi,
+  appAppApiIndex,
+} from "../../../protocol/apps/blueprint/read.ts";
+import {
+  appList,
+  appUsage,
+  packagesList,
+  packagesUsage,
+} from "../../../protocol/apps/mod.ts";
 import {
   agentDefinitionList,
   type AgentRef,
@@ -18,7 +26,12 @@ import {
   type TurnPromptInput,
 } from "../../lophn-agent/prompt-assembly/mod.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
-import { type PlaceData, placeInfo, type PlaceProject } from "./place-info.ts";
+import {
+  type MapProject,
+  type PlaceData,
+  placeInfo,
+  type PlaceProject,
+} from "./place-info.ts";
 import { placeScope } from "./place-folders.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
@@ -190,7 +203,7 @@ async function readPlaceData(
   }
 
   // lophn: 모든 project와 앱의 목록. 폴더는 읽기만 열린다.
-  const projectList: { name: string; purpose: string }[] = [];
+  const projectList: MapProject[] = [];
   const appItems: { name: string; purpose: string }[] = [];
   if (role === "lophn") {
     const listed = await pages(async (cursor) => {
@@ -206,11 +219,6 @@ async function readPlaceData(
         : read;
     });
     if (!listed.ok) return listed;
-    for (const record of listed.value) {
-      projects.set(record.id, record);
-      projectList.push({ name: record.name, purpose: record.purpose });
-      allProjectFolders.push(...record.folders.map((f) => f.path));
-    }
     const apps = await pages(async (cursor) => {
       const read = await readOf(call, appList, {
         status: "active",
@@ -225,6 +233,73 @@ async function readPlaceData(
       name: a.name,
       purpose: a.description,
     })));
+    // 지도 재료. 읽기 오류는 그 덩어리만 비우고 간다.
+    const index = await readOf(call, appAppApiIndex, {});
+    const toolsOf = new Map(
+      (index.ok ? index.value.apps : []).map((a) => [a.app, a.tools]),
+    );
+    const usage = await readOf(call, appUsage, {});
+    const catalog = await pages(async (cursor) => {
+      const read = await readOf(call, packagesList, {
+        limit: 200,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      return read.ok
+        ? ok({
+          items: read.value.packages,
+          next_cursor: read.value.next_cursor,
+        })
+        : read;
+    });
+    // app마다 활성 release가 쓰는 package. 한 version씩 사용처를 읽어 앱·release로 고른다.
+    const packagesOf = new Map<string, string[]>();
+    if (catalog.ok) {
+      const releaseOf = new Map(
+        apps.value.map((a) => [a.id, a.active_release]),
+      );
+      await Promise.all(
+        catalog.value.flatMap((pkg) =>
+          pkg.versions.map(async ({ version }) => {
+            const read = await readOf(call, packagesUsage, {
+              name: pkg.name,
+              version,
+            });
+            if (!read.ok) return;
+            for (const use of read.value.usages) {
+              if (releaseOf.get(use.app) !== use.release) continue;
+              const list = packagesOf.get(use.app) ?? [];
+              list.push(`${pkg.name}@${version}`);
+              packagesOf.set(use.app, list);
+            }
+          })
+        ),
+      );
+    }
+    for (const record of listed.value) {
+      projects.set(record.id, record);
+      allProjectFolders.push(...record.folders.map((f) => f.path));
+    }
+    const nameOf = (id: string) => projects.get(id)?.name ?? id;
+    for (const record of listed.value) {
+      const own = apps.value.find((a) => a.project === record.id);
+      const uses = own === undefined || !usage.ok
+        ? []
+        : usage.value.uses.filter((u) => u.app === own.id);
+      projectList.push({
+        name: record.name,
+        purpose: record.purpose,
+        app: own?.name ?? null,
+        tools: (own === undefined ? [] : toolsOf.get(own.id) ?? [])
+          .filter((t) => t.public)
+          .map((t) => ({
+            key: t.name,
+            effect: t.effect,
+            description: t.description,
+          })),
+        packages: own === undefined ? [] : packagesOf.get(own.id) ?? [],
+        usedBy: uses.map((u) => ({ tool: u.tool, project: nameOf(u.project) })),
+      });
+    }
   }
 
   // 부를 수 있는 agent. grant가 막은 상대는 core가 이미 뺐다.

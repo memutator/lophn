@@ -29,6 +29,19 @@ type PlaceApp = {
   source: string | null;
 };
 
+// lophn의 지도에서 project 하나의 덩어리다.
+export type MapProject = {
+  name: string;
+  purpose: string;
+  app: string | null;
+  // 앱의 활성 release가 내놓은 공개 tool
+  tools: readonly { key: string; effect: string; description: string }[];
+  // name@version
+  packages: readonly string[];
+  // 이 앱의 tool을 쓰는 다른 project
+  usedBy: readonly { tool: string; project: string }[];
+};
+
 export type PlaceData = {
   self: { role: Role; name: string };
   // 이 agent가 놓인 place
@@ -43,8 +56,8 @@ export type PlaceData = {
   kindsFile: string | null;
   // Operator는 grant 안의 앱, lophn은 모든 앱
   apps: readonly { name: string; purpose: string }[];
-  // lophn만
-  projects: readonly { name: string; purpose: string }[];
+  // lophn만. project마다 한 덩어리의 지도
+  projects: readonly MapProject[];
   // PM만. 앱의 활성 release가 없으면 null.
   release: { version: string; api_names: readonly string[] } | null;
   // project의 PM과 Operator만. 폴더를 정할 수 없으면 null.
@@ -143,6 +156,57 @@ function artifactLines(
   return lines;
 }
 
+// 앱이 쓴 글이라 한 줄로 접고 자른다.
+const ONE_LINE_MAX = 100;
+
+function oneLine(text: string): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length <= ONE_LINE_MAX ? line : `${line.slice(0, ONE_LINE_MAX)}…`;
+}
+
+function unique(items: readonly string[]): string[] {
+  return [...new Set(items)].sort(cmp);
+}
+
+// full은 tool 설명까지, short는 tool 키만, bare는 project와 앱 이름만 싣는다.
+function mapLines(
+  projects: readonly MapProject[],
+  level: "full" | "short" | "bare",
+): string[] {
+  const lines: string[] = [];
+  for (const p of [...projects].sort((a, b) => cmp(a.name, b.name))) {
+    lines.push(`Project ${p.name}: ${oneLine(p.purpose)}`);
+    if (p.app !== null) lines.push(`  App: ${p.app}`);
+    if (level === "bare") continue;
+    const tools = [...p.tools].sort((a, b) => cmp(a.key, b.key)).map((t) =>
+      level === "full"
+        ? `${t.key} (${t.effect}) ${oneLine(t.description)}`
+        : `${t.key} (${t.effect})`
+    );
+    if (tools.length > 0) lines.push(`  Public tools: ${tools.join("; ")}`);
+    const packages = unique(p.packages);
+    if (packages.length > 0) lines.push(`  Packages: ${packages.join(", ")}`);
+    const usedBy = unique(p.usedBy.map((u) => `${u.tool} ← ${u.project}`));
+    if (usedBy.length > 0) {
+      lines.push(`  Used by other projects: ${usedBy.join(", ")}`);
+    }
+  }
+  return lines;
+}
+
+// 예산 안이면 full, 넘으면 short, 그래도 넘으면 bare다.
+function projectMapLines(
+  projects: readonly MapProject[],
+  budget: number,
+): string[] {
+  if (projects.length === 0) return [];
+  for (const level of ["full", "short"] as const) {
+    const lines = mapLines(projects, level);
+    if (lines.join("\n").length <= budget) return ["Projects", ...lines];
+  }
+  return ["Projects", ...mapLines(projects, "bare")];
+}
+
 // 예산 안이면 full, 넘으면 names(kind 이름), 그래도 넘으면 count다.
 function kindLines(kinds: PlaceKinds | null, budget: number): string[] {
   if (kinds === null) return [];
@@ -161,7 +225,7 @@ export function placeInfo(role: Role, data: PlaceData, budget: number): string {
   ];
   const sections: string[][] = [agentLines(data.agents)];
   if (role === "lophn") {
-    sections.push(listLines("Projects", data.projects));
+    sections.push(projectMapLines(data.projects, budget));
   }
   if (role === "lophn" || role === "operator") {
     sections.push(listLines("Apps", data.apps));

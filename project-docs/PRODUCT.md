@@ -20,9 +20,10 @@ lophn은 사용자의 도메인에 기대지 않는다. lophn의 도메인은 �
 
 | 층 | 무엇 | 누구의 것 |
 |---|---|---|
-| 사용자의 도메인 | 캘린더, 거래처, 견적, 내 문서의 계약. 앱, context의 계약과 검색 script, 사용자 package로 만들어진다 | 사용자가 온전히 소유한다. 범용화나 정규화를 신경 쓰지 않고 그 사람에게 맞춘다 |
+| 사용자의 도메인 | 캘린더, 거래처, 견적, 내 문서의 계약. 앱, domain(kind 파일, `DOMAIN.md`, skill, artifact, 앱 tool), 사용자 package로 만들어진다 | 사용자가 온전히 소유한다. 범용화나 정규화를 신경 쓰지 않고 그 사람에게 맞춘다 |
 | lophn의 도메인 | 그 software를 만들고, 고정하고, 관측하고, 고치고, 되돌리고, 권한을 주는 일. release, problem, ticket, invocation, grant, event | lophn |
 
+- 사용자의 도메인은 그릇 안에 domain으로 나뉜다. 그릇은 project(폴더 작업 공간)와 app(software 작업 공간)이고, domain은 그 안의 책임 경계다. 그릇 하나에 domain이 여럿 있을 수 있고, 모든 앱은 domain을 하나 이상 가진다. 다른 그릇의 domain은 같은 것을 또 만들지 않고 공개 tool로 참조한다(`architecture/domain.md`).
 - 도메인 쪽은 미리 범용으로 만들어 두지 않는다. 필요할 때 agent가 만들어 붙인다. 다른 software의 extension처럼 쓰지만, lophn이 따로 extension이라는 개념을 두는 것은 아니다. 구현 비용이 내려갔으니 그때그때 만들어 쓰면 된다.
 - 개발자라면 CLI와 script를 직접 만들고 유지했을 일을, 코드를 모르는 사람도 할 수 있게 한다.
 - 앱 마켓을 열지 않는 이유도 여기 있다. 앱을 배포하고 그 책임을 지는 것보다, 한 사람에게 맞춘 앱을 만들고 쓰게 하는 것이 lophn의 일이다.
@@ -50,7 +51,7 @@ lophn 안에서는 이렇게 나뉜다.
 | 주체 | 맡는 일 |
 |---|---|
 | 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다 |
-| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며, Project Manager는 한 project의 kind와 앱을 맡는다). 쓰고 돌본다(Operator). 코드를 짜지 않는다 |
+| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며 경계를 넘는 판단을 한다. Project Manager는 한 project와 그 domain을, App Engineer는 한 앱의 코드와 그 domain을 맡는다). 쓰고 돌본다(Operator). 코드를 짜지 않는다 |
 | coding agent | 어떻게 만들지 정하고 코드를 짠다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
 | lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 problem, grant 판정, invocation 기록과 rewind, event |
 
@@ -65,7 +66,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - pdf는 잘 바뀌지 않고, 바꾼 사람은 자기가 무엇을 바꿨는지 이미 안다. "pdf 바꿨으니 목차 새로 뽑아줘" 한마디가 가장 정확하고 가장 싸다.
 - 그래서 목차를 다시 만드는 계기는 사람의 요청이다. program은 감지하지 않는다.
 
-같은 질문이라도 근거가 다르면 답이 다르다. 사람이 고친 문서가 context 계약을 깨는 일은 고친 사람이 자기가 계약을 깼는지 모를 수 있다. 그런 일은 program이 결정적으로 검사하는 쪽이 맞다.
+같은 질문이라도 근거가 다르면 답이 다르다. 사람이 고친 문서가 kind 계약을 깨는 일은 고친 사람이 자기가 계약을 깼는지 모를 수 있다. 그런 일은 program이 결정적으로 검사하는 쪽이 맞다.
 
 ## 4. 핵심은 추상화
 
@@ -93,10 +94,10 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 **MVP**
 - 데스크톱 앱(shell)과 로컬 core
-- lophn agent: lophn, Project Manager, Operator
+- lophn agent: lophn, Project Manager, App Engineer, Operator
 - coding agent 연결: 터미널 탭의 TUI, CLI, MCP
 - 앱: blueprint, release, 실행, data, ticket, problem
-- context: 계약과 검색 script
+- domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
 
 **그다음**

@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-operator-skills` | place-core | 2 | dp-agents-core, dp-agent-roles-scope | todo |  |  |  |
 | `dp-place-events` | place-core | 2 | 없음 | merged | place-core/dp-place-events | 7d94a227d |  |
 | `dp-place-protocol` | place-core | 2 | dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval | todo |  |  |  |
-| `dp-agent-roles-prompt` | role-merge | 2 | 없음 | running | role-merge/dp-agent-roles-prompt |  |  |
+| `dp-agent-roles-prompt` | role-merge | 2 | 없음 | merged | role-merge/dp-agent-roles-prompt | 561618b1e |  |
 | `dp-agent-roles-scope` | role-merge | 2 | dp-agents-core | running | role-merge/dp-agent-roles-scope |  |  |
 | `dp-coding-text` | role-merge | 2 | 없음 | merged | role-merge/dp-coding-text | a16c48487 |  |
 | `dp-shell-agents` | shell-place | 2 | 없음 | todo |  |  |  |

@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py browser-bridge build`가 `tasks/*.md`에서 
 | `bb-server` | bb-server | 2 | bb-policy, bb-contract, bb-shim | merged | bb-server/bb-server | 6bd1b6b52 |  |
 | `bb-settings` | bb-settings | 2 | bb-policy | merged | bb-settings/bb-settings | 959aa1930 |  |
 | `bb-shim` | bb-shim | 2 | bb-policy | merged | bb-shim/bb-shim | 7d91762e8 |  |
-| `bb-gallery` | bb-gallery | 3 | bb-renderer, bb-settings | todo |  |  |  |
+| `bb-gallery` | bb-gallery | 3 | bb-renderer, bb-settings | merged | bb-gallery/bb-gallery | c34ac48a3 |  |

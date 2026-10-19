@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-app-project` | app-binding | 1 | 없음 | merged | app-binding/dp-app-project | a226d53be |  |
 | `dp-project-folderless` | app-binding | 1 | 없음 | merged | app-binding/dp-project-folderless | 50c060875 |  |
 | `dp-eval` | evals | 2 | 없음 | merged | evals/dp-eval | 4867b08b8 |  |
-| `dp-lophn-map` | map | 2 | dp-usage-read | running | map/dp-lophn-map |  |  |
+| `dp-lophn-map` | map | 2 | dp-usage-read | merged | map/dp-lophn-map | b77ab6b2d |  |
 | `dp-package-owner` | map | 2 | 없음 | merged | map/dp-package-owner | 4235f65eb |  |
 | `dp-usage-read` | map | 2 | 없음 | merged | map/dp-usage-read | 6fb152810 |  |
 | `dp-agents-core` | place-core | 2 | 없음 | merged | place-core/dp-agents-core | 61100fa9d |  |

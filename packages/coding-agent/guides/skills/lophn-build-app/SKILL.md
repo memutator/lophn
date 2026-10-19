@@ -111,7 +111,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    만든다.
 9. preview로 확인한다. `app preview start`로 fixture 격리 preview를 열고 화면과
    tool을 확인한 뒤 `app preview stop`으로 닫는다. preview 결과는 운영이
-   정상이라는 증거가 아니다.
+   정상이라는 증거가 아니다. harness에 MCP server `lophn`이 연결돼 있으면
+   preview를 연 뒤 이 앱의 tool을 MCP로 부를 수 있다. preview가 없으면
+   `unavailable`이다. 운영 앱은 부를 수 없다. MCP가 안 보이면
+   `lophn app preview start` 뒤 harness에서 MCP를 다시 연결한다.
 10. release를 확인한다. 테스트가 통과한 뒤 `release status`를 다시 읽으면 core가
     release를 확정하고 `release`(id)를 준다. 새 release를 운영에 켜는 일은
     사람이 한다.

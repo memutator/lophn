@@ -31,6 +31,8 @@ export {
   PASTE_AFTER_HOOK_DEADLINE_MS,
 } from "./launch-plan.ts";
 
+export { withCodingMcp } from "./mcp-launch.ts";
+
 export * from "./token.ts";
 export * from "./cli-commands.ts";
 export * from "./hook.ts";

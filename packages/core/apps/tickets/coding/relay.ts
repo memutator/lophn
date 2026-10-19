@@ -8,6 +8,7 @@ import type {
 import type { HarnessDetection } from "../../../../protocol/coding-agent/harnesses.ts";
 import type { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
 import { CODING_TOKEN_ENV } from "../../../../protocol/coding-agent/token.ts";
+import { withCodingMcp } from "../../../../protocol/coding-agent/mcp-launch.ts";
 import { codingHook } from "../../../../protocol/coding-agent/hook.ts";
 import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
 import {
@@ -47,6 +48,8 @@ type CodingRelayDeps = {
   send(frame: GatewayServerFrame): Result<void>;
   // 없으면 source diff는 unavailable이다.
   sources(): ReleaseSourceReader | undefined;
+  // coding agent가 쓸 MCP endpoint url이다. server가 열리기 전이면 null이라 MCP 없이 띄운다.
+  mcpUrl(): string | null;
 };
 
 type Handler = (
@@ -231,15 +234,23 @@ export function createCodingRelay(deps: CodingRelayDeps) {
       failed(request.request);
       return;
     }
+    let plan: typeof request.plan = {
+      ...request.plan,
+      env: { ...request.plan.env, [CODING_TOKEN_ENV]: issued.value.token },
+    };
+    const url = deps.mcpUrl();
+    if (url !== null) {
+      const withMcp = withCodingMcp(plan, url);
+      if (!withMcp.ok) {
+        console.error(`coding: mcp config failed (${withMcp.error.code})`);
+        failed(request.request);
+        return;
+      }
+      plan = withMcp.value;
+    }
     const sent = deps.send({
       type: "coding_terminal",
-      request: {
-        ...request,
-        plan: {
-          ...request.plan,
-          env: { ...request.plan.env, [CODING_TOKEN_ENV]: issued.value.token },
-        },
-      },
+      request: { ...request, plan },
     });
     if (!sent.ok) failed(request.request);
   }

@@ -18,6 +18,9 @@ export type HarnessAdapter = {
     | { kind: "argv"; flag: string | null }
     | { kind: "paste_after_hook" }
     | null;
+  // lophn MCP endpoint를 session 실행 계획에만 실어 붙이는 방법이다(`withCodingMcp`). 사람의 전역 설정은 쓰지 않는다.
+  // null이면 붙이지 않는다.
+  mcp: "argv_after_prompt" | "argv_before_prompt" | "env" | null;
   // 사용자 home 기준 상대 위치(전역)다. skill을 놓는 곳이고 확인한 제품만 적는다.
   skill_dir: string | null;
   // 사용자 home 기준 상대 위치(전역)다. 확인한 제품만 적는다.
@@ -38,6 +41,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
+    // 확인함(2.1.303): `--mcp-config <JSON>`은 variadic이라 prompt 뒤 맨 끝에 둔다. 인라인 JSON header의 `${LOPHN_CODING_TOKEN}`이 env로 풀린다.
+    mcp: "argv_after_prompt",
     // 확인함: code.claude.com/docs/en/skills (~/.claude/skills), /docs/en/hooks (~/.claude/settings.json).
     skill_dir: ".claude/skills",
     hook: { path: ".claude/settings.json", format: "json" },
@@ -50,6 +55,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: { argv: ["codex", "login", "status"] },
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
+    // 확인함(0.161.0): 앞에 둔 `-c mcp_servers.lophn.*` override가 `codex mcp get`에 먹는다.
+    mcp: "argv_before_prompt",
     skill_dir: ".agents/skills",
     // 확인함: ~/.codex/hooks.json, feature flag 불필요(hook 기본 켜짐). 다만 codex는 새·바뀐 hook을
     // 사람이 /hooks에서 trust하기 전까지 건너뛴다(learn.chatgpt.com/docs/hooks). trust는 쓰지 않는다.
@@ -63,6 +70,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: "--prompt" },
+    // 확인함(1.18.35): `OPENCODE_CONFIG_CONTENT`의 mcp.lophn을 읽고 `{env:...}`를 header에 푼다.
+    mcp: "env",
     // 확인함: opencode.ai/docs/skills (~/.config/opencode/skills).
     skill_dir: ".config/opencode/skills",
     // 확인함: opencode.ai/docs/plugins (`~/.config/opencode/plugins/` 전역 plugin, 시작 때 읽힘). 파일 이름 규칙은
@@ -82,6 +91,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: "--prompt-interactive" },
+    // MCP는 settings.json에서만 정한다(per-session flag·env를 확인 못함).
+    mcp: null,
     // 확인함: geminicli.com/docs/cli/skills (~/.gemini/skills), geminicli.com/docs/hooks (~/.gemini/settings.json).
     skill_dir: ".gemini/skills",
     hook: { path: ".gemini/settings.json", format: "json" },
@@ -94,6 +105,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: ["--model"],
     prompt: { kind: "argv", flag: null },
+    // MCP 지원이 없다.
+    mcp: null,
     // pi 문서가 지원한다고 적은 전역 위치다(pi.dev/docs/latest/skills). `~/.pi/agent/skills`는 확인 못함.
     skill_dir: ".agents/skills",
     // 확인함: pi.dev/docs/latest/extensions (~/.pi/agent/extensions/*.ts).
@@ -112,6 +125,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: null,
     prompt: null,
+    mcp: null,
     skill_dir: null,
     hook: null,
   },
@@ -123,6 +137,7 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     login_probe: null,
     model_flag: null,
     prompt: null,
+    mcp: null,
     skill_dir: null,
     hook: null,
   },

@@ -74,7 +74,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    읽는다. 결과는 runner가 낸 test result만 근거다. 실패· timeout·미실행이면
    고쳐서 6부터 다시 한다. 통과 전에 보고하지 않는다. `app preview start`로
    fixture 격리 preview에서 증상이 사라졌는지 보고 `app preview stop`으로
-   닫는다. preview는 운영 정상의 증거가 아니다.
+   닫는다. preview는 운영 정상의 증거가 아니다. harness에 MCP server `lophn`이
+   연결돼 있으면 preview를 연 뒤 이 앱의 tool을 MCP로 부를 수 있다. preview가
+   없으면 `unavailable`이다. 운영 앱은 부를 수 없다. MCP가 안 보이면
+   `lophn app preview start` 뒤 harness에서 MCP를 다시 연결한다.
 8. claim을 다시 확인한다. 보고하기 전에 `ticket show`로 이 claim이 아직 내 현재
    claim인지, 기한이 남았는지 본다. 만료·반납·회수로 claim을 잃었으면 보고를
    멈추고 `message send`로 알린다. 오래된 claim으로 결과를 제출하지 않는다.

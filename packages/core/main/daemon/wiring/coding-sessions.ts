@@ -7,6 +7,7 @@ import {
 } from "../../../../protocol/coding-agent/harness-report.ts";
 import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
 import { codingSourceDiff } from "../../../../protocol/coding-agent/source-diff.ts";
+import { CODING_MCP_PATH } from "../../../../protocol/coding-agent/mcp.ts";
 import {
   codingTerminalExited,
   codingTerminalResult,
@@ -179,6 +180,13 @@ export const codingSessionsWiring: WiringFactory = () => {
         send: (frame) => ctx.gateway.send(frame),
         // release bundle의 source를 읽는다.
         sources: () => sourceReader,
+        // server는 relay보다 늦게 열리므로 부를 때 읽는다.
+        mcpUrl() {
+          const port = ctx.peek.server?.port ?? 0;
+          return port === 0
+            ? null
+            : `http://127.0.0.1:${port}${CODING_MCP_PATH}`;
+        },
       });
       // 완료 보고, claim 만료, 보고 없는 끝이 call을 닫고 App Engineer에게 알린다.
       ctx.reactor.on(

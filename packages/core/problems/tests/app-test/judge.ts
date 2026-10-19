@@ -193,9 +193,16 @@ export function judgeAppTest(input: {
       actuals,
     };
   }
+  const unproven = (actuals.rewind as { unproven?: string[] } | undefined)
+    ?.unproven ?? [];
+  const note = unproven.length === 0
+    ? ""
+    : `. 증명 못 한 write tool: ${
+      unproven.join(", ")
+    }(만든 입력의 호출이 실패했다)`;
   return {
     result: "pass",
-    reason: "모든 필수 검사가 실제로 통과했다",
+    reason: `모든 필수 검사가 실제로 통과했다${note}`,
     observations: value,
     actuals,
   };

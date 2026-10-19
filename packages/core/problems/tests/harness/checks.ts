@@ -92,17 +92,25 @@ async function rewind(
   const runs: Record<string, RewindRun> = {};
   for (const api of plan.write_api) runs[api] = await driver.rewind(api);
   // 바꾼 것이 없으면 되돌릴 것이 없다(없는 id를 지우는 remove처럼 맞게 짠 api).
-  const failed = Object.entries(runs).filter(([, run]) =>
-    !(run.called && (!run.changed || (run.applied && run.restored)))
+  // 호출이 실패한 api는 만든 입력이 맞지 않은 것일 수 있어 fail이 아니라 증명 못 함이다.
+  const entries = Object.entries(runs);
+  const failed = entries.filter(([, run]) =>
+    run.called && run.changed && !(run.applied && run.restored)
   );
+  const unproven = entries.filter(([, run]) => !run.called);
+  const unprovenNote = unproven.length === 0
+    ? ""
+    : `. 증명 못 한 tool: ${
+      unproven.map(([api, run]) => `${api}(${run.reason})`).join(", ")
+    }`;
   return {
     met: failed.length === 0,
     reason: failed.length === 0
-      ? "write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다. 바꾼 것이 없는 api는 되돌릴 것이 없다"
+      ? `호출이 성공한 write app-api마다 뒤집은 changeset을 적용하면 호출 전 상태로 돌아온다. 바꾼 것이 없는 api는 되돌릴 것이 없다${unprovenNote}`
       : `되돌리지 못한 write app-api가 있다: ${
         failed.map(([api, run]) => `${api}(${run.reason})`).join(", ")
-      }`,
-    evidence: { runs },
+      }${unprovenNote}`,
+    evidence: { runs, unproven: unproven.map(([api]) => api) },
   };
 }
 

@@ -85,7 +85,8 @@ const COVERAGE: Record<CheckName, CheckCoverage> = {
   },
   rewind: {
     criteria: [
-      "write app-api를 부른 뒤 changeset을 뒤집어 적용하면 업무 상태가 부르기 전과 같다",
+      "호출이 성공한 write app-api는 changeset을 뒤집어 적용하면 업무 상태가 부르기 전과 같다",
+      "호출이 실패한 write app-api는 증명 못 함으로 증거에 싣고 검사를 떨어뜨리지 않는다",
     ],
     input_range: "write app-api마다 호출 1회와 rewind 1회",
   },

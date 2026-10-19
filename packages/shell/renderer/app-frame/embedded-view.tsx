@@ -262,15 +262,15 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     return views.subscribeViewState((state) => {
       if (state.view_session === viewSession) {
         lastState.current = state;
-        // 다른 창으로 옮길 때 lookup이 최신 state를 준다.
-        if (keepKey !== undefined && keeps !== null) {
-          const tracked = keeps.lookup<AppFrameViewState>(keepKey);
-          if (tracked?.session === state.view_session) tracked.state = state;
-        }
         stateListener.current?.(state);
       }
     });
-  }, [views, viewSession, keeps, keepKey]);
+  }, [views, viewSession]);
+
+  // 숨겨 둔 동안의 state도 보관소가 받는다. mount된 view의 tracked state도 여기서 갱신된다.
+  useEffect(() => {
+    if (keepKey !== undefined) keeps?.watch(views.subscribeViewState);
+  }, [views, keeps, keepKey]);
 
   useViewBounds({ views, viewSession, shown, ref });
 

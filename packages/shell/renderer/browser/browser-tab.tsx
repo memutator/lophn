@@ -249,7 +249,23 @@ function OpenTab(
       const adopting = adoptId.current;
       // adopt는 응답 전에도 이 view의 close가 올 수 있어 처음부터 안다.
       setViewSession(adopting);
-      browser.adopt({ view_session: adopting }).then(
+      // 답 전에 다시 mount됐으면 옛 mount가 건 adopt를 기다린다(main은 두 번째 adopt를 거절한다).
+      // 옛 mount의 답은 dispose로 보관하고, 이 mount의 답은 곧바로 track해 덮으므로 한 번만 보관된다.
+      let pending = keeps.opening.get(keepKey) as
+        | Promise<BrowserViewState>
+        | undefined;
+      if (pending === undefined) {
+        pending = browser.adopt({ view_session: adopting });
+        const started = pending;
+        const done = () => {
+          if (keeps.opening.get(keepKey) === started) {
+            keeps.opening.delete(keepKey);
+          }
+        };
+        keeps.opening.set(keepKey, started);
+        started.then(done, done);
+      }
+      pending.then(
         (next) => {
           adoptId.current = undefined;
           if (!alive) {

@@ -1,12 +1,13 @@
-/* 패널 위의 층. 빈 곳은 아래 칸이 받도록 pointer를 통과시킨다. */
+/* 패널 위의 층. 빈 곳은 아래 칸이 받도록 pointer를 통과시킨다. z-index를 두지 않아 stacking context를 만들지
+   않는다. pane의 경계 잡는 띠(--z-sticky)가 docked <webview>(z-index 1) 위, floated 패널 아래에 끼어야 하기 때문이다. */
 .floats {
   position: absolute;
   inset: var(--space-0);
-  z-index: var(--z-sticky);
   pointer-events: none;
 }
 
-/* 패널마다 하나. z-index는 floats 배열 순서(층 번호)의 2배다(사이에 browser 탭의 <webview>가 온다). DOM 순서는 바꾸지 않는다. */
+/* 패널마다 하나. z-index는 --z-sticky + floats 배열 순서(층 번호)의 2배다(사이에 floated browser 탭의 <webview>가 온다).
+   DOM 순서는 바꾸지 않는다. */
 .layer {
   position: absolute;
   inset: var(--space-0);

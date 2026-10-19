@@ -17,3 +17,17 @@ guard: 없음
   - 작음(추천): 두 kind의 `toStored`·`fromStored`가 제목을 저장하고 되살린다. layout schema의 그 kind 탭 schema에 `title` 칸을 더한다(판 2 안에서, 개발 data는 지운다).
   - 작음: 그리는 세 곳이 빈 제목이면 kind 이름(`tabKindLabel`)을 쓴다. 저장은 그대로지만 terminal 여럿이 모두 "Terminal"로 보인다.
 - 닫음: plain terminal과 app panel 탭이 `layout.json`에 선택 칸 `title`을 남기고 되살린다(main `workspace/kinds/terminal.ts`·`app-panel.ts`의 schema, renderer `kinds/terminal.tsx`·`app-panel.tsx`의 `toStored`·`fromStored`). coding terminal은 전처럼 `coding.title`이다.
+
+## 접어 둔 app panel을 다시 펴면 view 상태가 접을 때의 것이다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+- 지금: `EmbeddedView`(`renderer/app-frame/embedded-view.tsx`)는 mount된 동안만 `subscribeViewState`를 듣는다. Float·Dock·접기로 unmount되면 view는 `ViewKeeps`(`renderer/app-frame/view-keeps.ts`)에 `state`와 함께 보관되고, 그동안 main이 보낸 state(`viewHealth`의 unresponsive·crashed, `connectionState`)는 아무도 받지 않는다. 다시 mount하면 `take`가 준 보관 `state`를 그대로 보인다.
+- 영향: minimized나 다른 자리로 옮기는 사이에 app view가 죽거나 연결이 끊기면, 다시 편 탭이 "정상"으로 보이고 [새 view 열기]가 안 나온다. 사람은 빈 화면이나 멈춘 앱을 보고 탭을 닫았다 열어야 한다.
+- 고치려면: `ViewKeeps`가 보관하는 동안 `subscribeViewState`를 하나 들어 그 session의 `state`를 갱신한다(추천, 몇 줄). 또는 `take` 뒤에 main에 지금 state를 묻는다(새 IPC가 필요하다).
+- 닫음: `ViewKeeps.watch`가 `subscribeViewState`를 창마다 한 번 들어, mount된 view든 보관 중인 view든 session이 같은 `state`를 최신으로 갱신한다(`renderer/app-frame/view-keeps.ts`, `embedded-view.tsx`가 mount 때 `watch`를 건다). 다시 mount(`take`)와 Detach(`lookup`)가 접힌 사이의 unresponsive·crashed·connection 상태를 본다.

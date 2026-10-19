@@ -61,9 +61,10 @@ export interface WebviewHost {
   attach(container: HTMLElement | null): void;
 }
 
-// pane 탭(층 0)은 모든 패널(층 L은 z-index 2L) 아래, floated 탭은 자기 패널 바로 위다.
-function zOf(layer: number): number {
-  return layer === 0 ? 1 : layer * 2 + 1;
+// pane 탭(층 0)은 pane의 경계 잡는 띠(--z-sticky) 아래이고, 층 L의 패널은 --z-sticky + 2L, floated 탭은
+// 자기 패널 바로 위다. floats 층이 stacking context가 아니라서 이 값들이 pane 요소와 직접 겹쳐 쌓인다.
+function zOf(layer: number): string {
+  return layer === 0 ? "1" : `calc(var(--z-sticky) + ${layer * 2 + 1})`;
 }
 
 // Electron 창에서 webviewTag가 켜져 있을 때만 <webview>가 정의된다. dev mock·gallery는 빈 자리를 그린다.
@@ -134,7 +135,7 @@ export function createWebviewHost(): WebviewHost {
       style.top = `${Math.round(rect.top - box.top)}px`;
       style.width = `${Math.round(rect.width)}px`;
       style.height = `${Math.round(rect.height)}px`;
-      style.zIndex = String(zOf(layer));
+      style.zIndex = zOf(layer);
       style.visibility = "visible";
     },
     page(key) {

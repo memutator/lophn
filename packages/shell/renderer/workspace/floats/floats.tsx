@@ -159,8 +159,11 @@ function FloatEntry(
     </Tooltip>
   );
   return (
-    // 층 L의 패널은 z-index 2L이다. 그 사이 2L+1에 floated browser 탭의 <webview>가 온다(webview-host).
-    <div className={styles.layer} style={{ zIndex: layer * 2 }}>
+    // 층 L의 패널은 z-index --z-sticky + 2L이다. 그 사이 +1에 floated browser 탭의 <webview>가 온다(webview-host).
+    <div
+      className={styles.layer}
+      style={{ zIndex: `calc(var(--z-sticky) + ${layer * 2})` }}
+    >
       <FloatPanel
         ref={ref}
         title={tab.title}

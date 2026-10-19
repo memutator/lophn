@@ -25,12 +25,27 @@ export interface ViewKeeps {
    * 바뀔 때 알린다. mount된 동안 lookup이 찾게 한다.
    */
   track<State>(key: string, view: KeptView<State>): void;
+  /**
+   * 아직 답이 오지 않은 adopt(탭 key별). 답 전에 다시 mount한 탭이 adopt를 또 불러 main에 거절되지
+   * 않고 이 promise를 기다리게 한다. 끝나면(답이든 거절이든) 비워진다.
+   */
+  readonly opening: Map<string, Promise<unknown>>;
+  /**
+   * main이 미는 view state를 보관소가 직접 듣는다. 숨겨 둔 view는 EmbeddedView가 unmount돼 있어
+   * 아무도 받지 못하므로, 다시 mount하거나 Detach할 때 접을 때의 state가 보이지 않게 한다. 한 번만
+   * 듣는다(이미 듣고 있으면 무시).
+   */
+  watch<State extends { view_session: string }>(
+    subscribe: (listener: (state: State) => void) => () => void,
+  ): void;
 }
 
 export function createViewKeeps(close: (session: string) => void): ViewKeeps {
   // mounted인 view는 쓰는 쪽이 들고 있다. 닫는 일도 그쪽이 한다.
   const views = new Map<string, { view: KeptView; mounted: boolean }>();
+  let watching = false;
   return {
+    opening: new Map(),
     take<State>(key: string, signature: string) {
       const item = views.get(key);
       if (item === undefined || item.mounted) return undefined;
@@ -61,6 +76,16 @@ export function createViewKeeps(close: (session: string) => void): ViewKeeps {
       views.get(key)?.view as KeptView<State> | undefined,
     track(key, view) {
       views.set(key, { view, mounted: true });
+    },
+    watch(subscribe) {
+      if (watching) return;
+      watching = true;
+      // 보관소가 창과 함께 사라지므로 구독을 따로 풀지 않는다.
+      subscribe((state) => {
+        for (const { view } of views.values()) {
+          if (view.session === state.view_session) view.state = state;
+        }
+      });
     },
   };
 }

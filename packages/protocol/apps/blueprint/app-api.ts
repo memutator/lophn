@@ -2,6 +2,7 @@
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
 
 import {
+  DOMAIN_NAME,
   exactKeys,
   type InputSchema,
   invalid,
@@ -41,6 +42,7 @@ function blankDescription(schema: InputSchema): string | undefined {
 export function validateScreensAndTools(
   screenItems: unknown[],
   toolItems: unknown[],
+  domains?: readonly string[],
 ): ValidationResult<{
   screens: ScreenDeclaration[];
   tools: ToolDeclaration[];
@@ -88,6 +90,7 @@ export function validateScreensAndTools(
     if (!isObject(item)) return invalid("tool must be an object");
     const bad = exactKeys(item, [
       "description",
+      "domain",
       "effect",
       "inputSchema",
       "name",
@@ -96,6 +99,7 @@ export function validateScreensAndTools(
       "title",
     ], [
       "description",
+      "domain",
       "effect",
       "inputSchema",
       "name",
@@ -122,6 +126,17 @@ export function validateScreensAndTools(
     if (typeof item.public !== "boolean") {
       return invalid(`tool ${item.name} public must be boolean`);
     }
+    if (
+      typeof item.domain !== "string" || item.domain.length > 63 ||
+      !DOMAIN_NAME.test(item.domain)
+    ) {
+      return invalid(`tool ${item.name} domain must be a domain name`);
+    }
+    if (domains && !domains.includes(item.domain)) {
+      return invalid(
+        `tool ${item.name} domain ${item.domain} is not a domain of this app`,
+      );
+    }
     const inputSchema = item.inputSchema === null
       ? ({ ok: true, value: null } as const)
       : objectSchema(item.inputSchema, `tool ${item.name} inputSchema`);
@@ -133,6 +148,7 @@ export function validateScreensAndTools(
       inputSchema: inputSchema.value,
       effect: item.effect,
       public: item.public,
+      domain: item.domain,
     };
     if (Object.hasOwn(item, "outputSchema")) {
       const outputSchema = objectSchema(

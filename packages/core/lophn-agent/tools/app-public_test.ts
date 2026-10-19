@@ -18,6 +18,7 @@ const tool = (name: string, isPublic: boolean) => ({
   inputSchema: null,
   effect: "read" as const,
   public: isPublic,
+  domain: "items",
 });
 const views = [APP_A, APP_B].map((app) => ({
   app,

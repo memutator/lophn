@@ -8,6 +8,7 @@ import {
   type Blueprint,
   BLUEPRINT_KEYS,
   type BlueprintOptions,
+  DOMAIN_NAME,
   exactKeys,
   invalid,
   isObject,
@@ -32,7 +33,7 @@ export function validateBlueprint(
   if (options !== undefined && !isObject(options)) {
     return invalid("blueprint options must be an object");
   }
-  if (options && exactKeys(options, ["app"], [])) {
+  if (options && exactKeys(options, ["app", "domains"], [])) {
     return invalid("blueprint options have an unknown field");
   }
   const owner = options?.app;
@@ -41,6 +42,17 @@ export function validateBlueprint(
     (typeof owner !== "string" || !APP_ID.test(owner))
   ) {
     return invalid("owner app must be an app ID");
+  }
+  const domains = options?.domains;
+  if (
+    domains !== undefined &&
+    (!Array.isArray(domains) ||
+      domains.some((name) =>
+        typeof name !== "string" || name.length > 63 ||
+        !DOMAIN_NAME.test(name)
+      ))
+  ) {
+    return invalid("domains must be domain names");
   }
   const unexpected = exactKeys(value, BLUEPRINT_KEYS, BLUEPRINT_KEYS);
   if (unexpected) return invalid(`blueprint ${unexpected}`);
@@ -59,7 +71,11 @@ export function validateBlueprint(
     return invalid("blueprint collections must be arrays");
   }
 
-  const declared = validateScreensAndTools(value.screens, value.tools);
+  const declared = validateScreensAndTools(
+    value.screens,
+    value.tools,
+    domains,
+  );
   if (!declared.ok) return declared;
   const screens = declared.value.screens;
   const tools = declared.value.tools;

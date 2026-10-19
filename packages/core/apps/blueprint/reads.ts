@@ -73,6 +73,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
               description: tool.description,
               effect: tool.effect,
               public: tool.public,
+              domain: tool.domain,
               // 호출 모양은 앱 하나를 볼 때만 싣는다.
               ...(input.app === undefined ? {} : {
                 inputSchema: tool.inputSchema as AppTool["inputSchema"],
@@ -127,6 +128,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
               : { outputSchema: tool.outputSchema as AppTool["outputSchema"] }),
             effect: tool.effect,
             public: tool.public,
+            domain: tool.domain,
           })),
           screens: blueprint.screens.map((screen) => ({
             key: screen.key,

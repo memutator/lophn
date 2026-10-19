@@ -7,6 +7,7 @@ const tool = {
   description: "Lists the items.",
   inputSchema: null,
   effect: "read",
+  domain: "items",
   public: false,
 };
 const objectSchema = {
@@ -41,6 +42,8 @@ Deno.test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸
     }]],
     ["string output root", [{ ...tool, outputSchema: { type: "string" } }]],
     ["missing public", [{ ...tool, public: undefined }]],
+    ["missing domain", [{ ...tool, domain: undefined }]],
+    ["domain not a slug", [{ ...tool, domain: "Items_1" }]],
     ["project_scope", [{ ...tool, project_scope: false }]],
     ["old key field", [{ ...tool, key: "x" }]],
   ];
@@ -49,6 +52,16 @@ Deno.test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸
     assert(!result.ok, label);
     assertEquals(result.error.code, "invalid_input", label);
   }
+
+  const outside = validateBlueprint(blueprintWith([tool]), {
+    domains: ["other"],
+  });
+  assert(!outside.ok);
+  assertEquals(
+    outside.error.message,
+    "tool list_items domain items is not a domain of this app",
+  );
+  assert(validateBlueprint(blueprintWith([tool]), { domains: ["items"] }).ok);
 
   const accepted = validateBlueprint(blueprintWith([
     {
@@ -76,7 +89,9 @@ Deno.test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸
     readOnlyHint: true,
     openWorldHint: false,
   });
-  assert(!("outputSchema" in none) && !("public" in none));
+  assert(
+    !("outputSchema" in none) && !("public" in none) && !("domain" in none),
+  );
   const external = toMcpTool(tools[0]);
   assertEquals(external.annotations, {
     title: "List items",

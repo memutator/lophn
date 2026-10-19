@@ -61,6 +61,8 @@ export type ToolDeclaration = {
   effect: ToolEffect;
   // 다른 project에 보이는지.
   public: boolean;
+  // tool이 다루는 객체의 domain. 이 앱의 domain 이름 중 하나다.
+  domain: string;
 };
 
 export type ScreenDeclaration = {
@@ -109,7 +111,8 @@ export type Blueprint = {
   sdk_dependencies: SDKDependency[];
 };
 
-export type BlueprintOptions = { app?: string };
+// domains를 주면 모든 tool의 domain이 이 안에 있어야 한다. 안 주면 모양만 본다.
+export type BlueprintOptions = { app?: string; domains?: readonly string[] };
 
 export const BLUEPRINT_KEYS = [
   "app_connections",
@@ -149,6 +152,8 @@ export const INPUT_TYPES = new Set<InputType>([
 ]);
 
 export const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+// slugSchema(protocol/projects/values.ts)와 같은 규칙. 이 file은 의존성이 없어 따로 쓴다.
+export const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SEMVER =

@@ -25,6 +25,7 @@ export function makeBlueprint(text: Text = en): Blueprint {
         description: text["items.summary.list-items"],
         effect: "read",
         inputSchema: null,
+        domain: "{{APP}}",
         public: false,
       },
       {
@@ -45,6 +46,7 @@ export function makeBlueprint(text: Text = en): Blueprint {
           required: ["title"],
           additionalProperties: false,
         },
+        domain: "{{APP}}",
         public: false,
       },
     ],

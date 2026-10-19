@@ -18,6 +18,7 @@ const tool = (name: string, inputSchema?: null): ToolDeclaration => ({
   description: name,
   effect: "read",
   public: false,
+  domain: "items",
 } as unknown as ToolDeclaration);
 
 const context = (actor: string, app: string): AuthenticatedContext => ({

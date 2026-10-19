@@ -39,6 +39,7 @@ Deno.test("Project Manager 자격은 다른 앱의 tool 목록을 읽지만 다�
           description: "adds",
           effect: "write",
           public: false,
+          domain: "notes",
           inputSchema: { type: "object" },
         }],
       },

@@ -58,7 +58,9 @@ Package를 쓴다.
 ## 파일
 
 - `blueprint.ts`: 앱의 정본 선언(화면·tool·고정 SDK 의존).
-  코드를 바꾸기 전에 먼저 바꾼다.
+  코드를 바꾸기 전에 먼저 바꾼다. 모든 tool에는 `domain`(tool이 다루는
+  객체의 domain 이름)이 필수다. 앱을 만들면 앱 이름의 domain이 하나 있고,
+  다른 domain은 `domain.create`로 만든 뒤 쓴다.
 - `main.ts`: 진입. tool 등록만 한다. 예외 수집과 문제 보고 통로는 lophn
   진입점이 설치한다.
 - `src/app-api.ts`, `src/items.ts`: tool handler와 업무 규칙, DB 질의. DB를

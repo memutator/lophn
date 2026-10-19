@@ -20,6 +20,8 @@ const appToolSchema = z.object({
   effect: z.enum(["read", "write", "external"]),
   // 다른 project에 보이는지.
   public: z.boolean(),
+  // tool이 다루는 객체의 domain.
+  domain: z.string().min(1),
 });
 export type AppTool = z.infer<typeof appToolSchema>;
 
@@ -98,6 +100,7 @@ const appApiIndexEntrySchema = z.object({
     description: z.string().min(1),
     effect: z.enum(["read", "write", "external"]),
     public: z.boolean(),
+    domain: z.string().min(1),
     inputSchema: jsonValueSchema.nullable().optional(),
     outputSchema: jsonValueSchema.optional(),
   })),

@@ -120,6 +120,7 @@ them. Open the screenshot with `image.read`.
 
 ## What you do not do
 
-- Do not make a page that calls tools or reads live app data. That is a live
-  view, which is coding agent work. The Project Manager writes a ticket for it.
+- Do not make a page that calls tools or reads live app data. A screen like
+  that is an app, which is coding agent work. The Project Manager writes a
+  ticket for it.
 - Do not write app code.

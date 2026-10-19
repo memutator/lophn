@@ -10,8 +10,8 @@ import { say, type Scenario, untilIdle } from "../../types.ts";
 import { createCalendarOperator, eventInCalendar, OP, PM } from "./common.ts";
 import { SAY_API } from "./spec.ts";
 
-const ADD = { tool: "app__fx__event.add", effect: "write" } as const;
-const LIST = { tool: "app__fx__event.list" } as const;
+const ADD = { tool: "domain__fx__event.add", effect: "write" } as const;
+const LIST = { tool: "domain__fx__event.list" } as const;
 
 const scenario: Scenario = {
   id: "calendar-api",

@@ -66,14 +66,14 @@ export async function buildAppApiTools(
     const apis = [...view.tools].sort((a, b) => a.name < b.name ? -1 : 1);
     for (const api of apis) {
       if (!grantAllows(source.entries, view.app, api.name)) continue;
-      const name = await appApiToolName(view.app, api.name);
+      const name = await appApiToolName(api.domain, api.name);
       if (names.has(name)) continue;
       names.add(name);
       const shape = toolInput(api.inputSchema as InputSchema | null);
       const definition: ToolDefinition = {
         name,
         description:
-          `App ${view.name} (${view.app}), tool ${api.name}: ${api.title}. ${api.description}`,
+          `Domain ${api.domain} of app ${view.name} (${view.app}), tool ${api.name}: ${api.title}. ${api.description}`,
         input: shape.validator,
         inputSchema: shape.jsonSchema,
         effect: api.effect,

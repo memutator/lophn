@@ -87,7 +87,9 @@ const callAddItem = (title: string) => (request: JournalEntry) => {
 };
 
 const appToolsOf = (fake: FakeServer, index = 0) =>
-  toolNames(fake.journal()[index]).filter((name) => name.startsWith("app__"));
+  toolNames(fake.journal()[index]).filter((name) =>
+    name.startsWith("domain__")
+  );
 
 // 앱 화면의 사람이 읽는 list_items 결과를 글로 돌려준다.
 async function itemsOf(core: Core, app: string): Promise<string> {
@@ -160,7 +162,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     fake.reset();
     fake.script([
       {
-        reply: addItem(`app__${id}__add_item`)("op-excluded"),
+        reply: addItem(`domain__${app.slug}__add_item`)("op-excluded"),
       },
       text,
     ]);
@@ -270,8 +272,8 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     );
     const notice = lastUserText(after);
     assert(notice.includes("tools_changed"));
-    assert(notice.includes(`app__${id}__list_items`));
-    assert(notice.includes(`app__${id}__add_item`));
+    assert(notice.includes(`domain__${app.slug}__list_items`));
+    assert(notice.includes(`domain__${app.slug}__add_item`));
     const blueprint = await core.call(appAppApi, { app: id });
     for (const api of blueprint.tools) {
       assert(!notice.includes(api.description));

@@ -9,9 +9,14 @@ import {
   agentGrantsGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
-import { appGet } from "../../../protocol/apps/mod.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
-import { instructionsGet } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  agentDefinitionRead,
+  type AgentRef,
+  instructionsGet,
+  placeOfAgentRef,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
@@ -70,6 +75,33 @@ const SKILL_PLACES = {
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
 };
 
+// agent가 일하는 domain id. PM·App Engineer는 place 그릇의 active domain 전부이고, Operator는 정의의 place와
+// domains(고른 것 ∩ 그릇의 active domain, 비면 전부)가 정한다. lophn은 없다. 읽지 못하면 null.
+async function callerDomains(
+  machine: CoreCall,
+  agent: AgentRef,
+): Promise<string[] | null> {
+  let place = placeOfAgentRef(agent);
+  let chosen: readonly string[] = [];
+  if (place === undefined) {
+    const read = await readOf(machine, agentDefinitionRead, { agent });
+    if (!read.ok) return null;
+    place = read.value.place;
+    const definition = read.value.definition;
+    if (definition !== null && "domains" in definition) {
+      chosen = definition.domains ?? [];
+    }
+  }
+  if (place === null) return [];
+  const listed = await readOf(machine, domainList, {
+    owner: place,
+    status: "active",
+  });
+  if (!listed.ok) return null;
+  const ids = listed.value.domains.map((one) => one.id);
+  return chosen.length === 0 ? ids : ids.filter((id) => chosen.includes(id));
+}
+
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
 // 시험도 같은 묶음을 쓴다.
 function productToolkit(options: {
@@ -81,7 +113,7 @@ function productToolkit(options: {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
     // 허락된 앱의 app-api tool. grant는 machine 자격의 loopback으로 읽는다.
-    // 다른 project 앱의 비공개 tool은 목록에서 뺀다.
+    // agent의 domain 집합 밖 domain의 비공개 tool은 목록에서 뺀다.
     appApi: withPublicOnly(
       createAppApiToolkit({
         machine: options.machine,
@@ -95,10 +127,14 @@ function productToolkit(options: {
         },
       }),
       {
-        machine: options.machine,
-        async appProject(app) {
-          const read = await readOf(options.machine, appGet, { app });
-          return read.ok ? read.value.app.project : null;
+        callerDomains: (agent) => callerDomains(options.machine, agent),
+        async toolDomain(app, name) {
+          const read = await readOf(options.machine, domainList, {
+            owner: { kind: "app", id: app as never },
+          });
+          if (!read.ok) return null;
+          return read.value.domains.find((one) => one.name === name)?.id ??
+            null;
         },
       },
     ),

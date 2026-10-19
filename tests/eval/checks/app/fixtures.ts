@@ -2,9 +2,9 @@ import type { ToolCall } from "../../../../packages/protocol/lophn-agent/mod.ts"
 import type { Participant, SessionRecord } from "../../types.ts";
 import { fixtureSession, type FxStep } from "../fixtures.ts";
 
-const APP_API_PREFIX = "app__fx__";
+const APP_API_PREFIX = "domain__fx__";
 
-// 이름이 `app__fx__<command>`인 step을 app-api tool call로 만든다. landed fixtureSession은 app_api를 늘 null로 둔다.
+// 이름이 `domain__fx__<command>`인 step을 app-api tool call로 만든다. landed fixtureSession은 app_api를 늘 null로 둔다.
 export function appApiSession(
   agent: Participant,
   steps: FxStep[],

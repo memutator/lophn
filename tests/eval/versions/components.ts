@@ -38,7 +38,7 @@ const SKILL_ROOTS = [
 ];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
 // harness가 아니라 world의 tool이다.
-const WORLD_TOOL = /^(app__|mcp__|ext_)/;
+const WORLD_TOOL = /^(domain__|mcp__|ext_)/;
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 

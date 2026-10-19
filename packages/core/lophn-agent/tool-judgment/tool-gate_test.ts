@@ -13,7 +13,7 @@ const call = {
   turn: "trn_0000000000000000000000000a",
   toolCall: "tcl_0000000000000000000000000a",
   agent: { role: "lophn" },
-  tool: `app__${APP}__notes.add`,
+  tool: "domain__notes__notes.add",
   input: { text: "hi" },
 } as ToolGateCall;
 

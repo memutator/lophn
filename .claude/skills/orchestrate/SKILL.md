@@ -18,7 +18,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 3. 공용 등록 file은 lead가 합친다: `deno.json`, `packages/protocol/**/mod.ts`의 목록, core 조립 목록(`packages/core/main/daemon/wiring/`), wording 생성물(`packages/design/wording/`), gallery `tools/wireframes/pages/index.ts`. worker는 "등록할 것"을 보고에 적는다.
 4. 옛것과 새것이 잠시 같이 있어도 된다. 호환 장치(옛 이름 읽기, 옛 경로)는 만들지 않는다. 여러 영역이 쓰던 옛 계약은 마지막 cleanup이 지운다.
 5. main과 plan branch는 늘 빠른 check가 통과한다. main에는 land.sh(rebase, full check, core 기동)를 거친 것만 올라간다.
-6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker는 최대 8개다(core type check 하나가 약 2.6GB. RAM에 맞춰 `status.py`의 `MAX_WORKERS`를 고친다). full check는 동시에 2개까지다.
+6. wave는 앞 wave가 모두 merged일 때 연다. 동시에 도는 worker 수는 정하지 않는다. `status.py ready`가 낸 task는 다 띄워도 된다(core type check 하나가 약 2.6GB다. 기계가 버거우면 lead가 줄인다). full check는 동시에 2개까지다.
 7. 영역을 통째로 소유하는 cleanup 같은 task도 영역별 worktree로 나눠 병렬로 돌릴 수 있다. 충돌은 `mod.ts`, registry, wording catalog에 몰리니 wording catalog는 한 worker에게만 맡긴다.
 
 ## 시작 전
@@ -29,7 +29,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 ## 한 바퀴
 
-빈 slot이 있는 동안 되풀이한다.
+띄울 task가 있는 동안 되풀이한다.
 
 ### 1. 고르기
 
@@ -43,7 +43,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 Agent tool로 띄운다: `subagent_type: sonnet-high`, `run_in_background: true`, prompt는 `python3 -I project-docs/plan/tools/lead/prompt.py <계획> <id> <branch> "<알아 둘 것>"`의 출력 그대로.
 - model은 `sonnet-high`다. `mimo-v2.6-flash`는 쓰지 않는다. worker는 자기 sub agent를 띄우지 않는다.
-- 폴링하지 않는다. 끝나면 알림이 온다. 그 사이 다른 slot을 채운다.
+- 폴링하지 않는다. 끝나면 알림이 온다. 그 사이 띄울 수 있는 task를 더 띄운다.
 - worker와의 대화(prompt, SendMessage)는 영어로만 한다(AGENTS.md). `prompt.py`도 영어로 찍는다. 사람에게 하는 보고는 한국어다.
 
 worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록도 고친다):

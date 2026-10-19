@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from briefs import plan_dir, plan_names, other_plans, read_briefs, resolve_deps, clash
 
 COLS = ["id", "단위", "wave", "선행", "상태", "branch", "commit", "기록"]
-MAX_WORKERS = 8  # core type check 하나가 약 2.6GB다. RAM에 맞춰 고친다.
 
 def status_path(plan, folder=None):
     return os.path.join(folder or plan_dir(plan), "status.md")
@@ -111,7 +110,7 @@ def main():
         save(plan, rows, briefs)
     else:
         n_running, found = ready(plan, briefs, rows)
-        print(f"running {n_running}, 빈 slot {max(0, MAX_WORKERS - n_running)}")
+        print(f"running {n_running}")
         for w, n, t in found:
             print(f"wave {w}  뒤에 기다리는 task {-n:3d}  {t}")
 

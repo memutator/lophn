@@ -14,7 +14,7 @@ main  wiring/appearance.ts  (channel shell:appearance)
   1. parseAppearance로 검사(목록 밖 값이면 전체 거절)
   2. nativeTheme.themeSource = theme
   3. appearanceCss(appearance) → token을 덮어쓰는 CSS
-  4. lophn 문서(lophn-shell://, lophn-app://)의 webContents마다 insertCSS
+  4. lophn 문서(lophn-shell://, lophn-app://, lophn-artifact://)의 webContents마다 insertCSS. artifact 문서에는 tokens.css가 없어 token 정의 전체(`renderCss`)를 appearance CSS 앞에 붙인다
         - 값이 바뀌면 removeInsertedCSS로 옛 것을 지우고 새로 넣는다
         - web-contents-created의 dom-ready마다 지금 CSS를 다시 넣는다
 ```

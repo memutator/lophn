@@ -1,8 +1,8 @@
 # browser tab: workspace pane에서 web page를 연다
 
-상태: 로드맵. 1단계 `browser-tab`(browser 탭 kind, `<webview>` page, popup, session·navigation 규칙, DevTools, bookmark, favicon, Settings Browser pane)과 2단계 `browser-bridge`(shell 탭의 `$BROWSER` shim과 socket bridge, terminal Ctrl/Cmd-click, Settings › Browser › Links)가 land했다. 둘 다 `project-docs/architecture/browser-tab.md`다. 남은 것은 아래 "남은 bridge 일"과 3이다.
+상태: 로드맵. 1단계 `browser-tab`(browser 탭 kind, `<webview>` page, popup, session·navigation 규칙, DevTools, bookmark, favicon, Settings Browser pane)과 2단계 `browser-bridge`(shell 탭의 `$BROWSER` shim과 socket bridge, terminal Ctrl/Cmd-click, Settings › Browser › Links)가 land했다. 둘 다 `project-docs/architecture/browser-tab.md`다. 남은 것은 아래 "남은 bridge 일"이다. 로컬 HTML 미리 보기는 계획 `artifact`가 artifact 탭으로 했다(`project-docs/architecture/artifact.md`).
 배경 문서: `project-docs/architecture/annotation.md`(app view identity), `project-docs/architecture/coding-agent.md`(terminal 탭 TUI), AGENTS.md "속도"·"호환성".
-가져올 것: `../rea/project/desktop-embeded-browser`. ChatGPT·Claude desktop의 embedded browser를 분석하고(`analysis/`), 같은 동작을 Electron 44.5.1 위에 clean-room으로 다시 짠 CommonJS library다(`src/`, 2096줄). 3이 쓸 사실은 아래 "지금 코드"에 있다.
+가져올 것: `../rea/project/desktop-embeded-browser`. ChatGPT·Claude desktop의 embedded browser를 분석하고(`analysis/`), 같은 동작을 Electron 44.5.1 위에 clean-room으로 다시 짠 CommonJS library다(`src/`, 2096줄).
 
 ## 왜
 
@@ -12,14 +12,8 @@
 ## 지금 코드
 
 - browser 탭과 bridge의 흐름과 지키는 것은 `project-docs/architecture/browser-tab.md`다.
-- rea `desktop-embeded-browser`의 `src/main/sandbox.js`: 로컬 문서용으로 봉한 partition이다. custom scheme으로 고정한 root에서만 읽고(`realpath` 안쪽인지 검사), CSP `connect-src 'none'`을 붙이고, 죽은 proxy로 network를 끊는다. 3이 쓴다.
 
 ## 무엇을 만드나
-
-### 3. 로컬 HTML 미리 보기 (나중)
-
-- document editor에서 project 안의 `.html`을 browser 탭으로 연다. 봉한 partition(rea `sandbox.js`)에서 project root 밖은 읽지 못하고 network도 없다.
-- 1, 2가 쓰인 뒤에 따로 계획으로 연다. 지금 쓰는 길(vite 같은 dev server)은 1로 된다.
 
 ### 남은 bridge 일
 
@@ -36,7 +30,7 @@
 
 1. ~~`browser-tab`~~ land했다.
 2. ~~`browser-bridge`~~ land했다.
-3. 로컬 HTML 미리 보기와 위 "남은 bridge 일"은 1, 2가 쓰인 뒤 다시 본다.
+3. 위 "남은 bridge 일"은 1, 2가 쓰인 뒤 다시 본다.
 
 ## 하지 않는 것
 

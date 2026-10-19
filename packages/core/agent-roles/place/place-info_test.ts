@@ -16,6 +16,7 @@ const data: PlaceData = {
   projects: [],
   release: null,
   artifacts: null,
+  skillsFolder: null,
 };
 
 Deno.test("PM의 place 정보에 artifact 목록이 이름 순으로 실리고 50개를 넘으면 줄어든다", () => {

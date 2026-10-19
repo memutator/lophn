@@ -102,7 +102,7 @@ export async function runShell(
   input: { command: string; timeout_ms?: number },
   ctx: ToolContext,
 ): Promise<Result<ToolResult>> {
-  const cwd = ctx.scope.read[0];
+  const cwd = ctx.scope.base ?? ctx.scope.read[0];
   if (cwd === undefined) {
     return fail("invalid_input", "this place has no folder to run in");
   }

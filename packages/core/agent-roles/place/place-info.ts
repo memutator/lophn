@@ -49,6 +49,8 @@ export type PlaceData = {
   release: { version: string; api_names: readonly string[] } | null;
   // project의 PM과 Operator만. 폴더를 정할 수 없으면 null.
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
+  // project의 PM만. project 층 skill 폴더
+  skillsFolder: string | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -76,6 +78,9 @@ function placeLines(data: PlaceData): string[] {
     }
     for (const folder of project.subfolders) {
       lines.push(`    ${folderText(folder)}`);
+    }
+    if (data.skillsFolder !== null) {
+      lines.push(`  Skills folder: ${data.skillsFolder}`);
     }
     if (app !== null) {
       lines.push(`  App: ${app.name}. ${app.purpose}`);

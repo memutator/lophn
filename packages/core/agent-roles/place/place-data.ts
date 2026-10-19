@@ -317,6 +317,9 @@ async function readPlaceData(
     }
   }
 
+  const skillsFolder = role === "project_manager" && place?.kind === "project"
+    ? files.skillsFolder(place.id)
+    : null;
   const scope = placeScope({
     role,
     place,
@@ -324,9 +327,7 @@ async function readPlaceData(
     artifactsFolder: artifacts,
     kindsFile,
     appSource: app?.source ?? null,
-    skillsFolder: role === "project_manager" && place?.kind === "project"
-      ? files.skillsFolder(place.id)
-      : null,
+    skillsFolder,
     dataFolder: place?.kind === "project" ? files.dataFolder(place.id) : null,
     allProjectFolders,
   });
@@ -344,6 +345,7 @@ async function readPlaceData(
       artifacts: artifacts === null
         ? null
         : { folder: artifacts, items: artifactItems },
+      skillsFolder,
     },
     scope,
   });

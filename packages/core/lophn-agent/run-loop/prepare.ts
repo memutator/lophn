@@ -147,7 +147,7 @@ type PreparerDeps = {
   placeData(call: CoreCall, resolved: ResolvedAgent): Promise<
     Result<{
       place: TurnPromptInput["place"];
-      scope: { read: string[]; write: string[] };
+      scope: { read: string[]; write: string[]; base?: string };
     }>
   >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
@@ -408,6 +408,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const scope = {
       read: [] as string[],
       write: [] as string[],
+      base: undefined as string | undefined,
       open(folder: string) {
         if (!scope.read.includes(folder)) scope.read.push(folder);
         if (!scope.write.includes(folder)) scope.write.push(folder);
@@ -461,6 +462,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       if (!placed.ok) return placed;
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
+      scope.base = placed.value.scope.base;
       const compaction = read.value.compaction === null
         ? null
         : String(read.value.compaction.through_seq);

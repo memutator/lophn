@@ -150,7 +150,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       const { app, path } = input;
       const read = await readOf(ctx.core, appGet, { app });
       if (!read.ok) return read;
-      const base = ctx.scope.read[0];
+      const base = ctx.scope.base ?? ctx.scope.read[0];
       const linked = await commandOf(
         ctx.core,
         appConnectSource,

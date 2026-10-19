@@ -8,8 +8,14 @@
 // - 왜 지금 test로 못 잡나: `turn-prompt`와 `tool-lists`의 unit은 입력으로 받은 목록만 본다. 사람이 grant를 session 도중 바꾸는 일, agent runtime child가 session마다 고정한 목록을 지키는 일, `operator.create`의 입력 schema가 model 요청에 실리는 모양은 process를 건너야 보인다.
 //
 //
-// 준비: core 하나, 앱 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱 tool은 비공개라 그 domain을 맡은
-// agent만 본다. Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-no-grant만 project를
+// domain-narrowed 행의 세 질문:
+// - contract: boundary `domains`·`agents`·`agent-tools`(Operator를 domain 하나로 좁히면 prompt의 `DOMAIN.md`와 tool 목록이 그 domain 것과 다른 domain의 public tool뿐이다).
+// - 현실적 회귀: child의 `callerDomains`(`product-driver.ts`)가 `resolve.ts`의 `workingDomains`와 갈라져 좁힌 domain이 tool 목록에 닿지 않는 것, 맡지 않은 domain의 `DOMAIN.md`나 비공개 tool이 실리는 것.
+// - 왜 지금 test로 못 잡나: `app-public_test.ts`, instructions의 `turn_test.ts`, resolve의 unit은 domain 집합을 입력으로 받는다. 정의 file → child가 machine 자격으로 읽는 정의 → model 요청은 process를 건너야 보인다.
+//
+// 준비: core 하나, 앱 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱은 domain이 둘이다(앱 slug와
+// 둘째 domain `notes-shelf`). 앱 tool은 비공개라 그 domain을 맡은 agent만 보고, 둘째 domain의 공개 tool 하나는 누구나 본다.
+// Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-no-grant만 project를
 // 따로 열어 Project Manager를 쓴다. 앱 activation의 fake 대답
 // (coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
 import { assert, assertEquals } from "@std/assert";
@@ -17,6 +23,12 @@ import {
   appCallTool,
   appInvocations,
 } from "../../packages/protocol/apps/mod.ts";
+import {
+  domainCreate,
+  domainDocFile,
+  domainFolder,
+  domainList,
+} from "../../packages/protocol/domains/mod.ts";
 import { appTools } from "../../packages/protocol/apps/blueprint/read.ts";
 import {
   agentGrantsGet,
@@ -30,7 +42,15 @@ import {
   type Place,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { activateTestApp, type TestApp } from "../support/app/activate.ts";
+import {
+  approveActivation,
+  deliverRelease,
+  startTestApp,
+  type TestApp,
+  waitRunning,
+} from "../support/app/activate.ts";
+import { domainPatch } from "../support/app/patch-domain.ts";
+import { runtimePids } from "../support/core/process.ts";
 import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
@@ -39,6 +59,7 @@ import {
   openProject,
   openSession,
   say,
+  settle,
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -50,6 +71,7 @@ import {
 import {
   lastToolResult,
   lastUserText,
+  systemText,
   toolNames,
 } from "../support/fake-server/probe.ts";
 
@@ -59,12 +81,17 @@ async function operatorWith(
   place: Place,
   name: string,
   entries: AgentGrantEntry[] | null,
+  domains?: string[],
 ): Promise<{ session: string; ref: { role: "operator"; agent: string } }> {
   const agent = core.ids.newId("agt");
   await core.call(operatorCreate, {
     id: agent,
     place,
-    definition: { name, body: "use the assigned app" },
+    definition: {
+      name,
+      body: "use the assigned app",
+      ...(domains === undefined ? {} : { domains }),
+    },
   });
   const ref = { role: "operator", agent } as const;
   if (entries !== null) {
@@ -123,8 +150,29 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     const folder = `${run.work}/proj`;
     await Deno.mkdir(folder, { recursive: true });
     const { project } = await openProject(core, folder);
-    app = await activateTestApp(core, fake, { name: "Notes", slug: "notes" });
+    // 앱 tool의 domain은 그 앱의 active domain 이름이어야 하므로 둘째 domain은 release 준비 전에 만든다.
+    const second = "notes-shelf";
+    app = await startTestApp(core, fake, {
+      name: "Notes",
+      slug: "notes",
+      patch: domainPatch(second),
+    });
     const id = app.app;
+    const slug = app.slug;
+    const oldPids = await runtimePids(core.run.home);
+    await core.call(domainCreate, {
+      name: second,
+      title: "Shelf",
+      purpose: "Keep the shelf",
+      owner: { kind: "app", id },
+    });
+    // 새 domain 폴더가 runtime 권한에 들어 core가 agent runtime child를 다시 띄운다.
+    await settle(core, oldPids);
+    const { release } = await deliverRelease(core, fake, app, {
+      goal: "Make the first release of the app",
+    });
+    await approveActivation(core, app);
+    await waitRunning(core, app, release);
     const appPlace = { kind: "app", id } as const;
     const ask: AgentGrantEntry[] = [{
       kind: "app",
@@ -146,10 +194,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // fake
     assertEquals(
       appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
-      [
-        "add_item",
-        "list_items",
-      ],
+      ["add_item", "list_items", "shelf_count", "shelf_list"],
     );
     // ledger
     const written = await sessionWrites(core, id, first.session);
@@ -178,9 +223,10 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     await say(core, excluded.session, "add op-excluded");
     await waitTurnEnd(core, excluded.session);
     // fake
-    assertEquals(appToolsOf(fake).map((name) => name.split("__").at(-1)), [
-      "list_items",
-    ]);
+    assertEquals(
+      appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
+      ["list_items", "shelf_count", "shelf_list"],
+    );
     assert(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
     // ledger
     assertEquals(await sessionWrites(core, id, excluded.session), []);
@@ -245,6 +291,44 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     );
     // fake
     assert(lastToolResult(fake.journal()[1], "t1")?.includes("op-allowed"));
+
+    // domain-narrowed: domain 하나로 좁힌 Operator의 요청에는 그 domain의 `DOMAIN.md`와 tool, 다른 domain의 public tool만 있다.
+    const { domains } = await core.call(domainList, {
+      owner: { kind: "app", id },
+      status: "active",
+    });
+    const mine = domains.find((item) => item.name === slug)!;
+    const other = domains.find((item) => item.name === second)!;
+    // 사람이 editor로 저장하는 것처럼 보통 파일로 쓴다.
+    for (
+      const [domain, rule] of [[mine, "Zebra rule"], [
+        other,
+        "Quokka rule",
+      ]] as const
+    ) {
+      await Deno.mkdir(domainFolder(core.run.home, domain.id), {
+        recursive: true,
+      });
+      await Deno.writeTextFile(
+        domainDocFile(core.run.home, domain.id),
+        `${rule}: answer in capital letters.\n`,
+      );
+    }
+    fake.reset();
+    fake.script([text]);
+    const narrowed = await operatorWith(core, appPlace, "Narrowed", [
+      { kind: "app", app: id, tools: [] },
+    ], [mine.id]);
+    await say(core, narrowed.session, "hello");
+    await waitTurnEnd(core, narrowed.session);
+    // fake
+    const system = systemText(fake.journal()[0]);
+    assert(system.includes("Zebra rule"));
+    assert(!system.includes("Quokka rule"));
+    assertEquals(
+      appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
+      ["add_item", "list_items", "shelf_count"],
+    );
 
     // no-grant: grant 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
     fake.reset();

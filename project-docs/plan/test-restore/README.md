@@ -16,7 +16,6 @@
     - 새 설계대로 숨겨진 것이면 test를 새 설계로 다시 쓴다. 제품 bug면 bug를 고친다. 이 구분이 첫 일이다.
     - log: `.dev-data/plan-test-restore/e2e-run.log`(main checkout, git 밖)
 - **범위 밖:**
-  - 진짜 model을 부르는 eval run(baseline 다시 재기). 사람이 정할 때 eval-run skill로 돈다.
   - live test(`tests/live`)
   - 제품 동작 바꾸기. 예외는 e2e가 찾은 제품 bug를 고치는 것이다(testing.md 규칙 8).
 - **돌리는 방식:** worker를 쓴다. orchestrate skill대로 한다. task id는 `tr-`로 시작한다.
@@ -49,6 +48,7 @@
 - **eval도 App Engineer를 되살린다(agent, brief 때).** 앱 일(ticket, coding agent에게 맡기기)은 App Engineer만 한다(`tool-lists.ts`). eval 참가자, 받는 쪽 place, 시나리오의 앱 일을 App Engineer로 옮기고, PM이 앱 일을 하던 CA1-ask·CA12는 `scenarios/app-engineer/`로 돌린다(`tr-eval-app-engineer`).
 - **e2e가 찾은 제품 bug 하나(brief 때):** domain을 만들 때 kind 감시가 domain 폴더가 생기기 전에 열려, 처음 쓴 `kinds.yaml`을 다음 command까지 보지 못한다. `tr-e2e-kinds`가 먼저 실패를 확인하고 고친다.
 - **e2e 시간은 unit으로 내려 먼저 줄인다(agent).** `reaction_test`의 crash-loop backoff(31초, 멈춘 적이 있다)를 supervisor unit으로 내리는 것이 첫 후보다(`tr-e2e-budget`).
+- **진짜 provider를 불러도 된다(사람, 2026-10-20).** eval 줄이 land한 뒤 lead가 eval-run skill로 바꾼 시나리오를 진짜 model로 돌려 되살아났는지 본다. worker는 dry-run만 한다(registry에 동시에 쓰지 않게).
 - **e2e 검사를 다시 켠다:** 이 계획의 마지막 land는 `LOPHN_LAND_SKIP_E2E` 없이 돈다. 앞 wave의 land는 e2e가 아직 깨져 있으면 `LOPHN_LAND_SKIP_E2E=1`로 돈다.
 
 ## brief
@@ -67,4 +67,4 @@ worker model은 사람이 정했다: Opus 5.5.
   - 마지막 land를 e2e 포함으로 한다.
   - `architecture/testing.md`(e2e file 목록과 앱 길)와 `architecture/eval.md`(자료 판)를 고친다. 이슈를 닫는다.
   - changelog `0.5.0`에 항목을 덧붙인다.
-- **사람에게 묻는 것:** 위 셋 밖의 새 e2e flow, 진짜 model eval run, 시간 예산을 넘길 때.
+- **planner(`lophn-7e`)에게 묻는 것:** 위 셋 밖의 새 e2e flow, 시간 예산을 넘길 때. 사람에게 interview를 띄우지 않는다. push는 하지 않는다.

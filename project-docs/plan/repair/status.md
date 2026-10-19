@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 | `rp-attached-remove` | core | 1 | 없음 | merged | core/rp-attached-remove | cc1ff9113 |  |
 | `rp-grant-read` | core | 1 | 없음 | merged | core/rp-grant-read | 30e865fde |  |
 | `rp-reaction-dup` | core | 1 | rp-app-test-stuck | todo |  |  |  |
-| `rp-turn-prep-log` | core | 1 | 없음 | running | core/rp-turn-prep-log |  |  |
+| `rp-turn-prep-log` | core | 1 | 없음 | merged | core/rp-turn-prep-log | 7c0714b4a |  |
 | `rp-eval-calendar` | eval | 1 | 없음 | running | eval/rp-eval-calendar |  |  |
 | `rp-eval-misc` | eval | 1 | 없음 | merged | eval/rp-eval-misc | a90be32d7 |  |
 | `rp-eval-operator` | eval | 1 | 없음 | running | eval/rp-eval-operator |  |  |

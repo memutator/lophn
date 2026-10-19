@@ -75,7 +75,7 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획을 위해 
   - PRODUCT 2절·3절·6절과 AGENT-ROLE 전체(PM → Domain Engineer, project와 domain)를 고친다.
   - `boundary-catalog.yaml`, `module-catalog.yaml`, `context-component-registry.yaml`을 고친다.
   - `products/roadmap/domain.md`는 남은 몫(live view, activation 때 알리기 등)만 남기고 줄인다.
-  - changelog 열린 판에 항목을 덧붙인다.
+  - changelog `0.5.0`에 항목을 덧붙인다.
 - **사람에게 묻는 것:** 화면 모양, subprocess·Electron test를 새로 만들 때.
 
 ## 이 계획 뒤에 할 일

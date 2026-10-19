@@ -62,14 +62,19 @@ Deno.test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거�
     const data = join(temp, "projects", "prj_a");
     await Deno.mkdir(join(data, "skills"), { recursive: true });
     const noFolder = {
-      read: [join(data, "skills")],
-      write: [join(data, "skills")],
+      read: [join(data, "skills"), join(data, "kinds.yaml")],
+      write: [join(data, "skills"), join(data, "kinds.yaml")],
       base: data,
     };
     const skill = await resolveInPlace(noFolder, "skills/x/SKILL.md", "write");
     assertEquals(
       skill.ok && skill.value.path,
       join(await Deno.realPath(data), "skills", "x", "SKILL.md"),
+    );
+    const kindsFile = await resolveInPlace(noFolder, "kinds.yaml", "write");
+    assertEquals(
+      kindsFile.ok && kindsFile.value.path,
+      join(await Deno.realPath(data), "kinds.yaml"),
     );
     assertEquals(
       (await resolveInPlace(noFolder, "other.md", "write")).ok,

@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import type { AppApiDeclaration } from "@lophn/blueprint";
 
-// 버튼이 쓰는 blueprint app-api 선언.
-export type AppApiSpec = Pick<AppApiDeclaration, "key" | "label">;
+// 버튼이 쓰는 blueprint tool 선언.
+export type AppApiSpec = { key: string; label: string };
 
 export type AppApiInput =
   | null

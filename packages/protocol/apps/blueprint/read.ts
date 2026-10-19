@@ -8,19 +8,20 @@ import { appInputSchema, releaseIdSchema } from "../apps.ts";
 import { permissionRequirementSchema } from "../permissions.ts";
 
 // 앱 하나의 active release 고정 blueprint를 사람과 agent가 읽는 모양이다.
-// 선언 전체가 아니라 app-api·화면의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
+// 선언 전체가 아니라 tool·화면의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
 // 없는 앱은 같은 not_found로 답한다.
-const appAppApiSchema = z.object({
-  key: z.string().min(1),
-  label: z.string().min(1),
+const appToolSchema = z.object({
+  name: z.string().min(1),
+  title: z.string().min(1),
   description: z.string().min(1),
+  // 정규 InputSchema. 인자가 없는 tool은 null이다.
+  inputSchema: jsonValueSchema.nullable(),
+  outputSchema: jsonValueSchema.optional(),
   effect: z.enum(["read", "write", "external"]),
-  // 정규 InputSchema. 입력이 없는 app-api는 null이다.
-  input: jsonValueSchema.nullable(),
-  // true이면 project 범위 app-api다.
-  project_scope: z.boolean(),
+  // 다른 project에 보이는지.
+  public: z.boolean(),
 });
-export type AppAppApi = z.infer<typeof appAppApiSchema>;
+export type AppTool = z.infer<typeof appToolSchema>;
 
 const appBlueprintScreenSchema = z.object({
   key: z.string().min(1),
@@ -34,7 +35,7 @@ const appBlueprintScreenSchema = z.object({
 const appBlueprintEvidenceSchema = z.object({
   description: z.object({
     complete: z.boolean(),
-    // 설명이 비었거나 없는 자리. 예 `app_api.add.input.title`.
+    // 설명이 비었거나 없는 자리. 예 `tools.add.inputSchema.title`.
     gaps: z.array(z.string().min(1)),
   }),
   structure: z.object({ validated: z.literal(true) }),
@@ -61,7 +62,7 @@ const appBlueprintOutputSchema = withReadCommon(z.object({
   blueprint_hash: sha256Schema,
   name: z.string().min(1),
   description: z.string().min(1),
-  app_api: z.array(appAppApiSchema),
+  tools: z.array(appToolSchema),
   screens: z.array(appBlueprintScreenSchema),
   declarations: appDeclarationsSchema,
   evidence: appBlueprintEvidenceSchema,
@@ -83,19 +84,19 @@ export const appAppApi = defineRead({
   ],
 });
 
-// `app.app_api_index`. 모든 앱의 이름·설명과 app-api 목록이다. 앱 범위 판정을 하지 않는 대신
-// 돌려주는 칸이 이것뿐이라 source 경로, problem, ticket은 새지 않는다. 호출 모양(input)은 앱 하나를
+// `app.app_api_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
+// 돌려주는 칸이 이것뿐이라 source 경로, problem, ticket은 새지 않는다. 호출 모양(inputSchema, outputSchema)은 앱 하나를
 // 볼 때만 싣는다. 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
 const appApiIndexEntrySchema = z.object({
   app: appIdSchema,
   name: z.string().min(1),
   description: z.string().min(1),
-  app_api: z.array(z.object({
-    key: z.string().min(1),
-    label: z.string().min(1),
+  tools: z.array(z.object({
+    name: z.string().min(1),
+    title: z.string().min(1),
     description: z.string().min(1),
     effect: z.enum(["read", "write", "external"]),
-    input: jsonValueSchema.nullable(),
+    public: z.boolean(),
   })),
 });
 export type AppApiIndexEntry = z.infer<typeof appApiIndexEntrySchema>;

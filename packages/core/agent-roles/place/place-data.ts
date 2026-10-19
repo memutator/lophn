@@ -168,7 +168,7 @@ async function readPlaceData(
       if (apis.ok) {
         release = {
           version: apis.value.release,
-          api_names: apis.value.app_api.map((api) => api.key),
+          api_names: apis.value.tools.map((tool) => tool.name),
         };
       }
     }

@@ -28,9 +28,9 @@ export function canonicalJson(value: JsonValue): string {
   }
 }
 
-export function sortKeys<T extends { key: string }>(values: T[]): T[] {
+export function sortBy<T>(values: T[], id: (value: T) => string): T[] {
   return [...values].sort((left, right) =>
-    left.key < right.key ? -1 : left.key > right.key ? 1 : 0
+    id(left) < id(right) ? -1 : id(left) > id(right) ? 1 : 0
   );
 }
 

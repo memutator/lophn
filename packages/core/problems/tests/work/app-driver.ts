@@ -76,7 +76,7 @@ export type RealDriverInput = {
 
 type RealDriver = AppDriver & { close(): Promise<void> };
 
-type InputSchema = Blueprint["app_api"][number]["input"];
+type InputSchema = Blueprint["tools"][number]["inputSchema"];
 
 // 입력 계약을 어긴 값이다. 입력이 없는 app-api에는 객체를, 있는 app-api에는 계약의 type이 아닌 값을 보낸다.
 function invalidValue(schema: InputSchema): unknown {
@@ -418,12 +418,12 @@ export async function createRealAppDriver(
   const driver: RealDriver = {
     probe: probeAttestation,
     async rejectsInvalidInput(api) {
-      const declaration = input.blueprint.app_api.find((item) =>
-        item.key === api
+      const declaration = input.blueprint.tools.find((item) =>
+        item.name === api
       );
       if (!declaration) return false;
       await probeAttestation();
-      const value = invalidValue(declaration.input);
+      const value = invalidValue(declaration.inputSchema);
       let answered: { status: number; body: unknown };
       try {
         answered = await control("/_lophn/control/call", {
@@ -452,8 +452,8 @@ export async function createRealAppDriver(
           body.error?.code === "invalid_input");
     },
     async rewind(api) {
-      const declaration = input.blueprint.app_api.find((item) =>
-        item.key === api
+      const declaration = input.blueprint.tools.find((item) =>
+        item.name === api
       );
       const none = {
         called: false,
@@ -467,9 +467,9 @@ export async function createRealAppDriver(
       const called = await control("/_lophn/control/call", {
         invocation: ids.newId("inv"),
         api,
-        ...(declaration.input === null
+        ...(declaration.inputSchema === null
           ? {}
-          : { input: validValue(declaration.input) }),
+          : { input: validValue(declaration.inputSchema) }),
         context: {
           app: APP_ID,
           release: null,
@@ -535,14 +535,14 @@ export async function createRealAppDriver(
       };
     },
     async call(api, value) {
-      const declaration = input.blueprint.app_api.find((item) =>
-        item.key === api
+      const declaration = input.blueprint.tools.find((item) =>
+        item.name === api
       );
       if (!declaration) return { status: "error", code: "not_found" };
       await probeAttestation();
       // rpc가 undefined를 null로 옮기므로 입력이 없는 app-api에는 null도 입력 없음으로 본다.
       const omit = value === undefined ||
-        (value === null && declaration.input === null);
+        (value === null && declaration.inputSchema === null);
       const answered = await control("/_lophn/control/call", {
         invocation: ids.newId("inv"),
         api,

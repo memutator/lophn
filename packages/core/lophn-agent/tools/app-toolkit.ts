@@ -46,7 +46,7 @@ export function createAppApiToolkit(options: {
         app: read.value.app,
         name: read.value.name,
         release: read.value.release,
-        app_api: read.value.app_api,
+        tools: read.value.tools,
       });
     }
     return ok({ views, entries });

@@ -62,9 +62,9 @@ export function cardCoveredInput(
       const found = await findApp(core, app);
       const bp = await core.call(appAppApi, { app: found.id });
       blueprint = [
-        ...bp.app_api.map((a) =>
-          `- ${a.key} (${a.effect}): ${a.description} input=${
-            JSON.stringify(a.input)
+        ...bp.tools.map((a) =>
+          `- ${a.name} (${a.effect}): ${a.description} input=${
+            JSON.stringify(a.inputSchema)
           }`
         ),
         ...bp.declarations.app_connections.map((c) =>

@@ -20,7 +20,7 @@ export type ValidationResult<T> =
 
 export type ScreenSize = "full" | "panel" | "card";
 
-export type AppApiEffect = "read" | "write" | "external";
+export type ToolEffect = "read" | "write" | "external";
 
 export type InputType =
   | "object"
@@ -48,13 +48,19 @@ export type InputSchema = {
   maximum?: number;
 };
 
-export type AppApiDeclaration = {
-  key: string;
-  label: string;
+// MCP tool 모양의 선언. effect와 public은 lophn 칸이다.
+export type ToolDeclaration = {
+  name: string;
+  title: string;
   description: string;
-  effect: AppApiEffect;
-  input: InputSchema | null;
-  project_scope: boolean;
+  // null이면 인자가 없다. null이 아니면 root type은 object다.
+  inputSchema: InputSchema | null;
+  // 없으면 칸을 두지 않는다. root type은 object다.
+  outputSchema?: InputSchema;
+  // program이 강제하는 값이다. Gate와 runtime 권한이 쓴다.
+  effect: ToolEffect;
+  // 다른 project에 보이는지.
+  public: boolean;
 };
 
 export type ScreenDeclaration = {
@@ -97,7 +103,7 @@ export type Blueprint = {
   name: string;
   description: string;
   screens: ScreenDeclaration[];
-  app_api: AppApiDeclaration[];
+  tools: ToolDeclaration[];
   permissions: PermissionRequirement[];
   app_connections: AppApiUseDeclaration[];
   sdk_dependencies: SDKDependency[];
@@ -106,13 +112,13 @@ export type Blueprint = {
 export type BlueprintOptions = { app?: string };
 
 export const BLUEPRINT_KEYS = [
-  "app_api",
   "app_connections",
   "description",
   "name",
   "permissions",
   "screens",
   "sdk_dependencies",
+  "tools",
 ] as const;
 
 export const INPUT_KEYS = [

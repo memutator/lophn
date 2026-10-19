@@ -166,18 +166,18 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
         app: app.id,
         release: got.active_release,
       });
-      const keys = new Set(now.app_api.map((a) => a.key));
-      const lost = old.app_api.filter((a) => !keys.has(a.key)).map((a) =>
-        a.key
+      const names = new Set(now.tools.map((a) => a.name));
+      const lost = old.tools.filter((a) => !names.has(a.name)).map((a) =>
+        a.name
       );
-      const shape = (items: typeof old.app_api) => {
-        const a = items.find((x) => x.key === bug.api);
+      const shape = (items: typeof old.tools) => {
+        const a = items.find((x) => x.name === bug.api);
         return a === undefined
           ? null
-          : canonicalize({ effect: a.effect, input: a.input });
+          : canonicalize({ effect: a.effect, input: a.inputSchema });
       };
-      const sameShape = shape(old.app_api) !== null &&
-        shape(old.app_api) === shape(now.app_api);
+      const sameShape = shape(old.tools) !== null &&
+        shape(old.tools) === shape(now.tools);
       return {
         pass: lost.length === 0 && sameShape,
         reason: lost.length > 0

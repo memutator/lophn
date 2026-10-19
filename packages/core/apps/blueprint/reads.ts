@@ -1,13 +1,13 @@
-// `app.app_api`. 앱 하나의 active release에 고정된 blueprint를 app-api·화면의 설명으로 읽는다.
+// `app.app_api`. 앱 하나의 active release에 고정된 blueprint를 tool·화면의 설명으로 읽는다.
 // 정본은 release에 고정한 blueprint이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
   type AppApiIndexEntry,
-  type AppAppApi,
   appAppApi,
   appAppApiIndex,
+  type AppTool,
 } from "../../../protocol/apps/blueprint/read.ts";
 import type { Blueprint } from "./mod.ts";
 import type {
@@ -44,7 +44,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
 } {
   return {
     // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: App Engineer도 모든 앱의 목록과
-    // app-api 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
+    // tool 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
     appApiIndex: {
       route: appAppApiIndex,
       handle(snapshot, _ctx, input) {
@@ -67,14 +67,12 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
             app: app.id,
             name: blueprint.name,
             description: blueprint.description,
-            app_api: blueprint.app_api.map((api) => ({
-              key: api.key,
-              label: api.label,
-              description: api.description,
-              effect: api.effect,
-              input: input.app === undefined
-                ? null
-                : api.input as AppAppApi["input"],
+            tools: blueprint.tools.map((tool) => ({
+              name: tool.name,
+              title: tool.title,
+              description: tool.description,
+              effect: tool.effect,
+              public: tool.public,
             })),
           });
         }
@@ -112,13 +110,16 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
           blueprint_hash: release.blueprint_hash,
           name: blueprint.name,
           description: blueprint.description,
-          app_api: blueprint.app_api.map((api): AppAppApi => ({
-            key: api.key,
-            label: api.label,
-            description: api.description,
-            effect: api.effect,
-            input: api.input as AppAppApi["input"],
-            project_scope: api.project_scope,
+          tools: blueprint.tools.map((tool): AppTool => ({
+            name: tool.name,
+            title: tool.title,
+            description: tool.description,
+            inputSchema: tool.inputSchema as AppTool["inputSchema"],
+            ...(tool.outputSchema === undefined
+              ? {}
+              : { outputSchema: tool.outputSchema as AppTool["outputSchema"] }),
+            effect: tool.effect,
+            public: tool.public,
           })),
           screens: blueprint.screens.map((screen) => ({
             key: screen.key,
@@ -133,7 +134,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
               app: use.app,
               app_api: [...use.app_api],
             })),
-            app_api: blueprint.app_api.map((api) => api.key),
+            app_api: blueprint.tools.map((tool) => tool.name),
           },
           // 설명·구조·test는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장되고
           // test 통과는 release에 고정한 같은 hash의 app test 참조다.

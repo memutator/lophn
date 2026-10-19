@@ -25,8 +25,8 @@ interface AppRow {
 }
 
 interface BlueprintValue {
-  app_api: {
-    key: string;
+  tools: {
+    name: string;
     description: string;
     effect: "read" | "write" | "external";
   }[];
@@ -55,8 +55,8 @@ async function appCatalog(
       app: app.id,
       name: app.name,
       release: null,
-      apis: blueprint.value.app_api.map((command) => ({
-        api: command.key,
+      apis: blueprint.value.tools.map((command) => ({
+        api: command.name,
         detail: command.description,
         effect: command.effect,
         addedIn: null,

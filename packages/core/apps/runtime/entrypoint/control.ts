@@ -33,7 +33,7 @@ export function attestation(state: RuntimeState) {
 }
 
 function appApisMatchBlueprint(state: RuntimeState): boolean {
-  const declared = state.blueprint.app_api.map((api) => api.key).sort();
+  const declared = state.blueprint.tools.map((tool) => tool.name).sort();
   const registered = [...attestation(state).app_api].sort();
   return declared.length === registered.length &&
     declared.every((key, index) => key === registered[index]);

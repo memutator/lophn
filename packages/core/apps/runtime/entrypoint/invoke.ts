@@ -78,8 +78,8 @@ async function run(
   call: ProcessCall,
   record: boolean,
 ): Promise<InvokeResult> {
-  const declaration = state.blueprint.app_api.find((api) =>
-    api.key === call.api
+  const declaration = state.blueprint.tools.find((tool) =>
+    tool.name === call.api
   );
   if (!declaration) return failed("not_found", "app-api is not declared", null);
   const port = ensureAppApiPort();
@@ -87,7 +87,7 @@ async function run(
   if (!handler) {
     return failed("not_found", "handler is not registered", null);
   }
-  const input = validateInput(declaration.input, call.input);
+  const input = validateInput(declaration.inputSchema, call.input);
   if (!input.ok) return failed("invalid_input", input.error.message, null);
   if (record) state.store.begin();
   let outcome: { ok: true; result: unknown } | { ok: false; error: unknown };

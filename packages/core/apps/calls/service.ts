@@ -163,7 +163,9 @@ export function createAppCalls(
     );
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
-    const { release, effect, project_scope: scoped } = found.value;
+    const { release, effect } = found.value;
+    // project 범위 선언은 없어졌다. 호출 길의 project 처리는 dt-call-route가 지운다.
+    const scoped = false;
 
     const base: CallRecordBase = {
       id: deps.ids.newId("inv") as Id<"inv">,

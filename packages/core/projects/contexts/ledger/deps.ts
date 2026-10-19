@@ -269,7 +269,7 @@ export function createContextsRuntime(): ContextsRuntime {
           return [];
         }
       },
-      // 검사 환경의 앱 app-api 효과: active 앱의 active release에 고정된 blueprint의 app-api 선언
+      // 검사 환경의 앱 app-api 효과: active 앱의 active release에 고정된 blueprint의 tool 선언
       // (`app.blueprint`가 읽어 주는 것과 같다). 앱을 부르지 않는다.
       appApiEffect(app, command) {
         if (current === undefined) return undefined;
@@ -281,8 +281,8 @@ export function createContextsRuntime(): ContextsRuntime {
           if (row === undefined) return undefined;
           const stored = loadActiveBlueprint(current, String(row["id"]));
           if (!stored.ok || stored.value === null) return undefined;
-          return stored.value.blueprint.app_api.find((declared) =>
-            declared.key === command
+          return stored.value.blueprint.tools.find((declared) =>
+            declared.name === command
           )?.effect;
         } catch {
           // apps·releases 표가 없는 조립에서는 앱 선언이 없다.

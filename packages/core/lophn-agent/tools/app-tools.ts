@@ -4,9 +4,9 @@ import {
   appCallApi,
   type InputSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { AppAppApi } from "../../../protocol/apps/blueprint/read.ts";
-import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
 import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import type { AppTool } from "../../../protocol/apps/blueprint/read.ts";
+import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
 import { appApiInput } from "./app-api/input.ts";
@@ -36,16 +36,16 @@ function grantAllows(
   return false;
 }
 
-// 활성 release에서 읽은 app-api 선언이다.
+// 활성 release에서 읽은 tool 선언이다.
 export type AppApiView = {
   app: string;
   name: string;
   release: string;
-  app_api: readonly AppAppApi[];
+  tools: readonly AppTool[];
 };
 
 export type AppApiSource = {
-  // session의 place. project에 놓인 agent에게는 project 범위 app-api 입력에서 project 칸을 뺀다.
+  // 지금은 쓰지 않는다. project 범위 입력이 없어져 place가 입력 모양을 바꾸지 않는다.
   place: Place | null;
   views: readonly AppApiView[];
   // agent grant의 entries. 앱 단위 할당과 app-api별 빼기가 들어 있다.
@@ -66,42 +66,38 @@ export async function buildAppApiTools(
   const names = new Set<string>();
   const views = [...source.views].sort((a, b) => a.app < b.app ? -1 : 1);
   for (const view of views) {
-    const apis = [...view.app_api].sort((a, b) => a.key < b.key ? -1 : 1);
+    const apis = [...view.tools].sort((a, b) => a.name < b.name ? -1 : 1);
     for (const api of apis) {
-      if (!grantAllows(source.entries, view.app, api.key)) continue;
-      const name = await appApiToolName(view.app, api.key);
+      if (!grantAllows(source.entries, view.app, api.name)) continue;
+      const name = await appApiToolName(view.app, api.name);
       if (names.has(name)) continue;
       names.add(name);
-      const shape = appApiInput({
-        input: api.input as InputSchema | null,
-        project_scope: api.project_scope,
-      }, source.place);
+      const shape = appApiInput(api.inputSchema as InputSchema | null);
       const definition: ToolDefinition = {
         name,
         description:
-          `App ${view.name} (${view.app}), app-api ${api.key}: ${api.label}. ${api.description}`,
+          `App ${view.name} (${view.app}), app-api ${api.name}: ${api.title}. ${api.description}`,
         input: shape.validator,
         inputSchema: shape.jsonSchema,
         effect: api.effect,
         origin: "app",
         handler: async (input, ctx) => {
-          const { input: appInput, project } = shape.split(input);
+          const { input: appInput } = shape.split(input);
           const reply = await readOf(ctx.core, appCallApi, {
             target: { mode: "live", app: view.app, release: null },
-            api: api.key,
+            api: api.name,
             ...(appInput === undefined ? {} : { input: appInput }),
-            ...(project === null ? {} : { project }),
             caller: callerOf(ctx),
           });
           if (!reply.ok) return reply;
           return ok(
-            resultOf(view.name, api.key, api.effect, reply.value),
+            resultOf(view.name, api.name, api.effect, reply.value),
           );
         },
         // Gate는 core의 호출 경로가 건다.
         operations: [APP_TOOL_CONTRACT],
       };
-      tools.push({ definition, app: view.app, api: api.key });
+      tools.push({ definition, app: view.app, api: api.name });
     }
   }
   return tools;
@@ -138,7 +134,7 @@ function toolResult(
 function resultOf(
   appName: string,
   api: string,
-  effect: AppAppApi["effect"],
+  effect: AppTool["effect"],
   output: AppApiCallOutput,
 ): ToolResult {
   const label = `app-api ${api} of ${appName}`;

@@ -74,7 +74,6 @@ export interface AppApiLookup {
     {
       release: Id<"rel">;
       effect: "read" | "write" | "external";
-      project_scope: boolean;
     } | null
   >;
 }

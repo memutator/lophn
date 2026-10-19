@@ -18,8 +18,8 @@ import {
   singleLine,
   type ValidationResult,
 } from "./types.ts";
-import { normalizeJson, sortKeys, unique } from "./json.ts";
-import { validateScreensAndApis } from "./app-api.ts";
+import { normalizeJson, sortBy, unique } from "./json.ts";
+import { validateScreensAndTools } from "./app-api.ts";
 import { validateUses } from "./uses.ts";
 import { permissionScope, scopeKey } from "./scope.ts";
 
@@ -52,17 +52,17 @@ export function validateBlueprint(
   const connectionItems = value.app_connections;
   const dependencyItems = value.sdk_dependencies;
   if (
-    !Array.isArray(value.screens) || !Array.isArray(value.app_api) ||
+    !Array.isArray(value.screens) || !Array.isArray(value.tools) ||
     !Array.isArray(permissionItems) || !Array.isArray(connectionItems) ||
     !Array.isArray(dependencyItems)
   ) {
     return invalid("blueprint collections must be arrays");
   }
 
-  const declared = validateScreensAndApis(value.screens, value.app_api);
+  const declared = validateScreensAndTools(value.screens, value.tools);
   if (!declared.ok) return declared;
   const screens = declared.value.screens;
-  const apis = declared.value.app_api;
+  const tools = declared.value.tools;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -109,8 +109,8 @@ export function validateBlueprint(
   const blueprint: Blueprint = {
     name: value.name,
     description: value.description,
-    screens: sortKeys(screens),
-    app_api: sortKeys(apis),
+    screens: sortBy(screens, (screen) => screen.key),
+    tools: sortBy(tools, (tool) => tool.name),
     permissions: [...permissions].sort((left, right) =>
       scopeKey(left.kind, left.scope) < scopeKey(right.kind, right.scope)
         ? -1

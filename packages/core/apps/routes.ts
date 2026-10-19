@@ -160,7 +160,7 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
   };
 }
 
-// release에 고정한 blueprint의 app-api 선언. release가 null이면 지금 활성 release다.
+// release에 고정한 blueprint의 tool 선언. release가 null이면 지금 활성 release다.
 export function appApiLookupOf(sql: Pick<Sql, "get" | "all">): AppApiLookup {
   return {
     find(app, release, api) {
@@ -169,14 +169,13 @@ export function appApiLookupOf(sql: Pick<Sql, "get" | "all">): AppApiLookup {
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
-      const declared = stored.value.blueprint.app_api.find((entry) =>
-        entry.key === api
+      const declared = stored.value.blueprint.tools.find((entry) =>
+        entry.name === api
       );
       if (declared === undefined) return ok(null);
       return ok({
         release: stored.value.release.id as Id<"rel">,
         effect: declared.effect,
-        project_scope: declared.project_scope,
       });
     },
   };

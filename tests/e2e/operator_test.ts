@@ -277,7 +277,7 @@ Deno.test("E2E Operator: 할당한 app-api만 tool이 되고, 사람이 뺀 것�
     assert(notice.includes(`app__${id}__list_items`));
     assert(notice.includes(`app__${id}__add_item`));
     const blueprint = await core.call(appAppApi, { app: id });
-    for (const api of blueprint.app_api) {
+    for (const api of blueprint.tools) {
       assert(!notice.includes(api.description));
     }
     // ledger

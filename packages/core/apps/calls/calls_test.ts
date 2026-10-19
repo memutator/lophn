@@ -88,7 +88,6 @@ function setup() {
         ok({
           release: state.release,
           effect: api.startsWith("w.") ? "write" : "read",
-          project_scope: false,
         }),
     },
     apps: {

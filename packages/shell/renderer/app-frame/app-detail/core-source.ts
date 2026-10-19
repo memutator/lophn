@@ -469,7 +469,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
         }
         const [appName, declared] = await Promise.all([
           names.appName(scope.app),
-          read<{ app_api: { key: string; effect: Effect }[] }>(
+          read<{ tools: { name: string; effect: Effect }[] }>(
             core,
             "apps",
             "app_api",
@@ -480,7 +480,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
         ]);
         const effects = new Map<string, Effect>(
           declared.ok
-            ? declared.value.app_api.map((api) => [api.key, api.effect])
+            ? declared.value.tools.map((tool) => [tool.name, tool.effect])
             : [],
         );
         appApis.push({

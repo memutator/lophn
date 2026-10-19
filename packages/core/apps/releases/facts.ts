@@ -19,7 +19,7 @@ export function declarationsOfBlueprint(
       app: use.app,
       app_api: [...use.app_api],
     })),
-    app_api: blueprint.app_api.map((api) => api.key),
+    app_api: blueprint.tools.map((tool) => tool.name),
   };
 }
 

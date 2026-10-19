@@ -37,20 +37,21 @@ export function createBlueprintSource(read: BlueprintRead): BlueprintSource {
     }
     const found = await readBlueprint(read, view.app, view.release);
     if (!found.ok) return found;
-    const appApi = found.value.app_api;
-    if (!Array.isArray(appApi)) {
+    const tools = found.value.tools;
+    if (!Array.isArray(tools)) {
       return failure("unavailable", "blueprint is not available");
     }
     return {
       ok: true,
       value: {
-        appApi: appApi.map((item) => {
-          const api = record(item) ?? {};
+        appApi: tools.map((item) => {
+          const tool = record(item) ?? {};
           return {
-            key: String(api.key),
-            label: String(api.label),
-            effect: api.effect as "read" | "write" | "external",
-            hasInput: api.input !== null && api.input !== undefined,
+            key: String(tool.name),
+            label: String(tool.title),
+            effect: tool.effect as "read" | "write" | "external",
+            hasInput: tool.inputSchema !== null &&
+              tool.inputSchema !== undefined,
           };
         }),
       },

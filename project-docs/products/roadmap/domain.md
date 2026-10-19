@@ -1,6 +1,6 @@
 # domain: project와 app 안의 책임 경계
 
-상태: 로드맵. 2026-10-19 사람과 planner가 정했다. 앞 계획 넷(`domain-kinds`, `domain-tools`, `domain-place`, `artifact`)과 `rewind-check`가 land했다. 그 뒤 사람이 모양을 다시 정했다(아래 "모양"). 남은 일은 계획 `domain-entity`다.
+상태: 로드맵. 2026-10-19 사람과 planner가 정했다. 앞 계획 넷(`domain-kinds`, `domain-tools`, `domain-place`, `artifact`)과 `rewind-check`가 land했다. 그 뒤 사람이 모양을 다시 정했고(아래 "모양") 계획 `domain-entity`가 그 모양으로 land했다(`architecture/domain.md`).
 지금 코드에 있는 것은 architecture 문서가 적는다: `kinds.md`(kind 파일, 내장 tool), `app-call.md`(tool 선언, `app.call_tool`, coding agent MCP), `artifact.md`, `place-session.md`, `agent-definition.md`, `activation.md`(rewind 증명). 이 문서는 모양과 남은 일만 적는다. 옛 초안(context를 지우기까지의 지금 코드, 바꾼 이유, 대응표)은 git 기록에 있다.
 
 ## 왜
@@ -58,7 +58,7 @@
 
 - **kind 파일 검사와 index:** 내장 `kind.list`(조건, 정렬, 집계, `skipped`)와 `kind.check`, `file.outline`. 위반은 problem이다(`architecture/kinds.md`).
 - **tool 호출:** Gate, write queue, invocation, changeset, rewind(`architecture/app-call.md`). coding agent는 MCP로 자기 앱 preview의 tool만 부른다.
-- **domain 사이:** 공개 tool 거르기, 다른 domain이 쓰는 공개 tool을 지우는 release 막기, tool이 바뀌면 쓰는 쪽 깨우기, lophn 지도, package 주인. 지금은 단위가 "project 사이"다. `domain-entity`가 "domain 사이"로 맞춘다.
+- **domain 사이:** 공개 tool 거르기, 다른 domain이 쓰는 공개 tool을 지우는 release 막기, tool이 바뀌면 쓰는 쪽 깨우기, lophn 지도, package 주인. 단위는 "domain 사이"다(`architecture/domain.md`).
 - **rewind 증명:** examples가 되돌리기를 증명하고, 못 하면 알린다(`architecture/activation.md`).
 
 ## 정한 것 (사람)
@@ -89,7 +89,7 @@
 
 ## 남은 일
 
-- **계획 `domain-entity`**(`project-docs/plan/domain-entity/`): domain entity를 두고, `domain-place`가 합친 것을 되돌리고, domain 단위로 맞춘다.
+- 계획 `domain-entity`는 land했다: domain entity를 두고, `domain-place`가 합친 것을 되돌리고, domain 단위로 맞췄다(changelog `0.5.0`).
 - **그 뒤:**
   - e2e 다시 쓰기: 앞 계획들은 e2e를 돌리지 않고 type만 맞췄다.
   - eval 자료 다시 만들기: `project-docs/issues/eval.md`

@@ -56,6 +56,11 @@ it points to.
   using `to:{session:"<that session id>"}` and `reply:"conversation"`.
   `to:{role:"coding_agent", place}` is only for handing over a new ticket, not
   for answering.
+- A running coding agent also shows in `session.list` with
+  `role: "coding_agent"`. With no envelope (a new session, or the person says
+  "tell that coding agent"), send `call` to that id with `to:{session}` and
+  `reply:"conversation"`. If it is not listed, no session is running, so hand
+  over a new ticket with `to:{role:"coding_agent", place}`.
 - When the coding agent reports completion, verify it with `ticket.verify`
   against the ticket's acceptance check and report the result to the person. A
   verified ticket lets the program activate that release. The coding agent

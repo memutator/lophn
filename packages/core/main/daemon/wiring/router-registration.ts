@@ -17,7 +17,13 @@ import {
   placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
 import { CodingTransport } from "../../../../protocol/coding-agent/transport.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { codingLines } from "../../../apps/tickets/coding/lines.ts";
+import {
+  liveSessions,
+  loadSession as loadCodingSession,
+  stateOf,
+} from "../../../apps/tickets/coding/store.ts";
 import type { SessionDirectory } from "../../../router/ports.ts";
 import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
 import {
@@ -89,10 +95,10 @@ export function callGate(
   };
 }
 
-// 열린 coding session을 찾고 이름으로 coding agent를 고른다. 새 session은 Router가 transport start로 연다.
+// 열린 coding session을 찾고 목록에 싣고 이름으로 coding agent를 고른다. 새 session은 Router가 transport start로 연다.
 function withCodingSessions(
   directory: SessionDirectory,
-  sql: Pick<Sql, "get">,
+  sql: Pick<Sql, "get" | "all">,
   places: ReturnType<typeof placeDepsOf>,
 ): SessionDirectory {
   return {
@@ -110,6 +116,19 @@ function withCodingSessions(
         agent: { role: "coding_agent", app: String(row["app"]) as Id<"app"> },
         accepting: Number(row["ended"]) === 0,
       };
+    },
+    // 목록과 find가 같은 harness 대상을 말해야 목록에서 고른 id가 to:{session}으로 그대로 닿는다.
+    listOpen() {
+      return [
+        ...directory.listOpen(),
+        ...liveSessions(sql).map((row) => ({
+          session: row.session as Id<"ses">,
+          transport: "harness" as const,
+          agent: { role: "coding_agent" as const, app: row.app as Id<"app"> },
+          accepting: true,
+          name: HARNESS_ADAPTERS[row.harness].label,
+        })),
+      ];
     },
     resolveAgent(named) {
       if (named.role !== "coding_agent") return directory.resolveAgent(named);
@@ -184,6 +203,13 @@ const environment: RouterEnvironment = {
   interruptRunningTurns: (tx) =>
     interruptRunningTurns(tx, publishAfterCommit, "restarted"),
   describe(view, target) {
+    const coding = loadCodingSession(view.sql, target.session);
+    if (coding !== null) {
+      return {
+        place: { kind: "app", id: coding.app as Id<"app"> },
+        state: stateOf(coding),
+      };
+    }
     const row = loadSession(view, target.session as never);
     const running = view.sql.get(
       "select 1 as found from turns where session = ? and state = 'running'",

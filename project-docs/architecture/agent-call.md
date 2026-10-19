@@ -31,7 +31,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 not_found, 같은 이름이 여럿이면 invalid_input이다.
 - 실패는 조용히 버리지 않고 한 번만 알린다. 보낼 때 바로 아는 배달 실패(not_found, not_allowed, closed)는 agent에게 call tool 결과(`state: failed`, 이유)로만 돌려준다. 배달 뒤에 늦게 아는 실패(receiver_ended: 받은 session이 답 없이 끝남, lophn_restarted)는 tool 결과가 이미 돌아간 뒤라 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
   - 같은 실패를 tool 결과와 입력 둘로 받으면 agent가 두 번 반응한다. 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
-- 부를 수 있는 session 목록의 상태는 running, idle, unknown이다. 허락 기다림(waiting)은 reader가 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
+- 부를 수 있는 session 목록의 상태는 running, waiting, idle, unknown이다. waiting은 coding session만 낸다(대기 권한 요청, `stateOf`). lophn session은 reader가 허락 기다림을 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
 - Gate는 두 곳이다. call tool이 보내기 전에 ToolGate로 사람에게 묻고, Router는 deny는 늘 거절, ask는 "이미 허락받았다"는 표시가 있을 때만 통과시킨다(fail-closed).
   - Router는 tx 안이라 사람의 답을 기다릴 수 없다. 합쳐서 Router 한 곳에서 판정하게 단순화하지 않는다.
   - 열린 session으로 보내도 그 session의 agent로 판정한다.
@@ -54,6 +54,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.
 - coding agent에게 맡기기는 Router가 session을 열지 않고 coding transport가 연다. 앱에 끝나지 않은 coding session이 있으면 앱 줄에 서고, call은 받는 session 없이 accepted로 기다린다.
+  - 끝나지 않은 coding session은 부를 수 있는 session 목록에 `role: "coding_agent"`로 실려(`find`와 같은 `transport: "harness"` 대상) `to:{session}`으로 바로 보낼 수 있다. `queued_coding`은 아직 session이 없는 줄에 선 맡기기다.
 
 ## 왜 이 모양인가
 

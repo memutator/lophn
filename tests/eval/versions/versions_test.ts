@@ -1,5 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
+import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
+import { REPO_ROOT } from "../runner/paths.ts";
 import type {
   CollectedModelCall,
   CollectedToolCall,
@@ -11,6 +13,7 @@ import {
   registerAuthored,
   resolveVersion,
   seenComponents,
+  toolFileTable,
 } from "./mod.ts";
 
 async function withTemp(run: (dir: string) => Promise<void>) {
@@ -176,6 +179,12 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
     const c = classifyPath(path);
     assertEquals(c.group === "skill" ? `skill:${c.name}` : c.group, want, path);
   }
+});
+
+// TOOL_FILES에 없는 tool이 model 요청에 실리면 seenComponents가 돈을 쓴 trial을 기록 단계에서 멈춘다(domain tool이 그랬다).
+Deno.test("role이 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
+  const table = await toolFileTable(REPO_ROOT);
+  assertEquals(TOOL_ORDER.filter((name) => !table.has(name)), []);
 });
 
 Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거절하지 않는다", async () => {

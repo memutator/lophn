@@ -17,6 +17,7 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/apps/agent-tools/ticket.ts",
   "packages/core/apps/agent-tools/visual.ts",
   "packages/core/problems/agent-tools.ts",
+  "packages/core/domains/agent-tools.ts",
   "packages/core/lophn-agent/tools/bundles/skill.ts",
   "packages/core/lophn-agent/tools/bundles/file.ts",
   "packages/core/lophn-agent/tools/bundles/call.ts",

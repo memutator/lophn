@@ -64,4 +64,4 @@ modules: [packages/core/problems, packages/core/apps]
 
 고치려면:
 - activation 때 그 release의 app test 증거에서 `unproven`을 읽어 problem으로 낸다(중간. activation(`packages/core/apps/releases/activation`)이 app test 증거를 모르므로 apps → problems port가 필요하다).
-- App Engineer 지침이 write tool을 바꾸는 ticket에 examples check를 쓰게 한다(작음. 지침 문장. planner가 domain-place의 지침 land 뒤 넣는다).
+- Project Manager 지침이 write tool을 바꾸는 ticket에 examples check를 쓰게 한다(작음. 지침 문장. domain-place가 `packages/core/agent-roles/roles/project-manager/prompt.md`에 넣었다. 지침이라 program이 막지는 않는다).

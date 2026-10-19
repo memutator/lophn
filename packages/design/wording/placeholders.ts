@@ -7,6 +7,7 @@ import type { BrowserPlaceholders } from "./catalog/browser.placeholders.ts";
 import type { CommonPlaceholders } from "./catalog/common.placeholders.ts";
 import type { ConversationPlaceholders } from "./catalog/conversation.placeholders.ts";
 import type { DataPlaceholders } from "./catalog/data.placeholders.ts";
+import type { DomainPlaceholders } from "./catalog/domain.placeholders.ts";
 import type { ProjectPlaceholders } from "./catalog/project.placeholders.ts";
 import type { WorkspacePlaceholders } from "./catalog/workspace.placeholders.ts";
 import type { WorkspaceSettingsPlaceholders } from "./catalog/workspace-settings.placeholders.ts";
@@ -20,6 +21,7 @@ export type PlaceholderKinds =
   & CommonPlaceholders
   & ConversationPlaceholders
   & DataPlaceholders
+  & DomainPlaceholders
   & ProjectPlaceholders
   & WorkspacePlaceholders
   & WorkspaceSettingsPlaceholders;

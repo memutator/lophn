@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-app-domains` | apps | 2 | de-apps-storage | running | apps/de-app-domains |  |  |
 | `de-apps-storage` | apps | 2 | 없음 | merged | apps/de-apps-storage | 6e0394094 |  |
 | `de-public-tools` | apps | 2 | de-apps-storage, de-routing-events | running | apps/de-public-tools |  |  |
-| `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | running | domain-kinds/de-kinds-domain |  |  |
+| `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | merged | domain-kinds/de-kinds-domain | 6b8677502 |  |
 | `de-agents-domains` | harness | 2 | 없음 | merged | harness/de-agents-domains | 68c84e5ba |  |
 | `de-tool-filter` | harness | 2 | 없음 | merged | harness/de-tool-filter | 5d349e639 |  |
 | `de-turn-domains` | harness | 2 | 없음 | merged | harness/de-turn-domains | bfda0d81c |  |

@@ -1,6 +1,7 @@
 import { appCreate } from "../../../packages/protocol/apps/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
 import type { SetupContext } from "../types.ts";
+import { openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
 
 // 앱 등록만 되살린다. source는 잇지 않고 call 본문은 deliverCall이 시나리오의 첫 단계에서 보낸다.
@@ -12,6 +13,7 @@ export async function restoreCall(
     textOf(material, "app.json"),
   ) as { slug: string; name: string; description: string };
   const id = material.manifest.ids[name] as Id<"app">;
-  await ctx.core.call(appCreate, { id, slug, name, description });
+  const project = await openAppProject(ctx.core, slug);
+  await ctx.core.call(appCreate, { id, slug, project, name, description });
   ctx.world.apps[name] = id;
 }

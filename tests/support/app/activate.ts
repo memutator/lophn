@@ -26,6 +26,7 @@ import { codingCli } from "../coding/cli.ts";
 import type { Core } from "../core/mod.ts";
 import { runtimePids } from "../core/process.ts";
 import {
+  openProject,
   openSession,
   say,
   settle,
@@ -88,13 +89,25 @@ async function revisionOf(core: Core, app: string): Promise<string> {
   return (await core.call(appGet, { app })).app.revision;
 }
 
+// 앱은 project 하나에 묶이므로 사람이 먼저 project를 등록한다. 폴더는 run의 work 아래 `<slug>-project` 하나다.
+export async function openAppProject(
+  core: Core,
+  slug: string,
+): Promise<string> {
+  const folder = `${core.run.work}/${slug}-project`;
+  await Deno.mkdir(folder, { recursive: true });
+  return (await openProject(core, folder, `${slug}-project`)).project;
+}
+
 export async function startTestApp(
   core: Core,
   _fake: FakeServer,
   options: { name: string; slug: string; patch?: AppPatch },
 ): Promise<TestApp> {
+  const project = await openAppProject(core, options.slug);
   const created = await core.call(appCreate, {
     slug: options.slug,
+    project,
     name: options.name,
     description: `E2E app ${options.slug}`,
   });

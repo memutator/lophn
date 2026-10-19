@@ -9,6 +9,7 @@ import type { Id } from "../../../packages/protocol/base/mod.ts";
 import {
   approveActivation,
   deliverRelease,
+  openAppProject,
   type TestApp,
   waitRunning,
 } from "../../support/app/activate.ts";
@@ -56,9 +57,11 @@ export async function restoreActiveApp(
   let gateway: TestApp["gateway"] | undefined;
   try {
     fake.reset();
+    const project = await openAppProject(core, spec.slug);
     await core.call(appCreate, {
       id,
       slug: spec.slug,
+      project,
       name: spec.name,
       description: spec.description,
     });

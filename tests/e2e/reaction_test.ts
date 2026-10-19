@@ -39,6 +39,7 @@ import {
 import {
   activateTestApp,
   aeLane,
+  openAppProject,
   tool,
   waitRunning,
 } from "../support/app/activate.ts";
@@ -141,6 +142,7 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
     await connectFakeProvider(core, fake);
     const app = (await core.call(appCreate, {
       slug: "reaction-app",
+      project: await openAppProject(core, "reaction-app"),
       name: "Reaction App",
       description: "Reacts to problems.",
     })).id;

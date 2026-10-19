@@ -25,6 +25,7 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { openAppProject } from "../support/app/activate.ts";
 
 type Place = { kind: "project" | "app"; id: string };
 
@@ -86,6 +87,7 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
     await t.step("app-creates-ae", async () => {
       const app = await c.call(appCreate, {
         slug: "ledger-app",
+        project: await openAppProject(c, "ledger-app"),
         name: "Ledger App",
         description: "Keep a ledger.",
       });

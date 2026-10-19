@@ -62,6 +62,7 @@ import {
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
 import { toolNames } from "../support/fake-server/probe.ts";
+import { openAppProject } from "../support/app/activate.ts";
 
 const LOPHN: AgentRef = { role: "lophn" };
 
@@ -541,6 +542,7 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         const before = await runtimePids(c.run.home);
         const app = await c.call(appCreate, {
           slug: "scope-app",
+          project: await openAppProject(c, "scope-app"),
           name: "Scope App",
           description: "scope check",
         }, {});

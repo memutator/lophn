@@ -53,6 +53,7 @@ import {
   lastToolResult,
   toolNames,
 } from "../support/fake-server/probe.ts";
+import { openAppProject } from "../support/app/activate.ts";
 
 const names = (request: JournalEntry) => toolNames(request);
 const LOPHN: Lane = {
@@ -397,6 +398,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         fake.reset();
         const app = await c.call(appCreate, {
           slug: "ledger-app",
+          project: await openAppProject(c, "ledger-app"),
           name: "Ledger App",
           description: "Keep a ledger.",
         }, {});

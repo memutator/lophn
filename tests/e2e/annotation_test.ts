@@ -38,6 +38,7 @@ import { uploadScreenshot } from "../support/annotation/upload.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer, JournalEntry } from "../support/fake-server/mod.ts";
 import { idIn, lastUserText } from "../support/fake-server/probe.ts";
+import { openAppProject } from "../support/app/activate.ts";
 
 // 유효한 1x1 PNG
 const PNG = Uint8Array.from(
@@ -244,6 +245,7 @@ const ROWS: Row[] = [
       const { core } = ctx;
       const created = await core.call(appCreate, {
         slug: "annotation-c",
+        project: await openAppProject(core, "annotation-c"),
         name: "annotation-c",
         description: "app annotation-c",
       }, {});
@@ -279,9 +281,10 @@ Deno.test("annotation 묶음은 그 앱 App Engineer에게만 가고 screenshot�
     fake = await startFakeServer();
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
-    const app = (slug: string) =>
+    const app = async (slug: string) =>
       core!.call(appCreate, {
         slug,
+        project: await openAppProject(core!, slug),
         name: slug,
         description: `app ${slug}`,
       }, {});

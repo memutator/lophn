@@ -17,9 +17,9 @@ Deno.test("App Engineer 자격은 다른 앱의 tool 목록을 읽지만 다른 
   for (const step of appsSchemaSteps) db.exec(step.sql);
   for (const [id, slug] of [[APP_A, "a"], [APP_B, "b"]]) {
     db.prepare(
-      `INSERT INTO apps (id, slug, name, description, run_enabled, revision, status)
-       VALUES (?, ?, ?, 'does things', 0, '1', 'active')`,
-    ).run(id, slug, `app ${slug}`);
+      `INSERT INTO apps (id, slug, project, name, description, run_enabled, revision, status)
+       VALUES (?, ?, ?, ?, 'does things', 0, '1', 'active')`,
+    ).run(id, slug, `prj_01hzzzzzzzzzzzzzzzzzzzzzz${slug}`, `app ${slug}`);
   }
   const sql = {
     get: (text: string, params: never[]) =>

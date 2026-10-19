@@ -37,12 +37,13 @@ export function loadApps(
 export function insertApp(tx: Pick<Tx, "sql">, app: App): void {
   tx.sql.run(
     `INSERT INTO apps
-      (id, slug, name, description, planning_version, source_path,
+      (id, slug, project, name, description, planning_version, source_path,
        active_release, run_enabled, revision, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       app.id,
       app.slug,
+      app.project,
       app.name,
       app.description,
       app.planning_version,

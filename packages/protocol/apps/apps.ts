@@ -9,6 +9,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import {
   absolutePathSchema,
   appIdSchema,
+  projectIdSchema,
   revisionSchema,
   slugSchema,
   versionIdSchema,
@@ -28,6 +29,7 @@ const appDescriptionSchema = z.string().min(1).refine(
 const appRegistrationSchema = z.object({
   id: appIdSchema,
   slug: slugSchema,
+  project: projectIdSchema,
   status: archiveStateSchema,
 });
 export type AppRegistration = z.infer<typeof appRegistrationSchema>;
@@ -45,6 +47,8 @@ export const appRegistrationLookup = definePort<AppRegistrationLookup>(
 const appFields = {
   id: appIdSchema,
   slug: slugSchema,
+  // project 하나에 앱 하나다. 만든 뒤에는 바뀌지 않고, 보관한 앱도 project를 계속 점유한다.
+  project: projectIdSchema,
   name: appNameSchema,
   description: appDescriptionSchema,
   planning_version: versionIdSchema.nullable(),
@@ -70,6 +74,7 @@ const appCreateInputSchema = z.strictObject({
   // 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
   id: appIdSchema.optional(),
   slug: slugSchema,
+  project: projectIdSchema,
   name: appNameSchema,
   description: appDescriptionSchema,
   planning_version: versionIdSchema.optional(),
@@ -89,7 +94,7 @@ export const appCreate = defineCommand({
   output: appSchema,
   compare: z.strictObject({}),
   actors: ["user", "coding_agent", "agent"],
-  errors: ["forbidden", "invalid_input", "conflict"],
+  errors: ["forbidden", "invalid_input", "not_found", "conflict"],
 });
 // source 연결은 user, 그 앱 범위 connection, 그 앱의 App Engineer만 받는다.
 export const appConnectSource = defineCommand({
@@ -173,6 +178,7 @@ export const appCreated = defineEvent("AppCreated", {
   subject: appIdSchema,
   payload: z.object({
     slug: slugSchema,
+    project: projectIdSchema,
     name: appNameSchema,
     description: appDescriptionSchema,
     planning_version: versionIdSchema.optional(),

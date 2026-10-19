@@ -20,6 +20,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
+import { appProjectLookupPort } from "./ports.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
 function forbidden(message: string): Result<never> {
@@ -32,6 +33,10 @@ function notFound(): Result<never> {
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
+}
+
+function projectNotFound(): Result<never> {
+  return err({ code: "not_found", message: "project not found" });
 }
 
 function invalid(message: string): Result<never> {
@@ -111,6 +116,7 @@ export function createAppCommands(): {
         const candidate: App = {
           id,
           slug: input.slug,
+          project: input.project,
           name: input.name,
           description: input.description,
           planning_version: input.planning_version ?? null,
@@ -127,6 +133,16 @@ export function createAppCommands(): {
           accessTarget(null, candidate),
         );
         if (!access.ok) return access;
+        const project = tx.port(appProjectLookupPort).get(input.project);
+        if (project === null) return projectNotFound();
+        if (project.status === "archived") {
+          return conflict("project is archived");
+        }
+        if (
+          tx.sql.get("SELECT id FROM apps WHERE project = ?", [
+            input.project,
+          ]) !== undefined
+        ) return conflict("project already has an app");
         const named = tx.sql.get("SELECT id FROM apps WHERE slug = ?", [
           input.slug,
         ]);
@@ -139,6 +155,7 @@ export function createAppCommands(): {
         ) return conflict("app id already exists");
         const seq = tx.emit(appCreated, id, {
           slug: input.slug,
+          project: input.project,
           name: input.name,
           description: input.description,
           ...(input.planning_version === undefined

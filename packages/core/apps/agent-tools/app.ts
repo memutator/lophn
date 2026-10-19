@@ -8,12 +8,14 @@ import {
   blueprintCheck,
 } from "../../../protocol/apps/mod.ts";
 import { appAppApiIndex } from "../../../protocol/apps/blueprint/read.ts";
+import { projectList } from "../../../protocol/projects/mod.ts";
 import { problemList } from "../../../protocol/problems/mod.ts";
 import {
   commandOf,
   countSummary,
   defineTool,
   fitted,
+  notFound,
   readBody,
   readOf,
   type ToolDefinition,
@@ -104,18 +106,29 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "app.create",
-    input: z.strictObject({ name: nonblank, purpose: nonblank }),
-    routes: [appCreate],
+    input: z.strictObject({
+      project: nonblank,
+      name: nonblank,
+      purpose: nonblank,
+    }),
+    routes: [appCreate, projectList],
     description:
-      "Register a new app with a name and a one line purpose. The app gets its own App Engineer.",
+      "Register a new app with a project (name or id), a name and a one line purpose. The app is bound to that project, each project has one app, and the project's Project Manager looks after it.",
     effect: "write",
     handler: async (input, ctx) => {
       const { name, purpose } = input;
+      const projects = await readOf(ctx.core, projectList, {});
+      if (!projects.ok) return projects;
+      const found = projects.value.projects.find((item) =>
+        item.id === input.project || item.name === input.project
+      );
+      if (found === undefined) return notFound("project not found");
       const made = await commandOf(
         ctx.core,
         appCreate,
         {
           slug: slugOf(name, ctx.tool_call.slice(-8).toLowerCase()),
+          project: found.id,
           name,
           description: purpose.trim().replace(/\s*[\r\n]+\s*/g, " "),
         },

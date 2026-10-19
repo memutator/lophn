@@ -61,7 +61,7 @@ const SOURCE = {
   scope: "message-body",
 };
 
-// call을 닫으며 맡긴 App Engineer에게 가는 입력의 고정 문구다.
+// call을 닫으며 맡긴 Project Manager에게 가는 입력의 고정 문구다.
 const CLOSING_KINDS = new Set([
   "terminal_result",
   "terminal_exited",
@@ -188,7 +188,7 @@ export const codingSessionsWiring: WiringFactory = () => {
             : `http://127.0.0.1:${port}${CODING_MCP_PATH}`;
         },
       });
-      // 완료 보고, claim 만료, 보고 없는 끝이 call을 닫고 App Engineer에게 알린다.
+      // 완료 보고, claim 만료, 보고 없는 끝이 call을 닫고 Project Manager에게 알린다.
       ctx.reactor.on(
         "TicketCompletionReported",
         relay.reactor.TicketCompletionReported,

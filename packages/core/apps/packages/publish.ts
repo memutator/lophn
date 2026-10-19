@@ -1,4 +1,4 @@
-// package.publish. App Engineer가 자기 앱 code의 일부를 @me package로 낸다.
+// package.publish. Project Manager가 자기 앱 code의 일부를 @me package로 낸다.
 // 통과한 test가 있어야 하고, 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { z } from "zod";
@@ -53,11 +53,11 @@ function guideText(guide: PackagePublishInput["guide"]): string {
 export function publishPackage(deps: PublishDeps): MemoryHandler {
   return async (ctx, raw) => {
     const input = raw as PackagePublishInput;
-    // 그 앱에 묶인 agent(App Engineer)만 낸다.
+    // 그 앱에 묶인 agent(Project Manager)만 낸다.
     if (!ctx.actor.startsWith("agent:") || ctx.conditions.app !== input.app) {
       return err({
         code: "forbidden",
-        message: "only the App Engineer of the app publishes its packages",
+        message: "only the Project Manager of the app publishes its packages",
       });
     }
     if (!input.name.startsWith("@me/")) {

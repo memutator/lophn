@@ -36,7 +36,7 @@ function fromTests(
     };
 }
 
-// text check는 program이 돌리지 않는다. App Engineer의 판단이다.
+// text check는 program이 돌리지 않는다. Project Manager의 판단이다.
 export function checkOutcomeOf(work: CheckWork): CheckOutcome | null {
   if (work.check.kind === "text") return null;
   const release = work.release;

@@ -5,8 +5,19 @@ import {
   codingOptionsSchema,
 } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { Place } from "../../../../protocol/lophn-agent/places.ts";
+import { appProjectOf } from "../../lookups.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
+
+// coding session의 place는 앱의 project place다. 앱 필수 칸이라 project가 없는 일은 없다.
+export function codingPlace(sql: Reader, app: string): Place | null {
+  const project = appProjectOf(sql, app);
+  return project === null
+    ? null
+    : { kind: "project", id: project as Id<"prj"> };
+}
 
 type SessionState = "running" | "waiting" | "idle" | "unknown";
 

@@ -30,14 +30,36 @@ type NewWorkDeps = {
   router: ReactionRouter;
   // 근거 seq의 events 행. 보류 request가 허락된 뒤 event를 다시 읽는다.
   events: { at(seq: string): Promise<Result<unknown | null>> };
+  // 앱이 묶인 project. 앱을 받는 event는 그 project의 Project Manager를 부른다. wiring이 ledger 연결로 꽂는다.
+  appProject(app: string): Promise<Result<string>>;
 };
 
 type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
 const newWorkHandlerName = (type: ReactionEventType) => `new-work:${type}`;
 
-// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다.
-function callOf(event: NewWork): Omit<CallEnvelope, "call"> {
+// event를 받을 Project Manager의 project. 앱을 받는 event는 앱이 묶인 project다.
+async function projectOf(
+  deps: NewWorkDeps,
+  event: NewWork,
+): Promise<Result<string>> {
+  switch (event.type) {
+    case "ProblemOpened":
+    case "ProblemReopened":
+    case "ReleaseActivationFailed":
+      return await deps.appProject(event.payload.app);
+    case "AppRestartHalted":
+      return await deps.appProject(event.subject);
+    case "ContextViolationFound":
+      return ok(event.payload.project);
+  }
+}
+
+// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다. project는 projectOf(event)다.
+function callOf(
+  event: NewWork,
+  project: string,
+): Omit<CallEnvelope, "call"> {
   const from = { kind: "program" as const, event_seq: event.seq };
   const base = {
     from,
@@ -46,29 +68,29 @@ function callOf(event: NewWork): Omit<CallEnvelope, "call"> {
     dedup: null,
     options: null,
   };
-  const engineer = (app: string) => ({
+  const manager = {
     kind: "new_session" as const,
-    agent: { role: "app_engineer" as const, app },
-  });
+    agent: { role: "project_manager" as const, project },
+  };
   switch (event.type) {
     case "ProblemOpened":
       return {
         ...base,
-        to: engineer(event.payload.app),
+        to: manager,
         body: "A new problem was opened for this app.",
         refs: [{ kind: "problem", problem: event.subject }],
       };
     case "ProblemReopened":
       return {
         ...base,
-        to: engineer(event.payload.app),
+        to: manager,
         body: "A solved problem happened again on the active release.",
         refs: [{ kind: "problem", problem: event.subject }],
       };
     case "AppRestartHalted":
       return {
         ...base,
-        to: engineer(event.subject),
+        to: manager,
         body:
           `The app crashed ${event.payload.crashes} times in a short time, so its automatic restart stopped. Release: ${event.payload.release}.`,
         refs: [],
@@ -76,7 +98,7 @@ function callOf(event: NewWork): Omit<CallEnvelope, "call"> {
     case "ReleaseActivationFailed":
       return {
         ...base,
-        to: engineer(event.payload.app),
+        to: manager,
         body:
           `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,
         refs: [{ kind: "ticket", ticket: event.payload.ticket }],
@@ -118,7 +140,9 @@ async function sendKey(event: NewWork): Promise<Result<string>> {
 async function send(deps: NewWorkDeps, event: NewWork): Promise<Result<void>> {
   const key = await sendKey(event);
   if (!key.ok) return key;
-  return await deps.router.send(callOf(event), key.value);
+  const project = await projectOf(deps, event);
+  if (!project.ok) return project;
+  return await deps.router.send(callOf(event, project.value), key.value);
 }
 
 function handlerFor<T extends ReactionEventType>(

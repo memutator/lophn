@@ -1,6 +1,6 @@
 // 완료 보고를 받으면 check를 한 번 확인해 결과를 남기는 Reactor handler. `TicketCompletionReported`가
 // 깨운다. examples check는 test 요청만 내고, 검증이 끝나 `VerificationRecorded`가 나면 다른 handler가
-// 결과를 남긴다. 상태는 바꾸지 않고(판정은 App Engineer) 결과와 근거만 `ticket.record_checks`로 남긴다.
+// 결과를 남긴다. 상태는 바꾸지 않고(판정은 Project Manager) 결과와 근거만 `ticket.record_checks`로 남긴다.
 // 읽기와 쓰기는 core를 부르는 client로 주입받는다(machine 자격은 조립이 가진다).
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ReactorContext, ReactorHandler } from "../../../events/ports.ts";

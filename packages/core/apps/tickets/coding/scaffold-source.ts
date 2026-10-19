@@ -2,6 +2,7 @@
 // tx 안에서는 파일과 git을 만질 수 없어서 call을 받는 writer 바로 앞에서 한다. 연결은 이미 있는 source 연결 command다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appConnectSource } from "../../../../protocol/apps/mod.ts";
+import { appDefaultSource } from "../../../../protocol/apps/app-storage.ts";
 import { callSend } from "../../../../protocol/lophn-agent/calls.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
@@ -12,6 +13,7 @@ import { startFailure } from "./launch.ts";
 
 type ScaffoldTarget = {
   id: string;
+  project: string;
   slug: string;
   name: string;
   revision: string;
@@ -23,11 +25,12 @@ export function sourcelessAppNamed(
   name: string,
 ): ScaffoldTarget | null {
   const row = sql.get(
-    "select id, slug, name, revision from apps where (id = ? or slug = ? or name = ?) and source_path is null",
+    "select id, project, slug, name, revision from apps where (id = ? or slug = ? or name = ?) and source_path is null",
     [name, name, name],
   );
   return row === undefined ? null : {
     id: String(row["id"]),
+    project: String(row["project"]),
     slug: String(row["slug"]),
     name: String(row["name"]),
     revision: String(row["revision"]),
@@ -69,13 +72,13 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-// `<data root>/apps/<id>/source`에 template을 깐다. 임시 폴더에서 commit까지 만든 뒤 옮겨, 있는 폴더는 늘 commit이 있다.
+// 앱의 기본 source 자리(`appDefaultSource`)에 template을 깐다. 임시 폴더에서 commit까지 만든 뒤 옮겨, 있는 폴더는 늘 commit이 있다.
 // 이미 있는 폴더는 commit이 있을 때만(앞서 깔다 연결 전에 끊긴 경우) 그대로 쓰고 아니면 덮지 않고 오류다.
 async function scaffold(
   target: ScaffoldTarget,
   dataRoot: string,
 ): Promise<Result<string>> {
-  const dir = `${dataRoot}/apps/${target.id}/source`;
+  const dir = appDefaultSource(dataRoot, target.project);
   try {
     if (await exists(dir)) {
       const head = await git(dir, "rev-parse", "--verify", "HEAD");
@@ -127,7 +130,7 @@ async function scaffold(
   }
 }
 
-// `call`이 source 없는 앱의 coding agent에게 가면 보내기 전에 source를 깔고 잇는다. 잇기는 보낸 App Engineer의
+// `call`이 source 없는 앱의 coding agent에게 가면 보내기 전에 source를 깔고 잇는다. 잇기는 보낸 Project Manager의
 // 자격으로 한다(자기 앱의 source 연결은 그 자격이 이미 가진다).
 export function withScaffoldedSource(
   inner: Writer,

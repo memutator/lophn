@@ -7,6 +7,7 @@ import {
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
+import { appProjectOf } from "../../../apps/lookups.ts";
 import {
   callCancel,
   callReply,
@@ -73,7 +74,7 @@ const ROUTER_CONTEXT: AuthenticatedContext = {
   credential_ref: ROUTER_PRINCIPAL,
 };
 
-// annotation 묶음을 App Engineer에게 사람 메시지로 넣는 자격이다. 보내기는 사람이 누른 단추의 효과라서 actor가
+// annotation 묶음을 앱의 Project Manager에게 사람 메시지로 넣는 자격이다. 보내기는 사람이 누른 단추의 효과라서 actor가
 // user이고, 기동 때 ledger에 기록한다. 기동마다 다시 쓰는 core 안 자격이라 ref는 `machine:`으로 시작한다.
 const ANNOTATION_DELIVERY_PRINCIPAL = "machine:annotation-delivery";
 const ANNOTATION_DELIVERY_CONTEXT: AuthenticatedContext = {
@@ -203,7 +204,18 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      // session이 있으면 그 App Engineer session에, 없으면 새 session을 열어 사람 메시지 하나로 넣는다. 이미지는
+      // 앱이 묶인 project. 앱을 받는 일은 그 project의 Project Manager가 맡는다.
+      const appProject = (app: string): Result<string> => {
+        const found = ledgerSnapshot(
+          ctx.ledgerPath,
+          (lookup) => appProjectOf(lookup.sql, app),
+        );
+        if (!found.ok) return found;
+        return found.value === null
+          ? err({ code: "not_found", message: "app not found" })
+          : ok(found.value);
+      };
+      // session이 있으면 그 Project Manager session에, 없으면 새 session을 열어 사람 메시지 하나로 넣는다. 이미지는
       // 메시지에 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
@@ -222,11 +234,13 @@ export const routerWiring: WiringFactory = () => {
       };
       const delivery: AnnotationDelivery = {
         async deliver(input) {
+          const project = appProject(input.app);
+          if (!project.ok) return project;
           let session = input.session;
           if (session === null) {
             const opened = await run(openAgentSession, {
               id: ids.newId("ses"),
-              agent: { role: "app_engineer", app: input.app },
+              agent: { role: "project_manager", project: project.value },
               opening_context: null,
             });
             if (!opened.ok) return opened;
@@ -240,17 +254,17 @@ export const routerWiring: WiringFactory = () => {
             if (!found.ok) return found;
             const { agent, lifecycle } = (found.value as {
               session: {
-                agent: { role: string; app?: string };
+                agent: { role: string; project?: string };
                 lifecycle: string;
               };
             }).session;
             if (
-              agent.role !== "app_engineer" || agent.app !== input.app ||
-              lifecycle !== "open"
+              agent.role !== "project_manager" ||
+              agent.project !== project.value || lifecycle !== "open"
             ) {
               return err({
                 code: "conflict",
-                message: "not an open session of this app's engineer",
+                message: "not an open session of this app's project manager",
               });
             }
           }
@@ -366,6 +380,7 @@ export const routerWiring: WiringFactory = () => {
         approvals: ctx.approvals,
         router: reaction,
         events: createEventsReader(eventsConnection.sql),
+        appProject: (app) => Promise.resolve(appProject(app)),
       });
       return ok({
         writer: (inner) =>

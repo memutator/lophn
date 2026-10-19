@@ -66,7 +66,7 @@ export function createTicketReportCommands(): {
           input.completion,
         );
         if (!references.ok) return references;
-        // 맡긴 App Engineer와 call을 찾는 데 필요한 칸이다.
+        // 맡긴 Project Manager와 call을 찾는 데 필요한 칸이다.
         const seq = tx.emit(ticketCompletionReported, input.ticket, {
           app: stored.app,
           release: input.completion.release,
@@ -95,7 +95,7 @@ export function createTicketReportCommands(): {
             JSON.stringify([...input.completion.verifications]),
           ],
         );
-        // 접수 때 claim을 끝낸다. 확인됨은 App Engineer가 정한다.
+        // 접수 때 claim을 끝낸다. 확인됨은 Project Manager가 정한다.
         tx.sql.run("DELETE FROM ticket_claims WHERE ticket = ?", [
           input.ticket,
         ]);

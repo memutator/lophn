@@ -20,6 +20,7 @@ import { CodingTransport } from "../../../../protocol/coding-agent/transport.ts"
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { codingLines } from "../../../apps/tickets/coding/lines.ts";
 import {
+  codingPlace,
   liveSessions,
   loadSession as loadCodingSession,
   stateOf,
@@ -206,7 +207,7 @@ const environment: RouterEnvironment = {
     const coding = loadCodingSession(view.sql, target.session);
     if (coding !== null) {
       return {
-        place: { kind: "app", id: coding.app as Id<"app"> },
+        place: codingPlace(view.sql, coding.app),
         state: stateOf(coding),
       };
     }

@@ -12,8 +12,8 @@ type MessageId = string;
 
 export type AnnotationDelivery = {
   /**
-   * 그 앱의 App Engineer에게 사람 메시지 하나로 넣는다. session이 있으면 그 session
-   * (그 앱 App Engineer의 열린 session이어야 한다), null이면 새 session을 연다.
+   * 그 앱의 Project Manager에게 사람 메시지 하나로 넣는다. session이 있으면 그 session
+   * (그 앱 Project Manager의 열린 session이어야 한다), null이면 새 session을 연다.
    * 보관한 앱이면 conflict다. 구현은 Router다.
    */
   deliver(input: {

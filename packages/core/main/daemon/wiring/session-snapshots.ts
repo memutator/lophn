@@ -7,6 +7,7 @@ import {
   sessionSnapshotsList,
 } from "../../../../protocol/events/snapshot.ts";
 import {
+  codingPlace,
   liveSessions,
   loadSession as loadCodingSession,
   stateOf,
@@ -65,7 +66,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             {
               session: row.session,
               agent: { role: "coding_agent", app: row.app },
-              place: { kind: "app", id: row.app },
+              place: codingPlace(sql, row.app),
               state: stateOf(row),
               harness: row.harness,
               permission_requests: requests(row.session),

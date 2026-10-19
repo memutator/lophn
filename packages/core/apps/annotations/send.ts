@@ -1,4 +1,4 @@
-// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 App Engineer, artifact이면 wave 2 receiver가 정한 쪽)에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
+// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 Project Manager, artifact이면 wave 2 receiver가 정한 쪽)에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
 // Gate를 거치지 않는다. 보관한 앱이면 저장 command가 쓰기 전에 conflict로 거절한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { CommandRoute } from "../../../protocol/base/mod.ts";

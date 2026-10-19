@@ -5,7 +5,7 @@ import type { Tx } from "../../../../protocol/server/mod.ts";
 import { afterCommit } from "../../../storage/ledger/after-commit.ts";
 import { AGENT_EVENT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import { createCallStore } from "../../../router/mod.ts";
-import type { SessionRow } from "./store.ts";
+import { codingPlace, type SessionRow } from "./store.ts";
 
 export const CODING_TERMINAL_TOPIC = "coding_terminal";
 export const CODING_REVOKE_TOPIC = "coding_revoke";
@@ -30,7 +30,7 @@ export function sessionStarted(tx: Tx, row: SessionRow): void {
     at: tx.now(),
     payload: {
       agent: { role: "coding_agent", app: row.app },
-      place: { kind: "app", id: row.app },
+      place: codingPlace(tx.sql, row.app),
       external_session: row.external_session,
       revived: false,
     },

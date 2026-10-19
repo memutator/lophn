@@ -11,6 +11,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import {
+  activationBlock,
   activationComplete,
   activationFail,
   activationRecordBackup,
@@ -120,6 +121,8 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       // activation 진행(apps/releases)이 시도의 상태를 읽고 참조·결과를 확정하고 사용 불가를 남긴다.
       releasesGetRecord.name,
       activationStart.name,
+      // 다른 project가 쓰는 공개 tool을 지우는 release를 판정 단계에서 막는다.
+      activationBlock.name,
       activationRecordBackup.name,
       activationRecordDataChange.name,
       activationRecordDataRestore.name,
@@ -201,6 +204,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       activationComplete,
       activationFail,
       activationStart,
+      activationBlock,
       releasesGetRecord,
     ].map((route): OperationPolicy => ({
       name: route.name,

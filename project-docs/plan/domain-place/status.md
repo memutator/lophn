@@ -16,7 +16,7 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-grants-public-ui` | public-tools | 2 | dp-public-filter | merged | public-tools/dp-grants-public-ui | 90d2f620a |  |
 | `dp-public-event` | public-tools | 2 | 없음 | merged | public-tools/dp-public-event | 2a199d98e |  |
 | `dp-public-filter` | public-tools | 2 | 없음 | merged | public-tools/dp-public-filter | 3c601f263 |  |
-| `dp-release-guard` | public-tools | 2 | dp-public-event, dp-usage-read | running | public-tools/dp-release-guard |  |  |
+| `dp-release-guard` | public-tools | 2 | dp-public-event, dp-usage-read | merged | public-tools/dp-release-guard | f39137fbe |  |
 | `dp-roles-public` | public-tools | 2 | 없음 | merged | public-tools/dp-roles-public | f3708ca9d |  |
 | `dp-agent-roles-prompt` | role-merge | 2 | 없음 | merged | role-merge/dp-agent-roles-prompt | 561618b1e |  |
 | `dp-agent-roles-scope` | role-merge | 2 | dp-agents-core | merged | role-merge/dp-agent-roles-scope | c37d51bae |  |

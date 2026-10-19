@@ -181,6 +181,7 @@ export function createLedgerRegistration(
       releaseCommands.prepare,
       releaseCommands.prepareBundle,
       releaseCommands.startActivation,
+      releaseCommands.blockActivation,
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
       releaseCommands.activatePrevious,

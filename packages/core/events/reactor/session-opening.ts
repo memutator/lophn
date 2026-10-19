@@ -50,7 +50,6 @@ async function projectOf(
       return await deps.appProject(event.payload.app);
     case "AppRestartHalted":
       return await deps.appProject(event.subject);
-    case "ContextViolationFound":
     case "KindViolationFound":
       return ok(event.payload.project);
   }

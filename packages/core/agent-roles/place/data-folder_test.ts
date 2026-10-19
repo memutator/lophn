@@ -10,12 +10,9 @@ import {
 
 Deno.test("data root 아래 정의·설정 자리는 전과 같다", () => {
   const project = { kind: "project", id: "prj_a1" } as const;
-  const app = { kind: "app", id: "app_b2" } as const;
   assertEquals(projectsDataArea("/r"), "/r/projects");
   assertEquals(placeDataFolder("/r", project), "/r/projects/prj_a1");
-  assertEquals(placeDataFolder("/r", app), "/r/apps/app_b2");
   assertEquals(placeAgentsFolder("/r", project), "/r/projects/prj_a1/agents");
-  assertEquals(placeAgentsFolder("/r", app), "/r/apps/app_b2/agents");
   assertEquals(artifactsFolder("/r", "prj_a1"), "/r/projects/prj_a1/artifacts");
   assertEquals(lophnAgentsFolder("/r"), "/r/agents");
   assertEquals(projectIdOfFolder("prj_a1"), "prj_a1");

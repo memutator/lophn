@@ -43,6 +43,7 @@ import { skillFoldersSetting } from "../../../lophn-agent/extensions/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { runtimeFoldersOf } from "../place-folders-glue.ts";
 import { appSocketRoot } from "../../../apps/control.ts";
+import { appOfProject } from "../../../apps/lookups.ts";
 import { PROJECT_LAYER } from "../../../agent-roles/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-roles/skills/root.ts";
 import { agentTools } from "../../agent-tools.ts";
@@ -212,7 +213,19 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         io: ctx.io,
         operationsFor: (role) =>
           roleOperations(role, agentTools({ file: FILE_HOOKS })),
-        conditionsFor: agentConditions,
+        // PM의 담당 앱은 turn마다 ledger에서 읽는다. 앱이 나중에 생겨도 다음 turn의 credential에 실린다.
+        conditionsFor: (input) => {
+          const found = input.place?.kind === "project"
+            ? ledgerSnapshot(
+              ctx.ledgerPath,
+              (lookup) => appOfProject(lookup.sql, input.place!.id),
+            )
+            : null;
+          return agentConditions({
+            ...input,
+            app: found?.ok ? found.value : null,
+          });
+        },
         diagnostic: (message) =>
           void ctx.diagnosticsWrite({
             ...message,

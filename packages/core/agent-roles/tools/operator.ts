@@ -6,7 +6,6 @@ import {
   operatorCreate,
   type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { appList } from "../../../protocol/apps/mod.ts";
 import { projectList } from "../../../protocol/projects/mod.ts";
 import { settingsEditIntent } from "../../lophn-agent/tool-judgment/intents.ts";
 import { operatorPlaceAllowed } from "./operator-place.ts";
@@ -35,10 +34,7 @@ const operatorDefinition = operatorDefinitionSchema.omit({
   mcp_servers: true,
 });
 
-const operatorPlace = z.union([
-  z.strictObject({ project: nonblank }),
-  z.strictObject({ app: nonblank }),
-]);
+const operatorPlace = z.strictObject({ project: nonblank });
 
 // 설정 고치기라 실행 전에 Gate에 묻는다. grant는 입력에 없고 사람이 정한다.
 function gateFor(id: string | null, ctx: ToolContext): GateRequest {
@@ -58,35 +54,23 @@ function gateFor(id: string | null, ctx: ToolContext): GateRequest {
   };
 }
 
-// 입력의 place는 project나 앱의 id 또는 이름이다.
+// 입력의 place는 project의 id 또는 이름이다.
 async function resolvePlace(
   place: z.infer<typeof operatorPlace>,
   ctx: ToolContext,
 ): Promise<Result<Place>> {
-  if ("project" in place) {
-    const value = place.project;
-    if (ctx.place?.kind === "project" && ctx.place.id === value) {
-      return ok(ctx.place);
-    }
-    const read = await readOf(ctx.core, projectList, {});
-    if (!read.ok) return read;
-    const found = read.value.projects.find((project) =>
-      project.id === value || project.name === value
-    );
-    return found === undefined
-      ? notFound("project not found")
-      : ok({ kind: "project", id: found.id });
+  const value = place.project;
+  if (ctx.place?.kind === "project" && ctx.place.id === value) {
+    return ok(ctx.place);
   }
-  const value = place.app;
-  if (ctx.place?.kind === "app" && ctx.place.id === value) return ok(ctx.place);
-  const read = await readOf(ctx.core, appList, {});
+  const read = await readOf(ctx.core, projectList, {});
   if (!read.ok) return read;
-  const found = read.value.apps.find((app) =>
-    app.id === value || app.slug === value || app.name === value
+  const found = read.value.projects.find((project) =>
+    project.id === value || project.name === value
   );
   return found === undefined
-    ? notFound("app not found")
-    : ok({ kind: "app", id: found.id });
+    ? notFound("project not found")
+    : ok({ kind: "project", id: found.id });
 }
 
 export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
@@ -96,9 +80,9 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
       place: operatorPlace,
       name: agentNameSchema,
     }).strict(),
-    routes: [projectList, appList, operatorCreate],
+    routes: [projectList, operatorCreate],
     description:
-      "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
+      "Create an Operator in your own place (Project Manager: your project). Give its name, profile, model, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
     gate: (input, ctx) => gateFor(input.name, ctx),
     handler: async (input, ctx) => {

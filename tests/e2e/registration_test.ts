@@ -7,7 +7,7 @@
 //   정의 목록 route가 이어지는 것, 그리고 agent runtime child의 tool -> core `app.create` -> Router -> 새 session ->
 //   child의 새 turn은 process를 건너야 한다.
 import { assert, assertEquals } from "@std/assert";
-import { appCreate, appList } from "../../packages/protocol/apps/mod.ts";
+import { appList } from "../../packages/protocol/apps/mod.ts";
 import {
   agentDefinitionList,
   agentSessionList,
@@ -25,7 +25,6 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
-import { openAppProject } from "../support/app/activate.ts";
 
 type Place = { kind: "project" | "app"; id: string };
 
@@ -82,25 +81,6 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
         `${run.home}/projects/${project}/agents/project-manager.md`,
       );
       await assertNoSecondBuiltIn(c, place, "Project Manager", built);
-    });
-
-    await t.step("app-creates-ae", async () => {
-      const app = await c.call(appCreate, {
-        slug: "ledger-app",
-        project: await openAppProject(c, "ledger-app"),
-        name: "Ledger App",
-        description: "Keep a ledger.",
-      });
-      const place: Place = { kind: "app", id: app.id };
-      const built = { role: "app_engineer", app: app.id } as const;
-
-      const before = await definitionsAt(c, place);
-      assertEquals(before.length, 1);
-      assertEquals(before[0].agent, built);
-      assertEquals(before[0].kind, "built_in");
-
-      await Deno.stat(`${run.home}/apps/${app.id}/agents/app-engineer.md`);
-      await assertNoSecondBuiltIn(c, place, "App Engineer", built);
     });
 
     await t.step("lophn-registers-then-calls", async () => {

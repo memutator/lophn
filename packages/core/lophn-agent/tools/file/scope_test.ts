@@ -57,6 +57,24 @@ Deno.test("file tool은 place 폴더 밖과 밖으로 나가는 symlink를 거�
       (await resolveInPlace(readOnly, "inside.txt", "write")).ok,
       false,
     );
+
+    // 폴더 없는 project의 PM: 상대 경로는 base(project의 data 폴더)에서 풀리고 base 자체는 허락이 아니다.
+    const data = join(temp, "projects", "prj_a");
+    await Deno.mkdir(join(data, "skills"), { recursive: true });
+    const noFolder = {
+      read: [join(data, "skills")],
+      write: [join(data, "skills")],
+      base: data,
+    };
+    const skill = await resolveInPlace(noFolder, "skills/x/SKILL.md", "write");
+    assertEquals(
+      skill.ok && skill.value.path,
+      join(await Deno.realPath(data), "skills", "x", "SKILL.md"),
+    );
+    assertEquals(
+      (await resolveInPlace(noFolder, "other.md", "write")).ok,
+      false,
+    );
   } finally {
     await Deno.remove(temp, { recursive: true });
   }

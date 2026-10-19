@@ -18,13 +18,13 @@ export function agentFilePathOf(
   session: { role: Role; operator: string | null; place: Place | null },
 ): string | null {
   const { role, operator, place } = session;
-  const project = place?.kind === "project" ? place.id : null;
-  const app = place?.kind === "app" ? place.id : null;
+  if (place !== null && place.kind !== "project") return null;
+  const project = place?.id ?? null;
   if (!rolePlaceFits(role, place)) return null;
   if (ROLE_TABLE.isOperator(role) && operator === null) return null;
   const slot = ROLE_TABLE.slotOf(
     root,
-    agentRefOfColumns({ role, project, app, operator }),
+    agentRefOfColumns({ role, project, app: null, operator }),
     place ?? undefined,
   );
   return slot === null ? null : `${slot.folder}/${slot.file}`;

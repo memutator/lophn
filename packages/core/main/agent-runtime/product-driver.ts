@@ -43,7 +43,10 @@ import {
 import { isAbsolute } from "node:path";
 import { lstat, open, readdir } from "node:fs/promises";
 import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
-import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
+import {
+  artifactsFolder,
+  placeDataFolder,
+} from "../../agent-roles/place/data-folder.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -96,6 +99,14 @@ function placeFiles(): PlaceFiles {
     artifactsFolder: (project) =>
       home !== undefined && isAbsolute(home)
         ? artifactsFolder(home, project)
+        : null,
+    skillsFolder: (project) =>
+      home !== undefined && isAbsolute(home)
+        ? PROJECT_LAYER.skillsFolder(home, project)
+        : null,
+    dataFolder: (project) =>
+      home !== undefined && isAbsolute(home)
+        ? placeDataFolder(home, { kind: "project", id: project as never })
         : null,
     ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
     listArtifacts: (folder) =>

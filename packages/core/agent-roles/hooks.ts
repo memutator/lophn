@@ -4,7 +4,7 @@ import { rewindOverCore } from "../lophn-agent/session/rewind/runtime-port.ts";
 import { settingsEditIntent } from "../lophn-agent/tool-judgment/mod.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
 
-// 지침 파일은 LOPHN.md뿐이다. agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다.
+// 지침 파일은 LOPHN.md뿐이다. agent 정의는 lophn data에 있어 file tool이 닿지 않는다. PM은 project 층 skill 폴더를 쓴다.
 export function isInstructionFile(path: string): boolean {
   return path.split(/[\\/]/).pop() === "LOPHN.md";
 }

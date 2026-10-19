@@ -8,9 +8,9 @@ import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.
-Deno.test("App Engineer의 credential 상한에 ticket.create tool이 부르는 route 이름이 든다", () => {
+Deno.test("Project Manager의 credential 상한에 ticket.create tool이 부르는 route 이름이 든다", () => {
   const operations = roleOperations(
-    "app_engineer",
+    "project_manager",
     agentTools({ file: FILE_HOOKS }),
   );
   assert(operations.includes(ticketCreate.name));

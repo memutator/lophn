@@ -46,12 +46,15 @@ const READ_TOOLS = [
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-// 모든 앱의 app-api 목록은 사람이 lophn과 App Engineer로만 좁혔다.
+// 모든 앱의 app-api 목록은 사람이 lophn과 Project Manager로만 좁혔다.
 const APP_API_TOOLS = ["app.app_api"] as const;
 
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
-  app_engineer: [
+  // 아래 app_engineer는 protocol의 Role 합집합이 아직 요구해서 남은 빈 항목이다.
+  app_engineer: [],
+  operator: [],
+  project_manager: [
     "ticket.create",
     "ticket.update",
     "ticket.verify",
@@ -59,11 +62,6 @@ const ROLE_WRITE_TOOLS = {
     "problem.set_state",
     "app.link_source",
     "package.publish",
-    "operator.create",
-    "operator.update",
-  ],
-  operator: [],
-  project_manager: [
     "operator.create",
     "operator.update",
   ],
@@ -76,7 +74,7 @@ export function builtinToolNames(role: Role): readonly string[] {
     ...COMMON_TOOLS,
     ...READ_TOOLS,
     ...(role === "lophn" ? LOPHN_ONLY_READ_TOOLS : WORK_TOOLS),
-    ...(role === "lophn" || role === "app_engineer" ? APP_API_TOOLS : []),
+    ...(role === "lophn" || role === "project_manager" ? APP_API_TOOLS : []),
     ...ROLE_WRITE_TOOLS[role],
   ];
 }

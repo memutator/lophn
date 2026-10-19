@@ -51,6 +51,9 @@ export function createNodeAgentFiles(): AgentFileSystem {
         throw error;
       }
     },
+    ensureFolder(path) {
+      mkdirSync(path, { recursive: true });
+    },
   };
 }
 

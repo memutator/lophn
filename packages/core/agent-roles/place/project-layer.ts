@@ -8,7 +8,7 @@ import {
 } from "./data-folder.ts";
 
 // 설정 층 규칙의 role 몫이다. 전역 → project → agent 정의 층으로 겹치고, project 층의 skill 폴더와 설정 파일은
-// project의 data 폴더 안에 있다. 앱 place에는 project 층이 없다. 파일 이름이 바뀌면 사람이 둔 project 설정을 못 찾는다.
+// project의 data 폴더 안에 있다. 파일 이름이 바뀌면 사람이 둔 project 설정을 못 찾는다.
 const EXTENSIONS_FILE = "extensions.json";
 const SKILLS_FOLDER = "skills";
 

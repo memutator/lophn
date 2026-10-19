@@ -44,6 +44,8 @@ export interface FileHooks {
 export type PlaceScope = {
   read: readonly string[];
   write: readonly string[];
+  // 상대 경로를 푸는 기준 폴더. 허락 폴더는 아니다. 없으면 읽기 폴더의 첫째다.
+  base?: string;
   // 같은 turn의 남은 동안 이 폴더를 read와 write에 더한다. 이미 있으면 다시 넣지 않는다.
   open(folder: string): void;
 };

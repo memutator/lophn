@@ -8,8 +8,16 @@ import {
   placeScope,
   runtimeFolders,
 } from "../../agent-roles/place/place-folders.ts";
-import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
-import { activeAppSourcePaths, appSourcePath } from "../../apps/lookups.ts";
+import {
+  artifactsFolder,
+  placeDataFolder,
+} from "../../agent-roles/place/data-folder.ts";
+import { PROJECT_LAYER } from "../../agent-roles/place/project-layer.ts";
+import {
+  activeAppSourcePaths,
+  appOfProject,
+  appSourcePath,
+} from "../../apps/lookups.ts";
 import { kindsFilePath } from "../../../protocol/projects/kinds-file.ts";
 import {
   activeProjectFolderPaths,
@@ -34,20 +42,21 @@ export function placeFoldersOf(
   const { sql } = lookup;
   const kind = found["place_kind"];
   const id = String(found["place_id"]);
-  const place: PlaceFacts["place"] = kind === "project" || kind === "app"
-    ? { kind, id }
-    : null;
+  const place: PlaceFacts["place"] = kind === "project" ? { kind, id } : null;
+  const app = place === null ? null : appOfProject(sql, id);
   const facts: PlaceFacts = {
     role,
     place,
-    projectFolders: place?.kind === "project"
-      ? projectFolderPaths(sql, id)
-      : [],
-    artifactsFolder: place?.kind === "project"
-      ? artifactsFolder(dataRoot, id)
-      : null,
-    kindsFile: place?.kind === "project" ? kindsFilePath(dataRoot, id) : null,
-    appSource: place?.kind === "app" ? appSourcePath(sql, id) : null,
+    projectFolders: place === null ? [] : projectFolderPaths(sql, id),
+    artifactsFolder: place === null ? null : artifactsFolder(dataRoot, id),
+    kindsFile: place === null ? null : kindsFilePath(dataRoot, id),
+    appSource: app === null ? null : appSourcePath(sql, app),
+    skillsFolder: place === null
+      ? null
+      : PROJECT_LAYER.skillsFolder(dataRoot, id),
+    dataFolder: place === null
+      ? null
+      : placeDataFolder(dataRoot, { kind: "project", id: id as never }),
     allProjectFolders: [],
   };
   // 쓰기 허용은 file tool의 resolveInPlace가 kinds 파일 하나로 좁힌다. rewind는 root를 폴더 목록과 비교하므로
@@ -57,7 +66,7 @@ export function placeFoldersOf(
   );
 }
 
-// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체, 모든 project의 artifacts 폴더의 합에
+// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체, 모든 project의 artifacts·skill 폴더의 합에
 // project마다 kinds 파일을 쓰기로 더한 것이다.
 export function runtimeFoldersOf(
   lookup: Lookup,
@@ -68,6 +77,9 @@ export function runtimeFoldersOf(
     projectFolders: activeProjectFolderPaths(lookup.sql),
     artifactFolders: projectIds(lookup.sql).map((id) =>
       artifactsFolder(dataRoot, id)
+    ),
+    skillFolders: projectIds(lookup.sql).map((id) =>
+      PROJECT_LAYER.skillsFolder(dataRoot, id)
     ),
     appSources: activeAppSourcePaths(lookup.sql),
   });

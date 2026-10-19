@@ -64,7 +64,7 @@ installPlaceEnvironment({
       projects,
       apps,
       operators,
-      roles: createPlaceRoleRules({ projects, apps, operators }),
+      roles: createPlaceRoleRules({ projects, operators }),
     };
   },
 });

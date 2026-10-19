@@ -18,6 +18,8 @@ export interface AgentFileSystem {
   remove(path: string): void;
   // 폴더 안의 파일 이름들. 폴더가 없으면 빈 목록이다.
   list(path: string): string[];
+  // 폴더를 만든다. 이미 있으면 그대로다.
+  ensureFolder(path: string): void;
 }
 
 export type ReadSql = Pick<Tx["sql"], "get" | "all">;

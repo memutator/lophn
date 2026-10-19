@@ -33,6 +33,7 @@ Deno.test("정의 읽기의 model 출처는 agent, project, global 순서다", (
       writeAtomic: () => {},
       remove: () => {},
       list: () => [],
+      ensureFolder: () => {},
     };
     const reads = createAgentReads({
       files,

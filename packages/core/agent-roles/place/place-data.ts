@@ -25,6 +25,9 @@ import type { ArtifactEntry } from "./artifact-list.ts";
 // artifacts 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type PlaceFiles = {
   artifactsFolder(project: string): string | null;
+  // project 층 skill 폴더와 project의 data 폴더. 폴더 자체는 core가 PM을 만들 때 이미 만든다.
+  skillsFolder(project: string): string | null;
+  dataFolder(project: string): string | null;
   ensureDir(path: string): Promise<void>;
   listArtifacts(folder: string): Promise<readonly ArtifactEntry[]>;
 };
@@ -321,6 +324,10 @@ async function readPlaceData(
     artifactsFolder: artifacts,
     kindsFile,
     appSource: app?.source ?? null,
+    skillsFolder: role === "project_manager" && place?.kind === "project"
+      ? files.skillsFolder(place.id)
+      : null,
+    dataFolder: place?.kind === "project" ? files.dataFolder(place.id) : null,
     allProjectFolders,
   });
   return ok({

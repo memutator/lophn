@@ -10,7 +10,7 @@ import {
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { PlaceScope } from "../ports.ts";
 
-// file tool이 만지는 경로를 place 폴더 안으로 가둔다. 상대 경로는 place의 첫 폴더 기준이다.
+// file tool이 만지는 경로를 place 폴더 안으로 가둔다. 상대 경로는 범위의 base, 없으면 place의 첫 폴더 기준이다.
 // `..`로 나가는 경로, 폴더 밖 절대 경로, 밖으로 나가는 symlink는 forbidden이다.
 // 허용 entry는 폴더이거나 파일 하나다(kinds 파일). 파일 entry는 아직 없어도 그 경로 하나만 연다.
 // 실제 경로(realPath)로 판정한다. 새 파일이면 가장 가까운 있는 상위 폴더의 실제 경로에 남은 이름을 붙인다.
@@ -58,12 +58,12 @@ async function entryOf(
 }
 
 export async function resolveInPlace(
-  roots: Pick<PlaceScope, "read" | "write">,
+  roots: Pick<PlaceScope, "read" | "write" | "base">,
   path: string,
   mode: Mode,
 ): Promise<Result<Resolved>> {
   const allowed = roots[mode];
-  const base = roots.read[0] ?? allowed[0];
+  const base = roots.base ?? roots.read[0] ?? allowed[0];
   if (allowed.length === 0 || base === undefined) return forbidden();
   const candidate = normalize(isAbsolute(path) ? path : join(base, path));
 

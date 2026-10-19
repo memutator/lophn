@@ -20,18 +20,11 @@ export type SkillSource = z.infer<typeof skillSourceSchema>;
 // 내장 skill 선언이다. description은 skill 목록에 들어가는 영어 한 줄이다.
 export const BUILTIN_SKILLS = [
   {
-    name: "context-init",
+    name: "kinds-yaml",
     role: "project_manager",
     can_disable: false,
     description:
-      "Set the project's purpose, then draft the first context version with its contract and search scripts, test it, and publish it.",
-  },
-  {
-    name: "context-update",
-    role: "project_manager",
-    can_disable: false,
-    description:
-      "Draft a new context version from the applied one, test it, and publish it.",
+      "Write or change the project's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.",
   },
 ] as const;
 

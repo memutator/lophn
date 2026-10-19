@@ -22,8 +22,6 @@ export const BUILTIN_COMMAND_IDS = [
   "recap",
 ] as const;
 
-// role 명령(정해진 prompt)의 이름이다. Project Manager의 new-context는 내장 skill context-init과 겹쳐 뺐다.
-
 const nonempty = z.string().regex(/\S/);
 
 const commandNameSchema = z.string().regex(/^[a-z0-9-]{1,64}$/);

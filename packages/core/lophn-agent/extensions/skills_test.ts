@@ -50,7 +50,7 @@ type Case = {
   // 같은 이름의 사람 skill을 둔 층
   human: ("global" | "project")[];
   off: { global?: boolean; project?: boolean; agent?: boolean };
-  // 최종 context-init의 본문. null이면 목록에 없다.
+  // 최종 kinds-yaml의 본문. null이면 목록에 없다.
   expect: "BUILTIN" | "GLOBAL" | "PROJECT" | null;
 };
 
@@ -129,21 +129,21 @@ const CASES: Case[] = [
 ];
 
 for (const one of CASES) {
-  Deno.test(`context-init stays: ${one.name}`, async () => {
+  Deno.test(`kinds-yaml stays: ${one.name}`, async () => {
     const files: Record<string, string> = {
-      "/b/context-init/SKILL.md": skillFile("context-init", "BUILTIN"),
-      "/b/context-update/SKILL.md": skillFile("context-update", "BUILTIN"),
+      "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
+      "/b/spare-builtin/SKILL.md": skillFile("spare-builtin", "BUILTIN"),
     };
     if (one.human.includes("global")) {
-      files["/g/context-init/SKILL.md"] = skillFile("context-init", "GLOBAL");
+      files["/g/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "GLOBAL");
     }
     if (one.human.includes("project")) {
-      files["/p/context-init/SKILL.md"] = skillFile("context-init", "PROJECT");
+      files["/p/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "PROJECT");
     }
     const { port, sync } = treeOf(files);
-    const globalOff = one.off.global ? ["context-init"] : [];
-    const projectOff = one.off.project ? ["context-init"] : [];
-    const agentOff = one.off.agent ? ["context-init"] : [];
+    const globalOff = one.off.global ? ["kinds-yaml"] : [];
+    const projectOff = one.off.project ? ["kinds-yaml"] : [];
+    const agentOff = one.off.agent ? ["kinds-yaml"] : [];
     const deps: SkillSnapshotDeps = {
       port,
       builtin_root: "/b",
@@ -158,10 +158,8 @@ for (const one of CASES) {
       skills_off: agentOff,
     });
 
-    const listed = snapshot.skills.find((skill) =>
-      skill.name === "context-init"
-    );
-    const read = await snapshot.reader.read(SESSION, "context-init");
+    const listed = snapshot.skills.find((skill) => skill.name === "kinds-yaml");
+    const read = await snapshot.reader.read(SESSION, "kinds-yaml");
     if (one.expect === null) {
       assertEquals(listed, undefined);
       assertEquals(read.ok, false);
@@ -178,7 +176,7 @@ for (const one of CASES) {
       project: "/p",
     }, { role: one.role, off: [...globalOff, ...projectOff, ...agentOff] });
     assertEquals(
-      rows.entries.find((row) => row.name === "context-init")?.enabled,
+      rows.entries.find((row) => row.name === "kinds-yaml")?.enabled,
       one.expect === null ? undefined : true,
     );
   });

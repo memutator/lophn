@@ -13,17 +13,18 @@ your apps are doing. It does not design an app in detail, interpret a cause, or
 write code.
 
 Project Manager is one per project, created when you register the project. It
-owns the project's contexts: boundaries, contracts, searches and the glossary. A
-new contract is applied when it passes its isolated test, without asking you.
+owns the project's kinds: which documents are items of which kind, and which
+fields each kind has. It writes them in the kinds file, and a saved file is
+checked and used at once, without asking you.
 
 App Engineer is one per app, created when you register the app. It decides what
 the app should do, writes tickets and the blueprint, hands tickets to a coding
 agent, and verifies what comes back.
 
 Operator is an agent you create for a project or an app. It does repeated or
-routine work with the contexts and app-apis you give it. You can have as many as
-you need in one place. Project Manager and App Engineer can create and edit the
-Operators of their own place. They cannot give an Operator access.
+routine work with the project's kinds and the app-apis you give it. You can have
+as many as you need in one place. Project Manager and App Engineer can create
+and edit the Operators of their own place. They cannot give an Operator access.
 
 ## Agent definition and grants
 

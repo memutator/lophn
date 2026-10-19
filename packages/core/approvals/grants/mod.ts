@@ -1,4 +1,5 @@
 export { createGrants } from "./grants.ts";
+export { AgentOfSession } from "./ports.ts";
 export { agentGrantRegistration } from "./registration.ts";
 export { reactionSettings } from "./reaction-settings.ts";
 export { allowanceKey, createSessionAllowances } from "./session-allowances.ts";

@@ -177,7 +177,7 @@ export function judgeAppTest(input: {
     return {
       result: "fail",
       reason: `필수 검사 ${failed.length}개가 통과하지 못했다: ${
-        failed.map((check) => check.name).join(", ")
+        failed.map((check) => `${check.name}(${check.reason})`).join(", ")
       }`,
       observations: value,
       actuals,

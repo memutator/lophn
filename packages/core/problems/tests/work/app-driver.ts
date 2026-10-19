@@ -16,8 +16,12 @@ import {
   sha256Hex,
   systemClock,
 } from "../../../../base/mod.ts";
+import type { JsonValue } from "../../../../protocol/base/mod.ts";
 import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
-import type { AppProcessStartInput } from "../../../../protocol/apps/calls/mod.ts";
+import type {
+  AppProcessStartInput,
+  ProcessCallRequest,
+} from "../../../../protocol/apps/calls/mod.ts";
 import {
   appFlags,
   type BrokerChild,
@@ -79,17 +83,17 @@ type RealDriver = AppDriver & { close(): Promise<void> };
 type InputSchema = Blueprint["tools"][number]["inputSchema"];
 
 // 입력 계약을 어긴 값이다. 입력이 없는 app-api에는 객체를, 있는 app-api에는 계약의 type이 아닌 값을 보낸다.
-function invalidValue(schema: InputSchema): unknown {
+function invalidValue(schema: InputSchema): JsonValue {
   if (schema === null) return { unexpected: true };
   return schema.type === "string" ? 7 : "not-a-valid-value";
 }
 
 // 입력 계약을 지키는 가장 단순한 값이다. 입력이 없는 app-api에는 입력을 보내지 않는다.
-function validValue(schema: NonNullable<InputSchema>): unknown {
+function validValue(schema: NonNullable<InputSchema>): JsonValue {
   if (schema.enum && schema.enum.length > 0) return schema.enum[0];
   switch (schema.type) {
     case "object": {
-      const value: Record<string, unknown> = {};
+      const value: Record<string, JsonValue> = {};
       for (const key of schema.required ?? []) {
         const property = schema.properties?.[key];
         value[key] = property ? validValue(property) : null;
@@ -155,7 +159,7 @@ export async function createRealAppDriver(
       observe: (observation) => input.sink.exception(observation) as never,
     },
   });
-  // net·secret·다른 앱 호출·project 목록은 모두 대역이다.
+  // net·secret·다른 앱 호출은 모두 대역이다.
   const stand = createPreviewBrokerServices({
     scope: previewScopeOf(input.blueprint),
     problems,
@@ -426,19 +430,21 @@ export async function createRealAppDriver(
       const value = invalidValue(declaration.inputSchema);
       let answered: { status: number; body: unknown };
       try {
-        answered = await control("/_lophn/control/call", {
-          invocation: ids.newId("inv"),
-          api,
-          input: value,
-          context: {
-            app: APP_ID,
-            release: null,
-            mode: "test",
-            project: null,
-            effect: declaration.effect,
-            caller: null,
-          },
-        });
+        answered = await control(
+          "/_lophn/control/call",
+          {
+            invocation: ids.newId("inv"),
+            api,
+            input: value,
+            context: {
+              app: APP_ID,
+              release: null,
+              mode: "test",
+              effect: declaration.effect,
+              caller: null,
+            },
+          } satisfies ProcessCallRequest,
+        );
       } catch {
         return false;
       }
@@ -446,10 +452,10 @@ export async function createRealAppDriver(
         status?: string;
         error?: { code?: string };
       } | null;
-      return (answered.status === 400 &&
-        body?.error?.code === "invalid_input") ||
-        (answered.status === 200 && body?.status === "error" &&
-          body.error?.code === "invalid_input");
+      // runtime의 입력 schema 검사나 handler의 거절만 센다. 요청 모양을 거절한 wire 수준 400은 입력
+      // 검사가 아니다.
+      return answered.status === 200 && body?.status === "error" &&
+        body.error?.code === "invalid_input";
     },
     async rewind(api) {
       const declaration = input.blueprint.tools.find((item) =>
@@ -464,21 +470,23 @@ export async function createRealAppDriver(
       if (!declaration) return { ...none, reason: "선언하지 않은 app-api다" };
       await probeAttestation();
       const before = dataState();
-      const called = await control("/_lophn/control/call", {
-        invocation: ids.newId("inv"),
-        api,
-        ...(declaration.inputSchema === null
-          ? {}
-          : { input: validValue(declaration.inputSchema) }),
-        context: {
-          app: APP_ID,
-          release: null,
-          mode: "test",
-          project: null,
-          effect: declaration.effect,
-          caller: null,
-        },
-      });
+      const called = await control(
+        "/_lophn/control/call",
+        {
+          invocation: ids.newId("inv"),
+          api,
+          ...(declaration.inputSchema === null
+            ? {}
+            : { input: validValue(declaration.inputSchema) }),
+          context: {
+            app: APP_ID,
+            release: null,
+            mode: "test",
+            effect: declaration.effect,
+            caller: null,
+          },
+        } satisfies ProcessCallRequest,
+      );
       const body = called.body as {
         status?: string;
         changeset?: string | null;
@@ -543,19 +551,22 @@ export async function createRealAppDriver(
       // rpc가 undefined를 null로 옮기므로 입력이 없는 app-api에는 null도 입력 없음으로 본다.
       const omit = value === undefined ||
         (value === null && declaration.inputSchema === null);
-      const answered = await control("/_lophn/control/call", {
-        invocation: ids.newId("inv"),
-        api,
-        ...(omit ? {} : { input: value }),
-        context: {
-          app: APP_ID,
-          release: null,
-          mode: "test",
-          project: null,
-          effect: declaration.effect,
-          caller: null,
-        },
-      });
+      const answered = await control(
+        "/_lophn/control/call",
+        {
+          invocation: ids.newId("inv"),
+          api,
+          // examples의 input은 blueprint에서 온 JSON이다.
+          ...(omit ? {} : { input: value as JsonValue }),
+          context: {
+            app: APP_ID,
+            release: null,
+            mode: "test",
+            effect: declaration.effect,
+            caller: null,
+          },
+        } satisfies ProcessCallRequest,
+      );
       const body = answered.body as {
         status?: string;
         result?: unknown;

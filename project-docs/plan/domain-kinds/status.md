@@ -21,4 +21,4 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-shell-workspace` | shell | 3 | dk-wireframes, dk-operator-contexts | merged | shell/dk-shell-workspace | 647f4b1b7 |  |
 | `dk-skill` | skill | 3 | 없음 | merged | skill/dk-skill | 83c4bd887 |  |
 | `dk-wireframes` | wireframes | 3 | dk-operator-contexts | merged | wireframes/dk-wireframes | cf45e1e8c |  |
-| `dk-delete-wording` | wording | 3 | dk-shell-workspace, dk-chips-reactions, dk-operator-contexts, dk-wireframes | todo |  |  |  |
+| `dk-delete-wording` | wording | 3 | dk-shell-workspace, dk-chips-reactions, dk-operator-contexts, dk-wireframes | running | wording/dk-delete-wording |  |  |

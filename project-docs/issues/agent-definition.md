@@ -35,3 +35,18 @@ modules: [packages/core/main, packages/core/lophn-agent]
 - 던진 예외를 diagnostic log에 분류 한 줄로 남긴다(작음). daemon과 runtime의 처리 못한 예외를 남기는 길이 이미 있다(`packages/core/diagnostics`).
 - 같은 메시지로 준비가 거듭 실패하면 그 요청을 실패한 turn으로 닫아, 사람이 대화에서 실패를 보게 한다(중간).
 - 추천: 첫째를 바로 하고, 둘째는 같은 일이 다시 생길 때 한다.
+
+## 붙인 것(`attached`) 기구가 file 종류만 남았고 아무도 만들지 않는다
+
+```yaml
+kind: defect
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-roles, packages/shell/renderer]
+```
+
+지금: `SendMessage.attached`(`packages/protocol/lophn-agent/inputs.ts`의 `attachedChipSchema`), 본문 part `attached`(`message-content.ts`), 입력 태그 `<lophn-attached>`(`input-tags.ts`의 `ATTACHED_KINDS = ["file"]`, `packages/core/lophn-agent/run-loop/input-text.ts`의 `attachedText`)가 남아 있다. context·위반 chip을 지운 뒤 shell은 늘 `attached: []`를 보낸다(`packages/shell/renderer/conversation/agent-tab-core-source-commands.ts`). 그런데도 role 공통 지침(`packages/core/agent-roles/roles/prompts.ts`)은 turn마다 `<lophn-attached>`를 설명한다.
+
+영향: 모든 turn의 prompt에 오지 않는 태그의 설명 한 줄이 실린다. 쓰는 곳 없는 입력 칸과 본문 part를 shell 대화 표시, router, e2e가 계속 받아 넘긴다.
+
+고치려면: `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>` 태그와 그 지침 줄, shell의 `attached` part 그리기를 지운다(중간: 입력 schema가 바뀌어 router와 e2e 호출(`attached: []`)을 같이 고친다). 남기면 잃는 것은 없다.
+
+정한 것: 지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").

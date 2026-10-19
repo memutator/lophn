@@ -69,3 +69,22 @@ guard: 없음
 고치려면: 추천: 남긴다. 이유(worker 없는 조립은 결과를 꾸미지 않는다)는 이미 `connection.ts`의 주석에 있다.
 
 닫음: dispatcher가 없는 때는 기동 직후와 worker 없는 조립(test)뿐이라 사람에게 보이는 문제가 없다. 이유는 `connection.ts` 주석에 있다.
+
+## md가 아닌 문서는 context로 쓸 수 없다
+
+```yaml
+kind: bug
+modules: [packages/core/projects, packages/protocol]
+closed: fixed
+guard: 없음
+```
+
+지금: context 계약의 목차는 markdown 제목에서만 나온다(`protocol/projects/context-contract.ts`의 outline source). pdf·docs 같은 문서는 목차 기반 개체를 만들 수 없어 context로 쓸 수 없다. 예전에 PM이 목차를 직접 적어 두는 저장 목차(`outline.set` route, agent tool, `outlines/` 폴더)를 만들었지만 읽는 쪽(계약 형식, context worker 요청)이 없어 지웠다.
+
+영향: 사람이 pdf·docs로 가진 규정이나 문서를 PM이 context로 관리하지 못한다. md로 바꿔 넣어야 한다.
+
+고치려면: 실제로 md 아닌 문서를 context로 써야 할 때 계약부터 다시 설계한다. 목차를 누가 만드는지(PM이 적기, 문서에서 뽑기), 계약의 형식 칸, context worker 요청과 snapshot에 목차를 싣는 길을 같이 정한다. 지운 저장 목차를 되살리지 않는다.
+
+정한 것: 지금 만들지 않는다. 필요해지면 위대로 다시 만든다.
+
+닫음: context를 지우고 kind 파일로 바꿨다(`project-docs/architecture/kinds.md`). kind의 `files` glob은 형식을 가리지 않아 pdf·이미지도 item이 되고, 그 값은 `from: path`로 경로에서 뽑는다. 목차는 kind 모델에서 빠져 md용 file tool `file.outline`이 되었고, pdf의 목차가 필요하면 사람이 청할 때 agent가 옆에 md를 쓴다(roadmap `domain.md` "outline").

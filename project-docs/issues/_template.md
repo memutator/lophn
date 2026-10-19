@@ -1,7 +1,7 @@
 <!--
 주제 하나에 파일 하나: <topic>.md. 이슈 하나는 ## 절 하나다. 여기 있는 절이 지금 열린 이슈 전부다.
-주제 이름은 project-docs/architecture/<topic>.md와 같으면 같은 이름을 쓴다. 그 밖: contexts, shell, platform,
-code-health, mistakes. 닫은 이슈는 archived/<topic>.md에 있다.
+주제 이름은 project-docs/architecture/<topic>.md와 같으면 같은 이름을 쓴다. 그 밖: shell, platform, code-health,
+mistakes. 닫은 이슈는 archived/<topic>.md에 있다.
 
 kind
 - bug: 동작이 틀리거나 아직 안 된다.

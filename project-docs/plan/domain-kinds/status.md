@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-kinds-worker` | kinds | 2 | 없음 | merged | kinds/dk-kinds-worker | 586630cf6 |  |
 | `dk-problem-core` | problem | 2 | 없음 | merged | problem/dk-problem-core | af08a7c3a |  |
 | `dk-prompt-place` | prompt | 2 | 없음 | merged | prompt/dk-prompt-place | b5ace21ab |  |
-| `dk-chips-reactions` | chips | 3 | dk-shell-workspace | todo |  |  |  |
+| `dk-chips-reactions` | chips | 3 | dk-shell-workspace | merged | chips/dk-chips-reactions | 745f26724 |  |
 | `dk-delete-context-tools` | cleanup | 3 | dk-operator-contexts | merged | cleanup/dk-delete-context-tools | 723c20cbc |  |
 | `dk-delete-core` | cleanup | 3 | dk-operator-contexts | merged | cleanup/dk-delete-core | 8803b16bd |  |
 | `dk-delete-eval` | cleanup | 3 | 없음 | merged | cleanup/dk-delete-eval | 0720e0f5c |  |

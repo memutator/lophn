@@ -30,8 +30,7 @@ export const projectFolderOutputSchema = z.object({
 });
 export type ProjectFolder = z.infer<typeof projectFolderSchema>;
 
-// 폴더 없이 등록할 수 없다.
-export const projectFoldersSchema = z.array(projectFolderSchema).min(1).refine(
+export const projectFoldersSchema = z.array(projectFolderSchema).refine(
   (folders) => distinct(folders.map((folder) => folder.path)),
   { message: "duplicate folder path" },
 );

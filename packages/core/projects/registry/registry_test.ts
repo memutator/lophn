@@ -109,15 +109,22 @@ Deno.test("하위 폴더는 연결한 폴더 밖을 거절한다", () => {
   }
 });
 
-Deno.test("폴더 없이 등록하면 거절되고, 보관해도 폴더의 파일은 그대로다", () => {
+Deno.test("폴더 없이도 등록된다", () => {
+  const { db, tx, managers, commands } = setup();
+  try {
+    const empty = commands.register.handle(tx, user, input([]), {});
+    assert(empty.ok);
+    assertEquals(empty.value.folders, []);
+    assertEquals(managers, [PROJECT]);
+  } finally {
+    db.close();
+  }
+});
+
+Deno.test("보관해도 폴더의 파일은 그대로다", () => {
   const { db, tx, managers, commands } = setup();
   const root = Deno.makeTempDirSync();
   try {
-    const empty = commands.register.handle(tx, user, input([]), {});
-    assert(!empty.ok);
-    assertEquals(empty.error.code, "invalid_input");
-    assertEquals(managers.length, 0);
-
     Deno.writeTextFileSync(join(root, "note.md"), "hello");
     const registered = commands.register.handle(
       tx,

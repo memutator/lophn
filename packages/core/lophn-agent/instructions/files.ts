@@ -1,6 +1,6 @@
 // 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
-// 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project 폴더의
-// LOPHN.md(첫 등록 폴더 바로 아래), 그리고 agent 정의 본문이다. 앱 층은 없다.
+// 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
+// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`), 그리고 agent 정의 본문이다. 앱 층은 없다.
 // 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다(lophn만 project를 골라 읽는다).
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
@@ -90,6 +90,8 @@ function loadInstructionSession(
 export type InstructionReadDeps = {
   projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
   projectFirstFolder(sql: ReadSnapshot["sql"], project: string): string | null;
+  // 등록 폴더가 없는 project의 지침은 lophn data 자리에 있다.
+  projectDataFolder(root: string, project: string): string;
   // 앱 source 폴더가 들어 있는 등록 project.
   projectOfApp(sql: ReadSnapshot["sql"], app: string): string | null;
   agentFilePathOf(root: string, session: SessionRow): string | null;
@@ -174,8 +176,9 @@ function readInstruction(
   }
   const project = requested ?? own;
   if (project === null) return ok(null);
-  const folder = deps.projectFirstFolder(snapshot.sql, project);
-  return folder === null ? ok(null) : openFile(`${folder}/${FILE_NAME}`);
+  const folder = deps.projectFirstFolder(snapshot.sql, project) ??
+    deps.projectDataFolder(root.value, project);
+  return openFile(`${folder}/${FILE_NAME}`);
 }
 
 // GetInstructions. machine만 읽는다(route의 actors). reader Worker의 동기 handler라 core 흐름과

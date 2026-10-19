@@ -1,5 +1,6 @@
 // reader Worker가 팀 등록 file로 import한다. GetInstructions·PreviewGlobalInstructions의 reader 서빙에 project·앱 조회와
 // role 규칙을 꽂는다. 동기 file API는 lophn-agent/instructions/files.ts 안에서 handler가 불릴 때만 쓴다.
+import { placeDataFolder } from "../../../agent-roles/place/data-folder.ts";
 import {
   agentFilePathOf,
   mayReadOtherProject,
@@ -18,6 +19,8 @@ export function createReaderRegistration(): ReaderRegistration {
     projectExists,
     projectFirstFolder: (sql, project) =>
       projectFolderPaths(sql, project)[0] ?? null,
+    projectDataFolder: (root, project) =>
+      placeDataFolder(root, { kind: "project", id: project }),
     projectOfApp(sql, app) {
       const source = appSourcePath(sql, app);
       return source === null ? null : innermostProjectOfPath(sql, source);

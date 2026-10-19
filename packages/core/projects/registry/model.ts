@@ -149,9 +149,6 @@ export function deepestRegisteredRoot(
 export function validateFolderRoots(
   folders: readonly Pick<ProjectFolder, "path">[],
 ): Result<void> {
-  if (folders.length === 0) {
-    return err({ code: "invalid_input", message: "a project needs a folder" });
-  }
   for (let left = 0; left < folders.length; left++) {
     const current = folders[left]!;
     const canonical = rootRelation(current.path, current.path);

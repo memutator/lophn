@@ -12,6 +12,7 @@ import { createReaderRegistration } from "../../main/daemon/wiring/instructions-
 
 const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
+const PRJ_C = "prj_00000000000000000000000003";
 const APP = "app_00000000000000000000000001";
 
 function sessionId(n: number) {
@@ -27,6 +28,11 @@ function setup() {
   Deno.mkdirSync(folderB);
   Deno.writeTextFileSync(join(folderA, "LOPHN.md"), "rules of A");
   Deno.writeTextFileSync(join(folderB, "LOPHN.md"), "rules of B");
+  Deno.mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
+  Deno.writeTextFileSync(
+    join(root, "projects", PRJ_C, "LOPHN.md"),
+    "rules of C",
+  );
   const db = new DatabaseSync(join(root, "ledger.db"));
   for (const step of [...projectsSchemaSteps, ...conversationSchemaSteps]) {
     db.exec(step.sql);
@@ -43,6 +49,10 @@ function setup() {
       folder,
     );
   }
+  // project C는 등록 폴더가 없다. 지침은 <data>/projects/<prj>/LOPHN.md다.
+  db.prepare(
+    "insert into projects values (?, 'c', 'c', '', '1', 'active')",
+  ).run(PRJ_C);
   db.prepare("insert into apps values (?, ?)").run(
     APP,
     join(folderA, "apps", "notes"),
@@ -53,6 +63,7 @@ function setup() {
   );
   insert.run(sessionId(1), "lophn", null, null, null, null);
   insert.run(sessionId(2), "project_manager", PRJ_A, null, "project", PRJ_A);
+  insert.run(sessionId(4), "project_manager", PRJ_C, null, "project", PRJ_C);
   insert.run(sessionId(3), "app_engineer", null, APP, "app", APP);
   const snapshot = {
     as_of_seq: 1n,
@@ -92,6 +103,8 @@ Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽�
       [3, undefined, "rules of A"], // 앱 source가 project A 안에 있다
       [3, PRJ_A, "rules of A"],
       [3, PRJ_B, "forbidden"],
+      [1, PRJ_C, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
+      [4, undefined, "rules of C"],
     ];
     for (const [session, project, expected] of table) {
       assertEquals(

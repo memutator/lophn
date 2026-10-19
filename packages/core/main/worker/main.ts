@@ -3,6 +3,10 @@ import {
   CONTEXTS_KIND,
   runContextsWorker,
 } from "../../projects/contexts/worker/run.ts";
+import {
+  KINDS_WORKER_KIND,
+  runKindsWorker,
+} from "../../projects/kinds/worker/run.ts";
 import { runReleaseWorker } from "../../apps/releases/worker/run.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./test-runner.ts";
 import { runRunnerService } from "../../problems/tests/work/runner-service.ts";
@@ -18,6 +22,7 @@ const WORKER_ENTRIES: Readonly<
 > = {
   "platform/io": runPlatformIo,
   [CONTEXTS_KIND]: runContextsWorker,
+  [KINDS_WORKER_KIND]: runKindsWorker,
   "apps/release": runReleaseWorker,
   [TEST_RUNNER_KIND]: async () => {
     const ready = runnerReady(TEST_RUNNER_KIND);

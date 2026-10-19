@@ -9,10 +9,9 @@ export type ExistingProjectProblem = {
 
 export type IncomingViolation = { id: string; violation: Violation };
 
+// NUL로 잇지 않는다: node:sqlite가 text를 읽을 때 첫 NUL에서 잘라 저장된 identity가 다시 맞지 않는다.
 export function violationIdentity(v: Violation): string {
-  return [v.source, v.kind ?? "", v.path ?? "", v.field ?? "", v.rule].join(
-    "\0",
-  );
+  return JSON.stringify([v.source, v.kind, v.path, v.field, v.rule]);
 }
 
 // 이번에 알린 위반 전체와 저장된 행을 견주어 무엇을 쓸지 정한다. `truncated`이면 목록이 일부라

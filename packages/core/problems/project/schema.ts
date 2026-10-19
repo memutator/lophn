@@ -1,7 +1,7 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // 적용기가 한 번만 돌리므로 if not exists를 두지 않는다. 앱 problems 표와 cross-owner FK는 만들지 않는다.
-// identity는 (source, kind, path, field, rule)을 NUL로 이은 글이다. 같은 identity는 같은 행이다.
+// identity는 (source, kind, path, field, rule)의 JSON 배열 글이다. 같은 identity는 같은 행이다.
 // 위반이 사라지면 지우지 않고 resolved로 닫아 두므로 삭제는 막는다.
 export const PROJECT_PROBLEMS_SCHEMA_STEPS: SchemaStep[] = [
   {

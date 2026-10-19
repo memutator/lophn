@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `rp-ae-read-shape` | core | 1 | 없음 | running | core/rp-ae-read-shape |  |  |
+| `rp-ae-read-shape` | core | 1 | 없음 | merged | core/rp-ae-read-shape | 08541c25a |  |
 | `rp-app-test-stuck` | core | 1 | 없음 | running | core/rp-app-test-stuck |  |  |
 | `rp-attached-remove` | core | 1 | 없음 | running | core/rp-attached-remove |  |  |
 | `rp-grant-read` | core | 1 | 없음 | running | core/rp-grant-read |  |  |

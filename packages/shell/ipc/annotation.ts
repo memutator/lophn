@@ -73,20 +73,23 @@ export interface LophnShellAnnotateApi {
   subscribeState(listener: (state: AnnotateState) => void): () => void;
 }
 
+// artifact의 name은 project의 artifacts 폴더 안 이름이고, null이면 사람의 폴더에 있는 .html이다.
+export type AnnotateTarget =
+  | { kind: "app"; app: string; release: string | null; screen: string }
+  | { kind: "artifact"; project: string; name: string | null };
+
 /**
- * main 안의 앱 view 쪽 port(type만). 구현은 view registry가
+ * main 안의 view 쪽 port(type만). 구현은 view registry가
  * `annotateView(view_session)`과 `senderAnnotateView(contentsId)`로 내놓는다.
  */
 export type AnnotateViewPort = {
   view_session: string;
-  app: string;
-  release: string | null;
-  screen: string;
+  target: AnnotateTarget;
   pageUrl(): string | null;
   current(): boolean;
   /** 그 view의 페이지로 보낸다(`webContents.send`). */
   send(channel: string, payload: unknown): void;
-  /** 앱 view의 PNG byte. */
+  /** view의 PNG byte. */
   capture(): Promise<Uint8Array>;
 };
 

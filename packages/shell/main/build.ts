@@ -50,6 +50,7 @@ const entries: BuildEntry[] = [
     out: "preload-secret-input",
   },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
+  { in: join(shell, "preload/artifact.ts"), out: "preload-artifact" },
 ];
 
 function build(

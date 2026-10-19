@@ -63,9 +63,7 @@ function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
   const later: { annotate?: ReturnType<typeof createAnnotate> } = {};
   const port: AnnotateViewPort = {
     view_session: "view-1",
-    app: APP,
-    release: RELEASE,
-    screen: "orders",
+    target: { kind: "app", app: APP, release: RELEASE, screen: "orders" },
     pageUrl: () => null,
     current: () => true,
     send(channel, payload) {
@@ -141,11 +139,11 @@ test("앱 view가 아닌 sender가 보낸 고르기 IPC는 무시되고, 앱·re
   });
   assert.equal(sent.ok, true);
   const body = sentCalls[0] as {
-    app: string;
+    target: unknown;
     session: string;
     annotations: { note: string; release: string; view: unknown }[];
   };
-  assert.equal(body.app, APP);
+  assert.deepEqual(body.target, { kind: "app", app: APP });
   assert.equal(body.session, SESSION);
   assert.deepEqual(body.annotations.map((a) => a.note), ["mine"]);
   assert.equal(body.annotations[0]?.release, RELEASE);

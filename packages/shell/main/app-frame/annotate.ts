@@ -1,6 +1,6 @@
-// 앱 화면 annotate mode의 main 쪽. view마다 상태(켬·끔, 고른 목록, 보내는 중)를 메모리에 쥐고,
-// renderer(켜기·지우기·보내기)와 앱 view의 페이지(고른 목록·Esc·capture 준비)를 이어 준다.
-// 페이지는 자기가 어느 앱인지 모른다. 신원(앱, release, 화면)은 sender view에서 정한다.
+// 앱 화면과 artifact page의 annotate mode main 쪽. view마다 상태(켬·끔, 고른 목록, 보내는 중)를 메모리에 쥐고,
+// renderer(켜기·지우기·보내기)와 view의 페이지(고른 목록·Esc·capture 준비)를 이어 준다.
+// 페이지는 자기가 무엇인지 모른다. 신원(target: 앱·release·화면 또는 artifact)은 sender view에서 정한다.
 // 보내기는 annotation마다 screenshot을 만들어 올리고 묶음 하나를 core에 보낸다.
 import { createHash } from "node:crypto";
 import type { ZodType } from "zod";
@@ -46,7 +46,7 @@ interface AnnotateDeps {
   /** view가 붙는 창. */
   owner(view_session: string): string | undefined;
   view(view_session: string): AnnotateViewPort | undefined;
-  /** 페이지(앱 view)의 sender. 살아 있는 앱 view가 아니면 undefined다. */
+  /** 페이지(앱 또는 artifact view)의 sender. 살아 있는 view가 아니면 undefined다. */
   senderView(contentsId: number): AnnotateViewPort | undefined;
   /** 그 창의 renderer에 상태를 민다. */
   pushState(window: string, state: AnnotateState): void;
@@ -72,7 +72,7 @@ type ViewState = {
   on: boolean;
   phase: "idle" | "sending";
   items: Item[];
-  /** 번호가 처음 생길 때의 release. 페이지가 번호를 쥐고 있어 번호로 찾는다. */
+  /** 번호가 처음 생길 때의 release(artifact는 늘 null). 페이지가 번호를 쥐고 있어 번호로 찾는다. */
   releases: Map<number, string | null>;
 };
 
@@ -89,6 +89,9 @@ function labelOf({ component, element, kind }: PickedItem): string {
   }
   return element.role ?? element.name ?? kind;
 }
+
+const releaseOf = (port: AnnotateViewPort) =>
+  port.target.kind === "app" ? port.target.release : null;
 
 const KNOWN_CODES = ["invalid_input", "forbidden", "conflict", "unavailable"];
 
@@ -126,7 +129,7 @@ export function createAnnotate(deps: AnnotateDeps) {
     return value;
   }
 
-  // renderer 요청: sender가 desktop 창 본문이고 view가 그 창의 앱 view여야 한다.
+  // renderer 요청: sender가 desktop 창 본문이고 view가 그 창의 view여야 한다.
   function guard<T extends { view_session: string }>(
     event: IpcEvent,
     schema: ZodType<T>,
@@ -157,7 +160,7 @@ export function createAnnotate(deps: AnnotateDeps) {
     };
   }
 
-  // 페이지 쪽 메시지: 살아 있는 앱 view의 main frame일 때만 받는다.
+  // 페이지 쪽 메시지: 살아 있는 view의 main frame일 때만 받는다.
   function pageView(event: IpcEvent): AnnotateViewPort | undefined {
     if (!event.senderFrame || event.senderFrame.parent !== null) {
       return undefined;
@@ -233,7 +236,10 @@ export function createAnnotate(deps: AnnotateDeps) {
       if (state.items.length === 0) {
         return fail("invalid_input", "there is nothing to send");
       }
-      if (state.items.some((item) => item.release === null)) {
+      if (
+        port.target.kind === "app" &&
+        state.items.some((item) => item.release === null)
+      ) {
         return fail("invalid_input", "view has no release");
       }
       const items = [...state.items].sort((a, b) => a.picked.n - b.picked.n);
@@ -255,12 +261,18 @@ export function createAnnotate(deps: AnnotateDeps) {
             component: picked.component,
             element: picked.element,
             rect: picked.rect,
-            view: { screen: port.screen, path: picked.path },
+            view: {
+              screen: port.target.kind === "app" ? port.target.screen : null,
+              path: picked.path,
+            },
             release,
           });
         }
+        const { target } = port;
         const sent = await deps.core.call("memory", "annotations", "send", {
-          app: port.app,
+          target: target.kind === "app"
+            ? { kind: "app", app: target.app }
+            : { kind: "artifact", project: target.project, name: target.name },
           session: request.session,
           annotations,
         });
@@ -298,7 +310,7 @@ export function createAnnotate(deps: AnnotateDeps) {
       if (state.phase === "sending") return;
       const releases = new Map<number, string | null>();
       for (const { n } of parsed.data.items) {
-        releases.set(n, state.releases.get(n) ?? port.release);
+        releases.set(n, state.releases.get(n) ?? releaseOf(port));
       }
       state.releases = releases;
       state.items = parsed.data.items.map((picked) => ({

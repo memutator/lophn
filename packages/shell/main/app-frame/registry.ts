@@ -301,9 +301,12 @@ export function createAppFrame(deps: AppFrameDeps) {
       entry.generation === generation;
     return {
       view_session,
-      app: entry.target.app,
-      release: entry.target.release,
-      screen: entry.target.screen,
+      target: {
+        kind: "app",
+        app: entry.target.app,
+        release: entry.target.release,
+        screen: entry.target.screen,
+      },
       pageUrl: () => deps.views.pageUrl?.(contents) ?? null,
       current,
       send(channel, payload) {

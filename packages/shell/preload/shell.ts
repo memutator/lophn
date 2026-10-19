@@ -23,6 +23,7 @@ import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createAppearanceApi } from "./appearance-api.ts";
+import { createArtifactApi } from "./artifact-api.ts";
 import { createBrowserApi } from "./browser-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createViewsApi } from "./views-api.ts";
@@ -128,6 +129,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnBrowser",
     createBrowserApi(ipcRenderer),
+  );
+  // artifact 탭. 열기·reload·목록 요청만 보내고 view는 main이 만든다.
+  contextBridge.exposeInMainWorld(
+    "lophnArtifact",
+    createArtifactApi(ipcRenderer),
   );
   // [Instructions]: 지침 파일을 같은 편집기로 연다. 경로는 main에만 있다.
   contextBridge.exposeInMainWorld(

@@ -17,7 +17,6 @@ export function appFromRow(row: Record<string, unknown>): Result<App> {
   const app = appSchema.safeParse({
     id: row.id,
     slug: row.slug,
-    project: row.project,
     name: row.name,
     description: row.description,
     planning_version: row.planning_version,

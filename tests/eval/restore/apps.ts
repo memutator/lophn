@@ -4,7 +4,7 @@ import type { SetupContext } from "../types.ts";
 import { appProjectName, openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 앱이 묶일 project를 먼저 등록하고 world에 이름으로 남긴다. Project Manager를 `place.project`로 가리키는 시나리오가 푼다.
+// 시나리오가 Project Manager를 `place.project`로 가리키도록 앱마다 project를 등록하고 world에 이름으로 남긴다. Project Manager를 `place.project`로 가리키는 시나리오가 푼다.
 export async function restoreAppProject(
   ctx: SetupContext,
   slug: string,
@@ -14,7 +14,7 @@ export async function restoreAppProject(
   return project;
 }
 
-// source는 연결하지 않는다. project만으로 그 앱의 Project Manager가 생긴다.
+// source는 연결하지 않는다.
 export async function restoreApps(
   ctx: SetupContext,
   material: Material,
@@ -26,8 +26,8 @@ export async function restoreApps(
   }[];
   for (const { slug, name, description } of apps) {
     const id = material.manifest.ids[name] as Id<"app">;
-    const project = await restoreAppProject(ctx, slug);
-    await ctx.core.call(appCreate, { id, slug, project, name, description });
+    await restoreAppProject(ctx, slug);
+    await ctx.core.call(appCreate, { id, slug, name, description });
     ctx.world.apps[name] = id;
   }
 }

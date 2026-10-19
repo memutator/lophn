@@ -38,7 +38,6 @@ import { uploadScreenshot } from "../support/annotation/upload.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer, JournalEntry } from "../support/fake-server/mod.ts";
 import { idIn, lastUserText } from "../support/fake-server/probe.ts";
-import { openAppProject } from "../support/app/activate.ts";
 
 // 유효한 1x1 PNG
 const PNG = Uint8Array.from(
@@ -55,8 +54,6 @@ type Ctx = {
   a: string;
   b: string;
   // a와 b 앱의 project. 그 project의 Project Manager가 annotation을 받는다.
-  pa: string;
-  pb: string;
   // new-session이 보낸 A의 annotation. other-app이 쓴다.
   annotationOfA?: string;
 };
@@ -138,7 +135,7 @@ const ROWS: Row[] = [
   {
     name: "new-session",
     async run(ctx) {
-      const { core, fake, a, pa } = ctx;
+      const { core, fake, a } = ctx;
       fake.reset();
       fake.script([
         {
@@ -160,7 +157,7 @@ const ROWS: Row[] = [
       const { session } = await core.call(agentSessionRead, {
         session: sent.session,
       });
-      assertEquals(session.agent, { role: "project_manager", project: pa });
+      assertEquals(session.agent, { role: "app_engineer", app: a });
       const messages = await humanMessagesOf(core, sent.session);
       assertEquals(messages.length, 1);
       assertEquals(messages[0].refs, [{ kind: "annotation", id: annotation }]);
@@ -184,11 +181,11 @@ const ROWS: Row[] = [
   {
     name: "open-session",
     async run(ctx) {
-      const { core, fake, a, pa } = ctx;
+      const { core, fake, a } = ctx;
       fake.reset();
       const session = await openSession(core, {
-        role: "project_manager",
-        project: pa as never,
+        role: "app_engineer",
+        app: a as never,
       });
       fake.script([{ reply: { kind: "text", text: "noted" } }]);
       const { sent } = await ship(ctx, a, session, false);
@@ -213,12 +210,12 @@ const ROWS: Row[] = [
   {
     name: "other-app",
     async run(ctx) {
-      const { core, fake, a, pb, annotationOfA } = ctx;
+      const { core, fake, a, b, annotationOfA } = ctx;
       assert(annotationOfA, "new-session 행이 먼저 돌아야 한다");
       fake.reset();
       const session = await openSession(core, {
-        role: "project_manager",
-        project: pb as never,
+        role: "app_engineer",
+        app: b as never,
       });
       fake.script([
         { reply: callImage(annotationOfA) },
@@ -254,7 +251,6 @@ const ROWS: Row[] = [
       const { core } = ctx;
       const created = await core.call(appCreate, {
         slug: "annotation-c",
-        project: await openAppProject(core, "annotation-c"),
         name: "annotation-c",
         description: "app annotation-c",
       }, {});
@@ -274,7 +270,7 @@ const ROWS: Row[] = [
 
       // inbox
       const { sessions } = await core.call(agentSessionList, {
-        agent: { role: "project_manager", project: created.project },
+        agent: { role: "app_engineer", app: c },
         archived: "include",
       });
       assertEquals(sessions.length, 0);
@@ -290,10 +286,9 @@ Deno.test("annotation 묶음은 그 앱 project의 Project Manager에게만 가�
     fake = await startFakeServer();
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
-    const app = async (slug: string) =>
+    const app = (slug: string) =>
       core!.call(appCreate, {
         slug,
-        project: await openAppProject(core!, slug),
         name: slug,
         description: `app ${slug}`,
       }, {});
@@ -304,8 +299,6 @@ Deno.test("annotation 묶음은 그 앱 project의 Project Manager에게만 가�
       fake,
       a: appA.id,
       b: appB.id,
-      pa: appA.project,
-      pb: appB.project,
     };
     for (const row of ROWS) {
       await t.step(row.name, () => row.run(ctx));

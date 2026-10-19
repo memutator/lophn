@@ -19,8 +19,8 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
+import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
-import { appProjectLookupPort } from "./ports.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
 function forbidden(message: string): Result<never> {
@@ -33,10 +33,6 @@ function notFound(): Result<never> {
 
 function conflict(message: string): Result<never> {
   return err({ code: "conflict", message });
-}
-
-function projectNotFound(): Result<never> {
-  return err({ code: "not_found", message: "project not found" });
 }
 
 function invalid(message: string): Result<never> {
@@ -116,7 +112,6 @@ export function createAppCommands(): {
         const candidate: App = {
           id,
           slug: input.slug,
-          project: input.project,
           name: input.name,
           description: input.description,
           planning_version: input.planning_version ?? null,
@@ -133,16 +128,6 @@ export function createAppCommands(): {
           accessTarget(null, candidate),
         );
         if (!access.ok) return access;
-        const project = tx.port(appProjectLookupPort).get(input.project);
-        if (project === null) return projectNotFound();
-        if (project.status === "archived") {
-          return conflict("project is archived");
-        }
-        if (
-          tx.sql.get("SELECT id FROM apps WHERE project = ?", [
-            input.project,
-          ]) !== undefined
-        ) return conflict("project already has an app");
         const named = tx.sql.get("SELECT id FROM apps WHERE slug = ?", [
           input.slug,
         ]);
@@ -153,9 +138,16 @@ export function createAppCommands(): {
               [input.id],
             ) !== undefined
         ) return conflict("app id already exists");
+        // 앱 이름의 domain이 같은 tx에서 함께 생긴다. 이미 그 이름이 있으면 conflict이고 앱도 남지 않는다.
+        const domain = tx.port(domainProvisioningPort).create({
+          name: input.slug,
+          title: input.name,
+          purpose: input.description,
+          owner: { kind: "app", id },
+        });
+        if (!domain.ok) return domain;
         const seq = tx.emit(appCreated, id, {
           slug: input.slug,
-          project: input.project,
           name: input.name,
           description: input.description,
           ...(input.planning_version === undefined

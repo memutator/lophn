@@ -103,8 +103,8 @@ async function saveCall(deps: Deps, appName: string): Promise<Result<Saved>> {
   }
   const sent = deps.trial.sessions.flatMap((session) => session.sent_calls)
     .find((item: SentCall) =>
-      item.receiver?.role === "project_manager" &&
-      item.receiver.project === app.project
+      item.receiver?.role === "app_engineer" &&
+      item.receiver.app === app.id
     );
   const place = sent?.receiver_place;
   if (sent === undefined || place === null || place === undefined) {

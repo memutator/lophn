@@ -2,7 +2,6 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // registration 표. slug는 documents/addressing place와
 // 같은 이름 공간이라 place_names 예약이 unique를 지키고, 표에는 한 번 더 unique를 둔다.
-// project 하나에 앱 하나라 project에 unique를 두고, 보관한 앱도 project를 점유한다(status 조건 없음).
 // planning_version·active_release는 아직 없는 versions·releases 표를 참조하므로
 // 물리 FK를 두지 않는다. 보관은 삭제가 아니라 status다.
 export const appsSchemaSteps: readonly SchemaStep[] = [{
@@ -11,7 +10,6 @@ export const appsSchemaSteps: readonly SchemaStep[] = [{
     CREATE TABLE apps (
       id TEXT PRIMARY KEY NOT NULL,
       slug TEXT NOT NULL UNIQUE,
-      project TEXT NOT NULL,
       name TEXT NOT NULL CHECK (length(name) > 0),
       description TEXT NOT NULL CHECK (
         length(description) > 0 AND instr(description, char(10)) = 0
@@ -31,9 +29,8 @@ export const appsSchemaSteps: readonly SchemaStep[] = [{
       CHECK (status != 'archived' OR run_enabled = 0)
     ) STRICT;
     CREATE INDEX apps_status_id ON apps(status, id);
-    CREATE UNIQUE INDEX apps_project ON apps(project);
-    CREATE TRIGGER apps_no_identity_change BEFORE UPDATE OF id, slug, project ON apps
-    WHEN NEW.id <> OLD.id OR NEW.slug <> OLD.slug OR NEW.project <> OLD.project
+    CREATE TRIGGER apps_no_identity_change BEFORE UPDATE OF id, slug ON apps
+    WHEN NEW.id <> OLD.id OR NEW.slug <> OLD.slug
     BEGIN SELECT RAISE(ABORT, 'app identity is immutable'); END;
     CREATE TRIGGER apps_no_delete BEFORE DELETE ON apps
     BEGIN SELECT RAISE(ABORT, 'apps are archived, not deleted'); END;

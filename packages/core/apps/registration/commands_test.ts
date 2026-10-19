@@ -1,19 +1,15 @@
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { ok } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
+import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import {
   type RequestContext,
   TargetAuthorization,
   type Tx,
 } from "../../../protocol/server/mod.ts";
 import { createAppCommands } from "./commands.ts";
-import { appProjectLookupPort } from "./ports.ts";
 import { appsSchemaSteps } from "./schema.ts";
 
-const PROJECT = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
-const OTHER = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
-const GONE = "prj_01hzzzzzzzzzzzzzzzzzzzzzzc";
-const ARCHIVED = "prj_01hzzzzzzzzzzzzzzzzzzzzzzd";
 const USER: RequestContext = {
   principal: "user",
   actor: "user",
@@ -26,14 +22,21 @@ function open() {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   let count = 0;
-  const projects: Record<string, { status: "active" | "archived" }> = {
-    [PROJECT]: { status: "active" },
-    [OTHER]: { status: "active" },
-    [ARCHIVED]: { status: "archived" },
-  };
+  const domains: Record<string, unknown>[] = [];
   const ports = new Map<unknown, unknown>([
-    [appProjectLookupPort, { get: (id: string) => projects[id] ?? null }],
     [TargetAuthorization, () => ok(undefined)],
+    [domainProvisioningPort, {
+      create(input: { name: string }) {
+        if (domains.some((d) => d.name === input.name)) {
+          return err({
+            code: "conflict",
+            message: "domain name already exists",
+          });
+        }
+        domains.push(input);
+        return ok({ id: `dom_${domains.length}` });
+      },
+    }],
   ]);
   const tx = {
     sql: {
@@ -52,25 +55,30 @@ function open() {
     port: (key: unknown) => ports.get(key),
   } as unknown as Tx;
   const create = createAppCommands().create;
-  return (slug: string, project: string) =>
-    (create.handle as (...a: unknown[]) => { ok: boolean; error?: never })(
-      tx,
-      USER,
-      { slug, project, name: slug, description: "does things" },
-      {},
-    ) as { ok: boolean; error?: { code: string } };
+  return {
+    domains,
+    apps: () => db.prepare("SELECT slug FROM apps").all().length,
+    create: (slug: string) =>
+      (create.handle as (...a: unknown[]) => unknown)(
+        tx,
+        USER,
+        { slug, name: `App ${slug}`, description: "does things" },
+        {},
+      ) as { ok: boolean; value?: { id: string }; error?: { code: string } },
+  };
 }
 
-Deno.test("같은 project에 앱을 두 번 만들면 conflict다", () => {
-  const create = open();
-  assertEquals(create("first", PROJECT).ok, true);
-  const second = create("second", PROJECT);
-  assertEquals(second.error?.code, "conflict");
-  assertEquals(create("third", OTHER).ok, true);
-});
-
-Deno.test("없는 project나 보관한 project로는 앱을 못 만든다", () => {
-  const create = open();
-  assertEquals(create("first", GONE).error?.code, "not_found");
-  assertEquals(create("second", ARCHIVED).error?.code, "conflict");
+Deno.test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름이 있으면 앱도 남지 않는다", () => {
+  const { create, domains, apps } = open();
+  const first = create("first");
+  assertEquals(first.ok, true);
+  assertEquals(domains, [{
+    name: "first",
+    title: "App first",
+    purpose: "does things",
+    owner: { kind: "app", id: first.value!.id },
+  }]);
+  assertEquals(create("first").error?.code, "conflict");
+  assertEquals(apps(), 1);
+  assertEquals(domains.length, 1);
 });

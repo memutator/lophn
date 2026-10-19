@@ -47,7 +47,6 @@ import { type AppPatch, createAppSource } from "./source.ts";
 
 export type TestApp = {
   app: string;
-  project: string; // 앱이 묶인 project. 그 Project Manager가 앱의 일을 맡는다
   slug: string;
   name: string;
   source: string;
@@ -109,10 +108,8 @@ export async function startTestApp(
   _fake: FakeServer,
   options: { name: string; slug: string; patch?: AppPatch },
 ): Promise<TestApp> {
-  const project = await openAppProject(core, options.slug);
   const created = await core.call(appCreate, {
     slug: options.slug,
-    project,
     name: options.name,
     description: `E2E app ${options.slug}`,
   });
@@ -121,7 +118,7 @@ export async function startTestApp(
     title: options.name,
     ...(options.patch === undefined ? {} : { patch: options.patch }),
   });
-  // source 폴더는 Project Manager의 place 폴더라, 연결하면 core가 1초 polling으로 agent runtime child를 새 권한으로 다시 띄운다.
+  // source 폴더는 App Engineer의 place 폴더라, 연결하면 core가 1초 polling으로 agent runtime child를 새 권한으로 다시 띄운다.
   // 그 사이 시작한 turn은 끊기므로 새 child가 ready가 될 때까지 기다린다.
   const before = await runtimePids(core.run.home);
   await core.call(
@@ -130,9 +127,9 @@ export async function startTestApp(
     { base_revision: await revisionOf(core, created.id) },
   );
   if (before.length > 0) await settle(core, before);
-  // 이 grant 줄이 없으면 Project Manager의 call이 not_allowed다.
+  // 이 grant 줄이 없으면 App Engineer의 call이 not_allowed다.
   await core.call(agentGrantsSet, {
-    agent: { role: "project_manager", project },
+    agent: { role: "app_engineer", app: created.id },
     entries: [{
       kind: "agent",
       agent: { role: "coding_agent", app: created.id },
@@ -141,10 +138,12 @@ export async function startTestApp(
   });
   const gateway = await connectGateway(core);
   await reportHarness(core);
-  const ae = await openSession(core, { role: "project_manager", project });
+  const ae = await openSession(core, {
+    role: "app_engineer",
+    app: created.id,
+  });
   return {
     app: created.id,
-    project,
     slug: options.slug,
     name: options.name,
     source: source.dir,

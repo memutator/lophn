@@ -63,7 +63,6 @@ import {
   callRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { appList } from "../../packages/protocol/apps/mod.ts";
 import { CODING_TOKEN_ENV } from "../../packages/protocol/coding-agent/mod.ts";
 import { ticketShow } from "../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
@@ -390,11 +389,10 @@ const ROWS: Row[] = [
       const open = await until(
         "새 Project Manager session이 열림",
         async () => {
-          const { apps } = await core.call(appList, {});
           const { sessions } = await core.call(agentSessionList, {
             agent: {
-              role: "project_manager",
-              project: apps.find((one) => one.id === app.app)!.project,
+              role: "app_engineer",
+              app: app.app,
             },
           });
           return sessions.length > 0 ? sessions : undefined;

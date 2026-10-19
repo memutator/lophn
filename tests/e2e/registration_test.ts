@@ -2,7 +2,7 @@
 // - contract: boundary `agent-roles`(Project Manager는 project마다 하나이고 사람이 더하거나
 //   지우지 못한다), `agent-tools`(lophn이 `app.create`와 `call`을 쓴다), `router`(이름으로 앱 project의 Project Manager의 새 session을 연다).
 // - 현실적 회귀: 등록 때 정의 파일이 안 만들어져 agent 정의가 비는 것, 사람이 built-in 이름의 Operator를 만들 수 있어
-//   PM이 둘이 되는 것, lophn이 앱을 등록했는데 그 앱 project의 Project Manager를 call로 부르지 못하는 것.
+//   PM이 둘이 되는 것, lophn이 앱을 등록했는데 그 App Engineer를 call로 부르지 못하는 것.
 // - 왜 지금 test로 못 잡나: `ensure`의 unit은 파일 시스템 fake만 본다. 등록 command(storage tx) -> wiring 후속 -> 파일 ->
 //   정의 목록 route가 이어지는 것, 그리고 agent runtime child의 tool -> core `app.create` -> Router -> 새 session ->
 //   child의 새 turn은 process를 건너야 한다.
@@ -25,7 +25,6 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
-import { appProjectName, openAppProject } from "../support/app/activate.ts";
 
 type Place = { kind: "project"; id: string };
 
@@ -86,7 +85,6 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
 
     await t.step("lophn-registers-then-calls", async () => {
       const body = "Build the todo list app.";
-      await openAppProject(c, "todo-list");
       const lophn = await openSession(c, { role: "lophn" });
       fake.script([
         {
@@ -97,7 +95,6 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
                 id: "t1",
                 name: "app_create",
                 arguments: JSON.stringify({
-                  project: appProjectName("todo-list"),
                   name: "Todo List",
                   purpose: "Keep a short list of todos.",
                 }),
@@ -106,10 +103,7 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
                 id: "t2",
                 name: "call",
                 arguments: JSON.stringify({
-                  to: {
-                    role: "project_manager",
-                    place: { project: appProjectName("todo-list") },
-                  },
+                  to: { role: "app_engineer", place: { app: "Todo List" } },
                   reply: "none",
                   body,
                   refs: [],
@@ -136,17 +130,14 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
       );
       assertEquals(outcomes, { t1: "success", t2: "success" });
 
-      // route: Project Manager session이 열리고 맡긴 글이 입력에 있다.
-      const agent = {
-        role: "project_manager",
-        project: todo[0].project,
-      } as const;
+      // route: App Engineer session이 열리고 맡긴 글이 입력에 있다.
+      const agent = { role: "app_engineer", app: todo[0].id } as const;
       const deadline = Date.now() + 30_000;
       let sessions = (await c.call(agentSessionList, { agent })).sessions;
       while (sessions.length === 0) {
         assert(
           Date.now() < deadline,
-          "Project Manager session이 열리지 않았다",
+          "App Engineer session이 열리지 않았다",
         );
         await new Promise((resolve) => setTimeout(resolve, 50));
         sessions = (await c.call(agentSessionList, { agent })).sessions;
@@ -154,7 +145,7 @@ Deno.test("E2E 등록하면 PM·AE 정의가 하나 생기고 lophn이 앱을 �
       assertEquals(sessions.length, 1);
       const engineer = sessions[0].id;
       await waitTurnEnd(c, engineer);
-      // 목록에는 Project Manager 자신의 답도 있어, call로 온 것만 본다.
+      // 목록에는 App Engineer 자신의 답도 있어, call로 온 것만 본다.
       const messages = (await c.call(receivedMessageList, {
         session: engineer,
       })).messages.filter((message) => message.call !== null);

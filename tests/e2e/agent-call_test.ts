@@ -53,7 +53,6 @@ import {
   lastToolResult,
   toolNames,
 } from "../support/fake-server/probe.ts";
-import { appProjectName, openAppProject } from "../support/app/activate.ts";
 
 const names = (request: JournalEntry) => toolNames(request);
 const LOPHN: Lane = {
@@ -395,16 +394,15 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
     );
 
     await step(
-      "operator-to-app-pm: Operator가 앱 project의 Project Manager를 부르면 같은 왕복이 돈다",
+      "operator-to-app-ae: Operator가 App Engineer를 부르면 같은 왕복이 돈다",
       async () => {
         fake.reset();
         const app = await c.call(appCreate, {
           slug: "ledger-app",
-          project: await openAppProject(c, "ledger-app"),
           name: "Ledger App",
           description: "Keep a ledger.",
         }, {});
-        const ae: AgentRef = { role: "project_manager", project: app.project };
+        const ae: AgentRef = { role: "app_engineer", app: app.id };
         const agent = c.ids.newId("agt");
         await c.call(operatorCreate, {
           id: agent,
@@ -418,10 +416,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         });
         fake.script([
           callStep(
-            {
-              role: "project_manager",
-              place: { project: appProjectName("ledger-app") },
-            },
+            { role: "app_engineer", place: { app: "Ledger App" } },
             "result",
             "need fix",
           ),
@@ -433,7 +428,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
           text("replied"),
         ], AE);
         const o = await openSession(c, operator);
-        await say(c, o, "ask the app project manager");
+        await say(c, o, "ask the app engineer");
         const b = await opened(c, ae, []);
         await waitTurnEnd(c, b);
         await waitTurnEnd(c, o, 1);
@@ -441,11 +436,11 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
 
         // ledger: call이 done이다.
         assertEquals((await callRecord(c, await callOf(c, b))).state, "done");
-        // fake: Operator의 셋째 요청에 Project Manager의 답이 있다.
+        // fake: Operator의 셋째 요청에 App Engineer의 답이 있다.
         assert(
           JSON.stringify(lane(fake, "operator")[2].body).includes("fixed"),
         );
-        // route: Project Manager session이 하나 열렸다.
+        // route: App Engineer session이 하나 열렸다.
         assertEquals((await sessionIds(c, ae)).length, 1);
       },
     );

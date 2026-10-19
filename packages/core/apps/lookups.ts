@@ -32,18 +32,6 @@ export function activeAppSourcePaths(sql: ReadSql): string[] {
   ).map((row) => String(row["source_path"]));
 }
 
-// 앱이 묶인 project. 앱이 없으면 null이다.
-export function appProjectOf(sql: ReadSql, app: string): string | null {
-  const row = sql.get("select project from apps where id = ?", [app]);
-  return row === undefined ? null : String(row["project"]);
-}
-
-// project에 묶인 앱(보관한 앱도 센다). 없으면 null이다.
-export function appOfProject(sql: ReadSql, project: string): string | null {
-  const row = sql.get("select id from apps where project = ?", [project]);
-  return row === undefined ? null : String(row["id"]);
-}
-
 // 앱의 보관 여부. 없으면 null이다.
 export function appStatusOf(
   sql: ReadSql,

@@ -30,8 +30,8 @@ function open() {
   ) db.exec(step.sql);
   db.exec(`create table releases (id text, app text, bundle_hash text)`);
   db.prepare(
-    `insert into apps (id, slug, project, name, description, run_enabled, revision, status)
-     values (?, 'a', 'prj_01hzzzzzzzzzzzzzzzzzzzzzza', 'a', 'a', 1, '1', 'active')`,
+    `insert into apps (id, slug, name, description, run_enabled, revision, status)
+     values (?, 'a', 'a', 'a', 1, '1', 'active')`,
   ).run(APP);
   db.prepare(`insert into releases values (?, ?, ?)`).run(REL, APP, BUNDLE);
   db.prepare(

@@ -1,7 +1,6 @@
 // 시나리오 `setup`이 `SetupContext`를 받아 부르는 helper다.
 import { agentGrantsSet } from "../../../packages/protocol/approvals/mod.ts";
 import { settingsUpdate } from "../../../packages/protocol/config/mod.ts";
-import { appGet } from "../../../packages/protocol/apps/mod.ts";
 import { ticketList } from "../../../packages/protocol/coding-agent/ticket/mod.ts";
 import {
   observeViewError,
@@ -108,8 +107,7 @@ export async function openTicket(
     },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const { project } = (await core.call(appGet, { app: id })).app;
-  const session = await openSession(core, { role: "project_manager", project });
+  const session = await openSession(core, { role: "app_engineer", app: id });
   await say(core, session, `App ${id}: open a ticket`);
   await waitTurnEnd(core, session);
   const listed = await core.call(ticketList, { app: id, state: "open" });

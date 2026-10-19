@@ -2,9 +2,7 @@
 // Worker가 팀 등록 file로 import한다.
 // - project 등록 command가 같은 tx 안에서 부르는 Project Manager 만들기
 // - session을 열고 Router가 session 목록을 읽을 때 쓰는 project, 앱, Operator 조회
-// - 앱 만들기 command가 같은 tx 안에서 보는 project의 존재와 보관 여부(apps는 projects를 import하지 못한다)
 import { ok } from "../../../../base/mod.ts";
-import { appProjectLookupPort } from "../../../apps/registration/mod.ts";
 import {
   projectInfoOf,
   projectManagerProvisioningPort,
@@ -93,13 +91,6 @@ const ports = [
         project,
       );
       return ensured.ok ? ok(undefined) : ensured;
-    },
-  })),
-  defineTxPort(appProjectLookupPort, (tx) => ({
-    get(project) {
-      const found = projectInfoOf(tx.sql, ANY_FOLDER, { id: project });
-      if (!found.ok || found.value === null) return null;
-      return { status: found.value.archived ? "archived" : "active" };
     },
   })),
 ];

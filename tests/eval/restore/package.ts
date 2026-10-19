@@ -1,9 +1,6 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { releasesListRecords } from "../../../packages/protocol/apps/activation/activation.ts";
-import {
-  appGet,
-  packagesVersions,
-} from "../../../packages/protocol/apps/mod.ts";
+import { packagesVersions } from "../../../packages/protocol/apps/mod.ts";
 import { approvalsPending } from "../../../packages/protocol/approvals/mod.ts";
 import { tool } from "../../support/app/activate.ts";
 import { openSession, say, waitTurnEnd } from "../../support/core/human.ts";
@@ -61,8 +58,7 @@ export async function restorePackage(
       toolNames(request).includes("package_publish") &&
       JSON.stringify(request.body).includes(`App ${app}:`),
   });
-  const { project } = (await core.call(appGet, { app })).app;
-  const pm = await openSession(core, { role: "project_manager", project });
+  const pm = await openSession(core, { role: "app_engineer", app });
   await say(core, pm, `App ${app}: publish ${spec.name}`);
   const reason = async () => {
     const last = fake.journal().map((entry) => lastToolResult(entry)).filter((

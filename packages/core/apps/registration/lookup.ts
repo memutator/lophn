@@ -10,7 +10,7 @@ export function lookupAppRegistration(
   app: string,
 ): Result<AppRegistration | null> {
   const row = sql.get(
-    "SELECT id, slug, project, name, description, planning_version, source_path, active_release, run_enabled, revision, status FROM apps WHERE id = ?",
+    "SELECT id, slug, name, description, planning_version, source_path, active_release, run_enabled, revision, status FROM apps WHERE id = ?",
     [app],
   );
   if (row === undefined) return ok(null);
@@ -19,7 +19,6 @@ export function lookupAppRegistration(
   return ok({
     id: parsed.value.id,
     slug: parsed.value.slug,
-    project: parsed.value.project,
     status: parsed.value.status,
   });
 }

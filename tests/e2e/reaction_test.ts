@@ -14,7 +14,6 @@ import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
   appCreate,
-  appList,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
 import {
@@ -40,7 +39,6 @@ import {
 import {
   activateTestApp,
   aeLane,
-  openAppProject,
   tool,
   waitRunning,
 } from "../support/app/activate.ts";
@@ -90,13 +88,12 @@ async function reportViewError(core: Core, app: string): Promise<string> {
   return accepted.problem;
 }
 
-// 그 앱 project의 Project Manager session 중 program 메시지로 열린 것과 그 메시지가 가리키는 문제들이다.
+// 그 앱 App Engineer session 중 program 메시지로 열린 것과 그 메시지가 가리키는 문제들이다.
 async function reactionSessions(core: Core, app: string) {
-  const { apps } = await core.call(appList, {});
   const { sessions } = await core.call(agentSessionList, {
     agent: {
-      role: "project_manager",
-      project: apps.find((one) => one.id === app)!.project,
+      role: "app_engineer",
+      app,
     },
   });
   const found: { session: string; problems: string[] }[] = [];
@@ -147,7 +144,6 @@ Deno.test("E2E program이 agent를 부르는 길은 grant대로만 열린다: �
     await connectFakeProvider(core, fake);
     const app = (await core.call(appCreate, {
       slug: "reaction-app",
-      project: await openAppProject(core, "reaction-app"),
       name: "Reaction App",
       description: "Reacts to problems.",
     })).id;

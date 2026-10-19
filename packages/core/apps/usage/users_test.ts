@@ -37,7 +37,7 @@ Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 dom
   db.exec(`CREATE TABLE agent_grants (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(
-    `INSERT INTO apps VALUES (?, 'slug', 'prj_01hzzzzzzzzzzzzzzzzzzzzzza', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
+    `INSERT INTO apps VALUES (?, 'slug', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
   ).run(APP);
   const sql = {
     run: (text: string, params: never[]) => db.prepare(text).run(...params),

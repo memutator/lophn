@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 | `af-artifact-values` | artifact-protocol | 1 | 없음 | merged | artifact-protocol/af-artifact-values | 5a6137f1b |  |
 | `af-sandbox` | artifact-sandbox | 1 | 없음 | merged | artifact-sandbox/af-sandbox | 45b5d911d |  |
 | `af-file-scope` | artifact-scope | 1 | af-artifact-values | merged | artifact-scope/af-file-scope | 6d2f53182 |  |
-| `af-wireframes` | artifact-screen | 1 | 없음 | merged | artifact-screen/af-wireframes | 23c67e629 |  |
+| `af-wireframes` | artifact-screen | 1 | 없음 | merged | fix/af-wireframes | 065aae949 |  |
 | `af-artifact-ipc` | artifact-view | 1 | 없음 | merged | artifact-view/af-artifact-ipc | fb4d2643c |  |
 | `af-annotation-read` | artifact-annotation | 2 | 없음 | merged | artifact-annotation/af-annotation-read | 80729559c |  |
 | `af-annotation-receiver` | artifact-annotation | 2 | 없음 | merged | artifact-annotation/af-annotation-receiver | 1858e5a30 |  |

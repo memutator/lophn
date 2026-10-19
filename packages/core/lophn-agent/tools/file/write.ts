@@ -50,7 +50,11 @@ async function writeText(
 
   const written = await hooks.aroundWrite(ctx, target, async () => {
     try {
-      await Deno.mkdir(dirname(target.path), { recursive: true });
+      // 파일 하나만 쓰기 권한(kinds 파일)이면 Deno가 있는 부모 폴더의 mkdir도 거절하므로 없을 때만 만든다.
+      const parent = dirname(target.path);
+      if (!(await Deno.stat(parent).then(() => true, () => false))) {
+        await Deno.mkdir(parent, { recursive: true });
+      }
       await Deno.writeTextFile(target.path, next);
       return ok(undefined);
     } catch {

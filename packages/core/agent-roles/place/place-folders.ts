@@ -5,6 +5,8 @@ export type PlaceFacts = {
   place: { kind: "project" | "app"; id: string } | null;
   // place가 project일 때 그 project의 등록 폴더(position 순)
   projectFolders: readonly string[];
+  // place가 project일 때 그 project의 artifacts 폴더
+  artifactsFolder: string | null;
   // 그 project의 열린 초안 폴더
   draftFolders: readonly string[];
   // place가 app일 때 앱 source 폴더. 없으면 null
@@ -22,16 +24,22 @@ export function placeScope(facts: PlaceFacts): FolderScope {
     return { read: [...facts.allProjectFolders], write: [] };
   }
   if (place?.kind === "project") {
+    // 상대 path의 기준이 읽기 목록의 첫 폴더라서 사람의 project 폴더가 artifacts 폴더보다 앞에 남아야 한다.
+    const artifacts = facts.artifactsFolder === null
+      ? []
+      : [facts.artifactsFolder];
     // 초안 폴더는 PM만 연다.
     if (role === "project_manager") {
-      const folders = [...facts.projectFolders, ...facts.draftFolders];
+      const folders = [
+        ...facts.projectFolders,
+        ...artifacts,
+        ...facts.draftFolders,
+      ];
       return { read: folders, write: [...folders] };
     }
     if (role === "operator") {
-      return {
-        read: [...facts.projectFolders],
-        write: [...facts.projectFolders],
-      };
+      const folders = [...facts.projectFolders, ...artifacts];
+      return { read: folders, write: [...folders] };
     }
   } else if (place?.kind === "app" && facts.appSource !== null) {
     if (role === "app_engineer") {
@@ -46,6 +54,7 @@ export function placeScope(facts: PlaceFacts): FolderScope {
 export function runtimeFolders(input: {
   draftRoot: string;
   projectFolders: readonly string[];
+  artifactFolders: readonly string[];
   appSources: readonly string[];
 }): FolderScope {
   const base = {
@@ -53,20 +62,23 @@ export function runtimeFolders(input: {
     draftFolders: [],
     allProjectFolders: [],
   };
-  const folders = new Set(
-    placeScope({
+  const folders = new Set([
+    ...placeScope({
       ...base,
       place: { kind: "project", id: "" },
       projectFolders: input.projectFolders,
+      artifactsFolder: null,
       appSource: null,
     }).write,
-  );
+    ...input.artifactFolders,
+  ]);
   for (const source of input.appSources) {
     const scope = placeScope({
       ...base,
       role: "app_engineer",
       place: { kind: "app", id: "" },
       projectFolders: [],
+      artifactsFolder: null,
       appSource: source,
     });
     for (const path of scope.write) folders.add(path);

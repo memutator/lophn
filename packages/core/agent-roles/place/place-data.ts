@@ -33,6 +33,12 @@ import {
 } from "./place-info.ts";
 import { placeScope } from "./place-folders.ts";
 
+// artifacts 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
+export type PlaceFiles = {
+  artifactsFolder(project: string): string | null;
+  ensureDir(path: string): Promise<void>;
+};
+
 // prompt의 place 정보 재료를 turn의 agent 자격으로 core 읽기에서 모은다. turn마다 한 번 읽는다.
 // file tool이 닿는 폴더(scope)도 같은 읽기에서 나온다. 읽은 값만 모아 place-folders의 규칙(placeScope)에 넘긴다.
 
@@ -122,6 +128,7 @@ function placeProject(project: ProjectRecord): PlaceProject {
 async function readPlaceData(
   call: CoreCall,
   agent: ResolvedAgent,
+  files: PlaceFiles,
 ): Promise<Result<PlaceRead>> {
   const { role, place } = agent;
   const projects = new Map<string, ProjectRecord>();
@@ -139,6 +146,7 @@ async function readPlaceData(
   let release: PlaceData["release"] = null;
   let projectFolders: string[] = [];
   let draftFolders: string[] = [];
+  let artifacts: string | null = null;
   let appSource: string | null = null;
   const allProjectFolders: string[] = [];
 
@@ -149,6 +157,16 @@ async function readPlaceData(
     projectFolders = read.value.folders.map((f) => f.path);
     if (role === "project_manager") {
       draftFolders = await openDraftFolders(call, place.id);
+    }
+    if (role === "project_manager" || role === "operator") {
+      const folder = files.artifactsFolder(place.id);
+      if (folder !== null) {
+        // 첫 쓰기 전에 폴더가 있어야 한다. 없는 허용 폴더는 file scope가 건너뛴다. 만들지 못하면 범위에서 빠진 채 간다.
+        try {
+          await files.ensureDir(folder);
+          artifacts = folder;
+        } catch { /* 폴더가 없으면 범위에서 빠진다 */ }
+      }
     }
   } else if (place?.kind === "app") {
     const read = await readOf(call, appGet, { app: place.id });
@@ -364,6 +382,7 @@ async function readPlaceData(
     role,
     place,
     projectFolders,
+    artifactsFolder: artifacts,
     draftFolders,
     appSource,
     allProjectFolders,
@@ -387,10 +406,11 @@ async function readPlaceData(
 export async function placeData(
   call: CoreCall,
   agent: ResolvedAgent,
+  files: PlaceFiles,
 ): Promise<
   Result<{ place: TurnPromptInput["place"]; scope: PlaceRead["scope"] }>
 > {
-  const read = await readPlaceData(call, agent);
+  const read = await readPlaceData(call, agent, files);
   if (!read.ok) return read;
   const { place, scope } = read.value;
   const { role } = agent;

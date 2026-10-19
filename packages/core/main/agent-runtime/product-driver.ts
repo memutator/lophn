@@ -37,7 +37,12 @@ import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { activeContextsOf } from "../../agent-roles/place/active-contexts.ts";
 import { PROJECT_LAYER } from "../../agent-roles/place/project-layer.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-roles/skills/root.ts";
-import { placeData } from "../../agent-roles/place/place-data.ts";
+import {
+  placeData,
+  type PlaceFiles,
+} from "../../agent-roles/place/place-data.ts";
+import { isAbsolute } from "node:path";
+import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -80,6 +85,18 @@ function productToolkit(options: {
       },
     }),
     ...(options.mcp === undefined ? {} : { mcp: options.mcp }),
+  };
+}
+
+// artifacts 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
+function placeFiles(): PlaceFiles {
+  const home = Deno.env.get("LOPHN_HOME");
+  return {
+    artifactsFolder: (project) =>
+      home !== undefined && isAbsolute(home)
+        ? artifactsFolder(home, project)
+        : null,
+    ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
   };
 }
 
@@ -147,7 +164,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       }),
       events: calls.events,
       rolePrompt,
-      placeData,
+      placeData: (call, agent) => placeData(call, agent, placeFiles()),
       roleTools: builtinToolNames,
       roles: ROLE_TABLE,
       activeContexts: (place) => activeContextsOf(calls.machine, place),

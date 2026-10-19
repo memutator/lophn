@@ -9,6 +9,7 @@ const base: PlaceFacts = {
   role: "operator",
   place: null,
   projectFolders: ["/p1", "/p2"],
+  artifactsFolder: "/art",
   draftFolders: ["/draft"],
   appSource: "/app",
   allProjectFolders: ["/p1", "/p2", "/q"],
@@ -20,13 +21,20 @@ Deno.test("placeScope는 role별로 file tool이 닿는 폴더와 쓸 수 있는
   const table: [Partial<PlaceFacts>, { read: string[]; write: string[] }][] = [
     // lophn은 모든 project 폴더를 읽기만 한다
     [{ role: "lophn" }, { read: ["/p1", "/p2", "/q"], write: [] }],
-    // 초안 폴더는 PM만
+    // 초안 폴더는 PM만. artifacts 폴더는 PM과 project place의 Operator만, project 폴더 뒤에 온다
     [
       { role: "project_manager", place: project },
-      { read: ["/p1", "/p2", "/draft"], write: ["/p1", "/p2", "/draft"] },
+      {
+        read: ["/p1", "/p2", "/art", "/draft"],
+        write: ["/p1", "/p2", "/art", "/draft"],
+      },
     ],
     [
       { role: "operator", place: project },
+      { read: ["/p1", "/p2", "/art"], write: ["/p1", "/p2", "/art"] },
+    ],
+    [
+      { role: "operator", place: project, artifactsFolder: null },
       { read: ["/p1", "/p2"], write: ["/p1", "/p2"] },
     ],
     [
@@ -50,16 +58,17 @@ Deno.test("placeScope는 role별로 file tool이 닿는 폴더와 쓸 수 있는
   }
 });
 
-Deno.test("runtimeFolders는 모든 project 폴더와 앱 source를 read·write에 한 번씩 담고 write에 draftRoot를 더한다", () => {
+Deno.test("runtimeFolders는 모든 project 폴더, artifacts 폴더, 앱 source를 read·write에 한 번씩 담고 write에 draftRoot를 더한다", () => {
   assertEquals(
     runtimeFolders({
       draftRoot: "/drafts",
       projectFolders: ["/p1", "/p2", "/p1"],
+      artifactFolders: ["/p1/a", "/q/a"],
       appSources: ["/app", "/p2"],
     }),
     {
-      read: ["/p1", "/p2", "/app"],
-      write: ["/p1", "/p2", "/app", "/drafts"],
+      read: ["/p1", "/p2", "/p1/a", "/q/a", "/app"],
+      write: ["/p1", "/p2", "/p1/a", "/q/a", "/app", "/drafts"],
     },
   );
 });

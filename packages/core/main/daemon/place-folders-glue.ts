@@ -7,11 +7,13 @@ import {
   placeScope,
   runtimeFolders,
 } from "../../agent-roles/place/place-folders.ts";
+import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
 import { activeAppSourcePaths, appSourcePath } from "../../apps/lookups.ts";
 import {
   activeProjectFolderPaths,
   draftBundles,
   projectFolderPaths,
+  projectIds,
 } from "../../projects/lookups.ts";
 import {
   createContextFolders,
@@ -45,6 +47,9 @@ export function placeFoldersOf(
     projectFolders: place?.kind === "project"
       ? projectFolderPaths(sql, id)
       : [],
+    artifactsFolder: place?.kind === "project"
+      ? artifactsFolder(dataRoot, id)
+      : null,
     draftFolders: place?.kind === "project"
       ? draftBundles(sql, id).map((draft) =>
         folders.draftFolder(id, draft.context, draft.bundle)
@@ -56,7 +61,7 @@ export function placeFoldersOf(
   return placeScope(facts).write;
 }
 
-// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체의 합에 초안 상위를 더한 것이다.
+// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체, 모든 project의 artifacts 폴더의 합에 초안 상위를 더한 것이다.
 export function runtimeFoldersOf(
   lookup: Lookup,
   dataRoot: string,
@@ -64,6 +69,9 @@ export function runtimeFoldersOf(
   return runtimeFolders({
     draftRoot: projectsRoot(dataRoot),
     projectFolders: activeProjectFolderPaths(lookup.sql),
+    artifactFolders: projectIds(lookup.sql).map((id) =>
+      artifactsFolder(dataRoot, id)
+    ),
     appSources: activeAppSourcePaths(lookup.sql),
   });
 }

@@ -15,7 +15,7 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 | `af-annotation-receiver` | artifact-annotation | 2 | 없음 | merged | artifact-annotation/af-annotation-receiver | 1858e5a30 |  |
 | `af-guide` | artifact-scope | 2 | 없음 | merged | artifact-scope/af-guide | 0a8f51b55 |  |
 | `af-prompt-list` | artifact-scope | 2 | 없음 | merged | artifact-scope/af-prompt-list | 73ded07ac |  |
-| `af-artifact-links` | artifact-screen | 2 | af-artifact-tab | running | artifact-screen/af-artifact-links |  |  |
+| `af-artifact-links` | artifact-screen | 2 | af-artifact-tab | merged | artifact-screen/af-artifact-links | 76c473cd2 |  |
 | `af-artifact-sidebar` | artifact-screen | 2 | af-artifact-tab | todo |  |  |  |
 | `af-artifact-tab` | artifact-screen | 2 | 없음 | merged | artifact-screen/af-artifact-tab | ec934ee9d |  |
 | `af-artifact-view` | artifact-view | 2 | 없음 | merged | artifact-view/af-artifact-view | a2c046b44 |  |

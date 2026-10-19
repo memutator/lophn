@@ -100,7 +100,6 @@ export const appPanelKind: TabKindDef = {
     }
     return (
       <AppPanelTab
-        project={host.projectId}
         app={tab.app}
         screen={tab.screen}
         shown={shown}

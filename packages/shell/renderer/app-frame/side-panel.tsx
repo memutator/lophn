@@ -89,7 +89,9 @@ interface SidePanelProps {
   /** agent 탭이 보이는 것. details·terminal만 열려 있으면 없다. */
   state: AgentPaneState | null;
   app: string;
-  appName: string;
+  /** 이 앱이 속한 project. 없으면 agent 탭을 열 수 없다. */
+  project?: string;
+  projectName: string;
   /** agent 통로. 없으면 agent 탭을 열 수 없다. */
   source?: AgentsSource;
   /** select와 같은 목록. agent 탭의 이름과 avatar를 찾는다. */
@@ -118,16 +120,18 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
   const vendor = coding === undefined
     ? undefined
     : vendorOf(coding.tab.product);
-  const agentBody = state === null
+  const { project } = props;
+  const agentBody = state === null || project === undefined
     ? null
     : state.mode === "manage"
-    ? <ManageBody {...props} agent={state.agent} />
+    ? <ManageBody {...props} project={project} agent={state.agent} />
     : props.agentViewSource === undefined
     ? <NotReady />
     : (
       <AgentBody
         key={state.assignment}
         {...props}
+        project={project}
         factory={props.agentViewSource}
         assignment={state.assignment}
         session={state.session}
@@ -275,15 +279,16 @@ function NotReady(): ReactElement {
 
 function AgentBody(
   props: SidePanelProps & {
+    project: string;
     factory: AgentTabSourceFactory;
     assignment: string;
     session: string | null;
   },
 ): ReactElement {
-  const { factory, assignment, app, onState } = props;
+  const { factory, assignment, project, onState } = props;
   const source = useMemo(
-    () => factory({ assignment, place: { kind: "app", id: app } }),
-    [factory, assignment, app],
+    () => factory({ assignment, place: { kind: "project", id: project } }),
+    [factory, assignment, project],
   );
   // 창마다 하나인 입력 메모리가 있으면 그것을 쓴다. 없는 창은 이 칸이 하나 쥔다.
   const shared = useConversation()?.drafts;
@@ -316,13 +321,15 @@ function AgentBody(
   );
 }
 
-function ManageBody(props: SidePanelProps & { agent: string | null }) {
+function ManageBody(
+  props: SidePanelProps & { project: string; agent: string | null },
+) {
   if (props.source === undefined) return null;
   return (
     <div className={styles.manage}>
       <AgentsPage
-        project={props.app}
-        projectName={props.appName}
+        project={props.project}
+        projectName={props.projectName}
         source={props.source}
         agent={props.agent}
         onAgent={(agent) => props.onState({ mode: "manage", agent })}

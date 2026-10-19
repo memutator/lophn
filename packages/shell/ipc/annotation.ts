@@ -23,7 +23,7 @@ export const annotateRemoveRequestSchema = z.strictObject({
   view_session: viewSession,
   n: z.union([z.number().int().min(1), z.literal("all")]),
 });
-// session은 앱 공간 agent pane에 열린 그 앱 App Engineer의 session이다. 없으면 null.
+// session은 앱 공간 agent pane에 열린 그 앱 project의 Project Manager의 session이다. 없으면 null.
 export const annotateSendRequestSchema = z.strictObject({
   view_session: viewSession,
   session: sessionId.nullable(),

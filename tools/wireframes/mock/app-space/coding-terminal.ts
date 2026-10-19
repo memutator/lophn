@@ -13,7 +13,8 @@ export type CodingScene = "running" | "permission" | "ended";
 const CODING_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd03";
 const REF = "term_coding";
 
-const HEAD = "✻ Claude Code\n  /home/mina/.lophn/apps/orders/source";
+const HEAD =
+  "✻ Claude Code\n  /home/mina/.lophn/projects/prj_01h455vb4pex5v6nkc6gd5fd01/app/source";
 
 const WORK = [
   `> Work on ticket ${TICKET}:`,
@@ -77,7 +78,8 @@ export function codingBridge(
     terminal_ref: REF,
     project,
     folder_ref: "fld_gallery",
-    cwd_at_start: "/home/mina/.lophn/apps/orders/source",
+    cwd_at_start:
+      "/home/mina/.lophn/projects/prj_01h455vb4pex5v6nkc6gd5fd01/app/source",
     program_path: "/usr/bin/claude",
     launch_kind: "coding_tui",
     state: scene === "ended" ? "exited" : "running",

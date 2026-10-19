@@ -45,7 +45,7 @@ export const appSpaceArea: Area = {
       id: "new-app-space",
       title: "App space · frame",
       description:
-        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Report a problem], [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, Manage가 있다.",
+        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Report a problem], [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, Project Manager, Operator 둘, Manage가 있다.",
       render: () => <AppSpaceFrame />,
     },
     {
@@ -80,7 +80,7 @@ export const appSpaceArea: Area = {
       id: "new-app-version-failed",
       title: "App space · Version (apply failed)",
       description:
-        "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 App Engineer가 이어 받는다는 안내가 있다.",
+        "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 Project Manager가 이어 받는다는 안내가 있다.",
       render: () => <VersionFailed />,
     },
     {
@@ -171,14 +171,14 @@ export const appSpaceArea: Area = {
       id: "new-app-annotate-list",
       title: "App space · annotations list",
       description:
-        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. 문제가 되지 않고 App Engineer session의 메시지가 된다.",
+        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to Project Manager]로 한 번에 보낸다. 문제가 되지 않고 Project Manager session의 메시지가 된다.",
       render: () => <AnnotateList />,
     },
     {
       id: "new-app-coding-toast",
       title: "App space · coding tab opened",
       description:
-        "App Engineer가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
+        "Project Manager가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
       render: () => <CodingOpenedToast />,
     },
     {

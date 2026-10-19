@@ -15,7 +15,7 @@ interface Annotate {
   readonly failure: SendFailure | null;
   setMode(on: boolean): void;
   remove(n: number | "all"): void;
-  /** 받을 session은 agent pane에 열려 있는 App Engineer의 session이다. 없으면 null. */
+  /** 받을 session은 agent pane에 열려 있는 Project Manager의 session이다. 없으면 null. */
   send(session: string | null): Promise<AnnotateSendResult | null>;
 }
 

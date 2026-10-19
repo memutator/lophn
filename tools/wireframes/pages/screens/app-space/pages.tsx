@@ -119,7 +119,7 @@ export function SidePanelTabs() {
   return (
     <AppSpace
       panel="version"
-      pane={{ view: "details", agent: "App Engineer" }}
+      pane={{ view: "details", agent: "Project Manager" }}
       terminal="running"
     />
   );
@@ -127,14 +127,14 @@ export function SidePanelTabs() {
 
 /** 앱 화면 옆에 붙은 agent 탭. title bar의 Agent select로 연다. */
 export function AgentPaneOpen() {
-  return <AppSpace pane={{ agent: "App Engineer" }} />;
+  return <AppSpace pane={{ agent: "Project Manager" }} />;
 }
 
-/** App Engineer가 맡기자 lophn이 터미널을 열었다. focus는 agent에 그대로 두고 pane 위쪽 toast로 알린다. */
+/** Project Manager가 맡기자 lophn이 터미널을 열었다. focus는 agent에 그대로 두고 pane 위쪽 toast로 알린다. */
 export function CodingOpenedToast() {
   return (
     <AppSpace
-      pane={{ view: "agent", agent: "App Engineer" }}
+      pane={{ view: "agent", agent: "Project Manager" }}
       terminal="running"
       openedToast
     />

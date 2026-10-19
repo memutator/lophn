@@ -164,7 +164,6 @@ export type AppSpacePlaceholders = {
     name: "string";
     time: "string";
   };
-  "app-detail.label.role-app-engineer": Record<never, never>;
   "app-detail.label.role-lophn": Record<never, never>;
   "app-detail.label.role-operator": Record<never, never>;
   "app-detail.label.role-project-manager": Record<never, never>;

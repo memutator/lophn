@@ -137,8 +137,6 @@ export function AppPanelPicker(
 }
 
 interface AppPanelTabProps {
-  /** 이 탭이 열린 project. 앱 view가 이 project에서 열린다. */
-  project: string;
   app: string;
   screen: string;
   /** 칸에 보이는 고른 탭인지. false면 view를 남긴 채 숨긴다. */

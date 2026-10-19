@@ -127,7 +127,6 @@ export interface AccessView {
 export type AgentRole =
   | "lophn"
   | "project_manager"
-  | "app_engineer"
   | "operator";
 
 export type Caller =

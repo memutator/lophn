@@ -17,7 +17,7 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-shell-agents` | shell-place | 2 | 없음 | todo |  |  |  |
 | `dp-shell-app-space` | shell-place | 2 | 없음 | todo |  |  |  |
 | `dp-shell-launcher` | shell-place | 2 | dp-shell-agents | todo |  |  |  |
-| `dp-problems-core` | storage | 2 | dp-storage-apps | todo |  |  |  |
+| `dp-problems-core` | storage | 2 | dp-storage-apps | running | storage/dp-problems-core |  |  |
 | `dp-storage-apps` | storage | 2 | 없음 | merged | storage/dp-storage-apps | 9465bc595 |  |
 | `dp-lophn-map` | map | 3 | dp-usage-read | todo |  |  |  |
 | `dp-package-owner` | map | 3 | 없음 | todo |  |  |  |

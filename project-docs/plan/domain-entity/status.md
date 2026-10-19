@@ -28,4 +28,4 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-final` | final | 5 | de-shell-domain-list, de-shell-operator-domains, de-shell-artifact-domain | todo |  |  |  |
 | `de-shell-artifact-domain` | shell-domains | 5 | 없음 | merged | shell-domains/de-shell-artifact-domain | 6d0446379 | 사람이 de-drafts의 모양을 고른 뒤 띄운다(brief의 고른 모양 줄을 채운다) |
 | `de-shell-domain-list` | shell-domains | 5 | 없음 | merged | shell-domains/de-shell-domain-list | bb3fd5d41 | 사람이 de-drafts의 모양을 고른 뒤 띄운다(brief의 고른 모양 줄을 채운다) |
-| `de-shell-operator-domains` | shell-domains | 5 | 없음 | running | shell-domains/de-shell-operator-domains |  | 사람이 de-drafts의 모양을 고른 뒤 띄운다(brief의 고른 모양 줄을 채운다) |
+| `de-shell-operator-domains` | shell-domains | 5 | 없음 | merged | shell-domains/de-shell-operator-domains | a84cdac68 | 사람이 de-drafts의 모양을 고른 뒤 띄운다(brief의 고른 모양 줄을 채운다) |

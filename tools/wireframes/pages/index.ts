@@ -22,6 +22,7 @@ import { agentArea } from "./screens/agent.tsx";
 import { agentSettingsArea } from "./screens/agent-settings.tsx";
 import { appSpaceArea } from "./screens/app-space.tsx";
 import { artifactArea } from "./screens/artifact.tsx";
+import { domainArea } from "./screens/domain.tsx";
 import { launcherArea } from "./screens/launcher.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
@@ -61,6 +62,7 @@ export const GROUPS: readonly Group[] = [
       agentSettingsArea,
       appSpaceArea,
       artifactArea,
+      domainArea,
       settingsArea,
       questionsArea,
     ],

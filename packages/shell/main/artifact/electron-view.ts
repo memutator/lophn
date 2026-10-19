@@ -58,9 +58,10 @@ export function electronArtifactViews(
       const contents = view.webContents;
       const id = contents.id;
 
-      // 입력 없이 page가 스스로 보낸 이동은 조용히 버린다. main frame은 will-navigate와
-      // will-frame-navigate가 함께 올 수 있으므로 알리는 일은 will-frame-navigate가 하지 않는다.
-      const guard = (notify: boolean) => (event: NavigationEvent) => {
+      // 입력 없이 page가 스스로 보낸 이동은 조용히 버린다. Electron 44에서 main frame은
+      // will-frame-navigate가 먼저 오고, 거기서 막으면 will-navigate는 오지 않는다. 그래서
+      // will-navigate는 듣지 않고 will-frame-navigate에서 알린다(external은 main frame에만 선다).
+      const guard = (event: NavigationEvent) => {
         const decision = decideArtifactNavigation({
           url: event.url,
           isMainFrame: event.isMainFrame,
@@ -68,13 +69,12 @@ export function electronArtifactViews(
         });
         if (decision.allow) return;
         event.preventDefault();
-        if (notify && decision.external && hooks.activation.fresh(id)) {
+        if (decision.external && hooks.activation.fresh(id)) {
           hooks.openLink(event.url);
         }
       };
-      contents.on("will-navigate", guard(true));
-      contents.on("will-redirect", guard(true));
-      contents.on("will-frame-navigate", guard(false));
+      contents.on("will-redirect", guard);
+      contents.on("will-frame-navigate", guard);
       contents.setWindowOpenHandler((details) => {
         const decision = decideArtifactNavigation({
           url: details.url,

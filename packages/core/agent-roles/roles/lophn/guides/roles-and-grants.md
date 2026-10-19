@@ -1,10 +1,10 @@
 # Roles and grants
 
-lophn has four roles. A role is fixed: it decides which built-in tools an agent
+lophn has three roles. A role is fixed: it decides which built-in tools an agent
 has. What you add on top is the agent's definition (instructions, model, skills,
 MCP servers) and its grants.
 
-## The four roles
+## The three roles
 
 lophn is the agent you talk to first. There is one for the whole product and it
 is not placed in a project or app. It helps you plan a project or an app, hands
@@ -15,21 +15,21 @@ write code.
 Project Manager is one per project, created when you register the project. It
 owns the project's kinds: which documents are items of which kind, and which
 fields each kind has. It writes them in the kinds file, and a saved file is
-checked and used at once, without asking you.
+checked and used at once, without asking you. A project has at most one app, and
+its Project Manager also looks after that app: it decides what the app should
+do, writes tickets and the blueprint, hands tickets to a coding agent, and
+verifies what comes back. To start a new app, lophn picks the project for it. If
+no project fits, lophn asks you to create one.
 
-App Engineer is one per app, created when you register the app. It decides what
-the app should do, writes tickets and the blueprint, hands tickets to a coding
-agent, and verifies what comes back.
-
-Operator is an agent you create for a project or an app. It does repeated or
-routine work with the project's kinds and the app-apis you give it. You can have
-as many as you need in one place. Project Manager and App Engineer can create
-and edit the Operators of their own place. They cannot give an Operator access.
+Operator is an agent you create for a project. It does repeated or routine work
+with the project's kinds and the app-apis you give it. You can have as many as
+you need in one project. Project Manager can create and edit the Operators of
+its own project. It cannot give an Operator access.
 
 ## Agent definition and grants
 
 An agent's definition holds its name, picture, instructions, model, skills and
-MCP servers. The built-in instructions of the four roles are fixed by lophn and
+MCP servers. The built-in instructions of the three roles are fixed by lophn and
 change only when lophn updates.
 
 A grant says what an agent may use and whether it must ask you each time. You

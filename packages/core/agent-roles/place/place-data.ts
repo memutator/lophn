@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { agentGrantsGet, agentKey } from "../../../protocol/approvals/mod.ts";
 import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
-import { appGet, appList } from "../../../protocol/apps/mod.ts";
+import { appList } from "../../../protocol/apps/mod.ts";
 import {
   agentDefinitionList,
   type AgentRef,
@@ -43,7 +43,8 @@ const KIND_TEXT_BUDGET = 12000;
 // 부를 수 있는 agent 목록에 붙는 한 줄. agent 정의에 설명 칸이 없어 role마다 고정 문장이다.
 const ROLE_LINE: Record<Role, string> = {
   lophn: "Plans work, registers apps, and hands work to others.",
-  project_manager: "Looks after the project's folders and kinds.",
+  project_manager:
+    "Looks after the project's folders, its kinds, its app and its skills.",
   app_engineer: "Builds and maintains the app.",
   operator: "Works with the kinds and tools it was granted.",
 };
@@ -115,7 +116,6 @@ async function readPlaceData(
   let artifactItems: readonly ArtifactEntry[] = [];
   let kinds: PlaceKinds | null = null;
   let kindsFile: string | null = null;
-  let appSource: string | null = null;
   const allProjectFolders: string[] = [];
 
   if (place?.kind === "project") {
@@ -143,6 +143,34 @@ async function readPlaceData(
         }
       }
     }
+    if (role === "project_manager") {
+      // project 하나에 앱 하나다. 읽지 못하면 앱이 없는 것으로 둔다(자격이 아직 읽기를 안 열었을 때도 session은 떠야 한다).
+      const listed = await readOf(call, appList, { status: "active" });
+      const found = listed.ok
+        ? listed.value.apps.find((a) => a.project === place.id)
+        : undefined;
+      if (found !== undefined) {
+        const source = found.source_path;
+        app = {
+          id: found.id,
+          name: found.name,
+          purpose: found.description,
+          source,
+          blueprint: source === null
+            ? "blueprint.ts"
+            : `${source}/blueprint.ts`,
+        };
+        if (found.active_release !== null) {
+          const apis = await readOf(call, appAppApi, { app: found.id });
+          if (apis.ok) {
+            release = {
+              version: apis.value.release,
+              api_names: apis.value.tools.map((tool) => tool.name),
+            };
+          }
+        }
+      }
+    }
     if (role === "project_manager" || role === "operator") {
       const folder = files.artifactsFolder(place.id);
       if (folder !== null) {
@@ -154,28 +182,6 @@ async function readPlaceData(
         if (artifacts !== null) {
           artifactItems = await files.listArtifacts(artifacts).catch(() => []);
         }
-      }
-    }
-  } else if (place?.kind === "app") {
-    const read = await readOf(call, appGet, { app: place.id });
-    if (!read.ok) return read;
-    const found = read.value.app;
-    const source = found.source_path;
-    appSource = source;
-    app = {
-      id: found.id,
-      name: found.name,
-      purpose: found.description,
-      source,
-      blueprint: source === null ? "blueprint.ts" : `${source}/blueprint.ts`,
-    };
-    if (role === "app_engineer" && found.active_release !== null) {
-      const apis = await readOf(call, appAppApi, { app: place.id });
-      if (apis.ok) {
-        release = {
-          version: apis.value.release,
-          api_names: apis.value.tools.map((tool) => tool.name),
-        };
       }
     }
   }
@@ -225,17 +231,12 @@ async function readPlaceData(
   const labelOf = async (
     at: { kind: "project" | "app"; id: string } | null,
   ): Promise<string | null> => {
-    if (at === null) return null;
+    if (at === null || at.kind === "app") return null;
     const key = `${at.kind}:${at.id}`;
     if (labels.has(key)) return labels.get(key) ?? null;
     let name = at.id;
-    if (at.kind === "project") {
-      const read = await projectOf(at.id);
-      if (read.ok) name = read.value.name;
-    } else {
-      const read = await readOf(call, appGet, { app: at.id });
-      if (read.ok) name = read.value.app.name;
-    }
+    const read = await projectOf(at.id);
+    if (read.ok) name = read.value.name;
     const label = `${at.kind} ${name}`;
     labels.set(key, label);
     return label;
@@ -306,23 +307,6 @@ async function readPlaceData(
         { kind: "project", id: record.id },
       );
     }
-    const appsRead = await pages(async (cursor) => {
-      const read = await readOf(call, appList, {
-        status: "active",
-        ...(cursor === undefined ? {} : { cursor }),
-      });
-      return read.ok
-        ? ok({ items: read.value.apps, next_cursor: read.value.next_cursor })
-        : read;
-    });
-    for (const record of appsRead.ok ? appsRead.value : []) {
-      labels.set(`app:${record.id}`, `app ${record.name}`);
-      await add(
-        { role: "app_engineer", app: record.id },
-        record.name,
-        { kind: "app", id: record.id },
-      );
-    }
     const defined = await readOf(call, agentDefinitionList, {});
     for (const row of defined.ok ? defined.value.agents : []) {
       if (row.kind !== "operator" || row.issues.length > 0) continue;
@@ -336,7 +320,7 @@ async function readPlaceData(
     projectFolders,
     artifactsFolder: artifacts,
     kindsFile,
-    appSource,
+    appSource: null,
     allProjectFolders,
   });
   return ok({

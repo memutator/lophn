@@ -33,6 +33,7 @@ export type PlaceData = {
   self: { role: Role; name: string };
   // 이 agent가 놓인 place
   project: PlaceProject | null;
+  // PM만. project의 앱이 있을 때.
   app: (PlaceApp & { blueprint: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
@@ -44,7 +45,7 @@ export type PlaceData = {
   apps: readonly { name: string; purpose: string }[];
   // lophn만
   projects: readonly { name: string; purpose: string }[];
-  // App Engineer만. 활성 release가 없으면 null.
+  // PM만. 앱의 활성 release가 없으면 null.
   release: { version: string; api_names: readonly string[] } | null;
   // project의 PM과 Operator만. 폴더를 정할 수 없으면 null.
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
@@ -66,7 +67,7 @@ function folderText(f: FolderRead): string {
 }
 
 function placeLines(data: PlaceData): string[] {
-  const { project, app } = data;
+  const { project, app, release } = data;
   if (project !== null) {
     const lines = [`Place: project ${project.name}. ${project.purpose}`];
     if (data.kindsFile !== null) lines.push(`  Kinds file: ${data.kindsFile}`);
@@ -76,13 +77,16 @@ function placeLines(data: PlaceData): string[] {
     for (const folder of project.subfolders) {
       lines.push(`    ${folderText(folder)}`);
     }
-    return lines;
-  }
-  if (app !== null) {
-    const lines = [`Place: app ${app.name}. ${app.purpose}`];
-    if (app.source !== null) lines.push(`  Source folder: ${app.source}`);
-    if (data.self.role === "app_engineer") {
-      lines.push(`  Blueprint: ${app.blueprint}`);
+    if (app !== null) {
+      lines.push(`  App: ${app.name}. ${app.purpose}`);
+      if (app.source !== null) lines.push(`    Source folder: ${app.source}`);
+      lines.push(`    Blueprint: ${app.blueprint}`);
+      if (release !== null) {
+        const apis = release.api_names.length > 0
+          ? [...release.api_names].sort(cmp).join(", ")
+          : "none";
+        lines.push(`    Active release: ${release.version}. app-api: ${apis}`);
+      }
     }
     return lines;
   }
@@ -150,12 +154,6 @@ export function placeInfo(role: Role, data: PlaceData, budget: number): string {
     `You are ${data.self.name}, a ${ROLE_LABEL[role]}.`,
     ...placeLines(data),
   ];
-  if (role === "app_engineer" && data.release !== null) {
-    const apis = data.release.api_names.length > 0
-      ? [...data.release.api_names].sort(cmp).join(", ")
-      : "none";
-    lines.push(`Active release: ${data.release.version}. app-api: ${apis}`);
-  }
   const sections: string[][] = [agentLines(data.agents)];
   if (role === "lophn") {
     sections.push(listLines("Projects", data.projects));

@@ -1,7 +1,4 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import appEngineer from "./app-engineer/prompt.md" with {
-  type: "text",
-};
 import lophn from "./lophn/prompt.md" with {
   type: "text",
 };
@@ -17,7 +14,6 @@ import projectManager from "./project-manager/prompt.md" with {
 const ROLE_PROMPTS: ReadonlyMap<string, string> = new Map([
   ["lophn", lophn],
   ["project_manager", projectManager],
-  ["app_engineer", appEngineer],
   ["operator", operator],
 ]);
 

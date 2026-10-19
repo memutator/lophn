@@ -5,7 +5,7 @@ import type { CommandEntry, Role } from "../../protocol/lophn-agent/mod.ts";
 // 쓴 글(인자)은 접수할 때 이 글 뒤에 붙는다.
 
 export const NEW_APP_PROMPT =
-  "I want to start a new app in this project. Ask me what it should do and who it is for, one question at a time, then set it up with me.";
+  "I want to start a new app. Ask me what it should do and who it is for, one question at a time. Then decide with me which project it belongs in, and set it up with me.";
 
 export const REPAIR_APP_PROMPT =
   "Something broke in one of my apps. Find out which app and what went wrong, look at what happened, and fix it. Tell me what you found before you change anything.";
@@ -31,7 +31,7 @@ function promptCommand(
 }
 
 // role 명령은 role마다의 목록 하나다. protocol의 ROLE_COMMAND_NAMES와 같아야 한다.
-// lophn은 New app · Repair app, Project Manager는 Check kinds, App Engineer와 Operator는 빈 목록이다.
+// lophn은 New app · Repair app, Project Manager는 Check kinds, Operator는 빈 목록이다(app_engineer는 type이 요구하는 동안 빈 목록).
 export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
   lophn: [
     promptCommand(

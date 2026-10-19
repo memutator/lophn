@@ -10,7 +10,7 @@ guess from an internal name.
 The Launcher is the first window. Open a project card to reach the project
 window, or an app card to open an app. A project window keeps documents, the
 terminal and the project's agents in one place. An app window shows the app and,
-beside it, the App Engineer and Operators for that app.
+beside it, the Project Manager and Operators of its project.
 
 You talk to an agent in a conversation. In a project window you pick the agent
 from the sidebar, in an app window from the agent select in the title bar, and
@@ -24,7 +24,8 @@ change them you ask Project Manager.
 
 Apps holds registered apps. App detail shows the current release, access
 (grants), connections, problems and what changed. To build or change an app you
-ask its App Engineer. You do not instruct the coding agent directly.
+ask the Project Manager of its project. You do not instruct the coding agent
+directly.
 
 Agents is where you see each agent's definition and change it. Settings is where
 you review and change product settings, including connections. The waiting list

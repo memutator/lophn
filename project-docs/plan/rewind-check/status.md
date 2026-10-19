@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py rewind-check build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `rc-examples-restore` | rewind-check | 1 | rc-restore | todo |  |  |  |
 | `rc-restore` | rewind-check | 1 | rc-wire | running | rewind-check/rc-restore |  |  |
-| `rc-unproven` | rewind-check | 1 | 없음 | running | rewind-check/rc-unproven |  |  |
+| `rc-unproven` | rewind-check | 1 | 없음 | merged | rewind-check/rc-unproven | 4fbffefbd |  |
 | `rc-unproven-problem` | rewind-check | 1 | rc-unproven, rc-examples-restore | todo |  |  |  |
 | `rc-user-read` | rewind-check | 1 | 없음 | merged | rewind-check/rc-user-read | b2156ad5c |  |
 | `rc-wire` | rewind-check | 1 | 없음 | merged | rewind-check/rc-wire | dabcb96f6 |  |

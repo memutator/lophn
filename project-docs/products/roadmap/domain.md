@@ -153,7 +153,7 @@ tool은 출처가 셋이다.
 - 내장 tool: `list`(예: 2026년 2월 카드 영수증), `check`
 - domain tool: `deductible_total(year)`. 카드와 현금을 나누고 공제 한도를 적용하는 그 사람의 세금 규칙이다
 - 공개: `deductible_total`
-- view: 처음에는 `artifacts/spending/`(정적)이다. 자주 보면 `deductible_total`을 부르는 live view로 키운다.
+- view: 처음에는 `artifacts/spending/`(정적)이다. 자주 보면 `deductible_total`을 부르는 앱 화면으로 키운다.
 - 글: "공제"의 뜻, "10만 원 넘는 지출에는 영수증이 있어야 한다"는 규칙
 - 쓰는 다른 domain: 가계 domain의 공개 `expenses.list`. 세금 domain은 가계 domain의 다른 것을 모른다.
 - skill:
@@ -315,7 +315,7 @@ list {
 - **data 파일은 기본으로 kind가 아니다.** template이 기대하는 모양이 자주 깨지면, 그때 Domain Engineer가 `data/*.json`을 kind로 선언해 program이 검사하게 한다.
 - **view의 두 끝**
 
-  | | 정적 view(artifact) | live view |
+  | | 정적 view(artifact) | 앱 화면 |
   |---|---|---|
   | 무엇 | data 파일만 그린다 | bridge로 tool을 부른다 |
   | 누가 쓰나 | role agent가 파일로 직접 쓴다 | coding agent가 짠다 |
@@ -349,7 +349,7 @@ core는 domain이 무슨 뜻인지 모른다. 아래 모양으로 들어온 것�
 |---|---|
 | kind 파일 | 재료의 kind schema(`kinds.yaml`)다. 판 없이 바뀔 때 검사해 쓴다 |
 | domain manifest | blueprint를 넓힌 것이다. tool(effect, input, output schema, 공개 여부), view, permission, 의존 package를 담는다 |
-| release | manifest와 코드와 live view의 판이다. 코드가 없는 domain은 release가 없다 |
+| release | manifest와 코드와 앱 화면의 판이다. 코드가 없는 domain은 release가 없다 |
 | check | release 전 test다. tool 호출 예시와 기대값, 재료 형식 검사다. 통과해야 activate한다 |
 | problem | 관측이다. 코드의 `reportProblem`과 내장 형식 검사의 위반이 같은 목록에 오른다. domain 주인을 깨우고 사람에게 알린다 |
 | invocation | tool 호출마다 Gate, 기록, changeset, rewind를 거친다. 지금 app-api가 받는 대우를 MCP 호출로 옮긴다 |
@@ -415,7 +415,7 @@ domain의 저장 자리는 둘이다.
 | 자리 | 무엇 | 누가 정하나 |
 |---|---|---|
 | 사람의 폴더 | 사람의 문서가 이미 있는 곳. project가 가진다. 예: `~/docs/tax` | 사람이 project를 등록하고 domain에 잇는다(`project.create`·`update`·`relink_folder`의 actor는 `user`뿐이다). file 범위가 곧 권한 경계라 agent가 자기 범위를 넓히지 않는다. Domain Engineer와 lophn은 제안만 한다 |
-| lophn의 자리 | `<data>/domains/<domain>/` 아래 `kinds.yaml`, `source/`(manifest, domain tool 코드, live view), `data/`(sqlite), `skills/`, `artifacts/`, `agents/`(agent 정의) | core가 domain을 만들 때 정한다 |
+| lophn의 자리 | `<data>/domains/<domain>/` 아래 `kinds.yaml`, `source/`(manifest, domain tool 코드, 앱 화면), `data/`(sqlite), `skills/`, `artifacts/`, `agents/`(agent 정의) | core가 domain을 만들 때 정한다 |
 
 project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 막지 않는다. 지금도 project끼리는 겹칠 수 있다(`projects/lookups.ts:40`의 `innermostProjectOfPath`). 잇는 것은 사람이 자기 파일을 그 domain에 맡긴다는 결정이다. core가 막는 것은 agent의 실수와 AI가 쓴 코드다. 사람의 결정은 막지 않는다(AGENTS.md "속도"). 겹쳐도 prompt에는 home domain의 글만 실리므로 최소 context는 그대로다.
 
@@ -433,7 +433,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 | lophn | 전체에 하나 | 경계를 넘는 판단을 한다: 새 domain, 나누기와 합치기의 제안, 재사용, package로 빼기. domain들의 **지도**(이름, 목적, 공개 tool, 설치한 package, 사용 관계)만 본다. 그 밖에 안내(L6)와 상태 확인(L7)을 한다 |
 | Domain Engineer | domain마다 하나 | 사람 옆에서 domain을 모델링한다. 글과 manifest를 쓰고, tool과 view를 기획하고, ticket을 coding agent에게 맡기고, check와 problem에 대응한다. 코드는 짜지 않는다. 지금의 PM과 App Engineer를 합친 자리다 |
 | Operator | domain마다 여럿 | domain 안에서 tool로 일상 업무를 한다. 맡을 일을 skill로 좁힐 수 있다. 범위는 사람이 grant로 정한다 |
-| coding agent | ticket마다 | 바깥 harness다. domain tool과 live view 코드를 짠다 |
+| coding agent | ticket마다 | 바깥 harness다. domain tool과 앱 화면 코드를 짠다 |
 
 경계를 넘는 판단에서 각자 맡는 것:
 
@@ -466,7 +466,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 - 사람의 폴더가 없는 domain(folder 0개)도 등록할 수 있다. 앱 data만 있는 domain을 위한 것이다(2026-10-19). project와 domain을 나눈 뒤에는 "project에 잇지 않은 domain"이다.
 - project와 domain은 다른 것이고 N:M이다(2026-10-19). project는 폴더·창·terminal·coding agent의 자리이고, domain은 agent·kind·앱·skill·artifact·grant가 붙는 책임 경계다. 둘은 연결 하나로 잇고, domain마다 재료 path 목록은 두지 않는다("project와 domain").
 - 화면 말: domain은 "Domain", role은 "Domain Engineer", project는 "Project", 앱은 "App" 그대로다.
-- role agent가 정적 view(HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, live view)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
+- role agent가 정적 view(HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, 앱 화면)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
 - 경계를 넘는 판단(경계 자르기, 재사용, export)은 lophn이 한다. 따로 Architect role을 두지 않는다.
 - Operator의 skill을 domain이 다룬다. 책임의 기본 단위는 domain 경계이고, skill은 그 하위 단위가 될 수 있다.
 
@@ -507,7 +507,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 | `domain-split` | 지금 project entity를 domain으로 바꾸고, 가벼운 project를 새로 두고, 둘을 N:M으로 잇는다. `project_manager`를 Domain Engineer로 바꾼다. 문서를 모은다(2026-10-19 "project와 domain"에 따라 `domain-rename`을 바꿈) | 넷이 land한 뒤 |
 
 - e2e는 이 다섯 계획에서 돌리지도 고치지도 않는다. land는 `LOPHN_LAND_SKIP_E2E=1`로 돈다. 지운 기능의 e2e file은 그 기능을 지우는 task가 지운다. 나머지는 `domain-split` 뒤 따로 다시 쓴다.
-- live view(tool을 부르는 view)는 이 다섯 뒤에 지금 앱 화면을 바꿔 둔다.
+- 앱 화면과 artifact를 한 view 모양으로 합치고 artifact를 앱 화면으로 키우는 길은 필요해지면 연다. tool을 부르는 view는 지금의 앱 화면이고, "앱 화면"라는 말은 쓰지 않는다(앱 view의 live·preview mode와 헷갈린다).
 
 test(AGENTS.md "속도", `write-test` skill):
 - agent의 file 범위가 자기 domain의 재료 밖으로 나가지 않는다. 다른 domain의 비공개 tool이 agent tool 목록과 MCP `tools/list`에 나오지 않는다. 권한 경계다.

@@ -12,7 +12,7 @@
   - `project-docs/boundary-catalog.yaml`의 `projects`, `kinds`, `apps`
 - **범위 밖:**
   - 새 제품 동작. 예외는 project와 domain을 나누는 데 필요한 것뿐이다(연결, 화면, 지침 층).
-  - live view
+  - 앱 화면
   - e2e 다시 쓰기, eval 자료 다시 만들기. 이 계획 뒤에 따로 연다.
 - **돌리는 방식:** worker를 쓴다. orchestrate skill대로 한다. task id는 `ds-`로 시작한다.
 - **시작 조건:** 앞 계획 넷과 `rewind-check`가 모두 main에 land하고 닫혔다(main `ecda3b15e` 이후). brief는 지금 main을 보고 쓴다.
@@ -74,7 +74,7 @@ roadmap "정한 것"은 다시 적지 않는다. 아래는 이 계획을 위해 
   - place-session, agent-definition, app-call, coding-agent, annotation, workspace-layout, kinds, artifact, layers를 고친다.
   - PRODUCT 2절·3절·6절과 AGENT-ROLE 전체(PM → Domain Engineer, project와 domain)를 고친다.
   - `boundary-catalog.yaml`, `module-catalog.yaml`, `context-component-registry.yaml`을 고친다.
-  - `products/roadmap/domain.md`는 남은 몫(live view, activation 때 알리기 등)만 남기고 줄인다.
+  - `products/roadmap/domain.md`는 남은 몫(앱 화면, activation 때 알리기 등)만 남기고 줄인다.
   - changelog `0.5.0`에 항목을 덧붙인다.
 - **사람에게 묻는 것:** 화면 모양, subprocess·Electron test를 새로 만들 때.
 

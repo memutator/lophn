@@ -18,4 +18,4 @@
 - **artifact 공유, 내보내기, 판 기록.** 파일 rewind가 있다. 사람이 lophn 밖에서 봐야 하면 [폴더 열기]나 내보내기를 그때 붙인다.
 - **외부 library와 CDN.**
 - **대화 안에 artifact를 live로 끼워 그리기.** link로 탭을 연다.
-- **tool을 부르는 view.** live view의 일이다(`domain.md`).
+- **tool을 부르는 view.** 앱 화면의 일이다(`domain.md`).

@@ -51,7 +51,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **`data/_entries.json`은 view가 만드는 가상 file이다.** `data/` 바로 아래 일반 file만 `{name, size, modified}`로 이름 순에 싣는다. `lstat`로 하위 폴더와 symlink를 건너뛰어 밖으로 가는 symlink의 이름과 크기가 새지 않는다. 디스크에 같은 이름이 있어도 가상이 이긴다.
 - **navigation은 `will-frame-navigate`와 `will-redirect`에서 정한다.** Electron 44에서 main frame은 `will-frame-navigate`가 먼저 오고, 거기서 막으면 `will-navigate`는 오지 않는다. 알리는 일을 `will-navigate`에 두면 link가 아무 일도 하지 않는다.
 - **main frame은 같은 host의 `lophn-artifact:`로만 간다.** 같은 폴더 안의 다른 HTML로 가는 상대 link는 된다. http·https는 막고, 사용자 입력 5000ms 안이면 renderer에 알려 browser 탭으로 연다. `window.open`은 늘 거절한다. permission은 거절하고 download는 취소한다. subframe도 같은 host만이다.
-- **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 live view와 갈리는 곳이다.
+- **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 앱 화면과 갈리는 곳이다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 name이 null이다.
 - **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 project artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 열린 project place의 PM·Operator session 가운데 마지막 것을 고른다. root가 project마다 달라 같은 이름의 artifact가 다른 project에 있어도 섞이지 않는다. 없으면 pane에 열린 그 project의 PM session이고, 그 session이 그 project의 열린 PM이 아니면 conflict로 거절한다. pane에 PM session이 없으면 새 PM session이다. 사람의 `.html`은 늘 PM이 받는다.
 - **PM과 Operator는 자기 project의 artifact annotation을 읽는다.** 자격 조건 `project`(project place의 PM·Operator)로 그 project의 artifact target을, PM은 조건 `app`으로 그 project 앱의 앱 target도 읽는다. 둘은 따로 본다. 다른 project와 다른 앱 것은 not_found다. 앱에도 project에도 묶이지 않은 agent(lophn)는 forbidden이다.

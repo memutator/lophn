@@ -57,10 +57,10 @@
 - release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 - preview는 따로 띄운 process와 일회용 DB로 돈다. invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
   - preview 호출은 그 preview bundle의 선언으로 tool과 effect를 판정한다. 아직 release에 없는 새 앱과 새 tool도 부를 수 있다. ledger의 `release`는 비울 수 없어 release 없는 bundle의 호출은 기록할 자리도 없다.
-- coding agent는 core의 MCP endpoint(`POST /mcp`, Streamable HTTP `2025-06-18`)로 맡은 앱의 tool을 부른다. 자격은 그 앱 하나 범위의 coding token이고(operation `coding.mcp`), `tools/list`는 그 앱의 tool만 보인다.
-  - `tools/call`은 그 앱의 지금 도는 preview로만 간다. preview가 없거나 준비 전이면 `unavailable`이고 live 앱은 어떤 경우에도 부르지 않는다. coding agent는 자기 코드를 확인하려고 부른다. AI가 만든 코드와 agent의 실수로 사용자 data를 잃지 않게 한다.
+- coding agent는 core의 MCP endpoint(`POST /mcp`, Streamable HTTP `2025-06-18`)로 맡은 앱의 tool을 부른다. 자격은 그 앱 하나 범위의 coding token이고(operation `coding.mcp`), MCP tools/list는 그 앱의 tool만 보인다.
+  - MCP tools/call은 그 앱의 지금 도는 preview로만 간다. preview가 없거나 준비 전이면 `unavailable`이고 live 앱은 어떤 경우에도 부르지 않는다. coding agent는 자기 코드를 확인하려고 부른다. AI가 만든 코드와 agent의 실수로 사용자 data를 잃지 않게 한다.
   - 호출 길에는 `person` caller와 `previewOnly` 자격으로 들어간다. `previewOnly`는 어떤 조회보다 먼저 live target을 `forbidden`으로 막는다. 사람 화면의 preview 호출과 같은 취급이라 Gate를 거치지 않고, 새 caller 종류를 만들지 않아 ledger와 rewind가 그대로다.
-  - `tools/list`는 preview가 돌면 그 bundle의 선언, 아니면 활성 release의 선언이다. `listChanged`가 없어 preview를 연 뒤 생긴 tool은 client가 목록을 다시 읽을 때 보인다.
+  - MCP tools/list는 preview가 돌면 그 bundle의 선언, 아니면 활성 release의 선언이다. `listChanged`가 없어 preview를 연 뒤 생긴 tool은 client가 목록을 다시 읽을 때 보인다.
 - 앱 호출 사슬은 같은 앱이 다시 나오면(call_loop) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
 - 앱이 바깥으로 나가는 길은 SDK 셋(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`)뿐이고, 어느 길이든 선언 ∩ 사람의 grant 안이다. 앱 process의 Deno 권한에는 외부 net이 없다.
   - net: 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. supervisor는 lophn의 코드라 host 없는 `--allow-net`으로 뜨고(`net_any`, launch spec은 agent runtime과 apps supervisor만 허락한다), 앱 process가 아니라 broker가 요청마다 목적지(host·port)를 선언 ∩ grant로 검사한다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.

@@ -1,4 +1,4 @@
-// coding agent가 맡긴 App Engineer에게 보내는 메시지. Router가 열린 session, 없으면 새 session으로 보낸다.
+// coding agent가 맡긴 Project Manager에게 보내는 메시지. Router가 열린 session, 없으면 새 session으로 보낸다.
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
 import { ticketIdSchema } from "./ticket/values.ts";

@@ -1,4 +1,4 @@
-// `lophn package`: 의존으로 선언된 package의 안내를 읽기만 한다. 의존 추가는 App Engineer에게 청한다.
+// `lophn package`: 의존으로 선언된 package의 안내를 읽기만 한다. 의존 추가는 Project Manager에게 청한다.
 import { type CommandEntry, entryOf } from "./types.ts";
 
 export const PACKAGE_COMMANDS: readonly CommandEntry[] = [

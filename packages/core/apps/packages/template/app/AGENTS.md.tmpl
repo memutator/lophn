@@ -23,7 +23,7 @@ Package를 쓴다.
   지정했을 때만 시작한다. 지정된 ticket만 claim한다. `lophn ticket list` 같은 읽기는
   착수 지시가 아니다.
 - 사람이 ticket 없이 직접 제작·수리를 요청하면 code를 시작하지 않는다. lophn의
-  담당 agent(App Engineer)가 요청을 구현 가능한 ticket으로 정리해 준다고
+  담당 agent(Project Manager)가 요청을 구현 가능한 ticket으로 정리해 준다고
   안내한다.
 
 ## 설계와 구현의 구별
@@ -38,7 +38,7 @@ Package를 쓴다.
 
 - 내장 SDK의 사용법은 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의
   `guide.md`를 읽는다. 새 SDK Package나 의존이 필요하면 `blueprint.ts`와
-  `deno.json`을 직접 고치지 않고 `message send`로 App Engineer에게 청한다.
+  `deno.json`을 직접 고치지 않고 `message send`로 Project Manager에게 청한다.
 - 처리하지 못한 예외는 설치된 예외 수집 통로로 모이게 한다. 문제 보고는
   `@lophn/cap-problem`의 `guide.md`를 따른다. `reportProblem(name, message)`만
   부른다. 이름은 선언하지 않는다.

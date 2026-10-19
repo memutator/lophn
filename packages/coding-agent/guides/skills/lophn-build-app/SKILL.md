@@ -14,7 +14,7 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 - 맡겨진 ticket만 claim한다. `lophn ticket list`로 열린 ticket이 보이는 것은
   착수 지시가 아니다. 목록에서 일을 골라 claim하지 않는다.
 - 사람이 ticket 없이 "이 앱을 만들어 줘"라고만 했으면 code를 시작하지 않는다.
-  lophn의 App Engineer가 요청을 ticket으로 정리해 맡길 것이라고 안내한다.
+  lophn의 Project Manager가 요청을 ticket으로 정리해 맡길 것이라고 안내한다.
 
 ## 명령
 
@@ -29,7 +29,7 @@ working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 - release: `release prepare`, `release status`
 - 사용자 package 안내(읽기만): `package list`, `package show`. 내장 SDK는 여기에
   없다(아래 4)
-- App Engineer에게 청하기: `message send`
+- Project Manager에게 청하기: `message send`
 
 입력에 `app`이 필수인 명령(`app show`, `release prepare` 등)에는 앱 id를 넣는다.
 core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app`이다.
@@ -40,7 +40,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 보고할 실패
    분기와 이름, 볼 곳과 지킬 것을 읽는다. acceptance 조건이 예시(`examples`)이면
    tool과 입력, 기대 결과를 그대로 읽는다. 예시는 고치지 않는다. 틀린 것 같으면
-   `message send`로 App Engineer에게 청한다. 작업 가능하지 않다고 나오면
+   `message send`로 Project Manager에게 청한다. 작업 가능하지 않다고 나오면
    claim하지 않고 `message send`로 알린다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
@@ -58,7 +58,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    host·port와 같은 컴퓨터의 loopback 서비스), 앱에 값이 없는
    secret(`cap-secret`, `cap-net` 요청에 lophn이 붙인다), 허락된 경로의
    file(`cap-fs`)은 이 셋으로만 한다. 쓰려면 blueprint에 `permissions`와
-   `sdk_dependencies`가 있어야 하므로 5번처럼 App Engineer에게 청한다. 앱
+   `sdk_dependencies`가 있어야 하므로 5번처럼 Project Manager에게 청한다. 앱
    `deno.json`의 `imports`에도 같은 이름과 판을 더한다(예:
    `"@lophn/cap-net": "lophn-sdk:@lophn/cap-net@1.0.0/mod.ts"`). 둘이 다르면
    release 준비가 거절한다. 선언되지 않은 package는 쓸 수 없다. UI는
@@ -82,7 +82,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    그 파일을 앱 `src/`로 복사해 쓴다. 복사한 파일은 앱 것이라 이후 lophn의 UI
    update가 닿지 않는다.
 5. blueprint나 의존을 바꿔야 하면 직접 고치지 않는다. 무엇을 왜 바꿔야 하는지
-   `message send`로 App Engineer에게 청하고 답을 기다린다.
+   `message send`로 Project Manager에게 청하고 답을 기다린다.
 6. 구현한다. 화면과 tool(`src/app-api.ts`의 `tool(name, handler)` 등록,
    화면에서는 `lophnApp.callTool(tool, input)`)은 blueprint 선언과 맞게 쓰고,
    생성물은 손으로 고치지 않는다. 기존 fixture와 ticket의 지킬 것을 보존한다.
@@ -92,7 +92,7 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    나눈다(같은 이름은 한 problem으로 묶인다). 진입점이 이미 보고하는 잡히지 않은
    예외와 handler가 던진 `Error`는 따로 보고하지 않는다. 대상은 거절로 끝나는
    업무 분기, 외부 호출 실패, 조용히 넘어가는 fallback이다. ticket에 보고 자리가
-   없는데 필요해 보이면 `message send`로 App Engineer에게 청한다. 규칙은
+   없는데 필요해 보이면 `message send`로 Project Manager에게 청한다. 규칙은
    cap-problem `guide.md`를 읽는다.
 7. release를 준비한다. 구현을 commit한 뒤 `release prepare`를 부르고
    `release status`로 `status`가 `completed`가 될 때까지 읽는다. claim이
@@ -138,7 +138,7 @@ machine이 낸다. 보고서에서 만들어 내지 않는다.
 
 - 맡겨지지 않은 ticket을 claim하거나 claim 없이 source를 바꾸지 않는다.
 - 테스트 기대값을 낮춰 통과시키지 않는다.
-- ticket의 목표를 바꾸지 않는다. 바꿔야 하면 `message send`로 App Engineer에게
-  청한다.
+- ticket의 목표를 바꾸지 않는다. 바꿔야 하면 `message send`로 Project
+  Manager에게 청한다.
 - 운영 앱 시작·중지, release activation, secret 값은 요청하지 않는다. 사람이
   화면에서 한다.

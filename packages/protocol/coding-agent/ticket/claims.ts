@@ -132,7 +132,7 @@ export const ticketReportCompletion = defineCommand({
 });
 
 // 보고를 받을 때 실행 조건을 돌린 결과를 기록만 한다. 상태는 바꾸지 않는다.
-// 확인됨·확인 실패는 App Engineer가 `ticketVerify`로 정한다.
+// 확인됨·확인 실패는 Project Manager가 `ticketVerify`로 정한다.
 export const ticketRecordChecks = defineCommand({
   resource: "tickets",
   method: "record_checks",

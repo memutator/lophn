@@ -72,7 +72,7 @@ const exampleStepSchema = z.strictObject({
 });
 
 // acceptance check는 하나다. examples는 program이 준비된 release에 불러 비교하는 tool 예시이고,
-// text는 App Engineer가 판단하는 글 조건이다.
+// text는 Project Manager가 판단하는 글 조건이다.
 export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("examples"),

@@ -11,6 +11,6 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-app-engineer` | eval | 1 | tr-eval-checks, tr-eval-apps, tr-eval-operator | todo |  |  |  |
 | `tr-eval-apps` | eval | 1 | 없음 | merged | eval/tr-eval-apps | ddb76771d |  |
 | `tr-eval-calendar` | eval | 1 | tr-eval-apps, tr-eval-app-engineer | todo |  |  |  |
-| `tr-eval-checks` | eval | 1 | tr-eval-apps | running | eval/tr-eval-checks |  |  |
+| `tr-eval-checks` | eval | 1 | tr-eval-apps | merged | eval/tr-eval-checks | 2bfa9d1de |  |
 | `tr-eval-operator` | eval | 1 | 없음 | merged | eval/tr-eval-operator | 3107caba9 |  |
 | `tr-e2e-budget` | e2e | 2 | 없음 | todo |  |  |  |

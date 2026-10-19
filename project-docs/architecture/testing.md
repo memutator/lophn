@@ -42,7 +42,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `fake-server/` | `startFakeServer`, `createFakeHandler`(socket 없는 몸체), `Reply`·`Step`·`JournalEntry` |
 | `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 사람 역할 helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`) |
 | `gateway/` | `connectGateway`(shell main의 Gateway 역할), `waitCodingTerminal`·`answerTerminal`·`exitTerminal`(coding 터미널 요청에 답하고 process 끝을 알림) |
-| `coding/` | `codingCli`(coding agent CLI를 in-process `cliMain`으로), `handOffQueued`·`createTicket`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts` |
+| `coding/` | `codingCli`(coding agent CLI를 in-process `cliMain`으로), `mcpRequest`(coding token으로 core `/mcp`에 JSON-RPC 한 건), `handOffQueued`·`createTicket`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts` |
 | `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `handOff`·`deliverRelease`·`verifyTicket`·`approveActivation`·`waitRunning`, `aeLane`, `createAppSource`·`amendAppSource`, flow별 앱 patch(`patch-*.ts`, `patches.ts`) |
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
@@ -57,6 +57,8 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: core가 깐 template을 앱 source로 복사해 `apps/create` → `apps/connect_source` → App Engineer의 ticket 맡기기(fake 대답) → coding agent 역할의 claim·`release prepare`·`app test`·`ticket report`(CLI) → `ticket.verify` → activation 허락. data root에 release를 직접 깔지 않는다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 template 위에 얹는 patch다.
 
 - ticket의 check를 정하는 행은 `deliverRelease`에 `check`를 주고 `verify: false`로 보고에서 멈춘 뒤, program이 예시를 돌려 `tickets/show`에 결과를 남기기를 기다리고 `verifyTicket`으로 통과(verified)나 막힘(reported에 머묾, `conflict`)을 본다. 맞는 예시와 틀린 예시를 table의 두 행으로 둔다(`app-release_test.ts`). 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다. 앱 process의 보고 본문 읽기는 `reaction_test.ts`의 행이 다룬다(`patch-report.ts`).
+- agent가 앱 tool을 부르는 행은 앱 place의 Operator로 부른다(`app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). template tool은 `public: false`라 그 domain을 맡지 않은 lophn이나 project의 agent에게는 보이지 않는다. 정의에 `domains`가 없는 앱 place Operator는 앱의 domain을 모두 맡는다.
+- coding agent의 MCP 행(`app-release_test.ts`의 `coding-mcp-preview-only`)은 앱이 live로 뜬 뒤 `handOff`로 같은 앱에 coding session을 하나 더 열고, 그 token으로 `mcpRequest`를 부른다. preview 없이 한 번, CLI로 preview를 띄운 뒤 한 번 부르고 live ledger와 data가 그대로인지 본다.
 - coding token은 Gateway `coding_terminal` frame의 `plan.env`로만 받는다. test가 token을 만들거나 core 안에서 꺼내지 않는다. Gateway 연결은 principal마다 4개 한도라 행마다 그 행의 앱 Gateway를 닫는다.
 - release 준비가 받는 npm·jsr·esbuild 의존은 `deno task e2e:deps`가 `.dev-data/e2e/deno-dir` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 `DENO_DIR`을 받고, E2E 중 network는 loopback뿐이다.
 - app test는 `systemd-run --user --scope`로 메모리 한도를 건다. 그래서 앱 E2E의 core에는 `XDG_RUNTIME_DIR`을 준다. user systemd가 없는 환경에서는 앱 E2E가 실패한다(skip하지 않는다).

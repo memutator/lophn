@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-e2e-operator-domain` | e2e | 1 | tr-e2e-app-tools | running | e2e/tr-e2e-operator-domain |  |  |
 | `tr-eval-app-engineer` | eval | 1 | tr-eval-checks, tr-eval-apps, tr-eval-operator | merged | eval/tr-eval-app-engineer | e22b2599c |  |
 | `tr-eval-apps` | eval | 1 | 없음 | merged | eval/tr-eval-apps | ddb76771d |  |
-| `tr-eval-calendar` | eval | 1 | tr-eval-apps, tr-eval-app-engineer | running | eval/tr-eval-calendar |  |  |
+| `tr-eval-calendar` | eval | 1 | tr-eval-apps, tr-eval-app-engineer | merged | eval/tr-eval-calendar | c14d53630 |  |
 | `tr-eval-checks` | eval | 1 | tr-eval-apps | merged | eval/tr-eval-checks | 2bfa9d1de |  |
 | `tr-eval-operator` | eval | 1 | 없음 | merged | eval/tr-eval-operator | 3107caba9 |  |
 | `tr-e2e-budget` | e2e | 2 | 없음 | todo |  |  |  |

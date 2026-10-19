@@ -18,8 +18,8 @@ import {
   type ProblemRow,
 } from "../reporting/mod.ts";
 
-// 사람은 모든 문제의 상태를 바꾼다. Project Manager(agent)는 자기 앱의 문제만 바꾼다. 그 밖의 자격은
-// 막는다. Project Manager의 앱은 자격의 `conditions.app`이 정한다.
+// 사람은 모든 문제의 상태를 바꾼다. App Engineer(agent)는 자기 앱의 문제만 바꾼다. 그 밖의 자격은
+// 막는다. App Engineer의 앱은 자격의 `conditions.app`이 정한다.
 function mayChange(ctx: RequestContext, problem: ProblemRow): boolean {
   const actor = parseActor(ctx.actor);
   if (actor?.kind === "user") return true;

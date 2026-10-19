@@ -4,15 +4,14 @@ import type { PreviewLaunch } from "./model.ts";
 
 const nonce = "n1";
 const root = "/home/u/.lophn";
-const appFolder = `${root}/projects/prj_a/app`;
-const dataPath = `${appFolder}/preview/${nonce}`;
-const live = `${appFolder}/data`;
+const dataPath = `${root}/apps/app_1/preview/${nonce}`;
+const live = `${root}/apps/app_1/data`;
 
-const launch = (args: string[], path = dataPath) =>
+const launch = (args: string[]) =>
   ({
     app: "app_1",
     nonce,
-    dataPath: path,
+    dataPath,
     flags: { args, limits: [] },
   }) as unknown as PreviewLaunch;
 
@@ -31,10 +30,8 @@ Deno.test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰
     ["이름만 같은 옆 폴더", [`--allow-write=${dataPath}x/app.sqlite`], false],
     ["..로 나감", [`--allow-write=${dataPath}/../data/app.sqlite`], false],
     ["운영 data 읽기", [`--allow-read=${live}`], false],
-    ["운영 data file 읽기", [`--allow-read=${live}/app.sqlite`], false],
-    ["앱 폴더 읽기", [`--allow-read=${appFolder}`], false],
-    ["모든 project 읽기", [`--allow-read=${root}/projects`], false],
-    ["bundle 읽기", [`--allow-read=${appFolder}/bundles/x`], true],
+    ["운영 data 위 폴더 읽기", [`--allow-read=${root}/apps`], false],
+    ["bundle 읽기", [`--allow-read=${root}/apps/app_1/bundle`], true],
     ["net", ["--allow-net=example.com"], false],
   ];
   for (const [name, args, ok] of rows) {
@@ -44,9 +41,4 @@ Deno.test("preview flags는 일회용 폴더 안의 쓰기만 받고 그 밖 쓰
       name,
     );
   }
-  // 영역이 `projects/<prj>/app/preview/<nonce>` 모양이 아니면 disposable 영역이 아니다.
-  assertEquals(
-    previewFlagsViolation(launch([], `${root}/apps/app_1/preview/${nonce}`)),
-    "preview data path is not a disposable preview directory",
-  );
 });

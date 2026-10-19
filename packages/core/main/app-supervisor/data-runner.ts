@@ -37,7 +37,7 @@ export function createChildDataRunner(options: {
       if (input.app !== app) {
         return err({ code: "invalid_input", message: "data job is invalid" });
       }
-      const appRoot = appFolder(options.dataRoot, input.project);
+      const appRoot = appFolder(options.dataRoot, app);
       const child = new Deno.Command(options.deno(), {
         clearEnv: true,
         env: {
@@ -51,7 +51,7 @@ export function createChildDataRunner(options: {
           `--config=${REPO}/deno.json`,
           // 그 앱의 폴더만 읽고(bundle 사본·backup) 데이터 영역에만 쓴다.
           `--allow-read=${appRoot},${REPO},${options.denoDir}`,
-          `--allow-write=${appDataFolder(options.dataRoot, input.project)}`,
+          `--allow-write=${appDataFolder(options.dataRoot, app)}`,
           JOB,
           options.dataRoot,
         ],

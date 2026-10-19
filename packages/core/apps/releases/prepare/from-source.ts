@@ -29,7 +29,7 @@ import {
 
 type SourcePrepareInput = {
   dataRoot: string;
-  project: string;
+  app: string;
   sourceRoot: string;
   commit: string;
 };
@@ -232,7 +232,7 @@ export async function prepareFromSource(
   if (!copies.ok) return fail(copies.error.reason);
 
   if (aborted()) return fail("cancelled");
-  const stagingParent = appStagingFolder(input.dataRoot, input.project);
+  const stagingParent = appStagingFolder(input.dataRoot, input.app);
   const staging = `${stagingParent}/${crypto.randomUUID()}`;
   try {
     await Deno.mkdir(staging, { recursive: true });
@@ -321,7 +321,7 @@ export async function prepareFromSource(
 
     return await prepareRelease({
       dataRoot: input.dataRoot,
-      project: input.project,
+      app: input.app,
       sourceRoot: input.sourceRoot,
       commit: input.commit,
       entrypoint: platformEntry.entrypoint,

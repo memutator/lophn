@@ -94,11 +94,10 @@ export function reportCollectorSpec(input: {
     import.meta.url,
   ).pathname;
   // --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은
-  // `projects/<project ID>/app/bundles/<bundle hash>/`의 파일 0444다(releases/bundle/seal.ts),
-  // collector는 ledger를 못 열어 앱의 project를 모른다. 등록 시점 spec은 credential의 bundle_hash로
-  // project 폴더를 훑어 찾도록 `projects` 폴더를 이름 짓는다. 코드는 bundle 사본만 읽고, 쓰기 허락은 비어 있다.
+  // `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444다(releases/bundle/seal.ts),
+  // 등록 시점 spec은 credential의 bundle_hash로 찾는 그 부모 폴더만 이름 짓는다.
   // ledger·blob store는 직접 열지 않는다. FFI는 launchArgv가 플래그를 내지 않는다.
-  const bundles = `${input.dataRoot}/projects`;
+  const bundles = `${input.dataRoot}/apps`;
   const spec: KindLaunchSpec = {
     kind: COLLECTOR_KIND,
     entry,

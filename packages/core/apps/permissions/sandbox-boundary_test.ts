@@ -108,14 +108,14 @@ Deno.test("운영 앱 process는 자기 bundle과 data 폴더 밖, 다른 앱의
   try {
     const tcpPort = (listeners[2].addr as Deno.NetAddr).port;
     const paths = {
-      bundleFile: `${root}/projects/prj_self/app/bundle/main.ts`,
-      dataDir: `${root}/projects/prj_self/app/data`,
-      dataFile: `${root}/projects/prj_self/app/data/own.db`,
-      dataNew: `${root}/projects/prj_self/app/data/new.db`,
-      database: `${root}/projects/prj_self/app/data/app.sqlite`,
-      journal: `${root}/projects/prj_self/app/data/app.sqlite-journal`,
-      sourceFile: `${root}/projects/prj_self/app/source/src/app.ts`,
-      otherDb: `${root}/projects/prj_other/app/data/other.db`,
+      bundleFile: `${root}/apps/self/bundle/main.ts`,
+      dataDir: `${root}/apps/self/data`,
+      dataFile: `${root}/apps/self/data/own.db`,
+      dataNew: `${root}/apps/self/data/new.db`,
+      database: `${root}/apps/self/data/app.sqlite`,
+      journal: `${root}/apps/self/data/app.sqlite-journal`,
+      sourceFile: `${root}/apps/self/source/src/app.ts`,
+      otherDb: `${root}/apps/other/data/other.db`,
       logFile: `${root}/logs/app.log`,
       platformDb: `${root}/platform/ledger.db`,
       platformRoot: `${root}/platform`,
@@ -142,11 +142,11 @@ Deno.test("운영 앱 process는 자기 bundle과 data 폴더 밖, 다른 앱의
     // supervisor가 띄울 때와 같다: appFlags 위에 시작마다 정한 socket flag를 더한다.
     const flags = appFlags(
       [],
-      { bundle: `${root}/projects/prj_self/app/bundle`, data: paths.dataDir },
+      { bundle: `${root}/apps/self/bundle`, data: paths.dataDir },
       { ports: [tcpPort] },
       [
-        `${root}/projects/prj_self/app/source`,
-        `${root}/projects/prj_other/app`,
+        `${root}/apps/self/source`,
+        `${root}/apps/other`,
         `${root}/logs`,
         `${root}/platform`,
         `${root}/home/.ssh`,

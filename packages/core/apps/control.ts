@@ -62,7 +62,6 @@ import {
   type Writer,
 } from "../storage/ledger/mod.ts";
 import { INSTALL_PRINCIPAL } from "./packages/install.ts";
-import { appProjectOf } from "./lookups.ts";
 import { loadApp } from "./registration/mod.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
 import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
@@ -277,7 +276,7 @@ type AppsControlDeps = {
     ): Result<string | undefined>;
     // 준비가 끝난 봉인 bundle 사본의 고정 시험 hash다. 만들 수 없으면 null이다. 시험을 만드는 쪽이 problems라
     // wiring이 넘겨준다.
-    testOf(project: string, bundleHash: string): Promise<string | null>;
+    testOf(app: string, bundleHash: string): Promise<string | null>;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
     platformPorts: () => readonly number[];
   };
@@ -451,7 +450,10 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       },
       area: createFsPreviewArea(deps.previews.dataRoot),
       apps: {
-        projectOf: (app) => Promise.resolve(projectOf(app)),
+        async exists(app) {
+          const found = await facts.app(app);
+          return found.ok ? ok(found.value !== null) : found;
+        },
       },
       authorize: (ctx, operation, target) =>
         createTargetAuthorizer(ctx)(ctx, operation, target),
@@ -461,19 +463,6 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         ledgerPreviewReleases(deps.ledgerPath),
     })
     : undefined;
-
-  // 앱이 묶인 project. 저장 자리(data·bundle 사본·staging·preview)가 project 아래라 경로를 만들기 전에 읽는다.
-  function projectOf(app: string): Result<string | null> {
-    const opened = openConnection(deps.ledgerPath);
-    if (!opened.ok) return internalError();
-    try {
-      return ok(appProjectOf(opened.value.sql, app));
-    } catch {
-      return internalError();
-    } finally {
-      opened.value.close();
-    }
-  }
 
   // release 준비 요청. 범위 밖 앱과 없는 앱, source가 연결되지 않은 앱은 같은 거절이다.
   // 진행은 core가 아니라 supervisor 메모리에 있고 core는 요청 하나씩 전달한다(apps/releases).
@@ -519,15 +508,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           "release status until completed, then app test",
       });
     }
-    let test = given.test;
-    if (test === undefined) {
-      const project = projectOf(app);
-      if (!project.ok) return project;
-      test = project.value === null
-        ? undefined
-        : await deps.activation?.testOf(project.value, bundleHash) ?? undefined;
-    }
-    if (test === undefined) {
+    const test = given.test ?? await deps.activation?.testOf(app, bundleHash);
+    if (test === undefined || test === null) {
       return err({
         code: "unavailable",
         message: "the sealed bundle copy could not be read to derive the test",
@@ -556,14 +538,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         message: "release preparation needs the ticket source",
       });
     }
-    const project = projectOf(body.app);
-    if (!project.ok) return project;
-    if (project.value === null) {
-      return err({ code: "not_found", message: "app not found" });
-    }
     const accepted = await client.releasePrepare({
       app: body.app,
-      project: project.value,
       commit: body.commit,
       request_key: body.request_key,
       source_path: source.value,
@@ -609,17 +585,11 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     if (!read.ok) return read;
     // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 준비가 끝났다고 알리기 전에 core가 봉인한다.
     const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
-    const project = projectOf(body.app);
-    if (!project.ok || project.value === null) return internalError();
     if (
       read.value.status === "completed" && read.value.bundle_hash !== null &&
       dataRoot !== undefined
     ) {
-      const copy = bundleCopyPath(
-        dataRoot,
-        project.value,
-        read.value.bundle_hash,
-      );
+      const copy = bundleCopyPath(dataRoot, body.app, read.value.bundle_hash);
       if (!copy.ok) return internalError();
       const sealed = await sealCopy(copy.value);
       if (!sealed.ok) {
@@ -633,9 +603,9 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     if (finalized.ok) {
       // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다). `app test`가 쓸 고정 시험 hash도
       // 준비가 끝났을 때 준다: coding agent는 이 값을 스스로 만들 수 없다.
-      const { bundle_hash: bundleHash } = read.value;
+      const { app, bundle_hash: bundleHash } = read.value;
       const test = read.value.status === "completed" && bundleHash !== null
-        ? await deps.activation?.testOf(project.value, bundleHash) ?? null
+        ? await deps.activation?.testOf(app, bundleHash) ?? null
         : null;
       return ok({ ...read.value, release: releaseIdOf(read.value), test });
     }

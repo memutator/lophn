@@ -9,7 +9,6 @@ import {
   type ProblemsReport,
 } from "../../apps/permissions/mod.ts";
 import {
-  appFolderOfPreview,
   createPreviewBrokerServices,
   type PreviewScope,
   previewScopeOf,
@@ -18,18 +17,20 @@ import {
 // 선언을 읽지 못하면 아무 외부도 허락하지 않는다(대역도 선언 안에서만 받는다).
 const CLOSED_SCOPE: PreviewScope = { secrets: [], net: [] };
 
-// preview의 disposable 영역은 `<data root>/projects/<prj>/app/preview/<nonce>`이고 고정 bundle 사본은
-// `<data root>/projects/<prj>/app/bundles/<bundle hash>/`다(apps/releases bundle 사본 위치 규칙).
+// preview의 disposable 영역은 `<data root>/apps/<app>/preview/<nonce>`이고 고정 bundle 사본은
+// `<data root>/apps/<app>/bundles/<bundle hash>/`다(apps/releases bundle 사본 위치 규칙).
 export async function previewScopeFromBundle(info: {
   app: string;
   bundleHash: string;
   dataPath: string;
 }): Promise<PreviewScope> {
-  const folder = appFolderOfPreview(info.dataPath);
-  if (folder === undefined) return CLOSED_SCOPE;
+  const marker = `/apps/${info.app}/preview/`;
+  const at = info.dataPath.indexOf(marker);
+  if (at < 0) return CLOSED_SCOPE;
+  const root = info.dataPath.slice(0, at);
   try {
     const text = await Deno.readTextFile(
-      `${folder}/bundles/${info.bundleHash}/blueprint.json`,
+      `${root}/apps/${info.app}/bundles/${info.bundleHash}/blueprint.json`,
     );
     const blueprint = JSON.parse(text) as { permissions?: unknown };
     if (!Array.isArray(blueprint.permissions)) return CLOSED_SCOPE;

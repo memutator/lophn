@@ -58,7 +58,7 @@ export type PreviewBundle = {
 
 export interface PreviewBundles {
   open(
-    owner: { app: string; project: string },
+    app: string,
     bundleHash: string,
   ): Promise<Result<PreviewBundle | undefined>>;
 }
@@ -76,8 +76,7 @@ type PreviewServiceDeps = {
   nonce: () => string;
   supervisor: PreviewSupervisor;
   area: PreviewArea;
-  // 앱이 묶인 project. 앱이 없으면 null이다. preview 영역과 bundle 사본이 project 아래에 있다.
-  apps: { projectOf(app: string): Promise<Result<string | null>> };
+  apps: { exists(app: string): Promise<Result<boolean>> };
   // 요청 credential이 operation과 앱 대상에 닿는지 본다.
   authorize(
     ctx: AuthenticatedContext,
@@ -165,19 +164,14 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
   // 이 service가 시작한 살아 있는 preview. 앱마다 하나다.
   const live = new Map<
     string,
-    {
-      nonce: string;
-      project: string;
-      tools: readonly ToolDeclaration[];
-      bundle_hash: string;
-    }
+    { nonce: string; tools: readonly ToolDeclaration[]; bundle_hash: string }
   >();
 
   async function gate(
     ctx: AuthenticatedContext,
     operation: string,
     app: string,
-  ): Promise<Result<string>> {
+  ): Promise<Result<void>> {
     const kind = actorKind(ctx.actor);
     if (kind !== "user" && kind !== "coding_agent") {
       return err({
@@ -192,25 +186,20 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         ? notFound()
         : allowed;
     }
-    const found = await deps.apps.projectOf(app);
+    const found = await deps.apps.exists(app);
     if (!found.ok) return found;
-    return found.value === null ? notFound() : ok(found.value);
+    return found.value ? ok(undefined) : notFound();
   }
 
-  async function forget(
-    app: string,
-    project: string,
-    nonce: string,
-  ): Promise<void> {
+  async function forget(app: string, nonce: string): Promise<void> {
     if (live.get(app)?.nonce === nonce) live.delete(app);
-    await deps.area.discard(project, nonce);
+    await deps.area.discard(app, nonce);
   }
 
   return {
     async start(ctx, { input }) {
       const gated = await gate(ctx, "previews.start", input.app);
       if (!gated.ok) return gated;
-      const project = gated.value;
       if (deps.bundles === undefined) {
         return unavailable("preview bundles are not attached");
       }
@@ -229,10 +218,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
           });
         }
       }
-      const opened = await deps.bundles.open(
-        { app: input.app, project },
-        input.bundle_hash,
-      );
+      const opened = await deps.bundles.open(input.app, input.bundle_hash);
       if (!opened.ok) return opened;
       const bundle = opened.value;
       if (bundle === undefined) return notFound();
@@ -252,18 +238,18 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       if (previous !== undefined) {
         const stopped = await deps.supervisor.stop(input.app, previous.nonce);
         if (!stopped.ok) return stopped;
-        await forget(input.app, project, previous.nonce);
+        await forget(input.app, previous.nonce);
       }
       const nonce = deps.nonce();
       if (!validNonce(nonce)) {
         return err({ code: "internal", message: "preview nonce is invalid" });
       }
-      const created = await deps.area.create(project, nonce, fixture);
+      const created = await deps.area.create(input.app, nonce, fixture);
       if (!created.ok) return created;
       const dataPath = created.value;
       const flags = bundle.flags(dataPath);
       if (!flags.ok) {
-        await deps.area.discard(project, nonce);
+        await deps.area.discard(input.app, nonce);
         return flags;
       }
       const launch: PreviewLaunch = {
@@ -284,12 +270,11 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       };
       const started = await deps.supervisor.start(launch);
       if (!started.ok) {
-        await deps.area.discard(project, nonce);
+        await deps.area.discard(input.app, nonce);
         return started;
       }
       live.set(input.app, {
         nonce,
-        project,
         tools: bundle.tools,
         bundle_hash: input.bundle_hash,
       });
@@ -298,7 +283,6 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     async get(ctx, input) {
       const gated = await gate(ctx, "previews.get", input.app);
       if (!gated.ok) return gated;
-      const project = gated.value;
       const nonce = input.process_nonce ?? live.get(input.app)?.nonce;
       if (nonce === undefined || live.get(input.app)?.nonce !== nonce) {
         return ok({ observation: null, observed_at: null });
@@ -307,7 +291,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       if (!observed.ok) return observed;
       if (observed.value === null) {
         // supervisor가 모르는 preview(재시작)다. 영역도 이어 쓸 수 없다.
-        await forget(input.app, project, nonce);
+        await forget(input.app, nonce);
         return ok({ observation: null, observed_at: null });
       }
       return ok({
@@ -318,7 +302,6 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     async stop(ctx, input) {
       const gated = await gate(ctx, "previews.stop", input.app);
       if (!gated.ok) return gated;
-      const project = gated.value;
       if (live.get(input.app)?.nonce !== input.process_nonce) {
         return notFound();
       }
@@ -328,7 +311,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       );
       // 종료를 확인하지 못하면 영역을 지우지 않는다(자식이 아직 쓸 수 있다).
       if (!stopped.ok) return stopped;
-      await forget(input.app, project, input.process_nonce);
+      await forget(input.app, input.process_nonce);
       return ok({ stopped: true });
     },
     discardStale: () => deps.area.discardAll(),
@@ -338,7 +321,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       const observed = await deps.supervisor.observe(app, entry.nonce);
       if (!observed.ok) return observed;
       if (observed.value === null) {
-        await forget(app, entry.project, entry.nonce);
+        await forget(app, entry.nonce);
         return ok(null);
       }
       return ok({

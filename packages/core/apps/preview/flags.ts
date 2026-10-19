@@ -1,6 +1,6 @@
 // preview 자식의 Deno flag 판정. supervisor 쪽(launcher)이 시작 전에 쓴다.
 import { flagsAccepted } from "../runtime/mod.ts";
-import { appFolderOfPreview, type PreviewLaunch } from "./model.ts";
+import type { PreviewLaunch } from "./model.ts";
 
 function inside(path: string, parent: string): boolean {
   return path === parent || path.startsWith(`${parent}/`);
@@ -11,17 +11,15 @@ function listOf(flag: string): string[] {
   return at < 0 ? [] : flag.slice(at + 1).split(",").filter((v) => v !== "");
 }
 
-// 운영 data 자리: `.../projects/<prj>/app/preview/<nonce>` 옆의 `.../projects/<prj>/app/data`다.
+// 운영 data 자리: `.../apps/<app>/preview/<nonce>` 옆의 `.../apps/<app>/data`다.
 // preview 입력의 dataPath가 이 모양이 아니면 disposable 영역이 아니다.
 function liveDataOf(
-  launch: Pick<PreviewLaunch, "nonce" | "dataPath">,
+  launch: Pick<PreviewLaunch, "app" | "nonce" | "dataPath">,
 ): string | undefined {
-  const folder = appFolderOfPreview(launch.dataPath);
-  if (
-    folder === undefined ||
-    !launch.dataPath.endsWith(`/preview/${launch.nonce}`)
-  ) return undefined;
-  return `${folder}/data`;
+  const suffix = `/apps/${launch.app}/preview/${launch.nonce}`;
+  if (!launch.dataPath.endsWith(suffix)) return undefined;
+  const root = launch.dataPath.slice(0, -suffix.length);
+  return `${root}/apps/${launch.app}/data`;
 }
 
 // preview 자식의 Deno flag가 disposable 영역 밖을 쓰지 못하는지 본다. 두 socket과 가상 host의

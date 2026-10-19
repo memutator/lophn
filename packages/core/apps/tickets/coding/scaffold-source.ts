@@ -78,7 +78,7 @@ async function scaffold(
   target: ScaffoldTarget,
   dataRoot: string,
 ): Promise<Result<string>> {
-  const dir = appDefaultSource(dataRoot, target.project);
+  const dir = appDefaultSource(dataRoot, target.id);
   try {
     if (await exists(dir)) {
       const head = await git(dir, "rev-parse", "--verify", "HEAD");

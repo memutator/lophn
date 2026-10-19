@@ -1,14 +1,15 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 
-// Linux 데이터 root·runtime 제어 폴더는 0700보다 넓으면 기동을 거절한다.
+// Linux 데이터 root·관리 앱 폴더·runtime 제어 폴더는 0700보다 넓으면 기동을 거절한다.
 // 다른 OS의 동등 ACL 검사는 아직 실측이 없다.
 const OWNER_ONLY = 0o700;
-const MANAGED = ["run"] as const;
+const MANAGED = ["apps", "run"] as const;
 
 export type DataRoot = {
   // 소유자·symlink를 확인한 정규 경로 하나. 이후 모든 위치는 이 경로 기준이다.
   path: string;
   run: string;
+  apps: string;
 };
 
 function refused(): Result<never> {
@@ -83,5 +84,5 @@ export async function resolveDataRoot(
   for (const name of MANAGED) {
     if (!await ensure(`${real}/${name}`, uid)) return refused();
   }
-  return ok({ path: real, run: `${real}/run` });
+  return ok({ path: real, run: `${real}/run`, apps: `${real}/apps` });
 }

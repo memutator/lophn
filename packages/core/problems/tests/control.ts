@@ -19,7 +19,6 @@ import {
 } from "../../../protocol/problems/mod.ts";
 import type { OperationPolicy } from "../../server/identity/mod.ts";
 import type { CredentialIssue } from "../../server/identity/mod.ts";
-import { appProjectOf } from "../../apps/lookups.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
 import {
   listOpenTestRequests,
@@ -206,16 +205,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     }
   }
 
-  // 앱이 묶인 project. bundle 사본이 project 아래라 runner가 경로를 만들 때 쓴다. open()이 연 연결을 쓴다.
-  function projectOf(app: string): string | null {
-    if (connection === undefined || !connection.ok) return null;
-    try {
-      return appProjectOf(connection.value.sql, app);
-    } catch {
-      return null;
-    }
-  }
-
   // examples 요청이면 같은 bundle app test가 증명 못 한 write tool을 읽어 runner에 넘긴다. runner가 이
   // examples가 증명한 것을 빼고 남은 것을 보고한다.
   function unprovenOf(
@@ -307,7 +296,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
         request_key: request.request_key,
         request_hash: request.request_hash,
         app: request.app,
-        project: projectOf(request.app),
         connection: request.payload,
         credential: token,
         api_port: deps.apiPort,
@@ -353,7 +341,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
           request_key: request.request_key,
           request_hash: request.request_hash,
           app: request.app,
-          project: projectOf(request.app),
           connection: request.payload,
           credential: token,
           api_port: deps.apiPort,

@@ -57,8 +57,6 @@ type JobCommon = {
   request_key: string;
   request_hash: string;
   app: string;
-  // 앱이 묶인 project. bundle 사본 위치가 project 아래다. 모르면 null이고 시험을 만들 수 없다.
-  project: string | null;
   // 접수 기록의 연결(kind·app·target·test와 요청 timeout 등)이다.
   connection: TestConnection;
   // 이 요청에만 닿는 runner machine credential이다.
@@ -199,19 +197,6 @@ function deriveOptions(connection: TestConnection) {
   return connection.kind === "examples" && connection.examples
     ? { examples: connection.examples }
     : {};
-}
-
-function bundleCopyOf(
-  root: string,
-  project: string | null,
-  bundleHash: string,
-): string | null {
-  if (project === null) return null;
-  try {
-    return appBundleCopy(root, project, bundleHash);
-  } catch {
-    return null;
-  }
 }
 
 function proofOf(
@@ -381,14 +366,7 @@ async function runRequest(
     return await unrunnable(`알 수 없는 kind의 요청이다: ${connection.kind}`);
   }
   const root = options.root ?? Deno.env.get("LOPHN_HOME") ?? "";
-  const bundle = bundleCopyOf(
-    root,
-    job.project,
-    connection.target.bundle_hash,
-  );
-  if (bundle === null) {
-    return await unrunnable("앱의 project나 bundle 사본 위치를 알 수 없다");
-  }
+  const bundle = appBundleCopy(root, job.app, connection.target.bundle_hash);
   const derived = await deriveAppTest(
     bundle,
     connection.target.bundle_hash,
@@ -640,16 +618,12 @@ async function recoverRequest(
   }
   const bundleHash = job.connection.target.bundle_hash;
   const root = options.root ?? Deno.env.get("LOPHN_HOME") ?? "";
-  const bundle = bundleCopyOf(root, job.project, bundleHash);
-  const derived = bundle === null ? null : await deriveAppTest(
-    bundle,
+  const derived = await deriveAppTest(
+    appBundleCopy(root, job.app, bundleHash),
     bundleHash,
     deriveOptions(job.connection),
   );
-  if (
-    derived === null || !derived.ok ||
-    derived.value.test_hash !== job.connection.test
-  ) {
+  if (!derived.ok || derived.value.test_hash !== job.connection.test) {
     return {
       state: "started_unrecorded",
       reason:

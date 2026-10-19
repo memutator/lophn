@@ -137,8 +137,8 @@ export const appsWiring: WiringFactory = () => {
             ctx.writer.command(context as never, envelope as never),
           machine,
           findPassedAppTest,
-          testOf: async (project, bundleHash) => {
-            const copy = bundleCopyPath(ctx.root.path, project, bundleHash);
+          testOf: async (app, bundleHash) => {
+            const copy = bundleCopyPath(ctx.root.path, app, bundleHash);
             if (!copy.ok) return null;
             const derived = await deriveAppTest(copy.value, bundleHash);
             return derived.ok ? derived.value.test_hash : null;

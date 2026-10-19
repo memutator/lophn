@@ -1,5 +1,5 @@
 // process stack의 앱 source frame 위치 찾기. 당시 release의
-// 읽기 전용 준비 폴더(`projects/<project>/app/bundles/<hash>/`)의 source map으로 원래
+// 읽기 전용 준비 폴더(`apps/<app>/bundles/<hash>/`)의 source map으로 원래
 // 상대 path를 찾는다. 준비 폴더 밖 path·symlink는 읽지 않고 이유를 남긴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 

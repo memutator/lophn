@@ -3,7 +3,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readBundleCopy } from "../activation/desired.ts";
-import { appProjectOf } from "../../lookups.ts";
 import { loadRelease } from "../store.ts";
 import { RUNTIME_CONFIG_PATH, RUNTIME_ENTRY_PATH } from "./runtime-entry.ts";
 
@@ -26,12 +25,12 @@ type ReleaseBundleSource =
 
 type Deps = { ledgerPath: string; dataRoot: string };
 
-// 앱의 release가 아니면 not_found다. 사본은 앱이 묶인 project 아래에 있어 project도 같이 읽는다.
+// 앱의 release가 아니면 not_found다.
 function bundleOf(
   deps: Deps,
   app: string,
   release: string,
-): Result<{ hash: string; project: string }> {
+): Result<string> {
   const opened = openConnection(deps.ledgerPath);
   if (!opened.ok) {
     return err({ code: "unavailable", message: "ledger is unavailable" });
@@ -42,11 +41,7 @@ function bundleOf(
     if (found.value === null || found.value.app !== app) {
       return err({ code: "not_found", message: "release not found" });
     }
-    const project = appProjectOf(opened.value.sql, app);
-    if (project === null) {
-      return err({ code: "not_found", message: "release not found" });
-    }
-    return ok({ hash: found.value.bundle_hash, project });
+    return ok(found.value.bundle_hash);
   } finally {
     opened.value.close();
   }
@@ -58,13 +53,9 @@ export function createReleaseSourceReader(deps: Deps) {
       app: string,
       release: string,
     ): Promise<Result<ReleaseBundleSource>> {
-      const bundle = bundleOf(deps, app, release);
-      if (!bundle.ok) return bundle;
-      const copy = await readBundleCopy(
-        deps.dataRoot,
-        { app, project: bundle.value.project },
-        bundle.value.hash,
-      );
+      const hash = bundleOf(deps, app, release);
+      if (!hash.ok) return hash;
+      const copy = await readBundleCopy(deps.dataRoot, app, hash.value);
       if (!copy.ok) {
         return ok({ preserved: false, reason: "bundle unreadable" });
       }

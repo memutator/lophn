@@ -32,7 +32,6 @@ import { loadApp } from "./registration/mod.ts";
 import type { PreviewService } from "./preview/mod.ts";
 import { loadActiveBlueprint, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
-import { appProjectOf } from "./lookups.ts";
 import { bundleCopyPath } from "./releases/mod.ts";
 import { createAppRewindCommand } from "./rewind/mod.ts";
 import { type ScreenFileDeps, serveScreenFile } from "./screens/mod.ts";
@@ -256,9 +255,7 @@ export function bundleLocatorOf(
       const release = loadRelease(sql, wanted);
       if (!release.ok) return release;
       if (release.value === null || release.value.app !== app) return missing();
-      const project = appProjectOf(sql, app);
-      if (project === null) return missing();
-      const path = bundleCopyPath(dataRoot, project, release.value.bundle_hash);
+      const path = bundleCopyPath(dataRoot, app, release.value.bundle_hash);
       return path.ok ? ok(path.value) : missing();
     },
   };

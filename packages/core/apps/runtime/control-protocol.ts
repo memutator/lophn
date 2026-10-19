@@ -10,7 +10,6 @@ import {
   processCallResponseSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { errorBodySchema } from "../../../protocol/base/mod.ts";
-import { projectIdSchema } from "../../../protocol/projects/mod.ts";
 import { LIMIT_KEYS } from "../permissions/mod.ts";
 
 export const SUPERVISOR_OPS = {
@@ -161,8 +160,6 @@ export const releasePrepareInputSchema = z.strictObject({
   app: appId,
   commit: z.string().regex(/^[0-9a-f]{40}$/),
   request_key: requestKey,
-  // 앱이 묶인 project. 준비 자식이 쓰는 앱 폴더(`projects/<project>/app`)를 정한다.
-  project: projectIdSchema,
   // 연결된 source 경계. core가 앱 등록에서 읽는다.
   source_path: z.string().min(1),
 });

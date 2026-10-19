@@ -138,7 +138,7 @@ function renameTables(appName: string): Around {
   return async (core) => {
     const app = await findApp(core, appName);
     const db = new DatabaseSync(
-      `${appDataFolder(core.run.home, app.project)}/app.sqlite`,
+      `${appDataFolder(core.run.home, app.id)}/app.sqlite`,
     );
     try {
       db.exec("PRAGMA busy_timeout = 5000");

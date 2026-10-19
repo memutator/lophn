@@ -9,7 +9,7 @@ import {
   type Result,
   sha256Hex,
 } from "../../../../base/mod.ts";
-import { appBundleCopy, appInvocation } from "../../../../protocol/apps/mod.ts";
+import { appInvocation } from "../../../../protocol/apps/mod.ts";
 import { routePath } from "../../../../protocol/base/route.ts";
 import type { WorkerRequest } from "../../../../protocol/supervision/mod.ts";
 import {
@@ -810,7 +810,7 @@ async function acceptObserved(options: {
       blobPrepare: {
         prepare: (input, bytes) => prepareViaStream(session, input, bytes),
       },
-      folder: { bundleCopy: collectorBundleCopy },
+      folder: { appsRoot: collectorAppsRoot() },
       nowAt: atNow(),
       principal: "collector",
       // 로그는 credential의 앱 것만 묻는다. 수집 설정은 새 수집만 멈춘다.
@@ -962,30 +962,16 @@ async function acceptSubmitFeedback(
   );
 }
 
-// collector의 준비 폴더 출처. collector는 ledger를 열지 못해 앱의 project를 모른다. 그래서
-// `<LOPHN_HOME>/projects/*/app/bundles/<hash>`를 찾는다. 같은 hash가 둘 이상이면 어느 쪽인지 알 수
-// 없어 null이다. env가 없거나 hash 모양이 아니어도 null이다.
-async function collectorBundleCopy(bundleHash: string): Promise<string | null> {
-  let home: string | undefined;
+// collector의 준비 폴더 출처. bundleCopyPath가 `apps/<app>/bundles/<hash>`를 붙이므로
+// 여기 값은 LOPHN_HOME이다. env가 없으면 null이다.
+function collectorAppsRoot(): string | null {
   try {
-    home = Deno.env.get("LOPHN_HOME");
+    const home = Deno.env.get("LOPHN_HOME");
+    if (home === undefined || !home.startsWith("/")) return null;
+    return home;
   } catch {
     return null;
   }
-  if (home === undefined || !home.startsWith("/")) return null;
-  if (!/^[0-9a-f]{64}$/.test(bundleHash)) return null;
-  const found: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(`${home}/projects`)) {
-      const copy = appBundleCopy(home, entry.name, bundleHash);
-      try {
-        if ((await Deno.stat(copy)).isDirectory) found.push(copy);
-      } catch { /* project id가 아닌 폴더이거나 사본이 없다 */ }
-    }
-  } catch {
-    return null;
-  }
-  return found.length === 1 ? found[0]! : null;
 }
 
 // blob 준비를 stream으로 받는 platform blob prepare 모양. 바이트를 모아 크기를

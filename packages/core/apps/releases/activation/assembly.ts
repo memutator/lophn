@@ -51,7 +51,6 @@ import type {
 import type { Bus } from "../../../events/ports.ts";
 
 import { openConnection } from "../../../storage/ledger/mod.ts";
-import { appProjectOf } from "../../lookups.ts";
 import { loadApps } from "../../registration/mod.ts";
 import {
   credentialRoots,
@@ -186,14 +185,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       opened.value.close();
     }
   }
-  // 앱이 묶인 project. 앱의 저장 자리가 project 아래라 경로를 만들기 전에 읽는다.
-  function projectOf(app: string): Result<string> {
-    const found = withLedger((sql) => appProjectOf(sql, app));
-    if (!found.ok) return found;
-    return found.value === null
-      ? unavailable("app is unavailable")
-      : ok(found.value);
-  }
   async function grantsOf(app: string): Promise<Result<readonly AppGrant[]>> {
     return await deps.facts.grants(app);
   }
@@ -225,7 +216,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     const roots = protectedRoots(
       home,
       deps.dataRoot,
-      [`${deps.dataRoot}/projects`],
+      [`${deps.dataRoot}/apps`],
       stored.value.sources.value.flatMap((entry) =>
         entry.source_path === null ? [] : [entry.source_path]
       ),
@@ -270,18 +261,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!row.ok) return row;
     if (row.value === undefined) return unavailable("release is unavailable");
     const bundleHash = String(row.value.bundle_hash);
-    const project = projectOf(app);
-    if (!project.ok) return project;
-    const copy = await readBundleCopy(
-      deps.dataRoot,
-      { app, project: project.value },
-      bundleHash,
-    );
+    const copy = await readBundleCopy(deps.dataRoot, app, bundleHash);
     if (!copy.ok) return copy;
     if (copy.value === undefined) return unavailable("bundle copy is missing");
     const requirements = await requirementsOf(app, release);
     if (!requirements.ok) return requirements;
-    const dataPath = appDataFolder(deps.dataRoot, project.value);
+    const dataPath = appDataFolder(deps.dataRoot, app);
     try {
       await Deno.mkdir(dataPath, { recursive: true });
     } catch {
@@ -403,12 +388,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
   ): Promise<
     Result<{ result: ActivationDataResult; backup_hash?: string }>
   > {
-    const project = projectOf(attempt.app);
-    if (!project.ok) return project;
     const line = encodeActivationDataJobInput({
       kind,
       app: attempt.app,
-      project: project.value,
       release: attempt.release,
       attempt: attempt.attempt,
       data_path: "app.sqlite",
@@ -513,13 +495,11 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         // backup byte를 보호 blob으로 보존한다. 준비 주체는 record_backup을 내는 자격과 같다.
         const ctx = machine();
         if (!ctx.ok) return ctx;
-        const project = projectOf(attempt.app);
-        if (!project.ok) return project;
         let file: Deno.FsFile;
         try {
           file = await Deno.open(
             `${
-              appDataFolder(deps.dataRoot, project.value)
+              appDataFolder(deps.dataRoot, attempt.app)
             }/backups/backup-${attempt.attempt}`,
           );
         } catch {
@@ -544,12 +524,10 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         });
       },
       async migrate(attempt, invocation) {
-        const project = projectOf(attempt.app);
-        if (!project.ok) return project;
         const done = await job(attempt, "migrate", {
           bundle_path: appBundleCopy(
             deps.dataRoot,
-            project.value,
+            attempt.app,
             attempt.bundleHash,
           ),
           data_changes: attempt.dataChanges,

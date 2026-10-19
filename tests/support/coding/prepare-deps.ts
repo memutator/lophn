@@ -121,8 +121,8 @@ try {
   }
   const prepared = await prepareFromSource({
     dataRoot,
-    project: createIdSource({ clock: systemClock, random: cryptoRandom }).newId(
-      "prj",
+    app: createIdSource({ clock: systemClock, random: cryptoRandom }).newId(
+      "app",
     ),
     sourceRoot,
     commit,

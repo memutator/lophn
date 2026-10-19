@@ -19,7 +19,7 @@ export type PreviewLaunch = {
   flags: { args: string[]; limits: LimitKey[] };
   entry: string;
   importMap: string;
-  // disposable 영역. `projects/<project ID>/app/preview/<nonce>`다. supervisor는 이 경로에서 project를 읽는다.
+  // disposable 영역. `apps/<app ID>/preview/<nonce>`다.
   dataPath: string;
 };
 
@@ -47,14 +47,6 @@ export const PREVIEW_STARTING: RuntimeReason = {
   code: "starting",
   summary: "the preview process has not passed its readiness check",
 };
-
-// preview 영역 경로(`<data>/projects/<project>/app/preview/<nonce>`)에서 앱 폴더(`.../app`)를 읽는다.
-// 이 모양이 아니면 disposable 영역이 아니라 undefined다. 운영 data·bundle 사본은 이 앱 폴더 아래에 있다.
-export function appFolderOfPreview(dataPath: string): string | undefined {
-  return /^(.*\/projects\/[A-Za-z0-9_-]+\/app)\/preview\/[^/]+$/.exec(
-    dataPath,
-  )?.[1];
-}
 
 // runtime/control-protocol의 previewNonceSchema와 같은 규칙이다(경로에 들어가므로 `/`·`.`이 없다).
 const NONCE = /^[0-9A-Za-z-]{8,64}$/;

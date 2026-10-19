@@ -7,7 +7,6 @@ import { releasePrepare } from "../../../protocol/apps/mod.ts";
 import type { RequestContext, Sql } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { dataChangesOf, readBundleCopy } from "./activation/desired.ts";
-import { appProjectOf } from "../lookups.ts";
 import { openConnection } from "../../storage/ledger/mod.ts";
 import type { PreparationSnapshot } from "./preparation.ts";
 
@@ -86,19 +85,6 @@ export function createReleaseFinalizer(
     }
   }
 
-  function projectOf(app: string): Result<string> {
-    const opened = openConnection(deps.ledgerPath);
-    if (!opened.ok) return unavailable("ledger is unavailable");
-    try {
-      const project = appProjectOf(opened.value.sql, app);
-      return project === null ? unavailable("app is unavailable") : ok(project);
-    } catch {
-      return unavailable("ledger is unavailable");
-    } finally {
-      opened.value.close();
-    }
-  }
-
   function passedTest(
     app: string,
     bundleHash: string,
@@ -129,11 +115,9 @@ export function createReleaseFinalizer(
     const test = passedTest(snapshot.app, snapshot.bundle_hash);
     if (!test.ok) return test;
     if (test.value === undefined) return ok(undefined);
-    const project = projectOf(snapshot.app);
-    if (!project.ok) return project;
     const copy = await readBundleCopy(
       deps.dataRoot,
-      { app: snapshot.app, project: project.value },
+      snapshot.app,
       snapshot.bundle_hash,
     );
     if (!copy.ok) return copy;

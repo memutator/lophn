@@ -3,7 +3,6 @@
 export { createPreviewLauncher, type PreviewLauncher } from "./launcher.ts";
 export { previewFlagsViolation } from "./flags.ts";
 export {
-  appFolderOfPreview,
   PREVIEW_STARTING,
   PREVIEW_UNAVAILABLE,
   type PreviewLaunch,

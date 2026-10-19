@@ -308,7 +308,7 @@ async function startAgentRuntime(input: {
             child,
             crashDiagnostic({
               component: "lophn-agent/runtime",
-              location: CRASH_LOCATIONS.agentRuntime,
+              location: CRASH_LOCATIONS.agentRuntimeTurnStart,
               at: systemClock.now(),
             }),
           );

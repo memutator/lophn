@@ -4,6 +4,7 @@ import type { Diagnostic } from "../../protocol/supervision/mod.ts";
 export const CRASH_LOCATIONS = {
   daemon: "daemon-crash",
   agentRuntime: "agent-runtime-crash",
+  agentRuntimeTurnStart: "agent-runtime-turn-start",
   appSupervisor: "app-supervisor-crash",
   shellMain: "shell-main-crash",
 } as const;
@@ -13,6 +14,8 @@ export const CRASH_LOCATIONS = {
 export const CRASH_LOCATION_NAMES: Readonly<Record<string, string>> = {
   [CRASH_LOCATIONS.daemon]: "packages/core/main/daemon/wiring/diagnostics.ts",
   [CRASH_LOCATIONS.agentRuntime]: "packages/core/main/agent-runtime/main.ts",
+  [CRASH_LOCATIONS.agentRuntimeTurnStart]:
+    "packages/core/main/agent-runtime/product-driver.ts",
   [CRASH_LOCATIONS.appSupervisor]: "packages/core/main/app-supervisor/main.ts",
   [CRASH_LOCATIONS.shellMain]: "packages/shell/main/desktop/wiring/crash.ts",
 };

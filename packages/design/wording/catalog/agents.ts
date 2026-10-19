@@ -117,8 +117,11 @@ export const agents = {
     "Overrides {layer, select, project {project} other {Workspace}}",
   "agents.label.no-model-chosen": "No model chosen yet",
   "agents.label.place": "Place",
+  "agents.label.place-choice":
+    "{name} ({kind, select, app {app} other {project}})",
   "agents.label.place-lophn": "All of lophn",
   "agents.label.place-named": "{name} \u00b7 project",
+  "agents.label.place-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
   "agents.label.role-project-manager": "Project Manager",
   "agents.label.tab-definition": "Definition",
@@ -127,6 +130,8 @@ export const agents = {
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.grants-after-create":
     "You can assign apps and tools in the Grants tab once the Operator exists.",
+  "agents.notice.app-no-project":
+    "An app has no project instructions. Only the instructions below apply here.",
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
   "agents.notice.grants-defaults-help":
     "These are the starting values. You can change any app-api or tool below. A new release's app-apis start with the default again; what you changed stays.",
@@ -145,7 +150,7 @@ export const agents = {
   "agents.notice.name-fixed-lophn":
     "There is one lophn for everything. The name can't be changed.",
   "agents.notice.name-fixed-role":
-    "Every project has one {role}. The name can't be changed.",
+    "Every {owner, select, app {app} other {project}} has one {role}. The name can't be changed.",
   "agents.notice.place-help":
     "Where this Operator works. Its sessions open in that place.",
   "agents.notice.profile-help":
@@ -217,6 +222,7 @@ export const agents = {
   "project-workspace.label.instructions-shared":
     "Shared by every agent in {project}",
   "project-workspace.label.open-agent-named": "Open {name}",
+  "project-workspace.label.role-app-engineer": "App Engineer",
   "project-workspace.label.role-lophn": "lophn",
   "project-workspace.label.role-operators": "Operators",
   "project-workspace.notice.agent-editor-delete-body":

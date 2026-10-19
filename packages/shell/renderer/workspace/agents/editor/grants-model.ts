@@ -17,15 +17,16 @@ type ToolEntry = Extract<AgentGrantEntry, { kind: "mcp_tool" }>;
 type AgentEntry = Extract<AgentGrantEntry, { kind: "agent" }>;
 
 /**
- * 붙일 수 있는 앱 목록. 다른 project의 앱은 public tool만 남기고, 남은 tool이 없는 앱은 뺀다(place가 null인
- * lophn은 모든 앱이 다른 project다). 이미 붙은 entry는 건드리지 않는다: 실행 때 목록에서 빠질 뿐이다.
+ * 붙일 수 있는 앱 목록. agent가 놓인 앱(place가 그 앱 id)은 모든 tool을, 다른 앱은 public tool만 남기고, 남은 tool이
+ * 없는 앱은 뺀다(project place와 place가 null인 lophn은 모든 앱이 다른 앱이다). 이미 붙은 entry는 건드리지 않는다:
+ * 실행 때 목록에서 빠질 뿐이다.
  */
 export function appsFor(
   apps: readonly GrantApp[],
   place: string | null,
 ): GrantApp[] {
   return apps.flatMap((app) => {
-    if (app.project === place) return [app];
+    if (app.app === place) return [app];
     const apis = app.apis.filter((api) => api.public);
     return apis.length === 0 ? [] : [{ ...app, apis }];
   });

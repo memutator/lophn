@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { AgentsPage } from "../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import { AgentEditor } from "../../../../packages/shell/renderer/workspace/agents/editor/agent-editor.tsx";
 import {
+  APP_ID,
+  APP_NAME,
   createFakeAgentsSource,
   FAKE_AGENTS,
   type FakeAgentsOptions,
@@ -66,12 +68,13 @@ export function OperatorEditor(
 ) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
+  const inApp = FAKE_AGENTS.find((agent) => agent.key === id)?.place === "app";
   return (
     <div>
       <AgentEditor
         source={source}
-        project={PROJECT_ID}
-        projectName={PROJECT_NAME}
+        project={inApp ? APP_ID : PROJECT_ID}
+        projectName={inApp ? APP_NAME : PROJECT_NAME}
         agent={id === "new" ? null : id}
         onDone={onDone}
         onChanged={noop}

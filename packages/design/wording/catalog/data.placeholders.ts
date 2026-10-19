@@ -54,7 +54,9 @@ export type DataPlaceholders = {
   "waiting.button.open-session": Record<never, never>;
   "waiting.label.activation-first": Record<never, never>;
   "waiting.label.activation-new": Record<never, never>;
+  "waiting.label.agent-app-engineer": Record<never, never>;
   "waiting.label.agent-coding": Record<never, never>;
+  "waiting.label.agent-domain-owner": Record<never, never>;
   "waiting.label.agent-lophn": Record<never, never>;
   "waiting.label.agent-operator": Record<never, never>;
   "waiting.label.agent-project-manager": Record<never, never>;

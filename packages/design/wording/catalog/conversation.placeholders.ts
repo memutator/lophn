@@ -277,6 +277,7 @@ export type ConversationPlaceholders = {
     event: "string";
   };
   "conversation.label.sender-reaction-unknown": Record<never, never>;
+  "conversation.label.sender-role-app-engineer": Record<never, never>;
   "conversation.label.sender-role-lophn": Record<never, never>;
   "conversation.label.sender-role-operator": Record<never, never>;
   "conversation.label.sender-role-project-manager": Record<never, never>;

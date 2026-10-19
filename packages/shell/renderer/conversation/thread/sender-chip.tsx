@@ -20,7 +20,7 @@ import styles from "./thread.module.css";
 const ROLE_LABEL: Record<AgentRole, MessageKey> = {
   lophn: "conversation.label.sender-role-lophn",
   project_manager: "conversation.label.sender-role-project-manager",
-  app_engineer: "conversation.label.sender-role-project-manager",
+  app_engineer: "conversation.label.sender-role-app-engineer",
   operator: "conversation.label.sender-role-operator",
 };
 

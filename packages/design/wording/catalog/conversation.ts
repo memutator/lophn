@@ -225,6 +225,7 @@ export const conversation = {
   "conversation.label.sender-program-unknown": "lophn",
   "conversation.label.sender-reaction": "Reaction · {event}",
   "conversation.label.sender-reaction-unknown": "Reaction",
+  "conversation.label.sender-role-app-engineer": "App Engineer",
   "conversation.label.sender-role-lophn": "lophn",
   "conversation.label.sender-role-operator": "Operator",
   "conversation.label.sender-role-project-manager": "Project Manager",

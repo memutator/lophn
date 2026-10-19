@@ -195,7 +195,7 @@ export const SESSIONS: readonly SessionRow[] = [
   },
   {
     id: "board-crash",
-    agent: "Project Manager",
+    agent: "App Engineer",
     title: "Eval board keeps crashing",
     when: "2 min ago",
     state: "working",

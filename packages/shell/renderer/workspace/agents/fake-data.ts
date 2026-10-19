@@ -1,4 +1,5 @@
-// fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(Project Manager, Operator 둘, lophn)와 층마다 정한 model·skill·MCP, agent grant 대상을 contract 모양으로 담는다.
+// fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(Project Manager, Operator 둘, 앱 Budget tracker의
+// App Engineer, lophn)와 층마다 정한 model·skill·MCP, agent grant 대상을 contract 모양으로 담는다.
 import type {
   CatalogEntry,
   ModelChoice,
@@ -23,9 +24,9 @@ export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
 const NOTES_SYNC_ID = id("app", "ns1");
-// Notes sync는 다른 project의 앱이다. 이 project의 agent에게는 public tool만 보인다.
-const OTHER_PROJECT_ID = id("prj", "ot1");
+// 앱 안 agent에게는 자기 앱의 tool이 모두, 다른 앱의 tool은 public만 보인다. project의 agent에게는 모든 앱이 public만 보인다.
 export const EVAL_ANALYST_ID = id("agt", "ea1");
+export const BUDGET_REVIEWER_ID = id("agt", "br1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
 
 /** 전역 model 하나. */
@@ -111,9 +112,9 @@ export const CATALOG: readonly CatalogEntry[] = [
 
 export interface FakeAgent {
   readonly key: string;
-  readonly role: "lophn" | "project_manager" | "operator";
+  readonly role: "lophn" | "project_manager" | "app_engineer" | "operator";
   readonly name: string;
-  readonly place: "none" | "project";
+  readonly place: "none" | "project" | "app";
   readonly summary: string;
   readonly definition: AgentDraft;
 }
@@ -150,6 +151,24 @@ When a question is about one project, read that project's LOPHN.md first.`,
       body: "",
       skills: ["plain-writing", "weekly-report"],
       mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
+    },
+  },
+  {
+    key: "app_engineer",
+    role: "app_engineer",
+    name: "App Engineer",
+    place: "app",
+    summary: "Builds and repairs Budget tracker from its source folder.",
+    definition: {
+      model: {
+        provider: ANTHROPIC,
+        model_name: "Opus 5.5",
+        option_values: { effort: "high", speed: "standard" },
+      },
+      body:
+        "Keep the app small. Change one app-api at a time and run the app's test before you ask me to check it.",
+      skills: ["plain-writing", "cite-documents"],
+      mcp_off: [{ server_name: "fetch" }],
     },
   },
   {
@@ -208,6 +227,21 @@ Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
       skills: ["plain-writing", "cite-documents", "scenario-authoring"],
       mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
+    },
+  },
+  {
+    key: BUDGET_REVIEWER_ID,
+    role: "operator",
+    name: "Budget reviewer",
+    place: "app",
+    summary: "Reads the month's expenses and flags what looks off.",
+    definition: {
+      name: "Budget reviewer",
+      profile: { kind: "icon", icon: "compare" },
+      body: `# Budget reviewer
+Read the expenses of the month and list the ones that look wrong.
+Never change an expense. Ask me first.`,
+      skills: ["plain-writing"],
     },
   },
 ];
@@ -316,7 +350,6 @@ const APPS: readonly GrantApp[] = [
   {
     app: APP_ID,
     name: APP_NAME,
-    project: PROJECT_ID,
     release: "1.4",
     apis: [
       api("list_expenses", "Lists the expenses of a month", "read", null, true),
@@ -343,7 +376,6 @@ const APPS: readonly GrantApp[] = [
   {
     app: EVAL_BOARD_ID,
     name: "Eval board",
-    project: PROJECT_ID,
     release: "0.9",
     apis: [
       api("list_runs", "Lists eval runs", "read", null, true),
@@ -355,7 +387,6 @@ const APPS: readonly GrantApp[] = [
   {
     app: NOTES_SYNC_ID,
     name: "Notes sync",
-    project: OTHER_PROJECT_ID,
     release: "2.1",
     apis: [
       api("list_notes", "Lists notes", "read", null, true),
@@ -396,6 +427,11 @@ export const GRANT_CATALOG: GrantCatalog = {
       detail: `${PROJECT_NAME} · Keeps kinds in shape`,
     },
     {
+      agent: { role: "app_engineer", app: APP_ID },
+      name: "App Engineer",
+      detail: `${APP_NAME} · Builds and repairs the app`,
+    },
+    {
       agent: { role: "operator", agent: EXPERIMENT_PLANNER_ID },
       name: "Experiment planner",
       detail: `${PROJECT_NAME} · Operator`,
@@ -409,7 +445,8 @@ export const GRANT_CATALOG: GrantCatalog = {
 };
 
 const PM_REF = GRANT_CATALOG.agents[0].agent;
-const PLANNER_REF = GRANT_CATALOG.agents[1].agent;
+const ENGINEER_REF = GRANT_CATALOG.agents[1].agent;
+const PLANNER_REF = GRANT_CATALOG.agents[2].agent;
 
 const allTools = () =>
   MCP_TOOLS[0].tools.map((tool): AgentGrantEntry => ({
@@ -441,11 +478,17 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AgentGrantEntry[]>> =
       { kind: "app", app: APP_ID, apis: [] },
       { kind: "app", app: EVAL_BOARD_ID, apis: [] },
       { kind: "agent", agent: PM_REF },
+      { kind: "agent", agent: ENGINEER_REF },
       { kind: "settings" },
     ],
     project_manager: [
       { kind: "app", app: APP_ID, apis: [] },
       ...allTools(),
       { kind: "settings" },
+    ],
+    app_engineer: [
+      { kind: "app", app: APP_ID, apis: [] },
+      ...allTools(),
+      { kind: "agent", agent: PM_REF },
     ],
   };

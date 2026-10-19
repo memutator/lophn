@@ -4,6 +4,7 @@ import { t } from "@lophn/wording";
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
+  BUDGET_REVIEWER_ID,
   EVAL_ANALYST_ID,
   type FakeAgentsOptions,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
@@ -70,6 +71,12 @@ export const OperatorModelPickerPage = () =>
 
 /** 새 Operator를 만든다. 놓을 곳을 고른다. */
 export const OperatorCreatePage = () => editor("new");
+
+/** App Engineer의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
+export const AppEngineerEditorPage = () => editor("app_engineer");
+
+/** 앱에 놓인 Operator의 설정. */
+export const AppOperatorEditorPage = () => editor(BUDGET_REVIEWER_ID);
 
 /** agent 층에서 MCP server를 더하는 form을 연 상태. */
 export const AgentServerFormPage = () =>

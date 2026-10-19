@@ -37,7 +37,7 @@ const ago = (minutes: number) =>
 interface FakeSession {
   readonly id: string;
   readonly agent: CallAgent;
-  /** intent의 요청한 agent. coding session은 그 project의 Project Manager가 맡긴 일로 둔다. */
+  /** intent의 요청한 agent. coding session은 그 앱의 App Engineer가 맡긴 일로 둔다. */
   readonly actor: AgentRef;
   readonly place: SessionSnapshot["place"];
 }
@@ -57,8 +57,8 @@ const MANAGER_SESSION: FakeSession = {
 const CODING_SESSION: FakeSession = {
   id: id("ses", 3),
   agent: { role: "coding_agent", app: ORDERS },
-  actor: { role: "project_manager", project: PROJECT },
-  place: { kind: "project", id: PROJECT },
+  actor: { role: "app_engineer", app: ORDERS },
+  place: { kind: "app", id: ORDERS },
 };
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
@@ -219,7 +219,7 @@ export const ACTIVATION = () =>
           ],
         }],
       },
-      { role: "project_manager", project: PROJECT },
+      { role: "app_engineer", app: ORDERS },
       OPERATOR_SESSION.id,
     ),
   );
@@ -241,7 +241,7 @@ export const FIRST_ACTIVATION = () =>
         added_app_apis: [{ app: ORDERS, api: "refunds.create" }],
         loss_steps: [],
       },
-      { role: "project_manager", project: PROJECT },
+      { role: "app_engineer", app: BUDGET },
       OPERATOR_SESSION.id,
     ),
   );
@@ -290,12 +290,12 @@ export const SETTLED: readonly SettledRow[] = [
   {
     id: "settled-accepted",
     title: "Activate a new version of App 000001",
-    who: "Project Manager · Session 000001 · Project 000001",
+    who: "App Engineer · Session 000001 · App 000001",
     state: "accepted",
   },
   {
     id: "settled-applied",
-    title: "Open a session with Project Manager?",
+    title: "Open a session with App Engineer?",
     who: "Reaction · App 000002",
     state: "applied",
   },

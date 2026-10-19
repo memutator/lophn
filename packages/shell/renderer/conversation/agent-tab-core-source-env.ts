@@ -17,14 +17,14 @@ export interface AgentTarget {
   /** agent id다. Operator는 `agt_…`, 나머지는 place가 정체성이라 id를 쓰지 않는다. */
   readonly assignment: string;
   readonly place: {
-    readonly kind: "global" | "project";
+    readonly kind: "global" | "project" | "app";
     readonly id: string;
   };
 }
 
 /**
- * factory 인자에서 agent를 가리키는 값을 만든다. Operator는 id로, lophn은 place가 없는(global) 자리로, Project Manager는
- * project 자리로 정해진다.
+ * factory 인자에서 agent를 가리키는 값을 만든다. Operator는 id로, lophn은 place가 없는(global) 자리로, Project Manager와
+ * App Engineer는 project와 앱 자리로 정해진다.
  */
 function agentRefOf(target: AgentTarget): AgentRef {
   const { assignment, place } = target;
@@ -32,7 +32,9 @@ function agentRefOf(target: AgentTarget): AgentRef {
     return { role: "operator", agent: assignment };
   }
   if (place.kind === "global") return { role: "lophn" };
-  return { role: "project_manager", project: place.id };
+  return place.kind === "project"
+    ? { role: "project_manager", project: place.id }
+    : { role: "app_engineer", app: place.id };
 }
 
 // ---- route 호출 ----

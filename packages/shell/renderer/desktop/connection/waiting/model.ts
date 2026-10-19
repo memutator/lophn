@@ -57,7 +57,7 @@ const AGENT_LABELS = {
   lophn: "waiting.label.agent-lophn",
   operator: "waiting.label.agent-operator",
   project_manager: "waiting.label.agent-project-manager",
-  app_engineer: "waiting.label.agent-project-manager",
+  app_engineer: "waiting.label.agent-app-engineer",
   coding_agent: "waiting.label.agent-coding",
 } as const;
 
@@ -107,6 +107,16 @@ const EVENT_LABELS = {
   ReleaseActivationFailed: "waiting.label.event-activation-failed",
   KindViolationFound: "waiting.label.event-kind-violation",
   PublicToolsChanged: "waiting.label.event-public-tools-changed",
+} as const;
+
+// 이 event가 여는 session의 agent. 앱 일은 App Engineer가, domain 일은 그 domain을 가진 PM 또는 App Engineer가 받는다.
+const OPENS_LABELS = {
+  ProblemOpened: "waiting.label.agent-app-engineer",
+  ProblemReopened: "waiting.label.agent-app-engineer",
+  AppRestartHalted: "waiting.label.agent-app-engineer",
+  ReleaseActivationFailed: "waiting.label.agent-app-engineer",
+  KindViolationFound: "waiting.label.agent-domain-owner",
+  PublicToolsChanged: "waiting.label.agent-domain-owner",
 } as const;
 
 const DECLARED_LABELS = {
@@ -331,7 +341,11 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         ? intent.target.event
         : null;
       const eventText = event === null ? "" : t(EVENT_LABELS[event]);
-      const opens = t("waiting.label.agent-project-manager");
+      const opens = t(
+        event === null
+          ? "waiting.label.agent-domain-owner"
+          : OPENS_LABELS[event],
+      );
       const detail = Object.keys(intent.input).length === 0
         ? null
         : json(intent.input);

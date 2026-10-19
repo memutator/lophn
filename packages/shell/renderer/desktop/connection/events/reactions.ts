@@ -72,7 +72,7 @@ export function reactionsOf(
         },
       );
     case "AppRestartHalted":
-      // 반응이 여는 session은 나중에 SessionStarted로 생기니 지금은 session id를 모른다.
+      // 반응이 여는 App Engineer session은 나중에 SessionStarted로 생기니 지금은 session id를 모른다.
       return toast(
         "restart-halted",
         event.seq,

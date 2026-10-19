@@ -19,37 +19,37 @@ export const REACTION_ROWS: readonly ReactionRow[] = [
     event: "ProblemOpened",
     name: "settings.label.reaction-problem-opened",
     when: "settings.reaction.problem-opened-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-app-engineer",
   },
   {
     event: "ProblemReopened",
     name: "settings.label.reaction-problem-reopened",
     when: "settings.reaction.problem-reopened-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-app-engineer",
   },
   {
     event: "AppRestartHalted",
     name: "settings.label.reaction-restart-halted",
     when: "settings.reaction.restart-halted-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-app-engineer",
   },
   {
     event: "ReleaseActivationFailed",
     name: "settings.label.reaction-activation-failed",
     when: "settings.reaction.activation-failed-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-app-engineer",
   },
   {
     event: "KindViolationFound",
     name: "settings.label.reaction-kind-violation",
     when: "settings.reaction.kind-violation-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-domain-owner",
   },
   {
     event: "PublicToolsChanged",
     name: "settings.label.reaction-public-tools-changed",
     when: "settings.reaction.public-tools-changed-when",
-    opens: "settings.reaction.opens-project-manager",
+    opens: "settings.reaction.opens-domain-owner",
   },
 ];
 

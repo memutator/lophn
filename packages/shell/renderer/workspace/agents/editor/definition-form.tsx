@@ -9,7 +9,12 @@ import { t } from "@lophn/wording";
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { commonIcons } from "../../../icons/mod.ts";
-import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
+import type {
+  AgentDetail,
+  AgentDraft,
+  ModelsView,
+  PlaceChoice,
+} from "../source.ts";
 import type { McpRow } from "../views.ts";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
@@ -73,6 +78,8 @@ function Group(
   );
 }
 
+const placeValue = (place: PlaceChoice) => `${place.kind}:${place.id}`;
+
 function instructionsHead(detail: AgentDetail, placeName: string): string {
   const project = detail.instructions?.project ??
     (detail.place.kind === "project" ? placeName : null);
@@ -113,7 +120,7 @@ interface DefinitionFormProps {
   readonly models: ModelsView | null;
   /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
-  /** agent가 놓인 곳의 이름(Agents 탭이 열린 project). */
+  /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;
   /** 새 Operator를 놓을 곳. */
   readonly place: string;
@@ -174,13 +181,17 @@ export function DefinitionForm(props: DefinitionFormProps) {
 
   const placeText = detail.place.kind === "none"
     ? t("agents.label.place-lophn")
-    : t("agents.label.place-named", {
-      name: detail.place.name,
-    });
+    : t(
+      detail.place.kind === "app"
+        ? "agents.label.place-named-app"
+        : "agents.label.place-named",
+      { name: detail.place.name },
+    );
   const fixedName = builtIn
     ? (detail.role === "lophn"
       ? t("agents.notice.name-fixed-lophn")
       : t("agents.notice.name-fixed-role", {
+        owner: detail.role === "app_engineer" ? "app" : "project",
         role: detail.effective.name.value,
       }))
     : null;
@@ -236,8 +247,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
           >
             <Select
               options={detail.places.map((place) => ({
-                value: place.id,
-                label: place.name,
+                value: placeValue(place),
+                label: t("agents.label.place-choice", {
+                  name: place.name,
+                  kind: place.kind,
+                }),
               }))}
               value={props.place}
               onValueChange={props.onPlace}
@@ -255,9 +269,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
         head={instructionsHead(detail, props.placeName)}
         note={detail.role === "lophn"
           ? t("agents.notice.lophn-no-project")
+          : detail.place.kind === "app"
+          ? t("agents.notice.app-no-project")
           : undefined}
         value={definition.body}
-        help={detail.role === "lophn"
+        help={detail.instructions === null
           ? t("agents.notice.instructions-help-lophn")
           : t("agents.notice.instructions-help")}
         issues={<Issues issues={issuesOf("instructions")} />}

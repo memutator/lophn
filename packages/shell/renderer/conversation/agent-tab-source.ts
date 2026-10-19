@@ -44,7 +44,7 @@ export interface AgentFace {
   readonly name: string;
   readonly profile: AgentProfile;
   /** lophn은 열린 자리, 나머지는 자기 자리다. */
-  readonly place: { readonly kind: "project"; readonly name: string };
+  readonly place: { readonly kind: "project" | "app"; readonly name: string };
   /** 그 agent의 권한과 이 session의 허락을 한 줄로 요약한 글. */
   readonly permissionSummary: string;
 }
@@ -575,7 +575,7 @@ export interface AgentTabSource {
 export type AgentTabSourceFactory = (agent: {
   readonly assignment: string;
   readonly place: {
-    readonly kind: "global" | "project";
+    readonly kind: "global" | "project" | "app";
     readonly id: string;
   };
 }) => AgentTabSource;

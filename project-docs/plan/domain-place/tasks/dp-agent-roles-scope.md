@@ -28,6 +28,10 @@ App Engineer가 갖던 tool 목록, file 범위, 자격 조건, Operator 관리�
   - `packages/core/main/daemon/place-folders-glue.ts`
   - `packages/core/main/daemon/wiring/lophn-agent.ts`
   - `packages/core/main/daemon/wiring/lophn-agent-runtime.ts`
+- 추가 소유(lead가 더함. 상대 경로 기준 `base`를 범위 값에 싣고 쓰는 줄만 고친다):
+  - `packages/core/lophn-agent/tools/file/scope.ts`
+  - `packages/core/lophn-agent/tools/ports.ts`
+  - `packages/core/lophn-agent/register.ts`
 - 읽을 것:
   - architecture: `project-docs/architecture/place-session.md`("file tool의 범위는 place가 정한다"), `project-docs/architecture/agent-definition.md`(role 고정 목록, "agent 정의와 skill은 lophn data에 있어 file tool이 닿지 않는다"), `project-docs/architecture/coding-agent.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `agent-roles`, `agent-tools`, `project-docs/module-catalog.yaml`의 `packages/core/agent-roles`
@@ -78,3 +82,7 @@ App Engineer가 갖던 tool 목록, file 범위, 자격 조건, Operator 관리�
 - `draftRoot`는 좁히지 않는다. `domain-kinds`의 `dk-prompt-place`가 `runtimeFoldersOf`(`packages/core/main/daemon/place-folders-glue.ts`)에서 `draftRoot`를 지우고 project마다 `kindsFilePath`를 file 항목으로 넣는다(`runtimeFolders` 입력의 `draftRoot`가 `kindsFiles`로 바뀐다). `artifact`는 같은 함수에 `artifactFolders`를 더했다. project skill 폴더는 그 옆에 폴더 항목 하나로 더한다. 띄울 때 그 변경이 base에 있으면 그 위에서, 없으면 `draftRoot` 줄은 그대로 두고 skill 폴더만 더한다(lead가 rebase 때 두 쪽을 맞춘다).
 - `artifact`가 `credentials.ts`에서 `annotationsGet`을 PM·Operator에게 열었고 `agentConditions`에 `project` 조건을 더했다. `conditions.app`은 그 옆에 더한다. 같은 뜻의 조건을 둘로 만들지 않는다.
 - Deno 권한 함정: 쓰기 허락이 file 하나뿐이면 이미 있는 부모 폴더라도 `Deno.mkdir(parent, {recursive: true})`가 NotCapable로 거절된다. skill 폴더는 core 쪽(`ensureProjectManager`)에서 만들고, runtime child 안에서 만들지 않는다.
+- **폴더 없는 project의 상대 경로 기준(planner가 정함).** 지금 file tool은 상대 경로를 `read[0]`에 붙여 푼다(`packages/core/lophn-agent/tools/file/scope.ts`의 `resolveInPlace`). `domain-kinds`가 PM 범위를 `[...projectFolders, kindsFile]`로 만들어서, 폴더 0개 project에서는 `read[0]`이 `kinds.yaml` file이 되고 상대 경로가 `kinds.yaml/...`로 풀려 실패한다.
+  - 고침: 범위 값(`placeScope`의 결과와 `PlaceScope`)에 `base`를 싣는다. 사람의 첫 폴더가 있으면 그것, 없으면 `<data>/projects/<prj>`다. `resolveInPlace`는 `base`로 상대 경로를 푼다.
+  - `base`는 경로 풀이에만 쓴다. 읽기·쓰기 허락은 넓히지 않는다(허락은 범위 항목 `kinds.yaml`, `skills/`, `artifacts/` 등뿐이다).
+  - 위험 test에 한 줄을 더한다: 폴더 0개 project에서 상대 경로 `kinds.yaml`이 `<data>/projects/<prj>/kinds.yaml`로 풀린다. `domain-kinds`가 아직 base에 없으면 `skills/<name>/SKILL.md`로 같은 것을 본다.

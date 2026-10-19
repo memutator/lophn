@@ -1,4 +1,4 @@
-// artifact 화면 여섯 장. 탭 줄, 모은 목록 panel, 대화 글은 renderer의 실제 component이고 artifact 탭 틀, sidebar 목록, link는
+// artifact 화면 일곱 장. 탭 줄, 모은 목록 panel, 대화 글은 renderer의 실제 component이고 artifact 탭 틀, sidebar 목록, link는
 // 아직 renderer에 없는 새 모양이다. 화면 task가 이 모양을 renderer로 옮긴다(page id는 바꾸지 않는다).
 import { EmptyState } from "@lophn/ui/feedback";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -102,7 +102,7 @@ export function ArtifactMissingPage() {
   );
 }
 
-const SIDEBAR_TABS = ["explorer", "context", "agent", "artifact"] as const;
+const SIDEBAR_TABS = ["explorer", "agent", "artifact"] as const;
 
 function SidebarRows(
   { rows }: { rows: readonly (typeof ARTIFACTS)[number][] },
@@ -162,11 +162,19 @@ function ArtifactSidebar(
   );
 }
 
-/** project sidebar에 네 번째 탭 Artifacts가 서는 모양. 왼쪽은 목록, 오른쪽은 artifact가 하나도 없을 때다. */
+/** project sidebar의 Artifacts 탭. artifact가 있을 때의 목록이다. */
 export function ArtifactSidebarListPage() {
   return (
     <div className={styles.sideLayout}>
       <ArtifactSidebar rows={ARTIFACTS} />
+    </div>
+  );
+}
+
+/** artifact가 하나도 없을 때의 Artifacts 탭이다. */
+export function ArtifactSidebarEmptyPage() {
+  return (
+    <div className={styles.sideLayout}>
       <ArtifactSidebar rows={[]} />
     </div>
   );

@@ -1,7 +1,7 @@
 // kinds worker: kind `documents/kinds`. core가 감독 pipe로 보내는 네 일을 한다.
 // - `kinds.sync`: kinds 파일과 project 파일을 훑어 derived/kinds.sqlite를 갱신하고 상태와 위반을 답한다
 //   (이 worker가 그 파일의 유일한 writer다).
-// - `kinds.get`·`kinds.list`·`kinds.check`: 먼저 훑은(2초 규칙) 뒤 index에서 답한다.
+// - `kinds.get`·`kinds.list`·`kinds.check`: 훑지 않고 index를 있는 그대로 읽어 답한다(훑는 일은 sync만 한다).
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 위반은 답에 실어 보내고 problem으로 올리는 일은 core가
 // 한다.
 import type { z } from "zod";

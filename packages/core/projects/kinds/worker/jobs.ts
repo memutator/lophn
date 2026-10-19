@@ -1,4 +1,7 @@
-// kinds worker의 일: sync·get·list·check. 모두 먼저 scan(2초 규칙)한 뒤 index에서 답한다.
+// kinds worker의 일: sync·get·list·check. scan(2초 규칙)은 sync만 한다. get·list·check는 index를 있는 그대로
+// 읽는다. core의 dispatcher가 읽기 앞에 늘 sync를 보내므로 읽기는 최대 2초 묵은 것이고, 모든 scan의 결과가 sync
+// 답을 지나야 core가 위반을 비교해 problem으로 올린다. 아직 sync가 없던 project(kinds_state 행이 없음)는 kinds
+// 파일이 없는 project로 답한다.
 import {
   canonicalize,
   type Clock,
@@ -64,25 +67,42 @@ export function createKindsJobs(deps: KindsJobDeps) {
     return turn;
   }
 
-  function load(request: KindsJobRequest): Result<Loaded> {
-    const store = deps.store();
-    const scanned = scanProject(store, {
+  // index에 있는 그대로 읽는다. 아직 scan한 적이 없으면 kinds 파일이 없는 project와 같다.
+  function read(request: KindsJobRequest, changed: boolean): Loaded {
+    const sql = deps.store().sql;
+    const state = readState(sql, request.project);
+    if (state === undefined) {
+      return {
+        status: {
+          file: request.kinds_file,
+          state: "none",
+          using: "none",
+          errors: [],
+          applied_hash: null,
+        },
+        kinds: null,
+        changed,
+      };
+    }
+    const applied = readApplied(sql, request.project);
+    return {
+      status: state.status,
+      kinds: state.status.using === "none" || applied === undefined
+        ? null
+        : kindsOfText(applied.text),
+      changed,
+    };
+  }
+
+  function scan(request: KindsJobRequest): Result<Loaded> {
+    const scanned = scanProject(deps.store(), {
       project: request.project,
       kinds_file: request.kinds_file,
       open: (folders) => deps.open(request.roots, folders),
       clock: deps.clock,
       force: request.force,
     });
-    if (!scanned.ok) return scanned;
-    const state = readState(store.sql, request.project)!;
-    const applied = readApplied(store.sql, request.project);
-    return ok({
-      status: state.status,
-      kinds: state.status.using === "none" || applied === undefined
-        ? null
-        : kindsOfText(applied.text),
-      changed: scanned.value.changed,
-    });
+    return scanned.ok ? ok(read(request, scanned.value.changed)) : scanned;
   }
 
   const job = <Req extends KindsJobRequest, T>(
@@ -94,9 +114,9 @@ export function createKindsJobs(deps: KindsJobDeps) {
 
   return {
     sync: job("sync", (request: KindsJobRequest): Result<KindsSyncResponse> => {
-      const loaded = load(request);
-      if (!loaded.ok) return loaded;
-      const { status, changed } = loaded.value;
+      const scanned = scan(request);
+      if (!scanned.ok) return scanned;
+      const { status, changed } = scanned.value;
       const rows = readViolations(deps.store().sql, request.project, {
         limit: KINDS_VIOLATION_CAP + 1,
       });
@@ -112,26 +132,24 @@ export function createKindsJobs(deps: KindsJobDeps) {
       });
     }),
     get: job("get", (request: KindsJobRequest) => {
-      const loaded = load(request);
-      if (!loaded.ok) return loaded;
+      const loaded = read(request, false);
       return ok({
         project: request.project,
-        status: loaded.value.status,
-        kinds: loaded.value.kinds,
+        status: loaded.status,
+        kinds: loaded.kinds,
       });
     }),
     list: job("list", (
       request: KindsJobRequest & { query: Parameters<typeof listItems>[3] },
     ) => {
-      const loaded = load(request);
-      if (!loaded.ok) return loaded;
-      if (loaded.value.kinds === null) {
+      const loaded = read(request, false);
+      if (loaded.kinds === null) {
         return err({ code: "not_found", message: "no kinds file is in use" });
       }
       return listItems(
         deps.store().sql,
         request.project,
-        loaded.value.kinds,
+        loaded.kinds,
         request.query,
       );
     }),
@@ -140,16 +158,13 @@ export function createKindsJobs(deps: KindsJobDeps) {
         query: Parameters<typeof listViolations>[2];
       },
     ) => {
-      const loaded = load(request);
-      if (!loaded.ok) return loaded;
+      const loaded = read(request, false);
       const page = listViolations(
         deps.store().sql,
         request.project,
         request.query,
       );
-      return page.ok
-        ? ok({ status: loaded.value.status, ...page.value })
-        : page;
+      return page.ok ? ok({ status: loaded.status, ...page.value }) : page;
     }),
   };
 }

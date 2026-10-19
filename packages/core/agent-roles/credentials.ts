@@ -34,7 +34,7 @@ const PLACE_READS: readonly string[] = [
   appGet.name,
   appList.name,
   appTools.name,
-  // lophn의 project 지도: 공개 tool, 사용 관계, 앱이 쓰는 package 목록. 사용 관계는 lophn session만 받는다.
+  // lophn의 domain 지도: 공개 tool, 사용 관계, 앱이 주인인 package 목록. 사용 관계는 lophn session만 받는다.
   appToolIndex.name,
   appUsage.name,
   packagesList.name,

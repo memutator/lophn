@@ -55,7 +55,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 앱 화면과 갈리는 곳이다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 target이 `file`(`{project}`)이다.
 - **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 domain의 artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 domain 그릇의 place에 놓인 열린 session(그 그릇의 PM이나 App Engineer, Operator) 가운데 마지막 것을 고른다. root가 domain마다 달라 같은 이름의 artifact가 다른 domain에 있어도 섞이지 않는다. 없으면 pane에 열린 그 그릇의 PM이나 App Engineer session이고, 그 session이 그 그릇의 열린 PM·App Engineer가 아니면 conflict로 거절한다. pane에 그런 session이 없으면 새 session이다. 사람의 `.html`은 늘 그 project의 PM이 받는다.
-- **artifact annotation을 읽는 것은 그 domain 그릇이 project인 PM과 Operator뿐이다.** 자격 조건 `project`로 그 project가 그릇인 domain의 artifact target과 사람의 `.html`(file) target을 읽는다. 다른 project 것은 not_found다. 앱에도 project에도 묶이지 않은 agent(lophn, 앱 place의 Operator)는 forbidden이다. 앱이 그릇인 domain의 artifact annotation은 App Engineer가 받아도 `annotations.get`이 열지 않아 사람만 읽는다(`architecture/annotation.md`).
+- **artifact annotation을 읽는 것은 그 domain 그릇의 agent다.** 자격 조건 `project`(PM, project place의 Operator)는 그 project가 그릇인 domain의 artifact target과 사람의 `.html`(file) target을, 조건 `app`(App Engineer, 앱 place의 Operator)은 그 앱이 그릇인 domain의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 agent(lophn)는 forbidden이다(`architecture/annotation.md`).
 - **파일이 바뀌면 열린 탭이 다시 load한다.** artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 한 번 다시 load한다.
 - **같은 창에서 같은 source는 view 하나다.** 탭이 다시 mount되어도 view를 새로 만들지 않는다. 폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다.
 

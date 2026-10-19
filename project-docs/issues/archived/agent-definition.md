@@ -437,3 +437,25 @@ guard: packages/core/lophn-agent/extensions/mcp-toolkit_test.ts "Operator 정의
 정한 것: 살린다(사람: Operator에게도 자기 MCP server가 필요하다). runtime이 Operator 정의 층의 server를 읽어 쓰게 하고, Deno 권한과 Grants 목록도 그 층을 알게 한다. 정의가 바뀌면 runtime을 다시 띄운다. server를 넣는 길은 지금처럼 사람의 화면(Operator 편집)뿐이다. agent의 `operator.create`·`operator.update`는 실행 명령을 정하는 입력이라 계속 받지 않는다. 앞서 "지운다"로 적은 것은 사람의 답을 잘못 읽은 것이다.
 
 닫음: 살렸다. turn 준비(`run-loop/prepare.ts`의 `loadMcp`)가 Operator 정의의 `mcp_servers`를 agent 층으로 넘기고(`agents/layers.ts`), `serversOf`의 겹치기가 그 층을 마지막에 얹는다. runtime child의 Deno 권한(`extensions/mcp-snapshot.ts`의 `operators`)과 `mcp.` secret 목적지가 모든 Operator의 정의 층 server를 읽고(`main/daemon/wiring/operator-mcp.ts`), 정의가 바뀌면 기존 poll이 child를 다시 띄운다. Grants 목록(`agent-mcp-tools/list`)은 Operator id를 함께 받아 그 Operator의 정의 층을 더한다. 정의 층 server의 credential 이름은 `mcp.<agt id>.<server>`이고 편집 화면이 저장 뒤 보호 입력으로 값을 받는다. 내장 role 편집 화면에는 Add server가 없다. agent의 `operator.create`·`operator.update`는 계속 `mcp_servers`를 받지 않는다. 정의 층 server의 OAuth 로그인 길은 없다(편집 화면은 none·bearer·api_key만 받는다).
+
+## 같은 이름 skill은 agent의 domain을 거르기 전에 하나로 합쳐져 사라진다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+closed: fixed
+guard: packages/core/lophn-agent/extensions/skills_test.ts "same-name skills in a global layer and domains go to the agent by the domains it works in"
+```
+
+지금: `discoverSkills`(`packages/core/lophn-agent/extensions/skills.ts`)는 place 하나의 후보를 내장 → 전역 → domain 층 순서로 모아 `mergeSkillLayers`로 이름마다 하나만 남긴다. domain 층은 이름이 앞서는 domain을 나중에 넣어 덮게 한다. 그 뒤에 `skillReceived`가 agent가 일하는 domain의 skill만 받는다. 그래서 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않는다.
+- 전역 skill `review`와 domain `eval`의 skill `review`가 있으면 전역 것이 사라진다. `eval`을 고르지 않은 Operator는 `review`를 하나도 받지 못한다.
+- domain `a`와 `b`에 같은 이름 `x`가 있으면 `a`의 것만 남는다. `b`만 고른 Operator는 `x`를 받지 못한다.
+- `skill-read.ts`의 turn skill 읽기도 같은 합친 목록을 쓴다.
+
+영향: domain을 좁힌 Operator가 받아야 할 skill을 조용히 잃는다. prompt의 skill 목록과 `skill.read`에서 둘 다 빠진다.
+
+고치려면:
+- domain 층 후보를 domain마다 따로 두고, agent의 domain으로 거른 뒤에 이름을 합친다(중간. 합친 목록을 쓰는 곳은 `register.ts`의 `skills`, `skill-read.ts`, `/` 메뉴다). 추천.
+- 같은 그릇 안에서 domain 사이, 그리고 domain과 전역 사이에 같은 이름을 두지 못하게 막고 skipped에 이유를 둔다(작음. 사람이 이름을 바꿔야 한다).
+
+닫음: 고쳤다. domain 층 skill은 domain마다 따로 남고, agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`, `packages/core/lophn-agent/extensions/skills.ts`). domain skill이 같은 이름의 전역 skill을 이기고, domain끼리는 이름이 앞서는 domain이 이긴다. `skill-read.ts`, `/` 메뉴(`registry.ts`), prompt 목록(`run-loop/prepare.ts`의 `promptSkills`)이 같은 함수를 쓴다. Operator 정의의 `skills`는 이름으로만 고르므로 같은 이름이 여러 domain에 있으면 어느 것인지는 domain 순서가 정한다.

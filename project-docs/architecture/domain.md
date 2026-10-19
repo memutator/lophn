@@ -70,7 +70,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **사용 관계의 쓰는 쪽은 부른 agent가 맡은 domain이다.** tool 자신의 domain과 같은 사용은 세지 않는다. 한 agent가 domain 여럿을 맡으면 domain마다 센다. 다른 domain이 쓰는 public tool을 지우는 release는 막고, 막을 때와 바뀐 뒤 알림은 domain마다 하나다. 읽기에 실패하면 막는 쪽이다.
 - **domain의 일을 받는 쪽은 그 그릇의 PM(project)이나 App Engineer(app)다.** `agentOfDomain`이 정한다. `KindViolationFound`, `PublicToolsChanged`, 마지막으로 쓴 session이 없는 artifact annotation이 여기로 간다. owner가 보관됐거나 없으면 `not_found`다.
 - **package 주인은 domain이 아니라 앱이다(`owner_app`).** package는 앱 코드에서 publish되고 코드의 주인은 App Engineer다. 다른 그릇에서 난 package bug는 그 앱의 App Engineer에게 call한다.
-- **skill 층은 내장 < 전역 < domain이다.** 같은 이름이 두 domain에 있으면 이름이 앞서는 domain이 이긴다. 합치기가 agent의 domain 거르기 앞에 있는 것은 열린 bug다(`issues/agent-definition.md`).
+- **skill 층은 내장 < 전역 < domain이다.** domain 층 skill은 domain마다 따로 남고, agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`, `packages/core/lophn-agent/extensions/skills.ts`). domain skill이 같은 이름의 전역 skill을 이기고, domain끼리는 이름이 앞서는 domain이 이긴다. 맡지 않은 domain의 skill은 같은 이름의 전역 skill을 가리지 않는다.
 
 ## 왜 이 모양인가
 

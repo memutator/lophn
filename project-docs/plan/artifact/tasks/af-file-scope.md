@@ -56,3 +56,10 @@ project의 PM과 project place의 Operator가 lophn data의 `<data>/projects/<pr
 - 계약 바꾸기 요청: 없음
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: runtime child의 Deno 권한은 확인만 했다(`<data>/projects` 전체가 이미 쓰기 허용). 실제 turn에서 `file.write`로 첫 artifact가 써지는지는 wave 2 뒤 lead가 `deno task dev`로 본다.
+
+## lead가 더함
+
+- **runtime 쓰기 목록에 artifacts 폴더를 따로 더한다.** 위 할 일 2의 "`runtimeFolders`는 고치지 말고 주석" 대신 이것을 한다. 같이 도는 `domain-kinds`의 `dk-prompt-place`가 `draftRoot`(`<data>/projects` 전체 쓰기)를 지우므로 그 넓은 권한에 기대지 않는다.
+  - `runtimeFolders`의 입력에 `artifactFolders: readonly string[]`를 더해 write와 read에 넣는다. `draftRoot` 줄은 그대로 둔다(나중에 land하는 쪽이 합친다).
+  - `place-folders-glue.ts`의 `runtimeFoldersOf`가 `projectIds(sql)`(`packages/core/projects/lookups.ts`)의 project마다 `artifactsFolder(dataRoot, id)`를 넘긴다.
+  - `place-folders_test.ts`의 `runtimeFolders` test(있으면)에 artifacts 폴더가 write에 드는 것을 한 줄 더한다.

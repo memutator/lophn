@@ -30,7 +30,7 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
 - kind 파일은 domain마다 하나이고 자리는 `<data>/domains/<dom>/kinds.yaml`이다(`domainKindsFile`, `packages/protocol/domains/paths.ts`). release도 draft도 거치지 않는다. 파일이 없으면 그 domain에는 kind가 없다.
   - 판(draft, test, submit)이 하던 일은 검사와 되돌리기다. 검사는 바뀔 때 program이 하고, 되돌리기는 rewind가 한다.
 - kind 파일을 쓰는 것은 그 domain 그릇의 PM(project)이나 App Engineer(앱)뿐이다. `placeScope`가 둘에게 그 그릇의 domain 폴더 전체를 read·write로 주므로 `kinds.yaml`은 따로 연 파일 항목이 아니다. Operator의 범위에는 domain의 `artifacts/`만 있고 lophn의 범위에는 없다.
-  - domain 폴더는 turn을 시작할 때 place 정보를 만들면서 core가 만든다(`architecture/artifact.md`). 같은 폴더에 `DOMAIN.md`, `skills/`, `artifacts/`가 있다.
+  - domain 폴더는 turn을 시작할 때 place 정보를 만들면서 core가 만든다(`architecture/artifact.md`). kind 감시를 열 때도 만든다. 폴더가 없으면 감시가 열리지 않아 처음 쓴 `kinds.yaml`을 놓친다. 같은 폴더에 `DOMAIN.md`, `skills/`, `artifacts/`가 있다.
   - rewind의 쓰기 폴더와 agent runtime의 Deno 쓰기 권한도 domain 폴더 단위다(`placeFoldersOf`, `runtimeFoldersOf`).
   - kind 파일이 가리키는 문서(glob)는 domain 폴더가 아니라 그 그릇의 폴더 기준이다. project면 등록 폴더들, 앱이면 source 폴더다. 그릇이 없거나 보관됐거나 폴더가 없으면(source가 없는 앱) 그 domain은 훑지 않고 읽기는 `not_found`다.
 - 틀린 kind 파일은 앞의 맞던 kind를 지우지 않는다. yaml 문법이나 schema가 틀리면(`kinds_syntax`), 구조가 틀리면(`checkKindsStructure`), 바뀐 파일의 glob이 실제 파일 하나를 두 kind에 걸면(`glob_overlap`) `state: invalid`이고 마지막으로 맞던 kind를 계속 쓴다(`using: previous`). 앞의 것이 없으면 kind가 없다. 파일을 지우면 쓰던 kind도 버린다.

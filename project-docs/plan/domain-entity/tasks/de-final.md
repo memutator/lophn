@@ -58,3 +58,22 @@
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+앞 task 보고에서 모은 것이다. 위 "할 일"과 같이 한다.
+
+- **bug 고치기(planner 권고):** `project-docs/issues/agent-definition.md`의 "같은 이름 skill은 agent의 domain을 거르기 전에 하나로 합쳐져 사라진다". 추천안대로 고친다. domain 층 후보는 domain마다 따로 두고, agent의 domain으로 거른 뒤에 이름을 합친다(`packages/core/lophn-agent/extensions/skills.ts`의 `discoverSkills`·`mergeSkillLayers`와 그 결과를 쓰는 `register.ts`, `skill-read.ts`, `/` 메뉴). 위험 test 하나: "전역 skill `x`와 domain A의 skill `x`가 있을 때 A를 고르지 않은 Operator는 전역 `x`를 받고, A와 B에 `x`가 있을 때 B만 고른 Operator는 B의 `x`를 받는다". 고친 뒤 lead가 이슈를 닫는다(이 task는 project-docs를 고치지 않는다).
+- **test 앱 blueprint:** `tests/support/app/patch-*.ts`와 `tests/e2e/{app-call,app-restart,app-data-rewind}_test.ts`의 inline blueprint에서 tool마다 `domain`(그 test 앱의 slug)이 있는지 보고 없으면 더한다. e2e는 돌리지 않는다.
+- **안 쓰게 된 것 지우기**
+  - `ReactionAction`의 `{kind: "project-manager"}`. 세 toast handler(`packages/shell/renderer/app-frame/toast-handler.ts`, `packages/shell/renderer/workspace/reactions/toast-handler.ts`, `packages/shell/renderer/desktop/main.tsx`)가 아직 switch한다.
+  - `packages/core/agent-roles/credentials.ts`의 `PLACE_READS`에 남은 `packagesUsage`(lophn 지도가 더 읽지 않는다. 다른 role이 쓰지 않으면 뺀다).
+- **옛 말 고치기**
+  - `public` 설명의 "다른 project에 보이는지": `packages/sdk/blueprint/guide.md`, `packages/protocol/apps/blueprint/{types,read}.ts` 주석 → "다른 domain에".
+  - `new-app` command 설명 "Start a new app in this project": `packages/core/agent-roles/commands.ts`와 `packages/shell/renderer/conversation/agent-tab-fake-commands.ts`.
+  - `packages/core/agent-roles/roles/lophn/prompt.md`(20째 줄 근처) "which other projects use its public tools" → domains.
+  - `packages/shell/renderer/palette/search.ts`(22째 줄 근처)가 project place만 안다. 앱 place session도 찾게 한다.
+  - `tools/wireframes/mock/app-space/coding-terminal.ts`의 `…/projects/prj_…/app/source` 문자열 → `~/.lophn/apps/<app>/source`.
+  - place 정보의 "a Operator" → "an Operator".
+  - Drafts mock(`tools/wireframes/mock/domain/`)의 "Project Manager" 같은 옛 이름은 Drafts를 지울 때 같이 사라진다.
+- **넘기는 것(이 task가 하지 않는다):** `tests/e2e/annotation_test.ts`가 PM을 기대하는 것, eval 자료의 옛 이름은 다음 계획(e2e 다시 쓰기, eval 자료 다시 만들기)의 몫이다. type만 맞춘다.

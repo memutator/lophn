@@ -14,7 +14,6 @@ core HTTP server에 MCP Streamable HTTP endpoint 하나(`POST /mcp`, protocol `2
   - `packages/core/apps/mcp`(새 폴더: `serve.ts`, `serve_test.ts`, `mod.ts`)
   - `packages/core/main/daemon/wiring/coding-mcp.ts`(새 file)
   - `packages/core/main/daemon/wiring/context.ts`
-  - `packages/core/main/daemon/wiring/apps.ts`
   - `packages/core/main/daemon/core.ts`
 - 읽을 것:
   - architecture: `project-docs/architecture/coding-agent.md`("coding agent가 lophn에 닿는 길은 CLI 하나이고 인증은 앱 하나 범위의 token이다"가 이 task로 CLI + MCP가 된다), `project-docs/architecture/app-call.md`(preview 절)
@@ -86,3 +85,9 @@ core HTTP server에 MCP Streamable HTTP endpoint 하나(`POST /mcp`, protocol `2
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**: `listChanged`가 없어 preview를 연 뒤 생긴 tool은 재연결 뒤에 보인다. 활성 release와 preview 선언이 모두 없는 앱은 빈 목록이다
+
+## lead가 더함
+
+- `packages/core/main/daemon/wiring/apps.ts`는 소유에서 뺐다. 계획 `domain-place`의 `dp-storage-apps`가 그 file을 쥐고 돈다. 공용 조립 file이라 lead가 merge 뒤 줄을 더한다.
+  - `PreviewService`는 이미 `ctx.appsControl.previews`로 닿는다(`dt-preview-call`이 `AppsControl.previews`를 더했다). 새 provide가 필요 없다.
+  - 호출 길(`createAppCalls`의 `path`)은 아직 provide되지 않는다. `wiring/context.ts`의 `Late`에 칸(예: `appCallPath: AppApiCallPath`)을 더하고 `wiring/coding-mcp.ts`가 그것을 읽게 쓴다. `wiring/apps.ts`에 넣을 `ctx.provide(...)` 한 줄은 보고의 "등록할 것"에 적는다. `coding-mcp.ts`는 lead가 WIRINGS에 등록하기 전까지 돌지 않으므로 기동 check는 그 줄 없이 통과한다.

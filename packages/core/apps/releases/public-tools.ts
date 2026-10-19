@@ -1,10 +1,10 @@
-// release가 바꾸는 tool 선언과, 그것을 다른 project가 쓰는지의 판정. activation 막기(start·block)와
+// release가 바꾸는 tool 선언과, 그것을 다른 domain이 쓰는지의 판정. activation 막기(start·block)와
 // 바뀐 사실 알리기(complete)가 같은 재료를 쓴다. 비교 재료는 release에 고정된 blueprint다.
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
+import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
-import { appProjectOf } from "../lookups.ts";
 import { appToolUsers, type ToolUser, usagePorts } from "../usage/mod.ts";
 import { loadActiveBlueprint, loadStoredBlueprint } from "./store.ts";
 
@@ -16,7 +16,7 @@ export type ToolDiff = {
   changed: string[];
 };
 
-// input schema, output schema, effect, public 가운데 하나라도 다르면 바뀐 것이다. 이름순으로 낸다.
+// input schema, output schema, effect, public, domain 가운데 하나라도 다르면 바뀐 것이다. 이름순으로 낸다.
 export function diffTools(
   previous: readonly Tool[],
   next: readonly Tool[],
@@ -29,6 +29,7 @@ export function diffTools(
       output: tool.outputSchema ?? null,
       effect: tool.effect,
       public: tool.public,
+      domain: tool.domain,
     });
   const diff: ToolDiff = { added: [], removed: [], changed: [] };
   for (const [name, tool] of after) {
@@ -53,15 +54,6 @@ export function removedPublicOf(
     .filter((tool) => tool.public && after.get(tool.name)?.public !== true)
     .map((tool) => tool.name)
     .sort();
-}
-
-// 지운 공개 tool 가운데 다른 project가 쓰는 것.
-export function blockedBy(
-  removedPublic: readonly string[],
-  users: readonly ToolUser[],
-): string[] {
-  const used = new Set(users.map((user) => user.tool));
-  return removedPublic.filter((name) => used.has(name));
 }
 
 type Reader = Pick<Tx, "sql" | "port">;
@@ -96,11 +88,51 @@ function usersOf(tx: Reader, app: string): Result<ToolUser[]> {
   return appToolUsers(tx.sql, ports, app);
 }
 
-// 이 release가 active가 되면 지워질 공개 tool 가운데 다른 project가 쓰는 것. 비면 막지 않는다.
+// tool의 domain 이름을 domain id로 바꾼다. 읽기에 실패하면 err다(호출한 쪽이 막는 쪽으로 쓴다).
+function domainsByTool(
+  tx: Reader,
+  app: string,
+  tools: readonly Tool[],
+): Result<Map<string, string>> {
+  let lookup;
+  try {
+    lookup = tx.port(domainLookupPort);
+  } catch {
+    return err({ code: "unavailable", message: "domains are unavailable" });
+  }
+  const ids = new Map(
+    lookup.ofOwner({ kind: "app", id: app }).map((d) => [d.name, d.id]),
+  );
+  const byTool = new Map<string, string>();
+  for (const tool of tools) {
+    const id = ids.get(tool.domain);
+    if (id === undefined) {
+      return err({ code: "internal", message: "tool domain not found" });
+    }
+    byTool.set(tool.name, id);
+  }
+  return ok(byTool);
+}
+
+function grouped(entries: Iterable<[string, string]>) {
+  const byDomain = new Map<string, Set<string>>();
+  for (const [domain, tool] of entries) {
+    const names = byDomain.get(domain) ?? new Set<string>();
+    names.add(tool);
+    byDomain.set(domain, names);
+  }
+  return [...byDomain]
+    .map(([domain, names]) => ({ domain, tools: [...names].sort() }))
+    .sort((a, b) => a.domain < b.domain ? -1 : a.domain > b.domain ? 1 : 0);
+}
+
+export type DomainNotice = { domain: string; tools: string[] };
+
+// 이 release가 active가 되면 지워질 공개 tool 가운데 다른 domain이 쓰는 것을 tool의 domain별로 묶는다. 비면 막지 않는다.
 export function blockedToolsOf(
   tx: Reader,
   release: ReleaseRecord,
-): Result<string[]> {
+): Result<DomainNotice[]> {
   const both = toolsOfBoth(tx, release);
   if (!both.ok) return both;
   if (both.value === null) return ok([]);
@@ -108,40 +140,47 @@ export function blockedToolsOf(
   if (removed.length === 0) return ok([]);
   const users = usersOf(tx, release.app);
   if (!users.ok) return users;
-  return ok(blockedBy(removed, users.value));
+  const used = new Set(users.value.map((user) => user.tool));
+  const blocked = removed.filter((name) => used.has(name));
+  if (blocked.length === 0) return ok([]);
+  const domains = domainsByTool(tx, release.app, both.value.previous);
+  if (!domains.ok) return domains;
+  return ok(grouped(blocked.map((name) => [domains.value.get(name)!, name])));
 }
 
-// release가 active가 될 때 알릴 project와 tool. 그 앱의 project는 바뀐 tool 전부를, 다른 project는 자기가 쓰는
+// release가 active가 될 때 알릴 domain과 tool. tool의 domain은 바뀐 tool 전부를, 다른 domain은 자기가 쓰는
 // 바뀌거나 지워진 공개 tool만 받는다. 이전 release가 아직 active일 때 불러야 사용 관계가 이전 선언으로 읽힌다.
 export function changeNoticesOf(
   tx: Reader,
   release: ReleaseRecord,
-): Result<{ project: string; tools: string[] }[]> {
+): Result<DomainNotice[]> {
   const both = toolsOfBoth(tx, release);
   if (!both.ok) return both;
   if (both.value === null) return ok([]);
-  const diff = diffTools(both.value.previous, both.value.next);
+  const { previous, next } = both.value;
+  const diff = diffTools(previous, next);
   const touched = [...diff.removed, ...diff.changed];
   const all = [...diff.added, ...touched].sort();
   if (all.length === 0) return ok([]);
-  const own = appProjectOf(tx.sql, release.app);
-  if (own === null) {
-    return err({ code: "internal", message: "app has no project" });
+  const before = domainsByTool(tx, release.app, previous);
+  if (!before.ok) return before;
+  const after = domainsByTool(tx, release.app, next);
+  if (!after.ok) return after;
+  // domain이 바뀐 tool은 옛 domain과 새 domain 둘 다 받는다.
+  const entries: [string, string][] = [];
+  for (const name of all) {
+    for (
+      const domain of new Set([before.value.get(name), after.value.get(name)])
+    ) {
+      if (domain !== undefined) entries.push([domain, name]);
+    }
   }
-  const notices = new Map<string, string[]>([[own, all]]);
   if (touched.length > 0) {
     const users = usersOf(tx, release.app);
     if (!users.ok) return users;
-    const byProject = new Map<string, Set<string>>();
     for (const user of users.value) {
-      if (!touched.includes(user.tool)) continue;
-      const names = byProject.get(user.project) ?? new Set<string>();
-      names.add(user.tool);
-      byProject.set(user.project, names);
-    }
-    for (const [project, names] of byProject) {
-      notices.set(project, [...names].sort());
+      if (touched.includes(user.tool)) entries.push([user.domain, user.tool]);
     }
   }
-  return ok([...notices].map(([project, tools]) => ({ project, tools })));
+  return ok(grouped(entries));
 }

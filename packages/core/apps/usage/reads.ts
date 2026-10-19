@@ -12,10 +12,10 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
     handle(snapshot, ctx, input) {
       const ports = snapshot.port(usagePorts);
       const actor = parseActor(ctx.actor);
-      // 다른 project의 사용 관계는 project 경계를 넘어 보는 lophn만 읽는다.
+      // 다른 domain의 사용 관계는 domain 경계를 넘어 보는 lophn만 읽는다.
       if (
         actor?.kind === "agent" &&
-        ports.sessionPlace(actor.id)?.role !== "lophn"
+        ports.sessionDomains(actor.id)?.role !== "lophn"
       ) {
         return err({
           code: "forbidden",
@@ -43,7 +43,7 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
       }
       uses.sort((a, b) =>
         order(a.app, b.app) || order(a.tool, b.tool) ||
-        order(a.project, b.project) || order(a.source, b.source)
+        order(a.domain, b.domain) || order(a.source, b.source)
       );
       return ok({
         uses,

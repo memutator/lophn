@@ -9,21 +9,28 @@ import {
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
+import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import { usagePorts } from "../usage/mod.ts";
 import { createReleaseCommands } from "./commands.ts";
-import { blockedBy, diffTools, removedPublicOf } from "./public-tools.ts";
+import { diffTools, removedPublicOf } from "./public-tools.ts";
 import { releasesSchemaSteps } from "./schema.ts";
 import { insertRelease } from "./store.ts";
 
 type Tool = Blueprint["tools"][number];
 
-const tool = (name: string, pub: boolean, effect = "read"): Tool => ({
+const tool = (
+  name: string,
+  pub: boolean,
+  effect = "read",
+  domain = "alpha",
+): Tool => ({
   name,
   title: name,
   description: name,
   inputSchema: null,
   effect,
   public: pub,
+  domain,
 } as Tool);
 
 Deno.test("공개였다가 비공개가 된 tool도 지운 것이고, 바뀐 것은 이름별로 나온다", () => {
@@ -35,15 +42,16 @@ Deno.test("공개였다가 비공개가 된 tool도 지운 것이고, 바뀐 것
     changed: ["a", "b"],
   });
   assertEquals(removedPublicOf(before, after), ["a"]);
+  // domain만 달라져도 바뀐 tool이다.
   assertEquals(
-    blockedBy(["a", "x"], [{ tool: "a", project: "prj_x", source: "grant" }]),
+    diffTools([tool("a", true)], [tool("a", true, "read", "beta")]).changed,
     ["a"],
   );
 });
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
-const OWN = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
-const OTHER = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const OWN = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
+const OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const MACHINE: RequestContext = {
   principal: "machine:test",
   actor: "machine",
@@ -76,7 +84,7 @@ function release(n: number, tools: Tool[], status = "prepared") {
   };
 }
 
-Deno.test("다른 project가 쓰는 공개 tool을 지운 release는 시작하지 않고 prepared로 남는다", () => {
+Deno.test("다른 domain이 쓰는 공개 tool을 지운 release는 시작하지 않고 prepared로 남는다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -85,17 +93,21 @@ Deno.test("다른 project가 쓰는 공개 tool을 지운 release는 시작하�
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(
     `INSERT INTO apps VALUES (?, 'slug', ?, 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
-  ).run(APP, OWN);
+  ).run(APP, "prj_01hzzzzzzzzzzzzzzzzzzzzzza");
   let count = 0;
   const sessions: Record<string, string> = { ses_own: OWN, ses_other: OTHER };
   const ports = new Map<unknown, unknown>([
     [TargetAuthorization, () => ok(undefined)],
     [usagePorts, {
-      sessionPlace: (id: string) => ({
+      sessionDomains: (id: string) => ({
         role: "project_manager",
-        project: sessions[id],
+        domains: [sessions[id]],
       }),
-      agentProject: () => null,
+      agentDomains: () => [],
+      domainOf: (_app: string, name: string) => name === "alpha" ? OWN : null,
+    }],
+    [domainLookupPort, {
+      ofOwner: () => [{ id: OWN, name: "alpha" }],
     }],
   ]);
   const tx = {
@@ -116,7 +128,7 @@ Deno.test("다른 project가 쓰는 공개 tool을 지운 release는 시작하�
     db.prepare(
       `INSERT INTO invocations VALUES (?, 'agent', ?, ?)`,
     ).run(APP, JSON.stringify({ kind: "tool", tool: name }), session);
-  // 다른 project는 a를, 자기 project는 d를 불렀다. b와 c는 아무도 부르지 않았다.
+  // 다른 domain은 a를, 자기 domain은 d를 불렀다. b와 c는 아무도 부르지 않았다.
   called("ses_other", "a");
   called("ses_own", "d");
 
@@ -156,6 +168,6 @@ Deno.test("다른 project가 쓰는 공개 tool을 지운 release는 시작하�
       ?.status,
     "prepared",
   );
-  // b(아무도 안 씀), c(비공개), d(자기 project만 씀)를 지운 release는 막히지 않는다.
+  // b(아무도 안 씀), c(비공개), d(자기 domain만 씀)를 지운 release는 막히지 않는다.
   assertEquals(run(free).ok, true);
 });

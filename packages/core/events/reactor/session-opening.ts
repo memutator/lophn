@@ -55,9 +55,8 @@ async function agentOf(
     case "AppRestartHalted":
       return deps.agentOfApp(event.subject);
     case "KindViolationFound":
-      return await deps.agentOfDomain(event.payload.domain);
     case "PublicToolsChanged":
-      return ok({ role: "project_manager", project: event.payload.project });
+      return await deps.agentOfDomain(event.payload.domain);
   }
 }
 
@@ -121,7 +120,7 @@ function callOf(
         to,
         body: event.payload.change === "changed"
           ? `A tool of an app you use or own changed (${tools}). Re-check the skills that call it.`
-          : `A release was blocked because it removes public tools that other projects use (${tools}).`,
+          : `A release was blocked because it removes public tools that other domains use (${tools}).`,
         refs: [],
       };
     }

@@ -277,7 +277,7 @@ async function readPlaceData(
             description: t.description,
           })),
         packages: own === undefined ? [] : packagesOf.get(own.id) ?? [],
-        usedBy: uses.map((u) => ({ tool: u.tool, project: nameOf(u.project) })),
+        usedBy: uses.map((u) => ({ tool: u.tool, project: nameOf(u.domain) })),
       });
     }
   }

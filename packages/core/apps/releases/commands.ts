@@ -22,6 +22,7 @@ import {
   type ReleaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
+import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import {
   publicToolsChanged,
   releaseActivationFailed,
@@ -51,7 +52,6 @@ import {
   createDataRecordStore,
   discardBackups,
 } from "../data/mod.ts";
-import { appProjectOf } from "../lookups.ts";
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";
@@ -189,7 +189,7 @@ function activatingOf(tx: Pick<Tx, "sql">, app: string): string | null {
   return row === undefined ? null : String(row.id);
 }
 
-const BLOCKED_MESSAGE = "release removes public tools used by another project";
+const BLOCKED_MESSAGE = "release removes public tools used by another domain";
 
 function outputRelease(release: ReleaseRecord): Release {
   return {
@@ -286,16 +286,14 @@ export function createReleaseCommands(): {
         const blocked = blockedToolsOf(tx, release);
         if (!blocked.ok) return blocked;
         if (blocked.value.length === 0) return ok({ blocked: false });
-        const project = appProjectOf(tx.sql, release.app);
-        if (project === null) {
-          return err({ code: "internal", message: "app has no project" });
+        for (const notice of blocked.value) {
+          tx.emit(publicToolsChanged, release.app, {
+            release: release.id,
+            domain: notice.domain,
+            change: "blocked",
+            tools: notice.tools,
+          } as never);
         }
-        tx.emit(publicToolsChanged, release.app, {
-          release: release.id,
-          project,
-          change: "blocked",
-          tools: blocked.value,
-        } as never);
         return ok({ blocked: true });
       },
     },
@@ -383,7 +381,7 @@ export function createReleaseCommands(): {
         for (const notice of notices.value) {
           tx.emit(publicToolsChanged, release.app, {
             release: release.id,
-            project: notice.project,
+            domain: notice.domain,
             change: "changed",
             tools: notice.tools,
           } as never);
@@ -559,8 +557,16 @@ export function createReleaseCommands(): {
           return conflict("archived app cannot prepare a release");
         }
         // 정규 blueprint는 검증기를 통과한 것만 hash로 고정한다.
+        let lookup;
+        try {
+          lookup = tx.port(domainLookupPort);
+        } catch {
+          return unavailable("domains are unavailable");
+        }
         const validated = validateBlueprint(input.blueprint, {
           app: input.app,
+          domains: lookup.ofOwner({ kind: "app", id: input.app }, "active")
+            .map((domain) => domain.name),
         });
         if (!validated.ok) return invalid(validated.error.message);
         const blueprint = validated.value;

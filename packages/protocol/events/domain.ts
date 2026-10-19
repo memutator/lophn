@@ -55,12 +55,13 @@ export const kindViolationFound = defineEvent("KindViolationFound", {
   }),
 });
 
-// project는 깨울 PM의 project다. 한 사실에 project마다 event 하나를 낸다. tools는 바뀌거나 막힌 공개 tool 이름이다.
+// domain은 깨울 domain이다(그 owner의 PM 또는 App Engineer가 받는다). 한 사실에 domain마다 event 하나를 낸다.
+// tools는 바뀌거나 막힌 공개 tool 이름이다.
 export const publicToolsChanged = defineEvent("PublicToolsChanged", {
   subject: idSchema("app"),
   payload: z.strictObject({
     release: idSchema("rel"),
-    project: idSchema("prj"),
+    domain: idSchema("dom"),
     change: z.enum(["changed", "blocked"]),
     tools: z.array(z.string().min(1)),
   }),

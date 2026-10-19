@@ -19,7 +19,6 @@ export {
 export {
   aeCallsOnlyToCodingAgent,
   appToolCalled,
-  appToolOrder,
   readProblem,
 } from "./calls.ts";
 export {

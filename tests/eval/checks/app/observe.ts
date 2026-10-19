@@ -9,6 +9,7 @@ import {
   appGet,
   appRuntime,
 } from "../../../../packages/protocol/apps/mod.ts";
+import { UNPROVEN_PROBLEM } from "../../../../packages/core/problems/tests/unproven.ts";
 import { settingsUpdate } from "../../../../packages/protocol/config/mod.ts";
 import {
   problemGet,
@@ -155,6 +156,14 @@ function renameTables(appName: string): Around {
   };
 }
 
+// platform(core)이 앱 이름으로 보고하는 problem은 앱이 보고한 것이 아니다. 보고 source가 앱 자신의 것과
+// 같아 이름으로 가른다.
+const PLATFORM_PROBLEMS = [UNPROVEN_PROBLEM];
+
+export function appNames(names: string[]): string[] {
+  return names.filter((n) => !PLATFORM_PROBLEMS.includes(n));
+}
+
 // ticket 글에 없는 이름만 돌려준다.
 export function namesMissing(names: string[], ticketText: string): string[] {
   return [...new Set(names)].filter((name) => !ticketText.includes(name));
@@ -183,15 +192,16 @@ export function observationChecks(spec: ObserveSpec): ProgramCheck[] {
     ),
     liveCheck("observe-names-in-ticket", async (core) => {
       const app = await findApp(core, spec.app);
-      const names: string[] = [];
+      const named: string[] = [];
       for (const item of await appProblems(core, app.id)) {
         const { problem } = await core.call(problemGet, { problem: item.id });
         if (problem.group_key.kind === "named") {
-          names.push(problem.group_key.name);
+          named.push(problem.group_key.name);
         }
       }
+      const names = appNames(named);
       if (names.length === 0) {
-        return { pass: false, reason: "이름으로 보고된 problem이 없음" };
+        return { pass: false, reason: "앱이 이름으로 보고한 problem이 없음" };
       }
       const text = (await appTickets(core, app.id)).map((t) =>
         `${t.goal}\n${JSON.stringify(t.check)}`

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { decideNoRecurrence } from "./diagnose.ts";
-import { decideFailure, namesMissing } from "./observe.ts";
+import { appNames, decideFailure, namesMissing } from "./observe.ts";
 
 const p = (id: string, name: string, count: number, recurred = null) => ({
   id,
@@ -42,5 +42,12 @@ Deno.test("ticket 글에 없는 problem 이름만 골라낸다", () => {
   assertEquals(
     namesMissing(["a_failed", "b_failed", "a_failed"], "goal: fix a_failed"),
     ["b_failed"],
+  );
+});
+
+Deno.test("platform이 보고한 problem 이름은 ticket에 적을 이름에서 뺀다", () => {
+  assertEquals(
+    appNames(["event_input_invalid", "rewind_unproven", "notify_call_failed"]),
+    ["event_input_invalid", "notify_call_failed"],
   );
 });

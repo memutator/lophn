@@ -20,7 +20,7 @@ import {
   ticketCreate,
   ticketVerify,
 } from "./common.ts";
-import { APP, CARD_MVP, MVP_SCRIPT, OBSERVE, REUSE } from "./spec.ts";
+import { APP, CALL_MVP, CARD_MVP, MVP_SCRIPT, OBSERVE, REUSE } from "./spec.ts";
 
 const BODY = "캘린더 앱을 만들어 주세요. fixture 본문";
 const lophnCall = () =>
@@ -31,7 +31,7 @@ const goal = "일정 추가·목록·삭제와 알림이 되는 캘린더 앱을
 
 const scenario: Scenario = {
   id: "calendar-mvp",
-  n: 3,
+  n: 4,
   proposal: false,
   world: ["notify-app@2", "date-range@2", "calendar-call@3"],
   real: [AE, CODING],
@@ -58,7 +58,7 @@ const scenario: Scenario = {
       id: "asked-again",
       premise: ["ae-ticket-created"],
       criterion: "asked-again@3",
-      input: askedAgainInput(AE),
+      input: askedAgainInput(CALL_MVP.body),
     },
   ],
   fixtures: {

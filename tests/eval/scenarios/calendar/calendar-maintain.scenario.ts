@@ -34,7 +34,7 @@ const aeSession = (steps: Parameters<typeof fixtureSession>[1]) =>
 
 const scenario: Scenario = {
   id: "calendar-maintain",
-  n: 3,
+  n: 4,
   proposal: false,
   world: ["calendar-app@2", "calendar-data@2"],
   real: [AE, CODING],
@@ -65,7 +65,7 @@ const scenario: Scenario = {
       id: "asked-again",
       premise: ["ae-ticket-created"],
       criterion: "asked-again@3",
-      input: askedAgainInput(AE, SAY_MAINTAIN),
+      input: askedAgainInput(SAY_MAINTAIN),
     },
   ],
   fixtures: {

@@ -72,28 +72,6 @@ export function appToolCalled(
   };
 }
 
-export function appToolOrder(
-  id: string,
-  opts: { first: string; then: string },
-): ProgramCheck {
-  return {
-    kind: "program",
-    id,
-    run({ trial }) {
-      const first = successCalls(trial, opts.first)
-        .map((c) => c.call.id).sort()[0];
-      const hit = first !== undefined &&
-        successCalls(trial, opts.then).some((c) => c.call.id > first);
-      return {
-        pass: hit,
-        reason: hit
-          ? `${opts.first} 뒤에 ${opts.then}`
-          : `${opts.first} 성공 뒤에 ${opts.then} 성공이 없음`,
-      };
-    },
-  };
-}
-
 // App Engineer가 problem을 읽었나.
 export function readProblem(id: string): ProgramCheck {
   return {

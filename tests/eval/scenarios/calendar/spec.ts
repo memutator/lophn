@@ -7,6 +7,12 @@ import type {
   ObserveSpec,
   ReuseSpec,
 } from "../../checks/app/mod.ts";
+import CALL_MVP_JSON from "../../materials/calendar-call/3/files/call.json" with {
+  type: "json",
+};
+
+// deliver하는 call. 요청 본문은 judge 입력에도 쓴다.
+export const CALL_MVP: { body: string } = CALL_MVP_JSON;
 
 export const APP = "캘린더";
 export const NOTIFY_APP = "알림";

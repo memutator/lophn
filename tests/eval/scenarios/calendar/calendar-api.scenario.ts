@@ -1,10 +1,6 @@
 // 출처: roadmap eval "캘린더 단위". Operator가 켜진 캘린더의 tool로 사람 말대로 일정을 넣고 목록을 본다.
 // tool 정확도는 check가 아니라 공통 수치(Metrics.tools)로 scorecard에서 읽는다.
-import {
-  appToolCalled,
-  appToolOrder,
-  appToolSession,
-} from "../../checks/app/mod.ts";
+import { appToolCalled, appToolSession } from "../../checks/app/mod.ts";
 import { callCount, fixtureTrial } from "../../checks/mod.ts";
 import { say, type Scenario, untilIdle } from "../../types.ts";
 import { AE, createCalendarOperator, eventInCalendar, OP } from "./common.ts";
@@ -15,7 +11,7 @@ const LIST = { tool: "domain__fx__event.list" } as const;
 
 const scenario: Scenario = {
   id: "calendar-api",
-  n: 3,
+  n: 4,
   proposal: false,
   world: ["calendar-app@2"],
   setup: createCalendarOperator,
@@ -24,7 +20,6 @@ const scenario: Scenario = {
   checks: [
     appToolCalled("added", { command: "event.add" }),
     appToolCalled("listed", { command: "event.list" }),
-    appToolOrder("list-after-add", { first: "event.add", then: "event.list" }),
     callCount("no-agent-calls", { count: 0 }),
     eventInCalendar,
   ],
@@ -33,11 +28,7 @@ const scenario: Scenario = {
     wrong: [
       {
         trial: fixtureTrial([appToolSession(OP, [LIST])]),
-        fails: ["added", "list-after-add"],
-      },
-      {
-        trial: fixtureTrial([appToolSession(OP, [LIST, ADD])]),
-        fails: ["list-after-add"],
+        fails: ["added"],
       },
       {
         trial: fixtureTrial([

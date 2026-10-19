@@ -2,8 +2,8 @@
 import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
 import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-tool.ts";
 import { asksGapInput, joinInput } from "../../judge/mod.ts";
-import type { CheckInput, Participant, TrialRecord } from "../../types.ts";
-import { sentCalls, toolCallsOf } from "../records.ts";
+import type { CheckInput, TrialRecord } from "../../types.ts";
+import { toolCallsOf } from "../records.ts";
 import type { BugSpec } from "./diagnose.ts";
 import { findApp } from "./live.ts";
 import { appTickets, filesOf, problemTickets } from "./tickets.ts";
@@ -87,21 +87,16 @@ export function cardCoveredInput(
   };
 }
 
-// request가 없으면 App Engineer가 받은 첫 call의 본문이다. `say`로 요청이 간 시나리오는 request를 넘긴다.
+// request는 사람 말(`say`)이나 `deliver`한 call 본문이다. lophn session이 보낸 call에는 없다.
 export function askedAgainInput(
-  ae: Participant,
-  request?: string,
+  request: string,
 ): (input: CheckInput) => string {
   return ({ trial }) => {
-    const text = request ??
-      sentCalls(trial, {
-        target: ae,
-      })[0]?.body ?? "(no request)";
     const questions = toolCallsOf(trial, "ask").flatMap((c) =>
       (c.input as { questions?: AskInput["questions"] } | null)?.questions ??
         []
     );
-    return asksGapInput(text, questions);
+    return asksGapInput(request, questions);
   };
 }
 

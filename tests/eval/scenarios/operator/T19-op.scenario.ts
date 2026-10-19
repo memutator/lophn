@@ -20,7 +20,7 @@ import {
 
 const scenario: Scenario = {
   id: "T19-op",
-  n: 1,
+  n: 2,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_월말정리],

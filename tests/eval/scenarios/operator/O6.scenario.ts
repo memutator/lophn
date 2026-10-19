@@ -1,4 +1,4 @@
-// 출처: AGENT-ROLE O6. context 계약을 바꿔야 하면 직접 고치지 않고 Project Manager에게 call로 맡긴다(답 방식은 정하지 않는다).
+// 출처: AGENT-ROLE O6. kind 파일을 바꿔야 하면 직접 고치지 않고 Project Manager에게 call로 맡긴다(답 방식은 정하지 않는다).
 import {
   callCount,
   fixtureSession,
@@ -15,11 +15,12 @@ import {
   PM_tax,
 } from "./common.ts";
 
-const REQUEST = "영수증에 '공급자' 칸이 필요한데 계약에 없네. 일은 계속해 줘";
+const REQUEST =
+  "영수증 kind에 '공급자' 칸이 필요한데 kinds.yaml에 없네. 일은 계속해 줘";
 
 const scenario: Scenario = {
   id: "O6",
-  n: 1,
+  n: 2,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_세무정리],
@@ -50,7 +51,7 @@ const scenario: Scenario = {
               to: PM_tax,
               reply: "result",
               body:
-                "영수증 context 계약에 '공급자' 칸이 없습니다. 칸을 더해 주세요. 저는 그동안 일을 계속합니다.",
+                "영수증 kind에 '공급자' 칸이 없습니다. 칸을 더해 주세요. 저는 그동안 일을 계속합니다.",
             },
           },
         ]),

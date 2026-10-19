@@ -10,7 +10,7 @@ export async function restoreOperators(
 ): Promise<void> {
   const operators = JSON.parse(textOf(material, "operators.json")) as {
     place: { kind: "app" | "project"; name: string };
-    definition: { name: string; body: string; contexts?: string[] };
+    definition: { name: string; body: string };
   }[];
   for (const { place, definition } of operators) {
     const placeId = place.kind === "app"
@@ -22,27 +22,13 @@ export async function restoreOperators(
       );
     }
     const id = material.manifest.ids[definition.name] as Id<"agt">;
-    const { contexts, ...rest } = definition;
     await ctx.core.call(operatorCreate, {
       id,
       place: place.kind === "app"
         ? { kind: "app", id: placeId }
         : { kind: "project", id: placeId },
-      definition: {
-        ...rest,
-        ...(contexts === undefined
-          ? {}
-          : { contexts: contexts.map((name) => resolveContext(ctx, name)) }),
-      },
+      definition,
     });
     ctx.world.operators[definition.name] = id;
   }
-}
-
-function resolveContext(ctx: SetupContext, name: string): string {
-  const id = ctx.world.contexts[name];
-  if (id === undefined) {
-    throw new Error(`operator context ${name} not restored`);
-  }
-  return id;
 }

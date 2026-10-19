@@ -101,7 +101,6 @@ export type WorldIds = {
   apps: Record<string, Id<"app">>; // app.name → id
   projects: Record<string, Id<"prj">>; // project.name → id
   folders: Record<string, string>; // project.name → 되살린 폴더의 절대 경로
-  contexts: Record<string, string>; // context name → ctx id
   operators: Record<string, Id<"agt">>; // Operator name → id
 };
 
@@ -429,7 +428,7 @@ export type RunRecord = {
 export type MaterialKind =
   | "app"
   | "project"
-  | "context"
+  | "kinds"
   | "operator"
   | "active_app"
   | "app_data"

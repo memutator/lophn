@@ -140,7 +140,7 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
     [`${R}/roles/prompts.ts`, "instruction"],
     [`${R}/roles/guides.ts`, "guide"],
     [`${R}/roles/lophn/guides/rewind.md`, "guide"],
-    [`${R}/skills/context-init/SKILL.md`, "skill:context-init"],
+    [`${R}/skills/kinds-yaml/SKILL.md`, "skill:kinds-yaml"],
     [`${R}/skills/root.ts`, "runtime"],
     [
       "packages/coding-agent/guides/skills/lophn-repair/references/investigation.md",

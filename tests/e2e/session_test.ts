@@ -210,7 +210,10 @@ async function openCallWaitingPermission(
     },
   }], {
     name: "pm",
-    match: (request) => toolNames(request).includes("context_draft"),
+    match: (request) =>
+      toolNames(request).includes("operator_create") &&
+      !toolNames(request).includes("app_create") &&
+      !toolNames(request).includes("ticket_create"),
   });
   const src = await openSession(core, LOPHN);
   await say(core, src, "ask the project manager");

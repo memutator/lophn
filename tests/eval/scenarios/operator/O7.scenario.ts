@@ -8,7 +8,7 @@ const REQUEST = "너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐";
 
 const scenario: Scenario = {
   id: "O7",
-  n: 1,
+  n: 2,
   proposal: true,
   world: OPERATOR_WORLD,
   real: [OP_월말정리],

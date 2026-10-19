@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "skill-description",
-    "name": "context-update",
-    "n": 1,
-    "hash": "691c4459cb47ce76d8edbf7b84bf39413c70eaf46a63d460abff46fe9655f215",
-    "content": "Draft a new context version from the applied one, test it, and publish it."
-  }
-]

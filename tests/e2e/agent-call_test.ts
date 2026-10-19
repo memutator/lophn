@@ -9,7 +9,7 @@
 //
 // 행의 fake 대답이 3개를 넘는다(README 정한 것 11의 예외): 보내는 session A와 받는 session B가 각자 turn을 돌고 서로의 입력을
 // 기다려야 하는 flow라 한 행이 4~9개가 된다. 대신 단계와 단정 상한은 지킨다. 줄은 요청의 tool 목록으로 가른다
-// (lophn은 app_create, PM은 context_draft, App Engineer는 ticket_create, 그 외 call을 가진 것은 Operator).
+// (lophn은 app_create, PM은 operator_create(app_create·ticket_create 없이), App Engineer는 ticket_create, 그 외 call을 가진 것은 Operator).
 //
 // call-dedup 행은 두지 않는다. 같은 reply에 같은 tool call id를 두 번 넣어도 core는 tool call마다 새 tcl id를 만들고
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
@@ -62,7 +62,9 @@ const LOPHN: Lane = {
 };
 const PM: Lane = {
   name: "pm",
-  match: (r) => names(r).includes("context_draft"),
+  match: (r) =>
+    names(r).includes("operator_create") && !names(r).includes("app_create") &&
+    !names(r).includes("ticket_create"),
 };
 const AE: Lane = {
   name: "ae",
@@ -72,7 +74,7 @@ const OPERATOR: Lane = {
   name: "operator",
   match: (r) =>
     names(r).includes("call") &&
-    !["app_create", "context_draft", "ticket_create"].some((n) =>
+    !["app_create", "operator_create", "ticket_create"].some((n) =>
       names(r).includes(n)
     ),
 };

@@ -13,7 +13,7 @@ import { restoreActiveApp } from "./active-app.ts";
 import { restoreAppData } from "./app-data.ts";
 import { restoreApps } from "./apps.ts";
 import { restoreCall } from "./call.ts";
-import { restoreContext } from "./context.ts";
+import { restoreKinds } from "./kinds.ts";
 import {
   type Material,
   MATERIALS_ROOT,
@@ -30,7 +30,7 @@ export async function beginRestore(core: Core): Promise<SetupContext> {
   return {
     core,
     fake,
-    world: { apps: {}, projects: {}, folders: {}, contexts: {}, operators: {} },
+    world: { apps: {}, projects: {}, folders: {}, operators: {} },
   };
 }
 
@@ -45,8 +45,8 @@ async function restoreOne(
     case "project":
       await restoreProjects(ctx, material);
       return ok(undefined);
-    case "context":
-      return await restoreContext(ctx, material);
+    case "kinds":
+      return await restoreKinds(ctx, material);
     case "operator":
       await restoreOperators(ctx, material);
       return ok(undefined);

@@ -59,7 +59,7 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create는 runtime 권�
           kind: "tool",
           calls: [
             call("shell", "shell_run", { command: SHELL }),
-            call("skill", "skill_read", { name: "context-init" }),
+            call("skill", "skill_read", { name: "kinds-yaml" }),
             call("image", "image_read", { path: "pic.png" }),
             call("grep", "file_grep", { pattern: "notes" }),
             call("web", "web_fetch", { url: `${fake.url}/probe` }),

@@ -275,7 +275,7 @@ export async function gateCommand(opts: CommandOptions): Promise<number> {
 const touched = (t: TrialResult) =>
   t.coding?.some((c) => c.human_input) ?? false;
 
-// 시나리오 재료 안의 이름(앱, project, Operator, context)은 과적합 경고가 시나리오 고유 이름으로 본다.
+// 시나리오 재료 안의 이름(앱, project, Operator)은 과적합 경고가 시나리오 고유 이름으로 본다.
 async function extraNamesOf(
   scenarios: Scenario[],
 ): Promise<Record<string, string[]>> {

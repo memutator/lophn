@@ -20,7 +20,7 @@ const TO_AE = { target: AE_가계부, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "O4",
-  n: 1,
+  n: 2,
   proposal: false,
   world: OPERATOR_WORLD,
   real: [OP_월말정리],

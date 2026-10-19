@@ -17,7 +17,7 @@ export type Material = {
 const ID_PREFIX = {
   app: "app",
   project: "prj",
-  context: "ctx",
+  kinds: "prj",
   operator: "agt",
   active_app: "app",
   app_data: "app",

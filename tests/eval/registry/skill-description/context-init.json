@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "skill-description",
-    "name": "context-init",
-    "n": 1,
-    "hash": "e53d050e2c32720b82a9eb5fc9450d71fdb3c6c262f0af6ea82af3b3e8ffb160",
-    "content": "Set the project's purpose, then draft the first context version with its contract and search scripts, test it, and publish it."
-  }
-]

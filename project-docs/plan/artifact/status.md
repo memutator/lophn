@@ -20,4 +20,4 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 | `af-artifact-tab` | artifact-screen | 2 | 없음 | merged | artifact-screen/af-artifact-tab | ec934ee9d |  |
 | `af-artifact-view` | artifact-view | 2 | 없음 | merged | artifact-view/af-artifact-view | a2c046b44 |  |
 | `af-gallery` | artifact-screen | 3 | 없음 | running | artifact-screen/af-gallery |  |  |
-| `af-wording` | artifact-wording | 3 | 없음 | running | artifact-wording/af-wording |  |  |
+| `af-wording` | artifact-wording | 3 | 없음 | merged | artifact-wording/af-wording | c3f76beb0 |  |

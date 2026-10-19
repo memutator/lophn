@@ -8,6 +8,7 @@ app test의 `rewind` 검사에서 만든 입력의 호출 자체가 실패한 wr
   - `packages/core/problems/tests/harness/checks.ts`
   - `packages/core/problems/tests/harness/checks_test.ts`
   - `packages/core/problems/tests/harness/definitions.ts`
+  - `packages/core/problems/tests/app-test/judge.ts`(추가 소유, lead: pass 이유 갈래만. `unproven`이 있으면 pass 이유에 "증명 못 한 write tool: …" 한 줄을 붙인다)
 - 읽을 것:
   - 결정: `project-docs/issues/activation.md`의 "write app-api의 rewind 검사가 fail로 나온다"(다시 정한 것), `project-docs/plan/rewind-check/README.md`의 "정한 것"
   - architecture: `project-docs/architecture/app-call.md`(rewind, changeset)

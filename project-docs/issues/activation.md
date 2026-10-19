@@ -27,7 +27,9 @@ modules: [packages/core/problems, packages/core/apps]
 
 다시 정한 것(사람, 2026-10-19): 검사 입력을 새로 만들지 않고, 실제로 성공한 write 호출을 되돌려 본다.
 - 앱 자신의 test(ticket check `app_test`)나 ticket `examples`가 부른 write 호출의 changeset을 뒤집어 적용해, 호출 전 상태로 돌아오는지 본다.
-- 어디서도 성공적으로 불린 적 없는 write tool은 "증명 못 함"으로 problem에 알리고, activation을 막지 않는다.
+- 만든 입력의 호출 자체가 실패한 write tool은 fail이 아니라 "증명 못 함"이다. activation을 막지 않는다.
+- 증명 못 한 tool은 examples ticket일 때만 problem으로 알린다(planner, 계획 `rewind-check` 진단 뒤). examples run이 끝날 때 같은 (app, bundle_hash) app test의 증명 못 함에서 그 examples가 되돌리기를 증명한 tool을 뺀 것만 낸다. examples가 아닌 ticket은 app test 증거와 pass 이유 한 줄로만 남긴다.
+  - 근거: release마다 그대로 올리면 examples가 이미 증명한 tool도 매번 경고가 되어 아무도 보지 않게 된다. examples run과 app test는 (app, bundle_hash)로 이미 이어져 있어 problems 안에서 차이를 낼 수 있다. examples가 아닌 ticket을 activation 때 알리려면 activation이 모르는 app test 증거와 ticket check 종류를 apps → problems 경계 너머로 이어야 해 비싸다. 그 ticket은 업무 규칙 확인이 애초에 없고 examples를 넣는 것이 증명하는 길이다.
 - tool 선언에 test 전용 fixture 칸은 두지 않는다. 운영과 무관한 data가 선언에 들어가고, 앞 호출이 만든 id를 고정 값으로 맞출 수 없다.
 - 먼저 할 것:
   1. template `add_item`(앞선 상태가 필요 없는 tool)이 왜 실패했는지 진단한다. 입력 문제가 아닌 다른 bug일 수 있다.
@@ -48,3 +50,18 @@ modules: [packages/core/problems, packages/core/storage]
 고치려면:
 - 그대로 둔다(비용 0). fail 이유 한 줄이 검사별 이유를 싣는다. 추천.
 - `detail: true`가 허락된 자격에 observations 내용을 싣는다(작음~중간. 그 blob에 앱 출력이 들어 있어 누가 읽을지 정해야 한다).
+
+## examples가 아닌 ticket의 release에서 "증명 못 함" write tool을 알리지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/problems, packages/core/apps]
+```
+
+지금: app test `rewind` 검사가 만든 입력의 호출이 실패한 write tool을 "증명 못 함"으로 두고(증거 `unproven`, pass 이유 한 줄), problem은 examples ticket의 examples run이 끝날 때만 낸다(위 "write app-api의 rewind 검사가 fail로 나온다"의 정한 것). check가 `app_test`·`text`인 ticket의 release는 증명 못 한 write tool이 있어도 problem이 없다.
+
+영향: examples 없이 활성화된 release의 write tool은 되돌리기가 틀려도 아무도 모른다. rewind가 그 tool의 호출을 틀리게 되돌리면 사람이 고른 시점의 앱 data가 어긋난다.
+
+고치려면:
+- activation 때 그 release의 app test 증거에서 `unproven`을 읽어 problem으로 낸다(중간. activation(`packages/core/apps/releases/activation`)이 app test 증거를 모르므로 apps → problems port가 필요하다).
+- App Engineer 지침이 write tool을 바꾸는 ticket에 examples check를 쓰게 한다(작음. 지침 문장. planner가 domain-place의 지침 land 뒤 넣는다).

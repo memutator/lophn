@@ -13,7 +13,9 @@
   - 호출마다 changeset: 앱 자신의 test(`tests/*.ts`)는 harness 밖 in-process라 changeset이 없다. ticket `examples`는 앱 응답에 이미 write의 changeset이 실리고 `app-driver.ts`의 `call()`이 버릴 뿐이다.
 - 정한 것(planner, 진단 뒤):
   - 증명 재료는 ticket `examples`의 write 호출 changeset이다. 앱 자신의 test는 쓰지 않는다.
-  - examples에 없는 write tool은 지금처럼 만든 입력으로 한 번 불러 본다. 그 호출이 성공했는데 되돌리기가 틀리면 fail이다. 호출 자체가 실패하면 fail이 아니라 "증명 못 함"이고 problem으로 알리며 activation을 막지 않는다.
+  - app test의 `rewind`는 지금처럼 만든 입력으로 write tool을 부른다. 그 호출이 성공했는데 되돌리기가 틀리면 fail이다. 호출 자체가 실패하면 fail이 아니라 "증명 못 함"이고 activation을 막지 않는다.
+  - examples run과 app test run은 따로 돈다. 판정을 합치지 않는다. examples의 되돌리기는 examples 검사 안에서 판정한다.
+  - "증명 못 함"은 examples ticket일 때만 problem으로 알린다: examples run이 끝날 때 같은 (app, bundle_hash) app test의 `unproven` − 그 examples가 증명한 tool. examples가 아닌 ticket은 app test 증거와 pass 이유 한 줄로만 남긴다. activation 때 알리기는 이슈로 둔다(`project-docs/issues/activation.md`).
   - tool 선언에 fixture 칸은 두지 않는다.
   - user token의 `forbidden`(`sameApp`)은 이 계획에서 고친다(`rc-user-read`). observations blob을 아무도 못 읽는 것은 defect 이슈로 둔다.
 - 범위 밖: 앱 자신의 test를 harness로 돌리기, observations blob 읽기 열기, e2e 돌리기.

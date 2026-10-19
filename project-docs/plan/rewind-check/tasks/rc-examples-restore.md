@@ -13,12 +13,12 @@ ticket `examples` 검사가 모든 예시를 통과한 뒤, 예시의 write 호�
   - 지금 코드: `harness/examples.ts`, `harness/driver.ts`(`CallOutcome.changeset`, `AppDriver.restore`, `RestoreRun`)
 - 계약:
   - 쓰는 것: `rc-restore`의 `AppDriver.restore`, `CallOutcome.changeset`
-  - 내놓는 것: 없음(examples 판정의 동작)
+  - 내놓는 것: examples 검사 증거에 `proven: string[]` — 되돌리기가 증명된 write tool 이름(restore가 `applied && restored`일 때 changeset을 남긴 step의 tool, 중복 없이). restore를 부르지 않았거나 실패하면 빈 목록이다. `rc-unproven-problem`이 이 칸을 읽는다.
 
 ## 할 일
 
 1. 예시를 차례로 부를 때 `ok` 결과의 `changeset`을 호출 순서대로 모은다.
-2. 모든 예시가 맞았고 모은 changeset이 하나라도 있으면 `driver.restore(changesets)`를 부른다. `applied && restored`가 아니면 examples 검사는 fail이고 이유는 "예시의 write를 되돌리지 못했다: <reason>"이다. 증거에 restore 결과를 싣는다.
+2. 모든 예시가 맞았고 모은 changeset이 하나라도 있으면 `driver.restore(changesets)`를 부른다. `applied && restored`가 아니면 examples 검사는 fail이고 이유는 "예시의 write를 되돌리지 못했다: <reason>"이다. 증거에 restore 결과와 `proven`(위 계약)을 싣는다.
 3. 예시가 하나라도 틀렸으면 지금처럼 그 불일치로 끝내고 restore는 부르지 않는다. changeset이 없으면(read만 부름) restore를 부르지 않는다.
 4. 위험 test(아래).
 

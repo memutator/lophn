@@ -109,26 +109,28 @@ domain은 **책임 경계**다. 경계를 나누는 이유는 책임과 최소 c
 
 ### project와 domain (2026-10-19 다시 정함)
 
-project와 domain은 다른 것이고 **N:M**이다. DDD에서 저장소와 bounded context가 N:M인 것과 같다.
+project와 domain은 다른 것이고 **1:N**이다. project 하나에 domain이 여럿 있고, domain은 한 project에 속한다. 다른 project에서 그 domain이 필요하면 **참조**한다. 다른 domain을 쓰는 것과 같은 길이고, 공개 tool과 grant로 쓴다.
 
 | | project | domain |
 |---|---|---|
 | 무엇 | 물리적인 작업 공간. 사람이 등록한 폴더 묶음(저장소 하나 같은 것) | 논리적인 책임 경계 |
-| 가진 것 | 폴더 root, 창(workspace), file explorer, terminal, coding agent, project 지침(`LOPHN.md`) | agent(Domain Engineer, Operator), kind 파일, 글, 앱(domain의 코드), skill, artifact, grant |
+| 가진 것 | 폴더 root, 창(workspace), file explorer, terminal, coding agent, project 지침(`LOPHN.md`), 그 안의 domain들 | agent(Domain Engineer, Operator), kind 파일, 글, 앱(domain의 코드), skill, artifact, grant |
 | 경계인가 | 아니다. 파일이 놓이는 그릇이다 | 그렇다. 책임 경계는 domain 하나뿐이다 |
 
 - **예: lophn 저장소를 lophn으로 관리한다.**
   - project는 lophn 저장소 하나다.
   - domain은 eval, product, plan이다. 코딩은 lophn agent의 일이 아니니 source(`packages/`)는 어느 domain에도 속하지 않아도 된다. coding agent는 project에서 일한다.
-  - eval domain이 다른 저장소의 eval 자료도 다루면, 그 project도 eval domain에 잇는다.
-- **잇는 것은 domain ↔ project 연결 하나다.**
-  - domain agent의 file 범위는 연결된 project의 폴더다(폴더 단위).
-  - domain마다 재료 path 목록은 두지 않는다. 그 domain의 문서가 무엇인지는 kind 파일(program)과 글(agent)이 말한다. 여러 project에 걸치는 domain의 kind glob은 project를 앞에 붙인다(`lophn:tests/eval/**`).
+  - 다른 저장소(project)가 eval이 필요하면 lophn의 eval domain을 참조한다. 그 domain의 공개 tool을 grant 받아 쓴다. eval domain을 그 project에 또 만들지 않는다.
+- **domain은 자기 project 하나에 속한다.**
+  - domain을 만들 때 project를 고른다. 사람이 정한다. 그 domain agent가 그 project의 폴더를 읽고 쓰게 되므로 권한 결정이다. lophn과 Domain Engineer는 제안만 한다.
+  - 사람의 폴더가 없는 domain(앱 data만 있는 것)도 project에 속한다. project는 폴더 0개여도 된다.
+- **file 범위와 문서**
+  - domain agent의 file 범위는 그 project의 폴더다(폴더 단위).
+  - domain마다 재료 path 목록은 두지 않는다. 그 domain의 문서가 무엇인지는 kind 파일(program)과 글(agent)이 말한다. kind glob은 지금처럼 project 폴더 기준이다.
   - 최소 context는 file 권한이 아니라 prompt에 무엇을 싣느냐로 지킨다. prompt에는 그 domain의 글, kind, skill만 싣는다. 같은 project 안의 다른 파일을 읽을 수 있는 것은 막을 대상이 아니다. 사람은 공격자가 아니고, 막을 것은 agent의 실수다. 폴더 경계와 rewind가 그것을 막는다.
-- **지침의 층:** 전역 → 연결된 project의 `LOPHN.md` → domain 글 → agent 정의 본문.
+- **지침의 층:** 전역 → project의 `LOPHN.md` → domain 글 → agent 정의 본문.
   - domain 글은 lophn의 자리 `<data>/domains/<domain>/DOMAIN.md`다.
   - `LOPHN.md`는 그 project에서 일하는 누구나 읽는 project 지침으로 남는다. 이 저장소의 `AGENTS.md`와 `.claude/skills/eval-*`의 관계와 같다.
-- **연결을 누가 정하나:** 사람이다. domain을 project에 이으면 그 domain agent가 그 폴더를 읽고 쓰게 되므로 권한 결정이다. lophn과 Domain Engineer는 제안만 한다.
 
 domain 하나는 아래를 가진다.
 
@@ -456,8 +458,8 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 - skill은 정형화하지 않은 agent용 지침이다. program이 파싱하지 않고, 판단이 필요하면 Domain Engineer에게 맡긴다.
 - 앱 place를 두지 않는다. place는 domain 하나다. 여러 domain이 다시 쓰는 것은 data 없는 package(화면 template과 tool 코드)이고, 어느 domain과도 상관없는 앱은 작은 domain 하나다. 앱 place를 두면 쓰는 domain의 data가 앱 저장소에 쌓여 경계를 core가 지키지 못한다.
 - artifact는 lophn의 자리(`<data>/domains/<domain>/artifacts/`)에 둔다.
-- 사람의 폴더가 없는 domain(folder 0개)도 등록할 수 있다. 앱 data만 있는 domain을 위한 것이다(2026-10-19). project와 domain을 나눈 뒤에는 "project에 잇지 않은 domain"이다.
-- project와 domain은 다른 것이고 N:M이다(2026-10-19). project는 폴더·창·terminal·coding agent의 자리이고, domain은 agent·kind·앱·skill·artifact·grant가 붙는 책임 경계다. 둘은 연결 하나로 잇고, domain마다 재료 path 목록은 두지 않는다("project와 domain").
+- 사람의 폴더가 없는 domain(folder 0개)도 등록할 수 있다. 앱 data만 있는 domain을 위한 것이다(2026-10-19). project와 domain을 나눈 뒤에는 폴더 0개인 project에 속한 domain이다.
+- project와 domain은 다른 것이고 1:N이다(2026-10-19). project는 폴더·창·terminal·coding agent의 자리이고, domain은 agent·kind·앱·skill·artifact·grant가 붙는 책임 경계다. domain은 한 project에 속하고, 다른 project는 그 domain을 참조한다(공개 tool과 grant). domain마다 재료 path 목록은 두지 않는다("project와 domain").
 - 화면 말: domain은 "Domain", role은 "Domain Engineer", project는 "Project", 앱은 "App" 그대로다.
 - role agent가 artifact(정적 HTML)를 직접 쓴다. PRODUCT 3절 "lophn agent는 코드를 짜지 않는다"를 "앱 코드(domain tool, 앱 화면)는 짜지 않는다. 정적 view는 결과 문서라 직접 쓴다"로 고친다.
 - 경계를 넘는 판단(경계 자르기, 재사용, export)은 lophn이 한다. 따로 Architect role을 두지 않는다.
@@ -497,7 +499,7 @@ project끼리 폴더가 겹쳐도, 여러 domain이 한 project에 이어져도 
 | `domain-tools` | app-api를 MCP tool 모양 선언으로 바꾸고 SDK, bridge(`callTool`), agent tool, ticket examples를 맞춘다. `project_scope`를 지운다. core가 coding agent용 MCP endpoint를 연다 | 처음부터 |
 | `domain-place` | 앱을 project 안의 코드로 묶는다(1:1). 앱 place와 App Engineer를 없애 PM 하나로 합친다. Operator skill 고르기, project skill 자리, lophn 지도, 사용 관계 신호를 둔다 | 처음부터 |
 | `artifact` | `artifact.md`를 만든다 | 처음부터 |
-| `domain-split` | 지금 project entity를 domain으로 바꾸고, 가벼운 project를 새로 두고, 둘을 N:M으로 잇는다. `project_manager`를 Domain Engineer로 바꾼다. 문서를 모은다(2026-10-19 "project와 domain"에 따라 `domain-rename`을 바꿈) | 넷이 land한 뒤 |
+| `domain-split` | 지금 project entity를 domain으로 바꾸고, 가벼운 project를 새로 두고, domain을 project 하나에 속하게 한다(1:N). `project_manager`를 Domain Engineer로 바꾼다. 문서를 모은다(2026-10-19 "project와 domain"에 따라 `domain-rename`을 바꿈) | 넷이 land한 뒤 |
 
 - e2e는 이 다섯 계획에서 돌리지도 고치지도 않는다. land는 `LOPHN_LAND_SKIP_E2E=1`로 돈다. 지운 기능의 e2e file은 그 기능을 지우는 task가 지운다. 나머지는 `domain-split` 뒤 따로 다시 쓴다.
 - 앱과 artifact를 한 장치로 합치지 않는다. 앱은 앱이고, artifact는 agent가 쓴 결과 문서다(2026-10-19 사람). "live view"라는 말은 쓰지 않는다.

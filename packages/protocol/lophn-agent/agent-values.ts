@@ -135,7 +135,7 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
 // Operator가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
-const domainsSchema = z.array(z.string().min(1)).refine(unique, {
+const domainsSchema = z.array(idSchema("dom")).refine(unique, {
   message: "duplicate domain",
 });
 const mcpOffListSchema = z.array(mcpOffSchema).refine(

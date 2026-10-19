@@ -1,6 +1,7 @@
 // core 조립 목록. lead가 고치는 유일한 조립 file이다. main.ts는 이 세 목록만 core에 넘긴다.
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";
+import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
@@ -52,10 +53,12 @@ import { createCoreRegistration as createAnnotationsRegistration } from "../../a
 import { createCoreRegistration as createCodingRegistration } from "../../apps/tickets/coding/register.ts";
 import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
+import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
+  { createLedgerRegistration: createDomainsRegistration },
   { problemsTestDefinitions },
   { problemsReportDefinitions },
   { createLedgerRegistration: createProblemsRegistration },
@@ -69,6 +72,7 @@ export const TEAMS = [
   { createCoreRegistration: createCodingRegistration },
   { createCoreRegistration: createPlaceRegistration },
   { createCoreRegistration: createUsageRegistration },
+  { createCoreRegistration: createDomainOwnersRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -78,6 +82,7 @@ export const TEAMS = [
 export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
+  new URL("../../domains/register.ts", import.meta.url).href,
   new URL("../../problems/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
   new URL("../../apps/tickets/register.ts", import.meta.url).href,
@@ -91,6 +96,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
+  new URL("./wiring/domains-registration.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.

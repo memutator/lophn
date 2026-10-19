@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `de-domain-core` | domain-core | 1 | 없음 | merged | domain-core/de-domain-core | d38dc7a26 | 띄우기 전에 lead가 packages/core/domains/mod.ts와 catalog 항목 commit |
-| `de-drafts` | drafts | 1 | 없음 | running | drafts/de-drafts |  |  |
+| `de-drafts` | drafts | 1 | 없음 | merged | drafts/de-drafts | b11e069fc |  |
 | `de-place-restore` | place-restore | 1 | 없음 | merged | place-restore/de-place-restore | 7bb813295 |  |
 | `de-tool-domain` | tool-domain | 1 | 없음 | merged | tool-domain/de-tool-domain | ecbfd090e |  |
 | `de-app-domains` | apps | 2 | de-apps-storage | todo |  |  |  |

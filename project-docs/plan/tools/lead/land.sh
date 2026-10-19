@@ -23,7 +23,8 @@ git checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
 git rebase main >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git status --short | head; exit 1; }
 base=$(git rev-parse main)
 out=$(deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: full check failed"; exit 1; }
-if ls tests/e2e/*_test.ts >/dev/null 2>&1; then
+# LOPHN_LAND_SKIP_E2E=1: e2e를 돌리지 않는 계획(README가 정한다)이 쓴다.
+if [ -z "${LOPHN_LAND_SKIP_E2E:-}" ] && ls tests/e2e/*_test.ts >/dev/null 2>&1; then
   # 새 lead worktree에는 앱 E2E가 쓰는 의존이 없다. 없으면 앱을 띄우는 E2E가 모두 실패한다.
   out=$(deno task e2e:deps 2>&1) || { echo "$out" | tail -10; echo "STOP: e2e deps failed"; exit 1; }
   out=$(deno task e2e 2>&1) || { echo "$out" | tail -30; echo "STOP: e2e failed"; exit 1; }

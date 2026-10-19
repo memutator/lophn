@@ -21,7 +21,7 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-routing-events` | routing | 2 | 없음 | merged | routing/de-routing-events | 2b80d0ee0 |  |
 | `de-shell-agents` | shell | 2 | 없음 | merged | shell/de-shell-agents | 33f083320 |  |
 | `de-shell-app-space` | shell | 2 | 없음 | merged | shell/de-shell-app-space | 885fa7c1a |  |
-| `de-shell-artifact-data` | shell | 2 | de-routing-events | running | shell/de-shell-artifact-data |  |  |
+| `de-shell-artifact-data` | shell | 2 | de-routing-events | merged | shell/de-shell-artifact-data | c2beef144 |  |
 | `de-apps-unbind` | apps | 3 | 없음 | todo |  |  |  |
 | `de-place-info` | roles | 3 | 없음 | todo |  |  |  |
 | `de-names-tool` | names | 4 | 없음 | todo |  |  |  |

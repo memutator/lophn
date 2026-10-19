@@ -50,3 +50,21 @@ modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-role
 고치려면: `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>` 태그와 그 지침 줄, shell의 `attached` part 그리기를 지운다(중간: 입력 schema가 바뀌어 router와 e2e 호출(`attached: []`)을 같이 고친다). 남기면 잃는 것은 없다.
 
 정한 것: 지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").
+
+## 같은 이름 skill은 agent의 domain을 거르기 전에 하나로 합쳐져 사라진다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: `discoverSkills`(`packages/core/lophn-agent/extensions/skills.ts`)는 place 하나의 후보를 내장 → 전역 → domain 층 순서로 모아 `mergeSkillLayers`로 이름마다 하나만 남긴다. domain 층은 이름이 앞서는 domain을 나중에 넣어 덮게 한다. 그 뒤에 `skillReceived`가 agent가 일하는 domain의 skill만 받는다. 그래서 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않는다.
+- 전역 skill `review`와 domain `eval`의 skill `review`가 있으면 전역 것이 사라진다. `eval`을 고르지 않은 Operator는 `review`를 하나도 받지 못한다.
+- domain `a`와 `b`에 같은 이름 `x`가 있으면 `a`의 것만 남는다. `b`만 고른 Operator는 `x`를 받지 못한다.
+- `skill-read.ts`의 turn skill 읽기도 같은 합친 목록을 쓴다.
+
+영향: domain을 좁힌 Operator가 받아야 할 skill을 조용히 잃는다. prompt의 skill 목록과 `skill.read`에서 둘 다 빠진다.
+
+고치려면:
+- domain 층 후보를 domain마다 따로 두고, agent의 domain으로 거른 뒤에 이름을 합친다(중간. 합친 목록을 쓰는 곳은 `register.ts`의 `skills`, `skill-read.ts`, `/` 메뉴다). 추천.
+- 같은 그릇 안에서 domain 사이, 그리고 domain과 전역 사이에 같은 이름을 두지 못하게 막고 skipped에 이유를 둔다(작음. 사람이 이름을 바꿔야 한다).

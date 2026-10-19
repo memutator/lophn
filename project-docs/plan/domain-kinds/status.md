@@ -15,7 +15,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-chips-reactions` | chips | 3 | dk-shell-workspace | todo |  |  |  |
 | `dk-delete-context-tools` | cleanup | 3 | dk-operator-contexts | todo |  |  |  |
 | `dk-delete-core` | cleanup | 3 | dk-operator-contexts | todo |  |  |  |
-| `dk-delete-eval` | cleanup | 3 | 없음 | todo |  |  |  |
+| `dk-delete-eval` | cleanup | 3 | 없음 | merged | cleanup/dk-delete-eval | 0720e0f5c |  |
 | `dk-delete-protocol` | cleanup | 3 | dk-delete-core, dk-delete-context-tools, dk-shell-workspace, dk-chips-reactions, dk-delete-eval, dk-operator-contexts, dk-delete-wording | todo |  |  |  |
 | `dk-operator-contexts` | operator-contexts | 3 | dk-delete-eval | todo |  |  |  |
 | `dk-shell-workspace` | shell | 3 | dk-wireframes, dk-operator-contexts | todo |  |  |  |

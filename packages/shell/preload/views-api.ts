@@ -5,7 +5,6 @@ import {
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
   VIEW_OPEN_APP_CHANNEL,
-  VIEW_PROJECT_CHANNEL,
   VIEW_REOPEN_CHANNEL,
   VIEW_STATE_CHANNEL,
   type ViewReply,
@@ -49,8 +48,6 @@ export function createViewsApi(transport: ViewsTransport): LophnShellViewsApi {
         call<AppFrameViewState>(transport, VIEW_OPEN_APP_CHANNEL, input),
       setViewBounds: (input) =>
         call<VisibilityResult>(transport, VIEW_BOUNDS_CHANNEL, input),
-      setViewProject: (input) =>
-        call<AppFrameViewState>(transport, VIEW_PROJECT_CHANNEL, input),
       setViewsHidden: (input) =>
         call<VisibilityResult>(transport, VIEWS_HIDDEN_CHANNEL, input),
       closeView: async (input) => {

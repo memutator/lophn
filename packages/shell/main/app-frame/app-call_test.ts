@@ -7,7 +7,6 @@ import type { BoundView } from "./registry.ts";
 
 const APP = "app_00000000000000000000000001";
 const RELEASE = "rel_00000000000000000000000001";
-const PROJECT = "prj_00000000000000000000000001";
 
 function view(mode: "live" | "preview"): BoundView {
   return {
@@ -19,7 +18,6 @@ function view(mode: "live" | "preview"): BoundView {
       release: RELEASE,
       screen: "main",
       size: "full",
-      project: PROJECT,
     },
     binding: {
       release: RELEASE,
@@ -43,9 +41,9 @@ function setup() {
       Promise.resolve({
         ok: true,
         value: {
-          appApi: [{
-            key: "add",
-            label: "Add",
+          tools: [{
+            name: "add",
+            title: "Add",
             effect: "write",
             hasInput: true,
           }],
@@ -56,20 +54,19 @@ function setup() {
   return { appCall, sent };
 }
 
-test("페이지가 보낸 앱·release·project·caller 주장은 쓰이지 않는다", async () => {
+test("페이지가 보낸 앱·release·caller 주장은 쓰이지 않는다", async () => {
   const { appCall, sent } = setup();
   const claimed = await appCall.call(view("live"), {
-    api: "add",
+    tool: "add",
     input: {},
     target: { mode: "live", app: "app_other", release: "rel_other" },
-    project: "prj_other",
     caller: { kind: "agent" },
   });
   assert.equal(claimed.ok, false);
   assert.equal(sent.length, 0);
 
   const done = await appCall.call(view("live"), {
-    api: "add",
+    tool: "add",
     input: { a: 1 },
   });
   assert.deepEqual(done, { ok: true, value: 1 });
@@ -81,9 +78,12 @@ test("페이지가 보낸 앱·release·project·caller 주장은 쓰이지 않�
   }]);
 });
 
-test("선언에 없는 api는 core까지 가지 않는다", async () => {
+test("선언에 없는 tool은 core까지 가지 않는다", async () => {
   const { appCall, sent } = setup();
-  const reply = await appCall.call(view("live"), { api: "drop", input: null });
+  const reply = await appCall.call(view("live"), {
+    tool: "drop",
+    input: null,
+  });
   assert.equal(reply.ok, false);
   assert.equal(!reply.ok && reply.error.code, "forbidden");
   assert.equal(sent.length, 0);

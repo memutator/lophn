@@ -15,7 +15,6 @@ import {
   CodingRunning,
   IssueRecurred,
   IssuesList,
-  ProjectPickerInView,
   ReportExisting,
   ReportNew,
   RewindConfirm,
@@ -174,13 +173,6 @@ export const appSpaceArea: Area = {
       description:
         "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. 문제가 되지 않고 App Engineer session의 메시지가 된다.",
       render: () => <AnnotateList />,
-    },
-    {
-      id: "new-app-project-picker",
-      title: "App space · choose a project",
-      description:
-        "앱 place에서 연 화면이 project를 정하지 못했을 때 shell이 앱 화면 안에 띄우는 project 고르기다.",
-      render: () => <ProjectPickerInView />,
     },
     {
       id: "new-app-coding-toast",

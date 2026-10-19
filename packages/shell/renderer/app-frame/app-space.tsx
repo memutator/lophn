@@ -45,7 +45,6 @@ import {
   EmbeddedView,
   ViewCoversProvider,
 } from "./embedded-view.tsx";
-import { ProjectPicker, type ProjectsRead } from "./project-picker.tsx";
 import { ReportButton } from "./report-button.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -77,12 +76,8 @@ interface AppSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
-  /** 처음부터 정해진 project(project 창에서 온 경우). 있으면 project 고르기를 건너뛴다. */
-  project?: string;
   /** Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
   annotate?: LophnShellAnnotateApi;
-  /** project 고르기 목록을 읽는 함수. 없으면 고르기 없이 안내만 보인다. */
-  projects?: ProjectsRead;
   /** native view 위에 알림을 띄우는 overlay. 없으면 같은 모양의 toast를 앱 화면 위쪽에 그린다. */
   overlay?: OverlayApi;
   /** 처음에 pane에 열어 둘 agent session. */
@@ -151,27 +146,6 @@ function useEntry(
   return entry;
 }
 
-// 앱 화면이 묶인 project의 이름. project 목록을 읽는 함수가 없으면 이름을 모른다.
-function useProjectName(
-  projects: ProjectsRead | undefined,
-  project: string | null,
-): string | null {
-  const [name, setName] = useState<string | null>(null);
-  useEffect(() => {
-    setName(null);
-    if (projects === undefined || project === null) return;
-    let live = true;
-    void projects().then((read) => {
-      if (!live || !read.ok) return;
-      setName(read.value.find((item) => item.id === project)?.name ?? null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [projects, project]);
-  return name;
-}
-
 export function AppSpace(
   {
     app,
@@ -187,9 +161,7 @@ export function AppSpace(
     onSettings,
     windowWidth,
     onLauncher,
-    project,
     annotate: annotateApi,
-    projects,
     overlay,
     session,
     onOpenSession,
@@ -245,7 +217,6 @@ export function AppSpace(
   // 본문 view의 상태. crash해도 view_session은 남아 깃발 단추가 동작한다.
   const [viewState, setViewState] = useState<AppFrameViewState | null>(null);
   const viewSession = viewState?.view_session ?? null;
-  const [projectFailed, setProjectFailed] = useState(false);
 
   function onViewState(state: AppFrameViewState): void {
     setRun(state.connectionState);
@@ -367,21 +338,6 @@ export function AppSpace(
     }
   }
 
-  // ---- project ----
-
-  const pickedProject = viewState?.project ?? null;
-  const projectName = useProjectName(projects, pickedProject);
-  // 앱 place에서 연 화면은 project를 모른다. 고르기 전에는 그 위에 고르기를 얹는다.
-  const needsProject = views !== undefined && viewState !== null &&
-    viewState.project === null;
-
-  function pickProject(chosen: string): void {
-    if (views === undefined || viewSession === null) return;
-    setProjectFailed(false);
-    views.setViewProject({ view_session: viewSession, project: chosen })
-      .then(onViewState, () => setProjectFailed(true));
-  }
-
   // ---- annotate ----
 
   const annotating = useAnnotate(annotateApi, viewSession);
@@ -455,7 +411,6 @@ export function AppSpace(
         key={attempt}
         views={views}
         app={app}
-        {...(project === undefined ? {} : { project })}
         mode="live"
         release={row.release}
         screen={entry.screen}
@@ -490,7 +445,6 @@ export function AppSpace(
         <AppBar
           name={row?.name ?? null}
           status={status}
-          project={projectName}
           onLauncher={onLauncher}
           detailsOpen={panelVisible && shownTab === "details"}
           onDetails={() => {
@@ -541,25 +495,8 @@ export function AppSpace(
       <ViewCoversProvider value={covers}>
         <div className={styles.content} ref={contentRef}>
           <div className={styles.column}>
-            {needsProject && projects === undefined
-              ? (
-                <p className={styles.notice} role="status" data-no-project="">
-                  {t("app-space.notice.no-project-list")}
-                </p>
-              )
-              : null}
             <div className={styles.view}>
               {body}
-              {needsProject && projects !== undefined
-                ? (
-                  <ProjectPicker
-                    appName={row?.name ?? t("app-space.label.this-app")}
-                    projects={projects}
-                    onPick={pickProject}
-                    failed={projectFailed}
-                  />
-                )
-                : null}
               {toast.dom === null
                 ? null
                 : (

@@ -1,8 +1,8 @@
-// 앱 preload 통로. `app:call`(app-api 이름과 입력)과
+// 앱 preload 통로. `app:call-tool`(tool 이름과 입력)과
 // `app:open-external`은 앱 페이지의 `lophnApp`이 부르고, `app:view-error`는 설치 preload가 안에서만
 // 보낸다. 이 파일은 main·preload가 함께 부르므로 import가 없다.
 
-export const APP_CALL_CHANNEL = "app:call";
+export const APP_CALL_TOOL_CHANNEL = "app:call-tool";
 export const APP_OPEN_EXTERNAL_CHANNEL = "app:open-external";
 export const APP_VIEW_ERROR_CHANNEL = "app:view-error";
 

@@ -232,7 +232,6 @@ export const appSpace = {
   "app-space.empty.agent-not-ready": "This agent can't open here yet.",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
-  "app-space.empty.no-projects": "There are no projects to choose from yet.",
   "app-space.empty.no-version": "This app has nothing to show yet.",
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
@@ -240,28 +239,20 @@ export const appSpace = {
     "This app is archived, so App Engineer can't take new messages. Restore it in Apps first.",
   "app-space.error.annotations-failed":
     "The annotations didn't go through. Try again.",
-  "app-space.error.project-failed": "Couldn't use that project. Try again.",
   "app-space.heading.agents": "Agents",
   "app-space.heading.annotations": "Annotations ({count, number})",
   "app-space.heading.app-details": "App details",
-  "app-space.heading.choose-project": "Choose a project",
   "app-space.label.agent-select": "Agent",
   "app-space.label.annotations": "Annotations",
-  "app-space.label.in-project": "· {project}",
   "app-space.label.remove-annotation": "Remove annotation {number}",
   "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
-  "app-space.label.your-projects": "your projects",
-  "app-space.notice.no-project-list":
-    "This screen isn't tied to a project, and the project list isn't available here.",
   "app-space.text.annotate-on":
     "Click an element or drag an area, then write a note.",
   "app-space.text.annotations-note":
     "They go to App Engineer as one message. They don't become problems.",
   "app-space.text.annotations-sent":
     "They arrive in its session as one message.",
-  "app-space.text.choose-project":
-    "{app} needs to know which project this screen is for. It was opened from the app list, not from a project.",
   "app-space.title.annotate-on": "Annotate is on",
   "app-space.title.annotations-sent":
     "{count, plural, one {# annotation} other {# annotations}} sent to App Engineer",

@@ -2,7 +2,7 @@
 // main이 core 읽기로 알아 view에 묶는다. 페이지는 자기가 어느 앱인지 모른다.
 // 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
 // view_session과 generation으로 진단을 남긴다. view가 있다는 것만으로 권한이 생기지
-// 않는다: view는 자기 대상의 화면 byte만 받는다. app-api는 `app:call`(app-call.ts)이 이 view의
+// 않는다: view는 자기 대상의 화면 byte만 받는다. tool은 `app:call-tool`(app-call.ts)이 이 view의
 // 신원으로만 부른다.
 import {
   appEntryUrl,
@@ -271,8 +271,6 @@ export function createAppFrame(deps: AppFrameDeps) {
         setConnection(entry, "running");
         return;
       }
-      // 읽는 사이 project가 바뀌었을 수 있다. project는 묶음이 아니라 view의 것이다.
-      next.value.target.project = entry.target.project;
       await remount(entry, next.value);
       if (entries.get(entry.view_session) === entry) pushState(entry);
     })().finally(() => {
@@ -436,22 +434,6 @@ export function createAppFrame(deps: AppFrameDeps) {
         return undefined;
       }
       return boundViewOf(entry);
-    },
-
-    /** 앱 화면이 고른 project를 view에 묶는다(null이면 푼다). 바뀌면 state를 push한다. */
-    setProject(
-      view_session: string,
-      project: string | null,
-    ): Outcome<AppFrameViewState> {
-      const entry = entries.get(view_session);
-      if (entry === undefined) {
-        return failure("forbidden", "view is not open");
-      }
-      if (entry.target.project !== project) {
-        entry.target.project = project;
-        pushState(entry);
-      }
-      return { ok: true, value: state(entry) };
     },
 
     /** [Report a problem]의 버튼 시점 view. 없는 view는 undefined다. */

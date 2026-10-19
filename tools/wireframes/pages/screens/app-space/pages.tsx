@@ -112,10 +112,6 @@ export function AnnotateList() {
   );
 }
 
-export function ProjectPickerInView() {
-  return <AppSpace picker />;
-}
-
 // ---- 오른쪽 패널: App details, agent, coding 터미널 탭 ----
 
 /** 세 탭이 한 줄에 선 패널. App details를 보고 있다. */

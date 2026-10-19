@@ -61,17 +61,8 @@ export function mockViews(root?: HTMLElement): LophnShellViewsApi {
         screen: input.screen,
         size: input.size,
         connectionState: "running" as const,
-        project: input.project ?? null,
       };
       states.set(session, state);
-      return Promise.resolve(state);
-    },
-    setViewProject({ view_session, project }) {
-      const current = states.get(view_session);
-      if (current === undefined) return Promise.reject(new Error("conflict"));
-      const state = { ...current, project };
-      states.set(view_session, state);
-      for (const listener of [...listeners]) listener(state);
       return Promise.resolve(state);
     },
     setViewBounds({ view_session, bounds, layer = 0 }) {

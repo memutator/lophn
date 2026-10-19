@@ -22,8 +22,6 @@ interface AppFrameOpen {
   release: string | null;
   screen: string;
   size: ScreenSize;
-  /** 앱 화면이 처음부터 묶인 project. 없으면 null이다. */
-  project: string | null;
   parentWindow: string;
   bounds: ViewBounds;
 }
@@ -50,8 +48,6 @@ export interface AppFrameViewState {
   screen: string;
   size: ScreenSize;
   connectionState: ConnectionState;
-  /** 앱 화면이 고른 project. 고르지 않았으면 null이다. */
-  project: string | null;
   /** 그 view 화면 process의 상태(crash.ts). 연결 상태와 따로 본다. */
   viewHealth: ViewHealth;
 }
@@ -129,7 +125,6 @@ export interface FeedbackViewSnapshot {
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const PROJECT_ID = /^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const SIZES: readonly string[] = ["full", "panel", "card"];
 const MODES: readonly string[] = ["live", "preview"];
 const SAFE_TEXT = (value: unknown): value is string =>
@@ -155,24 +150,21 @@ const OPEN_KEYS = new Set([
   "bounds",
   "mode",
   "parentWindow",
-  "project",
   "release",
   "screen",
   "size",
 ]);
 
-/** 모르는 field도 거절한다. `project`는 없으면 null이다. */
+/** 모르는 field도 거절한다. */
 export function checkOpen(value: unknown): AppFrameOpen | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input);
   if (
-    keys.some((key) => !OPEN_KEYS.has(key)) ||
-    keys.filter((key) => key !== "project").length !== OPEN_KEYS.size - 1
+    keys.some((key) => !OPEN_KEYS.has(key)) || keys.length !== OPEN_KEYS.size
   ) {
     return undefined;
   }
-  const project = input.project ?? null;
   if (
     typeof input.app !== "string" || !APP_ID.test(input.app) ||
     !MODES.includes(input.mode as string) ||
@@ -180,13 +172,11 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
       (typeof input.release === "string" && RELEASE_ID.test(input.release))) ||
     (input.mode === "live" && input.release === null) ||
     !SAFE_TEXT(input.screen) || !SIZES.includes(input.size as string) ||
-    !(project === null ||
-      (typeof project === "string" && PROJECT_ID.test(project))) ||
     !SAFE_TEXT(input.parentWindow) || !boundsValid(input.bounds)
   ) {
     return undefined;
   }
-  return { ...input, project } as unknown as AppFrameOpen;
+  return input as unknown as AppFrameOpen;
 }
 
 export interface Bound {
@@ -229,7 +219,6 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     screen: entry.target.screen,
     size: entry.target.size,
     connectionState: entry.connectionState,
-    project: entry.target.project,
     viewHealth: entry.viewHealth,
   };
 }
@@ -251,6 +240,5 @@ export function targetOf(input: AppFrameOpen): ConnectTarget {
     release: input.release,
     screen: input.screen,
     size: input.size,
-    project: input.project,
   };
 }

@@ -44,8 +44,6 @@ export interface ConnectTarget {
   release: string | null;
   screen: string;
   size: ScreenSize;
-  /** 앱 화면이 고른 project. 앱 호출에 실린다. 고르지 않았으면 null이다. */
-  project: string | null;
 }
 
 /** view에 묶인 앱 process. 같은 값이면 같은 process의 같은 bundle이다. */

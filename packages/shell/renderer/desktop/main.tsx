@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -33,7 +33,6 @@ import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
-import type { ProjectsRead } from "../app-frame/project-picker.tsx";
 import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
@@ -69,7 +68,7 @@ interface DesktopProps {
   intents?: IntentApi;
   /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
   instructions?: InstructionsSource;
-  /** 런처의 프로젝트 카드·등록·보관·detail 통로. 앱 공간의 project 고르기도 이 목록을 쓴다. 없으면 카드는 비었음 상태다. */
+  /** 런처의 프로젝트 카드·등록·보관·detail 통로. 없으면 카드는 비었음 상태다. */
   projects?: ProjectsSource;
   /** 런처의 앱 카드·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
   apps?: AppsSource;
@@ -240,25 +239,6 @@ export function Desktop(
     })();
   };
 
-  // 앱 공간의 project 고르기 목록. 런처와 같은 통로로 읽는다.
-  const projectsRead = useMemo<ProjectsRead | undefined>(
-    () =>
-      projects === undefined ? undefined : async () => {
-        const read = await projects.list();
-        return read.ok
-          ? {
-            ok: true,
-            value: read.value.filter((row) => !row.archived).map((row) => ({
-              id: row.id,
-              name: row.title,
-              folder: row.folders[0]?.path ?? "",
-            })),
-          }
-          : { ok: false };
-      },
-    [projects],
-  );
-
   // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
   const appearance = settingsPanels?.appearance;
   useEffect(() => {
@@ -367,7 +347,6 @@ export function Desktop(
         windowWidth={windowWidth}
         onLauncher={launcher}
         annotate={annotate}
-        projects={projectsRead}
         overlay={overlay}
         terminal={terminal}
         session={route.session}

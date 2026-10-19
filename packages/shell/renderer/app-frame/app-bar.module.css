@@ -1,4 +1,4 @@
-/* 앱 공간 위쪽 바: 앞쪽 런처 복귀·이름·상태·project, 뒤쪽 묶음별 아이콘 단추. */
+/* 앱 공간 위쪽 바: 앞쪽 런처 복귀·이름·상태, 뒤쪽 묶음별 아이콘 단추. */
 .leading {
   display: flex;
   align-items: center;
@@ -15,14 +15,6 @@
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.project {
-  color: var(--color-text-muted);
-  font-family: var(--font-sans);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  white-space: nowrap;
 }
 
 .trailing {

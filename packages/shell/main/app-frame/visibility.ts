@@ -33,8 +33,6 @@ interface AppViewOpenRequest {
   release?: string;
   screen: string;
   size: "full" | "panel" | "card";
-  /** 앱 화면이 처음부터 묶일 project. 없으면 project 없이 연다. */
-  project?: string;
   /** 카드의 message·block 표시 참조. 카드만 싣는다. */
   card?: CardDisplay;
 }
@@ -83,7 +81,6 @@ export function createViewVisibility(deps: {
     | "close"
     | "reopen"
     | "owner"
-    | "setProject"
     | "move"
   >;
   geometry: WindowGeometry;
@@ -143,7 +140,6 @@ export function createViewVisibility(deps: {
         release: input.release ?? null,
         screen: input.screen,
         size: input.size,
-        project: input.project ?? null,
         parentWindow: window,
         bounds: EMPTY_BOUNDS,
       }, input.card);
@@ -166,18 +162,6 @@ export function createViewVisibility(deps: {
         pending.set(view_session, item);
         handle ??= deps.timer.set(flush, BOUNDS_FRAME_MS);
       });
-    },
-
-    /** 그 창의 view를 project에 묶는다(null이면 푼다). 이 창의 view가 아니면 forbidden이다. */
-    setProject(
-      window: string,
-      view_session: string,
-      project: string | null,
-    ): Outcome<AppFrameViewState> {
-      if (!owned(window, view_session)) {
-        return failure("forbidden", "view is not open");
-      }
-      return deps.frame.setProject(view_session, project);
     },
 
     /** 바로 뗀다. 하나라도 이 창의 view가 아니면 아무것도 하지 않는다. */

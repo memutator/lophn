@@ -283,37 +283,26 @@ export type AppSpacePlaceholders = {
   "app-space.button.show-terminal": Record<never, never>;
   "app-space.empty.agent-not-ready": Record<never, never>;
   "app-space.empty.archived": Record<never, never>;
-  "app-space.empty.no-projects": Record<never, never>;
   "app-space.empty.no-version": Record<never, never>;
   "app-space.empty.not-found": Record<never, never>;
   "app-space.empty.screen-not-ready": Record<never, never>;
   "app-space.error.annotations-archived": Record<never, never>;
   "app-space.error.annotations-failed": Record<never, never>;
-  "app-space.error.project-failed": Record<never, never>;
   "app-space.heading.agents": Record<never, never>;
   "app-space.heading.annotations": {
     count: "number";
   };
   "app-space.heading.app-details": Record<never, never>;
-  "app-space.heading.choose-project": Record<never, never>;
   "app-space.label.agent-select": Record<never, never>;
   "app-space.label.annotations": Record<never, never>;
-  "app-space.label.in-project": {
-    project: "string";
-  };
   "app-space.label.remove-annotation": {
     number: "string";
   };
   "app-space.label.sending-annotations": Record<never, never>;
   "app-space.label.this-app": Record<never, never>;
-  "app-space.label.your-projects": Record<never, never>;
-  "app-space.notice.no-project-list": Record<never, never>;
   "app-space.text.annotate-on": Record<never, never>;
   "app-space.text.annotations-note": Record<never, never>;
   "app-space.text.annotations-sent": Record<never, never>;
-  "app-space.text.choose-project": {
-    app: "string";
-  };
   "app-space.title.annotate-on": Record<never, never>;
   "app-space.title.annotations-sent": {
     count: "plural";

@@ -1,4 +1,4 @@
-// 앱 공간의 위쪽 바(`/apps/:app`). 앞쪽은 런처 복귀, 앱 이름, 연결 상태, 정해졌으면 project 이름이다. 뒤쪽은 글자 없이
+// 앱 공간의 위쪽 바(`/apps/:app`). 앞쪽은 런처 복귀, 앱 이름, 연결 상태다. 뒤쪽은 글자 없이
 // tooltip만 있는 아이콘 단추이고 순서는 [대기 목록] [Annotate, Report] | [Agent, 앱 상세] | ⌘다. 켜진 것은 눌린 모양이다.
 // 바는 shell 크롬이라 앱 view bounds에 들어가지 않는다.
 import type { ReactNode } from "react";
@@ -17,8 +17,6 @@ interface AppBarProps {
   /** 사람이 지은 앱 이름. 읽기 전에는 없다. */
   name: string | null;
   status: AppStatus | null;
-  /** 앱 화면이 묶인 project 이름. 정해지기 전에는 없다. */
-  project: string | null;
   onLauncher: () => void;
   detailsOpen: boolean;
   onDetails: () => void;
@@ -58,7 +56,6 @@ export function AppBar(
   {
     name,
     status,
-    project,
     onLauncher,
     detailsOpen,
     onDetails,
@@ -85,13 +82,6 @@ export function AppBar(
               </span>
             )
             : null}
-          {project === null
-            ? null
-            : (
-              <span className={styles.project} data-app-project="">
-                {t("app-space.label.in-project", { project })}
-              </span>
-            )}
         </span>
       }
       trailing={

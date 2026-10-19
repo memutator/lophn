@@ -152,7 +152,7 @@ type Facts = AppRead | null;
 
 /** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
 export function AppPanelTab(
-  { project, app, screen, shown, keepKey, onOpenAppSpace }: AppPanelTabProps,
+  { app, screen, shown, keepKey, onOpenAppSpace }: AppPanelTabProps,
 ) {
   const deps = useAppViews();
   const [facts, setFacts] = useState<Facts>(null);
@@ -221,7 +221,6 @@ export function AppPanelTab(
         <EmbeddedView
           views={deps.views}
           app={app}
-          project={project}
           mode="live"
           release={release}
           screen={screen}

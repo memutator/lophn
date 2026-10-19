@@ -100,8 +100,6 @@ interface AppSpaceProps {
     /** 모은 annotation 목록을 보인다. */
     readonly list?: boolean;
   };
-  /** project를 정하지 못한 채 열려 project 고르기를 보인다. */
-  readonly picker?: boolean;
   /** 오른쪽 패널에 agent 탭을 열어 둔다. 보이는 탭(details는 panel과 함께 쓴다)과 agent. */
   readonly pane?: { readonly view?: PaneView; readonly agent?: string };
   /** lophn이 연 coding 터미널이 있다. 패널 탭 줄에서 agent와 바꿔 본다. */
@@ -168,7 +166,7 @@ const FEEDBACK_API: Omit<FeedbackDialogApi, "cancelFeedback"> = {
 function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
   const base = mockViews();
   // native view는 DOM 위에 덮이므로 gallery에서는 가짜 상자 대신 앱 view 자리(EmbeddedView의 region) 안에 Orders 화면을 그린다.
-  // 그래야 위에 얹는 project 고르기와 알림이 보인다.
+  // 그래야 위에 얹는 알림이 보인다.
   const views: LophnShellViewsApi = {
     ...base,
     async openApp(input) {
@@ -342,8 +340,6 @@ export function AppSpace(props: AppSpaceProps = {}) {
         agents={fakes.agents}
         agentViewSource={fakes.agentViewSource}
         annotate={fakes.annotate}
-        projects={() => Promise.resolve({ ok: true, value: PROJECTS })}
-        {...(props.picker === true ? {} : { project: PROJECTS[0].id })}
         {...(fakes.terminal === undefined ? {} : { terminal: fakes.terminal })}
         windowWidth={1280}
         onLauncher={noop}

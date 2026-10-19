@@ -1,5 +1,5 @@
 // createViewVisibility가 받는 frame. browser 탭의 view_session이면 browser로, artifact view면
-// artifact로, 아니면 앱 view registry로 보낸다. 위치·숨김·폐기·창 옮기기만 갈라 보내고 열기·reopen·project는 앱 것이다.
+// artifact로, 아니면 앱 view registry로 보낸다. 위치·숨김·폐기·창 옮기기만 갈라 보내고 열기·reopen은 앱 것이다.
 import type { ViewBounds } from "../app-frame/view-model.ts";
 import type { AppFrameService } from "../app-frame/registry.ts";
 import type { ArtifactViews } from "../artifact/registry.ts";
@@ -27,13 +27,11 @@ export function routeFrame(
   | "close"
   | "reopen"
   | "owner"
-  | "setProject"
   | "move"
 > {
   return {
     open: appFrame.open,
     reopen: appFrame.reopen,
-    setProject: appFrame.setProject,
     owner: (view_session) =>
       browser.owner(view_session) ?? artifact.owner(view_session) ??
         appFrame.owner(view_session),

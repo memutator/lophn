@@ -195,8 +195,9 @@ export function register(
   });
 
   // 앱 전용 창. 본문 view와 같은 appFrame·Electron adapter로 연다.
-  // 전용 창의 screen은 blueprint read(`/apps/blueprint`)가 정한다. 아직 core 통로가
-  // 없어 unavailable이고, 그동안 `--open-app`은 기본 창을 앞으로 가져온다.
+  // 전용 창의 screen은 core의 `apps/app_api` read로 읽은 blueprint가 정한다(`full` 크기를 선언한 첫
+  // screen). 읽지 못하거나 그런 screen이 없으면 unavailable이고, 그때 `--open-app`은 기본 창을
+  // 앞으로 가져온다.
   const appWindows = createAppWindows({
     readApp: (app) => {
       const session = core.session();

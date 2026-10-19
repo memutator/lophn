@@ -9,11 +9,9 @@ import {
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
   VIEW_OPEN_APP_CHANNEL,
-  VIEW_PROJECT_CHANNEL,
   VIEW_REOPEN_CHANNEL,
   viewBoundsRequestSchema,
   viewCloseRequestSchema,
-  viewProjectRequestSchema,
   type ViewReply,
   VIEWS_HIDDEN_CHANNEL,
   viewsHiddenSchema,
@@ -34,7 +32,7 @@ interface ViewIpcDeps {
   windowOf(sender: CallerContents): string | undefined;
   visibility: Pick<
     ViewVisibility,
-    "openApp" | "setBounds" | "setProject" | "hide" | "close" | "reopen"
+    "openApp" | "setBounds" | "hide" | "close" | "reopen"
   >;
 }
 
@@ -47,10 +45,6 @@ interface ViewIpcHandlers {
     event: IpcEvent,
     input: unknown,
   ): Promise<ViewReply<VisibilityResult>>;
-  setProject(
-    event: IpcEvent,
-    input: unknown,
-  ): Promise<ViewReply<AppFrameViewState>>;
   setHidden(
     event: IpcEvent,
     input: unknown,
@@ -106,17 +100,6 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
         checked.value.input.layer ?? 0,
       );
     },
-    setProject(event, input) {
-      const checked = guard(event, viewProjectRequestSchema, input);
-      if (!checked.ok) return Promise.resolve(checked);
-      return Promise.resolve(
-        deps.visibility.setProject(
-          checked.value.window,
-          checked.value.input.view_session,
-          checked.value.input.project,
-        ),
-      );
-    },
     setHidden(event, input) {
       const checked = guard(event, viewsHiddenSchema, input);
       if (!checked.ok) return Promise.resolve(checked);
@@ -161,7 +144,6 @@ interface ViewIpcMain {
 const CHANNELS = [
   [VIEW_OPEN_APP_CHANNEL, "openApp"],
   [VIEW_BOUNDS_CHANNEL, "setBounds"],
-  [VIEW_PROJECT_CHANNEL, "setProject"],
   [VIEWS_HIDDEN_CHANNEL, "setHidden"],
   [VIEW_CLOSE_CHANNEL, "close"],
   [VIEW_REOPEN_CHANNEL, "reopen"],

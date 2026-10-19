@@ -1,6 +1,6 @@
-// `app:call`의 main service. 앱 preload가 보낸 `{api, input}`만 받고, 앱·release·mode는
-// IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). api는 그 view의 고정 blueprint가
-// 선언한 것만 core의 `app.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락과
+// `app:call-tool`의 main service. 앱 preload가 보낸 `{tool, input}`만 받고, 앱·release·mode는
+// IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). tool은 그 view의 고정
+// blueprint가 선언한 것만 core의 `apps.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락과
 // 사람 결정은 core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
@@ -13,17 +13,17 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-/** blueprint의 app-api 선언 중 main이 쓰는 것. */
-interface AppApiDeclaration {
-  key: string;
-  label: string;
+/** blueprint의 tool 선언 중 main이 쓰는 것. */
+interface ToolDeclaration {
+  name: string;
+  title: string;
   effect: "read" | "write" | "external";
-  /** 입력을 받는다. 입력이 없는 app-api는 false다. */
+  /** 입력을 받는다. 입력이 없는 tool은 false다. */
   hasInput: boolean;
 }
 
 export interface Blueprint {
-  appApi: readonly AppApiDeclaration[];
+  tools: readonly ToolDeclaration[];
 }
 
 /** 페이지에 보일 실패. 앱이 낸 오류는 앱의 code와 message를 그대로 싣는다. */
@@ -65,19 +65,19 @@ function remember<K, V>(cache: Map<K, V>, key: K, value: V): void {
   }
 }
 
-/** 모르는 field·빈 api·wildcard는 거절한다. */
+/** 모르는 field·빈 tool·wildcard는 거절한다. */
 function checkCall(
   value: unknown,
-): { api: string; input: JsonValue } | undefined {
+): { tool: string; input: JsonValue } | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
   }
   const call = value as Record<string, unknown>;
-  if (Object.keys(call).sort().join(",") !== "api,input") return undefined;
-  const api = call.api;
+  if (Object.keys(call).sort().join(",") !== "input,tool") return undefined;
+  const tool = call.tool;
   if (
-    typeof api !== "string" || api.trim().length === 0 || api.trim() !== api ||
-    /\p{Cc}/u.test(api) || api.includes("*")
+    typeof tool !== "string" || tool.trim().length === 0 ||
+    tool.trim() !== tool || /\p{Cc}/u.test(tool) || tool.includes("*")
   ) {
     return undefined;
   }
@@ -96,7 +96,7 @@ function checkCall(
   // JSON 왕복과 같은 값만 받는다(undefined·함수·NaN 같은 비 JSON 값은 빠지거나 바뀐다).
   const input = JSON.parse(encoded) as JsonValue;
   if (JSON.stringify(input) !== encoded) return undefined;
-  return { api, input };
+  return { tool, input };
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -105,8 +105,8 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-// 선언되지 않은 app-api와 이 앱 밖 app-api는 같은 답이다(있는지 새지 않는다).
-const NOT_AVAILABLE = fail("forbidden", "app-api is not available");
+// 선언되지 않은 tool과 이 앱 밖 tool은 같은 답이다(있는지 새지 않는다).
+const NOT_AVAILABLE = fail("forbidden", "tool is not available");
 
 // handler까지 가지 못한 이유(denial.code)를 페이지의 code로 옮긴다.
 const DENIAL_CODES: Readonly<Record<string, string>> = {
@@ -123,7 +123,7 @@ const DENIAL_CODES: Readonly<Record<string, string>> = {
 // core 호출 자체가 실패했을 때. message는 고정 문구다.
 function coreFailure(
   code: string,
-  effect: AppApiDeclaration["effect"],
+  effect: ToolDeclaration["effect"],
 ): CallOutcome<never> {
   switch (code) {
     case "invalid_input":
@@ -142,7 +142,7 @@ function coreFailure(
   }
 }
 
-/** core의 app-api outcome을 페이지에 보일 결과로 바꾼다. */
+/** core의 tool outcome을 페이지에 보일 결과로 바꾼다. */
 function outcomeOf(outcome: unknown): CallOutcome<unknown> {
   const body = record(outcome);
   switch (body?.status) {
@@ -196,7 +196,7 @@ export function createAppCall(deps: AppCallDeps) {
   }
 
   return {
-    /** `app:call` 하나. view는 IPC sender에서 registry가 정한 값이다. */
+    /** `app:call-tool` 하나. view는 IPC sender에서 registry가 정한 값이다. */
     async call(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
       const call = checkCall(value);
       if (call === undefined) {
@@ -204,11 +204,11 @@ export function createAppCall(deps: AppCallDeps) {
       }
       const blueprint = await blueprintOf(view);
       if (!blueprint.ok) return fail("unavailable", "app is not available");
-      const declared = blueprint.value.appApi.find((api) =>
-        api.key === call.api
+      const declared = blueprint.value.tools.find((tool) =>
+        tool.name === call.tool
       );
       if (declared === undefined) return NOT_AVAILABLE;
-      // 입력이 없는 app-api는 페이지가 null로 부른다. 앱에는 입력 없이 보낸다.
+      // 입력이 없는 tool은 페이지가 null로 부른다. 앱에는 입력 없이 보낸다.
       const input = !declared.hasInput && call.input === null
         ? undefined
         : call.input;
@@ -225,7 +225,7 @@ export function createAppCall(deps: AppCallDeps) {
             app: view.target.app,
             process_nonce: view.binding.processNonce,
           },
-        tool: declared.key,
+        tool: declared.name,
         ...(input === undefined ? {} : { input }),
         caller: { kind: "person", view_session: view.view_session },
       }).catch(() => ({

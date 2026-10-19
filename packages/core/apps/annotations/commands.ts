@@ -8,9 +8,9 @@ import {
   annotationBatchIdSchema,
   annotationIdSchema,
   annotationInputSchema,
+  annotationTargetSchema,
 } from "../../../protocol/apps/annotation.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/apps.ts";
-import { appIdSchema } from "../../../protocol/projects/values.ts";
 import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { addRef, deleteAnnotations, sweep } from "./retention.ts";
 import { headSeq } from "./store.ts";
@@ -22,7 +22,7 @@ export const annotationPersist = defineCommand({
   method: "persist",
   name: "AnnotationPersist",
   input: z.strictObject({
-    app: appIdSchema,
+    target: annotationTargetSchema,
     annotations: z.array(annotationInputSchema).min(1).max(
       ANNOTATION_BATCH_MAX,
     ),
@@ -87,22 +87,38 @@ export function createAnnotationCommands(): {
       route: annotationPersist,
       handle(tx, ctx, input) {
         if (ctx.actor !== "user") return forbidden("only a person sends");
-        const registered = tx.port(appRegistrationLookup).get(input.app);
-        if (!registered.ok) return registered;
-        if (registered.value === null) {
-          return err({ code: "not_found", message: "app does not exist" });
+        // artifact의 project는 검사하지 않는다. 없거나 보관한 project는 전달에서 session을 못 열어 실패하고
+        // send가 이 묶음을 지운다.
+        if (input.target.kind === "app") {
+          const registered = tx.port(appRegistrationLookup).get(
+            input.target.app,
+          );
+          if (!registered.ok) return registered;
+          if (registered.value === null) {
+            return err({ code: "not_found", message: "app does not exist" });
+          }
+          if (registered.value.status === "archived") {
+            return err({
+              code: "conflict",
+              message: "an archived app does not take new input",
+            });
+          }
         }
-        if (registered.value.status === "archived") {
-          return err({
-            code: "conflict",
-            message: "an archived app does not take new input",
-          });
-        }
+        const { target } = input;
         const batch = tx.newId("anb");
         tx.sql.run(
-          `INSERT INTO annotation_batches (id, app, sent_at, sent_by)
-           VALUES (?, ?, ?, ?)`,
-          [batch, input.app, tx.now(), ctx.actor],
+          `INSERT INTO annotation_batches
+             (id, target_kind, app, project, artifact, sent_at, sent_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            batch,
+            target.kind,
+            target.kind === "app" ? target.app : null,
+            target.kind === "artifact" ? target.project : null,
+            target.kind === "artifact" ? target.name : null,
+            tx.now(),
+            ctx.actor,
+          ],
         );
         const registeredSeq = headSeq(tx.sql);
         const ids: string[] = [];
@@ -111,13 +127,12 @@ export function createAnnotationCommands(): {
           ids.push(id);
           tx.sql.run(
             `INSERT INTO annotations
-               (id, batch, app, n, kind, note, screenshot_hash, screenshot_size,
+               (id, batch, n, kind, note, screenshot_hash, screenshot_size,
                 component, element, rect, view, release)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               id,
               batch,
-              input.app,
               item.n,
               item.kind,
               item.note,

@@ -1,4 +1,4 @@
-// annotation.send. 묶음을 저장하고 App Engineer에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
+// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 App Engineer, artifact이면 wave 2 receiver가 정한 쪽)에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
 // Gate를 거치지 않는다. 보관한 앱이면 저장 command가 쓰기 전에 conflict로 거절한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { CommandRoute } from "../../../protocol/base/mod.ts";
@@ -37,18 +37,12 @@ type AnnotationDeps = {
 type SendInput = z.output<typeof annotationSendInputSchema>;
 
 export function createAnnotations(deps: AnnotationDeps) {
-  async function send(ctx: AuthenticatedContext, input: SendInput) {
-    const delivery = deps.delivery();
-    if (delivery === undefined) {
-      return err({
-        code: "unavailable" as const,
-        message: "annotation delivery is not attached",
-      });
-    }
+  // 묶음을 저장하고 보낼 메시지 글을 만든다. 보내기 전 단계는 target 종류와 상관없이 같다.
+  async function persist(ctx: AuthenticatedContext, input: SendInput) {
     const persisted = await deps.run(
       ctx,
       annotationPersist,
-      { app: input.app, annotations: input.annotations },
+      { target: input.target, annotations: input.annotations },
       input.annotations.flatMap((item) =>
         item.screenshot === null ? [] : [item.screenshot.preparation]
       ),
@@ -58,7 +52,7 @@ export function createAnnotations(deps: AnnotationDeps) {
     const stored: Annotation[] = input.annotations.map((item, i) => ({
       id: ids[i]!,
       batch,
-      app: input.app,
+      target: input.target,
       n: item.n,
       kind: item.kind,
       note: item.note,
@@ -72,29 +66,80 @@ export function createAnnotations(deps: AnnotationDeps) {
       view: item.view,
       release: item.release,
     }));
-    const text = renderAnnotationMessage(stored);
-    const delivered = await delivery.deliver({
-      app: input.app,
-      session: input.session,
-      text,
-      annotations: ids,
-    });
+    return ok({ batch, ids, text: renderAnnotationMessage(stored) });
+  }
+
+  // 전달 결과를 받아 마무리한다. 실패하면 방금 저장한 묶음을 지운다.
+  async function finish(
+    ctx: AuthenticatedContext,
+    batch: string,
+    ids: readonly string[],
+    delivered: Result<{ session: string; message: string }>,
+  ) {
     if (!delivered.ok) {
       await deps.run(ctx, annotationDiscard, { batch }, []);
       return delivered;
     }
     const referenced = await deps.run(ctx, annotationAddRefs, {
-      annotations: ids,
+      annotations: [...ids],
       owner_kind: "session_message",
       owner_id: delivered.value.message,
     }, []);
     if (!referenced.ok) return referenced;
     return ok({
       batch,
-      annotations: ids,
+      annotations: [...ids],
       session: delivered.value.session,
       message: delivered.value.message,
     });
+  }
+
+  async function send(ctx: AuthenticatedContext, input: SendInput) {
+    if (input.target.kind === "artifact") {
+      return await sendArtifact(ctx, input, input.target);
+    }
+    const delivery = deps.delivery();
+    if (delivery === undefined) {
+      return err({
+        code: "unavailable" as const,
+        message: "annotation delivery is not attached",
+      });
+    }
+    const persisted = await persist(ctx, input);
+    if (!persisted.ok) return persisted;
+    const { batch, ids, text } = persisted.value;
+    const delivered = await delivery.deliver({
+      app: input.target.app,
+      session: input.session,
+      text,
+      annotations: ids,
+    });
+    return await finish(ctx, batch, ids, delivered);
+  }
+
+  // artifact 갈래. deliverArtifact가 없으면 묶음을 저장했다가 지운다.
+  async function sendArtifact(
+    ctx: AuthenticatedContext,
+    input: SendInput,
+    target: Extract<SendInput["target"], { kind: "artifact" }>,
+  ) {
+    const persisted = await persist(ctx, input);
+    if (!persisted.ok) return persisted;
+    const { batch, ids, text } = persisted.value;
+    const deliverArtifact = deps.delivery()?.deliverArtifact;
+    const delivered = deliverArtifact === undefined
+      ? err({
+        code: "unavailable" as const,
+        message: "artifact annotation delivery is not attached",
+      })
+      : await deliverArtifact({
+        project: target.project,
+        name: target.name,
+        session: input.session,
+        text,
+        annotations: ids,
+      });
+    return await finish(ctx, batch, ids, delivered);
   }
 
   return { send };

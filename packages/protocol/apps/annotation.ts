@@ -5,11 +5,12 @@ import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead, defineUpload } from "../base/route.ts";
 import { sha256Schema } from "../base/values.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
-import { appIdSchema } from "../projects/values.ts";
+import { artifactNameSchema } from "../projects/artifact.ts";
+import { appIdSchema, projectIdSchema } from "../projects/values.ts";
 import { screenKeySchema } from "./channel-values.ts";
 import { releaseIdSchema } from "./apps.ts";
 
-// 앱 화면 annotation의 값과 route. 고르기는 shell이, 저장·전달은 core가 한다.
+// 앱 화면과 artifact annotation의 값과 route. 고르기는 shell이, 저장·전달은 core가 한다.
 
 export const ANNOTATION_BATCH_MAX = 20;
 const ANNOTATION_NOTE_MAX_CHARS = 2000;
@@ -41,11 +42,22 @@ const annotationElementSchema = z.strictObject({
   text: elementText,
 });
 
-// 앱 화면 위치(앱이 정한 view 이름과 route).
+// 앱 화면 위치(앱이 정한 view 이름과 route). artifact는 screen이 없다(null), path는 artifact 안의 위치다.
 const annotationViewSchema = z.strictObject({
-  screen: screenKeySchema,
+  screen: screenKeySchema.nullable(),
   path: z.string(),
 });
+
+// annotation을 붙이는 곳. artifact의 name이 null이면 사람의 폴더에 있는 `.html`이다.
+export const annotationTargetSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("app"), app: appIdSchema }),
+  z.strictObject({
+    kind: z.literal("artifact"),
+    project: projectIdSchema,
+    name: artifactNameSchema.nullable(),
+  }),
+]);
+export type AnnotationTarget = z.infer<typeof annotationTargetSchema>;
 
 const annotationScreenshotBlobSchema = z.strictObject(
   preparedBlobSchema.shape,
@@ -64,14 +76,15 @@ export const annotationInputSchema = z.strictObject({
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
-  release: releaseIdSchema,
+  // artifact target이면 null.
+  release: releaseIdSchema.nullable(),
 });
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
 
 const annotationSchema = z.strictObject({
   id: annotationIdSchema,
   batch: annotationBatchIdSchema,
-  app: appIdSchema,
+  target: annotationTargetSchema,
   n: z.number().int().min(1),
   kind: annotationKindSchema,
   note: z.string(),
@@ -84,13 +97,13 @@ const annotationSchema = z.strictObject({
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
-  release: releaseIdSchema,
+  release: releaseIdSchema.nullable(),
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 
 const annotationBatchSchema = z.strictObject({
   id: annotationBatchIdSchema,
-  app: appIdSchema,
+  target: annotationTargetSchema,
   sent_at: z.string(),
   sent_by: actorSchema,
   annotations: z.array(annotationIdSchema),
@@ -119,16 +132,25 @@ export const annotationUploadScreenshot = defineUpload({
   max_bytes: ANNOTATION_SCREENSHOT_MAX_BYTES,
 });
 
-// 묶음 하나를 그 앱의 App Engineer에게 사람 메시지로 보낸다. Router 전달이
+// 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
-// session은 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
+// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
+// artifact이면 pane에 열려 있는 그 project의 Project Manager session이고, core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
 export const annotationSendInputSchema = z.strictObject({
-  app: appIdSchema,
+  target: annotationTargetSchema,
   session: idSchema("ses").nullable(),
   annotations: z.array(annotationInputSchema).min(1).max(ANNOTATION_BATCH_MAX),
 }).refine(
   (value) => value.annotations.every((item, i) => item.n === i + 1),
   { message: "annotation n must run 1..N in order" },
+).refine(
+  (value) =>
+    value.annotations.every((item) =>
+      value.target.kind === "app"
+        ? item.release !== null && item.view.screen !== null
+        : item.release === null && item.view.screen === null
+    ),
+  { message: "app annotations carry release and screen, artifact ones do not" },
 );
 const annotationSendOutputSchema = z.object({
   batch: annotationBatchIdSchema,

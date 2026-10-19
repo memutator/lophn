@@ -19,7 +19,7 @@ export const INPUT_TAG_ATTRIBUTES = {
   reaction: ["event", "seq"],
   notice: ["kind"],
   attached: ["kind", "name"],
-  annotation: ["n", "kind", "app", "release", "view"],
+  annotation: ["n", "kind", "app", "release", "view", "project", "artifact"],
   untrusted: ["source"],
   steer: [],
 } as const;

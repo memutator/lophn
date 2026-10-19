@@ -53,10 +53,11 @@ export function createAnnotationReads(): {
         const found = "annotation" in input
           ? foundByAnnotation(snapshot.sql, input.annotation)
           : loadBatch(snapshot.sql, input.batch);
-        // 범위 밖 앱은 없는 것과 같다.
+        // 범위 밖 앱과 artifact target은 앱에 묶인 호출자에게 없는 것과 같다.
         if (
           found === null ||
-          (bound.value !== null && found.batch.app !== bound.value)
+          (bound.value !== null && !(found.batch.target.kind === "app" &&
+            found.batch.target.app === bound.value))
         ) return notFound();
         return ok({
           ...found,

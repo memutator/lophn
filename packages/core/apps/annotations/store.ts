@@ -2,6 +2,7 @@
 import type {
   AnnotationBatch,
   AnnotationRead,
+  AnnotationTarget,
 } from "../../../protocol/apps/annotation.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { objectPathFor } from "../../storage/blobs/mod.ts";
@@ -21,12 +22,23 @@ function dataRootOf(sql: Query): string | null {
     : null;
 }
 
+// 묶음 행에서 target을 읽는다. 표의 CHECK가 칸 조합을 지킨다.
+function targetOf(row: Record<string, unknown>): AnnotationTarget {
+  return row["target_kind"] === "app"
+    ? { kind: "app", app: String(row["app"]) as never }
+    : {
+      kind: "artifact",
+      project: String(row["project"]) as never,
+      name: row["artifact"] === null ? null : String(row["artifact"]),
+    };
+}
+
 function readOf(row: Record<string, unknown>, root: string | null) {
   const hash = row["screenshot_hash"];
   return {
     id: String(row["id"]),
     batch: String(row["batch"]),
-    app: String(row["app"]),
+    target: targetOf(row),
     n: Number(row["n"]),
     kind: String(row["kind"]),
     note: String(row["note"]),
@@ -37,7 +49,7 @@ function readOf(row: Record<string, unknown>, root: string | null) {
     element: json(row["element"]),
     rect: json(row["rect"]),
     view: json(row["view"]),
-    release: String(row["release"]),
+    release: row["release"] === null ? null : String(row["release"]),
     screenshot_path: hash === null || root === null
       ? null
       : objectPathFor(root, String(hash)),
@@ -51,7 +63,12 @@ export function loadAnnotations(
 ): AnnotationRead[] {
   const root = dataRootOf(sql);
   return ids.flatMap((id) => {
-    const row = sql.get("SELECT * FROM annotations WHERE id = ?", [id]);
+    const row = sql.get(
+      `SELECT a.*, b.target_kind, b.app, b.project, b.artifact
+       FROM annotations a JOIN annotation_batches b ON b.id = a.batch
+       WHERE a.id = ?`,
+      [id],
+    );
     return row === undefined ? [] : [readOf(row, root)];
   });
 }
@@ -68,7 +85,7 @@ export function loadBatch(
   return {
     batch: {
       id,
-      app: String(row["app"]),
+      target: targetOf(row),
       sent_at: String(row["sent_at"]),
       sent_by: String(row["sent_by"]),
       annotations: ids,

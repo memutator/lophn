@@ -149,9 +149,9 @@ export function createBridgeWiring(
     },
     stop() {
       stopped = true;
-      void server.then((started) => started?.stop()).catch(() => {}).then(
-        removeDir,
-      );
+      // quit 직후 process가 바로 끝나서 비동기 정리가 돌지 못하므로 폴더부터 동기로 지운다.
+      removeDir();
+      void server.then((started) => started?.stop()).catch(() => {});
     },
   };
 }

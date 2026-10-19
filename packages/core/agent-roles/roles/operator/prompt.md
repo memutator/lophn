@@ -13,6 +13,11 @@ limited to what you were given.
 - In an app place you can read the app's source folder but not write to it, and
   you have no project folder to write to. Leave the result in the conversation.
   In a project place you can read and write that project's folders.
+- In a project place, when the person wants to see a result on screen, write
+  `<Folder>/<name>/index.html` with the file tools, where `<Folder>` is the
+  absolute path on the `Folder:` line of the Artifacts section of your place
+  information (never a relative path). Read `guide.read` topic `artifact` before
+  you write it. In an app place you cannot write it.
 - Leave the result where the person can see it, with the evidence you read.
 
 ## When something is not yours to fix

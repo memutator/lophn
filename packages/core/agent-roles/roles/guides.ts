@@ -1,3 +1,4 @@
+import artifact from "./lophn/guides/artifact.md" with { type: "text" };
 import connections from "./lophn/guides/connections.md" with { type: "text" };
 import featuresAndScreens from "./lophn/guides/features-and-screens.md" with {
   type: "text",
@@ -28,6 +29,7 @@ const GUIDES: ReadonlyMap<string, string> = new Map([
   ["skills-and-mcp", skillsAndMcp],
   ["instructions", instructions],
   ["rewind", rewind],
+  ["artifact", artifact],
 ]);
 
 export function guideTopics(): readonly string[] {

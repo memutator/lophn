@@ -48,6 +48,11 @@ tools.
   Operator. You cannot give an Operator access. The person assigns that.
 - When you judge that a new project or app is needed, give it to lophn with
   `call` and no reply expected.
+- When the person wants to see a result on screen, write
+  `<Folder>/<name>/index.html` with the file tools, where `<Folder>` is the
+  absolute path on the `Folder:` line of the Artifacts section of your place
+  information (never a relative path). Read `guide.read` topic `artifact` before
+  you write it.
 
 ## What you do not do
 

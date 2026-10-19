@@ -21,7 +21,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
    artifact-ipc.ts ── desktop 창 본문만, schema 검사
    registry.ts open ── resolveSource(artifact 폴더 또는 .html이 든 폴더의 realpath)
      ├─ 첫 view: sealArtifactSession(persist:lophn-artifact)
-     │    permission 거절 → download 취소 → 죽은 proxy → probe가 성공하면 실패(unavailable) → scheme handler
+     │    permission 거절 → download 취소 → 죽은 proxy(loopback 포함) → 잠깐 띄운 loopback server에 닿으면 실패(unavailable) → scheme handler
      ├─ roots.register(root) ─▶ host "a-<sha256 24자>"   (root마다 origin이 다르다)
      ├─ WebContentsView(partition, preload-artifact: annotate layer만) ─▶ lophn-artifact://<host>/<entry>
      ├─ watchFolder(artifact는 recursive, .html은 그 폴더만) ─ 150ms 뒤 reloadIgnoringCache
@@ -47,8 +47,9 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **목록은 program이 관례 자리에서 결정적으로 만든다.** 제목과 설명은 `index.html` 앞 64 KiB의 `<title>`·`<meta name="description">`에서 읽고 120자·300자로 자른다. shell main(`artifact/list.ts`)과 core(`place/artifact-list.ts`)가 같은 규칙의 사본을 갖는다. core는 shell을 import하지 못한다. prompt에는 이름 순 50개까지 싣는다.
 - **봉한 scheme은 root 안의 일반 file만 준다.** `..` 마디, 역슬래시, NUL, 풀 수 없는 percent-encoding은 거절하고, 어휘 검사 뒤 realpath도 `root + sep` 안이어야 한다(접두사만 같은 형제 폴더는 밖이다). 그 path를 `O_NOFOLLOW`로 열어 일반 file이고 4 MiB 이하일 때만 준다. 그 밖은 모두 404다.
 - **root마다 host가 다르다.** host는 root realpath의 sha256 앞 24자다. 같은 root는 늘 같은 host라 localStorage가 이어지고, 다른 artifact는 다른 origin이다.
-- **응답 CSP는 `connect-src 'self'`다.** template이 자기 `data/`를 fetch해야 갈아끼우기와 series가 된다. 밖으로는 죽은 proxy(`http://255.255.255.255:9`)가 막고, 봉할 때 probe가 성공하면 그 session을 쓰지 않는다(`unavailable`, 다음 요청이 다시 시도한다).
+- **응답 CSP는 `connect-src 'self'`다.** template이 자기 `data/`를 fetch해야 갈아끼우기와 series가 된다. 밖으로는 죽은 proxy(`http://255.255.255.255:9`)가 막는다. Chromium은 loopback을 proxy에서 빼므로 `<-loopback>`으로 loopback도 proxy를 거치게 한다. 봉할 때 main이 127.0.0.1에 잠깐 띄운 server를 그 session으로 쳐서 닿으면 proxy가 안 먹은 것이라 그 session을 쓰지 않는다(`unavailable`, 다음 요청이 다시 시도한다). 아무도 없는 주소를 치는 probe는 proxy와 상관없이 실패해 아무것도 확인하지 못한다.
 - **`data/_entries.json`은 view가 만드는 가상 file이다.** `data/` 바로 아래 일반 file만 `{name, size, modified}`로 이름 순에 싣는다. `lstat`로 하위 폴더와 symlink를 건너뛰어 밖으로 가는 symlink의 이름과 크기가 새지 않는다. 디스크에 같은 이름이 있어도 가상이 이긴다.
+- **navigation은 `will-frame-navigate`와 `will-redirect`에서 정한다.** Electron 44에서 main frame은 `will-frame-navigate`가 먼저 오고, 거기서 막으면 `will-navigate`는 오지 않는다. 알리는 일을 `will-navigate`에 두면 link가 아무 일도 하지 않는다.
 - **main frame은 같은 host의 `lophn-artifact:`로만 간다.** 같은 폴더 안의 다른 HTML로 가는 상대 link는 된다. http·https는 막고, 사용자 입력 5000ms 안이면 renderer에 알려 browser 탭으로 연다. `window.open`은 늘 거절한다. permission은 거절하고 download는 취소한다. subframe도 같은 host만이다.
 - **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 live view와 갈리는 곳이다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 name이 null이다.

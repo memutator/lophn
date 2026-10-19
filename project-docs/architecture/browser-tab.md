@@ -18,7 +18,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
    │                   did-attach-webview ─▶ registry guest 항목 "wv-<guest id>"
    registry.ts ── guest 항목(webview) · native 항목(popup) · DevTools 항목
    │   hook(electron-view.ts adapt, guest와 native popup 같이):
-   │     will-navigate / will-redirect / will-frame-navigate ─▶ decideNavigation
+   │     will-frame-navigate / will-redirect ─▶ decideNavigation (main frame은 will-frame-navigate가 먼저 오고, 막으면 will-navigate는 오지 않는다)
    │     input-event(mouseDown, rawKeyDown) ─▶ activation.mark
    │     setWindowOpenHandler ─▶ popup-host.ts ─▶ decidePopup
    │     before-input-event Ctrl/Cmd+D ─▶ bookmark-key event

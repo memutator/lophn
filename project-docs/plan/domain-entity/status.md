@@ -12,15 +12,15 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-apps-storage` | apps | 2 | 없음 | merged | apps/de-apps-storage | 6e0394094 |  |
 | `de-public-tools` | apps | 2 | de-apps-storage, de-routing-events | running | apps/de-public-tools |  |  |
 | `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | running | domain-kinds/de-kinds-domain |  |  |
-| `de-agents-domains` | harness | 2 | 없음 | running | harness/de-agents-domains |  |  |
-| `de-tool-filter` | harness | 2 | 없음 | running | harness/de-tool-filter |  |  |
+| `de-agents-domains` | harness | 2 | 없음 | merged | harness/de-agents-domains | 68c84e5ba |  |
+| `de-tool-filter` | harness | 2 | 없음 | merged | harness/de-tool-filter | 5d349e639 |  |
 | `de-turn-domains` | harness | 2 | 없음 | merged | harness/de-turn-domains | bfda0d81c |  |
-| `de-roles-core` | roles | 2 | 없음 | running | roles/de-roles-core |  |  |
-| `de-roles-text` | roles | 2 | 없음 | running | roles/de-roles-text |  |  |
-| `de-coding-routing` | routing | 2 | 없음 | running | routing/de-coding-routing |  |  |
+| `de-roles-core` | roles | 2 | 없음 | merged | roles/de-roles-core | 3c0251481 |  |
+| `de-roles-text` | roles | 2 | 없음 | merged | roles/de-roles-text | 36f1a7248 |  |
+| `de-coding-routing` | routing | 2 | 없음 | merged | routing/de-coding-routing | 61ab405a5 |  |
 | `de-routing-events` | routing | 2 | 없음 | merged | routing/de-routing-events | 2b80d0ee0 |  |
-| `de-shell-agents` | shell | 2 | 없음 | running | shell/de-shell-agents |  |  |
-| `de-shell-app-space` | shell | 2 | 없음 | running | shell/de-shell-app-space |  |  |
+| `de-shell-agents` | shell | 2 | 없음 | merged | shell/de-shell-agents | 33f083320 |  |
+| `de-shell-app-space` | shell | 2 | 없음 | merged | shell/de-shell-app-space | 885fa7c1a |  |
 | `de-shell-artifact-data` | shell | 2 | de-routing-events | running | shell/de-shell-artifact-data |  |  |
 | `de-apps-unbind` | apps | 3 | 없음 | todo |  |  |  |
 | `de-place-info` | roles | 3 | 없음 | todo |  |  |  |

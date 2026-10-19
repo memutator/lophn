@@ -20,3 +20,5 @@ modules: [packages/core/problems, packages/core/apps]
 추천: 막힌 앱이 생길 때까지 둔다.
 
 정한 것: 실제로 막히는 앱이 나올 때까지 둔다.
+
+막힌 앱이 나왔다: 계획 `domain-tools`의 손 확인에서 내장 template 앱(write tool `add_item`)이 release 준비의 app test에서 "필수 검사 1개가 통과하지 못했다: rewind"로 떨어져 활성화되지 않았다. e2e `tests/e2e/app-release_test.ts`의 두 test도 같은 문구로 떨어진다. rewind 호출이 왜 실패했는지는 보지 못했다(검사 detail은 coding·user token 모두 `forbidden`). 정한 것을 다시 정해야 한다.

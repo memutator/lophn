@@ -3,7 +3,7 @@ import {
   problemGet,
   problemGetOccurrence,
   problemList,
-  problemListProject,
+  problemListDomain,
   problemSetState,
   reportBody,
 } from "../../protocol/problems/mod.ts";
@@ -30,27 +30,33 @@ export const PROBLEMS_AGENT_TOOLS: readonly ToolDefinition[] = [
     name: "problem.list",
     input: z.strictObject({
       app: idSchema("app").optional(),
-      project: idSchema("prj").optional(),
+      domain: idSchema("dom").optional(),
       state: problemStateSchema.optional(),
       since: atSchema.optional(),
       until: atSchema.optional(),
     }),
-    routes: [problemList, problemListProject],
+    routes: [problemList, problemListDomain],
     description:
-      "List problems, optionally of one app, one state or a period of last occurrence (since, until). Pass `project` to list the kind violations of a project instead of app problems (only `state` can go with it; its states are open and resolved).",
+      "List problems, optionally of one app, one state or a period of last occurrence (since, until). Pass `domain` to list the kind violations of a domain instead of app problems (only `state` can go with it; its states are open and resolved).",
     effect: "read",
     handler: async (input, ctx) => {
-      const { project, ...appFilter } = input;
-      if (project !== undefined) {
+      const { domain: given, ...appFilter } = input;
+      if (given !== undefined) {
         if (Object.keys(appFilter).some((k) => k !== "state")) {
-          return invalid("project can only be combined with state");
+          return invalid("domain can only be combined with state");
         }
         const state = appFilter.state;
         if (state === "ignored") {
-          return invalid("project problems are open or resolved");
+          return invalid("domain problems are open or resolved");
         }
-        const listed = await readOf(ctx.core, problemListProject, {
-          project,
+        // 생략하면 앱 problem이다. domain은 이 agent의 `ctx.domains` 안이어야 하고, 아니면 core를 부르지 않는다.
+        if (!ctx.domains.includes(given)) {
+          return invalid(
+            `domain is not yours; your domains: ${ctx.domains.join(", ")}`,
+          );
+        }
+        const listed = await readOf(ctx.core, problemListDomain, {
+          domain: given,
           ...(state === undefined ? {} : { state }),
         });
         if (!listed.ok) return listed;

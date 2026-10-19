@@ -80,12 +80,12 @@ export function reactionsOf(
         { kind: "session", session: null, app: event.subject },
       );
     case "KindViolationFound": {
-      const { project, count } = event.payload;
+      // 받는 agent는 domain 그릇에 따라 Project Manager나 App Engineer라 waiting 목록을 연다.
       return toast(
         "kind-violation",
         event.seq,
-        { project, count: String(count) },
-        { kind: "project-manager", project },
+        { count: String(event.payload.count) },
+        { kind: "waiting" },
       );
     }
     default:

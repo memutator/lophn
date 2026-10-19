@@ -1,5 +1,5 @@
 // kinds worker: kind `documents/kinds`. core가 감독 pipe로 보내는 네 일을 한다.
-// - `kinds.sync`: kinds 파일과 project 파일을 훑어 derived/kinds.sqlite를 갱신하고 상태와 위반을 답한다
+// - `kinds.sync`: kinds 파일과 domain 그릇의 파일을 훑어 derived/kinds.sqlite를 갱신하고 상태와 위반을 답한다
 //   (이 worker가 그 파일의 유일한 writer다).
 // - `kinds.get`·`kinds.list`·`kinds.check`: 훑지 않고 index를 있는 그대로 읽어 답한다(훑는 일은 sync만 한다).
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 위반은 답에 실어 보내고 problem으로 올리는 일은 core가
@@ -7,11 +7,11 @@
 import type { z } from "zod";
 import { err, type Result, systemClock } from "../../../../base/mod.ts";
 import type { Clock, LophnError } from "../../../../base/mod.ts";
+import { domainKindsFile } from "../../../../protocol/domains/paths.ts";
 import {
   KINDS_WORK_OPS,
   KINDS_WORKER_KIND,
   kindsCheckWorkRequestSchema,
-  kindsFilePath,
   kindsIndexPath,
   kindsListWorkRequestSchema,
   kindsWorkRequestSchema,
@@ -84,8 +84,8 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
     clock,
   });
 
-  // 요청이 마음대로 읽을 파일을 정하지 못하게 kinds 파일은 project의 정해진 자리여야 한다.
-  function handle<T extends { project: string; kinds_file: string }>(
+  // 요청이 마음대로 읽을 파일을 정하지 못하게 kinds 파일은 그 domain의 정해진 자리여야 한다.
+  function handle<T extends { domain: string; kinds_file: string }>(
     schema: z.ZodType<T>,
     request: WorkerRequest,
     run: (input: T) => Promise<Result<unknown>>,
@@ -93,8 +93,9 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
     const parsed = schema.safeParse(request.payload);
     const error = !parsed.success
       ? "invalid kinds request"
-      : parsed.data.kinds_file !== kindsFilePath(dataRoot!, parsed.data.project)
-      ? "kinds_file is not the project's kinds file"
+      : parsed.data.kinds_file !==
+          domainKindsFile(dataRoot!, parsed.data.domain)
+      ? "kinds_file is not the domain's kinds file"
       : undefined;
     if (!parsed.success || error !== undefined) {
       return Promise.resolve(err({ code: "invalid_input", message: error! }));
@@ -141,8 +142,8 @@ function createKindsWorker(options: KindsWorkerOptions): ChildSession {
     },
     onParent(message) {
       if (message.type !== "worker_request") return;
-      // 이 handler는 pipe에서 온 순서대로 하나씩 돈다. 일은 기다리지 않고 맡겨서 다른 project의 일이 서로
-      // 막지 않게 한다. 한 project의 일은 jobs가 줄 세운다.
+      // 이 handler는 pipe에서 온 순서대로 하나씩 돈다. 일은 기다리지 않고 맡겨서 다른 domain의 일이 서로
+      // 막지 않게 한다. 한 domain의 일은 jobs가 줄 세운다.
       void dispatch(message).then(
         (result) => result,
         (): Result<never, LophnError> =>

@@ -146,9 +146,9 @@ export const data = {
   "waiting.toast-permission.title": "{agent} needs permission",
   "waiting.toast-question.button": "Review",
   "waiting.toast-question.body": "Open the list to answer it.",
-  "waiting.toast-kind-violation.button": "Ask Project Manager",
+  "waiting.toast-kind-violation.button": "Open list",
   "waiting.toast-kind-violation.body":
-    "A check found {count, plural, one {# new violation} other {# new violations}} in this project's documents.",
+    "A check found {count, plural, one {# new violation} other {# new violations}} in documents of a domain.",
   "waiting.toast-kind-violation.title": "Documents don't match the kinds",
   "waiting.toast-question.title": "{agent} has a question",
   "waiting.toast-restart-halted.button": "Open session",

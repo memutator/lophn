@@ -7,42 +7,42 @@ export const indexSchemaSteps: readonly SchemaStep[] = [{
   id: "documents.kinds.index.tables",
   sql: `
     CREATE TABLE kinds_applied (
-      project TEXT PRIMARY KEY NOT NULL,
+      domain TEXT PRIMARY KEY NOT NULL,
       hash TEXT NOT NULL,
       text TEXT NOT NULL
     ) STRICT;
 
     CREATE TABLE kinds_state (
-      project TEXT PRIMARY KEY NOT NULL,
+      domain TEXT PRIMARY KEY NOT NULL,
       kinds_hash TEXT NOT NULL,
       scanned_ms INTEGER NOT NULL,
       status_json TEXT NOT NULL
     ) STRICT;
 
     CREATE TABLE kinds_files (
-      project TEXT NOT NULL,
+      domain TEXT NOT NULL,
       path TEXT NOT NULL,
       size INTEGER NOT NULL,
       mtime_ms INTEGER NOT NULL,
       kind TEXT,
       status TEXT NOT NULL CHECK (status IN ('ok', 'skipped')),
-      PRIMARY KEY (project, path)
+      PRIMARY KEY (domain, path)
     ) STRICT;
 
     CREATE TABLE kinds_items (
-      project TEXT NOT NULL,
+      domain TEXT NOT NULL,
       ord INTEGER NOT NULL,
       kind TEXT NOT NULL,
       key TEXT NOT NULL,
       path TEXT NOT NULL,
       file TEXT NOT NULL,
       fields TEXT NOT NULL,
-      PRIMARY KEY (project, ord)
+      PRIMARY KEY (domain, ord)
     ) STRICT;
-    CREATE INDEX kinds_items_kind ON kinds_items(project, kind);
+    CREATE INDEX kinds_items_kind ON kinds_items(domain, kind);
 
     CREATE TABLE kinds_violations (
-      project TEXT NOT NULL,
+      domain TEXT NOT NULL,
       ord INTEGER NOT NULL,
       source TEXT NOT NULL,
       kind TEXT,
@@ -50,7 +50,7 @@ export const indexSchemaSteps: readonly SchemaStep[] = [{
       field TEXT,
       rule TEXT NOT NULL,
       message TEXT NOT NULL,
-      PRIMARY KEY (project, ord)
+      PRIMARY KEY (domain, ord)
     ) STRICT;
   `,
 }];

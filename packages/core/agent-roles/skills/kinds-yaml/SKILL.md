@@ -1,20 +1,23 @@
 ---
 name: kinds-yaml
-description: Write or change the project's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.
+description: Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.
 ---
 
 # Write the kinds file
 
-Use this when the project has no kinds yet, when a person names a new kind of
+Use this when a domain has no kinds yet, when a person names a new kind of
 document, or when a violation looks like a problem in the schema rather than in
-the document. You are the Project Manager of this project, and the kinds file
-belongs to it.
+the document. The kinds file belongs to a domain and lives in the domain's
+folder. The globs in it are relative to the folders of the project or app that
+holds the domain. You write it as the Project Manager or the App Engineer of
+that project or app.
 
 ## 1. Read
 
-Read the request and the project's documents with the file tools (`file.glob`,
-`file.grep`, `file.read`, `file.outline`). If the project already has kinds,
-call `kind.check` to see the current state first.
+Read the request and the documents with the file tools (`file.glob`,
+`file.grep`, `file.read`, `file.outline`). If the domain already has kinds, call
+`kind.check` to see the current state first (pass `domain` if you have more than
+one).
 
 ## 2. Ask what is the person's to decide
 
@@ -25,14 +28,15 @@ If there is no answer, do not write. Report it as undecided.
 
 ## 3. Write
 
-Write the whole file with `file.write` to the path on the `Kinds file:` line of
-your place information. It is the only file you can write in that folder (the
-folder also holds agent definitions and settings). There is no draft and no
-release: a saved file is checked and used at once.
+Write the whole file with `file.write` as `kinds.yaml` in the domain's folder
+(your place information lists the folder of each domain). It is the only file
+you write there for this. There is no draft and no release: a saved file is
+checked and used at once. Each domain has its own kinds file, so a kind is
+written in the domain it belongs to.
 
 ## 4. Check
 
-Call `kind.check` right away.
+Call `kind.check` right away (with `domain` if you have more than one).
 
 - If `status.errors` is not empty, the file itself is wrong. Fix it and write it
   again. A wrong file does not replace the last valid one: that keeps being used
@@ -71,14 +75,14 @@ kinds:
 ```
 
 - A kind has `name` (`^[a-z][a-z0-9_]*$`), `summary` (one line), `files` (globs
-  relative to the project folder), `key` and `fields` (field name to
-  properties). One document is one item. A file must not match the globs of two
-  kinds.
+  relative to the folder of the project or app that holds the domain), `key` and
+  `fields` (field name to properties). One document is one item. A file must not
+  match the globs of two kinds.
 - `key` is one field. Its value is unique within the kind. A key of `path` or
   `file` needs no field.
 - Every item has two fields without declaring them: `path` (relative to the
-  project) and `file` (the file name without its extension). You cannot declare
-  fields with these names.
+  container folder) and `file` (the file name without its extension). You cannot
+  declare fields with these names.
 - A field `type` is `string`, `number`, `boolean`, `date`, `enum` or `ref`.
   Properties are `required`, `unique`, `list` (a list of that type), `values`
   (enum only, the allowed values), `pattern` (string only, a regex), `to` (ref

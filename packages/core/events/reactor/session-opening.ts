@@ -42,8 +42,11 @@ type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
 const newWorkHandlerName = (type: ReactionEventType) => `new-work:${type}`;
 
-// event를 받을 agent. 앱 일은 그 앱의 App Engineer다.
-function agentOf(deps: NewWorkDeps, event: NewWork): Result<AgentRef> {
+// event를 받을 agent. 앱 일은 그 앱의 App Engineer, domain 일은 그 domain 그릇의 agent다.
+async function agentOf(
+  deps: NewWorkDeps,
+  event: NewWork,
+): Promise<Result<AgentRef>> {
   switch (event.type) {
     case "ProblemOpened":
     case "ProblemReopened":
@@ -52,6 +55,7 @@ function agentOf(deps: NewWorkDeps, event: NewWork): Result<AgentRef> {
     case "AppRestartHalted":
       return deps.agentOfApp(event.subject);
     case "KindViolationFound":
+      return await deps.agentOfDomain(event.payload.domain);
     case "PublicToolsChanged":
       return ok({ role: "project_manager", project: event.payload.project });
   }
@@ -107,7 +111,7 @@ function callOf(
         ...base,
         to,
         body:
-          "New kind violations were found in this project. Read them with kind.check.",
+          "New kind violations were found in this domain. Read them with kind.check.",
         refs: [],
       };
     case "PublicToolsChanged": {
@@ -147,7 +151,7 @@ async function sendKey(event: NewWork): Promise<Result<string>> {
 async function send(deps: NewWorkDeps, event: NewWork): Promise<Result<void>> {
   const key = await sendKey(event);
   if (!key.ok) return key;
-  const agent = agentOf(deps, event);
+  const agent = await agentOf(deps, event);
   if (!agent.ok) return agent;
   return await deps.router.send(callOf(event, agent.value), key.value);
 }

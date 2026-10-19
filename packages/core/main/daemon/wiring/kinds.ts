@@ -1,8 +1,9 @@
-// kinds worker(documents/kinds)를 띄우고 부리는 조립. project 폴더와 kinds 파일의 변화를 보고, 위반을
+// kinds worker(documents/kinds)를 띄우고 부리는 조립. domain 그릇의 폴더와 kinds 파일의 변화를 보고, 위반을
 // problem으로 올리고, `kind.get`·`kind.list`·`kind.check` core 메모리 route를 worker에 묻는 handler로 답한다.
 // 띄우지 못해도 core는 계속 선다: 읽기는 unavailable이다.
 import { createIdSource, ok } from "../../../../base/mod.ts";
-import { problemSyncProject } from "../../../../protocol/problems/mod.ts";
+import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
+import { problemSyncDomain } from "../../../../protocol/problems/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { OperationPolicy } from "../../../server/identity/mod.ts";
@@ -18,16 +19,29 @@ import {
   denoWatchFs,
   type KindsWatch,
 } from "../../../projects/kinds/host/watch/service.ts";
-import {
-  activeProjectRoots,
-  projectRootsOf,
-} from "../../../projects/lookups.ts";
+import { appSourcePath, appStatusOf } from "../../../apps/lookups.ts";
+import { activeDomainIds, domainOwnerOf } from "../../../domains/lookups.ts";
+import { projectRootsOf } from "../../../projects/lookups.ts";
 import { createWorkerChannel, type WiringFactory } from "./context.ts";
 
 type Connection = Extract<
   ReturnType<typeof openConnection>,
   { ok: true }
 >["value"];
+
+// domain 그릇의 폴더들이다. project는 활성 project의 등록 폴더들, 앱은 source가 연결된 활성 앱의 source 폴더 하나다.
+// 그 밖(없는 domain, 보관된 그릇, source 없는 앱)은 null이다.
+function rootsOfDomain(
+  sql: Connection["sql"],
+  domain: string,
+): string[] | null {
+  const owner = domainOwnerOf(sql, domain);
+  if (owner === null) return null;
+  if (owner.kind === "project") return projectRootsOf(sql, owner.id);
+  if (appStatusOf(sql, owner.id) !== "active") return null;
+  const source = appSourcePath(sql, owner.id);
+  return source === null ? null : [source];
+}
 
 export const kindsWiring: WiringFactory = () => {
   // build가 handler를 만들고, start가 worker를 띄운 뒤 dispatcher를 붙인다.
@@ -39,24 +53,26 @@ export const kindsWiring: WiringFactory = () => {
     // kinds dispatch(machine)가 위반을 problem으로 올린다.
     operations: () => [
       {
-        name: problemSyncProject.name,
+        name: problemSyncDomain.name,
         actors: ["machine"],
         kind: "command",
       } satisfies OperationPolicy,
     ],
     build(ctx) {
-      // project 폴더를 읽는 짧은 ledger 연결이다.
+      // domain·그릇 표를 읽는 짧은 ledger 연결이다.
       const opened = openConnection(ctx.ledgerPath);
       if (!opened.ok) return opened;
       const connection = opened.value;
       link = connection;
       const handlers = kindHandlers({
         dispatcher: () => dispatcher,
-        rootsOf: (project) => projectRootsOf(connection.sql, project),
+        ownerOf: (domain): DomainOwner | null =>
+          domainOwnerOf(connection.sql, domain),
+        rootsOf: (domain) => rootsOfDomain(connection.sql, domain),
       });
       return ok({
         memory: handlers,
-        // 받아들여진 project command마다 감시를 다시 정한다.
+        // 받아들여진 project·앱·domain command마다 감시를 다시 정한다.
         writer: (inner: Writer): Writer => ({
           ...inner,
           async command(context, envelope) {
@@ -94,7 +110,7 @@ export const kindsWiring: WiringFactory = () => {
       const attached = createKindsDispatcher({
         process,
         dataRoot: ctx.root.path,
-        roots: (project) => projectRootsOf(link!.sql, project),
+        roots: (domain) => rootsOfDomain(link!.sql, domain),
         command: (envelope) => {
           const context = runtime.current(credentialRef);
           return context.ok
@@ -108,12 +124,16 @@ export const kindsWiring: WiringFactory = () => {
       dispatcher = attached;
       watch = createKindsWatch({
         dataRoot: ctx.root.path,
-        list: () => activeProjectRoots(link!.sql),
-        kindsOf: async (project) => {
-          const got = await attached.ask("get", project);
+        list: () =>
+          activeDomainIds(link!.sql).flatMap((domain) => {
+            const roots = rootsOfDomain(link!.sql, domain);
+            return roots === null ? [] : [{ domain, roots }];
+          }),
+        kindsOf: async (domain) => {
+          const got = await attached.ask("get", domain);
           return got.ok ? ok(got.value as never) : got;
         },
-        catchUp: (project) => attached.sync(project, { force: true }),
+        catchUp: (domain) => attached.sync(domain, { force: true }),
         watchFs: denoWatchFs,
         log: (message) => console.error(message),
       });

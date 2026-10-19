@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
 import type { Violation } from "../../../protocol/projects/mod.ts";
 import {
-  diffProjectProblems,
-  type ExistingProjectProblem,
+  diffDomainProblems,
+  type ExistingDomainProblem,
   violationIdentity,
 } from "./model.ts";
 
@@ -17,15 +17,15 @@ const violation = (path: string, message = "m"): Violation => ({
 const row = (
   path: string,
   state: "open" | "resolved",
-): ExistingProjectProblem => ({
+): ExistingDomainProblem => ({
   id: `prb_${path}`,
   identity: violationIdentity(violation(path)),
   state,
   message: "m",
 });
 
-Deno.test("diffProjectProblems: 처음 보이면 열고 사라지면 닫고 닫혔다 보이면 다시 연다", () => {
-  const diff = diffProjectProblems({
+Deno.test("diffDomainProblems: 처음 보이면 열고 사라지면 닫고 닫혔다 보이면 다시 연다", () => {
+  const diff = diffDomainProblems({
     existing: [row("a", "open"), row("b", "open"), row("c", "resolved")],
     incoming: [
       { id: "prb_new", violation: violation("a", "changed") },
@@ -41,9 +41,9 @@ Deno.test("diffProjectProblems: 처음 보이면 열고 사라지면 닫고 닫�
   assertEquals(diff.touch, [{ id: "prb_a", message: "changed" }]);
 });
 
-Deno.test("diffProjectProblems: 같은 집합이면 열거나 닫을 것이 없고 truncated이면 닫지 않는다", () => {
+Deno.test("diffDomainProblems: 같은 집합이면 열거나 닫을 것이 없고 truncated이면 닫지 않는다", () => {
   const existing = [row("a", "open"), row("b", "open")];
-  const same = diffProjectProblems({
+  const same = diffDomainProblems({
     existing,
     incoming: [
       { id: "1", violation: violation("a") },
@@ -55,7 +55,7 @@ Deno.test("diffProjectProblems: 같은 집합이면 열거나 닫을 것이 없�
     [same.insert.length, same.reopen.length, same.resolve.length],
     [0, 0, 0],
   );
-  const partial = diffProjectProblems({
+  const partial = diffDomainProblems({
     existing,
     incoming: [{ id: "1", violation: violation("a") }],
     truncated: true,

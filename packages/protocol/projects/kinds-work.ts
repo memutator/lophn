@@ -2,6 +2,7 @@
 // worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 응답의 `get`·`list`·`check`는 같은 이름의 route
 // output과 같고, 실패는 worker의 `ok:false` 답(`not_found` 등)이다.
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import {
   kindCheck,
@@ -12,7 +13,7 @@ import {
   kindsStatusSchema,
   violationSchema,
 } from "./kinds-api.ts";
-import { absolutePathSchema, projectIdSchema } from "./values.ts";
+import { absolutePathSchema } from "./values.ts";
 
 export const KINDS_WORKER_KIND = "documents/kinds";
 
@@ -30,9 +31,9 @@ export const KINDS_WORK_OPS = {
 export const KINDS_VIOLATION_CAP = 200;
 
 const common = {
-  project: projectIdSchema,
+  domain: idSchema("dom"),
   kinds_file: absolutePathSchema,
-  // project 폴더의 절대 경로. 같은 상대 경로가 여럿에 있으면 앞 폴더가 이긴다.
+  // domain 그릇의 폴더(project면 등록 폴더들, 앱이면 source 폴더)의 절대 경로. 같은 상대 경로가 여럿에 있으면 앞 폴더가 이긴다.
   roots: z.array(absolutePathSchema).max(64),
   // 직전 scan 뒤 2초 안이어도 다시 훑으라는 뜻이다.
   force: z.boolean().optional(),

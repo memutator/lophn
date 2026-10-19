@@ -21,7 +21,7 @@ import { reportingPart } from "./reporting/register.ts";
 import { reportWorkerPart } from "./reporting/worker/register.ts";
 import { snapshotsPart } from "./snapshots/register.ts";
 import { groupingPart } from "./grouping/register.ts";
-import { projectProblemsPart } from "./project/register.ts";
+import { domainProblemsPart } from "./domain/register.ts";
 import { repairsPart } from "./repairs/register.ts";
 import type { SnapshotLogsEnvironment } from "./snapshots/mod.ts";
 
@@ -86,7 +86,7 @@ function gather<K extends ListField>(
 // 순서가 뜻을 가진다. schema step은 migration 이력 순서이고 나머지도 지금 배열 순서를 따른다.
 const reportParts: readonly ProblemsPart[] = [
   groupingPart,
-  projectProblemsPart,
+  domainProblemsPart,
   reportingPart,
   reportWorkerPart,
   snapshotsPart,
@@ -126,7 +126,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const parts = [
     groupingPart,
-    projectProblemsPart,
+    domainProblemsPart,
     reportingPart,
     repairsPart,
     testsPart,

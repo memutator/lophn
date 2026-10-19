@@ -30,7 +30,7 @@ const SKIPPED_REASON =
 
 export function listItems(
   sql: Sql,
-  project: string,
+  domain: string,
   kinds: readonly Kind[],
   query: KindListQuery,
 ): Result<ListOutput> {
@@ -46,12 +46,12 @@ export function listItems(
   const unknown = referenced.find((field) => !infos.has(field));
   if (unknown !== undefined) return invalid(`unknown field ${unknown}`);
 
-  const rows: Row[] = readItems(sql, project, kind.name);
+  const rows: Row[] = readItems(sql, domain, kind.name);
   const matched = query.where === undefined
     ? rows
     : rows.filter((row) => evaluate(query.where!, row));
   const skipped = {
-    count: countSkipped(sql, project, kind.name),
+    count: countSkipped(sql, domain, kind.name),
     reason: SKIPPED_REASON,
   };
 
@@ -106,10 +106,10 @@ export function listItems(
 
 export function listViolations(
   sql: Sql,
-  project: string,
+  domain: string,
   query: KindCheckQuery,
 ): Result<CheckViolations> {
-  const all = readViolations(sql, project, { kind: query.kind });
+  const all = readViolations(sql, domain, { kind: query.kind });
   const page = paginate(
     all,
     query.limit ?? DEFAULT_LIMIT,

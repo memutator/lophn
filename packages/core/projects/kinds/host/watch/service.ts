@@ -1,19 +1,31 @@
-// active project의 파일 변화를 core가 `Deno.watchFs`로 보고, 바뀌면 그 project를 다시 sync하게 한다. 사람이
-// 열지 않아도 위반이 늘면 problem으로 올리려는 것이 전부라 신호는 힌트일 뿐이다: 변화 목록·이력·event를
-// 만들지 않고, 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
+// active domain 그릇(project의 등록 폴더들, 앱의 source 폴더)의 파일 변화를 core가 `Deno.watchFs`로 보고, 바뀌면 그
+// domain을 다시 sync하게 한다. 사람이 열지 않아도 위반이 늘면 problem으로 올리려는 것이 전부라 신호는 힌트일
+// 뿐이다: 변화 목록·이력·event를 만들지 않고, 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
 //
-// - 감시 대상: project마다 (a) 그 root들 아래 `kindWatchFolders(적용 중인 kinds)`, (b) kinds 파일이 든
-//   폴더(재귀 아님, `kinds.yaml` 이벤트만 본다). 보관된 project는 보지 않는다.
-// - 합침: detector가 500ms 동안 합친다. 창이 닫히면 `catchUp(project)`(force sync)를 한 번 부르고, 그 응답이
-//   적용 중인 kinds 파일 hash와 달라졌으면(`kinds.yaml`이 바뀌었다) 그 project의 감시를 다시 정한다.
-// - 없는 폴더: 열지 못하면 건너뛴다. 그 project는 다음 다시 정하기(command)에서 다시 시도한다.
+// - 감시 대상: domain마다 (a) 그 root들 아래 `kindWatchFolders(적용 중인 kinds)`, (b) domain 폴더
+//   (`<data>/domains/<dom>/`, 재귀 아님, `kinds.yaml` 이벤트만 본다). 보관된 domain·그릇은 보지 않는다.
+// - 합침: detector가 500ms 동안 합친다. 창이 닫히면 `catchUp(domain)`(force sync)를 한 번 부르고, 그 응답이
+//   적용 중인 kinds 파일 hash와 달라졌으면(`kinds.yaml`이 바뀌었다) 그 domain의 감시를 다시 정한다.
+// - 없는 폴더: 열지 못하면 건너뛴다. domain 폴더는 만들지 않는다(처음 쓰는 agent가 만든다). 그 domain은 다음 다시
+//   정하기(command)에서 다시 시도한다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
 import type { Result } from "../../../../../base/mod.ts";
 import {
+  appArchive,
+  appConnectSource,
+  appCreate,
+  appUnarchive,
+} from "../../../../../protocol/apps/apps.ts";
+import {
+  domainArchive,
+  domainCreate,
+  domainFolder,
+  domainUnarchive,
+} from "../../../../../protocol/domains/mod.ts";
+import { DOMAIN_KINDS_FILE } from "../../../../../protocol/domains/paths.ts";
+import {
   type Kind,
-  KINDS_FILE_NAME,
-  kindsFilePath,
   type KindsSyncResponse,
   kindWatchFolders,
 } from "../../../../../protocol/projects/mod.ts";
@@ -25,22 +37,22 @@ import type { ChangeDetector, Timer, WatchFs } from "./types.ts";
 type KindsWatchDeps = {
   dataRoot: string;
   // active project와 그 root들.
-  list(): { project: string; roots: string[] }[];
+  list(): { domain: string; roots: string[] }[];
   // 적용 중인 kinds(`kind.get`의 답). 읽지 못하면 err다.
   kindsOf(
-    project: string,
+    domain: string,
   ): Promise<
     Result<{ status: { applied_hash: string | null }; kinds: Kind[] | null }>
   >;
   // 그 project를 force sync한다. 기다리지 않는 쪽은 이 함수를 부르는 watch다.
-  catchUp(project: string): Promise<Result<KindsSyncResponse>>;
+  catchUp(domain: string): Promise<Result<KindsSyncResponse>>;
   // 제품은 `Deno.watchFs`.
   watchFs: WatchFs;
   log?(message: string): void;
 };
 
 export type KindsWatch = {
-  // active project 전부를 읽어 감시를 열고 각각 한 번 sync한다.
+  // active domain 전부를 읽어 감시를 열고 각각 한 번 sync한다.
   start(): Promise<void>;
   // 받아들여진 command가 감시 집합을 바꿀 수 있으면 전체를 다시 정한다.
   onCommand(command: string): void;
@@ -68,12 +80,20 @@ const realTimer: Timer = {
 export const denoWatchFs: WatchFs = (path, options) =>
   Deno.watchFs(path, options);
 
-const PROJECT_COMMANDS: Set<string> = new Set([
+// 감시 집합(active domain과 그 그릇의 폴더)을 바꿀 수 있는 command.
+const WATCH_COMMANDS: Set<string> = new Set([
   projectApi.register.name,
   projectApi.edit.name,
   projectApi.relinkFolder.name,
   projectApi.archive.name,
   projectApi.unarchive.name,
+  appCreate.name,
+  appConnectSource.name,
+  appArchive.name,
+  appUnarchive.name,
+  domainCreate.name,
+  domainArchive.name,
+  domainUnarchive.name,
 ]);
 
 export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
@@ -89,22 +109,22 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     return next;
   };
 
-  function drop(project: string) {
-    const entry = entries.get(project);
+  function drop(domain: string) {
+    const entry = entries.get(domain);
     if (entry === undefined) return;
-    entries.delete(project);
+    entries.delete(domain);
     for (const detector of entry.detectors) detector.close();
     for (const watch of entry.watches) watch.close();
   }
 
-  function catchUp(project: string) {
-    void deps.catchUp(project).then((synced) => {
+  function catchUp(domain: string) {
+    void deps.catchUp(domain).then((synced) => {
       if (stopped) return;
       if (!synced.ok) {
-        deps.log?.(`kinds sync ${project}: ${synced.error.message}`);
+        deps.log?.(`kinds sync ${domain}: ${synced.error.message}`);
         return;
       }
-      const entry = entries.get(project);
+      const entry = entries.get(domain);
       if (
         entry !== undefined &&
         synced.value.status.applied_hash !== entry.applied
@@ -112,13 +132,13 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
         entry.stale = true;
         void enqueue(refreshAll);
       }
-    }, (error) => deps.log?.(`kinds sync ${project}: ${String(error)}`));
+    }, (error) => deps.log?.(`kinds sync ${domain}: ${String(error)}`));
   }
 
-  async function open(project: string, roots: string[]) {
-    const got = await deps.kindsOf(project);
+  async function open(domain: string, roots: string[]) {
+    const got = await deps.kindsOf(domain);
     if (stopped) return;
-    drop(project);
+    drop(domain);
     const entry: Entry = {
       roots: roots.join("\n"),
       detectors: [],
@@ -136,12 +156,12 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
       }
     };
     const rescan = () => {
-      if (!stopped) catchUp(project);
+      if (!stopped) catchUp(domain);
     };
     const detector = (folders: { path: string; recursive: boolean }[]) => {
       const made = createChangeDetector({ timer: realTimer, rescan });
       entry.detectors.push(made);
-      return { made, diff: made.apply([{ key: project, folders }]) };
+      return { made, diff: made.apply([{ key: domain, folders }]) };
     };
 
     if (got.ok && got.value.kinds !== null) {
@@ -154,21 +174,13 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     }
 
     // PM이 처음 kinds.yaml을 쓸 때 폴더 감시가 이미 열려 있어야 한다.
-    const kindsDir = kindsFilePath(deps.dataRoot, project).slice(
-      0,
-      -(KINDS_FILE_NAME.length + 1),
-    );
-    try {
-      await Deno.mkdir(kindsDir, { recursive: true });
-    } catch (error) {
-      entry.incomplete = true;
-      deps.log?.(`kinds watch: ${String(error)}`);
-    }
+    // domain 폴더는 만들지 않는다(처음 쓰는 agent가 만든다). 없으면 감시가 열리지 않고 incomplete라 다음에 다시 시도한다.
+    const kindsDir = domainFolder(deps.dataRoot, domain);
     const file = detector([{ path: "", recursive: false }]);
     const onlyKinds: ChangeDetector = {
       ...file.made,
       signal: (paths) =>
-        file.made.signal(paths.filter((path) => path === KINDS_FILE_NAME)),
+        file.made.signal(paths.filter((path) => path === DOMAIN_KINDS_FILE)),
     };
     const watch = startFsWatch({
       root: kindsDir,
@@ -178,34 +190,34 @@ export function createKindsWatch(deps: KindsWatchDeps): KindsWatch {
     watch.update(file.diff);
     entry.watches.push(watch);
 
-    entries.set(project, entry);
-    catchUp(project);
+    entries.set(domain, entry);
+    catchUp(domain);
   }
 
   async function refreshAll() {
     const active = deps.list();
-    const names = new Set(active.map((item) => item.project));
-    for (const project of [...entries.keys()]) {
-      if (!names.has(project)) drop(project);
+    const names = new Set(active.map((item) => item.domain));
+    for (const domain of [...entries.keys()]) {
+      if (!names.has(domain)) drop(domain);
     }
-    for (const { project, roots } of active) {
-      const existing = entries.get(project);
+    for (const { domain, roots } of active) {
+      const existing = entries.get(domain);
       if (
         existing !== undefined && !existing.incomplete && !existing.stale &&
         existing.roots === roots.join("\n")
       ) continue;
-      await open(project, roots);
+      await open(domain, roots);
     }
   }
 
   return {
     start: () => enqueue(refreshAll),
     onCommand(command) {
-      if (PROJECT_COMMANDS.has(command)) void enqueue(refreshAll);
+      if (WATCH_COMMANDS.has(command)) void enqueue(refreshAll);
     },
     stop() {
       stopped = true;
-      for (const project of [...entries.keys()]) drop(project);
+      for (const domain of [...entries.keys()]) drop(domain);
     },
   };
 }

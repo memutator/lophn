@@ -48,9 +48,9 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
 
 // count는 이번 호출에서 새로 열렸거나 다시 열린 위반 수다.
 export const kindViolationFound = defineEvent("KindViolationFound", {
-  subject: idSchema("prj"),
+  subject: idSchema("dom"),
   payload: z.strictObject({
-    project: idSchema("prj"),
+    domain: idSchema("dom"),
     count: z.number().int().min(1),
   }),
 });

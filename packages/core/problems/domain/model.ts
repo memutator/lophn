@@ -1,6 +1,6 @@
 import type { Violation } from "../../../protocol/projects/mod.ts";
 
-export type ExistingProjectProblem = {
+export type ExistingDomainProblem = {
   id: string;
   identity: string;
   state: "open" | "resolved";
@@ -16,9 +16,9 @@ export function violationIdentity(v: Violation): string {
 
 // 이번에 알린 위반 전체와 저장된 행을 견주어 무엇을 쓸지 정한다. `truncated`이면 목록이 일부라
 // 안 보이는 열린 위반이 사라진 것인지 모르므로 닫지 않는다. unchanged는 상태가 바뀌지 않는 기존 행 수다.
-export function diffProjectProblems(
+export function diffDomainProblems(
   { existing, incoming, truncated }: {
-    existing: readonly ExistingProjectProblem[];
+    existing: readonly ExistingDomainProblem[];
     incoming: readonly IncomingViolation[];
     truncated: boolean;
   },

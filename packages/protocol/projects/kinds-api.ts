@@ -2,6 +2,7 @@
 // 답은 kinds worker가 만든다(`kinds-work.ts`).
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import {
   DOCUMENT_RULES,
@@ -12,7 +13,7 @@ import {
   kindSchema,
   kindsFileErrorSchema,
 } from "./kinds-file.ts";
-import { absolutePathSchema, projectIdSchema } from "./values.ts";
+import { absolutePathSchema } from "./values.ts";
 
 // 문제의 정체성 key는 (source, kind, path, field, rule)이다. message에 문서의 값을 싣지 않는다.
 export const violationSchema = z.discriminatedUnion("source", [
@@ -28,7 +29,7 @@ export const violationSchema = z.discriminatedUnion("source", [
     source: z.literal("document"),
     rule: z.enum(DOCUMENT_RULES),
     kind: z.string(),
-    // project 기준 상대 경로. 실제 파일 이름이라 이름 규칙을 걸지 않는다.
+    // domain 그릇의 폴더 기준 상대 경로. 실제 파일 이름이라 이름 규칙을 걸지 않는다.
     path: z.string().min(1),
     field: z.string().nullable(),
     message: kindMessageSchema,
@@ -151,9 +152,9 @@ export const kindGet = defineMemory({
   resource: "kinds",
   method: "get",
   name: "kind.get",
-  input: z.strictObject({ project: projectIdSchema }),
+  input: z.strictObject({ domain: idSchema("dom") }),
   output: z.strictObject({
-    project: projectIdSchema,
+    domain: idSchema("dom"),
     status: kindsStatusSchema,
     // 쓰고 있는 kind. 없으면 null.
     kinds: z.array(kindSchema).nullable(),
@@ -168,7 +169,7 @@ export const kindList = defineMemory({
   method: "list",
   name: "kind.list",
   input: z.strictObject({
-    project: projectIdSchema,
+    domain: idSchema("dom"),
     query: kindListQuerySchema,
   }),
   output: z.discriminatedUnion("mode", [
@@ -208,7 +209,7 @@ export const kindCheck = defineMemory({
   method: "check",
   name: "kind.check",
   input: z.strictObject({
-    project: projectIdSchema,
+    domain: idSchema("dom"),
     query: kindCheckQuerySchema,
   }),
   output: z.strictObject({

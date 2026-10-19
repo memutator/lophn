@@ -38,7 +38,7 @@ import {
   problemSetState,
 } from "./problem-views.ts";
 import { problemSubmitFeedback } from "./problem-feedback.ts";
-import { PROJECT_PROBLEM_ROUTES } from "./project-problems.ts";
+import { DOMAIN_PROBLEM_ROUTES } from "./domain-problems.ts";
 
 const PROBLEM_ROUTES = [
   problemReport,
@@ -73,5 +73,5 @@ export const ROUTES = [
   getSnapshotLogs,
   reportBody,
   ...PROBLEM_ROUTES,
-  ...PROJECT_PROBLEM_ROUTES,
+  ...DOMAIN_PROBLEM_ROUTES,
 ] as const;

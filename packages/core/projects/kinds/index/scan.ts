@@ -26,7 +26,7 @@ import {
   writeState,
 } from "./store.ts";
 
-// 훑을 project 파일의 보기. 글을 읽지 않는 stat이 더해진다.
+// 훑을 domain 파일의 보기. 글을 읽지 않는 stat이 더해진다.
 export type IndexFiles = ProjectFiles & {
   stat(path: string): { size: number; mtime_ms: number } | null;
 };
@@ -35,7 +35,7 @@ export type IndexFiles = ProjectFiles & {
 const FRESH_MS = 2_000;
 
 export type ScanInput = {
-  project: string;
+  domain: string;
   kinds_file: string;
   // 훑을 폴더 아래 파일의 보기. 폴더 밖은 담지 않는다.
   open(folders: KindWatchFolder[]): IndexFiles;
@@ -66,13 +66,13 @@ function readKindsText(path: string): string | null {
   }
 }
 
-// project 하나의 index를 kinds 파일 글과 파일 stat으로 갱신한다.
+// domain 하나의 index를 kinds 파일 글과 파일 stat으로 갱신한다.
 //
 // 1. 직전 scan이 2초 안이면(force가 아니면) 아무것도 보지 않는다.
 // 2. kinds 파일 글의 hash가 직전과 다르면 검사해 쓸 kind를 다시 정한다(틀리면 앞의 맞던 것을 그대로 쓴다).
 // 3. 쓸 kind의 glob에 맞는 파일의 (size, mtime_ms)와 kinds 파일 hash가 직전과 같으면 다시 추출하지 않고
 //    scanned_ms만 갱신한다.
-// 4. 다르면 그 project 전체를 다시 추출·검사해 한 transaction으로 바꾼다. 파일 쪽이 던지면 `unavailable`이고
+// 4. 다르면 그 domain 전체를 다시 추출·검사해 한 transaction으로 바꾼다. 파일 쪽이 던지면 `unavailable`이고
 //    store를 건드리지 않는다.
 export function scanProject(
   store: IndexStore,
@@ -84,7 +84,7 @@ export function scanProject(
     if (error instanceof FileFailure) {
       return err({
         code: "unavailable",
-        message: `project files cannot be scanned: ${error.message}`,
+        message: `domain files cannot be scanned: ${error.message}`,
       });
     }
     throw error;
@@ -92,8 +92,8 @@ export function scanProject(
 }
 
 function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
-  const { project, clock } = input;
-  const state = readState(store.sql, project);
+  const { domain, clock } = input;
+  const state = readState(store.sql, domain);
   if (
     !input.force && state !== undefined &&
     clock.nowMs() - state.scanned_ms < FRESH_MS
@@ -103,7 +103,7 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
 
   const text = guarded(() => readKindsText(input.kinds_file));
   const hash = text === null ? "none" : sha256Text(text);
-  const applied = readApplied(store.sql, project);
+  const applied = readApplied(store.sql, domain);
   const sameKinds = state !== undefined && state.kinds_hash === hash;
 
   let status: KindsStatus;
@@ -160,7 +160,7 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
     }
   }
 
-  const indexed = readIndexedFiles(store.sql, project);
+  const indexed = readIndexedFiles(store.sql, domain);
   const unchanged = state !== undefined && sameKinds &&
     indexed.length === stats.size &&
     indexed.every((file) => {
@@ -170,7 +170,7 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
     });
   if (unchanged) {
     store.transaction((sql) =>
-      writeState(sql, project, { ...state, scanned_ms: clock.nowMs() })
+      writeState(sql, domain, { ...state, scanned_ms: clock.nowMs() })
     );
     return { changed: false };
   }
@@ -192,13 +192,13 @@ function scan(store: IndexStore, input: ScanInput): { changed: boolean } {
     ...(extracted.files.get(path) ?? { kind: null, status: "ok" as const }),
   }));
   store.transaction((sql) => {
-    replaceRows(sql, project, {
+    replaceRows(sql, domain, {
       files: rows,
       items: extracted.items,
       violations,
     });
-    if (nextApplied !== undefined) writeApplied(sql, project, nextApplied);
-    writeState(sql, project, {
+    if (nextApplied !== undefined) writeApplied(sql, domain, nextApplied);
+    writeState(sql, domain, {
       kinds_hash: hash,
       scanned_ms: clock.nowMs(),
       status,

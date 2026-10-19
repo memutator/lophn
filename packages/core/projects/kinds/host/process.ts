@@ -1,5 +1,5 @@
 // kinds worker(kind `documents/kinds`)를 core 쪽에서 띄운다. 첫 요청에서 platform 감독으로 띄우고, 읽을
-// 경로(project 폴더, kinds 파일)가 늘면 새 권한으로 다시 띄운다.
+// 경로(그릇 폴더, kinds 파일)가 늘면 새 권한으로 다시 띄운다.
 //
 // 이 모듈은 core의 module graph에 들어간다. node:sqlite와 동기 file API는 쓰지 않는다.
 import type { Result } from "../../../../base/mod.ts";
@@ -33,7 +33,7 @@ function codeReads(): string[] {
   return [repo, cache];
 }
 
-// 권한: 읽기는 project 폴더·kinds 파일·자기 index, 쓰기는 index(+WAL)뿐이다.
+// 권한: 읽기는 그릇 폴더·kinds 파일·자기 index, 쓰기는 index(+WAL)뿐이다.
 // network·env·subprocess·FFI는 없다. `--no-prompt`는 launchArgv가 낸다.
 function kindsWorkerSpec(input: {
   dataRoot: string;
@@ -98,7 +98,7 @@ type KindsProcessDeps = {
 };
 
 export type KindsProcess = {
-  // worker가 이 경로들(project 폴더, kinds 파일)을 읽을 수 있게 띄운다. 이미 그렇게 떠 있으면 그대로 둔다.
+  // worker가 이 경로들(그릇 폴더, kinds 파일)을 읽을 수 있게 띄운다. 이미 그렇게 떠 있으면 그대로 둔다.
   ensure(reads: readonly string[]): Promise<boolean>;
   request(
     op: string,

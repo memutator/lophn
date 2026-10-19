@@ -16,10 +16,9 @@ import {
   callSendable,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { kindGet, projectApi } from "../../../protocol/projects/mod.ts";
+import { projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
-  buildKindText,
   type FolderRead,
   type PlaceAgent,
   type PlaceKinds,
@@ -130,8 +129,9 @@ async function readPlaceData(
   let projectFolders: string[] = [];
   let artifacts: string | null = null;
   let artifactItems: readonly ArtifactEntry[] = [];
-  let kinds: PlaceKinds | null = null;
-  let kindsFile: string | null = null;
+  // domain별 kind 글은 place 정보를 다시 쓸 때 채운다. 그 전까지 비어 있다.
+  const kinds: PlaceKinds | null = null;
+  const kindsFile: string | null = null;
   const allProjectFolders: string[] = [];
 
   if (place?.kind === "project") {
@@ -139,29 +139,6 @@ async function readPlaceData(
     if (!read.ok) return read;
     project = placeProject(read.value);
     projectFolders = read.value.folders.map((f) => f.path);
-    if (role === "project_manager" || role === "operator") {
-      // kind 글만 비우고 turn은 계속한다. PM은 파일이 없어도 경로를 안다(처음 쓸 자리다).
-      const got = await readOf(call, kindGet, { project: place.id });
-      if (got.ok) {
-        const { status } = got.value;
-        if (role === "project_manager") kindsFile = status.file;
-        if (
-          status.state !== "none" && got.value.kinds !== null &&
-          status.applied_hash !== null
-        ) {
-          kinds = {
-            hash: status.applied_hash,
-            text: buildKindText({
-              domains: [{
-                name: project.name,
-                kinds: got.value.kinds,
-                warning: status.state === "invalid",
-              }],
-            }),
-          };
-        }
-      }
-    }
     if (role === "project_manager") {
       // project 하나에 앱 하나다. 읽지 못하면 앱이 없는 것으로 둔다(자격이 아직 읽기를 안 열었을 때도 session은 떠야 한다).
       const listed = await readOf(call, appList, { status: "active" });

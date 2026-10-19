@@ -5,13 +5,13 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import { problemListProject } from "../../../protocol/problems/mod.ts";
+import { problemListDomain } from "../../../protocol/problems/mod.ts";
 import type { Violation } from "../../../protocol/projects/mod.ts";
 
 const LIST_LIMIT = 100;
 
 // 앱 problem의 reporting/access.ts와 같은 두 줄이다. 폴더끼리 얽히지 않게 따로 쓴다.
-// project 범위 판정(자기 project만)은 호출하는 agent tool이 자기 place로 한다.
+// domain 범위 판정(자기 domain만)은 호출하는 agent tool이 자기 place로 한다.
 function requireOperation(
   ctx: RequestContext,
   operation: string,
@@ -32,19 +32,19 @@ function parseCursor(
     : ok({ at: match[1], id: match[2] });
 }
 
-export const projectProblemListRead = {
-  route: problemListProject,
+export const domainProblemListRead = {
+  route: problemListDomain,
   handle(
     snapshot: ReadSnapshot,
     ctx: RequestContext,
-    input: Input<typeof problemListProject>,
-  ): Result<Output<typeof problemListProject>> {
-    const granted = requireOperation(ctx, problemListProject.name);
+    input: Input<typeof problemListDomain>,
+  ): Result<Output<typeof problemListDomain>> {
+    const granted = requireOperation(ctx, problemListDomain.name);
     if (!granted.ok) return granted;
     const after = parseCursor(input.cursor);
     if (!after.ok) return after;
-    const where = ["project = ?"];
-    const params: (string | number)[] = [input.project];
+    const where = ["domain = ?"];
+    const params: (string | number)[] = [input.domain];
     if (input.state !== undefined) {
       where.push("state = ?");
       params.push(input.state);
@@ -57,7 +57,7 @@ export const projectProblemListRead = {
     // 한 행 더 읽어 다음 page가 있는지 안다.
     params.push(limit + 1);
     const rows = snapshot.sql.all(
-      `select * from project_problems where ${where.join(" and ")}
+      `select * from domain_problems where ${where.join(" and ")}
        order by state_changed_at desc, id desc limit ?`,
       params,
     );
@@ -66,7 +66,7 @@ export const projectProblemListRead = {
     return ok({
       problems: shown.map((row) => ({
         id: String(row["id"]),
-        project: String(row["project"]),
+        domain: String(row["domain"]),
         violation: {
           source: row["source"],
           rule: row["rule"],

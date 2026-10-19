@@ -1,4 +1,4 @@
-// glob을 project 파일 경로에 맞춘다. glob이 아니면 경로가 정확히 같아야 한다.
+// glob을 domain 그릇의 파일 경로에 맞춘다. glob이 아니면 경로가 정확히 같아야 한다.
 import picomatch from "picomatch";
 import type { Kind } from "../../../../protocol/projects/mod.ts";
 

@@ -1,26 +1,35 @@
 import { assertEquals } from "@std/assert";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import { ok } from "../../../base/mod.ts";
 import type { ToolContext } from "../../lophn-agent/tools/spi.ts";
 import { KIND_TOOLS } from "./kind.ts";
 
-// project place가 아닌 곳에서는 core를 부르지 않고 거절한다. 다른 project를 읽을 길이 없어야 한다.
-Deno.test("kind tools refuse outside a project place without calling core", async () => {
-  const places: [string, Place | null][] = [
-    ["lophn", null],
-    ["app", { kind: "app", id: "app_a", project: null } as unknown as Place],
-  ];
-  for (const [role, place] of places) {
-    const ctx = {
-      role,
-      place,
-      core: () => {
-        throw new Error("core must not be called");
+const MINE = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
+const ALSO = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
+
+// 자기 domain이 아닌 곳은 core를 부르지 않고 거절한다. 둘 이상인데 생략해도 거절이다.
+Deno.test("kind tools refuse a domain outside ctx.domains without calling core", async () => {
+  const calls: unknown[] = [];
+  const ctxOf = (domains: string[]) =>
+    ({
+      domains,
+      core: (route: unknown, input: unknown) => {
+        calls.push([route, input]);
+        return Promise.resolve(ok({}));
       },
-    } as unknown as ToolContext;
+    }) as unknown as ToolContext;
+  const refused: [string[], string | undefined][] = [
+    [[MINE, ALSO], OTHER],
+    [[MINE, ALSO], undefined],
+    [[], undefined],
+  ];
+  for (const [domains, domain] of refused) {
     for (const tool of KIND_TOOLS) {
-      const input = tool.name === "kind.list" ? { kind: "receipt" } : {};
-      const result = await tool.handler!(input, ctx);
+      const base = tool.name === "kind.list" ? { kind: "receipt" } : {};
+      const input = domain === undefined ? base : { ...base, domain };
+      const result = await tool.handler!(input, ctxOf(domains));
       assertEquals(result.ok ? null : result.error.code, "invalid_input");
     }
   }
+  assertEquals(calls, []);
 });

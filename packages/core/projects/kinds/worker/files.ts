@@ -1,8 +1,8 @@
-// kinds worker의 파일 쪽 adapter: project 폴더의 파일 보기. 순수한 일(훑기, 추출, 검사)은 다른 폴더가 하고, 여기는
+// kinds worker의 파일 쪽 adapter: 그릇 폴더의 파일 보기. 순수한 일(훑기, 추출, 검사)은 다른 폴더가 하고, 여기는
 // 파일을 여는 IO만 한다.
 //
 // 경로 안전: 순회와 읽기에서 `.git`, 제외한 폴더(lophn 데이터), 폴더 밖을 가리키는 symlink를 뺀다. symlink 폴더는
-// 따라가지 않는다(순환을 막는다). 같은 상대 경로가 여러 project 폴더에 있으면 앞 폴더의 파일이 이긴다.
+// 따라가지 않는다(순환을 막는다). 같은 상대 경로가 여러 그릇 폴더에 있으면 앞 폴더의 파일이 이긴다.
 import type { KindWatchFolder } from "../../../../protocol/projects/mod.ts";
 import type { IndexFiles } from "../index/scan.ts";
 
@@ -93,7 +93,7 @@ function readChecked(
   }
 }
 
-// folders가 덮는 project 파일을 roots에서 찾아 순서대로 모은다.
+// folders가 덮는 그릇의 파일을 roots에서 찾아 순서대로 모은다.
 function collect(
   roots: readonly string[],
   folders: readonly KindWatchFolder[],
@@ -163,7 +163,7 @@ function collect(
   return found;
 }
 
-// kind glob 폴더 아래 project 파일의 보기. paths는 만들 때 한 번 훑고, stat과 read는 부를 때 파일을 연다.
+// kind glob 폴더 아래 그릇의 파일의 보기. paths는 만들 때 한 번 훑고, stat과 read는 부를 때 파일을 연다.
 // 파일이 너무 많으면 만들 때 던진다(일부만 훑고 전체처럼 꾸미지 않는다).
 export function openProjectFiles(
   roots: readonly string[],

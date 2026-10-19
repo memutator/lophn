@@ -1,4 +1,6 @@
+import { z } from "zod";
 import { ok, type Result } from "../../../base/mod.ts";
+import { domainIdSchema } from "../../../protocol/domains/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import {
   kindCheck,
@@ -15,21 +17,35 @@ import {
   type ToolDefinition,
 } from "../../lophn-agent/tools/spi.ts";
 
-// 읽는 project는 입력으로 받지 않는다. project place에서만 쓰고, 그 place의 project를 읽는다.
-function projectOf(ctx: ToolContext): Result<string> {
-  if (ctx.place?.kind !== "project") {
-    return invalid("kind tools work in a project place");
+// 읽는 domain은 이 agent의 `ctx.domains` 안이어야 한다. 하나뿐이면 생략할 수 있다. 어긋나면 core를 부르지 않는다.
+// 같은 규칙이 problems/agent-tools.ts에도 있다(role 층과 problems는 서로 import하지 않는다).
+function domainOf(
+  given: string | undefined,
+  ctx: ToolContext,
+): Result<string> {
+  const mine = ctx.domains;
+  if (given !== undefined) {
+    return mine.includes(given)
+      ? ok(given)
+      : invalid(`domain is not yours; pass domain: ${mine.join(", ")}`);
   }
-  return ok(ctx.place.id);
+  if (mine.length === 1) return ok(mine[0]);
+  return invalid(
+    mine.length === 0
+      ? "you have no domain"
+      : `pass domain: ${mine.join(", ")}`,
+  );
 }
+
+const domainInput = { domain: domainIdSchema.optional() };
 
 export const KIND_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "kind.list",
-    input: kindListQuerySchema,
+    input: z.strictObject({ ...domainInput, ...kindListQuerySchema.shape }),
     routes: [kindList],
     description:
-      "List the documents (items) of one kind of this project, or aggregate them. Kind names and fields are in the kind text of your prompt. " +
+      "List the documents (items) of one kind of a domain, or aggregate them. domain: the domain to read (may be left out when you have only one). Kind names and fields are in the kind text of your prompt. " +
       "where: a condition { field, op, value } with op eq, ne, in, lt, lte, gt, gte, contains or exists (exists takes no value); combine with { all: [...] }, { any: [...] } or { not: ... } (up to three levels). " +
       "sort: [{ field, dir }]; fields: the fields to return; limit (default 50, max 200); cursor: next_cursor of the previous page. " +
       "aggregate: [{ op: count|sum|min|max, field, as }] with one optional group_by field (cannot be combined with sort, fields, limit or cursor). " +
@@ -37,11 +53,12 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
       "Relations are not followed: call it again with the key you got, for example list vendor, then list receipt where vendor eq that key.",
     effect: "read",
     handler: async (input, ctx) => {
-      const project = projectOf(ctx);
-      if (!project.ok) return project;
+      const { domain: given, ...query } = input;
+      const domain = domainOf(given, ctx);
+      if (!domain.ok) return domain;
       const read = await readOf(ctx.core, kindList, {
-        project: project.value,
-        query: input,
+        domain: domain.value,
+        query,
       });
       if (!read.ok) return read;
       const value = read.value;
@@ -68,17 +85,18 @@ export const KIND_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "kind.check",
-    input: kindCheckQuerySchema,
+    input: z.strictObject({ ...domainInput, ...kindCheckQuerySchema.shape }),
     routes: [kindCheck],
     description:
-      "Run the format check of this project's kinds now: errors of kinds.yaml itself and the documents that break it. kind narrows to one kind; limit and cursor page the violations.",
+      "Run the format check of a domain's kinds now: errors of kinds.yaml itself and the documents that break it. domain: the domain to check (may be left out when you have only one). kind narrows to one kind; limit and cursor page the violations.",
     effect: "read",
     handler: async (input, ctx): Promise<Result<ToolResult>> => {
-      const project = projectOf(ctx);
-      if (!project.ok) return project;
+      const { domain: given, ...query } = input;
+      const domain = domainOf(given, ctx);
+      if (!domain.ok) return domain;
       const read = await readOf(ctx.core, kindCheck, {
-        project: project.value,
-        query: input,
+        domain: domain.value,
+        query,
       });
       if (!read.ok) return read;
       const value = read.value;

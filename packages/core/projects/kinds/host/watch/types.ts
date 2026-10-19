@@ -1,8 +1,8 @@
-// 변화 감지의 모양. 신호는 "그 project를 다시 훑으라"는 힌트일 뿐이고 변화 기록·event·화면 상태를 만들지
+// 변화 감지의 모양. 신호는 "그 domain을 다시 훑으라"는 힌트일 뿐이고 변화 기록·event·화면 상태를 만들지
 // 않는다.
 import type { KindWatchFolder } from "../../../../../protocol/projects/mod.ts";
 
-// project root 기준 폴더("" = root). recursive가 아니면 그 폴더 바로 아래 파일만 가리킨다.
+// 그릇 root 기준 폴더("" = root). recursive가 아니면 그 폴더 바로 아래 파일만 가리킨다.
 export type WatchFolder = KindWatchFolder;
 
 export type ActiveWatch = { key: string; folders: readonly WatchFolder[] };

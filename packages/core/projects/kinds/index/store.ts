@@ -77,10 +77,10 @@ export type KindsState = {
   status: KindsStatus;
 };
 
-export function readState(sql: Sql, project: string): KindsState | undefined {
+export function readState(sql: Sql, domain: string): KindsState | undefined {
   const row = sql.get(
-    "SELECT kinds_hash, scanned_ms, status_json FROM kinds_state WHERE project = ?",
-    [project],
+    "SELECT kinds_hash, scanned_ms, status_json FROM kinds_state WHERE domain = ?",
+    [domain],
   );
   if (row === undefined) return undefined;
   return {
@@ -90,26 +90,26 @@ export function readState(sql: Sql, project: string): KindsState | undefined {
   };
 }
 
-export function writeState(sql: Sql, project: string, state: KindsState): void {
+export function writeState(sql: Sql, domain: string, state: KindsState): void {
   sql.run(
-    `INSERT INTO kinds_state (project, kinds_hash, scanned_ms, status_json)
+    `INSERT INTO kinds_state (domain, kinds_hash, scanned_ms, status_json)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT (project) DO UPDATE SET
+     ON CONFLICT (domain) DO UPDATE SET
        kinds_hash = excluded.kinds_hash,
        scanned_ms = excluded.scanned_ms,
        status_json = excluded.status_json`,
-    [project, state.kinds_hash, state.scanned_ms, JSON.stringify(state.status)],
+    [domain, state.kinds_hash, state.scanned_ms, JSON.stringify(state.status)],
   );
 }
 
 // 앞에 맞던 kinds 파일 글. 없으면 undefined.
 export function readApplied(
   sql: Sql,
-  project: string,
+  domain: string,
 ): { hash: string; text: string } | undefined {
   const row = sql.get(
-    "SELECT hash, text FROM kinds_applied WHERE project = ?",
-    [project],
+    "SELECT hash, text FROM kinds_applied WHERE domain = ?",
+    [domain],
   );
   return row === undefined
     ? undefined
@@ -118,24 +118,24 @@ export function readApplied(
 
 export function writeApplied(
   sql: Sql,
-  project: string,
+  domain: string,
   applied: { hash: string; text: string } | null,
 ): void {
   if (applied === null) {
-    sql.run("DELETE FROM kinds_applied WHERE project = ?", [project]);
+    sql.run("DELETE FROM kinds_applied WHERE domain = ?", [domain]);
     return;
   }
   sql.run(
-    `INSERT INTO kinds_applied (project, hash, text) VALUES (?, ?, ?)
-     ON CONFLICT (project) DO UPDATE SET hash = excluded.hash, text = excluded.text`,
-    [project, applied.hash, applied.text],
+    `INSERT INTO kinds_applied (domain, hash, text) VALUES (?, ?, ?)
+     ON CONFLICT (domain) DO UPDATE SET hash = excluded.hash, text = excluded.text`,
+    [domain, applied.hash, applied.text],
   );
 }
 
-export function readIndexedFiles(sql: Sql, project: string): IndexedFile[] {
+export function readIndexedFiles(sql: Sql, domain: string): IndexedFile[] {
   return sql.all(
-    "SELECT path, size, mtime_ms, kind, status FROM kinds_files WHERE project = ?",
-    [project],
+    "SELECT path, size, mtime_ms, kind, status FROM kinds_files WHERE domain = ?",
+    [domain],
   ).map((row) => ({
     path: text(row, "path"),
     size: Number(row.size),
@@ -146,11 +146,11 @@ export function readIndexedFiles(sql: Sql, project: string): IndexedFile[] {
 }
 
 // kind의 item을 추출 순서(ord)로 읽는다.
-export function readItems(sql: Sql, project: string, kind: string): Item[] {
+export function readItems(sql: Sql, domain: string, kind: string): Item[] {
   return sql.all(
     `SELECT kind, key, path, file, fields FROM kinds_items
-     WHERE project = ? AND kind = ? ORDER BY ord`,
-    [project, kind],
+     WHERE domain = ? AND kind = ? ORDER BY ord`,
+    [domain, kind],
   ).map((row) => ({
     kind: text(row, "kind"),
     key: text(row, "key"),
@@ -161,11 +161,11 @@ export function readItems(sql: Sql, project: string, kind: string): Item[] {
 }
 
 // index에서 빠진(읽지 못했거나 type이 맞지 않은) 문서 수
-export function countSkipped(sql: Sql, project: string, kind: string): number {
+export function countSkipped(sql: Sql, domain: string, kind: string): number {
   const row = sql.get(
     `SELECT COUNT(*) AS n FROM kinds_files
-     WHERE project = ? AND kind = ? AND status = 'skipped'`,
-    [project, kind],
+     WHERE domain = ? AND kind = ? AND status = 'skipped'`,
+    [domain, kind],
   );
   return Number(row?.n ?? 0);
 }
@@ -173,13 +173,13 @@ export function countSkipped(sql: Sql, project: string, kind: string): number {
 // 위반은 scan이 정렬해 넣은 순서(ord)로 읽는다. kind를 주면 그 kind의 것만.
 export function readViolations(
   sql: Sql,
-  project: string,
+  domain: string,
   options: { kind?: string; limit?: number } = {},
 ): Violation[] {
   const rows = sql.all(
     `SELECT source, kind, path, field, rule, message FROM kinds_violations
-     WHERE project = ? AND (? IS NULL OR kind = ?) ORDER BY ord LIMIT ?`,
-    [project, options.kind ?? null, options.kind ?? null, options.limit ?? -1],
+     WHERE domain = ? AND (? IS NULL OR kind = ?) ORDER BY ord LIMIT ?`,
+    [domain, options.kind ?? null, options.kind ?? null, options.limit ?? -1],
   );
   return rows.map((row) =>
     ({
@@ -196,7 +196,7 @@ export function readViolations(
 // scan이 file·item·위반 행을 통째로 바꾸는 쓰기. 한 transaction 안에서 부른다.
 export function replaceRows(
   sql: Sql,
-  project: string,
+  domain: string,
   rows: {
     files: IndexedFile[];
     items: Item[];
@@ -204,21 +204,21 @@ export function replaceRows(
   },
 ): void {
   for (const table of ["kinds_files", "kinds_items", "kinds_violations"]) {
-    sql.run(`DELETE FROM ${table} WHERE project = ?`, [project]);
+    sql.run(`DELETE FROM ${table} WHERE domain = ?`, [domain]);
   }
   for (const file of rows.files) {
     sql.run(
-      `INSERT INTO kinds_files (project, path, size, mtime_ms, kind, status)
+      `INSERT INTO kinds_files (domain, path, size, mtime_ms, kind, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [project, file.path, file.size, file.mtime_ms, file.kind, file.status],
+      [domain, file.path, file.size, file.mtime_ms, file.kind, file.status],
     );
   }
   rows.items.forEach((item, ord) => {
     sql.run(
-      `INSERT INTO kinds_items (project, ord, kind, key, path, file, fields)
+      `INSERT INTO kinds_items (domain, ord, kind, key, path, file, fields)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        project,
+        domain,
         ord,
         item.kind,
         item.key,
@@ -231,10 +231,10 @@ export function replaceRows(
   rows.violations.forEach((violation, ord) => {
     sql.run(
       `INSERT INTO kinds_violations
-         (project, ord, source, kind, path, field, rule, message)
+         (domain, ord, source, kind, path, field, rule, message)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        project,
+        domain,
         ord,
         violation.source,
         violation.kind,

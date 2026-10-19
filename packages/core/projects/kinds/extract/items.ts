@@ -20,7 +20,7 @@ export type ProjectFiles = {
 export type Item = {
   kind: string;
   key: string;
-  // project 기준 상대 경로
+  // domain 그릇의 폴더 기준 상대 경로
   path: string;
   // 확장자를 뺀 파일 이름
   file: string;

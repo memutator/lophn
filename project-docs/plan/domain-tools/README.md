@@ -30,6 +30,8 @@
   - wave 3:
     - `dt-mcp-endpoint` → `dt-mcp-harness`(사슬)
     - `dt-examples`(MCP와 나란히. domain-place가 ticket file을 쥐고 있어 wave 2에서 옮겼다)
+  - wave 4:
+    - `dt-preview-fix`(wave 3 뒤 손 확인에서 coding agent의 preview·MCP 길이 막힌 세 곳)
 - 시작 조건: 없다. 계획 `domain-kinds`, `domain-place`, `artifact`와 같이 돈다.
 
 ## 정한 것

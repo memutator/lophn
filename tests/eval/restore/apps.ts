@@ -4,7 +4,7 @@ import type { SetupContext } from "../types.ts";
 import { appProjectName, openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 앱은 project에 묶이지 않는다. 앱 옆에 사람이 둔 보통 project를 `<slug>-project` 이름으로 등록하고 world에 남긴다. operators-home의 월말정리 place만 이 이름으로 그 project를 가리킨다.
+// 앱은 project에 묶이지 않는다. 앱마다 옆에 사람이 둔 보통 project를 `<slug>-project` 이름으로 등록하고 world에 남긴다. 지금 시나리오는 이 이름을 쓰지 않지만, 지우면 lophn이 보는 project 목록이 달라져 앞선 run과 버전 표시 없이 비교가 깨지므로 world를 그대로 둔다.
 export async function restoreAppProject(
   ctx: SetupContext,
   slug: string,

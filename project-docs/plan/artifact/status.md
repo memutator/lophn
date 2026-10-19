@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `af-annotation-target` | artifact-annotation | 1 | af-artifact-values | merged | artifact-annotation/af-annotation-target | 5736ac84f |  |
-| `af-artifact-files` | artifact-files | 1 | af-artifact-values | running | artifact-files/af-artifact-files |  |  |
+| `af-artifact-files` | artifact-files | 1 | af-artifact-values | merged | artifact-files/af-artifact-files | d6db8005c |  |
 | `af-artifact-values` | artifact-protocol | 1 | 없음 | merged | artifact-protocol/af-artifact-values | 5a6137f1b |  |
 | `af-sandbox` | artifact-sandbox | 1 | 없음 | merged | artifact-sandbox/af-sandbox | 45b5d911d |  |
 | `af-file-scope` | artifact-scope | 1 | af-artifact-values | merged | artifact-scope/af-file-scope | 6d2f53182 |  |

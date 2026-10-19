@@ -54,7 +54,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - 지우거나 옮기거나 값을 바꾼 이름·숫자는 grep해 주석과 오류 메시지에 남은 것도 고친다. 규칙을 모을 때 이미 있는 표를 쓰고 사본을 만들지 않는다(옛 이름이 남은 주석을 lead가 따로 고친 일이 네 번, 모으는 task가 role 표 사본을 또 만든 일이 있다).
 - test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다(계획이 brief로 정한 `tests/e2e`의 flow만 예외).
 - worker의 Bash 호출은 매번 cwd와 변수가 처음으로 돌아간다. 명령마다 `cd <worktree>; ...`로 시작한다(안 그러면 main checkout에서 돈다).
-- core 확인: 띄우기부터 끄기까지 Bash 호출 하나로 한다. `cd <worktree>; mkdir -m 700 -p .dev-data/<id>; export LOPHN_HOME=$PWD/.dev-data/<id>; tail -f /dev/null | deno run -A packages/core/main/daemon/main.ts --port=0 > .dev-data/<id>/core.log 2>&1 & PID=$!; sleep 15; kill $PID; wait $PID`. `;`로 잇고 `&&` 사슬이나 `( ... )`로 background에 보내지 않는다(`$!`가 subshell이라 deno가 남은 일이 있다). **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
+- core 확인: `cd <worktree>; project-docs/plan/tools/lead/boot.sh`만 쓴다. 새 data root로 core를 두 번 띄우고 각자 timeout으로 끝나 `boot N exit 0`을 찍는다. 손으로 띄우는 한 줄(`tail -f /dev/null | deno … & wait`)은 `wait`에서 멈춘 일이 있다. **ps·fuser·ss로 찾지 않는다**(`ps --ppid … -C tail`이 OR로 걸려 남의 process를 끈 일이 있다). pkill·killall 금지. 실제 `~/.lophn`은 절대 건드리지 않는다. data root는 0700이어야 기동한다.
 - 임시 file(move-files mapping, probe 출력)은 worktree 안 `.dev-data/<id>/`에 둔다. session scratchpad는 같이 도는 worker끼리 공유되어 mapping이 덮인 일이 있다.
 - 명령이 auto mode classifier에 막히면 다른 명령으로 우회하지 않고 보고한다. lead도 worker가 거절당한 명령을 대신 돌리지 않고 사람에게 묻는다(사용자 앱 방어를 지우는 변경의 check:full·commit이 막힌 일이 있다).
 - `deno task check:full`을 돌리고, 통과하면 branch에 commit한다(영어 명령형 한 줄과 본문. 요구 ID와 작업 번호 없음). push, merge, rebase, 다른 branch는 하지 않는다.

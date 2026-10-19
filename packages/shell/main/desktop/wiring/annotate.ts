@@ -9,9 +9,14 @@ import {
 } from "../../app-frame/annotate.ts";
 import { nativeCropAndFit } from "../../app-frame/capture.ts";
 import type { AppViews } from "./app-views.ts";
+import type { ArtifactWiring } from "./artifact.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
-export function register(ctx: ShellContext, views: AppViews): Registered {
+export function register(
+  ctx: ShellContext,
+  views: AppViews,
+  artifact: Pick<ArtifactWiring, "views">,
+): Registered {
   const { core, overlays, windowRef, windowOfRef } = ctx;
   registerAnnotateIpc(ctx.ipc, {
     registry: overlays.overlayRegistry(),
@@ -19,9 +24,16 @@ export function register(ctx: ShellContext, views: AppViews): Registered {
       const window = ctx.shellWindowOf(sender);
       return window === undefined ? undefined : windowRef(window);
     },
-    owner: (view_session) => views.appFrame.owner(view_session),
-    view: (view_session) => views.appFrame.annotateView(view_session),
-    senderView: (contentsId) => views.appFrame.senderAnnotateView(contentsId),
+    // 앱 view와 artifact view를 합친다. 신원은 port의 target이 정한다.
+    owner: (view_session) =>
+      views.appFrame.owner(view_session) ??
+        artifact.views.owner(view_session),
+    view: (view_session) =>
+      views.appFrame.annotateView(view_session) ??
+        artifact.views.annotateView(view_session),
+    senderView: (contentsId) =>
+      views.appFrame.senderAnnotateView(contentsId) ??
+        artifact.views.senderAnnotateView(contentsId),
     pushState(ref, state) {
       const window = windowOfRef(ref);
       if (window !== undefined && !window.webContents.isDestroyed()) {

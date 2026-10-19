@@ -37,6 +37,7 @@ import {
 } from "../os-entry/entry.ts";
 import type { OpenIntent } from "../open-intent.ts";
 import { TOP_BAR_HEIGHT } from "../window.ts";
+import type { ArtifactWiring } from "./artifact.ts";
 import type { BrowserWiring } from "./browser.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
@@ -60,6 +61,7 @@ export type AppViews = Registered & {
 export function register(
   ctx: ShellContext,
   browser: Pick<BrowserWiring, "frame" | "orderOf">,
+  artifact: Pick<ArtifactWiring, "frame">,
 ): AppViews {
   const {
     here,
@@ -126,8 +128,8 @@ export function register(
 
   // native view 배치. renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
   const viewVisibility = createViewVisibility({
-    // browser 탭의 view는 앱 registry에 없다. view_session으로 갈라 보낸다.
-    frame: routeFrame(appFrame, browser.frame),
+    // browser·artifact 탭의 view는 앱 registry에 없다. view_session으로 갈라 보낸다.
+    frame: routeFrame(appFrame, browser.frame, artifact.frame),
     geometry: {
       // overlay와 같은 창 본문이다. 상단 바는 shell 크롬이라 앱 view가 덮지 않는다.
       body(ref) {

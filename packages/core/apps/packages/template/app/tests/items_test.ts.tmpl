@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { AppApiRejection } from "@lophn/cap-app-api";
+import { ToolRejection } from "@lophn/cap-app-api";
 import { openStore, type Store } from "@lophn/cap-store";
 import { addItemHandler, listItemsHandler } from "../src/app-api.ts";
 import {
@@ -69,7 +69,7 @@ Deno.test("items: add_item rejects a blank title before touching the store", asy
   };
   await assertRejects(
     async () => await addItemHandler(deps)({ title: "   " }),
-    AppApiRejection,
+    ToolRejection,
   );
   assertEquals(opened, false);
 });

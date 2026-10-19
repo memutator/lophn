@@ -3,18 +3,18 @@ import { t } from "@lophn/wording";
 import { Button, type ButtonVariant, Icon } from "@lophn/ui/primitives";
 import { componentMark, type ControlSize, iconPixels } from "@lophn/ui/shared";
 import {
-  type AppApiInput,
-  type AppApiSpec,
   type AppBridge,
-  useAppApi,
-} from "./use-app-api.ts";
+  type ToolInput,
+  type ToolSpec,
+  useTool,
+} from "./use-tool.ts";
 import styles from "./action.module.css";
 
-export interface AppApiButtonProps {
-  api: AppApiSpec;
+export interface ToolButtonProps {
+  tool: ToolSpec;
   // 입력, 또는 누를 때 입력을 만드는 함수. 없으면 null이다.
-  input?: AppApiInput | (() => AppApiInput);
-  // 버튼 글. 없으면 blueprint의 app-api label이다.
+  input?: ToolInput | (() => ToolInput);
+  // 버튼 글. 없으면 blueprint tool의 title이다.
   children?: string;
   // 앱 view의 `lophnApp`. 없으면 window의 것을 쓴다.
   app?: AppBridge;
@@ -25,10 +25,10 @@ export interface AppApiButtonProps {
   disabled?: boolean;
 }
 
-// blueprint app-api 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
-export function AppApiButton(
+// blueprint tool 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
+export function ToolButton(
   {
-    api,
+    tool,
     input = null,
     children,
     app,
@@ -37,10 +37,10 @@ export function AppApiButton(
     variant = "secondary",
     size = "md",
     disabled = false,
-  }: AppApiButtonProps,
+  }: ToolButtonProps,
 ) {
-  const { state, run } = useAppApi(api, app);
-  const label = children ?? api.label;
+  const { state, run } = useTool(tool, app);
+  const label = children ?? tool.title;
   const pending = state.status === "pending";
   const press = async () => {
     const value = typeof input === "function" ? input() : input;
@@ -51,8 +51,8 @@ export function AppApiButton(
   return (
     <span
       className={styles.action}
-      data-app-api={api.key}
-      {...componentMark("AppApiButton")}
+      data-tool={tool.name}
+      {...componentMark("ToolButton")}
     >
       <Button
         variant={variant}

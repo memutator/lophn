@@ -30,7 +30,7 @@ import { openStore } from "@lophn/cap-store";
   파일 맨 위 `-- loss: drop_table 표`, `-- loss: drop_column 표.열`,
   `-- loss: narrow_type 표.열` 줄이 손실 선언이다.
 - `store.transaction(work)` — 동기 작업 하나를 한 transaction으로 묶는다.
-- write·external app-api와 앱 시작이 도는 동안의 변경은 runtime이 SDK 훅으로
+- write·external tool과 앱 시작이 도는 동안의 변경은 runtime이 SDK 훅으로
   changeset을 떠서 core에 넘긴다. 앱 code가 따로 할 일은 없다. 모든 표에 PRIMARY
   KEY를 둔다.
 - 자기 data 영역 밖 경로는 `CapabilityError`(`forbidden`, `fs.write`와 경로)다.

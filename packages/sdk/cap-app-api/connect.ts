@@ -1,6 +1,6 @@
 import { currentContext } from "./handlers.ts";
 
-// 다른 앱의 app-api는 core를 거쳐 부른다. core가 부른 쪽(이 앱과 release, 부모 invocation)을 정하고
+// 다른 앱의 tool은 core를 거쳐 부른다. core가 부른 쪽(이 앱과 release, 부모 invocation)을 정하고
 // Gate로 판정한다. broker 경로는 protocol/apps/calls/broker.ts의 APP_BROKER_PATHS.call과 같다
 // (SDK는 zod를 import하지 않는다).
 const APP_CALL_PATH = "/_lophn/broker/apps/call";
@@ -31,7 +31,7 @@ export type AppResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: AppError };
 
-// core가 돌려준 호출 결과다(protocol/apps/calls/call.ts의 appApiCallOutputSchema와 같다).
+// core가 돌려준 호출 결과다(protocol/apps/calls/call.ts의 toolCallOutputSchema와 같다).
 // 호출이 막혔거나(denied) 결과를 모르는(unknown) 것은 오류가 아니라 결과의 한 갈래다. unknown은
 // 대상 앱이 처리했는지 모른다는 사실이라 자동으로 다시 부르지 않는다.
 type UnknownReason =
@@ -40,23 +40,23 @@ type UnknownReason =
   | "core_restarted"
   | "timeout";
 
-export type AppApiOutcome =
+export type ToolOutcome =
   | { status: "succeeded"; result: unknown }
   | { status: "failed"; error: { code: string; message: string } }
   | { status: "denied"; denial: { code: string; message: string } }
   | { status: "unknown"; reason: UnknownReason };
 
-export type AppApiCallOutput = {
+export type ToolCallOutput = {
   // 기록을 남기지 않은 성공한 읽기에서만 null이다.
   invocation: string | null;
-  outcome: AppApiOutcome;
+  outcome: ToolOutcome;
 };
 
-export type AppApiClient = {
+export type ToolClient = {
   readonly app: string;
-  // 이 client가 부르겠다고 연 app-api 목록이다. 허락은 호출마다 core가 판정한다.
-  readonly apis: readonly string[];
-  call(api: string, input?: unknown): Promise<AppResult<AppApiCallOutput>>;
+  // 이 client가 부르겠다고 연 tool 이름 목록이다. 허락은 호출마다 core가 판정한다.
+  readonly tools: readonly string[];
+  callTool(name: string, input?: unknown): Promise<AppResult<ToolCallOutput>>;
 };
 
 const CODES: readonly string[] = [
@@ -112,7 +112,7 @@ function pair(value: unknown): { code: string; message: string } | undefined {
   return { code: item["code"], message: item["message"] };
 }
 
-function outcomeOf(value: unknown): AppApiOutcome | undefined {
+function outcomeOf(value: unknown): ToolOutcome | undefined {
   const outcome = plain(value);
   switch (outcome?.["status"]) {
     case "succeeded":
@@ -148,18 +148,18 @@ function host(): HostPort | undefined {
     : undefined;
 }
 
-// 다른 앱의 app-api를 부르는 client를 준비한다. import만으로는 아무것도 열리지 않는다. 호출하는
+// 다른 앱의 tool을 부르는 client를 준비한다. import만으로는 아무것도 열리지 않는다. 호출하는
 // invocation(현재 호출 문맥)이 부모로 자동으로 붙고 부른 쪽의 신원은 core가 정한다.
-export function connectAppApi(
+export function connectTools(
   app: string,
-  apis: readonly string[],
-): AppApiClient {
+  tools: readonly string[],
+): ToolClient {
   return {
     app,
-    apis,
-    async call(api, input) {
-      if (!apis.includes(api)) {
-        return failure("app-api is outside the connection", "forbidden");
+    tools,
+    async callTool(name, input) {
+      if (!tools.includes(name)) {
+        return failure("tool is outside the connection", "forbidden");
       }
       const port = host();
       if (port === undefined) return failure("app calls are not available");
@@ -167,7 +167,7 @@ export function connectAppApi(
       try {
         response = await port.post(APP_CALL_PATH, {
           target_app: app,
-          api,
+          api: name,
           ...(input === undefined ? {} : { input }),
           parent_invocation: currentContext()?.invocation ?? null,
         });

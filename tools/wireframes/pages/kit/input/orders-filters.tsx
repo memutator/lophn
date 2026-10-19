@@ -1,4 +1,4 @@
-// 앱 화면 예: 기간·상태·검색으로 주문 read command의 입력을 만들고 바뀔 때마다 그 command를 부른다.
+// 앱 화면 예: 기간·상태·검색으로 주문 read tool의 입력을 만들고 바뀔 때마다 그 tool을 부른다.
 import { useState } from "react";
 import {
   type DateRange,
@@ -9,7 +9,7 @@ import {
   SearchFilter,
 } from "@lophn/ui/input";
 
-// 앱 blueprint의 read command 입력. command key와 화면 문구는 따로 둔다.
+// 앱 blueprint의 read tool 입력. tool 이름과 화면 문구는 따로 둔다.
 export interface OrdersQuery {
   from: string;
   to: string;

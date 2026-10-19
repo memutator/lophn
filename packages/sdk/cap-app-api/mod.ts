@@ -1,9 +1,4 @@
-export {
-  appApi,
-  currentContext,
-  registeredAppApis,
-  runWith,
-} from "./handlers.ts";
+export { currentContext, registeredTools, runWith, tool } from "./handlers.ts";
 export type {
   AppApiCaller,
   AppApiPort,
@@ -11,7 +6,7 @@ export type {
   RegisteredHandler,
 } from "./context.ts";
 export { APP_API_PORT } from "./context.ts";
-export { AppApiRejection } from "./rejection.ts";
+export { ToolRejection } from "./rejection.ts";
 export type { RejectionCode } from "./rejection.ts";
 export { TRACE_NAME_MAX_CHARS, traceName } from "./trace.ts";
 export {
@@ -28,12 +23,12 @@ export type {
   ReadQuery,
   ReadSource,
 } from "./results.ts";
-export { connectAppApi } from "./connect.ts";
+export { connectTools } from "./connect.ts";
 export type {
-  AppApiCallOutput,
-  AppApiClient,
-  AppApiOutcome,
   AppError,
   AppErrorCode,
   AppResult,
+  ToolCallOutput,
+  ToolClient,
+  ToolOutcome,
 } from "./connect.ts";

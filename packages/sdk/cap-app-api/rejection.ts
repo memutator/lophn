@@ -13,13 +13,13 @@ export const REJECTION_CODES = [
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 
-export class AppApiRejection extends Error {
+export class ToolRejection extends Error {
   readonly code: RejectionCode;
   readonly [APP_API_REJECTION]: RejectionCode;
 
   constructor(code: RejectionCode, message: string) {
     super(message);
-    this.name = "AppApiRejection";
+    this.name = "ToolRejection";
     this.code = code;
     this[APP_API_REJECTION] = code;
   }

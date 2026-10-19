@@ -7,13 +7,12 @@ export const CAP_HOST = Symbol.for("lophn.cap-host");
 
 export type RuntimeMode = "live" | "preview" | "test";
 
-// 지금 실행 중인 app-api 호출의 문맥이다(`command`는 app-api key다). 호출 밖(시작 코드 등)이면 null이다.
+// 지금 실행 중인 tool 호출의 문맥이다(`command`는 tool 이름이다). 호출 밖(시작 코드 등)이면 null이다.
 export type CallContext = {
   command: string;
   inputHash: string;
   release: string | null;
   invocation: string | null;
-  project: string | null;
 };
 
 export type BrokerResponse = { status: number; body: unknown };

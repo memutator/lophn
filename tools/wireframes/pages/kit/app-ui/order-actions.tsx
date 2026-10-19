@@ -1,11 +1,11 @@
-// 앱 화면 예: 앱 blueprint의 app-api 선언으로 버튼을 만든다.
-import { AppApiButton, type AppApiSpec, type AppBridge } from "@lophn/app-ui";
+// 앱 화면 예: 앱 blueprint의 tool 선언으로 버튼을 만든다.
+import { type AppBridge, ToolButton, type ToolSpec } from "@lophn/app-ui";
 
-// 앱 blueprint의 app_api 중 이 화면이 쓰는 것.
-export const APP_APIS = {
-  sync: { key: "sync-orders", label: "Sync orders" },
-  archive: { key: "archive-shipped", label: "Archive shipped orders" },
-} satisfies Record<string, AppApiSpec>;
+// 앱 blueprint의 tools 중 이 화면이 쓰는 것.
+export const TOOLS = {
+  sync: { name: "sync-orders", title: "Sync orders" },
+  archive: { name: "archive-shipped", title: "Archive shipped orders" },
+} satisfies Record<string, ToolSpec>;
 
 export function OrderActions(
   { app, selected }: { app?: AppBridge; selected: () => string[] },
@@ -19,9 +19,9 @@ export function OrderActions(
         gap: "var(--space-4)",
       }}
     >
-      <AppApiButton api={APP_APIS.sync} app={app} />
-      <AppApiButton
-        api={APP_APIS.archive}
+      <ToolButton tool={TOOLS.sync} app={app} />
+      <ToolButton
+        tool={TOOLS.archive}
         input={() => ({ orders: selected() })}
         app={app}
       />

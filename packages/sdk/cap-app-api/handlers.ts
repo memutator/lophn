@@ -15,7 +15,7 @@ function port(): AppApiPort {
     handlers: () => registry.slice(),
     register(handler) {
       if (registry.some((known) => known.api === handler.api)) {
-        throw new Error(`app-api already registered: ${handler.api}`);
+        throw new Error(`tool already registered: ${handler.api}`);
       }
       registry.push(handler);
     },
@@ -33,11 +33,11 @@ function live(): AppApiPort {
   return currentPort() ?? installed;
 }
 
-export function appApi(
-  key: string,
+export function tool(
+  name: string,
   handle: RegisteredHandler["handle"],
 ): void {
-  live().register({ api: key, handle });
+  live().register({ api: name, handle });
 }
 
 export function currentContext(): InvocationContext | null {
@@ -51,6 +51,6 @@ export function runWith<T>(
   return live().run(context, fn);
 }
 
-export function registeredAppApis(): readonly string[] {
+export function registeredTools(): readonly string[] {
   return live().handlers().map((handler) => handler.api);
 }

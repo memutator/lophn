@@ -42,7 +42,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 ## 지키는 것
 
 - **자리는 `<data>/projects/<prj>/artifacts/<name>/`이고 `<name>`은 slug다.** 입구 `index.html`이 일반 file이면 artifact다. symlink 폴더와 symlink 입구는 세지 않는다. 이름 규칙은 protocol의 `artifactNameSchema`(= `slugSchema`)이고 shell은 `ipc/artifact.ts`에 사본을 둔다(shell main은 zod를 싣는 protocol file을 import하지 못한다).
-- **쓰는 것은 그 project의 PM과 project place의 Operator뿐이다.** `placeScope`가 둘에게 artifacts 폴더의 read·write를 주고, lophn·App Engineer·앱 place의 Operator에게는 주지 않는다. 사람의 project 폴더가 목록 앞에 남는다. 상대 path의 기준이 첫 폴더라서 agent는 artifact를 절대 path로 쓴다(guide와 role 지침).
+- **쓰는 것은 그 project의 PM과 project place의 Operator뿐이다.** `placeScope`가 둘에게 artifacts 폴더의 read·write를 주고, lophn에게는 주지 않는다. 사람의 project 폴더가 목록 앞에 남는다. 상대 path의 기준이 첫 폴더라서 agent는 artifact를 절대 path로 쓴다(guide와 role 지침).
 - **artifacts 폴더는 turn을 시작할 때 runtime이 만든다.** file tool은 없는 허용 폴더를 건너뛰므로 첫 artifact를 쓰려면 폴더가 있어야 한다. 만들지 못하면 그 turn은 artifacts 폴더 없이 간다. runtime child의 쓰기 권한은 project마다 artifacts 폴더를 따로 연다(`runtimeFolders`의 `artifactFolders`). 새 project는 runtime polling이 다시 읽을 때 들어간다.
 - **목록은 program이 관례 자리에서 결정적으로 만든다.** 제목과 설명은 `index.html` 앞 64 KiB의 `<title>`·`<meta name="description">`에서 읽고 120자·300자로 자른다. shell main(`artifact/list.ts`)과 core(`place/artifact-list.ts`)가 같은 규칙의 사본을 갖는다. core는 shell을 import하지 못한다. prompt에는 이름 순 50개까지 싣는다.
 - **봉한 scheme은 root 안의 일반 file만 준다.** `..` 마디, 역슬래시, NUL, 풀 수 없는 percent-encoding은 거절하고, 어휘 검사 뒤 realpath도 `root + sep` 안이어야 한다(접두사만 같은 형제 폴더는 밖이다). 그 path를 `O_NOFOLLOW`로 열어 일반 file이고 4 MiB 이하일 때만 준다. 그 밖은 모두 404다.
@@ -54,7 +54,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 live view와 갈리는 곳이다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 name이 null이다.
 - **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 project artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 열린 project place의 PM·Operator session 가운데 마지막 것을 고른다. root가 project마다 달라 같은 이름의 artifact가 다른 project에 있어도 섞이지 않는다. 없으면 pane에 열린 그 project의 PM session이고, 그 session이 그 project의 열린 PM이 아니면 conflict로 거절한다. pane에 PM session이 없으면 새 PM session이다. 사람의 `.html`은 늘 PM이 받는다.
-- **PM과 Operator는 자기 project의 artifact annotation만 읽는다.** 자격 조건 `project`(project place의 PM·Operator)가 있으면 `annotations.get`이 그 project의 artifact target만 주고, 앱 target과 다른 project 것은 not_found다. 앱에도 project에도 묶이지 않은 agent(앱 place의 Operator, lophn)는 forbidden이다.
+- **PM과 Operator는 자기 project의 artifact annotation을 읽는다.** 자격 조건 `project`(project place의 PM·Operator)로 그 project의 artifact target을, PM은 조건 `app`으로 그 project 앱의 앱 target도 읽는다. 둘은 따로 본다. 다른 project와 다른 앱 것은 not_found다. 앱에도 project에도 묶이지 않은 agent(lophn)는 forbidden이다.
 - **파일이 바뀌면 열린 탭이 다시 load한다.** artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 한 번 다시 load한다.
 - **같은 창에서 같은 source는 view 하나다.** 탭이 다시 mount되어도 view를 새로 만들지 않는다. 폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다.
 

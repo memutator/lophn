@@ -45,20 +45,21 @@ const annotationElementSchema = z.strictObject({
   text: elementText,
 });
 
-// 앱 화면 위치(앱이 정한 view 이름과 route). artifact는 screen이 없다(null), path는 artifact 안의 위치다.
+// 앱 화면 위치(앱이 정한 view 이름과 route). artifact와 file은 screen이 없다(null), path는 그 안의 위치다.
 const annotationViewSchema = z.strictObject({
   screen: screenKeySchema.nullable(),
   path: z.string(),
 });
 
-// annotation을 붙이는 곳. artifact의 name이 null이면 사람의 폴더에 있는 `.html`이다.
+// annotation을 붙이는 곳. artifact는 domain 그릇 안의 artifact이고, file은 사람의 폴더에 있는 `.html`이다.
 export const annotationTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("app"), app: appIdSchema }),
   z.strictObject({
     kind: z.literal("artifact"),
-    project: projectIdSchema,
-    name: artifactNameSchema.nullable(),
+    domain: idSchema("dom"),
+    name: artifactNameSchema,
   }),
+  z.strictObject({ kind: z.literal("file"), project: projectIdSchema }),
 ]);
 export type AnnotationTarget = z.infer<typeof annotationTargetSchema>;
 
@@ -79,7 +80,7 @@ export const annotationInputSchema = z.strictObject({
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
-  // artifact target이면 null.
+  // app이 아닌 target이면 null.
   release: releaseIdSchema.nullable(),
 });
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
@@ -137,8 +138,9 @@ export const annotationUploadScreenshot = defineUpload({
 
 // 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
-// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 project Project Manager의 session이다(없으면 null, 새 session).
-// artifact이면 pane에 열려 있는 그 project의 Project Manager session이고, core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
+// session은 app이면 앱 공간 agent pane에 열려 있는 그 앱 App Engineer의 session이다(없으면 null, 새 session).
+// artifact이면 pane에 열려 있는 그 domain owner의 PM 또는 App Engineer session이고, file이면 그 project의 PM session이다.
+// artifact에서는 core가 받는 쪽을 정할 때 쓰는 마지막 후보다.
 export const annotationSendInputSchema = z.strictObject({
   target: annotationTargetSchema,
   session: idSchema("ses").nullable(),
@@ -153,7 +155,7 @@ export const annotationSendInputSchema = z.strictObject({
         ? item.release !== null && item.view.screen !== null
         : item.release === null && item.view.screen === null
     ),
-  { message: "app annotations carry release and screen, artifact ones do not" },
+  { message: "app annotations carry release and screen, others do not" },
 );
 const annotationSendOutputSchema = z.object({
   batch: annotationBatchIdSchema,

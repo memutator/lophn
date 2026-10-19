@@ -1,4 +1,4 @@
-// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 Project Manager, artifact이면 wave 2 receiver가 정한 쪽)에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
+// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 App Engineer, artifact이면 domain owner가 정한 쪽, file이면 그 project의 PM)에게 사람 메시지 하나로 보낸다. 보내기는 사람의 동작이라
 // Gate를 거치지 않는다. 보관한 앱이면 저장 command가 쓰기 전에 conflict로 거절한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { CommandRoute } from "../../../protocol/base/mod.ts";
@@ -37,7 +37,7 @@ type AnnotationDeps = {
 type SendInput = z.output<typeof annotationSendInputSchema>;
 
 export function createAnnotations(deps: AnnotationDeps) {
-  // 묶음을 저장하고 보낼 메시지 글을 만든다. 보내기 전 단계는 target 종류와 상관없이 같다.
+  // 묶음을 저장하고 보낼 메시지 글을 만든다.
   async function persist(ctx: AuthenticatedContext, input: SendInput) {
     const persisted = await deps.run(
       ctx,
@@ -95,9 +95,6 @@ export function createAnnotations(deps: AnnotationDeps) {
   }
 
   async function send(ctx: AuthenticatedContext, input: SendInput) {
-    if (input.target.kind === "artifact") {
-      return await sendArtifact(ctx, input, input.target);
-    }
     const delivery = deps.delivery();
     if (delivery === undefined) {
       return err({
@@ -108,34 +105,25 @@ export function createAnnotations(deps: AnnotationDeps) {
     const persisted = await persist(ctx, input);
     if (!persisted.ok) return persisted;
     const { batch, ids, text } = persisted.value;
-    const delivered = await delivery.deliver({
-      app: input.target.app,
-      session: input.session,
-      text,
-      annotations: ids,
-    });
-    return await finish(ctx, batch, ids, delivered);
-  }
-
-  // artifact 갈래. deliverArtifact가 없으면 묶음을 저장했다가 지운다.
-  async function sendArtifact(
-    ctx: AuthenticatedContext,
-    input: SendInput,
-    target: Extract<SendInput["target"], { kind: "artifact" }>,
-  ) {
-    const persisted = await persist(ctx, input);
-    if (!persisted.ok) return persisted;
-    const { batch, ids, text } = persisted.value;
-    const deliverArtifact = deps.delivery()?.deliverArtifact;
-    const delivered = deliverArtifact === undefined
-      ? err({
-        code: "unavailable" as const,
-        message: "artifact annotation delivery is not attached",
+    const { target, session } = input;
+    const delivered = target.kind === "app"
+      ? await delivery.deliver({
+        app: target.app,
+        session,
+        text,
+        annotations: ids,
       })
-      : await deliverArtifact({
-        project: target.project,
+      : target.kind === "artifact"
+      ? await delivery.deliverArtifact({
+        domain: target.domain,
         name: target.name,
-        session: input.session,
+        session,
+        text,
+        annotations: ids,
+      })
+      : await delivery.deliverFile({
+        project: target.project,
+        session,
         text,
         annotations: ids,
       });

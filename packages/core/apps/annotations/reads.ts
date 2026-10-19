@@ -1,7 +1,11 @@
 // annotations.get과 ticket 근거를 읽는 AnnotationLookup. 읽는 쪽 값에 screenshot_path(blob object 파일 경로)를 싣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { annotationsGet } from "../../../protocol/apps/annotation.ts";
+import {
+  annotationsGet,
+  type AnnotationTarget,
+} from "../../../protocol/apps/annotation.ts";
+import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import type {
   ReadDefinition,
@@ -17,8 +21,9 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱과 project(둘 다 올 수 있다. 앱이 있는
-// project의 Project Manager), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는 읽을 수 없다.
+// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱(App Engineer)이나 project(프로젝트 place의
+// PM·Operator), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn, 앱 place의 Operator)는
+// 읽을 수 없다.
 type Scope = { app?: string; project?: string } | null;
 
 function callerScope(
@@ -54,15 +59,25 @@ function callerScope(
   });
 }
 
+// app target은 그 앱의 App Engineer만, file target은 그 project의 PM·Operator만, artifact target은 그 domain의
+// owner가 자기 project인 PM·Operator만 읽는다. 앱이 owner인 domain의 artifact는 사람만 읽는다.
 function inScope(
+  snapshot: ReadSnapshot,
   scope: Scope,
-  target: { kind: string; app?: string; project?: string },
+  target: AnnotationTarget,
 ): boolean {
   if (scope === null) return true;
-  return target.kind === "app"
-    ? scope.app !== undefined && target.app === scope.app
-    : target.kind === "artifact" && scope.project !== undefined &&
-      target.project === scope.project;
+  switch (target.kind) {
+    case "app":
+      return scope.app !== undefined && target.app === scope.app;
+    case "file":
+      return scope.project !== undefined && target.project === scope.project;
+    case "artifact": {
+      const owner = snapshot.port(domainLookupPort).get(target.domain)?.owner;
+      return scope.project !== undefined && owner?.kind === "project" &&
+        owner.id === scope.project;
+    }
+  }
 }
 
 export function createAnnotationReads(): {
@@ -78,7 +93,9 @@ export function createAnnotationReads(): {
           ? foundByAnnotation(snapshot.sql, input.annotation)
           : loadBatch(snapshot.sql, input.batch);
         // 범위 밖 target은 묶인 호출자에게 없는 것과 같다.
-        if (found === null || !inScope(scope.value, found.batch.target)) {
+        if (
+          found === null || !inScope(snapshot, scope.value, found.batch.target)
+        ) {
           return notFound();
         }
         return ok({

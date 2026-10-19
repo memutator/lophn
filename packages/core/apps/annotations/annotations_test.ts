@@ -103,6 +103,10 @@ function open(status: "active" | "archived" = "active") {
         delivered.push(call);
         return Promise.resolve(ok({ session: SESSION, message: MESSAGE }));
       },
+      deliverFile: (call) => {
+        delivered.push(call);
+        return Promise.resolve(ok({ session: SESSION, message: MESSAGE }));
+      },
     }),
   });
   return {
@@ -148,7 +152,7 @@ Deno.test("보낸 묶음은 저장되어 id로 읽히고 메모·component 겹·
   assertEquals(world.delivered[0]!.annotations, sent.value.annotations);
   assertEquals(world.blobs.length, 1);
   const read = createAnnotationReads().get.handle(
-    { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+    snapshotOf(world.sql),
     USER,
     { batch: sent.value.batch } as never,
   );
@@ -184,93 +188,61 @@ Deno.test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 t
   world.close();
 });
 
-Deno.test("agent 자격은 자기 앱의 annotation만 읽고 다른 앱 것은 not_found다", async () => {
-  const world = open();
-  const sent = await world.send(USER, {
-    target: { kind: "app", app: APP },
-    session: null,
-    annotations: [input(1)],
-  } as never);
-  assert(sent.ok);
-  const agent = (app: string): RequestContext => ({
-    ...USER,
-    principal: `agent:${SESSION}`,
-    actor: `agent:${SESSION}`,
-    conditions: { app },
-  });
-  const get = (ctx: RequestContext) =>
-    createAnnotationReads().get.handle(
-      { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
-      ctx,
-      { annotation: sent.value.annotations[0] } as never,
-    );
-  const own = get(agent(APP));
-  assert(own.ok);
-  assert(own.value.annotations[0]!.screenshot_path !== null);
-  const other = get(agent("app_01hzzzzzzzzzzzzzzzzzzzzzzb"));
-  assert(!other.ok);
-  assertEquals(other.error.code, "not_found");
-  world.close();
-});
+// domain의 owner를 읽는 port. 앱이 owner인 domain은 사람만 읽는다.
+const DOMAIN_OF_PROJECT = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
+const DOMAIN_OF_OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const DOMAIN_OF_APP = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
+const OWNERS: Record<string, unknown> = {
+  [DOMAIN_OF_PROJECT]: { kind: "project", id: PROJECT },
+  [DOMAIN_OF_OTHER]: { kind: "project", id: "prj_01hzzzzzzzzzzzzzzzzzzzzzzb" },
+  [DOMAIN_OF_APP]: { kind: "app", id: APP },
+};
+const snapshotOf = (sql: unknown) =>
+  ({
+    sql,
+    as_of_seq: "1",
+    port: () => ({
+      get: (id: string) =>
+        OWNERS[id] === undefined ? null : { owner: OWNERS[id] },
+    }),
+  }) as never;
 
-Deno.test("agent 자격은 artifact target annotation을 읽지 못하고 사람 자격은 읽는다", async () => {
+Deno.test("annotations.get: PM·Operator는 자기 project의 file과 자기 project가 owner인 domain의 artifact만, App Engineer는 자기 앱 것만 읽는다", async () => {
   const world = open();
-  const sent = await world.send(USER, {
-    target: { kind: "artifact", project: PROJECT, name: "orders" },
-    session: null,
-    annotations: [input(1, {
-      release: null,
-      view: { screen: null, path: "/" },
-    })],
-  } as never);
-  assert(sent.ok);
-  const get = (ctx: RequestContext) =>
-    createAnnotationReads().get.handle(
-      { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
-      ctx,
-      { annotation: sent.value.annotations[0] } as never,
-    );
-  const agent: RequestContext = {
-    ...USER,
-    principal: `agent:${SESSION}`,
-    actor: `agent:${SESSION}`,
-    conditions: { app: APP },
-  };
-  const denied = get(agent);
-  assert(!denied.ok);
-  assertEquals(denied.error.code, "not_found");
-  const person = get(USER);
-  assert(person.ok);
-  assertEquals(person.value.annotations[0]!.target, {
-    kind: "artifact",
-    project: PROJECT,
-    name: "orders",
-  });
-  world.close();
-});
-
-Deno.test("project 조건 agent는 자기 project의 artifact annotation만, app 조건도 있으면 자기 앱 것도 읽고 묶이지 않은 agent는 읽지 못한다", async () => {
-  const world = open();
-  const other = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
-  const send = async (target: unknown) => {
+  const send = async (target: { kind: string; [key: string]: unknown }) => {
     const sent = await world.send(USER, {
       target,
       session: null,
-      annotations: [input(1, { release: null })],
+      annotations: [input(1, {
+        release: target.kind === "app" ? input(1).release : null,
+        view: target.kind === "app"
+          ? { screen: "orders", path: "/orders" }
+          : { screen: null, path: "/" },
+      })],
     } as never);
     assert(sent.ok);
-    return sent.value.annotations[0];
+    return sent.value.annotations[0]!;
   };
   const mine = await send({
     kind: "artifact",
-    project: PROJECT,
+    domain: DOMAIN_OF_PROJECT,
     name: "orders",
   });
-  const theirs = await send({ kind: "artifact", project: other, name: "x" });
+  const theirs = await send({
+    kind: "artifact",
+    domain: DOMAIN_OF_OTHER,
+    name: "x",
+  });
+  const ofApp = await send({
+    kind: "artifact",
+    domain: DOMAIN_OF_APP,
+    name: "y",
+  });
+  const file = await send({ kind: "file", project: PROJECT });
   const app = await send({ kind: "app", app: APP });
   const get = (conditions: RequestContext["conditions"], annotation: string) =>
     createAnnotationReads().get.handle(
-      { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+      snapshotOf(world.sql),
       {
         ...USER,
         principal: `agent:${SESSION}`,
@@ -281,30 +253,47 @@ Deno.test("project 조건 agent는 자기 project의 artifact annotation만, app
     );
   const code = (r: { ok: boolean; error?: { code: string } }) =>
     r.ok ? "ok" : r.error!.code;
+
   const project = { project: PROJECT };
-  assertEquals(code(get(project, mine!)), "ok");
-  assertEquals(code(get(project, theirs!)), "not_found");
-  assertEquals(code(get(project, app!)), "not_found");
-  assertEquals(code(get({}, mine!)), "forbidden");
-  assertEquals(code(get({}, app!)), "forbidden");
-  // 앱이 있는 project의 Project Manager는 둘 다 가진다.
-  const both = { app: APP, project: PROJECT };
-  assertEquals(code(get(both, app!)), "ok");
-  assertEquals(code(get(both, mine!)), "ok");
-  assertEquals(code(get(both, theirs!)), "not_found");
-  const otherApp = await send({
-    kind: "app",
-    app: "app_01hzzzzzzzzzzzzzzzzzzzzzzb",
-  });
-  assertEquals(code(get(both, otherApp!)), "not_found");
-  for (const id of [mine, theirs, app]) {
+  assertEquals(code(get(project, mine)), "ok");
+  assertEquals(code(get(project, file)), "ok");
+  assertEquals(code(get(project, theirs)), "not_found");
+  assertEquals(code(get(project, ofApp)), "not_found");
+  assertEquals(code(get(project, app)), "not_found");
+
+  const engineer = { app: APP };
+  assertEquals(code(get(engineer, app)), "ok");
+  assertEquals(code(get(engineer, mine)), "not_found");
+  assertEquals(code(get(engineer, ofApp)), "not_found");
+  assertEquals(
+    code(get({ app: "app_01hzzzzzzzzzzzzzzzzzzzzzzb" }, app)),
+    "not_found",
+  );
+
+  // 조건이 없는 agent(앱 place의 Operator 등)는 읽을 수 없다.
+  assertEquals(code(get({}, mine)), "forbidden");
+  assertEquals(code(get({}, app)), "forbidden");
+
+  // screenshot 경로는 읽는 쪽 값에 실린다. 사람은 전부 읽는다.
+  const own = get(engineer, app);
+  assert(own.ok && own.value.annotations[0]!.screenshot_path !== null);
+  for (const id of [mine, theirs, ofApp, file, app]) {
     assert(
       createAnnotationReads().get.handle(
-        { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+        snapshotOf(world.sql),
         USER,
         { annotation: id } as never,
       ).ok,
     );
   }
+  assertEquals(
+    (createAnnotationReads().get.handle(
+      snapshotOf(world.sql),
+      USER,
+      { annotation: mine } as never,
+    ) as { value: { annotations: { target: unknown }[] } }).value
+      .annotations[0]!.target,
+    { kind: "artifact", domain: DOMAIN_OF_PROJECT, name: "orders" },
+  );
   world.close();
 });

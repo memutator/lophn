@@ -48,8 +48,8 @@ function blockOf(annotation: Annotation): string {
       view: annotation.view.screen ?? undefined,
     }
     : {
-      project: target.project,
-      artifact: target.name ?? undefined,
+      project: target.kind === "file" ? target.project : undefined,
+      artifact: target.kind === "artifact" ? target.name : undefined,
       view: annotation.view.path,
     };
   return renderTag("annotation", {

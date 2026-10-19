@@ -1,5 +1,5 @@
 // screenshot blob 선언. 선언 방식은 tickets/blobs.ts와 같다. 일반 읽기는 열지 않는다. coding agent는
-// 읽는 쪽 값의 파일 경로로, Project Manager는 image.read가 annotations.get의 screenshot_path로 읽는다.
+// 읽는 쪽 값의 파일 경로로, App Engineer와 PM·Operator는 image.read가 annotations.get의 screenshot_path로 읽는다.
 import {
   ANNOTATION_SCREENSHOT_MAX_BYTES,
   ANNOTATION_SCREENSHOT_PURPOSE,

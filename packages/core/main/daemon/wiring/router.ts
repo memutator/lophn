@@ -7,7 +7,12 @@ import {
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
-import { appProjectOf } from "../../../apps/lookups.ts";
+import { appExists, appStatusOf } from "../../../apps/lookups.ts";
+import { domainOwnerOf } from "../../../domains/lookups.ts";
+import { projectStatusOf } from "../../../projects/lookups.ts";
+import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
+import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
+import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import {
   callCancel,
   callReply,
@@ -29,7 +34,6 @@ import {
   rejected,
 } from "../../../lophn-agent/session/message-body.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
-import { artifactsFolder } from "../../../agent-roles/place/data-folder.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
 import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
@@ -74,7 +78,7 @@ const ROUTER_CONTEXT: AuthenticatedContext = {
   credential_ref: ROUTER_PRINCIPAL,
 };
 
-// annotation 묶음을 앱의 Project Manager에게 사람 메시지로 넣는 자격이다. 보내기는 사람이 누른 단추의 효과라서 actor가
+// annotation 묶음을 받는 쪽 agent에게 사람 메시지로 넣는 자격이다. 보내기는 사람이 누른 단추의 효과라서 actor가
 // user이고, 기동 때 ledger에 기록한다. 기동마다 다시 쓰는 core 안 자격이라 ref는 `machine:`으로 시작한다.
 const ANNOTATION_DELIVERY_PRINCIPAL = "machine:annotation-delivery";
 const ANNOTATION_DELIVERY_CONTEXT: AuthenticatedContext = {
@@ -204,19 +208,41 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      // 앱이 묶인 project. 앱을 받는 일은 그 project의 Project Manager가 맡는다.
-      const appProject = (app: string): Result<string> => {
+      // 앱을 받는 일은 그 앱의 App Engineer가 맡는다.
+      const agentOfApp = (app: string): Result<AgentRef> => {
         const found = ledgerSnapshot(
           ctx.ledgerPath,
-          (lookup) => appProjectOf(lookup.sql, app),
+          (lookup) => appExists(lookup.sql, app),
         );
         if (!found.ok) return found;
+        return found.value
+          ? ok({ role: "app_engineer", app: app as Id<"app"> })
+          : err({ code: "not_found", message: "app not found" });
+      };
+      // domain을 받는 일은 그 domain 그릇의 agent가 맡는다. 없는 domain이나 보관한 owner는 not_found다.
+      const ownerOfDomain = (domain: string): Result<DomainOwner> => {
+        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+          const owner = domainOwnerOf(lookup.sql, domain);
+          if (owner === null) return null;
+          const status = owner.kind === "project"
+            ? projectStatusOf(lookup.sql, owner.id)
+            : appStatusOf(lookup.sql, owner.id);
+          return status === "active" ? owner : null;
+        });
+        if (!found.ok) return found;
         return found.value === null
-          ? err({ code: "not_found", message: "app not found" })
+          ? err({ code: "not_found", message: "domain or its owner not found" })
           : ok(found.value);
       };
-      // session이 있으면 그 Project Manager session에, 없으면 새 session을 열어 사람 메시지 하나로 넣는다. 이미지는
-      // 메시지에 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
+      const agentOfOwner = (owner: DomainOwner): AgentRef =>
+        owner.kind === "project"
+          ? { role: "project_manager", project: owner.id }
+          : { role: "app_engineer", app: owner.id };
+      const agentOfDomain = (domain: string): Result<AgentRef> => {
+        const owner = ownerOfDomain(domain);
+        return owner.ok ? ok(agentOfOwner(owner.value)) : owner;
+      };
+      // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
       const run = async (route: { name: string }, input: unknown) => {
@@ -232,122 +258,126 @@ export const routerWiring: WiringFactory = () => {
         );
         return done.ok ? ok(done.value.result) : done;
       };
+      const agentKey = (agent: AgentRef) =>
+        agent.role === "app_engineer"
+          ? `app:${agent.app}`
+          : agent.role === "project_manager"
+          ? `prj:${agent.project}`
+          : agent.role;
+      // 지정된 session이 agent의 열린 session인지 본다. 아니면 conflict다.
+      const checkOpenSession = async (
+        session: string,
+        agent: AgentRef,
+        message: string,
+      ): Promise<Result<void>> => {
+        const found = await ctx.runtime.readers.read(
+          agentSessionRead,
+          ANNOTATION_DELIVERY_CONTEXT,
+          { session },
+        );
+        if (!found.ok) return found;
+        const { agent: actual, lifecycle } = (found.value as {
+          session: { agent: AgentRef; lifecycle: string };
+        }).session;
+        const same = agentKey(actual) === agentKey(agent);
+        return same && lifecycle === "open"
+          ? ok(undefined)
+          : err({ code: "conflict", message });
+      };
+      // session을 정해 사람 메시지 하나로 넣는다. session이 null이면 agent의 새 session을 연다.
+      const sendHuman = async (
+        agent: AgentRef,
+        session: string | null,
+        input: { text: string; annotations: readonly string[] },
+      ): Promise<Result<{ session: string; message: string }>> => {
+        if (session === null) {
+          const opened = await run(openAgentSession, {
+            id: ids.newId("ses"),
+            agent,
+            opening_context: null,
+          });
+          if (!opened.ok) return opened;
+          session = (opened.value as { id: string }).id;
+        }
+        const message = ids.newId("msg");
+        const sent = await run(sendMessage, {
+          id: message,
+          session,
+          content: {
+            schema_version: 1,
+            parts: [{ kind: "text", text: input.text }],
+          },
+          delivery: "next_turn",
+          attached: [],
+          refs: input.annotations.map((id) => ({ kind: "annotation", id })),
+        });
+        if (!sent.ok) return sent;
+        return ok({ session, message });
+      };
+      // 지정된 session이 있으면 agent의 열린 session인지 보고, 없으면 새 session에 넣는다.
+      const deliverTo = async (
+        agent: AgentRef,
+        session: string | null,
+        input: { text: string; annotations: readonly string[] },
+        notOpen: string,
+      ) => {
+        if (session !== null) {
+          const checked = await checkOpenSession(session, agent, notOpen);
+          if (!checked.ok) return checked;
+        }
+        return await sendHuman(agent, session, input);
+      };
       const delivery: AnnotationDelivery = {
         async deliver(input) {
-          const project = appProject(input.app);
-          if (!project.ok) return project;
-          let session = input.session;
-          if (session === null) {
-            const opened = await run(openAgentSession, {
-              id: ids.newId("ses"),
-              agent: { role: "project_manager", project: project.value },
-              opening_context: null,
-            });
-            if (!opened.ok) return opened;
-            session = (opened.value as { id: string }).id;
-          } else {
-            const found = await ctx.runtime.readers.read(
-              agentSessionRead,
-              ANNOTATION_DELIVERY_CONTEXT,
-              { session },
-            );
-            if (!found.ok) return found;
-            const { agent, lifecycle } = (found.value as {
-              session: {
-                agent: { role: string; project?: string };
-                lifecycle: string;
-              };
-            }).session;
-            if (
-              agent.role !== "project_manager" ||
-              agent.project !== project.value || lifecycle !== "open"
-            ) {
-              return err({
-                code: "conflict",
-                message: "not an open session of this app's project manager",
-              });
-            }
-          }
-          const message = ids.newId("msg");
-          const sent = await run(sendMessage, {
-            id: message,
-            session,
-            content: {
-              schema_version: 1,
-              parts: [{ kind: "text", text: input.text }],
-            },
-            delivery: "next_turn",
-            attached: [],
-            refs: input.annotations.map((id) => ({ kind: "annotation", id })),
-          });
-          if (!sent.ok) return sent;
-          return ok({ session, message });
+          const agent = agentOfApp(input.app);
+          if (!agent.ok) return agent;
+          return await deliverTo(
+            agent.value,
+            input.session,
+            input,
+            "not an open session of this app's engineer",
+          );
         },
-        // 받는 쪽 후보 순서: (a) 그 artifact 폴더에 마지막으로 쓴 열린 session(rewind 기록), (b) 그 project의 PM.
-        // 입력 session은 (b)에서만 쓴다. 사람의 `.html`(name이 null)은 (a)가 없다.
+        // 받는 쪽 후보 순서: (a) 그 domain의 artifacts 폴더에 마지막으로 쓴 열린 session(rewind 기록),
+        // (b) 입력 session(그 domain owner의 열린 PM 또는 App Engineer), (c) owner의 새 session.
         async deliverArtifact(input) {
-          let session: string | null = null;
-          if (input.name !== null) {
-            const name = input.name;
-            const root = await realpath(
-              artifactsFolder(ctx.root.path, input.project),
-            ).catch(() => null);
-            if (root !== null) {
-              const found = ledgerSnapshot(
-                ctx.ledgerPath,
-                (lookup) => lastArtifactWriter(lookup.sql, { root, name }),
-              );
-              if (!found.ok) return found;
-              session = found.value?.session ?? null;
-            }
-          }
-          if (session === null && input.session !== null) {
-            const found = await ctx.runtime.readers.read(
-              agentSessionRead,
-              ANNOTATION_DELIVERY_CONTEXT,
-              { session: input.session },
+          const owner = ownerOfDomain(input.domain);
+          if (!owner.ok) return owner;
+          const agent = agentOfOwner(owner.value);
+          const root = await realpath(
+            domainArtifactsFolder(ctx.root.path, input.domain),
+          ).catch(() => null);
+          if (root !== null) {
+            const found = ledgerSnapshot(
+              ctx.ledgerPath,
+              (lookup) =>
+                lastArtifactWriter(lookup.sql, {
+                  root,
+                  name: input.name,
+                  owner: owner.value,
+                  roles: [agent.role, "operator"],
+                }),
             );
             if (!found.ok) return found;
-            const { agent, lifecycle } = (found.value as {
-              session: {
-                agent: { role: string; project?: string };
-                lifecycle: string;
-              };
-            }).session;
-            if (
-              agent.role !== "project_manager" ||
-              agent.project !== input.project || lifecycle !== "open"
-            ) {
-              return err({
-                code: "conflict",
-                message: "not an open session of this project's manager",
-              });
+            if (found.value !== null) {
+              return await sendHuman(agent, found.value.session, input);
             }
-            session = input.session;
           }
-          if (session === null) {
-            const opened = await run(openAgentSession, {
-              id: ids.newId("ses"),
-              agent: { role: "project_manager", project: input.project },
-              opening_context: null,
-            });
-            if (!opened.ok) return opened;
-            session = (opened.value as { id: string }).id;
-          }
-          const message = ids.newId("msg");
-          const sent = await run(sendMessage, {
-            id: message,
-            session,
-            content: {
-              schema_version: 1,
-              parts: [{ kind: "text", text: input.text }],
-            },
-            delivery: "next_turn",
-            attached: [],
-            refs: input.annotations.map((id) => ({ kind: "annotation", id })),
-          });
-          if (!sent.ok) return sent;
-          return ok({ session, message });
+          return await deliverTo(
+            agent,
+            input.session,
+            input,
+            "not an open session of this domain's owner",
+          );
+        },
+        // 사람의 폴더에 있는 `.html`은 그 project의 PM이 받는다.
+        async deliverFile(input) {
+          return await deliverTo(
+            { role: "project_manager", project: input.project as Id<"prj"> },
+            input.session,
+            input,
+            "not an open session of this project's manager",
+          );
         },
       };
       ctx.provide("annotationDelivery", delivery);
@@ -380,7 +410,8 @@ export const routerWiring: WiringFactory = () => {
         approvals: ctx.approvals,
         router: reaction,
         events: createEventsReader(eventsConnection.sql),
-        appProject: (app) => Promise.resolve(appProject(app)),
+        agentOfApp,
+        agentOfDomain: (domain) => Promise.resolve(agentOfDomain(domain)),
       });
       return ok({
         writer: (inner) =>

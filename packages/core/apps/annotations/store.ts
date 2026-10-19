@@ -24,13 +24,18 @@ function dataRootOf(sql: Query): string | null {
 
 // 묶음 행에서 target을 읽는다. 표의 CHECK가 칸 조합을 지킨다.
 function targetOf(row: Record<string, unknown>): AnnotationTarget {
-  return row["target_kind"] === "app"
-    ? { kind: "app", app: String(row["app"]) as never }
-    : {
-      kind: "artifact",
-      project: String(row["project"]) as never,
-      name: row["artifact"] === null ? null : String(row["artifact"]),
-    };
+  switch (row["target_kind"]) {
+    case "app":
+      return { kind: "app", app: String(row["app"]) as never };
+    case "artifact":
+      return {
+        kind: "artifact",
+        domain: String(row["domain"]) as never,
+        name: String(row["artifact"]),
+      };
+    default:
+      return { kind: "file", project: String(row["project"]) as never };
+  }
 }
 
 function readOf(row: Record<string, unknown>, root: string | null) {
@@ -64,7 +69,7 @@ export function loadAnnotations(
   const root = dataRootOf(sql);
   return ids.flatMap((id) => {
     const row = sql.get(
-      `SELECT a.*, b.target_kind, b.app, b.project, b.artifact
+      `SELECT a.*, b.target_kind, b.app, b.project, b.domain, b.artifact
        FROM annotations a JOIN annotation_batches b ON b.id = a.batch
        WHERE a.id = ?`,
       [id],

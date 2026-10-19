@@ -6,14 +6,15 @@ import type {
 
 // annotation module이 core 바깥에 기대는 것. 구현은 lead가 조립한다.
 type AppId = string;
+type DomainId = string;
 type ProjectId = string;
 type SessionId = string;
 type MessageId = string;
 
 export type AnnotationDelivery = {
   /**
-   * 그 앱의 Project Manager에게 사람 메시지 하나로 넣는다. session이 있으면 그 session
-   * (그 앱 Project Manager의 열린 session이어야 한다), null이면 새 session을 연다.
+   * 그 앱의 App Engineer에게 사람 메시지 하나로 넣는다. session이 있으면 그 session
+   * (그 앱 App Engineer의 열린 session이어야 한다), null이면 새 session을 연다.
    * 보관한 앱이면 conflict다. 구현은 Router다.
    */
   deliver(input: {
@@ -23,13 +24,23 @@ export type AnnotationDelivery = {
     annotations: readonly AnnotationId[];
   }): Promise<Result<{ session: SessionId; message: MessageId }>>;
   /**
-   * artifact annotation을 받는 쪽에게 사람 메시지 하나로 넣는다. session은 pane에 열려 있는 그 project의
-   * Project Manager session이고 받는 쪽을 정할 때 쓰는 마지막 후보일 뿐이다. 없는 project나 보관 project면
-   * 실패한다. 구현은 Router다(wave 2).
+   * artifact annotation을 받는 쪽에게 사람 메시지 하나로 넣는다. 후보 순서는 (a) 그 domain의 artifacts 폴더에
+   * 마지막으로 쓴 열린 session, (b) 입력 session(그 domain owner의 열린 PM 또는 App Engineer여야 한다),
+   * (c) owner의 새 session이다. 없는 domain이나 보관한 owner면 실패한다. 구현은 Router다.
    */
-  deliverArtifact?(input: {
+  deliverArtifact(input: {
+    domain: DomainId;
+    name: string;
+    session: SessionId | null;
+    text: string;
+    annotations: readonly AnnotationId[];
+  }): Promise<Result<{ session: SessionId; message: MessageId }>>;
+  /**
+   * 사람의 폴더에 있는 `.html`의 annotation을 그 project의 PM에게 사람 메시지 하나로 넣는다. session이 있으면
+   * 그 project의 열린 PM session이어야 하고, null이면 새 session을 연다. 구현은 Router다.
+   */
+  deliverFile(input: {
     project: ProjectId;
-    name: string | null;
     session: SessionId | null;
     text: string;
     annotations: readonly AnnotationId[];

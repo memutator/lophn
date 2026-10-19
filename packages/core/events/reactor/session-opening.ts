@@ -12,6 +12,7 @@ import {
   domainEventSchema,
 } from "../../../protocol/events/mod.ts";
 import type { CallEnvelope } from "../../../protocol/lophn-agent/calls.ts";
+import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import type { Approvals } from "../../approvals/ports.ts";
 import { reactionIdempotencyKey } from "../../storage/ledger/reaction.ts";
 import type { Reactor, ReactorHandler } from "../ports.ts";
@@ -30,36 +31,36 @@ type NewWorkDeps = {
   router: ReactionRouter;
   // 근거 seq의 events 행. 보류 request가 허락된 뒤 event를 다시 읽는다.
   events: { at(seq: string): Promise<Result<unknown | null>> };
-  // 앱이 묶인 project. 앱을 받는 event는 그 project의 Project Manager를 부른다. wiring이 ledger 연결로 꽂는다.
-  appProject(app: string): Promise<Result<string>>;
+  // 앱을 받는 event는 그 앱의 App Engineer를 부른다. 앱이 없으면 not_found다. wiring이 ledger 연결로 꽂는다.
+  agentOfApp(app: string): Result<AgentRef>;
+  // domain을 받는 event는 그 domain 그릇의 agent(project면 PM, 앱이면 App Engineer)를 부른다.
+  // owner가 보관됐거나 없으면 not_found다.
+  agentOfDomain(domain: string): Promise<Result<AgentRef>>;
 };
 
 type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
 const newWorkHandlerName = (type: ReactionEventType) => `new-work:${type}`;
 
-// event를 받을 Project Manager의 project. 앱을 받는 event는 앱이 묶인 project다.
-async function projectOf(
-  deps: NewWorkDeps,
-  event: NewWork,
-): Promise<Result<string>> {
+// event를 받을 agent. 앱 일은 그 앱의 App Engineer다.
+function agentOf(deps: NewWorkDeps, event: NewWork): Result<AgentRef> {
   switch (event.type) {
     case "ProblemOpened":
     case "ProblemReopened":
     case "ReleaseActivationFailed":
-      return await deps.appProject(event.payload.app);
+      return deps.agentOfApp(event.payload.app);
     case "AppRestartHalted":
-      return await deps.appProject(event.subject);
+      return deps.agentOfApp(event.subject);
     case "KindViolationFound":
     case "PublicToolsChanged":
-      return ok(event.payload.project);
+      return ok({ role: "project_manager", project: event.payload.project });
   }
 }
 
-// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다. project는 projectOf(event)다.
+// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다. agent는 agentOf(event)다.
 function callOf(
   event: NewWork,
-  project: string,
+  agent: AgentRef,
 ): Omit<CallEnvelope, "call"> {
   const from = { kind: "program" as const, event_seq: event.seq };
   const base = {
@@ -69,29 +70,26 @@ function callOf(
     dedup: null,
     options: null,
   };
-  const manager = {
-    kind: "new_session" as const,
-    agent: { role: "project_manager" as const, project },
-  };
+  const to = { kind: "new_session" as const, agent };
   switch (event.type) {
     case "ProblemOpened":
       return {
         ...base,
-        to: manager,
+        to,
         body: "A new problem was opened for this app.",
         refs: [{ kind: "problem", problem: event.subject }],
       };
     case "ProblemReopened":
       return {
         ...base,
-        to: manager,
+        to,
         body: "A solved problem happened again on the active release.",
         refs: [{ kind: "problem", problem: event.subject }],
       };
     case "AppRestartHalted":
       return {
         ...base,
-        to: manager,
+        to,
         body:
           `The app crashed ${event.payload.crashes} times in a short time, so its automatic restart stopped. Release: ${event.payload.release}.`,
         refs: [],
@@ -99,7 +97,7 @@ function callOf(
     case "ReleaseActivationFailed":
       return {
         ...base,
-        to: manager,
+        to,
         body:
           `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,
         refs: [{ kind: "ticket", ticket: event.payload.ticket }],
@@ -107,10 +105,7 @@ function callOf(
     case "KindViolationFound":
       return {
         ...base,
-        to: {
-          kind: "new_session",
-          agent: { role: "project_manager", project: event.payload.project },
-        },
+        to,
         body:
           "New kind violations were found in this project. Read them with kind.check.",
         refs: [],
@@ -119,7 +114,7 @@ function callOf(
       const tools = event.payload.tools.join(", ");
       return {
         ...base,
-        to: manager,
+        to,
         body: event.payload.change === "changed"
           ? `A tool of an app you use or own changed (${tools}). Re-check the skills that call it.`
           : `A release was blocked because it removes public tools that other projects use (${tools}).`,
@@ -152,9 +147,9 @@ async function sendKey(event: NewWork): Promise<Result<string>> {
 async function send(deps: NewWorkDeps, event: NewWork): Promise<Result<void>> {
   const key = await sendKey(event);
   if (!key.ok) return key;
-  const project = await projectOf(deps, event);
-  if (!project.ok) return project;
-  return await deps.router.send(callOf(event, project.value), key.value);
+  const agent = agentOf(deps, event);
+  if (!agent.ok) return agent;
+  return await deps.router.send(callOf(event, agent.value), key.value);
 }
 
 function handlerFor<T extends ReactionEventType>(

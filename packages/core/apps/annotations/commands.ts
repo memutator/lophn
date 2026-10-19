@@ -87,8 +87,8 @@ export function createAnnotationCommands(): {
       route: annotationPersist,
       handle(tx, ctx, input) {
         if (ctx.actor !== "user") return forbidden("only a person sends");
-        // artifact의 project는 검사하지 않는다. 없거나 보관한 project는 전달에서 session을 못 열어 실패하고
-        // send가 이 묶음을 지운다.
+        // artifact의 domain과 file의 project는 검사하지 않는다. 없거나 보관한 그릇은 전달에서 session을 열지 못해
+        // 실패하고 send가 이 묶음을 지운다.
         if (input.target.kind === "app") {
           const registered = tx.port(appRegistrationLookup).get(
             input.target.app,
@@ -108,13 +108,14 @@ export function createAnnotationCommands(): {
         const batch = tx.newId("anb");
         tx.sql.run(
           `INSERT INTO annotation_batches
-             (id, target_kind, app, project, artifact, sent_at, sent_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (id, target_kind, app, project, domain, artifact, sent_at, sent_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             batch,
             target.kind,
             target.kind === "app" ? target.app : null,
-            target.kind === "artifact" ? target.project : null,
+            target.kind === "file" ? target.project : null,
+            target.kind === "artifact" ? target.domain : null,
             target.kind === "artifact" ? target.name : null,
             tx.now(),
             ctx.actor,

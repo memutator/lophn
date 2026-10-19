@@ -44,7 +44,7 @@ project의 문서가 어떤 모양이어야 하는지는 kind 파일(`kinds.yaml
 - scan은 `sync`만 한다. `get`·`list`·`check`는 index를 있는 그대로 읽는다. dispatcher가 읽기 앞에 늘 sync를 보내므로 읽기는 최대 2초 묵은 것이다.
   - 위반을 problem으로 올리는 길은 sync 답 하나다. 읽기가 scan하면 그 결과가 dispatcher를 거치지 않아 위반이 오르지 않는다.
   - 직전 scan 뒤 2초 안이면 다시 훑지 않는다. 감시의 신호는 `force`로 이 규칙을 건너뛴다. 감시는 힌트일 뿐이라 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
-- 위반은 project 범위 problem(`project_problems`, `packages/core/problems/project/`)이다. `problem.sync_project`는 그 project의 지금 위반 **전체**를 받아 처음 보이는 것은 열고, 닫혔다 다시 보이는 것은 다시 열고, 안 보이는 열린 것은 닫는다. 목록이 200개에서 잘렸으면(`truncated`) 닫지 않는다.
+- 위반은 domain 범위 problem(`domain_problems`, `packages/core/problems/domain/`)이다. `problem.sync_domain`은 그 domain의 지금 위반 **전체**를 받아 처음 보이는 것은 열고, 닫혔다 다시 보이는 것은 다시 열고, 안 보이는 열린 것은 닫는다. 목록이 200개에서 잘렸으면(`truncated`) 닫지 않는다.
   - 같은 위반의 정체성은 `(source, kind, path, field, rule)`이고 JSON 배열 글로 저장한다. NUL로 이으면 node:sqlite가 읽을 때 잘라 저장된 행과 다시 맞지 않는다.
   - 이 command는 kinds dispatch의 machine 자격(`KINDS_DISPATCH_PRINCIPAL`)만 낸다. dispatcher는 위반 hash가 마지막으로 올린 값과 다를 때만 내고, 실패하면 기억하지 않아 다음 sync가 다시 낸다. core를 다시 켠 뒤 첫 sync는 늘 낸다.
   - 새로 열렸거나 다시 열린 위반이 있을 때만 `KindViolationFound {project, count}`를 한 번 낸다. 기본 reaction이 그 project의 PM session을 연다. 위반이 줄거나 사라지는 것은 event가 아니다.

@@ -51,6 +51,7 @@ import { createCoreRegistration as createRouterRegistration } from "./wiring/rou
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createCoreRegistration as createCodingRegistration } from "../../apps/tickets/coding/register.ts";
 import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
+import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
@@ -67,6 +68,7 @@ export const TEAMS = [
   { createCoreRegistration: createAnnotationsRegistration },
   { createCoreRegistration: createCodingRegistration },
   { createCoreRegistration: createPlaceRegistration },
+  { createCoreRegistration: createUsageRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -88,6 +90,7 @@ export const TEAM_MODULES = [
   new URL("../../apps/tickets/coding/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
+  new URL("./wiring/apps-usage.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.

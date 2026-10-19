@@ -2,7 +2,7 @@
 
 ticket의 `examples` check가 앱의 tool 이름을 쓰게 한다: `steps[{ api, input, expect }]`가 `steps[{ tool, input, expect }]`가 된다. 실행 길(test bundle의 control socket으로 바로 보낸다. Gate·invocation·rewind를 거치지 않는다)은 그대로다. 예시를 돌리는 test runner(`core/problems/tests`)와 ticket을 만드는 agent tool의 설명, 관련 fixture를 맞춘다.
 
-- 단위: domain-tools (wave 2)
+- 단위: domain-tools (wave 3)
 - 선행: dt-call-route
 - 소유(이 task만 고친다):
   - `packages/protocol/coding-agent/ticket/values.ts`

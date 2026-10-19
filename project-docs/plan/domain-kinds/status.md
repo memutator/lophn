@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py domain-kinds build`가 `tasks/*.md`에서 id
 | `dk-kinds-host` | kinds | 2 | 없음 | merged | kinds/dk-kinds-host | 8b114a399 |  |
 | `dk-kinds-worker` | kinds | 2 | 없음 | merged | kinds/dk-kinds-worker | 586630cf6 |  |
 | `dk-problem-core` | problem | 2 | 없음 | running | problem/dk-problem-core |  |  |
-| `dk-prompt-place` | prompt | 2 | 없음 | running | prompt/dk-prompt-place |  |  |
+| `dk-prompt-place` | prompt | 2 | 없음 | merged | prompt/dk-prompt-place | b5ace21ab |  |
 | `dk-chips-reactions` | chips | 3 | dk-shell-workspace | todo |  |  |  |
 | `dk-delete-context-tools` | cleanup | 3 | dk-operator-contexts | todo |  |  |  |
 | `dk-delete-core` | cleanup | 3 | dk-operator-contexts | todo |  |  |  |

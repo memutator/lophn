@@ -46,6 +46,9 @@
   - L7 check를 넓힌다.
   - T19-op은 막힌 상대를 이름으로 가리킨다.
   - `tests/eval/checks/calls.ts`의 `callAfterAppCreate`가 기대하는 project 입력을 새 `app.create` 모양에 맞춘다.
+- **eval도 App Engineer를 되살린다(agent, brief 때).** 앱 일(ticket, coding agent에게 맡기기)은 App Engineer만 한다(`tool-lists.ts`). eval 참가자, 받는 쪽 place, 시나리오의 앱 일을 App Engineer로 옮기고, PM이 앱 일을 하던 CA1-ask·CA12는 `scenarios/app-engineer/`로 돌린다(`tr-eval-app-engineer`).
+- **e2e가 찾은 제품 bug 하나(brief 때):** domain을 만들 때 kind 감시가 domain 폴더가 생기기 전에 열려, 처음 쓴 `kinds.yaml`을 다음 command까지 보지 못한다. `tr-e2e-kinds`가 먼저 실패를 확인하고 고친다.
+- **e2e 시간은 unit으로 내려 먼저 줄인다(agent).** `reaction_test`의 crash-loop backoff(31초, 멈춘 적이 있다)를 supervisor unit으로 내리는 것이 첫 후보다(`tr-e2e-budget`).
 - **e2e 검사를 다시 켠다:** 이 계획의 마지막 land는 `LOPHN_LAND_SKIP_E2E` 없이 돈다. 앞 wave의 land는 e2e가 아직 깨져 있으면 `LOPHN_LAND_SKIP_E2E=1`로 돈다.
 
 ## brief

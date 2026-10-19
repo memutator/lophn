@@ -40,6 +40,10 @@
   - session `tool_calls.app_api`
   - 읽기 route 이름 `app.app_api`·`app.app_api_index`(출력 key는 이미 `tools`)
   - agent tool 접두 `app__`
+- **`domain-kinds`가 넘긴 것:** 범위 밖이라 그 계획이 두고 간 것이다.
+  - `PRODUCT.md`에 context 말이 남아 있다. AGENT-ROLE의 context 말은 `domain-place`가 고친다.
+  - `.claude/skills/issue/SKILL.md`의 주제 목록에 `contexts`가 있다.
+  - `packages/protocol/lophn-agent/tool-values.ts`의 `context_binding`(app-api binding)을 eval fixture만 쓴다.
 - **나누는 법:** 이름 바꾸기는 package를 건너 type check가 한 번에 맞아야 한다. 그래서 codemod task 하나로 할지, 계약을 먼저 고정한 뒤 영역별로 나눌지는 brief가 정한다.
 
 ## e2e

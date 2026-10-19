@@ -1,5 +1,6 @@
 // 모든 BrowserWindow·WebContentsView에 같은 격리 기본값을 쓴다.
 // 배포 sandbox 실패를 --no-sandbox로 우회하지 않는다.
+import { ARTIFACT_SCHEME } from "../artifact/session.ts";
 
 export const SHELL_SCHEME = "lophn-shell";
 
@@ -14,7 +15,7 @@ interface SchemeRegistry {
 
 // shell 설치 파일과 앱 화면. service worker·CORS 우회·CSP 우회 권한은 주지 않는다
 // (앱 service worker가 옛 release의 byte를 대신 내주지 못하게 한다).
-const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app"];
+const VIEW_SCHEMES = [SHELL_SCHEME, "lophn-app", ARTIFACT_SCHEME];
 
 /**
  * session을 만들기 전에 한 번. Electron은 이 호출을 한 번만 받으므로 두 scheme을 함께

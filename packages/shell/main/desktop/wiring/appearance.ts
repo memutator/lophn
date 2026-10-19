@@ -14,11 +14,13 @@ import {
   appearanceCss,
   parseAppearance,
 } from "../../../../design/appearance.ts";
+import { ARTIFACT_SCHEME } from "../../artifact/session.ts";
+import { artifactDocumentCss } from "../../artifact/theme-css.ts";
 import { checkCaller } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 // devtools 같은 lophn 것이 아닌 문서에는 넣지 않는다.
-const LOPHN_DOCUMENT = /^lophn-(?:shell|app):\/\//;
+const LOPHN_DOCUMENT = /^lophn-(?:shell|app|artifact):\/\//;
 
 export function register(ctx: ShellContext): Registered {
   const { ipc, overlays } = ctx;
@@ -38,8 +40,12 @@ export function register(ctx: ShellContext): Registered {
       if (old !== undefined && !fresh && !contents.isDestroyed()) {
         await contents.removeInsertedCSS(old).catch(() => {});
       }
-      if (css === "" || contents.isDestroyed()) return;
-      const key = await contents.insertCSS(css).catch(() => undefined);
+      // artifact 문서에는 base token이 없어 css가 빈 글이어도 넣는다.
+      const text = contents.getURL().startsWith(`${ARTIFACT_SCHEME}://`)
+        ? artifactDocumentCss(css)
+        : css;
+      if (text === "" || contents.isDestroyed()) return;
+      const key = await contents.insertCSS(text).catch(() => undefined);
       if (key !== undefined) inserted.set(contents, key);
     };
     queue.set(contents, (queue.get(contents) ?? Promise.resolve()).then(run));

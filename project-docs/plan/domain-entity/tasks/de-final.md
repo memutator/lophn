@@ -77,3 +77,4 @@
   - place 정보의 "a Operator" → "an Operator".
   - Drafts mock(`tools/wireframes/mock/domain/`)의 "Project Manager" 같은 옛 이름은 Drafts를 지울 때 같이 사라진다.
 - **넘기는 것(이 task가 하지 않는다):** `tests/e2e/annotation_test.ts`가 PM을 기대하는 것, eval 자료의 옛 이름은 다음 계획(e2e 다시 쓰기, eval 자료 다시 만들기)의 몫이다. type만 맞춘다.
+- **층 이름 바꾸기(README "lead가 할 일"의 `layers.md` 이름 충돌):** core 층 이름 "domain module"(projects, apps, problems, domains처럼 업무 능력으로 세로로 자른 조각)이 새 entity domain과 부딪힌다. 코드 쪽 이름을 **feature module**로 바꾼다. `tools/check-deps.ts`의 `CORE_DOMAINS` → `CORE_FEATURES`, `HARNESS_DOMAIN_PROTOCOLS` → `HARNESS_FEATURE_PROTOCOLS`, 그 file의 층 주석, 그리고 `grep -rn "domain module" packages tools`가 찾는 주석을 "feature module"로 고친다. entity domain을 뜻하는 말(`domains` module, domain event 같은 기존 용어)은 그대로 둔다. "domain event"(program이 판정한 사실)는 이미 다른 뜻으로 굳은 말이라 이 task에서 바꾸지 않는다. 문서(`project-docs/`)는 lead가 같은 이름으로 고친다.

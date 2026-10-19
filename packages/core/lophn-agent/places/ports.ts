@@ -26,7 +26,7 @@ export interface OperatorDirectory {
   operators(): readonly OperatorInfo[];
 }
 
-// role마다 다른 규칙. agent-roles가 project·앱·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
+// role마다 다른 규칙. agent-roles가 project·Operator 조회를 쥐고 만들어 wiring이 꽂는다.
 export type PlaceRoleRules = {
   // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
   nameOf(ref: AgentRef): string;
@@ -34,7 +34,7 @@ export type PlaceRoleRules = {
   resolveNamed(named: NamedAgent): Result<CallAgent>;
 };
 
-// session의 agent와 place를 확인하는 데 필요한 것. place 정보는 project와 앱 module의 port로 읽는다.
+// session의 agent와 place를 확인하는 데 필요한 것. place 정보는 project module의 port로 읽는다. apps는 coding agent 이름 풀기만 쓴다.
 export type PlaceDeps = {
   projects: Pick<ProjectDirectory, "project" | "projectByName">;
   apps: Pick<AppDirectory, "app" | "appByName">;

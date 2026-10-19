@@ -48,7 +48,7 @@ type ExtensionRegistryDeps = {
 export type ExtensionRegistry = {
   // 이 place의 agent가 발견하는 skill이다. 내장, 전역, project 순으로 덮고 끈 것은 enabled false다.
   skills(place: AgentPlace): SkillListing;
-  // 이 place에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다. 앱 place에는 project 층이 없다.
+  // 이 place에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다.
   mcpServers(place: AgentPlace): readonly McpRuntimeServer[];
 };
 

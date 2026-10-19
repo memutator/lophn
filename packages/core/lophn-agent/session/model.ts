@@ -45,11 +45,10 @@ export const conversationSchemaSteps: readonly SchemaStep[] = [
     sql: `
 create table sessions (
   id text primary key,
-  role text not null check (role in ('lophn', 'project_manager', 'app_engineer', 'operator')),
+  role text not null check (role in ('lophn', 'project_manager', 'operator')),
   project text,
-  app text,
   operator text,
-  place_kind text check (place_kind is null or place_kind in ('project', 'app')),
+  place_kind text check (place_kind is null or place_kind = 'project'),
   place_id text,
   title text check (title is null or length(trim(title)) > 0),
   lifecycle text not null default 'open' check (lifecycle in ('open', 'archived')),
@@ -64,12 +63,10 @@ create table sessions (
   state_seq integer not null check (state_seq >= created_seq),
   check ((place_kind is null) = (place_id is null)),
   check (project is (case when place_kind = 'project' then place_id end)),
-  check (app is (case when place_kind = 'app' then place_id end)),
   check ((role = 'operator') = (operator is not null)),
   check (
     (role = 'lophn' and place_kind is null) or
     (role = 'project_manager' and place_kind is 'project') or
-    (role = 'app_engineer' and place_kind is 'app') or
     (role = 'operator' and place_kind is not null)
   ),
   check ((forked_from_session is null) = (forked_from_through_seq is null)),
@@ -79,7 +76,7 @@ create table sessions (
 ) strict;
 create index sessions_agent on sessions (role, place_kind, place_id, operator, lifecycle);
 create trigger sessions_identity_immutable
-before update of id, role, project, app, operator, place_kind, place_id,
+before update of id, role, project, operator, place_kind, place_id,
   forked_from_session, forked_from_through_seq, opening_source_seq,
   opening_target, created_seq on sessions
 begin
@@ -149,9 +146,8 @@ export type AgentSessionRow = {
   id: string;
   role: Role;
   project: string | null;
-  app: string | null;
   operator: string | null;
-  place_kind: "project" | "app" | null;
+  place_kind: "project" | null;
   place_id: string | null;
   title: string | null;
   lifecycle: "open" | "archived";
@@ -168,7 +164,7 @@ export type AgentSessionRow = {
 // 다른 단위가 이 이름으로 import한다.
 export type SessionRow = AgentSessionRow;
 
-export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
+export const SESSION_COLUMNS = `id, role, project, operator, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   opening_source_seq, opening_target, model_selection, compaction_through_seq,
   compaction_summary_call, created_seq, state_seq`;
@@ -178,7 +174,6 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     id: String(row["id"]),
     role: String(row["role"]) as Role,
     project: text(row["project"]),
-    app: text(row["app"]),
     operator: text(row.operator),
     place_kind: text(row["place_kind"]) as AgentSessionRow["place_kind"],
     place_id: text(row["place_id"]),
@@ -226,7 +221,8 @@ export function placeOf(row: AgentSessionRow): Place | null {
 }
 
 export function agentRefOf(row: AgentSessionRow): AgentRef {
-  return agentRefOfColumns(row);
+  // protocol의 Role 합집합이 줄기 전까지 ref 변환이 요구하는 열 자리만 채운다.
+  return agentRefOfColumns({ ...row, app: null });
 }
 
 // 같은 agent인지 가르는 조건. 정체성 열은 role이 정한다.

@@ -26,7 +26,7 @@ import {
 import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
 
-// 읽기는 동기 handler다. 목록의 정본은 place(project, 앱)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
+// 읽기는 동기 handler다. 목록의 정본은 place(project)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
 // 같은 검사를 한다.
 
 function notFound(what: string): Result<never> {

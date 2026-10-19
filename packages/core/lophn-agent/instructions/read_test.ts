@@ -13,18 +13,17 @@ import { createReaderRegistration } from "../../main/daemon/wiring/instructions-
 const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
 const PRJ_C = "prj_00000000000000000000000003";
-const APP = "app_00000000000000000000000001";
 
 function sessionId(n: number) {
   return `ses_${String(n).padStart(26, "0")}`;
 }
 
-// 임시 폴더에 project 폴더 둘과 앱 source 폴더(project A 안), 실제 schema의 ledger 파일을 만든다.
+// 임시 폴더에 project 폴더 둘, 실제 schema의 ledger 파일을 만든다.
 function setup() {
   const root = Deno.makeTempDirSync();
   const folderA = join(root, "a");
   const folderB = join(root, "b");
-  Deno.mkdirSync(join(folderA, "apps", "notes"), { recursive: true });
+  Deno.mkdirSync(folderA);
   Deno.mkdirSync(folderB);
   Deno.writeTextFileSync(join(folderA, "LOPHN.md"), "rules of A");
   Deno.writeTextFileSync(join(folderB, "LOPHN.md"), "rules of B");
@@ -37,7 +36,6 @@ function setup() {
   for (const step of [...projectsSchemaSteps, ...conversationSchemaSteps]) {
     db.exec(step.sql);
   }
-  db.exec("create table apps (id text primary key, source_path text)");
   for (
     const [id, name, folder] of [[PRJ_A, "a", folderA], [PRJ_B, "b", folderB]]
   ) {
@@ -53,18 +51,13 @@ function setup() {
   db.prepare(
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
-  db.prepare("insert into apps values (?, ?)").run(
-    APP,
-    join(folderA, "apps", "notes"),
-  );
   const insert = db.prepare(
-    `insert into sessions (id, role, project, app, place_kind, place_id,
-       created_seq, state_seq) values (?, ?, ?, ?, ?, ?, 1, 1)`,
+    `insert into sessions (id, role, project, place_kind, place_id,
+       created_seq, state_seq) values (?, ?, ?, ?, ?, 1, 1)`,
   );
-  insert.run(sessionId(1), "lophn", null, null, null, null);
-  insert.run(sessionId(2), "project_manager", PRJ_A, null, "project", PRJ_A);
-  insert.run(sessionId(4), "project_manager", PRJ_C, null, "project", PRJ_C);
-  insert.run(sessionId(3), "app_engineer", null, APP, "app", APP);
+  insert.run(sessionId(1), "lophn", null, null, null);
+  insert.run(sessionId(2), "project_manager", PRJ_A, "project", PRJ_A);
+  insert.run(sessionId(4), "project_manager", PRJ_C, "project", PRJ_C);
   const snapshot = {
     as_of_seq: 1n,
     sql: {
@@ -100,9 +93,6 @@ Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽�
       [2, undefined, "rules of A"],
       [2, PRJ_A, "rules of A"],
       [2, PRJ_B, "forbidden"],
-      [3, undefined, "rules of A"], // 앱 source가 project A 안에 있다
-      [3, PRJ_A, "rules of A"],
-      [3, PRJ_B, "forbidden"],
       [1, PRJ_C, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
       [4, undefined, "rules of C"],
     ];

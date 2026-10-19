@@ -31,9 +31,9 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
     description:
       "Hand work to another agent. Returns the call ID at once and your turn goes on. " +
       "to: {session} an open session (see session.list), or {role, place, name?} a new session " +
-      "(role is project_manager, app_engineer, operator, lophn or coding_agent; place is {project: name} or {app: name}, lophn has none, an Operator needs name), " +
+      "(role is project_manager, operator, lophn or coding_agent; place is {project: name}, or {app: name} for coding_agent only, lophn has none, an Operator needs name), " +
       'or both with fallback: "new" to use the open session and open a new one if it is closed. Names must match exactly. ' +
-      "reply: none (no answer), result (the receiver answers with reply) or conversation (App Engineer and coding agent only). " +
+      "reply: none (no answer), result (the receiver answers with reply) or conversation (Project Manager and coding agent only). " +
       "body: what you hand over. refs: links {kind: ticket|problem|file|session|annotation, ...}. " +
       'To hand a ticket to a coding agent use to: {role: "coding_agent", place: {app}} with a ticket ref and optional options {harness, model}. ' +
       "If it fails, the result says why (not_found, not_allowed, closed). A closed session is not reopened; call its role and place to open a new one.",

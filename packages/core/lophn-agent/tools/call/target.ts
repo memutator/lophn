@@ -61,10 +61,6 @@ async function named(
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
         : null;
-    case "app_engineer":
-      return place?.kind === "app"
-        ? { role: "app_engineer", app: place.id }
-        : null;
     case "coding_agent":
       return place?.kind === "app"
         ? { role: "coding_agent", app: place.id }
@@ -73,6 +69,8 @@ async function named(
       return to.name === undefined
         ? null
         : await operatorOf(ctx, to.name, place);
+    default:
+      return null;
   }
 }
 
@@ -93,11 +91,14 @@ async function openSession(
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
         : null;
-    case "app_engineer":
     case "coding_agent":
-      return place?.kind === "app" ? { role: row.role, app: place.id } : null;
+      return place?.kind === "app"
+        ? { role: "coding_agent", app: place.id }
+        : null;
     case "operator":
       return await operatorOf(ctx, row.name, place);
+    default:
+      return null;
   }
 }
 

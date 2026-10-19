@@ -28,7 +28,7 @@ import { checkBuiltin, checkOperator } from "./validate.ts";
 
 // 정의의 삭제와 built-in 저장은 사람만 한다(route actors). Operator는 agent도 만들고 고치되 자기 place 안에서만 한다. 순서는 입력 검사 → CAS 비교 → 쓰기다. 파일은 마지막에 쓰고,
 // 쓰기가 실패하면 handler가 err를 돌려 전체가 되돌아간다. 정의 저장은 event를 내지 않는다.
-// Project Manager와 App Engineer는 place가 생길 때 ensure가 만든다: 사람은 이름이 Operator의 id인 정의만
+// Project Manager는 place가 생길 때 ensure가 만든다: 사람은 이름이 Operator의 id인 정의만
 // 만들고 지울 수 있고(operatorCreate·operatorDelete), built-in은 내용만 바꾼다(builtinAgentChange).
 
 function notFound(what: string): Result<never> {
@@ -186,7 +186,7 @@ export function createAgentCommands(deps: AgentDeps): {
       ): Result<Output<typeof builtinAgentChange>> {
         const context = open(deps, tx);
         if (!context.ok) return context;
-        // place가 없는 Project Manager와 App Engineer는 agent가 아니다. 파일이 없어도 있는 place의
+        // place가 없는 Project Manager는 agent가 아니다. 파일이 없어도 있는 place의
         // built-in은 agent이고 처음 저장이 파일을 만든다.
         const loaded = loadAgent(context.value, input.agent);
         if (!loaded.ok) return loaded;

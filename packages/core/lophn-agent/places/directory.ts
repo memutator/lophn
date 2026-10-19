@@ -38,7 +38,7 @@ export function createSessionDirectory(
     if (place === null) return false;
     const info = place.kind === "project"
       ? deps.projects.project(place.id as Id<"prj">)
-      : deps.apps.app(place.id as Id<"app">);
+      : null;
     return info === null || info.archived;
   }
 

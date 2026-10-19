@@ -118,10 +118,7 @@ function parsedAgent(
   let definition: AgentFileDefinition | null = null;
   const issues: AgentDefinitionIssue[] = [];
   if (file !== null) {
-    const parsed = parseAgentFile(file.text, {
-      role: ref.role,
-      place: place?.kind ?? null,
-    }, roles);
+    const parsed = parseAgentFile(file.text, ref.role, roles);
     if (parsed.ok) definition = parsed.value;
     else issues.push(...issuesOfError(parsed.error));
   }

@@ -1,6 +1,6 @@
 // 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
-// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`), 그리고 agent 정의 본문이다. 앱 층은 없다.
+// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`), 그리고 agent 정의 본문이다.
 // 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다(lophn만 project를 골라 읽는다).
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
@@ -86,30 +86,19 @@ function loadInstructionSession(
     : { role: found.role, operator: found.operator, place: placeOf(found) };
 }
 
-// 조립이 넘기는 조회와 규칙이다. project·앱 표와 role별 정의 file 자리는 harness가 모른다.
+// 조립이 넘기는 조회와 규칙이다. project 표와 role별 정의 file 자리는 harness가 모른다.
 export type InstructionReadDeps = {
   projectExists(sql: ReadSnapshot["sql"], project: string): boolean;
   projectFirstFolder(sql: ReadSnapshot["sql"], project: string): string | null;
   // 등록 폴더가 없는 project의 지침은 lophn data 자리에 있다.
   projectDataFolder(root: string, project: string): string;
-  // 앱 source 폴더가 들어 있는 등록 project.
-  projectOfApp(sql: ReadSnapshot["sql"], app: string): string | null;
   agentFilePathOf(root: string, session: SessionRow): string | null;
   mayReadOtherProject(role: Role): boolean;
 };
 
-// 그 session의 agent가 prompt로 읽는 project. lophn은 place가 없어 없다. 앱 place는 앱 source가 등록 project 안에
-// 있을 때만 있다.
-function ownProject(
-  deps: InstructionReadDeps,
-  snapshot: ReadSnapshot,
-  session: SessionRow,
-) {
-  const { place } = session;
-  if (place === null) return null;
-  return place.kind === "project"
-    ? place.id
-    : deps.projectOfApp(snapshot.sql, place.id);
+// 그 session의 agent가 prompt로 읽는 project. lophn은 place가 없어 없다.
+function ownProject(session: SessionRow) {
+  return session.place === null ? null : session.place.id;
 }
 
 // 정의 파일의 frontmatter를 뺀 본문. 닫는 줄이 없으면 깨진 파일이라 null이다.
@@ -150,7 +139,7 @@ function readAgentBody(
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
 // - project 칸은 lophn session만 다른 project를 줄 수 있다. 다른 role은 자기 place의 project만 받는다.
-// - 칸이 없으면 session의 place가 가리키는 project다. lophn과 등록 project 밖의 앱은 project 지침이 없다.
+// - 칸이 없으면 session의 place가 가리키는 project다. lophn은 project 지침이 없다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,
@@ -164,7 +153,7 @@ function readInstruction(
   if (!root.ok) return unavailable();
   if (layer === "global") return openFile(`${root.value}/${FILE_NAME}`);
   if (layer === "agent") return readAgentBody(deps, root.value, session);
-  const own = ownProject(deps, snapshot, session);
+  const own = ownProject(session);
   if (requested !== undefined && requested !== own) {
     if (!deps.mayReadOtherProject(session.role)) {
       return err({

@@ -34,7 +34,7 @@ type ResolveEnvironment = {
 
 type ResolveInput = {
   agent: AgentRef;
-  // Project Manager와 App Engineer와 Operator의 place. lophn은 null이다.
+  // Project Manager와 Operator의 place. lophn은 null이다.
   place: Place | null;
   // 정의 파일이 없으면 null(built-in 기본). Operator는 파일이 있어야 agent다.
   definition: AgentFileDefinition | null;

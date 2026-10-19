@@ -6,7 +6,7 @@ import type { PROMPT_INSTRUCTION_LAYERS } from "../../../protocol/lophn-agent/mo
 
 export const INSTRUCTION_FILE_MAX_BYTES = 32768;
 
-// 전역, project(LOPHN.md), agent 순서다. 앱 층은 없다.
+// 전역, project(LOPHN.md), agent 순서다.
 export type InstructionLayerKind = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 // 지침을 읽는 쪽이 보는 한 층의 파일. bytes는 처음부터 최대 INSTRUCTION_FILE_MAX_BYTES 만큼이다.
 // 상한을 넘는 파일은 size_bytes로만 알면 되므로 끝까지 읽지 않는다.

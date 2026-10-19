@@ -411,9 +411,7 @@ function placeExists(
   sql: Pick<Tx["sql"], "get" | "all">,
   place: Place,
 ): boolean {
-  return place.kind === "project"
-    ? places.projectExists(sql, place.id)
-    : places.appExists(sql, place.id);
+  return place.kind === "project" && places.projectExists(sql, place.id);
 }
 
 // agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
@@ -432,7 +430,6 @@ function agentLookups(
     placeExists: (place) => placeExists(places, sql, place),
     places: () => [
       ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
-      ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
     ],
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 project 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.

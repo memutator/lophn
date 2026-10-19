@@ -20,7 +20,7 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
 // 제품 runtime의 skill 발견이다. 출처는 내장 skill 폴더, 등록 순서의 설정
 // `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), project place의 skill
-// 폴더(project 층 규칙이 정한다) 넷뿐이다. 앱 place에는 skill 폴더가 없다. 다른 place의 폴더, 상위 폴더,
+// 폴더(project 층 규칙이 정한다) 넷뿐이다. 다른 place의 폴더, 상위 폴더,
 // 앱 소스, 다른 harness 보관소, 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소), project 순이다.
 
 // 내장, 개인 보관소, project 폴더의 위치다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.

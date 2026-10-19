@@ -32,18 +32,16 @@ function setup() {
     o: { role?: string; project: string; lifecycle?: string },
   ) => {
     const role = o.role ?? "project_manager";
-    const app = role === "app_engineer";
     sql.run(
-      `insert into sessions (id, role, project, app, operator, place_kind, place_id, lifecycle, created_seq, state_seq)
-       values (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+      `insert into sessions (id, role, project, operator, place_kind, place_id, lifecycle, created_seq, state_seq)
+       values (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [
         id,
         role,
-        app ? null : o.project,
-        app ? "app_1" : null,
+        o.project,
         role === "operator" ? "agt_1" : null,
-        app ? "app" : "project",
-        app ? "app_1" : o.project,
+        "project",
+        o.project,
         o.lifecycle ?? "open",
       ],
     );
@@ -82,7 +80,6 @@ Deno.test("artifact annotation의 받는 쪽은 그 project의 열린 PM·Operat
   session("ses_b", { project: "prj_b" });
   session("ses_closed", { project: "prj_a", lifecycle: "archived" });
   session("ses_op", { project: "prj_a", role: "operator" });
-  session("ses_ae", { project: "prj_a", role: "app_engineer" });
   const find = (root: string, name: string) =>
     lastArtifactWriter(sql, { root, name })?.session ?? null;
 
@@ -97,9 +94,8 @@ Deno.test("artifact annotation의 받는 쪽은 그 project의 열린 PM·Operat
   assertEquals(find(ROOT_A, "rep%"), null);
   assertEquals(find(ROOT_A, "r_port"), null);
 
-  // 닫힌 session과 다른 role(app_engineer)의 쓰기는 건너뛰고 앞선 쓰기로 간다.
+  // 닫힌 session의 쓰기는 건너뛰고 앞선 쓰기로 간다.
   write("ses_closed", ROOT_A, "report/new.html");
-  write("ses_ae", ROOT_A, "report/ae.html");
   assertEquals(find(ROOT_A, "report"), "ses_a");
 
   // Operator의 더 나중 쓰기가 이긴다.

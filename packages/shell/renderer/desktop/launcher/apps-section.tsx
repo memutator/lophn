@@ -12,6 +12,8 @@ import styles from "./launcher.module.css";
 
 interface AppsSectionProps {
   apps: Loaded<AppRow>;
+  /** 앱 카드에 보일 project 이름. 못 찾으면 줄을 보이지 않는다. */
+  projectName: (project: string) => string | undefined;
   /** 그 앱의 앱 공간을 연다. */
   onApp: (app: string) => void;
   /** 앱을 보관한다. 복원은 Archived 묶음에서 한다. */
@@ -22,7 +24,7 @@ interface AppsSectionProps {
 // 프로젝트 section 아래의 앱 section. 보관하지 않은 앱만 카드로 보이고, 카드 전체가 그 앱 공간으로
 // 가는 단추다. 보관은 ⋯ 메뉴에 있다.
 export function AppsSection(
-  { apps, onApp, onArchive, onRetry }: AppsSectionProps,
+  { apps, projectName, onApp, onArchive, onRetry }: AppsSectionProps,
 ) {
   let body: ReactNode;
   if (apps.state === "loading") {
@@ -50,41 +52,51 @@ export function AppsSection(
   } else {
     body = (
       <ul className={styles.grid} data-cards="apps">
-        {apps.items.map((row) => (
-          <li key={row.id}>
-            <article
-              className={styles.card}
-              data-card="app"
-              data-app={row.id}
-            >
-              <div className={styles.cardHead}>
-                <button
-                  type="button"
-                  className={styles.cardOpen}
-                  onClick={() => onApp(row.id)}
-                >
-                  <Icon
-                    icon={appSpaceIcons.app}
-                    pixels={iconPixels("base")}
-                    className={styles.cardIcon}
-                  />
-                  <span className={styles.cardTitle}>{row.name}</span>
-                </button>
-                <span className={styles.cardAside}>
-                  <CardMenu
-                    name={row.name}
-                    items={[{
-                      id: "archive",
-                      label: t("launcher.button.archive"),
-                      icon: commonIcons.archive,
-                    }]}
-                    onSelect={() => onArchive(row)}
-                  />
-                </span>
-              </div>
-            </article>
-          </li>
-        ))}
+        {apps.items.map((row) => {
+          const project = projectName(row.project);
+          return (
+            <li key={row.id}>
+              <article
+                className={styles.card}
+                data-card="app"
+                data-app={row.id}
+              >
+                <div className={styles.cardHead}>
+                  <button
+                    type="button"
+                    className={styles.cardOpen}
+                    onClick={() => onApp(row.id)}
+                  >
+                    <Icon
+                      icon={appSpaceIcons.app}
+                      pixels={iconPixels("base")}
+                      className={styles.cardIcon}
+                    />
+                    <span className={styles.cardTitle}>{row.name}</span>
+                  </button>
+                  <span className={styles.cardAside}>
+                    <CardMenu
+                      name={row.name}
+                      items={[{
+                        id: "archive",
+                        label: t("launcher.button.archive"),
+                        icon: commonIcons.archive,
+                      }]}
+                      onSelect={() => onArchive(row)}
+                    />
+                  </span>
+                </div>
+                {project === undefined
+                  ? null
+                  : (
+                    <p className={styles.cardStatus}>
+                      {t("launcher.label.app-project", { name: project })}
+                    </p>
+                  )}
+              </article>
+            </li>
+          );
+        })}
       </ul>
     );
   }

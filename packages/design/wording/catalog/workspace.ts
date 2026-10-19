@@ -39,13 +39,13 @@ export const workspace = {
   "launcher.button.show-details": "Show details",
   "launcher.button.unarchive": "Unarchive",
   "launcher.dialog.register-note":
-    "A project is a name, a purpose and the folders it works in.",
+    "A project is a name, a purpose and the folders it works in, if any.",
   "launcher.empty.no-apps": "No apps yet.",
   "launcher.empty.no-cards":
     "Nothing to open yet. Register a project to get started.",
-  "launcher.empty.no-folders": "No folder yet. Add at least one.",
+  "launcher.empty.no-folders":
+    "No folder yet. A project can also hold just its apps' data.",
   "launcher.empty.no-projects": "No projects yet.",
-  "launcher.error.folder-required": "Add at least one folder.",
   "launcher.error.name-required": "Enter a name.",
   "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
   "launcher.error.register-failed":
@@ -76,6 +76,7 @@ export const workspace = {
   "launcher.heading.apps": "Apps",
   "launcher.heading.archived": "Archived",
   "launcher.heading.projects": "Projects",
+  "launcher.label.app-project": "In {name}",
   "launcher.label.apps": "your apps",
   "launcher.label.folder-count":
     "{count, plural, one {# folder} other {# folders}}",

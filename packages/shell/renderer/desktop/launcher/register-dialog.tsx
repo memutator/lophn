@@ -20,7 +20,7 @@ interface RegisterDialogProps {
 }
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
-// 하나 이상 있어야 등록한다. 런처와 Projects의 + 단추가 같이 쓴다.
+// 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
 export function RegisterDialog(
   {
     open,
@@ -65,7 +65,7 @@ export function RegisterDialog(
 
   const submit = async () => {
     setTouched(true);
-    if (!usableTitle(title) || folders.length === 0 || busy) return;
+    if (!usableTitle(title) || busy) return;
     setBusy(true);
     setFailure(null);
     const name = title.trim();
@@ -200,13 +200,6 @@ export function RegisterDialog(
                 ))}
               </ul>
             )}
-          {touched && folders.length === 0
-            ? (
-              <p className={styles.error} role="alert" data-folder-required="">
-                {t("launcher.error.folder-required")}
-              </p>
-            )
-            : null}
           {pickFailed
             ? (
               <p className={styles.error} role="alert" data-pick-failed="">

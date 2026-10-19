@@ -1,6 +1,8 @@
 // 파일 adapter와 창 닫기 guard. renderer는 절대 경로만 보내고 main이 디스크를 직접 읽고 쓴다.
 // core는 연결 폴더(폴더 목록의 범위)와 project의 첫 폴더(지침 경로)를 알 때만 부른다.
 // 창마다 guard가 저장 중 수를 기억한다.
+import { mkdir } from "node:fs/promises";
+
 import { app, shell } from "electron";
 
 import {
@@ -64,6 +66,9 @@ export function register(ctx: ShellContext): Registered {
       if (projects === null) throw new Error("core is not ready");
       return projects.find((one) => one.id === project)?.folders[0]?.path ??
         null;
+    },
+    makeDir: async (path) => {
+      await mkdir(path, { recursive: true });
     },
   });
   registerFilesIpc(ipc, {

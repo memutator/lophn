@@ -51,7 +51,6 @@ export type WorkspacePlaceholders = {
   "launcher.empty.no-cards": Record<never, never>;
   "launcher.empty.no-folders": Record<never, never>;
   "launcher.empty.no-projects": Record<never, never>;
-  "launcher.error.folder-required": Record<never, never>;
   "launcher.error.name-required": Record<never, never>;
   "launcher.error.picker-failed": Record<never, never>;
   "launcher.error.register-failed": {
@@ -72,6 +71,9 @@ export type WorkspacePlaceholders = {
   "launcher.heading.apps": Record<never, never>;
   "launcher.heading.archived": Record<never, never>;
   "launcher.heading.projects": Record<never, never>;
+  "launcher.label.app-project": {
+    name: "string";
+  };
   "launcher.label.apps": Record<never, never>;
   "launcher.label.folder-count": {
     count: "plural";

@@ -9,6 +9,8 @@ export type { SourceResult };
 export interface AppRow {
   readonly id: string;
   readonly name: string;
+  /** 앱이 속한 project의 id. 런처 카드가 이름을 project 목록에서 찾는다. */
+  readonly project: string;
   readonly archived: boolean;
   /** 지금 쓰는 version. 아직 없으면 null이다. */
   readonly release: string | null;

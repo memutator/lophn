@@ -185,7 +185,6 @@ function ProjectForm(
                       size="sm"
                       variant="ghost"
                       data-remove-folder=""
-                      disabled={draft.folders.length === 1}
                       onClick={() => setDraft(removeFolder(draft, folder.path))}
                     >
                       {t("projects.button.remove")}

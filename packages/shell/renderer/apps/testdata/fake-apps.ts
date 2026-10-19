@@ -9,6 +9,7 @@ export function appRow(
   return {
     id,
     name,
+    project: "prj_01h455vb4pex5v6nkc6gd5fd01",
     archived: false,
     release: null,
     revision: "7",

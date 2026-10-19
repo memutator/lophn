@@ -9,6 +9,7 @@ import type { AppRow, AppsSource, RunState, SourceResult } from "./source.ts";
 interface AppValue {
   id: string;
   name: string;
+  project: string;
   status: "active" | "archived";
   active_release: string | null;
   revision: string;
@@ -32,6 +33,7 @@ function rowOf(value: AppValue): AppRow {
   return {
     id: value.id,
     name: value.name,
+    project: value.project,
     archived: value.status === "archived",
     release: value.active_release,
     revision: value.revision,

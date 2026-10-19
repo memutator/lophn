@@ -351,6 +351,8 @@ function LauncherBody(
             apps={rows.state === "ready"
               ? { state: "ready", items: activeApps }
               : rows}
+            projectName={(id) =>
+              projectItems.find((item) => item.id === id)?.title}
             onApp={onApp}
             onArchive={(app) => void setAppArchived(app, true)}
             onRetry={() => {

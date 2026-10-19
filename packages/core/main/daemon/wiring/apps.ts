@@ -201,6 +201,7 @@ export const appsWiring: WiringFactory = () => {
         clock: ctx.clock,
         ids,
       });
+      ctx.provide("appCallPath", path);
       // 앱 rewind가 끝나면 열린 앱 view가 다시 그리게 알린다. 칸이 비어 있으면 Bus로 낸다.
       const signal: AppViewSignal = {
         changed(app, reason) {

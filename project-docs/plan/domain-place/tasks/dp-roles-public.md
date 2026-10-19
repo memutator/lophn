@@ -2,7 +2,7 @@
 
 wave 3이 만든 신호를 agent 지침에 쓴다. lophn은 지도(project마다 이름, 목적, 앱의 공개 tool, 설치한 package, 사용 관계)를 보고 재사용과 경계를 넘는 판단을 한다. PM은 다른 project의 공개 tool만 보고 쓰고, 공개 tool이 바뀌거나 막혔다는 reaction을 받으면 자기 skill을 다시 보고, 다른 project에서 난 package bug는 주인 project의 PM에게 `call`로 넘긴다. 지침(글)만 고친다.
 
-- 단위: public-tools (wave 3)
+- 단위: public-tools (wave 2)
 - 선행: 없음. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다. 쓰는 신호의 모양은 `dp-public-event`(event 이름), `dp-lophn-map`(지도 글), `dp-package-owner`(`owner_project`)가 정한다. 같은 wave에서 도는 task라 brief에 적힌 이름을 쓴다.
 - 소유(이 task만 고친다):
   - `packages/core/agent-roles/roles/project-manager/prompt.md`

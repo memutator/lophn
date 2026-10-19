@@ -2,7 +2,7 @@
 
 package의 주인은 그것을 처음 publish한 앱의 project다. package 읽기(`packages.list`, `packages.versions`)와 agent tool(`package.list`, `package.get`)이 주인 project를 싣는다. 다른 project에서 난 bug를 주인 PM에게 넘기는 일은 지침이 하고(`dp-roles-public`) program은 하지 않는다. 주인이 아닌 project의 앱이 같은 package 이름에 새 version을 내는 것은 막는다.
 
-- 단위: map (wave 3)
+- 단위: map (wave 2)
 - 선행: 없음. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다. 이 task는 `public` 칸을 쓰지 않으므로 그 사이 먼저 띄워도 되는지는 planner가 정한다.
 - 소유(이 task만 고친다):
   - `packages/protocol/apps/packages.ts`

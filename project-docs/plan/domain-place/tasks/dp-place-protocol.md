@@ -2,7 +2,7 @@
 
 wave 2의 마지막 cleanup이다. 앞 task들이 앱 place와 `app_engineer`를 쓰는 곳을 모두 지웠으니 protocol의 합집합에서 앱 갈래와 `app_engineer`를 지우고, type 때문에 남겨 둔 `Record<Role, …>`의 빈 `app_engineer` 항목과 `switch` 갈래를 걷는다. 이 task가 끝나면 코드 전체에서 `Place`는 project 하나이고 `Role`은 lophn, project_manager, operator 셋이다.
 
-- 단위: place-core (wave 2)
+- 단위: place-core (wave 3)
 - 선행: dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval. 모든 쓰는 곳이 앱 갈래를 버린 뒤에만 합집합을 줄일 수 있다.
 - 소유(이 task만 고친다):
   - `packages/protocol/lophn-agent/places.ts`

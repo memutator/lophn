@@ -24,10 +24,9 @@
     - core: `dp-agents-core`, `dp-place-events`, `dp-agent-roles-scope`, `dp-agent-roles-prompt`, `dp-operator-skills`, `dp-storage-apps`, `dp-problems-core`
     - shell: `dp-shell-app-space`, `dp-shell-agents`, `dp-shell-launcher`
     - 그 밖: `dp-coding-text`, `dp-eval`
-    - 마지막: `dp-place-protocol`(다른 wave 2 task 모두 뒤에 정리)
+    - 옛 wave 3(lead가 당김. 사람 지시로 worker를 늘린다. 순서는 선행이 정한다): `dp-usage-read`, `dp-lophn-map`, `dp-package-owner`, `dp-public-event`, `dp-release-guard`, `dp-public-filter`, `dp-grants-public-ui`, `dp-roles-public`
   - wave 3:
-    - `dp-usage-read`, `dp-lophn-map`, `dp-package-owner`, `dp-public-event`
-    - `dp-release-guard`, `dp-public-filter`, `dp-grants-public-ui`, `dp-roles-public`
+    - `dp-place-protocol`(lead가 맨 끝으로 미룸. union 정리라 앞 task를 막지 않고, 앞 task가 남긴 `app_engineer`도 같이 지운다)
 - **계획 사이 문(status.py가 보지 않는다. lead가 planner의 말을 기다린다)**
   - **wave 3 전체:** `domain-tools` wave 1(`dt-decl`, `dt-call-route`)이 main에 land한 뒤 연다. `public` 칸과 invocation operation 모양을 읽는다.
   - **`dp-storage-apps`, `dp-problems-core`:** 위와 같은 때에 연다. `dt-call-route`가 preview adapter, runtime entrypoint, `wiring/apps.ts`, `control.ts`, `routes.ts`를 크게 고치므로 그 뒤에 자리를 옮기는 편이 충돌이 적다.

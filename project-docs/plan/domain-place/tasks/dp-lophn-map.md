@@ -2,7 +2,7 @@
 
 lophn의 place 정보(prompt)에 project들의 지도를 싣는다. project마다 이름, 목적, 앱의 공개 tool, 설치한 package, 다른 project가 쓰는 공개 tool(사용 관계)이다. 지도는 program이 결정적으로 만든다. lophn은 이 지도로 재사용(공개 tool·package 찾기)과 경계를 넘는 판단을 한다. 다른 role의 place 정보는 바꾸지 않는다.
 
-- 단위: map (wave 3)
+- 단위: map (wave 2)
 - 선행: dp-usage-read. 사용 관계를 `app.usage`에서 읽는다. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다.
 - 소유(이 task만 고친다):
   - `packages/core/agent-roles/place/place-data.ts`

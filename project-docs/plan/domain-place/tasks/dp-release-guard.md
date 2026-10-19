@@ -2,7 +2,7 @@
 
 다른 project가 쓰는 공개 tool을 지운 release의 activation을 막고, 막힌 사실과 tool이 바뀐 사실을 PM에게 알린다. 막기는 activation 판정(`judge`)과 시작(`activationStart`) 두 곳에 같은 검사를 둔다. 알리기는 `dp-public-event`의 `PublicToolsChanged`를 쓴다: release가 active가 되어 tool이 바뀌었으면 그 앱 project의 PM과, 바뀐(또는 지워진) 공개 tool을 쓰는 다른 project들의 PM에게, 막혔으면 그 앱 project의 PM에게만 낸다.
 
-- 단위: public-tools (wave 3)
+- 단위: public-tools (wave 2)
 - 선행: dp-public-event, dp-usage-read. 이벤트 정의와 "누가 쓰나" 조회가 먼저다. 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다.
 - 소유(이 task만 고친다):
   - `packages/core/apps/releases/commands.ts`

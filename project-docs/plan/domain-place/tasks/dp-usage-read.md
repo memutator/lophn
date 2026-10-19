@@ -2,7 +2,7 @@
 
 "어느 project가 어느 앱의 어느 공개 tool을 쓰나"(사용 관계)를 program이 결정적으로 뽑는 읽기 `app.usage`와 core 안에서 부르는 함수 `appToolUsers`를 둔다. 재료는 agent grant(grant가 열려 있는 쪽)와 invocation 기록(실제 부른 쪽, 부른 session이 놓인 project)이다. lophn 지도(`dp-lophn-map`)와 release 막기(`dp-release-guard`)가 쓴다.
 
-- 단위: map (wave 3)
+- 단위: map (wave 2)
 - 선행: 없음. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 land를 알려 준 뒤 띄운다. invocation의 호출 tool 이름 칸과 `project` 칸 삭제는 `domain-tools`가 바꾸므로 그 모양을 먼저 읽는다.
 - 소유(이 task만 고친다):
   - `packages/protocol/apps/usage.ts` (새 file)

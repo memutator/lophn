@@ -2,7 +2,7 @@
 
 공개 tool이 바뀌었을 때 project의 PM을 깨우는 reaction event `PublicToolsChanged`를 더한다. 이 task는 event를 정의하고 PM session을 여는 길(reaction, 끄기 설정, 설정 화면, 대기 목록 표기)까지만 한다. event를 내는 곳은 `dp-release-guard`다.
 
-- 단위: public-tools (wave 3)
+- 단위: public-tools (wave 2)
 - 선행: 없음. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 land를 알려 준 뒤 띄운다.
 - 소유(이 task만 고친다):
   - `packages/protocol/events/domain.ts`

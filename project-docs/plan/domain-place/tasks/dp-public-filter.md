@@ -2,7 +2,7 @@
 
 다른 project 앱의 비공개 tool이 agent의 tool 목록과 `app.app_api` 읽기 tool에 나오지 않게 한다. 같은 project의 agent는 그 앱의 tool을 다 보고, 다른 project의 agent(lophn 포함)는 `public` tool만 본다. 걸러내는 곳은 `domain-tools`가 소유한 `app-tools.ts`·`app-toolkit.ts` 밖이다: toolkit을 감싸는 새 file과 그것을 꽂는 `product-driver.ts`다.
 
-- 단위: public-tools (wave 3)
+- 단위: public-tools (wave 2)
 - 선행: 없음. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다. `domain-tools`가 toolkit의 모양(`createAppApiToolkit`, `AppApiTool`)을 바꿨으면 이 task가 그 모양을 따른다. `app-tools.ts`·`app-toolkit.ts`·`app-api/`는 읽기만 한다.
 - 소유(이 task만 고친다):
   - `packages/core/lophn-agent/tools/app-public.ts` (새 file)

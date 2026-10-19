@@ -2,7 +2,7 @@
 
 agent grant 편집기가 다른 project 앱의 tool은 공개(`public`)인 것만 붙일 수 있게 보인다. 같은 project 앱은 지금처럼 모든 tool이 보인다. 앞 task(`dp-public-filter`)가 실행 때 tool 목록에서 비공개 tool을 빼므로 이 화면이 그 목록과 어긋나지 않게 하는 일이다. 새 화면을 그리지 않는다.
 
-- 단위: public-tools (wave 3)
+- 단위: public-tools (wave 2)
 - 선행: dp-public-filter. 같은 규칙(앱 project와 agent place의 비교, `public`)을 쓴다. wave 3은 계획 `domain-tools`의 계약 task(blueprint `public` 칸)가 main에 land한 뒤에 연다. planner(`lophn-7e`)가 알려 준 뒤 띄운다.
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/agents/core-grants.ts`

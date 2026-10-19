@@ -17,12 +17,14 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자가 묶인 앱. coding session은 token의 앱 하나, App Engineer는 자격 조건의 앱이다. 묶이지 않은
-// 호출자(사람)는 null이다.
-function boundApp(
+// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱 또는 project 하나, 사람과 machine은
+// 전체(null)다. 앱도 project도 조건에 없는 agent(앱 place의 Operator, lophn)는 읽을 수 없다.
+type Scope = { app: string } | { project: string } | null;
+
+function callerScope(
   snapshot: ReadSnapshot,
   ctx: Pick<RequestContext, "actor" | "conditions">,
-): Result<string | null> {
+): Result<Scope> {
   const actor = parseActor(ctx.actor);
   if (actor?.kind === "coding_agent") {
     let app: string | null;
@@ -36,9 +38,26 @@ function boundApp(
     }
     return app === null
       ? err({ code: "forbidden", message: "unknown coding session" })
-      : ok(app);
+      : ok({ app });
   }
-  return ok(actor?.kind === "agent" ? ctx.conditions.app ?? null : null);
+  if (actor?.kind !== "agent") return ok(null);
+  const { app, project } = ctx.conditions;
+  if (app !== undefined) return ok({ app });
+  if (project !== undefined) return ok({ project });
+  return err({
+    code: "forbidden",
+    message: "annotation is not readable without an app or project",
+  });
+}
+
+function inScope(
+  scope: Scope,
+  target: { kind: string; app?: string; project?: string },
+): boolean {
+  if (scope === null) return true;
+  return "app" in scope
+    ? target.kind === "app" && target.app === scope.app
+    : target.kind === "artifact" && target.project === scope.project;
 }
 
 export function createAnnotationReads(): {
@@ -48,17 +67,15 @@ export function createAnnotationReads(): {
     get: {
       route: annotationsGet,
       handle(snapshot, ctx, input) {
-        const bound = boundApp(snapshot, ctx);
-        if (!bound.ok) return bound;
+        const scope = callerScope(snapshot, ctx);
+        if (!scope.ok) return scope;
         const found = "annotation" in input
           ? foundByAnnotation(snapshot.sql, input.annotation)
           : loadBatch(snapshot.sql, input.batch);
-        // 범위 밖 앱과 artifact target은 앱에 묶인 호출자에게 없는 것과 같다.
-        if (
-          found === null ||
-          (bound.value !== null && !(found.batch.target.kind === "app" &&
-            found.batch.target.app === bound.value))
-        ) return notFound();
+        // 범위 밖 target은 묶인 호출자에게 없는 것과 같다.
+        if (found === null || !inScope(scope.value, found.batch.target)) {
+          return notFound();
+        }
         return ok({
           ...found,
           as_of_seq: snapshot.as_of_seq,

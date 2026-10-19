@@ -42,6 +42,8 @@ export const credentialConditionsSchema = z.strictObject({
   session: idSchema("ses").optional(),
   turn: idSchema("trn").optional(),
   app: idSchema("app").optional(),
+  // project place의 agent(PM, Operator)가 그 project 하나에 묶인 자격이다.
+  project: idSchema("prj").optional(),
   release: idSchema("rel").optional(),
   process: z.string().min(1).optional(),
   mode: z.string().min(1).optional(),

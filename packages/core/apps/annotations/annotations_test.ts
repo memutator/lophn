@@ -248,3 +248,53 @@ Deno.test("agent 자격은 artifact target annotation을 읽지 못하고 사람
   });
   world.close();
 });
+
+Deno.test("project 조건 agent는 자기 project의 artifact annotation만 읽고 묶이지 않은 agent는 읽지 못한다", async () => {
+  const world = open();
+  const other = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
+  const send = async (target: unknown) => {
+    const sent = await world.send(USER, {
+      target,
+      session: null,
+      annotations: [input(1, { release: null })],
+    } as never);
+    assert(sent.ok);
+    return sent.value.annotations[0];
+  };
+  const mine = await send({
+    kind: "artifact",
+    project: PROJECT,
+    name: "orders",
+  });
+  const theirs = await send({ kind: "artifact", project: other, name: "x" });
+  const app = await send({ kind: "app", app: APP });
+  const get = (conditions: RequestContext["conditions"], annotation: string) =>
+    createAnnotationReads().get.handle(
+      { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+      {
+        ...USER,
+        principal: `agent:${SESSION}`,
+        actor: `agent:${SESSION}`,
+        conditions,
+      },
+      { annotation } as never,
+    );
+  const code = (r: { ok: boolean; error?: { code: string } }) =>
+    r.ok ? "ok" : r.error!.code;
+  const project = { project: PROJECT };
+  assertEquals(code(get(project, mine!)), "ok");
+  assertEquals(code(get(project, theirs!)), "not_found");
+  assertEquals(code(get(project, app!)), "not_found");
+  assertEquals(code(get({}, mine!)), "forbidden");
+  assertEquals(code(get({}, app!)), "forbidden");
+  for (const id of [mine, theirs, app]) {
+    assert(
+      createAnnotationReads().get.handle(
+        { sql: world.sql, as_of_seq: "1", port: () => undefined } as never,
+        USER,
+        { annotation: id } as never,
+      ).ok,
+    );
+  }
+  world.close();
+});

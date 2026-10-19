@@ -16,20 +16,9 @@ const INPUT_DELIVERIES = ["next_turn", "steer"] as const;
 export const inputDeliverySchema = z.enum(INPUT_DELIVERIES);
 export type InputDelivery = z.infer<typeof inputDeliverySchema>;
 
-// 사람이 composer에 붙인 것이다. 이름과 한 줄만 싣는다.
+// 사람이 composer에 붙인 것이다. 지금은 file만 있고, shell은 만들지 않는다.
 const attachedChipSchema = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("context"),
-    context: idSchema("ctx"),
-    name: z.string().min(1),
-  }),
   z.strictObject({ kind: z.literal("file"), path: z.string().min(1) }),
-  z.strictObject({
-    kind: z.literal("violation"),
-    context: idSchema("ctx"),
-    path: z.string().min(1),
-    rule: z.string().min(1),
-  }),
 ]);
 export type AttachedChip = z.infer<typeof attachedChipSchema>;
 

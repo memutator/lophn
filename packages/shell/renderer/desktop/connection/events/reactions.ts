@@ -6,12 +6,7 @@ export type ReactionAction =
   | { kind: "waiting" }
   /** session이 null이고 app이 있으면 호스트가 그 앱의 App Engineer 열린 session을 찾아 연다. */
   | { kind: "session"; session: string | null; app?: string }
-  | {
-    kind: "project-manager";
-    project: string;
-    context: string;
-    check: string;
-  };
+  | { kind: "project-manager"; project: string };
 
 export interface Reaction {
   /** 같은 일이 두 번 뜨지 않게 하는 id. */
@@ -28,7 +23,7 @@ export const REACTION_EVENT_TYPES = [
   "ApprovalRequested",
   "QuestionAsked",
   "AppRestartHalted",
-  "ContextViolationFound",
+  "KindViolationFound",
 ] as const;
 
 const NONE: readonly Reaction[] = [];
@@ -84,14 +79,14 @@ export function reactionsOf(
         { app: event.subject, crashes: String(event.payload.crashes) },
         { kind: "session", session: null, app: event.subject },
       );
-    case "ContextViolationFound": {
-      const { project, context, check } = event.payload;
-      return toast("violation", event.seq, { project, context, check }, {
-        kind: "project-manager",
-        project,
-        context,
-        check,
-      });
+    case "KindViolationFound": {
+      const { project, count } = event.payload;
+      return toast(
+        "kind-violation",
+        event.seq,
+        { project, count: String(count) },
+        { kind: "project-manager", project },
+      );
     }
     default:
       return NONE;

@@ -119,7 +119,7 @@ export const workspaceSettings = {
   "settings.label.group-system": "System",
   "settings.label.reaction-activation-failed": "Activation failed",
   "settings.label.reaction-ask": "Ask",
-  "settings.label.reaction-context-violation": "Context violation",
+  "settings.label.reaction-kind-violation": "Kind violation",
   "settings.label.reaction-off": "Off",
   "settings.label.reaction-open": "Open without asking",
   "settings.label.reaction-problem-opened": "Problem opened",
@@ -176,8 +176,8 @@ export const workspaceSettings = {
   "settings.problems-detail_collection.name": "Collect problem details",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
-  "settings.reaction.context-violation-when":
-    "A project gets a context violation it did not have at the last check.",
+  "settings.reaction.kind-violation-when":
+    "A project gets kind violations it did not have at the last check.",
   "settings.reaction.opens-app-engineer":
     "Opens: a new session for that app's App Engineer.",
   "settings.reaction.opens-project-manager":

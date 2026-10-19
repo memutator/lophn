@@ -74,15 +74,11 @@ const FAKE_EVENTS = [
   },
   {
     seq: "8",
-    type: "ContextViolationFound",
+    type: "KindViolationFound",
     subject: sid("prj", 1),
     actor: "machine",
     at: AT,
-    payload: {
-      project: sid("prj", 1),
-      context: sid("ctx", 1),
-      check: sid("chk", 1),
-    },
+    payload: { project: sid("prj", 1), count: 2 },
   },
 ].flatMap((event) => reactionsOf(busEventSchema.parse(event), "live"));
 

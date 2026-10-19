@@ -293,7 +293,7 @@ export async function readSessions(
 
 // ---------------------------------------------------------------- 관리
 
-/** 첫 말을 보내기 전에 session을 연다. chip은 `opening_context`(사건 순번·target이 필요하다)가 아니라 첫 말의 `attached`로 간다. */
+/** 첫 말을 보내기 전에 session을 연다. */
 export async function openSession(
   env: Env,
   id: string,

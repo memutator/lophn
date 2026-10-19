@@ -50,11 +50,10 @@ const forkOriginFields = {
 export const forkOriginOutputSchema = z.object(forkOriginFields);
 
 // toast에서 연 첫 context. 사건 글을 복사하지 않고 참조만 둔다. 대상은
-// 사건이 가리키는 소유 concern의 ID다: 문제·앱·context·release.
+// 사건이 가리키는 소유 concern의 ID다: 문제·앱·release.
 const openingTargetSchema = z.union([
   idSchema("prb"),
   idSchema("app"),
-  idSchema("ctx"),
   idSchema("rel"),
 ]);
 const openingContextFields = {

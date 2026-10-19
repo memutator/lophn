@@ -2,7 +2,6 @@
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
 // 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다.
 import type { Delivery } from "./agent-tab-source.ts";
-import type { ContextChipView } from "./composer/types.ts";
 
 export type { Delivery };
 
@@ -14,8 +13,6 @@ export interface Outgoing {
   /** 보낸 글. 다시 보내도 같은 글이라 같은 본문 값이다. */
   readonly text: string;
   readonly delivery: Delivery;
-  /** 이 말에 붙은 chip. 첫 시도가 core에 닿지 않았을 때 다시 보내도 빠지지 않게 말과 함께 쥔다. */
-  readonly chips: readonly ContextChipView[];
   readonly phase: DeliveryPhase;
   /** 접수 확인 안 됨에서 조회했으나 찾지 못했다. 그 뒤에야 다시 보내기를 내놓는다. */
   readonly checked: boolean;

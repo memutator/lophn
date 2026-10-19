@@ -40,9 +40,9 @@ export const REACTION_ROWS: readonly ReactionRow[] = [
     opens: "settings.reaction.opens-release-engineer",
   },
   {
-    event: "ContextViolationFound",
-    name: "settings.label.reaction-context-violation",
-    when: "settings.reaction.context-violation-when",
+    event: "KindViolationFound",
+    name: "settings.label.reaction-kind-violation",
+    when: "settings.reaction.kind-violation-when",
     opens: "settings.reaction.opens-project-manager",
   },
 ];
@@ -74,5 +74,5 @@ export const DEFAULT_MODES: ReactionModes = {
   ProblemReopened: DEFAULT_MODE,
   AppRestartHalted: DEFAULT_MODE,
   ReleaseActivationFailed: DEFAULT_MODE,
-  ContextViolationFound: DEFAULT_MODE,
+  KindViolationFound: DEFAULT_MODE,
 };

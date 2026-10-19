@@ -25,11 +25,6 @@ import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../prefixed-id.ts";
-import {
-  attachedOf,
-  attachedOfParts,
-  attachedPartsOf,
-} from "./attached-chips.ts";
 import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 import type {
@@ -140,7 +135,6 @@ export async function runCommand(
     key: `commands-run-${key}`,
     text,
     delivery: "next_turn",
-    chips: [],
   });
 }
 
@@ -161,13 +155,10 @@ export function sendText(
       session: input.session,
       content: {
         schema_version: 1,
-        parts: [...attachedPartsOf(input.chips), {
-          kind: "text",
-          text: input.text,
-        }],
+        parts: [{ kind: "text", text: input.text }],
       },
       delivery: input.delivery,
-      attached: attachedOf(input.chips),
+      attached: [],
       refs: [],
     },
     compare: {},
@@ -254,7 +245,7 @@ export async function retryTurn(
         session: body.value.session,
         content: { schema_version: 1, parts },
         delivery: "next_turn",
-        attached: attachedOfParts(body.value.content.parts),
+        attached: [],
         refs: [],
       },
       compare: {},

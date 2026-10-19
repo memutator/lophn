@@ -1,4 +1,4 @@
-/* Agent 탭의 composer. 입력칸(chip 줄·글·안내·아래 줄)과 그 밖 아래 줄(자리·권한 요약)이다. */
+/* Agent 탭의 composer. 입력칸(글·안내·아래 줄)과 그 밖 아래 줄(자리·권한 요약)이다. */
 .composer {
   box-sizing: border-box;
   display: flex;
@@ -45,6 +45,10 @@
 }
 
 .box[data-locked] .input {
+  color: var(--color-text-secondary);
+}
+
+.input {
   color: var(--color-text-secondary);
 }
 

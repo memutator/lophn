@@ -169,7 +169,7 @@ export function fakeTextOf(path: string): string | undefined {
   if (/\.md$/i.test(path)) {
     const title = (path.split("/").pop() ?? path).replace(/\.md$/i, "")
       .replace(/-/g, " ");
-    return `# ${title}\n\nPlain notes. Nothing in here is declared by a context.\n`;
+    return `# ${title}\n\nPlain notes.\n`;
   }
   const scenario = /^eval\/scenarios\/([^/]+)\/r1\.yaml$/.exec(path);
   if (scenario) {

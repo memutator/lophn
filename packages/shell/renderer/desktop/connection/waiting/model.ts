@@ -1,6 +1,6 @@
 // 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 intent에서 program이 만든다(요청한 agent가 쓴
 // 설명 칸은 없다). 대화 안 승인 카드도 이 함수를 쓴다.
-import { formatRelativeTime, t } from "@lophn/wording";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/wording";
 import type {
   Intent,
   PendingApproval,
@@ -100,14 +100,19 @@ const SETTINGS_LABELS = {
   grant: "waiting.label.settings-grant",
 } as const;
 
-const EVENT_LABELS = {
+// 문자열로 찾는다: protocol의 옛 reaction event type이 지워질 때까지 type에 남아 있어 닫힌 키로 못 쓴다.
+const EVENT_LABELS: Readonly<Record<string, MessageKey>> = {
   ProblemOpened: "waiting.label.event-problem-opened",
   ProblemReopened: "waiting.label.event-problem-reopened",
   AppRestartHalted: "waiting.label.event-app-restart-halted",
   ReleaseActivationFailed: "waiting.label.event-activation-failed",
-  ContextViolationFound: "waiting.label.event-context-violation",
   KindViolationFound: "waiting.label.event-kind-violation",
-} as const;
+};
+
+function eventLabel(event: string): string {
+  const key = EVENT_LABELS[event];
+  return key === undefined ? "" : t(key);
+}
 
 const DECLARED_LABELS = {
   "net.fetch": "waiting.label.declared-network",
@@ -166,7 +171,7 @@ function targetOf(intent: Intent): string {
     case "app_resource":
       return scopeText(target.scope);
     case "reaction":
-      return t(EVENT_LABELS[target.event]);
+      return eventLabel(target.event);
     case "activation":
       return t("waiting.label.place-app", { id: shortId(target.app) });
   }
@@ -330,9 +335,9 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
       const event = intent.target.kind === "reaction"
         ? intent.target.event
         : null;
-      const eventText = event === null ? "" : t(EVENT_LABELS[event]);
+      const eventText = event === null ? "" : eventLabel(event);
       const opens = t(
-        event === "ContextViolationFound" || event === "KindViolationFound"
+        event === "KindViolationFound"
           ? "waiting.label.agent-project-manager"
           : "waiting.label.agent-app-engineer",
       );

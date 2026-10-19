@@ -93,8 +93,6 @@ export function ChatShell(
     archived = false,
     placeholder,
     dock,
-    chip,
-    onChip,
     panel,
     queued = [],
     onSession,
@@ -111,8 +109,6 @@ export function ChatShell(
     archived?: boolean;
     placeholder: string;
     dock?: ReactNode;
-    chip?: string;
-    onChip?: () => void;
     panel?: ReactNode;
     /** 일하는 중에 보내 다음 turn을 기다리는 메시지. */
     queued?: readonly string[];
@@ -221,18 +217,12 @@ export function ChatShell(
           offline={false}
           readOnly={archived}
           hint={placeholder}
-          chips={chip === undefined ? [] : [{
-            id: "chip",
-            context: "ctx_01h455vb4pex5v6nkc6gd5f001",
-            label: chip,
-          }]}
           place={{ kind: "project", name: "phroner" }}
           permissionSummary="Permissions: 4 run freely · 3 ask first"
           permissions={permissions}
           onDraft={(patch) => {
             if (patch.text !== undefined) setText(patch.text);
           }}
-          onRemoveChip={() => onChip?.()}
           onAttach={() => {}}
           onLoadPermissions={() => {}}
           onEditPermissions={() => {}}

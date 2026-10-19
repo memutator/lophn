@@ -10,7 +10,7 @@ export const REACTION_EVENTS = [
   "ProblemReopened",
   "AppRestartHalted",
   "ReleaseActivationFailed",
-  "ContextViolationFound",
+  "KindViolationFound",
 ] as const;
 
 export type ReactionEvent = typeof REACTION_EVENTS[number];

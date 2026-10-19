@@ -65,9 +65,7 @@ export function MessageBody(
             case "attached":
               return (
                 <p key={index} className={styles.attached} data-attached="">
-                  {part.line === undefined
-                    ? part.name
-                    : `${part.name} · ${part.line}`}
+                  {part.name}
                 </p>
               );
           }

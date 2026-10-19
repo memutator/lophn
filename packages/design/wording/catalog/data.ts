@@ -63,7 +63,6 @@ export const data = {
   "waiting.label.effect-write": "write",
   "waiting.label.event-activation-failed": "An activation failed",
   "waiting.label.event-app-restart-halted": "App restarts were halted",
-  "waiting.label.event-context-violation": "A context rule was broken",
   "waiting.label.event-kind-violation": "A kind rule was broken",
   "waiting.label.event-problem-opened": "A problem was opened",
   "waiting.label.event-problem-reopened": "A problem was reopened",
@@ -145,15 +144,15 @@ export const data = {
   "waiting.toast-permission.title": "{agent} needs permission",
   "waiting.toast-question.button": "Review",
   "waiting.toast-question.body": "Open the list to answer it.",
+  "waiting.toast-kind-violation.button": "Ask Project Manager",
+  "waiting.toast-kind-violation.body":
+    "A check found {count, plural, one {# new violation} other {# new violations}} in this project's documents.",
+  "waiting.toast-kind-violation.title": "Documents don't match the kinds",
   "waiting.toast-question.title": "{agent} has a question",
   "waiting.toast-restart-halted.button": "Open session",
   "waiting.toast-restart-halted.body":
     "{app} kept crashing, so lophn stopped restarting it.",
   "waiting.toast-restart-halted.title": "App restart halted",
-  "waiting.toast-violation.button": "Ask Project Manager",
-  "waiting.toast-violation.body":
-    "A check found documents that don't match the contract in context {context}.",
-  "waiting.toast-violation.title": "Documents don't match the contract",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.agent-call": "Send work to another agent",
   "waiting.title.app-api": "Use {api} in {app}",

@@ -86,7 +86,6 @@ export async function readBody(
           kind: "attached",
           attached: part.attached,
           name: part.name,
-          ...(part.line === undefined ? {} : { line: part.line }),
         };
       case "app_card":
         return { kind: "app_card", app: part.app, view: part.view };

@@ -20,7 +20,6 @@ import type {
   ThreadView,
 } from "./agent-tab-source.ts";
 import { EMPTY_THREAD } from "./agent-tab-source.ts";
-import { attachedPartsOf } from "./attached-chips.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type {
   PickerModelRef,
@@ -1066,16 +1065,8 @@ export function createFakeAgentTabSource(
     permissions: () => ok(PERMISSIONS_VIEW),
     recap: () => ok(RECAP),
 
-    send({ session, id, text, delivery, chips }) {
-      bodies.set(id, [
-        ...attachedPartsOf(chips).map((part): BodyPart => ({
-          kind: "attached",
-          attached: part.attached,
-          name: part.name,
-          ...("line" in part ? { line: part.line } : {}),
-        })),
-        { kind: "text", text },
-      ]);
+    send({ session, id, text, delivery }) {
+      bodies.set(id, [{ kind: "text", text }]);
       const view = thread(session);
       const running = view.turn?.phase === "working" ||
         view.turn?.phase === "waiting";

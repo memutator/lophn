@@ -16,16 +16,12 @@ export const MESSAGE_BODY_FIELD = "body";
 const encoder = new TextEncoder();
 
 // 사람이 composer chip으로 붙인 것. 이름과 한 줄만 싣고 상세는 tool로 읽는다.
-// 위반은 path와 rule, 파일은 path를 더한다. context와 위반은 가리키는 context id도 싣는다: 실패한 turn을
-// 다시 보낼 때 이 part로 chip을 되살린다.
+// 파일은 path를 더한다.
 const attachedFields = {
   kind: z.literal("attached"),
   attached: z.enum(ATTACHED_KINDS),
   name: z.string().min(1),
-  line: z.string().optional(),
   path: z.string().min(1).optional(),
-  rule: z.string().min(1).optional(),
-  context: idSchema("ctx").optional(),
 };
 const attachedPartInputSchema = z.strictObject(attachedFields);
 const attachedPartSchema = z.object(attachedFields);

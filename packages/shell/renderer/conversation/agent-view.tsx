@@ -31,10 +31,7 @@ import {
 } from "./agent-view-model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { loadBodies } from "./bodies.ts";
-import {
-  AgentComposer,
-  type ContextChipView,
-} from "./composer/agent-composer.tsx";
+import { AgentComposer } from "./composer/agent-composer.tsx";
 import {
   afterCheck,
   afterReply,
@@ -81,9 +78,6 @@ interface AgentViewProps {
   session: string | null;
   onSessionChange: (session: string | null) => void;
   host: AgentViewHost;
-  /** 다음에 보낼 말에 붙는 context. 탭이 쥔다. chip마다 하나씩 붙고, 보내면 비운다. */
-  contextChips?: readonly ContextChipView[];
-  onContextChips?: (chips: readonly ContextChipView[]) => void;
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
   now?: () => number;
@@ -157,9 +151,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const [detail, setDetail] = useState<ViewDetail>("compact");
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
-  const chips = props.contextChips ?? [];
-  const setChips = (next: readonly ContextChipView[]) =>
-    props.onContextChips?.(next);
   const [problem, setProblem] = useState<Problem | null>(null);
 
   const { agent, thread, refresh } = data;
@@ -246,7 +237,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       key: outgoing.key,
       text: outgoing.text,
       delivery: outgoing.delivery,
-      chips: outgoing.chips,
     });
     const next = afterReply(
       outgoing,
@@ -265,18 +255,14 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       key: `session-messages-send-${id}`,
       text,
       delivery: "next_turn",
-      chips,
     });
-    setChips([]);
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
   };
 
-  const chipText = chips.map((chip) => chip.label).join("\n");
-
   const send = async () => {
     if (readOnly || composerLocked(draft.outgoing)) return;
-    const text = draft.text.trim() === "" ? chipText : draft.text;
+    const text = draft.text;
     if (text.trim() === "" || !fitsMessage(text)) return;
     const target = await ensureSession();
     if (target !== null) await dispatch(text, target);
@@ -320,7 +306,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   };
 
   const startNew = () => {
-    setChips([]);
     setLayer(null);
     onSessionChange(null);
   };
@@ -593,13 +578,10 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           offline={offline}
           readOnly={readOnly}
           hint={hint}
-          chips={chips}
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
           onDraft={(patch) => drafts.save(key, patch)}
-          onRemoveChip={(id) =>
-            setChips(chips.filter((chip) => chip.id !== id))}
           onAttach={host.attach}
           onLoadPermissions={() => void loadPermissions()}
           onEditPermissions={host.openPermissions}

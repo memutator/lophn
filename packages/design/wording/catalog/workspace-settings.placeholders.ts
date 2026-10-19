@@ -112,7 +112,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.group-system": Record<never, never>;
   "settings.label.reaction-activation-failed": Record<never, never>;
   "settings.label.reaction-ask": Record<never, never>;
-  "settings.label.reaction-context-violation": Record<never, never>;
+  "settings.label.reaction-kind-violation": Record<never, never>;
   "settings.label.reaction-off": Record<never, never>;
   "settings.label.reaction-open": Record<never, never>;
   "settings.label.reaction-problem-opened": Record<never, never>;
@@ -170,7 +170,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.problems-detail_collection.help": Record<never, never>;
   "settings.problems-detail_collection.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
-  "settings.reaction.context-violation-when": Record<never, never>;
+  "settings.reaction.kind-violation-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.reaction.opens-project-manager": Record<never, never>;
   "settings.reaction.opens-release-engineer": Record<never, never>;

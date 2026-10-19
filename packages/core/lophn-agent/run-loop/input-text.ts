@@ -66,21 +66,12 @@ function refLines(refs: readonly CallRef[]): string[] {
   ];
 }
 
-// 사람이 composer에 붙인 것. 이름과 한 줄만 싣고 상세는 tool로 읽는다.
+// 사람이 composer에 붙인 것. 이름만 싣고 상세는 tool로 읽는다.
 export function attachedText(attached: readonly AttachedChip[]): string {
   const tag = INPUT_TAGS.attached;
-  return attached.map((chip) => {
-    switch (chip.kind) {
-      case "context":
-        return `${open(tag, { kind: "context", name: chip.name })}</${tag}>`;
-      case "file":
-        return `${open(tag, { kind: "file", name: chip.path })}</${tag}>`;
-      case "violation":
-        return `${open(tag, { kind: "violation", name: chip.path })}${
-          escapeBody(chip.rule)
-        }</${tag}>`;
-    }
-  }).join("\n");
+  return attached.map((chip) =>
+    `${open(tag, { kind: "file", name: chip.path })}</${tag}>`
+  ).join("\n");
 }
 
 function wrap(

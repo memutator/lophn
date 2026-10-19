@@ -72,7 +72,6 @@ export type DataPlaceholders = {
   "waiting.label.effect-write": Record<never, never>;
   "waiting.label.event-activation-failed": Record<never, never>;
   "waiting.label.event-app-restart-halted": Record<never, never>;
-  "waiting.label.event-context-violation": Record<never, never>;
   "waiting.label.event-kind-violation": Record<never, never>;
   "waiting.label.event-problem-opened": Record<never, never>;
   "waiting.label.event-problem-reopened": Record<never, never>;
@@ -187,6 +186,11 @@ export type DataPlaceholders = {
   };
   "waiting.toast-question.button": Record<never, never>;
   "waiting.toast-question.body": Record<never, never>;
+  "waiting.toast-kind-violation.button": Record<never, never>;
+  "waiting.toast-kind-violation.body": {
+    count: "plural";
+  };
+  "waiting.toast-kind-violation.title": Record<never, never>;
   "waiting.toast-question.title": {
     agent: "string";
   };
@@ -195,11 +199,6 @@ export type DataPlaceholders = {
     app: "string";
   };
   "waiting.toast-restart-halted.title": Record<never, never>;
-  "waiting.toast-violation.button": Record<never, never>;
-  "waiting.toast-violation.body": {
-    context: "string";
-  };
-  "waiting.toast-violation.title": Record<never, never>;
   "waiting.title.activation": {
     app: "string";
   };

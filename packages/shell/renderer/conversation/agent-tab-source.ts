@@ -14,7 +14,6 @@ import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { Intent } from "../../../protocol/approvals/intent.ts";
 import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
-import type { ContextChipView } from "./composer/types.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
@@ -71,7 +70,6 @@ export type BodyPart =
     readonly kind: "attached";
     readonly attached: string;
     readonly name: string;
-    readonly line?: string;
   }
   | { readonly kind: "app_card"; readonly app: string; readonly view: string };
 
@@ -456,8 +454,6 @@ export interface SendInput {
   readonly key: string;
   readonly text: string;
   readonly delivery: Delivery;
-  /** 이 말에 붙은 context chip. core가 `attached`로 받아 agent에게 chip으로 전한다. */
-  readonly chips: readonly ContextChipView[];
 }
 
 export interface AgentTabSource {
@@ -538,7 +534,7 @@ export interface AgentTabSource {
   cancelCall(call: string): Promise<SourceResult<void>>;
 
   // session
-  /** 첫 말을 보내기 전에 만든다. 첫 context chip은 첫 말의 `attached`로 간다. */
+  /** 첫 말을 보내기 전에 만든다. */
   openSession(
     input: { id: string },
   ): Promise<SourceResult<void>>;

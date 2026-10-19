@@ -13,10 +13,10 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-agents-core` | place-core | 2 | 없음 | merged | place-core/dp-agents-core | 61100fa9d |  |
 | `dp-operator-skills` | place-core | 2 | dp-agents-core, dp-agent-roles-scope | merged | place-core/dp-operator-skills | f1095af40 |  |
 | `dp-place-events` | place-core | 2 | 없음 | merged | place-core/dp-place-events | 7d94a227d |  |
-| `dp-grants-public-ui` | public-tools | 2 | dp-public-filter | todo |  |  |  |
+| `dp-grants-public-ui` | public-tools | 2 | dp-public-filter | running | public-tools/dp-grants-public-ui |  |  |
 | `dp-public-event` | public-tools | 2 | 없음 | merged | public-tools/dp-public-event | 2a199d98e |  |
 | `dp-public-filter` | public-tools | 2 | 없음 | merged | public-tools/dp-public-filter | 3c601f263 |  |
-| `dp-release-guard` | public-tools | 2 | dp-public-event, dp-usage-read | todo |  |  |  |
+| `dp-release-guard` | public-tools | 2 | dp-public-event, dp-usage-read | running | public-tools/dp-release-guard |  |  |
 | `dp-roles-public` | public-tools | 2 | 없음 | merged | public-tools/dp-roles-public | f3708ca9d |  |
 | `dp-agent-roles-prompt` | role-merge | 2 | 없음 | merged | role-merge/dp-agent-roles-prompt | 561618b1e |  |
 | `dp-agent-roles-scope` | role-merge | 2 | dp-agents-core | merged | role-merge/dp-agent-roles-scope | c37d51bae |  |

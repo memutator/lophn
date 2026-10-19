@@ -17,16 +17,18 @@ async function replaceOnce(
 }
 
 export async function rewindPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "add_blob",
-        label: "Add blob",
+        name: "add_blob",
+        title: "Add blob",
         description: "Store a row holding kb KiB of text.",
         effect: "write",
-        input: {
+        inputSchema: {
           type: "object",
           properties: {
             kb: {
@@ -39,26 +41,29 @@ export async function rewindPatch(dir: string): Promise<void> {
           required: ["kb"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "count_blobs",
-        label: "Count blobs",
+        name: "count_blobs",
+        title: "Count blobs",
         description: "Count the stored blob rows.",
         effect: "read",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "touch_blob",
-        label: "Touch blob",
+        name: "touch_blob",
+        title: "Touch blob",
         description: "Read the oldest blob row.",
         effect: "read",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   const sql = `${dir}/migrations/0-1.sql`;
   await Deno.writeTextFile(

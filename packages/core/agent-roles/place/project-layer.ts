@@ -16,7 +16,6 @@ import {
 // project의 data 폴더 안에 있다. 파일 이름이 바뀌면 사람이 둔 project 설정을 못 찾는다. skill 폴더는 domain의
 // data 폴더 안에 있다(`domains`).
 const EXTENSIONS_FILE = "extensions.json";
-const SKILLS_FOLDER = "skills";
 
 function folderOf(root: string, project: string): string {
   return placeDataFolder(root, { kind: "project", id: project as Id<"prj"> });
@@ -29,8 +28,6 @@ export const PROJECT_LAYER: ProjectLayer = {
     domainIdOfFolder,
   },
   projectOf: (place: AgentPlace) => place.kind === "project" ? place.id : null,
-  skillsFolder: (root, project) =>
-    `${folderOf(root, project)}/${SKILLS_FOLDER}`,
   extensionsFile: (root, project) =>
     `${folderOf(root, project)}/${EXTENSIONS_FILE}`,
   settingsFolderArea: projectsDataArea,

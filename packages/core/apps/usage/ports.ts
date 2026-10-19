@@ -8,7 +8,7 @@ export interface UsagePorts {
   sessionDomains(
     session: string,
   ): { role: Role; domains: string[] } | null;
-  // PM·App Engineer는 그 그릇의 active domain 전부, Operator는 정의의 domains와 그릇의 교집합(비면 전부), lophn은 []다.
+  // PM·App Engineer는 그 그릇의 active domain 전부, Operator는 정의의 domains와 그릇의 교집합(고른 것이 없을 때만 전부), lophn은 []다.
   agentDomains(agent: AgentRef): string[];
   // 그 앱의 domain 이름 → id. 없으면 null이다.
   domainOf(app: string, name: string): string | null;

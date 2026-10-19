@@ -15,3 +15,24 @@ Deno.test("agent가 맡지 않은 domain의 skill은 목록에서 꺼진다", ()
     [["global", true], ["mine", true], ["other", false]],
   );
 });
+
+Deno.test("같은 이름의 skill은 전역과 맡은 domain 가운데 한 줄만 나간다", () => {
+  const entry = (name: string, domain: string | null) =>
+    ({
+      name,
+      description: `${name}:${domain}`,
+      enabled: true,
+      domain,
+    }) as SkillEntry;
+  const entries = [entry("x", null), entry("x", "dom_a"), entry("x", "dom_b")];
+  const resolved = { skills: ["x"], domains: ["dom_b"] };
+  assertEquals(promptSkills(entries, resolved), [
+    { name: "x", description: "x:dom_b", enabled: true },
+  ]);
+  assertEquals(
+    promptSkills(entries, { skills: ["x"], domains: [] }).map((skill) =>
+      skill.description
+    ),
+    ["x:null"],
+  );
+});

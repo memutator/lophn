@@ -582,7 +582,6 @@ export function Workspace(props: WorkspaceProps) {
   useToastHandler({
     project: projectId,
     openSession: openSessionTab,
-    openProjectManager: () => openProjectManager(reactionEnv),
   });
 
   // 시작 route(session·Project Manager·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.

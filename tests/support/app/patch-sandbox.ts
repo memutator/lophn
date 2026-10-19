@@ -7,10 +7,12 @@
  * 준비가 틀려서(파일이 없다 등) blocked로 보이는 일이 없다.
  */
 export async function escapePatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   const blueprint = `${dir}/blueprint.ts`;
   const text = await Deno.readTextFile(blueprint);
   const slot = `      {
-        key: "add_item",`;
+        name: "add_item",`;
   if (!text.includes(slot)) throw new Error(`${blueprint}에 patch 자리가 없다`);
   const field = (description: string) =>
     `{ type: "string", description: "${description}", minLength: 1 }`;
@@ -19,11 +21,11 @@ export async function escapePatch(dir: string): Promise<void> {
     text.replace(
       slot,
       `      {
-        key: "escape",
-        label: "Escape",
+        name: "escape",
+        title: "Escape",
         description: "Try to reach outside the declared permissions.",
         effect: "read",
-        input: {
+        inputSchema: {
           type: "object",
           properties: {
             secrets: ${field("File to read.")},
@@ -33,7 +35,8 @@ export async function escapePatch(dir: string): Promise<void> {
           required: ["secrets", "outside", "url"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
 ${slot}`,
     ),

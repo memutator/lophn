@@ -16,7 +16,7 @@ import {
   mergeMcpLayers,
   runtimeServerOfLayer,
 } from "./mcp-server.ts";
-import { builtinForRole, skillReceived } from "./skills.ts";
+import { builtinForRole, pickSkills, skillReceived } from "./skills.ts";
 import {
   listSkillsSync,
   type SkillListing,
@@ -118,7 +118,7 @@ export function createExtensionRegistry(
   };
 }
 
-// `/` 메뉴의 skill 한 줄이다. 일하는 domain 밖의 domain skill과, agent 정의가 고른 이름이 있으면 그 밖의 skill은 selected=false다. 끌 수 없는 내장 skill은
+// `/` 메뉴의 skill 한 줄이다(이름마다 하나: `pickSkills`). 일하는 domain 밖의 domain skill과, agent 정의가 고른 이름이 있으면 그 밖의 skill은 selected=false다. 끌 수 없는 내장 skill은
 // 늘 켜져 있다. 지금 없는 고른 이름은 그대로 두어 아무 일도 하지 않는다. 내장 skill은 선언한 role의 메뉴에만 보인다.
 export function commandSkillsOf(
   entries: SkillListing["entries"],
@@ -131,12 +131,17 @@ export function commandSkillsOf(
   origin: SkillSource;
   selected: boolean;
 }[] {
-  return entries.filter((entry) =>
-    entry.source !== "builtin" || builtinForRole(entry.name, role)
+  const received = (entry: SkillListing["entries"][number]) =>
+    entry.enabled && skillReceived(entry, chosen, domains);
+  return pickSkills(
+    entries.filter((entry) =>
+      entry.source !== "builtin" || builtinForRole(entry.name, role)
+    ),
+    received,
   ).map((entry) => ({
     name: entry.name,
     description: entry.description,
     origin: entry.source,
-    selected: entry.enabled && skillReceived(entry, chosen, domains),
+    selected: received(entry),
   }));
 }

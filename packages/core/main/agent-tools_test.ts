@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { ROLES } from "../../protocol/lophn-agent/places.ts";
 import { builtinToolNames } from "../agent-roles/tool-lists.ts";
 import { ticketCreate } from "../../protocol/coding-agent/ticket/mod.ts";
-import { roleOperations } from "../agent-roles/credentials.ts";
+import { agentConditions, roleOperations } from "../agent-roles/credentials.ts";
 import { FILE_HOOKS } from "../agent-roles/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
@@ -21,6 +21,21 @@ Deno.test("App Engineer의 credential 상한에 ticket.create tool이 부르는 
     agentTools({ file: FILE_HOOKS }),
   );
   assert(!manager.includes(ticketCreate.name));
+  // 앱 place의 Operator는 App Engineer의 쓰기 route에 닿지 못하고 자기 앱 하나에 묶인다.
+  const operator = roleOperations(
+    "operator",
+    agentTools({ file: FILE_HOOKS }),
+  );
+  assert(!operator.includes(ticketCreate.name));
+  const ids = { session: "s", turn: "t", process: "p" };
+  assertEquals(
+    agentConditions({
+      ...ids,
+      role: "operator",
+      place: { kind: "app", id: "app_1" },
+    }).app,
+    "app_1",
+  );
 });
 
 // selectTools는 정의 없는 이름을 조용히 건너뛴다. 어긋나면 agent가 그 tool을 말없이 못 본다.

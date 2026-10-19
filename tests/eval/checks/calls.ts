@@ -59,12 +59,12 @@ export function callAfterAppCreate(
         return { pass: false, reason: "새로 만든 앱 없음" };
       }
       const calls = sentCalls(trial);
-      const hit = created.some((app) =>
+      const hit = created.some((made) =>
         calls.some((c) =>
-          c.tool_call > app.tool_call && c.reply === opts.reply &&
+          c.tool_call > made.tool_call && c.reply === opts.reply &&
           c.receiver?.role === "project_manager" &&
-          (c.receiver.project === app.project ||
-            c.receiver_place?.name === app.project)
+          (c.receiver.project === made.project ||
+            c.receiver_place?.name === made.project)
         )
       );
       return {

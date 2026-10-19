@@ -8,7 +8,8 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 
 // skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), domain
-// 셋이고 같은 이름은 마지막 층이 덮는다. 같은 이름이 여러 domain에 있으면 domain 이름이 앞서는 쪽이 이긴다. 다만 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
+// 셋이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
+// agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 파일 IO는 SkillFilesPort로 끼운다. 이 모듈은 사람의 실제 home이나 다른 harness 보관소를
 // 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다. turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
@@ -173,6 +174,8 @@ export type SkillCandidate = {
   name: string;
   source: SkillSource;
   bundle_path: string;
+  // domain 층 skill이 속한 domain id다. 그 밖의 skill은 null이다.
+  domain: string | null;
 };
 
 function declaredBuiltin(name: string) {
@@ -193,9 +196,10 @@ export function builtinForRole(name: string, role: Role | null): boolean {
     (role === null || (builtin.roles as readonly Role[]).includes(role));
 }
 
-// 층 순서(내장, 전역, domain)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮고, 끌 수 없는 내장 skill은
-// 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
-// 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이다.
+// 층 순서(내장, 전역, domain)로 늘어선 후보를 합친다. 내장과 전역은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
+// 합치지 않고 domain마다 남긴다(전역 `x`가 domain `x`에 가려져 그 domain을 고르지 않은 agent가 잃지 않게). 끌 수 없는 내장
+// skill은 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
+// 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이고 같은 이름은 전역, domain(받은 순서) 순이다.
 export function mergeSkillLayers<T extends SkillCandidate>(
   candidates: readonly T[],
   off: readonly string[],
@@ -207,6 +211,7 @@ export function mergeSkillLayers<T extends SkillCandidate>(
   const canDisable = (candidate: SkillCandidate): boolean =>
     candidate.source !== "builtin" || builtinCanDisable(candidate.name);
   const byName = new Map<string, T>();
+  const perDomain: T[] = [];
   for (const candidate of candidates) {
     const kept = byName.get(candidate.name);
     if (
@@ -220,10 +225,11 @@ export function mergeSkillLayers<T extends SkillCandidate>(
       });
       continue;
     }
-    byName.set(candidate.name, candidate);
+    if (candidate.domain === null) byName.set(candidate.name, candidate);
+    else perDomain.push(candidate);
   }
   const offNames = new Set(off);
-  return [...byName.values()]
+  return [...byName.values(), ...perDomain]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((candidate) => {
       const disable = canDisable(candidate);
@@ -247,11 +253,26 @@ export function skillReceived(
     (!skill.can_disable || chosen.length === 0 || chosen.includes(skill.name));
 }
 
+// 합친 목록에서 이름마다 한 줄만 남긴다. 받는 줄 가운데 domain 층이 전역을 덮고, domain 사이는 목록에서 앞선 쪽이
+// 이긴다. 받는 줄이 없으면 첫 줄이다. 받는 쪽(`received`)은 resolve, skill.read, `/` 메뉴가 `skillReceived`로 정한다.
+export function pickSkills<T extends { name: string; domain: string | null }>(
+  entries: readonly T[],
+  received: (entry: T) => boolean,
+): T[] {
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    groups.set(entry.name, [...(groups.get(entry.name) ?? []), entry]);
+  }
+  return [...groups.values()].map((group) => {
+    const got = group.filter(received);
+    return got.find((entry) => entry.domain !== null) ?? got[0] ?? group[0];
+  });
+}
+
 // ---- 발견 ----
 
 type Candidate = SkillCandidate & {
   description: string;
-  domain: string | null;
   content_hash: string;
   supplemental: readonly SkillSupplemental[];
 };
@@ -263,8 +284,7 @@ type SkillDiscoveryInput = {
   // 전역 층: 등록 폴더는 사람이 정한 순서 그대로, 개인 보관소는 그 뒤다. 없으면 null이다.
   registered_roots: readonly string[];
   personal_store: string | null;
-  // domain 층: place 그릇의 active domain과 그 skill 폴더다. domain 이름순으로 받고 앞서는 domain이 이긴다.
-  // 그릇이 없는 agent는 빈 목록이다.
+  // domain 층: place 그릇의 active domain과 그 skill 폴더다. domain 이름순으로 받는다. 그릇이 없는 agent는 빈 목록이다.
   domain_stores: readonly DomainStore[];
   // 내장 skill을 이 role의 것만 남긴다. null이면 모두 남긴다.
   role: Role | null;
@@ -316,8 +336,7 @@ export async function discoverSkills(
       "global",
     );
   }
-  // 마지막 층이 덮으므로 이름이 앞서는 domain을 나중에 둔다.
-  for (const store of [...input.domain_stores].reverse()) {
+  for (const store of input.domain_stores) {
     await scanFolders(
       input,
       candidates,

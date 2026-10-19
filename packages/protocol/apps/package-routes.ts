@@ -64,7 +64,7 @@ export const packageRegisterVersion = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict"],
 });
 
-// Project Manager가 자기 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
+// App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
 export const packagePublishInputSchema = z.strictObject({
   app: appIdSchema,
@@ -100,7 +100,7 @@ export const packagePublish = defineMemory({
 });
 
 // 설치 사본의 내장 SDK(@lophn/*) 목록과 안내. catalog가 아니라 `<data root>/sdk`가 정본이라 disk를 읽는 memory route다.
-// lophn과 Project Manager는 그 폴더를 직접 읽을 수 없다. name이 없으면 설치된 것 전부(이름순)이고 guide는 null,
+// lophn과 App Engineer는 그 폴더를 직접 읽을 수 없다. name이 없으면 설치된 것 전부(이름순)이고 guide는 null,
 // name이 있으면 packages는 그 하나이고 guide는 본문이다. 설치되지 않은 이름은 not_found다.
 export const packagesBuiltinInputSchema = z.strictObject({
   name: packageNameSchema.refine((name) => name.startsWith("@lophn/"), {

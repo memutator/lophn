@@ -86,7 +86,11 @@ export function SkillList(
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => (
-        <li key={item.name} className={styles.toggleRow} data-skill={item.name}>
+        <li
+          key={`${item.domain ?? ""}/${item.name}`}
+          className={styles.toggleRow}
+          data-skill={item.name}
+        >
           <span className={styles.toggleMain}>
             <span className={styles.toggleName}>{item.name}</span>
             <span className={styles.toggleDetail}>{item.detail}</span>

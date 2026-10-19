@@ -3,10 +3,7 @@
 // import를 두지 않는다. 이름 schema는 values.ts의 artifactNameSchema다.
 
 // artifact는 domain 자리 아래 `artifacts/<name>/`이고 입구는 `index.html`이다.
-// `data/_entries.json`은 view가 만드는 가상 file이다.
 export const ARTIFACT_ENTRY = "index.html";
-export const ARTIFACT_DATA_FOLDER = "data";
-export const ARTIFACT_ENTRIES_FILE = "_entries.json";
 
 export type ArtifactMeta = { title: string; description: string };
 

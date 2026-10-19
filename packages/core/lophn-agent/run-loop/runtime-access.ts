@@ -116,7 +116,7 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // tool의 정의 재료(활성 release 선언과 agent grant)와 앱의 project(다른 project 앱의 비공개 tool 거르기)를 읽는다.
+  // tool의 정의 재료(활성 release 선언과 agent grant)와 앱의 domain(다른 domain의 비공개 tool 거르기)을 읽는다.
   // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
   appTools,
   appGet,

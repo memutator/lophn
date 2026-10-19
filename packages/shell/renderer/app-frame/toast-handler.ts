@@ -29,8 +29,6 @@ export function useToastHandler(host: SpaceReactionHost): void {
           return true;
         case "session":
           return latest.current.openSession(action.session, action.app);
-        case "project-manager":
-          return false;
       }
     }), [setOpen]);
 }

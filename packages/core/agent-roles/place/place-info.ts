@@ -265,7 +265,9 @@ function kindLines(kinds: PlaceKinds | null, budget: number): string[] {
 export function placeInfo(role: Role, data: PlaceData, budget: number): string {
   const lines = [
     "# Your place",
-    `You are ${data.self.name}, a ${ROLE_LABEL[role]}.`,
+    `You are ${data.self.name}, ${
+      /^[AEIOU]/.test(ROLE_LABEL[role]) ? "an" : "a"
+    } ${ROLE_LABEL[role]}.`,
     ...placeLines(data),
   ];
   const sections: string[][] = [agentLines(data.agents)];

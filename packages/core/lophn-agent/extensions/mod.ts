@@ -9,6 +9,7 @@ export {
   discoverSkills,
   mergeSkillLayers,
   parseSkillFrontmatter,
+  pickSkills,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
   type SkillCandidate,

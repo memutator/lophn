@@ -13,24 +13,27 @@ async function replaceOnce(
 }
 
 export async function slowPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "count_slow",
-        label: "Count slow",
+        name: "count_slow",
+        title: "Count slow",
         description: "Count the rows slow_write put in.",
         effect: "read",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "slow_write",
-        label: "Slow write",
+        name: "slow_write",
+        title: "Slow write",
         description: "Put a row in and wait without answering.",
         effect: "write",
-        input: {
+        inputSchema: {
           type: "object",
           properties: {
             title: { type: "string", minLength: 1, maxLength: 200 },
@@ -38,10 +41,11 @@ export async function slowPatch(dir: string): Promise<void> {
           required: ["title"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   const api = `${dir}/src/tools.ts`;
   await replaceOnce(

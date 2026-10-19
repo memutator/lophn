@@ -18,7 +18,7 @@ import type {
 } from "../../protocol/lophn-agent/inputs.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 
-// Router가 바깥에서 받는 것들이다. Router는 domain module을 import하지 않고,
+// Router가 바깥에서 받는 것들이다. Router는 feature module을 import하지 않고,
 // 구현은 main/daemon/wiring/router.ts가 끼운다.
 
 // 받는 session 하나. Router가 배달 길을 고르는 데 쓴다.

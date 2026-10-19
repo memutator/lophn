@@ -18,20 +18,23 @@ export const REPORT_MARKER = "e2e-report-body-marker";
  * blueprint 선언과 handler가 같아 platform app test를 통과한다.
  */
 export async function reportPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "report",
-        label: "Report",
+        name: "report",
+        title: "Report",
         description: "Report a problem with a message.",
         effect: "read",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   const api = `${dir}/src/tools.ts`;
   await replaceOnce(

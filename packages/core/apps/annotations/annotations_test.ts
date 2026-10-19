@@ -188,7 +188,7 @@ Deno.test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 t
   world.close();
 });
 
-// domain의 owner를 읽는 port. 앱이 owner인 domain은 사람만 읽는다.
+// domain의 owner를 읽는 port. 앱이 owner인 domain은 그 앱 범위가 읽는다.
 const DOMAIN_OF_PROJECT = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
 const DOMAIN_OF_OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const DOMAIN_OF_APP = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
@@ -207,7 +207,7 @@ const snapshotOf = (sql: unknown) =>
     }),
   }) as never;
 
-Deno.test("annotations.get: PM·Operator는 자기 project의 file과 자기 project가 owner인 domain의 artifact만, App Engineer는 자기 앱 것만 읽는다", async () => {
+Deno.test("annotations.get: PM·Operator는 자기 project의 file과 자기 project가 owner인 domain의 artifact만, App Engineer는 자기 앱 것과 자기 앱이 owner인 domain의 artifact만 읽는다", async () => {
   const world = open();
   const send = async (target: { kind: string; [key: string]: unknown }) => {
     const sent = await world.send(USER, {
@@ -264,13 +264,14 @@ Deno.test("annotations.get: PM·Operator는 자기 project의 file과 자기 pro
   const engineer = { app: APP };
   assertEquals(code(get(engineer, app)), "ok");
   assertEquals(code(get(engineer, mine)), "not_found");
-  assertEquals(code(get(engineer, ofApp)), "not_found");
+  assertEquals(code(get(engineer, ofApp)), "ok");
+  assertEquals(code(get(engineer, theirs)), "not_found");
   assertEquals(
     code(get({ app: "app_01hzzzzzzzzzzzzzzzzzzzzzzb" }, app)),
     "not_found",
   );
 
-  // 조건이 없는 agent(앱 place의 Operator 등)는 읽을 수 없다.
+  // 조건이 없는 agent(lophn)는 읽을 수 없다.
   assertEquals(code(get({}, mine)), "forbidden");
   assertEquals(code(get({}, app)), "forbidden");
 

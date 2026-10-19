@@ -55,26 +55,6 @@ export function activeProjectFolderPaths(sql: ReadSql): string[] {
   ).map((row) => String(row["path"]));
 }
 
-// active project마다 등록 폴더 경로(position 순). kinds worker가 훑을 root다.
-export function activeProjectRoots(
-  sql: ReadSql,
-): { project: string; roots: string[] }[] {
-  const byProject = new Map<string, string[]>();
-  for (
-    const row of sql.all(
-      `select p.id as project, f.path as path from projects p
-         left join project_folders f on f.project = p.id
-        where p.status = 'active' order by p.id, f.position`,
-      [],
-    )
-  ) {
-    const roots = byProject.get(String(row["project"])) ?? [];
-    if (row["path"] !== null) roots.push(String(row["path"]));
-    byProject.set(String(row["project"]), roots);
-  }
-  return [...byProject].map(([project, roots]) => ({ project, roots }));
-}
-
 // active project의 등록 폴더 경로. 없거나 보관된 project는 null이다.
 export function projectRootsOf(sql: ReadSql, project: string): string[] | null {
   const row = sql.get("select status from projects where id = ?", [project]);

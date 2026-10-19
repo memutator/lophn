@@ -2,11 +2,6 @@
 // `glob_overlap`)은 core가 내고, 여기는 파일 내용만으로 정해지는 구조 검사만 한다.
 import { z } from "zod";
 
-export const KINDS_FILE_NAME = "kinds.yaml";
-
-export const kindsFilePath = (dataRoot: string, project: string): string =>
-  `${dataRoot}/projects/${project}/${KINDS_FILE_NAME}`;
-
 export const kindsIndexPath = (dataRoot: string): string =>
   `${dataRoot}/derived/kinds.sqlite`;
 

@@ -113,7 +113,7 @@ async function openSession(
     case "operator":
       return await operatorOf(ctx, row.name, place);
     case "coding_agent":
-      // session의 place는 앱의 project라 앱을 알 수 없다. 열린 coding session은 이름으로 부른다.
+      // 열린 coding session은 session id로 풀지 않고 `{ app }` 이름으로 부른다.
       return null;
   }
 }

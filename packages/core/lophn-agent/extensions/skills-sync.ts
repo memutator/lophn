@@ -32,7 +32,7 @@ export type SyncSkillFiles = {
 };
 
 // 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), domain 폴더들이다. null은 그 출처가 없는 것이다.
-// domain은 이름순으로 받고 앞서는 domain의 skill이 이긴다.
+// domain은 이름순으로 받는다.
 export type SkillSources = {
   bundled: string | null;
   registered: readonly string[];
@@ -46,10 +46,7 @@ export type SkillListing = {
   skipped: readonly SkillSkipped[];
 };
 
-type Candidate = SkillCandidate & {
-  description: string;
-  domain: string | null;
-};
+type Candidate = SkillCandidate & { description: string };
 
 function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   try {
@@ -188,8 +185,7 @@ export function listSkillsSync(
     scanFolder(root, "global", true);
   }
   if (sources.personal !== null) scanFolder(sources.personal, "global", false);
-  // 마지막 층이 덮으므로 이름이 앞서는 domain을 나중에 둔다.
-  for (const store of [...sources.domains].reverse()) {
+  for (const store of sources.domains) {
     scanFolder(store.folder, "domain", false, store.domain);
   }
 

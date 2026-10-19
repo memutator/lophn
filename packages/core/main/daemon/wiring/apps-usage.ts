@@ -4,6 +4,7 @@
 import { createUsageReads, usagePorts } from "../../../apps/usage/mod.ts";
 import type { UsagePorts } from "../../../apps/usage/mod.ts";
 import { domainsOfOwner } from "../../../domains/lookups.ts";
+import { workingDomains } from "../../../lophn-agent/agents/resolve.ts";
 import { placeDepsOf } from "../../../lophn-agent/places/mod.ts";
 import { agentRefOf, loadSession } from "../../../lophn-agent/session/model.ts";
 import {
@@ -35,9 +36,7 @@ function portsOf(sql: Query): UsagePorts {
         case "operator": {
           const found = placeDepsOf(sql).operators.operator(agent.agent);
           if (found === null) return [];
-          const all = activeIds(found.place);
-          const picked = all.filter((id) => found.domains.includes(id));
-          return picked.length > 0 ? picked : all;
+          return workingDomains(activeIds(found.place), found.domains);
         }
         default:
           return [];

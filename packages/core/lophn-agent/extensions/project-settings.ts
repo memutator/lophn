@@ -44,7 +44,6 @@ export type ProjectLayer = {
   domains: DomainSkillLayer;
   // place의 project id다. project 층이 없는 place(앱)는 null이다.
   projectOf(place: AgentPlace): string | null;
-  skillsFolder(root: string, project: string): string;
   extensionsFile(root: string, project: string): string;
   // project 폴더들이 든 폴더다.
   settingsFolderArea(root: string): string;

@@ -10,7 +10,7 @@ import type {
   callSendable,
 } from "../../protocol/lophn-agent/calls.ts";
 
-// lophn-agent가 바깥에서 받는 것들이다. 다른 domain module은 직접 import할 수 없으므로
+// lophn-agent가 바깥에서 받는 것들이다. 다른 feature module은 직접 import할 수 없으므로
 // main/daemon/wiring이 구현해 끼운다.
 
 type ProjectInfo = {

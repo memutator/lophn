@@ -17,6 +17,8 @@ async function replaceOnce(
 }
 
 export async function callPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   // 같은 첫 단계에 표를 더한다. 이 release가 처음이라 공개한 단계를 고치는 것이 아니다.
   await replaceOnce(
     `${dir}/migrations/0-1.sql`,
@@ -30,13 +32,13 @@ create table note (
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "big_write",
-        label: "Big write",
+        name: "big_write",
+        title: "Big write",
         description: "Write a text of the given size in KiB as one row.",
         effect: "write",
-        input: {
+        inputSchema: {
           type: "object",
           properties: {
             kb: { type: "integer", minimum: 1, maximum: 1024 },
@@ -44,31 +46,34 @@ create table note (
           required: ["kb"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "put_text",
-        label: "Put text",
+        name: "put_text",
+        title: "Put text",
         description: "Store a text of any length as one row.",
         effect: "write",
-        input: {
+        inputSchema: {
           type: "object",
           properties: { text: { type: "string", minLength: 1 } },
           required: ["text"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "external_ping",
-        label: "External ping",
+        name: "external_ping",
+        title: "External ping",
         description: "Answer ok without leaving the machine.",
         effect: "external",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   const api = `${dir}/src/tools.ts`;
   await replaceOnce(

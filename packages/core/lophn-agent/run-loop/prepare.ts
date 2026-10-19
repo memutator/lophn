@@ -74,6 +74,7 @@ import {
   type McpSelection,
   type McpToolCall,
   type McpToolsSource,
+  pickSkills,
 } from "../extensions/mod.ts";
 
 // 시작할 turn의 재료를 core 기록에서 모은다. session의 agent(role과 place)와 이번 turn의 resolved agent
@@ -267,15 +268,18 @@ function noticeText(body: string): string {
 }
 
 // prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜지고, domain 층 skill은 agent가 맡은 domain의 것만 켜진다.
+// 같은 이름은 한 줄이다(`pickSkills`).
 export function promptSkills(
   entries: readonly SkillEntry[],
   resolved: Pick<ResolvedAgent, "skills" | "domains">,
 ) {
-  return entries.map((entry) => ({
+  const enabled = (entry: SkillEntry) =>
+    entry.enabled && resolved.skills.includes(entry.name) &&
+    (entry.domain === null || resolved.domains.includes(entry.domain));
+  return pickSkills(entries, enabled).map((entry) => ({
     name: entry.name,
     description: entry.description,
-    enabled: entry.enabled && resolved.skills.includes(entry.name) &&
-      (entry.domain === null || resolved.domains.includes(entry.domain)),
+    enabled: enabled(entry),
   }));
 }
 

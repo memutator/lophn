@@ -1,6 +1,6 @@
 // activation을 여는 Reactor handler 둘과 보류 request의 applier. `TicketVerified`가 계기이고, 선언이 넓어지거나
 // data 손실 migration이 있을 때만 사람에게 묻는다(보류 request). 묻지 않거나 사람이 허락하면 그 앱의 activation을 곧바로 시작한다.
-// 다른 project가 쓰는 공개 tool을 지우는 release는 묻기 전에 막는다(release는 prepared로 남는다).
+// 다른 domain이 쓰는 공개 tool을 지우는 release는 묻기 전에 막는다(release는 prepared로 남는다).
 // 앱에 이미 돌고 있는 activation이 있으면 conflict다. 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type {
@@ -22,7 +22,7 @@ type ActivationHandlerDeps = {
     get(id: string): Result<ReleaseRecord | null>;
     // 지금 active grant·active release와 견준 비교.
     comparison(release: ReleaseRecord): Promise<Result<ActivationComparison>>;
-    // 다른 project가 쓰는 공개 tool을 지우는 release면 true다(PM에게 알리는 일까지 한다). 읽지 못하면 err이고 시작하지 않는다.
+    // 다른 domain이 쓰는 공개 tool을 지우는 release면 true다(그 앱의 App Engineer에게 알리는 일까지 한다). 읽지 못하면 err이고 시작하지 않는다.
     blocked(release: ReleaseRecord): Promise<Result<boolean>>;
   };
   approvals: {
@@ -94,7 +94,7 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
       name: APPROVAL_DECIDED_HANDLER,
       async handle(event) {
         const { kind, decision, applied } = event.payload;
-        // 거절이면 release는 prepared로 남고 Project Manager가 사람에게 올린다.
+        // 거절이면 release는 prepared로 남고 App Engineer가 사람에게 올린다.
         if (kind !== "activation" || decision !== "allow") {
           return ok(undefined);
         }

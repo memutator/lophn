@@ -6,6 +6,7 @@ import {
   discoverSkills,
   type DomainStore,
   joinPath,
+  pickSkills,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
   type SkillEntry,
@@ -76,7 +77,10 @@ export async function createSkillSnapshot(
   const domains = session.domains ??
     layer.domain_stores.map((store) => store.domain);
   const entries: readonly SkillEntry[] = found.ok
-    ? found.value.entries.map((entry) => ({
+    ? pickSkills(
+      found.value.entries,
+      (entry) => skillReceived(entry, session.skills, domains),
+    ).map((entry) => ({
       ...entry,
       enabled: entry.enabled && skillReceived(entry, session.skills, domains),
     }))

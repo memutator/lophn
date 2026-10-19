@@ -43,7 +43,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
   appToolIndex: ReadDefinition<typeof appToolIndex>;
 } {
   return {
-    // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: Project Manager도 모든 앱의 목록과
+    // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: App Engineer도 모든 앱의 목록과
     // tool 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
     appToolIndex: {
       route: appToolIndex,

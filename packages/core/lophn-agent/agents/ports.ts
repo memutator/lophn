@@ -33,7 +33,7 @@ export type AgentLookups = {
   // 이 place 그릇의 active domain id다(id 순). lophn(place 없음)은 빈 목록이다.
   domains(place: Place | null): readonly string[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 그릇의 domain 층을 더한 것이고
-  // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
+  // 발견·등록 순서다(domain 층 skill은 domain마다 한 줄). lophn(place 없음)은 전역 층만이다.
   skills(place: Place | null): readonly AvailableSkill[];
   mcp(place: Place | null): McpTool[];
   // 전역 기본 model. 없으면 null.

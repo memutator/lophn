@@ -93,7 +93,7 @@ export const COMMANDS_GROUP: SlashGroupView = {
 export const NEW_APP = role(
   "new-app",
   "New app",
-  "Start a new app in this project",
+  "Start a new app",
 );
 export const REPAIR_APP = role(
   "repair-app",

@@ -18,7 +18,7 @@ const appToolSchema = z.object({
   inputSchema: jsonValueSchema.nullable(),
   outputSchema: jsonValueSchema.optional(),
   effect: z.enum(["read", "write", "external"]),
-  // 다른 project에 보이는지.
+  // 다른 domain에 보이는지.
   public: z.boolean(),
   // tool이 다루는 객체의 domain.
   domain: z.string().min(1),

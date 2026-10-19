@@ -15,20 +15,23 @@ async function replaceOnce(
  * 앱 process가 죽는다. blueprint 선언과 handler가 같아 platform app test를 통과한다.
  */
 export async function crashPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "crash",
-        label: "Crash",
+        name: "crash",
+        title: "Crash",
         description: "Reply, then throw an unhandled error.",
         effect: "read",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   await replaceOnce(
     `${dir}/src/tools.ts`,

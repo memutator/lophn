@@ -21,8 +21,8 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱(App Engineer)이나 project(프로젝트 place의
-// PM·Operator), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn, 앱 place의 Operator)는
+// 호출자 범위. coding session은 token의 앱 하나, agent는 자격 조건의 앱(앱 place의 App Engineer·Operator)이나
+// project(프로젝트 place의 PM·Operator), 사람과 machine은 전체(null)다. 앱도 project도 조건에 없는 agent(lophn)는
 // 읽을 수 없다.
 type Scope = { app?: string; project?: string } | null;
 
@@ -59,8 +59,8 @@ function callerScope(
   });
 }
 
-// app target은 그 앱의 App Engineer만, file target은 그 project의 PM·Operator만, artifact target은 그 domain의
-// owner가 자기 project인 PM·Operator만 읽는다. 앱이 owner인 domain의 artifact는 사람만 읽는다.
+// app target은 그 앱 범위만, file target은 그 project 범위만, artifact target은 그 domain의 owner가 자기 project나
+// 자기 앱인 범위만 읽는다(받는 쪽이 그 owner의 PM이나 App Engineer라서다).
 function inScope(
   snapshot: ReadSnapshot,
   scope: Scope,
@@ -74,8 +74,10 @@ function inScope(
       return scope.project !== undefined && target.project === scope.project;
     case "artifact": {
       const owner = snapshot.port(domainLookupPort).get(target.domain)?.owner;
-      return scope.project !== undefined && owner?.kind === "project" &&
-        owner.id === scope.project;
+      return owner !== undefined &&
+        (owner.kind === "project"
+          ? scope.project === owner.id
+          : scope.app === owner.id);
     }
   }
 }

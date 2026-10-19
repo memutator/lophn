@@ -35,7 +35,7 @@ export type AvailableSkill = {
 type ResolveEnvironment = {
   // 정의에 profile이 없을 때의 기본 icon.
   default_profile: Profile;
-  // 이 place에서 쓸 수 있는 skill 이름과 MCP tool. 전역 층과 domain 층을 이름 단위로 합친 것이다(등록 순서).
+  // 이 place에서 쓸 수 있는 skill과 MCP tool. domain 층 skill은 domain마다 한 줄이다(등록 순서).
   skills: readonly AvailableSkill[];
   mcp: readonly McpTool[];
   // 이 place 그릇의 active domain id(id 순). lophn은 빈 목록이다.
@@ -193,17 +193,19 @@ export function workingDomains(
     : container.filter((id) => chosen.includes(id));
 }
 
-// 받는 skill 이름이다(환경 순서). 규칙은 `skillReceived`다.
+// 받는 skill 이름이다(환경 순서). 규칙은 `skillReceived`다. 같은 이름이 층마다 있으면 하나로 센다.
 export function receivedSkills(
   available: readonly AvailableSkill[],
   chosen: readonly string[],
   domains: readonly string[],
 ): string[] {
-  return available.filter((skill) => skillReceived(skill, chosen, domains)).map(
-    (
-      skill,
-    ) => skill.name,
-  );
+  return [
+    ...new Set(
+      available.filter((skill) => skillReceived(skill, chosen, domains)).map((
+        skill,
+      ) => skill.name),
+    ),
+  ];
 }
 
 function copy<T>(value: T): T {

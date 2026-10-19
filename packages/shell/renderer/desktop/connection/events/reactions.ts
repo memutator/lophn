@@ -5,8 +5,7 @@ import { approvalWaitingKind } from "./waiting-store.ts";
 export type ReactionAction =
   | { kind: "waiting" }
   /** session이 null이고 app이 있으면 호스트가 그 앱 공간을 연다. */
-  | { kind: "session"; session: string | null; app?: string }
-  | { kind: "project-manager"; project: string };
+  | { kind: "session"; session: string | null; app?: string };
 
 export interface Reaction {
   /** 같은 일이 두 번 뜨지 않게 하는 id. */

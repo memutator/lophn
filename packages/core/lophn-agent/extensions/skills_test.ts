@@ -191,7 +191,12 @@ for (const one of CASES) {
 
 Deno.test("a skill that can be turned off goes off, and a human skill of the same name replaces it", () => {
   const candidates = [
-    { name: "maker", source: "builtin" as const, bundle_path: "/b/maker" },
+    {
+      name: "maker",
+      source: "builtin" as const,
+      bundle_path: "/b/maker",
+      domain: null,
+    },
   ];
   const canOff = () => true;
   assertEquals(
@@ -205,6 +210,7 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
       name: "maker",
       source: "global" as const,
       bundle_path: "/g/maker",
+      domain: null,
     }],
     [],
     [],
@@ -266,23 +272,63 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
   });
 });
 
-Deno.test("the same skill name in two domains goes to the domain whose name comes first", () => {
-  const { sync } = treeOf({
-    "/a/shared/SKILL.md": skillFile("shared", "A"),
-    "/b/shared/SKILL.md": skillFile("shared", "B"),
-    "/b/only-b/SKILL.md": skillFile("only-b", "B"),
-  });
+// 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 Operator가 받아야 할 skill을
+// 조용히 잃었다.
+Deno.test("same-name skills in a global layer and domains go to the agent by the domains it works in", async () => {
+  const files = {
+    "/g/x/SKILL.md": skillFile("x", "GLOBAL"),
+    "/a/x/SKILL.md": skillFile("x", "A"),
+    "/b/x/SKILL.md": skillFile("x", "B"),
+  };
+  const { port } = treeOf(files);
+  const deps: SkillSnapshotDeps = {
+    port,
+    builtin_root: null,
+    personal_store: null,
+    global: () => Promise.resolve({ roots: ["/g"], off: [] }),
+    place: () =>
+      Promise.resolve({
+        domain_stores: [{ domain: "dom_a", folder: "/a" }, {
+          domain: "dom_b",
+          folder: "/b",
+        }],
+        off: [],
+      }),
+  };
+  const bodyFor = async (domains: string[]) => {
+    const snapshot = await createSkillSnapshot(deps, {
+      id: SESSION,
+      role: "operator",
+      place: PLACE,
+      skills: [],
+      domains,
+    });
+    const read = await snapshot.reader.read(SESSION, "x");
+    return read.ok ? read.value.trim() : read.error.code;
+  };
+  assertEquals(await bodyFor([]), "GLOBAL");
+  assertEquals(await bodyFor(["dom_a"]), "A");
+  assertEquals(await bodyFor(["dom_b"]), "B");
+  assertEquals(await bodyFor(["dom_a", "dom_b"]), "A");
+
+  // 동기 목록은 domain마다 한 줄씩 남기고, 받는 이름은 하나다.
+  const { sync } = treeOf(files);
   const listing = listSkillsSync(sync, {
     bundled: null,
-    registered: [],
+    registered: ["/g"],
     personal: null,
     domains: [{ domain: "dom_a", folder: "/a" }, {
       domain: "dom_b",
       folder: "/b",
     }],
   }, { role: null, off: [] });
+  assertEquals(listing.entries.map((entry) => entry.domain), [
+    null,
+    "dom_a",
+    "dom_b",
+  ]);
   assertEquals(
-    listing.entries.map((entry) => [entry.name, entry.domain]),
-    [["only-b", "dom_b"], ["shared", "dom_a"]],
+    receivedSkills(listing.entries, [], ["dom_b"]),
+    ["x"],
   );
 });

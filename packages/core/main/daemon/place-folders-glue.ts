@@ -1,5 +1,5 @@
 // place가 file tool에 여는 폴더를 core의 두 자리에 잇는 glue다: rewind의 쓰기 폴더와 agent runtime child의 Deno
-// 권한. 규칙은 agent-roles의 place-folders가 갖고, 여기는 project·앱·domain module의 lookups로 사실을 모아 넘긴다.
+// 권한. 규칙은 agent-roles의 place-folders가 갖고, 여기는 project·앱·feature module의 lookups로 사실을 모아 넘긴다.
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import {

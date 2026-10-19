@@ -97,15 +97,14 @@ interface DesktopProps {
 // toast 행동의 기본 처리. 지금 보이는 화면이 처리하지 못한 행동(그 화면이 false를 돌렸다)을 다른 화면으로 가서
 // 연다. 화면의 처리기보다 먼저 등록돼야(목록에서 뒤에 서야) 화면이 먼저 처리하니, 화면보다 앞에 그린다.
 function DefaultToastHandler(
-  { openSession, goProject, goApp }: {
+  { openSession, goApp }: {
     openSession: (session: string) => void;
-    goProject: (route: Route) => void;
     goApp: (app: string) => void;
   },
 ) {
   const { setOpen } = useWaitingPanel();
-  const latest = useRef({ openSession, goProject, goApp });
-  latest.current = { openSession, goProject, goApp };
+  const latest = useRef({ openSession, goApp });
+  latest.current = { openSession, goApp };
   useEffect(() =>
     registerToastActionHandler((action) => {
       const current = latest.current;
@@ -121,11 +120,6 @@ function DefaultToastHandler(
           // 열린 session이 없는 반응(앱 재시작 중단)은 그 앱 공간으로 간다.
           if (action.app === undefined) return false;
           current.goApp(action.app);
-          return true;
-        case "project-manager":
-          current.goProject(
-            openProject(action.project, { projectManager: true }),
-          );
           return true;
       }
     }), [setOpen]);
@@ -183,6 +177,14 @@ export function Desktop(
     setRoute(openSettings(pane));
   };
   const appSpace = (app: string) => setRoute(openApp(app));
+  // domain 지침(DOMAIN.md)을 연 앱 공간. [Back]이 그 앱 공간으로 돌아간다. 한 번 쓰고 끝나는 시작값(session, 문제)은 버린다.
+  const beforeDomainDoc = useRef<Route | null>(null);
+  const openDomainDoc = (domain: string) => {
+    beforeDomainDoc.current = route.space === "app" && route.app
+      ? openApp(route.app)
+      : null;
+    setRoute(openInstructions({ layer: "domain", place: domain }));
+  };
   // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
   const issueTarget = (app: string, problem: string) => {
     setVisits((value) => value + 1);
@@ -323,6 +325,8 @@ export function Desktop(
         // 전역 지침은 settings에서 왔으니 settings로 돌아간다.
         onBack={route.instructions.layer === "global"
           ? () => settingsSpace()
+          : route.instructions.layer === "domain"
+          ? () => setRoute(beforeDomainDoc.current ?? LAUNCHER)
           : launcher}
       />
     );
@@ -340,6 +344,7 @@ export function Desktop(
         agents={workspace?.agentsSource}
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
+        onDomainDoc={instructions ? openDomainDoc : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
         annotate={annotate}
@@ -391,7 +396,6 @@ export function Desktop(
     <PaletteProvider deps={palette} onLauncher={launcher}>
       <DefaultToastHandler
         openSession={openSession}
-        goProject={setRoute}
         goApp={(app) => setRoute(openApp(app))}
       />
       {space}

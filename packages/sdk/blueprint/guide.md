@@ -29,7 +29,7 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
   `name`은 MCP tool 이름 문자(1~64자)이고, `inputSchema`는 입력 schema나 입력이
   없으면 `null`이다(`null`이 아니면 root type은 object). `outputSchema`는 없으면
   칸을 두지 않는다. `effect`는 `read`·`write`·`external`이다. `public`은 필수
-  boolean이고 다른 project에 보이는지를 뜻한다(읽는 쪽은 이 계획 밖이다).
+  boolean이고 다른 domain에 보이는지를 뜻한다(읽는 쪽은 이 계획 밖이다).
   `domain`은 필수이고 tool이 다루는 객체의 domain이다. 이 앱의 domain 이름 중
   하나이고, 앱을 만들면 앱 이름의 domain이 하나 생긴다. 다른 domain은 사람이나
   App Engineer가 `domain.create`로 만든 뒤 쓴다.

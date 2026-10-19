@@ -13,7 +13,7 @@ import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
 import { appToolIndex, appTools } from "../../protocol/apps/blueprint/read.ts";
 import { appUsage } from "../../protocol/apps/usage.ts";
-import { packagesList, packagesUsage } from "../../protocol/apps/mod.ts";
+import { packagesList } from "../../protocol/apps/mod.ts";
 import { AGENT_BASE_OPERATIONS } from "../lophn-agent/run-loop/mod.ts";
 import {
   runOperations,
@@ -34,11 +34,10 @@ const PLACE_READS: readonly string[] = [
   appGet.name,
   appList.name,
   appTools.name,
-  // lophn의 project 지도: 공개 tool, 사용 관계, 앱이 쓰는 package. 사용 관계는 lophn session만 받는다.
+  // lophn의 project 지도: 공개 tool, 사용 관계, 앱이 쓰는 package 목록. 사용 관계는 lophn session만 받는다.
   appToolIndex.name,
   appUsage.name,
   packagesList.name,
-  packagesUsage.name,
   callSendable.name,
   // 아직 session이 없는 상대도 부를 수 있는 목록: 후보(Operator 정의)와 자기 grant의 excluded 줄.
   agentDefinitionList.name,
@@ -82,8 +81,8 @@ export function roleOperations(
 
 // agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
 // `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
-// 같은 답이다. project place의 PM과 Operator는 그 project를 `project` 조건으로 고정한다. 앱 place의 Operator와
-// lophn은 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
+// 같은 답이다. project place의 PM과 Operator는 그 project를 `project` 조건으로 고정한다. 앱 place의 Operator도 그
+// 앱을 `app` 조건으로 고정한다(kind·annotation 읽기와 domain 범위가 이 조건을 읽는다). lophn은 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
 export function agentConditions(input: {
   session: string;
   turn: string;
@@ -102,7 +101,10 @@ export function agentConditions(input: {
     turn: input.turn,
     process: input.process,
   };
-  if (input.role === "app_engineer" && input.place?.kind === "app") {
+  if (
+    (input.role === "app_engineer" || input.role === "operator") &&
+    input.place?.kind === "app"
+  ) {
     return { ...base, app: input.place.id };
   }
   if (

@@ -57,16 +57,18 @@ export async function codeOnlyPatch(dir: string): Promise<void> {
 
 /** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
 export async function slowReadPatch(dir: string): Promise<void> {
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "delay",
-        label: "Delay",
+        name: "delay",
+        title: "Delay",
         description: "Answer after waiting.",
         effect: "read",
-        input: {
+        inputSchema: {
           type: "object",
           properties: {
             ms: { type: "integer", minimum: 0, maximum: 10000 },
@@ -74,10 +76,11 @@ export async function slowReadPatch(dir: string): Promise<void> {
           required: ["ms"],
           additionalProperties: false,
         },
-        project_scope: false,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   await replaceOnce(
     `${dir}/src/tools.ts`,

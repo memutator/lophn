@@ -24,21 +24,24 @@ export async function netFetchPatch(
   options: { port: number; secret: string },
 ): Promise<void> {
   const { port, secret } = options;
+  // 앱 slug가 그 앱의 domain 이름이다.
+  const slug = dir.split("/").at(-1);
   const blueprint = `${dir}/blueprint.ts`;
   await replaceOnce(
     blueprint,
     `      {
-        key: "add_item",`,
+        name: "add_item",`,
     `      {
-        key: "fetch_local",
-        label: "Fetch local",
+        name: "fetch_local",
+        title: "Fetch local",
         description: "Fetch the local server with the stored token.",
         effect: "external",
-        input: null,
-        project_scope: false,
+        inputSchema: null,
+        domain: "${slug}",
+        public: false,
       },
       {
-        key: "add_item",`,
+        name: "add_item",`,
   );
   await replaceOnce(
     blueprint,

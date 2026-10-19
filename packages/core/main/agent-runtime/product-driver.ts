@@ -19,6 +19,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
 import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
+import { workingDomains } from "../../lophn-agent/agents/resolve.ts";
 import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
 import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
 import type { CoreCalls } from "./main.ts";
@@ -74,7 +75,7 @@ const SKILL_PLACES = {
 };
 
 // agent가 일하는 domain id. PM·App Engineer는 place 그릇의 active domain 전부이고, Operator는 정의의 place와
-// domains(고른 것 ∩ 그릇의 active domain, 비면 전부)가 정한다. lophn은 없다. 읽지 못하면 null.
+// domains(고른 것 ∩ 그릇의 active domain, 고른 것이 없을 때만 전부 — resolve와 같다)가 정한다. lophn은 없다. 읽지 못하면 null.
 async function callerDomains(
   machine: CoreCall,
   agent: AgentRef,
@@ -97,7 +98,7 @@ async function callerDomains(
   });
   if (!listed.ok) return null;
   const ids = listed.value.domains.map((one) => one.id);
-  return chosen.length === 0 ? ids : ids.filter((id) => chosen.includes(id));
+  return workingDomains(ids, chosen);
 }
 
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.

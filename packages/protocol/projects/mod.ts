@@ -6,7 +6,6 @@ export * from "./outline-markdown.ts";
 export * from "./project-folders.ts";
 export * from "./project-api.ts";
 export * from "./project-search.ts";
-export * from "./artifact.ts";
 export * from "./kinds-file.ts";
 export * from "./kinds-api.ts";
 export * from "./kinds-work.ts";

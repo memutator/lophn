@@ -59,7 +59,7 @@ export type ToolDeclaration = {
   outputSchema?: InputSchema;
   // program이 강제하는 값이다. Gate와 runtime 권한이 쓴다.
   effect: ToolEffect;
-  // 다른 project에 보이는지.
+  // 다른 domain에 보이는지.
   public: boolean;
   // tool이 다루는 객체의 domain. 이 앱의 domain 이름 중 하나다.
   domain: string;

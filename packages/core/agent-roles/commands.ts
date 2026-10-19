@@ -37,7 +37,7 @@ export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
     promptCommand(
       "new-app",
       "New app",
-      "Start a new app in this project",
+      "Start a new app",
       NEW_APP_PROMPT,
     ),
     promptCommand(

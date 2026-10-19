@@ -2,7 +2,6 @@
 import type { domain } from "./domain.ts";
 
 export type DomainPlaceholders = {
-  "domain.button.add": Record<never, never>;
   "domain.button.archive": Record<never, never>;
   "domain.button.create": Record<never, never>;
   "domain.button.new": Record<never, never>;
@@ -17,18 +16,8 @@ export type DomainPlaceholders = {
   "domain.error.name-invalid": Record<never, never>;
   "domain.error.name-taken": Record<never, never>;
   "domain.heading.list": Record<never, never>;
-  "domain.label.all-domains": Record<never, never>;
-  "domain.label.counts": {
-    kinds: "plural";
-    skills: "plural";
-    artifacts: "plural";
-  };
-  "domain.label.filter": Record<never, never>;
   "domain.label.name": Record<never, never>;
   "domain.label.pick": Record<never, never>;
-  "domain.label.place-app": {
-    name: "string";
-  };
   "domain.label.purpose": Record<never, never>;
   "domain.label.row-menu": {
     title: "string";
@@ -39,8 +28,6 @@ export type DomainPlaceholders = {
     tools: "plural";
     shared: "plural";
   };
-  "domain.note.layers-app": Record<never, never>;
-  "domain.note.layers-project": Record<never, never>;
   "domain.note.name-help": Record<never, never>;
   "domain.note.purpose-help": Record<never, never>;
   "domain.notice.all-of-app": Record<never, never>;
@@ -50,7 +37,6 @@ export type DomainPlaceholders = {
     title: "string";
   };
   "domain.notice.only-chosen": Record<never, never>;
-  "domain.notice.skills-filtered": Record<never, never>;
   "domain.title.create": Record<never, never>;
 };
 

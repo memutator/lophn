@@ -12,7 +12,6 @@ interface ReactionHost {
   readonly project: string;
   /** 이 project의 session이면 그 Agent 탭을 열고 true. 아니면 false. */
   openSession(session: string): boolean;
-  openProjectManager(): boolean;
 }
 
 export function useToastHandler(host: ReactionHost): void {
@@ -29,9 +28,6 @@ export function useToastHandler(host: ReactionHost): void {
         case "session":
           // session이 없는 쪽은 앱 재시작 중단 반응이다. 앱 공간으로 가는 기본 처리기가 맡는다.
           return action.session !== null && current.openSession(action.session);
-        case "project-manager":
-          return action.project === current.project &&
-            current.openProjectManager();
       }
     }), [setOpen]);
 }

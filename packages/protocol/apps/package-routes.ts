@@ -34,8 +34,8 @@ const packageRegisterVersionInputSchema = z.strictObject({
   // 새 package는 종류가 없다(null). core의 kind 열이 undefined를 못 받아 optional 대신 null로 둔다.
   kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
-  // publish하는 앱의 project. 이미 있는 package면 주인과 같아야 한다.
-  owner_project: idSchema("prj"),
+  // publish하는 앱. 이미 있는 package면 주인과 같아야 한다.
+  owner_app: idSchema("app"),
   permissions: z.array(z.string().min(1)).optional(),
   bundle_hash: z.string().regex(/^[0-9a-f]{64}$/),
   guide_hash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -169,7 +169,7 @@ const packagesVersionsInputSchema = z.strictObject({
 });
 const packagesVersionsOutputSchema = withReadCommon(z.object({
   name: packageNameSchema,
-  owner_project: idSchema("prj").nullable(),
+  owner_app: idSchema("app").nullable(),
   versions: z.array(packageVersionSchema),
 }));
 export const packagesVersions = defineRead({

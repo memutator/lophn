@@ -68,7 +68,12 @@ import {
   loadRelease,
   loadStoredBlueprint,
 } from "../store.ts";
-import { bundleFlags, desiredFromBundle, readBundleCopy } from "./desired.ts";
+import {
+  bundleFlags,
+  desiredFromBundle,
+  type DomainNamesOf,
+  readBundleCopy,
+} from "./desired.ts";
 import { createActivationHandlers } from "./handler.ts";
 import { runActivation } from "./orchestrator.ts";
 import { createActivationQueue, type QueueEntry } from "./queue.ts";
@@ -113,6 +118,7 @@ type ActivationDeps = {
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // loopback으로 core API에 닿지 못하게 막을 port. API를 연 뒤에 정해진다.
   platformPorts: () => readonly number[];
+  domainNamesOf: DomainNamesOf;
   // 원하는 앱 상태를 supervisor에 알린다(마지막 상태를 기억한다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
 };
@@ -261,7 +267,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!row.ok) return row;
     if (row.value === undefined) return unavailable("release is unavailable");
     const bundleHash = String(row.value.bundle_hash);
-    const copy = await readBundleCopy(deps.dataRoot, app, bundleHash);
+    const copy = await readBundleCopy(
+      deps.dataRoot,
+      app,
+      bundleHash,
+      deps.domainNamesOf,
+    );
     if (!copy.ok) return copy;
     if (copy.value === undefined) return unavailable("bundle copy is missing");
     const requirements = await requirementsOf(app, release);

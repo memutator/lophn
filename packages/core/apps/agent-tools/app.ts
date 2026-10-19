@@ -8,6 +8,7 @@ import {
   blueprintCheck,
 } from "../../../protocol/apps/mod.ts";
 import { appAppApiIndex } from "../../../protocol/apps/blueprint/read.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import { projectList } from "../../../protocol/projects/mod.ts";
 import { problemList } from "../../../protocol/problems/mod.ts";
 import {
@@ -89,32 +90,36 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "app.app_api",
     input: z.strictObject({ app: idSchema("app").optional() }),
-    routes: [appAppApiIndex, appList],
+    routes: [appAppApiIndex, domainList],
     description:
-      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
+      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Tools of other domains show only when public. Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appAppApiIndex, input);
       if (!read.ok) return read;
-      // 다른 project 앱의 비공개 tool은 뺀다. 앱의 project나 부른 agent의 project를 모르면 뺀다.
-      const listed = await readOf(ctx.core, appList, { limit: 1000 });
-      const projects = new Map(
-        listed.ok ? listed.value.apps.map((a) => [a.id, a.project]) : [],
-      );
-      const home = ctx.place === null
-        ? null
-        : ctx.place.kind === "project"
-        ? ctx.place.id
-        : projects.get(ctx.place.id);
-      const { body } = readBody({
-        ...read.value,
-        apps: read.value.apps.map((entry) =>
-          home != null &&
-            projects.get(entry.app) === home
-            ? entry
-            : { ...entry, tools: entry.tools.filter((tool) => tool.public) }
-        ),
-      });
+      // 다른 domain의 비공개 tool은 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`이고 비면 그 그릇의 전부다
+      // (앱을 그릇으로 둔 agent는 그 앱의 domain 전부). 앱의 domain을 읽지 못하면 그 앱은 public tool만 둔다.
+      const apps = [];
+      for (const entry of read.value.apps) {
+        const listed = await readOf(ctx.core, domainList, {
+          owner: { kind: "app", id: entry.app },
+          limit: 1000,
+        });
+        const ids = new Map(
+          listed.ok ? listed.value.domains.map((d) => [d.name, d.id]) : [],
+        );
+        const whole = ctx.domains.length === 0 && ctx.place?.kind === "app" &&
+          ctx.place.id === entry.app;
+        apps.push({
+          ...entry,
+          tools: entry.tools.filter((tool) => {
+            const id = ids.get(tool.domain);
+            return tool.public ||
+              (id !== undefined && (whole || ctx.domains.includes(id)));
+          }),
+        });
+      }
+      const { body } = readBody({ ...read.value, apps });
       return ok(fitted(
         countSummary("apps", body.apps.length, false),
         body,

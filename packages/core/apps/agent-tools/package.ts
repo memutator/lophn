@@ -1,6 +1,7 @@
 import { ok } from "../../../base/mod.ts";
 import {
   appGet,
+  appList,
   packagePublish,
   packagesBuiltin,
   packagesGuideBody,
@@ -19,7 +20,6 @@ import {
   TEXT_MAX_BYTES,
   type ToolDefinition,
 } from "../../lophn-agent/tools/spi.ts";
-import { projectList } from "../../../protocol/projects/mod.ts";
 import { z } from "zod";
 import { packagePublishInputSchema } from "../../../protocol/apps/package-routes.ts";
 import { sourceRelativePathSchema } from "../../../protocol/coding-agent/ticket/mod.ts";
@@ -48,30 +48,29 @@ function cutBytes(text: string): { text: string; truncated: boolean } {
   return { text: cut.replace(/\uFFFD$/, ""), truncated: true };
 }
 
-// 주인 project의 id와 이름. 주인이 없거나 project가 목록에 없으면 null이다.
+// 주인 앱의 id와 이름. 주인이 없으면 null이고 이름을 읽지 못하면 이름 자리에 id를 둔다.
 function ownerOf(
-  projects: readonly { id: string; name: string }[],
+  apps: readonly { id: string; name: string }[],
   id: string | null,
 ): { id: string; name: string } | null {
-  const found = projects.find((item) => item.id === id);
-  return found === undefined ? null : { id: found.id, name: found.name };
+  if (id === null) return null;
+  return { id, name: apps.find((item) => item.id === id)?.name ?? id };
 }
 
 export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "package.list",
     input: none,
-    routes: [packagesList, packagesBuiltin, projectList],
+    routes: [packagesList, packagesBuiltin, appList],
     description:
-      "List the SDK built into lophn and the user packages (@me) with their versions and owner project. Owner project: report problems of a package to its Project Manager.",
+      "List the SDK built into lophn and the user packages (@me) with their versions and owner app.",
     effect: "read",
     handler: async (_input, ctx) => {
       const read = await readOf(ctx.core, packagesList, {});
       if (!read.ok) return read;
       const builtin = await readOf(ctx.core, packagesBuiltin, {});
       if (!builtin.ok) return builtin;
-      const projects = await readOf(ctx.core, projectList, {});
-      if (!projects.ok) return projects;
+      const apps = await readOf(ctx.core, appList, { limit: 1000 });
       const { body, more } = readBody(read.value);
       return ok(fitted(
         countSummary("packages", body.packages.length, more),
@@ -79,7 +78,7 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
           ...body,
           packages: body.packages.map((pkg) => ({
             ...pkg,
-            owner_project: ownerOf(projects.value.projects, pkg.owner_project),
+            owner_app: ownerOf(apps.ok ? apps.value.apps : [], pkg.owner_app),
           })),
           builtin: builtin.value.packages,
         },
@@ -98,10 +97,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       packagesUsage,
       packagesGuideBody,
       packagesBuiltin,
-      projectList,
+      appGet,
     ],
     description:
-      "Read one package: its guide (purpose, API and types, examples), required permissions, owner project and the apps that use the version. Without version the newest one. Built-in SDK names start with @lophn/. Owner project: report problems of a package to its Project Manager.",
+      "Read one package: its guide (purpose, API and types, examples), required permissions, owner app and the apps that use the version. Without version the newest one. Built-in SDK names start with @lophn/.",
     effect: "read",
     handler: async (input, ctx) => {
       const { name, version } = input;
@@ -131,8 +130,10 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
         ? [...all].sort((a, b) => newer(a.version, b.version)).at(-1)
         : all.find((entry) => entry.version === version);
       if (chosen === undefined) return notFound("package version not found");
-      const projects = await readOf(ctx.core, projectList, {});
-      if (!projects.ok) return projects;
+      const owner = versions.value.owner_app;
+      const ownerApp = owner === null
+        ? null
+        : await readOf(ctx.core, appGet, { app: owner });
       const usage = await readOf(ctx.core, packagesUsage, {
         name,
         version: chosen.version,
@@ -153,9 +154,9 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
       return ok(fitted(`package ${name}@${chosen.version}`, {
         name,
         version: chosen.version,
-        owner_project: ownerOf(
-          projects.value.projects,
-          versions.value.owner_project,
+        owner_app: ownerOf(
+          ownerApp?.ok ? [ownerApp.value.app] : [],
+          owner,
         ),
         permissions: chosen.permissions ?? [],
         other_versions: all.map((entry) => entry.version),

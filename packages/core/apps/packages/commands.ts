@@ -109,7 +109,7 @@ function registered(
   packageId: string,
   name: string,
   description: string,
-  owner: Package["owner_project"],
+  owner: Package["owner_app"],
   version: string,
 ): Result<{ package: Package; version: PackageVersion }> {
   const versions = loadVersions(tx.sql, packageId);
@@ -122,7 +122,7 @@ function registered(
       id: packageId,
       name,
       description,
-      owner_project: owner,
+      owner_app: owner,
       versions,
     },
     version: published,
@@ -144,8 +144,8 @@ export function createSdkCommands(): {
           const id = tx.newId("pkg");
           const seq = emitRegistered(tx, id, input);
           tx.sql.run(
-            "INSERT INTO packages (id, name, description, owner_project) VALUES (?, ?, ?, ?)",
-            [id, input.name, input.description, input.owner_project],
+            "INSERT INTO packages (id, name, description, owner_app) VALUES (?, ?, ?, ?)",
+            [id, input.name, input.description, input.owner_app],
           );
           insertVersion(tx, id, input);
           const guide = registerGuide(tx, input, seq);
@@ -155,20 +155,20 @@ export function createSdkCommands(): {
             id,
             input.name,
             input.description,
-            input.owner_project,
+            input.owner_app,
             input.version,
           );
         }
         const packageId = current["id"] as string;
         const description = current["description"] as string;
-        // 주인이 없는 옛 package는 지금 publish하는 project가 주인이 된다.
-        const owner = (current["owner_project"] as Package["owner_project"]) ??
-          input.owner_project;
-        if (owner !== input.owner_project) {
-          return forbidden("a package is versioned by its owner project");
+        // 주인이 없는 package는 지금 publish하는 앱이 주인이 된다.
+        const owner = (current["owner_app"] as Package["owner_app"]) ??
+          input.owner_app;
+        if (owner !== input.owner_app) {
+          return forbidden("a package is versioned by its owner app");
         }
-        if (current["owner_project"] === null) {
-          tx.sql.run("UPDATE packages SET owner_project = ? WHERE id = ?", [
+        if (current["owner_app"] === null) {
+          tx.sql.run("UPDATE packages SET owner_app = ? WHERE id = ?", [
             owner,
             packageId,
           ]);

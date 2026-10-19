@@ -10,7 +10,7 @@ export function packageFromRow(
   const id = row["id"];
   const name = row["name"];
   const description = row["description"];
-  const owner = row["owner_project"];
+  const owner = row["owner_app"];
   if (
     typeof id !== "string" || typeof name !== "string" ||
     typeof description !== "string" ||
@@ -25,7 +25,7 @@ export function packageFromRow(
     id,
     name,
     description,
-    owner_project: owner as Package["owner_project"],
+    owner_app: owner as Package["owner_app"],
     versions: [...versions],
   });
 }

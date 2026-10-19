@@ -66,7 +66,7 @@ import {
 } from "../../../apps/routes.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { checkBlueprint } from "../../../apps/blueprint/check.ts";
-import { appProjectOf } from "../../../apps/lookups.ts";
+import { domainsOfOwner } from "../../../domains/mod.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
 import {
@@ -120,6 +120,23 @@ export const appsWiring: WiringFactory = () => {
         const current = runtime.current(APPS_CONTROL_PRINCIPAL);
         return current.ok ? current.value : undefined;
       };
+      // 앱의 active domain 이름. link가 열린 뒤에 읽는다(blueprint 검사, 실행을 여는 사본 읽기, preview).
+      const domainNamesOf = (app: string): Promise<Result<string[]>> => {
+        try {
+          return Promise.resolve(
+            write === undefined
+              ? err({ code: "unavailable", message: "ledger is not open" })
+              : ok(
+                domainsOfOwner(write.sql, { kind: "app", id: app }, "active")
+                  .map((domain) => domain.name),
+              ),
+          );
+        } catch {
+          return Promise.resolve(
+            err({ code: "unavailable", message: "app domains cannot be read" }),
+          );
+        }
+      };
       const appsControl = createAppsControl({
         clock: ctx.clock,
         ledgerPath: ctx.ledgerPath,
@@ -145,12 +162,14 @@ export const appsWiring: WiringFactory = () => {
           },
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,
+          domainNamesOf,
         },
         previews: {
           dataRoot: ctx.root.path,
           bundles: createCopyPreviewBundles({
             dataRoot: ctx.root.path,
             platformPorts: apiPorts,
+            domainNamesOf,
           }),
         },
       });
@@ -301,6 +320,7 @@ export const appsWiring: WiringFactory = () => {
             `${blueprintCheck.resource}/${blueprintCheck.method}`,
             checkBlueprint({
               dataRoot: ctx.root.path,
+              domainNamesOf,
               sourceRootOf: (context, app) =>
                 appsControl.sourceRootOf(
                   context,
@@ -320,7 +340,6 @@ export const appsWiring: WiringFactory = () => {
               dataRoot: ctx.root.path,
               sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
               verification: (id) => findAppTestVerification(link.sql, id),
-              projectOf: (app) => appProjectOf(link.sql, app),
               prepareBlob: (call) => ctx.blobRelay.prepare(call),
               registerVersion: async (input) => {
                 const key = `package-publish-${await sha256Hex(

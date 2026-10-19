@@ -14,6 +14,8 @@ type BlueprintCheckDeps = {
     ctx: Parameters<MemoryHandler>[0],
     app: string,
   ) => Promise<Result<string>>;
+  // 그 앱의 active domain 이름. blueprint tool의 domain은 이 안에 있어야 한다.
+  domainNamesOf: (app: string) => Promise<Result<string[]>>;
 };
 
 const EVAL_BLUEPRINT = new URL(
@@ -95,7 +97,12 @@ export function checkBlueprint(deps: BlueprintCheckDeps): MemoryHandler {
       } catch {
         return failed("blueprint.ts default export is not JSON");
       }
-      const checked = validateBlueprint(value, { app });
+      const domains = await deps.domainNamesOf(app);
+      if (!domains.ok) return domains;
+      const checked = validateBlueprint(value, {
+        app,
+        domains: domains.value,
+      });
       if (!checked.ok) return failed(checked.error.message);
       return ok({
         errors: [],

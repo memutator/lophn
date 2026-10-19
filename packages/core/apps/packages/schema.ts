@@ -13,7 +13,7 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [{
         length(description) > 0 AND instr(description, char(10)) = 0
         AND instr(description, char(13)) = 0
       ),
-      owner_project TEXT
+      owner_app TEXT
     ) STRICT;
     CREATE INDEX packages_name ON packages (name);
     CREATE TRIGGER packages_no_delete BEFORE DELETE ON packages

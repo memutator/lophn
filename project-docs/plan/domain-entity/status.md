@@ -8,9 +8,9 @@ lead만 고친다. `tools/status.py domain-entity build`가 `tasks/*.md`에서 i
 | `de-drafts` | drafts | 1 | 없음 | merged | drafts/de-drafts | b11e069fc |  |
 | `de-place-restore` | place-restore | 1 | 없음 | merged | place-restore/de-place-restore | 7bb813295 |  |
 | `de-tool-domain` | tool-domain | 1 | 없음 | merged | tool-domain/de-tool-domain | ecbfd090e |  |
-| `de-app-domains` | apps | 2 | de-apps-storage | todo |  |  |  |
+| `de-app-domains` | apps | 2 | de-apps-storage | running | apps/de-app-domains |  |  |
 | `de-apps-storage` | apps | 2 | 없음 | merged | apps/de-apps-storage | 6e0394094 |  |
-| `de-public-tools` | apps | 2 | de-apps-storage, de-routing-events | todo |  |  |  |
+| `de-public-tools` | apps | 2 | de-apps-storage, de-routing-events | running | apps/de-public-tools |  |  |
 | `de-kinds-domain` | domain-kinds | 2 | de-routing-events, de-turn-domains | running | domain-kinds/de-kinds-domain |  |  |
 | `de-agents-domains` | harness | 2 | 없음 | running | harness/de-agents-domains |  |  |
 | `de-tool-filter` | harness | 2 | 없음 | running | harness/de-tool-filter |  |  |

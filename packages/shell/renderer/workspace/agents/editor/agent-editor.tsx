@@ -84,6 +84,12 @@ interface Notice {
   readonly body: MessageKey;
 }
 
+// domain과 skill 이름은 놓을 곳의 것이라 곳을 바꾸면 비운다.
+function withoutPlaceFields(definition: AgentDraft): AgentDraft {
+  const { domains: _domains, skills: _skills, ...rest } = definition;
+  return rest;
+}
+
 function Loading(): ReactElement {
   return (
     <div className={styles.fill} data-agent-editor="loading">
@@ -251,6 +257,24 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     };
   })();
 
+  // 새 Operator의 놓을 곳을 바꾸면 그 곳에서 보이는 skill·MCP·지침을 다시 읽고, 그 곳 domain이 아닌 값은 정의에서 뺀다.
+  const changePlace = (next: string) => {
+    setPlace(next);
+    void source.newOperator(next.slice(next.indexOf(":") + 1)).then(
+      (result) => {
+        if (!result.ok) return;
+        const { skills, mcpServers, instructions } = result.value;
+        setState((current) =>
+          current.kind !== "ready" ? current : {
+            ...current,
+            detail: { ...current.detail, skills, mcpServers, instructions },
+            definition: withoutPlaceFields(current.definition),
+          }
+        );
+      },
+    );
+  };
+
   const save = () => {
     // 그릇에 없어진 domain은 저장에서 뺀다(칸은 안내만 보인다). 비면 칸 자체를 뺀다.
     const { domains: chosen = [], ...rest } = definition;
@@ -377,7 +401,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             placeName={props.projectName}
             domains={domains}
             place={place}
-            onPlace={setPlace}
+            onPlace={changePlace}
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""

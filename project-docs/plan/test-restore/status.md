@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `tr-e2e-app-tools` | e2e | 1 | 없음 | running | e2e/tr-e2e-app-tools |  |  |
-| `tr-e2e-coding-mcp` | e2e | 1 | 없음 | running | e2e/tr-e2e-coding-mcp |  |  |
+| `tr-e2e-coding-mcp` | e2e | 1 | 없음 | merged | e2e/tr-e2e-coding-mcp | 66a98fcf4 |  |
 | `tr-e2e-kinds` | e2e | 1 | 없음 | merged | e2e/tr-e2e-kinds | 38a96812c |  |
 | `tr-e2e-operator-domain` | e2e | 1 | tr-e2e-app-tools | todo |  |  |  |
 | `tr-eval-app-engineer` | eval | 1 | tr-eval-checks, tr-eval-apps, tr-eval-operator | running | eval/tr-eval-app-engineer |  |  |

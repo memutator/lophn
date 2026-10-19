@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 
+import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import {
@@ -12,6 +13,7 @@ import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { openAgent } from "./kinds/agent.tsx";
+import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
 import {
@@ -49,6 +51,12 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
+  // 대화 글의 artifact link가 쓰는 목록. 창이 mount될 때 한 번 읽는다.
+  const artifactList = useArtifactList(project);
+  const artifactNames = useMemo(
+    () => artifactList.items.map((item) => item.name),
+    [artifactList.items],
+  );
   const hostRef = useRef(input.host);
   hostRef.current = input.host;
 
@@ -97,6 +105,12 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       projectManagerSession: () =>
         openedProjectManagerSession(sessionStates, project),
       nameOf: (session) => rowOfSession(session)?.name,
+      artifacts: {
+        items: artifactList.items,
+        names: artifactNames,
+        open: (name) => openArtifact(hostRef.current(), project, name),
+        reload: artifactList.reload,
+      },
     };
 
   const agents: AgentsSlice | null = agentsSource === undefined ? null : {

@@ -34,6 +34,7 @@ import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import { ReceivedMessage } from "./thread/received-message.tsx";
+import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import turns from "./message-list/turns.module.css";
 import styles from "./agent-view.module.css";
 
@@ -64,6 +65,8 @@ interface AgentThreadProps {
   onOpenRef: ((ref: EvidenceRef) => void) | undefined;
   /** 받은 메시지 panel의 보낸 session 링크. */
   onOpenSession: ((session: string) => void) | undefined;
+  /** 글 안 artifact path를 link로 그리는 길. */
+  artifacts: ArtifactsSlice | undefined;
 }
 
 export function AgentThread(props: AgentThreadProps): ReactElement {
@@ -77,6 +80,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
           message={outgoing.id}
           body={props.drafts.body(outgoing.id)}
           fallback={props.drafts.textOf(outgoing.id)}
+          artifacts={props.artifacts}
           delivery={outgoingDelivery(outgoing)}
           provisional
           action={deliveryAction(outgoing)}
@@ -147,6 +151,7 @@ function itemsOf(
                 message={entry.id}
                 body={props.drafts.body(entry.id)}
                 fallback={entry.text ?? undefined}
+                artifacts={props.artifacts}
               />
             </Said>,
           );
@@ -279,6 +284,7 @@ function userMessage(
         message={message.id}
         body={props.drafts.body(message.id)}
         fallback={message.text ?? props.drafts.textOf(message.id)}
+        artifacts={props.artifacts}
         delivery={CONFIRMED}
         provisional={false}
         action="none"
@@ -299,6 +305,7 @@ function receivedMessage(
       message={message.id}
       body={props.drafts.body(message.id)}
       fallback={message.text ?? undefined}
+      artifacts={props.artifacts}
     />
   );
   // 보낸 쪽을 모르는 받은 메시지는 없다. 있어도 본문은 잃지 않게 chip 없이 놓는다.

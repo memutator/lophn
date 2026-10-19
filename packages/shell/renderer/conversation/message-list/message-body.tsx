@@ -10,6 +10,8 @@ import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
 import type { DeliveryLabel } from "../agent-view-model.ts";
 import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
+import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import { ArtifactText } from "./artifact-text.tsx";
 import styles from "./message-body.module.css";
 
 const DELIVERY_LABEL: Record<
@@ -25,16 +27,14 @@ const DELIVERY_LABEL: Record<
   unconfirmed: "conversation.label.delivery-unconfirmed",
 };
 
-function Text({ text }: { text: string }): ReactElement {
-  return <p className={styles.text}>{text}</p>;
-}
-
 interface MessageBodyProps {
   message: string;
   /** 확정 메시지 본문을 읽은 결과(ReadMessageBody). */
   body: BodyState | undefined;
   /** 이 창이 보낸 말의 글. 본문을 읽기 전 자리를 채운다. */
   fallback?: string | undefined;
+  /** 글 안 artifact path를 link로 그리는 길. 없으면 글 그대로다. */
+  artifacts?: ArtifactsSlice | undefined;
 }
 
 /**
@@ -42,7 +42,7 @@ interface MessageBodyProps {
  * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다.
  */
 export function MessageBody(
-  { message, body, fallback }: MessageBodyProps,
+  { message, body, fallback, artifacts }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
     // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
@@ -51,7 +51,13 @@ export function MessageBody(
         {body.parts.map((part, index) => {
           switch (part.kind) {
             case "text":
-              return <Text key={index} text={part.text} />;
+              return (
+                <ArtifactText
+                  key={index}
+                  text={part.text}
+                  artifacts={artifacts}
+                />
+              );
             case "app_card":
               return (
                 <VisualBlock
@@ -73,7 +79,9 @@ export function MessageBody(
       </div>
     );
   }
-  if (fallback !== undefined) return <Text text={fallback} />;
+  if (fallback !== undefined) {
+    return <ArtifactText text={fallback} artifacts={artifacts} />;
+  }
   if (body?.state === "failed") {
     return (
       <p className={styles.unreadable} data-unreadable="">

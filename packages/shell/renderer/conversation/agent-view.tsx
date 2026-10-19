@@ -48,6 +48,7 @@ import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RecapCard } from "./recap/recap-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
+import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import type { SlashEntryView } from "./slash-menu/types.ts";
 import styles from "./agent-view.module.css";
 
@@ -55,6 +56,8 @@ import styles from "./agent-view.module.css";
 export interface AgentViewHost {
   /** 편집 카드의 [Open]이 그 파일(프로젝트 안 경로)의 탭을 연다. */
   openFile?: (path: string) => void;
+  /** 글 안 artifact path의 link. 없는 창은 글 그대로 그린다. */
+  artifacts?: ArtifactsSlice;
   /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
   openPermissions: () => void;
   /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
@@ -495,6 +498,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
             if (ref.kind === "file") host.openFile?.(ref.target);
           }}
           onOpenSession={undefined}
+          artifacts={host.artifacts}
         />
         {layer === null
           ? null

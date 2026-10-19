@@ -62,3 +62,39 @@
   line-height: var(--type-caption-line);
   overflow-wrap: anywhere;
 }
+
+/* 글 안 artifact path link. path 글자가 link이고 앞에 kind 아이콘이 붙는다. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0) var(--space-1);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-link);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.link:hover {
+  background: var(--color-surface-muted);
+  text-decoration: underline;
+}
+
+.hoverCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: var(--page-list);
+}
+
+.hoverTitle {
+  font-weight: var(--font-weight-medium);
+}
+
+.hoverAction {
+  color: var(--color-text-muted);
+}

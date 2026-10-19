@@ -46,3 +46,8 @@
   - `products/roadmap/domain.md`는 남은 몫(live view)만 남기고 줄인다.
   - changelog 열린 판에 항목을 덧붙인다.
 - **사람에게 묻는 것:** 화면에서 쓰는 말(domain, Domain Engineer, 앱)을 정할 때.
+
+## 이 계획 뒤에 할 일
+
+- e2e 다시 쓰기 계획을 연다. 다섯 계획은 e2e를 돌리지 않았고, type check만 맞췄다.
+- eval materials(calendar-app, calendar-app-bug, notify-app)를 새 판으로 다시 만든다. 옛 `app_api` 선언과 SDK 이름을 써서 release 준비에서 걸린다(`project-docs/issues/eval.md`).

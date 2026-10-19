@@ -119,6 +119,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
   - 설계와 안 맞는 test를 지우면서 그 test가 지키던 권한 경계 검사까지 없앴다.
   - 맡은 worktree가 아닌 곳에 commit했다.
   - 맡은 항목 일부를 "시간이 부족했다"며 남겼다. 다시 맡기면 끝냈다.
+- land.sh가 plan branch를 main 위로 다시 쓰면, 그 전에 갈라진 task branch의 merge-base가 옛 wave commit 앞으로 간다. 그대로 rebase하면 옛 commit까지 다시 올리다 충돌한다(여섯 번). launch.sh가 갈라진 점을 branch config(`lophnBase`)에 적고 merge.sh가 `rebase --onto`로 그 뒤만 옮긴다. 이 장치 전에 띄운 task는 merge 전에 task worktree에서 `git rebase --onto plan/<계획> <launch 때 plan HEAD> <task branch>`를 한다.
 - schema 칸 이름을 바꾼 task 뒤에 type 오류가 나면 먼저 칸 이름(`run` → `turn` 같은 것)이 어긋난 곳을 의심한다.
 - merge가 도는 동안 plan branch에 commit하지 않는다. merge.sh가 rebase한 뒤 ff하려다 `STOP: ff failed`로 멈춘다. status·이슈 commit은 merge 사이에 한다.
 - land가 도는 동안 main에 코드를 commit하지 않는다. land.sh가 `STOP: land 사이 main에 코드가 바뀌었다`로 멈추고 full check부터 다시 돌아야 한다. 계획 문서(`project-docs/`)만 commit한 것은 land.sh가 받아 올린다.

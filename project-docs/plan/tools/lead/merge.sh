@@ -11,12 +11,16 @@ plan=$1; id=$2
 [ -d project-docs/plan/$plan/tasks ] || { echo "STOP: 계획 없음: $plan"; exit 1; }
 if [ "${FIX:-}" = 1 ]; then B=fix/$id; else u=$(grep -m1 -oP "단위: \K[a-z0-9-]+" project-docs/plan/$plan/tasks/$id.md); B=$u/$id; fi
 W=$MAIN/.claude/worktrees/$id
-nm=$(git diff --stat $BASE...$B | grep -c node_modules)
+# land가 plan branch를 main 위로 다시 쓰면 merge-base가 옛 wave commit 앞으로 간다. launch.sh가 적은 갈라진 점이 있으면
+# 그 뒤의 commit만 task의 것이다(옛 base의 commit을 다시 올리다 충돌한 일이 여섯 번 있다).
+FROM=$(git config --get "branch.$B.lophnBase" || true)
+if [ -z "$FROM" ] || ! git merge-base --is-ancestor "$FROM" "$B"; then FROM=$(git merge-base $BASE $B); fi
+nm=$(git diff --stat $FROM $B | grep -c node_modules)
 [ "$nm" != 0 ] && { echo "STOP: node_modules in diff"; exit 1; }
-echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $BASE...$B | sed 's/^/  /'
-git diff $BASE...$B | grep -nE '^\+.*(TODO|FIXME)' && echo "WARN: TODO/FIXME"
+echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $FROM $B | sed 's/^/  /'
+git diff $FROM $B | grep -nE '^\+.*(TODO|FIXME)' && echo "WARN: TODO/FIXME"
 git -C $W status --short | grep -v node_modules | sed 's/^/dirty: /'
-git -C $W rebase $BASE >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
+git -C $W rebase --onto $BASE $FROM >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
 out=$(cd $W && deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: worktree full check failed"; exit 1; }
 git merge --ff-only -q $B || { echo "STOP: ff failed"; exit 1; }
 [ -e packages/shell/main/node_modules ] || { echo "STOP: lead worktree node_modules missing (worktree-prep)"; exit 1; }

@@ -16,7 +16,13 @@ import {
   sessionOf,
   TAB_KEY,
 } from "../agent/tab-fields.ts";
-import type { TabItem } from "../model.ts";
+import {
+  allTabs,
+  findTab,
+  isDetached,
+  type TabItem,
+  type WorkspaceView,
+} from "../model.ts";
 import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -34,9 +40,7 @@ interface OpenAgentInput {
 }
 
 function agentTabs(host: TabHost): TabItem[] {
-  return host.view.panes.flatMap((pane) =>
-    pane.tabs.filter((tab) => tab.kind === "agent")
-  );
+  return allTabs(host.view).filter((tab) => tab.kind === "agent");
 }
 
 /** 같은 agent의 같은 session이거나, 같은 agent의 아직 말하지 않은 같은 시작(첫 context)인 열린 탭. */
@@ -52,14 +56,32 @@ function reusable(host: TabHost, input: OpenAgentInput): TabItem | undefined {
 }
 
 /** 탭 key는 작업대 안에서 유일하다. 열린 key와 겹치지 않는 가장 작은 번호를 쓴다. */
-function freshKey(host: TabHost, agent: string): string {
-  const used = new Set(
-    host.view.panes.flatMap((pane) => pane.tabs.map((tab) => tab.key)),
-  );
+function freshKey(view: WorkspaceView, agent: string): string {
+  const used = new Set(allTabs(view).map((tab) => tab.key));
   for (let n = 1;; n += 1) {
     const key = `agent:${agent}:${n}`;
     if (!used.has(key)) return key;
   }
+}
+
+/**
+ * detached 창이 연 agent 새 탭을 project 창이 받을 때 쓴다. 그 창은 자기 탭만 봐서 고른 key가 이 창의 다른
+ * session 탭과 겹칠 수 있고, 그대로 열면 새 탭 대신 그 탭이 선택된다. 같은 session이면 그 탭을 고르는 것이 맞아 그대로 둔다.
+ */
+export function distinctAgentTab(view: WorkspaceView, tab: TabItem): TabItem {
+  const existing = findTab(view, tab.key);
+  const agent = agentOf(tab);
+  if (existing === undefined || tab.kind !== "agent" || agent === null) {
+    return tab;
+  }
+  // 보낸 창 자신의 탭이다.
+  if (isDetached(view, tab.key)) return tab;
+  const session = sessionOf(tab);
+  if (
+    existing.kind === "agent" && agentOf(existing) === agent &&
+    session !== null && sessionOf(existing) === session
+  ) return tab;
+  return { ...tab, key: freshKey(view, agent) };
 }
 
 /**
@@ -84,7 +106,7 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
   }
   const session = input.session ?? null;
   host.openTab({
-    key: freshKey(host, input.agent),
+    key: freshKey(host.view, input.agent),
     kind: "agent",
     title: input.name,
     fields: {

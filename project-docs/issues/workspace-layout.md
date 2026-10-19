@@ -4,6 +4,8 @@ project 창의 탭 자리(docked, floated, minimized)와 layout 저장. architec
 
 ## agent 새 탭의 key와 재사용이 pane의 탭만 본다
 
+## 접어 둔 app panel을 다시 펴면 view 상태가 접을 때의 것이다
+
 ```yaml
 kind: bug
 modules: [packages/shell/renderer]
@@ -14,6 +16,12 @@ modules: [packages/shell/renderer]
 영향: floated·detached agent 탭이 있거나 detached 창에서 같은 agent의 새 대화를 열면 새 탭 대신 이미 있는 대화가 앞에 온다. 사람은 새 대화를 열 수 없고, 아직 말하지 않은 같은 시작의 탭을 찾는 재사용도 floated·detached 탭을 놓친다.
 
 고치려면: (1) `freshKey`·`agentTabs`가 `allTabs(host.view)`를 본다(작음). project 창 안의 겹침이 없어진다. (2) detached 창에서 연 agent 새 탭은 project 창이 `open-tab`을 받을 때 key가 겹치고 session이 다르면 새 번호로 바꿔 연다(작음). 추천: 둘 다.
+
+지금: `EmbeddedView`(`renderer/app-frame/embedded-view.tsx`)는 mount된 동안만 `subscribeViewState`를 듣는다. Float·Dock·접기로 unmount되면 view는 `ViewKeeps`(`renderer/app-frame/view-keeps.ts`)에 `state`와 함께 보관되고, 그동안 main이 보낸 state(`viewHealth`의 unresponsive·crashed, `connectionState`)는 아무도 받지 않는다. 다시 mount하면 `take`가 준 보관 `state`를 그대로 보인다.
+
+영향: minimized나 다른 자리로 옮기는 사이에 app view가 죽거나 연결이 끊기면, 다시 편 탭이 "정상"으로 보이고 [새 view 열기]가 안 나온다. 사람은 빈 화면이나 멈춘 앱을 보고 탭을 닫았다 열어야 한다.
+
+고치려면: `ViewKeeps`가 보관하는 동안 `subscribeViewState`를 하나 들어 그 session의 `state`를 갱신한다(추천, 몇 줄). 또는 `take` 뒤에 main에 지금 state를 묻는다(새 IPC가 필요하다).
 
 ## project를 떠났다 돌아온 detached terminal이 PTY에 다시 붙지 못한다
 

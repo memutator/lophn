@@ -41,3 +41,15 @@ guard: 없음
 - 영향: `TabHost` slice를 고치면 두 곳을 고쳐야 하고, 빠뜨리면 같은 탭이 detached 창에서만 다르게 동작한다(위 `openPath`처럼 다른 폴더의 같은 이름 파일을 연다).
 - 고치려면: 두 곳이 같이 쓰는 hook(`useTabHostSlices(project, sources)`)으로 slice를 모은다(중간). 추천.
 - 닫음: `renderer/workspace/use-tab-host-slices.ts`의 `useTabHostSlices`가 `Workspace`와 `DetachedTab`의 sidebar agents·sessions·conversation·drafts·contexts·agent view·agents slice와 view 보관소(covers, keeps, webviews)를 한 곳에서 만든다. detached 창의 `contexts.openPath`도 이제 열린 파일 목록을 먼저 본다.
+
+## agent 새 탭의 key와 재사용이 pane의 탭만 본다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+```
+
+- 지금: `renderer/workspace/kinds/agent.tsx`의 `freshKey`와 `agentTabs`(`reusable`이 쓴다)가 `host.view.panes`만 본다. floats와 detached에 있는 agent 탭의 key를 모르므로 `agent:<agent>:1`이 floated나 detached 탭에 있어도 새 탭에 같은 key를 고른다. 그러면 `Workspace.openTab`이 새로 만들지 않고 그 탭을 고른다(detached면 그 창을 앞으로 가져온다). detached 창에서는 `host.view`가 그 창의 탭 하나뿐이라(`renderer/workspace/detached/detached-space.tsx`) project 창의 pane에 있는 agent 탭과도 겹친다. 이 창의 `openTab`은 project 창에 탭을 열라고 보내고(`open-tab`), project 창은 같은 key의 탭을 고른다.
+- 영향: floated·detached agent 탭이 있거나 detached 창에서 같은 agent의 새 대화를 열면 새 탭 대신 이미 있는 대화가 앞에 온다. 사람은 새 대화를 열 수 없고, 아직 말하지 않은 같은 시작의 탭을 찾는 재사용도 floated·detached 탭을 놓친다.
+- 고치려면: (1) `freshKey`·`agentTabs`가 `allTabs(host.view)`를 본다(작음). project 창 안의 겹침이 없어진다. (2) detached 창에서 연 agent 새 탭은 project 창이 `open-tab`을 받을 때 key가 겹치고 session이 다르면 새 번호로 바꿔 연다(작음). 추천: 둘 다.
+- 닫음: `freshKey`와 `agentTabs`가 `allTabs(host.view)`를 본다. detached 창이 연 agent 새 탭은 project 창이 `open-tab`을 받을 때 `distinctAgentTab`이 key가 겹치고 session이 다르면 새 번호로 바꿔 연다(`renderer/workspace/kinds/agent.tsx`).

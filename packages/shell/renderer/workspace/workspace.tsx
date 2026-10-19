@@ -92,7 +92,7 @@ import type { ContextChipView } from "../conversation/composer/types.ts";
 import type { TabHost } from "./kinds/host.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import { openContext } from "./kinds/context.tsx";
-import { openAgent } from "./kinds/agent.tsx";
+import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
@@ -720,9 +720,11 @@ export function Workspace(props: WorkspaceProps) {
             : item
         ),
       });
-    } else if (event.kind === "open-tab") openTab(event.tab as TabItem);
-    else if (event.kind === "closed") update(closeDetached(current, event.key));
-    else if (event.kind === "opened") {
+    } else if (event.kind === "open-tab") {
+      openTab(distinctAgentTab(current, event.tab as TabItem));
+    } else if (event.kind === "closed") {
+      update(closeDetached(current, event.key));
+    } else if (event.kind === "opened") {
       update(openDetachedTab(current, event.tab as TabItem, event.bounds));
     }
   };

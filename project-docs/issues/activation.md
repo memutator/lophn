@@ -23,6 +23,8 @@ modules: [packages/core/problems, packages/core/apps]
 
 막힌 앱이 나왔다: 계획 `domain-tools`의 손 확인에서 내장 template 앱(write tool `add_item`)이 release 준비의 app test에서 "필수 검사 1개가 통과하지 못했다: rewind"로 떨어져 활성화되지 않았다. e2e `tests/e2e/app-release_test.ts`의 두 test도 같은 문구로 떨어진다. rewind 호출이 왜 실패했는지는 보지 못했다(검사 detail은 coding·user token 모두 `forbidden`). 정한 것을 다시 정해야 한다.
 
+바로잡음(계획 `rewind-check`의 진단): 위 실패는 이 이슈의 입력 문제가 아니었다. 계획 `domain-tools`가 process wire에서 `context.project`를 지웠는데 `packages/core/problems/tests/work/app-driver.ts`가 아직 `project: null`을 실어, 앱 runtime이 harness의 모든 호출을 400 `invalid_input "call request is invalid"`로 거절했다. 세 줄을 지우면 template 앱은 통과한다. 이 이슈(만든 입력이 앞선 상태를 요구하는 tool에서 실패함)는 그대로 남고 아래 다시 정한 것으로 고친다.
+
 다시 정한 것(사람, 2026-10-19): 검사 입력을 새로 만들지 않고, 실제로 성공한 write 호출을 되돌려 본다.
 - 앱 자신의 test(ticket check `app_test`)나 ticket `examples`가 부른 write 호출의 changeset을 뒤집어 적용해, 호출 전 상태로 돌아오는지 본다.
 - 어디서도 성공적으로 불린 적 없는 write tool은 "증명 못 함"으로 problem에 알리고, activation을 막지 않는다.
@@ -31,3 +33,18 @@ modules: [packages/core/problems, packages/core/apps]
   1. template `add_item`(앞선 상태가 필요 없는 tool)이 왜 실패했는지 진단한다. 입력 문제가 아닌 다른 bug일 수 있다.
   2. 검사 detail이 coding·user token 모두에 `forbidden`인 것도 같이 본다.
   3. harness가 앱 test·examples 안의 호출마다 changeset을 받을 수 있는지 확인한다.
+
+## app test 검사별 detail을 아무도 읽지 못한다
+
+```yaml
+kind: defect
+modules: [packages/core/problems, packages/core/storage]
+```
+
+지금: 검사마다의 이유와 증거는 verification의 `observations` blob에 있다. 그 칸은 `general_read: false`로 등록돼(`packages/core/problems/tests/blobs.ts`의 `TEST_BLOB_FIELDS`) `blob.read`가 어느 actor에게도 주지 않는다(`packages/core/storage/blobs/refs.ts`의 `generalReadAllowed`). `GetVerification`의 `detail: true`는 별도 권한을 보지만(`packages/core/problems/tests/reads.ts`의 `readVerification`) 허락돼도 hash만 든 같은 Verification을 돌려준다. 그래서 detail은 disk에서만 읽힌다.
+
+영향: 검사가 떨어진 이유를 coding agent와 사람이 화면·CLI로 볼 수 없다. 계획 `rewind-check` 진단은 data root의 blob 파일을 직접 열어 원인을 찾았다. 계획 `rewind-check`의 `rc-wire`가 fail 이유 한 줄에 검사별 이유를 실어 지금 필요한 만큼은 보인다.
+
+고치려면:
+- 그대로 둔다(비용 0). fail 이유 한 줄이 검사별 이유를 싣는다. 추천.
+- `detail: true`가 허락된 자격에 observations 내용을 싣는다(작음~중간. 그 blob에 앱 출력이 들어 있어 누가 읽을지 정해야 한다).

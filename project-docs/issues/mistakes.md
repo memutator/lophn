@@ -16,3 +16,22 @@ modules: [packages/protocol, packages/shell, tools]
 원인: "쓰는 곳 없음"을 import로만 판정했다. route는 화면에서 문자열(resource, method)로 부르는 길이 있는데 지침에 그 grep이 없었다.
 
 막기: route를 지우거나 이름을 바꾸는 task는 `grep -rn '"<method>"' packages/shell tools tests`로 문자열 호출을 같이 본다. 이 문장을 orchestrate skill "worker에게 꼭 넣을 것"과 `prompt.py`의 지운 이름 grep 줄에 더했다. 다시 생기면 화면의 문자열 호출을 route 객체(`readOf(core, <route>, …)`)로 바꿔 type check가 잡게 한다.
+
+## wire 칸을 지우고 harness driver의 보내는 쪽을 남겼고, 그 실패를 옛 이슈에 붙였다
+
+```yaml
+kind: mistake
+modules: [packages/core/problems, packages/protocol]
+```
+
+지금: 계획 `domain-tools`가 앱 process wire(`ProcessCallRequest`)에서 `context.project`를 지웠다. 앱 runtime의 `parseProcessCall`은 모르는 칸을 거절한다. 그런데 app test harness의 `packages/core/problems/tests/work/app-driver.ts`는 control socket 호출 셋(`rejectsInvalidInput`, `rewind`, `call`)의 body를 type 없는 object literal로 만들어 `project: null`을 계속 실었다. check와 core 기동은 통과했고, main에서 모든 앱의 `rewind`·`examples` 검사가 깨졌다(`blueprint_handler_match`는 거꾸로 공짜 통과). lead는 손 확인에서 이 실패를 열린 이슈 "write app-api의 rewind 검사가 fail로 나온다"와 문구가 같다고 보고 detail을 읽지 않은 채 그 이슈의 "막힌 앱"으로 적었다. 원인은 계획 `rewind-check`의 진단에서 나왔다.
+
+영향: examples ticket이 모두 확인되지 않고 template 앱도 활성화되지 않은 채 main에 남았다. 사람이 이슈의 방향을 잘못된 근거로 다시 정할 뻔했다.
+
+원인:
+- wire 칸을 지운 task의 brief가 보내는 쪽 목록을 core 호출 길과 앱 runtime까지만 적었다. harness driver는 같은 wire를 따로 만드는데 type을 걸지 않아 type check가 못 봤다.
+- 실패 이름과 문구가 같으면 같은 원인이라고 본 것. detail은 token으로 읽히지 않았지만 disk의 blob에는 있었다.
+
+막기:
+- 계획 `rewind-check`의 `rc-wire`가 driver의 세 body에 `satisfies ProcessCallRequest`를 건다(check로 막는다).
+- `issue` skill "같은 이슈를 찾는다"에 "겉 문구가 같아도 detail을 읽어 원인이 같은지 본 뒤 덧붙인다"를 더했다.

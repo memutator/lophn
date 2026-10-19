@@ -34,3 +34,30 @@ export function flatten(source: unknown = tokens): FlatToken[] {
   walk(source, []);
   return flat;
 }
+
+// token 정의 CSS. generate.ts(tokens.css)와 shell main(artifact 문서)이 같이 쓴다.
+export function renderCss(flat: readonly FlatToken[]): string {
+  const light = flat.map((token) => `  ${token.name}: ${token.light};`);
+  const dark = flat.filter((token) => token.dark !== undefined).map((token) =>
+    `  ${token.name}: ${token.dark};`
+  );
+  return [
+    ":root {",
+    "  color-scheme: light;",
+    ...light,
+    "}",
+    "",
+    '[data-theme="dark"] {',
+    "  color-scheme: dark;",
+    ...dark,
+    "}",
+    "",
+    "@media (prefers-color-scheme: dark) {",
+    '  :root:not([data-theme="light"]) {',
+    "    color-scheme: dark;",
+    ...dark.map((line) => `  ${line}`),
+    "  }",
+    "}",
+    "",
+  ].join("\n");
+}

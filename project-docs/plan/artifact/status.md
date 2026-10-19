@@ -4,12 +4,12 @@ lead만 고친다. `tools/status.py artifact build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `af-annotation-target` | artifact-annotation | 1 | af-artifact-values | running | artifact-annotation/af-annotation-target |  |  |
+| `af-annotation-target` | artifact-annotation | 1 | af-artifact-values | merged | artifact-annotation/af-annotation-target | 5736ac84f |  |
 | `af-artifact-files` | artifact-files | 1 | af-artifact-values | running | artifact-files/af-artifact-files |  |  |
 | `af-artifact-values` | artifact-protocol | 1 | 없음 | merged | artifact-protocol/af-artifact-values | 5a6137f1b |  |
 | `af-sandbox` | artifact-sandbox | 1 | 없음 | merged | artifact-sandbox/af-sandbox | 45b5d911d |  |
-| `af-file-scope` | artifact-scope | 1 | af-artifact-values | running | artifact-scope/af-file-scope |  |  |
-| `af-wireframes` | artifact-screen | 1 | 없음 | running | artifact-screen/af-wireframes |  |  |
+| `af-file-scope` | artifact-scope | 1 | af-artifact-values | merged | artifact-scope/af-file-scope | 6d2f53182 |  |
+| `af-wireframes` | artifact-screen | 1 | 없음 | merged | artifact-screen/af-wireframes | 23c67e629 |  |
 | `af-artifact-ipc` | artifact-view | 1 | 없음 | merged | artifact-view/af-artifact-ipc | fb4d2643c |  |
 | `af-annotation-read` | artifact-annotation | 2 | 없음 | todo |  |  |  |
 | `af-annotation-receiver` | artifact-annotation | 2 | 없음 | todo |  |  |  |

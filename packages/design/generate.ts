@@ -1,34 +1,7 @@
-import { flatten, type FlatToken } from "./flatten.ts";
+import { flatten, type FlatToken, renderCss } from "./flatten.ts";
 import { tokens } from "./tokens.ts";
 
 const notice = "generate.ts가 만든다, 손으로 고치지 않는다";
-
-export function renderCss(flat: readonly FlatToken[]): string {
-  const light = flat.map((token) => `  ${token.name}: ${token.light};`);
-  const dark = flat.filter((token) => token.dark !== undefined).map((token) =>
-    `  ${token.name}: ${token.dark};`
-  );
-  return [
-    `/* ${notice} */`,
-    ":root {",
-    "  color-scheme: light;",
-    ...light,
-    "}",
-    "",
-    '[data-theme="dark"] {',
-    "  color-scheme: dark;",
-    ...dark,
-    "}",
-    "",
-    "@media (prefers-color-scheme: dark) {",
-    '  :root:not([data-theme="light"]) {',
-    "    color-scheme: dark;",
-    ...dark.map((line) => `  ${line}`),
-    "  }",
-    "}",
-    "",
-  ].join("\n");
-}
 
 export function renderVars(flat: readonly FlatToken[]): string {
   type Tree = { [key: string]: Tree | string };
@@ -80,7 +53,7 @@ async function formatVars(source: string): Promise<string> {
 export async function generate(): Promise<Record<string, string>> {
   const flat = flatten();
   return {
-    "tokens.css": renderCss(flat),
+    "tokens.css": `/* ${notice} */\n${renderCss(flat)}`,
     "vars.ts": await formatVars(renderVars(flat)),
     "token-names.ts": await formatVars(renderTokenNames(flat)),
     "values.json": JSON.stringify({ _generated: notice, tokens }, null, 2) +

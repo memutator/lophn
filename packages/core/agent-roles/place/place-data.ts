@@ -1,7 +1,13 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { agentGrantsGet, agentKey } from "../../../protocol/approvals/mod.ts";
 import { appAppApi } from "../../../protocol/apps/blueprint/read.ts";
 import { appGet, appList } from "../../../protocol/apps/mod.ts";
-import { callSendable, type Role } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  agentDefinitionList,
+  type AgentRef,
+  callSendable,
+  type Role,
+} from "../../../protocol/lophn-agent/mod.ts";
 import {
   contextContractRoute,
   contextDraftRoute,
@@ -243,6 +249,79 @@ async function readPlaceData(
       found.place === (await labelOf(place))
     ) continue;
     agents.set(`${found.role}\0${found.name}\0${found.place}`, found);
+  }
+
+  // session이 아직 없는 상대도 부를 수 있다(call이 새 session을 연다). 후보를 모아 gate와 같은 기준으로 거른다:
+  // 자기 grant에 excluded 줄이 있는 상대만 빠진다. grant를 못 읽으면 gate도 못 보이는 것으로 치므로 싣지 않는다.
+  const grant = await readOf(call, agentGrantsGet, { agent: agent.agent });
+  if (grant.ok) {
+    const excluded = new Set(
+      grant.value.grant.entries.flatMap((entry) =>
+        entry.kind === "agent" && entry.setting === "excluded"
+          ? [agentKey(entry.agent)]
+          : []
+      ),
+    );
+    const own = agentKey(agent.agent);
+    const add = async (
+      ref: AgentRef,
+      name: string,
+      at: { kind: "project" | "app"; id: string } | null,
+    ) => {
+      if (excluded.has(agentKey(ref)) || agentKey(ref) === own) return;
+      const found: PlaceAgent = {
+        role: ref.role,
+        name,
+        place: await labelOf(at),
+        line: ROLE_LINE[ref.role],
+      };
+      const key = `${found.role}\0${found.name}\0${found.place}`;
+      if (!agents.has(key)) agents.set(key, found);
+    };
+    await add({ role: "lophn" }, "lophn", null);
+    const projectsRead = await pages(async (cursor) => {
+      const read = await readOf(call, projectApi.list, {
+        status: "active",
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      return read.ok
+        ? ok({
+          items: read.value.projects,
+          next_cursor: read.value.next_cursor,
+        })
+        : read;
+    });
+    for (const record of projectsRead.ok ? projectsRead.value : []) {
+      projects.set(record.id, record);
+      labels.set(`project:${record.id}`, `project ${record.name}`);
+      await add(
+        { role: "project_manager", project: record.id },
+        record.name,
+        { kind: "project", id: record.id },
+      );
+    }
+    const appsRead = await pages(async (cursor) => {
+      const read = await readOf(call, appList, {
+        status: "active",
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      return read.ok
+        ? ok({ items: read.value.apps, next_cursor: read.value.next_cursor })
+        : read;
+    });
+    for (const record of appsRead.ok ? appsRead.value : []) {
+      labels.set(`app:${record.id}`, `app ${record.name}`);
+      await add(
+        { role: "app_engineer", app: record.id },
+        record.name,
+        { kind: "app", id: record.id },
+      );
+    }
+    const defined = await readOf(call, agentDefinitionList, {});
+    for (const row of defined.ok ? defined.value.agents : []) {
+      if (row.kind !== "operator" || row.issues.length > 0) continue;
+      await add(row.agent, row.name, row.place);
+    }
   }
 
   // context 글은 읽는 role만 싣는다. lophn은 목록(이름과 한 줄)만 쓰므로 글 없이 둔다.

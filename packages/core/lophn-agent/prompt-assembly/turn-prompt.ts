@@ -1,6 +1,6 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
-import { renderContextText } from "./context-text.ts";
+import { renderKindText } from "./kind-text.ts";
 import { inputBudget, measureWire } from "./budget.ts";
 import {
   type BasisDiff,
@@ -18,7 +18,7 @@ import type {
   HistoryMessage,
   ModelLimits,
   PlaceAgent,
-  PlaceContext,
+  PlaceKinds,
   PromptMessage,
   PromptRequest,
   PromptTool,
@@ -38,13 +38,11 @@ export type TurnPromptInput = {
   tools: readonly PromptTool[];
   instructions: InstructionTexts;
   skills: readonly SkillListItem[];
-  // role 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 보이는 context와 agent다.
+  // role 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 kind 글과 agent다.
   place: {
     text: string;
-    contexts: readonly PlaceContext[];
+    kinds: PlaceKinds | null;
     agents: readonly PlaceAgent[];
-    // project가 없는 place면 context 글에 project 이름을 싣는다.
-    show_project: boolean;
   };
   history: readonly HistoryMessage[];
   // 지난 turn이 본 판. 없으면(첫 turn, compact) notice를 붙이지 않는다.
@@ -129,33 +127,21 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
       body: changeText("The tools changed.", diff.tools, wire),
     }));
   }
-  if (diff.contexts !== null) {
-    const { added, removed, refreshed } = diff.contexts;
-    const visible = input.place.contexts;
-    const shown = new Set([...added, ...refreshed]);
-    const texts = visible.flatMap((c) =>
-      shown.has(c.name) && c.text !== null
-        ? [
-          renderContextText(c.text, "full", {
-            project: input.place.show_project,
-          }),
-        ]
-        : []
-    );
-    const lines = [changeText("The contexts changed.", { added, removed })];
-    if (refreshed.length > 0) {
-      lines.push(
-        `New version or glossary: ${
-          refreshed.join(", ")
-        }. The new text follows.`,
-      );
-    }
+  if (diff.kinds !== null) {
+    const kinds = input.place.kinds;
     notices.push(
-      [
-        noticeInput({ kind: "contexts_changed", body: lines.join("\n") }),
-        ...texts,
-      ]
-        .join("\n"),
+      kinds === null
+        ? noticeInput({
+          kind: "kinds_changed",
+          body: "The kinds were removed.",
+        })
+        : [
+          noticeInput({
+            kind: "kinds_changed",
+            body: "The kinds changed. The new text follows.",
+          }),
+          renderKindText(kinds.text, "full"),
+        ].join("\n"),
     );
   }
   if (diff.agents !== null) {
@@ -169,7 +155,7 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
 
 function changed(diff: BasisDiff): boolean {
   return diff.instructions.length > 0 || diff.tools !== null ||
-    diff.contexts !== null || diff.agents !== null;
+    diff.kinds !== null || diff.agents !== null;
 }
 
 // notice는 대화 끝에 덧붙인다. 마지막이 user message가 아니면 새 user message로 둔다.
@@ -231,7 +217,7 @@ export async function assembleTurnPrompt(
   const basis = await basisOf({
     instructions: input.instructions,
     tool_names: input.tools.map((t) => t.name),
-    contexts: input.place.contexts,
+    kinds: input.place.kinds,
     agents: input.place.agents,
   });
   const diff = input.seen === undefined ? null : diffBasis(input.seen, basis);

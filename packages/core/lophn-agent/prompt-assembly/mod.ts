@@ -17,7 +17,7 @@ export {
   type HistoryPart,
   type ModelLimits,
   type PlaceAgent,
-  type PlaceContext,
+  type PlaceKinds,
   type PromptMessage,
   type PromptPart,
   type PromptRequest,
@@ -39,9 +39,9 @@ export {
 export {
   buildContextText,
   type ContextRead,
-  type FolderRead,
   renderContextText,
 } from "./context-text.ts";
+export { buildKindText, type FolderRead, renderKindText } from "./kind-text.ts";
 export { type SkillListItem, skillListText } from "./skill-list.ts";
 export {
   assembleTurnPrompt,

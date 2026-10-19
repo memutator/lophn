@@ -12,6 +12,7 @@ import type { PlaceScope } from "../ports.ts";
 
 // file tool이 만지는 경로를 place 폴더 안으로 가둔다. 상대 경로는 place의 첫 폴더 기준이다.
 // `..`로 나가는 경로, 폴더 밖 절대 경로, 밖으로 나가는 symlink는 forbidden이다.
+// 허용 entry는 폴더이거나 파일 하나다(kinds 파일). 파일 entry는 아직 없어도 그 경로 하나만 연다.
 // 실제 경로(realPath)로 판정한다. 새 파일이면 가장 가까운 있는 상위 폴더의 실제 경로에 남은 이름을 붙인다.
 
 export type Mode = "read" | "write";
@@ -41,6 +42,21 @@ function inside(root: string, path: string): boolean {
   return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
+// entry의 실제 경로와 파일인지 여부. 없는 entry는 부모 폴더가 있으면 파일 하나로 본다.
+async function entryOf(
+  entry: string,
+): Promise<{ path: string; file: boolean } | null> {
+  const actual = await real(entry);
+  if (actual !== null) {
+    const stat = await Deno.stat(actual).catch(() => null);
+    return stat === null ? null : { path: actual, file: !stat.isDirectory };
+  }
+  const parent = await real(dirname(entry));
+  return parent === null
+    ? null
+    : { path: join(parent, basename(entry)), file: true };
+}
+
 export async function resolveInPlace(
   roots: Pick<PlaceScope, "read" | "write">,
   path: string,
@@ -67,10 +83,24 @@ export async function resolveInPlace(
   }
   const actual = rest.length === 0 ? resolved : join(resolved, ...rest);
 
-  for (const folder of allowed) {
-    const root = await real(folder);
-    if (root !== null && inside(root, actual)) {
-      return ok({ path: actual, root, relative: relative(root, actual) });
+  for (const entry of allowed) {
+    const found = await entryOf(entry);
+    if (found === null) continue;
+    if (found.file) {
+      // 같은 폴더의 다른 파일은 거절한다. rewind 기록은 root가 폴더여야 하므로 부모 폴더를 root로 한다.
+      if (actual === found.path) {
+        return ok({
+          path: actual,
+          root: dirname(found.path),
+          relative: basename(found.path),
+        });
+      }
+    } else if (inside(found.path, actual)) {
+      return ok({
+        path: actual,
+        root: found.path,
+        relative: relative(found.path, actual),
+      });
     }
   }
   return forbidden();

@@ -102,7 +102,7 @@ export function loopHarness(init: {
           })),
           instructions: { global: "", project: "", agent: "" },
           skills: [],
-          place: { text: "", contexts: [], agents: [], show_project: false },
+          place: { text: "", kinds: null, agents: [] },
           limits: {
             context_limit: 200_000,
             input_limit: 200_000,

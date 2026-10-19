@@ -1,5 +1,6 @@
 // place가 file tool에 여는 폴더를 core의 두 자리에 잇는 glue다: rewind의 쓰기 폴더와 agent runtime child의 Deno
 // 권한. 규칙은 agent-roles의 place-folders가 갖고, 여기는 project·앱 module의 lookups로 사실을 모아 넘긴다.
+import { dirname } from "node:path";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import {
@@ -9,16 +10,12 @@ import {
 } from "../../agent-roles/place/place-folders.ts";
 import { artifactsFolder } from "../../agent-roles/place/data-folder.ts";
 import { activeAppSourcePaths, appSourcePath } from "../../apps/lookups.ts";
+import { kindsFilePath } from "../../../protocol/projects/kinds-file.ts";
 import {
   activeProjectFolderPaths,
-  draftBundles,
   projectFolderPaths,
   projectIds,
 } from "../../projects/lookups.ts";
-import {
-  createContextFolders,
-  projectsRoot,
-} from "../../projects/contexts/mod.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
@@ -40,7 +37,6 @@ export function placeFoldersOf(
   const place: PlaceFacts["place"] = kind === "project" || kind === "app"
     ? { kind, id }
     : null;
-  const folders = createContextFolders(dataRoot);
   const facts: PlaceFacts = {
     role,
     place,
@@ -50,24 +46,25 @@ export function placeFoldersOf(
     artifactsFolder: place?.kind === "project"
       ? artifactsFolder(dataRoot, id)
       : null,
-    draftFolders: place?.kind === "project"
-      ? draftBundles(sql, id).map((draft) =>
-        folders.draftFolder(id, draft.context, draft.bundle)
-      )
-      : [],
+    kindsFile: place?.kind === "project" ? kindsFilePath(dataRoot, id) : null,
     appSource: place?.kind === "app" ? appSourcePath(sql, id) : null,
     allProjectFolders: [],
   };
-  return placeScope(facts).write;
+  // 쓰기 허용은 file tool의 resolveInPlace가 kinds 파일 하나로 좁힌다. rewind는 root를 폴더 목록과 비교하므로
+  // 파일 entry는 부모 폴더로 바꿔 준다(그 폴더의 pre-image만 읽는다).
+  return placeScope(facts).write.map((entry) =>
+    entry === facts.kindsFile ? dirname(entry) : entry
+  );
 }
 
-// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체, 모든 project의 artifacts 폴더의 합에 초안 상위를 더한 것이다.
+// agent runtime child의 Deno 권한용 폴더: 열린 project와 앱 source 전체, 모든 project의 artifacts 폴더의 합에
+// project마다 kinds 파일을 쓰기로 더한 것이다.
 export function runtimeFoldersOf(
   lookup: Lookup,
   dataRoot: string,
 ): { read: string[]; write: string[] } {
   return runtimeFolders({
-    draftRoot: projectsRoot(dataRoot),
+    kindsFiles: projectIds(lookup.sql).map((id) => kindsFilePath(dataRoot, id)),
     projectFolders: activeProjectFolderPaths(lookup.sql),
     artifactFolders: projectIds(lookup.sql).map((id) =>
       artifactsFolder(dataRoot, id)

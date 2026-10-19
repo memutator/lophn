@@ -10,27 +10,23 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   contextContractRoute,
-  contextDraftRoute,
   contextGetRoute,
-  contextListRoute,
   glossaryListRoute,
+  kindGet,
   projectApi,
 } from "../../../protocol/projects/mod.ts";
+import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
   buildContextText,
+  buildKindText,
   type FolderRead,
   type PlaceAgent,
-  type PlaceContext,
+  type PlaceKinds,
   type TurnPromptInput,
 } from "../../lophn-agent/prompt-assembly/mod.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
-import {
-  type PlaceData,
-  placeInfo,
-  type PlaceProject,
-  visibleContexts,
-} from "./place-info.ts";
+import { type PlaceData, placeInfo, type PlaceProject } from "./place-info.ts";
 import { placeScope } from "./place-folders.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
@@ -49,15 +45,15 @@ type PlaceRead = {
   scope: { read: string[]; write: string[] };
 };
 
-// place 정보의 context 글 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
-const CONTEXT_TEXT_BUDGET = 12000;
+// place 정보의 kind 글 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
+const KIND_TEXT_BUDGET = 12000;
 
 // 부를 수 있는 agent 목록에 붙는 한 줄. agent 정의에 설명 칸이 없어 role마다 고정 문장이다.
 const ROLE_LINE: Record<Role, string> = {
   lophn: "Plans work, registers apps, and hands work to others.",
-  project_manager: "Looks after the project's folders and contexts.",
+  project_manager: "Looks after the project's folders and kinds.",
   app_engineer: "Builds and maintains the app.",
-  operator: "Works with the contexts and tools it was granted.",
+  operator: "Works with the kinds and tools it was granted.",
 };
 
 const MAX_PAGES = 50;
@@ -77,30 +73,6 @@ async function pages<T>(
     cursor = read.value.next_cursor;
   }
   return err({ code: "unavailable", message: "the list is too long" });
-}
-
-// project의 context마다 열린 초안(draft 판)의 폴더. 읽지 못한 context는 건너뛴다.
-async function openDraftFolders(
-  call: CoreCall,
-  project: string,
-): Promise<string[]> {
-  const listed = await pages(async (cursor) => {
-    const read = await readOf(call, contextListRoute, {
-      project,
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    return read.ok
-      ? ok({ items: read.value.contexts, next_cursor: read.value.next_cursor })
-      : read;
-  });
-  if (!listed.ok) return [];
-  const folders: string[] = [];
-  for (const context of listed.value) {
-    const read = await readOf(call, contextDraftRoute, { context: context.id });
-    const folder = read.ok ? read.value.draft?.folder : null;
-    if (folder !== null && folder !== undefined) folders.push(folder);
-  }
-  return folders;
 }
 
 type ProjectRecord = {
@@ -147,9 +119,10 @@ async function readPlaceData(
   let app: PlaceData["app"] = null;
   let release: PlaceData["release"] = null;
   let projectFolders: string[] = [];
-  let draftFolders: string[] = [];
   let artifacts: string | null = null;
   let artifactItems: readonly ArtifactEntry[] = [];
+  let kinds: PlaceKinds | null = null;
+  let kindsFile: string | null = null;
   let appSource: string | null = null;
   const allProjectFolders: string[] = [];
 
@@ -158,8 +131,25 @@ async function readPlaceData(
     if (!read.ok) return read;
     project = placeProject(read.value);
     projectFolders = read.value.folders.map((f) => f.path);
-    if (role === "project_manager") {
-      draftFolders = await openDraftFolders(call, place.id);
+    if (role === "project_manager" || role === "operator") {
+      // kind 글만 비우고 turn은 계속한다. PM은 파일이 없어도 경로를 안다(처음 쓸 자리다).
+      const got = await readOf(call, kindGet, { project: place.id });
+      if (got.ok) {
+        const { status } = got.value;
+        if (role === "project_manager") kindsFile = status.file;
+        if (
+          status.state !== "none" && got.value.kinds !== null &&
+          status.applied_hash !== null
+        ) {
+          kinds = {
+            hash: status.applied_hash,
+            text: buildKindText({
+              kinds: got.value.kinds,
+              warning: status.state === "invalid",
+            }),
+          };
+        }
+      }
     }
     if (role === "project_manager" || role === "operator") {
       const folder = files.artifactsFolder(place.id);
@@ -348,48 +338,12 @@ async function readPlaceData(
     }
   }
 
-  // context 글은 읽는 role만 싣는다. lophn은 목록(이름과 한 줄)만 쓰므로 글 없이 둔다.
-  const contexts: PlaceContext[] = [];
-  if (role === "lophn") {
-    for (const record of projects.values()) {
-      const listed = await pages(async (cursor) => {
-        const read = await readOf(call, contextListRoute, {
-          project: record.id,
-          status: "active",
-          ...(cursor === undefined ? {} : { cursor }),
-        });
-        return read.ok
-          ? ok({
-            items: read.value.contexts,
-            next_cursor: read.value.next_cursor,
-          })
-          : read;
-      });
-      if (!listed.ok) return listed;
-      for (const c of listed.value) {
-        contexts.push({
-          name: c.title,
-          project: c.project,
-          attached: true,
-          purpose: c.purpose,
-          version: c.applied_number === null ? "r0" : `r${c.applied_number}`,
-          text: null,
-        });
-      }
-    }
-  } else if (role === "project_manager" || role === "operator") {
-    for (const id of agent.contexts) {
-      const loaded = await readContext(call, id, projectOf);
-      if (loaded !== null) contexts.push(loaded);
-    }
-  }
-
   const scope = placeScope({
     role,
     place,
     projectFolders,
     artifactsFolder: artifacts,
-    draftFolders,
+    kindsFile,
     appSource,
     allProjectFolders,
   });
@@ -399,7 +353,8 @@ async function readPlaceData(
       project,
       app,
       agents: [...agents.values()],
-      contexts,
+      kinds,
+      kindsFile,
       apps: appItems,
       projects: projectList,
       release,
@@ -411,7 +366,7 @@ async function readPlaceData(
   });
 }
 
-// prompt가 받는 place 값과 file 범위다. 글과 보이는 context는 여기서 정해 harness는 role을 모른다.
+// prompt가 받는 place 값과 file 범위다. 글과 kind 글은 여기서 정해 harness는 role을 모른다.
 export async function placeData(
   call: CoreCall,
   agent: ResolvedAgent,
@@ -425,30 +380,33 @@ export async function placeData(
   const { role } = agent;
   return ok({
     place: {
-      text: placeInfo(role, place, CONTEXT_TEXT_BUDGET),
-      contexts: visibleContexts(role, place),
+      text: placeInfo(role, place, KIND_TEXT_BUDGET),
+      kinds: place.kinds,
       agents: place.agents,
-      show_project: place.project === null,
     },
     scope,
   });
 }
 
+type LoadedContext = {
+  name: string;
+  version: string;
+  text: ContextText | null;
+};
+
+// `context.get` tool이 쓰는 context 하나의 글. 지우는 날까지 prompt는 이 글을 쓰지 않는다.
 // context 하나의 글. 읽지 못한 것은 글 없이 둔다(이름과 한 줄만 보인다). 목록도 못 읽으면 null이다.
 export async function readContext(
   call: CoreCall,
   id: string,
   projectOf: (id: string) => Promise<Result<ProjectRecord>>,
-): Promise<PlaceContext | null> {
+): Promise<LoadedContext | null> {
   const got = await readOf(call, contextGetRoute, { context: id });
   if (!got.ok || got.value.applied === null) return null;
   const c = got.value.context;
   const number = got.value.applied.number;
-  const base: PlaceContext = {
+  const base: LoadedContext = {
     name: c.title,
-    project: c.project,
-    attached: true,
-    purpose: c.purpose,
     version: `r${number}`,
     text: null,
   };

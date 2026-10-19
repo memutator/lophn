@@ -1,5 +1,5 @@
-import { canonicalize, sha256Hex } from "../../../base/mod.ts";
-import type { PlaceAgent, PlaceContext } from "./model.ts";
+import { sha256Hex } from "../../../base/mod.ts";
+import type { PlaceAgent, PlaceKinds } from "./model.ts";
 
 // 지난 turn이 본 prompt의 판이다. turn이 시작할 때 지금 판과 비교해 바뀐 것마다 notice를 만든다.
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.
@@ -15,8 +15,8 @@ export type SeenBasis = {
   instructions: Record<InstructionLayerName, string>;
   // 정본 tool 이름, 이름 순
   tools: string[];
-  // 이름 순. glossary는 용어집 hash다.
-  contexts: { name: string; version: string; glossary: string }[];
+  // 쓰고 있는 kinds 파일의 hash. kind가 없으면 null.
+  kinds: { hash: string } | null;
   // `role name (place)` 꼴, 정렬
   agents: string[];
 };
@@ -34,26 +34,17 @@ function agentKey(agent: PlaceAgent): string {
 export async function basisOf(input: {
   instructions: InstructionTexts;
   tool_names: readonly string[];
-  contexts: readonly PlaceContext[];
+  kinds: PlaceKinds | null;
   agents: readonly PlaceAgent[];
 }): Promise<SeenBasis> {
   const instructions = {} as SeenBasis["instructions"];
   for (const layer of INSTRUCTION_LAYERS) {
     instructions[layer] = await sha256Hex(input.instructions[layer]);
   }
-  const contexts: SeenBasis["contexts"] = [];
-  for (const c of input.contexts) {
-    contexts.push({
-      name: c.name,
-      version: c.version,
-      glossary: await sha256Hex(canonicalize(c.text?.glossary ?? [])),
-    });
-  }
-  contexts.sort((a, b) => cmp(a.name, b.name));
   return {
     instructions,
     tools: [...input.tool_names].sort(cmp),
-    contexts,
+    kinds: input.kinds === null ? null : { hash: input.kinds.hash },
     agents: input.agents.map(agentKey).sort(cmp),
   };
 }
@@ -63,7 +54,8 @@ type ListChange = { added: string[]; removed: string[] };
 export type BasisDiff = {
   instructions: InstructionLayerName[];
   tools: ListChange | null;
-  contexts: (ListChange & { refreshed: string[] }) | null;
+  // 있었는가, 지금 있는가
+  kinds: { was: boolean; now: boolean } | null;
   agents: ListChange | null;
 };
 
@@ -80,24 +72,15 @@ function listChange(
 
 // 순수 함수다. 바뀐 것이 없으면 모든 칸이 비어 있다.
 export function diffBasis(seen: SeenBasis, now: SeenBasis): BasisDiff {
-  const before = new Map(seen.contexts.map((c) => [c.name, c]));
-  const refreshed = now.contexts.filter((c) => {
-    const old = before.get(c.name);
-    return old !== undefined &&
-      (old.version !== c.version || old.glossary !== c.glossary);
-  }).map((c) => c.name);
-  const names = listChange(
-    seen.contexts.map((c) => c.name),
-    now.contexts.map((c) => c.name),
-  );
   return {
     instructions: INSTRUCTION_LAYERS.filter((layer) =>
       seen.instructions[layer] !== now.instructions[layer]
     ),
     tools: listChange(seen.tools, now.tools),
-    contexts: names === null && refreshed.length === 0
-      ? null
-      : { added: names?.added ?? [], removed: names?.removed ?? [], refreshed },
+    kinds: seen.kinds?.hash === now.kinds?.hash ? null : {
+      was: seen.kinds !== null,
+      now: now.kinds !== null,
+    },
     agents: listChange(seen.agents, now.agents),
   };
 }

@@ -7,8 +7,8 @@ export type PlaceFacts = {
   projectFolders: readonly string[];
   // place가 project일 때 그 project의 artifacts 폴더
   artifactsFolder: string | null;
-  // 그 project의 열린 초안 폴더
-  draftFolders: readonly string[];
+  // place가 project일 때 그 project의 kinds 파일(파일이 아직 없어도 경로다). PM만 쓴다
+  kindsFile: string | null;
   // place가 app일 때 앱 source 폴더. 없으면 null
   appSource: string | null;
   // active project 전체 폴더. lophn만 쓴다
@@ -28,12 +28,12 @@ export function placeScope(facts: PlaceFacts): FolderScope {
     const artifacts = facts.artifactsFolder === null
       ? []
       : [facts.artifactsFolder];
-    // 초안 폴더는 PM만 연다.
+    // kinds 파일은 PM만 연다.
     if (role === "project_manager") {
       const folders = [
         ...facts.projectFolders,
         ...artifacts,
-        ...facts.draftFolders,
+        ...(facts.kindsFile === null ? [] : [facts.kindsFile]),
       ];
       return { read: folders, write: [...folders] };
     }
@@ -50,16 +50,16 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   return { read: [], write: [] };
 }
 
-// agent runtime child의 Deno 권한용 합. 초안 폴더는 turn 중에 열려 목록이 정해지지 않아 draftRoot째 쓰기를 연다.
+// agent runtime child의 Deno 권한용 합. kinds 파일은 PM의 쓰기라 write에만 더한다.
 export function runtimeFolders(input: {
-  draftRoot: string;
+  kindsFiles: readonly string[];
   projectFolders: readonly string[];
   artifactFolders: readonly string[];
   appSources: readonly string[];
 }): FolderScope {
   const base = {
     role: "operator" as const,
-    draftFolders: [],
+    kindsFile: null,
     allProjectFolders: [],
   };
   const folders = new Set([
@@ -85,6 +85,6 @@ export function runtimeFolders(input: {
   }
   return {
     read: [...folders],
-    write: [...new Set([...folders, input.draftRoot])],
+    write: [...new Set([...folders, ...input.kindsFiles])],
   };
 }

@@ -11,6 +11,7 @@ import {
   contextGetRoute,
   contextListRoute,
   glossaryListRoute,
+  kindGet,
   projectApi,
 } from "../../protocol/projects/mod.ts";
 import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
@@ -33,6 +34,7 @@ const PLACE_READS: readonly string[] = [
   contextGetRoute.name,
   contextContractRoute.name,
   glossaryListRoute.name,
+  kindGet.name,
   projectApi.get.name,
   projectApi.list.name,
   appGet.name,

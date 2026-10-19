@@ -1,4 +1,4 @@
-import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
+import type { KindText } from "../../../protocol/lophn-agent/kind-text.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 
 // prompt 조립의 값이다. 순수 값만 두고 I/O와 hash는 `assembleTurnPrompt`가 한다.
@@ -82,19 +82,8 @@ export type BlockedReason =
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
 
-// place 정보에서 notice와 판 비교(basis)가 쓰는 값이다. 읽어서 거르는 일은 role 층이 한다.
-export type PlaceContext = {
-  name: string;
-  // 속한 project의 id
-  project: string;
-  // 이 agent에 붙었는가 (Operator의 정의가 고른 context)
-  attached: boolean;
-  purpose: string;
-  // 적용된 판 번호. 예: "r3".
-  version: string;
-  // full 글을 쓰려면 있어야 한다. lophn은 목록만 써서 null이어도 된다.
-  text: ContextText | null;
-};
+// place 정보에서 notice와 판 비교(basis)가 쓰는 kind 글이다. hash는 쓰고 있는 kinds 파일의 hash다(판 번호가 없다).
+export type PlaceKinds = { hash: string; text: KindText };
 
 export type PlaceAgent = {
   role: Role;

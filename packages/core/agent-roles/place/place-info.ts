@@ -1,19 +1,17 @@
-import type { ContextText } from "../../../protocol/lophn-agent/context-text.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
-import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import {
   type FolderRead,
-  renderContextText,
-} from "../../lophn-agent/prompt-assembly/context-text.ts";
+  renderKindText,
+} from "../../lophn-agent/prompt-assembly/kind-text.ts";
 import type {
   PlaceAgent,
-  PlaceContext,
+  PlaceKinds,
 } from "../../lophn-agent/prompt-assembly/model.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 role별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
-// 예산은 글자 수이고 context 글에만 건다. session을 시작할 때 값을 고정해서 넘긴다.
+// 예산은 글자 수이고 kind 글에만 건다. session을 시작할 때 값을 고정해서 넘긴다.
 
 export type PlaceProject = {
   id: string;
@@ -38,8 +36,10 @@ export type PlaceData = {
   app: (PlaceApp & { blueprint: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
-  // 읽어 온 context 후보. 보여 줄 것은 `visibleContexts`가 거른다.
-  contexts: readonly PlaceContext[];
+  // 쓰고 있는 kind 글. lophn·App Engineer와 kind가 없는 project는 null.
+  kinds: PlaceKinds | null;
+  // Project Manager가 쓸 kinds 파일 경로. 파일이 아직 없어도 경로는 안다.
+  kindsFile: string | null;
   // Operator는 grant 안의 앱, lophn은 모든 앱
   apps: readonly { name: string; purpose: string }[];
   // lophn만
@@ -61,25 +61,6 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-// 이 role이 prompt에서 볼 수 있는 context. Operator는 같은 project에서 붙은 것만, Project Manager는
-// 자기 project의 것 전부, lophn은 전부, App Engineer는 없다. 이름 순이다.
-export function visibleContexts(role: Role, data: PlaceData): PlaceContext[] {
-  const own = data.project?.id;
-  const pick = (c: PlaceContext): boolean => {
-    switch (role) {
-      case "lophn":
-        return true;
-      case "project_manager":
-        return own !== undefined && c.project === own;
-      case "operator":
-        return own !== undefined && c.project === own && c.attached;
-      case "app_engineer":
-        return false;
-    }
-  };
-  return data.contexts.filter(pick).sort((a, b) => cmp(a.name, b.name));
-}
-
 function folderText(f: FolderRead): string {
   return `${f.path} (${f.description})`;
 }
@@ -88,6 +69,7 @@ function placeLines(data: PlaceData): string[] {
   const { project, app } = data;
   if (project !== null) {
     const lines = [`Place: project ${project.name}. ${project.purpose}`];
+    if (data.kindsFile !== null) lines.push(`  Kinds file: ${data.kindsFile}`);
     if (project.folders.length > 0) {
       lines.push(`  Folders: ${project.folders.map(folderText).join(", ")}`);
     }
@@ -152,29 +134,14 @@ function artifactLines(
   return lines;
 }
 
-// 예산 안이면 full, 넘으면 names(이름과 한 줄), 그래도 넘으면 count다. lophn은 목록이라 names부터 시작한다.
-function contextLines(
-  role: Role,
-  contexts: readonly PlaceContext[],
-  budget: number,
-  projectShown: boolean,
-): string[] {
-  if (contexts.length === 0) return [];
-  const names = () => contexts.map((c) => `- ${c.name}: ${c.purpose}`);
-  const count = `${contexts.length} contexts. List them with ${
-    toWireToolName("context.list")
-  }.`;
-  const fits = (text: string) => text.length <= budget;
-  const texts = contexts.map((c) => c.text);
-  if (role !== "lophn" && texts.every((t) => t !== null)) {
-    const full = (texts as ContextText[]).map((t) =>
-      renderContextText(t, "full", { project: !projectShown })
-    ).join("\n");
-    if (fits(full)) return ["Contexts", full];
+// 예산 안이면 full, 넘으면 names(kind 이름), 그래도 넘으면 count다.
+function kindLines(kinds: PlaceKinds | null, budget: number): string[] {
+  if (kinds === null) return [];
+  for (const level of ["full", "names"] as const) {
+    const text = renderKindText(kinds.text, level);
+    if (text.length <= budget) return ["Kinds", text];
   }
-  const list = names().join("\n");
-  if (fits(list)) return ["Contexts", list];
-  return ["Contexts", count];
+  return ["Kinds", renderKindText(kinds.text, "count")];
 }
 
 export function placeInfo(role: Role, data: PlaceData, budget: number): string {
@@ -202,14 +169,7 @@ export function placeInfo(role: Role, data: PlaceData, budget: number): string {
   ) {
     sections.push(artifactLines(data.artifacts));
   }
-  sections.push(
-    contextLines(
-      role,
-      visibleContexts(role, data),
-      budget,
-      data.project !== null,
-    ),
-  );
+  sections.push(kindLines(data.kinds, budget));
   for (const section of sections) {
     if (section.length > 0) lines.push("", ...section);
   }

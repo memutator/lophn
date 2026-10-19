@@ -33,9 +33,8 @@ Deno.test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 
     skills: [{ name: "calendar", description: "plan days", enabled: true }],
     place: {
       text: "# Place\nproject p1",
-      contexts: [],
+      kinds: null,
       agents: [],
-      show_project: false,
     },
     history: [{ role: "user", parts: [{ kind: "text", text: "hi" }] }],
     limits: { context_limit: 100000, input_limit: 100000, output_limit: 4000 },

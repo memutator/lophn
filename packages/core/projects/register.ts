@@ -1,3 +1,4 @@
+import { kindCheck, kindGet, kindList } from "../../protocol/projects/mod.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -24,6 +25,8 @@ type LedgerRegistration = {
   blobFields?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
   apiReads?: readonly unknown[];
+  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립(wiring/kinds.ts)이 붙인다.
+  memoryRoutes?: readonly unknown[];
 };
 
 // project.search가 ledger를 짧게 읽는 통로. 없으면 검색은 unavailable이다.
@@ -71,6 +74,7 @@ export function createLedgerRegistration(
     ports: [{ key: folderResolverPort, create: () => folders }],
     // context 내용 blob은 context 읽기가 연다.
     blobFields: [...contexts.blobFields],
+    memoryRoutes: [kindGet, kindList, kindCheck],
   };
 }
 

@@ -131,7 +131,7 @@ function mcpKey(entry: { server_name: string; original_tool?: string }) {
   return `${entry.server_name}\0${entry.original_tool ?? ""}`;
 }
 
-const skillsOffSchema = z.array(nonblankSchema).refine(unique, {
+const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
 const mcpOffListSchema = z.array(mcpOffSchema).refine(
@@ -157,7 +157,7 @@ const frontmatterFields = {
   name: agentNameSchema.optional(),
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
-  skills_off: skillsOffSchema.optional(),
+  skills: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   safe_tools: mcpToolListSchema.optional(),
   permissions: agentPermissionsSchema.optional(),
@@ -166,7 +166,7 @@ const frontmatterOutputFields = {
   name: agentNameSchema.optional(),
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
-  skills_off: skillsOffSchema.optional(),
+  skills: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   safe_tools: mcpToolListOutputSchema.optional(),
   permissions: agentPermissionsOutputSchema.optional(),

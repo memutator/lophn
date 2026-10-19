@@ -13,13 +13,13 @@ const mcpServersSchema = z.array(mcpServerSchema).max(32).refine(
   { message: "mcp server names must be unique" },
 );
 
-// Operator 정의: 이름, profile, model, skill·MCP 끄기, agent 층 MCP 서버와 지침(body)이다.
+// Operator 정의: 이름, profile, model, skill 고르기·MCP 끄기, agent 층 MCP 서버와 지침(body)이다.
 // agent grant는 사람만 정하므로 정의에 없다(approvals/grants.ts).
 // 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다.
 const definitionKeys = {
   profile: true,
   model: true,
-  skills_off: true,
+  skills: true,
   mcp_off: true,
   body: true,
 } as const;
@@ -34,11 +34,11 @@ export type OperatorDefinition = z.infer<typeof operatorDefinitionSchema>;
 
 // operator.update용. 보낸 칸만 바꾼다.
 
-// 내장 role(lophn, Project Manager, App Engineer)의 정의. 사람이 고치는 것은 지침, model, skill·MCP 끄기뿐이다.
+// 내장 role(lophn, Project Manager, App Engineer)의 정의. 사람이 고치는 것은 지침, model, skill 고르기·MCP 끄기뿐이다.
 // 이름과 profile은 role이 고정하고 tool 목록은 role이 정한다.
 const builtinKeys = {
   model: true,
-  skills_off: true,
+  skills: true,
   mcp_off: true,
   body: true,
 } as const;

@@ -117,11 +117,11 @@ export function createExtensionRegistry(
   };
 }
 
-// `/` 메뉴의 skill 한 줄이다. agent 정의가 끈 정확한 이름은 selected=false다. 끌 수 없는 내장 skill은 늘 켜져 있다.
-// 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다. 내장 skill은 선언한 role의 메뉴에만 보인다.
+// `/` 메뉴의 skill 한 줄이다. agent 정의가 고른 이름이 있으면 그 밖의 skill은 selected=false다. 끌 수 없는 내장 skill은
+// 늘 켜져 있다. 지금 없는 고른 이름은 그대로 두어 아무 일도 하지 않는다. 내장 skill은 선언한 role의 메뉴에만 보인다.
 export function commandSkillsOf(
   entries: readonly SkillRow[],
-  skillsOff: readonly string[],
+  chosen: readonly string[],
   role: Role,
 ): {
   name: string;
@@ -136,6 +136,7 @@ export function commandSkillsOf(
     description: entry.description,
     origin: entry.source,
     selected: entry.enabled &&
-      (!entry.can_disable || !skillsOff.includes(entry.name)),
+      (!entry.can_disable || chosen.length === 0 ||
+        chosen.includes(entry.name)),
   }));
 }

@@ -177,7 +177,7 @@ function checkDefinition(
 // ---- 쓰기: 고정한 칸 순서로 있는 칸만 만든다 ----
 
 const EMPTY_DEFAULT_LISTS = [
-  "skills_off",
+  "skills",
   "mcp_off",
   "mcp_servers",
 ] as const;

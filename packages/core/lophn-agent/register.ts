@@ -654,8 +654,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     projectExtensionDeps,
   );
 
-  // 그 agent 정의가 끈 skill 이름이다. 정의를 읽지 못하면 끈 것이 없다.
-  function skillsOffOf(
+  // 그 agent 정의가 고른 skill 이름이다. 정의를 읽지 못하면 고른 것이 없다.
+  function skillsOf(
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentRef,
   ): readonly string[] {
@@ -663,11 +663,11 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     if (!opened.ok) return [];
     const loaded = loadAgent(opened.value, agent);
     if (!loaded.ok || loaded.value === null) return [];
-    return loaded.value.definition?.skills_off ?? [];
+    return loaded.value.definition?.skills ?? [];
   }
 
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 끈 것은 selected=false다.
+  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 project 층을 더하고, agent 정의가 고른 것이 있으면 그 밖의 것은 selected=false다.
   // 내장 skill은 선언한 role의 메뉴에만 보인다.
   const commandReads = createCommandReads({
     roleCommands: ports.roleCommands,
@@ -680,7 +680,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
             { role: null, off: registeredSkillsOff(sql) },
           ).entries
           : extensionRegistry(sql, ports)?.skills(session.place).entries ?? [],
-        skillsOffOf(sql, session.agent),
+        skillsOf(sql, session.agent),
         session.role,
       ),
   });

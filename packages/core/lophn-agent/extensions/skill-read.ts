@@ -34,8 +34,8 @@ type SkillSession = {
   role: Role;
   // project에 놓인 agent의 project다. lophn은 null이다(project 층이 없다).
   project: Id<"prj"> | null;
-  // agent 정의가 끈 이름이다.
-  skills_off: readonly string[];
+  // agent 정의가 고른 이름이다. 비면 고르지 않은 것이다.
+  skills: readonly string[];
 };
 
 type SkillSnapshot = {
@@ -62,10 +62,18 @@ export async function createSkillSnapshot(
     personal_store: deps.personal_store,
     project_store: project.store,
     role: session.role,
-    off: [...new Set([...global.off, ...project.off, ...session.skills_off])],
+    off: [...new Set([...global.off, ...project.off])],
     max_file_bytes: SKILL_BODY_MAX_BYTES,
   });
-  const entries: readonly SkillEntry[] = found.ok ? found.value.entries : [];
+  // 고른 이름이 있으면 그 밖의 skill은 꺼진다. 끌 수 없는 내장 skill은 남는다.
+  const entries: readonly SkillEntry[] = found.ok
+    ? found.value.entries.map((entry) => ({
+      ...entry,
+      enabled: entry.enabled &&
+        (!entry.can_disable || session.skills.length === 0 ||
+          session.skills.includes(entry.name)),
+    }))
+    : [];
   const skipped = found.ok ? found.value.skipped : [];
 
   const fixed = new Map<string, Fixed>();
@@ -189,7 +197,7 @@ export function turnSkillReader(
         project: session.place?.kind === "project"
           ? session.place.id as Id<"prj">
           : null,
-        skills_off: [],
+        skills: [],
       });
       return (await snapshot).reader.read(id, name, path);
     },

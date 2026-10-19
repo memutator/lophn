@@ -81,8 +81,9 @@ export type ResolvedAgent = {
 //   invalid_input(`model` required)이고 turn을 시작하지 않는다. role별 기본은 없다.
 // - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP·다른 agent는 agent grant가
 //   session을 시작할 때 붙인다.
-// - skills·mcp는 환경이 준 것(전역과 project 층을 합친 것) 가운데 skills_off·mcp_off에 없는 것(등록 순서)이다.
-//   등록에 없는 끈 기록은 무시한다.
+// - skills는 환경이 준 것(전역과 project 층을 합친 것) 가운데 정의의 skills에 고른 것(환경 순서)이고, 고른 것이
+//   없으면 환경이 준 것 전부다. mcp는 환경이 준 것 가운데 mcp_off에 없는 것(등록 순서)이다.
+//   등록에 없는 이름은 무시한다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 // - sources: 값마다 그 값을 준 층. 정의는 칸을 실제로 가질 때만(profile·model·본문·비어 있지 않은 목록)
 //   `agent`이고 아니면 `global`이다.
@@ -124,9 +125,9 @@ export async function resolveAgent(
   const profile = definition !== null && "profile" in definition
     ? definition.profile
     : undefined;
-  const skillsOff = definition?.skills_off ?? [];
+  const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const skills = environment.skills.filter((name) => !skillsOff.includes(name));
+  const skills = receivedSkills(environment.skills, chosenSkills);
   const mcp = environment.mcp.filter((tool) =>
     !mcpOff.some((off) =>
       off.server_name === tool.server_name &&
@@ -152,11 +153,21 @@ export async function resolveAgent(
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],
       tools: "global",
-      skills: skillsOff.length > 0 ? "agent" : "global",
+      skills: chosenSkills.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",
     },
   };
   return ok({ ...value, hash: await fingerprint(value) });
+}
+
+// 받는 skill: 고른 이름이 없으면 환경이 준 것 전부, 있으면 그 가운데 고른 것(환경 순서)이다.
+export function receivedSkills(
+  available: readonly string[],
+  chosen: readonly string[],
+): string[] {
+  return chosen.length === 0
+    ? [...available]
+    : available.filter((name) => chosen.includes(name));
 }
 
 function copy<T>(value: T): T {

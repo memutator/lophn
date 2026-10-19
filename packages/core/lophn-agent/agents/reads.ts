@@ -25,6 +25,7 @@ import {
 } from "./inspect.ts";
 import { agentCallerRule } from "./caller.ts";
 import type { AgentDeps } from "./ports.ts";
+import { receivedSkills } from "./resolve.ts";
 
 // 읽기는 동기 handler다. 목록의 정본은 place(project)와 Operator 정의 파일이고 정의 파일은 읽을 때마다
 // 같은 검사를 한다.
@@ -54,7 +55,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const broken = loaded.issues.length > 0;
   const skills = lookups.skills(loaded.place);
   const mcp = lookups.mcp(loaded.place);
-  const skillsOff = definition?.skills_off ?? [];
+  const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];
   return {
     agent: loaded.ref,
@@ -69,7 +70,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
     },
     issues: loaded.issues,
     counts: broken ? { skills: null, mcp: null } : {
-      skills: skills.filter((name) => !skillsOff.includes(name)).length,
+      skills: receivedSkills(skills, chosenSkills).length,
       mcp:
         mcp.filter((tool) =>
           !mcpOff.some((off) =>

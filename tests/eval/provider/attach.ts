@@ -75,14 +75,14 @@ export async function attachRealModels(
         { hash: read.hash },
       );
     } else {
-      const { skills_off, mcp_off, body } = read.definition ?? { body: "" };
+      const { skills, mcp_off, body } = read.definition ?? { body: "" };
       await core.call(
         builtinAgentChange,
         {
           agent,
           definition: {
             model,
-            ...(skills_off === undefined ? {} : { skills_off }),
+            ...(skills === undefined ? {} : { skills }),
             ...(mcp_off === undefined ? {} : { mcp_off }),
             body,
           },

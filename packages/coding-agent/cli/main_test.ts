@@ -124,3 +124,38 @@ Deno.test("app이 필수인 token 명령은 app 없이 부르면 보내지 않�
   assertEquals([code, sent], [2, false]);
   assertStringIncludes(stderr.text(), "app");
 });
+
+// 현실적 회귀: route 입력의 `input` 칸이 CLI 공통 key `input`과 이름이 같아 지워져 core가 늘 `{}`를 받았다(손 확인에서 두 번 고친 길).
+Deno.test("app preview start는 route 입력의 input 칸을 지우지 않고 그대로 보낸다", async () => {
+  const input = {
+    app: "app_00000000000000000000000000",
+    bundle_hash: "a".repeat(64),
+    release: null,
+    fixture_hash: null,
+  };
+  let sent: unknown;
+  await cliMain(
+    ["app", "preview", "start", "--input", JSON.stringify({ input })],
+    {
+      env: {
+        get: (name) =>
+          name === "LOPHN_CODING_TOKEN"
+            ? "token"
+            : name === "LOPHN_DAEMON_URL"
+            ? "http://127.0.0.1:1"
+            : undefined,
+      },
+      fetch: (_url, init) => {
+        sent = JSON.parse(init.body ?? "null");
+        return Promise.resolve({
+          status: 404,
+          headers: new Headers(),
+          bytes: new Uint8Array(),
+        });
+      },
+      stdout: sink().stream,
+      stderr: sink().stream,
+    },
+  );
+  assertEquals(sent, { input });
+});

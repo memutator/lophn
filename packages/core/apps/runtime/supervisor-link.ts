@@ -184,7 +184,8 @@ export function createSupervisorChannel(): SupervisorChannel {
       settle(
         response.ok ? ok(response.payload) : err({
           code: response.error.code as "unavailable",
-          message: "app supervisor rejected the request",
+          // supervisor가 준 이유를 그대로 싣는다. 이 오류는 op 처리기가 던진 code·message뿐이다.
+          message: response.error.message,
         }),
       );
       return true;

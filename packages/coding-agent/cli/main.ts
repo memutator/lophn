@@ -131,8 +131,6 @@ function describeIssue(issue: z.core.$ZodIssue, candidate: unknown): string {
     : `${field}: ${expected}`;
 }
 
-const COMMON_KEYS = ["json", "input", "input_file", "idempotency_key"];
-
 export async function cliMain(
   argv: readonly string[],
   options: CliOptions = {},
@@ -193,9 +191,15 @@ export async function cliMain(
   if (!body.ok) return await fail(body.error);
   const candidate: Record<string, unknown> = { ...body.value };
   slots.forEach((slot, index) => candidate[slot] = rest[index]);
-  if (parsed.json) candidate.json = true;
+  // flag가 만든 칸은 route 입력이 아니다. route 입력의 칸(예: previews.start의 `input`)은 이름이 같아도 남는다.
+  const flagKeys: string[] = [];
+  if (parsed.json) {
+    candidate.json = true;
+    flagKeys.push("json");
+  }
   if (parsed.idempotencyKey !== undefined) {
     candidate.idempotency_key = parsed.idempotencyKey;
+    flagKeys.push("idempotency_key");
   }
   const checked = entry.input.safeParse(candidate);
   if (!checked.success) {
@@ -209,7 +213,7 @@ export async function cliMain(
   }
   const input = Object.fromEntries(
     Object.entries(checked.data as Record<string, unknown>).filter(([key]) =>
-      !COMMON_KEYS.includes(key)
+      !flagKeys.includes(key)
     ),
   );
   // coding token이 있을 때만 core 주소를 찾고 client를 만든다.

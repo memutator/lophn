@@ -89,6 +89,12 @@ export function createCodingMcpTools(deps: CodingMcpDeps): McpTools {
       const { app, tools, preview } = found.value;
       if (!tools.some((tool) => tool.name === name)) return ok(null);
       if (preview === null || !preview.ready) return ok(failed(NO_PREVIEW));
+      // 인자 없는 tool(inputSchema가 null)은 input을 싣지 않는다. 앱이 `undefined`만 받는다.
+      const declaration = tools.find((tool) => tool.name === name)!;
+      const noInput = declaration.inputSchema === null;
+      if (noInput && Object.keys(args ?? {}).length > 0) {
+        return ok(failed(`invalid_input: tool ${name} takes no arguments`));
+      }
       // 사람 화면의 preview 호출과 같은 취급이다. 운영으로 새지 않는 것은 previewOnly가 막는다.
       const called: Result<ToolCallOutput> = await deps.calls.call({
         target: {
@@ -97,7 +103,7 @@ export function createCodingMcpTools(deps: CodingMcpDeps): McpTools {
           process_nonce: preview.process_nonce,
         },
         tool: name,
-        input: args as JsonValue,
+        ...(noInput ? {} : { input: args as JsonValue }),
         caller: { kind: "person", view_session: ctx.principal },
       }, { actor: "user", previewOnly: true });
       return ok(

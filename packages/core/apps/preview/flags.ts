@@ -40,7 +40,12 @@ export function previewFlagsViolation(
     const name = flag.split("=")[0];
     if (name === "--allow-net") return "preview flags cannot allow network";
     if (name === "--allow-write") {
-      if (listOf(flag).some((path) => path !== launch.dataPath)) {
+      // 앱 DB file(-wal·-shm 포함)이 폴더 안에 있다. `..`로 폴더 밖을 가리키는 path는 안으로 치지 않는다.
+      if (
+        listOf(flag).some((path) =>
+          !inside(path, launch.dataPath) || path.split("/").includes("..")
+        )
+      ) {
         return "preview can write only its disposable directory";
       }
     }

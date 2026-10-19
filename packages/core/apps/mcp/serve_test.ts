@@ -11,8 +11,9 @@ const id = (prefix: string, n: number) =>
 const [APP_A, APP_B] = [id("app", 1), id("app", 2)];
 const [S1, S2] = [id("ses", 1), id("ses", 2)];
 
-const tool = (name: string): ToolDeclaration => ({
+const tool = (name: string, inputSchema?: null): ToolDeclaration => ({
   name,
+  inputSchema,
   title: name,
   description: name,
   effect: "read",
@@ -43,7 +44,7 @@ function setup(preview: Partial<CurrentPreview> | null) {
             process_nonce: "nonce1",
             ready: true,
             bundle_hash: "h",
-            tools: [tool("a_preview")],
+            tools: [tool("a_preview"), tool("a_none", null)],
             ...preview,
           },
         )),
@@ -103,6 +104,17 @@ Deno.test("MCP tools/call goes to the preview only and never to the live app", a
     process_nonce: "nonce1",
   });
   assertEquals(running.authsSeen[0], { actor: "user", previewOnly: true });
+
+  // 인자 없는 tool(inputSchema null)은 arguments 없이도 {}로도 input 없이 부르고, 값이 있으면 앱에 보내지 않는다.
+  for (const args of [undefined, {}]) {
+    const before = running.calls.length;
+    const none = await running.tools.call(ctx, "a_none", args as never);
+    assert(none.ok && none.value?.isError !== true);
+    assertEquals("input" in running.calls[before], false);
+  }
+  const extra = await running.tools.call(ctx, "a_none", { x: 1 });
+  assert(extra.ok && extra.value?.isError === true);
+  assertEquals(running.calls.length, 3);
 
   // 아직 ready가 아닌 preview도 부르지 않는다.
   const starting = setup({ ready: false });

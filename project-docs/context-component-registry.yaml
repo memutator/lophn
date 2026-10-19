@@ -265,11 +265,11 @@ components:
   - id: architecture-workspace-layout
     kind: doc
     roles: [planner, lead]
-    description: project 창의 탭 자리(docked, floated, minimized), floats 층, native view 세 층과 cover, app panel view 보관, layout.json 저장.
+    description: project 창의 탭 자리(docked, floated, minimized, detached), floats 층, native view 세 층과 cover, app panel view 보관, 탭을 OS 창으로 떼고 붙이는 main 중계, layout.json 저장.
     path: project-docs/architecture/workspace-layout.md
     change_reasons:
       boundaries: [shell]
-      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/app-frame/view-order.ts, packages/shell/renderer/app-frame/bounds.ts, packages/shell/renderer/app-frame/view-keeps.ts]
+      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/app-frame/view-order.ts, packages/shell/renderer/app-frame/bounds.ts, packages/shell/renderer/app-frame/view-keeps.ts, packages/shell/ipc/detached.ts, packages/shell/main/desktop/detached/, packages/shell/renderer/workspace/detached/]
 
   - id: architecture-ui-kit
     kind: doc

@@ -7,10 +7,10 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 ```
  renderer (project 창)
    browser 탭 (kinds/browser.tsx, keep) ─ BrowserTab ─ toolbar(뒤로·앞으로·새로 고침·주소 칸·별·bookmark menu·Open in browser·⋮)
-     │  page 자리 ─ useWebviewSlot ─▶ webview host (창마다 하나, floats 층 안)
+     │  page 자리 ─ useWebviewSlot ─▶ webview host (창마다 하나. project 창은 floats 층 안, detached 창은 자기 `WebviewLayer`)
      │                                 <webview partition=persist:lophn-browser> 탭 key당 하나, 옮기지 않고 left/top/size/z-index/visibility만 바꾼다
      │  DevTools 자리 ─ useViewBounds ─▶ shell:view-bounds (native)
-     │  window.lophnBrowser (preload, project 창에만): navigate·command·adopt·devtools·clearData·bookmarks, state·event 구독
+     │  window.lophnBrowser (preload, shell 창에만. project 창과 detached 창): navigate·command·adopt·devtools·clearData·bookmarks, state·event 구독
      ▼
  shell main
    wiring/browser.ts ── shell 창에만 webviewTag ── will-attach-webview ─▶ webview-guest.ts hardenWebviewAttach
@@ -79,7 +79,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **깨진 `bookmarks.json`(JSON 아님, schema·version 불일치, 모르는 칸)은 어떤 쓰기도 덮어쓰지 않는다.** 목록은 `corrupt` 상태로 보이고 화면은 고치는 길을 열지 않는다. `bookmarks_test.ts`가 byte 단위로 지킨다.
 - **bookmark url은 http/https이고 userinfo가 없는 것만, `href` 완전 일치로 하나만 둔다.** 1000개, title 200자, url 8192자까지다.
 - **bridge의 권한 판정은 `main/browser-bridge/policy.ts`의 순수 함수가 한다.** 요청 줄은 JSON 한 줄, `v === 1`, key 64자 hex, 8192 byte 이하만 받는다. browser 탭으로 넘기는 URL은 절대 http/https, userinfo 없음, 8192자 이하다(`isRelayableUrl`). local은 `localhost`·`*.localhost`·`*.local`·loopback·사설·link-local IPv4와 `::1`·`fc00::/7`·`fe80::/10`이다. 표는 `policy_test.ts`, key·설정·ack 조건은 `bridge_test.ts`가 지킨다.
-- **`pane`은 "창이 실제로 탭을 열었다"는 뜻이다.** main은 push만 하고 답하지 않는다. 그 terminal 탭을 가진 창의 renderer가 탭을 연 때만 `ackBridgeOpen`을 보내고, 1500ms(shim의 3000ms보다 짧다) 안에 ack가 없으면 `declined`다. Workspace가 없는 때(Settings·app space route, detached 창 안 terminal)의 URL은 OS browser로 간다. 조용히 사라지는 URL은 없다. Ctrl/Cmd-click도 탭이 안 열리면 main이 OS browser로 연다. bridge가 꺼져 있어도(win32, 준비 실패) link는 OS browser로 간다.
+- **`pane`은 "창이 실제로 탭을 열었다"는 뜻이다.** main은 push만 하고 답하지 않는다. 그 terminal 탭을 가진 창의 renderer가 탭을 연 때만 `ackBridgeOpen`을 보내고, 1500ms(shim의 3000ms보다 짧다) 안에 ack가 없으면 `declined`다. Workspace가 없는 때(Settings·app space route)의 URL은 OS browser로 간다. detached 창에는 이 hook이 없지만, 뗄 때의 `terminal_ref`가 project 창의 `TerminalStore`에 남아(`transfer`가 지우지 않는다) project 창이 URL을 자기 focus pane 끝에 browser 탭으로 열고 ack한다. 다시 열어 복원한 detached terminal은 어느 창도 ref를 몰라 `declined`(OS browser)다. 조용히 사라지는 URL은 없다. Ctrl/Cmd-click도 탭이 안 열리면 main이 OS browser로 연다. bridge가 꺼져 있어도(win32, 준비 실패) link는 OS browser로 간다.
 - **key는 terminal 탭마다 main이 발급한다.** `issue()`는 key와 env만 만들고, host `open`이 성공해야 `bind`한다. 묶이지 않은 key의 요청은 `declined`다. 탭을 닫아 `close`가 `exited`로 답할 때 `revoke`한다. 비교는 `Map` 조회다. socket이 `0700` 폴더 안의 `0600` file이라 같은 사용자만 닿고, 그 사용자는 env로 key를 이미 안다.
 - **env는 `BROWSER`와 `LPN_BROWSER_BRIDGE` 둘이다.** `LOPHN_`로 시작하면 `stripPlatformEnv`가 지운다. host는 strip 뒤에 덮는다. 사용자가 앱 env에 `BROWSER`를 두었으면 넣지 않는다. 그 shell은 key도 없어(`issue()`가 null이라 `bind`하지 않는다) Ctrl/Cmd-click link도 OS browser로 간다. 단 `LPN_BROWSER_BRIDGE`가 같이 있으면 바깥 lophn의 shim이라 덮는다(`bridgeEnv`).
 - **shim은 앱이 켜질 때마다 main이 per-run 폴더에 써 넣는다.** sh에 박는 `process.execPath`가 packaged와 dev에서 달라 설치 묶음에 싣지 않는다. Electron을 node로 띄워 사용자 PATH의 `node`를 기대하지 않는다. shim은 URL·key를 출력하지 않고, OS opener에 넘길 때 `BROWSER`·`LPN_BROWSER_BRIDGE`·`ELECTRON_RUN_AS_NODE`를 지운다(안 지우면 `xdg-open`이 shim을 다시 부른다).
@@ -98,8 +98,8 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **toolbar menu(overflow, bookmark)는 overlay view로 띄운다.** native popup 탭과 DevTools 위에서도 보여야 해서 한 길로 둔다. menu·popover의 overlay view는 창 본문 전체를 덮고(`ipc/overlay.ts`의 `fullBody`) 부르는 쪽은 trigger 사각형을 보낸다. 별 popover는 `<webview>` 탭에서는 DOM popover(이름 칸과 [Remove])이고, native popup 탭에서는 overlay(이름과 [Remove])다.
 - **DevTools 경계 막대는 DOM drag다.** 끄는 동안 투명한 막을 page 위에 덮고 DevTools native view를 숨긴다. native view는 pointer를 삼킨다. overlay drag 표면으로 한 시도는 press가 shell에서 시작해 움직임을 받지 못했다.
 - **page에 focus가 있을 때 Ctrl/Cmd+D는 main이 `bookmark-key` event로 보낸다.** 작업대 단축키 표에 넣지 않는다. terminal의 Ctrl+D(EOF)와 부딪힌다.
-- **다른 OS 창으로 탭을 옮기면 `<webview>` 탭은 다시 load된다.** `<webview>`는 그것을 띄운 page에 묶인다. 다시 load 없이 옮길 수 있는 것은 native 항목(popup, DevTools)뿐이고, 그 소유 창은 `registry.ts` 항목의 `window`다.
+- **다른 OS 창으로 탭을 옮기면 `<webview>` 탭은 다시 load되고 그 탭의 DevTools는 닫힌다.** `<webview>`는 그것을 띄운 page에 묶인다. 다시 load 없이 옮길 수 있는 것은 native 항목(popup, DevTools)뿐이고, 그 소유 창은 `registry.ts` 항목의 `window`다. Detach·Dock이 `moveViews`로 이 `window`를 바꾸므로 popup의 adopt·요청 검사는 옮긴 뒤의 창을 기준으로 한다(`workspace-layout.md`).
 - **bridge에 ack를 두었다.** push만 하고 `pane`으로 답하면 그 terminal의 Workspace가 마운트되지 않은 때(Settings·app space route, 닫힌 창) URL이 조용히 사라진다. OAuth 로그인 URL을 잃으면 사람이 다시 할 길이 없다.
-- **bridge는 `desktop/main.ts`가 아니라 `wiring/coding.ts`가 만든다.** terminal IPC가 만들어지는 곳이고, `main.ts`는 계획 `workspace-detach`가 같이 고치고 있었다.
+- **bridge는 `desktop/main.ts`가 아니라 `wiring/coding.ts`가 만든다.** terminal IPC가 만들어지는 곳이다.
 - **coding 탭은 `BROWSER`를 받지 않는다.** coding 탭은 app space 패널에 붙고 그 route에는 Workspace(pane)가 없어 browser 탭을 열 곳이 없다. 넣으려면 app space에서 project 창 Workspace로 가는 길을 먼저 정해야 한다.
 - **설정은 renderer가 밀어 넣지 않고 main이 요청마다 읽는다.** 낡은 값을 들 일이 없고, terminal link도 main을 거치므로 판정이 한 곳이다.

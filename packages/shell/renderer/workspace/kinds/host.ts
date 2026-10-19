@@ -44,6 +44,12 @@ export interface AgentViewSlice {
   openSettings(target: "skills" | "mcp"): void;
   /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */
   openConnections(): void;
+  /** 그 session의 agent 탭을 연다. 이 project의 agent가 아니면 열지 않는다. */
+  openSession(session: string): void;
+  /** 이 project에서 열려 있는 Project Manager session. 없으면 null. */
+  projectManagerSession(): string | null;
+  /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */
+  nameOf(session: string): string | undefined;
 }
 
 export interface TabHost {

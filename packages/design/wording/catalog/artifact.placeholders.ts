@@ -5,10 +5,12 @@ export type ArtifactPlaceholders = {
   "artifact.button.annotate": Record<never, never>;
   "artifact.button.delete": Record<never, never>;
   "artifact.button.edit-source": Record<never, never>;
+  "artifact.button.send-annotations": Record<never, never>;
   "artifact.empty.missing": {
     name: "string";
   };
   "artifact.empty.none": Record<never, never>;
+  "artifact.label.agent": Record<never, never>;
   "artifact.label.kind": Record<never, never>;
   "artifact.label.list": Record<never, never>;
   "artifact.label.note": Record<never, never>;
@@ -17,6 +19,7 @@ export type ArtifactPlaceholders = {
     folder: "string";
   };
   "artifact.text.annotate-on": Record<never, never>;
+  "artifact.text.annotations-note": Record<never, never>;
   "artifact.text.annotations-sent": Record<never, never>;
   "artifact.text.memo-note": Record<never, never>;
   "artifact.title.annotate-on": Record<never, never>;

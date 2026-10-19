@@ -2,10 +2,12 @@ export const artifact = {
   "artifact.button.annotate": "Annotate",
   "artifact.button.delete": "Delete artifact",
   "artifact.button.edit-source": "Edit source",
+  "artifact.button.send-annotations": "Send to agent",
   "artifact.empty.missing":
     "The folder for {name} isn't here anymore. It may have been moved or deleted.",
   "artifact.empty.none":
     "No artifacts yet. Ask an agent for a chart or a report and it shows up here.",
+  "artifact.label.agent": "the agent",
   "artifact.label.kind": "Artifact",
   "artifact.label.list": "Artifacts",
   "artifact.label.note": "Note",
@@ -14,6 +16,8 @@ export const artifact = {
     "Opened from your files. This page can only read files in {folder}.",
   "artifact.text.annotate-on":
     "Click an element or drag an area, then write a note.",
+  "artifact.text.annotations-note":
+    "They go to the agent that last wrote this artifact, or the Project Manager, as one message. They don't become problems.",
   "artifact.text.annotations-sent":
     "They arrive in its session as one message.",
   "artifact.text.memo-note": "Notes stay here until you send them all.",

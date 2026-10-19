@@ -53,8 +53,13 @@ import {
 } from "./settings/connections/core-source.ts";
 import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { LophnArtifactApi } from "../../ipc/artifact.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
+import {
+  AnnotateApiProvider,
+  ArtifactApiProvider,
+} from "../artifact/artifact-api.tsx";
 import {
   BrowserApiProvider,
   BrowserOverlayProvider,
@@ -141,6 +146,7 @@ const bridges = globalThis as {
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
   lophnBrowser?: LophnBrowserApi;
+  lophnArtifact?: LophnArtifactApi;
   lophnDetached?: LophnDetachedApi;
 };
 const views: LophnShellViewsApi | undefined = mock?.views ??
@@ -157,6 +163,7 @@ const feedback: LophnShellFeedbackBegin | undefined = mock?.feedback ??
     : undefined);
 const browser: LophnBrowserApi | null = mock?.browser ??
   bridges.lophnBrowser ?? null;
+const artifact: LophnArtifactApi | null = bridges.lophnArtifact ?? null;
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
     ? {
@@ -177,36 +184,41 @@ mount(
   <div className={styles.root}>
     <AppViewsProvider value={appViews}>
       <BrowserApiProvider value={browser}>
-        <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
-          <ConversationProvider deps={conversation}>
-            <EventsProvider client={events}>
-              <Desktop
-                source={core}
-                initial={start}
-                workspace={workspace}
-                editor={bench ? bench.editor : editor}
-                windowWidth={seed ? 1440 : undefined}
-                terminal={terminal}
-                catalog={catalog}
-                palette={palette}
-                projects={projects}
-                intents={bridges.lophnIntents}
-                apps={apps}
-                settings={settings}
-                settingsPanels={settingsPanels}
-                issues={issues}
-                appDetail={appDetail}
-                views={views}
-                annotate={annotate}
-                overlay={bridges.lophnShell}
-                feedback={feedback}
-                instructions={mock?.instructions ?? windowInstructionsSource()}
-                agentViewSource={agentViewSource}
-                detached={bridges.lophnDetached}
-              />
-            </EventsProvider>
-          </ConversationProvider>
-        </BrowserOverlayProvider>
+        <ArtifactApiProvider value={artifact}>
+          <AnnotateApiProvider value={annotate}>
+            <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
+              <ConversationProvider deps={conversation}>
+                <EventsProvider client={events}>
+                  <Desktop
+                    source={core}
+                    initial={start}
+                    workspace={workspace}
+                    editor={bench ? bench.editor : editor}
+                    windowWidth={seed ? 1440 : undefined}
+                    terminal={terminal}
+                    catalog={catalog}
+                    palette={palette}
+                    projects={projects}
+                    intents={bridges.lophnIntents}
+                    apps={apps}
+                    settings={settings}
+                    settingsPanels={settingsPanels}
+                    issues={issues}
+                    appDetail={appDetail}
+                    views={views}
+                    annotate={annotate}
+                    overlay={bridges.lophnShell}
+                    feedback={feedback}
+                    instructions={mock?.instructions ??
+                      windowInstructionsSource()}
+                    agentViewSource={agentViewSource}
+                    detached={bridges.lophnDetached}
+                  />
+                </EventsProvider>
+              </ConversationProvider>
+            </BrowserOverlayProvider>
+          </AnnotateApiProvider>
+        </ArtifactApiProvider>
       </BrowserApiProvider>
     </AppViewsProvider>
   </div>,

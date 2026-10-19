@@ -1,17 +1,19 @@
 // 파일 탭의 순수 규칙. 화면은 이 값을 그대로 그린다.
 import { parseOutline } from "../../../protocol/projects/outline-markdown.ts";
 
-export type FileKind = "markdown" | "text" | "image" | "pdf";
+export type FileKind = "markdown" | "text" | "image" | "pdf" | "html";
 
 const MARKDOWN = /\.(md|markdown)$/i;
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
 const PDF = /\.pdf$/i;
+const HTML = /\.html?$/i;
 
-/** 확장자로 viewer를 고른다. md가 아니고 이미지·pdf도 아니면 text 편집기다. */
+/** 확장자로 viewer를 고른다. md가 아니고 이미지·pdf·html도 아니면 text 편집기다(html은 artifact 탭이 열고 소스는 text 편집기다). */
 export function fileKindOf(path: string): FileKind {
   if (MARKDOWN.test(path)) return "markdown";
   if (IMAGE.test(path)) return "image";
   if (PDF.test(path)) return "pdf";
+  if (HTML.test(path)) return "html";
   return "text";
 }
 

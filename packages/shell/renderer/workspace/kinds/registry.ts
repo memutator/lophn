@@ -6,6 +6,7 @@ import { t } from "@lophn/wording";
 import { agentKind } from "./agent.tsx";
 import { agentsKind } from "./agents.tsx";
 import { appPanelKind } from "./app-panel.tsx";
+import { artifactKind } from "./artifact.tsx";
 import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
@@ -22,6 +23,7 @@ const BUILT_IN_TAB_KINDS = [
   agentKind,
   browserKind,
   browserDevtoolsKind,
+  artifactKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

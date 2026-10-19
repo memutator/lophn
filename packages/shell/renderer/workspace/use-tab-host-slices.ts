@@ -11,9 +11,14 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
+import { openAgent } from "./kinds/agent.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
-import { sessionDot } from "./sidebar/panel-sessions.ts";
+import {
+  agentRow,
+  openedProjectManagerSession,
+  sessionDot,
+} from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 
@@ -60,6 +65,14 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     [],
   );
 
+  // session을 가진 agent의 sidebar 줄.
+  const rowOfSession = (session: string) => {
+    const entry = sessionStates.find((item) => item.session === session);
+    return entry === undefined
+      ? undefined
+      : agentRow(entry, sidebarAgents.agents, project);
+  };
+
   const agentView: AgentViewSlice | null = agentViewSource === undefined
     ? null
     : {
@@ -72,6 +85,18 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       dotOf: (session) => sessionDot(sessionStates, session),
       openSettings: () => onSettings("tools"),
       openConnections: () => onSettings("providers"),
+      openSession: (session) => {
+        const row = rowOfSession(session);
+        if (row === undefined) return;
+        openAgent(hostRef.current(), {
+          agent: row.assignment,
+          name: row.name,
+          session,
+        });
+      },
+      projectManagerSession: () =>
+        openedProjectManagerSession(sessionStates, project),
+      nameOf: (session) => rowOfSession(session)?.name,
     };
 
   const agents: AgentsSlice | null = agentsSource === undefined ? null : {

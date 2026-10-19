@@ -32,7 +32,7 @@ export function openedProjectManagerSession(
 }
 
 // session을 가진 agent를 sidebar의 agent 줄로 찾는다. 이 project에 놓인 agent와 lophn만 줄이 있다.
-function agentRow(
+export function agentRow(
   entry: SessionEntry,
   agents: readonly SidebarAgent[],
   project: string,

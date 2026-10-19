@@ -6,22 +6,32 @@ import { FileIcon } from "@lophn/ui/primitives";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { transferEditor } from "../../editor/transfer.ts";
 import { DocumentView } from "../../editor/document-view.tsx";
-import { fileNameOf, isInsideFolders } from "../../editor/model.ts";
+import { fileKindOf, fileNameOf, isInsideFolders } from "../../editor/model.ts";
 import type { TabItem } from "../model.ts";
 import type { WorkspaceSource } from "../source.ts";
 import type { TabHost } from "./host.ts";
+import { openArtifactFile } from "./artifact.tsx";
 import type { TabKindDef } from "./kind.ts";
 
 /**
  * 파일을 탭으로 연다. 탭 key는 경로이고 이미 그 칸에 있으면 고르기만 한다. preview면 그 칸의 preview 탭
  * 자리를 바꿔 쓰는 탭으로 연다(Explorer 한 번 클릭). line이 있으면(검색
  * 결과) 열린 탭도 그 줄로 간다. 사이드바·팔레트·검색·대화의 결과 링크가 모두 이 함수를 부른다.
+ * .html은 artifact 탭으로 열고, `source`면 소스를 text 편집기로 연다.
  */
 export function openFile(
   host: TabHost,
   path: string,
-  options: { readonly line?: number; readonly preview?: boolean } = {},
+  options: {
+    readonly line?: number;
+    readonly preview?: boolean;
+    readonly source?: boolean;
+  } = {},
 ): void {
+  if (fileKindOf(path) === "html" && options.source !== true) {
+    openArtifactFile(host, path);
+    return;
+  }
   const fields = options.line === undefined
     ? undefined
     : { line: options.line, nonce: Date.now() };

@@ -29,6 +29,17 @@
   - agent tool 접두(`app__`)
 - **app이라는 이름을 어디까지 남기나:** 앱 runtime·release·ticket 같은 engineering 장치의 module 이름(`packages/core/apps`)을 남길지가 걸린다. roadmap "정한 것"은 "앱"을 화면 문구로 남길 수 있다고 했다.
 - **앞 계획이 남긴 자리:** `artifact` 계획은 `artifactNameSchema`를 `packages/protocol/projects/values.ts`(`slugSchema` 옆)에 두었다. `packages/protocol/projects/artifact.ts`는 shell main의 node test 때문에 import 없는 file이다.
+- **`domain-tools`가 남긴 이름:** 아래는 `domain-tools`가 바꾸지 않고 넘긴 이름이다.
+  - approval intent kind `app_api`
+  - grant 칸(`app_apis`, `apis`)
+  - attestation·desired·probe의 `app_api`
+  - `app_connections[].app_api`
+  - process-wire·broker의 `api`
+  - SDK package 이름 `@lophn/cap-app-api`
+  - file·폴더 이름(`app-api.ts`, `tools/app-api/`)
+  - session `tool_calls.app_api`
+  - 읽기 route 이름 `app.app_api`·`app.app_api_index`(출력 key는 이미 `tools`)
+  - agent tool 접두 `app__`
 - **나누는 법:** 이름 바꾸기는 package를 건너 type check가 한 번에 맞아야 한다. 그래서 codemod task 하나로 할지, 계약을 먼저 고정한 뒤 영역별로 나눌지는 brief가 정한다.
 
 ## e2e

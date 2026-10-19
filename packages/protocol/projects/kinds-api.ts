@@ -49,9 +49,10 @@ export type KindsStatus = z.infer<typeof kindsStatusSchema>;
 // ---------- 조건 ----------
 
 // 재귀(z.lazy)는 JSON schema에서 $ref를 내서 provider마다 받는 쪽이 갈린다. agent tool의 input schema가
-// 이것을 쓰므로 깊이 3까지(all·any·not 세 겹) 풀어 쓴다. 실행하는 쪽의 평가는 깊이 제한이 없어도 된다.
+// 이것을 쓰므로 tree를 세 층(group, group, leaf)까지만 풀어 쓴다. 층마다 inner가 세 번 들어가 JSON schema
+// 크기가 곱으로 늘기 때문이다. 실행하는 쪽의 평가는 깊이 제한이 없어도 된다.
 const scalarSchema = z.union([z.string(), z.number(), z.boolean()]);
-// 한 모양으로 둔다: 이 schema가 세 겹으로 풀리며 model에 가는 JSON schema 크기가 곱으로 늘기 때문이다.
+// leaf와 group을 각각 한 모양으로 둔다(층마다 곱으로 늘기 때문이다).
 const leafSchema = z.strictObject({
   field: fieldRefSchema,
   op: z.enum([
@@ -83,9 +84,7 @@ const combine = <T extends z.ZodType>(inner: T) =>
       { message: "give exactly one of all, any, not" },
     ),
   ]);
-const depth1 = combine(leafSchema);
-const depth2 = combine(depth1);
-export const conditionSchema = combine(depth2);
+export const conditionSchema = combine(combine(leafSchema));
 export type KindCondition = z.infer<typeof conditionSchema>;
 
 export const aggregateSchema = z.strictObject({

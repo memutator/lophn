@@ -76,6 +76,7 @@ export function approvalWaitingKind(
 }
 
 /**
+ * runtime(터미널을 연 창)과 snapshot(뒤에 연 창, 다시 붙은 창) 두 길이 같은 delay를 쓴다.
  * 정상 시작의 SessionStart는 이보다 빨리 온다고 보고 정한 값이다(근거 기록 없음). 이보다 늦으면 항목이 뜬다.
  */
 const STARTING_QUIET_MS = 5000;
@@ -87,8 +88,8 @@ export interface Timer {
 }
 
 /** 첫 신호가 SessionStarted인 harness만 터미널 시작 뒤 첫 신호를 기다릴 수 있다. */
-function startsWithSessionStart(product: string | undefined): boolean {
-  const table = HOOK_EVENT_TABLE[product as HarnessId];
+function startsWithSessionStart(harness: string | undefined): boolean {
+  const table = HOOK_EVENT_TABLE[harness as HarnessId];
   return table !== undefined &&
     Object.values(table).includes("SessionStarted");
 }
@@ -116,7 +117,7 @@ export function createWaitingStore(
     { agent: CallAgent; place: Place | null }
   >();
 
-  // 터미널을 열고 첫 신호를 기다리는 coding session. 항목이 뜬 뒤에도 끝날 때까지 남는다.
+  // 첫 신호를 기다리는 coding session(runtime이나 snapshot에서 알았다). 항목이 뜬 뒤에도 끝날 때까지 남는다.
   const waitingStart = new Map<string, unknown>();
   // 첫 신호를 들었거나 끝난 session. runtime이 state마다 다시 와도 다시 세지 않는다.
   const done = new Set<string>();
@@ -129,6 +130,30 @@ export function createWaitingStore(
     return entries.delete(`start:${session}`);
   }
 
+  function waitStart(
+    session: string,
+    app: string,
+    harness: string | undefined,
+  ) {
+    if (done.has(session) || waitingStart.has(session)) return;
+    if (!startsWithSessionStart(harness)) return;
+    waitingStart.set(
+      session,
+      timer.set(() => {
+        const known = sessions.get(session);
+        put({
+          id: `start:${session}`,
+          kind: "coding_start",
+          session,
+          agent: known?.agent ?? { role: "coding_agent", app },
+          place: known?.place ?? { kind: "app", id: app },
+          receivedAt: now(),
+        });
+        publish();
+      }, STARTING_QUIET_MS),
+    );
+  }
+
   function watchStart(runtime: TerminalRuntime) {
     const coding = runtime.coding_session;
     if (runtime.launch_kind !== "coding_tui" || !coding) return;
@@ -138,24 +163,7 @@ export function createWaitingStore(
       if (stopWaitingStart(session)) publish();
       return;
     }
-    if (
-      waitingStart.has(session) || !startsWithSessionStart(runtime.product)
-    ) return;
-    waitingStart.set(
-      session,
-      timer.set(() => {
-        const known = sessions.get(session);
-        put({
-          id: `start:${session}`,
-          kind: "coding_start",
-          session,
-          agent: known?.agent ?? { role: "coding_agent", app: coding.app },
-          place: known?.place ?? { kind: "app", id: coding.app },
-          receivedAt: now(),
-        });
-        publish();
-      }, STARTING_QUIET_MS),
-    );
+    waitStart(session, coding.app, runtime.product);
   }
 
   function publish() {
@@ -291,6 +299,13 @@ export function createWaitingStore(
     for (const session of [...waitingStart.keys()]) {
       const snapshot = read.snapshots.find((one) => one.session === session);
       if (snapshot?.state !== "unknown") stopWaitingStart(session);
+    }
+    // 이미 첫 신호를 들은 session은 done에 넣어, 다시 붙은 뒤 온 runtime event가 새로 세지 않게 한다.
+    for (const snapshot of read.snapshots) {
+      if (snapshot.agent.role !== "coding_agent") continue;
+      if (snapshot.state === "unknown") {
+        waitStart(snapshot.session, snapshot.agent.app, snapshot.harness);
+      } else stopWaitingStart(snapshot.session);
     }
     const starts = [...entries.values()].filter((entry) =>
       entry.kind === "coding_start"

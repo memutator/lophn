@@ -22,7 +22,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 - 남지 않는 event: session 밖에서 화면만 알면 되는 일(보류 request 생김, 앱 view 다시 그리기, 설정 바뀜). 메모리뿐이다.
 - Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program이 연 일(근거 domain event seq를 단다)이 모두 여기로 들어가, lophn agent는 run-loop 입력함으로 coding agent는 harness adapter로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
-- session snapshot은 session의 지금 상태와 대기 중인 권한 요청, 질문을 담는다. 화면이 붙거나 다시 붙을 때 읽는다.
+- session snapshot은 session의 지금 상태와 대기 중인 권한 요청, 질문을 담는다. coding session은 harness도 싣는다. 화면이 붙거나 다시 붙을 때 읽는다.
 
 ## 지키는 것
 

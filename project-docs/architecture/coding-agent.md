@@ -67,7 +67,7 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 - **전역 hook은 lophn과 상관없는 harness 실행에서도 불린다.** coding token이 없으면 launcher가 deno를 띄우지 않고 끝나고, `lophn hook`도 stdin을 읽지 않고 아무것도 보내지 않은 채 성공한다. pi extension과 OpenCode plugin은 token이 없으면 hook을 등록하지 않는다.
 - **첫 prompt는 argv의 한 인자로 넘기고 shell을 거치지 않는다.** quote나 escape를 조합하지 않는다. prompt는 ticket id만 싣고 본문이나 token을 복제하지 않는다. 본문은 agent가 CLI로 읽는다. argv로 못 넘기는 제품은 session 시작 hook을 받은 뒤 붙여 넣고, 기한이 지나면 넣지 않는다.
 - **coding agent의 권한 mode는 lophn이 정하지 않는다.** harness의 권한 물음은 대기 목록에 보이기만 하고 답은 터미널 탭에서 한다. 대기 목록에서 누르면 그 탭으로 focus가 옮겨 간다.
-- **터미널을 열고 첫 hook 신호가 없는 coding session은 대기 목록에 "터미널에서 확인이 필요할 수 있다"로 보인다.** Claude Code는 처음 여는 폴더마다 folder trust를 묻고, 고를 때까지 hook이 돌지 않는다. 그래서 첫 신호가 `SessionStarted`인 harness의 터미널이 열리고 5초(`STARTING_QUIET_MS`) 안에 신호가 없으면 shell renderer가 항목(`coding_start`)을 넣는다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`). 누르면 그 탭으로 focus가 간다. 첫 신호(`SessionStarted` event), `SessionEnded`, 터미널 exit·unknown, 또는 snapshot에서 신호를 들은 session이면 지운다. lophn은 trust 화면을 알아보려고 화면 글자를 읽지 않고, 대신 답하지 않으며, `~/.claude.json`을 쓰지 않는다.
+- **터미널을 열고 첫 hook 신호가 없는 coding session은 대기 목록에 "터미널에서 확인이 필요할 수 있다"로 보인다.** Claude Code는 처음 여는 폴더마다 folder trust를 묻고, 고를 때까지 hook이 돌지 않는다. 그래서 첫 신호가 `SessionStarted`인 harness의 coding session이 5초(`STARTING_QUIET_MS`) 안에 신호가 없으면 shell renderer가 항목(`coding_start`)을 넣는다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`). 세는 길은 둘이다. 터미널을 연 창은 runtime(`TerminalApi.onRuntime`)으로, 뒤에 연 창이나 다시 붙은 창은 snapshot에서 `unknown`이고 SessionStart가 있는 harness인 coding session으로 센다. 어느 길이든 delay와 지우는 조건은 같고, snapshot에서 첫 신호를 들은 session은 다시 세지 않는다. 누르면 그 탭으로 focus가 간다. 첫 신호(`SessionStarted` event), `SessionEnded`, 터미널 exit·unknown, 또는 snapshot에서 신호를 들은 session이면 지운다. lophn은 trust 화면을 알아보려고 화면 글자를 읽지 않고, 대신 답하지 않으며, `~/.claude.json`을 쓰지 않는다.
 - **lophn이 꺼져도 PTY를 살려 두지 않는다.** 외부 session resume도 없다. 켤 때 claim이 남은 session은 모두 정산한다.
 
 ## 왜 이 모양인가
@@ -80,7 +80,7 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 - **busy 실패 대신 줄에 세운다.** 바쁨으로 돌려주면 다시 맡길 때를 보낸 쪽이 알 길이 없다. 앞 session의 끝은 앞 ticket을 맡긴 session으로 가고, 바쁨을 받은 쪽은 reaction으로 열린 다른 session일 때가 흔하다.
 - **worktree로 나눠 session 여럿을 돌리지 않는다.** 합칠 쪽이 없다. App Engineer는 code를 짜지 않는다.
 - **harness의 권한 물음에 lophn 화면으로 답하지 않는다.** 제품마다 물음의 모양이 달라 그 UI를 두면 쓸데없이 깨지기 쉬운 의존이 생긴다. focus를 옮기는 것은 제품과 상관없다.
-- **첫 신호 대기는 core가 아니라 shell renderer가 센다.** core는 터미널이 열린 때 event를 내지 않고 시계를 밀 수 없어 delay를 걸지 못한다. shell은 terminal runtime을 이미 받고, "첫 신호"의 근거는 core의 `SessionStarted` event와 snapshot 하나뿐이다.
+- **첫 신호 대기는 core가 아니라 shell renderer가 센다.** core는 터미널이 열린 때 event를 내지 않고 시계를 밀 수 없어 delay를 걸지 못한다. shell은 terminal runtime을 이미 받고, "첫 신호"의 근거는 core의 `SessionStarted` event와 snapshot 하나뿐이다. snapshot이 coding session의 harness를 싣는 것은 뒤에 연 창이 runtime을 받지 않아 harness를 달리 알 길이 없어서다.
 - **상태·정산·call 닫기를 같은 transaction에서 고친다.** session 상태가 writer 쪽 표에 있고 상태를 고치는 일이 정산, call 닫기와 한 transaction이어야 하므로, hook, 터미널 결과, Reactor, 메시지가 모두 command 하나로 writer에 들어간다.
 - **사람은 coding agent와 직접 이야기하지 않는다.** 사람은 App Engineer에게 청하고, coding agent가 사람에게 말을 거는 길은 없다. 막히면 App Engineer에게 메시지를 보낸다. 닫혀 있으면 그 앱의 새 App Engineer session이 받는다.
 - **메시지의 답은 App Engineer가 `call`로 보내야 터미널에 간다.** App Engineer가 `to:{session:"<봉투의 coding agent session>"}`, `reply:"conversation"`으로 `call`하면 Router가 열린 coding session을 `open_session`으로 풀고 transport가 PTY에 넣는다. 글로만 답하면(사람에게 한 요약 포함) coding agent는 받지 못한다. 그래서 coding agent가 보낸 call의 봉투가 이 길을 한 줄로 알린다([agent-call.md](agent-call.md)). core는 글을 대신 보내지 않는다. 답할지, 무엇을 답할지는 App Engineer가 정한다.

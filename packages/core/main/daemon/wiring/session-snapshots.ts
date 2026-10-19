@@ -61,14 +61,17 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
           ? liveSessions(sql)
           : sessions.flatMap((id) => loadCodingSession(sql, id) ?? []);
         for (const row of coding) {
-          snapshots.push({
-            session: row.session,
-            agent: { role: "coding_agent", app: row.app },
-            place: { kind: "app", id: row.app },
-            state: stateOf(row),
-            permission_requests: requests(row.session),
-            questions: [],
-          } as SessionSnapshot);
+          snapshots.push(
+            {
+              session: row.session,
+              agent: { role: "coding_agent", app: row.app },
+              place: { kind: "app", id: row.app },
+              state: stateOf(row),
+              harness: row.harness,
+              permission_requests: requests(row.session),
+              questions: [],
+            } satisfies SessionSnapshot,
+          );
         }
         return snapshots;
       };

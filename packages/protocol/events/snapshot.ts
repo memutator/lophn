@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
+import { harnessIdSchema } from "../coding-agent/harness-id.ts";
 import { defineRead } from "../base/route.ts";
 import { turnPermissionRequestSchema } from "../approvals/mod.ts";
 import {
@@ -20,6 +21,8 @@ const sessionSnapshotSchema = z.object({
   agent: callAgentOutputSchema,
   place: placeOutputSchema.nullable(),
   state: sessionStateSchema,
+  // coding session만 싣는다. 첫 신호가 SessionStarted인 harness인지 창이 알아야 해서다.
+  harness: harnessIdSchema.optional(),
   permission_requests: z.array(turnPermissionRequestSchema),
   questions: z.array(z.object({
     group: idSchema("qgr"),

@@ -1,0 +1,10 @@
+{
+  "kind": "active_app",
+  "ids": {
+    "알림": "app_0000000000000000000000ntfy"
+  },
+  "needs": [],
+  "parent": null,
+  "produced_by": null,
+  "content_hash": "dd4084b8d99f7c5e6df55e039cfdbf5b709a9e25be7cb006c23926fd445be3f1"
+}

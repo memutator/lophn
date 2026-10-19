@@ -1,0 +1,35 @@
+/* 간격은 token만 쓴다. 색·글꼴은 design이 정한다. */
+.ranges {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+/* 주 행동은 줄 오른쪽 끝에 둔다. */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.list {
+  margin: 0;
+  padding: 0 var(--space-6) var(--space-6);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}

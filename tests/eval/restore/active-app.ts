@@ -57,6 +57,7 @@ export async function restoreActiveApp(
   let gateway: TestApp["gateway"] | undefined;
   try {
     fake.reset();
+    // 앱 옆에 사람이 둔 보통 project다. 앱은 project에 묶이지 않는다.
     await restoreAppProject(ctx, spec.slug);
     await core.call(appCreate, {
       id,

@@ -4,7 +4,7 @@ import type { SetupContext } from "../types.ts";
 import { appProjectName, openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 시나리오가 Project Manager를 `place.project`로 가리키도록 앱마다 project를 등록하고 world에 이름으로 남긴다. Project Manager를 `place.project`로 가리키는 시나리오가 푼다.
+// 앱은 project에 묶이지 않는다. 앱 옆에 사람이 둔 보통 project를 `<slug>-project` 이름으로 등록하고 world에 남긴다. 다른 시나리오가 이 이름으로 그 Project Manager를 가리킨다.
 export async function restoreAppProject(
   ctx: SetupContext,
   slug: string,

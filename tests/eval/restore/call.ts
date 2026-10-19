@@ -4,7 +4,7 @@ import { restoreAppProject } from "./apps.ts";
 import type { SetupContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 앱 등록만 되살린다. 받는 Project Manager는 앱의 project라서 call.json의 `to.place.project`가 이 이름이다. source는 잇지 않고 call 본문은 deliverCall이 시나리오의 첫 단계에서 보낸다.
+// 앱 등록만 되살린다. 받는 쪽은 그 앱의 App Engineer라서 call.json의 `to.place.app`이 앱 이름이다. source는 잇지 않고 call 본문은 deliverCall이 시나리오의 첫 단계에서 보낸다.
 export async function restoreCall(
   ctx: SetupContext,
   material: Material,

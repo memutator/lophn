@@ -1,0 +1,13 @@
+{
+  "kind": "call",
+  "ids": {
+    "캘린더": "app_0000000000000000000000cdr1"
+  },
+  "needs": [
+    "notify-app@2",
+    "date-range@2"
+  ],
+  "parent": null,
+  "produced_by": null,
+  "content_hash": "e41943a88f689bd02a76ed73cebde7b61a7c4ee559ac63bb257df5aa82d5aa5b"
+}

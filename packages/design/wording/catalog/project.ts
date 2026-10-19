@@ -177,6 +177,7 @@ export const project = {
   "project-workspace.label.recent": "Recent",
   "project-workspace.label.root-folder": "Root folder",
   "project-workspace.label.sidebar-tab-agent": "Agent",
+  "project-workspace.label.sidebar-tab-artifact": "Artifacts",
   "project-workspace.label.sidebar-tab-context": "Context",
   "project-workspace.label.sidebar-tab-explorer": "Explorer",
   "project-workspace.label.tab-unsaved": "Unsaved changes",

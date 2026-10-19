@@ -2,6 +2,7 @@
 // 영역을 더하면 import 한 줄과 `&` 한 칸을 더한다.
 import type { AgentsPlaceholders } from "./catalog/agents.placeholders.ts";
 import type { AppSpacePlaceholders } from "./catalog/app-space.placeholders.ts";
+import type { ArtifactPlaceholders } from "./catalog/artifact.placeholders.ts";
 import type { BrowserPlaceholders } from "./catalog/browser.placeholders.ts";
 import type { CommonPlaceholders } from "./catalog/common.placeholders.ts";
 import type { ContextsPlaceholders } from "./catalog/contexts.placeholders.ts";
@@ -15,6 +16,7 @@ import type { MessageKey } from "./en.ts";
 export type PlaceholderKinds =
   & AgentsPlaceholders
   & AppSpacePlaceholders
+  & ArtifactPlaceholders
   & BrowserPlaceholders
   & CommonPlaceholders
   & ContextsPlaceholders

@@ -4,5 +4,5 @@ lead만 고친다. `tools/status.py coding-visible build`가 `tasks/*.md`에서 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `cv-list` | cv-list | 1 | 없음 | running | cv-list/cv-list |  |  |
-| `cv-start` | cv-start | 1 | 없음 | running | cv-start/cv-start |  |  |
+| `cv-list` | cv-list | 1 | 없음 | merged | cv-list/cv-list | bd6fced93 |  |
+| `cv-start` | cv-start | 1 | 없음 | merged | cv-start/cv-start | 65d4842cc |  |

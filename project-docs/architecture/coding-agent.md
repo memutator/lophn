@@ -16,7 +16,8 @@ App Engineer ─call(ticket)─▶ Router ─CodingTransport─▶ app-tickets
                                 │      ▼
                                 │   external-coding-agent
                                 │      ├─ harness hook ─▶ lophn hook <harness> <event> ─┐ coding-agent-cli
-                                │      └─ ticket claim / show / report, message send ──┤ (token으로 인증)
+                                │      ├─ ticket claim / show / report, message send ──┤ (token으로 인증)
+                                │      └─ MCP POST /mcp: 앱 tool 목록·호출(preview만) ──┤
                                 │                                                       ▼
                                 │                          core-api ─▶ app-tickets: hook 신호를 agent event로, 상태 계산
                                 │
@@ -40,7 +41,14 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 
 ## 지키는 것
 
-- **coding agent가 lophn에 닿는 길은 CLI 하나이고 인증은 앱 하나 범위의 token이다.** token은 session이 끝나면 회수하고, 회수한 token의 새 호출은 거절한다. 다른 앱의 것은 볼 수 없다.
+- **coding agent가 lophn에 닿는 길은 CLI와 MCP endpoint 둘이고 인증은 같은 앱 하나 범위의 token이다.** token은 session이 끝나면 회수하고, 회수한 token의 새 호출은 거절한다. 다른 앱의 것은 볼 수 없다.
+  - MCP endpoint(`POST /mcp`, operation `coding.mcp`)는 그 앱의 tool만 보이고, 호출은 그 앱의 지금 도는 preview로만 간다. preview가 없으면 `unavailable`이고 live 앱은 부르지 않는다([app-call.md](app-call.md)). coding agent는 자기 코드를 harness의 tool 호출로 확인하고, 사용자 data에는 닿지 않는다.
+- **MCP 설정은 그 session의 실행 계획(argv, env)에만 싣고 사람의 전역 설정에 쓰지 않는다.** token 원문은 env `LOPHN_CODING_TOKEN`에만 있고 설정은 그 이름만 가리킨다. argv는 `ps`에 보이기 때문이다. core의 port가 아직 열리지 않았으면 MCP 없이 띄운다.
+  - Claude Code: argv 끝(prompt 뒤)에 `--mcp-config <json>`. header의 `${LOPHN_CODING_TOKEN}`은 Claude Code가 env에서 편다. flag가 variadic이라 뒤의 positional을 삼켜 맨 끝에 둔다. `--strict-mcp-config`는 쓰지 않아 사람의 다른 MCP server가 남는다.
+  - Codex: 실행 파일 바로 뒤에 `-c mcp_servers.lophn.url=…`, `-c mcp_servers.lophn.bearer_token_env_var="LOPHN_CODING_TOKEN"`.
+  - OpenCode: env `OPENCODE_CONFIG_CONTENT`. 사람이 이미 그 env를 쓰면 이 값이 덮는다.
+  - Gemini CLI는 MCP를 `settings.json`에서만 정해 session마다 넣을 길이 없고, pi는 MCP가 없어 잇지 않는다. Hermes와 OpenClaw는 맡길 수 없는 제품이다.
+  - MCP tool의 권한 물음은 다른 권한 물음처럼 터미널 탭에서 사람이 답한다.
 - **token 원문은 저장하지 않는다.** commit 뒤에 만들어 실행 계획의 env에만 담는다. 표, 오류, log에 넣지 않고, 그래서 shell main은 이 frame을 renderer로 중계하지 않는다. token이 한 번이라도 새면 그 앱 하나가 열린다.
 - **상태는 hook이 알린 event에서만 계산한다.** 화면 출력을 읽어 idle을 짐작하지 않는다. 알려 준 적이 없으면 unknown이다. program은 결정적으로만 판정한다.
 - **상태는 running, waiting(권한 물음 대기), idle, unknown 넷이다.** 첫 hook이 오기 전에는 unknown이라 메시지를 넣지 않는다. 메시지를 PTY에 넣지 못해도 Router는 이미 배달했다고 본 것이라 되돌릴 길이 없다. 다음 메시지만 허락한다.
@@ -53,7 +61,7 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 - **완료 보고는 현재 유효한 claim과 그 claim으로 준비된 release가 있어야 접수한다.** 접수하면 claim이 끝난다. claim 기한은 정확히 1시간이고, 만료 정리가 늦어도 쓰기는 즉시 기한을 검사한다.
 - **release 확정은 CLI의 `release status`가 일으킨다.** 순서는 `release prepare`(접수) → `release status`(`completed`가 되면 `bundle_hash`와 고정 시험 hash `test`) → `app test`(`kind`, `request_key`, `app`만 보내면 core가 그 앱의 마지막으로 끝난 준비의 bundle hash와 `test`로 채운다. 새 준비를 받으면 지운다) → `app test status`·`app test result`(통과 확인) → `release status`(core가 같은 bundle hash로 통과한 app test를 찾아 확정하고 `release` id를 준다) → `ticket report`. 확정은 접수한 coding agent의 claim을 다시 검사하는 machine 쪽 일이고, coding agent는 `test`를 스스로 만들 수 없어 core가 봉인 bundle 사본에서 만들어 준다. 확정 command 자체는 CLI 표에 없다.
 - **ticket의 check는 하나이고 `app_test`, `examples`, `text` 중 하나다.** coding agent가 쓴 test는 program이 돌리지 않는다. code를 쓴 쪽이 기준도 쓰면 자기 채점이기 때문이다. `app_test`는 플랫폼 검사 다섯이라 앱의 업무 규칙을 보지 않는다. `text`는 runner가 돌리지 않고 App Engineer가 판단한다. `reproduction` 종류와 `test_command`는 없다.
-- **업무 규칙은 App Engineer가 쓴 app-api 예시(`examples`)를 program이 돌려 확인한다.** 예시는 api, 입력, 기대 결과(`expect`) 1~20개로, 사람의 요구에서 뽑아 ticket에 적는다. coding agent는 예시를 고치지 못하고 틀린 것 같으면 App Engineer에게 메시지로 청한다. 수리 ticket의 예시는 원래 증상을 보이는 호출과 고쳐진 기대 결과다.
+- **업무 규칙은 App Engineer가 쓴 tool 예시(`examples`)를 program이 돌려 확인한다.** 예시는 tool, 입력, 기대 결과(`expect`) 1~20개로, 사람의 요구에서 뽑아 ticket에 적는다. coding agent는 예시를 고치지 못하고 틀린 것 같으면 App Engineer에게 메시지로 청한다. 수리 ticket의 예시는 원래 증상을 보이는 호출과 고쳐진 기대 결과다.
   - 완료 보고를 접수하면 Reactor가 core의 machine 자격으로 `examples` test를 요청한다. 예시는 요청이 아니라 접수 준비가 ticket의 현재 check와 보고 release를 같은 transaction에서 읽어 싣는다. runner는 보고된 release의 봉인 bundle을 격리 사본으로 띄워 예시를 차례로 부르고 첫 불일치에서 멈춘다. 기존 app test runner가 앱을 부르는 길을 다시 쓰고 새 runner는 없다. 앞 예시가 만든 data는 뒤 예시에 보인다.
   - 비교 규칙은 객체는 `expect`의 key가 다 있고 값이 맞아야 하고(실제 결과에 key가 더 있어도 된다), 배열은 길이가 같고 원소가 차례로 맞아야 하고, 나머지는 `===`다. 오류로 끝난 호출은 불일치다. 예시를 test로 만들 수 없으면(bundle 사본을 못 읽음) 재시도하지 않고 fail로 남긴다.
   - 검증이 끝나 `VerificationRecorded`가 나면 handler가 결과를 ticket에 남긴다. `ticket.verify`는 check가 `examples`인 ticket을 이 보고에서 현재 check로 돌아 pass가 기록된 뒤에만 verified로 받고, 아니면 `conflict`다. 예시를 고친 뒤의 옛 결과는 check hash가 달라 근거가 아니다. `app_test`와 `text` ticket에는 이 관문이 없다.
@@ -73,7 +81,7 @@ lophn 꺼짐           끝(PTY 안 살림)   정산, 회수             그대�
 
 ## 왜 이 모양인가
 
-- **통로는 CLI 하나.** 옛 MCP server와 toolset은 지웠다. hook도 같은 CLI의 명령이고 session 환경 변수의 token으로 인증한다. orca(hook script가 POST)와 paseo(env token)도 같은 꼴이다.
+- **통로는 CLI와 앱 tool용 MCP 하나.** lophn 기능 전체를 내던 옛 MCP server와 toolset은 지웠고 되살리지 않는다. 지금 MCP endpoint는 앱 tool을 preview에서 부르는 데만 쓰고, 나머지(ticket, 메시지, release, hook)는 CLI다. 앱 tool은 harness가 tool로 부르는 것이 자연스럽고 선언이 이미 MCP tool 모양이라 MCP로 냈다. hook도 같은 CLI의 명령이고 session 환경 변수의 token으로 인증한다. orca(hook script가 POST)와 paseo(env token)도 같은 꼴이다.
 - **hook으로 상태를 안다.** orca는 화면을 읽어 짐작하지만 lophn은 짐작하지 않는다. turn 끝 신호가 있는 제품은 Claude Code `Stop`, Codex `Stop`, Gemini CLI `AfterAgent`, OpenCode `session.status` idle(전역 plugin이 root session의 event만 넘긴다. 뒤따르는 deprecated `session.idle`은 같은 끝이라 듣지 않는다), pi `agent_settled`다. pi는 `agent_end` 뒤에 retry와 compaction이 남을 수 있어 끝이 확정되는 쪽을 쓴다.
 - **hook을 앱 폴더가 아니라 전역에 한 번 놓는다.** 열 때마다 앱 폴더에 놓으면 앱 source에 harness 설정이 섞이고(release 제외 목록이 따라온다), 사람이 고친 file을 지키려고 hash 기록이 필요하다. 전역에 한 번 놓고 사람에게 묻는 쪽이 단순하다. 감지 표는 7종(Claude Code, Codex, OpenCode, Gemini CLI, pi, Hermes, OpenClaw)을 유지한다.
 - **Hermes와 OpenClaw는 아직 맡길 수 없는 제품이다.** 전역 skill·hook 위치와 첫 prompt를 argv로 넘기는 방법을 확인하지 못해 칸이 비어 있다. 확인하면 전역 설치로 hook을 놓을 수 있다.

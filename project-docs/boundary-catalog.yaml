@@ -319,3 +319,14 @@ interfaces:
       - coding-agent-cli
     used_by:
       - external-coding-agent
+
+  - id: coding-agent-mcp
+    kind: interface
+    description: coding agent가 맡은 앱의 tool을 그 앱의 preview에서 부르는 MCP endpoint.
+    interface_type: protocol
+    defined_by: protocol
+    provided_by:
+      - server
+      - apps
+    used_by:
+      - external-coding-agent

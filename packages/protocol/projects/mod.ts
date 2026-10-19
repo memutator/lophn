@@ -11,6 +11,7 @@ export * from "./project-folders.ts";
 export * from "./project-api.ts";
 export * from "./project-search.ts";
 export * from "./context-drafts.ts";
+export * from "./artifact.ts";
 
 import { CONTEXT_API_ROUTES } from "./context-api.ts";
 import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";

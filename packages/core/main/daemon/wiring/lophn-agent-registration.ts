@@ -3,7 +3,9 @@
 // - project 등록 command가 같은 tx 안에서 부르는 Project Manager 만들기
 // - context 쓰기를 하는 agent가 그 project의 Project Manager session인지 보는 판정
 // - session을 열고 Router가 session 목록을 읽을 때 쓰는 project, 앱, Operator 조회
+// - 앱 만들기 command가 같은 tx 안에서 보는 project의 존재와 보관 여부(apps는 projects를 import하지 못한다)
 import { ok } from "../../../../base/mod.ts";
+import { appProjectLookupPort } from "../../../apps/registration/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { contextAuthorityPort } from "../../../projects/contexts/mod.ts";
 import {
@@ -99,6 +101,13 @@ const ports = [
   })),
   // actor는 `agent:<session>`이다. 그 project의 Project Manager session만 context를 쓴다.
   defineTxPort(contextAuthorityPort, (tx) => contextAuthority(tx.sql)),
+  defineTxPort(appProjectLookupPort, (tx) => ({
+    get(project) {
+      const found = projectInfoOf(tx.sql, ANY_FOLDER, { id: project });
+      if (!found.ok || found.value === null) return null;
+      return { status: found.value.archived ? "archived" : "active" };
+    },
+  })),
 ];
 
 function contextAuthority(

@@ -15,11 +15,16 @@
   - 증명 재료는 ticket `examples`의 write 호출 changeset이다. 앱 자신의 test는 쓰지 않는다.
   - examples에 없는 write tool은 지금처럼 만든 입력으로 한 번 불러 본다. 그 호출이 성공했는데 되돌리기가 틀리면 fail이다. 호출 자체가 실패하면 fail이 아니라 "증명 못 함"이고 problem으로 알리며 activation을 막지 않는다.
   - tool 선언에 fixture 칸은 두지 않는다.
-  - user token의 `forbidden`(`sameApp`)은 C안 task에 작게 넣는다. observations blob을 아무도 못 읽는 것은 defect 이슈로 둔다.
+  - user token의 `forbidden`(`sameApp`)은 이 계획에서 고친다(`rc-user-read`). observations blob을 아무도 못 읽는 것은 defect 이슈로 둔다.
 - 범위 밖: 앱 자신의 test를 harness로 돌리기, observations blob 읽기 열기, e2e 돌리기.
 - 단위와 순서: `tasks/*.md`가 정한다. task id는 `rc-`로 시작한다.
-  - wave 1: `rc-wire`(지금 바로. main의 회귀라 다른 계획의 land를 기다리지 않는다)
-  - wave 2: `rc-examples-rewind`(domain-place wave 2가 main에 land한 뒤. `core/problems/`가 겹친다)
+  - 모두 wave 1이다. 사람의 지시로 소유가 겹치지 않는 task를 최대한 동시에 돌린다. land는 merge될 때마다 한다.
+    - `rc-wire`(main의 회귀라 먼저. land했다)
+    - `rc-user-read`(검사 결과를 user 자격이 읽기)
+    - `rc-unproven`(`rewind`의 호출 실패를 "증명 못 함"으로)
+    - `rc-restore`(`rc-wire` 뒤. driver가 changeset을 모으고 되돌려 보기)
+    - `rc-examples-restore`(`rc-restore` 뒤. examples가 그것으로 증명)
+    - `rc-unproven-problem`(`rc-unproven` 뒤, domain-place wave 2 land 뒤. `tests/control.ts`가 겹친다)
 - e2e: 돌리지도 고치지도 않는다. type check만 맞춘다. land는 `LOPHN_LAND_SKIP_E2E=1 project-docs/plan/tools/lead/land.sh rewind-check`.
 - 같이 도는 계획: `domain-place`(`dp-problems-core`가 `packages/core/problems/`를 고쳤다. plan branch에만 있다). rebase 충돌은 두 쪽을 다 남긴다.
 - 사람이 정할 것: 없음(다시 정한 것은 이슈에 있다).

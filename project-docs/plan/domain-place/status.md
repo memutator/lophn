@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-eval` | evals | 2 | 없음 | running | evals/dp-eval |  |  |
 | `dp-agents-core` | place-core | 2 | 없음 | running | place-core/dp-agents-core |  |  |
 | `dp-operator-skills` | place-core | 2 | dp-agents-core, dp-agent-roles-scope | todo |  |  |  |
-| `dp-place-events` | place-core | 2 | 없음 | running | place-core/dp-place-events |  |  |
+| `dp-place-events` | place-core | 2 | 없음 | merged | place-core/dp-place-events | 7d94a227d |  |
 | `dp-place-protocol` | place-core | 2 | dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval | todo |  |  |  |
 | `dp-agent-roles-prompt` | role-merge | 2 | 없음 | running | role-merge/dp-agent-roles-prompt |  |  |
 | `dp-agent-roles-scope` | role-merge | 2 | dp-agents-core | todo |  |  |  |

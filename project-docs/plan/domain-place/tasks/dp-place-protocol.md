@@ -26,6 +26,32 @@ wave 2의 마지막 cleanup이다. 앞 task들이 앱 place와 `app_engineer`를
   - `packages/core/agent-roles/tools/context.ts`
   - `packages/core/agent-roles/tools/context/`
   - `packages/core/lophn-agent/commands/registry.ts`
+- 추가 소유(lead가 더함. 앞 task가 "넘길 줄"로 남긴 `app_engineer`·앱 place 갈래와 App Engineer 문구의 그 줄만):
+  - `packages/core/lophn-agent/tools/call/target.ts`
+  - `packages/core/lophn-agent/session/model.ts`
+  - `packages/core/lophn-agent/places/lifecycle.ts`
+  - `packages/core/lophn-agent/extensions/skill-read.ts`
+  - `packages/core/lophn-agent/tools/app-public.ts`
+  - `packages/core/apps/agent-tools/app.ts`
+  - `packages/core/apps/registration/commands.ts`
+  - `packages/core/apps/blueprint/reads_test.ts`
+  - `packages/core/approvals/grants/reads.ts`
+  - `packages/core/main/daemon/wiring/apps-usage.ts`
+  - `packages/core/agent-roles/place/place-folders.ts`
+  - `packages/core/agent-roles/place/data-folder.ts`
+  - `packages/core/agent-roles/place/instruction-rules.ts`
+  - `packages/shell/renderer/conversation/agent-tab-core-source-sessions.ts`
+  - `packages/shell/renderer/conversation/thread/sender-chip.tsx`
+  - `packages/shell/renderer/desktop/connection/waiting/cards/head.tsx`
+  - `packages/shell/renderer/desktop/connection/waiting/model.ts`
+  - `packages/shell/renderer/workspace/agents/source.ts`
+  - `packages/shell/renderer/workspace/agents/core-source.ts`
+  - `packages/shell/renderer/app-frame/agent-select.tsx`
+  - `packages/shell/renderer/app-frame/annotate/annotation-panel.tsx`
+  - `tests/eval/types.ts`
+  - `tests/eval/checks/calls.ts`
+  - `tests/e2e/`
+  - `tools/check-deps.ts`
 - 읽을 것:
   - architecture: `project-docs/architecture/place-session.md`, `project-docs/architecture/agent-definition.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `protocol`, `agents`, `project-docs/module-catalog.yaml`의 `packages/protocol`
@@ -67,3 +93,17 @@ wave 2의 마지막 cleanup이다. 앞 task들이 앱 place와 `app_engineer`를
 - 계약 바꾸기 요청
 - **무겁게 짠 것**
 - **알려진 미완 동작**
+
+## lead가 더함
+
+- 이 task는 계획 맨 끝으로 옮겼다(wave 3). 앞 task가 모두 merge됐고, domain-kinds가 context를 지운 main 위에 있다. `packages/core/agent-roles/tools/context.ts`·`tools/context/`는 이미 없으면 건너뛴다.
+- 앞 task가 넘긴 줄(type 때문에 남긴 갈래):
+  - lophn-agent: `tools/call/target.ts`의 `default: return null` 갈래, `session/model.ts`의 `agentRefOfColumns({ ...row, app: null })`, `places/lifecycle.ts`의 project 아닌 place를 없는 곳으로 보는 줄, `extensions/skill-read.ts`의 `place` type, `tools/app-public.ts` `callerProject`의 앱 place 갈래.
+  - core: `approvals/grants/reads.ts`의 `app: null`, `wiring/apps-usage.ts` `agentProject`의 default 갈래, `apps/agent-tools/app.ts`의 `ctx.place.kind === "project" ? … : …` 식, `agent-roles` 안의 `app_engineer` 빈 항목(`tool-lists.ts`, `role-table.ts`의 `PROFILES`·`slotOf`, `session-directory.ts`, `commands.ts`, `place-info.ts`의 `ROLE_LABEL`, `place-data.ts`의 `ROLE_LINE`·`labelOf`), `place-folders.ts` `PlaceFacts.place`의 `"app"`, `data-folder.ts`·`instruction-rules.ts`의 앱 갈래.
+  - shell: `agent-tab-core-source-sessions.ts`의 `case "app_engineer"`, `sender-chip.tsx`, `waiting/cards/head.tsx`·`waiting/model.ts`의 `app_engineer` 항목, `workspace/agents/source.ts`의 `AgentRole = Exclude<Role, "app_engineer">`와 `core-source.ts` `toRow`의 cast, `app-frame/agent-select.tsx`의 role type.
+  - tests: `tests/eval/types.ts`의 `Exclude<Role, "app_engineer">`, `tests/eval/checks/calls.ts` `targetKey`의 빈 갈래.
+- App Engineer 문구가 남은 주석과 오류 문구: `apps/registration/commands.ts`(source 연결은 그 project의 Project Manager), `apps/blueprint/reads_test.ts`(test 이름과 주석), `app-frame/annotate/annotation-panel.tsx`. `tools/check-deps.ts`의 `ROLE_NAMES`에서 `app_engineer`를 뺀다.
+- `kind: "app"`이 앱을 부르는 대상(call target, caller, invocation)이면 앱 place가 아니라 그대로 둔다. `Place` 합집합을 줄이면 compiler가 앱 place 갈래만 짚는다.
+- `tests/e2e`: 돌리지 않는다. type이 막는 곳만 입력 모양을 기계적으로 고친다(`app_engineer` → 그 앱 project의 `project_manager`). 기능이 통째로 사라진 test는 지운다.
+- 그대로 두는 것: eval 자료 `tests/eval/materials/*/1/files/source/AGENTS.md.tmpl`(판을 올려야 바뀐다), `tests/eval/experiments/*/report.md`(지난 기록).
+- 끝: `grep -rn "app_engineer\|App Engineer" packages tests tools --include=*.ts --include=*.tsx`가 위 그대로 두는 것 밖에서 0줄이다.

@@ -12,6 +12,8 @@ agent 정의의 `skills_off`(뺄 skill 이름)를 `skills`(받을 skill 이름)�
   - `packages/core/lophn-agent/extensions/`
   - `packages/core/lophn-agent/register.ts`
   - `packages/core/agent-roles/tools/operator.ts`
+- 추가 소유(lead가 더함. `skills_off`를 `skills`로 읽는 줄만):
+  - `tests/eval/provider/attach.ts`
 - 읽을 것:
   - architecture: `project-docs/architecture/agent-definition.md`("skill은 목록(이름과 설명)만 prompt에 넣고 본문은 tool로 읽는다"), `project-docs/architecture/place-session.md`
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `agents`, `run-loop`, `project-docs/module-catalog.yaml`의 `packages/core/lophn-agent`

@@ -30,7 +30,13 @@ export type Command =
   | "files.quick-open";
 
 /** main이 먼저 받아 renderer로 보내는 command. 표의 `main`이 적힌 것과 같아야 한다. */
-export type MainCommand = "tab.close";
+export type MainCommand =
+  | "tab.next"
+  | "tab.prev"
+  | "tab.close"
+  | "tab.reopen"
+  | "tab.move-left"
+  | "tab.move-right";
 
 export type KeyPlatform = "mac" | "other";
 
@@ -43,40 +49,45 @@ interface Binding {
   /** macOS의 chord. */
   readonly mac: readonly string[];
   /**
-   * Electron 기본 menu가 page보다 먼저 가져가는 platform. macOS는 menu key equivalent(Cmd+W
-   * Close Window)가 page keydown보다 앞서서 renderer에서 preventDefault로는 못 막는다.
-   * main의 before-input-event가 menu 단축키까지 막는다. Linux·Windows는 page가 preventDefault하면
-   * menu에 가지 않고, 터미널의 Ctrl+W를 shell로 보내야 해서 renderer가 받는다.
+   * main이 먼저 받는 platform. 두 이유다. (1) 앱 view·browser 탭 page에 focus가 있으면 키가
+   * page로 가서 renderer의 keydown이 못 받는다. main의 before-input-event가 삼키고 renderer로
+   * 보낸다(탭 이동·닫기·다시 열기는 Chrome처럼 page가 받지 않는다). (2) macOS는 menu key
+   * equivalent(Cmd+W Close Window)가 page keydown보다 앞서서 renderer에서 preventDefault로는
+   * 못 막는다. shell renderer 자신의 키는 Linux·Windows에서 renderer가 받는다(main/desktop/wiring).
    */
   readonly main?: readonly KeyPlatform[];
 }
 
+const BOTH: readonly KeyPlatform[] = ["mac", "other"];
 const CYCLE = ["Ctrl+Tab", "Ctrl+PageDown"];
 const CYCLE_BACK = ["Ctrl+Shift+Tab", "Ctrl+PageUp"];
 
 const FIXED: readonly Binding[] = [
-  { command: "tab.next", other: CYCLE, mac: CYCLE },
-  { command: "tab.prev", other: CYCLE_BACK, mac: CYCLE_BACK },
+  { command: "tab.next", other: CYCLE, mac: CYCLE, main: BOTH },
+  { command: "tab.prev", other: CYCLE_BACK, mac: CYCLE_BACK, main: BOTH },
   {
     command: "tab.close",
     other: ["Ctrl+KeyW", "Ctrl+F4"],
     mac: ["Cmd+KeyW"],
-    main: ["mac"],
+    main: BOTH,
   },
   {
     command: "tab.reopen",
     other: ["Ctrl+Shift+KeyT"],
     mac: ["Cmd+Shift+KeyT"],
+    main: BOTH,
   },
   {
     command: "tab.move-left",
     other: ["Ctrl+Shift+PageUp"],
     mac: ["Ctrl+Shift+PageUp"],
+    main: BOTH,
   },
   {
     command: "tab.move-right",
     other: ["Ctrl+Shift+PageDown"],
     mac: ["Ctrl+Shift+PageDown"],
+    main: BOTH,
   },
   {
     command: "tab.to-prev-pane",

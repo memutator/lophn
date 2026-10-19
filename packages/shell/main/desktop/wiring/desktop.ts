@@ -20,6 +20,7 @@ import {
   FOLDER_PICK_CHANNEL,
 } from "../../../ipc/folder-picker.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
+import { isMainCommand } from "../../../ipc/keybindings.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import {
@@ -234,18 +235,29 @@ export function register(
       }),
   });
 
-  // 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
-  // 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
+  // 창 안 shortcut. 창 본문·overlay·앱 view·browser 탭 어디에 focus가 있어도 그 창의 shell
+  // renderer가 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
   app.on("web-contents-created", (_event, contents) => {
     listenShortcuts(contents, process.platform, (shortcut, send) => {
+      // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
+      const host = contents.getType() === "webview"
+        ? contents.hostWebContents
+        : null;
       const window = [...windows].find((window) =>
         !window.isDestroyed() &&
         (window.webContents === contents ||
+          (host !== null && window.webContents === host) ||
           window.contentView.children.some((view) =>
             view instanceof WebContentsView && view.webContents === contents
           ))
       );
       if (!window) return false;
+      // shell renderer 자신의 키는 macOS(menu가 먼저 가져간다)에서만 main이 삼킨다. 다른 OS는
+      // renderer의 keydown이 받아야 터미널에서 Ctrl+W 같은 키를 shell로 보낼 수 있다.
+      if (
+        window.webContents === contents && process.platform !== "darwin" &&
+        isMainCommand(shortcut)
+      ) return false;
       if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
       return true;
     });

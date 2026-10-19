@@ -47,7 +47,7 @@ function letterOf(input: KeyInput): string {
 /**
  * 키 입력이 창 shortcut이면 그 이름. CommandOrControl은 macOS에서 Command, 다른 OS에서
  * Control이고 다른 쪽 modifier가 같이 눌리면 맞지 않는다. 작업대 단축키 표에서는 `main`이 적힌
- * 것(macOS의 Cmd+W)만 본다.
+ * 것(탭 이동·닫기·다시 열기)만 본다.
  */
 function windowShortcut(
   input: KeyInput,

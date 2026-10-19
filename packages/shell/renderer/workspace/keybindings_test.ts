@@ -67,11 +67,24 @@ Deno.test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려�
   assertEquals(matchKey(inputOf("Alt+Digit1"), "mac"), null);
   assertEquals(matchKey(inputOf("Ctrl+Digit3"), "mac")?.command, "tab.nth");
   assertEquals(matchKey(inputOf("Cmd+Digit2"), "mac")?.command, "pane.focus");
-  // main이 먼저 받는 것은 macOS의 Cmd+W뿐이다.
+  // main이 먼저 받는 것은 탭 이동·닫기·다시 열기다(page가 키를 못 받아도 shell이 받게).
   assertEquals(
     matchKey(inputOf("Cmd+KeyW"), "mac", "main")?.command,
     "tab.close",
   );
-  assertEquals(matchKey(inputOf("Ctrl+KeyW"), "other", "main"), null);
-  assertEquals(matchKey(inputOf("Cmd+Shift+KeyT"), "mac", "main"), null);
+  assertEquals(
+    matchKey(inputOf("Ctrl+KeyW"), "other", "main")?.command,
+    "tab.close",
+  );
+  assertEquals(
+    matchKey(inputOf("Ctrl+Tab"), "other", "main")?.command,
+    "tab.next",
+  );
+  assertEquals(
+    matchKey(inputOf("Ctrl+Shift+KeyT"), "other", "main")?.command,
+    "tab.reopen",
+  );
+  // page가 쓰는 키와 나머지 작업대 키는 main이 가져가지 않는다.
+  assertEquals(matchKey(inputOf("Ctrl+KeyP"), "other", "main"), null);
+  assertEquals(matchKey(inputOf("Alt+Digit1"), "other", "main"), null);
 });

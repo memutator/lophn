@@ -48,4 +48,4 @@ experimenter: claude-opus-5-5(lead session). 사실은 `run.md`.
 
 ## 판정 이의
 
-없음.
+판정은 그대로 `reject`다. 사람이 판정과 따로 variant 고침을 main에 넣기로 정했다(사람). 근거: target O4가 0/1에서 3/3이 됐고 guard 가운데 나빠진 것이 없으며, 떨어진 셋은 고치기 전에도 떨어졌고 더 나빠지지 않았다. 목록이 session 없는 상대를 싣는 것은 제품으로도 맞는 동작이다. 그래서 다음 experiment의 기준은 runtime@3·core@7이다.

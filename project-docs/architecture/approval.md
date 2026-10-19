@@ -33,6 +33,7 @@ agent, 앱, program이 하는 동작마다 "해도 되나"를 정하는 장치�
 - program은 판정만 하고 결정은 사람만 한다. 결정 command는 사람 자격만 받는다. agent, coding agent, 앱, MCP server가 스스로 허락하면 grant가 의미 없다.
 - 선언(blueprint의 효과, MCP annotation)은 믿는다. 믿지 못하면 선언으로 책임을 나눈 이유가 없고 invocation마다 강제할 장치가 든다.
 - 이미 grant한 것은 다시 묻지 않는다. 새 release가 선언을 넓힐 때 늘어난 부분만 다시 정한다.
+- agent는 자기 grant만 읽는다(`GetAgentGrant`, place prompt의 "Agents you can call"이 session 없는 상대를 grant로 거를 때). 남의 grant는 `forbidden`이다.
 - agent는 자기 grant를 넓히지 못한다. grant 고치기는 사람만, agent의 설정 고치기는 기본 물음이다. "항상"을 골라도 이미 목록에 있는 대상을 묻지 않음으로 바꿀 뿐 새 대상을 열지 못한다.
 - agent grant의 줄마다 설정은 묻지 않음(`never`), 물음(`ask`), 뺌(`excluded`, 늘 거절)이다. agent call은 상대가 grant에 줄이 없어도 묻지 않고 부른다(AGENT-ROLE T4). 앱의 app-api와 MCP tool은 줄이 있어야 열리고, 그 안에서 빠진 api는 효과별 기본 묻기를 따른다.
 - agent call은 call tool이 turn 안에서 먼저 묻고, Router는 tx 안에서 한 번 더 판정만 한다. deny는 늘 거절하고, 물음은 turn에서 허락받았다는 표시가 있을 때만 통과한다. tx 안에서는 사람에게 물을 수 없고, Gate가 순수 함수라 tx 안에서 부를 수 있다.

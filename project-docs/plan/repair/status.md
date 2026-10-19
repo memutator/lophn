@@ -4,13 +4,13 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `rp-ae-read-shape` | core | 1 | 없음 | todo |  |  |  |
-| `rp-app-test-stuck` | core | 1 | 없음 | todo |  |  |  |
-| `rp-attached-remove` | core | 1 | 없음 | todo |  |  |  |
-| `rp-grant-read` | core | 1 | 없음 | todo |  |  |  |
+| `rp-ae-read-shape` | core | 1 | 없음 | running | core/rp-ae-read-shape |  |  |
+| `rp-app-test-stuck` | core | 1 | 없음 | running | core/rp-app-test-stuck |  |  |
+| `rp-attached-remove` | core | 1 | 없음 | running | core/rp-attached-remove |  |  |
+| `rp-grant-read` | core | 1 | 없음 | running | core/rp-grant-read |  |  |
 | `rp-reaction-dup` | core | 1 | rp-app-test-stuck | todo |  |  |  |
-| `rp-turn-prep-log` | core | 1 | 없음 | todo |  |  |  |
-| `rp-eval-calendar` | eval | 1 | 없음 | todo |  |  |  |
-| `rp-eval-misc` | eval | 1 | 없음 | todo |  |  |  |
-| `rp-eval-operator` | eval | 1 | 없음 | todo |  |  |  |
-| `rp-fetch-check` | tools | 1 | 없음 | todo |  |  |  |
+| `rp-turn-prep-log` | core | 1 | 없음 | running | core/rp-turn-prep-log |  |  |
+| `rp-eval-calendar` | eval | 1 | 없음 | running | eval/rp-eval-calendar |  |  |
+| `rp-eval-misc` | eval | 1 | 없음 | running | eval/rp-eval-misc |  |  |
+| `rp-eval-operator` | eval | 1 | 없음 | running | eval/rp-eval-operator |  |  |
+| `rp-fetch-check` | tools | 1 | 없음 | running | tools/rp-fetch-check |  |  |

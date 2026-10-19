@@ -90,7 +90,7 @@ async function ship(
     ? await uploadScreenshot(ctx.core, PNG)
     : null;
   const sent = await ctx.core.call(annotationSend, {
-    app: app as never,
+    target: { kind: "app" as const, app: app as never },
     session: session as never,
     annotations: [annotationOf(release, screenshot)],
   });
@@ -171,7 +171,7 @@ const ROWS: Row[] = [
         batch: sent.batch,
       });
       assertEquals(annotations.length, 1);
-      assertEquals(annotations[0].app, a);
+      assertEquals(annotations[0].target, { kind: "app", app: a });
       assertEquals(annotations[0].release, release);
       assertEquals(annotations[0].view.screen, "home");
       assertEquals(annotations[0].screenshot?.hash, await sha256Hex(PNG));
@@ -229,7 +229,7 @@ const ROWS: Row[] = [
 
       // route
       const refused = await core.tryCall(annotationSend, {
-        app: a as never,
+        target: { kind: "app" as const, app: a as never },
         session: session as never,
         annotations: [annotationOf(core.ids.newId("rel"), null)],
       });
@@ -252,7 +252,7 @@ const ROWS: Row[] = [
         base_revision: created.revision,
       });
       const refused = await core.tryCall(annotationSend, {
-        app: c,
+        target: { kind: "app" as const, app: c },
         session: null,
         annotations: [annotationOf(core.ids.newId("rel"), null)],
       });

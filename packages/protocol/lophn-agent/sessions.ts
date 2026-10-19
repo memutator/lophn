@@ -94,8 +94,8 @@ const sessionRecordSchema = z.object(sessionFields).refine((value) => {
   return value.forked_from === null || value.forked_from.session !== value.id;
 }, { message: "session close or fork origin is not coupled" });
 
-// 열기: assignment가 enabled일 때만(paused·withdrawn 거절). 자리가 role 규칙(PM=project,
-// Operator=scope, lophn=place 없음)에 맞는지는 assignment를 아는 owner가 검사한다.
+// 열기: assignment가 enabled일 때만(paused·withdrawn 거절). 자리가 role 규칙(AE=담당 app,
+// Operator=scope, lophn=project/app, CE=project)에 맞는지는 assignment를 아는 owner가 검사한다.
 const openSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   assignment: idSchema("asg"),

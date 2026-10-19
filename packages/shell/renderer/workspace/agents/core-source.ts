@@ -43,6 +43,7 @@ import type {
   AgentDetail,
   AgentDraft,
   AgentListRow,
+  AgentRole,
   AgentsOverview,
   AgentsSource,
   HiddenModel,
@@ -105,7 +106,7 @@ function builtInDefinition(draft: AgentDraft) {
 function toRow(row: AgentDefinitionRow): AgentListRow {
   return {
     assignment: keyOf(row.agent),
-    role: row.agent.role,
+    role: row.agent.role as AgentRole,
     kind: row.kind,
     name: row.name,
     profile: row.profile,

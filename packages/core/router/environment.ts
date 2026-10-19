@@ -1,7 +1,6 @@
 import { err, type Result } from "../../base/mod.ts";
 import { requestPrincipal } from "../storage/ledger/after-commit.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { Place } from "../../protocol/lophn-agent/places.ts";
 import type { TargetSession } from "./ports.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createRouter, type Router, type RouterDeps } from "./router.ts";
@@ -23,7 +22,7 @@ export type RouterEnvironment = {
 type RouterDescribe = (
   view: SqlView,
   target: { session: string },
-) => { place: Place | null; state: string };
+) => { place: { kind: "project" | "app"; id: string } | null; state: string };
 
 let installed: RouterEnvironment | undefined;
 

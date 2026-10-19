@@ -42,23 +42,30 @@ export function placeFoldersOf(
   const { sql } = lookup;
   const kind = found["place_kind"];
   const id = String(found["place_id"]);
-  const place: PlaceFacts["place"] = kind === null
-    ? null
-    : { kind: "project", id };
-  const app = place === null ? null : appOfProject(sql, id);
+  const place: PlaceFacts["place"] = kind === "project" || kind === "app"
+    ? { kind, id }
+    : null;
+  const project = place?.kind === "project" ? place.id : null;
+  const app = project === null ? null : appOfProject(sql, project);
   const facts: PlaceFacts = {
     role,
     place,
-    projectFolders: place === null ? [] : projectFolderPaths(sql, id),
-    artifactsFolder: place === null ? null : artifactsFolder(dataRoot, id),
-    kindsFile: place === null ? null : kindsFilePath(dataRoot, id),
-    appSource: app === null ? null : appSourcePath(sql, app),
-    skillsFolder: place === null
+    projectFolders: project === null ? [] : projectFolderPaths(sql, project),
+    artifactsFolder: project === null
       ? null
-      : PROJECT_LAYER.skillsFolder(dataRoot, id),
-    dataFolder: place === null
+      : artifactsFolder(dataRoot, project),
+    kindsFile: project === null ? null : kindsFilePath(dataRoot, project),
+    appSource: place?.kind === "app"
+      ? appSourcePath(sql, place.id)
+      : app === null
       ? null
-      : placeDataFolder(dataRoot, { kind: "project", id: id as never }),
+      : appSourcePath(sql, app),
+    skillsFolder: project === null
+      ? null
+      : PROJECT_LAYER.skillsFolder(dataRoot, project),
+    dataFolder: project === null
+      ? null
+      : placeDataFolder(dataRoot, { kind: "project", id: project as never }),
     allProjectFolders: [],
   };
   // 쓰기 허용은 file tool의 resolveInPlace가 kinds 파일 하나로 좁힌다. rewind는 root를 폴더 목록과 비교하므로

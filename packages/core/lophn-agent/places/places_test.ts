@@ -22,7 +22,7 @@ import { UNWIRED_END_DEPS, UNWIRED_PLACE_DEPS } from "./unwired.ts";
 
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
-const OTHER_PROJECT = "prj_00000000000000000000000002";
+const OTHER_APP = "app_00000000000000000000000002";
 const OPERATOR = "agt_00000000000000000000000001";
 
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
@@ -50,21 +50,20 @@ function store() {
 const archivedPlaces = new Set<string>();
 const deps: OpenDeps = {
   projects: {
-    project: (id) =>
-      id === OTHER_PROJECT
-        ? null
-        : ({ id, archived: archivedPlaces.has(id) }) as never,
+    project: (id) => ({ id, archived: archivedPlaces.has(id) }) as never,
     projectByName: () => null,
   },
-  apps: UNWIRED_PLACE_DEPS.apps,
+  apps: {
+    app: (id) =>
+      id === OTHER_APP
+        ? null
+        : ({ id, archived: archivedPlaces.has(id) }) as never,
+    appByName: () => null,
+  },
   operators: {
     operator: (id) =>
       id === OPERATOR
-        ? {
-          id,
-          name: "reviewer",
-          place: { kind: "project", id: PROJECT },
-        } as never
+        ? { id, name: "reviewer", place: { kind: "app", id: APP } } as never
         : null,
     operators: () => [],
   },
@@ -98,35 +97,32 @@ Deno.test("archive한 session은 입력을 받지 않고 보관한 place의 sess
   archivedPlaces.clear();
   const directory = createSessionDirectory({ ...deps, sql: () => sql });
   const from = { kind: "human" as const };
-  const opened = directory.open(tx, {
-    role: "project_manager",
-    project: PROJECT,
-  }, from);
+  const opened = directory.open(tx, { role: "app_engineer", app: APP }, from);
   assert(opened.ok);
   const session = opened.value.session;
   assertEquals(directory.find(session)?.accepting, true);
 
   // 같은 agent의 열린 session만 고른다. 다른 agent와 Operator는 찾지 못한다.
   assertEquals(
-    directory.openOf({ role: "project_manager", project: PROJECT })?.session,
+    directory.openOf({ role: "app_engineer", app: APP })?.session,
     session,
   );
   assertEquals(
-    directory.openOf({ role: "project_manager", project: OTHER_PROJECT }),
+    directory.openOf({ role: "app_engineer", app: OTHER_APP }),
     null,
   );
   assertEquals(directory.openOf({ role: "operator", agent: OPERATOR }), null);
   assertEquals(directory.openOf({ role: "lophn" }), null);
 
   // place를 보관하면 session은 열린 채 남고 입력만 거절한다. 다시 꺼내면 이어서 받는다.
-  archivedPlaces.add(PROJECT);
+  archivedPlaces.add(APP);
   assertEquals(directory.find(session)?.accepting, false);
   assertEquals(
     sql.get("select lifecycle from sessions where id = ?", [session])
       ?.["lifecycle"],
     "open",
   );
-  archivedPlaces.delete(PROJECT);
+  archivedPlaces.delete(APP);
   assertEquals(directory.find(session)?.accepting, true);
 
   const row = sql.get("select state_seq from sessions where id = ?", [session]);
@@ -141,11 +137,8 @@ Deno.test("archive한 session은 입력을 받지 않고 보관한 place의 sess
   assertEquals(acceptsInput({ lifecycle: "archived" }, false), false);
 
   // 보관한 place에는 새 session도 열리지 않는다.
-  archivedPlaces.add(PROJECT);
-  const refused = directory.open(tx, {
-    role: "project_manager",
-    project: PROJECT,
-  }, from);
+  archivedPlaces.add(APP);
+  const refused = directory.open(tx, { role: "app_engineer", app: APP }, from);
   assert(!refused.ok && refused.error.code === "conflict");
   archivedPlaces.clear();
 });
@@ -217,6 +210,7 @@ Deno.test("role과 place가 맞지 않는 session은 열리지 않는다", () =>
   const bad: [string, string | null, string | null][] = [
     ["lophn", "project", PROJECT],
     ["project_manager", "app", APP],
+    ["app_engineer", "project", PROJECT],
     ["project_manager", null, null],
   ];
   for (const [role, kind, id] of bad) {
@@ -228,11 +222,12 @@ Deno.test("role과 place가 맞지 않는 session은 열리지 않는다", () =>
     );
     assertThrows(() =>
       db.prepare(
-        `insert into sessions (id, role, project, place_kind, place_id,
-           created_seq, state_seq) values ('ses_bad', ?, ?, ?, ?, 1, 1)`,
+        `insert into sessions (id, role, project, app, place_kind, place_id,
+           created_seq, state_seq) values ('ses_bad', ?, ?, ?, ?, ?, 1, 1)`,
       ).run(
         role,
         kind === "project" ? id : null,
+        kind === "app" ? id : null,
         kind,
         id,
       )
@@ -244,7 +239,7 @@ Deno.test("role과 place가 맞지 않는 session은 열리지 않는다", () =>
   const from = { kind: "human" as const };
   const missing: AgentRef[] = [
     { role: "operator", agent: "agt_00000000000000000000000009" },
-    { role: "project_manager", project: OTHER_PROJECT },
+    { role: "app_engineer", app: OTHER_APP },
   ];
   for (const agent of missing) {
     assert(!directory.open(tx, agent, from).ok);

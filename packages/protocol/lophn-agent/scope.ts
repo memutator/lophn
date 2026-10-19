@@ -4,6 +4,7 @@ import { idSchema } from "../base/ids.ts";
 // 역할 식별자의 정본. preset·assignment contract는 이 enum만 소비한다.
 const AGENT_ROLES = [
   "lophn",
+  "app_engineer",
   "project_manager",
   "operator",
 ] as const;
@@ -12,17 +13,24 @@ export const agentRoleSchema = z.enum(AGENT_ROLES);
 
 type AgentRole = z.infer<typeof agentRoleSchema>;
 
-// 개설 자리. file cwd가 아니고, kind와 id 접두사 짝만 local syntax로 고정한다. session은
-// project 자리에만 있어 전역 자리(global)가 없다.
-export const workPlaceSchema = z.strictObject({
-  kind: z.literal("project"),
-  id: idSchema("prj"),
-});
+const workPlaceBranches = [
+  z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
+  z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
+] as const;
 
-export const workPlaceOutputSchema = z.object({
-  kind: z.literal("project"),
-  id: idSchema("prj"),
-});
+const workPlaceOutputBranches = [
+  z.object({ kind: z.literal("project"), id: idSchema("prj") }),
+  z.object({ kind: z.literal("app"), id: idSchema("app") }),
+] as const;
+
+// 개설 자리. file cwd가 아니고, kind와 id 접두사 짝만 local syntax로 고정한다. session은
+// project나 app 자리에만 있어 전역 자리(global)가 없다.
+export const workPlaceSchema = z.discriminatedUnion("kind", workPlaceBranches);
+
+export const workPlaceOutputSchema = z.discriminatedUnion(
+  "kind",
+  workPlaceOutputBranches,
+);
 
 // apps/blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
 export const appApiKeySchema = z.string().min(1).refine(
@@ -94,10 +102,16 @@ function scopeShape(value: {
       entry.confirm_allowed === false && entry.revert_required === false
     );
   }
+  if (value.role === "app_engineer") {
+    return apps.every((entry) =>
+      entry.effects.every((effect) => effect !== "external") &&
+      (!entry.effects.includes("write") || entry.revert_required === true)
+    );
+  }
   return true;
 }
 
-// PM은 앱 command 실행이 없고, Operator는 confirm=false read만 받는다.
+// CE는 앱 command 실행이 없고, Operator는 confirm=false read만, AE write는 undo가 필요하다.
 export const agentAppScopeSchema = z.strictObject(agentAppScopeFields).refine(
   (value) => uniqueList(value.apps.map((entry) => entry.app)),
   { message: "duplicate app" },

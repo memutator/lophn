@@ -17,7 +17,7 @@ import {
 
 // 읽는 project는 입력으로 받지 않는다. project place에서만 쓰고, 그 place의 project를 읽는다.
 function projectOf(ctx: ToolContext): Result<string> {
-  if (ctx.place === null) {
+  if (ctx.place?.kind !== "project") {
     return invalid("kind tools work in a project place");
   }
   return ok(ctx.place.id);

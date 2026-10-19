@@ -17,7 +17,7 @@ function folderOf(root: string, project: string): string {
 }
 
 export const PROJECT_LAYER: ProjectLayer = {
-  projectOf: (place: AgentPlace) => place.id,
+  projectOf: (place: AgentPlace) => place.kind === "project" ? place.id : null,
   skillsFolder: (root, project) =>
     `${folderOf(root, project)}/${SKILLS_FOLDER}`,
   extensionsFile: (root, project) =>

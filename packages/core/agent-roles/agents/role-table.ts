@@ -13,6 +13,7 @@ import { lophnAgentsFolder, placeAgentsFolder } from "../place/data-folder.ts";
 const PROFILES: Record<Role, Profile> = {
   lophn: { kind: "icon", icon: "dock" },
   project_manager: { kind: "icon", icon: "contexts" },
+  app_engineer: { kind: "icon", icon: "apps" },
   operator: { kind: "icon", icon: "roles" },
 };
 
@@ -20,6 +21,7 @@ const PROFILES: Record<Role, Profile> = {
 const BUILTIN_FILES = {
   lophn: "lophn.md",
   project_manager: "project-manager.md",
+  app_engineer: "app-engineer.md",
 } as const;
 
 export const ROLE_TABLE: AgentRoleTable = {
@@ -35,6 +37,11 @@ export const ROLE_TABLE: AgentRoleTable = {
           folder: placeAgentsFolder(root, { kind: "project", id: ref.project }),
           file: BUILTIN_FILES.project_manager,
         };
+      case "app_engineer":
+        return {
+          folder: placeAgentsFolder(root, { kind: "app", id: ref.app }),
+          file: BUILTIN_FILES.app_engineer,
+        };
       case "operator":
         return operatorPlace === undefined ? null : {
           folder: placeAgentsFolder(root, operatorPlace),
@@ -45,10 +52,11 @@ export const ROLE_TABLE: AgentRoleTable = {
   agentsFolderOf: placeAgentsFolder,
   builtinRefs: (places) => [
     { role: "lophn" },
-    ...places.map((place) => ({
-      role: "project_manager" as const,
-      project: place.id,
-    })),
+    ...places.map((place) =>
+      place.kind === "project"
+        ? { role: "project_manager" as const, project: place.id }
+        : { role: "app_engineer" as const, app: place.id }
+    ),
   ],
   operatorRef: (id) => ({ role: "operator", agent: id as never }),
   kindOf: (role) => role === "operator" ? "operator" : "built_in",

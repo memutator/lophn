@@ -96,9 +96,9 @@ export type InstructionReadDeps = {
   mayReadOtherProject(role: Role): boolean;
 };
 
-// 그 session의 agent가 prompt로 읽는 project. lophn은 place가 없어 없다.
+// 그 session의 agent가 prompt로 읽는 project. lophn은 place가 없어 없고, 앱 그릇에는 LOPHN.md가 없다.
 function ownProject(session: SessionRow) {
-  return session.place === null ? null : session.place.id;
+  return session.place?.kind === "project" ? session.place.id : null;
 }
 
 // 정의 파일의 frontmatter를 뺀 본문. 닫는 줄이 없으면 깨진 파일이라 null이다.
@@ -139,7 +139,7 @@ function readAgentBody(
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
 // - project 칸은 lophn session만 다른 project를 줄 수 있다. 다른 role은 자기 place의 project만 받는다.
-// - 칸이 없으면 session의 place가 가리키는 project다. lophn은 project 지침이 없다.
+// - 칸이 없으면 session의 place가 가리키는 project다. lophn과 앱 place는 project 지침이 없다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,

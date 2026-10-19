@@ -36,6 +36,8 @@ type SkillSupplemental = {
 
 // 층을 합친 skill 하나다. 앞 다섯 칸은 `ReadSkills`가 내는 것과 같다.
 export type SkillEntry = SkillRow & {
+  // domain 층 skill의 domain id다. 그 밖의 skill은 null이다.
+  domain: string | null;
   // SKILL.md 원문의 sha256이다.
   content_hash: string;
   // 읽는 쪽만 쓰는 절대 위치다. prompt에는 나가지 않는다.
@@ -248,6 +250,7 @@ export function skillReceived(
 
 type Candidate = SkillCandidate & {
   description: string;
+  domain: string | null;
   content_hash: string;
   supplemental: readonly SkillSupplemental[];
 };
@@ -466,6 +469,7 @@ async function addBundle(
     name: parsed.value.name,
     description: parsed.value.description,
     source,
+    domain: null,
     content_hash: await sha256Hex(file.text),
     bundle_path: bundle,
     supplemental,

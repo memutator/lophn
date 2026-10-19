@@ -16,9 +16,9 @@ import type { Sql } from "../../../../protocol/server/mod.ts";
 type Query = Pick<Sql, "get" | "all">;
 
 function projectOf(
-  place: { id: string } | null | undefined,
+  place: { kind: string; id: string } | null | undefined,
 ): Id<"prj"> | null {
-  return place ? place.id as Id<"prj"> : null;
+  return place?.kind === "project" ? place.id as Id<"prj"> : null;
 }
 
 function portsOf(sql: Query): UsagePorts {
@@ -37,7 +37,8 @@ function portsOf(sql: Query): UsagePorts {
           return projectOf(
             placeDepsOf(sql).operators.operator(agent.agent)?.place,
           );
-        case "lophn":
+        default:
+          // lophn은 project가 없다. App Engineer는 앱에 묶여 project가 없다.
           return null;
       }
     },

@@ -36,7 +36,9 @@ export function createSessionDirectory(
   // 없는 place는 보관한 place와 같이 새 입력을 받지 못한다.
   function placeArchived(place: Place | null): boolean {
     if (place === null) return false;
-    const info = deps.projects.project(place.id as Id<"prj">);
+    const info = place.kind === "project"
+      ? deps.projects.project(place.id as Id<"prj">)
+      : deps.apps.app(place.id as Id<"app">);
     return info === null || info.archived;
   }
 

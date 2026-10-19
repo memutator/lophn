@@ -25,8 +25,12 @@ import type { AgentRoleTable } from "./role-table.ts";
 // 만지지 않는다: 정의 파일은 호출하는 쪽이 읽어 파싱해 넘기고, 같은 입력이면 같은 값과 hash가 나온다.
 
 // 제품이 고정하거나 다른 concern이 정하는 값이다. 테스트가 작은 값으로 바꿔 끼운다.
-// 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지를 같이 알린다.
-export type AvailableSkill = { name: string; can_disable: boolean };
+// 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지와 domain 층 skill의 domain을 같이 알린다(아니면 null).
+export type AvailableSkill = {
+  name: string;
+  can_disable: boolean;
+  domain: string | null;
+};
 
 type ResolveEnvironment = {
   // 정의에 profile이 없을 때의 기본 icon.
@@ -38,7 +42,7 @@ type ResolveEnvironment = {
 
 type ResolveInput = {
   agent: AgentRef;
-  // Project Manager와 Operator의 place. lophn은 null이다.
+  // Project Manager와 App Engineer와 Operator의 place. lophn은 null이다.
   place: Place | null;
   // 정의 파일이 없으면 null(built-in 기본). Operator는 파일이 있어야 agent다.
   definition: AgentFileDefinition | null;
@@ -61,6 +65,7 @@ const RESOLVED_FIELDS = [
   "tools",
   "skills",
   "mcp",
+  "domains",
 ] as const;
 type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
@@ -76,6 +81,8 @@ export type ResolvedAgent = {
   tools: string[];
   skills: string[];
   mcp: McpTool[];
+  // Operator가 일하는 domain id. 비면 그릇의 domain 전부다. Operator가 아니면 늘 비어 있다.
+  domains: string[];
   sources: Record<ResolvedField, AgentValueLayer>;
   hash: string;
 };
@@ -132,6 +139,9 @@ export async function resolveAgent(
   const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];
   const skills = receivedSkills(environment.skills, chosenSkills);
+  const domains = operator && definition !== null && "domains" in definition
+    ? [...(definition.domains ?? [])]
+    : [];
   const mcp = environment.mcp.filter((tool) =>
     !mcpOff.some((off) =>
       off.server_name === tool.server_name &&
@@ -151,6 +161,7 @@ export async function resolveAgent(
     tools: [...input.tools],
     skills,
     mcp: copy(mcp),
+    domains,
     sources: {
       name: operator ? "agent" : "global",
       profile: profile === undefined ? "global" : "agent",
@@ -159,6 +170,7 @@ export async function resolveAgent(
       tools: "global",
       skills: chosenSkills.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",
+      domains: domains.length > 0 ? "agent" : "global",
     },
   };
   return ok({ ...value, hash: await fingerprint(value) });

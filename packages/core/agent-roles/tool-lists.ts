@@ -46,12 +46,24 @@ const READ_TOOLS = [
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-// 모든 앱의 app-api 목록은 사람이 lophn과 Project Manager로만 좁혔다.
+// 모든 앱의 app-api 목록은 lophn과 Project Manager로만 좁혔다(앱 연결을 옮기는 동안의 임시).
 const APP_API_TOOLS = ["app.app_api"] as const;
 
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
+  app_engineer: [
+    "ticket.create",
+    "ticket.update",
+    "ticket.verify",
+    "ticket.cancel",
+    "problem.set_state",
+    "app.link_source",
+    "package.publish",
+    "operator.create",
+    "operator.update",
+  ],
   operator: [],
+  // 앱 연결을 옮기는 동안의 임시다. App Engineer와 같은 목록이다.
   project_manager: [
     "ticket.create",
     "ticket.update",

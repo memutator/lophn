@@ -33,16 +33,23 @@ async function operatorOf(
 
 async function placeOf(
   ctx: ToolContext,
-  place: { project: string },
+  place: NonNullable<NamedAgent["place"]>,
 ): Promise<Place | null> {
-  const read = await readOf(ctx.core, projectList, {});
+  if ("project" in place) {
+    const read = await readOf(ctx.core, projectList, {});
+    const found = read.ok
+      ? read.value.projects.find((project) => project.name === place.project)
+      : undefined;
+    return found === undefined ? null : { kind: "project", id: found.id };
+  }
+  const read = await readOf(ctx.core, appList, {});
   const found = read.ok
-    ? read.value.projects.find((project) => project.name === place.project)
+    ? read.value.apps.find((app) => app.name === place.app)
     : undefined;
-  return found === undefined ? null : { kind: "project", id: found.id };
+  return found === undefined ? null : { kind: "app", id: found.id };
 }
 
-// coding agent는 앱에 묶여 있고 `{ app }` 이름은 그 앱을 가리킨다(앱 place가 아니다).
+// coding agent는 앱에 묶여 있고 `{ app }` 이름은 그 앱을 가리킨다.
 async function codingAgentOf(
   ctx: ToolContext,
   name: string,
@@ -64,14 +71,16 @@ async function named(
       ? await codingAgentOf(ctx, to.place.app)
       : null;
   }
-  const place = to.place === undefined || "app" in to.place
-    ? null
-    : await placeOf(ctx, to.place);
+  const place = to.place === undefined ? null : await placeOf(ctx, to.place);
   if (to.place !== undefined && place === null) return null;
   switch (to.role) {
     case "project_manager":
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
+        : null;
+    case "app_engineer":
+      return place?.kind === "app"
+        ? { role: "app_engineer", app: place.id }
         : null;
     case "operator":
       return to.name === undefined
@@ -96,6 +105,10 @@ async function openSession(
     case "project_manager":
       return place?.kind === "project"
         ? { role: "project_manager", project: place.id }
+        : null;
+    case "app_engineer":
+      return place?.kind === "app"
+        ? { role: "app_engineer", app: place.id }
         : null;
     case "operator":
       return await operatorOf(ctx, row.name, place);

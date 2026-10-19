@@ -59,9 +59,9 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
   // role마다 고정되는 이름 목록이다.
   const NAMES = {
     operator: ["file.read"],
-    project_manager: ["file.read", "operator.update"],
+    app_engineer: ["file.read", "operator.update"],
   };
-  const context = (role: "operator" | "project_manager"): ToolContext => ({
+  const context = (role: "operator" | "app_engineer"): ToolContext => ({
     listed: selectTools(NAMES[role], MODEL, definitions),
     agent: { role: "operator", agent: "agt_01J00000000000000000000000" },
     session: "ses_01J00000000000000000000000",
@@ -107,7 +107,7 @@ Deno.test("같은 wire 이름의 tool 둘은 목록을 만들 때 오류다", ()
 
 Deno.test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate를 거치지 않는다", async () => {
   const { ran, asked, context } = fixture("deny");
-  const ctx = context("project_manager");
+  const ctx = context("app_engineer");
 
   const read = await executeToolCall(ctx, "file_read", { path: "a.md" });
   assertEquals(read.executed, true);

@@ -106,7 +106,7 @@ export async function resolveTurnAgent(
 
   // project 층 model은 project place의 agent만 있다. 값이 없으면 null이라 전역 기본을 따른다.
   let projectModel: ModelChoice | null = null;
-  if (place) {
+  if (place?.kind === "project") {
     const project = await readOf(machine, projectModelRead, {
       project: place.id,
     });

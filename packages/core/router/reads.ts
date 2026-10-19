@@ -74,7 +74,7 @@ const sendableRead: ReadDefinition<typeof callSendable> = {
         session: target.session,
         role: target.agent.role,
         place: described !== undefined
-          ? described.place
+          ? (described.place as Place | null)
           : placeOf(target.agent),
         name: target.name,
         state,

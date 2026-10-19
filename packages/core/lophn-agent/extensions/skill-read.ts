@@ -1,6 +1,6 @@
 import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Place, Role } from "../../../protocol/lophn-agent/mod.ts";
+import type { Role } from "../../../protocol/lophn-agent/mod.ts";
 import type { SkillReader } from "../tools/ports.ts";
 import {
   discoverSkills,
@@ -33,7 +33,7 @@ export type SkillSnapshotDeps = {
 type SkillSession = {
   id: Id<"ses">;
   role: Role;
-  // project에 놓인 agent의 project다. lophn은 null이다(project 층이 없다).
+  // project에 놓인 agent의 project다. lophn과 앱에 놓인 agent는 null이다(project 층이 없다).
   project: Id<"prj"> | null;
   // agent 정의가 고른 이름이다. 비면 고르지 않은 것이다.
   skills: readonly string[];
@@ -177,7 +177,7 @@ export function turnSkillReader(
   session: {
     id: string;
     agent: { role: Role };
-    place: Place | null;
+    place: { kind: "project" | "app"; id: string } | null;
   },
   enabled: readonly string[],
 ): SkillReader {
@@ -193,7 +193,9 @@ export function turnSkillReader(
       snapshot ??= createSkillSnapshot(deps, {
         id: session.id as Id<"ses">,
         role: session.agent.role,
-        project: (session.place?.id ?? null) as Id<"prj"> | null,
+        project: session.place?.kind === "project"
+          ? session.place.id as Id<"prj">
+          : null,
         skills: [],
       });
       return (await snapshot).reader.read(id, name, path);

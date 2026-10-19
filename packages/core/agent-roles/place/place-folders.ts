@@ -2,14 +2,14 @@ import type { Role } from "../../../protocol/lophn-agent/mod.ts";
 
 export type PlaceFacts = {
   role: Role;
-  place: { kind: "project"; id: string } | null;
+  place: { kind: "project" | "app"; id: string } | null;
   // place가 project일 때 그 project의 등록 폴더(position 순)
   projectFolders: readonly string[];
   // place가 project일 때 그 project의 artifacts 폴더
   artifactsFolder: string | null;
   // place가 project일 때 그 project의 kinds 파일(파일이 아직 없어도 경로다). PM만 쓴다
   kindsFile: string | null;
-  // place가 project일 때 그 project 앱의 source 폴더. 앱이 없거나 source가 없으면 null
+  // place가 app이면 그 앱의 source 폴더, project이면 그 project 앱의 source 폴더. 없으면 null
   appSource: string | null;
   // place가 project일 때 그 project 층의 skill 폴더
   skillsFolder: string | null;
@@ -32,7 +32,7 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   if (role === "lophn") {
     return { read: [...facts.allProjectFolders], write: [] };
   }
-  if (place !== null) {
+  if (place?.kind === "project") {
     // 상대 path의 기준은 사람의 첫 project 폴더이고, 폴더가 없는 project는 data 폴더다.
     const base = facts.projectFolders[0] ?? facts.dataFolder ?? undefined;
     const withBase = (folders: string[]): FolderScope => ({
@@ -55,6 +55,11 @@ export function placeScope(facts: PlaceFacts): FolderScope {
     if (role === "operator") {
       return withBase([...facts.projectFolders, ...artifacts]);
     }
+  } else if (place?.kind === "app" && facts.appSource !== null) {
+    if (role === "app_engineer") {
+      return { read: [facts.appSource], write: [facts.appSource] };
+    }
+    if (role === "operator") return { read: [facts.appSource], write: [] };
   }
   return { read: [], write: [] };
 }

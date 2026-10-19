@@ -427,6 +427,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         agent: session.agent,
         role: session.agent.role,
         place,
+        domains: resolved.domains,
         listed,
         core: agentCall,
         clock,

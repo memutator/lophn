@@ -12,7 +12,12 @@ function read(actor: string, agent: AgentRef) {
     sql: {
       get: (query: string) =>
         query.includes("from sessions")
-          ? { role: "project_manager", project: MINE, operator: null }
+          ? {
+            role: "project_manager",
+            project: MINE,
+            app: null,
+            operator: null,
+          }
           : undefined,
     },
   };

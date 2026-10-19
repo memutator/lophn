@@ -237,6 +237,7 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
     const available = snapshot.skills.map((s) => ({
       name: s.name,
       can_disable: s.name !== "kinds-yaml",
+      domain: null,
     }));
     return {
       listed,

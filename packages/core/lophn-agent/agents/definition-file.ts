@@ -9,6 +9,7 @@ import {
   builtinDefinitionSchema,
   type OperatorDefinition,
   operatorDefinitionSchema,
+  type Place,
   type Role,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentRoleTable } from "./role-table.ts";
@@ -28,6 +29,7 @@ import type { AgentRoleTable } from "./role-table.ts";
 // 같은 place Operator 사이의 이름 중복은 파일만으로 알 수 없으므로
 // 여기서 보지 않는다.
 
+type AgentFileTarget = { role: Role; place: Place["kind"] | null };
 export type AgentFileDefinition = OperatorDefinition | BuiltinDefinition;
 
 type AgentFileError = LophnError & {
@@ -137,11 +139,11 @@ function schemaIssues(error: z.ZodError): AgentDefinitionIssue[] {
 function checkDefinition(
   raw: Plain,
   body: unknown,
-  role: Role,
+  target: AgentFileTarget,
   roles: AgentRoleTable,
 ): FileResult<AgentFileDefinition> {
   const issues: AgentDefinitionIssue[] = [];
-  const operator = roles.isOperator(role);
+  const operator = roles.isOperator(target.role);
   if (typeof body !== "string") {
     return refuse([{ field: "body", code: "invalid_value" }]);
   }
@@ -178,6 +180,7 @@ function checkDefinition(
 
 const EMPTY_DEFAULT_LISTS = [
   "skills",
+  "domains",
   "mcp_off",
   "mcp_servers",
 ] as const;
@@ -221,7 +224,7 @@ function frontmatterText(fields: Plain): string {
 
 export function parseAgentFile(
   text: string,
-  role: Role,
+  target: AgentFileTarget,
   roles: AgentRoleTable,
 ): Result<AgentFileDefinition, AgentFileError> {
   const split = splitFile(text);
@@ -229,18 +232,18 @@ export function parseAgentFile(
   return checkDefinition(
     split.value.frontmatter,
     split.value.body,
-    role,
+    target,
     roles,
   );
 }
 
 export function serializeAgentFile(
   definition: AgentFileDefinition,
-  role: Role,
+  target: AgentFileTarget,
   roles: AgentRoleTable,
 ): Result<string, AgentFileError> {
   const { body, ...fields } = definition as Plain;
-  const checked = checkDefinition(fields, body, role, roles);
+  const checked = checkDefinition(fields, body, target, roles);
   if (!checked.ok) return checked;
   const { body: text, ...kept } = checked.value as Plain;
   const head = frontmatterText(orderedFrontmatter(kept));

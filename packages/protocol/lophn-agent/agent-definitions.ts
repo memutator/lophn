@@ -35,7 +35,7 @@ import {
 // 사람(editor)이 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentRef`다.
 // agent는 정의 읽기와 Operator 만들기·고치기만 하고 지우거나 built-in을 고치지 못한다. agent가 부르면 core가
 // 호출 session의 role·place로 범위를 본다: 자기 place의 정의와 Operator뿐이다(agent의 operator.create·update는 tool이다).
-// - 내장 role(lophn, Project Manager)은 만들고 지울 수 없고, 사람이 고치는 것은 지침·model·skill·MCP 끄기다.
+// - 내장 role(lophn, Project Manager, App Engineer)은 만들고 지울 수 없고, 사람이 고치는 것은 지침·model·skill·MCP 끄기다.
 // - Operator는 `operatorDefinitionSchema`로 만들고 고치고 지운다.
 // - tool 목록은 role이 정하고 사람이 바꾸지 않는다. grant는 approvals/grants의 `agentGrantsGet`·`agentGrantsSet`이 맡는다.
 // - 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다. invalid_input의 details는 항목별 이유다.
@@ -46,6 +46,7 @@ const builtinAgentRefBranches = [
     role: z.literal("project_manager"),
     project: idSchema("prj"),
   }),
+  z.strictObject({ role: z.literal("app_engineer"), app: idSchema("app") }),
 ] as const;
 const builtinAgentRefSchema = z.discriminatedUnion(
   "role",
@@ -108,7 +109,7 @@ export type AgentDefinitionIssue = z.infer<typeof agentDefinitionIssueSchema>;
 
 // ---------- 읽기 ----------
 
-// lophn는 place가 없어 place를 주어도 첫 줄로 늘 있다. place를 주면 그 자리의 Project Manager·Operator만
+// lophn는 place가 없어 place를 주어도 첫 줄로 늘 있다. place를 주면 그 자리의 Project Manager·App Engineer·Operator만
 // 더하고, 주지 않으면 모든 자리의 agent다.
 const listAgentDefinitionsInputSchema = z.strictObject({
   place: placeSchema.optional(),

@@ -19,7 +19,7 @@ function fail<T = never>(
 
 // session 목록의 이름과 이름으로 받은 agent 고르기. project·앱·Operator 조회가 role마다 달라 role 층이 쥔다.
 export function createPlaceRoleRules(
-  deps: Pick<PlaceDeps, "projects" | "operators">,
+  deps: Pick<PlaceDeps, "projects" | "apps" | "operators">,
 ): PlaceRoleRules {
   function resolveNamed(named: NamedAgent): Result<CallAgent> {
     const place = named.place;
@@ -37,22 +37,33 @@ export function createPlaceRoleRules(
           ? fail("not_found", "project not found")
           : ok({ role: "project_manager", project: project.id });
       }
+      case "app_engineer": {
+        if (place === undefined || !("app" in place)) {
+          return fail("invalid_input", "an App Engineer needs an app");
+        }
+        const app = deps.apps.appByName(place.app);
+        return app === null
+          ? fail("not_found", "app not found")
+          : ok({ role: "app_engineer", app: app.id });
+      }
       case "operator": {
         if (named.name === undefined) {
           return fail("invalid_input", "an Operator is named");
         }
         let at: Place | null = null;
         if (place !== undefined) {
-          if (!("project" in place)) {
-            return fail("invalid_input", "an Operator lives in a project");
-          }
-          const found = deps.projects.projectByName(place.project);
+          const found = "project" in place
+            ? deps.projects.projectByName(place.project)
+            : deps.apps.appByName(place.app);
           if (found === null) return fail("not_found", "place not found");
-          at = { kind: "project", id: found.id };
+          at = "project" in place
+            ? { kind: "project", id: found.id }
+            : { kind: "app", id: found.id };
         }
         const matches = deps.operators.operators().filter((operator) =>
           operator.name === named.name &&
-          (at === null || operator.place.id === at.id)
+          (at === null ||
+            (operator.place.kind === at.kind && operator.place.id === at.id))
         );
         if (matches.length === 0) {
           return fail("not_found", "operator not found");
@@ -74,6 +85,8 @@ export function createPlaceRoleRules(
           return "lophn";
         case "project_manager":
           return deps.projects.project(ref.project as Id<"prj">)?.name ?? "";
+        case "app_engineer":
+          return deps.apps.app(ref.app as Id<"app">)?.name ?? "";
         case "operator":
           return deps.operators.operator(ref.agent)?.name ?? "";
       }

@@ -12,12 +12,13 @@ export const agentGrantsGetRead: ReadDefinition<typeof agentGrantsGet> = {
     // agent는 자기 grant만 읽는다. session이 정체성을 쥐고 있어 session 행에서 자기 ref를 만든다.
     if (actor?.kind === "agent") {
       const row = snapshot.sql.get(
-        "select role, project, operator from sessions where id = ?",
+        "select role, project, app, operator from sessions where id = ?",
         [actor.id],
       );
       const own = row === undefined ? undefined : agentRefOfColumns({
         role: String(row["role"]) as never,
         project: row["project"] === null ? null : String(row["project"]),
+        app: row["app"] === null ? null : String(row["app"]),
         operator: row["operator"] === null ? null : String(row["operator"]),
       });
       if (own === undefined || agentKey(own) !== agentKey(input.agent)) {

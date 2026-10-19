@@ -13,6 +13,7 @@ import { createReaderRegistration } from "../../main/daemon/wiring/instructions-
 const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
 const PRJ_C = "prj_00000000000000000000000003";
+const APP = "app_00000000000000000000000001";
 
 function sessionId(n: number) {
   return `ses_${String(n).padStart(26, "0")}`;
@@ -52,12 +53,13 @@ function setup() {
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
   const insert = db.prepare(
-    `insert into sessions (id, role, project, place_kind, place_id,
-       created_seq, state_seq) values (?, ?, ?, ?, ?, 1, 1)`,
+    `insert into sessions (id, role, project, app, place_kind, place_id,
+       created_seq, state_seq) values (?, ?, ?, ?, ?, ?, 1, 1)`,
   );
-  insert.run(sessionId(1), "lophn", null, null, null);
-  insert.run(sessionId(2), "project_manager", PRJ_A, "project", PRJ_A);
-  insert.run(sessionId(4), "project_manager", PRJ_C, "project", PRJ_C);
+  insert.run(sessionId(1), "lophn", null, null, null, null);
+  insert.run(sessionId(2), "project_manager", PRJ_A, null, "project", PRJ_A);
+  insert.run(sessionId(4), "project_manager", PRJ_C, null, "project", PRJ_C);
+  insert.run(sessionId(3), "app_engineer", null, APP, "app", APP);
   const snapshot = {
     as_of_seq: 1n,
     sql: {
@@ -93,6 +95,8 @@ Deno.test("lophn이 아닌 role은 자기 place 밖 project의 LOPHN.md를 읽�
       [2, undefined, "rules of A"],
       [2, PRJ_A, "rules of A"],
       [2, PRJ_B, "forbidden"],
+      [3, undefined, null], // 앱 그릇에는 LOPHN.md가 없다
+      [3, PRJ_A, "forbidden"],
       [1, PRJ_C, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
       [4, undefined, "rules of C"],
     ];

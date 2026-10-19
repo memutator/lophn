@@ -69,7 +69,11 @@ export function checkOperator(input: {
   const { context, place, id, definition, role } = input;
   const issues: AgentDefinitionIssue[] = [];
 
-  const text = serializeAgentFile(definition, role, context.roles);
+  const text = serializeAgentFile(
+    definition,
+    { role, place: place.kind },
+    context.roles,
+  );
   if (!text.ok) addAll(issues, issuesOfError(text.error));
 
   if (definition.name.trim() !== "") {
@@ -87,6 +91,6 @@ export function checkBuiltin(
   role: Role,
   definition: BuiltinDefinition,
 ): Result<string> {
-  const text = serializeAgentFile(definition, role, roles);
+  const text = serializeAgentFile(definition, { role, place: null }, roles);
   return text.ok ? ok(text.value) : invalidInput(issuesOfError(text.error));
 }

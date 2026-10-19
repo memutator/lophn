@@ -411,7 +411,9 @@ function placeExists(
   sql: Pick<Tx["sql"], "get" | "all">,
   place: Place,
 ): boolean {
-  return places.projectExists(sql, place.id);
+  return place.kind === "project"
+    ? places.projectExists(sql, place.id)
+    : places.appExists(sql, place.id);
 }
 
 // agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
@@ -430,18 +432,24 @@ function agentLookups(
     placeExists: (place) => placeExists(places, sql, place),
     places: () => [
       ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
+      ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
     ],
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 project 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
+    // domain 층 skill은 아직 없어 domain은 모두 null이다.
     skills: (place) =>
-      place === null
+      (place === null
         ? globalSkillNames(sql, layers)
-        : registryOf()?.skills(place).entries ?? [],
+        : registryOf()?.skills(place).entries ?? []).map((entry) => ({
+          ...entry,
+          domain: null,
+        })),
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent grant가 정한다.
     mcp: () => [],
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
-    projectModel: (place) => place ? loadChoice(sql, place.id) : null,
+    projectModel: (place) =>
+      place?.kind === "project" ? loadChoice(sql, place.id) : null,
   };
 }
 

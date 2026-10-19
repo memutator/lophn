@@ -115,7 +115,9 @@ function targetKey(c: SentCall): string {
       ? ""
       : r.role === "operator"
       ? r.agent
-      : r.project;
+      : r.role === "project_manager"
+      ? r.project
+      : r.app;
     return `${r.role}#${id}`;
   }
   return `session#${to.session ?? ""}`;

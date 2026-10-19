@@ -31,7 +31,7 @@ function promptCommand(
 }
 
 // role 명령은 role마다의 목록 하나다. protocol의 ROLE_COMMAND_NAMES와 같아야 한다.
-// lophn은 New app · Repair app, Project Manager는 Check kinds, Operator는 빈 목록이다.
+// lophn은 New app · Repair app, Project Manager는 Check kinds, App Engineer와 Operator는 빈 목록이다.
 export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
   lophn: [
     promptCommand(
@@ -55,5 +55,6 @@ export const ROLE_COMMANDS: Record<Role, readonly CommandEntry[]> = {
       CHECK_KINDS_PROMPT,
     ),
   ],
+  app_engineer: [],
   operator: [],
 };

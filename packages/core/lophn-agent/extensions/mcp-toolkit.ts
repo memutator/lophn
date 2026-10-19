@@ -138,7 +138,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     const global = await registeredServers();
     if (!global.ok) return global;
     const layers = [{ servers: global.value, off: [] as readonly string[] }];
-    if (place !== null) {
+    if (place !== null && place.kind === "project") {
       const own = await readOf(deps.machine, projectExtensionSettingsRead, {
         project: place.id,
       });

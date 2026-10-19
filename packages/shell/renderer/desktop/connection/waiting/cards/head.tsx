@@ -15,6 +15,7 @@ const FACES = {
   lophn: "dock",
   operator: "search",
   project_manager: "roles",
+  app_engineer: "roles",
   coding_agent: "terminal",
 } as const;
 

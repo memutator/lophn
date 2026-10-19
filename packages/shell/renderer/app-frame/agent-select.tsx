@@ -14,6 +14,7 @@ import type { AgentListRow } from "../workspace/agents/source.ts";
 
 import styles from "./agent-select.module.css";
 
+// select는 lophn, Project Manager, Operator만 보인다.
 type AppSpaceAgentRole = AgentListRow["role"];
 
 /** select 항목 하나. */

@@ -215,7 +215,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           roleOperations(role, agentTools({ file: FILE_HOOKS })),
         // PM의 담당 앱은 turn마다 ledger에서 읽는다. 앱이 나중에 생겨도 다음 turn의 credential에 실린다.
         conditionsFor: (input) => {
-          const found = input.place
+          const found = input.place?.kind === "project"
             ? ledgerSnapshot(
               ctx.ledgerPath,
               (lookup) => appOfProject(lookup.sql, input.place!.id),

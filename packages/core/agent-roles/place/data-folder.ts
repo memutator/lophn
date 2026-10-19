@@ -7,9 +7,12 @@ export function projectsDataArea(root: string): string {
   return `${root}/projects`;
 }
 
-// project의 data 폴더.
+// place의 data 폴더. project는 `<data>/projects/<prj>`, 앱은 `<data>/apps/<app>`다.
 export function placeDataFolder(root: string, place: Place): string {
-  return `${projectsDataArea(root)}/${place.id}`;
+  const area = place.kind === "project"
+    ? projectsDataArea(root)
+    : `${root}/apps`;
+  return `${area}/${place.id}`;
 }
 
 // project의 artifact 파일이 놓이는 폴더. PM과 Operator가 file tool로 읽고 쓴다.

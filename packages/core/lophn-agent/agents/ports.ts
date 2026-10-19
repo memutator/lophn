@@ -28,7 +28,7 @@ export type ReadSql = Pick<Tx["sql"], "get" | "all">;
 // 다른 concern의 값을 읽는 길. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type AgentLookups = {
   placeExists(place: Place): boolean;
-  // 있는 project 전부. 목록과 Operator 찾기가 훑는다.
+  // 있는 project와 앱 전부. 목록과 Operator 찾기가 훑는다.
   places(): Place[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 project 층을 더한 것이고
   // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
@@ -36,14 +36,16 @@ export type AgentLookups = {
   mcp(place: Place | null): McpTool[];
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
-  // project place의 model. project 층이 없는 place(lophn)나 값이 없으면 null.
+  // project place의 model. project 층이 없는 place(앱, lophn)나 값이 없으면 null.
   projectModel(place: Place | null): ModelChoice | null;
 };
 
-// project 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.
+// project·앱 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.
 export type PlaceLookups = {
   projectExists(sql: ReadSql, id: string): boolean;
   projectIds(sql: ReadSql): string[];
+  appExists(sql: ReadSql, id: string): boolean;
+  appIds(sql: ReadSql): string[];
 };
 
 export type AgentDeps = {

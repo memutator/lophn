@@ -34,16 +34,18 @@ export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 const AGENT_KINDS = ["built_in", "operator"] as const;
 export const agentKindSchema = z.enum(AGENT_KINDS);
 
-// 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project 아래에 있다.
-export const agentPlaceSchema = z.strictObject({
-  kind: z.literal("project"),
-  id: idSchema("prj"),
-});
-export const agentPlaceOutputSchema = z.object({
-  kind: z.literal("project"),
-  id: idSchema("prj"),
-});
+// 정의와 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다: built-in도 파일은 project나 앱 아래에 있다.
+export const agentPlaceSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
+  z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
+]);
+export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("project"), id: idSchema("prj") }),
+  z.object({ kind: z.literal("app"), id: idSchema("app") }),
+]);
 export type AgentPlace = z.infer<typeof agentPlaceSchema>;
+
+// Project Manager는 project에서만, App Engineer는 앱에서만 부른다. lophn와 Operator는 두 곳 모두다.
 
 // Profile: design system의 icon 하나이거나 사람이 올린 이미지. icon id의 존재는 design system이 판정하고
 // 여기서는 모양만 본다. 이미지 이름은 `avatar.<ext>` 하나뿐이라 경로를 실을 수 없고 svg는 받지 않는다.
@@ -132,6 +134,10 @@ function mcpKey(entry: { server_name: string; original_tool?: string }) {
 const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
+// Operator가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
+const domainsSchema = z.array(z.string().min(1)).refine(unique, {
+  message: "duplicate domain",
+});
 const mcpOffListSchema = z.array(mcpOffSchema).refine(
   (entries) => unique(entries.map(mcpKey)),
   { message: "duplicate mcp entry" },
@@ -156,6 +162,7 @@ const frontmatterFields = {
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills: skillsSchema.optional(),
+  domains: domainsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   safe_tools: mcpToolListSchema.optional(),
   permissions: agentPermissionsSchema.optional(),
@@ -165,6 +172,7 @@ const frontmatterOutputFields = {
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills: skillsSchema.optional(),
+  domains: domainsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   safe_tools: mcpToolListOutputSchema.optional(),
   permissions: agentPermissionsOutputSchema.optional(),
@@ -206,5 +214,6 @@ export type AgentCounts = z.infer<typeof agentCountsSchema>;
 export const BUILTIN_ROLE_NAMES: Record<Role, string> = {
   lophn: "lophn",
   project_manager: "Project Manager",
+  app_engineer: "App Engineer",
   operator: "Operator",
 };

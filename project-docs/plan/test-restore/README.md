@@ -8,7 +8,13 @@
   - `project-docs/architecture/eval.md`, `.claude/skills/eval-run/SKILL.md`
   - 새 설계: `project-docs/architecture/domain.md`, `kinds.md`, `app-call.md`, `artifact.md`, `activation.md`, `place-session.md`, `agent-definition.md`, `coding-agent.md`
   - 이슈: `project-docs/issues/eval.md`(다섯), `project-docs/issues/agent-call.md`("e2e의 Project Manager 줄…")
-  - 지금 e2e 결과: planner가 계획을 열 때 돌린 `deno task e2e` 결과. brief 1단계 worker에게 log path를 준다.
+  - 지금 e2e 결과(2026-10-20, main `4023cec4d`): 29 file 가운데 26 file이 통과했다. 9분 19초 걸렸다.
+    - 떨어진 셋(5 step)은 모두 agent가 받는 앱 tool 쪽이다. domain 단위 공개 tool 거르기와 Operator domain 좁히기가 들어온 뒤로 보인다.
+      - `app-call_test.ts`: agent가 앱을 부른 기록이 0이다. allow-session-scope 둘은 권한 요청이 오지 않는다.
+      - `app-data-rewind_test.ts`
+      - `operator_test.ts`: tool 목록에 `add_item`·`list_items`가 없다.
+    - 새 설계대로 숨겨진 것이면 test를 새 설계로 다시 쓴다. 제품 bug면 bug를 고친다. 이 구분이 첫 일이다.
+    - log: `.dev-data/plan-test-restore/e2e-run.log`(main checkout, git 밖)
 - **범위 밖:**
   - 진짜 model을 부르는 eval run(baseline 다시 재기). 사람이 정할 때 eval-run skill로 돈다.
   - live test(`tests/live`)
@@ -26,7 +32,7 @@
   - Operator를 domain으로 좁히면 agent runtime child가 받는 prompt와 tool 목록에 그 domain 것만 있다.
   - coding agent가 coding token으로 core MCP endpoint를 불러 자기 앱 preview의 tool을 부른다. live로는 가지 않는다.
   - kind 파일 위반이 kinds worker process를 거쳐 domain problem으로 오른다.
-- **시간 예산:** 전체 e2e는 10분 안이다. 넘으면 harness로 내리거나 같은 준비를 쓰는 file로 묶는다(testing.md).
+- **시간 예산:** 전체 e2e는 10분 안이다. 지금 이미 9분 19초라 새 flow 셋을 그대로 더하면 넘는다. 새 flow는 이미 있는 file의 준비(앱 E2E 길 등)에 얹거나, 지금 file을 harness로 내리거나 묶어 자리를 만든다(testing.md).
 - **새 e2e와 다시 쓴 e2e는 10번 연속 통과한 뒤 merge한다.** flaky한 것은 꺼 두지 않고 고치거나 지운다. e2e가 제품 bug를 찾으면 test를 맞추지 않고 bug를 고친다.
 - **eval 자료:**
   - calendar-app, calendar-app-bug, notify-app, tax-kinds를 새 판(`2/`)으로 만든다. 옛 판(`1/`)은 지우지 않는다(eval material은 판이 불변이다). 새 판에서 바뀌는 것은 아래다.

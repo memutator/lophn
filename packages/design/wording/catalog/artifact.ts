@@ -1,6 +1,5 @@
 export const artifact = {
   "artifact.button.annotate": "Annotate",
-  "artifact.button.delete": "Delete artifact",
   "artifact.button.edit-source": "Edit source",
   "artifact.button.send-annotations": "Send to agent",
   "artifact.empty.missing":

@@ -1,12 +1,13 @@
 import type { Area } from "../types.ts";
 import { ChatLink } from "./artifact/chat-link.tsx";
 import { ArtifactScene } from "./artifact/scene.tsx";
+import { ArtifactSidebar } from "./artifact/sidebar.tsx";
 
 export const artifactArea: Area = {
   id: "artifact",
   title: "Artifact",
   summary:
-    "agent가 쓴 HTML을 pane의 탭으로 보는 artifact 탭, annotate, 폴더가 없을 때, 대화 글의 artifact link.",
+    "agent가 쓴 HTML을 pane의 탭으로 보는 artifact 탭, annotate, 폴더가 없을 때, 대화 글의 artifact link, project sidebar의 Artifacts 탭.",
   pages: [
     {
       id: "artifact-tab",
@@ -42,6 +43,20 @@ export const artifactArea: Area = {
       description:
         "대화 글 안에서 그 project의 artifact path가 link로 그려진 모양이다. 앞에 종류 아이콘이 붙고 hover하면 제목, 설명, 누르면 하는 일이 뜬다. 목록에 없는 path는 link가 아닌 글 그대로다.",
       render: () => <ChatLink />,
+    },
+    {
+      id: "artifact-sidebar-list",
+      title: "Artifact · sidebar list",
+      description:
+        "project sidebar의 Artifacts 탭에 artifact가 있을 때의 목록이다. 탭은 Explorer, Agent, Artifacts 순으로 Artifacts가 세 번째이고, 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이다. 줄을 누르면 그 artifact가 탭으로 열린다.",
+      render: () => <ArtifactSidebar />,
+    },
+    {
+      id: "artifact-sidebar-empty",
+      title: "Artifact · sidebar empty",
+      description:
+        "artifact가 하나도 없을 때의 Artifacts 탭이다. 본문에는 단추 없이 안내 한 문장만 있다.",
+      render: () => <ArtifactSidebar empty />,
     },
   ],
 };

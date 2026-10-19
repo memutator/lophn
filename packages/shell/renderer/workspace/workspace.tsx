@@ -54,6 +54,7 @@ import {
   type WorkspaceView,
 } from "./model.ts";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
+import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/rail.tsx";
 import {
@@ -91,6 +92,7 @@ import type { TabHost } from "./kinds/host.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
+import { openArtifact } from "./kinds/artifact.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
@@ -1113,6 +1115,12 @@ export function Workspace(props: WorkspaceProps) {
                   projectId,
                   knownSessions,
                 )}
+                artifactPanel={
+                  <ArtifactPanel
+                    project={projectId}
+                    onOpen={(name) => openArtifact(host, projectId, name)}
+                  />
+                }
                 current={currentTab?.kind === "document_editor"
                   ? currentTab.key
                   : null}

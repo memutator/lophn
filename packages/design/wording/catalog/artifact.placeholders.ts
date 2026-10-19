@@ -3,7 +3,6 @@ import type { artifact } from "./artifact.ts";
 
 export type ArtifactPlaceholders = {
   "artifact.button.annotate": Record<never, never>;
-  "artifact.button.delete": Record<never, never>;
   "artifact.button.edit-source": Record<never, never>;
   "artifact.button.send-annotations": Record<never, never>;
   "artifact.empty.missing": {

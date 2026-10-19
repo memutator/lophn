@@ -1,7 +1,8 @@
-// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 밑줄 글자 탭 Explorer / Agent
+// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 밑줄 글자 탭 Explorer / Agent / Artifacts
 // 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다.
 import {
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useState,
 } from "react";
@@ -20,14 +21,14 @@ import type { SidebarAgent } from "./sidebar-agent.ts";
 import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
 import styles from "./project-sidebar.module.css";
 
-export type SidebarTab = "explorer" | "agent";
+export type SidebarTab = "explorer" | "agent" | "artifact";
 
 export interface Reveal {
   readonly path: string;
   readonly nonce: number;
 }
 
-const TABS: readonly SidebarTab[] = ["explorer", "agent"];
+const TABS: readonly SidebarTab[] = ["explorer", "agent", "artifact"];
 
 interface ProjectSidebarProps {
   mode: "open" | "collapsed";
@@ -38,6 +39,8 @@ interface ProjectSidebarProps {
   /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값). */
   agents: readonly SidebarAgent[];
   sessions: readonly PanelSession[];
+  /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
+  artifactPanel?: ReactNode;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
@@ -71,6 +74,7 @@ export function ProjectSidebar(
     source,
     agents,
     sessions,
+    artifactPanel = null,
     current = null,
     initialTab = "explorer",
     reveal = null,
@@ -179,6 +183,7 @@ export function ProjectSidebar(
                 />
               )
               : null}
+            {tab === "artifact" ? artifactPanel : null}
           </div>
         </>
       )}

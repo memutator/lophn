@@ -76,7 +76,7 @@ async function observeFailure(
   probe: Probe,
   around?: Around,
 ): Promise<CheckOutcome> {
-  // 끄지 않으면 새 problem마다 진짜 Project Manager session이 열린다.
+  // 끄지 않으면 새 problem마다 진짜 App Engineer session이 열린다.
   await core.call(settingsUpdate, {
     changes: [{
       key: "reactions.problem_opened",

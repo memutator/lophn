@@ -16,26 +16,23 @@ import { nextWeekTuesdays } from "./dates.ts";
 import { APP, OPERATOR } from "./spec.ts";
 
 export const LOPHN: Participant = { role: "lophn" };
-// 캘린더 앱은 `<slug>-project` project에 묶인다(calendar-app·calendar-call 같은 앱 재료가 만든다).
-const PROJECT = "calendar-project";
-export const PM: Participant = {
-  role: "project_manager",
-  place: { project: PROJECT },
-};
+// 앱의 일(ticket, coding agent에게 맡기기, problem 읽기)은 앱 그릇의 App Engineer가 한다.
+export const AE: Participant = { role: "app_engineer", place: { app: APP } };
 export const CODING = codingAgent(APP);
 export const OP: Participant = {
   role: "operator",
   name: OPERATOR,
-  place: { project: PROJECT },
+  place: { app: APP },
 };
 
-// calendar-app@1에는 Operator가 없으므로 setup에서 제품 route로 만든다. model은 runner가 붙인다.
+// calendar-app@2에는 Operator가 없으므로 setup에서 제품 route로 만든다. model은 runner가 붙인다.
+// Operator가 앱 그릇에 놓여 그 앱의 domain을 맡으므로 비공개 tool도 받는다.
 export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
   const id = ctx.core.ids.newId("agt") as Id<"agt">;
   const app = ctx.world.apps[APP]!;
   await ctx.core.call(operatorCreate, {
     id,
-    place: { kind: "project", id: ctx.world.projects[PROJECT]! },
+    place: { kind: "app", id: app },
     definition: {
       name: OPERATOR,
       body: `${APP} 앱의 tool로 일정을 넣고 보여 준다.`,
@@ -48,14 +45,14 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
   ctx.world.operators[OPERATOR] = id;
 }
 
-// calendar-mvp와 calendar-maintain: Project Manager가 ticket을 만들고 verify했다.
-export function pmTicketChecks(): ProgramCheck[] {
+// calendar-mvp와 calendar-maintain: App Engineer가 ticket을 만들고 verify했다.
+export function aeTicketChecks(): ProgramCheck[] {
   return [
-    toolCount("pm-ticket-created", {
+    toolCount("ae-ticket-created", {
       tool: "ticket.create",
       count: { min: 1 },
     }),
-    toolCount("pm-ticket-verified", {
+    toolCount("ae-ticket-verified", {
       tool: "ticket.verify",
       count: { min: 1 },
       success: true,

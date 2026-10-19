@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import type { SentCall, TrialRecord } from "../../types.ts";
-import { pmCallsOnlyToCodingAgent } from "./calls.ts";
+import { aeCallsOnlyToCodingAgent } from "./calls.ts";
 
 function sent(over: Partial<SentCall>): SentCall {
   return {
@@ -23,13 +23,13 @@ function sent(over: Partial<SentCall>): SentCall {
 
 function trialOf(calls: SentCall[]): TrialRecord {
   return {
-    sessions: [{ agent: { role: "project_manager" }, sent_calls: calls }],
+    sessions: [{ agent: { role: "app_engineer" }, sent_calls: calls }],
     coding: [{ session: "ses_coding" }],
   } as unknown as TrialRecord;
 }
 
 function pass(calls: SentCall[]): boolean {
-  const check = pmCallsOnlyToCodingAgent("x");
+  const check = aeCallsOnlyToCodingAgent("x");
   const r = check.run({ trial: trialOf(calls) } as never) as { pass: boolean };
   return r.pass;
 }
@@ -49,14 +49,14 @@ Deno.test("실패한 role+place call 뒤에 열린 coding session으로 간 답�
   );
 });
 
-Deno.test("lophn이나 다른 Project Manager에게 간 call은 떨어진다", () => {
+Deno.test("lophn이나 다른 App Engineer에게 간 call은 떨어진다", () => {
   const coding = sent({ to: { session: "ses_coding" } });
   assertEquals(pass([coding, sent({ to: { role: "lophn" } })]), false);
   assertEquals(pass([coding, sent({ to: { session: "ses_other" } })]), false);
   assertEquals(
     pass([
       coding,
-      sent({ to: { role: "project_manager", place: { project: "a" } } }),
+      sent({ to: { role: "app_engineer", place: { app: "a" } } }),
     ]),
     false,
   );

@@ -1,4 +1,4 @@
-// 진단 확인: problem을 읽고, ticket에 붙이고, 고친 뒤 다시 안 나나. 원인을 짚었나의 뜻은 judge `root-cause@2`이 본다.
+// 진단 확인: problem을 읽고, ticket에 붙이고, 고친 뒤 다시 안 나나. 원인을 짚었나의 뜻은 judge `root-cause@3`이 본다.
 import {
   type App,
   appGet,

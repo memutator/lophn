@@ -4,7 +4,7 @@ import type { SetupContext } from "../types.ts";
 import { appProjectName, openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 앱은 project에 묶이지 않는다. 앱 옆에 사람이 둔 보통 project를 `<slug>-project` 이름으로 등록하고 world에 남긴다. 다른 시나리오가 이 이름으로 그 Project Manager를 가리킨다.
+// 앱은 project에 묶이지 않는다. 앱 옆에 사람이 둔 보통 project를 `<slug>-project` 이름으로 등록하고 world에 남긴다. project-manager 시나리오와 operators-home의 월말정리 place가 이 이름으로 그 project를 가리킨다.
 export async function restoreAppProject(
   ctx: SetupContext,
   slug: string,

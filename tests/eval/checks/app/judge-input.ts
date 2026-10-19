@@ -87,15 +87,15 @@ export function cardCoveredInput(
   };
 }
 
-// request가 없으면 Project Manager가 받은 첫 call의 본문이다. `say`로 요청이 간 시나리오는 request를 넘긴다.
+// request가 없으면 App Engineer가 받은 첫 call의 본문이다. `say`로 요청이 간 시나리오는 request를 넘긴다.
 export function askedAgainInput(
-  pm: Participant,
+  ae: Participant,
   request?: string,
 ): (input: CheckInput) => string {
   return ({ trial }) => {
     const text = request ??
       sentCalls(trial, {
-        target: pm,
+        target: ae,
       })[0]?.body ?? "(no request)";
     const questions = toolCallsOf(trial, "ask").flatMap((c) =>
       (c.input as { questions?: AskInput["questions"] } | null)?.questions ??

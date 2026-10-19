@@ -17,9 +17,9 @@ export {
   diagnosisChecks,
 } from "./diagnose.ts";
 export {
+  aeCallsOnlyToCodingAgent,
   appToolCalled,
   appToolOrder,
-  pmCallsOnlyToCodingAgent,
   readProblem,
 } from "./calls.ts";
 export {

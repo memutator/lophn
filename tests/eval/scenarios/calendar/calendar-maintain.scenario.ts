@@ -1,20 +1,20 @@
 // 출처: roadmap eval "캘린더 단위". 일정 data가 든 켜진 앱에 기능(반복 일정)을 더해도 옛 data와 tool이 남는지 본다.
 import {
   addCodingCall,
+  aeCallsOnlyToCodingAgent,
   apiAnswers,
   appActive,
   askedAgainInput,
   cardCoveredInput,
-  pmCallsOnlyToCodingAgent,
   releaseAdvanced,
 } from "../../checks/app/mod.ts";
 import { fixtureSession, fixtureTrial } from "../../checks/mod.ts";
 import { activeApp, say, type Scenario, untilIdle } from "../../types.ts";
 import {
+  AE,
+  aeTicketChecks,
   CODING,
   LOPHN,
-  PM,
-  pmTicketChecks,
   ticketCreate,
   ticketVerify,
 } from "./common.ts";
@@ -29,21 +29,21 @@ import {
 } from "./spec.ts";
 
 const goal = "event.add에 repeat 입력을 더해 weekly이면 4번 나타나게 한다";
-const pmSession = (steps: Parameters<typeof fixtureSession>[1]) =>
-  addCodingCall(fixtureSession(PM, steps), APP, goal);
+const aeSession = (steps: Parameters<typeof fixtureSession>[1]) =>
+  addCodingCall(fixtureSession(AE, steps), APP, goal);
 
 const scenario: Scenario = {
   id: "calendar-maintain",
-  n: 2,
+  n: 3,
   proposal: false,
-  world: ["calendar-app@1", "calendar-data@1"],
-  real: [PM, CODING],
+  world: ["calendar-app@2", "calendar-data@2"],
+  real: [AE, CODING],
   human: { card: CARD_MAINTAIN, approve: { activation: "allow" } },
-  steps: [say(PM, SAY_MAINTAIN), untilIdle()],
+  steps: [say(AE, SAY_MAINTAIN), untilIdle()],
   save: { "calendar-app": activeApp(APP) },
   checks: [
-    ...pmTicketChecks(),
-    pmCallsOnlyToCodingAgent("pm-calls-coding-only"),
+    ...aeTicketChecks(),
+    aeCallsOnlyToCodingAgent("ae-calls-coding-only"),
     appActive("app-active", { app: APP }),
     releaseAdvanced("release-advanced", {
       app: APP,
@@ -57,37 +57,37 @@ const scenario: Scenario = {
       kind: "judge",
       id: "card-covered",
       premise: ["release-advanced"],
-      criterion: "card-covered@2",
+      criterion: "card-covered@3",
       input: cardCoveredInput(CARD_MAINTAIN, APP),
     },
     {
       kind: "judge",
       id: "asked-again",
-      premise: ["pm-ticket-created"],
-      criterion: "asked-again@2",
-      input: askedAgainInput(PM, SAY_MAINTAIN),
+      premise: ["ae-ticket-created"],
+      criterion: "asked-again@3",
+      input: askedAgainInput(AE, SAY_MAINTAIN),
     },
   ],
   fixtures: {
-    right: [fixtureTrial([pmSession([ticketCreate(goal), ticketVerify()])])],
+    right: [fixtureTrial([aeSession([ticketCreate(goal), ticketVerify()])])],
     wrong: [
       {
-        trial: fixtureTrial([pmSession([])]),
-        fails: ["pm-ticket-created", "pm-ticket-verified"],
+        trial: fixtureTrial([aeSession([])]),
+        fails: ["ae-ticket-created", "ae-ticket-verified"],
       },
       {
-        trial: fixtureTrial([pmSession([ticketCreate(goal)])]),
-        fails: ["pm-ticket-verified"],
+        trial: fixtureTrial([aeSession([ticketCreate(goal)])]),
+        fails: ["ae-ticket-verified"],
       },
       {
         trial: fixtureTrial([
-          fixtureSession(PM, [
+          fixtureSession(AE, [
             ticketCreate(goal),
             ticketVerify(),
             { call: { to: LOPHN, reply: "none", body: goal } },
           ]),
         ]),
-        fails: ["pm-calls-coding-only"],
+        fails: ["ae-calls-coding-only"],
       },
     ],
   },

@@ -81,7 +81,7 @@ export async function openProblem(
   return { problem: accepted.problem };
 }
 
-// ticket은 앱의 Project Manager만 만든다. fake 대본으로 그가 `ticket_create`를 부르게 한다.
+// ticket은 앱의 App Engineer만 만든다. fake 대본으로 그가 `ticket_create`를 부르게 한다.
 export async function openTicket(
   ctx: SetupContext,
   app: string,

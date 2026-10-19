@@ -56,7 +56,7 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 | `tests/eval/versions/` | hash 규칙(`hash.ts`), registry 읽기·쓰기(`registry.ts`), file을 component로 가르기(`files.ts`의 `classifyPath`, `TOOL_FILES`), 지금 checkout의 버전과 본 component(`components.ts`), 작성자가 n을 정하는 것의 hash(`authored.ts`), git 출처(`source.ts`) |
 | `tests/eval/registry/` | `<kind>/<name>.json`. n → hash, 글 component·criterion·judge는 내용도. commit한다 |
 | `tests/eval/materials/<이름>/<n>/` | `material.json`(kind, 고정 id, needs, parent, content_hash)과 `files/`. commit한다 |
-| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `context.ts`, `operators.ts`, `active-app.ts`, `app-data.ts`, `package.ts`, `call.ts`), call 본문 보내기(`deliver.ts`), 산출물을 새 재료로 쓰기(`save.ts`), setup helper(`setup.ts`) |
+| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `kinds.ts`, `operators.ts`, `active-app.ts`, `app-data.ts`, `package.ts`, `call.ts`), call 본문 보내기(`deliver.ts`), 산출물을 새 재료로 쓰기(`save.ts`), setup helper(`setup.ts`) |
 | `tests/eval/coding/driver/` | desktop shell의 터미널 몫. launch plan으로 PTY를 열고(shell의 `createCodingHost` 그대로), `lophn` wrapper(`wrapper.ts`), 보고 뒤 `/exit`와 끊기, folder trust 답하기(`trust.ts`), PTY 입력은 libc `write`로(Deno의 `node:fs`가 node-pty master fd를 몰라 EBADF), attach socket(`screen.ts`, `attach.ts`), hook·skill 설치 확인(`prepare.ts`) |
 | `tests/eval/coding/metrics/` | Claude Code session JSONL의 token·tool 오류(`jsonl.ts`), wrapper 기록의 명령(`commands.ts`), `CodingRecord` 합치기(`record.ts`) |
 | `tests/eval/human/` | 사람 역할. 질문을 답 대기 file로 두고 답 file을 읽어 `askAnswer`로 넣기(`pending.ts`, `answers.ts`, `role.ts`), 답하는 agent에게 줄 글(`show.ts`, `human.json`, `prompt.md`), 허락 규칙대로 결정하기(`approve.ts`), CLI(`main.ts`) |

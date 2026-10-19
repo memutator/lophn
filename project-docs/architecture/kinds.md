@@ -1,0 +1,62 @@
+# kinds
+
+project의 문서가 어떤 모양이어야 하는지는 kind 파일(`kinds.yaml`) 하나가 정한다. program은 그 파일로 문서를 읽어 item을 뽑고, 칸을 검사하고, index에 두고, 위반을 problem으로 올린다. agent는 내장 tool `kind.list`·`kind.check`로 조회하고 검사한다. 이 문서는 kind 파일의 자리와 바뀔 때의 검사, 문서를 읽는 pipeline, 위반이 problem이 되는 길, prompt에 실리는 kind 글을 정한다. 이 경계가 흐려지면 틀린 kind 파일이 쓰던 kind를 지우거나, 위반이 problem에 오르지 않거나, agent가 남의 project 파일을 쓴다.
+
+## 흐름
+
+```
+ PM: file.write ──▶ <data>/projects/<prj>/kinds.yaml (file 범위는 이 파일 하나, rewind된다)
+                         │
+ core watch (500ms 합침) ─┤  kinds.yaml 폴더(재귀 아님) + kind glob이 가리키는 project 폴더
+                         ▼
+ kinds dispatcher ── sync(force) ──▶ kinds worker (documents/kinds, 별도 process)
+   (project마다,                        │ kinds 파일 검사: yaml·schema·구조, 바뀌었을 때만 glob 겹침
+    2초 규칙,                            │   맞으면 그것을, 틀리면 앞의 맞던 것을 쓴다
+    도는 sync 합침)                      │ glob → 문서 → 값 읽기(md frontmatter, yaml·json map, path capture)
+        ▲                               │ 칸 검사 → item은 index, 위반은 목록
+        │ 답: status, 위반(200개까지),  ◀─┘ index: <data>/derived/kinds.sqlite
+        │     violations_hash
+        ▼
+  hash가 마지막으로 올린 값과 다르면 ── problem.sync_project (machine 자격) ──▶ project_problems
+                                          새로 열림·다시 열림이 있으면 KindViolationFound ──▶ PM session
+
+ kind.get / kind.list / kind.check (core memory route) ──▶ dispatcher: sync(2초 규칙) 뒤 worker에 묻기
+ kind.list·kind.check tool: project place에서만, 그 place의 project를 읽는다
+ prompt: PM·Operator에게 <lophn-kinds> 글, kind 파일이 바뀌면 kinds_changed notice
+```
+
+## 지키는 것
+
+- kind 파일은 project마다 하나이고 자리는 `<data>/projects/<prj>/kinds.yaml`이다(`kindsFilePath`, `packages/protocol/projects/kinds-file.ts`). release도 draft도 거치지 않는다. 파일이 없으면 그 project에는 kind가 없다.
+  - 판(draft, test, submit)이 하던 일은 검사와 되돌리기다. 검사는 바뀔 때 program이 하고, 되돌리기는 rewind가 한다.
+- kind 파일을 쓰는 것은 그 project의 Project Manager뿐이다. file 범위에 그 파일 하나를 file 항목으로 더한다(`placeScope`). Operator, lophn, App Engineer의 범위에는 없다.
+  - `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)는 file 항목이면 그 경로 하나만 연다. 아직 없는 파일도 부모 폴더가 있으면 연다. 같은 폴더에는 agent 정의(`agents/`)와 `extensions.json`이 있어 폴더째 열지 않는다.
+  - rewind 기록의 root는 그 파일의 부모 폴더다. rewind는 root를 쓰기 폴더 목록과 맞춰 보므로 `placeFoldersOf`가 file 항목을 부모 폴더로 바꿔 준다. 쓰기 허락은 file tool이 그 파일 하나로 좁힌다.
+  - agent runtime의 Deno 쓰기 권한은 project마다 `kinds.yaml` 하나다(`runtimeFoldersOf`). 파일 하나만 쓰기 허락이면 Deno는 이미 있는 부모 폴더의 `mkdir`도 거절하므로 `file.write`는 부모 폴더가 없을 때만 만든다.
+- 틀린 kind 파일은 앞의 맞던 kind를 지우지 않는다. yaml 문법이나 schema가 틀리면(`kinds_syntax`), 구조가 틀리면(`checkKindsStructure`), 바뀐 파일의 glob이 실제 파일 하나를 두 kind에 걸면(`glob_overlap`) `state: invalid`이고 마지막으로 맞던 kind를 계속 쓴다(`using: previous`). 앞의 것이 없으면 kind가 없다. 파일을 지우면 쓰던 kind도 버린다.
+  - 판정은 worker의 `applyKindsFile`(`packages/core/projects/kinds/check/kinds-file.ts`) 하나다. 맞던 kind 파일 글은 index에 둔다. index는 파생이라 지워지면 "앞의 맞던 것"만 잃는다.
+  - glob 겹침이 kind 파일 오류인 것은 kind 파일이 바뀔 때뿐이다. 그 뒤 새 문서 때문에 생긴 겹침은 그 문서의 `overlap` 위반이다. 문서 하나 때문에 쓰던 kind 파일이 통째로 무효가 되면 안 된다.
+- 문서 위반은 아무것도 막지 않는다. 읽지 못한 문서(`unreadable`)와 type이 틀린 문서(`type`)는 index에서 빠지고 `skipped`로 센다. 필수·허용 값·pattern·unique·ref 위반 문서는 값이 있으므로 item으로 남는다. 두 kind에 걸린 문서(`overlap`)는 어느 kind의 item도 아니다. key 칸은 kind 안에서 유일해야 한다(`unique` 위반).
+  - `kind.list`는 `skipped`를 늘 돌려준다. 빠진 것을 모르면 agent가 결과를 전부로 믿는다.
+- 위반 message에는 문서의 값을 싣지 않는다. 칸 이름, 기대 type, 규칙만 쓴다. 문서 내용이 problem 목록과 tool 결과로 퍼지지 않게 한다.
+- kinds worker는 lophn DB를 열지 않고 core에 닿지 않는다. 읽기는 project 폴더, kind 파일, 자기 index뿐이고 쓰기는 index뿐이다. network, env, subprocess는 없다(`packages/core/projects/kinds/host/process.ts`). 요청의 `kinds_file`이 그 project의 정해진 자리가 아니면 거절한다.
+- scan은 `sync`만 한다. `get`·`list`·`check`는 index를 있는 그대로 읽는다. dispatcher가 읽기 앞에 늘 sync를 보내므로 읽기는 최대 2초 묵은 것이다.
+  - 위반을 problem으로 올리는 길은 sync 답 하나다. 읽기가 scan하면 그 결과가 dispatcher를 거치지 않아 위반이 오르지 않는다.
+  - 직전 scan 뒤 2초 안이면 다시 훑지 않는다. 감시의 신호는 `force`로 이 규칙을 건너뛴다. 감시는 힌트일 뿐이라 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
+- 위반은 project 범위 problem(`project_problems`, `packages/core/problems/project/`)이다. `problem.sync_project`는 그 project의 지금 위반 **전체**를 받아 처음 보이는 것은 열고, 닫혔다 다시 보이는 것은 다시 열고, 안 보이는 열린 것은 닫는다. 목록이 200개에서 잘렸으면(`truncated`) 닫지 않는다.
+  - 같은 위반의 정체성은 `(source, kind, path, field, rule)`이고 JSON 배열 글로 저장한다. NUL로 이으면 node:sqlite가 읽을 때 잘라 저장된 행과 다시 맞지 않는다.
+  - 이 command는 kinds dispatch의 machine 자격(`KINDS_DISPATCH_PRINCIPAL`)만 낸다. dispatcher는 위반 hash가 마지막으로 올린 값과 다를 때만 내고, 실패하면 기억하지 않아 다음 sync가 다시 낸다. core를 다시 켠 뒤 첫 sync는 늘 낸다.
+  - 새로 열렸거나 다시 열린 위반이 있을 때만 `KindViolationFound {project, count}`를 한 번 낸다. 기본 reaction이 그 project의 PM session을 연다. 위반이 줄거나 사라지는 것은 event가 아니다.
+  - PM은 `problem.list`에 `project`를 주어 그 기록을 읽고, `kind.check`로 지금 상태를 검사한다.
+- `kind.get`·`kind.list`·`kind.check`는 core memory route다(`packages/core/projects/kinds/host/handlers.ts`). handler는 project 범위를 판정하지 않는다. tool이 자기 place의 project만 부른다. project place가 아닌 곳에서는 tool이 core를 부르지 않고 `invalid_input`으로 답한다.
+- prompt의 kind 글(`<lophn-kinds>`)은 project place의 PM과 Operator에게 싣는다. Operator는 그 project의 kind를 모두 받는다. kind 이름, 한 줄, glob, key, 칸 이름과 type(enum 값, ref 대상, required, list)을 이름 순으로 결정적으로 조립한다. 예산을 넘으면 `full` → `names` → `count`다. kind 파일이 틀려 앞의 것을 쓰면 그 사실을 한 줄 덧붙인다.
+  - 바뀜은 쓰고 있는 kind 파일의 hash(`applied_hash`)로 본다. 다르면 `kinds_changed` notice와 새 글을 붙인다.
+  - PM의 place 정보에는 파일이 아직 없어도 `Kinds file: <path>` 줄이 있다. PM이 처음 쓸 자리다.
+
+## 왜 이 모양인가
+
+- **판을 두지 않는다.** context는 draft·test·submit 판과 bundle을 두었다. 그 일은 바뀔 때의 검사와 rewind로 충분하다. 문서만 있는 project를 코드 release 장치에 묶지 않는다(AGENTS.md "속도").
+- **문서 위반이 막지 않는다.** 문서는 사람의 것이다. 막으면 schema를 바꿀 때마다 일이 멈춘다. 위반은 problem으로 올리고, schema와 문서 가운데 무엇을 고칠지는 PM이 판단한다.
+- **검사는 별도 process가 한다.** 사람의 파일을 파싱하는 일을 core 밖 sandbox에 둔다. core는 감시와 dispatcher, problem 쪽 command만 맡는다. core domain끼리 import하지 않으므로(`project-docs/architecture/layers.md`) 위반은 worker 답으로 실어 오고 problem 쪽에는 route 이름으로 command를 낸다.
+- **조회는 부를 때 짠다.** context는 PM이 search를 미리 선언했다. 이제 agent가 prompt의 kind 글을 보고 `kind.list`의 조건, 정렬, 집계를 부를 때 준다. 조건 schema는 세 층(묶음, 묶음, leaf)까지만 풀어 쓴다. tool 입력이 `z.toJSONSchema`로 model에 가는데 재귀는 `$ref`가 되고, 층마다 크기가 곱으로 늘기 때문이다.
+- **앱 problem 표와 합치지 않았다.** 앱 problem은 report·occurrence·snapshot·release에 묶여 있다. project 위반을 거기 끼우면 무겁다. id 접두(`prb`)만 같다. 한 목록으로 합칠지는 `domain-rename` 뒤에 본다.

@@ -7,12 +7,12 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 ```
  run-loop: turn 시작 때 한 번 읽어 그 turn의 판을 고정한다
    agents ─────── role(고정) + place + 설정 층 ─▶ resolved agent
-   agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 보이는 context,
+   agent-roles ── 제품 고정 규칙 + role 지침(built-in), role별 tool 이름 목록, place 글과 kind 글,
                   role 표(built-in 이름·기본 profile·정의 file 자리), 설정 층의 project 자리, 내장 skill
    agent-tools ── 조립이 넘긴 tool 정의(범용·domain·role 층) 중 role 목록에 든 것 + grant가 붙인 tool(app-api, 외부 MCP)
    지침 파일 ──── 전역 · project LOPHN.md · agent 지침
    skill ──────── 내장 · 전역 · project
-   place 정보 ─── 같은 place의 agent, context 글, 앱·project 목록 (잘 안 바뀌는 것만)
+   place 정보 ─── 같은 place의 agent, kind 글, 앱·project 목록 (잘 안 바뀌는 것만)
         │
         ▼  assemble (순수 함수. I/O 없음)
    system  1 제품 고정 규칙 + role 지침   ← cache 경계
@@ -69,7 +69,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **skill은 목록(이름과 설명)만 prompt에 넣고 본문은 tool로 읽는다.** 꺼진 skill은 목록에서 빼고 읽기도 막는다. 도는 turn은 시작 때 읽은 판을 쓴다.
 - **사람이 composer에 붙인 것(context, 파일, 위반)은 이름과 한 줄만 싣는다.** 상세는 agent가 tool로 읽는다. 사람이 붙인 글 전체가 prompt를 부풀리거나 지시로 읽히지 않게 한다.
 - **place 정보에는 잘 안 바뀌는 목록만 넣는다.** 열린 session 목록과 앱 화면 상태는 넣지 않는다. 화면에서 본 것은 annotation이나 메시지로만 들어온다.
-- **context 글은 program이 적용된 판에서 결정적으로 조립한다.** 계약 원문(자료 위치, rule, script)은 넣지 않는다. 같은 판이면 같은 글이다.
+- **kind 글은 program이 쓰고 있는 kind 파일에서 결정적으로 조립한다.** kind 이름, 한 줄, glob, key, 칸 이름과 type만 싣는다. 같은 kind 파일이면 같은 글이고, 바뀜은 그 파일의 hash로 본다(`project-docs/architecture/kinds.md`).
 - **사람에게 묻는 중 사람이 그 session에 메시지를 보내면 기다림을 끝내고 그 메시지를 tool 결과로 넘긴다.** 그것이 답인지는 LLM이 읽는다. harness가 뜻을 가리지 않는다.
 
 ## 왜 이 모양인가
@@ -86,4 +86,4 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **model catalog는 OpenCode 꼴이다.** OpenCode와 Codex는 catalog snapshot을 넣고 실행 때 받는다. 손으로 쓴 목록은 새 model이 나와도 판을 올리기 전에는 쓸 수 없다. models.dev 항목의 `limit.input`이 없으면 context 한도를 입력 한계로 두고, 출력 예약은 입력 예산이 따로 뺀다.
 - **오래된 이미지만 빼고 기록은 그대로 둔다.** tool 호출 기록과 그 출력 blob에는 이미지 base64가 남는다. 기록에서 빼는 길은 model call이 막히지 않으니 실제로 막힐 때 한다.
 - **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.
-- **active context는 project place만 읽는다.** project place의 PM과 Operator가 그 project의 active context를 받는다. App Engineer가 앱을 app-data source로 읽는 context를 받는 길은 쓰는 곳이 없어 지웠다.
+- **kind 글은 project place만 받는다.** project place의 PM과 Operator가 그 project의 kind를 모두 받는다. Operator가 kind를 골라 받던 정의 칸(`contexts`)은 두지 않는다. 일을 좁히는 것은 skill이다.

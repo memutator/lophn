@@ -48,11 +48,11 @@ lophn의 agent는 place(project 또는 앱)에 놓이고, 그 agent와 하는 �
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 범위는 place가 정한다: Project Manager는 그 project 폴더와 열어 둔 초안 폴더, App Engineer는 앱 source 폴더, project의 Operator는 그 폴더를 읽고 쓴다. 앱 place의 Operator는 앱 source 폴더를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
+- file tool의 범위는 place가 정한다: Project Manager는 그 project 폴더와 kind 파일(`kinds.yaml`) 하나, App Engineer는 앱 source 폴더, project의 Operator는 그 폴더를 읽고 쓴다. 앱 place의 Operator는 앱 source 폴더를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
   - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
   - 이 표는 `packages/core/agent-roles/place/place-folders.ts`의 `placeScope` 하나다. turn의 file tool 범위, rewind의 쓰기 폴더, agent runtime process의 Deno 권한이 모두 이것으로 만든다. 목록이 둘이면 한쪽만 고쳐 어긋난다.
-  - Project Manager가 같은 turn에 초안 폴더를 열면 그 자리에서 그 turn의 범위에 더한다. 열고 바로 쓴다.
-  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더와 앱 source 폴더 전체의 합이다. session마다의 범위는 file tool이 지킨다. 초안 폴더는 turn 중에 열리므로 `<data root>/projects` 상위째 쓰기를 연다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
+  - kind 파일은 폴더가 아니라 파일 하나로 연다. 같은 폴더의 agent 정의와 `extensions.json`은 열지 않는다(`project-docs/architecture/kinds.md`).
+  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더와 앱 source 폴더 전체의 합이다. session마다의 범위는 file tool이 지킨다. kind 파일은 project마다 그 파일 하나만 쓰기를 연다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
 
 ## 왜 이 모양인가
 

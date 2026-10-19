@@ -11,7 +11,7 @@ import {
 // model 정책). IO가 없는 순수 함수다.
 
 // extensions의 skill 발견 결과에서 registry가 쓰는 칸만이다. `origin`은 skill을 찾은
-// 층(builtin, global, project)이고, `selected`는 agent 정의에서
+// 층(builtin, global, domain)이고, `selected`는 agent 정의에서
 // 끄지 않았는지다.
 export type RegistrySkill = {
   name: string;
@@ -101,10 +101,10 @@ function builtinCommands(): readonly CommandEntry[] {
   }));
 }
 
-// 이름 영문 사전순이고, 같은 이름은 마지막 층(project, global, builtin 순)이 앞이다. 같은 이름은
+// 이름 영문 사전순이고, 같은 이름은 마지막 층(domain, global, builtin 순)이 앞이다. 같은 이름은
 // 마지막 층 하나만 남는다.
 const ORIGIN_RANK: Record<SkillSource, number> = {
-  project: 0,
+  domain: 0,
   global: 1,
   builtin: 2,
 };

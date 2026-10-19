@@ -9,7 +9,7 @@ export interface SlashEntryView {
   readonly description: string;
   readonly source: "builtin" | "role" | "skill";
   /** 메뉴는 읽지 않는다. 같은 이름이면 마지막 층이 덮어 출처를 달지 않는다. 옛 source가 아직 채운다. */
-  readonly skillOrigin: "builtin" | "global" | "project" | null;
+  readonly skillOrigin: "builtin" | "global" | "domain" | null;
   /** 메뉴는 읽지 않는다. 일하는 중 고른 명령은 모두 다음 turn에 들어간다. 옛 source가 아직 채운다. */
   readonly whileRunning: "run" | "queue" | "blocked";
 }

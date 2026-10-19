@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { type AgentRef, ROLES } from "../../../protocol/lophn-agent/mod.ts";
 import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { parseAgentFile } from "./definition-file.ts";
-import { resolveAgent } from "./resolve.ts";
+import { type AvailableSkill, resolveAgent } from "./resolve.ts";
 
 // role 층이 정하는 값이다. resolve는 받은 그대로 담는다.
 const TOOLS = ["file.read", "ticket.list"];
@@ -56,6 +56,7 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
         default_profile: { kind: "icon", icon: "roles" },
         skills: [],
         mcp: [],
+        domains: [],
       },
       tools: TOOLS,
       roles: ROLE_TABLE,
@@ -63,4 +64,52 @@ Deno.test("정의 파일에 tool을 적어도 role이 고정한 tool 목록은 �
     assert(resolved.ok);
     assertEquals(resolved.value.tools, TOOLS);
   }
+});
+
+// 다른 domain의 skill이 섞이면 그 domain의 지식·절차가 이 agent의 일에 새어 들어온다.
+Deno.test("Operator가 domain 하나를 고르면 그 domain만 일하고 다른 domain의 skill은 받지 않는다", async () => {
+  const A = "dom_00000000000000000000000001";
+  const B = "dom_00000000000000000000000002";
+  const skills: AvailableSkill[] = [
+    { name: "built-in", can_disable: false, domain: null },
+    { name: "global", can_disable: true, domain: null },
+    { name: "in-a", can_disable: true, domain: A },
+    { name: "in-b", can_disable: true, domain: B },
+  ];
+  const resolve = async (
+    definition: { name: string; body: string; domains?: string[] },
+    container = [A, B],
+  ) => {
+    const resolved = await resolveAgent({
+      agent: REFS.operator,
+      place: PLACES.operator,
+      definition,
+      global_model: MODEL,
+      session_model: null,
+      environment: {
+        default_profile: { kind: "icon", icon: "roles" },
+        skills,
+        mcp: [],
+        domains: container,
+      },
+      tools: TOOLS,
+      roles: ROLE_TABLE,
+    });
+    assert(resolved.ok);
+    return resolved.value;
+  };
+
+  const one = await resolve({ name: "r", body: "x", domains: [B] });
+  assertEquals(one.domains, [B]);
+  assertEquals(one.skills, ["built-in", "global", "in-b"]);
+
+  // 고르지 않으면 그릇의 domain 전부다. 보관돼 그릇에서 빠진 domain은 고른 채여도 빠진다.
+  const all = await resolve({ name: "r", body: "x" });
+  assertEquals(all.domains, [A, B]);
+  assertEquals(all.skills, ["built-in", "global", "in-a", "in-b"]);
+  const archived = await resolve({ name: "r", body: "x", domains: [A, B] }, [
+    B,
+  ]);
+  assertEquals(archived.domains, [B]);
+  assertEquals(archived.skills, ["built-in", "global", "in-b"]);
 });

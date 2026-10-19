@@ -5,6 +5,7 @@ import type {
 import type { SkillSource } from "../../../protocol/lophn-agent/mod.ts";
 import {
   builtinForRole,
+  type DomainStore,
   folderSkipReason,
   joinPath,
   mergeSkillLayers,
@@ -30,20 +31,25 @@ export type SyncSkillFiles = {
   ): { text: string; complete: boolean } | null;
 };
 
-// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), project 폴더다. null은 그 출처가 없는 것이다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), domain 폴더들이다. null은 그 출처가 없는 것이다.
+// domain은 이름순으로 받고 앞서는 domain의 skill이 이긴다.
 export type SkillSources = {
   bundled: string | null;
   registered: readonly string[];
   personal: string | null;
-  project: string | null;
+  domains: readonly DomainStore[];
 };
 
+// domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.
 export type SkillListing = {
-  entries: readonly SkillRow[];
+  entries: readonly (SkillRow & { domain: string | null })[];
   skipped: readonly SkillSkipped[];
 };
 
-type Candidate = SkillCandidate & { description: string };
+type Candidate = SkillCandidate & {
+  description: string;
+  domain: string | null;
+};
 
 function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   try {
@@ -62,7 +68,11 @@ export function listSkillsSync(
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
 
-  const addBundle = (bundle: string, source: SkillSource): void => {
+  const addBundle = (
+    bundle: string,
+    source: SkillSource,
+    domain: string | null = null,
+  ): void => {
     const manifest = joinPath(bundle, SKILL_MANIFEST);
     const kind = attempt(() => files.kind(manifest));
     // 검사 실패와 manifest 없음은 조용히 건너뛴다: 꾸러미가 아닌 폴더이거나 보관소 오류다.
@@ -111,16 +121,18 @@ export function listSkillsSync(
       name: parsed.value.name,
       description: parsed.value.description,
       source,
+      domain,
       bundle_path: bundle,
     });
   };
 
   // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
-  // 개인·내장·project 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
+  // 개인·내장·domain 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
   const scanFolder = (
     container: string,
     source: SkillSource,
     reportMissing: boolean,
+    domain: string | null = null,
   ): void => {
     const folder = attempt(() => files.kind(container));
     if (folder.ok && folder.value === null && !reportMissing) return;
@@ -165,7 +177,7 @@ export function listSkillsSync(
         });
         continue;
       }
-      addBundle(bundle, source);
+      addBundle(bundle, source, domain);
     }
   };
 
@@ -176,7 +188,10 @@ export function listSkillsSync(
     scanFolder(root, "global", true);
   }
   if (sources.personal !== null) scanFolder(sources.personal, "global", false);
-  if (sources.project !== null) scanFolder(sources.project, "project", false);
+  // 마지막 층이 덮으므로 이름이 앞서는 domain을 나중에 둔다.
+  for (const store of [...sources.domains].reverse()) {
+    scanFolder(store.folder, "domain", false, store.domain);
+  }
 
   const visible = candidates.filter((candidate) =>
     candidate.source !== "builtin" ||
@@ -188,6 +203,7 @@ export function listSkillsSync(
     name: entry.name,
     description: entry.description,
     source: entry.source,
+    domain: entry.domain,
     enabled: entry.enabled,
     can_disable: entry.can_disable,
   }));

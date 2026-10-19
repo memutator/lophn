@@ -1,9 +1,10 @@
 import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Role } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import type { SkillReader } from "../tools/ports.ts";
 import {
   discoverSkills,
+  type DomainStore,
   joinPath,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
@@ -24,19 +25,21 @@ export type SkillSnapshotDeps = {
   personal_store: string | null;
   // 사람이 등록한 폴더(등록 순서)와 전역에서 끈 이름이다. turn마다 읽는다.
   global(): Promise<{ roots: readonly string[]; off: readonly string[] }>;
-  // project의 skill 폴더와 그 project에서 끈 이름이다. 파일이 없으면 끈 이름은 비어 있다.
-  project(
-    project: Id<"prj">,
-  ): Promise<{ store: string | null; off: readonly string[] }>;
+  // place 그릇의 domain skill 폴더들(domain 이름순)과 그 project에서 끈 이름이다. 파일이 없거나 앱이면 끈 이름은 비어 있다.
+  place(
+    place: AgentPlace,
+  ): Promise<{ domain_stores: readonly DomainStore[]; off: readonly string[] }>;
 };
 
 type SkillSession = {
   id: Id<"ses">;
   role: Role;
-  // project에 놓인 agent의 project다. lophn과 앱에 놓인 agent는 null이다(project 층이 없다).
-  project: Id<"prj"> | null;
+  // agent가 놓인 place다. lophn은 null이라 전역 층만 본다.
+  place: AgentPlace | null;
   // agent 정의가 고른 이름이다. 비면 고르지 않은 것이다.
   skills: readonly string[];
+  // agent가 일하는 domain id다. 없으면 place 그릇의 domain 전부다.
+  domains?: readonly string[];
 };
 
 type SkillSnapshot = {
@@ -53,24 +56,29 @@ export async function createSkillSnapshot(
   session: SkillSession,
 ): Promise<SkillSnapshot> {
   const global = await deps.global();
-  const project = session.project === null
-    ? { store: null, off: [] as readonly string[] }
-    : await deps.project(session.project);
+  const layer = session.place === null
+    ? {
+      domain_stores: [] as readonly DomainStore[],
+      off: [] as readonly string[],
+    }
+    : await deps.place(session.place);
   const found = await discoverSkills({
     port: deps.port,
     builtin_root: deps.builtin_root,
     registered_roots: global.roots,
     personal_store: deps.personal_store,
-    project_store: project.store,
+    domain_stores: layer.domain_stores,
     role: session.role,
-    off: [...new Set([...global.off, ...project.off])],
+    off: [...new Set([...global.off, ...layer.off])],
     max_file_bytes: SKILL_BODY_MAX_BYTES,
   });
-  // 고른 이름이 있으면 그 밖의 skill은 꺼진다. 끌 수 없는 내장 skill은 남는다.
+  // 일하는 domain 밖의 domain skill과, 고른 이름이 있으면 그 밖의 skill은 꺼진다. 끌 수 없는 내장 skill은 남는다.
+  const domains = session.domains ??
+    layer.domain_stores.map((store) => store.domain);
   const entries: readonly SkillEntry[] = found.ok
     ? found.value.entries.map((entry) => ({
       ...entry,
-      enabled: entry.enabled && skillReceived(entry, session.skills),
+      enabled: entry.enabled && skillReceived(entry, session.skills, domains),
     }))
     : [];
   const skipped = found.ok ? found.value.skipped : [];
@@ -177,7 +185,7 @@ export function turnSkillReader(
   session: {
     id: string;
     agent: { role: Role };
-    place: { kind: "project" | "app"; id: string } | null;
+    place: AgentPlace | null;
   },
   enabled: readonly string[],
 ): SkillReader {
@@ -193,9 +201,7 @@ export function turnSkillReader(
       snapshot ??= createSkillSnapshot(deps, {
         id: session.id as Id<"ses">,
         role: session.agent.role,
-        project: session.place?.kind === "project"
-          ? session.place.id as Id<"prj">
-          : null,
+        place: session.place,
         skills: [],
       });
       return (await snapshot).reader.read(id, name, path);

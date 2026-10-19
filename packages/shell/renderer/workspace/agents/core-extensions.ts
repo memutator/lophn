@@ -35,11 +35,14 @@ export async function readSkills(
     ok: true,
     value: result.value.skills.filter((skill) =>
       skill.source !== "builtin" || role === null ||
-      BUILTIN_SKILLS.find((one) => one.name === skill.name)?.role === role
+      (BUILTIN_SKILLS.find((one) => one.name === skill.name)?.roles as
+        | readonly Role[]
+        | undefined)?.includes(role)
     ).map((skill) => ({
       name: skill.name,
       detail: skill.description,
-      layer: skill.source,
+      // 화면의 층 이름은 아직 project뿐이라 domain 층도 그 이름으로 보인다.
+      layer: skill.source === "domain" ? "project" : skill.source,
       on: skill.enabled,
       builtIn: skill.source === "builtin",
     })),

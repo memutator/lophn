@@ -12,13 +12,14 @@ import {
   parseProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";
+import type { DomainStore } from "./skills.ts";
 import {
   listSkillsSync,
   type SkillSources,
   type SyncSkillFiles,
 } from "./skills-sync.ts";
 
-// `ReadSkills` handler다. 내장, 전역, (project를 주면) project 층을 합친 skill 목록과
+// `ReadSkills` handler다. 내장, 전역, (project를 주면) 그 project의 domain 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도
 // 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 role을 가리지
 // 않고 모두 낸다(어느 role의 것인지는 선언이 말한다).
@@ -26,10 +27,12 @@ import {
 // 다른 concern의 값을 읽는 길이다. 정본은 각 concern이고 여기서는 읽기만 한다.
 type SkillsReadLookups = {
   // 전역 층의 skill 출처다: 등록 폴더, 개인 보관소, 내장 폴더.
-  skillSources(): Omit<SkillSources, "project">;
+  skillSources(): Omit<SkillSources, "domains">;
   // 전역에서 끈 skill의 정확한 이름이다.
   skillsOff(): readonly string[];
   projectExists(project: string): boolean;
+  // 그 project 그릇의 active domain이다(이름순).
+  projectDomains(project: string): readonly { id: string; name: string }[];
 };
 
 type SkillsReadDeps = {
@@ -54,14 +57,20 @@ export function createSkillsRead(deps: SkillsReadDeps): {
       ): Result<Output<typeof skillsRead>> {
         const lookups = deps.lookups(snapshot.sql);
         let off = [...lookups.skillsOff()];
-        let project: string | null = null;
+        let domains: DomainStore[] = [];
         if (input.project !== undefined) {
           if (!lookups.projectExists(input.project)) {
             return err({ code: "not_found", message: "project not found" });
           }
           const root = dataRootOf(snapshot.sql, deps.dataRoot);
           if (!root.ok) return root;
-          project = deps.projectLayer.skillsFolder(root.value, input.project);
+          domains = lookups.projectDomains(input.project).map((domain) => ({
+            domain: domain.id,
+            folder: deps.projectLayer.domains.skillsFolder(
+              root.value,
+              domain.id,
+            ),
+          }));
           // 파일이 없거나 틀렸으면 이 project에서 끈 것이 없다. 틀린 파일은 설정을 읽는 쪽이 알린다.
           try {
             const text = deps.files.read(
@@ -82,7 +91,7 @@ export function createSkillsRead(deps: SkillsReadDeps): {
         try {
           listing = listSkillsSync(
             deps.skillFiles,
-            { ...lookups.skillSources(), project },
+            { ...lookups.skillSources(), domains },
             { role: null, off },
           );
         } catch {
@@ -92,7 +101,7 @@ export function createSkillsRead(deps: SkillsReadDeps): {
           });
         }
         return ok({
-          skills: [...listing.entries],
+          skills: listing.entries.map(({ domain: _domain, ...row }) => row),
           skills_off: off,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

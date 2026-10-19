@@ -9,6 +9,7 @@ import {
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
 import type { AgentRoleTable } from "./role-table.ts";
+import { workingDomains } from "./resolve.ts";
 import {
   type AgentFile,
   type AgentSlot,
@@ -58,6 +59,14 @@ export type Loaded = {
   definition: AgentFileDefinition | null;
   issues: AgentDefinitionIssue[];
 };
+
+// agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이다.
+export function domainsOf(context: AgentContext, loaded: Loaded): string[] {
+  const chosen = loaded.definition !== null && "domains" in loaded.definition
+    ? loaded.definition.domains ?? []
+    : [];
+  return workingDomains(context.lookups.domains(loaded.place), chosen);
+}
 
 // Operator는 ref에 place가 없어 place 폴더를 훑어 파일이 있는 곳을 찾는다.
 export function findOperator(

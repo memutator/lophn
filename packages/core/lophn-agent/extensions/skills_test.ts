@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Role } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 import { receivedSkills } from "../agents/resolve.ts";
 import { mergeSkillLayers, type SkillFilesPort } from "./skills.ts";
@@ -43,16 +43,17 @@ function treeOf(files: Record<string, string>) {
 }
 
 const SESSION = "ses_01" as Id<"ses">;
-const PROJECT = "prj_01" as Id<"prj">;
+const PLACE: AgentPlace = { kind: "project", id: "prj_01" };
+const DOMAIN = "dom_01";
 
 type Case = {
   name: string;
   role: Role;
   // 같은 이름의 사람 skill을 둔 층
-  human: ("global" | "project")[];
+  human: ("global" | "domain")[];
   off: { global?: boolean; project?: boolean; agent?: boolean };
   // 최종 kinds-yaml의 본문. null이면 목록에 없다.
-  expect: "BUILTIN" | "GLOBAL" | "PROJECT" | null;
+  expect: "BUILTIN" | "GLOBAL" | "DOMAIN" | null;
 };
 
 const CASES: Case[] = [
@@ -99,16 +100,16 @@ const CASES: Case[] = [
     expect: "BUILTIN",
   },
   {
-    name: "project human skill with the same name",
+    name: "domain human skill with the same name",
     role: "project_manager",
-    human: ["project"],
+    human: ["domain"],
     off: {},
     expect: "BUILTIN",
   },
   {
     name: "human skills and off at every layer",
     role: "project_manager",
-    human: ["global", "project"],
+    human: ["global", "domain"],
     off: { global: true, project: true, agent: true },
     expect: "BUILTIN",
   },
@@ -123,9 +124,9 @@ const CASES: Case[] = [
   {
     name: "other role keeps its own skill of that name",
     role: "operator",
-    human: ["project"],
+    human: ["domain"],
     off: {},
-    expect: "PROJECT",
+    expect: "DOMAIN",
   },
 ];
 
@@ -138,8 +139,8 @@ for (const one of CASES) {
     if (one.human.includes("global")) {
       files["/g/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "GLOBAL");
     }
-    if (one.human.includes("project")) {
-      files["/p/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "PROJECT");
+    if (one.human.includes("domain")) {
+      files["/p/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "DOMAIN");
     }
     const { port, sync } = treeOf(files);
     const globalOff = one.off.global ? ["kinds-yaml"] : [];
@@ -151,12 +152,16 @@ for (const one of CASES) {
       builtin_root: "/b",
       personal_store: null,
       global: () => Promise.resolve({ roots: ["/g"], off: globalOff }),
-      project: () => Promise.resolve({ store: "/p", off: projectOff }),
+      place: () =>
+        Promise.resolve({
+          domain_stores: [{ domain: DOMAIN, folder: "/p" }],
+          off: projectOff,
+        }),
     };
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       role: one.role,
-      project: PROJECT,
+      place: PLACE,
       skills: chosen,
     });
 
@@ -175,7 +180,7 @@ for (const one of CASES) {
       bundled: "/b",
       registered: ["/g"],
       personal: null,
-      project: "/p",
+      domains: [{ domain: DOMAIN, folder: "/p" }],
     }, { role: one.role, off: [...globalOff, ...projectOff] });
     assertEquals(
       rows.entries.find((row) => row.name === "kinds-yaml")?.enabled,
@@ -220,13 +225,13 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
     builtin_root: "/b",
     personal_store: null,
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-    project: () => Promise.resolve({ store: null, off: [] }),
+    place: () => Promise.resolve({ domain_stores: [], off: [] }),
   };
   const receivedOf = async (skills: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       role: "project_manager",
-      project: PROJECT,
+      place: PLACE,
       skills,
     });
     const code = async (name: string) => {
@@ -242,7 +247,7 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
     return {
       listed,
       // resolve가 받는 이름도 목록과 같다.
-      resolved: receivedSkills(available, skills),
+      resolved: receivedSkills(available, skills, []),
       b: await code("b"),
       builtin: await code("kinds-yaml"),
     };
@@ -259,4 +264,25 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
     b: "forbidden",
     builtin: "ok",
   });
+});
+
+Deno.test("the same skill name in two domains goes to the domain whose name comes first", () => {
+  const { sync } = treeOf({
+    "/a/shared/SKILL.md": skillFile("shared", "A"),
+    "/b/shared/SKILL.md": skillFile("shared", "B"),
+    "/b/only-b/SKILL.md": skillFile("only-b", "B"),
+  });
+  const listing = listSkillsSync(sync, {
+    bundled: null,
+    registered: [],
+    personal: null,
+    domains: [{ domain: "dom_a", folder: "/a" }, {
+      domain: "dom_b",
+      folder: "/b",
+    }],
+  }, { role: null, off: [] });
+  assertEquals(
+    listing.entries.map((entry) => [entry.name, entry.domain]),
+    [["only-b", "dom_b"], ["shared", "dom_a"]],
+  );
 });

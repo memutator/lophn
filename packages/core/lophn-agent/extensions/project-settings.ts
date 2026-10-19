@@ -27,11 +27,21 @@ import {
   type ReadSql,
 } from "./place-store.ts";
 
-// project 층 설정이다. skill 꾸러미는 project의 skill 폴더에, MCP 서버와 끈 이름은 설정 파일 한 파일에 둔다. 앱
+// project 층 설정이다. MCP 서버와 끈 skill 이름은 설정 파일 한 파일에 둔다(skill 꾸러미는 domain이 가진다). 앱
 // place에는 이 층이 없다. 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
+
+// domain 층 skill 폴더의 자리 규칙이다. skill은 project가 아니라 domain이 가진다.
+export type DomainSkillLayer = {
+  skillsFolder(root: string, domain: string): string;
+  // domain 폴더들이 든 폴더다.
+  folderArea(root: string): string;
+  // 그 폴더 안의 이름이 domain 폴더면 domain id, 아니면 null이다.
+  domainIdOfFolder(name: string): string | null;
+};
 
 // project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 role 층의 값을 넘긴다.
 export type ProjectLayer = {
+  domains: DomainSkillLayer;
   // place의 project id다. project 층이 없는 place(앱)는 null이다.
   projectOf(place: AgentPlace): string | null;
   skillsFolder(root: string, project: string): string;

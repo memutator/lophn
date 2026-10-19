@@ -11,9 +11,9 @@ export const skillNameSchema = z.string().max(64).regex(
 );
 export const SKILLS_OFF_MAX = 256;
 
-// skill의 층은 전역, project이고 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이 덮는다.
-// 내장 skill은 lophn이 가진다.
-export const SKILL_SOURCES = ["builtin", "global", "project"] as const;
+// skill의 층은 내장, 전역, domain이다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
+// 덮고, 같은 층의 domain끼리는 domain 이름이 앞서는 쪽이 이긴다.
+export const SKILL_SOURCES = ["builtin", "global", "domain"] as const;
 const skillSourceSchema = z.enum(SKILL_SOURCES);
 export type SkillSource = z.infer<typeof skillSourceSchema>;
 
@@ -21,10 +21,10 @@ export type SkillSource = z.infer<typeof skillSourceSchema>;
 export const BUILTIN_SKILLS = [
   {
     name: "kinds-yaml",
-    role: "project_manager",
+    roles: ["project_manager", "app_engineer"],
     can_disable: false,
     description:
-      "Write or change the project's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.",
+      "Write or change the domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.",
   },
 ] as const;
 
@@ -37,7 +37,7 @@ const skillEntrySchema = z.object({
 });
 export type SkillEntry = z.infer<typeof skillEntrySchema>;
 
-// agent 설정 화면이 보는 skill 목록이다. `project`를 주면 전역과 내장에 그 project 층을 더한다. 같은 이름은
+// agent 설정 화면이 보는 skill 목록이다. `project`를 주면 전역과 내장에 그 project의 domain 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
 const skillsReadInputSchema = z.strictObject({

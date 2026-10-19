@@ -1,11 +1,12 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
   discoverSkills,
+  type DomainStore,
   SKILL_BODY_MAX_BYTES,
   type SkillDiscovery,
   type SkillEntry,
@@ -19,19 +20,19 @@ import {
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
 // 제품 runtime의 skill 발견이다. 출처는 내장 skill 폴더, 등록 순서의 설정
-// `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), project place의 skill
-// 폴더(project 층 규칙이 정한다) 넷뿐이다. 앱 place에는 skill 폴더가 없다. 다른 place의 폴더, 상위 폴더,
-// 앱 소스, 다른 harness 보관소, 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소), project 순이다.
+// `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), agent place 그릇의
+// active domain마다의 skill 폴더(domain 층 규칙이 정한다) 넷뿐이다. 다른 place의 폴더, 상위 폴더,
+// 앱 소스, 다른 harness 보관소, 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소), domain 순이다.
 
-// 내장, 개인 보관소, project 폴더의 위치다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
+// 내장, 개인 보관소의 위치와 agent가 놓인 place다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
 type SkillStores = {
   bundled: string | null;
   personal: string | null;
-  // project place의 skill 폴더다. project에 놓이지 않은 agent는 null이다.
-  project: string | null;
-  // project에서 끈 이름이 든 파일이다.
+  // domain 층을 읽을 그릇이다. lophn은 null이다.
+  place: AgentPlace | null;
+  // project에서 끈 이름이 든 파일이다. 앱에는 없다.
   project_file: string | null;
-  // data root다. project 폴더를 여는 허락이 이 아래 project 폴더로 좁다.
+  // data root다. domain·project 폴더를 여는 허락이 이 아래로 좁다.
   root: string | null;
   layer: ProjectLayer;
 };
@@ -57,9 +58,7 @@ export function productSkillStores(
   return {
     bundled: deps.bundledSkillsRoot,
     personal: root === null ? null : `${root}/skills`,
-    project: project === null
-      ? null
-      : deps.projectLayer.skillsFolder(root!, project),
+    place,
     project_file: project === null
       ? null
       : deps.projectLayer.extensionsFile(root!, project),
@@ -78,6 +77,30 @@ async function projectOff(
   if (!read.ok || read.value === null || !read.value.complete) return [];
   const parsed = parseProjectExtensions(read.value.text);
   return parsed.ok ? parsed.value.skills_off : [];
+}
+
+// place 그릇의 active domain skill 폴더다(domain 이름순). 읽지 못하면(그 길이 아직 열리지 않았거나 core 연결
+// 실패) domain 층이 없는 것으로 본다. 아직 없는 폴더는 그 domain에 skill이 없는 것이다.
+async function domainStores(
+  machine: CoreCall,
+  stores: SkillStores,
+  port: SkillFilesPort,
+): Promise<DomainStore[]> {
+  if (stores.root === null || stores.place === null) return [];
+  const read = await readOf(machine, domainList, {
+    owner: stores.place,
+    status: "active",
+  });
+  if (!read.ok) return [];
+  const found: DomainStore[] = [];
+  for (const domain of read.value.domains) {
+    const folder = await presentFolder(
+      port,
+      stores.layer.domains.skillsFolder(stores.root, domain.id),
+    );
+    if (folder !== null) found.push({ domain: domain.id, folder });
+  }
+  return found;
 }
 
 // 층을 합친 목록이다. 전역과 project에서 끈 것이 enabled false다. agent 정의가 끈 것은 `agentOff`로 더한다.
@@ -100,11 +123,11 @@ async function discoverProductSkills(
   const port = productFiles(roots, stores);
   const discovered = await discoverSkills({
     port,
-    // 아직 없는 개인 보관소, project 폴더는 제외 진단이 아니라 그 출처가 비어 있는 것이다.
+    // 아직 없는 개인 보관소, domain 폴더는 제외 진단이 아니라 그 출처가 비어 있는 것이다.
     builtin_root: await presentFolder(port, stores.bundled),
     registered_roots: roots,
     personal_store: await presentFolder(port, stores.personal),
-    project_store: await presentFolder(port, stores.project),
+    domain_stores: await domainStores(machine, stores, port),
     role: null,
     off: [
       ...new Set([
@@ -118,35 +141,26 @@ async function discoverProductSkills(
   return discovered.ok ? discovered.value : null;
 }
 
-// turn 시작에 skill 판을 고정하는 재료다(`createSkillSnapshot`). project마다 폴더가 달라 port는 data root 아래
-// 모든 project 폴더를 열 수 있다.
+// turn 시작에 skill 판을 고정하는 재료다(`createSkillSnapshot`). place마다 폴더가 달라 port는 data root 아래
+// 모든 domain·project 폴더를 열 수 있다.
 export function productSkillSnapshotDeps(
   machine: CoreCall,
   deps: SkillStoreDeps,
 ): SkillSnapshotDeps {
   const base = productSkillStores(null, deps);
-  const stores = (project: string): SkillStores => ({
-    ...base,
-    project: base.root === null
-      ? null
-      : deps.projectLayer.skillsFolder(base.root, project),
-    project_file: base.root === null
-      ? null
-      : deps.projectLayer.extensionsFile(base.root, project),
-  });
   return {
-    port: productFiles([], { ...base, project: null }),
+    port: productFiles([], base),
     builtin_root: base.bundled,
     personal_store: base.personal,
     global: async () => {
       const { roots, off } = await globalSkillSettings(machine);
       return { roots, off };
     },
-    project: async (project: Id<"prj">) => {
-      const where = stores(project);
+    place: async (place) => {
+      const where = productSkillStores(place, deps);
       const port = productFiles([], where);
       return {
-        store: await presentFolder(port, where.project),
+        domain_stores: await domainStores(machine, where, port),
         off: await projectOff(port, where.project_file),
       };
     },
@@ -177,28 +191,44 @@ async function globalSkillSettings(
   };
 }
 
-// 등록 root·내장 폴더·개인 보관소·project 폴더와 그 아래만 연다. symlink는 lstat로 보고 따라가지 않는다.
-// ~/.lophn, ~/.config/lophn, home 자체는 등록돼 있어도 열지 않는다. 개인 보관소와 project의 skill 폴더, 끈 이름 파일은
-// data root 안의 정해진 곳만 예외로 연다.
+// 등록 root·내장 폴더·개인 보관소·domain skill 폴더와 그 아래만 연다. symlink는 lstat로 보고 따라가지 않는다.
+// ~/.lophn, ~/.config/lophn, home 자체는 등록돼 있어도 열지 않는다. 개인 보관소와 domain의 skill 폴더, project의
+// 끈 이름 파일은 data root 안의 정해진 곳만 예외로 연다.
 function productFiles(
   roots: readonly string[],
   stores: SkillStores,
 ): SkillFilesPort {
-  // data root 아래 project 폴더의 skill 폴더와 설정 파일만이다.
+  // `area` 폴더 안 폴더의 id를 `idOf`로 읽어 그 id의 허락 자리 안이면 참이다.
+  const inArea = (
+    path: string,
+    area: string,
+    idOf: (name: string) => string | null,
+    allowedAt: (id: string) => boolean,
+  ): boolean => {
+    const target = lexical(path);
+    const base = lexical(area);
+    if (target === null || base === null || !target.startsWith(`${base}/`)) {
+      return false;
+    }
+    const id = idOf(target.slice(base.length + 1).split("/")[0]);
+    return id !== null && allowedAt(id);
+  };
+  // data root 아래 domain의 skill 폴더와 project의 설정 파일만이다.
   const projectPath = (path: string): boolean => {
     if (stores.root === null) return false;
     const { layer } = stores;
-    const target = lexical(path);
-    const area = lexical(layer.settingsFolderArea(stores.root));
-    if (target === null || area === null || !target.startsWith(`${area}/`)) {
-      return false;
-    }
-    const id = layer.projectIdOfFolder(
-      target.slice(area.length + 1).split("/")[0],
+    const root = stores.root;
+    return inArea(
+      path,
+      layer.settingsFolderArea(root),
+      layer.projectIdOfFolder,
+      (id) => lexical(path) === lexical(layer.extensionsFile(root, id)),
+    ) || inArea(
+      path,
+      layer.domains.folderArea(root),
+      layer.domains.domainIdOfFolder,
+      (id) => under(layer.domains.skillsFolder(root, id), path),
     );
-    if (id === null) return false;
-    return target === lexical(layer.extensionsFile(stores.root, id)) ||
-      under(layer.skillsFolder(stores.root, id), target);
   };
   const allowed = (path: string): boolean =>
     projectPath(path) ||

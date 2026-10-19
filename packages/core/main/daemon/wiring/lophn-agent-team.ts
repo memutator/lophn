@@ -3,6 +3,7 @@
 // role 명령, role 규칙을 port로 꽂는다.
 import { projectExists, projectIds } from "../../../projects/lookups.ts";
 import { appExists, appIds } from "../../../apps/lookups.ts";
+import { domainsOfOwner } from "../../../domains/lookups.ts";
 import { ROLE_COMMANDS } from "../../../agent-roles/commands.ts";
 import { operatorPlaceAllowed } from "../../../agent-roles/tools/operator-place.ts";
 import { createOperatorDirectory } from "../../../agent-roles/agents/operator-directory.ts";
@@ -19,6 +20,11 @@ const agent = createLophnAgent({
     projectIds,
     appExists,
     appIds,
+    domains: (sql, place) =>
+      domainsOfOwner(sql, place, "active").map(({ id, name }) => ({
+        id,
+        name,
+      })),
   },
   roleCommands: ROLE_COMMANDS,
   operatorPlaceAllowed,

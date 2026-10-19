@@ -82,6 +82,14 @@ export function checkOperator(input: {
     if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
   }
 
+  // 저장 때 한 번만 본다. 그 뒤 domain이 보관되면 resolve의 교집합이 그 id를 뺀다.
+  const inPlace = context.lookups.domains(place);
+  definition.domains?.forEach((id, i) => {
+    if (!inPlace.includes(id)) {
+      addAll(issues, [{ field: `domains.${i}`, code: "unknown" }]);
+    }
+  });
+
   if (issues.length > 0 || !text.ok) return invalidInput(issues);
   return ok(text.value);
 }

@@ -7,8 +7,8 @@ import {
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), project
-// 셋이고 같은 이름은 마지막 층이 덮는다. 다만 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
+// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), domain
+// 셋이고 같은 이름은 마지막 층이 덮는다. 같은 이름이 여러 domain에 있으면 domain 이름이 앞서는 쪽이 이긴다. 다만 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 파일 IO는 SkillFilesPort로 끼운다. 이 모듈은 사람의 실제 home이나 다른 harness 보관소를
 // 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다. turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
@@ -191,10 +191,11 @@ export function undeclaredBuiltinReason(name: string): string | null {
 // 내장 skill은 선언한 role의 agent만 갖는다. role이 null이면 모두 본다(사람 화면의 목록).
 export function builtinForRole(name: string, role: Role | null): boolean {
   const builtin = declaredBuiltin(name);
-  return builtin !== undefined && (role === null || builtin.role === role);
+  return builtin !== undefined &&
+    (role === null || (builtin.roles as readonly Role[]).includes(role));
 }
 
-// 층 순서(내장, 전역, project)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮고, 끌 수 없는 내장 skill은
+// 층 순서(내장, 전역, domain)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮고, 끌 수 없는 내장 skill은
 // 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
 // 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이다.
 export function mergeSkillLayers<T extends SkillCandidate>(
@@ -236,14 +237,16 @@ export function mergeSkillLayers<T extends SkillCandidate>(
     });
 }
 
-// agent가 받는 skill인지다. 정의가 고른 이름이 없으면 모두 받고, 있으면 고른 것만 받는다. 끌 수 없는 내장 skill은
-// 고르지 않아도 받는다. 프롬프트 목록, skill.read, `/` 메뉴, resolve가 모두 이 규칙을 쓴다.
+// agent가 받는 skill인지다. domain 층 skill은 agent가 일하는 domain의 것만 받는다. 정의가 고른 이름이 없으면
+// 모두 받고, 있으면 고른 것만 받는다. 끌 수 없는 내장 skill은 고르지 않아도 받는다. resolve, skill.read, `/` 메뉴가
+// 모두 이 규칙을 쓴다.
 export function skillReceived(
-  skill: { name: string; can_disable: boolean },
+  skill: { name: string; can_disable: boolean; domain: string | null },
   chosen: readonly string[],
+  domains: readonly string[],
 ): boolean {
-  return !skill.can_disable || chosen.length === 0 ||
-    chosen.includes(skill.name);
+  return (skill.domain === null || domains.includes(skill.domain)) &&
+    (!skill.can_disable || chosen.length === 0 || chosen.includes(skill.name));
 }
 
 // ---- 발견 ----
@@ -262,8 +265,9 @@ type SkillDiscoveryInput = {
   // 전역 층: 등록 폴더는 사람이 정한 순서 그대로, 개인 보관소는 그 뒤다. 없으면 null이다.
   registered_roots: readonly string[];
   personal_store: string | null;
-  // project 층: 그 project의 skill 폴더다. project에 놓이지 않은 agent는 null이다.
-  project_store: string | null;
+  // domain 층: place 그릇의 active domain과 그 skill 폴더다. domain 이름순으로 받고 앞서는 domain이 이긴다.
+  // 그릇이 없는 agent는 빈 목록이다.
+  domain_stores: readonly DomainStore[];
   // 내장 skill을 이 role의 것만 남긴다. null이면 모두 남긴다.
   role: Role | null;
   // 끈 이름: 전역, project, agent 정의가 끈 것의 합이다.
@@ -272,12 +276,14 @@ type SkillDiscoveryInput = {
   max_file_bytes: number;
 };
 
+export type DomainStore = { domain: string; folder: string };
+
 export type SkillDiscovery = {
   entries: readonly SkillEntry[];
   skipped: readonly SkillSkipped[];
 };
 
-// 발견은 turn 경계에서만 한다. 내장, 등록 폴더, 개인 보관소, project 순서로 폴더 자신과 바로 아래 꾸러미만 본다.
+// 발견은 turn 경계에서만 한다. 내장, 등록 폴더, 개인 보관소, domain 순서로 폴더 자신과 바로 아래 꾸러미만 본다.
 export async function discoverSkills(
   input: SkillDiscoveryInput,
 ): Promise<Result<SkillDiscovery>> {
@@ -312,13 +318,15 @@ export async function discoverSkills(
       "global",
     );
   }
-  if (input.project_store !== null) {
+  // 마지막 층이 덮으므로 이름이 앞서는 domain을 나중에 둔다.
+  for (const store of [...input.domain_stores].reverse()) {
     await scanFolders(
       input,
       candidates,
       skipped,
-      input.project_store,
-      "project",
+      store.folder,
+      "domain",
+      store.domain,
     );
   }
   const visible = candidates.filter((candidate) =>
@@ -348,6 +356,7 @@ async function scanFolders(
   skipped: SkillSkipped[],
   container: string,
   source: SkillSource,
+  domain: string | null = null,
 ): Promise<void> {
   const folder = await input.port.kind(container);
   if (!folder.ok || folder.value !== "dir") {
@@ -394,7 +403,7 @@ async function scanFolders(
       });
       continue;
     }
-    await addBundle(input, candidates, skipped, bundle, source);
+    await addBundle(input, candidates, skipped, bundle, source, domain);
   }
 }
 
@@ -418,6 +427,7 @@ async function addBundle(
   skipped: SkillSkipped[],
   bundle: string,
   source: SkillSource,
+  domain: string | null = null,
 ): Promise<void> {
   const manifest = joinPath(bundle, SKILL_MANIFEST);
   const kind = await input.port.kind(manifest);
@@ -469,7 +479,7 @@ async function addBundle(
     name: parsed.value.name,
     description: parsed.value.description,
     source,
-    domain: null,
+    domain,
     content_hash: await sha256Hex(file.text),
     bundle_path: bundle,
     supplemental,

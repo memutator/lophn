@@ -8,6 +8,7 @@ export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
 export {
   type AgentContext,
+  domainsOf,
   listOperators,
   loadAgent,
   type Loaded,

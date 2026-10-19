@@ -100,6 +100,7 @@ const AGENT_DEFINITION_ISSUE_CODES = [
   "reserved_name",
   "duplicate",
   "too_large",
+  "unknown",
 ] as const;
 const agentDefinitionIssueSchema = z.object({
   field: z.string().min(1),
@@ -168,6 +169,9 @@ export const agentDefinitionRead = defineRead({
       name: agentSourced(agentNameSchema),
       profile: agentSourced(profileOutputSchema),
       model: agentSourced(modelChoiceOutputSchema).nullable(),
+      // agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이고, 고르지 않았으면
+      // 그릇의 active domain 전부다(id 순). lophn은 place가 없어 빈 목록이다.
+      domains: z.array(idSchema("dom")),
     }),
     issues: z.array(agentDefinitionIssueSchema),
   })),

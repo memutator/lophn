@@ -127,6 +127,8 @@ export async function resolveTurnAgent(
       default_profile: input.roles.defaultProfile(role),
       skills: input.skills,
       mcp,
+      // 정의 읽기의 값은 이미 고른 것과 그릇의 교집합이다. 다시 교집합을 해도 같다.
+      domains: read.value.effective.domains,
     },
   });
   if (resolved.ok) {

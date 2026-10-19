@@ -10,12 +10,15 @@ import { createAgentStore } from "./store.ts";
 const PROJECT = "prj_00000000000000000000000001";
 const OTHER = "prj_00000000000000000000000002";
 const OPERATOR = "agt_00000000000000000000000001";
+const DOMAIN = "dom_00000000000000000000000001";
+const OTHER_DOMAIN = "dom_00000000000000000000000002";
 const user = {} as RequestContext;
 const tx = { sql: {} } as unknown as Tx;
 
 const lookups: AgentLookups = {
   placeExists: (place) => place.id === PROJECT,
   places: () => [{ kind: "project", id: PROJECT }],
+  domains: (place) => place?.id === PROJECT ? [DOMAIN] : [],
   skills: () => [],
   mcp: () => [],
   modelDefault: () => null,
@@ -154,6 +157,43 @@ Deno.test("옛 hash로 Operator를 고치면 충돌이고 파일은 그대로다
       )!,
     );
     assert(kept.ok && kept.value?.hash === made.value.hash);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// 저장 때 한 번 막지 않으면 다른 그릇의 domain skill을 받는 Operator가 생긴다.
+Deno.test("정의가 그 place 그릇의 것이 아닌 domain id를 고르면 저장이 거절된다", async () => {
+  const root = await Deno.makeTempDir();
+  try {
+    const commands = createAgentCommands({
+      files: createNodeAgentFiles(),
+      roles: ROLE_TABLE,
+      lookups: () => lookups,
+      operatorPlaceAllowed: () => false,
+      dataRoot: root,
+    });
+    const place = { kind: "project", id: PROJECT } as const;
+    const create = (domains: string[]) =>
+      commands.create.handle(
+        tx,
+        user,
+        {
+          id: OPERATOR as never,
+          place,
+          definition: { name: "reviewer", body: "do it", domains },
+        } as never,
+        {} as never,
+      );
+
+    const refused = create([DOMAIN, OTHER_DOMAIN]);
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "invalid_input");
+    assertEquals(
+      (refused.error.details as { issues: unknown[] }).issues,
+      [{ field: "domains.1", code: "unknown" }],
+    );
+    assert(create([DOMAIN]).ok);
   } finally {
     await Deno.remove(root, { recursive: true });
   }

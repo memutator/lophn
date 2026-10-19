@@ -4,5 +4,11 @@
     "name": "L7",
     "n": 1,
     "hash": "313df3e67bbbfaa22db3433b957063b30be484f47366c728589a98626afc5096"
+  },
+  {
+    "kind": "scenario",
+    "name": "L7",
+    "n": 4,
+    "hash": "7434d6e31f770bd3446d38e1e31a1417fd2b36f4fc5f53843500a47e74b4d08a"
   }
 ]

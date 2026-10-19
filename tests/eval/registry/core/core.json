@@ -40,5 +40,17 @@
     "name": "core",
     "n": 7,
     "hash": "1d6fdddc84b973482f0d912995b0115f1129c7a1fde95dafe557255dec5e283a"
+  },
+  {
+    "kind": "core",
+    "name": "core",
+    "n": 8,
+    "hash": "047faf20ec9a83c7059c6a113916252d303afc253bc7d032f982df9a717a3631"
+  },
+  {
+    "kind": "core",
+    "name": "core",
+    "n": 9,
+    "hash": "a81c52c4ab94310c22177cc5d5a8399c219543922e56d2b74a546c82c64ad11d"
   }
 ]

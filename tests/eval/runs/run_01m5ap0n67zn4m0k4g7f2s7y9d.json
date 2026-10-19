@@ -1,0 +1,910 @@
+{
+  "id": "run_01m5ap0n67zn4m0k4g7f2s7y9d",
+  "started_at": "2026-10-19T18:15:38.951Z",
+  "scenario": {
+    "kind": "scenario",
+    "name": "calendar-maintain",
+    "n": 3
+  },
+  "materials": [
+    {
+      "kind": "material",
+      "name": "notify-app",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "date-range",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "calendar-app",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "calendar-data",
+      "n": 2
+    }
+  ],
+  "components": [
+    {
+      "kind": "assembly",
+      "name": "assembly",
+      "n": 2
+    },
+    {
+      "kind": "cli",
+      "name": "claude",
+      "n": 2
+    },
+    {
+      "kind": "instruction",
+      "name": "app_engineer",
+      "n": 3
+    },
+    {
+      "kind": "model",
+      "name": "claude-sonnet-5-5",
+      "n": 1
+    },
+    {
+      "kind": "runtime",
+      "name": "runtime",
+      "n": 4
+    },
+    {
+      "kind": "skill-description",
+      "name": "kinds-yaml",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.link_source",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.tools",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ask",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "blueprint.check",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "call",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "cancel",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "domain.create",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.edit",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.glob",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.grep",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.outline",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.write",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "guide.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "image.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "kind.check",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "kind.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "operator.create",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "operator.update",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "package.get",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.list",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.publish",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "pdf.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.body",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.set_state",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "release.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "reply",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "session.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "settings.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "shell.run",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "skill.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.cancel",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.create",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.update",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.verify",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "visual.show",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "web.fetch",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.search",
+      "n": 1
+    }
+  ],
+  "core": {
+    "kind": "core",
+    "name": "core",
+    "n": 9
+  },
+  "grader": {
+    "criteria": [
+      {
+        "kind": "criterion",
+        "name": "card-covered",
+        "n": 3
+      },
+      {
+        "kind": "criterion",
+        "name": "asked-again",
+        "n": 3
+      }
+    ],
+    "judge": {
+      "kind": "judge",
+      "name": "judge",
+      "n": 2
+    },
+    "checks": {
+      "kind": "checks",
+      "name": "checks",
+      "n": 5
+    }
+  },
+  "model": "claude-sonnet-5-5",
+  "source": {
+    "commit": "f10809e0c3688a54ef85b147161ce8c1ca1794f0",
+    "dirty": false
+  },
+  "trials": [
+    {
+      "index": 0,
+      "settle": {
+        "kind": "idle",
+        "unstarted": []
+      },
+      "checks": [
+        {
+          "id": "ae-ticket-created",
+          "kind": "program",
+          "pass": true,
+          "reason": "ticket.create 1번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-ticket-verified",
+          "kind": "program",
+          "pass": true,
+          "reason": "ticket.verify 성공 1번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-calls-coding-only",
+          "kind": "program",
+          "pass": true,
+          "reason": "App Engineer call 2개(보낼 때 실패한 0개 뺌) 중 coding agent 대화가 아닌 것 0개"
+        },
+        {
+          "id": "app-active",
+          "kind": "program",
+          "pass": true,
+          "reason": "release 2 실행 중"
+        },
+        {
+          "id": "release-advanced",
+          "kind": "program",
+          "pass": true,
+          "reason": "release 1:superseded 2:active (기대: 1보다 큰 번호가 active)"
+        },
+        {
+          "id": "data-remains",
+          "kind": "program",
+          "pass": true,
+          "reason": "1단계 모두 기대대로 답함"
+        },
+        {
+          "id": "old-api-answers",
+          "kind": "program",
+          "pass": true,
+          "reason": "3단계 모두 기대대로 답함"
+        },
+        {
+          "id": "repeat-works",
+          "kind": "program",
+          "pass": true,
+          "reason": "2단계 모두 기대대로 답함"
+        },
+        {
+          "id": "card-covered",
+          "kind": "judge",
+          "pass": true,
+          "reason": "all: \"weekly (4 times in all, the start included, at the same local time)\""
+        },
+        {
+          "id": "asked-again",
+          "kind": "judge",
+          "pass": true,
+          "reason": "no_repeat: \"weekly 일정은 끝이 없어서 event.list의 \"all\"과 알림을 어디까지 펼칠지 정해야 해요.\""
+        }
+      ],
+      "judge": [
+        {
+          "check": "card-covered",
+          "criterion": "card-covered@3",
+          "input": "[CARD]\n원하는 것: 반복 일정. event.add에 repeat 입력(\"none\" 또는 \"weekly\", 주지 않으면 \"none\")을 더한다\n정해 둔 답: 반복은 매주(weekly)만. weekly이면 start부터 매주 같은 요일·같은 시각으로 모두 4번 나타난다. 지금 있는 일정과 tool 이름·입력, 알림은 시작 10분 전, 한 주는 월요일~일요일 그대로\n모르는 것: 그 밖의 전부 → \"추천대로 해 줘\"\n\n[BLUEPRINT]\n- event.add (write): Save one new event, or with weekly repeat 4 weekly occurrences under one id, and schedule a reminder 10 minutes before each starts. input={\"additionalProperties\":false,\"properties\":{\"repeat\":{\"default\":\"none\",\"description\":\"How the event repeats: none (once) or weekly (4 times in all, the start included, at the same local time).\",\"enum\":[\"none\",\"weekly\"],\"type\":\"string\"},\"start\":{\"additionalProperties\":false,\"description\":\"The local start time of the event.\",\"properties\":{\"day\":{\"description\":\"The day of the month of the start.\",\"maximum\":31,\"minimum\":1,\"type\":\"integer\"},\"hour\":{\"description\":\"The hour of the start, 0 to 23.\",\"maximum\":23,\"minimum\":0,\"type\":\"integer\"},\"minute\":{\"description\":\"The minute of the start, 0 to 59.\",\"maximum\":59,\"minimum\":0,\"type\":\"integer\"},\"month\":{\"description\":\"The month of the start, 1 to 12.\",\"maximum\":12,\"minimum\":1,\"type\":\"integer\"},\"year\":{\"description\":\"The year of the start.\",\"maximum\":2100,\"minimum\":2000,\"type\":\"integer\"}},\"required\":[\"day\",\"hour\",\"minute\",\"month\",\"year\"],\"type\":\"object\"},\"title\":{\"description\":\"The title of the new event.\",\"maxLength\":200,\"minLength\":1,\"type\":\"string\"}},\"required\":[\"start\",\"title\"],\"type\":\"object\"}\n- event.list (read): Read the saved events, earliest first, for this week, next week or all. input={\"additionalProperties\":false,\"properties\":{\"range\":{\"description\":\"Which events to read: all, this week or next week. Weeks start on Monday.\",\"enum\":[\"all\",\"this_week\",\"next_week\"],\"type\":\"string\"}},\"type\":\"object\"}\n- event.remove (write): Remove one event. Removing an id that does not exist is not an error. input={\"additionalProperties\":false,\"properties\":{\"id\":{\"description\":\"The id of the event to remove.\",\"minimum\":1,\"type\":\"integer\"}},\"required\":[\"id\"],\"type\":\"object\"}\nconnection: app_0000000000000000000000ntfy -> notify.schedule\n\n[TICKETS]\nTICKET 1 [verified]\ngoal: Make the first release of the app\ncheck: {\"kind\":\"text\",\"text\":\"the work is done\"}\n\nTICKET 2 [verified]\ngoal: event.add에 repeat 입력(\"none\"|\"weekly\", 기본 \"none\")을 추가한다. blueprint.ts에는 repeat가 이미 더해져 있으니 wording 문구 키 \"events.summary.event-repeat\"(en.ts)를 추가하고 코드를 맞춘다.\n- \"none\" 또는 생략: 지금처럼 일정 하나만 만든다.\n- \"weekly\": start부터 매주 같은 요일·같은 시각으로 모두 4번(start 포함) 나타난다. 규칙 하나를 저장하고 list에서 펼치든 발생분 4개를 저장하든 구현은 자유지만, 한 id로 묶여야 한다. 4번을 넘는 발생분은 없다.\n- event.list: 4번의 발생분이 각각 rows에 나온다(title 동일, start는 7일씩 간격, 시각 동일). range(this_week/next_week)도 발생분 기준으로 걸러진다. 일광절약 시간이 있어도 같은 현지 시각을 유지한다.\n- 알림: 발생분마다 notify.schedule로 10분 전 알림을 예약한다.\n- event.remove(id): 반복 일정이면 모든 발생분과 알림을 함께 지운다.\n- event.add 결과에 일정을 가리키는 id를 계속 준다. 비공개 tool이라 public 변경은 없다. 화면(screens/events)의 목록도 발생분을 보여야 한다.\n실패 분기(reportProblem, 이름 구분): event_input_invalid(start가 실제 시각이 아님), repeat_invalid(repeat가 none/weekly가 아님, 거절), store_unavailable(저장소 오류), reminder_schedule_failed(발생분 알림 예약 실패 — 일정은 저장하되 어느 발생분인지 드러내고 조용히 넘어가지 않음), reminder_partial(일부 발생분만 예약됨).\ntests에 위 동작과 write tool의 되돌리기 증명을 추가한다.\ncheck: {\"kind\":\"examples\",\"steps\":[{\"tool\":\"event.add\",\"input\":{\"repeat\":\"weekly\",\"start\":{\"day\":3,\"hour\":9,\"minute\":30,\"month\":3,\"year\":2031},\"title\":\"주간 회의\"},\"expect\":{}},{\"tool\":\"event.list\",\"input\":{\"range\":\"all\"},\"expect\":{\"rows\":[{\"title\":\"주간 회의\"},{\"title\":\"주간 회의\"},{\"title\":\"주간 회의\"},{\"title\":\"주간 회의\"}]}}]}",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "all",
+          "quote": "weekly (4 times in all, the start included, at the same local time)",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        },
+        {
+          "check": "asked-again",
+          "criterion": "asked-again@3",
+          "input": "[HUMAN_REQUEST]\n캘린더 앱에 반복 일정 기능을 더해 줘. event.add 입력에 repeat(\"none\" 또는 \"weekly\")를 더해 줘. 주지 않으면 \"none\"이고 지금처럼 일정 하나만 만들어. \"weekly\"이면 start부터 매주 같은 요일·같은 시각으로 일정이 나타나게 해 줘. event.list에도 나와야 해.\n\n[QUESTIONS]\nQ1: weekly 일정은 끝이 없어서 event.list의 \"all\"과 알림을 어디까지 펼칠지 정해야 해요. 어떻게 할까요?\n- 26주(권장): start부터 26주(약 6개월)치 발생분만 목록·알림에 나타냄. 규칙은 하나로 저장하고 list에서 펼침.\n- 52주: 1년치까지 펼침.\n- 끝 없음: 규칙만 저장, 목록은 range가 this_week/next_week일 때만 펼치고 all은 오늘부터 26주.\nQ2: event.remove로 반복 일정을 지우면?\n- 전체 삭제(권장): 반복 일정의 id 하나로 모든 발생분과 알림을 함께 지움.\n- 발생분 하나만: 날짜를 따로 받아야 해서 입력이 바뀜.\nQ3: 알림 앱에 예약 취소 tool이 없어서, 일정을 지워도 이미 예약된 알림은 남습니다. 어떻게 할까요?\n- 일단 이대로 진행(추천): 이번에는 일정 행만 지우고, 알림 취소는 알림 앱에 따로 요청합니다.\n- 알림 앱에 취소 tool 요청: notify App Engineer에게 취소 tool을 요청하고, 준비되면 연결합니다.",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "no_repeat",
+          "quote": "weekly 일정은 끝이 없어서 event.list의 \"all\"과 알림을 어디까지 펼칠지 정해야 해요.",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        }
+      ],
+      "metrics": {
+        "tokens": {
+          "input": 62034,
+          "output": 6015,
+          "cache_read": 399316,
+          "cache_write": 1423,
+          "reasoning": 1155,
+          "unknown_calls": 0
+        },
+        "input_total": 462773,
+        "cache_hit_rate": 0.8628766155328854,
+        "cost_usd": 0.22770200000000002,
+        "unpriced_calls": 0,
+        "time_ms": {
+          "turns": 204998,
+          "model_calls": 59660
+        },
+        "tools": {
+          "counted": 18,
+          "excluded": 0,
+          "format": 1,
+          "success": 17,
+          "blocked": 0,
+          "repeated_calls": 1,
+          "repeat_groups": 1,
+          "max_repeat": 2,
+          "repeated_failure_turns": 0
+        },
+        "truncated_calls": 0,
+        "agent_calls": [
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": null,
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "kind": "assembly",
+          "name": "assembly",
+          "n": 2
+        },
+        {
+          "kind": "instruction",
+          "name": "app_engineer",
+          "n": 3
+        },
+        {
+          "kind": "model",
+          "name": "claude-sonnet-5-5",
+          "n": 1
+        },
+        {
+          "kind": "runtime",
+          "name": "runtime",
+          "n": 4
+        },
+        {
+          "kind": "skill-description",
+          "name": "kinds-yaml",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.link_source",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.tools",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ask",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "blueprint.check",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "call",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "cancel",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "domain.create",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.edit",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.glob",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.grep",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.outline",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.write",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "guide.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "image.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "kind.check",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "kind.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "operator.create",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "operator.update",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "package.get",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.list",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.publish",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "pdf.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.body",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.set_state",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "release.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "release.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "reply",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "session.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "settings.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "shell.run",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "skill.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.cancel",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.create",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.update",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.verify",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "visual.show",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "web.fetch",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "web.search",
+          "n": 1
+        },
+        {
+          "kind": "cli",
+          "name": "claude",
+          "n": 2
+        }
+      ],
+      "coding": [
+        {
+          "session": "ses_01m5ap5h5dck30q6zh9awf2xgf",
+          "app": "app_0000000000000000000000cdr1",
+          "ticket": "tkt_01m5ap5epf0fz9gpzv0nzxwv9h",
+          "harness": "claude",
+          "cwd": "/tmp/lophn-eval/lophn-e2e-4374b9b087c0d9aa/work/calendar",
+          "human_input": false,
+          "trust_answered": true,
+          "opened_at": "2026-10-19T18:18:18.844Z",
+          "reported_at": "2026-10-19T18:21:46.963Z",
+          "ended_at": "2026-10-19T18:21:57.739Z",
+          "end": "exited",
+          "exit_code": 0,
+          "usage": {
+            "files": 1,
+            "models": [
+              "claude-sonnet-5-5"
+            ],
+            "api_calls": 27,
+            "input": 54,
+            "output": 13718,
+            "cache_read": 1799773,
+            "cache_write": 54218,
+            "input_total": 1854045,
+            "cache_hit_rate": 0.9707277870817591,
+            "tool_results": 27,
+            "tool_errors": 3,
+            "tool_error_rate": 0.1111111111111111
+          },
+          "usage_error": null,
+          "commands": [
+            {
+              "at": "2026-10-19T18:18:26.631929063Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-19T18:18:28.493484130Z",
+              "name": "guide lophn-build-app"
+            },
+            {
+              "at": "2026-10-19T18:18:30.930536673Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-19T18:18:31.2505117Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-19T18:18:33.682997494Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-19T18:18:33.757296476Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-19T18:18:36.392459095Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-19T18:18:40.596648385Z",
+              "name": "app show"
+            },
+            {
+              "at": "2026-10-19T18:18:45.713558108Z",
+              "name": "package list"
+            },
+            {
+              "at": "2026-10-19T18:18:48.504107765Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-19T18:18:48.575974389Z",
+              "name": "--help"
+            },
+            {
+              "at": "2026-10-19T18:18:50.956571086Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-19T18:18:51.30275121Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-19T18:18:53.995654153Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-19T18:19:58.739875672Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-19T18:19:58.811904926Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-19T18:20:01.542435685Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-19T18:20:01.614243590Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-19T18:20:05.146360510Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-19T18:20:08.442204047Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-19T18:20:28.527903872Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-19T18:20:31.58586273Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:01.156885025Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:23.750143821Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:26.398991018Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:26.473137820Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-19T18:21:30.952295972Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:31.34676450Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-19T18:21:35.198081114Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-19T18:21:35.425924623Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-19T18:21:37.860347969Z",
+              "name": "ticket report"
+            },
+            {
+              "at": "2026-10-19T18:21:46.301139799Z",
+              "name": "ticket report"
+            }
+          ],
+          "message_send": 2,
+          "permission_requests": 0
+        }
+      ],
+      "human": {
+        "answered": 2,
+        "fallback": 0,
+        "decisions": 0
+      }
+    }
+  ]
+}

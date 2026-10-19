@@ -4,5 +4,11 @@
     "name": "operators-home",
     "n": 1,
     "hash": "bf33d1ca23bfd803fa1e872eb4319eabc2531c6dcf0935329d8b26bd899a66bb"
+  },
+  {
+    "kind": "material",
+    "name": "operators-home",
+    "n": 4,
+    "hash": "1ff5240f2f1f783ac59742b6ad97e6bbbbd750a49f12e71f5e19699cff3a66e2"
   }
 ]

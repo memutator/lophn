@@ -4,5 +4,11 @@
     "name": "app.list",
     "n": 1,
     "hash": "5d60d1f4ff2d62709ad1b453690df14254da066f7a0929a540d97ca0092e54c2"
+  },
+  {
+    "kind": "tool",
+    "name": "app.list",
+    "n": 2,
+    "hash": "b9e0c576760fdc227c538244ecdec7eb3f6096df834f8fc31d170ebf190caa48"
   }
 ]

@@ -4,5 +4,11 @@
     "name": "C9-other",
     "n": 1,
     "hash": "dd018aabcc6b80b87ea6cea393203c3ebfc339d69a0cc9dded54b89ebbe3031c"
+  },
+  {
+    "kind": "scenario",
+    "name": "C9-other",
+    "n": 3,
+    "hash": "9b19511738165afc5817f8d7f3834ec571bcdd4331ede5228df256368d4638e5"
   }
 ]

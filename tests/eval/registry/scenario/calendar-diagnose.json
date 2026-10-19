@@ -4,5 +4,11 @@
     "name": "calendar-diagnose",
     "n": 1,
     "hash": "7b4683fe3f7fac1b235c06369aa16423ac9f0a1214b8c12e6c61d1a977d87d1d"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-diagnose",
+    "n": 3,
+    "hash": "ec3790a20857e78a7aa4c0e6b14ff4b41962df19ee50817c8ce61ba95418b62a"
   }
 ]

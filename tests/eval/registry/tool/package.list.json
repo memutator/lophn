@@ -10,5 +10,11 @@
     "name": "package.list",
     "n": 2,
     "hash": "107885d5299b7acada6cadacca20be2cc0028972dd40ea3ccb59443e75e394e5"
+  },
+  {
+    "kind": "tool",
+    "name": "package.list",
+    "n": 3,
+    "hash": "4c5db332b5edc6d31ec8d36fdd87e0f6a89fb29bb8bb758f2b2b10517bb2d67b"
   }
 ]

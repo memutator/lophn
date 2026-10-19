@@ -4,5 +4,11 @@
     "name": "session.list",
     "n": 1,
     "hash": "a8c1c29216f625e13c8820cdc8ea7482ccceceea25054596854004ad17d70560"
+  },
+  {
+    "kind": "tool",
+    "name": "session.list",
+    "n": 2,
+    "hash": "7dd5075121f9ad2d2fe86c7c008b01c438d28db01a0de0013407301ae0d8ea56"
   }
 ]

@@ -4,5 +4,11 @@
     "name": "calendar-app-bug",
     "n": 1,
     "hash": "ec9233dc1b3ff803800c4389bb309350255cbe5a191c6e61bceb33a30dabe464"
+  },
+  {
+    "kind": "material",
+    "name": "calendar-app-bug",
+    "n": 2,
+    "hash": "32cd06fb3ac204fd15a722596ef887585011e086dc3ea3584afe73b6d4c97401"
   }
 ]

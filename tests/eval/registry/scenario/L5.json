@@ -4,5 +4,11 @@
     "name": "L5",
     "n": 1,
     "hash": "27b27a239aed85ac4c45abbc1435f46bdfd36d3fcbbf579974cc395c06bab3da"
+  },
+  {
+    "kind": "scenario",
+    "name": "L5",
+    "n": 3,
+    "hash": "35da161d55d059e6a33acbc7e0de58fcb191230fd8312a47031b4c9c33dd4bfb"
   }
 ]

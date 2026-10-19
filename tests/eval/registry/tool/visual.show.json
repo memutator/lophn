@@ -4,5 +4,11 @@
     "name": "visual.show",
     "n": 1,
     "hash": "a755e3980d11a286a9f78132d4f4d730d460ee15e216b6a74f891f28fcd1c2f5"
+  },
+  {
+    "kind": "tool",
+    "name": "visual.show",
+    "n": 2,
+    "hash": "b4314e2c3b221ea15476867c0f42f09dfaed1bdd0f78fafb7fc90c645d1381d4"
   }
 ]

@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill-description",
+    "name": "kinds-yaml",
+    "n": 1,
+    "hash": "e8ac7fbb7ed1b6698ba69f8af6093cd0ccd185dca435c830fd0182253c3a98df",
+    "content": "Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has."
+  }
+]

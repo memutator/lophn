@@ -4,5 +4,11 @@
     "name": "calendar-app",
     "n": 1,
     "hash": "d4fea08bd55e747701d03cd78a0b05eaf5f575a15a3da64ba4036b75f5a31ae6"
+  },
+  {
+    "kind": "material",
+    "name": "calendar-app",
+    "n": 2,
+    "hash": "3ee4390c516a0c571d9c8854798c360470b38f7af9d40c00bde10e226f066a58"
   }
 ]

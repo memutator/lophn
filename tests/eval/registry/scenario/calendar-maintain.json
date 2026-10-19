@@ -4,5 +4,11 @@
     "name": "calendar-maintain",
     "n": 1,
     "hash": "e3d68503d0b99a872cd8a66759f803764051b9277df495ba2f989da82c325473"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-maintain",
+    "n": 3,
+    "hash": "6c52a072c07081f52b811072e00ac81e400b9f373eaa53c32969dc02aca79fb4"
   }
 ]

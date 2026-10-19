@@ -4,5 +4,11 @@
     "name": "ticket.create",
     "n": 1,
     "hash": "c94c52a7764e177752d874f4b87c88e981cd05163e018551f825ee0be382ed6b"
+  },
+  {
+    "kind": "tool",
+    "name": "ticket.create",
+    "n": 2,
+    "hash": "4531b526820d3d71ebb936d09f5d38fd85f7554dee9c37e870bc70f2fafa17c7"
   }
 ]

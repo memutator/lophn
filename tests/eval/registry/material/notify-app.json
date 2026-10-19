@@ -4,5 +4,11 @@
     "name": "notify-app",
     "n": 1,
     "hash": "2c2b957fe49cd63dff781b97effbf19f076dc7ec005e325e90aff02da8dae296"
+  },
+  {
+    "kind": "material",
+    "name": "notify-app",
+    "n": 2,
+    "hash": "dd4084b8d99f7c5e6df55e039cfdbf5b709a9e25be7cb006c23926fd445be3f1"
   }
 ]

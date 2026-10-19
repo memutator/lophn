@@ -4,5 +4,11 @@
     "name": "A1-ask",
     "n": 1,
     "hash": "e3d7633312d801ef10a78e25e6d288f47925955278aaf44774db4776eaa55dc5"
+  },
+  {
+    "kind": "scenario",
+    "name": "A1-ask",
+    "n": 2,
+    "hash": "c078e760efacad240014601860d92a1d6094759e3a4ab210b903a9334bea9b7c"
   }
 ]

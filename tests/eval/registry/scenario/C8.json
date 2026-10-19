@@ -4,5 +4,11 @@
     "name": "C8",
     "n": 1,
     "hash": "776dcabfb8584f3876de86a792bdc592259f95c01448dbd9873442e25893b5cc"
+  },
+  {
+    "kind": "scenario",
+    "name": "C8",
+    "n": 3,
+    "hash": "c1ba35b485c4585c82ffe7b9cc534ff12aa175881e495cd8c4596e8ffc600c5c"
   }
 ]

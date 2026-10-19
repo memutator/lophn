@@ -4,5 +4,11 @@
     "name": "operator.update",
     "n": 1,
     "hash": "0a199ba006c9feb139c9b35e1d9827740a3d83f331cc230f014b11751f9bd80c"
+  },
+  {
+    "kind": "tool",
+    "name": "operator.update",
+    "n": 2,
+    "hash": "36cf95dff0bb78b0601e175ecb59d896795941286a5d998ba228a718b083099e"
   }
 ]

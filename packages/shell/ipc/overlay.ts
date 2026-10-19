@@ -25,7 +25,6 @@ const PALETTE_ICONS = [
   "tab",
   "document",
   "file",
-  "context",
   "project",
   "app",
   "launcher",

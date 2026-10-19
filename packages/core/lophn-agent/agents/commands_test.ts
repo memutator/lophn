@@ -16,9 +16,6 @@ const tx = { sql: {} } as unknown as Tx;
 const lookups: AgentLookups = {
   placeExists: (place) => place.id === PROJECT,
   places: () => [{ kind: "project", id: PROJECT }],
-  contextStatus: () => null,
-  contextProject: () => null,
-  activeContexts: () => [],
   skills: () => [],
   mcp: () => [],
   modelDefault: () => null,

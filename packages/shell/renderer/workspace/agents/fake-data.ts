@@ -6,7 +6,6 @@ import type {
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
-import { EVAL } from "../contexts/fake-source.ts";
 import type {
   AgentDraft,
   GrantApp,
@@ -27,11 +26,6 @@ const EVAL_BOARD_ID = id("app", "eb1");
 const NOTES_SYNC_ID = id("app", "ns1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
-const HARNESS = id("ctx", "hns");
-export const PROJECT_CONTEXTS = [
-  { id: EVAL, name: "eval" },
-  { id: HARNESS, name: "harness" },
-] as const;
 
 /** 전역 model 하나. */
 export const GLOBAL_MODEL: ModelChoice = {
@@ -150,7 +144,7 @@ When a question is about one project, read that project's LOPHN.md first.`,
     role: "project_manager",
     name: "Project Manager",
     place: "project",
-    summary: "Keeps this project's contexts and searches in shape.",
+    summary: "Keeps this project's kinds in shape.",
     definition: {
       body: "",
       skills_off: ["scenario-authoring"],
@@ -189,7 +183,6 @@ When a question is about one project, read that project's LOPHN.md first.`,
         model_name: "Sonnet 5.5",
         option_values: { effort: "high" },
       },
-      contexts: [EVAL],
       body: `# Eval analyst
 Explain what changed in the eval loop and why it matters.
 
@@ -222,7 +215,6 @@ Keep answers short. Name the scenario for every regression.`,
     definition: {
       name: "Experiment planner",
       profile: { kind: "icon", icon: "compare" },
-      contexts: [],
       body: `# Experiment planner
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
@@ -278,16 +270,8 @@ export const PROJECT_SKILLS: readonly SkillRow[] = [
 /** Project Manager가 가진 내장 skill. 끌 수 없다. */
 export const BUILT_IN_SKILLS: readonly SkillRow[] = [
   {
-    name: "context-init",
-    detail:
-      "Set the project's purpose, then draft the first context version and publish it.",
-    layer: "builtin",
-    on: true,
-    builtIn: true,
-  },
-  {
-    name: "context-update",
-    detail: "Draft a new context version from the applied one and publish it.",
+    name: "kinds-yaml",
+    detail: "Write or update the project's kinds.yaml from its documents.",
     layer: "builtin",
     on: true,
     builtIn: true,
@@ -411,7 +395,7 @@ export const GRANT_CATALOG: GrantCatalog = {
     {
       agent: { role: "project_manager", project: PROJECT_ID },
       name: "Project Manager",
-      detail: `${PROJECT_NAME} · Keeps contexts and searches in shape`,
+      detail: `${PROJECT_NAME} · Keeps kinds in shape`,
     },
     {
       agent: { role: "app_engineer", app: APP_ID },

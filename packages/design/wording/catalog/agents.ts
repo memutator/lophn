@@ -200,10 +200,8 @@ export const agents = {
   "project-workspace.heading.skills": "Skills",
   "project-workspace.info.instructions-file":
     "Your project's AGENTS.md is for coding agents. lophn agents read LOPHN.md.",
-  "project-workspace.label.agent-counts-built-in":
+  "project-workspace.label.agent-counts":
     "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
-  "project-workspace.label.agent-counts-operator":
-    "{contexts, plural, one {# context} other {# contexts}} · {skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-unknown":
     "Can't count until its file is fixed",
   "project-workspace.label.agent-editor-icons": "Icon",

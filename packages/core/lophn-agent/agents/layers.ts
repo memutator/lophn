@@ -51,8 +51,6 @@ export async function resolveTurnAgent(
     roleTools(role: Role): readonly string[];
     // role마다 다른 값과 규칙. role 층이 정해 조립이 넘긴다.
     roles: AgentRoleTable;
-    // 이 place의 agent가 읽을 active context다.
-    activeContexts(place: Place | null): Promise<Result<string[]>>;
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     // 어느 tool을 켜는지는 resolve가 정한다.
     // servers는 Operator 정의가 가진 서버다. 다른 role과 정의가 없는 agent는 비어 있다.
@@ -84,9 +82,6 @@ export async function resolveTurnAgent(
   }
 
   const { role, place } = read.value;
-  const contexts = await input.activeContexts(place);
-  if (!contexts.ok) return contexts;
-
   const definition = read.value.definition as AgentFileDefinition | null;
   const serversOff = new Set(
     (definition?.mcp_off ?? [])
@@ -128,7 +123,6 @@ export async function resolveTurnAgent(
       default_profile: input.roles.defaultProfile(role),
       skills: input.skills,
       mcp,
-      active_contexts: contexts.value,
     },
   });
   if (resolved.ok) {

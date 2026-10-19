@@ -20,12 +20,10 @@ import type {
   GrantsView,
   ModelsView,
 } from "../source.ts";
-import { type ContextOption, DefinitionForm } from "./definition-form.tsx";
+import { DefinitionForm } from "./definition-form.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
 import { ROLE_LABEL } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
-
-export type { ContextOption };
 
 /** editor가 source에서 쓰는 것. 설정 화면의 lophn 편집도 이만 채우면 된다. */
 export type AgentEditorSource = Pick<
@@ -54,8 +52,6 @@ interface AgentEditorProps {
   readonly projectName: string;
   /** 열 agent를 가리키는 값. 새 Operator는 null이다. */
   readonly agent: string | null;
-  /** Operator에 붙일 수 있는 이 project의 context. */
-  readonly contexts: readonly ContextOption[];
   /** 저장·삭제·취소로 editor를 떠난다. */
   readonly onDone: () => void;
   /** 목록이나 정의가 바뀌었다. */
@@ -352,7 +348,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             models={models}
             source={source}
             placeName={props.projectName}
-            contexts={props.contexts}
             place={place}
             onPlace={setPlace}
             imageSrc={(image) =>

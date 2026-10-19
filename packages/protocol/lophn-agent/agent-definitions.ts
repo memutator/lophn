@@ -89,7 +89,7 @@ function agentSourced<T extends z.ZodType>(value: T) {
   return z.object({ value, source: agentValueLayerSchema });
 }
 
-// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `mcp_servers.0.name`)이고
+// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills_off.1`, `mcp_servers.0.name`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 const AGENT_DEFINITION_ISSUE_CODES = [
   "malformed",
@@ -100,8 +100,6 @@ const AGENT_DEFINITION_ISSUE_CODES = [
   "reserved_name",
   "duplicate",
   "too_large",
-  "missing_reference",
-  "archived_reference",
 ] as const;
 const agentDefinitionIssueSchema = z.object({
   field: z.string().min(1),

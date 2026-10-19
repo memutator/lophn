@@ -434,14 +434,6 @@ function agentLookups(
       ...places.projectIds(sql).map((id) => ({ kind: "project" as const, id })),
       ...places.appIds(sql).map((id) => ({ kind: "app" as const, id })),
     ],
-    // context는 project 안에만 있다(documents/contexts). 만드는 중(drafting)인 context도 실제 context다.
-    contextStatus: (id) => places.contextStatus(sql, id) ?? null,
-    contextProject: (id) => places.contextProjectOf(sql, id),
-    // project place는 그 project의 active context 전부이고 그 밖에는 없다.
-    activeContexts: (place) =>
-      place === null || place.kind !== "project"
-        ? []
-        : places.activeContextIds(sql, place.id),
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 project 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
     skills: (place) =>

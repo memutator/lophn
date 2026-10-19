@@ -30,9 +30,6 @@ type ResolveEnvironment = {
   // 이 place에서 쓸 수 있는 skill 이름과 MCP tool. 전역 층과 project 층을 이름 단위로 합친 것이다(등록 순서).
   skills: readonly string[];
   mcp: readonly McpTool[];
-  // place의 active context다. project place는 그 project의 것이다.
-  // 보관한 context는 들어 있지 않다.
-  active_contexts: readonly string[];
 };
 
 type ResolveInput = {
@@ -47,7 +44,7 @@ type ResolveInput = {
   session_model: ModelChoice | null;
   // role이 고정한 tool 이름 목록. 어느 tool이 있는지는 role 층이 정한다.
   tools: readonly string[];
-  // role마다 다른 이름·context 규칙. role 층이 정한다.
+  // role마다 다른 이름 규칙. role 층이 정한다.
   roles: AgentRoleTable;
   environment: ResolveEnvironment;
 };
@@ -60,7 +57,6 @@ const RESOLVED_FIELDS = [
   "tools",
   "skills",
   "mcp",
-  "contexts",
 ] as const;
 type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
@@ -76,7 +72,6 @@ export type ResolvedAgent = {
   tools: string[];
   skills: string[];
   mcp: McpTool[];
-  contexts: string[];
   sources: Record<ResolvedField, AgentValueLayer>;
   hash: string;
 };
@@ -88,7 +83,6 @@ export type ResolvedAgent = {
 //   session을 시작할 때 붙인다.
 // - skills·mcp는 환경이 준 것(전역과 project 층을 합친 것) 가운데 skills_off·mcp_off에 없는 것(등록 순서)이다.
 //   등록에 없는 끈 기록은 무시한다.
-// - contexts는 role 표(`roles.contextsOf`)가 정의가 고른 것과 place의 active context로 정한다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 // - sources: 값마다 그 값을 준 층. 정의는 칸을 실제로 가질 때만(profile·model·본문·비어 있지 않은 목록)
 //   `agent`이고 아니면 `global`이다.
@@ -141,13 +135,6 @@ export async function resolveAgent(
     )
   );
 
-  const { contexts, picked } = roles.contextsOf(role, {
-    chosen: definition !== null && "contexts" in definition
-      ? definition.contexts ?? []
-      : [],
-    active: environment.active_contexts,
-  });
-
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
     role,
@@ -159,7 +146,6 @@ export async function resolveAgent(
     tools: [...input.tools],
     skills,
     mcp: copy(mcp),
-    contexts,
     sources: {
       name: operator ? "agent" : "global",
       profile: profile === undefined ? "global" : "agent",
@@ -168,7 +154,6 @@ export async function resolveAgent(
       tools: "global",
       skills: skillsOff.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",
-      contexts: picked ? "agent" : "global",
     },
   };
   return ok({ ...value, hash: await fingerprint(value) });

@@ -109,7 +109,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
           project={null}
           projectName=""
           agent="lophn"
-          contexts={[]}
           onDone={back}
           onChanged={() => {}}
           onEditProjectInstructions={() => {}}

@@ -1,15 +1,14 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Place · Instructions · Model · Contexts · Skills · MCP servers.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Place · Instructions · Model · Skills · MCP servers.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
-import { Menu } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import { commonIcons, conversationIcons } from "../../../icons/mod.ts";
+import { commonIcons } from "../../../icons/mod.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -27,19 +26,12 @@ import {
 import { ServerForm } from "./server-form.tsx";
 import styles from "./agent-editor.module.css";
 
-/** 붙일 수 있는 context 한 개(이 project의 context 목록). */
-export interface ContextOption {
-  readonly id: string;
-  readonly name: string;
-}
-
 type FieldName =
   | "profile"
   | "name"
   | "place"
   | "instructions"
   | "model"
-  | "contexts"
   | "skills"
   | "mcp";
 
@@ -49,7 +41,6 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   profile: "profile",
   body: "instructions",
   model: "model",
-  contexts: "contexts",
   skills_off: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",
@@ -84,65 +75,6 @@ function Group(
       <legend className={styles.legend}>{heading}</legend>
       {children}
     </fieldset>
-  );
-}
-
-/** Contexts 칸: 붙은 context chip과 [+ Add context ▾]. 0개도 된다. project에 놓인 Operator만 갖는다. */
-function ContextsField(
-  { value, options, onChange }: {
-    value: readonly string[];
-    options: readonly ContextOption[];
-    onChange: (value: readonly string[]) => void;
-  },
-) {
-  const nameOf = (id: string) =>
-    options.find((item) => item.id === id)?.name ?? id;
-  const rest = options.filter((item) => !value.includes(item.id));
-  return (
-    <>
-      {value.length === 0
-        ? (
-          <p className={styles.note}>
-            {t("project-workspace.empty.agent-editor-no-contexts")}
-          </p>
-        )
-        : (
-          <div className={styles.chips}>
-            {value.map((id) => (
-              <span key={id} className={styles.removable} data-context={id}>
-                {nameOf(id)}
-                <IconButton
-                  icon={conversationIcons.removeContext}
-                  size="sm"
-                  label={t(
-                    "project-workspace.label.agent-editor-remove-context",
-                    { name: nameOf(id) },
-                  )}
-                  onClick={() =>
-                    onChange(value.filter((one) =>
-                      one !== id
-                    ))}
-                />
-              </span>
-            ))}
-          </div>
-        )}
-      <div className={styles.rightEnd}>
-        <Menu
-          trigger={
-            <Button
-              size="sm"
-              icon={commonIcons.add}
-              disabled={rest.length === 0}
-            >
-              {t("project-workspace.button.agent-editor-add-context")}
-            </Button>
-          }
-          items={rest.map((item) => ({ id: item.id, label: item.name }))}
-          onSelect={(id) => onChange([...value, id])}
-        />
-      </div>
-    </>
   );
 }
 
@@ -197,7 +129,6 @@ interface DefinitionFormProps {
   readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;
-  readonly contexts: readonly ContextOption[];
   /** 새 Operator를 놓을 곳. */
   readonly place: string;
   readonly onPlace: (place: string) => void;
@@ -218,11 +149,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
 
-  const placeKind = fresh
-    ? (props.place.split(":")[0] as "project" | "app")
-    : detail.place.kind;
-  const withProject = detail.place.kind === "project" ||
-    (fresh && placeKind === "project");
   const set = (
     key: Exclude<keyof AgentDraft, "body">,
     value: unknown,
@@ -360,22 +286,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
         />
         <Issues issues={issuesOf("model")} />
       </div>
-
-      {detail.role === "operator" && withProject
-        ? (
-          <Group
-            name="contexts"
-            heading={t("project-workspace.heading.agent-editor-contexts")}
-          >
-            <ContextsField
-              value={definition.contexts ?? []}
-              options={props.contexts}
-              onChange={(value) => onChange({ ...definition, contexts: value })}
-            />
-            <Issues issues={issuesOf("contexts")} />
-          </Group>
-        )
-        : null}
 
       <Group
         name="skills"

@@ -5,7 +5,6 @@ import {
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
-import { appApiKeySchema } from "./scope.ts";
 import type { Role } from "./places.ts";
 
 // agent 정의의 값. 정의와 설정은 app data의 Markdown 파일이고,
@@ -93,12 +92,6 @@ export const profileOutputSchema = z.discriminatedUnion("kind", [
 ]);
 export type Profile = z.infer<typeof profileSchema>;
 
-// 앱 Operator가 읽을 (앱, command) 이름 쌍. 이름만 고르고, 호출할 때마다 현재 blueprint와 허락을 다시 본다.
-const appReadFields = { app: idSchema("app"), command: appApiKeySchema };
-const appReadSchema = z.strictObject(appReadFields);
-const appReadOutputSchema = z.object(appReadFields);
-type AppRead = z.infer<typeof appReadSchema>;
-
 // 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {
   server_name: nonblankSchema,
@@ -134,23 +127,6 @@ const bodySchema = z.string().refine(
   { message: "body is over the instruction file limit" },
 );
 
-const contextsSchema = z.array(idSchema("ctx")).refine(unique, {
-  message: "duplicate context",
-});
-
-function appReadKey(read: AppRead): string {
-  return `${read.app}\0${read.command}`;
-}
-
-const appReadsSchema = z.array(appReadSchema).refine(
-  (reads) => unique(reads.map(appReadKey)),
-  { message: "duplicate app read" },
-);
-const appReadsOutputSchema = z.array(appReadOutputSchema).refine(
-  (reads) => unique(reads.map(appReadKey)),
-  { message: "duplicate app read" },
-);
-
 function mcpKey(entry: { server_name: string; original_tool?: string }) {
   return `${entry.server_name}\0${entry.original_tool ?? ""}`;
 }
@@ -175,14 +151,12 @@ const mcpToolListOutputSchema = z.array(mcpToolOutputSchema).refine(
   { message: "duplicate mcp tool" },
 );
 
-// 설정 칸. 어느 칸이 어느 agent에 있을 수 있는지(built-in은 name·contexts·app_reads 없음, contexts는 project
-// Operator만, app_reads는 앱 Operator만)는 역할과 자리를 알아야 하므로 파일을 읽고 쓰는 쪽이 검사한다.
+// 설정 칸. 어느 칸이 어느 agent에 있을 수 있는지(built-in은 name 없음)는 역할과 자리를 알아야 하므로
+// 파일을 읽고 쓰는 쪽이 검사한다.
 const frontmatterFields = {
   name: agentNameSchema.optional(),
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
-  contexts: contextsSchema.optional(),
-  app_reads: appReadsSchema.optional(),
   skills_off: skillsOffSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   safe_tools: mcpToolListSchema.optional(),
@@ -192,8 +166,6 @@ const frontmatterOutputFields = {
   name: agentNameSchema.optional(),
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
-  contexts: contextsSchema.optional(),
-  app_reads: appReadsOutputSchema.optional(),
   skills_off: skillsOffSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   safe_tools: mcpToolListOutputSchema.optional(),
@@ -211,12 +183,10 @@ export const agentDefinitionOutputSchema = z.object({
 });
 
 // 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
-// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`contexts.1`, `model.api_key`)이고
+// 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills_off.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 
 // 오류 details에 싣는 항목별 이유의 모양이다. 저장 거절(invalid_input)의 details가 이것이다.
-
-// 앱 자리의 built-in은 project가 없어 context 자료가 0개이고, 그 이유를 밝힌다.
 
 // 칸마다 그 값을 준 층. resolved agent와 run 기준이 같은 모양을 쓴다.
 
@@ -225,11 +195,9 @@ export const agentDefinitionOutputSchema = z.object({
 
 const countSchema = z.number().int().nonnegative();
 
-// 카드의 "n contexts · n skills · n MCP". skills·mcp는 resolve 결과의 켜진 개수이고
-// contexts는 Operator가 고른 것 가운데 active인 개수다. built-in은 context 수를 보이지 않아 null이다.
-// 파일이 틀려 resolve하지 못한 행은 셋 다 셀 수 없어 null이다.
+// 카드의 "n skills · n MCP". resolve 결과의 켜진 개수다.
+// 파일이 틀려 resolve하지 못한 행은 셀 수 없어 null이다.
 export const agentCountsSchema = z.object({
-  contexts: countSchema.nullable(),
   skills: countSchema.nullable(),
   mcp: countSchema.nullable(),
 });

@@ -59,7 +59,6 @@ export {
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
-  PROJECT_CONTEXTS,
   PROJECT_ID,
   PROJECT_NAME,
 } from "./fake-data.ts";
@@ -322,7 +321,6 @@ export function createFakeAgentsSource(
       },
       issues: [],
       counts: {
-        contexts: builtIn ? null : (definition.contexts ?? []).length,
         skills,
         mcp,
       },

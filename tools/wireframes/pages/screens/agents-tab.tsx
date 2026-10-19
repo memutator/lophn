@@ -9,7 +9,6 @@ import {
   createFakeAgentsSource,
   FAKE_AGENTS,
   type FakeAgentsOptions,
-  PROJECT_CONTEXTS,
   PROJECT_ID,
   PROJECT_NAME,
 } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
@@ -49,7 +48,6 @@ export function AgentsBody({ open }: { open: Open }) {
       onAgent={(key) => {
         if (key !== null) open(agentTab(key));
       }}
-      contexts={PROJECT_CONTEXTS}
       onEditInstructions={noop}
       onAddExtension={noop}
       onChanged={noop}
@@ -76,7 +74,6 @@ export function OperatorEditor(
         project={id === "app_engineer" ? APP_ID : PROJECT_ID}
         projectName={PROJECT_NAME}
         agent={id === "new" ? null : id}
-        contexts={PROJECT_CONTEXTS}
         onDone={onDone}
         onChanged={noop}
         onEditProjectInstructions={noop}

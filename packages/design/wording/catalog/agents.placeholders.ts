@@ -210,12 +210,7 @@ export type AgentsPlaceholders = {
   "project-workspace.heading.mcp-servers": Record<never, never>;
   "project-workspace.heading.skills": Record<never, never>;
   "project-workspace.info.instructions-file": Record<never, never>;
-  "project-workspace.label.agent-counts-built-in": {
-    skills: "plural";
-    mcp: "number";
-  };
-  "project-workspace.label.agent-counts-operator": {
-    contexts: "plural";
+  "project-workspace.label.agent-counts": {
     skills: "plural";
     mcp: "number";
   };

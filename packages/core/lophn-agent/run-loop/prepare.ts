@@ -15,7 +15,6 @@ import {
   finishTurn,
   type McpServer,
   type ModelChoice,
-  type Place,
   type Role,
   startTurn,
   TURN_BLOB_PURPOSES,
@@ -153,9 +152,8 @@ type PreparerDeps = {
   >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
   roleTools(role: Role): readonly string[];
-  // role마다 다른 이름·기본 profile·context 규칙과 place의 active context. role 층이 정해 조립이 넘긴다.
+  // role마다 다른 이름·기본 profile 규칙. role 층이 정해 조립이 넘긴다.
   roles: AgentRoleTable;
-  activeContexts(place: Place | null): Promise<Result<string[]>>;
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // place로 어느 project인지 정한다).
@@ -627,7 +625,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       session: start.session,
       roleTools: deps.roleTools,
       roles: deps.roles,
-      activeContexts: deps.activeContexts,
       skills: skills.filter((entry) => entry.enabled).map((entry) =>
         entry.name
       ),

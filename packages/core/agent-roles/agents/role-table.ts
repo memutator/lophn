@@ -28,21 +28,6 @@ export const ROLE_TABLE: AgentRoleTable = {
   isOperator: (role) => role === "operator",
   builtinName: (role) => role === "operator" ? null : BUILTIN_ROLE_NAMES[role],
   defaultProfile: (role) => PROFILES[role],
-  contextsOf(role, { chosen, active }) {
-    // Operator는 정의가 고른 것 가운데 active인 것(정의 순서), Project Manager는 active 전부(주어진 순서),
-    // 나머지는 context 자료가 없다.
-    if (role === "operator") {
-      const live = new Set(active);
-      return {
-        contexts: chosen.filter((id) => live.has(id)),
-        picked: chosen.length > 0,
-      };
-    }
-    return {
-      contexts: role === "project_manager" ? [...active] : [],
-      picked: false,
-    };
-  },
   slotOf(root, ref, operatorPlace) {
     switch (ref.role) {
       case "lophn":

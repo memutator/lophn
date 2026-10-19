@@ -8,7 +8,7 @@ import { t } from "@lophn/wording";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { AgentsTab } from "./agents-tab.tsx";
-import { AgentEditor, type ContextOption } from "./editor/agent-editor.tsx";
+import { AgentEditor } from "./editor/agent-editor.tsx";
 import styles from "./agents-tab.module.css";
 import type { AgentsOverview, AgentsSource, ModelsView } from "./source.ts";
 
@@ -20,8 +20,6 @@ interface AgentsPageProps {
   agent: string | null;
   /** 열어 둔 agent를 바꾼다(탭 필드). null이면 목록으로 돌아간다. */
   onAgent: (assignment: string | null) => void;
-  /** Operator에 붙일 수 있는 이 project의 context. */
-  contexts: readonly ContextOption[];
   /** project의 LOPHN.md를 연다. 통로가 없으면 단추는 아무것도 하지 않는다. */
   onEditInstructions: () => void;
   /** Skills·MCP servers의 [Add …]. 등록 form은 Settings가 갖고 있다. */
@@ -81,7 +79,6 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         project={project}
         projectName={props.projectName}
         agent={agent}
-        contexts={props.contexts}
         onDone={leave}
         onChanged={props.onChanged}
         onEditProjectInstructions={props.onEditInstructions}

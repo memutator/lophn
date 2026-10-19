@@ -2,7 +2,6 @@ import { isAbsolute, relative, sep } from "node:path";
 import { ok, type Result } from "../../../../base/mod.ts";
 import { appGet } from "../../../../protocol/apps/mod.ts";
 import type { Role } from "../../../../protocol/lophn-agent/places.ts";
-import { agentDefinitionRead } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   contextGetRoute,
   projectApi,
@@ -72,17 +71,7 @@ export async function contextAccess(
   ctx: ToolContext,
 ): Promise<Result<ContextAccess>> {
   const { role } = ctx;
-  let attached: readonly string[] = [];
-  if (role === "operator" && ctx.agent.role === "operator") {
-    const read = await readOf(ctx.core, agentDefinitionRead, {
-      agent: ctx.agent,
-    });
-    if (!read.ok) return read;
-    const definition = read.value.definition;
-    if (definition !== null && "contexts" in definition) {
-      attached = definition.contexts ?? [];
-    }
-  }
+  const attached: readonly string[] = [];
   let place: VisiblePlace = null;
   if (ctx.place?.kind === "project") {
     place = { kind: "project", id: ctx.place.id };

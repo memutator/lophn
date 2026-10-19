@@ -77,7 +77,6 @@ export interface AgentDraft {
   readonly name?: string;
   readonly profile?: Profile;
   readonly model?: ModelChoice;
-  readonly contexts?: readonly string[];
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];

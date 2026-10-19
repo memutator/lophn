@@ -326,7 +326,6 @@ function ManageBody(props: SidePanelProps & { agent: string | null }) {
         source={props.source}
         agent={props.agent}
         onAgent={(agent) => props.onState({ mode: "manage", agent })}
-        contexts={[]}
         onEditInstructions={() => props.onInstructions?.()}
         onAddExtension={() => props.onSettings?.("tools")}
         onChanged={props.onChanged}

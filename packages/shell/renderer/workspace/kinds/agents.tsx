@@ -73,10 +73,6 @@ export const agentsKind: TabKindDef = {
             host.patchTab(tab.key, () => ({
               fields: assignment === null ? undefined : { agent: assignment },
             }))}
-          contexts={(host.contexts?.list ?? []).map((item) => ({
-            id: item.id,
-            name: item.title,
-          }))}
           onEditInstructions={agents.editInstructions}
           onAddExtension={agents.openExtensions}
           onChanged={agents.changed}

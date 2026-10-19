@@ -98,7 +98,7 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
     }).strict(),
     routes: [projectList, appList, operatorCreate],
     description:
-      "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, contexts, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
+      "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills_off, mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
     gate: (input, ctx) => gateFor(input.name, ctx),
     handler: async (input, ctx) => {

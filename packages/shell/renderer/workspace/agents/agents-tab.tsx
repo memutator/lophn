@@ -48,17 +48,11 @@ function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
 
 // 파일이 틀려 resolve하지 못한 행은 개수를 셀 수 없다(counts가 null).
 function countsText(row: AgentListRow): string {
-  const { contexts, skills, mcp } = row.counts;
+  const { skills, mcp } = row.counts;
   if (skills === null || mcp === null) {
     return t("project-workspace.label.agent-counts-unknown");
   }
-  return contexts === null
-    ? t("project-workspace.label.agent-counts-built-in", { skills, mcp })
-    : t("project-workspace.label.agent-counts-operator", {
-      contexts,
-      skills,
-      mcp,
-    });
+  return t("project-workspace.label.agent-counts", { skills, mcp });
 }
 
 function AgentCardView(

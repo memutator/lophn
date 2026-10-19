@@ -23,9 +23,6 @@ Deno.test("정의 읽기의 model 출처는 agent, project, global 순서다", (
     const lookups: AgentLookups = {
       placeExists: () => true,
       places: () => [{ kind: "project", id: PROJECT }],
-      contextStatus: () => null,
-      contextProject: () => null,
-      activeContexts: () => [],
       skills: () => [],
       mcp: () => [],
       modelDefault: () => choice("global-model"),

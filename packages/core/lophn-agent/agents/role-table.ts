@@ -15,12 +15,6 @@ export type AgentRoleTable = {
   builtinName(role: Role): string | null;
   // 정의에 profile이 없을 때의 기본 profile.
   defaultProfile(role: Role): Profile;
-  // 이 role이 읽을 context다. chosen은 정의가 고른 것, active는 place의 active context다.
-  // picked는 정의가 context를 골랐는지(sources의 출처)다.
-  contextsOf(
-    role: Role,
-    input: { chosen: readonly string[]; active: readonly string[] },
-  ): { contexts: string[]; picked: boolean };
   // 정의 파일 자리. Operator의 place는 ref에 없어 호출하는 쪽이 정해 주고, 없으면 null이다.
   slotOf(root: string, ref: AgentRef, operatorPlace?: Place): AgentSlot | null;
   // place의 agents 폴더(Operator 정의와 profile 이미지가 놓인다).

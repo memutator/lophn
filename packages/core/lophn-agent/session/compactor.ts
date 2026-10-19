@@ -8,7 +8,6 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
-  type Place,
   type Role,
   sessionCompactRequests,
   startModelCall,
@@ -96,7 +95,6 @@ type CompactorDeps = {
   machine: CoreCall;
   roleTools(role: Role): readonly string[];
   roles: AgentRoleTable;
-  activeContexts(place: Place | null): Promise<Result<string[]>>;
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(
@@ -164,7 +162,6 @@ export function createCompactor(
       skills: [],
       roleTools: deps.roleTools,
       roles: deps.roles,
-      activeContexts: deps.activeContexts,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"

@@ -27,13 +27,6 @@ export type AgentLookups = {
   placeExists(place: Place): boolean;
   // 있는 project와 앱 전부. 목록과 Operator 찾기가 훑는다.
   places(): Place[];
-  // 만드는 중(drafting)인 context와 보관한 context도 실제 context다. 없으면 null.
-  contextStatus(id: string): "drafting" | "active" | "archived" | null;
-  // context가 속한 project. 없으면 null. context는 project 안에만 있다.
-  contextProject(id: string): string | null;
-  // 이 place의 agent가 읽을 active context다. project place는 그 project의 active context 전부이고
-  // 그 밖에는 빈 목록이다.
-  activeContexts(place: Place | null): string[];
   // 이 place의 agent가 쓸 수 있는 skill 이름과 MCP tool이다. 전역 층에 project 층을 더한 것이고
   // 발견·등록 순서다. lophn(place 없음)은 전역 층만이다.
   skills(place: Place | null): string[];
@@ -44,18 +37,12 @@ export type AgentLookups = {
   projectModel(place: Place | null): ModelChoice | null;
 };
 
-// project·앱·context 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.
+// project·앱 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.
 export type PlaceLookups = {
   projectExists(sql: ReadSql, id: string): boolean;
   projectIds(sql: ReadSql): string[];
   appExists(sql: ReadSql, id: string): boolean;
   appIds(sql: ReadSql): string[];
-  contextStatus(
-    sql: ReadSql,
-    id: string,
-  ): "drafting" | "active" | "archived" | undefined;
-  contextProjectOf(sql: ReadSql, id: string): string | null;
-  activeContextIds(sql: ReadSql, project: string): string[];
 };
 
 export type AgentDeps = {

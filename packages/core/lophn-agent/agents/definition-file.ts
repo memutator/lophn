@@ -25,8 +25,8 @@ import type { AgentRoleTable } from "./role-table.ts";
 // - 쓴 글을 다시 읽으면 처음 값이 나온다. 숫자·불리언처럼 보이는 문자열도 문자열로 돌아온다.
 //
 // 검사는 읽을 때와 쓸 때 같다: 모양 전체를 한 번에 보고 틀린 칸을 모두 `issues`에 담는다. 하나라도 틀리면
-// 값도 글도 돌려주지 않는다. 칸 경로는 점 표기(`contexts.1`)이고 모르는 칸은 부모 경로 뒤에 그 이름을 붙인다.
-// 존재 여부가 필요한 참조(context)와 같은 place Operator 사이의 이름 중복은 파일만으로 알 수 없으므로
+// 값도 글도 돌려주지 않는다. 칸 경로는 점 표기(`skills_off.1`)이고 모르는 칸은 부모 경로 뒤에 그 이름을 붙인다.
+// 같은 place Operator 사이의 이름 중복은 파일만으로 알 수 없으므로
 // 여기서 보지 않는다.
 
 type AgentFileTarget = { role: Role; place: Place["kind"] | null };
@@ -153,20 +153,11 @@ function checkDefinition(
   }
   if (operator && text.trim() === "") addIssue(issues, "body", "required");
 
-  // place에 따라 있을 수 없는 칸은 모양 검사 전에 not_allowed 하나로 알린다.
-  const blocked =
-    operator && target.place === "app" && raw.contexts !== undefined
-      ? ["contexts"]
-      : [];
   const name = raw.name;
   const nameMissing = operator &&
     (name === undefined || (typeof name === "string" && name.trim() === ""));
   const schema = operator ? operatorDefinitionSchema : builtinDefinitionSchema;
-  const { contexts: _blocked, ...rest } = raw;
-  const shaped = schema.safeParse({
-    ...(blocked.length > 0 ? rest : raw),
-    body: text,
-  });
+  const shaped = schema.safeParse({ ...raw, body: text });
   if (!shaped.success) {
     for (const issue of schemaIssues(shaped.error)) {
       const top = issue.field.split(".")[0];
@@ -174,7 +165,6 @@ function checkDefinition(
       addIssue(issues, issue.field, issue.code);
     }
   }
-  for (const field of blocked) addIssue(issues, field, "not_allowed");
   if (nameMissing) {
     addIssue(issues, "name", "required");
   } else if (
@@ -189,7 +179,6 @@ function checkDefinition(
 // ---- 쓰기: 고정한 칸 순서로 있는 칸만 만든다 ----
 
 const EMPTY_DEFAULT_LISTS = [
-  "contexts",
   "skills_off",
   "mcp_off",
   "mcp_servers",

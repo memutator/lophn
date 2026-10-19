@@ -17,7 +17,7 @@ import {
 } from "./inspect.ts";
 
 // 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 것을 더한다: 같은 place Operator 사이의
-// 이름 중복과 context 참조. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
+// 이름 중복. 틀린 칸은 하나도 빠뜨리지 않고 모아 한 번에 알린다.
 
 function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
   return err({
@@ -80,24 +80,6 @@ export function checkOperator(input: {
     const taken = duplicateName(context, place, id, definition.name);
     if (!taken.ok) return taken;
     if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
-  }
-  if (place.kind === "project") {
-    // 없는 context와 다른 project의 context는 `missing_reference`, 보관한 context는 `archived_reference`로
-    // 고를 수 없다. 만드는 중인 context는 고를 수 있다. 저장한 뒤 보관된 context는 정의에 그대로 두고 실행
-    // 때만 자료에서 뺀다(resolve).
-    const { lookups } = context;
-    (definition.contexts ?? []).forEach((contextId, index) => {
-      const status = lookups.contextStatus(contextId);
-      const code =
-        status === null || lookups.contextProject(contextId) !== place.id
-          ? "missing_reference"
-          : status === "archived"
-          ? "archived_reference"
-          : null;
-      if (code !== null) {
-        addAll(issues, [{ field: `contexts.${index}`, code }]);
-      }
-    });
   }
 
   if (issues.length > 0 || !text.ok) return invalidInput(issues);

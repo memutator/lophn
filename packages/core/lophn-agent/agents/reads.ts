@@ -51,16 +51,11 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const model = effectiveModel(context, loaded);
   const { lookups, roles } = context;
   const definition = loaded.definition;
-  const operator = roles.isOperator(loaded.role);
   const broken = loaded.issues.length > 0;
   const skills = lookups.skills(loaded.place);
   const mcp = lookups.mcp(loaded.place);
   const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const contexts = definition !== null && "contexts" in definition
-    ? definition.contexts ?? []
-    : [];
-  const active = new Set(lookups.activeContexts(loaded.place));
   return {
     agent: loaded.ref,
     kind: roles.kindOf(loaded.role),
@@ -73,10 +68,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
       source: model.source,
     },
     issues: loaded.issues,
-    counts: broken ? { contexts: null, skills: null, mcp: null } : {
-      contexts: operator
-        ? contexts.filter((id) => active.has(id)).length
-        : null,
+    counts: broken ? { skills: null, mcp: null } : {
       skills: skills.filter((name) => !skillsOff.includes(name)).length,
       mcp:
         mcp.filter((tool) =>

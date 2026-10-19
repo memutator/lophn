@@ -26,4 +26,4 @@ lead만 고친다. `tools/status.py domain-place build`가 `tasks/*.md`에서 id
 | `dp-shell-launcher` | shell-place | 2 | dp-shell-agents | merged | shell-place/dp-shell-launcher | 3a3fea89c |  |
 | `dp-problems-core` | storage | 2 | dp-storage-apps | merged | storage/dp-problems-core | 7609a6373 |  |
 | `dp-storage-apps` | storage | 2 | 없음 | merged | storage/dp-storage-apps | 9465bc595 |  |
-| `dp-place-protocol` | place-core | 3 | dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval | running | place-core/dp-place-protocol |  |  |
+| `dp-place-protocol` | place-core | 3 | dp-agents-core, dp-place-events, dp-agent-roles-scope, dp-agent-roles-prompt, dp-operator-skills, dp-storage-apps, dp-problems-core, dp-shell-app-space, dp-shell-agents, dp-shell-launcher, dp-coding-text, dp-eval | merged | place-core/dp-place-protocol | c1807596b |  |

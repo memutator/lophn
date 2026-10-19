@@ -40,6 +40,7 @@ import {
 } from "./core-extensions.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
+import type { DomainView } from "../source.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -182,6 +183,34 @@ export function coreAgentsSource(
       { project: place },
     );
     return project.ok ? project.value.project.title : "";
+  };
+
+  // 이 자리 그릇의 active domain. 한 page가 넘으면 cursor로 이어 읽는다.
+  const domains = async (
+    place: string,
+  ): Promise<ReadResult<readonly DomainView[]>> => {
+    const found: DomainView[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < PAGE_LIMIT; page += 1) {
+      const result = await link.read<
+        { domains: DomainView[]; next_cursor: string | null }
+      >("domains", "list", {
+        owner: placeOf(place),
+        status: "active",
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (!result.ok) return result;
+      found.push(...result.value.domains.map((one) => ({
+        id: one.id,
+        name: one.name,
+        title: one.title,
+        purpose: one.purpose,
+        status: one.status,
+      })));
+      if (result.value.next_cursor === null) break;
+      cursor = result.value.next_cursor;
+    }
+    return { ok: true, value: found };
   };
 
   const providers = async () => {
@@ -362,6 +391,8 @@ export function coreAgentsSource(
 
   return {
     list,
+
+    domains,
 
     async overview(project) {
       const agents = await list(project);
@@ -668,7 +699,7 @@ export function coreAgentsSource(
       });
     },
 
-    grants: (project, key) => readGrants(link, project, key),
+    grants: (project, key) => readGrants(link, project, key, domains),
 
     setGrants: (project, key, entries) =>
       saveGrants(link, project, key, entries),

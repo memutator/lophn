@@ -28,7 +28,7 @@ export const agentSettingsArea: Area = {
       id: "new-operator-editor",
       title: "Agent settings · Operator",
       description:
-        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, skill, MCP가 있다. Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 Operator의 설정이다. 프로필, 이름, 놓인 곳, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP가 있다. Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <OperatorEditorPage />,
     },
     {
@@ -56,7 +56,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-editor-app-operator",
       title: "Agent settings · Operator in an app",
       description:
-        "앱에 놓은 Operator의 설정이다. 놓인 곳이 앱이고, 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다.",
+        "앱에 놓은 Operator의 설정이다. 놓인 곳이 앱이고, 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다. Domains 칸은 앱의 domain을 고르고, 고르지 않았으면 앱의 전부다.",
       render: () => <AppOperatorEditorPage />,
     },
     {
@@ -70,7 +70,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것 넷(앱, MCP server의 tool, 부를 수 있는 다른 agent, 설정 고치기)을 붙이고 대상마다 묻는지를 정한다. 위에 효과별 기본값(read와 write는 묻지 않음, external과 설정 고치기는 물음)이 있다.",
+        "agent에게 맡길 것 넷(앱, MCP server의 tool, 부를 수 있는 다른 agent, 설정 고치기)을 붙이고 대상마다 묻는지를 정한다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 위에 효과별 기본값(read와 write는 묻지 않음, external과 설정 고치기는 물음)이 있다.",
       render: () => <AgentGrantsPage />,
     },
     {

@@ -22,6 +22,11 @@ function detailOf(server: McpServer): string {
     : server.http.url;
 }
 
+const domainOf = (skill: SkillEntry) => {
+  const domain = (skill as SkillEntry & { domain?: string | null }).domain;
+  return typeof domain === "string" ? { domain } : {};
+};
+
 /** 이 자리에서 보이는 skill. 내장 skill은 그 role의 agent만 갖는다(role이 null이면 모두 보인다). */
 export async function readSkills(
   link: Link,
@@ -42,8 +47,9 @@ export async function readSkills(
     ).map((skill) => ({
       name: skill.name,
       detail: skill.description,
-      // 화면의 층 이름은 아직 project뿐이라 domain 층도 그 이름으로 보인다.
-      layer: skill.source === "domain" ? "project" : skill.source,
+      layer: skill.source,
+      // skills read가 domain id를 싣는 대로 쓴다. 싣지 않으면 domain 없는 skill로 보여 어느 domain을 골라도 목록에 든다.
+      ...domainOf(skill),
       on: skill.enabled,
       builtIn: skill.source === "builtin",
     })),

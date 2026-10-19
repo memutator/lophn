@@ -13,6 +13,7 @@ import type { MessageKey } from "@lophn/wording";
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { AgentGrantEntry } from "../../../../../protocol/approvals/grants.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
+import type { DomainView } from "../../source.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -35,6 +36,7 @@ export type AgentEditorSource = Pick<
   | "uploadImage"
   | "imageSrc"
   | "models"
+  | "domains"
   | "refreshModels"
   | "setHidden"
   | "userModels"
@@ -142,6 +144,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [domains, setDomains] = useState<readonly DomainView[] | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -181,6 +184,24 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     };
     // props.onDone은 부르는 쪽이 만드는 함수라 바뀔 때마다 다시 읽지 않는다.
   }, [source, project, agent, attempt]);
+
+  // Operator가 고를 domain은 놓인 곳 그릇의 것이다. 새 Operator는 놓을 곳을 바꾸면 다시 읽는다.
+  const placeId = state.kind !== "ready"
+    ? null
+    : state.detail.assignment === null
+    ? place.slice(place.indexOf(":") + 1)
+    : state.detail.place.id;
+  useEffect(() => {
+    setDomains(null);
+    if (placeId === null || placeId === "") return;
+    let live = true;
+    void source.domains(placeId).then((result) => {
+      if (live) setDomains(result.ok ? result.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, placeId]);
 
   // Grants 탭은 열 때 읽는다. 새 Operator는 저장하기 전에는 붙일 수 없다.
   useEffect(() => {
@@ -231,11 +252,17 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   })();
 
   const save = () => {
+    // 그릇에 없어진 domain은 저장에서 뺀다(칸은 안내만 보인다). 비면 칸 자체를 뺀다.
+    const { domains: chosen = [], ...rest } = definition;
+    const here = domains?.map((one) => one.id);
+    const stay = here === undefined
+      ? chosen
+      : chosen.filter((id) => here.includes(id));
     void source.saveAgent(project, {
       assignment: detail.assignment,
       draftId: detail.draftId,
       place: fresh ? place.slice(place.indexOf(":") + 1) : null,
-      definition,
+      definition: stay.length === 0 ? rest : { ...rest, domains: stay },
       hash: detail.hash,
     }).then((result) => {
       if (result.ok) {
@@ -348,6 +375,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             models={models}
             source={source}
             placeName={props.projectName}
+            domains={domains}
             place={place}
             onPlace={setPlace}
             imageSrc={(image) =>

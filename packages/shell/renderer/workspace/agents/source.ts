@@ -23,7 +23,7 @@ import type {
   AgentGrantEntry,
   Effect,
 } from "../../../../protocol/approvals/grants.ts";
-import type { ReadResult } from "../source.ts";
+import type { DomainView, ReadResult } from "../source.ts";
 import type {
   McpRow,
   ProjectInstructionsView,
@@ -71,7 +71,7 @@ export interface AgentsOverview {
 
 /**
  * 정의 파일 한 개의 값. Operator는 모든 칸이 있고 내장 role은 model·skills·mcp_off·body만 있다.
- * `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다.
+ * `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다. `domains`는 일할 domain의 id이고 비면 그 그릇의 domain 전부다.
  * 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
@@ -79,6 +79,7 @@ export interface AgentDraft {
   readonly profile?: Profile;
   readonly model?: ModelChoice;
   readonly skills?: readonly string[];
+  readonly domains?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
   readonly body: string;
@@ -200,8 +201,10 @@ interface GrantTool {
   readonly effect: Effect;
   /** 새 release가 더한 tool이면 그 release 이름. 알 수 없으면 null이다. */
   readonly addedIn: string | null;
-  /** 다른 project에 보이는 tool인가. */
+  /** 다른 domain에 보이는 tool인가. */
   readonly public: boolean;
+  /** tool이 다루는 객체의 domain 이름. */
+  readonly domain: string;
 }
 
 export interface GrantApp {
@@ -245,6 +248,8 @@ export interface AgentsSource {
   list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
   overview(project: string): Promise<ReadResult<AgentsOverview>>;
   models(): Promise<ReadResult<ModelsView>>;
+  /** 이 자리(project나 앱) 그릇의 active domain 목록. Operator가 고를 수 있는 domain이다. */
+  domains(place: string): Promise<ReadResult<readonly DomainView[]>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
   /** 끈 model 목록 전체를 바꾸고 바뀐 목록을 돌려준다. */

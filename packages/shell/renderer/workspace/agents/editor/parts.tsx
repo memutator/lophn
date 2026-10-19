@@ -27,6 +27,7 @@ import styles from "./agent-editor.module.css";
 const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   builtin: "agents.label.layer-builtin",
   global: "agents.label.layer-global",
+  domain: "agents.label.layer-domain",
   project: "agents.label.layer-project",
   agent: "agents.label.layer-agent",
 };

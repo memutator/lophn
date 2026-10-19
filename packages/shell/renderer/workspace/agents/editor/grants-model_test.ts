@@ -2,11 +2,13 @@ import { assertEquals } from "@std/assert";
 
 import type { AgentGrantEntry } from "../../../../../protocol/approvals/grants.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+import type { DomainView } from "../../source.ts";
 import type { GrantApp } from "../source.ts";
 import {
   agentEntryOf,
   appsFor,
   callPick,
+  domainNamesOf,
   KEPT,
   withCallPick,
 } from "./grants-model.ts";
@@ -24,30 +26,51 @@ Deno.test("agent 부르기를 끄면 줄이 excluded로 남고, 줄 없는 agent
   assertEquals(on as AgentGrantEntry[], []);
 });
 
-Deno.test("다른 앱의 tool은 public만 붙일 수 있고, agent가 놓인 앱의 tool은 모두 보인다", () => {
-  const tool = (name: string, isPublic: boolean) => ({
+Deno.test("고른 domain의 비공개 tool만 붙일 수 있고 public tool은 어느 domain 것이든 붙일 수 있다", () => {
+  const tool = (domain: string, name: string, isPublic: boolean) => ({
     tool: name,
     detail: "",
     effect: "read" as const,
     addedIn: null,
     public: isPublic,
+    domain,
   });
   const app = (id: string, tools: GrantApp["tools"]) =>
     ({ app: id, name: id, release: null, tools }) as GrantApp;
   const apps = [
-    app("app_mine", [tool("open", true), tool("secret", false)]),
-    app("app_other", [tool("open", true), tool("secret", false)]),
-    app("app_closed", [tool("secret", false)]),
+    app("app_mine", [
+      tool("d1", "open1", true),
+      tool("d1", "secret1", false),
+      tool("d2", "open2", true),
+      tool("d2", "secret2", false),
+    ]),
+    app("app_other", [tool("d3", "open3", true), tool("d3", "secret3", false)]),
+    app("app_closed", [tool("d4", "secret4", false)]),
   ];
+  const seen = (domains: readonly string[]) =>
+    appsFor(apps, domains).map((
+      one,
+    ) => [one.app, one.tools.map((a) => a.tool)]);
 
-  const seen = (place: string | null) =>
-    appsFor(apps, place).map((one) => [one.app, one.tools.map((a) => a.tool)]);
-  assertEquals(seen("app_mine"), [
-    ["app_mine", ["open", "secret"]],
-    ["app_other", ["open"]],
+  assertEquals(seen(["d1"]), [
+    ["app_mine", ["open1", "secret1", "open2"]],
+    ["app_other", ["open3"]],
   ]);
-  // project place와 lophn에게는 모든 앱의 public tool만 보인다.
-  const publicOnly = [["app_mine", ["open"]], ["app_other", ["open"]]];
-  assertEquals(seen("prj_a"), publicOnly);
-  assertEquals(seen(null), publicOnly);
+  assertEquals(seen([]), [["app_mine", ["open1", "open2"]], [
+    "app_other",
+    ["open3"],
+  ]]);
+});
+
+Deno.test("고른 domain이 없으면 그릇의 모든 domain을 고른 것으로 보고, 그릇에 없는 id는 센 것에서 뺀다", () => {
+  const view = (id: string, name: string): DomainView => ({
+    id,
+    name,
+    title: name,
+    purpose: "",
+    status: "active",
+  });
+  const container = [view("dom_1", "d1"), view("dom_2", "d2")];
+  assertEquals(domainNamesOf([], container), ["d1", "d2"]);
+  assertEquals(domainNamesOf(["dom_2", "dom_gone"], container), ["d2"]);
 });

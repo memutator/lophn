@@ -109,6 +109,7 @@ export const agents = {
     "Project instructions \u00b7 LOPHN.md",
   "agents.label.layer-agent": "This agent",
   "agents.label.layer-builtin": "Built-in",
+  "agents.label.layer-domain": "Domain",
   "agents.label.layer-global": "Workspace",
   "agents.label.layer-project": "Project",
   "agents.label.model-inherit":
@@ -128,6 +129,8 @@ export const agents = {
   "agents.label.tab-grants": "Grants",
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
+  "agents.notice.domains-gone":
+    "A domain this Operator had chosen is gone from here. It is dropped when you save.",
   "agents.notice.grants-after-create":
     "You can assign apps and tools in the Grants tab once the Operator exists.",
   "agents.notice.app-no-project":
@@ -161,6 +164,8 @@ export const agents = {
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
   "agents.notice.skills-agent-only":
     "The chip says which layer a skill comes from. Switch a skill off to leave it out for this agent. A skill that is off in a layer above stays off.",
+  "agents.notice.skills-dropped":
+    "Left out because their domain is no longer chosen: {names}.",
   "agents.title.change-failed": "Couldn't change that",
   "agents.title.delete-failed": "Couldn't delete",
   "agents.title.providers-disconnect": "Disconnect {name}?",

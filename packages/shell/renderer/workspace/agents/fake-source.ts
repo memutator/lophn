@@ -10,11 +10,13 @@ import {
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
-import type { ReadResult } from "../source.ts";
+import type { DomainView, ReadResult } from "../source.ts";
 import {
   ANTHROPIC,
+  APP_DOMAINS,
   APP_ID,
   APP_NAME,
+  APP_SKILLS,
   AVATAR_SRC,
   BUILT_IN_SKILLS,
   CATALOG,
@@ -26,13 +28,14 @@ import {
   GLOBAL_SKILLS,
   GRANT_CATALOG,
   LOPHN_MD,
+  PROJECT_DOMAINS,
   PROJECT_ID as PROJECT,
   PROJECT_MCP,
   PROJECT_NAME,
   PROJECT_SKILLS,
 } from "./fake-data.ts";
 import { isAppPlace, keyOf } from "./agent-key.ts";
-import { appsFor } from "./editor/grants-model.ts";
+import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -117,6 +120,9 @@ const BUILT_IN_ICON: Record<string, string> = {
 };
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
+
+const domainsAt = (place: string): readonly DomainView[] =>
+  isAppPlace(place) ? APP_DOMAINS : place === PROJECT ? PROJECT_DOMAINS : [];
 
 /** gallery가 provider와 project 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 project 층 model 없음이다. */
 export interface FakeAgentsOptions {
@@ -274,7 +280,9 @@ export function createFakeAgentsSource(
         ...row,
         on: !projectSkillOff.has(row.name),
       }))
-      : []),
+      : item.place === "none"
+      ? []
+      : APP_SKILLS),
   ];
   const mcpFor = (atProject: boolean): McpRow[] => [
     ...GLOBAL_MCP,
@@ -631,12 +639,23 @@ export function createFakeAgentsSource(
       return Promise.resolve(ok(null));
     },
 
-    grants(project, key): Promise<ReadResult<GrantsView>> {
+    domains(place) {
+      return Promise.resolve(ok(domainsAt(place)));
+    },
+
+    grants(_project, key): Promise<ReadResult<GrantsView>> {
+      const item = stored.get(key);
+      const agentDomains = item === undefined || item.place === "none"
+        ? []
+        : domainNamesOf(
+          item.definition.domains ?? [],
+          item.place === "app" ? APP_DOMAINS : PROJECT_DOMAINS,
+        );
       return Promise.resolve(ok({
         entries: grants.get(key) ?? [],
         catalog: {
           ...GRANT_CATALOG,
-          apps: appsFor(GRANT_CATALOG.apps, project),
+          apps: appsFor(GRANT_CATALOG.apps, agentDomains),
           // 자기 자신은 부를 대상이 아니다.
           agents: GRANT_CATALOG.agents.filter((target) =>
             target.agent.role === "coding_agent" ||

@@ -117,6 +117,7 @@ export type AgentsPlaceholders = {
   "agents.label.instructions-head-unknown": Record<never, never>;
   "agents.label.layer-agent": Record<never, never>;
   "agents.label.layer-builtin": Record<never, never>;
+  "agents.label.layer-domain": Record<never, never>;
   "agents.label.layer-global": Record<never, never>;
   "agents.label.layer-project": Record<never, never>;
   "agents.label.model-inherit": {
@@ -144,6 +145,7 @@ export type AgentsPlaceholders = {
   "agents.label.tab-definition": Record<never, never>;
   "agents.label.tab-grants": Record<never, never>;
   "agents.notice.credential-later": Record<never, never>;
+  "agents.notice.domains-gone": Record<never, never>;
   "agents.notice.grants-after-create": Record<never, never>;
   "agents.notice.app-no-project": Record<never, never>;
   "agents.notice.grants-apply-now": Record<never, never>;
@@ -166,6 +168,9 @@ export type AgentsPlaceholders = {
   "agents.notice.protected-key": Record<never, never>;
   "agents.notice.server-name-help": Record<never, never>;
   "agents.notice.skills-agent-only": Record<never, never>;
+  "agents.notice.skills-dropped": {
+    names: "string";
+  };
   "agents.title.change-failed": Record<never, never>;
   "agents.title.delete-failed": Record<never, never>;
   "agents.title.providers-disconnect": {

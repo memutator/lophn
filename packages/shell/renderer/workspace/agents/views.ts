@@ -31,14 +31,16 @@ export interface Sourced<T> {
   readonly source: AgentValueLayer;
 }
 
-/** skill의 층. 내장은 role이 가진 것이고 나머지는 전역과 project다. */
-export type SkillLayer = "builtin" | "global" | "project";
+/** skill의 층. 내장은 role이 가진 것이고 나머지는 전역과 domain이다("project"는 gallery의 domain draft가 아직 쓴다). */
+export type SkillLayer = "builtin" | "global" | "domain" | "project";
 
 /** skill 한 줄. 끈 skill도 줄로 남는다. 내장 skill은 끌 수 없어 builtIn이 참이다. */
 export interface SkillRow {
   readonly name: string;
   readonly detail: string;
   readonly layer: SkillLayer;
+  /** domain 층 skill이 속한 domain의 id. 그 밖의 skill은 없다. */
+  readonly domain?: string;
   readonly on: boolean;
   readonly builtIn: boolean;
 }

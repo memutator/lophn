@@ -349,3 +349,20 @@
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
 }
+
+.checks {
+  display: flex;
+  flex-direction: column;
+}
+
+.skillGroup {
+  margin-top: var(--space-4);
+}
+
+.skillGroupTitle {
+  margin: var(--space-0) var(--space-0) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-semibold);
+}

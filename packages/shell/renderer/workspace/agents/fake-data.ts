@@ -6,6 +6,7 @@ import type {
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
+import type { DomainView } from "../source.ts";
 import type {
   AgentDraft,
   GrantApp,
@@ -24,10 +25,34 @@ export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
 const NOTES_SYNC_ID = id("app", "ns1");
-// 앱 안 agent에게는 자기 앱의 tool이 모두, 다른 앱의 tool은 public만 보인다. project의 agent에게는 모든 앱이 public만 보인다.
+// agent에게는 일할 domain의 tool이 모두, 다른 domain의 tool은 public만 보인다. domain 이름은 전체에서 하나라 project의 domain은 앱의 tool과 겹치지 않는다.
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
+
+const domain = (
+  seed: string,
+  name: string,
+  title: string,
+  purpose: string,
+): DomainView => ({
+  id: id("dom", seed),
+  name,
+  title,
+  purpose,
+  status: "active",
+});
+
+export const PROJECT_DOMAINS: readonly DomainView[] = [
+  domain("ex1", "experiments", "Experiments", "Scenario runs and rubrics."),
+  domain("fi1", "findings", "Findings", "What each experiment taught us."),
+];
+export const APP_DOMAINS: readonly DomainView[] = [
+  domain("xp1", "expenses", "Expenses", "What was spent and where."),
+  domain("bu1", "budgets", "Budgets", "What may be spent in a month."),
+];
+const [EXPERIMENTS, FINDINGS] = PROJECT_DOMAINS.map((one) => one.id);
+const [EXPENSES, BUDGETS] = APP_DOMAINS.map((one) => one.id);
 
 /** 전역 model 하나. */
 export const GLOBAL_MODEL: ModelChoice = {
@@ -192,12 +217,8 @@ Explain what changed in the eval loop and why it matters.
 2. Say which results improved and which regressed.
 3. Link every claim to the document it came from.
 Keep answers short. Name the scenario for every regression.`,
-      skills: [
-        "plain-writing",
-        "cite-documents",
-        "weekly-report",
-        "eval-metrics",
-      ],
+      skills: ["plain-writing", "cite-documents", "weekly-report"],
+      domains: [FINDINGS],
       mcp_off: [{ server_name: "fetch" }],
       mcp_servers: [{
         name: "notes-search",
@@ -226,6 +247,7 @@ Keep answers short. Name the scenario for every regression.`,
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
       skills: ["plain-writing", "cite-documents", "scenario-authoring"],
+      domains: [EXPERIMENTS],
       mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
     },
   },
@@ -269,22 +291,44 @@ export const PROJECT_SKILLS: readonly SkillRow[] = [
   {
     name: "weekly-report",
     detail: "Writes the weekly eval report from new findings.",
-    layer: "project",
+    layer: "domain",
+    domain: FINDINGS,
     on: true,
     builtIn: false,
   },
   {
     name: "eval-metrics",
     detail: "Explains the eval metrics and their ranges.",
-    layer: "project",
+    layer: "domain",
+    domain: EXPERIMENTS,
     on: true,
     builtIn: false,
   },
   {
     name: "scenario-authoring",
     detail: "Drafts scenario files under eval/scenarios.",
-    layer: "project",
+    layer: "domain",
+    domain: EXPERIMENTS,
     on: false,
+    builtIn: false,
+  },
+];
+
+export const APP_SKILLS: readonly SkillRow[] = [
+  {
+    name: "expense-categories",
+    detail: "Sorts a new expense into the app's categories.",
+    layer: "domain",
+    domain: EXPENSES,
+    on: true,
+    builtIn: false,
+  },
+  {
+    name: "budget-limits",
+    detail: "Explains how the monthly limits are set.",
+    layer: "domain",
+    domain: BUDGETS,
+    on: true,
     builtIn: false,
   },
 ];
@@ -337,13 +381,14 @@ export const PROJECT_MCP: readonly McpRow[] = [
 // ---- agent grant ----
 
 function tool(
+  domain: string,
   name: string,
   detail: string,
   effect: "read" | "write" | "external",
   addedIn: string | null = null,
   isPublic = false,
 ) {
-  return { tool: name, detail, effect, addedIn, public: isPublic };
+  return { tool: name, detail, effect, addedIn, public: isPublic, domain };
 }
 
 const APPS: readonly GrantApp[] = [
@@ -353,6 +398,7 @@ const APPS: readonly GrantApp[] = [
     release: "1.4",
     tools: [
       tool(
+        "expenses",
         "list_expenses",
         "Lists the expenses of a month",
         "read",
@@ -360,23 +406,42 @@ const APPS: readonly GrantApp[] = [
         true,
       ),
       tool(
+        "budgets",
         "get_budget",
         "Reads the budget and what is left",
         "read",
         null,
         true,
       ),
-      tool("summarize_month", "Totals a month by category", "read"),
-      tool("add_expense", "Adds one expense", "write"),
+      tool("budgets", "summarize_month", "Totals a month by category", "read"),
+      tool("expenses", "add_expense", "Adds one expense", "write"),
       tool(
+        "budgets",
         "set_alert_threshold",
         "Sets when the app warns about spending",
         "write",
       ),
-      tool("delete_expense", "Deletes one expense", "write"),
-      tool("export_to_sheet", "Sends a month to a spreadsheet", "external"),
-      tool("send_report_mail", "Mails the monthly report", "external", "1.4"),
-      tool("tag_expense", "Puts a tag on an expense", "write", "1.4"),
+      tool("expenses", "delete_expense", "Deletes one expense", "write"),
+      tool(
+        "expenses",
+        "export_to_sheet",
+        "Sends a month to a spreadsheet",
+        "external",
+      ),
+      tool(
+        "budgets",
+        "send_report_mail",
+        "Mails the monthly report",
+        "external",
+        "1.4",
+      ),
+      tool(
+        "expenses",
+        "tag_expense",
+        "Puts a tag on an expense",
+        "write",
+        "1.4",
+      ),
     ],
   },
   {
@@ -384,10 +449,22 @@ const APPS: readonly GrantApp[] = [
     name: "Eval board",
     release: "0.9",
     tools: [
-      tool("list_runs", "Lists eval runs", "read", null, true),
-      tool("get_run", "Reads one run with its scores", "read", null, true),
-      tool("pin_run", "Pins a run to the board", "write"),
-      tool("post_to_chat", "Posts a run summary to the team chat", "external"),
+      tool("runs", "list_runs", "Lists eval runs", "read", null, true),
+      tool(
+        "runs",
+        "get_run",
+        "Reads one run with its scores",
+        "read",
+        null,
+        true,
+      ),
+      tool("runs", "pin_run", "Pins a run to the board", "write"),
+      tool(
+        "runs",
+        "post_to_chat",
+        "Posts a run summary to the team chat",
+        "external",
+      ),
     ],
   },
   {
@@ -395,8 +472,8 @@ const APPS: readonly GrantApp[] = [
     name: "Notes sync",
     release: "2.1",
     tools: [
-      tool("list_notes", "Lists notes", "read", null, true),
-      tool("push_note", "Sends a note to the cloud", "external"),
+      tool("notes", "list_notes", "Lists notes", "read", null, true),
+      tool("notes", "push_note", "Sends a note to the cloud", "external"),
     ],
   },
 ];

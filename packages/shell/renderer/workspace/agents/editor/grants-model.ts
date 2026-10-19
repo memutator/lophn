@@ -10,6 +10,7 @@ import {
   SETTINGS_EDIT_DEFAULT_ASK,
 } from "../../../../../protocol/approvals/grants.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
+import type { DomainView } from "../../source.ts";
 import type { GrantApp } from "../source.ts";
 
 type AppEntry = Extract<AgentGrantEntry, { kind: "app" }>;
@@ -17,17 +18,32 @@ type ToolEntry = Extract<AgentGrantEntry, { kind: "mcp_tool" }>;
 type AgentEntry = Extract<AgentGrantEntry, { kind: "agent" }>;
 
 /**
- * 붙일 수 있는 앱 목록. agent가 놓인 앱(place가 그 앱 id)은 모든 tool을, 다른 앱은 public tool만 남기고, 남은 tool이
- * 없는 앱은 뺀다(project place와 place가 null인 lophn은 모든 앱이 다른 앱이다). 이미 붙은 entry는 건드리지 않는다:
+ * agent가 일할 domain의 이름. 고른 domain(id)이 없으면 그릇의 모든 domain이고, 그릇에 없는 id는 센 것에서 뺀다.
+ * tool의 domain은 이름이라 이름으로 돌려준다.
+ */
+export function domainNamesOf(
+  chosen: readonly string[],
+  container: readonly DomainView[],
+): string[] {
+  return container.filter((one) =>
+    chosen.length === 0 || chosen.includes(one.id)
+  )
+    .map((one) => one.name);
+}
+
+/**
+ * 붙일 수 있는 앱 목록. agent가 일할 domain(이름)의 tool은 모두, 다른 domain의 tool은 public만 남기고, 남은 tool이
+ * 없는 앱은 뺀다(domain 이름은 전체에서 하나라 다른 앱이나 그릇의 domain과 겹치지 않는다). 이미 붙은 entry는 건드리지 않는다:
  * 실행 때 목록에서 빠질 뿐이다.
  */
 export function appsFor(
   apps: readonly GrantApp[],
-  place: string | null,
+  agentDomains: readonly string[],
 ): GrantApp[] {
   return apps.flatMap((app) => {
-    if (app.app === place) return [app];
-    const tools = app.tools.filter((tool) => tool.public);
+    const tools = app.tools.filter((tool) =>
+      tool.public || agentDomains.includes(tool.domain)
+    );
     return tools.length === 0 ? [] : [{ ...app, tools }];
   });
 }

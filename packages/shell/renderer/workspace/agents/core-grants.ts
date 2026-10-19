@@ -10,9 +10,10 @@ import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
 import type { AgentDefinitionRow } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { McpToolServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { DomainView } from "../source.ts";
 import { isAppPlace, refOf } from "./agent-key.ts";
 import { type Link, unavailable } from "./core-link.ts";
-import { appsFor } from "./editor/grants-model.ts";
+import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import type {
   GrantApp,
   GrantCatalog,
@@ -32,6 +33,7 @@ interface BlueprintValue {
     description: string;
     effect: "read" | "write" | "external";
     public: boolean;
+    domain: string;
   }[];
 }
 
@@ -64,6 +66,7 @@ async function appCatalog(
         effect: command.effect,
         addedIn: null,
         public: command.public,
+        domain: command.domain,
       })),
     });
   }
@@ -131,10 +134,30 @@ async function projectNames(link: Link): Promise<Map<string, string>> {
   );
 }
 
+/** agent가 일할 domain의 이름. lophn은 놓인 곳이 없어 없다. */
+async function agentDomainNames(
+  link: Link,
+  place: string | null,
+  ref: AgentRef,
+  domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
+): Promise<string[]> {
+  if (place === null) return [];
+  const container = await domains(place);
+  if (!container.ok) return [];
+  const read = await link.read<{ definition: { domains?: string[] } | null }>(
+    "agent-definitions",
+    "read",
+    { agent: ref },
+  );
+  const chosen = read.ok ? read.value.definition?.domains ?? [] : [];
+  return domainNamesOf(chosen, container.value);
+}
+
 export async function readGrants(
   link: Link,
   place: string | null,
   key: string,
+  domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
 ): Promise<ReadResult<GrantsView>> {
   const ref = refOf(place, key);
   if (ref === null) return { ok: false, message: "not_found" };
@@ -147,17 +170,18 @@ export async function readGrants(
   const names = await projectNames(link);
   // MCP 연결이 느린 서버가 있어도 다른 목록이 그만큼 더 늦지 않게 함께 읽는다. agent 목록은 appCatalog가
   // 채우는 앱 이름을 쓰므로 그 뒤에 읽는다.
-  const [mcpServers, [apps, agents]] = await Promise.all([
+  const [mcpServers, [apps, agents], agentDomains] = await Promise.all([
     mcpCatalog(link, place, ref),
     appCatalog(link, names).then(async (apps) =>
       [apps, await agentCatalog(link, ref, names)] as const
     ),
+    agentDomainNames(link, place, ref, domains),
   ]);
   return {
     ok: true,
     value: {
       entries: grant.value.grant.entries,
-      catalog: { apps: appsFor(apps, place), mcpServers, agents },
+      catalog: { apps: appsFor(apps, agentDomains), mcpServers, agents },
     },
   };
 }

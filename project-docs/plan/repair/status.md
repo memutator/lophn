@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py repair build`가 `tasks/*.md`에서 id, 단�
 | `rp-app-test-stuck` | core | 1 | 없음 | merged | core/rp-app-test-stuck | 604281b9e |  |
 | `rp-attached-remove` | core | 1 | 없음 | merged | core/rp-attached-remove | cc1ff9113 |  |
 | `rp-grant-read` | core | 1 | 없음 | merged | core/rp-grant-read | 30e865fde |  |
-| `rp-reaction-dup` | core | 1 | rp-app-test-stuck | todo |  |  |  |
+| `rp-reaction-dup` | core | 1 | rp-app-test-stuck | running | core/rp-reaction-dup |  |  |
 | `rp-turn-prep-log` | core | 1 | 없음 | merged | core/rp-turn-prep-log | 7c0714b4a |  |
 | `rp-eval-calendar` | eval | 1 | 없음 | merged | eval/rp-eval-calendar | 48bd67c59 |  |
 | `rp-eval-misc` | eval | 1 | 없음 | merged | eval/rp-eval-misc | a90be32d7 |  |

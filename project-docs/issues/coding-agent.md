@@ -16,3 +16,19 @@ modules: [packages/coding-agent]
 고치려면:
 - 그대로 두고 confirm 화면에서 "codex에서 /hooks로 trust하라"를 알린다(작음).
 - `config.toml`에 trust 기록을 쓴다(중간. toml을 고치는 코드와 hash 규칙을 알아야 한다).
+
+## example을 고친 reported ticket을 다시 넘기면 거절되고 model은 이유를 모른다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/agent-roles, packages/core/lophn-agent]
+```
+
+지금: coding agent가 보고하면 program이 ticket의 examples를 돌린다. 떨어지면 `ticket_check_results`에 fail만 남고 ticket은 `reported` 그대로다(`apps/tickets/checks.ts`). App Engineer 지침(`agent-roles/roles/app-engineer/prompt.md`)은 "example 자체가 틀렸으면 `ticket.update`로 고치고 coding agent에게 다시 넘긴다"고 한다. `ticket.update`(`apps/tickets/commands.ts`)는 goal과 check만 바꾸고 state는 두며, 맡기기 시작(`apps/tickets/coding/transport.ts`의 `start`)은 `open`이나 `failed` ticket만 받아 `ticket_unavailable`(code `unavailable`)로 거절한다. `ticket.verify`에 `failed`를 먼저 넣어야 다시 넘길 수 있는데 지침에 그 순서가 없다. model이 받는 글은 `lophn-agent/tools/work.ts`의 `FAILURE_SUMMARIES`가 code마다 고정한 "tool is unavailable"뿐이라 `details.reason`이 닿지 않는다. 재현: eval `calendar-user` 첫 run. examples step 3이 떨어졌고, App Engineer는 지침대로 `ticket.update` 뒤 `call to:{role:"coding_agent", place}`을 했다가 `unavailable`을 두 번 받고 turn을 끝냈다. 앱은 켜지지 않았다. 앞서 `calendar-mvp` run 하나도 다시 넘기기에서 같은 글로 멈췄다(detail은 확인 못 함).
+
+영향: 첫 보고의 examples가 떨어진 앱 만들기가 그 자리에서 멈춘다. 사람은 만들다 만 앱을 받고, App Engineer는 무엇을 해야 풀리는지 알 길이 없다.
+
+고치려면:
+- examples가 떨어지면 program이 ticket을 `failed`로 둔다. examples를 못 넘긴 ticket은 어차피 verified가 될 수 없다(작음. `checks.ts`에서 verdict를 같이 쓴다. App Engineer의 `ticket.verify` 실패 기록 단계가 빠진다). **추천.**
+- 지침에 "`ticket.verify` `failed` → `ticket.update` → 다시 넘기기" 순서를 쓴다(작음. model이 빼먹으면 그대로 막힌다).
+- coding 시작 실패의 `details.reason`(`not_connected`, `cannot_launch`, `no_source_folder`, `ticket_unavailable`)을 model 글에 붙인다(작음. 넷 다 범위 밖 대상의 이름이나 존재를 드러내지 않는다). 추천안과 같이 한다.

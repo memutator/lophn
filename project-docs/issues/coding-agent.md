@@ -31,3 +31,18 @@ modules: [packages/core/apps, packages/core/agent-roles, packages/core/lophn-age
 고치려면:
 - examples가 떨어지면 program이 ticket을 `failed`로 둔다. examples를 못 넘긴 ticket은 어차피 verified가 될 수 없다(작음. `checks.ts`에서 verdict를 같이 쓴다. App Engineer의 `ticket.verify` 실패 기록 단계가 빠진다). **추천.**
 - coding 시작 실패의 `details.reason`(`not_connected`, `cannot_launch`, `no_source_folder`, `ticket_unavailable`)을 model 글에 붙인다(작음. 넷 다 범위 밖 대상의 이름이나 존재를 드러내지 않는다). 추천안과 같이 한다.
+
+## `app.link_source`가 없는 폴더를 받아 그 앱의 coding agent가 뜨지 못한다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: `app.link_source`(`apps/agent-tools/app.ts`)는 경로를 풀어 `app.connect_source`로 넘기고, 그 command(`apps/registration/commands.ts`의 `connectSource`)는 폴더가 있는지 보지 않고 `source_path`를 적는다. 맡기기 전 template 깔기(`apps/tickets/coding/scaffold-source.ts`)는 `source_path`가 비었을 때만 하므로 건너뛴다. coding 터미널은 없는 폴더에서 열리다 실패하고(`open_failed`), session은 보고 없이 끝난다. 재현: eval `calendar-user`·`calendar-dev` 셋째 run. App Engineer가 blueprint를 먼저 쓰려다 `blueprint.check` not_found를 받고 `…/apps/<id>/calendar`를 지어내 연결했다. 그 뒤 다시 넘긴 다섯 번 모두 터미널이 열리지 않았다.
+
+영향: agent 실수 한 번으로 그 앱의 코딩이 막힌다. App Engineer에게는 call이 accepted로 보이고 session이 바로 끝날 뿐이라 이유를 모른다. 사람이 Settings에서 source를 다시 고치기 전까지 풀리지 않는다.
+
+고치려면:
+- 연결 전에 폴더가 있고 git 저장소인지 본다. command는 tx 안이라 파일을 못 보므로 template 깔기처럼 writer 앞에서 본다(작음). **추천.**
+- App Engineer의 `app.link_source`를 뺀다(작음. 사람이 가리킨 기존 저장소를 App Engineer가 잇는 길이 없어진다).

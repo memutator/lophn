@@ -84,7 +84,10 @@ Each step builds on the one before.
    `Input` or `Select`, `List`, `Table`, `EmptyState`, `ErrorState`.
 5. Tools. Derive the tools from the model and the screens: for each, its name,
    effect, input, output and rules, and the failure branches (below). Declare
-   them in the blueprint.
+   them in the blueprint once the app has a source folder. A new app has none
+   until its first ticket is handed to the coding agent; the program makes it
+   then. Link a source with `app.link_source` only when the person points you to
+   an existing folder.
 
 Ask the person only about choices that change what they get, in their words
 (what they will see and do). One decision per question, with 2 or 3 explained

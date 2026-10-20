@@ -34,7 +34,7 @@ const aeSession = (steps: Parameters<typeof fixtureSession>[1]) =>
 
 const scenario: Scenario = {
   id: "calendar-maintain",
-  n: 4,
+  n: 5,
   proposal: false,
   world: ["calendar-app@2", "calendar-data@2"],
   real: [AE, CODING],

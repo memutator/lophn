@@ -3,7 +3,7 @@ import type { ProgramCheck } from "../../types.ts";
 import { type Count, countOk, countText } from "../calls.ts";
 import { toolCallsOf } from "../records.ts";
 
-// calendar-mvp 안에서 App Engineer가 보내는 call은 coding agent로만 간다.
+// 앱을 만드는 단위 안에서 App Engineer가 보내는 call은 coding agent로만 간다.
 // 새 coding session은 to.role, 이미 열린 coding session은 to.session으로 받는다.
 // 보낼 때 실패한 call은 받는 쪽에 닿지 않았으니 세지 않는다(재시도 비용은 tool 정확도가 센다).
 // lophn이 App Engineer에게 보내는 첫 call(fake 대본)은 lophn session의 것이라 세지 않는다.

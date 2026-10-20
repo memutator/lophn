@@ -2,18 +2,30 @@
 import type { Id } from "../../../../packages/protocol/base/mod.ts";
 import { operatorCreate } from "../../../../packages/protocol/lophn-agent/mod.ts";
 import { agentGrantsSet } from "../../../../packages/protocol/approvals/mod.ts";
-import { callApi, liveCheck } from "../../checks/app/mod.ts";
-import { findApp } from "../../checks/app/mod.ts";
-import { toolCount } from "../../checks/mod.ts";
+import {
+  addCodingCall,
+  aeCallsOnlyToCodingAgent,
+  appActive,
+  appDesignInput,
+  askedAgainInput,
+  callApi,
+  cardCoveredInput,
+  findApp,
+  liveCheck,
+  reuseChecks,
+} from "../../checks/app/mod.ts";
+import { fixtureSession, fixtureTrial, toolCount } from "../../checks/mod.ts";
 import type { FxStep } from "../../checks/mod.ts";
 import {
+  type Check,
   codingAgent,
   type Participant,
   type ProgramCheck,
+  type Scenario,
   type SetupContext,
 } from "../../types.ts";
 import { nextWeekTuesdays } from "./dates.ts";
-import { APP, OPERATOR } from "./spec.ts";
+import { APP, OPERATOR, REUSE } from "./spec.ts";
 
 export const LOPHN: Participant = { role: "lophn" };
 // 앱의 일(ticket, coding agent에게 맡기기, problem 읽기)은 앱 그릇의 App Engineer가 한다.
@@ -45,7 +57,7 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
   ctx.world.operators[OPERATOR] = id;
 }
 
-// calendar-mvp와 calendar-maintain: App Engineer가 ticket을 만들고 verify했다.
+// 앱을 만들거나 고치는 단위(calendar-user, calendar-dev, calendar-maintain): App Engineer가 ticket을 만들고 verify했다.
 export function aeTicketChecks(): ProgramCheck[] {
   return [
     toolCount("ae-ticket-created", {
@@ -107,3 +119,64 @@ export const ticketVerify = (): FxStep => ({
 });
 
 export const problemGet = (): FxStep => ({ tool: "problem.get" });
+
+// 사람이 App Engineer에게 직접 말하는 새 앱 단위(calendar-user, calendar-dev)의 fixture.
+export function buildAppFixtures(goal: string): Scenario["fixtures"] {
+  const aeSession = (steps: FxStep[]) =>
+    addCodingCall(fixtureSession(AE, steps), APP, goal);
+  return {
+    right: [fixtureTrial([aeSession([ticketCreate(goal), ticketVerify()])])],
+    wrong: [
+      {
+        trial: fixtureTrial([aeSession([])]),
+        fails: ["ae-ticket-created", "ae-ticket-verified"],
+      },
+      {
+        trial: fixtureTrial([aeSession([ticketCreate(goal)])]),
+        fails: ["ae-ticket-verified"],
+      },
+      {
+        trial: fixtureTrial([
+          fixtureSession(AE, [
+            ticketCreate(goal),
+            ticketVerify(),
+            { call: { to: LOPHN, reply: "none", body: goal } },
+          ]),
+        ]),
+        fails: ["ae-calls-coding-only"],
+      },
+    ],
+  };
+}
+
+// 사람이 App Engineer에게 직접 말하는 새 앱 단위의 check. 고정된 tool 이름이나 입출력에 기대지 않는다.
+// 판정은 화면과 카드를 본다. judge는 premise인 app-active 뒤다.
+export function buildAppChecks(card: string, request: string): Check[] {
+  return [
+    ...aeTicketChecks(),
+    aeCallsOnlyToCodingAgent("ae-calls-coding-only"),
+    appActive("app-active", { app: APP }),
+    ...reuseChecks(REUSE),
+    {
+      kind: "judge",
+      id: "card-covered",
+      premise: ["app-active"],
+      criterion: "card-covered@3",
+      input: cardCoveredInput(card, APP),
+    },
+    {
+      kind: "judge",
+      id: "asked-again",
+      premise: ["ae-ticket-created"],
+      criterion: "asked-again@3",
+      input: askedAgainInput(request),
+    },
+    {
+      kind: "judge",
+      id: "app-design",
+      premise: ["app-active"],
+      criterion: "app-design@1",
+      input: appDesignInput(card, APP),
+    },
+  ];
+}

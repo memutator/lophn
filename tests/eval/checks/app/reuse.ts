@@ -69,7 +69,7 @@ export function definesName(line: string, name: string): boolean {
   ).test(line);
 }
 
-async function git(dir: string, args: string[]): Promise<string> {
+export async function git(dir: string, args: string[]): Promise<string> {
   const out = await new Deno.Command("git", {
     args: ["-C", dir, ...args],
     stdout: "piped",
@@ -125,7 +125,7 @@ async function grepFiles(
 
 const isTest = (path: string) => path.endsWith("_test.ts");
 
-async function source(core: Core, name: string) {
+export async function source(core: Core, name: string) {
   const app = await findApp(core, name);
   const { app: got } = await core.call(appGet, { app: app.id });
   if (got.active_release === null || got.source_path === null) {

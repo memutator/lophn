@@ -26,4 +26,5 @@ export {
   cardCoveredInput,
   rootCauseInput,
 } from "./judge-input.ts";
+export { appDesignInput } from "./design.ts";
 export { addCodingCall, appToolSession } from "./fixtures.ts";

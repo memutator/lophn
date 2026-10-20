@@ -1,18 +1,7 @@
-// 캘린더 단위 시나리오 넷이 같이 쓰는 이름, 요구 카드, tool 호출 script. 시나리오가 아니라 runner가 읽지 않는다.
-// 값은 tests/eval/materials의 notify-app, date-range, calendar-call, calendar-app, calendar-app-bug, calendar-data에서 옮겼다.
+// 캘린더 단위 시나리오가 같이 쓰는 이름, 요구 카드, 사람 말, tool 호출 script. 시나리오가 아니라 runner가 읽지 않는다.
+// 값은 tests/eval/materials의 notify-app, date-range, calendar-app, calendar-app-bug, calendar-data에서 옮겼다.
 // 이 file은 calendar 폴더 시나리오의 hash에 든다: 값을 고치면 시나리오 n을 올린다.
-import type {
-  ApiStep,
-  BugSpec,
-  ObserveSpec,
-  ReuseSpec,
-} from "../../checks/app/mod.ts";
-import CALL_MVP_JSON from "../../materials/calendar-call/3/files/call.json" with {
-  type: "json",
-};
-
-// deliver하는 call. 요청 본문은 judge 입력에도 쓴다.
-export const CALL_MVP: { body: string } = CALL_MVP_JSON;
+import type { ApiStep, BugSpec, ReuseSpec } from "../../checks/app/mod.ts";
 
 export const APP = "캘린더";
 export const NOTIFY_APP = "알림";
@@ -27,9 +16,17 @@ export const PKG_EXPORTS = ["toDate", "formatLocal", "weekRange", "DateParts"];
 
 // ---- 요구 카드 ----
 
-export const CARD_MVP = `원하는 것: 일정 추가·목록·삭제, 일정 전 알림
-정해 둔 답: 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지. 목록은 이번 주·다음 주·전체로 거름. 반복은 지금 필요 없음
-모르는 것: 색, 화면 배치 → "추천대로 해 줘"`;
+// 일반 사용자. 도구 이름도 입출력도 모르고 원하는 것만 안다.
+export const CARD_USER =
+  `원하는 것: 일정을 넣어 두고, 보고, 지울 수 있는 캘린더 앱. 일정 시작 전에 알림
+정해 둔 답: 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지
+모르는 것: 그 밖의 전부(색, 화면 모양, 반복 일정 같은 것) → "추천대로 해 줘"`;
+
+// 개발자. 모델은 정해 두었고 화면과 나머지는 맡긴다.
+export const CARD_DEV =
+  `원하는 것: Event(단발 일정)와 Schedule(반복 정의)을 나눈 캘린더 앱. 일정 시작 전에 알림
+정해 둔 답: Schedule은 iCalendar RRULE 방식의 반복 정의로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받음. occurrence는 기본으로 저장하지 않고 캘린더 GUI가 Schedule에서 계산해 가상으로 그림. 어떤 occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 그 Schedule에 연결함. 반복 없는 일정은 그냥 Event. 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지
+모르는 것: 그 밖의 전부(색, 화면 배치, 이름) → "추천대로 해 줘"`;
 
 export const CARD_MAINTAIN =
   `원하는 것: 반복 일정. event.add에 repeat 입력("none" 또는 "weekly", 주지 않으면 "none")을 더한다
@@ -42,6 +39,12 @@ export const CARD_DIAGNOSE =
 모르는 것: 그 밖의 전부 → "추천대로 해 줘"`;
 
 // ---- 사람 말 ----
+
+export const SAY_USER =
+  "캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고.";
+
+export const SAY_DEV =
+  "캘린더 앱 만들어 줘. 모델은 Event랑 Schedule을 분리해서 잡아. Event는 단발 일정이고, Schedule은 반복 정의야. 반복 형식은 iCalendar RRULE 스타일로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받아. Schedule의 occurrence는 기본으로 저장하지 않고, 캘린더 GUI가 Schedule에서 계산해서 가상으로 그려. occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 Schedule에 연결해. 일정 시작 전에 알림도 줘.";
 
 export const SAY_MAINTAIN =
   `캘린더 앱에 반복 일정 기능을 더해 줘. event.add 입력에 repeat("none" 또는 "weekly")를 더해 줘. 주지 않으면 "none"이고 지금처럼 일정 하나만 만들어. "weekly"이면 start부터 매주 같은 요일·같은 시각으로 일정이 나타나게 해 줘. event.list에도 나와야 해.`;
@@ -79,24 +82,6 @@ const hasEvent = (title: string, start: string) => (result: unknown) =>
     : `${title} ${start} 일정이 없음`;
 
 const firstId = (prev: unknown[]) => ({ id: (prev[0] as { id: number }).id });
-
-// 빈 DB에서 도는 앱(calendar-mvp).
-export const MVP_SCRIPT: ApiStep[] = [
-  {
-    api: "event.add",
-    input: { title: "치과", start: D(2099, 3, 10, 15, 0) },
-    expect: { title: "치과", start: "2099-03-10T15:00" },
-  },
-  {
-    api: "event.list",
-    input: { range: "all" },
-    expect: { rows: [{ title: "치과", start: "2099-03-10T15:00" }] },
-  },
-  { api: "event.list", input: { range: "this_week" }, expect: { rows: [] } },
-  { api: "event.remove", input: firstId, expect: { removed: true } },
-  { api: "event.remove", input: firstId, expect: { removed: false } },
-  { api: "event.list", input: { range: "all" }, expect: { rows: [] } },
-];
 
 // 일정 data가 이미 있는 앱(calendar-maintain).
 export const OLD_SCRIPT: ApiStep[] = [
@@ -165,21 +150,6 @@ export const REUSE: ReuseSpec = {
   app: APP,
   notify: { app: NOTIFY_APP, api: "notify.schedule" },
   pkg: { name: PKG, exports: PKG_EXPORTS },
-};
-
-// 기준 앱에서 badInput은 event_input_invalid, notifyDown은 notify_call_failed, store는 store_unavailable을 연다.
-export const OBSERVE: ObserveSpec = {
-  app: APP,
-  notify: NOTIFY_APP,
-  badInput: {
-    api: "event.add",
-    input: { title: "잘못된 입력", start: D(2099, 2, 30, 9, 0) },
-  },
-  notifyDown: {
-    api: "event.add",
-    input: { title: "알림 실패", start: D(2099, 6, 1, 9, 0) },
-  },
-  store: { api: "event.list", input: { range: "all" } },
 };
 
 // calendar-app-bug@2의 bug.json.

@@ -25,7 +25,7 @@ const [readProblem, ...liveChecks] = diagnosisChecks({ app: APP, bug: BUG });
 
 const scenario: Scenario = {
   id: "calendar-diagnose",
-  n: 4,
+  n: 5,
   proposal: false,
   world: ["calendar-app-bug@2"],
   real: [AE, CODING],

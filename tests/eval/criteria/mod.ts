@@ -8,6 +8,7 @@ export const INPUT_SECTIONS: Record<string, string[]> = {
   "asks-gap": ["HUMAN_REQUEST", "QUESTIONS"],
   "card-covered": ["CARD", "BLUEPRINT", "TICKETS"],
   "asked-again": ["HUMAN_REQUEST", "QUESTIONS"],
+  "app-design": ["CARD", "SCREENS", "SCREEN_SOURCE"],
   "root-cause": ["BUG", "TICKET_GOALS", "EVIDENCE_FILES"],
   "repeat-kind": ["REPEATED_CALL", "TIMELINE"],
 };

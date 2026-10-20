@@ -1,0 +1,950 @@
+{
+  "id": "run_01m5c2fr0e8xmh9fjjz631ksw9",
+  "started_at": "2026-10-20T07:12:50.702Z",
+  "scenario": {
+    "kind": "scenario",
+    "name": "calendar-dev",
+    "n": 1
+  },
+  "materials": [
+    {
+      "kind": "material",
+      "name": "notify-app",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "date-range",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "calendar-call",
+      "n": 3
+    }
+  ],
+  "components": [
+    {
+      "kind": "assembly",
+      "name": "assembly",
+      "n": 2
+    },
+    {
+      "kind": "cli",
+      "name": "claude",
+      "n": 3
+    },
+    {
+      "kind": "guide",
+      "name": "connections",
+      "n": 1
+    },
+    {
+      "kind": "instruction",
+      "name": "app_engineer",
+      "n": 4
+    },
+    {
+      "kind": "model",
+      "name": "claude-sonnet-5-5",
+      "n": 1
+    },
+    {
+      "kind": "runtime",
+      "name": "runtime",
+      "n": 5
+    },
+    {
+      "kind": "skill-description",
+      "name": "kinds-yaml",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.link_source",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.tools",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ask",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "blueprint.check",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "call",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "cancel",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "domain.create",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.edit",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.glob",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.grep",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.outline",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.write",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "guide.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "image.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "kind.check",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "kind.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "operator.create",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "operator.update",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "package.get",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.list",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.publish",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "pdf.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.body",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.set_state",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "release.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "reply",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "session.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "settings.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "shell.run",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "skill.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.cancel",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.create",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.update",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.verify",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "visual.show",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "web.fetch",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.search",
+      "n": 1
+    }
+  ],
+  "core": {
+    "kind": "core",
+    "name": "core",
+    "n": 10
+  },
+  "grader": {
+    "criteria": [
+      {
+        "kind": "criterion",
+        "name": "card-covered",
+        "n": 3
+      },
+      {
+        "kind": "criterion",
+        "name": "asked-again",
+        "n": 3
+      },
+      {
+        "kind": "criterion",
+        "name": "app-design",
+        "n": 1
+      }
+    ],
+    "judge": {
+      "kind": "judge",
+      "name": "judge",
+      "n": 2
+    },
+    "checks": {
+      "kind": "checks",
+      "name": "checks",
+      "n": 7
+    }
+  },
+  "model": "claude-sonnet-5-5",
+  "source": {
+    "commit": "fafa9deb01e8cd706083e6ef4c8e59eb66750cbf",
+    "dirty": false
+  },
+  "trials": [
+    {
+      "index": 0,
+      "settle": {
+        "kind": "idle",
+        "unstarted": []
+      },
+      "checks": [
+        {
+          "id": "ae-ticket-created",
+          "kind": "program",
+          "pass": true,
+          "reason": "ticket.create 2번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-ticket-verified",
+          "kind": "program",
+          "pass": true,
+          "reason": "ticket.verify 성공 1번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-calls-coding-only",
+          "kind": "program",
+          "pass": true,
+          "reason": "App Engineer call 2개(보낼 때 실패한 1개 뺌) 중 coding agent 대화가 아닌 것 0개"
+        },
+        {
+          "id": "app-active",
+          "kind": "program",
+          "pass": true,
+          "reason": "release 1 실행 중"
+        },
+        {
+          "id": "reuse-sdk-dependency",
+          "kind": "program",
+          "pass": false,
+          "reason": "template 밖 의존: 없음 (기대 @me/date-range)"
+        },
+        {
+          "id": "reuse-app-connection",
+          "kind": "program",
+          "pass": true,
+          "reason": "알림의 notify.schedule 연결을 선언함"
+        },
+        {
+          "id": "reuse-imports",
+          "kind": "program",
+          "pass": false,
+          "reason": "@me/date-range import 0줄, notify.schedule 호출 file 1개"
+        },
+        {
+          "id": "reuse-no-recreate",
+          "kind": "program",
+          "pass": true,
+          "reason": "package의 export를 다시 정의하지 않음"
+        },
+        {
+          "id": "reuse-usage",
+          "kind": "program",
+          "pass": false,
+          "reason": "@me/date-range@1.0.0 사용처 0개 중 이 앱의 active release 없음"
+        },
+        {
+          "id": "card-covered",
+          "kind": "judge",
+          "pass": false,
+          "reason": "some_missing: \"한 주는 월요일부터 일요일까지\""
+        },
+        {
+          "id": "asked-again",
+          "kind": "judge",
+          "pass": true,
+          "reason": "no_repeat: \"[QUESTIONS]\""
+        },
+        {
+          "id": "app-design",
+          "kind": "judge",
+          "pass": false,
+          "reason": "generic: \"const act = async (action: \"complete\" | \"reschedule\" | \"skip\" | \"hold\") => {\""
+        }
+      ],
+      "judge": [
+        {
+          "check": "card-covered",
+          "criterion": "card-covered@3",
+          "input": "[CARD]\n원하는 것: Event(단발 일정)와 Schedule(반복 정의)을 나눈 캘린더 앱. 일정 시작 전에 알림\n정해 둔 답: Schedule은 iCalendar RRULE 방식의 반복 정의로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받음. occurrence는 기본으로 저장하지 않고 캘린더 GUI가 Schedule에서 계산해 가상으로 그림. 어떤 occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 그 Schedule에 연결함. 반복 없는 일정은 그냥 Event. 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지\n모르는 것: 그 밖의 전부(색, 화면 배치, 이름) → \"추천대로 해 줘\"\n\n[BLUEPRINT]\n- event.add (write): Save a one-off event. Reminds before start when remind_minutes_before is given. input={\"additionalProperties\":false,\"properties\":{\"end\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"id\":{\"minLength\":1,\"type\":\"string\"},\"remind_minutes_before\":{\"minimum\":0,\"type\":\"integer\"},\"start\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"title\":{\"maxLength\":200,\"minLength\":1,\"type\":\"string\"}},\"required\":[\"end\",\"start\",\"title\"],\"type\":\"object\"}\n- event.delete (write): Delete one event. input={\"additionalProperties\":false,\"properties\":{\"id\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}\n- event.list (read): Read events, optionally within a time range. input={\"additionalProperties\":false,\"properties\":{\"from\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"to\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"}},\"type\":\"object\"}\n- occurrence.act (write): Complete, reschedule, skip or hold an occurrence; it is saved as an instance linked to the schedule. input={\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"complete\",\"reschedule\",\"skip\",\"hold\"],\"type\":\"string\"},\"new_start\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"original_start\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"schedule_id\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"action\",\"original_start\",\"schedule_id\"],\"type\":\"object\"}\n- schedule.add (write): Save a recurrence definition (RRULE style). until and count cannot both be given. input={\"additionalProperties\":false,\"properties\":{\"byday\":{\"items\":{\"enum\":[\"MO\",\"TU\",\"WE\",\"TH\",\"FR\",\"SA\",\"SU\"],\"type\":\"string\"},\"type\":\"array\"},\"count\":{\"minimum\":1,\"type\":\"integer\"},\"duration_minutes\":{\"minimum\":1,\"type\":\"integer\"},\"freq\":{\"enum\":[\"DAILY\",\"WEEKLY\",\"MONTHLY\",\"YEARLY\"],\"type\":\"string\"},\"id\":{\"minLength\":1,\"type\":\"string\"},\"interval\":{\"minimum\":1,\"type\":\"integer\"},\"remind_minutes_before\":{\"minimum\":0,\"type\":\"integer\"},\"start\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"title\":{\"maxLength\":200,\"minLength\":1,\"type\":\"string\"},\"until\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"}},\"required\":[\"duration_minutes\",\"freq\",\"start\",\"title\"],\"type\":\"object\"}\n- schedule.delete (write): Delete a schedule and its saved instances. input={\"additionalProperties\":false,\"properties\":{\"id\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}\n- schedule.list (read): Read the recurrence definitions. input=null\n- schedule.occurrences (read): Compute virtual occurrences of schedules in a range, merged with saved instances. input={\"additionalProperties\":false,\"properties\":{\"from\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"},\"to\":{\"description\":\"milliseconds since the Unix epoch (UTC)\",\"minimum\":0,\"type\":\"integer\"}},\"required\":[\"from\",\"to\"],\"type\":\"object\"}\nconnection: app_0000000000000000000000ntfy -> notify.schedule\n\n[TICKETS]\nTICKET 1 [verified]\ngoal: 캘린더 앱 구축. Event(단발: id,title,start,end,remind_minutes_before)와 Schedule(반복 정의: id,title,start,duration_minutes,freq DAILY|WEEKLY|MONTHLY|YEARLY,interval 기본1,byday,until 또는 count 중 하나,remind_minutes_before; UTC 고정)을 분리. Occurrence는 저장하지 않고 schedule.occurrences{from,to}가 계산해 가상 행으로 반환. occurrence.act{schedule_id,original_start,action complete|reschedule|skip|hold,new_start?}가 호출될 때만 Instance(id,schedule_id,original_start,action,new_start)를 저장하고 Schedule에 연결(같은 schedule_id+original_start는 갱신). occurrences 행: schedule_id,title,start,original_start,status planned|complete|skipped|held|rescheduled,instance_id. 도구: event.add/list/delete, schedule.add(클라이언트 id 허용)/list/delete(instance 정리), schedule.occurrences, occurrence.act. 모두 private. 알림: remind_minutes_before가 있으면 알림 앱 notify.schedule({at,title}) 호출(blueprint app_connections 선언); 반복은 앞으로 30일 occurrence만 예약, skip/reschedule 시 재예약. GUI: 월/주 캘린더가 event.list와 schedule.occurrences로 가상 occurrence를 그리고 클릭 시 완료/연기/skip/보류 액션 제공. 실패 분기(reportProblem): schedule_invalid_freq, schedule_until_and_count, schedule_bad_rrule_field, occurrence_not_in_schedule, reschedule_missing_new_start, notify_call_failed(일정은 저장, 알림 실패 기록), notify_skipped_past(지난 시각이라 조용히 건너뜀), instance_orphan. 도구 이름은 조정 가능, 바꾸면 보고.\ncheck: {\"kind\":\"examples\",\"steps\":[{\"tool\":\"schedule.add\",\"input\":{\"byday\":[\"MO\"],\"count\":3,\"duration_minutes\":30,\"freq\":\"WEEKLY\",\"id\":\"s1\",\"start\":1893974400000,\"title\":\"Standup\"},\"expect\":{\"id\":\"s1\"}},{\"tool\":\"schedule.occurrences\",\"input\":{\"from\":1893974400000,\"to\":1896393600000},\"expect\":{\"rows\":[{\"start\":1893974400000,\"status\":\"planned\",\"title\":\"Standup\"},{\"start\":1894579200000,\"status\":\"planned\",\"title\":\"Standup\"},{\"start\":1895184000000,\"status\":\"planned\",\"title\":\"Standup\"}]}},{\"tool\":\"occurrence.act\",\"input\":{\"action\":\"skip\",\"original_start\":1894579200000,\"schedule_id\":\"s1\"},\"expect\":{\"action\":\"skip\",\"schedule_id\":\"s1\"}},{\"tool\":\"schedule.occurrences\",\"input\":{\"from\":1893974400000,\"to\":1896393600000},\"expect\":{\"rows\":[{\"start\":1893974400000,\"status\":\"planned\"},{\"start\":1894579200000,\"status\":\"skipped\"},{\"start\":1895184000000,\"status\":\"planned\"}]}}]}",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "some_missing",
+          "quote": "한 주는 월요일부터 일요일까지",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        },
+        {
+          "check": "asked-again",
+          "criterion": "asked-again@3",
+          "input": "[HUMAN_REQUEST]\n캘린더 앱 만들어 줘. 모델은 Event랑 Schedule을 분리해서 잡아. Event는 단발 일정이고, Schedule은 반복 정의야. 반복 형식은 iCalendar RRULE 스타일로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받아. Schedule의 occurrence는 기본으로 저장하지 않고, 캘린더 GUI가 Schedule에서 계산해서 가상으로 그려. occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 Schedule에 연결해. 일정 시작 전에 알림도 줘.\n\n[QUESTIONS]\n",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "no_repeat",
+          "quote": "[QUESTIONS]",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        },
+        {
+          "check": "app-design",
+          "criterion": "app-design@1",
+          "input": "[CARD]\n원하는 것: Event(단발 일정)와 Schedule(반복 정의)을 나눈 캘린더 앱. 일정 시작 전에 알림\n정해 둔 답: Schedule은 iCalendar RRULE 방식의 반복 정의로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받음. occurrence는 기본으로 저장하지 않고 캘린더 GUI가 Schedule에서 계산해 가상으로 그림. 어떤 occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 그 Schedule에 연결함. 반복 없는 일정은 그냥 Event. 알림은 일정 시작 10분 전. 한 주는 월요일부터 일요일까지\n모르는 것: 그 밖의 전부(색, 화면 배치, 이름) → \"추천대로 해 줘\"\n\n[SCREENS]\napp: 캘린더 - Events and repeating schedules with reminders.\n- home \"캘린더\" (/screens/home/index.html) sizes=full,panel,card\n\n[SCREEN_SOURCE]\n// src/screens/home/app.tsx\nimport { useCallback, useEffect, useState } from \"react\";\nimport { AppShell } from \"@lophn/ui/layout\";\nimport { Button } from \"@lophn/ui/primitives\";\nimport { appBridge } from \"@lophn/app-ui\";\nimport { t } from \"../../wording/t.ts\";\nimport styles from \"./app.module.css\";\n\nconst DAY = 86_400_000;\n\ninterface Row {\n  schedule_id: string;\n  title: string;\n  start: number;\n  original_start: number;\n  status: \"planned\" | \"complete\" | \"skipped\" | \"held\" | \"rescheduled\";\n}\ninterface Ev {\n  id: string;\n  title: string;\n  start: number;\n}\ntype View = \"month\" | \"week\";\n\nconst utcDay = (ms: number) => Math.floor(ms / DAY) * DAY;\nconst fmt = (ms: number, options: Intl.DateTimeFormatOptions) =>\n  new Intl.DateTimeFormat(undefined, { timeZone: \"UTC\", ...options }).format(\n    ms,\n  );\n\n// 보이는 칸의 첫 날(월요일 시작)과 칸 수.\nfunction span(view: View, anchor: number): { first: number; days: number } {\n  const monday = (d: number) => d - ((new Date(d).getUTCDay() + 6) % 7) * DAY;\n  if (view === \"week\") return { first: monday(utcDay(anchor)), days: 7 };\n  const a = new Date(anchor);\n  const first = monday(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), 1));\n  const end = Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + 1, 1);\n  return { first, days: Math.ceil((end - first) / DAY / 7) * 7 };\n}\n\nexport function App() {\n  const [view, setView] = useState<View>(\"month\");\n  const [anchor, setAnchor] = useState(() => Date.now());\n  const [rows, setRows] = useState<Row[]>([]);\n  const [events, setEvents] = useState<Ev[]>([]);\n  const [error, setError] = useState<\"load\" | \"act\" | null>(null);\n  const [picked, setPicked] = useState<Row | null>(null);\n  const { first, days } = span(view, anchor);\n\n  const load = useCallback(async () => {\n    const bridge = appBridge();\n    if (!bridge) return setError(\"load\");\n    try {\n      const range = { from: first, to: first + days * DAY };\n      const [occ, evs] = await Promise.all([\n        bridge.callTool(\"schedule.occurrences\", range) as Promise<\n          { rows: Row[] }\n        >,\n        bridge.callTool(\"event.list\", range) as Promise<{ events: Ev[] }>,\n      ]);\n      setRows(occ.rows);\n      setEvents(evs.events);\n      setError(null);\n    } catch {\n      setError(\"load\");\n    }\n  }, [first, days]);\n  useEffect(() => {\n    load();\n  }, [load]);\n\n  const act = async (action: \"complete\" | \"reschedule\" | \"skip\" | \"hold\") => {\n    if (!picked) return;\n    try {\n      await appBridge()?.callTool(\"occurrence.act\", {\n        schedule_id: picked.schedule_id,\n        original_start: picked.original_start,\n        action,\n        ...(action === \"reschedule\" ? { new_start: picked.start + DAY } : {}),\n      });\n      setPicked(null);\n      await load();\n    } catch {\n      setError(\"act\");\n    }\n  };\n\n  const step = (dir: number) => {\n    const a = new Date(anchor);\n    setAnchor(\n      view === \"week\"\n        ? anchor + dir * 7 * DAY\n        : Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + dir, 1),\n    );\n  };\n  const month = new Date(anchor).getUTCMonth();\n  const label = view === \"month\"\n    ? fmt(anchor, { year: \"numeric\", month: \"long\" })\n    : `${fmt(first, { month: \"short\", day: \"numeric\" })} – ${\n      fmt(first + 6 * DAY, { month: \"short\", day: \"numeric\" })\n    }`;\n\n  return (\n    <AppShell title={t(\"common.title.app\")}>\n      <div className={styles.bar}>\n        <Button size=\"sm\" onClick={() => step(-1)}>\n          {t(\"home.button.previous\")}\n        </Button>\n        <Button size=\"sm\" onClick={() => setAnchor(Date.now())}>\n          {t(\"home.button.today\")}\n        </Button>\n        <Button size=\"sm\" onClick={() => step(1)}>{t(\"home.button.next\")}</Button>\n        <span className={styles.range}>{label}</span>\n        <Button\n          size=\"sm\"\n          variant={view === \"month\" ? \"primary\" : \"secondary\"}\n          onClick={() => setView(\"month\")}\n        >\n          {t(\"home.view.month\")}\n        </Button>\n        <Button\n          size=\"sm\"\n          variant={view === \"week\" ? \"primary\" : \"secondary\"}\n          onClick={() => setView(\"week\")}\n        >\n          {t(\"home.view.week\")}\n        </Button>\n      </div>\n      {error && (\n        <p className={styles.error}>\n          {t(error === \"load\" ? \"home.error.load\" : \"home.error.act\")}\n        </p>\n      )}\n      <div className={styles.grid}>\n        {Array.from(\n          { length: 7 },\n          (_, i) => (\n            <div key={i} className={styles.head}>\n              {fmt(first + i * DAY, { weekday: \"short\" })}\n            </div>\n          ),\n        )}\n        {Array.from({ length: days }, (_, i) => {\n          const day = first + i * DAY;\n          const outside = view === \"month\" &&\n            new Date(day).getUTCMonth() !== month;\n          const inDay = (s: number) => s >= day && s < day + DAY;\n          return (\n            <div\n              key={day}\n              className={`${view === \"week\" ? styles.cellWeek : styles.cell} ${\n                outside ? styles.outside : \"\"\n              }`}\n            >\n              <span className={styles.day}>{fmt(day, { day: \"numeric\" })}</span>\n              {events.filter((e) => inDay(e.start)).map((e) => (\n                <span key={e.id} className={`${styles.item} ${styles.event}`}>\n                  {fmt(e.start, { hour: \"2-digit\", minute: \"2-digit\" })}{\" \"}\n                  {e.title}\n                </span>\n              ))}\n              {rows.filter((r) => inDay(r.start)).map((r) => (\n                <button\n                  key={`${r.schedule_id}:${r.original_start}`}\n                  type=\"button\"\n                  className={`${styles.item} ${styles[r.status] ?? \"\"}`}\n                  onClick={() => setPicked(r)}\n                >\n                  {fmt(r.start, { hour: \"2-digit\", minute: \"2-digit\" })}{\" \"}\n                  {r.title}\n                </button>\n              ))}\n            </div>\n          );\n        })}\n      </div>\n      {picked && (\n        <div className={styles.detail}>\n          <span>\n            {t(\"home.detail.title\", {\n              title: picked.title,\n              status: t(`home.label.${picked.status}`),\n            })}\n          </span>\n          <Button size=\"sm\" onClick={() => act(\"complete\")}>\n            {t(\"home.button.complete\")}\n          </Button>\n          <Button size=\"sm\" onClick={() => act(\"reschedule\")}>\n            {t(\"home.button.reschedule\")}\n          </Button>\n          <Button size=\"sm\" onClick={() => act(\"skip\")}>\n            {t(\"home.button.skip\")}\n          </Button>\n          <Button size=\"sm\" onClick={() => act(\"hold\")}>\n            {t(\"home.button.hold\")}\n          </Button>\n          <Button size=\"sm\" variant=\"ghost\" onClick={() => setPicked(null)}>\n            {t(\"home.button.close\")}\n          </Button>\n        </div>\n      )}\n    </AppShell>\n  );\n}\n\n\n// src/screens/home/main.tsx\nimport { createRoot } from \"react-dom/client\";\nimport \"@lophn/ui/tokens.css\";\nimport \"@lophn/ui/base.css\";\nimport { AppErrorBoundary } from \"@lophn/app-ui\";\nimport { App } from \"./app.tsx\";\n\n// 화면 root는 AppErrorBoundary로 감싼다. render 오류는 lophn 오류 수집으로 전달되고 화면에는 원문 없이\n// 한 문장과 다시 시도만 남는다(apps/sdk#R29). 지우지 않는다.\nconst root = document.getElementById(\"root\");\nif (root) {\n  createRoot(root).render(\n    <AppErrorBoundary>\n      <App />\n    </AppErrorBoundary>,\n  );\n}\n",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "generic",
+          "quote": "const act = async (action: \"complete\" | \"reschedule\" | \"skip\" | \"hold\") => {",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        }
+      ],
+      "metrics": {
+        "tokens": {
+          "input": 100862,
+          "output": 9879,
+          "cache_read": 470042,
+          "cache_write": 24127,
+          "reasoning": 1358,
+          "unknown_calls": 0
+        },
+        "input_total": 595031,
+        "cache_hit_rate": 0.7899453978028036,
+        "cost_usd": 0.407818,
+        "unpriced_calls": 0,
+        "time_ms": {
+          "turns": 93361,
+          "model_calls": 92252
+        },
+        "tools": {
+          "counted": 28,
+          "excluded": 0,
+          "format": 5,
+          "success": 21,
+          "blocked": 0,
+          "repeated_calls": 3,
+          "repeat_groups": 2,
+          "max_repeat": 3,
+          "repeated_failure_turns": 0
+        },
+        "truncated_calls": 0,
+        "agent_calls": [
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": null,
+            "reply": "conversation",
+            "state": null,
+            "failed": true
+          },
+          {
+            "receiver_role": null,
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "kind": "assembly",
+          "name": "assembly",
+          "n": 2
+        },
+        {
+          "kind": "guide",
+          "name": "connections",
+          "n": 1
+        },
+        {
+          "kind": "instruction",
+          "name": "app_engineer",
+          "n": 4
+        },
+        {
+          "kind": "model",
+          "name": "claude-sonnet-5-5",
+          "n": 1
+        },
+        {
+          "kind": "runtime",
+          "name": "runtime",
+          "n": 5
+        },
+        {
+          "kind": "skill-description",
+          "name": "kinds-yaml",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.link_source",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.tools",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ask",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "blueprint.check",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "call",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "cancel",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "domain.create",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.edit",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.glob",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.grep",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.outline",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.write",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "guide.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "image.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "kind.check",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "kind.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "operator.create",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "operator.update",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "package.get",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.list",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.publish",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "pdf.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.body",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.set_state",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "release.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "release.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "reply",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "session.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "settings.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "shell.run",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "skill.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.cancel",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.create",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.update",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.verify",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "visual.show",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "web.fetch",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "web.search",
+          "n": 1
+        },
+        {
+          "kind": "cli",
+          "name": "claude",
+          "n": 3
+        }
+      ],
+      "coding": [
+        {
+          "session": "ses_01m5c2hf7mvnpbeq2x15q980r1",
+          "app": "app_0000000000000000000000cdr1",
+          "ticket": "tkt_01m5c2hcjtsdent4zxxnnxt18q",
+          "harness": "claude",
+          "cwd": "/tmp/lophn-eval/lophn-e2e-29569ab651dacebe/home/apps/app_0000000000000000000000cdr1/source",
+          "human_input": false,
+          "trust_answered": true,
+          "opened_at": "2026-10-20T07:13:47.393Z",
+          "reported_at": "2026-10-20T07:18:40.251Z",
+          "ended_at": "2026-10-20T07:18:51.003Z",
+          "end": "exited",
+          "exit_code": 0,
+          "usage": {
+            "files": 1,
+            "models": [
+              "claude-sonnet-5-5"
+            ],
+            "api_calls": 45,
+            "input": 90,
+            "output": 24629,
+            "cache_read": 3958007,
+            "cache_write": 83773,
+            "input_total": 4041870,
+            "cache_hit_rate": 0.9792514355978792,
+            "tool_results": 45,
+            "tool_errors": 6,
+            "tool_error_rate": 0.13333333333333333
+          },
+          "usage_error": null,
+          "commands": [
+            {
+              "at": "2026-10-20T07:13:58.99224880Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T07:14:01.222626172Z",
+              "name": "guide lophn-build-app"
+            },
+            {
+              "at": "2026-10-20T07:14:04.756434978Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T07:14:04.838441863Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T07:14:07.387764138Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-20T07:14:10.685754400Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-20T07:14:14.355743649Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-20T07:14:14.440799596Z",
+              "name": "app show"
+            },
+            {
+              "at": "2026-10-20T07:14:14.531725530Z",
+              "name": "app blueprint"
+            },
+            {
+              "at": "2026-10-20T07:14:31.627617882Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-20T07:14:54.290509129Z",
+              "name": "app blueprint"
+            },
+            {
+              "at": "2026-10-20T07:17:02.816012878Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T07:17:02.900722447Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T07:17:05.883381032Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T07:17:08.461962276Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T07:17:08.552612251Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-20T07:17:30.470809310Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-20T07:17:32.688483409Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:02.777058633Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:04.390420829Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:06.352920412Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:08.196400214Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:13.9110589Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T07:18:15.803925321Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T07:18:17.527011771Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T07:18:21.16777756Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T07:18:22.772147496Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T07:18:25.36913439Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T07:18:28.660690677Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-20T07:18:28.828207447Z",
+              "name": "ticket report"
+            },
+            {
+              "at": "2026-10-20T07:18:31.158647888Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T07:18:40.102362215Z",
+              "name": "ticket report"
+            }
+          ],
+          "message_send": 2,
+          "permission_requests": 0
+        }
+      ],
+      "human": {
+        "answered": 0,
+        "fallback": 0,
+        "decisions": 1
+      }
+    }
+  ]
+}

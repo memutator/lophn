@@ -12,5 +12,12 @@
     "n": 2,
     "hash": "bdba53e71a1717e7846bb3721e23da1cb05ab2af744970ad9d6dda835f56f583",
     "content": "2.1.303"
+  },
+  {
+    "kind": "cli",
+    "name": "claude",
+    "n": 3,
+    "hash": "acd592fa3d84202c4ba0f61cf6aaacc016326926ff71ab78945843981b0afaa1",
+    "content": "2.1.304"
   }
 ]

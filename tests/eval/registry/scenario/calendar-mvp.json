@@ -10,5 +10,11 @@
     "name": "calendar-mvp",
     "n": 3,
     "hash": "9073b357f472446464b66e13bf589a9dc19fb8fe65d5a4ef9b9595d987c41acf"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-mvp",
+    "n": 4,
+    "hash": "3e19d2088e5b01833b010d89f234056f439f6a43cca4afe8d3603e6b2e76e428"
   }
 ]

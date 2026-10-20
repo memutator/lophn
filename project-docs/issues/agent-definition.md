@@ -17,36 +17,3 @@ modules: [packages/core/lophn-agent]
 
 정한 것: 필요해지는 형식 하나씩만 더한다.
 
-## turn 준비가 예외로 끝나면 아무 기록 없이 매 주기 다시 시도한다
-
-```yaml
-kind: bug
-modules: [packages/core/main, packages/core/lophn-agent]
-```
-
-지금:
-- agent runtime의 `startTurnPump`(`packages/core/main/agent-runtime/product-driver.ts`)는 `driver.startNext()`가 던진 예외를 `catch {}`로 삼키고 다음 주기에 같은 일을 다시 한다. log도 diagnostic도 남기지 않는다.
-- 그래서 turn 준비(`packages/core/lophn-agent/run-loop/prepare.ts`)가 같은 이유로 늘 던지면, 받은 메시지는 영영 turn이 되지 않고 아무 곳에도 이유가 남지 않는다.
-- 실제로 그랬다. 계획 `reuse-diagnose`에서 ticket 예시 칸에 JSON Schema로 바뀌지 않는 type을 쓰자, App Engineer와 PM의 모든 turn이 준비 단계에서 던졌다. check와 core 기동은 통과했고 E2E의 turn 기다림 timeout으로만 드러났다. 그 원인은 고쳤고, 모든 내장 tool 입력이 JSON Schema로 바뀌는지 보는 test(`packages/core/main/agent-tools_test.ts`)를 더했다.
-
-영향: 사람은 보낸 메시지에 답이 없는 것만 본다. 오류도 이유도 화면과 Diagnostics 어디에도 없다. 개발자도 log에서 원인을 찾을 수 없다.
-
-고치려면:
-- 던진 예외를 diagnostic log에 분류 한 줄로 남긴다(작음). daemon과 runtime의 처리 못한 예외를 남기는 길이 이미 있다(`packages/core/diagnostics`).
-- 같은 메시지로 준비가 거듭 실패하면 그 요청을 실패한 turn으로 닫아, 사람이 대화에서 실패를 보게 한다(중간).
-- 추천: 첫째를 바로 하고, 둘째는 같은 일이 다시 생길 때 한다.
-
-## 붙인 것(`attached`) 기구가 file 종류만 남았고 아무도 만들지 않는다
-
-```yaml
-kind: defect
-modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-roles, packages/shell/renderer]
-```
-
-지금: `SendMessage.attached`(`packages/protocol/lophn-agent/inputs.ts`의 `attachedChipSchema`), 본문 part `attached`(`message-content.ts`), 입력 태그 `<lophn-attached>`(`input-tags.ts`의 `ATTACHED_KINDS = ["file"]`, `packages/core/lophn-agent/run-loop/input-text.ts`의 `attachedText`)가 남아 있다. context·위반 chip을 지운 뒤 shell은 늘 `attached: []`를 보낸다(`packages/shell/renderer/conversation/agent-tab-core-source-commands.ts`). 그런데도 role 공통 지침(`packages/core/agent-roles/roles/prompts.ts`)은 turn마다 `<lophn-attached>`를 설명한다.
-
-영향: 모든 turn의 prompt에 오지 않는 태그의 설명 한 줄이 실린다. 쓰는 곳 없는 입력 칸과 본문 part를 shell 대화 표시, router, e2e가 계속 받아 넘긴다.
-
-고치려면: `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>` 태그와 그 지침 줄, shell의 `attached` part 그리기를 지운다(중간: 입력 schema가 바뀌어 router와 e2e 호출(`attached: []`)을 같이 고친다). 남기면 잃는 것은 없다.
-
-정한 것: 지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").

@@ -459,3 +459,45 @@ guard: packages/core/lophn-agent/extensions/skills_test.ts "same-name skills in 
 - 같은 그릇 안에서 domain 사이, 그리고 domain과 전역 사이에 같은 이름을 두지 못하게 막고 skipped에 이유를 둔다(작음. 사람이 이름을 바꿔야 한다).
 
 닫음: 고쳤다. domain 층 skill은 domain마다 따로 남고, agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`, `packages/core/lophn-agent/extensions/skills.ts`). domain skill이 같은 이름의 전역 skill을 이기고, domain끼리는 이름이 앞서는 domain이 이긴다. `skill-read.ts`, `/` 메뉴(`registry.ts`), prompt 목록(`run-loop/prepare.ts`의 `promptSkills`)이 같은 함수를 쓴다. Operator 정의의 `skills`는 이름으로만 고르므로 같은 이름이 여러 domain에 있으면 어느 것인지는 domain 순서가 정한다.
+
+## turn 준비가 예외로 끝나면 아무 기록 없이 매 주기 다시 시도한다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/lophn-agent]
+closed: fixed
+guard: 없음
+```
+
+지금:
+- agent runtime의 `startTurnPump`(`packages/core/main/agent-runtime/product-driver.ts`)는 `driver.startNext()`가 던진 예외를 `catch {}`로 삼키고 다음 주기에 같은 일을 다시 한다. log도 diagnostic도 남기지 않는다.
+- 그래서 turn 준비(`packages/core/lophn-agent/run-loop/prepare.ts`)가 같은 이유로 늘 던지면, 받은 메시지는 영영 turn이 되지 않고 아무 곳에도 이유가 남지 않는다.
+- 실제로 그랬다. 계획 `reuse-diagnose`에서 ticket 예시 칸에 JSON Schema로 바뀌지 않는 type을 쓰자, App Engineer와 PM의 모든 turn이 준비 단계에서 던졌다. check와 core 기동은 통과했고 E2E의 turn 기다림 timeout으로만 드러났다. 그 원인은 고쳤고, 모든 내장 tool 입력이 JSON Schema로 바뀌는지 보는 test(`packages/core/main/agent-tools_test.ts`)를 더했다.
+
+영향: 사람은 보낸 메시지에 답이 없는 것만 본다. 오류도 이유도 화면과 Diagnostics 어디에도 없다. 개발자도 log에서 원인을 찾을 수 없다.
+
+고치려면:
+- 던진 예외를 diagnostic log에 분류 한 줄로 남긴다(작음). daemon과 runtime의 처리 못한 예외를 남기는 길이 이미 있다(`packages/core/diagnostics`).
+- 같은 메시지로 준비가 거듭 실패하면 그 요청을 실패한 turn으로 닫아, 사람이 대화에서 실패를 보게 한다(중간).
+- 추천: 첫째를 바로 하고, 둘째는 같은 일이 다시 생길 때 한다.
+
+닫음: `startTurnPump`(`packages/core/main/agent-runtime/product-driver.ts`)가 `driver.startNext()`의 예외를 `report`로 넘긴다. 같은 오류가 이어지면 처음 한 번만이다. agent runtime이 diagnostic log에 `internal_exception`을 location `agent-runtime-turn-start`로 남기고, 원문(오류 이름과 message)은 runtime stderr에 쓴다. core가 그 stderr를 읽지 않는 것은 `project-docs/issues/platform.md`가 안다. 둘째 안(실패한 turn으로 닫기)은 같은 일이 다시 생길 때 한다.
+
+## 붙인 것(`attached`) 기구가 file 종류만 남았고 아무도 만들지 않는다
+
+```yaml
+kind: defect
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-roles, packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+지금: `SendMessage.attached`(`packages/protocol/lophn-agent/inputs.ts`의 `attachedChipSchema`), 본문 part `attached`(`message-content.ts`), 입력 태그 `<lophn-attached>`(`input-tags.ts`의 `ATTACHED_KINDS = ["file"]`, `packages/core/lophn-agent/run-loop/input-text.ts`의 `attachedText`)가 남아 있다. context·위반 chip을 지운 뒤 shell은 늘 `attached: []`를 보낸다(`packages/shell/renderer/conversation/agent-tab-core-source-commands.ts`). 그런데도 role 공통 지침(`packages/core/agent-roles/roles/prompts.ts`)은 turn마다 `<lophn-attached>`를 설명한다.
+
+영향: 모든 turn의 prompt에 오지 않는 태그의 설명 한 줄이 실린다. 쓰는 곳 없는 입력 칸과 본문 part를 shell 대화 표시, router, e2e가 계속 받아 넘긴다.
+
+고치려면: `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>` 태그와 그 지침 줄, shell의 `attached` part 그리기를 지운다(중간: 입력 schema가 바뀌어 router와 e2e 호출(`attached: []`)을 같이 고친다). 남기면 잃는 것은 없다.
+
+정한 것: 지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").
+
+닫음: `SendMessage.attached`, 본문 part `attached`, 입력 태그 `<lophn-attached>`와 role 공통 지침의 설명 줄, shell의 그리기와 부르는 쪽의 `attached: []`를 지웠다. 입력창의 붙이기 단추가 남은 것은 `project-docs/issues/shell.md`가 안다.

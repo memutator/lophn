@@ -50,3 +50,20 @@ guard: packages/shell/renderer/workspace/agents/editor/grants-model_test.ts
 고치려면: 목록은 catalog의 모든 agent를 보이고, 줄 없음은 "기본(부를 수 있음)", 끄기는 `excluded` 줄로 쓴다. 대화 tab의 grant 표시(`packages/shell/renderer/conversation/agent-tab-core-source-sessions.ts`)는 이미 `excluded`를 거절로 보인다. 작음.
 
 닫음: 부르기 목록은 catalog의 모든 agent를 보인다. 줄이 없으면 켜진 기본이고, 끄면 그 agent의 줄을 `excluded`로 쓰고(`grants-model.ts`의 `withCallPick`), `excluded` 줄은 꺼진 것으로 보인다(`callPick`). "Add agent" menu는 지웠다.
+
+## grant read가 `sessions` 표를 SQL로 직접 읽는다
+
+```yaml
+kind: defect
+modules: [packages/core/approvals, packages/core/lophn-agent]
+closed: fixed
+guard: `packages/core/approvals/grants/reads_test.ts`
+```
+
+지금: `agentGrantsGetRead`(`packages/core/approvals/grants/reads.ts`)는 agent actor의 자기 ref를 만들려고 lophn-agent의 `sessions` 표를 `select role, project, app, operator from sessions where id = ?`로 직접 읽는다. approvals가 lophn-agent를 import하지 않으려고 이렇게 했다. module이 남의 표를 SQL로 읽지 않는다는 규칙에 어긋나고 `check-deps`는 이를 잡지 않는다.
+
+영향: `sessions` 표의 칸 이름이나 모양이 바뀌면 grant read가 소리 없이 `forbidden`이 되고, 그러면 place prompt의 "Agents you can call"에서 session 없는 상대가 모두 빠진다(실패한 grant read는 후보를 싣지 않는다).
+
+고치려면: 호출하는 쪽(`packages/core/agent-roles/place/place-data.ts`)이 이미 가진 자기 ref를 믿지 않고, router의 `callGate`처럼 wiring에서 actor의 ref를 풀어 read context로 넘긴다(중간). 또는 lophn-agent가 actor→ref read를 내고 approvals가 그것을 부른다(작음). 추천은 뒤의 것이다.
+
+닫음: approvals가 port `AgentOfSession`(`packages/core/approvals/grants/ports.ts`)을 내고, lophn-agent의 `agentOfSession`(`packages/core/lophn-agent/session/actor-ref.ts`)을 reader registration(`packages/core/main/daemon/wiring/lophn-agent-registration.ts`)이 끼운다. agent는 자기 grant만 읽고, 풀지 못한 session은 `forbidden`이다. approvals는 lophn-agent를 import하지 않는다.

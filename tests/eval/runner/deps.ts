@@ -17,6 +17,7 @@ export async function trialDepsOf(args: {
   variant: Variant;
   trialBudgetUsd: number;
   saveEnabled: boolean;
+  keep?: boolean;
   coding: boolean;
   source: SourceInfo;
   judge: JudgeDefinition;
@@ -47,6 +48,7 @@ export async function trialDepsOf(args: {
     binDir,
     home: Deno.env.get("HOME") ?? "",
     saveEnabled: args.saveEnabled,
+    keep: args.keep,
     repeatCriterion: args.repeatCriterion,
     live: new Set(),
   };

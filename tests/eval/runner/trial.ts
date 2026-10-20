@@ -65,6 +65,7 @@ export type TrialDeps = {
   binDir: string;
   home: string; // 사람의 HOME. Claude Code의 JSONL이 여기 있다
   saveEnabled: boolean; // experiment의 산출물은 후보가 아니라 저장하지 않는다
+  keep?: boolean; // 끝난 world를 지우지 않는다. 사람이 데스크톱 앱(LOPHN_DEV_HOME)으로 열어 본다
   saved: { name: string; n: number }[]; // 이 run에서 후보로 쓴 재료. 하나라도 있으면 더 쓰지 않는다
   repeatCriterion: Criterion; // 같은 호출을 되풀이했는지 보는 진단 criterion
   live: Set<{ stop(): Promise<unknown> }>; // 도는 trial. 둘째 신호가 기다리지 않고 끈다
@@ -354,7 +355,43 @@ export async function runTrial(
             `${deps.evalDir}/${deps.runId}/trial-${index}.core.log`,
           )
         ).catch(() => {});
+      // 후보 재료(save)는 다 통과한 trial만 쓴다. 떨어진 trial이 만든 앱도 사람이 볼 수 있게 source를 남긴다.
+      await copyAppSources(
+        held.run.home,
+        `${deps.evalDir}/${deps.runId}/trial-${index}/apps`,
+      ).catch(() => {});
     }
-    await releaseWorld(held);
+    if (deps.keep && held.run !== undefined) {
+      await held.ctx?.fake.close().catch(() => {});
+      deps.log(
+        `world를 남겼다: LOPHN_DEV_HOME=${held.run.home} deno task dev 로 연다. 다 보면 ${held.run.dir}를 지운다`,
+      );
+    } else {
+      await releaseWorld(held);
+    }
+  }
+}
+
+// `<home>/apps/<app id>/source`를 `<dest>/<app id>/source`로 복사한다.
+async function copyAppSources(home: string, dest: string): Promise<void> {
+  for await (const app of Deno.readDir(`${home}/apps`)) {
+    const source = `${home}/apps/${app.name}/source`;
+    if (!app.isDirectory || !await exists(source)) continue;
+    await Deno.mkdir(`${dest}/${app.name}`, { recursive: true });
+    const copied = await new Deno.Command("cp", {
+      args: ["-r", source, `${dest}/${app.name}/source`],
+    }).output();
+    if (!copied.success) {
+      throw new Error(new TextDecoder().decode(copied.stderr));
+    }
+  }
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }

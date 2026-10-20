@@ -5,7 +5,7 @@
 ## 흐름
 
 ```
-deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [--trial-budget usd]
+deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [--trial-budget usd] [--keep]
   tests/eval/run.ts → runner/cli.ts
     discover          scenarios/**/*.scenario.ts의 default export
     버전 확인          재료 hash(restore), 시나리오·criterion·judge hash(versions)를 registry와 댄다
@@ -94,6 +94,8 @@ deno task eval:scorecard diff A B   → 두 run의 버전·결과 차이(stdout)
 - **check 순서가 실행 순서다.** `runProgramChecks`는 배열 순서대로 하나씩 돈다. 끝난 world를 바꾸는 check(observation 확인이 앱에 실패를 일으킨다)는 읽기만 하는 check 뒤에 둔다. live check는 fixture 확인(`core === null`)에서 건너뛴다.
 - **산출물은 후보 재료다.** 시나리오의 `save`는 통과한 첫 trial에서만 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit해야 뒤 단위의 전제가 된다. 뒤 단위는 손으로 쓴 기준 재료(`calendar-app@2`)에서 시작해 앞 run의 질에 흔들리지 않는다. 재료 판은 불변이다. 선언이나 needs가 바뀌면 새 판을 만들고 옛 판은 지우지 않는다(지금 앱 재료는 `notify-app@2`, `date-range@2`, `calendar-call@3`, `calendar-app@2`, `calendar-app-bug@2`, `calendar-data@2`, kind 재료는 project `tax` 안 domain에 kind 파일을 두는 `tax-kinds@2`, Operator 재료는 월말정리를 가계부 앱 place에 두는 `operators-home@5`). 자식 재료를 저장할 때 부모의 needs를 먼저 잇는다(`save.ts`의 `relations`). 혼자 풀어도 부모가 기대던 재료가 빠지지 않게 한다.
 - **요약과 전체 기록.** 요약(`tests/eval/runs/<RunRecord.id>.json`)은 버전, check verdict, judge item(입력, verdict, 인용), 공통 수치다. 대답 글, 요청 body, working tree diff는 `.dev-data/eval/<RunRecord.id>/`에만 둔다. `.dev-data`는 schema가 바뀌면 지우므로, 기준 run을 다시 쓰려면 요약이 그보다 오래 남아야 한다.
+  - trial이 통과하든 아니든 그 world의 앱 source를 `.dev-data/eval/<run>/trial-N/apps/<app id>/source`에 복사해 둔다. 후보 재료(`save`)는 다 통과한 trial만 쓰지만, 사람은 떨어진 trial의 앱도 본다.
+  - `--keep`이면 trial이 끝나도 world(임시 data root)를 지우지 않고 core만 끈다. `LOPHN_DEV_HOME=<그 home> deno task dev`가 그 root를 데스크톱 앱으로 연다(fake provider를 심지 않는다). 다 본 뒤 그 폴더는 사람이 지운다.
 
 - **experiment는 commit된 spec으로만 돈다.** `checkSpecLocked`가 spec이 commit됐고 variant checkout이 그 commit 위인지 git으로 본다. 판정이 난 `result.json`은 덮지 않고(`판정이 이미 났다`), `inconclusive`는 같은 명령으로 이어 돈다. 이유: 결과를 본 뒤 규칙이나 target을 고르지 못하게.
 - **판정은 program이 한다.** `default@1`: target과 미리 쓴 case가 모두 통과하고 guard가 기준보다 나빠지지 않으면 adopt다. 채점 대기가 남으면 `inconclusive`다. 사람이 키를 넣은 trial(`human_input`)은 판정에서 빠진다.

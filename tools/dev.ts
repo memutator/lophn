@@ -4,7 +4,7 @@
 // 그래서 `deno task dev`는 shell main을 직접 띄우고,
 // `deno task dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
-// 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
+// 않는다. LOPHN_DEV_HOME을 주면 그 root(eval이 남긴 world)를 열고 fake를 심지 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
 // 앱을 띄우기 전에 core를 pipe로 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤
 // 닫는다(shell main이 띄우는 core의 user token은 hello frame으로만 나오기 때문이다).
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
@@ -43,6 +43,35 @@ const DEFAULT_FAKE_PORT = 7499;
  */
 function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
+}
+
+// eval이 남긴 world(`deno task eval --keep`)를 데스크톱 앱으로 열 때 그 data root를 절대 경로로 준다.
+const KEPT_HOME = "LOPHN_DEV_HOME";
+
+/**
+ * `dev`·`dev:core`가 여는 데이터 root. LOPHN_DEV_HOME이 있으면 그 root이고 없으면 <root>/.dev-data다.
+ * 사람의 ~/.lophn과 그 아래는 받지 않는다.
+ */
+export function devHomeOf(
+  root: string,
+  env: Record<string, string | undefined>,
+): { ok: true; path: string } | { ok: false; message: string } {
+  const kept = env[KEPT_HOME];
+  if (kept === undefined || kept === "") {
+    return { ok: true, path: devDataRoot(root) };
+  }
+  const path = kept.replace(/\/+$/, "");
+  if (!path.startsWith("/")) {
+    return { ok: false, message: `${KEPT_HOME}는 절대 경로여야 한다` };
+  }
+  const real = env["HOME"] ? `${env["HOME"].replace(/\/+$/, "")}/.lophn` : "";
+  if (real !== "" && (path === real || path.startsWith(`${real}/`))) {
+    return {
+      ok: false,
+      message: `${KEPT_HOME}로 사람의 ~/.lophn을 열지 않는다`,
+    };
+  }
+  return { ok: true, path };
 }
 
 /** mock 모드 데이터 root. 실행마다 비우고 새로 만든다. */
@@ -255,7 +284,7 @@ export async function removeDataRoot(dataRoot: string): Promise<void> {
 /**
  * `deno task dev`와 `deno task dev:core`의 진행 순서다.
  *
- * 데이터 root(저장소 밖으로 가지 않는다)를 만들고(0700) → fake server를 고정 port로 띄워
+ * 데이터 root(저장소 밖으로 가지 않는다. 예외는 LOPHN_DEV_HOME)를 만들고(0700) → fake server를 고정 port로 띄워
  * (필요할 때만) core에 provider로 연결해 두고 → `dev`는 shell main을, `dev:core`는 core를
  * 띄운다. shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에
  * 띄운 것을 모두 끝낸다.
@@ -277,9 +306,14 @@ async function launch(
   options: DevOptions,
   closers: (() => Promise<void>)[],
 ): Promise<{ ok: true } | { ok: false }> {
-  const dataRoot = mode === "dev:mock"
-    ? mockDataRoot(options.root)
-    : devDataRoot(options.root);
+  const parentEnv = { ...Deno.env.toObject(), ...options.env };
+  const home = devHomeOf(options.root, parentEnv);
+  if (!home.ok) {
+    console.error(`deno task ${mode}: ${home.message}`);
+    return { ok: false };
+  }
+  const kept = mode !== "dev:mock" && home.path !== devDataRoot(options.root);
+  const dataRoot = mode === "dev:mock" ? mockDataRoot(options.root) : home.path;
   const group = new ProcessGroup();
   const spawn = options.spawn ?? defaultSpawn;
 
@@ -314,8 +348,8 @@ async function launch(
     return { ok: false };
   }
 
-  const parentEnv = { ...Deno.env.toObject(), ...options.env };
-  if (mode !== "dev:mock" && parentEnv[LIVE] !== "1") {
+  // 남긴 eval world는 그 run의 provider를 그대로 쓴다. fake를 심으면 world가 바뀐다.
+  if (mode !== "dev:mock" && !kept && parentEnv[LIVE] !== "1") {
     try {
       const fake = startDevFake(parentEnv[FAKE_PORT]);
       closers.push(fake.close);

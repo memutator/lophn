@@ -85,6 +85,8 @@ export const problemsTestsWiring: WiringFactory = () => {
         ledgerPath: ctx.ledgerPath,
         channel: runnerChannel,
         apiPort: ctx.server.port,
+        // 시작하지 못한 요청이 log 없이 재시도만 되풀이해 원인을 못 찾은 일이 있다.
+        log: (message) => console.error(`app test: ${message}`),
         // 요청마다 credential을 발급해 ledger에 기록한다. 쓴 뒤에는 폐기한다.
         issue: async (input) => {
           const issued = await ctx.registry.issue(input);

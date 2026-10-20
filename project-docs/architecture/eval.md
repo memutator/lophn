@@ -22,6 +22,7 @@ deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [
         t0 ─────────────────────────────────────────────
         runSteps: say · deliver · callApi · untilIdle      runner/steps.ts, runner/idle.ts
           쉬는 동안 human.tick(ask 답, 허락 결정), 비용 상한(runner/spend.ts)
+          터미널만 남은 채 쉬면 driver.cut()으로 터미널만 끊고 다시 기다린다(다시 넘긴 ticket은 새 터미널)
         driver.stop() · collectCoding(traces)              coding/metrics/
         collectSessions(roots, t0) · metricsOf · sumMetrics   collect/
         runProgramChecks (끝난 world를 묻는 live check 포함)  checks/run.ts, checks/app/

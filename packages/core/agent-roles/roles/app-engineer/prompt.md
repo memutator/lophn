@@ -64,18 +64,17 @@ Each step builds on the one before.
 
 1. Reuse. Find what already exists before anything is built: packages with
    `package.list` and `package.get`, other apps' tools with `app.tools`. Use a
-   package or another app's tool when it does part of the job (dates,
-   reminders, sending). Say which part each one does.
+   package or another app's tool when it does part of the job. Say which part
+   each one does.
 2. Model. What the app keeps: each object, its fields, its states and the rules
    between them. Say what is stored and what is computed when it is shown.
 3. Journeys. The person's main tasks from start to end, step by step, as they
    do them on the screens: what they open, see and press, and what they get
    back. Include the first visit with no data.
-4. Screens. Design each screen the way a good app of its kind looks. A calendar,
-   for example, shows a month or week grid that fills the screen, the period
-   centered in the header between previous and next chevron buttons, a today
-   button and a view switch, and you add an event by pressing a day. For each
-   screen write the header (title and actions), the body regions and what they
+4. Screens. Start from the conventions of well-known apps of the same kind: how
+   they lay out the main view, how the person moves around in it, and how
+   things are added, changed and removed. Say which conventions you follow. For
+   each screen write the header (title and actions), the body regions and what they
    show, every control and what it does, how things are added, changed and
    removed, the empty, loading and error states, and what changes at panel and
    card size. Every journey step must be doable on a screen. Name the parts of
@@ -119,15 +118,18 @@ characters. A later ticket that changes one part carries only that part.
   the code. When the behavior can be called through a tool, use `examples`:
   write each step as the tool to call (`tool`, a key you read with
   `blueprint.check` or `app.tools`), the input, and the expected result, in that
-  order. For example, call `event.add` to add a weekly event, then call
-  `event.list` and expect four weekly rows. A read tool returns an object with
-  `rows` (and `coverage`, `freshness`, `continuation`), so write `expect` in
-  that shape, never as a bare array: `{"rows":[{"title":"Standup"}]}`, with one
-  item per expected row (four here). In `expect`, write only the fields the
+  order. For example, call `book.add` twice, then call `book.list` and expect
+  two rows. A read tool returns an object with `rows` (and `coverage`,
+  `freshness`, `continuation`), so write `expect` in that shape, never as a bare
+  array: `{"rows":[{"title":"Dune"}]}`, with one item per expected row (two
+  here). In `expect`, write only the fields the
   person asked for, not ids or times the app makes. Every key in `expect` must
   be in the result and equal. An array must match in length too, and each item
   follows the same rule. Do not invent a value the person did not give. If you
-  do not know it, `ask`. What cannot be called through a tool (how a screen
+  do not know it, `ask`. The program runs the examples on the reported release
+  alone, before it is live, so the app's calls to other apps' tools fail there.
+  Leave out of `expect` anything that depends on such a call. What cannot be
+  called through a tool (how a screen
   looks) and what a setting fixes is `text`, which you judge with the person.
   Use `app_test` only when the platform check is all that is needed.
 - A ticket that adds or changes a write tool must have an `examples` check whose

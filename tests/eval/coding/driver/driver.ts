@@ -34,6 +34,8 @@ export type DriverDeps = {
 export type CodingDriver = {
   active(): number;
   traces(): CodingTrace[];
+  // 지금 열린 터미널만 끊는다. driver는 계속 돌아 다시 넘긴 ticket의 새 터미널을 연다.
+  cut(): Promise<void>;
   stop(): Promise<CodingTrace[]>;
 };
 
@@ -352,6 +354,12 @@ export function startCodingDriver(deps: DriverDeps): CodingDriver {
         trace.ended_at === null && trace.end === null
       ).length,
     traces: () => [...lives.values()].map(({ trace }) => ({ ...trace })),
+    async cut() {
+      const open = [...lives.values()].filter(({ trace }) =>
+        trace.ended_at === null && trace.end === null
+      );
+      await Promise.all(open.map((live) => closeSession(live, "killed")));
+    },
     async stop() {
       clearInterval(timer);
       await ready;

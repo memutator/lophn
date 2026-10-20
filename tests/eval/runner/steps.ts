@@ -114,10 +114,11 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
       }
     } else {
       let idle = await wait();
-      // 완료 보고 없이 CLI가 멈췄거나 보고 뒤 process가 안 끝났다. 끊으면 core가 Project Manager에게 알려 새 turn이 열릴 수 있다.
+      // 완료 보고 없이 CLI가 멈췄거나 보고 뒤 process가 안 끝났다. 끊으면 core가 App Engineer에게 알려 새 turn이 열리고,
+      // ticket을 다시 넘기면 새 터미널이 열려야 하므로 driver는 멈추지 않는다.
       if (idle.kind === "idle" && driver !== undefined && driver.active() > 0) {
         log("터미널이 남은 채 쉬어 끊고 다시 기다린다");
-        await driver.stop();
+        await driver.cut();
         idle = await wait();
       }
       if (idle.kind === "idle") {

@@ -10,5 +10,11 @@
     "name": "ticket.list",
     "n": 2,
     "hash": "4531b526820d3d71ebb936d09f5d38fd85f7554dee9c37e870bc70f2fafa17c7"
+  },
+  {
+    "kind": "tool",
+    "name": "ticket.list",
+    "n": 3,
+    "hash": "febf1239e04cec38be18b64a5bb2e7f2a61dd14643496ace57e79d196949c44f"
   }
 ]

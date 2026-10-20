@@ -1,0 +1,960 @@
+{
+  "id": "run_01m5c5hhqnqdexbgec22te0gpc",
+  "started_at": "2026-10-20T08:06:15.541Z",
+  "scenario": {
+    "kind": "scenario",
+    "name": "calendar-dev",
+    "n": 1
+  },
+  "materials": [
+    {
+      "kind": "material",
+      "name": "notify-app",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "date-range",
+      "n": 2
+    },
+    {
+      "kind": "material",
+      "name": "calendar-call",
+      "n": 3
+    }
+  ],
+  "components": [
+    {
+      "kind": "assembly",
+      "name": "assembly",
+      "n": 2
+    },
+    {
+      "kind": "cli",
+      "name": "claude",
+      "n": 3
+    },
+    {
+      "kind": "instruction",
+      "name": "app_engineer",
+      "n": 5
+    },
+    {
+      "kind": "model",
+      "name": "claude-sonnet-5-5",
+      "n": 1
+    },
+    {
+      "kind": "runtime",
+      "name": "runtime",
+      "n": 5
+    },
+    {
+      "kind": "skill-description",
+      "name": "kinds-yaml",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "app.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.link_source",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "app.tools",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ask",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "blueprint.check",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "call",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "cancel",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "domain.create",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "domain.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.edit",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.glob",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.grep",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.outline",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "file.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "file.write",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "guide.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "image.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "kind.check",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "kind.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "operator.create",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "operator.update",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "package.get",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.list",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "package.publish",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "pdf.read",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.body",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.get",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "problem.set_state",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "release.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "release.list",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "reply",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "session.list",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "settings.get",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "shell.run",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "skill.read",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.cancel",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.create",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.get",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.list",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.update",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "ticket.verify",
+      "n": 3
+    },
+    {
+      "kind": "tool",
+      "name": "visual.show",
+      "n": 2
+    },
+    {
+      "kind": "tool",
+      "name": "web.fetch",
+      "n": 1
+    },
+    {
+      "kind": "tool",
+      "name": "web.search",
+      "n": 1
+    }
+  ],
+  "core": {
+    "kind": "core",
+    "name": "core",
+    "n": 11
+  },
+  "grader": {
+    "criteria": [
+      {
+        "kind": "criterion",
+        "name": "card-covered",
+        "n": 3
+      },
+      {
+        "kind": "criterion",
+        "name": "asked-again",
+        "n": 3
+      },
+      {
+        "kind": "criterion",
+        "name": "app-design",
+        "n": 1
+      }
+    ],
+    "judge": {
+      "kind": "judge",
+      "name": "judge",
+      "n": 2
+    },
+    "checks": {
+      "kind": "checks",
+      "name": "checks",
+      "n": 7
+    }
+  },
+  "model": "claude-sonnet-5-5",
+  "source": {
+    "commit": "d909390d74d9544a225faa7f4313dbda258ba216",
+    "dirty": false
+  },
+  "trials": [
+    {
+      "index": 0,
+      "settle": {
+        "kind": "idle",
+        "unstarted": []
+      },
+      "checks": [
+        {
+          "id": "ae-ticket-created",
+          "kind": "program",
+          "pass": true,
+          "reason": "ticket.create 1번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-ticket-verified",
+          "kind": "program",
+          "pass": false,
+          "reason": "ticket.verify 성공 0번 (기대 1..∞)"
+        },
+        {
+          "id": "ae-calls-coding-only",
+          "kind": "program",
+          "pass": true,
+          "reason": "App Engineer call 6개(보낼 때 실패한 1개 뺌) 중 coding agent 대화가 아닌 것 0개"
+        },
+        {
+          "id": "app-active",
+          "kind": "program",
+          "pass": false,
+          "reason": "active release 없음"
+        },
+        {
+          "id": "reuse-sdk-dependency",
+          "kind": "program",
+          "pass": false,
+          "reason": "check 오류: active release나 source가 없음"
+        },
+        {
+          "id": "reuse-app-connection",
+          "kind": "program",
+          "pass": false,
+          "reason": "check 오류: active release나 source가 없음"
+        },
+        {
+          "id": "reuse-imports",
+          "kind": "program",
+          "pass": false,
+          "reason": "check 오류: active release나 source가 없음"
+        },
+        {
+          "id": "reuse-no-recreate",
+          "kind": "program",
+          "pass": false,
+          "reason": "check 오류: active release나 source가 없음"
+        },
+        {
+          "id": "reuse-usage",
+          "kind": "program",
+          "pass": false,
+          "reason": "check 오류: active release나 source가 없음"
+        },
+        {
+          "id": "card-covered",
+          "kind": "judge",
+          "pass": false,
+          "reason": "전제 check가 떨어져 judge를 부르지 않았다: app-active"
+        },
+        {
+          "id": "asked-again",
+          "kind": "judge",
+          "pass": true,
+          "reason": "no_repeat: \"[QUESTIONS]\""
+        },
+        {
+          "id": "app-design",
+          "kind": "judge",
+          "pass": false,
+          "reason": "전제 check가 떨어져 judge를 부르지 않았다: app-active"
+        }
+      ],
+      "judge": [
+        {
+          "check": "asked-again",
+          "criterion": "asked-again@3",
+          "input": "[HUMAN_REQUEST]\n캘린더 앱 만들어 줘. 모델은 Event랑 Schedule을 분리해서 잡아. Event는 단발 일정이고, Schedule은 반복 정의야. 반복 형식은 iCalendar RRULE 스타일로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받아. Schedule의 occurrence는 기본으로 저장하지 않고, 캘린더 GUI가 Schedule에서 계산해서 가상으로 그려. occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 Schedule에 연결해. 일정 시작 전에 알림도 줘.\n\n[QUESTIONS]\n",
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "no_repeat",
+          "quote": "[QUESTIONS]",
+          "quote_found": true,
+          "judge": "judge@2",
+          "error": null
+        }
+      ],
+      "metrics": {
+        "tokens": {
+          "input": 181921,
+          "output": 14648,
+          "cache_read": 710904,
+          "cache_write": 25806,
+          "reasoning": 1986,
+          "unknown_calls": 0
+        },
+        "input_total": 918631,
+        "cache_hit_rate": 0.7738732962419078,
+        "cost_usd": 0.645912,
+        "unpriced_calls": 0,
+        "time_ms": {
+          "turns": 134981,
+          "model_calls": 133396
+        },
+        "tools": {
+          "counted": 44,
+          "excluded": 0,
+          "format": 1,
+          "success": 41,
+          "blocked": 0,
+          "repeated_calls": 15,
+          "repeat_groups": 7,
+          "max_repeat": 5,
+          "repeated_failure_turns": 0
+        },
+        "truncated_calls": 0,
+        "agent_calls": [
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": null,
+            "reply": "conversation",
+            "state": null,
+            "failed": true
+          },
+          {
+            "receiver_role": null,
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          },
+          {
+            "receiver_role": "coding_agent",
+            "reply": "conversation",
+            "state": "accepted",
+            "failed": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "kind": "assembly",
+          "name": "assembly",
+          "n": 2
+        },
+        {
+          "kind": "instruction",
+          "name": "app_engineer",
+          "n": 5
+        },
+        {
+          "kind": "model",
+          "name": "claude-sonnet-5-5",
+          "n": 1
+        },
+        {
+          "kind": "runtime",
+          "name": "runtime",
+          "n": 5
+        },
+        {
+          "kind": "skill-description",
+          "name": "kinds-yaml",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "app.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.link_source",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "app.tools",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ask",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "blueprint.check",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "call",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "cancel",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "domain.create",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "domain.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.edit",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.glob",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.grep",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.outline",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "file.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "file.write",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "guide.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "image.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "kind.check",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "kind.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "operator.create",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "operator.update",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "package.get",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.list",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "package.publish",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "pdf.read",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.body",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.get",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "problem.set_state",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "release.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "release.list",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "reply",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "session.list",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "settings.get",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "shell.run",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "skill.read",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.cancel",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.create",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.get",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.list",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.update",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "ticket.verify",
+          "n": 3
+        },
+        {
+          "kind": "tool",
+          "name": "visual.show",
+          "n": 2
+        },
+        {
+          "kind": "tool",
+          "name": "web.fetch",
+          "n": 1
+        },
+        {
+          "kind": "tool",
+          "name": "web.search",
+          "n": 1
+        },
+        {
+          "kind": "cli",
+          "name": "claude",
+          "n": 3
+        }
+      ],
+      "coding": [
+        {
+          "session": "ses_01m5c5kmmbk15r2sqbd4qdgmkk",
+          "app": "app_0000000000000000000000cdr1",
+          "ticket": "tkt_01m5c5kaq760yct7z33sxg8qch",
+          "harness": "claude",
+          "cwd": "/tmp/lophn-eval/lophn-e2e-9e4dc15d924d25c/home/apps/app_0000000000000000000000cdr1/source",
+          "human_input": false,
+          "trust_answered": true,
+          "opened_at": "2026-10-20T08:07:24.146Z",
+          "reported_at": null,
+          "ended_at": "2026-10-20T08:17:17.659Z",
+          "end": "killed",
+          "exit_code": 129,
+          "usage": {
+            "files": 1,
+            "models": [
+              "claude-sonnet-5-5"
+            ],
+            "api_calls": 71,
+            "input": 142,
+            "output": 50736,
+            "cache_read": 8314508,
+            "cache_write": 131369,
+            "input_total": 8446019,
+            "cache_hit_rate": 0.9844292322809125,
+            "tool_results": 71,
+            "tool_errors": 7,
+            "tool_error_rate": 0.09859154929577464
+          },
+          "usage_error": null,
+          "commands": [
+            {
+              "at": "2026-10-20T08:07:30.919877292Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T08:07:32.752436126Z",
+              "name": "guide lophn-build-app"
+            },
+            {
+              "at": "2026-10-20T08:07:36.607283371Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T08:07:36.681575489Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T08:07:39.48520770Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-20T08:07:42.101626968Z",
+              "name": "ticket claim"
+            },
+            {
+              "at": "2026-10-20T08:07:42.185051306Z",
+              "name": "package list"
+            },
+            {
+              "at": "2026-10-20T08:07:42.265101743Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-20T08:07:42.337626391Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-20T08:07:45.148856750Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-20T08:07:45.227419534Z",
+              "name": "app blueprint"
+            },
+            {
+              "at": "2026-10-20T08:07:50.440232702Z",
+              "name": "package show"
+            },
+            {
+              "at": "2026-10-20T08:07:50.516411120Z",
+              "name": "app blueprint"
+            },
+            {
+              "at": "2026-10-20T08:07:54.539858140Z",
+              "name": "app show"
+            },
+            {
+              "at": "2026-10-20T08:08:01.581928215Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-20T08:08:05.493890952Z",
+              "name": "message send"
+            },
+            {
+              "at": "2026-10-20T08:09:48.940667784Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T08:13:42.430924032Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T08:13:45.521677822Z",
+              "name": "ticket show"
+            },
+            {
+              "at": "2026-10-20T08:13:45.601265731Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T08:13:48.488261900Z",
+              "name": "release prepare"
+            },
+            {
+              "at": "2026-10-20T08:13:53.571427907Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-20T08:13:58.926107489Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:07.14948327Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:14.235086280Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:18.539575763Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:20.337629098Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:22.345137591Z",
+              "name": "app test"
+            },
+            {
+              "at": "2026-10-20T08:14:25.58166074Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:27.71781164Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:29.250478719Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:29.328867225Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:31.286722683Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:35.652150538Z",
+              "name": "app preview"
+            },
+            {
+              "at": "2026-10-20T08:14:38.35318500Z",
+              "name": "release status"
+            },
+            {
+              "at": "2026-10-20T08:14:40.842270383Z",
+              "name": "ticket report"
+            },
+            {
+              "at": "2026-10-20T08:16:55.92644822Z",
+              "name": "ticket show"
+            }
+          ],
+          "message_send": 3,
+          "permission_requests": 0
+        }
+      ],
+      "human": {
+        "answered": 0,
+        "fallback": 0,
+        "decisions": 0
+      }
+    }
+  ]
+}

@@ -10,46 +10,16 @@ export function makeBlueprint(text: Text = en): Blueprint {
   return defineBlueprint({
     name: "{{TITLE}}",
     description: text["common.summary.app"],
+    // 화면과 tool은 필요할 때 더한다. 화면은 src/screens/<key>/, handler는 src/tools.ts에 둔다.
     screens: [
       {
-        key: "items",
-        label: text["items.title.screen"],
-        path: "/screens/items/index.html",
+        key: "home",
+        label: text["common.title.app"],
+        path: "/screens/home/index.html",
         sizes: ["full", "panel", "card"],
       },
     ],
-    tools: [
-      {
-        name: "list_items",
-        title: text["items.label.list-items"],
-        description: text["items.summary.list-items"],
-        effect: "read",
-        inputSchema: null,
-        domain: "{{APP}}",
-        public: false,
-      },
-      {
-        name: "add_item",
-        title: text["items.label.add-item"],
-        description: text["items.summary.add-item"],
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: {
-            title: {
-              type: "string",
-              description: text["items.summary.item-title"],
-              minLength: 1,
-              maxLength: 200,
-            },
-          },
-          required: ["title"],
-          additionalProperties: false,
-        },
-        domain: "{{APP}}",
-        public: false,
-      },
-    ],
+    tools: [],
     permissions: [],
     app_connections: [],
     // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).

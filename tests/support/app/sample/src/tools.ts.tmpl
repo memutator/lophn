@@ -1,0 +1,71 @@
+// blueprint에 선언한 tool의 handler. 선언한 이름과 등록한 handler가 같아야 준비가 끝난다.
+import { readResult, tool, ToolRejection } from "@lophn/cap-tool";
+import { openStore, type Store } from "@lophn/cap-store";
+import { reportProblem } from "@lophn/cap-problem";
+import { addItem, ensureSchema, type Item, listItems } from "./items.ts";
+
+export type Deps = {
+  openStore: () => Store;
+  now: () => string;
+};
+
+const defaults: Deps = {
+  openStore: () => openStore(),
+  now: () => new Date().toISOString(),
+};
+
+// 저장소를 열고 일을 한다. 저장소를 여는 데 실패하면 이름과 message로 보고하고 호출자에게는 이유 없는 거절만
+// 돌려준다. 업무 일의 예외는 그대로 던져 진입점이 stack과 함께 보고한다.
+// 보고가 실패해도 업무 응답은 막지 않는다. 입력·DB 내용은 보고에 넣지 않는다.
+// 연결은 process에 하나라 호출마다 닫지 않는다. write 호출의 변경 기록(changeset)이 연결에 걸려 있어서, 닫으면
+// 그 호출의 변경이 사라져 되돌릴 수 없다.
+async function withStore<T>(
+  deps: Deps,
+  name: string,
+  work: (store: Store) => T,
+): Promise<T> {
+  let store: Store;
+  try {
+    store = deps.openStore();
+    await ensureSchema(store);
+  } catch {
+    reportProblem("store_unavailable", "the item store could not be opened", {
+      api: name,
+    });
+    throw new ToolRejection("unavailable", "the item store is unavailable");
+  }
+  return work(store);
+}
+
+export function listItemsHandler(deps: Deps = defaults) {
+  return () =>
+    withStore(
+      deps,
+      "list_items",
+      (store) =>
+        readResult<Item>(listItems(store), {
+          coverage: "complete",
+          freshness: "fresh",
+        }),
+    );
+}
+
+export function addItemHandler(deps: Deps = defaults) {
+  return async (input: unknown) => {
+    const title = String((input as { title?: unknown } | null)?.title ?? "")
+      .trim();
+    if (title === "") {
+      throw new ToolRejection("invalid_input", "the item title is empty");
+    }
+    return await withStore(
+      deps,
+      "add_item",
+      (store) => addItem(store, title, deps.now()),
+    );
+  };
+}
+
+export function registerTools(deps: Deps = defaults): void {
+  tool("list_items", listItemsHandler(deps));
+  tool("add_item", addItemHandler(deps));
+}

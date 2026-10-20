@@ -1,0 +1,40 @@
+// en.ts에서 생성한다. 직접 고치지 않고 `deno task wording --check`로 맞춘다.
+import type { MessageKey } from "./en.ts";
+
+export type PlaceholderKinds = {
+  "common.summary.app": Record<never, never>;
+  "items.button.add": Record<never, never>;
+  "items.button.reload": Record<never, never>;
+  "items.empty.none": Record<never, never>;
+  "items.error.save-failed": Record<never, never>;
+  "items.label.add-item": Record<never, never>;
+  "items.label.count": {
+    count: "plural";
+  };
+  "items.label.items": Record<never, never>;
+  "items.label.list-items": Record<never, never>;
+  "items.label.new-item": Record<never, never>;
+  "items.summary.add-item": Record<never, never>;
+  "items.summary.item-title": Record<never, never>;
+  "items.summary.list-items": Record<never, never>;
+  "items.title.screen": Record<never, never>;
+};
+
+type ValueFor<T> = T extends "plural" | "number" ? number
+  : T extends "date" ? Date
+  : string;
+
+export type ValuesOf<K extends MessageKey> = {
+  [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
+};
+
+export type HasPlaceholders<K extends MessageKey> = [
+  keyof PlaceholderKinds[K],
+] extends [never] ? false
+  : true;
+
+type _SameKeys =
+  | Exclude<MessageKey, keyof PlaceholderKinds>
+  | Exclude<keyof PlaceholderKinds, MessageKey>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

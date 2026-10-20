@@ -128,7 +128,7 @@ async function currentLive(
   ) {
     return failure("unavailable", "app is not running");
   }
-  const found = await call("read", "releases", "get", { release });
+  const found = await call("read", "releases", "get_record", { release });
   if (!found.ok) return mapped(found.error);
   const bundleHash = text(record(record(found.value)?.release)?.bundle_hash);
   if (bundleHash === undefined || !SHA256.test(bundleHash)) {

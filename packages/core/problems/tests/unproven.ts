@@ -1,6 +1,6 @@
 // examples run이 끝난 뒤 앱의 problem으로 알릴 "되돌리기를 증명 못 한 write tool"을 구한다.
 // 같은 (app, bundle_hash) app test가 만든 입력으로 증명하지 못한 tool에서 이 examples가 되돌리기까지 증명한
-// tool을 뺀 것이다. 입력은 모두 호출하는 쪽이 읽어 넘기는 값이라 순수 함수다.
+// tool을 뺀 것이다(examples가 pass일 때만). 입력은 모두 호출하는 쪽이 읽어 넘기는 값이라 순수 함수다.
 
 export const UNPROVEN_PROBLEM = "rewind_unproven";
 
@@ -22,17 +22,17 @@ export function unprovenOfReason(reason: string): string[] {
   return reason.slice(at + NOTE_HEAD.length, -NOTE_TAIL.length).split(", ");
 }
 
-// appTestUnproven가 undefined면 같은 bundle의 통과한 app test가 없다. examples가 pass가 아니면 증명한 것이
-// 없다. inconclusive는 아무것도 알지 못한 run이라 알리지 않는다.
+// appTestUnproven가 undefined면 같은 bundle의 통과한 app test가 없다. examples가 pass일 때만 알린다. fail은 그
+// ticket을 맡은 session이 이미 그 실패를 받고 고친 뒤 다시 돌리면 pass run이 남은 것을 알린다. fail에도 알리면
+// 같은 앱에 session이 하나 더 열려 두 session이 같은 ticket을 반대로 고친다. inconclusive는 아무것도 알지 못한
+// run이라 알리지 않는다.
 export function unprovenAfterExamples(input: {
   appTestUnproven: readonly string[] | undefined;
   examples: { result: "pass" | "fail" | "inconclusive"; proven: string[] };
 }): string[] {
   const { appTestUnproven, examples } = input;
-  if (appTestUnproven === undefined || examples.result === "inconclusive") {
-    return [];
-  }
-  const proven = new Set(examples.result === "pass" ? examples.proven : []);
+  if (appTestUnproven === undefined || examples.result !== "pass") return [];
+  const proven = new Set(examples.proven);
   return appTestUnproven.filter((tool) => !proven.has(tool));
 }
 

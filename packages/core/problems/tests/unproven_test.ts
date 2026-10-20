@@ -16,7 +16,13 @@ Deno.test("examples run 뒤 알릴 tool은 app test의 unproven에서 examples�
   ][] = [
     ["examples가 일부를 증명했다", ["a", "b"], "pass", ["a"], ["b"]],
     ["모두 증명했다", ["a"], "pass", ["a"], []],
-    ["fail이면 아무것도 빼지 않는다", ["a", "b"], "fail", ["a"], ["a", "b"]],
+    [
+      "fail이면 알리지 않는다(맡은 session이 이미 그 실패를 받는다)",
+      ["a", "b"],
+      "fail",
+      ["a"],
+      [],
+    ],
     ["inconclusive면 알리지 않는다", ["a"], "inconclusive", [], []],
     ["app test가 없으면 알리지 않는다", undefined, "fail", [], []],
     ["unproven이 없으면 알리지 않는다", [], "pass", ["a"], []],

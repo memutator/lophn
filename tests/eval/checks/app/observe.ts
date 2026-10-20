@@ -134,26 +134,40 @@ function stopNotify(name: string): Around {
 }
 
 // 앱 DB의 사용자 표를 모두 이름을 바꿔 둔다. 앱의 store 연결이 열려 있는 채 질의가 실패하는 가장 단순한 길이다.
-// 제품 route에는 store 실패를 일으키는 길이 없다. 되돌리지 않는다(trial이 끝나면 root가 지워진다).
+// 제품 route에는 store 실패를 일으키는 길이 없다. 끝나면 이름을 되돌린다. `--keep`으로 남긴 world를 사람이 연다.
 function renameTables(appName: string): Around {
   return async (core) => {
     const app = await findApp(core, appName);
-    const db = new DatabaseSync(
-      `${appDataFolder(core.run.home, app.id)}/app.sqlite`,
-    );
-    try {
-      db.exec("PRAGMA busy_timeout = 5000");
-      const tables = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
-      ).all() as { name: string }[];
-      for (const { name } of tables) {
-        db.exec(`ALTER TABLE "${name}" RENAME TO "${name}__eval_gone"`);
-      }
-    } finally {
-      db.close();
-    }
-    return () => Promise.resolve();
+    const path = `${appDataFolder(core.run.home, app.id)}/app.sqlite`;
+    const renamed = renameAll(path, (name) => `${name}${GONE}`);
+    return () => {
+      renameAll(path, (name) => name.slice(0, -GONE.length), renamed);
+      return Promise.resolve();
+    };
   };
+}
+
+const GONE = "__eval_gone";
+
+// names가 없으면 사용자 표 전부다. 바꾼 뒤 이름 목록을 돌려준다.
+function renameAll(
+  path: string,
+  to: (name: string) => string,
+  names?: string[],
+): string[] {
+  const db = new DatabaseSync(path);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    const tables = names ?? (db.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    ).all() as { name: string }[]).map((row) => row.name);
+    return tables.map((name) => {
+      db.exec(`ALTER TABLE "${name}" RENAME TO "${to(name)}"`);
+      return to(name);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 // platform(core)이 앱 이름으로 보고하는 problem은 앱이 보고한 것이 아니다. 보고 source가 앱 자신의 것과

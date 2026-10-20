@@ -410,9 +410,8 @@
         {
           "id": "asked-again",
           "kind": "judge",
-          "pass": false,
-          "reason": "채점 대기",
-          "pending": true
+          "pass": true,
+          "reason": "no_repeat: \"[QUESTIONS]\""
         },
         {
           "id": "app-design",
@@ -426,11 +425,11 @@
           "check": "asked-again",
           "criterion": "asked-again@3",
           "input": "[HUMAN_REQUEST]\n캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고.\n\n[QUESTIONS]\n",
-          "state": "pending",
-          "model": null,
-          "verdict": null,
-          "quote": null,
-          "quote_found": false,
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "no_repeat",
+          "quote": "[QUESTIONS]",
+          "quote_found": true,
           "judge": "judge@2",
           "error": null
         }

@@ -410,9 +410,8 @@
         {
           "id": "asked-again",
           "kind": "judge",
-          "pass": false,
-          "reason": "채점 대기",
-          "pending": true
+          "pass": true,
+          "reason": "no_repeat: \"[QUESTIONS]\""
         },
         {
           "id": "app-design",
@@ -426,11 +425,11 @@
           "check": "asked-again",
           "criterion": "asked-again@3",
           "input": "[HUMAN_REQUEST]\n캘린더 앱 만들어 줘. 모델은 Event랑 Schedule을 분리해서 잡아. Event는 단발 일정이고, Schedule은 반복 정의야. 반복 형식은 iCalendar RRULE 스타일로 FREQ, INTERVAL, BYDAY, UNTIL 또는 COUNT를 받아. Schedule의 occurrence는 기본으로 저장하지 않고, 캘린더 GUI가 Schedule에서 계산해서 가상으로 그려. occurrence에 구체적인 액션(완료, 연기나 일정 변경, skip이나 보류)이 생기면 그때 실제 instance로 저장하고 Schedule에 연결해. 일정 시작 전에 알림도 줘.\n\n[QUESTIONS]\n",
-          "state": "pending",
-          "model": null,
-          "verdict": null,
-          "quote": null,
-          "quote_found": false,
+          "state": "judged",
+          "model": "claude-haiku-5-5",
+          "verdict": "no_repeat",
+          "quote": "[QUESTIONS]",
+          "quote_found": true,
           "judge": "judge@2",
           "error": null
         }

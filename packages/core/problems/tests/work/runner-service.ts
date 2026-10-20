@@ -157,11 +157,18 @@ type Client = {
   ): Promise<Result<Record<string, unknown>>>;
 };
 
-async function clientFor(
+// 요청 하나를 가리키는 짧은 id다. request_key는 request_principal(코딩 session마다 다르다) 안에서만 유일해서
+// "t-1"처럼 겹칠 수 있다. command key와 작업 폴더를 key만으로 정하면 다른 요청과 부딪힌다.
+async function requestSlug(job: JobCommon): Promise<string> {
+  return (await sha256Hex(`${job.request_principal}\u0000${job.request_key}`))
+    .slice(0, 24);
+}
+
+export async function clientFor(
   job: JobCommon,
   fetcher: LoopbackFetch,
 ): Promise<Client> {
-  const requestKeyHash = (await sha256Hex(job.request_key)).slice(0, 24);
+  const requestKeyHash = await requestSlug(job);
   return {
     async command(method, input, seed) {
       const done = await post(fetcher, job.api_port, job.credential, method, {
@@ -397,9 +404,7 @@ async function runRequest(
   const jobSpec: AppTestJob = {
     request_key: job.request_key,
     slot: job.slot,
-    work: `${root}/work/problems/tests/${
-      (await sha256Hex(job.request_key)).slice(0, 24)
-    }`,
+    work: `${root}/work/problems/tests/${await requestSlug(job)}`,
     sockets,
     bundle,
     bundle_hash: bundleHash,

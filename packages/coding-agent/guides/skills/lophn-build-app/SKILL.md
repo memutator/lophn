@@ -38,7 +38,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 
 1. 맡겨진 ticket을 읽는다. `ticket show`로 목표, 근거(annotation의 메모,
    component 겹, 요소 글자, screenshot 파일 경로), acceptance 조건, 보고할 실패
-   분기와 이름, 볼 곳과 지킬 것을 읽는다. acceptance 조건이 예시(`examples`)이면
+   분기와 이름, 볼 곳과 지킬 것을 읽는다. 목표에 App Engineer의 설계(재사용,
+   모델, journey, 화면, tool)가 있으면 그대로 만든다. 화면은 적힌 배치, 조작,
+   상태대로 짓는다. 설계와 다르게 해야 하면 먼저 `message send`로 App
+   Engineer에게 청한다. acceptance 조건이 예시(`examples`)이면
    tool과 입력, 기대 결과를 그대로 읽는다. 예시는 고치지 않는다. 틀린 것 같으면
    `message send`로 App Engineer에게 청한다. 작업 가능하지 않다고 나오면
    claim하지 않고 `message send`로 알린다.

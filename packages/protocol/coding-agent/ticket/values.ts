@@ -31,7 +31,8 @@ const TICKET_STATES = [
 export const ticketStateSchema = z.enum(TICKET_STATES);
 export type TicketState = z.infer<typeof ticketStateSchema>;
 
-const GOAL_MAX_CODE_POINTS = 2000;
+// coding agent가 읽는 것은 ticket뿐이라 goal이 App Engineer의 설계 전부(재사용, 모델, journey, 화면, tool)를 싣는다.
+const GOAL_MAX_CODE_POINTS = 16000;
 const TITLE_MAX_CODE_POINTS = 120;
 
 const codePoints = (max: number) =>

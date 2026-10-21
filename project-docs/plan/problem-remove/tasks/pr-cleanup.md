@@ -103,3 +103,5 @@
 - `packages/core/apps/releases/bundle/runtime-entry.ts` 2줄의 "문제 보고"를 지금 앱 runtime이 하는 일(예외는 앱 log)로
 - `packages/core/supervision/responsiveness/blob-client.ts` 1줄의 "report collector"를 지금 쓰는 신뢰 자식으로
 - `packages/core/problems/tests/work/broker.ts` 1·22줄, `packages/core/problems/tests/work/spawn.ts` 145줄의 "collector"를 뺀다(core 주소와 credential)
+- `packages/core/main/app-supervisor/log-redact.ts` 1줄의 "log buffer"를 지금 쓰는 곳(앱 log file)으로
+- `packages/core/server/identity/app-credential.ts` 71줄의 "collector" 주석(이미 소유다)

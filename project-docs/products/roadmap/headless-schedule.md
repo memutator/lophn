@@ -1,7 +1,7 @@
 # headless와 schedule: lophn agent를 화면 없이 부르고, 정해진 때 돌린다
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 권한은 `approval.md`가 다룬다(아래 "권한"). flow는 같은 날 workflow의 kind로 정해 `project-docs/products/roadmap/workflow.md`로 옮겼다. 이 문서는 run과 job을 다룬다. "지금 코드"는 2026-10-22에 개편(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`, `agent-definition`, `test-restore`) 뒤 main에 맞췄다.
-배경 문서: `project-docs/architecture/place-session.md`, `project-docs/architecture/event.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/eval.md`, `project-docs/products/AGENT-ROLE.md`.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 1단계 headless run은 계획 `headless-run`으로 land했다(run, CLI, run이 연 session. 동작은 `project-docs/architecture/run.md`). 이 문서에 남은 것은 job과 그 뒤다. 권한은 `approval.md`가 다룬다(아래 "권한"). flow는 같은 날 workflow의 kind로 정해 `project-docs/products/roadmap/workflow.md`로 옮겼다. "지금 코드"는 2026-10-22에 개편(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`, `agent-definition`, `test-restore`)과 `headless-run` 뒤 main에 맞췄다.
+배경 문서: `project-docs/architecture/run.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/event.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/eval.md`, `project-docs/products/AGENT-ROLE.md`.
 
 ## 왜
 
@@ -30,7 +30,7 @@
 
 - 간단한 일은 원샷 run으로 job에 바로 건다. 복잡한 일은 flow로 짜서 job에 건다. 무엇이 간단한지는 job을 만드는 agent가 판단한다.
 - event가 일어났는지를 script가 판단하는 일(뉴스 구독)은 flow다. 차례마다 flow가 돌고, 앱 tool로 새 기사를 찾고, 있을 때만 agent를 부른다. core는 주기와 실행만 맡는다.
-- lophn 밖의 program(사람의 cron, coding agent)은 CLI로 run을 부른다.
+- lophn 밖의 program(사람의 cron)은 CLI로 run을 부른다. coding session 안에서는 coding token이 먼저라 run을 부르지 못한다(`architecture/coding-agent.md`).
 
 ### 놓친 차례
 
@@ -44,17 +44,12 @@
 
 ## 지금 코드
 
-- session 열기 `OpenSession`(`packages/protocol/lophn-agent/agent-sessions.ts`의 `openAgentSession`)과 메시지 `SendMessage`(`packages/protocol/lophn-agent/inputs.ts`의 `sendMessage`)는 user actor만 받는다. 열 때 입력은 agent ref뿐이고 model은 없다. Operator는 `agt_` id로 가리킨다.
+- run은 land했다(`architecture/run.md`). 시작·기다리기·읽기·취소 route(`packages/protocol/runs/runs.ts`), 규칙(`packages/core/runs`), CLI(`lophn agent run`, `lophn tool call`, `lophn run wait|show|cancel`), user token file이 있다. 이 문서의 job은 이것을 부르는 쪽에 scheduler를 더한다.
+  - agent run은 `SendMessage`에 `unattended: true`를 실은 사람 메시지로 session을 열어 unattended turn을 연다. 끝은 그 메시지가 들어간 turn의 `TurnEnded`다. 답은 그 turn에서 그 session의 agent가 남긴 마지막 메시지다.
+  - tool run의 부른 쪽은 사람이다. program이 부르는 앱 tool 길은 아직 없다.
 - turn은 agent runtime child가 500ms마다 입력함을 보고 시작한다(`packages/core/main/agent-runtime/product-driver.ts`의 `startTurnPump`, `PUMP_IDLE_MS`).
-- "일이 끝났다"는 신호가 없다.
-  - session은 저절로 끝나지 않는다(`architecture/place-session.md`, AGENT-ROLE T11).
-  - session snapshot의 `idle|running|waiting`(`packages/core/main/daemon/wiring/session-snapshots.ts`)은 아직 turn이 가져가지 않은 메시지를 idle로 본다.
-  - eval은 1초 동안 조용한 것과 시작 안 된 메시지 검사로 끝을 짐작한다(`tests/eval/runner/idle.ts`).
-  - 받은 메시지가 들어간 turn은 `receivedMessageList`의 `turn`으로, 그 turn의 끝은 `TurnEnded`(`packages/protocol/lophn-agent/turn-values.ts`의 outcome)로, 답은 `ReadTurnResult`(`packages/protocol/lophn-agent/turn-reads.ts`의 `turnResult`)로 읽는다.
-- 물음은 attended turn에서만 기한 없이 기다린다(turn 안 request `packages/core/approvals/turn-requests.ts`, `ask` 질문 `packages/core/lophn-agent/tools/questions/wait.ts`. 결정 command는 user만 받는다). unattended turn은 shell `ask`를 묻지 않고 `ask` tool은 `unattended`를 바로 돌려준다. turn mode는 `turns.mode`에 있고, unattended를 여는 입구는 아직 없다(`architecture/approval.md`).
-- CLI와 자격
-  - CLI(`packages/coding-agent/cli`)는 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 일을 맡긴 App Engineer로 고정이다.
-  - user token은 core가 parent pipe의 hello frame에만 쓴다(`packages/core/main/daemon/parent.ts`의 `greet`). 파일에는 없다.
+- session은 저절로 끝나지 않는다(`architecture/place-session.md`, AGENT-ROLE T11). run이 연 session도 열린 채 남는다. job이 session을 쌓는 문제는 아래 "정할 것".
+- 물음은 attended turn에서만 기한 없이 기다린다(turn 안 request `packages/core/approvals/turn-requests.ts`, `ask` 질문 `packages/core/lophn-agent/tools/questions/wait.ts`. 결정 command는 user만 받는다). unattended turn은 shell `ask`를 묻지 않고 `ask` tool은 `unattended`를 바로 돌려준다. turn mode는 `turns.mode`에 있다(`architecture/approval.md`).
 - core는 Electron main의 child다.
   - 창을 닫아도 tray에 남고, tray의 Quit만 멈춘다(`packages/shell/main/desktop/quit.ts` 머리 주석).
   - 로그인 때 `--tray`로 켜는 autostart가 있다. packaged build만 된다(`packages/shell/main/desktop/autostart.ts`).
@@ -73,15 +68,9 @@
 
 ## 무엇을 만드나
 
-### 1. headless run
+### 1. headless run (land했다)
 
-- **core: run.** 시작하면 run id를 돌려주고, 기다리기, 읽기, 취소를 둔다.
-  - kind는 agent와 tool이다.
-  - 표에는 대상, session, 입력 메시지, turn, 상태(`running|done|failed|cancelled`), 결과를 둔다.
-  - 끝은 core가 메시지 → turn → `TurnEnded`로 정확히 안다. eval의 조용함 짐작은 쓰지 않는다.
-- **CLI.** `lophn agent run`(`--async`, `--session`, `--schema`, `--input`), `lophn tool call`, `lophn run wait|show|cancel`. 결과는 stdout에, `--json`이면 run 전체를 낸다.
-- **lophn이 꺼져 있으면** CLI는 `unavailable`로 끝난다. CLI가 core를 따로 띄우지 않는다.
-- **화면.** run이 연 session은 열린 채 남고, 사람이 화면에서 본다. 어디에 보일지는 계획에서 wireframe으로 정한다(아래 "정할 것").
+`architecture/run.md`. run 화면의 data 연결(`hr-screen-data`)은 계획 `headless-run`이 이어 한다.
 
 ### 2. job
 
@@ -90,9 +79,9 @@
   - job 표에는 주기, 할 일(원샷 run 또는 flow), 놓친 차례 정책(`run|hold`), 다음 차례 시각, 켜짐을 둔다.
   - 차례마다 job run 기록을 남긴다.
 - **주기.** 간격(`every: 10d`)과 하루 중 시각(`at: "09:00"`, 선택)을 쓴다. cron 문법은 쓰지 않는다.
-- **원샷.** 차례가 오면 1단계의 run을 연다. 앱 tool을 부르는 쪽에 program을 더한다.
+- **원샷.** 차례가 오면 run(`architecture/run.md`)을 연다. 앱 tool을 부르는 쪽에 program을 더한다.
 - **hold 알림.** 대기 목록에 [지금 실행]과 [건너뛰기] card를 둔다.
-- **화면.** job 목록과 job run 기록을 어디에 둘지는 계획에서 wireframe으로 정한다.
+- **화면.** job 목록과 job run 기록을 어디에 둘지는 계획에서 wireframe으로 정한다. job이 만든 run의 session은 run 아래로 묶는 모양(`architecture/run.md` "화면")을 쓴다.
 
 ### 3. flow
 
@@ -124,7 +113,7 @@
 
 ## 권한 (`approval.md`)
 
-권한은 같은 날 `project-docs/products/roadmap/approval.md`로 다시 설계했고, 계획 `approval-simplify`가 turn mode(attended, unattended, skip)와 그 전파를 만들었다(`architecture/approval.md`). run과 job은 받는 turn을 unattended로 여는 입구만 더하면 된다.
+권한은 같은 날 `project-docs/products/roadmap/approval.md`로 다시 설계했고, 계획 `approval-simplify`가 turn mode(attended, unattended, skip)와 그 전파를 만들었다(`architecture/approval.md`). run은 그 입구를 `SendMessage`의 `unattended: true`로 만들었고, job은 그 run을 부르면 된다.
 
 - headless run과 job, 그리고 그 안의 call 사슬은 unattended다. 물음 없이 돌고, deny만 막힌다. `ask` tool은 "사람이 없다"를 바로 돌려준다.
 - job은 agent가 만들고 켠다. 사람이 시킨 것이 승낙이다(사람, 2026-10-20).
@@ -132,33 +121,31 @@
 
 ## 정할 것
 
-1. **run이 연 session과 job을 화면 어디에 보이나 (계획에서 wireframe).** session은 저절로 끝나지 않는다. 1시간마다 도는 job이 session을 sidebar에 그대로 쌓으면 하루 24개가 된다. run이나 job 아래에 묶어 보이는 안을 먼저 본다.
+1. **job과 job run 기록을 화면 어디에 보이나 (계획에서 wireframe).** run이 연 session은 run 아래로 묶어 보인다(`architecture/run.md` "화면"). job 목록과 job이 만든 run을 어디에서 묶어 보일지는 그 위에 정한다.
 
 flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 옮겼다. 앱 tool 하나로는 flow를 짤 수 없다는 사실(호출 120초 제한, 앱마다 write 직렬)도 거기서 본다.
 
 ## 단계
 
 - 계획 셋을 순서대로 연다.
-  1. `headless-run`: core run, CLI, run session의 화면.
+  1. `headless-run`(land했다. `architecture/run.md`): core run, CLI, run session의 화면.
   2. `schedule-job`: scheduler, job 표와 기록, program caller, 놓친 차례, hold card, job 화면.
   3. flow는 `workflow.md`의 계획이 연다.
 - unattended mode(run의 전제)는 `approval-simplify`가 만들었다.
-- 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval도 되살렸다(`test-restore`). 계획 `headless-run`과 `schedule-job`은 열려 있고 2026-10-22 main에 맞춰 다시 정렬했다. 위 순서대로 연다.
+- 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval도 되살렸다(`test-restore`). `headless-run`은 land했고 `schedule-job`이 다음이다.
 - gdrive OAuth는 flow와 따로 열 수 있다.
 
 test(AGENTS.md "속도", `write-test` skill):
 - 놓친 차례가 여러 번이어도 job은 한 번만 돈다.
 - 앞 차례가 도는 동안 같은 job이 또 돌지 않는다.
-- run의 결과는 그 입력이 연 turn의 답이다. 같은 session에 먼저 들어온 다른 입력의 답을 돌려주지 않는다.
 
 계획 끝에 고칠 것:
-- `architecture/place-session.md`(run이 여는 session), `architecture/app-call.md`(program caller), 새 architecture 문서(run, job)
+- `architecture/app-call.md`(program caller), 새 architecture 문서(job)
 - `project-docs/products/AGENT-ROLE.md`(program이 Operator를 부르는 때)
 - changelog 열린 판
 
 ## 끝남 기준
 
-- `lophn agent run "..."`이 화면 없이 Operator를 부르고, 그 turn의 답을 stdout에 낸 뒤 끝난다. `--async`는 run id를 바로 내고, `lophn run wait`가 같은 답을 낸다.
 - 10일 주기 job을 lophn이 꺼진 사이 놓치면 `run` 정책은 켜질 때 한 번 돌고, `hold` 정책은 대기 목록에 card를 남긴다.
 - 1시간 주기 job이 원샷 run으로 Operator를 부른다. 앞 차례가 도는 동안 온 차례는 건너뛴다.
 

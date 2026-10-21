@@ -230,6 +230,14 @@ components:
     change_reasons:
       boundaries: [agents, agent-roles, agent-sessions]
 
+  - id: architecture-run
+    kind: doc
+    roles: [planner, lead]
+    description: 화면 없이 부르는 agent 호출·앱 tool 호출(run)의 기록, 끝을 아는 법, 취소, 켤 때 복구, CLI와 자격.
+    path: project-docs/architecture/run.md
+    change_reasons:
+      boundaries: [runs, agent-sessions, router, coding-agent-cli, coding-agent-cli-interface]
+
   - id: architecture-agent-definition
     kind: doc
     roles: [planner, lead]

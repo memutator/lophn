@@ -162,7 +162,7 @@ elements:
 
       - id: coding-agent-cli
         kind: application
-        description: coding agent가 쓰는 lophn 명령행.
+        description: coding agent와 사람이 쓰는 lophn 명령행. 사람은 run 명령(agent run, tool call, run wait|show|cancel)을 user token으로 쓴다.
 
   - id: design
     kind: library
@@ -315,13 +315,14 @@ interfaces:
 
   - id: coding-agent-cli-interface
     kind: interface
-    description: lophn 명령행의 계약.
+    description: lophn 명령행의 계약. coding agent는 coding token으로, 사람은 user token(data root의 run/user-token)으로 쓴다.
     interface_type: protocol
     defined_by: coding-agent
     provided_by:
       - coding-agent-cli
     used_by:
       - external-coding-agent
+      - person
 
   - id: coding-agent-mcp
     kind: interface

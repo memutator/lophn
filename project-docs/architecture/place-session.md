@@ -34,6 +34,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
   - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다. coding agent는 lophn 밖의 제품이고 coding session의 place는 그 앱이다.
   - place는 그릇이고 경계는 그 안의 domain이다. agent가 받는 지침, kind, skill, tool은 맡은 domain의 것이다(`architecture/domain.md`).
   - 정의는 파일이라 DB tx에 묶을 수 없다. 만들기는 멱등이다(있으면 그대로, 빈 파일). 등록과 파일 만들기 사이에 죽어도 다음 호출이 이어 만든다.
+- run(`architecture/run.md`)도 `OpenSession`으로 session을 연다. 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. 화면은 sidebar에 그대로 두지 않고 그 session을 연 run 아래로 묶어 보인다(`--session`으로 이어 쓴 session은 원래 자리다).
 - session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다(coding agent session은 process로 끝난다).
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
 - archive와 지움은 모든 영향을 한 tx에 묶는다. 일부만 적용된 끝이 없어야 한다. 보낸 call의 답은 취소하지 않는다(받은 session에만 남는다).
@@ -41,7 +42,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 - place를 보관하면 그 place의 session은 open인 채 남지만 새 입력(사람 메시지, call, reaction)을 받지 않고, Router에는 closed로 보인다. 다시 꺼내면 이어서 받는다.
   - 보관은 되돌릴 수 있는 일이라 session을 끝내면 안 된다.
 - lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
-  - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다.
+  - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
 - agent runtime child가 죽거나 바뀌면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다. project 폴더, provider, MCP, skill이 바뀌어 child를 바꿀 때는 도는 turn이 끝날 때까지 미룬다.
 - fork는 이력만 복사한다. 같은 role, place, agent의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.

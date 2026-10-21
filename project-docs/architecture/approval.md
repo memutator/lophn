@@ -52,7 +52,7 @@ turn mode
 - turn은 시작할 때 mode를 정해 `turns.mode`에 남기고 그 turn 동안 바꾸지 않는다(`turns_started_immutable`). 도는 turn에 사람이 steer한 메시지도 그 turn의 mode를 따른다. Gate는 그 turn 행의 mode로 판정하고, 못 읽으면 판정하지 않는다.
 - 정하는 순서는 unattended 입력, session skip, attended다(`packages/core/lophn-agent/run-loop/turn-mode.ts`). skip session이 받은 unattended call의 turn도 unattended다. skip이 먼저면 사슬 아래가 attended로 떨어져 사람 없이 멈춘다.
 - unattended는 call 봉투에 실려 따라간다. unattended turn이 보낸 call과 답에 표시가 실리고, 그 call의 늦은 실패와 취소 알림도 call 행의 표시를 따른다(`architecture/agent-call.md`). 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
-- 사람 메시지, reaction, coding agent 입력이 연 turn은 attended다.
+- reaction, coding agent 입력, 화면에서 사람이 보낸 메시지가 연 turn은 attended다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)가 연 turn은 unattended다. 이 표시는 run만 싣는다.
 - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. skip turn의 `ask`는 사람이 있으니 기다린다.
 - skip은 session 표시다. 사람만 켜고 끈다(`ChangeSessionSkip`). Operator 정의의 `skip`이 그 Operator 새 session의 기본값이고, 이 칸도 사람만 쓴다. skip은 call을 따라 가지 않는다. fork는 skip을 가져가지 않고 정의의 기본값으로 시작한다.
 

@@ -73,6 +73,7 @@ modules:
 
   - path: packages/core/runs
     boundary: runs
+    notes: lophn-agent와 다른 feature module을 import하지 않는다. agent 이름 풀기, 메시지 넣기, turn 읽기, 앱 호출은 ports.ts의 port이고 core/main의 wiring/runs.ts가 끼운다.
 
   - path: packages/core/secrets
     boundary: secrets

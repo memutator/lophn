@@ -48,10 +48,8 @@ an app asks, and changing lophn settings asks.
 
 An agent can be granted the public tools of another domain. A tool belongs to
 the domain of the object it handles. The tools of another domain are visible
-only when they are public; private tools do not appear in the grant list. When a
-public tool an agent uses changes, the Project Manager or App Engineer of its
-place can tell it. A release that removes a public tool another domain uses is
-blocked.
+only when they are public; private tools do not appear in the grant list. A
+release that removes a public tool another domain uses is blocked.
 
 A grant belongs to the agent that holds it. An agent that receives a call works
 within its own grants, not the sender's.

@@ -9,8 +9,8 @@ them, and it is what keeps an agent's context small.
 ## What a domain has
 
 - **Kinds file** (`kinds.yaml`): which documents are items of which kind, and
-  which fields each kind has. The program checks it and opens a problem when a
-  document breaks it. One file per domain. An app domain usually has none,
+  which fields each kind has. The program checks it and shows you a toast when
+  documents newly break it. One file per domain. An app domain usually has none,
   because its objects live in the app's data and are reached through tools.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
   program cannot check. It is part of the agent's instructions (see the

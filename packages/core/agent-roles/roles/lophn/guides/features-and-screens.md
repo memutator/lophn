@@ -25,8 +25,8 @@ Domains guide). To create or change a project's domains and kinds you ask
 Project Manager.
 
 Apps holds registered apps. App detail shows the current release, access
-(grants), connections, problems and what changed. To build or change an app you
-ask its App Engineer. You do not instruct the coding agent directly.
+(grants), connections and what changed. To build or change an app you ask its
+App Engineer. You do not instruct the coding agent directly.
 
 Agents is where you see each agent's definition and change it. Settings is where
 you review and change product settings, including connections. The waiting list

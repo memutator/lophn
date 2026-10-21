@@ -35,6 +35,6 @@ and applied are different, and you are told which happened.
 
 ## Decisions inside a screen
 
-Some decisions are made on the screen that owns them: resolving a problem,
-rewinding, deleting files, connecting a provider, and entering a secret. They
-need your own click on that screen. An agent cannot make them for you.
+Some decisions are made on the screen that owns them: rewinding, deleting files,
+connecting a provider, and entering a secret. They need your own click on that
+screen. An agent cannot make them for you.

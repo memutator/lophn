@@ -39,8 +39,8 @@ written in the domain it belongs to.
 Call `kind.check` right away (with `domain` if you have more than one).
 
 - If `status.errors` is not empty, the file itself is wrong. Fix it and write it
-  again. A wrong file does not replace the last valid one: that keeps being used
-  and a problem is opened.
+  again. A wrong file does not replace the last valid one: that keeps being
+  used.
 - If documents break the schema (violations), decide whether the schema is wrong
   or the document is, and say which and why. If the document is wrong, tell the
   person what to fix. Do not edit the person's documents.

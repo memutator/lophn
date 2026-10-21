@@ -241,6 +241,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
 
   for (const path of paths) {
     if (!/^(packages|tools)\//.test(path)) continue;
+    // 내장 skill 폴더 이름은 사람이 `/`로 치는 이름(`new-app`)이라 판 이름이 아니다.
+    if (path.startsWith("packages/core/agent-roles/skills/")) continue;
     const segment = path.slice(path.lastIndexOf("/") + 1);
     if (numberedName(segment)) {
       add(path, 1, "name", `판·단계·작업 번호 이름 금지: ${segment}`);

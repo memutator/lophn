@@ -9,7 +9,7 @@ import { createTicketCheckCommands, createTicketCheckReads } from "./checks.ts";
 import { createTicketClaimCommands } from "./claims.ts";
 import { createTicketCommands } from "./commands.ts";
 import { CLAIM_SWEEP_INTERVAL_MS } from "./expiry.ts";
-import { codingSessionLookup } from "./coding/lookup.ts";
+import { codingSessionLookup } from "../coding/lookup.ts";
 import { TicketAnnotationLookup } from "./ports.ts";
 import { createTicketReads } from "./reads.ts";
 import { createTicketReportCommands } from "./report.ts";

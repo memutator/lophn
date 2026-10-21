@@ -1,14 +1,14 @@
 // harness hook을 agent event로 바꾸고 session 상태를 고친다. 상태는 event에서만 계산한다.
-import { ok, type Result } from "../../../../base/mod.ts";
-import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import {
   type HookSignal,
   hookSignalOf,
-} from "../../../../protocol/coding-agent/hook-signal.ts";
-import { firstPromptOf } from "../../../../protocol/coding-agent/launch-plan.ts";
-import type { AgentEvent } from "../../../../protocol/events/mod.ts";
-import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
-import type { Tx } from "../../../../protocol/server/mod.ts";
+} from "../../../protocol/coding-agent/hook-signal.ts";
+import { firstPromptOf } from "../../../protocol/coding-agent/launch-plan.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import type { TurnRequest } from "../../../protocol/approvals/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { emitAgent } from "./events.ts";
 import { deliverInput } from "./input.ts";
 import type { CodingMemory } from "./memory.ts";

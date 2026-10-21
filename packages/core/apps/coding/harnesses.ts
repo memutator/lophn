@@ -2,12 +2,12 @@
 import {
   canDeliverMessages,
   canLaunch,
-} from "../../../../protocol/coding-agent/harness-adapter.ts";
+} from "../../../protocol/coding-agent/harness-adapter.ts";
 import {
   HARNESS_IDS,
   type HarnessDetection,
-} from "../../../../protocol/coding-agent/harnesses.ts";
-import type { HarnessListItem } from "../../../../protocol/coding-agent/harness-report.ts";
+} from "../../../protocol/coding-agent/harnesses.ts";
+import type { HarnessListItem } from "../../../protocol/coding-agent/harness-report.ts";
 
 // 제품마다 가장 나중에 보고된 감지 하나를 쓴다.
 export function detectionsByHarness(

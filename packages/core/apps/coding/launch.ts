@@ -1,19 +1,19 @@
 // session을 새로 띄운다. 실행 옵션을 정하고, 실행 계획을 짜 `open` 터미널 요청을 commit 뒤로 보낸다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   canLaunch,
   HARNESS_ADAPTERS,
-} from "../../../../protocol/coding-agent/harness-adapter.ts";
+} from "../../../protocol/coding-agent/harness-adapter.ts";
 import type {
   CodingOptions,
   HarnessId,
-} from "../../../../protocol/coding-agent/harness-id.ts";
+} from "../../../protocol/coding-agent/harness-id.ts";
 import {
   launchPlanOf,
   PASTE_AFTER_HOOK_DEADLINE_MS,
-} from "../../../../protocol/coding-agent/launch-plan.ts";
-import type { CodingStartFailure } from "../../../../protocol/coding-agent/transport.ts";
-import type { Tx } from "../../../../protocol/server/mod.ts";
+} from "../../../protocol/coding-agent/launch-plan.ts";
+import type { CodingStartFailure } from "../../../protocol/coding-agent/transport.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { sendTerminal } from "./events.ts";
 import type { CodingMemory } from "./memory.ts";
 import { insertSession, type LineRow } from "./store.ts";

@@ -1,32 +1,32 @@
 // main thread 쪽. 메모리 route의 handler, Reactor handler, commit 뒤 일 적용, 켤 때 복구가 모두 writer에
 // `ApplyCodingSignal` command를 내는 일이다. session 상태는 writer 쪽 표에 있으므로 여기에는 감지 보고 사본만 둔다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
-import { parseActor } from "../../../../protocol/base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
   CodingOptions,
-} from "../../../../protocol/coding-agent/harness-id.ts";
-import type { HarnessDetection } from "../../../../protocol/coding-agent/harnesses.ts";
-import type { CodingTokens } from "../../../../protocol/coding-agent/token.ts";
-import { CODING_TOKEN_ENV } from "../../../../protocol/coding-agent/token.ts";
-import { withCodingMcp } from "../../../../protocol/coding-agent/mcp-launch.ts";
-import { codingHook } from "../../../../protocol/coding-agent/hook.ts";
-import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
+} from "../../../protocol/coding-agent/harness-id.ts";
+import type { HarnessDetection } from "../../../protocol/coding-agent/harnesses.ts";
+import type { CodingTokens } from "../../../protocol/coding-agent/token.ts";
+import { CODING_TOKEN_ENV } from "../../../protocol/coding-agent/token.ts";
+import { withCodingMcp } from "../../../protocol/coding-agent/mcp-launch.ts";
+import { codingHook } from "../../../protocol/coding-agent/hook.ts";
+import { codingMessageSend } from "../../../protocol/coding-agent/message.ts";
 import {
   harnessList,
   harnessReport,
-} from "../../../../protocol/coding-agent/harness-report.ts";
+} from "../../../protocol/coding-agent/harness-report.ts";
 import {
   codingTerminalExited,
   type CodingTerminalRequest,
   codingTerminalResult,
-} from "../../../../protocol/coding-agent/terminal-requests.ts";
+} from "../../../protocol/coding-agent/terminal-requests.ts";
 import type {
   DomainEvent,
   GatewayServerFrame,
-} from "../../../../protocol/events/mod.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import type { ReactorHandler } from "../../../events/mod.ts";
-import type { CommitAction } from "../../../storage/ledger/mod.ts";
+} from "../../../protocol/events/mod.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { ReactorHandler } from "../../events/mod.ts";
+import type { CommitAction } from "../../storage/ledger/mod.ts";
 import { CODING_REVOKE_TOPIC, CODING_TERMINAL_TOPIC } from "./events.ts";
 import { harnessList as harnessItems } from "./harnesses.ts";
 import type { CodingSignal } from "./signal.ts";

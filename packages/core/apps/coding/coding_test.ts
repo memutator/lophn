@@ -1,11 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { ok } from "../../../../base/mod.ts";
-import { TicketSessionEnd } from "../../../../protocol/coding-agent/ticket/ports.ts";
-import type { Tx } from "../../../../protocol/server/mod.ts";
-import { ROUTER_SCHEMA_STEPS } from "../../../router/mod.ts";
-import { afterCommit } from "../../../storage/ledger/after-commit.ts";
-import { ticketSchemaSteps } from "../schema.ts";
+import { ok } from "../../../base/mod.ts";
+import { TicketSessionEnd } from "../../../protocol/coding-agent/ticket/ports.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
+import { ROUTER_SCHEMA_STEPS } from "../../router/mod.ts";
+import { afterCommit } from "../../storage/ledger/after-commit.ts";
+import { ticketSchemaSteps } from "../tickets/schema.ts";
 import { applyHook } from "./hook.ts";
 import { createCodingMemory } from "./memory.ts";
 import { codingSchemaSteps } from "./schema.ts";

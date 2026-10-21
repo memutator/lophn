@@ -3,8 +3,8 @@
 import type {
   CodingOptions,
   HarnessId,
-} from "../../../../protocol/coding-agent/harness-id.ts";
-import type { HarnessDetection } from "../../../../protocol/coding-agent/harnesses.ts";
+} from "../../../protocol/coding-agent/harness-id.ts";
+import type { HarnessDetection } from "../../../protocol/coding-agent/harnesses.ts";
 
 type PendingRequest =
   | { kind: "open"; session: string }

@@ -1,4 +1,4 @@
-import type { SchemaStep } from "../../../../protocol/server/mod.ts";
+import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // coding session과 앱 줄의 표. 값은 lophn이 꺼지면 의미를 잃어 recover가 켤 때 정리한다.
 // 메모리가 아니라 ledger에 두는 이유: command는 writer Worker에서 돌고 reader는 `CodingSessionLookup`과

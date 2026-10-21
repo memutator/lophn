@@ -1,8 +1,8 @@
 // session 하나의 시작과 끝. 표 읽기·쓰기는 store.ts, 줄은 lines.ts가 맡는다.
-import { ok, type Result } from "../../../../base/mod.ts";
-import { firstPromptOf } from "../../../../protocol/coding-agent/launch-plan.ts";
-import { TicketSessionEnd } from "../../../../protocol/coding-agent/ticket/ports.ts";
-import type { Tx } from "../../../../protocol/server/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import { firstPromptOf } from "../../../protocol/coding-agent/launch-plan.ts";
+import { TicketSessionEnd } from "../../../protocol/coding-agent/ticket/ports.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { closeCall } from "./close-call.ts";
 import {
   messageReceived,

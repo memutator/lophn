@@ -11,7 +11,7 @@ import {
   liveSessions,
   loadSession as loadCodingSession,
   stateOf,
-} from "../../../apps/tickets/coding/store.ts";
+} from "../../../apps/coding/store.ts";
 import {
   agentRefOf,
   hasUnfinishedTurn,

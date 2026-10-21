@@ -2,22 +2,22 @@
 // 메모리 route나 Reactor가 받은 일은 모두 이 command 하나로 writer 안에서 처리한다. session 상태가 writer
 // Worker 쪽 ledger 표에 있고, 상태를 고치는 일은 정산·call 닫기와 같은 tx여야 하기 때문이다.
 import { z } from "zod";
-import { ok, type Result } from "../../../../base/mod.ts";
-import { idSchema } from "../../../../protocol/base/ids.ts";
-import { jsonValueSchema } from "../../../../protocol/base/json-values.ts";
-import { defineCommand } from "../../../../protocol/base/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
+import { jsonValueSchema } from "../../../protocol/base/json-values.ts";
+import { defineCommand } from "../../../protocol/base/mod.ts";
 import {
   codingOptionsSchema,
-} from "../../../../protocol/coding-agent/harness-id.ts";
+} from "../../../protocol/coding-agent/harness-id.ts";
 import {
   harnessDetectionSchema,
   harnessIdSchema,
-} from "../../../../protocol/coding-agent/harnesses.ts";
-import { HOOK_EVENT_MAX_CHARS } from "../../../../protocol/coding-agent/hook.ts";
-import { requestIdSchema } from "../../../../protocol/coding-agent/terminal-requests.ts";
-import { ticketIdSchema } from "../../../../protocol/coding-agent/ticket/values.ts";
-import type { CommandDefinition, Tx } from "../../../../protocol/server/mod.ts";
-import { createCallStore } from "../../../router/mod.ts";
+} from "../../../protocol/coding-agent/harnesses.ts";
+import { HOOK_EVENT_MAX_CHARS } from "../../../protocol/coding-agent/hook.ts";
+import { requestIdSchema } from "../../../protocol/coding-agent/terminal-requests.ts";
+import { ticketIdSchema } from "../../../protocol/coding-agent/ticket/values.ts";
+import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import { createCallStore } from "../../router/mod.ts";
 import { closeCall, CODING_REACTION_TEXTS } from "./close-call.ts";
 import { applyHook } from "./hook.ts";
 import { detectionsByHarness } from "./harnesses.ts";

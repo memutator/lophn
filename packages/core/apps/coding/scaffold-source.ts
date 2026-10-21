@@ -1,14 +1,14 @@
 // source 폴더가 없는 앱을 coding agent에게 맡기기 전에 core가 template을 깔고 commit해 앱에 잇는다.
 // tx 안에서는 파일과 git을 만질 수 없어서 call을 받는 writer 바로 앞에서 한다. 연결은 이미 있는 source 연결 command다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
-import { appConnectSource } from "../../../../protocol/apps/mod.ts";
-import { appDefaultSource } from "../../../../protocol/apps/app-storage.ts";
-import { callSend } from "../../../../protocol/lophn-agent/calls.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import type { Sql } from "../../../../protocol/server/mod.ts";
-import type { CommandEnvelope, Writer } from "../../../storage/ledger/mod.ts";
-import { builtinTemplate } from "../../packages/template/files.ts";
-import { scaffoldApp } from "../../packages/template/scaffold.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
+import { appConnectSource } from "../../../protocol/apps/mod.ts";
+import { appDefaultSource } from "../../../protocol/apps/app-storage.ts";
+import { callSend } from "../../../protocol/lophn-agent/calls.ts";
+import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
+import type { CommandEnvelope, Writer } from "../../storage/ledger/mod.ts";
+import { builtinTemplate } from "../packages/template/files.ts";
+import { scaffoldApp } from "../packages/template/scaffold.ts";
 import { startFailure } from "./launch.ts";
 
 type ScaffoldTarget = {

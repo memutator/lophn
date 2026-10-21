@@ -1,5 +1,5 @@
 // harness 터미널에 메시지를 넣는다. 넣었다는 사실(MessageReceived)은 shell main의 결과가 ok일 때 낸다.
-import type { Tx } from "../../../../protocol/server/mod.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { sendTerminal } from "./events.ts";
 import type { CodingMemory } from "./memory.ts";
 import type { SessionRow } from "./store.ts";

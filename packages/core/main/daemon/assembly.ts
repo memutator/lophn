@@ -45,7 +45,7 @@ import { supervisionWiring } from "./wiring/supervision.ts";
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
-import { createCoreRegistration as createCodingRegistration } from "../../apps/tickets/coding/register.ts";
+import { createCoreRegistration as createCodingRegistration } from "../../apps/coding/register.ts";
 import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
@@ -85,7 +85,7 @@ export const TEAM_MODULES = [
   new URL("../../approvals/registration.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
   new URL("../../apps/annotations/register.ts", import.meta.url).href,
-  new URL("../../apps/tickets/coding/register.ts", import.meta.url).href,
+  new URL("../../apps/coding/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-usage.ts", import.meta.url).href,

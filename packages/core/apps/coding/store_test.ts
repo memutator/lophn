@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { createSql } from "../../../storage/ledger/sqlite.ts";
+import { createSql } from "../../storage/ledger/sqlite.ts";
 import { codingSchemaSteps } from "./schema.ts";
 import { loadSession, stateOf } from "./store.ts";
 

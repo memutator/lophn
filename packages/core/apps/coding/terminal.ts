@@ -1,8 +1,8 @@
 // shell main이 알려 준 터미널 요청의 결과와 process 끝.
-import { ok, type Result } from "../../../../base/mod.ts";
-import { HOOK_EVENT_TABLE } from "../../../../protocol/coding-agent/hook-signal.ts";
-import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import type { Tx } from "../../../../protocol/server/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import { HOOK_EVENT_TABLE } from "../../../protocol/coding-agent/hook-signal.ts";
+import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import type { Tx } from "../../../protocol/server/mod.ts";
 import { messageReceived } from "./events.ts";
 import type { CodingMemory } from "./memory.ts";
 import { endSession, ensureStarted } from "./sessions.ts";

@@ -1,13 +1,13 @@
 // Router가 부르는 coding transport. 같은 tx 안에서 도는 동기 Result다. 터미널 요청은 commit 뒤로 보낸다.
-import { err, ok, type Result } from "../../../../base/mod.ts";
-import { canDeliverMessages } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { TERMINAL_INPUT_MAX_CHARS } from "../../../../protocol/coding-agent/terminal-requests.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
+import { canDeliverMessages } from "../../../protocol/coding-agent/harness-adapter.ts";
+import { TERMINAL_INPUT_MAX_CHARS } from "../../../protocol/coding-agent/terminal-requests.ts";
 import type {
   CodingSendRejection,
   CodingTransport,
-} from "../../../../protocol/coding-agent/transport.ts";
-import type { Sql } from "../../../../protocol/server/mod.ts";
-import { createCallStore } from "../../../router/mod.ts";
+} from "../../../protocol/coding-agent/transport.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
+import { createCallStore } from "../../router/mod.ts";
 import { revokeToken, sendTerminal } from "./events.ts";
 import { deliverInput } from "./input.ts";
 import { openSession, startFailure } from "./launch.ts";
@@ -23,7 +23,7 @@ import {
   saveSession,
   stateOf,
 } from "./store.ts";
-import { loadTicket } from "../store.ts";
+import { loadTicket } from "../tickets/store.ts";
 
 function rejected(reason: CodingSendRejection, message: string): Result<never> {
   return err({

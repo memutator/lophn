@@ -1,12 +1,12 @@
 // coding session, 앱 줄, 넣기를 기다리는 메시지의 표 읽기·쓰기. writer와 reader가 같이 쓴다.
-import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import {
   type CodingOptions,
   codingOptionsSchema,
-} from "../../../../protocol/coding-agent/harness-id.ts";
-import type { Sql } from "../../../../protocol/server/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
-import type { Place } from "../../../../protocol/lophn-agent/places.ts";
+} from "../../../protocol/coding-agent/harness-id.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import type { Place } from "../../../protocol/lophn-agent/places.ts";
 
 type Reader = Pick<Sql, "get" | "all">;
 

@@ -1,7 +1,7 @@
 import {
   codingDefaultHarness,
   codingDefaultModel,
-} from "../../../apps/tickets/coding/mod.ts";
+} from "../../../apps/coding/mod.ts";
 import { reactionSettings } from "../../../approvals/mod.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";

@@ -10,13 +10,13 @@ import {
 } from "../../../lophn-agent/places/mod.ts";
 import { CodingTransport } from "../../../../protocol/coding-agent/transport.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { codingLines } from "../../../apps/tickets/coding/lines.ts";
+import { codingLines } from "../../../apps/coding/lines.ts";
 import {
   codingPlace,
   liveSessions,
   loadSession as loadCodingSession,
   stateOf,
-} from "../../../apps/tickets/coding/store.ts";
+} from "../../../apps/coding/store.ts";
 import type { SessionDirectory } from "../../../router/ports.ts";
 import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
 import {

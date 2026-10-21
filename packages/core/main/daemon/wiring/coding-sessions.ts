@@ -28,7 +28,7 @@ import {
   type SignalResult,
   sourcelessAppNamed,
   withScaffoldedSource,
-} from "../../../apps/tickets/coding/mod.ts";
+} from "../../../apps/coding/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
   prepareBytes,

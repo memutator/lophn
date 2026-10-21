@@ -1,19 +1,19 @@
 // coding session의 core 등록. writer Worker가 schema·command·port를 가져가고, core 조립이 memory route의
 // handler를 붙인다(relay.ts). 메모리 값(감지 결과, 터미널 요청)은 writer Worker가 이 file을 import할 때
 // 한 번 만든다.
-import { CodingSessionLookup } from "../../../../protocol/coding-agent/token.ts";
-import { CodingTransport } from "../../../../protocol/coding-agent/transport.ts";
-import { codingHook } from "../../../../protocol/coding-agent/hook.ts";
+import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
+import { CodingTransport } from "../../../protocol/coding-agent/transport.ts";
+import { codingHook } from "../../../protocol/coding-agent/hook.ts";
 import {
   harnessList,
   harnessReport,
-} from "../../../../protocol/coding-agent/harness-report.ts";
-import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
+} from "../../../protocol/coding-agent/harness-report.ts";
+import { codingMessageSend } from "../../../protocol/coding-agent/message.ts";
 import {
   codingTerminalExited,
   codingTerminalResult,
-} from "../../../../protocol/coding-agent/terminal-requests.ts";
-import { defineTxPort } from "../../../storage/ledger/mod.ts";
+} from "../../../protocol/coding-agent/terminal-requests.ts";
+import { defineTxPort } from "../../storage/ledger/mod.ts";
 import { codingSessionLookup } from "./lookup.ts";
 import { createCodingMemory } from "./memory.ts";
 import { codingSchemaSteps } from "./schema.ts";

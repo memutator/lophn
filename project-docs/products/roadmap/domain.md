@@ -34,9 +34,9 @@
 |---|---|---|
 | lophn | 전체에 하나 | 기획, project·app 만들기, 경계를 넘는 판단(새 domain, 나누기와 합치기 제안, 재사용, package로 빼기). domain들의 공개 면 지도만 본다 |
 | Project Manager | project마다 하나 | 그 project의 domain을 만들고 고친다(kind 파일, `DOMAIN.md`, skill, artifact). project Operator를 만든다 |
-| App Engineer | app마다 하나 | 앱 코드(ticket, blueprint, release, problem, package)와 그 app의 domain을 맡는다 |
+| App Engineer | app마다 하나 | 앱 코드(설계, 구현, blueprint, release, package)와 그 app의 domain을 맡는다 |
 | Operator | project나 app에 여럿 | 그 그릇에서 일한다. 정의에서 domain을 고른다(고르지 않으면 그릇의 domain 전부). skill은 고른 domain의 것 가운데서 고른다 |
-| coding agent | 바깥 harness | 앱 ticket. terminal은 app space에 열린다. 보고는 그 app의 App Engineer가 받는다 |
+| coding agent | 바깥 harness | App Engineer가 맡기는 흐름은 막혀 있다(`problem-ticket.md`). terminal은 app space에 열린다 |
 
 - place는 project 또는 app이다.
 - 경계를 넘는 판단은 lophn이 한다. 경계를 자르는 결정은 사람이 한다.
@@ -93,7 +93,6 @@
 - 계획 `test-restore`가 e2e와 eval을 새 설계로 되살렸다. land는 다시 e2e를 돈다.
 - **그 뒤:** 바꾼 eval 시나리오를 진짜 model로 한 번씩 돌린다(changelog `0.5.0` 후속).
 - **필요해지면:**
-  - examples가 아닌 ticket의 "증명 못 함" 알리기(`issues/activation.md`)
   - artifact를 화면에서 지우기(`roadmap/artifact.md`)
   - app-preview(보류, `roadmap/app-preview.md`)
 

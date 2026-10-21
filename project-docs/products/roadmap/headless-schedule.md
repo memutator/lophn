@@ -53,14 +53,14 @@
   - 받은 메시지가 들어간 turn은 `receivedMessageList`의 `turn`으로, 그 turn의 끝은 `TurnEnded`(`packages/protocol/lophn-agent/turn-values.ts:11-60`)로, 답은 `ReadTurnResult`(`packages/protocol/lophn-agent/turn-reads.ts:57`)로 읽는다.
 - 물음은 attended turn에서만 기한 없이 기다린다(turn 안 request `packages/core/approvals/turn-requests.ts`, `ask` 질문 `packages/core/lophn-agent/tools/questions/wait.ts`. 결정 command는 user만 받는다). unattended turn은 shell `ask`를 묻지 않고 `ask` tool은 `unattended`를 바로 돌려준다. turn mode는 `turns.mode`에 있고, unattended를 여는 입구는 아직 없다(`architecture/approval.md`).
 - CLI와 자격
-  - CLI(`packages/coding-agent/cli`)는 명령이 31개이고 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 그 ticket을 맡긴 App Engineer로 고정이다.
+  - CLI(`packages/coding-agent/cli`)는 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 그 앱의 App Engineer로 고정이다.
   - user token은 core가 parent pipe의 hello frame에만 쓴다(`packages/core/main/daemon/parent.ts:52-105`). 파일에는 없다.
 - core는 Electron main의 child다.
   - 창을 닫아도 tray에 남고, tray의 Quit만 멈춘다(`packages/shell/main/desktop/quit.ts:1-3`).
   - 로그인 때 `--tray`로 켜는 autostart가 있다. packaged build만 된다(`packages/shell/main/desktop/autostart.ts`).
   - data root마다 core는 하나다(instance lock, `packages/core/main/daemon/core.ts:81`).
-- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 10개다(Reactor 5초, ticket claim 만료 60초 등).
-- domain event는 닫힌 12개다(`packages/protocol/events/domain.ts:117-130`). session을 여는 6개의 받는 쪽은 Project Manager나 App Engineer뿐이다(`packages/core/events/reactor/session-opening.ts`). Reactor를 rule engine으로 만들거나 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md:65`).
+- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 10개다(Reactor 5초 등).
+- domain event는 정의만 남은 `CodingSessionEnded` 하나이고 Reactor에 handler가 없다(`packages/protocol/events/domain.ts`). `reactor-remove`가 둘 다 지운다. Reactor를 rule engine으로 만들거나 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md:65`).
 - 앱 tool
   - 부르는 쪽은 user, agent, app뿐이고 program은 없다(`packages/protocol/apps/calls/call.ts:93-110`, `packages/core/apps/calls/caller.ts:18-26`).
   - 호출은 120초에 끊긴다(`packages/core/apps/runtime/supervisor/relay.ts:20`). write는 앱마다 하나씩 돈다(`architecture/app-call.md`).

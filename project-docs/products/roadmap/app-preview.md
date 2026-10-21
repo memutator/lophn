@@ -2,6 +2,7 @@
 
 상태: 로드맵. 2026-10-18 사람이 방향을 내고 planner가 정리했다. 2026-10-19 사람이 정할 것을 정했다.
 2026-10-19: 앱 interface가 app-api에서 MCP tool(blueprint `tools[]`)로 바뀌었다(`domain.md`, 계획 `domain-entity`). 아래 "지금 코드"는 그 앞 기준이므로 계획을 열 때 코드와 다시 맞춘다. 아래 결정은 그대로 간다.
+2026-10-21: `ae-builds`가 App Engineer가 앱을 직접 짓고 `preview.start|call|stop`을 쓰게 바꿨고 ticket과 skill `lophn-build-app`을 지웠다(changelog `0.6.0`). 아래의 coding agent, ticket, `lophn ticket show`, `ticket.verify` 줄은 그 앞의 흐름이다. 계획을 열 때 "preview를 띄우는 것은 App Engineer, annotation은 App Engineer가 바로 받는다, live로 올리기는 `release.activate`"로 다시 쓴다.
 배경 문서: `project-docs/architecture/app-call.md`(preview mode), `project-docs/architecture/annotation.md`, `project-docs/architecture/coding-agent.md`, `project-docs/products/AGENT-ROLE.md` K2.
 
 ## 왜
@@ -95,7 +96,6 @@ test(AGENTS.md "속도", `write-test` skill):
 
 계획 끝에 고칠 것:
 - `architecture/annotation.md`(preview target), `architecture/app-call.md`(preview를 보이는 길)
-- coding agent skill `lophn-build-app`(사람이 preview를 본다는 것). `ae-builds`가 그 skill을 지우면 이 줄도 없어진다.
 - changelog 열린 판
 
 ## 끝남 기준

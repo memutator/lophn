@@ -15,7 +15,7 @@
 ### reaction이 연 turn의 mode
 
 - 지금은 attended다(`approval-simplify`). 사람이 없을 때 앱 문제로 열린 App Engineer가 shell `ask`에 걸리면 기다린다.
-- 사람이 따로 더 고민하기로 했다(2026-10-20). 남은 reaction `ReleaseActivationFailed`를 `ae-builds`가 지우면 이 항목은 없어진다.
+- 사람이 따로 더 고민하기로 했다(2026-10-20). 남은 reaction `ReleaseActivationFailed`를 `ae-builds`가 지웠다. 지금 session을 여는 reaction은 coding session 끝 알림 하나이고 그 흐름이 막혀 있어 이 항목은 열 일이 없다.
 
 ## 하지 않는 것
 

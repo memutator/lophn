@@ -21,28 +21,28 @@ export const questionsArea: Area = {
       id: "new-waiting-list",
       title: "Waiting · list",
       description:
-        "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청, 질문, 승인이 세 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
+        "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청(shell 명령, coding agent), 질문, 앱 업데이트(activation 동의)가 세 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
       render: () => <WaitingList />,
     },
     {
       id: "new-waiting-permission",
       title: "Waiting · permission requests",
       description:
-        "권한 요청 셋의 세부를 펼친 상태다. 대상, 정규화한 입력, 효과가 program 문구로만 보인다. tool과 MCP tool은 선택지 넷이고 설정 고치기는 Allow와 Deny다.",
+        "권한 요청 둘의 세부를 펼친 상태다. shell 카드는 명령을 code 줄로 늘 보이고 Always allow가 더할 규칙 줄을 함께 보이며 단추는 Deny, Always allow, Allow once다. MCP tool 카드는 대상과 효과를 접어 두고 Deny, Allow once다. 할당한 tool의 바깥 효과는 지금 묻지 않아 tool 카드는 실제로 뜨지 않는다.",
       render: () => <WaitingPermission />,
     },
     {
       id: "new-waiting-deny-reason",
       title: "Waiting · deny with reason",
       description:
-        "Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다.",
+        "권한 요청 카드에서 Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다. activation 동의 카드에는 이유 칸이 없다.",
       render: () => <WaitingDenyReason />,
     },
     {
       id: "new-waiting-activation",
-      title: "Waiting · activation approval",
+      title: "Waiting · activation consent",
       description:
-        "activation 허락 카드의 세부를 펼친 상태다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 tool 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
+        "activation 동의 카드의 세부를 펼친 상태다. 이유 칸 없이 Allow와 Deny뿐이다. 이전 release보다 늘어난 선언(network host, secret, 파일, 다른 앱 tool 쓰기)과 손실 단계(표 지움, 칸 지움, type 좁힘)만 보인다.",
       render: () => <WaitingActivation />,
     },
     {
@@ -56,14 +56,14 @@ export const questionsArea: Area = {
       id: "new-waiting-settled",
       title: "Waiting · just settled",
       description:
-        "결정한 뒤 목록에 잠깐 남는 줄이다. 허락 접수(applying)와 적용 성공(applied)을 나누고, 거절과 cancelled(원래 일이 끝남)를 나눈다.",
+        "결정한 뒤 목록에 잠깐 남는 줄 셋이다. 허락, 거절, cancelled(원래 일이 끝남)를 나눈다.",
       render: () => <WaitingSettled />,
     },
     {
       id: "new-waiting-toasts",
       title: "Waiting · toasts",
       description:
-        "창 오른쪽 아래에 쌓인 toast 넷(권한 요청, 허락 요청, 질문, App restart halted)이다. layout을 차지하지 않고 단추([Review], [Open session])는 오른쪽 끝에 있다.",
+        "창 오른쪽 아래에 쌓인 toast 다섯(권한 요청, activation 동의, 질문, App restart halted, kind 위반)이다. layout을 차지하지 않고 단추([Review], [Open session])는 오른쪽 끝에 있다.",
       render: () => <WaitingToasts />,
     },
     {

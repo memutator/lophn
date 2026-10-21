@@ -23,9 +23,6 @@ export const BLOB_CAPACITY_MAX_BYTES: Readonly<
   Record<BlobRetentionCategory, number>
 > = {
   model_call_body: 512 * 1024 * 1024,
-  snapshot_attachment: 512 * 1024 * 1024,
-  trace_body: 256 * 1024 * 1024,
-  operational_log: 256 * 1024 * 1024,
 };
 
 // 등록 field에서 보존 규칙 목록을 산다. permanent는 GC·용량 정리의 대상이

@@ -49,9 +49,6 @@ export function defineBlobPurpose<const P extends string>(
 
 const BLOB_RETENTION_CATEGORIES = [
   "model_call_body",
-  "snapshot_attachment",
-  "trace_body",
-  "operational_log",
 ] as const;
 const blobRetentionCategorySchema = z.enum(BLOB_RETENTION_CATEGORIES);
 export type BlobRetentionCategory = z.infer<typeof blobRetentionCategorySchema>;

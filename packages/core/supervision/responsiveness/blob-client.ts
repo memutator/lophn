@@ -1,4 +1,4 @@
-// 자식 쪽 blob 준비 client. 신뢰 자식(문서 worker, report collector)이
+// 자식 쪽 blob 준비 client. 신뢰 자식(문서 worker, responsiveness child)이
 // 감독 pipe로 core에 blob 준비를 청한다. hash·설치는 I/O worker만 하고 이 client는 바이트를
 // 해석하지 않는다. core가 준 credit 안에서만 bytes frame을 보내고, 끝나면 end, 실패하면
 // abort를 보낸다. 결과의 hash는 core가 I/O worker에서 받은 값이고 자식이 정하지 않는다.

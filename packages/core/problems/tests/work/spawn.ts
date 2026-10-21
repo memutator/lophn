@@ -142,7 +142,7 @@ export async function startChild(
   if (!limited.ok) {
     return err({ code: "unavailable", message: UNAVAILABLE });
   }
-  // 자식은 core·collector 주소와 credential을 받지 않는다.
+  // 자식은 core 주소와 credential을 받지 않는다.
   const launch = childLaunch(limited.value.args, prepared.env);
   if (!launch.ok) return launch;
   const spawn = options.spawn ?? await systemSpawn(options.os ?? Deno.build.os);

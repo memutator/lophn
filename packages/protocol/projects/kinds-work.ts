@@ -17,9 +17,6 @@ import { absolutePathSchema } from "./values.ts";
 
 export const KINDS_WORKER_KIND = "documents/kinds";
 
-// core가 problem 쪽에 command를 낼 때의 machine 자격 이름. problem 쪽이 이것으로 호출자를 확인한다.
-export const KINDS_DISPATCH_PRINCIPAL = "machine:kinds-dispatch";
-
 export const KINDS_WORK_OPS = {
   sync: "kinds.sync",
   get: "kinds.get",

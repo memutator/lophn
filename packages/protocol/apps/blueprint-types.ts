@@ -44,8 +44,6 @@ export type InputSchema = {
   maximum?: number;
 };
 
-// packages/protocol/problems의 ProblemCodeDeclaration과 같은 구조다. import하지 않는다.
-
 export const INPUT_KEYS = [
   "additionalProperties",
   "default",

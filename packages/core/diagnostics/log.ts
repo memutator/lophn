@@ -20,7 +20,6 @@ export type SafeLog = {
 const descriptions: Record<Diagnostic["kind"], string> = {
   lophn_internal: "Platform internal failure observed.",
   unattributed_observation: "Unattributed observation recorded.",
-  invalid_report: "Invalid report observed.",
   shell_view_lifetime: "Shell view lifetime observed.",
   app_invocation_delivery_loss: "App invocation delivery loss observed.",
 };

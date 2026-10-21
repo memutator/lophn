@@ -48,9 +48,8 @@ export const credentialConditionsSchema = z.strictObject({
   process: z.string().min(1).optional(),
   mode: z.string().min(1).optional(),
   task: z.string().min(1).optional(),
-  // 발급 때 고정한 보고 위치 근거. collector가 보고할 때 credential 대상으로 쓴다.
+  // 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
   bundle_hash: sha256Schema.nullable().optional(),
-  diagnostic_scope: z.string().regex(/\S/).nullable().optional(),
   // coding agent의 현재 위치 근거. 인증 경계가 연결·session 기록에서 정하며 요청 body·header 값이 아니다.
   cwd: cwdConditionSchema.optional(),
   // App Engineer run이 이번 handoff에서 읽을 수 있는 고정 근거(문서, 판) 목록이다. 발급 때 core가 run의

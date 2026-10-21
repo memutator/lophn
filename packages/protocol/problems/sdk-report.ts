@@ -4,23 +4,7 @@ import type { LophnError, Result } from "../../base/mod.ts";
 export const REPORTING_LIMITS = {
   sdk_pending_count: 32,
   sdk_pending_bytes: 4_194_304,
-  collector_pending_count: 128,
-  collector_pending_bytes: 16_777_216,
-  collector_concurrent_assembly: 4,
   automatic_body_bytes: 262_144,
-  new_reports_per_window: 20,
-  window_ms: 60_000,
-  snapshot_assembly_ms: 2_000,
-  snapshot_frames: 32,
-  snapshot_large_bytes: 2_359_296,
-  log_lines: 30,
-  log_bytes: 65_536,
-  stack_bytes: 16_384,
-  feedback_text_scalars: 500,
-  feedback_state_bytes: 65_536,
-  feedback_png_long_side: 1_600,
-  feedback_png_bytes: 2_097_152,
-  feedback_total_bytes: 3_145_728,
 } as const;
 export const REPORT_RETRY_DELAYS_MS = [250, 1_000, 3_000] as const;
 export type ReportTransportError = LophnError | {
@@ -30,15 +14,8 @@ export type ReportTransportError = LophnError | {
 export function isRetryableReportError(error: ReportTransportError): boolean {
   return error.code === "unavailable" || error.code === "response_lost";
 }
-export type ReportAcceptance =
-  & {
-    report: string;
-    snapshot: string;
-  }
-  & ({ problem: string; diagnostic_scope: null } | {
-    problem: null;
-    diagnostic_scope: string;
-  });
+// 앱 log에 줄을 썼다는 broker 응답이다.
+export type ReportAcceptance = { written: true };
 export type ReportCompletion =
   | { status: "accepted"; acceptance: ReportAcceptance }
   | { status: "failed"; reason: ReportTransportError };
@@ -54,7 +31,7 @@ export type ObservationInvocationEvidence = {
   id: string;
   record_missing_reason: ObservationMissingReason | null;
 };
-// Retry resends this same frozen input; no command rerun or snapshot assembly.
+// Retry resends this same frozen input; no command rerun.
 export type ReportTransport<I> = (
   input: Readonly<I>,
 ) => Promise<Result<ReportAcceptance, ReportTransportError>>;
@@ -63,7 +40,7 @@ export type ExceptionObservationKind =
   | "unhandledrejection"
   | "render_error"
   | "process_exit";
-// Raw strings are ephemeral authenticated collector input, never stored output.
+// Raw strings are ephemeral authenticated app log input, never stored output.
 export type ExceptionObservationError = {
   name: string;
   message: string | null;

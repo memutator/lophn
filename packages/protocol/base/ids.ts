@@ -11,8 +11,6 @@ const ID_PREFIXES = {
   inv: "Invocation",
   pkg: "Package",
   rpt: "Report",
-  prb: "Problem",
-  snp: "Snapshot",
   vrf: "Verification",
   apr: "ApprovalRequest",
   qgr: "QuestionGroup",

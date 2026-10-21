@@ -68,13 +68,10 @@ export function createAppCredentialIssuer(options: {
           ...(request.release === null ? {} : { release: request.release }),
           process: request.process,
           mode: request.mode,
-          // 발급 때 고정한 보고 위치 근거. collector가 보고할 때 대상으로 쓴다.
+          // 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
           ...(request.bundle_hash === undefined
             ? {}
             : { bundle_hash: request.bundle_hash }),
-          ...(request.diagnostic_scope === undefined
-            ? {}
-            : { diagnostic_scope: request.diagnostic_scope }),
         },
       },
       conditions: {
@@ -85,9 +82,6 @@ export function createAppCredentialIssuer(options: {
         ...(request.bundle_hash === undefined
           ? {}
           : { bundle_hash: request.bundle_hash }),
-        ...(request.diagnostic_scope === undefined
-          ? {}
-          : { diagnostic_scope: request.diagnostic_scope }),
       },
       ...(options.expires_at === undefined
         ? {}

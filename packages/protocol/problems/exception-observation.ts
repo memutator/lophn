@@ -1,14 +1,18 @@
 import { z } from "zod";
 import { atSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
-import {
-  invocationEvidenceInputSchema,
-  missingReasonInputSchema,
-} from "./snapshots.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 
-// Raw strings exist only in authenticated observer -> collector bounded memory.
-// The collector redacts and resolves source maps before any permanent content.
+const missingReasonInputSchema = z.strictObject({
+  reason: z.string().regex(/\S/),
+});
+const invocationEvidenceInputSchema = z.strictObject({
+  id: idSchema("inv"),
+  record_missing_reason: missingReasonInputSchema.nullable(),
+});
+
+// Raw strings exist only in the authenticated observer -> app log bounded memory.
+// The log service redacts and resolves source maps before writing a line.
 const exceptionObservationErrorSchema = z.strictObject({
   name: z.string().regex(/\S/),
   message: z.string().nullable(),

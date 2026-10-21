@@ -15,8 +15,6 @@ import { secretFileUseSchema } from "../secrets/secret-file.ts";
 import { atSchema, durationMsSchema, sha256Schema } from "../base/values.ts";
 import { STREAM_CHUNK_MAX_BYTES } from "../base/frame.ts";
 
-const nonblankSchema = z.string().regex(/\S/);
-
 const opaque = z.string().min(1);
 const uint = z.number().int().min(0).max(0xffffffff);
 const count = z.number().refine((n) => Number.isSafeInteger(n) && n >= 0);
@@ -145,7 +143,6 @@ export const appCredentialRequestSchema = z.strictObject({
   process: opaque,
   mode: opaque,
   bundle_hash: sha256Schema.nullable().optional(),
-  diagnostic_scope: nonblankSchema.nullable().optional(),
 });
 export const appCredentialResponseSchema = z.strictObject({
   type: z.literal("app_credential_response"),
@@ -309,7 +306,6 @@ export type SecretSendResponse = z.infer<typeof secretSendResponseSchema>;
 const DIAGNOSTIC_KINDS = [
   "lophn_internal",
   "unattributed_observation",
-  "invalid_report",
   "shell_view_lifetime",
   "app_invocation_delivery_loss",
 ] as const;
@@ -350,14 +346,6 @@ export const diagnosticSchema = z.discriminatedUnion("kind", [
   diagnostic(
     "unattributed_observation",
     z.strictObject({ ...diagnosticObservation, count }),
-  ),
-  diagnostic(
-    "invalid_report",
-    z.strictObject({
-      ...diagnosticObservation,
-      report: idSchema("rpt"),
-      count,
-    }),
   ),
   diagnostic(
     "shell_view_lifetime",

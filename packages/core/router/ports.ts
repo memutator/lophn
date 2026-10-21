@@ -50,7 +50,7 @@ export type RoutedInput = {
   outcome:
     | { state: Exclude<CallState, "accepted">; reason: CallFailReason | null }
     | null;
-  // kind가 reaction이면 근거 domain event type.
+  // kind가 reaction이면 그 사실 이름.
   event: string | null;
   // kind가 notice면 그 종류.
   notice: NoticeKind | null;

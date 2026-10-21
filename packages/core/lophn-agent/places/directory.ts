@@ -78,7 +78,6 @@ export function createSessionDirectory(
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
         agent,
-        opening: null,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

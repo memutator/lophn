@@ -102,13 +102,6 @@ export function createForkCommand(
       const started = startSession(tx, open(tx), {
         id: input.id,
         agent: agentRefOf(source),
-        opening: source.opening_source_seq === null ||
-            source.opening_target === null
-          ? null
-          : {
-            source_seq: source.opening_source_seq,
-            target: source.opening_target,
-          },
         inherit: {
           title: source.title,
           model_selection: source.model_selection,

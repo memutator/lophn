@@ -240,7 +240,7 @@ export async function openSession(
   id: string,
 ): Promise<SourceResult<{ state_seq: string }>> {
   const opened = await env.command(openAgentSession, {
-    input: { id, agent: env.agent, opening_context: null },
+    input: { id, agent: env.agent },
     compare: {},
     key: `sessions-open-${id}`,
   });

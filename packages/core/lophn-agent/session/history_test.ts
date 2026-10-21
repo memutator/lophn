@@ -28,7 +28,6 @@ function stub(rows: Row[], request: number): CoreCall {
           title: null,
           lifecycle: "open",
           forked_from: null,
-          opening_context: null,
           model_selection: null,
           compaction: null,
           skip: false,

@@ -32,7 +32,6 @@ import {
 } from "./message-commands.ts";
 import {
   agentRefOf,
-  eventExists,
   loadSession,
   modelSelectionOf,
   nextSessionSeq,
@@ -61,16 +60,6 @@ type ConversationDeps = {
   // archive와 지움이 묶는 영향.
   end: EndDeps;
 };
-
-function sameOpening(
-  row: SessionRow,
-  opening: { source_seq: string; target: string } | null,
-): boolean {
-  return opening === null
-    ? row.opening_source_seq === null
-    : row.opening_source_seq === opening.source_seq &&
-      row.opening_target === opening.target;
-}
 
 function openedOf(row: SessionRow) {
   return {
@@ -107,25 +96,16 @@ export function createConversationCommands(deps: ConversationDeps): {
         const existing = loadSession(tx, input.id);
         if (existing !== undefined) {
           const same = canonicalize(agentRefOf(existing)) ===
-              canonicalize(input.agent) &&
-            sameOpening(existing, input.opening_context);
+            canonicalize(input.agent);
           if (!same) return reject("conflict", "session id already used");
           if (existing.lifecycle !== "open") {
             return reject("conflict", "session changed since it was opened");
           }
           return ok(openedOf(existing));
         }
-        const opening = input.opening_context;
-        if (opening !== null && !eventExists(tx, opening.source_seq)) {
-          return reject(
-            "not_found",
-            "the event of the opening context not found",
-          );
-        }
         const started = startSession(tx, deps.open(tx), {
           id: input.id,
           agent: input.agent,
-          opening,
         });
         return started.ok ? ok(openedOf(started.value)) : started;
       },

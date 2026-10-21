@@ -34,7 +34,7 @@ function fromText(from: CallFrom): string {
     case "human":
       return "human";
     case "program":
-      return `program:${from.event_seq}`;
+      return "program";
     case "agent":
       return `agent:${from.session}`;
     case "coding_agent":
@@ -94,9 +94,8 @@ export function inputText(input: TextInput): string {
     }
     case "reaction": {
       const tag = INPUT_TAGS.reaction;
-      const seq = input.from.kind === "program" ? input.from.event_seq : "";
       return [
-        wrap(tag, { event: input.event ?? "", seq }, input.body),
+        wrap(tag, { event: input.event ?? "" }, input.body),
         ...refLines(input.refs),
       ].join("\n");
     }

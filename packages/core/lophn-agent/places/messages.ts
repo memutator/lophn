@@ -47,10 +47,8 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           id,
           session,
           from.kind,
-          from.kind === "human"
+          from.kind === "human" || from.kind === "program"
             ? null
-            : from.kind === "program"
-            ? from.event_seq
             : from.session,
           input.call,
           input.reply_to,

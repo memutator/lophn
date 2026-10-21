@@ -34,7 +34,7 @@ export type RouteInput = {
   delivery: InputDelivery;
   // 사람 메시지는 보내는 쪽이 먼저 session 기록에 쓴 message ID를 싣는다.
   message?: string | null;
-  // reaction이면 근거 domain event type.
+  // reaction이면 그 사실 이름.
   event?: string | null;
   // agent의 SendCall·ReplyCall만 싣는다. 없으면 false.
   unattended?: boolean;
@@ -96,7 +96,7 @@ export const FAILURE_TEXTS: Record<CallFailReason, string> = {
 // 취소 알림은 글이 없다. 알림 종류(call_cancelled)가 말한다.
 export const CANCEL_TEXT = "";
 
-// route가 보낸 쪽에 돌려주는 입력의 꼴이다. call 행이 없는 program 입력과 같다(근거 seq 없음).
+// route가 보낸 쪽에 돌려주는 입력의 꼴이다. call 행이 없는 program 입력과 같다.
 export function failureInput(
   call: Id<"cal">,
   reason: CallFailReason,
@@ -104,7 +104,7 @@ export function failureInput(
 ): RoutedInput {
   return {
     kind: "reply",
-    from: { kind: "program", event_seq: "0" },
+    from: { kind: "program" },
     call,
     reply_to: call,
     body: FAILURE_TEXTS[reason],

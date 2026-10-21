@@ -130,10 +130,9 @@ export function createLophnInputTransport(deps: {
       if (target === null || target.transport !== "lophn") {
         return ok(undefined);
       }
-      // 취소 알림은 어느 event에서 온 것이 아니라 근거 seq가 없다.
       return put(tx, target.session, {
         kind: "notice",
-        from: { kind: "program", event_seq: "0" },
+        from: { kind: "program" },
         call,
         reply_to: call,
         body: "",

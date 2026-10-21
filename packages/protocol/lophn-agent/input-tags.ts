@@ -15,7 +15,7 @@ export type InputTagKind = keyof typeof INPUT_TAGS;
 export const INPUT_TAG_ATTRIBUTES = {
   call: ["from", "call", "reply"],
   reply: ["call", "from", "status", "reason"],
-  reaction: ["event", "seq"],
+  reaction: ["event"],
   notice: ["kind"],
   annotation: ["n", "kind", "app", "release", "view", "project", "artifact"],
   untrusted: ["source"],

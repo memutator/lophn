@@ -65,7 +65,7 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
     inputText({ ...call, from: fromCoding, body, reply: "none" }),
   );
   assert(codingHistory.includes('to:{session:"ses_cod1"}'));
-  const program = { kind: "program", event_seq: "7" } as const;
+  const program = { kind: "program" } as const;
   const reaction = {
     ...call,
     kind: "reaction",

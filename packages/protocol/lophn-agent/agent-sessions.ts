@@ -13,8 +13,6 @@ import {
 import {
   compactionOutputSchema,
   forkOriginOutputSchema,
-  openingContextOutputSchema,
-  openingContextSchema,
   sessionTitleSchema,
 } from "./sessions.ts";
 
@@ -31,7 +29,6 @@ const agentSessionSchema = z.object({
   title: sessionTitleSchema.nullable(),
   lifecycle: sessionLifecycleSchema,
   forked_from: forkOriginOutputSchema.nullable(),
-  opening_context: openingContextOutputSchema.nullable(),
   // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
   model_selection: modelChoiceOutputSchema.nullable(),
   compaction: compactionOutputSchema.nullable(),
@@ -49,7 +46,6 @@ export type AgentSession = z.infer<typeof agentSessionSchema>;
 const openAgentSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   agent: agentRefSchema,
-  opening_context: openingContextSchema.nullable(),
 });
 const openAgentSessionCompareSchema = z.strictObject({});
 

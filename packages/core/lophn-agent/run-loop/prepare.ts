@@ -255,7 +255,7 @@ function toolsNotice(
 function noticeText(body: string): string {
   return inputText({
     kind: "notice",
-    from: { kind: "program", event_seq: "0" },
+    from: { kind: "program" },
     call: null,
     reply_to: null,
     body,

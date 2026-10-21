@@ -396,7 +396,6 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         const refused = await c.tryCall(openAgentSession, {
           id: c.ids.newId("ses"),
           agent: pm,
-          opening_context: null,
         });
         assert(!refused.ok);
         assertEquals(refused.error.code, "conflict");
@@ -420,7 +419,6 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         const refused = await c.tryCall(openAgentSession, {
           id: c.ids.newId("ses"),
           agent,
-          opening_context: null,
         });
         assert(!refused.ok);
         assertEquals(refused.error.code, "not_found");

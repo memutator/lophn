@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { atSchema, seqSchema } from "../base/values.ts";
+import { atSchema } from "../base/values.ts";
 import { annotationIdSchema } from "../apps/annotation.ts";
 import { codingOptionsSchema } from "../coding-agent/harness-id.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -25,8 +25,8 @@ export type CallReply = z.infer<typeof callReplySchema>;
 function fromSchemas(strict: boolean) {
   return z.discriminatedUnion("kind", [
     obj(strict, { kind: z.literal("human") }),
-    // 근거 domain event의 seq다.
-    obj(strict, { kind: z.literal("program"), event_seq: seqSchema }),
+    // program이 낸 입력이다(늦은 실패 알림, 취소 알림, tools_changed 알림, coding session 끝 알림).
+    obj(strict, { kind: z.literal("program") }),
     obj(strict, { kind: z.literal("agent"), session: idSchema("ses") }),
     // coding agent의 CLI 메시지. 그 harness session이다.
     obj(strict, { kind: z.literal("coding_agent"), session: idSchema("ses") }),

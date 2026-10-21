@@ -63,7 +63,7 @@ export function messageReceived(
     payload: {
       message: tx.newId("msg"),
       body,
-      from: record?.from ?? { kind: "program", event_seq: "0" },
+      from: record?.from ?? { kind: "program" },
       call,
       reply_to: null,
       steer: false,

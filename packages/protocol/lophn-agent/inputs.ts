@@ -48,7 +48,7 @@ export const sendMessage = defineCommand({
 // annotation 이미지는 message part로 싣지 않는다. refs의 annotation id로 가리키고, prompt를 조립할 때
 // 그 id로 screenshot을 읽는다.
 // reply, event, fail_reason은 뒤 turn의 history가 받은 turn의 입력과 같은 글을 만들게 배달 때 싣는다.
-// 해당 종류가 아니면 null이다: reply는 call의 답 방식, event는 reaction의 event type, fail_reason은
+// 해당 종류가 아니면 null이다: reply는 call의 답 방식, event는 reaction이 알리는 사실 이름, fail_reason은
 // program이 보낸 실패한 답의 이유.
 export const receivedEnvelopeSchema = z.object({
   from: callFromOutputSchema,

@@ -55,8 +55,6 @@ create table sessions (
   lifecycle text not null default 'open' check (lifecycle in ('open', 'archived')),
   forked_from_session text,
   forked_from_through_seq integer,
-  opening_source_seq integer,
-  opening_target text,
   model_selection text check (model_selection is null or json_valid(model_selection)),
   compaction_through_seq integer,
   compaction_summary_call text,
@@ -75,14 +73,13 @@ create table sessions (
   ),
   check ((forked_from_session is null) = (forked_from_through_seq is null)),
   check (forked_from_session is null or forked_from_session != id),
-  check ((opening_source_seq is null) = (opening_target is null)),
   check ((compaction_through_seq is null) = (compaction_summary_call is null))
 ) strict;
 create index sessions_agent on sessions (role, place_kind, place_id, operator, lifecycle);
 create trigger sessions_identity_immutable
 before update of id, role, project, app, operator, place_kind, place_id,
-  forked_from_session, forked_from_through_seq, opening_source_seq,
-  opening_target, created_seq on sessions
+  forked_from_session, forked_from_through_seq,
+  created_seq on sessions
 begin
   select raise(abort, 'session identity is immutable');
 end;
@@ -109,7 +106,7 @@ create table messages (
   created_seq integer not null unique check (created_seq >= 1),
   created_at text not null,
   state_seq integer not null check (state_seq >= created_seq),
-  check ((from_kind = 'human') = (from_ref is null)),
+  check ((from_kind in ('human', 'program')) = (from_ref is null)),
   check (delivery = 'next_turn' or from_kind = 'human')
 ) strict;
 create index messages_session_created on messages (session, created_seq);
@@ -158,8 +155,6 @@ export type AgentSessionRow = {
   lifecycle: "open" | "archived";
   forked_from_session: string | null;
   forked_from_through_seq: string | null;
-  opening_source_seq: string | null;
-  opening_target: string | null;
   model_selection: string | null;
   compaction_through_seq: string | null;
   compaction_summary_call: string | null;
@@ -172,7 +167,7 @@ export type SessionRow = AgentSessionRow;
 
 export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-  opening_source_seq, opening_target, model_selection, compaction_through_seq,
+  model_selection, compaction_through_seq,
   compaction_summary_call, skip, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
@@ -188,8 +183,6 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     lifecycle: String(row["lifecycle"]) as AgentSessionRow["lifecycle"],
     forked_from_session: text(row["forked_from_session"]),
     forked_from_through_seq: text(row["forked_from_through_seq"]),
-    opening_source_seq: text(row["opening_source_seq"]),
-    opening_target: text(row["opening_target"]),
     model_selection: text(row["model_selection"]),
     compaction_through_seq: text(row["compaction_through_seq"]),
     compaction_summary_call: text(row["compaction_summary_call"]),
@@ -264,10 +257,6 @@ export function agentSessionOf(row: AgentSessionRow): AgentSession {
         session: row.forked_from_session,
         through_seq: row.forked_from_through_seq,
       },
-    opening_context: row.opening_source_seq === null ||
-        row.opening_target === null
-      ? null
-      : { source_seq: row.opening_source_seq, target: row.opening_target },
     model_selection: modelSelectionOf(row),
     compaction: row.compaction_through_seq === null ||
         row.compaction_summary_call === null
@@ -354,12 +343,12 @@ export function loadMessage(
   return row === undefined ? undefined : messageRowOf(row);
 }
 
-// 받은 봉투의 보낸 쪽. 사람은 근거가 없고 program은 근거 event seq, 나머지는 보낸 session이다.
+// 받은 봉투의 보낸 쪽. 사람과 program은 근거가 없고, 나머지는 보낸 session이다.
 export function receivedMessageOf(row: MessageRow): ReceivedMessage {
   const from = row.from_kind === "human"
     ? { kind: "human" as const }
     : row.from_kind === "program"
-    ? { kind: "program" as const, event_seq: row.from_ref! }
+    ? { kind: "program" as const }
     : { kind: row.from_kind, session: row.from_ref! };
   return {
     id: row.id,
@@ -401,12 +390,6 @@ export function hasUnfinishedTurn(lookup: Lookup, session: string): boolean {
     "select 1 as found from turns where session = ? and state = 'running' limit 1",
     [session],
   ) !== undefined;
-}
-
-export function eventExists(lookup: Lookup, seq: string): boolean {
-  return lookup.sql.get("select 1 as found from events where seq = ?", [
-    BigInt(seq),
-  ]) !== undefined;
 }
 
 // 도는 turn의 model 요청에 반영한 steer(입력함에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.

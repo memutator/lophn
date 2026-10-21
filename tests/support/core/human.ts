@@ -136,7 +136,7 @@ export async function openSession(
   agent: AgentRef,
 ): Promise<string> {
   const id = core.ids.newId("ses");
-  await core.call(openAgentSession, { id, agent, opening_context: null });
+  await core.call(openAgentSession, { id, agent });
   return id;
 }
 

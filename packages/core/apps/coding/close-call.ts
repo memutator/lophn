@@ -1,5 +1,5 @@
 // 맡긴 coding call을 닫고 맡긴 App Engineer("열린 session, 없으면 새 session")에게 그 사실을 한 번 알린다.
-// 같은 tx 안에서 call을 닫으므로 Router의 실패 알림이 같은 사실을 한 번 더 보내지 않는다. domain event는 없다.
+// 같은 tx 안에서 call을 닫으므로 Router의 실패 알림이 같은 사실을 한 번 더 보내지 않는다.
 import { ok, type Result } from "../../../base/mod.ts";
 import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
@@ -37,7 +37,7 @@ export function closeCall(tx: Tx, input: {
     ? [{ kind: "session", session: input.session } as CallRef]
     : [];
   const routed = router.value.route(tx, {
-    from: { kind: "program", event_seq: "0" },
+    from: { kind: "program" },
     to: {
       kind: "open_session_or_new",
       session: record.from.session,

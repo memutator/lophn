@@ -281,7 +281,6 @@ export const routerWiring: WiringFactory = () => {
           const opened = await run(openAgentSession, {
             id: ids.newId("ses"),
             agent,
-            opening_context: null,
           });
           if (!opened.ok) return opened;
           session = (opened.value as { id: string }).id;

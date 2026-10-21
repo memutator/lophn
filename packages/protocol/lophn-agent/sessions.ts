@@ -49,19 +49,6 @@ const forkOriginFields = {
 };
 export const forkOriginOutputSchema = z.object(forkOriginFields);
 
-// toast에서 연 첫 context. 사건 글을 복사하지 않고 참조만 둔다. 대상은
-// 사건이 가리키는 소유 concern의 ID다: 앱·release.
-const openingTargetSchema = z.union([
-  idSchema("app"),
-  idSchema("rel"),
-]);
-const openingContextFields = {
-  source_seq: seqSchema,
-  target: openingTargetSchema,
-};
-export const openingContextSchema = z.strictObject(openingContextFields);
-export const openingContextOutputSchema = z.object(openingContextFields);
-
 // 사람이 부른 Compact의 마지막 구간. 요약 본문은 derived이고 원문을 대체하지 않는다.
 const compactionFields = {
   through_seq: seqSchema,
@@ -77,7 +64,6 @@ const sessionFields = {
   archived: z.boolean(),
   state: z.enum(SESSION_STATES),
   forked_from: forkOriginOutputSchema.nullable(),
-  opening_context: openingContextOutputSchema.nullable(),
   // null이면 agent 기본값을 따른다. 다음 run부터 resolve한다.
   model_selection: modelChoiceOutputSchema.nullable(),
   compaction: compactionOutputSchema.nullable(),
@@ -99,7 +85,6 @@ const openSessionInputSchema = z.strictObject({
   id: idSchema("ses"),
   assignment: idSchema("asg"),
   work_place: workPlaceSchema,
-  opening_context: openingContextSchema.nullable(),
 });
 
 const openSessionCompareSchema = z.strictObject({

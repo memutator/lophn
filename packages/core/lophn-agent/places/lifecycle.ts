@@ -64,15 +64,12 @@ function placeOfAgent(
   return ok({ place, skip });
 }
 
-type OpeningContext = { source_seq: string; target: string };
-
 export function startSession(
   tx: Tx,
   deps: OpenDeps,
   input: {
     id: string;
     agent: AgentRef;
-    opening: OpeningContext | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(place-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -96,9 +93,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, role, project, app, operator, place_kind,
        place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       opening_source_seq, opening_target, model_selection, skip, created_seq,
-       state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent.role,
@@ -110,8 +106,6 @@ export function startSession(
       inherit?.title ?? null,
       inherit?.forked_from?.session ?? null,
       inherit?.forked_from?.through_seq ?? null,
-      input.opening === null ? null : BigInt(input.opening.source_seq),
-      input.opening?.target ?? null,
       inherit?.model_selection ?? null,
       opened.value.skip ? 1 : 0,
       seq,

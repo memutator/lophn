@@ -108,3 +108,8 @@ calendar-maintain과 calendar-diagnose를 다시 쓴다. maintain: data가 있�
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- tr-eval-restore가 merge됐다. 새 판은 다섯 모두 `@3`이다: `notify-app@3`, `date-range@3`(needs `notify-app@3`), `calendar-app@3`, `calendar-app-bug@3`(parent `calendar-app@3`), `calendar-data@3`. 옛 판은 남아 있다. world는 `@3`을 쓴다. 세 world는 가짜 model로 되살아나고 앱의 `deno task check`가 지나는 것을 그 task가 봤다(bug world의 `deno task test`는 일부러 떨어진다).
+- tr-eval-human도 merge되어 eval이 import된다. 확인은 늘 `env -u ANTHROPIC_API_KEY deno run --allow-all tests/eval/run.ts …`다. L4-new는 lead가 n 7로 등록했다.

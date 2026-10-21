@@ -85,7 +85,13 @@ type PreviewServiceDeps = {
   // 없으면 시작은 unavailable이다(준비된 bundle을 열 방법이 없다).
   bundles?: PreviewBundles;
   releases?: PreviewReleases;
+  // check가 ready를 보는 간격 사이에 기다린다. 기본은 setTimeout이다.
+  wait?: (ms: number) => Promise<void>;
 };
+
+// launcher의 READY_TIMEOUT_MS(30초)보다 넉넉하다.
+const CHECK_LIMIT_MS = 45_000;
+const CHECK_POLL_MS = 250;
 
 export type PreviewService = {
   start(
@@ -99,7 +105,13 @@ export type PreviewService = {
   ): Promise<Result<StopOutput>>;
   // 지난 실행이 남긴 disposable 영역을 지운다. core 시작이 한 번 부른다.
   discardStale(): Promise<void>;
-  // 아래 둘은 core 안에서만 부른다. route 권한 검사(gate)를 거치지 않으므로 부르는 쪽이 앱을 정한다.
+  // 아래 셋은 core 안에서만 부른다. route 권한 검사(gate)를 거치지 않으므로 부르는 쪽이 앱을 정한다.
+  // 봉인된 bundle을 fixture 없이 한 번 띄워 ready나 실패를 보고 닫는다(release 준비의 handler 검사).
+  // 그 앱의 지금 preview는 앱마다 하나라는 규칙대로 닫힌다. supervisor에 닿지 못하는 것만 err다.
+  check(
+    app: string,
+    bundleHash: string,
+  ): Promise<Result<{ ok: true } | { ok: false; reason: string }>>;
   // 그 앱의 지금 preview. 없으면 null.
   current(app: string): Promise<Result<CurrentPreview | null>>;
   // 그 nonce가 앱의 지금 preview가 아니면 null.
@@ -155,6 +167,7 @@ export function unattachedPreviewService(): PreviewService {
     get: down,
     stop: down,
     discardStale: () => Promise.resolve(),
+    check: down,
     current: down,
     declared: down,
   };
@@ -196,6 +209,58 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     await deps.area.discard(app, nonce);
   }
 
+  // 같은 앱의 앞 preview를 닫고 영역을 만들어 bundle을 띄운다. start와 check가 같이 쓴다.
+  async function launch(
+    app: string,
+    bundle: PreviewBundle,
+    bundleHash: string,
+    release: string | null,
+    fixture: Uint8Array | null,
+  ): Promise<Result<string>> {
+    // 같은 앱의 이전 preview는 종료를 확인한 뒤에만 새 것을 만든다(같은 socket 자리를 쓴다).
+    const previous = live.get(app);
+    if (previous !== undefined) {
+      const stopped = await deps.supervisor.stop(app, previous.nonce);
+      if (!stopped.ok) return stopped;
+      await forget(app, previous.nonce);
+    }
+    const nonce = deps.nonce();
+    if (!validNonce(nonce)) {
+      return err({ code: "internal", message: "preview nonce is invalid" });
+    }
+    const created = await deps.area.create(app, nonce, fixture);
+    if (!created.ok) return created;
+    const dataPath = created.value;
+    const flags = bundle.flags(dataPath);
+    if (!flags.ok) {
+      await deps.area.discard(app, nonce);
+      return flags;
+    }
+    const input: PreviewLaunch = {
+      app,
+      nonce,
+      release,
+      bundleHash,
+      tools: bundle.tools.map((tool) => tool.name),
+      screens: { ...bundle.screens },
+      dataSchema: bundle.dataSchema,
+      flags: {
+        args: [...flags.value.args],
+        limits: [...flags.value.limits],
+      },
+      entry: bundle.entry,
+      importMap: bundle.importMap,
+      dataPath,
+    };
+    const started = await deps.supervisor.start(input);
+    if (!started.ok) {
+      await deps.area.discard(app, nonce);
+      return started;
+    }
+    live.set(app, { nonce, tools: bundle.tools, bundle_hash: bundleHash });
+    return ok(nonce);
+  }
+
   return {
     async start(ctx, { input }) {
       const gated = await gate(ctx, "previews.start", input.app);
@@ -233,52 +298,15 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         }
         fixture = found;
       }
-      // 같은 앱의 이전 preview는 종료를 확인한 뒤에만 새 것을 만든다(같은 socket 자리를 쓴다).
-      const previous = live.get(input.app);
-      if (previous !== undefined) {
-        const stopped = await deps.supervisor.stop(input.app, previous.nonce);
-        if (!stopped.ok) return stopped;
-        await forget(input.app, previous.nonce);
-      }
-      const nonce = deps.nonce();
-      if (!validNonce(nonce)) {
-        return err({ code: "internal", message: "preview nonce is invalid" });
-      }
-      const created = await deps.area.create(input.app, nonce, fixture);
-      if (!created.ok) return created;
-      const dataPath = created.value;
-      const flags = bundle.flags(dataPath);
-      if (!flags.ok) {
-        await deps.area.discard(input.app, nonce);
-        return flags;
-      }
-      const launch: PreviewLaunch = {
-        app: input.app,
-        nonce,
-        release: input.release,
-        bundleHash: input.bundle_hash,
-        tools: bundle.tools.map((tool) => tool.name),
-        screens: { ...bundle.screens },
-        dataSchema: bundle.dataSchema,
-        flags: {
-          args: [...flags.value.args],
-          limits: [...flags.value.limits],
-        },
-        entry: bundle.entry,
-        importMap: bundle.importMap,
-        dataPath,
-      };
-      const started = await deps.supervisor.start(launch);
-      if (!started.ok) {
-        await deps.area.discard(input.app, nonce);
-        return started;
-      }
-      live.set(input.app, {
-        nonce,
-        tools: bundle.tools,
-        bundle_hash: input.bundle_hash,
-      });
-      return ok({ process_nonce: nonce, ready: false });
+      const launched = await launch(
+        input.app,
+        bundle,
+        input.bundle_hash,
+        input.release,
+        fixture,
+      );
+      if (!launched.ok) return launched;
+      return ok({ process_nonce: launched.value, ready: false });
     },
     async get(ctx, input) {
       const gated = await gate(ctx, "previews.get", input.app);
@@ -315,6 +343,48 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       return ok({ stopped: true });
     },
     discardStale: () => deps.area.discardAll(),
+    async check(app, bundleHash) {
+      if (deps.bundles === undefined) {
+        return unavailable("preview bundles are not attached");
+      }
+      const opened = await deps.bundles.open(app, bundleHash);
+      if (!opened.ok) return ok({ ok: false, reason: opened.error.message });
+      if (opened.value === undefined) {
+        return ok({ ok: false, reason: "the prepared bundle is missing" });
+      }
+      const launched = await launch(app, opened.value, bundleHash, null, null);
+      if (!launched.ok) return launched;
+      const nonce = launched.value;
+      const wait = deps.wait ??
+        ((ms: number) => new Promise<void>((done) => setTimeout(done, ms)));
+      const deadline = deps.clock.nowMs() + CHECK_LIMIT_MS;
+      let outcome: { ok: true } | { ok: false; reason: string } | undefined;
+      while (outcome === undefined) {
+        const observed = await deps.supervisor.observe(app, nonce);
+        if (!observed.ok) return observed;
+        if (observed.value === null) {
+          outcome = { ok: false, reason: "the check process was lost" };
+        } else if (observed.value.ready) {
+          outcome = { ok: true };
+        } else if (
+          observed.value.reason !== undefined &&
+          observed.value.reason.code !== PREVIEW_STARTING.code
+        ) {
+          outcome = { ok: false, reason: observed.value.reason.summary };
+        } else if (deps.clock.nowMs() >= deadline) {
+          outcome = {
+            ok: false,
+            reason: "the bundle did not become ready in time",
+          };
+        } else {
+          await wait(CHECK_POLL_MS);
+        }
+      }
+      // stop과 같은 길로 닫는다. 종료를 확인하지 못하면 영역을 지우지 않는다.
+      const stopped = await deps.supervisor.stop(app, nonce);
+      if (stopped.ok) await forget(app, nonce);
+      return ok(outcome);
+    },
     async current(app) {
       const entry = live.get(app);
       if (entry === undefined) return ok(null);

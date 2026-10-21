@@ -34,18 +34,16 @@ import {
   previewsGet,
   previewsStart,
   previewsStop,
+  RELEASE_PREPARATION_LIMIT_MS,
   releaseActivate,
-  releaseCancelPreparation,
-  releasePreparation,
-  releasePrepareBundle,
+  releasePrepare,
+  releaseRecord,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
 import { appTools } from "../../protocol/apps/blueprint/read.ts";
-import { requestTest } from "../../protocol/problems/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
-  Sql,
 } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import type { MemoryHandler, ReadHandler } from "../server/mod.ts";
@@ -64,7 +62,12 @@ import { INSTALL_PRINCIPAL } from "./packages/install.ts";
 import { loadApp } from "./registration/mod.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
 import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
-import { loadRelease } from "./releases/store.ts";
+import {
+  dataChangesOf,
+  readBundleCopy,
+} from "./releases/activation/desired.ts";
+import { gitCommandRunner } from "./releases/prepare/git-extract.ts";
+import { loadActiveRelease, loadRelease } from "./releases/store.ts";
 import type { AppProcessLink } from "./ports.ts";
 import type { DesiredApp } from "./runtime/supervisor/mod.ts";
 import type { ConnectFacts } from "./runtime/connect.ts";
@@ -86,10 +89,6 @@ import {
   type ActivationDriver,
   createActivationDriver,
 } from "./releases/activation/assembly.ts";
-import {
-  createReleaseFinalizer,
-  FINALIZER_OPERATIONS,
-} from "./releases/finalizer.ts";
 import type {
   BlobPrepareCall,
   PreparedRelayResult,
@@ -127,8 +126,8 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       activationComplete.name,
       activationFail.name,
       appRecordUnavailable.name,
-      // 준비한 bundle의 같은 hash app test가 통과로 기록되면 release를 확정한다(release.prepare).
-      ...FINALIZER_OPERATIONS,
+      // release.prepare가 검사를 마친 봉인 사본으로 release를 확정한다.
+      releaseRecord.name,
     ],
     targets: {},
   },
@@ -213,19 +212,6 @@ export function appsOperationPolicies(): OperationPolicy[] {
     })),
     // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다.
     { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
-    // release 준비 접수·진행은 coding agent와 machine, 취소는 machine만 한다. 확정(release.prepare)은 아니다.
-    ...[releasePrepareBundle, releasePreparation].map((
-      route,
-    ): OperationPolicy => ({
-      name: route.name,
-      actors: ["coding_agent", "machine"],
-      kind: "command",
-    })),
-    {
-      name: releaseCancelPreparation.name,
-      actors: ["machine"],
-      kind: "command",
-    },
   ];
 }
 
@@ -258,15 +244,6 @@ type AppsControlDeps = {
       },
     ): Promise<Result<unknown>> | undefined;
     machine(): RequestContext | undefined;
-    // 같은 앱·같은 bundle hash로 통과한 app test의 id다. problems 소유 읽기를 wiring이 넘겨준다.
-    findPassedAppTest(
-      sql: Pick<Sql, "get">,
-      app: string,
-      bundleHash: string,
-    ): Result<string | undefined>;
-    // 준비가 끝난 봉인 bundle 사본의 고정 시험 hash다. 만들 수 없으면 null이다. 시험을 만드는 쪽이 problems라
-    // wiring이 넘겨준다.
-    testOf(app: string, bundleHash: string): Promise<string | null>;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
     platformPorts: () => readonly number[];
     domainNamesOf(app: string): Promise<Result<string[]>>;
@@ -282,15 +259,9 @@ type AppsControlDeps = {
 };
 
 type AppsControl = {
-  // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
+  // release 준비와 activation. command route지만 supervisor 메모리 진행을 기다리므로 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
-  // `app test`에서 빠진 target.bundle_hash와 test를 그 앱의 마지막으로 끝난 release 준비로 채운다.
-  // `withTestDefaults`가 writer 앞에서 부른다.
-  testDefaults(
-    app: string,
-    given: { bundle_hash?: string; test?: string },
-  ): Promise<Result<{ bundle_hash: string; test: string }>>;
   // 호출자가 그 앱을 열 수 있는지 보고 연결된 source 폴더를 돌려준다. 범위 밖이거나 연결이 없으면 `absent` 코드다.
   sourceRootOf(
     ctx: AuthenticatedContext,
@@ -453,8 +424,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     })
     : undefined;
 
-  // release 준비 요청. 범위 밖 앱과 없는 앱, source가 연결되지 않은 앱은 같은 거절이다.
-  // 진행은 core가 아니라 supervisor 메모리에 있고 core는 요청 하나씩 전달한다(apps/releases).
+  // 연결된 source 폴더. 없는 앱은 null이다.
   function sourcePathOf(app: string): Promise<Result<string | null>> {
     const opened = openConnection(deps.ledgerPath);
     if (!opened.ok) return Promise.resolve(internalError());
@@ -464,6 +434,33 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       return Promise.resolve(ok(found.value?.source_path ?? null));
     } catch {
       return Promise.resolve(internalError());
+    } finally {
+      opened.value.close();
+    }
+  }
+  // release 준비가 읽는 앱의 사실과 그 앱의 active release의 data schema(없으면 null). 없는 앱은 null이다.
+  function preparationFacts(app: string): Result<
+    {
+      status: string;
+      source_path: string | null;
+      previous_schema: number | null;
+    } | null
+  > {
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return internalError();
+    try {
+      const found = loadApp(opened.value.sql, app);
+      if (!found.ok) return internalError();
+      if (found.value === null) return ok(null);
+      const active = loadActiveRelease(opened.value.sql, app);
+      if (!active.ok) return internalError();
+      return ok({
+        status: found.value.status,
+        source_path: found.value.source_path,
+        previous_schema: active.value?.data_schema ?? null,
+      });
+    } catch {
+      return internalError();
     } finally {
       opened.value.close();
     }
@@ -482,85 +479,201 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     if (!source.ok) return source;
     return source.value === null ? refuse() : ok(source.value);
   };
-  // 앱마다 마지막으로 끝난 준비의 bundle hash다. 준비 상태가 supervisor 메모리에만 있어 core도 메모리로 둔다.
-  // 새 준비를 받으면 지운다: 끝나기 전에 옛 bundle로 test가 돌지 않게 한다.
-  const lastCompleted = new Map<string, string>();
-  async function testDefaults(
-    app: string,
-    given: { bundle_hash?: string; test?: string },
-  ): Promise<Result<{ bundle_hash: string; test: string }>> {
-    const bundleHash = given.bundle_hash ?? lastCompleted.get(app);
-    if (bundleHash === undefined) {
+  // 준비 중인 앱. 같은 앱의 준비 둘은 같은 `apps/<app>/staging`을 쓴다.
+  const preparing = new Set<string>();
+  const prepareFailed = (
+    stage: "build" | "dependencies" | "migration" | "handlers" | "release",
+    reason: string,
+  ) => ok({ status: "failed" as const, stage, reason });
+  // App Engineer가 앱 source의 HEAD로 release를 준비한다. 순서: HEAD, build와 의존성·migration 검사(supervisor의
+  // 준비 자식), 봉인, handler 검사(preview로 한 번 띄움), release 확정. 검사에 떨어진 것은 오류가 아니라
+  // failed 결과다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다. release 행은 마지막 단계에서만 생긴다.
+  const releasePrepareHandler: MemoryHandler = async (ctx, input) => {
+    const { app } = input as { app: string };
+    const missing = err({
+      code: "not_found" as const,
+      message: "app not found",
+    });
+    const allowed = createTargetAuthorizer(ctx)(ctx, releasePrepare.name, {
+      app,
+    });
+    if (!allowed.ok) {
+      return allowed.error.code === "forbidden" ? allowed : missing;
+    }
+    const facts = preparationFacts(app);
+    if (!facts.ok) return facts;
+    if (facts.value === null) return missing;
+    if (facts.value.status === "archived") {
       return err({
-        code: "invalid_input",
-        message: "no finished release preparation: run release prepare and " +
-          "release status until completed, then app test",
+        code: "conflict",
+        message: "archived app cannot prepare a release",
       });
     }
-    const test = given.test ?? await deps.activation?.testOf(app, bundleHash);
-    if (test === undefined || test === null) {
+    const sourcePath = facts.value.source_path;
+    if (sourcePath === null) {
+      return prepareFailed("build", "the app has no source folder");
+    }
+    const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
+    if (
+      deps.activation === undefined || dataRoot === undefined ||
+      previewService === undefined
+    ) {
       return err({
         code: "unavailable",
-        message: "the sealed bundle copy could not be read to derive the test",
+        message: "release preparation is unavailable",
       });
     }
-    return ok({ bundle_hash: bundleHash, test });
-  }
-  const releasePrepareBundleHandler: MemoryHandler = async (ctx, input) => {
-    const body = input as {
-      app: string;
-      commit: string;
-      request_key: string;
-      ticket_source?: { ticket: string; claim_seq: string };
-    };
-    const source = await releaseGate(
-      ctx,
-      releasePrepareBundle,
-      body.app,
-      "forbidden",
-    );
-    if (!source.ok) return source;
-    // 준비는 언제나 맡은 ticket의 claim 아래에서 한다.
-    if (body.ticket_source === undefined) {
+    if (preparing.has(app)) {
       return err({
-        code: "invalid_input",
-        message: "release preparation needs the ticket source",
+        code: "conflict",
+        message: "a release preparation is already running for the app",
       });
     }
-    const accepted = await client.releasePrepare({
-      app: body.app,
-      commit: body.commit,
-      request_key: body.request_key,
-      source_path: source.value,
-    });
-    if (accepted.ok) {
-      lastCompleted.delete(body.app);
-      finalizer?.watch(body.app, body.request_key, {
-        commit: body.commit,
-        actor: ctx.actor,
-        ticket_source: body.ticket_source,
-      });
-    }
-    return accepted;
-  };
-  function releaseIdOf(
-    preparation: { app: string; bundle_hash: string | null },
-  ): string | null {
-    if (preparation.bundle_hash === null) return null;
-    const opened = openConnection(deps.ledgerPath);
-    if (!opened.ok) return null;
+    preparing.add(app);
     try {
-      const row = opened.value.sql.get(
-        "SELECT id FROM releases WHERE app = ? AND bundle_hash = ?",
-        [preparation.app, preparation.bundle_hash],
+      // agent runtime child는 git을 못 띄우므로 HEAD도 core가 읽는다.
+      const head = await gitCommandRunner().run([
+        "-C",
+        sourcePath,
+        "rev-parse",
+        "HEAD",
+      ]);
+      const commit = head.ok ? new TextDecoder().decode(head.value).trim() : "";
+      if (!/^[0-9a-f]{40}$/.test(commit)) {
+        return prepareFailed(
+          "build",
+          "the app source has no commit; commit the code first",
+        );
+      }
+
+      const requestKey = crypto.randomUUID();
+      const accepted = await client.releasePrepare({
+        app,
+        commit,
+        request_key: requestKey,
+        source_path: sourcePath,
+        previous_schema: facts.value.previous_schema,
+      });
+      if (!accepted.ok) return accepted;
+      const deadline = deps.clock.nowMs() + RELEASE_PREPARATION_LIMIT_MS +
+        60_000;
+      let snapshot = accepted.value;
+      while (snapshot.status === "preparing") {
+        if (deps.clock.nowMs() >= deadline) {
+          await client.releaseCancel(app, requestKey);
+          return prepareFailed(
+            "build",
+            "the preparation did not finish in time",
+          );
+        }
+        await new Promise((done) => setTimeout(done, 500));
+        const read = await client.releasePreparation(app, requestKey);
+        if (!read.ok) return read;
+        snapshot = read.value;
+      }
+      if (snapshot.status === "failed") {
+        const failure = snapshot.failure ??
+          { stage: "build" as const, reason: "the preparation failed" };
+        return prepareFailed(failure.stage, failure.reason);
+      }
+      if (snapshot.status !== "completed" || snapshot.bundle_hash === null) {
+        return prepareFailed(
+          "build",
+          "the preparation was lost (the app supervisor restarted); prepare again",
+        );
+      }
+      const bundleHash = snapshot.bundle_hash;
+
+      // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 검사 전에 core가 봉인한다.
+      const copyPath = bundleCopyPath(dataRoot, app, bundleHash);
+      if (!copyPath.ok) return internalError();
+      const sealed = await sealCopy(copyPath.value);
+      if (!sealed.ok) {
+        return err({ code: "unavailable", message: sealed.error.message });
+      }
+
+      const checked = await previewService.check(app, bundleHash);
+      if (!checked.ok) return checked;
+      if (!checked.value.ok) {
+        return prepareFailed("handlers", checked.value.reason);
+      }
+
+      const copy = await readBundleCopy(dataRoot, app, bundleHash);
+      if (!copy.ok) return copy;
+      if (copy.value === undefined) {
+        return err({ code: "unavailable", message: "bundle copy is missing" });
+      }
+      const changes = await dataChangesOf(copy.value);
+      if (!changes.ok) return changes;
+      let blueprint: unknown;
+      try {
+        blueprint = JSON.parse(
+          await Deno.readTextFile(`${copy.value.root}/blueprint.json`),
+        );
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "bundle blueprint cannot be read",
+        });
+      }
+      const machine = deps.activation.machine();
+      if (machine === undefined) {
+        return err({
+          code: "unavailable",
+          message: "machine credential is unavailable",
+        });
+      }
+      const key = `release-record-${requestKey}`;
+      const sent = deps.activation.command(machine, {
+        command: releaseRecord.name,
+        input: {
+          app,
+          commit,
+          bundle_hash: bundleHash,
+          blueprint_hash: snapshot.blueprint_hash,
+          blueprint,
+          manifest: copy.value.manifest,
+          data_schema: copy.value.dataSchema,
+          data_changes: changes.value,
+          created_by: ctx.actor,
+          key,
+        },
+        idempotency_key: key,
+        compare: {},
+        prepared: [],
+      });
+      if (sent === undefined) {
+        return err({
+          code: "unavailable",
+          message: "commands are unavailable",
+        });
+      }
+      const done = await sent;
+      if (!done.ok) {
+        return done.error.code === "invalid_input"
+          ? prepareFailed("release", done.error.message)
+          : done;
+      }
+      const recorded = releaseRecord.output.parse(
+        (done.value as { result: unknown }).result,
       );
-      return row === undefined ? null : String(row.id);
-    } catch {
-      return null;
+      const { release } = recorded;
+      return ok({
+        status: "prepared" as const,
+        release: {
+          id: release.id,
+          number: release.number,
+          status: release.status,
+          code_commit: release.code_commit,
+          bundle_hash: release.bundle_hash,
+          data_schema: release.data_schema,
+        },
+        removed_public_tools: recorded.removed_public_tools,
+      });
     } finally {
-      opened.value.close();
+      preparing.delete(app);
     }
-  }
+  };
   // App Engineer가 자기 앱의 prepared release를 올린다. 범위 밖과 없는 release는 같은 not_found다.
   // memory 처리기는 operation을 따로 보지 않아 여기서 직접 판정한다.
   const releaseActivateHandler: MemoryHandler = async (ctx, input) => {
@@ -592,75 +705,6 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     }
     return await activation.activate(id);
   };
-  const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
-    const body = input as { app: string; request_key: string };
-    const source = await releaseGate(
-      ctx,
-      releasePreparation,
-      body.app,
-      "not_found",
-    );
-    if (!source.ok) return source;
-    const read = await client.releasePreparation(body.app, body.request_key);
-    if (!read.ok) return read;
-    // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 준비가 끝났다고 알리기 전에 core가 봉인한다.
-    const dataRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
-    if (
-      read.value.status === "completed" && read.value.bundle_hash !== null &&
-      dataRoot !== undefined
-    ) {
-      const copy = bundleCopyPath(dataRoot, body.app, read.value.bundle_hash);
-      if (!copy.ok) return internalError();
-      const sealed = await sealCopy(copy.value);
-      if (!sealed.ok) {
-        return err({ code: "unavailable", message: sealed.error.message });
-      }
-      lastCompleted.set(body.app, read.value.bundle_hash);
-    }
-    if (finalizer === null) return read;
-    // 준비가 끝났고 같은 hash의 통과한 app test가 있으면 여기서 release가 확정된다.
-    const finalized = await finalizer.observe(read.value);
-    if (finalized.ok) {
-      // 확정된 release가 있으면 그 id를 같이 준다(ticket report가 요구한다). `app test`가 쓸 고정 시험 hash도
-      // 준비가 끝났을 때 준다: coding agent는 이 값을 스스로 만들 수 없다.
-      const { app, bundle_hash: bundleHash } = read.value;
-      const test = read.value.status === "completed" && bundleHash !== null
-        ? await deps.activation?.testOf(app, bundleHash) ?? null
-        : null;
-      return ok({ ...read.value, release: releaseIdOf(read.value), test });
-    }
-    // release.preparation이 내는 오류 코드만 쓴다. 확정이 거절한 이유(claim 변경 같은 conflict)는 숨기지 않는다.
-    const { code, message } = finalized.error;
-    return err({
-      code: code === "forbidden" || code === "invalid_input"
-        ? code
-        : "unavailable",
-      message,
-    });
-  };
-  const releaseCancelHandler: MemoryHandler = async (ctx, input) => {
-    const body = input as { app: string; request_key: string };
-    const source = await releaseGate(
-      ctx,
-      releaseCancelPreparation,
-      body.app,
-      "forbidden",
-    );
-    if (!source.ok) return source;
-    const cancelled = await client.releaseCancel(body.app, body.request_key);
-    return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
-  };
-
-  const finalizer = deps.activation === undefined
-    ? null
-    : createReleaseFinalizer({
-      ledgerPath: deps.ledgerPath,
-      dataRoot: deps.activation.dataRoot,
-      command: deps.activation.command,
-      machine: deps.activation.machine,
-      findPassedAppTest: deps.activation.findPassedAppTest,
-    });
-
   async function reconcileApp(next: DesiredApp): Promise<Result<void>> {
     desired.set(next.app, next);
     return await client.reconcile(next);
@@ -706,12 +750,9 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
 
   return {
     commands: new Map<string, MemoryHandler>([
-      [releasePrepareBundle.name, releasePrepareBundleHandler],
-      [releasePreparation.name, releasePreparationHandler],
-      [releaseCancelPreparation.name, releaseCancelHandler],
+      [releasePrepare.name, releasePrepareHandler],
       [releaseActivate.name, releaseActivateHandler],
     ]),
-    testDefaults,
     sourceRootOf: releaseGate,
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
@@ -887,8 +928,8 @@ export function appSupervisorSpec(input: {
   };
 }
 
-// release 준비 command는 ledger queue 앞에서 supervisor 메모리 진행으로 돌린다(apps/releases). 나머지
-// command와 Writer 동작은 그대로다.
+// release 준비와 activation은 supervisor 진행을 기다리므로 ledger queue 앞에서 돌린다(apps/releases). 나머지
+// command와 Writer 동작은 그대로다. 준비가 남기는 ledger 쓰기(release.record)는 handler가 writer로 따로 낸다.
 export function withReleasePreparation(
   writer: Writer,
   commands: ReadonlyMap<string, MemoryHandler>,
@@ -898,11 +939,6 @@ export function withReleasePreparation(
     async command(ctx, envelope) {
       const handler = commands.get(envelope.command);
       if (handler === undefined) return await writer.command(ctx, envelope);
-      // 접수는 요청 때 검사(앱 범위·source·ticket claim)를 ledger transaction에서 먼저 지난다.
-      if (envelope.command === releasePrepareBundle.name) {
-        const checked = await writer.command(ctx, envelope);
-        if (!checked.ok) return checked;
-      }
       const handled = await handler(ctx, envelope.input);
       if (!handled.ok) return handled;
       return ok({
@@ -911,43 +947,6 @@ export function withReleasePreparation(
         first_seq: null,
         last_seq: null,
         wake: false,
-      });
-    },
-  };
-}
-
-type RequestTestBody = {
-  kind?: string;
-  app: string;
-  target: { bundle_hash?: string };
-  test?: string;
-};
-
-// `app test`(app_test)의 빠진 target.bundle_hash와 test를 writer 앞에서 채운다. 준 값은 그대로 쓴다.
-export function withTestDefaults(
-  writer: Writer,
-  defaults: AppsControl["testDefaults"],
-): Writer {
-  return {
-    ...writer,
-    async command(ctx, envelope) {
-      const body = envelope.input as RequestTestBody;
-      if (
-        envelope.command !== requestTest.name || body.kind !== "app_test" ||
-        (body.target.bundle_hash !== undefined && body.test !== undefined)
-      ) return await writer.command(ctx, envelope);
-      const filled = await defaults(body.app, {
-        bundle_hash: body.target.bundle_hash,
-        test: body.test,
-      });
-      if (!filled.ok) return filled;
-      return await writer.command(ctx, {
-        ...envelope,
-        input: {
-          ...body,
-          target: { ...body.target, bundle_hash: filled.value.bundle_hash },
-          test: filled.value.test,
-        },
       });
     },
   };

@@ -1,6 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// releases·release_tests 표. 준비 뒤 내용 열은 불변이고
+// releases 표. 준비 뒤 내용 열은 불변이고
 // status·activation·activated_at·failure만 activation 결정이 바꾼다.
 //
 // 정규 blueprint JSON(`blueprint`)과 거기서 만든 선언 사실(`declarations`)을 준비 때 한 번 같이 둔다.
@@ -19,7 +19,6 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       blueprint_hash TEXT NOT NULL CHECK (length(blueprint_hash) = 64),
       data_schema INTEGER NOT NULL CHECK (data_schema >= 0),
       data_changes TEXT NOT NULL CHECK (json_valid(data_changes)),
-      ticket_source TEXT NOT NULL CHECK (json_valid(ticket_source)),
       created_by TEXT NOT NULL CHECK (length(created_by) > 0),
       created_at TEXT NOT NULL CHECK (length(created_at) > 0),
       status TEXT NOT NULL CHECK (status IN (
@@ -42,10 +41,6 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       WHERE status = 'activating';
     CREATE INDEX releases_app_created ON releases(app, created_at, id);
     CREATE INDEX releases_app_status ON releases(app, status);
-    CREATE INDEX releases_ticket_source ON releases(
-      json_extract(ticket_source, '$.ticket'),
-      json_extract(ticket_source, '$.claim_seq')
-    );
     CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
     WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
       OR NEW.code_commit <> OLD.code_commit
@@ -53,7 +48,6 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       OR NEW.blueprint_hash <> OLD.blueprint_hash
       OR NEW.data_schema <> OLD.data_schema
       OR NEW.data_changes <> OLD.data_changes
-      OR NEW.ticket_source IS NOT OLD.ticket_source
       OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
       OR NEW.blueprint <> OLD.blueprint OR NEW.declarations <> OLD.declarations
     BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
@@ -66,7 +60,7 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
     ) STRICT;
     -- activation 동의. 선언이 넓어진 release는 사람이 허락해야 시작한다. allowed_at이 NULL이면 사람을 기다리고,
     -- 값이 있으면 사람이 허락했고 아직 시작하지 않은 것이다(driver sweep이 시작하고 activation.start가 지운다).
-    -- 표에 둔 이유: 재시작을 넘어야 하고 Reactor는 TicketVerified를 지나 다시 묻지 않는다. comparison은 canonicalize한 선언 비교다.
+    -- 표에 둔 이유: 재시작을 넘어야 한다. comparison은 canonicalize한 선언 비교다.
     CREATE TABLE activation_consents (
       release TEXT PRIMARY KEY NOT NULL REFERENCES releases(id),
       app TEXT NOT NULL,
@@ -75,15 +69,5 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       allowed_at TEXT
     ) STRICT;
     CREATE INDEX activation_consents_app ON activation_consents(app);
-    CREATE TABLE release_tests (
-      release TEXT NOT NULL REFERENCES releases(id),
-      verification TEXT NOT NULL CHECK (length(verification) > 0),
-      PRIMARY KEY (release, verification)
-    ) STRICT;
-    CREATE INDEX release_tests_verification ON release_tests(verification, release);
-    CREATE TRIGGER release_tests_immutable BEFORE UPDATE ON release_tests
-    BEGIN SELECT RAISE(ABORT, 'release tests are immutable'); END;
-    CREATE TRIGGER release_tests_no_delete BEFORE DELETE ON release_tests
-    BEGIN SELECT RAISE(ABORT, 'release tests are kept'); END;
   `,
 }];

@@ -18,8 +18,7 @@ import {
   packagePublish,
   packagesBuiltin,
   releaseActivate,
-  releaseCancelPreparation,
-  releasePreparation,
+  releasePrepare,
 } from "../../protocol/apps/mod.ts";
 import {
   createInvocationsReads,
@@ -175,8 +174,7 @@ export function createLedgerRegistration(
       data.recordBackup,
       data.recordDataChange,
       data.recordDataRestore,
-      releaseCommands.prepare,
-      releaseCommands.prepareBundle,
+      releaseCommands.record,
       releaseCommands.startActivation,
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
@@ -213,11 +211,9 @@ export function createLedgerRegistration(
       blueprintCheck,
       packagesBuiltin,
       packagePublish,
-      // release 준비 진행·취소는 command route지만 진행이 supervisor 메모리라 ledger handler가 없다.
+      // release 준비와 올리기는 supervisor 진행을 기다리는 command route라 ledger handler가 없다.
       // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
-      releasePreparation,
-      releaseCancelPreparation,
-      // 올리고 끝나기를 기다리는 일도 writer 앞(`withReleasePreparation`)이 처리한다.
+      releasePrepare,
       releaseActivate,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.

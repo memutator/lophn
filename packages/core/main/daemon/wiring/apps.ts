@@ -38,7 +38,6 @@ import {
   PACKAGE_PUBLISH_CONTEXT,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
   withReleasePreparation,
-  withTestDefaults,
 } from "../../../apps/control.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
@@ -83,9 +82,6 @@ import { checkBlueprint } from "../../../apps/blueprint/check.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
-import { findPassedAppTest } from "../../../problems/tests/app-test-lookup.ts";
-import { deriveAppTest } from "../../../problems/tests/app-test/frozen.ts";
-import { bundleCopyPath } from "../../../apps/releases/bundle/seal.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import {
@@ -175,13 +171,6 @@ export const appsWiring: WiringFactory = () => {
           command: (context, envelope) =>
             ctx.writer.command(context as never, envelope as never),
           machine,
-          findPassedAppTest,
-          testOf: async (app, bundleHash) => {
-            const copy = bundleCopyPath(ctx.root.path, app, bundleHash);
-            if (!copy.ok) return null;
-            const derived = await deriveAppTest(copy.value, bundleHash);
-            return derived.ok ? derived.value.test_hash : null;
-          },
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
           platformPorts: apiPorts,
           domainNamesOf,
@@ -315,10 +304,7 @@ export const appsWiring: WiringFactory = () => {
           withSourceFolder(
             withAfterCommit(
               withStartInvocation(
-                withTestDefaults(
-                  withReleasePreparation(inner, appsControl.commands),
-                  appsControl.testDefaults,
-                ),
+                withReleasePreparation(inner, appsControl.commands),
                 { ledger, sql: link.sql, clock: ctx.clock, ids },
               ),
               // 다른 topic은 router·coding wiring의 applier가 따로 본다.

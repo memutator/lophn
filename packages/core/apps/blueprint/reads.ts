@@ -145,15 +145,10 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
             })),
             tools: blueprint.tools.map((tool) => tool.name),
           },
-          // 설명·구조·test는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장되고
-          // test 통과는 release에 고정한 같은 hash의 app test 참조다.
+          // 설명과 구조는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장된다.
           evidence: {
             description: { complete: gaps.length === 0, gaps },
             structure: { validated: true },
-            test: {
-              passed: release.tests.length > 0,
-              verifications: release.tests,
-            },
           },
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,

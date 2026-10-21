@@ -1,8 +1,6 @@
-// `release.prepare`: 신뢰된 준비 결과를 불변 prepared Release로 확정한다.
-// bundle 준비·테스트는 core 밖에서 끝났고 이 command는 짧은 확정만 한다. machine만 부르며
-// coding agent의 통과·hash 주장은 받지 않는다: 같은 bundle hash의 통과한 app test는 Verification
-// 사실을 읽는 port로, 준비의 ticket claim은 coding-agent의 현재 claim 검사로 이 transaction
-// 안에서 다시 확인한다. 긴 준비의 요청 때와 확정 때 모두 검사하므로 요청 쪽도 같은 검사를 부른다.
+// `release.record`: core가 준비와 검사를 마친 봉인 사본에서 모은 입력만 불변 prepared Release로 확정한다.
+// machine만 부른다: 부르는 곳은 core의 `release.prepare` handler 하나이고, 검사에 떨어진 준비는 이 command까지
+// 오지 않아 release 행을 남기지 않는다. 같은 bundle의 prepared release가 이미 있으면 새로 만들지 않고 그것을 준다.
 // activation 쪽 command는 activation driver가 machine 자격으로 순서대로 부른다(activation/assembly.ts).
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
@@ -17,26 +15,19 @@ import {
   activationStart,
   appSchema,
   type ReadyAttestation,
-  type Release,
-  releasePrepare,
-  releasePrepareBundle,
   type ReleaseRecord,
+  releaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
-import {
-  TicketClaimCheck,
-  type TicketId,
-} from "../../../protocol/coding-agent/ticket/mod.ts";
-import { AppTestVerificationLookupPort } from "../../../protocol/problems/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { parseActor, type PortKey } from "../../../protocol/base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 
 import {
   appAccessDenied,
@@ -52,7 +43,9 @@ import {
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";
+import { removedPublicToolsOf } from "./public-tools.ts";
 import {
+  findPreparedRelease,
   insertRelease,
   loadActiveRelease,
   loadRelease,
@@ -81,59 +74,6 @@ function unreachableTarget(): Result<never> {
 
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
-}
-
-// 등록하지 않은 port는 fail-closed로 쓴다(없으면 unavailable).
-function portOf<T>(tx: Pick<Tx, "port">, key: PortKey<T>): T | undefined {
-  try {
-    return tx.port(key);
-  } catch {
-    return undefined;
-  }
-}
-
-// 준비의 ticket 출처를 현재 claim으로 다시 확인한다. 요청 때 거절한 것과 같은 이유가
-// 확정 때에도 거절이다. 검사는 claim 기한을 연장하지 않는다. 준비는 언제나 맡은 ticket의 지금 claim 아래에서만
-// 받는다: coding agent가 아니거나 출처가 없으면 거절이다.
-function checkPreparationClaim(
-  tx: Pick<Tx, "port" | "now">,
-  createdBy: string,
-  source: { ticket: string; claim_seq: string } | undefined,
-  // 준비 대상 앱. ticket은 이 앱의 것이어야 한다.
-  app: string,
-): Result<void> {
-  const actor = parseActor(createdBy);
-  if (actor === undefined) return invalid("created_by is not an actor");
-  if (actor.kind !== "coding_agent") {
-    return invalid("a release is prepared by a coding agent");
-  }
-  if (source === undefined) {
-    return invalid("a release preparation needs a ticket source");
-  }
-  const check = portOf(tx, TicketClaimCheck);
-  if (check === undefined) {
-    return unavailable("ticket claim check is unavailable");
-  }
-  let checked;
-  try {
-    checked = check({
-      ticket: source.ticket as TicketId,
-      claim_seq: source.claim_seq,
-      session: actor.id,
-      now: tx.now(),
-    });
-  } catch {
-    return unavailable("ticket claim check is unavailable");
-  }
-  if (!checked.ok) return checked;
-  if (!checked.value.ok) {
-    return conflict(`ticket claim is not current: ${checked.value.reason}`);
-  }
-  // 다른 앱의 ticket으로 이 앱의 release를 준비하지 못한다. 없는 ticket과 같은 거절이다.
-  if (checked.value.app !== app) {
-    return conflict("ticket claim is not current: missing");
-  }
-  return ok(undefined);
 }
 
 // release의 앱을 읽고 이 command를 낼 자격이 있는지 본다. 없는 release·없는 앱·범위 밖 앱은 같은 답이다.
@@ -186,17 +126,8 @@ function activatingOf(tx: Pick<Tx, "sql">, app: string): string | null {
   return row === undefined ? null : String(row.id);
 }
 
-function outputRelease(release: ReleaseRecord): Release {
-  return {
-    ...release,
-    activation: null,
-    failure: null,
-  };
-}
-
 export function createReleaseCommands(): {
-  prepare: CommandDefinition<typeof releasePrepare>;
-  prepareBundle: CommandDefinition<typeof releasePrepareBundle>;
+  record: CommandDefinition<typeof releaseRecord>;
   startActivation: CommandDefinition<typeof activationStart>;
   completeActivation: CommandDefinition<typeof activationComplete>;
   failActivation: CommandDefinition<typeof activationFail>;
@@ -541,56 +472,15 @@ export function createReleaseCommands(): {
         return ok({ release: release.id, outcome: input.choice });
       },
     },
-    // 준비 접수의 요청 때 검사다. 앱 범위·source 연결·ticket claim을 이 transaction에서
-    // 확인하고 아무것도 기록하지 않는다. 실제 준비는 supervisor 메모리 진행이고 core는 이 검사를 통과한
-    // 요청만 그쪽으로 넘긴다(packages/core/apps/control.ts의 `withReleasePreparation`). 범위 밖·없는 앱·
-    // source가 없는 앱은 같은 거절이다.
-    prepareBundle: {
-      route: releasePrepareBundle,
+    record: {
+      route: releaseRecord,
       handle(tx, ctx, input) {
-        const kind = parseActor(ctx.actor)?.kind;
-        if (kind !== "coding_agent" && kind !== "machine") {
-          return unreachableTarget();
-        }
-        const app = loadApp(tx.sql, input.app);
-        if (!app.ok) return app;
-        if (app.value === null || app.value.source_path === null) {
-          return unreachableTarget();
-        }
-        const access = authorizeApp(tx.port, ctx, releasePrepareBundle.name, {
-          kind: "app",
-          app: app.value,
-        });
-        if (appAccessDenied(access)) return unreachableTarget();
-        if (!access.ok) return access;
-        if (app.value.status === "archived") {
-          return conflict("archived app cannot prepare a release");
-        }
-        const claim = checkPreparationClaim(
-          tx,
-          ctx.actor,
-          input.ticket_source,
-          input.app,
-        );
-        if (!claim.ok) return claim;
-        return ok({
-          request_key: input.request_key,
-          status: "preparing" as const,
-          bundle_hash: null,
-          blueprint_hash: null,
-          manifest: null,
-        });
-      },
-    },
-    prepare: {
-      route: releasePrepare,
-      handle(tx, ctx, input) {
-        const actor = requireMachine(ctx, "release.prepare");
+        const actor = requireMachine(ctx, releaseRecord.name);
         if (!actor.ok) return actor;
         const app = loadApp(tx.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return unreachableTarget();
-        const access = authorizeApp(tx.port, ctx, releasePrepare.name, {
+        const access = authorizeApp(tx.port, ctx, releaseRecord.name, {
           kind: "app",
           app: app.value,
         });
@@ -651,15 +541,22 @@ export function createReleaseCommands(): {
         }
         const chain = checkDataChanges(input.data_changes, input.data_schema);
         if (!chain.ok) return chain;
-        const tests = checkTests(tx, input);
-        if (!tests.ok) return tests;
-        const claim = checkPreparationClaim(
-          tx,
-          input.created_by,
-          input.ticket_source,
+        const removedTools = (): ReturnType<typeof removedPublicToolsOf> =>
+          removedPublicToolsOf(tx, input.app, blueprint.tools);
+        const existing = findPreparedRelease(
+          tx.sql,
           input.app,
+          input.bundle_hash,
         );
-        if (!claim.ok) return claim;
+        if (!existing.ok) return existing;
+        if (existing.value !== null) {
+          const removed = removedTools();
+          if (!removed.ok) return removed;
+          return ok({
+            release: existing.value,
+            removed_public_tools: removed.value,
+          });
+        }
         const id = tx.newId("rel");
         const declarations = declarationsOfBlueprint(id, blueprint);
         if (declarations === undefined) {
@@ -674,8 +571,6 @@ export function createReleaseCommands(): {
           blueprint_hash: input.blueprint_hash,
           data_schema: input.data_schema,
           data_changes: input.data_changes,
-          tests: [...input.tests].sort(),
-          ticket_source: input.ticket_source,
           created_by: input.created_by,
           created_at: tx.now(),
           status: "prepared",
@@ -685,7 +580,12 @@ export function createReleaseCommands(): {
         });
         if (!release.success) return invalid("invalid release");
         insertRelease(tx, release.data, canonical, declarations);
-        return ok({ release: outputRelease(release.data) });
+        const removed = removedTools();
+        if (!removed.ok) return removed;
+        return ok({
+          release: release.data,
+          removed_public_tools: removed.value,
+        });
       },
     },
   };
@@ -737,38 +637,6 @@ function checkDataChanges(
   }
   if (changes.length > 0 && changes[changes.length - 1].to !== dataSchema) {
     return invalid("data changes do not end at the data schema");
-  }
-  return ok(undefined);
-}
-
-// 같은 bundle hash의 통과한 이 앱 app test만 근거다. 다른 앱·다른 종류·다른 hash의 통과와
-// 없는 참조는 구별 없이 같은 거절이다.
-function checkTests(
-  tx: Pick<Tx, "port">,
-  input: { app: string; bundle_hash: string; tests: readonly string[] },
-): Result<void> {
-  const lookup = portOf(tx, AppTestVerificationLookupPort);
-  if (lookup === undefined) {
-    return unavailable("app test records are unavailable");
-  }
-  for (const id of input.tests) {
-    let found;
-    try {
-      found = lookup(id);
-    } catch {
-      return unavailable("app test records are unavailable");
-    }
-    if (!found.ok) return found;
-    const fact = found.value;
-    if (
-      fact === null || fact.app !== input.app || fact.kind !== "app_test" ||
-      fact.bundle_hash !== input.bundle_hash
-    ) {
-      return invalid("tests must be app tests of the same bundle hash");
-    }
-    if (fact.result !== "pass") {
-      return unavailable("the app test did not pass");
-    }
   }
   return ok(undefined);
 }

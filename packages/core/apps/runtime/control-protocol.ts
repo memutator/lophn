@@ -33,7 +33,7 @@ export const SUPERVISOR_OPS = {
   previewObserve: "apps.preview_observe",
   previewStop: "apps.preview_stop",
   // release 준비 요청의 접수·조회·취소. 진행은 supervisor 메모리다(apps/releases).
-  releasePrepare: "releases.prepare_bundle",
+  releasePrepare: "releases.prepare",
   releasePreparation: "releases.preparation",
   releaseCancel: "releases.cancel_preparation",
   // activation(apps/releases): 앱을 붙들고 자식 종료를 확인, 후보를 준비 모드로 시작, commit 뒤 열기,
@@ -153,6 +153,8 @@ export const releasePrepareInputSchema = z.strictObject({
   request_key: requestKey,
   // 연결된 source 경계. core가 앱 등록에서 읽는다.
   source_path: z.string().min(1),
+  // 그 앱의 active release의 data schema. 없으면 null이다.
+  previous_schema: z.number().int().nonnegative().nullable(),
 });
 export const releasePreparationInputSchema = z.strictObject({
   app: appId,
@@ -164,6 +166,10 @@ export const releasePreparationOutputSchema = z.strictObject({
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256.nullable(),
   blueprint_hash: sha256.nullable(),
+  failure: z.strictObject({
+    stage: z.enum(["build", "dependencies", "migration"]),
+    reason: z.string(),
+  }).nullable(),
 });
 export type ReleasePreparationWire = z.infer<
   typeof releasePreparationOutputSchema

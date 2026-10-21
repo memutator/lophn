@@ -13,11 +13,12 @@ import {
 } from "../channel-values.ts";
 import { readyAttestationSchema } from "../runtime.ts";
 import {
+  bundleManifestSchema,
   dataChangeSchema,
   releasesGetInputSchema,
   releasesListInputSchema,
   releaseStatusValueSchema,
-  ticketSourceSchema,
+  removedPublicToolSchema,
 } from "../releases.ts";
 import { lossStepSchema } from "./migration.ts";
 
@@ -65,12 +66,6 @@ export const releaseRecordSchema = z.object({
   blueprint_hash: sha256Schema,
   data_schema: z.number().int().nonnegative().max(MAX),
   data_changes: z.array(dataChangeSchema),
-  tests: z.array(idSchema("vrf")).min(1)
-    .refine(
-      (tests) => new Set(tests).size === tests.length,
-      { message: "release test reference is duplicated" },
-    ),
-  ticket_source: ticketSourceSchema,
   created_by: actorSchema,
   created_at: atSchema,
   status: releaseStatusValueSchema,
@@ -95,6 +90,33 @@ export const releaseRecordSchema = z.object({
   { message: "active and superseded need activated_at" },
 );
 export type ReleaseRecord = z.infer<typeof releaseRecordSchema>;
+
+// 불변 prepared Release 확정. core가 준비와 검사를 마친 봉인 사본에서 모은 입력만 확정한다.
+// core의 release.prepare가 부르고 machine만 부른다. 같은 bundle의 prepared release가 있으면 그것을 다시 준다.
+export const releaseRecord = defineCommand({
+  resource: "releases",
+  method: "record",
+  name: "release.record",
+  input: z.strictObject({
+    app: appIdSchema,
+    commit: z.string().regex(/^[0-9a-f]{40}$/),
+    bundle_hash: sha256Schema,
+    blueprint_hash: sha256Schema,
+    // 정규 blueprint JSON. core가 검증기와 hash로 `blueprint_hash`와 같은지 확인한다.
+    blueprint: z.record(z.string(), z.unknown()),
+    manifest: bundleManifestSchema,
+    data_schema: z.number().int().nonnegative().max(MAX),
+    data_changes: z.array(dataChangeSchema),
+    created_by: actorSchema,
+    key: idempotencyKeySchema,
+  }),
+  output: z.object({
+    release: releaseRecordSchema,
+    removed_public_tools: z.array(removedPublicToolSchema),
+  }),
+  actors: ["machine"],
+  errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
+});
 
 // 선언 비교. 카드에는 이 넷만 보인다.
 // 묻는 규칙: grant 덮음으로 정한다. 새 release의 선언 가운데 지금 active grant가 덮지 않는 항목이
@@ -327,6 +349,7 @@ export const releasesGetRecord = defineRead({
 });
 
 export const ACTIVATION_ROUTES = [
+  releaseRecord,
   activationStart,
   activationRecordBackup,
   activationRecordDataChange,

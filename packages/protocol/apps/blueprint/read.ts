@@ -32,8 +32,7 @@ const appBlueprintScreenSchema = z.object({
   sizes: z.array(z.enum(["full", "panel", "card"])).min(1),
 });
 
-// 설명·구조 검증·실제 test 통과는 서로 다른 근거다. 설명이 완성됐거나 구조가 맞다는 것만으로
-// test 성공을 표시하지 않는다.
+// 설명과 구조 검증은 서로 다른 근거다. 설명이 완성됐다는 것만으로 구조가 맞다고 표시하지 않는다.
 const appBlueprintEvidenceSchema = z.object({
   description: z.object({
     complete: z.boolean(),
@@ -41,10 +40,6 @@ const appBlueprintEvidenceSchema = z.object({
     gaps: z.array(z.string().min(1)),
   }),
   structure: z.object({ validated: z.literal(true) }),
-  test: z.object({
-    passed: z.boolean(),
-    verifications: z.array(z.string().min(1)),
-  }),
 });
 
 // 현재 release의 선언 사실이다. 실행 범위(선언 ∩ active grant)를 계산하는 읽는 쪽이 쓴다.

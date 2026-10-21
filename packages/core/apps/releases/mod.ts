@@ -36,7 +36,7 @@ export { createActivationQueueRead, createReleaseReads } from "./reads.ts";
 export { asksFor, compareForActivation } from "./compare.ts";
 export { declarationsOfBlueprint } from "./facts.ts";
 export {
-  findReleaseForTicket,
+  findPreparedRelease,
   insertRelease,
   loadActiveBlueprint,
   loadActiveRelease,

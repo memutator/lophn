@@ -21,17 +21,7 @@ function parseJson(value: unknown): unknown {
   return JSON.parse(String(value));
 }
 
-function testsOf(sql: Query, release: string): string[] {
-  return sql.all(
-    "SELECT verification FROM release_tests WHERE release = ? ORDER BY verification",
-    [release],
-  ).map((row) => String(row.verification));
-}
-
-function releaseFromRow(
-  sql: Query,
-  row: SqlRow,
-): Result<ReleaseRecord> {
+function releaseFromRow(row: SqlRow): Result<ReleaseRecord> {
   let parsed;
   try {
     parsed = releaseRecordSchema.safeParse({
@@ -43,8 +33,6 @@ function releaseFromRow(
       blueprint_hash: row.blueprint_hash,
       data_schema: Number(row.data_schema),
       data_changes: parseJson(row.data_changes),
-      tests: testsOf(sql, String(row.id)),
-      ticket_source: parseJson(row.ticket_source),
       created_by: row.created_by,
       created_at: row.created_at,
       status: row.status,
@@ -64,7 +52,7 @@ export function loadRelease(
 ): Result<ReleaseRecord | null> {
   const row = sql.get("SELECT * FROM releases WHERE id = ?", [id]);
   if (row === undefined) return ok(null);
-  return releaseFromRow(sql, row);
+  return releaseFromRow(row);
 }
 
 // 준비 순서(app 안 number)다. 같은 앱의 release만 낸다.
@@ -90,7 +78,7 @@ export function loadReleases(
   );
   const releases: ReleaseRecord[] = [];
   for (const row of rows) {
-    const release = releaseFromRow(sql, row);
+    const release = releaseFromRow(row);
     if (!release.ok) return release;
     releases.push(release.value);
   }
@@ -107,7 +95,7 @@ export function loadActiveRelease(
     [app],
   );
   if (row === undefined) return ok(null);
-  return releaseFromRow(sql, row);
+  return releaseFromRow(row);
 }
 
 type StoredBlueprint = {
@@ -116,8 +104,8 @@ type StoredBlueprint = {
   declarations: AppDeclarations;
 };
 
-function storedOf(sql: Query, row: SqlRow): Result<StoredBlueprint> {
-  const release = releaseFromRow(sql, row);
+function storedOf(row: SqlRow): Result<StoredBlueprint> {
+  const release = releaseFromRow(row);
   if (!release.ok) return release;
   try {
     return ok({
@@ -136,7 +124,7 @@ export function loadStoredBlueprint(
   release: string,
 ): Result<StoredBlueprint | null> {
   const row = sql.get("SELECT * FROM releases WHERE id = ?", [release]);
-  return row === undefined ? ok(null) : storedOf(sql, row);
+  return row === undefined ? ok(null) : storedOf(row);
 }
 
 // 앱이 채택한 release의 고정 blueprint. active release가 없으면 null이다.
@@ -155,20 +143,22 @@ export function loadActiveBlueprint(
     "SELECT * FROM releases WHERE app = ? AND status = 'active'",
     [app],
   );
-  return row === undefined ? ok(null) : storedOf(sql, row);
+  return row === undefined ? ok(null) : storedOf(row);
 }
 
-// ticket에 이은 release. 여럿이면 가장 새로 준비된 것(number가 가장 큰 것)이다.
-export function findReleaseForTicket(
+// 같은 bundle의 아직 올리지 않은 release. prepared만 다시 준다: `release.activate`는 prepared만 받아
+// 다른 상태의 release를 다시 주면 그 commit을 다시 올릴 수 없다(drain·start 같은 일시 실패로 failed가 된 것 포함).
+export function findPreparedRelease(
   sql: Query,
-  ticket: string,
+  app: string,
+  bundleHash: string,
 ): Result<ReleaseRecord | null> {
   const row = sql.get(
-    `SELECT * FROM releases WHERE json_extract(ticket_source, '$.ticket') = ?
+    `SELECT * FROM releases WHERE app = ? AND bundle_hash = ? AND status = 'prepared'
      ORDER BY number DESC LIMIT 1`,
-    [ticket],
+    [app, bundleHash],
   );
-  return row === undefined ? ok(null) : releaseFromRow(sql, row);
+  return row === undefined ? ok(null) : releaseFromRow(row);
 }
 
 export function nextReleaseNumber(sql: Query, app: string): number {
@@ -188,9 +178,9 @@ export function insertRelease(
   tx.sql.run(
     `INSERT INTO releases
       (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema,
-       data_changes, ticket_source, created_by, created_at, status, activation,
+       data_changes, created_by, created_at, status, activation,
        failure, blueprint, declarations)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
     [
       release.id,
       release.app,
@@ -200,7 +190,6 @@ export function insertRelease(
       release.blueprint_hash,
       release.data_schema,
       JSON.stringify(release.data_changes),
-      JSON.stringify(release.ticket_source),
       release.created_by,
       release.created_at,
       release.status,
@@ -208,12 +197,6 @@ export function insertRelease(
       JSON.stringify(declarations),
     ],
   );
-  for (const verification of release.tests) {
-    tx.sql.run(
-      "INSERT INTO release_tests (release, verification) VALUES (?, ?)",
-      [release.id, verification],
-    );
-  }
 }
 
 // permissions의 `currentDeclarations` port 구현이다. 앱이 채택한 release(status = active)의 선언

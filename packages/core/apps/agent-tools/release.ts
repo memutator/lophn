@@ -1,10 +1,10 @@
 import { ok } from "../../../base/mod.ts";
 import {
   releaseActivate,
+  releasePrepare,
   releasesGetRecord,
   releasesListRecords,
 } from "../../../protocol/apps/mod.ts";
-import { getVerification } from "../../../protocol/problems/mod.ts";
 import {
   commandOf,
   countSummary,
@@ -50,9 +50,9 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "release.get",
     input: z.strictObject({ release: idSchema("rel") }),
-    routes: [releasesGetRecord, getVerification],
+    routes: [releasesGetRecord],
     description:
-      "Read a release: the prepared bundle, the results of its tests, the last activation and the failure with its reason.",
+      "Read a release: the prepared bundle, the last activation and the failure with its reason.",
     effect: "read",
     handler: async (input, ctx) => {
       const { release } = input;
@@ -60,20 +60,43 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
       if (!read.ok) return read;
       const record = read.value.release;
       if (record === null) return notFound("release not found");
-      const tests = [];
-      for (const id of record.tests) {
-        const verification = await readOf(ctx.core, getVerification, {
-          verification: id,
-          detail: false,
-        });
-        if (!verification.ok) return verification;
-        const { kind, result, reason } = verification.value.verification;
-        tests.push({ id, kind, result, reason });
-      }
       return ok(fitted(`release ${record.id} is ${record.status}`, {
         release: record,
-        tests,
-      }, ["tests"]));
+      }));
+    },
+  }),
+  defineTool({
+    name: "release.prepare",
+    input: z.strictObject({ app: idSchema("app") }),
+    routes: [releasePrepare],
+    description:
+      "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the blueprint (this replaces the app's current preview). Returns the prepared release and the public tools it removes that other domains use, or the failed stage and its reason.",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const { app } = input;
+      // 검사에 떨어진 것도 tool 결과다. 오류로 돌리면 이유가 model에 닿지 않는다.
+      const done = await commandOf(
+        ctx.core,
+        releasePrepare,
+        { app },
+        {},
+        ctx.tool_call,
+      );
+      if (!done.ok) return done;
+      const out = done.value;
+      if (out.status === "failed") {
+        return ok(fitted(
+          `release preparation failed at ${out.stage}: ${out.reason}`,
+          out,
+        ));
+      }
+      const removed = out.removed_public_tools.length;
+      return ok(fitted(
+        `prepared release #${out.release.number} (${out.release.id})${
+          removed === 0 ? "" : `, removes ${removed} public tools in use`
+        }`,
+        out,
+      ));
     },
   }),
   defineTool({

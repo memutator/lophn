@@ -20,7 +20,6 @@ import { createActivationHandlers } from "./handler.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const REL = "rel_01hzzzzzzzzzzzzzzzzzzzzz01";
-const TICKET = "tkt_01hzzzzzzzzzzzzzzzzzzzzzza";
 
 const ctxOf = (actor: string): RequestContext => ({
   principal: actor,
@@ -68,8 +67,6 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
       blueprint_hash: "0".repeat(64),
       data_schema: 1,
       data_changes: [],
-      tests: ["vrf_01hzzzzzzzzzzzzzzzzzzzzzza"],
-      ticket_source: { ticket: TICKET, claim_seq: "1" },
       created_by: "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",
       created_at: "2026-10-16T00:00:00.000Z",
       status: "prepared",

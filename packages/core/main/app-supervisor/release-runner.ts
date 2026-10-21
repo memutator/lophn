@@ -1,8 +1,10 @@
 // release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다.
 // supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더(`apps/<app>`)에만
-// 한다. 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
+// 한다. 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
+// 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
+  PreparationFailure,
   PreparationJob,
   PreparationOutcome,
   PreparationRunner,
@@ -37,7 +39,7 @@ export function createChildPreparationRunner(options: {
       // 아직 없으므로 자식을 띄우기 전에 build 도구를 받아 둔다.
       const env = buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp");
       if (!await cacheBuildTools(deno, env, signal)) {
-        return err({ code: "unavailable", message: "build tools unavailable" });
+        return err({ stage: "build", reason: "build tools are unavailable" });
       }
       // 자식은 git·deno·esbuild만 실행하고 환경은 몇 개 이름만 갖는다. 앱 source는 실행되지 않는다.
       const programs = ["git", deno, ...await esbuildBinaries(options.denoDir)];
@@ -60,6 +62,7 @@ export function createChildPreparationRunner(options: {
             app: job.app,
             sourceRoot: job.source_path,
             commit: job.commit,
+            previousSchema: job.previous_schema,
           }),
         ],
         stdin: "null",
@@ -85,7 +88,10 @@ export function createChildPreparationRunner(options: {
           await Deno.remove(`${appRoot}/staging`, { recursive: true }).catch(
             () => undefined,
           );
-          return err({ code: "unavailable", message: "preparation stopped" });
+          return err({
+            stage: "build",
+            reason: "the preparation was stopped (time limit)",
+          });
         }
         return readOutcome(new TextDecoder().decode(output.stdout));
       } finally {
@@ -96,13 +102,19 @@ export function createChildPreparationRunner(options: {
   };
 }
 
-function readOutcome(stdout: string): Result<PreparationOutcome> {
+const FAILURE_STAGES = ["build", "dependencies", "migration"] as const;
+
+function readOutcome(
+  stdout: string,
+): Result<PreparationOutcome, PreparationFailure> {
   try {
     const line = stdout.trim().split("\n").at(-1) ?? "";
     const parsed = JSON.parse(line) as {
       ok?: boolean;
       bundle_hash?: string;
       blueprint_hash?: string;
+      stage?: string;
+      reason?: string;
     };
     if (
       parsed.ok === true && typeof parsed.bundle_hash === "string" &&
@@ -113,6 +125,10 @@ function readOutcome(stdout: string): Result<PreparationOutcome> {
         blueprint_hash: parsed.blueprint_hash,
       });
     }
+    if (parsed.ok === false && typeof parsed.reason === "string") {
+      const stage = FAILURE_STAGES.find((known) => known === parsed.stage);
+      return err({ stage: stage ?? "build", reason: parsed.reason });
+    }
   } catch { /* 결과 줄이 없다 */ }
-  return err({ code: "unavailable", message: "preparation failed" });
+  return err({ stage: "build", reason: "the preparation process failed" });
 }

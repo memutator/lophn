@@ -13,41 +13,56 @@ them, and it is what keeps an agent's context small.
 
 ## What a domain has
 
+Every domain has a folder, and the place information of an agent lists the
+folders of the domains it works with.
+
 - **Kinds file** (`kinds.yaml`): which documents are items of which kind, and
-  which fields each kind has. The program checks it and shows you a toast when
-  documents newly break it. One file per domain. An app domain usually has none,
+  which fields each kind has. The program checks it and shows the person a toast
+  when documents newly break it. One file per domain. Its globs are relative to
+  the project's folders or the app's source folder. A saved file is checked and
+  used at once, with no draft and no release. If it is wrong, the last valid one
+  keeps being used, and `kind.check` shows why. Other agents read the kinds with
+  `kind.list` and `kind.check`; with more than one domain they give `domain`. It
+  is written with the skill `kinds-yaml`. An app domain usually has none,
   because its objects live in the app's data and are reached through tools.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
-  program cannot check. It is part of the agent's instructions.
-- **Skills**: one procedure for one job in the domain.
-- **Artifacts**: result pages agents wrote for the domain.
+  program cannot check. Its text is in the prompt of every agent that works in
+  the domain, as "Domain instructions (DOMAIN.md)", so nobody asks for it with a
+  file tool. It is written with the file tools, and a mistake is undone with
+  rewind.
+- **Skills** (`skills/`): one folder per skill, a procedure for one job in the
+  domain.
+- **Artifacts** (`artifacts/`): result pages agents wrote for the domain.
 - **Tools**: only an app has them. Every tool an app declares names the domain
   of the object it handles, and may be `public`.
 
 ## Who makes and writes it
 
 The Project Manager makes the domains of a project and the App Engineer makes
-the domains of an app. You can make one too. Making a domain needs no approval,
-because it adds no access. They write its kinds file, `DOMAIN.md` and skills
-with their file tools. An Operator writes only artifacts, and only in the
-domains you gave it; when something else has to change it asks the Project
-Manager or App Engineer. A new app comes with a domain of its own name. An app
-always has at least one domain, so its last one cannot be archived. A project
-may have none. lophn proposes a new domain, a split or a merge; you decide where
-the line goes.
+the domains of an app, with `domain.create` (a name, a title and a purpose). The
+person can make one too. The name is a slug and never changes. Making a domain
+needs no approval, because it adds no access. They write its kinds file,
+`DOMAIN.md` and skills with their file tools. An Operator writes only artifacts,
+and only in the domains the person gave it; when something else has to change it
+asks the Project Manager or App Engineer. A new app comes with a domain of its
+own name. An app always has at least one domain, so its last one cannot be
+archived. A project may have none. lophn proposes a new domain, a split or a
+merge; the person decides where the line goes.
 
 ## One container only
 
 A domain belongs to one project or one app, and stays there. Another place does
-not make a second copy. It uses the domain's public tools, which you grant to an
-agent. Private tools do not show up outside their domain. A release that removes
-a public tool another domain uses does not stop the release; the App Engineer
-sees the users of that tool when it prepares the release.
+not make a second copy. It uses the domain's public tools, which the person
+assigns to an agent. Private tools do not show up outside their domain. A
+release that removes a public tool another domain uses does not stop the
+release; the App Engineer sees the users of that tool when it prepares the
+release.
 
 ## What an agent sees
 
 A Project Manager or App Engineer sees all the domains of its place. An Operator
 sees the domains named in its definition, or all of them if none are named. The
 prompt carries only those domains' `DOMAIN.md`, kinds and skills, and the tools
-list only those domains' tools plus the public tools you granted. Other files in
-the same project or app may be readable, but they are not the agent's work.
+list only those domains' tools plus the public tools the person assigned. Other
+files in the same project or app may be readable, but they are not the agent's
+work.

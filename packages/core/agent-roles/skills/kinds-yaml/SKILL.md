@@ -1,16 +1,16 @@
 ---
 name: kinds-yaml
-description: Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.
+description: Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has. Also what to do when documents break the kinds.
 ---
 
 # Write the kinds file
 
 Use this when a domain has no kinds yet, when a person names a new kind of
-document, or when a violation looks like a problem in the schema rather than in
-the document. The kinds file belongs to a domain and lives in the domain's
-folder. The globs in it are relative to the folders of the project or app that
-holds the domain. You write it as the Project Manager or the App Engineer of
-that project or app.
+document, or when documents break the kinds (see "When documents break the
+kinds"). The kinds file belongs to a domain and lives in the domain's folder.
+The globs in it are relative to the folders of the project or app that holds the
+domain. You write it as the Project Manager or the App Engineer of that project
+or app.
 
 ## 1. Read
 
@@ -41,14 +41,24 @@ Call `kind.check` right away (with `domain` if you have more than one).
 - If `status.errors` is not empty, the file itself is wrong. Fix it and write it
   again. A wrong file does not replace the last valid one: that keeps being
   used.
-- If documents break the schema (violations), decide whether the schema is wrong
-  or the document is, and say which and why. If the document is wrong, tell the
-  person what to fix. Do not edit the person's documents.
+- If documents break the schema (violations), follow "When documents break the
+  kinds".
 
 ## 5. Confirm
 
 Call `kind.list` for each new kind and check that the items you meant to include
 come back. Tell the person which kinds you wrote and what is left undecided.
+
+## When documents break the kinds
+
+The person tells you, or `kind.check` shows violations. lophn does not open a
+session for it; the person sees a notice and may ask you.
+
+1. Read the state with `kind.check` (with `domain` if you have more than one).
+2. Decide whether the kinds file should change or the document is wrong. Say
+   which, and why.
+3. If the kinds file should change, write it as above. If the document is wrong,
+   tell the person what to fix. Do not edit the person's documents.
 
 ## The file
 
@@ -100,7 +110,7 @@ kinds:
 
 ## What you do not do
 
-- Do not edit the person's documents.
+- Do not edit the person's documents, not even to fix a violation.
 - Do not decide what a term or a kind means. Ask.
 - Do not write code. A calculation the schema cannot say is not yours here.
 - There are no relations to follow, no saved views and no rule list. Do not look

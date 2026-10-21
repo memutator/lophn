@@ -24,6 +24,13 @@ Package를 쓴다.
   `guide.md`를 읽는다. 새 SDK Package나 의존이 필요하면 `blueprint.ts`의 의존
   선언과 `deno.json`의 import map을 같은 정확한 version으로 함께 고친다(release
   준비가 둘을 대조한다).
+- 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
+  layout, navigation, data, feedback, overlay, reading이고, 분류의 `mod.ts`가
+  목록이다(export마다 "언제 쓰나" 한 줄. 위치는 `.lophn/import-map.json`). 앱
+  bridge component(ToolButton, useTool, AppErrorBoundary)는 `@lophn/app-ui`다.
+- token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
+  변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
+  값을 직접 쓰지 않는다.
 - 실패 분기는 `@lophn/cap-problem`의 `reportProblem(name, message?, details?)`로
   앱 log에 error 한 줄을 쓴다(`guide.md`). 이름은 선언하지 않는다. 처리하지 못한
   예외는 lophn 진입점이 앱 log에 쓴다.

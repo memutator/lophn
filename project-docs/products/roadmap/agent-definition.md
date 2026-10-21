@@ -115,7 +115,7 @@
 - 계획을 따로 열지 않고 다른 계획에 나눠 싣는다. 지침과 tool이 같은 변경에서 바뀌어야 하기 때문이다.
   - `problem-remove`: 모든 role에서 `problem.*` 읽기와 reaction 줄, `<lophn-reaction>`을 지운다. lophn의 L7을 앱 상태와 log 읽기로 바꾼다.
   - `ae-builds`: App Engineer 지침을 다시 쓰고, `ticket.*`를 지우고, App Engineer tool을 더한다. 쓰기 전에 shell에서 앱 test를 돌릴 `deno`가 PATH에 있는지 확인하고, 없으면 lophn이 쓰는 `deno`를 shell PATH에 넣는다.
-  - 새 계획 `agent-definition`(작음): command 인자 잇기, role command를 skill로, guide를 skill로, 겹친 지침을 `PRODUCT_INSTRUCTIONS`로, 쓰이지 않는 칸 지우기, `/recap` 지우기, skill 찾기 하나로 합치기. `problem-remove`와 순서가 상관없다.
+  - 새 계획 `agent-definition`(작음): command 인자 잇기, role command를 skill로, guide를 skill로, 겹친 지침을 `PRODUCT_INSTRUCTIONS`로, 쓰이지 않는 칸 지우기, `/recap` 지우기, skill 찾기 하나로 합치기. `ae-builds`가 App Engineer 지침을 다시 쓴 뒤에 연다. `reactor-remove`와는 순서가 상관없다.
 - `/` 메뉴와 정의 편집 화면이 바뀌면 `ui-design` skill로 wireframe부터 고친다. 문구는 `wording` skill을 따른다.
 
 test(AGENTS.md "속도", `write-test` skill):

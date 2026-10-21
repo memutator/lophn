@@ -7,7 +7,7 @@
   - architecture: `place-session.md`, `agent-call.md`, `event.md`, `coding-agent.md`(CLI와 연결), `agent-definition.md`, `layers.md`
 - **범위 밖:** job과 scheduler(`schedule-job`), workflow(`workflow`), flow, eval과 e2e test(사람).
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `hr-`로 시작한다.
-- **시작 조건:** `approval-simplify`가 land했다. run의 turn은 unattended이고, 그 mode를 그 계획이 만든다.
+- **시작 조건:** `approval-simplify`가 land했다. run의 turn은 unattended이고, 그 mode를 그 계획이 만든다. 실제로는 `ae-builds`, `reactor-remove`, `agent-definition`이 land하고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21).
 - **brief의 기준:** brief는 2026-10-21 main(`e192a9d8c`) 기준으로 썼다. 앞 계획(`problem-remove`, `approval-simplify`)이 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
 
 ## 정한 것

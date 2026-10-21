@@ -158,9 +158,10 @@
 ## 단계
 
 - eval과 e2e test는 이 계획들에서 고치지 않는다(사람, 2026-10-21). 앞으로도 크게 바뀌므로, 다 바뀐 뒤 e2e를 고치고 eval을 돌린다. 그동안 `tests/e2e`와 `tests/eval`은 `deno task check`에서 뺀다.
-- 계획 셋으로 연다. 첫째는 `approval-simplify`보다 먼저 연다. reaction이 없어지면 approval이 더 작아진다.
+- 개편 전체의 순서(사람, 2026-10-21): `problem-remove` → `approval-simplify` → `ae-builds` → `reactor-remove`와 `agent-definition`(둘 사이 순서는 상관없다) → e2e를 고치고 eval을 돌린다 → `headless-run` → `schedule-job`과 `workflow`. headless 쪽은 e2e와 eval을 되살린 뒤에 연다.
+- 이 roadmap은 계획 셋으로 연다. 첫째는 `approval-simplify`보다 먼저 연다. reaction이 없어지면 approval이 더 작아진다.
   1. `problem-remove`: land했다.
-  2. `ae-builds`
+  2. `ae-builds`: `approval-simplify`가 land한 뒤에 연다. activation 쪽 file이 겹친다.
      - 먼저 App Engineer가 코딩하는 데 걸리는 것을 고친다(위 실험).
        - turn 한도를 앱 하나를 짓는 데 맞게 올린다.
        - 대화를 cache한다(`issues/agent-definition.md`).
@@ -175,7 +176,7 @@
      - App Engineer가 coding agent에게 맡기는 흐름을 막는다. 지침과 tool 설명에서 지우고, call의 받는 곳 `coding_agent`를 받지 않는다. 연결 장치(launch, hook, CLI, 설치)는 "정할 것" 1의 보류가 풀릴 때까지 두고, ticket에만 쓰이던 CLI 명령과 event는 지운다.
      - 열린 이슈 `issues/coding-agent.md`의 "examples가 떨어진 reported ticket을 다시 넘기면 `ticket_unavailable`"은 ticket과 함께 닫힌다.
      - App Engineer 지침을 다시 쓴다(설계, 코딩, release, 확인). coding agent skill `lophn-build-app`은 ticket 절차라 지운다(`lophn-repair`는 `problem-remove`가 지웠다).
-  3. `reactor-remove`: `problem-remove`, `ae-builds`, `approval-simplify`가 모두 land한 뒤 연다. 남은 domain event가 없으면 Reactor, cursor, 멱등 key를 지우고, coding session 끝은 그 command와 켤 때의 sweep이 닫는다. program call의 `from.event_seq`를 없앤다.
+  3. `reactor-remove`: `ae-builds`와 `approval-simplify`가 모두 land한 뒤 연다. 남은 domain event가 없으면 Reactor, cursor, 멱등 key를 지우고, coding session 끝은 그 command와 켤 때의 sweep이 닫는다. program call의 `from.event_seq`를 없앤다.
 - 화면을 지우거나 바꾸는 것은 `ui-design` skill로 wireframe부터 고친다.
 
 test(AGENTS.md "속도", `write-test` skill):

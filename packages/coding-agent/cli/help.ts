@@ -46,6 +46,39 @@ function fieldsOf(entry: CommandEntry): Field[] {
   }
 }
 
+function fieldLine(label: string, field: Field, note?: string): string {
+  const description = note ?? field.description;
+  return `  ${label} (${field.required ? "필수" : "선택"}, ${field.type})${
+    description === undefined ? "" : ` - ${description}`
+  }`;
+}
+
+// user 명령의 `--input`은 run 입력 JSON 값 하나다. 칸 이름은 위치 인자나 flag로 쓴다.
+function userInputLines(entry: CommandEntry, fields: Field[]): string[] {
+  const positional = entry.positional ?? [];
+  const rank = (field: Field) =>
+    positional.includes(field.name) ? 0 : field.name === "input" ? 1 : 2;
+  const lines = [...fields].sort((a, b) => rank(a) - rank(b)).map((field) => {
+    if (positional.includes(field.name)) {
+      return fieldLine(`<${field.name}>`, field);
+    }
+    if (field.name === "input") {
+      return fieldLine(
+        "--input <json> | --input-file <path>",
+        field,
+        "run 입력으로 넘기는 JSON 값(command 칸을 담는 객체가 아니다)",
+      );
+    }
+    return fieldLine(
+      field.type === "boolean"
+        ? `--${field.name}`
+        : `--${field.name} <${field.name === "schema" ? "json" : field.name}>`,
+      field,
+    );
+  });
+  return ["입력:", ...(lines.length === 0 ? ["  없다"] : lines)];
+}
+
 function line(entry: CommandEntry): string {
   return `  lophn ${entry.name} - ${entry.summary}`;
 }
@@ -79,12 +112,10 @@ export function helpText(name?: string): string {
       : entry.auth === "user"
       ? `인증: lophn이 켜져 있으면 data root의 user token file(coding agent session 안에서는 ${CODING_TOKEN_ENV})`
       : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
-    `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
-    ...fields.map((field) =>
-      `  ${field.name} (${field.required ? "필수" : "선택"}, ${field.type})${
-        field.description === undefined ? "" : ` - ${field.description}`
-      }`
-    ),
+    ...(entry.auth === "user" ? userInputLines(entry, fields) : [
+      `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
+      ...fields.map((field) => fieldLine(field.name, field)),
+    ]),
     "공통: --json 출력을 JSON 하나로, --idempotency-key 변경 명령의 재시도 key",
   ].join("\n");
 }

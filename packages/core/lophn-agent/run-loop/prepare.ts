@@ -226,7 +226,7 @@ function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
 }
 
-// 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 더한 tool은 새 session부터다. 빠진 tool은 Gate가 call 때 지금 grant를 읽어 바로 막으므로 지금부터 못 쓴다.
+// 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 더한 tool은 새 session부터다. 빠진 tool은 Gate가 call 때 지금 할당을 읽어 바로 막으므로 지금부터 못 쓴다.
 function toolsNotice(
   fixed: readonly ToolDefinition[],
   current: readonly ToolDefinition[],
@@ -360,7 +360,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // 허락된 앱의 tool이다. 선언이나 grant를 읽지 못하면 그 앱은 없는 것과 같다.
+    // 허락된 앱의 tool이다. 선언이나 할당을 읽지 못하면 그 앱은 없는 것과 같다.
     const apiKit = deps.toolkit.appTool;
     const loadedApi = apiKit === undefined
       ? null

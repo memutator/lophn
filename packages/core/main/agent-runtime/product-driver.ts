@@ -6,7 +6,7 @@ import {
   systemClock,
 } from "../../../base/mod.ts";
 import {
-  agentGrantsGet,
+  agentAssignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
@@ -111,18 +111,16 @@ function productToolkit(options: {
   return {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
-    // 허락된 앱의 tool. grant는 machine 자격의 loopback으로 읽는다.
+    // 허락된 앱의 tool. 할당은 machine 자격의 loopback으로 읽는다.
     // agent의 domain 집합 밖 domain의 비공개 tool은 목록에서 뺀다.
     appTool: withPublicOnly(
       createAppToolkit({
         machine: options.machine,
-        grants: {
-          async agentGrant(agent) {
-            const read = await readOf(options.machine, agentGrantsGet, {
-              agent,
-            });
-            return read.ok ? ok(read.value.grant) : read;
-          },
+        async assignment(agent) {
+          const read = await readOf(options.machine, agentAssignmentGet, {
+            agent,
+          });
+          return read.ok ? ok(read.value.assignment) : read;
         },
       }),
       {

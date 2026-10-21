@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import { appGrantees } from "../../approvals/grants/usage.ts";
+import { appAssignees } from "../../approvals/assignment/usage.ts";
 import { loadActiveBlueprint } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 
@@ -12,7 +12,7 @@ export type ToolUser = {
 };
 
 // 이 앱의 tool을 쓰는 다른 domain. 재료는 둘이다.
-// - grant: 앱을 맡은 agent가 맡은 domain. 앱의 공개 tool 가운데 그 agent가 뺀 것이 아니면 쓰는 것으로 센다.
+// - grant(할당): 앱을 할당받은 agent가 맡은 domain. 앱의 공개 tool 가운데 그 agent가 뺀 것이 아니면 쓰는 것으로 센다.
 // - invocation: 앱 tool을 부른 agent session이 맡은 domain.
 // tool 자신의 domain에서 쓰는 것은 세지 않는다. 이름순으로 정렬해 같은 재료가 같은 bytes가 되게 한다.
 export function appToolUsers(
@@ -38,12 +38,12 @@ export function appToolUsers(
     found.set(JSON.stringify([tool, domain, source]), { tool, domain, source });
   };
 
-  const grantees = appGrantees(sql, app);
-  if (!grantees.ok) return grantees;
-  for (const { agent, excluded } of grantees.value) {
+  const assignees = appAssignees(sql, app);
+  if (!assignees.ok) return assignees;
+  for (const { agent, removed } of assignees.value) {
     for (const domain of ports.agentDomains(agent)) {
       for (const tool of tools) {
-        if (tool.public && !excluded.has(tool.name)) {
+        if (tool.public && !removed.has(tool.name)) {
           add(tool.name, domain, "grant");
         }
       }

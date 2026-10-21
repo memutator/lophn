@@ -79,7 +79,7 @@ Deno.test("다른 domain이 쓰는 공개 tool을 지운 release는 시작하지
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
   }
-  db.exec(`CREATE TABLE agent_grants (agent TEXT, entries TEXT);
+  db.exec(`CREATE TABLE agent_assignments (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(
     `INSERT INTO apps VALUES (?, 'slug', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,

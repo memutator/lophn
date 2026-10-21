@@ -5,7 +5,7 @@ import {
   type ToolCallOutput,
 } from "../../../protocol/apps/mod.ts";
 import type { AppTool } from "../../../protocol/apps/blueprint/read.ts";
-import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
+import type { AssignmentEntry } from "../../../protocol/approvals/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
 import { toolInput } from "./app-tool/input.ts";
@@ -20,19 +20,14 @@ import type { ToolContext } from "./tool-context.ts";
 
 export const APP_TOOL_CONTRACT = appCallTool.name;
 
-// agent grant가 이 tool을 부르게 두는가. 앱을 할당하지 않았거나 tool을 뺐으면 아니다.
-function grantAllows(
-  entries: readonly AgentGrantEntry[],
+// 할당이 이 tool을 부르게 두는가. 앱을 할당하지 않았거나 tool을 뺐으면 아니다.
+function assigned(
+  entries: readonly AssignmentEntry[],
   app: string,
   tool: string,
 ): boolean {
-  for (const entry of entries) {
-    if (entry.kind !== "app" || entry.app !== app) continue;
-    return !entry.tools.some((one) =>
-      one.tool === tool && one.setting === "excluded"
-    );
-  }
-  return false;
+  const entry = entries.find((one) => one.app === app);
+  return entry !== undefined && !entry.removed_tools.includes(tool);
 }
 
 // 활성 release에서 읽은 tool 선언이다.
@@ -45,8 +40,8 @@ export type AppToolView = {
 
 export type AppToolSource = {
   views: readonly AppToolView[];
-  // agent grant의 entries. 앱 단위 할당과 tool별 빼기가 들어 있다.
-  entries: readonly AgentGrantEntry[];
+  // 할당의 entries. 앱 단위 할당과 tool별 빼기가 들어 있다.
+  entries: readonly AssignmentEntry[];
 };
 
 export type AppToolEntry = {
@@ -55,7 +50,7 @@ export type AppToolEntry = {
   tool: string;
 };
 
-// 앱 ∩ 선언 ∩ agent grant만 정의가 된다. 하나라도 빠지면 정의가 없다. 순서는 앱, tool 이름 순이다.
+// 앱 ∩ 선언 ∩ 할당만 정의가 된다. 하나라도 빠지면 정의가 없다. 순서는 앱, tool 이름 순이다.
 export async function buildAppTools(
   source: AppToolSource,
 ): Promise<readonly AppToolEntry[]> {
@@ -65,7 +60,7 @@ export async function buildAppTools(
   for (const view of views) {
     const declared = [...view.tools].sort((a, b) => a.name < b.name ? -1 : 1);
     for (const tool of declared) {
-      if (!grantAllows(source.entries, view.app, tool.name)) continue;
+      if (!assigned(source.entries, view.app, tool.name)) continue;
       const name = await appToolName(tool.domain, tool.name);
       if (names.has(name)) continue;
       names.add(name);

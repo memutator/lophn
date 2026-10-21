@@ -30,11 +30,11 @@ Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 dom
     db.exec(step.sql);
   }
   const grant = (agent: unknown) =>
-    db.prepare("INSERT INTO agent_grants VALUES (?, ?)").run(
+    db.prepare("INSERT INTO agent_assignments VALUES (?, ?)").run(
       JSON.stringify(agent),
-      JSON.stringify([{ kind: "app", app: APP, tools: [] }]),
+      JSON.stringify([{ app: APP, removed_tools: [] }]),
     );
-  db.exec(`CREATE TABLE agent_grants (agent TEXT, entries TEXT);
+  db.exec(`CREATE TABLE agent_assignments (agent TEXT, entries TEXT);
     CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
   db.prepare(
     `INSERT INTO apps VALUES (?, 'slug', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,

@@ -1,8 +1,8 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import { appTools } from "../../../protocol/apps/blueprint/read.ts";
 import type {
-  AgentGrant,
-  AgentGrantEntry,
+  AgentAssignment,
+  AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
@@ -13,13 +13,13 @@ import {
   buildAppTools,
 } from "./app-tools.ts";
 
-// agent runtime의 앱 tool 연결. session을 시작할 때 agent grant에서 할당된 앱을 읽고, 그 앱의 활성 release
+// agent runtime의 앱 tool 연결. session을 시작할 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
 // 선언을 읽어 tool 정의를 만든다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
 type AppToolLoad = Pick<AppToolSource, "views" | "entries">;
 
 export type AppToolkit = {
-  // 지금의 선언과 grant.
+  // 지금의 선언과 할당.
   load(agent: AgentRef): Promise<Result<AppToolLoad>>;
   define(agent: AgentRef): Promise<Result<readonly AppToolEntry[]>>;
 };
@@ -27,15 +27,14 @@ export type AppToolkit = {
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 앱의 활성 release 선언을 읽는다.
   machine: CoreCall;
-  grants: { agentGrant(agent: AgentRef): Promise<Result<AgentGrant>> };
+  assignment(agent: AgentRef): Promise<Result<AgentAssignment>>;
 }): AppToolkit {
   async function load(agent: AgentRef): Promise<Result<AppToolLoad>> {
-    const grant = await options.grants.agentGrant(agent);
-    if (!grant.ok) return grant;
-    const entries: AgentGrantEntry[] = grant.value.entries;
+    const assignment = await options.assignment(agent);
+    if (!assignment.ok) return assignment;
+    const entries: AssignmentEntry[] = assignment.value.entries;
     const views: AppToolView[] = [];
     for (const entry of entries) {
-      if (entry.kind !== "app") continue;
       const read = await readOf(options.machine, appTools, {
         app: entry.app,
       });

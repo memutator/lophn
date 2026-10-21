@@ -43,7 +43,7 @@ import {
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
-  agentGrantsGet,
+  agentAssignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appTools } from "../../../protocol/apps/blueprint/read.ts";
@@ -105,11 +105,11 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // tool의 정의 재료(활성 release 선언과 agent grant)와 앱의 domain(다른 domain의 비공개 tool 거르기)을 읽는다.
+  // tool의 정의 재료(활성 release 선언과 agent 할당)와 앱의 domain(다른 domain의 비공개 tool 거르기)을 읽는다.
   // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
   appTools,
   appGet,
-  agentGrantsGet,
+  agentAssignmentGet,
   domainList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
@@ -130,7 +130,7 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
 // 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 역할의 상한에 더한다.
 const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
 
-// 어느 역할이든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent grant와 tool 목록이
+// 어느 역할이든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent 할당과 tool 목록이
 // 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. 역할 몫은 role 층이 더한다.
 export const AGENT_BASE_OPERATIONS: readonly string[] = [
   APP_TOOL_CONTRACT,

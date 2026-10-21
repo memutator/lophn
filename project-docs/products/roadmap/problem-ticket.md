@@ -48,7 +48,7 @@
 
 | 지우는 것 | 대신 | 지금 크기·자리 |
 |---|---|---|
-| Reactor, cursor, reaction 멱등 key | 없음. coding session 끝은 그 command가 바로 call을 닫고, 켤 때 sweep이 남은 것을 닫는다 | `packages/core/events/reactor/` 521, cursor와 wiring을 합쳐 약 1.0k |
+| Reactor, cursor, reaction 멱등 key | 없음. coding session 끝은 그 command가 바로 call을 닫고, 꺼졌던 사이의 것은 Router의 켤 때 복구(`RecoverCalls`)가 닫는다 | `packages/core/events/reactor/` 521, cursor와 wiring을 합쳐 약 1.0k |
 
 - domain event 12개는 모두 빠진다. 다만 `events` 표는 Reactor의 일감 목록만이 아니라 앱 상태 기록(`AppStarted` 등)과 compare token으로도 쓰여서 남는다.
 - 옛 표, event, route, test는 migration 없이 지우고 새 설계로 다시 쓴다(AGENTS.md "호환성").
@@ -95,7 +95,7 @@
 - **redaction, data 검사(migration, 의존성, blueprint), changeset과 rewind는 program에 남긴다.** 근거: AGENTS.md가 secret 경계와 사용자 data를 잃는 규칙을 지키라고 한다.
 - **kind 검사 자체는 program에 남기고, 저장하는 위반 기록만 지운다.** 근거: 문서와 `kinds.yaml`의 대조는 PRODUCT 3절이 program의 몫으로 든 예다. 저장된 행을 읽는 곳은 `problem.list`의 domain 갈래뿐이고 `kind.check`와 겹친다. 잃는 것은 "해결됨/다시 열림" 이력이다.
 - **test runner의 data 검사는 release 준비 안에서 바로 한다.** 근거: 사람이 "lophn이 test runner를 알고 돌리는 것"을 지우기로 했다. 남는 검사(의존성, migration, blueprint와 handler)는 앱 test가 아니라 release가 data를 잃지 않게 하는 일이다. migration은 activation과 같은 코드(`migrateAppDatabase`)를 쓰고, activation의 backup과 되돌리기가 그 뒤를 지킨다. 잃는 것은 "이 bundle이 이 검사를 통과했다"는 위조 못 하는 증명 기록과 runner의 재시도와 복구 상태다.
-- **Reactor를 지운다.** 근거: 네 roadmap이 land하면 반응할 domain event가 하나도 남지 않는다. 마지막 후보인 "coding session 끝"은 그 command가 같은 tx에서 call을 닫을 수 있고(`coding/close-call.ts`는 event 없이 닫는 길이 있다), 꺼졌던 사이의 것은 켤 때 sweep이 닫는다. 5초 poller와 "handler 이름이 멱등 key의 일부" 같은 함정도 같이 없어진다.
+- **Reactor를 지운다.** 근거: 네 roadmap이 land하면 반응할 domain event가 하나도 남지 않는다. 마지막 후보인 "coding session 끝"은 그 command가 같은 tx에서 call을 닫을 수 있고(`coding/close-call.ts`는 event 없이 닫는 길이 있다), 꺼졌던 사이의 것은 Router의 켤 때 복구(`RecoverCalls`)가 닫는다. 5초 poller와 "handler 이름이 멱등 key의 일부" 같은 함정도 같이 없어진다.
 - **공개 tool 막기를 알림으로 바꾼다.** 근거: 막기는 쓰는 쪽을 깨우는 reaction과 짝이었다(`architecture/domain.md`). reaction이 없으면 agent가 이유를 모르는 gate가 된다. 잃는 것은 다른 domain을 깨뜨리는 release를 막는 바닥이다. 쓰는 쪽은 부를 때 `not_found`로 알게 된다.
 - **source 폴더 만들기는 `app.create`로 옮긴다.** 근거: 지금은 첫 넘기기 때 만들어서(`scaffold-source.ts`), App Engineer가 직접 지으면 폴더가 없다(`issues/coding-agent.md:32-42`).
 
@@ -130,7 +130,7 @@
 - 이 roadmap은 계획 셋으로 연다. 첫째는 `approval-simplify`보다 먼저 연다. reaction이 없어지면 approval이 더 작아진다.
   1. `problem-remove`: land했다.
   2. `ae-builds`: land했다. 변경과 결정은 `project-docs/products/change-log/0.6.0.md`에 있다.
-  3. `reactor-remove`: `ae-builds`와 `approval-simplify`가 모두 land한 뒤 연다. 남은 domain event가 없으면 Reactor, cursor, 멱등 key를 지우고, coding session 끝은 그 command와 켤 때의 sweep이 닫는다. program call의 `from.event_seq`를 없앤다.
+  3. `reactor-remove`: `ae-builds`와 `approval-simplify`가 모두 land한 뒤 연다. 남은 domain event가 없으면 Reactor, cursor, 멱등 key를 지우고, coding session 끝은 그 command와 Router의 켤 때 복구가 닫는다(`ae-builds`가 했다). program call의 `from.event_seq`를 없앤다.
 - 화면을 지우거나 바꾸는 것은 `ui-design` skill로 wireframe부터 고친다.
 
 ## 끝남 기준

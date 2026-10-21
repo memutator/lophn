@@ -17,7 +17,7 @@ guide 10편과 role command 셋(`new-app`, `repair-app`, `check-kinds`)을 내�
 - 읽을 것:
   - 계획: `project-docs/plan/agent-definition/README.md`의 "정한 것"(guide skill 이름 `guide-<지금 guide 이름>`, role command 셋은 같은 이름, `repair-app`에서 lophn은 고치지 않는다, 내장 skill은 모두 `can_disable: false`, `BUILTIN_SKILLS`의 `description` 칸 지우기)
   - roadmap: `project-docs/products/roadmap/agent-definition.md`의 "guide는 skill이 된다", "command는 '사람이 이름으로 부르는 skill'이다"
-  - 앞 계획: `project-docs/plan/ae-builds/README.md`의 "정한 것"(App Engineer가 직접 짓는다, `release.prepare`·`release.activate`, 공개 tool 막기는 준비 결과의 알림이고 막지 않는다). 할 일 10이 이것을 기준으로 guide 줄을 맞춘다.
+  - 앞 계획: changelog `project-docs/products/change-log/0.6.0.md`의 마지막 항목 "App Engineer가 앱을 직접 짓고, ticket과 test runner를 지운다"(App Engineer가 설계하고 코드를 쓰고 `release.prepare`·preview·`release.activate`로 올린다. 공개 tool을 지우는 release는 막지 않고 준비 결과 `removed_public_tools`에 tool과 쓰는 domain 이름을 싣는다. `project-docs/architecture/activation.md` 42줄). ae-builds가 guide의 ticket·coding agent 넘기기·공개 tool 막기 줄을 이미 고쳤다. 할 일 10은 남은 한 줄이다.
   - architecture: `project-docs/architecture/agent-definition.md`의 "지침 층은 덮지 않고 이어 붙인다"(끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다, 내장 skill 폴더는 role 층이 정한다), "skill은 목록(이름과 설명)만 prompt에 넣고 본문은 tool로 읽는다", "agent 정의의 `domains`와 `skills`"(끌 수 없는 내장 skill은 고르지 않아도 늘 받는다), "role의 tool 목록은 코드가 고정하고"(목록 이름마다 정의가 있다). `project-docs/architecture/approval.md` 첫 절(MCP server는 설정한 층이 곧 할당, 할당한 tool은 묻지 않는다. 할 일 4가 이것으로 guide 한 줄을 맞춘다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `agent-roles`, `agent-tool-spi`. `project-docs/module-catalog.yaml`의 `packages/core/agent-roles`
   - 코드
@@ -25,7 +25,7 @@ guide 10편과 role command 셋(`new-app`, `repair-app`, `check-kinds`)을 내�
     - 옮길 글: `packages/core/agent-roles/roles/lophn/guides/*.md` 10편, `packages/core/agent-roles/roles/guides.ts`(24-35 topic 이름표)
     - role command 글: `packages/core/agent-roles/commands.ts`의 `NEW_APP_PROMPT`(7-8), `REPAIR_APP_PROMPT`(10-11), `CHECK_KINDS_PROMPT`(13-14), title·description(36-57)
     - 지울 tool: `packages/core/agent-roles/tools/guide.ts`(`guide.read` 19-44, 옮길 `settings.get` 45-63, `nonblank` 14-16), `packages/core/agent-roles/tools/mod.ts`
-    - tool 목록: `packages/core/agent-roles/tool-lists.ts`의 `READ_TOOLS`(26-43, `guide.read` 40), `TOOL_ORDER`(91-140, `guide.read` 134)
+    - tool 목록: `packages/core/agent-roles/tool-lists.ts`의 `READ_TOOLS`(26-41, `guide.read` 38), `TOOL_ORDER`(90-138, `guide.read` 132). ticket tool은 ae-builds가 지웠고 App Engineer 쓰기 tool에 `release.prepare`·`release.activate`·`preview.*`가 있다(이 task와 상관없다).
     - 내장 skill 선언: `packages/protocol/lophn-agent/skill-settings.ts` 20-29(`BUILTIN_SKILLS`)
     - 선언을 읽는 곳(고치지 않는다): `packages/core/lophn-agent/extensions/skills.ts`의 `parseSkillFrontmatter`, `declaredBuiltin`·`undeclaredBuiltinReason`(내장 폴더에 있어도 선언 안 된 이름은 빠진다), `builtinForRole`, `mergeSkillLayers`, `SKILL_BODY_MAX_BYTES`. ad-discovery가 같은 file을 고치므로 줄이 아니라 이름으로 찾는다. `packages/shell/renderer/workspace/agents/core-extensions.ts`의 `readSkills`(`BUILTIN_SKILLS`의 `roles`만 읽는다), `packages/shell/renderer/workspace/agents/views.ts` 37줄
     - 예약 이름: `packages/core/lophn-agent/commands/registry.ts`의 `buildRegistry`(116-153). role command와 같은 이름의 skill은 메뉴에서 빠지고 notice가 된다.
@@ -48,7 +48,7 @@ guide 10편과 role command 셋(`new-app`, `repair-app`, `check-kinds`)을 내�
 
 ## 할 일
 
-줄 번호는 main `dd956b49f` 기준이다(`f778bf6c1`도 `packages`는 같다). `tool-lists.ts`와 role 지침, guide의 ticket 줄은 ae-builds가 고친 글을 기준으로 한다(앞 계획 land 뒤 path 확인). ae-builds가 guide file이나 `REPAIR_APP_PROMPT`를 고쳤으면 고친 글에서 시작한다.
+줄 번호는 main `15f282fcd`(ae-builds land 뒤) 기준이다. guide의 줄 번호(할 일 2·4·10)는 frontmatter를 달기 전 `roles/lophn/guides/<topic>.md`의 줄이다(frontmatter 네 줄과 빈 줄 하나를 달면 다섯 줄 밀린다). ae-builds는 `commands.ts`(`NEW_APP_PROMPT`·`REPAIR_APP_PROMPT`·`CHECK_KINDS_PROMPT`)와 `skill-settings.ts`를 고치지 않았다.
 
 1. guide 10편을 꾸러미로 옮긴다. 폴더를 만들고 `git mv packages/core/agent-roles/roles/lophn/guides/<topic>.md packages/core/agent-roles/skills/guide-<topic>/SKILL.md`로 옮긴 뒤 frontmatter를 단다. `name`은 `guide-<topic>`이다. guide에는 설명 칸이 없으니 `description`은 제목과 첫 문단에서 쓴 영어 한 줄이다. 아래는 제안이고 다듬어도 된다. 설명은 prompt의 skill 목록에 실려 agent가 언제 읽을지 고르는 근거다.
 
@@ -101,23 +101,21 @@ guide 10편과 role command 셋(`new-app`, `repair-app`, `check-kinds`)을 내�
    - `packages/core/agent-roles/tools/settings.ts`(새 file): `tools/guide.ts`의 `nonblank`(14-16)와 `settings.get` 정의(45-63)를 그대로 옮겨 `export const SETTINGS_TOOLS: readonly ToolDefinition[]`로 낸다. import는 `ok`, `settingsList`, `defineTool`·`fitted`·`readOf`·`ToolDefinition`(`../../lophn-agent/tools/spi.ts`), `z`만이다.
    - `packages/core/agent-roles/tools/mod.ts`: `GUIDE_TOOLS` import와 펼침을 `SETTINGS_TOOLS`로 바꾼다. 순서는 뜻이 없다(`main/agent-tools.ts`가 `TOOL_ORDER`로 다시 정렬한다).
    - `packages/core/agent-roles/tools/guide.ts`와 `packages/core/agent-roles/roles/guides.ts`를 지운다. `roles/lophn/guides/` 폴더가 비었는지 본다.
-7. `packages/core/agent-roles/tool-lists.ts`: `READ_TOOLS`의 `"guide.read"`(40)와 `TOOL_ORDER`의 `"guide.read"`(134)를 지운다(앞 계획 land 뒤 path 확인: ae-builds가 이 file의 ticket 줄을 지운 뒤라 줄 번호가 다르다).
-8. role 지침 넷의 `guide.read` 줄만 바꾼다. 다른 줄은 ad-instructions가 고친다(앞 계획 land 뒤 path 확인: 줄 번호는 ae-builds 앞이다).
-   - `roles/lophn/prompt.md` 44-46 → "When the person asks how to use lophn or what a setting means, read the matching `guide-*` skill with `skill.read` and the setting with `settings.get`. If they do not say it, say you do not know."
-   - `roles/project-manager/prompt.md` 78-79, `roles/app-engineer/prompt.md` 210-211, `roles/operator/prompt.md` 32-33의 "Read `guide.read` topic `artifact` before you write it." → "Read the skill `guide-artifact` before you write it."
+7. `packages/core/agent-roles/tool-lists.ts`: `READ_TOOLS`의 `"guide.read"`(38)와 `TOOL_ORDER`의 `"guide.read"`(132)를 지운다.
+8. role 지침 넷의 `guide.read` 줄만 바꾼다. 다른 줄은 ad-instructions가 고친다.
+   - `roles/lophn/prompt.md` 45-47 → "When the person asks how to use lophn or what a setting means, read the matching `guide-*` skill with `skill.read` and the setting with `settings.get`. If they do not say it, say you do not know."
+   - `roles/project-manager/prompt.md` 78-79, `roles/operator/prompt.md` 32-33의 "Read `guide.read` topic `artifact` before you write it." → "Read the skill `guide-artifact` before you write it."
+   - `roles/app-engineer/prompt.md` 117-118의 "; read `guide.read` topic `artifact` first." → "; read the skill `guide-artifact` first."
 9. 사이 상태를 확인만 한다(고치지 않는다).
    - ad-commands 전에는 `new-app`·`repair-app`·`check-kinds` skill이 `/` 메뉴에서 role 명령의 예약 이름으로 빠진다(`buildRegistry`). `/new-app`은 아직 `NEW_APP_PROMPT`를 보낸다. `menu: false`인 `guide-*`는 아직 메뉴의 Skills 묶음에 뜬다(ad-commands가 뺀다).
    - ad-discovery 전에는 turn prompt의 skill 목록이 role 없이 찾아 다른 role의 내장 skill도 뜬다(지금 `kinds-yaml`과 같은 bug, ad-discovery가 고친다).
-10. 앞 계획 land 뒤 확인: guide에 ticket·coding agent 넘기기·공개 tool 막기 줄이 남았으면 ae-builds 뒤의 모양(App Engineer가 설계하고 직접 짓고 `release.prepare`, preview 확인, `release.activate`. 공개 tool을 지우는 release는 준비 결과가 알릴 뿐 막지 않는다)으로 고친다.
-    - `guide-roles-and-assignments` 22-26(App Engineer가 ticket을 쓰고 coding agent에게 넘기고 확인한다) → 설계하고 짓고 release를 준비하고 preview에서 확인한 뒤 올린다.
-    - `guide-roles-and-assignments` 50-51, `guide-domains` 41-43 "A release that removes a public tool another domain uses is blocked" → 준비 결과에 알려진다.
-    - `guide-features-and-screens` 28-29 "You do not instruct the coding agent directly." → 지운다.
-    - `guide-artifact` 132-137 "What you do not do": "… which is coding agent work. The App Engineer writes a ticket for it." → "A screen like that belongs in an app, which its App Engineer builds." "Do not write app code."는 지운다(`guide-artifact`를 받는 App Engineer는 이제 앱 code를 쓴다).
-    - `guide-questions-and-decisions` 33-34(coding agent가 자기 terminal에서 묻는 것)는 그대로 둔다. 사람이 terminal 탭에서 쓰는 coding agent와 연결 장치는 ae-builds 뒤에도 남는다.
+10. `guide-artifact` 136줄 "- Do not write app code."를 지운다. 이 skill을 받는 App Engineer는 이제 앱 code를 쓴다(changelog 0.6.0). 바로 위 134-135줄("A screen like that is an app, which the App Engineer of an app builds.")은 ae-builds가 이미 고쳤으니 그대로 둔다.
+    - ae-builds가 이미 고친 것(다시 고치지 않는다): `guide-roles-and-assignments` 22-26(설계하고 코드와 blueprint를 쓰고 preview에서 확인하고 올린다)과 50-52, `guide-domains` 41-43(공개 tool을 지우는 release는 막지 않고 준비할 때 App Engineer가 쓰는 쪽을 본다. `removed_public_tools`의 `{tool, domains}`와 맞다), `guide-features-and-screens` 27-29.
+    - `guide-questions-and-decisions` 33-34(coding agent가 자기 terminal에서 묻는 것)와 `guide-instructions` 3-4(지침은 coding agent의 `AGENTS.md`가 아니다)는 그대로 둔다. 사람이 terminal 탭에서 쓰는 coding agent와 연결 장치는 남고, 지침 층이 `AGENTS.md`를 읽지 않는 것도 그대로다(`architecture/agent-definition.md` 37줄).
 
 정한 것:
 - **skill은 받는 role이 같은 skill만 가리킨다.** 할 일 2. 건너 role의 가리킴은 이름만 바꾸면 `not_found`로 끝난다.
-- **옮기면서 낡은 사실 몇 줄을 고친다**(할 일 4, 10). 내장 skill을 모두 끌 수 없게 하는 것은 이 task이고, MCP 묻기는 `approval-simplify`가 이미 바꿨다. lophn이 이 글로 사람에게 답하므로 틀린 줄을 옮기지 않는다. 그 밖의 본문은 고치지 않는다.
+- **옮기면서 낡은 사실 몇 줄을 고친다**(할 일 4, 10). 내장 skill을 모두 끌 수 없게 하는 것은 이 task이고, MCP 묻기는 `approval-simplify`가, App Engineer가 직접 짓는 것은 `ae-builds`가 이미 바꿨다. lophn과 App Engineer가 이 글을 읽고 따르므로 틀린 줄을 옮기지 않는다. 그 밖의 본문은 고치지 않는다.
 - **`guide-skills-and-mcp`의 `/` 메뉴 줄은 ad-commands 뒤의 모양으로 쓴다.** 그 task는 이 file을 소유하지 않는다. 그 사이에 role 명령이 메뉴에 남아 있어도 틀린 말은 아니다("session commands"는 built-in만 가리킨다).
 
 ## 끝남
@@ -145,7 +143,7 @@ guide 10편과 role command 셋(`new-app`, `repair-app`, `check-kinds`)을 내�
 - 남지 않음:
   - `git grep -nE "guide\.read|guideTopics|GUIDE_TOOLS|roles/guides|lophn/guides" -- packages tools`가 0줄이다. `guideText`는 `packages/core/apps/packages/publish.ts`에 같은 이름의 다른 함수가 있어 `git grep -n "guideText" -- packages/core/agent-roles`로 본다(0줄).
   - `git grep -nE "see the .* guide|these guides|This guide" -- packages/core/agent-roles/skills`가 0줄이다.
-  - `tests/eval`에 남은 것(`tests/eval/versions/components.ts`, `tests/eval/versions/files.ts`, `tests/eval/experiment/variant/texts.ts`, `tests/eval/scenarios/lophn/L6.scenario.ts`, `tests/eval/registry/tool/guide.read.json`)은 check 밖이라 고치지 않고 보고만 한다.
+  - `tests/eval`에 남은 것(`tests/eval/versions/components.ts`, `tests/eval/versions/files.ts`, `tests/eval/versions/versions_test.ts`, `tests/eval/experiment/variant/texts.ts`, `tests/eval/scenarios/lophn/L6.scenario.ts`, `tests/eval/registry/tool/guide.read.json`, `tests/eval/registry/instruction/*.json`)은 check 밖이라(`tools/check.ts`의 `NOT_CHECKED`) 고치지 않고 보고만 한다.
 
 ## 보고
 

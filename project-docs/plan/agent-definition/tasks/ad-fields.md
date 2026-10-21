@@ -9,9 +9,9 @@ agent 정의 기본 schema에서 쓰이지 않는 칸 `safe_tools`와 `permissio
   - `packages/core/lophn-agent/run-loop/prepare.ts`
 - 읽을 것:
   - 계획: `project-docs/plan/agent-definition/README.md`의 "정한 것"("지우는 칸과 갈래": 기본 schema의 `safe_tools`와 `permissions`, 읽는 곳을 함께 지운다). roadmap `project-docs/products/roadmap/agent-definition.md`의 "정의 칸"(지금 칸은 그대로 둔다: `name`, `profile`, `model`, `skills`, `domains`, `mcp_off`, `mcp_servers`, 본문. 쓰이지 않는 것만 지운다)과 "하지 않는 것"(정의 칸이나 끄기 층을 줄이지 않는다)
-  - architecture: `project-docs/architecture/agent-definition.md` 41줄(MCP server는 설정한 층이 곧 할당이고 끄기는 `mcp_off`다), `project-docs/architecture/approval.md` 26줄(같은 규칙. 그래서 정의에 MCP tool을 고르거나 safe로 표시하는 칸이 없다)
+  - architecture: `project-docs/architecture/agent-definition.md` 42줄(MCP server는 설정한 층이 곧 할당이고 끄기는 `mcp_off`다), `project-docs/architecture/approval.md` 26줄(같은 규칙. 그래서 정의에 MCP tool을 고르거나 safe로 표시하는 칸이 없다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `protocol`, `lophn-agent`·`agents`·`run-loop`; `project-docs/module-catalog.yaml`의 `packages/protocol`(구현을 두지 않는다), `packages/core/lophn-agent`
-  - 코드(줄은 main `dd956b49f`. `prepare.ts`는 ad-discovery 뒤이고 앞 계획 land 뒤 path 확인)
+  - 코드(줄은 main `15f282fcd`. ae-builds는 아래 file을 고치지 않았다. `prepare.ts`는 ad-discovery가 먼저 고친다)
     - `packages/protocol/lophn-agent/agent-values.ts`: MCP tool 한 쌍 104-111(104줄 주석 "안전 표시와"), 권한 113-122, 정의 칸 list schema 134-156, `frontmatterFields`·`frontmatterOutputFields` 158-179, `agentDefinitionSchema`·`agentDefinitionOutputSchema` 181-189
     - `packages/protocol/lophn-agent/operators.ts` 16-60: Operator 정의는 `definitionKeys`(21-28), 내장 정의는 `builtinKeys`(48-53)만 `.pick`한다. 두 칸이 어디에도 없다.
     - `packages/core/agent-roles/tools/operator.ts` 25-36(`operator.create`·`operator.update` 입력이 `operatorDefinitionSchema`에서 온다)
@@ -25,7 +25,7 @@ agent 정의 기본 schema에서 쓰이지 않는 칸 `safe_tools`와 `permissio
 
 ## 할 일
 
-줄 번호는 main `dd956b49f` 기준이다. `prepare.ts`는 ad-discovery가 먼저 고치므로(168-169, 531, 670) 줄을 다시 본다. ae-builds나 `reactor-remove`(rr-program-from이 `prepare.ts` 255-270을 고친다)가 먼저 land했어도 줄이 밀린다(앞 계획 land 뒤 path 확인). 줄 대신 아래 이름으로 찾는다.
+줄 번호는 main `15f282fcd` 기준이다. `prepare.ts`는 ad-discovery가 먼저 고치므로(168-169, 531, 670) 줄을 다시 본다. 다른 계획 `reactor-remove`의 rr-program-from도 `prepare.ts`(`noticeText` 근처)를 고치므로 그 task가 먼저 main에 land했으면 줄이 더 밀린다. 줄 대신 아래 이름으로 찾는다.
 
 근거는 README "지우는 칸과 갈래"와 roadmap "정의 칸"이다. 두 칸은 `operators.ts`의 `definitionKeys`·`builtinKeys`가 뽑지 않아 어느 정의 file에도 들어가지 못하고, `selection`(`mcp-toolkit.ts` 311-325)은 `mcp`만 읽는다. 작업 중에는 `deno test --no-check packages/core/lophn-agent/agents packages/core/agent-roles/tools/operator_test.ts packages/core/lophn-agent/run-loop`만 돌린다.
 

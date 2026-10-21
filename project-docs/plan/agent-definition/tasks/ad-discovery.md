@@ -14,9 +14,9 @@ skill 찾기 구현 둘(turn용 비동기 `discoverSkills`, 화면·`/` 메뉴�
   - `packages/core/main/agent-runtime/product-driver.ts`(skill 발견 wiring만)
 - 읽을 것:
   - 계획: `project-docs/plan/agent-definition/README.md`의 "정한 것"(skill 찾기는 동기 구현 하나로 합치고 `content_hash`와 딸린 `.md`의 실행 검사를 지운다, 내장 skill의 role 거르기를 찾기 안으로 옮긴다, 내장 skill은 모두 `can_disable: false`, 위험 test 둘). roadmap `project-docs/products/roadmap/agent-definition.md`의 "지금 코드"의 skill 줄(찾기 구현이 둘이다)
-  - architecture: `project-docs/architecture/agent-definition.md` "지키는 것"의 "지침 층은 덮지 않고 이어 붙인다"(34-35줄: 끌 수 없는 내장 skill은 같은 이름의 사람 skill이 덮지 못한다, 층의 자리와 내장 skill 폴더는 role 층이 정하고 읽기 허락과 발견이 같은 값을 쓴다), "skill은 목록(이름과 설명)만 prompt에 넣고"(71줄), "agent 정의의 `domains`와 `skills`"(72줄: prompt 목록, `skill.read`, `/` 메뉴가 같은 규칙 `skillReceived`를 쓴다). `project-docs/architecture/layers.md` 76-78줄(harness는 role 이름을 모르고, 내장 skill은 role 층 `skills/`다)
+  - architecture: `project-docs/architecture/agent-definition.md` "지키는 것"의 "지침 층은 덮지 않고 이어 붙인다"(35-36줄: 끌 수 없는 내장 skill은 같은 이름의 사람 skill이 덮지 못한다, 층의 자리와 내장 skill 폴더는 role 층이 정하고 읽기 허락과 발견이 같은 값을 쓴다), "skill은 목록(이름과 설명)만 prompt에 넣고"(72줄), "agent 정의의 `domains`와 `skills`"(73줄: prompt 목록, `skill.read`, `/` 메뉴가 같은 규칙 `skillReceived`를 쓴다). `project-docs/architecture/layers.md` 76-78줄(harness는 role 이름을 모르고, 내장 skill은 role 층 `skills/`다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `lophn-agent`(role 이름을 모르는 harness), `agents`, `run-loop`, `agent-roles`(내장 skill); `project-docs/module-catalog.yaml`의 `packages/core/lophn-agent`, `packages/core/agent-roles`, `packages/core/main`
-  - 코드(줄은 main `dd956b49f`. `prepare.ts`·`product-driver.ts`·`register.ts`는 앞 계획 land 뒤 path 확인)
+  - 코드(줄은 main `15f282fcd`. ae-builds는 아래 file을 고치지 않아 처음 쓴 `dd956b49f`와 줄이 같다)
     - `packages/core/lophn-agent/extensions/skills-sync.ts` 전체(207줄). `SyncSkillFiles` 25-32, `SkillSources` 36-41, `SkillListing` 44-47, `attempt` 51-57, `listSkillsSync` 60-207이 남길 구현이다. 196-205에서 `bundle_path`를 버린다.
     - `packages/core/lophn-agent/extensions/skills.ts`
       - 남길 것: `parseSkillFrontmatter` 101-145, `SkillCandidate` 173-179, `undeclaredBuiltinReason` 186-190, `builtinForRole` 193-197, `mergeSkillLayers` 203-242, `skillReceived` 247-254, `pickSkills` 258-270, `DomainStore` 297, `joinPath` 363-367, `folderSkipReason` 427-438
@@ -52,9 +52,9 @@ skill 찾기 구현 둘(turn용 비동기 `discoverSkills`, 화면·`/` 메뉴�
 
 ## 할 일
 
-줄 번호는 main `dd956b49f` 기준이다. ae-builds가 `prepare.ts`·`product-driver.ts`·`register.ts`를 고쳤으면 줄이 밀린다(앞 계획 land 뒤 path 확인). `reactor-remove`의 rr-program-from이 먼저 land했으면 `prepare.ts` 255-270이 바뀌어 있다. 줄 대신 아래 이름으로 찾는다.
+줄 번호는 main `15f282fcd` 기준이다. 다른 계획 `reactor-remove`의 rr-program-from도 `prepare.ts`를 고친다(`noticeText` 근처의 program `from`). 그 task가 먼저 main에 land했으면 줄이 밀려 있으니 줄 대신 아래 이름으로 찾는다.
 
-근거는 README "정한 것"의 "skill 찾기는 동기 구현 하나로", "내장 skill의 role 거르기를 찾기 안으로"와 `agent-definition.md` 72줄(prompt 목록, `skill.read`, `/` 메뉴가 한 규칙을 쓴다)이다. 작업 중에는 `deno test --no-check packages/core/lophn-agent/extensions packages/core/lophn-agent/agents packages/core/lophn-agent/run-loop/prepare_test.ts`만 돌린다.
+근거는 README "정한 것"의 "skill 찾기는 동기 구현 하나로", "내장 skill의 role 거르기를 찾기 안으로"와 `agent-definition.md` 73줄(prompt 목록, `skill.read`, `/` 메뉴가 한 규칙을 쓴다)이다. 작업 중에는 `deno test --no-check packages/core/lophn-agent/extensions packages/core/lophn-agent/agents packages/core/lophn-agent/run-loop/prepare_test.ts`만 돌린다.
 
 1. 한 구현으로 합친다(`skills.ts`).
    - `skills-sync.ts`의 `SyncSkillFiles`(25-32)를 `SkillFiles`로 이름을 바꿔 옮기고, `SkillSources`(36-41), `SkillListing`(44-47), `attempt`(51-57)를 옮긴다. `listSkillsSync`(60-207)를 옮겨 `discoverSkills`로 이름을 바꾼다.
@@ -141,7 +141,7 @@ skill 찾기 구현 둘(turn용 비동기 `discoverSkills`, 화면·`/` 메뉴�
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: 없음이면 "없음". 계획 끝에 lead가 `project-docs/architecture/agent-definition.md` 72줄에 "내장 skill은 선언한 role의 agent만 발견한다. prompt 목록, `skill.read`, `/` 메뉴, Agents 탭의 skill 수가 같은 발견을 쓰고, 사람 화면(`ReadSkills`)만 role 없이 모두 본다"를 더한다(README "다 끝나면"). 그 밖에 lead가 고칠 목록 file
+- 등록할 것: 없음이면 "없음". 계획 끝에 lead가 `project-docs/architecture/agent-definition.md` 73줄에 "내장 skill은 선언한 role의 agent만 발견한다. prompt 목록, `skill.read`, `/` 메뉴, Agents 탭의 skill 수가 같은 발견을 쓰고, 사람 화면(`ReadSkills`)만 role 없이 모두 본다"를 더한다(README "다 끝나면"). 그 밖에 lead가 고칠 목록 file
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다): 예상은 `builtinForRole`(이제 `skills.ts` 안에서만 부른다. 계약이 이름을 남긴다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것(위 "정한 것": 두 갈래 모두 켜진 skill만, 그리고 두 구현이 다른 곳에서 동기 쪽을 따른 것을 그대로 했는지 포함)
 - 넘길 줄: 남의 file을 최소로 맞춘 곳. 없음이면 "없음"

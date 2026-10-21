@@ -9,15 +9,16 @@
   - roadmap `project-docs/products/roadmap/agent-definition.md` 전체. "모양", "정한 것(사람)", "정한 것(agent)", "단계"의 새 계획 `agent-definition`이 근거다.
   - roadmap `approval.md`(Operator 정의의 skip 기본값 칸은 사람만 쓴다. `approval-simplify`가 만든다)
   - architecture: `agent-definition.md`(지침 층, skill, command), `place-session.md`
+  - changelog `project-docs/products/change-log/0.6.0.md`의 마지막 항목 "App Engineer가 앱을 직접 짓고, ticket과 test runner를 지운다"(`ae-builds`가 바꾼 App Engineer 지침, role tool 목록, guide 줄. 지운 계획 폴더 `plan/ae-builds/`를 대신한다)
   - `project-docs/boundary-catalog.yaml`과 `project-docs/module-catalog.yaml`의 agent-roles, lophn-agent(agents, extensions, instructions, prompt-assembly, commands)
 - **범위 밖:**
-  - App Engineer 지침 다시 쓰기와 ticket 줄 지우기(`ae-builds`가 한다). 이 계획은 그 뒤의 지침에서 겹친 말만 걷어 낸다.
+  - App Engineer 지침 다시 쓰기와 ticket 줄 지우기(`ae-builds`가 했다. changelog 0.6.0). 이 계획은 그 뒤의 지침(main `15f282fcd`)에서 겹친 말만 걷어 낸다.
   - 정의 칸, 끄기 층, 개인 skill 보관함, profile 그림(roadmap "정한 것": 그대로 둔다)
   - workflow 연락처 절(`workflow`)
   - eval과 e2e test(사람)
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `ad-`로 시작한다.
-- **시작 조건:** `ae-builds`가 land했다. App Engineer 지침과 role tool 목록이 겹친다. `reactor-remove`와는 순서가 상관없다.
-- **brief의 기준:** brief는 main `dd956b49f`(2026-10-21, `approval-simplify` land 뒤) 기준으로 썼다. `ae-builds`가 고칠 곳은 그 계획의 brief가 말하는 land 뒤 모양을 기준으로 하고 "앞 계획 land 뒤 path 확인"을 달았다. 앞 계획이 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
+- **시작 조건:** 열 수 있다. 앞 계획 `ae-builds`는 land했다(main `15f282fcd`). `reactor-remove`와는 순서가 상관없다. 두 계획이 같이 고치는 file이 있다: `packages/core/lophn-agent/run-loop/prepare.ts`(rr-program-from ↔ ad-discovery, ad-fields), `packages/shell/renderer/conversation/{agent-tab-source.ts,agent-tab-fake-source.ts}`, `packages/design/wording/catalog/conversation.ts`와 생성물 `conversation.placeholders.ts`, `tools/wireframes/pages/screens/agent.tsx`(rr-screens ↔ ad-commands). 같이 돌면 `status.py ready`가 소유가 겹치는 task를 함께 띄우지 않고, 뒤에 merge하는 쪽이 줄을 다시 본다.
+- **brief의 기준:** brief는 main `15f282fcd`(2026-10-21, `ae-builds` land 뒤) 기준으로 다시 맞췄다. `ae-builds`가 이미 한 일(App Engineer 지침 140줄, lophn·PM의 ticket 줄, `tool-lists.ts`의 ticket tool, guide의 ticket·coding agent 넘기기·공개 tool 막기 줄, `PRODUCT_INSTRUCTIONS`의 `<lophn-reaction>` 줄)은 brief에서 뺐다. 처음 쓴 기준은 `dd956b49f`이고, ae-builds가 고치지 않은 file(`lophn-agent/extensions/`, `register.ts`, `prepare.ts`, `product-driver.ts`, `agent-values.ts`, `lophn-agent/commands/`, protocol `commands.ts`, `agent-roles/commands.ts`, `skill-settings.ts`)의 줄은 그대로다.
 
 ## 정한 것
 
@@ -37,6 +38,7 @@ roadmap `agent-definition.md`의 "정한 것(사람)"과 "정한 것(agent)"을 
 - **`/` 메뉴 항목은 `{name, title, description, source: builtin | skill}`이다.** `action`과 `ListCommands.notices`는 읽는 화면이 없어 지운다. 메뉴는 Commands와 Skills 두 묶음이다.
 - **정의 편집 화면은 고치지 않는다.** 칸과 배치가 그대로이고, 보이는 내장 skill 줄만 바뀐다.
 - **화면:** `/` 메뉴와 정의 편집 화면이 바뀌면 `ui-design` skill로 gallery부터 고친다. 문구는 `wording` skill이다.
+- **지운 skill `lophn-build-app`이 맡던 화면 kit과 token 안내를 앱 template의 `AGENTS.md`(lophn-managed 절)에 되살린다.** ae-builds 뒤 그 말이 어디에도 없어 App Engineer가 지은 앱이 사람이 고른 accent·배경·글꼴을 따르지 않을 수 있다. App Engineer 지침은 짓기 전에 그 file을 읽게 한다. 지침을 다루는 `ad-instructions`가 함께 한다.
 - **위험 test는 roadmap대로 둘이다.** skill에 role을 적으면 다른 role의 prompt와 `/` 메뉴에 뜨지 않는다. Operator 정의의 skip 기본값 칸은 PM과 App Engineer의 tool로 쓸 수 없다(이미 `approval-simplify`의 test가 보면 더하지 않는다).
 
 ## 사람이 정할 것
@@ -52,7 +54,7 @@ roadmap `agent-definition.md`의 "정한 것(사람)"과 "정한 것(agent)"을 
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
 - land는 `LOPHN_LAND_SKIP_E2E=1 land.sh agent-definition`이다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
 - 다 끝나면
-  - 문서: `architecture/agent-definition.md`(guide, skill, command, 지침 층), `layers.md`(role command, guide tool), `artifact.md`(내장 artifact guide의 path), `eval.md`(`guide.read`)
+  - 문서: `architecture/agent-definition.md`(guide, skill, command, 지침 층), `layers.md`(role command, guide tool), `artifact.md`(내장 artifact guide의 path), `eval.md`(`guide.read`), `appearance.md` "사용자 앱에 닿는 길"(앱 template의 `AGENTS.md`가 token 변수를 시킨다)
   - `project-docs/module-catalog.yaml`의 agent-roles 설명("role prompt·guide", "role 명령")
   - eval은 `guideText`·`guideTopics` import와 L6의 `guide.read` 기대 때문에 깨진다. check 밖이고 사람이 고친다.
   - `project-docs/products/AGENT-ROLE.md`(L6의 "제품 안내", L7)

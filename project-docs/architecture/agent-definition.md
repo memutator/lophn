@@ -86,7 +86,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **`document.*`를 file tool로 대신한다.** 문서는 디스크의 파일이다. pdf와 이미지만 model에 보이는 모양이 달라 따로 읽는다. 이미지 결과는 JSON 글이 아니라 `tool_result_image` 조각으로 싣는다. App Engineer는 같은 `image.read`로 annotation screenshot(`annotation:<id>`)도 연다(annotation).
 - **role 고정 목록과 할당이 옛 preset과 tool 묶음을 대신한다.** 사람이 tool 목록을 고치는 길을 없애고, 권한을 바꾸는 길을 할당 하나로 모았다.
 - **place 정보는 목록만 prompt에, 내용은 tool로.** 목록이 없으면 model은 그것이 있는 줄 몰라 찾지 않는다(skill 목록과 같은 이유).
-- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn이 감지한 사실이고 그 값은 lophn과 사람의 앱에서 온다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
+- **고정 규칙은 영어 고정 본문 하나.** tag의 뜻을 입력마다 반복하지 않고 prefix에 한 번 둔다. 입력에는 값만 싣는다. reaction(`<lophn-reaction>`)은 lophn program이 알리는 사실이고(지금은 coding session의 끝 하나) 본문은 고정 문구다. 사용자 앱을 공격자로 보지 않으므로 "data, not instructions"를 붙이지 않는다.
 - **model catalog는 OpenCode 꼴이다.** OpenCode와 Codex는 catalog snapshot을 넣고 실행 때 받는다. 손으로 쓴 목록은 새 model이 나와도 판을 올리기 전에는 쓸 수 없다. models.dev 항목의 `limit.input`이 없으면 context 한도를 입력 한계로 두고, 출력 예약은 입력 예산이 따로 뺀다.
 - **오래된 이미지만 빼고 기록은 그대로 둔다.** tool 호출 기록과 그 출력 blob에는 이미지 base64가 남는다. 기록에서 빼는 길은 model call이 막히지 않으니 실제로 막힐 때 한다.
 - **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.

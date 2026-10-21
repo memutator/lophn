@@ -122,7 +122,7 @@ test(AGENTS.md "속도", `write-test` skill):
 
 - App Engineer가 그 앱 domain에 `doctor` skill을 쓰면, 사람이 `/doctor 오늘 동기화가 실패했어`라고 쳤을 때 App Engineer가 그 글과 함께 skill을 따라 점검하고 요약한다.
 - `guide.read`가 없고, lophn은 사용법 질문에 내장 skill을 읽어 답한다.
-- role 지침 넷을 합쳐 지금 500줄보다 눈에 띄게 짧고, 같은 문단이 두 곳에 없다.
+- role 지침 넷을 합쳐 ae-builds 뒤 395줄보다 짧고, 같은 문단이 두 곳에 없다.
 
 ## 하지 않는 것
 

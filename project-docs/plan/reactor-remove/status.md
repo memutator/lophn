@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py reactor-remove build`가 `tasks/*.md`에서 
 | `rr-prepare-reasons` | prepare-reasons | 1 | 없음 | merged | prepare-reasons/rr-prepare-reasons | cc2adc9cd |  |
 | `rr-reactor` | reactor | 1 | 없음 | merged | reactor/rr-reactor | 79a9433d5 |  |
 | `rr-program-from` | program-from | 2 | rr-reactor | merged | program-from/rr-program-from | 68eb94f71 |  |
-| `rr-screens` | screens | 2 | rr-reactor | todo |  |  |  |
-| `rr-test-child` | test-child | 2 | rr-reactor | todo |  |  |  |
+| `rr-screens` | screens | 2 | rr-reactor | running | screens/rr-screens |  |  |
+| `rr-test-child` | test-child | 2 | rr-reactor | running | test-child/rr-test-child |  |  |

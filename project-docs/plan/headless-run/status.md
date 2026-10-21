@@ -9,6 +9,6 @@ lead만 고친다. `tools/status.py headless-run build`가 `tasks/*.md`에서 id
 | `hr-cli-commands` | cli | 2 | hr-contract-runs, hr-token-file | running | cli/hr-cli-commands |  |  |
 | `hr-runs-core` | runs | 2 | hr-contract-runs | running | runs/hr-runs-core |  |  |
 | `hr-screen-wireframe` | screen | 2 | hr-contract-runs | running | screen/hr-screen-wireframe |  |  |
-| `hr-session-input` | session | 2 | hr-contract-runs | running | session/hr-session-input |  |  |
+| `hr-session-input` | session | 2 | hr-contract-runs | merged | session/hr-session-input | 7270d6b5e |  |
 | `hr-runs-wiring` | runs | 3 | hr-runs-core, hr-session-input | todo |  |  |  |
 | `hr-screen-data` | screen | 3 | hr-screen-wireframe | todo |  |  |  |

@@ -2,6 +2,7 @@
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
+import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
@@ -27,6 +28,7 @@ import {
   lophnAgentSessionWiring,
 } from "./wiring/lophn-agent-session.ts";
 import { routerWiring } from "./wiring/router.ts";
+import { runsWiring } from "./wiring/runs.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import { kindsWiring } from "./wiring/kinds.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
@@ -49,6 +51,7 @@ export const TEAMS = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
   { createLedgerRegistration: createDomainsRegistration },
+  { createLedgerRegistration: createRunsRegistration },
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { createCoreRegistration: createApprovalsRegistration },
@@ -68,6 +71,7 @@ export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
   new URL("../../domains/register.ts", import.meta.url).href,
+  new URL("../../runs/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
   new URL("./wiring/instructions-registration.ts", import.meta.url).href,
@@ -87,6 +91,7 @@ export const TEAM_MODULES = [
 //   message body → apps → trace export → rewind files → provider login → revocation sweep.
 // - 읽는 쪽 wiring은 쓰는 쪽보다 뒤다: agent runtime은 extensions 뒤다. 순서가 틀리면 wiring 칸을 읽을 때 오류가 난다.
 // - supervision은 다른 start보다 앞이다(platform/io 위에서 다른 worker가 뜬다).
+// - runs는 router 뒤다. 켤 때 router가 돌던 turn을 닫은 뒤에 run을 맞춰야 그 turn의 끝을 본다.
 export const WIRINGS: readonly WiringFactory[] = [
   supervisionWiring,
   diagnosticsWiring,
@@ -108,6 +113,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentProviderLoginWiring,
   codingSessionsWiring,
   annotationsWiring,
+  runsWiring,
   lophnAgentExtensionsWiring,
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,

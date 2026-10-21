@@ -2,6 +2,7 @@ import { canonicalize, ok, type Result } from "../../../base/mod.ts";
 import {
   archiveSession,
   changeSessionModel,
+  changeSessionSkip,
   type compactSession,
   deleteSession,
   type failSessionCompact,
@@ -86,6 +87,7 @@ export function createConversationCommands(deps: ConversationDeps): {
   archive: CommandDefinition<typeof archiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
+  changeSkip: CommandDefinition<typeof changeSessionSkip>;
   fork: CommandDefinition<typeof forkSession>;
   requestCompact: CommandDefinition<typeof requestSessionCompact>;
   compact: CommandDefinition<typeof compactSession>;
@@ -264,6 +266,39 @@ export function createConversationCommands(deps: ConversationDeps): {
         return ok({
           id: session.id,
           model_selection: input.model,
+          state_seq: String(seq),
+        });
+      },
+    },
+    // 도는 turn은 시작 때 정한 mode를 쓰므로 바꾼 값은 다음 turn부터 닿는다.
+    changeSkip: {
+      route: changeSessionSkip,
+      handle(tx, ctx, input: Input<typeof changeSessionSkip>, compare) {
+        const user = requireUser(ctx);
+        if (!user.ok) return user;
+        const session = loadSession(tx, input.session);
+        if (session === undefined) return sessionNotFound();
+        if (session.lifecycle !== "open") {
+          return reject("conflict", "the session is archived");
+        }
+        if (session.skip === input.skip) {
+          return ok({
+            id: session.id,
+            skip: session.skip,
+            state_seq: session.state_seq,
+          });
+        }
+        if (session.state_seq !== compare.state_seq) {
+          return reject("conflict", "session changed");
+        }
+        const seq = nextSessionSeq(tx);
+        tx.sql.run(
+          "update sessions set skip = ?, state_seq = ? where id = ?",
+          [input.skip ? 1 : 0, seq, session.id],
+        );
+        return ok({
+          id: session.id,
+          skip: input.skip,
           state_seq: String(seq),
         });
       },

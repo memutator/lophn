@@ -749,6 +749,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.archive,
       conversationCommands.delete,
       conversationCommands.changeModel,
+      conversationCommands.changeSkip,
       conversationCommands.fork,
       conversationCommands.requestCompact,
       conversationCommands.compact,

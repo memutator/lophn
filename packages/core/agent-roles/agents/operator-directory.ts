@@ -30,6 +30,8 @@ export function createOperatorDirectory(
           domains: loaded.definition !== null && "domains" in loaded.definition
             ? loaded.definition.domains ?? []
             : [],
+          skip: loaded.definition !== null && "skip" in loaded.definition &&
+            loaded.definition.skip === true,
         }
         : null;
     return {

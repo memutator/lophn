@@ -214,6 +214,7 @@ function orderedFrontmatter(value: Plain): Plain {
       ? list.map((item) => pick(item, ["server_name", "original_tool"]))
       : list;
   }
+  if (value.skip !== undefined) out.skip = value.skip;
   return out;
 }
 

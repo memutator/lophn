@@ -35,6 +35,8 @@ const agentSessionSchema = z.object({
   // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
   model_selection: modelChoiceOutputSchema.nullable(),
   compaction: compactionOutputSchema.nullable(),
+  // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
+  skip: z.boolean(),
   state_seq: seqSchema,
 }).refine(
   (value) =>

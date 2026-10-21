@@ -60,6 +60,7 @@ create table sessions (
   model_selection text check (model_selection is null or json_valid(model_selection)),
   compaction_through_seq integer,
   compaction_summary_call text,
+  skip integer not null default 0 check (skip in (0, 1)),
   created_seq integer not null check (created_seq >= 1),
   state_seq integer not null check (state_seq >= created_seq),
   check ((place_kind is null) = (place_id is null)),
@@ -162,6 +163,7 @@ export type AgentSessionRow = {
   model_selection: string | null;
   compaction_through_seq: string | null;
   compaction_summary_call: string | null;
+  skip: boolean;
   created_seq: string;
   state_seq: string;
 };
@@ -171,7 +173,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, role, project, app, operator, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   opening_source_seq, opening_target, model_selection, compaction_through_seq,
-  compaction_summary_call, created_seq, state_seq`;
+  compaction_summary_call, skip, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -191,6 +193,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     model_selection: text(row["model_selection"]),
     compaction_through_seq: text(row["compaction_through_seq"]),
     compaction_summary_call: text(row["compaction_summary_call"]),
+    skip: Number(row["skip"]) === 1,
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -273,6 +276,7 @@ export function agentSessionOf(row: AgentSessionRow): AgentSession {
         through_seq: row.compaction_through_seq,
         summary_call: row.compaction_summary_call,
       },
+    skip: row.skip,
     state_seq: row.state_seq,
   } as AgentSession;
 }

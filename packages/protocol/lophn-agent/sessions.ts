@@ -350,6 +350,21 @@ export const changeSessionModel = defineCommand({
   errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
 });
 
+export const changeSessionSkip = defineCommand({
+  resource: "sessions",
+  method: "change-skip",
+  name: "ChangeSessionSkip",
+  input: z.strictObject({ session: idSchema("ses"), skip: z.boolean() }),
+  output: z.object({
+    id: idSchema("ses"),
+    skip: z.boolean(),
+    state_seq: seqSchema,
+  }),
+  compare: z.strictObject({ state_seq: seqSchema }),
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
+});
+
 export const closeSession = defineCommand({
   resource: "sessions",
   method: "close",
@@ -466,6 +481,7 @@ export const SESSION_COMMANDS = [
   compactSession,
   failSessionCompact,
   changeSessionModel,
+  changeSessionSkip,
   closeSession,
   sessionList,
   sessionCompactRequests,

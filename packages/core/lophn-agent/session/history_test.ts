@@ -31,6 +31,7 @@ function stub(rows: Row[], request: number): CoreCall {
           opening_context: null,
           model_selection: null,
           compaction: null,
+          skip: false,
           state_seq: "1",
         },
         ...common,

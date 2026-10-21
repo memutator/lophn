@@ -28,10 +28,11 @@ import { agentNameSchema } from "../../../protocol/lophn-agent/agent-values.ts";
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
 });
-// operator 정의 입력. 이름은 따로 받고 grant와 agent 층 MCP 서버(실행 파일을 정하는 것)는 입력에 없다.
+// operator 정의 입력. 이름은 따로 받고 grant, agent 층 MCP 서버(실행 파일을 정하는 것), skip 기본값은 입력에 없다.
 const operatorDefinition = operatorDefinitionSchema.omit({
   name: true,
   mcp_servers: true,
+  skip: true,
 });
 
 const operatorPlace = z.union([

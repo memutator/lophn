@@ -15,6 +15,7 @@ const mcpServersSchema = z.array(mcpServerSchema).max(32).refine(
 
 // Operator 정의: 이름, profile, model, skill 고르기, domain, MCP 끄기, agent 층 MCP 서버와 지침(body)이다.
 // agent grant는 사람만 정하므로 정의에 없다(approvals/grants.ts).
+// skip은 그 Operator의 새 session이 skip으로 시작하는 기본값이고 사람만 쓴다.
 // 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다.
 const definitionKeys = {
   profile: true,
@@ -27,10 +28,18 @@ const definitionKeys = {
 
 export const operatorDefinitionSchema = agentDefinitionSchema
   .pick(definitionKeys)
-  .extend({ name: agentNameSchema, mcp_servers: mcpServersSchema.optional() });
+  .extend({
+    name: agentNameSchema,
+    mcp_servers: mcpServersSchema.optional(),
+    skip: z.boolean().optional(),
+  });
 export const operatorDefinitionOutputSchema = agentDefinitionOutputSchema
   .pick(definitionKeys)
-  .extend({ name: agentNameSchema, mcp_servers: mcpServersSchema.optional() });
+  .extend({
+    name: agentNameSchema,
+    mcp_servers: mcpServersSchema.optional(),
+    skip: z.boolean().optional(),
+  });
 export type OperatorDefinition = z.infer<typeof operatorDefinitionSchema>;
 
 // operator.update용. 보낸 칸만 바꾼다.

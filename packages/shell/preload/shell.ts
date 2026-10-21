@@ -31,8 +31,8 @@ import { createWindowControlsApi } from "./window-controls-api.ts";
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
 const role = location.host === "overlay" ? "overlay" : "shell";
-// 보호 창 열기, 앱 view 열기·bounds·숨김·폐기와 [Report a problem] 시작은 desktop 창 본문만
-// 갖는다. overlay view에는 열지 않는다.
+// 보호 창 열기, 앱 view 열기·bounds·숨김·폐기는 desktop 창 본문만 갖는다. overlay view에는
+// 열지 않는다.
 contextBridge.exposeInMainWorld(
   "lophnShell",
   role === "shell"

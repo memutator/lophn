@@ -144,8 +144,6 @@ const releaseComparisonSchema = z.object({
   added_screens: z.array(z.string().min(1)),
   removed_screens: z.array(z.string().min(1)),
   changed_screens: z.array(z.string().min(1)),
-  // 선언이 삭제되거나 바뀐 problem code. 열린 problem이 있어도 닫힘 근거가 아니다.
-  added_problem_code_warnings: z.array(z.string().min(1)),
   data_schema: z.object({
     from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),

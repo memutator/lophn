@@ -34,9 +34,9 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 - `AppErrorBoundary({children})` — 앱 화면 root의 오류 경계다. 앱 진입에서
   root를 감싼다. 아래에서 render 오류가 나면 `window`에 `RENDER_ERROR_EVENT`
   (`lophn:render-error`) DOM event를 보낸다. `detail`은 오류의 `name`과
-  `message`다. lophn의 앱 preload가 그것을 플랫폼 오류 수집으로 넘기므로 앱이
-  따로 보고하지 않아도 된다. 화면에는 원문 오류 없이 "Couldn't show this
-  screen."과 [Try again]만 보인다. 보고 처리 규칙은 problems/reporting을 따른다.
+  `message`다. lophn의 앱 preload가 그것을 앱 log의 `view_error` 줄로 넘기므로
+  앱이 따로 보고하지 않아도 된다. 화면에는 원문 오류 없이 "Couldn't show this
+  screen."과 [Try again]만 보인다.
 - type: `ToolSpec`, `ToolInput`, `AppBridge`, `ToolState`, `ToolResult`,
   `ToolButtonProps`, `UseTool`, `AppErrorBoundaryProps`
 

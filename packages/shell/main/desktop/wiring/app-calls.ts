@@ -10,8 +10,8 @@ type AppCalls = Registered & {
   appCall: ReturnType<typeof createAppCall>;
 };
 
-// 앱 preload 통로. 신원은 IPC sender view에서만 정한다. view 오류의 collector 전달은
-// 아직 core 통로가 없어 unsent다.
+// 앱 preload 통로. 신원은 IPC sender view에서만 정한다. view 오류는 viewErrors가 core를 거쳐 그 앱
+// log에 쓴다.
 export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appCall = createAppCall({
     blueprint: createBlueprintSource((app, release) =>

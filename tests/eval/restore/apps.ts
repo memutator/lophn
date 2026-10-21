@@ -1,5 +1,7 @@
 import { appCreate } from "../../../packages/protocol/apps/mod.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
+import { runtimePids } from "../../support/core/process.ts";
+import { settle } from "../../support/core/human.ts";
 import type { SetupContext } from "../types.ts";
 import { appProjectName, openAppProject } from "../../support/app/activate.ts";
 import { type Material, textOf } from "./manifest.ts";
@@ -14,7 +16,7 @@ export async function restoreAppProject(
   return project;
 }
 
-// source는 연결하지 않는다.
+// `app.create`가 template source를 깔고 앱에 잇는다. 재료는 그 source를 쓰지 않는다.
 export async function restoreApps(
   ctx: SetupContext,
   material: Material,
@@ -27,7 +29,10 @@ export async function restoreApps(
   for (const { slug, name, description } of apps) {
     const id = material.manifest.ids[name] as Id<"app">;
     await restoreAppProject(ctx, slug);
+    // 이 재료만 쓰는 시나리오는 곧 진짜 model turn을 연다. core가 source를 잇고 agent runtime child를 다시 띄우므로 새 child가 ready가 될 때까지 기다린다.
+    const before = await runtimePids(ctx.core.run.home);
     await ctx.core.call(appCreate, { id, slug, name, description });
+    if (before.length > 0) await settle(ctx.core, before);
     ctx.world.apps[name] = id;
   }
 }

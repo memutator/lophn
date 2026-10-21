@@ -10,5 +10,11 @@
     "name": "notify-app",
     "n": 2,
     "hash": "dd4084b8d99f7c5e6df55e039cfdbf5b709a9e25be7cb006c23926fd445be3f1"
+  },
+  {
+    "kind": "material",
+    "name": "notify-app",
+    "n": 3,
+    "hash": "f3933e2153cfe3e29d3fe5b6c07edd5d4ebfe8030c764130ca538761cb0e6494"
   }
 ]

@@ -1,0 +1,22 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.summary.app": "Schedule reminders that other apps can call.",
+  "reminders.button.reload": "Reload",
+  "reminders.empty.none": "No reminders yet.",
+  "reminders.label.count":
+    "{count, plural, one {# reminder} other {# reminders}}",
+  "reminders.label.list": "List reminders",
+  "reminders.label.reminders": "reminders",
+  "reminders.label.schedule": "Schedule reminder",
+  "reminders.summary.list": "Read the saved reminders, earliest first.",
+  "reminders.summary.reminder-time":
+    "When to remind, in milliseconds since the Unix epoch.",
+  "reminders.summary.reminder-title": "What the reminder is about.",
+  "reminders.summary.schedule": "Save one reminder for the given time.",
+  "reminders.title.screen": "Reminders",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

@@ -1,0 +1,59 @@
+import { useCallback, useEffect, useState } from "react";
+import { Inbox } from "lucide-react";
+import { AppShell } from "@lophn/ui/layout";
+import { ReadState } from "@lophn/ui/feedback";
+import { t } from "../../wording/t.ts";
+import { listReminders, type Reminder } from "./bridge.ts";
+import styles from "./app.module.css";
+
+// reminders 화면. 저장된 알림의 목록만 보여 준다. 문구는 모두 en catalog의 key고, 읽기 결과의 loading·
+// empty·error는 @lophn/ui/feedback의 ReadState가 그린다.
+export function App() {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setReminders(await listReminders());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <AppShell title={t("reminders.title.screen")}>
+      <ReadState
+        loading={loading}
+        failed={failed ? t("reminders.label.reminders") : undefined}
+        onRetry={() => void load()}
+        isEmpty={reminders.length === 0}
+        empty={{
+          icon: Inbox,
+          message: t("reminders.empty.none"),
+          action: {
+            label: t("reminders.button.reload"),
+            onSelect: () => void load(),
+          },
+        }}
+      >
+        <p>{t("reminders.label.count", { count: reminders.length })}</p>
+        <ul className={styles.list}>
+          {reminders.map((reminder) => (
+            <li key={reminder.id}>
+              {reminder.at_local} {reminder.title}
+            </li>
+          ))}
+        </ul>
+      </ReadState>
+    </AppShell>
+  );
+}

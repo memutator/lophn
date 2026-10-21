@@ -1,47 +1,52 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { agentGrantsSet } from "../../../packages/protocol/approvals/mod.ts";
-import {
-  appConnectSource,
-  appCreate,
-  appGet,
-} from "../../../packages/protocol/apps/mod.ts";
-import { restoreAppProject } from "./apps.ts";
 import type { Id } from "../../../packages/protocol/base/mod.ts";
+import { scaffoldApp } from "../../../packages/core/apps/packages/template/scaffold.ts";
 import {
   approveActivation,
   deliverRelease,
-  type TestApp,
+  startTestApp,
   waitRunning,
 } from "../../support/app/activate.ts";
-import { runtimePids } from "../../support/core/process.ts";
-import { openSession, settle } from "../../support/core/human.ts";
-import { connectGateway } from "../../support/gateway/mod.ts";
-import { reportHarness } from "../../support/gateway/shell.ts";
+import type { AppPatch } from "../../support/app/source.ts";
 import type { SetupContext } from "../types.ts";
-import { git } from "./git.ts";
+import { restoreAppProject } from "./apps.ts";
 import { type Material, textOf } from "./manifest.ts";
 
 const TMPL = ".tmpl";
 const SOURCE = "source/";
 
-// source/ 아래 file을 `<work>/<slug>`에 풀고 git init·commit한다. 이름 끝의 `.tmpl`만 뗀다.
-async function writeSource(
+// core가 `app.create`에서 깐 template을 걷고 재료의 source/ 아래 file을 얹는다. 이름 끝의 `.tmpl`만 뗀다.
+// template file이 남으면 재료에 없는 file(home 화면 등)이 commit에 섞인다. `.git`과 `.lophn`만 둔다.
+function materialSource(
   material: Material,
-  dir: string,
-): Promise<string> {
-  for (const file of material.files) {
-    if (!file.path.startsWith(SOURCE) || !file.path.endsWith(TMPL)) continue;
-    const path = `${dir}/${file.path.slice(SOURCE.length, -TMPL.length)}`;
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await Deno.writeFile(path, file.bytes);
-  }
-  await git(dir, "init", "-q");
-  await git(dir, "add", "-A");
-  await git(dir, "commit", "-q", "-m", "app");
-  return await git(dir, "rev-parse", "HEAD");
+  slug: string,
+  dataRoot: string,
+): AppPatch {
+  return async (dir) => {
+    for await (const entry of Deno.readDir(dir)) {
+      if (entry.name === ".git" || entry.name === ".lophn") continue;
+      await Deno.remove(`${dir}/${entry.name}`, { recursive: true });
+    }
+    for (const file of material.files) {
+      if (!file.path.startsWith(SOURCE) || !file.path.endsWith(TMPL)) continue;
+      const path = `${dir}/${file.path.slice(SOURCE.length, -TMPL.length)}`;
+      await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+        recursive: true,
+      });
+      await Deno.writeFile(path, file.bytes);
+    }
+    // 개발용 import map은 등록 때 그 폴더의 deno.json으로 쓰인다. 재료의 deno.json으로 다시 써야 `deno task check`가 돈다.
+    const scaffolded = await scaffoldApp({
+      files: [],
+      dir,
+      app: slug,
+      dataRoot,
+    });
+    if (!scaffolded.ok) throw new Error(scaffolded.error.message);
+  };
 }
 
-// `startTestApp`에서 template 대신 재료의 source를 쓰는 것이 다르고 나머지는 같은 제품 길이다.
+// 제품 길로 되살린다: `app.create` → 재료 source commit → 가짜 App Engineer의 release 준비·activate → 사람의 동의 → running.
 export async function restoreActiveApp(
   ctx: SetupContext,
   material: Material,
@@ -54,52 +59,29 @@ export async function restoreActiveApp(
     goal?: string;
   };
   const id = material.manifest.ids[spec.name] as Id<"app">;
-  let gateway: TestApp["gateway"] | undefined;
   try {
     fake.reset();
     // 앱 옆에 사람이 둔 보통 project다. 앱은 project에 묶이지 않는다.
     await restoreAppProject(ctx, spec.slug);
-    await core.call(appCreate, {
+    const app = await startTestApp(core, fake, {
       id,
-      slug: spec.slug,
       name: spec.name,
+      slug: spec.slug,
       description: spec.description,
+      sample: false,
+      patch: materialSource(material, spec.slug, core.run.home),
     });
-    const dir = `${core.run.work}/${spec.slug}`;
-    const commit = await writeSource(material, dir);
-    // 연결하면 core가 agent runtime child를 새 권한으로 다시 띄운다. 새 child가 ready가 될 때까지 기다린다.
-    const before = await runtimePids(core.run.home);
-    await core.call(
-      appConnectSource,
-      { app: id, source_path: dir },
-      { base_revision: (await core.call(appGet, { app: id })).app.revision },
-    );
-    if (before.length > 0) await settle(core, before);
-    // 이 grant 줄이 없으면 App Engineer의 call이 not_allowed다.
-    await core.call(agentGrantsSet, {
-      agent: { role: "app_engineer", app: id },
-      entries: [{
-        kind: "agent",
-        agent: { role: "coding_agent", app: id },
-        setting: "never",
-      }],
-    });
-    gateway = await connectGateway(core);
-    await reportHarness(core);
-    const app: TestApp = {
-      app: id,
-      slug: spec.slug,
-      name: spec.name,
-      source: dir,
-      commit,
-      ae: await openSession(core, { role: "app_engineer", app: id }),
-      gateway,
-    };
-    const { release } = await deliverRelease(core, fake, app, {
+    const { release, activated } = await deliverRelease(core, fake, app, {
       goal: spec.goal ?? "Make the first release of the app",
     });
-    // 전제 재료를 만드는 일이라 사람의 승인은 늘 allow다.
-    await approveActivation(core, app, "allow");
+    if (activated.status === "waiting_consent") {
+      // 전제 재료를 만드는 일이라 사람의 승인은 늘 allow다.
+      await approveActivation(core, app, "allow");
+    } else if (activated.status === "failed") {
+      throw new Error(
+        `activation failed: ${activated.failure.code} ${activated.failure.summary}`,
+      );
+    }
     await waitRunning(core, app, release);
     ctx.world.apps[spec.name] = id;
     return ok(undefined);
@@ -110,8 +92,5 @@ export async function restoreActiveApp(
         error instanceof Error ? error.message : String(error)
       }`,
     });
-  } finally {
-    // 진짜 driver가 같은 coding_terminal frame을 받으려면 Gateway를 놓아야 한다.
-    await gateway?.close();
   }
 }

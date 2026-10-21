@@ -18,9 +18,9 @@ const BODY =
 
 const scenario: Scenario = {
   id: "L4-new",
-  n: 6,
+  n: 7,
   proposal: true,
-  world: ["notify-app@2", "date-range@2"],
+  world: ["notify-app@3", "date-range@3"],
   real: [LOPHN],
   steps: [say(LOPHN, REQUEST), untilIdle()],
   checks: [

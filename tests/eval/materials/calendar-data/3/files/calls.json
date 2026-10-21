@@ -1,0 +1,44 @@
+[
+  {
+    "app": "캘린더",
+    "api": "event.add",
+    "input": {
+      "title": "팀 회의",
+      "start": {
+        "year": 2099,
+        "month": 3,
+        "day": 2,
+        "hour": 10,
+        "minute": 0
+      }
+    }
+  },
+  {
+    "app": "캘린더",
+    "api": "event.add",
+    "input": {
+      "title": "점심 약속",
+      "start": {
+        "year": 2099,
+        "month": 3,
+        "day": 4,
+        "hour": 12,
+        "minute": 0
+      }
+    }
+  },
+  {
+    "app": "캘린더",
+    "api": "event.add",
+    "input": {
+      "title": "독서 모임",
+      "start": {
+        "year": 2099,
+        "month": 3,
+        "day": 6,
+        "hour": 19,
+        "minute": 0
+      }
+    }
+  }
+]

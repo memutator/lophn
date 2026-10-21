@@ -1,0 +1,83 @@
+# 알림
+
+lophn 앱 `notify`이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은
+설치 SDK Package를 쓴다.
+
+<!-- begin lophn-managed -->
+lophn 앱이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은 설치 SDK
+Package를 쓴다.
+
+이 안내는 앱 root의 정본 `AGENTS.md` 하나에서 읽는다. 제품별 파일은 정본을
+가리키는 얇은 안내만 두고 규칙 본문을 복제하지 않는다.
+
+## 설계와 구현의 구별
+
+- `blueprint.ts`가 정본 선언이다. 코드를 바꾸기 전에 먼저 바꾼다.
+- 설계 문서, blueprint 선언, 구현 code, machine 생성물(생성된
+  placeholders·locks·build 자원)은 서로 다른 몫이다. machine이 만든 파일은
+  손으로 고치지 않는다.
+- 기존 fixture와 작업 제약을 보존한다. 테스트 기대값을 낮춰 통과시키지 않는다.
+
+## SDK 확인
+
+- 내장 SDK의 사용법은 `.lophn/import-map.json`이 가리키는 설치 사본 폴더의
+  `guide.md`를 읽는다. 새 SDK Package나 의존이 필요하면 `blueprint.ts`의 의존
+  선언과 `deno.json`의 import map을 같은 정확한 version으로 함께 고친다(release
+  준비가 둘을 대조한다).
+- 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
+  layout, navigation, data, feedback, overlay, reading이고, 분류의 `mod.ts`가
+  목록이다(export마다 "언제 쓰나" 한 줄. 위치는 `.lophn/import-map.json`). 앱
+  bridge component(ToolButton, useTool, AppErrorBoundary)는 `@lophn/app-ui`다.
+- token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
+  변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
+  값을 직접 쓰지 않는다.
+- 실패 분기는 `@lophn/cap-problem`의 `reportProblem(name, message?, details?)`로
+  앱 log에 error 한 줄을 쓴다(`guide.md`). 이름은 선언하지 않는다. 처리하지 못한
+  예외는 lophn 진입점이 앱 log에 쓴다.
+
+## 테스트·preview·release·결과 알림
+
+- 앱 test는 `deno task test`, type 검사는 `deno task check`로 돌린다.
+- preview는 fixture 격리 사본에서 화면·tool을 확인하는 것뿐이고 운영 정상의
+  증거가 아니다.
+- release 준비는 source의 지금 commit(HEAD)으로 bundle을 만든다. commit하지 않은
+  변경이나 ignore하지 않은 새 file이 있으면 거절하므로 고친 것은 모두 commit한 뒤
+  준비한다.
+- 결과를 알릴 때 확인한 것(앱 test, preview에서 본 동작, release 준비,
+  activation)과 확인하지 않은 것, 알려진 한계를 구별해 적는다.
+<!-- end lophn-managed -->
+
+## 파일
+
+- `blueprint.ts`: 앱의 정본 선언(화면·tool·고정 SDK 의존).
+  코드를 바꾸기 전에 먼저 바꾼다. tool 선언에는 tool마다 `domain`(이 앱의
+  domain 이름)이 필요하다. 앱 이름의 domain이 있다.
+- `main.ts`: 진입. tool 등록만 한다. 잡히지 않은 예외는 lophn 진입점이 앱
+  log에 쓴다.
+- `src/tools.ts`: `registerTools`가 blueprint에 선언한 tool마다 handler를
+  등록한다. 업무 규칙은 `src/` 아래 module로 나눈다.
+- `migrations/<from>-<to>.sql`: 앱 DB schema 단계. DB를 쓰는 앱만 둔다.
+- `src/screens/<key>/`: React 화면(`index.html`, `main.tsx`). blueprint의
+  `screens`에 같은 key로 선언한다. root는 `AppErrorBoundary`로 감싼다.
+- `src/wording/en.ts`: 화면 문구의 en catalog. 화면 코드에 문구를 직접 쓰지 않고
+  `t("key")`만 쓴다.
+- `tests/`: `blueprint_test.ts`는 lophn가 만든 파일이라 고치지 않는다.
+- `deno.json`: 정확한 SDK import map. `lophn-sdk:` 값은 정확한 version만 받는다.
+  `.lophn/`는 이 장치의 개발용 파생물이라 commit하지 않는다.
+
+## 명령
+
+- `deno task test`: 앱 test(blueprint·업무 규칙·문구).
+- `deno task build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
+  결과를 bundle에 담는다.
+- `deno task wording`: en catalog를 바꾼 뒤 `src/wording/placeholders.ts`를 다시
+  만든다.
+- `deno task check`: type 검사.
+
+## 재사용 기준
+
+- 새 SDK Package나 공용 component로 올리는 것은 lophn 화면과 이 앱 같은 실제
+  사용처가 둘 이상이고, 도메인 이름·입출력이 분명하며, 스타일이 token 기반일
+  때뿐이다.
+- 앱 DB 구조, 앱 전용 prop, 한 곳의 layout 조정은 이 앱에 남긴다. 한 번 쓴 것을
+  미리 일반화하지 않는다.

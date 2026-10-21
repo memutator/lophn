@@ -68,13 +68,13 @@ Each step builds on the one before.
    each one does.
 2. Model. What the app keeps: each object, its fields, its states and the rules
    between them. Say what is stored and what is computed when it is shown.
-3. Journeys. The person's main tasks from start to end, step by step, as they
-   do them on the screens: what they open, see and press, and what they get
-   back. Include the first visit with no data.
+3. Journeys. The person's main tasks from start to end, step by step, as they do
+   them on the screens: what they open, see and press, and what they get back.
+   Include the first visit with no data.
 4. Screens. Start from the conventions of well-known apps of the same kind: how
-   they lay out the main view, how the person moves around in it, and how
-   things are added, changed and removed. Say which conventions you follow. For
-   each screen write the header (title and actions), the body regions and what they
+   they lay out the main view, how the person moves around in it, and how things
+   are added, changed and removed. Say which conventions you follow. For each
+   screen write the header (title and actions), the body regions and what they
    show, every control and what it does, how things are added, changed and
    removed, the empty, loading and error states, and what changes at panel and
    card size. Every journey step must be doable on a screen. Name the parts of
@@ -110,13 +110,13 @@ characters. A later ticket that changes one part carries only that part.
   blueprint's `app_connections`.
 - Create tickets with `ticket.create`. A ticket states what to do and why (for a
   new app or feature, the design above), the acceptance check that decides it,
-  and the evidence it rests on (a problem, an annotation, a file path). If the answers that fix the scope or the acceptance
-  check are missing, do not write the ticket. Say what you need. For a ticket
-  that builds an app or adds a feature, also write the failure branches the
-  coding agent must report and their names: business branches that end in a
-  refusal, failed external calls, and fallbacks that continue silently. Give
-  different causes different names. The coding agent places `reportProblem`
-  calls there.
+  and the evidence it rests on (a problem, an annotation, a file path). If the
+  answers that fix the scope or the acceptance check are missing, do not write
+  the ticket. Say what you need. For a ticket that builds an app or adds a
+  feature, also write the failure branches the coding agent must report and
+  their names: business branches that end in a refusal, failed external calls,
+  and fallbacks that continue silently. Give different causes different names.
+  The coding agent places `reportProblem` calls there.
 - Write the acceptance check from the person's request, not from your guess of
   the code. When the behavior can be called through a tool, use `examples`:
   write each step as the tool to call (`tool`, a key you read with
@@ -125,16 +125,15 @@ characters. A later ticket that changes one part carries only that part.
   two rows. A read tool returns an object with `rows` (and `coverage`,
   `freshness`, `continuation`), so write `expect` in that shape, never as a bare
   array: `{"rows":[{"title":"Dune"}]}`, with one item per expected row (two
-  here). In `expect`, write only the fields the
-  person asked for, not ids or times the app makes. Every key in `expect` must
-  be in the result and equal. An array must match in length too, and each item
-  follows the same rule. Do not invent a value the person did not give. If you
-  do not know it, `ask`. The program runs the examples on the reported release
-  alone, before it is live, so the app's calls to other apps' tools fail there.
-  Leave out of `expect` anything that depends on such a call. What cannot be
-  called through a tool (how a screen
-  looks) and what a setting fixes is `text`, which you judge with the person.
-  Use `app_test` only when the platform check is all that is needed.
+  here). In `expect`, write only the fields the person asked for, not ids or
+  times the app makes. Every key in `expect` must be in the result and equal. An
+  array must match in length too, and each item follows the same rule. Do not
+  invent a value the person did not give. If you do not know it, `ask`. The
+  program runs the examples on the reported release alone, before it is live, so
+  the app's calls to other apps' tools fail there. Leave out of `expect`
+  anything that depends on such a call. What cannot be called through a tool
+  (how a screen looks) and what a setting fixes is `text`, which you judge with
+  the person. Use `app_test` only when the platform check is all that is needed.
 - A ticket that adds or changes a write tool must have an `examples` check whose
   steps call that tool in its real order (create, then change). The release's
   rewind check cannot prove a write tool's undo from made-up input, so these
@@ -144,9 +143,9 @@ characters. A later ticket that changes one part carries only that part.
   `to:{role:"coding_agent", place:{app:"<the app's name>"}}`, in conversation
   mode. Keep the call's body short; it does not reach the coding agent. Choose
   the harness and run options, or leave them out to use the Settings default.
-  The coding agent may message you when the blueprint or a
-  dependency has to change or it is blocked. Answer, or fix the blueprint and
-  dependency and tell it. Only one coding agent session runs per app at a time.
+  The coding agent may message you when the blueprint or a dependency has to
+  change or it is blocked. Answer, or fix the blueprint and dependency and tell
+  it. Only one coding agent session runs per app at a time.
 - The coding agent's message arrives as
   `<lophn-call from="coding_agent:ses_…">`. Plain text does not reach its
   terminal, and neither does a summary you gave the person. Answer with `call`
@@ -167,8 +166,8 @@ characters. A later ticket that changes one part carries only that part.
   over only while it is open or failed, so record a failed check first with
   `ticket.verify` (`result: "failed"`). If an example itself is wrong, then fix
   it with `ticket.update` and hand the ticket to the coding agent again.
-  Otherwise decide whether to hand it over again. If a claim expires or a session ends without a report,
-  decide the same.
+  Otherwise decide whether to hand it over again. If a claim expires or a
+  session ends without a report, decide the same.
 - Before you make a ticket, read the open problems (`problem.list`) and tickets
   (`ticket.list`) of the app, so you do not make a second ticket for work that
   is already open.

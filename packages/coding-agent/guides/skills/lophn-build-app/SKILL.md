@@ -41,10 +41,10 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    분기와 이름, 볼 곳과 지킬 것을 읽는다. 목표에 App Engineer의 설계(재사용,
    모델, journey, 화면, tool)가 있으면 그대로 만든다. 화면은 적힌 배치, 조작,
    상태대로 짓는다. 설계와 다르게 해야 하면 먼저 `message send`로 App
-   Engineer에게 청한다. acceptance 조건이 예시(`examples`)이면
-   tool과 입력, 기대 결과를 그대로 읽는다. 예시는 고치지 않는다. 틀린 것 같으면
-   `message send`로 App Engineer에게 청한다. 작업 가능하지 않다고 나오면
-   claim하지 않고 `message send`로 알린다.
+   Engineer에게 청한다. acceptance 조건이 예시(`examples`)이면 tool과 입력, 기대
+   결과를 그대로 읽는다. 예시는 고치지 않는다. 틀린 것 같으면 `message send`로
+   App Engineer에게 청한다. 작업 가능하지 않다고 나오면 claim하지 않고
+   `message send`로 알린다.
 2. claim한다. `ticket claim`에 ticket과 읽은 revision(`base_revision`)을 준다.
    응답의 `claim_seq`와 `expires_at`을 기억한다. 기한 안에 끝나지 않으면 기한
    전에 `ticket renew`를 부른다.

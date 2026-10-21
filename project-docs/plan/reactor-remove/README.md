@@ -19,12 +19,13 @@
 roadmap `problem-ticket.md`의 "정한 것(agent)"을 따른다. 아래는 이 계획에서 더 정한 것이다(agent, 2026-10-21).
 
 - **앞 두 계획 뒤 남는 domain event를 모두 지운다.** 남는 것이 coding session의 끝 하나라면 그것도 event가 아니라 command 안의 call 닫기가 된다. 근거: `architecture/event.md` "domain event는 그 뒤에 꼭 움직여야 하는 일에만". 받는 쪽이 같은 tx에서 움직일 수 있으면 event가 필요 없다.
-- **coding session의 끝은 그 command가 같은 tx에서 맡긴 call을 닫는다.** 맡긴 App Engineer에게 마지막 메시지와 함께 알리는 것은 지금처럼 Router의 call 닫기 알림이다. 근거: `coding/close-call.ts`에 event 없이 닫는 길이 이미 있다.
+- **coding session의 끝은 그 command가 같은 tx에서 맡긴 call을 닫는다.** `ae-builds`가 이미 그렇게 바꾼다(event 없이, `packages/core/apps/coding/`). 그 계획이 land하면 `rr-coding-end`는 남은 것만 지우게 줄여 다시 맞춘다. 맡긴 App Engineer에게 마지막 메시지와 함께 알리는 것은 지금처럼 Router의 call 닫기 알림이다. 근거: `coding/close-call.ts`에 event 없이 닫는 길이 이미 있다.
 - **꺼졌던 사이에 끝난 coding session의 call은 Router의 켤 때 call 복구(`RecoverCalls`)가 닫는다.** coding call은 `consumed = 0`이라 이미 거기에 걸린다. coding 쪽 sweep을 따로 두지 않는다. 근거: 같은 사실을 두 길이 알리게 된다. `ae-builds`가 coding call을 consumed로 바꾸면 그때만 `recoverCoding`이 닫는다(`rr-coding-end`).
 - **입력 종류 `reaction`, `<lophn-reaction>` tag, `messages.event` 칸은 남기고 `seq`만 지운다.** 남은 쓰임이 coding session 끝 알림 하나다. 이름을 바꾸면 제품 지침과 화면까지 고쳐야 해서 coding agent 연결의 크기가 정해질 때 함께 본다.
 - **Diagnostics의 `events` 점검을 지운다.** Reactor 연결만 보던 점검이고, events 표 읽기는 `ledger` 점검이 이미 본다. `issues/platform.md`의 "events 점검이 Reactor backoff를 보지 못한다"가 같이 닫힌다.
 - **"사람, Router, Reactor 셋이 session을 연다"는 "사람과 Router 둘"이 된다.** `architecture/place-session.md`를 고친다.
 - **session의 `opening_context`(`opening_source_seq`, `opening_target`)를 지운다.** 값을 넣는 곳이 없다(core와 shell 모두 null). event seq를 session에 다는 같은 갈래라 `rr-program-from`이 한다.
+- **`ae-builds`가 남기는 자리표 event `CodingSessionEnded`(정의만 있고 내는 곳이 없다)를 Reactor와 함께 지운다.** `DOMAIN_EVENTS`가 비면 compile되지 않아 `ae-builds`가 남겼다. `rr-coding-end`의 일은 `ab-coding-detach`와 `ab-router`가 거의 다 하므로, `ae-builds`가 land하면 남은 것만 맞춰 줄인다.
 - **domain event 표나 type을 비워 두지 않는다.** 읽는 곳이 없어지면 type, schema, wiring을 지운다. 옛 schema step은 그 자리에서 고치거나 지운다(AGENTS.md "호환성").
 
 ## 사람이 정할 것

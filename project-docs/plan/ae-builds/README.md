@@ -78,13 +78,13 @@ roadmap `problem-ticket.md`의 "정한 것(사람)"과 "정한 것(agent)"을 �
 
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
 - land는 `LOPHN_LAND_SKIP_E2E=1 land.sh ae-builds`다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
+- `ab-release-prepare`는 file 약 25개로 크다. 한 session에 안 끝나면 brief의 나눔 안(prepare child의 검사, supervisor의 실패 이유 전달, preview 검사를 wave 4 task로)대로 쪼갠다.
+- worker는 `project-docs`를 고치지 못한다. brief에 "lead가 이 task branch에서 merge 전에 고친다"고 적힌 문서 줄(`ab-coding-move`, `ab-cli`, `ab-source`, `ab-runner-delete`)은 lead가 그 merge에서 고친다. 지운 path를 가리키는 문서 줄은 docs check가 떨어뜨린다.
+- 조립 목록 등록은 brief의 "등록할 것"을 따른다: `assembly.ts`(tickets, coding path, problems, wiring), `protocol/mod.ts`(problems ROUTES), `protocol/coding-agent/mod.ts`(`CODING_SKILL_NAMES`).
 - 다 끝나면
   - 문서: `architecture/coding-agent.md`, `activation.md`, `testing.md`, `event.md`, `domain.md`(공개 tool 막기), `app-call.md`(preview를 부르는 쪽), `layers.md`(problems → apps feature 의존이 없어진다), `agent-definition.md`(조립 그림에 대화의 cache 경계), `annotation.md`(ticket 근거 ref)
   - `project-docs/products/AGENT-ROLE.md`: P6, P8, L4, A1~A16, K1~K5, T20, 5절 그림, 6절
   - `project-docs/boundary-catalog.yaml`(`app-tickets`, `problems`의 test runner 몫), `project-docs/module-catalog.yaml`. `packages/core/problems` 줄은 `ab-runner-delete`와 같은 merge에서 지운다. 늦으면 `check-modules`가 없는 path로 떨어진다.
-- `ab-release-prepare`는 file 약 25개로 크다. 한 session에 안 끝나면 brief의 나눔 안(prepare child의 검사, supervisor의 실패 이유 전달, preview 검사를 wave 4 task로)대로 쪼갠다.
-- worker는 `project-docs`를 고치지 못한다. brief에 "lead가 이 task branch에서 merge 전에 고친다"고 적힌 문서 줄(`ab-coding-move`, `ab-cli`, `ab-source`, `ab-runner-delete`)은 lead가 그 merge에서 고친다. 지운 path를 가리키는 문서 줄은 docs check가 떨어뜨린다.
-- 조립 목록 등록은 brief의 "등록할 것"을 따른다: `assembly.ts`(tickets, coding path, problems, wiring), `protocol/mod.ts`(problems ROUTES), `protocol/coding-agent/mod.ts`(`CODING_SKILL_NAMES`).
   - `project-docs/PRODUCT.md` 6절의 MVP 목록("ticket")
   - roadmap `problem-ticket.md`와 `agent-definition.md`에서 land된 것을 지운다.
   - 이슈를 닫는다(`issue` skill): 위 "재료"의 이슈 가운데 이 계획이 고친 것

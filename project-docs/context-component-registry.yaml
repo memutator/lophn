@@ -167,7 +167,7 @@ components:
   - id: architecture-event
     kind: doc
     roles: [planner, lead]
-    description: domain event와 agent event가 기록되고 배달되는 길.
+    description: command가 이어서 움직일 일을 같은 tx에서 하고, 기록 event를 events 표에 남기고, agent event와 남지 않는 event를 Bus로 화면에 내는 길.
     path: project-docs/architecture/event.md
     change_reasons:
       boundaries: [events, storage, router, event-stream]

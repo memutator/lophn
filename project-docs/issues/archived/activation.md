@@ -235,3 +235,27 @@ guard: 없음
 고치려면: activation 때 그 release의 app test 증거에서 `unproven`을 읽어 problem으로 낸다(중간. activation(`packages/core/apps/releases/activation`)이 app test 증거를 모르므로 apps → problems port가 필요하다). 지침이 지켜지는지 보고 필요해질 때 한다.
 
 닫음: 남긴다. 알릴 길(앱 problem `rewind_unproven`)을 지웠다. program은 증명 못 한 write tool을 agent에게 알리지 않고, 그 결과는 app test pass 이유 한 줄(`packages/core/problems/tests/unproven.ts`의 `unprovenNote`)에만 남는다. rewind 증명 자체는 ticket과 test runner를 지우는 계획이 같이 지운다.
+
+## release 준비가 떨어진 이유가 고칠 곳을 가리키지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/main]
+closed: fixed
+guard: packages/core/apps/releases/prepare/checks_test.ts
+```
+
+지금: `release.prepare`는 떨어진 단계와 이유를 `{status: "failed", stage, reason}`으로 돌려주지만(`packages/core/apps/control.ts`의 `releasePrepareHandler`), 세 단계의 이유가 모두 짧다.
+- migration: 검사(`packages/core/apps/releases/prepare/checks.ts`의 `checkMigration`)는 activation과 같은 `migrateAppDatabase`(`packages/core/apps/data/worker/migrate.ts`)를 fixture DB에 건다. 단계가 실패하면 `applyStep`(`packages/core/apps/data/worker/db.ts`)이 SQL 오류를 `catch {}`로 버리고 "migration step rolled back"만 돌려주고, PRIMARY KEY 없는 새 표의 이름이 담긴 오류도 `migrateAppDatabase`가 `failed = true`로만 받아 버린다. 결과는 `restored: true` 하나라 reason은 "a step failed and was rolled back. Check the SQL of each step …" 같은 일반 글이다.
+- build: 준비 자식(`packages/core/main/worker/release-job.ts`)의 실패 이유는 `prepareFromSource`(`packages/core/apps/releases/prepare/from-source.ts`)의 code(`blueprint_eval_failed`, `deno_json_missing` 같은 것)뿐이고 blueprint를 평가한 deno의 출력이 없다.
+- handlers: preview launcher(`packages/core/apps/preview/launcher.ts`)가 선언한 tool과 앱이 알린 tool이 다르면 "handler or schema mismatch"만 낸다. 그 자리에서 두 목록을 갖고 있지만 어느 tool이 빠지거나 더해졌는지 싣지 않는다.
+
+영향: App Engineer는 어디를 고칠지 모른 채 다시 짓는다. shell에서 `deno task check`나 단계 SQL을 따로 돌려 이유를 다시 찾아야 하고, 그동안 release를 못 낸다. activation의 migration 실패 이유도 같은 자리에서 사라진다.
+
+고치려면:
+- migration: `applyStep`이 sqlite 오류 글을 message에 싣고, `migrateAppDatabase`가 실패한 단계(`from-to`)와 그 message를 `restored: true` 결과에 함께 돌려준다. 검사는 그 글을 reason에 붙인다(작음. 앱이 쓴 SQL의 오류 글이라 secret 경계가 아니다).
+- build: blueprint 평가가 실패하면 deno stderr의 앞 몇 줄을 reason에 붙인다(작음).
+- handlers: launcher가 빠진 tool과 더해진 tool의 이름, schema 차이를 summary에 싣는다(작음).
+- 셋 다 한다. **추천.**
+
+닫음: migration은 `applyStep`(`packages/core/apps/data/worker/db.ts`)이 SQLite 오류 글을 한 줄 300자로 싣고, `migrateAppDatabase`가 되돌린 결과에 실패한 단계(`from-to`)와 그 글(`failed`)을 함께 돌려주고, 준비 검사(`packages/core/apps/releases/prepare/checks.ts`의 `migrateOnce`)가 reason에 붙인다. build는 blueprint 평가, 화면 build, 의존 받기가 실패하면 deno stderr의 앞 5줄 500자를 색 escape와 staging 경로를 지워 code 뒤에 붙인다(`packages/core/apps/releases/prepare/from-source.ts`의 `denoHead`). handlers는 preview launcher(`packages/core/apps/preview/launcher.ts`)가 handler 없는 tool과 선언 없는 tool(각 5개와 "and N more"), data schema 차이를 summary에 싣는다. activation의 `migration_failed` summary는 그대로다(열린 이슈 "activation의 migration 실패 이유가 실패한 단계와 SQLite 오류 글을 싣지 않는다").

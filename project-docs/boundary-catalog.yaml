@@ -105,7 +105,7 @@ elements:
 
       - id: events
         kind: component
-        description: domain event의 기록과 배달.
+        description: commit 뒤 agent event와 남지 않는 event를 화면에 내는 Bus와 Gateway.
 
       - id: router
         kind: component

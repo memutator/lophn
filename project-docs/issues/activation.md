@@ -2,22 +2,15 @@
 
 App Engineer가 준비한 release를 운영 앱으로 올리는 순서와 실패 복구, 그 앞의 release 준비. `project-docs/architecture/activation.md`.
 
-## release 준비가 떨어진 이유가 고칠 곳을 가리키지 않는다
+## activation의 migration 실패 이유가 실패한 단계와 SQLite 오류 글을 싣지 않는다
 
 ```yaml
 kind: bug
-modules: [packages/core/apps, packages/core/main]
+modules: [packages/core/apps, packages/core/main, packages/protocol]
 ```
 
-지금: `release.prepare`는 떨어진 단계와 이유를 `{status: "failed", stage, reason}`으로 돌려주지만(`packages/core/apps/control.ts`의 `releasePrepareHandler`), 세 단계의 이유가 모두 짧다.
-- migration: 검사(`packages/core/apps/releases/prepare/checks.ts`의 `checkMigration`)는 activation과 같은 `migrateAppDatabase`(`packages/core/apps/data/worker/migrate.ts`)를 fixture DB에 건다. 단계가 실패하면 `applyStep`(`packages/core/apps/data/worker/db.ts`)이 SQL 오류를 `catch {}`로 버리고 "migration step rolled back"만 돌려주고, PRIMARY KEY 없는 새 표의 이름이 담긴 오류도 `migrateAppDatabase`가 `failed = true`로만 받아 버린다. 결과는 `restored: true` 하나라 reason은 "a step failed and was rolled back. Check the SQL of each step …" 같은 일반 글이다.
-- build: 준비 자식(`packages/core/main/worker/release-job.ts`)의 실패 이유는 `prepareFromSource`(`packages/core/apps/releases/prepare/from-source.ts`)의 code(`blueprint_eval_failed`, `deno_json_missing` 같은 것)뿐이고 blueprint를 평가한 deno의 출력이 없다.
-- handlers: preview launcher(`packages/core/apps/preview/launcher.ts`)가 선언한 tool과 앱이 알린 tool이 다르면 "handler or schema mismatch"만 낸다. 그 자리에서 두 목록을 갖고 있지만 어느 tool이 빠지거나 더해졌는지 싣지 않는다.
+지금: activation은 data job 자식(`packages/core/apps/data/worker/job.ts`)에서 release 준비와 같은 `migrateAppDatabase`를 부른다. 단계가 되돌아가면 결과에 실패한 단계와 SQLite 오류 글(`failed`)이 실리지만, `job.ts`의 migrate 갈래는 `.result`만 돌려준다. core 쪽 `packages/core/main/app-supervisor/data-runner.ts`는 자식 stderr를 버리고(`stderr: "null"`) 마지막 결과 줄만 읽는다. `packages/core/apps/releases/activation/steps.ts`의 `changeData`는 목표가 아닌 schema를 "data change failed"로 바꾸고, `packages/core/apps/releases/activation/orchestrator.ts`가 `{ code: "migration_failed", summary: "the data change failed" }`로 되돌린다.
 
-영향: App Engineer는 어디를 고칠지 모른 채 다시 짓는다. shell에서 `deno task check`나 단계 SQL을 따로 돌려 이유를 다시 찾아야 하고, 그동안 release를 못 낸다. activation의 migration 실패 이유도 같은 자리에서 사라진다.
+영향: 운영 data에서만 떨어지는 migration(준비 검사의 빈 fixture DB에는 없는 행이 제약에 걸리는 것 등)이면 App Engineer는 `release.activate`의 `failed`에서 어느 단계가 왜 떨어졌는지 모르고 다시 짓는다. 단계 SQL의 문법이나 PRIMARY KEY 같은 실패는 준비 검사가 빈 DB와 active release의 schema에서 먼저 돌려 이유와 함께 걸린다.
 
-고치려면:
-- migration: `applyStep`이 sqlite 오류 글을 message에 싣고, `migrateAppDatabase`가 실패한 단계(`from-to`)와 그 message를 `restored: true` 결과에 함께 돌려준다. 검사는 그 글을 reason에 붙인다(작음. 앱이 쓴 SQL의 오류 글이라 secret 경계가 아니다).
-- build: blueprint 평가가 실패하면 deno stderr의 앞 몇 줄을 reason에 붙인다(작음).
-- handlers: launcher가 빠진 tool과 더해진 tool의 이름, schema 차이를 summary에 싣는다(작음).
-- 셋 다 한다. **추천.**
+고치려면: data job 결과 줄(`packages/protocol/apps/activation/data-job.ts`)에 실패한 단계와 글을 싣고, `job.ts`가 `failed`를 넘기고, `data-runner.ts`, activation port의 `data.migrate`(`packages/core/apps/releases/activation/assembly.ts`), `changeData`가 그 글을 `migration_failed` summary까지 옮긴다(중간. protocol과 port를 같이 바꾼다). 글은 `applyStep`이 이미 한 줄 300자로 자른다. **추천.**

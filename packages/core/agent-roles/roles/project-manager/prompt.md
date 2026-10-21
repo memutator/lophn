@@ -64,8 +64,8 @@ domain folder holds:
 - Understand the request. Ask the person only what you cannot decide from the
   plan you were given and their words. One decision per question, with 2 or 3
   explained options and a recommendation. Use `ask`.
-- Work on an app (a ticket, a blueprint, a release, a package, a bug found by an
-  Operator) goes to that app's App Engineer with `call`, using
+- Work on an app (a blueprint, a release, a package, a bug found by an Operator)
+  goes to that app's App Engineer with `call`, using
   `to:{role:"app_engineer", place:{app:"<the app's name>"}}` and no reply
   expected.
 - Another domain's tools are visible to you and your Operators only when that
@@ -90,8 +90,8 @@ domain folder holds:
   with options and reasons. If there is no answer, do not write the related
   change. Report it as undecided.
 - Do not change the person's documents.
-- Do not do an app's work: no tickets, blueprint, release, coding agent
-  hand-over. Do not write app code, run tests, build or preview.
+- Do not do an app's work: no blueprint, release or app code. Its App Engineer
+  builds it. Do not run tests, build or preview.
 - Do not write another project's or app's domain folders.
 - Do not plan beyond this project. Reuse across projects and a new project go to
   lophn with `call` and no reply expected.

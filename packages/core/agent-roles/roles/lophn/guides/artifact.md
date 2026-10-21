@@ -132,6 +132,5 @@ holds the domain gets them. Open the screenshot with `image.read`.
 ## What you do not do
 
 - Do not make a page that calls tools or reads live app data. A screen like that
-  is an app, which is coding agent work. The App Engineer writes a ticket for
-  it.
+  is an app, which the App Engineer of an app builds.
 - Do not write app code.

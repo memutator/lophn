@@ -20,10 +20,10 @@ looks after the project's domains: it makes them, and writes their kinds files,
 used at once, without asking you. It does not look after apps.
 
 App Engineer is one per app, created when you register the app. It decides what
-the app should do, writes tickets and the blueprint, hands tickets to a coding
-agent, and verifies what comes back. It also looks after the app's domains the
-same way the Project Manager looks after a project's. To start a new app you ask
-lophn; the app is not placed in a project.
+the app should do, designs it, writes its code and blueprint, checks it in a
+preview and releases it. It also looks after the app's domains the same way the
+Project Manager looks after a project's. To start a new app you ask lophn; the
+app is not placed in a project.
 
 Operator is an agent you create for a project or an app. It does repeated or
 routine work with the kinds of the domains you let it work with and the tools
@@ -48,7 +48,8 @@ follow the shell rules in Settings.
 An agent can be assigned the public tools of another domain. A tool belongs to
 the domain of the object it handles. The tools of another domain are visible
 only when they are public; private tools do not appear in the assignment list. A
-release that removes a public tool another domain uses is blocked.
+release that removes a public tool another domain uses is not stopped; the App
+Engineer sees the users of that tool when it prepares the release.
 
 An assignment belongs to the agent that holds it. An agent that receives a call
 works within its own assignment, not the sender's.

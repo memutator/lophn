@@ -75,7 +75,7 @@ const ROLE_LINE: Record<Role, string> = {
   project_manager:
     "Looks after the project's folders and its domains: DOMAIN.md, kinds and skills.",
   app_engineer:
-    "Looks after the app's tools, tickets, releases and its domains.",
+    "Designs, builds and releases the app, and looks after its domains.",
   operator: "Works with the kinds and tools it was granted.",
 };
 

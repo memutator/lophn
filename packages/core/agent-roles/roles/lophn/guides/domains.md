@@ -39,8 +39,8 @@ the line goes.
 A domain belongs to one project or one app, and stays there. Another place does
 not make a second copy. It uses the domain's public tools, which you grant to an
 agent. Private tools do not show up outside their domain. A release that removes
-a public tool another domain uses is blocked, and the users of a tool that
-changed are told.
+a public tool another domain uses does not stop the release; the App Engineer
+sees the users of that tool when it prepares the release.
 
 ## What an agent sees
 

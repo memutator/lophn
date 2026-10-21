@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py agent-definition build`가 `tasks/*.md`에�
 | `ad-builtin-skills` | builtin-skills | 1 | 없음 | merged | builtin-skills/ad-builtin-skills | 9a7335eb7 |  |
 | `ad-discovery` | discovery | 1 | 없음 | merged | discovery/ad-discovery | 88b9309e3 |  |
 | `ad-commands` | commands | 2 | ad-builtin-skills, ad-discovery | running | commands/ad-commands |  |  |
-| `ad-fields` | fields | 2 | ad-discovery | running | fields/ad-fields |  |  |
+| `ad-fields` | fields | 2 | ad-discovery | merged | fields/ad-fields | c38a9eb24 |  |
 | `ad-instructions` | instructions | 2 | ad-builtin-skills | running | instructions/ad-instructions |  |  |

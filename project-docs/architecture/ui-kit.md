@@ -59,6 +59,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 2. `lophn-sdk:` 값은 data root의 설치 사본 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)을 가리킨다. 사본은 read-only다(file 0444, 폴더 0555).
 3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/blueprint`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
 4. release 준비(`releases/prepare/from-source.ts`)가 잠근 import의 설치 사본을 `readSdkCopies`로 읽어 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
+5. 앱을 고치는 agent는 template의 `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.
 
 이 길이 지키는 것은 "사용자가 고친 것이 shell을 깨지 않고, lophn의 UI update가 사용자 앱을 깨지 않는다"다.
 - 사용자 변경 → shell: shell은 repo의 design만 import하고 sdk·앱을 모른다. 설치 사본은 read-only다.

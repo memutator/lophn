@@ -28,7 +28,8 @@ print(f"""Do the lophn task `{tid}`.
 - Put temporary files (mappings, probe output) under `.dev-data/{tid}/` in the worktree. The session scratchpad is shared with other workers running at the same time, so the same file name overwrites theirs.
 - If the auto-mode classifier blocks a command, do not work around it with another command. Report what was blocked and do what you can.
 - When checks pass, commit on this branch: an English imperative subject line and a body, ending with a `Co-Authored-By:` line with your model name. No requirement ids or task numbers.
-- Do not push, merge, rebase, or touch other branches.
+- Do not push, merge, rebase, or touch other branches. Do not use `git stash`: the stash stack is shared by every worktree of this repository.
+- Stop every process you started (for example an `http.server` for screenshots) before you report.
 - Do not commit changes to `packages/shell/main/node_modules` (symlink) or `packages/shell/main/desktop/core/deno.lock` made by the check. Add files by path and look at `git diff --cached --stat` before committing.
 - Do not start sub-agents. Do not edit project-docs.
 - Never call a real model provider.

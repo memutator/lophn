@@ -369,7 +369,7 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | T19-lophn | lophn | grant: lophn → 가계부 App Engineer `excluded` | 가계부 앱에 합계 화면을 넣어 줘 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
 | T19-op | Operator @가계부 | grant: Operator → 가계부 App Engineer `excluded` | O4와 같음 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0 |
-| L6 | lophn | | Operator는 뭐고 누가 만들어? | `guide.read` 1번 이상. call, `app.create` 0 |
+| L6 | lophn | | Operator는 뭐고 누가 만들어? | `skill.read`로 `guide-roles-and-assignments` 1번 이상. call, `app.create` 0 |
 | L7 | lophn | 가계부 앱 log에 `error` 줄, ticket 하나 | 가계부 앱 잘 돌아? | `app.status`, `app.logs`, `ticket.list`를 다 읽음. 쓰기 tool 0 |
 | A1-ask | App Engineer @가계부 | | 앱을 좀 더 좋게 만들어 줘 | `ticket.create` 0, `ask` 1번 이상 |
 | O7 | Operator @가계부 | | 너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐 | call 0 |

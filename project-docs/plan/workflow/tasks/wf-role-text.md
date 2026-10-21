@@ -7,7 +7,7 @@ role 글에 workflow를 더한다: PM과 App Engineer prompt에는 domain 폴더
 - 소유(이 task만 고친다):
   - `packages/core/agent-roles/roles/prompts.ts`
   - `packages/core/agent-roles/roles/{project-manager,app-engineer,operator}/prompt.md`
-  - `packages/core/agent-roles/roles/lophn/guides/domains.md`
+  - `packages/core/agent-roles/skills/guide-domains/SKILL.md`
 - 읽을 것:
   - 계획: `project-docs/plan/workflow/README.md`의 "정한 것"(시작은 entry에게 일을 주는 것, `reply: conversation`은 쓰지 않는다, 쓰는 것은 그 domain의 PM이나 App Engineer)과 "뼈대 검토에서 정한 것"(연락처는 이름이 오른 참가자 모두가 받는다, 열쇠는 `<domain>/<이름>`, model은 call에 `workflow`만 준다, 풀리지 않는 참가자는 file 전체를 뺀다)
   - 계약 모양: `project-docs/plan/workflow/tasks/wf-contract-shapes.md`의 "선언 file", "receiver tag", "봉투"
@@ -72,7 +72,7 @@ role 글에 workflow를 더한다: PM과 App Engineer prompt에는 domain 폴더
 4. Operator 지침(`packages/core/agent-roles/roles/operator/prompt.md`)
    - "You do not write `DOMAIN.md`, the kinds file or the skills of a domain."을 "You do not write `DOMAIN.md`, the kinds file, the skills or the workflows (`workflows/`) of a domain."으로 바꾼다. 뒤 문장(PM이나 App Engineer에게 `call`)은 그대로다.
    - "When something is not yours to fix"의 "If a kind (the kinds file), `DOMAIN.md` or a skill has to change"를 "If a kind (the kinds file), `DOMAIN.md`, a skill or a workflow has to change"로 바꾼다.
-5. lophn guide(`packages/core/agent-roles/roles/lophn/guides/domains.md`)
+5. 내장 skill `guide-domains`(`packages/core/agent-roles/skills/guide-domains/SKILL.md`)
    - "What a domain has"에서 **Skills** bullet 뒤에 bullet 하나를 더한다:
      "**Workflows** (`workflows/<name>.md`): agents that hand work to each other, such as a runner that gives each item to a judge. The file names the participants (agents that exist, also in other projects and apps) and each one's contacts, and describes the workflow. Each participant sees its own part in its prompt; an agent the file does not name sees nothing. lophn keeps no order or state, and a call outside the contacts is not stopped. A wrong file is left out whole, and `workflow.list` says why."
    - "Who makes and writes it"의 "They write its kinds file, `DOMAIN.md` and skills with their file tools."를 "They write its kinds file, `DOMAIN.md`, skills and workflows with their file tools."로 바꾼다.

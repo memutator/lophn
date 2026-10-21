@@ -19,10 +19,10 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-assign-tools` | assign | 2 | ap-ask-turn | merged | assign/ap-assign-tools | 9ca2338e8 |  |
 | `ap-conversation` | conversation | 2 | ap-waiting | merged | conversation/ap-conversation | 480f95996 |  |
 | `ap-waiting` | waiting | 2 | ap-ask-turn, ap-activation | merged | waiting/ap-waiting | 4d90e30ed |  |
-| `ap-mode-envelope` | mode | 3 | 없음 | todo |  |  |  |
+| `ap-mode-envelope` | mode | 3 | 없음 | running | mode/ap-mode-envelope |  |  |
 | `ap-mode-turn` | mode | 3 | ap-mode-envelope, ap-skip-session | todo |  |  |  |
 | `ap-shell-gate` | shell | 3 | ap-mode-turn | todo |  |  |  |
 | `ap-shell-settings` | shell | 3 | ap-shell-gate | todo |  |  |  |
 | `ap-skip-screens` | skip | 3 | ap-skip-session | todo |  |  |  |
-| `ap-skip-session` | skip | 3 | 없음 | todo |  |  |  |
+| `ap-skip-session` | skip | 3 | 없음 | running | skip/ap-skip-session |  |  |
 | `ap-cleanup` | cleanup | 4 | ap-waiting, ap-conversation, ap-assign-editor, ap-shell-settings, ap-skip-screens | todo |  |  |  |

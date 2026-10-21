@@ -1,6 +1,6 @@
 # app-call
 
-앱은 blueprint `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 넷이다: 사람이 연 앱 화면, agent의 tool, 다른 앱, coding agent의 MCP(preview만). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
+앱은 blueprint `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 넷이다: 사람이 연 앱 화면, agent의 tool(그 앱의 App Engineer는 preview도), 다른 앱, coding agent의 MCP(preview만). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
 
 ## 흐름
 
@@ -72,6 +72,7 @@
 - release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 - preview는 따로 띄운 process와 일회용 DB로 돈다. invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
   - preview 호출은 그 preview bundle의 선언으로 tool과 effect를 판정한다. 아직 release에 없는 새 앱과 새 tool도 부를 수 있다. ledger의 `release`는 비울 수 없어 release 없는 bundle의 호출은 기록할 자리도 없다.
+  - preview를 부르는 쪽은 사람, coding agent(MCP), 그 앱의 App Engineer(`preview.call`)다. agent caller는 그 앱의 App Engineer일 때만 preview target을 부르고, 다른 앱의 App Engineer와 다른 role은 `forbidden`이다(`verifyCaller`, `packages/core/apps/calls/caller.ts`). App Engineer가 지은 release를 운영 data 없이 확인하는 길이다. agent의 live 호출 규칙(활성 release, `release` 없음)은 그대로다.
 - coding agent는 core의 MCP endpoint(`POST /mcp`, Streamable HTTP `2025-06-18`)로 맡은 앱의 tool을 부른다. 자격은 그 앱 하나 범위의 coding token이고(operation `coding.mcp`), MCP tools/list는 그 앱의 tool만 보인다.
   - MCP tools/call은 그 앱의 지금 도는 preview로만 간다. preview가 없거나 준비 전이면 `unavailable`이고 live 앱은 어떤 경우에도 부르지 않는다. coding agent는 자기 코드를 확인하려고 부른다. AI가 만든 코드와 agent의 실수로 사용자 data를 잃지 않게 한다.
   - 호출 길에는 `person` caller와 `previewOnly` 자격으로 들어간다. `previewOnly`는 어떤 조회보다 먼저 live target을 `forbidden`으로 막는다. 사람 화면의 preview 호출과 같은 취급이라 막기를 거치지 않고, 새 caller 종류를 만들지 않아 ledger와 rewind가 그대로다.
@@ -80,7 +81,7 @@
 - 앱 log는 앱마다 `<data root>/apps/<app>/logs/app.log`와 돌린 앞 file `app.log.1` 둘이다(`appLogFile`, `packages/protocol/apps/app-storage.ts`). file 하나는 8 MiB까지이고 앱마다 합쳐 16 MiB다. 줄을 더해 8 MiB를 넘게 되면 `app.log`를 `app.log.1`로 옮기고(앞 `.1`은 버린다) 새 `app.log`에 쓴다. 모양은 `packages/protocol/apps/app-log.ts`가 정한다.
   - JSON Lines이고 줄마다 `{ at, invocation, text }`다. `invocation`은 아는 줄에만 있고 아니면 null이다. 앱 안에서 SDK가 invocation 문맥으로 찍는 줄(`reportProblem`, 잡히지 않은 예외)만 invocation을 싣고, 그 밖의 stdout·stderr 줄은 null이라 시각으로 찾는다.
   - 쓰는 쪽은 app supervisor 하나다. 앱 process는 data root를 fs grant로 열지 못해 log file에 닿지 않는다. 그래서 supervisor의 Deno 쓰기 권한이 `<data root>/apps`를 연다(`appSupervisorSpec`의 `allow_write`).
-  - 줄의 출처는 다섯이고 `text`의 꼴이 다르다. 앱의 stdout·stderr 한 줄은 그대로(머리 `[inv=<id>] `만 떼어 `invocation`으로), SDK `reportProblem(name, message?, details?)`은 `error <name>[: <message>][ <details JSON>]`, 잡히지 않은 예외는 `exception <name>: <message>` 한 줄에 이어 봉인된 bundle의 source map으로 원래 source 줄로 푼 frame마다 `  at <path>:<line>:<column>`, 화면 오류는 `view_error <observation> <name>: <message>`, 앱 process의 비정상 종료는 `process_exit <근거>: <message>`다(근거는 `unexpected_exit`, `v8_oom`, `start_failed`, `ready_timeout`, `crash_loop`). 의도한 정지는 쓰지 않는다. preview와 app test 자식의 출력과 오류는 쓰지 않는다. 화면 오류도 live 화면의 것만 쓴다.
+  - 줄의 출처는 다섯이고 `text`의 꼴이 다르다. 앱의 stdout·stderr 한 줄은 그대로(머리 `[inv=<id>] `만 떼어 `invocation`으로), SDK `reportProblem(name, message?, details?)`은 `error <name>[: <message>][ <details JSON>]`, 잡히지 않은 예외는 `exception <name>: <message>` 한 줄에 이어 봉인된 bundle의 source map으로 원래 source 줄로 푼 frame마다 `  at <path>:<line>:<column>`, 화면 오류는 `view_error <observation> <name>: <message>`, 앱 process의 비정상 종료는 `process_exit <근거>: <message>`다(근거는 `unexpected_exit`, `v8_oom`, `start_failed`, `ready_timeout`, `crash_loop`). 의도한 정지는 쓰지 않는다. preview 자식(release 준비의 handler 검사 포함)의 출력과 오류는 쓰지 않는다. 화면 오류도 live 화면의 것만 쓴다.
   - 줄마다 redaction을 하고 그 뒤에 300자로 자른다. 순서가 바뀌면 자른 줄에 secret 일부가 남는다. supervisor의 redaction은 credential pattern과, core에서 받아 앱에 건넨 secret 값(`apps.secret_value`)을 지운다. log가 disk에 남으므로 바깥 응답에 되돌아온 secret을 앱이 찍어도 file에 남지 않게 하려는 것이다.
   - 읽기는 core route `apps/logs`(`app.logs`)다. core가 두 file을 바로 읽어 `invocation`, `since`(포함), `until`(제외)로 거르고 가장 최근 `limit`줄(기본 200, 최대 1000)을 오래된 것부터 준다. supervisor를 거치지 않으므로 앱이 멈췄거나 crash loop여도 읽힌다. 읽을 때 알려진 secret 값으로 한 번 더 지우고, 안전하게 만들지 못한 줄이 있으면 읽기 전체가 `unavailable`이다.
   - actor는 user, coding_agent, agent, app이다. lophn과 App Engineer는 tool `app.logs`로, coding agent는 CLI `app logs`로 같은 route를 부른다. 앱 상태(`app.status`)와 호출 기록(`app.invocations`)도 같은 식으로 읽어, 앱을 진단하는 쪽은 이 셋을 본다.
@@ -90,7 +91,7 @@
   - secret: 앱의 `useSecret`은 이름과 목적지를 말할 뿐 값을 읽지 못한다. broker가 secret 이름 선언 ∩ grant와 그 목적지의 `net.fetch` 허락을 검사하면, supervisor가 core route `apps.secret_value`로 값을 한 번 받는다. 이 route는 supervisor의 machine 자격만 부르고, 부른 supervisor가 지금 보는 live 자식과 맞을 때, core가 현재 선언 ∩ active grant로 다시 판정해 통과할 때, 알려진 값 registry가 그 값을 알 때만 값을 준다. 모르는 값은 redaction이 지우지 못해서다.
   - supervisor는 받은 값을 같은 invocation의 같은 (host, port) 요청에만 `Authorization: Bearer`로 붙이고, 60초가 지나면 버린다. redirect로 목적지가 바뀌면 값을 다시 찾아 붙지 않는다. 앱의 응답과 오류에 값이 없고, 앱이 찍어도 log의 redaction이 지운다. 다른 방식의 인증은 쓰는 앱이 생길 때 더한다.
   - fs: 앱 process의 Deno `--allow-read`·`--allow-write`가 선언 ∩ grant한 경로다. 운영 bundle은 읽기만 되고 source, 다른 앱 DB, 플랫폼 credential, 앱 log file은 어느 grant로도 열리지 않는다.
-  - live 자식만 바깥에 닿는다. 준비 모드, preview, app test의 자식이 같은 통로를 부르면 broker가 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
+  - live 자식만 바깥에 닿는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 broker가 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
 
 ## 왜 이 모양인가
 

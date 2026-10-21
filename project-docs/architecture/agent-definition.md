@@ -20,7 +20,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
            3 skill 목록 (이름과 설명)
            4 place 정보                    ← cache 경계
    tools[] 정렬된 정의
-   대화    Router 입력(tag로 출처 표시) ... 끝에 notice
+   대화    Router 입력(tag로 출처 표시) ... 끝에 notice   ← 마지막 block에 cache 경계
         ▲
         └─ 지난 turn이 본 판(seen)과 비교해 바뀐 층·목록만 notice로 끝에 덧붙인다.
            첫 turn과 compact 직후는 seen이 없어 notice가 없다(최신 판으로 prefix를 새로 만든다).
@@ -30,6 +30,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 
 - **도는 turn은 시작 때 읽은 판을 끝까지 쓴다.** 지침, skill, place 정보가 도중에 바뀌면 다음 turn 시작에 system을 그 turn이 읽은 지금 판으로 다시 만들고, 바뀐 층·목록은 notice로도 대화 끝에 알린다(그 turn 요청에만 붙고 이력에 저장하지 않는다). 바뀐 turn에는 cache miss가 한 번 난다. tool 목록은 아래처럼 session을 시작할 때 고정이라 system에 안 닿고 notice로만 알린다.
 - **같은 재료는 같은 bytes다.** 정렬하고, 시각·무작위에 기대지 않는다. tag 목록도 코드에서 끼우지 않고 고정 문장으로 둔다. 뭔가 하나라도 흔들리면 cache 경계가 매번 달라진다.
+- **cache 표시는 system 층 셋과 대화 끝 하나다.** Anthropic 요청은 표시를 넷까지 받아 그 안에 든다. 대화 끝 표시는 마지막 message의 마지막 content block에 단다(`packages/core/lophn-agent/providers/adapters/messages.ts`의 `buildRequest`). 끝 block은 turn마다 새로 생긴 tool 결과나 사람 글이라 다음 call은 앞 call이 쓴 prefix를 읽는다. 앱 하나를 짓는 turn은 model call이 백 번 가까이 되어 대화를 cache하지 않으면 매 call 대화 전체를 새 입력으로 낸다. tools는 system 앞이라 role 층 표시가 함께 덮는다.
 - **사람이 쓴 지침은 조용히 빼지 않는다.** 한 층이라도 못 읽거나 상한을 넘으면 turn을 시작하지 않는다. 빠진 채 일하면 사람이 모른다. 읽은 지침은 redaction을 거치고, 끝나지 않으면 역시 시작하지 않는다.
 - **지침 층은 덮지 않고 이어 붙인다.** skill과 MCP server만 같은 이름일 때 마지막 층이 덮는다. MCP server의 층은 전역, project, Operator 정의 순이다(`mcp_servers`는 Operator 정의에만 있다). 단 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다. role이 일하는 데 필요한 skill이 사라지면 lophn 동작이 막힌다.
   - 층의 자리(domain 층의 skill 폴더와 project 층의 `extensions.json`)와 내장 skill 폴더(`packages/core/agent-roles/skills/`)는 role 층이 정하고 harness는 받아 쓴다. 읽기 허락과 skill 발견이 같은 값을 써야 허락 밖 폴더를 찾다 막히지 않는다.

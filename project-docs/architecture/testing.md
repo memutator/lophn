@@ -28,7 +28,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 
 - **scripted model**(`tests/support/loop/model.ts`): provider wire를 모르고 answer, tools, partial, failed, hang을 낸다. queue는 엄격하다. 남은 step이나 넘친 호출은 실패다. 받은 요청을 깊은 복사로 기록한다. 시간은 `manualClock`과 harness의 `wait`·`fireDeadline`으로 다루고 기다리지 않는다.
 - **녹화 재생**(`tests/support/wire/`): `replayFetch`가 fixture를 호출 순서대로 돌려주고 받은 요청을 기록한다. fixture는 `tests/fixtures/provider/<provider>/<case>.sse|.json`과 선택 `<case>.meta.json`(`status`, `headers`, `disconnect`)이다. 요청은 저장하지 않는다. 손 fixture는 짧은 SSE이고, live가 녹화한 것은 `live-<행>` 이름으로 같은 폴더에 둔다.
-- **fake server**(`tests/support/fake-server/`): `Deno.serve`로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, ticket)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(Project Manager와 Operator 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
+- **fake server**(`tests/support/fake-server/`): `Deno.serve`로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, release)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(Project Manager와 Operator 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
 
 fake로 가는 길은 제품의 길뿐이다: `providers/connect`(key 없는 loopback provider, `auth_kind: "none"`)와 기동 전 `<data root>/settings.json`(`lophn-agent.model.catalog_auto_update: false`). 제품에 test 전용 flag나 env를 두지 않는다.
 
@@ -55,14 +55,13 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 ## 앱 길
 
-앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: core가 깐 template을 앱 source로 복사해 `apps/create` → `apps/connect_source` → App Engineer의 ticket 맡기기(fake 대답) → coding agent 역할의 claim·`release prepare`·`app test`·`ticket report`(CLI) → `ticket.verify` → activation 허락. data root에 release를 직접 깔지 않는다. 제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다.
+앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 source 폴더를 깔고 잇는다) → 견본 patch를 source에 commit → App Engineer의 `release.prepare`, `preview.*`, `release.activate`(fake 대답) → 첫 activation의 동의. data root에 release를 직접 깔지 않는다. 지금 `tests/support/app`, `tests/support/coding`과 앱 E2E는 ticket과 test runner를 지우기 전의 길(App Engineer의 ticket 맡기기, coding agent CLI의 claim·`release prepare`·`app test`·`ticket report`, `ticket.verify`)이라 돌지 않는다. e2e를 되살리는 계획이 이 길로 다시 쓴다. 제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다.
 
-- ticket의 check를 정하는 행은 `deliverRelease`에 `check`를 주고 `verify: false`로 보고에서 멈춘 뒤, program이 예시를 돌려 `tickets/show`에 결과를 남기기를 기다리고 `verifyTicket`으로 통과(verified)나 막힘(reported에 머묾, `conflict`)을 본다. 맞는 예시와 틀린 예시를 table의 두 행으로 둔다(`app-release_test.ts`). 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
+- 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
 - agent가 앱 tool을 부르는 행은 앱 place의 Operator로 부른다(`app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). template tool은 `public: false`라 그 domain을 맡지 않은 lophn이나 project의 agent에게는 보이지 않는다. 정의에 `domains`가 없는 앱 place Operator는 앱의 domain을 모두 맡는다.
 - coding agent의 MCP 행(`app-release_test.ts`의 `coding-mcp-preview-only`)은 앱이 live로 뜬 뒤 `handOff`로 같은 앱에 coding session을 하나 더 열고, 그 token으로 `mcpRequest`를 부른다. preview 없이 한 번, CLI로 preview를 띄운 뒤 한 번 부르고 live ledger와 data가 그대로인지 본다.
 - coding token은 Gateway `coding_terminal` frame의 `plan.env`로만 받는다. test가 token을 만들거나 core 안에서 꺼내지 않는다. Gateway 연결은 principal마다 4개 한도라 행마다 그 행의 앱 Gateway를 닫는다.
 - release 준비가 받는 npm·jsr·esbuild 의존은 `deno task e2e:deps`가 `.dev-data/e2e/deno-dir` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 `DENO_DIR`을 받고, E2E 중 network는 loopback뿐이다.
-- app test는 `systemd-run --user --scope`로 메모리 한도를 건다. 그래서 앱 E2E의 core에는 `XDG_RUNTIME_DIR`을 준다. user systemd가 없는 환경에서는 앱 E2E가 실패한다(skip하지 않는다).
 - 앱 socket 폴더는 `XDG_RUNTIME_DIR` 아래 data root마다 나뉜다. 같은 사용자의 core가 여럿 떠도 서로의 socket을 지우지 않는다.
 
 ## E2E 실행 폴더
@@ -75,7 +74,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
   core.log    core stderr
 ```
 
-- run을 저장소 안에 두지 않는 것은 worktree 안(`.claude/worktrees/<이름>/.dev-data/...`)에서 app test의 Unix socket 경로가 길이 한도(108 byte)를 넘기 때문이다.
+- run을 저장소 안에 두지 않는 것은 worktree 안(`.claude/worktrees/<이름>/.dev-data/...`)에서 앱 process의 Unix socket 경로가 길이 한도(108 byte)를 넘기 때문이다.
 - `run.remove()`는 폴더마다 쓰기 권한을 돌려준 뒤 `<run>`을 통째로 지운다. 새 data root면 core가 sdk 사본과 앱 template을 0444/0555로 깐다.
 - 사람의 `~/.lophn`은 읽지도 쓰지도 않는다. 고정 port와 고정 path를 쓰지 않는다(dev의 fake server만 예외).
 

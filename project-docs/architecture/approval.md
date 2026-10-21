@@ -68,7 +68,7 @@ shell 규칙
 ## 왜 이 모양인가
 
 - 옛 approval은 intent 7종, grant 저장소 3, 묻는 길 2(turn 안, 보류 request와 applier), fingerprint, "이 session 동안" 허락, agent call 두 번 판정이 있었다. 할당했는데 실행 때 또 묻고, 사람이 없는 실행은 기한 없이 기다렸다. 다른 harness 다섯(Codex, OpenCode, Hermes, OpenClaw, oh-my-pi)은 모두 묻는 길이 기다리는 turn 하나이고 주 gate가 shell이다(`project-docs/products/roadmap/approval.md`).
-- 보류 request 길을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지우고(reaction은 `off | on`), activation 동의는 activation module이 자기 상태로 갖는다.
+- 보류 request 길을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지웠고(그 reaction 설정이 없어졌다), activation 동의는 activation module이 자기 상태로 갖는다.
 - 바깥 효과 tool도 묻지 않는다. "시킨 것이 승낙", "할당이 허락"을 그대로 따른 사람의 결정이다. 다시 묻기로 하면 `judge`의 `ASK_EXTERNAL_WHEN_ATTENDED` 한 줄을 켜고 할당 줄에 묻지 않을 tool 칸을 더한다.
 - agent call은 묻지도 막지도 않는다. 받은 agent는 자기 할당으로만 일한다(AGENT-ROLE T5, T6). 누구를 부르는지는 지침과 workflow의 일이다.
 - workflow를 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이고 사람이 loop에서 자주 빠진다. 그래서 unattended는 묻지 않고, 시작한 사람이 그 사슬 전체를 시켰으니 call을 따라 간다. skip은 사람이 그 대화에 정한 것이라 따라 가지 않는다.

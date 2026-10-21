@@ -44,7 +44,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 | lophn과의 약속(tool 호출 `lophnApp.callTool`, `lophn:render-error` event)을 앎 | `packages/sdk/app-ui` | ToolButton, useTool, AppErrorBoundary |
 | 쓰는 곳이 gallery뿐 | 두지 않는다 | (지운 것: Chip, AuthorMark, LauncherFrame, OverviewFrame) |
 
-분류 안 component 폴더는 tsx, module.css, 보조 file을 같이 둔다(`components/overlay/dialog/dialog.tsx`). 분류 `mod.ts`의 `export { … } from` 문 하나가 component 하나(와 그 Props)이고, 값을 내보내는 문마다 바로 윗줄에 "언제 쓰나" 한 줄(`// …`)이 있다. 비슷한 것과 갈리는 지점을 쓴다(Popover와 Menu, Dialog와 Sheet, Table과 DataTable). 이 줄들이 kit의 목록이다. agent는 분류 이름 8개로 찾아 들어가 `mod.ts`를 읽는다(`lophn-build-app` skill이 분류 8개를 한 줄씩 알려 준다).
+분류 안 component 폴더는 tsx, module.css, 보조 file을 같이 둔다(`components/overlay/dialog/dialog.tsx`). 분류 `mod.ts`의 `export { … } from` 문 하나가 component 하나(와 그 Props)이고, 값을 내보내는 문마다 바로 윗줄에 "언제 쓰나" 한 줄(`// …`)이 있다. 비슷한 것과 갈리는 지점을 쓴다(Popover와 Menu, Dialog와 Sheet, Table과 DataTable). 이 줄들이 kit의 목록이다. agent는 분류 이름 8개로 찾아 들어가 `mod.ts`를 읽는다.
 
 ## import 방향
 

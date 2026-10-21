@@ -69,7 +69,7 @@ modules:
 
   - path: packages/core/router
     boundary: router
-    notes: 사람 메시지, call tool, Reactor에서 온 입력을 session 입력함으로 보낸다. feature module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
+    notes: 사람 메시지, call tool, program의 반응(reaction)을 session 입력함으로 보낸다. feature module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
 
   - path: packages/core/secrets
     boundary: secrets

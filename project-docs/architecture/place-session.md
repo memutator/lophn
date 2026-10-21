@@ -10,7 +10,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
  첫 기동      ──▶ lophn 정의 (전체에 하나)                       │ 아니라 lophn data 안에 있는 파일
  사람이 만듦  ──▶ Operator 정의 (project나 앱에 여럿)            ┘
 
- session 열기 ◀── person | Router(call: 새 session) | Reactor(reaction)
+ session 열기 ◀── person | Router(call: 새 session) | program(reaction)
     │ role+place 고정 (agent-sessions)
     ▼
   open ──── place 보관 ────▶ open인 채 새 입력만 막힘 (place를 꺼내면 이어서 받음)
@@ -28,7 +28,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 
 - role과 place는 session을 열 때 정해지고 바뀌지 않는다. role에 맞지 않는 place, 없거나 보관된 place에는 열지 않는다.
   - agent 정의, 할당, 지침, file 범위가 모두 role+place에서 나온다. 열린 session의 role이나 place를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
-- session을 여는 길은 사람, Router(call의 새 session), Reactor(reaction)이고 모두 같은 연산으로 연다.
+- session을 여는 길은 사람, Router(call의 새 session), program(reaction)이고 모두 같은 연산으로 연다.
   - 열 때의 검사(role과 place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
 - role은 넷이다. lophn은 전체에 하나, Project Manager는 project마다 하나, App Engineer는 앱마다 하나, Operator는 사람이 project나 앱에 만든 만큼이다. 앞의 셋은 더하거나 지우지 않고 Operator만 사람이 만들고 지운다.
   - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다. coding agent는 lophn 밖의 제품이고 coding session의 place는 그 앱이다.
@@ -62,7 +62,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 ## 왜 이 모양인가
 
 - **agent는 place에 놓이고 session은 그 agent의 대화다.** 옛 assignment 상태 machine(누가 무엇을 맡았나)은 place에 놓인 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
-- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(ticket, blueprint, release)과 coding agent와의 대화는 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 등록하고 그 앱의 App Engineer에게 call로 맡긴다), 구현은 coding agent가 한다.
+- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, blueprint, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 등록하고 그 앱의 App Engineer에게 call로 맡긴다), 구현은 App Engineer가 직접 한다.
 - **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 App Engineer와 앱 place의 Operator는 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.

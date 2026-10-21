@@ -109,7 +109,7 @@ elements:
 
       - id: router
         kind: component
-        description: 사람 메시지, agent call, Reactor 반응을 받는 session에 넣는 단 하나의 입구.
+        description: 사람 메시지, agent call, program의 반응(reaction)을 받는 session에 넣는 단 하나의 입구.
 
       - id: storage
         kind: component

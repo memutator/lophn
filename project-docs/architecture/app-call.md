@@ -101,7 +101,7 @@
 - **호출 단위가 아닌 시점 단위로 되돌린다.** write가 무엇을 읽고 썼는지 모르니, 호출 하나만 빼면 뒤 호출의 전제가 깨진다.
 - **되돌린 invocation을 지우지 않고 표시한다.** 기록은 감사에 쓰이고, 반쯤 되돌아간 DB는 남기지 않는다. 되돌린 것을 다시 하기(redo)는 없다.
 - **agent에게는 앱 tool이 그대로 tool로 보인다**(`domain__<domain>__<tool>`). domain 이름은 모든 domain에서 하나라 앱 id 없이 겹치지 않는다. 앱 할당과 release 선언의 교집합만 tool 정의가 되고 사람이 뺀 tool은 요청에 아예 없다. 효과(read, write, external)와 `outputSchema`는 tool 정의에 싣지 않고 core가 blueprint 선언에서 읽어 줄 세우기와 기록에 쓴다. 조사한 harness 모두 정의에 효과를 싣지 않고 호출 때 판정한다. tool 이름은 parse하지 않고 정의 목록이 (앱, tool)을 안다.
-- **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool, ticket 예시, coding agent MCP가 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
+- **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool, coding agent MCP가 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).
 - **바깥 net의 목적지 검사는 OS 권한이 아니라 broker가 요청마다 한다.** supervisor의 `allow_net`을 grant된 host 목록으로 두면 OS 수준 경계가 남지만 grant가 바뀔 때마다 모든 앱이 다시 뜬다. 앱 process에는 net이 없고 supervisor는 lophn의 코드라서, 요청마다 현재 선언 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.

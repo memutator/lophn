@@ -77,7 +77,7 @@ export const releaseRecordSchema = z.object({
   created_at: atSchema,
   status: releaseStatusValueSchema,
   activation: activationAttemptSchema.nullable(),
-  // active, superseded이면 값이 있다. problem 재발 판정이 쓴다.
+  // active, superseded이면 값이 있다.
   activated_at: atSchema.nullable(),
   failure: activationFailureSchema.nullable(),
 }).refine(
@@ -188,9 +188,8 @@ export const activationStart = defineCommand({
   errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
 });
 
-// 시작하기 전에 판정 handler가 부른다. release가 지울 공개 tool을 다른 domain이 쓰면 막힌 사실을 그 앱의 App Engineer에게 알리는
-// event를 같은 transaction에 내고 blocked true를 돌려준다. 막지 않으면 아무것도 쓰지 않는다.
-// 같은 release의 반복 호출은 idempotency key가 같아 event를 한 번만 낸다.
+// 시작하기 전에 판정 handler가 부른다. release가 지울 공개 tool을 다른 domain이 쓰면 blocked true를 돌려준다.
+// 아무것도 쓰지 않는다. release는 prepared로 남는다.
 export const activationBlock = defineCommand({
   resource: "activations",
   method: "block",

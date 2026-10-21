@@ -15,15 +15,21 @@ import type {
   ToolCallInput,
   ToolCallOutput,
 } from "../../../protocol/apps/calls/mod.ts";
+import type { AgentAssignment } from "../../../protocol/approvals/mod.ts";
+import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Approvals } from "../../approvals/ports.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
 import { decodeChangeset, settleResponse } from "./record.ts";
 
 const clock = manualClock(Date.parse("2026-10-16T00:00:00.000Z"));
 const ids = createIdSource({ clock, random: seededRandom(7) });
-const newApp = () => ids.newId("app") as Id<"app">;
+const madeApps: Id<"app">[] = [];
+const newApp = () => {
+  const app = ids.newId("app") as Id<"app">;
+  madeApps.push(app);
+  return app;
+};
 const REL = ids.newId("rel") as Id<"rel">;
 const REL2 = ids.newId("rel") as Id<"rel">;
 const SES = ids.newId("ses");
@@ -44,6 +50,10 @@ function setup() {
     handler: null as Handler | null,
     // 지금 preview의 선언. nonce가 다르면 선언이 없다.
     preview: { nonce: "pv-nonce-1", effects: {} as Record<string, string> },
+    // null이면 만든 앱을 모두 할당했다(위험 test가 범위를 줄인다).
+    assignment: null as AgentAssignment["entries"] | null,
+    // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
+    grants: null as AppGrant[] | null,
   };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
@@ -75,10 +85,6 @@ function setup() {
     apply: () => Promise.resolve(err({ code: "internal", message: "unused" })),
   };
 
-  const approvals = {
-    judge: () => Promise.resolve(ok({ verdict: "run" as const })),
-  } as unknown as Approvals;
-
   const deps: AppCallsDeps = {
     callers: {
       agentToolCall: (_s, _t, tool) =>
@@ -105,12 +111,41 @@ function setup() {
     },
     ledger: ledger as InvocationLedger,
     link,
-    approvals,
+    assignmentOf: (agent) =>
+      ok({
+        agent,
+        entries: state.assignment ??
+          madeApps.map((app) => ({ app, removed_tools: [] })),
+      }),
+    appGrantsOf: (app) =>
+      Promise.resolve(ok(
+        state.grants ??
+          madeApps.map((to) =>
+            appCallGrant(app, to, ["r.get", "w.one", "w.two"])
+          ),
+      )),
     clock,
     ids,
   };
   const calls = createAppCalls(deps);
   return { ...calls, sent, records, state };
+}
+
+function appCallGrant(
+  app: Id<"app">,
+  to: Id<"app">,
+  tools: string[],
+  status: "active" | "revoked" = "active",
+): AppGrant {
+  const at = "2026-10-16T00:00:00.000Z";
+  return {
+    id: ids.newId("grt") as AppGrant["id"],
+    app,
+    scope: { kind: "app.call", app: to, app_tools: tools },
+    status,
+    created_at: at,
+    revoked_at: status === "revoked" ? at : null,
+  } as AppGrant;
 }
 
 function person(app: Id<"app">, tool: string): ToolCallInput {
@@ -458,4 +493,74 @@ Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger�
   );
   assertEquals(t.sent.length, 1);
   assertEquals(t.records.size, 0);
+});
+
+Deno.test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 덮지 않으면 handler에 가지 않고 막힌다", async () => {
+  const t = setup();
+  const from = newApp();
+  const to = newApp();
+  const third = newApp();
+  const rows: [string, AppGrant[], string][] = [
+    ["no grant", [], "gate_blocked"],
+    [
+      "other tool",
+      [appCallGrant(from, to, ["r.other"])],
+      "gate_blocked",
+    ],
+    [
+      "other target app",
+      [appCallGrant(from, third, ["r.get"])],
+      "gate_blocked",
+    ],
+    [
+      "revoked",
+      [appCallGrant(from, to, ["r.get"], "revoked")],
+      "gate_blocked",
+    ],
+    ["covered", [appCallGrant(from, to, ["r.get"])], "succeeded"],
+  ];
+  const seen: string[] = [];
+  t.state.handler = async (request, app) => {
+    if (app !== from) return okResponse;
+    for (const [name, grants, want] of rows) {
+      t.state.grants = grants;
+      const before = t.sent.length;
+      const result = await t.path.call(
+        appCaller(from, to, request.invocation),
+        { actor: "app", app: from },
+      );
+      const reached = t.sent.length - before;
+      seen.push(`${name}:${status(result)}:${reached}`);
+      assertEquals(status(result), want, name);
+      assertEquals(reached, want === "succeeded" ? 1 : 0, name);
+    }
+    return okResponse;
+  };
+  await t.path.call(person(from, "r.get"), { actor: "user" });
+  assertEquals(seen.length, rows.length);
+});
+
+Deno.test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부르지 못한다", async () => {
+  const t = setup();
+  const assigned = newApp();
+  const other = newApp();
+  const agentCall = (app: Id<"app">, tool: string): ToolCallInput => ({
+    ...person(app, tool),
+    caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+  });
+  t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+
+  const rows: [string, Id<"app">, string, string][] = [
+    ["not assigned", other, "r.get", "gate_blocked"],
+    ["removed tool", assigned, "r.removed", "gate_blocked"],
+    ["assigned", assigned, "r.get", "succeeded"],
+  ];
+  for (const [name, app, tool, want] of rows) {
+    const before = t.sent.length;
+    const result = await t.path.call(agentCall(app, tool), {
+      actor: "agent",
+    });
+    assertEquals(status(result), want, name);
+    assertEquals(t.sent.length - before, want === "succeeded" ? 1 : 0, name);
+  }
 });

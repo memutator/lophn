@@ -37,11 +37,9 @@ const toolCallInputSchema = z.strictObject({
 });
 export type ToolCallInput = z.infer<typeof toolCallInputSchema>;
 
-// handler까지 가지 못한 이유. Gate 막음, 사람 거절, 호출 루프·깊이, 앱 멈춤.
+// handler까지 가지 못한 이유. Gate 막음, 호출 루프·깊이, 앱 멈춤.
 const TOOL_DENIAL_CODES = [
   "gate_blocked",
-  "rejected",
-  "cancelled",
   "call_loop",
   "call_too_deep",
   "app_archived",

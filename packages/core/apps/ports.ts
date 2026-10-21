@@ -27,12 +27,10 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * `auth`는 route가 확인한 credential이다. 부른 쪽 확인, Gate, invocation 기록,
  * write 줄 세우기, 앱 process 전달, 결과를 모두 이 호출 하나가 한다.
  *
- * Gate는 port를 새로 만들지 않고 `core/approvals/ports.ts`의 `Approvals`를 직접 쓴다. 순서:
- * - actor가 agent·app이면 intent `{kind: "app_tool", actor, target: {app, tool}, effect, input, origin}`을
- *   만들어 `judge(intent)`를 부른다. 사람 화면(`person`)은 Gate를 거치지 않는다.
- * - `deny`면 `denied(gate_blocked)`.
- * - `ask`면 `openTurnRequest` -> `waitTurnDecision`. reject는 `denied(rejected)`, cancelled는 `denied(cancelled)`.
- * - 허락이면 앱 process에 보내기 직전에 `consumeTurnAllow`.
+ * Gate는 묻지 않고 막기만 한다(사람을 기다리지 않는다). 사람 화면(`person`)은 거치지 않는다. 순서:
+ * - actor가 agent면 할당으로 `judge`를 부른다. `deny`면 `denied(gate_blocked)`이고 `ask`는 run-loop tool gate가
+ *   이미 물은 것이라 지나간다.
+ * - actor가 app이면 부른 앱의 active grant `app.call`이 그 앱의 그 tool을 덮는지 본다. 아니면 `denied(gate_blocked)`.
  */
 export interface AppToolCallPath {
   call(

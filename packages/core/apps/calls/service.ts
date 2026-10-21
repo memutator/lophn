@@ -14,7 +14,6 @@ import type {
   ToolDenial,
 } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Approvals } from "../../approvals/ports.ts";
 import type {
   AppIntake,
   AppProcessLink,
@@ -25,7 +24,7 @@ import type {
 } from "../ports.ts";
 import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
-import { appToolIntent, askGate } from "./gate.ts";
+import { callAllowed, type CallGateDeps } from "./gate.ts";
 import {
   createIntake,
   type Flight,
@@ -52,13 +51,12 @@ export interface AppStates {
   archived(app: Id<"app">): Result<boolean>;
 }
 
-export type AppCallsDeps = {
+export type AppCallsDeps = CallGateDeps & {
   callers: CallerDirectory;
   lookup: AppToolLookup;
   apps: AppStates;
   ledger: InvocationLedger;
   link: AppProcessLink;
-  approvals: Approvals;
   clock: Clock;
   ids: IdSource;
   timers?: Timers;
@@ -66,8 +64,6 @@ export type AppCallsDeps = {
 
 const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   gate_blocked: "the call is not granted",
-  rejected: "the person rejected the call",
-  cancelled: "the request was cancelled",
   call_loop: "the app is already in the call chain",
   call_too_deep: "the call chain is too deep",
   app_archived: "the app is archived",
@@ -278,24 +274,17 @@ export function createAppCalls(
       },
     };
 
-    let consume: (() => Promise<Result<void>>) | null = null;
-
     // 본 일이 끝난 뒤에 abandon이 닫았으면 null이다. 이미 부른 쪽에 결과가 갔다.
     async function work(): Promise<Result<ToolCallOutput> | null> {
       if (caller.kind !== "person") {
-        const intent = appToolIntent(
+        const allowed = await callAllowed(
           caller,
-          { app, tool: input.tool },
-          base.effect,
-          input.input,
+          { app, tool: input.tool, effect: base.effect },
+          deps,
         );
-        const gated = await askGate(deps.approvals, intent);
         if (abandoned) return null;
-        if (!gated.ok) return gated;
-        if (!gated.value.pass) return recordDenied(base, gated.value.code);
-        // 사람을 기다리는 Gate는 줄을 얻기 전에 끝내고, 허락은 줄을 얻은 뒤 실행 직전에 쓴다.
-        // 사람 대기가 앱의 write 줄을 막지 않게 하려는 순서라 둘을 합치지 않는다.
-        consume = gated.value.consume;
+        if (!allowed.ok) return allowed;
+        if (!allowed.value) return recordDenied(base, "gate_blocked");
       }
 
       // write와 external은 앱마다 줄을 선다. read는 바로 간다.
@@ -319,11 +308,6 @@ export function createAppCalls(
     async function execute(
       record: boolean,
     ): Promise<Result<ToolCallOutput> | null> {
-      if (consume !== null) {
-        const used = await consume();
-        if (abandoned) return null;
-        if (!used.ok) return recordDenied(base, "gate_blocked");
-      }
       startedAt = deps.clock.now();
       if (record) {
         const begun = deps.ledger.begin({

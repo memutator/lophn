@@ -1,7 +1,7 @@
 // `app:call-tool`의 main service. 앱 preload가 보낸 `{tool, input}`만 받고, 앱·release·mode는
 // IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). tool은 그 view의 고정
-// blueprint가 선언한 것만 core의 `apps.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락과
-// 사람 결정은 core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
+// blueprint가 선언한 것만 core의 `apps.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락은
+// core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
@@ -111,8 +111,6 @@ const NOT_AVAILABLE = fail("forbidden", "tool is not available");
 // handler까지 가지 못한 이유(denial.code)를 페이지의 code로 옮긴다.
 const DENIAL_CODES: Readonly<Record<string, string>> = {
   gate_blocked: "forbidden",
-  rejected: "forbidden",
-  cancelled: "forbidden",
   not_declared: "forbidden",
   call_loop: "conflict",
   call_too_deep: "conflict",

@@ -13,6 +13,11 @@ import {
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
+import {
+  type AppGrant,
+  appGrantsList,
+  GRANT_LIST_MAX_COUNT,
+} from "../../../../protocol/apps/grants.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
@@ -34,6 +39,7 @@ import {
   withReleasePreparation,
   withTestDefaults,
 } from "../../../apps/control.ts";
+import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
 import { secretValueHandler } from "../../../apps/permissions/mod.ts";
 import {
@@ -223,7 +229,16 @@ export const appsWiring: WiringFactory = () => {
         apps: states,
         ledger,
         link: appsControl.link,
-        approvals: ctx.approvals,
+        assignmentOf: (agent) => loadAssignment(link.sql, agent),
+        async appGrantsOf(app) {
+          const listed = await ctx.runtime.readers.read(
+            appGrantsList,
+            APPS_CONTROL_CONTEXT,
+            { app, status: "active", limit: GRANT_LIST_MAX_COUNT },
+          );
+          if (!listed.ok) return listed;
+          return ok((listed.value as { grants: AppGrant[] }).grants);
+        },
         clock: ctx.clock,
         ids,
       });

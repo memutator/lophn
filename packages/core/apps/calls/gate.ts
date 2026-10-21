@@ -1,87 +1,49 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type {
-  JsonObject,
-  JsonValue,
-} from "../../../protocol/base/json-values.ts";
-import type { Intent } from "../../../protocol/approvals/mod.ts";
-import type { ToolDenial } from "../../../protocol/apps/calls/mod.ts";
+  AgentAssignment,
+  ShellRuleLayers,
+} from "../../../protocol/approvals/mod.ts";
+import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { Approvals } from "../../approvals/ports.ts";
+import type { ToolEffect } from "../../../protocol/lophn-agent/tool-values.ts";
+import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
+import { judge } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
-type GateCheck =
-  | { pass: true; consume: (() => Promise<Result<void>>) | null }
-  | {
-    pass: false;
-    code: Extract<
-      ToolDenial["code"],
-      "gate_blocked" | "rejected" | "cancelled"
-    >;
-  };
+export type CallGateDeps = {
+  assignmentOf(agent: AgentRef): Result<AgentAssignment>;
+  appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
+};
 
-function asObject(input: JsonValue | undefined): JsonObject {
-  if (input === undefined) return {};
-  if (input !== null && typeof input === "object" && !Array.isArray(input)) {
-    return input;
-  }
-  return { value: input };
-}
+// 앱 tool 판정은 shell 규칙을 보지 않는다.
+const NO_SHELL_RULES: ShellRuleLayers = { floor: [], layers: [] };
 
-// agent와 앱만 Gate를 거친다. 사람 자신의 동작은 거치지 않는다.
-export function appToolIntent(
+// 사람 자신의 동작은 이 판정을 거치지 않는다. 묻지 않고 막기만 한다:
+// agent는 할당(judge)으로, 앱은 부른 앱의 active grant `app.call`로 본다.
+// judge가 ask를 내도 run-loop tool gate가 이미 물은 것이라 지나간다.
+export async function callAllowed(
   caller: Exclude<VerifiedCaller, { kind: "person" }>,
-  target: { app: Id<"app">; tool: string },
-  effect: Intent["effect"],
-  input: JsonValue | undefined,
-): Intent {
-  const common = {
-    kind: "app_tool",
-    target: { kind: "app_tool", ...target },
-    effect,
-    input: asObject(input),
-  } as const;
+  target: { app: Id<"app">; tool: string; effect: ToolEffect },
+  deps: CallGateDeps,
+): Promise<Result<boolean>> {
   if (caller.kind === "agent") {
-    return {
-      ...common,
-      actor: { kind: "agent", agent: caller.agent, session: caller.session },
-      origin: {
-        kind: "turn",
-        session: caller.session,
-        turn: caller.turn,
-        tool_call: caller.toolCall,
-      },
-    };
+    const assignment = deps.assignmentOf(caller.agent);
+    if (!assignment.ok) return assignment;
+    const judged = judge(
+      { kind: "app_tool", ...target },
+      assignment.value,
+      NO_SHELL_RULES,
+      "attended",
+    );
+    return ok(judged.kind !== "deny");
   }
-  return {
-    ...common,
-    actor: { kind: "app", app: caller.app },
-    origin: { kind: "app", invocation: caller.parent.id },
-  };
-}
-
-// 허락이면 실행 직전에 부를 consume을 돌려준다(물었던 것만 있다).
-export async function askGate(
-  approvals: Approvals,
-  intent: Intent,
-): Promise<Result<GateCheck>> {
-  const verdict = await approvals.judge(intent);
-  if (!verdict.ok) return verdict;
-  if (verdict.value.verdict === "run") return ok({ pass: true, consume: null });
-  if (verdict.value.verdict === "deny") {
-    return ok({ pass: false, code: "gate_blocked" });
-  }
-  const opened = approvals.openTurnRequest(intent);
-  if (!opened.ok) return opened;
-  const requestId = opened.value.id;
-  const decision = await approvals.waitTurnDecision(requestId);
-  if (decision.outcome === "reject") {
-    return ok({ pass: false, code: "rejected" });
-  }
-  if (decision.outcome === "cancelled") {
-    return ok({ pass: false, code: "cancelled" });
-  }
-  return ok({
-    pass: true,
-    consume: () => approvals.consumeTurnAllow(requestId, intent),
-  });
+  const grants = await deps.appGrantsOf(caller.app);
+  if (!grants.ok) return grants;
+  return ok(
+    grants.value.some((grant) =>
+      grant.status === "active" && grant.scope.kind === "app.call" &&
+      grant.scope.app === target.app &&
+      grant.scope.app_tools.includes(target.tool)
+    ),
+  );
 }

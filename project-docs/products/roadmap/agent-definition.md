@@ -45,14 +45,13 @@
 - 모든 role에 같은 말("Calls", "앱과 data 규칙", "결정은 하나씩", artifact 한 줄)은 `PRODUCT_INSTRUCTIONS` 한 곳에 둔다.
 - domain 폴더 설명과 kind 다루기는 PM과 App Engineer 지침에 두 번 쓰지 않고 내장 skill(`kinds-yaml`과 domain guide에서 온 skill)로 둔다.
 - App Engineer 지침은 직접 짓는 흐름으로 다시 쓴다: 설계(재사용 → 모델 → journey → 화면 → tool), 코드, preview 확인, release 준비, `release.activate`. 목표는 지금의 반 정도다.
-- lophn과 PM 지침에서 ticket, problem, reaction 줄을 지운다.
+- lophn과 PM 지침에서 ticket 줄을 지운다(problem과 reaction 줄은 `problem-remove`가 지웠다).
 
 ### tool
 
-- 모든 role의 읽기 목록에서 `ticket.*`와 `problem.*` 다섯을 지운다. App Engineer의 쓰기 다섯도 지운다(`problem-ticket.md`).
-- App Engineer에게 앱 log, invocation, 상태 읽기, preview 띄우기와 그 tool 부르기, release 준비, `release.activate`를 더한다(`problem-ticket.md`).
+- 모든 role의 읽기 목록에서 `ticket.*`를 지운다. App Engineer의 ticket 쓰기도 지운다(`problem-ticket.md`).
+- App Engineer에게 preview 띄우기와 그 tool 부르기, release 준비, `release.activate`를 더한다(`problem-ticket.md`). 앱 log, invocation, 상태 읽기(`app.logs`, `app.invocations`, `app.status`)는 `problem-remove`가 더했다.
 - `guide.read`를 지운다(skill로 옮김).
-- lophn이 앱이 잘 도는지 볼 때(AGENT-ROLE L7)는 `problem.list` 대신 앱 상태와 log를 읽는다.
 
 ### 정의 칸
 

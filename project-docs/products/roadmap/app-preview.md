@@ -25,7 +25,7 @@
   - preview는 rewind하지 않는다(`app-call.md:56`).
 - 여는 쪽은 사람과 coding agent뿐이다(`service.ts`의 gate).
   - CLI는 `app preview start`와 `app preview stop`이다(`packages/coding-agent/cli/commands/app.ts:13-14`).
-  - skill `lophn-build-app`과 `lophn-repair`(`packages/coding-agent/guides/skills/`)가 "fixture 격리 preview"로 쓰라고 한다.
+  - skill `lophn-build-app`(`packages/coding-agent/guides/skills/`)이 "fixture 격리 preview"로 쓰라고 한다.
 - preview는 dev server가 아니다. source 폴더를 읽지 않고, 고쳐도 다시 build하지 않는다(HMR 없음).
 - preview 시작을 shell에 알리는 event는 찾지 못했다.
 
@@ -95,7 +95,7 @@ test(AGENTS.md "속도", `write-test` skill):
 
 계획 끝에 고칠 것:
 - `architecture/annotation.md`(preview target), `architecture/app-call.md`(preview를 보이는 길)
-- coding agent skill `lophn-build-app`과 `lophn-repair`(사람이 preview를 본다는 것)
+- coding agent skill `lophn-build-app`(사람이 preview를 본다는 것). `ae-builds`가 그 skill을 지우면 이 줄도 없어진다.
 - changelog 열린 판
 
 ## 끝남 기준

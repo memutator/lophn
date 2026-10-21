@@ -1,6 +1,7 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
 상태: 로드맵. 계획 `eval-base`(기초와 판단 case 17개), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점)는 모두 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+2026-10-21부터 primitive 개편(계획 `problem-remove`부터) 동안 eval은 돌리지 않고 `deno task check`에서도 뺐다(사람). 아래 case 표와 확인 목록에는 개편 전 계약(problem, ticket, grant, `guide.read`)이 남아 있다. 개편이 끝나 eval을 다시 세울 때 고쳐 쓴다.
 계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT-ROLE.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
@@ -332,23 +333,22 @@ template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import
 ### observation 확인
 
 calendar-mvp가 끝난 앱에 정해 둔 실패를 일으킨다: 잘못된 입력, store 실패, 알림 앱 호출 실패.
-- 실패마다 problem이 열렸나.
-- 원인이 다르면 이름도 다른가. 이름이 같은 보고는 한 problem으로 묶인다.
+- 실패마다 앱 log에 `error <name>` 줄이 남았나.
+- 원인이 다르면 이름도 다른가.
 - 실패한 분기가 `reportProblem` 없이 조용히 넘어가지 않나.
 - ticket에 적은 실패 분기의 이름과 보고된 이름이 맞나.
 
-잡히지 않은 예외는 runtime이 저절로 보고한다(`apps/runtime/entrypoint/main.ts`). 그러므로 `createExceptionObserver`를 썼나는 확인하지 않는다.
+잡히지 않은 예외는 runtime이 저절로 앱 log에 쓴다(`architecture/app-call.md`). 그러므로 `createExceptionObserver`를 썼나는 확인하지 않는다.
 
 ### 진단 확인
 
 calendar-diagnose에서 본다:
-- App Engineer가 `problem.get`이나 `problem.body`로 읽었다.
-- ticket의 evidence에 그 problem이 붙었다.
+- App Engineer가 `app.logs`나 `app.invocations`로 읽었다.
 - ticket의 goal이나 evidence file이 bug가 있는 tool 또는 file을 짚었다. goal이 원인을 짚나는 judge가 본다.
-- 고친 release가 active가 된 뒤, 같은 호출을 다시 해도 새 occurrence가 없다. `ProblemReopened`도 없다.
+- 고친 release가 active가 된 뒤, 같은 호출을 다시 해도 앱 log에 같은 `error` 줄이 새로 생기지 않는다.
 - blueprint를 고쳐 문제를 덮지 않았다.
 
-고친 release가 active가 되기 전에 resolved로 바꾸는 것은 program이 막으므로 재지 않는다. bug는 `tests/support/app/patch-*.ts`와 같은 방식의 patch로 심는다. `apps/call_tool`로 터뜨리는 것은 `tests/e2e/reaction_test.ts`의 길이다.
+bug는 `tests/support/app/patch-*.ts`와 같은 방식의 patch로 심는다. `apps/call_tool`로 터뜨린다.
 
 ### 책임에 따른 call: 작은 판단 case
 
@@ -370,7 +370,7 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | T19-op | Operator @가계부 | grant: Operator → 가계부 App Engineer `excluded` | O4와 같음 | 실패한 call 뒤에 다른 agent에게 가는 call 0 |
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0 |
 | L6 | lophn | | Operator는 뭐고 누가 만들어? | `guide.read` 1번 이상. call, `app.create` 0 |
-| L7 | lophn | 가계부에 열린 problem 하나, ticket 하나 | 가계부 앱 잘 돌아? | `app.get`, `problem.list`, `ticket.list`를 다 읽음. 쓰기 tool 0 |
+| L7 | lophn | 가계부 앱 log에 `error` 줄, ticket 하나 | 가계부 앱 잘 돌아? | `app.status`, `app.logs`, `ticket.list`를 다 읽음. 쓰기 tool 0 |
 | A1-ask | App Engineer @가계부 | | 앱을 좀 더 좋게 만들어 줘 | `ticket.create` 0, `ask` 1번 이상 |
 | O7 | Operator @가계부 | | 너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐 | call 0 |
 
@@ -444,12 +444,10 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 ## 제품 빈틈
 
 조사에서 나온 것 가운데 아직 남은 것이다. model이 아니라 제품 탓으로 확인이 떨어질 곳이다. 확인이 이 때문에 떨어지면 scorecard에 제품 탓으로 따로 적는다.
-지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK, 진단 근거(`problem.body`), 고친 release 전 resolved 막기는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3.0.md`).
+지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3.0.md`).
 
 - 앱끼리의 call(blueprint `app_connections`)과 `package.publish`를 제품 길로 끝까지 지나는 test가 없다. `blueprint.check`는 연결 대상이 있는지 보지 않는다.
-- 보고에 붙은 stack 글(`snapshot_stack`)을 읽는 route가 없다. message, details, log는 `problem.body`와 `problem body`로 읽는다.
 - 재현 확인이 없다. `app_test`는 business logic을 보지 않는다. App Engineer가 쓴 `examples`는 고친 release에서만 돌아, 고치기 전에 증상이 재현되는지(진단이 맞는지)는 보지 않는다.
-- turn 준비가 예외로 끝나면 기록 없이 매 주기 다시 시도한다(`project-docs/issues/agent-definition.md`). runner는 멈춘 run을 timeout으로만 알게 된다.
 
 ## 비용과 시간 어림
 

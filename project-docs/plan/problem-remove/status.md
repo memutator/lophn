@@ -18,7 +18,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-problem-refs` | problem-refs | 3 | pr-reactions | merged | problem-refs/pr-problem-refs | 5b22ff291 |  |
 | `pr-log-read` | log | 4 | pr-log-writer, pr-problems-core | merged | log/pr-log-read | 6dff20c5c |  |
 | `pr-problems-core` | problems-core | 4 | pr-reactions, pr-test-runner-reports, pr-cli-problem, pr-log-exception, pr-kinds-toast, pr-problem-refs, pr-issues-ui-main | merged | problems-core/pr-problems-core | 3f0706ce7 |  |
-| `pr-agent-tools` | agent-tools | 5 | pr-log-read, pr-problem-refs | running | agent-tools/pr-agent-tools |  |  |
+| `pr-agent-tools` | agent-tools | 5 | pr-log-read, pr-problem-refs | merged | agent-tools/pr-agent-tools | 99a69a742 |  |
 | `pr-cleanup` | cleanup | 5 | pr-problems-core, pr-log-read, pr-log-view-error, pr-agent-tools, pr-role-prompts | todo |  |  |  |
 | `pr-log-view-error` | log | 5 | pr-log-read, pr-log-exception, pr-issues-ui-main | running | log/pr-log-view-error |  |  |
 | `pr-role-prompts` | role-prompts | 5 | pr-reactions, pr-log-contract | merged | role-prompts/pr-role-prompts | ad6fb52fa |  |

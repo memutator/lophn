@@ -17,7 +17,7 @@ import type { Scenario, SetupContext } from "../types.ts";
 // trial과 gate의 dry run, assembly 재생이 같은 환경으로 core를 띄운다. 다르면 active app 재료의 되살리기가 한쪽에서만 통과하거나 깨진다.
 export async function bootOptionsOf(scenario: Scenario): Promise<BootOptions> {
   return {
-    settings: evalCoreSettings(),
+    settings: evalCoreSettings(scenario),
     env: await restoreCoreEnv(scenario.world),
   };
 }

@@ -66,10 +66,6 @@ elements:
             kind: component
             description: lophn이 가진 package와 버전의 목록, 읽기 전용 설치 사본, 사용자 package 받기.
 
-          - id: app-tickets
-            kind: component
-            description: 앱을 만들거나 고치는 작업 카드와 그 claim.
-
       - id: domains
         kind: subsystem
         description: domain entity(project나 app 안의 책임 경계)와 그 owner·이름 규칙. kind 파일, DOMAIN.md, skill, artifact, 앱 tool이 이 단위로 모인다.
@@ -129,7 +125,7 @@ elements:
 
       - id: approvals
         kind: component
-        description: tool 호출의 판정과 사람에게 묻는 길. 할당(앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다. reaction 설정도 둔다.
+        description: tool 호출의 판정과 사람에게 묻는 길. 할당(앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다.
 
       - id: config
         kind: component

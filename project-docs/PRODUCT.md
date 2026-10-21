@@ -21,7 +21,7 @@ lophn은 사용자의 도메인에 기대지 않는다. lophn의 도메인은 �
 | 층 | 무엇 | 누구의 것 |
 |---|---|---|
 | 사용자의 도메인 | 캘린더, 거래처, 견적, 내 문서의 계약. 앱, domain(kind 파일, `DOMAIN.md`, skill, artifact, 앱 tool), 사용자 package로 만들어진다 | 사용자가 온전히 소유한다. 범용화나 정규화를 신경 쓰지 않고 그 사람에게 맞춘다 |
-| lophn의 도메인 | 그 software를 만들고, 고정하고, 관측하고, 고치고, 되돌리고, 권한을 주는 일. release, ticket, invocation, 앱 log, grant, event | lophn |
+| lophn의 도메인 | 그 software를 만들고, 고정하고, 관측하고, 고치고, 되돌리고, 권한을 주는 일. release, preview, invocation, 앱 log, grant, event | lophn |
 
 - 사용자의 도메인은 그릇 안에 domain으로 나뉜다. 그릇은 project(폴더 작업 공간)와 app(software 작업 공간)이고, domain은 그 안의 책임 경계다. 그릇 하나에 domain이 여럿 있을 수 있고, 모든 앱은 domain을 하나 이상 가진다. 다른 그릇의 domain은 같은 것을 또 만들지 않고 공개 tool로 참조한다(`architecture/domain.md`).
 - 도메인 쪽은 미리 범용으로 만들어 두지 않는다. 필요할 때 agent가 만들어 붙인다. 다른 software의 extension처럼 쓰지만, lophn이 따로 extension이라는 개념을 두는 것은 아니다. 구현 비용이 내려갔으니 그때그때 만들어 쓰면 된다.
@@ -78,7 +78,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - lophn agent, coding agent, lophn process가 함께 고친다.
 - 쓸데없는 결정 피로를 줄인다. 결정은 앞에서 몰아서 하고 그 뒤에는 믿고 쓰며, 실수는 묻는 것으로 막지 않고 rewind로 복구한다.
 
-**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 ticket 목록이 아니라 내 앱에서 무엇이 달라졌는지다. ticket처럼 agent끼리 만들고 읽는 것은 사람 화면에 따로 보이지 않는다.
+**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 작업 목록이 아니라 내 앱에서 무엇이 달라졌는지다. 설계 메모나 agent끼리 주고받는 call처럼 agent가 만들고 읽는 것은 사람 화면에 따로 보이지 않는다.
 
 ## 5. 하지 않는 것
 
@@ -95,8 +95,8 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 **MVP**
 - 데스크톱 앱(shell)과 로컬 core
 - lophn agent: lophn, Project Manager, App Engineer, Operator
-- coding agent 연결: 터미널 탭의 TUI, CLI, MCP
-- 앱: blueprint, release, 실행, data, ticket, 앱 log
+- coding agent 연결: 터미널 탭의 TUI, CLI, MCP. App Engineer는 coding agent에게 맡기지 않는다(연결을 얼마나 남길지는 보류)
+- 앱: App Engineer가 직접 짓기(blueprint, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
 

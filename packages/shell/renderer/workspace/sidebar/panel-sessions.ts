@@ -17,8 +17,7 @@ export function agentByRole(
 }
 
 /**
- * 이 project의 열린 Project Manager session 가운데 가장 최근 것. session 정보에 reaction의 근거 seq가 없어서
- * 그 위반의 reaction이 연 session을 정확히 가리지 못한다.
+ * 이 project의 열린 Project Manager session 가운데 가장 최근 것.
  */
 export function openedProjectManagerSession(
   entries: readonly SessionEntry[],

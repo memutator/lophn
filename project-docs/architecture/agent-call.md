@@ -19,7 +19,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  받는 곳이 coding_agent로 풀리면 ─▶ invalid_input (call 행 없음. 지금 coding session을 여는 길이 없다)
 ```
 
-보낸 쪽은 사람, program(근거 domain event seq), agent session, coding agent session 넷이다. 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(App Engineer와 coding agent만)이다.
+보낸 쪽은 사람, program(늦은 실패와 취소의 알림, tools_changed 알림, 맡긴 coding session의 끝. 종류만 있고 근거 칸이 없다), agent session, coding agent session 넷이다. 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(App Engineer와 coding agent만)이다.
 
 ## 지키는 것
 
@@ -52,7 +52,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 같은 사실을 두 길로 알리지 않는다. coding session의 끝은 그 끝을 아는 command가 같은 tx에서 call을 닫고 맡긴 App Engineer에게 한 번 알린다(`architecture/coding-agent.md`). 닫힌 call에는 Router의 실패 알림이 다시 가지 않는다.
   - Router의 실패 알림이 같은 사실을 한 번 더 보내면 App Engineer가 두 번 반응한다. 이미 끝난 call(취소, Router가 먼저 닫음)이면 알리지 않는다.
 - 입력함 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
-- 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction의 event type(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
+- 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction이 알리는 사실 이름(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
   - coding agent가 보낸 call(`from.kind === "coding_agent"`)의 봉투는 "글로는 터미널에 닿지 않으니 `call`의 `to:{session}`과 `reply:"conversation"`으로 답하라"는 줄을 더 싣는다. 이 줄은 `from`(kind와 session)만으로 만들어서 받은 turn과 뒤 이력이 같은 bytes를 만든다. 새 칸을 봉투에 더하지 않는다.
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.

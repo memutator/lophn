@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-call-judge` | call-judge | 1 | 없음 | running | call-judge/ap-call-judge |  |  |
 | `ap-contract` | contract | 1 | 없음 | running | contract/ap-contract |  |  |
 | `ap-gate` | gate | 1 | ap-contract | todo |  |  |  |
-| `ap-legacy` | legacy | 1 | 없음 | running | legacy/ap-legacy |  |  |
+| `ap-legacy` | legacy | 1 | 없음 | merged | legacy/ap-legacy | 65c016434 |  |
 | `ap-reaction` | reaction | 1 | 없음 | running | reaction/ap-reaction |  |  |
 | `ap-settings-edit` | settings-edit | 1 | 없음 | running | settings-edit/ap-settings-edit |  |  |
 | `ap-activation` | activation | 2 | 없음 | todo |  |  |  |

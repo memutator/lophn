@@ -11,6 +11,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import {
+  activationAskConsent,
   activationBlock,
   activationComplete,
   activationFail,
@@ -120,6 +121,8 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       activationStart.name,
       // 다른 domain이 쓰는 공개 tool을 지우는 release를 판정 단계에서 막는다.
       activationBlock.name,
+      // 선언이 넓어진 release는 사람의 동의를 묻는다(동의 표). 허락한 뒤 시작은 driver가 한다.
+      activationAskConsent.name,
       activationRecordBackup.name,
       activationRecordDataChange.name,
       activationRecordDataRestore.name,
@@ -152,8 +155,7 @@ const SUPERVISOR_OPERATIONS = [
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다.
   appTools.name,
   appGrantsList.name,
-  // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
-  // 시작은 사람 approval의 적용(`apply_approved_action`)이다.
+  // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다.
   activationRecordBackup.name,
   activationRecordDataChange.name,
   activationRecordDataRestore.name,
@@ -196,6 +198,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       activationFail,
       activationStart,
       activationBlock,
+      activationAskConsent,
       releasesGetRecord,
     ].map((route): OperationPolicy => ({
       name: route.name,

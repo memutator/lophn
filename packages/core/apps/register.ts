@@ -138,7 +138,7 @@ export function createLedgerRegistration(
       ...createPreviewReads(() => unattachedPreviewService()),
       unattachedRead(appRewindPlan),
       unattachedRead(appRewinds),
-      // 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
+      // 도는 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
       createActivationQueueRead({
         entries: () =>
           Promise.resolve(
@@ -181,6 +181,8 @@ export function createLedgerRegistration(
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
       releaseCommands.activatePrevious,
+      releaseCommands.askConsent,
+      releaseCommands.consent,
     ],
     reads: [
       reads.list,
@@ -190,6 +192,7 @@ export function createLedgerRegistration(
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,
+      releaseReads.activationConsents,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
@@ -252,6 +255,7 @@ export function createReaderRegistration(): ReaderRegistration {
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,
+      releaseReads.activationConsents,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,

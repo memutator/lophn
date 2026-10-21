@@ -5,12 +5,14 @@
 // 안에서 다시 확인한다. 긴 준비의 요청 때와 확정 때 모두 검사하므로 요청 쪽도 같은 검사를 부른다.
 // activation 쪽 command는 activation driver가 machine 자격으로 순서대로 부른다(activation/assembly.ts).
 import { createHash } from "node:crypto";
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
   activationActivatePrevious,
+  activationAskConsent,
   type ActivationAttempt,
   activationBlock,
   activationComplete,
+  activationConsent,
   type ActivationDataResult,
   activationFail,
   activationStart,
@@ -61,6 +63,7 @@ import {
   nextReleaseNumber,
 } from "./store.ts";
 import { inProgress, storeActivation } from "./activation/state.ts";
+import { pushConsentEvent, waitingConsents } from "./activation/consents.ts";
 
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
@@ -204,6 +207,8 @@ export function createReleaseCommands(): {
   completeActivation: CommandDefinition<typeof activationComplete>;
   failActivation: CommandDefinition<typeof activationFail>;
   activatePrevious: CommandDefinition<typeof activationActivatePrevious>;
+  askConsent: CommandDefinition<typeof activationAskConsent>;
+  consent: CommandDefinition<typeof activationConsent>;
 } {
   return {
     // activation 시작. Reactor handler가 시작한 앱의 activation에서 driver가 machine 자격으로 부른다.
@@ -255,6 +260,18 @@ export function createReleaseCommands(): {
         storeActivation(tx, release.id, "activating", activation, null);
         tx.sql.run("DELETE FROM activation_requests WHERE release = ?", [
           release.id,
+        ]);
+        // 더 새 release의 activation이 시작됐으니 이 앱의 동의 줄은 모두 닫는다(허락한 줄도 시작하지 못한다).
+        for (const waiting of waitingConsents(tx.sql, release.app)) {
+          pushConsentEvent(tx, {
+            type: "ActivationConsentClosed",
+            app: waiting.app,
+            release: waiting.release,
+            outcome: "cancelled",
+          });
+        }
+        tx.sql.run("DELETE FROM activation_consents WHERE app = ?", [
+          release.app,
         ]);
         return ok({
           attempt: activation.attempt,
@@ -430,7 +447,7 @@ export function createReleaseCommands(): {
       },
     },
     // 이전 release로 돌아가기. 사람만 한다. 지금 활성 release와 data schema가 같은 superseded release만 받는다.
-    // 요청만 남기고 시작하는 일은 driver가 한다(commit 뒤 hook이 없다). approval은 없다.
+    // 요청만 남기고 시작하는 일은 driver가 한다(commit 뒤 hook이 없다).
     activatePrevious: {
       route: activationActivatePrevious,
       handle(tx, ctx, input) {
@@ -473,6 +490,100 @@ export function createReleaseCommands(): {
           [release.id, tx.now()],
         );
         return ok({});
+      },
+    },
+    // 동의 묻기. machine만 한다(Reactor handler가 driver를 지나 부른다). 같은 release는 줄 하나라서 같은 비교로 다시 부르면
+    // 아무것도 바꾸지 않는다(허락한 줄도 그대로). 비교가 달라졌으면 줄을 덮어 다시 사람을 기다린다.
+    askConsent: {
+      route: activationAskConsent,
+      handle(tx, ctx, input) {
+        const actor = requireMachine(ctx, "activation.ask_consent");
+        if (!actor.ok) return actor;
+        const found = releaseAndApp(
+          tx,
+          ctx,
+          activationAskConsent.name,
+          input.release,
+          unreachableTarget,
+        );
+        if (!found.ok) return found;
+        const { release } = found.value;
+        if (release.status !== "prepared") {
+          return conflict("only a prepared release waits for consent");
+        }
+        const comparison = canonicalize(input.comparison);
+        const existing = tx.sql.get(
+          "SELECT comparison FROM activation_consents WHERE release = ?",
+          [release.id],
+        );
+        if (
+          existing !== undefined && String(existing.comparison) === comparison
+        ) {
+          return ok({ created: false });
+        }
+        tx.sql.run(
+          `INSERT INTO activation_consents (release, app, comparison, requested_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT (release) DO UPDATE SET comparison = excluded.comparison,
+             requested_at = excluded.requested_at, allowed_at = NULL`,
+          [release.id, release.app, comparison, tx.now()],
+        );
+        pushConsentEvent(tx, {
+          type: "ActivationConsentRequested",
+          app: release.app,
+          release: release.id,
+        });
+        return ok({ created: true });
+      },
+    },
+    // 동의. 사람만 한다. 허락은 표에 남기고 시작은 driver가 한다. 거절은 줄을 지우고 release는 prepared로 남는다.
+    // compare의 requested_at이 지금 대기와 다르면 사람이 본 것이 아니다(그 사이 다시 물었다).
+    consent: {
+      route: activationConsent,
+      handle(tx, ctx, input, compare) {
+        if (parseActor(ctx.actor)?.kind !== "user") {
+          return err({
+            code: "forbidden",
+            message: "only the user consents to an activation",
+          });
+        }
+        const found = releaseAndApp(
+          tx,
+          ctx,
+          activationConsent.name,
+          input.release,
+          unreachableTarget,
+        );
+        if (!found.ok) return found;
+        const { release } = found.value;
+        const waiting = tx.sql.get(
+          `SELECT requested_at FROM activation_consents
+            WHERE release = ? AND allowed_at IS NULL`,
+          [release.id],
+        );
+        if (
+          waiting === undefined ||
+          String(waiting.requested_at) !== compare.requested_at
+        ) {
+          return conflict("the consent is already decided or closed");
+        }
+        if (input.choice === "allow") {
+          tx.sql.run(
+            "UPDATE activation_consents SET allowed_at = ? WHERE release = ?",
+            [tx.now(), release.id],
+          );
+        } else {
+          tx.sql.run("DELETE FROM activation_consents WHERE release = ?", [
+            release.id,
+          ]);
+        }
+        pushConsentEvent(tx, {
+          type: "ActivationConsentClosed",
+          app: release.app,
+          release: release.id,
+          outcome: input.choice,
+        });
+        return ok({ release: release.id, outcome: input.choice });
       },
     },
     // 준비 접수의 요청 때 검사다. 앱 범위·source 연결·ticket claim을 이 transaction에서

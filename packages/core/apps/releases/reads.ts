@@ -1,9 +1,10 @@
-// releases.list_records·get_record, activations.compare·queue.
+// releases.list_records·get_record, activations.compare·consents·queue.
 // 불변 Release를 준비 순서로 읽고, 이전 release와의 비교를 고정 blueprint 둘로 만든다.
 // 범위 밖 앱의 release는 없는 것과 같다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  activationConsents,
   type ActivationQueueEntry,
   activationsCompare,
   activationsQueue,
@@ -20,6 +21,7 @@ import type {
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { loadGrants } from "../permissions/mod.ts";
 import { compareForActivation } from "./compare.ts";
+import { waitingConsents } from "./activation/consents.ts";
 import {
   loadActiveRelease,
   loadRelease,
@@ -170,6 +172,7 @@ export function createReleaseReads(): {
   listRecords: ReadDefinition<typeof releasesListRecords>;
   getRecord: ReadDefinition<typeof releasesGetRecord>;
   activationCompare: ReadDefinition<typeof activationsCompare>;
+  activationConsents: ReadDefinition<typeof activationConsents>;
 } {
   return {
     listRecords: {
@@ -182,6 +185,34 @@ export function createReleaseReads(): {
       route: releasesGetRecord,
       handle: (snapshot, ctx, input) =>
         getRecord(snapshot, ctx, releasesGetRecord.name, input.release),
+    },
+    // 동의를 기다리는 줄이다. 읽을 수 없는 앱의 줄은 뺀다.
+    activationConsents: {
+      route: activationConsents,
+      handle(snapshot, ctx, input) {
+        const seen = new Map<string, boolean>();
+        const consents = [];
+        for (const row of waitingConsents(snapshot.sql, input.app)) {
+          let allowed = seen.get(row.app);
+          if (allowed === undefined) {
+            const checked = visible(
+              snapshot,
+              ctx,
+              activationConsents.name,
+              row.app,
+            );
+            if (!checked.ok) return checked;
+            allowed = checked.value;
+            seen.set(row.app, allowed);
+          }
+          if (allowed) consents.push(row);
+        }
+        return ok({
+          consents,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
     },
     // 지금 활성 release와 견준 activation 비교다. 이미 활성인 release는 자기 앞의 release와 견준다.
     activationCompare: {
@@ -229,7 +260,7 @@ export function createReleaseReads(): {
   };
 }
 
-// activation 줄의 지금 상태다. 줄은 core 메모리라 ledger snapshot이 아니라 driver가 준다.
+// activation 줄의 지금 상태다. 도는 것은 core 메모리라 ledger snapshot이 아니라 driver가 준다.
 type ActivationQueueSource = {
   entries(app: string | undefined): Promise<
     Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>

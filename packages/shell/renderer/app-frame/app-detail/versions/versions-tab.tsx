@@ -135,13 +135,13 @@ function VersionBody(
                     next: releaseName(applying.number),
                   })}
               </p>
-              {applying.phase === "waiting_approval"
+              {applying.phase === "waiting_consent"
                 ? (
                   <p
                     className={styles.muted}
                     data-applying-phase={applying.phase}
                   >
-                    {t("app-detail.note.applying-waiting-approval")}
+                    {t("app-detail.note.applying-waiting-consent")}
                   </p>
                 )
                 : null}

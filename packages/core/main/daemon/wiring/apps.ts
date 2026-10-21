@@ -92,6 +92,7 @@ import {
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
+import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
 import { withAfterCommit } from "../../../storage/ledger/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
@@ -256,17 +257,10 @@ export const appsWiring: WiringFactory = () => {
           (ctx.peek.bundleLocator ??
             bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
       };
-      // activation: 다른 module의 port를 끼우고 Reactor·Approvals에 등록한다. 끼우기 전에는 일하지 않는다.
+      // activation: 다른 module의 port를 끼우고 Reactor에 등록한다. 끼우기 전에는 일하지 않는다.
       const activation = appsControl.activation;
       if (activation !== null) {
         activation.attach({
-          approvals: {
-            createPending: (intent) => ctx.approvals.createPending(intent),
-            cancelPendingFor: (app, release) =>
-              ctx.approvals.cancelPendingFor(app, release),
-            request: (id) => ctx.approvals.request(id),
-            pending: () => ctx.approvals.pending(),
-          },
           bus: ctx.bus,
           intake: {
             close: (app) => intake.close(app as Id<"app">, "activation"),
@@ -287,11 +281,6 @@ export const appsWiring: WiringFactory = () => {
           },
         });
         ctx.reactor.on("TicketVerified", activation.handlers.ticketVerified);
-        ctx.reactor.on("ApprovalDecided", activation.handlers.approvalDecided);
-        ctx.approvals.registerApplier(
-          "activation",
-          activation.handlers.applier,
-        );
       }
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);
@@ -310,7 +299,10 @@ export const appsWiring: WiringFactory = () => {
             // 다른 topic은 router·coding wiring의 applier가 따로 본다.
             (actions) => {
               for (const action of actions) {
-                if (action.topic === APP_RESTART_HALTED_TOPIC) {
+                if (
+                  action.topic === APP_RESTART_HALTED_TOPIC ||
+                  action.topic === ACTIVATION_CONSENT_TOPIC
+                ) {
                   ctx.peek.bus?.publish(action.data as BusEvent);
                 }
               }

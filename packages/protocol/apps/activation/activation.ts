@@ -7,7 +7,6 @@ import { idempotencyKeySchema, withReadCommon } from "../../base/envelope.ts";
 import { preparedBlobSchema } from "../../storage/blob.ts";
 import {
   appIdSchema,
-  approvalIdSchema,
   invocationIdSchema,
   releaseIdSchema,
   toolKeySchema,
@@ -48,7 +47,7 @@ const activationFailureSchema = z.object({
 });
 export type ActivationFailure = z.infer<typeof activationFailureSchema>;
 
-// 마지막 시도의 기록. 시작·확정 때 CAS를 다시 하지 않으므로 approval과 expected_*는 없다.
+// 마지막 시도의 기록. 시작·확정 때 CAS를 다시 하지 않으므로 expected_*는 없다.
 const activationAttemptSchema = z.object({
   attempt: activationAttemptIdSchema,
   previous_release: releaseIdSchema.nullable(),
@@ -125,9 +124,9 @@ export const activationComparisonSchema = z.object({
 });
 export type ActivationComparison = z.infer<typeof activationComparisonSchema>;
 
-// 줄은 메모리다. 끝난 것은 release의 status(active, failed)로 본다.
+// running은 메모리, waiting_consent는 동의 표(activation_consents)다. 끝난 것은 release의 status(active, failed)로 본다.
 const ACTIVATION_PHASES = [
-  "waiting_approval",
+  "waiting_consent",
   "running",
 ] as const;
 const activationPhaseSchema = z.enum(ACTIVATION_PHASES);
@@ -148,7 +147,6 @@ const activationQueueEntrySchema = z.object({
   app: appIdSchema,
   release: releaseIdSchema,
   phase: activationPhaseSchema,
-  approval: approvalIdSchema.nullable(),
   // running이 아니면 null이다.
   step: activationStepSchema.nullable(),
   // 새 호출 접수를 닫은 동안 붙잡은 호출 수.

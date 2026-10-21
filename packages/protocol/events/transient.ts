@@ -69,6 +69,28 @@ const appRestartHalted = defineTransientEvent("AppRestartHalted", {
   }),
 });
 
+// 동의 대기가 표에 쓰이고 commit된 뒤 낸다. subject는 release다(같은 release는 동의 줄 하나).
+const activationConsentRequested = defineTransientEvent(
+  "ActivationConsentRequested",
+  {
+    subject: idSchema("rel"),
+    payload: z.strictObject({ app: idSchema("app"), release: idSchema("rel") }),
+  },
+);
+
+// 사람이 정했거나 더 새 release가 시작해 동의 대기가 닫힌 뒤 낸다.
+const activationConsentClosed = defineTransientEvent(
+  "ActivationConsentClosed",
+  {
+    subject: idSchema("rel"),
+    payload: z.strictObject({
+      app: idSchema("app"),
+      release: idSchema("rel"),
+      outcome: z.enum(["allow", "reject", "cancelled"]),
+    }),
+  },
+);
+
 // kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다. count는 그 새 위반 수다.
 const kindViolationFound = defineTransientEvent("KindViolationFound", {
   subject: idSchema("dom"),
@@ -84,4 +106,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),
   transientEventEnvelopeSchema(kindViolationFound),
+  transientEventEnvelopeSchema(activationConsentRequested),
+  transientEventEnvelopeSchema(activationConsentClosed),
 ]);

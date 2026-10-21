@@ -1,13 +1,9 @@
-// activation을 여는 Reactor handler 둘과 보류 request의 applier. `TicketVerified`가 계기이고, 선언이 넓어지거나
-// data 손실 migration이 있을 때만 사람에게 묻는다(보류 request). 묻지 않거나 사람이 허락하면 그 앱의 activation을 곧바로 시작한다.
+// activation을 여는 Reactor handler와 동의 뒤 판정. `TicketVerified`가 계기이고, 선언이 넓어지거나
+// data 손실 migration이 있을 때만 사람에게 묻는다(동의 표, consents.ts). 묻지 않으면 그 앱의 activation을 곧바로 시작하고,
+// 사람이 허락하면 driver sweep이 허락한 줄을 `consented`로 넘긴다.
 // 다른 domain이 쓰는 공개 tool을 지우는 release는 묻기 전에 막는다(release는 prepared로 남는다).
 // 앱에 이미 돌고 있는 activation이 있으면 conflict다. 일하는 것은 driver다(assembly.ts). 이 file은 판정만 하고 IO는 deps로 받는다.
-import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
-import type {
-  ApplyResult,
-  Intent,
-  PendingApproval,
-} from "../../../../protocol/approvals/mod.ts";
+import { canonicalize, ok, type Result } from "../../../../base/mod.ts";
 import type {
   ActivationComparison,
   ReleaseRecord,
@@ -22,35 +18,34 @@ type ActivationHandlerDeps = {
     get(id: string): Result<ReleaseRecord | null>;
     // 지금 active grant·active release와 견준 비교.
     comparison(release: ReleaseRecord): Promise<Result<ActivationComparison>>;
-    // 다른 domain이 쓰는 공개 tool을 지우는 release면 true다(그 앱의 App Engineer에게 알리는 일까지 한다). 읽지 못하면 err이고 시작하지 않는다.
+    // 다른 domain이 쓰는 공개 tool을 지우는 release면 true다(막기만 한다. 알리지 않는다). 읽지 못하면 err이고 시작하지 않는다.
     blocked(release: ReleaseRecord): Promise<Result<boolean>>;
   };
-  approvals: {
-    createPending(intent: Intent): Promise<Result<PendingApproval>>;
-    // 결정된 request를 읽는다.
-    request(id: string): Promise<Result<PendingApproval | null>>;
+  consents: {
+    // 사람에게 묻는다. 같은 비교로 다시 부르면 줄이 늘지 않는다.
+    ask(
+      release: ReleaseRecord,
+      comparison: ActivationComparison,
+    ): Promise<Result<void>>;
   };
-  waitApproval(app: string, release: string, approval: string): void;
   // approved는 사람이 허락한 비교의 정규 값이다. 묻지 않고 시작한 것은 null이다.
   enqueue(app: string, release: string, approved: string | null): Result<void>;
 };
 
 const TICKET_VERIFIED_HANDLER = "activation.ticket-verified";
-const APPROVAL_DECIDED_HANDLER = "activation.approval-decided";
 
 export function createActivationHandlers(deps: ActivationHandlerDeps): {
   ticketVerified: ReactorHandler<"TicketVerified">;
-  approvalDecided: ReactorHandler<"ApprovalDecided">;
-  applier: (request: PendingApproval) => Promise<Result<ApplyResult>>;
+  // 사람이 허락한 줄을 시작한다. 허락한 뒤 비교가 달라졌으면 시작하지 않고 다시 묻는다.
+  consented(
+    row: { release: string; comparison: string },
+  ): Promise<Result<void>>;
   // 시작하기 전에 다시 판정한다. 허락한 비교와 달라졌을 때 driver가 부른다.
-  reconsider(release: ReleaseRecord, seq: string): Promise<Result<void>>;
+  reconsider(release: ReleaseRecord): Promise<Result<void>>;
 } {
-  // 비교를 보고 시작하거나 묻는다. 같은 intent의 보류 request는 하나라서(createPending) 같은 event를
-  // 두 번 처리해도 request가 늘지 않는다.
-  async function judge(
-    release: ReleaseRecord,
-    seq: string,
-  ): Promise<Result<void>> {
+  // 비교를 보고 시작하거나 묻는다. 같은 비교의 동의 줄은 하나라서(consents.ask) 같은 event를
+  // 두 번 처리해도 줄이 늘지 않는다.
+  async function judge(release: ReleaseRecord): Promise<Result<void>> {
     const blocked = await deps.releases.blocked(release);
     if (!blocked.ok) return blocked;
     if (blocked.value) return ok(undefined);
@@ -59,21 +54,7 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
     if (!asksFor(comparison.value)) {
       return deps.enqueue(release.app, release.id, null);
     }
-    const pending = await deps.approvals.createPending({
-      kind: "activation",
-      actor: { kind: "program", seq },
-      target: {
-        kind: "activation",
-        app: release.app,
-        release: release.id,
-      },
-      effect: "read",
-      input: comparison.value as unknown as Intent["input"],
-      origin: { kind: "activation", app: release.app, release: release.id },
-    } as Intent);
-    if (!pending.ok) return pending;
-    deps.waitApproval(release.app, release.id, pending.value.id);
-    return ok(undefined);
+    return await deps.consents.ask(release, comparison.value);
   }
 
   return {
@@ -87,65 +68,32 @@ export function createActivationHandlers(deps: ActivationHandlerDeps): {
         if (found.value === null || found.value.status !== "prepared") {
           return ok(undefined);
         }
-        return await judge(found.value, event.seq);
+        return await judge(found.value);
       },
     },
-    approvalDecided: {
-      name: APPROVAL_DECIDED_HANDLER,
-      async handle(event) {
-        const { kind, decision, applied } = event.payload;
-        // 거절이면 release는 prepared로 남고 App Engineer가 사람에게 올린다.
-        if (kind !== "activation" || decision !== "allow") {
-          return ok(undefined);
-        }
-        if (applied?.state !== "applied") return ok(undefined);
-        const request = await deps.approvals.request(event.subject);
-        if (!request.ok) return request;
-        const target = request.value?.intent.target;
-        if (target?.kind !== "activation") return ok(undefined);
-        const found = deps.releases.get(target.release);
-        if (!found.ok) return found;
-        if (found.value === null || found.value.status !== "prepared") {
-          return ok(undefined);
-        }
-        const comparison = await deps.releases.comparison(found.value);
-        if (!comparison.ok) return comparison;
-        // 허락한 비교와 달라졌으면 새로 판정한다.
-        if (
-          asksFor(comparison.value) &&
-          canonicalize(comparison.value) !==
-            canonicalize(request.value!.intent.input)
-        ) {
-          return await judge(found.value, event.seq);
-        }
-        const blocked = await deps.releases.blocked(found.value);
-        if (!blocked.ok) return blocked;
-        if (blocked.value) return ok(undefined);
-        return deps.enqueue(
-          found.value.app,
-          found.value.id,
-          asksFor(comparison.value) ? canonicalize(comparison.value) : null,
-        );
-      },
-    },
-    // 허락을 적용하기 직전에 release가 아직 prepared인지 다시 본다. 시작하는 일은 ApprovalDecided handler다.
-    applier(request) {
-      const target = request.intent.target;
-      if (target.kind !== "activation") {
-        return Promise.resolve(
-          err({ code: "invalid_input", message: "not an activation" }),
-        );
-      }
-      const found = deps.releases.get(target.release);
-      if (!found.ok) return Promise.resolve(found);
+    async consented(row) {
+      const found = deps.releases.get(row.release);
+      if (!found.ok) return found;
       if (found.value === null || found.value.status !== "prepared") {
-        return Promise.resolve(ok({
-          state: "failed" as const,
-          code: "conflict" as const,
-          message: "the release is no longer waiting for activation",
-        }));
+        return ok(undefined);
       }
-      return Promise.resolve(ok({ state: "applied" as const }));
+      const comparison = await deps.releases.comparison(found.value);
+      if (!comparison.ok) return comparison;
+      // 허락한 비교와 달라졌으면 새로 판정한다.
+      if (
+        asksFor(comparison.value) &&
+        canonicalize(comparison.value) !== row.comparison
+      ) {
+        return await judge(found.value);
+      }
+      const blocked = await deps.releases.blocked(found.value);
+      if (!blocked.ok) return blocked;
+      if (blocked.value) return ok(undefined);
+      return deps.enqueue(
+        found.value.app,
+        found.value.id,
+        asksFor(comparison.value) ? canonicalize(comparison.value) : null,
+      );
     },
   };
 }

@@ -2,14 +2,14 @@
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
 //      만들어 supervisor에 알린다(`bundleFlags`). AI가 쓴 앱 코드의 실수가 퍼지지 않게 선언 ∩ active grant 밖의 접근은
 //      flag에 없다.
-//   2. activation: `TicketVerified`·`ApprovalDecided` Reactor handler(handler.ts)가 앱마다 하나만(queue.ts)
+//   2. activation: `TicketVerified` Reactor handler(handler.ts)가 앱마다 하나만(queue.ts)
 //      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
 //      supervisor가 끊긴 뒤의 진행 중 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다.
 //      단계의 실제 일은 `ActivationPorts`로 끼운다: 자식 종료·후보 준비·열기는 supervisor, 앱 DB 작업은
 //      supervisor가 띄우는 data worker, ledger 확정은 core 내부 machine 자격의 command다. core는 앱 DB를
 //      열지 않고 backup 파일의 byte를 blob 준비 통로로 흘리기만 한다.
-//   3. 이전 release로 돌아가기 요청(`activation_requests`)을 sweep이 읽어 시작한다.
-// Approvals·Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
+//   3. 이전 release로 돌아가기 요청(`activation_requests`)과 사람이 허락한 동의 줄(`activation_consents`)을 sweep이 읽어 시작한다.
+// Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
 import {
   canonicalize,
   type Clock,
@@ -18,11 +18,8 @@ import {
   ok,
   type Result,
 } from "../../../../base/mod.ts";
-import type {
-  Intent,
-  PendingApproval,
-} from "../../../../protocol/approvals/mod.ts";
 import {
+  activationAskConsent,
   activationBlock,
   type ActivationComparison,
   activationComplete,
@@ -74,6 +71,7 @@ import {
   type DomainNamesOf,
   readBundleCopy,
 } from "./desired.ts";
+import { allowedConsents, waitingConsents } from "./consents.ts";
 import { createActivationHandlers } from "./handler.ts";
 import { runActivation } from "./orchestrator.ts";
 import { createActivationQueue, type QueueEntry } from "./queue.ts";
@@ -125,13 +123,6 @@ type ActivationDeps = {
 
 // 다른 module의 port다. 조립이 늦게 끼운다(`attach`). 끼우기 전에는 activation을 진행하지 않는다.
 type ActivationLate = {
-  approvals: {
-    createPending(intent: Intent): Promise<Result<PendingApproval>>;
-    cancelPendingFor(app: string, release?: string): Promise<Result<number>>;
-    // 결정된 request를 읽는다. `Approvals` port에 아직 없어 조립이 approvals 읽기로 끼운다.
-    request(id: string): Promise<Result<PendingApproval | null>>;
-    pending(): Promise<Result<PendingApproval[]>>;
-  };
   bus: Pick<Bus, "publish">;
   intake: ActivationIntake;
   // 새 호출 접수를 닫은 동안 붙잡은 호출 수.
@@ -147,11 +138,11 @@ export type ActivationDriver = {
   // 도는 시도 수. 시험이 끝을 기다린다.
   readonly running: number;
   settled(): Promise<void>;
-  // Approvals·Bus·접수·changeset port를 끼운다.
+  // Bus·접수·changeset port를 끼운다.
   attach(late: ActivationLate): void;
-  // Reactor에 등록하는 handler 둘과 Approvals에 등록하는 applier(`registerApplier("activation", ...)`).
+  // Reactor에 등록하는 handler(`ticketVerified`).
   readonly handlers: ReturnType<typeof createActivationHandlers>;
-  // `activations.queue` read의 원천이다. 도는 것(메모리)과 기다리는 보류 request를 합친다.
+  // `activations.queue` read의 원천이다. 도는 것(메모리)과 사람을 기다리는 동의 줄(ledger)을 합친다.
   queueEntries(
     app: string | undefined,
   ): Promise<Result<{ entries: ActivationQueueEntry[]; as_of_seq: string }>>;
@@ -625,7 +616,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           (entry.approved === null ||
             canonicalize(compared.value) !== entry.approved)
         ) {
-          await handlers.reconsider(release, headSeq());
+          await handlers.reconsider(release);
           return;
         }
       }
@@ -639,9 +630,6 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       if (!reread.ok || reread.value === null) return;
       if (!started.ok && reread.value.status !== "activating") return;
       release = reread.value;
-      // 더 새 release의 activation이 시작됐으니 이전 release를 기다리던 보류 request는 취소한다.
-      await late.approvals.cancelPendingFor(release.app, release.id);
-      queue.dropWaiting(release.app, release.id);
       outcome = await runActivation(ports, release);
     }
     // 복원이나 종료를 확인하지 못했으면 앱은 붙든 채로 둔다(이전 코드를 시작하지 않는다). 다음 sweep이 이어받는다.
@@ -683,18 +671,16 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           : done;
       },
     },
-    approvals: {
-      createPending: (intent) =>
-        late === undefined
-          ? Promise.resolve(unavailable("approvals are not attached"))
-          : late.approvals.createPending(intent),
-      request: (id) =>
-        late === undefined
-          ? Promise.resolve(unavailable("approvals are not attached"))
-          : late.approvals.request(id),
+    consents: {
+      async ask(release, comparison) {
+        const done = await sendValue(
+          activationAskConsent.name,
+          { release: release.id, comparison },
+          "activation-ask-consent",
+        );
+        return done.ok ? ok(undefined) : done;
+      },
     },
-    waitApproval: (app, release, approval) =>
-      queue.waitApproval(app, release, approval),
     enqueue,
   });
 
@@ -778,30 +764,24 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       late = next;
     },
     handlers,
-    async queueEntries(app) {
+    queueEntries(app) {
       const entries = queue.list(app, (one) => late?.heldCalls(one) ?? 0);
-      if (late !== undefined) {
-        const pending = await late.approvals.pending();
-        if (!pending.ok) return pending;
-        for (const request of pending.value) {
-          const target = request.intent.target;
-          if (target.kind !== "activation") continue;
-          if (app !== undefined && target.app !== app) continue;
-          if (entries.some((entry) => entry.release === target.release)) {
-            continue;
-          }
-          entries.push({
-            app: target.app,
-            release: target.release,
-            phase: "waiting_approval",
-            approval: request.id,
-            step: null,
-            held_calls: 0,
-            migration_steps: 0,
-          } as ActivationQueueEntry);
+      const waiting = ledgerRead((sql) => ok(waitingConsents(sql, app)));
+      if (!waiting.ok) return Promise.resolve(waiting);
+      for (const consent of waiting.value) {
+        if (entries.some((entry) => entry.release === consent.release)) {
+          continue;
         }
+        entries.push({
+          app: consent.app,
+          release: consent.release,
+          phase: "waiting_consent",
+          step: null,
+          held_calls: 0,
+          migration_steps: 0,
+        });
       }
-      return ok({ entries, as_of_seq: headSeq() });
+      return Promise.resolve(ok({ entries, as_of_seq: headSeq() }));
     },
     desiredFor,
     async applyGrants(app) {
@@ -826,11 +806,15 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
             enqueue(row.app, row.release, null);
           }
         }
+        // 사람이 허락한 동의 줄을 시작한다. 앱이 바쁘면 줄이 남아 다음 sweep이 다시 본다.
+        // `activation.start`가 줄을 지운다.
+        const allowed = withLedger((sql) => allowedConsents(sql));
+        if (allowed.ok) {
+          for (const row of allowed.value) await handlers.consented(row);
+        }
       }
       const attempting = new Set(
-        queue.list(undefined, () => 0).filter((entry) =>
-          entry.phase === "running"
-        ).map((entry) => entry.app),
+        queue.list(undefined, () => 0).map((entry) => entry.app),
       );
       await reconcileProduct(attempting);
     },

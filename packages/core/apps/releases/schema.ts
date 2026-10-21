@@ -6,7 +6,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // 정규 blueprint JSON(`blueprint`)과 거기서 만든 선언 사실(`declarations`)을 준비 때 한 번 같이 둔다.
 // core는 파일을 읽지 않고 command·read는 동기라서 현재 release의 선언·설명·비교를 읽을 자리가
 // ledger뿐이다. blueprint blob이 정본이고 이 열은 `blueprint_hash`와 같은 byte의 사본이다.
-// app·approval·backup 참조는 다른 표의 생성 순서에 기대지 않으려고 물리 FK를 두지 않는다.
+// app·backup 참조는 다른 표의 생성 순서에 기대지 않으려고 물리 FK를 두지 않는다.
 export const releasesSchemaSteps: readonly SchemaStep[] = [{
   id: "apps.releases.tables",
   sql: `
@@ -64,6 +64,17 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       release TEXT PRIMARY KEY NOT NULL REFERENCES releases(id),
       requested_at TEXT NOT NULL CHECK (length(requested_at) > 0)
     ) STRICT;
+    -- activation 동의. 선언이 넓어진 release는 사람이 허락해야 시작한다. allowed_at이 NULL이면 사람을 기다리고,
+    -- 값이 있으면 사람이 허락했고 아직 시작하지 않은 것이다(driver sweep이 시작하고 activation.start가 지운다).
+    -- 표에 둔 이유: 재시작을 넘어야 하고 Reactor는 TicketVerified를 지나 다시 묻지 않는다. comparison은 canonicalize한 선언 비교다.
+    CREATE TABLE activation_consents (
+      release TEXT PRIMARY KEY NOT NULL REFERENCES releases(id),
+      app TEXT NOT NULL,
+      comparison TEXT NOT NULL CHECK (json_valid(comparison)),
+      requested_at TEXT NOT NULL CHECK (length(requested_at) > 0),
+      allowed_at TEXT
+    ) STRICT;
+    CREATE INDEX activation_consents_app ON activation_consents(app);
     CREATE TABLE release_tests (
       release TEXT NOT NULL REFERENCES releases(id),
       verification TEXT NOT NULL CHECK (length(verification) > 0),

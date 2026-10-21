@@ -123,7 +123,7 @@ async function advance(
       return await rollback(
         ports,
         attempt,
-        { code: "migration_failed", summary: "the data change failed" },
+        { code: "migration_failed", summary: `the ${changed.error.message}` },
         backupHash,
         startSchema,
       );

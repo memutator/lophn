@@ -72,7 +72,12 @@ function fake(restoredSchema: number) {
         Promise.resolve(ok({ result: result(1), backup_hash: HASH })),
       migrate: () => {
         calls.push("migrate");
-        return Promise.resolve(err({ code: "unavailable", message: "step" }));
+        return Promise.resolve(
+          err({
+            code: "unavailable",
+            message: "step 1-2 was rolled back: NOT NULL constraint failed",
+          }),
+        );
       },
       restore: () => {
         calls.push("restore");
@@ -124,7 +129,8 @@ Deno.test("activation이 실패하면 복구본으로 되돌리고 이전 releas
   });
   assertEquals(restored.failures, [{
     code: "migration_failed",
-    summary: "the data change failed",
+    summary:
+      "the data change failed: step 1-2 was rolled back: NOT NULL constraint failed",
     restored: true,
   }]);
   assert(restored.calls.includes("restore"));

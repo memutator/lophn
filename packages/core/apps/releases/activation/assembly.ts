@@ -38,6 +38,7 @@ import {
   encodeActivationDataJobInput,
   type ReleaseActivateOutput,
   type ReleaseRecord,
+  rolledBackStepText,
 } from "../../../../protocol/apps/mod.ts";
 import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
 import type { PreparedBlob } from "../../../../protocol/storage/mod.ts";
@@ -392,7 +393,11 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     kind: "inspect" | "backup" | "migrate" | "restore",
     extra: Record<string, unknown> = {},
   ): Promise<
-    Result<{ result: ActivationDataResult; backup_hash?: string }>
+    Result<{
+      result: ActivationDataResult;
+      backup_hash?: string;
+      failed?: { step: string; message: string };
+    }>
   > {
     const line = encodeActivationDataJobInput({
       kind,
@@ -539,7 +544,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
           data_changes: attempt.dataChanges,
           invocation,
         });
-        return done.ok ? ok(done.value.result) : done;
+        if (!done.ok) return done;
+        // 되돌아간 단계는 err로 낸다. 그 글이 migration_failed summary까지 간다.
+        if (done.value.failed !== undefined) {
+          return unavailable(rolledBackStepText(done.value.failed));
+        }
+        return ok(done.value.result);
       },
       async restore(attempt, backupHash) {
         const done = await job(attempt, "restore", { backup_hash: backupHash });

@@ -80,7 +80,7 @@ export interface ActivationPorts {
       attempt: Attempt,
     ): Promise<Result<{ data_schema: number; integrity_ok: boolean }>>;
     backup(attempt: StartedAttempt): Promise<Result<BackupOutcome>>;
-    // 연속 경로를 순서대로 적용한다. 중간 단계 실패의 결과는 err이거나 목표가 아닌 schema의 결과다.
+    // 연속 경로를 순서대로 적용한다. 중간 단계 실패의 결과는 err(message에 실패한 단계와 글)이거나 목표가 아닌 schema의 결과다.
     migrate(
       attempt: StartedAttempt,
       invocation: string,
@@ -197,8 +197,14 @@ export async function changeData(
 ): Promise<Result<ActivationDataResult>> {
   const invocation = ports.newInvocation();
   const changed = await ports.data.migrate(attempt, invocation);
+  if (!changed.ok) {
+    return err({
+      code: "unavailable",
+      message: `data change failed: ${changed.error.message}`,
+    });
+  }
   if (
-    !changed.ok || !changed.value.integrity_ok ||
+    !changed.value.integrity_ok ||
     changed.value.data_schema !== attempt.targetSchema
   ) {
     return err({ code: "unavailable", message: "data change failed" });

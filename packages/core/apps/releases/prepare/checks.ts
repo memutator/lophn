@@ -3,9 +3,10 @@
 // core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 권한을 좁힌 release 준비 자식에서만 돈다.
 // 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
 
-import type {
-  BundleManifest,
-  DataChange,
+import {
+  type BundleManifest,
+  type DataChange,
+  rolledBackStepText,
 } from "../../../../protocol/apps/mod.ts";
 import { createAppBackup } from "../../data/worker/backup.ts";
 import { openAppDatabase } from "../../data/worker/db.ts";
@@ -114,7 +115,9 @@ async function migrateOnce(
   }
   if (migrated.value.restored) {
     const { failed } = migrated.value;
-    return `Migration ${where} failed: step ${failed.step} was rolled back: ${failed.message}. Fix that step's SQL; every new table needs a PRIMARY KEY.`;
+    return `Migration ${where} failed: ${
+      rolledBackStepText(failed)
+    }. Fix that step's SQL; every new table needs a PRIMARY KEY.`;
   }
   return null;
 }

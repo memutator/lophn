@@ -45,6 +45,12 @@ const activationDataJobOutputSchema = z.strictObject({
   result: activationDataResultSchema,
   // backup 작업이 만든 DB 파일 byte의 sha256이다.
   backup_hash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  // migrate 단계가 되돌아갔을 때 실패한 단계(`<from>-<to>`)와 SQLite 오류 글(한 줄)이다.
+  // 이때 result는 복원된 schema의 것이다.
+  failed: z.strictObject({
+    step: z.string().min(1),
+    message: z.string().min(1),
+  }).optional(),
 }).refine(
   (value) => value.result.integrity_ok,
   { message: "successful data job result must have integrity_ok true" },
@@ -52,6 +58,13 @@ const activationDataJobOutputSchema = z.strictObject({
 type ActivationDataJobOutput = z.infer<
   typeof activationDataJobOutputSchema
 >;
+
+// 되돌아간 migration 단계를 agent가 읽을 글로 쓴다. release 준비 검사와 activation 실패가 같은 글을 쓴다.
+export function rolledBackStepText(
+  failed: { step: string; message: string },
+): string {
+  return `step ${failed.step} was rolled back: ${failed.message}`;
+}
 
 function encodeLine(schema: z.ZodType, value: unknown, what: string): string {
   const line = JSON.stringify(schema.parse(value));

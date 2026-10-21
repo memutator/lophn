@@ -68,7 +68,11 @@ async function resolveInside(
 
 // migration 자식의 권한 경계. migrationFlags 결과에서 금지 flag를 확인한다.
 
-type JobOutcome = { result: ActivationDataResult; backup_hash?: string };
+type JobOutcome = {
+  result: ActivationDataResult;
+  backup_hash?: string;
+  failed?: { step: string; message: string };
+};
 
 const HASH_PREFIX = "sha256:";
 
@@ -164,7 +168,11 @@ async function runMigrate(
   if (!migrated.ok) {
     return err({ code: "unavailable", message: migrated.error.message });
   }
-  return ok({ result: migrated.value.result });
+  return ok(
+    migrated.value.restored
+      ? { result: migrated.value.result, failed: migrated.value.failed }
+      : { result: migrated.value.result },
+  );
 }
 
 async function runRestore(

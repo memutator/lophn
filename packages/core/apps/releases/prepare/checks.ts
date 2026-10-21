@@ -1,0 +1,204 @@
+// release 준비가 그 자리에서 하는 data 검사 둘: 의존성과 migration.
+// core module graph에 넣지 않는다(mod.ts에서 내보내지 않는다). 앱 DB를 여는 data/worker/db.ts는
+// core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 권한을 좁힌 release 준비 자식에서만 돈다.
+// 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
+
+import type {
+  BundleManifest,
+  DataChange,
+} from "../../../../protocol/apps/mod.ts";
+import { createAppBackup } from "../../data/worker/backup.ts";
+import { openAppDatabase } from "../../data/worker/db.ts";
+import {
+  migrateAppDatabase,
+  type MigrationScript,
+  scriptFromBundle,
+} from "../../data/worker/migrate.ts";
+
+// 실패는 오류 code가 아니라 결과다. reason은 agent가 읽고 고칠 글이다.
+export type CheckOutcome = { ok: true } | { ok: false; reason: string };
+
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+const REGISTRY_IMPORT = /^(npm|jsr):(@[^/@]+\/[^/@]+|[^/@]+)@([^/]+)/;
+const SDK_COPY = /^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//;
+const LIST_MAX = 5;
+
+function listed(names: readonly string[]): string {
+  const head = names.slice(0, LIST_MAX).join(", ");
+  return names.length > LIST_MAX
+    ? `${head} and ${names.length - LIST_MAX} more`
+    : head;
+}
+
+// 선언한 의존과 bundle의 import가 같고 version이 정확한지 본다. 앱 안 상대 경로와 플랫폼이
+// 놓은 file: 경로는 sdk 사본 꼴일 때만 의존으로 본다.
+export function checkDependencies(input: {
+  dependencies: BundleManifest["dependencies"];
+  imports: Record<string, string>;
+}): CheckOutcome {
+  const { dependencies } = input;
+  const inexact = dependencies.filter((item) =>
+    !EXACT_VERSION.test(item.version)
+  )
+    .map((item) => `${item.name}@${item.version}`);
+  if (inexact.length > 0) {
+    return {
+      ok: false,
+      reason: `dependencies without an exact version: ${
+        listed(inexact)
+      }. Pin each one to an exact version.`,
+    };
+  }
+  const undeclared: string[] = [];
+  for (const [specifier, value] of Object.entries(input.imports)) {
+    if (value.startsWith("file:") || /^\.\.?\//.test(value)) {
+      const copy = SDK_COPY.exec(value);
+      if (copy === null) continue;
+      const found = dependencies.some((item) =>
+        item.name.split("/").pop() === copy[1] && item.version === copy[2]
+      );
+      if (!found) undeclared.push(specifier);
+      continue;
+    }
+    const registry = REGISTRY_IMPORT.exec(value);
+    const found = registry !== null &&
+      dependencies.some((item) =>
+        item.source === registry[1] && item.name === registry[2] &&
+        item.version === registry[3]
+      );
+    if (!found) undeclared.push(specifier);
+  }
+  if (undeclared.length > 0) {
+    return {
+      ok: false,
+      reason:
+        `imports that do not point at a declared dependency with its exact version: ${
+          listed(undeclared)
+        }. Declare the package with an exact version in the app's imports.`,
+    };
+  }
+  return { ok: true };
+}
+
+// 버리는 DB라 값에 의미가 없다.
+const APPLIED_AT = "2000-01-01T00:00:00.000Z";
+const RESULT = {
+  release: "rel_01arz3ndektsv4rrffq69g5fav",
+  attempt: "act_01arz3ndektsv4rrffq69g5fav",
+  invocation: null,
+} as const;
+
+// backup을 만들고 activation과 같은 migrateAppDatabase로 target까지 올린다. 실패면 그 글을 돌려준다.
+async function migrateOnce(
+  dataArea: string,
+  databasePath: string,
+  backupName: string,
+  from: number,
+  target: number,
+  scripts: readonly MigrationScript[],
+): Promise<string | null> {
+  const where = `from schema ${from} to schema ${target}`;
+  const backup = await createAppBackup(dataArea, databasePath, backupName);
+  if (!backup.ok) return `Migration ${where} failed: ${backup.error.message}.`;
+  const migrated = await migrateAppDatabase({
+    dataArea,
+    databasePath,
+    backupPath: `${dataArea}/backups/${backupName}`,
+    targetSchema: target,
+    scripts,
+    appliedAt: APPLIED_AT,
+    result: RESULT,
+  });
+  if (!migrated.ok) {
+    return `Migration ${where} failed: ${migrated.error.message}.`;
+  }
+  if (migrated.value.restored) {
+    return `Migration ${where} failed: a step failed and was rolled back. Check the SQL of each step for errors, and that every new table has a PRIMARY KEY.`;
+  }
+  return null;
+}
+
+async function freshDatabase(
+  dataArea: string,
+): Promise<{ path: string } | { error: string }> {
+  await Deno.mkdir(dataArea, { recursive: true });
+  const path = `${dataArea}/app.sqlite`;
+  const opened = openAppDatabase(path);
+  if (!opened.ok) return { error: opened.error.message };
+  opened.value.close();
+  return { path };
+}
+
+// 빈 DB에서 dataSchema까지, previousSchema가 있으면 그 schema의 DB에서 dataSchema까지 올라가는지 본다.
+// area는 부르는 쪽이 준 빈 임시 폴더이고 지우는 것도 부르는 쪽이다.
+export async function checkMigration(input: {
+  bundleRoot: string;
+  dataChanges: readonly DataChange[];
+  dataSchema: number;
+  previousSchema: number | null;
+  area: string;
+}): Promise<CheckOutcome> {
+  const { dataSchema, previousSchema, area } = input;
+  if (dataSchema === 0) return { ok: true };
+  if (previousSchema !== null && previousSchema > dataSchema) {
+    return {
+      ok: false,
+      reason:
+        `The data schema ${dataSchema} is lower than ${previousSchema}, the schema of the active release. A data schema cannot move backward.`,
+    };
+  }
+  const scripts: MigrationScript[] = [];
+  for (const change of input.dataChanges) {
+    const script = await scriptFromBundle(input.bundleRoot, change);
+    if (!script.ok) {
+      return {
+        ok: false,
+        reason:
+          `Migration ${change.from}-${change.to} cannot be used: ${script.error.message}.`,
+      };
+    }
+    scripts.push(script.value);
+  }
+
+  const empty = await freshDatabase(`${area}/empty`);
+  if ("error" in empty) return { ok: false, reason: empty.error };
+  const emptyFailed = await migrateOnce(
+    `${area}/empty`,
+    empty.path,
+    "before",
+    0,
+    dataSchema,
+    scripts,
+  );
+  if (emptyFailed !== null) return { ok: false, reason: emptyFailed };
+
+  if (previousSchema === null || previousSchema === 0) return { ok: true };
+  const upgrade = await freshDatabase(`${area}/upgrade`);
+  if ("error" in upgrade) return { ok: false, reason: upgrade.error };
+  const seedFailed = await migrateOnce(
+    `${area}/upgrade`,
+    upgrade.path,
+    "seed",
+    0,
+    previousSchema,
+    scripts,
+  );
+  if (seedFailed !== null) {
+    return {
+      ok: false,
+      reason:
+        `The migrations do not reach schema ${previousSchema}, the schema of the active release. ${seedFailed}`,
+    };
+  }
+  const upgradeFailed = await migrateOnce(
+    `${area}/upgrade`,
+    upgrade.path,
+    "before",
+    previousSchema,
+    dataSchema,
+    scripts,
+  );
+  return upgradeFailed === null
+    ? { ok: true }
+    : { ok: false, reason: upgradeFailed };
+}

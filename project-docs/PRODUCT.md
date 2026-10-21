@@ -51,8 +51,8 @@ lophn 안에서는 이렇게 나뉜다.
 | 주체 | 맡는 일 |
 |---|---|
 | 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다 |
-| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며 경계를 넘는 판단을 한다. Project Manager는 한 project와 그 domain을, App Engineer는 한 앱의 코드와 그 domain을 맡는다). 쓰고 돌본다(Operator). 코드를 짜지 않는다 |
-| coding agent | 어떻게 만들지 정하고 코드를 짠다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
+| lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며 경계를 넘는 판단을 한다. Project Manager는 한 project와 그 domain을, App Engineer는 한 앱의 코드와 그 domain을 맡는다). 개인 앱은 App Engineer가 직접 설계하고 짓고 고친다. 쓰고 돌본다(Operator). 길고 복잡한 coding agent의 일은 하지 않는다 |
+| coding agent | 길고 복잡한 코딩을 맡는다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
 | lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 problem, grant 판정, invocation 기록과 rewind, event |
 
 ### 책임은 일마다 근거를 따져 나눈다
@@ -84,7 +84,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 | 하지 않는 것 | 이유 |
 |---|---|
-| coding agent 만들기 | 코드는 사람이 원래 쓰던 coding agent가 짠다. lophn은 그것이 붙을 통로를 연다 |
+| coding agent 만들기 | 길고 복잡한 코딩은 사람이 원래 쓰던 coding agent가 한다. lophn은 그것이 붙을 통로를 연다. 개인 앱은 작아서 App Engineer가 직접 짓고, 그 앱과 context에 가장 잘 닿는 것도 App Engineer다 |
 | 채팅 중심 비서 | 사람에게는 UI가 필요하다(4절 축 2) |
 | 앱 마켓 | 한 사람에게 맞춘 앱이 목적이다(2절) |
 | 사용자 도메인을 범용 모델로 미리 만들기 | 필요할 때 agent가 그 사람에게 맞춰 만든다(2절) |

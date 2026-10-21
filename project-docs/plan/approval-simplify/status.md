@@ -5,12 +5,12 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `ap-assign-store` | assign | 1 | ap-contract, ap-legacy | todo |  |  |  |
-| `ap-call-judge` | call-judge | 1 | 없음 | todo |  |  |  |
-| `ap-contract` | contract | 1 | 없음 | todo |  |  |  |
+| `ap-call-judge` | call-judge | 1 | 없음 | running | call-judge/ap-call-judge |  |  |
+| `ap-contract` | contract | 1 | 없음 | running | contract/ap-contract |  |  |
 | `ap-gate` | gate | 1 | ap-contract | todo |  |  |  |
-| `ap-legacy` | legacy | 1 | 없음 | todo |  |  |  |
-| `ap-reaction` | reaction | 1 | 없음 | todo |  |  |  |
-| `ap-settings-edit` | settings-edit | 1 | 없음 | todo |  |  |  |
+| `ap-legacy` | legacy | 1 | 없음 | running | legacy/ap-legacy |  |  |
+| `ap-reaction` | reaction | 1 | 없음 | running | reaction/ap-reaction |  |  |
+| `ap-settings-edit` | settings-edit | 1 | 없음 | running | settings-edit/ap-settings-edit |  |  |
 | `ap-activation` | activation | 2 | 없음 | todo |  |  |  |
 | `ap-app-call` | app-call | 2 | ap-activation | todo |  |  |  |
 | `ap-ask-pending` | ask | 2 | ap-activation | todo |  |  |  |

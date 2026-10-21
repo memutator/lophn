@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-prune-checks` | eval | 1 | 없음 | running | eval/tr-eval-prune-checks |  |  |
 | `tr-eval-prune-coding` | eval | 1 | 없음 | running | eval/tr-eval-prune-coding |  |  |
 | `tr-eval-versions` | eval | 1 | 없음 | running | eval/tr-eval-versions |  |  |
-| `tr-shell-instructions-card` | shell | 1 | 없음 | running | shell/tr-shell-instructions-card |  |  |
+| `tr-shell-instructions-card` | shell | 1 | 없음 | merged | shell/tr-shell-instructions-card | 04a2e9202 |  |
 | `tr-support-app` | support | 1 | 없음 | running | support/tr-support-app |  |  |
 | `tr-e2e-app-activation` | e2e | 2 | tr-support-app | todo |  |  |  |
 | `tr-e2e-app-call-kinds` | e2e | 2 | tr-support-app | todo |  |  |  |

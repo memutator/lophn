@@ -1,5 +1,8 @@
-// release activation E2E가 template 위에 얹는 patch다. 각 patch는 blueprint 선언과 handler를 같이 바꿔 platform app test를
-// 통과해야 한다. 같은 source에 차례로 얹으므로 앞 patch가 만든 자리를 다시 찾지 않는다.
+import { sampleDomain } from "./source.ts";
+
+// release activation E2E가 template 위에 얹는 patch다. 각 patch는 blueprint 선언과 handler를 같이 바꿔 release 준비의
+// 검사(빈 DB와 active release schema에서 migration, handler 대조)를 지나야 한다. 같은 source에 차례로 얹으므로 앞 patch가
+// 만든 자리를 다시 찾지 않는다.
 
 async function replaceOnce(
   path: string,
@@ -12,8 +15,8 @@ async function replaceOnce(
 }
 
 /**
- * schema 2 단계를 더한다. 빈 DB(platform app test의 migration 시험)에서는 통과하고, 같은 title의 row가 둘 이상 있을 때만
- * 실패한다. 파일 머리에 `-- loss:` 선언이 없어 사람에게 묻지 않는다.
+ * schema 2 단계를 더한다. release 준비의 migration 검사(빈 DB와 active release의 schema에서 돌린다)는 지나고, 같은 title의
+ * row가 둘 이상 있는 운영 DB에서만 activation 때 실패한다. 파일 머리에 `-- loss:` 선언이 없어 사람에게 묻지 않는다.
  */
 export async function failingMigrationPatch(dir: string): Promise<void> {
   await Deno.writeTextFile(
@@ -57,8 +60,8 @@ export async function codeOnlyPatch(dir: string): Promise<void> {
 
 /** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
 export async function slowReadPatch(dir: string): Promise<void> {
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  // source 폴더 이름은 slug가 아니라 앱 id라, 견본 blueprint에서 domain을 읽는다.
+  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {

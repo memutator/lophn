@@ -1,4 +1,5 @@
-// reaction-app flow 전용 patch다. 다른 test에서 쓰지 않는다.
+// 앱 process를 죽이는 patch. crash loop e2e(`app-restart_test.ts`)가 쓴다.
+import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
   path: string,
@@ -12,11 +13,10 @@ async function replaceOnce(
 
 /**
  * read tool `crash`를 더한다. handler는 `{ok: true}`를 돌려주고 같은 tick 뒤에 처리되지 않는 오류를 던져
- * 앱 process가 죽는다. blueprint 선언과 handler가 같아 platform app test를 통과한다.
+ * 앱 process가 죽는다. blueprint 선언과 handler가 같아 release 준비의 handler 검사를 통과한다.
  */
 export async function crashPatch(dir: string): Promise<void> {
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {

@@ -20,11 +20,11 @@ export async function appCoreEnv(): Promise<Record<string, string>> {
   if (!filled) {
     throw new Error(`${denoDir}가 비었다. deno task e2e:deps를 먼저 돌려라`);
   }
-  // app test가 systemd-run --user로 자식을 띄운다.
+  // 앱 socket 폴더가 XDG_RUNTIME_DIR 아래 data root마다 있다.
   const runtime = Deno.env.get("XDG_RUNTIME_DIR");
   if (!runtime) {
     throw new Error(
-      "XDG_RUNTIME_DIR이 없다. app test가 systemd-run --user를 쓴다",
+      "XDG_RUNTIME_DIR이 없다. 앱 socket 폴더가 그 아래 data root마다 생긴다",
     );
   }
   return { DENO_DIR: denoDir, XDG_RUNTIME_DIR: runtime };

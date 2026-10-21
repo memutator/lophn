@@ -1,5 +1,6 @@
-// 선언한 권한이 비어 있는 앱이 그 밖으로 나가려는 patch다. platform app test(선언과 등록 handler가 같다)를 통과해야 해서
+// 선언한 권한이 비어 있는 앱이 그 밖으로 나가려는 patch다. release 준비의 handler 검사(선언과 등록 handler가 같다)를 통과해야 해서
 // blueprint 선언과 handler를 같이 더한다.
+import { sampleDomain } from "./source.ts";
 
 /**
  * read tool `escape {secrets, outside, url}`를 더한다. handler는 secrets 경로 읽기, outside 경로 쓰기, url fetch를
@@ -7,8 +8,7 @@
  * 준비가 틀려서(파일이 없다 등) blocked로 보이는 일이 없다.
  */
 export async function escapePatch(dir: string): Promise<void> {
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  const slug = await sampleDomain(dir);
   const blueprint = `${dir}/blueprint.ts`;
   const text = await Deno.readTextFile(blueprint);
   const slot = `      {

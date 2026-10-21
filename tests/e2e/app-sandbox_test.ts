@@ -6,8 +6,8 @@
 // - 왜 지금 test가 못 잡나: `sandbox-boundary_test.ts`는 flag를 만드는 쪽을 subprocess 한 번으로 본다. 실제 activation을 거친
 //   앱 process가 정말 막는지는 안 본다.
 //
-// fake 대답: Project Manager의 ticket_create·call·ticket_verify는 앱 activation helper(`activateTestApp`)가 거는 것이라 case의
-// fake 대답 상한(3)에 세지 않는다(README 정한 것 11). 이 case 자신은 model을 쓰지 않는다.
+// fake 대답: App Engineer의 `release_prepare`·`release_activate`는 앱 activation helper(`activateTestApp`)가 거는 것이라
+// case의 fake 대답 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). 이 case 자신은 model을 쓰지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
@@ -16,7 +16,7 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import { activateTestApp } from "../support/app/activate.ts";
 import { escapePatch } from "../support/app/patch-sandbox.ts";
-import { appCoreEnv } from "../support/coding/deps.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { connectFakeProvider } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
@@ -25,7 +25,6 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
-  let gateway: { close(): Promise<void> } | undefined;
   try {
     core = await bootCore(run, { env: await appCoreEnv() });
     // 읽힐 secrets.json이 있게 key 있는 provider를 붙인다.
@@ -35,7 +34,6 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
       slug: "escape",
       patch: escapePatch,
     });
-    gateway = app.gateway;
 
     // 막히지 않았다면 닿았을 대상이 실제로 있어야 한다: 읽을 secrets.json, 쓸 수 있는 폴더, 요청을 셀 수 있는 서버.
     const secrets = `${core.run.home}/secrets.json`;
@@ -89,7 +87,6 @@ Deno.test("E2E activate된 앱 process는 선언 밖의 파일 읽기·쓰기와
       [],
     );
   } finally {
-    await gateway?.close();
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

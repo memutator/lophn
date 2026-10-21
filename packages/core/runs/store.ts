@@ -34,7 +34,7 @@ function runFromRow(row: Record<string, unknown>): Result<RunRecord> {
     kind: row.kind,
     target: JSON.parse(String(row.target)),
     session: row.session,
-    session_opened: row.session_opened === 1,
+    session_opened: Number(row.session_opened) === 1,
     input_message: row.input_message,
     turn: row.turn,
     invocation: row.invocation,

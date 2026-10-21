@@ -46,6 +46,8 @@ Deno.test("floor deny와 사람이 쓴 deny 규칙은 unattended와 skip에서�
     ["rm  -rf   /", denied("rm -rf /")],
     ["echo ok && rm -rf ~", denied("rm -rf ~")],
     ["rm -rf /*", denied("rm -rf /\\*")],
+    ["rm -fr ~", denied("rm -fr ~")],
+    ["sudo rm -r -f /", denied("sudo rm -r -f /")],
     [":(){ :|:& };:", denied(":(){ :|:& };:")],
     ["git push origin main", denied("git push *")],
   ];

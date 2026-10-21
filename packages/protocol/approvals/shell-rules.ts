@@ -39,23 +39,29 @@ const ask = (pattern: string): ShellRule => ({ pattern, action: "ask" });
 
 // floor는 사람도 덮지 못하므로 좁게 둔다. `rm -rf /*`처럼 `*`로 쓰면 `rm -rf /tmp/x`까지 막혀
 // 일을 못 하므로, 글자 그대로의 `/*`·`~/*`만 floor에 둔다(`\*`). 나머지 rm -r은 ask가 attended에서 잡는다.
+// 맞추기는 글자 그대로라 flag 순서(`-fr`, `-r -f`)와 `sudo` 앞붙임을 따로 적는다. 빠뜨리면 사람 없는
+// run에서 flag 순서만 다른 `rm -fr ~`가 그대로 돈다.
 // fork bomb은 조각으로 나누면 보이지 않아 명령 전체로만 맞는다.
 // `git push`의 force는 `--force`가 앞이든 뒤든 잡게 `*`를 가운데 둔다. `git push*-f*`로 쓰지 않는 것은
 // `git push origin feature-fix`가 맞지 않게 하려는 것이다.
+const RM_FLAGS = ["-rf", "-fr", "-r -f", "-f -r"];
+const RM_EVERYTHING = ["/", "~", "~/", "/\\*", "~/\\*"];
+
 export const PRODUCT_SHELL_RULES: { floor: ShellRule[]; ask: ShellRule[] } = {
   floor: [
-    "rm -rf /",
-    "rm -rf ~",
-    "rm -rf ~/",
-    "rm -rf /\\*",
-    "rm -rf ~/\\*",
-    "mkfs*",
-    "dd * of=/dev/*",
+    ...["", "sudo "].flatMap((sudo) => [
+      ...RM_FLAGS.flatMap((flags) =>
+        RM_EVERYTHING.map((target) => `${sudo}rm ${flags} ${target}`)
+      ),
+      `${sudo}mkfs*`,
+      `${sudo}dd * of=/dev/*`,
+    ]),
     ":(){ :|:& };:",
   ].map(deny),
   ask: [
     "rm -r*",
     "rm -fr*",
+    "rm -f -r*",
     "git push*--force*",
     "git push* -f*",
     "git reset --hard*",

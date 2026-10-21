@@ -67,3 +67,27 @@ guard: `packages/core/approvals/grants/reads_test.ts`
 고치려면: 호출하는 쪽(`packages/core/agent-roles/place/place-data.ts`)이 이미 가진 자기 ref를 믿지 않고, router의 `callGate`처럼 wiring에서 actor의 ref를 풀어 read context로 넘긴다(중간). 또는 lophn-agent가 actor→ref read를 내고 approvals가 그것을 부른다(작음). 추천은 뒤의 것이다.
 
 닫음: approvals가 port `AgentOfSession`(`packages/core/approvals/grants/ports.ts`)을 내고, lophn-agent의 `agentOfSession`(`packages/core/lophn-agent/session/actor-ref.ts`)을 reader registration(`packages/core/main/daemon/wiring/lophn-agent-registration.ts`)이 끼운다. agent는 자기 grant만 읽고, 풀지 못한 session은 `forbidden`이다. approvals는 lophn-agent를 import하지 않는다.
+
+## shell floor deny가 `rm -rf /`의 그 글자 모양만 막는다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/core/approvals]
+closed: fixed
+guard: packages/core/approvals/gate/judge_test.ts의 "floor deny와 사람이 쓴 deny 규칙은 unattended와 skip에서도 막는다"
+```
+
+지금: `packages/protocol/approvals/shell-rules.ts`의 `PRODUCT_SHELL_RULES.floor`는 `rm -rf /`, `rm -rf ~`, `rm -rf ~/`, `rm -rf /\*`, `rm -rf ~/\*`, `mkfs*`, `dd * of=/dev/*`, fork bomb이다. `packages/core/approvals/gate/shell-match.ts`의 `shellRuleMatches`는 공백만 줄이고 글자를 그대로 맞춘다. 그래서 `rm -fr /`, `rm -r -f ~`, `rm -rf --no-preserve-root /`, `sudo rm -rf /`는 floor에 맞지 않고 제품 기본 ask(`rm -r*`, `rm -fr*`)에만 맞는다. `judge`(`packages/core/approvals/gate/judge.ts`)는 ask를 unattended·skip에서 `run`으로 바꾼다.
+
+영향: skip session이나 unattended run에서 agent가 flag 순서만 다른 `rm -fr ~`를 실수로 부르면 묻지도 막지도 않고 사람의 home이 지워진다. AGENTS.md "속도"가 막으라는 agent 실수(데이터 잃기)다. skip은 이 계획의 wave 3, unattended 입구는 `headless-run`부터 열린다.
+
+고치려면:
+- floor에 flag 순서 변형을 더한다(`rm -fr`, `rm -r -f`, `rm -f -r`, `--no-preserve-root`, `sudo` 앞붙임 × `/`, `~`, `~/`, `/\*`, `~/\*`). 작음. 목록이 길어지고 다른 변형(`$HOME`, `/home/<사람>`)은 여전히 빠진다.
+- `rm`의 짧은 flag 묶음을 정규화한 뒤 맞춘다(`-fr`·`-r -f`를 `-rf`로). 작음~중간. roadmap "하지 않는 것"의 명령 parser에 한 걸음 다가간다.
+- 그대로 둔다. roadmap "규칙은 실수를 줄일 뿐 경계가 아니다".
+
+추천: 첫째에서 `rm -fr`·`rm -r -f`·`rm -f -r`와 `sudo` 앞붙임만 더한다. 계약 file 한 곳의 목록이고, 사람 없는 run에서 home을 잃는 길 가운데 흔한 것을 닫는다.
+
+정한 것(사람, 2026-10-21): 추천대로 넓힌다.
+
+닫음: `PRODUCT_SHELL_RULES.floor`가 `rm`의 flag 순서 넷(`-rf`, `-fr`, `-r -f`, `-f -r`)과 대상 다섯(`/`, `~`, `~/`, 글자 그대로의 `/*`·`~/*`)의 곱, `mkfs*`, `dd * of=/dev/*`를 `sudo` 앞붙임 있이와 없이 둘 다 막는다. ask에 `rm -f -r*`를 더했다. `--no-preserve-root`, `$HOME`, `/home/<사람>`은 여전히 floor 밖이다(규칙은 경계가 아니다).

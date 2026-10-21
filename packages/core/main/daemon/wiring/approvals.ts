@@ -6,6 +6,8 @@ import {
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
 import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
+import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import {
   askAnswer,
   askRead,
@@ -35,7 +37,7 @@ const APPROVALS_CONTEXT: AuthenticatedContext = {
   principal: APPROVALS_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [agentSessionRead.name],
+    operations: [agentSessionRead.name, turnRead.name],
     targets: {},
   },
   conditions: {},
@@ -63,12 +65,13 @@ function ownTurn(
 }
 
 // runtime이 Gate가 걸리는 tool을 실행하기 직전에 부르는 입구다. 판정, 묻기, 사람 결정 기다리기를 모두 여기서 한다.
-// mode는 ap-mode-turn이 turn의 mode로 바꾸기 전까지 늘 attended다.
+// mode는 그 turn 행의 mode다(시작 때 정해 바뀌지 않는다). 읽지 못하면 판정하지 않는다.
 export function toolGateHandler(deps: {
   approvals: ToolGateDeps["approvals"];
   sessionOf(
     session: string,
   ): Promise<Result<{ agent: AgentRef; place: Place | null }>>;
+  modeOf(turn: string): Promise<Result<TurnMode>>;
 }): MemoryHandler {
   return async (who, body) => {
     const input = toolGateInputSchema.parse(body);
@@ -76,13 +79,15 @@ export function toolGateHandler(deps: {
     if (!own.ok) return own;
     const found = await deps.sessionOf(input.session);
     if (!found.ok) return found;
+    const mode = await deps.modeOf(input.turn);
+    if (!mode.ok) return mode;
     return await createToolGate({ approvals: deps.approvals }).check({
       session: input.session,
       turn: input.turn,
       toolCall: input.tool_call,
       agent: found.value.agent,
       place: found.value.place,
-      mode: "attended",
+      mode: mode.value,
       tool: input.tool,
       call: input.call,
     });
@@ -176,6 +181,15 @@ export const approvalsWiring: WiringFactory = () => {
           return agent.role === "coding_agent"
             ? err({ code: "forbidden", message: "not a lophn agent" })
             : ok({ agent: agent as AgentRef, place });
+        },
+        async modeOf(turn) {
+          const found = await ctx.runtime.readers.read(
+            turnRead,
+            APPROVALS_CONTEXT,
+            { turn },
+          );
+          if (!found.ok) return found;
+          return ok((found.value as { turn: { mode: TurnMode } }).turn.mode);
         },
       });
       const askWaitHandler: MemoryHandler = (who, body) => {

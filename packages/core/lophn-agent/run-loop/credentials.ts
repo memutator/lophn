@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import type { TurnMode } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CredentialConditions,
   CredentialScope,
@@ -141,6 +142,7 @@ export type BeginTurnInput = {
   resolved?: string;
   resolvedSize?: number;
   limits: { model_attempts: number; stall_ms: number; active_ms: number };
+  mode: TurnMode;
 };
 
 type BeginTurnDeps = {

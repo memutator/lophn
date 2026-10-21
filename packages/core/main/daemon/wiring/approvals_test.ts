@@ -37,6 +37,7 @@ Deno.test("다른 session·turn의 자격으로는 Gate route를 부르지 못�
     },
     sessionOf: () =>
       Promise.resolve(ok({ agent: { role: "lophn" as const }, place: null })),
+    modeOf: () => Promise.resolve(ok("attended" as const)),
   });
   const body = {
     session: SES,

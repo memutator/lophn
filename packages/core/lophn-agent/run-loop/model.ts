@@ -1,10 +1,13 @@
-import type { TurnRecord } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  TurnMode,
+  TurnRecord,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { SqlParams, SqlRow } from "../../../protocol/server/mod.ts";
 
 // row를 화면 값으로 바꾸는 도움. 순수 함수와 읽기 조회만 있다.
 
 export const TURN_COLUMNS = `id, session, input_message, state, basis,
-  started_at, limits, elapsed_active_ms, elapsed_stall_ms,
+  started_at, limits, mode, elapsed_active_ms, elapsed_stall_ms,
   elapsed_checkpoint_at, finished_at, outcome_kind, outcome_reason, result,
   stop_request_key, result_facts, state_seq`;
 
@@ -16,6 +19,7 @@ export type TurnRow = {
   basis: string;
   started_at: string;
   limits: string;
+  mode: TurnMode;
   elapsed_active_ms: number;
   elapsed_stall_ms: number;
   elapsed_checkpoint_at: string | null;
@@ -41,6 +45,7 @@ export function turnRowOf(row: SqlRow): TurnRow {
     basis: String(row["basis"]),
     started_at: String(row["started_at"]),
     limits: String(row["limits"]),
+    mode: String(row["mode"]) as TurnMode,
     elapsed_active_ms: Number(row["elapsed_active_ms"]),
     elapsed_stall_ms: Number(row["elapsed_stall_ms"]),
     elapsed_checkpoint_at: text(row["elapsed_checkpoint_at"]),
@@ -76,6 +81,7 @@ export function turnRecordOf(row: TurnRow): TurnRecord {
     basis: row.basis,
     started_at: row.started_at,
     limits: JSON.parse(row.limits) as TurnRecord["limits"],
+    mode: row.mode,
     elapsed: {
       active_ms: row.elapsed_active_ms,
       stall_ms: row.elapsed_stall_ms,

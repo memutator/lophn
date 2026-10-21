@@ -225,8 +225,8 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         }
         tx.sql.run(
           `insert into turns (id, session, input_message, state, basis,
-             started_at, limits, state_seq)
-           values (?, ?, ?, 'running', ?, ?, ?, ?)`,
+             started_at, limits, mode, state_seq)
+           values (?, ?, ?, 'running', ?, ?, ?, ?, ?)`,
           [
             input.id,
             input.session,
@@ -234,6 +234,7 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
             input.basis,
             startedAt,
             JSON.stringify(input.limits),
+            input.mode,
             seq,
           ],
         );

@@ -11,6 +11,7 @@ import {
   turnElapsedOutputSchema,
   turnElapsedSchema,
   turnLimitsSchema,
+  turnModeSchema,
   turnOutcomeOutputSchema,
   turnOutcomeSchema,
 } from "./turn-values.ts";
@@ -31,6 +32,7 @@ const startTurnInputSchema = z.strictObject({
   resolved: sha256Schema.optional(),
   resolved_size: blobSizeSchema.optional(),
   limits: turnLimitsSchema,
+  mode: turnModeSchema,
 }).refine(
   (value) =>
     (value.resolved === undefined) === (value.resolved_size === undefined),

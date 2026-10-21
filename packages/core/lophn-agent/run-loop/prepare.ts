@@ -19,6 +19,7 @@ import {
   startTurn,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
+  type TurnMode,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -67,6 +68,7 @@ import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
 import { inputText } from "./input-text.ts";
 import type { TurnStart } from "./work.ts";
+import { turnModeOf } from "./turn-mode.ts";
 import {
   buildMcpTools,
   createMcpToolHandlers,
@@ -409,6 +411,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     agentCall: CoreCall,
     inputs: TurnInputs,
     instructions: InstructionTexts,
+    mode: TurnMode,
   ) {
     const { seat, model, agent: resolved, external, session } = m;
     const toolkit = deps.toolkit;
@@ -468,6 +471,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         tool_call: toolCall,
         agent: session.agent,
         role: session.agent.role,
+        mode,
         place,
         domains: resolved.domains,
         listed,
@@ -582,6 +586,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     start: TurnStart,
     why: { reason: CannotStart["reason"]; why: string; detail?: string },
     limits: TurnLimits,
+    mode: TurnMode,
   ): Promise<Result<Preparation>> {
     const turn = ids.newId("trn");
     const basis = await storeValue(
@@ -605,6 +610,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         basis: basis.value.hash,
         basis_size: basis.value.size,
         limits,
+        mode,
       },
       {},
       `${turn}:start:${why.why}`,
@@ -645,6 +651,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     });
     if (!read.ok) return read;
     const session = read.value.session;
+    const mode = turnModeOf(session, start.input);
     if (session.lifecycle !== "open") {
       return err({ code: "conflict", message: "the session is not open" });
     }
@@ -681,7 +688,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     });
     if (!made.ok) return made;
     if (made.value.kind === "cannot_start") {
-      return await closeUnstarted(start, made.value, limits.value);
+      return await closeUnstarted(
+        start,
+        made.value,
+        limits.value,
+        mode,
+      );
     }
     const agent = made.value.agent;
 
@@ -704,6 +716,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           detail: instructions.message,
         },
         limits.value,
+        mode,
       );
     }
     const texts = instructionTexts(instructions.layers);
@@ -725,6 +738,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           start,
           { reason: "configuration_unavailable", why: "model_required" },
           limits.value,
+          mode,
         )
         : found;
     }
@@ -782,6 +796,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       resolved: stored.value.hash,
       resolvedSize: stored.value.size,
       limits: limits.value,
+      mode,
     };
     return ok({
       kind: "ready",
@@ -809,6 +824,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
                   resolved_size: input.resolvedSize,
                 }),
               limits: input.limits,
+              mode: input.mode,
             },
             {},
             `${input.turn}:start`,
@@ -851,6 +867,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             deps.agentCall(credential.token),
             inputs,
             texts,
+            mode,
           );
           return {
             provider: m.model.call.provider,

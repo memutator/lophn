@@ -32,7 +32,10 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
   const promises = new Map<string, Promise<AskResult>>();
   const keyOf = (session: string, toolCall: string) => `${session}/${toolCall}`;
 
-  function close(key: string, entry: Entry, result: AskResult): void {
+  // unattended는 ask tool이 기다리지 않고 돌려주므로 기다림이 닫는 결과에는 없다.
+  type Settled = Exclude<AskResult, { outcome: "unattended" }>;
+
+  function close(key: string, entry: Entry, result: Settled): void {
     entries.delete(key);
     deps.bus.publish({
       session: entry.session,
@@ -45,7 +48,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
 
   function settleSession(
     session: string,
-    result: (entry: Entry) => AskResult,
+    result: (entry: Entry) => Settled,
     turn?: string,
   ): void {
     for (const [key, entry] of [...entries]) {

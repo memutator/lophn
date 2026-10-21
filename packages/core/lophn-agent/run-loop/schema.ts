@@ -1,9 +1,14 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
+import { TURN_MODES } from "../../../protocol/lophn-agent/mod.ts";
+
+const list = (values: readonly string[]) =>
+  values.map((value) => `'${value}'`).join(", ");
 
 // `turns` 표. 입력함의 입력이 turn이 되는 순간 행이 생기므로 접수 상태가 없다. 같은 session에
 // running인 turn은 하나뿐이다. 권한·질문 대기는 turn이 running인 채 session snapshot이 가진다.
 // finished 행은 trigger가 다시 바꾸지 못하게 막아 결과를 한 번만 확정한다. session·message는 그 표를
 // 소유한 concern에서 오므로 참조 검사 없이 ID만 둔다. turn은 끝난 session을 지울 때만 함께 지운다.
+// mode는 시작 때 정한다. 도는 turn에 steer한 사람 메시지도 그 mode를 따른다.
 
 export const turnSchemaSteps: readonly SchemaStep[] = [
   {
@@ -17,6 +22,7 @@ create table turns (
   basis text not null,
   started_at text not null,
   limits text not null,
+  mode text not null check (mode in (${list(TURN_MODES)})),
   elapsed_active_ms integer not null default 0 check (elapsed_active_ms >= 0),
   elapsed_stall_ms integer not null default 0 check (elapsed_stall_ms >= 0),
   elapsed_checkpoint_at text,
@@ -42,9 +48,9 @@ begin
   select raise(abort, 'turn identity is immutable');
 end;
 create trigger turns_started_immutable
-before update of basis, started_at, limits on turns
+before update of basis, started_at, limits, mode on turns
 begin
-  select raise(abort, 'turn basis, start and limits are fixed once started');
+  select raise(abort, 'turn basis, start, limits and mode are fixed once started');
 end;
 create trigger turns_finished_terminal
 before update on turns

@@ -94,37 +94,12 @@ export type TurnElapsed = z.infer<typeof turnElapsedSchema>;
 const TURN_STATES = ["running", "finished"] as const;
 export const turnStateSchema = z.enum(TURN_STATES);
 
-// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
-
-export const turnRecordSchema = z.object({
-  id: idSchema("trn"),
-  session: idSchema("ses"),
-  // 이 turn을 시작한 입력의 메시지.
-  input_message: idSchema("msg"),
-  state: turnStateSchema,
-  basis: sha256Schema,
-  started_at: atSchema,
-  limits: turnLimitsOutputSchema,
-  elapsed: turnElapsedOutputSchema,
-  finished_at: atSchema.nullable(),
-  outcome: turnOutcomeOutputSchema.nullable(),
-  result: sha256Schema.nullable(),
-  state_seq: seqSchema,
-}).refine((value) => {
-  const finished = value.state === "finished";
-  return (value.finished_at !== null) === finished &&
-    (value.outcome !== null) === finished &&
-    (value.result !== null) === finished;
-}, { message: "turn state fields are not coupled" });
-
-export type TurnRecord = z.infer<typeof turnRecordSchema>;
-
 // turn mode. approvals protocol이 import하므로 approvals가 아니라 여기 둔다(approvals가 이미
 // lophn-agent를 import해서, 반대로 두면 protocol-cycle이다).
 // attended는 사람이 곁에 있어 묻는 길이 열려 있고, unattended는 사람이 없어 묻는 일이 거절이 되고,
 // skip은 사람이 그 session의 묻기를 껐다.
 //
-// mode가 사는 곳(이 file에는 이름만 있고 칸은 뒤 task가 더한다):
+// mode가 사는 곳:
 // - turn: `turns.mode` 열, `StartTurn` 입력 `mode`, `turnRecordSchema.mode`. turn을 시작할 때 한 번
 //   정하고 끝날 때까지 바꾸지 않는다. 도는 turn에 사람이 steer한 메시지도 그 turn의 mode를 따른다.
 // - session: `sessions.skip`(boolean), session record `skip`, 사람만 부르는 command
@@ -143,3 +118,29 @@ export type TurnRecord = z.infer<typeof turnRecordSchema>;
 export const TURN_MODES = ["attended", "unattended", "skip"] as const;
 export const turnModeSchema = z.enum(TURN_MODES);
 export type TurnMode = z.infer<typeof turnModeSchema>;
+
+// 고정한 resolved agent는 hash와 칸별 출처만 기준에 두고 전체 값은 blob이다.
+
+export const turnRecordSchema = z.object({
+  id: idSchema("trn"),
+  session: idSchema("ses"),
+  // 이 turn을 시작한 입력의 메시지.
+  input_message: idSchema("msg"),
+  state: turnStateSchema,
+  basis: sha256Schema,
+  started_at: atSchema,
+  limits: turnLimitsOutputSchema,
+  mode: turnModeSchema,
+  elapsed: turnElapsedOutputSchema,
+  finished_at: atSchema.nullable(),
+  outcome: turnOutcomeOutputSchema.nullable(),
+  result: sha256Schema.nullable(),
+  state_seq: seqSchema,
+}).refine((value) => {
+  const finished = value.state === "finished";
+  return (value.finished_at !== null) === finished &&
+    (value.outcome !== null) === finished &&
+    (value.result !== null) === finished;
+}, { message: "turn state fields are not coupled" });
+
+export type TurnRecord = z.infer<typeof turnRecordSchema>;

@@ -5,14 +5,23 @@ import {
   callSend,
   callSendable,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import { listSendable } from "../call/sessions.ts";
 import { defineTool, fitted, type ToolDefinition } from "../spi.ts";
 import { z } from "zod";
 import { callSendInputSchema } from "../../../../protocol/lophn-agent/calls.ts";
 
 const none = z.strictObject({});
-// dedup은 입력이 아니라 tool call ID로 채운다.
-const callToolInput = callSendInputSchema.omit({ dedup: true });
+// dedup은 입력이 아니라 tool call ID로, unattended는 turn의 mode로 채운다.
+const callToolInput = callSendInputSchema.omit({
+  dedup: true,
+  unattended: true,
+});
+const replyToolInput = callReply.input.omit({ unattended: true });
+
+// skip은 call을 따라 가지 않는다(roadmap). unattended turn만 표시를 싣는다.
+const unattendedMark = (mode: TurnMode) =>
+  mode === "unattended" ? { unattended: true as const } : {};
 
 // 맡기기, 답하기, 취소하기, 보낼 수 있는 session 보기. Router가 받는 곳을 풀어 넣는다. 부르는 것 자체에는 묻지 않는다.
 export const CALL_TOOLS: readonly ToolDefinition[] = [
@@ -31,7 +40,11 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       "If it fails, the result says why (not_found, closed). A closed session is not reopened; call its role and place to open a new one.",
     effect: "read",
     handler: async (input, ctx) => {
-      const sent = await ctx.router.send({ ...input, dedup: ctx.tool_call });
+      const sent = await ctx.router.send({
+        ...input,
+        dedup: ctx.tool_call,
+        ...unattendedMark(ctx.mode),
+      });
       if (!sent.ok) return sent;
       const { call, state, fail_reason } = sent.value;
       return ok(fitted(
@@ -54,13 +67,16 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "reply",
-    input: callReply.input,
+    input: replyToolInput,
     routes: [callReply],
     description:
       "Answer a call you received, with call (its ID), body and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
     effect: "read",
     handler: async (input, ctx) => {
-      const sent = await ctx.router.reply(input);
+      const sent = await ctx.router.reply({
+        ...input,
+        ...unattendedMark(ctx.mode),
+      });
       if (!sent.ok) return sent;
       return ok(fitted(
         sent.value.closed ? "the call is closed" : "reply delivered",

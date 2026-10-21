@@ -77,7 +77,7 @@
 
 ## 지금 코드
 
-- **앱 log**는 supervisor 메모리에 있다. invocation마다 200줄, 앱마다 invocation 500개, 묶이지 않은 줄 500, redaction 뒤 한 줄 300자다(`packages/core/apps/runtime/observations/log-buffer.ts`). SDK가 invocation 안에서 찍는 줄에 `[inv=...]`를 붙인다.
+- **앱 log**는 supervisor 메모리에 있다. invocation마다 200줄, 앱마다 invocation 500개, 묶이지 않은 줄 500, redaction 뒤 한 줄 300자다(`packages/core/apps/runtime/observations/log-buffer.ts`). log buffer는 줄 앞의 `[inv=...]`를 읽어 invocation에 묶지만, 지금 그 표시를 쓰는 코드는 없다.
 - **invocation 기록**은 tool call 하나마다 시작과 끝, 상태, 부른 쪽, 효과를 남긴다(`packages/core/apps/invocations/schema.ts`). 성공한 read는 남기지 않는다(`architecture/app-call.md`).
 - **보고**는 redaction(fail-closed), 접수 한도(앱마다 60초에 20개), snapshot(source map을 푼 stack, 최근 log)을 거쳐 `(app, group_key)` 묶음에 쌓인다(`packages/core/problems/reporting/`, `snapshots/`).
 - **problem 규칙**: 상태 `open | resolved | ignored`(`packages/protocol/problems/problem-record.ts:13`), 닫기 gate(`reporting/model.ts` `agentResolveDecision`), 다시 열기(`reporting/model.ts:108-116`)

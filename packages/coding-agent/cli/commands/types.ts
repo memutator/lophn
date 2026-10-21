@@ -23,9 +23,23 @@ export type RunContext = {
   // coding token이 없으면 undefined다. 그러면 core를 부르는 command는 아무것도 보내지 않고 거절한다.
   client: CoreClient | undefined;
   idempotencyKey: string | undefined;
+  // run 명령이 run 기록 전체를 낸다.
+  json: boolean;
   stdin(): Promise<string>;
   local: LocalEnv;
 };
+
+// 값을 내고 0이 아닌 exit으로 끝난다(끝난 run이 failed·cancelled). route 출력과 `instanceof`로 가른다.
+export class ExitWith {
+  exit: number;
+  stdout?: unknown;
+  stderr?: string;
+  constructor(exit: number, stdout?: unknown, stderr?: string) {
+    this.exit = exit;
+    this.stdout = stdout;
+    this.stderr = stderr;
+  }
+}
 
 type CommandRun = (
   // 공통 칸(json·input·input_file·idempotency_key)을 뺀 command 입력이다.
@@ -57,6 +71,7 @@ const READ_WORDS = [
   "invocations",
   "logs",
   "detect",
+  "wait",
 ] as const;
 
 function isReadName(name: string): boolean {

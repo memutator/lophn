@@ -27,7 +27,12 @@ function fieldsOf(entry: CommandEntry): Field[] {
       required?: string[];
     };
     return Object.entries(schema.properties ?? {})
-      .filter(([name]) => !COMMON.includes(name))
+      .filter(([name, property]) =>
+        // user 명령의 `input`은 run 입력(JSON 값)이라 감추지 않는다. 공통 칸 `input`은 string이다.
+        !COMMON.includes(name) ||
+        (entry.auth === "user" && name === "input" &&
+          property.type !== "string")
+      )
       .map(([name, property]) => ({
         name,
         required: (schema.required ?? []).includes(name),
@@ -71,6 +76,8 @@ export function helpText(name?: string): string {
     `종류: ${entry.mutates ? "변경" : "읽기"}`,
     entry.auth === "coding_token"
       ? `인증: 환경 변수 ${CODING_TOKEN_ENV} (coding agent session의 터미널)`
+      : entry.auth === "user"
+      ? `인증: lophn이 켜져 있으면 data root의 user token file(coding agent session 안에서는 ${CODING_TOKEN_ENV})`
       : "인증: 필요 없다(이 컴퓨터에서만 돈다)",
     `입력(--input JSON): ${fields.length === 0 ? "없다" : ""}`.trimEnd(),
     ...fields.map((field) =>

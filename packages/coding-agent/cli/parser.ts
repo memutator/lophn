@@ -1,5 +1,6 @@
 // CLI argv parser. 정본 이름은 `lophn <group> <command>`다. 별칭·implicit stdin·모르는 option은 없다.
-// 위치 인자는 command 이름과 `hook <harness> <event>`의 두 값뿐이고, 나머지 입력은 JSON 하나다.
+// 위치 인자는 command 이름과 command가 받는 값(`hook <harness> <event>`, `agent run <prompt>`,
+// `tool call <app> <tool>`, `run wait|show|cancel <run>`)뿐이고, 나머지 입력은 JSON 하나다.
 
 export type ParsedArgs = {
   positional: string[];
@@ -8,10 +9,21 @@ export type ParsedArgs = {
   idempotencyKey: string | undefined;
   input: string | undefined;
   inputFile: string | undefined;
+  agent: string | undefined;
+  session: string | undefined;
+  schema: string | undefined;
+  async: boolean;
   errors: string[];
 };
 
-const VALUE_FLAGS = ["--idempotency-key", "--input", "--input-file"] as const;
+const VALUE_FLAGS = [
+  "--idempotency-key",
+  "--input",
+  "--input-file",
+  "--agent",
+  "--session",
+  "--schema",
+] as const;
 
 // argv를 읽어 구조화 입력으로 바꾼다. 모르는 flag·값 없는 flag·flag 중복은 errors에 남기고
 // 실행 전 거절에 쓴다. stdin "-"는 지원하지 않는다.
@@ -23,12 +35,18 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     idempotencyKey: undefined,
     input: undefined,
     inputFile: undefined,
+    agent: undefined,
+    session: undefined,
+    schema: undefined,
+    async: false,
     errors: [],
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--json") {
       parsed.json = true;
+    } else if (arg === "--async") {
+      parsed.async = true;
     } else if (arg === "--help") {
       parsed.help = true;
     } else if (arg.startsWith("-") && arg !== "-") {
@@ -56,12 +74,17 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   return parsed;
 }
 
+const FLAG_KEYS = {
+  "--idempotency-key": "idempotencyKey",
+  "--input": "input",
+  "--input-file": "inputFile",
+  "--agent": "agent",
+  "--session": "session",
+  "--schema": "schema",
+} as const;
+
 function assign(parsed: ParsedArgs, flag: string, value: string): void {
-  const key = flag === "--input"
-    ? "input"
-    : flag === "--input-file"
-    ? "inputFile"
-    : "idempotencyKey";
+  const key = FLAG_KEYS[flag as (typeof VALUE_FLAGS)[number]];
   if (parsed[key] !== undefined) {
     parsed.errors.push(`option이 중복된다: ${flag}`);
     return;

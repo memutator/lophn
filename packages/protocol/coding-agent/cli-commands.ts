@@ -1,5 +1,6 @@
 // coding agent CLI의 명령 목록. 이름, 입력, 출력, 인증을 묶는다.
-// 인증은 환경 변수 `LOPHN_CODING_TOKEN`(`coding_token`)뿐이다. `local` 명령은 token 없이
+// 인증은 셋이다. `coding_token`은 환경 변수 `LOPHN_CODING_TOKEN`이다. `user`는 coding token이 있으면
+// 그것, 없으면 data root의 user token file이다(사람이 쓰는 run 명령). `local` 명령은 token 없이
 // core를 부르지 않고 Settings와 shell main이 exec로 부른다.
 // `app`은 route가 정한 대로다. core는 token에서 `app`을 채우지 않아 필수인 명령은
 // 앱 id를 입력에 넣어야 한다. 앱 id는 session을 맡긴 쪽이 첫 prompt로 알려 준다.
@@ -12,6 +13,9 @@ import { packagesList, packagesVersions } from "../apps/package-routes.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
 import { appLogs, appRuntime } from "../apps/runtime.ts";
 import type { Route } from "../base/route.ts";
+import { idSchema } from "../base/ids.ts";
+import { jsonValueSchema } from "../base/json-values.ts";
+import { toolNameSchema } from "../apps/channel-values.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
 import { codingHook, HOOK_ROUTES } from "./hook.ts";
 import { HARNESS_ROUTES } from "./harness-report.ts";
@@ -35,7 +39,7 @@ const cliCommonSchema = z.strictObject({
 
 export type CodingCliCommand = {
   name: string;
-  auth: "coding_token" | "local";
+  auth: "coding_token" | "user" | "local";
   input: z.ZodType;
   output: z.ZodType;
   route?: Route;
@@ -66,6 +70,13 @@ function token(
     output,
     route,
   };
+}
+
+// 사람이 쓰는 명령이다. 입력은 route 입력이 아니라 CLI 칸이고, 명령이 route 입력을 만든다.
+// route를 표에 두지 않는다: runs가 lophn-agent를, lophn-agent가 coding-agent를 import해 protocol 순환이 된다.
+// 명령(`cli/commands/run.ts`)이 `protocol/runs`의 route를 직접 부른다. 출력은 run 기록이다.
+function user(name: string, input: z.ZodType): CodingCliCommand {
+  return { name, auth: "user", input: withCommon(input), output: z.unknown() };
 }
 
 export const HARNESS_INSTALL_OUTCOMES = [
@@ -146,6 +157,40 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
       version: packageVersionNameSchema.optional(),
     }),
     packagesVersions.output,
+  ),
+  user(
+    "agent run",
+    z.strictObject({
+      prompt: z.string().min(1),
+      agent: z.string().min(1).optional().describe(
+        "lophn | pm:<project> | ae:<app> | operator:<이름> | operator:<project 또는 app>/<이름> | NamedAgent JSON (없으면 lophn)",
+      ),
+      session: idSchema("ses").optional(),
+      schema: z.string().min(1).optional().describe("출력 JSON Schema 글"),
+      async: z.boolean().optional(),
+      input: jsonValueSchema.optional(),
+    }),
+  ),
+  user(
+    "tool call",
+    z.strictObject({
+      app: z.string().min(1),
+      tool: toolNameSchema,
+      async: z.boolean().optional(),
+      input: jsonValueSchema.optional(),
+    }),
+  ),
+  user(
+    "run wait",
+    z.strictObject({ run: idSchema("run") }),
+  ),
+  user(
+    "run show",
+    z.strictObject({ run: idSchema("run") }),
+  ),
+  user(
+    "run cancel",
+    z.strictObject({ run: idSchema("run") }),
   ),
   {
     name: "harness detect",

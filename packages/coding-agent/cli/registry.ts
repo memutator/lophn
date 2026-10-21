@@ -6,6 +6,7 @@ import { HARNESS_COMMANDS } from "./commands/harness.ts";
 import { HOOK_COMMANDS } from "./commands/hook.ts";
 import { MESSAGE_COMMANDS } from "./commands/message.ts";
 import { PACKAGE_COMMANDS } from "./commands/package.ts";
+import { RUN_COMMANDS } from "./commands/run.ts";
 import type { CommandEntry } from "./commands/types.ts";
 
 export const COMMANDS: readonly CommandEntry[] = [
@@ -14,6 +15,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...APP_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...HARNESS_COMMANDS,
+  ...RUN_COMMANDS,
 ];
 
 // 표와 어긋나면 기동 때 바로 드러난다.

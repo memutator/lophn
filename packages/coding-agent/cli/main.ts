@@ -1,13 +1,17 @@
 // lophn CLI의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다.
-// 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN` 하나이고,
-// token이 없으면 core를 부르는 command는 아무것도 보내지 않는다.
+// 표(`registry.ts`) 밖 command는 실행 전에 거절한다. 인증은 환경 변수 `LOPHN_CODING_TOKEN`이고, `user`
+// command만 token이 없을 때 data root의 user token file을 쓴다. 자격이 없으면 core를 부르는 command는
+// 아무것도 보내지 않는다.
 import type { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   CODING_TOKEN_ENV,
   HOOK_PAYLOAD_MAX_BYTES,
 } from "../../protocol/coding-agent/mod.ts";
-import type { RpcFetch } from "../../protocol/client/mod.ts";
+import {
+  type RpcFetch,
+  USER_TOKEN_FILE_NAME,
+} from "../../protocol/client/mod.ts";
 import {
   createCoreClient,
   discoverDaemonAddress,
@@ -17,7 +21,7 @@ import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
 import { parseArgs, type ParsedArgs } from "./parser.ts";
 import { matchCommand } from "./registry.ts";
-import type { RunContext } from "./commands/types.ts";
+import { ExitWith, type RunContext } from "./commands/types.ts";
 
 const VERSION = "0.1.0";
 
@@ -30,6 +34,7 @@ type CliOptions = {
   cwd?: string;
   home?: string;
   stdin?: () => Promise<string>;
+  readText?: (path: string) => string | undefined;
 };
 
 export function ambientEnv(): { get(name: string): string | undefined } {
@@ -72,16 +77,20 @@ async function readProcessStdin(): Promise<string> {
   return new TextDecoder().decode(all);
 }
 
+// `--input`·`--input-file`을 JSON으로 읽는다. 없으면 undefined다. `user` 명령은 JSON 값 하나(객체가 아니어도
+// 된다)가 run 입력이고, 나머지는 객체가 route 입력의 칸이 된다.
 function inputOf(
   parsed: ParsedArgs,
   cwd: string,
-): Result<Record<string, unknown>, LophnError> {
+  readText: (path: string) => string | undefined,
+  asValue: boolean,
+): Result<unknown, LophnError> {
   let text: string | undefined = parsed.input;
   if (text === undefined && parsed.inputFile !== undefined) {
     const path = parsed.inputFile.startsWith("/")
       ? parsed.inputFile
       : `${cwd}/${parsed.inputFile}`;
-    text = readTextOrUndefined(path);
+    text = readText(path);
     if (text === undefined) {
       return err({
         code: "invalid_input",
@@ -90,13 +99,16 @@ function inputOf(
       });
     }
   }
-  if (text === undefined) return ok({});
+  if (text === undefined) return ok(undefined);
   try {
     const value = JSON.parse(text);
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    if (
+      !asValue &&
+      (typeof value !== "object" || value === null || Array.isArray(value))
+    ) {
       return err({ code: "invalid_input", message: "input은 JSON 객체다" });
     }
-    return ok(value as Record<string, unknown>);
+    return ok(value);
   } catch {
     return err({ code: "invalid_input", message: "input JSON을 읽지 못했다" });
   }
@@ -131,6 +143,16 @@ function describeIssue(issue: z.core.$ZodIssue, candidate: unknown): string {
     : `${field}: ${expected}`;
 }
 
+// core의 `resolveDataRoot`와 같은 규칙이다(`LOPHN_HOME`, 없으면 `$HOME/.lophn`). symlink·mode는 core가 켤 때 본다.
+function dataRootOf(
+  env: { get(name: string): string | undefined },
+  home: string,
+): string | undefined {
+  const set = env.get("LOPHN_HOME");
+  if (set !== undefined && set !== "") return set;
+  return home === "" ? undefined : `${home}/.lophn`;
+}
+
 export async function cliMain(
   argv: readonly string[],
   options: CliOptions = {},
@@ -138,11 +160,23 @@ export async function cliMain(
   const parsed = parseArgs(argv);
   const env = options.env ?? ambientEnv();
   const token = env.get(CODING_TOKEN_ENV)?.trim() || undefined;
+  const readText = options.readText ?? readTextOrUndefined;
+  const home = options.home ?? env.get("HOME") ?? "";
+  const matched = matchCommand(parsed.positional);
+  // coding token이 없을 때 `user` 명령만 user token file을 읽는다.
+  const userDataRoot = dataRootOf(env, home);
+  const userTokenPath = `${
+    userDataRoot ?? "<data root>"
+  }/run/${USER_TOKEN_FILE_NAME}`;
+  const userToken = matched?.entry.auth === "user" && token === undefined &&
+      userDataRoot !== undefined
+    ? readText(userTokenPath) || undefined
+    : undefined;
   const output = createOutput({
     json: parsed.json,
     stdout: options.stdout,
     stderr: options.stderr,
-    secrets: token === undefined ? [] : [token],
+    secrets: [token, userToken].filter((value) => value !== undefined),
   });
   const fail = async (error: LophnError) => {
     await output.failure(error);
@@ -164,7 +198,6 @@ export async function cliMain(
     await output.result({ version: VERSION });
     return 0;
   }
-  const matched = matchCommand(parsed.positional);
   if (matched === undefined) {
     return await fail({
       code: "invalid_input",
@@ -187,10 +220,17 @@ export async function cliMain(
     });
   }
   const cwd = options.cwd ?? Deno.cwd();
-  const body = inputOf(parsed, cwd);
+  const body = inputOf(parsed, cwd, readText, entry.auth === "user");
   if (!body.ok) return await fail(body.error);
-  const candidate: Record<string, unknown> = { ...body.value };
+  const candidate: Record<string, unknown> = entry.auth === "user"
+    ? body.value === undefined ? {} : { input: body.value }
+    : { ...(body.value as Record<string, unknown> | undefined) };
   slots.forEach((slot, index) => candidate[slot] = rest[index]);
+  // 이 칸들은 run 명령만 받는다. 다른 명령은 strict 입력이 "모르는 칸"으로 거절한다.
+  if (parsed.agent !== undefined) candidate.agent = parsed.agent;
+  if (parsed.session !== undefined) candidate.session = parsed.session;
+  if (parsed.schema !== undefined) candidate.schema = parsed.schema;
+  if (parsed.async) candidate.async = true;
   // flag가 만든 칸은 route 입력이 아니다. route 입력의 칸(예: previews.start의 `input`)은 이름이 같아도 남는다.
   const flagKeys: string[] = [];
   if (parsed.json) {
@@ -216,25 +256,37 @@ export async function cliMain(
       !flagKeys.includes(key)
     ),
   );
-  // coding token이 있을 때만 core 주소를 찾고 client를 만든다.
+  // 자격이 있을 때만 core 주소를 찾고 client를 만든다. `user` 명령은 coding token이 먼저다.
   let client: RunContext["client"];
-  if (entry.auth === "coding_token" && token !== undefined) {
+  const credential = entry.auth === "user"
+    ? token ?? userToken
+    : entry.auth === "coding_token"
+    ? token
+    : undefined;
+  if (entry.auth === "user" && credential === undefined) {
+    return await fail({
+      code: "unavailable",
+      message: `lophn이 꺼져 있다: ${userTokenPath}이 없다`,
+    });
+  }
+  if (credential !== undefined) {
     const address = discoverDaemonAddress({
       env: env.get(LOPHN_DAEMON_URL),
-      dataRoot: env.get("LOPHN_HOME"),
-      readText: readTextOrUndefined,
+      dataRoot: entry.auth === "user" ? userDataRoot : env.get("LOPHN_HOME"),
+      readText,
     });
     if (!address.ok) return await fail(address.error);
     client = createCoreClient({
       baseUrl: address.value.url,
-      token,
+      token: credential,
+      appScoped: token !== undefined,
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
   }
-  const home = options.home ?? env.get("HOME") ?? "";
   const ran = await entry.run(input, {
     client,
     idempotencyKey: parsed.idempotencyKey,
+    json: parsed.json,
     stdin: options.stdin ?? readProcessStdin,
     local: {
       env,
@@ -245,6 +297,11 @@ export async function cliMain(
     },
   });
   if (!ran.ok) return await fail(ran.error);
+  if (ran.value instanceof ExitWith) {
+    await output.result(ran.value.stdout);
+    if (ran.value.stderr !== undefined) await output.note(ran.value.stderr);
+    return ran.value.exit;
+  }
   await output.result(ran.value);
   return CLI_EXITS.success;
 }

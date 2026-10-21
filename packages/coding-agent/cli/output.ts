@@ -1,6 +1,6 @@
 // CLI 출력 계층. 기계 출력과 진단은 분리한다.
 // --json이면 stdout에 JSON 하나와 마지막 newline만 쓴다. 아니면 같은 data를 줄로 풀어 쓴다.
-// 받은 coding token은 어떤 출력에도 남지 않는다.
+// 받은 token(coding token, user token)은 어떤 출력에도 남지 않는다.
 import type { LophnError } from "../../base/mod.ts";
 
 export const CLI_EXITS = {
@@ -40,13 +40,15 @@ type OutputWriter = {
   failure(error: LophnError): Promise<void>;
   // 안내 글이다(help).
   text(text: string): Promise<void>;
+  // stderr에 한 줄을 쓴다. 끝난 run의 실패 이유다.
+  note(text: string): Promise<void>;
 };
 
 type OutputOptions = {
   json: boolean;
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
-  // 출력에서 지울 비밀 값이다(coding token).
+  // 출력에서 지울 비밀 값이다(coding token, user token).
   secrets?: readonly string[];
 };
 
@@ -127,6 +129,9 @@ export function createOutput(options: OutputOptions): OutputWriter {
     },
     async text(text) {
       await write(stdout, `${text}\n`);
+    },
+    async note(text) {
+      await write(stderr, `${scrub(text)}\n`);
     },
   };
 }

@@ -24,6 +24,8 @@ const sendMessageInputSchema = z.strictObject({
   content: userMessageContentInputSchema,
   delivery: inputDeliverySchema,
   refs: z.array(callRefSchema),
+  // 사람 화면은 싣지 않고 run만 싣는다. 이 메시지가 연 turn은 unattended다(approval.md "turn mode").
+  unattended: z.literal(true).optional(),
 });
 
 export const sendMessage = defineCommand({

@@ -31,6 +31,7 @@ const ID_PREFIXES = {
   ann: "Annotation",
   anb: "AnnotationBatch",
   dom: "Domain",
+  run: "Run",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

@@ -492,6 +492,7 @@ export const routerWiring: WiringFactory = () => {
                 outcome: null,
                 event: null,
                 notice: null,
+                unattended: false,
               },
               at: pending.created_at,
             },

@@ -19,7 +19,7 @@ export type SqlView = {
 
 const COLUMNS =
   `call, from_session, "to", receiver_session, reply, state, fail_reason, dedup,
-   created_at, state_at`;
+   unattended, created_at, state_at`;
 
 function recordOf(row: Record<string, unknown>): Result<AgentCallRecord> {
   let to: unknown;
@@ -39,6 +39,7 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRecord> {
     state: row["state"] as CallState,
     fail_reason: (row["fail_reason"] ?? null) as CallFailReason | null,
     dedup: (row["dedup"] ?? null) as string | null,
+    unattended: Number(row["unattended"]) === 1,
     created_at: String(row["created_at"]),
     state_changed_at: String(row["state_at"]),
   });
@@ -78,8 +79,9 @@ export function createCallStore(): CallStore {
       }
       tx.sql.run(
         `insert into agent_calls (call, from_session, "to", receiver_session,
-           reply, state, fail_reason, dedup, consumed, created_at, state_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+           reply, state, fail_reason, dedup, consumed, unattended,
+           created_at, state_at)
+         values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
         [
           record.call,
           record.from.session,
@@ -89,6 +91,7 @@ export function createCallStore(): CallStore {
           record.state,
           record.fail_reason,
           record.dedup,
+          record.unattended ? 1 : 0,
           record.created_at,
           record.state_changed_at,
         ],

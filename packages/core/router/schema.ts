@@ -12,6 +12,7 @@ const list = (values: readonly string[]) =>
 // - `to`는 풀린 받는 곳(JSON). 이름을 못 푼 call은 행이 없다.
 // - `consumed`는 받는 session의 turn이 이 입력을 가져갔는지다. lophn을 켤 때 입력함(메모리)과 함께 잃어버린 call을
 //   가린다.
+// - `unattended`는 보낸 turn의 mode 표시다. 늦은 실패와 취소 알림이 이 표시를 따른다.
 // - 끝난 행은 다시 바뀌지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다.
 export const ROUTER_SCHEMA_STEPS: SchemaStep[] = [
   {
@@ -29,6 +30,7 @@ create table agent_calls (
     })),
   dedup text,
   consumed integer not null default 0 check (consumed in (0, 1)),
+  unattended integer not null default 0 check (unattended in (0, 1)),
   created_at text not null,
   state_at text not null,
   check ((state = 'failed') = (fail_reason is not null))

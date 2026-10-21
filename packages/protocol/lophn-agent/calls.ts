@@ -129,6 +129,8 @@ const callEnvelopeSchema = z.object({
   // 보낸 쪽 tool call ID. agent가 보낸 call에만 있다.
   dedup: z.string().min(1).nullable(),
   options: codingOptionsSchema.nullable(),
+  // 보낸 turn의 mode가 unattended면 true. 답과 늦은 실패, 취소 알림이 이 표시를 따른다.
+  unattended: z.boolean(),
 }).refine((v) => v.options === null || launchesCoding(v.to), {
   message: "options are only for launching a coding agent",
 }).refine((v) => v.dedup === null || v.from.kind === "agent", {
@@ -147,6 +149,7 @@ const agentCallRecordSchema = z.object({
   state: callStateSchema,
   fail_reason: callFailReasonSchema.nullable(),
   dedup: z.string().min(1).nullable(),
+  unattended: z.boolean(),
   created_at: atSchema,
   state_changed_at: atSchema,
 }).refine((v) => (v.state === "failed") === (v.fail_reason !== null), {
@@ -179,6 +182,8 @@ export const callSendInputSchema = z.strictObject({
   refs: z.array(callRefSchema),
   options: codingOptionsSchema.optional(),
   dedup: z.string().min(1),
+  // 보낸 turn의 mode가 unattended일 때만 tool이 싣는다. model 입력에는 없다(ap-mode-turn).
+  unattended: z.literal(true).optional(),
 });
 
 export const callSend = defineCommand({
@@ -205,6 +210,8 @@ export const callReply = defineCommand({
     call: idSchema("cal"),
     body: z.string().min(1),
     refs: z.array(callRefSchema).default([]),
+    // 보낸 turn의 mode가 unattended일 때만 tool이 싣는다. model 입력에는 없다(ap-mode-turn).
+    unattended: z.literal(true).optional(),
   }),
   output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
   actors: ["agent"],

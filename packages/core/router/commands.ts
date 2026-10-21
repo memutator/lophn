@@ -81,6 +81,7 @@ const sendCallCommand: CommandDefinition<typeof callSend> = {
       options: input.options ?? null,
       kind: "call",
       delivery: "next_turn",
+      unattended: input.unattended === true,
     });
     if (!routed.ok) return routed;
     if (routed.value.call === null) {
@@ -157,6 +158,7 @@ const reactCommand: CommandDefinition<typeof callsReact> = {
     }
     const router = routerFor(tx);
     if (!router.ok) return router;
+    // reaction이 연 turn은 attended다(README).
     const routed = router.value.route(tx, {
       from: { kind: "program", event_seq: input.event_seq },
       to: input.to,

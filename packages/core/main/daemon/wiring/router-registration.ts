@@ -112,9 +112,9 @@ const environment: RouterEnvironment = {
         });
         return sent.ok ? ok(sent.value.status) : sent;
       },
-      cancel(tx, target, call) {
+      cancel(tx, target, call, unattended) {
         if (target !== null && target.transport === "lophn") {
-          return lophn.cancel(tx, target, call);
+          return lophn.cancel(tx, target, call, unattended);
         }
         // 줄에 있으면 줄에서 빼고 돌고 있으면 멈춘다. 둘 다 아니면 그대로다.
         return tx.port(CodingTransport).stop(tx, { call, reason: "cancelled" });

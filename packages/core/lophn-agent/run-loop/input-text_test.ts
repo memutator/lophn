@@ -15,6 +15,7 @@ const call = {
   outcome: null,
   event: null,
   notice: null,
+  unattended: false,
 } as RoutedInput;
 
 Deno.test("agent가 보낸 본문이 닫는 tag나 steer tag를 흉내 내도 escape된다", () => {

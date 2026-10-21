@@ -33,6 +33,7 @@ function setup(sessions: Record<string, TargetSession>) {
   } as unknown as Tx;
   const rows = new Map<string, AgentCallRecord>();
   const delivered: { to: string; input: RoutedInput }[] = [];
+  const cancelled: boolean[] = [];
   let opened = 0;
   const store: CallStore = {
     insert: (_tx, record) => {
@@ -54,7 +55,10 @@ function setup(sessions: Record<string, TargetSession>) {
     markConsumed: () => ok(undefined),
     setReceiver: () => ok(undefined),
     lost: () => [],
-    openReceivedBy: () => [],
+    openReceivedBy: (_tx, session) =>
+      [...rows.values()].filter((row) =>
+        row.state === "accepted" && row.receiver_session === session
+      ),
   };
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
@@ -74,11 +78,14 @@ function setup(sessions: Record<string, TargetSession>) {
         delivered.push({ to: to.session, input });
         return ok("delivered" as const);
       },
-      cancel: () => ok(undefined),
+      cancel: (_tx, _to, _call, unattended) => {
+        cancelled.push(unattended);
+        return ok(undefined);
+      },
       queued: () => [],
     },
   });
-  return { tx, router, rows, delivered, opened: () => opened };
+  return { tx, router, rows, delivered, cancelled, opened: () => opened };
 }
 
 const base = {
@@ -153,4 +160,64 @@ Deno.test("the same dedup makes one call and one session", () => {
   assertEquals(rows.size, 1);
   assertEquals(opened(), 1);
   assertEquals(delivered.length, 1);
+});
+
+// 권한 경계다. unattended는 call 봉투를 따라 가고, attended 사슬로 새면 사람 없이 도는 turn이 묻는 길을 연다.
+Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 attended 사슬로 새지 않는다", () => {
+  for (const mark of [false, true]) {
+    const open = () => {
+      const world = setup({
+        [SENDER]: target(SENDER, true),
+        [RECEIVER]: target(RECEIVER, true),
+      });
+      const routed = world.router.route(world.tx, {
+        ...base,
+        reply: "conversation",
+        to: { session: RECEIVER },
+        dedup: "tool-1",
+        unattended: mark,
+      });
+      assert(routed.ok && routed.value.call !== null);
+      const call = routed.value.call;
+      // 받는 쪽 입력과 행이 call의 표시를 싣는다.
+      assertEquals(world.delivered.at(-1)!.to, RECEIVER);
+      assertEquals(world.delivered.at(-1)!.input.unattended, mark);
+      assertEquals(world.rows.get(call)!.unattended, mark);
+      world.delivered.length = 0;
+      return { ...world, call };
+    };
+
+    // 답은 call 행이 아니라 답한 turn의 표시를 따른다.
+    for (const replyMark of [undefined, true]) {
+      const { tx, router, delivered, call } = open();
+      const sent = router.reply(tx, { session: RECEIVER }, {
+        call,
+        body: "done",
+        refs: [],
+        unattended: replyMark,
+      });
+      assert(sent.ok && sent.value.delivered);
+      assertEquals(delivered.at(-1)!.to, SENDER);
+      assertEquals(delivered.at(-1)!.input.unattended, replyMark === true);
+    }
+
+    // 받는 session이 끝나면 보낸 쪽에 가는 늦은 실패는 call의 표시를 따른다.
+    {
+      const { tx, router, delivered } = open();
+      assert(router.failReceivedBy(tx, RECEIVER).ok);
+      assertEquals(delivered.at(-1)!.to, SENDER);
+      assertEquals(delivered.at(-1)!.input.outcome?.reason, "receiver_ended");
+      assertEquals(delivered.at(-1)!.input.unattended, mark);
+    }
+
+    // 보낸 쪽의 취소 알림도 그렇다.
+    {
+      const { tx, router, cancelled, call } = open();
+      const done = router.cancel(tx, { kind: "agent", session: SENDER }, {
+        call: call as never,
+      });
+      assert(done.ok);
+      assertEquals(cancelled, [mark]);
+    }
+  }
 });

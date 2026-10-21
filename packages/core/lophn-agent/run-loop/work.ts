@@ -126,7 +126,7 @@ export function createLophnInputTransport(deps: {
       if (!stored.ok) return stored;
       return ok(idle ? "delivered" as const : "queued" as const);
     },
-    cancel(tx, target, call) {
+    cancel(tx, target, call, unattended) {
       if (target === null || target.transport !== "lophn") {
         return ok(undefined);
       }
@@ -144,6 +144,7 @@ export function createLophnInputTransport(deps: {
         outcome: null,
         event: null,
         notice: "call_cancelled",
+        unattended,
       });
     },
     queued() {

@@ -57,7 +57,12 @@ export interface Router {
   reply(
     tx: Tx,
     from: { session: string },
-    input: { call: string; body: string; refs: CallRef[] },
+    input: {
+      call: string;
+      body: string;
+      refs: CallRef[];
+      unattended?: boolean;
+    },
   ): Result<{ delivered: boolean; closed: boolean }>;
   cancel(
     tx: Tx,
@@ -178,6 +183,7 @@ export function createRouter(deps: RouterDeps): Router {
       outcome: null,
       event: input.event ?? null,
       notice: null,
+      unattended: input.unattended === true,
     };
   }
 
@@ -187,13 +193,14 @@ export function createRouter(deps: RouterDeps): Router {
     sender: string,
     call: string,
     reason: CallFailReason,
+    unattended: boolean,
   ): Result<void> {
     const target = directory.find(sesId(sender));
     if (target === null || !target.accepting) return ok(undefined);
     const delivered = transport.deliver(
       tx,
       target,
-      failureInput(calId(call), reason),
+      failureInput(calId(call), reason, unattended),
       null,
     );
     return delivered.ok ? ok(undefined) : delivered;
@@ -219,6 +226,7 @@ export function createRouter(deps: RouterDeps): Router {
       state,
       fail_reason: reason,
       dedup: input.dedup,
+      unattended: input.unattended === true,
       created_at: at,
       state_changed_at: at,
     };
@@ -373,7 +381,12 @@ export function createRouter(deps: RouterDeps): Router {
   function reply(
     tx: Tx,
     from: { session: Id<"ses"> },
-    input: { call: Id<"cal">; body: string; refs: CallRef[] },
+    input: {
+      call: Id<"cal">;
+      body: string;
+      refs: CallRef[];
+      unattended?: boolean;
+    },
   ): Result<{ delivered: boolean; closed: boolean }> {
     const record = store.read(tx, calId(input.call));
     if (record === null) {
@@ -410,6 +423,8 @@ export function createRouter(deps: RouterDeps): Router {
           : null,
         event: null,
         notice: null,
+        // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
+        unattended: input.unattended === true,
       }, null);
       if (!sent.ok) return sent;
       delivered = true;
@@ -442,7 +457,12 @@ export function createRouter(deps: RouterDeps): Router {
     const target = record.receiver_session === null
       ? null
       : directory.find(sesId(record.receiver_session));
-    const cancelled = transport.cancel(tx, target, calId(record.call));
+    const cancelled = transport.cancel(
+      tx,
+      target,
+      calId(record.call),
+      record.unattended,
+    );
     return cancelled.ok ? moved : cancelled;
   }
 
@@ -470,7 +490,13 @@ export function createRouter(deps: RouterDeps): Router {
       const moved = store.move(tx, calId(record.call), "failed", reason);
       if (!moved.ok) return moved;
       if (notify && record.from.kind === "agent") {
-        const told = notifyFailed(tx, record.from.session, record.call, reason);
+        const told = notifyFailed(
+          tx,
+          record.from.session,
+          record.call,
+          reason,
+          record.unattended,
+        );
         if (!told.ok) return told;
       }
     }

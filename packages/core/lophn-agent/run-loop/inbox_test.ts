@@ -25,6 +25,7 @@ function input(
     outcome: null,
     event: null,
     notice: null,
+    unattended: false,
   } as RoutedInput;
 }
 

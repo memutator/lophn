@@ -54,6 +54,9 @@ export type RoutedInput = {
   event: string | null;
   // kind가 notice면 그 종류.
   notice: NoticeKind | null;
+  // 사람 메시지, reaction, coding agent 입력은 false. agent의 call과 답은 보낸 turn이 실은 표시.
+  // 늦은 실패와 취소 알림은 그 call의 표시.
+  unattended: boolean;
 };
 
 export interface SessionDirectory {
@@ -82,6 +85,7 @@ export interface InputTransport {
     tx: Tx,
     target: TargetSession | null,
     call: Id<"cal">,
+    unattended: boolean,
   ): Result<void>;
   // 앱 줄에 서서 기다리는 coding 맡기기. session 목록 tool이 함께 보인다.
   queued(): readonly { call: Id<"cal">; app: Id<"app"> }[];

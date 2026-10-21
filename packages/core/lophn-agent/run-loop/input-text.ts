@@ -71,7 +71,10 @@ function wrap(
   return `${open(tag, attributes)}\n${escapeBody(body)}\n</${tag}>`;
 }
 
-export function inputText(input: RoutedInput): string {
+// 표시는 tag 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만든다.
+type TextInput = Omit<RoutedInput, "unattended">;
+
+export function inputText(input: TextInput): string {
   switch (input.kind) {
     case "message": {
       if (input.delivery !== "steer") return input.body;
@@ -111,7 +114,7 @@ export function inputText(input: RoutedInput): string {
 }
 
 // 취소 알림은 본문이 없으면 call을 가리킨다.
-function noticeParts(input: RoutedInput): { kind: string; detail: string } {
+function noticeParts(input: TextInput): { kind: string; detail: string } {
   const detail = input.body.trim();
   return {
     kind: input.notice ?? "",
@@ -122,7 +125,7 @@ function noticeParts(input: RoutedInput): { kind: string; detail: string } {
 }
 
 // 받은 call은 답 방식이 항상 있다. null이면 call이 아닌 기록(session이 자기 답으로 남긴 메시지)이라 속성을 뺀다.
-function callText(input: RoutedInput): string {
+function callText(input: TextInput): string {
   const tag = INPUT_TAGS.call;
   const { reply } = input;
   const lines = [wrap(tag, {

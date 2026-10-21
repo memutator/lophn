@@ -44,6 +44,7 @@ function callOf(
     reply_to: null,
     dedup: null,
     options: null,
+    unattended: false,
     to: { kind: "new_session", agent },
     body:
       `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,

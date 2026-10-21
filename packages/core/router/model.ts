@@ -36,6 +36,8 @@ export type RouteInput = {
   message?: string | null;
   // reaction이면 근거 domain event type.
   event?: string | null;
+  // agent의 SendCall·ReplyCall만 싣는다. 없으면 false.
+  unattended?: boolean;
 };
 
 export type RouteResult = {
@@ -102,6 +104,7 @@ export const CANCEL_TEXT = "";
 export function failureInput(
   call: Id<"cal">,
   reason: CallFailReason,
+  unattended: boolean,
 ): RoutedInput {
   return {
     kind: "reply",
@@ -116,5 +119,6 @@ export function failureInput(
     outcome: { state: "failed", reason },
     event: null,
     notice: null,
+    unattended,
   };
 }

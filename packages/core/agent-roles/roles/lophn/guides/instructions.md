@@ -31,11 +31,11 @@ next turn that starts is told "instructions changed" and receives the new text
 at the end of the conversation. When a conversation is compacted, the newest
 instructions are used.
 
-You edit and save; an agent cannot create or save `LOPHN.md` or the global
-instructions without your permission. `DOMAIN.md` is different: the Project
-Manager or App Engineer that looks after the domain writes it with its file
-tools, without asking you, and rewind undoes a mistake. If the file changed
-outside the editor, the save is a conflict and the outside edit is not
-overwritten.
+You edit and save in the editor. An agent that has file tools for the place can
+also write `LOPHN.md` without asking you, and rewind undoes a mistake. The
+global instructions are changed only by you. `DOMAIN.md` is written by the
+Project Manager or App Engineer that looks after the domain, with its file tools
+and without asking you. If the file changed outside the editor, the save is a
+conflict and the outside edit is not overwritten.
 
 Instructions cannot widen access, skip a decision or raise a product limit.

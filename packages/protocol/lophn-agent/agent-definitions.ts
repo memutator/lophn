@@ -37,7 +37,7 @@ import {
 // 호출 session의 role·place로 범위를 본다: 자기 place의 정의와 Operator뿐이다(agent의 operator.create·update는 tool이다).
 // - 내장 role(lophn, Project Manager, App Engineer)은 만들고 지울 수 없고, 사람이 고치는 것은 지침·model·skill·MCP 끄기다.
 // - Operator는 `operatorDefinitionSchema`로 만들고 고치고 지운다.
-// - tool 목록은 role이 정하고 사람이 바꾸지 않는다. grant는 approvals/grants의 `agentGrantsGet`·`agentGrantsSet`이 맡는다.
+// - tool 목록은 role이 정하고 사람이 바꾸지 않는다. 할당은 approvals의 `agentAssignmentGet`·`agentAssignmentSet`이 맡는다.
 // - 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다. invalid_input의 details는 항목별 이유다.
 
 const builtinAgentRefBranches = [

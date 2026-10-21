@@ -8,7 +8,7 @@ import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import type { Approvals } from "../../approvals/mod.ts";
 
 // agent runtime이 Gate가 걸리는 tool을 실행하기 전에 core에 묻는 입구. 판정은 Approvals.judge가 한다.
-// file·shell·web, 읽기 tool, 질문 tool, call·reply·cancel은 Gate가 없어 이 입구를 거치지 않는다.
+// file·web, 읽기 tool, 질문 tool, call·reply·cancel은 Gate가 없어 이 입구를 거치지 않는다. shell.run은 shell 규칙으로 거친다.
 // 거치는지는 tool 정의의 gate가 정하고, gate가 없으면 check를 부르지 않는 것이 호출자의 일이다.
 
 export type ToolGateCall = {

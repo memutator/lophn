@@ -228,7 +228,6 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.rewind-item-answer": Record<never, never>;
   "conversation.label.rewind-item-app": Record<never, never>;
-  "conversation.label.rewind-item-approval": Record<never, never>;
   "conversation.label.rewind-item-external": Record<never, never>;
   "conversation.label.rewind-item-fact": Record<never, never>;
   "conversation.label.rewind-loading": Record<never, never>;
@@ -321,7 +320,6 @@ export type ConversationPlaceholders = {
   "conversation.notice.call-delivered": Record<never, never>;
   "conversation.notice.call-fail-closed": Record<never, never>;
   "conversation.notice.call-fail-lophn-restarted": Record<never, never>;
-  "conversation.notice.call-fail-not-allowed": Record<never, never>;
   "conversation.notice.call-fail-not-found": Record<never, never>;
   "conversation.notice.call-fail-receiver-ended": Record<never, never>;
   "conversation.notice.call-unreadable": Record<never, never>;

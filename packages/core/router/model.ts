@@ -72,12 +72,10 @@ export function isFinished(state: CallState): boolean {
 // 사람이 보낸 쪽일 때 배달 실패를 오류 코드로 돌려준다.
 export function failureCode(
   reason: CallFailReason,
-): "not_found" | "forbidden" | "conflict" | "unavailable" {
+): "not_found" | "conflict" | "unavailable" {
   switch (reason) {
     case "not_found":
       return "not_found";
-    case "not_allowed":
-      return "forbidden";
     case "closed":
       return "conflict";
     case "receiver_ended":
@@ -89,8 +87,6 @@ export function failureCode(
 // 실패를 보낸 session에 돌려주는 입력의 글이다. 고정 문구라 앞단이 미리 blob으로 준비해 둔다.
 export const FAILURE_TEXTS: Record<CallFailReason, string> = {
   not_found: "The call was not delivered: no such agent or session.",
-  not_allowed:
-    "The call was not delivered: your grant does not allow calling that agent.",
   closed:
     "The call was not delivered: that session is closed. Call its role and place to open a new session.",
   receiver_ended: "The receiving session ended without replying.",

@@ -79,7 +79,7 @@ const BUILTIN_TABLE: Record<
   },
   permissions: {
     title: "Permissions",
-    description: "Show agent grants and this session's session permissions",
+    description: "Show the apps and MCP servers this agent can use",
     while_running: "run",
   },
   recap: {

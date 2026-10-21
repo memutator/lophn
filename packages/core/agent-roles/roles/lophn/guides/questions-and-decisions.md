@@ -18,20 +18,26 @@ answer to the agent. It does not grant access by itself.
 
 ## Permission requests
 
-Some actions need your permission when an agent tries them: an app tool or MCP
-tool the agent must ask about, a change to lophn settings, an activation that
-widens what an app may do, or a reaction that opens a session. Each appears as a
-request in the conversation and in the waiting list, and as a toast.
+The only thing an agent asks you about while it works is a shell command that
+your shell rules mark as `ask`. It appears as a card in the conversation and in
+the waiting list, and as a toast. You can allow once, allow always, or reject
+with a reason. Allow always adds the allow rule shown on the card to your shell
+rules, so a matching command no longer asks. There is no default choice. Closing
+a card is not a decision. The reason you give on rejection goes back to the
+agent.
 
-For an app tool or MCP tool you can allow once, allow for this session, allow
-always, or reject with a reason. Allow always changes that agent's grant to no
-longer ask. Allow for this session is forgotten when the session closes. For the
-other kinds you allow or reject. There is no default choice. Closing a card is
-not a decision. The reason you give on rejection goes back to the agent.
+A shell command that matches a deny rule is refused without asking, and that
+holds when the session skips questions or runs without a person. Those sessions
+do not ask, but they do not lift a deny rule.
 
-An allowance is used once for the exact action you saw, and it is checked again
-just before it runs. If what it would do has changed, it is not run. Accepted
-and applied are different, and you are told which happened.
+The questions a coding agent asks in its own terminal also show in the waiting
+list, but you answer them in that terminal.
+
+Everything else needs no question while the agent works. An app tool or MCP tool
+you assigned to the agent runs without asking. Calling another agent is neither
+asked nor blocked. Writing `LOPHN.md` is not asked either, and rewind undoes a
+mistake. Letting an app widen what it may do (activation consent) is a separate
+item in the waiting list that only you can answer.
 
 ## Decisions inside a screen
 

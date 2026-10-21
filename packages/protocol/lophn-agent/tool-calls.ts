@@ -105,7 +105,6 @@ export const decideToolCall = defineCommand({
 const startToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   started_at: atSchema,
-  approval: idSchema("apr").nullable(),
 });
 const startToolCallCompareSchema = z.strictObject({
   state_seq: seqSchema,
@@ -315,4 +314,4 @@ export const TOOL_CALL_ROUTES = [
   toolCallList,
 ] as const;
 
-// 현재 scope·definition·MCP 판·approval 한 번 사용·owner transaction은 runtime 책임이다.
+// 현재 scope·definition·MCP 판·owner transaction은 runtime 책임이다.

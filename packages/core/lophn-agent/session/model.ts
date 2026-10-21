@@ -102,7 +102,7 @@ create table messages (
   refs text not null default '[]' check (json_valid(refs)),
   reply text check (reply in ('none', 'result', 'conversation')),
   event text,
-  fail_reason text check (fail_reason in ('not_found', 'not_allowed', 'closed', 'receiver_ended', 'lophn_restarted')),
+  fail_reason text check (fail_reason in ('not_found', 'closed', 'receiver_ended', 'lophn_restarted')),
   delivery text not null default 'next_turn' check (delivery in ('next_turn', 'steer')),
   turn text,
   body text not null check (length(body) = 64),

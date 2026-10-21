@@ -29,9 +29,8 @@ const views = [APP_A, APP_B].map((app) => ({
   ],
 }));
 const entries = [APP_A, APP_B].map((app) => ({
-  kind: "app" as const,
   app,
-  tools: [],
+  removed_tools: [],
 }));
 const inner = {
   load: () => Promise.resolve(ok({ views, entries })),

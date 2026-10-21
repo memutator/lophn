@@ -12,7 +12,7 @@ const ID_PREFIXES = {
   pkg: "Package",
   rpt: "Report",
   vrf: "Verification",
-  apr: "ApprovalRequest",
+  apr: "TurnRequest",
   qgr: "QuestionGroup",
   qst: "Question",
   rvt: "Revert",

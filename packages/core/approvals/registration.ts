@@ -4,20 +4,16 @@ import {
   turnRequestDecide,
 } from "../../protocol/approvals/mod.ts";
 import { assignmentRegistration } from "./assignment/mod.ts";
-import { agentGrantRegistration } from "./grants/mod.ts";
 
 export function createCoreRegistration() {
   return {
     schemaSteps: [
-      ...agentGrantRegistration.schemaSteps,
       ...assignmentRegistration.schemaSteps,
     ],
     commands: [
-      ...agentGrantRegistration.commands,
       ...assignmentRegistration.commands,
     ],
     reads: [
-      ...agentGrantRegistration.reads,
       ...assignmentRegistration.reads,
     ],
     // handler는 wiring이 route 이름으로 붙인다.

@@ -30,7 +30,7 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function agentKey(agent: PlaceAgent): string {
+function agentLine(agent: PlaceAgent): string {
   return `${agent.role} ${agent.name}${
     agent.place === null ? "" : ` (${agent.place})`
   }`;
@@ -50,7 +50,7 @@ export async function basisOf(input: {
     instructions,
     tools: [...input.tool_names].sort(cmp),
     kinds: input.kinds === null ? null : { hash: input.kinds.hash },
-    agents: input.agents.map(agentKey).sort(cmp),
+    agents: input.agents.map(agentLine).sort(cmp),
   };
 }
 

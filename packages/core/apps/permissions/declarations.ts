@@ -100,7 +100,7 @@ type DeclarationGap = {
 
 // 선언한 것 가운데 지금 active grant가 덮지 않는 것이다. activation에서 묻는 판정의 한 곳이다.
 // 이전 release와 따로 비교하지 않는다. 선언이 그대로면 빈 목록이다.
-// 자기 앱 tool은 grant가 아니라 agent grant가 받으므로 보지 않는다.
+// 자기 앱 tool은 grant가 아니라 agent 할당이 받으므로 보지 않는다.
 export function compareDeclarations(
   grants: readonly AppGrant[],
   declarations: Pick<AppDeclarations, "permissions" | "app_connections">,

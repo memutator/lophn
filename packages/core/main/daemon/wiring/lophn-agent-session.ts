@@ -35,7 +35,7 @@ import {
 // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
 export const lophnAgentSessionWiring: WiringFactory = () => ({
   name: "lophn-agent-session",
-  // 메시지 본문·질문 글·approval 설명 글을 읽는 통로. 참조 판정은 ledger snapshot, 바이트는 blob 읽기다.
+  // 메시지 본문·질문 글을 읽는 통로. 참조 판정은 ledger snapshot, 바이트는 blob 읽기다.
   environment(ctx) {
     // 사람 화면이 turn 본문을 볼 때 쓰는 지금의 redaction. 알려진 secret 값은 runtime이 열린 뒤에 채운다.
     // 채우기 전에 읽으면 알려진 값을 모른 채 내보내지 않도록 ready가 false다.

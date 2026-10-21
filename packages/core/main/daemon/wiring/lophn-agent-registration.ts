@@ -7,13 +7,7 @@ import {
   projectInfoOf,
   projectManagerProvisioningPort,
 } from "../../../projects/registry/mod.ts";
-import { AgentOfSession } from "../../../approvals/grants/mod.ts";
-import { agentOfSession } from "../../../lophn-agent/session/actor-ref.ts";
-import {
-  defineTxPort,
-  type ReaderRegistration,
-  snapshotPort,
-} from "../../../storage/ledger/mod.ts";
+import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import { ensureProjectManager } from "../../../agent-roles/agents/ensure.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
@@ -97,16 +91,6 @@ const ports = [
     },
   })),
 ];
-
-// approvals의 grant read가 agent 호출자의 자기 ref를 session 표에서 푸는 port다. 구현은 lophn-agent가 낸다.
-export function createReaderRegistration(): ReaderRegistration {
-  return {
-    reads: [],
-    ports: new Map<unknown, unknown>([
-      [AgentOfSession, snapshotPort((s) => agentOfSession(s.sql))],
-    ]),
-  };
-}
 
 export function createCoreRegistration() {
   return { ports };

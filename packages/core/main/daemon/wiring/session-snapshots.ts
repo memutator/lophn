@@ -55,7 +55,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
               ? "running"
               : "idle",
             turn_requests,
-            permission_requests: [],
             questions,
           } as SessionSnapshot);
         }
@@ -71,7 +70,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
               state: stateOf(row),
               harness: row.harness,
               turn_requests: requests(row.session),
-              permission_requests: [],
               questions: [],
             } satisfies SessionSnapshot,
           );

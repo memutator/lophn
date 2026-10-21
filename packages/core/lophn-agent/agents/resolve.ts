@@ -93,7 +93,7 @@ export type ResolvedAgent = {
 // 값마다 마지막 층이 이긴다(전역 → project → agent → session). 규칙:
 // - model은 ModelChoice 하나를 통째로 쓴다(option을 층끼리 섞지 않는다). 어느 층에도 없으면
 //   invalid_input(`model` required)이고 turn을 시작하지 않는다. role별 기본은 없다.
-// - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP·다른 agent는 agent grant가
+// - tools는 role이 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. 앱·MCP는 agent 할당이
 //   session을 시작할 때 붙인다.
 // - domains는 정의가 고른 domain과 환경이 준 그릇의 domain의 교집합이고, 고른 것이 없으면 그릇의 domain 전부다.
 //   고른 id가 그 뒤 보관되면 교집합이 빼므로 agent는 그대로 시작한다.

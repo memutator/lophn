@@ -232,8 +232,6 @@ export function createFakeWaiting(
         agent: session.agent,
         place: session.place,
         state: "waiting",
-        // ap-cleanup이 snapshot schema에서 지울 때까지 빈 배열로 둔다.
-        permission_requests: [],
         turn_requests: [],
         questions: [],
       };

@@ -6,7 +6,6 @@ import { idempotencyKeySchema } from "../base/envelope.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import {
   appIdSchema,
-  approvalIdSchema,
   invocationIdSchema,
   releaseIdSchema,
   toolKeySchema,
@@ -70,7 +69,6 @@ function activationSchemas(strict: boolean) {
       message: "started_seq must be positive",
     }),
     previous_release: releaseIdSchema.nullable(),
-    approval: approvalIdSchema,
     expected_grants_seq: z.number().int().nonnegative().max(
       Number.MAX_SAFE_INTEGER,
     ),

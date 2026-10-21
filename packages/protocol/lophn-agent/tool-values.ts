@@ -24,48 +24,17 @@ const toolOutcomeKindSchema = z.enum(TOOL_OUTCOME_KINDS);
 export const toolNameSchema = nonempty.max(64);
 
 const TOOL_DECISIONS = ["allow", "ask", "deny"] as const;
-const toolDecisionEffectSchema = z.enum([
-  "read",
-  "reversible_write",
-  "irreversible",
-]);
 
 const toolDecisionFields = {
   decision: z.enum(TOOL_DECISIONS),
   reason: nonempty,
-  effect: toolDecisionEffectSchema.nullable(),
   assignment_revision: revision.nullable(),
   // turn 기준이 고정한 resolved agent의 hash다. turn을 읽지 못했을 때만 null이다.
   agent_hash: hash.nullable(),
-  contract_revision: nonempty.nullable(),
-  comparison_basis: z.json().nullable(),
-  approval: idSchema("apr").nullable(),
-  // ask를 session 허락으로 allow로 낮춘 때만 그 허락의 원래 approval request다(grant_scope=session).
-  session_grant: idSchema("apr").nullable(),
 };
 
-function decisionShape(value: {
-  decision: "allow" | "ask" | "deny";
-  approval: string | null;
-  session_grant: string | null;
-}) {
-  if (value.decision === "deny" && value.approval !== null) return false;
-  // 낮춘 allow는 새 approval request 없이 호출한다. 허락 근거와 approval은 함께 오지 않는다.
-  return value.session_grant === null ||
-    (value.decision === "allow" && value.approval === null);
-}
-
-const decisionMessage = "deny carries no approval and only a lowered allow " +
-  "carries a session grant";
-
-export const toolDecisionSchema = z.strictObject(toolDecisionFields).refine(
-  decisionShape,
-  { message: decisionMessage },
-);
-const toolDecisionOutputSchema = z.object(toolDecisionFields).refine(
-  decisionShape,
-  { message: decisionMessage },
-);
+export const toolDecisionSchema = z.strictObject(toolDecisionFields);
+const toolDecisionOutputSchema = z.object(toolDecisionFields);
 
 const toolOutcomeFields = {
   kind: toolOutcomeKindSchema,

@@ -16,7 +16,6 @@ export const UNWIRED_PLACE_DEPS: PlaceDeps = {
 export const UNWIRED_END_DEPS: EndDeps = {
   effects: {
     cancelPendingRequests: () => ok(undefined),
-    forgetSessionGrants: () => {},
     failReceivedCalls: () => ok(undefined),
   },
   interruptRunningTurns: () => ok(undefined),

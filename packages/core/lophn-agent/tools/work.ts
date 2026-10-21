@@ -89,7 +89,7 @@ function stopped(
 
 // model이 부른 wire 이름의 tool을 ctx.listed에서 찾아 실행한다. 목록 밖의 tool은 실행하지 않는다.
 // Gate가 걸리는 tool(`gate`가 있는 정의)은 실행 전에 core에 묻고, 막히면 이유를 결과로 돌려준다.
-// file, shell, web, pdf, image tool은 `gate`가 없어 거치지 않는다.
+// file, web, pdf, image tool은 `gate`가 없어 거치지 않는다. `shell.run`은 shell 규칙으로 Gate를 거친다.
 export async function executeToolCall(
   ctx: ToolContext,
   wireName: string,

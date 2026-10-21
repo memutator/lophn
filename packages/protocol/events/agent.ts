@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
-import {
-  turnPermissionRequestSchema,
-  turnRequestSchema,
-} from "../approvals/mod.ts";
+import { turnRequestSchema } from "../approvals/mod.ts";
 import {
   callAgentOutputSchema,
   callFromOutputSchema,
@@ -105,19 +102,6 @@ const toolCallEnded = defineAgentEvent(
   }),
 );
 
-const permissionRequested = defineAgentEvent(
-  "PermissionRequested",
-  z.strictObject({ request: turnPermissionRequestSchema }),
-);
-
-const permissionResolved = defineAgentEvent(
-  "PermissionResolved",
-  z.strictObject({
-    request: idSchema("apr"),
-    outcome: z.enum(["allow", "reject", "cancelled"]),
-  }),
-);
-
 const turnRequestOpened = defineAgentEvent(
   "TurnRequestOpened",
   z.strictObject({ request: turnRequestSchema }),
@@ -169,8 +153,6 @@ export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(turnEnded),
   agentEventEnvelopeSchema(toolCallStarted),
   agentEventEnvelopeSchema(toolCallEnded),
-  agentEventEnvelopeSchema(permissionRequested),
-  agentEventEnvelopeSchema(permissionResolved),
   agentEventEnvelopeSchema(turnRequestOpened),
   agentEventEnvelopeSchema(turnRequestClosed),
   agentEventEnvelopeSchema(questionAsked),

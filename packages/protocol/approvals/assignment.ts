@@ -5,7 +5,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { toolKeySchema } from "../apps/channel-values.ts";
 import { agentRefSchema } from "../lophn-agent/places.ts";
 
-// 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool이다(옛 agent grant를 대신한다).
+// 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool이다.
 // 줄은 앱뿐이다. MCP server는 설정한 층(전역, project, Operator 정의)이 곧 할당이고 끄기는 `mcp_off`라 줄이 없다.
 // 할당한 tool의 바깥 효과는 묻지 않는다. 사람이 묻기로 정하면 줄에 `no_ask_tools: ToolKey[]`를 더하고
 // `judge`의 바깥 효과 줄을 켠다.

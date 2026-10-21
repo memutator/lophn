@@ -49,10 +49,8 @@ export interface AppDirectory {
 
 // session을 지우거나 archive할 때 같은 tx 안에서 부른다.
 export interface SessionEndEffects {
-  // 대기 권한 요청, 질문 -> cancelled
+  // 대기 turn request, 질문 -> cancelled
   cancelPendingRequests(tx: Tx, session: Id<"ses">): Result<void>;
-  // "이 session 동안" 허락
-  forgetSessionGrants(session: Id<"ses">): void;
   // 열린 call -> failed(receiver_ended)
   failReceivedCalls(tx: Tx, session: Id<"ses">): Result<void>;
 }

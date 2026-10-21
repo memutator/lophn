@@ -39,7 +39,7 @@ export type RestartOwner = (
 
 type RestartDeps = {
   clock: Pick<Clock, "now">;
-  // 복구 command 없이 표의 실제 상태를 관측할 수 있는 소유 concern(예: platform/approvals).
+  // 복구 command 없이 표의 실제 상태를 관측할 수 있는 소유 concern.
   owners?: readonly RestartOwner[];
 };
 
@@ -88,8 +88,8 @@ function readRestartTrace(
     const headSeq = raw === undefined || typeof raw !== "bigint"
       ? "0"
       : formatSeq(raw);
-    // 소유 concern의 복구 command(invocation·release activation·turn·approval
-    // 대기)가 아직 없어 어느 대상도 실제 관측으로 확정하지 못한다. 대상별
+    // 소유 concern의 복구 command(invocation·release activation·turn)가
+    // 아직 없어 어느 대상도 실제 관측으로 확정하지 못한다. 대상별
     // 관측 대신 기동 흔적 하나를 unknown으로 남긴다. reason은 안전한
     // 모양이고 근거는 ledger 위치뿐이다.
     const reason = "no_recovery_commands_registered";

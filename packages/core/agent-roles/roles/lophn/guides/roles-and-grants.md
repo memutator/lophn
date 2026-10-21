@@ -1,8 +1,8 @@
-# Roles and grants
+# Roles and assignments
 
 lophn has four roles. A role is fixed: it decides which built-in tools an agent
 has. What you add on top is the agent's definition (instructions, model, skills,
-MCP servers) and its grants.
+MCP servers) and what you assign to it.
 
 ## The four roles
 
@@ -31,28 +31,27 @@ you give it. You can have as many as you need in one place. Project Manager and
 App Engineer can create and edit the Operators of their own place. They cannot
 give an Operator access.
 
-## Agent definition and grants
+## Agent definition and assignment
 
 An agent's definition holds its name, picture, instructions, model, skills, MCP
 servers and, for an Operator, the domains it works with. The built-in
 instructions of the four roles are fixed by lophn and change only when lophn
 updates.
 
-A grant says what an agent may use and whether it must ask you each time. You
-give grants when you assign things to the agent. They cover app tools (you
-assign a whole app and can then remove or change single tools), external MCP
-tools, other agents the agent may call, and changing lophn-side settings. By
-default calling another agent is allowed without asking, reading and writing an
-app's own data is allowed without asking, anything that changes things outside
-an app asks, and changing lophn settings asks.
+You assign apps to an agent. You assign a whole app and can then remove single
+tools. A tool you assigned runs without asking each time. MCP servers come from
+the layers where you set them up (global, project, or the Operator's
+definition); a server set up there is assigned, and you turn one off with
+`mcp_off`. Calling another agent is neither asked nor blocked. Shell commands
+follow the shell rules in Settings.
 
-An agent can be granted the public tools of another domain. A tool belongs to
+An agent can be assigned the public tools of another domain. A tool belongs to
 the domain of the object it handles. The tools of another domain are visible
-only when they are public; private tools do not appear in the grant list. A
+only when they are public; private tools do not appear in the assignment list. A
 release that removes a public tool another domain uses is blocked.
 
-A grant belongs to the agent that holds it. An agent that receives a call works
-within its own grants, not the sender's.
+An assignment belongs to the agent that holds it. An agent that receives a call
+works within its own assignment, not the sender's.
 
 ## Calls between agents
 

@@ -25,7 +25,6 @@ const REPLY_LABEL: Record<CallReply, MessageKey> = {
 
 const FAIL_DETAIL: Record<CallFailReason, MessageKey> = {
   not_found: "conversation.notice.call-fail-not-found",
-  not_allowed: "conversation.notice.call-fail-not-allowed",
   closed: "conversation.notice.call-fail-closed",
   receiver_ended: "conversation.notice.call-fail-receiver-ended",
   lophn_restarted: "conversation.notice.call-fail-lophn-restarted",

@@ -4,8 +4,7 @@ import { isFinishedSummaryCall } from "../mod.ts";
 import type { RewindEffects } from "./mod.ts";
 
 // rewind가 대화 밖에 미치는 효과의 조립이다. 대기 중인 권한 요청과 질문은 session snapshot이 가지고 있어
-// 그 session의 것을 `cancelPendingRequests`가 취소한다(session을 끝낼 때와 같은 효과). 보류 request는
-// session에 묶이지 않으므로 여기서 건드리지 않는다.
+// 그 session의 것을 `cancelPendingRequests`가 취소한다(session을 끝낼 때와 같은 효과).
 export function createRewindEffects(deps: {
   cancelPendingRequests(tx: Tx, session: string): Result<void>;
 }): RewindEffects {

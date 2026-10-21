@@ -185,7 +185,6 @@ export const conversation = {
     "Rewound here · {count, plural, one {# message} other {# messages}} hidden",
   "conversation.label.rewind-item-answer": "An answer you gave",
   "conversation.label.rewind-item-app": "An app change",
-  "conversation.label.rewind-item-approval": "An approval decision",
   "conversation.label.rewind-item-external": "A request that already went out",
   "conversation.label.rewind-item-fact": "Something that already happened",
   "conversation.label.rewind-loading": "Checking what would change…",
@@ -252,8 +251,6 @@ export const conversation = {
   "conversation.notice.call-fail-closed": "That session is closed.",
   "conversation.notice.call-fail-lophn-restarted":
     "lophn restarted before it finished.",
-  "conversation.notice.call-fail-not-allowed":
-    "This agent is not allowed to hand work to that agent.",
   "conversation.notice.call-fail-not-found": "That session couldn't be found.",
   "conversation.notice.call-fail-receiver-ended":
     "The other session ended before it answered.",

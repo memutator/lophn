@@ -249,7 +249,7 @@ const turnCommands = createTurnCommands({
 const turnReads = createTurnReads();
 
 // DeleteSession이 같은 Tx에서 지우는 그 세션의 turn 기록이다. turn을 가리키는 표마다
-// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: approval request, tool call, model 호출, 마지막으로 turn. 본문 참조는 소유 행보다
+// 소유 concern이 지움을 내고 여기에 가리키는 쪽부터 놓는다: tool call, model 호출, 마지막으로 turn. 본문 참조는 소유 행보다
 // 먼저 지워야 소유 ID를 찾는다. 문서·release·앱 변경은 이 목록에 없어 그대로 남는다.
 function deleteSessionRecords(tx: Tx, session: string): Result<void> {
   const steps: (() => Result<void>)[] = [
@@ -450,7 +450,7 @@ function agentLookups(
       place === null
         ? globalSkillNames(sql, layers)
         : registryOf()?.skills(place).entries ?? [],
-    // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent grant가 정한다.
+    // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),

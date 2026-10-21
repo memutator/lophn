@@ -99,7 +99,6 @@ export type CallState = z.infer<typeof callStateSchema>;
 
 export const CALL_FAIL_REASONS = [
   "not_found",
-  "not_allowed",
   "closed",
   "receiver_ended",
   "lophn_restarted",

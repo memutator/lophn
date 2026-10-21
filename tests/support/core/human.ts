@@ -11,7 +11,7 @@ import {
   turnRead,
   type TurnRecord,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { approvalsDecideTurn } from "../../../packages/protocol/approvals/mod.ts";
+import { turnRequestDecide } from "../../../packages/protocol/approvals/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import { platformHealth } from "../../../packages/protocol/server/mod.ts";
@@ -185,7 +185,7 @@ export async function waitPermission(
     const { snapshots } = await core.call(sessionSnapshotsList, {
       sessions: [session],
     });
-    const request = snapshots[0]?.permission_requests[0];
+    const request = snapshots[0]?.turn_requests[0];
     return request === undefined ? undefined : { request: request.id };
   });
 }
@@ -210,9 +210,9 @@ export async function decide(
   core: Core,
   session: string,
   request: string,
-  choice: "allow" | "reject",
+  choice: "once" | "always" | "reject",
 ): Promise<void> {
-  await core.call(approvalsDecideTurn, {
+  await core.call(turnRequestDecide, {
     session,
     request,
     choice: { kind: choice },

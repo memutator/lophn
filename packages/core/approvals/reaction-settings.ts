@@ -4,11 +4,11 @@ import {
   type ReactionEventType,
   reactionModeSchema,
   reactionSettingKey,
-} from "../../../protocol/approvals/mod.ts";
+} from "../../protocol/approvals/mod.ts";
 import {
   declareSetting,
   type SettingDeclaration,
-} from "../../../protocol/config/mod.ts";
+} from "../../protocol/config/mod.ts";
 
 // Settings › Agents 화면용 선언. 이름과 설명 wording key는 settingWordingKey가 key에서 만든다.
 export const reactionSettings = Object.fromEntries(

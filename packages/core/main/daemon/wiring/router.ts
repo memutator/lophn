@@ -253,7 +253,7 @@ export const routerWiring: WiringFactory = () => {
         );
         return done.ok ? ok(done.value.result) : done;
       };
-      const agentKey = (agent: AgentRef) =>
+      const refKey = (agent: AgentRef) =>
         agent.role === "app_engineer"
           ? `app:${agent.app}`
           : agent.role === "project_manager"
@@ -274,7 +274,7 @@ export const routerWiring: WiringFactory = () => {
         const { agent: actual, lifecycle } = (found.value as {
           session: { agent: AgentRef; lifecycle: string };
         }).session;
-        const same = agentKey(actual) === agentKey(agent);
+        const same = refKey(actual) === refKey(agent);
         return same && lifecycle === "open"
           ? ok(undefined)
           : err({ code: "conflict", message });

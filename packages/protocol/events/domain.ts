@@ -3,11 +3,7 @@ import { actorSchema } from "../base/actor.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { ACTIVATION_FAILURE_CODES } from "../apps/activation/activation.ts";
-import {
-  applyResultSchema,
-  type IntentKind,
-  type ReactionEventType,
-} from "../approvals/mod.ts";
+import type { ReactionEventType } from "../approvals/mod.ts";
 import { defineEvent, type EventDefinition } from "../base/event.ts";
 import { verificationRecorded } from "../problems/tests.ts";
 
@@ -54,22 +50,6 @@ export const codingSessionEndedUnreported = defineEvent(
   },
 );
 
-// 결정이 나는 보류 request 종류. 나머지 intent는 turn 안에서 풀린다.
-const APPROVAL_DECIDED_KINDS = [
-  "activation",
-  "reaction",
-] as const satisfies readonly IntentKind[];
-
-export const approvalDecided = defineEvent("ApprovalDecided", {
-  subject: idSchema("apr"),
-  payload: z.strictObject({
-    kind: z.enum(APPROVAL_DECIDED_KINDS),
-    decision: z.enum(["allow", "reject"]),
-    // 허락이면 적용을 마친 뒤 이 event를 내고 그 결과를 싣는다. 거절이면 null이다.
-    applied: applyResultSchema.nullable(),
-  }),
-});
-
 export const ticketVerified = defineEvent("TicketVerified", {
   subject: idSchema("tkt"),
   payload: z.strictObject({ app: idSchema("app") }),
@@ -80,7 +60,6 @@ export const DOMAIN_EVENTS = [
   ticketCompletionReported,
   ticketClaimExpired,
   codingSessionEndedUnreported,
-  approvalDecided,
   ticketVerified,
   verificationRecorded,
 ] as const;
@@ -108,13 +87,12 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(ticketCompletionReported),
   domainEventEnvelopeSchema(ticketClaimExpired),
   domainEventEnvelopeSchema(codingSessionEndedUnreported),
-  domainEventEnvelopeSchema(approvalDecided),
   domainEventEnvelopeSchema(ticketVerified),
   domainEventEnvelopeSchema(verificationRecorded),
 ]);
 export type DomainEvent = z.infer<typeof domainEventSchema>;
 
-// 새 일은 reaction grant로 끌 수 있고, call 닫음은 끌 수 없고, program 일은 agent를 부르지 않는다.
+// 새 일은 reaction 설정으로 끌 수 있고, call 닫음은 끌 수 없고, program 일은 agent를 부르지 않는다.
 type DomainEventKind = "new_work" | "call_closing" | "program";
 
 const DOMAIN_EVENT_KINDS = {
@@ -122,7 +100,6 @@ const DOMAIN_EVENT_KINDS = {
   TicketCompletionReported: "call_closing",
   TicketClaimExpired: "call_closing",
   CodingSessionEndedUnreported: "call_closing",
-  ApprovalDecided: "program",
   TicketVerified: "program",
   VerificationRecorded: "program",
 } as const satisfies Record<DomainEventType, DomainEventKind>;

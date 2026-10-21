@@ -44,8 +44,6 @@ export function itemLabel(
       return t("conversation.label.rewind-item-external");
     case "answered_question":
       return t("conversation.label.rewind-item-answer");
-    case "approval_decision":
-      return t("conversation.label.rewind-item-approval");
     default:
       return t("conversation.label.rewind-item-fact");
   }

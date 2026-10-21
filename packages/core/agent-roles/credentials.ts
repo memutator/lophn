@@ -80,7 +80,7 @@ export function roleOperations(
 // agent credential의 고정 조건이다. session과 turn에 묶인다. App Engineer는 담당 앱 하나에 묶이므로 그 앱을
 // `app` 조건으로 고정한다: 다른 앱·project와 담당 앱이 아닌 문제·ticket 같은 자료는 요청 범위 밖이라 없는 자료와
 // 같은 답이다. project place의 PM과 Operator는 그 project를 `project` 조건으로 고정한다. 앱 place의 Operator도 그
-// 앱을 `app` 조건으로 고정한다(kind·annotation 읽기와 domain 범위가 이 조건을 읽는다). lophn은 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent grant가 가른다.
+// 앱을 `app` 조건으로 고정한다(kind·annotation 읽기와 domain 범위가 이 조건을 읽는다). lophn은 조건이 없다. 앱 호출을 해도 되는지는 Gate와 agent 할당이 가른다.
 export function agentConditions(input: {
   session: string;
   turn: string;

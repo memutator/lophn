@@ -337,11 +337,8 @@ function held(
 
 // 회수·정지 제어만 예약 영역으로 입장시킨다. caller의 priority 주장은
 // 입력에 없다. 입장 영역은 route가 등록한 command 이름으로 정한다.
-const CONTROL_OPERATIONS = new Set([
-  "cancel_approval_request",
-  "reject_approval_request",
-  "expire_approval_request",
-]);
+// 지금 이 lane을 쓰는 command는 없다.
+const CONTROL_OPERATIONS = new Set<string>();
 
 function controlCommand(_ctx: AuthenticatedContext, name: string): boolean {
   return CONTROL_OPERATIONS.has(name);

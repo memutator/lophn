@@ -579,13 +579,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         decision: {
           decision: "allow",
           reason: gated ? "gate_run" : "no_gate",
-          effect: null,
           assignment_revision: null,
           agent_hash: deps.agentHash,
-          contract_revision: null,
-          comparison_basis: null,
-          approval: null,
-          session_grant: null,
         },
       },
       { state_seq: String(seq) },
@@ -607,7 +602,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const started = await commandOf(
       machine,
       startToolCall,
-      { tool_call: id, started_at: clock.now(), approval: null },
+      { tool_call: id, started_at: clock.now() },
       {
         state_seq: String(seq + 1),
         turn_state_seq: turn.value.turn.state_seq,

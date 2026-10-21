@@ -64,6 +64,7 @@ export function controlOf(type: Schema): Control {
 const SHOWN_ELSEWHERE = [
   "shell.",
   "reactions.",
+  "approvals.shell_rules",
   "coding-agent.default_",
   "lophn-agent.extensions.",
 ];

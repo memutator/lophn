@@ -13,6 +13,7 @@ export const workspaceSettings = {
   "settings.appearance.theme-help":
     "Light, dark, or follow the system setting.",
   "settings.button.add-entry": "Add",
+  "settings.button.add-rule": "Add rule",
   "settings.button.choose-in-agents": "Choose in Agents",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
@@ -26,6 +27,7 @@ export const workspaceSettings = {
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.general": "No settings are declared yet.",
+  "settings.empty.shell-rules": "No rules here yet.",
   "settings.error.coding-defaults":
     "The options weren't saved. Nothing changed. Try again.",
   "settings.error.coding-detect":
@@ -43,6 +45,9 @@ export const workspaceSettings = {
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
   "settings.heading.coding-defaults": "Default run options",
+  "settings.heading.shell-rules-built-in": "Built in",
+  "settings.heading.shell-rules-project": "Project: {name}",
+  "settings.heading.shell-rules-workspace": "Workspace",
   "settings.intro.appearance":
     "How lophn looks. Changes apply as soon as you choose.",
   "settings.intro.coding":
@@ -53,6 +58,8 @@ export const workspaceSettings = {
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.reactions":
     "When something happens, lophn can open a new agent session for it. Turn each event on or off. They are on by default.",
+  "settings.intro.shell-rules":
+    "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
   "settings.label.accent-blue": "Blue",
   "settings.label.accent-green": "Green",
@@ -119,6 +126,14 @@ export const workspaceSettings = {
   "settings.label.group-system": "System",
   "settings.label.reaction-activation-failed": "Activation failed",
   "settings.label.reactions-target": "your reaction settings",
+  "settings.label.shell-action-allow": "Allow",
+  "settings.label.shell-action-ask": "Ask",
+  "settings.label.shell-action-deny": "Deny",
+  "settings.label.shell-rule-action": "Action",
+  "settings.label.shell-rule-pattern": "Command pattern",
+  "settings.label.shell-rules-ask-first": "Ask first ({count, number})",
+  "settings.label.shell-rules-blocked": "Always blocked ({count, number})",
+  "settings.label.shell-rules-target": "your shell rules",
   "settings.label.reading-width": "Reading width",
   "settings.label.reason": "Reason",
   "settings.label.size-default": "Default",
@@ -132,6 +147,7 @@ export const workspaceSettings = {
   "settings.label.tab-general": "General",
   "settings.label.tab-providers": "Providers",
   "settings.label.tab-reactions": "Reactions",
+  "settings.label.tab-shell-rules": "Shell rules",
   "settings.label.text-size": "Text size",
   "settings.label.theme": "Theme",
   "settings.label.theme-dark": "Dark",
@@ -164,6 +180,12 @@ export const workspaceSettings = {
     "That feature won't start. Everything else keeps working.",
   "settings.note.reactions-unlisted":
     "Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
+  "settings.note.shell-rules-built-in":
+    "Rules you add can't unblock anything that is always blocked.",
+  "settings.note.shell-rules-project":
+    "Applies only to this project, after the Workspace rules.",
+  "settings.note.shell-rules-workspace":
+    "Applies to every project. A new rule goes at the end of the list.",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
   "settings.reaction.opens-app-engineer":

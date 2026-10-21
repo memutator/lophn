@@ -15,6 +15,10 @@ import {
   fakeReactions,
   SAMPLE_MODES,
 } from "../settings/reactions/testdata/fake-source.ts";
+import {
+  fakeShellRules,
+  SAMPLE_SHELL_RULES,
+} from "../settings/shell-rules/testdata/fake-source.ts";
 import { fakeConnections } from "../settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../../apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../settings/source.ts";
@@ -41,6 +45,7 @@ export function mockSettingsPanels(): SettingsPanels {
     agents: fakeAgents().source,
     diagnostics: fakeDiagnostics().source,
     reactions: fakeReactions({ modes: SAMPLE_MODES }).source,
+    shellRules: fakeShellRules({ value: SAMPLE_SHELL_RULES }).source,
     appearance: fakeAppearance().source,
     coding: fakeConnections().source,
     browser: fakeBrowserSettings().source,

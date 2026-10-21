@@ -4,6 +4,7 @@ import {
   Globe,
   Palette,
   Plug,
+  ShieldCheck,
   SlidersHorizontal,
   SquareTerminal,
   Wrench,
@@ -19,6 +20,7 @@ export const settingsIcons = {
   agents: Bot,
   tools: Wrench,
   coding: SquareTerminal,
+  shellRules: ShieldCheck,
   reactions: Zap,
   diagnostics: Activity,
 };

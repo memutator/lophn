@@ -1,7 +1,7 @@
 // Settings의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { SettingsFrame } from "./settings-frame.tsx";
-import { click } from "../../mock/drive.ts";
+import { click, press, type } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
@@ -47,6 +47,26 @@ export const SettingsCoding = () => <SettingsFrame pane="coding" />;
 
 /** Settings › Reactions. */
 export const SettingsReactions = () => <SettingsFrame pane="reactions" />;
+
+/** Settings › Shell rules. */
+export const SettingsShellRules = () => <SettingsFrame pane="shell-rules" />;
+
+/** Settings › Shell rules: Workspace 절의 더하기 줄에 pattern을 치고 Ask를 고른 상태. */
+export const SettingsShellRulesAdd = () => (
+  <SettingsFrame
+    pane="shell-rules"
+    steps={[
+      () =>
+        type(
+          '[data-layer="global"] [data-add-rule] input',
+          "npm publish *",
+        ),
+      () =>
+        press('[data-layer="global"] [data-add-rule] button[role="combobox"]'),
+      () => click('[role="option"]', "Ask"),
+    ]}
+  />
+);
 
 /** Settings › Diagnostics. */
 export const SettingsDiagnostics = () => <SettingsFrame pane="diagnostics" />;

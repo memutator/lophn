@@ -11,6 +11,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.appearance.text-size-help": Record<never, never>;
   "settings.appearance.theme-help": Record<never, never>;
   "settings.button.add-entry": Record<never, never>;
+  "settings.button.add-rule": Record<never, never>;
   "settings.button.choose-in-agents": Record<never, never>;
   "settings.button.connect-with": {
     name: "string";
@@ -28,6 +29,7 @@ export type WorkspaceSettingsPlaceholders = {
   };
   "settings.diagnostics.not-run": Record<never, never>;
   "settings.empty.general": Record<never, never>;
+  "settings.empty.shell-rules": Record<never, never>;
   "settings.error.coding-defaults": Record<never, never>;
   "settings.error.coding-detect": Record<never, never>;
   "settings.error.font-name": Record<never, never>;
@@ -37,11 +39,17 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.error.value-unknown": Record<never, never>;
   "settings.error.value-wrong-type": Record<never, never>;
   "settings.heading.coding-defaults": Record<never, never>;
+  "settings.heading.shell-rules-built-in": Record<never, never>;
+  "settings.heading.shell-rules-project": {
+    name: "string";
+  };
+  "settings.heading.shell-rules-workspace": Record<never, never>;
   "settings.intro.appearance": Record<never, never>;
   "settings.intro.coding": Record<never, never>;
   "settings.intro.diagnostics": Record<never, never>;
   "settings.intro.general": Record<never, never>;
   "settings.intro.reactions": Record<never, never>;
+  "settings.intro.shell-rules": Record<never, never>;
   "settings.label.accent": Record<never, never>;
   "settings.label.accent-blue": Record<never, never>;
   "settings.label.accent-green": Record<never, never>;
@@ -112,6 +120,18 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.group-system": Record<never, never>;
   "settings.label.reaction-activation-failed": Record<never, never>;
   "settings.label.reactions-target": Record<never, never>;
+  "settings.label.shell-action-allow": Record<never, never>;
+  "settings.label.shell-action-ask": Record<never, never>;
+  "settings.label.shell-action-deny": Record<never, never>;
+  "settings.label.shell-rule-action": Record<never, never>;
+  "settings.label.shell-rule-pattern": Record<never, never>;
+  "settings.label.shell-rules-ask-first": {
+    count: "number";
+  };
+  "settings.label.shell-rules-blocked": {
+    count: "number";
+  };
+  "settings.label.shell-rules-target": Record<never, never>;
   "settings.label.reading-width": Record<never, never>;
   "settings.label.reason": Record<never, never>;
   "settings.label.size-default": Record<never, never>;
@@ -125,6 +145,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.tab-general": Record<never, never>;
   "settings.label.tab-providers": Record<never, never>;
   "settings.label.tab-reactions": Record<never, never>;
+  "settings.label.tab-shell-rules": Record<never, never>;
   "settings.label.text-size": Record<never, never>;
   "settings.label.theme": Record<never, never>;
   "settings.label.theme-dark": Record<never, never>;
@@ -160,6 +181,9 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
   "settings.note.reactions-unlisted": Record<never, never>;
+  "settings.note.shell-rules-built-in": Record<never, never>;
+  "settings.note.shell-rules-project": Record<never, never>;
+  "settings.note.shell-rules-workspace": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;

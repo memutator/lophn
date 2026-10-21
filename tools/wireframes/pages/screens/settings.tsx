@@ -28,6 +28,8 @@ import {
   SettingsGeneral,
   SettingsReactions,
   SettingsRequiredEmpty,
+  SettingsShellRules,
+  SettingsShellRulesAdd,
 } from "./settings-pages.tsx";
 import { MockDesktop, type SettingsTab } from "../../mock/mock-desktop.tsx";
 
@@ -39,7 +41,7 @@ export const settingsArea: Area = {
   id: "settings",
   title: "Settings",
   summary:
-    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Reactions, Diagnostics.",
+    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Shell rules, Reactions, Diagnostics.",
   pages: [
     {
       id: "settings-coding",
@@ -149,7 +151,7 @@ export const settingsArea: Area = {
       id: "new-settings-agents",
       title: "Settings · Agents",
       description:
-        "전역 기본 model 하나(대화와 같은 picker 칸)와 lophn 카드(전체에 하나), 전역 지침, grant 기본값 설명이 있다. 그림은 기본 model 칸의 picker를 연 모습으로, 맨 아래 Manage models 줄 한 줄로 보일 model을 정한다. 기본 model은 여기서 정한다. role별 기본 model과 요약용 model 줄은 없다.",
+        "전역 기본 model 하나(대화와 같은 picker 칸)와 lophn 카드(전체에 하나), 전역 지침이 있다. 그림은 기본 model 칸의 picker를 연 모습으로, 맨 아래 Manage models 줄 한 줄로 보일 model을 정한다. 기본 model은 여기서 정한다. role별 기본 model과 요약용 model 줄은 없다.",
       render: () => <SettingsAgentsPage />,
     },
     {
@@ -172,6 +174,20 @@ export const settingsArea: Area = {
       description:
         "제품마다 vendor 아이콘과 실행 파일, version, 로그인, turn 끝 신호 있음과 없음, 첫 prompt를 맡길 수 있는지, skill 설치 실패를 보인다. 기본 제품은 아이콘이 붙은 줄에서 고르고, [Detect again]이 있다. 연결 만들기와 회수는 없다.",
       render: () => <SettingsCoding />,
+    },
+    {
+      id: "new-settings-shell-rules",
+      title: "Settings · Shell rules",
+      description:
+        "Agents 묶음 끝의 항목이다. Built in(늘 막는 것과 먼저 묻는 것, 접힌 목록으로 읽기만), Workspace(모든 project에 적용), project마다 한 절이 있다. 줄마다 pattern과 오른쪽 끝 열의 action(Allow, Ask, Deny)과 [Remove]가 있고, 절 끝의 더하기 줄에서 새 규칙을 더한다.",
+      render: () => <SettingsShellRules />,
+    },
+    {
+      id: "new-settings-shell-rules-add",
+      title: "Settings · Shell rules · add",
+      description:
+        "Workspace 절의 더하기 줄에 pattern `npm publish *`를 치고 action을 Ask로 고른 상태다. pattern이 비면 [Add rule]이 꺼진다. 새 규칙은 절의 끝에 붙어 그 절에서 가장 나중에 맞는다.",
+      render: () => <SettingsShellRulesAdd />,
     },
     {
       id: "new-settings-reactions",

@@ -16,6 +16,7 @@ export type SettingsPane =
   | "agents"
   | "tools"
   | "coding"
+  | "shell-rules"
   | "reactions"
   | "diagnostics";
 
@@ -80,6 +81,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "coding",
         label: "settings.label.tab-coding",
         icon: settingsIcons.coding,
+      },
+      {
+        id: "shell-rules",
+        label: "settings.label.tab-shell-rules",
+        icon: settingsIcons.shellRules,
       },
     ],
   },

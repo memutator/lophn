@@ -135,3 +135,25 @@ guard: "packages/core/apps/calls/calls_test.ts"
 고치려면: `until`이 조건이 안 되면 실패를 던지게 하고 기다림을 시간 상한(예: 2초)으로 바꾼다(작음). 추천: 이 안.
 
 닫음: `until`은 2초 시간 상한까지 기다리고 조건이 안 되면 던진다. 부하에서 같은 앱의 두 write가 queue에 들기 전에(`fingerprint` 해시) 순서가 바뀌는 것도 원인이었다. test는 이제 "앱 a의 write가 정확히 하나 돌고 풀면 남은 하나가 돈다"를 보고 호출 순서는 가정하지 않는다.
+
+## test runner를 지운 뒤 test 자식의 갈래가 남았다
+
+```yaml
+kind: defect
+modules: [packages/protocol, packages/core/apps, packages/sdk, packages/core/server, packages/core/supervision, packages/shell/main, packages/core/storage, packages/core/main]
+closed: fixed
+guard: 없음
+```
+
+지금: test runner(옛 `problems` module)를 지웠는데 그것만 쓰던 갈래가 남았다. 켜는 곳은 없다.
+- 앱 runtime mode `"test"`: `packages/protocol/apps/channel-values.ts`의 `runtimeModeSchema`, `packages/core/apps/runtime/entrypoint/`(`start-input.ts`, `wire.ts`, `state.ts`, `cap-host.ts`, `broker-client.ts`), `packages/sdk/cap-net/host.ts`, `packages/sdk/cap-secret/host.ts`
+- data job kind `"test"`: `packages/protocol/apps/activation/data-job.ts`
+- identity의 `test_runner_only`(`packages/core/server/identity/model.ts`)와 `test_runner`(`packages/core/server/identity/registry.ts`)
+- 메모리 상한 `applyMemoryLimit`(`packages/core/supervision/security/memory-limit.ts`, `mod.ts`의 export만 남음)와 shell main이 core에 주는 `--allow-env`의 `DBUS_SESSION_BUS_ADDRESS`(`packages/shell/main/desktop/core/supervise.ts`)
+- team 등록의 `workers` 칸(`packages/core/storage/ledger/team-module.ts`)과 그것을 늘 빈 Map으로 모으는 `packages/core/main/daemon/core.ts`
+
+영향: 읽는 사람과 agent가 test 자식이 아직 있는 줄 안다. 권한 판정(`test_runner_only`)과 runtime mode의 갈래가 늘 죽은 채 검토와 고칠 일에 끼고, core가 쓰지 않는 env를 받는다.
+
+정한 것: 지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). 크기는 작음. runtime mode는 `"live" | "preview"`만 남고, `DBUS_SESSION_BUS_ADDRESS`를 빼도 `XDG_RUNTIME_DIR`은 앱 socket 폴더가 쓰므로 둔다.
+
+닫음: 모두 지웠다. lophn runtime mode는 `"live" | "preview"`이고(protocol, 앱 process 판정, invocation 표의 CHECK), data job kind에 `test`가 없다. identity의 `test_runner_only`·`test_runner`, `applyMemoryLimit`과 그 protocol 값, core가 받던 `DBUS_SESSION_BUS_ADDRESS`, team 등록의 `workers`와 wiring의 `Built.workers`가 없다. SDK host(`cap-store`, `cap-net`, `cap-secret`)와 `cap-tool` context의 `"test"`는 앱이 자기 test에서 임시 DB를 여는 공개 입력이라 남겼다.

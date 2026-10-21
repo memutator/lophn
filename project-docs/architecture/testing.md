@@ -48,7 +48,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
 
-- `bootCore`는 daemon을 `deno run --allow-all packages/core/main/daemon/main.ts --port=0`으로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`, `DENO_DIR`과 `env` 옵션에 준 것만 준다. `DBUS_SESSION_BUS_ADDRESS`는 주지 않는다.
+- `bootCore`는 daemon을 `deno run --allow-all packages/core/main/daemon/main.ts --port=0`으로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`, `DENO_DIR`과 `env` 옵션에 준 것만 준다.
 - `kill()`(SIGKILL)과 `stop()`(stdin을 닫음)은 `/proc/*/environ`에 그 `LOPHN_HOME`이 든 process가 없어질 때까지 기다린다. child가 남으면 그 pid만 끄고 실패한다. Linux 전용이다.
 - `settle`은 agent runtime child가 지금 권한으로 다시 뜬 것을 본다. provider를 연결하거나 project 폴더를 더하면 core가 1초 polling으로 child를 다시 띄우고, 그 사이 시작한 turn은 끊긴다. 옛 runtime pid가 사라지고 새 pid가 떠 `platform/health`가 available이면 돌아온다.
 - 기다림은 신호를 읽는 poll(제한 30초, 맞으면 바로 돌아옴)이나 fake server의 `arrived`·`aborted`다. 고정 sleep을 쓰지 않는다.

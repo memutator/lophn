@@ -106,3 +106,4 @@ problem-remove(`project-docs/products/change-log/0.6.0.md` 마지막 항목) 뒤
 - `packages/core/lophn-agent/session/rewind/effects.ts` 7~8줄 주석의 "보류 request는 session에 묶이지 않으므로…"를 지운다. 보류 request 길은 없다(ap-ask-pending).
 - `packages/core/lophn-agent/ports.ts`의 `SessionEndEffects.forgetSessionGrants`와 `packages/core/lophn-agent/places/unwired.ts`의 아무것도 안 하는 구현을 지운다. "이 session 동안" 허락이 없다(ap-ask-turn). 부르는 곳도 grep해 지운다.
 - 코드 주석에 이 계획의 task 이름(`ap-` 로 시작하는 것)이 남지 않는다. 끝으로 `git grep -nE "\bap-[a-z]+(-[a-z]+)?\b" -- packages tools`가 0줄인지 본다(예: `packages/shell/renderer/desktop/connection/waiting/fake-source.ts`의 "ap-cleanup이 …" 주석은 그 칸과 같이 지운다).
+- `packages/core/lophn-agent/tool-judgment/tool-gate.ts` 11줄 근처("file·shell·web … Gate가 없어 이 입구를 거치지 않는다")와 `packages/core/lophn-agent/tools/work.ts` 92줄 근처("file, shell, web, pdf, image tool은 `gate`가 없어 거치지 않는다") 주석에서 shell을 뺀다. `shell.run`은 shell 규칙으로 Gate를 거친다(ap-shell-gate).

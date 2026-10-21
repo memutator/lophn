@@ -122,6 +122,7 @@ const preparation = dataRoot === undefined
   }));
 
 const assembled = assembleSupervisor({
+  ...(dataRoot === undefined ? {} : { dataRoot }),
   ...(preparation === undefined ? {} : { preparation }),
   // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다.
   ...(dataRoot === undefined ? {} : {

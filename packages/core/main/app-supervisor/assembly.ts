@@ -54,7 +54,14 @@ import {
   type CrashEvent,
   createCrashObserver,
 } from "../../apps/runtime/observations/crash.ts";
-import type { ByteSource } from "../../apps/runtime/observations/stream-decoder.ts";
+import {
+  type AppLogFile,
+  createAppLogFile,
+} from "../../apps/runtime/observations/log-file.ts";
+import {
+  type ByteSource,
+  createStreamDecoder,
+} from "../../apps/runtime/observations/stream-decoder.ts";
 import type {
   AppEnvironment,
   AppLaunch,
@@ -64,7 +71,7 @@ import {
   type PreviewLauncher,
   type PreviewScope,
 } from "../../apps/preview/mod.ts";
-import { CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
+import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
 import { diagnosticSchema } from "../../../protocol/supervision/mod.ts";
 import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
@@ -112,6 +119,8 @@ type Spawned = {
 };
 
 type SupervisorIo = {
+  // 없으면 app log를 file로 쓰지 않는다(data root 없는 조립).
+  dataRoot?: string;
   clock: Clock;
   ids: IdSource;
   deno: () => string;
@@ -292,8 +301,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const lastCredential = new Map<string, string>();
   const tails = new Map<string, string>();
   const waiting = new Map<string, (credential: string) => void>();
-  // 알려진 secret 값은 supervisor가 모른다. credential 모양 pattern만 지운다.
-  const redact = lineRedactor(createKnownSecretRegistry());
+  const logFiles = new Map<string, AppLogFile>();
+  // log file은 disk에 남으므로 credential pattern 말고 supervisor가 core에서 받은 secret 값도 지운다.
+  const knownSecrets = createKnownSecretRegistry();
+  const redact = lineRedactor(knownSecrets);
 
   // 앱 시작이 DB를 바꿨을 때 앱 process가 broker `ready`로 보낸 changeset이다. 시작 사실에 싣는다.
   const startChangesets = new Map<string, string>();
@@ -442,7 +453,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         } catch {
           return err({ code: "unavailable", message: "core is unreachable" });
         }
-        if (reply.status === 200) return ok(reply.body);
+        if (reply.status === 200) {
+          if (
+            path === `${appsSecretValue.resource}/${appsSecretValue.method}`
+          ) {
+            const value = appsSecretValue.output.safeParse(reply.body);
+            if (value.success) knownSecrets.register([value.data.value]);
+          }
+          return ok(reply.body);
+        }
         const refused = (reply.body as { error?: { message?: unknown } } | null)
           ?.error;
         return err({
@@ -496,6 +515,43 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     });
     buffers.set(app, created);
     return created;
+  }
+
+  // pr-log-exception, pr-log-view-error가 같은 file에 줄을 더한다. dataRoot가 없으면 undefined다.
+  function logFileOf(app: string): AppLogFile | undefined {
+    if (io.dataRoot === undefined) return undefined;
+    const found = logFiles.get(app);
+    if (found) return found;
+    const created = createAppLogFile({
+      dataRoot: io.dataRoot,
+      app,
+      redact,
+      now: () => io.clock.now(),
+    });
+    logFiles.set(app, created);
+    return created;
+  }
+
+  // 같은 stream을 두 번 읽을 수 없어 file이 읽은 byte를 buffer에도 넘긴다.
+  function feedBuffer(source: ByteSource, log: LogBuffer): ByteSource {
+    const decoder = createStreamDecoder({
+      onLine: (line) => log.addLine(line),
+      onDropped: () => log.addUnsafeDrop(),
+    });
+    return {
+      async read(buffer) {
+        let count: number | null;
+        try {
+          count = await source.read(buffer);
+        } catch (thrown) {
+          decoder.finish();
+          throw thrown;
+        }
+        if (count === null) decoder.finish();
+        else decoder.push(buffer.subarray(0, count));
+        return count;
+      },
+    };
   }
 
   function memoryOf(app: string): MemoryObserver {
@@ -721,8 +777,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw thrown;
       }
       const log = bufferOf(request.app);
-      void log.attach(spawned.stdout);
-      void log.attach(tee(spawned.stderr, nonce));
+      const stderr = tee(spawned.stderr, nonce);
+      const file = logFileOf(request.app);
+      if (file) {
+        void file.attach(feedBuffer(spawned.stdout, log));
+        void file.attach(feedBuffer(stderr, log));
+      } else {
+        void log.attach(spawned.stdout);
+        void log.attach(stderr);
+      }
       memoryOf(request.app).setChild({
         pid: spawned.pid,
         processNonce: nonce,

@@ -808,7 +808,7 @@ export function appSocketRoot(dataRoot: string, runtimeDir?: string): string {
   return `${temp}/lophn-${Deno.uid() ?? 0}/${key}`;
 }
 
-// supervisor 실행 권한. 데이터 root와 코드·deno 캐시를 읽고 쓰기는 앱 socket 폴더뿐이다.
+// supervisor 실행 권한. 데이터 root와 코드·deno 캐시를 읽고, 쓰기는 앱 socket 폴더와 앱 log가 있는 `apps` 폴더뿐이다.
 // core loopback에만 닿고, 실행은 설치된 Deno와 process group 종료 adapter뿐이다.
 export function appSupervisorSpec(input: {
   dataRoot: string;
@@ -820,7 +820,7 @@ export function appSupervisorSpec(input: {
     kind: APPS_SUPERVISOR_KIND,
     entry: new URL("../main/app-supervisor/main.ts", import.meta.url).pathname,
     allow_read: [input.dataRoot, repoRoot(), denoDir(), sockets, "/proc"],
-    allow_write: [sockets],
+    allow_write: [sockets, `${input.dataRoot}/apps`],
     // core loopback과 앱 socket 자리의 정확한 경로다. Deno net 허락은 unix 경로의 폴더 prefix를
     // 받지 않으므로 자리를 미리 허락한다. 가상 host는 socket 위 HTTP의 필수 통로다.
     allow_net: [

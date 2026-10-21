@@ -1,5 +1,4 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { sha256Hex } from "../../../base/mod.ts";
 import {
   BUILTIN_SKILLS,
   type Role,
@@ -10,38 +9,25 @@ import {
 // skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), domain
 // 셋이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
 // agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
-// 끄기는 이름 단위다. 파일 IO는 SkillFilesPort로 끼운다. 이 모듈은 사람의 실제 home이나 다른 harness 보관소를
-// 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다. turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
+// 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
+// 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `role`에 선언된 것만 후보다. 이 모듈은
+// 사람의 실제 home이나 다른 harness 보관소를 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다.
+// turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
-// 폴더·파일을 보는 눈이다. runtime은 실제 폴더 port를, 테스트는 temp dir port를 끼운다.
-export type SkillFilesPort = {
-  // 폴더의 바로 아래 이름이다. 폴더가 없으면 null이다.
-  list(dir: string): Promise<Result<readonly string[] | null>>;
-  // 경로 종류이다. 없으면 null이다. symlink는 따라가지 않는다.
-  kind(path: string): Promise<Result<"file" | "dir" | "symlink" | null>>;
-  // UTF-8 텍스트를 max_bytes 안에서 읽는다. 없으면 null이고, 상한을 넘으면 complete false다.
+// 폴더·파일을 동기로 보는 눈이다. 없으면 null이고 그 밖의 실패는 던진다. symlink는 따라가지 않는다.
+export type SkillFiles = {
+  list(dir: string): readonly string[] | null;
+  kind(path: string): "file" | "dir" | "symlink" | null;
   read(
     path: string,
-    max_bytes: number,
-  ): Promise<Result<{ text: string; complete: boolean } | null>>;
-  // 파일의 POSIX 실행 권한이다. 없으면 null이다.
-  executable(path: string): Promise<Result<boolean | null>>;
-};
-
-type SkillSupplemental = {
-  title: string;
-  // bundle 폴더 안의 상대 경로다. `..`·절대 경로는 발견에서 제외한다.
-  relative_path: string;
-  hash: string;
+    maxBytes: number,
+  ): { text: string; complete: boolean } | null;
 };
 
 // 층을 합친 skill 하나다. 앞 여섯 칸(domain 포함)은 `ReadSkills`가 내는 것과 같다.
 export type SkillEntry = SkillRow & {
-  // SKILL.md 원문의 sha256이다.
-  content_hash: string;
   // 읽는 쪽만 쓰는 절대 위치다. prompt에는 나가지 않는다.
   bundle_path: string;
-  supplemental: readonly SkillSupplemental[];
 };
 
 // 형식이 틀려 제외한 꾸러미와 이유다. 사람에게 알리는 진단이고 prompt에는 나가지 않는다.
@@ -183,7 +169,7 @@ function declaredBuiltin(name: string) {
 }
 
 // 내장 폴더에 있어도 선언되지 않은 이름은 내장 skill이 아니다.
-export function undeclaredBuiltinReason(name: string): string | null {
+function undeclaredBuiltinReason(name: string): string | null {
   return declaredBuiltin(name) === undefined
     ? "built-in skill is not declared"
     : null;
@@ -269,94 +255,172 @@ export function pickSkills<T extends { name: string; domain: string | null }>(
   });
 }
 
-// ---- 발견 ----
-
-type Candidate = SkillCandidate & {
-  description: string;
-  content_hash: string;
-  supplemental: readonly SkillSupplemental[];
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), domain 폴더들이다. null은 그 출처가 없는 것이다.
+// domain은 이름순으로 받는다.
+export type SkillSources = {
+  bundled: string | null;
+  registered: readonly string[];
+  personal: string | null;
+  domains: readonly DomainStore[];
 };
 
-type SkillDiscoveryInput = {
-  port: SkillFilesPort;
-  // 내장 skill 폴더다. 없으면 null이다.
-  builtin_root: string | null;
-  // 전역 층: 등록 폴더는 사람이 정한 순서 그대로, 개인 보관소는 그 뒤다. 없으면 null이다.
-  registered_roots: readonly string[];
-  personal_store: string | null;
-  // domain 층: place 그릇의 active domain과 그 skill 폴더다. domain 이름순으로 받는다. 그릇이 없는 agent는 빈 목록이다.
-  domain_stores: readonly DomainStore[];
-  // 내장 skill을 이 role의 것만 남긴다. null이면 모두 남긴다.
-  role: Role | null;
-  // 끈 이름: 전역, project, agent 정의가 끈 것의 합이다.
-  off: readonly string[];
-  // manifest와 딸린 파일 읽기 상한이다.
-  max_file_bytes: number;
-};
-
-export type DomainStore = { domain: string; folder: string };
-
-export type SkillDiscovery = {
+// domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.
+export type SkillListing = {
   entries: readonly SkillEntry[];
   skipped: readonly SkillSkipped[];
 };
 
-// 발견은 turn 경계에서만 한다. 내장, 등록 폴더, 개인 보관소, domain 순서로 폴더 자신과 바로 아래 꾸러미만 본다.
-export async function discoverSkills(
-  input: SkillDiscoveryInput,
-): Promise<Result<SkillDiscovery>> {
-  for (const name of input.off) {
-    const reason = skillNameReason(name);
-    if (reason !== null) {
-      return err({ code: "invalid_input", message: reason });
-    }
+type Candidate = SkillCandidate & { description: string };
+
+export type DomainStore = { domain: string; folder: string };
+
+function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
+  try {
+    return { ok: true, value: read() };
+  } catch {
+    return { ok: false };
   }
-  const candidates: Candidate[] = [];
-  const skipped: SkillSkipped[] = [];
-  if (input.builtin_root !== null) {
-    await scanFolders(
-      input,
-      candidates,
-      skipped,
-      input.builtin_root,
-      "builtin",
-    );
-  }
-  for (const root of input.registered_roots) {
-    // 등록 폴더 자신이 꾸러미일 수 있다.
-    await addBundle(input, candidates, skipped, root, "global");
-    await scanFolders(input, candidates, skipped, root, "global");
-  }
-  if (input.personal_store !== null) {
-    await scanFolders(
-      input,
-      candidates,
-      skipped,
-      input.personal_store,
-      "global",
-    );
-  }
-  for (const store of input.domain_stores) {
-    await scanFolders(
-      input,
-      candidates,
-      skipped,
-      store.folder,
-      "domain",
-      store.domain,
-    );
-  }
-  const visible = candidates.filter((candidate) =>
-    candidate.source !== "builtin" ||
-    builtinForRole(candidate.name, input.role)
-  );
-  return ok({
-    entries: mergeSkillLayers(visible, input.off, skipped),
-    skipped,
-  });
 }
 
-// prompt에 나가는 skill 목록의 재료다. 켜진 skill의 이름과 설명만 이름 사전순이다. 본문과 경로는 나가지 않는다.
+// role이 null이면 내장 skill을 모두 낸다(사람 화면만). off는 끈 이름의 합이다.
+export function discoverSkills(
+  files: SkillFiles,
+  sources: SkillSources,
+  options: { role: Role | null; off: readonly string[] },
+): SkillListing {
+  const candidates: Candidate[] = [];
+  const skipped: SkillSkipped[] = [];
+
+  const addBundle = (
+    bundle: string,
+    source: SkillSource,
+    domain: string | null = null,
+  ): void => {
+    const manifest = joinPath(bundle, SKILL_MANIFEST);
+    const kind = attempt(() => files.kind(manifest));
+    // 검사 실패와 manifest 없음은 조용히 건너뛴다: 꾸러미가 아닌 폴더이거나 보관소 오류다.
+    if (!kind.ok || kind.value === null) return;
+    if (kind.value === "symlink") {
+      skipped.push({
+        path: manifest,
+        reason: "skill manifest is a symbolic link",
+      });
+      return;
+    }
+    if (kind.value !== "file") {
+      skipped.push({ path: manifest, reason: "skill manifest is not a file" });
+      return;
+    }
+    const read = attempt(() => files.read(manifest, SKILL_BODY_MAX_BYTES));
+    if (!read.ok) {
+      skipped.push({
+        path: manifest,
+        reason: "skill manifest could not be read",
+      });
+      return;
+    }
+    if (read.value === null || !read.value.complete) {
+      skipped.push({
+        path: manifest,
+        reason: read.value === null
+          ? "skill manifest is missing"
+          : "skill manifest is over the read limit",
+      });
+      return;
+    }
+    const parsed = parseSkillFrontmatter(read.value.text);
+    if (!parsed.ok) {
+      skipped.push({ path: manifest, reason: parsed.error });
+      return;
+    }
+    if (source === "builtin") {
+      const undeclared = undeclaredBuiltinReason(parsed.value.name);
+      if (undeclared !== null) {
+        skipped.push({ path: manifest, reason: undeclared });
+        return;
+      }
+    }
+    candidates.push({
+      name: parsed.value.name,
+      description: parsed.value.description,
+      source,
+      domain,
+      bundle_path: bundle,
+    });
+  };
+
+  // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
+  // 개인·내장·domain 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
+  const scanFolder = (
+    container: string,
+    source: SkillSource,
+    reportMissing: boolean,
+    domain: string | null = null,
+  ): void => {
+    const folder = attempt(() => files.kind(container));
+    if (folder.ok && folder.value === null && !reportMissing) return;
+    if (!folder.ok || folder.value !== "dir") {
+      skipped.push({
+        path: container,
+        reason: folder.ok && folder.value === "symlink"
+          ? "skill scope root is a symbolic link"
+          : folder.ok
+          ? "skill scope root is not a folder"
+          : "skill scope root could not be checked",
+      });
+      return;
+    }
+    const listed = attempt(() => files.list(container));
+    if (!listed.ok) {
+      skipped.push({
+        path: container,
+        reason: "skill scope folder could not be listed",
+      });
+      return;
+    }
+    const names = (listed.value ?? []).filter((name) => !name.startsWith("."))
+      .slice()
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    for (const name of names) {
+      if (name.includes("/") || name.includes("\\")) {
+        skipped.push({
+          path: joinPath(container, name),
+          reason: "skill bundle folder name is not a folder name",
+        });
+        continue;
+      }
+      const bundle = joinPath(container, name);
+      const kind = attempt(() => files.kind(bundle));
+      if (!kind.ok || kind.value !== "dir") {
+        skipped.push({
+          path: bundle,
+          reason: kind.ok
+            ? folderSkipReason(kind.value)
+            : "skill bundle folder could not be checked",
+        });
+        continue;
+      }
+      addBundle(bundle, source, domain);
+    }
+  };
+
+  if (sources.bundled !== null) scanFolder(sources.bundled, "builtin", false);
+  for (const root of sources.registered) {
+    // 등록 폴더 자신이 꾸러미일 수 있다.
+    addBundle(root, "global");
+    scanFolder(root, "global", true);
+  }
+  if (sources.personal !== null) scanFolder(sources.personal, "global", false);
+  for (const store of sources.domains) {
+    scanFolder(store.folder, "domain", false, store.domain);
+  }
+
+  const visible = candidates.filter((candidate) =>
+    candidate.source !== "builtin" ||
+    builtinForRole(candidate.name, options.role)
+  );
+  return { entries: mergeSkillLayers(visible, options.off, skipped), skipped };
+}
 
 // 폴더 경로를 붙인다. Windows drive root는 `\`를 쓴다(표기만, 읽기는
 // port가 한다).
@@ -366,65 +430,7 @@ export function joinPath(dir: string, name: string): string {
   return `${dir}${separator}${name}`;
 }
 
-// 폴더의 바로 아래 skill 꾸러미를 사전순으로 본다. 아직 없는 폴더도 알린다.
-async function scanFolders(
-  input: SkillDiscoveryInput,
-  candidates: Candidate[],
-  skipped: SkillSkipped[],
-  container: string,
-  source: SkillSource,
-  domain: string | null = null,
-): Promise<void> {
-  const folder = await input.port.kind(container);
-  if (!folder.ok || folder.value !== "dir") {
-    skipped.push({
-      path: container,
-      reason: folder.ok && folder.value === "symlink"
-        ? "skill scope root is a symbolic link"
-        : folder.ok
-        ? "skill scope root is not a folder"
-        : "skill scope root could not be checked",
-    });
-    return;
-  }
-  const contents = await input.port.list(container);
-  if (!contents.ok) {
-    skipped.push({
-      path: container,
-      reason: "skill scope folder could not be listed",
-    });
-    return;
-  }
-  const names = (contents.value ?? []).filter((name) => !name.startsWith("."))
-    .slice()
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  for (const name of names) {
-    if (
-      name === "." || name === ".." || name.includes("/") ||
-      name.includes("\\")
-    ) {
-      skipped.push({
-        path: joinPath(container, name),
-        reason: "skill bundle folder name is not a folder name",
-      });
-      continue;
-    }
-    const bundle = joinPath(container, name);
-    const kind = await input.port.kind(bundle);
-    if (!kind.ok || kind.value !== "dir") {
-      skipped.push({
-        path: bundle,
-        reason: kind.ok
-          ? folderSkipReason(kind.value)
-          : "skill bundle folder could not be checked",
-      });
-      continue;
-    }
-    await addBundle(input, candidates, skipped, bundle, source, domain);
-  }
-}
-
-export function folderSkipReason(
+function folderSkipReason(
   kind: "file" | "dir" | "symlink" | null,
 ): string {
   switch (kind) {
@@ -435,119 +441,4 @@ export function folderSkipReason(
     default:
       return "skill bundle folder is missing";
   }
-}
-
-// 한 skill 꾸러미를 읽는다. manifest가 없거나 잘못된 형식은 이유와 함께 제외하고 고치지 않는다.
-async function addBundle(
-  input: SkillDiscoveryInput,
-  candidates: Candidate[],
-  skipped: SkillSkipped[],
-  bundle: string,
-  source: SkillSource,
-  domain: string | null = null,
-): Promise<void> {
-  const manifest = joinPath(bundle, SKILL_MANIFEST);
-  const kind = await input.port.kind(manifest);
-  if (!kind.ok) return; // port 검사 실패는 조용히 건너뛴다: 보관소 오류이다.
-  if (kind.value === null) return; // skill 꾸러미가 아닌 폴더다.
-  if (kind.value === "symlink") {
-    skipped.push({
-      path: manifest,
-      reason: "skill manifest is a symbolic link",
-    });
-    return;
-  }
-  if (kind.value !== "file") {
-    skipped.push({ path: manifest, reason: "skill manifest is not a file" });
-    return;
-  }
-  const read = await input.port.read(manifest, input.max_file_bytes);
-  if (!read.ok) {
-    skipped.push({
-      path: manifest,
-      reason: "skill manifest could not be read",
-    });
-    return;
-  }
-  const file = read.value;
-  if (file === null || !file.complete) {
-    skipped.push({
-      path: manifest,
-      reason: file === null
-        ? "skill manifest is missing"
-        : "skill manifest is over the read limit",
-    });
-    return;
-  }
-  const parsed = parseSkillFrontmatter(file.text);
-  if (!parsed.ok) {
-    skipped.push({ path: manifest, reason: parsed.error });
-    return;
-  }
-  const supplemental = await scanSupplemental(input, skipped, bundle);
-  if (source === "builtin") {
-    const undeclared = undeclaredBuiltinReason(parsed.value.name);
-    if (undeclared !== null) {
-      skipped.push({ path: manifest, reason: undeclared });
-      return;
-    }
-  }
-  candidates.push({
-    name: parsed.value.name,
-    description: parsed.value.description,
-    source,
-    domain,
-    content_hash: await sha256Hex(file.text),
-    bundle_path: bundle,
-    supplemental,
-  });
-}
-
-// 보조 자료는 bundle 폴더 안의 UTF-8 Markdown 파일뿐이다. 밖을 가리키는
-// symlink·실행 파일은 제외하고 이유를 남긴다.
-async function scanSupplemental(
-  input: SkillDiscoveryInput,
-  skipped: SkillSkipped[],
-  bundle: string,
-): Promise<readonly SkillSupplemental[]> {
-  const contents = await input.port.list(bundle);
-  if (!contents.ok) return [];
-  const supplemental: SkillSupplemental[] = [];
-  for (const name of contents.value ?? []) {
-    if (name.startsWith(".") || name === SKILL_MANIFEST) continue;
-    if (!name.endsWith(".md")) continue;
-    const path = joinPath(bundle, name);
-    const kind = await input.port.kind(path);
-    if (!kind.ok || kind.value !== "file") {
-      skipped.push({
-        path,
-        reason: kind.ok
-          ? "supplemental document is not a plain file"
-          : "supplemental document could not be checked",
-      });
-      continue;
-    }
-    const executable = await input.port.executable(path);
-    if (executable.ok && executable.value === true) {
-      skipped.push({
-        path,
-        reason: "supplemental document is executable",
-      });
-      continue;
-    }
-    const read = await input.port.read(path, input.max_file_bytes);
-    if (!read.ok || read.value === null || !read.value.complete) {
-      skipped.push({
-        path,
-        reason: "supplemental document could not be read in full",
-      });
-      continue;
-    }
-    supplemental.push({
-      title: name.slice(0, -3),
-      relative_path: name,
-      hash: await sha256Hex(read.value.text),
-    });
-  }
-  return supplemental;
 }

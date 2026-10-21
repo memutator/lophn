@@ -13,17 +13,12 @@ export {
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
   type SkillCandidate,
-  type SkillDiscovery,
   type SkillEntry,
-  type SkillFilesPort,
-  type SkillSkipped,
-} from "./skills.ts";
-export {
-  listSkillsSync,
+  type SkillFiles,
   type SkillListing,
+  type SkillSkipped,
   type SkillSources,
-  type SyncSkillFiles,
-} from "./skills-sync.ts";
+} from "./skills.ts";
 export { createSkillsRead } from "./skills-handler.ts";
 export { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 export {

@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 import type { PlaceFiles } from "../place-store.ts";
-import type { SyncSkillFiles } from "../skills-sync.ts";
+import type { SkillFiles } from "../skills.ts";
 
 // 동기 파일 눈이다. 동기 file API는 core 프로세스의 module graph에 둘 수 없어
 // 이 module은 writer·reader Worker 안에서만 URL로 연다(packages/core/lophn-agent/register.ts).
@@ -45,7 +45,7 @@ export function createNodePlaceFiles(): PlaceFiles {
 }
 
 // symlink는 lstat로 보고 따라가지 않는다. 상한을 넘는 파일은 읽지 않고 complete false로 알린다.
-export function createNodeSkillFiles(): SyncSkillFiles {
+export function createNodeSkillFiles(): SkillFiles {
   return {
     list(dir) {
       try {

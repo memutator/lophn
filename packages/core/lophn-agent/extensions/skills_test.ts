@@ -1,20 +1,28 @@
 import { assertEquals } from "@std/assert";
-import { ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 import { receivedSkills } from "../agents/resolve.ts";
-import { mergeSkillLayers, type SkillFilesPort } from "./skills.ts";
-import { listSkillsSync, type SyncSkillFiles } from "./skills-sync.ts";
+import {
+  discoverSkills,
+  mergeSkillLayers,
+  type SkillFiles,
+  type SkillSources,
+} from "./skills.ts";
+import { commandSkillsOf, createExtensionRegistry } from "./registry.ts";
+import type { ProjectLayer } from "./project-settings.ts";
 
 // 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 role이
 // 일하는 데 필요한 skill이 사람 설정 하나로 사라진다.
 
-const skillFile = (name: string, body: string) =>
-  `---\nname: ${name}\ndescription: ${name} description\n---\n${body}`;
+const skillFile = (
+  name: string,
+  body: string,
+  description = `${name} description`,
+) => `---\nname: ${name}\ndescription: ${description}\n---\n${body}`;
 
 // 메모리 안의 폴더 모양이다. 사람의 data root를 열지 않는다.
-function treeOf(files: Record<string, string>) {
+function treeOf(files: Record<string, string>): SkillFiles {
   const kind = (path: string) =>
     path in files
       ? "file" as const
@@ -32,14 +40,7 @@ function treeOf(files: Record<string, string>) {
   };
   const read = (path: string) =>
     path in files ? { text: files[path], complete: true } : null;
-  const port: SkillFilesPort = {
-    list: (dir) => Promise.resolve(ok(list(dir))),
-    kind: (path) => Promise.resolve(ok(kind(path))),
-    read: (path) => Promise.resolve(ok(read(path))),
-    executable: () => Promise.resolve(ok(false)),
-  };
-  const sync: SyncSkillFiles = { list, kind, read };
-  return { port, sync };
+  return { list, kind, read };
 }
 
 const SESSION = "ses_01" as Id<"ses">;
@@ -142,7 +143,7 @@ for (const one of CASES) {
     if (one.human.includes("domain")) {
       files["/p/kinds-yaml/SKILL.md"] = skillFile("kinds-yaml", "DOMAIN");
     }
-    const { port, sync } = treeOf(files);
+    const port = treeOf(files);
     const globalOff = one.off.global ? ["kinds-yaml"] : [];
     const projectOff = one.off.project ? ["kinds-yaml"] : [];
     // 정의가 다른 skill만 골랐다.
@@ -174,18 +175,6 @@ for (const one of CASES) {
       assertEquals(listed?.enabled, true);
       assertEquals(read.ok && read.value.trim(), one.expect);
     }
-
-    // 같은 규칙을 동기로 한 번 더 읽는 목록(ReadSkills)도 같은 답이다.
-    const rows = listSkillsSync(sync, {
-      bundled: "/b",
-      registered: ["/g"],
-      personal: null,
-      domains: [{ domain: DOMAIN, folder: "/p" }],
-    }, { role: one.role, off: [...globalOff, ...projectOff] });
-    assertEquals(
-      rows.entries.find((row) => row.name === "kinds-yaml")?.enabled,
-      one.expect === null ? undefined : true,
-    );
   });
 }
 
@@ -221,7 +210,7 @@ Deno.test("a skill that can be turned off goes off, and a human skill of the sam
 });
 
 Deno.test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
-  const { port } = treeOf({
+  const port = treeOf({
     "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
     "/g/b/SKILL.md": skillFile("b", "B"),
@@ -275,12 +264,11 @@ Deno.test("the agent gets only the skills it chose, all when it chose none, and 
 // 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 Operator가 받아야 할 skill을
 // 조용히 잃었다.
 Deno.test("same-name skills in a global layer and domains go to the agent by the domains it works in", async () => {
-  const files = {
+  const port = treeOf({
     "/g/x/SKILL.md": skillFile("x", "GLOBAL"),
     "/a/x/SKILL.md": skillFile("x", "A"),
     "/b/x/SKILL.md": skillFile("x", "B"),
-  };
-  const { port } = treeOf(files);
+  });
   const deps: SkillSnapshotDeps = {
     port,
     builtin_root: null,
@@ -310,25 +298,67 @@ Deno.test("same-name skills in a global layer and domains go to the agent by the
   assertEquals(await bodyFor(["dom_a"]), "A");
   assertEquals(await bodyFor(["dom_b"]), "B");
   assertEquals(await bodyFor(["dom_a", "dom_b"]), "A");
+});
 
-  // 동기 목록은 domain마다 한 줄씩 남기고, 받는 이름은 하나다.
-  const { sync } = treeOf(files);
-  const listing = listSkillsSync(sync, {
-    bundled: null,
+// 내장 skill은 선언한 role의 prompt와 / 메뉴에만 뜬다. role을 건너뛰면 lophn과 Operator의 prompt에 읽을 수 없는
+// skill이 실리고(skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 PM과 Operator 중 먼저 읽은 쪽의 목록이 다른 쪽에 간다.
+Deno.test("a skill that names a role does not show up in the prompt and / menu of other roles", () => {
+  const files = treeOf({
+    "/b/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "built-in"),
+    "/g/kinds-yaml/SKILL.md": skillFile("kinds-yaml", "", "human"),
+  });
+  const sources: SkillSources = {
+    bundled: "/b",
     registered: ["/g"],
     personal: null,
-    domains: [{ domain: "dom_a", folder: "/a" }, {
-      domain: "dom_b",
-      folder: "/b",
-    }],
-  }, { role: null, off: [] });
-  assertEquals(listing.entries.map((entry) => entry.domain), [
-    null,
-    "dom_a",
-    "dom_b",
-  ]);
-  assertEquals(
-    receivedSkills(listing.entries, [], ["dom_b"]),
-    ["x"],
-  );
+    domains: [],
+  };
+  const nowhere = "/nowhere";
+  const layer: ProjectLayer = {
+    domains: {
+      skillsFolder: () => nowhere,
+      folderArea: () => nowhere,
+      domainIdOfFolder: () => null,
+    },
+    projectOf: () => null,
+    extensionsFile: () => nowhere,
+    settingsFolderArea: () => nowhere,
+    projectIdOfFolder: () => null,
+  };
+  const registry = createExtensionRegistry({
+    root: "/r",
+    projectLayer: layer,
+    files: { read: () => null, writeAtomic: () => {} },
+    skillFiles: files,
+    domains: () => [],
+    global: {
+      servers: [],
+      skills: { bundled: "/b", registered: ["/g"], personal: null },
+      skillsOff: [],
+    },
+  });
+  const project: AgentPlace = { kind: "project", id: "prj_01" };
+  const app: AgentPlace = { kind: "app", id: "app_01" };
+  const table: [Role, AgentPlace | null, string][] = [
+    ["lophn", null, "human"],
+    ["project_manager", project, "built-in"],
+    ["operator", project, "human"],
+    ["app_engineer", app, "built-in"],
+    ["operator", app, "human"],
+  ];
+  const kindsYaml = (rows: readonly { name: string; description: string }[]) =>
+    rows.filter((row) => row.name === "kinds-yaml").map((row) =>
+      row.description
+    );
+  for (const [role, place, expected] of table) {
+    const prompt = discoverSkills(files, sources, { role, off: [] }).entries;
+    assertEquals(kindsYaml(prompt), [expected], `prompt of ${role}`);
+    // register.ts의 / 메뉴와 같은 갈래다.
+    const menu = commandSkillsOf(
+      place === null ? prompt : registry.skills(place, role).entries,
+      [],
+      [],
+    );
+    assertEquals(kindsYaml(menu), [expected], `menu of ${role}`);
+  }
 });

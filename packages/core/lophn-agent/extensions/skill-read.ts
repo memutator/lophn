@@ -10,7 +10,7 @@ import {
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
   type SkillEntry,
-  type SkillFilesPort,
+  type SkillFiles,
   skillReceived,
   type SkillSkipped,
 } from "./skills.ts";
@@ -20,7 +20,7 @@ import {
 // 전역 skill은 lophn data에 있어 file tool이 닿지 않는다. 이 reader만 읽는다.
 
 export type SkillSnapshotDeps = {
-  port: SkillFilesPort;
+  port: SkillFiles;
   // 내장 skill 폴더와 개인 보관소다.
   builtin_root: string | null;
   personal_store: string | null;
@@ -63,34 +63,31 @@ export async function createSkillSnapshot(
       off: [] as readonly string[],
     }
     : await deps.place(session.place);
-  const found = await discoverSkills({
-    port: deps.port,
-    builtin_root: deps.builtin_root,
-    registered_roots: global.roots,
-    personal_store: deps.personal_store,
-    domain_stores: layer.domain_stores,
+  const found = discoverSkills(deps.port, {
+    bundled: deps.builtin_root,
+    registered: global.roots,
+    personal: deps.personal_store,
+    domains: layer.domain_stores,
+  }, {
     role: session.role,
     off: [...new Set([...global.off, ...layer.off])],
-    max_file_bytes: SKILL_BODY_MAX_BYTES,
   });
   // 일하는 domain 밖의 domain skill과, 고른 이름이 있으면 그 밖의 skill은 꺼진다. 끌 수 없는 내장 skill은 남는다.
   const domains = session.domains ??
     layer.domain_stores.map((store) => store.domain);
-  const entries: readonly SkillEntry[] = found.ok
-    ? pickSkills(
-      found.value.entries,
-      (entry) => skillReceived(entry, session.skills, domains),
-    ).map((entry) => ({
-      ...entry,
-      enabled: entry.enabled && skillReceived(entry, session.skills, domains),
-    }))
-    : [];
-  const skipped = found.ok ? found.value.skipped : [];
+  const entries: readonly SkillEntry[] = pickSkills(
+    found.entries,
+    (entry) => skillReceived(entry, session.skills, domains),
+  ).map((entry) => ({
+    ...entry,
+    enabled: entry.enabled && skillReceived(entry, session.skills, domains),
+  }));
+  const skipped = found.skipped;
 
   const fixed = new Map<string, Fixed>();
   for (const entry of entries) {
     if (!entry.enabled) continue;
-    const read = await readFixed(deps.port, entry);
+    const read = readFixed(deps.port, entry);
     if (read !== null) fixed.set(entry.name, read);
   }
 
@@ -145,30 +142,31 @@ export async function createSkillSnapshot(
   };
 }
 
-// SKILL.md 본문(frontmatter 뒤)과 딸린 파일을 읽어 둔다. 하나라도 온전히 못 읽으면 그 skill은 읽을 수 없다.
-async function readFixed(
-  port: SkillFilesPort,
-  entry: SkillEntry,
-): Promise<Fixed | null> {
-  const manifest = await port.read(
-    joinPath(entry.bundle_path, SKILL_MANIFEST),
-    SKILL_BODY_MAX_BYTES,
-  );
-  if (!manifest.ok || manifest.value === null || !manifest.value.complete) {
-    return null;
-  }
-  const body = bodyOf(manifest.value.text);
-  if (body === null) return null;
-  const files = new Map<string, string>();
-  for (const file of entry.supplemental) {
-    const read = await port.read(
-      joinPath(entry.bundle_path, file.relative_path),
+// SKILL.md 본문(frontmatter 뒤)과 딸린 `.md` 파일을 읽어 둔다. 딸린 파일은 읽기만 하고 실행하지 않는다. 본문을 온전히
+// 못 읽거나 보관소가 던지면 그 skill은 읽을 수 없다.
+function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
+  try {
+    const manifest = port.read(
+      joinPath(entry.bundle_path, SKILL_MANIFEST),
       SKILL_BODY_MAX_BYTES,
     );
-    if (!read.ok || read.value === null || !read.value.complete) return null;
-    files.set(file.relative_path, read.value.text);
+    if (manifest === null || !manifest.complete) return null;
+    const body = bodyOf(manifest.text);
+    if (body === null) return null;
+    const files = new Map<string, string>();
+    for (const name of port.list(entry.bundle_path) ?? []) {
+      if (
+        name.startsWith(".") || name === SKILL_MANIFEST || !name.endsWith(".md")
+      ) continue;
+      const path = joinPath(entry.bundle_path, name);
+      if (port.kind(path) !== "file") continue;
+      const read = port.read(path, SKILL_BODY_MAX_BYTES);
+      if (read !== null && read.complete) files.set(name, read.text);
+    }
+    return { body, files };
+  } catch {
+    return null;
   }
-  return { body, files };
 }
 
 // frontmatter 다음 줄부터가 본문이다. 형식 검사는 발견이 했다.

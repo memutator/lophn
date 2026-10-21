@@ -54,7 +54,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentDefinitionRow {
   const { lookups, roles } = context;
   const definition = loaded.definition;
   const broken = loaded.issues.length > 0;
-  const skills = lookups.skills(loaded.place);
+  const skills = lookups.skills(loaded.place, loaded.role);
   const mcp = lookups.mcp(loaded.place);
   const chosenSkills = definition?.skills ?? [];
   const mcpOff = definition?.mcp_off ?? [];

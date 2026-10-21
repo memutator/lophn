@@ -15,12 +15,12 @@ import {
   parseProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";
-import type { DomainStore } from "./skills.ts";
 import {
-  listSkillsSync,
+  discoverSkills,
+  type DomainStore,
+  type SkillFiles,
   type SkillSources,
-  type SyncSkillFiles,
-} from "./skills-sync.ts";
+} from "./skills.ts";
 
 // `ReadSkills` handler다. 내장, 전역, (project나 app을 주면) 그 그릇의 domain 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 내장·전역 안에서 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. domain 층 skill은
@@ -42,7 +42,7 @@ type SkillsReadLookups = {
 type SkillsReadDeps = {
   projectLayer: ProjectLayer;
   files: PlaceFiles;
-  skillFiles: SyncSkillFiles;
+  skillFiles: SkillFiles;
   lookups(sql: ReadSql): SkillsReadLookups;
   // 없으면 ledger 파일이 있는 폴더가 data root다.
   dataRoot?: string;
@@ -104,9 +104,9 @@ export function createSkillsRead(deps: SkillsReadDeps): {
             }
           }
         }
-        let listing: ReturnType<typeof listSkillsSync>;
+        let listing: ReturnType<typeof discoverSkills>;
         try {
-          listing = listSkillsSync(
+          listing = discoverSkills(
             deps.skillFiles,
             { ...lookups.skillSources(), domains },
             { role: null, off },

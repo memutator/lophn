@@ -128,6 +128,7 @@ import {
   profileImageRead,
   profileImageUpload,
   QUEUED_INPUT_ROUTES,
+  type Role,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
   commandSkillsOf,
@@ -136,14 +137,14 @@ import {
   createProjectExtensionReads,
   createSkillsRead,
   dataRootOf,
+  discoverSkills,
   type ExtensionRegistry,
-  listSkillsSync,
   type McpRuntimeServer,
   type PlaceFiles,
   type ProjectLayer,
   runtimeServerOfLayer,
+  type SkillFiles,
   type SkillSources,
-  type SyncSkillFiles,
 } from "./extensions/mod.ts";
 import type { AgentRoleTable } from "./agents/role-table.ts";
 import type { OperatorMcpEntry } from "./extensions/mcp-snapshot.ts";
@@ -385,7 +386,7 @@ const { createNodePlaceFiles, createNodeSkillFiles } = await import(
   NODE_EXTENSION_FILES
 ) as {
   createNodePlaceFiles(): PlaceFiles;
-  createNodeSkillFiles(): SyncSkillFiles;
+  createNodeSkillFiles(): SkillFiles;
 };
 const placeFiles = createNodePlaceFiles();
 const skillFiles = createNodeSkillFiles();
@@ -446,10 +447,12 @@ function agentLookups(
     ],
     // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇의 domain 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. lophn(place 없음)은 전역 층만이다.
-    skills: (place) =>
+    skills: (place, role) =>
       place === null
-        ? globalSkillNames(sql, layers)
-        : registryOf()?.skills(place).entries ?? [],
+        ? globalSkillNames(sql, layers, role)
+        : registryOf()?.skills(place, role).entries.filter((entry) =>
+          entry.enabled
+        ) ?? [],
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 전역 기본 model.
@@ -459,15 +462,16 @@ function agentLookups(
   };
 }
 
-// 전역 층에서 발견하는 skill이다. 전역에서 끈 것은 뺀다.
+// 전역 층에서 발견하는 skill이다. 그 role에 선언된 내장 skill만이고 전역에서 끈 것은 뺀다.
 function globalSkillNames(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
+  role: Role,
 ) {
-  return listSkillsSync(
+  return discoverSkills(
     skillFiles,
     { ...globalSkillSources(sql, layers), domains: [] },
-    { role: null, off: registeredSkillsOff(sql) },
+    { role, off: registeredSkillsOff(sql) },
   ).entries.filter((entry) => entry.enabled);
 }
 
@@ -686,22 +690,22 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
   // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇의 domain 층을 더하고, 일하는 domain 밖의 domain skill과
   // agent 정의가 고른 것이 있으면 그 밖의 것은 selected=false다.
-  // 내장 skill은 선언한 role의 메뉴에만 보인다.
+  // 내장 skill은 발견이 role로 거른다.
   const commandReads = createCommandReads({
     roleCommands: ports.roleCommands,
     skills: (sql, session) => {
       const chosen = chosenOf(sql, session.agent);
       return commandSkillsOf(
         session.place === null
-          ? listSkillsSync(
+          ? discoverSkills(
             skillFiles,
             { ...globalSkillSources(sql, ports), domains: [] },
-            { role: null, off: registeredSkillsOff(sql) },
+            { role: session.role, off: registeredSkillsOff(sql) },
           ).entries
-          : extensionRegistry(sql, ports)?.skills(session.place).entries ?? [],
+          : extensionRegistry(sql, ports)?.skills(session.place, session.role)
+            .entries ?? [],
         chosen.skills,
         chosen.domains,
-        session.role,
       );
     },
   });

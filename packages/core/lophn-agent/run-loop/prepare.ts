@@ -165,8 +165,8 @@ type PreparerDeps = {
   instructionFilesFor?(session: Id<"ses">): InstructionDeps["files"];
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다.
-  skills?(place: AgentPlace | null): Promise<readonly SkillEntry[]>;
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 role에 선언된 것만이다.
+  skills?(place: AgentPlace | null, role: Role): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
 };
@@ -528,7 +528,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           })),
           instructions,
           skills: promptSkills(
-            (await deps.skills?.(resolved.place)) ?? [],
+            (await deps.skills?.(resolved.place, resolved.role)) ?? [],
             resolved,
           ),
           place: placed.value.place,
@@ -667,7 +667,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
-    const skills = (await deps.skills?.(session.place)) ?? [];
+    const skills = (await deps.skills?.(session.place, session.agent.role)) ??
+      [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,

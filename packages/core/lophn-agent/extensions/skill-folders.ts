@@ -1,5 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentPlace, Role } from "../../../protocol/lophn-agent/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
@@ -8,10 +7,10 @@ import {
   discoverSkills,
   type DomainStore,
   SKILL_BODY_MAX_BYTES,
-  type SkillDiscovery,
   type SkillEntry,
-  type SkillFilesPort,
+  type SkillFiles,
 } from "./skills.ts";
+import { createNodeSkillFiles } from "./adapters/node-fs.ts";
 import type { SkillSnapshotDeps } from "./skill-read.ts";
 import {
   parseProjectExtensions,
@@ -67,24 +66,24 @@ export function productSkillStores(
   };
 }
 
-// project에서 끈 이름이다. 파일이 없거나 틀렸으면 끈 것이 없다.
-async function projectOff(
-  port: SkillFilesPort,
-  file: string | null,
-): Promise<readonly string[]> {
+// project에서 끈 이름이다. 파일이 없거나 틀렸거나 읽다 던지면 끈 것이 없다.
+function projectOff(port: SkillFiles, file: string | null): readonly string[] {
   if (file === null) return [];
-  const read = await port.read(file, SKILL_BODY_MAX_BYTES);
-  if (!read.ok || read.value === null || !read.value.complete) return [];
-  const parsed = parseProjectExtensions(read.value.text);
-  return parsed.ok ? parsed.value.skills_off : [];
+  try {
+    const read = port.read(file, SKILL_BODY_MAX_BYTES);
+    if (read === null || !read.complete) return [];
+    const parsed = parseProjectExtensions(read.text);
+    return parsed.ok ? parsed.value.skills_off : [];
+  } catch {
+    return [];
+  }
 }
 
 // place 그릇의 active domain skill 폴더다(domain 이름순). 읽지 못하면(그 길이 아직 열리지 않았거나 core 연결
-// 실패) domain 층이 없는 것으로 본다. 아직 없는 폴더는 그 domain에 skill이 없는 것이다.
+// 실패) domain 층이 없는 것으로 본다. 아직 없는 폴더는 발견이 그 domain에 skill이 없는 것으로 넘긴다.
 async function domainStores(
   machine: CoreCall,
   stores: SkillStores,
-  port: SkillFilesPort,
 ): Promise<DomainStore[]> {
   if (stores.root === null || stores.place === null) return [];
   const read = await readOf(machine, domainList, {
@@ -92,53 +91,29 @@ async function domainStores(
     status: "active",
   });
   if (!read.ok) return [];
-  const found: DomainStore[] = [];
-  for (const domain of read.value.domains) {
-    const folder = await presentFolder(
-      port,
-      stores.layer.domains.skillsFolder(stores.root, domain.id),
-    );
-    if (folder !== null) found.push({ domain: domain.id, folder });
-  }
-  return found;
+  return read.value.domains.map((domain) => ({
+    domain: domain.id,
+    folder: stores.layer.domains.skillsFolder(stores.root!, domain.id),
+  }));
 }
 
-// 층을 합친 목록이다. 전역과 project에서 끈 것이 enabled false다. agent 정의가 끈 것은 `agentOff`로 더한다.
+// 층을 합친 목록이다. 내장 skill은 `role`에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.
 export async function registeredSkillEntries(
   machine: CoreCall,
   stores: SkillStores,
-  agentOff: readonly string[] = [],
+  role: Role,
 ): Promise<readonly SkillEntry[]> {
-  const discovered = await discoverProductSkills(machine, stores, agentOff);
-  return discovered === null ? [] : discovered.entries;
-}
-
-// 발견 결과 전체다(entries와 skipped). 읽을 수 없으면 null이다.
-async function discoverProductSkills(
-  machine: CoreCall,
-  stores: SkillStores,
-  agentOff: readonly string[] = [],
-): Promise<SkillDiscovery | null> {
   const { roots, off } = await globalSkillSettings(machine);
   const port = productFiles(roots, stores);
-  const discovered = await discoverSkills({
-    port,
-    // 아직 없는 개인 보관소, domain 폴더는 제외 진단이 아니라 그 출처가 비어 있는 것이다.
-    builtin_root: await presentFolder(port, stores.bundled),
-    registered_roots: roots,
-    personal_store: await presentFolder(port, stores.personal),
-    domain_stores: await domainStores(machine, stores, port),
-    role: null,
-    off: [
-      ...new Set([
-        ...off,
-        ...await projectOff(port, stores.project_file),
-        ...agentOff,
-      ]),
-    ],
-    max_file_bytes: SKILL_BODY_MAX_BYTES,
-  });
-  return discovered.ok ? discovered.value : null;
+  return discoverSkills(port, {
+    bundled: stores.bundled,
+    registered: roots,
+    personal: stores.personal,
+    domains: await domainStores(machine, stores),
+  }, {
+    role,
+    off: [...new Set([...off, ...projectOff(port, stores.project_file)])],
+  }).entries;
 }
 
 // turn 시작에 skill 판을 고정하는 재료다(`createSkillSnapshot`). place마다 폴더가 달라 port는 data root 아래
@@ -160,20 +135,11 @@ export function productSkillSnapshotDeps(
       const where = productSkillStores(place, deps);
       const port = productFiles([], where);
       return {
-        domain_stores: await domainStores(machine, where, port),
-        off: await projectOff(port, where.project_file),
+        domain_stores: await domainStores(machine, where),
+        off: projectOff(port, where.project_file),
       };
     },
   };
-}
-
-async function presentFolder(
-  port: SkillFilesPort,
-  path: string | null,
-): Promise<string | null> {
-  if (path === null) return null;
-  const kind = await port.kind(path);
-  return kind.ok && kind.value === null ? null : path;
 }
 
 // 등록 폴더(순서대로)와 전역에서 끈 skill 이름이다. 읽지 못하거나 값이 틀리면 둘 다 없는 것으로 본다.
@@ -197,7 +163,7 @@ async function globalSkillSettings(
 function productFiles(
   roots: readonly string[],
   stores: SkillStores,
-): SkillFilesPort {
+): SkillFiles {
   // `area` 폴더 안 폴더의 id를 `idOf`로 읽어 그 id의 허락 자리 안이면 참이다.
   const inArea = (
     path: string,
@@ -237,87 +203,30 @@ function productFiles(
       (roots.some((root) => under(root, path)) ||
         (stores.bundled !== null && under(stores.bundled, path))));
 
-  const openStat = async (
-    path: string,
-  ): Promise<Result<Deno.FileInfo | null>> => {
+  // 허락 밖 path는 던진다. 읽기는 node adapter가 한다(symlink는 lstat로 보고 따라가지 않는다).
+  const node = createNodeSkillFiles();
+  const guard = (path: string): void => {
     if (!allowed(path)) {
-      return err({
-        code: "forbidden",
-        message: "skill path is outside the registered folder",
-      });
-    }
-    try {
-      return ok(await Deno.lstat(path));
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) return ok(null);
-      return err({
-        code: "unavailable",
-        message: "skill path could not be checked",
-      });
+      throw new Error("skill path is outside the registered folder");
     }
   };
-
   return {
-    async list(dir) {
-      const info = await openStat(dir);
-      if (!info.ok) return info;
-      if (info.value === null) return ok(null);
-      if (info.value.isSymlink || !info.value.isDirectory) {
-        return err({
-          code: "forbidden",
-          message: "skill folder is not a plain directory",
-        });
+    list(dir) {
+      guard(dir);
+      const kind = node.kind(dir);
+      if (kind === null) return null;
+      if (kind !== "dir") {
+        throw new Error("skill folder is not a plain directory");
       }
-      try {
-        const names: string[] = [];
-        for await (const entry of Deno.readDir(dir)) names.push(entry.name);
-        return ok(names);
-      } catch {
-        return err({
-          code: "unavailable",
-          message: "skill folder could not be listed",
-        });
-      }
+      return node.list(dir);
     },
-    async kind(path) {
-      const info = await openStat(path);
-      if (!info.ok) return info;
-      if (info.value === null) return ok(null);
-      if (info.value.isSymlink) return ok("symlink");
-      if (info.value.isDirectory) return ok("dir");
-      if (info.value.isFile) return ok("file");
-      return ok(null);
+    kind(path) {
+      guard(path);
+      return node.kind(path);
     },
-    async read(path, maxBytes) {
-      const info = await openStat(path);
-      if (!info.ok) return info;
-      if (
-        info.value === null || info.value.isSymlink || !info.value.isFile
-      ) {
-        return ok(null);
-      }
-      if (info.value.size > maxBytes) {
-        return ok({ text: "", complete: false });
-      }
-      try {
-        return ok({ text: await Deno.readTextFile(path), complete: true });
-      } catch {
-        return err({
-          code: "unavailable",
-          message: "skill file could not be read",
-        });
-      }
-    },
-    async executable(path) {
-      const info = await openStat(path);
-      if (!info.ok) return info;
-      if (
-        info.value === null || info.value.isSymlink || !info.value.isFile
-      ) {
-        return ok(null);
-      }
-      const mode = info.value.mode;
-      return ok(mode === null ? null : (mode & 0o111) !== 0);
+    read(path, maxBytes) {
+      guard(path);
+      return node.read(path, maxBytes);
     },
   };
 }

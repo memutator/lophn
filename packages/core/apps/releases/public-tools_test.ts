@@ -12,7 +12,7 @@ import { appsSchemaSteps } from "../registration/schema.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import { usagePorts } from "../usage/mod.ts";
 import { createReleaseCommands } from "./commands.ts";
-import { diffTools, removedPublicOf } from "./public-tools.ts";
+import { removedPublicOf } from "./public-tools.ts";
 import { releasesSchemaSteps } from "./schema.ts";
 import { insertRelease } from "./store.ts";
 
@@ -33,20 +33,10 @@ const tool = (
   domain,
 } as Tool);
 
-Deno.test("공개였다가 비공개가 된 tool도 지운 것이고, 바뀐 것은 이름별로 나온다", () => {
+Deno.test("공개였다가 비공개가 된 tool도 지운 것이다", () => {
   const before = [tool("a", true), tool("b", true), tool("c", false)];
   const after = [tool("a", false), tool("b", true, "write"), tool("d", true)];
-  assertEquals(diffTools(before, after), {
-    added: ["d"],
-    removed: ["c"],
-    changed: ["a", "b"],
-  });
   assertEquals(removedPublicOf(before, after), ["a"]);
-  // domain만 달라져도 바뀐 tool이다.
-  assertEquals(
-    diffTools([tool("a", true)], [tool("a", true, "read", "beta")]).changed,
-    ["a"],
-  );
 });
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";

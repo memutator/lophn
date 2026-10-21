@@ -70,6 +70,10 @@ elements:
         kind: subsystem
         description: domain entity(project나 app 안의 책임 경계)와 그 owner·이름 규칙. kind 파일, DOMAIN.md, skill, artifact, 앱 tool이 이 단위로 모인다.
 
+      - id: runs
+        kind: subsystem
+        description: 화면 없이 부르는 lophn agent 호출 하나나 앱 tool 호출 하나(run)와 그 기록. 끝은 그 입력이 연 turn이나 tool 호출의 끝이다.
+
       - id: problems
         kind: subsystem
         description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`). test runner는 지웠다. release의 data 검사는 app-releases의 준비가 한다.

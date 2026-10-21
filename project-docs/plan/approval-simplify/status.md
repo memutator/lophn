@@ -24,5 +24,5 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-shell-gate` | shell | 3 | ap-mode-turn | todo |  |  |  |
 | `ap-shell-settings` | shell | 3 | ap-shell-gate | todo |  |  |  |
 | `ap-skip-screens` | skip | 3 | ap-skip-session | todo |  |  |  |
-| `ap-skip-session` | skip | 3 | 없음 | running | skip/ap-skip-session |  |  |
+| `ap-skip-session` | skip | 3 | 없음 | merged | skip/ap-skip-session | 1789cbcd1 |  |
 | `ap-cleanup` | cleanup | 4 | ap-waiting, ap-conversation, ap-assign-editor, ap-shell-settings, ap-skip-screens | todo |  |  |  |

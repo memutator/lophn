@@ -114,3 +114,7 @@ eval의 사람 역할이 activation 동의를 `activations.consents`와 `activat
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- `tests/eval/runner/idle.ts`의 hook `graceMs`는 쓰는 곳이 없어졌다(tr-eval-prune-coding이 `runner/steps.ts`의 `CODING_GRACE_MS`를 지웠다). `graceMs` 칸과 그 갈래를 지우고, `idle_test.ts`의 "… then graceMs applies" test는 `graceMs` 없이 같은 판정(사람 역할이 있으면 대기와 동의 대기가 idle을 막고, 처리한 뒤 `quietMs`만큼 조용하면 idle)을 보게 고친다.

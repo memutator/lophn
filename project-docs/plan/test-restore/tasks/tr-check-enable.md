@@ -65,3 +65,8 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. "지켜볼 것" 넷의 결과(`app.create` 뒤 재기동 창, `release.prepare` 시간, offline cache, `cli_test.ts`)를 하나씩 적는다. 없으면 "없음"
+
+## lead가 더함
+
+- 안 쓰게 된 export를 지운다(wave 1 보고, lead가 grep으로 확인): `tests/eval/checks/records.ts`의 `callFailed`, `tests/eval/versions/components.ts`의 `measureCli`와 `tests/eval/versions/mod.ts`의 그 re-export. 지울 때 다시 grep해 쓰는 곳이 생겼으면 둔다. version 종류 `"cli"`는 registry history라 남긴다.
+- `tools/check.ts`의 `NOT_CHECKED`에 지운 폴더 `tests/support/coding`이 남아 있다. `NOT_CHECKED`를 비우면서 같이 사라진다.

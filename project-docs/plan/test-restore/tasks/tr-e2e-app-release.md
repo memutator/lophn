@@ -97,3 +97,7 @@ file 하나를 처음부터 다시 쓴다. core 하나를 띄우고(`bootCore(ru
 - handler 검사 reason: `prepare-failed`에서 받은 `failed.reason` 글 그대로. changelog 0.6.0은 handlers reason이 handler 없는 tool 이름을 싣는다고 하지만, 앱 entrypoint의 probe가 선언과 다르면 409로 먼저 거절해(`entrypoint/control.ts` 52-57줄) supervisor가 `probe was rejected (409)`만 실을 수 있다(`app-supervisor/assembly.ts` 583줄). 그렇다면 lead가 이슈로 올리게 적는다. test를 그 글에 맞추지 않는다.
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- handler 검사 reason은 지금 `probe was rejected (409)`다. tr-support-app이 handler 없는 tool을 선언한 앱으로 확인했고 lead가 `project-docs/issues/activation.md` "release 준비의 handler 검사가 떨어지면 이유가 "probe was rejected (409)"뿐이다"로 올렸다. `prepare-failed`의 handler 행은 `status: "failed"`, `stage: "handlers"`, release 행 없음만 단정하고 reason 글은 단정하지 않는다. 받은 글은 보고에 적는다.

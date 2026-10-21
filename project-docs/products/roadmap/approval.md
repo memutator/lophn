@@ -130,7 +130,7 @@
   - call tool의 gate, Router `callGate`(`packages/core/main/daemon/wiring/router-registration.ts:52-86`), `gate_allowed`(`packages/protocol/lophn-agent/calls.ts:184`)다.
 - **fingerprint**: `intentFingerprint`, `consumeTurnAllow`(`turn-requests.ts:158-186`), `intentOf`를 두 번 부른다(`tool-gate.ts:101`).
 - **"이 session 동안"**: `packages/core/approvals/grants/session-allowances.ts`
-- **reaction grant**: 6종 × `off|open|ask`(`packages/protocol/approvals/grants.ts:111-126`). 문서는 "다섯"이라고 적었는데 코드는 6이다.
+- **reaction grant**: `ReleaseActivationFailed` 1종 × `off|open|ask`(`packages/protocol/approvals/grants.ts`의 `REACTION_EVENT_TYPES`). `problem-remove`가 나머지 다섯을 지웠고, 남은 하나는 `ae-builds`가 activation 계기를 `release.activate`로 옮길 때 지운다.
 - **쓰이지 않는 것**
   - intent `app_resource`는 만드는 곳이 없다.
   - `settings_edit.what` 5값 가운데 쓰이는 것은 `instructions` 하나다.
@@ -201,7 +201,7 @@
    - 위 설계는 "묻는다(기본), 할당 줄에서 끌 수 있다"이다.
    - "시킨 것이 승낙이다"와 "할당이 허락이다"를 그대로 따르면 묻지 않는 쪽이 된다. 그러면 attended에서 묻는 것은 shell 규칙의 `ask`(agent의 실수 잡기)만 남는다.
 2. **reaction이 연 turn의 mode.** 사람이 따로 더 고민하기로 했다(2026-10-20). 위 설계는 attended다. 사람이 없을 때 앱 문제로 열린 App Engineer가 바깥 효과 tool을 부르면 기다린다.
-   - 2026-10-21 reaction 여섯을 모두 지우기로 했다(`problem-ticket.md`). `problem-remove`가 land하면 이 항목과 위 "reaction" 절, 지우는 것의 "reaction grant의 `ask`"는 없어진다.
+   - 2026-10-21 reaction 여섯을 모두 지우기로 했다(`problem-ticket.md`). `problem-remove`가 다섯을 지웠다. 남은 `ReleaseActivationFailed`를 `ae-builds`가 지우면 이 항목과 위 "reaction" 절, 지우는 것의 "reaction grant의 `ask`"는 없어진다.
 
 ## 단계
 

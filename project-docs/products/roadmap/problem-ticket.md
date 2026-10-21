@@ -1,6 +1,6 @@
 # problem과 ticket 덜어내기: App Engineer가 직접 짓고 고친다
 
-상태: 로드맵. 2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈다. 2026-10-21 "최대한 덜어낸다"로 정하고, 낮은 수준의 선택은 planner에게 맡겼다. 같은 날 "lophn agent는 코드를 짜지 않는다"를 고쳐 App Engineer가 앱을 직접 짓기로 정했다. planner가 정리했다.
+상태: 로드맵. 2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈다. 2026-10-21 "최대한 덜어낸다"로 정하고, 낮은 수준의 선택은 planner에게 맡겼다. 같은 날 "lophn agent는 코드를 짜지 않는다"를 고쳐 App Engineer가 앱을 직접 짓기로 정했다. planner가 정리했다. 단계 1 `problem-remove`가 land했다(problem 모델, 보고 길, reaction 다섯, feedback, 앱 상세 issues 화면, 저장하는 kind 위반이 없어지고 앱 log가 file이 됐다). 아래는 남은 단계의 것이다.
 배경 문서: `project-docs/architecture/coding-agent.md`, `project-docs/architecture/activation.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/event.md`, `project-docs/architecture/annotation.md`, `project-docs/products/AGENT-ROLE.md`(A1~A16, K1~K5, T20, 5절, 6절), `project-docs/products/roadmap/approval.md`, `project-docs/products/roadmap/workflow.md`.
 
 ## 왜
@@ -22,7 +22,7 @@
 
 모두 이미 있고, 앱의 domain을 모른다.
 
-- **앱 log**: 받고, invocation에 묶고, redaction한다.
+- **앱 log**: 받고, 앱마다 file로 남기고, invocation에 묶고, redaction한다. 예외 stack은 원래 source 줄로 풀어 쓴다.
 - **invocation 기록**, changeset, 앱 rewind
 - **release**: 준비, data를 잃지 않게 하는 검사(migration, 의존성, blueprint와 handler 일치), activate, 앞 release로 되돌리기. 검사는 release 준비가 그 자리에서 한다. 따로 도는 test runner는 없다. 사람의 동의는 `approval.md`가 정한다.
 - **preview**: 봉인된 bundle을 fixture data로 띄우고 tool을 부른다.
@@ -30,9 +30,7 @@
 
 ### 새로 더하는 것
 
-- **App Engineer가 위 읽기와 실행을 tool로 쓴다.** 앱 log, invocation, 상태 읽기, preview 띄우기와 그 tool 부르기, release 준비다. 지금은 coding agent CLI에만 있다.
-- **앱 log를 앱마다 file로 남긴다.** 크기 상한을 두고, 재시작 뒤에도 남는다. 지금 log는 supervisor 메모리에만 있다.
-- **잡히지 않은 예외의 stack을 원래 source 줄로 풀어 log에 쓴다.** 지금 snapshot이 하는 source map 풀이를 log 쪽으로 옮긴 것이다. 봉인된 bundle은 agent의 file 범위 밖이라 agent가 직접 못 푼다.
+- **App Engineer가 위 실행을 tool로 쓴다.** preview 띄우기와 그 tool 부르기, release 준비다. 앱 log, invocation, 상태 읽기(`app.logs`, `app.invocations`, `app.status`)는 `problem-remove`가 열었다.
 
 ### agent가 맡는 것
 
@@ -54,22 +52,16 @@
 
 | 지우는 것 | 대신 | 지금 크기·자리 |
 |---|---|---|
-| problem 상태 machine, 닫기 gate(A16), 다시 열기, 묶음 | 없음. agent가 log를 읽는다 | `packages/core/problems/reporting`, `grouping` |
-| 보고 길: SDK `reportProblem`, collector worker, snapshot, 보고 표 | 앱 log. 예외는 log 줄이 되고 stack은 source 줄로 풀린다 | reporting 2,242, snapshots 1,602, `packages/sdk/cap-problem` 429 |
-| 사람의 feedback(앱 화면 "User report") | annotation. 이미 App Engineer에게 간다 | `packages/core/problems/feedback` 365 |
-| reaction 여섯, reaction 설정 화면 | 없음. 사람에게는 toast | `packages/core/events/reactor/session-opening.ts` 222, `packages/shell/renderer/desktop/settings/reactions/` |
+| 남은 reaction `ReleaseActivationFailed`, reaction 설정 화면 | 없음. activation 실패는 `release.activate`의 결과로 돌아간다 | `packages/core/events/reactor/session-opening.ts` 222, `packages/shell/renderer/desktop/settings/reactions/` |
 | ticket(표 6개, claim, 연장, 만료, 완료 보고, 검증 기록, verdict) | call 본문. 길면 file | `packages/core/apps/tickets` 4,057의 대부분, `packages/protocol/coding-agent/ticket` 565 |
 | examples gate와 그 실행기, `VerificationRecorded`, `TicketVerified` | App Engineer가 preview에서 확인하고 `release.activate` | `packages/core/problems/tests`의 examples 부분, `apps/tickets/checker` |
-| rewind 증명 사슬: platform `rewind` 검사, examples changeset 되감기, `rewind_unproven` | 없음. changeset과 앱 rewind 자체는 남는다 | `packages/core/problems/tests/unproven.ts` 등 |
+| rewind 증명 사슬: platform `rewind` 검사, examples changeset 되감기, app test pass 이유의 증명 못 함 줄 | 없음. changeset과 앱 rewind 자체는 남는다 | `packages/core/problems/tests/unproven.ts` 등 |
 | release와 ticket의 묶음: 준비의 claim 검사, `releases.ticket_source`, 보고의 release 대조, activation의 `TicketVerified` 계기 | 준비는 App Engineer가 한다. activate는 App Engineer의 command | `packages/core/apps/releases/commands.ts:98-139`, `activation/handler.ts` |
-| ticket과 problem의 tool과 CLI 명령 | App Engineer의 log, invocation, 상태, preview tool | App Engineer tool 10, CLI 명령 12 |
-| 죽은 problem 계약 | 없음 | `packages/protocol/problems/` 약 550줄 |
-| 앱 상세의 issues와 ticket 화면 | 없음. 사람은 App Engineer에게 묻는다 | renderer 약 47 file |
+| ticket의 tool과 CLI 명령 | App Engineer의 preview tool | `packages/core/apps/agent-tools/ticket.ts`, `packages/protocol/coding-agent/cli-commands.ts` |
+| 앱 상세의 ticket 화면 | 없음. 사람은 App Engineer에게 묻는다 | `packages/shell/renderer` |
 | test runner: 요청 기록과 한 번만 시작하기, `test_requests`·`test_side_starts`·`verifications`·`test_evidence` 표, frozen test, 증거 blob, runner worker, `RecordVerification`, 준비와 마무리의 두 단계 | release 준비가 그 자리에서 확인한다. 의존성은 manifest로, migration은 activation과 같은 `migrateAppDatabase`를 fixture DB에 걸어서, blueprint와 handler 일치는 preview launcher로 봉인된 bundle을 띄워 tool을 찔러서 본다. 앱 test는 App Engineer가 앱 source에서 shell로 돌린다 | `packages/core/problems/tests` 7,352, `packages/core/apps/releases/finalizer.ts` 190, `preparation.ts` 143, `packages/protocol/problems/tests.ts` 428 |
 | Reactor, cursor, reaction 멱등 key | 없음. coding session 끝은 그 command가 바로 call을 닫고, 켤 때 sweep이 남은 것을 닫는다 | `packages/core/events/reactor/` 521, cursor와 wiring을 합쳐 약 1.0k |
-| 저장하는 kind 위반(`domain_problems`, `problem.sync_domain`) | `kind.check`가 그때그때 계산한다. toast는 메모리에서 앞 결과와 비교해 띄운다 | `packages/core/problems/domain` 302, `packages/protocol/problems/domain-problems.ts` 79 |
 | 공개 tool 막기(`activation.block`, `PublicToolsChanged`) | release 준비가 "다른 domain이 쓰는 공개 tool을 지운다"를 알려 주기만 하고, 주인인 App Engineer가 정한다 | `packages/core/apps/releases/public-tools.ts` 186, `releases/commands.ts:248-297` |
-| 쓰는 곳 없는 blob 종류 셋(`snapshot_attachment`, `trace_body`, `operational_log`) | 없음 | `packages/protocol/storage/blob.ts:51-54` |
 
 - 크기는 다 합쳐 만 줄을 넘는다. test runner만 약 6천 줄이 줄고, 남는 검사는 1천 줄 안쪽이다(2026-10-21 조사의 추정).
 - domain event 12개는 모두 빠진다. 다만 `events` 표는 Reactor의 일감 목록만이 아니라 앱 상태 기록(`AppStarted` 등)과 compare token으로도 쓰여서 남는다.
@@ -77,10 +69,8 @@
 
 ## 지금 코드
 
-- **앱 log**는 supervisor 메모리에 있다. invocation마다 200줄, 앱마다 invocation 500개, 묶이지 않은 줄 500, redaction 뒤 한 줄 300자다(`packages/core/apps/runtime/observations/log-buffer.ts`). log buffer는 줄 앞의 `[inv=...]`를 읽어 invocation에 묶지만, 지금 그 표시를 쓰는 코드는 없다.
+- **앱 log**는 앱마다 file(`<data root>/apps/<app>/logs/app.log`, 돌린 `app.log.1`, 합쳐 16 MiB)이다. 쓰는 쪽은 app supervisor 하나이고, `app.logs`가 file을 읽는다(`packages/protocol/apps/app-log.ts`).
 - **invocation 기록**은 tool call 하나마다 시작과 끝, 상태, 부른 쪽, 효과를 남긴다(`packages/core/apps/invocations/schema.ts`). 성공한 read는 남기지 않는다(`architecture/app-call.md`).
-- **보고**는 redaction(fail-closed), 접수 한도(앱마다 60초에 20개), snapshot(source map을 푼 stack, 최근 log)을 거쳐 `(app, group_key)` 묶음에 쌓인다(`packages/core/problems/reporting/`, `snapshots/`).
-- **problem 규칙**: 상태 `open | resolved | ignored`(`packages/protocol/problems/problem-record.ts:13`), 닫기 gate(`reporting/model.ts` `agentResolveDecision`), 다시 열기(`reporting/model.ts:108-116`)
 - **ticket 규칙**
   - 표 6개, 상태 6개(`open, claimed, reported, verified, failed, cancelled`)
   - claim 1시간에 60초마다 만료를 쓸어 낸다(`packages/core/apps/tickets/expiry.ts`).
@@ -169,13 +159,7 @@
 
 - eval과 e2e test는 이 계획들에서 고치지 않는다(사람, 2026-10-21). 앞으로도 크게 바뀌므로, 다 바뀐 뒤 e2e를 고치고 eval을 돌린다. 그동안 `tests/e2e`와 `tests/eval`은 `deno task check`에서 뺀다.
 - 계획 셋으로 연다. 첫째는 `approval-simplify`보다 먼저 연다. reaction이 없어지면 approval이 더 작아진다.
-  1. `problem-remove`
-     - reaction 여섯과 설정 화면을 지운다.
-     - 보고 길을 log로 합친다: log file, 예외 stack 풀이.
-     - feedback을 annotation으로 둔다.
-     - App Engineer에게 log, invocation, 상태, preview tool을 연다.
-     - 죽은 계약을 지우고, 앱 상세의 issues 화면을 지운다.
-     - 저장하는 kind 위반을 지우고, toast는 메모리 비교로 띄운다. 쓰는 곳 없는 blob 종류 셋을 지운다.
+  1. `problem-remove`: land했다.
   2. `ae-builds`
      - 먼저 App Engineer가 코딩하는 데 걸리는 것을 고친다(위 실험).
        - turn 한도를 앱 하나를 짓는 데 맞게 올린다.
@@ -186,22 +170,23 @@
      - test runner를 지우고 남는 검사(의존성, migration, blueprint와 handler)를 release 준비 안으로 옮긴다. 준비와 마무리의 두 단계도 하나로 합친다.
      - release를 ticket에서 뗀다. App Engineer가 release를 준비하고 `release.activate`로 올린다. source 폴더 만들기를 `app.create`로 옮긴다.
      - 공개 tool 막기를 release 준비의 알림으로 바꾼다.
+     - App Engineer에게 preview tool을 연다(`problem-remove`에서 옮겼다).
+     - 남은 reaction `ReleaseActivationFailed`와 reaction 설정 화면을 지운다. activation 실패는 `release.activate`의 결과로 돌아간다.
      - App Engineer가 coding agent에게 맡기는 흐름을 막는다. 지침과 tool 설명에서 지우고, call의 받는 곳 `coding_agent`를 받지 않는다. 연결 장치(launch, hook, CLI, 설치)는 "정할 것" 1의 보류가 풀릴 때까지 두고, ticket에만 쓰이던 CLI 명령과 event는 지운다.
      - 열린 이슈 `issues/coding-agent.md`의 "examples가 떨어진 reported ticket을 다시 넘기면 `ticket_unavailable`"은 ticket과 함께 닫힌다.
-     - App Engineer 지침을 다시 쓴다(설계, 코딩, release, 확인). coding agent skill 둘(`lophn-build-app`, `lophn-repair`)은 ticket 절차라 지운다.
+     - App Engineer 지침을 다시 쓴다(설계, 코딩, release, 확인). coding agent skill `lophn-build-app`은 ticket 절차라 지운다(`lophn-repair`는 `problem-remove`가 지웠다).
   3. `reactor-remove`: `problem-remove`, `ae-builds`, `approval-simplify`가 모두 land한 뒤 연다. 남은 domain event가 없으면 Reactor, cursor, 멱등 key를 지우고, coding session 끝은 그 command와 켤 때의 sweep이 닫는다. program call의 `from.event_seq`를 없앤다.
 - 화면을 지우거나 바꾸는 것은 `ui-design` skill로 wireframe부터 고친다.
 
 test(AGENTS.md "속도", `write-test` skill):
-- log file에 secret이 redaction 없이 남지 않는다.
 - migration 검사에 떨어진 release는 activate되지 않는다.
-- log file은 상한을 넘지 않는다. 넘치면 오래된 줄부터 버린다.
+- (log file의 redaction과 상한 test는 `problem-remove`가 썼다: `packages/core/apps/runtime/observations/log-file_test.ts`)
 
 계획 끝에 고칠 것:
-- `architecture/coding-agent.md`, `architecture/activation.md`, `architecture/testing.md`, `architecture/event.md`, `architecture/annotation.md`, `architecture/app-call.md`(log), `architecture/kinds.md`(reaction, 저장하는 위반), `architecture/domain.md`(공개 tool 막기)
+- `architecture/coding-agent.md`, `architecture/activation.md`, `architecture/testing.md`, `architecture/event.md`, `architecture/domain.md`(공개 tool 막기)
 - `project-docs/products/AGENT-ROLE.md`: P6, P8, L4, A1~A16, K1~K5, T20, 5절 그림, 6절
-- `project-docs/boundary-catalog.yaml`(`app-tickets`, `problems`), `project-docs/module-catalog.yaml`
-- `project-docs/PRODUCT.md` 6절의 MVP 목록("ticket, problem"). 3절과 5절의 "코드를 짜지 않는다"는 2026-10-21에 이미 고쳤다.
+- `project-docs/boundary-catalog.yaml`(`app-tickets`, `problems`의 test runner 몫), `project-docs/module-catalog.yaml`
+- `project-docs/PRODUCT.md` 6절의 MVP 목록("ticket"). 3절과 5절의 "코드를 짜지 않는다"는 2026-10-21에 이미 고쳤다.
 - changelog 열린 판
 
 ## 끝남 기준

@@ -46,3 +46,18 @@ modules: [packages/core/apps]
 고치려면:
 - 연결 전에 폴더가 있고 git 저장소인지 본다. command는 tx 안이라 파일을 못 보므로 template 깔기처럼 writer 앞에서 본다(작음). **추천.**
 - App Engineer의 `app.link_source`를 뺀다(작음. 사람이 가리킨 기존 저장소를 App Engineer가 잇는 길이 없어진다).
+
+## 지운 배포 skill의 얇은 사본이 사람 home에 남는다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent, packages/protocol]
+```
+
+지금: `lophn harness install`은 `CODING_SKILL_NAMES`(`packages/protocol/coding-agent/harness-adapter.ts`)에 든 이름마다 `<home>/<skillDir>/<name>/SKILL.md`에 얇은 skill을 쓰기만 하고, 목록에서 빠진 이름의 사본은 지우지 않는다(`packages/coding-agent/harnesses/install.ts`의 `installSkill`). `lophn-repair`를 목록과 원본에서 지웠으므로, 앞서 설치한 사람의 `~/.claude/skills/lophn-repair/SKILL.md`가 그대로 남는다. 그 skill은 "`lophn guide lophn-repair`의 출력을 따른다"뿐인데, 이 이름은 이제 `guide` 입력 검사에서 거절된다.
+
+영향: 그 사람의 coding agent는 어느 폴더에서든 `lophn-repair` skill을 목록에서 보고, 고르면 거절만 받는다. `ae-builds`가 `lophn-build-app`을 지우면 같은 일이 한 번 더 난다.
+
+고치려면:
+- 설치가 lophn이 쓴 얇은 사본(내용이 `thinSkill`의 꼴) 가운데 목록에 없는 이름을 지운다(작음). 사람이 고친 사본은 내용이 달라 남는다. 추천. `lophn-build-app`을 지우는 계획에서 같이 한다.
+- 그대로 두고 사람이 지운다(없음. 사람이 알아야 한다).

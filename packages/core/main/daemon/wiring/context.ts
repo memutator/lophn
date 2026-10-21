@@ -218,7 +218,7 @@ type Late = {
   gateway: GatewayFrames;
   // Reactor. 다른 wiring이 build에서 handler를 등록하고 events wiring이 start에서 돌린다.
   reactor: Reactor;
-  // approvals가 낸다. 다른 wiring이 Gate·보류 request·applier 등록에 쓴다.
+  // approvals가 낸다. tool gate와 turn 안 request.
   approvals: ApprovalsService;
   // apps가 받는 것. callerDirectory는 apps가 lophn-agent session 표로 채우고, releases(bundleLocator)가 채운다.
   // 없으면 apps wiring이 "아직 없음"이나 대체 구현으로 돈다.

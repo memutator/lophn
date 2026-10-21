@@ -1,11 +1,9 @@
 import type { Result } from "../../base/mod.ts";
 import type {
   AgentGrant,
-  ApplyResult,
   GateGrants,
   GateVerdict,
   Intent,
-  PendingApproval,
   ReactionGrant,
   TurnDecision,
   TurnPermissionRequest,
@@ -34,11 +32,6 @@ export interface SessionAllowances {
   clear(session: string): void;
 }
 
-// 보류 request가 허락됐을 때 그 종류를 다시 검사하고 실행한다. 소유 module(releases, events)이 등록한다.
-export type ApprovalApplier = (
-  request: PendingApproval,
-) => Promise<Result<ApplyResult>>;
-
 // Gate를 부르는 쪽이 쓰는 한 입구. Bus는 생성자에서 받는다.
 export interface Approvals {
   // grant를 읽어 Gate를 돌린다. intent 출처가 turn이면 SessionAllowances를 보고,
@@ -56,15 +49,4 @@ export interface Approvals {
   ): void;
   // session snapshot이 읽는다.
   turnRequests(session: string): TurnPermissionRequest[];
-  // approval_requests에 쓰고 commit 뒤 ApprovalRequested를 낸다.
-  createPending(intent: Intent): Promise<Result<PendingApproval>>;
-  registerApplier(
-    kind: "activation" | "reaction",
-    applier: ApprovalApplier,
-  ): void;
-  // 더 새 release의 activation이 시작되면 이전 보류 request를 cancelled로 만든다.
-  cancelPendingFor(app: string, release?: string): Promise<Result<number>>;
-  // activation이 보류 request를 읽는다. 없는 id는 null이다.
-  request(id: string): Promise<Result<PendingApproval | null>>;
-  pending(): Promise<Result<PendingApproval[]>>;
 }

@@ -3,32 +3,20 @@ import {
   approvalsDecideTurn,
   toolGateCheck,
 } from "../../protocol/approvals/mod.ts";
-import { approvalCommands } from "./commands.ts";
 import { assignmentRegistration } from "./assignment/mod.ts";
 import { agentGrantRegistration } from "./grants/mod.ts";
-import {
-  approvalsPendingRead,
-  approvalsRequestRead,
-  approvalsUnappliedRead,
-} from "./reads.ts";
-import { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 
 export function createCoreRegistration() {
   return {
     schemaSteps: [
-      ...APPROVAL_SCHEMA_STEPS,
       ...agentGrantRegistration.schemaSteps,
       ...assignmentRegistration.schemaSteps,
     ],
     commands: [
-      ...approvalCommands,
       ...agentGrantRegistration.commands,
       ...assignmentRegistration.commands,
     ],
     reads: [
-      approvalsPendingRead,
-      approvalsRequestRead,
-      approvalsUnappliedRead,
       ...agentGrantRegistration.reads,
       ...assignmentRegistration.reads,
     ],

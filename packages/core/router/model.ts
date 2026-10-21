@@ -36,7 +36,7 @@ export type RouteInput = {
   message?: string | null;
   // reaction이면 그 사실 이름.
   event?: string | null;
-  // agent의 SendCall·ReplyCall만 싣는다. 없으면 false.
+  // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
   unattended?: boolean;
 };
 

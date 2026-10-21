@@ -54,6 +54,7 @@ type MessageRouter = {
     kind: "message";
     delivery: InputDelivery;
     message: Id<"msg">;
+    unattended?: boolean;
   }): Result<{ session: string | null }>;
 };
 
@@ -145,6 +146,7 @@ type HumanMessage = {
   content: Input<typeof sendMessage>["content"];
   delivery: InputDelivery;
   refs: CallRef[];
+  unattended: boolean;
 };
 
 // 사람 메시지를 session 기록에 쓴다. 입력함에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
@@ -190,13 +192,14 @@ function writeHuman(
   const seq = nextCreatedSeq(tx);
   tx.sql.run(
     `insert into messages (id, session, from_kind, from_ref, call, reply_to,
-       refs, delivery, turn, body, created_seq, created_at, state_seq)
-     values (?, ?, 'human', null, null, null, ?, ?, null, ?, ?, ?, ?)`,
+       refs, delivery, unattended, turn, body, created_seq, created_at, state_seq)
+     values (?, ?, 'human', null, null, null, ?, ?, ?, null, ?, ?, ?, ?)`,
     [
       input.id,
       session.id,
       JSON.stringify(input.refs),
       input.delivery,
+      input.unattended ? 1 : 0,
       body.hash,
       seq,
       tx.now(),
@@ -257,7 +260,13 @@ function sendWith(
     input.delivery === "steer" && hasRunningTurn(tx, input.session)
       ? "steer"
       : "next_turn";
-  const written = writeHuman(tx, ctx, { ...input, delivery }, existingBody);
+  const unattended = input.unattended === true;
+  const written = writeHuman(
+    tx,
+    ctx,
+    { ...input, delivery, unattended },
+    existingBody,
+  );
   if (!written.ok) return written;
   if (written.value.replayed) {
     return ok({ message: input.id, state_seq: written.value.state_seq });
@@ -274,6 +283,7 @@ function sendWith(
     kind: "message",
     delivery,
     message: input.id as Id<"msg">,
+    unattended,
   });
   if (!routed.ok) return routed;
   return ok({ message: input.id, state_seq: written.value.state_seq });
@@ -281,7 +291,8 @@ function sendWith(
 
 // core를 켤 때 입력함에 되돌려 놓을 사람 메시지다. 입력함은 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
 // 접수 기록은 남는다. 접수 순서로 돌려준다. Fork 복사본도 turn이 비어 있어서, Fork한 session은 자기 turn이 가져간
-// 마지막 메시지보다 뒤에 접수한 것만 센다. rewind가 숨긴 구간의 메시지는 뺀다.
+// 마지막 메시지보다 뒤에 접수한 것만 센다. rewind가 숨긴 구간의 메시지는 뺀다. unattended 메시지는 run의 입력이고,
+// 켤 때 다시 돌면 이미 실패로 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다.
 export function unstartedHumanMessages(
   sql: Pick<Sql, "get" | "all">,
 ): { id: string; session: string; refs: CallRef[]; created_at: string }[] {
@@ -289,6 +300,7 @@ export function unstartedHumanMessages(
     `select m.id, m.session, m.refs, m.created_at, m.created_seq
      from messages m join sessions s on s.id = m.session
      where m.from_kind = 'human' and m.turn is null and s.lifecycle = 'open'
+       and m.unattended = 0
        and (s.forked_from_session is null or m.created_seq > (
          select max(c.created_seq) from messages c
          where c.session = s.id and c.turn is not null))

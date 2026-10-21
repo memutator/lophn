@@ -108,13 +108,15 @@ export const turnStateSchema = z.enum(TURN_STATES);
 //   compare `{state_seq}`, actors `user`). 새 Operator session은 정의의 `skip: true`면 켜진 채 열린다.
 //   fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다.
 // - 봉투: `unattended: boolean`이 `CallEnvelope`, `RoutedInput`(메모리), `agent_calls` 행에 있다.
-//   받은 메시지 기록(`receivedEnvelopeSchema`, `messages`)에는 싣지 않는다. 받은 turn의 mode는 메모리의
+//   받은 봉투(`receivedEnvelopeSchema`)와 태그 글에는 싣지 않는다. `messages`에는 사람 메시지의 표시만
+//   `unattended` 열로 남는다(켤 때 입력함에 되돌리지 않으려고). 받은 turn의 mode는 메모리의
 //   `RoutedInput`에서 정하고 `turns.mode`에 남는다. `SendCall`·`ReplyCall` 입력에는
 //   `unattended?: true`로 실린다. call·reply tool이 그 turn의 mode로 채우고 model 입력에는 없다.
+//   `SendMessage` 입력에도 `unattended?: true`가 실린다(run만 싣는다).
 //   그 call의 답과 늦게 오는 실패, 취소 알림도 call의 표시를 싣는다.
 //
 // 정하는 규칙(`turnModeOf`): turn을 연 입력의 봉투가 unattended면 `unattended`, 아니면 session이 skip이면
-// `skip`, 그 밖(사람 메시지, reaction, attended turn이 보낸 call·reply와 그 알림)은 `attended`다.
+// `skip`, 그 밖(표시 없는 사람 메시지, reaction, attended turn이 보낸 call·reply와 그 알림)은 `attended`다.
 // unattended call이 연 skip session도 unattended로 남아 사슬이 표시를 잇는다.
 export const TURN_MODES = ["attended", "unattended", "skip"] as const;
 export const turnModeSchema = z.enum(TURN_MODES);

@@ -101,19 +101,21 @@ create table messages (
   event text,
   fail_reason text check (fail_reason in ('not_found', 'closed', 'receiver_ended', 'lophn_restarted')),
   delivery text not null default 'next_turn' check (delivery in ('next_turn', 'steer')),
+  unattended integer not null default 0 check (unattended in (0, 1)),
   turn text,
   body text not null check (length(body) = 64),
   created_seq integer not null unique check (created_seq >= 1),
   created_at text not null,
   state_seq integer not null check (state_seq >= created_seq),
   check ((from_kind in ('human', 'program')) = (from_ref is null)),
-  check (delivery = 'next_turn' or from_kind = 'human')
+  check (delivery = 'next_turn' or from_kind = 'human'),
+  check (unattended = 0 or from_kind = 'human')
 ) strict;
 create index messages_session_created on messages (session, created_seq);
 create index messages_turn on messages (turn);
 create trigger messages_content_immutable
 before update of id, session, from_kind, from_ref, call, reply_to, refs,
-  reply, event, fail_reason, delivery, body, created_seq, created_at on messages
+  reply, event, fail_reason, delivery, unattended, body, created_seq, created_at on messages
 begin
   select raise(abort, 'a confirmed message is never overwritten');
 end;

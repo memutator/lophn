@@ -1,5 +1,4 @@
 import {
-  AppWindow,
   Archive,
   ArchiveRestore,
   ArrowLeft,
@@ -21,7 +20,6 @@ import {
 export const commonIcons = {
   projects: FolderKanban,
   documents: FileText,
-  apps: AppWindow,
   roles: Users,
   settings: Settings,
   search: Search,

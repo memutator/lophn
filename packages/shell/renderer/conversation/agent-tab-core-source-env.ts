@@ -197,11 +197,6 @@ export function createEnv(
 
 export const done: SourceResult<void> = { ok: true, value: undefined };
 
-export const unavailable: SourceResult<never> = {
-  ok: false,
-  code: "unavailable",
-};
-
 export const dropValue = <T>(result: SourceResult<T>): SourceResult<void> =>
   result.ok ? done : result;
 

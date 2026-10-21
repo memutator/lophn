@@ -7,7 +7,7 @@
 //
 // 버린 화면은 이 목록에 올리지 않는다: Settings › Backup, project
 // Export panel, Documents 화면, 앱 상세 Issues, Report a problem dialog, Waiting · reaction approval,
-// Settings › Reactions.
+// Settings › Reactions, Agent · recap.
 import { draftsArea } from "../drafts/index.tsx";
 import { appUiArea } from "./kit/app-ui/index.tsx";
 import { dataArea } from "./kit/data/index.tsx";

@@ -10,16 +10,16 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-versions` | eval | 1 | 없음 | merged | eval/tr-eval-versions | eec5a3283 |  |
 | `tr-shell-instructions-card` | shell | 1 | 없음 | merged | shell/tr-shell-instructions-card | 04a2e9202 |  |
 | `tr-support-app` | support | 1 | 없음 | merged | support/tr-support-app | 39dd2e801 |  |
-| `tr-e2e-app-activation` | e2e | 2 | tr-support-app | todo |  |  |  |
-| `tr-e2e-app-call-kinds` | e2e | 2 | tr-support-app | todo |  |  |  |
-| `tr-e2e-app-fix` | e2e | 2 | tr-support-app | todo |  |  |  |
-| `tr-e2e-app-release` | e2e | 2 | tr-support-app | todo |  |  |  |
-| `tr-e2e-ask-fix` | e2e | 2 | tr-e2e-approval | todo |  |  |  |
-| `tr-e2e-call-fix` | e2e | 2 | tr-e2e-approval | todo |  |  |  |
-| `tr-e2e-operator` | e2e | 2 | tr-support-app | todo |  |  |  |
+| `tr-e2e-app-activation` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-activation |  |  |
+| `tr-e2e-app-call-kinds` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-call-kinds |  |  |
+| `tr-e2e-app-fix` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-fix |  |  |
+| `tr-e2e-app-release` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-release |  |  |
+| `tr-e2e-ask-fix` | e2e | 2 | tr-e2e-approval | running | e2e/tr-e2e-ask-fix |  |  |
+| `tr-e2e-call-fix` | e2e | 2 | tr-e2e-approval | running | e2e/tr-e2e-call-fix |  |  |
+| `tr-e2e-operator` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-operator |  |  |
 | `tr-eval-calendar-build` | eval | 2 | tr-eval-restore, tr-eval-human | todo |  |  |  |
 | `tr-eval-calendar-maintain` | eval | 2 | tr-eval-calendar-build | todo |  |  |  |
-| `tr-eval-human` | eval | 2 | tr-eval-prune-coding | todo |  |  |  |
-| `tr-eval-restore` | eval | 2 | tr-support-app, tr-eval-prune-coding | todo |  |  |  |
+| `tr-eval-human` | eval | 2 | tr-eval-prune-coding | running | eval/tr-eval-human |  |  |
+| `tr-eval-restore` | eval | 2 | tr-support-app, tr-eval-prune-coding | running | eval/tr-eval-restore |  |  |
 | `tr-eval-scenario-fix` | eval | 2 | tr-eval-restore, tr-eval-human | todo |  |  |  |
 | `tr-check-enable` | check | 3 | 없음 | todo |  |  |  |

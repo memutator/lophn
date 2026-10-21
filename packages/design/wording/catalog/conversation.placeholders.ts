@@ -258,13 +258,8 @@ export type ConversationPlaceholders = {
   "conversation.label.sender-coding-unknown": Record<never, never>;
   "conversation.label.sender-from": Record<never, never>;
   "conversation.label.sender-head-handed": Record<never, never>;
-  "conversation.label.sender-head-saw": Record<never, never>;
   "conversation.label.sender-head-why": Record<never, never>;
   "conversation.label.sender-program-unknown": Record<never, never>;
-  "conversation.label.sender-reaction": {
-    event: "string";
-  };
-  "conversation.label.sender-reaction-unknown": Record<never, never>;
   "conversation.label.sender-role-app-engineer": Record<never, never>;
   "conversation.label.sender-role-lophn": Record<never, never>;
   "conversation.label.sender-role-operator": Record<never, never>;

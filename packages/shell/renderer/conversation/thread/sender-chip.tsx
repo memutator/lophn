@@ -1,5 +1,5 @@
 // 받은 메시지의 보낸 쪽 chip과, chip을 누르면 열리는 panel. 사람이 직접 쓰지 않은 입력(다른 agent의 부탁,
-// program의 reaction, coding agent의 메시지, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
+// lophn이 보낸 알림, coding agent의 메시지, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
 // 읽어 보인다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
@@ -45,10 +45,6 @@ function senderLabel(sender: Sender): string {
           name: sender.name,
         });
     }
-    case "reaction":
-      return sender.event === null
-        ? t("conversation.label.sender-reaction-unknown")
-        : t("conversation.label.sender-reaction", { event: sender.event });
     case "coding":
       return sender.product === null
         ? t("conversation.label.sender-coding-unknown")
@@ -101,7 +97,6 @@ export function SenderChip(
 const HEAD: Record<Sender["kind"], MessageKey> = {
   agent: "conversation.label.sender-head-handed",
   coding: "conversation.label.sender-head-handed",
-  reaction: "conversation.label.sender-head-saw",
   program: "conversation.label.sender-head-why",
 };
 

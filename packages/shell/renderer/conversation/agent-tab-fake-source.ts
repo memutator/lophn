@@ -391,8 +391,8 @@ function sceneData(scene: AgentTabScene): SceneData {
         turn: { id: turn1, phase: "ended", startedAt: at(41) },
       };
     case "sender-chips": {
-      const reaction = envelope(
-        { kind: "reaction", event: "Coding session ended" },
+      const notice = envelope(
+        { kind: "program", label: null },
         CODING_ENDED_TEXT,
         [{
           kind: "session",
@@ -432,7 +432,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             1,
             30,
             CODING_ENDED_TEXT,
-            reaction.sender,
+            notice.sender,
           ),
           received(
             2,
@@ -449,7 +449,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         turn: working(),
         envelopes: {
-          [messageId(1)]: reaction,
+          [messageId(1)]: notice,
           [messageId(2)]: lophn,
           [messageId(3)]: coding,
         },

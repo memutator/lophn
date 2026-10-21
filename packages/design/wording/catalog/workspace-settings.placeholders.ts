@@ -101,7 +101,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.component-agent-runtime": Record<never, never>;
   "settings.label.component-app-runtime": Record<never, never>;
   "settings.label.component-core": Record<never, never>;
-  "settings.label.component-events": Record<never, never>;
   "settings.label.component-ledger": Record<never, never>;
   "settings.label.component-sandbox": Record<never, never>;
   "settings.label.default": Record<never, never>;

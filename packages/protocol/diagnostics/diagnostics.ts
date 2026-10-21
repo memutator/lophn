@@ -50,7 +50,6 @@ export const DIAGNOSTIC_ROUTES = [diagnosticsList] as const;
 export const DIAGNOSTIC_COMPONENTS = [
   "core",
   "ledger",
-  "events",
   "app-runtime",
   "sandbox",
   "agent-runtime",

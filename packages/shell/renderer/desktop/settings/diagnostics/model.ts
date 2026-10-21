@@ -10,8 +10,6 @@ export function componentName(component: string): string {
       return t("settings.label.component-core");
     case "ledger":
       return t("settings.label.component-ledger");
-    case "events":
-      return t("settings.label.component-events");
     case "app-runtime":
       return t("settings.label.component-app-runtime");
     case "sandbox":

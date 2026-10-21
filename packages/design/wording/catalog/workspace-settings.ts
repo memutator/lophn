@@ -106,7 +106,6 @@ export const workspaceSettings = {
   "settings.label.component-agent-runtime": "Agent runtime",
   "settings.label.component-app-runtime": "App runtime",
   "settings.label.component-core": "Core service",
-  "settings.label.component-events": "Event stream",
   "settings.label.component-ledger": "Ledger",
   "settings.label.component-sandbox": "Sandbox",
   "settings.label.default": "Default",

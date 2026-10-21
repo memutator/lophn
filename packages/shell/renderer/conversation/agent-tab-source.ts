@@ -81,7 +81,6 @@ export type Sender =
     readonly role: AgentRole | null;
     readonly name: string | null;
   }
-  | { readonly kind: "reaction"; readonly event: string | null }
   | { readonly kind: "coding"; readonly product: string | null }
   | { readonly kind: "program"; readonly label: string | null };
 

@@ -60,7 +60,7 @@ export const agentArea: Area = {
       id: "new-agent-sender-chips",
       title: "Agent · sender chips",
       description:
-        "받은 메시지에 보낸 쪽 chip이 붙는다(program의 reaction, 다른 agent, coding agent). coding agent chip에는 harness 아이콘이 있다. chip을 누르면 맡긴 글, 근거 링크, 보낸 session 링크가 든 panel이 열린다.",
+        "받은 메시지에 보낸 쪽 chip이 붙는다(lophn이 보낸 알림, 다른 agent, coding agent). coding agent chip에는 harness 아이콘이 있다. chip을 누르면 맡긴 글, 근거 링크, 보낸 session 링크가 든 panel이 열린다.",
       render: () => <AgentSenderChips />,
     },
     {

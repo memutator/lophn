@@ -14,7 +14,6 @@ const SAMPLE_VIEW: DiagnosticsView = {
   components: [
     { component: "core", available: true, reason: null, checkedAt: AT },
     { component: "ledger", available: true, reason: null, checkedAt: AT },
-    { component: "events", available: true, reason: null, checkedAt: AT },
     {
       component: "app-runtime",
       available: true,

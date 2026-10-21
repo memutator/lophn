@@ -69,7 +69,6 @@ function setup(sessions: Record<string, TargetSession>) {
   const router = createRouter({
     directory,
     store,
-    gate: { authorize: () => ok(undefined), visible: () => true },
     transport: {
       deliver: (_tx, to, input) => {
         delivered.push({ to: to.session, input });

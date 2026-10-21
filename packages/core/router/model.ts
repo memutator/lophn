@@ -30,8 +30,6 @@ export type RouteInput = {
   // agent가 보낸 call에만 있다(tool call ID).
   dedup: string | null;
   options: CodingOptions | null;
-  // agent가 보낸 call에서 ToolGate가 사람의 허락을 받았다.
-  gate_allowed?: boolean;
   kind: RoutedInput["kind"];
   delivery: InputDelivery;
   // 사람 메시지는 보내는 쪽이 먼저 session 기록에 쓴 message ID를 싣는다.

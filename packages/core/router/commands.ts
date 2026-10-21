@@ -79,7 +79,6 @@ const sendCallCommand: CommandDefinition<typeof callSend> = {
       reply_to: null,
       dedup: input.dedup,
       options: input.options ?? null,
-      gate_allowed: input.gate_allowed === true,
       kind: "call",
       delivery: "next_turn",
     });

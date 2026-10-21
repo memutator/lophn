@@ -1,16 +1,8 @@
 // Router의 writer·reader Worker 쪽 등록 file이다. Worker가 팀 등록 file로 import하면 Router가 쓸 바깥 구현
-// (session 목록, 입력 transport, Gate)을 이 file이 끼운다. main thread의 wiring은 router.ts다.
+// (session 목록, 입력 transport)을 이 file이 끼운다. main thread의 wiring은 router.ts다.
 import { err, ok } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
-import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
-import type {
-  CallAgent,
-  CallFrom,
-} from "../../../../protocol/lophn-agent/calls.ts";
-import type { Intent } from "../../../../protocol/approvals/mod.ts";
-import { gate } from "../../../approvals/gate/mod.ts";
-import { loadAgentGrant } from "../../../approvals/grants/mod.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
@@ -39,62 +31,9 @@ import {
   installRouterEnvironment,
   type RouterEnvironment,
 } from "../../../router/mod.ts";
-import type { CallGate, InputTransport } from "../../../router/ports.ts";
+import type { InputTransport } from "../../../router/ports.ts";
 import { afterCommit } from "../../../storage/ledger/after-commit.ts";
 import { AGENT_EVENT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
-
-function agentRefOf(agent: CallAgent): AgentRef | null {
-  return agent.role === "coding_agent" ? null : agent;
-}
-
-const ASK_IN_TX = {
-  code: "forbidden" as const,
-  message: "the grant asks, and a call cannot wait for an answer here",
-};
-
-// 보낸 agent의 agent grant로 받는 agent를 판정한다. command는 tx 안이라 사람의 답을 기다릴 수 없다. 묻는 grant는
-// 보낸 turn이 ToolGate에서 이미 허락을 받았을 때만 통과하고 아니면 거절이다(fail-closed). deny는 늘 거절이다.
-export function callGate(
-  sql: Parameters<typeof loadAgentGrant>[0],
-  senderAgent: (session: string) => CallAgent | null,
-): CallGate {
-  function verdict(sender: CallFrom, target: CallAgent) {
-    if (sender.kind !== "agent") return null;
-    const own = senderAgent(sender.session);
-    const ref = own === null ? null : agentRefOf(own);
-    if (ref === null) return null;
-    const grant = loadAgentGrant(sql, ref);
-    if (!grant.ok) return null;
-    const intent: Intent = {
-      kind: "agent_call",
-      actor: { kind: "agent", agent: ref, session: sender.session },
-      target: { kind: "agent_call", agent: target },
-      effect: "read",
-      input: {},
-      origin: { kind: "event", seq: "0" },
-    };
-    return gate(intent, { app: [], agent: grant.value, reaction: {} as never });
-  }
-  return {
-    authorize(sender, target, gateAllowed) {
-      const decided = verdict(sender, target);
-      if (decided === null) {
-        return err({ code: "forbidden", message: "no grant to call" });
-      }
-      if (decided.verdict === "run") return ok(undefined);
-      if (decided.verdict === "ask" && gateAllowed) return ok(undefined);
-      return err(
-        decided.verdict === "ask"
-          ? ASK_IN_TX
-          : { code: "forbidden", message: "the grant denies this call" },
-      );
-    },
-    visible(sender, target) {
-      const decided = verdict(sender, target);
-      return decided !== null && decided.verdict !== "deny";
-    },
-  };
-}
 
 // 열린 coding session을 찾고 목록에 싣고 이름으로 coding agent를 고른다. 새 session은 Router가 transport start로 연다.
 function withCodingSessions(
@@ -195,10 +134,6 @@ const environment: RouterEnvironment = {
         start: (tx, input) => tx.port(CodingTransport).start(tx, input),
       },
       store: createCallStore(),
-      gate: callGate(view.sql, (session) => {
-        const target = directory.find(session as never);
-        return target === null ? null : target.agent;
-      }),
     };
   },
   interruptRunningTurns: (tx) =>

@@ -135,14 +135,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: 동적 tool이 apps protocol의 app runtime·AppTools를 쓴다",
   ],
   [
-    "packages/core/lophn-agent/tools/bundles/call.ts",
-    "못 옮김: 범용 call tool이 projects·apps protocol의 목록 route(projectList, appList)를 부른다",
-  ],
-  [
-    "packages/core/lophn-agent/tools/call/target.ts",
-    "못 옮김: call 대상 해석이 projects·apps 목록을 읽어 role 이름으로 대상 ref를 만든다",
-  ],
-  [
     "packages/core/lophn-agent/tools/file/image.ts",
     "못 옮김: file.image가 apps protocol의 annotationsGet으로 annotation 이미지를 읽는다",
   ],

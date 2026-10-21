@@ -64,7 +64,7 @@ export interface SessionDirectory {
   // 열린 session. 없으면 null.
   openOf(agent: CallAgent): TargetSession | null;
   open(tx: Tx, agent: CallAgent, opener: CallFrom): Result<TargetSession>;
-  // session 목록 tool이 쓴다. grant가 deny인 상대는 Router가 CallGate로 거른다.
+  // session 목록 tool이 쓴다.
   listOpen(): readonly (TargetSession & { name: string })[];
 }
 
@@ -85,19 +85,6 @@ export interface InputTransport {
   ): Result<void>;
   // 앱 줄에 서서 기다리는 coding 맡기기. session 목록 tool이 함께 보인다.
   queued(): readonly { call: Id<"cal">; app: Id<"app"> }[];
-}
-
-// 보낸 쪽이 agent일 때만 부른다. Gate의 agent grant 판정이다. 묻는 grant는 tx 안이라 물을 수 없다.
-// 보낸 turn이 ToolGate에서 이미 허락을 받았으면(`gateAllowed`) 통과하고, 아니면 거절이다. deny는 늘 거절이다.
-// 거절이면 not_allowed.
-export interface CallGate {
-  authorize(
-    sender: CallFrom,
-    target: CallAgent,
-    gateAllowed: boolean,
-  ): Result<void>;
-  // 묻지 않고 보이기만 판정한다. deny가 아니면 true(묻는 grant도 보인다).
-  visible(sender: CallFrom, target: CallAgent): boolean;
 }
 
 export interface CallStore {

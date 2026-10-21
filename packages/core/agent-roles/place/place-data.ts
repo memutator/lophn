@@ -1,5 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import { agentGrantsGet, agentKey } from "../../../protocol/approvals/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
   appToolIndex,
   appTools,
@@ -378,7 +377,7 @@ async function readPlaceData(
     }
   }
 
-  // 부를 수 있는 agent. grant가 막은 상대는 core가 이미 뺐다.
+  // 부를 수 있는 열린 session. 자기 session은 core가 뺐다.
   const sendable = await readOf(call, callSendable, {});
   if (!sendable.ok) return sendable;
   const labels = new Map<string, string | null>();
@@ -414,68 +413,57 @@ async function readPlaceData(
     agents.set(`${found.role}\0${found.name}\0${found.place}`, found);
   }
 
-  // session이 아직 없는 상대도 부를 수 있다(call이 새 session을 연다). 후보를 모아 gate와 같은 기준으로 거른다:
-  // 자기 grant에 excluded 줄이 있는 상대만 빠진다. grant를 못 읽으면 gate도 못 보이는 것으로 치므로 싣지 않는다.
-  const grant = await readOf(call, agentGrantsGet, { agent: agent.agent });
-  if (grant.ok) {
-    const excluded = new Set(
-      grant.value.grant.entries.flatMap((entry) =>
-        entry.kind === "agent" && entry.setting === "excluded"
-          ? [agentKey(entry.agent)]
-          : []
-      ),
-    );
-    const own = agentKey(agent.agent);
-    const add = async (
-      ref: AgentRef,
-      name: string,
-      at: { kind: "project" | "app"; id: string } | null,
-    ) => {
-      if (excluded.has(agentKey(ref)) || agentKey(ref) === own) return;
-      const found: PlaceAgent = {
-        role: ref.role,
-        name,
-        place: await labelOf(at),
-        line: ROLE_LINE[ref.role],
-      };
-      const key = `${found.role}\0${found.name}\0${found.place}`;
-      if (!agents.has(key)) agents.set(key, found);
+  // session이 아직 없는 상대도 부를 수 있다(call이 새 session을 연다). 자기 자신만 뺀다.
+  const own = canonicalize(agent.agent);
+  const add = async (
+    ref: AgentRef,
+    name: string,
+    at: { kind: "project" | "app"; id: string } | null,
+  ) => {
+    if (canonicalize(ref) === own) return;
+    const found: PlaceAgent = {
+      role: ref.role,
+      name,
+      place: await labelOf(at),
+      line: ROLE_LINE[ref.role],
     };
-    await add({ role: "lophn" }, "lophn", null);
-    const projectsRead = await pages(async (cursor) => {
-      const read = await readOf(call, projectApi.list, {
-        status: "active",
-        ...(cursor === undefined ? {} : { cursor }),
-      });
-      return read.ok
-        ? ok({
-          items: read.value.projects,
-          next_cursor: read.value.next_cursor,
-        })
-        : read;
+    const key = `${found.role}\0${found.name}\0${found.place}`;
+    if (!agents.has(key)) agents.set(key, found);
+  };
+  await add({ role: "lophn" }, "lophn", null);
+  const projectsRead = await pages(async (cursor) => {
+    const read = await readOf(call, projectApi.list, {
+      status: "active",
+      ...(cursor === undefined ? {} : { cursor }),
     });
-    for (const record of projectsRead.ok ? projectsRead.value : []) {
-      projects.set(record.id, record);
-      labels.set(`project:${record.id}`, `project ${record.name}`);
-      await add(
-        { role: "project_manager", project: record.id },
-        record.name,
-        { kind: "project", id: record.id },
-      );
-    }
-    const appsRead = await readActiveApps();
-    for (const record of appsRead.ok ? appsRead.value : []) {
-      await add(
-        { role: "app_engineer", app: record.id },
-        record.name,
-        { kind: "app", id: record.id },
-      );
-    }
-    const defined = await readOf(call, agentDefinitionList, {});
-    for (const row of defined.ok ? defined.value.agents : []) {
-      if (row.kind !== "operator" || row.issues.length > 0) continue;
-      await add(row.agent, row.name, row.place);
-    }
+    return read.ok
+      ? ok({
+        items: read.value.projects,
+        next_cursor: read.value.next_cursor,
+      })
+      : read;
+  });
+  for (const record of projectsRead.ok ? projectsRead.value : []) {
+    projects.set(record.id, record);
+    labels.set(`project:${record.id}`, `project ${record.name}`);
+    await add(
+      { role: "project_manager", project: record.id },
+      record.name,
+      { kind: "project", id: record.id },
+    );
+  }
+  const appsRead = await readActiveApps();
+  for (const record of appsRead.ok ? appsRead.value : []) {
+    await add(
+      { role: "app_engineer", app: record.id },
+      record.name,
+      { kind: "app", id: record.id },
+    );
+  }
+  const defined = await readOf(call, agentDefinitionList, {});
+  for (const row of defined.ok ? defined.value.agents : []) {
+    if (row.kind !== "operator" || row.issues.length > 0) continue;
+    await add(row.agent, row.name, row.place);
   }
 
   const scope = placeScope({

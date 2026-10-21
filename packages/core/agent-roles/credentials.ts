@@ -8,7 +8,6 @@ import {
 } from "../../protocol/lophn-agent/mod.ts";
 import { kindGet, projectApi } from "../../protocol/projects/mod.ts";
 import { domainGet, domainList } from "../../protocol/domains/mod.ts";
-import { agentGrantsGet } from "../../protocol/approvals/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
 import { appToolIndex, appTools } from "../../protocol/apps/blueprint/read.ts";
@@ -39,9 +38,8 @@ const PLACE_READS: readonly string[] = [
   appUsage.name,
   packagesList.name,
   callSendable.name,
-  // 아직 session이 없는 상대도 부를 수 있는 목록: 후보(Operator 정의)와 자기 grant의 excluded 줄.
+  // 아직 session이 없는 상대도 부를 수 있는 목록의 후보(Operator 정의).
   agentDefinitionList.name,
-  agentGrantsGet.name,
 ];
 
 const REWIND_WRITE_TOOLS: readonly string[] = ["file.write", "file.edit"];

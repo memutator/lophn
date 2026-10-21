@@ -26,7 +26,6 @@ import {
   sesId,
 } from "./model.ts";
 import type {
-  CallGate,
   CallStore,
   InputTransport,
   RoutedInput,
@@ -37,7 +36,6 @@ import type {
 export type RouterDeps = {
   directory: SessionDirectory;
   transport: InputTransport;
-  gate: CallGate;
   store: CallStore;
   // 새 coding session을 열거나 앱 줄에 세운다. 없으면 coding 맡기기는 unavailable이다.
   coding?: {
@@ -96,34 +94,14 @@ function failed(
 }
 
 export function createRouter(deps: RouterDeps): Router {
-  const { directory, transport, gate, store } = deps;
-
-  // 보낸 agent의 grant로 받는 agent를 판정한다. 거절이면 not_allowed, 판정하지 못하면 오류로 돌려준다.
-  // gateAllowed는 보낸 agent의 turn이 ToolGate에서 사람의 허락을 받았다는 표시다. 묻는 grant만 이 표시로 통과한다.
-  function authorize(
-    from: CallFrom,
-    agent: CallAgent,
-    gateAllowed: boolean,
-  ): Result<"allowed" | "not_allowed"> {
-    if (from.kind !== "agent") return ok("allowed");
-    const verdict = gate.authorize(from, agent, gateAllowed);
-    if (verdict.ok) return ok("allowed");
-    if (
-      verdict.error.code === "unavailable" || verdict.error.code === "internal"
-    ) return verdict;
-    return ok("not_allowed");
-  }
+  const { directory, transport, store } = deps;
 
   function open(
     tx: Tx,
     from: CallFrom,
     agent: CallAgent,
     to: CallTo,
-    gateAllowed: boolean,
   ): Result<Resolved> {
-    const allowed = authorize(from, agent, gateAllowed);
-    if (!allowed.ok) return allowed;
-    if (allowed.value === "not_allowed") return ok(failed("not_allowed", to));
     if (agent.role === "coding_agent") {
       return ok({ ok: true, to, target: null });
     }
@@ -134,25 +112,12 @@ export function createRouter(deps: RouterDeps): Router {
     return opened;
   }
 
-  function existing(
-    from: CallFrom,
-    to: CallTo,
-    target: TargetSession,
-    gateAllowed: boolean,
-  ): Result<Resolved> {
-    const allowed = authorize(from, target.agent, gateAllowed);
-    if (!allowed.ok) return allowed;
-    if (allowed.value === "not_allowed") return ok(failed("not_allowed", to));
-    return ok({ ok: true, to, target });
-  }
-
   // 받는 곳 해석 순서. 이름은 정확히 맞는 것만 푼다.
   function resolve(
     tx: Tx,
     from: CallFrom,
     input: RouteInput,
   ): Result<Resolved> {
-    const gateAllowed = input.gate_allowed === true;
     const addressing = addressingOf(input.to);
     let to: CallTo;
     switch (addressing.form) {
@@ -180,18 +145,18 @@ export function createRouter(deps: RouterDeps): Router {
       }
     }
     if (to.kind === "new_session") {
-      return open(tx, from, to.agent, to, gateAllowed);
+      return open(tx, from, to.agent, to);
     }
     const target = directory.find(sesId(to.session));
     if (to.kind === "open_session") {
       if (target === null) return ok(failed("not_found", to));
       if (!target.accepting) return ok(failed("closed", to));
-      return existing(from, to, target, gateAllowed);
+      return ok({ ok: true, to, target });
     }
     if (target !== null && target.accepting) {
-      return existing(from, to, target, gateAllowed);
+      return ok({ ok: true, to, target });
     }
-    return open(tx, from, to.agent, to, gateAllowed);
+    return open(tx, from, to.agent, to);
   }
 
   function inputOf(

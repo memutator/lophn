@@ -46,7 +46,7 @@ function placeOf(agent: CallAgent): Place | null {
 // waiting은 coding session만 낸다. lophn session은 reader가 못 봐서 구별하지 않는다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
 const STATES = ["running", "waiting", "idle", "unknown"] as const;
 
-// 부를 수 있는 열린 session 목록. grant가 deny인 상대는 뺀다. 목록은 prompt에 넣지 않고 tool이 읽는다.
+// 부를 수 있는 열린 session 목록. 목록은 prompt에 넣지 않고 tool이 읽는다.
 const sendableRead: ReadDefinition<typeof callSendable> = {
   route: callSendable,
   handle(snapshot, ctx) {
@@ -59,15 +59,13 @@ const sendableRead: ReadDefinition<typeof callSendable> = {
     }
     const environment = routerEnvironment();
     if (!environment.ok) return environment;
-    const { directory, gate, transport } = environment.value.deps(
+    const { directory, transport } = environment.value.deps(
       snapshot,
       () => "",
     );
-    const sender = { kind: "agent" as const, session: actor.id };
     const sessions = [];
     for (const target of directory.listOpen()) {
       if (target.session === actor.id || !target.accepting) continue;
-      if (!gate.visible(sender, target.agent)) continue;
       const described = environment.value.describe?.(snapshot, target);
       const state = STATES.find((one) => one === described?.state) ??
         "unknown";

@@ -69,7 +69,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **사용 관계의 쓰는 쪽은 부른 agent가 맡은 domain이다.** tool 자신의 domain과 같은 사용은 세지 않는다. 한 agent가 domain 여럿을 맡으면 domain마다 센다. 다른 domain이 쓰는 public tool을 지우는 release는 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 tool과 쓰는 domain 이름을 싣고(`removedPublicToolsOf`), 앱의 주인인 App Engineer가 쓰는 쪽에 알리거나 tool을 되살린다. 쓰는 쪽은 부를 때 `not_found`로 알게 된다. 막기는 쓰는 쪽을 깨우는 reaction과 짝이었고, reaction이 없으면 agent가 이유를 모르는 gate가 된다.
 - **domain의 일을 받는 쪽은 그 그릇의 PM(project)이나 App Engineer(app)다.** owner를 읽어 그릇의 agent를 정한다(`packages/core/main/daemon/wiring/router.ts`의 `ownerOfDomain`). 마지막으로 쓴 session이 없는 artifact annotation이 여기로 간다. owner가 보관됐거나 없으면 `not_found`다. 새 kind 위반은 agent를 열지 않고 사람에게 toast만 간다(`architecture/kinds.md`).
 - **package 주인은 domain이 아니라 앱이다(`owner_app`).** package는 앱 코드에서 publish되고 코드의 주인은 App Engineer다. 다른 그릇에서 난 package bug는 그 앱의 App Engineer에게 call한다.
-- **skill 층은 내장 < 전역 < domain이다.** domain 층 skill은 domain마다 따로 남고, agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`, `packages/core/lophn-agent/extensions/skills.ts`). domain skill이 같은 이름의 전역 skill을 이기고, domain끼리는 이름이 앞서는 domain이 이긴다. 맡지 않은 domain의 skill은 같은 이름의 전역 skill을 가리지 않는다.
+- **skill 층은 내장 < 전역 < domain이다.** domain 층 skill은 domain마다 따로 남고, agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`, `packages/core/lophn-agent/extensions/skills.ts`). domain skill이 같은 이름의 전역 skill을 이기고, domain끼리는 이름이 앞서는 domain이 이긴다. 맡지 않은 domain의 skill은 같은 이름의 전역 skill을 가리지 않는다. 내장 skill은 모두 끌 수 없어 같은 이름의 사람 skill에 덮이지 않는다(`mergeSkillLayers`).
 
 ## 왜 이 모양인가
 

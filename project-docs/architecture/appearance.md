@@ -59,7 +59,7 @@ html[data-theme="dark"] { dark 값 }
 
 ## 사용자 앱에 닿는 길
 
-앱은 `@lophn/ui/tokens.css`의 같은 변수를 쓰므로 main의 insertCSS가 앱 view에도 같은 변수를 덮는다. 앱 CSS가 token 변수만 쓰면 따라 바뀐다(지금 이를 시키는 지침은 없다). hex 색이나 글꼴 이름을 직접 쓴 앱은 바뀌지 않는다. 검사하지 않는다.
+앱은 `@lophn/ui/tokens.css`의 같은 변수를 쓰므로 main의 insertCSS가 앱 view에도 같은 변수를 덮는다. 앱 CSS가 token 변수만 쓰면 따라 바뀐다(앱 template의 `AGENTS.md`가 시킨다). hex 색이나 글꼴 이름을 직접 쓴 앱은 바뀌지 않는다. 검사하지 않는다.
 
 ## 하지 않는 것
 

@@ -30,7 +30,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 - 화살표 방향으로만 import한다. 거꾸로 가는 import가 문제다.
 - feature module끼리는 import하지 않는다. 마지막 예외(problems → apps)는 test runner와 함께 없어졌다. release의 data 검사는 apps 안의 release 준비가 하고(`packages/core/apps/releases/prepare/checks.ts`), 앱 log와 예외 stack 풀이도 apps 안에 있다(`packages/core/apps/runtime/observations/`). `domains`는 projects·apps를 import하지 않는다. 그릇 확인은 wiring이 꽂는 port다(`architecture/domain.md`).
 - lophn-agent는 feature module과 role 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. role 이름, place 종류, feature module의 route를 몰라야 하는 쪽이다.
-- agent-roles는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 guide, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
+- agent-roles는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 내장 skill, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
 
 ## 실행 때 import가 뜻하는 것
 
@@ -55,7 +55,7 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 
 **lophn-agent는 agent-roles와 feature module을 import하지 않는다. agent-roles와 feature module은 서로 import하지 않는다. feature module끼리도 import하지 않는다.**
 - 막는 것: harness가 꽂히는 쪽을 알게 되는 것(feature module이나 role을 더하고 뺄 때마다 harness를 고치게 된다). role 규칙과 feature module 구현이 엉키는 것. feature module 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
-- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 role 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps·domains의 lookups와 role 명령, Operator place 규칙을 `lophn-agent/register.ts`의 factory에 꽂는다.
+- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 role 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps·domains의 lookups와 Operator place 규칙을 `lophn-agent/register.ts`의 factory에 꽂는다.
 - 처음 규칙은 "feature module끼리 import 금지"였다. test runner(problems)가 앱을 띄우려 apps를 import해 한때 problems → apps 한 방향을 허락했고, test runner를 지워 처음 규칙으로 돌아왔다.
 - import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 
@@ -75,7 +75,7 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 | 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`packages/core/lophn-agent/tools/registry.ts`, `packages/core/lophn-agent/tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
 | 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
 | feature module tool | 각 feature module | `apps/agent-tools/`(app, 앱 진단 읽기 `runtime.ts`, package, release, preview, visual), `domains/agent-tools.ts`(domain.list·get·create) |
-| lophn role 층 | `agent-roles` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(guide, settings, instructions, operator, kind), credential의 role 몫(`credentials.ts`), role prompt·guide(`roles/`), place 정보(`place/`), role 명령, file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), role 표(`agents/role-table.ts`: built-in 이름·기본 profile·정의 file 자리), Operator 조회, place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
+| lophn role 층 | `agent-roles` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(settings, instructions, operator, kind), credential의 role 몫(`credentials.ts`), 제품 고정 규칙과 role prompt(`roles/`), place 정보(`place/`), file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), role 표(`agents/role-table.ts`: built-in 이름·기본 profile·정의 file 자리), Operator 조회, place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
 
 - harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·feature module·role 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, role 목록·prompt·place 재료·credential 상한도 조립이 role 층에서 꽂는다.
 - tool 정의 file은 agent runtime child에서 실린다(위 "실행 때 import가 뜻하는 것"). 그래서 protocol(route, schema), base, `lophn-agent/tools/spi.ts`만 import하고 handler는 `ctx.core`로 core route를 부른다. feature module의 store·DB 코드를 끌어오면 agent runtime에 sqlite가 딸려 간다.

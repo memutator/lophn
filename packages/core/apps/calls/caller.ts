@@ -48,14 +48,19 @@ export function verifyCaller(
   }
   if (caller.kind === "person") return ok({ kind: "person" });
 
-  if (input.target.mode !== "live" || input.target.release !== null) {
-    return err({
-      code: "invalid_input",
-      message: "agent and app calls target the live active release",
-    });
-  }
-
   if (caller.kind === "agent") {
+    const target = input.target;
+    // preview는 그 앱의 App Engineer만 부른다(아래 판정).
+    if (
+      target.mode !== "preview" &&
+      (target.mode !== "live" || target.release !== null)
+    ) {
+      return err({
+        code: "invalid_input",
+        message:
+          "agent calls target the live active release or its own preview",
+      });
+    }
     const found = checks.callers.agentToolCall(
       caller.session as Id<"ses">,
       caller.turn as Id<"trn">,
@@ -63,6 +68,13 @@ export function verifyCaller(
     );
     if (!found.ok) return found;
     if (found.value === null) return forbidden("unknown tool call");
+    const { agent } = found.value;
+    if (
+      target.mode === "preview" &&
+      !(agent.role === "app_engineer" && agent.app === target.app)
+    ) {
+      return forbidden("only the App Engineer of the app calls its preview");
+    }
     return ok({
       kind: "agent",
       agent: found.value.agent,
@@ -73,6 +85,12 @@ export function verifyCaller(
     });
   }
 
+  if (input.target.mode !== "live" || input.target.release !== null) {
+    return err({
+      code: "invalid_input",
+      message: "app calls target the live active release",
+    });
+  }
   const app = caller.app as Id<"app">;
   if (auth.app !== app) return forbidden("app does not match the credential");
   const active = checks.activeRelease(app);

@@ -49,8 +49,8 @@ export type PreviewBundle = {
   tools: readonly ToolDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
-  // bundle 파일 중 그 hash의 byte. fixture는 bundle 안의 파일이다.
-  fixture(hash: string): Promise<Uint8Array | undefined>;
+  // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
+  fixture(path: string): Promise<Uint8Array | undefined>;
   // 운영 앱과 같은 flag 계산에 disposable 영역을 data로 준 결과다.
   flags(dataPath: string): Result<FlagSet>;
 };
@@ -124,7 +124,8 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 사람과 coding agent만 preview를 연다. 앱 자식·agent·machine은 열지 못한다.
+// 사람, coding agent, agent가 preview를 연다. agent의 앱 범위는 credential의 operation과 앱 조건(authorize)이
+// 정한다. 앱 자식과 machine은 열지 못한다.
 function actorKind(actor: string): string {
   return actor.split(":", 1)[0];
 }
@@ -172,7 +173,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
     app: string,
   ): Promise<Result<void>> {
     const kind = actorKind(ctx.actor);
-    if (kind !== "user" && kind !== "coding_agent") {
+    if (kind !== "user" && kind !== "coding_agent" && kind !== "agent") {
       return err({
         code: "forbidden",
         message: "this credential cannot use previews",
@@ -222,8 +223,8 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       const bundle = opened.value;
       if (bundle === undefined) return notFound();
       let fixture: Uint8Array | null = null;
-      if (input.fixture_hash !== null) {
-        const found = await bundle.fixture(input.fixture_hash);
+      if (input.fixture !== null) {
+        const found = await bundle.fixture(input.fixture);
         if (found === undefined) {
           return err({
             code: "invalid_input",

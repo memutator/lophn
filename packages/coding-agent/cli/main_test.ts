@@ -69,7 +69,7 @@ Deno.test("app preview start는 route 입력의 input 칸을 지우지 않고 �
     app: "app_00000000000000000000000000",
     bundle_hash: "a".repeat(64),
     release: null,
-    fixture_hash: null,
+    fixture: null,
   };
   let sent: unknown;
   await cliMain(

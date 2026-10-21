@@ -7,6 +7,7 @@ import {
   releaseIdSchema,
   sha256Schema,
 } from "./channel-values.ts";
+import { relativePathSchema } from "../projects/values.ts";
 import { runtimeReasonSchema } from "./runtime.ts";
 
 // preview는 별도 entity·ID·운영 상태·ledger 항목이 아니다.
@@ -15,7 +16,8 @@ const previewInputSchema = z.strictObject({
   app: appIdSchema,
   bundle_hash: sha256Schema,
   release: releaseIdSchema.nullable(),
-  fixture_hash: sha256Schema.nullable(),
+  // 봉인된 bundle 안의 상대 경로(manifest의 files[].path)다.
+  fixture: relativePathSchema.nullable(),
 });
 
 // preview 프로세스의 현재 관측. RuntimeObservation의 mode=preview 값이다.

@@ -18,6 +18,7 @@ import type {
 import type { AgentAssignment } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
 import { decodeChangeset, settleResponse } from "./record.ts";
@@ -54,6 +55,8 @@ function setup() {
     assignment: null as AgentAssignment["entries"] | null,
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
+    // agentToolCall이 돌려주는 agent. null이면 tool call을 모른다.
+    agent: { role: "lophn" } as AgentRef | null,
   };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
@@ -88,7 +91,11 @@ function setup() {
   const deps: AppCallsDeps = {
     callers: {
       agentToolCall: (_s, _t, tool) =>
-        ok(tool === TCL ? { agent: { role: "lophn" }, place: null } : null),
+        ok(
+          tool === TCL && state.agent !== null
+            ? { agent: state.agent, place: null }
+            : null,
+        ),
     },
     lookup: {
       find: (_app, _release, tool) =>
@@ -493,6 +500,47 @@ Deno.test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger�
   );
   assertEquals(t.sent.length, 1);
   assertEquals(t.records.size, 0);
+});
+
+Deno.test("그 앱의 App Engineer만 그 앱의 preview tool을 부르고, 다른 앱의 App Engineer와 다른 role은 앱 process에 닿지 못한다", async () => {
+  const a = newApp();
+  const b = newApp();
+  const project = ids.newId("prj");
+  const rows: [string, AgentRef | null, string][] = [
+    ["App Engineer of A", { role: "app_engineer", app: a }, "succeeded"],
+    ["App Engineer of B", { role: "app_engineer", app: b }, "forbidden"],
+    ["lophn", { role: "lophn" }, "forbidden"],
+    [
+      "Project Manager",
+      { role: "project_manager", project } as AgentRef,
+      "forbidden",
+    ],
+    [
+      "Operator",
+      { role: "operator", agent: ids.newId("agt") } as unknown as AgentRef,
+      "forbidden",
+    ],
+    ["unknown tool call", null, "forbidden"],
+  ];
+  for (const [label, agent, expected] of rows) {
+    const t = setup();
+    t.state.agent = agent;
+    t.state.preview.effects["w.new"] = "write";
+    const done = await t.path.call({
+      target: { mode: "preview", app: a, process_nonce: "pv-nonce-1" },
+      tool: "w.new",
+      caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+    }, { actor: "agent" });
+    if (expected === "succeeded") {
+      assert(done.ok && done.value.invocation === null, label);
+      assertEquals(status(done), "succeeded", label);
+      assertEquals(t.sent.length, 1, label);
+    } else {
+      assert(!done.ok && done.error.code === expected, label);
+      assertEquals(t.sent.length, 0, label);
+    }
+    assertEquals(t.records.size, 0, label);
+  }
 });
 
 Deno.test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 덮지 않으면 handler에 가지 않고 막힌다", async () => {

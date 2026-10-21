@@ -28,7 +28,7 @@ export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 // 규칙(core가 판정한다).
 // - caller.kind는 route의 actor와 맞아야 한다(user는 person, agent는 agent, app은 app).
 //   맞지 않으면 forbidden이다.
-// - agent와 app은 target.mode가 live이고 release가 null이다.
+// - app은 live이고 release가 null이다. agent는 live(release null)이거나, 그 앱의 App Engineer면 그 앱의 preview다.
 const toolCallInputSchema = z.strictObject({
   target: appToolTargetSchema,
   tool: toolNameSchema,

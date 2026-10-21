@@ -231,7 +231,7 @@ export function desiredFromBundle(
 }
 
 // preview가 여는 bundle이다. 같은 사본 읽기와 flag 계산에 disposable 영역을 data로 준다. grant가 없는
-// preview는 요구 permission이 없다. fixture는 manifest 파일 중 그 hash의 byte다.
+// preview는 요구 permission이 없다. fixture는 manifest 파일 중 그 경로의 byte다.
 export function createCopyPreviewBundles(options: {
   dataRoot: string;
   platformPorts: () => readonly number[];
@@ -254,14 +254,14 @@ export function createCopyPreviewBundles(options: {
         tools: parts.tools,
         screens: parts.screens,
         dataSchema: parts.dataSchema,
-        async fixture(hash) {
+        async fixture(path) {
           const file = parts.manifest.files.find((entry) =>
-            entry.hash === hash
+            entry.path === path
           );
           if (file === undefined) return undefined;
           try {
             const bytes = await Deno.readFile(`${parts.root}/${file.path}`);
-            return await sha256Hex(bytes) === hash ? bytes : undefined;
+            return await sha256Hex(bytes) === file.hash ? bytes : undefined;
           } catch {
             return undefined;
           }

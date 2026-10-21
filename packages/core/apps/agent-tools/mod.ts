@@ -1,6 +1,7 @@
 import type { ToolDefinition } from "../../lophn-agent/tools/spi.ts";
 import { APP_TOOLS } from "./app.ts";
 import { PACKAGE_TOOLS } from "./package.ts";
+import { PREVIEW_TOOLS } from "./preview.ts";
 import { RELEASE_TOOLS } from "./release.ts";
 import { RUNTIME_TOOLS } from "./runtime.ts";
 import { TICKET_TOOLS } from "./ticket.ts";
@@ -13,5 +14,6 @@ export const APPS_AGENT_TOOLS: readonly ToolDefinition[] = [
   ...RUNTIME_TOOLS,
   ...PACKAGE_TOOLS,
   ...RELEASE_TOOLS,
+  ...PREVIEW_TOOLS,
   ...VISUAL_TOOLS,
 ];

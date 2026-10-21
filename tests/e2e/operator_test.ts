@@ -1,23 +1,19 @@
-// 세 질문(행을 더하는 task는 자기 행의 질문을 아래에 한 줄씩 더한다)
-// - contract: boundary `agent-tools`·`app-runtime`(앱 ∩ release 선언 ∩ agent grant만 tool이 되고 호출은 core를 지나 기록된다), `approvals`(사람이 뺀 것은 요청에 없고 묻기로 한 것은 결정 전에 실행되지 않는다).
-// - 현실적 회귀: grant를 풀 때 `excluded`가 무시되어 뺀 tool이 요청에 남는 것, 할당하지 않은 앱이나 선언에 없는 tool이 agent의 tool 목록에 오르는 것, "물음"인데 허락 전에 write가 실행되는 것, 사람이 답하는 동안 앱의 write 줄이 막히는 것.
-// - 왜 지금 test로 못 잡나: `app-tools`의 unit은 grant와 선언의 조합 함수만 본다. 사람의 `agent_grants/set`이 저장되고, agent runtime child가 읽고, model 요청에 실리고, 호출이 core를 지나 앱 process에서 실행되는 왕복은 process를 건너야 보인다.
-// operator-grants 행(grant-added·no-grant·pm-creates-no-grant)의 세 질문:
-// - contract: boundary `run-loop`·`agent-tools`(tool 목록은 session을 시작할 때 고정하고 바뀐 것은 program이 쓴 고정 알림으로만 간다), `agents`·`approvals`(Operator 정의를 만드는 길은 grant를 주지 못하고 grant는 사람의 `agent_grants/set`뿐이다).
-// - 현실적 회귀: session 도중 grant가 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, notice에 앱이 쓴 글(tool 설명)이 들어가 같은 재료가 같은 bytes가 아니게 되는 것, grant 없는 Operator에 앱 tool이 보이는 것, `operator.create`에 grant 칸이 생겨 agent가 자기 권한을 넓히는 것.
-// - 왜 지금 test로 못 잡나: `turn-prompt`와 `tool-lists`의 unit은 입력으로 받은 목록만 본다. 사람이 grant를 session 도중 바꾸는 일, agent runtime child가 session마다 고정한 목록을 지키는 일, `operator.create`의 입력 schema가 model 요청에 실리는 모양은 process를 건너야 보인다.
-//
-//
-// domain-narrowed 행의 세 질문:
-// - contract: boundary `domains`·`agents`·`agent-tools`(Operator를 domain 하나로 좁히면 prompt의 `DOMAIN.md`와 tool 목록이 그 domain 것과 다른 domain의 public tool뿐이다).
-// - 현실적 회귀: child의 `callerDomains`(`product-driver.ts`)가 `resolve.ts`의 `workingDomains`와 갈라져 좁힌 domain이 tool 목록에 닿지 않는 것, 맡지 않은 domain의 `DOMAIN.md`나 비공개 tool이 실리는 것.
-// - 왜 지금 test로 못 잡나: `app-public_test.ts`, instructions의 `turn_test.ts`, resolve의 unit은 domain 집합을 입력으로 받는다. 정의 file → child가 machine 자격으로 읽는 정의 → model 요청은 process를 건너야 보인다.
+// 네 질문(행을 더하는 task는 자기 행의 질문을 아래에 한 줄씩 더한다)
+// - contract: boundary `approvals`·`agent-tools`(앱 ∩ release 선언 ∩ 할당만 tool이 되고, 뺀 tool은 요청에 없고 불러도 core에 닿지 않는다),
+//   `run-loop`(tool 목록은 session을 시작할 때 고정하고 바뀐 것은 program이 쓴 고정 notice로만 간다),
+//   `domains`(domain 하나로 좁힌 Operator는 맡은 domain의 `DOMAIN.md`·tool과 다른 domain의 public tool만 본다),
+//   `agents`(Operator를 만드는 tool은 할당을 주지 못하고 묻지 않는다).
+// - 현실적 회귀: `removed_tools`가 무시되어 뺀 tool이 요청에 남는 것, 할당 없는 Operator에 앱 tool이 보이는 것,
+//   session 도중 할당이 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, notice에 tool 설명(앱 글)이 들어가는 것,
+//   child의 domain 거르기가 `resolve.ts`와 갈라지는 것, `operator.create`가 다시 묻거나 입력에 할당·`mcp_servers`·`skip` 칸이 생기는 것.
+// - 왜 지금 test로 못 잡나: `app-tools`·`judge`·`turn-prompt`·`tool-lists`의 unit은 입력으로 받은 할당과 목록만 본다.
+//   사람의 `SetAgentAssignment` 저장 → agent runtime child의 읽기 → model 요청의 `tools[]` → 호출이 core를 지나 앱 process에서 실행되는 왕복은 process를 건너야 보인다.
+// - fake 대답: 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다. 행마다 둘 이하다.
 //
 // 준비: core 하나, 앱 하나를 모든 행이 나눠 쓰고 행마다 새 Operator와 새 session을 쓴다. 앱은 domain이 둘이다(앱 slug와
 // 둘째 domain `notes-shelf`). 앱 tool은 비공개라 그 domain을 맡은 agent만 보고, 둘째 domain의 공개 tool 하나는 누구나 본다.
-// Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-no-grant만 project를
-// 따로 열어 Project Manager를 쓴다. 앱 activation의 fake 대답
-// (coding agent 길)은 activation helper가 거는 것이라 행의 fake 대답 상한에 세지 않는다(README 정한 것 11).
+// Operator를 앱 place에 두면(정의에 domains가 없으니) 앱의 domain을 모두 맡는다. pm-creates-operator만 project를
+// 따로 열어 Project Manager를 쓴다.
 import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
@@ -31,36 +27,31 @@ import {
 } from "../../packages/protocol/domains/mod.ts";
 import { appTools } from "../../packages/protocol/apps/blueprint/read.ts";
 import {
-  agentGrantsGet,
-  agentGrantsSet,
-  approvalsDecideTurn,
+  agentAssignmentGet,
+  agentAssignmentSet,
+  type AssignmentEntry,
 } from "../../packages/protocol/approvals/mod.ts";
-import type { AgentGrantEntry } from "../../packages/protocol/approvals/mod.ts";
 import {
   agentDefinitionList,
   operatorCreate,
   type Place,
-  toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   approveActivation,
   deliverRelease,
   startTestApp,
-  type TestApp,
   waitRunning,
 } from "../support/app/activate.ts";
 import { domainPatch } from "../support/app/patch-domain.ts";
 import { runtimePids } from "../support/core/process.ts";
-import { appCoreEnv } from "../support/coding/deps.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
-  decide,
   openProject,
   openSession,
   say,
   settle,
-  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import {
@@ -75,12 +66,12 @@ import {
   toolNames,
 } from "../support/fake-server/probe.ts";
 
-// 행 하나의 준비. 단계 한 개로 센다. entries가 null이면 grant를 한 번도 set하지 않은 Operator다.
+// 행 하나의 준비. 단계 한 개로 센다. entries가 null이면 할당을 한 번도 set하지 않은 Operator다.
 async function operatorWith(
   core: Core,
   place: Place,
   name: string,
-  entries: AgentGrantEntry[] | null,
+  entries: AssignmentEntry[] | null,
   domains?: string[],
 ): Promise<{ session: string; ref: { role: "operator"; agent: string } }> {
   const agent = core.ids.newId("agt");
@@ -95,7 +86,10 @@ async function operatorWith(
   });
   const ref = { role: "operator", agent } as const;
   if (entries !== null) {
-    await core.call(agentGrantsSet, { agent: ref, entries });
+    // 새 Operator의 revision은 0이다.
+    await core.call(agentAssignmentSet, { agent: ref, entries }, {
+      revision: 0,
+    });
   }
   return { session: await openSession(core, ref), ref };
 }
@@ -138,11 +132,10 @@ async function sessionWrites(core: Core, app: string, session: string) {
   return (await core.call(appInvocations, { app, session })).invocations;
 }
 
-Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르고, 사람이 뺀 것은 요청에 없으며, 묻기로 한 write는 사람의 결정 전에 실행되지 않는다", async () => {
+Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할당에서 뺀 tool은 요청에 없고 불러도 실행되지 않으며, session 도중 할당이 바뀌면 목록은 그대로이고 notice만 온다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
-  let app: TestApp | undefined;
   try {
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
@@ -152,7 +145,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     const { project } = await openProject(core, folder);
     // 앱 tool의 domain은 그 앱의 active domain 이름이어야 하므로 둘째 domain은 release 준비 전에 만든다.
     const second = "notes-shelf";
-    app = await startTestApp(core, fake, {
+    const app = await startTestApp(core, fake, {
       name: "Notes",
       slug: "notes",
       patch: domainPatch(second),
@@ -174,21 +167,15 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     await approveActivation(core, app);
     await waitRunning(core, app, release);
     const appPlace = { kind: "app", id } as const;
-    const ask: AgentGrantEntry[] = [{
-      kind: "app",
-      app: id,
-      tools: [{ tool: "add_item", setting: "ask" }],
-    }];
+    const assignAll: AssignmentEntry[] = [{ app: id, removed_tools: [] }];
 
-    // tool: 앱을 할당하면 선언된 tool 둘이 agent의 tool 목록에 오르고, 부르면 core를 지나 앱이 실행하고 기록이 남는다.
+    // assigned: 앱을 할당하면 선언된 tool이 tool 목록에 오르고, 부르면 core를 지나 앱이 실행하고 기록이 남는다.
     fake.reset();
     fake.script([
       { reply: callAddItem("op-first") },
       text,
     ]);
-    const first = await operatorWith(core, appPlace, "Assigned", [
-      { kind: "app", app: id, tools: [] },
-    ]);
+    const first = await operatorWith(core, appPlace, "Assigned", assignAll);
     await say(core, first.session, "add op-first");
     await waitTurnEnd(core, first.session);
     // fake
@@ -198,7 +185,6 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     );
     // ledger
     const written = await sessionWrites(core, id, first.session);
-
     assertEquals(written.length, 1);
     assertEquals(written[0].effect, "write");
     assertEquals(written[0].status, "succeeded");
@@ -207,21 +193,20 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     // app state
     assert((await itemsOf(core, id)).includes("op-first"));
 
-    // excluded: 사람이 뺀 tool은 요청에 없고, model이 그래도 부르면 core에 닿지 않는다.
+    // removed: 할당에서 뺀 tool은 요청에 없고, model이 그래도 부르면 실행되지 않는다.
     fake.reset();
     fake.script([
       {
-        reply: addItem(`domain__${app.slug}__add_item`)("op-excluded"),
+        reply: addItem(`domain__${slug}__add_item`)("op-removed"),
       },
       text,
     ]);
-    const excluded = await operatorWith(core, appPlace, "Excluded", [{
-      kind: "app",
+    const removed = await operatorWith(core, appPlace, "Removed", [{
       app: id,
-      tools: [{ tool: "add_item", setting: "excluded" }],
+      removed_tools: ["add_item"],
     }]);
-    await say(core, excluded.session, "add op-excluded");
-    await waitTurnEnd(core, excluded.session);
+    await say(core, removed.session, "add op-removed");
+    await waitTurnEnd(core, removed.session);
     // fake
     assertEquals(
       appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
@@ -229,68 +214,9 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     );
     assert(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
     // ledger
-    assertEquals(await sessionWrites(core, id, excluded.session), []);
-    const excludedCalls =
-      (await core.call(toolCallList, { session: excluded.session }))
-        .tool_calls;
-    // 목록에 없는 tool은 core의 tool call 기록까지 가지 못한다. 성공으로 남은 call이 없으면 된다.
-    assert(excludedCalls.every((call) => call.outcome?.kind !== "success"));
+    assertEquals(await sessionWrites(core, id, removed.session), []);
     // app state
-    assert(!(await itemsOf(core, id)).includes("op-excluded"));
-
-    // ask-reject: 묻기로 한 write는 사람이 거절하면 실행되지 않고, 막힌 호출도 기록에 남는다.
-    fake.reset();
-    fake.script([{ reply: callAddItem("op-held") }, text]);
-    const held = await operatorWith(core, appPlace, "AskReject", ask);
-    await say(core, held.session, "add op-held");
-    const heldAsk = await waitPermission(core, held.session);
-    await decide(core, held.session, heldAsk.request, "reject");
-    await waitTurnEnd(core, held.session);
-    // ledger
-    const denied = await sessionWrites(core, id, held.session);
-    assertEquals(denied.length, 1);
-    assertEquals(denied[0].status, "denied");
-    assertEquals(denied[0].changeset, null);
-    // app state
-    assert(!(await itemsOf(core, id)).includes("op-held"));
-    // fake
-    assert(!lastToolResult(fake.journal()[1], "t1")?.includes("op-held"));
-
-    // ask-allow: 사람이 답하는 동안 앱의 write는 막히지 않고, 허락하면 agent의 write가 실행된다.
-    fake.reset();
-    fake.script([{ reply: callAddItem("op-allowed") }, text]);
-    const waiting = await operatorWith(core, appPlace, "AskAllow", ask);
-    await say(core, waiting.session, "add op-allowed");
-    const waitingAsk = await waitPermission(core, waiting.session);
-    // app state: 허락 대기 중의 사람 write
-    const user = await core.call(appCallTool, {
-      target: { mode: "live", app: id, release: null },
-      tool: "add_item",
-      input: { title: "op-user" },
-      caller: { kind: "person", view_session: "e2e" },
-    });
-    assertEquals(user.outcome.status, "succeeded");
-    assertEquals(await sessionWrites(core, id, waiting.session), []);
-    // tool 물음의 선택지는 allow가 아니라 once·session·always·reject다.
-    await core.call(approvalsDecideTurn, {
-      session: waiting.session,
-      request: waitingAsk.request,
-      choice: { kind: "once" },
-    });
-    await waitTurnEnd(core, waiting.session);
-    const items = await itemsOf(core, id);
-    assert(items.includes("op-user") && items.includes("op-allowed"));
-    // ledger
-    const allowed = await sessionWrites(core, id, waiting.session);
-    assertEquals(allowed.length, 1);
-    assertEquals(allowed[0].status, "succeeded");
-    assert(allowed[0].changeset !== null);
-    assertEquals(
-      allowed[0].caller?.kind === "agent" && allowed[0].caller.session,
-      waiting.session,
-    );
-    // fake
-    assert(lastToolResult(fake.journal()[1], "t1")?.includes("op-allowed"));
+    assert(!(await itemsOf(core, id)).includes("op-removed"));
 
     // domain-narrowed: domain 하나로 좁힌 Operator의 요청에는 그 domain의 `DOMAIN.md`와 tool, 다른 domain의 public tool만 있다.
     const { domains } = await core.call(domainList, {
@@ -316,9 +242,13 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     }
     fake.reset();
     fake.script([text]);
-    const narrowed = await operatorWith(core, appPlace, "Narrowed", [
-      { kind: "app", app: id, tools: [] },
-    ], [mine.id]);
+    const narrowed = await operatorWith(
+      core,
+      appPlace,
+      "Narrowed",
+      assignAll,
+      [mine.id],
+    );
     await say(core, narrowed.session, "hello");
     await waitTurnEnd(core, narrowed.session);
     // fake
@@ -330,26 +260,31 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
       ["add_item", "list_items", "shelf_count"],
     );
 
-    // no-grant: grant 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
+    // no-assignment: 할당 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
     fake.reset();
     fake.script([text]);
-    const bare = await operatorWith(core, appPlace, "NoGrant", null);
+    const bare = await operatorWith(core, appPlace, "NoAssignment", null);
     await say(core, bare.session, "hello");
     await waitTurnEnd(core, bare.session);
     // fake
     assertEquals(appToolsOf(fake), []);
-    // ledger: grant 행이 없는 것도 빈 grant로 읽힌다.
-    const bareGrant = await core.call(agentGrantsGet, { agent: bare.ref });
-    assertEquals(bareGrant.grant.entries, []);
+    // ledger: 할당 줄이 없는 것도 빈 할당(revision 0)으로 읽힌다.
+    const bareRead = await core.call(agentAssignmentGet, { agent: bare.ref });
+    assertEquals(bareRead.assignment.entries, []);
+    assertEquals(bareRead.revision, 0);
 
-    // grant-added: session 도중 grant를 더해도 tool 목록은 그대로이고, 알림은 program이 쓴 문장으로 tool 이름만 말한다.
+    // assignment-added: session 도중 할당을 더해도 tool 목록은 그대로이고, notice는 program이 쓴 문장으로 tool 이름만 말한다.
     fake.reset();
     fake.script([text, text]);
-    const added = await operatorWith(core, appPlace, "GrantAdded", []);
+    const added = await operatorWith(core, appPlace, "AssignmentAdded", null);
     await say(core, added.session, "first");
     await waitTurnEnd(core, added.session, 0);
-    const entries: AgentGrantEntry[] = [{ kind: "app", app: id, tools: [] }];
-    await core.call(agentGrantsSet, { agent: added.ref, entries });
+    await core.call(agentAssignmentSet, {
+      agent: added.ref,
+      entries: assignAll,
+    }, {
+      revision: 0,
+    });
     await say(core, added.session, "second");
     await waitTurnEnd(core, added.session, 1);
     // fake
@@ -360,20 +295,19 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
     );
     const notice = lastUserText(after);
     assert(notice.includes("tools_changed"));
-    assert(notice.includes(`domain__${app.slug}__list_items`));
-    assert(notice.includes(`domain__${app.slug}__add_item`));
+    assert(notice.includes(`domain__${slug}__list_items`));
+    assert(notice.includes(`domain__${slug}__add_item`));
     const blueprint = await core.call(appTools, { app: id });
     for (const api of blueprint.tools) {
       assert(!notice.includes(api.description));
     }
     // ledger
-    assertEquals(
-      (await core.call(agentGrantsGet, { agent: added.ref })).grant.entries,
-      entries,
-    );
+    const addedRead = await core.call(agentAssignmentGet, { agent: added.ref });
+    assertEquals(addedRead.assignment.entries, assignAll);
+    assertEquals(addedRead.revision, 1);
     assertEquals(await sessionWrites(core, id, added.session), []);
 
-    // pm-creates-no-grant: PM이 Operator를 만들어도 grant는 비어 있고, 만드는 것은 사람의 결정 뒤다.
+    // pm-creates-operator: PM이 Operator를 만들어도 묻지 않고 할당은 비어 있다.
     fake.reset();
     fake.script([
       {
@@ -398,33 +332,27 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 agent의 tool 목록에 오르
       project,
     });
     await say(core, manager, "make an operator");
-    const makeAsk = await waitPermission(core, manager);
-    // ledger: 허락 전
-    const listBefore = await core.call(agentDefinitionList, { place });
-    assert(!listBefore.agents.some((row) => row.name === "pm-made"));
-    await decide(core, manager, makeAsk.request, "allow");
+    // 물었다면 turn이 기다려 끝나지 않는다.
     await waitTurnEnd(core, manager);
-    // ledger: 허락 뒤
-    const listAfter = await core.call(agentDefinitionList, { place });
-    const made = listAfter.agents.find((row) => row.name === "pm-made");
+    // ledger
+    const list = await core.call(agentDefinitionList, { place });
+    const made = list.agents.find((row) => row.name === "pm-made");
     assert(made !== undefined);
-    assertEquals(
-      (await core.call(agentGrantsGet, { agent: made.agent })).grant.entries,
-      [],
-    );
-    // fake: operator_create 입력에 grant 칸이 없다.
+    const madeRead = await core.call(agentAssignmentGet, { agent: made.agent });
+    assertEquals(madeRead.assignment.entries, []);
+    assertEquals(madeRead.revision, 0);
+    // fake: operator_create 입력에 할당·mcp_servers·skip 칸이 없다.
     const createTool = (fake.journal()[0].body as {
       tools: { name: string; input_schema: { properties: object } }[];
     }).tools.find((tool) => tool.name === "operator_create");
     assert(createTool !== undefined);
+    const keys = Object.keys(createTool.input_schema.properties);
+    assert(!keys.includes("mcp_servers") && !keys.includes("skip"));
     assertEquals(
-      Object.keys(createTool.input_schema.properties).filter((key) =>
-        key.includes("grant")
-      ),
+      keys.filter((key) => key.includes("assign") || key.includes("grant")),
       [],
     );
   } finally {
-    await app?.gateway.close();
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

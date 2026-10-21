@@ -1,6 +1,7 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  PRODUCT_SHELL_RULES,
+  DEFAULT_SHELL_RULES_SETTING,
+  SHELL_RULES_SETTING_KEY,
   toolGateCheck,
   toolGateInputSchema,
   turnRequestDecide,
@@ -25,6 +26,11 @@ import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
+import {
+  shellRuleLayers,
+  shellRulesSetting,
+  withAlwaysRules,
+} from "../../../approvals/shell-rules/mod.ts";
 import type { Bus } from "../../../events/ports.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
@@ -114,16 +120,35 @@ export const approvalsWiring: WiringFactory = () => {
           connection.value.close();
         }
       };
+      const shellRulesNow = () =>
+        ctx.peek.settings?.get(shellRulesSetting) ??
+          DEFAULT_SHELL_RULES_SETTING;
       const service = createApprovals({
         assignmentOf,
-        // Settings 층은 ap-shell-gate가 더한다.
-        shellRules: () => ({
-          floor: PRODUCT_SHELL_RULES.floor,
-          layers: [PRODUCT_SHELL_RULES.ask],
-        }),
+        // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
+        shellRules: (place) => shellRuleLayers(shellRulesNow(), place),
         bus,
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+      });
+      // `always`는 사람의 결정에서만 온다(decide는 사람 자격만 받는다). 규칙은 place로 고른 층에 더한다.
+      service.remember("shell", (request, place) => {
+        const next = withAlwaysRules(
+          shellRulesNow(),
+          place,
+          request.always_patterns,
+        );
+        const written = ctx.settingsUpdate([
+          { key: SHELL_RULES_SETTING_KEY, action: "set", value: next },
+        ]);
+        return Promise.resolve(
+          !written.ok || written.value.rejected.length > 0
+            ? err({
+              code: "internal",
+              message: "the shell rule could not be saved",
+            })
+            : ok(undefined),
+        );
       });
       ctx.provide("approvals", service);
 

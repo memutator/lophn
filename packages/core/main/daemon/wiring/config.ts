@@ -53,6 +53,8 @@ export const configWiring: WiringFactory = () => {
         log: (message) => console.error(message),
       });
       ctx.provide("settings", createSettingsReader(store));
+      const settingsStore = store;
+      ctx.provide("settingsUpdate", (changes) => settingsStore.update(changes));
       return ok({
         memory: [
           [key(settingsList), settingsListHandler(store)],

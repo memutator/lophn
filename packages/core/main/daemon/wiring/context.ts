@@ -46,6 +46,7 @@ import type {
   PreparedRelayResult,
 } from "../../../storage/blobs/prepare-relay.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
+import type { SettingsStore } from "../../../config/mod.ts";
 import type { StatusSource } from "../../../diagnostics/mod.ts";
 import type { ComponentCheck } from "../../../diagnostics/ports.ts";
 import type { Bus, GatewayFrames, Reactor } from "../../../events/mod.ts";
@@ -209,6 +210,8 @@ type Late = {
   // config가 낸다. 선언 목록은 assembly.ts가 각 단위의 선언을 모아 넣는다.
   settings: SettingsReader;
   settingDeclarations: readonly SettingDeclaration[];
+  // config가 낸다. 사람의 결정이 Settings 값을 고칠 때만 쓴다.
+  settingsUpdate: SettingsStore["update"];
   // secrets가 낸다.
   secretStore: SecretStorePort;
   secretAttach: SecretAttachPort;
@@ -271,6 +274,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   shutdown: true,
   settings: true,
   settingDeclarations: true,
+  settingsUpdate: true,
   secretStore: true,
   secretAttach: true,
   bus: true,

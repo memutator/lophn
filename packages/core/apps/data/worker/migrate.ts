@@ -31,13 +31,14 @@ type MigrateInput = {
   result: Pick<ActivationDataResult, "release" | "attempt" | "invocation">;
 };
 
-type MigrateOutcome = {
-  result: ActivationDataResult;
-  // 중간 실패로 첫 변경 전 backup을 복원했으면 true.
-  restored: boolean;
-  // 복원했으면 실패한 단계(`<from>-<to>`)와 그 글.
-  failed?: { step: string; message: string };
-};
+// 중간 실패로 첫 변경 전 backup을 복원했으면 restored: true이고, 실패한 단계(`<from>-<to>`)와 그 글이 따른다.
+type MigrateOutcome =
+  | { result: ActivationDataResult; restored: false }
+  | {
+    result: ActivationDataResult;
+    restored: true;
+    failed: { step: string; message: string };
+  };
 
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });

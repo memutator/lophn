@@ -112,8 +112,8 @@ async function migrateOnce(
   if (!migrated.ok) {
     return `Migration ${where} failed: ${migrated.error.message}.`;
   }
-  const { failed } = migrated.value;
-  if (migrated.value.restored && failed !== undefined) {
+  if (migrated.value.restored) {
+    const { failed } = migrated.value;
     return `Migration ${where} failed: step ${failed.step} was rolled back: ${failed.message}. Fix that step's SQL; every new table needs a PRIMARY KEY.`;
   }
   return null;

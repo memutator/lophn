@@ -143,7 +143,7 @@ flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 �
   2. `schedule-job`: scheduler, job 표와 기록, program caller, 놓친 차례, hold card, job 화면.
   3. flow는 `workflow.md`의 계획이 연다.
 - unattended mode(run의 전제)는 `approval-simplify`가 만들었다.
-- 실제로는 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21. `problem-ticket.md` "단계").
+- 실제로는 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21).
 - gdrive OAuth는 flow와 따로 열 수 있다.
 
 test(AGENTS.md "속도", `write-test` skill):

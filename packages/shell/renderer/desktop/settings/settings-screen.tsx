@@ -19,8 +19,6 @@ import { GeneralPanel } from "./general/general-panel.tsx";
 import type { SettingsPane } from "./model.ts";
 import { ProviderList } from "./providers/provider-list.tsx";
 import type { ProviderSettingsSource } from "./providers/settings-source.ts";
-import { ReactionsPanel } from "./reactions/reactions-panel.tsx";
-import type { ReactionsSource } from "./reactions/source.ts";
 import { ShellRulesPanel } from "./shell-rules/shell-rules-panel.tsx";
 import type { ShellRulesSource } from "./shell-rules/source.ts";
 import type { SettingsSource } from "./source.ts";
@@ -32,7 +30,6 @@ export type SettingsPanels = Pick<
   | "providers"
   | "agents"
   | "diagnostics"
-  | "reactions"
   | "shellRules"
   | "coding"
   | "appearance"
@@ -56,8 +53,6 @@ interface SettingsScreenProps {
   coding?: CodingConnectionsSource;
   /** Diagnostics 항목. 없으면 준비 전 안내다. */
   diagnostics?: DiagnosticsSource;
-  /** Reactions 항목. 없으면 준비 전 안내다. */
-  reactions?: ReactionsSource;
   /** Shell rules 항목. 없으면 준비 전 안내다. */
   shellRules?: ShellRulesSource;
   /** Appearance 항목. 없으면 준비 전 안내다. */
@@ -79,7 +74,6 @@ export function SettingsScreen(
     onInstructions,
     coding,
     diagnostics,
-    reactions,
     shellRules,
     appearance,
     browser,
@@ -162,8 +156,6 @@ export function SettingsScreen(
         return coding && <CodingConnectionsPanel source={coding} />;
       case "shell-rules":
         return shellRules && <ShellRulesPanel source={shellRules} />;
-      case "reactions":
-        return reactions && <ReactionsPanel source={reactions} />;
       case "diagnostics":
         return diagnostics && <DiagnosticsPanel source={diagnostics} />;
     }

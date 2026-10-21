@@ -48,7 +48,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.intro.coding": Record<never, never>;
   "settings.intro.diagnostics": Record<never, never>;
   "settings.intro.general": Record<never, never>;
-  "settings.intro.reactions": Record<never, never>;
   "settings.intro.shell-rules": Record<never, never>;
   "settings.label.accent": Record<never, never>;
   "settings.label.accent-blue": Record<never, never>;
@@ -118,8 +117,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.group-agents": Record<never, never>;
   "settings.label.group-general": Record<never, never>;
   "settings.label.group-system": Record<never, never>;
-  "settings.label.reaction-activation-failed": Record<never, never>;
-  "settings.label.reactions-target": Record<never, never>;
   "settings.label.shell-action-allow": Record<never, never>;
   "settings.label.shell-action-ask": Record<never, never>;
   "settings.label.shell-action-deny": Record<never, never>;
@@ -144,7 +141,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
   "settings.label.tab-providers": Record<never, never>;
-  "settings.label.tab-reactions": Record<never, never>;
   "settings.label.tab-shell-rules": Record<never, never>;
   "settings.label.text-size": Record<never, never>;
   "settings.label.theme": Record<never, never>;
@@ -180,12 +176,9 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-model": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
-  "settings.note.reactions-unlisted": Record<never, never>;
   "settings.note.shell-rules-built-in": Record<never, never>;
   "settings.note.shell-rules-project": Record<never, never>;
   "settings.note.shell-rules-workspace": Record<never, never>;
-  "settings.reaction.activation-failed-when": Record<never, never>;
-  "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;
   "settings.shell-density.name": Record<never, never>;
   "settings.shell-reading_width.help": Record<never, never>;

@@ -26,7 +26,6 @@ import {
   SettingsCoding,
   SettingsDiagnostics,
   SettingsGeneral,
-  SettingsReactions,
   SettingsRequiredEmpty,
   SettingsShellRules,
   SettingsShellRulesAdd,
@@ -41,7 +40,7 @@ export const settingsArea: Area = {
   id: "settings",
   title: "Settings",
   summary:
-    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Shell rules, Reactions, Diagnostics.",
+    "Settings의 General, Appearance, Browser, Providers, Agents, Tools, Coding agents, Shell rules, Diagnostics.",
   pages: [
     {
       id: "settings-coding",
@@ -188,13 +187,6 @@ export const settingsArea: Area = {
       description:
         "Workspace 절의 더하기 줄에 pattern `npm publish *`를 치고 action을 Ask로 고른 상태다. pattern이 비면 [Add rule]이 꺼진다. 새 규칙은 절의 끝에 붙어 그 절에서 가장 나중에 맞는다.",
       render: () => <SettingsShellRulesAdd />,
-    },
-    {
-      id: "new-settings-reactions",
-      title: "Settings · Reactions",
-      description:
-        "새 일을 여는 domain event마다 Switch로 켜고 끈다. 기본은 켬이고, 항목마다 어느 agent의 session이 열리는지 한 줄이 있다.",
-      render: () => <SettingsReactions />,
     },
     {
       id: "settings-browser",

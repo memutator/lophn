@@ -1,5 +1,5 @@
 // 선언한 설정을 읽고 바꾸는 core 부르기(`settings/list`, `settings/update`). General·Appearance·
-// Reactions·Coding agents의 기본 실행 옵션이 같이 쓴다. 틀린 값은 오류가 아니라 rejected로 온다.
+// Coding agents의 기본 실행 옵션이 같이 쓴다. 틀린 값은 오류가 아니라 rejected로 온다.
 import type { CoreSource } from "../connection/connection.ts";
 import { call } from "./core-call.ts";
 import type {

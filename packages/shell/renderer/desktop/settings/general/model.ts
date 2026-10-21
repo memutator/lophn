@@ -63,7 +63,6 @@ export function controlOf(type: Schema): Control {
 /** 다른 자리가 보이는 설정은 General에 오지 않는다. 지침·skill·MCP 같은 내용물과 상태도 오지 않는다. */
 const SHOWN_ELSEWHERE = [
   "shell.",
-  "reactions.",
   "approvals.shell_rules",
   "coding-agent.default_",
   "lophn-agent.extensions.",

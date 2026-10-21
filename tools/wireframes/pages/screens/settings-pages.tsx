@@ -45,9 +45,6 @@ export const SettingsAppearancePresetsDark = () => (
 /** Settings › Coding agents. */
 export const SettingsCoding = () => <SettingsFrame pane="coding" />;
 
-/** Settings › Reactions. */
-export const SettingsReactions = () => <SettingsFrame pane="reactions" />;
-
 /** Settings › Shell rules. */
 export const SettingsShellRules = () => <SettingsFrame pane="shell-rules" />;
 

@@ -41,7 +41,6 @@ import {
 } from "./launcher/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
-import { coreReactionsSource } from "./settings/reactions/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
 import { windowBrowserSettings } from "./settings/browser/window-source.ts";
 import { coreProviderSettingsSource } from "./settings/providers/core-source.ts";
@@ -93,7 +92,6 @@ const settingsPanels = mock?.settingsPanels ?? {
   providers: coreProviderSettingsSource(core),
   agents: coreAgentsSettingsSource(core),
   diagnostics: coreDiagnosticsSource(core),
-  reactions: coreReactionsSource(core),
   shellRules: coreShellRulesSource(core),
   appearance: coreAppearanceSource(core),
   coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),

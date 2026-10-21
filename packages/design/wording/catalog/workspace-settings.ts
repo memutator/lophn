@@ -56,8 +56,6 @@ export const workspaceSettings = {
     "Whether each part of lophn can be used right now. Checks run only when you press the button.",
   "settings.intro.general":
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
-  "settings.intro.reactions":
-    "When something happens, lophn can open a new agent session for it. Turn each event on or off. They are on by default.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -124,8 +122,6 @@ export const workspaceSettings = {
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",
   "settings.label.group-system": "System",
-  "settings.label.reaction-activation-failed": "Activation failed",
-  "settings.label.reactions-target": "your reaction settings",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -146,7 +142,6 @@ export const workspaceSettings = {
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
   "settings.label.tab-providers": "Providers",
-  "settings.label.tab-reactions": "Reactions",
   "settings.label.tab-shell-rules": "Shell rules",
   "settings.label.text-size": "Text size",
   "settings.label.theme": "Theme",
@@ -178,18 +173,12 @@ export const workspaceSettings = {
     "Without a turn-end signal, lophn sends only the first prompt and no follow-up messages. A product that can't take the first prompt is not offered as a default.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
-  "settings.note.reactions-unlisted":
-    "Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":
     "Applies only to this project, after the Workspace rules.",
   "settings.note.shell-rules-workspace":
     "Applies to every project. A new rule goes at the end of the list.",
-  "settings.reaction.activation-failed-when":
-    "A new release could not be activated.",
-  "settings.reaction.opens-app-engineer":
-    "Opens: a new session for that app's App Engineer.",
   "settings.shell-density.help":
     "How much room lists and tables leave between rows.",
   "settings.shell-density.name": "Density",

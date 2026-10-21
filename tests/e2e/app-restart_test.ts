@@ -6,8 +6,10 @@
 // - 왜 지금 test로 못 잡나: `closeUnfinishedInvocations`는 unit으로 볼 수 있어도 core 재시작 ↔ supervisor ↔ 앱 process가 실제로
 //   다시 뜨는 것과 두 process가 한 DB를 안 여는 것은 process를 건너야 한다.
 //
-// fake 대답: 앱 activation helper의 Project Manager 대답뿐이다(README 정한 것 11의 예외).
+// fake 대답: 앱 activation(`activateTestApp`)의 App Engineer 대답(`release_prepare`·`release_activate`)뿐이라 행의 상한(3)에
+// 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import { CRASH_LIMIT } from "../../packages/core/apps/runtime/supervisor/restart-policy.ts";
 import { releasesGetRecord } from "../../packages/protocol/apps/activation/activation.ts";
 import {
   appCallTool,
@@ -17,9 +19,14 @@ import {
   appRuntime,
   toolCallOutputSchema,
 } from "../../packages/protocol/apps/mod.ts";
-import { activateTestApp, type TestApp } from "../support/app/activate.ts";
+import {
+  activateTestApp,
+  type TestApp,
+  waitRunning,
+} from "../support/app/activate.ts";
+import { crashPatch } from "../support/app/patch-crash.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { slowPatch } from "../support/app/patch-restart.ts";
-import { appCoreEnv } from "../support/coding/deps.ts";
 import {
   bootCore,
   type Core,
@@ -27,6 +34,7 @@ import {
   type Run,
 } from "../support/core/mod.ts";
 import { connectFakeProvider, until } from "../support/core/human.ts";
+import { connectGateway } from "../support/gateway/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 const caller = { kind: "person", view_session: "e2e" } as const;
@@ -147,11 +155,10 @@ async function withSlowApp(row: (slow: Slow) => Promise<void>): Promise<void> {
   const fake = await startFakeServer();
   const env = await appCoreEnv();
   let core: Core | undefined;
-  let app: TestApp | undefined;
   try {
     core = await bootCore(run, { env });
     await connectFakeProvider(core, fake);
-    app = await activateTestApp(core, fake, {
+    const app = await activateTestApp(core, fake, {
       name: "Slow",
       slug: "slow",
       patch: slowPatch,
@@ -178,7 +185,6 @@ async function withSlowApp(row: (slow: Slow) => Promise<void>): Promise<void> {
       core = slow.core;
     }
   } finally {
-    await app?.gateway.close().catch(() => {});
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();
@@ -260,4 +266,89 @@ Deno.test("E2E 앱 write 도중 앱 process만 죽으면 그 호출은 unknown�
     assertNotEquals(pids[0], slow.pid);
     assertNotEquals(nonce, slow.nonce);
   });
+});
+
+// 세 질문
+// - contract: boundary `app-runtime`(10분 창 안의 예상 밖 종료가 `CRASH_LIMIT`을 넘으면 자동 재시작을 멈추고 `AppRestartHalted`를
+//   한 번 낸다).
+// - 현실적 회귀: 횟수가 어긋나 멈추지 않고 영영 되살리거나 너무 일찍 멈추는 것, 멈췄는데 알리지 않는 것.
+// - 왜 지금 test로 못 잡나: 규칙은 순수 unit이 있어도 실제 process 종료 -> supervisor -> command -> Bus -> Gateway는
+//   process를 건너야 이어서 보인다.
+//
+// 앞 두 행과 core를 같이 쓰지 않는다. 창 안의 종료를 세므로 둘째 행의 SIGKILL이 같은 창에 들어가면 멈추는 횟수가 행 순서에 묶인다.
+// fake 대답은 앱 activation helper의 것뿐이다.
+Deno.test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway가 AppRestartHalted 하나를 받는다", async () => {
+  const run = await createRun();
+  const fake = await startFakeServer();
+  let core: Core | undefined;
+  let gateway: Awaited<ReturnType<typeof connectGateway>> | undefined;
+  try {
+    core = await bootCore(run, { env: await appCoreEnv() });
+    await connectFakeProvider(core, fake);
+    const app = await activateTestApp(core, fake, {
+      name: "Crasher",
+      slug: "crasher",
+      patch: crashPatch,
+    });
+    gateway = await connectGateway(core, {
+      conditions: [{ types: ["AppRestartHalted"] }],
+    });
+    let seen = await waitRunning(core, app);
+    const record = (await core.call(releasesGetRecord, {
+      release: seen.release!,
+    })).release;
+    assert(record !== null);
+    const bundle = `${run.home}/apps/${app.app}/bundles/${record.bundle_hash}`;
+
+    for (let exit = 1; exit <= CRASH_LIMIT + 1; exit++) {
+      const called = await core.call(appCallTool, {
+        target: { mode: "live", app: app.app, release: null },
+        tool: "crash",
+        caller,
+      });
+      // 응답을 보낸 뒤 죽으므로 결과를 모를 수는 있어도 거절되거나 handler가 실패해서는 안 된다.
+      assert(
+        called.outcome.status === "succeeded" ||
+          called.outcome.status === "unknown",
+        JSON.stringify(called.outcome),
+      );
+      if (exit <= CRASH_LIMIT) {
+        const before = seen.process_nonce;
+        seen = await until("앱이 다시 running이 됨", async () => {
+          const now = await core!.call(appRuntime, { app: app.app });
+          const next = now.observation;
+          return now.state.state === "running" && next !== null &&
+              next.ready && next.accepting && next.process_nonce !== before
+            ? next
+            : undefined;
+        }, 60_000);
+      }
+    }
+    const halted = await gateway.next(
+      "event",
+      (frame) => frame.event.type === "AppRestartHalted",
+    );
+    assert(halted.event.type === "AppRestartHalted");
+
+    // route
+    const state = (await core.call(appRuntime, { app: app.app })).state;
+    assertEquals(state.state, "unavailable");
+    assertEquals(state.reason?.code, "crash_loop");
+    // event
+    assertEquals(halted.event.subject, app.app);
+    assertEquals(halted.event.payload.crashes, CRASH_LIMIT + 1);
+    assertEquals(
+      gateway.frames().filter((frame) =>
+        frame.type === "event" && frame.event.type === "AppRestartHalted"
+      ).length,
+      1,
+    );
+    // process: 멈춘 뒤 다시 띄우지 않았다.
+    assertEquals(await appPids(bundle), []);
+  } finally {
+    await gateway?.close().catch(() => {});
+    await core?.kill().catch(() => {});
+    await fake.close();
+    await run.remove();
+  }
 });

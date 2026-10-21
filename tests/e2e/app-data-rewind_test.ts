@@ -7,8 +7,9 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답뿐이라 행의 상한(3)에 세지 않는다(README 정한 것
-// 11). `session-rewind-with-app`은 case마다 agent의 앱 호출과 끝 text, 둘이다.
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 App Engineer 대답(`release_prepare`·`release_activate`)뿐이라
+// 행의 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). `session-rewind-with-app`은 case마다
+// agent의 앱 호출과 끝 text, 둘이다.
 import { assert, assertEquals } from "@std/assert";
 import {
   appCallTool,
@@ -18,7 +19,7 @@ import {
   appRewinds,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
-import { agentGrantsSet } from "../../packages/protocol/approvals/mod.ts";
+import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   operatorCreate,
   rewindList,
@@ -26,8 +27,8 @@ import {
   sessionRewindPreview,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { activateTestApp, type TestApp } from "../support/app/activate.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { rewindPatch } from "../support/app/patch-rewind.ts";
-import { appCoreEnv } from "../support/coding/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
@@ -106,7 +107,6 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
-  let app: TestApp | undefined;
   try {
     core = await bootCore(run, { env: await appCoreEnv() });
     await connectFakeProvider(core, fake);
@@ -115,7 +115,6 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       slug: "blobs",
       patch: rewindPatch,
     });
-    app = live;
     const nonce = (await core.call(appRuntime, { app: live.app })).observation
       ?.process_nonce;
     assert(nonce !== undefined);
@@ -222,10 +221,11 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       definition: { name: "Writer", body: "use the app" },
     });
     const operator = { role: "operator", agent } as const;
-    await core.call(agentGrantsSet, {
+    // tool 목록은 session을 열 때 고정되므로 열기 전에 할당한다.
+    await core.call(agentAssignmentSet, {
       agent: operator,
-      entries: [{ kind: "app", app: live.app, tools: [] }],
-    });
+      entries: [{ app: live.app, removed_tools: [] }],
+    }, { revision: 0 });
     for (const choose of [true, false]) {
       const title = choose ? "by-agent-chosen" : "by-agent-skipped";
       fake!.reset();
@@ -283,7 +283,6 @@ Deno.test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, �
       }
     }
   } finally {
-    await app?.gateway.close();
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

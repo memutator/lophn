@@ -1,6 +1,6 @@
 // 재시작 E2E용 patch다. template 위에 write tool `slow_write {title}`와 read tool `count_slow`를 더한다.
-// slow_write는 row를 넣고 live에서는 응답하지 않고 오래 기다린다. platform app test(mode "test")의 rewind 검사는 write
-// tool을 불러 돌아오기를 기다리므로 test에서는 기다리지 않는다.
+// slow_write는 row를 넣고 live에서만 응답하지 않고 오래 기다린다. preview에서 부르면 바로 답한다.
+import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
   path: string,
@@ -13,8 +13,8 @@ async function replaceOnce(
 }
 
 export async function slowPatch(dir: string): Promise<void> {
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  // 견본 blueprint의 domain이 그 앱의 domain 이름이다.
+  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/blueprint.ts`,
     `      {

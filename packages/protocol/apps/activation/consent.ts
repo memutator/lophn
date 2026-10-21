@@ -7,9 +7,9 @@ import { activationComparisonSchema } from "./activation.ts";
 
 // activation 동의. 새 release가 선언을 넓히면 사람이 허락해야 activation이 이어진다.
 // 동의 대기는 ledger 표에 남아 재시작을 넘는다. 같은 release는 한 줄이고, 더 새 release의 activation이
-// 시작되면 이전 대기는 cancelled로 닫힌다(ap-activation).
+// 시작되면 이전 대기는 cancelled로 닫힌다.
 // approvals protocol을 import하지 않는다(approvals가 이미 apps를 import해 거꾸로 두면 protocol-cycle이다).
-// 남지 않는 event(등록은 ap-activation): ActivationConsentRequested { app, release },
+// 남지 않는 event(`packages/protocol/events/transient.ts`): ActivationConsentRequested { app, release },
 //   ActivationConsentClosed { app, release, outcome: "allow" | "reject" | "cancelled" }.
 // activation 줄의 phase는 `waiting_consent`다.
 export const activationConsentSchema = z.object({

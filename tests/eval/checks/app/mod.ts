@@ -9,6 +9,11 @@ export {
   diagnosisChecks,
 } from "./diagnose.ts";
 export { appToolCalled } from "./calls.ts";
-export { askedAgainInput } from "./judge-input.ts";
+export { askedAgainInput, cardCoveredInput } from "./judge-input.ts";
+export {
+  appEngineerCalls,
+  DESIGN_SECTIONS,
+  designFirst,
+} from "./design-doc.ts";
 export { appDesignInput } from "./design.ts";
 export { appToolSession } from "./fixtures.ts";

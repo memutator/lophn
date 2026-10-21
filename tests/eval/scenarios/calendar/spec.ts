@@ -159,5 +159,5 @@ export const BUG: BugSpec = {
   expectAfterFix: { rows: [] },
   files: ["src/events.ts"],
   description:
-    "Asking for next week's events makes event.list end with an error and a problem opens. The cause is that RANGE_RULES has no next_week entry, so rangeBounds reads undefined.offset and throws a TypeError. Asking for this week or all events still works.",
+    "Asking for next week's events makes event.list end with an error. The cause is that RANGE_RULES has no next_week entry, so rangeBounds reads undefined.offset and throws a TypeError. Asking for this week or all events still works.",
 };

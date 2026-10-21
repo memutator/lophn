@@ -4,5 +4,11 @@
     "name": "calendar-dev",
     "n": 1,
     "hash": "13ba48de31d756289d5fabb635561ed4fb331dae445b2e88a5602a259b5eb6ca"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-dev",
+    "n": 2,
+    "hash": "b90aac9f503cfec6f06802a58a0296dbc06c4b09d0d4aba3f2f6b07ed911934e"
   }
 ]

@@ -2,17 +2,6 @@ import { type Criterion, parseRef } from "../types.ts";
 
 export const CRITERIA_DIR = new URL("./", import.meta.url);
 
-// judge 입력의 칸 이름. criterion의 question 안 설명과 같아야 한다.
-export const INPUT_SECTIONS: Record<string, string[]> = {
-  "relay-complete": ["HUMAN_REQUEST", "CALL_BODY"],
-  "asks-gap": ["HUMAN_REQUEST", "QUESTIONS"],
-  "card-covered": ["CARD", "BLUEPRINT", "TICKETS"],
-  "asked-again": ["HUMAN_REQUEST", "QUESTIONS"],
-  "app-design": ["CARD", "SCREENS", "SCREEN_SOURCE"],
-  "root-cause": ["BUG", "TICKET_GOALS", "EVIDENCE_FILES"],
-  "repeat-kind": ["REPEATED_CALL", "TIMELINE"],
-};
-
 export async function loadCriterion(ref: string): Promise<Criterion> {
   const { name, n } = parseRef(ref, "criterion");
   const criterion: Criterion = JSON.parse(

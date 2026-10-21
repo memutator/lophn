@@ -15,7 +15,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-e2e-app-fix` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-fix |  |  |
 | `tr-e2e-app-release` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-release |  |  |
 | `tr-e2e-ask-fix` | e2e | 2 | tr-e2e-approval | merged | e2e/tr-e2e-ask-fix | 84f102cf2 |  |
-| `tr-e2e-call-fix` | e2e | 2 | tr-e2e-approval | running | e2e/tr-e2e-call-fix |  |  |
+| `tr-e2e-call-fix` | e2e | 2 | tr-e2e-approval | merged | e2e/tr-e2e-call-fix | 6ff93af2f |  |
 | `tr-e2e-operator` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-operator | 33f5decb2 |  |
 | `tr-eval-calendar-build` | eval | 2 | tr-eval-restore, tr-eval-human | running | eval/tr-eval-calendar-build |  |  |
 | `tr-eval-calendar-maintain` | eval | 2 | tr-eval-calendar-build | todo |  |  |  |

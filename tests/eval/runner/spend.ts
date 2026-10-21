@@ -3,7 +3,7 @@ import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { modelCallList } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 
-// trial 하나의 role agent 비용 상한. judge와 사람 역할은 key 호출이 아니고 coding agent는 세지 않는다(token만 집계한다).
+// trial 하나의 role agent 비용 상한. judge와 사람 역할은 key 호출이 아니다.
 export const TRIAL_CAP_USD = 50;
 
 const PRICED = ["reported", "estimated", "free"];
@@ -13,7 +13,6 @@ export async function roleSpendUsd(core: Core): Promise<number> {
   const { snapshots } = await core.call(sessionSnapshotsList, {});
   let sum = 0;
   for (const item of snapshots) {
-    if (item.agent.role === "coding_agent") continue;
     let cursor: string | undefined;
     do {
       const out = await core.call(modelCallList, {

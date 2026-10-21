@@ -53,11 +53,9 @@ import { loadJudgeDefinition, outstanding, readPending } from "../judge/mod.ts";
 import { readAnthropicKey } from "../provider/mod.ts";
 import { MATERIALS_ROOT, orderMaterials } from "../restore/manifest.ts";
 import {
-  isCodingAgent,
   refText,
   type RunRecord,
   type Scenario,
-  type TrialResult,
   type VersionRef,
 } from "../types.ts";
 import {
@@ -72,13 +70,7 @@ import { createCap } from "./cap.ts";
 import { trialDepsOf } from "./deps.ts";
 import { type Discovered, discoverScenarios } from "./discover.ts";
 import { collectLockFacts } from "./lock.ts";
-import {
-  EVAL_DIR,
-  REGISTRY_DIR,
-  REPO_ROOT,
-  RUNS_DIR,
-  useEvalTmp,
-} from "./paths.ts";
+import { EVAL_DIR, REGISTRY_DIR, REPO_ROOT, RUNS_DIR } from "./paths.ts";
 import { registerAll } from "./register.ts";
 import { createReplayPort } from "./replay.ts";
 import { runScenario } from "./scenario.ts";
@@ -259,21 +251,14 @@ async function gate(
   return report.ok;
 }
 
-const codingIn = (scenarios: Scenario[]) =>
-  scenarios.some((s) => s.real.some(isCodingAgent));
-
 export async function gateCommand(opts: CommandOptions): Promise<number> {
   const begun = await begin(opts);
   if (!begun.ok) return fail(begun.error.message);
   const scenarios = begun.value.plan.entries.map((e) =>
     begun.value.scenarioOf.get(e.scenario)!.scenario
   );
-  if (codingIn(scenarios)) await useEvalTmp();
   return await gate(begun.value, opts, scenarios) ? 0 : 1;
 }
-
-const touched = (t: TrialResult) =>
-  t.coding?.some((c) => c.human_input) ?? false;
 
 // 시나리오 재료 안의 이름(앱, project, Operator)은 과적합 경고가 시나리오 고유 이름으로 본다.
 async function extraNamesOf(
@@ -327,8 +312,6 @@ export async function experimentCommand(
   const entryScenarios = plan.entries.map((e) =>
     begun.value.scenarioOf.get(e.scenario)!.scenario
   );
-  const coding = codingIn(entryScenarios);
-  if (coding) await useEvalTmp();
 
   // 이어 돌리기: 판정이 난 spec은 다시 굴리지 않고, 끊긴 것은 앞서 돈 variant trial을 이어 받는다.
   const old = await readResult(SPEC_DIR, spec.id);
@@ -348,8 +331,7 @@ export async function experimentCommand(
   ): Outcome[] =>
     ids.flatMap((id) => {
       const run = all.find((r) => r.id === id);
-      return (run?.trials ?? []).filter((t) => !touched(t))
-        .map((t) => outcomeOf(t, run!.components));
+      return (run?.trials ?? []).map((t) => outcomeOf(t, run!.components));
     });
 
   const flaky = flakyScenarios(runs, found.map((f) => f.scenario));
@@ -452,13 +434,12 @@ export async function experimentCommand(
       return fail(registered.problems.join("\n"));
     }
 
-    const deps = await trialDepsOf({
+    const deps = trialDepsOf({
       key,
       model: spec.model,
       variant,
       trialBudgetUsd: TRIAL_CAP_USD,
       saveEnabled: false,
-      coding,
       source: await captureSource(variant.versionDeps),
       judge: await loadJudgeDefinition(),
       repeatCriterion: await loadCriterion(REPEAT_KIND),
@@ -468,7 +449,6 @@ export async function experimentCommand(
     pool = createPool({ budget: createCap(budget, log) });
     const stopSignals = installSignals(pool, deps.live, log);
 
-    const logged = new Set<string>();
     await Promise.all(plan.entries.map(async (entry) => {
       const scenario = begun.value.scenarioOf.get(entry.scenario)!.scenario;
       const runId = ids.newId("run");
@@ -479,19 +459,10 @@ export async function experimentCommand(
         deps,
         pool: pool!,
         next: (results) => {
-          for (const t of results.filter(touched)) {
-            const mark = `${runId}#${t.index}`;
-            if (!logged.has(mark)) {
-              logged.add(mark);
-              log(`사람 개입 ${runId} trial ${t.index}`);
-            }
-          }
           return nextTrials(
             stateOf(entry, [
               ...prior,
-              ...results.filter((t) => !touched(t)).map((t) =>
-                outcomeOf(t, [])
-              ),
+              ...results.map((t) => outcomeOf(t, [])),
             ]),
             spec.trials,
           );

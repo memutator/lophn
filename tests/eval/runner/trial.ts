@@ -2,12 +2,6 @@ import type { Clock } from "../../../packages/base/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { runProgramChecks } from "../checks/mod.ts";
 import {
-  type CodingDriver,
-  prepareCodingAgent,
-  startCodingDriver,
-} from "../coding/driver/mod.ts";
-import { collectCoding } from "../coding/metrics/mod.ts";
-import {
   collectSessions,
   diskBlobReader,
   metricsOf,
@@ -26,16 +20,12 @@ import {
 } from "../judge/mod.ts";
 import { attachRealModels } from "../provider/mod.ts";
 import { agentRefOf, saveMaterials } from "../restore/mod.ts";
-import { measureCli, resolveVersion, seenComponents } from "../versions/mod.ts";
+import { seenComponents } from "../versions/mod.ts";
 import {
   type CheckResult,
-  type CodingSummary,
-  type CodingTrace,
   type Criterion,
   type HumanSummary,
-  isCodingAgent,
   type JudgeItem,
-  type Participant,
   type Scenario,
   type SourceInfo,
   type TrialRecord,
@@ -45,7 +35,7 @@ import {
 import { serial } from "./mutex.ts";
 import { extraRoots } from "./roots.ts";
 import { createSpendGuard, roleSpendUsd } from "./spend.ts";
-import { CODING_TRIAL_LIMIT_MS, runSteps } from "./steps.ts";
+import { runSteps } from "./steps.ts";
 import { type Held, prepareTrialWorld, releaseWorld } from "./world.ts";
 
 export type TrialDeps = {
@@ -60,10 +50,7 @@ export type TrialDeps = {
   log: (line: string) => void;
   registryDir: string;
   trialBudgetUsd: number; // trial 하나의 role agent 비용 상한
-  variant: Variant; // core와 `lophn` wrapper가 가리키는 checkout
-  hookRoot: string; // 사람이 설치한 hook이 가리키는 checkout. worktree가 지워져도 남는 곳이다
-  binDir: string;
-  home: string; // 사람의 HOME. Claude Code의 JSONL이 여기 있다
+  variant: Variant; // core가 가리키는 checkout
   saveEnabled: boolean; // experiment의 산출물은 후보가 아니라 저장하지 않는다
   keep?: boolean; // 끝난 world를 지우지 않는다. 사람이 데스크톱 앱(LOPHN_DEV_HOME)으로 열어 본다
   saved: { name: string; n: number }[]; // 이 run에서 후보로 쓴 재료. 하나라도 있으면 더 쓰지 않는다
@@ -91,10 +78,8 @@ export async function runTrial(
   scenario: Scenario,
   index: number,
 ): Promise<TrialOutcome> {
-  const coding = scenario.real.some(isCodingAgent);
   const held: Held = {};
-  let driver: CodingDriver | undefined;
-  const live = { stop: () => Promise.all([driver?.stop(), held.core?.stop()]) };
+  const live = { stop: () => held.core?.stop() ?? Promise.resolve() };
   deps.live.add(live);
   try {
     const { run, core, ctx } = await prepareTrialWorld(
@@ -106,36 +91,9 @@ export async function runTrial(
     await attachRealModels(core, {
       key: deps.key,
       model: deps.model,
-      real: scenario.real.filter((p): p is Participant => !isCodingAgent(p))
-        .map((p) => agentRefOf(ctx.world, p)),
+      real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
     });
 
-    // 되살리기의 가짜 터미널과 섞이지 않게 되살리기가 끝난 뒤에만 붙인다. Gateway 연결이 비동기라 t0 전에 시작한다.
-    let cliVersion: string | undefined;
-    if (coding) {
-      const prepared = await prepareCodingAgent({
-        core,
-        root: deps.variant.root,
-        hookRoot: deps.hookRoot,
-        binDir: deps.binDir,
-        model: deps.model,
-        clock: deps.clock,
-        install: "check",
-      });
-      cliVersion = prepared.version;
-      const live = startCodingDriver({
-        core,
-        clock: deps.clock,
-        binDir: deps.binDir,
-        outDir: `${deps.evalDir}/${deps.runId}/trial-${index}`,
-        root: deps.variant.root,
-        log: deps.log,
-        timeoutMs: CODING_TRIAL_LIMIT_MS,
-      });
-      // 끝나기 전에 한 번 끊고 마지막에 또 끊는다. 둘째부터는 첫 결과를 돌려준다.
-      let stopped: Promise<CodingTrace[]> | undefined;
-      driver = { ...live, stop: () => stopped ??= live.stop() };
-    }
     const human = scenario.human === undefined ? undefined : createHumanRole({
       port: core,
       clock: deps.clock,
@@ -155,22 +113,18 @@ export async function runTrial(
     const startedAt = deps.clock.now();
     const startedMs = deps.clock.nowMs();
     const roots = new Map<string, string>();
-    const fake = new Set<string>();
     const settle = await runSteps({
       core,
       setup: ctx,
       scenario,
       roots,
-      fake,
       human,
-      driver,
       over: spend.over,
       startedMs,
       clock: deps.clock,
       sleep: deps.sleep,
       log: deps.log,
     });
-    const traces = await driver?.stop() ?? [];
     const finishedAt = deps.clock.now();
 
     // ask의 질문 글은 기다리는 동안에만 읽히므로 core를 끄기 전에 모은다.
@@ -179,17 +133,12 @@ export async function runTrial(
     const extra = new Set(extraRoots(
       (await core.call(sessionSnapshotsList, {})).snapshots,
       rootIds,
-      fake,
     ));
     const records = (await collectSessions(
       { port: core, readBlob: diskBlobReader(run.home) },
       [...new Set([...rootIds, ...extra])],
       startedAt,
     )).filter((r) => !extra.has(r.session) || r.turns.length > 0);
-    // coding agent 수치는 role agent의 metrics와 섞지 않고 coding에만 둔다.
-    const codingRecords = coding
-      ? await collectCoding({ home: deps.home }, traces)
-      : undefined;
     const trial: TrialRecord = {
       index,
       started_at: startedAt,
@@ -197,7 +146,6 @@ export async function runTrial(
       settle,
       sessions: records,
       metrics: sumMetrics(records.map(metricsOf)),
-      ...(codingRecords && { coding: codingRecords }),
       ...(human && { human: human.record() }),
     };
 
@@ -262,17 +210,7 @@ export async function runTrial(
           `component 버전 확인 실패: ${components.error.message}`,
         );
       }
-      const found = [...components.value];
-      // harness도 component다. 값은 prepareCodingAgent가 이미 잰 `claude --version`이다.
-      if (cliVersion !== undefined) {
-        found.push(
-          (await resolveVersion(
-            deps.registryDir,
-            await measureCli("claude", cliVersion),
-          )).ref,
-        );
-      }
-      return found;
+      return [...components.value];
     });
 
     // 통과한 첫 trial만 후보로 쓴다(--trials 3이 같은 산출물 후보를 셋 만들지 않게). 쓰기 실패는 점수가 아니다.
@@ -334,18 +272,12 @@ export async function runTrial(
       judge,
       metrics: trial.metrics,
       components: refs,
-      ...(codingRecords && {
-        coding: codingRecords.map(({ tail: _, ...rest }): CodingSummary =>
-          rest
-        ),
-      }),
       ...(human && { human: humanSummary(human) }),
     };
     return { result, components: refs, saved };
   } finally {
     deps.live.delete(live);
     // 각 정리가 실패해도 다음을 한다. core log는 멈춘 이유를 아는 유일한 길이라 stop 뒤 지우기 전에 복사한다.
-    await driver?.stop().catch(() => {});
     await held.core?.stop().catch(() => {});
     if (held.run !== undefined) {
       await Deno.mkdir(`${deps.evalDir}/${deps.runId}`, { recursive: true })

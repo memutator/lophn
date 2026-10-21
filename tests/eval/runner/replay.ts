@@ -2,7 +2,6 @@ import type { ReplayPort } from "../experiment/assembly/mod.ts";
 import { resolveVariant, type Variant } from "../experiment/variant/mod.ts";
 import { attachRealModels } from "../provider/mod.ts";
 import { agentRefOf } from "../restore/mod.ts";
-import { isCodingAgent, type Participant } from "../types.ts";
 import { systemClock } from "../../../packages/base/mod.ts";
 import { REPO_ROOT } from "./paths.ts";
 import { runSteps } from "./steps.ts";
@@ -36,8 +35,7 @@ export function createReplayPort(
         await attachRealModels(core, {
           key: "replay",
           model,
-          real: scenario.real.filter((p): p is Participant => !isCodingAgent(p))
-            .map((p) => agentRefOf(ctx.world, p)),
+          real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
           endpoint,
         });
         const settle = await runSteps({
@@ -45,7 +43,6 @@ export function createReplayPort(
           setup: ctx,
           scenario,
           roots: new Map(),
-          fake: new Set(),
           startedMs: systemClock.nowMs(),
           clock: systemClock,
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),

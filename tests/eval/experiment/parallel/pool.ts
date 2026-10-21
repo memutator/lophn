@@ -44,8 +44,8 @@ export function createPool(options: {
       throw new Error(`limits.${kind}는 1 이상이어야 한다: ${limits[kind]}`);
     }
   }
-  const queues: Record<TrialKind, Waiting[]> = { judgment: [], coding: [] };
-  const running: Record<TrialKind, number> = { judgment: 0, coding: 0 };
+  const queues: Record<TrialKind, Waiting[]> = { judgment: [], long: [] };
+  const running: Record<TrialKind, number> = { judgment: 0, long: 0 };
   let stopped = false;
 
   const halted = () =>

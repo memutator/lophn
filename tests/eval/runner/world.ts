@@ -1,4 +1,3 @@
-import { sha256Hex } from "../../../packages/base/mod.ts";
 import {
   type BootOptions,
   type Core,
@@ -46,7 +45,7 @@ export async function prepareTrialWorld(
     if (!restored.ok) {
       throw new Error(`되살리기 실패: ${restored.error.message}`);
     }
-    await scenario.setup?.(ctx); // 안 쓴 fake는 endRestore가 닫는다. ticket 대본이 fake를 쓰므로 endRestore 앞이다
+    await scenario.setup?.(ctx); // 안 쓴 fake는 endRestore가 닫는다. setup이 fake를 쓰므로 endRestore 앞이다
     await endRestore(ctx);
     return { run, core, ctx };
   } catch (error) {
@@ -59,16 +58,6 @@ export async function releaseWorld(held: Held): Promise<void> {
   await held.ctx?.fake.close().catch(() => {});
   await held.core?.stop().catch(() => {});
   await held.run?.remove().catch(() => {});
-}
-
-// checkout 둘이 한 binDir을 쓰면 ensureWrapper가 서로의 wrapper를 덮는다.
-export async function binDirOf(
-  variant: Variant,
-  evalDir: string,
-): Promise<string> {
-  return variant.isCurrent
-    ? `${evalDir}/bin`
-    : `${evalDir}/bin/${(await sha256Hex(variant.root)).slice(0, 12)}`;
 }
 
 function messageOf(error: unknown): string {

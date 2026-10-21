@@ -5,7 +5,6 @@ import {
   systemClock,
 } from "../../../packages/base/mod.ts";
 import { validateFixtures } from "../checks/mod.ts";
-import { codingTotals } from "../coding/metrics/mod.ts";
 import { loadCriterion } from "../criteria/mod.ts";
 import { createPool } from "../experiment/parallel/mod.ts";
 import { REPEAT_KIND } from "../experiment/repeat/mod.ts";
@@ -13,12 +12,12 @@ import { outcomeOf } from "../experiment/spec/mod.ts";
 import { resolveVariant } from "../experiment/variant/mod.ts";
 import { loadJudgeDefinition } from "../judge/mod.ts";
 import { readAnthropicKey } from "../provider/mod.ts";
-import { isCodingAgent, type TrialResult } from "../types.ts";
+import type { TrialResult } from "../types.ts";
 import { captureSource, checksVersion, coreVersion } from "../versions/mod.ts";
 import { createCap } from "./cap.ts";
 import { trialDepsOf } from "./deps.ts";
 import { type Discovered, discoverScenarios } from "./discover.ts";
-import { REPO_ROOT, RUNS_DIR, useEvalTmp } from "./paths.ts";
+import { REPO_ROOT, RUNS_DIR } from "./paths.ts";
 import { registerAll } from "./register.ts";
 import { runScenario, type ScenarioRun } from "./scenario.ts";
 import { installSignals } from "./signals.ts";
@@ -32,36 +31,11 @@ export function passed(trial: TrialResult): boolean {
   return outcomeOf(trial, []).state !== "fail";
 }
 
-function codingLines(
+function extraLines(
   results: TrialResult[],
   saved: { name: string; n: number }[],
 ): string[] {
   const lines: string[] = [];
-  const terminals = results.flatMap((t) => t.coding ?? []);
-  if (terminals.length > 0) {
-    const totals = codingTotals(terminals.map((t) => ({ ...t, tail: "" })));
-    const minutes = terminals.reduce(
-      (sum, t) =>
-        t.opened_at === null || t.ended_at === null
-          ? sum
-          : sum + (Date.parse(t.ended_at) - Date.parse(t.opened_at)) / 60_000,
-      0,
-    );
-    const tokens = totals === null
-      ? "token 모름"
-      : `token input ${totals.input} output ${totals.output} cache read ${totals.cache_read}`;
-    const permissions = terminals.reduce(
-      (n, t) => n + t.permission_requests,
-      0,
-    );
-    lines.push(
-      `  coding: ${tokens}, 터미널 ${terminals.length}개 ${
-        minutes.toFixed(1)
-      }분, permission 물음 ${permissions}, 사람 개입: ${
-        terminals.some((t) => t.human_input) ? "있음" : "없음"
-      }`,
-    );
-  }
   const humans = results.flatMap((t) => t.human ?? []);
   if (humans.length > 0) {
     const sum = (pick: (h: (typeof humans)[number]) => number) =>
@@ -132,9 +106,6 @@ export async function main(args: string[]): Promise<number> {
     return 2;
   }
 
-  const coding = selected.some((s) => s.scenario.real.some(isCodingAgent));
-  if (coding) await useEvalTmp();
-
   const { problems, materials } = await registerAll(selected);
   const fixtures = await validateFixtures(selected.map((s) => s.scenario));
   problems.push(...fixtures.problems);
@@ -158,14 +129,13 @@ export async function main(args: string[]): Promise<number> {
   }
   const core = await coreVersion(variant.value.versionDeps);
   const checks = await checksVersion(variant.value.graderDeps);
-  const deps = await trialDepsOf({
+  const deps = trialDepsOf({
     key,
     model: values.model!,
     variant: variant.value,
     trialBudgetUsd: trialBudget,
     saveEnabled: true,
     keep: values.keep === true,
-    coding,
     source: await captureSource(variant.value.versionDeps),
     judge: await loadJudgeDefinition(),
     repeatCriterion: await loadCriterion(REPEAT_KIND),
@@ -207,7 +177,7 @@ export async function main(args: string[]): Promise<number> {
       0,
     );
     const cost = results.reduce((sum, t) => sum + t.metrics.cost_usd, 0);
-    const lines = codingLines(results, saved);
+    const lines = extraLines(results, saved);
     console.log(
       `${scenario.id}@${scenario.n}: ${
         results.filter(passed).length

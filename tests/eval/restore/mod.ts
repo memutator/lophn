@@ -12,7 +12,6 @@ import type { Participant, SetupContext, WorldIds } from "../types.ts";
 import { restoreActiveApp } from "./active-app.ts";
 import { restoreAppData } from "./app-data.ts";
 import { restoreApps } from "./apps.ts";
-import { restoreCall } from "./call.ts";
 import { restoreKinds } from "./kinds.ts";
 import {
   type Material,
@@ -56,9 +55,6 @@ async function restoreOne(
       return await restoreAppData(ctx, material);
     case "package":
       return await restorePackage(ctx, material);
-    case "call":
-      await restoreCall(ctx, material);
-      return ok(undefined);
   }
 }
 
@@ -81,7 +77,6 @@ export async function restoreWorld(
   return ok(undefined);
 }
 
-export { deliverCall } from "./deliver.ts";
 export { restoreCoreEnv } from "./env.ts";
 export { saveMaterials } from "./save.ts";
 

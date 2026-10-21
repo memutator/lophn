@@ -1,9 +1,4 @@
-import {
-  type CodingParticipant,
-  isCodingAgent,
-  type Participant,
-  type Scenario,
-} from "../../types.ts";
+import type { Participant, Scenario } from "../../types.ts";
 import { isAscii, normalize } from "./text.ts";
 
 function phrasesOf(text: string): string[] {
@@ -25,10 +20,9 @@ export function scenarioTerms(
 ): { names: string[]; phrases: string[] } {
   const raw: (string | undefined)[] = [...extraNames];
   const texts: string[] = [];
-  const addParticipant = (p: Participant | CodingParticipant) => {
-    // CodingParticipant는 name이 없다.
+  const addParticipant = (p: Participant) => {
     const place = p.place as { app?: string; project?: string } | undefined;
-    raw.push(place?.app, place?.project, isCodingAgent(p) ? undefined : p.name);
+    raw.push(place?.app, place?.project, p.name);
   };
   for (const step of scenario.steps) {
     if (step.kind === "say") {

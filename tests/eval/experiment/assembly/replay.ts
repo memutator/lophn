@@ -1,5 +1,4 @@
 import type { Scenario, Settle, TrialRecord } from "../../types.ts";
-import { isCodingAgent } from "../../types.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -47,11 +46,11 @@ export async function measureAssembly(
     baseline: null,
     variant: null,
   };
-  // PTY와 사람 역할은 fake provider 재생에 없다.
-  if (scenario.real.some(isCodingAgent) || scenario.human !== undefined) {
+  // 사람 역할은 fake provider 재생에 없다.
+  if (scenario.human !== undefined) {
     return {
       ...base,
-      reason: "scenario has a coding agent or human role; not replayed",
+      reason: "scenario has a human role; not replayed",
     };
   }
   const script = scriptOf(trial);

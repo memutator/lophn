@@ -1,12 +1,11 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { releasesGetRecord } from "../../../packages/protocol/apps/activation/activation.ts";
-import { appGet, appList } from "../../../packages/protocol/apps/mod.ts";
+import { appGet } from "../../../packages/protocol/apps/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import type {
   MaterialKind,
   MaterialManifest,
   Scenario,
-  SentCall,
   TrialRecord,
   WorldIds,
 } from "../types.ts";
@@ -94,41 +93,6 @@ async function saveActiveApp(
   return ok({ kind: "active_app", ids: { [app.name]: id }, files });
 }
 
-async function saveCall(deps: Deps, appName: string): Promise<Result<Saved>> {
-  // lophn이 trial 안에서 만든 앱은 world에 없어 이름으로 찾는다.
-  const { apps } = await deps.core.call(appList, {});
-  const app = apps.find((item) => item.name === appName);
-  if (app === undefined) {
-    return err({ code: "not_found", message: `app ${appName} not found` });
-  }
-  const sent = deps.trial.sessions.flatMap((session) => session.sent_calls)
-    .find((item: SentCall) =>
-      item.receiver?.role === "app_engineer" &&
-      item.receiver.app === app.id
-    );
-  if (sent === undefined) {
-    return err({
-      code: "not_found",
-      message: `no call to the App Engineer of ${appName}`,
-    });
-  }
-  return ok({
-    kind: "call",
-    ids: { [appName]: app.id },
-    files: [
-      await appFile(deps.core, app.id),
-      {
-        path: "call.json",
-        bytes: json({
-          to: { role: "app_engineer", place: { app: appName } },
-          reply: sent.reply,
-          body: sent.body,
-        }),
-      },
-    ],
-  });
-}
-
 async function nextN(root: string, name: string): Promise<number> {
   let max = 0;
   try {
@@ -174,9 +138,7 @@ export async function saveMaterials(
   );
   const written: { name: string; n: number }[] = [];
   for (const [name, spec] of Object.entries(save)) {
-    const saved = spec.kind === "active_app"
-      ? await saveActiveApp(deps, spec.app)
-      : await saveCall(deps, spec.app);
+    const saved = await saveActiveApp(deps, spec.app);
     if (!saved.ok) return saved;
     const n = await nextN(root, name);
     const result = await writeMaterial(root, name, n, {

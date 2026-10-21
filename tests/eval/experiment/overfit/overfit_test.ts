@@ -1,6 +1,6 @@
 // 세 질문
 // - contract: eval roadmap "특정 시나리오에 맞추지 않기" 3. 더해진 줄에 시나리오 고유의 이름·사람 말 구절이 들면 경고한다.
-// - 현실적 회귀: 옛 글에 이미 있던 이름을 새 경고로 내거나, `tax`가 `taxonomy`에 걸리거나, name 없는 coding agent 참가자에서 던지는 수정.
+// - 현실적 회귀: 옛 글에 이미 있던 이름을 새 경고로 내거나, `tax`가 `taxonomy`에 걸리거나.
 // - 왜 지금 test로 못 잡나: 이 경고는 ex-cli만 부르고, 틀려도 채택이 막히지 않아 어디서도 터지지 않는다.
 import { assertEquals } from "@std/assert";
 import type { Scenario } from "../../types.ts";
@@ -11,7 +11,6 @@ const scenario = {
   n: 1,
   real: [
     { role: "operator", place: { app: "가계부" }, name: "Mina" },
-    { role: "coding_agent", place: { app: "가계부" } },
   ],
   human: { card: "월별 지출 합계를 보고 싶다", approve: {} },
   steps: [

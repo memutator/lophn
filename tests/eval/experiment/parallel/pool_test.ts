@@ -13,7 +13,7 @@ function fakeBudget(limit: number): Budget & { added: number[] } {
 }
 
 // 손으로 푸는 job. started는 run이 불린 뒤 true다.
-function manualJob(id: string, kind: "judgment" | "coding", cost = 1) {
+function manualJob(id: string, kind: "judgment" | "long", cost = 1) {
   let finish!: () => void;
   const job: Job<string> & { started: boolean } = {
     id,
@@ -37,7 +37,7 @@ async function settle() {
 Deno.test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차도 다른 kind는 막히지 않는다", async () => {
   const pool = createPool({ budget: fakeBudget(1000) });
   const j = Array.from({ length: 6 }, (_, i) => manualJob(`j${i}`, "judgment"));
-  const c = Array.from({ length: 3 }, (_, i) => manualJob(`c${i}`, "coding"));
+  const c = Array.from({ length: 3 }, (_, i) => manualJob(`c${i}`, "long"));
   const results = [...j, ...c].map((x) => pool.submit(x.job));
   await settle();
   assertEquals(j.map((x) => x.job.started), [
@@ -49,7 +49,7 @@ Deno.test("kind별 동시 수 한도를 넘겨 띄우지 않고, 한 kind가 차
     false,
   ]);
   assertEquals(c.map((x) => x.job.started), [true, true, false]);
-  assertEquals(pool.running(), { judgment: 4, coding: 2 });
+  assertEquals(pool.running(), { judgment: 4, long: 2 });
 
   j[0].finish();
   await settle();
@@ -95,7 +95,7 @@ Deno.test("예산이 차거나 stop이면 줄의 job을 띄우지 않고 skipped
   assertEquals(pool2.halted(), "stopped");
   c.finish();
   assertEquals((await rc).status, "done");
-  assertEquals(await pool2.submit(manualJob("e", "coding").job), {
+  assertEquals(await pool2.submit(manualJob("e", "long").job), {
     status: "skipped",
     id: "e",
     reason: "stopped",

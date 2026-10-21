@@ -1,15 +1,13 @@
-export type TrialKind = "judgment" | "coding";
+import type { Scenario } from "../../types.ts";
 
-// coding agent trial은 진짜 Claude Code를 PTY로 띄워 무거워서 판단 case보다 적게 동시에 돈다.
+export type TrialKind = "judgment" | "long";
+
+// 앱을 짓는 trial은 core·앱 build·앱 process를 오래 쥐어 판단 case보다 적게 동시에 돈다.
 export const DEFAULT_LIMITS: Readonly<Record<TrialKind, number>> = {
   judgment: 4,
-  coding: 2,
+  long: 2,
 };
 
-export function trialKindOf(
-  scenario: { real: readonly { role: string }[] },
-): TrialKind {
-  return scenario.real.some((p) => p.role === "coding_agent")
-    ? "coding"
-    : "judgment";
+export function trialKindOf(scenario: Pick<Scenario, "limits">): TrialKind {
+  return scenario.limits !== undefined ? "long" : "judgment";
 }

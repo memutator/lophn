@@ -17,11 +17,9 @@ export {
   createEventsReader,
   createReactor,
   createSqlCursor,
-  type ReactionRouter,
   type ReactorCursor,
   type ReactorReader,
   type ReactorRunner,
-  registerNewWorkHandlers,
 } from "./reactor/mod.ts";
 export {
   authorizeReactorCursor,

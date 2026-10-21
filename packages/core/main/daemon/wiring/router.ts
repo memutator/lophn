@@ -50,10 +50,6 @@ import {
   FAILURE_TEXTS,
 } from "../../../router/mod.ts";
 import {
-  type ReactionRouter,
-  registerNewWorkHandlers,
-} from "../../../events/mod.ts";
-import {
   type CommandEnvelope,
   type KnownSecretMatch,
   type LedgerConnection,
@@ -197,7 +193,7 @@ function withCallBody(
 // 여기서는 call 본문을 미리 준비하고, commit된 tx가 모은 일(입력함에 넣기, agent event)을 적용하고, 켤 때 잃어버린
 // call을 닫는다.
 export const routerWiring: WiringFactory = () => {
-  // 새 일 handler가 근거 event를 다시 읽는 main thread 연결이다.
+  // 켤 때 접수만 된 사람 메시지를 다시 읽는 main thread 연결이다.
   let eventsConnection: LedgerConnection | undefined;
   return {
     name: "router",
@@ -376,35 +372,10 @@ export const routerWiring: WiringFactory = () => {
       };
       ctx.provide("annotationDelivery", delivery);
 
-      // 새 일을 여는 domain event의 handler. 보내기는 Router의 program 입력이다. 같은 key는 한 번만 보낸다.
-      // Reactor가 시작하기 전에 등록해야 한다. 설정은 앞선 config wiring이 낸다.
+      // 켤 때 접수만 된 사람 메시지를 start에서 다시 읽으려 main thread 연결을 연다.
       const opened = openConnection(ctx.ledgerPath);
       if (!opened.ok) return opened;
       eventsConnection = opened.value;
-      const reaction: ReactionRouter = {
-        async send(call, idempotencyKey) {
-          const done = await ctx.writer.command(ROUTER_CONTEXT, {
-            command: callsReact.name,
-            input: {
-              event_seq: call.from.kind === "program"
-                ? call.from.event_seq
-                : "",
-              to: call.to,
-              body: call.body,
-              refs: call.refs,
-            },
-            idempotency_key: idempotencyKey,
-            compare: {},
-            prepared: [],
-          });
-          return done.ok ? ok(undefined) : done;
-        },
-      };
-      registerNewWorkHandlers(ctx.reactor, {
-        router: reaction,
-        settings: ctx.settings,
-        agentOfApp,
-      });
       return ok({
         writer: (inner) =>
           withCallBody(

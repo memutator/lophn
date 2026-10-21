@@ -25,7 +25,6 @@ import {
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
-import { releaseActivationFailed } from "../../../protocol/events/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
@@ -394,8 +393,8 @@ export function createReleaseCommands(): {
         });
       },
     },
-    // activation 실패. 실패 근거와 이전 활성 참조를 남기고 그 앱의 App Engineer를 부를 domain event를 같은
-    // transaction에 쓴다. 데이터가 바뀌었을 수 있는 시도(backup 확정)는 복원 결과가 있어야 실패로 닫는다.
+    // activation 실패. 실패 근거와 이전 활성 참조를 남긴다.
+    // 데이터가 바뀌었을 수 있는 시도(backup 확정)는 복원 결과가 있어야 실패로 닫는다.
     failActivation: {
       route: activationFail,
       handle(tx, ctx, input) {
@@ -435,14 +434,6 @@ export function createReleaseCommands(): {
         tx.sql.run("DELETE FROM activation_requests WHERE release = ?", [
           release.id,
         ]);
-        tx.emit(releaseActivationFailed, release.id, {
-          app: release.app,
-          ticket: release.ticket_source.ticket,
-          failure: {
-            code: input.failure.code,
-            summary: input.failure.summary,
-          },
-        } as never);
         return ok({ status: "failed" as const });
       },
     },

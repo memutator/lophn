@@ -22,3 +22,4 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-cleanup` | cleanup | 5 | pr-problems-core, pr-log-read, pr-log-view-error, pr-agent-tools, pr-role-prompts | todo |  |  |  |
 | `pr-log-view-error` | log | 5 | pr-log-read, pr-log-exception, pr-issues-ui-main | todo |  |  |  |
 | `pr-role-prompts` | role-prompts | 5 | pr-reactions, pr-log-contract | todo |  |  |  |
+| `pr-docs` | docs | 6 | pr-cleanup | todo |  |  |  |

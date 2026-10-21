@@ -100,7 +100,7 @@ Deno.test("개발 command로 놓아도 사람이 쓴 hook은 남고 우리 항�
 // contract: 설치는 lophn이 전에 놓은 지운 skill의 얇은 사본만 지운다. 사람이 고친 사본, 다른 file이 더 든 폴더, 다른 이름의 skill 폴더는 남긴다.
 // 현실적 회귀: 이름이나 폴더 모양만 보고 지워 사람이 쓰던 skill이 사라진다(사람 home에 쓰는 경계).
 // 왜 지금 못 잡나: 이 test가 처음이다.
-Deno.test("설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고 사람이 손댄 것은 남긴다", async () => {
+Deno.test("설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고, 사람이 고친 사본, 다른 file이 더 든 폴더, 다른 이름의 skill 폴더는 남긴다", async () => {
   const skills = "/home/u/.claude/skills";
   const thin = (name: string) =>
     `---\nname: ${name}\ndescription: "d"\n---\n\n# ${name}\n\n절차는 \`lophn guide ${name}\`이 내준다. 그 출력을 따른다.\n`;

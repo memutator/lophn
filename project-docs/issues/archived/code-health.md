@@ -157,3 +157,20 @@ guard: 없음
 정한 것: 지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). 크기는 작음. runtime mode는 `"live" | "preview"`만 남고, `DBUS_SESSION_BUS_ADDRESS`를 빼도 `XDG_RUNTIME_DIR`은 앱 socket 폴더가 쓰므로 둔다.
 
 닫음: 모두 지웠다. lophn runtime mode는 `"live" | "preview"`이고(protocol, 앱 process 판정, invocation 표의 CHECK), data job kind에 `test`가 없다. identity의 `test_runner_only`·`test_runner`, `applyMemoryLimit`과 그 protocol 값, core가 받던 `DBUS_SESSION_BUS_ADDRESS`, team 등록의 `workers`와 wiring의 `Built.workers`가 없다. SDK host(`cap-store`, `cap-net`, `cap-secret`)와 `cap-tool` context의 `"test"`는 앱이 자기 test에서 임시 DB를 여는 공개 입력이라 남겼다.
+
+## API server의 worker route 통로가 남았다
+
+```yaml
+kind: defect
+modules: [packages/core/server, packages/core/supervision, packages/core/main, packages/core/storage, packages/core/apps, packages/protocol]
+closed: fixed
+guard: 없음
+```
+
+지금: core가 worker 대상을 넘기는 곳이 없다(`packages/core/main/daemon/core.ts`의 `startApiServer` 부르기에 `workers`가 없다). 그래도 worker route 통로가 남아 있다: `packages/core/server/server.ts`의 `ApiServerOptions.workers`와 `adaptedWorkers`, `packages/core/server/dispatch.ts`의 worker 갈래(`deps.workers`를 찾는 곳 셋)와 `isWorkerRoute`(`packages/core/server/routes.ts`), `packages/core/supervision/responsiveness/forward.ts`의 `forwardToWorker`, 등록의 `workerRoutes`(`packages/core/storage/ledger/team-module.ts`, `packages/core/main/daemon/registration.ts`, `packages/core/apps/register.ts`), protocol의 `defineWorker`와 `WorkerRoute`. 쓰는 route는 `packages.guide`(`packages/protocol/apps/package-routes.ts`) 하나이고 늘 `unavailable`("worker unavailable")이다. 안내 원문은 `packages.guide_body`가 읽는다.
+
+영향: 부르면 늘 실패하는 route가 열려 있고, 검토와 고칠 일(dispatch, 등록, 감독)에 죽은 갈래가 낀다.
+
+정한 것: 지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). `packages.guide` route와 worker route 종류 전체, `forwardToWorker`를 같이 지운다(중간. 여러 module의 등록 file을 건드린다).
+
+닫음: route 종류 `worker`, `defineWorker`, `WorkerRoute`, `packages.guide`, dispatch의 worker 갈래, `ApiServerOptions.workers`, `isWorkerRoute`, `forwardToWorker`, 등록의 `workerRoutes`, shell main client의 `workerBytes`를 지웠다. file route에 handler가 없으면 dispatch가 바로 `unavailable`이다. renderer 쪽 `Link.worker`는 남았다(`issues/agent-definition.md` 새 이슈).

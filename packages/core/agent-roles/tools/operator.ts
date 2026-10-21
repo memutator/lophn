@@ -9,14 +9,12 @@ import {
 import { appList } from "../../../protocol/apps/mod.ts";
 import { domainList, domainNameSchema } from "../../../protocol/domains/mod.ts";
 import { projectList } from "../../../protocol/projects/mod.ts";
-import { settingsEditIntent } from "../../lophn-agent/tool-judgment/intents.ts";
 import { operatorPlaceAllowed } from "./operator-place.ts";
 import {
   commandOf,
   defineTool,
   fitted,
   forbidden,
-  type GateRequest,
   invalid,
   notFound,
   readOf,
@@ -65,24 +63,6 @@ async function domainIdsOf(
   return ok(ids);
 }
 
-// 설정 고치기라 실행 전에 Gate에 묻는다. grant는 입력에 없고 사람이 정한다.
-function gateFor(id: string | null, ctx: ToolContext): GateRequest {
-  const intent = settingsEditIntent({
-    what: "agent_definition",
-    id,
-    session: ctx.session,
-    turn: ctx.turn,
-    toolCall: ctx.tool_call,
-    agent: ctx.agent,
-  });
-  return {
-    kind: intent.kind,
-    target: intent.target,
-    effect: intent.effect,
-    input: intent.input,
-  };
-}
-
 // 입력의 place는 project나 앱의 id 또는 이름이다.
 async function resolvePlace(
   place: z.infer<typeof operatorPlace>,
@@ -126,7 +106,6 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
     description:
       "Create an Operator in your own place (Project Manager: your project, App Engineer: your app). Give its name, profile, model, skills, domains (names of the domains in your place), mcp_off and instructions (body). Its grants are given by the person.",
     effect: "write",
-    gate: (input, ctx) => gateFor(input.name, ctx),
     handler: async (input, ctx) => {
       const { place, domains, ...rest } = input;
       const target = await resolvePlace(place, ctx);
@@ -166,7 +145,6 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
     description:
       "Change an Operator of your own place by its name. Only the fields you send change.",
     effect: "write",
-    gate: (input, ctx) => gateFor(input.operator, ctx),
     handler: async (input, ctx) => {
       const { operator, domains, ...rest } = input;
       if (ctx.place === null) return forbidden("an Operator of another place");

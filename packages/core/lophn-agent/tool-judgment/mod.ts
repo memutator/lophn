@@ -1,4 +1,3 @@
-export { settingsEditIntent } from "./intents.ts";
 export {
   createToolGate,
   type ToolGateCall,

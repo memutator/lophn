@@ -14,7 +14,7 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 const path = z.string().min(1);
 const lineCount = z.number().int().positive();
 
-// place 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기의 Gate와 쓰기 기록은 hook이 맡는다.
+// place 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기 기록은 hook이 맡는다.
 
 export const createFileTools = (
   hooks: FileHooks,
@@ -39,8 +39,6 @@ export const createFileTools = (
     description:
       "Write a text file in the place folder, replacing it if it exists. Missing folders are created.",
     effect: "write",
-    gate: (input, ctx) =>
-      hooks.writeGate((input as { path: string }).path, ctx),
     handler: (input, ctx) => writeFile(input, ctx, hooks),
   }),
   defineTool({
@@ -55,8 +53,6 @@ export const createFileTools = (
     description:
       "Replace old_string with new_string in a text file. old_string must appear exactly once unless replace_all is true.",
     effect: "write",
-    gate: (input, ctx) =>
-      hooks.writeGate((input as { path: string }).path, ctx),
     handler: (input, ctx) => editFile(input, ctx, hooks),
   }),
   defineTool({

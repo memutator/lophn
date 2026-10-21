@@ -39,8 +39,22 @@ const USES: Record<string, string[]> = {
   // 어느 package가 바뀌어도 harness가 같이 돈다.
   tests: ALL_PACKAGES.filter((p) => p !== "tests"),
 };
+// type check와 test discovery 양쪽에서 뺀다. 사람이 이 개편 동안 e2e와 eval을 고치지 않기로 해 지운 계약을 가리킨 채 두므로, e2e를 고치는 뒤 계획이 이 목록을 되돌린다.
+const NOT_CHECKED = [
+  "tests/e2e",
+  "tests/eval",
+  "tests/support/annotation",
+  "tests/support/app",
+  "tests/support/coding",
+  "tests/support/gateway",
+  "tests/support/fake-oauth",
+  "tests/support/core/try-boot.ts",
+];
 // deno test의 discovery에서 뺀다. e2e는 `deno task e2e`, live는 `deno task test:live`로만 돈다.
-const NOT_IN_CHECK = ["tests/e2e", "tests/live"];
+const NOT_IN_CHECK = [...NOT_CHECKED, "tests/live"];
+// 폴더 항목과 file 항목이 섞여 있다.
+const under = (f: string, paths: string[]) =>
+  paths.some((x) => f === x || f.startsWith(`${x}/`));
 // root deno.json의 exclude. 글로브 대신 file 목록을 줄 때 같이 뺀다.
 const DENO_EXCLUDED = [
   "packages/shell/main/",
@@ -113,6 +127,7 @@ async function sourceFiles(folder: string): Promise<string[]> {
   for (const f of new Set(all)) {
     if (!/\.tsx?$/.test(f)) continue;
     if (DENO_EXCLUDED.some((x) => f.startsWith(x))) continue;
+    if (under(f, NOT_CHECKED)) continue;
     if (await exists(f)) found.push(f);
   }
   return found.sort();
@@ -203,7 +218,11 @@ async function buildSteps(
   });
 
   if (full) {
-    checks.push({ name: "check", commands: [["deno", "check"]] });
+    // `deno check`에는 --ignore가 없어 file 목록을 준다. package마다 나누면 type check 메모리가 몇 배가 되므로 process 하나로 돈다.
+    const files = (await Promise.all(
+      ALL_PACKAGES.map((p) => sourceFiles(FOLDERS[p])),
+    )).flat();
+    checks.push({ name: "check", commands: [["deno", "check", ...files]] });
   } else {
     for (const p of ALL_PACKAGES.filter((p) => run.has(p))) {
       const files = await sourceFiles(FOLDERS[p]);
@@ -321,7 +340,7 @@ async function buildSteps(
     testArgs.push(
       ...(await Promise.all(
         pkgFolders.map((f) => packageFiles(f, /_test\.tsx?$/)),
-      )).flat().filter((f) => !NOT_IN_CHECK.some((x) => f.startsWith(`${x}/`))),
+      )).flat().filter((f) => !under(f, NOT_IN_CHECK)),
     );
   }
   return { checks, test: { name: "test", commands: [testArgs] }, skipped };

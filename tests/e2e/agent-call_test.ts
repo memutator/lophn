@@ -9,14 +9,13 @@
 //
 // 행의 fake 대답이 3개를 넘는다(README 정한 것 11의 예외): 보내는 session A와 받는 session B가 각자 turn을 돌고 서로의 입력을
 // 기다려야 하는 flow라 한 행이 4~9개가 된다. 대신 단계와 단정 상한은 지킨다. 줄은 요청의 tool 목록으로 가른다
-// (lophn은 app_create, PM은 operator_create(app_create·ticket_create 없이), Project Manager는 ticket_create, 그 외 call을 가진 것은 Operator).
+// (lophn은 app_create, PM은 operator_create(app_create·release_prepare 없이), App Engineer는 release_prepare, 그 외 call을 가진 것은 Operator).
 //
 // call-dedup 행은 두지 않는다. 같은 reply에 같은 tool call id를 두 번 넣어도 core는 tool call마다 새 tcl id를 만들고
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
 //
-// core는 file 전체에서 하나,같은 grant를 쓰고 행마다 새 A/B session을 연다. 재시작 행은 core를 바꾸므로 마지막이다.
+// core는 file 전체에서 하나, 행마다 새 A/B session을 연다. 재시작 행은 core를 바꾸므로 마지막이다.
 import { assert, assertEquals } from "@std/assert";
-import { agentGrantsSet } from "../../packages/protocol/approvals/mod.ts";
 import { appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
   type AgentRef,
@@ -28,6 +27,8 @@ import {
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { runtimePids } from "../support/core/process.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
   decide,
@@ -63,17 +64,17 @@ const PM: Lane = {
   name: "pm",
   match: (r) =>
     names(r).includes("operator_create") && !names(r).includes("app_create") &&
-    !names(r).includes("ticket_create"),
+    !names(r).includes("release_prepare"),
 };
 const AE: Lane = {
   name: "ae",
-  match: (r) => names(r).includes("ticket_create"),
+  match: (r) => names(r).includes("release_prepare"),
 };
 const OPERATOR: Lane = {
   name: "operator",
   match: (r) =>
     names(r).includes("call") &&
-    !["app_create", "operator_create", "ticket_create"].some((n) =>
+    !["app_create", "operator_create", "release_prepare"].some((n) =>
       names(r).includes(n)
     ),
 };
@@ -115,13 +116,6 @@ function withCallId(
     },
   };
 }
-
-const fileWrite = (path: string): Step => ({
-  reply: {
-    kind: "tool",
-    calls: [tool("w1", "file_write", { path, content: "rules" })],
-  },
-});
 
 // tool_result 글은 JSON이고 내용이 content에 있다.
 function resultOf(request: JournalEntry, id: string) {
@@ -198,10 +192,6 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
     const { project } = await openProject(core, folder);
     const pm: AgentRef = { role: "project_manager", project };
     const toPm = { role: "project_manager", place: { project: "proj" } };
-    await core.call(agentGrantsSet, {
-      agent: { role: "lophn" },
-      entries: [{ kind: "agent", agent: pm, setting: "never" }],
-    });
     const c = core;
     // 실패하면 어느 요청이 어느 줄로 갔고 무엇이 어긋났는지 같이 보인다.
     const step = (name: string, body: () => Promise<void>) =>
@@ -397,11 +387,14 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "operator-to-app-ae: Operator가 App Engineer를 부르면 같은 왕복이 돈다",
       async () => {
         fake.reset();
+        // app.create가 template source를 이으면 runtime child가 다시 뜬다. App Engineer session은 그 뒤에 연다.
+        const before = await runtimePids(c.run.home);
         const app = await c.call(appCreate, {
           slug: "ledger-app",
           name: "Ledger App",
           description: "Keep a ledger.",
         }, {});
+        await settle(c, before);
         const ae: AgentRef = { role: "app_engineer", app: app.id };
         const agent = c.ids.newId("agt");
         await c.call(operatorCreate, {
@@ -410,10 +403,6 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
           definition: { name: "reviewer", body: "review" },
         });
         const operator: AgentRef = { role: "operator", agent };
-        await c.call(agentGrantsSet, {
-          agent: operator,
-          entries: [{ kind: "agent", agent: ae, setting: "never" }],
-        });
         fake.script([
           callStep(
             { role: "app_engineer", place: { app: "Ledger App" } },
@@ -449,6 +438,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "call-cancel-late-reply: 취소한 call에 늦게 온 reply는 closed로 돌아간다",
       async () => {
         fake.reset();
+        const ask = await shellAsk(folder, "call-cancel-late-reply");
         let sent = "";
         fake.script([
           callStep(toPm, "result", "ping"),
@@ -461,7 +451,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
           text("cancelled"),
         ], LOPHN);
         fake.script([
-          fileWrite("LOPHN.md"),
+          { reply: ask.reply("w1") },
           withCallId("reply", (call) => ({ call, body: "late", refs: [] })),
           text("replied"),
           text("saw the cancel"),
@@ -475,7 +465,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         sent = await callOf(c, b);
         await say(c, a, "cancel it");
         await waitTurnEnd(c, a, 1);
-        await decide(c, b, request, "allow");
+        await decide(c, b, request, "once");
         await waitTurnEnd(c, b, 1);
         assertNoMismatch(fake);
 
@@ -497,12 +487,13 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "call-sender-archived: 보낸 session이 닫혀도 reply는 받은 session에서 끝난다",
       async () => {
         fake.reset();
+        const ask = await shellAsk(folder, "call-sender-archived");
         fake.script([
           callStep(toPm, "result", "ping"),
           text("sent"),
         ], LOPHN);
         fake.script([
-          fileWrite("LOPHN.md"),
+          { reply: ask.reply("w1") },
           withCallId("reply", (call) => ({ call, body: "late", refs: [] })),
           text("replied"),
         ], PM);
@@ -513,7 +504,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         const { request } = await waitPermission(c, b);
         await waitTurnEnd(c, a);
         await archive(c, a);
-        await decide(c, b, request, "allow");
+        await decide(c, b, request, "once");
         await waitTurnEnd(c, b);
         assertNoMismatch(fake);
 
@@ -536,13 +527,14 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "inbox-order: call이 먼저 와도 사람 message가 먼저 turn이 된다",
       async () => {
         fake.reset();
+        const ask = await shellAsk(folder, "inbox-order");
         const b = await openSession(c, pm);
         fake.script([
           callStep({ session: b }, "none", "call-body-marker"),
           text("sent"),
         ], LOPHN);
         fake.script([
-          fileWrite("LOPHN.md"),
+          { reply: ask.reply("w1") },
           text("wrote"),
           text("answered the human"),
           text("handled the call"),
@@ -553,7 +545,7 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
         await say(c, a, "tell the project manager");
         await waitTurnEnd(c, a);
         const human = (await say(c, b, "human-follow-up")).message;
-        await decide(c, b, request, "allow");
+        await decide(c, b, request, "once");
         await waitTurnEnd(c, b, 2);
         assertNoMismatch(fake);
 
@@ -589,13 +581,14 @@ Deno.test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작�
       "restart-lost: 안 가져간 call은 재시작에 lophn_restarted로 닫히고 A가 알림을 받는다",
       async () => {
         fake.reset();
+        const ask = await shellAsk(folder, "restart-lost");
         const b = await openSession(c, pm);
         fake.script([
           callStep({ session: b }, "result", "ping"),
           text("sent"),
           text("noted the restart"),
         ], LOPHN);
-        fake.script([fileWrite("LOPHN.md")], PM);
+        fake.script([{ reply: ask.reply("w1") }], PM);
         await say(c, b, "write the file");
         await waitPermission(c, b);
         const a = await openSession(c, { role: "lophn" });

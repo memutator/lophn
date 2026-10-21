@@ -14,11 +14,9 @@ import {
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
-  decide,
   openProject,
   openSession,
   say,
-  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
@@ -74,8 +72,6 @@ Deno.test("E2E PM의 shell·skill·image·grep·operator.create는 runtime 권�
       { reply: { kind: "text", text: "done" } },
     ]);
     await say(core, session, "use the tools");
-    const { request } = await waitPermission(core, session);
-    await decide(core, session, request, "allow");
     const turn = await waitTurnEnd(core, session);
 
     // disk

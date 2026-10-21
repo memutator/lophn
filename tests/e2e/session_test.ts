@@ -8,7 +8,7 @@
 //
 // archive-call·delete-call 행(contract: `agent-sessions`의 archive·지움은 한 tx, `router`의 받은 call은 session의 끝으로 닫힌다, `approvals`의
 // 끝난 session의 대기 request는 cancelled)
-// - 현실적 회귀: turn만 닫히고 받은 call이 accepted로 남아 보낸 lophn이 영영 기다리는 것, 대기 request가 남아 늦은 allow가 쓰기를 일으키는 것,
+// - 현실적 회귀: turn만 닫히고 받은 call이 accepted로 남아 보낸 lophn이 영영 기다리는 것, 대기 request가 남아 늦은 once가 명령을 돌리는 것,
 //   지움은 call을 닫지 않는 것.
 // - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
 //   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
@@ -35,7 +35,7 @@ import {
   turnList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { approvalsDecideTurn } from "../../packages/protocol/approvals/mod.ts";
+import { turnRequestDecide } from "../../packages/protocol/approvals/turn-request.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   bootCore,
@@ -44,6 +44,7 @@ import {
   type Run,
 } from "../support/core/mod.ts";
 import { runtimePids } from "../support/core/process.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
   openProject,
@@ -173,10 +174,11 @@ async function openCallWaitingPermission(
 ) {
   fake.reset();
   const { pm } = await newProject(core, name);
+  const ask = await shellAsk(`${core.run.work}/${name}`);
   const callBody = JSON.stringify({
     to: { role: "project_manager", place: { project: name } },
     reply: "result",
-    body: "update LOPHN.md",
+    body: "clean up",
     refs: [],
   });
   fake.script([
@@ -192,28 +194,19 @@ async function openCallWaitingPermission(
     name: "lophn",
     match: (request) => toolNames(request).includes("app_create"),
   });
-  fake.script([{
-    reply: {
-      kind: "tool",
-      calls: [{
-        id: "w1",
-        name: "file_write",
-        arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
-      }],
-    },
-  }], {
+  fake.script([{ reply: ask.reply("w1") }], {
     name: "pm",
     match: (request) =>
       toolNames(request).includes("operator_create") &&
       !toolNames(request).includes("app_create") &&
-      !toolNames(request).includes("ticket_create"),
+      !toolNames(request).includes("release_prepare"),
   });
   const src = await openSession(core, LOPHN);
   await say(core, src, "ask the project manager");
   const dst = await waitReceiver(core, pm);
   const { request } = await waitPermission(core, dst);
   const [received] = await messagesOf(core, dst);
-  return { src, dst, request, call: received!.call! };
+  return { src, dst, request, call: received!.call!, ask };
 }
 
 async function ownTurnsOf(core: Core, session: string) {
@@ -485,11 +478,12 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
         } 도는 turn, 대기 허락, 받은 call이 한 번에 닫힌다`,
         async () => {
           const name = `${how}-call`;
-          const { src, dst, request, call } = await openCallWaitingPermission(
-            c,
-            f,
-            name,
-          );
+          const { src, dst, request, call, ask } =
+            await openCallWaitingPermission(
+              c,
+              f,
+              name,
+            );
           const [turn] = await ownTurnsOf(c, dst);
           const { session: current } = await c.call(agentSessionRead, {
             session: dst,
@@ -520,14 +514,14 @@ Deno.test("session 열기·보관·fork는 role과 place, 이력의 규칙을 �
           const { call: closedCall } = await c.call(callRead, { call });
           assertEquals(closedCall.state, "failed");
           assertEquals(closedCall.fail_reason, "receiver_ended");
-          const late = await c.tryCall(approvalsDecideTurn, {
+          const late = await c.tryCall(turnRequestDecide, {
             session: dst,
             request,
-            choice: { kind: "allow" },
+            choice: { kind: "once" },
           });
-          assert(!late.ok, "끝난 session의 늦은 allow가 받아들여졌다");
+          assert(!late.ok, "끝난 session의 늦은 once가 받아들여졌다");
           // disk
-          assert(!await exists(`${c.run.work}/${name}/LOPHN.md`));
+          assert(await ask.exists(), "늦은 once가 명령을 돌렸다");
         },
       );
     }

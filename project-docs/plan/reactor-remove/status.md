@@ -4,7 +4,8 @@ lead만 고친다. `tools/status.py reactor-remove build`가 `tasks/*.md`에서 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `rr-coding-end` | coding-end | 1 | 없음 | todo |  |  |  |
-| `rr-reactor` | reactor | 2 | rr-coding-end | todo |  |  |  |
-| `rr-program-from` | program-from | 3 | rr-reactor | todo |  |  |  |
-| `rr-screens` | screens | 3 | rr-reactor | todo |  |  |  |
+| `rr-prepare-reasons` | prepare-reasons | 1 | 없음 | todo |  |  |  |
+| `rr-reactor` | reactor | 1 | 없음 | todo |  |  |  |
+| `rr-program-from` | program-from | 2 | rr-reactor | todo |  |  |  |
+| `rr-screens` | screens | 2 | rr-reactor | todo |  |  |  |
+| `rr-test-child` | test-child | 2 | rr-reactor | todo |  |  |  |

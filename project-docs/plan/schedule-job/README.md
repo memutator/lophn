@@ -13,6 +13,7 @@
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `sj-`로 시작한다.
 - **시작 조건:** `headless-run`이 land했다.
 - **brief의 기준:** brief는 2026-10-21 main(`e192a9d8c`) 기준으로 썼다. 앞 계획이 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
+  - `approval-simplify`가 land하며(main `dd956b49f`) roadmap `approval.md`의 "turn mode", "할당", "unattended는 call을 따라 간다" 절이 `architecture/approval.md`와 changelog 0.6.0으로 옮겨졌다. brief가 그 절을 가리키면 그쪽을 본다.
 
 ## 정한 것
 

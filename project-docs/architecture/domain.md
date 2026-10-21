@@ -39,7 +39,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
    lophn: 없다(place가 없다)
      지침   전역 → LOPHN.md(project 그릇만) → DOMAIN.md(맡은 domain을 이름순으로) → agent 본문
      place  Domains 절(이름, 제목, 목적, 폴더), domain별 kind 글, domain별 artifact 목록
-     tool   grant로 할당된 앱 가운데 맡은 domain의 tool 전부 + 다른 domain의 public tool   (이름 domain__<domain>__<tool>)
+     tool   할당된 앱 가운데 맡은 domain의 tool 전부 + 다른 domain의 public tool   (이름 domain__<domain>__<tool>)
      file   PM: project 폴더 + domain 폴더 / App Engineer: 앱 source + domain 폴더
             Operator: 그릇 폴더(앱 source는 읽기만) + 고른 domain의 artifacts/
 
@@ -64,8 +64,8 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **`DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer만 쓴다.** Operator는 고른 domain의 `artifacts/`만 쓴다. 나머지를 바꿀 일은 그릇의 PM이나 App Engineer에게 call한다. 셋 다 Gate 없이 file tool로 쓰고 rewind로 되돌린다. 지침 Gate는 project의 `LOPHN.md`뿐이다.
   - rewind의 쓰기 폴더는 sessions 표만 보고 정하므로 Operator에게도 그릇의 domain 폴더 전부를 넉넉히 잡는다. 실제 쓰기는 file tool이 `placeScope`로 좁힌다.
 - **앱 tool의 `domain`은 필수이고 그 앱의 active domain 이름이어야 한다.** 정본 검사 `validateBlueprint`에 앱의 domain 목록을 주는 곳은 넷이다: release를 기록하는 준비 command(`packages/core/apps/releases/commands.ts`, build가 끝난 뒤라 domain이 틀리면 release가 생기지 않는다), release 준비의 preview bundle 사본(`createCopyPreviewBundles`), `blueprint.check`, activation 직전 재검사. 목록을 읽지 못하면 `unavailable`이다. 모든 domain이 보관된 앱은 모든 tool이 거절된다.
-- **다른 domain의 비공개 tool은 보이지 않는다.** 앱 할당(grant)이 있어도 agent의 tool 목록에도, `app.tools` 결과에도 없다. 같은 앱의 다른 domain이라도 그렇다(경계는 앱이 아니라 domain이다). tool의 domain을 읽지 못하면 비공개로 본다(막는 쪽으로 실패한다).
-  - Grants 화면은 맡은 domain의 tool이나 어느 domain의 public tool만 후보로 보인다. core의 grant 쓰기는 domain을 검사하지 않으므로 막는 곳은 이 목록 거르기 하나다.
+- **다른 domain의 비공개 tool은 보이지 않는다.** 앱 할당이 있어도 agent의 tool 목록에도, `app.tools` 결과에도 없다. 같은 앱의 다른 domain이라도 그렇다(경계는 앱이 아니라 domain이다). tool의 domain을 읽지 못하면 비공개로 본다(막는 쪽으로 실패한다).
+  - Grants 탭(할당 편집)은 맡은 domain의 tool이나 어느 domain의 public tool만 후보로 보인다. core의 할당 쓰기(`packages/core/approvals/assignment/`)는 domain을 검사하지 않으므로 막는 곳은 이 목록 거르기 하나다.
 - **사용 관계의 쓰는 쪽은 부른 agent가 맡은 domain이다.** tool 자신의 domain과 같은 사용은 세지 않는다. 한 agent가 domain 여럿을 맡으면 domain마다 센다. 다른 domain이 쓰는 public tool을 지우는 release는 막는다. 읽기에 실패하면 막는 쪽이다. 막은 일이나 공개 tool이 바뀐 일을 agent에게 알리는 event는 없다.
 - **domain의 일을 받는 쪽은 그 그릇의 PM(project)이나 App Engineer(app)다.** owner를 읽어 그릇의 agent를 정한다(`packages/core/main/daemon/wiring/router.ts`의 `ownerOfDomain`). 마지막으로 쓴 session이 없는 artifact annotation이 여기로 간다. owner가 보관됐거나 없으면 `not_found`다. 새 kind 위반은 agent를 열지 않고 사람에게 toast만 간다(`architecture/kinds.md`).
 - **package 주인은 domain이 아니라 앱이다(`owner_app`).** package는 앱 코드에서 publish되고 코드의 주인은 App Engineer다. 다른 그릇에서 난 package bug는 그 앱의 App Engineer에게 call한다.
@@ -74,7 +74,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 ## 왜 이 모양인가
 
 - **경계를 그릇이 아니라 domain에 둔다.** 저장소 하나(project)에도 업무가 여럿이고, 앱 하나에도 다루는 객체가 여럿이다. 그릇을 경계로 두면 project 하나가 커질 때 agent가 모든 지침과 tool을 받는다. 그릇은 폴더·source·release를 주는 작업 공간으로 남긴다.
-- **domain을 다른 그릇에 또 만들지 않고 공개 tool로 참조한다.** 같은 업무를 두 곳에 두면 뜻이 갈라진다. 다른 그릇은 grant로 public tool을 받아 쓰고, 지우는 release가 막힌다.
+- **domain을 다른 그릇에 또 만들지 않고 공개 tool로 참조한다.** 같은 업무를 두 곳에 두면 뜻이 갈라진다. 다른 그릇은 할당으로 public tool을 받아 쓰고, 지우는 release가 막힌다.
 - **`DOMAIN.md`는 place 정보가 아니라 지침 층에 둔다.** 사람이 쓴 지침이라 조용히 빼지 않는 층 규칙(`architecture/agent-definition.md`)을 그대로 받는다. place 정보는 program이 만든 목록만 싣는다.
 - **Operator는 artifact만 쓴다.** 예전에 Operator는 문서 계약을 바꾸지 않고 PM에게 call했다. domain의 계약(`DOMAIN.md`, kind 파일, skill)도 같은 자리다.
 - **domain 이름을 모든 domain에서 하나로 둔다.** agent tool 이름, 사용 관계, 화면이 이름 하나로 domain을 가리킬 수 있다. 바꾸기를 두지 않아 이름이 곧 신원처럼 쓰인다.

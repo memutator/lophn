@@ -61,7 +61,6 @@ roadmap `workflow.md`의 "정한 것"을 따른다. roadmap "정할 것" 가운�
 ## lead가 할 일
 
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
-- land는 `LOPHN_LAND_SKIP_E2E=1 land.sh workflow`다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
 - 새 module을 만들면 `project-docs/module-catalog.yaml`과 `project-docs/boundary-catalog.yaml` 줄을 lead가 그 계약 task보다 먼저, 또는 같이 commit한다. 없으면 `check-modules`가 떨어진다.
 - 위험 test는 둘이다. roadmap의 둘을 `approval-simplify`와 위 결정에 맞게 바꿨다.
   - workflow 안의 call도 보낸 turn의 mode를 그대로 따른다. workflow 칸이 mode나 할당을 바꾸지 않는다.

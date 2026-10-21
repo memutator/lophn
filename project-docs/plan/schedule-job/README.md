@@ -84,7 +84,6 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 ## lead가 할 일
 
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
-- land는 `LOPHN_LAND_SKIP_E2E=1 land.sh schedule-job`다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
 - 새 module `packages/core/jobs`의 `project-docs/module-catalog.yaml`과 `project-docs/boundary-catalog.yaml` 줄은 lead가 `sj-jobs-contract`보다 먼저, 또는 같이 commit한다. worker는 `project-docs`를 고치지 못하고, 그 줄이 없으면 `check-modules`가 떨어진다.
 - 위험 test는 roadmap대로 둘이다: 놓친 차례가 여러 번이어도 한 번만 돈다. 앞 차례가 도는 동안 같은 job이 또 돌지 않는다.
 - 다 끝나면

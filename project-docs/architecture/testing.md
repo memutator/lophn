@@ -14,8 +14,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 | eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | `tests/eval/` | `deno task eval`, `deno task eval:experiment <id>` |
 
 - `tools/check.ts`는 `tests`를 package 하나로 본다. 어느 package가 바뀌어도 `tests`의 fmt, lint, `deno check`, harness와 support의 `*_test.ts`가 같이 돈다.
-- 개편 동안 `tests/e2e`, `tests/eval`과 그것만 쓰는 `tests/support`를 check의 type check와 test에서 뺐다(`tools/check.ts`의 `NOT_CHECKED`). fmt와 lint는 그대로 본다. e2e를 되살리는 계획이 이 줄과 그 목록을 지운다.
-- `tests/e2e`와 `tests/live`는 check의 `deno test`에 들지 않는다. `deno.json`의 `test.exclude`를 쓰지 않고 `--ignore`로 뺀다. `test.exclude`에 든 폴더는 인자로 직접 줘도 돌지 않아 `deno task e2e`가 못 돈다. CLI `--ignore`는 root `deno.json`의 `exclude`를 대체하므로 check는 그 목록(`DENO_EXCLUDED`)을 같이 준다.
+- `tests/e2e`와 `tests/live`는 check의 type check에는 들고 `deno test`에는 들지 않는다(`tools/check.ts`의 `NOT_IN_CHECK`). `deno task e2e`는 `--no-check`라 e2e의 type 오류는 check만 잡는다. - test discovery에서는 `deno.json`의 `test.exclude`를 쓰지 않고 `--ignore`로 뺀다. `test.exclude`에 든 폴더는 인자로 직접 줘도 돌지 않아 `deno task e2e`가 못 돈다. CLI `--ignore`는 root `deno.json`의 `exclude`를 대체하므로 check는 그 목록(`DENO_EXCLUDED`)을 같이 준다.
 - `deno task e2e`는 `--parallel` 없이 file 순서대로 돈다. flow마다 core를 띄운다. E2E file 수의 상한은 없고 시간 예산이 있다: 전체가 10분 안에 끝나야 한다. 넘으면 행을 harness로 내리거나 같은 준비를 쓰는 file로 묶는다.
 
 ## 가짜 셋
@@ -41,10 +40,9 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `loop/` | `scriptedModel`, `loopHarness`(나머지 `TurnPorts`와 `LoopDeps`, 진짜 file을 쓰는 `write_file` tool), `assertRequestInvariants`(tool_use·tool_result 짝, 대화 접두) |
 | `wire/` | `loadFixture`, `replayFetch`, `wireBinding`(protocol 셋), `callWire` |
 | `fake-server/` | `startFakeServer`, `createFakeHandler`(socket 없는 몸체), `Reply`·`Step`·`JournalEntry` |
-| `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 사람 역할 helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`) |
-| `gateway/` | `connectGateway`(shell main의 Gateway 역할), `waitCodingTerminal`·`answerTerminal`·`exitTerminal`(coding 터미널 요청에 답하고 process 끝을 알림) |
-| `coding/` | `codingCli`(coding agent CLI를 in-process `cliMain`으로), `mcpRequest`(coding token으로 core `/mcp`에 JSON-RPC 한 건), `handOffQueued`·`createTicket`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts` |
-| `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `handOff`·`deliverRelease`·`verifyTicket`·`approveActivation`·`waitRunning`, `aeLane`, `createAppSource`·`amendAppSource`, flow별 앱 patch(`patch-*.ts`, `patches.ts`) |
+| `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 사람 역할 helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`), `shellAsk`(제품 ask 규칙 `rm -r*`에 걸리는 명령과 미리 만든 폴더. turn request를 열게 하는 공통 helper) |
+| `gateway/` | `connectGateway`(shell main의 Gateway 역할) |
+| `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `aeTurn`·`aeToolResult`(App Engineer turn 하나를 대본으로), `prepareRelease`·`activateRelease`·`deliverRelease`, `approveActivation`·`waitRunning`, `aeLane`, `createAppSource`·`amendAppSource`·`sampleDomain`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts`, flow별 앱 patch(`patch-*.ts`) |
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
 
@@ -55,12 +53,16 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 ## 앱 길
 
-앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 source 폴더를 깔고 잇는다) → 견본 patch를 source에 commit → App Engineer의 `release.prepare`, `preview.*`, `release.activate`(fake 대답) → 첫 activation의 동의. data root에 release를 직접 깔지 않는다. 지금 `tests/support/app`, `tests/support/coding`과 앱 E2E는 ticket과 test runner를 지우기 전의 길(App Engineer의 ticket 맡기기, coding agent CLI의 claim·`release prepare`·`app test`·`ticket report`, `ticket.verify`)이라 돌지 않는다. e2e를 되살리는 계획이 이 길로 다시 쓴다. 제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다.
+앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 `<home>/apps/<app>/source`를 깔고 잇는다) → 견본 patch를 source에 commit → agent runtime이 새 place 폴더로 다시 뜨기를 기다림(`settle`. 그 사이 시작한 turn은 끊긴다) → App Engineer의 `release_prepare`, `preview_*`, `release_activate`(fake 대답) → 첫 activation의 동의(`activations.consents`를 읽어 `activation.consent`, compare `requested_at`). data root에 release를 직접 깔지 않는다. `release.prepare`·`release.activate`는 agent만 부르는 route라 test가 직접 부르지 않고 가짜 model이 App Engineer로 부른다. test만을 위한 actor를 제품 route에 더하지 않는다. eval의 켜진 앱 재료(`tests/eval/restore/active-app.ts`)도 같은 helper로 되살린다.
+
+- App Engineer의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
+
+제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 blueprint의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
 
 - 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
-- agent가 앱 tool을 부르는 행은 앱 place의 Operator로 부른다(`app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). template tool은 `public: false`라 그 domain을 맡지 않은 lophn이나 project의 agent에게는 보이지 않는다. 정의에 `domains`가 없는 앱 place Operator는 앱의 domain을 모두 맡는다.
-- coding agent의 MCP 행(`app-release_test.ts`의 `coding-mcp-preview-only`)은 앱이 live로 뜬 뒤 `handOff`로 같은 앱에 coding session을 하나 더 열고, 그 token으로 `mcpRequest`를 부른다. preview 없이 한 번, CLI로 preview를 띄운 뒤 한 번 부르고 live ledger와 data가 그대로인지 본다.
-- coding token은 Gateway `coding_terminal` frame의 `plan.env`로만 받는다. test가 token을 만들거나 core 안에서 꺼내지 않는다. Gateway 연결은 principal마다 4개 한도라 행마다 그 행의 앱 Gateway를 닫는다.
+- agent가 앱 tool을 부르는 행은 사람이 앱을 할당한 Operator로 부른다(`agentAssignmentSet {entries: [{app, removed_tools: []}]}`, compare `{revision: 0}`. `app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). 할당한 앱의 tool만 tool 목록에 뜬다(`project-docs/architecture/approval.md` "할당").
+- 허락을 묻게 하는 행(turn request)은 file 쓰기가 아니라 `shellAsk`의 `shell_run "rm -r <폴더>"`로 묻는다. file 쓰기는 묻지 않는다(`project-docs/architecture/approval.md`). 실행 여부는 폴더가 남았나로 disk에서 본다.
+- Gateway 연결은 principal마다 4개 한도라 event가 필요한 test만 `connectGateway`를 스스로 열고 닫는다.
 - release 준비가 받는 npm·jsr·esbuild 의존은 `deno task e2e:deps`가 `.dev-data/e2e/deno-dir` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 `DENO_DIR`을 받고, E2E 중 network는 loopback뿐이다.
 - 앱 socket 폴더는 `XDG_RUNTIME_DIR` 아래 data root마다 나뉜다. 같은 사용자의 core가 여럿 떠도 서로의 socket을 지우지 않는다.
 
@@ -93,12 +95,12 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 1. 쓰기 전에 세 질문에 답하고 test 머리 주석에 한 줄씩 남긴다: 어떤 contract를 지키나(boundary ID), 어떤 현실적인 회귀에서 깨지나, 왜 지금 test로는 못 잡나.
 2. AGENTS.md의 위험 목록(데이터 잃기, 권한·secret·sandbox 경계, 두 번 고친 bug)에 닿을 때만 쓴다.
 3. contract 하나에 test 하나를 가장 싼 층에 둔다. core E2E에는 process 경계를 건너야만 깨지는 것만 둔다. 경우의 수는 harness에서 늘린다.
-4. case 하나는 단계 6, fake 대답 3, 단정 3 이하다. fake 대답은 행의 몫만 센다. support helper(`handOff`, `deliverRelease`)가 거는 대답은 세지 않는다. 행 몫이 3을 넘어도 되는 것은 session 둘이 서로를 기다리는 행(`agent-call`, session archive의 call)뿐이고, 이유를 test 머리 주석에 적는다. 단정은 서로 다른 곳(disk, ledger·event, fake가 받은 요청)에서 한다. 화면 문구는 단정하지 않는다.
+4. case 하나는 단계 6, fake 대답 3, 단정 3 이하다. fake 대답은 행의 몫만 센다. support helper(`activateTestApp`, `deliverRelease`)가 거는 App Engineer 대답은 세지 않는다. 행 몫이 3을 넘어도 되는 것은 session 둘이 서로를 기다리는 행(`agent-call`, session archive의 call)뿐이고, 이유를 test 머리 주석에 적는다. 단정은 서로 다른 곳(disk, ledger·event, fake가 받은 요청)에서 한다. 화면 문구는 단정하지 않는다.
 5. 변형은 table 한 줄로 둔다. 공통 불변식은 support의 함수 하나로 같이 쓴다.
 6. 회귀는 그 contract의 table에 한 행으로 더하고, 고치기 전 코드에서 실패하는 것을 확인한다.
 7. 새 E2E는 10번 연속 통과한 뒤 넣는다.
 8. flaky한 case는 꺼 두지 않는다. 고치거나, harness로 내리거나, 지운다. 제품 bug를 찾은 E2E는 test를 맞추지 않고 bug를 고친 뒤 넣는다.
-9. lophn이 만든 것(core, child process, 앱 process)은 진짜를 쓰고, lophn 밖의 것만 가짜를 쓴다. model provider는 가짜, 사람·coding agent CLI·shell의 Gateway 역할은 test가 대신한다. 인터넷은 막는다.
+9. lophn이 만든 것(core, child process, 앱 process)은 진짜를 쓰고, lophn 밖의 것만 가짜를 쓴다. model provider는 가짜, 사람과 shell의 Gateway 역할은 test가 대신한다. 인터넷은 막는다.
 
 ## 왜 이 모양인가
 

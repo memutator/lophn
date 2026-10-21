@@ -85,8 +85,7 @@ deno test --no-check <파일이나 폴더>
 | `deno task check:full` | 전부. `deno test --parallel`(`DENO_JOBS` 기본 8), 앞에서 `deno check`가 끝났으니 test는 `--no-check` |
 
 - 독립 단계는 동시에 돌고 첫 실패에서 멈춘다. 실패하면 exit 1이고 출력에 `실패`가 찍힌다.
-- `tests/harness`와 `tests/support`는 check에 들고 `tests/e2e`와 `tests/live`는 안 든다.
-- 개편 동안 `tests/e2e`, `tests/eval`과 그것만 쓰는 `tests/support`를 check의 type check와 test에서 뺐다(`tools/check.ts`의 `NOT_CHECKED`). 그 file은 고치지 않는다. e2e를 되살리는 계획이 이 줄을 지운다.
+- `tests/harness`, `tests/support`, `tests/eval`은 check에 든다. `tests/e2e`와 `tests/live`는 type check에는 들고 `deno test`에는 안 든다(`tools/check.ts`의 `NOT_IN_CHECK`). e2e는 `deno task e2e`로만 돌고 그 task는 `--no-check`다.
 - test가 도는 길은 `deno test` 하나다. 따로 묶는 runner와 두 번째 check를 두지 않는다.
 - 함정: main에서 이미 commit한 뒤 `deno task check`를 돌리면 기준이 HEAD라 바뀐 package가 없다. 그때는 `check:full`이나 `--base`를 쓴다.
 - 함정: `check:full`은 renderer build(`deno run -A packages/shell/renderer/build.ts`)를 안 본다. 화면 쪽을 건드렸으면 따로 돌린다.

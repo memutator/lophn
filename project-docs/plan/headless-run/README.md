@@ -69,7 +69,6 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 ## lead가 할 일
 
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
-- land는 `LOPHN_LAND_SKIP_E2E=1 land.sh headless-run`다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
 - 새 module을 만들면 `project-docs/module-catalog.yaml`과 `project-docs/boundary-catalog.yaml` 줄을 lead가 그 계약 task보다 먼저, 또는 같이 commit한다. 없으면 `check-modules`가 떨어진다.
 - `hr-cli-commands`의 worker prompt에 적는다: CLI를 손으로 돌릴 때는 `env -u LOPHN_CODING_TOKEN LOPHN_HOME=<worktree>/.dev-data/hr-cli-commands`로 돌린다. 안 그러면 사람의 `~/.lophn/run/user-token`을 읽어 사람이 쓰는 lophn을 부른다(AGENTS.md "사람에게 묻는 것").
 - 다 끝나면 `project-docs/boundary-catalog.yaml`의 `coding-agent-cli-interface`를 고친다. 이제 사람도 그 CLI를 쓴다.

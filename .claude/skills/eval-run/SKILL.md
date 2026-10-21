@@ -39,7 +39,6 @@ runner는 eval CLI를 돌리고, 진행을 보고, 사람 역할의 답과 judge
 - `[budget] $a/b`: 합계 비용
 - `답 대기 <run> <key>`, `답 대기 n개: <run> <key>...`(되풀이 알림), `답 거절 <run> <key>: ...`
 - `채점 대기 <run> <key>`
-- `사람 개입 <run> trial <i>`: 누가 coding 화면에 키를 넣었다. 그 trial은 판정에서 빠진다.
 - `[pending] <run> n건`, 이유 줄들, 마지막 `[verdict] <decision>`
 
 ## 진행 확인
@@ -47,7 +46,7 @@ runner는 eval CLI를 돌리고, 진행을 보고, 사람 역할의 답과 judge
 정해진 간격으로 stdout의 마지막 줄들, `.dev-data/eval/`에서 가장 최근에 바뀐 file의 시각, 마지막 `[budget]` 줄을 본다. 확인마다 caller에게 한 줄 상태를 남긴다(예: `3분: trial 2/3 도는 중, $4.20/$100`).
 
 - **간격 3분.** 답을 기다리는 질문이 있는 동안은 **1분 이하**. 그때는 멈춘 것이 아니라 runner의 차례다.
-- **멈춤.** 판단 case만 도는 experiment는 stdout과 기록 file이 10분, coding agent 시나리오가 든 experiment는 30분 동안 변하지 않으면 멈춘 것으로 본다. 이유: 판단 case는 `waitUntilIdle` timeout이 5분이고, coding trial 하나는 시간 상한이 90분이라 오래 조용하다. 이 숫자는 첫 experiment에서 재 보고 고친다.
+- **멈춤.** 판단 case만 도는 experiment는 stdout과 기록 file이 10분, App Engineer가 앱을 짓는 시나리오(시나리오에 `limits`가 있는 것: calendar-user, calendar-dev, calendar-maintain, calendar-diagnose)가 든 experiment는 30분 동안 변하지 않으면 멈춘 것으로 본다. 이유: 판단 case는 `waitUntilIdle` timeout이 5분이고, 앱을 짓는 trial은 `limits.idle_ms`(60~90분) 동안 기다리며 release 준비 하나가 몇 분 조용할 수 있다. 이 숫자는 첫 experiment에서 재 보고 고친다.
 
 ## 질문에 답하기 (`답 대기 <run> <key>`)
 
@@ -81,13 +80,9 @@ JSON
 - program이 enum 밖의 verdict와 입력에 없는 인용을 `오류`로 기록한다. **`오류` item만** 새 subagent로 다시 채점한다. `채점됨`은 program이 거절하니 다시 하지 않는다. 이유: 마음에 드는 verdict를 고르는 일이 되기 때문이다.
 - 목록에 `대기`와 `오류`가 없어야 채점이 다 들어온 것이다. 볼 run id는 `[pending]`, `채점 대기` 줄과 `result.json`의 `variant_runs`에 있다.
 
-## coding agent 시나리오가 든 run
+## 사람 역할이 스스로 답하는 것
 
-진짜 Claude Code가 사람의 로그인으로 PTY에서 돈다.
-
-- 전역 hook·skill은 사람이 미리 설치해 둔다. CLI가 "전역 hook·skill이 없다"며 사람이 칠 명령을 찍고 멈추면 그 명령을 대신 치지 않고 caller에게 보고한다. 이유: `~/.claude/settings.json`은 사람의 것이다.
-- 처음에 `/tmp/lophn-eval`을 만들었다는 안내가 나온다. 이 폴더의 folder trust는 사람이 한 번 연다.
-- 화면은 읽기 전용으로만 본다: `deno task eval:attach [session]`(Ctrl-]로 나간다). `--write`로 키를 넣으면 `human_input`이 남아 그 trial이 판정에서 빠진다. coding trial이 둘 동시에 돌면 session을 준다(안 주면 가장 최근 것).
+activation 동의(`activations.consents`를 읽어 `activation.consent`)와 shell 물음(turn request, `turnRequestDecide`)은 시나리오의 `approve` 규칙대로 사람 역할 program이 답한다. 규칙이 없으면 거절한다. runner는 답하지 않고, 대신 답하는 명령도 없다. 답한 것은 trial 기록의 사람 역할 `decisions`에 남는다.
 
 ## 하지 않는 것
 
@@ -114,7 +109,7 @@ JSON
 - 비용 `cost_usd` / `budget_usd`, `stopped_by_budget`
 - `result.json`에 `overfit`, `repeats`, `assembly`가 있으면 그 줄을 그대로
 - 답한 질문 수, 채점한 item 수, 쓴 model
-- 멈춤이나 이상한 출력(시각과 줄), `사람 개입` 줄
+- 멈춤이나 이상한 출력(시각과 줄)
 
 ## 보고 (caller에게)
 
@@ -122,7 +117,7 @@ JSON
 
 ## 이 skill이 기대는 것
 
-- 명령: `deno task eval`, `eval:experiment`, `eval:gate`, `eval:judge`, `eval:answer`, `eval:attach` (`deno.json`, `tests/eval/run.ts`, `tests/eval/experiment/mod.ts`)
-- stdout 줄: `[trial]`, `[budget]`, `[gate]`, `[pending]`, `[verdict]`, `답 대기`, `답 거절`, `채점 대기`, `사람 개입` (`tests/eval/runner/`, `tests/eval/judge/`, `tests/eval/human/`)
+- 명령: `deno task eval`, `eval:experiment`, `eval:gate`, `eval:judge`, `eval:answer` (`deno.json`, `tests/eval/run.ts`, `tests/eval/experiment/mod.ts`)
+- stdout 줄: `[trial]`, `[budget]`, `[gate]`, `[pending]`, `[verdict]`, `답 대기`, `답 거절`, `채점 대기` (`tests/eval/runner/`, `tests/eval/judge/`, `tests/eval/human/`)
 - 기록: `tests/eval/experiments/<id>/{spec,result}.json`, `tests/eval/runs/<run>.json`, `.dev-data/eval/<run>/`
 - 역할: runner(이 skill)는 `run.md`, experimenter(`eval-experiment`)는 `report.md`를 쓴다

@@ -20,9 +20,9 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-conversation` | conversation | 2 | ap-waiting | merged | conversation/ap-conversation | 480f95996 |  |
 | `ap-waiting` | waiting | 2 | ap-ask-turn, ap-activation | merged | waiting/ap-waiting | 4d90e30ed |  |
 | `ap-mode-envelope` | mode | 3 | 없음 | merged | mode/ap-mode-envelope | 7cca0eb00 |  |
-| `ap-mode-turn` | mode | 3 | ap-mode-envelope, ap-skip-session | todo |  |  |  |
+| `ap-mode-turn` | mode | 3 | ap-mode-envelope, ap-skip-session | running | mode/ap-mode-turn |  |  |
 | `ap-shell-gate` | shell | 3 | ap-mode-turn | todo |  |  |  |
 | `ap-shell-settings` | shell | 3 | ap-shell-gate | todo |  |  |  |
-| `ap-skip-screens` | skip | 3 | ap-skip-session | todo |  |  |  |
+| `ap-skip-screens` | skip | 3 | ap-skip-session | running | skip/ap-skip-screens |  |  |
 | `ap-skip-session` | skip | 3 | 없음 | merged | skip/ap-skip-session | 1789cbcd1 |  |
 | `ap-cleanup` | cleanup | 4 | ap-waiting, ap-conversation, ap-assign-editor, ap-shell-settings, ap-skip-screens | todo |  |  |  |

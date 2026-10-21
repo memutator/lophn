@@ -30,7 +30,7 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 - **누가**
   - job은 agent가 만들고 켠다. 사람이 시킨 것이 승낙이다(사람).
   - job의 run은 unattended다.
-- schedule은 Reactor와 domain event에 얹지 않는다. 시각과 timer는 주입한 Clock으로 받는다(AGENTS.md).
+- schedule은 기록 event(`tx.emit`)나 Bus에 얹지 않는다(Reactor는 `reactor-remove`가 지웠다). 시각과 timer는 주입한 Clock으로 받는다(AGENTS.md).
 
 이 계획에서 더 정한 것:
 

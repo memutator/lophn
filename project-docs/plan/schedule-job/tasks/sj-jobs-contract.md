@@ -12,7 +12,7 @@ job과 job run의 모양, job route(job tool 입출력, hold card의 읽기와 �
   - `packages/core/jobs/mod.ts`(새 file)
   - `tools/check-deps.ts`
 - 읽을 것:
-  - architecture: `project-docs/architecture/event.md`("남지 않는 event", "Bus와 Reactor"의 commit 뒤 내기), `project-docs/architecture/layers.md`(feature module, "harness와 lophn feature module"의 tool 정의 file 규칙)
+  - architecture: `project-docs/architecture/event.md`("남지 않는 event", "Bus"의 commit 뒤 내기), `project-docs/architecture/layers.md`(feature module, "harness와 lophn feature module"의 tool 정의 file 규칙)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `protocol`, `events`, `event-stream`, `agent-tool-spi`와 lead가 더한 `jobs`. `project-docs/module-catalog.yaml`의 `packages/core/jobs`(lead가 더한다)
   - 본보기: `packages/protocol/domains/domains.ts`(record와 route 정의), `packages/protocol/domains/mod.ts`(`ROUTES`), `packages/protocol/events/transient.ts`의 `AppViewChanged`, `packages/core/domains/ports.ts`(`definePort`), `packages/core/storage/ledger/after-commit.ts`(`afterCommit`, `CommitAction`), `packages/core/lophn-agent/run-loop/topics.ts`(topic 이름)
   - 제품 결정: `project-docs/plan/schedule-job/README.md`의 "정한 것"과 "뼈대 검토에서 정한 것", `project-docs/products/roadmap/headless-schedule.md`의 "놓친 차례"

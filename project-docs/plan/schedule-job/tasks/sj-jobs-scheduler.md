@@ -1,6 +1,6 @@
 # sj-jobs-scheduler
 
-lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring을 만든다. 주입한 Clock과 timer로 깨어 `job.claim_due`를 부르고, 받은 job run마다 `headless-run`의 "core의 run 연산"으로 run을 시작하고(그 run의 turn은 unattended다) 끝을 기록한다. Reactor와 domain event에 얹지 않는다.
+lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring을 만든다. 주입한 Clock과 timer로 깨어 `job.claim_due`를 부르고, 받은 job run마다 `headless-run`의 "core의 run 연산"으로 run을 시작하고(그 run의 turn은 unattended다) 끝을 기록한다. 기록 event나 Bus에 얹지 않는다.
 
 - 단위: jobs (wave 3)
 - 선행: 없음
@@ -8,7 +8,7 @@ lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring�
   - `packages/core/jobs/scheduler.ts`(새 file)
   - `packages/core/main/daemon/wiring/jobs.ts`(새 file)
 - 읽을 것:
-  - architecture: `project-docs/architecture/event.md`("Bus와 Reactor": Bus에 내는 것은 commit 뒤, core 안 command는 접힌 writer `ctx.writer`로, 겹쳐 깨워도 한 줄로 돈다, Bus는 놓칠 수 있다), `project-docs/architecture/layers.md`(scheduler는 feature module `jobs`에 두고 조립은 `core/main`이 한다)
+  - architecture: `project-docs/architecture/event.md`("Bus": Bus에 내는 것은 commit 뒤, core 안 command는 접힌 writer `ctx.writer`로, 겹쳐 깨워도 한 줄로 돈다, Bus는 놓칠 수 있다), `project-docs/architecture/layers.md`(scheduler는 feature module `jobs`에 두고 조립은 `core/main`이 한다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `jobs`(lead가 더한다), `events`, `storage`. `project-docs/module-catalog.yaml`의 `packages/core/jobs`
   - 본보기: `packages/core/main/daemon/wiring/apps-tickets.ts`(machine 자격 기록 `records`, `ctx.writer.command`, timer를 `closeWork`에서 멈춤), `packages/core/main/daemon/wiring/router.ts`의 `build`가 내는 `writer: (inner) => ... withAfterCommit(inner, apply)`, `packages/core/main/daemon/wiring/apps.ts`의 `AppViewChanged` 내기(`ctx.peek.bus?.publish`), `packages/core/main/daemon/wiring/context.ts`(hook 순서, `Built.writer`), `packages/core/storage/ledger/after-commit.ts`(`withAfterCommit`, `CommitAction`), `packages/core/main/daemon/wiring/lophn-agent-runtime.ts`의 `createIdSource({clock, random})`
   - 제품 결정: `project-docs/products/roadmap/headless-schedule.md`의 "놓친 차례"와 "정한 것(agent)"(켜져 있을 때만 돈다, 자동 재시도 없음, Reactor에 얹지 않는다), `project-docs/plan/schedule-job/README.md`의 "뼈대 검토에서 정한 것"(timer port, 할당은 부를 때만, 도는 run은 job을 지워도 끝까지)과 "살 단계 검토에서 정한 것"(run 시작 helper, `Late` 칸)
@@ -22,7 +22,7 @@ lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring�
 추가(planner, 살 단계 뒤): 아래 "planner가 정한다 / 열지 않는다"로 남긴 시간대는 tx port `jobZonePort {zone(): string}`로 정했다(README). `jobRunEnded`에는 선택 칸 `reason`을 둔다. agent는 자기가 만든 job만 고치고 지운다(사람은 모두).
 
 1. `packages/core/jobs/scheduler.ts`(새 file): `createJobScheduler(deps)`. import는 `packages/base`, `packages/protocol/jobs/`, 같은 module의 `ports.ts`뿐이다. 시각은 `deps.clock`, timer는 `deps.timers`로만 받는다(`setTimeout`, `Date.now`를 쓰지 않는다. `next_due_at` 글을 ms로 바꾸는 `Date.parse`는 된다).
-   - 한 번에 한 줄로 돈다(event.md의 Reactor와 같은 까닭). claim 한 번과 받은 줄 시작하기를 "한 바퀴"로 하고, 도는 중에 `wake()`가 오면 표시만 해 두었다가 그 바퀴가 끝나면 한 바퀴 더 돈다.
+   - 한 번에 한 줄로 돈다. claim 한 번과 받은 줄 시작하기를 "한 바퀴"로 하고, 도는 중에 `wake()`가 오면 표시만 해 두었다가 그 바퀴가 끝나면 한 바퀴 더 돈다.
    - `start()`: `claimDue(true)`로 첫 바퀴를 돌고 `ok`를 돌려준다. claim이 실패해도 core 기동을 막지 않는다. `console.error`로 남기고 1분 뒤 다시 한다.
    - `wake()`: 멈췄으면 아무것도 안 한다. 아니면 `claimDue(false)` 바퀴를 연다(위 한 줄 규칙).
    - 한 바퀴: `claimDue`가 준 `start`의 줄마다 차례로
@@ -41,14 +41,14 @@ lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring�
    - `start(ctx)`: scheduler를 만들어 변수에 둔 뒤 `scheduler.start()`를 돌려준다(시작 중 `apply`가 깨워도 그 변수를 본다).
    - `closeWork()`: `await scheduler?.stop()`
    - zone: 뼈대 문제(planner가 정한다). 계약 줄의 "환경 `jobs.zone`"(`environment` hook)은 writer Worker의 command에 닿지 않는다(`sj-jobs-contract` 할 일 7). 추천안대로면 zone은 `sj-jobs-store`의 `jobs-registration.ts`가 tx port로 꽂고 이 wiring은 `environment` hook을 두지 않는다.
-   - Reactor(`ctx.reactor.on`)와 domain event를 쓰지 않는다.
+   - 기록 event(`tx.emit`)로 일을 넘기지 않는다.
 
 ## 끝남
 
 - `deno task check`가 통과한다.
 - 위험 test: 없음. 같은 job이 겹쳐 돌지 않는 것은 표(`claimed_at`, 도는 줄 unique index)가 지키고 `sj-jobs-due`의 test가 본다. timer와 run을 띄우는 test는 만들지 않는다.
 - `grep -rn "setTimeout(\|setInterval(\|Date.now(" packages/core/jobs`가 0줄이다(timer와 시각은 주입한다).
-- `grep -rn "ctx.reactor\|defineEvent" packages/core/main/daemon/wiring/jobs.ts packages/core/jobs`가 0줄이다(Reactor와 domain event에 얹지 않는다).
+- `grep -rn "tx.emit\|defineEvent" packages/core/main/daemon/wiring/jobs.ts packages/core/jobs`가 0줄이다(event에 얹지 않는다).
 
 ## 보고
 

@@ -10,7 +10,7 @@ approval-simplify가 land한 뒤의 unattended 전파 위에서, run service를 
 - 읽을 것:
   - 계약: `project-docs/plan/headless-run/tasks/hr-contract-runs.md`의 "내놓는 것"(route 표, `StartRun`의 순서, "끝"을 정하는 규칙), `project-docs/plan/headless-run/tasks/hr-runs-core.md`의 "할 일" 1(port)과 8(service), `project-docs/plan/headless-run/tasks/hr-session-input.md`의 "내놓는 것"
   - 제품 결정: `project-docs/plan/headless-run/README.md`의 "정한 것"(tool run의 부른 쪽은 사람이다, core는 그 입력이 들어간 turn과 `TurnEnded`로 끝을 안다)과 "뼈대 검토에서 정한 것"(coding session 안에서는 run route가 `forbidden`, tool run 취소, run 입력은 켤 때 다시 줄 세우지 않는다)
-  - architecture: `project-docs/architecture/event.md` "Bus와 Reactor"(core 안에서 command를 내는 곳은 접힌 writer `ctx.writer`를 쓴다, Bus는 놓칠 수 있다), `project-docs/architecture/agent-call.md`(받는 쪽 이름은 정확히 맞아야 풀린다), `project-docs/architecture/place-session.md`(session을 여는 길은 같은 연산이다, 켤 때 돌던 turn은 interrupted), `project-docs/architecture/layers.md`(composition root는 `core/main`이다)
+  - architecture: `project-docs/architecture/event.md` "Bus"(core 안에서 command를 내는 곳은 접힌 writer `ctx.writer`를 쓴다, Bus는 놓칠 수 있다), `project-docs/architecture/agent-call.md`(받는 쪽 이름은 정확히 맞아야 풀린다), `project-docs/architecture/place-session.md`(session을 여는 길은 같은 연산이다, 켤 때 돌던 turn은 interrupted), `project-docs/architecture/layers.md`(composition root는 `core/main`이다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `core`, `runs`, `router`, `agent-sessions`, `run-loop`, `apps`; `project-docs/module-catalog.yaml`의 `packages/core/main`
   - 코드(본보기와 이어 붙일 곳. 앞 계획 land 뒤 path 확인)
     - `packages/core/main/daemon/wiring/router.ts`: `ANNOTATION_DELIVERY_CONTEXT`(actor user인 core 안 자격과 `records`), `run`(접힌 writer로 command 내기), `agentOfApp`(`ledgerSnapshot`으로 main thread에서 짧게 읽기), `start`의 `createSessionDirectory({ ...placeDepsOf(sql), publish, sql })`, `ctx.runtime.reads.get(...)`로 `ReadMessageBody` 읽기
@@ -45,7 +45,7 @@ approval-simplify가 land한 뒤의 unattended 전파 위에서, run service를 
      - `resolve(named)`: `ledgerSnapshot(ctx.ledgerPath, (lookup) => createSessionDirectory({ ...placeDepsOf(lookup.sql), publish: () => {}, sql: () => lookup.sql }).resolveAgent(named))`를 펴서 돌려준다. Router의 `SessionDirectory.resolveAgent`와 같은 이름 풀기다(정확히 맞는 이름만, coding_agent는 `invalid_input`).
        - 정한 것: `runs-registration.ts`는 만들지 않는다. 이유: 이름 풀기는 tx가 필요 없고, `router.ts`가 main thread에서 같은 길(`ledgerSnapshot`, `placeDepsOf`)로 읽는다.
      - `agentOf(session)`: `ReadSession` → `session.agent`. `lifecycle`이 `open`이 아니면 `conflict`. 없으면 `not_found`가 그대로 간다.
-     - `open(agent, session)`: `OpenSession { id: session, agent, opening_context: null }`.
+     - `open(agent, session)`: `OpenSession { id: session, agent }`.
      - `send(session, message, text)`: `SendMessage { id: message, session, content: { schema_version: 1, parts: [{ kind: "text", text }] }, delivery: "next_turn", refs: [], unattended: true }`.
      - `turnOf(message)`: `ReadReceivedMessage` → `message.turn`이 null이면 null, 메시지가 `not_found`(취소로 지워짐)여도 null. 아니면 `ReadTurn` → `{ turn, state, outcome }`.
      - `answer(session, turn)`: `ListReceivedMessages { session, turn }`를 `next_cursor`가 null일 때까지 읽고, `from.kind === "agent"`이고 `from.session === session`인 것(그 session의 agent가 `RecordMessage`로 남긴 것) 가운데 마지막 것을 `ReadMessageBody`로 읽어 text part를 `\n`으로 잇는다. 없으면 null.

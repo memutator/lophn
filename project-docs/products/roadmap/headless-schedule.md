@@ -59,7 +59,7 @@
   - 창을 닫아도 tray에 남고, tray의 Quit만 멈춘다(`packages/shell/main/desktop/quit.ts:1-3`).
   - 로그인 때 `--tray`로 켜는 autostart가 있다. packaged build만 된다(`packages/shell/main/desktop/autostart.ts`).
   - data root마다 core는 하나다(instance lock, `packages/core/main/daemon/core.ts:81`).
-- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 10개다(Reactor 5초 등).
+- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 9개다(앱 control sweep 1초, annotation sweep, rewind sweep, storage prune 등).
 - domain event와 Reactor가 없다(`reactor-remove`). 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 하고, 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md`).
 - 앱 tool
   - 부르는 쪽은 user, agent, app뿐이고 program은 없다(`packages/protocol/apps/calls/call.ts:93-110`, `packages/core/apps/calls/caller.ts:18-26`).

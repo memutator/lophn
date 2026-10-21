@@ -104,3 +104,5 @@ problem-remove(`project-docs/products/change-log/0.6.0.md` 마지막 항목) 뒤
 ## (lead가 더함)
 
 - `packages/core/lophn-agent/session/rewind/effects.ts` 7~8줄 주석의 "보류 request는 session에 묶이지 않으므로…"를 지운다. 보류 request 길은 없다(ap-ask-pending).
+- `packages/core/lophn-agent/tools/tool-context.ts` 25줄("Gate의 intent에 싣는 호출자")과 35줄("허락 소비") 주석을 지금 Gate(`GateCall`, 소비 없음)에 맞춘다(ap-ask-turn).
+- `packages/core/lophn-agent/ports.ts`의 `SessionEndEffects.forgetSessionGrants`와 `packages/core/lophn-agent/places/unwired.ts`의 아무것도 안 하는 구현을 지운다. "이 session 동안" 허락이 없다(ap-ask-turn). 부르는 곳도 grep해 지운다.

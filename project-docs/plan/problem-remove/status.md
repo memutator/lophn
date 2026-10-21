@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-cli-problem` | cli-problem | 2 | pr-check-exclude | merged | cli-problem/pr-cli-problem | 52b031cfe |  |
 | `pr-issues-ui-screen` | issues-ui | 2 | pr-check-exclude | merged | issues-ui/pr-issues-ui-screen | 8ad3e25bd |  |
 | `pr-log-contract` | log | 2 | pr-check-exclude | merged | log/pr-log-contract | a12442dd1 |  |
-| `pr-log-sdk` | log | 2 | pr-log-contract | running | log/pr-log-sdk |  |  |
+| `pr-log-sdk` | log | 2 | pr-log-contract | merged | log/pr-log-sdk | 78693657e |  |
 | `pr-reactions` | reactions | 2 | pr-check-exclude | running | reactions/pr-reactions |  |  |
 | `pr-test-runner-reports` | test-runner-reports | 2 | pr-check-exclude | running | test-runner-reports/pr-test-runner-reports |  |  |
 | `pr-issues-ui-main` | issues-ui | 3 | pr-issues-ui-screen | todo |  |  |  |

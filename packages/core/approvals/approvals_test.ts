@@ -163,7 +163,7 @@ function makeKit(
         agentGrant: () => Promise.resolve(ok(grant)),
         reactionGrant: () =>
           Promise.resolve(ok({
-            ReleaseActivationFailed: "open",
+            ReleaseActivationFailed: "on",
           })),
         setAlways: () => Promise.resolve(ok(undefined)),
       },

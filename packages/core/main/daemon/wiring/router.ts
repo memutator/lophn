@@ -50,7 +50,6 @@ import {
   FAILURE_TEXTS,
 } from "../../../router/mod.ts";
 import {
-  createEventsReader,
   type ReactionRouter,
   registerNewWorkHandlers,
 } from "../../../events/mod.ts";
@@ -378,7 +377,7 @@ export const routerWiring: WiringFactory = () => {
       ctx.provide("annotationDelivery", delivery);
 
       // 새 일을 여는 domain event의 handler. 보내기는 Router의 program 입력이다. 같은 key는 한 번만 보낸다.
-      // Reactor가 시작하기 전에 등록해야 해서 events가 아니라 approvals 뒤인 여기서 한다.
+      // Reactor가 시작하기 전에 등록해야 한다. 설정은 앞선 config wiring이 낸다.
       const opened = openConnection(ctx.ledgerPath);
       if (!opened.ok) return opened;
       eventsConnection = opened.value;
@@ -402,9 +401,8 @@ export const routerWiring: WiringFactory = () => {
         },
       };
       registerNewWorkHandlers(ctx.reactor, {
-        approvals: ctx.approvals,
         router: reaction,
-        events: createEventsReader(eventsConnection.sql),
+        settings: ctx.settings,
         agentOfApp,
       });
       return ok({

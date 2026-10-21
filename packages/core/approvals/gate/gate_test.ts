@@ -18,7 +18,7 @@ const AGENT = { role: "lophn" } as const;
 function grants(
   entries: AgentGrantEntry[] | null,
   app: GateGrants["app"] = [],
-  mode: ReactionGrant["ReleaseActivationFailed"] = "open",
+  mode: ReactionGrant["ReleaseActivationFailed"] = "on",
 ): GateGrants {
   return {
     app,
@@ -160,7 +160,7 @@ const cases: [string, Intent, GateGrants, GateVerdict][] = [
     run,
   ],
   [
-    "reaction open",
+    "reaction on",
     reaction("ReleaseActivationFailed"),
     grants(null),
     run,
@@ -170,12 +170,6 @@ const cases: [string, Intent, GateGrants, GateVerdict][] = [
     reaction("ReleaseActivationFailed"),
     grants(null, [], "off"),
     deny("reaction_off"),
-  ],
-  [
-    "reaction ask",
-    reaction("ReleaseActivationFailed"),
-    grants(null, [], "ask"),
-    ask,
   ],
   [
     "activation 첫 release는 ask",

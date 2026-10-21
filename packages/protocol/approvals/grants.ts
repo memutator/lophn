@@ -102,11 +102,11 @@ export const REACTION_EVENT_TYPES = ["ReleaseActivationFailed"] as const;
 export const reactionEventTypeSchema = z.enum(REACTION_EVENT_TYPES);
 export type ReactionEventType = z.infer<typeof reactionEventTypeSchema>;
 
-// 끔, 열고 묻지 않음, 물음.
-const REACTION_MODES = ["off", "open", "ask"] as const;
+// 끔, 켬.
+export const REACTION_MODES = ["off", "on"] as const;
 export const reactionModeSchema = z.enum(REACTION_MODES);
 type ReactionMode = z.infer<typeof reactionModeSchema>;
-export const DEFAULT_REACTION_MODE: ReactionMode = "open";
+export const DEFAULT_REACTION_MODE: ReactionMode = "on";
 
 export const reactionGrantSchema = z.strictObject({
   ReleaseActivationFailed: reactionModeSchema,

@@ -1,14 +1,14 @@
-// Settings › Reactions. 새 일을 여는 domain event 다섯마다 Off, Open without asking, Ask를 고른다.
-// 기본은 열고 묻지 않음이다. call을 닫는 event는 항목이 없다.
+// Settings › Reactions. 새 일을 여는 domain event마다 켬과 끔을 고른다.
+// 기본은 켬이다. call을 닫는 event는 항목이 없다.
 import { useCallback, useState } from "react";
-import { Select } from "@lophn/ui/input";
+import { Switch } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { NamedControl } from "../general/named-control.tsx";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
-import { MODE_OPTIONS, REACTION_ROWS } from "./model.ts";
+import { REACTION_ROWS } from "./model.ts";
 import type {
   ReactionEvent,
   ReactionMode,
@@ -68,7 +68,7 @@ export function ReactionsPanel({ source }: ReactionsPanelProps) {
     <div data-reactions="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-reactions")}</h1>
       <p className={styles.lead}>{t("settings.intro.reactions")}</p>
-      <Loading loading={modes === null} placeholder={<Skeleton lines={5} />}>
+      <Loading loading={modes === null} placeholder={<Skeleton lines={1} />}>
         <ul className={styles.lines}>
           {modes === null ? null : REACTION_ROWS.map((row) => (
             <li
@@ -97,17 +97,16 @@ export function ReactionsPanel({ source }: ReactionsPanelProps) {
                     </div>
                     <div className={styles.lineControl}>
                       {provide(
-                        <Select
-                          options={MODE_OPTIONS.map((option) => ({
-                            value: option.value,
-                            label: t(option.label),
-                          }))}
-                          value={modes[row.event]}
-                          onValueChange={(value) =>
+                        <Switch
+                          label={modes[row.event] === "on"
+                            ? t("settings.label.value-on")
+                            : t("settings.label.value-off")}
+                          checked={modes[row.event] === "on"}
+                          onCheckedChange={(next) =>
                             void choose(
                               modes,
                               row.event,
-                              value as ReactionMode,
+                              next ? "on" : "off",
                             )}
                         />,
                       )}
@@ -119,7 +118,7 @@ export function ReactionsPanel({ source }: ReactionsPanelProps) {
           ))}
         </ul>
         <p className={`${styles.lineHelp} ${styles.groupBlock}`}>
-          {t("settings.note.reactions-ask")}
+          {t("settings.note.reactions-unlisted")}
         </p>
       </Loading>
     </div>

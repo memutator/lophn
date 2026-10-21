@@ -111,9 +111,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.group-general": Record<never, never>;
   "settings.label.group-system": Record<never, never>;
   "settings.label.reaction-activation-failed": Record<never, never>;
-  "settings.label.reaction-ask": Record<never, never>;
-  "settings.label.reaction-off": Record<never, never>;
-  "settings.label.reaction-open": Record<never, never>;
   "settings.label.reactions-target": Record<never, never>;
   "settings.label.reading-width": Record<never, never>;
   "settings.label.reason": Record<never, never>;
@@ -162,7 +159,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-model": Record<never, never>;
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
-  "settings.note.reactions-ask": Record<never, never>;
+  "settings.note.reactions-unlisted": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;

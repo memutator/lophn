@@ -26,8 +26,7 @@ export const gate = (intent: Intent, grants: GateGrants): GateVerdict => {
   switch (target.kind) {
     case "reaction": {
       const mode = grants.reaction[target.event];
-      if (mode === "off") return { verdict: "deny", reason: "reaction_off" };
-      return mode === "open" ? RUN : ASK;
+      return mode === "off" ? { verdict: "deny", reason: "reaction_off" } : RUN;
     }
     case "activation": {
       const comparison = activationComparisonSchema.safeParse(intent.input);

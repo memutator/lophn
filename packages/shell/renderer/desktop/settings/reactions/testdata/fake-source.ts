@@ -9,9 +9,9 @@ interface FakeReactionsOptions {
   readFails?: boolean;
 }
 
-/** 화면 확인용 대표 값: 묻는다. */
+/** 화면 확인용 대표 값: 기본과 다른 꺼짐. */
 export const SAMPLE_MODES: Partial<ReactionModes> = {
-  ReleaseActivationFailed: "ask",
+  ReleaseActivationFailed: "off",
 };
 
 export function fakeReactions(options: FakeReactionsOptions = {}) {

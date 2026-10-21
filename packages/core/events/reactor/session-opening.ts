@@ -1,19 +1,15 @@
-// 새 일을 여는 domain event의 공통 handler. reaction grant를 보고 끄거나(off), 열고 묻지 않거나(open),
-// 보류 request를 만든다(ask). 여는 일은 Router에 program call을 보내는 것이다.
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  ApplyResult,
-  Intent,
-  PendingApproval,
-  ReactionEventType,
-} from "../../../protocol/approvals/mod.ts";
+// 새 일을 여는 domain event의 공통 handler. reaction 설정이 off면 아무것도 하지 않고, 아니면 연다.
+// 여는 일은 Router에 program call을 보내는 것이다.
+import { ok, type Result } from "../../../base/mod.ts";
 import {
-  type DomainEvent,
-  domainEventSchema,
-} from "../../../protocol/events/mod.ts";
+  DEFAULT_REACTION_MODE,
+  type ReactionEventType,
+} from "../../../protocol/approvals/mod.ts";
+import type { SettingsReader } from "../../../protocol/config/mod.ts";
+import type { DomainEvent } from "../../../protocol/events/mod.ts";
 import type { CallEnvelope } from "../../../protocol/lophn-agent/calls.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
-import type { Approvals } from "../../approvals/ports.ts";
+import { reactionSettings } from "../../approvals/mod.ts";
 import { reactionIdempotencyKey } from "../../storage/ledger/reaction.ts";
 import type { Reactor, ReactorHandler } from "../ports.ts";
 
@@ -27,10 +23,8 @@ export type ReactionRouter = {
 };
 
 type NewWorkDeps = {
-  approvals: Pick<Approvals, "judge" | "createPending" | "registerApplier">;
   router: ReactionRouter;
-  // 근거 seq의 events 행. 보류 request가 허락된 뒤 event를 다시 읽는다.
-  events: { at(seq: string): Promise<Result<unknown | null>> };
+  settings: SettingsReader;
   // 앱을 받는 event는 그 앱의 App Engineer를 부른다. 앱이 없으면 not_found다. wiring이 ledger 연결로 꽂는다.
   agentOfApp(app: string): Result<AgentRef>;
 };
@@ -57,18 +51,7 @@ function callOf(
   };
 }
 
-function intentOf(event: NewWork): Intent {
-  return {
-    kind: "reaction",
-    actor: { kind: "program", seq: event.seq },
-    target: { kind: "reaction", event: event.type },
-    effect: "read",
-    input: {},
-    origin: { kind: "event", seq: event.seq },
-  };
-}
-
-// call 보내기의 key는 handler 이름과 근거 seq로 만든다. handler 경로와 허락 뒤 applier 경로가 같은 key를 쓴다.
+// call 보내기의 key는 handler 이름과 근거 seq로 만든다. 같은 event를 다시 받아도 call은 하나다.
 async function sendKey(event: NewWork): Promise<Result<string>> {
   return await reactionIdempotencyKey({
     subscriber: newWorkHandlerName(event.type),
@@ -92,46 +75,11 @@ function handlerFor<T extends ReactionEventType>(
   return {
     name: newWorkHandlerName(type),
     async handle(event) {
-      const intent = intentOf(event as NewWork);
-      const verdict = await deps.approvals.judge(intent);
-      if (!verdict.ok) return verdict;
-      if (verdict.value.verdict === "deny") return ok(undefined);
-      if (verdict.value.verdict === "run") {
-        return await send(deps, event as NewWork);
-      }
-      const pending = await deps.approvals.createPending(intent);
-      return pending.ok ? ok(undefined) : pending;
+      const mode = deps.settings.get(reactionSettings[type]) ??
+        DEFAULT_REACTION_MODE;
+      if (mode === "off") return ok(undefined);
+      return await send(deps, event as NewWork);
     },
-  };
-}
-
-// 허락된 보류 request를 다시 검사하고 같은 call을 보낸다.
-function applier(deps: NewWorkDeps) {
-  const failed = (
-    code: Extract<ApplyResult, { state: "failed" }>["code"],
-    message: string,
-  ): Result<ApplyResult> => ok({ state: "failed", code, message });
-  return async (request: PendingApproval): Promise<Result<ApplyResult>> => {
-    const { target, origin } = request.intent;
-    if (target.kind !== "reaction" || origin.kind !== "event") {
-      return err({ code: "invalid_input", message: "not a reaction" });
-    }
-    const row = await deps.events.at(origin.seq);
-    if (!row.ok) return row;
-    const parsed = domainEventSchema.safeParse(row.value);
-    if (!parsed.success || parsed.data.type !== target.event) {
-      return failed("not_found", "the event of this request is gone");
-    }
-    const event = parsed.data as NewWork;
-    const verdict = await deps.approvals.judge(intentOf(event));
-    if (!verdict.ok) return verdict;
-    if (verdict.value.verdict === "deny") {
-      return failed("forbidden", "the reaction was turned off");
-    }
-    const sent = await send(deps, event);
-    return sent.ok
-      ? ok({ state: "applied" })
-      : failed(sent.error.code, sent.error.message);
   };
 }
 
@@ -143,5 +91,4 @@ export function registerNewWorkHandlers(
     "ReleaseActivationFailed",
     handlerFor("ReleaseActivationFailed", deps),
   );
-  deps.approvals.registerApplier("reaction", applier(deps));
 }

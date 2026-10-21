@@ -52,7 +52,7 @@ export const workspaceSettings = {
   "settings.intro.general":
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.reactions":
-    "When something happens, lophn can open a new agent session for it. Choose what happens for each event. By default lophn opens the session without asking.",
+    "When something happens, lophn can open a new agent session for it. Turn each event on or off. They are on by default.",
   "settings.label.accent": "Accent",
   "settings.label.accent-blue": "Blue",
   "settings.label.accent-green": "Green",
@@ -118,9 +118,6 @@ export const workspaceSettings = {
   "settings.label.group-general": "General",
   "settings.label.group-system": "System",
   "settings.label.reaction-activation-failed": "Activation failed",
-  "settings.label.reaction-ask": "Ask",
-  "settings.label.reaction-off": "Off",
-  "settings.label.reaction-open": "Open without asking",
   "settings.label.reactions-target": "your reaction settings",
   "settings.label.reading-width": "Reading width",
   "settings.label.reason": "Reason",
@@ -165,8 +162,8 @@ export const workspaceSettings = {
     "Without a turn-end signal, lophn sends only the first prompt and no follow-up messages. A product that can't take the first prompt is not offered as a default.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
-  "settings.note.reactions-ask":
-    "Ask puts a request in the waiting list and opens the session when you allow it. Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
+  "settings.note.reactions-unlisted":
+    "Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
   "settings.reaction.opens-app-engineer":

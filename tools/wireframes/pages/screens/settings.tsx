@@ -177,7 +177,7 @@ export const settingsArea: Area = {
       id: "new-settings-reactions",
       title: "Settings · Reactions",
       description:
-        "새 일을 여는 domain event 다섯마다 Off, Open without asking, Ask를 고른다. 기본은 열고 묻지 않음이고, 항목마다 어느 agent의 session이 열리는지 한 줄이 있다.",
+        "새 일을 여는 domain event마다 Switch로 켜고 끈다. 기본은 켬이고, 항목마다 어느 agent의 session이 열리는지 한 줄이 있다.",
       render: () => <SettingsReactions />,
     },
     {

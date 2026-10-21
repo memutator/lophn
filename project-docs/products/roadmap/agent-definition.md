@@ -5,7 +5,6 @@
 
 ## 왜
 
-- **App Engineer가 직접 짓게 되면 정의의 반이 낡는다.** App Engineer 지침 241줄 가운데 약 124줄이 ticket, problem, coding agent에게 넘기기, examples, reaction 이야기다(`packages/core/agent-roles/roles/app-engineer/prompt.md`). 직접 짓는 데 필요한 tool(앱 log, invocation, preview, release 준비와 activate)은 없다.
 - **같은 말이 여러 곳에 있다.** "Calls", "앱과 data 규칙", "결정은 하나씩, 선택지 2~3개와 추천", artifact 안내, domain 폴더 설명이 role 지침 넷과 제품 고정 규칙(`PRODUCT_INSTRUCTIONS`)과 guide에 되풀이된다.
 - **필요할 때 읽는 글이 두 길이다.** skill(`skill.read`)과 guide(`guide.read`, 10편 546줄)다. `artifact` guide는 사실상 skill인데 guide로만 닿는다.
 - **command가 반만 지어져 있다.**
@@ -44,13 +43,9 @@
 
 - 모든 role에 같은 말("Calls", "앱과 data 규칙", "결정은 하나씩", artifact 한 줄)은 `PRODUCT_INSTRUCTIONS` 한 곳에 둔다.
 - domain 폴더 설명과 kind 다루기는 PM과 App Engineer 지침에 두 번 쓰지 않고 내장 skill(`kinds-yaml`과 domain guide에서 온 skill)로 둔다.
-- App Engineer 지침은 직접 짓는 흐름으로 다시 쓴다: 설계(재사용 → 모델 → journey → 화면 → tool), 코드, preview 확인, release 준비, `release.activate`. 목표는 지금의 반 정도다.
-- lophn과 PM 지침에서 ticket 줄을 지운다(problem과 reaction 줄은 `problem-remove`가 지웠다).
 
 ### tool
 
-- 모든 role의 읽기 목록에서 `ticket.*`를 지운다. App Engineer의 ticket 쓰기도 지운다(`problem-ticket.md`).
-- App Engineer에게 preview 띄우기와 그 tool 부르기, release 준비, `release.activate`를 더한다(`problem-ticket.md`). 앱 log, invocation, 상태 읽기(`app.logs`, `app.invocations`, `app.status`)는 `problem-remove`가 더했다.
 - `guide.read`를 지운다(skill로 옮김).
 
 ### 정의 칸
@@ -71,13 +66,12 @@
 - **instruction.**
   - 순서: 제품 고정 규칙(`packages/core/agent-roles/roles/prompts.ts:30-48`)과 role 지침, 전역 `LOPHN.md`, project `LOPHN.md`(app place에는 없다), `DOMAIN.md`(합쳐 24,000자), agent 본문
   - 파일마다 32 KiB다.
-  - role 지침은 lophn 79, PM 117, App Engineer 241, Operator 63줄이다.
-- **ticket, problem, coding agent, reaction에 걸린 지침 줄.** App Engineer 약 124줄, PM 16~22줄, lophn 7줄, Operator 0줄이다. 제품 고정 규칙에 `<lophn-reaction>` 정의 한 줄이 있다. guide 다섯 편이 이것들을 말한다.
+  - role 지침은 lophn 81, PM 111, App Engineer 140, Operator 63줄이다(App Engineer 지침은 `ae-builds`가 직접 짓는 흐름으로 다시 썼다).
 - **skill.**
   - 층은 내장(`kinds-yaml` 하나, PM과 App Engineer), 전역(등록한 폴더, 개인 보관함 `<LOPHN_HOME>/skills`), domain(`skills/`)이다.
   - prompt에는 이름과 설명만 싣는다. 본문은 24 KiB까지다.
   - 찾기 구현이 둘이다: turn용 비동기(`packages/core/lophn-agent/extensions/skills.ts`)와 화면과 `/` 메뉴용 동기(`skills-sync.ts`, 207줄).
-- **tool.** 공통 14, 읽기 19(모든 role), 일 3(lophn 빼고). role별 합계는 lophn 36, PM 39, App Engineer 47, Operator 36이다(`packages/core/agent-roles/tool-lists.ts`).
+- **tool.** 공통 14, 읽기 14(모든 role), 일 3(lophn 빼고). role별 합계는 lophn 34, PM 34, App Engineer 45, Operator 31이다(`packages/core/agent-roles/tool-lists.ts`).
 - **shell.** `shell.run`은 기본 120초, 최대 600초에 끊는다. 배경 process는 남지 않고, env는 8개만 넘긴다(`packages/core/lophn-agent/tools/shell/run.ts:8-9`, `env.ts`). `deno test`는 `deno`가 PATH에 있으면 돈다. dev server와 watch는 못 돈다.
 - **`/` 메뉴.**
   - 목록은 session마다 만든다(`packages/core/lophn-agent/commands/registry.ts`, `packages/protocol/lophn-agent/commands.ts`).
@@ -100,7 +94,6 @@
 - **role command는 내장 skill로 옮긴다.** 근거: 사람이 부르는 것이 skill 하나로 모인다.
 - **guide를 내장 skill로 옮기고 `guide.read`를 지운다.** 근거: 필요할 때 읽는 길이 둘일 이유가 없다. 내장 skill은 이미 role로 거른다.
 - **모든 role에 같은 말은 `PRODUCT_INSTRUCTIONS`에 한 번만 둔다.** 근거: 여러 곳에 두면 한 곳만 고쳐지고 나머지가 낡는다.
-- **App Engineer 지침은 직접 짓는 흐름으로 다시 쓴다.** 근거: `problem-ticket.md`. 지울 줄과 더할 tool이 같은 계획(`ae-builds`)에서 바뀌어야 지침과 tool이 어긋나지 않는다.
 - **쓰이지 않는 칸과 갈래를 지운다**(`safe_tools`, `permissions`, command의 `tool`, `skill_origin`, `while_running`). 근거: 읽는 곳이 없다.
 - **`/recap`은 지운다.** 근거: core route가 없어 진짜 source에서 돈 적이 없다. 필요해지면 skill로 둔다.
 - **skill 찾기 구현을 하나로 합친다.** 근거: 같은 층 합치기를 두 번 구현했다.
@@ -113,9 +106,7 @@
 ## 단계
 
 - 계획을 따로 열지 않고 다른 계획에 나눠 싣는다. 지침과 tool이 같은 변경에서 바뀌어야 하기 때문이다.
-  - `problem-remove`: 모든 role에서 `problem.*` 읽기와 reaction 줄, `<lophn-reaction>`을 지운다. lophn의 L7을 앱 상태와 log 읽기로 바꾼다.
-  - `ae-builds`: App Engineer 지침을 다시 쓰고, `ticket.*`를 지우고, App Engineer tool을 더한다. 쓰기 전에 shell에서 앱 test를 돌릴 `deno`가 PATH에 있는지 확인하고, 없으면 lophn이 쓰는 `deno`를 shell PATH에 넣는다.
-  - 새 계획 `agent-definition`(작음): command 인자 잇기, role command를 skill로, guide를 skill로, 겹친 지침을 `PRODUCT_INSTRUCTIONS`로, 쓰이지 않는 칸 지우기, `/recap` 지우기, skill 찾기 하나로 합치기. `ae-builds`가 App Engineer 지침을 다시 쓴 뒤에 연다. `reactor-remove`와는 순서가 상관없다.
+  - 새 계획 `agent-definition`(작음): command 인자 잇기, role command를 skill로, guide를 skill로, 겹친 지침을 `PRODUCT_INSTRUCTIONS`로, 쓰이지 않는 칸 지우기, `/recap` 지우기, skill 찾기 하나로 합치기. `reactor-remove`와는 순서가 상관없다(`problem-remove`와 `ae-builds`가 role의 problem·ticket 줄과 tool을 이미 고쳤다).
 - `/` 메뉴와 정의 편집 화면이 바뀌면 `ui-design` skill로 wireframe부터 고친다. 문구는 `wording` skill을 따른다.
 
 test(AGENTS.md "속도", `write-test` skill):

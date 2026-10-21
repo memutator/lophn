@@ -89,7 +89,7 @@
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
 - land는 `LOPHN_LAND_SKIP_E2E=1 land.sh problem-remove`다. e2e는 이 개편 동안 고치지 않는다(사람).
   - 권한 분류기는 lead session에서 사람이 직접 한 말만 본다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill). planner가 전한 말로는 통하지 않는다.
-- 첫 task(`pr-check-exclude`)가 land되기 전의 task는 merge하지 않는다.
+- 첫 task(`pr-check-exclude`)가 plan branch에 merge되기 전에는 다른 task를 merge하지 않는다. 그 전에는 지운 계약을 e2e와 eval이 가리켜 check가 떨어진다.
 - 이 계획은 끝까지 다 merge한 뒤 한 번에 land한다. wave별로 land하면 main이 어중간한 상태로 남는다.
   - wave 2만 land하면 kind 위반 toast가 `pr-kinds-toast`(wave 3) 전까지 뜨지 않는다.
   - wave 4와 5 사이에는 화면 오류가 core에 닿을 길이 없다.

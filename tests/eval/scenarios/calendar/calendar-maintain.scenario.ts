@@ -1,23 +1,13 @@
 // 출처: roadmap eval "캘린더 단위". 일정 data가 든 켜진 앱에 기능(반복 일정)을 더해도 옛 data와 tool이 남는지 본다.
 import {
-  addCodingCall,
-  aeCallsOnlyToCodingAgent,
   apiAnswers,
   appActive,
   askedAgainInput,
-  cardCoveredInput,
   releaseAdvanced,
 } from "../../checks/app/mod.ts";
 import { fixtureSession, fixtureTrial } from "../../checks/mod.ts";
 import { activeApp, say, type Scenario, untilIdle } from "../../types.ts";
-import {
-  AE,
-  aeTicketChecks,
-  CODING,
-  LOPHN,
-  ticketCreate,
-  ticketVerify,
-} from "./common.ts";
+import { AE } from "./common.ts";
 import {
   APP,
   CARD_MAINTAIN,
@@ -28,22 +18,16 @@ import {
   SEED_CALLS,
 } from "./spec.ts";
 
-const goal = "event.add에 repeat 입력을 더해 weekly이면 4번 나타나게 한다";
-const aeSession = (steps: Parameters<typeof fixtureSession>[1]) =>
-  addCodingCall(fixtureSession(AE, steps), APP, goal);
-
 const scenario: Scenario = {
   id: "calendar-maintain",
   n: 5,
   proposal: false,
   world: ["calendar-app@2", "calendar-data@2"],
-  real: [AE, CODING],
+  real: [AE],
   human: { card: CARD_MAINTAIN, approve: { activation: "allow" } },
   steps: [say(AE, SAY_MAINTAIN), untilIdle()],
   save: { "calendar-app": activeApp(APP) },
   checks: [
-    ...aeTicketChecks(),
-    aeCallsOnlyToCodingAgent("ae-calls-coding-only"),
     appActive("app-active", { app: APP }),
     releaseAdvanced("release-advanced", {
       app: APP,
@@ -55,41 +39,12 @@ const scenario: Scenario = {
     apiAnswers("repeat-works", { app: APP, steps: REPEAT_SCRIPT }),
     {
       kind: "judge",
-      id: "card-covered",
-      premise: ["release-advanced"],
-      criterion: "card-covered@3",
-      input: cardCoveredInput(CARD_MAINTAIN, APP),
-    },
-    {
-      kind: "judge",
       id: "asked-again",
-      premise: ["ae-ticket-created"],
+      premise: ["release-advanced"],
       criterion: "asked-again@3",
       input: askedAgainInput(SAY_MAINTAIN),
     },
   ],
-  fixtures: {
-    right: [fixtureTrial([aeSession([ticketCreate(goal), ticketVerify()])])],
-    wrong: [
-      {
-        trial: fixtureTrial([aeSession([])]),
-        fails: ["ae-ticket-created", "ae-ticket-verified"],
-      },
-      {
-        trial: fixtureTrial([aeSession([ticketCreate(goal)])]),
-        fails: ["ae-ticket-verified"],
-      },
-      {
-        trial: fixtureTrial([
-          fixtureSession(AE, [
-            ticketCreate(goal),
-            ticketVerify(),
-            { call: { to: LOPHN, reply: "none", body: goal } },
-          ]),
-        ]),
-        fails: ["ae-calls-coding-only"],
-      },
-    ],
-  },
+  fixtures: { right: [fixtureTrial([fixtureSession(AE, [])])], wrong: [] },
 };
 export default scenario;

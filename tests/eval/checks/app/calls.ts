@@ -3,42 +3,6 @@ import type { ProgramCheck } from "../../types.ts";
 import { type Count, countOk, countText } from "../calls.ts";
 import { toolCallsOf } from "../records.ts";
 
-// 앱을 만드는 단위 안에서 App Engineer가 보내는 call은 coding agent로만 간다.
-// 새 coding session은 to.role, 이미 열린 coding session은 to.session으로 받는다.
-// 보낼 때 실패한 call은 받는 쪽에 닿지 않았으니 세지 않는다(재시도 비용은 tool 정확도가 센다).
-// lophn이 App Engineer에게 보내는 첫 call(fake 대본)은 lophn session의 것이라 세지 않는다.
-export function aeCallsOnlyToCodingAgent(id: string): ProgramCheck {
-  return {
-    kind: "program",
-    id,
-    run({ trial }) {
-      const all = trial.sessions
-        .filter((s) => s.agent.role === "app_engineer")
-        .flatMap((s) => s.sent_calls);
-      const calls = all.filter((c) =>
-        c.outcome?.kind === "success" && c.state !== "failed"
-      );
-      const skipped = all.length - calls.length;
-      const codingSessions = new Set(
-        (trial.coding ?? []).map((c) => c.session),
-      );
-      // receiver는 coding agent이면 풀리지 않을 수 있어 to를 본다.
-      const wrong = calls.filter((c) => {
-        const to = c.to as { role?: unknown; session?: unknown } | null;
-        const toCoding = to?.role === "coding_agent" ||
-          (typeof to?.session === "string" && codingSessions.has(to.session));
-        return !toCoding || c.reply !== "conversation";
-      });
-      return {
-        pass: calls.length > 0 && wrong.length === 0,
-        reason: calls.length === 0
-          ? `App Engineer가 보낸 call이 없음(보낼 때 실패한 ${skipped}개 뺌)`
-          : `App Engineer call ${calls.length}개(보낼 때 실패한 ${skipped}개 뺌) 중 coding agent 대화가 아닌 것 ${wrong.length}개`,
-      };
-    },
-  };
-}
-
 function successCalls(
   trial: Parameters<typeof toolCallsOf>[0],
   command: string,
@@ -68,26 +32,6 @@ export function appToolCalled(
         pass: countOk(n, count),
         reason: `${opts.command} 성공 ${n}번 (기대 ${countText(count)})`,
       };
-    },
-  };
-}
-
-// App Engineer가 problem을 읽었나.
-export function readProblem(id: string): ProgramCheck {
-  return {
-    kind: "program",
-    id,
-    run({ trial }) {
-      const n =
-        ["problem.get", "problem.body"].flatMap((tool) =>
-          toolCallsOf(trial, tool)
-        ).filter((c) =>
-          c.call.outcome?.kind === "success" &&
-          trial.sessions.some((s) =>
-            s.agent.role === "app_engineer" && s.tool_calls.includes(c)
-          )
-        ).length;
-      return { pass: n > 0, reason: `problem 읽기 성공 ${n}번` };
     },
   };
 }

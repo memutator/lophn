@@ -5,10 +5,6 @@ import {
   appList,
   type ToolOutcome,
 } from "../../../../packages/protocol/apps/mod.ts";
-import {
-  problemList,
-  type ProblemListItem,
-} from "../../../../packages/protocol/problems/mod.ts";
 import type { Core } from "../../../support/core/mod.ts";
 import { until } from "../../../support/core/human.ts";
 import type { CheckOutcome, ProgramCheck, TrialRecord } from "../../types.ts";
@@ -58,24 +54,6 @@ export async function callApi(
     caller: { kind: "person", view_session: "eval" },
   });
   return outcome;
-}
-
-// 문제 접수는 collector worker를 거쳐 늦게 보인다. 시간이 다 되면 마지막으로 읽은 것을 돌려준다.
-export async function waitProblems(
-  core: Core,
-  app: string,
-  done: (items: ProblemListItem[]) => boolean,
-  timeoutMs = 20_000,
-): Promise<ProblemListItem[]> {
-  let last: ProblemListItem[] = [];
-  try {
-    return await until("problem 목록이 달라짐", async () => {
-      last = (await core.call(problemList, { app: app as App["id"] })).problems;
-      return done(last) ? last : undefined;
-    }, timeoutMs);
-  } catch {
-    return last;
-  }
 }
 
 // 통과할 때까지 되풀이해 읽는다. 시간이 다 되면 마지막 결과를 돌려준다.

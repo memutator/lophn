@@ -23,30 +23,3 @@ export function appToolSession(
   }
   return session;
 }
-
-// 그 session의 sent_calls에 coding agent로 간 call 하나를 더한다. landed FixtureCall.to는 Participant라 coding agent를 못 받는다.
-export function addCodingCall(
-  session: SessionRecord,
-  app: string,
-  body = "fixture",
-): SessionRecord {
-  const order = session.sent_calls.length;
-  return {
-    ...session,
-    sent_calls: [...session.sent_calls, {
-      tool_call: `tcl_fx_c${order}`,
-      order,
-      to: { role: "coding_agent", place: { app } },
-      reply: "conversation",
-      body,
-      outcome: { kind: "success", code: "ok" },
-      call: null,
-      state: "accepted",
-      fail_reason: null,
-      record: null,
-      receiver: null,
-      receiver_session: null,
-      receiver_place: null,
-    }],
-  };
-}

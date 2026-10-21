@@ -1,9 +1,4 @@
-export {
-  callAfterAppCreate,
-  callCount,
-  hasFailedCall,
-  noOtherCallAfterFailedCall,
-} from "./calls.ts";
+export { callAfterAppCreate, callCount } from "./calls.ts";
 export type { Count } from "./calls.ts";
 export { noWriteTools, toolCount, toolsCalled } from "./tools.ts";
 export { sentCalls, toolCallsOf } from "./records.ts";

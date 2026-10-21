@@ -20,7 +20,7 @@ const AT = "2026-01-01T00:00:00.000Z";
 export type FixtureCall = {
   to: Participant;
   reply: CallReply;
-  fail?: "denied" | "not_found" | "not_allowed" | "closed";
+  fail?: "not_found" | "closed";
   body?: string;
 };
 
@@ -217,20 +217,7 @@ export function fixtureSession(
         body_truncated: false,
       });
 
-    if (fail === "denied") {
-      done("not_executed", "denied", null);
-      sent_calls.push({
-        ...sent,
-        outcome: { kind: "not_executed", code: "denied" },
-        call: null,
-        state: null,
-        fail_reason: null,
-        record: null,
-        receiver: null,
-        receiver_session: null,
-        receiver_place: null,
-      });
-    } else if (fail === "not_found") {
+    if (fail === "not_found") {
       done("failure", "not_found", null);
       sent_calls.push({
         ...sent,

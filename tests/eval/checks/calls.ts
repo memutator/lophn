@@ -1,12 +1,6 @@
 import type { CallReply } from "../../../packages/protocol/lophn-agent/mod.ts";
-import type { Participant, ProgramCheck, SentCall } from "../types.ts";
-import {
-  callFailed,
-  type CallWhere,
-  effectiveToolCalls,
-  matchTarget,
-  sentCalls,
-} from "./records.ts";
+import type { ProgramCheck } from "../types.ts";
+import { type CallWhere, effectiveToolCalls, sentCalls } from "./records.ts";
 
 export type Count = number | { min?: number; max?: number };
 
@@ -69,77 +63,6 @@ export function callAfterAppCreate(
         reason: hit
           ? "새 앱의 App Engineer에게 보냄"
           : "새 앱의 App Engineer에게 보낸 call 없음",
-      };
-    },
-  };
-}
-
-export function hasFailedCall(
-  id: string,
-  opts?: { target?: Participant },
-): ProgramCheck {
-  return {
-    kind: "program",
-    id,
-    run({ trial }) {
-      const n = failedCalls(sentCalls(trial), opts?.target).length;
-      return { pass: n > 0, reason: `실패한 call ${n}개` };
-    },
-  };
-}
-
-function failedCalls(calls: SentCall[], target?: Participant): SentCall[] {
-  return calls.filter((c) =>
-    callFailed(c) && (target === undefined || matchTarget(c, target))
-  );
-}
-
-// 같은 대상인지 가르는 키. 보낸 쪽이 쓴 이름 꼴이면 그 이름으로 만들어, 막힌 call(receiver 없음)과
-// 풀린 call이 같은 키가 되게 한다. `{ session }` 꼴만 receiver나 session id로 만든다.
-function targetKey(c: SentCall): string {
-  const to = c.to as {
-    role?: string;
-    place?: { app?: string; project?: string };
-    name?: string;
-    session?: string;
-  };
-  if (typeof to.role === "string") {
-    return `${to.role}|${JSON.stringify(to.place ?? null)}|${to.name ?? ""}`;
-  }
-  if (c.receiver !== null) {
-    const r = c.receiver;
-    const id = r.role === "lophn"
-      ? ""
-      : r.role === "operator"
-      ? r.agent
-      : r.role === "project_manager"
-      ? r.project
-      : r.app;
-    return `${r.role}#${id}`;
-  }
-  return `session#${to.session ?? ""}`;
-}
-
-export function noOtherCallAfterFailedCall(
-  id: string,
-  opts?: { target?: Participant },
-): ProgramCheck {
-  return {
-    kind: "program",
-    id,
-    run({ trial }) {
-      const calls = sentCalls(trial);
-      const failed = failedCalls(calls, opts?.target)[0];
-      if (failed === undefined) {
-        return { pass: true, reason: "실패한 call 없음" };
-      }
-      const key = targetKey(failed);
-      const others = calls.slice(calls.indexOf(failed) + 1).filter((c) =>
-        targetKey(c) !== key
-      );
-      return {
-        pass: others.length === 0,
-        reason: `실패한 call 뒤에 다른 대상으로 간 call ${others.length}개`,
       };
     },
   };

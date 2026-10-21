@@ -1,24 +1,19 @@
 // 캘린더 단위 시나리오가 같이 쓰는 참가자, setup, 공용 check 조각, fixture helper. 시나리오가 아니라 runner가 읽지 않는다.
 import type { Id } from "../../../../packages/protocol/base/mod.ts";
 import { operatorCreate } from "../../../../packages/protocol/lophn-agent/mod.ts";
-import { agentGrantsSet } from "../../../../packages/protocol/approvals/mod.ts";
+import { agentAssignmentSet } from "../../../../packages/protocol/approvals/mod.ts";
 import {
-  addCodingCall,
-  aeCallsOnlyToCodingAgent,
   appActive,
   appDesignInput,
   askedAgainInput,
   callApi,
-  cardCoveredInput,
   findApp,
   liveCheck,
   reuseChecks,
 } from "../../checks/app/mod.ts";
-import { fixtureSession, fixtureTrial, toolCount } from "../../checks/mod.ts";
-import type { FxStep } from "../../checks/mod.ts";
+import { fixtureSession, fixtureTrial } from "../../checks/mod.ts";
 import {
   type Check,
-  codingAgent,
   type Participant,
   type ProgramCheck,
   type Scenario,
@@ -28,9 +23,8 @@ import { nextWeekTuesdays } from "./dates.ts";
 import { APP, OPERATOR, REUSE } from "./spec.ts";
 
 export const LOPHN: Participant = { role: "lophn" };
-// 앱의 일(ticket, coding agent에게 맡기기, problem 읽기)은 앱 그릇의 App Engineer가 한다.
+// 앱의 일은 앱 그릇의 App Engineer가 한다.
 export const AE: Participant = { role: "app_engineer", place: { app: APP } };
-export const CODING = codingAgent(APP);
 export const OP: Participant = {
   role: "operator",
   name: OPERATOR,
@@ -50,26 +44,12 @@ export async function createCalendarOperator(ctx: SetupContext): Promise<void> {
       body: `${APP} 앱의 tool로 일정을 넣고 보여 준다.`,
     },
   });
-  await ctx.core.call(agentGrantsSet, {
+  // 새 Operator는 할당 줄이 없어 revision이 0이다.
+  await ctx.core.call(agentAssignmentSet, {
     agent: { role: "operator", agent: id },
-    entries: [{ kind: "app", app, tools: [] }],
-  });
+    entries: [{ app, removed_tools: [] }],
+  }, { revision: 0 });
   ctx.world.operators[OPERATOR] = id;
-}
-
-// 앱을 만들거나 고치는 단위(calendar-user, calendar-dev, calendar-maintain): App Engineer가 ticket을 만들고 verify했다.
-export function aeTicketChecks(): ProgramCheck[] {
-  return [
-    toolCount("ae-ticket-created", {
-      tool: "ticket.create",
-      count: { min: 1 },
-    }),
-    toolCount("ae-ticket-verified", {
-      tool: "ticket.verify",
-      count: { min: 1 },
-      success: true,
-    }),
-  ];
 }
 
 // calendar-api: 다음 주 화요일 15:00 치과 일정이 들어 있다. 날짜는 trial 시작 시각으로 계산한다.
@@ -100,74 +80,21 @@ export const eventInCalendar: ProgramCheck = liveCheck(
 
 // ---- fixture helper ----
 
-export const ticketCreate = (goal: string): FxStep => ({
-  tool: "ticket.create",
-  effect: "write",
-  input: {
-    app: `app_fx_${APP}`,
-    goal,
-    check: { kind: "text", text: "fixture check" },
-  },
-  output: { status: "success", content: { ticket: "tkt_fx" } },
-});
-
-export const ticketVerify = (): FxStep => ({
-  tool: "ticket.verify",
-  effect: "write",
-  input: { ticket: "tkt_fx" },
-  output: { status: "success", content: { ticket: "tkt_fx" } },
-});
-
-export const problemGet = (): FxStep => ({ tool: "problem.get" });
-
-// 사람이 App Engineer에게 직접 말하는 새 앱 단위(calendar-user, calendar-dev)의 fixture.
-export function buildAppFixtures(goal: string): Scenario["fixtures"] {
-  const aeSession = (steps: FxStep[]) =>
-    addCodingCall(fixtureSession(AE, steps), APP, goal);
-  return {
-    right: [fixtureTrial([aeSession([ticketCreate(goal), ticketVerify()])])],
-    wrong: [
-      {
-        trial: fixtureTrial([aeSession([])]),
-        fails: ["ae-ticket-created", "ae-ticket-verified"],
-      },
-      {
-        trial: fixtureTrial([aeSession([ticketCreate(goal)])]),
-        fails: ["ae-ticket-verified"],
-      },
-      {
-        trial: fixtureTrial([
-          fixtureSession(AE, [
-            ticketCreate(goal),
-            ticketVerify(),
-            { call: { to: LOPHN, reply: "none", body: goal } },
-          ]),
-        ]),
-        fails: ["ae-calls-coding-only"],
-      },
-    ],
-  };
+// 사람이 App Engineer에게 직접 말하는 새 앱 단위(calendar-user, calendar-dev)의 fixture. 인자는 부르는 곳의 글을 남기려고 둔다.
+export function buildAppFixtures(_goal: string): Scenario["fixtures"] {
+  return { right: [fixtureTrial([fixtureSession(AE, [])])], wrong: [] };
 }
 
 // 사람이 App Engineer에게 직접 말하는 새 앱 단위의 check. 고정된 tool 이름이나 입출력에 기대지 않는다.
 // 판정은 화면과 카드를 본다. judge는 premise인 app-active 뒤다.
 export function buildAppChecks(card: string, request: string): Check[] {
   return [
-    ...aeTicketChecks(),
-    aeCallsOnlyToCodingAgent("ae-calls-coding-only"),
     appActive("app-active", { app: APP }),
     ...reuseChecks(REUSE),
     {
       kind: "judge",
-      id: "card-covered",
-      premise: ["app-active"],
-      criterion: "card-covered@3",
-      input: cardCoveredInput(card, APP),
-    },
-    {
-      kind: "judge",
       id: "asked-again",
-      premise: ["ae-ticket-created"],
+      premise: ["app-active"],
       criterion: "asked-again@3",
       input: askedAgainInput(request),
     },

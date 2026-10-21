@@ -48,7 +48,8 @@ function requireCreator(ctx: RequestContext): Result<void> {
     : forbidden("app creation is user or lophn agent only");
 }
 
-// source 연결은 user, coding connection, 그 앱의 App Engineer만 받는다. App Engineer의 앱은 자격 조건이 정한다.
+// source 연결은 user, coding connection, 그 앱의 App Engineer, core 안 machine 자격만 받는다. App Engineer의 앱은
+// 자격 조건이 정한다. machine 자격은 core 안에서만 만들고 operation 상한이 이 command 하나다(registration/source-folder.ts).
 function requireWriter(ctx: RequestContext, app: string): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
   if (kind === "agent") {
@@ -56,7 +57,7 @@ function requireWriter(ctx: RequestContext, app: string): Result<void> {
       ? ok(undefined)
       : forbidden("an App Engineer connects only its own app");
   }
-  return kind === "user" || kind === "coding_agent"
+  return kind === "user" || kind === "coding_agent" || kind === "machine"
     ? ok(undefined)
     : forbidden("app changes are user, coding connection or App Engineer only");
 }
@@ -167,9 +168,8 @@ export function createAppCommands(): {
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
         if (current.value === null) return notFound();
-        // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인은
-        // core에 두지 않는다. bundle 준비 때 release
-        // worker가 연결된 실제 source 경계를 읽고, 없는 source는 준비 실패가 된다.
+        // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인(있고, git 저장소의 맨 위이고,
+        // commit이 있음)은 tx 밖 writer 앞(source-folder.ts)이 한다.
         const resolved = input.source_path;
         const changed: App = { ...current.value, source_path: resolved };
         const access = authorizeApp(

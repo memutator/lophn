@@ -6,6 +6,7 @@ import {
   sha256Hex,
 } from "../../../../base/mod.ts";
 import {
+  appConnectSource,
   appLogViewError,
   blueprintCheck,
   packagePublish,
@@ -54,7 +55,11 @@ import {
   createAppRewind,
   createRewindReads,
 } from "../../../apps/rewind/mod.ts";
-import { loadApp } from "../../../apps/registration/mod.ts";
+import {
+  loadApp,
+  SOURCE_FOLDER_CONTEXT,
+  withSourceFolder,
+} from "../../../apps/registration/mod.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import type {
   AppViewSignal,
@@ -116,9 +121,17 @@ export const appsWiring: WiringFactory = () => {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
     // apps 관측 기록·자식 앱 credential이 닿는 operation.
-    operations: () => appsOperationPolicies(),
+    operations: () => [
+      ...appsOperationPolicies(),
+      // 새 앱의 source를 잇는 core 안 machine 자격(registration/source-folder.ts).
+      { name: appConnectSource.name, actors: ["machine"], kind: "command" },
+    ],
     // apps 제어(runtime·logs 덮기, activation)가 ledger 사실을 읽고 기록하는 core 내부 자격 기록.
-    records: () => [APPS_CONTROL_CONTEXT, PACKAGE_PUBLISH_CONTEXT],
+    records: () => [
+      APPS_CONTROL_CONTEXT,
+      PACKAGE_PUBLISH_CONTEXT,
+      SOURCE_FOLDER_CONTEXT,
+    ],
     build(ctx) {
       const { runtime } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
@@ -303,25 +316,28 @@ export const appsWiring: WiringFactory = () => {
 
       return ok({
         writer: (inner) =>
-          withAfterCommit(
-            withStartInvocation(
-              withTestDefaults(
-                withReleasePreparation(inner, appsControl.commands),
-                appsControl.testDefaults,
+          withSourceFolder(
+            withAfterCommit(
+              withStartInvocation(
+                withTestDefaults(
+                  withReleasePreparation(inner, appsControl.commands),
+                  appsControl.testDefaults,
+                ),
+                { ledger, sql: link.sql, clock: ctx.clock, ids },
               ),
-              { ledger, sql: link.sql, clock: ctx.clock, ids },
-            ),
-            // 다른 topic은 router·coding wiring의 applier가 따로 본다.
-            (actions) => {
-              for (const action of actions) {
-                if (
-                  action.topic === APP_RESTART_HALTED_TOPIC ||
-                  action.topic === ACTIVATION_CONSENT_TOPIC
-                ) {
-                  ctx.peek.bus?.publish(action.data as BusEvent);
+              // 다른 topic은 router·coding wiring의 applier가 따로 본다.
+              (actions) => {
+                for (const action of actions) {
+                  if (
+                    action.topic === APP_RESTART_HALTED_TOPIC ||
+                    action.topic === ACTIVATION_CONSENT_TOPIC
+                  ) {
+                    ctx.peek.bus?.publish(action.data as BusEvent);
+                  }
                 }
-              }
-            },
+              },
+            ),
+            { dataRoot: ctx.root.path, writer: () => ctx.writer },
           ),
         memory: [
           ["apps/call_tool", callToolHandler(path)],

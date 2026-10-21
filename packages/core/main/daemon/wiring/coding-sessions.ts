@@ -26,10 +26,7 @@ import {
   codingSignal,
   createCodingRelay,
   type SignalResult,
-  sourcelessAppNamed,
-  withScaffoldedSource,
 } from "../../../apps/coding/mod.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
   prepareBytes,
   rejected,
@@ -194,23 +191,10 @@ export const codingSessionsWiring: WiringFactory = () => {
       const { handlers } = relay;
       return ok({
         writer: (inner) =>
-          withScaffoldedSource(
-            withCodingBody(withAfterCommit(inner, relay.apply), {
-              relay: () => ctx.peek.bodyPrepare,
-              known: () => ctx.peek.knownSecrets,
-            }),
-            {
-              dataRoot: ctx.root.path,
-              find(name) {
-                const found = ledgerSnapshot(
-                  ctx.ledgerPath,
-                  (lookup) => sourcelessAppNamed(lookup.sql, name),
-                );
-                return found.ok ? found.value : null;
-              },
-              writer: () => ctx.writer,
-            },
-          ),
+          withCodingBody(withAfterCommit(inner, relay.apply), {
+            relay: () => ctx.peek.bodyPrepare,
+            known: () => ctx.peek.knownSecrets,
+          }),
         memory: [
           [key(codingHook), handlers.hook],
           [key(codingMessageSend), handlers.message],

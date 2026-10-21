@@ -9,4 +9,3 @@ export { createCodingRelay, type SignalResult } from "./relay.ts";
 export { CODING_REACTION_TEXTS } from "./close-call.ts";
 export { CODING_TERMINAL_TOPIC } from "./events.ts";
 export { codingDefaultHarness, codingDefaultModel } from "./settings.ts";
-export { sourcelessAppNamed, withScaffoldedSource } from "./scaffold-source.ts";

@@ -117,7 +117,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [appCreate],
     description:
-      "Register a new app with a name and a one line purpose. An app of that name gets its first domain, and its App Engineer looks after it.",
+      "Register a new app with a name and a one line purpose. An app of that name gets its first domain, and its App Engineer looks after it. A git repository started from the app template becomes the source folder of the app. If source_path in the result is null, the folder could not be made: connect a git folder with app.link_source.",
     effect: "write",
     handler: async (input, ctx) => {
       const { name, purpose } = input;
@@ -141,7 +141,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app"), path }),
     routes: [appGet, appConnectSource],
     description:
-      "Connect a git folder as the source of an app. A relative path starts at the place's first folder.",
+      "Connect a git folder as the source of an app. The folder must be the top of a git repository and have at least one commit. A relative path starts at the place's first folder.",
     effect: "write",
     handler: async (input, ctx) => {
       const { app, path } = input;

@@ -23,6 +23,10 @@ import {
   resolveDataRoot,
   writeRunMetadata,
 } from "../../install-and-update/mod.ts";
+import {
+  removeUserToken,
+  writeUserToken,
+} from "../../install-and-update/run-metadata.ts";
 import { CRASH_LOCATIONS } from "../../diagnostics/mod.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
@@ -80,11 +84,15 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   if (!root.ok) return root;
   const locked = await acquireInstanceLock(root.value.run);
   if (!locked.ok) return locked;
+  // 앞 core의 token은 이미 무효다. 남은 file이 있으면 CLI가 lophn이 켜져 있다고 본다.
+  // lock을 잡은 뒤에 지워야 이미 도는 core의 file을 지우지 않는다.
+  await removeUserToken(root.value.run);
 
   const opened = await open(options, root.value, locked.value, clock, random);
   if (!opened.ok) {
-    // 기동이 실패하면 위치 metadata를 남기지 않고 lock을 푼다.
+    // 기동이 실패하면 위치 metadata와 user token을 남기지 않고 lock을 푼다.
     await removeRunMetadata(root.value.run);
+    await removeUserToken(root.value.run);
     await locked.value.release();
     return opened;
   }
@@ -178,7 +186,7 @@ async function open(
 
   // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
-  // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → run metadata 지우기와
+  // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → run metadata와 user token file 지우기,
   // lock 풀기. 정지 유지보수는 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가 예외를 던져도 metadata
   // 정리와 lock 해제는 그대로 실행한다.
   let shutdownRun: Promise<void> | undefined;
@@ -220,7 +228,11 @@ async function open(
         try {
           await removeRunMetadata(root.run);
         } finally {
-          await lock.release();
+          try {
+            await removeUserToken(root.run);
+          } finally {
+            await lock.release();
+          }
         }
       }
     })();
@@ -330,6 +342,7 @@ async function open(
       server.port,
       epoch,
       (scope) => ctx.registry.issue(scope),
+      (token) => writeUserToken(root.run, token),
       allRoutes,
       ctx.eventNames,
     )

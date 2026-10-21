@@ -1,8 +1,12 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { RUN_METADATA_NAME } from "../../protocol/client/run-metadata.ts";
+import {
+  RUN_METADATA_NAME,
+  USER_TOKEN_FILE_NAME,
+} from "../../protocol/client/run-metadata.ts";
 import { runMetadataSchema } from "../../protocol/supervision/mod.ts";
 
-// run 폴더의 인증 없는 위치 metadata. port·epoch·시작 시각만 있고 credential은 없다.
+// run 폴더의 위치 metadata. port·epoch·시작 시각만 있고 credential은 없다. user token은
+// 따로 0600 file에 둔다.
 
 export async function writeRunMetadata(
   runDir: string,
@@ -45,6 +49,34 @@ export async function writeRunMetadata(
 export async function removeRunMetadata(runDir: string): Promise<void> {
   try {
     await Deno.remove(`${runDir}/${RUN_METADATA_NAME}`);
+  } catch (thrown) {
+    if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+  }
+}
+
+// CLI가 읽는 user token. hello frame의 token과 같은 값이고 내용은 원문뿐이다. 오류에는 token을 넣지 않는다.
+export async function writeUserToken(
+  runDir: string,
+  token: string,
+): Promise<Result<void>> {
+  const path = `${runDir}/${USER_TOKEN_FILE_NAME}`;
+  const temporary = `${path}.tmp`;
+  try {
+    await Deno.writeTextFile(temporary, token, { mode: 0o600 });
+    await Deno.rename(temporary, path);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "user token file을 쓸 수 없다",
+    });
+  }
+  return ok(undefined);
+}
+
+// 켤 때와 종료 때 지운다. file이 없으면 lophn이 꺼져 있다.
+export async function removeUserToken(runDir: string): Promise<void> {
+  try {
+    await Deno.remove(`${runDir}/${USER_TOKEN_FILE_NAME}`);
   } catch (thrown) {
     if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
   }

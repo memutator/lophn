@@ -37,7 +37,8 @@ function userOperations(
   return [...names];
 }
 
-// user token은 여기서 한 번만 준다. 발급한 자격은 ledger에 적어 writer가 다시 검증한다.
+// user token은 여기서 한 번만 준다. hello frame과 run 폴더의 file에 같은 token을 준다.
+// 발급한 자격은 ledger에 적어 writer가 다시 검증한다.
 export async function greet(
   parent: ParentPipe,
   registry: CredentialRegistry,
@@ -45,6 +46,7 @@ export async function greet(
   port: number,
   epoch: string,
   issue: CredentialRegistry["issue"],
+  saveToken: (token: string) => Promise<Result<void>>,
   routes: readonly Route[],
   events: readonly string[] = [],
 ): Promise<Result<void>> {
@@ -64,6 +66,8 @@ export async function greet(
   if (!current.ok) return current;
   const recorded = await runtime.record(current.value);
   if (!recorded.ok) return recorded;
+  const saved = await saveToken(issued.value.token);
+  if (!saved.ok) return saved;
   const frame = coreToMainMessageSchema.safeParse({
     user_token: issued.value.token,
     api_port: port,

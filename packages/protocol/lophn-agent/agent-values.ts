@@ -101,25 +101,13 @@ const mcpOffSchema = z.strictObject(mcpOffFields);
 const mcpOffOutputSchema = z.object(mcpOffFields);
 export type McpOff = z.infer<typeof mcpOffSchema>;
 
-// 외부 MCP tool 하나. 안전 표시와 resolved agent의 켜진 MCP가 같은 모양을 쓴다.
+// 외부 MCP tool 하나다. resolved agent의 켜진 MCP가 이 모양을 쓴다.
 const mcpToolFields = {
   server_name: nonblankSchema,
   original_tool: nonblankSchema,
 };
 const mcpToolSchema = z.strictObject(mcpToolFields);
-const mcpToolOutputSchema = z.object(mcpToolFields);
 export type McpTool = z.infer<typeof mcpToolSchema>;
-
-// 권한은 개별 동작 이름(`<영역>.<동작>`)으로만 저장한다. 묶음 이름과 wildcard는 점 표기가 아니거나 `*`라 모양에서 걸린다.
-const agentToolNameSchema = z.string().max(64).regex(
-  /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/,
-);
-
-const toolListSchema = z.array(agentToolNameSchema).refine(unique, {
-  message: "duplicate tool",
-});
-const agentPermissionsSchema = z.strictObject({ tools: toolListSchema });
-const agentPermissionsOutputSchema = z.object({ tools: toolListSchema });
 
 export const agentNameSchema = nonblankSchema;
 const bodySchema = z.string().refine(
@@ -146,14 +134,6 @@ const mcpOffListOutputSchema = z.array(mcpOffOutputSchema).refine(
   (entries) => unique(entries.map(mcpKey)),
   { message: "duplicate mcp entry" },
 );
-const mcpToolListSchema = z.array(mcpToolSchema).refine(
-  (entries) => unique(entries.map(mcpKey)),
-  { message: "duplicate mcp tool" },
-);
-const mcpToolListOutputSchema = z.array(mcpToolOutputSchema).refine(
-  (entries) => unique(entries.map(mcpKey)),
-  { message: "duplicate mcp tool" },
-);
 
 // 설정 칸. 어느 칸이 어느 agent에 있을 수 있는지(built-in은 name 없음)는 역할과 자리를 알아야 하므로
 // 파일을 읽고 쓰는 쪽이 검사한다.
@@ -164,8 +144,6 @@ const frontmatterFields = {
   skills: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
-  safe_tools: mcpToolListSchema.optional(),
-  permissions: agentPermissionsSchema.optional(),
 };
 const frontmatterOutputFields = {
   name: agentNameSchema.optional(),
@@ -174,8 +152,6 @@ const frontmatterOutputFields = {
   skills: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
-  safe_tools: mcpToolListOutputSchema.optional(),
-  permissions: agentPermissionsOutputSchema.optional(),
 };
 
 // AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다.

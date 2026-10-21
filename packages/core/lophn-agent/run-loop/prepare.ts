@@ -102,7 +102,7 @@ export type McpToolkit = {
     session: string,
     options?: McpSourceOptions,
   ): Promise<Result<McpToolsSource>>;
-  // 고른 MCP(서버+현재 tool 정확한 쌍)와 safe 표시를 골라낸다.
+  // 고른 MCP(서버+현재 tool 정확한 쌍)를 골라낸다.
   selection(definition: unknown): McpSelection | null;
   // 도구 호출 통로다(재조회가 끝날 때까지 호출은 거절된다).
   call(session: string): McpToolCall;
@@ -352,7 +352,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           servers: [...new Set(agent.mcp.map((tool) => tool.server_name))],
           tools: agent.mcp,
         },
-        safe_tools: [],
       });
       // 켠 MCP가 없으면 제공도 없다.
       if (selection !== null) {

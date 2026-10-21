@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `tr-e2e-approval` | e2e | 1 | 없음 | running | e2e/tr-e2e-approval |  |  |
-| `tr-eval-prune-checks` | eval | 1 | 없음 | running | eval/tr-eval-prune-checks |  |  |
+| `tr-eval-prune-checks` | eval | 1 | 없음 | merged | eval/tr-eval-prune-checks | 17559d9d7 |  |
 | `tr-eval-prune-coding` | eval | 1 | 없음 | running | eval/tr-eval-prune-coding |  |  |
 | `tr-eval-versions` | eval | 1 | 없음 | merged | eval/tr-eval-versions | eec5a3283 |  |
 | `tr-shell-instructions-card` | shell | 1 | 없음 | merged | shell/tr-shell-instructions-card | 04a2e9202 |  |

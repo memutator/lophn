@@ -1,6 +1,6 @@
 # ap-waiting
 
-problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 turn request(lophn agent, coding harness)와 activation 동의 둘로 줄인다. 보류 approval 카드(reaction, 설정 고치기, 보류 activation)와 그 결정 길을 지우고 허락 카드의 선택지를 `once | always | reject`로 한다. `ui-design` skill로 wireframe부터 고치고 문구는 `wording` skill을 따른다.
+대기 목록과 toast를 turn request(lophn agent, coding harness)와 activation 동의 둘로 줄인다. 보류 approval 카드(reaction, 설정 고치기, 보류 activation)와 그 결정 길을 지우고 허락 카드의 선택지를 `once | always | reject`로 한다. `ui-design` skill로 wireframe부터 고치고 문구는 `wording` skill을 따른다.
 
 - 단위: waiting (wave 2)
 - 선행: ap-ask-turn, ap-activation
@@ -24,10 +24,10 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
     - `packages/protocol/apps/activation/consent.ts`(ap-contract): `ActivationConsent`, `activationConsent`, `activationConsents`
     - `packages/protocol/events/agent.ts`, `packages/protocol/events/snapshot.ts`(ap-ask-turn): `TurnRequestOpened`, `TurnRequestClosed`, snapshot `turn_requests`
     - `packages/protocol/events/transient.ts`(ap-activation): `ActivationConsentRequested`, `ActivationConsentClosed`의 envelope(`subject` 값 포함)
-  - 본보기(화면): `tools/wireframes/pages/screens/waiting/waiting-pages.tsx`, `tools/wireframes/pages/screens/questions.tsx`(이 page들의 영역 file. 소유 밖)
+  - 본보기(화면): `tools/wireframes/pages/screens/waiting/waiting-pages.tsx`, `tools/wireframes/pages/screens/questions.tsx`(이 page들의 영역 file)
   - renderer(모두 `packages/shell/renderer/desktop/connection/` 아래)
     - 대기 목록: `waiting/model.ts`(`cardOf`), `waiting/decide.ts`(`turnChoiceOf`, `decideWaiting`), `waiting/settled.ts`, `waiting/waiting-panel.tsx`, `waiting/waiting-layer.tsx`, `waiting/cards/{decision,permission-card,activation-card,reaction-card,coding-card,question-card,head}.tsx`, `waiting/waiting.module.css`
-    - store와 source: `events/waiting-store.ts`, `events/sessions-store.ts`, `events/snapshots.ts`, `events/hooks.tsx`(`useWaitingRefresh`. 소유 밖), `events/fake-source.ts`(fake Gateway), `waiting/fake-source.ts`(대기 목록 fake)
+    - store와 source: `events/waiting-store.ts`, `events/sessions-store.ts`, `events/snapshots.ts`, `events/hooks.tsx`(`useWaitingRefresh`), `events/fake-source.ts`(fake Gateway), `waiting/fake-source.ts`(대기 목록 fake)
     - toast: `events/reactions.ts`(`reactionsOf`), `toasts/toast-text.ts`, `toasts/toast-host.tsx`
   - 이 fake를 쓰는 소유 밖 file(이름과 인자를 깨지 않는다): `tools/wireframes/pages/screens/app-space/space.tsx`(`CODING_ASK`), `tools/wireframes/pages/screens/{settings-frame.tsx,launcher/launcher-pages.tsx}`(`createFakeWaiting([])`), `tools/wireframes/pages/screens/conversation.tsx`(`createFakeSource()`), `packages/shell/renderer/desktop/dev-mock/requests.ts`(`createFakeWaiting()`)
 - 계약:
@@ -38,9 +38,9 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
 
 추가(planner, 살 단계 뒤): shell turn request에는 `always_patterns`(always를 고르면 더해질 규칙 줄)가 있다. card는 그 줄을 그대로 보이고, `always` 단추는 그것이 있을 때만 둔다. activation 동의는 `choice: "allow" | "reject"`이고 이유가 없으며 compare는 `{requested_at}`이다.
 
-근거: README "정한 것"(activation 동의는 activation 상태와 동의 command, 대기 목록에 같이 보인다), roadmap "묻는 길은 하나다"(선택지 `once | always | reject`, "이 session 동안" 없음), README "뼈대 검토에서 정한 것"(대기 목록은 turn request와 activation 동의만). 이 task가 돌 때 reaction 물음(ap-reaction, ap-ask-pending)과 설정 고치기 물음(ap-settings-edit)은 core에서 이미 사라졌다. gallery는 renderer component를 그대로 그리므로(`ui-kit.md` "gallery가 정본이다") 1~2(gallery와 fake)와 3~8(renderer)을 같이 바꿔야 type check가 선다. 이 brief는 `e192a9d8c` 기준이다. "앞 계획 land 뒤 path 확인"이라 적은 곳은 `problem-remove`의 `pr-reactions`가 먼저 고친 file이라 줄이 옮겨졌을 수 있으니 함수 이름으로 찾는다.
+근거: README "정한 것"(activation 동의는 activation 상태와 동의 command, 대기 목록에 같이 보인다), roadmap "묻는 길은 하나다"(선택지 `once | always | reject`, "이 session 동안" 없음), README "뼈대 검토에서 정한 것"(대기 목록은 turn request와 activation 동의만). 이 task가 돌 때 reaction 물음(ap-reaction, ap-ask-pending)과 설정 고치기 물음(ap-settings-edit)은 core에서 이미 사라졌다. gallery는 renderer component를 그대로 그리므로(`ui-kit.md` "gallery가 정본이다") 1~2(gallery와 fake)와 3~8(renderer)을 같이 바꿔야 type check가 선다. problem-remove가 이미 줄인 것(`project-docs/products/change-log/0.6.0.md` 끝 항목): fake `REACTION`과 `model.ts`의 `EVENT_LABELS`·`OPENS_LABELS`는 `ReleaseActivationFailed` 하나뿐이고, `AppRestartHalted`·`KindViolationFound`는 남지 않는 event로 toast만 띄운다(`events/reactions.ts`).
 
-1. gallery의 fake부터 새 모양으로 바꾼다: `waiting/fake-source.ts`(앞 계획 land 뒤 path 확인).
+1. gallery의 fake부터 새 모양으로 바꾼다: `waiting/fake-source.ts`.
    - fixture를 `TurnRequest`(`subject`가 있고 intent, choices, fingerprint가 없다)와 `ActivationConsent`로 바꾼다.
      - `SHELL_COMMAND`: Operator session의 shell 물음. `subject: { kind: "shell", command: "git push --force origin main" }`. 지금의 `APP_TOOL_CALL` 자리다(그 이름은 지운다).
      - `EXTERNAL_CALL`: MCP tool 물음으로 남긴다(`subject: { kind: "mcp_tool", server: "mail", tool: "send_message", effect: "external" }`). tool subject 카드의 그림이 하나 있어야 해서다. 지금은 바깥 효과 tool을 묻지 않으니(README "사람이 정할 것" 1의 추천) page 설명에 그렇게 적는다.
@@ -55,10 +55,10 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
      - read `activationConsents`: `{ as_of_seq, next_cursor, consents }`.
      - `approvalsPending`, `approvalsDecide`, `approvalsDecideTurn` 갈래와 `ApprovalDecided`를 흘리는 곳을 지운다.
    - `events/fake-source.ts`: `FakeSnapshot.approvals`를 `consents: readonly ActivationConsent[]`로, read 갈래 `approvalsPending`을 `activationConsents`로 바꾼다.
-2. gallery page를 고친다: `tools/wireframes/pages/screens/waiting/waiting-pages.tsx`(ui-design skill "새 화면 만들기" 4~7. 앞 계획 land 뒤 path 확인).
+2. gallery page를 고친다: `tools/wireframes/pages/screens/waiting/waiting-pages.tsx`(ui-design skill "새 화면 만들기" 4~7).
    - `WaitingReaction`을 지운다. page id는 바꾸지 않는다.
    - `WaitingPermission`은 `SHELL_COMMAND`, `EXTERNAL_CALL`을 펼친 상태, `WaitingDenyReason`은 `SHELL_COMMAND`에 이유 칸을 연 상태다. `WaitingActivation`, `WaitingFirstActivation`, `WaitingList`, `WaitingSettled`, `WaitingToasts`는 새 fixture로 그린다.
-   - `FAKE_EVENTS`: `PermissionRequested`를 `TurnRequestOpened { request }`(agent event, `session` 있음)로, `ApprovalRequested`를 `ActivationConsentRequested`(남지 않는 event, `{ type, subject, at, payload: { app, release } }`)로 바꾼다. `AppRestartHalted`, `KindViolationFound`, `QuestionAsked`는 `pr-reactions`가 맞춘 모양 그대로 둔다.
+   - `FAKE_EVENTS`: `PermissionRequested`를 `TurnRequestOpened { request }`(agent event, `session` 있음)로, `ApprovalRequested`를 `ActivationConsentRequested`(남지 않는 event, `{ type, subject, at, payload: { app, release } }`)로 바꾼다. `QuestionAsked`와 남지 않는 event `AppRestartHalted`·`KindViolationFound`(`seq`·`actor` 없는 `{ type, subject, at, payload }`)는 그대로 둔다. `permission` 변수(`APP_TOOL_CALL()`)는 `SHELL_COMMAND()`로 바꾼다.
    - page 머리 주석(`/** … */`)을 새 모양으로 고친다: 권한 요청은 shell 명령과 tool이고, shell은 Allow once·Always allow·Deny, tool은 Allow once·Deny다. 결정 뒤 줄은 허락·거절·cancelled 셋이다.
 3. 대기 목록 store(`events/waiting-store.ts`).
    - `WaitingEntry`: `permission`·`coding`은 `request: TurnRequest`이고 `subject.kind === "harness"`면 `coding`, 아니면 `permission`이다(지금은 agent role로 가른다). `activation`은 `request: ActivationConsent`이고 `id`는 release id다(같은 release는 한 줄). `reaction` 갈래와 `approvalWaitingKind`를 지운다. `question`·`coding_start`는 그대로다.
@@ -66,10 +66,10 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
    - `WAITING_CONDITION`: `PermissionRequested`·`PermissionResolved`·`ApprovalRequested` 대신 `TurnRequestOpened`·`TurnRequestClosed`·`ActivationConsentRequested`·`ActivationConsentClosed`를 듣는다.
    - `apply`: `TurnRequestOpened`는 넣고 `TurnRequestClosed`는 뺀다. `ActivationConsentClosed`는 그 release 항목을 뺀다. `ActivationConsentRequested`에는 comparison이 없으니 `activationConsents`를 다시 읽어 맞춘다(지금의 `refresh`).
    - `readAll`·`replace`: snapshot의 `turn_requests`와 `activationConsents` 읽기다. 둘 다 읽혀야 통째로 맞추는 규칙은 그대로다.
-   - `refresh`: activation 동의만 다시 읽어 맞춘다. `hooks.tsx`의 `useWaitingRefresh`(소유 밖)는 결정 뒤에 부르는 곳이 없어진다. 보고의 "안 쓰게 된 export"에 적는다.
+   - `refresh`: activation 동의만 다시 읽어 맞춘다. `hooks.tsx`의 `useWaitingRefresh`는 결정 뒤에 부르는 곳이 없어지면 지운다.
    - `events/snapshots.ts`: `readPendingApprovals`를 `readActivationConsents`(read `activationConsents`)로 바꾼다.
    - `events/sessions-store.ts`: session의 대기 수는 `TurnRequestOpened`·`TurnRequestClosed`와 snapshot `turn_requests`로 센다.
-4. 카드 값(`waiting/model.ts`. 앞 계획 land 뒤 path 확인).
+4. 카드 값(`waiting/model.ts`).
    - `cardOf`가 `TurnRequest.subject`와 `ActivationConsent`에서 글을 만든다. 글은 program이 만든다(요청한 agent가 쓴 설명은 없다)는 규칙은 그대로다.
      - `shell`: 제목은 "Run a command", 명령은 접지 않고 code 한 줄로 보인다(정한 것 2). facts는 없다.
      - `app_tool`·`mcp_tool`: 지금 제목과 설명을 쓰고 facts는 대상과 효과뿐이다. 입력 칸은 없다(정한 것 3).
@@ -92,13 +92,13 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
 7. 목록과 결정 뒤 줄.
    - `waiting/waiting-panel.tsx`: `GROUPS`는 권한 요청(`permission`, `coding`, `coding_start`), 질문, activation(`activation`) 셋이다. 셋째 묶음 이름 key를 `waiting.label.group-activation`으로 바꾼다. `ReactionCard` 갈래와 결정 뒤 `refresh()`를 지운다(activation은 `ActivationConsentClosed`가 뺀다). `SETTLED_MARK`는 `allowed`, `denied`, `cancelled` 셋이다.
    - `waiting/settled.ts`: `TurnRequestClosed`·`QuestionResolved`·`ActivationConsentClosed`를 듣고 cancelled만 줄로 남긴다. `ApprovalDecided`와 "접수를 적용 결과로 바꾸는" 몫(`applied` ref)을 지운다.
-8. toast(앞 계획 land 뒤 path 확인).
+8. toast.
    - `events/reactions.ts`: `REACTION_EVENT_TYPES`의 `PermissionRequested`·`ApprovalRequested`를 `TurnRequestOpened`·`ActivationConsentRequested`로 바꾼다. 권한 toast는 `toast("permission", request.id, { session })`(`intent` 칸을 뺀다), activation toast는 `toast("activation", release, { app })`이다. `approvalWaitingKind` import를 지운다.
-   - `toasts/toast-text.ts`: `waiting.toast-approval.*` 갈래를 `waiting.toast-activation.*`로 바꾼다. 제목은 `{intent}` 없이 앱 이름을 쓴다.
+   - `toasts/toast-text.ts`: `waiting.toast-approval.*` 갈래를 `waiting.toast-activation.*`로 바꾼다. 제목은 `{intent}` 없이 앱을 쓴다. toast는 앱 이름을 모르므로 재시작 멈춤 toast처럼 `waiting.label.place-app`(짧은 id)을 쓴다.
    - `toasts/toast-host.tsx`, `toasts/toast-actions.ts`: 고칠 것이 없으면 두지 않는다.
 9. test(`events/waiting-store_test.ts`). 새로 만들지 않는다. 있는 test 하나가 보는 것(같은 event 두 번에 항목 하나, 다시 붙으면 snapshot이 목록을 통째로 맞춰 사라진 요청이 남지 않음, snapshot으로 온 것은 toast가 없음)을 새 event와 snapshot 칸으로 옮긴다. snapshot fixture에는 ap-cleanup 전까지 `permission_requests: []`가 있어야 type이 선다.
 10. wording(`packages/design/wording/catalog/data.ts`). wording skill "key를 지우기 전에"대로 앞부분(`waiting.toast-`, `waiting.label.`, `waiting.notice.`, `waiting.title.`, `waiting.button.`)으로 `packages`와 `tools`를 grep한 뒤 지운다. `reactions.ts`가 `` `waiting.toast-${kind}.title` ``을 만든다.
-    - 지울 후보: `waiting.button.allow-session`, `waiting.label.agent-reaction`, `waiting.label.event-*`(남은 것), `waiting.label.fact-event`, `waiting.label.fact-opens`, `waiting.label.fact-detail`, `waiting.label.fact-input`, `waiting.label.settings-*`, `waiting.label.group-approval`, `waiting.label.settled-accepted`, `waiting.label.settled-applied`, `waiting.label.settled-failed`, `waiting.notice.settled-accepted`, `waiting.notice.settled-applied`, `waiting.notice.settled-failed`, `waiting.notice.agent-call`, `waiting.notice.app-resource`, `waiting.notice.settings-edit`, `waiting.title.agent-call`, `waiting.title.app-resource`, `waiting.title.reaction`, `waiting.title.settings-edit`, `waiting.toast-approval.*`
+    - 지울 후보: `waiting.button.allow-session`, `waiting.label.agent-reaction`, `waiting.label.event-activation-failed`, `waiting.label.fact-event`, `waiting.label.fact-opens`, `waiting.label.fact-detail`, `waiting.label.fact-input`, `waiting.label.settings-*`, `waiting.label.group-approval`, `waiting.label.settled-accepted`, `waiting.label.settled-applied`, `waiting.label.settled-failed`, `waiting.notice.settled-accepted`, `waiting.notice.settled-applied`, `waiting.notice.settled-failed`, `waiting.notice.agent-call`, `waiting.notice.app-resource`, `waiting.notice.settings-edit`, `waiting.title.agent-call`, `waiting.title.app-resource`, `waiting.title.reaction`, `waiting.title.settings-edit`, `waiting.toast-approval.*`
     - 더할 것: `waiting.title.shell`("Run a command"), `waiting.label.group-activation`, `waiting.label.settled-allowed`, `waiting.notice.settled-allowed`, `waiting.toast-activation.title`·`.body`·`.button`
     - `deno task wording`, `deno run --allow-read tools/check-wording.ts`
 11. 소유 줄에 없는 file. 최소로 고치고 보고의 "넘길 줄"에 적는다.
@@ -120,12 +120,12 @@ problem-remove 뒤의 모양을 기준으로 한다. 대기 목록과 toast를 t
 - `deno task wireframes`가 되고(ui-design skill "확인"), gallery에서 다음이 그려진다.
   - `new-waiting-list`: 권한 요청(shell 명령, coding agent), 질문, activation 묶음 셋이다.
   - `new-waiting-permission`: shell 카드는 명령이 code 줄로 보이고 단추가 Deny, Always allow, Allow once다. MCP tool 카드는 Deny, Allow once다.
-  - `new-waiting-deny-reason`, `new-waiting-activation`, `new-waiting-first-activation`, `new-waiting-settled`(허락·거절·cancelled 셋), `new-waiting-toasts`(권한, activation, 질문, 재시작 멈춤)
+  - `new-waiting-deny-reason`, `new-waiting-activation`, `new-waiting-first-activation`, `new-waiting-settled`(허락·거절·cancelled 셋), `new-waiting-toasts`(권한, activation, 질문, 재시작 멈춤, kind 위반)
   - `new-waiting-reaction`은 목록에 없다.
 - 위험 test: 없음. 새로 만들지 않는다. `events/waiting-store_test.ts`의 test는 새 event로 옮겨 그대로 통과한다.
 - 남지 않음:
   - `grep -rn --exclude-dir=dist -E "approvalsPending|approvalsDecide|PendingApproval|TurnPermissionRequest|ApprovalRequested|ApprovalDecided|PermissionRequested|PermissionResolved|permission_requests|approvalWaitingKind|readPendingApprovals|ReactionCard|settledOfPending" packages/shell/renderer/desktop/connection tools/wireframes/pages/screens/waiting`가 0줄이다. 단 `waiting-store_test.ts`와 fake의 snapshot fixture에 남는 `permission_requests: []`는 ap-cleanup이 지운다(보고에 적는다).
-  - `grep -rn --exclude-dir=dist -E "allow-session|settled-accepted|settled-applied|settled-failed|toast-approval|agent-reaction|group-approval|title\.reaction|settings-edit" packages/shell/renderer tools/wireframes packages/design/wording`가 0줄이다.
+  - `grep -rn --exclude-dir=dist -E "button\.allow-session|settled-accepted|settled-applied|settled-failed|toast-approval|agent-reaction|group-approval|title\.reaction|settings-edit" packages/shell/renderer tools/wireframes packages/design/wording`가 0줄이다.
   - `ls packages/shell/renderer/desktop/connection/waiting/cards/reaction-card.tsx`가 없다고 답한다.
 
 ## 보고

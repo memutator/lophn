@@ -16,7 +16,7 @@ core의 앱 호출 경로에서 사람에게 묻는 `askGate`를 지우고 Appro
   - architecture: `project-docs/architecture/app-call.md`의 "흐름"(2 Gate)과 "지키는 것"(부른 쪽 확인, "Gate의 사람 대기는 write 줄에 서기 전에 끝낸다. 허락은 줄을 얻은 뒤 실행 직전에 consume한다", 막힌 호출은 denied로 남긴다). Gate의 사람 대기 줄은 이 task로 틀린다. 문서는 고치지 않는다(계획 끝에 lead).
   - architecture: `project-docs/architecture/approval.md`의 "판정"(앱 grant는 묻지 않는다. 덮으면 실행, 아니면 막음)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `apps`, `app-runtime`, `approvals`, `core-api`, `sdk-api`; `project-docs/module-catalog.yaml`의 `packages/core/apps`, `packages/core/main`, `packages/protocol`
-  - 앞 계획: `project-docs/plan/problem-remove/tasks/pr-problems-core.md`와 `pr-log-view-error.md`가 `packages/core/main/daemon/wiring/apps.ts`를 고친다. 아래 줄은 앞 계획 land 뒤 path 확인.
+  - problem-remove 뒤 `packages/core/main/daemon/wiring/apps.ts`에는 memory route `app.log_view_error`와 `AppRestartHalted`를 내는 `withAfterCommit` writer가 더 있다(`project-docs/products/change-log/0.6.0.md` 끝 항목). `createAppCalls` 조립은 그대로다.
   - 코드
     - `packages/core/apps/calls/gate.ts`(`appToolIntent`, `askGate`, `GateCheck`), `packages/core/apps/calls/service.ts`(`AppCallsDeps`, `DENIAL_MESSAGES`, `run`의 `work`·`execute`·`consume`), `packages/core/apps/calls/caller.ts`(`VerifiedCaller`)
     - `packages/core/apps/ports.ts`(`AppToolCallPath` 주석의 Gate 순서)

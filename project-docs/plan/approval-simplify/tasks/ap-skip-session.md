@@ -21,20 +21,20 @@ skip을 session 표시와 Operator 정의의 기본값 칸으로 둔다. session
   - 제품 결정: `project-docs/products/roadmap/approval.md`의 "turn mode"(skip 줄, "skip은 session에 붙는 표시다", "skip은 call을 따라 가지 않는다")와 "정한 것 (agent)"의 "Operator 정의의 skip 기본값 칸은 사람만 쓴다", `project-docs/plan/approval-simplify/README.md`의 "정한 것"(skip)과 "뼈대 검토에서 정한 것"(fork는 skip을 가져가지 않는다, CLI `--dangerously-skip-permissions`는 두지 않는다)
   - 본보기(코드): `packages/core/lophn-agent/session/commands.ts`의 `changeModel`(사람만, archive면 conflict, 같은 값이면 이전 결과, `state_seq` 비교), `packages/core/agent-roles/tools/operator.ts`의 `operatorDefinitionSchema.omit({ name, mcp_servers })`(사람만 쓰는 칸을 tool 입력에서 뺀다)
 - 계약:
-  - 쓰는 것: ap-contract `mode.ts`의 session 규칙
-  - 내놓는 것: `sessions.skip`, session record의 `skip: boolean`(`ReadSession`·`ListSessions` 출력), command `ChangeSessionSkip`(resource `sessions`, method `change-skip`, 입력 `{id, skip}`, compare `{state_seq}`, actors `user`), Operator 정의의 `skip?: boolean`(정의 file frontmatter `skip`), `OperatorInfo.skip`. 새 session(사람, Router의 call, fork 어느 길이든)의 skip은 Operator 정의의 기본값이고 Operator가 아니면 false다. fork는 출처 session의 skip을 가져가지 않는다. CLI flag `--dangerously-skip-permissions`는 두지 않는다(CLI가 여는 run은 처음부터 unattended다. `headless-run`).
+  - 쓰는 것: ap-contract의 session 규칙(`ap-contract.md` "내놓는 것"의 `turn-values.ts` 항목)
+  - 내놓는 것: `sessions.skip`, session record의 `skip: boolean`(`ReadSession`·`ListSessions` 출력), command `ChangeSessionSkip`(resource `sessions`, method `change-skip`, 입력 `{session, skip}`, compare `{state_seq}`, actors `user`), Operator 정의의 `skip?: boolean`(정의 file frontmatter `skip`), `OperatorInfo.skip`. 새 session(사람, Router의 call, fork 어느 길이든)의 skip은 Operator 정의의 기본값이고 Operator가 아니면 false다. fork는 출처 session의 skip을 가져가지 않는다. CLI flag `--dangerously-skip-permissions`는 두지 않는다(CLI가 여는 run은 처음부터 unattended다. `headless-run`).
 
 ## 할 일
 
-줄 번호는 main `e192a9d8c` 기준이다. 앞 계획 land 뒤 path 확인: `packages/protocol/lophn-agent/sessions.ts`는 problem-remove의 `pr-cleanup`이 `openingTargetSchema`를 먼저 고친다.
+줄 번호는 main `8c243da91` 기준이다.
 
 1. Operator 정의(`packages/protocol/lophn-agent/operators.ts`): `operatorDefinitionSchema`와 `operatorDefinitionOutputSchema`의 `.extend`(28-33)에 `skip: z.boolean().optional()`을 더한다. 16-18 주석에 "skip은 그 Operator의 새 session이 skip으로 시작하는 기본값이고 사람만 쓴다"를 더한다. `agent-values.ts`는 고칠 것이 없으면 두지 않는다(`mcp_servers`처럼 operators.ts에서 더한다).
 2. session record(`packages/protocol/lophn-agent/agent-sessions.ts`의 `agentSessionSchema` 26-39): `skip: z.boolean()`을 더하고 "사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다" 주석을 단다.
-3. command(`packages/protocol/lophn-agent/sessions.ts`): `changeSessionModel`(339-352) 옆에 `changeSessionSkip`을 둔다.
-   - `defineCommand({ resource: "sessions", method: "change-skip", name: "ChangeSessionSkip", input: z.strictObject({ id: idSchema("ses"), skip: z.boolean() }), output: z.object({ id: idSchema("ses"), skip: z.boolean(), state_seq: seqSchema }), compare: z.strictObject({ state_seq: seqSchema }), actors: ["user"], errors: ["invalid_input", "not_found", "conflict", "unauthorized"] })`
-   - `SESSION_COMMANDS`(460)에 더한다. `packages/protocol/lophn-agent/registry.ts`의 `ROUTES`가 `SESSION_COMMANDS`를 펼치고 shell의 `SHELL_ROUTES`가 `ALL_ROUTES`를 쓰므로 renderer 허용 목록은 따로 고치지 않는다.
+3. command(`packages/protocol/lophn-agent/sessions.ts`): `changeSessionModel`(338-351) 옆에 `changeSessionSkip`을 둔다. 입력 칸 이름은 다른 session command(`renameSession`, `changeSessionModel`)처럼 `session`이다.
+   - `defineCommand({ resource: "sessions", method: "change-skip", name: "ChangeSessionSkip", input: z.strictObject({ session: idSchema("ses"), skip: z.boolean() }), output: z.object({ id: idSchema("ses"), skip: z.boolean(), state_seq: seqSchema }), compare: z.strictObject({ state_seq: seqSchema }), actors: ["user"], errors: ["invalid_input", "not_found", "conflict", "unauthorized"] })`
+   - `SESSION_COMMANDS`(459)에 더한다. `packages/protocol/lophn-agent/registry.ts`의 `ROUTES`가 `SESSION_COMMANDS`를 펼치고 shell의 `SHELL_ROUTES`가 `ALL_ROUTES`를 쓰므로 renderer 허용 목록은 따로 고치지 않는다.
 4. sessions 표(`packages/core/lophn-agent/session/model.ts`)
-   - `create table sessions`(46-77)에 `skip integer not null default 0 check (skip in (0, 1))`을 더한다. step을 새로 더하지 않고 있는 step의 글을 고친다. 옛 개발 data는 `history_mismatch`로 기동이 거절되니 `.dev-data/`를 지우고 새로 만든다(AGENTS.md "호환성"). `default 0`은 칸을 적지 않고 행을 넣는 test(`packages/core/lophn-agent/places/places_test.ts`, `instructions/read_test.ts`, `session/message-commands_test.ts`, `session/rewind/rewind_test.ts`, `session/rewind/artifact-writer_test.ts`) 때문이다.
+   - `create table sessions`(46-79)에 `skip integer not null default 0 check (skip in (0, 1))`을 더한다. step을 새로 더하지 않고 있는 step의 글을 고친다. 옛 개발 data는 `history_mismatch`로 기동이 거절되니 `.dev-data/`를 지우고 새로 만든다(AGENTS.md "호환성"). `default 0`은 칸을 적지 않고 행을 넣는 test(`packages/core/lophn-agent/places/places_test.ts`, `instructions/read_test.ts`, `session/message-commands_test.ts`, `session/rewind/rewind_test.ts`, `session/rewind/artifact-writer_test.ts`) 때문이다.
    - `AgentSessionRow`(148)에 `skip: boolean`, `SESSION_COLUMNS`(171)에 `skip`, `sessionRowOf`(176)에 `skip: Number(row["skip"]) === 1`, `agentSessionOf`(250)에 `skip: row.skip`을 더한다.
 5. Operator 조회
    - `packages/core/lophn-agent/places/ports.ts`의 `OperatorInfo`(18-24)에 `skip: boolean`("정의의 skip 기본값. 없으면 false")을 더한다.

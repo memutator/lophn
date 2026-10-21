@@ -22,7 +22,7 @@
 
 ## 할 일
 
-줄 번호는 main `e192a9d8c` 기준이다.
+줄 번호는 main `8c243da91` 기준이다.
 
 1. file hook(`packages/core/agent-roles/hooks.ts`)
    - `writeGate`(16-32)와 그것만 쓰는 `isInstructionFile`(7-11)을 지운다. `settingsEditIntent` import(4)를 지운다.

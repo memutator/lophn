@@ -25,7 +25,7 @@ agent의 tool 목록과 앱 사용 관계를 새 할당에서 읽는다. 앱 too
     - `packages/core/lophn-agent/run-loop/runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`(`agentGrantsGet`)
     - `packages/core/lophn-agent/run-loop/prepare.ts`(`material`의 MCP 선택과 앱 tool, 229줄 근처 `toolsNotice` 위 주석, 363줄 근처 주석), `packages/core/lophn-agent/agents/resolve.ts`(`agent.mcp`는 층의 server tool에서 `mcp_off`를 뺀 것이다. 고치지 않는다)
     - `packages/core/approvals/grants/usage.ts`(`appGrantees`), `packages/core/apps/usage/users.ts`(`appToolUsers`), 그 test `packages/core/apps/usage/users_test.ts`와 `packages/core/apps/releases/public-tools_test.ts`(둘 다 `agent_grants` 표를 손으로 만든다)
-  - 앞 계획 land 뒤 path 확인: `problem-remove`의 `pr-reactions`가 `PublicToolsChanged`를 내지 않게 한다. `packages/core/apps/releases/public-tools_test.ts`가 남아 있는지, `agent_grants`를 만드는 줄이 그대로인지 본다.
+  - problem-remove 뒤 `PublicToolsChanged`는 없다(`project-docs/products/change-log/0.6.0.md` 끝 항목). `packages/core/apps/releases/public-tools_test.ts`는 남아 있고, 막기 판정이 `appToolUsers`를 거치므로 `agent_grants` 표를 손으로 만든다(줄은 넣지 않는다). `users_test.ts`는 표를 만들고 앱 줄을 넣는다.
 - 계약:
   - 쓰는 것: `agentAssignmentGet`, `AssignmentEntry`, `AgentAssignment`(ap-contract), `loadAssignment`·표 `agent_assignments`(ap-assign-store)
   - 내놓는 것: runtime machine 자격에 `GetAgentAssignment`가 있고 `GetAgentGrant`가 없다. `AppToolSource.entries`는 `AssignmentEntry[]`다. 앱 사용 관계는 `appAssignees(sql, app) → {agent, removed}[]`(`packages/core/approvals/assignment/usage.ts`)로 읽는다. 다른 domain의 비공개 tool 거르기(`app-public.ts`)는 그대로다. MCP tool 목록 만들기는 바꾸지 않는다.
@@ -38,7 +38,7 @@ agent의 tool 목록과 앱 사용 관계를 새 할당에서 읽는다. 앱 too
 2. `packages/core/approvals/grants/usage.ts`를 지운다(`appGrantees`는 `users.ts`만 쓴다).
 3. `packages/core/apps/usage/users.ts`: import를 `../../approvals/assignment/usage.ts`의 `appAssignees`로 바꾸고, `excluded`를 `removed`로 읽는다. 위 주석의 "grant: 앱을 맡은 agent…"를 할당으로 고친다.
    - 정한 것: `ToolUser.source`의 값 `"grant"`는 그대로 둔다. 이유: `packages/protocol/apps/usage.ts`의 `app.usage` 출력 enum이고 이 task의 소유가 아니다. 뜻은 "할당"이다.
-4. 소유 밖 test 둘(`packages/core/apps/usage/users_test.ts`, `packages/core/apps/releases/public-tools_test.ts`): 표를 손으로 만드는 줄을 `CREATE TABLE agent_assignments (agent TEXT, entries TEXT)`로, 넣는 entries를 `[{app: APP, removed_tools: []}]`로 바꾼다. 이 줄만 고치고 보고의 "넘길 줄"에 적는다(`users.ts`가 새 표를 읽으면 두 test가 깨진다. planner에게 소유에 더하기를 요청했다).
+4. test 둘(`packages/core/apps/usage/users_test.ts`, `packages/core/apps/releases/public-tools_test.ts`): 표를 손으로 만드는 줄을 `CREATE TABLE agent_assignments (agent TEXT, entries TEXT)`로 바꾸고, `users_test.ts`가 넣는 entries를 `[{app: APP, removed_tools: []}]`로 바꾼다. 이 줄만 고친다(`users.ts`가 새 표를 읽으면 두 test가 깨진다).
 5. `packages/core/lophn-agent/tools/app-tools.ts`
    - `AppToolSource.entries: readonly AssignmentEntry[]`. `AgentGrantEntry` import를 `AssignmentEntry`로 바꾼다.
    - `grantAllows`를 `assigned(entries, app, tool)`로 바꾼다: 그 앱 줄이 있고 `removed_tools`에 tool이 없을 때 참이다.
@@ -50,7 +50,7 @@ agent의 tool 목록과 앱 사용 관계를 새 할당에서 읽는다. 앱 too
 8. `packages/core/lophn-agent/run-loop/runtime-access.ts`: `RUNTIME_MACHINE_ROUTES`의 `agentGrantsGet`을 `agentAssignmentGet`으로 바꾸고 import와 위 주석("활성 release 선언과 agent grant")을 맞춘다.
    - 정한 것: runtime 쪽 조립(`product-driver.ts`, `runtime-access.ts`)은 할당을 machine route로 읽는다. 이유: agent runtime child는 ledger를 열지 않는다. `loadAssignment`는 core main thread(Approvals)만 쓴다.
 9. `packages/core/lophn-agent/run-loop/prepare.ts`: 229줄 근처 `toolsNotice` 위 주석("빠진 tool은 Gate가 call 때 지금 grant를 읽어 바로 막으므로")과 363줄 근처 주석("선언이나 grant를 읽지 못하면")의 grant를 할당으로 고친다. 코드는 고치지 않는다.
-10. MCP: 고칠 것이 없는지 확인만 한다. `material`의 MCP 선택은 `agent.mcp`이고, 그것은 `resolveTurnAgent`가 층(전역, place, Operator 정의)의 server tool에서 `mcp_off`를 뺀 것이다(`packages/core/lophn-agent/agents/resolve.ts`). agent grant의 `mcp_tool` 줄을 읽는 곳이 tool 목록 쪽에 없음을 `git grep -n "mcp_tool" -- packages/core/lophn-agent packages/core/main/agent-runtime`로 보고, 남은 줄을 보고에 적는다(Gate 쪽 `mcp_tool`은 ap-ask-turn이 `GateCall`로 바꿨다).
+10. MCP: 고칠 것이 없는지 확인만 한다. `material`의 MCP 선택은 `agent.mcp`이고, 그것은 `resolveTurnAgent`(`packages/core/lophn-agent/agents/layers.ts`)가 부르는 `resolveAgent`(`packages/core/lophn-agent/agents/resolve.ts`)가 층(전역, place, Operator 정의)의 server tool에서 `mcp_off`를 뺀 것이다. agent grant의 `mcp_tool` 줄을 읽는 곳이 tool 목록 쪽에 없음을 `git grep -n "mcp_tool" -- packages/core/lophn-agent packages/core/main/agent-runtime`로 보고, 남은 줄을 보고에 적는다(Gate 쪽 `mcp_tool`은 ap-ask-turn이 `GateCall`로 바꿨다).
 11. `prepare_test.ts`는 위 바꿈으로 깨질 때만 준비를 맞춘다.
 
 ## 끝남
@@ -70,7 +70,7 @@ agent의 tool 목록과 앱 사용 관계를 새 할당에서 읽는다. 앱 too
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳. 4의 test 둘
+- 넘길 줄: 남의 file을 최소로 맞춘 곳. 없음이면 "없음"
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"

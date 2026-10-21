@@ -81,7 +81,7 @@ core approvals
 8. `packages/core/approvals/gate/mod.ts`: `gate` export를 지운다(`judge`, `alwaysPatterns`만).
 9. `packages/core/approvals/grants/mod.ts`: `createGrants`, `allowanceKey`, `createSessionAllowances` export를 지운다. `AgentOfSession`, `agentGrantRegistration`, `reactionSettings`, `loadAgentGrant`는 남는다(ap-cleanup).
 10. `packages/core/approvals/mod.ts`: `gate`, `createGrants`, `createSessionAllowances`, `allowanceKey`, `intentFingerprint`, `Gate`·`Grants`·`SessionAllowances` type을 지우고 `judge`, `alwaysPatterns`(gate/mod.ts)와 `AlwaysEffect` type을 더한다.
-11. `packages/core/approvals/registration.ts`(소유 밖): `memoryRoutes`의 `approvalsDecideTurn`을 `turnRequestDecide`로 바꾼다. 기동은 memory route와 handler가 짝이 맞아야 뜬다(`packages/core/main/daemon/core.ts`). 이 한 줄만 고치고 보고의 "넘길 줄"에 적는다(planner에게 소유에 더하기를 요청했다).
+11. `packages/core/approvals/registration.ts`: `memoryRoutes`의 `approvalsDecideTurn`을 `turnRequestDecide`로 바꾼다. 기동은 memory route와 handler가 짝이 맞아야 뜬다(`packages/core/main/daemon/core.ts`).
 
 core tool path
 
@@ -104,7 +104,7 @@ core tool path
 runtime tool path
 
 17. `packages/core/lophn-agent/tools/registry.ts`: `GateRequest`와 `Intent` import를 지우고 `gate?: (input, ctx) => GateCall | null | Promise<GateCall | null>`. 주석의 "intent"를 "Gate에 넘길 호출"로 고친다.
-    - `packages/core/lophn-agent/tools/mod.ts`와 `spi.ts`(소유 밖)가 `GateRequest`를 다시 export한다. 그 이름 하나만 export 목록에서 빼고 보고의 "넘길 줄"에 적는다(지운 것을 가리키던 등록 줄. `.claude/skills/orchestrate/SKILL.md` review의 예외).
+    - `packages/core/lophn-agent/tools/mod.ts`와 `spi.ts`가 `GateRequest`를 다시 export한다. 그 이름 하나만 export 목록에서 뺀다.
 18. `packages/core/lophn-agent/tools/work.ts`: `askGate`는 `ctx.gate.check({session, turn, tool_call, tool, call: request})`. `changed` 분기를 지운다. `denied` 문구 `tool call was denied (${reason})`는 그대로다.
 19. `packages/core/lophn-agent/tools/ports.ts`: `ToolGatePort`의 주석에서 "허락 소비"를 지운다(type은 protocol을 따른다). `GateRequest` import가 남아 있으면 지운다(ap-settings-edit가 `writeGate`를 지웠다).
 20. `packages/core/lophn-agent/tools/app-tools.ts`: 정의에 `gate: () => ({kind: "app_tool", app: view.app, tool: tool.name, effect: tool.effect})`를 단다. 머리 주석과 `operations` 위 주석("Gate는 core의 호출 경로가 건다")을 "묻기는 run-loop tool gate, 막기는 core 호출 경로"로 고친다. `AgentGrantEntry`와 `grantAllows`는 그대로다(ap-assign-tools).
@@ -146,7 +146,7 @@ test
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다). protocol의 `turnPermissionRequestSchema`, `approvalsDecideTurn`, `TurnDecision`, `TurnChoice`, `choicesFor`, `intentSchema`, `GateVerdict`, `GateGrants`, `effectSchema`, `PermissionRequested`·`PermissionResolved` 정의는 shell이 끊은 뒤 ap-cleanup이 지운다고 적는다
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳. 11의 `packages/core/approvals/registration.ts`, 17의 `packages/core/lophn-agent/tools/{mod.ts,spi.ts}`
+- 넘길 줄: 남의 file을 최소로 맞춘 곳. 없음이면 "없음"
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음". 아래는 확인해 적는다

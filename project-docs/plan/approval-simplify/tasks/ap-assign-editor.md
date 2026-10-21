@@ -24,7 +24,7 @@ agent 편집의 Grants 탭을 새 할당으로 바꾼다: 앱 줄을 붙이고 �
   - 본보기(화면): `tools/wireframes/pages/screens/agent-settings.tsx`(영역 file), `tools/wireframes/pages/screens/agent-setup/agent-setup-pages.tsx`(`AgentGrantsPage`, `AgentGrantsAppPage`. drive가 `[data-grant-card="Budget tracker"] button[aria-expanded]`를 누른다), `tools/wireframes/pages/screens/agents-tab.tsx`(`OperatorEditor`. 소유 밖)
   - renderer: `packages/shell/renderer/workspace/agents/editor/{grants-panel.tsx,grants-model.ts,agent-editor.tsx}`, `packages/shell/renderer/workspace/agents/{source.ts,views.ts}`
   - source: core `packages/shell/renderer/workspace/agents/core-grants.ts`(`readGrants`, `saveGrants`), 그것을 묶는 `packages/shell/renderer/workspace/agents/core-source.ts`의 `grants`·`setGrants`(소유 밖. 이름과 인자를 그대로 두면 고칠 것이 없다); fake `packages/shell/renderer/workspace/agents/{fake-source.ts,fake-data.ts}`(`FAKE_GRANTS`, `GRANT_CATALOG`)
-  - 같이 깨지는 소유 밖 file: `packages/shell/renderer/desktop/settings/agents/{agents-panel.tsx,core-source.ts,settings-source.ts,testdata/fake-agents.ts}`(Settings › Agents의 `DefaultsTable` 절과 lophn 카드의 grant 요약)
+  - 같이 깨지는 file(소유에 있다): `packages/shell/renderer/desktop/settings/agents/{agents-panel.tsx,core-source.ts,settings-source.ts,testdata/fake-agents.ts}`(Settings › Agents의 `DefaultsTable` 절과 lophn 카드의 grant 요약)
 - 계약:
   - 쓰는 것: `AgentAssignment`, `AssignmentEntry`, `assignmentEntryKey`, `agentAssignmentGet`, `agentAssignmentSet`(ap-contract, ap-assign-store)
   - 내놓는 것: 없음(화면). 다른 domain의 비공개 tool을 붙일 목록에서 거르는 규칙(`appsFor`)은 그대로다.
@@ -52,7 +52,8 @@ agent 편집의 Grants 탭을 새 할당으로 바꾼다: 앱 줄을 붙이고 �
    - 머리 주석의 "agent grant는 approvals/grants를 그대로 따르고"를 할당으로 고친다(`views.ts`도).
 4. 순수 계산(`editor/grants-model.ts`).
    - 남긴다: `domainNamesOf`, `appsFor`.
-   - 새로 둔다: `appEntryOf(entries, app)`, `isRemoved(entry, tool)`, `withToolRemoved(entry, tool, removed)`(겹치지 않게 `removed_tools`를 고친다), `setEntry`(같은 대상 판단은 `assignmentEntryKey`), `dropEntries`.
+   - 새 entry type에 맞춘다: `appEntryOf(entries, app)`, `setEntry`(같은 대상 판단은 `assignmentEntryKey`), `dropEntries`. 지금도 있다.
+   - 새로 둔다: `isRemoved(entry, tool)`, `withToolRemoved(entry, tool, removed)`(겹치지 않게 `removed_tools`를 고친다).
    - 지운다: `Pick`, `KEPT`, `CALL_DEFAULT_ASK`, `SETTINGS_EDIT_DEFAULT_ASK` 재export, `defaultAskOf`, `appToolPick`, `withAppToolPick`, `toolEntryOf`, `toolPick`, `withToolPick`, `agentEntryOf`, `settingsEntryOf`, `withSettingsPick`, `callPick`, `withCallPick`.
 5. 화면(`editor/grants-panel.tsx`, `editor/grants-panel.module.css`, `editor/agent-editor.tsx`).
    - 남는 절은 Apps 하나다: 머리 줄(제목과 [Assign app] menu), 앱마다 `TargetCard`(이름, "{used} of {total} tools" 요약, [Remove app]), 펼치면 tool 줄(이름, 설명, 효과 chip, 오른쪽 끝 Allowed `Switch`). 바꾼 것은 지금처럼 바로 entries로 나간다.

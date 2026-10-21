@@ -1,6 +1,6 @@
 # ap-reaction
 
-problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseActivationFailed` 하나다). reaction 설정을 `off | on`으로 바꾸고, 새 일 handler가 approvals(Gate, 보류 request, applier)를 거치지 않고 설정만 보게 한다. 설정 화면은 `ui-design` skill로 gallery부터 맞춘다.
+남은 reaction은 `ReleaseActivationFailed` 하나다(problem-remove). reaction 설정을 `off | on`으로 바꾸고, 새 일 handler가 approvals(Gate, 보류 request, applier)를 거치지 않고 설정만 보게 한다. 설정 화면은 `ui-design` skill로 gallery부터 맞춘다.
 
 - 단위: reaction (wave 1)
 - 선행: 없음
@@ -17,7 +17,7 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
   - `packages/design/wording/catalog/`
 - 읽을 것:
   - 제품 결정: `project-docs/plan/approval-simplify/README.md` "정한 것"의 "reaction 설정은 `off | on`이다"(`ask`가 없어 보류 request 길이 필요 없다). roadmap `project-docs/products/roadmap/approval.md`의 "reaction" 절과 "정한 것(agent)"의 "reaction은 `off | on`이다"
-  - 앞 계획: `project-docs/plan/problem-remove/README.md` "정한 것"(agent)의 reaction 다섯 지우기와 `project-docs/plan/problem-remove/tasks/pr-reactions.md`의 "내놓는 것"(남는 reaction은 `ReleaseActivationFailed` 하나, 설정 key는 `reactions.release_activation_failed` 하나). 이 brief는 main `e192a9d8c` 기준이라 아래 file의 목록과 줄은 앞 계획 land 뒤 path 확인.
+  - 앞 계획: `project-docs/products/change-log/0.6.0.md`의 "problem 모델과 reaction 다섯을 지우고, 앱 log를 앱마다 file로 남긴다". `REACTION_EVENT_TYPES`는 `["ReleaseActivationFailed"]`이고 설정 key는 `reactions.release_activation_failed` 하나다. `AppRestartHalted`와 `KindViolationFound`는 남지 않는 event가 되어 reaction 설정이 없다. 아래 file과 줄은 main `8c243da91` 기준이다.
   - architecture: `project-docs/architecture/event.md`의 "domain event"(새 일 event만 reaction grant로 끌 수 있다)와 "왜 이 모양인가" 끝 줄(새 일 handler가 approvals를 거친다), `project-docs/architecture/approval.md`의 흐름 그림(Reactor 새 일 handler → judge → 보류 request). 둘 다 지금 동작이고 이 task로 틀린다. 문서는 계획 끝에 lead가 고친다.
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `events`, `approvals`, `config`, `router`; `project-docs/module-catalog.yaml`의 `packages/core/events`, `packages/core/approvals`, `packages/core/main`
   - 화면: `.claude/skills/ui-design/SKILL.md`("모든 화면의 규칙"의 토글 자리), `.claude/skills/wording/SKILL.md`("key를 지우기 전에"). gallery page `new-settings-reactions`(`tools/wireframes/pages/screens/settings.tsx`, `tools/wireframes/pages/screens/settings-pages.tsx`의 `SettingsReactions`)는 `packages/shell/renderer/desktop/dev-mock/admin.ts`의 `mockSettingsPanels`가 주는 `fakeReactions`로 renderer의 `ReactionsPanel`을 그린다.
@@ -37,7 +37,7 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
 
 ## 할 일
 
-근거: README "정한 것"의 reaction 줄, roadmap "reaction" 절(event 종류마다 `off | on`, `ask`를 지운다). 앞 계획이 land하면 reaction 목록과 화면 줄은 `ReleaseActivationFailed` 하나다(앞 계획 land 뒤 path 확인).
+근거: README "정한 것"의 reaction 줄, roadmap "reaction" 절(event 종류마다 `off | on`, `ask`를 지운다). reaction 목록과 화면 줄은 이미 `ReleaseActivationFailed` 하나다.
 
 1. `packages/protocol/approvals/grants.ts`
    - `REACTION_MODES`를 `["off", "on"] as const`로 바꾸고 export한다. `DEFAULT_REACTION_MODE`는 `"on"`이다. 위 주석("끔, 열고 묻지 않음, 물음")을 맞춘다.
@@ -48,11 +48,11 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
    - `intentOf`, `applier`, `registerNewWorkHandlers` 끝의 `deps.approvals.registerApplier("reaction", ...)`를 지운다. 안 쓰이게 된 import(`ApplyResult`, `Intent`, `PendingApproval`, `domainEventSchema`, `Approvals`, `err`)를 지운다.
    - 머리 주석(off·open·ask, 보류 request)과 `sendKey` 주석("허락 뒤 applier 경로가 같은 key를 쓴다")을 지금 동작에 맞춘다.
 3. `packages/core/main/daemon/wiring/router.ts`
-   - `registerNewWorkHandlers(ctx.reactor, { router: reaction, settings: ctx.settings, agentOfApp, agentOfDomain })`로 부른다. `events: createEventsReader(...)`와 `createEventsReader` import를 뺀다. `eventsConnection`은 `start`가 쓰므로 남긴다.
+   - `registerNewWorkHandlers(ctx.reactor, { router: reaction, settings: ctx.settings, agentOfApp })`로 부른다(404-409). `approvals: ctx.approvals`, `events: createEventsReader(...)`와 `createEventsReader` import(53)를 뺀다. `eventsConnection`은 `start`가 쓰므로 남긴다.
    - 주석 "Reactor가 시작하기 전에 등록해야 해서 events가 아니라 approvals 뒤인 여기서 한다"를 맞춘다(설정은 앞선 config wiring이 낸다).
 4. 옛 Gate의 reaction 줄(`packages/core/approvals/gate/gate.ts`의 `case "reaction"`): `off`면 지금처럼 `deny reaction_off`, 아니면 `RUN`이다. `ASK` 갈래를 지운다. 이 줄을 부르는 곳은 없어지지만 남긴다(계약).
    - `packages/core/approvals/gate/gate_test.ts`의 reaction 줄: grant 값 `open`을 `on`으로 바꾸고 `ask` 경우를 지운다. `off`와 `on` 두 경우가 남는다.
-5. `packages/core/approvals/approvals_test.ts`의 가짜 `reactionGrant`가 `"open"`을 써서 type 오류가 난다. 소유 밖이니 그 값만 `"on"`으로 바꾸고 보고의 "넘길 줄"에 적는다.
+5. `packages/core/approvals/approvals_test.ts`의 가짜 `reactionGrant`가 `"open"`을 써서(166) type 오류가 난다. 그 값만 `"on"`으로 바꾼다.
 6. Settings › Reactions 화면(`ui-design` skill). gallery는 renderer component를 fake source로 그리므로 아래 renderer와 testdata를 고치면 gallery page `new-settings-reactions`가 따라온다.
    - `reactions/source.ts`: `REACTION_MODES`를 `["off", "on"]`으로, 주석("끔, 열고 묻지 않음, 물음")을 맞춘다.
    - `reactions/model.ts`: `DEFAULT_MODE`는 `"on"`이다. `MODE_OPTIONS`를 지운다. `modeOf`는 저장값이 `"off"`면 `"off"`, 그 밖은 `"on"`이다. 머리 주석을 맞춘다.
@@ -62,7 +62,7 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
      - 아래 문단(`settings.note.reactions-ask`): Ask 설명 문장을 지운다. 둘째 문장(App Engineer에게 맡긴 일을 닫는 event는 목록에 없고 늘 그 App Engineer에게 간다)은 남길 안내라 새 key(예: `settings.note.reactions-unlisted`)로 옮긴다.
    - `reactions/testdata/fake-source.ts`의 `SAMPLE_MODES`는 `off`·`on`만 쓴다. 정한 것: `{ ReleaseActivationFailed: "off" }`로 두어 gallery에서 기본과 다른 줄을 보인다(지금 주석 "화면 확인용 대표 값"의 뜻).
    - `packages/shell/renderer/desktop/dev-mock/admin.ts`: `SAMPLE_MODES` 이름이 그대로면 고칠 것이 없다.
-   - gallery page 설명(`tools/wireframes/pages/screens/settings.tsx`의 `new-settings-reactions` description, "Off, Open without asking, Ask")은 소유 밖이다. 고치지 않고 보고의 "넘길 줄"에 적는다(lead가 고친다).
+   - gallery page 설명(`tools/wireframes/pages/screens/settings.tsx`의 `new-settings-reactions` description, "다섯마다 Off, Open without asking, Ask")을 남은 event 하나의 켬·끔으로 고친다.
 7. wording(`wording` skill), `packages/design/wording/catalog/workspace-settings.ts`
    - 지운다: `settings.label.reaction-off`, `settings.label.reaction-open`, `settings.label.reaction-ask`, `settings.note.reactions-ask`. 지우기 전에 앞부분(`settings.label.reaction-`, `settings.note.reactions`)으로 `packages`와 `tools`를 grep해 template 호출이 없는지 본다.
    - 더한다: 6의 새 note key.
@@ -70,7 +70,7 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
    - `deno task wording`으로 placeholders를 다시 만들고 `deno run --allow-read tools/check-wording.ts`를 돈다.
 8. 지우거나 바꾼 이름과 값을 grep해 주석과 오류 메시지에 남은 것을 고친다: reaction 몫의 `"open"`·`"ask"`, `Open without asking`, `reactions-ask`, `registerApplier("reaction"`, `createPending`(session-opening), "보류 request"(session-opening과 router wiring의 reaction 주석).
 
-정한 것: 옛 값(`open`, `ask`)을 읽는 장치를 두지 않는다. 옛 값이 든 `settings.json`은 config store의 load가 통째로 거절한다(`packages/core/config/store.ts`의 `parse`). 개발 data는 지우고 새로 만든다(AGENTS.md "호환성"). 앞 계획이 지운 reaction 다섯의 key도 같은 길이다.
+정한 것: 옛 값(`open`, `ask`)을 읽는 장치를 두지 않는다. 옛 값이 든 `settings.json`은 config store의 load가 통째로 거절한다(`packages/core/config/store.ts`의 `parse`). 개발 data는 지우고 새로 만든다(AGENTS.md "호환성"). problem-remove가 지운 reaction 다섯의 key도 같은 길이다.
 
 ## 끝남
 
@@ -91,7 +91,7 @@ problem-remove 뒤의 모양을 기준으로 한다(남은 reaction은 `ReleaseA
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`). 없음이면 "없음"
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다). 예: `packages/core/events/reactor/store.ts`의 `EventsReader.at`(applier만 썼다). 없음이면 "없음"
 - 정한 것: 문서에 답이 없어 worker가 정한 것(위 "정한 것"을 그대로 했는지 포함)
-- 넘길 줄: 남의 file을 최소로 맞춘 곳(`packages/core/approvals/approvals_test.ts`의 값 하나, 고치지 않은 gallery page 설명)
+- 넘길 줄: 남의 file을 최소로 맞춘 곳
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"

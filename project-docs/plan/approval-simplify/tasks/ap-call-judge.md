@@ -1,6 +1,6 @@
 # ap-call-judge
 
-problem-remove 뒤의 모양을 기준으로 한다. agent call 판정(call tool의 Gate, `gate_allowed`, Router의 `CallGate`, "Agents you can call"과 `session.list`의 grant 거름)을 지워 agent call을 묻지도 막지도 않게 한다.
+agent call 판정(call tool의 Gate, `gate_allowed`, Router의 `CallGate`, "Agents you can call"과 `session.list`의 grant 거름)을 지워 agent call을 묻지도 막지도 않게 한다.
 
 - 단위: call-judge (wave 1)
 - 선행: 없음
@@ -26,7 +26,7 @@ problem-remove 뒤의 모양을 기준으로 한다. agent call 판정(call tool
 
 ## 할 일
 
-줄 번호는 main `e192a9d8c` 기준이다. 앞 계획(problem-remove) land 뒤 path 확인: `calls.ts`와 `bundles/call.ts`는 `pr-problem-refs`가, `tools/check-deps.ts`는 `pr-agent-tools`가 먼저 고친다.
+줄 번호는 main `8c243da91` 기준이다.
 
 1. call tool(`packages/core/lophn-agent/tools/bundles/call.ts`)
    - `call` 정의의 `gate`(41-52)를 지운다. handler에서 `wanted`와 `callAgentOf`로 `asked`를 다시 구하는 줄(54-56)과 `gate_allowed`를 싣는 줄(60)을 지우고 `ctx.router.send({ ...input, dedup: ctx.tool_call })`만 남긴다.
@@ -36,9 +36,9 @@ problem-remove 뒤의 모양을 기준으로 한다. agent call 판정(call tool
    - 설명(39)의 실패 이유 목록 "(not_found, not_allowed, closed)"를 "(not_found, closed)"로 바꾼다. 이 task 뒤 `not_allowed`를 내는 곳이 없다.
 2. `packages/core/lophn-agent/tools/call/target.ts`를 지운다. 쓰는 곳은 call tool의 gate뿐이다.
 3. `packages/core/lophn-agent/tools/call/sessions.ts` 6줄 주석 "grant가 deny인 상대는 Router가 이미 뺐다"를 "자기 session과 새 입력을 받지 않는 session은 Router가 이미 뺐다"로 바꾼다.
-4. protocol(`packages/protocol/lophn-agent/calls.ts`): `callSendInputSchema`의 `gate_allowed`와 그 주석(182-184)을 지운다. `CALL_FAIL_REASONS`의 `not_allowed`는 남긴다(정한 것 1).
+4. protocol(`packages/protocol/lophn-agent/calls.ts`): `callSendInputSchema`의 `gate_allowed`와 그 주석(182-183)을 지운다. `CALL_FAIL_REASONS`의 `not_allowed`는 남긴다(정한 것 1).
 5. Router
-   - `packages/core/router/ports.ts`: `CallGate` interface와 주석(88-101)을 지운다. `listOpen` 주석(67)을 "session 목록 tool이 쓴다"로 줄인다.
+   - `packages/core/router/ports.ts`: `CallGate` interface와 주석(90-101)을 지운다. `listOpen` 주석(67)을 "session 목록 tool이 쓴다"로 줄인다.
    - `packages/core/router/router.ts`: `RouterDeps.gate`(40)와 구조 분해의 `gate`(99)를 지운다. `authorize`(101-116)를 지우고 `open`, `existing`, `resolve`에서 `gateAllowed` 인자와 `not_allowed` 갈래를 걷는다. `existing`이 `ok({ ok: true, to, target })` 한 줄이 되면 부르는 곳에 펼친다. import의 `CallGate`, `CallAgent`(쓰는 곳이 남는지 본다)를 정리한다.
    - `packages/core/router/model.ts`: `RouteInput.gate_allowed`와 주석(33-34)을 지운다. `failureCode`와 `FAILURE_TEXTS`의 `not_allowed` 줄은 `CallFailReason`이 남으므로 둔다.
    - `packages/core/router/commands.ts`: `sendCallCommand`의 `gate_allowed:` 줄(82)을 지운다.

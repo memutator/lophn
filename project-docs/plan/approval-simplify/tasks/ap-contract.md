@@ -69,7 +69,7 @@ approval-simplify가 기대는 새 protocol 모양을 옛것 옆의 새 file로 
 1. `packages/protocol/lophn-agent/turn-values.ts`
    - 끝에 `TURN_MODES`, `turnModeSchema = z.enum(TURN_MODES)`, `type TurnMode`를 더한다. 이 file의 다른 줄은 고치지 않는다(ap-mode-turn이 wave 3에 이 file을 고친다).
    - 위 주석에 계약의 "mode가 사는 곳"과 "정하는 규칙"을 그대로 적는다. 뒤 task(ap-mode-envelope, ap-mode-turn, ap-skip-session)가 이 주석을 본다.
-   - `packages/protocol/lophn-agent/mod.ts`가 이미 `export * from "./turn-values.ts"`를 한다. 이름은 lophn-agent namespace에서 겹치지 않는다(`git grep -nw "TURN_MODES\|turnModeSchema\|TurnMode"`가 0줄이었다).
+   - `packages/protocol/lophn-agent/mod.ts`가 이미 `export * from "./turn-values.ts"`를 한다. 이름은 lophn-agent namespace에서 겹치지 않는다(`git grep -nw "TURN_MODES\|turnModeSchema\|TurnMode" -- packages tools`가 0줄이다).
    - approvals의 새 file은 `../lophn-agent/turn-values.ts`에서 import한다. lophn-agent protocol은 approvals protocol을 import하지 않는다(`tools/check-deps.ts`의 `protocol-cycle`).
 2. `packages/protocol/approvals/gate-call.ts`
    - `gateCallSchema = z.discriminatedUnion("kind", [...])`. 칸: app_tool은 `app: idSchema("app")`, `tool: toolKeySchema`, `effect: toolEffectSchema`. mcp_tool은 `server`·`tool`이 `z.string().min(1)`, `effect: toolEffectSchema`. shell은 `command: z.string().min(1)`. 모두 `z.strictObject`.

@@ -6,7 +6,7 @@
 - 선행: ap-mode-turn
 - 소유(이 task만 고친다):
   - `packages/core/main/daemon/wiring/config.ts`
-  - `packages/core/lophn-agent/tools/bundles/shell_test.ts (새 file)`
+  - `packages/core/lophn-agent/tools/bundles/shell_test.ts`(새 file)
   - `packages/core/lophn-agent/tools/bundles/shell.ts`
   - `packages/core/approvals/{approvals.ts,ports.ts,turn-requests.ts,approvals_test.ts}`
   - `packages/core/approvals/shell-rules/`(새 폴더)
@@ -37,7 +37,7 @@
 5. `packages/core/main/daemon/wiring/setting-declarations.ts`: 목록에 `shellRulesSetting`을 더한다(`../../../approvals/shell-rules/mod.ts`에서 바로 import한다. `packages/core/approvals/mod.ts`는 이 task의 소유가 아니다).
 6. 설정 쓰기 길
    - `packages/core/main/daemon/wiring/context.ts`: `Late`에 `settingsUpdate: SettingsStore["update"]`(type은 `packages/core/config/mod.ts`)를 더하고 `LATE_KEYS`에 넣는다. 주석: config가 낸다. 사람의 결정이 Settings 값을 고칠 때만 쓴다.
-   - `packages/core/main/daemon/wiring/config.ts`(소유 밖): build에서 `ctx.provide("settingsUpdate", (changes) => store.update(changes))` 한 줄. 지금 core 안에서 Settings를 쓰는 길이 없다(`settings` 칸은 읽기만). 이 한 줄만 고치고 보고의 "넘길 줄"에 적는다(planner에게 소유에 더하기를 요청했다).
+   - `packages/core/main/daemon/wiring/config.ts`: build에서 `ctx.provide("settingsUpdate", (changes) => store.update(changes))` 한 줄만 더한다. 지금 core 안에서 Settings를 쓰는 길이 없다(`settings` 칸은 읽기만).
    - 정한 것: route를 거치지 않고 store의 `update`를 직접 부른다. 이유: `settings/update`는 memory route라 core 안에서 부를 입구가 없고, 이 쓰기는 사람 자격만 받는 결정 handler 안에서만 일어난다.
 7. `packages/core/main/daemon/wiring/approvals.ts`
    - `createApprovals`의 `shellRules`를 `(place) => shellRuleLayers(settings.get(shellRulesSetting) ?? {global: [], projects: {}}, place)`로 바꾼다. `settings`는 `ctx.peek.settings`(config가 approvals보다 먼저 build한다. `packages/core/main/daemon/assembly.ts`의 `WIRINGS` 순서)다. 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
@@ -52,7 +52,7 @@
     - `createApprovals`(fake `assignmentOf`, `shellRules`는 `shellRuleLayers({global: [], projects: {}}, null)`, `manualClock`, `createIdSource`)와 `createToolGate`(`packages/core/lophn-agent/tool-judgment/mod.ts`)로 tool gate를 만든다.
     - 정의는 `{...SHELL_TOOLS[0], handler: 부른 것을 세는 fake}`다. 진짜 gate 함수와 효과를 쓰고 `/bin/sh`는 띄우지 않는다.
     - `ToolContext`는 `registry_test.ts` 꼴로 만들고 `gate.check`가 `toolGate.check({..., agent: {role: "lophn"}, place: null, mode: "attended"})`를 부른다. `executeToolCall(ctx, "shell_run", {command: "rm -r build"})`를 시작한 뒤 `approvals.turnRequests(session)`에 request가 열릴 때까지 microtask를 넘긴다(실제 시간을 기다리지 않는다). 그때 handler는 0번이다. `reject`면 결과가 `not_executed`/`rejected`이고 handler는 0번, 다시 열어 `once`면 handler가 1번이다.
-    - 이 file은 위 소유 목록에 없다. planner에게 소유에 더하기를 요청했다. 바닥 module인 `packages/core/approvals/approvals_test.ts`는 lophn-agent(`createToolGate`, `SHELL_TOOLS`)를 import하지 못해 여기에 둔다(`tools/check-deps.ts` core 층 규칙).
+    - 바닥 module인 `packages/core/approvals/approvals_test.ts`는 lophn-agent(`createToolGate`, `SHELL_TOOLS`)를 import하지 못해 여기에 둔다(`tools/check-deps.ts` core 층 규칙).
 11. `packages/core/approvals/approvals_test.ts`: ap-ask-turn의 test가 `createApprovals` deps가 바뀌어 깨질 때만 준비를 맞춘다.
 
 ## 끝남
@@ -69,7 +69,7 @@
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳. 6의 `packages/core/main/daemon/wiring/config.ts`, 10의 새 test file
+- 넘길 줄: 남의 file을 최소로 맞춘 곳
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음". 9의 효과를 바꾸며 따라온 것을 적는다

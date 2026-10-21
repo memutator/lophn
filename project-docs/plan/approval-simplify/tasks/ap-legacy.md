@@ -24,7 +24,7 @@ handler 없는 옛 approval route 아홉이 든 `packages/protocol/approvals/app
 
 ## 할 일
 
-지우기 전에 위 export 이름을 `git grep -nw`로 찾아, 아래 둘 밖에 import하는 곳이 없는지 본다(2026-10-21 main 기준으로는 없다). 있으면 지우지 말고 file:줄을 보고한다.
+지우기 전에 위 export 이름을 `git grep -nw`로 찾아, 아래 둘 밖에 import하는 곳이 없는지 본다(main `8c243da91` 기준으로는 없다). 있으면 지우지 말고 file:줄을 보고한다.
 
 1. `packages/protocol/approvals/approvals.ts`를 지운다.
 2. `packages/protocol/approvals/mod.ts`에서 `export * from "./approvals.ts";` 한 줄을 지운다. 다른 줄은 그대로다.
@@ -36,11 +36,11 @@ handler 없는 옛 approval route 아홉이 든 `packages/protocol/approvals/app
 4. `packages/shell/main/desktop/core/routes.ts`
    - import에서 `APPROVAL_ROUTES`를 빼고, `SHELL_ROUTES`에서 `...APPROVAL_ROUTES.filter(...)` 줄을 지운다.
    - 위 주석에서 "요청 읽기"와 "요청을 만들고 적용하는 command는 사람 화면이 부르지 않는다"를 지운다. `APPROVAL_DECISION_ROUTES`와 `AGENT_GRANT_ROUTES` 줄은 남긴다(ap-assign-store, ap-ask-turn, ap-cleanup이 바꾼다).
-5. 지운 이름의 소유 밖 흔적은 고치지 않고 보고한다(ap-cleanup이 지운다). 2026-10-21 main 기준:
-   - `packages/core/server/server.ts`의 `CONTROL_OPERATIONS`(`cancel_approval_request`, `reject_approval_request`, `expire_approval_request` 문자열)
-   - `packages/core/lophn-agent/run-loop/runtime.ts`의 `agentRuntimePolicies` 위 주석(`create_approval_request`)
-   - `packages/core/apps/control.ts`의 `SUPERVISOR_OPERATIONS` 주석(`apply_approved_action`)
-   - `packages/protocol/server/registration.ts`의 `dispatchable`·`dispatchOnly` 주석(`apply_approved_action`)
+5. 지운 이름의 소유 밖 흔적은 고치지 않고 보고한다(ap-cleanup이 지운다). main `8c243da91` 기준:
+   - `packages/core/server/server.ts`의 `CONTROL_OPERATIONS`(341-343, `cancel_approval_request`, `reject_approval_request`, `expire_approval_request` 문자열)
+   - `packages/core/lophn-agent/run-loop/runtime.ts`의 `agentRuntimePolicies` 위 주석(77, `create_approval_request`)
+   - `packages/core/apps/control.ts`의 `SUPERVISOR_OPERATIONS` 주석(156, `apply_approved_action`)
+   - `packages/protocol/server/registration.ts`의 `dispatchable`·`dispatchOnly` 주석(68, `apply_approved_action`)
 
 ## 끝남
 

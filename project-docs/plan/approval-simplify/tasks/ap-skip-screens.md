@@ -23,15 +23,15 @@ skip을 켜고 끄는 자리를 대화 화면에 두고, Operator 편집 화면�
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `shell`, `lophn-agent`, `design-api`; `project-docs/module-catalog.yaml`의 `packages/shell/renderer`, `packages/design`
   - skill: `.claude/skills/ui-design/SKILL.md`("모든 화면의 규칙": 토글은 줄 오른쪽 끝 고정 열), `.claude/skills/wording/SKILL.md`, `.claude/skills/write-test/SKILL.md`
   - 계약(ap-skip-session이 만든 것. 이름은 그 file과 보고에서 확인한다):
-    - `packages/protocol/lophn-agent/sessions.ts`의 `ChangeSessionSkip` route 정의(resource `sessions`, method `change-skip`, 입력 `{ id, skip }`, compare `{ state_seq }`, actors `user`)
+    - `packages/protocol/lophn-agent/sessions.ts`의 `ChangeSessionSkip` route 정의(resource `sessions`, method `change-skip`, 입력 `{ session, skip }`, compare `{ state_seq }`, actors `user`)
     - `packages/protocol/lophn-agent/agent-sessions.ts`의 session record `skip: boolean`(`ReadSession`·`ListSessions` 출력)
     - `packages/protocol/lophn-agent/agent-values.ts`, `packages/protocol/lophn-agent/operators.ts`의 Operator 정의 `skip?: boolean`
   - 본보기(화면): `tools/wireframes/pages/screens/agent.tsx`(대화 영역 file), `tools/wireframes/pages/screens/agent-tab/scenes.tsx`, `tools/wireframes/pages/screens/agent-pages.tsx`, `tools/wireframes/pages/screens/conversation.tsx`(장면 adapter. 소유 밖. `AGENT_TAB_SCENES`에 든 이름은 그대로 장면이 된다), `tools/wireframes/pages/screens/agent-settings.tsx`(agent 설정 영역 file), `tools/wireframes/pages/screens/agent-setup/agent-setup-pages.tsx`(`OperatorEditorPage`)
   - renderer
     - 대화: `packages/shell/renderer/conversation/composer/agent-composer.tsx`(입력칸 밖 아래 줄 `data-composer-scope`: 자리 이름과 권한 요약), `packages/shell/renderer/conversation/agent-view.tsx`(`entry`, `refresh`, `perform`), `packages/shell/renderer/conversation/agent-tab-source.ts`(`SessionEntry`, `AgentTabSource`), `packages/shell/renderer/conversation/header/agent-header.tsx`(Fork)
     - 정의: `packages/shell/renderer/workspace/agents/editor/definition-form.tsx`(`Group`, Domains의 `Checkbox`), `packages/shell/renderer/workspace/agents/source.ts`(`AgentDraft`), `packages/shell/renderer/workspace/agents/core-source.ts`(`builtInDefinition`, `operatorCreate`·`operatorChange`에 `draft`를 그대로 보낸다)
-  - source: core `packages/shell/renderer/conversation/agent-tab-core-source-sessions.ts`(`readSessions`, `renameSessionTo`의 state_seq 읽기 꼴), 조립 `packages/shell/renderer/conversation/agent-tab-core-source.ts`(소유 밖); fake `packages/shell/renderer/conversation/agent-tab-fake-source.ts`(`AGENT_TAB_SCENES`, `sessions`, `patchSession`), `packages/shell/renderer/workspace/agents/{fake-source.ts,fake-data.ts}`
-  - `SessionEntry`를 손으로 만드는 소유 밖 file: `tools/wireframes/pages/screens/agent-chat.tsx`(두 곳)
+  - source: core `packages/shell/renderer/conversation/agent-tab-core-source-sessions.ts`(`readSessions`, `renameSessionTo`의 state_seq 읽기 꼴), 조립 `packages/shell/renderer/conversation/agent-tab-core-source.ts`; fake `packages/shell/renderer/conversation/agent-tab-fake-source.ts`(`AGENT_TAB_SCENES`, `sessions`, `patchSession`), `packages/shell/renderer/workspace/agents/{fake-source.ts,fake-data.ts}`
+  - `SessionEntry`를 손으로 만드는 wireframe: `tools/wireframes/pages/screens/agent-chat.tsx`(두 곳)
 - 계약:
   - 쓰는 것: `ChangeSessionSkip`, session record `skip`, Operator 정의 `skip`(ap-skip-session)
   - 내놓는 것: 없음(화면)
@@ -52,10 +52,10 @@ skip을 켜고 끄는 자리를 대화 화면에 두고, Operator 편집 화면�
    - `agent-tab-fake-commands.ts`: 고칠 것이 없으면 두지 않는다.
 3. 대화 화면 값과 통로.
    - `agent-tab-source.ts`: `SessionEntry.skip: boolean`. `AgentTabSource.changeSkip(session: string, skip: boolean): Promise<SourceResult<void>>`. 주석에 "다음 turn부터, 사람만"을 적는다.
-   - `agent-tab-core-source-sessions.ts`: `readSessions`가 record의 `skip`을 싣는다. `changeSkipOf(env, session, skip)`는 `renameSessionTo`처럼 record의 `state_seq`를 읽고 `ChangeSessionSkip`을 `{ input: { id: session, skip }, compare: { state_seq }, key: "sessions-skip-<session>-<state_seq>-<on|off>" }`로 보낸다.
+   - `agent-tab-core-source-sessions.ts`: `readSessions`가 record의 `skip`을 싣는다. `changeSkipOf(env, session, skip)`는 `renameSessionTo`처럼 record의 `state_seq`를 읽고 `ChangeSessionSkip`을 `{ input: { session, skip }, compare: { state_seq }, key: "sessions-skip-<session>-<state_seq>-<on|off>" }`로 보낸다.
    - `agent-tab-core-source-commands.ts`: 고칠 것이 없으면 두지 않는다.
 4. 대화 화면(정한 것 1).
-   - `composer/agent-composer.tsx`: prop `skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void }`. 주면 `data-composer-scope` 줄의 오른쪽 끝 고정 열에 design `Switch`(label "Skip permissions", `data-composer-skip`)를 그린다. 주지 않으면 그리지 않는다(소유 밖 `agent-chat.tsx`의 composer가 그대로 선다). 머리 주석의 아래 줄 설명을 고친다.
+   - `composer/agent-composer.tsx`: prop `skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void }`. 주면 `data-composer-scope` 줄의 오른쪽 끝 고정 열에 design `Switch`(label "Skip permissions", `data-composer-skip`)를 그린다. 주지 않으면 그리지 않는다(`agent-chat.tsx`의 composer가 그대로 선다). 머리 주석의 아래 줄 설명을 고친다.
    - `agent-view.tsx`: 열린 session(`entry`가 있고 archive하지 않음)이면 composer에 `skip`을 넘긴다. `on`은 `entry.skip`이고, 바꾸면 `perform`으로 `source.changeSkip(session, on)`을 보내고 성공하면 `refresh()`로 session 목록을 다시 읽는다. 아직 만들지 않은 새 session과 archive한 session에는 넘기지 않는다(정한 것 2). 새 session 자리의 `SessionEntry`(`shown`)에는 `skip: false`를 넣는다.
    - `header/`: 고치지 않는다. Fork는 그대로이고 새 session의 skip은 core가 정한다.
 5. Operator 정의 칸(정한 것 3).
@@ -63,7 +63,7 @@ skip을 켜고 끄는 자리를 대화 화면에 두고, Operator 편집 화면�
    - `editor/definition-form.tsx`: Operator일 때만(`detail.kind === "operator"`) MCP 칸 뒤에 `Group name="skip"`을 두고 그 안에 `Checkbox`(새 session을 Skip permissions로 시작)와 안내 한 줄을 둔다. 끄면 칸을 지운다(`skip: undefined`). 파일에는 사람이 바꾼 칸만 든다는 지금 규칙을 따른다.
    - `workspace/agents/core-source.ts`: `builtInDefinition`이 이미 내장 role의 칸을 골라 보내니 고칠 것이 없는지 본다. Operator의 `draft`는 `skip`을 그대로 싣는다.
    - `editor/agent-editor.tsx`, `workspace/agents/{fake-source.ts,fake-data.ts,views.ts}`: 고칠 것이 없으면 두지 않는다. fake Operator는 `skip`이 없다(꺼진 칸).
-6. 소유 줄에 없는 file. lead가 소유에 더하지 않았으면 최소로 고치고 보고의 "넘길 줄"에 적는다.
+6. 조립과 wireframe의 최소 맞춤.
    - `packages/shell/renderer/conversation/agent-tab-core-source.ts`: source 조립에 `changeSkip: (session, skip) => changeSkipOf(env, session, skip)` 한 줄과 import. 없으면 `AgentTabSource`를 채우지 못해 type check가 깨진다.
    - `tools/wireframes/pages/screens/agent-chat.tsx`: `SessionEntry`를 만드는 두 곳(`entryOf`, `current`)에 `skip: false`.
 7. wording.
@@ -95,7 +95,7 @@ skip을 켜고 끄는 자리를 대화 화면에 두고, Operator 편집 화면�
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳(할 일 6)
+- 넘길 줄: 남의 file을 최소로 맞춘 곳
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음". 적어도 확인해 적는다: 새 session의 첫 turn은 정의 기본값으로만 skip이다(정한 것 2), 도는 turn에서 바꾼 skip은 다음 turn부터다.

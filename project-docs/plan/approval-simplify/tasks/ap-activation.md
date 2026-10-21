@@ -1,6 +1,6 @@
 # ap-activation
 
-problem-remove 뒤의 모양을 기준으로 한다. activation 동의를 approvals의 보류 request에서 activation module의 상태("동의 대기")와 사람의 동의 command로 옮기고, activation이 approvals를 부르지 않게 한다. 앱 상세의 activation 줄 표시도 새 phase로 맞춘다.
+activation 동의를 approvals의 보류 request에서 activation module의 상태("동의 대기")와 사람의 동의 command로 옮기고, activation이 approvals를 부르지 않게 한다. 앱 상세의 activation 줄 표시도 새 phase로 맞춘다.
 
 - 단위: activation (wave 2)
 - 선행: 없음
@@ -20,16 +20,16 @@ problem-remove 뒤의 모양을 기준으로 한다. activation 동의를 approv
   - 계약: `project-docs/plan/approval-simplify/tasks/ap-contract.md`의 `packages/protocol/apps/activation/consent.ts` 몫(`activationConsentSchema`, `activationConsent`, `activationAskConsent`, `activationConsents`, event 이름 둘, phase 이름)
   - architecture: `project-docs/architecture/activation.md`의 "흐름"과 "지키는 것"의 "계기와 묻는 조건"(묻는 조건, 다시 판정해 다시 묻기, 보류 request는 `Approvals` port로만 읽는다)과 "실패와 복구" 끝 줄(더 새 release가 시작되면 이전 release를 기다리던 것을 취소한다). `project-docs/architecture/event.md`의 "Bus와 Reactor"(Bus에는 commit 뒤에만 낸다)와 남지 않는 event 줄. 둘 다 지금 동작이고 동의 부분은 이 task로 틀린다. 문서는 계획 끝에 lead가 고친다.
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `app-releases`, `approvals`, `events`, `core-api`, `event-stream`; `project-docs/module-catalog.yaml`의 `packages/core/apps`, `packages/core/main`, `packages/protocol`
-  - 앞 계획: `project-docs/plan/problem-remove/tasks/pr-reactions.md`(이 brief의 `packages/core/apps/releases/commands.ts`, `packages/core/main/daemon/wiring/apps.ts`, `packages/protocol/events/transient.ts`를 고친다), `pr-problems-core.md`·`pr-log-read.md`·`pr-log-writer.md`(`packages/core/apps/control.ts`), `pr-log-view-error.md`(`packages/core/main/daemon/wiring/apps.ts`). 아래 줄과 이름은 앞 계획 land 뒤 path 확인.
+  - problem-remove가 이미 바꾼 것(`project-docs/products/change-log/0.6.0.md` 끝 항목): `activation.block`은 `blocked`만 답하고 아무것도 쓰지 않는다(`PublicToolsChanged`가 없다). `packages/core/main/daemon/wiring/apps.ts`의 `writer`는 이미 `withAfterCommit`로 감싸 `APP_RESTART_HALTED_TOPIC` 줄을 Bus로 내고, memory route `app.log_view_error`가 있다. `packages/protocol/events/transient.ts`에 `AppRestartHalted`, `KindViolationFound`가 있다.
   - 코드
     - `packages/core/apps/releases/activation/handler.ts`(`createActivationHandlers`, `judge`, `ticketVerified`, `approvalDecided`, `applier`, `reconsider`), `queue.ts`(`waitApproval`, `dropWaiting`, `list`), `assembly.ts`(`ActivationLate`, `runOne`, `enqueue`, `createActivationHandlers` 조립, `queueEntries`, `sweep`, `requestedRows`, `sendValue`, `ledgerRead`)
     - `packages/core/apps/releases/schema.ts`(`apps.releases.tables`, `activation_requests` 표), `packages/core/apps/releases/commands.ts`(`createReleaseCommands`, `startActivation`, `activatePrevious`가 사람만 받는 본보기, `requireMachine`, `releaseAndApp`), `packages/core/apps/releases/reads.ts`(`createReleaseReads`, `visible`, `createActivationQueueRead`)
     - `packages/core/apps/releases/compare.ts`(`asksFor`), `packages/base`의 `canonicalize`
     - `packages/core/apps/control.ts`(`APPS_CONTROL_CONTEXT`, `SUPERVISOR_OPERATIONS`, `appsOperationPolicies`의 machine activation 목록)
     - `packages/core/main/daemon/wiring/apps.ts`(`activation.attach`, `ctx.reactor.on`, `ctx.approvals.registerApplier`, `writer`)
-    - commit 뒤 할 일 본보기: `packages/core/storage/ledger/after-commit.ts`(`afterCommit`, `withAfterCommit`), `packages/core/apps/tickets/coding/events.ts`(`tx.port(afterCommit).push`), `packages/core/main/daemon/wiring/coding-sessions.ts`(`withAfterCommit(inner, relay.apply)`)
+    - commit 뒤 할 일 본보기: `packages/core/storage/ledger/after-commit.ts`(`afterCommit`, `withAfterCommit`), `packages/core/apps/runtime/commands.ts`(`APP_RESTART_HALTED_TOPIC`, `tx.port(afterCommit).push`로 남지 않는 event `AppRestartHalted`를 쌓는다), 그것을 Bus로 내는 `packages/core/main/daemon/wiring/apps.ts`의 `writer`(`withAfterCommit(..., (actions) => ...)`)
     - `packages/protocol/apps/activation/activation.ts`(`ACTIVATION_PHASES`, `activationQueueEntrySchema`, `ACTIVATION_ROUTES`), `packages/protocol/apps/registry.ts`(`ROUTES`), `packages/protocol/events/transient.ts`, `packages/protocol/events/bus.ts`
-    - `packages/core/apps/register.ts`(command·read 등록 목록. 소유 밖이라 "등록할 것"으로 보고한다)
+    - `packages/core/apps/register.ts`(command·read 등록 목록. 이 task가 commands에 `askConsent`·`consent`, reads에 `activationConsents`를 더한다)
     - 화면: `packages/shell/renderer/app-frame/app-detail/source.ts`(`Applying.phase`), `versions/versions-tab.tsx`(`waiting_approval` 문단), `core-source.ts`(protocol의 `ActivationQueueEntry`를 그대로 넘긴다. 고치지 않는다)
     - test 본보기: `packages/core/apps/releases/public-tools_test.ts`(in-memory SQLite와 tx shim으로 release command를 부른다)
 - 계약:
@@ -92,19 +92,19 @@ problem-remove 뒤의 모양을 기준으로 한다. activation 동의를 approv
 10. `packages/core/apps/control.ts`: `APPS_CONTROL_CONTEXT`의 operations와 `appsOperationPolicies`의 machine activation 목록에 `activationAskConsent`를 더한다(driver가 이 자격으로 부른다). `SUPERVISOR_OPERATIONS`의 "시작은 사람 approval의 적용(`apply_approved_action`)이다" 주석을 지운다.
 11. `packages/core/main/daemon/wiring/apps.ts`
     - `activation.attach({...})`에서 `approvals`를 뺀다. `ctx.reactor.on("ApprovalDecided", ...)`와 `ctx.approvals.registerApplier("activation", ...)`를 지운다. `ctx.reactor.on("TicketVerified", ...)`는 남는다.
-    - `writer`를 `withAfterCommit(<지금 writer>, apply)`로 감싸 2의 topic action을 `ctx.bus.publish`로 낸다.
+    - `writer`는 이미 `withAfterCommit(..., (actions) => ...)`로 `APP_RESTART_HALTED_TOPIC` 줄을 `ctx.peek.bus?.publish`로 낸다. 그 apply에 2의 topic 갈래를 더해 같은 식으로 낸다. 다시 감싸지 않는다.
       - 정한 것: 동의 event는 command가 `afterCommit` port에 쌓고 apps wiring이 commit 뒤 Bus로 낸다. 이유: 사람의 `activation.consent`는 writer Worker에서 돌아 driver를 지나지 않고, Bus에는 commit 뒤에만 낸다(`project-docs/architecture/event.md` "Bus와 Reactor"). driver가 부르는 `activation.ask_consent`와 `activation.start`도 접은 writer(`ctx.writer`)를 지나 같은 길로 나간다.
     - 주석 "Reactor·Approvals에 등록한다"를 맞춘다. `createAppCalls`의 `approvals: ctx.approvals`는 ap-app-call의 몫이라 그대로 둔다.
 12. 앱 상세 화면(`ui-design` skill. 모양은 바뀌지 않고 phase 이름과 문구 key만 바뀐다. gallery page `new-app-version-applying`은 `running`만 그려 wireframe은 고치지 않는다)
     - `packages/shell/renderer/app-frame/app-detail/source.ts`: `Applying.phase`를 `"waiting_consent" | "running"`으로.
     - `versions/versions-tab.tsx`: `waiting_approval` 비교와 문구 key를 바꾼다.
     - wording(`wording` skill), `packages/design/wording/catalog/app-space.ts`: `app-detail.note.applying-waiting-approval`을 `app-detail.note.applying-waiting-consent`로 바꾼다(글은 그대로). `deno task wording`으로 placeholders를 다시 만든다.
-13. 지우거나 바꾼 이름을 grep해 주석과 오류 메시지에 남은 것도 고친다: `waiting_approval`, `waitApproval`, `dropWaiting`, `approvalDecided`, `ApprovalDecided`, `cancelPendingFor`, `createPending`, `apply_approved_action`, `applying-waiting-approval`, "보류 request". 이제 틀린 approval 낱말 주석도 고친다: `packages/core/apps/releases/commands.ts`의 `activatePrevious` 위("approval은 없다"), `packages/protocol/apps/activation/activation.ts`의 `activationAttemptSchema` 위("approval과 expected_*는 없다").
+13. 지우거나 바꾼 이름을 grep해 주석과 오류 메시지에 남은 것도 고친다: `waiting_approval`, `waitApproval`, `dropWaiting`, `approvalDecided`, `ApprovalDecided`, `cancelPendingFor`, `createPending`, `apply_approved_action`, `applying-waiting-approval`, "보류 request". 이제 틀린 approval 낱말 주석도 고친다: `packages/core/apps/releases/commands.ts`의 `activatePrevious` 위("approval은 없다"), `packages/protocol/apps/activation/activation.ts`의 `activationAttemptSchema` 위("approval과 expected_*는 없다"). `handler.ts` deps의 `blocked` 주석("App Engineer에게 알리는 일까지 한다")도 지금 동작(알리지 않는다)으로 고친다.
 
 ## 끝남
 
 - `deno task check`가 통과한다. renderer를 고쳤으니 `deno run -A packages/shell/renderer/build.ts`도 된다.
-- core 확인: `project-docs/plan/tools/lead/boot.sh`가 `boot 1 exit 0`, `boot 2 exit 0`을 찍는다. lead가 register.ts·registry.ts 등록을 더한 뒤에 다시 돈다.
+- core 확인: `project-docs/plan/tools/lead/boot.sh`가 `boot 1 exit 0`, `boot 2 exit 0`을 찍는다. lead가 `packages/protocol/apps/registry.ts` 등록을 더한 뒤에 다시 돈다.
 - 위험 test: "사람이 동의하기 전에는 선언이 넓어진 release가 activate되지 않는다"(`packages/core/apps/releases/activation/consents_test.ts`, 새 file. 대상 `consents.ts` 옆)
   - 준비(file에 한 번): in-memory SQLite에 `appsSchemaSteps`와 `releasesSchemaSteps`를 깔고 앱 하나와 `prepared` release 하나를 넣는다(본보기 `public-tools_test.ts`의 tx shim. `afterCommit` port는 아무것도 안 하는 push다). `createActivationHandlers`의 `releases`는 그 DB의 `loadRelease`와 바꿀 수 있는 가짜 비교(첫 activation이거나 `added_resources`가 있다), `blocked`는 늘 false, `consents.ask`는 그 DB 위의 `askConsent` command, `enqueue`는 시작한 release를 모으는 가짜다.
   - 표로 본다(판정은 "시작한 release"와 동의 줄로 한다)
@@ -113,15 +113,15 @@ problem-remove 뒤의 모양을 기준으로 한다. activation 동의를 approv
     - 사람이 허락한 뒤 비교가 바뀌었으면(grant가 바뀜) `consented`가 시작하지 않고 새 비교로 다시 묻는다(줄이 다시 기다림이 된다).
     - 사람이 지금 비교를 허락하면 `allowedConsents`의 줄로 `consented`가 그 release를 시작한다.
 - 남지 않음
-  - `grep -rn "waiting_approval\|waitApproval\|dropWaiting\|applying-waiting-approval" packages tools`가 0줄이다.
-  - `grep -rn "pprov" packages/core/apps/releases packages/core/apps/control.ts packages/protocol/apps/activation/activation.ts packages/shell/renderer/app-frame/app-detail`가 0줄이다(주석 포함).
+  - `grep -rn --exclude-dir=dist "waiting_approval\|waitApproval\|dropWaiting\|applying-waiting-approval" packages tools`가 0줄이다.
+  - `grep -rn "pproval" packages/core/apps/releases packages/core/apps/control.ts packages/protocol/apps/activation/activation.ts packages/shell/renderer/app-frame/app-detail`가 0줄이다(주석 포함).
   - `grep -n "ctx\.approvals\.\|ApprovalDecided" packages/core/main/daemon/wiring/apps.ts`가 0줄이다. approvals module 안의 `createPending`·`cancelPendingFor`와 `ApprovalDecided` 정의는 ap-ask-pending이 지운다.
 
 ## 보고
 
 - 바꾼 file과 새 file
 - 통과한 check
-- 등록할 것: lead가 고칠 목록 file. 적어도 `packages/core/apps/register.ts`(commands에 `askConsent`·`consent`, reads에 `activationConsents`), `packages/protocol/apps/registry.ts`(동의 route 셋), ap-contract 때 하지 않았으면 `packages/protocol/apps/activation/mod.ts`의 `consent.ts` export
+- 등록할 것: lead가 고칠 목록 file. 적어도 `packages/protocol/apps/registry.ts`(동의 route 셋), ap-contract 때 하지 않았으면 `packages/protocol/apps/activation/mod.ts`의 `consent.ts` export
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다). 예: `Approvals`의 `createPending`·`cancelPendingFor`·`request`·`pending`과 `"activation"` applier 종류는 이제 부르는 곳이 없다(ap-ask-pending이 지운다). 없음이면 "없음"
 - 정한 것: 문서에 답이 없어 worker가 정한 것(위 "정한 것"을 그대로 했는지 포함)
 - 넘길 줄: 남의 file을 최소로 맞춘 곳. 없음이면 "없음"

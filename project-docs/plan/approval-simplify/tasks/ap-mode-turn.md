@@ -19,20 +19,18 @@ turn을 시작할 때 mode(attended, unattended, skip)를 정해 turn 행에 남
   - 본보기(코드): `packages/core/router/schema.ts`의 `list()`(상수 목록으로 CHECK를 만든다), `packages/core/lophn-agent/run-loop/schema.ts`의 `turns_started_immutable` trigger, `packages/core/main/daemon/wiring/approvals.ts`의 `agentOf`(machine 자격 reader로 읽는 꼴)
 - 계약:
   - 쓰는 것: `TurnMode`(ap-contract), 봉투 `unattended`(ap-mode-envelope), session `skip`(ap-skip-session), `Approvals.judge`의 `who.mode`(ap-ask-turn)
-  - 내놓는 것: `turns.mode`, `StartTurn` 입력 `mode`, `turnRecordSchema.mode`, `ToolContext.mode`. 정하는 규칙(session skip이면 skip, 입력 봉투가 unattended면 unattended, 그 밖 attended)은 함수 `turnModeOf` 하나에 둔다. `turns.mode`는 시작 뒤 바뀌지 않고, 도는 turn에 steer한 사람 메시지는 그 turn의 mode를 따른다. tool gate는 그 turn 행의 mode로 판정한다. `AskResult`에 `{outcome: "unattended"}`가 있다. skip turn의 `ask`는 사람이 있으므로 기다린다.
+  - 내놓는 것: `turns.mode`, `StartTurn` 입력 `mode`, `turnRecordSchema.mode`, `ToolContext.mode`. 정하는 규칙(입력 봉투가 unattended면 unattended, 아니면 session skip이면 skip, 그 밖 attended)은 함수 `turnModeOf` 하나에 둔다. `turns.mode`는 시작 뒤 바뀌지 않고, 도는 turn에 steer한 사람 메시지는 그 turn의 mode를 따른다. tool gate는 그 turn 행의 mode로 판정한다. `AskResult`에 `{outcome: "unattended"}`가 있다. skip turn의 `ask`는 사람이 있으므로 기다린다.
 
 ## 할 일
 
-추가(planner, 살 단계 뒤): (1) turn mode의 type(`TURN_MODES`, `turnModeSchema`, `TurnMode`)은 `packages/protocol/lophn-agent`(예: `turn-values.ts`)에 있다. `protocol/approvals`에 두면 `protocol-cycle`이다(`ap-contract`가 옮긴다). (2) `turnModeOf`의 순서는 unattended 입력 → session skip → attended다. skip인 session도 unattended call로 열린 turn은 unattended다. 아래 "skip이 먼저"는 따르지 않는다.
+추가(planner, 살 단계 뒤): (1) turn mode의 type(`TURN_MODES`, `turnModeSchema`, `TurnMode`)은 `packages/protocol/lophn-agent`(예: `turn-values.ts`)에 있다. `protocol/approvals`에 두면 `protocol-cycle`이다(`ap-contract`가 옮긴다). (2) `turnModeOf`의 순서는 unattended 입력 → session skip → attended다. skip인 session도 unattended call로 열린 turn은 unattended다.
 
-**띄우기 전에 planner가 1번의 `turnModeSchema` 자리(protocol 순환)를 정한다.** 5번의 순서도 planner에게 올렸다.
-
-줄 번호는 main `e192a9d8c` 기준이고 앞 wave(ap-ask-turn, ap-assign-tools, ap-call-judge)와 같은 wave의 ap-mode-envelope가 고친 뒤라 밀려 있다. 이름으로 찾는다.
+줄 번호는 main `8c243da91` 기준이고 앞 wave(ap-ask-turn, ap-assign-tools, ap-call-judge)와 같은 wave의 ap-mode-envelope가 고친 뒤라 밀려 있다. 이름으로 찾는다.
 
 1. protocol
    - `packages/protocol/lophn-agent/turns.ts`의 `startTurnInputSchema`(22-38)에 `mode: turnModeSchema`를 더한다(필수).
    - `packages/protocol/lophn-agent/turn-values.ts`의 `turnRecordSchema`(99-117)에 `mode: turnModeSchema`를 더한다.
-   - import 자리는 ap-contract의 `packages/protocol/approvals/mode.ts`다. **뼈대 문제**: `protocol/approvals`는 이미 `protocol/lophn-agent`를 import한다(`assignment.ts`, `gate-call.ts`, 옛 `grants.ts`). 여기서 거꾸로 import하면 `tools/check-deps.ts`가 `protocol-cycle`로 막는다. planner가 `TURN_MODES`·`turnModeSchema`·`TurnMode`의 자리를 `protocol/lophn-agent`로 옮기면 그 자리를 import한다. 정해지기 전에는 이 task를 띄우지 않는다.
+   - `turnModeSchema`는 같은 폴더의 `turn-values.ts`(ap-contract)에서 import한다. `protocol/approvals`에서 import하지 않는다(`tools/check-deps.ts`의 `protocol-cycle`).
    - `packages/protocol/lophn-agent/ask-tool.ts`의 `askResultSchema`(56-64)에 `z.object({ outcome: z.literal("unattended") })`를 더하고 주석에 "unattended: 사람이 없는 turn이라 묻지 않았다"를 더한다.
 2. turns 표(`packages/core/lophn-agent/run-loop/schema.ts`)
    - `create table turns`에 `mode text not null check (mode in (...))`를 더한다. 값 목록은 `TURN_MODES`로 만든다(`packages/core/router/schema.ts`의 `list()` 꼴).
@@ -40,7 +38,7 @@ turn을 시작할 때 mode(attended, unattended, skip)를 정해 turn 행에 남
    - step을 새로 더하지 않고 있는 step의 글을 고친다. 옛 개발 data는 `history_mismatch`로 거절되니 `.dev-data/`를 지우고 새로 만든다(AGENTS.md "호환성").
 3. turn 행 읽기(`packages/core/lophn-agent/run-loop/model.ts`): `TURN_COLUMNS`, `TurnRow.mode`, `turnRowOf`, `turnRecordOf`(69)에 칸을 더한다. `reads.ts`는 `turnRecordOf`를 쓰므로 고칠 것이 없으면 두지 않는다.
 4. `StartTurn`(`packages/core/lophn-agent/run-loop/commands.ts`의 `start`): `insert into turns`(227-239)에 `input.mode`를 넣는다. 같은 id의 재전달은 지금처럼 이전 결과를 돌려준다.
-5. 규칙(`packages/core/lophn-agent/run-loop/turn-mode.ts`, 새 file): `turnModeOf(session: { skip: boolean }, input: { unattended: boolean }): TurnMode`. session이 skip이면 `"skip"`, 아니면 `input.unattended`면 `"unattended"`, 그 밖 `"attended"`. 주석에 ap-contract `mode.ts`의 규칙을 가리킨다. **뼈대 문제**(planner에게 올렸다): 이 순서면 skip session이 unattended call을 받은 turn이 skip이 되어 그 turn이 보내는 call에 표시가 빠지고, 사슬 아래가 attended가 된다. roadmap "unattended turn이 보낸 call로 열린 turn은 unattended다"와도 어긋난다. planner가 순서를 바꾸면 이 함수의 두 줄만 바뀐다.
+5. 규칙(`packages/core/lophn-agent/run-loop/turn-mode.ts`, 새 file): `turnModeOf(session: { skip: boolean }, input: { unattended: boolean }): TurnMode`. `input.unattended`면 `"unattended"`, 아니면 session이 skip이면 `"skip"`, 그 밖 `"attended"`. 주석: "unattended가 먼저다. skip이 먼저면 skip session이 받은 unattended call의 turn이 표시를 떨어뜨려 사슬 아래가 attended가 된다(README '뼈대 검토에서 정한 것')".
 6. turn 시작 재료
    - `packages/core/lophn-agent/run-loop/credentials.ts`의 `BeginTurnInput`(131)에 `mode: TurnMode`를 더한다.
    - `packages/core/lophn-agent/run-loop/prepare.ts`의 `prepare`(636): session을 읽은 바로 뒤(647) `const mode = turnModeOf(session, start.input)`. `start.input`은 입력함의 `RoutedInput`이다(감독 pipe가 `z.unknown()`으로 그대로 나른다).

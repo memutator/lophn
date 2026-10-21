@@ -11,11 +11,10 @@
 - **범위 밖:**
   - coding harness 물음의 자동 답(맡기는 흐름이 막혀 있다. `problem-ticket.md`)
   - run과 job(`headless-run`, `schedule-job`). 이 계획은 turn mode와 그 전파까지만 만든다.
-  - reaction 자체(`problem-remove`, `ae-builds`, `reactor-remove`)
+  - reaction 자체(`ae-builds`, `reactor-remove`). 남은 reaction은 `ReleaseActivationFailed` 하나다(changelog 0.6.0).
   - eval과 e2e test(사람)
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `ap-`로 시작한다.
-- **시작 조건:** `problem-remove`가 land했다.
-- **brief의 기준:** brief는 2026-10-21 main(`e192a9d8c`) 기준으로 썼다. `problem-remove`가 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
+- **brief의 기준:** brief는 `problem-remove`가 land한 main(`8c243da91`)에 path, 줄, 계약을 다시 맞췄다(2026-10-21).
 
 ## 정한 것
 
@@ -67,7 +66,7 @@ roadmap `approval.md`의 "정한 것(사람)"과 "정한 것(agent)"을 그대�
 - merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
 - land는 `LOPHN_LAND_SKIP_E2E=1 land.sh approval-simplify`다. 사람이 lead session에 "e2e를 건너뛰고 land해도 된다"고 직접 말해야 한다(orchestrate skill).
 - wave 2는 한꺼번에 land한다. 반만 land하면 할당된 tool이 하나도 안 뜨거나, activation 동의 card가 없다.
-- wave 1이 land하면 `LOPHN.md` 쓰기, Operator 고치기, 바깥 효과 앱 tool, agent call이 더는 묻지 않는다. 의도한 것이다.
+- wave 1이 land하면 `LOPHN.md` 쓰기, Operator 고치기, agent call이 더는 묻지 않는다. 바깥 효과 앱 tool은 wave 2(`ap-app-call`, `ap-ask-turn`)부터 묻지 않는다. 의도한 것이다.
 - 다 끝나면
   - 문서: `architecture/approval.md` 전체, `agent-call.md`(call 판정, 봉투의 mode), `event.md`(지운 event), `activation.md`(동의), `agent-definition.md`(skip 칸), `app-call.md`(Gate 단계와 사람 대기)
   - `project-docs/products/AGENT-ROLE.md`: H3, H4, T3, T4, 6절

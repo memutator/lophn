@@ -24,7 +24,7 @@ Settings에 shell 규칙 항목을 더한다. 제품 기본 목록(읽기만), �
     - 설정 선언 `approvals.shell_rules`(ap-shell-gate, `packages/core/main/daemon/wiring/setting-declarations.ts`). 읽기와 쓰기는 memory `settings/list`·`settings/update`다.
     - `packages/protocol/projects/project-routes.ts`의 `projectList`(project 이름)
   - 본보기(화면과 통로): Settings › Reactions 한 벌이 가장 가깝다. `packages/shell/renderer/desktop/settings/reactions/{source.ts,core-source.ts,model.ts,reactions-panel.tsx,testdata/fake-source.ts}`, 설정 읽고 쓰기 `packages/shell/renderer/desktop/settings/declared.ts`(`readEffective`, `chooseSetting`), 부르기 `packages/shell/renderer/desktop/settings/core-call.ts`(`call`), 다시 읽기 `packages/shell/renderer/desktop/settings/use-reload.ts`, 줄 꼴 `packages/shell/renderer/desktop/settings/general/named-control.tsx`와 `packages/shell/renderer/desktop/settings/settings.module.css`의 `.lines`·`.line`·`.lineMain`·`.lineControl`
-  - 조립: `packages/shell/renderer/desktop/settings/model.ts`(`SettingsPane`, `SETTINGS_GROUPS`), `packages/shell/renderer/desktop/settings/settings-screen.tsx`(`SettingsPanels`, `bodyOf`), `packages/shell/renderer/desktop/entry.tsx`의 `settingsPanels`, `packages/shell/renderer/desktop/dev-mock/admin.ts`의 `mockSettingsPanels`(앞 계획 land 뒤 path 확인. `pr-reactions`와 ap-reaction이 같은 file의 reaction 몫을 고쳤다), `packages/shell/renderer/desktop/settings/general/model.ts`의 `SHOWN_ELSEWHERE`(소유 밖)
+  - 조립: `packages/shell/renderer/desktop/settings/model.ts`(`SettingsPane`, `SETTINGS_GROUPS`), `packages/shell/renderer/desktop/settings/settings-screen.tsx`(`SettingsPanels`, `bodyOf`), `packages/shell/renderer/desktop/entry.tsx`의 `settingsPanels`, `packages/shell/renderer/desktop/dev-mock/admin.ts`의 `mockSettingsPanels`(같은 file의 reaction 몫은 wave 1 ap-reaction이 고쳤다), `packages/shell/renderer/desktop/settings/general/model.ts`의 `SHOWN_ELSEWHERE`(key 접두 목록)
   - 본보기(gallery): `tools/wireframes/pages/screens/settings.tsx`(영역 file), `tools/wireframes/pages/screens/settings-pages.tsx`, `tools/wireframes/pages/screens/settings-frame.tsx`(`mock.settingsPanels`를 쓴다)
 - 계약:
   - 쓰는 것: `ShellRule`, `shellRulesSettingSchema`, `PRODUCT_SHELL_RULES`, `SHELL_RULES_SETTING_KEY`(ap-contract), memory route `settings/list`·`settings/update`, 설정 선언(ap-shell-gate)
@@ -61,7 +61,7 @@ Settings에 shell 규칙 항목을 더한다. 제품 기본 목록(읽기만), �
    - `settings/settings-screen.tsx`: prop `shellRules?: ShellRulesSource`, `SettingsPanels`의 Pick에 `"shellRules"`, `bodyOf`의 `"shell-rules"` 갈래.
    - `desktop/entry.tsx`: `settingsPanels`에 `shellRules: coreShellRulesSource(core)`.
    - `desktop/dev-mock/admin.ts`: `mockSettingsPanels`에 `shellRules: fakeShellRules({ value: SAMPLE_SHELL_RULES }).source`.
-5. 소유 줄에 없는 file. lead가 소유에 더하지 않았으면 최소로 고치고 보고의 "넘길 줄"에 적는다.
+5. General에서 빼기.
    - `packages/shell/renderer/desktop/settings/general/model.ts`의 `SHOWN_ELSEWHERE`에 `"approvals.shell_rules"`를 더한다. 빼지 않으면 General이 그 설정을 바꿀 수 없는 줄("Approvals" 묶음)로 같이 보인다.
 6. wording(`packages/design/wording/catalog/workspace-settings.ts`). 같은 뜻의 key(`common.*`, `settings.error.value-not-saved`)가 있으면 그것을 쓴다.
    - 더할 것(값은 wording skill 규칙을 따른다): `settings.label.tab-shell-rules`("Shell rules"), `settings.intro.shell-rules`, Built in 절의 제목과 두 목록 이름, floor 안내 한 줄, Workspace 절 제목, project 절 제목(`{name}`), action 셋의 이름(Allow, Ask, Deny), pattern 칸 이름, [Add rule], [Remove] label, 빈 안내, `ErrorState`의 target
@@ -96,7 +96,7 @@ Settings에 shell 규칙 항목을 더한다. 제품 기본 목록(읽기만), �
 - 등록할 것: lead가 고칠 목록 file(`protocol/*/mod.ts`, core 조립 목록, wording 생성, gallery `pages/index.ts`, `deno.json`)
 - 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
 - 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳(할 일 5)
+- 넘길 줄: 남의 file을 최소로 맞춘 곳
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음". 적어도 확인해 적는다: 다시 읽기와 쓰기 사이에 `always`가 쓰면 그 줄을 잃을 수 있다(`settings/update`에 compare가 없다), 지운 project의 규칙은 id로만 보인다.

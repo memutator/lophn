@@ -1,6 +1,6 @@
 # ap-ask-pending
 
-problem-remove 뒤의 모양을 기준으로 한다. 보류 request 길 전체를 지운다: 표 `approval_requests`, applier, resume, ledger, 보류 command·read와 core machine route 다섯, core가 내는 domain event `ApprovalDecided`. activation(ap-activation)과 reaction(ap-reaction)은 이미 이 길을 쓰지 않는다.
+보류 request 길 전체를 지운다: 표 `approval_requests`, applier, resume, ledger, 보류 command·read와 core machine route 다섯, core가 내는 domain event `ApprovalDecided`. activation(ap-activation)과 reaction(ap-reaction)은 이미 이 길을 쓰지 않는다.
 
 - 단위: ask (wave 2)
 - 선행: ap-activation
@@ -18,7 +18,7 @@ problem-remove 뒤의 모양을 기준으로 한다. 보류 request 길 전체�
     - `packages/core/approvals/approvals.ts`(`createApprovals`, `ApprovalsService`의 `applyAllowed`·`resume`), `ports.ts`(`Approvals`의 보류 몫, `ApprovalApplier`), `model.ts`(`pendingKindAllowed`, `canClose`), `mod.ts`, `registration.ts`
     - `packages/core/main/daemon/wiring/approvals.ts`: `APPROVALS_CONTEXT`의 operation, `createApprovalLedger`, 결정 뒤 적용하는 `writer` 감싸기, `afterReady`의 `resume`
     - 남기는 protocol(shell이 아직 import한다. 고치지 않는다): `packages/protocol/approvals/requests.ts`의 `pendingApprovalSchema`·`approvalsPending`·`approvalsDecide`, `packages/protocol/events/transient.ts`의 `ApprovalRequested`, `packages/protocol/events/domain.ts`의 `approvalDecided`(renderer `packages/shell/renderer/desktop/connection/waiting/settled.ts`·`fake-source.ts`가 type으로 쓴다)
-  - 앞 계획 land 뒤 path 확인: `problem-remove`의 `pr-reactions`가 `packages/core/approvals/approvals_test.ts`의 reaction grant 값과 `packages/protocol/events/domain.ts`의 event 목록을 줄인다. 줄 번호와 남은 event는 그 뒤 모양으로 본다.
+  - problem-remove 뒤 모양(`project-docs/products/change-log/0.6.0.md` 끝 항목): `approvals_test.ts`의 `makeKit`이 넘기는 reaction grant는 `ReleaseActivationFailed` 하나이고, `packages/protocol/events/domain.ts`의 `APPROVAL_DECIDED_KINDS`는 `activation`, `reaction` 둘이다.
 - 계약:
   - 쓰는 것: 없음
   - 내놓는 것: `Approvals`에 `createPending`, `registerApplier`, `cancelPendingFor`, `request`, `pending`이 없고 `ApprovalsService`에 `applyAllowed`, `resume`이 없다. core 등록에 `ListPendingApprovals`, `DecideApproval`과 machine route 다섯(`CreatePendingApproval`, `CancelPendingApprovals`, `RecordApprovalApplied`, `ListUnappliedApprovals`, `GetApprovalRequest`)이 없다. core는 `ApprovalDecided`를 쓰지 않는다. protocol `requests.ts`의 보류 모양(`pendingApprovalSchema`, `approvalsPending`, `approvalsDecide`), 남지 않는 event `ApprovalRequested`, domain event 정의 `approvalDecided`는 shell이 아직 import하므로 남긴다(ap-cleanup이 지운다).

@@ -4,5 +4,11 @@
     "name": "shell.run",
     "n": 1,
     "hash": "a17efbdf2e2f44dbe3cabb28dc8934c53971c1de5316f2db01e28f6e7bae7556"
+  },
+  {
+    "kind": "tool",
+    "name": "shell.run",
+    "n": 2,
+    "hash": "896424fc15bd535ba586b20d9f43e2e091fae584158b8e65607b1c301dbc0afc"
   }
 ]

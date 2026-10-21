@@ -4,5 +4,11 @@
     "name": "kind.check",
     "n": 1,
     "hash": "feb3800b5114fcb6b9a2607b6bb7fcff659e2d4b48338bd000dc15657a02808e"
+  },
+  {
+    "kind": "tool",
+    "name": "kind.check",
+    "n": 2,
+    "hash": "1dce464f1a0e6a1a95287290b8b184e2f7949bec275fbe197f49a233cb422f3b"
   }
 ]

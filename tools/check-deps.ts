@@ -61,12 +61,12 @@ function numberedName(segment: string): boolean {
     /-next$/i.test(name);
 }
 
-// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < role 층(agent-roles)·feature module(projects, apps, domains) < main(조립).
+// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < role 층(agent-roles)·feature module(projects, apps, domains, runs) < main(조립).
 // harness와 바닥은 role 층과 feature module을 모르고, role 층과 feature module은 서로 모른다. 둘 다 harness는 쓸 수 있다.
 // feature module끼리는 서로 import하지 않는다(project-docs/architecture/layers.md).
 const CORE_HARNESS = "lophn-agent";
 const CORE_ROLES = "agent-roles";
-const CORE_FEATURES = new Set(["projects", "apps", "domains"]);
+const CORE_FEATURES = new Set(["projects", "apps", "domains", "runs"]);
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
   return parts[0] === "packages" && parts[1] === "core" && parts.length > 3

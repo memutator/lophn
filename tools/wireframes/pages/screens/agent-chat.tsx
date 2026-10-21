@@ -218,7 +218,7 @@ export function ChatShell(
           readOnly={archived}
           hint={placeholder}
           place={{ kind: "project", name: "phroner" }}
-          permissionSummary="Permissions: 4 run freely · 3 ask first"
+          permissionSummary="2 apps assigned"
           permissions={permissions}
           onDraft={(patch) => {
             if (patch.text !== undefined) setText(patch.text);

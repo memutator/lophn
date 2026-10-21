@@ -17,7 +17,7 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-ask-turn` | ask | 2 | ap-ask-pending, ap-app-call | merged | ask/ap-ask-turn | 63d33827f |  |
 | `ap-assign-editor` | assign | 2 | 없음 | merged | assign/ap-assign-editor | 5b85e9769 |  |
 | `ap-assign-tools` | assign | 2 | ap-ask-turn | merged | assign/ap-assign-tools | 9ca2338e8 |  |
-| `ap-conversation` | conversation | 2 | ap-waiting | running | conversation/ap-conversation |  |  |
+| `ap-conversation` | conversation | 2 | ap-waiting | merged | conversation/ap-conversation | 480f95996 |  |
 | `ap-waiting` | waiting | 2 | ap-ask-turn, ap-activation | merged | waiting/ap-waiting | 4d90e30ed |  |
 | `ap-mode-envelope` | mode | 3 | 없음 | todo |  |  |  |
 | `ap-mode-turn` | mode | 3 | ap-mode-envelope, ap-skip-session | todo |  |  |  |

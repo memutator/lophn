@@ -4,6 +4,7 @@ import {
   toolGateCheck,
 } from "../../protocol/approvals/mod.ts";
 import { approvalCommands } from "./commands.ts";
+import { assignmentRegistration } from "./assignment/mod.ts";
 import { agentGrantRegistration } from "./grants/mod.ts";
 import {
   approvalsPendingRead,
@@ -17,13 +18,19 @@ export function createCoreRegistration() {
     schemaSteps: [
       ...APPROVAL_SCHEMA_STEPS,
       ...agentGrantRegistration.schemaSteps,
+      ...assignmentRegistration.schemaSteps,
     ],
-    commands: [...approvalCommands, ...agentGrantRegistration.commands],
+    commands: [
+      ...approvalCommands,
+      ...agentGrantRegistration.commands,
+      ...assignmentRegistration.commands,
+    ],
     reads: [
       approvalsPendingRead,
       approvalsRequestRead,
       approvalsUnappliedRead,
       ...agentGrantRegistration.reads,
+      ...assignmentRegistration.reads,
     ],
     // handler는 wiring이 route 이름으로 붙인다.
     memoryRoutes: [approvalsDecideTurn, toolGateCheck],

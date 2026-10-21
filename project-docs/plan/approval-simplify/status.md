@@ -22,7 +22,7 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-mode-envelope` | mode | 3 | 없음 | merged | mode/ap-mode-envelope | 7cca0eb00 |  |
 | `ap-mode-turn` | mode | 3 | ap-mode-envelope, ap-skip-session | merged | mode/ap-mode-turn | 9441282e8 |  |
 | `ap-shell-gate` | shell | 3 | ap-mode-turn | merged | shell/ap-shell-gate | 746b64fe4 |  |
-| `ap-shell-settings` | shell | 3 | ap-shell-gate | todo |  |  |  |
+| `ap-shell-settings` | shell | 3 | ap-shell-gate | running | shell/ap-shell-settings |  |  |
 | `ap-skip-screens` | skip | 3 | ap-skip-session | merged | skip/ap-skip-screens | d959c94e7 |  |
 | `ap-skip-session` | skip | 3 | 없음 | merged | skip/ap-skip-session | 1789cbcd1 |  |
 | `ap-cleanup` | cleanup | 4 | ap-waiting, ap-conversation, ap-assign-editor, ap-shell-settings, ap-skip-screens | todo |  |  |  |

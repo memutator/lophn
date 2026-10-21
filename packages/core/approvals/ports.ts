@@ -1,52 +1,52 @@
 import type { Result } from "../../base/mod.ts";
 import type {
-  AgentGrant,
-  GateGrants,
-  GateVerdict,
-  Intent,
-  ReactionGrant,
-  TurnDecision,
-  TurnPermissionRequest,
+  GateCall,
+  Judgment,
+  TurnRequest,
+  TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
-import type { AppGrant } from "../../protocol/apps/grants.ts";
-import type { AgentRef } from "../../protocol/lophn-agent/places.ts";
+import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
+import type { TurnMode } from "../../protocol/lophn-agent/turn-values.ts";
 
-// Gate는 intent와 그때의 grant만 보는 순수 함수다. IO가 없다.
-export type Gate = (intent: Intent, grants: GateGrants) => GateVerdict;
+// `always`를 고르면 그 kind의 request에 하는 일. request의 `always_patterns`를 규칙으로 더하는 등이다.
+export type AlwaysEffect = (
+  request: TurnRequest,
+  place: Place | null,
+) => Promise<Result<void>>;
 
-// grant의 주인. 앱 grant는 activation, agent grant는 할당, reaction grant는 Settings에서 온다.
-export interface Grants {
-  appGrants(app: string): Promise<Result<AppGrant[]>>;
-  agentGrant(agent: AgentRef): Promise<Result<AgentGrant>>;
-  reactionGrant(): Promise<Result<ReactionGrant>>;
-  // "항상" 선택의 효과: 그 대상의 agent grant를 never로 바꾼다.
-  setAlways(agent: AgentRef, target: Intent["target"]): Promise<Result<void>>;
-}
-
-// "이 session 동안" 허락. 메모리에만 두고 저장하지 않는다.
-// 재시작하면 사라지고 fork가 가져가지 않는다. session이 닫히거나 archive되거나 지워질 때 clear를 부른다.
-// key는 intent에서 만든 대상 key 문자열이다.
-export interface SessionAllowances {
-  allow(session: string, key: string): void;
-  has(session: string, key: string): boolean;
-  clear(session: string): void;
-}
+// request가 열린 자리. 어느 turn의 어느 tool call이 기다리는가.
+export type TurnOrigin = {
+  session: string;
+  turn: string;
+  tool_call: string;
+  place: Place | null;
+};
 
 // Gate를 부르는 쪽이 쓰는 한 입구. Bus는 생성자에서 받는다.
 export interface Approvals {
-  // grant를 읽어 Gate를 돌린다. intent 출처가 turn이면 SessionAllowances를 보고,
-  // 허락돼 있으면 ask를 run으로 바꾼다.
-  judge(intent: Intent): Promise<Result<GateVerdict>>;
-  // 메모리에 두고 Bus에 PermissionRequested를 낸다.
-  openTurnRequest(intent: Intent): Result<TurnPermissionRequest>;
-  waitTurnDecision(request: string): Promise<TurnDecision>;
-  // 허락은 그 intent에 한 번만 쓰인다. 실행 직전에 fingerprint를 다시 비교해 다르면 conflict.
-  consumeTurnAllow(request: string, current: Intent): Promise<Result<void>>;
-  // turn 끝, session 닫힘, 시작 때 정리. PermissionResolved(cancelled)를 낸다.
+  // 할당과 shell 규칙을 읽어 Gate를 돌린다.
+  judge(
+    call: GateCall,
+    who: {
+      agent: AgentRef;
+      session: string;
+      place: Place | null;
+      mode: TurnMode;
+    },
+  ): Promise<Result<Judgment>>;
+  // 메모리에 두고 Bus에 TurnRequestOpened를 낸다.
+  openTurnRequest(
+    origin: TurnOrigin,
+    subject: TurnRequest["subject"],
+  ): Result<TurnRequest>;
+  waitTurnDecision(request: string): Promise<TurnRequestOutcome>;
+  // turn 끝, session 닫힘, 시작 때 정리. TurnRequestClosed(cancelled)를 낸다.
   cancelTurnRequests(
     session: string,
-    cause: Extract<TurnDecision, { outcome: "cancelled" }>["cause"],
+    cause: Extract<TurnRequestOutcome, { outcome: "cancelled" }>["cause"],
   ): void;
   // session snapshot이 읽는다.
-  turnRequests(session: string): TurnPermissionRequest[];
+  turnRequests(session: string): TurnRequest[];
+  // `always`가 그 kind에서 하는 일을 등록한다. 같은 kind를 두 번 등록하면 뒤 것이 쓰인다.
+  remember(kind: GateCall["kind"], effect: AlwaysEffect): void;
 }

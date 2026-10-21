@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { canonicalize, type Result, sha256Hex } from "../../../base/mod.ts";
-import type { Intent } from "../../../protocol/approvals/mod.ts";
+import type { GateCall } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolEffect,
   ToolResult,
@@ -12,9 +12,6 @@ import { inputJsonSchema } from "./wire.ts";
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
 type ToolOrigin = "builtin" | "app" | "external";
-
-// Gate에 물을 intent의 재료다. 호출자(actor)와 출처(origin)는 executeToolCall이 ToolContext에서 채운다.
-export type GateRequest = Pick<Intent, "kind" | "target" | "effect" | "input">;
 
 export type ToolCallHandler = (
   input: unknown,
@@ -35,11 +32,11 @@ export type ToolDefinition = {
   // 실행. 정의에 handler가 없는 tool(앱, MCP)은 handlers 표로 실행한다.
   handler?: ToolCallHandler;
   // Gate가 걸리는 tool만 둔다. null이면 그 호출은 거치지 않는다.
-  // 받는 agent처럼 core를 읽어야 정해지는 intent가 있어 Promise도 된다.
+  // 값은 Gate에 넘길 호출이다. core를 읽어야 정해지는 호출이 있어 Promise도 된다.
   gate?: (
     input: unknown,
     ctx: ToolContext,
-  ) => GateRequest | null | Promise<GateRequest | null>;
+  ) => GateCall | null | Promise<GateCall | null>;
   // 이 tool이 core에 부르는 route 이름이다. agent credential 상한은 core가 대조하는 route 이름이어야 한다.
   operations: readonly string[];
 };

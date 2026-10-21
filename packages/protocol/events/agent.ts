@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
-import { turnPermissionRequestSchema } from "../approvals/mod.ts";
+import {
+  turnPermissionRequestSchema,
+  turnRequestSchema,
+} from "../approvals/mod.ts";
 import {
   callAgentOutputSchema,
   callFromOutputSchema,
@@ -12,7 +15,7 @@ import { eventTypeSchema } from "../base/event.ts";
 
 // agent event는 session에서 일어나고 메모리로만 흐른다. seq가 없고 저장하지 않는다.
 // coding agent는 SessionStarted, MessageReceived, TurnStarted, TurnEnded, SessionEnded와
-// harness가 물어 올 때의 PermissionRequested·PermissionResolved만 낸다.
+// harness가 물어 올 때의 TurnRequestOpened·TurnRequestClosed만 낸다.
 // lophn agent의 ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
 // subagent와 model 호출은 event로 두지 않는다.
 
@@ -115,6 +118,19 @@ const permissionResolved = defineAgentEvent(
   }),
 );
 
+const turnRequestOpened = defineAgentEvent(
+  "TurnRequestOpened",
+  z.strictObject({ request: turnRequestSchema }),
+);
+
+const turnRequestClosed = defineAgentEvent(
+  "TurnRequestClosed",
+  z.strictObject({
+    request: idSchema("apr"),
+    outcome: z.enum(["allow", "reject", "cancelled"]),
+  }),
+);
+
 // 질문 내용은 싣지 않는다. session snapshot과 질문 read가 준다.
 const questionAsked = defineAgentEvent(
   "QuestionAsked",
@@ -155,6 +171,8 @@ export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(toolCallEnded),
   agentEventEnvelopeSchema(permissionRequested),
   agentEventEnvelopeSchema(permissionResolved),
+  agentEventEnvelopeSchema(turnRequestOpened),
+  agentEventEnvelopeSchema(turnRequestClosed),
   agentEventEnvelopeSchema(questionAsked),
   agentEventEnvelopeSchema(questionResolved),
   agentEventEnvelopeSchema(compactStarted),

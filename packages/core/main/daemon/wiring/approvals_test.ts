@@ -18,13 +18,13 @@ function credential(session: string, turn: string): AuthenticatedContext {
   } as AuthenticatedContext;
 }
 
-Deno.test("다른 session·turn의 자격으로는 Gate route가 허락을 소비하지 못한다", async () => {
+Deno.test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다", async () => {
   const touched: string[] = [];
   const handler = toolGateHandler({
     approvals: {
       judge: () => {
         touched.push("judge");
-        return Promise.resolve(ok({ verdict: "run" as const }));
+        return Promise.resolve(ok({ kind: "run" as const }));
       },
       openTurnRequest: () => {
         touched.push("open");
@@ -34,24 +34,16 @@ Deno.test("다른 session·turn의 자격으로는 Gate route가 허락을 소�
         touched.push("wait");
         return Promise.resolve({ outcome: "allow", scope: "once" } as never);
       },
-      consumeTurnAllow: () => {
-        touched.push("consume");
-        return Promise.resolve(ok(undefined));
-      },
     },
-    agentOf: () => Promise.resolve(ok({ role: "lophn" as const })),
+    sessionOf: () =>
+      Promise.resolve(ok({ agent: { role: "lophn" as const }, place: null })),
   });
   const body = {
     session: SES,
     turn: TRN,
     tool_call: "tcl_0000000000000000000000000a",
     tool: "web.fetch",
-    intent: {
-      kind: "mcp_tool",
-      target: { kind: "mcp_tool", server: "s", tool: "t" },
-      effect: "write",
-      input: {},
-    },
+    call: { kind: "mcp_tool", server: "s", tool: "t", effect: "write" },
   };
   for (const who of [credential(OTHER, TRN), credential(SES, OTHER_TRN)]) {
     const refused = await handler(who, body);

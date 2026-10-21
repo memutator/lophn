@@ -1,11 +1,12 @@
 import type { Result } from "../../../base/mod.ts";
 import type { ErrorCode } from "../../../base/mod.ts";
+import type { GateCall } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolOutcome,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { checkInput, unchanged } from "./schema.ts";
-import type { GateRequest, ToolDefinition } from "./registry.ts";
+import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 import { toolForWireName } from "./wire.ts";
 
@@ -133,9 +134,9 @@ export async function executeToolCall(
       effect,
     );
   }
-  const request = (await definition.gate?.(checked.value, ctx)) ?? null;
-  if (request !== null) {
-    const blocked = await askGate(ctx, name, effect, request);
+  const call = (await definition.gate?.(checked.value, ctx)) ?? null;
+  if (call !== null) {
+    const blocked = await askGate(ctx, name, effect, call);
     if (blocked !== null) return blocked;
   }
   const produced = await definition.handler(checked.value, ctx);
@@ -158,19 +159,19 @@ export async function executeToolCall(
   };
 }
 
-// 허락되면 null, 아니면 실행하지 않은 결과다. 판정, 사람에게 묻기, 기다리기, 허락 소비는 core가 한다.
+// 허락되면 null, 아니면 실행하지 않은 결과다. 판정, 사람에게 묻기, 기다리기는 core가 한다.
 async function askGate(
   ctx: ToolContext,
   tool: string,
   effect: ToolDefinition["effect"],
-  request: GateRequest,
+  call: GateCall,
 ): Promise<ToolCallOutcome | null> {
   const checked = await ctx.gate.check({
     session: ctx.session,
     turn: ctx.turn,
     tool_call: ctx.tool_call,
     tool,
-    intent: request,
+    call,
   });
   if (!checked.ok) {
     return stopped(
@@ -207,14 +208,6 @@ async function askGate(
         "not_executed",
         "cancelled",
         `the request was cancelled (${result.cause})`,
-        effect,
-      );
-    case "changed":
-      return stopped(
-        tool,
-        "failure",
-        "conflict",
-        FAILURE_SUMMARIES.conflict!,
         effect,
       );
   }

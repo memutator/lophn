@@ -1,8 +1,10 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import { appTools } from "../../../protocol/apps/blueprint/read.ts";
-import type { AgentGrantEntry } from "../../../protocol/approvals/mod.ts";
+import type {
+  AgentGrant,
+  AgentGrantEntry,
+} from "../../../protocol/approvals/mod.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
-import type { Grants } from "../../approvals/ports.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
   type AppToolEntry,
@@ -25,7 +27,7 @@ export type AppToolkit = {
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 앱의 활성 release 선언을 읽는다.
   machine: CoreCall;
-  grants: Pick<Grants, "agentGrant">;
+  grants: { agentGrant(agent: AgentRef): Promise<Result<AgentGrant>> };
 }): AppToolkit {
   async function load(agent: AgentRef): Promise<Result<AppToolLoad>> {
     const grant = await options.grants.agentGrant(agent);

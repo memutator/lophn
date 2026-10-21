@@ -1,10 +1,9 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  agentGrantsSet,
-  approvalsDecideTurn,
+  PRODUCT_SHELL_RULES,
   toolGateCheck,
   toolGateInputSchema,
+  turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
 import { agentSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import {
@@ -16,24 +15,18 @@ import {
   createToolGate,
   type ToolGateDeps,
 } from "../../../lophn-agent/tool-judgment/mod.ts";
-import type { AgentRef } from "../../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentRef,
+  Place,
+} from "../../../../protocol/lophn-agent/places.ts";
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import {
-  createApprovals,
-  createGrants,
-  createSessionAllowances,
-  gate,
-  loadAgentGrant,
-} from "../../../approvals/mod.ts";
-import { appGrantsList } from "../../../../protocol/apps/grants.ts";
-import { APPS_CONTROL_CONTEXT } from "../../../apps/control.ts";
+import { createApprovals } from "../../../approvals/mod.ts";
+import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import type { Bus } from "../../../events/ports.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
-import type { SettingsReader } from "../../../../protocol/config/mod.ts";
 
 // tool Gate가 session의 agent를 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
 const APPROVALS_PRINCIPAL = "machine:approvals";
@@ -54,13 +47,6 @@ const DROPPING_BUS: Bus = {
   subscribe: () => () => {},
 };
 
-const DEFAULT_SETTINGS: SettingsReader = {
-  get: (setting) =>
-    setting.default === undefined
-      ? undefined
-      : setting.type.parse(setting.default),
-};
-
 // 호출한 agent의 credential이 묶인 session·turn과 입력이 같을 때만 받는다.
 function ownTurn(
   who: AuthenticatedContext,
@@ -76,32 +62,30 @@ function ownTurn(
     });
 }
 
-// runtime이 Gate가 걸리는 tool을 실행하기 직전에 부르는 입구다. 묻기, 사람 결정 기다리기, 허락 소비를 모두 여기서 한다.
+// runtime이 Gate가 걸리는 tool을 실행하기 직전에 부르는 입구다. 판정, 묻기, 사람 결정 기다리기를 모두 여기서 한다.
+// mode는 ap-mode-turn이 turn의 mode로 바꾸기 전까지 늘 attended다.
 export function toolGateHandler(deps: {
   approvals: ToolGateDeps["approvals"];
-  agentOf(session: string): Promise<Result<AgentRef>>;
+  sessionOf(
+    session: string,
+  ): Promise<Result<{ agent: AgentRef; place: Place | null }>>;
 }): MemoryHandler {
   return async (who, body) => {
     const input = toolGateInputSchema.parse(body);
     const own = ownTurn(who, input);
     if (!own.ok) return own;
-    const agent = await deps.agentOf(input.session);
-    if (!agent.ok) return agent;
-    const { kind, target, effect } = input.intent;
-    const gate = createToolGate({
-      approvals: deps.approvals,
-      resolve: () => ok({ kind, target, effect }),
+    const found = await deps.sessionOf(input.session);
+    if (!found.ok) return found;
+    return await createToolGate({ approvals: deps.approvals }).check({
+      session: input.session,
+      turn: input.turn,
+      toolCall: input.tool_call,
+      agent: found.value.agent,
+      place: found.value.place,
+      mode: "attended",
+      tool: input.tool,
+      call: input.call,
     });
-    return ok(
-      await gate.check({
-        session: input.session as Id<"ses">,
-        turn: input.turn as Id<"trn">,
-        toolCall: input.tool_call as Id<"tcl">,
-        agent: agent.value,
-        tool: input.tool,
-        input: input.intent.input,
-      }),
-    );
   };
 }
 
@@ -109,83 +93,40 @@ export const approvalsWiring: WiringFactory = () => {
   let stopWatching: (() => void) | undefined;
   // 내려갈 때 기다림을 모두 푼다. 풀지 않으면 기다리는 요청 때문에 서버가 멈추지 못한다.
   let releaseWaits: (() => void) | undefined;
-  // "항상" 결정은 결정한 사람의 자격으로 agent grant를 쓴다. 결정 handler 안에서만 부른다.
-  const human = new AsyncLocalStorage<AuthenticatedContext>();
   return {
     name: "approvals",
     records: () => [APPROVALS_CONTEXT],
     build(ctx) {
       // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
-      // 설정은 config가 낸다. slot이 비어 있으면 선언의 기본값을 쓴다.
-      const settings: SettingsReader = ctx.peek.settings ?? DEFAULT_SETTINGS;
-      const writer = () => ctx.writer;
-      const send = (
-        who: AuthenticatedContext,
-        command: string,
-        input: unknown,
-      ): Promise<Result<unknown>> =>
-        writer().command(who, {
-          command,
-          input,
-          idempotency_key: crypto.randomUUID(),
-          compare: {},
-          prepared: [],
-        }).then((done) => done.ok ? ok(done.value.result) : done);
-      const read =
-        (path: string) => (agent: Parameters<typeof loadAgentGrant>[1]) => {
-          const connection = openConnection(path);
-          if (!connection.ok) return Promise.resolve(connection);
-          try {
-            return Promise.resolve(loadAgentGrant(connection.value.sql, agent));
-          } finally {
-            connection.value.close();
-          }
-        };
+      // 할당은 ledger에서 그때그때 읽는다.
+      const assignmentOf = (agent: AgentRef) => {
+        const connection = openConnection(ctx.ledgerPath);
+        if (!connection.ok) return Promise.resolve(connection);
+        try {
+          return Promise.resolve(loadAssignment(connection.value.sql, agent));
+        } finally {
+          connection.value.close();
+        }
+      };
       const service = createApprovals({
-        gate,
-        grants: createGrants({
-          async appGrantsOf(app) {
-            const listed = await ctx.runtime.readers.read(
-              appGrantsList,
-              APPS_CONTROL_CONTEXT,
-              { app, limit: 200 },
-            );
-            if (!listed.ok) return listed;
-            return ok((listed.value as { grants: never[] }).grants);
-          },
-          readAgentGrant: read(ctx.ledgerPath),
-          async writeAgentGrant(agent, entries) {
-            const who = human.getStore();
-            if (who === undefined) {
-              return err({
-                code: "forbidden",
-                message: "only the user changes an agent grant",
-              });
-            }
-            const done = await send(who, agentGrantsSet.name, {
-              agent,
-              entries,
-            });
-            if (!done.ok) return done;
-            return ok((done.value as { grant: never }).grant);
-          },
-          settings,
+        assignmentOf,
+        // Settings 층은 ap-shell-gate가 더한다.
+        shellRules: () => ({
+          floor: PRODUCT_SHELL_RULES.floor,
+          layers: [PRODUCT_SHELL_RULES.ask],
         }),
-        allowances: createSessionAllowances(),
         bus,
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
       });
       ctx.provide("approvals", service);
-      const decideTurn: MemoryHandler = (who, body) =>
-        human.run(who, () => service.decideTurn(who, body));
 
       // runtime의 Gate 입구와 ask 기다림이다. 기다림은 여기 main thread 메모리에 있고 runtime은 결과만 받는다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const waits = createQuestionWaits({ bus, clock: ctx.clock, ids });
       ctx.provide("questionWaits", waits);
-      // turn이 끝나거나 session이 닫히면 기다리던 권한 물음과 질문을 cancelled로 푼다.
+      // turn이 끝나거나 session이 닫히면 기다리던 turn request와 질문을 cancelled로 푼다.
       // 사람이 기다리는 session에 메시지를 보내면 질문은 그 메시지로 풀린다.
       stopWatching = bus.subscribe([{
         types: ["TurnEnded", "SessionEnded", "MessageReceived"],
@@ -217,26 +158,24 @@ export const approvalsWiring: WiringFactory = () => {
       const toolGate = toolGateHandler({
         approvals: {
           ...service,
-          openTurnRequest(intent) {
-            if (intent.origin.kind === "turn") {
-              gating.add(intent.origin.session);
-            }
-            return service.openTurnRequest(intent);
+          openTurnRequest(origin, subject) {
+            gating.add(origin.session);
+            return service.openTurnRequest(origin, subject);
           },
         },
-        async agentOf(session) {
+        async sessionOf(session) {
           const found = await ctx.runtime.readers.read(
             agentSessionRead,
             APPROVALS_CONTEXT,
             { session },
           );
           if (!found.ok) return found;
-          const { agent } = (found.value as {
-            session: { agent: { role: string } };
+          const { agent, place } = (found.value as {
+            session: { agent: { role: string }; place: Place | null };
           }).session;
           return agent.role === "coding_agent"
             ? err({ code: "forbidden", message: "not a lophn agent" })
-            : ok(agent as AgentRef);
+            : ok({ agent: agent as AgentRef, place });
         },
       });
       const askWaitHandler: MemoryHandler = (who, body) => {
@@ -265,7 +204,7 @@ export const approvalsWiring: WiringFactory = () => {
         `${route.resource}/${route.method}`;
       return ok({
         memory: [
-          [key(approvalsDecideTurn), decideTurn],
+          [key(turnRequestDecide), (who, body) => service.decide(who, body)],
           [key(toolGateCheck), toolGate],
           [key(askWait), askWaitHandler],
           [key(askRead), askReadHandler],

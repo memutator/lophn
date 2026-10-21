@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import type { JsonObject } from "../../../protocol/base/json-values.ts";
 import {
   MCP_TOOL_PREFIX,
   TOOL_NAME_MAX,
@@ -18,8 +17,8 @@ import type { McpRuntimeServer } from "./mcp-server.ts";
 
 // 외부 MCP tool 정의 만들기.
 // 연결 관리(mcp-connections.ts)가 검증을 모두 지난 목록을 주면 tool마다 정의 하나를 만든다. 이름은
-// `mcp__<server>__<tool>`이다. 효과는 tool의 `readOnlyHint`가 참이면 read, 아니면 external이다. 묻는지는 agent
-// grant가 정하고 Gate는 `executeToolCall`이 부른다. 문서, skill, server 응답은 정의를 늘리지 않고 결과는 감싸지 않는다.
+// `mcp__<server>__<tool>`이다. 효과는 tool의 `readOnlyHint`가 참이면 read, 아니면 external이다. MCP server는 설정한
+// 층이 할당이고, 묻는지는 Gate가 정한다(`executeToolCall`이 부른다). 문서, skill, server 응답은 정의를 늘리지 않고 결과는 감싸지 않는다.
 
 // 선언을 믿는다: readOnlyHint가 참이면 read, 아니면 external이다. tool 정의와 Grants의 목록이 같은 규칙을 쓴다.
 export function mcpToolEffect(entry: { read_only: boolean }): ToolEffect {
@@ -171,15 +170,11 @@ export async function buildMcpTools(
       inputSchema: entry.schema,
       effect,
       origin: "external",
-      gate: (input) => ({
+      gate: () => ({
         kind: "mcp_tool",
-        target: {
-          kind: "mcp_tool",
-          server: entry.server,
-          tool: entry.original,
-        },
+        server: entry.server,
+        tool: entry.original,
         effect,
-        input: input as JsonObject,
       }),
       ...(call === undefined ? {} : {
         handler: async (input, ctx) =>

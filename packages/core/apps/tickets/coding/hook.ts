@@ -1,6 +1,5 @@
 // harness hook을 agent event로 바꾸고 session 상태를 고친다. 상태는 event에서만 계산한다.
 import { ok, type Result } from "../../../../base/mod.ts";
-import { choicesFor } from "../../../../protocol/approvals/requests.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import {
   type HookSignal,
@@ -8,9 +7,8 @@ import {
 } from "../../../../protocol/coding-agent/hook-signal.ts";
 import { firstPromptOf } from "../../../../protocol/coding-agent/launch-plan.ts";
 import type { AgentEvent } from "../../../../protocol/events/mod.ts";
-import type { Intent } from "../../../../protocol/approvals/mod.ts";
+import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
-import { intentFingerprint } from "../../../approvals/mod.ts";
 import { emitAgent } from "./events.ts";
 import { deliverInput } from "./input.ts";
 import type { CodingMemory } from "./memory.ts";
@@ -49,36 +47,27 @@ function emit(
   } as AgentEvent);
 }
 
-// harness가 묻는 권한은 lophn이 답하지 않고 대기 목록에 보이기만 한다. 요청의 모양은 turn 요청을 빌린다.
+// harness가 묻는 권한은 lophn이 답하지 않고 대기 목록에 보이기만 한다. 요청의 모양은 turn request를 빌린다.
 function permissionRequest(
   tx: Tx,
   row: SessionRow,
   turn: string,
   request: NonNullable<HookSignal["request"]>,
-) {
-  const tool_call = tx.newId("tcl");
-  const intent = {
-    kind: "mcp_tool",
-    actor: { kind: "program", seq: "0" },
-    target: {
-      kind: "mcp_tool",
-      server: `harness:${row.harness}`,
-      tool: request.tool ?? "permission",
-    },
-    effect: "write",
-    input: request.summary === null ? {} : { summary: request.summary },
-    origin: { kind: "turn", session: row.session, turn, tool_call },
-  } as Intent;
+): TurnRequest {
   return {
     id: tx.newId("apr"),
     session: row.session,
     turn,
-    tool_call,
-    intent,
-    choices: [...choicesFor("mcp_tool")],
-    fingerprint: intentFingerprint(intent),
+    tool_call: tx.newId("tcl"),
+    subject: {
+      kind: "harness",
+      harness: row.harness,
+      tool: request.tool,
+      summary: request.summary,
+    },
+    always_patterns: [],
     created_at: tx.now(),
-  };
+  } as TurnRequest;
 }
 
 // 도는 turn과 권한 물음이 없을 때 대기열의 메시지 하나를 넣는다.
@@ -145,14 +134,14 @@ function apply(
         signal.request ?? { tool: null, summary: null },
       );
       row.permissions.push(request.id);
-      emit(tx, row, "PermissionRequested", { request });
+      emit(tx, row, "TurnRequestOpened", { request });
       return;
     }
     case "PermissionResolved": {
       // 대기 중인 물음이 없으면 tool이 그냥 실행된 것이다.
       const id = row.permissions.shift();
       if (id !== undefined) {
-        emit(tx, row, "PermissionResolved", { request: id, outcome: "allow" });
+        emit(tx, row, "TurnRequestClosed", { request: id, outcome: "allow" });
         drain(tx, memory, row);
       }
       return;

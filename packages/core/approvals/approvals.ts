@@ -3,21 +3,20 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Clock, IdSource } from "../../base/mod.ts";
 import {
-  approvalsDecideTurn,
-  type GateGrants,
-  type GateVerdict,
-  type Intent,
-  type TurnDecision,
+  type AgentAssignment,
+  type ShellRuleLayers,
+  turnRequestDecide,
+  type TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
+import type { AgentRef, Place } from "../../protocol/lophn-agent/places.ts";
 import type { Bus } from "../events/ports.ts";
-import { allowanceKey } from "./grants/mod.ts";
-import type { Approvals, Gate, Grants, SessionAllowances } from "./ports.ts";
+import { judge } from "./gate/mod.ts";
+import type { AlwaysEffect, Approvals } from "./ports.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
 type ApprovalsDeps = {
-  gate: Gate;
-  grants: Grants;
-  allowances: SessionAllowances;
+  assignmentOf(agent: AgentRef): Promise<Result<AgentAssignment>>;
+  shellRules(place: Place | null): ShellRuleLayers;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -25,60 +24,42 @@ type ApprovalsDeps = {
 
 // 다른 단위가 쓰는 입구(Approvals)에 더해, 조립이 부르는 것이 있다.
 export type ApprovalsService = Approvals & {
-  // 사람이 turn 안 request를 결정한다. 결정 route(approvals/decide_turn)의 handler다.
-  decideTurn(
+  // 사람이 turn 안 request를 결정한다. 결정 route(turn_requests/decide)의 handler다.
+  decide(
     ctx: { actor: string },
     body: unknown,
-  ): Promise<Result<{ outcome: TurnDecision }>>;
+  ): Promise<Result<{ outcome: TurnRequestOutcome }>>;
 };
 
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
   const turns = createTurnRequests(deps);
-
-  async function grantsOf(intent: Intent): Promise<Result<GateGrants>> {
-    const actor = intent.actor;
-    const app = actor.kind === "app"
-      ? await deps.grants.appGrants(actor.app)
-      : ok([]);
-    if (!app.ok) return app;
-    const agent = actor.kind === "agent"
-      ? await deps.grants.agentGrant(actor.agent)
-      : ok(null);
-    if (!agent.ok) return agent;
-    const reaction = await deps.grants.reactionGrant();
-    if (!reaction.ok) return reaction;
-    return ok({ app: app.value, agent: agent.value, reaction: reaction.value });
-  }
+  const effects = new Map<string, AlwaysEffect>();
 
   return {
-    async judge(intent): Promise<Result<GateVerdict>> {
-      const grants = await grantsOf(intent);
-      if (!grants.ok) return grants;
-      const verdict = deps.gate(intent, grants.value);
-      if (verdict.verdict !== "ask" || intent.origin.kind !== "turn") {
-        return ok(verdict);
+    async judge(call, who) {
+      let assignment: AgentAssignment | null = null;
+      if (call.kind === "app_tool") {
+        const loaded = await deps.assignmentOf(who.agent);
+        if (!loaded.ok) return loaded;
+        assignment = loaded.value;
       }
-      // 이 session 동안 허락한 대상은 같은 session에서 다시 묻지 않는다.
-      const key = allowanceKey(intent);
-      return ok(
-        key !== null && deps.allowances.has(intent.origin.session, key)
-          ? { verdict: "run" }
-          : verdict,
-      );
+      return ok(judge(call, assignment, deps.shellRules(who.place), who.mode));
     },
     openTurnRequest: turns.open,
     waitTurnDecision: turns.wait,
-    consumeTurnAllow: turns.consume,
     cancelTurnRequests: turns.cancel,
     turnRequests: turns.list,
-    decideTurn(ctx, body) {
+    remember(kind, effect) {
+      effects.set(kind, effect);
+    },
+    decide(ctx, body) {
       if (ctx.actor !== "user") {
         return Promise.resolve(err({
           code: "forbidden",
-          message: "only the user decides a permission",
+          message: "only the user decides a request",
         }));
       }
-      const input = approvalsDecideTurn.input.safeParse(body);
+      const input = turnRequestDecide.input.safeParse(body);
       if (!input.success) {
         return Promise.resolve(
           err({ code: "invalid_input", message: "invalid decision" }),
@@ -88,6 +69,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
         input.data.session,
         input.data.request,
         input.data.choice,
+        effects,
       );
     },
   };

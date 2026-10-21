@@ -49,10 +49,10 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
       routes: [],
       handler: handler("operator.update"),
       gate: () => ({
-        kind: "settings_edit",
-        target: { kind: "settings_edit", what: "agent_definition", id: null },
+        kind: "app_tool",
+        app: "app_01J00000000000000000000000",
+        tool: "notes.add",
         effect: "write",
-        input: {},
       }),
     }),
   ];
@@ -68,13 +68,13 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
     turn: "trn_01J00000000000000000000000",
     tool_call: "tcl_01J00000000000000000000000",
     gate: {
-      check: (call: { intent: { kind: string } }) => {
-        asked.push(call.intent.kind);
+      check: (input: { call: { kind: string } }) => {
+        asked.push(input.call.kind);
         return Promise.resolve(
           ok(
             gateVerdict === "run"
               ? { kind: "run" as const }
-              : { kind: "denied" as const, reason: "not_granted" as const },
+              : { kind: "denied" as const, reason: "not_assigned" as const },
           ),
         );
       },
@@ -115,6 +115,6 @@ Deno.test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate�
 
   const gated = await executeToolCall(ctx, "operator_update", {});
   assertEquals(gated.outcome, { kind: "not_executed", code: "denied" });
-  assertEquals(asked, ["settings_edit"]);
+  assertEquals(asked, ["app_tool"]);
   assertEquals(ran, ["file.read"]);
 });

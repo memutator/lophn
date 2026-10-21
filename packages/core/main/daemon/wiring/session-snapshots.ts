@@ -1,4 +1,4 @@
-// session의 지금 상태, 대기 중인 권한 요청, 질문을 모아 내는 read. 화면이 붙거나 다시 붙을 때 읽는다.
+// session의 지금 상태, 대기 중인 turn request, 질문을 모아 내는 read. 화면이 붙거나 다시 붙을 때 읽는다.
 // 상태는 각 module이 내놓는 read와 함수에서 모으고(lophn-agent session·turn, coding session, approvals의 turn 안 request),
 // 질문은 approvals가 낸 메모리 기다림에서 읽는다.
 import { ok } from "../../../../base/mod.ts";
@@ -43,18 +43,19 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
           ? openSessions(lookup)
           : sessions.flatMap((id) => loadSession(lookup, id) ?? []);
         for (const row of lophn) {
-          const permission_requests = requests(row.id);
+          const turn_requests = requests(row.id);
           const questions = ctx.questionWaits.list(row.id);
           snapshots.push({
             session: row.id,
             agent: agentRefOf(row),
             place: placeOf(row),
-            state: permission_requests.length > 0 || questions.length > 0
+            state: turn_requests.length > 0 || questions.length > 0
               ? "waiting"
               : hasUnfinishedTurn(lookup, row.id)
               ? "running"
               : "idle",
-            permission_requests,
+            turn_requests,
+            permission_requests: [],
             questions,
           } as SessionSnapshot);
         }
@@ -69,7 +70,8 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
               place: codingPlace(sql, row.app),
               state: stateOf(row),
               harness: row.harness,
-              permission_requests: requests(row.session),
+              turn_requests: requests(row.session),
+              permission_requests: [],
               questions: [],
             } satisfies SessionSnapshot,
           );

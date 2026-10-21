@@ -15,8 +15,8 @@ import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 
 // 앱 tool. 허락된 앱의 활성 release 선언에서 tool 하나마다 agent tool 하나를 만든다. 호출은 core의
-// 호출 경로 route(`app.call_tool`) 하나로 간다. 부른 쪽 확인, Gate, invocation 기록,
-// 결과 모름은 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
+// 호출 경로 route(`app.call_tool`) 하나로 간다. 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
+// invocation 기록, 결과 모름도 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
 export const APP_TOOL_CONTRACT = appCallTool.name;
 
@@ -90,7 +90,13 @@ export async function buildAppTools(
             resultOf(view.name, tool.name, tool.effect, reply.value),
           );
         },
-        // Gate는 core의 호출 경로가 건다.
+        // 묻기는 run-loop tool gate, 막기는 core 호출 경로.
+        gate: () => ({
+          kind: "app_tool",
+          app: view.app,
+          tool: tool.name,
+          effect: tool.effect,
+        }),
         operations: [APP_TOOL_CONTRACT],
       };
       entries.push({ definition, app: view.app, tool: tool.name });

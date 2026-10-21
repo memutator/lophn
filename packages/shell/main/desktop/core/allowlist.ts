@@ -7,7 +7,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 설정 읽기·바꾸기, secret 상태 읽기·지우기, 진단 상태 읽기(Settings). secret 값 넣기(`secrets/put`)는 upload라
 //   main의 secret 입력 창만 부른다.
 // - Grants의 MCP tool 목록 읽기(`agent-mcp-tools/list`). 같은 resource의 `take`·`done`은 runtime만 부른다.
-// - 대기 목록의 허락 결정(`approvals/decide_turn`)과 질문 읽기·답(`ask/read`·`ask/answer`)
+// - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
 // - 대화 입력함의 지금 보내기·빼기(`session_inputs/steer_now`·`remove`)
 // - Settings의 coding agent harness 목록(`coding_agent_harnesses/list`). 감지 보고(`report`)와 터미널 결과·종료
 //   알림(`coding_agent_terminals/*`)은 main이 자기 신원으로 보내므로 renderer는 부르지 않는다.
@@ -23,7 +23,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:secrets/status",
   "memory:secrets/delete",
   "memory:diagnostics/status",
-  "memory:approvals/decide_turn",
+  "memory:turn_requests/decide",
   "memory:ask/read",
   "memory:ask/answer",
   "memory:session_inputs/steer_now",

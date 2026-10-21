@@ -4,7 +4,6 @@ export { deleteSessionToolCalls } from "./erase.ts";
 export { createToolReads } from "./reads.ts";
 export {
   definitionHash,
-  type GateRequest,
   runOperations,
   selectTools,
   type ToolCallHandler,

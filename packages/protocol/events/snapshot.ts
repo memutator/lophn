@@ -3,14 +3,17 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { harnessIdSchema } from "../coding-agent/harness-id.ts";
 import { defineRead } from "../base/route.ts";
-import { turnPermissionRequestSchema } from "../approvals/mod.ts";
+import {
+  turnPermissionRequestSchema,
+  turnRequestSchema,
+} from "../approvals/mod.ts";
 import {
   callAgentOutputSchema,
   SENDABLE_SESSION_STATES,
 } from "../lophn-agent/calls.ts";
 import { placeOutputSchema } from "../lophn-agent/places.ts";
 
-// waiting은 대기 권한 요청이나 질문이 있는 때, unknown은 coding agent가 harness 신호를 못 받았을 때다.
+// waiting은 대기 turn request나 질문이 있는 때, unknown은 coding agent가 harness 신호를 못 받았을 때다.
 const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
 export type SessionState = z.infer<typeof sessionStateSchema>;
 
@@ -24,6 +27,7 @@ const sessionSnapshotSchema = z.object({
   // coding session만 싣는다. 첫 신호가 SessionStarted인 harness인지 창이 알아야 해서다.
   harness: harnessIdSchema.optional(),
   permission_requests: z.array(turnPermissionRequestSchema),
+  turn_requests: z.array(turnRequestSchema),
   questions: z.array(z.object({
     group: idSchema("qgr"),
     turn: idSchema("trn"),

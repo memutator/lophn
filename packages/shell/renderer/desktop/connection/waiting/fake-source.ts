@@ -349,6 +349,7 @@ export function createFakeWaiting(
         place: session.place,
         state: "waiting",
         permission_requests: [],
+        turn_requests: [],
         questions: [],
       };
       sessions.set(session.id, snapshot);

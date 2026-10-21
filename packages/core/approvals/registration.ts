@@ -1,7 +1,7 @@
 // approvals의 core 등록. writer가 command를, reader가 read를, core가 memory route를 가져간다.
 import {
-  approvalsDecideTurn,
   toolGateCheck,
+  turnRequestDecide,
 } from "../../protocol/approvals/mod.ts";
 import { assignmentRegistration } from "./assignment/mod.ts";
 import { agentGrantRegistration } from "./grants/mod.ts";
@@ -21,7 +21,7 @@ export function createCoreRegistration() {
       ...assignmentRegistration.reads,
     ],
     // handler는 wiring이 route 이름으로 붙인다.
-    memoryRoutes: [approvalsDecideTurn, toolGateCheck],
+    memoryRoutes: [turnRequestDecide, toolGateCheck],
   };
 }
 

@@ -2,34 +2,30 @@
 // 꺼졌다 켜지면 비어 있고 다시 열지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Clock, IdSource } from "../../base/mod.ts";
-import {
-  choicesFor,
-  type Intent,
-  type RequestChoice,
-  type TurnChoice,
-  type TurnDecision,
-  type TurnPermissionRequest,
+import type {
+  ShellRuleLayers,
+  TurnRequest,
+  TurnRequestChoice,
+  TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
+import type { Place } from "../../protocol/lophn-agent/places.ts";
 import type { Bus } from "../events/ports.ts";
-import { allowanceKey } from "./grants/mod.ts";
-import { choiceOffered, intentFingerprint } from "./model.ts";
-import type { Grants, SessionAllowances } from "./ports.ts";
+import { alwaysPatterns } from "./gate/mod.ts";
+import type { AlwaysEffect, TurnOrigin } from "./ports.ts";
 
-type Cancelled = Extract<TurnDecision, { outcome: "cancelled" }>;
+type Cancelled = Extract<TurnRequestOutcome, { outcome: "cancelled" }>;
 
 type Entry = {
-  request: TurnPermissionRequest;
+  request: TurnRequest;
+  place: Place | null;
   // 결정을 받는 중이거나 끝났으면 true. 같은 request를 두 번 결정하지 못하게 한다.
   closed: boolean;
-  decision: TurnDecision | null;
-  // 허락이 이미 쓰였는지.
-  used: boolean;
-  waiters: ((decision: TurnDecision) => void)[];
+  outcome: TurnRequestOutcome | null;
+  waiters: ((outcome: TurnRequestOutcome) => void)[];
 };
 
 type TurnRequestsDeps = {
-  grants: Grants;
-  allowances: SessionAllowances;
+  shellRules(place: Place | null): ShellRuleLayers;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -42,59 +38,57 @@ function cancelledFor(cause: Cancelled["cause"]): Cancelled {
 export function createTurnRequests(deps: TurnRequestsDeps) {
   const entries = new Map<string, Entry>();
 
-  function resolve(entry: Entry, decision: TurnDecision): void {
+  function resolve(entry: Entry, outcome: TurnRequestOutcome): void {
     entry.closed = true;
-    entry.decision = decision;
-    for (const waiter of entry.waiters) waiter(decision);
+    entry.outcome = outcome;
+    for (const waiter of entry.waiters) waiter(outcome);
     entry.waiters = [];
     deps.bus.publish({
       session: entry.request.session,
-      type: "PermissionResolved",
+      type: "TurnRequestClosed",
       at: deps.clock.now(),
-      payload: { request: entry.request.id, outcome: decision.outcome },
+      payload: { request: entry.request.id, outcome: outcome.outcome },
     });
   }
 
   return {
-    open(intent: Intent): Result<TurnPermissionRequest> {
-      if (intent.origin.kind !== "turn") {
-        return err({
-          code: "invalid_input",
-          message: "only a turn can wait for a permission",
-        });
-      }
-      const request: TurnPermissionRequest = {
+    open(
+      origin: TurnOrigin,
+      subject: TurnRequest["subject"],
+    ): Result<TurnRequest> {
+      const request: TurnRequest = {
         id: deps.ids.newId("apr"),
-        session: intent.origin.session,
-        turn: intent.origin.turn,
-        tool_call: intent.origin.tool_call,
-        intent,
-        choices: [...choicesFor(intent.kind)],
-        fingerprint: intentFingerprint(intent),
+        session: origin.session,
+        turn: origin.turn,
+        tool_call: origin.tool_call,
+        subject,
+        always_patterns: subject.kind === "shell"
+          ? alwaysPatterns(deps.shellRules(origin.place), subject.command)
+          : [],
         created_at: deps.clock.now(),
       };
       entries.set(request.id, {
         request,
+        place: origin.place,
         closed: false,
-        decision: null,
-        used: false,
+        outcome: null,
         waiters: [],
       });
       deps.bus.publish({
         session: request.session,
-        type: "PermissionRequested",
+        type: "TurnRequestOpened",
         at: request.created_at,
         payload: { request },
       });
       return ok(request);
     },
 
-    wait(id: string): Promise<TurnDecision> {
+    wait(id: string): Promise<TurnRequestOutcome> {
       const entry = entries.get(id);
       if (entry === undefined) {
         return Promise.resolve(cancelledFor("turn_ended"));
       }
-      if (entry.decision !== null) return Promise.resolve(entry.decision);
+      if (entry.outcome !== null) return Promise.resolve(entry.outcome);
       return new Promise((resolve) => entry.waiters.push(resolve));
     },
 
@@ -102,8 +96,9 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
     async decide(
       session: string,
       id: string,
-      choice: TurnChoice,
-    ): Promise<Result<{ outcome: TurnDecision }>> {
+      choice: TurnRequestChoice,
+      effects: ReadonlyMap<string, AlwaysEffect>,
+    ): Promise<Result<{ outcome: TurnRequestOutcome }>> {
       const entry = entries.get(id);
       if (entry === undefined || entry.request.session !== session) {
         return err({
@@ -117,100 +112,50 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
           message: "the request is already decided",
         });
       }
-      const offered = choiceOffered(
-        entry.request.choices,
-        choice.kind as RequestChoice,
-      );
-      if (!offered.ok) return offered;
-      // 아래 await 동안 다른 결정이 끼어들지 못하게 먼저 닫는다.
-      entry.closed = true;
-      const { intent } = entry.request;
-      let decision: TurnDecision;
+      let outcome: TurnRequestOutcome;
       if (choice.kind === "reject") {
-        decision = { outcome: "reject", reason: choice.reason ?? null };
-      } else if (choice.kind === "session") {
-        const key = allowanceKey(intent);
-        if (key === null) {
-          entry.closed = false;
-          return err({
-            code: "invalid_input",
-            message: "this request has no session allowance",
-          });
-        }
-        deps.allowances.allow(session, key);
-        decision = { outcome: "allow", scope: "session" };
+        entry.closed = true;
+        outcome = { outcome: "reject", reason: choice.reason ?? null };
       } else if (choice.kind === "always") {
-        if (intent.actor.kind !== "agent") {
-          entry.closed = false;
+        const effect = effects.get(entry.request.subject.kind);
+        if (entry.request.always_patterns.length === 0 || !effect) {
           return err({
             code: "invalid_input",
-            message: "only an agent grant can be set to always",
+            message: "this request cannot be allowed always",
           });
         }
-        const set = await deps.grants.setAlways(
-          intent.actor.agent,
-          intent.target,
-        );
-        if (!set.ok) {
+        // 아래 await 동안 다른 결정이 끼어들지 못하게 먼저 닫는다.
+        entry.closed = true;
+        const done = await effect(entry.request, entry.place);
+        if (!done.ok) {
           entry.closed = false;
-          return set;
+          return done;
         }
-        if (entry.decision !== null) {
+        if (entry.outcome !== null) {
           return err({
             code: "conflict",
             message: "the request was cancelled",
           });
         }
-        decision = { outcome: "allow", scope: "always" };
+        outcome = { outcome: "allow", scope: "always" };
       } else {
-        decision = { outcome: "allow", scope: "once" };
+        entry.closed = true;
+        outcome = { outcome: "allow", scope: "once" };
       }
-      resolve(entry, decision);
-      return ok({ outcome: decision });
-    },
-
-    // 허락은 그 intent에 한 번만 쓰인다. 쓰기 직전에 intent가 같은지 다시 본다.
-    consume(id: string, current: Intent): Promise<Result<void>> {
-      const entry = entries.get(id);
-      if (entry === undefined) {
-        return Promise.resolve(
-          err({ code: "not_found", message: "the request does not exist" }),
-        );
-      }
-      if (entry.decision?.outcome !== "allow") {
-        return Promise.resolve(
-          err({ code: "conflict", message: "the request was not allowed" }),
-        );
-      }
-      if (entry.used) {
-        return Promise.resolve(
-          err({ code: "conflict", message: "the allowance was already used" }),
-        );
-      }
-      // 다른 intent로 부른 시도도 이 허락을 쓴 것으로 친다.
-      entry.used = true;
-      if (intentFingerprint(current) !== entry.request.fingerprint) {
-        return Promise.resolve(
-          err({
-            code: "conflict",
-            message: "the intent changed after the decision",
-          }),
-        );
-      }
-      return Promise.resolve(ok(undefined));
+      resolve(entry, outcome);
+      return ok({ outcome });
     },
 
     // turn이 끝나거나 session이 닫히거나 시작 때 정리한다. 기다리던 쪽은 거절과 구별해 cancelled를 받는다.
     cancel(session: string, cause: Cancelled["cause"]): void {
       for (const [id, entry] of entries) {
         if (entry.request.session !== session) continue;
-        if (entry.decision === null) resolve(entry, cancelledFor(cause));
+        if (entry.outcome === null) resolve(entry, cancelledFor(cause));
         entries.delete(id);
       }
-      if (cause === "session_closed") deps.allowances.clear(session);
     },
 
-    list(session: string): TurnPermissionRequest[] {
+    list(session: string): TurnRequest[] {
       return [...entries.values()]
         .filter((entry) => entry.request.session === session && !entry.closed)
         .map((entry) => entry.request);

@@ -1,3 +1,8 @@
+---
+name: guide-instructions
+description: The instruction layers (role, global, project LOPHN.md, domain DOMAIN.md, agent), who edits each, and when an edit is read.
+---
+
 # Instructions
 
 Instructions are the Markdown notes lophn's own agents read. They are not the

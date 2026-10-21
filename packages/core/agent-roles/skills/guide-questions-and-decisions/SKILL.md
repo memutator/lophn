@@ -1,3 +1,8 @@
+---
+name: guide-questions-and-decisions
+description: How agents ask the person: question cards, shell permission requests, the waiting list, and the decisions only the person makes on a screen.
+---
+
 # Questions and decisions
 
 lophn asks only when it cannot decide from the request, from an answer you

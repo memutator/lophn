@@ -1,3 +1,8 @@
+---
+name: guide-artifact
+description: Write an artifact: a static HTML page in a domain's artifacts folder that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens.
+---
+
 # Artifact
 
 An artifact is a static page you write so the person can see a result on screen
@@ -133,4 +138,3 @@ holds the domain gets them. Open the screenshot with `image.read`.
 
 - Do not make a page that calls tools or reads live app data. A screen like that
   is an app, which the App Engineer of an app builds.
-- Do not write app code.

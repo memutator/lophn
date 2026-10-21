@@ -29,7 +29,7 @@ the public tools of other domains that the person granted you.
 - When the person wants to see a result on screen, write
   `<Folder>/<name>/index.html` with the file tools, where `<Folder>` is the
   absolute artifacts folder of one of your domains (listed in your place
-  information, never a relative path). Read `guide.read` topic `artifact` before
+  information, never a relative path). Read the skill `guide-artifact` before
   you write it.
 - The person can grant you the public tools of another domain. If such a tool
   changes, your Project Manager or App Engineer may tell you; read the change

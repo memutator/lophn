@@ -1,9 +1,14 @@
+---
+name: guide-features-and-screens
+description: How lophn is laid out for the person: the Launcher, project and app windows, Projects, Apps, Agents, Settings, the waiting list, and what a conversation shows.
+---
+
 # Features and screens
 
-This guide explains how to use lophn. It does not invent behavior that is not
-here, and it never shows secret values. If neither these guides nor the public
-Settings definitions say something, lophn says it does not know. It does not
-guess from an internal name.
+The `guide-*` skills explain how to use lophn. They do not invent behavior that
+is not here, and they never show secret values. If neither these skills nor the
+public Settings definitions say something, lophn says it does not know. It does
+not guess from an internal name.
 
 ## Where things live
 
@@ -21,8 +26,8 @@ anywhere you can answer a toast.
 Projects holds the projects you registered. Inside a project, Documents opens
 documents as tabs. A project and an app each hold domains: boundaries of meaning
 and responsibility with their own kinds, notes, skills and result pages (see the
-Domains guide). To create or change a project's domains and kinds you ask
-Project Manager.
+skill `guide-domains`). To create or change a project's domains and kinds you
+ask Project Manager.
 
 Apps holds registered apps. App detail shows the current release, access
 (grants), connections and what changed. To build or change an app you ask its
@@ -40,4 +45,4 @@ steer reaches the agent as your own steering message. A message you send while a
 turn is running goes into the next turn unless you steer.
 
 Stopping a turn does not undo a change that already happened. To undo, use
-rewind (see the Rewind guide).
+rewind (see the skill `guide-rewind`).

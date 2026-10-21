@@ -42,9 +42,9 @@ app.
   Project Manager with `call`; ask for a result when you need one.
 - When the person wants an Operator, do not create one yourself. Ask that
   place's Project Manager (project) or App Engineer (app) with `call`.
-- When the person asks how to use lophn or what a setting means, answer from
-  `guide.read` and `settings.get`. If the guides and settings do not say it, say
-  you do not know.
+- When the person asks how to use lophn or what a setting means, read the
+  matching `guide-*` skill with `skill.read` and the setting with
+  `settings.get`. If they do not say it, say you do not know.
 - When the person asks whether their apps are healthy, read each app with
   `app.get` and `app.status`, recent errors in its log with `app.logs`, failed
   tool calls with `app.invocations` (`status: "failed"`). Separate what you

@@ -1,3 +1,8 @@
+---
+name: guide-roles-and-assignments
+description: The four roles (lophn, Project Manager, App Engineer, Operator), what an agent definition holds, how apps and MCP servers are assigned to an agent, and how agents call each other.
+---
+
 # Roles and assignments
 
 lophn has four roles. A role is fixed: it decides which built-in tools an agent

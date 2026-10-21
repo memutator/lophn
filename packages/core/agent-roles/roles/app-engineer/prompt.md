@@ -115,7 +115,7 @@ information). Use `app.link_source` only for an existing git repo with a commit.
 - A problem in another app's package goes to that app's App Engineer
   (`owner_app` from `package.get`) with `call`, no reply expected.
 - To show a result write `<Folder>/<name>/index.html` in a domain's absolute
-  artifacts folder; read `guide.read` topic `artifact` first.
+  artifacts folder; read the skill `guide-artifact` first.
 
 ## What you do not do
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
+import type { Role } from "./places.ts";
 
 // 전역에서 끈 skill의 정확한 이름이다. 전역 등록
 // 목록 쪽의 끄기라서 agent 정의의 `skills`(받을 것을 고른다)와 따로이고 여기서 끈 skill은 agent가 골라도 받지 못한다. 지금 발견되지
@@ -17,16 +18,56 @@ export const SKILL_SOURCES = ["builtin", "global", "domain"] as const;
 const skillSourceSchema = z.enum(SKILL_SOURCES);
 export type SkillSource = z.infer<typeof skillSourceSchema>;
 
-// 내장 skill 선언이다. description은 skill 목록에 들어가는 영어 한 줄이다.
-export const BUILTIN_SKILLS = [
+// 내장 skill 선언이다. 모두 끌 수 없다. 설명은 SKILL.md frontmatter에 있다. `menu`는 사람이 `/`로 부르는 skill인지이고
+// prompt 목록에는 닿지 않는다.
+export const BUILTIN_SKILLS: readonly {
+  name: string;
+  roles: readonly Role[];
+  can_disable: false;
+  menu: boolean;
+}[] = [
+  ...[
+    "guide-features-and-screens",
+    "guide-roles-and-assignments",
+    "guide-questions-and-decisions",
+    "guide-settings",
+    "guide-connections",
+    "guide-skills-and-mcp",
+    "guide-instructions",
+    "guide-rewind",
+  ].map((name) => ({
+    name,
+    roles: ["lophn"] as const,
+    can_disable: false as const,
+    menu: false,
+  })),
+  { name: "new-app", roles: ["lophn"], can_disable: false, menu: true },
+  { name: "repair-app", roles: ["lophn"], can_disable: false, menu: true },
+  {
+    name: "guide-domains",
+    roles: ["lophn", "project_manager", "app_engineer"],
+    can_disable: false,
+    menu: false,
+  },
+  {
+    name: "guide-artifact",
+    roles: ["project_manager", "app_engineer", "operator"],
+    can_disable: false,
+    menu: false,
+  },
+  {
+    name: "check-kinds",
+    roles: ["project_manager"],
+    can_disable: false,
+    menu: true,
+  },
   {
     name: "kinds-yaml",
     roles: ["project_manager", "app_engineer"],
     can_disable: false,
-    description:
-      "Write or change the domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has.",
+    menu: false,
   },
-] as const;
+];
 
 const skillEntrySchema = z.object({
   name: z.string().min(1).max(64),

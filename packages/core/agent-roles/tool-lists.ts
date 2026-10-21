@@ -35,7 +35,6 @@ const READ_TOOLS = [
   "kind.check",
   "domain.list",
   "domain.get",
-  "guide.read",
   "settings.get",
   "visual.show",
 ] as const;
@@ -129,7 +128,6 @@ export const TOOL_ORDER = [
   "preview.stop",
   "kind.list",
   "kind.check",
-  "guide.read",
   "settings.get",
   "visual.show",
   "instructions.read",

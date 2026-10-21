@@ -1,3 +1,8 @@
+---
+name: guide-connections
+description: Connecting models: which services and local models lophn supports, API keys and sign-in, the protected entry field, accounts and models.
+---
+
 # Connections
 
 A connection is how an agent reaches Claude, ChatGPT, Grok, another supported
@@ -31,8 +36,7 @@ contains a secret, lophn blocks that submission and points you back to the
 protected field.
 
 You start sign-in yourself. Closing the field or canceling saves nothing. The
-value is stored by lophn and the agent cannot read it. This guide cannot show
-it.
+value is stored by lophn and the agent cannot read it. lophn cannot show it.
 
 A connection test is separate and only runs when you ask for it. Saving a
 setting is not a successful test.

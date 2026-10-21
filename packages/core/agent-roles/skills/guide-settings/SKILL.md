@@ -1,3 +1,8 @@
+---
+name: guide-settings
+description: How to explain a setting from its public definition and current value (settings.get), and how the person changes settings.
+---
+
 # Settings
 
 Settings is the screen for product settings, connections and diagnostics. Asking
@@ -32,5 +37,6 @@ it and what value it would suggest.
 ## What Settings cannot do
 
 Settings does not accept a pasted secret, API key, token or password. Those go
-through the protected field described in Connections. A recommendation, a
-free-text reply, silence or closing a window is never a change.
+through the protected field described in the skill `guide-connections`. A
+recommendation, a free-text reply, silence or closing a window is never a
+change.

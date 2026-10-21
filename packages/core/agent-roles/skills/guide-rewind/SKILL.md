@@ -1,3 +1,8 @@
+---
+name: guide-rewind
+description: Session rewind and app rewind: what goes back, what stays, and that only the person can rewind.
+---
+
 # Rewind
 
 Rewind goes back to an earlier point. Only you can do it. An agent has no rewind

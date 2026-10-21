@@ -75,8 +75,7 @@ domain folder holds:
 - When the person wants to see a result on screen, write
   `<Folder>/<name>/index.html` with the file tools, where `<Folder>` is the
   absolute artifacts folder of the domain (listed in your place information,
-  never a relative path). Read `guide.read` topic `artifact` before you write
-  it.
+  never a relative path). Read the skill `guide-artifact` before you write it.
 - If the project has no app yet and the person wants one, you cannot create it.
   Only lophn registers an app. Give it to lophn with `call` and no reply
   expected, and tell the person.

@@ -1,3 +1,8 @@
+---
+name: guide-domains
+description: What a domain is (a boundary of meaning and responsibility inside a project or app), what it holds, who makes and writes it, and what each agent sees of it.
+---
+
 # Domains
 
 A domain is a boundary of meaning and responsibility inside a project or an app.
@@ -13,12 +18,9 @@ them, and it is what keeps an agent's context small.
   documents newly break it. One file per domain. An app domain usually has none,
   because its objects live in the app's data and are reached through tools.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
-  program cannot check. It is part of the agent's instructions (see the
-  Instructions guide).
-- **Skills**: one procedure for one job in the domain (see the Skills and MCP
-  guide).
-- **Artifacts**: result pages agents wrote for the domain (see the Artifact
-  guide).
+  program cannot check. It is part of the agent's instructions.
+- **Skills**: one procedure for one job in the domain.
+- **Artifacts**: result pages agents wrote for the domain.
 - **Tools**: only an app has them. Every tool an app declares names the domain
   of the object it handles, and may be `public`.
 

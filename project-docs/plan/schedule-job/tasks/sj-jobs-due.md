@@ -15,16 +15,14 @@
   - 제품 결정: `project-docs/products/roadmap/headless-schedule.md`의 "놓친 차례"와 "정한 것(agent)", `project-docs/plan/schedule-job/README.md`의 "정한 것"과 "뼈대 검토에서 정한 것"(`hold`로 기다리는 줄, "켤 때")
   - `sj-jobs-store`가 만든 `packages/core/jobs/schema.ts`(`claimed_at`, 두 unique index), `store.ts`, `schedule.ts`(`dueTurns`)
 - 계약:
-  - 쓰는 것: `sj-jobs-contract`의 `jobClaimDue`, `jobRunStarted`, `jobRunEnded`, `jobDecideHold`, `QueuedJobRun`, `JobRunState`, `JOBS_CHANGED_TOPIC`. `sj-jobs-store`의 `schedule.ts`, `store.ts`, `schema.ts`
+  - 쓰는 것: `sj-jobs-contract`의 `jobClaimDue`, `jobRunStarted`, `jobRunEnded`, `jobDecideHold`, `QueuedJobRun`, `JobRunState`, `JOBS_CHANGED_TOPIC`, `jobZonePort`. `sj-jobs-store`의 `schedule.ts`, `store.ts`, `schema.ts`
   - 내놓는 것: 위 네 command의 handler. scheduler(`sj-jobs-scheduler`)와 대기 목록(`sj-shell-hold-card`)은 protocol 모양만 본다.
 
 ## 할 일
 
-추가(planner, 살 단계 뒤): 아래 "planner가 정한다 / 열지 않는다"로 남긴 시간대는 tx port `jobZonePort {zone(): string}`로 정했다(README). `jobRunEnded`에는 선택 칸 `reason`을 둔다. agent는 자기가 만든 job만 고치고 지운다(사람은 모두).
-
 1. `due.ts`: `createDueCommands(): {claimDue, runStarted, runEnded, decideHold}`. 바꾼 job마다 `tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, {job, job_run})`를 한다. 바꾼 것이 없으면 싣지 않는다(scheduler가 그 신호로 다시 깨어나 claim을 또 부른다).
    - 말: "도는 줄"은 state `queued`나 `running`인 줄이다. 같은 job에 하나뿐이다(`sj-jobs-store`의 unique index).
-   - zone: `sj-jobs-store`와 같이 `tx.port(jobZonePort).zone()`(뼈대 문제. `sj-jobs-contract` 할 일 7의 추천안).
+   - zone: `sj-jobs-store`와 같이 `tx.port(jobZonePort).zone()`.
 2. `claimDue`(`job.claim_due`, machine) 한 tx에서 이 순서로 한다. `now = tx.now()`.
    1. `startup`이면 남은 `running` 줄과, 넘겼지만(`claimed_at`이 있음) 시작을 적지 못한 `queued` 줄을 `interrupted`(ended_at now)로 닫는다. 그 job은 끊긴 차례 하나를 놓친 것으로 센다(roadmap "도는 중에 lophn이 꺼져 끊긴 run도 놓친 차례로 친다"). 넘기기 전(`claimed_at` 없음)의 `queued` 줄은 시작한 적이 없으니 그대로 둔다.
    2. 켜진 job 가운데 `next_due_at <= now`이거나 1에서 끊긴 줄이 있는 job마다:
@@ -38,7 +36,7 @@
    4. `next_due_at`은 켜진 job의 가장 이른 `next_due_at`(없으면 null)이다.
    - 정한 것: 놓친 차례는 lophn이 꺼져 있던 차례, 곧 `startup` claim이 본 차례다(README "켤 때는 lophn을 켤 때다"). 켜져 있는 동안 잠자기 같은 이유로 늦게 깬 차례는 제때 차례로 한 번 돌고, 그 사이 차례 수는 `missed_count`에만 남는다. `hold` 정책도 그때는 돈다.
 3. `runStarted`(`job.run_started`, machine): 줄이 없으면 `not_found`(그 사이 job이 지워졌다), `queued`가 아니면 `conflict`. `running`으로 바꾸고 `run`, `session`, `started_at`(now)을 적는다.
-4. `runEnded`(`job.run_ended`, machine): 줄이 없으면 `not_found`, `queued`나 `running`이 아니면 `conflict`(예: 켤 때 `interrupted`로 닫힌 줄에 늦게 온 끝). state와 `ended_at`(now)을 적는다. `queued`에서 바로 오는 것은 run을 시작하지 못한 때다.
+4. `runEnded`(`job.run_ended`, machine): 줄이 없으면 `not_found`, `queued`나 `running`이 아니면 `conflict`(예: 켤 때 `interrupted`로 닫힌 줄에 늦게 온 끝). state와 `ended_at`(now)을 적고, 입력에 `reason`이 있으면 그것도 적는다. `queued`에서 바로 오는 것은 run을 시작하지 못한 때이고, 그때 scheduler가 `reason`에 시작 오류를 싣는다(README "살 단계 검토에서 정한 것").
 5. `decideHold`(`job.decide_hold`, user): 줄이 없으면 `not_found`, `held`가 아니면 `conflict`. `run_now`는 같은 job에 도는 줄이 있으면 `conflict`이고 줄은 `held`로 남는다(card가 남는다). 없으면 `queued`(`claimed_at` 없음)로 바꾼다. scheduler는 이 commit의 `JOBS_CHANGED_TOPIC`으로 깨어 다음 claim에서 이 줄을 받는다. `skip`은 `skipped`(reason `person`, ended_at now)다. 정한 것: 꺼 둔 job의 card도 [지금 실행]으로 돈다(사람이 고른 것이다).
 6. `register.ts`: `createLedgerRegistration`의 `commands`에 넷을 더한다. read는 없다.
 7. `due_test.ts`: 위험 test 둘. 준비는 file당 한 번 메모리 SQLite에 `jobsSchemaSteps`를 깔고, 가짜 tx(`sql`, `newId`, 바꿀 수 있는 `now`, `port`: `afterCommit`은 모으기만, zone은 `"UTC"`)를 둔다(`packages/core/domains/commands_test.ts` 꼴). job과 앞선 줄은 `store.ts`의 `insertJob`·`insertJobRun`으로 바로 넣는다. 판정은 돌려준 `start`와 `job_runs` 줄로 한다.

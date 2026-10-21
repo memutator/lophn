@@ -1,6 +1,6 @@
 # wf-prompt-section
 
-`approval-simplify`가 grant 거름을 지운 뒤의 place-data에서, 모든 active domain의 workflow 가운데 이 agent가 참가자인 것을 place 층(system block 4)의 새 "Workflows" 절로 싣고, 바뀌면 다음 turn에 `workflows_changed` notice를 붙인다. 위험 test 하나를 둔다: workflow의 연락처는 그 workflow의 참가자가 아닌 agent의 prompt에 실리지 않는다.
+place-data(`readPlaceData`)에서, 모든 active domain의 workflow 가운데 이 agent가 참가자인 것을 place 층(system block 4)의 새 "Workflows" 절로 싣고, 바뀌면 다음 turn에 `workflows_changed` notice를 붙인다. 위험 test 하나를 둔다: workflow의 연락처는 그 workflow의 참가자가 아닌 agent의 prompt에 실리지 않는다.
 
 - 단위: prompt (wave 3)
 - 선행: wf-decl-reader
@@ -22,12 +22,10 @@
   - 내놓는 것:
     - `PlaceFiles.workflows(self: AgentRef, place: Place | null): Promise<Result<WorkflowRead>>`. product-driver의 `placeFiles()`가 machine 자격의 `readWorkflows`로 꽂는다(다른 그릇의 선언은 agent 자격으로 읽을 수 없다).
     - `PlaceData.workflows`와 `placeInfo`의 "Workflows" 절. 모든 active domain의 선언 가운데 이 agent가 참가자로 풀리는 것만 싣는다.
-    - `TurnPromptInput.place.workflows: PlaceWorkflows | null`
+    - `TurnPromptInput.place.workflows?: PlaceWorkflows | null`(없으면 null. 아래 "정한 것")
     - `SeenBasis.workflows: { hash } | null`, `BasisDiff.workflows`. 바뀐 turn에 notice `workflows_changed`(새 절 글, 없어졌으면 그렇다는 한 줄)가 붙는다.
 
 ## 할 일
-
-brief는 main `e192a9d8c` 기준이다. `approval-simplify`(grant 거름 지움)가 land한 뒤에는 planner가 `place-data.ts`의 줄을 다시 맞춘다.
 
 1. `packages/core/agent-roles/place/place-info.ts`
    - `PlaceData`에 `workflows: readonly WorkflowMembership[]`를 더한다(참가자인 workflow, 열쇠순).
@@ -53,10 +51,10 @@ brief는 main `e192a9d8c` 기준이다. `approval-simplify`(grant 거름 지움)
      - 참가자 글은 address에서 만든다: lophn이면 `lophn`, 아니면 `<ROLE_LABEL[role]>`에 Operator면 ` <name>`을 붙이고 ` (project <이름>)`이나 ` (app <이름>)`을 붙인다. 예: `judge: Operator judge (project lophn)`, `owner: Project Manager (project lophn)`.
      - address JSON은 `JSON.stringify(address)`다(`wf-decl-reader`가 key 순서를 고정했다).
      - session 글: `new`면 `a new session for each call`, `open`이면 `its open session: find the session id with session.list and send to {session, ...this to, fallback: "new"}`. session id는 싣지 않는다(cache. README "뼈대 검토에서 정한 것").
-   - `placeInfo`가 `sections`의 맨 끝(Kinds 뒤)에 `workflowSection(data.workflows)`를 한 덩어리로 넣는다. 비면 넣지 않는다. "Agents you can call" 절은 건드리지 않는다.
+   - `placeInfo`가 `sections`의 맨 끝(`kindLines` 뒤)에 `workflowSection(data.workflows)`를 한 덩어리로 넣는다. 비면 넣지 않는다. "Agents you can call" 절(`agentLines`)은 건드리지 않는다.
 2. `packages/core/agent-roles/place/place-data.ts`
    - `PlaceFiles`에 `workflows(self: AgentRef, place: Place | null): Promise<Result<WorkflowRead>>`를 더한다. 주석: 다른 그릇의 선언까지 읽어야 해서 turn의 agent 자격이 아니라 조립이 꽂는 machine 자격으로 읽는다.
-   - `readPlaceData`가 `files.workflows(agent.agent, place)`를 부른다. 실패하면 `[]`로 두고 turn은 계속한다(kind 글을 못 읽을 때와 같다). 성공하면 `memberships`를 `PlaceData.workflows`에 넣는다.
+   - `readPlaceData`가 `files.workflows(agent.agent, place)`를 부른다(`agent`는 `ResolvedAgent`이고 `agent.agent`가 `AgentRef`다). 실패하면 `[]`로 두고 turn은 계속한다(kind 글을 못 읽을 때와 같다). 성공하면 `memberships`를 `PlaceData.workflows`에 넣는다.
    - `placeData`가 `place.workflows`를 돌려준다: 절 글이 `""`이면 `null`, 아니면 `{ hash: await sha256Hex(text), text }`(`sha256Hex`는 `packages/base/mod.ts`).
 3. `packages/core/lophn-agent/prompt-assembly/basis.ts`
    - `SeenBasis.workflows: { hash: string } | null`, `basisOf` 입력에 `workflows: PlaceWorkflows | null`, `BasisDiff.workflows: { was: boolean; now: boolean } | null`. `kinds`와 같은 꼴로 비교한다.
@@ -64,7 +62,7 @@ brief는 main `e192a9d8c` 기준이다. `approval-simplify`(grant 거름 지움)
    - `TurnPromptInput.place`에 `workflows?: PlaceWorkflows | null`을 더하고 `basisOf`에 `input.place.workflows ?? null`을 넘긴다(optional인 까닭은 아래 "정한 것").
    - `noticesOf`에 kinds 다음으로 `workflows_changed`를 더한다: 지금 없으면 `noticeInput({ kind: "workflows_changed", body: "You no longer take part in any workflow." })`, 있으면 `noticeInput({ kind: "workflows_changed", body: "The workflows you take part in changed. The new text follows." })` 뒤에 줄을 바꿔 새 절 글. `changed()`에 `diff.workflows !== null`을 더한다.
    - `PlaceWorkflows`는 `./model.ts`에서 import한다.
-5. `packages/core/main/agent-runtime/product-driver.ts`: `placeFiles()`를 `placeFiles(machine: CoreCall)`로 바꾸고 `workflows: (self, place) => workflowsOf(machine, self, place)`를 더한다(`workflowsOf`는 `wf-decl-reader`가 둔 함수). `placeData: (call, agent) => placeData(call, agent, placeFiles(calls.machine))`.
+5. `packages/core/main/agent-runtime/product-driver.ts`: `placeFiles()`를 `placeFiles(machine: CoreCall)`로 바꾸고 `workflows: (self, place) => workflowsOf(machine, self, place)`를 더한다(`workflowsOf`는 `wf-decl-reader`가 둔 함수). `createTurnPreparer` 입력의 `placeData: (call, agent) => placeData(call, agent, placeFiles(calls.machine))`.
 6. `packages/core/agent-roles/place/place-info_test.ts`
    - 옛 test의 `files`에 `workflows: () => Promise.resolve(ok({ listing: { workflows: [], errors: [] }, memberships: [] }))`를 더한다.
    - 위험 test 하나를 더한다(아래 "끝남"). 준비는 file 안에서 한 번이다.
@@ -75,7 +73,8 @@ brief는 main `e192a9d8c` 기준이다. `approval-simplify`(grant 거름 지움)
      - 판정(바깥 결과): project `lab`의 PM(그 domain을 맡지 않은 다른 그릇의 참가자)의 `place.text`에 "Workflow alpha/relay"와 연락처의 when 글이 있고 `place.workflows`가 null이 아니다. 같은 앱 Ledger의 Operator(맡은 domain이 alpha여도 선언에 없다)의 `place.text`에는 "Workflows"도 when 글도 없고 `place.workflows`가 null이다.
 
 정한 것:
-- `TurnPromptInput.place.workflows`는 optional(`workflows?: PlaceWorkflows | null`, 없으면 null)이다(이유: `tests/eval/experiment/assembly/prefix_test.ts`와 `tests/support/loop/harness.ts`가 place를 직접 만든다. tests/eval은 이 계획이 고치지 않고, harness는 이 task의 소유가 아니다). `placeData`는 늘 채운다.
+- `TurnPromptInput.place.workflows`는 optional(`workflows?: PlaceWorkflows | null`, 없으면 null)이다(이유: `tests/eval/experiment/assembly/prefix_test.ts`와 `tests/support/loop/harness.ts`(`tests/harness/loop/loop_test.ts`가 쓴다)가 place를 `{ text, kinds, agents }`로 직접 만들고, `deno task check`가 둘을 type check하고 돌린다. optional이면 `tests/`를 고치지 않는다). `placeData`는 늘 채운다.
+- `SeenBasis.workflows`, `BasisDiff.workflows`, `PlaceData.workflows`, `PlaceFiles.workflows`는 required다. `tests/`에 이 type을 만드는 곳이 없다(2026-10-22 main에서 `grep -rn "SeenBasis\|basisOf\|PlaceData\|PlaceFiles" tests` 0줄). `SeenBasis`는 runtime 메모리(`keep`)에만 있어 저장된 옛 판이 없다.
 - 절은 place 글의 맨 끝(Kinds 뒤)에 둔다(이유: "Agents you can call"과 섞지 않고, 잘 안 바뀌는 앞 절들의 글을 그대로 둔다. place 층은 block 하나라 cache에는 차이가 없다).
 - workflow를 읽지 못하면 절 없이 turn을 계속한다(kind 글과 같다. 사람이 쓴 지침이 아니라 program이 만든 목록이다).
 

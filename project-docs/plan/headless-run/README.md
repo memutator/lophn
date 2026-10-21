@@ -3,13 +3,12 @@
 - **목표:** `claude -p`나 `codex exec`처럼 lophn agent를 화면 없이 부르는 run을 만든다. run은 agent 호출 하나 또는 앱 tool 호출 하나이고, 비동기로 쓴다. core의 run 연산과 사람이 쓰는 CLI를 둔다.
 - **재료:**
   - roadmap `project-docs/products/roadmap/headless-schedule.md`("모양"의 agent 호출과 run, "무엇을 만드나" 1, "정한 것", "권한")
-  - roadmap `approval.md`(unattended mode)
-  - architecture: `place-session.md`, `agent-call.md`, `event.md`, `coding-agent.md`(CLI와 연결), `agent-definition.md`, `layers.md`
-- **범위 밖:** job과 scheduler(`schedule-job`), workflow(`workflow`), flow, eval과 e2e test(사람).
+  - architecture: `approval.md`("turn mode": unattended는 call을 따라 간다, unattended turn은 묻지 않는다), `place-session.md`, `agent-call.md`, `event.md`, `coding-agent.md`(CLI와 연결), `agent-definition.md`, `layers.md`
+  - roadmap `project-docs/products/roadmap/approval.md`의 "하지 않는 것"(CLI `--dangerously-skip-permissions`를 두지 않는다. CLI가 여는 run은 처음부터 unattended다)
+- **범위 밖:** job과 scheduler(`schedule-job`), workflow(`workflow`), flow, 새 e2e test와 eval(사람이 정한다). 있는 e2e는 land가 돌리고 통과해야 한다.
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `hr-`로 시작한다.
-- **시작 조건:** `approval-simplify`가 land했다. run의 turn은 unattended이고, 그 mode를 그 계획이 만든다. 실제로는 `ae-builds`, `reactor-remove`, `agent-definition`이 land하고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21).
-- **brief의 기준:** brief는 2026-10-21 main(`e192a9d8c`) 기준으로 썼다. 앞 계획(`problem-remove`, `approval-simplify`)이 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
-  - `approval-simplify`가 land하며(main `dd956b49f`) roadmap `approval.md`의 "turn mode", "할당", "unattended는 call을 따라 간다" 절이 `architecture/approval.md`와 changelog 0.6.0으로 옮겨졌다. brief가 그 절을 가리키면 그쪽을 본다.
+- **시작 조건:** 앞 계획 `problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`, `agent-definition`이 land했고, e2e와 eval을 새 설계로 되살렸다(`test-restore`). run의 turn mode(unattended)와 그 전파는 `approval-simplify`가 만들었다. 지금 열 수 있다.
+- **brief의 기준:** brief는 2026-10-22 main(`550f75416`)에 다시 맞췄다. path, export, route, 표, wording key는 그 commit에서 확인한 이름이다. 이 계획이 새로 만드는 path는 각 brief의 "소유"에 "새 file"로 적었다.
 
 ## 정한 것
 
@@ -24,7 +23,7 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 
 이 계획에서 더 정한 것:
 
-- **run의 turn은 unattended다.** run 입력과 그 turn이 보낸 call 사슬은 묻지 않는다(`approval.md`).
+- **run의 turn은 unattended다.** run 입력과 그 turn이 보낸 call 사슬은 묻지 않는다(`architecture/approval.md` "turn mode"). 지금 unattended 표시는 agent의 `SendCall`·`ReplyCall`에만 있고 사람 메시지에는 여는 입구가 없다. 이 계획이 `SendMessage`에 그 입구를 연다(`hr-contract-runs`, `hr-session-input`).
 - **CLI는 지금의 `lophn` 명령에 더한다.** coding token이 없으면 user token file을 쓴다. 명령은 `lophn agent run`(`--async`, `--session`, `--schema`, `--input`), `lophn tool call`, `lophn run wait|show|cancel`이다. 결과는 stdout에 내고, `--json`이면 run 전체를 낸다.
 - **tool run의 부른 쪽은 사람이다.** user token으로 부르는 앱 tool은 지금 앱 화면에서 사람이 부르는 것과 같은 길이다(Gate를 거치지 않는다).
 - **run이 연 session은 열린 채 남는다.** 화면에서는 sidebar에 그대로 두지 않고, 그 session을 연 run 아래에 묶어 보인다. 모양은 `ui-design` skill로 wireframe부터 정한다(roadmap "정할 것" 1).
@@ -53,6 +52,7 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 - **CLI의 `not_found` 글은 user token일 때 coding token의 글("앱 범위 밖")로 바꾸지 않는다.** `packages/coding-agent/connection/client/core.ts`를 `hr-cli-commands`가 고친다.
 - **화면의 모양은 살 단계의 안(project sidebar에 Agents와 Recent 사이의 run 칸, 앱 space에 run 목록)으로 wireframe을 그리고, 사람이 gallery를 보고 정한다.** 그 전에 `hr-screen-data`를 열지 않는다. 화면 낱말은 wording 규칙상 `run`을 쓸 수 없어 "Background"를 안으로 둔다.
 - **`ListRuns`는 `agent`와 `place`로 거른다.** run은 만들 때 place를 기록한다: agent run은 그 agent의 place(lophn은 없음), tool run은 그 앱이다. 앱 space는 `place: {app}` 하나로 그 앱의 run을 다 읽는다. 화면은 session event마다 읽고 job이 run을 쌓으므로, 거르기는 core가 한다.
+  - Operator의 place는 `AgentRef`에 없다(`placeOfAgentRef`가 undefined). 그래서 run service가 이름을 풀 때(또는 `--session`의 session을 읽을 때) place를 같이 받아 `CreateRun` 입력에 싣는다(2026-10-22 brief 맞추기에서 정함).
 - **Agent 탭의 session 목록(session popover)은 run이 연 session도 그대로 보인다.** 모든 session을 찾는 곳이다.
 - **run의 session이 끝나면(archive, 지움) 그 session의 running run은 `turn_interrupted`로 닫는다.** 입력이 줄에 있는 채로 session이 끝나면 turn이 열리지 않아 run이 영영 running으로 남는다.
 - **이름이 없는 tool은 `StartRun`에서 막지 않고 run이 `tool_denied`로 실패한다.** tool 선언을 미리 볼 port를 두지 않는 쪽이 단순하다.
@@ -68,13 +68,16 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 
 ## lead가 할 일
 
-- merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
+- merge할 때마다 바뀐 곳의 test를 돌린다. e2e는 `land.sh`가 돌린다(`LOPHN_LAND_SKIP_E2E`를 쓰지 않는다). eval은 돌리지 않는다(사람).
+- `deno task check`는 `tests/e2e`, `tests/eval`, `tests/support`도 type check한다. protocol type, route, helper를 바꾸는 task는 `tests/`의 쓰는 곳도 같은 변경에서 고친다. 2026-10-22에 이 계획이 바꾸는 이름(`SendMessage` 입력, `messages` 표, `greet`, `CODING_CLI_COMMANDS`, `RunContext`, `WorkspaceSource`, sidebar·앱 공간 props)을 `tests/`에서 grep했을 때 고칠 곳은 없었다. 새 e2e는 더하지 않는다(사람이 정한다).
 - 새 module을 만들면 `project-docs/module-catalog.yaml`과 `project-docs/boundary-catalog.yaml` 줄을 lead가 그 계약 task보다 먼저, 또는 같이 commit한다. 없으면 `check-modules`가 떨어진다.
 - `hr-cli-commands`의 worker prompt에 적는다: CLI를 손으로 돌릴 때는 `env -u LOPHN_CODING_TOKEN LOPHN_HOME=<worktree>/.dev-data/hr-cli-commands`로 돌린다. 안 그러면 사람의 `~/.lophn/run/user-token`을 읽어 사람이 쓰는 lophn을 부른다(AGENTS.md "사람에게 묻는 것").
 - 다 끝나면 `project-docs/boundary-catalog.yaml`의 `coding-agent-cli-interface`를 고친다. 이제 사람도 그 CLI를 쓴다.
 - `RUN_ROUTES`를 `packages/protocol/mod.ts`의 `ALL_ROUTES`에 등록한다. shell의 allowlist가 그 목록을 읽어, 빠지면 화면이 run route를 부르지 못한다.
 - 다 끝나면
-  - 새 architecture 문서(run)를 쓴다. `place-session.md`(run이 여는 session), `coding-agent.md`(CLI의 사람 자격)를 고친다.
+  - 새 architecture 문서(run)를 쓴다. `place-session.md`(run이 여는 session, 켤 때 입력함에 되돌리는 사람 메시지에서 run 입력을 뺀다), `coding-agent.md`(CLI의 사람 자격)를 고친다.
+  - `approval.md` "turn mode"의 "사람 메시지 ... 연 turn은 attended다"와 `agent-call.md` "unattended는 call을 따라 간다"의 "사람 메시지 ... 표시가 없어 attended다", "표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다"를 run 입력에 맞게 고친다: `SendMessage`의 `unattended: true`로 넣은 사람 메시지(run 입력)는 unattended turn을 열고, `messages.unattended`에 남지만 태그 글과 받은 봉투에는 싣지 않는다.
+  - `layers.md`의 feature module 목록(projects, apps, domains)에 runs를 더한다.
   - roadmap `headless-schedule.md`에서 land된 것을 지운다.
   - changelog 열린 판에 항목을 덧붙이고, 계획 폴더를 지운다.
 - 사람에게 묻는 것: push, 실제 model provider 호출(개발은 `deno task dev`의 fake). 그 밖은 planner에게 묻는다.

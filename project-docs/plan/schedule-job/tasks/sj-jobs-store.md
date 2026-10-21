@@ -19,20 +19,18 @@ core module `jobs`의 표(`jobs`, `job_runs`), 주기 계산, agent command(`job
 - 읽을 것:
   - architecture: `project-docs/architecture/layers.md`(feature module은 다른 feature module과 `agent-roles`를 import하지 않는다. 둘을 다 아는 일은 `core/main`의 등록 file이 한다), `project-docs/architecture/event.md`(남지 않는 event는 commit 뒤에 낸다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `jobs`(lead가 더한다), `storage`, `agent-sessions`. `project-docs/module-catalog.yaml`의 `packages/core/jobs`
-  - 본보기: `packages/core/domains/`(`schema.ts`, `rows.ts`, `store.ts`, `commands.ts`, `reads.ts`, `register.ts`가 같은 나눔이다), `packages/core/main/daemon/wiring/domains-registration.ts`(writer tx port), `packages/core/main/daemon/wiring/apps-usage.ts`(reader `snapshotPort`와 `loadSession`·`agentRefOf`), `packages/core/main/daemon/wiring/router-registration.ts`(이름 풀기 `placeDepsOf(sql).roles.resolveNamed`), `packages/core/agent-roles/place/session-directory.ts`(`resolveNamed`가 받는 이름의 규칙), `packages/core/apps/tickets/model.ts`의 `nextRevision`, `packages/core/storage/ledger/after-commit.ts`(`afterCommit`)
+  - 본보기: `packages/core/domains/`(`schema.ts`, `rows.ts`, `store.ts`, `commands.ts`, `reads.ts`, `register.ts`가 같은 나눔이다), `packages/core/main/daemon/wiring/domains-registration.ts`(writer tx port), `packages/core/main/daemon/wiring/apps-usage.ts`(reader `snapshotPort`와 `loadSession`·`agentRefOf`), `packages/core/main/daemon/wiring/router-registration.ts`와 `packages/core/lophn-agent/places/directory.ts`(Router의 이름 풀기 `resolveAgent`가 `placeDepsOf(sql).roles.resolveNamed`다), `packages/core/agent-roles/place/session-directory.ts`(`createPlaceRoleRules`의 `resolveNamed`가 받는 이름의 규칙), `packages/core/projects/registry/model.ts`의 `nextRevision`(jobs는 projects를 import하지 않으니 같은 꼴을 jobs 안에 둔다), `packages/core/storage/ledger/after-commit.ts`(`afterCommit`)
   - 제품 결정: `project-docs/plan/schedule-job/README.md`의 "뼈대 검토에서 정한 것"(주기와 시각, "켤 때", job 지우기, 받는 agent 이름, 할당은 부를 때만)
 - 계약:
-  - 쓰는 것: `sj-jobs-contract`의 `packages/protocol/jobs/`(`JobRecord`, `JobRunRecord`, `JobHold`, `JobActionInput`, `jobCreate`, `jobUpdate`, `jobDelete`, `jobList`, `jobRunList`, `jobHolds`), `packages/core/jobs/ports.ts`(`jobCreatorPort`의 `creatorOf`·`resolveAgent`, `JOBS_CHANGED_TOPIC`, 환경 `jobs.zone`)
+  - 쓰는 것: `sj-jobs-contract`의 `packages/protocol/jobs/`(`JobRecord`, `JobRunRecord`, `JobHold`, `JobActionInput`, `jobCreate`, `jobUpdate`, `jobDelete`, `jobList`, `jobRunList`, `jobHolds`), `packages/core/jobs/ports.ts`(`jobCreatorPort`의 `creatorOf`·`resolveAgent`, `jobZonePort`, `JOBS_CHANGED_TOPIC`)
   - 내놓는 것:
     - `packages/core/jobs/schedule.ts`: `every`와 `at`과 zone으로 다음 차례를 셈하는 순수 함수(어느 시각 뒤의 첫 차례, 두 시각 사이에 놓친 차례 수). `every`의 단위는 `m|h|d`이고 `at`은 `d` 단위에만 쓴다. `at`은 그 zone(이 컴퓨터의 local 시간대)의 시각이다. 서머타임으로 그 시각이 없는 날은 그 뒤 첫 시각에, 같은 시각이 두 번 오는 날은 한 번만 돈다. `sj-jobs-due`가 쓴다.
     - `packages/core/jobs/store.ts`: job과 job run 줄을 읽고 쓰는 함수. `sj-jobs-due`가 같은 tx에서 쓴다.
     - `packages/core/jobs/register.ts`: `createLedgerRegistration(environment)`, `createReaderRegistration()`
-    - `packages/core/main/daemon/wiring/jobs-registration.ts`: `jobCreatorPort`(`creatorOf`, `resolveAgent`) 구현. writer는 `createCoreRegistration`, reader는 `createReaderRegistration`(agent의 `job.list`가 자기 job을 거른다)
+    - `packages/core/main/daemon/wiring/jobs-registration.ts`: `jobCreatorPort`(`creatorOf`, `resolveAgent`)와 `jobZonePort` 구현. writer는 `createCoreRegistration`, reader는 `createReaderRegistration`(agent의 `job.list`가 자기 job을 거른다)
     - 등록할 것(lead): assembly `TEAMS`·`TEAM_MODULES`
 
 ## 할 일
-
-추가(planner, 살 단계 뒤): 아래 "planner가 정한다 / 열지 않는다"로 남긴 시간대는 tx port `jobZonePort {zone(): string}`로 정했다(README). `jobRunEnded`에는 선택 칸 `reason`을 둔다. agent는 자기가 만든 job만 고치고 지운다(사람은 모두).
 
 1. `schema.ts`: `jobsSchemaSteps: readonly SchemaStep[]`, step id `jobs.tables` 하나(`packages/core/domains/schema.ts` 꼴, `STRICT`).
    - `jobs`: `id` PK, `title`(빈 글 아님), `creator_role`(네 role), `creator_id`(lophn은 NULL, 그 밖은 prj·app·agt id. `agentIdentityOf`(`packages/protocol/lophn-agent/places.ts`)가 정체성 열을 준다), `place_kind`·`place_id`(NULL이면 place 없음), `every`, `at`(NULL 가능), `action`(`JobAction` JSON 글), `missed_policy`(`run|hold`), `enabled`(0|1), `next_due_at`(NULL 가능), `revision`, `created_at`, `updated_at`. index `(creator_role, creator_id)`.
@@ -56,10 +54,10 @@ core module `jobs`의 표(`jobs`, `job_runs`), 주기 계산, agent command(`job
    - `at: "01:30"`: `due` `2026-10-31T05:30:00.000Z` 다음은 `2026-11-01T05:30:00.000Z`, 그 다음은 `2026-11-02T06:30:00.000Z`(`2026-11-01T06:30:00.000Z`가 아니다. 같은 날 두 번 돌지 않는다)
    - `dueTurns(spec, due, due 1분 뒤).next`로 본다. 그 밖의 셈(간격, 놓친 수)은 `sj-jobs-due`의 위험 test가 본다.
 6. `commands.ts`: `createJobCommands(): {create, update, delete}`. 모든 command는 job을 바꾼 뒤 `tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, {job, job_run: null})`를 한다.
-   - zone: 뼈대 문제(planner가 정한다). 계약 줄의 "writer 등록 환경 `jobs.zone`"은 writer Worker에 닿지 않는다(`packages/core/storage/ledger/writer-assembly.ts`의 `teamRegistration`이 `createLedgerRegistration({} as never)`를 부른다). 추천안은 `sj-jobs-contract`의 tx port `jobZonePort`이고, 이 brief는 그 안으로 쓴다: `tx.port(jobZonePort).zone()`.
-   - `create`(actor agent): `ctx.conditions.session`이 없으면 `forbidden`. `tx.port(jobCreatorPort).creatorOf(session)`이 `undefined`면 `forbidden`. `action.kind === "agent_run"`이면 `resolveAgent(action.agent)`로 AgentRef를 풀고 오류(`invalid_input`, `not_found`)는 그대로 돌려준다. tool file이 아니라 이 route가 푼다. `next_due_at = enabled ? firstDue(spec, tx.now()) : null`, `revision` `"1"`, id는 `tx.newId("job")`.
+   - zone은 `tx.port(jobZonePort).zone()`이다(README "살 단계 검토에서 정한 것". writer Worker에는 환경 hook이 닿지 않는다).
+   - `create`(actor agent): `ctx.conditions.session`이 없으면 `forbidden`. `tx.port(jobCreatorPort).creatorOf(session)`이 `undefined`면 `forbidden`. `action.kind === "agent_run"`이면 `resolveAgent(action.agent)`로 AgentRef와 그 agent의 place를 풀어 `action.agent`·`action.agent_place`로 저장하고, 오류(`invalid_input`, `not_found`)는 그대로 돌려준다. tool file이 아니라 이 route가 푼다. place는 차례마다 다시 찾지 않는다(계약 `JobAction`). `next_due_at = enabled ? firstDue(spec, tx.now()) : null`, `revision` `"1"`, id는 `tx.newId("job")`.
    - 정한 것: 할당(앱, tool)과 앱이 있는지는 만들 때 보지 않는다. 할당은 부를 때만 확인하고, 막히면 그 job run이 실패로 남는다(README).
-   - `update`(actor agent·user): 없으면 `not_found`. agent는 `creator`가 자기(`creatorOf`)가 아니면 `not_found`다. user는 어느 job이든 고친다. `at: null`은 지우고 `undefined`는 그대로 둔다. 합친 값에서 `at`이 있는데 `every`가 `d`가 아니면 `invalid_input`. `action`이 오면 create처럼 푼다. `next_due_at`: 꺼지면 null, 꺼져 있다 켜지거나 `every`·`at`이 바뀌면 `firstDue(spec, now)`(그때부터 새로 센다. 놓친 것으로 치지 않는다), 그 밖은 그대로. `revision`은 `nextRevision`, `updated_at`은 now.
+   - `update`(actor agent·user): 없으면 `not_found`. agent는 `creator`가 자기(`creatorOf`)가 아니면 `not_found`다. user는 어느 job이든 고친다. `at: null`은 지우고 `undefined`는 그대로 둔다. 합친 값에서 `at`이 있는데 `every`가 `d`가 아니면 `invalid_input`. `action`이 오면 create처럼 푼다. `next_due_at`: 꺼지면 null, 꺼져 있다 켜지거나 `every`·`at`이 바뀌면 `firstDue(spec, now)`(그때부터 새로 센다. 놓친 것으로 치지 않는다), 그 밖은 그대로. `revision`은 하나 올린다(`nextRevision` 꼴), `updated_at`은 now.
    - `delete`(actor agent·user): 권한은 update와 같다. `deleteJob`으로 job과 그 job run 줄을 지우고 `{job}`을 돌려준다. 도는 run은 건드리지 않는다(끝까지 돈다. 끝을 적는 `job.run_ended`가 `not_found`를 받는다).
    - 정한 것: job command는 revision 비교를 하지 않는다(계약의 `compare`가 비어 있다).
 7. `reads.ts`: `createJobReads(): {list, runList, holds}`.
@@ -69,17 +67,17 @@ core module `jobs`의 표(`jobs`, `job_runs`), 주기 계산, agent command(`job
 8. `register.ts`: `createLedgerRegistration(_environment?: unknown)`가 `{schemaSteps: jobsSchemaSteps, commands: [create, update, delete], reads: [list, runList, holds]}`, `createReaderRegistration()`가 같은 reads와 빈 `ports`를 낸다. `sj-jobs-due`가 같은 file의 `commands`에 넷을 더한다.
 9. `packages/core/main/daemon/wiring/jobs-registration.ts`: jobs가 `lophn-agent`·`agent-roles`를 모르므로 조립이 port를 꽂는다(`domains-registration.ts` 꼴).
    - `creatorOf(session)`: `loadSession({sql}, session)`(`packages/core/lophn-agent/session/model.ts`)이 없으면 `undefined`, 있으면 `{agent: agentRefOf(row), place: placeOf(row)}`.
-   - `resolveAgent(named)`: `placeDepsOf(sql).roles.resolveNamed(named)`(`packages/core/lophn-agent/places/mod.ts`. Router와 같은 이름 풀기). 결과가 `coding_agent`면 `invalid_input`.
-   - `createCoreRegistration()`: `{ports: [defineTxPort(jobCreatorPort, (tx) => lookupOf(tx.sql)), defineTxPort(jobZonePort, () => ({zone: () => Intl.DateTimeFormat().resolvedOptions().timeZone}))]}`(zone 줄은 할 일 6의 추천안).
+   - `resolveAgent(named)`: `placeDepsOf(sql).roles.resolveNamed(named)`(`packages/core/lophn-agent/places/mod.ts`. Router와 같은 이름 풀기). 결과가 `coding_agent`면 `invalid_input`. 같은 sql에서 place도 정한다: `placeOfAgentRef(agent)`(`packages/protocol/lophn-agent/places.ts`)가 undefined가 아니면 그것, Operator면 `placeDepsOf(sql).operators.operator(agent.agent)?.place`다(`headless-run`의 `hr-runs-wiring` `resolve`와 같은 셈). `{agent, place}`를 돌려준다.
+   - `createCoreRegistration()`: `{ports: [defineTxPort(jobCreatorPort, (tx) => lookupOf(tx.sql)), defineTxPort(jobZonePort, () => ({zone: () => Intl.DateTimeFormat().resolvedOptions().timeZone}))]}`.
    - `createReaderRegistration()`: `{reads: [], ports: new Map([[jobCreatorPort, snapshotPort((snapshot) => lookupOf(snapshot.sql))]])}`(`apps-usage.ts` 꼴).
 10. `lookups.ts`: 이 계획 안에서 jobs 표를 다른 module이나 조립이 읽을 일이 없다. 쓰는 곳이 없으면 만들지 않는다.
+11. `commands_test.ts`: 위험 test 하나(README "살 단계 검토에서 정한 것"). 메모리 SQLite에 `jobsSchemaSteps`를 깔고 가짜 tx(`jobCreatorPort`는 session → 만든 agent 표, `jobZonePort`는 `"UTC"`, `afterCommit`은 모으기만)로 부른다(`packages/core/domains/commands_test.ts` 꼴). agent A가 만든 job을 agent B 자격으로 `update`·`delete`하면 둘 다 `not_found`이고 job은 그대로다. user 자격은 둘 다 된다.
 
 ## 끝남
-추가(planner): 위험 test "agent는 다른 agent가 만든 job을 고치거나 지우지 못한다"를 `packages/core/jobs/commands_test.ts`에 둔다. 사람(user)은 모든 job을 고치고 지운다.
-
 
 - `deno task check`가 통과한다.
 - 위험 test: "서머타임이 바뀌는 날에도 at job의 차례는 그날 하나다"(`packages/core/jobs/schedule_test.ts`)
+- 위험 test: "agent는 다른 agent가 만든 job을 고치거나 지우지 못한다"(`packages/core/jobs/commands_test.ts`, 할 일 11). 사람(user)은 모든 job을 고치고 지운다.
 - `grep -rn "Date.now(\|new Date()\|Temporal.Now\|setTimeout(" packages/core/jobs`가 0줄이다(시각은 `tx.now()`와 인자로만 받는다).
 - `grep -rln "Intl\." packages/core/jobs`가 0줄이다(zone은 port로 받는다).
 - `grep -rn "\"\.\./\(agent-roles\|lophn-agent\|apps\|runs\)/" packages/core/jobs`가 0줄이다(protocol의 type만 쓴다. `check-deps`도 본다).

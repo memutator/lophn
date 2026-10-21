@@ -31,7 +31,7 @@ core가 parent pipe의 hello frame에 준 user token을 data root의 run 폴더�
 
 ## 할 일
 
-brief는 main `e192a9d8c` 기준이다. 앞 계획(`problem-remove`, `approval-simplify`)은 이 다섯 file을 소유하지 않는다. 고칠 곳은 이름으로 찾는다.
+brief는 main `550f75416` 기준이다. 고칠 곳은 줄 번호가 아니라 이름으로 찾는다.
 
 1. `packages/protocol/client/run-metadata.ts`
    - `RUN_METADATA_NAME` 옆에 `export const USER_TOKEN_FILE_NAME = "user-token";`을 더한다. 주석에 "왜"를 한 줄 쓴다: run 폴더에서 credential이 든 file은 이것 하나이고, `location.json`과 따로 둔다.

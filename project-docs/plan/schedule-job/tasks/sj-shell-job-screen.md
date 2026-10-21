@@ -12,7 +12,7 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
   - `packages/shell/renderer/desktop/entry.tsx`
   - `packages/shell/renderer/desktop/dev-mock/admin.ts`
   - `packages/shell/renderer/icons/settings.ts`
-  - `packages/shell/renderer/workspace/sidebar/`(run 목록과 run 줄 이름. 앞 계획 land 뒤 path 확인)
+  - `packages/shell/renderer/workspace/sidebar/`(run 목록과 run 줄 이름)
   - `packages/shell/renderer/workspace/source.ts`
   - `packages/shell/renderer/workspace/core-source.ts`
   - `packages/shell/renderer/workspace/fake-source.ts`
@@ -35,21 +35,21 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
     - "뼈대 검토에서 정한 것": job 화면은 모든 place의 job을 모은 목록 하나다. 사람도 job 화면에서 끄고 지운다. `job.delete`는 job과 그 기록을 지우고, 도는 run은 끝까지 돈다. job에 `title`을 둔다.
     - "살 단계 검토에서 정한 것": job이 연 run의 session은 sidebar에서 그 run 아래에 묶이고 run에 job `title`을 붙인다. 기록 줄은 그 run으로 가는 길이다. app 상세의 부른 쪽 이름은 이 화면의 낱말을 따른다.
   - roadmap: `project-docs/products/roadmap/headless-schedule.md`의 "정할 것" 1(1시간 주기 job이 session을 sidebar에 쌓으면 하루 24개)과 "놓친 차례"
-  - 앞 계획(run 목록의 정본): `project-docs/plan/headless-run/tasks/hr-screen-wireframe.md`(`RunList`, `RunRow`, `RunRecordView`, `PanelRun`, project sidebar의 run 묶음, 앱 공간의 "Background" 목록, 정한 것 1~9)와 `project-docs/plan/headless-run/tasks/hr-screen-data.md`(`WorkspaceSource.runs()`, `panelRuns`, 다시 읽는 때). 앞 계획 land 뒤 path 확인: 두 task가 실제로 land한 file과 이름을 먼저 본다.
-  - 계약: `project-docs/plan/schedule-job/tasks/sj-jobs-contract.md`와 코드 `packages/protocol/jobs/jobs.ts`(`JobRecord`, `JobRunRecord`, `jobList`, `jobRunList`, `jobUpdate`, `jobDelete`, route 표), `packages/protocol/jobs/values.ts`(`JobAction`, `JobRunState`, `every`·`at` 모양), `packages/protocol/events/transient.ts`(`JobChanged`). run은 `packages/protocol/runs/runs.ts`(`runRead`, `RUN_FAIL_REASONS`, 앞 계획 land 뒤 path 확인)
+  - 앞 계획(run 목록의 정본): `project-docs/plan/headless-run/tasks/hr-screen-wireframe.md`(`RunList`, `RunRow`, `RunRecordView`, `PanelRun`, project sidebar의 run 묶음, 앱 공간의 "Background" 목록, 정한 것 1~9)와 `project-docs/plan/headless-run/tasks/hr-screen-data.md`(`WorkspaceSource.runs`, `panelRuns`, 다시 읽는 때, `ListRuns`의 filter). 두 task가 land한 file과 이름을 먼저 보고, brief와 다르면 land한 것을 쓴다.
+  - 계약: `project-docs/plan/schedule-job/tasks/sj-jobs-contract.md`와 코드 `packages/protocol/jobs/jobs.ts`(`JobRecord`, `JobRunRecord`, `jobList`, `jobRunList`, `jobUpdate`, `jobDelete`, route 표), `packages/protocol/jobs/values.ts`(`JobAction`, `JobRunState`, `every`·`at` 모양), `packages/protocol/events/transient.ts`(`JobChanged`). run은 `packages/protocol/runs/runs.ts`(`runRead`, `RUN_FAIL_REASONS`, `headless-run`이 둔다)
   - 낱말: `project-docs/plan/schedule-job/tasks/sj-apps-program-caller.md`의 wording 줄(app 상세의 부른 쪽 이름 "Scheduled job")
   - architecture: `project-docs/architecture/ui-kit.md`의 "gallery가 정본이다", `project-docs/architecture/event.md`의 "agent event와 화면"(조건을 건 뒤 ready에 읽는다, session 없는 event는 종류 조건으로만 받는다)
   - boundary·module: `project-docs/boundary-catalog.yaml`의 `shell`, `project-docs/module-catalog.yaml`의 `packages/shell/renderer`
   - skill: `.claude/skills/ui-design/SKILL.md`("모든 화면의 규칙": 토글과 행동 단추는 줄 오른쪽 끝 고정 열), `.claude/skills/wording/SKILL.md`, `.claude/skills/write-test/SKILL.md`
   - 본보기(화면)
-    - 전역 목록 항목 하나의 꼴: `packages/shell/renderer/desktop/settings/reactions/`(`source.ts`, `core-source.ts`, `model.ts`, `reactions-panel.tsx`, `testdata/fake-source.ts`)
+    - 전역 목록 항목 하나의 꼴: `packages/shell/renderer/desktop/settings/shell-rules/`(`source.ts`의 `watch`와 읽기·쓰기, `core-source.ts`, `model.ts`, `shell-rules-panel.tsx`의 `failed`, `testdata/fake-source.ts`)
     - Settings 줄: `settings/general/general-panel.tsx`(`Switch` 줄, `endSlot`), `settings/general/named-control.tsx`, `settings/settings.module.css`(`paneTitle`, `lead`, `lines`, `line`, `lineMain`, `lineControl`), `settings/core-call.ts`(`call`, `command`), `settings/use-reload.ts`
     - gallery: `tools/wireframes/pages/screens/settings-frame.tsx`(SettingsSpace를 fake로 띄우는 틀), `headless-run`이 더한 page `new-agent-sidebar-runs`(`project-workspace.tsx`)와 `new-app-runs`(`app-space.tsx`), `tools/wireframes/mock/drive.ts`
   - renderer(모두 `packages/shell/renderer/` 아래)
     - Settings: `desktop/settings/model.ts`(`SettingsPane`, `SETTINGS_GROUPS`), `desktop/settings/settings-screen.tsx`(`SettingsPanels`, `bodyOf`), `desktop/settings/settings-space.tsx`, `desktop/settings/sidebar/sidebar.tsx`(읽기만)
     - 조립: `desktop/entry.tsx`(`settingsPanels`, `events`), `desktop/main.tsx`의 `openSession`(읽기만. session의 place로 창을 고른다), `desktop/dev-mock/admin.ts`(`mockSettingsPanels`)
     - 통로: `desktop/palette/catalog.ts`(`CatalogSource`), `desktop/connection/events/client.ts`(`EventClient.subscribe`), `desktop/connection/events/hooks.tsx`(`useSessions`), `desktop/connection/waiting/fake-source.ts`(`createFakeWaiting`, 읽기만), `icons/settings.ts`
-    - run 목록: `workspace/sidebar/run-list.tsx`, `workspace/sidebar/use-agent-panel.ts`(`PanelRun`, `PanelSession`, `agentPanelOf`), `workspace/sidebar/panel-sessions.ts`(`panelRuns`), `workspace/core-source.ts`의 `runs()`, `app-frame/app-runs.ts`, `parts/avatar/avatar.tsx`(`AvatarProfile`)
+    - run 목록: `workspace/sidebar/run-list.tsx`, `workspace/sidebar/use-agent-panel.ts`(`PanelRun`, `PanelSession`, `agentPanelOf`), `workspace/sidebar/panel-sessions.ts`(`panelRuns`), `workspace/core-source.ts`의 `runs(filter)`, `app-frame/app-runs.ts`, `parts/avatar/avatar.tsx`(`AvatarProfile`)
   - design: `@lophn/ui/input`의 `Switch`, `@lophn/ui/overlay`의 `Dialog`, `@lophn/ui/feedback`의 `EmptyState`·`ErrorState`·`Loading`, `@lophn/wording`의 `formatRelativeTime`
 - 계약:
   - 쓰는 것:
@@ -58,21 +58,15 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
     - `JobRecord`(`next_due_at`, `last_run`, `enabled`)
     - `JobRunRecord`의 `run`과 `session`(기록 줄이 그 run으로 가는 길)과 `reason`(`person`, `overlap`, `superseded`)
     - 남지 않는 event `JobChanged`
-    - `headless-run`의 run 목록: `RunList`·`RunRow`·`RunRecordView`(`workspace/sidebar/run-list.tsx`), `PanelRun`(`workspace/sidebar/use-agent-panel.ts`), `WorkspaceSource.runs()`, `app-frame/app-runs.ts`. 이 task가 `RunRecordView`에 `job_title`, `PanelRun`에 `title`, `RunRow`에 `note`, run 상태 보기에 두 값을 더한다(할 일 1).
+    - `headless-run`의 run 목록: `RunList`·`RunRow`·`RunRecordView`(`workspace/sidebar/run-list.tsx`), `PanelRun`(`workspace/sidebar/use-agent-panel.ts`), `WorkspaceSource.runs(filter: RunFilter)`, `app-frame/app-runs.ts`. 이 task가 `RunRecordView`에 `job_title`, `PanelRun`에 `title`, `RunRow`에 `note`, run 상태 보기에 두 값을 더한다(할 일 1).
     - `headless-run`의 run 읽기(`runRead`의 `error`)
-    - run 기록이 그 run을 시작한 job을 가리키는 칸(`job: Id<"job"> | null`). 지금 어느 계약에도 없다. planner가 `sj-runs-job-origin`(run 표와 run 기록)에 더한 뒤 이름을 맞춘다.
+    - run 기록이 그 run을 시작한 job을 가리키는 칸 `job: Id<"job"> | null`. 같은 wave의 `sj-runs-job-origin`이 run 기록에 더한다. renderer는 run 기록 JSON을 읽으므로 그 task와 import로 엮이지 않는다.
     - 팔레트의 `CatalogSource`(project와 앱 이름)
   - 내놓는 것: 화면 낱말 "Scheduled job"(복수 "Scheduled jobs"). `sj-apps-program-caller`의 app 상세 부른 쪽 이름과 `sj-shell-hold-card`의 대기 목록 묶음 이름이 이 낱말을 쓴다. 등록할 것(lead): gallery `tools/wireframes/pages/index.ts`의 Screens에 새 영역 `jobsArea`
 
 ## 할 일
 
-이 brief는 main `e192a9d8c` 기준이다. 앞 계획이 같은 file을 먼저 고친다.
-
-- `problem-remove`: `desktop/entry.tsx`와 Settings의 Reactions 목록
-- `approval-simplify`: Settings 항목(shell 규칙)
-- `headless-run`: run protocol, `RunList`와 project sidebar의 run 묶음, 앱 공간의 "Background" 목록, workspace source의 `runs()`
-
-아래의 줄 위치, `SETTINGS_GROUPS`의 System 묶음 내용, `runRead`의 이름과 path, `RunList`·`RunRow`·`PanelRun`·`app-runs.ts`의 실제 이름과 칸, gallery fixture의 자리는 앞 계획 land 뒤 path 확인.
+`headless-run`이 run protocol, `RunList`와 project sidebar의 run 묶음, 앱 공간의 "Background" 목록, workspace source의 run 읽기를 먼저 만든다. 아래의 `runRead`, `RunList`·`RunRow`·`RunRecordView`·`PanelRun`·`app-runs.ts`의 이름과 칸, gallery fixture의 자리는 그 계획 brief의 것이다. land한 이름이 다르면 그것을 쓰고 보고의 "정한 것"에 적는다. Settings의 `SETTINGS_GROUPS`는 지금 General(general, appearance, browser), Agents(providers, agents, tools, coding, shell-rules), System(diagnostics) 셋이다.
 
 근거: README "job 목록과 job run 기록은 화면에 둔다", "job 화면은 모든 place의 job을 한곳에 모은 목록 하나다", "사람도 job 화면에서 끄고 지운다", "job이 연 run의 session은 다른 run처럼 sidebar에서 그 run 아래에 묶인다. run에는 job의 `title`을 붙여 보인다". 자리는 아래 "정한 것" 1이다. run 줄의 모양은 `headless-run`의 `RunList` 하나를 쓴다(정한 것 3).
 
@@ -85,14 +79,14 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
    - `PanelRun`에 `title: string | null`을 더하고, `agentPanelOf`가 `RunRow.name`을 `title ?? <받는 agent 이름>`으로 만든다. avatar는 그대로 받는 agent다.
    - 상태와 시각을 그리는 오른쪽 끝 열을 component 하나로 export한다(job 줄의 마지막 run 표시가 같은 것을 쓴다).
 2. job이 연 run에 job 제목을 붙인다. 근거: README "살 단계 검토에서 정한 것". 어떤 run을 묶고 session을 그 아래 두는 규칙은 `headless-run` 그대로 둔다.
-   - `workspace/source.ts`의 `runs()` 주석에 `job_title`을 적는다. `workspace/core-source.ts`의 `runs()`는 run page를 모을 때 `jobList`도 모아 job id → `title` 표를 만들고, run 기록의 job 칸(계약 줄)으로 `job_title`을 채운다. job을 지웠거나 job run이 아니면 null이다. 한 번 읽을 때 `jobList`도 한 번이다(`hr-screen-data`가 정한 다시 읽는 때를 따른다).
+   - `workspace/source.ts`의 `runs` 주석에 `job_title`을 적는다. `workspace/core-source.ts`의 `runs`는 run page를 모을 때 `jobList`도 모아 job id → `title` 표를 만들고, run 기록의 job 칸(계약 줄)으로 `job_title`을 채운다. job을 지웠거나 job run이 아니면 null이다. `runs`를 한 번 부를 때 `jobList`도 한 번 모은다. 다시 읽는 때와 거르기(`RunFilter`)는 `hr-screen-data`가 정한 그대로다.
    - `workspace/fake-source.ts`: run fixture의 기본은 `job_title: null`이다.
    - `workspace/sidebar/panel-sessions.ts`의 `panelRuns`가 `PanelRun.title`에 `job_title`을 싣는다.
    - `app-frame/app-runs.ts`: 앱 공간 "Background" 목록의 `RunRow.name`을 `job_title ?? <지금 이름>`으로 만든다.
    - `workspace/workspace.tsx`는 위 값을 넘기는 데 필요할 때만 고친다.
 3. Settings 항목을 만든다(ui-design skill "새 화면 만들기". gallery page는 5에서 단다).
    - `desktop/settings/jobs/source.ts`: `JobsSource`.
-     - `watch(listener)`: core 연결 상태. Reactions와 같다(`useReload`가 쓴다).
+     - `watch(listener)`: core 연결 상태. Shell rules의 `ShellRulesSource.watch`와 같다(`useReload`가 쓴다).
      - `changed(listener): () => void`: job이 바뀌었다는 신호.
      - `jobs(cursor?)`: `SourceResult<{ jobs: JobRecord[]; next: string | null }>`
      - `history(job, cursor?)`: `SourceResult<{ lines: JobRunRecord[]; next: string | null }>`. 새것부터다.
@@ -113,7 +107,7 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
      - 기록 줄 → `RunRow`(`historyRow`). 칸은 아래와 같다.
        - `id`: job run id. `name`: 할 일 글. `profile`: agent run이면 받는 agent role의 icon(대기 목록 card의 얼굴과 같은 icon id), tool run이면 null. `at`: `due_at`.
        - `state`: queued·running → running, done → done, failed·interrupted → failed, cancelled → cancelled, held → waiting, skipped → skipped
-       - `note`: 아래 중 있는 것 하나. 놓친 차례를 대신한 줄이면 그 수, skipped면 이유 글(`person`, `overlap`, `superseded`만 글이 있다), interrupted면 "lophn이 꺼져 끊겼다", failed면 `failure(run)`이 읽은 이유
+       - `note`: 아래 중 있는 것 하나. 놓친 차례를 대신한 줄이면 그 수, skipped면 이유 글(`person`, `overlap`, `superseded`만 글이 있다), interrupted면 "lophn이 꺼져 끊겼다", failed면 `failure(run)`이 읽은 이유. run이 없는 failed 줄(시작 실패)은 고정 글 `jobs.label.fail-start`("Couldn't start")이고 job run의 `reason` 원문은 보이지 않는다(정한 것 14)
        - `session`: 그 run이 연 session이 있으면 `PanelSession`. `title`은 job 제목, `status`와 `open`은 `useSessions()`의 그 session, `at`은 `started_at`이다. `agent`는 이 화면에서 쓰지 않는다(빈 문자열).
    - `desktop/settings/jobs/jobs-panel.tsx`(줄이 길면 `job-history.tsx`로 나눈다)와 `jobs.module.css`(새 모양만. token 변수만 쓴다)
      - 머리: 항목 제목과 한 문장 안내. 읽는 중은 `Loading`, 못 읽으면 `ErrorState`, 없으면 `EmptyState`다.
@@ -124,11 +118,11 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
      - 오른쪽 끝 고정 열에 켜기 `Switch`와 기록 펼침 `IconButton`을 둔다.
      - 펼치면 그 job 아래에 기록을 `RunList`로 그린다(`historyRow`로 옮긴 줄, 새것부터).
        - session 줄을 누르면 `onOpenSession(session.id)`다. 그 session은 sidebar나 앱 공간의 "Background"에서 그 run 아래에 있다. 이것이 기록 줄의 "run으로 가는 길"이다.
-       - failed 줄의 이유는 펼칠 때 그 page의 failed 줄만 `failure(run)`으로 읽는다.
+       - failed 줄의 이유는 펼칠 때 그 page의 run이 있는 failed 줄만 `failure(run)`으로 읽는다.
        - `next`가 있으면 기록 아래에 [Show more]가 있다.
        - 기록 아래 오른쪽 끝에 [Delete]가 있다.
      - [Delete]는 `Dialog`로 한 번 묻는다. 기록도 같이 지워지고 도는 것은 끝까지 돈다는 한 문장을 둔다. 확인하면 `remove`한다.
-     - 켜기·지우기가 실패하면 앞의 값으로 돌아가고 그 줄에 오류 한 줄을 보인다(Reactions의 `failed`와 같다).
+     - 켜기·지우기가 실패하면 앞의 값으로 돌아가고 그 줄에 오류 한 줄을 보인다(Shell rules 화면이 저장하지 못한 줄에 `failed`로 `settings.error.value-not-saved`를 보이는 꼴).
      - drive가 찾을 data 속성: `data-jobs`, `data-job=<job id>`, `data-job-history`, `data-job-enabled`, `data-job-delete`. 기록 줄은 `RunList`의 `data-run`이다.
      - 읽기는 처음 열 때와 `useReload`, `changed`가 올 때 목록과 펼친 기록을 다시 한다.
    - `desktop/settings/model.ts`: `SettingsPane`에 `"jobs"`를 더하고, `SETTINGS_GROUPS`의 `system` 묶음 맨 앞에 `{ id: "jobs", label: "settings.label.tab-jobs", icon: settingsIcons.jobs }`를 둔다.
@@ -143,7 +137,7 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
    - `desktop/settings/jobs/core-source.ts`: `coreJobsSource(core: CoreSource, events: EventClient): JobsSource`. `../core-call.ts`의 `call`·`command`를 쓴다.
      - `jobs`: `jobList`를 `{ cursor? }`로 읽는다. 거르기 칸은 쓰지 않는다.
      - `history`: `jobRunList`
-     - `failure`: `runRead`를 읽고 그 run의 `error`를 돌려준다. 앞 계획 land 뒤 path 확인.
+     - `failure`: `runRead`를 읽고 그 run의 `error`를 돌려준다.
      - `setEnabled`: `jobUpdate`에 `{ job, enabled }`. `remove`: `jobDelete`에 `{ job }`. `compare`는 `{}`다(계약 "command의 `compare`는 모두 `z.strictObject({})`"). key는 job id와 바꿀 값으로 만든다.
      - `changed`: `events.subscribe({ types: ["JobChanged"] }, …)`이다. `ready`와 `event`를 받으면 listener를 부른다. session을 건 조건은 쓰지 않는다(`event.md`).
    - `desktop/entry.tsx`: `settingsPanels`에 `jobs: coreJobsSource(core, events)`를 더한다. `events`는 그 위에서 이미 만든다.
@@ -166,9 +160,9 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
 6. wording
    - `packages/design/wording/catalog/workspace-settings.ts`
      - 화면 낱말은 "Scheduled job"(복수 "Scheduled jobs")이다(정한 것 2). 항목 이름 `settings.label.tab-jobs`의 값이 "Scheduled jobs"다.
-     - 안내와 오류 대상은 Reactions처럼 `settings.intro.jobs`, `settings.label.jobs-target`이다.
+     - 안내와 오류 대상은 Shell rules(`settings.intro.shell-rules`, `settings.label.shell-rules-target`)처럼 `settings.intro.jobs`, `settings.label.jobs-target`이다.
      - 본문은 `jobs.*`다. 주기(분, 시간, 일 plural과 시각), 정책 둘, skip 이유 셋, 끊김 한 줄, 놓친 수, 다음 차례, 꺼짐, [Show more], [Delete], 확인 창 제목·본문·단추, 비었을 때, 실패 한 줄이다.
-     - run 실패 이유(`RUN_FAIL_REASONS`)는 `headless-run` 화면이 둔 key가 있으면 그것을 쓰고, 없으면 `jobs.label.fail-<reason>`으로 더한다. 앞 계획 land 뒤 path 확인.
+     - run 실패 이유(`RUN_FAIL_REASONS`)는 `jobs.label.fail-<reason>`으로 더한다. `headless-run` 화면은 실패 이유를 보이지 않아 그 key가 없다(`hr-screen-wireframe` 정한 것 6). land한 화면이 key를 두었으면 그것을 쓴다.
    - `packages/design/wording/catalog/project.ts`: `run-list.label.skipped`("Skipped") 하나. waiting은 `common.label.tab-waiting`을 쓴다.
    - `common.*`, `waiting.*`, `run-list.*`에 같은 뜻이 있으면 그것을 쓴다.
    - sidebar와 "Background"의 run 이름은 job `title` 그대로라 새 key가 없다.
@@ -176,16 +170,16 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
    - `deno task wording`으로 placeholders를 다시 만든다.
 
 정한 것:
-1. job 화면은 Settings의 System 묶음에 둔 항목 "Scheduled jobs"다(맨 앞, Reactions·Diagnostics와 같은 묶음). 이유는 넷이다.
+1. job 화면은 Settings의 System 묶음에 둔 항목 "Scheduled jobs"다(맨 앞, Diagnostics와 같은 묶음). README "살 단계 검토에서 정한 것"의 안이다. 이유는 넷이다.
    - README가 모든 place의 job을 한 목록에 모으라고 정했다. project 창과 앱 공간은 place 하나의 화면이고, Settings는 place 없는 전역 공간이다.
-   - Reactions도 같은 System 묶음에 있다. Reactions는 lophn이 사람 없이 하는 일을 사람이 켜고 끄는 항목이다.
+   - System 묶음은 lophn이 화면 밖에서 하는 일과 그 상태를 보는 자리다(Diagnostics). job은 lophn이 사람 없이 정해진 때 하는 일이다. Agents 묶음은 agent를 어떻게 돌릴지(provider, 정의, 도구, shell 규칙)를 정하는 자리라 맞지 않는다.
    - 항목 틀(sidebar 줄, 항목마다의 source, 오른쪽 끝 control 열)이 이미 있다.
-   - `SettingsSpace`가 이미 `CatalogSource`와 `onOpenSession`을 받는다.
+   - `SettingsSpace`가 이미 `CatalogSource`(`source`)와 `onOpenSession`을 받는다.
 
    사람이 gallery를 보고 자리를 옮기라 하면 그때 옮긴다(ui-design skill: 사람이 gallery를 보고 고른다).
 2. 화면 낱말은 "Scheduled job"이다. 이유: 값에 안쪽 말 `run`을 쓸 수 없고(그래서 `headless-run`의 목록 이름도 "Background"다), "job"만으로는 무엇이 언제 도는지 드러나지 않는다. `sj-apps-program-caller`가 app 상세의 부른 쪽 이름에 이미 이 값을 쓴다.
 3. job 기록은 `headless-run`의 `RunList`로 그린다. 상태 둘(waiting, skipped)과 `note` 한 줄만 더한다. 이유: planner가 run 줄 모양을 하나로 정했다. job 기록에는 run이 없는 줄(held, skipped)과 job만의 끝(interrupted)이 있어 그만큼만 넓힌다. 다른 목록에서는 이 값이 오지 않아 모양이 그대로다.
-4. job 제목은 `WorkspaceSource.runs()`가 `RunRecordView.job_title`로 한 번 풀고, project sidebar와 앱 공간 "Background"가 같이 쓴다. 이유: 두 화면이 같은 `runs()`를 읽는다(`hr-screen-data` 정한 것). 화면마다 따로 job을 읽지 않는다.
+4. job 제목은 `WorkspaceSource.runs(filter)`가 `RunRecordView.job_title`로 한 번 풀고, project sidebar와 앱 공간 "Background"가 같이 쓴다. 이유: 두 화면이 같은 `runs`를 거르기만 달리해 읽는다(`hr-screen-data` 정한 것). 화면마다 따로 job을 읽지 않는다.
 5. 사람이 이 화면에서 하는 것은 켜기·끄기와 지우기뿐이다. 주기, 할 일, 정책은 고치지 않는다. 이유: README "job은 agent가 만들고 켠다"와 "사람도 job 화면에서 끄고 지운다. '시킨 것이 승낙'이지만, 사람이 멈출 길은 있어야 한다".
 6. 지우기는 `Dialog`로 한 번 묻는다. 이유: 기록까지 지워지고 되돌릴 수 없다.
 7. held 줄에서는 결정하지 않는다. [지금 실행]·[건너뛰기]는 대기 목록 card(`sj-shell-hold-card`)의 일이다. 이 줄은 상태만 보인다.
@@ -195,6 +189,7 @@ job 목록과 job run 기록을 화면에 둔다. job이 연 run의 session은 �
 11. 만든 agent와 받는 agent는 role 이름과 role icon만 보인다(Operator의 정의 이름은 읽지 않는다). place는 `CatalogSource`의 이름이다. 이유: 대기 목록 card와 같은 수준이고 읽기를 늘리지 않는다.
 12. 목록과 기록은 한 page씩 읽고 [Show more]로 더 읽는다. 이유: 두 read가 cursor를 받는다.
 13. skip 이유는 계약 주석의 셋(`person`, `overlap`, `superseded`)만 글로 보인다. 모르는 값은 보이지 않는다. 이유: 계약 type이 `string | null`이다.
+14. run 없이 실패한 job run(시작 실패)은 고정 글 "Couldn't start"(`jobs.label.fail-start`)만 보이고 `reason`의 `<code>: <message>` 원문은 보이지 않는다. 이유: 13과 같이 화면은 정한 값만 글로 보이고, `failure(run)`은 run이 있어야 읽는다. (planner, 2026-10-22)
 
 ## 끝남
 

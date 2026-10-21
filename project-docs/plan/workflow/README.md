@@ -6,18 +6,16 @@
   - 단계 순서, 상태, 끝 판정은 두지 않는다.
 - **재료:**
   - roadmap `project-docs/products/roadmap/workflow.md` 전체(모양, 정한 것, 정할 것)
-  - roadmap `approval.md`(unattended가 call을 따라 감)
-  - architecture: `agent-call.md`, `agent-definition.md`(place 층, 연락처 목록), `domain.md`(domain 폴더), `place-session.md`
+  - architecture: `agent-call.md`(봉투, unattended는 call을 따라 간다), `agent-definition.md`(place 층, 연락처 목록, 지침은 한 번만 말한다), `domain.md`(domain 폴더), `place-session.md`, `approval.md`(turn mode)
 - **범위 밖:**
   - program이 이끄는 workflow(flow)와 결정적 program이 사는 곳(roadmap "정할 것" 1, 9)
-  - coding agent 참가자(roadmap "정할 것" 6, 보류)
+  - coding agent 참가자(roadmap "정할 것" 6, 보류. Router가 받는 곳이 coding agent인 call을 거절한다)
   - 비용 상한(roadmap "정할 것" 11)
   - workflow 화면(roadmap "정할 것" 12)
-  - eval과 e2e test(사람)
+  - 새 e2e test와 eval(사람). 있는 e2e는 land가 돌리고 통과해야 한다.
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `wf-`로 시작한다.
 - **시작 조건:** `headless-run`이 land했다. workflow를 사람 없이 시작하는 길이 run과 job이다.
-- **brief의 기준:** brief는 2026-10-21 main(`e192a9d8c`) 기준으로 썼다. 앞 계획이 land하면 planner가 path와 계약을 다시 맞춘 뒤 연다.
-  - `approval-simplify`가 land하며(main `dd956b49f`) roadmap `approval.md`의 "turn mode", "할당", "unattended는 call을 따라 간다" 절이 `architecture/approval.md`와 changelog 0.6.0으로 옮겨졌다. brief가 그 절을 가리키면 그쪽을 본다.
+- **brief의 기준:** brief는 2026-10-22 main(`550f75416`)에 다시 맞췄다. `headless-run`이 land하면 planner가 그 계획과 같이 고치는 file(`packages/protocol/lophn-agent/calls.ts`, `packages/protocol/lophn-agent/inputs.ts`, `packages/core/lophn-agent/session/model.ts`의 `messages` 표)의 줄만 다시 보고 연다.
 
 ## 정한 것
 
@@ -26,8 +24,8 @@ roadmap `workflow.md`의 "정한 것"을 따른다. roadmap "정할 것" 가운�
 - **연락처는 새 prompt 절로 싣는다**(roadmap 2). 자리는 place 층(cache 경계)이고, 전역 "Agents you can call" 목록과 섞지 않는다. Operator에 `description` 칸은 더하지 않는다. 연락처의 `when`이 그 일을 한다.
 - **봉투에는 workflow 안의 call일 때만 workflow 이름과 보낸 참가자 이름을 싣는다**(roadmap 3). workflow 밖 call의 `from`은 지금처럼 session이다.
 - **agent 하나가 workflow 여럿의 참가자면 prompt에 모두 싣는다**(roadmap 4). workflow마다 "너는 누구이고 연락처는 이것"이다.
-- **참가자는 그릇을 건널 수 있다**(roadmap 5). `{role, place, name}`으로 가리키고 Router가 지금처럼 정확히 푼다. call은 묻지도 막지도 않는다(`approval-simplify`).
-- **틀린 선언은 그 file만 빼고, 이유는 읽기 tool로 본다**(roadmap 7). `workflow.list`가 domain의 선언과 각 오류를 돌려준다. problem이나 toast는 만들지 않는다.
+- **참가자는 그릇을 건널 수 있다**(roadmap 5). `{role, place, name}`으로 가리키고 Router가 지금처럼 정확히 푼다. call은 묻지도 막지도 않는다(`architecture/agent-call.md`).
+- **틀린 선언은 그 file만 빼고, 이유는 읽기 tool로 본다**(roadmap 7). `workflow.list`가 domain의 선언과 각 오류를 돌려준다. toast는 띄우지 않는다.
 - **시작을 따로 만들지 않는다**(roadmap 8).
   - 선언에 시작 참가자(`entry`)를 적는다.
   - 사람은 그 agent에게 말을 걸고, run과 job은 그 agent를 부른다.
@@ -60,7 +58,9 @@ roadmap `workflow.md`의 "정한 것"을 따른다. roadmap "정할 것" 가운�
 
 ## lead가 할 일
 
-- merge할 때마다 바뀐 곳의 test를 돌린다. e2e와 eval은 돌리지 않는다(사람).
+- `schedule-job`과 같이 돌 수 있다. 두 계획이 겹치는 file은 `packages/core/agent-roles/tool-lists.ts`(`sj-jobs-tools`, `wf-decl-reader`가 각자 tool 줄을 더한다) 하나다. 나중에 land하는 lead가 rebase 때 두 쪽 줄을 다 남긴다.
+- merge할 때마다 바뀐 곳의 test를 돌린다. land(`project-docs/plan/tools/lead/land.sh`)는 `deno task check:full`과 `deno task e2e`를 돈다. 이 계획은 e2e를 새로 쓰지 않지만 있는 e2e는 통과해야 한다. eval은 돌리지 않는다(사람).
+- `deno task check`는 `tests/e2e`, `tests/eval`, `tests/support`도 type check하고 `tests/eval`의 test를 돈다. protocol type, route, 봉투를 바꾸는 task는 `tests/`의 쓰는 곳도 같이 고친다. 2026-10-22 main에서 찾은 쓰는 곳은 각 brief에 적었다.
 - 새 module을 만들면 `project-docs/module-catalog.yaml`과 `project-docs/boundary-catalog.yaml` 줄을 lead가 그 계약 task보다 먼저, 또는 같이 commit한다. 없으면 `check-modules`가 떨어진다.
 - 위험 test는 둘이다. roadmap의 둘을 `approval-simplify`와 위 결정에 맞게 바꿨다.
   - workflow 안의 call도 보낸 turn의 mode를 그대로 따른다. workflow 칸이 mode나 할당을 바꾸지 않는다.

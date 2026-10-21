@@ -1,5 +1,5 @@
-// renderer가 main에 요청하는 read·command와 worker에서 조립하는 읽기, 몇 개의 memory route, 그리고
-// byte route. token·port·종료는 이 schema에 없다. 어떤 worker·memory·upload·file route를 받을지는
+// renderer가 main에 요청하는 read·command와 몇 개의 memory route, 그리고
+// byte route. token·port·종료는 이 schema에 없다. 어떤 memory·upload·file route를 받을지는
 // main의 allowlist가 정한다. `upload`는 `bytes`를 본문으로 보내고(`body`는 route 입력) `file`은
 // `{ bytes, contentType }`로 답한다.
 import { z } from "zod";
@@ -10,7 +10,7 @@ const bytes = z.custom<Uint8Array>((value) =>
 );
 
 export const coreCallSchema = z.object({
-  kind: z.enum(["read", "command", "worker", "memory", "upload", "file"]),
+  kind: z.enum(["read", "command", "memory", "upload", "file"]),
   resource: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   method: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   body: z.unknown(),

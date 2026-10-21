@@ -8,6 +8,7 @@ import {
   type SkillEntry,
 } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { Role } from "../../../../protocol/lophn-agent/places.ts";
+import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppPlace } from "./agent-key.ts";
@@ -173,35 +174,23 @@ export async function readGlobalModel(
   return result.ok ? { ok: true, value: result.value.default } : result;
 }
 
-/** 자리의 LOPHN.md 글. 파일이 없거나 읽을 수 없으면 빈 글이다. */
+/**
+ * 자리의 LOPHN.md 글. [Edit]이 여는 path(`instructions.open`)를 shell main의 file read로 읽는다.
+ * 파일이 없거나 읽을 수 없으면 빈 글이다.
+ */
 export async function readInstructions(
-  link: Link,
   instructions: InstructionsApi | undefined,
+  files: Pick<FilesApi, "read"> | undefined,
   place: string,
 ): Promise<string> {
-  if (instructions === undefined) return "";
+  if (instructions === undefined || files === undefined) return "";
   try {
     const opened = await instructions.open({
       target: { layer: "project", place },
     });
-    if (
-      !opened.ok || opened.value.document === null ||
-      opened.value.version === null
-    ) {
-      return "";
-    }
-    const page = await link.worker<{ text: string | null }>(
-      "documents",
-      "read",
-      {
-        reference: {
-          document: opened.value.document,
-          version: opened.value.version,
-          section: null,
-        },
-      },
-    );
-    return page.ok ? page.value.text ?? "" : "";
+    if (!opened.ok) return "";
+    const read = await files.read({ path: opened.value.path });
+    return read.ok ? read.value.text : "";
   } catch {
     return "";
   }

@@ -22,6 +22,7 @@ import { refreshProviderModels } from "../../../../protocol/lophn-agent/provider
 import type { CatalogEntry } from "../../../../protocol/lophn-agent/models.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
 import {
@@ -70,6 +71,8 @@ const DEFAULT_PROFILE = { kind: "icon", icon: "roles" } as const;
 interface AgentsDeps {
   /** project의 LOPHN.md를 여는 main 통로. 없으면 지침 미리보기는 빈 글이다. */
   instructions: InstructionsApi | undefined;
+  /** project의 LOPHN.md를 읽는 main file 통로. 없으면 지침 미리보기는 빈 글이다. */
+  files: Pick<FilesApi, "read"> | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */
   random: () => string;
   /** 새 Operator ID의 무작위 byte. 테스트가 고정한다. */
@@ -82,6 +85,11 @@ function windowInstructions(): InstructionsApi | undefined {
   const bridge = (globalThis as { lophnInstructions?: InstructionsApi })
     .lophnInstructions;
   return bridge && typeof bridge.open === "function" ? bridge : undefined;
+}
+
+function windowFiles(): Pick<FilesApi, "read"> | undefined {
+  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+  return bridge && typeof bridge.read === "function" ? bridge : undefined;
 }
 
 function newOperatorId(bytes: Uint8Array): string {
@@ -131,6 +139,7 @@ export function coreAgentsSource(
   const instructions = "instructions" in deps
     ? deps.instructions
     : windowInstructions();
+  const files = "files" in deps ? deps.files : windowFiles();
   const random = deps.random ?? (() => crypto.randomUUID());
   const bytes = deps.bytes ??
     (() => crypto.getRandomValues(new Uint8Array(26)));
@@ -385,7 +394,7 @@ export function coreAgentsSource(
     place: string,
   ): Promise<{ text: string; project: string } | null> =>
     isAppPlace(place) ? null : {
-      text: await readInstructions(link, instructions, place),
+      text: await readInstructions(instructions, files, place),
       project: await nameOf(place),
     };
 

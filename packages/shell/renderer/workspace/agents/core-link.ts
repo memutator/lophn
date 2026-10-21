@@ -25,12 +25,6 @@ export interface Link {
     method: string,
     body: Record<string, unknown>,
   ): Promise<ReadResult<V>>;
-  /** worker가 조립하는 읽기 하나(문서 본문). */
-  worker<V>(
-    resource: string,
-    method: string,
-    body: Record<string, unknown>,
-  ): Promise<ReadResult<V>>;
   /** 쓰기 route 하나. compare는 읽을 때의 hash 같은 비교 기준이다. */
   command<R extends CommandRoute>(
     route: R,
@@ -40,7 +34,7 @@ export interface Link {
 
 export function createLink(core: CoreSource, random: () => string): Link {
   const call = async (
-    kind: "read" | "command" | "worker" | "memory",
+    kind: "read" | "command" | "memory",
     resource: string,
     method: string,
     body: unknown,
@@ -56,7 +50,7 @@ export function createLink(core: CoreSource, random: () => string): Link {
       return { ok: false, code: "unavailable", error: undefined };
     }
   };
-  const fetchValue = (kind: "read" | "worker" | "memory") =>
+  const fetchValue = (kind: "read" | "memory") =>
   async <V>(
     resource: string,
     method: string,
@@ -70,7 +64,6 @@ export function createLink(core: CoreSource, random: () => string): Link {
   return {
     read: fetchValue("read"),
     memory: fetchValue("memory"),
-    worker: fetchValue("worker"),
     command: (route, body) =>
       call(
         "command",

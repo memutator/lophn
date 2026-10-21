@@ -1,10 +1,5 @@
 export { criterionContent, judgeContent, scenarioHash } from "./authored.ts";
-export {
-  currentVersions,
-  measureCli,
-  openedOf,
-  seenComponents,
-} from "./components.ts";
+export { currentVersions, openedOf, seenComponents } from "./components.ts";
 export {
   checksVersion,
   classifyPath,

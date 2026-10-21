@@ -39,13 +39,6 @@ export function sentCalls(trial: TrialRecord, where?: CallWhere): SentCall[] {
     .filter((c) => where === undefined || matchWhere(c, where));
 }
 
-// 한 call이 실패하는 길이 둘이다: Gate가 막았거나 입력이 틀려 tool이 success가 아니거나,
-// tool은 success인데 Router가 늦게 알아 state가 failed다.
-export function callFailed(c: SentCall): boolean {
-  return (c.outcome !== null && c.outcome.kind !== "success") ||
-    c.state === "failed";
-}
-
 export function matchWhere(c: SentCall, where: CallWhere): boolean {
   return (where.target === undefined || matchTarget(c, where.target)) &&
     (where.notTarget === undefined || !matchTarget(c, where.notTarget)) &&

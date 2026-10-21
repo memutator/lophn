@@ -152,13 +152,6 @@ async function measureTemplate(root: string): Promise<Measured> {
   };
 }
 
-export function measureCli(
-  name: string,
-  versionText: string,
-): Promise<Measured> {
-  return textComponent("cli", name, versionText);
-}
-
 async function measureGroup(
   root: string,
   group: "assembly" | "runtime",

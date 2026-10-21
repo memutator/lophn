@@ -36,20 +36,7 @@ import {
   SOL,
   SONNET,
 } from "./agent-tab-fake-models.ts";
-import {
-  ARCHIVE,
-  COMMANDS_GROUP,
-  COMPACT,
-  FORK,
-  MCP,
-  NEW_APP,
-  NEW_SESSION,
-  PERMISSIONS,
-  RENAME,
-  REPAIR_APP,
-  SKILLS,
-  SKILLS_GROUP,
-} from "./agent-tab-fake-commands.ts";
+import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
 
 /** 고를 수 있는 장면. 이름은 wireframe의 Agent 탭 장면을 따른다. */
 export const AGENT_TAB_SCENES = [
@@ -57,7 +44,7 @@ export const AGENT_TAB_SCENES = [
   "report",
   /** skip을 켠 session. 대화는 `report`와 같다. */
   "skip",
-  /** 일하는 중에 steer로 보낸 메시지와 할 일. `/recap`과 `/permissions`도 이 장면에서 연다. */
+  /** 일하는 중에 steer로 보낸 메시지와 할 일. `/permissions`도 이 장면에서 연다. */
   "working",
   "queued",
   "request-error",
@@ -653,12 +640,6 @@ function sceneData(scene: AgentTabScene): SceneData {
 
 // ---- 읽기 값 ----
 
-const RECAP: readonly string[] = [
-  "You asked for this week's eval report. lophn read 3 findings and started a run on Eval board.",
-  "F-011 is a regression on query-recipe-gap. The board shows 3 failed scenarios.",
-  "Still open: the exp-008 numbers you asked to add, and the last edit of docs/reports/2026-w41.md.",
-];
-
 const PERMISSIONS_VIEW: PermissionsView = {
   apps: [
     { name: "Eval board", removed: [] },
@@ -781,41 +762,13 @@ function modelView(
   };
 }
 
-const RECAP_ENTRY = {
-  name: "recap",
-  title: "Recap",
-  description: "Show a short summary of this session",
-  source: "builtin",
-  skillOrigin: null,
-  whileRunning: "run",
-} as const;
-
-// 전역 built-in 아홉 줄의 고정 순서에 recap이 더해졌다. 일하는 중에 써도 다음 turn에 들어간다.
-const ALL_COMMANDS: readonly SlashGroupView[] = [
-  {
-    ...COMMANDS_GROUP,
-    entries: [
-      NEW_SESSION,
-      RENAME,
-      ARCHIVE,
-      COMPACT,
-      FORK,
-      MCP,
-      SKILLS,
-      PERMISSIONS,
-      RECAP_ENTRY,
-    ].map((entry) => ({ ...entry, whileRunning: "queue" as const })),
-  },
-  { source: "role", title: "lophn", entries: [NEW_APP, REPAIR_APP] },
-  SKILLS_GROUP,
-];
+const ALL_COMMANDS: readonly SlashGroupView[] = [COMMANDS_GROUP, SKILLS_GROUP];
 
 const NEEDS_SESSION = new Set([
   "rename",
   "archive",
   "compact",
   "fork",
-  "recap",
   "permissions",
 ]);
 
@@ -1008,7 +961,6 @@ export function createFakeAgentTabSource(
     commands: (session, query) => ok(filterGroups(query, session !== null)),
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
-    recap: () => ok(RECAP),
 
     send({ session, id, text, delivery }) {
       bodies.set(id, [{ kind: "text", text }]);

@@ -76,7 +76,7 @@ interface AgentComposerProps {
   /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다. */
   onSend: () => void;
   onStop: () => void;
-  /** `/` 창에서 명령을 골랐거나 `/이름 인자`를 보냈다. recap처럼 보기를 여는 명령은 host가 연다. */
+  /** `/` 창에서 명령을 골랐거나 `/이름 인자`를 보냈다. permissions처럼 보기를 여는 명령은 host가 연다. */
   onCommand: (entry: SlashEntryView, argument: string) => void;
   /** model·명령 목록을 읽지 못했다. */
   onProblem: () => void;

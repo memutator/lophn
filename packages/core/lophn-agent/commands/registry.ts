@@ -1,18 +1,17 @@
 import {
   BUILTIN_COMMAND_IDS,
+  BUILTIN_SKILLS,
   type CommandEntry,
-  type CommandNotice,
-  type Role,
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
 // `/` 명령 registry. 저장하는 표가 아니라 열 때마다
-// 코드의 built-in·role 목록과 그 agent가 쓸 수 있는 skill에서 계산하는 값이다(domain
+// 코드의 built-in 목록과 그 agent가 쓸 수 있는 skill에서 계산하는 값이다(domain
 // model 정책). IO가 없는 순수 함수다.
 
 // extensions의 skill 발견 결과에서 registry가 쓰는 칸만이다. `origin`은 skill을 찾은
 // 층(builtin, global, domain)이고, `selected`는 agent 정의에서
-// 끄지 않았는지다.
+// 끄지 않았는지다. 같은 이름은 발견이 한 줄로 줄여 준다.
 export type RegistrySkill = {
   name: string;
   description: string;
@@ -20,134 +19,63 @@ export type RegistrySkill = {
   selected: boolean;
 };
 
-// role마다의 role 명령 목록이다. role 층이 정하고 조립이 꽂는다.
-export type RoleCommands = Record<Role, readonly CommandEntry[]>;
-
-type RegistryInput = {
-  role: Role;
-  roleCommands: RoleCommands;
-  skills: readonly RegistrySkill[];
-};
-
-// entries는 전역 built-in(고정 순서) · role 명령 · skill(이름 사전순)의 순서다.
-// notices는 built-in 이름과 같아 `/`에서 빠진 skill을 알린다.
-type CommandRegistry = {
-  entries: readonly CommandEntry[];
-  notices: readonly CommandNotice[];
-};
-
 type BuiltinId = typeof BUILTIN_COMMAND_IDS[number];
 
 const BUILTIN_TABLE: Record<
   BuiltinId,
-  Pick<CommandEntry, "title" | "description" | "while_running">
+  Pick<CommandEntry, "title" | "description">
 > = {
   new: {
     title: "New session",
     description: "Start a new session with this agent",
-    while_running: "run",
   },
-  rename: {
-    title: "Rename",
-    description: "Rename this session",
-    while_running: "run",
-  },
-  archive: {
-    title: "Archive",
-    description: "Archive this session",
-    while_running: "run",
-  },
+  rename: { title: "Rename", description: "Rename this session" },
+  archive: { title: "Archive", description: "Archive this session" },
   compact: {
     title: "Compact",
     description: "Summarize this session to free up context",
-    while_running: "queue",
   },
-  fork: {
-    title: "Fork",
-    description: "Copy this session into a new one",
-    while_running: "queue",
-  },
-  mcp: {
-    title: "MCP",
-    description: "Show MCP server status",
-    while_running: "run",
-  },
+  fork: { title: "Fork", description: "Copy this session into a new one" },
+  mcp: { title: "MCP", description: "Show MCP server status" },
   skills: {
     title: "Skills",
     description: "Turn skills on or off for this agent",
-    while_running: "run",
   },
   permissions: {
     title: "Permissions",
     description: "Show the apps and MCP servers this agent can use",
-    while_running: "run",
-  },
-  recap: {
-    title: "Recap",
-    description:
-      "Summarize this session briefly on screen and leave the history as it is",
-    while_running: "run",
   },
 };
 
-// 모든 agent 공통 전역 built-in을 고정 순서로 준다.
-function builtinCommands(): readonly CommandEntry[] {
-  return BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
+const BUILTIN_NAMES: ReadonlySet<string> = new Set(BUILTIN_COMMAND_IDS);
+
+// 안내 skill(menu=false)은 model이 읽는 것이라 메뉴에서 뺀다. 사람은 말로 묻는다. 사람이 쓴 skill은 늘 뜬다.
+function onMenu(skill: RegistrySkill): boolean {
+  if (skill.origin !== "builtin") return true;
+  return BUILTIN_SKILLS.find((builtin) => builtin.name === skill.name)?.menu ??
+    false;
+}
+
+// built-in(고정 순서) 뒤에 skill(이름 사전순)이다. 끈 skill은 없는 것과 같고, built-in 이름과 같은 skill은 `/`로
+// 부를 수 없어 빠진다(skill 자체는 읽을 수 있다).
+export function buildRegistry(
+  skills: readonly RegistrySkill[],
+): CommandEntry[] {
+  const builtins = BUILTIN_COMMAND_IDS.map((id): CommandEntry => ({
     name: id,
     ...BUILTIN_TABLE[id],
     source: "builtin",
-    skill_origin: null,
-    action: { kind: "builtin", id },
   }));
-}
-
-// 이름 영문 사전순이고, 같은 이름은 마지막 층(domain, global, builtin 순)이 앞이다. 같은 이름은
-// 마지막 층 하나만 남는다.
-const ORIGIN_RANK: Record<SkillSource, number> = {
-  domain: 0,
-  global: 1,
-  builtin: 2,
-};
-function compareSkills(a: RegistrySkill, b: RegistrySkill): number {
-  if (a.name !== b.name) return a.name < b.name ? -1 : 1;
-  return ORIGIN_RANK[a.origin] - ORIGIN_RANK[b.origin];
-}
-
-export function buildRegistry(input: RegistryInput): CommandRegistry {
-  const builtins = builtinCommands();
-  const roles = input.roleCommands[input.role].map((entry) =>
-    structuredClone(entry)
-  );
-  const reserved = new Map<string, CommandNotice["reserved_by"]>();
-  for (const entry of builtins) reserved.set(entry.name, "builtin");
-  for (const entry of roles) reserved.set(entry.name, "role");
-
-  // 끈 skill은 없는 것과 같다. 예약된 이름의 skill은 목록에서 빠지고 알림이 된다.
-  const selected = input.skills.filter((skill) => skill.selected)
-    .toSorted(compareSkills);
-  const usable = selected.filter((skill, index) =>
-    !reserved.has(skill.name) && selected[index - 1]?.name !== skill.name
-  );
-  const notices: CommandNotice[] = [];
-  for (const skill of selected) {
-    const reserved_by = reserved.get(skill.name);
-    if (
-      reserved_by !== undefined &&
-      notices[notices.length - 1]?.name !== skill.name
-    ) {
-      notices.push({ kind: "reserved_name", name: skill.name, reserved_by });
-    }
-  }
-
-  const skillEntries = usable.map((skill): CommandEntry => ({
-    name: skill.name,
-    title: null,
-    description: skill.description,
-    source: "skill",
-    skill_origin: null,
-    while_running: "queue",
-    action: { kind: "skill", skill_name: skill.name },
-  }));
-
-  return { entries: [...builtins, ...roles, ...skillEntries], notices };
+  const skillEntries = skills
+    .filter((skill) =>
+      skill.selected && !BUILTIN_NAMES.has(skill.name) && onMenu(skill)
+    )
+    .toSorted((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    .map((skill): CommandEntry => ({
+      name: skill.name,
+      title: null,
+      description: skill.description,
+      source: "skill",
+    }));
+  return [...builtins, ...skillEntries];
 }

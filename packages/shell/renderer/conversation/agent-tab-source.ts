@@ -375,7 +375,7 @@ export const EMPTY_THREAD: ThreadView = {
   pending: { approval: null, questions: null },
 };
 
-// ---- model, 명령, 권한, recap ----
+// ---- model, 명령, 권한 ----
 
 /** model 단추와 picker가 그릴 값. 정렬·거르기·값 맞춤은 model catalog가 정하고, 바꾼 값 맞춤은 안내 없이 조용히 맞춘다. */
 export interface ModelView {
@@ -486,21 +486,20 @@ export interface AgentTabSource {
     query: string,
   ): Promise<SourceResult<ModelView>>;
 
-  // `/` 명령. session이 없으면 session이 있어야 하는 명령은 목록에 없다. 전역 built-in에 `recap`이 있다.
+  // `/` 명령. session이 없으면 session이 있어야 하는 명령은 목록에 없다.
   commands(
     session: string | null,
     query: string,
   ): Promise<SourceResult<readonly SlashGroupView[]>>;
-  /** role 명령과 skill 명령. 정한 prompt나 skill 이름이 든 사람의 메시지로 접수한다. */
+  /** skill 명령. skill을 쓰라는 한 줄과 `/이름` 뒤의 글을 사람의 메시지로 다음 turn에 접수한다. */
   runCommand(
     session: string,
     entry: SlashEntryView,
+    argument: string,
     key: string,
   ): Promise<SourceResult<void>>;
   /** `/permissions`와 입력칸 아래 요약. */
   permissions(session: string | null): Promise<SourceResult<PermissionsView>>;
-  /** `/recap`. 이력에 들어가지 않는 요약이다. */
-  recap(session: string): Promise<SourceResult<readonly string[]>>;
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;

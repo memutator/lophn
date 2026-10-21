@@ -18,7 +18,6 @@ import {
   QuestionEndedScene,
   QuestionScene,
   QueuedMessageScene,
-  RecapScene,
   RequestErrorScene,
   RewindScene,
   SenderChipsScene,
@@ -189,8 +188,6 @@ export const AgentCommands = () => weekly({ stage: "report", slash: "/" });
 /** 일하는 중 "/re"로 걸러진 메뉴. 고른 명령은 다음 turn에 들어간다. */
 export const AgentCommandsFiltered = () =>
   withTab(workingTab({ slash: "/re" }));
-/** `/recap`의 결과. */
-export const AgentRecap = RecapScene;
 /** `/permissions`의 보기. */
 export const AgentPermissions = PermissionsScene;
 /** 질문 카드. */

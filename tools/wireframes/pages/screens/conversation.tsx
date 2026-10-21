@@ -123,7 +123,6 @@ function stepsOf(tab: TabSpec): readonly Step[] {
   if (chat.view === "permissions") {
     steps.push(() => type(COMPOSER, "/permissions", true));
   }
-  if (chat.view === "recap") steps.push(() => type(COMPOSER, "/recap", true));
   return steps;
 }
 

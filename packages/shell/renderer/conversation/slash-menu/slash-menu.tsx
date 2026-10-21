@@ -1,5 +1,5 @@
-// 입력칸에서 `/`를 치면 composer 위로 뜨는 명령 메뉴. 아이콘·이름·설명이 한 줄인 얇은 행이고, 묶음(전역
-// built-in, agent별 built-in, Skills)은 얇은 선으로 나눈다. 목록·거르기는 source가 계산해 props로 주고, 이
+// 입력칸에서 `/`를 치면 composer 위로 뜨는 명령 메뉴. 아이콘·이름·설명이 한 줄인 얇은 행이고, 묶음(Commands와
+// Skills)은 얇은 선으로 나눈다. 목록·거르기는 source가 계산해 props로 주고, 이
 // component는 받은 묶음을 순서대로 그리며 query와 맞는 글자를 굵게 한다. 일하는 중 고른 명령은 모두 다음
 // turn에 들어간다.
 import { type ComponentProps, Fragment, type ReactNode } from "react";
@@ -46,7 +46,7 @@ export function slashQuery(text: string): string | null {
   return text.startsWith("/") && !/\s/.test(text) ? text.slice(1) : null;
 }
 
-// 아이콘은 명령 이름으로 고른다. skill과 모르는 role 명령은 같은 아이콘이다.
+// built-in 명령의 아이콘은 이름으로 고른다. skill은 모두 같은 아이콘이다.
 const ICONS: Readonly<Record<string, IconType>> = {
   new: conversationIcons.newSession,
   rename: editorIcons.edit,
@@ -56,10 +56,6 @@ const ICONS: Readonly<Record<string, IconType>> = {
   mcp: settingsIcons.providers,
   skills: settingsIcons.tools,
   permissions: commonIcons.settings,
-  recap: conversationIcons.result,
-  "new-app": commonIcons.apps,
-  "repair-app": editorIcons.restore,
-  "check-kinds": editorIcons.problem,
 };
 
 function iconOf(entry: SlashEntryView): IconType {

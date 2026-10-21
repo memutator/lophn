@@ -1,5 +1,5 @@
 // agent 화면의 고정 데이터와, 데이터에서 탭을 만드는 작은 함수들. phroner 예시 project의 lophn·Project
-// Manager·Operator 둘과 agent별 session, `/` 명령이다. model과 option은 models-data.ts(catalog)에서만 온다.
+// Manager·Operator 둘과 agent별 session이다. model과 option은 models-data.ts(catalog)에서만 온다.
 import type { Step } from "./drive.ts";
 import type { ModelSelection } from "./model-options.ts";
 import type { TabSpec } from "../pages/screens/project-window.tsx";
@@ -32,7 +32,7 @@ export interface ChatInit {
   /** composer가 처음 가리키는 model. 없으면 `SESSION_MODEL`이다. */
   readonly model?: ModelSelection;
   /** `/` 명령이 대화 화면에 낸 보기를 연 채 시작한다. */
-  readonly view?: "permissions" | "recap";
+  readonly view?: "permissions";
 }
 
 /** agent profile의 icon. 사용자가 올린 이미지는 icon 대신 image다. */
@@ -282,5 +282,3 @@ export const AGENTS_TAB: TabSpec = {
   kind: "agents",
   title: "phroner · Agents",
 };
-
-// ---- `/` 명령 ----

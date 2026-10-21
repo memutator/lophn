@@ -27,7 +27,6 @@ export const conversation = {
   "conversation.button.question-next": "Next",
   "conversation.button.question-submit": "Submit",
   "conversation.button.queued-remove": "Remove from the queue",
-  "conversation.button.recap-dismiss": "Dismiss",
   "conversation.button.remove-model": "Remove model",
   "conversation.button.refresh-models": "Refresh models",
   "conversation.button.rename": "Rename",
@@ -291,8 +290,6 @@ export const conversation = {
     "Waiting for your answer. Sending a message instead also ends the questions.",
   "conversation.notice.questions-ended-by-message":
     "You sent a message while the questions were open, so they closed. The agent reads your message as the answer.",
-  "conversation.notice.recap-local":
-    "Only shown here. The conversation itself is unchanged.",
   "conversation.notice.request-failed": "The request failed.",
   "conversation.notice.retry-failed": "Couldn't try again. Try once more.",
   "conversation.notice.rewind-apps":
@@ -361,7 +358,6 @@ export const conversation = {
   "conversation.title.manage-models": "Manage models",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.question-asking": "{agent} is asking",
-  "conversation.title.recap": "Recap",
   "conversation.title.rewind": "Rewind to here",
   "project-workspace.notice.agent-not-ready":
     "Conversations aren't ready yet. Try again in a moment.",

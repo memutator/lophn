@@ -4,20 +4,16 @@
 export interface SlashEntryView {
   /** `/` 뒤에 치는 이름(compact, eval-metrics). */
   readonly name: string;
-  /** built-in·role 명령의 메뉴 제목(Compact). skill은 null이라 이름을 보인다. */
+  /** built-in 명령의 메뉴 제목(Compact). skill은 null이라 이름을 보인다. */
   readonly title: string | null;
   readonly description: string;
-  readonly source: "builtin" | "role" | "skill";
-  /** 메뉴는 읽지 않는다. 같은 이름이면 마지막 층이 덮어 출처를 달지 않는다. 옛 source가 아직 채운다. */
-  readonly skillOrigin: "builtin" | "global" | "domain" | null;
-  /** 메뉴는 읽지 않는다. 일하는 중 고른 명령은 모두 다음 turn에 들어간다. 옛 source가 아직 채운다. */
-  readonly whileRunning: "run" | "queue" | "blocked";
+  readonly source: "builtin" | "skill";
 }
 
-/** Commands · <agent 이름> · Skills 중 하나. 맞는 명령이 없는 묶음은 목록에 없다. */
+/** Commands · Skills 중 하나. 맞는 명령이 없는 묶음은 목록에 없다. */
 export interface SlashGroupView {
   readonly source: SlashEntryView["source"];
-  /** 묶음 머리 글. 둘째 묶음은 agent 이름이다. */
+  /** 묶음 머리 글. */
   readonly title: string;
   readonly entries: readonly SlashEntryView[];
 }

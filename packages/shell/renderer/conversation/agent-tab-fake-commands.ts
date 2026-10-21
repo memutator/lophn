@@ -5,118 +5,65 @@ function builtin(
   name: string,
   title: string,
   description: string,
-  whileRunning: SlashEntryView["whileRunning"] = "run",
 ): SlashEntryView {
-  return {
-    name,
-    title,
-    description,
-    source: "builtin",
-    skillOrigin: null,
-    whileRunning,
-  };
+  return { name, title, description, source: "builtin" };
 }
 
-function role(name: string, title: string, description: string) {
-  return {
-    name,
-    title,
-    description,
-    source: "role",
-    skillOrigin: null,
-    whileRunning: "queue",
-  } satisfies SlashEntryView;
+function skill(name: string, description: string): SlashEntryView {
+  return { name, title: null, description, source: "skill" };
 }
-
-function skill(
-  name: string,
-  description: string,
-  skillOrigin: SlashEntryView["skillOrigin"] = null,
-): SlashEntryView {
-  return {
-    name,
-    title: null,
-    description,
-    source: "skill",
-    skillOrigin,
-    whileRunning: "queue",
-  };
-}
-
-export const NEW_SESSION = builtin(
-  "new",
-  "New session",
-  "Start a new session with this agent",
-);
-export const RENAME = builtin("rename", "Rename", "Rename this session");
-export const ARCHIVE = builtin("archive", "Archive", "Archive this session");
-export const COMPACT = builtin(
-  "compact",
-  "Compact",
-  "Summarize this session to free up context",
-  "queue",
-);
-export const FORK = builtin(
-  "fork",
-  "Fork",
-  "Copy this session into a new one",
-  "blocked",
-);
-export const MCP = builtin("mcp", "MCP", "Show MCP server status");
-export const SKILLS = builtin(
-  "skills",
-  "Skills",
-  "Turn skills on or off for this agent",
-);
-export const PERMISSIONS = builtin(
-  "permissions",
-  "Permissions",
-  "See which apps this agent can use",
-);
 
 /** 모든 agent 첫 묶음. 고정 순서이고 알파벳순이 아니며 Feedback은 없다. */
 export const COMMANDS_GROUP: SlashGroupView = {
   source: "builtin",
   title: "Commands",
   entries: [
-    NEW_SESSION,
-    RENAME,
-    ARCHIVE,
-    COMPACT,
-    FORK,
-    MCP,
-    SKILLS,
-    PERMISSIONS,
+    builtin("new", "New session", "Start a new session with this agent"),
+    builtin("rename", "Rename", "Rename this session"),
+    builtin("archive", "Archive", "Archive this session"),
+    builtin(
+      "compact",
+      "Compact",
+      "Summarize this session to free up context",
+    ),
+    builtin("fork", "Fork", "Copy this session into a new one"),
+    builtin("mcp", "MCP", "Show MCP server status"),
+    builtin("skills", "Skills", "Turn skills on or off for this agent"),
+    builtin(
+      "permissions",
+      "Permissions",
+      "Show the apps and MCP servers this agent can use",
+    ),
   ],
 };
 
-export const NEW_APP = role(
-  "new-app",
-  "New app",
-  "Start a new app",
-);
-export const REPAIR_APP = role(
-  "repair-app",
-  "Repair app",
-  "Find and fix what broke in an app",
-);
-
-const EVAL_METRICS = skill(
-  "eval-metrics",
-  "Compute pass rate and regressions",
-);
-const RELEASE_NOTES = skill(
-  "release-notes",
-  "Draft release notes from merged changes",
-);
-const WEEKLY_REPORT = skill(
-  "weekly-report",
-  "Write the weekly eval report",
-);
-
-/** 이름 영문 사전순. 전역 skill과 agent 전용 skill을 가르지 않고 출처 표시도 없다. */
+/**
+ * lophn에게 core가 낼 값이다: 사람이 부르는 내장 skill(new-app, repair-app. 설명은 SKILL.md frontmatter 그대로)과
+ * 전역 skill을 이름 영문 사전순으로 둔다. 사용법 안내 skill은 model이 읽는 것이라 없다.
+ */
 export const SKILLS_GROUP: SlashGroupView = {
   source: "skill",
   title: "Skills",
-  entries: [EVAL_METRICS, RELEASE_NOTES, WEEKLY_REPORT],
+  entries: [
+    skill(
+      "eval-metrics",
+      "Compute pass rate and regressions",
+    ),
+    skill(
+      "new-app",
+      "Start a new app with the person: find out what it should do, check what already exists, then register it and hand it to its App Engineer.",
+    ),
+    skill(
+      "release-notes",
+      "Draft release notes from merged changes",
+    ),
+    skill(
+      "repair-app",
+      "Find out what went wrong in one of the person's apps from its status, log and failed calls, tell the person what you found, and hand the fix to that app's App Engineer.",
+    ),
+    skill(
+      "weekly-report",
+      "Write the weekly eval report",
+    ),
+  ],
 };

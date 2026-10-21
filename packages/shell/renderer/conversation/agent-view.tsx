@@ -1,5 +1,5 @@
 // Agent 화면: 한 agent의 한 session을 보이는 탭 본문. 위에서 아래로 header, 대화 줄, composer 위의 질문·승인 카드와
-// "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한·recap은 대화 위에 하나만 여는 panel 층이다. core와는
+// "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconButton } from "@lophn/ui/primitives";
@@ -45,7 +45,6 @@ import type { DraftStore } from "./drafts.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
-import { RecapCard } from "./recap/recap-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
@@ -89,8 +88,7 @@ interface AgentViewProps {
 /** 열려 있는 panel. 하나만 열린다. */
 type Layer =
   | { readonly kind: "rewind"; readonly message: string }
-  | { readonly kind: "permissions" }
-  | { readonly kind: "recap"; readonly lines: readonly string[] };
+  | { readonly kind: "permissions" };
 
 type Problem = "open-failed" | "stop-failed" | "action-failed";
 
@@ -313,13 +311,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     onSessionChange(null);
   };
 
-  const showRecap = async () => {
-    if (session === null) return;
-    const read = await source.recap(session);
-    if (read.ok) setLayer({ kind: "recap", lines: read.value });
-    else fail();
-  };
-
   const showPermissions = async () => {
     if (await loadPermissions()) setLayer({ kind: "permissions" });
   };
@@ -364,9 +355,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
         case "permissions":
           clear();
           return void showPermissions();
-        case "recap":
-          clear();
-          return void showRecap();
         case "mcp":
         case "skills":
           clear();
@@ -374,13 +362,13 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       }
       return;
     }
-    // role 명령과 skill 명령은 사람이 보낸 말로 접수되므로 session이 있어야 한다.
+    // skill 명령은 사람이 보낸 말로 접수되므로 session이 있어야 한다.
     clear();
     void (async () => {
       const target = await ensureSession();
       if (target !== null) {
         await perform(() =>
-          source.runCommand(target, command, newId("cmd", now()))
+          source.runCommand(target, command, argument, newId("cmd", now()))
         );
       }
     })();
@@ -524,14 +512,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
                     permissions={permissions}
                     onClose={() => setLayer(null)}
                     onEdit={host.openPermissions}
-                  />
-                )
-                : null}
-              {layer.kind === "recap"
-                ? (
-                  <RecapCard
-                    lines={layer.lines}
-                    onDismiss={() => setLayer(null)}
                   />
                 )
                 : null}

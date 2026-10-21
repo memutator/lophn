@@ -1,5 +1,5 @@
 // Agent 탭의 새 설계 화면들. 모두 동작하는 ProjectApp 위에 고정 상태로 놓고, 탭 본문은 renderer의 AgentView가 장면(fake
-// source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한, recap.
+// source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한.
 import { ProjectApp } from "../project-app.tsx";
 import type { ChatInit } from "../../../mock/agents-data.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
@@ -53,13 +53,6 @@ export const ApprovalStatesScene = () => <Scene sub="approval-states" />;
 export const SkipScene = () => <Scene sub="skip" />;
 /** rewind: 내 메시지에서 그 시점으로 되돌리는 panel이 대화 화면 안에 열린다. 앱은 앱마다 고른다. */
 export const RewindScene = () => <Scene sub="rewind" />;
-/** `/recap`: session을 짧게 요약해 보이고 대화 이력은 그대로 둔다. */
-export const RecapScene = () => (
-  <Scene
-    sub="working"
-    chat={{ view: "recap" }}
-  />
-);
 /** `/permissions`: 그 agent에 할당한 앱과 앱마다 뺀 tool, MCP server는 설정한 곳을 가리키는 한 줄. */
 export const PermissionsScene = () => (
   <Scene sub="working" chat={{ view: "permissions" }} />

@@ -86,7 +86,7 @@ import {
   messageDirectory,
   messageRouter,
 } from "../router/mod.ts";
-import { createCommandReads, type RoleCommands } from "./commands/mod.ts";
+import { createCommandReads } from "./commands/mod.ts";
 import {
   conversationSchemaSteps,
   createConversationCommands,
@@ -584,7 +584,6 @@ export function createLedgerRegistration(
 // 값은 모두 Worker 안에서 팀 file을 import할 때 만들어진다.
 export type LophnAgentPorts = {
   lookups: PlaceLookups;
-  roleCommands: RoleCommands;
   operatorPlaceAllowed: AgentDeps["operatorPlaceAllowed"];
   roles: AgentRoleTable;
   // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. role 층의 값이다.
@@ -692,7 +691,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // agent 정의가 고른 것이 있으면 그 밖의 것은 selected=false다.
   // 내장 skill은 발견이 role로 거른다.
   const commandReads = createCommandReads({
-    roleCommands: ports.roleCommands,
     skills: (sql, session) => {
       const chosen = chosenOf(sql, session.agent);
       return commandSkillsOf(

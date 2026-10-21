@@ -14,7 +14,6 @@ import {
   AgentQuestionAnswered,
   AgentQuestionEnded,
   AgentQueuedMessage,
-  AgentRecap,
   AgentRequestError,
   AgentRewind,
   AgentSenderChips,
@@ -129,7 +128,7 @@ export const agentArea: Area = {
       id: "new-agent-commands",
       title: "Agent · commands",
       description:
-        "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 선으로 나눈다. Recap이 있고 Permissions는 할당한 앱을 보인다.",
+        "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 Commands와 Skills 둘이며 선으로 나눈다. lophn의 Skills에는 사람이 부르는 내장 skill(new-app, repair-app)과 전역 skill이 이름 순으로 있고, 사용법 안내 skill은 메뉴에 없다. /이름 뒤에 글을 쓰면 skill 요청과 그 글이 한 메시지로 들어간다.",
       render: () => <AgentCommands />,
     },
     {
@@ -138,13 +137,6 @@ export const agentArea: Area = {
       description:
         "일하는 중 /re로 거른 메뉴다. 이름이나 설명에 맞는 것만 남고, 고른 명령은 다음 turn에 들어간다고 줄 오른쪽에 보인다.",
       render: () => <AgentCommandsFiltered />,
-    },
-    {
-      id: "new-agent-recap",
-      title: "Agent · recap",
-      description:
-        "/recap 결과다. session을 짧게 요약해 보이고 대화 이력은 그대로 둔다.",
-      render: () => <AgentRecap />,
     },
     {
       id: "new-agent-permissions",

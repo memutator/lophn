@@ -21,7 +21,6 @@ import {
 import { ThreadScroll } from "../../../../packages/shell/renderer/conversation/message-list/thread-scroll.tsx";
 import { PermissionsView } from "../../../../packages/shell/renderer/conversation/permissions-view/permissions-view.tsx";
 import { QueuedMessages } from "../../../../packages/shell/renderer/conversation/queued/queued-messages.tsx";
-import { RecapCard } from "../../../../packages/shell/renderer/conversation/recap/recap-card.tsx";
 import { ToolRow } from "../../../../packages/shell/renderer/conversation/activity/tool-line.tsx";
 import turns from "../../../../packages/shell/renderer/conversation/message-list/turns.module.css";
 import view from "../../../../packages/shell/renderer/conversation/agent-view.module.css";
@@ -82,7 +81,7 @@ function entryOf(row: SessionRow): SessionEntry {
 
 /**
  * Agent 탭의 틀: agent header, 대화, 질문·승인 카드, composer. `children`은 보기 상세에 따라 대화를 그린다.
- * `panel`은 대화 화면 안에 열리는 panel이다. `/permissions`와 `/recap`은 이 틀이 직접 연다.
+ * `panel`은 대화 화면 안에 열리는 panel이다. `/permissions`는 이 틀이 직접 연다.
  */
 export function ChatShell(
   {
@@ -162,13 +161,6 @@ export function ChatShell(
           onEdit={() => {}}
         />
       )
-      : view_ === "recap"
-      ? (
-        <RecapCard
-          lines={["Recap of this session."]}
-          onDismiss={() => setView(undefined)}
-        />
-      )
       : null);
 
   return (
@@ -238,7 +230,6 @@ export function ChatShell(
           onCommand={(entry) => {
             setText("");
             if (entry.name === "permissions") setView("permissions");
-            if (entry.name === "recap") setView("recap");
           }}
           onProblem={() => {}}
         />

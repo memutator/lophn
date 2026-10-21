@@ -16,7 +16,6 @@ import {
   answerQuestions,
   decidePermission,
   readCommands,
-  recap,
   removeQueuedMessage,
   retryTurn,
   runCommand,
@@ -78,11 +77,6 @@ function createSource(
   const retryIds = new Map<string, string>();
   const rewindIds = createRewindIds();
 
-  const agentName = async (): Promise<string> => {
-    const face = await readFace(env, faceCache);
-    return face.ok ? face.value.name : "";
-  };
-
   return {
     agent: () => readFace(env, faceCache),
     sessions: () => readSessions(env, activeTimes),
@@ -99,10 +93,10 @@ function createSource(
     setModelOption: (session, axis, value, query) =>
       modelPart.setModelOption(session, axis, value, query),
 
-    commands: (session, query) => readCommands(env, session, query, agentName),
-    runCommand: (session, entry, key) => runCommand(env, session, entry, key),
+    commands: (session, query) => readCommands(env, session, query),
+    runCommand: (session, entry, argument, key) =>
+      runCommand(env, session, entry, argument, key),
     permissions: () => readPermissions(env),
-    recap: () => recap(),
 
     send: (input) => sendText(env, input),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),

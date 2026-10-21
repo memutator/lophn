@@ -4,15 +4,14 @@ import type { CommandEntry } from "./commands.ts";
 // core가 같은 입력에 같은 목록을 얻도록 contracts에 둔다. 의존성·시각·무작위·IO가 없고 zod를
 // import하지 않는다.
 
-// Commands · <agent 이름> · Skills 세 묶음 중 하나다. 맞는 명령이 없는 묶음은 목록에
-// 없다.
+// Commands · Skills 두 묶음 중 하나다. 맞는 명령이 없는 묶음은 목록에 없다.
 type CommandGroup = {
-  source: "builtin" | "role" | "skill";
+  source: CommandEntry["source"];
   title: string;
   entries: readonly CommandEntry[];
 };
 
-const GROUP_ORDER = ["builtin", "role", "skill"] as const;
+const GROUP_ORDER = ["builtin", "skill"] as const;
 
 function hasWordStartingWith(text: string, separator: RegExp, query: string) {
   return text.split(separator).some((word) => word.startsWith(query));
@@ -31,15 +30,10 @@ function matches(entry: CommandEntry, query: string): boolean {
 // registry 순서를 그대로 지킨다.
 export function listCommands(
   registry: { readonly entries: readonly CommandEntry[] },
-  agent_name: string,
   query: string,
 ): readonly CommandGroup[] {
   const needle = query.toLowerCase();
-  const titles = {
-    builtin: "Commands",
-    role: agent_name,
-    skill: "Skills",
-  } as const;
+  const titles = { builtin: "Commands", skill: "Skills" } as const;
   const groups: CommandGroup[] = [];
   for (const source of GROUP_ORDER) {
     const entries = registry.entries.filter((entry) =>

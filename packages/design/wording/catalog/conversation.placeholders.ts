@@ -34,7 +34,6 @@ export type ConversationPlaceholders = {
   "conversation.button.question-next": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
-  "conversation.button.recap-dismiss": Record<never, never>;
   "conversation.button.remove-model": Record<never, never>;
   "conversation.button.refresh-models": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
@@ -350,7 +349,6 @@ export type ConversationPlaceholders = {
   "conversation.notice.permissions-edited-in-agents": Record<never, never>;
   "conversation.notice.question-waiting": Record<never, never>;
   "conversation.notice.questions-ended-by-message": Record<never, never>;
-  "conversation.notice.recap-local": Record<never, never>;
   "conversation.notice.request-failed": Record<never, never>;
   "conversation.notice.retry-failed": Record<never, never>;
   "conversation.notice.rewind-apps": Record<never, never>;
@@ -418,7 +416,6 @@ export type ConversationPlaceholders = {
   "conversation.title.question-asking": {
     agent: "string";
   };
-  "conversation.title.recap": Record<never, never>;
   "conversation.title.rewind": Record<never, never>;
   "project-workspace.notice.agent-not-ready": Record<never, never>;
   "conversation.title.sender-details": Record<never, never>;

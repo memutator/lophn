@@ -31,11 +31,7 @@ import type {
   SendInput,
   SourceResult,
 } from "./agent-tab-source.ts";
-import {
-  dropValue,
-  type Env,
-  unavailable,
-} from "./agent-tab-core-source-env.ts";
+import { dropValue, type Env } from "./agent-tab-core-source-env.ts";
 
 // ---------------------------------------------------------------- `/` 명령
 
@@ -73,8 +69,7 @@ export async function readCommands(
   env: Env,
   session: string | null,
   query: string,
-  agentName: () => Promise<string>,
-): Promise<SourceResult<SlashGroupView[]>> {
+): Promise<SourceResult<readonly SlashGroupView[]>> {
   const registry = await registryOf(env, session);
   if (!registry.ok) return registry;
   // session이 없으면 session이 있어야 하는 built-in은 쓸 수 없다.
@@ -84,62 +79,34 @@ export async function readCommands(
       !SESSION_ONLY.has(entry.name)
     )
     : registry.value;
-  const groups = listCommands({ entries }, await agentName(), query);
-  return {
-    ok: true,
-    value: groups.map((group) => ({
-      source: group.source,
-      title: group.title,
-      entries: group.entries.map((entry) => ({
-        name: entry.name,
-        title: entry.title,
-        description: entry.description,
-        source: entry.source,
-        skillOrigin: entry.skill_origin,
-        whileRunning: entry.while_running,
-      })),
-    })),
-  };
+  return { ok: true, value: listCommands({ entries }, query) };
 }
 
 /** session이 있어야 하는 전역 명령. */
-const SESSION_ONLY = new Set(["rename", "archive", "compact", "fork", "recap"]);
+const SESSION_ONLY = new Set(["rename", "archive", "compact", "fork"]);
 
-/** role 명령과 skill 명령은 정한 prompt나 skill 이름이 든 사람의 메시지로 접수한다. */
+/**
+ * skill 명령은 skill을 쓰라는 한 줄과 `/이름` 뒤의 글이 든 사람의 메시지로 접수한다. 목록은 다시 읽지 않는다. 그 사이 skill이
+ * 꺼졌으면 agent의 skill.read가 not_found를 내고 agent가 사람에게 말한다.
+ */
 export async function runCommand(
   env: Env,
   session: string,
   entry: SlashEntryView,
+  argument: string,
   key: string,
 ): Promise<SourceResult<void>> {
-  if (entry.source === "builtin") return { ok: false, code: "invalid_input" };
-  const registry = await readRegistry(env, session);
-  if (!registry.ok) return registry;
-  const found = registry.value.find((item) =>
-    item.name === entry.name && item.source === entry.source
-  );
-  if (found === undefined) return { ok: false, code: "not_found" };
-  // 정한 tool 하나를 실행하는 명령은 renderer가 실행할 길이 없다.
-  if (found.action.kind === "tool" || found.action.kind === "builtin") {
-    return unavailable;
-  }
-  const text = found.action.kind === "prompt"
-    ? found.action.template
-    : t("conversation.body.skill-command-request", {
-      skill: found.action.skill_name,
-    });
+  if (entry.source !== "skill") return { ok: false, code: "invalid_input" };
+  const request = t("conversation.body.skill-command-request", {
+    skill: entry.name,
+  });
   return await sendText(env, {
     session,
     id: newId("msg", env.now()),
     key: `commands-run-${key}`,
-    text,
+    text: argument === "" ? request : `${request}\n\n${argument}`,
     delivery: "next_turn",
   });
-}
-
-/** `/recap`은 읽는 route가 없다. */
-export function recap(): Promise<SourceResult<readonly string[]>> {
-  return Promise.resolve(unavailable);
 }
 
 // ---------------------------------------------------------------- 보내기

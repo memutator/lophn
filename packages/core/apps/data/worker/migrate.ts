@@ -35,6 +35,8 @@ type MigrateOutcome = {
   result: ActivationDataResult;
   // 중간 실패로 첫 변경 전 backup을 복원했으면 true.
   restored: boolean;
+  // 복원했으면 실패한 단계(`<from>-<to>`)와 그 글.
+  failed?: { step: string; message: string };
 };
 
 function unavailable(message: string): Result<never> {
@@ -115,12 +117,15 @@ export async function migrateAppDatabase(
       [`${script.change.from}:${script.change.to}`, script] as const
     ),
   );
-  let failed = false;
+  let failed: { step: string; message: string } | null = null;
   try {
     for (const step of path.value.steps) {
       const script = byKey.get(`${step.from}:${step.to}`);
       if (script === undefined) {
-        failed = true;
+        failed = {
+          step: `${step.from}-${step.to}`,
+          message: "no script for the step",
+        };
         break;
       }
       const applied = db.applyStep(script.sql, {
@@ -130,14 +135,17 @@ export async function migrateAppDatabase(
         appliedAt: input.appliedAt,
       });
       if (!applied.ok) {
-        failed = true;
+        failed = {
+          step: `${step.from}-${step.to}`,
+          message: applied.error.message,
+        };
         break;
       }
     }
   } finally {
     db.close();
   }
-  if (failed) {
+  if (failed !== null) {
     const restored = await restoreAppBackup(
       input.dataArea,
       input.databasePath,
@@ -151,6 +159,7 @@ export async function migrateAppDatabase(
         integrity_ok: true,
       },
       restored: true,
+      failed,
     });
   }
   const after = openAppDatabase(input.databasePath);

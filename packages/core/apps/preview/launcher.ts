@@ -131,6 +131,12 @@ type Entry = {
 
 type AppSlot = { entry: Entry | undefined; pending: Promise<void> };
 
+// tool 이름 5개와 "and N more". 준비가 떨어진 이유에 실린다.
+function listed(names: readonly string[]): string {
+  const head = names.slice(0, 5).join(", ");
+  return names.length > 5 ? `${head} and ${names.length - 5} more` : head;
+}
+
 function startLine(input: {
   launch: PreviewLaunch;
   broker: string;
@@ -296,16 +302,31 @@ export function createPreviewLauncher(
       });
       return;
     }
-    const declared = [...launch.tools].sort();
-    const reported = [...probe.tools].sort();
+    const noHandler = launch.tools.filter((name) =>
+      !probe.tools.includes(name)
+    );
+    const undeclared = probe.tools.filter((name) =>
+      !launch.tools.includes(name)
+    );
     if (
-      declared.length !== reported.length ||
-      declared.some((key, index) => key !== reported[index]) ||
+      noHandler.length > 0 || undeclared.length > 0 ||
       probe.dataSchema !== launch.dataSchema
     ) {
+      const parts: string[] = [];
+      if (noHandler.length > 0) {
+        parts.push(`declared without a handler: ${listed(noHandler)}`);
+      }
+      if (undeclared.length > 0) {
+        parts.push(`handler not declared: ${listed(undeclared)}`);
+      }
+      if (probe.dataSchema !== launch.dataSchema) {
+        parts.push(
+          `data schema declared ${launch.dataSchema}, app reports ${probe.dataSchema}`,
+        );
+      }
       await failStart(entry, {
         code: "start_failed",
-        summary: "handler or schema mismatch",
+        summary: `handler or schema mismatch: ${parts.join("; ")}`,
       });
       return;
     }

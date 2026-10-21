@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { sha256Hex } from "../../../../base/mod.ts";
 import type {
   BundleManifest,
@@ -36,8 +36,7 @@ async function migrationOk(
       previousSchema,
       area,
     });
-    if (!outcome.ok) assertEquals(outcome.reason.length > 0, true);
-    return outcome.ok;
+    return outcome;
   } finally {
     await Deno.remove(root, { recursive: true });
     await Deno.remove(area, { recursive: true });
@@ -52,6 +51,7 @@ Deno.test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle
     number,
     number | null,
     boolean,
+    string[]?,
   ][] = [
     ["맞는 bundle", { "0-1": NOTES, "1-2": add }, 2, 1, true],
     [
@@ -63,6 +63,7 @@ Deno.test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle
       2,
       1,
       false,
+      ["1-2", "no such table: missing"],
     ],
     [
       "PRIMARY KEY 없는 표",
@@ -70,16 +71,19 @@ Deno.test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle
       1,
       null,
       false,
+      ["0-1", "notes"],
     ],
     ["빈 DB에서 닿지 못함", { "1-2": add }, 2, null, false],
     ["active release schema가 길 위에 없음", { "0-2": NOTES }, 2, 1, false],
   ];
-  for (const [label, steps, dataSchema, previous, expected] of cases) {
-    assertEquals(
-      await migrationOk(steps, dataSchema, previous),
-      expected,
-      label,
-    );
+  for (const [label, steps, dataSchema, previous, expected, reasons] of cases) {
+    const outcome = await migrationOk(steps, dataSchema, previous);
+    assertEquals(outcome.ok, expected, label);
+    if (!outcome.ok) {
+      for (const text of reasons ?? []) {
+        assertStringIncludes(outcome.reason, text, label);
+      }
+    }
   }
 });
 

@@ -54,6 +54,17 @@ function fail(
   return err({ code, reason });
 }
 
+// deno stderr의 앞 5줄 500자. 색 escape와 staging 경로를 지워 앱 source 기준 경로로 보이게 한다.
+// reason에 붙어 agent가 고칠 곳(blueprint, 화면 code, package 판)을 가리킨다.
+function denoHead(code: string, stderr: string, staging: string): string {
+  const esc = String.fromCharCode(27);
+  const text = stderr.replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
+    .replaceAll(`file://${staging}/`, "").replaceAll(`${staging}/`, "")
+    .split("\n").slice(0, 5).join("\n").trim();
+  if (text === "") return code;
+  return `${code}: ${text.length > 500 ? `${text.slice(0, 500)}...` : text}`;
+}
+
 type Run = { code: number; stdout: string; stderr: string };
 
 async function runDeno(
@@ -160,6 +171,7 @@ async function fetchExternal(
     signal?: AbortSignal;
     limitMs: number;
     env: Record<string, string>;
+    staging: string;
   },
 ): Promise<Result<{ path: string; bytes: Uint8Array }[], PrepareFailure>> {
   if (specifiers.length === 0) return ok([]);
@@ -188,7 +200,12 @@ async function fetchExternal(
   });
   if (fetched === "aborted") return fail("cancelled");
   if (fetched === "timeout") return fail("elapsed_ms");
-  if (fetched.code !== 0) return fail("dependency_fetch_failed", "unavailable");
+  if (fetched.code !== 0) {
+    return fail(
+      denoHead("dependency_fetch_failed", fetched.stderr, options.staging),
+      "unavailable",
+    );
+  }
   const files = await readVendorFiles(directory);
   if (!files.ok) return fail(files.error.reason, "unavailable");
   return ok(files.value);
@@ -265,7 +282,9 @@ export async function prepareFromSource(
     ], { cwd: staging, signal: deps.signal, limitMs });
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
-    if (evaluated.code !== 0) return fail("blueprint_eval_failed");
+    if (evaluated.code !== 0) {
+      return fail(denoHead("blueprint_eval_failed", evaluated.stderr, staging));
+    }
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
     // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만(호출자가 `cacheBuildTools`로 미리 받아 둔다), env는 이름만 허락한다. write는 staging과, esbuild deno
@@ -292,8 +311,10 @@ export async function prepareFromSource(
     if (built === "aborted") return fail("cancelled");
     if (built === "timeout") return fail("elapsed_ms");
     if (built.code !== 0) {
-      console.error(built.stderr);
-      return fail("ui_build_failed", "unavailable");
+      return fail(
+        denoHead("ui_build_failed", built.stderr, staging),
+        "unavailable",
+      );
     }
     const screens = await readBuiltScreens(staging);
     if (aborted()) return fail("cancelled");
@@ -314,6 +335,7 @@ export async function prepareFromSource(
         signal: deps.signal,
         limitMs,
         env: buildEnvironment(`${staging}/.tmp`),
+        staging,
       },
     );
     if (!vendored.ok) return vendored;

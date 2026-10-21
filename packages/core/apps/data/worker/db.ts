@@ -37,6 +37,13 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
+// SQLite 오류 글을 한 줄 300자로 줄인다. agent가 읽을 reason에 실린다.
+function oneLine(error: unknown): string {
+  const text = (error instanceof Error ? error.message : String(error))
+    .replace(/\s+/g, " ").trim();
+  return text.length > 300 ? `${text.slice(0, 300)}...` : text;
+}
+
 function tableNames(db: DatabaseSync): Set<string> {
   return new Set(
     db.prepare(
@@ -126,13 +133,13 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
         ).run(next.dataSchema, next.scriptHash, next.appliedAt);
         db.exec("commit");
         return ok(undefined);
-      } catch {
+      } catch (error) {
         try {
           db.exec("rollback");
         } catch {
           // rollback 실패도 단계를 적용된 것으로 보지 않는다.
         }
-        return unavailable("migration step rolled back");
+        return unavailable(`migration step rolled back: ${oneLine(error)}`);
       }
     },
     close() {

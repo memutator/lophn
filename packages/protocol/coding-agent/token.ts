@@ -33,7 +33,7 @@ export const CodingTokens: PortKey<CodingTokens> = definePort<CodingTokens>(
   "CodingTokens",
 );
 
-// session이 속한 앱. ticket 쪽이 "token은 앱 하나만 연다"를 검사할 때 쓴다.
+// session이 속한 앱. 앱 하나 범위를 보는 쪽(annotation 읽기 등)이 "token은 앱 하나만 연다"를 검사할 때 쓴다.
 export type CodingSessionLookup = { appOf(session: string): string | null };
 export const CodingSessionLookup: PortKey<CodingSessionLookup> = definePort<
   CodingSessionLookup

@@ -1,28 +1,21 @@
-// 맡긴 coding call을 닫고 맡긴 App Engineer("열린 session, 없으면 새 session")에게 그 사실을 새 입력으로
-// 넣는다. 같은 tx 안에서 call을 닫으므로 Router의 실패 알림이 같은 사실을 한 번 더 보내지 않는다.
+// 맡긴 coding call을 닫고 맡긴 App Engineer("열린 session, 없으면 새 session")에게 그 사실을 한 번 알린다.
+// 같은 tx 안에서 call을 닫으므로 Router의 실패 알림이 같은 사실을 한 번 더 보내지 않는다. domain event는 없다.
 import { ok, type Result } from "../../../base/mod.ts";
 import type { CallRef } from "../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import { createCallStore, routerFor } from "../../router/mod.ts";
 
 // 입력 본문은 고정 문구다. 본문 blob을 미리 준비해 둘 수 있어야 하므로 session마다 다른 값을 넣지 않는다.
+// "끝났다"는 session이 있었을 때만 말한다. 띄우지 못했는데 끝났다고 하면 일이 된 줄 안다.
 export const CODING_REACTION_TEXTS = {
-  TicketCompletionReported: "The coding agent reported the ticket complete.",
-  TicketClaimExpired:
-    "The coding agent's claim on the ticket expired before it reported.",
-  CodingSessionEndedUnreported:
-    "The coding session ended without reporting completion.",
+  ended: "The coding session ended. Its last message to you says what it did.",
+  not_started: "The coding session could not start.",
 } as const;
-type CloseEvent = keyof typeof CODING_REACTION_TEXTS;
 
 export function closeCall(tx: Tx, input: {
   call: string;
-  event: CloseEvent;
-  // 근거 domain event의 seq. event 없이 직접 닫을 때는 "0"이다.
-  seq: string;
   // 띄우지 못한 줄의 call은 session이 없다.
   session: string | null;
-  ticket: string;
   app: string;
 }): Result<void> {
   const store = createCallStore();
@@ -31,37 +24,34 @@ export function closeCall(tx: Tx, input: {
   if (record === null || record.state !== "accepted") return ok(undefined);
   const router = routerFor(tx);
   if (!router.ok) return router;
-  const done = input.event === "TicketCompletionReported";
+  const started = input.session !== null;
   const closed = router.value.close(
     tx,
     input.call as never,
-    done ? "done" : "failed",
-    done ? null : "receiver_ended",
+    started ? "done" : "failed",
+    started ? null : "receiver_ended",
   );
   if (!closed.ok) return closed;
   if (record.from.kind !== "agent") return ok(undefined);
-  const refs = [
-    { kind: "ticket", ticket: input.ticket },
-    ...(input.session === null
-      ? []
-      : [{ kind: "session", session: input.session }]),
-  ] as CallRef[];
+  const refs: CallRef[] = started
+    ? [{ kind: "session", session: input.session } as CallRef]
+    : [];
   const routed = router.value.route(tx, {
-    from: { kind: "program", event_seq: input.seq },
+    from: { kind: "program", event_seq: "0" },
     to: {
       kind: "open_session_or_new",
       session: record.from.session,
       agent: { role: "app_engineer", app: input.app },
     } as never,
     reply: "none",
-    body: CODING_REACTION_TEXTS[input.event],
+    body: CODING_REACTION_TEXTS[started ? "ended" : "not_started"],
     refs,
     reply_to: null,
     dedup: null,
     options: null,
     kind: "reaction",
     delivery: "next_turn",
-    event: input.event,
+    event: "CodingSessionEnded",
   });
   return routed.ok ? ok(undefined) : routed;
 }

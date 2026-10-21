@@ -79,7 +79,7 @@ export function openSession(
   const plan = launchPlanOf({
     session,
     app: line.app,
-    ticket: line.ticket,
+    prompt: line.prompt,
     harness_id: launch.value.harness,
     executable: launch.value.executable,
     cwd: launch.value.cwd,
@@ -92,7 +92,7 @@ export function openSession(
   insertSession(tx.sql, {
     session,
     app: line.app,
-    ticket: line.ticket,
+    prompt: line.prompt,
     call: line.call,
     harness: launch.value.harness,
     ended: false,

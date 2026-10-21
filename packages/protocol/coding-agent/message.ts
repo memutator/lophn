@@ -1,7 +1,6 @@
 // coding agent가 맡긴 App Engineer에게 보내는 메시지. Router가 열린 session, 없으면 새 session으로 보낸다.
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
-import { ticketIdSchema } from "./ticket/values.ts";
 
 const MESSAGE_MAX_CODE_POINTS = 8_000;
 
@@ -16,8 +15,6 @@ export const codingMessageSend = defineMemory({
         /\S/.test(value) && [...value].length <= MESSAGE_MAX_CODE_POINTS,
       { message: "message length" },
     ),
-    refs: z.array(ticketIdSchema).max(20).optional()
-      .describe('ticket IDs, e.g. ["tkt_…"]'),
   }),
   output: z.object({ accepted: z.literal(true) }),
   actors: ["coding_agent"],

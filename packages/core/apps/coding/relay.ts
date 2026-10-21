@@ -1,4 +1,4 @@
-// main thread 쪽. 메모리 route의 handler, Reactor handler, commit 뒤 일 적용, 켤 때 복구가 모두 writer에
+// main thread 쪽. 메모리 route의 handler, commit 뒤 일 적용, 켤 때 복구가 모두 writer에
 // `ApplyCodingSignal` command를 내는 일이다. session 상태는 writer 쪽 표에 있으므로 여기에는 감지 보고 사본만 둔다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
@@ -20,12 +20,8 @@ import {
   type CodingTerminalRequest,
   codingTerminalResult,
 } from "../../../protocol/coding-agent/terminal-requests.ts";
-import type {
-  DomainEvent,
-  GatewayServerFrame,
-} from "../../../protocol/events/mod.ts";
+import type { GatewayServerFrame } from "../../../protocol/events/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import type { ReactorHandler } from "../../events/mod.ts";
 import type { CommitAction } from "../../storage/ledger/mod.ts";
 import { CODING_REVOKE_TOPIC, CODING_TERMINAL_TOPIC } from "./events.ts";
 import { harnessList as harnessItems } from "./harnesses.ts";
@@ -34,8 +30,8 @@ import type { CodingSignal } from "./signal.ts";
 export type SignalResult = { accepted: boolean };
 
 type CodingRelayDeps = {
-  // core 안 machine 자격으로 writer에 command를 낸다. 같은 key는 효과가 한 번이다.
-  run(signal: CodingSignal, key?: string): Promise<Result<SignalResult>>;
+  // core 안 machine 자격으로 writer에 command를 낸다.
+  run(signal: CodingSignal): Promise<Result<SignalResult>>;
   // session 하나 범위 token의 발급과 회수.
   tokens(): CodingTokens;
   // Settings의 기본 실행 옵션.
@@ -65,11 +61,8 @@ export function createCodingRelay(deps: CodingRelayDeps) {
     return actor?.kind === "coding_agent" ? actor.id : null;
   }
 
-  async function signal(
-    value: CodingSignal,
-    key?: string,
-  ): Promise<Result<SignalResult>> {
-    return await deps.run(value, key);
+  async function signal(value: CodingSignal): Promise<Result<SignalResult>> {
+    return await deps.run(value);
   }
 
   const hook: Handler = async (ctx, raw) => {
@@ -96,7 +89,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
       kind: "message",
       session,
       body: input.data.body,
-      tickets: input.data.refs ?? [],
     } as never);
     return done.ok ? ok({ accepted: true as const }) : done;
   };
@@ -142,35 +134,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
     });
     return done.ok ? ok({}) : done;
   };
-
-  // 같은 (handler 이름, seq)로 두 번 일해도 call은 한 번 닫힌다.
-  function closer<
-    T extends
-      | "TicketCompletionReported"
-      | "TicketClaimExpired"
-      | "CodingSessionEndedUnreported",
-  >(
-    type: T,
-    fields: (event: Extract<DomainEvent, { type: T }>) => {
-      session: string;
-      ticket: string;
-      app: string;
-    },
-  ): ReactorHandler<T> {
-    return {
-      name: `coding.close_call.${type}`,
-      async handle(event, context) {
-        const key = await context.idempotencyKey("close_call");
-        const done = await signal({
-          kind: "close_call",
-          event: type,
-          seq: (event as { seq: string }).seq,
-          ...fields(event),
-        } as never, key);
-        return done.ok ? ok(undefined) : done;
-      },
-    };
-  }
 
   const failed = (request: string) =>
     void signal({ kind: "terminal_result", request, ok: false }).then(
@@ -230,29 +193,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
       list,
       result,
       exited,
-    },
-    reactor: {
-      TicketCompletionReported: closer(
-        "TicketCompletionReported",
-        (event) => ({
-          session: event.payload.session,
-          ticket: event.subject,
-          app: event.payload.app,
-        }),
-      ),
-      TicketClaimExpired: closer("TicketClaimExpired", (event) => ({
-        session: event.payload.session,
-        ticket: event.subject,
-        app: event.payload.app,
-      })),
-      CodingSessionEndedUnreported: closer(
-        "CodingSessionEndedUnreported",
-        (event) => ({
-          session: event.subject,
-          ticket: event.payload.ticket,
-          app: event.payload.app,
-        }),
-      ),
     },
     // commit 뒤 일 가운데 token 회수와 터미널 요청을 한다. open 요청은 여기서 token을 만들어 plan의 env에 담는다.
     // token을 못 만들거나 frame을 보내지 못하면 터미널이 실패 결과를 낸 것으로 본다.

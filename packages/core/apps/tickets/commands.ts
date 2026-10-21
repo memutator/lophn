@@ -10,7 +10,6 @@ import {
   ticketVerify,
 } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { TicketEvidence } from "../../../protocol/coding-agent/ticket/mod.ts";
-import { CodingTransport } from "../../../protocol/coding-agent/transport.ts";
 import { ticketVerified } from "../../../protocol/events/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { addRef, removeRefs } from "../annotations/retention.ts";
@@ -173,9 +172,6 @@ export function createTicketCommands(): {
         if (CLOSED.includes(stored.state)) {
           return conflict("ticket is already closed");
         }
-        // 돌고 있거나 줄에 선 coding call을 멈춘다. 멈추면 token이 회수된다.
-        const stopped = stopCodingCalls(tx, input.ticket);
-        if (!stopped.ok) return stopped;
         tx.sql.run("DELETE FROM ticket_claims WHERE ticket = ?", [
           input.ticket,
         ]);
@@ -219,33 +215,6 @@ function examplesPassed(
   return passed === undefined
     ? conflict("the examples have not passed for this report")
     : ok(undefined);
-}
-
-function stopCodingCalls(tx: Tx, ticket: string): Result<void> {
-  let transport;
-  try {
-    transport = tx.port(CodingTransport);
-  } catch {
-    // transport가 없는 조립에는 멈출 session도 없다.
-    return ok(undefined);
-  }
-  const calls: string[] = [];
-  for (const line of transport.lines()) {
-    if (line.active !== null && line.active.ticket === ticket) {
-      calls.push(line.active.call);
-    }
-    for (const waiting of line.waiting) {
-      if (waiting.ticket === ticket) calls.push(waiting.call);
-    }
-  }
-  for (const call of calls) {
-    const stopped = transport.stop(tx, {
-      call: call as never,
-      reason: "ticket_cancelled",
-    });
-    if (!stopped.ok) return stopped;
-  }
-  return ok(undefined);
 }
 
 // 근거는 이 앱의 것이어야 한다. annotation은 읽을 때 풀고, file은 값 모양만 본다.

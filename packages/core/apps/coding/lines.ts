@@ -20,20 +20,18 @@ export function codingLines(sql: Pick<Sql, "get" | "all">): CodingAppLine[] {
   };
   for (
     const row of sql.all(
-      "SELECT app, session, ticket, call FROM coding_sessions WHERE ended = 0",
+      "SELECT app, session, call FROM coding_sessions WHERE ended = 0",
       [],
     )
   ) {
     lineOf(String(row.app)).active = {
       session: String(row.session),
-      ticket: String(row.ticket),
       call: String(row.call) as never,
     };
   }
   for (const waiting of allLines(sql)) {
     lineOf(waiting.app).waiting.push({
       call: waiting.call as never,
-      ticket: waiting.ticket,
     });
   }
   return [...apps.values()];
@@ -60,14 +58,7 @@ export function openNext(
         opened.value.session as never,
       );
     }
-    const closed = closeCall(tx, {
-      call: line.call,
-      event: "CodingSessionEndedUnreported",
-      seq: "0",
-      session: null,
-      ticket: line.ticket,
-      app,
-    });
+    const closed = closeCall(tx, { call: line.call, session: null, app });
     if (!closed.ok) return closed;
   }
 }

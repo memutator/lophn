@@ -7,10 +7,9 @@ import type {
   CodingTransport,
 } from "../../../protocol/coding-agent/transport.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
-import { createCallStore } from "../../router/mod.ts";
 import { revokeToken, sendTerminal } from "./events.ts";
 import { deliverInput } from "./input.ts";
-import { openSession, startFailure } from "./launch.ts";
+import { openSession } from "./launch.ts";
 import { codingLines } from "./lines.ts";
 import type { CodingMemory } from "./memory.ts";
 import {
@@ -23,7 +22,6 @@ import {
   saveSession,
   stateOf,
 } from "./store.ts";
-import { loadTicket } from "../tickets/store.ts";
 
 function rejected(reason: CodingSendRejection, message: string): Result<never> {
   return err({
@@ -40,21 +38,10 @@ export function createCodingTransport(
 ): CodingTransport {
   return {
     start(tx, input) {
-      const ticket = loadTicket(tx.sql, input.ticket);
-      if (!ticket.ok) return ticket;
-      if (
-        ticket.value === null || ticket.value.app !== input.app ||
-        !["open", "failed"].includes(ticket.value.state)
-      ) {
-        return startFailure(
-          "ticket_unavailable",
-          "the ticket cannot be assigned",
-        );
-      }
       const line = {
         call: input.call,
         app: input.app,
-        ticket: input.ticket,
+        prompt: input.prompt,
         options: input.options,
       };
       if (activeOf(tx.sql, input.app) !== null) {
@@ -102,10 +89,6 @@ export function createCodingTransport(
       const waiting = removeLine(tx.sql, input.call);
       const row = waiting ? null : activeOfCall(tx.sql, input.call);
       if (!waiting && row === null) return ok(undefined);
-      // ticket 취소는 Router를 거치지 않아 call을 여기서 취소한다. call cancel은 Router가 이미 했다.
-      if (input.reason === "ticket_cancelled") {
-        createCallStore().move(tx, input.call as never, "cancelled", null);
-      }
       if (row === null) return ok(undefined);
       revokeToken(tx, row.session);
       const request = memory.request({ kind: "stop", session: row.session });

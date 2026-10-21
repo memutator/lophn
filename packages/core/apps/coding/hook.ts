@@ -90,7 +90,13 @@ function apply(
       // 첫 prompt를 argv로 못 넘기는 제품은 이 hook 뒤에 넣는다. 기한이 지나면 넣지 않는다.
       if (row.paste_until !== null) {
         if (tx.now() <= row.paste_until) {
-          deliverInput(tx, memory, row, row.call, firstPromptOf(row.ticket));
+          deliverInput(
+            tx,
+            memory,
+            row,
+            row.call,
+            firstPromptOf(row.app, row.prompt),
+          );
         }
         row.paste_until = null;
       }

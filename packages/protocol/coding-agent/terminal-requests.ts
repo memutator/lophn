@@ -12,7 +12,7 @@ export const requestIdSchema = z.string().min(1).max(80);
 export const TERMINAL_INPUT_MAX_CHARS = 8192;
 
 // `open`은 새 탭을 열되 focus를 옮기지 않는다. `input`은 사람이 그 탭에 focus해 있으면 shell main이
-// focus가 풀릴 때까지 쥐고 있다가 넣은 뒤 `result`로 알린다. `stop`은 cancel·ticket 취소·lophn 끄기 때 쓴다.
+// focus가 풀릴 때까지 쥐고 있다가 넣은 뒤 `result`로 알린다. `stop`은 cancel·lophn 끄기 때 쓴다.
 export const codingTerminalRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("open"),

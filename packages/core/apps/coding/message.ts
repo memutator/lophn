@@ -9,7 +9,6 @@ import { loadSession } from "./store.ts";
 export function applyMessage(tx: Tx, input: {
   session: string;
   body: string;
-  tickets: readonly string[];
 }): Result<void> {
   const row = loadSession(tx.sql, input.session);
   if (row === null || row.ended) {
@@ -24,13 +23,7 @@ export function applyMessage(tx: Tx, input: {
   }
   const router = routerFor(tx);
   if (!router.ok) return router;
-  const refs = [
-    { kind: "session", session: row.session },
-    ...[row.ticket, ...input.tickets].map((ticket) => ({
-      kind: "ticket",
-      ticket,
-    })),
-  ] as CallRef[];
+  const refs = [{ kind: "session", session: row.session }] as CallRef[];
   const routed = router.value.route(tx, {
     from: { kind: "coding_agent", session: row.session },
     to: {

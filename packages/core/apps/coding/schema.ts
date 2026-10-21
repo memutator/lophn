@@ -9,7 +9,7 @@ export const codingSchemaSteps: readonly SchemaStep[] = [{
     CREATE TABLE coding_sessions (
       session TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
-      ticket TEXT NOT NULL,
+      prompt TEXT NOT NULL,
       call TEXT NOT NULL,
       harness TEXT NOT NULL,
       ended INTEGER NOT NULL DEFAULT 0 CHECK (ended IN (0, 1)),
@@ -30,7 +30,7 @@ export const codingSchemaSteps: readonly SchemaStep[] = [{
     CREATE TABLE coding_lines (
       call TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
-      ticket TEXT NOT NULL,
+      prompt TEXT NOT NULL,
       options TEXT NOT NULL CHECK (json_valid(options))
     ) STRICT;
     CREATE INDEX coding_lines_app ON coding_lines(app);

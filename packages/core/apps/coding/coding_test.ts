@@ -1,11 +1,14 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
-import { TicketSessionEnd } from "../../../protocol/coding-agent/ticket/ports.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import { ROUTER_SCHEMA_STEPS } from "../../router/mod.ts";
+import {
+  createCallStore,
+  installRouterEnvironment,
+  ROUTER_SCHEMA_STEPS,
+} from "../../router/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
-import { ticketSchemaSteps } from "../tickets/schema.ts";
+import { CODING_REACTION_TEXTS } from "./close-call.ts";
 import { applyHook } from "./hook.ts";
 import { createCodingMemory } from "./memory.ts";
 import { codingSchemaSteps } from "./schema.ts";
@@ -14,14 +17,12 @@ import { createCodingTransport } from "./transport.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzz00001";
 const SENDER = "ses_01hzzzzzzzzzzzzzzzzzz00001";
-const ticket = (n: number) => `tkt_01hzzzzzzzzzzzzzzzzzz0000${n}`;
 const call = (n: number) => `cal_01hzzzzzzzzzzzzzzzzzz0000${n}`;
 
 function setup() {
   const db = new DatabaseSync(":memory:");
   for (
     const step of [
-      ...ticketSchemaSteps,
       ...ROUTER_SCHEMA_STEPS,
       ...codingSchemaSteps,
     ]
@@ -29,10 +30,6 @@ function setup() {
   db.exec("CREATE TABLE apps (id TEXT PRIMARY KEY, source_path TEXT)");
   db.prepare("INSERT INTO apps VALUES (?, '/work/app')").run(APP);
   for (const n of [1, 2]) {
-    db.prepare(
-      `INSERT INTO tickets (id, app, state, goal, acceptance_check, revision)
-       VALUES (?, ?, 'open', 'goal', '{"kind":"app_test"}', '1')`,
-    ).run(ticket(n), APP);
     db.prepare(
       `INSERT INTO agent_calls (call, from_session, "to", reply, state, consumed, created_at, state_at)
        VALUES (?, ?, ?, 'result', 'accepted', 0, 't', 't')`,
@@ -43,17 +40,17 @@ function setup() {
     );
   }
   const actions: { topic: string; data: unknown }[] = [];
-  const settled: string[] = [];
+  // Router 대역이 받은 입력. 맡긴 App Engineer에게 간 알림을 본다.
+  const delivered: {
+    session: string;
+    kind: string;
+    event: string | null;
+    body: string;
+  }[] = [];
   let counter = 0;
   const ports = new Map<unknown, unknown>([
     [afterCommit, {
       push: (topic: string, data: unknown) => actions.push({ topic, data }),
-    }],
-    [TicketSessionEnd, {
-      settle: (session: string) => {
-        settled.push(session);
-        return ok({ ticket: ticket(1), reported: false });
-      },
     }],
   ]);
   const sql = {
@@ -84,6 +81,38 @@ function setup() {
     selected_executable: "/usr/bin/claude",
   } as never);
   const transport = createCodingTransport(memory, () => sql);
+  installRouterEnvironment({
+    deps: () => ({
+      directory: {
+        find: (session: string) => ({
+          session,
+          transport: "lophn",
+          agent: { role: "app_engineer", app: APP },
+          accepting: true,
+        }),
+        openOf: (agent: unknown) => ({
+          session: SENDER,
+          transport: "lophn",
+          agent,
+          accepting: true,
+        }),
+      } as never,
+      transport: {
+        deliver: (_tx, target, input) => {
+          delivered.push({
+            session: target.session,
+            kind: input.kind,
+            event: input.event,
+            body: input.body,
+          });
+          return ok("delivered" as const);
+        },
+        cancel: () => ok(undefined),
+        queued: () => [],
+      },
+      store: createCallStore(),
+    }),
+  });
   const frames = (kind: string) =>
     actions.filter((action) => action.topic === "coding_terminal").map((a) =>
       a.data as Record<string, unknown>
@@ -92,7 +121,7 @@ function setup() {
     transport.start(tx, {
       call: call(n) as never,
       app: APP,
-      ticket: ticket(n),
+      prompt: "do it",
       options: { harness: "claude" },
     });
   const hook = (event: string, payload: object = {}) =>
@@ -119,13 +148,13 @@ function setup() {
       actions.filter((action) => action.topic === "coding_revoke").map((a) =>
         (a.data as { session: string }).session
       ),
-    settled,
+    delivered,
     sessionOf,
   };
 }
 
-Deno.test("앱 하나에 session은 하나뿐이고 끝나면 줄의 다음 call이 새 session으로 열린다", () => {
-  const { db, tx, memory, transport, frames, start, revoked, settled } =
+Deno.test("coding session이 끝나면 맡긴 call은 `done`으로 한 번만 닫히고 맡긴 App Engineer session에 한 번만 알린다", () => {
+  const { db, tx, memory, transport, frames, start, revoked, delivered } =
     setup();
   const first = start(1);
   assert(first.ok && first.value.status === "started");
@@ -143,7 +172,18 @@ Deno.test("앱 하나에 session은 하나뿐이고 끝나면 줄의 다음 call
 
   assert(applyTerminalExited(tx, memory, firstSession).ok);
   assertEquals(revoked(), [firstSession]);
-  assertEquals(settled, [firstSession]);
+  // 같은 끝을 다시 알려도 call은 한 번만 닫히고 알림도 한 번이다.
+  assert(applyTerminalExited(tx, memory, firstSession).ok);
+  assertEquals(
+    db.prepare("SELECT state FROM agent_calls WHERE call = ?").get(call(1))
+      ?.state,
+    "done",
+  );
+  assertEquals(delivered.length, 1);
+  assertEquals(delivered[0]!.session, SENDER);
+  assertEquals(delivered[0]!.kind, "reaction");
+  assertEquals(delivered[0]!.event, "CodingSessionEnded");
+  assertEquals(delivered[0]!.body, CODING_REACTION_TEXTS.ended);
   const plans = frames("open").map((request) =>
     request.plan as { session: string; env: Record<string, string> }
   );

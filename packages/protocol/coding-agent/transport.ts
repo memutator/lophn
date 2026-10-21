@@ -14,7 +14,8 @@ type CallId = z.infer<typeof callIdSchema>;
 type CodingStartInput = {
   call: CallId;
   app: string;
-  ticket: string;
+  // 맡긴 글이다. call 본문이 그 자리다.
+  prompt: string;
   // harness가 없으면 transport가 Settings 기본 실행 옵션으로 채운다.
   options: CodingOptions;
 };
@@ -27,7 +28,6 @@ const CODING_START_FAILURES = [
   "not_connected",
   "cannot_launch",
   "no_source_folder",
-  "ticket_unavailable",
 ] as const;
 export type CodingStartFailure = (typeof CODING_START_FAILURES)[number];
 
@@ -41,8 +41,8 @@ export type CodingSendRejection = (typeof CODING_SEND_REJECTIONS)[number];
 // 앱별 맡기기 줄(메모리)이다.
 export type CodingAppLine = {
   app: string;
-  active: { session: string; ticket: string; call: CallId } | null;
-  waiting: { call: CallId; ticket: string }[];
+  active: { session: string; call: CallId } | null;
+  waiting: { call: CallId }[];
 };
 
 export type CodingTransport = {
@@ -54,10 +54,7 @@ export type CodingTransport = {
     input: { session: string; call: CallId | null; text: string },
   ): Result<{ status: "delivered" | "queued" }>;
   // 줄에 있으면 줄에서 빼고, 돌고 있으면 멈추고 token을 회수한다.
-  stop(
-    tx: Tx,
-    input: { call: CallId; reason: "cancelled" | "ticket_cancelled" },
-  ): Result<void>;
+  stop(tx: Tx, input: { call: CallId }): Result<void>;
   lines(): readonly CodingAppLine[];
 };
 export const CodingTransport: PortKey<CodingTransport> = definePort<

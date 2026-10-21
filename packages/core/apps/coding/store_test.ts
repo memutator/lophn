@@ -11,7 +11,7 @@ Deno.test("coding session flags stored as 1 read back true through createSql", (
   db.exec(codingSchemaSteps[0]!.sql);
   const sql = createSql(db, () => true);
   sql.run(
-    `INSERT INTO coding_sessions (session, app, ticket, call, harness, started, heard, running)
+    `INSERT INTO coding_sessions (session, app, prompt, call, harness, started, heard, running)
      VALUES ('s', 'a', 't', 'c', 'claude', 1, 1, 1)`,
     [],
   );

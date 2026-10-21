@@ -40,7 +40,7 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 메모리 route와 Reactor가 받은 일을 writer에 내는 core 안 machine 자격이다. 기록이 없으면 writer가 거절한다.
+// 메모리 route가 받은 일을 writer에 내는 core 안 machine 자격이다. 기록이 없으면 writer가 거절한다.
 const CODING_PRINCIPAL = "machine:coding-sessions";
 const CODING_CONTEXT: AuthenticatedContext = {
   principal: CODING_PRINCIPAL,
@@ -57,11 +57,7 @@ const SOURCE = {
 };
 
 // call을 닫으며 맡긴 App Engineer에게 가는 입력의 고정 문구다.
-const CLOSING_KINDS = new Set([
-  "terminal_result",
-  "terminal_exited",
-  "close_call",
-]);
+const CLOSING_KINDS = new Set(["terminal_result", "terminal_exited"]);
 
 function textBytes(text: string): Uint8Array {
   return serializeMessageContent({
@@ -143,11 +139,11 @@ export const codingSessionsWiring: WiringFactory = () => {
       let tokens: ReturnType<typeof createCodingTokens> | undefined;
       const relay = createCodingRelay({
         tokens: () => tokens ??= createCodingTokens({ registry: ctx.registry }),
-        async run(signal, idempotency) {
+        async run(signal) {
           const done = await ctx.writer.command(CODING_CONTEXT, {
             command: codingSignal.name,
             input: signal,
-            idempotency_key: idempotency ?? crypto.randomUUID(),
+            idempotency_key: crypto.randomUUID(),
             compare: {},
             prepared: [],
           });
@@ -177,16 +173,6 @@ export const codingSessionsWiring: WiringFactory = () => {
             : `http://127.0.0.1:${port}${CODING_MCP_PATH}`;
         },
       });
-      // 완료 보고, claim 만료, 보고 없는 끝이 call을 닫고 App Engineer에게 알린다.
-      ctx.reactor.on(
-        "TicketCompletionReported",
-        relay.reactor.TicketCompletionReported,
-      );
-      ctx.reactor.on("TicketClaimExpired", relay.reactor.TicketClaimExpired);
-      ctx.reactor.on(
-        "CodingSessionEndedUnreported",
-        relay.reactor.CodingSessionEndedUnreported,
-      );
       recover = relay.recover;
       const { handlers } = relay;
       return ok({
@@ -205,7 +191,7 @@ export const codingSessionsWiring: WiringFactory = () => {
         ],
       });
     },
-    // 켤 때 한 번. 살아 있는 session이 없으므로 claim이 남은 session을 정산한다.
+    // 켤 때 한 번. 살아 있는 session이 없으므로 끝나지 않은 session 행을 끝낸 것으로 둔다.
     async start() {
       const done = await recover?.();
       if (done !== undefined && !done.ok) {

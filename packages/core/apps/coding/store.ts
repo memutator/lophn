@@ -22,7 +22,7 @@ type SessionState = "running" | "waiting" | "idle" | "unknown";
 export type SessionRow = {
   session: string;
   app: string;
-  ticket: string;
+  prompt: string;
   call: string;
   harness: HarnessId;
   ended: boolean;
@@ -45,7 +45,7 @@ export type SessionRow = {
 };
 
 const COLUMNS =
-  `session, app, ticket, call, harness, ended, started, heard, running, turn,
+  `session, app, prompt, call, harness, ended, started, heard, running, turn,
    permissions, inflight, external_session, prompt_pending, paste_until`;
 
 // createSql이 INTEGER를 bigint로 주므로 1n === 1이 거짓이다. Number로 바꿔 비교한다.
@@ -53,7 +53,7 @@ function rowOf(row: Record<string, unknown>): SessionRow {
   return {
     session: String(row.session),
     app: String(row.app),
-    ticket: String(row.ticket),
+    prompt: String(row.prompt),
     call: String(row.call),
     harness: row.harness as HarnessId,
     ended: Number(row.ended) === 1,
@@ -104,13 +104,11 @@ export function liveSessions(sql: Reader): SessionRow[] {
   ).map(rowOf);
 }
 
-// 끝난 session도 찾는다. 완료 보고나 끝 event를 call로 잇는 데 쓴다.
-
 export function insertSession(sql: Sql, row: SessionRow): void {
   sql.run(
-    `INSERT INTO coding_sessions (session, app, ticket, call, harness, paste_until)
+    `INSERT INTO coding_sessions (session, app, prompt, call, harness, paste_until)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [row.session, row.app, row.ticket, row.call, row.harness, row.paste_until],
+    [row.session, row.app, row.prompt, row.call, row.harness, row.paste_until],
   );
 }
 
@@ -145,14 +143,14 @@ export function stateOf(row: SessionRow): SessionState {
 export type LineRow = {
   call: string;
   app: string;
-  ticket: string;
+  prompt: string;
   options: CodingOptions;
 };
 
 export function pushLine(sql: Sql, line: LineRow): void {
   sql.run(
-    "INSERT INTO coding_lines (call, app, ticket, options) VALUES (?, ?, ?, ?)",
-    [line.call, line.app, line.ticket, JSON.stringify(line.options)],
+    "INSERT INTO coding_lines (call, app, prompt, options) VALUES (?, ?, ?, ?)",
+    [line.call, line.app, line.prompt, JSON.stringify(line.options)],
   );
 }
 
@@ -160,7 +158,7 @@ function lineOf(row: Record<string, unknown>): LineRow {
   return {
     call: String(row.call),
     app: String(row.app),
-    ticket: String(row.ticket),
+    prompt: String(row.prompt),
     options: codingOptionsSchema.parse(JSON.parse(String(row.options))),
   };
 }
@@ -168,7 +166,7 @@ function lineOf(row: Record<string, unknown>): LineRow {
 // 앱의 줄 맨 앞을 꺼낸다.
 export function shiftLine(sql: Sql, app: string): LineRow | null {
   const row = sql.get(
-    "SELECT call, app, ticket, options FROM coding_lines WHERE app = ? ORDER BY rowid LIMIT 1",
+    "SELECT call, app, prompt, options FROM coding_lines WHERE app = ? ORDER BY rowid LIMIT 1",
     [app],
   );
   if (row === undefined) return null;
@@ -183,7 +181,7 @@ export function removeLine(sql: Sql, call: string): boolean {
 
 export function allLines(sql: Reader): LineRow[] {
   return sql.all(
-    "SELECT call, app, ticket, options FROM coding_lines ORDER BY rowid",
+    "SELECT call, app, prompt, options FROM coding_lines ORDER BY rowid",
     [],
   ).map(lineOf);
 }

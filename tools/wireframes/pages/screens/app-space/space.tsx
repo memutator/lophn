@@ -13,6 +13,11 @@ import {
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
 import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
+import {
+  type SessionSnapshot,
+  sessionSnapshotsList,
+} from "../../../../../packages/protocol/events/mod.ts";
+import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import type { LophnShellViewsApi } from "../../../../../packages/shell/ipc/app-frame.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
@@ -37,7 +42,7 @@ import {
   codingBridge,
   type CodingScene,
 } from "../../../mock/app-space/coding-terminal.ts";
-import { APP_NAME } from "../../../mock/app-space/data.ts";
+import { APP_NAME, fixedRuns } from "../../../mock/app-space/data.ts";
 import { click, find, press, useDrive, wait } from "../../../mock/drive.ts";
 import {
   OrdersView,
@@ -68,6 +73,8 @@ interface AppSpaceProps {
   };
   /** agent select를 펼친 채 시작한다. */
   readonly agentMenu?: boolean;
+  /** 오른쪽 패널의 Agent 탭에 Background 목록을 연 채 시작한다. empty면 기록이 없는 목록이다. */
+  readonly runs?: "list" | "empty";
   /** annotate mode를 켠 채 시작한다. */
   readonly annotate?: {
     readonly marks: ViewMarks;
@@ -121,6 +128,41 @@ const REWIND_FROM = "inv_32";
 
 const noop = () => {};
 
+// run이 연 session은 열린 채 남는다. 일하는 중인 run의 session만 running이고 나머지는 쉬는 중이라, session store가 이 snapshot으로
+// 각 session의 상태를 안다(run 줄 아래 session의 점).
+const RUN_SNAPSHOTS: readonly SessionSnapshot[] = fixedRuns(APP).flatMap(
+  (run) =>
+    "agent" in run.target && run.session !== null && run.session_opened
+      ? [{
+        session: run.session,
+        agent: run.target.agent,
+        place: { kind: "app" as const, id: APP },
+        state: run.state === "running" ? "running" as const : "idle" as const,
+        turn_requests: [],
+        questions: [],
+      }]
+      : [],
+);
+
+function withRunSessions(source: CoreSource): CoreSource {
+  return {
+    ...source,
+    async call(input) {
+      const reply = await source.call(input);
+      if (
+        !reply.ok || input.kind !== "read" ||
+        input.resource !== sessionSnapshotsList.resource ||
+        input.method !== sessionSnapshotsList.method
+      ) return reply;
+      const value = reply.value as { snapshots: readonly SessionSnapshot[] };
+      return {
+        ok: true,
+        value: { ...value, snapshots: [...value.snapshots, ...RUN_SNAPSHOTS] },
+      };
+    },
+  };
+}
+
 function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
   const base = mockViews();
   // native view는 DOM 위에 덮이므로 gallery에서는 가짜 상자 대신 앱 view 자리(EmbeddedView의 region) 안에 Orders 화면을 그린다.
@@ -170,6 +212,11 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     }).source,
     agents: createFakeAgentsSource(),
     agentViewSource: mockAgentTabSource(),
+    runs: () =>
+      Promise.resolve({
+        ok: true as const,
+        value: props.runs === "empty" ? [] : fixedRuns(APP),
+      }),
     annotate: fakeAnnotate({
       items: (props.annotate?.items ?? []).map((item) => ({
         n: item.n,
@@ -179,7 +226,9 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
       })),
     }),
     events: createEventClient(
-      createFakeWaiting(scene === "permission" ? [CODING_ASK()] : []),
+      withRunSessions(
+        createFakeWaiting(scene === "permission" ? [CODING_ASK()] : []),
+      ),
     ),
   };
 }
@@ -231,6 +280,10 @@ export function AppSpace(props: AppSpaceProps = {}) {
       }
     }
     if (props.agentMenu === true) await press("[data-agent-select]");
+    if (props.runs !== undefined) {
+      await press("[data-agent-select]");
+      await click("[data-agent-runs]");
+    }
     // 터미널만 있는 장면은 coding 요청이 agent 탭을 함께 연다. panel과 함께 쓰면 요청이 탭을 더하지 않으니 select로 연다.
     if (pane !== undefined && (terminal === undefined || panel !== undefined)) {
       await press("[data-agent-select]");
@@ -262,6 +315,7 @@ export function AppSpace(props: AppSpaceProps = {}) {
         detail={fakes.detail}
         agents={fakes.agents}
         agentViewSource={fakes.agentViewSource}
+        runs={fakes.runs}
         annotate={fakes.annotate}
         {...(fakes.terminal === undefined ? {} : { terminal: fakes.terminal })}
         windowWidth={1280}

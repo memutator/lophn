@@ -1,15 +1,16 @@
-// project sidebar의 Agent 쪽. agent마다 열린 session을 들여 쓰고 맨 아래에 Recent session을 둔다.
+// project sidebar의 Agent 쪽. agent마다 열린 session을 들여 쓰고, run이 있으면 Background 묶음, 맨 아래에 Recent session을 둔다.
 // 점은 사람을 기다림(경고색)·일하는 중(focus색)이다.
 import { Avatar } from "../../parts/avatar/avatar.tsx";
 import { IconButton } from "@lophn/ui/primitives";
 import { commonIcons } from "../../icons/mod.ts";
-import { formatRelativeTime, t } from "@lophn/wording";
+import { t } from "@lophn/wording";
 
 import type {
   AgentGroup,
   AgentPanelView,
   PanelSession,
 } from "./use-agent-panel.ts";
+import { RunList, SessionItem } from "./run-list.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import styles from "./project-sidebar.module.css";
 
@@ -20,54 +21,6 @@ interface AgentPanelProps {
   onNewSession?: (agent: SidebarAgent) => void;
   onSession: (session: PanelSession) => void;
   onManage: () => void;
-}
-
-function Dot({ status }: { status: PanelSession["status"] }) {
-  const label = status === "waiting"
-    ? t("project-workspace.label.agent-waiting")
-    : status === "working"
-    ? t("common.label.tab-working")
-    : undefined;
-  return (
-    <span
-      className={styles.sessionDot}
-      data-state={status === "idle" ? undefined : status}
-      role={label === undefined ? undefined : "img"}
-      aria-label={label}
-    />
-  );
-}
-
-function SessionItem(
-  { session, agentName, onSession }: {
-    session: PanelSession;
-    /** 있으면 제목 아래에 "agent · 시각"을 보인다(Recent). */
-    agentName?: string;
-    onSession: (session: PanelSession) => void;
-  },
-) {
-  const when = formatRelativeTime(new Date(session.at), new Date());
-  return (
-    <li className={styles.li}>
-      <button
-        type="button"
-        className={`${styles.item} ${styles.sessionItem}`}
-        data-session={session.id}
-        onClick={() => onSession(session)}
-      >
-        <Dot status={session.status} />
-        <span className={styles.sessionText}>
-          <span className={styles.label}>{session.title}</span>
-          {agentName === undefined
-            ? null
-            : <span className={styles.sessionMeta}>{agentName} · {when}</span>}
-        </span>
-        {agentName === undefined
-          ? <span className={styles.sessionWhen}>{when}</span>
-          : null}
-      </button>
-    </li>
-  );
 }
 
 function Group(
@@ -148,6 +101,16 @@ export function AgentPanel(
           ))}
         </ul>
       </section>
+      {view.runs.length === 0
+        ? null
+        : (
+          <section className={styles.section} data-runs="">
+            <h2 className={styles.sectionLabel}>
+              {t("run-list.heading.background")}
+            </h2>
+            <RunList runs={view.runs} onSession={onSession} />
+          </section>
+        )}
       <section className={styles.section} data-recent="">
         <h2 className={styles.sectionLabel}>
           {t("project-workspace.label.recent")}

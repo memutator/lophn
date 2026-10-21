@@ -62,6 +62,21 @@
   overflow-y: auto;
 }
 
+/* Background 목록. RunList가 project sidebar의 module을 쓰므로 여기는 몫의 여백과 scroll만 정한다. 목록 폭이 패널 폭을 다 쓰지
+   않게 기둥으로 둔다. */
+.runs {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-self: center;
+  width: 100%;
+  max-width: var(--page-list);
+  min-height: var(--space-0);
+  overflow-y: auto;
+  padding: var(--space-6);
+}
+
 .state {
   margin: var(--space-0);
   padding: var(--space-8) var(--space-9);

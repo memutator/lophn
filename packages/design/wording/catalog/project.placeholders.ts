@@ -216,6 +216,11 @@ export type ProjectPlaceholders = {
   "project-workspace.title.explorer-move": {
     name: "string";
   };
+  "run-list.button.background": Record<never, never>;
+  "run-list.empty.none": Record<never, never>;
+  "run-list.heading.background": Record<never, never>;
+  "run-list.label.cancelled": Record<never, never>;
+  "run-list.label.failed": Record<never, never>;
   "terminal.button.close-terminal": Record<never, never>;
   "terminal.button.hide-notice": Record<never, never>;
   "terminal.button.keep-open": Record<never, never>;

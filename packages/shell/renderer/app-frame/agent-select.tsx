@@ -33,6 +33,8 @@ interface AgentSelectProps {
   paneOpen: boolean;
   /** agent 항목을 골랐다. 그 agent의 Agent component를 앱 화면 옆 칸에 여는 일은 부르는 쪽 몫이다. */
   onOpenAgent: (assignment: string) => void;
+  /** Background 항목을 골랐다. 주지 않으면 항목이 없다. 같은 칸에 이 앱의 run 목록을 여는 일은 부르는 쪽 몫이다. */
+  onRuns?: () => void;
   /** Manage를 골랐다. 같은 칸에 앱 자리의 agent 관리를 여는 일은 부르는 쪽 몫이다. */
   onManage: () => void;
 }
@@ -41,14 +43,16 @@ interface AgentSelectProps {
  * 약속하는 DOM(test가 단언):
  * - 닫힌 모습: 글자 없는 아이콘 단추 `button[data-agent-select][aria-haspopup="menu"]` 하나(Agent 아이콘과 chevron, 접근 이름 "Agent").
  *   열기 전에는 `role=menu`가 없다. 앱 view의 상태(crash·멈춤)와 상관없이 props만으로 열린다. 옆 pane이 열려 있으면 `aria-pressed`다.
- * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, App Engineer, Operator들(들어온 순서), Manage 순서로 있다.
- *   agent 항목은 `[data-agent=<assignment>]`이고 안에 avatar(`[data-avatar]`)와 이름 `[data-agent-name]`이 이 순서로
- *   있다. Manage는 `[data-agent-manage]` "Manage"이며 `[data-agent]`가 아니다.
- * - agent 항목을 고르면 `onOpenAgent(assignment)` 한 번, Manage를 고르면 `onManage()` 한 번만 부르고 menu는 닫힌다.
+ * - 열면 `role=menu`(portal) 안에 `role=menuitem`이 lophn, App Engineer, Operator들(들어온 순서), Background(`onRuns`가 있을
+ *   때만), Manage 순서로 있다. agent 항목은 `[data-agent=<assignment>]`이고 안에 avatar(`[data-avatar]`)와 이름
+ *   `[data-agent-name]`이 이 순서로 있다. Background는 `[data-agent-runs]`, Manage는 `[data-agent-manage]` "Manage"이며
+ *   둘 다 `[data-agent]`가 아니다.
+ * - agent 항목을 고르면 `onOpenAgent(assignment)`, Background를 고르면 `onRuns()`, Manage를 고르면 `onManage()`를 한 번만
+ *   부르고 menu는 닫힌다.
  * - 놓을 자리(window controls 바로 옆)는 app bar가 정하고 이 component는 select 하나만 그린다.
  */
 export function AgentSelect(
-  { agents, paneOpen, onOpenAgent, onManage }: AgentSelectProps,
+  { agents, paneOpen, onOpenAgent, onRuns, onManage }: AgentSelectProps,
 ): ReactElement {
   const items: MenuItem[] = [
     ...ordered(agents).map((agent) => ({
@@ -60,6 +64,12 @@ export function AgentSelect(
       textValue: agent.name,
       data: { "data-agent": agent.assignment } as const,
     })),
+    ...(onRuns === undefined ? [] : [{
+      id: RUNS,
+      label: t("run-list.button.background"),
+      data: { "data-agent-runs": "" } as const,
+      separatorBefore: true,
+    }]),
     {
       id: MANAGE,
       label: t("app-space.button.manage-agents"),
@@ -72,7 +82,12 @@ export function AgentSelect(
       <span className={styles.anchor}>
         <Menu
           items={items}
-          onSelect={(id) => id === MANAGE ? onManage() : onOpenAgent(id)}
+          onSelect={(id) =>
+            id === MANAGE
+              ? onManage()
+              : id === RUNS
+              ? onRuns?.()
+              : onOpenAgent(id)}
           placement="beside"
           trigger={
             <Button
@@ -94,8 +109,9 @@ export function AgentSelect(
   );
 }
 
-// 항목 id가 assignment(`asg_…`)와 겹치지 않는 Manage의 id.
+// 항목 id가 assignment(`asg_…`)와 겹치지 않는 Manage와 Background의 id.
 const MANAGE = "manage";
+const RUNS = "runs";
 
 /** lophn, App Engineer, Operator들(들어온 순서). */
 function ordered(agents: readonly AppSpaceAgent[]): AppSpaceAgent[] {

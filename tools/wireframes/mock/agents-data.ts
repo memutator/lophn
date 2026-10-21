@@ -235,6 +235,86 @@ export const SESSIONS: readonly SessionRow[] = [
   },
 ];
 
+/**
+ * run이 연 session 줄. 열린 채 run 아래에 묶여 보이고 agent 묶음과 Recent에는 없다. `SESSIONS`와 따로 둔다
+ * (`sessionsOf`를 쓰는 다른 page의 session switcher가 바뀌지 않게).
+ */
+export const RUN_SESSIONS: readonly SessionRow[] = [
+  {
+    id: "run-metrics",
+    agent: "Eval analyst",
+    title: "Nightly metrics digest",
+    when: "4 min ago",
+    state: "working",
+    group: "today",
+  },
+  {
+    id: "run-plan",
+    agent: "Experiment planner",
+    title: "Three experiments for query tools",
+    when: "40 min ago",
+    state: "idle",
+    group: "today",
+  },
+  {
+    id: "run-links",
+    agent: "Project Manager",
+    title: "Check release notes links",
+    when: "3 h ago",
+    state: "idle",
+    group: "today",
+  },
+  {
+    id: "run-rescore",
+    agent: "Eval analyst",
+    title: "Re-score week 40",
+    when: "yesterday",
+    state: "idle",
+    group: "earlier",
+  },
+];
+
+/** run 한 줄의 고정 data. session이 있으면 `RUN_SESSIONS`의 id이고, 없는 run은 `--session`으로 이어 쓴 것이다. */
+export interface RunData {
+  readonly id: string;
+  readonly agent: string;
+  readonly when: string;
+  readonly state: "running" | "done" | "failed" | "cancelled";
+  readonly session?: string;
+}
+
+export const RUNS: readonly RunData[] = [
+  {
+    id: "run-1",
+    agent: "Eval analyst",
+    when: "4 min ago",
+    state: "running",
+    session: "run-metrics",
+  },
+  {
+    id: "run-2",
+    agent: "Experiment planner",
+    when: "40 min ago",
+    state: "done",
+    session: "run-plan",
+  },
+  {
+    id: "run-3",
+    agent: "Project Manager",
+    when: "3 h ago",
+    state: "failed",
+    session: "run-links",
+  },
+  {
+    id: "run-4",
+    agent: "Eval analyst",
+    when: "yesterday",
+    state: "cancelled",
+    session: "run-rescore",
+  },
+  { id: "run-5", agent: "lophn", when: "2 days ago", state: "done" },
+];
+
 export const sessionsOf = (agent: string): readonly SessionRow[] =>
   SESSIONS.filter((row) => row.agent === agent);
 

@@ -17,6 +17,8 @@ import {
   RewindConflict,
   RewindDone,
   RewindRunning,
+  RunsEmpty,
+  RunsList,
   SidePanelTabs,
   VersionApplied,
   VersionApplying,
@@ -40,7 +42,7 @@ export const appSpaceArea: Area = {
       id: "new-app-space",
       title: "App space · frame",
       description:
-        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, Manage가 있다.",
+        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, 구분선 아래 Background와 Manage가 있다.",
       render: () => <AppSpaceFrame />,
     },
     {
@@ -49,6 +51,19 @@ export const appSpaceArea: Area = {
       description:
         "title bar의 Agent select로 연 오른쪽 패널이다. 앱 화면 옆에 붙고 머리 줄에 Agent 탭 하나가 있다. 안의 대화는 project 창 Agent 탭과 같은 component다.",
       render: () => <AgentPaneOpen />,
+    },
+    {
+      id: "new-app-runs",
+      title: "App space · Background",
+      description:
+        "agent select의 Background를 골라 연 오른쪽 패널이다. 이 앱의 App Engineer와 Operator가 한 일(run)이 새것부터 있고 아래에 그 run이 연 session이 들여 쓰여 있다. 이 앱 tool을 부른 일은 session 줄이 없다. 시각과 상태는 줄 오른쪽 끝에 있고, session 줄을 누르면 같은 칸에 그 session이 열린다.",
+      render: () => <RunsList />,
+    },
+    {
+      id: "new-app-runs-empty",
+      title: "App space · Background (empty)",
+      description: "이 앱에서 시작된 일이 없을 때 같은 칸에 한 줄 안내만 있다.",
+      render: () => <RunsEmpty />,
     },
     {
       id: "new-app-side-panel",

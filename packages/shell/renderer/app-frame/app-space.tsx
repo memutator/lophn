@@ -18,6 +18,8 @@ import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { type AppStatus, appStatus } from "../apps/model.ts";
 import type { AppRow, AppsSource, RunState } from "../apps/source.ts";
+import type { ReadResult } from "../workspace/source.ts";
+import type { RunRecordView } from "../workspace/sidebar/run-list.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.ts";
 import { keyOf } from "../workspace/agents/agent-key.ts";
@@ -36,6 +38,7 @@ import { AnnotationPanel } from "./annotate/annotation-panel.tsx";
 import { useAnnotate } from "./annotate/use-annotate.ts";
 import { STAY, useViewToast } from "./annotate/use-view-toast.ts";
 import { useAppAgents } from "./app-agents.ts";
+import { useAppRuns } from "./app-runs.ts";
 import { AppBar } from "./app-bar.tsx";
 import {
   createViewCovers,
@@ -57,6 +60,10 @@ interface AppSpaceProps {
    * 이 앱 자리의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
    */
   agents?: AgentsSource;
+  /**
+   * run 기록 읽기. 있으면 agent select에 Background 항목이 있고 고르면 같은 칸에 이 앱의 run 목록을 연다. 없으면 항목이 없다. 함수가 바뀌면 다시 읽으므로 부르는 쪽은 같은 함수를 넘긴다.
+   */
+  runs?: () => Promise<ReadResult<readonly RunRecordView[]>>;
   /** Agent 칸이 agent 하나의 통로를 얻는 함수. 없으면 칸이 "준비 안 됨"이다. */
   agentViewSource?: AgentTabSourceFactory;
   /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
@@ -146,6 +153,7 @@ export function AppSpace(
     detail,
     agents,
     agentViewSource,
+    runs,
     onInstructions,
     onDomainDoc,
     onSettings,
@@ -181,6 +189,13 @@ export function AppSpace(
   const [opened, setOpened] = useState(false);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
+  const runRows = useAppRuns(
+    runs,
+    app,
+    agentList.agents,
+    agentViewSource,
+    paneShown && pane.mode === "runs",
+  );
   const terminalShown = terminal !== undefined && coding !== null &&
     agents !== undefined;
   const tabs: PanelTab[] = [
@@ -462,6 +477,12 @@ export function AppSpace(
                 agents={agentList.agents}
                 paneOpen={panelVisible && shownTab === "agent"}
                 onOpenAgent={openAgent}
+                {...(runs === undefined ? {} : {
+                  onRuns: () => {
+                    setPane({ mode: "runs" });
+                    showTab("agent");
+                  },
+                })}
                 onManage={() => {
                   setPane({ mode: "manage", agent: null });
                   showTab("agent");
@@ -531,6 +552,7 @@ export function AppSpace(
             appName={row?.name ?? ""}
             {...(agents === undefined ? {} : { source: agents })}
             agents={agentList.agents}
+            runs={runRows}
             {...(agentViewSource === undefined ? {} : { agentViewSource })}
             {...(terminal !== undefined && coding !== null
               ? { coding: { tab: coding, deps: terminal } }

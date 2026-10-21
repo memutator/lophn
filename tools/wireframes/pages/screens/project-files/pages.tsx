@@ -48,6 +48,17 @@ export function AgentsGroup() {
   );
 }
 
+/** sidebar · Agent의 Background 묶음. run 줄 아래에 그 run이 연 session이 들여 쓰여 있다. `--session`으로 이어 쓴 run은 아래가 비어 있다. */
+export function AgentsRuns() {
+  const tab = documentTab(EXP);
+  return (
+    <ProjectApp
+      sidebar={{ mode: "agent", runs: true, scrollToAgents: true }}
+      panes={[{ tabs: [tab], selected: tab.key }]}
+    />
+  );
+}
+
 /** sidebar · Explorer. 루트를 고르는 menu를 연 상태다. 연결한 폴더 둘과 그 하위 폴더가 있고 tree에는 확장자·폴더별 아이콘이 붙는다. */
 export function ExplorerRootMenu() {
   const tab = documentTab(EXP);

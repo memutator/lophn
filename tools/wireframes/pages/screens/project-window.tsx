@@ -25,7 +25,10 @@ import {
 } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/rail.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
-import type { PanelSession } from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
+import type {
+  PanelRun,
+  PanelSession,
+} from "../../../../packages/shell/renderer/workspace/sidebar/use-agent-panel.ts";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
@@ -36,6 +39,8 @@ import {
   type AgentProfile,
   type ChatInit,
   profileOf,
+  RUN_SESSIONS,
+  RUNS,
   type SessionRow,
   SESSIONS,
 } from "../../mock/agents-data.ts";
@@ -144,6 +149,8 @@ export interface SidebarSpec {
   readonly foldersClosed?: boolean;
   /** sidebar 본문을 맨 아래로 scroll한다(Agent 모양에서 Recent가 보이게). */
   readonly scrollToAgents?: boolean;
+  /** Agent 모양에 Background(run) 묶음을 둔다. 끄면 run도 run이 연 session도 넘기지 않는다. */
+  readonly runs?: boolean;
   /** 처음에 보이는 모양. 없으면 Explorer다. */
   readonly mode?: SidebarTab;
   /** 루트를 고르는 menu를 연 채 시작한다. */
@@ -255,6 +262,35 @@ const PANEL_SESSIONS: readonly PanelSession[] = SESSIONS.flatMap((row) => {
     status: row.state,
     open: OPEN.has(row.id),
     at: whenMs(row.when),
+  }];
+});
+
+const panelSessionOf = (
+  row: SessionRow,
+  open: boolean,
+): PanelSession | null => {
+  const agent = agentIdOf(row.agent);
+  return agent === undefined ? null : {
+    id: row.id,
+    title: row.title,
+    agent,
+    status: row.state,
+    open,
+    at: whenMs(row.when),
+  };
+};
+
+// run이 연 session은 열린 채 run 아래에 묶이고 `sessions`에는 넣지 않는다.
+const PANEL_RUNS: readonly PanelRun[] = RUNS.flatMap((run) => {
+  const agent = agentIdOf(run.agent);
+  if (agent === undefined) return [];
+  const row = RUN_SESSIONS.find((item) => item.id === run.session);
+  return [{
+    id: run.id,
+    agent,
+    state: run.state,
+    at: whenMs(run.when),
+    session: row === undefined ? null : panelSessionOf(row, true),
   }];
 });
 
@@ -425,6 +461,7 @@ export function PageSidebar(props: SidebarProps) {
         source={DEMO_SOURCE}
         agents={AGENTS}
         sessions={PANEL_SESSIONS}
+        {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
         current={props.current === undefined ? null : absolute(props.current)}
         initialTab={props.mode}
         onOpenFile={(path) =>
@@ -438,7 +475,9 @@ export function PageSidebar(props: SidebarProps) {
         onRail={props.onRail}
         onAgent={(agent) => props.onAgent(agent.assignment)}
         onSession={(session) => {
-          const row = SESSIONS.find((item) => item.id === session.id);
+          const row = [...SESSIONS, ...RUN_SESSIONS].find((item) =>
+            item.id === session.id
+          );
           if (row) props.onSession?.(row);
         }}
         onManage={props.onManage}

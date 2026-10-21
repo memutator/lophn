@@ -25,7 +25,11 @@ import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { Rail, type RailAction } from "./rail.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
-import { type PanelSession, useAgentPanel } from "./use-agent-panel.ts";
+import {
+  type PanelRun,
+  type PanelSession,
+  useAgentPanel,
+} from "./use-agent-panel.ts";
 import styles from "./project-sidebar.module.css";
 
 export type SidebarTab = "explorer" | "agent" | "artifact" | "domain";
@@ -63,6 +67,8 @@ interface ProjectSidebarProps {
   /** Agent 모양의 agent 줄(`useSidebarAgents`)과 session 줄(`useSessions()`에서 옮긴 값). */
   agents: readonly SidebarAgent[];
   sessions: readonly PanelSession[];
+  /** Background(run) 묶음의 줄. 비면 묶음이 없다. */
+  runs?: readonly PanelRun[];
   /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
   artifactPanel?: ReactNode;
   /** Domains 줄 menu의 Open DOMAIN.md. 주지 않으면 아무것도 하지 않는다. */
@@ -100,6 +106,7 @@ export function ProjectSidebar(
     source,
     agents,
     sessions,
+    runs,
     artifactPanel = null,
     onOpenDomainDoc,
     current = null,
@@ -132,7 +139,7 @@ export function ProjectSidebar(
     setTab("explorer");
     setFocusAsked(hasFolders);
   }, [focusExplorer]);
-  const panel = useAgentPanel(agents, sessions);
+  const panel = useAgentPanel(agents, sessions, runs);
   const collapsed = mode === "collapsed";
   const toggleLabel = collapsed
     ? t("project-workspace.button.expand-sidebar")

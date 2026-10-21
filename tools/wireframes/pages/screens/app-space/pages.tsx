@@ -5,6 +5,15 @@ export function AppSpaceFrame() {
   return <AppSpace agentMenu />;
 }
 
+/** Background 목록. agent run은 아래에 그 run이 연 session이 있고 tool run은 session 줄이 없다. 다른 앱과 lophn의 run은 없다. */
+export function RunsList() {
+  return <AppSpace runs="list" />;
+}
+
+export function RunsEmpty() {
+  return <AppSpace runs="empty" />;
+}
+
 export function VersionApplied() {
   return <AppSpace panel="version" />;
 }

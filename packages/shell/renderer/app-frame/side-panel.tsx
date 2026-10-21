@@ -31,6 +31,7 @@ import type { TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { AgentsPage } from "../workspace/agents/agents-page.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
+import { RunList, type RunRow } from "../workspace/sidebar/run-list.tsx";
 import { STAY } from "./annotate/use-view-toast.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
@@ -54,14 +55,15 @@ export function sidePanelPlacement(
     : "overlay";
 }
 
-/** agent 탭이 보이는 것. agent는 열린 agent와 그 session(null은 새 session), manage는 editor로 열어 둔 agent다. */
+/** agent 탭이 보이는 것. agent는 열린 agent와 그 session(null은 새 session), manage는 editor로 열어 둔 agent, runs는 이 앱의 Background 목록이다. */
 export type AgentPaneState =
   | {
     readonly mode: "agent";
     readonly assignment: string;
     readonly session: string | null;
   }
-  | { readonly mode: "manage"; readonly agent: string | null };
+  | { readonly mode: "manage"; readonly agent: string | null }
+  | { readonly mode: "runs" };
 
 export type PanelTab = "details" | "agent" | "terminal";
 
@@ -93,6 +95,8 @@ interface SidePanelProps {
   source?: AgentsSource;
   /** select와 같은 목록. agent 탭의 이름과 avatar를 찾는다. */
   agents: readonly AppSpaceAgent[];
+  /** `runs` mode의 목록. 새것부터다. */
+  runs?: readonly RunRow[];
   /** 없으면 Agent 화면을 열 수 없다("준비 안 됨"). */
   agentViewSource?: AgentTabSourceFactory;
   /** lophn이 연 coding 터미널. 있을 때만 터미널 탭이 있다. */
@@ -121,6 +125,8 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
     ? null
     : state.mode === "manage"
     ? <ManageBody {...props} agent={state.agent} />
+    : state.mode === "runs"
+    ? <RunsBody {...props} />
     : props.agentViewSource === undefined
     ? <NotReady />
     : (
@@ -238,6 +244,8 @@ function Head(props: SidePanelProps): ReactElement {
       key: "agent",
       title: state.mode === "manage"
         ? t("app-space.button.manage-agents")
+        : state.mode === "runs"
+        ? t("run-list.heading.background")
         : agent?.name ?? t("app-space.heading.agents"),
       icon: agent === undefined
         ? <Icon icon={conversationIcons.dock} pixels={iconPixels("small")} />
@@ -328,6 +336,32 @@ function ManageBody(props: SidePanelProps & { agent: string | null }) {
         onAddExtension={() => props.onSettings?.("tools")}
         onChanged={props.onChanged}
       />
+    </div>
+  );
+}
+
+// session 줄을 누르면 같은 칸에 그 agent의 Agent 화면이 그 session으로 열린다.
+function RunsBody(props: SidePanelProps) {
+  const runs = props.runs ?? [];
+  return (
+    <div className={styles.runs} data-runs-pane="">
+      {runs.length === 0
+        ? (
+          <p className={styles.state} data-runs-empty="">
+            {t("run-list.empty.none")}
+          </p>
+        )
+        : (
+          <RunList
+            runs={runs}
+            onSession={(session) =>
+              props.onState({
+                mode: "agent",
+                assignment: session.agent,
+                session: session.id,
+              })}
+          />
+        )}
     </div>
   );
 }

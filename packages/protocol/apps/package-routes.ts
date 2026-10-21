@@ -64,6 +64,16 @@ export const packageRegisterVersion = defineCommand({
   errors: ["forbidden", "invalid_input", "conflict"],
 });
 
+// 앱 source 안 상대 위치. 절대 경로·루트 밖 `..`·빈 조각은 거절한다.
+export const sourceRelativePathSchema = z.string().min(1).refine(
+  (value) =>
+    value === "." ||
+    (!/^[\\/]|^[A-Za-z]:|\\/.test(value) && !value.includes("\u0000") &&
+      !/[\r\n]/.test(value) &&
+      value.split("/").every((part) => part !== ".." && part !== "")),
+  { message: "path must stay inside source" },
+);
+
 // App Engineer가 자기 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
 export const packagePublishInputSchema = z.strictObject({
@@ -84,7 +94,6 @@ export const packagePublishInputSchema = z.strictObject({
     examples: z.string().regex(/\S/),
   }),
   permissions: z.array(z.string().min(1)),
-  tests: z.array(idSchema("vrf")).min(1),
   key: idempotencyKeySchema,
 });
 export type PackagePublishInput = z.infer<typeof packagePublishInputSchema>;

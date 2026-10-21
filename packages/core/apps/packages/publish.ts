@@ -1,5 +1,5 @@
 // package.publish. App Engineer가 자기 앱 code의 일부를 @me package로 낸다.
-// 통과한 test가 있어야 하고, 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
+// 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { z } from "zod";
 import type {
@@ -7,7 +7,6 @@ import type {
   PackageRegisterVersionInput,
   packageRegisterVersionOutputSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { AppTestVerificationLookup } from "../../../protocol/problems/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 import {
   extractCommit,
@@ -31,7 +30,6 @@ type PublishDeps = {
   dataRoot: string;
   // 앱에 연결된 source 폴더(app.source_path). 연결 안 된 앱은 err다.
   sourceRootOf: (app: string) => Promise<Result<string>> | Result<string>;
-  verification: AppTestVerificationLookup;
   prepareBlob: PrepareBlob;
   // machine 자격으로 package.register_version을 ledger command로 넣는다.
   registerVersion: (
@@ -62,17 +60,6 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     }
     if (!input.name.startsWith("@me/")) {
       return invalid("published package name must be @me/...");
-    }
-    for (const id of input.tests) {
-      const found = deps.verification(id);
-      if (!found.ok) return found;
-      const fact = found.value;
-      if (
-        fact === null || fact.app !== input.app || fact.result !== "pass" ||
-        fact.kind !== "app_test"
-      ) {
-        return invalid(`${id} is not a passed app test of this app`);
-      }
     }
     const source = await deps.sourceRootOf(input.app);
     if (!source.ok) return source;

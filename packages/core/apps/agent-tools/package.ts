@@ -21,8 +21,10 @@ import {
   type ToolDefinition,
 } from "../../lophn-agent/tools/spi.ts";
 import { z } from "zod";
-import { packagePublishInputSchema } from "../../../protocol/apps/package-routes.ts";
-import { sourceRelativePathSchema } from "../../../protocol/coding-agent/ticket/mod.ts";
+import {
+  packagePublishInputSchema,
+  sourceRelativePathSchema,
+} from "../../../protocol/apps/package-routes.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -175,7 +177,7 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
     }).extend({ path: sourceRelativePathSchema }),
     routes: [appGet, packagePublish],
     description:
-      "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), the permissions it needs and tests (ids of passed app tests of this app). The code is the HEAD commit of the app source, so commit the folder first.",
+      "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples), and the permissions it needs. The code is the HEAD commit of the app source, so commit the folder first.",
     effect: "write",
     handler: async (input, ctx) => {
       const rest = input;

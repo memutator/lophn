@@ -83,10 +83,7 @@ import { checkBlueprint } from "../../../apps/blueprint/check.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
-import {
-  findAppTestVerification,
-  findPassedAppTest,
-} from "../../../problems/tests/app-test-lookup.ts";
+import { findPassedAppTest } from "../../../problems/tests/app-test-lookup.ts";
 import { deriveAppTest } from "../../../problems/tests/app-test/frozen.ts";
 import { bundleCopyPath } from "../../../apps/releases/bundle/seal.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
@@ -384,7 +381,6 @@ export const appsWiring: WiringFactory = () => {
             publishPackage({
               dataRoot: ctx.root.path,
               sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
-              verification: (id) => findAppTestVerification(link.sql, id),
               prepareBlob: (call) => ctx.blobRelay.prepare(call),
               registerVersion: async (input) => {
                 const key = `package-publish-${await sha256Hex(

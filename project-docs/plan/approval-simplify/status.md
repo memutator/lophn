@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 | `ap-reaction` | reaction | 1 | 없음 | merged | reaction/ap-reaction | ede903703 |  |
 | `ap-settings-edit` | settings-edit | 1 | 없음 | merged | settings-edit/ap-settings-edit | ede53ee96 |  |
 | `ap-activation` | activation | 2 | 없음 | merged | activation/ap-activation | 500987a2f |  |
-| `ap-app-call` | app-call | 2 | ap-activation | running | app-call/ap-app-call |  |  |
+| `ap-app-call` | app-call | 2 | ap-activation | merged | app-call/ap-app-call | 832b0e5e2 |  |
 | `ap-ask-pending` | ask | 2 | ap-activation | running | ask/ap-ask-pending |  |  |
 | `ap-ask-turn` | ask | 2 | ap-ask-pending, ap-app-call | todo |  |  |  |
 | `ap-assign-editor` | assign | 2 | 없음 | merged | assign/ap-assign-editor | 5b85e9769 |  |

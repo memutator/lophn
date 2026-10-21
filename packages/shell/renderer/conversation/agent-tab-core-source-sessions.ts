@@ -2,12 +2,7 @@
 // (열기, 이름, archive, 지우기, fork, compact)와 권한 보기. 모두 snapshot read와 command이고 polling은 없다.
 import { t } from "@lophn/wording";
 
-import {
-  type AgentGrant,
-  agentGrantsGet,
-  DEFAULT_ASK,
-  SETTINGS_EDIT_DEFAULT_ASK,
-} from "../../../protocol/approvals/grants.ts";
+import { agentAssignmentGet } from "../../../protocol/approvals/assignment.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import { agentDefinitionRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
@@ -31,8 +26,6 @@ import { projectGet } from "../../../protocol/projects/project-routes.ts";
 import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type {
   AgentFace,
-  GrantRow,
-  GrantSetting,
   PermissionsView,
   SessionEntry,
   SessionStatus,
@@ -93,82 +86,28 @@ async function appNameOf(env: Env, app: string): Promise<string> {
   return read.ok ? read.value.app.name : app;
 }
 
-function settingOf(
-  setting: "never" | "ask" | undefined,
-  fallback: "never" | "ask",
-): GrantSetting {
-  return (setting ?? fallback) === "ask" ? "ask" : "allow";
-}
-
-/** grant 한 대상이 효과 하나에 대한 한 줄이 된다. 사람이 바꾸지 않은 칸은 효과별 기본값이다. */
-async function grantRowsOf(
+/** 할당한 앱마다 이름과 뺀 tool. MCP server는 설정한 층이 할당이라 줄이 없다. */
+async function readApps(
   env: Env,
-  grant: AgentGrant,
-): Promise<GrantRow[]> {
-  const rows: GrantRow[] = [];
-  for (const entry of grant.entries) {
-    switch (entry.kind) {
-      case "app": {
-        const name = await appNameOf(env, entry.app);
-        if (entry.tools.length === 0) {
-          rows.push({
-            target: name,
-            effect: "app",
-            setting: settingOf(undefined, DEFAULT_ASK.write),
-          });
-        }
-        for (const tool of entry.tools) {
-          rows.push({
-            target: `${name} · ${tool.tool}`,
-            effect: "app",
-            setting: tool.setting === "excluded"
-              ? "deny"
-              : settingOf(tool.setting, DEFAULT_ASK.write),
-          });
-        }
-        break;
-      }
-      case "mcp_tool":
-        rows.push({
-          target: `${entry.server} · ${entry.tool}`,
-          effect: "external",
-          setting: settingOf(entry.setting, DEFAULT_ASK.external),
-        });
-        break;
-      case "agent":
-        rows.push({
-          target: roleLabel(entry.agent.role),
-          effect: "agent",
-          setting: entry.setting === "excluded"
-            ? "deny"
-            : settingOf(entry.setting, DEFAULT_ASK.read),
-        });
-        break;
-      case "settings":
-        rows.push({
-          target: "settings",
-          effect: "write",
-          setting: settingOf(entry.setting, SETTINGS_EDIT_DEFAULT_ASK),
-        });
-        break;
-    }
-  }
-  return rows;
-}
-
-async function readGrantRows(env: Env): Promise<SourceResult<GrantRow[]>> {
-  const read = await env.read(agentGrantsGet, { agent: env.agent });
+): Promise<SourceResult<PermissionsView["apps"]>> {
+  const read = await env.read(agentAssignmentGet, { agent: env.agent });
   if (!read.ok) return read;
-  return { ok: true, value: await grantRowsOf(env, read.value.grant) };
+  const apps = [];
+  for (const entry of read.value.assignment.entries) {
+    apps.push({
+      name: await appNameOf(env, entry.app),
+      removed: entry.removed_tools,
+    });
+  }
+  return { ok: true, value: apps };
 }
 
-/** `/permissions`와 입력칸 아래 요약. "이 session 동안" 허락은 core 메모리에 있고 읽는 route가 없어 비어 있다. */
+/** `/permissions`와 입력칸 아래 요약. */
 export async function readPermissions(
   env: Env,
 ): Promise<SourceResult<PermissionsView>> {
-  const rows = await readGrantRows(env);
-  if (!rows.ok) return rows;
-  return { ok: true, value: { grants: rows.value, session: [] } };
+  const apps = await readApps(env);
+  return apps.ok ? { ok: true, value: { apps: apps.value } } : apps;
 }
 
 // ---------------------------------------------------------------- 얼굴 읽기
@@ -189,8 +128,8 @@ export async function readFace(
   const { role, place, effective } = read.value;
   const named = await placeNameOf(env, place);
   if (!named.ok) return named;
-  const grants = await readGrantRows(env);
-  if (!grants.ok) return grants;
+  const apps = await readApps(env);
+  if (!apps.ok) return apps;
   const name = effective.name.value;
   const profile = effective.profile.value;
   const face: AgentFace = {
@@ -202,7 +141,7 @@ export async function readFace(
       : { kind: "initial", text: name.slice(0, 1) },
     place: { kind: place?.kind ?? "project", name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {
-      count: grants.value.filter((row) => row.setting === "allow").length,
+      count: apps.value.length,
     }),
   };
   cache.set(face);

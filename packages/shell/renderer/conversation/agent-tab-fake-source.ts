@@ -1,9 +1,9 @@
 // AgentTabSource의 메모리 fake. wireframe의 Agent 탭 장면 전부를 `scene` 이름으로 골라 낸다(gallery와 dev-mock이 쓴다).
 // 쓰기는 기록을 바꾸고 `changed`로 알려 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
-import type { Intent } from "../../../protocol/approvals/intent.ts";
 import type {
   AgentFace,
   AgentTabSource,
+  ApprovalResultView,
   AskedQuestion,
   BodyPart,
   CallView,
@@ -66,7 +66,6 @@ export const AGENT_TAB_SCENES = [
   "question-answered",
   "question-ended",
   "approval",
-  "approval-settings",
   "approval-states",
   "rewind",
   /** session이 아직 없는 새 대화. */
@@ -104,8 +103,7 @@ const LOPHN: AgentFace = {
   name: "lophn",
   profile: { kind: "icon", icon: "search" },
   place: { kind: "project", name: "phroner" },
-  permissionSummary:
-    "Permissions: 4 run freely · 3 ask first · 1 allowed in this session",
+  permissionSummary: "2 apps assigned",
 };
 
 const APP_ENGINEER: AgentFace = {
@@ -119,8 +117,9 @@ const APP_ENGINEER: AgentFace = {
 const REQUEST = "Write this week's eval report from the new findings.";
 const QUESTION_LEAD =
   "There are 3 new findings since last week. Before I write the report I need two answers.";
-const ISSUE_LEAD =
-  "F-011 is a regression on query-recipe-gap. I can file it as an issue on github. That happens outside lophn, so I need your OK first.";
+const CLEANUP_LEAD =
+  "The 2026-w40 report is superseded by this week's. I can delete the old folder with a shell command, so I need your OK first.";
+const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
 
 const turn1 = turnId(1);
 
@@ -272,42 +271,6 @@ const ASKED: readonly AskedQuestion[] = [
     ],
   },
 ];
-
-const mcpIntent = (): Intent => ({
-  kind: "mcp_tool",
-  actor: { kind: "agent", agent: { role: "lophn" }, session: SESSION_MAIN },
-  target: { kind: "mcp_tool", server: "github", tool: "create_issue" },
-  effect: "external",
-  input: {
-    repo: "phroner/harness",
-    title: "query-recipe-gap regressed",
-    labels: ["eval"],
-  },
-  origin: {
-    kind: "turn",
-    session: SESSION_MAIN,
-    turn: turn1,
-    tool_call: toolId(5),
-  },
-});
-
-const settingsIntent = (): Intent => ({
-  kind: "settings_edit",
-  actor: { kind: "agent", agent: { role: "lophn" }, session: SESSION_MAIN },
-  target: { kind: "settings_edit", what: "instructions", id: null },
-  effect: "write",
-  input: {
-    file: "LOPHN.md",
-    before: "Ask before you rewrite a report that is already published.",
-    after: "Put every new report in docs/reports/.",
-  },
-  origin: {
-    kind: "turn",
-    session: SESSION_MAIN,
-    turn: turn1,
-    tool_call: toolId(6),
-  },
-});
 
 function envelope(
   sender: Envelope["sender"],
@@ -629,66 +592,40 @@ function sceneData(scene: AgentTabScene): SceneData {
         pending: {
           approval: {
             id: requestId(1),
-            intent: mcpIntent(),
-            choices: ["once", "session", "always", "reject"],
+            subject: { kind: "shell", command: CLEANUP_COMMAND },
+            always_patterns: ["rm -r *"],
           },
           questions: null,
         },
-        bodies: { [messageId(2)]: [{ kind: "text", text: ISSUE_LEAD }] },
-      };
-    case "approval-settings":
-      return {
-        agent: LOPHN,
-        title: "Weekly report",
-        entries: [
-          user(1, 41, "From now on, put every new report in docs/reports/."),
-          agent(2, 41),
-        ],
-        turn: { id: turn1, phase: "waiting", startedAt: at(41) },
-        pending: {
-          approval: {
-            id: requestId(2),
-            intent: settingsIntent(),
-            choices: ["allow", "reject"],
-          },
-          questions: null,
-        },
-        bodies: {
-          [messageId(2)]: [{
-            kind: "text",
-            text:
-              "I will write that into LOPHN.md so every agent here follows it. Changing that file needs your OK.",
-          }],
-        },
+        bodies: { [messageId(2)]: [{ kind: "text", text: CLEANUP_LEAD }] },
       };
     case "approval-states": {
       const result = (
         n: number,
-        outcome: "received" | "applied" | "denied" | "cancelled",
-        intent: Intent,
-        choice: "once" | "session" | "allow" | null,
+        outcome: ApprovalResultView["outcome"],
+        choice: ApprovalResultView["choice"],
         reason: string | null,
       ): ThreadEntry => ({
         kind: "approval-result",
         id: requestId(n),
         at: at(41),
-        result: { request: requestId(n), intent, outcome, choice, reason },
+        result: {
+          request: requestId(n),
+          subject: { kind: "shell", command: CLEANUP_COMMAND },
+          outcome,
+          choice,
+          reason,
+        },
       });
       return {
         agent: LOPHN,
         title: "Weekly report",
         entries: [
-          user(1, 41, "Go on with the issue and the LOPHN.md change."),
-          result(1, "received", mcpIntent(), "session", null),
-          result(2, "applied", settingsIntent(), "allow", null),
-          result(
-            3,
-            "denied",
-            mcpIntent(),
-            null,
-            "The issue already exists as #212.",
-          ),
-          result(4, "cancelled", mcpIntent(), null, null),
+          user(1, 41, "Go on with the cleanup."),
+          result(1, "allowed", "once", null),
+          result(2, "allowed", "always", null),
+          result(3, "denied", null, "Keep last week's report for now."),
+          result(4, "cancelled", null, null),
         ],
         turn: { id: turn1, phase: "ended", startedAt: at(41) },
       };
@@ -712,16 +649,10 @@ const RECAP: readonly string[] = [
 ];
 
 const PERMISSIONS_VIEW: PermissionsView = {
-  grants: [
-    { target: "Eval board tools", effect: "Read", setting: "allow" },
-    { target: "Eval board tools", effect: "Write", setting: "allow" },
-    { target: "Eval board tools", effect: "Outside lophn", setting: "ask" },
-    { target: "github MCP tools", effect: "Read only", setting: "allow" },
-    { target: "github MCP tools", effect: "Other tools", setting: "ask" },
-    { target: "Other agents", effect: "Hand over a task", setting: "allow" },
-    { target: "LOPHN.md", effect: "Change", setting: "ask" },
+  apps: [
+    { name: "Eval board", removed: [] },
+    { name: "Expense tracker", removed: ["delete_expense"] },
   ],
-  session: ["github › create_issue"],
 };
 
 const REWIND_PREVIEW: RewindPreviewView = {
@@ -1191,9 +1122,9 @@ export function createFakeAgentTabSource(
           at: at(51),
           result: {
             request,
-            intent: approval.intent,
-            outcome: denied ? "denied" : "received",
-            choice: denied ? null : choice,
+            subject: approval.subject,
+            outcome: denied ? "denied" : "allowed",
+            choice: choice === "reject" ? null : choice,
             reason: reason ?? null,
           },
         }],

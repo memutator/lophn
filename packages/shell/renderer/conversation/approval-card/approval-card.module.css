@@ -63,6 +63,16 @@
   line-height: var(--type-small-line);
 }
 
+.pattern {
+  display: inline-block;
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  font-family: var(--font-mono);
+}
+
 .reasonRow {
   display: flex;
   align-items: center;

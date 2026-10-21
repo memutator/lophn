@@ -1,21 +1,12 @@
-// `/permissions`가 대화 화면 안 panel로 열고, 입력칸 아래 권한 요약이 popover 안에 여는 같은 보기. 그 agent의
-// agent grant(대상, 효과, 묻는지)와 이 session에서 "이 session 동안"으로 허락한 대상만 보인다. 고치기는
-// Agents 화면에서 한다.
+// `/permissions`가 대화 화면 안 panel로 열고, 입력칸 아래 권한 요약이 popover 안에 여는 같은 보기. 그 agent에
+// 할당한 앱과 앱마다 뺀 tool만 보인다. MCP server는 설정한 층이 할당이라 줄 대신 설정한 곳을 가리키는 한
+// 줄이다. 고치기는 Agents 화면에서 한다.
 import type { ReactElement } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/wording";
 import { workspaceIcons } from "../../icons/mod.ts";
-import type {
-  GrantSetting,
-  PermissionsView as PermissionsData,
-} from "../agent-tab-source.ts";
+import type { PermissionsView as PermissionsData } from "../agent-tab-source.ts";
 import styles from "./permissions-view.module.css";
-
-const SETTINGS = {
-  allow: "conversation.label.grant-allow",
-  ask: "conversation.label.grant-ask",
-  deny: "conversation.label.grant-deny",
-} as const satisfies Record<GrantSetting, string>;
 
 interface PermissionsViewProps {
   agent: string;
@@ -55,42 +46,30 @@ export function PermissionsView(
           <p className={styles.groupHead}>
             {t("conversation.label.permissions-may", { agent })}
           </p>
-          <ul className={styles.list}>
-            {permissions.grants.map((row) => (
-              <li key={`${row.target}-${row.effect}`} className={styles.row}>
-                <span className={styles.target}>{row.target}</span>
-                <span className={styles.effect}>{row.effect}</span>
-                <span className={styles.setting} data-setting={row.setting}>
-                  {t(SETTINGS[row.setting])}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className={styles.group}>
-          <p className={styles.groupHead}>
-            {t("conversation.label.permissions-session")}
-          </p>
-          {permissions.session.length === 0
+          {permissions.apps.length === 0
             ? (
               <p className={styles.muted}>
-                {t("conversation.notice.permissions-session-empty")}
+                {t("conversation.notice.permissions-no-apps")}
               </p>
             )
             : (
               <ul className={styles.list}>
-                {permissions.session.map((target) => (
-                  <li key={target} className={styles.row}>
-                    <span className={styles.target}>{target}</span>
-                    <span className={styles.setting}>
-                      {t("conversation.label.grant-allow")}
+                {permissions.apps.map((app) => (
+                  <li key={app.name} className={styles.row}>
+                    <span className={styles.target}>{app.name}</span>
+                    <span className={styles.effect}>
+                      {app.removed.length === 0
+                        ? t("conversation.label.permissions-all-tools")
+                        : t("conversation.label.permissions-except", {
+                          tools: app.removed.join(", "),
+                        })}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
           <p className={styles.muted}>
-            {t("conversation.notice.permissions-session-ends")}
+            {t("conversation.notice.permissions-mcp")}
           </p>
         </div>
       </div>

@@ -12,8 +12,7 @@ import type {
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
-import type { Intent } from "../../../protocol/approvals/intent.ts";
-import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
+import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
@@ -45,7 +44,7 @@ export interface AgentFace {
   readonly profile: AgentProfile;
   /** lophn은 열린 자리, 나머지는 자기 자리다. */
   readonly place: { readonly kind: "project" | "app"; readonly name: string };
-  /** 그 agent의 권한과 이 session의 허락을 한 줄로 요약한 글. */
+  /** 그 agent에 할당한 앱을 한 줄로 요약한 글. */
   readonly permissionSummary: string;
 }
 
@@ -167,26 +166,33 @@ export interface AnsweredLine {
 
 // ---- 승인 ----
 
+/** 대화 화면에 오는 물음의 대상. harness 물음은 대기 목록의 coding 카드가 터미널로 보낸다. */
+export type ApprovalSubject = Exclude<
+  TurnRequest["subject"],
+  { readonly kind: "harness" }
+>;
+
 /**
- * composer 위에 놓이는 승인 카드. 제목·대상·입력·효과의 글은 intent에서 화면이 만든다(요청한 agent가 쓴
- * 설명은 없다). 선택지는 대상 종류가 정한 `choices`다.
+ * composer 위에 놓이는 승인 카드. 제목과 세부의 글은 subject에서 화면이 만든다(요청한 agent가 쓴 설명은
+ * 없다). 선택지는 `always_patterns`로 정해지고 이름이 같아야 `turnChoicesOf`가 request 그대로 받는다.
  */
 export interface ApprovalCardRequest {
   /** `apr_…` */
   readonly id: string;
-  readonly intent: Intent;
-  readonly choices: readonly RequestChoice[];
+  readonly subject: ApprovalSubject;
+  /** Always allow가 더할 allow 규칙의 pattern. 비어 있으면 Always allow가 없다. */
+  readonly always_patterns: string[];
 }
 
-/** 결정 뒤 대화에 남는 줄. 접수와 적용은 다르고, cancelled(원래 일이 끝남)는 거절이 아니다. */
-type ApprovalOutcome = "received" | "applied" | "denied" | "cancelled";
+/** 결정 뒤 대화에 남는 줄. cancelled(원래 일이 끝남)는 거절이 아니다. */
+type ApprovalOutcome = "allowed" | "denied" | "cancelled";
 
 export interface ApprovalResultView {
   readonly request: string;
-  readonly intent: Intent;
+  readonly subject: ApprovalSubject;
   readonly outcome: ApprovalOutcome;
   /** 사람이 고른 허락 범위. 다른 창에서 결정한 것은 모른다. */
-  readonly choice: RequestChoice | null;
+  readonly choice: "once" | "always" | null;
   /** 거절 이유. */
   readonly reason: string | null;
 }
@@ -381,21 +387,13 @@ export interface ModelView {
   readonly layer: AgentValueLayer | null;
 }
 
-export type GrantSetting = "allow" | "ask" | "deny";
-
-/** agent grant 한 줄. */
-export interface GrantRow {
-  readonly target: string;
-  readonly effect: string;
-  readonly setting: GrantSetting;
-}
-
 /** `/permissions`와 입력칸 아래 요약이 여는 보기. */
 export interface PermissionsView {
-  /** 그 agent의 grant. */
-  readonly grants: readonly GrantRow[];
-  /** 이 session에서 "이 session 동안"으로 허락한 대상. */
-  readonly session: readonly string[];
+  /** 할당한 앱과 그 앱에서 뺀 tool. MCP server는 설정한 층이 할당이라 줄이 없다. */
+  readonly apps: readonly {
+    readonly name: string;
+    readonly removed: readonly string[];
+  }[];
 }
 
 // ---- rewind ----
@@ -522,7 +520,7 @@ export interface AgentTabSource {
   decidePermission(
     session: string,
     request: string,
-    choice: RequestChoice,
+    choice: "once" | "always" | "reject",
     reason?: string,
   ): Promise<SourceResult<void>>;
   /** 끝나지 않은 call을 취소한다. */

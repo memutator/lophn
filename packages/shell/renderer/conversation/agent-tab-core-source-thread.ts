@@ -22,6 +22,7 @@ import {
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import type {
   AgentRole,
+  ApprovalCardRequest,
   AskedGroup,
   AskedQuestion,
   BodyPart,
@@ -502,7 +503,17 @@ export async function readThread(
   const current = latestTurn(turns.value);
   const running = current !== null && current.state === "running";
   const live = snapshot.value.snapshots[0];
-  const permission = live?.permission_requests[0] ?? null;
+  // harness 물음은 대기 목록의 coding 카드가 그린다.
+  let approval: ApprovalCardRequest | null = null;
+  for (const one of live?.turn_requests ?? []) {
+    if (one.subject.kind === "harness") continue;
+    approval = {
+      id: one.id,
+      subject: one.subject,
+      always_patterns: one.always_patterns,
+    };
+    break;
+  }
   const asked = live?.questions[0] ?? null;
 
   // 사람이 도는 중에 다음 turn으로 보낸 메시지는 입력함에 있다.
@@ -629,11 +640,7 @@ export async function readThread(
     };
   }
   const pending: ThreadView["pending"] = {
-    approval: permission === null ? null : {
-      id: permission.id,
-      intent: permission.intent,
-      choices: permission.choices,
-    },
+    approval,
     questions,
   };
 

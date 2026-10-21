@@ -1,5 +1,5 @@
 // Agent 탭의 새 설계 화면들. 모두 동작하는 ProjectApp 위에 고정 상태로 놓고, 탭 본문은 renderer의 AgentView가 장면(fake
-// source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 승인 카드, rewind, 권한, recap.
+// source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한, recap.
 import { ProjectApp } from "../project-app.tsx";
 import type { ChatInit } from "../../../mock/agents-data.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
@@ -43,13 +43,11 @@ export const QuestionScene = () => <Scene sub="question" />;
 export const QuestionAnsweredScene = () => <Scene sub="question-answered" />;
 /** 기다리는 중 내가 그냥 메시지를 보낸 뒤: 카드가 "Ended by your message"로 접힌다. */
 export const QuestionEndedScene = () => <Scene sub="question-ended" />;
-/** 승인 카드(MCP tool): 내용은 program 문구(대상, 입력, 효과)이고 선택지는 한 번, 이 session 동안, 항상, 거절이다. */
+/** 허락 카드(shell 명령): 명령이 그대로 보이고 선택지는 한 번, 항상(더할 규칙을 보인다), 거절이다. */
 export const ApprovalScene = () => <Scene sub="approval" />;
 /** [Deny]를 누른 모습: 이유를 적는 칸이 열린다. 적지 않고 보내도 된다. */
 export const ApprovalDenyScene = () => <Scene sub="approval-deny" />;
-/** 설정 고치기(LOPHN.md 쓰기): 선택지는 [Allow]와 [Deny]뿐이다. */
-export const ApprovalSettingsScene = () => <Scene sub="approval-settings" />;
-/** 결정 뒤 대화에 남는 줄 넷: 허락을 받은 것, 적용된 것, 거절, 일이 끝나 취소된 것을 구별한다. */
+/** 결정 뒤 대화에 남는 줄 넷: 한 번 허락, 항상 허락, 거절, 일이 끝나 취소된 것을 구별한다. */
 export const ApprovalStatesScene = () => <Scene sub="approval-states" />;
 /** rewind: 내 메시지에서 그 시점으로 되돌리는 panel이 대화 화면 안에 열린다. 앱은 앱마다 고른다. */
 export const RewindScene = () => <Scene sub="rewind" />;
@@ -60,7 +58,7 @@ export const RecapScene = () => (
     chat={{ view: "recap" }}
   />
 );
-/** `/permissions`: 그 agent의 agent grant와 이 session에서 "이 session 동안"으로 허락한 대상. */
+/** `/permissions`: 그 agent에 할당한 앱과 앱마다 뺀 tool, MCP server는 설정한 곳을 가리키는 한 줄. */
 export const PermissionsScene = () => (
   <Scene sub="working" chat={{ view: "permissions" }} />
 );

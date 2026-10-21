@@ -2,7 +2,6 @@ import type { Area } from "../types.ts";
 import {
   AgentApproval,
   AgentApprovalDeny,
-  AgentApprovalSettings,
   AgentApprovalStates,
   AgentCallOpen,
   AgentCallReplies,
@@ -102,7 +101,7 @@ export const agentArea: Area = {
       id: "new-agent-approval",
       title: "Agent · approval card",
       description:
-        "tool이나 MCP tool의 승인 카드다. 확인 창 없이 Allow once, Allow for this session, Always allow, Deny로 바로 결정한다. 내용은 program 문구(대상, 입력, 효과)다.",
+        "shell 명령의 허락 카드다. 명령이 그대로 보이고 Allow once, Always allow, Deny로 바로 결정한다. Always allow는 그 명령 앞부분의 allow 규칙을 더하고, 더할 규칙이 카드에 보인다.",
       render: () => <AgentApproval />,
     },
     {
@@ -112,24 +111,17 @@ export const agentArea: Area = {
       render: () => <AgentApprovalDeny />,
     },
     {
-      id: "new-agent-approval-settings",
-      title: "Agent · approval for settings",
-      description:
-        "설정 고치기(LOPHN.md 쓰기) 카드다. 선택지는 Allow와 Deny뿐이고 바뀌는 줄을 diff로 보인다.",
-      render: () => <AgentApprovalSettings />,
-    },
-    {
       id: "new-agent-approval-states",
       title: "Agent · approval results",
       description:
-        "결정 뒤 대화에 남는 줄 넷이다. 허락 접수, 적용됨, 거절(이유 포함), cancelled(이 일이 끝나서 없어진 요청)를 구별한다.",
+        "결정 뒤 대화에 남는 줄 넷이다. 한 번 허락, 항상 허락, 거절(이유 포함), cancelled(이 일이 끝나서 없어진 요청)를 구별한다.",
       render: () => <AgentApprovalStates />,
     },
     {
       id: "new-agent-commands",
       title: "Agent · commands",
       description:
-        "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 선으로 나눈다. Recap이 있고 Permissions는 grant와 이 session의 허락을 보인다.",
+        "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 선으로 나눈다. Recap이 있고 Permissions는 할당한 앱을 보인다.",
       render: () => <AgentCommands />,
     },
     {
@@ -150,7 +142,7 @@ export const agentArea: Area = {
       id: "new-agent-permissions",
       title: "Agent · permissions",
       description:
-        "/permissions 보기다. 그 agent의 grant(대상, 효과, 묻는지)와 이 session에서 이 session 동안으로 허락한 대상을 보인다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
+        "/permissions 보기다. 할당한 앱마다 뺀 tool이 보이고, MCP server는 설정한 곳(Workspace, project, 이 Operator)에서 정한다는 한 줄이 있다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
       render: () => <AgentPermissions />,
     },
     {

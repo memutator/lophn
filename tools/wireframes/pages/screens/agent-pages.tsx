@@ -9,7 +9,6 @@ import {
 import {
   ApprovalDenyScene,
   ApprovalScene,
-  ApprovalSettingsScene,
   ApprovalStatesScene,
   CallOpenScene,
   CallRepliesScene,
@@ -199,12 +198,10 @@ export const AgentQuestion = QuestionScene;
 export const AgentQuestionAnswered = QuestionAnsweredScene;
 /** 기다리는 중 메시지를 보내 질문이 끝난 뒤. */
 export const AgentQuestionEnded = QuestionEndedScene;
-/** 승인 카드(MCP tool). */
+/** 허락 카드(shell 명령). */
 export const AgentApproval = ApprovalScene;
 /** [Deny]를 눌러 이유를 적는 모습. */
 export const AgentApprovalDeny = ApprovalDenyScene;
-/** 설정 고치기(LOPHN.md) 승인 카드. */
-export const AgentApprovalSettings = ApprovalSettingsScene;
 /** 결정 뒤 상태 넷. */
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */

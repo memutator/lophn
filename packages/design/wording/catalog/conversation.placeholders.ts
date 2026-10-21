@@ -9,10 +9,8 @@ export type ConversationPlaceholders = {
     skill: "string";
   };
   "conversation.button.add-model": Record<never, never>;
-  "conversation.button.approval-allow": Record<never, never>;
   "conversation.button.approval-allow-always": Record<never, never>;
   "conversation.button.approval-allow-once": Record<never, never>;
-  "conversation.button.approval-allow-session": Record<never, never>;
   "conversation.button.approval-deny": Record<never, never>;
   "conversation.button.archive": Record<never, never>;
   "conversation.button.archived-toggle": {
@@ -70,15 +68,16 @@ export type ConversationPlaceholders = {
   "conversation.label.approval-app": {
     id: "string";
   };
-  "conversation.label.approval-applied": Record<never, never>;
+  "conversation.label.approval-allowed": Record<never, never>;
+  "conversation.label.approval-always": Record<never, never>;
   "conversation.label.approval-cancelled": Record<never, never>;
   "conversation.label.approval-cancelled-detail": Record<never, never>;
+  "conversation.label.approval-command": Record<never, never>;
   "conversation.label.approval-denied": Record<never, never>;
   "conversation.label.approval-effect": Record<never, never>;
   "conversation.label.approval-effect-external": Record<never, never>;
   "conversation.label.approval-effect-read": Record<never, never>;
   "conversation.label.approval-effect-write": Record<never, never>;
-  "conversation.label.approval-input": Record<never, never>;
   "conversation.label.approval-reason": Record<never, never>;
   "conversation.label.approval-reason-given": {
     reason: "string";
@@ -86,15 +85,8 @@ export type ConversationPlaceholders = {
   "conversation.label.approval-reason-placeholder": {
     agent: "string";
   };
-  "conversation.label.approval-received": Record<never, never>;
   "conversation.label.approval-scope-always": Record<never, never>;
   "conversation.label.approval-scope-once": Record<never, never>;
-  "conversation.label.approval-scope-session": Record<never, never>;
-  "conversation.label.approval-settings-agent-definition": Record<never, never>;
-  "conversation.label.approval-settings-grant": Record<never, never>;
-  "conversation.label.approval-settings-instructions": Record<never, never>;
-  "conversation.label.approval-settings-setting": Record<never, never>;
-  "conversation.label.approval-settings-skill": Record<never, never>;
   "conversation.label.approval-target": Record<never, never>;
   "conversation.label.approval-target-tool": {
     tool: "string";
@@ -104,7 +96,6 @@ export type ConversationPlaceholders = {
     tool: "string";
     server: "string";
   };
-  "conversation.label.approval-target-other": Record<never, never>;
   "conversation.label.archived": Record<never, never>;
   "conversation.label.call-answered": Record<never, never>;
   "conversation.label.call-cancelled": Record<never, never>;
@@ -139,9 +130,6 @@ export type ConversationPlaceholders = {
   "conversation.label.evidence-file": Record<never, never>;
   "conversation.label.evidence-session": Record<never, never>;
   "conversation.label.evidence-ticket": Record<never, never>;
-  "conversation.label.grant-allow": Record<never, never>;
-  "conversation.label.grant-ask": Record<never, never>;
-  "conversation.label.grant-deny": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-changed": Record<never, never>;
   "conversation.label.media-audio": Record<never, never>;
@@ -183,10 +171,13 @@ export type ConversationPlaceholders = {
   "conversation.label.permissions-may": {
     agent: "string";
   };
+  "conversation.label.permissions-all-tools": Record<never, never>;
+  "conversation.label.permissions-except": {
+    tools: "string";
+  };
   "conversation.label.permissions-of": {
     agent: "string";
   };
-  "conversation.label.permissions-session": Record<never, never>;
   "conversation.label.question-answered-elsewhere": Record<never, never>;
   "conversation.label.question-cancelled": Record<never, never>;
   "conversation.label.question-card": {
@@ -361,9 +352,9 @@ export type ConversationPlaceholders = {
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.permissions-mcp": Record<never, never>;
+  "conversation.notice.permissions-no-apps": Record<never, never>;
   "conversation.notice.permissions-edited-in-agents": Record<never, never>;
-  "conversation.notice.permissions-session-empty": Record<never, never>;
-  "conversation.notice.permissions-session-ends": Record<never, never>;
   "conversation.notice.question-waiting": Record<never, never>;
   "conversation.notice.questions-ended-by-message": Record<never, never>;
   "conversation.notice.recap-local": Record<never, never>;
@@ -416,7 +407,7 @@ export type ConversationPlaceholders = {
   "conversation.rewind.running": Record<never, never>;
   "conversation.rewind.start-failed": Record<never, never>;
   "conversation.title.add-model": Record<never, never>;
-  "conversation.title.approval-change": {
+  "conversation.title.approval-command": {
     agent: "string";
   };
   "conversation.title.approval-run": {

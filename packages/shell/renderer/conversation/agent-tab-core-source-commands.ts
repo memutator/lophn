@@ -4,7 +4,7 @@
 import { t } from "@lophn/wording";
 import type { z } from "zod";
 
-import { approvalsDecideTurn } from "../../../protocol/approvals/requests.ts";
+import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";
 import {
   agentSessionList,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
@@ -25,7 +25,6 @@ import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../prefixed-id.ts";
-import type { RequestChoice } from "../../../protocol/approvals/requests.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 import type {
   QuestionAnswer,
@@ -274,20 +273,19 @@ export async function answerQuestions(
   );
 }
 
-/** waiting 목록의 결정과 같은 memory route다. 허락한 범위(once·session·always·allow)나 거절을 보낸다. */
+/** waiting 목록의 결정과 같은 memory route다. 허락한 범위(once·always)나 거절을 보낸다. */
 export async function decidePermission(
   env: Env,
   session: string,
   request: string,
-  choice: RequestChoice,
+  choice: "once" | "always" | "reject",
   reason?: string,
 ): Promise<SourceResult<void>> {
   return dropValue(
-    await env.read(approvalsDecideTurn, {
+    await env.read(turnRequestDecide, {
       session,
       request,
-      // 대화 화면 쪽 선택지를 새 모양으로 바꾸기 전까지의 임시 맞춤이다.
-      choice: turnChoiceOf(choice as "once" | "always" | "reject", reason),
+      choice: turnChoiceOf(choice, reason),
     }),
   );
 }

@@ -90,24 +90,11 @@
 }
 
 .effect {
-  flex: none;
-  min-width: calc(var(--space-12) + var(--space-11));
-  color: var(--color-text-secondary);
-}
-
-.setting {
-  flex: none;
-  min-width: calc(var(--space-12) * 2);
+  flex: 0 1 auto;
+  max-width: 60%;
   color: var(--color-text-secondary);
   text-align: right;
-}
-
-.setting[data-setting="ask"] {
-  color: var(--status-warning-text);
-}
-
-.setting[data-setting="deny"] {
-  color: var(--status-critical-text);
+  overflow-wrap: anywhere;
 }
 
 .foot {

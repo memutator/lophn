@@ -71,7 +71,7 @@ export const SKILLS = builtin(
 export const PERMISSIONS = builtin(
   "permissions",
   "Permissions",
-  "Change what this agent may do",
+  "See which apps this agent can use",
 );
 
 /** 모든 agent 첫 묶음. 고정 순서이고 알파벳순이 아니며 Feedback은 없다. */

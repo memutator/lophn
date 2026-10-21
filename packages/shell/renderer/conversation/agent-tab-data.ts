@@ -82,7 +82,8 @@ function senderOf(
  * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다.
  * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙인다. 실패하고 오류가 있으면 꼬리 대신 오류 줄이다.
  * - ToolCall*: tool 이름만 아는 줄. call과 ask는 전용 카드가 그리므로 줄을 만들지 않는다.
- * - Permission*·Question*: `pending`과 결과 줄. 질문 내용은 event에 없어 따로 읽는다.
+ * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 접지 않는다(coding 카드가 그린다). 질문 내용은
+ *   event에 없어 따로 읽고, 허락 범위(once·always)도 event에 없어 결과 줄은 범위를 모른다.
  * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
  */
 function foldEvent(
@@ -208,14 +209,18 @@ function foldEvent(
         tool: { id: tool_call, label: tool, lines: [] },
       }]);
     }
-    case "PermissionRequested": {
-      const { id, intent, choices } = event.payload.request;
+    case "TurnRequestOpened": {
+      const { id, subject, always_patterns } = event.payload.request;
+      if (subject.kind === "harness") return view;
       return settle({
         ...view,
-        pending: { ...view.pending, approval: { id, intent, choices } },
+        pending: {
+          ...view.pending,
+          approval: { id, subject, always_patterns },
+        },
       });
     }
-    case "PermissionResolved": {
+    case "TurnRequestClosed": {
       const { request, outcome } = event.payload;
       const approval = view.pending.approval;
       if (approval?.id !== request) return view;
@@ -228,9 +233,9 @@ function foldEvent(
         at: event.at,
         result: {
           request,
-          intent: approval.intent,
+          subject: approval.subject,
           outcome: outcome === "allow"
-            ? "received"
+            ? "allowed"
             : outcome === "reject"
             ? "denied"
             : "cancelled",

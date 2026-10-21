@@ -98,3 +98,8 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+추가(lead가 더함): 앞 task가 소유 밖이라 남긴 옛 주석을 고친다(소유에 더한다. 주석만 바꾼다).
+- `packages/core/apps/releases/bundle/runtime-entry.ts` 2줄의 "문제 보고"를 지금 앱 runtime이 하는 일(예외는 앱 log)로
+- `packages/core/supervision/responsiveness/blob-client.ts` 1줄의 "report collector"를 지금 쓰는 신뢰 자식으로
+- `packages/core/problems/tests/work/broker.ts` 1·22줄, `packages/core/problems/tests/work/spawn.ts` 145줄의 "collector"를 뺀다(core 주소와 credential)

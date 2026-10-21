@@ -11,7 +11,7 @@ import {
   serveRpc,
 } from "../mod.ts";
 import type { HarnessExample } from "../harness/mod.ts";
-import { createRealAppDriver, type RealDriverInput } from "./app-driver.ts";
+import { createRealAppDriver } from "./app-driver.ts";
 import { acceptAppTest, platformMemory } from "./runner-core.ts";
 
 export type AppTestJob = {
@@ -36,8 +36,6 @@ export type AppTestJob = {
   timeout_ms: number;
   // 접수한 요청의 실행 기한(RequestTest `timeout_ms`)이다. 동결 method의 timeout_ms보다 길어지지 않는다(짧은 쪽).
   request_timeout_ms?: number;
-  // 보고의 진단 scope. 제품 경로에서는 요청별 credential이 고정한 값이다. 없으면 요청 key에서 정한다.
-  scope?: string;
   // 자식 flag·환경에 쓰는 runner 설치 자료.
   deno: string;
   environment: { home?: string; denoDir?: string; xdgCacheHome?: string };
@@ -57,20 +55,12 @@ type AppTestJobResult = {
     // 자식이 쓴 안전 출력의 끝부분이다. 판정에는 쓰지 않고 실패를 설명하는 데만 쓴다.
     output_tail: string;
   };
-  // collector에 mode=test와 scope로 넘긴 보고(이름과 종류)다.
-  forwarded: { kind: string; name: string; scope: string }[];
 };
 
-// 제품 runner의 연결이다. 없으면(stdin 한 건 모드) 한 요청 안의 collector 대역이 mode=test·scope로 접수한
-// 보고를 모은다.
+// 제품 runner의 연결이다.
 export type AppTestHooks = {
   // 자식이 실제로 시작한 것을 관측한 직후, 끝나기를 기다리기 전에 부른다.
   started?: (child: { started_at: string; mode: string }) => Promise<void>;
-  // 실제 collector 연결. 앱 SDK 보고와 잡은 예외를 그 요청의 mode=test·scope로 core에 넘긴다.
-  collector?: {
-    report: RealDriverInput["sink"]["report"];
-    exception: RealDriverInput["sink"]["exception"];
-  };
 };
 
 const HARNESS_TEST = (child: string, scratch: string) =>
@@ -139,8 +129,6 @@ export async function runAppTestJob(
     JSON.stringify({ imports: rootConfig.imports }),
   );
 
-  const scope = job.scope ?? `app-test-${job.request_key}`;
-  const forwarded: AppTestJobResult["forwarded"] = [];
   const now = () => new Date().toISOString();
   const created = await createRealAppDriver({
     plan: plan.harness,
@@ -152,20 +140,6 @@ export async function runAppTestJob(
     sockets: job.sockets,
     deno: job.deno,
     environment: job.environment,
-    sink: {
-      report(report) {
-        forwarded.push({ kind: "report", name: report.name, scope });
-        return hooks.collector
-          ? hooks.collector.report(report)
-          : Promise.resolve(ok(null));
-      },
-      exception(body) {
-        forwarded.push({ kind: "exception", name: "exception", scope });
-        return hooks.collector
-          ? hooks.collector.exception(body)
-          : Promise.resolve(ok(null));
-      },
-    },
   });
   if (!created.ok) return created;
   const driver = created.value;
@@ -237,7 +211,6 @@ export async function runAppTestJob(
         output_tail: new TextDecoder().decode(execution.outcome?.output)
           .slice(-4000),
       },
-      forwarded,
     });
   } finally {
     await served.stop();

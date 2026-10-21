@@ -55,19 +55,3 @@ export function findPassedAppTest(
   }
   return ok(row === undefined ? undefined : String(row.id));
 }
-
-// findPassedAppTest와 같은 기준으로 고른 app test의 pass 이유다. 증명 못 한 write tool 이름이 거기 한 줄로 남는다.
-export function findPassedAppTestReason(
-  sql: Pick<Sql, "get">,
-  app: string,
-  bundleHash: string,
-): string | undefined {
-  const row = sql.get(
-    `select reason from verifications
-      where app = ? and kind = 'app_test' and result = 'pass'
-        and target_bundle_hash = ?
-      order by id limit 1`,
-    [app, bundleHash],
-  );
-  return row === undefined ? undefined : String(row.reason);
-}

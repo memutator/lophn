@@ -1,6 +1,6 @@
 // runner가 쥐는 실제 AppDriver다. 봉인 bundle 사본을 운영 앱 자식과 같은 Deno flag·진입 파일·시작 입력
-// (mode=test)으로 띄우고, control socket으로 probe·open·call을 보내고, 앱의 SDK 보고가 오는 broker
-// socket을 직접 연다. test 자식(harness)은 이 driver를 private 호출 통로로만 만진다.
+// (mode=test)으로 띄우고, control socket으로 probe·open·call을 보내고,
+// broker socket을 직접 연다. test 자식(harness)은 이 driver를 private 호출 통로로만 만진다.
 //
 // app test는 network 없이 test DB로 돈다. 앱 자식의 Deno net 허락은 가상 host와 broker·control socket뿐이고
 // (apps/permissions `appFlags`), 외부 net·secret은 broker가 apps/preview의 고정 대역에 보내 실제 접속이 없다.
@@ -26,7 +26,6 @@ import {
   appFlags,
   type BrokerChild,
   createBrokerEndpoint,
-  createProblemReportService,
   createReadyService,
   type ResolvedRequirement,
 } from "../../../apps/permissions/mod.ts";
@@ -50,19 +49,6 @@ const CREDENTIAL = "runner-broker-credential";
 const READY_MS = 20_000;
 const DENO_HEAP_FLAG = "--v8-flags=--max-old-space-size=256";
 
-// runner가 보고를 넘기는 곳이다. mode=test와 scope는 이 함수를 만든 쪽이 붙인다.
-type DriverSink = {
-  report(report: {
-    report_id: string;
-    name: string;
-    message: string;
-    observed_at: string;
-    details?: unknown;
-    invocation?: unknown;
-  }): Promise<Result<unknown>>;
-  exception(input: unknown): Promise<Result<unknown>>;
-};
-
 export type RealDriverInput = {
   plan: HarnessPlan;
   blueprint: Blueprint;
@@ -75,7 +61,6 @@ export type RealDriverInput = {
   sockets: { broker: string; control: string };
   deno: string;
   environment: { home?: string; denoDir?: string; xdgCacheHome?: string };
-  sink: DriverSink;
 };
 
 type RealDriver = AppDriver & { close(): Promise<void> };
@@ -140,29 +125,9 @@ export async function createRealAppDriver(
     mode: "test",
     processNonce: NONCE,
   };
-  // 앱의 SDK 보고와 잡은 예외는 runner가 mode=test와 진단 scope로 core에 넘긴다.
-  const problems = createProblemReportService({
-    problems: {
-      report: (request) =>
-        input.sink.report({
-          report_id: request.reportId,
-          name: request.name,
-          message: request.message,
-          observed_at: request.observedAt,
-          ...(request.details === undefined
-            ? {}
-            : { details: request.details }),
-          ...(request.invocation === undefined
-            ? {}
-            : { invocation: request.invocation }),
-        }) as never,
-      observe: (observation) => input.sink.exception(observation) as never,
-    },
-  });
   // net·secret·다른 앱 호출은 모두 대역이다.
   const stand = createPreviewBrokerServices({
     scope: previewScopeOf(input.blueprint),
-    problems,
   });
   const endpoint = createBrokerEndpoint({
     session: { child, credential: CREDENTIAL },

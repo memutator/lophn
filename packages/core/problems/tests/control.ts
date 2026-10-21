@@ -6,13 +6,11 @@
 //   - 시작 시도는 있는데 결과가 없고 지금 runner가 맡은 것이 아니면(runner가 끝났다) 복구 runner로 이어받는다
 //     (`problems.test.recover`). 다시 시작하지 않는다: 실제 시작을 관측했으면 runner_lost inconclusive, 모르면
 //     시작 불명이다.
-// 접수 기록에는 접수 event가 없으므로 기록을 주기로 읽는다. 요청마다 요청에만 닿는 좁은 machine credential(과 앱
-// 보고용 app credential)을 발급해 요청 본문과 함께 감독 pipe로만 runner에 넘긴다.
+// 접수 기록에는 접수 event가 없으므로 기록을 주기로 읽는다. 요청마다 요청에만 닿는 좁은 machine credential을 발급해
+// 요청 본문과 함께 감독 pipe로만 runner에 넘긴다.
 import { ok, type Result } from "../../../base/mod.ts";
 import {
-  observeException,
   observeTestRequest,
-  problemReport,
   recordVerification,
   stageTestEvidence,
   startTestSide,
@@ -29,8 +27,6 @@ import {
   TEST_RECOVERY_PRINCIPAL,
   TEST_RUNNER_PRINCIPAL,
 } from "./mod.ts";
-import { findPassedAppTestReason } from "./app-test-lookup.ts";
-import { unprovenOfReason } from "./unproven.ts";
 import type { ChildBlobPolicy } from "../../storage/blobs/child-prepare.ts";
 import type { WorkerChannel } from "../../supervision/responsiveness/mod.ts";
 import { TEST_RUNNER_KIND } from "./runner.ts";
@@ -59,9 +55,6 @@ export function testRunnerPolicies(): OperationPolicy[] {
 }
 
 const TEST_TASK = "problems";
-// 앱 보고를 요청 scope의 mode=test로 접수하게 하는 app credential의 process 조건과 주체다.
-const REPORT_PROCESS = "test-runner";
-const REPORT_PRINCIPAL = "problems-test-app";
 // 요청 하나가 끝나기를 기다리는 한도. 동결 시험 기한 상한(300초)에 준비·결과 쓰기 여유를 더한다. 이 안에 답이
 // 없으면 그 runner가 죽은 것으로 보고 이어받는다.
 const JOB_TIMEOUT_MS = 720_000;
@@ -123,54 +116,6 @@ function runnerContext(
   };
 }
 
-function reportContext(
-  request: OpenTestRequest,
-  scope: string,
-): CredentialIssue {
-  return {
-    actor: `app:${request.app}`,
-    principal: REPORT_PRINCIPAL,
-    scope: {
-      operations: [problemReport.name, observeException.name],
-      targets: { app: request.app, process: REPORT_PROCESS, mode: "test" },
-    },
-    conditions: {
-      app: request.app,
-      process: REPORT_PROCESS,
-      mode: "test",
-      bundle_hash: request.payload.target.bundle_hash,
-      diagnostic_scope: scope,
-    },
-  };
-}
-
-// examples run이 끝난 뒤 앱의 problem으로 알리는 app credential이다. problem에 붙는 것은 live 보고뿐이라
-// mode는 live이고 release가 필수다. 보고는 runner가 이 credential로 한다.
-function unprovenContext(request: OpenTestRequest): CredentialIssue | null {
-  const { bundle_hash, release } = request.payload.target;
-  if (release === null) return null;
-  return {
-    actor: `app:${request.app}`,
-    principal: REPORT_PRINCIPAL,
-    scope: {
-      operations: [problemReport.name],
-      targets: {
-        app: request.app,
-        release,
-        process: REPORT_PROCESS,
-        mode: "live",
-      },
-    },
-    conditions: {
-      app: request.app,
-      release,
-      process: REPORT_PROCESS,
-      mode: "live",
-      bundle_hash,
-    },
-  };
-}
-
 export function startTestControl(deps: TestControlDeps): TestControl {
   const pollMs = deps.pollMs ?? 500;
   const now = deps.nowMs ?? Date.now;
@@ -205,75 +150,22 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     }
   }
 
-  // examples 요청이면 같은 bundle app test가 증명 못 한 write tool을 읽어 runner에 넘긴다. runner가 이
-  // examples가 증명한 것을 빼고 남은 것을 보고한다.
-  function unprovenOf(
-    request: OpenTestRequest,
-  ): { tools: string[]; context: CredentialIssue } | undefined {
-    if (request.payload.kind !== "examples") return undefined;
-    const context = unprovenContext(request);
-    if (context === null || connection === undefined || !connection.ok) {
-      return undefined;
-    }
-    let reason: string | undefined;
-    try {
-      reason = findPassedAppTestReason(
-        connection.value.sql,
-        request.app,
-        request.payload.target.bundle_hash,
-      );
-    } catch {
-      return undefined;
-    }
-    const tools = reason === undefined ? [] : unprovenOfReason(reason);
-    return tools.length === 0 ? undefined : { tools, context };
-  }
-
   async function send(
     op: string,
-    contexts: {
-      runner: CredentialIssue;
-      report?: CredentialIssue;
-      unproven?: CredentialIssue;
-    },
-    body: (
-      token: string,
-      report: string | undefined,
-      unproven: string | undefined,
-    ) => unknown,
+    context: CredentialIssue,
+    body: (token: string) => unknown,
   ): Promise<Result<Outcome>> {
-    const runner = await deps.issue(contexts.runner);
+    const runner = await deps.issue(context);
     if (!runner.ok) return runner;
-    const report = contexts.report
-      ? await deps.issue(contexts.report)
-      : undefined;
-    if (report && !report.ok) {
-      runner.value.revoke();
-      return report;
-    }
-    const unproven = contexts.unproven
-      ? await deps.issue(contexts.unproven)
-      : undefined;
-    if (unproven && !unproven.ok) {
-      runner.value.revoke();
-      if (report?.ok) report.value.revoke();
-      return unproven;
-    }
     try {
       const answered = await deps.channel.request(
         op,
-        body(
-          runner.value.token,
-          report?.ok ? report.value.token : undefined,
-          unproven?.ok ? unproven.value.token : undefined,
-        ),
+        body(runner.value.token),
         JOB_TIMEOUT_MS,
       );
       return answered.ok ? ok(answered.value as Outcome) : answered;
     } finally {
       runner.value.revoke();
-      if (report?.ok) report.value.revoke();
-      if (unproven?.ok) unproven.value.revoke();
     }
   }
 
@@ -282,16 +174,10 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     running.set(key, "run");
     slotOf.set(key, slot);
     const born = generation;
-    const scope = `app-test-${request.request_key}`;
-    const unproven = unprovenOf(request);
     void send(
       TEST_RUN_OP,
-      {
-        runner: runnerContext(TEST_RUNNER_PRINCIPAL, request),
-        report: reportContext(request, scope),
-        unproven: unproven?.context,
-      },
-      (token, report, unprovenToken) => ({
+      runnerContext(TEST_RUNNER_PRINCIPAL, request),
+      (token) => ({
         request_principal: request.request_principal,
         request_key: request.request_key,
         request_hash: request.request_hash,
@@ -300,12 +186,6 @@ export function startTestControl(deps: TestControlDeps): TestControl {
         credential: token,
         api_port: deps.apiPort,
         slot,
-        report_credential: report,
-        diagnostic_scope: scope,
-        ...(unproven === undefined ? {} : {
-          app_test_unproven: unproven.tools,
-          unproven_credential: unprovenToken,
-        }),
       }),
     ).then((done) => {
       if (!done.ok) {
@@ -335,7 +215,7 @@ export function startTestControl(deps: TestControlDeps): TestControl {
     try {
       const done = await send(
         TEST_RECOVER_OP,
-        { runner: runnerContext(TEST_RECOVERY_PRINCIPAL, request) },
+        runnerContext(TEST_RECOVERY_PRINCIPAL, request),
         (token) => ({
           request_principal: request.request_principal,
           request_key: request.request_key,

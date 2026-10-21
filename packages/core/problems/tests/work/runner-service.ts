@@ -1,7 +1,6 @@
 // test runner control의 상시 service다. core 감독이 하나를 띄우고, core가
 // 감독 pipe로 보내는 요청 한 건(`problems.test.run`)을 받아 실제 runner 경로(app-test-run.ts)로 돌린다.
-// 시작 시도·실제 시작·결과는 요청별 좁은 machine credential로 core command에 남기고, 앱의 보고는 요청별
-// app credential(mode=test·진단 scope 고정)로 실제 collector 접수 route에 넘긴다. 돌리지 못한 요청은
+// 시작 시도·실제 시작·결과는 요청별 좁은 machine credential로 core command에 남긴다. 돌리지 못한 요청은
 // 이유와 함께 끝난다: 조용히 두거나 성공으로 꾸미지 않는다.
 //
 // 이 모듈은 core graph 밖이다(worker). 요청 credential은 argv·log에 싣지 않는다.
@@ -11,11 +10,9 @@ import type {
   ParentMessage,
   WorkerRequest,
 } from "../../../../protocol/supervision/mod.ts";
-import {
-  type ExecutionEvidence,
-  type FrozenTest,
-  observeException,
-  problemReport,
+import type {
+  ExecutionEvidence,
+  FrozenTest,
 } from "../../../../protocol/problems/mod.ts";
 import {
   type ChildSession,
@@ -36,12 +33,6 @@ import {
 } from "../mod.ts";
 import { sha256Hex } from "../../../../base/mod.ts";
 import { appBundleCopy } from "../../../../protocol/apps/mod.ts";
-import { canonicalHash } from "../canonical.ts";
-import {
-  UNPROVEN_PROBLEM,
-  unprovenAfterExamples,
-  unprovenMessage,
-} from "../unproven.ts";
 import { TEST_RUNNER_KIND } from "./runner-core.ts";
 import {
   type AppTestHooks,
@@ -66,13 +57,6 @@ type JobCommon = {
 
 type RunJob = JobCommon & {
   slot: 0 | 1;
-  // 앱 보고를 mode=test·진단 scope로 접수하게 하는 요청별 app credential이다.
-  report_credential: string;
-  diagnostic_scope: string;
-  // examples 요청에서만 있다. 같은 bundle app test가 증명 못 한 write tool과, 그 가운데 남은 것을 앱의
-  // problem으로 알리는 live app credential이다.
-  app_test_unproven?: string[];
-  unproven_credential?: string;
 };
 
 type RecoverJob = JobCommon & {
@@ -179,21 +163,6 @@ export async function clientFor(
       });
       return done.ok ? ok(done.value as Record<string, unknown>) : done;
     },
-  };
-}
-
-// 앱 보고를 그 요청의 mode=test·진단 scope로 core의 접수 route에 넘긴다. 위치 주장(app·mode·scope)은
-// 요청별 app credential에 발급 때 고정돼 있고 본문이 바꾸지 못한다.
-function collectorFor(
-  fetcher: LoopbackFetch,
-  port: number,
-  credential: string,
-): NonNullable<AppTestHooks["collector"]> {
-  const forward = (path: string, body: unknown) =>
-    post(fetcher, port, credential, path, body);
-  return {
-    report: (report) => forward(problemReport.method, report),
-    exception: (body) => forward(observeException.method, body),
   };
 }
 
@@ -417,7 +386,6 @@ async function runRequest(
     ...(connection.request_timeout_ms === undefined
       ? {}
       : { request_timeout_ms: connection.request_timeout_ms }),
-    scope: job.diagnostic_scope,
     deno: Deno.execPath(),
     environment: {
       ...(Deno.env.get("HOME") ? { home: Deno.env.get("HOME")! } : {}),
@@ -429,7 +397,6 @@ async function runRequest(
   let sideStartFailure: string | null = null;
   let sideStarted = false;
   const hooks: AppTestHooks = {
-    collector: collectorFor(fetcher, job.api_port, job.report_credential),
     // 자식이 실제로 시작한 직후 시작 사실을 ledger에 남긴다. 남기지 못하면 결과를 쓰지 않는다.
     async started(child) {
       sideStarted = true;
@@ -482,34 +449,18 @@ async function runRequest(
     memory_limit_mode: mode,
     ...ENVIRONMENT_EVIDENCE,
   }];
-  const observations = { ...judgment.observations };
-  const detailed = {
-    ...observations,
-    runner: { forwarded: ran.value.forwarded },
-  };
-  const attempt = async (value: unknown) =>
-    await recordResult({
-      job,
-      client,
-      prepare: (blob) => session.prepareBlob(blob),
-      principal: TEST_RUNNER_PRINCIPAL,
-      derived: test,
-      executions,
-      observations: value,
-      result: judgment.result,
-      reason: judgment.reason.trim() === ""
-        ? execution.reason
-        : judgment.reason,
-      sufficient: execution.result !== "inconclusive",
-    });
-  // 부가 관측이 한도를 넘으면 판정 관측만 싣는다. 한 번 보낸 근거는 바뀌지 않으므로 보내기 전에 정한다.
-  let fits = true;
-  try {
-    canonicalHash(detailed);
-  } catch {
-    fits = false;
-  }
-  const recorded = await attempt(fits ? detailed : observations);
+  const recorded = await recordResult({
+    job,
+    client,
+    prepare: (blob) => session.prepareBlob(blob),
+    principal: TEST_RUNNER_PRINCIPAL,
+    derived: test,
+    executions,
+    observations: judgment.observations,
+    result: judgment.result,
+    reason: judgment.reason.trim() === "" ? execution.reason : judgment.reason,
+    sufficient: execution.result !== "inconclusive",
+  });
   if (!recorded.ok) {
     return {
       state: "started_unrecorded",
@@ -517,49 +468,12 @@ async function runRequest(
         `결과를 기록하지 못했다: ${recorded.error.code} ${recorded.error.message}`,
     };
   }
-  await reportUnproven(job, fetcher, judgment, recorded.value.verification);
   return {
     state: "recorded",
     reason: judgment.reason,
     verification: recorded.value.verification,
     result: judgment.result,
   };
-}
-
-// examples 결과가 기록된 뒤, 같은 bundle app test가 증명 못 한 write tool에서 이 examples가 증명한 것을 뺀
-// 나머지를 앱의 problem으로 알린다. 알리기에 실패해도 결과 기록은 그대로다.
-async function reportUnproven(
-  job: RunJob,
-  fetcher: LoopbackFetch,
-  judgment: { result: string; actuals: Record<string, unknown> },
-  verification: string,
-): Promise<void> {
-  if (job.unproven_credential === undefined) return;
-  const result = judgment.result;
-  if (result !== "pass" && result !== "fail" && result !== "inconclusive") {
-    return;
-  }
-  const proven =
-    (judgment.actuals.examples as { proven?: string[] } | undefined)?.proven ??
-      [];
-  const tools = unprovenAfterExamples({
-    appTestUnproven: job.app_test_unproven,
-    examples: { result, proven },
-  });
-  if (tools.length === 0) return;
-  await post(
-    fetcher,
-    job.api_port,
-    job.unproven_credential,
-    problemReport.method,
-    {
-      // 같은 examples run은 같은 report id라 다시 보내도 한 번만 접수된다.
-      report_id: verification.replace("vrf_", "rpt_"),
-      name: UNPROVEN_PROBLEM,
-      message: unprovenMessage(tools),
-      observed_at: NOW(),
-    },
-  );
 }
 
 // runner가 바뀐 뒤 이미 시작 시도를 남긴 요청을 이어받는다. 다시 시작하지 않는다. 실제 시작을 관측한

@@ -6,7 +6,6 @@ export const EXPERIMENT_KINDS: readonly VersionKind[] = [
   "instruction",
   "skill",
   "skill-description",
-  "guide",
   "tool",
   "assembly",
   "runtime",

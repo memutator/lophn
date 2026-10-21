@@ -14,7 +14,7 @@ function fakeIo(files: string[]) {
       runs.push(cmd);
       return Promise.resolve({
         code: 0,
-        stdout: '{"role_prompts":{},"guides":{}}',
+        stdout: '{"role_prompts":{}}',
         stderr: "",
       });
     },

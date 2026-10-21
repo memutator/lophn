@@ -7,16 +7,13 @@ import type { VariantIo } from "./io.ts";
 // 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.
 const SCRIPT = `
 const { rolePrompt } = await import("./packages/core/agent-roles/roles/prompts.ts");
-const { guideTopics, guideText } = await import("./packages/core/agent-roles/roles/guides.ts");
 const role_prompts = {};
 for (const role of ${JSON.stringify(ROLES)}) {
   const text = await rolePrompt(role);
   if (!text.ok) throw new Error("role prompt missing: " + role);
   role_prompts[role] = text.value;
 }
-const guides = {};
-for (const topic of guideTopics()) guides[topic] = guideText(topic);
-console.log(JSON.stringify({ role_prompts, guides }));
+console.log(JSON.stringify({ role_prompts }));
 `;
 
 export async function variantTexts(

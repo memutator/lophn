@@ -54,7 +54,7 @@ Deno.test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 
 });
 
 const TOOL_SKILL = "packages/core/lophn-agent/tools/bundles/skill.ts";
-const TOOL_GUIDE = "packages/core/agent-roles/tools/guide.ts";
+const TOOL_SETTINGS = "packages/core/agent-roles/tools/settings.ts";
 const SKILL_MD = "packages/core/agent-roles/skills/foo/SKILL.md";
 
 async function write(root: string, rel: string, text: string) {
@@ -79,7 +79,7 @@ function modelCall(first: string): CollectedModelCall {
         { type: "text", text: first },
         { type: "text", text: "# Skills\nRead a skill.\n- foo: does foo" },
       ],
-      tools: [{ name: "skill_read" }, { name: "guide_read" }],
+      tools: [{ name: "skill_read" }, { name: "settings_get" }],
     },
   } as unknown as CollectedModelCall;
 }
@@ -95,7 +95,7 @@ Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 
     const registryDir = `${dir}/registry`;
     await write(root, SKILL_MD, skillMd("does foo", "body 1"));
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" });');
-    await write(root, TOOL_GUIDE, 'defineTool({ name: "guide.read" });');
+    await write(root, TOOL_SETTINGS, 'defineTool({ name: "settings.get" });');
 
     const seen = async (tool_calls: CollectedToolCall[]) => {
       const r = await seenComponents(
@@ -109,7 +109,7 @@ Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 
       "instruction:lophn@1",
       "model:claude-test@1",
       "skill-description:foo@1",
-      "tool:guide.read@1",
+      "tool:settings.get@1",
       "tool:skill.read@1",
     ];
 
@@ -126,7 +126,7 @@ Deno.test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" }); // v2');
     assertEquals(
       (await seen([])).filter((t) => t.startsWith("tool:")),
-      ["tool:guide.read@1", "tool:skill.read@2"],
+      ["tool:settings.get@1", "tool:skill.read@2"],
     );
 
     const bad = await seenComponents(
@@ -142,14 +142,10 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
   const rows: [string, string][] = [
     [`${R}/roles/lophn/prompt.md`, "instruction"],
     [`${R}/roles/prompts.ts`, "instruction"],
-    [`${R}/roles/guides.ts`, "guide"],
-    [`${R}/roles/lophn/guides/rewind.md`, "guide"],
     [`${R}/skills/kinds-yaml/SKILL.md`, "skill:kinds-yaml"],
     [`${R}/skills/root.ts`, "runtime"],
-    [
-      "packages/coding-agent/guides/skills/lophn-repair/references/investigation.md",
-      "skill:lophn-repair",
-    ],
+    [`${R}/skills/guide-rewind/SKILL.md`, "skill:guide-rewind"],
+    [`${R}/tools/settings.ts`, "tool"],
     [
       "packages/core/apps/packages/template/app/tests/items_test.ts.tmpl",
       "template",
@@ -157,13 +153,12 @@ Deno.test("classifyPath는 component, tool, runtime, core를 가르고 shell·de
     ["packages/core/apps/packages/template/scaffold.ts", "core"],
     ["packages/core/lophn-agent/prompt-assembly/skill-list.ts", "assembly"],
     ["packages/core/lophn-agent/tools/bundles/file.ts", "tool"],
-    ["packages/core/problems/agent-tools.ts", "tool"],
-    [`${R}/tools/guide.ts`, "tool"],
     ["packages/core/lophn-agent/tools/define.ts", "runtime"],
     [`${R}/tool-lists.ts`, "runtime"],
     ["packages/core/main/agent-runtime/loop.ts", "runtime"],
     ["packages/core/apps/agent-tools/helper.ts", "runtime"],
     ["packages/core/apps/agent-tools/app.ts", "tool"],
+    ["packages/core/apps/agent-tools/preview.ts", "tool"],
     ["packages/protocol/base/mod.ts", "core"],
     ["packages/sdk/foo/guide.md", "core"],
     ["deno.json", "core"],
@@ -192,7 +187,7 @@ Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거�
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" });');
-    await write(root, TOOL_GUIDE, 'defineTool({ name: "guide.read" });');
+    await write(root, TOOL_SETTINGS, 'defineTool({ name: "settings.get" });');
     const variantLophn = `${lophn.value}\nvariant edit`;
     const texts = {
       role_prompts: {
@@ -201,7 +196,6 @@ Deno.test("texts를 주면 seenComponents가 variant의 role prompt body를 거�
         app_engineer: "ae",
         operator: "op",
       },
-      guides: {},
     };
     const call = [modelCall(variantLophn)];
     const seen = (deps: object) =>

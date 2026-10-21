@@ -14,9 +14,9 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/apps/agent-tools/app.ts",
   "packages/core/apps/agent-tools/package.ts",
   "packages/core/apps/agent-tools/release.ts",
-  "packages/core/apps/agent-tools/ticket.ts",
+  "packages/core/apps/agent-tools/preview.ts",
+  "packages/core/apps/agent-tools/runtime.ts",
   "packages/core/apps/agent-tools/visual.ts",
-  "packages/core/problems/agent-tools.ts",
   "packages/core/domains/agent-tools.ts",
   "packages/core/lophn-agent/tools/bundles/skill.ts",
   "packages/core/lophn-agent/tools/bundles/file.ts",
@@ -27,7 +27,7 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/agent-roles/tools/operator.ts",
   "packages/core/agent-roles/tools/kind.ts",
   "packages/core/agent-roles/tools/instructions.ts",
-  "packages/core/agent-roles/tools/guide.ts",
+  "packages/core/agent-roles/tools/settings.ts",
 ];
 
 export type FileGroup =
@@ -38,7 +38,6 @@ export type FileGroup =
       | "assembly"
       | "runtime"
       | "instruction"
-      | "guide"
       | "template"
       | "tool";
   }
@@ -49,16 +48,13 @@ const NO_PACKAGE = /^packages\/(shell|design)\//;
 const INSTRUCTION = new RegExp(
   `^${ROLES}/(lophn|project-manager|app-engineer|operator)/prompt\\.md$`,
 );
-const GUIDE = new RegExp(`^${ROLES}/lophn/guides/[^/]+\\.md$`);
-const SKILL =
-  /^packages\/(?:core\/agent-roles|coding-agent\/guides)\/skills\/([^/]+)\//;
+const SKILL = /^packages\/core\/agent-roles\/skills\/([^/]+)\//;
 const RUNTIME = [
   "packages/core/lophn-agent/",
   "packages/core/agent-roles/",
   "packages/core/main/agent-runtime/",
   "packages/core/main/agent-tools.ts",
   "packages/core/apps/agent-tools/",
-  "packages/core/problems/agent-tools.ts",
 ];
 const CORE = /^packages\/(base|protocol|core|sdk|coding-agent)\//;
 
@@ -76,9 +72,6 @@ export function classifyPath(rel: string): FileGroup {
   }
   if (INSTRUCTION.test(rel) || rel === `${ROLES}/prompts.ts`) {
     return { group: "instruction" };
-  }
-  if (GUIDE.test(rel) || rel === `${ROLES}/guides.ts`) {
-    return { group: "guide" };
   }
   const skill = SKILL.exec(rel);
   if (skill !== null) return { group: "skill", name: skill[1] };

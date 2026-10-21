@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "guide",
-    "name": "settings",
-    "n": 1,
-    "hash": "92a8aae503296a9b1d7fb28ed3ce4ffb34d7f8307877fea7d00ca64916fc0dd5",
-    "content": "# Settings\n\nSettings is the screen for product settings, connections and diagnostics. Asking\nwhat a setting means does not change it.\n\n## What an explanation uses\n\nFor a setting you ask about, lophn reads the public definition and the current\neffective value with `settings.get`. It explains only what those records\ncontain:\n\n- the label and description from the definition\n- what the value means, and what the built-in default means\n- which features the setting affects, and the risk of changing it\n- how you can change it back\n- the allowed values, taken from the definition constraints\n- whether a value is present, and whether the effective value is resolved\n- the source: the built-in default, or your own choice\n- when a change takes effect: the next time work starts, the current check, or\n  the next call\n\nIf the effective setting is not resolved, lophn says so. It does not fill in a\ndefault and call that your choice. Unknown cost, usage or account details stay\nunknown. They are not shown as zero or as free.\n\n## How a change is made\n\nYou change settings yourself in Settings. An agent cannot change a setting\nthrough a tool. If you ask an agent to change one, it tells you where to change\nit and what value it would suggest.\n\n## What Settings cannot do\n\nSettings does not accept a pasted secret, API key, token or password. Those go\nthrough the protected field described in Connections. A recommendation, a\nfree-text reply, silence or closing a window is never a change.\n"
-  }
-]

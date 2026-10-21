@@ -1,9 +1,5 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
-import {
-  guideText,
-  guideTopics,
-} from "../../../packages/core/agent-roles/roles/guides.ts";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
 import type { Role } from "../../../packages/protocol/lophn-agent/mod.ts";
@@ -40,10 +36,7 @@ const ROLE_SET: Record<Role, true> = {
   operator: true,
 };
 export const ROLES = Object.keys(ROLE_SET);
-const SKILL_ROOTS = [
-  "packages/core/agent-roles/skills",
-  "packages/coding-agent/guides/skills",
-];
+const SKILL_ROOTS = ["packages/core/agent-roles/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
 // harness가 아니라 world의 tool이다.
 const WORLD_TOOL = /^(domain__|mcp__|ext_)/;
@@ -148,10 +141,6 @@ function measureSkillDescription(
   return textComponent("skill-description", name, collapse(description));
 }
 
-function measureGuide(topic: string, text: string): Promise<Measured> {
-  return textComponent("guide", topic, text);
-}
-
 async function measureTemplate(root: string): Promise<Measured> {
   const dir = `${root}/${TEMPLATE_DIR}`;
   const files = await readTexts(dir, await walkFiles(dir));
@@ -196,12 +185,6 @@ export async function currentVersions(
     );
     measured.push(await measureSkillDescription(name, manifest.description));
   }
-  const guides = deps.texts?.guides;
-  for (const topic of guides ? Object.keys(guides) : guideTopics()) {
-    measured.push(
-      await measureGuide(topic, guides ? guides[topic] : guideText(topic)!),
-    );
-  }
   const tools = await toolFileTable(root);
   for (const name of TOOL_ORDER) {
     const tool = tools.get(name);
@@ -229,23 +212,19 @@ export async function currentVersions(
   return versions;
 }
 
-// 성공한 skill.read / guide.read가 연 이름. 중복 없이.
+// 성공한 skill.read가 연 이름. guide도 `guide-<topic>` skill이라 여기 든다. 중복 없이.
 export function openedOf(
   toolCalls: CollectedToolCall[],
-): { skills: string[]; guides: string[] } {
+): { skills: string[] } {
   const skills = new Set<string>();
-  const guides = new Set<string>();
   for (const c of toolCalls) {
     if (c.call.outcome?.kind !== "success") continue;
     const input = c.input as Record<string, unknown> | null;
     if (c.call.tool === "skill.read" && typeof input?.name === "string") {
       skills.add(input.name);
     }
-    if (c.call.tool === "guide.read" && typeof input?.topic === "string") {
-      guides.add(input.topic);
-    }
   }
-  return { skills: [...skills], guides: [...guides] };
+  return { skills: [...skills] };
 }
 
 type Block = { text?: unknown };
@@ -327,10 +306,6 @@ export async function seenComponents(
     for (const name of opened.skills) {
       const folder = await skillFolder(root, name);
       if (folder !== null) add(await measureSkill(folder, name));
-    }
-    for (const topic of opened.guides) {
-      const text = deps.texts ? deps.texts.guides[topic] : guideText(topic);
-      if (text !== undefined) add(await measureGuide(topic, text));
     }
 
     const refs: VersionRef[] = [];

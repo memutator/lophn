@@ -1,15 +1,14 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type { RegistryEntry, VersionKind, VersionRef } from "../types.ts";
 
-// 다른 checkout(variant)의 role prompt와 guide 글. import는 지금 프로세스의 checkout 것이라 따로 읽어 넘긴다.
+// 다른 checkout(variant)의 role prompt. import는 지금 프로세스의 checkout 것이라 따로 읽어 넘긴다.
 export type VariantTexts = {
   role_prompts: Record<string, string>;
-  guides: Record<string, string>;
 };
 
 // 경로를 받는 함수의 마지막 인자. test가 임시 폴더를 준다.
 // checksRoot는 checks를 잴 checkout이다(기본 root). variant를 재도 grader는 지금 checkout 것이다.
-// texts가 있으면 instruction·guide를 import 대신 이 글로 잰다.
+// texts가 있으면 instruction을 import 대신 이 글로 잰다.
 export type Deps = {
   root?: string;
   registryDir?: string;
@@ -26,7 +25,6 @@ export const TEXT_KINDS: readonly VersionKind[] = [
   "instruction",
   "skill",
   "skill-description",
-  "guide",
   "template",
   "criterion",
   "judge",

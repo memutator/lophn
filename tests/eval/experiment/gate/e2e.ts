@@ -75,7 +75,7 @@ export function e2eBoundaries(
 
 const E2E_FILE = /^tests\/e2e\/[^/]+_test\.ts$/;
 const ALL_E2E_BOUNDARIES = ["base", "protocol", "sdk"];
-const TEXT_GROUPS = ["instruction", "guide", "skill"];
+const TEXT_GROUPS = ["instruction", "skill"];
 
 function descendants(id: string, tree: Record<string, string[]>): Set<string> {
   const seen = new Set<string>();

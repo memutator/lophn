@@ -26,9 +26,6 @@ const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 const READ_TOOLS = [
   "ticket.list",
   "ticket.get",
-  "problem.list",
-  "problem.get",
-  "problem.body",
   "app.list",
   "app.get",
   "blueprint.check",
@@ -48,8 +45,14 @@ const READ_TOOLS = [
 // lophn만. 나머지 role은 project 지침을 prompt로 받는다.
 const LOPHN_ONLY_READ_TOOLS = ["instructions.read"] as const;
 
-// 모든 앱의 tool 목록은 사람이 lophn과 App Engineer로만 좁혔다.
-const APP_TOOL_NAMES = ["app.tools"] as const;
+// 모든 앱의 tool 목록은 사람이 lophn과 App Engineer로만 좁혔다. 앱 상태·log·invocation 읽기도 앱을 진단하는
+// lophn과 App Engineer만 갖는다.
+const APP_TOOL_NAMES = [
+  "app.tools",
+  "app.status",
+  "app.logs",
+  "app.invocations",
+] as const;
 
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
@@ -58,7 +61,6 @@ const ROLE_WRITE_TOOLS = {
     "ticket.update",
     "ticket.verify",
     "ticket.cancel",
-    "problem.set_state",
     "app.link_source",
     "package.publish",
     "operator.create",
@@ -110,13 +112,12 @@ export const TOOL_ORDER = [
   "ticket.update",
   "ticket.verify",
   "ticket.cancel",
-  "problem.list",
-  "problem.get",
-  "problem.body",
-  "problem.set_state",
   "app.list",
   "app.get",
   "app.tools",
+  "app.status",
+  "app.logs",
+  "app.invocations",
   "domain.list",
   "domain.get",
   "domain.create",

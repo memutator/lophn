@@ -17,13 +17,17 @@ Deno.test("builtin tool wire names fit the provider rule and never collide", () 
   }
 });
 
-// 모든 앱의 tool 목록은 사람이 lophn과 App Engineer로만 좁혔다.
-Deno.test("app.tools is only in the lophn and App Engineer lists", () => {
+// 모든 앱의 tool 목록과 앱 상태·log·invocation 읽기는 사람이 lophn과 App Engineer로만 좁혔다.
+Deno.test("app.tools and the app status, log and invocation reads are only in the lophn and App Engineer lists", () => {
   for (const role of ROLES) {
-    assertEquals(
-      builtinToolNames(role).includes("app.tools"),
-      role === "lophn" || role === "app_engineer",
-      role,
-    );
+    for (
+      const name of ["app.tools", "app.status", "app.logs", "app.invocations"]
+    ) {
+      assertEquals(
+        builtinToolNames(role).includes(name),
+        role === "lophn" || role === "app_engineer",
+        `${role} ${name}`,
+      );
+    }
   }
 });

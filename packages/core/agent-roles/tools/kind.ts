@@ -18,7 +18,6 @@ import {
 } from "../../lophn-agent/tools/spi.ts";
 
 // 읽는 domain은 이 agent의 `ctx.domains` 안이어야 한다. 하나뿐이면 생략할 수 있다. 어긋나면 core를 부르지 않는다.
-// 같은 규칙이 problems/agent-tools.ts에도 있다(role 층과 problems는 서로 import하지 않는다).
 function domainOf(
   given: string | undefined,
   ctx: ToolContext,

@@ -9,7 +9,6 @@ import {
 } from "../../../protocol/apps/mod.ts";
 import { appToolIndex } from "../../../protocol/apps/blueprint/read.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
-import { problemList } from "../../../protocol/problems/mod.ts";
 import {
   commandOf,
   countSummary,
@@ -62,27 +61,14 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "app.get",
     input: z.strictObject({ app: idSchema("app") }),
-    routes: [appGet, problemList],
+    routes: [appGet],
     description:
-      "Read an app: name, description, status, active release, source folder and the number of open problems.",
+      "Read an app: name, description, status, active release and source folder.",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app } = input;
-      const read = await readOf(ctx.core, appGet, { app });
+      const read = await readOf(ctx.core, appGet, { app: input.app });
       if (!read.ok) return read;
-      const open = await readOf(ctx.core, problemList, {
-        app,
-        state: "open",
-        limit: 100,
-      });
-      if (!open.ok) return open;
-      const count = open.value.problems.length;
-      return ok(fitted(`app ${read.value.app.name}`, {
-        app: read.value.app,
-        open_problems: count,
-        // 목록 한 page(100)까지만 센다.
-        open_problems_capped: open.value.next_cursor !== null,
-      }));
+      return ok(fitted(`app ${read.value.app.name}`, { app: read.value.app }));
     },
   }),
   defineTool({

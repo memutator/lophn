@@ -56,9 +56,7 @@ const READ_WORDS = [
   "blueprint",
   "invocations",
   "logs",
-  "result",
   "detect",
-  "guide",
 ] as const;
 
 function isReadName(name: string): boolean {

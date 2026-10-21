@@ -14,7 +14,6 @@ export { ROUTES } from "./registry.ts";
 export {
   canDeliverMessages,
   canLaunch,
-  CODING_SKILL_NAMES,
   HARNESS_ADAPTERS,
   type HarnessAdapter,
 } from "./harness-adapter.ts";

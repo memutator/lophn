@@ -1,9 +1,8 @@
-// 사용자 전역(home 기준)에 skill 둘과 hook 설정을 놓는다. skill은 얇은 안내(절차는 `lophn guide <name>`)이고
-// hook은 harness마다 한 번이다. skill과 plugin 파일은 우리 폴더·파일이라 내용이 다르면 덮는다. JSON 설정은 사람이
+// 사용자 전역(home 기준)에 hook 설정을 놓고, lophn이 전에 놓은 얇은 skill 사본 가운데 지운 skill의 것만 지운다.
+// hook은 harness마다 한 번이다. plugin 파일은 우리 파일이라 내용이 다르면 덮는다. JSON 설정은 사람이
 // 쓴 다른 key·다른 hook을 보존하고 우리 항목(command가 `lophn hook <harness> `나 개발 경로의 `<절대 경로> hook <harness> `로 시작)만 바꾼다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  CODING_SKILL_NAMES,
   CODING_TOKEN_ENV,
   HARNESS_ADAPTERS,
   type HARNESS_INSTALL_OUTCOMES,
@@ -13,23 +12,23 @@ import {
 
 type Outcome = (typeof HARNESS_INSTALL_OUTCOMES)[number];
 
-type SkillSource = {
-  name: string;
-  files: readonly { path: string; content: string }[];
-};
-
 export type InstallPorts = {
   // 없으면 null이다.
   read(path: string): Promise<string | null>;
   // 상위 폴더도 만든다.
   write(path: string, text: string): Promise<void>;
-  // `CODING_SKILL_NAMES` 각각의 원본이다.
-  skills: readonly SkillSource[];
+  // 폴더 안 항목 이름이다. 폴더가 없으면 null이다.
+  list(dir: string): Promise<string[] | null>;
+  // file 하나나 빈 폴더 하나를 지운다. recursive가 아니다.
+  remove(path: string): Promise<void>;
 };
+
+// lophn이 전에 사람 home에 skill 사본을 놓았던 이름 가운데 지운 것이다. 이름을 패턴이나 목록 읽기로 고르지 않는다.
+const RETIRED_SKILL_NAMES = ["lophn-build-app", "lophn-repair"] as const;
 
 type InstallResult = { skill: Outcome; hook: Outcome; files: string[] };
 
-// 한 항목의 결과다. `files`는 쓴(dry_run이면 쓸) 절대 경로다.
+// 한 항목의 결과다. `files`는 쓴·지운(dry_run이면 쓸·지울) 절대 경로다.
 type Step = { outcome: Outcome; files: string[] };
 
 type Json = Record<string, unknown>;
@@ -162,41 +161,43 @@ function pluginSource(harness: HarnessId, command: string): string | null {
   }
 }
 
-// skill은 얇다. 원본의 frontmatter(name, description)를 그대로 쓰고 절차는 guide가 내준다.
-function thinSkill(name: string, source: string): string {
-  const front = source.match(/^---\n[\s\S]*?\n---\n/)?.[0] ??
-    `---\nname: ${name}\n---\n`;
-  return `${front}
+// lophn이 쓰던 얇은 사본의 본문이다(frontmatter 뒤).
+function thinBody(name: string): string {
+  return `
 # ${name}
 
 절차는 \`lophn guide ${name}\`이 내준다. 그 출력을 따른다.
 `;
 }
 
-async function installSkill(
+// 지운 skill의 옛 사본 가운데 lophn이 쓴 꼴 그대로인 것만 지운다. 사람이 고쳤거나 다른 file이 더 든 폴더는 둔다.
+async function removeRetiredSkills(
   ports: InstallPorts,
   home: string,
   skillDir: string,
   dryRun: boolean,
 ): Promise<Step> {
   const files: string[] = [];
-  let failed = false;
-  for (const name of CODING_SKILL_NAMES) {
-    const source = ports.skills.find((one) => one.name === name)?.files
-      .find((file) => file.path === "SKILL.md");
-    if (source === undefined) {
-      failed = true;
+  for (const name of RETIRED_SKILL_NAMES) {
+    const folder = `${home}/${skillDir}/${name}`;
+    const file = `${folder}/SKILL.md`;
+    const names = await ports.list(folder);
+    if (names === null || names.length !== 1 || names[0] !== "SKILL.md") {
       continue;
     }
-    const path = `${home}/${skillDir}/${name}/SKILL.md`;
-    const expected = thinSkill(name, source.content);
-    const current = await ports.read(path);
-    // dry_run은 있으면 됐다(lophn이 업데이트돼도 다시 묻지 않는다).
-    if (dryRun ? current !== null : current === expected) continue;
-    if (!dryRun) await ports.write(path, expected);
-    files.push(path);
+    const text = await ports.read(file);
+    const front = text?.match(/^---\n[\s\S]*?\n---\n/)?.[0];
+    if (
+      text === null || front === undefined ||
+      !front.startsWith(`---\nname: ${name}\n`) ||
+      text.slice(front.length) !== thinBody(name)
+    ) continue;
+    if (!dryRun) {
+      await ports.remove(file);
+      await ports.remove(folder);
+    }
+    files.push(file);
   }
-  if (failed) return { outcome: "failed", files };
   return { outcome: outcomeOf(files, dryRun), files };
 }
 
@@ -296,7 +297,7 @@ export async function installGlobal(
   try {
     const skill = adapter.skill_dir === null
       ? none
-      : await installSkill(ports, home, adapter.skill_dir, input.dryRun);
+      : await removeRetiredSkills(ports, home, adapter.skill_dir, input.dryRun);
     const hook = adapter.hook === null
       ? none
       : adapter.hook.format === "json"

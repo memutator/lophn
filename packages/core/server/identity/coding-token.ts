@@ -5,13 +5,11 @@ import {
   codingPrincipal,
   type CodingTokens,
 } from "../../../protocol/coding-agent/mod.ts";
-import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import type { CredentialRegistry } from "./registry.ts";
 
-// token이 여는 operation은 CLI 명령 가운데 coding_token 인증인 것의 route다. `ticket report`는 먼저 summary를 올리므로
-// 그 upload route도 연다. MCP endpoint도 같은 token으로 연다.
+// token이 여는 operation은 CLI 명령 가운데 coding_token 인증인 것의 route다.
+// MCP endpoint도 같은 token으로 연다.
 const CODING_TOKEN_OPERATIONS = [
-  ticketUploadSummary.name,
   CODING_MCP_OPERATION,
   ...new Set(
     CODING_CLI_COMMANDS.flatMap((command) =>

@@ -21,7 +21,7 @@ export type HarnessAdapter = {
   // lophn MCP endpoint를 session 실행 계획에만 실어 붙이는 방법이다(`withCodingMcp`). 사람의 전역 설정은 쓰지 않는다.
   // null이면 붙이지 않는다.
   mcp: "argv_after_prompt" | "argv_before_prompt" | "env" | null;
-  // 사용자 home 기준 상대 위치(전역)다. skill을 놓는 곳이고 확인한 제품만 적는다.
+  // 사용자 home 기준 상대 위치(전역)다. lophn이 전에 skill 사본을 놓던 곳. 지운 skill의 옛 사본을 지울 때 쓴다.
   skill_dir: string | null;
   // 사용자 home 기준 상대 위치(전역)다. 확인한 제품만 적는다.
   hook: {
@@ -29,8 +29,6 @@ export type HarnessAdapter = {
     format: "json" | "plugin_file";
   } | null;
 };
-
-export const CODING_SKILL_NAMES = ["lophn-build-app"] as const;
 
 export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
   claude: {

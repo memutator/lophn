@@ -2,24 +2,18 @@
 // `CODING_CLI_COMMANDS`(protocol)와 같다. 표 밖 command는 실행 전 거절이다.
 import { CODING_CLI_COMMANDS } from "../../protocol/coding-agent/mod.ts";
 import { APP_COMMANDS } from "./commands/app.ts";
-import { GUIDE_COMMANDS } from "./commands/guide.ts";
 import { HARNESS_COMMANDS } from "./commands/harness.ts";
 import { HOOK_COMMANDS } from "./commands/hook.ts";
 import { MESSAGE_COMMANDS } from "./commands/message.ts";
 import { PACKAGE_COMMANDS } from "./commands/package.ts";
-import { RELEASE_COMMANDS } from "./commands/release.ts";
-import { TICKET_COMMANDS } from "./commands/ticket.ts";
 import type { CommandEntry } from "./commands/types.ts";
 
 export const COMMANDS: readonly CommandEntry[] = [
-  ...TICKET_COMMANDS,
   ...MESSAGE_COMMANDS,
   ...HOOK_COMMANDS,
   ...APP_COMMANDS,
-  ...RELEASE_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...HARNESS_COMMANDS,
-  ...GUIDE_COMMANDS,
 ];
 
 // 표와 어긋나면 기동 때 바로 드러난다.

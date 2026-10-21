@@ -1,18 +1,32 @@
 import { assertEquals } from "@std/assert";
 import { installGlobal, type InstallPorts } from "./install.ts";
 
-function memory(files: Map<string, string>): InstallPorts {
+// file Map 위의 대역이다. 폴더는 file의 path 앞부분이거나 `dirs`에 든 빈 폴더다.
+function memory(
+  files: Map<string, string>,
+  dirs = new Set<string>(),
+): InstallPorts {
+  const below = (dir: string) =>
+    [...files.keys(), ...dirs].filter((path) =>
+      path.startsWith(`${dir}/`) && !path.slice(dir.length + 1).includes("/")
+    ).map((path) => path.slice(dir.length + 1));
   return {
-    skills: ["lophn-build-app"].map((name) => ({
-      name,
-      files: [{
-        path: "SKILL.md",
-        content: `---\nname: ${name}\ndescription: "d"\n---\n# ${name}\n`,
-      }],
-    })),
     read: (path) => Promise.resolve(files.get(path) ?? null),
     write: (path, text) => {
       files.set(path, text);
+      return Promise.resolve();
+    },
+    list: (dir) => {
+      const exists = dirs.has(dir) ||
+        [...files.keys()].some((path) => path.startsWith(`${dir}/`));
+      return Promise.resolve(exists ? below(dir) : null);
+    },
+    remove: (path) => {
+      if (files.delete(path)) return Promise.resolve();
+      if (below(path).length > 0) {
+        return Promise.reject(new Error("directory not empty"));
+      }
+      dirs.delete(path);
       return Promise.resolve();
     },
   };
@@ -81,4 +95,82 @@ Deno.test("개발 command로 놓아도 사람이 쓴 hook은 남고 우리 항�
     );
   }
   assertEquals(back.hooks.Stop[1].hooks[0].command, "lophn hook claude Stop");
+});
+
+// contract: 설치는 lophn이 전에 놓은 지운 skill의 얇은 사본만 지운다. 사람이 고친 사본, 다른 file이 더 든 폴더, 다른 이름의 skill 폴더는 남긴다.
+// 현실적 회귀: 이름이나 폴더 모양만 보고 지워 사람이 쓰던 skill이 사라진다(사람 home에 쓰는 경계).
+// 왜 지금 못 잡나: 이 test가 처음이다.
+Deno.test("설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고 사람이 손댄 것은 남긴다", async () => {
+  const skills = "/home/u/.claude/skills";
+  const thin = (name: string) =>
+    `---\nname: ${name}\ndescription: "d"\n---\n\n# ${name}\n\n절차는 \`lophn guide ${name}\`이 내준다. 그 출력을 따른다.\n`;
+  const cases: {
+    name: string;
+    files: [string, string][];
+    dryRun?: boolean;
+    left: string[];
+    skill: "installed" | "unchanged" | "missing";
+  }[] = [
+    {
+      name: "lophn이 쓴 꼴",
+      files: [[`${skills}/lophn-build-app/SKILL.md`, thin("lophn-build-app")]],
+      left: [],
+      skill: "installed",
+    },
+    {
+      name: "사람이 본문을 고침",
+      files: [[
+        `${skills}/lophn-repair/SKILL.md`,
+        thin("lophn-repair") + "내 메모\n",
+      ]],
+      left: [`${skills}/lophn-repair/SKILL.md`],
+      skill: "unchanged",
+    },
+    {
+      name: "폴더에 다른 file",
+      files: [
+        [`${skills}/lophn-build-app/SKILL.md`, thin("lophn-build-app")],
+        [`${skills}/lophn-build-app/notes.md`, "n"],
+      ],
+      left: [
+        `${skills}/lophn-build-app/SKILL.md`,
+        `${skills}/lophn-build-app/notes.md`,
+      ],
+      skill: "unchanged",
+    },
+    {
+      name: "다른 이름의 skill",
+      files: [[`${skills}/my-skill/SKILL.md`, thin("my-skill")]],
+      left: [`${skills}/my-skill/SKILL.md`],
+      skill: "unchanged",
+    },
+    {
+      name: "dry_run",
+      files: [[`${skills}/lophn-build-app/SKILL.md`, thin("lophn-build-app")]],
+      dryRun: true,
+      left: [`${skills}/lophn-build-app/SKILL.md`],
+      skill: "missing",
+    },
+  ];
+  for (const one of cases) {
+    const files = new Map(one.files);
+    const done = await installGlobal(memory(files), {
+      ...input,
+      dryRun: one.dryRun === true,
+    });
+    assertEquals(done.ok && done.value.skill, one.skill, one.name);
+    if (one.dryRun === true) {
+      assertEquals(
+        done.ok && done.value.files.includes(one.left[0]),
+        true,
+        one.name,
+      );
+    }
+    // hook 설정은 새로 생길 수 있으니 skills 아래만 본다.
+    assertEquals(
+      [...files.keys()].filter((path) => path.startsWith(skills)).sort(),
+      one.left.sort(),
+      one.name,
+    );
+  }
 });

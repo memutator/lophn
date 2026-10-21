@@ -1,13 +1,7 @@
 // route 하나를 부르는 공통 흐름이다. command는 envelope(key, compare)로, 나머지는 입력 그대로 보낸다.
 // 표 밖 route는 부르지 않는다: 호출자가 `CODING_CLI_COMMANDS`의 route만 넘긴다.
-import {
-  err,
-  type LophnError,
-  ok,
-  type Result,
-  sha256Hex,
-} from "../../base/mod.ts";
-import type { Route, UploadRoute } from "../../protocol/base/mod.ts";
+import type { LophnError, Result } from "../../base/mod.ts";
+import type { Route } from "../../protocol/base/mod.ts";
 import type { CoreClient } from "./client/core.ts";
 
 type RouteCall = {
@@ -44,33 +38,4 @@ export function callRoute(
     });
   }
   return client.read(call.route, call.input);
-}
-
-// 본문을 올려 준비된 blob 참조를 받는다. hash는 올린 바이트에서 낸다.
-export async function uploadText(
-  client: CoreClient,
-  route: UploadRoute,
-  text: string,
-): Promise<Result<{ hash: string; blob: unknown }, LophnError>> {
-  const bytes = new TextEncoder().encode(text);
-  const hash = await sha256Hex(bytes);
-  const uploaded = await client.upload(
-    route,
-    { blob_hash: hash, bytes: bytes.length },
-    new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(bytes);
-        controller.close();
-      },
-    }),
-  );
-  if (!uploaded.ok) return uploaded;
-  const blob = uploaded.value as { hash?: string };
-  if (blob.hash !== hash) {
-    return err({
-      code: "internal",
-      message: "준비된 blob이 올린 바이트와 맞지 않는다",
-    });
-  }
-  return ok({ hash, blob: uploaded.value });
 }

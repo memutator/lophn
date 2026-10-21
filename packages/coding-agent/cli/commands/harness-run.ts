@@ -7,7 +7,6 @@ import {
   type HarnessDetection,
   type HarnessId,
 } from "../../../protocol/coding-agent/mod.ts";
-import { loadSkills } from "../../guides/mod.ts";
 import {
   detectHarnesses,
   discover,
@@ -37,18 +36,15 @@ export function runHarnessDetect(
   );
 }
 
-// harness의 전역 위치에 skill 둘과 hook 설정을 놓는다. `dry_run`이면 쓰지 않고 놓을 것이 있는지만 본다.
+// harness의 전역 위치에 hook 설정을 놓고 지운 skill의 옛 사본을 지운다. `dry_run`이면 쓰지도 지우지도 않고 할 일이 있는지만 본다.
 export async function runHarnessInstall(
   input: { harness: HarnessId; dry_run?: boolean; command?: string },
   home: string,
 ): Promise<
   Result<{ skill: string; hook: string; files: string[] }, LophnError>
 > {
-  const skills = await loadSkills();
-  if (!skills.ok) return skills;
   const done = await installGlobal(
     {
-      skills: skills.value,
       async read(path) {
         try {
           return await Deno.readTextFile(path);
@@ -63,6 +59,18 @@ export async function runHarnessInstall(
         });
         await Deno.writeTextFile(path, text);
       },
+      async list(dir) {
+        try {
+          const names: string[] = [];
+          for await (const entry of Deno.readDir(dir)) names.push(entry.name);
+          return names;
+        } catch (thrown) {
+          if (thrown instanceof Deno.errors.NotFound) return null;
+          throw thrown;
+        }
+      },
+      // 옵션이 없어 비지 않은 폴더는 던진다. 사람의 다른 file을 지울 길이 없다.
+      remove: (path) => Deno.remove(path),
     },
     {
       harness: input.harness,

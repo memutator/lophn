@@ -4,7 +4,6 @@ import {
   CODING_CLI_COMMANDS,
   CODING_MCP_OPERATION,
 } from "../../../protocol/coding-agent/mod.ts";
-import { ticketUploadSummary } from "../../../protocol/coding-agent/ticket/mod.ts";
 import { createCodingTokens } from "./coding-token.ts";
 import { type OperationPolicy } from "./model.ts";
 import { CredentialRegistry } from "./registry.ts";
@@ -13,7 +12,6 @@ const id = (prefix: string, n: number) =>
   `${prefix}_${String(n).padStart(26, "0")}`;
 
 const tokenRoutes = [
-  ticketUploadSummary.name,
   CODING_MCP_OPERATION,
   ...CODING_CLI_COMMANDS.flatMap((command) =>
     command.auth === "coding_token" && command.route ? [command.route.name] : []

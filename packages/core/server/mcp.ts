@@ -37,7 +37,7 @@ export interface McpEndpoint {
 }
 
 const INSTRUCTIONS =
-  "These are the tools of this ticket's app. tools/call goes only to the running preview. Start one with `lophn app preview start`.";
+  "These are the tools of this session's app. tools/call goes only to the running preview. Start one with `lophn app preview start`.";
 
 const PARSE_ERROR = -32700;
 const INVALID_REQUEST = -32600;

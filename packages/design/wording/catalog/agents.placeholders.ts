@@ -5,15 +5,12 @@ export type AgentsPlaceholders = {
   "agents.button.settings-back": Record<never, never>;
   "agents.button.settings-open-lophn": Record<never, never>;
   "agents.heading.settings-default-model": Record<never, never>;
-  "agents.heading.settings-grant-defaults": Record<never, never>;
   "agents.label.providers-custom-key-title": Record<never, never>;
   "agents.label.providers-key-hint": Record<never, never>;
   "agents.label.settings-instructions-path": Record<never, never>;
   "agents.label.settings-lophn-chip": Record<never, never>;
   "agents.label.settings-lophn-grants": {
     apps: "plural";
-    agents: "plural";
-    settings: "string";
   };
   "agents.label.settings-lophn-model-default": {
     model: "string";
@@ -29,7 +26,6 @@ export type AgentsPlaceholders = {
   "agents.notice.providers-disconnect-failed": Record<never, never>;
   "agents.notice.settings-agents-lead": Record<never, never>;
   "agents.notice.settings-default-model-help": Record<never, never>;
-  "agents.notice.settings-grant-defaults-help": Record<never, never>;
   "agents.notice.settings-lophn-purpose": Record<never, never>;
   "agents.notice.settings-tools-elsewhere": Record<never, never>;
   "agents.notice.settings-tools-lead": Record<never, never>;
@@ -45,72 +41,30 @@ export type AgentsPlaceholders = {
   "agents.notice.skills-project": Record<never, never>;
   "agents.notice.tab-lead": Record<never, never>;
   "agents.button.assign-app": Record<never, never>;
-  "agents.button.assign-tools": Record<never, never>;
   "agents.button.choose-icon": Record<never, never>;
   "agents.button.create-operator": Record<never, never>;
-  "agents.button.grant-reset": Record<never, never>;
   "agents.button.remove-app": Record<never, never>;
   "agents.button.remove-image": Record<never, never>;
-  "agents.button.remove-server": Record<never, never>;
-  "agents.empty.grants-agents": Record<never, never>;
   "agents.empty.grants-apps": Record<never, never>;
-  "agents.empty.grants-tools": Record<never, never>;
-  "agents.heading.grants-agents": Record<never, never>;
   "agents.heading.grants-apps": Record<never, never>;
-  "agents.heading.grants-settings": Record<never, never>;
-  "agents.heading.grants-tools": Record<never, never>;
   "agents.heading.server-form": Record<never, never>;
   "agents.label.agent-instructions": Record<never, never>;
-  "agents.label.ask-ask": Record<never, never>;
-  "agents.label.ask-never": Record<never, never>;
   "agents.label.auth-api-key": Record<never, never>;
   "agents.label.auth-bearer": Record<never, never>;
   "agents.label.auth-none": Record<never, never>;
   "agents.label.avatar-preview": Record<never, never>;
   "agents.label.built-in": Record<never, never>;
-  "agents.label.defaults-by-effect": Record<never, never>;
-  "agents.label.defaults-external": Record<never, never>;
-  "agents.label.defaults-read": Record<never, never>;
-  "agents.label.defaults-settings": Record<never, never>;
-  "agents.label.defaults-write": Record<never, never>;
   "agents.label.effect-external": Record<never, never>;
   "agents.label.effect-read": Record<never, never>;
-  "agents.label.effect-settings": Record<never, never>;
   "agents.label.effect-write": Record<never, never>;
-  "agents.label.grant-came-default": Record<never, never>;
-  "agents.label.grant-changed": Record<never, never>;
   "agents.label.grant-col-allowed": Record<never, never>;
   "agents.label.grant-col-effect": Record<never, never>;
   "agents.label.grant-col-name": Record<never, never>;
-  "agents.label.grant-col-status": Record<never, never>;
-  "agents.label.grant-col-when": Record<never, never>;
-  "agents.label.grant-default": Record<never, never>;
-  "agents.label.grant-left-out": Record<never, never>;
-  "agents.label.grant-new-in": {
-    release: "string";
-  };
-  "agents.label.grant-when-runs": {
-    name: "string";
-  };
   "agents.label.grants-app-tools-summary": {
     used: "number";
     total: "number";
-    asking: "plural";
   };
-  "agents.label.grants-apps-summary": {
-    release: "string";
-    used: "number";
-    total: "number";
-    asking: "plural";
-  };
-  "agents.label.grants-settings-detail": Record<never, never>;
-  "agents.label.grants-settings-name": Record<never, never>;
   "agents.label.grants-target": Record<never, never>;
-  "agents.label.grants-tools-summary": {
-    used: "number";
-    total: "number";
-    asking: "plural";
-  };
   "agents.label.instructions-head-placed": {
     project: "string";
   };
@@ -149,12 +103,10 @@ export type AgentsPlaceholders = {
   "agents.notice.grants-after-create": Record<never, never>;
   "agents.notice.app-no-project": Record<never, never>;
   "agents.notice.grants-apply-now": Record<never, never>;
-  "agents.notice.grants-defaults-help": Record<never, never>;
   "agents.notice.grants-lead": {
     name: "string";
   };
-  "agents.notice.grants-settings-help": Record<never, never>;
-  "agents.notice.grants-tool-effect": Record<never, never>;
+  "agents.notice.grants-mcp-layers": Record<never, never>;
   "agents.notice.instructions-help": Record<never, never>;
   "agents.notice.instructions-help-lophn": Record<never, never>;
   "agents.notice.lophn-no-project": Record<never, never>;

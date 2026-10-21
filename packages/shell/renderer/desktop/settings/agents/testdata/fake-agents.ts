@@ -57,9 +57,7 @@ const VIEW: AgentsSettingsView = {
   lophn: {
     name: "lophn",
     model: null,
-    apps: grants.filter((entry) => entry.kind === "app").length,
-    agents: grants.filter((entry) => entry.kind === "agent").length,
-    mayChangeSettings: grants.some((entry) => entry.kind === "settings"),
+    apps: grants.length,
   },
   instructionsPreview: GLOBAL_LOPHN_MD,
 };

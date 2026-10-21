@@ -117,9 +117,7 @@ export function coreAgentsSettingsSource(
     return {
       name: detail.ok ? detail.value.definition.name ?? "lophn" : "lophn",
       model: detail.ok ? detail.value.definition.model ?? null : null,
-      apps: entries.filter((entry) => entry.kind === "app").length,
-      agents: entries.filter((entry) => entry.kind === "agent").length,
-      mayChangeSettings: entries.some((entry) => entry.kind === "settings"),
+      apps: entries.length,
     };
   }
 

@@ -1,6 +1,6 @@
 // Agents 탭과 agent editor가 읽고 쓰는 통로. 정의 파일의 칸과 칸별 값·출처는 protocol/lophn-agent의
-// agent-definitions·operators를, agent grant는 approvals/grants를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
-// (켬·끔 줄, 놓을 곳 후보, grant 대상 목록)만 여기서 더한다. 화면은 이 통로를 지나는 값으로만 그리고 core를 직접 부르지 않는다.
+// agent-definitions·operators를, 할당은 approvals/assignment를 그대로 따르고, 화면이 contract만으로 만들 수 없는 것
+// (켬·끔 줄, 놓을 곳 후보, 붙일 앱 목록)만 여기서 더한다. 화면은 이 통로를 지나는 값으로만 그리고 core를 직접 부르지 않는다.
 import type {
   AgentDefinitionIssue,
   AgentValueLayer,
@@ -17,12 +17,9 @@ import type {
   UserModelItem,
   UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { CallAgent } from "../../../../protocol/lophn-agent/calls.ts";
 import type { Role } from "../../../../protocol/lophn-agent/places.ts";
-import type {
-  AgentGrantEntry,
-  Effect,
-} from "../../../../protocol/approvals/grants.ts";
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView, ReadResult } from "../source.ts";
 import type {
   McpRow,
@@ -194,13 +191,11 @@ export type SaveResult =
     readonly issues: readonly AgentDefinitionIssue[];
   };
 
-/** grant 대상 하나의 효과. 다른 agent 부르기는 read로 센다. */
+/** 붙일 앱의 tool 하나. */
 interface GrantTool {
   readonly tool: string;
   readonly detail: string;
-  readonly effect: Effect;
-  /** 새 release가 더한 tool이면 그 release 이름. 알 수 없으면 null이다. */
-  readonly addedIn: string | null;
+  readonly effect: ToolEffect;
   /** 다른 domain에 보이는 tool인가. */
   readonly public: boolean;
   /** tool이 다루는 객체의 domain 이름. */
@@ -210,37 +205,19 @@ interface GrantTool {
 export interface GrantApp {
   readonly app: string;
   readonly name: string;
-  readonly release: string | null;
   readonly tools: readonly GrantTool[];
-}
-
-interface GrantMcpTool {
-  readonly tool: string;
-  readonly detail: string;
-  readonly effect: Effect;
-}
-
-export interface GrantMcpServer {
-  readonly server: string;
-  readonly tools: readonly GrantMcpTool[];
-}
-
-interface GrantAgent {
-  readonly agent: CallAgent;
-  readonly name: string;
-  readonly detail: string;
 }
 
 /** 붙일 수 있는 대상 전체. 붙은 것은 entries가 말한다. */
 export interface GrantCatalog {
   readonly apps: readonly GrantApp[];
-  readonly mcpServers: readonly GrantMcpServer[];
-  readonly agents: readonly GrantAgent[];
 }
 
 export interface GrantsView {
-  readonly entries: readonly AgentGrantEntry[];
+  readonly entries: readonly AssignmentEntry[];
   readonly catalog: GrantCatalog;
+  /** 읽은 때의 저장 판. 저장할 때 compare로 보내고, 그 사이 다른 창이 고쳤으면 core가 conflict로 거절한다. */
+  readonly revision: number;
 }
 
 export interface AgentsSource {
@@ -306,15 +283,16 @@ export interface AgentsSource {
   ): Promise<ReadResult<null>>;
   /** project 층 MCP server를 켜고 끈다. agent 층은 정의의 mcp_off로 저장한다. */
   setMcp(project: string, name: string, on: boolean): Promise<ReadResult<null>>;
-  /** 이 agent에 붙은 grant와 붙일 수 있는 대상. project가 null이면 lophn이다. */
+  /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
   grants(
     project: string | null,
     assignment: string,
   ): Promise<ReadResult<GrantsView>>;
-  /** 붙은 grant 전체를 새 내용으로 바꾼다. */
+  /** 붙은 할당 전체를 새 내용으로 바꾸고 새 저장 판을 돌려준다. revision이 지금과 다르면 `conflict`다. */
   setGrants(
     project: string | null,
     assignment: string,
-    entries: readonly AgentGrantEntry[],
-  ): Promise<ReadResult<null>>;
+    entries: readonly AssignmentEntry[],
+    revision: number,
+  ): Promise<ReadResult<{ readonly revision: number }>>;
 }

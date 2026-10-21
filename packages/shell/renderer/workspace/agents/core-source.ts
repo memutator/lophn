@@ -701,7 +701,7 @@ export function coreAgentsSource(
 
     grants: (project, key) => readGrants(link, project, key, domains),
 
-    setGrants: (project, key, entries) =>
-      saveGrants(link, project, key, entries),
+    setGrants: (project, key, entries, revision) =>
+      saveGrants(link, project, key, entries, revision),
   };
 }

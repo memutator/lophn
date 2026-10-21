@@ -11,7 +11,7 @@ import { t } from "@lophn/wording";
 import type { MessageKey } from "@lophn/wording";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { AgentGrantEntry } from "../../../../../protocol/approvals/grants.ts";
+import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import { workspaceIcons } from "../../../icons/mod.ts";
 import type { DomainView } from "../../source.ts";
 import type {
@@ -348,15 +348,30 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     });
   };
 
-  // Grants의 변화는 바로 저장한다. 저장하지 못하면 읽은 모양으로 되돌린다.
-  const changeGrants = (entries: readonly AgentGrantEntry[]) => {
+  // Grants의 변화는 바로 저장한다. 저장하지 못하면(다른 창이 먼저 고쳐 conflict인 때도) 다시 읽어 맞춘다.
+  const changeGrants = (entries: readonly AssignmentEntry[]) => {
     if (grants.kind !== "ready" || detail.assignment === null) return;
+    const assignment = detail.assignment;
     const before = grants.view;
     setGrants({ kind: "ready", view: { ...before, entries } });
-    void source.setGrants(project, detail.assignment, entries).then(
-      (result) => {
-        if (result.ok) return;
-        setGrants({ kind: "ready", view: before });
+    void source.setGrants(project, assignment, entries, before.revision).then(
+      async (result) => {
+        if (result.ok) {
+          const { revision } = result.value;
+          setGrants((now) =>
+            now.kind === "ready"
+              ? { kind: "ready", view: { ...now.view, revision } }
+              : now
+          );
+          return;
+        }
+        const fresh = await source.grants(project, assignment);
+        setGrants(
+          fresh.ok ? { kind: "ready", view: fresh.value } : {
+            kind: "ready",
+            view: before,
+          },
+        );
         setNotice({
           title: "agents.title.change-failed",
           body: "project-workspace.notice.agents-change-failed",

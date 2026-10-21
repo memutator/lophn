@@ -84,7 +84,7 @@ export const AgentServerFormPage = () =>
     () => press("[data-field=mcp] button", t("settings.button.add-server")),
   ]);
 
-/** Grants 탭. 앱, MCP tool, 부를 수 있는 agent, 설정 고치기. */
+/** Grants 탭. 붙인 앱과 앱마다 뺀 tool. MCP server는 설정한 층이 할당이라 한 줄 안내만 있다. */
 export const AgentGrantsPage = () => editor(EVAL_ANALYST_ID, [GRANTS_TAB]);
 
 /** Grants 탭에서 앱 하나를 펼친 상태. */

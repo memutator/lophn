@@ -1,18 +1,14 @@
 // fake source와 gallery가 같이 쓰는 값. tools/wireframes의 phroner 예시(Project Manager, Operator 둘, 앱 Budget tracker의
-// App Engineer, lophn)와 층마다 정한 model·skill·MCP, agent grant 대상을 contract 모양으로 담는다.
+// App Engineer, lophn)와 층마다 정한 model·skill·MCP, 붙일 앱과 할당을 contract 모양으로 담는다.
 import type {
   CatalogEntry,
   ModelChoice,
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
+import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import type { DomainView } from "../source.ts";
-import type {
-  AgentDraft,
-  GrantApp,
-  GrantCatalog,
-  GrantMcpServer,
-} from "./source.ts";
+import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
 const id = (prefix: string, seed: string) =>
@@ -378,31 +374,28 @@ export const PROJECT_MCP: readonly McpRow[] = [
   },
 ];
 
-// ---- agent grant ----
+// ---- 할당 ----
 
 function tool(
   domain: string,
   name: string,
   detail: string,
-  effect: "read" | "write" | "external",
-  addedIn: string | null = null,
+  effect: ToolEffect,
   isPublic = false,
 ) {
-  return { tool: name, detail, effect, addedIn, public: isPublic, domain };
+  return { tool: name, detail, effect, public: isPublic, domain };
 }
 
 const APPS: readonly GrantApp[] = [
   {
     app: APP_ID,
     name: APP_NAME,
-    release: "1.4",
     tools: [
       tool(
         "expenses",
         "list_expenses",
         "Lists the expenses of a month",
         "read",
-        null,
         true,
       ),
       tool(
@@ -410,7 +403,6 @@ const APPS: readonly GrantApp[] = [
         "get_budget",
         "Reads the budget and what is left",
         "read",
-        null,
         true,
       ),
       tool("budgets", "summarize_month", "Totals a month by category", "read"),
@@ -433,31 +425,16 @@ const APPS: readonly GrantApp[] = [
         "send_report_mail",
         "Mails the monthly report",
         "external",
-        "1.4",
       ),
-      tool(
-        "expenses",
-        "tag_expense",
-        "Puts a tag on an expense",
-        "write",
-        "1.4",
-      ),
+      tool("expenses", "tag_expense", "Puts a tag on an expense", "write"),
     ],
   },
   {
     app: EVAL_BOARD_ID,
     name: "Eval board",
-    release: "0.9",
     tools: [
-      tool("runs", "list_runs", "Lists eval runs", "read", null, true),
-      tool(
-        "runs",
-        "get_run",
-        "Reads one run with its scores",
-        "read",
-        null,
-        true,
-      ),
+      tool("runs", "list_runs", "Lists eval runs", "read", true),
+      tool("runs", "get_run", "Reads one run with its scores", "read", true),
       tool("runs", "pin_run", "Pins a run to the board", "write"),
       tool(
         "runs",
@@ -470,108 +447,27 @@ const APPS: readonly GrantApp[] = [
   {
     app: NOTES_SYNC_ID,
     name: "Notes sync",
-    release: "2.1",
     tools: [
-      tool("notes", "list_notes", "Lists notes", "read", null, true),
+      tool("notes", "list_notes", "Lists notes", "read", true),
       tool("notes", "push_note", "Sends a note to the cloud", "external"),
     ],
   },
 ];
 
-const MCP_TOOLS: readonly GrantMcpServer[] = [{
-  server: "github",
-  tools: [
-    {
-      tool: "search_issues",
-      detail: "Searches issues and pull requests",
-      effect: "read",
-    },
-    {
-      tool: "get_pull_request",
-      detail: "Reads one pull request",
-      effect: "read",
-    },
-    { tool: "create_issue", detail: "Opens an issue", effect: "external" },
-    {
-      tool: "comment_on_issue",
-      detail: "Writes a comment on an issue",
-      effect: "external",
-    },
-  ],
-}];
+export const GRANT_CATALOG: GrantCatalog = { apps: APPS };
 
-export const GRANT_CATALOG: GrantCatalog = {
-  apps: APPS,
-  mcpServers: MCP_TOOLS,
-  agents: [
-    {
-      agent: { role: "project_manager", project: PROJECT_ID },
-      name: "Project Manager",
-      detail: `${PROJECT_NAME} · Keeps kinds in shape`,
-    },
-    {
-      agent: { role: "app_engineer", app: APP_ID },
-      name: "App Engineer",
-      detail: `${APP_NAME} · Builds and repairs the app`,
-    },
-    {
-      agent: { role: "operator", agent: EXPERIMENT_PLANNER_ID },
-      name: "Experiment planner",
-      detail: `${PROJECT_NAME} · Operator`,
-    },
-    {
-      agent: { role: "operator", agent: EVAL_ANALYST_ID },
-      name: "Eval analyst",
-      detail: `${PROJECT_NAME} · Operator`,
-    },
-  ],
-};
-
-const PM_REF = GRANT_CATALOG.agents[0].agent;
-const ENGINEER_REF = GRANT_CATALOG.agents[1].agent;
-const PLANNER_REF = GRANT_CATALOG.agents[2].agent;
-
-const allTools = () =>
-  MCP_TOOLS[0].tools.map((tool): AgentGrantEntry => ({
-    kind: "mcp_tool",
-    server: "github",
-    tool: tool.tool,
-    ...(tool.tool === "comment_on_issue" ? { setting: "never" as const } : {}),
-  }));
-
-/** agent마다 처음에 붙어 있는 것. */
-export const FAKE_GRANTS: Readonly<Record<string, readonly AgentGrantEntry[]>> =
+/** agent마다 처음에 붙어 있는 앱. */
+export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
   {
     [EVAL_ANALYST_ID]: [
-      {
-        kind: "app",
-        app: APP_ID,
-        tools: [
-          { tool: "set_alert_threshold", setting: "ask" },
-          { tool: "delete_expense", setting: "excluded" },
-        ],
-      },
-      { kind: "app", app: EVAL_BOARD_ID, tools: [] },
-      ...allTools(),
-      { kind: "agent", agent: PM_REF },
-      { kind: "agent", agent: PLANNER_REF },
+      { app: APP_ID, removed_tools: ["delete_expense"] },
+      { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
-    [EXPERIMENT_PLANNER_ID]: [{ kind: "app", app: EVAL_BOARD_ID, tools: [] }],
+    [EXPERIMENT_PLANNER_ID]: [{ app: EVAL_BOARD_ID, removed_tools: [] }],
     lophn: [
-      { kind: "app", app: APP_ID, tools: [] },
-      { kind: "app", app: EVAL_BOARD_ID, tools: [] },
-      { kind: "agent", agent: PM_REF },
-      { kind: "agent", agent: ENGINEER_REF },
-      { kind: "settings" },
+      { app: APP_ID, removed_tools: [] },
+      { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
-    project_manager: [
-      { kind: "app", app: APP_ID, tools: [] },
-      ...allTools(),
-      { kind: "settings" },
-    ],
-    app_engineer: [
-      { kind: "app", app: APP_ID, tools: [] },
-      ...allTools(),
-      { kind: "agent", agent: PM_REF },
-    ],
+    project_manager: [{ app: APP_ID, removed_tools: [] }],
+    app_engineer: [{ app: APP_ID, removed_tools: [] }],
   };

@@ -2,13 +2,12 @@ export const agents = {
   "agents.button.settings-back": "\u2039 Agents",
   "agents.button.settings-open-lophn": "Open lophn settings",
   "agents.heading.settings-default-model": "Default model",
-  "agents.heading.settings-grant-defaults": "Grant defaults",
   "agents.label.providers-custom-key-title": "API key",
   "agents.label.providers-key-hint": "Typed in a protected prompt",
   "agents.label.settings-instructions-path": "~/.lophn/LOPHN.md",
   "agents.label.settings-lophn-chip": "One for all of lophn",
   "agents.label.settings-lophn-grants":
-    "Grants: {apps, plural, one {# app} other {# apps}} \u00b7 {agents, plural, one {# agent} other {# agents}} it can call{settings, select, yes { \u00b7 may change settings} other {}}",
+    "Assigned: {apps, plural, one {# app} other {# apps}}",
   "agents.label.settings-lophn-model-default": "Model: Use default ({model})",
   "agents.label.settings-lophn-model-none": "Model: No model chosen yet",
   "agents.label.settings-lophn-model-own": "Model: {model}",
@@ -22,8 +21,6 @@ export const agents = {
     "Defaults for every project. A project or an agent can change them.",
   "agents.notice.settings-default-model-help":
     "One model for every agent. A project, or an agent's own settings, can pick another.",
-  "agents.notice.settings-grant-defaults-help":
-    "When you give an agent an app, a tool or another agent, it starts with these. Each agent's Grants tab can change any of them.",
   "agents.notice.settings-lophn-purpose":
     "Talks with you about lophn itself: your projects, apps and settings.",
   "agents.notice.settings-tools-elsewhere":
@@ -46,63 +43,29 @@ export const agents = {
   "agents.notice.tab-lead":
     "The agents that work here. lophn is one agent for all of lophn, so you set it up in Settings \u203a Agents.",
   "agents.button.assign-app": "Assign app",
-  "agents.button.assign-tools": "Assign tools",
   "agents.button.choose-icon": "Choose icon",
   "agents.button.create-operator": "Create Operator",
-  "agents.button.grant-reset": "Reset",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
-  "agents.button.remove-server": "Remove server",
-  "agents.empty.grants-agents": "It can't hand tasks to other agents.",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
-  "agents.empty.grants-tools": "No MCP tools.",
-  "agents.heading.grants-agents": "Agents it can call",
   "agents.heading.grants-apps": "Apps",
-  "agents.heading.grants-settings": "Change settings",
-  "agents.heading.grants-tools": "Tools from MCP servers",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.label.agent-instructions": "Instructions for this agent",
-  "agents.label.ask-ask": "Ask first",
-  "agents.label.ask-never": "Don't ask",
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
   "agents.label.auth-none": "None",
   "agents.label.avatar-preview": "Avatar preview",
   "agents.label.built-in": "Built-in",
-  "agents.label.defaults-by-effect": "Defaults by effect",
-  "agents.label.defaults-external":
-    "Changes something outside the app: mail, payments, other services",
-  "agents.label.defaults-read": "Changes nothing",
-  "agents.label.defaults-settings":
-    "Edits LOPHN.md, agent definitions, skills or Settings",
-  "agents.label.defaults-write":
-    "Changes only the app's own data. lophn can undo it",
   "agents.label.effect-external": "External",
   "agents.label.effect-read": "Read",
-  "agents.label.effect-settings": "Settings",
   "agents.label.effect-write": "Write",
-  "agents.label.grant-came-default": "Came in with the default",
-  "agents.label.grant-changed": "Changed by you",
   "agents.label.grant-col-allowed": "Allowed",
   "agents.label.grant-col-effect": "Effect",
   "agents.label.grant-col-name": "Name",
-  "agents.label.grant-col-status": "Status",
-  "agents.label.grant-col-when": "When it runs",
-  "agents.label.grant-default": "Default",
-  "agents.label.grant-left-out": "Left out",
-  "agents.label.grant-new-in": "New in {release}",
-  "agents.label.grant-when-runs": "When {name} runs",
   "agents.label.grants-app-tools-summary":
-    "{used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
-  "agents.label.grants-apps-summary":
-    "release {release} \u00b7 {used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
-  "agents.label.grants-settings-detail":
-    "LOPHN.md, agent definitions, skills and Settings",
-  "agents.label.grants-settings-name": "Change settings and instructions",
+    "{used, number} of {total, number} tools",
   "agents.label.grants-target": "the grants",
-  "agents.label.grants-tools-summary":
-    "{used, number} of {total, number} tools \u00b7 {asking, plural, =0 {none ask first} other {# ask first}}",
   "agents.label.instructions-head-placed":
     "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent placed there",
   "agents.label.instructions-head-unknown":
@@ -132,18 +95,14 @@ export const agents = {
   "agents.notice.domains-gone":
     "A domain this Operator had chosen is gone from here. It is dropped when you save.",
   "agents.notice.grants-after-create":
-    "You can assign apps and tools in the Grants tab once the Operator exists.",
+    "You can assign apps in the Grants tab once the Operator exists.",
   "agents.notice.app-no-project":
     "An app has no project instructions. Only the instructions below apply here.",
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
-  "agents.notice.grants-defaults-help":
-    "These are the starting values. You can change any tool below. A new release's tools start with the default again; what you changed stays.",
   "agents.notice.grants-lead":
-    "What {name} can use besides its own tools. Each item says whether it asks you first. Anything you don't add here, {name} can't use.",
-  "agents.notice.grants-settings-help":
-    "It asks first by default, so an agent can't widen its own grants.",
-  "agents.notice.grants-tool-effect":
-    "A tool counts as Read when its server says it only reads, otherwise as External.",
+    "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
+  "agents.notice.grants-mcp-layers":
+    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this Operator's Definition.",
   "agents.notice.instructions-help":
     "Read after the project instructions. Your Workspace instructions come before both.",
   "agents.notice.instructions-help-lophn":

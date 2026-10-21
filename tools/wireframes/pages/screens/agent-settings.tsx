@@ -15,7 +15,7 @@ export const agentSettingsArea: Area = {
   id: "agent-settings",
   title: "Agent settings",
   summary:
-    "프로젝트 Agents 탭, Operator·App Engineer 편집, MCP server 추가, 권한 grants.",
+    "프로젝트 Agents 탭, Operator·App Engineer 편집, MCP server 추가, 앱 할당.",
   pages: [
     {
       id: "new-project-agents",
@@ -70,14 +70,14 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것 넷(앱, MCP server의 tool, 부를 수 있는 다른 agent, 설정 고치기)을 붙이고 대상마다 묻는지를 정한다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 위에 효과별 기본값(read와 write는 묻지 않음, external과 설정 고치기는 물음)이 있다.",
+        "agent에게 맡길 것은 앱 하나다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 Operator의 Definition)이 할당이라는 한 줄만 있다.",
       render: () => <AgentGrantsPage />,
     },
     {
       id: "new-agent-grants-app",
       title: "Agent settings · grants, app expanded",
       description:
-        "앱 하나를 펼쳐 tool마다 넣음과 뺌, 묻는지를 보인다. 뺀 것, 사람이 바꾼 것(Changed by you, Reset), 새 release가 더해 기본값으로 들어온 것이 한 표에 있다.",
+        "앱 하나를 펼쳐 tool마다 이름, 효과, 넣음과 뺌(Allowed)만 고른다. 뺀 tool(delete_expense)은 꺼져 있다.",
       render: () => <AgentGrantsAppPage />,
     },
   ],

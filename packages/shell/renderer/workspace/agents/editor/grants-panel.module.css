@@ -1,4 +1,4 @@
-/* agent grant 화면. 줄의 Allowed 토글은 오른쪽 끝 고정 열이다. */
+/* 할당 화면. 줄의 Allowed 토글은 오른쪽 끝 고정 열이다. */
 
 .grants {
   display: flex;
@@ -27,7 +27,7 @@
 }
 
 .note {
-  margin: var(--space-0);
+  margin: var(--space-4) var(--space-0) var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
 }
@@ -44,11 +44,6 @@
   white-space: nowrap;
 }
 
-.chipNew {
-  background: var(--color-selection);
-  color: var(--color-text-primary);
-}
-
 .empty {
   padding: var(--space-5);
   border: var(--border-width) dashed var(--color-border-subtle);
@@ -56,34 +51,7 @@
   color: var(--color-text-muted);
 }
 
-/* 효과별 기본값 표 */
-.defaults {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-6);
-  margin: var(--space-3) var(--space-0) var(--space-0);
-  padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.contents {
-  display: contents;
-}
-
-.defaultsAsk {
-  font-weight: var(--font-weight-medium);
-}
-
-.defaultsMeaning {
-  color: var(--color-text-muted);
-}
-
-/* 앱·MCP server 카드 */
+/* 앱 카드 */
 .targetCard {
   border: var(--border-width) solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -122,7 +90,7 @@
   font-weight: var(--font-weight-regular);
 }
 
-/* 이름 | 효과 | 상태 | 묻는지 | Allowed. 효과·상태·묻는지·토글 열은 폭이 고정이라 줄마다 같은 위치다. */
+/* 이름 | 효과 | Allowed. 효과와 토글 열은 폭이 고정이라 줄마다 같은 위치다. */
 .rows {
   display: flex;
   flex-direction: column;
@@ -132,27 +100,13 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
-.standalone {
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-}
-
 .row,
 .head {
   display: grid;
-  grid-template-columns:
-    1fr calc(var(--space-12) + var(--space-4)) calc(var(--space-12) * 2 +
-    var(--space-5))
-    calc(var(--space-12) * 2) var(--space-11);
+  grid-template-columns: 1fr calc(var(--space-12) + var(--space-4))
+    var(--space-11);
   align-items: center;
   gap: var(--space-5);
-}
-
-.rowCall.row,
-.rowCall.head {
-  grid-template-columns:
-    1fr calc(var(--space-12) * 2 + var(--space-5)) calc(var(--space-12) * 2)
-    var(--space-11);
 }
 
 .row {
@@ -200,21 +154,12 @@
   text-decoration: line-through;
 }
 
-.status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--type-small-size);
-}
-
 .toggleCell {
   display: flex;
   justify-content: flex-end;
 }
 
-/* 줄마다 Select와 Switch 하나라 Field 라벨은 화면 읽기용으로만 두고 눈에는 숨긴다 */
+/* 줄마다 Switch 하나라 라벨은 화면 읽기용으로만 두고 눈에는 숨긴다 */
 .hiddenLabel label {
   position: absolute;
   width: var(--border-width);

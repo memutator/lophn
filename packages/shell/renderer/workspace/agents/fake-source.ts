@@ -9,7 +9,7 @@ import {
   type UserModelItem,
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { AgentGrantEntry } from "../../../../protocol/approvals/grants.ts";
+import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { DomainView, ReadResult } from "../source.ts";
 import {
   ANTHROPIC,
@@ -34,7 +34,7 @@ import {
   PROJECT_NAME,
   PROJECT_SKILLS,
 } from "./fake-data.ts";
-import { isAppPlace, keyOf } from "./agent-key.ts";
+import { isAppPlace } from "./agent-key.ts";
 import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
 import type {
   AgentDetail,
@@ -83,7 +83,8 @@ type FakeCall =
   | {
     method: "setGrants";
     assignment: string;
-    entries: readonly AgentGrantEntry[];
+    entries: readonly AssignmentEntry[];
+    revision: number;
   }
   | { method: "setHidden"; items: readonly HiddenModel[] }
   | { method: "refreshModels"; provider: string }
@@ -229,9 +230,10 @@ export function createFakeAgentsSource(
       hash: nextHash(),
     }]),
   );
-  const grants = new Map<string, readonly AgentGrantEntry[]>(
+  const grants = new Map<string, readonly AssignmentEntry[]>(
     Object.entries(FAKE_GRANTS),
   );
+  const grantRevisions = new Map<string, number>();
   let projectModel: ModelChoice | null = options.projectModel ?? null;
   let customListed = options.customListed ?? true;
   // 층에서 끈 skill(project 층)과 끈 MCP server(project 층).
@@ -653,24 +655,18 @@ export function createFakeAgentsSource(
         );
       return Promise.resolve(ok({
         entries: grants.get(key) ?? [],
-        catalog: {
-          ...GRANT_CATALOG,
-          apps: appsFor(GRANT_CATALOG.apps, agentDomains),
-          // 자기 자신은 부를 대상이 아니다.
-          agents: GRANT_CATALOG.agents.filter((target) =>
-            target.agent.role === "coding_agent" ||
-            keyOf(target.agent) !== key
-          ),
-        },
+        catalog: { apps: appsFor(GRANT_CATALOG.apps, agentDomains) },
+        revision: grantRevisions.get(key) ?? 0,
       }));
     },
 
-    setGrants(_project, key, entries) {
-      calls.push({ method: "setGrants", assignment: key, entries });
+    setGrants(_project, key, entries, revision) {
+      calls.push({ method: "setGrants", assignment: key, entries, revision });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
       grants.set(key, entries);
-      return Promise.resolve(ok(null));
+      grantRevisions.set(key, revision + 1);
+      return Promise.resolve(ok({ revision: revision + 1 }));
     },
   };
 }

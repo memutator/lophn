@@ -7,7 +7,6 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
 
 import { AgentEditor } from "../../../workspace/agents/editor/agent-editor.tsx";
-import { DefaultsTable } from "../../../workspace/agents/editor/grants-panel.tsx";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
 import { modelLabelOf } from "../../../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
@@ -25,7 +24,7 @@ interface AgentsPanelProps {
 }
 
 // Settings › Agents. 모든 project에 적용되는 기본값이다. 위에서 아래로 전역 기본 model 하나, lophn 카드
-// ([Open lophn settings]), 모든 project의 지침(LOPHN.md 미리보기와 [Edit]), grant 기본값 표다. role별 기본 model은 없다.
+// ([Open lophn settings]), 모든 project의 지침(LOPHN.md 미리보기와 [Edit])다. role별 기본 model은 없다.
 // lophn 카드는 같은 panel 안 둘째 화면을 열고, 거기는 project 없는 agent editor다. Skills와 MCP server는 Tools and skills에 있다.
 
 type Loaded =
@@ -204,8 +203,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
                   <li data-lophn-grants="">
                     {t("agents.label.settings-lophn-grants", {
                       apps: view.lophn.apps,
-                      agents: view.lophn.agents,
-                      settings: view.lophn.mayChangeSettings ? "yes" : "no",
                     })}
                   </li>
                 </ul>
@@ -252,16 +249,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               <p className={styles.note}>
                 {t("agents.notice.settings-tools-elsewhere")}
               </p>
-            </section>
-
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>
-                {t("agents.heading.settings-grant-defaults")}
-              </h2>
-              <p className={styles.sectionLead}>
-                {t("agents.notice.settings-grant-defaults-help")}
-              </p>
-              <DefaultsTable />
             </section>
           </div>
         )}

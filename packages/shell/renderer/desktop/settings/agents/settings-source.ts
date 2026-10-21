@@ -14,10 +14,8 @@ export interface LophnSummary {
   readonly name: string;
   /** lophn이 따로 고른 model. 고르지 않았으면 null이고 전역 기본을 따른다. */
   readonly model: ModelChoice | null;
-  /** lophn에 붙은 앱 수와 부를 수 있는 agent 수. */
+  /** lophn에 붙은 앱 수. */
   readonly apps: number;
-  readonly agents: number;
-  readonly mayChangeSettings: boolean;
 }
 
 export interface AgentsSettingsView {

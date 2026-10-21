@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-support-app` | support | 1 | 없음 | merged | support/tr-support-app | 39dd2e801 |  |
 | `tr-e2e-app-activation` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-activation | f45c3a012 |  |
 | `tr-e2e-app-call-kinds` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-call-kinds | 1bbad5b07 |  |
-| `tr-e2e-app-fix` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-fix |  |  |
+| `tr-e2e-app-fix` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-fix | 98e20b676 |  |
 | `tr-e2e-app-release` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-release | c74f81a15 |  |
 | `tr-e2e-ask-fix` | e2e | 2 | tr-e2e-approval | merged | e2e/tr-e2e-ask-fix | 84f102cf2 |  |
 | `tr-e2e-call-fix` | e2e | 2 | tr-e2e-approval | merged | e2e/tr-e2e-call-fix | 6ff93af2f |  |

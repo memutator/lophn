@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-reactions` | reactions | 2 | pr-check-exclude | merged | reactions/pr-reactions | fae21aad5 |  |
 | `pr-test-runner-reports` | test-runner-reports | 2 | pr-check-exclude | merged | test-runner-reports/pr-test-runner-reports | 0b95127c5 |  |
 | `pr-issues-ui-main` | issues-ui | 3 | pr-issues-ui-screen | running | issues-ui/pr-issues-ui-main |  |  |
-| `pr-kinds-toast` | kinds-toast | 3 | pr-reactions | running | kinds-toast/pr-kinds-toast |  |  |
+| `pr-kinds-toast` | kinds-toast | 3 | pr-reactions | merged | kinds-toast/pr-kinds-toast | b29334a96 |  |
 | `pr-log-exception` | log | 3 | pr-log-writer, pr-log-sdk, pr-test-runner-reports | todo |  |  |  |
 | `pr-log-writer` | log | 3 | pr-log-contract | running | log/pr-log-writer |  |  |
 | `pr-problem-refs` | problem-refs | 3 | pr-reactions | running | problem-refs/pr-problem-refs |  |  |

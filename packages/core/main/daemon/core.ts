@@ -293,9 +293,6 @@ async function open(
       uploads: merged((built) => built.uploads),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       fileStreams: merged((built) => built.fileStreams),
-      workers: new Map(
-        builts.flatMap((built) => [...built.workers ?? []]),
-      ),
     });
   } catch {
     await runtime.close();

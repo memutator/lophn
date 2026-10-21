@@ -238,9 +238,7 @@ export async function runDataJob(
       ? await runBackup(resolved, input)
       : input.kind === "migrate"
       ? await runMigrate(resolved, input)
-      : input.kind === "restore"
-      ? await runRestore(resolved, input)
-      : invalid("test jobs are not data changes");
+      : await runRestore(resolved, input);
     if (!outcome.ok) return outcome;
     if (!outcome.value.result.integrity_ok) {
       return err({ code: "unavailable", message: "integrity check failed" });

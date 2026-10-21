@@ -10,7 +10,7 @@ export type AppStart = {
   app: string;
   release: string | null;
   bundle_hash: string;
-  mode: "live" | "preview" | "test";
+  mode: "live" | "preview";
   process_nonce: string;
   broker_socket: string;
   control_socket: string;
@@ -48,8 +48,7 @@ export function parseAppStart(line: string): AppStart | undefined {
     typeof source.bundle_hash === "string" && SHA.test(source.bundle_hash)
       ? source.bundle_hash
       : undefined;
-  const mode = source.mode === "live" || source.mode === "preview" ||
-      source.mode === "test"
+  const mode = source.mode === "live" || source.mode === "preview"
     ? source.mode
     : undefined;
   const nonce = text(source.process_nonce);

@@ -13,7 +13,6 @@ const ACTIVATION_DATA_JOB_KINDS = [
   "backup",
   "migrate",
   "restore",
-  "test",
 ] as const;
 const activationDataJobKindSchema = z.enum(ACTIVATION_DATA_JOB_KINDS);
 

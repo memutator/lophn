@@ -16,7 +16,7 @@ export type BrokerTransport = (
 
 type BrokerChild = {
   process_nonce: string;
-  mode: "live" | "preview" | "test";
+  mode: "live" | "preview";
 };
 
 export function createBrokerClient(deps: {

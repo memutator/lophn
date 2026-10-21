@@ -32,7 +32,7 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       id TEXT PRIMARY KEY NOT NULL,
       app TEXT NOT NULL,
       release TEXT NOT NULL,
-      mode TEXT NOT NULL CHECK (mode IN ('live', 'preview', 'test')),
+      mode TEXT NOT NULL CHECK (mode IN ('live', 'preview')),
       operation TEXT NOT NULL CHECK (json_valid(operation)),
       caller TEXT CHECK (caller IS NULL OR json_valid(caller)),
       caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app')),

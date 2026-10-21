@@ -12,7 +12,7 @@ import {
 } from "./wire-check.ts";
 
 export type { Json };
-type RuntimeMode = "live" | "preview" | "test";
+type RuntimeMode = "live" | "preview";
 type InvocationEffect = "read" | "write" | "external";
 
 // protocol/apps/calls/caller.ts와 같다.
@@ -100,8 +100,7 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
   ) return;
   const app = id(context.app, "app");
   const release = context.release === null ? null : id(context.release, "rel");
-  const mode = context.mode === "live" || context.mode === "preview" ||
-      context.mode === "test"
+  const mode = context.mode === "live" || context.mode === "preview"
     ? context.mode
     : undefined;
   const effect = context.effect === "read" || context.effect === "write" ||

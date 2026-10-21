@@ -810,7 +810,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...messageBodyFields,
     ],
     ports: [turnAdmissionPort],
-    workers: [],
     // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
     memoryRoutes: [
       stageRewindFile,

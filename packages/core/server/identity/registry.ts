@@ -39,7 +39,6 @@ export type CredentialIssue = {
   scope: CredentialScope;
   conditions: CredentialConditions;
   expires_at?: string;
-  test_runner?: boolean;
 };
 
 type CurrentCredential = {
@@ -149,10 +148,6 @@ export class CredentialRegistry {
           kind !== "agent" && kind !== "coding_agent")
       ) return invalid();
       const context: AuthenticatedContext = parsed.data;
-      if (
-        input.test_runner !== undefined &&
-        typeof input.test_runner !== "boolean"
-      ) return invalid();
       // agent의 앱 조건(App Engineer의 담당 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
       // handoff 고정 근거)도 닿아야 하고, 범위는 ledger의 target 판정이 앱 조건으로 가른다.
       if (
@@ -161,8 +156,7 @@ export class CredentialRegistry {
       ) return invalid();
       if (
         kind === "user" &&
-        (input.principal !== "user" || input.test_runner ||
-          !context.conditions.process)
+        (input.principal !== "user" || !context.conditions.process)
       ) return invalid();
       if (
         kind === "machine" &&
@@ -174,7 +168,7 @@ export class CredentialRegistry {
       // app 자격은 supervisor가 고정 app·release·process·mode로 요청한다.
       // 조건에 없는 target을 넓혀도 같은 조건으로 고정한다.
       if (kind === "app") {
-        // release는 live에 필수다. 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
+        // release는 live에 필수다. 준비 전 bundle의 preview는 release 없이 bundle hash로 고정한다.
         const releaseless = context.conditions.release === undefined &&
           context.conditions.mode !== undefined &&
           context.conditions.mode !== "live" &&
@@ -211,11 +205,7 @@ export class CredentialRegistry {
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
       ) return invalid();
       const ceiling: CredentialScope = {
-        operations: operationCeiling(
-          input.actor,
-          this.#options.operations,
-          input.test_runner,
-        ),
+        operations: operationCeiling(input.actor, this.#options.operations),
         targets: {},
       };
       if (!scopeWithin(context.scope, ceiling)) return invalid();

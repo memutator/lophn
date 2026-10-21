@@ -10,7 +10,6 @@ export type OperationPolicy = {
   name: string;
   actors: readonly ActorKind[];
   kind: "read" | "command";
-  test_runner_only?: boolean;
 };
 
 export type CredentialTarget = CredentialScope["targets"];
@@ -70,14 +69,12 @@ export function intersectScope(
 export function operationCeiling(
   actor: string,
   policies: readonly OperationPolicy[],
-  testRunner = false,
 ): string[] {
   const parts = parseActor(actor);
   if (!parts) return [];
   return policies.filter((policy) =>
     policy.actors.includes(parts.kind) &&
-    (parts.kind !== "machine" || policy.kind === "command") &&
-    (!policy.test_runner_only || (parts.kind === "machine" && testRunner))
+    (parts.kind !== "machine" || policy.kind === "command")
   ).map((policy) => policy.name);
 }
 

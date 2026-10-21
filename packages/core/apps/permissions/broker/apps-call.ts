@@ -31,7 +31,7 @@ export function createAppsCallService(deps: {
       const parsed = brokerAppCallInputSchema.safeParse(body);
       if (!parsed.success) return invalid("apps call input is invalid");
       const input = parsed.data;
-      // 다른 앱 호출은 운영 앱의 live 자식만 한다. preview·test 자식은 core 호출 경로로 가지 않는다.
+      // 다른 앱 호출은 운영 앱의 live 자식만 한다. preview 자식은 core 호출 경로로 가지 않는다.
       if (child.mode !== "live" || child.release === null) {
         return err({
           code: "forbidden",

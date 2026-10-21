@@ -63,7 +63,7 @@ const rewindTargetFields = {
   from_invocation: invocationIdSchema,
 };
 
-// 고를 수 없는 것(preview·test, 이전 release, data_change, 이미 되돌림)은 invalid_input이다.
+// 고를 수 없는 것(preview, 이전 release, data_change, 이미 되돌림)은 invalid_input이다.
 export const appRewindPlan = defineRead({
   resource: "apps",
   method: "rewind_plan",

@@ -26,9 +26,7 @@ export const APP_CALL_DEPTH_LIMIT = 8;
 // socket 경로 UTF-8 상한.
 export const SOCKET_PATH_MAX_BYTES = 104;
 
-// test는 problems runner가 같은 진입점으로 띄우는 프로세스다.
-// 화면 틀은 live·preview만 쓴다.
-export const runtimeModeSchema = z.enum(["live", "preview", "test"]);
+export const runtimeModeSchema = z.enum(["live", "preview"]);
 export type ChannelMode = z.infer<typeof runtimeModeSchema>;
 
 export const screenSizeSchema = z.enum(["full", "panel", "card"]);

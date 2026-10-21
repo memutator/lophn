@@ -7,7 +7,7 @@ type ProcessIdentity = {
   app: string;
   release: string | null;
   bundleHash: string;
-  mode: "live" | "preview" | "test";
+  mode: "live" | "preview";
   processNonce: string;
 };
 

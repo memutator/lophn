@@ -68,7 +68,7 @@ export function createAppCredentialIssuer(options: {
           ...(request.release === null ? {} : { release: request.release }),
           process: request.process,
           mode: request.mode,
-          // 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
+          // 준비 전 bundle의 preview는 release 없이 bundle hash로 고정한다.
           ...(request.bundle_hash === undefined
             ? {}
             : { bundle_hash: request.bundle_hash }),

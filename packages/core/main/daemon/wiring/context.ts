@@ -17,7 +17,6 @@ import type {
 } from "../../../../protocol/supervision/mod.ts";
 import type {
   ApiServer,
-  ApiServerOptions,
   FileStreamHandler,
   McpEndpoint,
   MemoryHandler,
@@ -129,7 +128,6 @@ export type Built = {
   memory?: Iterable<readonly [string, MemoryHandler]>;
   uploads?: Iterable<readonly [string, UploadHandler]>;
   fileStreams?: Iterable<readonly [string, FileStreamHandler]>;
-  workers?: NonNullable<ApiServerOptions["workers"]>;
   // `overlayReads` 같은 덧씌우기. runtime이 연 read 등록에 더한다.
   reads?: (reads: Map<string, ReadHandler>) => void;
   // coding agent의 MCP endpoint. 하나만 낸다.

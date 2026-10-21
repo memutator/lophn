@@ -12,7 +12,6 @@ import type {
   UploadRoute,
   WorkerRoute,
 } from "../../../protocol/base/mod.ts";
-import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 
 // 최상위 팀의 등록 파일이 내놓는 모양. main.ts는 이 목록만 부르고 팀 내용을 모른다.
@@ -33,7 +32,6 @@ type TeamRegistration = {
   // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
   memoryRoutes?: readonly MemoryRoute[];
   ports?: readonly TxPortRegistration[];
-  workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
   clock?: Clock;
   ids?: IdSource;

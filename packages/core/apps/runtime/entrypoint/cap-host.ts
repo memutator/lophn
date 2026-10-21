@@ -66,7 +66,7 @@ export function decodeChangeset(text: string): Uint8Array {
 }
 
 type CapHostPort = {
-  mode: "live" | "preview" | "test";
+  mode: "live" | "preview";
   // cap-store가 읽는 앱 data 영역(시작 입력의 data_path)이다.
   dataPath: string;
   store: { recording(): boolean };

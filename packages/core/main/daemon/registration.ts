@@ -7,7 +7,6 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { BlobFieldDefinition } from "../../../protocol/storage/mod.ts";
 import type { Route } from "../../../protocol/base/mod.ts";
-import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import type { TxPortRegistration } from "../../storage/ledger/mod.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
 
@@ -22,7 +21,6 @@ type Loose = {
   uploadRoutes?: readonly { resource?: unknown; method?: unknown }[];
   memoryRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
-  workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
 };
 
@@ -35,7 +33,6 @@ export type Assembled = {
   // command·read·file·worker route를 한 목록으로 모은 것. HTTP registry의 출처다.
   routes: Route[];
   ports: TxPortRegistration[];
-  workers: KindLaunchSpec[];
   blobFields: BlobFieldDefinition[];
 };
 
@@ -81,7 +78,7 @@ function taken<T>(seen: Set<string>, key: string, value: T): Result<T> {
   return { ok: true, value };
 }
 
-// 팀 모듈을 한 목록으로 모은다. 같은 schema id·command 이름·read 경로·worker kind는 거절한다.
+// 팀 모듈을 한 목록으로 모은다. 같은 schema id·command 이름·read 경로는 거절한다.
 // environment는 core가 기동 때 만든 port 묶음이다. 팀 등록이 읽고 싶은 것만 읽는다
 // (문서 FileStatus 메모리처럼 core 프로세스 안에서만 닿는 것).
 export function assemble(
@@ -95,14 +92,12 @@ export function assemble(
     apiReads: [],
     routes: [],
     ports: [],
-    workers: [],
     blobFields: [],
   };
   const schema = new Set<string>();
   const commands = new Set<string>();
   const reads = new Set<string>();
   const routes = new Set<string>();
-  const workers = new Set<string>();
   for (const team of modules) {
     const direct = team.createCoreRegistration?.();
     const fromLedger = team.createLedgerRegistration
@@ -191,11 +186,6 @@ export function assemble(
         assembled.ports.push(port);
       }
       assembled.blobFields.push(...registration.blobFields ?? []);
-      for (const worker of registration.workers ?? []) {
-        const check = taken(workers, worker.kind, worker);
-        if (!check.ok) return check;
-        assembled.workers.push(worker);
-      }
     }
   }
   return { ok: true, value: assembled };

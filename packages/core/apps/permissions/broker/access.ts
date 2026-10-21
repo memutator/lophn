@@ -41,7 +41,7 @@ export function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 외부 접근(net·secret)은 운영 앱의 live 자식만 쓴다. 준비 모드·preview·test 자식은
+// 외부 접근(net·secret)은 운영 앱의 live 자식만 쓴다. 준비 모드·preview 자식은
 // 같은 통로로 외부에 닿지 않는다.
 export function liveOnly(
   child: BrokerChild,

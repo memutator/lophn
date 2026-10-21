@@ -48,7 +48,7 @@ export const credentialConditionsSchema = z.strictObject({
   process: z.string().min(1).optional(),
   mode: z.string().min(1).optional(),
   task: z.string().min(1).optional(),
-  // 준비 전 bundle의 preview·test는 release 없이 bundle hash로 고정한다.
+  // 준비 전 bundle의 preview는 release 없이 bundle hash로 고정한다.
   bundle_hash: sha256Schema.nullable().optional(),
   // coding agent의 현재 위치 근거. 인증 경계가 연결·session 기록에서 정하며 요청 body·header 값이 아니다.
   cwd: cwdConditionSchema.optional(),

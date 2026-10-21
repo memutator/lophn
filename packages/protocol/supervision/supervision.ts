@@ -431,9 +431,6 @@ export type ParentMessage = z.infer<typeof parentMessageSchema>;
 export type ChildMessage = z.infer<typeof childMessageSchema>;
 export type MainHello = z.infer<typeof mainHelloSchema>;
 
-const MEMORY_LIMIT_MODES = ["hard", "soft", "unavailable"] as const;
-export const memoryLimitModeSchema = z.enum(MEMORY_LIMIT_MODES);
-export type MemoryLimitMode = (typeof MEMORY_LIMIT_MODES)[number];
 export const kindLaunchSpecSchema = z.strictObject({
   kind: processKindSchema,
   entry: opaque.refine((value) => !value.includes("*")),

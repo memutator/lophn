@@ -16,7 +16,7 @@ type InvocationCaller =
 export type InvocationContext = {
   app: string;
   release: string | null;
-  mode: "live" | "preview" | "test";
+  mode: "live" | "preview";
   invocation: string | null;
   // 이 호출의 tool key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
   tool?: string | null;

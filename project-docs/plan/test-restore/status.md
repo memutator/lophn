@@ -21,5 +21,5 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-calendar-maintain` | eval | 2 | tr-eval-calendar-build | running | eval/tr-eval-calendar-maintain |  |  |
 | `tr-eval-human` | eval | 2 | tr-eval-prune-coding | merged | eval/tr-eval-human | 5aad282ad |  |
 | `tr-eval-restore` | eval | 2 | tr-support-app, tr-eval-prune-coding | merged | eval/tr-eval-restore | bedbe0834 |  |
-| `tr-eval-scenario-fix` | eval | 2 | tr-eval-restore, tr-eval-human | running | eval/tr-eval-scenario-fix |  |  |
+| `tr-eval-scenario-fix` | eval | 2 | tr-eval-restore, tr-eval-human | merged | eval/tr-eval-scenario-fix | 302dd7e4d |  |
 | `tr-check-enable` | check | 3 | 없음 | todo |  |  |  |

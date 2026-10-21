@@ -72,7 +72,6 @@ export interface PaneTerminal {
   readonly project: string;
   readonly product: string;
   readonly session: string;
-  readonly ticket: string;
 }
 
 interface SidePanelProps {
@@ -180,7 +179,6 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
             <Toast
               title={t("app-space.title.coding-opened", {
                 product: coding.tab.product,
-                ticket: coding.tab.ticket,
               })}
               lead={vendor === undefined
                 ? undefined

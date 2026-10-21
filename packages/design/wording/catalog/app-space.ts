@@ -213,8 +213,7 @@ export const appSpace = {
   "app-space.title.annotate-on": "Annotate is on",
   "app-space.title.annotations-sent":
     "{count, plural, one {# annotation} other {# annotations}} sent to App Engineer",
-  "app-space.title.coding-opened":
-    "App Engineer opened {product} for ticket {ticket}",
+  "app-space.title.coding-opened": "App Engineer opened {product}",
   "common.button.open-again": "Open again",
   "common.label.app-mode-live": "Live",
   "common.label.app-mode-preview": "Preview",

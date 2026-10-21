@@ -36,7 +36,6 @@ export function createCodingHost(): CodingHost {
           plan: {
             session: plan.session,
             app: plan.app,
-            ticket: plan.ticket,
             harness_id: plan.harness_id,
             title: plan.title,
             prompt_by_argv: plan.prompt_delivery.mode === "argv",

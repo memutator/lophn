@@ -21,5 +21,4 @@ export const ORDER_ROWS: readonly OrderRow[] = [
 
 // ---- coding 터미널 ----
 
-export const TICKET = "ORD-12";
-export const TICKET_TITLE = "Round discounted totals to the nearest cent";
+export const TASK = "Round discounted totals to the nearest cent";

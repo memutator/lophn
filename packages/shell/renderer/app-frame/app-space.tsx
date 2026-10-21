@@ -293,7 +293,6 @@ export function AppSpace(
       project: request.runtime.project,
       product: request.coding.product,
       session: request.coding.session,
-      ticket: request.coding.ticket,
     });
     setOpened(true);
     // 패널이 안 보이면 열되, 열린 탭이 없던 때만 agent를 보인다.

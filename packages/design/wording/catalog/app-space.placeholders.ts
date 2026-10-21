@@ -258,7 +258,6 @@ export type AppSpacePlaceholders = {
   };
   "app-space.title.coding-opened": {
     product: "string";
-    ticket: "string";
   };
   "common.button.open-again": Record<never, never>;
   "common.label.app-mode-live": Record<never, never>;

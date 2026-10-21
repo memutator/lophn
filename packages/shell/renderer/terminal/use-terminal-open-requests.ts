@@ -7,7 +7,7 @@ import { t } from "@lophn/wording";
 
 export interface TerminalOpenRequest {
   tab: { key: string; title: string; folder: string };
-  coding: { session: string; app: string; ticket: string; product: string };
+  coding: { session: string; app: string; product: string };
   /** core 요청으로 열린 탭은 focus를 옮기지 않는다. */
   focus: false;
   /** main이 만든 runtime. 탭 화면이 이 runtime에 붙는다. */
@@ -36,7 +36,6 @@ function requestOf(
     coding: {
       session: coding.session,
       app: coding.app,
-      ticket: coding.ticket,
       product,
     },
     focus: false,

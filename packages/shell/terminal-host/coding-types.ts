@@ -7,7 +7,6 @@ import type { TerminalFailure } from "../ipc/terminal.ts";
 type CodingPlanView = {
   session: string;
   app: string;
-  ticket: string;
   harness_id: string;
   title: string;
   /** `argv`면 첫 prompt가 argv로 이미 넘어갔다. 아니면 core가 hook을 받은 뒤 `input`으로 보낸다. */

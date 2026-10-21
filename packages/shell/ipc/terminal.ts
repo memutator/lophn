@@ -111,7 +111,6 @@ type PromptOutcome = "none" | "pending" | "delivered" | "not_delivered";
 type TerminalCodingSession = {
   session: string;
   app: string;
-  ticket: string;
   prompt: PromptOutcome;
 };
 

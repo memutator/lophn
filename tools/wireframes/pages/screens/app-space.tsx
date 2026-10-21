@@ -145,14 +145,14 @@ export const appSpaceArea: Area = {
       id: "new-app-coding-toast",
       title: "App space · coding tab opened",
       description:
-        "App Engineer가 ticket을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
+        "App Engineer가 일을 맡기자 lophn이 coding 터미널을 열었다. agent 대화에 focus가 그대로 있고 pane 위쪽 toast로 알린다. 패널 탭 줄에 harness 아이콘이 붙은 터미널 탭이 생겼다.",
       render: () => <CodingOpenedToast />,
     },
     {
       id: "new-app-coding-terminal",
       title: "App space · coding terminal tab",
       description:
-        "패널 탭 줄에서 바꿔 본 coding 터미널이다. harness 아이콘과 ticket이 탭 이름이고 터미널 바탕은 pane과 같다.",
+        "패널 탭 줄에서 바꿔 본 coding 터미널이다. harness 아이콘과 launch plan의 title이 탭 이름이고 터미널 바탕은 pane과 같다.",
       render: () => <CodingRunning />,
     },
     {

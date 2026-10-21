@@ -149,7 +149,6 @@ function createHost(deps: HostDeps): Host {
       coding_session: {
         session: plan.session,
         app: plan.app,
-        ticket: plan.ticket,
         prompt: plan.prompt_by_argv ? "none" : "pending",
       },
       title: plan.title,

@@ -6,7 +6,7 @@ import type {
   TerminalOutput,
   TerminalRuntime,
 } from "../../../../packages/shell/ipc/terminal.ts";
-import { TICKET, TICKET_TITLE } from "./data.ts";
+import { TASK } from "./data.ts";
 
 export type CodingScene = "running" | "permission" | "ended";
 
@@ -16,17 +16,9 @@ const REF = "term_coding";
 const HEAD = "✻ Claude Code\n  /home/mina/.lophn/apps/orders/source";
 
 const WORK = [
-  `> Work on ticket ${TICKET}:`,
-  `  ${TICKET_TITLE}.`,
-  "  Read it with `lophn ticket show`, claim it,",
-  "  and report when you are done.",
+  `> ${TASK}.`,
+  "  Expected 42.00, got 41.99 for order 1042.",
   "",
-  "● I'll read the ticket first.",
-  `● Bash(lophn ticket show ${TICKET})`,
-  "  ⎿  Discounted totals are one cent off.",
-  "     Expected 42.00, got 41.99.",
-  "● Bash(lophn ticket claim)",
-  "  ⎿  Claimed.",
   "● Read(src/orders/totals.ts)",
   "  ⎿  Read 64 lines",
   "● Update(src/orders/totals.ts)",
@@ -49,7 +41,7 @@ function screen(scene: CodingScene): string {
     ? `${HEAD}\n\n${WORK}\n\n✻ Running the tests… (42s · esc to interrupt)\n\n> `
     : scene === "permission"
     ? `${HEAD}\n\n${WORK}\n${ASK}`
-    : `${HEAD}\n\n${WORK}\n● Bash(lophn ticket report-done)\n  ⎿  Reported.\n\n● Done. ${TICKET} is fixed and reported as complete.\n`;
+    : `${HEAD}\n\n${WORK}\n\n● Done. Discounted totals now round to the nearest cent.\n`;
   return text.replaceAll("\n", "\r\n");
 }
 
@@ -91,10 +83,9 @@ export function codingBridge(
     coding_session: {
       session: CODING_SESSION,
       app: "app_01h455vb4pex5v6nkc6gd5fd01",
-      ticket: TICKET,
       prompt: "delivered",
     },
-    title: `Claude Code · ${TICKET}`,
+    title: "lophn coding · Claude Code",
     product: "Claude Code",
   });
   const reply = () => ok({ ok: true as const, runtime: runtime() });

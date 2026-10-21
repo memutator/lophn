@@ -1,6 +1,7 @@
 export * from "./apps.ts";
 export * from "./app-storage.ts";
 export * from "./runtime.ts";
+export * from "./app-log.ts";
 export { ROUTES } from "./registry.ts";
 export * from "./blueprint.ts";
 export * from "./blueprint/check.ts";

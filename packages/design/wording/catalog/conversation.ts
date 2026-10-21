@@ -112,7 +112,6 @@ export const conversation = {
   "conversation.label.evidence-annotation": "Annotation",
   "conversation.label.evidence-file": "File",
   "conversation.label.evidence-session": "Session",
-  "conversation.label.evidence-ticket": "Ticket",
   "conversation.label.group-earlier": "Earlier",
   "conversation.label.model-changed": "Changed",
   "conversation.label.media-audio": "Audio",

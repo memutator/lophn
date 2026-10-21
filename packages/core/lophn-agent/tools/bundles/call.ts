@@ -36,7 +36,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       "(role is project_manager, app_engineer, operator or lophn; place is {project: name} or {app: name}, lophn has none, an Operator needs name), " +
       'or both with fallback: "new" to use the open session and open a new one if it is closed. Names must match exactly. ' +
       "reply: none (no answer), result (the receiver answers with reply) or conversation (Project Manager and App Engineer only). " +
-      "body: what you hand over. refs: links {kind: ticket|file|session|annotation, ...}. " +
+      "body: what you hand over. refs: links {kind: file|session|annotation, ...}. " +
       "If it fails, the result says why (not_found, closed). A closed session is not reopened; call its role and place to open a new one.",
     effect: "read",
     handler: async (input, ctx) => {
@@ -105,7 +105,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
     input: none,
     routes: [callSendable],
     description:
-      "List the open sessions you can send a call to (ID, role, place, name, state) and the coding agent handoffs waiting in an app's line.",
+      "List the open sessions you can send a call to (ID, role, place, name, state).",
     effect: "read",
     handler: (_input, ctx) => listSendable(ctx),
   }),

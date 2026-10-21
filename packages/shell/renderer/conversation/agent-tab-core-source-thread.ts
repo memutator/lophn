@@ -147,8 +147,6 @@ async function withName(
 function refsOf(refs: ReceivedMessage["refs"]): EvidenceRef[] {
   return refs.map((ref): EvidenceRef => {
     switch (ref.kind) {
-      case "ticket":
-        return { kind: "ticket", text: ref.ticket, target: ref.ticket };
       case "file":
         return { kind: "file", text: ref.path, target: ref.path };
       case "session":

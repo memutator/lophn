@@ -82,6 +82,10 @@ function at(minutes: number): string {
   return new Date(NOW + minutes * 60_000).toISOString();
 }
 
+// core의 CODING_REACTION_TEXTS.ended와 같은 글. renderer는 core를 import하지 않는다.
+const CODING_ENDED_TEXT =
+  "The coding session ended. Its last message to you says what it did.";
+
 function fakeId(prefix: string, n: number): string {
   return `${prefix}_01h455vb4pex5v6nkc6gd5f${String(n).padStart(3, "0")}`;
 }
@@ -388,19 +392,23 @@ function sceneData(scene: AgentTabScene): SceneData {
       };
     case "sender-chips": {
       const reaction = envelope(
-        { kind: "reaction", event: "Activation failed" },
-        "Release rel_12 failed to activate (migration_failed). Read the evidence and make a ticket that fixes the cause.",
+        { kind: "reaction", event: "Coding session ended" },
+        CODING_ENDED_TEXT,
         [{
-          kind: "ticket",
-          text: "T-12 Eval board keeps crashing on start",
-          target: fakeId("tkt", 12),
+          kind: "session",
+          text: "Claude Code · Eval board",
+          target: sessionId(9),
         }],
         null,
       );
       const lophn = envelope(
         { kind: "agent", role: "lophn", name: "lophn" },
         "Keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
-        reaction.refs,
+        [{
+          kind: "annotation",
+          text: "Scenario list",
+          target: fakeId("ann", 12),
+        }],
         { id: SESSION_EARLIER, title: "Weekly report" },
       );
       const coding = envelope(
@@ -408,9 +416,9 @@ function sceneData(scene: AgentTabScene): SceneData {
         "I finished the lookup change and the checks pass. Do you want the scenario names kept as they are?",
         [
           {
-            kind: "ticket",
-            text: "T-31 Retry the recipe lookup once",
-            target: fakeId("tkt", 31),
+            kind: "session",
+            text: "Claude Code · Eval board",
+            target: sessionId(9),
           },
           { kind: "file", text: "src/lookup.ts", target: "src/lookup.ts" },
         ],
@@ -423,7 +431,7 @@ function sceneData(scene: AgentTabScene): SceneData {
           received(
             1,
             30,
-            "Eval board stopped restarting after 5 crashes in 2 minutes.",
+            CODING_ENDED_TEXT,
             reaction.sender,
           ),
           received(

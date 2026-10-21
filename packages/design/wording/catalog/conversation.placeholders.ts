@@ -129,7 +129,6 @@ export type ConversationPlaceholders = {
   "conversation.label.evidence-annotation": Record<never, never>;
   "conversation.label.evidence-file": Record<never, never>;
   "conversation.label.evidence-session": Record<never, never>;
-  "conversation.label.evidence-ticket": Record<never, never>;
   "conversation.label.group-earlier": Record<never, never>;
   "conversation.label.model-changed": Record<never, never>;
   "conversation.label.media-audio": Record<never, never>;

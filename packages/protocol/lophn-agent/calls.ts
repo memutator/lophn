@@ -80,10 +80,9 @@ export const callToSchema = z.discriminatedUnion("kind", [
 ]);
 export type CallTo = z.infer<typeof callToSchema>;
 
-// 근거 링크. annotation은 ticket evidence와 같은 {kind, id} 꼴이다.
+// 근거 링크.
 function refSchemas(strict: boolean) {
   return z.discriminatedUnion("kind", [
-    obj(strict, { kind: z.literal("ticket"), ticket: idSchema("tkt") }),
     obj(strict, { kind: z.literal("file"), path: z.string().min(1) }),
     obj(strict, { kind: z.literal("session"), session: idSchema("ses") }),
     obj(strict, { kind: z.literal("annotation"), id: annotationIdSchema }),

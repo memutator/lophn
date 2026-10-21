@@ -87,7 +87,7 @@ export type Sender =
 
 /** 맡긴 글의 근거 링크. */
 export interface EvidenceRef {
-  readonly kind: "ticket" | "file" | "session" | "annotation";
+  readonly kind: "file" | "session" | "annotation";
   /** 사람이 읽는 이름. 링크의 id는 `target`이다. */
   readonly text: string;
   readonly target: string;

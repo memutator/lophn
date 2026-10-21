@@ -44,8 +44,6 @@ function fromText(from: CallFrom): string {
 
 function refText(ref: CallRef): string {
   switch (ref.kind) {
-    case "ticket":
-      return `ticket ${ref.ticket}`;
     case "file":
       return `file ${ref.path}`;
     case "session":

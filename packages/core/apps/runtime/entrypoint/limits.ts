@@ -19,7 +19,6 @@ export const PROCESS_PATHS = {
 
 export const BROKER_PATHS = {
   ready: "/_lophn/broker/ready",
-  problemsReport: "/_lophn/broker/problems/report",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: "/_lophn/broker/apps/call",
 } as const;

@@ -58,7 +58,7 @@ const CAP_STORE: VendorRule = {
   },
 };
 
-// @lophn/cap-problem: portable 보고 계약과 그 type이 쓰는 오류·Result type이다.
+// @lophn/cap-problem: portable 예외 관측 계약과 `reportProblem` type, 그 type이 쓰는 오류·Result type이다.
 const CAP_PROBLEM: VendorRule = {
   files: {
     "protocol/problems/sdk-report.ts": "vendor/protocol/problems/sdk-report.ts",

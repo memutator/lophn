@@ -1,6 +1,6 @@
 // 처리되지 않은 exception은 stderr에 원래 실패를 남기고 exit 1.
 // 보고는 앱 code load 전에 설치한 exception observer가 한 번 한다. 그 보고가 전달되기 전에 process가 죽으면
-// 오류 이름·message·stack이 문제에 남지 않으므로 `beforeExit`(전달이 끝날 때까지, 상한 안에서)를 기다린 뒤 죽는다.
+// 오류 이름·message·stack이 앱 log에 남지 않으므로 `beforeExit`(전달이 끝날 때까지, 상한 안에서)를 기다린 뒤 죽는다.
 export function installCrashExit(deps: {
   writeStderr: (text: string) => void;
   exit: (code: number) => void;

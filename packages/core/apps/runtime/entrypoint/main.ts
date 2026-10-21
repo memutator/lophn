@@ -3,7 +3,6 @@
 import { createIdSource, systemClock } from "@lophn/base";
 import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS } from "./limits.ts";
-import { ensureAppToolPort } from "./tool-port.ts";
 import { publishReady, startRuntime } from "./startup.ts";
 import { startControlServer } from "./control-server.ts";
 import { parseAppStart } from "./start-input.ts";
@@ -14,11 +13,6 @@ const OBSERVER = "@lophn/cap-problem";
 const APP = "@lophn/app";
 const CRASH_REPORT_WAIT_MS = 2_000;
 
-type ObservedInvocation = {
-  id: string;
-  record_missing_reason: null;
-};
-
 type ObserverFactory = {
   createExceptionObserver: (deps: {
     now: () => string;
@@ -28,15 +22,6 @@ type ObserverFactory = {
   }) => ((transport: (input: unknown) => Promise<unknown>) => () => void) & {
     settled?: () => Promise<void>;
   };
-  // 앱 code의 reportProblem이 쓰는 reporter. 없는 module(시험의 대역)은 설치하지 않는다.
-  createProblemReporter?: (deps: {
-    transport: (input: unknown) => Promise<unknown>;
-    now: () => string;
-    newId: (prefix: string) => string;
-    sleep: (ms: number) => Promise<void>;
-    currentInvocation: () => ObservedInvocation | null;
-  }) => unknown;
-  installProblemReporter?: (reporter: unknown) => void;
 };
 
 type MainDeps = {
@@ -47,10 +32,8 @@ type MainDeps = {
   blueprint: Blueprint;
   broker: BrokerTransport;
   dataSchema: number;
-  // 예외 보고는 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
+  // 예외 관측은 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
   reportTransport: (input: unknown) => Promise<unknown>;
-  // 앱 code의 reportProblem 보고 transport. 없으면 reporter를 설치하지 않는다.
-  problemTransport?: (input: unknown) => Promise<unknown>;
   exit?: (code: number) => void;
   writeStderr?: (text: string) => void;
 };
@@ -72,28 +55,6 @@ async function main(deps: MainDeps): Promise<void> {
     currentInvocation: () => null,
   });
   install(deps.reportTransport);
-  if (
-    deps.problemTransport && observer.createProblemReporter &&
-    observer.installProblemReporter
-  ) {
-    const schedule = ensureAppToolPort();
-    observer.installProblemReporter(observer.createProblemReporter({
-      transport: deps.problemTransport,
-      now: () => clock.now(),
-      newId: (prefix) => ids.newId(prefix),
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      // 실제 invocation 문맥만 붙인다. 문맥이 없으면 만들지 않는다.
-      currentInvocation: () => {
-        const invocation = schedule.current()?.invocation;
-        return invocation
-          ? {
-            id: invocation,
-            record_missing_reason: null,
-          }
-          : null;
-      },
-    }));
-  }
   installCrashExit({
     writeStderr,
     exit,
@@ -194,13 +155,6 @@ async function boot(): Promise<void> {
     dataSchema: await bundleDataSchema(bundleDir),
     reportTransport: (input) =>
       reportException(broker, credential, start, input),
-    problemTransport: (input) =>
-      reportProblemToBroker(
-        broker,
-        credential,
-        start,
-        input,
-      ),
   });
 }
 
@@ -245,112 +199,20 @@ async function reportException(
       observation: input,
     },
   );
-  return response.body;
-}
-
-const REPORT_ERROR_CODES = new Set([
-  "invalid_input",
-  "not_found",
-  "forbidden",
-  "unauthorized",
-  "conflict",
-  "unavailable",
-  "internal",
-]);
-
-// broker는 본문의 nonce·mode가 자식 연결과 같아야 받는다. SDK 입력에는 그 신원이 없고,
-// 첫 전송 전에 고정한 report id·시각·invocation이 있다. 그 값을 빼면 재전송이 새 발생이 된다.
-function problemReportBody(
-  child: { process_nonce: string; mode: string },
-  input: unknown,
-): Record<string, unknown> {
-  const source = input !== null && typeof input === "object"
-    ? input as Record<string, unknown>
-    : {};
-  const body: Record<string, unknown> = {
-    process_nonce: child.process_nonce,
-    mode: child.mode,
-    name: source.name,
-    message: source.message,
+  // SDK의 deliver가 읽는 Result 꼴로 바꿔 넘긴다. 날 body를 넘기면 200 응답에서 ok를 못 읽어 던진다.
+  if (response.status === 200) return { ok: true, value: response.body };
+  const error =
+    (response.body as { error?: { code?: unknown; message?: unknown } } | null)
+      ?.error;
+  return {
+    ok: false,
+    error: {
+      code: typeof error?.code === "string" ? error.code : "unavailable",
+      message: typeof error?.message === "string"
+        ? error.message
+        : "the exception was not accepted",
+    },
   };
-  if (source.details !== undefined) body.details = source.details;
-  if (typeof source.report_id === "string") body.report_id = source.report_id;
-  if (typeof source.observed_at === "string") {
-    body.observed_at = source.observed_at;
-  }
-  if ("invocation" in source) body.invocation = source.invocation;
-  return body;
-}
-
-type ReportAcceptance =
-  & {
-    report: string;
-    snapshot: string;
-  }
-  & ({ problem: string; diagnostic_scope: null } | {
-    problem: null;
-    diagnostic_scope: string;
-  });
-
-function acceptanceOf(body: unknown): ReportAcceptance | undefined {
-  if (body === null || typeof body !== "object") return;
-  const value = body as Record<string, unknown>;
-  if (typeof value.report !== "string" || typeof value.snapshot !== "string") {
-    return;
-  }
-  if (typeof value.problem === "string" && value.diagnostic_scope === null) {
-    return {
-      report: value.report,
-      snapshot: value.snapshot,
-      problem: value.problem,
-      diagnostic_scope: null,
-    };
-  }
-  if (
-    value.problem === null && typeof value.diagnostic_scope === "string" &&
-    /\S/.test(value.diagnostic_scope)
-  ) {
-    return {
-      report: value.report,
-      snapshot: value.snapshot,
-      problem: null,
-      diagnostic_scope: value.diagnostic_scope,
-    };
-  }
-}
-
-// 앱 code의 선언 code 보고. broker의 problems/report로 보내고, SDK transport가 읽는
-// 접수 Result로 돌려준다. 본문만 넘기면 성공도 응답 유실로 보여 같은 발생을 다시 보낸다.
-async function reportProblemToBroker(
-  socketPath: string,
-  credential: string,
-  child: { process_nonce: string; mode: string },
-  input: unknown,
-): Promise<unknown> {
-  const response = await postUnix(
-    socketPath,
-    BROKER_PATHS.problemsReport,
-    credential,
-    problemReportBody(child, input),
-  );
-  const accepted = acceptanceOf(response.body);
-  if (response.status === 200 && accepted) {
-    return { ok: true, value: accepted };
-  }
-  const error = response.body !== null && typeof response.body === "object" &&
-      "error" in response.body
-    ? (response.body as { error?: { code?: unknown; message?: unknown } }).error
-    : undefined;
-  const code = typeof error?.code === "string" &&
-      REPORT_ERROR_CODES.has(error.code)
-    ? error.code
-    : !Number.isInteger(response.status) || response.status >= 500
-    ? "unavailable"
-    : "invalid_input";
-  const message = typeof error?.message === "string" && /\S/.test(error.message)
-    ? error.message
-    : "the report was refused";
-  return { ok: false, error: { code, message } };
 }
 
 async function postUnix(

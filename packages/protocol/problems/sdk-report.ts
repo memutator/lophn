@@ -42,12 +42,6 @@ export type ReportAcceptance =
 export type ReportCompletion =
   | { status: "accepted"; acceptance: ReportAcceptance }
   | { status: "failed"; reason: ReportTransportError };
-export type ReportStatus = { status: "pending" } | ReportCompletion;
-export type ReportProblemResult = {
-  report_id: string;
-  // Implementations resolve a final VALUE; never reject on transport failure.
-  completion: Promise<ReportCompletion>;
-};
 export type SafeReportDetails =
   | null
   | boolean
@@ -55,29 +49,13 @@ export type SafeReportDetails =
   | string
   | SafeReportDetails[]
   | { [key: string]: SafeReportDetails };
-export interface ReportProblem {
-  (code: string, details?: SafeReportDetails): ReportProblemResult;
-  // 같은 report id의 고정 발생을 다시 보낸다. details를 넘기면 그 본문만 바꾼 재전송이다.
-  retransmit?(
-    reportId: string,
-    details?: SafeReportDetails,
-  ): Promise<ReportCompletion> | null;
-}
 export type ObservationMissingReason = { reason: string };
 export type ObservationInvocationEvidence = {
   id: string;
   record_missing_reason: ObservationMissingReason | null;
 };
-export type ReportProblemInput = {
-  report_id: string;
-  code: string;
-  observed_at: string;
-  text?: string;
-  details?: SafeReportDetails;
-  invocation?: ObservationInvocationEvidence | null;
-};
 // Retry resends this same frozen input; no command rerun or snapshot assembly.
-export type ReportTransport<I = ReportProblemInput> = (
+export type ReportTransport<I> = (
   input: Readonly<I>,
 ) => Promise<Result<ReportAcceptance, ReportTransportError>>;
 export type ExceptionObservationKind =

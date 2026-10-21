@@ -14,7 +14,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-issues-ui-main` | issues-ui | 3 | pr-issues-ui-screen | running | issues-ui/pr-issues-ui-main |  |  |
 | `pr-kinds-toast` | kinds-toast | 3 | pr-reactions | merged | kinds-toast/pr-kinds-toast | b29334a96 |  |
 | `pr-log-exception` | log | 3 | pr-log-writer, pr-log-sdk, pr-test-runner-reports | todo |  |  |  |
-| `pr-log-writer` | log | 3 | pr-log-contract | running | log/pr-log-writer |  |  |
+| `pr-log-writer` | log | 3 | pr-log-contract | merged | log/pr-log-writer | a00e54e3b |  |
 | `pr-problem-refs` | problem-refs | 3 | pr-reactions | merged | problem-refs/pr-problem-refs | 5b22ff291 |  |
 | `pr-log-read` | log | 4 | pr-log-writer, pr-problems-core | todo |  |  |  |
 | `pr-problems-core` | problems-core | 4 | pr-reactions, pr-test-runner-reports, pr-cli-problem, pr-log-exception, pr-kinds-toast, pr-problem-refs, pr-issues-ui-main | todo |  |  |  |

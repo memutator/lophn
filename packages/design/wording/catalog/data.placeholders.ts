@@ -36,7 +36,6 @@ export type DataPlaceholders = {
   "waiting.button.allow": Record<never, never>;
   "waiting.button.allow-always": Record<never, never>;
   "waiting.button.allow-once": Record<never, never>;
-  "waiting.button.allow-session": Record<never, never>;
   "waiting.button.answer-in-terminal": Record<never, never>;
   "waiting.button.cancel": Record<never, never>;
   "waiting.button.deny": Record<never, never>;
@@ -48,7 +47,6 @@ export type DataPlaceholders = {
   "waiting.label.agent-lophn": Record<never, never>;
   "waiting.label.agent-operator": Record<never, never>;
   "waiting.label.agent-project-manager": Record<never, never>;
-  "waiting.label.agent-reaction": Record<never, never>;
   "waiting.label.declared-tool": Record<never, never>;
   "waiting.label.declared-file-read": Record<never, never>;
   "waiting.label.declared-file-write": Record<never, never>;
@@ -59,14 +57,11 @@ export type DataPlaceholders = {
   "waiting.label.effect-external": Record<never, never>;
   "waiting.label.effect-read": Record<never, never>;
   "waiting.label.effect-write": Record<never, never>;
-  "waiting.label.event-activation-failed": Record<never, never>;
-  "waiting.label.fact-detail": Record<never, never>;
   "waiting.label.fact-effect": Record<never, never>;
-  "waiting.label.fact-event": Record<never, never>;
-  "waiting.label.fact-input": Record<never, never>;
-  "waiting.label.fact-opens": Record<never, never>;
+  "waiting.label.fact-always": Record<never, never>;
+  "waiting.label.fact-command": Record<never, never>;
   "waiting.label.fact-target": Record<never, never>;
-  "waiting.label.group-approval": Record<never, never>;
+  "waiting.label.group-activation": Record<never, never>;
   "waiting.label.group-permission": Record<never, never>;
   "waiting.label.group-question": Record<never, never>;
   "waiting.label.hide-details": Record<never, never>;
@@ -86,17 +81,10 @@ export type DataPlaceholders = {
   "waiting.label.session": {
     id: "string";
   };
-  "waiting.label.settings-agent-definition": Record<never, never>;
-  "waiting.label.settings-grant": Record<never, never>;
-  "waiting.label.settings-instructions": Record<never, never>;
-  "waiting.label.settings-setting": Record<never, never>;
-  "waiting.label.settings-skill": Record<never, never>;
   "waiting.label.settled": Record<never, never>;
-  "waiting.label.settled-accepted": Record<never, never>;
-  "waiting.label.settled-applied": Record<never, never>;
   "waiting.label.settled-cancelled": Record<never, never>;
+  "waiting.label.settled-allowed": Record<never, never>;
   "waiting.label.settled-denied": Record<never, never>;
-  "waiting.label.settled-failed": Record<never, never>;
   "waiting.label.show-details": Record<never, never>;
   "waiting.label.target-tool": {
     app: "string";
@@ -118,9 +106,6 @@ export type DataPlaceholders = {
     declared: "plural";
     lost: "plural";
   };
-  "waiting.notice.agent-call": {
-    agent: "string";
-  };
   "waiting.notice.tool-external": {
     target: "string";
   };
@@ -130,9 +115,6 @@ export type DataPlaceholders = {
   "waiting.notice.tool-write": {
     target: "string";
   };
-  "waiting.notice.app-resource": {
-    target: "string";
-  };
   "waiting.notice.coding": Record<never, never>;
   "waiting.notice.coding-start": Record<never, never>;
   "waiting.notice.decide-failed": Record<never, never>;
@@ -140,6 +122,7 @@ export type DataPlaceholders = {
   "waiting.notice.mcp-tool": {
     target: "string";
   };
+  "waiting.notice.shell": Record<never, never>;
   "waiting.notice.question-in-session": Record<never, never>;
   "waiting.notice.question-loading": Record<never, never>;
   "waiting.notice.question-multiple": {
@@ -148,26 +131,21 @@ export type DataPlaceholders = {
   "waiting.notice.reason-help": {
     agent: "string";
   };
-  "waiting.notice.settings-edit": {
-    what: "string";
-  };
-  "waiting.notice.settled-accepted": Record<never, never>;
-  "waiting.notice.settled-applied": Record<never, never>;
   "waiting.notice.settled-cancelled": Record<never, never>;
+  "waiting.notice.settled-allowed": Record<never, never>;
   "waiting.notice.settled-denied": Record<never, never>;
   "waiting.notice.settled-denied-reason": {
     agent: "string";
-  };
-  "waiting.notice.settled-failed": Record<never, never>;
-  "waiting.toast-approval.button": Record<never, never>;
-  "waiting.toast-approval.body": Record<never, never>;
-  "waiting.toast-approval.title": {
-    intent: "string";
   };
   "waiting.toast-permission.button": Record<never, never>;
   "waiting.toast-permission.body": Record<never, never>;
   "waiting.toast-permission.title": {
     agent: "string";
+  };
+  "waiting.toast-activation.body": Record<never, never>;
+  "waiting.toast-activation.button": Record<never, never>;
+  "waiting.toast-activation.title": {
+    app: "string";
   };
   "waiting.toast-question.button": Record<never, never>;
   "waiting.toast-question.body": Record<never, never>;
@@ -186,22 +164,17 @@ export type DataPlaceholders = {
   "waiting.title.activation": {
     app: "string";
   };
-  "waiting.title.agent-call": Record<never, never>;
   "waiting.title.tool": {
     tool: "string";
     app: "string";
   };
-  "waiting.title.app-resource": Record<never, never>;
   "waiting.title.coding": Record<never, never>;
   "waiting.title.coding-start": Record<never, never>;
   "waiting.title.mcp-tool": {
     tool: "string";
   };
   "waiting.title.question": Record<never, never>;
-  "waiting.title.reaction": {
-    agent: "string";
-  };
-  "waiting.title.settings-edit": Record<never, never>;
+  "waiting.title.shell": Record<never, never>;
 };
 
 type Area = typeof data;

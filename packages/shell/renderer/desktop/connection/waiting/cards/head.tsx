@@ -25,8 +25,8 @@ function faceOf(
 ): AvatarProfile {
   const icon = agent !== null
     ? FACES[agent.role]
-    : kind === "reaction"
-    ? "compare"
+    : kind === "activation"
+    ? "apps"
     : "dock";
   return { kind: "icon", icon };
 }

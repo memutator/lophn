@@ -1,7 +1,7 @@
 // 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
-import { useEventClient, useWaitingRefresh } from "../events/hooks.tsx";
+import { useEventClient } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { ActivationCard } from "./cards/activation-card.tsx";
 import { CodingCard } from "./cards/coding-card.tsx";
@@ -11,7 +11,6 @@ import {
   PermissionCard,
 } from "./cards/permission-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
-import { ReactionCard } from "./cards/reaction-card.tsx";
 import { decideWaiting, type SettledState } from "./decide.ts";
 import { cardOf } from "./model.ts";
 import type { Settled, SettledRow } from "./settled.ts";
@@ -23,24 +22,14 @@ const GROUPS = [
     kinds: ["permission", "coding", "coding_start"],
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
-  { title: "waiting.label.group-approval", kinds: ["activation", "reaction"] },
+  { title: "waiting.label.group-activation", kinds: ["activation"] },
 ] as const;
 
 const SETTLED_MARK = {
-  accepted: {
-    tone: "neutral",
-    label: "waiting.label.settled-accepted",
-    note: "waiting.notice.settled-accepted",
-  },
-  applied: {
+  allowed: {
     tone: "good",
-    label: "waiting.label.settled-applied",
-    note: "waiting.notice.settled-applied",
-  },
-  failed: {
-    tone: "serious",
-    label: "waiting.label.settled-failed",
-    note: "waiting.notice.settled-failed",
+    label: "waiting.label.settled-allowed",
+    note: "waiting.notice.settled-allowed",
   },
   denied: {
     tone: "warning",
@@ -57,7 +46,7 @@ const SETTLED_MARK = {
   { tone: string; label: string; note: string }
 >;
 
-/** 방금 결정한 줄. 접수와 적용 성공을 구별하고, 거절과 cancelled를 구별한다. */
+/** 방금 결정한 줄. 허락, 거절, cancelled를 구별한다. */
 function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   return (
     <section
@@ -105,15 +94,13 @@ export function WaitingPanel(
   },
 ) {
   const core = useEventClient().core;
-  const refresh = useWaitingRefresh();
 
   function decider(entry: WaitingEntry): OnDecide {
     return async (choice, reason) => {
       const result = await decideWaiting(core, entry, choice, reason);
       if (!result.ok) return false;
+      // 항목은 TurnRequestClosed·ActivationConsentClosed가 목록에서 뺀다.
       settled.add(entry, result.state);
-      // 보류 request는 event가 없어서 다시 읽어 뺀다. turn 안 request는 PermissionResolved가 뺀다.
-      if (entry.kind !== "permission") await refresh();
       return true;
     };
   }
@@ -155,8 +142,6 @@ export function WaitingPanel(
         );
       case "activation":
         return <ActivationCard key={entry.id} {...props} />;
-      case "reaction":
-        return <ReactionCard key={entry.id} {...props} />;
     }
   }
 

@@ -286,7 +286,8 @@ export async function decidePermission(
     await env.read(approvalsDecideTurn, {
       session,
       request,
-      choice: turnChoiceOf(choice, reason),
+      // 대화 화면 쪽 선택지를 새 모양으로 바꾸기 전까지의 임시 맞춤이다.
+      choice: turnChoiceOf(choice as "once" | "always" | "reject", reason),
     }),
   );
 }

@@ -5,9 +5,9 @@ import {
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
 import {
-  approvalsPending,
-  type PendingApproval,
-} from "../../../../../protocol/approvals/mod.ts";
+  type ActivationConsent,
+  activationConsents,
+} from "../../../../../protocol/apps/activation/consent.ts";
 
 export async function readSessionSnapshots(
   core: CoreSource,
@@ -24,16 +24,16 @@ export async function readSessionSnapshots(
   return parsed.success ? parsed.data.snapshots : null;
 }
 
-export async function readPendingApprovals(
+export async function readActivationConsents(
   core: CoreSource,
-): Promise<PendingApproval[] | null> {
+): Promise<ActivationConsent[] | null> {
   const reply = await core.call({
     kind: "read",
-    resource: approvalsPending.resource,
-    method: approvalsPending.method,
+    resource: activationConsents.resource,
+    method: activationConsents.method,
     body: {},
   }).catch(() => null);
   if (!reply?.ok) return null;
-  const parsed = approvalsPending.output.safeParse(reply.value);
-  return parsed.success ? parsed.data.requests : null;
+  const parsed = activationConsents.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.consents : null;
 }

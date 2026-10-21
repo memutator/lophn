@@ -33,11 +33,13 @@ export function toastText(
         t("waiting.toast-permission.body"),
         t("waiting.toast-permission.button"),
       );
-    case "waiting.toast-approval.title":
+    case "waiting.toast-activation.title":
       return text(
-        t("waiting.toast-approval.title", { intent: p.intent }),
-        t("waiting.toast-approval.body"),
-        t("waiting.toast-approval.button"),
+        t("waiting.toast-activation.title", {
+          app: t("waiting.label.place-app", { id: shortId(p.app) }),
+        }),
+        t("waiting.toast-activation.body"),
+        t("waiting.toast-activation.button"),
       );
     case "waiting.toast-question.title":
       return text(

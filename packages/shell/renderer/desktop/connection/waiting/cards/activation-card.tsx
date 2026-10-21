@@ -1,4 +1,4 @@
-// activation 허락. 이전보다 늘어난 선언과 손실 단계만 보인다. 첫 activation이면 선언 전부가 늘어난 것이다.
+// activation 동의. 이전보다 늘어난 선언과 손실 단계만 보인다. 첫 activation이면 선언 전부가 늘어난 것이다.
 import { useState } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { DiffMark } from "@lophn/ui/reading";

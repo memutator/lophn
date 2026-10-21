@@ -8,7 +8,6 @@ import {
   WaitingFirstActivation,
   WaitingList,
   WaitingPermission,
-  WaitingReaction,
   WaitingSettled,
   WaitingToasts,
 } from "./waiting/waiting-pages.tsx";
@@ -52,13 +51,6 @@ export const questionsArea: Area = {
       description:
         "첫 activation의 세부를 펼친 상태다. 선언 전부가 늘어난 것이고 손실 단계는 없다.",
       render: () => <WaitingFirstActivation />,
-    },
-    {
-      id: "new-waiting-reaction",
-      title: "Waiting · reaction approval",
-      description:
-        "물음으로 둔 reaction의 세부를 펼친 상태다. 어떤 domain event로 어떤 agent의 session을 열지 보이고 Allow와 Deny만 있다.",
-      render: () => <WaitingReaction />,
     },
     {
       id: "new-waiting-settled",

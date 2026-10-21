@@ -1,6 +1,5 @@
 // event를 넣으면 반응(toast) 목록이 나오는 순수 함수. 문구 key는 toast 호스트의 wording이 채운다.
 import type { BusEvent } from "../../../../../protocol/events/mod.ts";
-import { approvalWaitingKind } from "./waiting-store.ts";
 
 export type ReactionAction =
   | { kind: "waiting" }
@@ -18,8 +17,8 @@ export interface Reaction {
 
 /** toast가 듣는 event 종류. */
 export const REACTION_EVENT_TYPES = [
-  "PermissionRequested",
-  "ApprovalRequested",
+  "TurnRequestOpened",
+  "ActivationConsentRequested",
   "QuestionAsked",
   "AppRestartHalted",
   "KindViolationFound",
@@ -49,18 +48,14 @@ export function reactionsOf(
 ): readonly Reaction[] {
   if (origin === "snapshot") return NONE;
   switch (event.type) {
-    case "PermissionRequested":
+    case "TurnRequestOpened":
       return toast("permission", event.payload.request.id, {
         session: event.session,
-        intent: event.payload.request.intent.kind,
       }, { kind: "waiting" });
-    case "ApprovalRequested": {
-      const request = event.payload.request;
-      if (approvalWaitingKind(request) === null) return NONE;
-      return toast("approval", request.id, { intent: request.intent.kind }, {
-        kind: "waiting",
-      });
-    }
+    case "ActivationConsentRequested":
+      return toast("activation", event.payload.release, {
+        app: event.payload.app,
+      }, { kind: "waiting" });
     case "QuestionAsked":
       return toast(
         "question",

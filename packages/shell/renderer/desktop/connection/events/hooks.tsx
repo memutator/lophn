@@ -62,12 +62,6 @@ export function useWaiting(): WaitingState {
   return useSyncExternalStore(waiting.subscribe, waiting.get);
 }
 
-/** 결정을 낸 뒤 보류 request를 다시 읽는 함수. */
-export function useWaitingRefresh(): () => Promise<void> {
-  const { waiting } = useStores();
-  return waiting.refresh;
-}
-
 export function useSessions(): SessionsState {
   const { sessions } = useStores();
   return useSyncExternalStore(sessions.subscribe, sessions.get);

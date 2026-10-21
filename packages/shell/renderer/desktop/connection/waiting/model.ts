@@ -1,15 +1,11 @@
-// 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 intent에서 program이 만든다(요청한 agent가 쓴
-// 설명 칸은 없다). 대화 안 승인 카드도 이 함수를 쓴다.
+// 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 turn request의 subject와 activation 동의에서
+// program이 만든다(요청한 agent가 쓴 설명 칸은 없다).
 import { formatRelativeTime, t } from "@lophn/wording";
-import type {
-  Intent,
-  PendingApproval,
-  RequestChoice,
-} from "../../../../../protocol/approvals/mod.ts";
-import { activationComparisonSchema } from "../../../../../protocol/apps/activation/activation.ts";
-import type { AppGrantScope } from "../../../../../protocol/apps/mod.ts";
+import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
+import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
+import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
 
 type Effect = "read" | "write" | "external";
 
@@ -39,13 +35,14 @@ export interface CardView {
   readonly requester: string | null;
   /** 펼쳤을 때 보이는 줄. 없으면 펼침 토글도 없다. */
   readonly facts: readonly Fact[];
+  /** 세부가 사람이 정할 거리 전부라(shell 명령) 접지 않고 늘 보인다. */
+  readonly factsPinned: boolean;
   /** activation 카드의 늘어난 선언. */
   readonly added: readonly Line[];
   readonly loss: readonly Line[];
   /** 이전 활성 release가 없다. */
   readonly first: boolean;
-  /** request가 가진 선택지 그대로. */
-  readonly choices: readonly RequestChoice[];
+  readonly choices: readonly WaitingChoice[];
 }
 
 /** id의 뒤쪽 여섯 글자. 이름을 모르는 session·앱·project를 구별한다. */
@@ -72,8 +69,6 @@ function requesterOf(entry: WaitingEntry): string | null {
 function metaOf(entry: WaitingEntry): string {
   const who = entry.agent !== null
     ? agentLabel(entry.agent)
-    : entry.kind === "reaction"
-    ? t("waiting.label.agent-reaction")
     : t("waiting.label.agent-lophn");
   const place = entry.place === null
     ? ""
@@ -83,6 +78,8 @@ function metaOf(entry: WaitingEntry): string {
   const session = entry.session === null
     ? ""
     : t("waiting.label.session", { id: shortId(entry.session) });
+  // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다.
+  if (entry.kind === "activation") return place;
   return [who, session, place].filter((part) => part !== "").join(" · ");
 }
 
@@ -90,23 +87,6 @@ const EFFECT_LABELS = {
   read: "waiting.label.effect-read",
   write: "waiting.label.effect-write",
   external: "waiting.label.effect-external",
-} as const;
-
-const SETTINGS_LABELS = {
-  instructions: "waiting.label.settings-instructions",
-  agent_definition: "waiting.label.settings-agent-definition",
-  skill: "waiting.label.settings-skill",
-  setting: "waiting.label.settings-setting",
-  grant: "waiting.label.settings-grant",
-} as const;
-
-const EVENT_LABELS = {
-  ReleaseActivationFailed: "waiting.label.event-activation-failed",
-} as const;
-
-// 이 event가 여는 session의 agent. 앱 일이라 App Engineer가 받는다.
-const OPENS_LABELS = {
-  ReleaseActivationFailed: "waiting.label.agent-app-engineer",
 } as const;
 
 const DECLARED_LABELS = {
@@ -123,94 +103,96 @@ const LOSS_LABELS = {
   narrow_type: "waiting.label.loss-narrow-type",
 } as const;
 
-function json(value: unknown): string {
-  return JSON.stringify(value);
+function appText(app: string): string {
+  return t("waiting.label.place-app", { id: shortId(app) });
 }
 
-function scopeText(scope: AppGrantScope): string {
-  switch (scope.kind) {
-    case "fs.read":
-    case "fs.write":
-      return `${t(DECLARED_LABELS[scope.kind])} ${scope.path}${
-        scope.recursive ? "/**" : ""
-      }`;
-    case "net.fetch":
-    case "net.listen":
-      return `${t(DECLARED_LABELS[scope.kind])} ${scope.host}:${scope.port}`;
-    case "secret.use":
-      return `${t(DECLARED_LABELS[scope.kind])} ${scope.name}`;
-    case "app.call":
-      return `${t("waiting.label.declared-tool")} ${
-        t("waiting.label.place-app", { id: shortId(scope.app) })
-      } › ${scope.app_tools.join(", ")}`;
-  }
+/** 도구 물음의 대상 한 줄. shell은 명령 자체가 세부라 대상 칸이 없다. */
+function toolTarget(
+  subject: Exclude<TurnRequest["subject"], { kind: "shell" | "harness" }>,
+): string {
+  return subject.kind === "app_tool"
+    ? t("waiting.label.target-tool", {
+      app: appText(subject.app),
+      tool: subject.tool,
+    })
+    : t("waiting.label.target-mcp-tool", {
+      server: subject.server,
+      tool: subject.tool,
+    });
 }
 
-function targetOf(intent: Intent): string {
-  const target = intent.target;
-  switch (target.kind) {
-    case "app_tool":
-      return t("waiting.label.target-tool", {
-        app: t("waiting.label.place-app", { id: shortId(target.app) }),
-        tool: target.tool,
-      });
-    case "mcp_tool":
-      return t("waiting.label.target-mcp-tool", {
-        server: target.server,
-        tool: target.tool,
-      });
-    case "agent_call":
-      return agentLabel(target.agent);
-    case "settings_edit":
-      return t(SETTINGS_LABELS[target.what]);
-    case "app_resource":
-      return scopeText(target.scope);
-    case "reaction":
-      return t(EVENT_LABELS[target.event]);
-    case "activation":
-      return t("waiting.label.place-app", { id: shortId(target.app) });
-  }
-}
-
-function titleAndDescription(
-  intent: Intent,
-  target: string,
-): { title: string; description: string } {
-  const t_ = intent.target;
-  switch (t_.kind) {
-    case "app_tool":
+function permissionView(request: TurnRequest) {
+  const subject = request.subject;
+  const choices = turnChoicesOf(request);
+  switch (subject.kind) {
+    case "shell":
+      return {
+        title: t("waiting.title.shell"),
+        description: t("waiting.notice.shell"),
+        factsPinned: true,
+        facts: [
+          {
+            label: t("waiting.label.fact-command"),
+            value: subject.command,
+            style: "code" as const,
+          },
+          ...(request.always_patterns.length === 0 ? [] : [{
+            label: t("waiting.label.fact-always"),
+            value: request.always_patterns.join(", "),
+            style: "code" as const,
+          }]),
+        ],
+        choices,
+      };
+    case "app_tool": {
+      const target = toolTarget(subject);
       return {
         title: t("waiting.title.tool", {
-          tool: t_.tool,
-          app: t("waiting.label.place-app", { id: shortId(t_.app) }),
+          tool: subject.tool,
+          app: appText(subject.app),
         }),
-        description: intent.effect === "read"
+        description: subject.effect === "read"
           ? t("waiting.notice.tool-read", { target })
-          : intent.effect === "write"
+          : subject.effect === "write"
           ? t("waiting.notice.tool-write", { target })
           : t("waiting.notice.tool-external", { target }),
+        factsPinned: false,
+        facts: toolFacts(target, subject.effect),
+        choices,
       };
-    case "mcp_tool":
+    }
+    case "mcp_tool": {
+      const target = toolTarget(subject);
       return {
-        title: t("waiting.title.mcp-tool", { tool: t_.tool }),
+        title: t("waiting.title.mcp-tool", { tool: subject.tool }),
         description: t("waiting.notice.mcp-tool", { target }),
+        factsPinned: false,
+        facts: toolFacts(target, subject.effect),
+        choices,
       };
-    case "settings_edit":
+    }
+    case "harness":
       return {
-        title: t("waiting.title.settings-edit"),
-        description: t("waiting.notice.settings-edit", { what: target }),
-      };
-    case "agent_call":
-      return {
-        title: t("waiting.title.agent-call"),
-        description: t("waiting.notice.agent-call", { agent: target }),
-      };
-    default:
-      return {
-        title: t("waiting.title.app-resource"),
-        description: t("waiting.notice.app-resource", { target }),
+        title: t("waiting.title.coding"),
+        description: t("waiting.notice.coding"),
+        factsPinned: false,
+        facts: [],
+        choices: [],
       };
   }
+}
+
+function toolFacts(target: string, effect: Effect): Fact[] {
+  return [
+    { label: t("waiting.label.fact-target"), value: target, style: "text" },
+    {
+      label: t("waiting.label.fact-effect"),
+      value: t(EFFECT_LABELS[effect]),
+      style: "effect",
+      effect,
+    },
+  ];
 }
 
 function declaredLines(resources: readonly string[]): Line[] {
@@ -227,19 +209,15 @@ function declaredLines(resources: readonly string[]): Line[] {
   });
 }
 
-function activationView(request: PendingApproval) {
-  const parsed = activationComparisonSchema.safeParse(request.intent.input);
-  const comparison = parsed.success ? parsed.data : null;
+function activationView(comparison: ActivationConsent["comparison"]) {
   const added: Line[] = [
-    ...declaredLines(comparison?.added_resources ?? []),
-    ...(comparison?.added_tools ?? []).map((use) => ({
+    ...declaredLines(comparison.added_resources),
+    ...comparison.added_tools.map((use) => ({
       label: t("waiting.label.declared-tool"),
-      value: `${
-        t("waiting.label.place-app", { id: shortId(use.app) })
-      } › ${use.tool}`,
+      value: `${appText(use.app)} › ${use.tool}`,
     })),
   ];
-  const loss: Line[] = (comparison?.loss_steps ?? []).flatMap((step) =>
+  const loss: Line[] = comparison.loss_steps.flatMap((step) =>
     step.loss.map((one) => ({
       label: t(LOSS_LABELS[one.kind]),
       value: one.column === undefined
@@ -247,7 +225,7 @@ function activationView(request: PendingApproval) {
         : `${one.table}.${one.column}`,
     }))
   );
-  return { added, loss, first: comparison?.first ?? false };
+  return { added, loss, first: comparison.first };
 }
 
 const NO_LINES: readonly Line[] = [];
@@ -259,18 +237,13 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
     age: formatRelativeTime(new Date(entry.receivedAt), now),
     requester: requesterOf(entry),
     facts: [] as Fact[],
+    factsPinned: false,
     added: NO_LINES,
     loss: NO_LINES,
     first: false,
-    choices: [] as readonly RequestChoice[],
+    choices: [] as readonly WaitingChoice[],
   };
   switch (entry.kind) {
-    case "coding":
-      return {
-        ...base,
-        title: t("waiting.title.coding"),
-        description: t("waiting.notice.coding"),
-      };
     case "coding_start":
       return {
         ...base,
@@ -283,80 +256,22 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         title: t("waiting.title.question"),
         description: t("waiting.notice.question-loading"),
       };
-    case "permission": {
-      const intent = entry.request.intent;
-      const target = targetOf(intent);
-      return {
-        ...base,
-        ...titleAndDescription(intent, target),
-        facts: [
-          {
-            label: t("waiting.label.fact-target"),
-            value: target,
-            style: "text",
-          },
-          {
-            label: t("waiting.label.fact-input"),
-            value: json(intent.input),
-            style: "code",
-          },
-          {
-            label: t("waiting.label.fact-effect"),
-            value: t(EFFECT_LABELS[intent.effect]),
-            style: "effect",
-            effect: intent.effect,
-          },
-        ],
-        choices: entry.request.choices,
-      };
-    }
+    case "coding":
+    case "permission":
+      return { ...base, ...permissionView(entry.request) };
     case "activation": {
-      const view = activationView(entry.request);
+      const view = activationView(entry.request.comparison);
       const counts = { declared: view.added.length, lost: view.loss.length };
       return {
         ...base,
         ...view,
         title: t("waiting.title.activation", {
-          app: targetOf(entry.request.intent),
+          app: appText(entry.request.app),
         }),
         description: view.first
           ? t("waiting.notice.activation-first", counts)
           : t("waiting.notice.activation-since", counts),
-        choices: entry.request.choices,
-      };
-    }
-    case "reaction": {
-      const intent = entry.request.intent;
-      const event = intent.target.kind === "reaction"
-        ? intent.target.event
-        : null;
-      const eventText = event === null ? "" : t(EVENT_LABELS[event]);
-      const opens = t(
-        event === null
-          ? "waiting.label.agent-app-engineer"
-          : OPENS_LABELS[event],
-      );
-      const detail = Object.keys(intent.input).length === 0
-        ? null
-        : json(intent.input);
-      return {
-        ...base,
-        title: t("waiting.title.reaction", { agent: opens }),
-        description: eventText,
-        facts: [
-          {
-            label: t("waiting.label.fact-event"),
-            value: eventText,
-            style: "text",
-          },
-          ...(detail === null ? [] : [{
-            label: t("waiting.label.fact-detail"),
-            value: detail,
-            style: "code" as const,
-          }]),
-          { label: t("waiting.label.fact-opens"), value: opens, style: "text" },
-        ],
-        choices: entry.request.choices,
+        choices: ["allow", "reject"],
       };
     }
   }

@@ -1,4 +1,4 @@
-// turn 안 권한 요청. 세부(대상, 정규화한 입력, 효과)는 접혀 있다.
+// turn 안 권한 요청. tool 물음의 세부(대상, 효과)는 접혀 있고, shell 물음의 명령은 늘 보인다.
 import { useState } from "react";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import type { CardView } from "../model.ts";
@@ -51,9 +51,11 @@ export function PermissionCard(
       <Head
         view={view}
         agent={entry.agent}
-        toggle={{ open, onToggle: () => setOpen(!open) }}
+        toggle={view.factsPinned
+          ? undefined
+          : { open, onToggle: () => setOpen(!open) }}
       />
-      {open ? <Facts view={view} /> : null}
+      {open || view.factsPinned ? <Facts view={view} /> : null}
       <Decision
         choices={view.choices}
         requester={view.requester}

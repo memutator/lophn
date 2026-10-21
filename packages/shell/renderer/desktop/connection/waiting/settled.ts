@@ -1,8 +1,8 @@
-// 결정한 직후 남는 줄. 목록에서 빠진 항목이 어떻게 됐는지 접수·적용·거절·cancelled로 구별해 보인다.
+// 결정한 직후 남는 줄. 목록에서 빠진 항목이 어떻게 됐는지 허락·거절·cancelled로 구별해 보인다.
 // 줄은 이 창의 panel을 열어 둔 동안만 남는다(store에 두지 않는다).
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WaitingEntry } from "../events/waiting-store.ts";
-import { useEventClient, useWaitingRefresh } from "../events/hooks.tsx";
+import { useEventClient } from "../events/hooks.tsx";
 import { cardOf } from "./model.ts";
 import type { SettledState } from "./decide.ts";
 
@@ -21,27 +21,18 @@ export interface Settled {
   readonly clear: () => void;
 }
 
-/**
- * entries는 지금 목록이다. 항목이 PermissionResolved·QuestionResolved로 cancelled가 되면 줄로 남기고,
- * ApprovalDecided는 보류 request를 다시 읽어 목록에서 빼고, "접수" 줄을 적용 결과(applied·failed)로 바꾼다.
- */
+/** entries는 지금 목록이다. 항목이 닫힌 event가 cancelled면 줄로 남긴다(사람이 정한 것은 결정 응답이 줄을 더한다). */
 export function useSettled(
   entries: readonly WaitingEntry[],
   initial: readonly SettledRow[] = [],
 ): Settled {
   const client = useEventClient();
-  const refresh = useWaitingRefresh();
   const [rows, setRows] = useState(initial);
   // 사라진 뒤에도 줄을 만들 수 있게 본 항목을 기억한다.
   const known = useRef(new Map<string, WaitingEntry>());
   for (const entry of entries) known.current.set(entry.id, entry);
-  // 결정 응답보다 ApprovalDecided가 먼저 오면 줄이 생길 때 이 결과로 바꾼다.
-  const applied = useRef(new Map<string, SettledState>());
 
-  const add = useCallback((entry: WaitingEntry, given: SettledState) => {
-    const state = given === "accepted"
-      ? applied.current.get(entry.id) ?? given
-      : given;
+  const add = useCallback((entry: WaitingEntry, state: SettledState) => {
     const view = cardOf(entry);
     const row: SettledRow = {
       id: entry.id,
@@ -56,37 +47,29 @@ export function useSettled(
 
   useEffect(() =>
     client.subscribe({
-      types: ["PermissionResolved", "QuestionResolved", "ApprovalDecided"],
+      types: [
+        "TurnRequestClosed",
+        "QuestionResolved",
+        "ActivationConsentClosed",
+      ],
     }, (message) => {
       if (message.kind !== "event") return;
       const event = message.event;
-      if (event.type === "ApprovalDecided") {
-        const result = event.payload.applied;
-        if (result) {
-          applied.current.set(event.subject, result.state);
-          setRows((now) =>
-            now.map((row) =>
-              row.id === event.subject && row.state === "accepted"
-                ? { ...row, state: result.state }
-                : row
-            )
-          );
-        }
-        void refresh();
-        return;
+      let id: string | null = null;
+      let cancelled = false;
+      if (event.type === "TurnRequestClosed") {
+        id = event.payload.request;
+        cancelled = event.payload.outcome === "cancelled";
+      } else if (event.type === "QuestionResolved") {
+        id = event.payload.group;
+        cancelled = event.payload.outcome === "cancelled";
+      } else if (event.type === "ActivationConsentClosed") {
+        id = event.payload.release;
+        cancelled = event.payload.outcome === "cancelled";
       }
-      const id = event.type === "PermissionResolved"
-        ? event.payload.request
-        : event.type === "QuestionResolved"
-        ? event.payload.group
-        : null;
-      const cancelled = event.type === "PermissionResolved" ||
-          event.type === "QuestionResolved"
-        ? event.payload.outcome === "cancelled"
-        : false;
       const entry = id === null ? undefined : known.current.get(id);
       if (cancelled && entry) add(entry, "cancelled");
-    }), [client, refresh, add]);
+    }), [client, add]);
 
   return { rows, add, clear };
 }

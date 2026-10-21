@@ -1,10 +1,9 @@
-// 결정 단추와 거절 이유 칸. 단추는 오른쪽 끝에 모이고 주 행동이 맨 오른쪽이다. 선택지는 request가 가진 것을
+// 결정 단추와 거절 이유 칸. 단추는 오른쪽 끝에 모이고 주 행동이 맨 오른쪽이다. 선택지는 card 값이 준 것을
 // 그대로 그린다(화면이 따로 판정하지 않는다).
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Textarea } from "@lophn/ui/input";
 import { t } from "@lophn/wording";
-import type { RequestChoice } from "../../../../../../protocol/approvals/mod.ts";
 import type { WaitingChoice } from "../decide.ts";
 import styles from "../waiting.module.css";
 
@@ -15,19 +14,12 @@ export type OnDecide = (
 ) => Promise<boolean>;
 
 // 허락 단추의 왼쪽에서 오른쪽 순서. 맨 오른쪽이 주 행동이다.
-const ALLOW_ORDER: readonly RequestChoice[] = [
-  "always",
-  "session",
-  "once",
-  "allow",
-];
+const ALLOW_ORDER: readonly WaitingChoice[] = ["always", "once", "allow"];
 
-function allowLabel(choice: RequestChoice): string {
+function allowLabel(choice: WaitingChoice): string {
   switch (choice) {
     case "always":
       return t("waiting.button.allow-always");
-    case "session":
-      return t("waiting.button.allow-session");
     case "once":
       return t("waiting.button.allow-once");
     default:
@@ -37,8 +29,8 @@ function allowLabel(choice: RequestChoice): string {
 
 export function Decision(
   { choices, requester, denying, reason, onDecide }: {
-    choices: readonly RequestChoice[];
-    /** 요청한 agent. 없으면(reaction) 거절 이유 칸이 없다. */
+    choices: readonly WaitingChoice[];
+    /** 요청한 agent. 없으면(activation 동의) 거절 이유 칸이 없다. */
     requester: string | null;
     denying?: boolean;
     reason?: string;
@@ -122,7 +114,7 @@ export function Decision(
             size="sm"
             variant={choice === primary ? "primary" : "secondary"}
             disabled={busy}
-            onClick={() => send(choice as WaitingChoice)}
+            onClick={() => send(choice)}
           >
             {allowLabel(choice)}
           </Button>

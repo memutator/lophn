@@ -1,9 +1,7 @@
-// 대기 목록. 사람이 답할 것(turn 안 request, 보류 request, 질문)을 session을 가리지 않고 한 목록에 든다.
+// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
-import type {
-  PendingApproval,
-  TurnPermissionRequest,
-} from "../../../../../protocol/approvals/mod.ts";
+import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
+import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import { HOOK_EVENT_TABLE } from "../../../../../protocol/coding-agent/hook-signal.ts";
 import type { HarnessId } from "../../../../../protocol/coding-agent/harnesses.ts";
 import type {
@@ -16,7 +14,7 @@ import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/plac
 import type { z } from "zod";
 import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
-import { readPendingApprovals, readSessionSnapshots } from "./snapshots.ts";
+import { readActivationConsents, readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
 type Place = z.infer<typeof placeOutputSchema>;
@@ -38,16 +36,18 @@ interface Common {
 }
 
 export type WaitingEntry =
+  // coding은 harness가 물어 온 것이다. 답은 터미널에서 한다.
   | Common & {
     readonly kind: "permission" | "coding";
-    readonly request: TurnPermissionRequest;
+    readonly request: TurnRequest;
   }
   | Common & { readonly kind: "question"; readonly request: QuestionRequest }
   // 터미널을 열었는데 첫 hook 신호가 없다. folder trust 같은 확인에서 멈췄을 수 있다. id는 start:<session>이다.
   | Common & { readonly kind: "coding_start" }
+  // id는 release다. 같은 release는 한 줄이다.
   | Common & {
-    readonly kind: "activation" | "reaction";
-    readonly request: PendingApproval;
+    readonly kind: "activation";
+    readonly request: ActivationConsent;
   };
 
 export interface WaitingState {
@@ -59,21 +59,14 @@ const WAITING_CONDITION: EventCondition = {
   types: [
     "SessionStarted",
     "SessionEnded",
-    "PermissionRequested",
-    "PermissionResolved",
+    "TurnRequestOpened",
+    "TurnRequestClosed",
     "QuestionAsked",
     "QuestionResolved",
-    "ApprovalRequested",
+    "ActivationConsentRequested",
+    "ActivationConsentClosed",
   ],
 };
-
-/** 대기 목록에 드는 보류 request만 종류를 돌려준다. */
-export function approvalWaitingKind(
-  request: PendingApproval,
-): "activation" | "reaction" | null {
-  const kind = request.intent.kind;
-  return kind === "activation" || kind === "reaction" ? kind : null;
-}
 
 /**
  * runtime(터미널을 연 창)과 snapshot(뒤에 연 창, 다시 붙은 창) 두 길이 같은 delay를 쓴다.
@@ -97,8 +90,6 @@ function startsWithSessionStart(harness: string | undefined): boolean {
 interface WaitingStore {
   get(): WaitingState;
   subscribe(listener: () => void): () => void;
-  /** 결정을 낸 뒤 보류 request를 다시 읽어 맞춘다. */
-  refresh(): Promise<void>;
   /** event client에 붙는다. 반환 함수가 뗀다. */
   start(): () => void;
 }
@@ -175,39 +166,28 @@ export function createWaitingStore(
     if (!entries.has(entry.id)) entries.set(entry.id, entry);
   }
 
-  function permission(
-    request: TurnPermissionRequest,
-    receivedAt: string,
-  ): WaitingEntry {
+  // turn request에는 요청한 agent가 없다. session을 알 때만 agent와 place가 있다.
+  function permission(request: TurnRequest, receivedAt: string): WaitingEntry {
     const known = sessions.get(request.session);
-    const actor = request.intent.actor;
-    const agent = known?.agent ?? (actor.kind === "agent" ? actor.agent : null);
     return {
       id: request.id,
-      kind: agent?.role === "coding_agent" ? "coding" : "permission",
+      kind: request.subject.kind === "harness" ? "coding" : "permission",
       session: request.session,
-      agent,
+      agent: known?.agent ?? null,
       place: known?.place ?? null,
       receivedAt,
       request,
     };
   }
 
-  function approval(
-    request: PendingApproval,
-    kind: "activation" | "reaction",
-  ): WaitingEntry {
-    const actor = request.intent.actor;
-    const target = request.intent.target;
+  function consent(request: ActivationConsent): WaitingEntry {
     return {
-      id: request.id,
-      kind,
+      id: request.release,
+      kind: "activation",
       session: null,
-      agent: actor.kind === "agent" ? actor.agent : null,
-      place: target.kind === "activation"
-        ? { kind: "app", id: target.app }
-        : null,
-      receivedAt: request.created_at,
+      agent: null,
+      place: { kind: "app", id: request.app },
+      receivedAt: request.requested_at,
       request,
     };
   }
@@ -241,10 +221,10 @@ export function createWaitingStore(
       case "SessionEnded":
         if (!stopWaitingStart(event.session)) return;
         break;
-      case "PermissionRequested":
+      case "TurnRequestOpened":
         put(permission(event.payload.request, event.at));
         break;
-      case "PermissionResolved":
+      case "TurnRequestClosed":
         entries.delete(event.payload.request);
         break;
       case "QuestionAsked":
@@ -253,11 +233,13 @@ export function createWaitingStore(
       case "QuestionResolved":
         entries.delete(event.payload.group);
         break;
-      case "ApprovalRequested": {
-        const kind = approvalWaitingKind(event.payload.request);
-        if (kind) put(approval(event.payload.request, kind));
+      case "ActivationConsentRequested":
+        // 비교 내용은 event에 없다. 동의 대기를 다시 읽어 맞추고, 그 읽기가 publish한다.
+        void refreshConsents();
+        return;
+      case "ActivationConsentClosed":
+        entries.delete(event.payload.release);
         break;
-      }
       default:
         return;
     }
@@ -272,7 +254,7 @@ export function createWaitingStore(
         agent: snapshot.agent,
         place: snapshot.place,
       });
-      for (const request of snapshot.permission_requests) {
+      for (const request of snapshot.turn_requests) {
         next.push(permission(request, request.created_at));
       }
       for (const group of snapshot.questions) {
@@ -283,17 +265,28 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, approvals] = await Promise.all([
+    const [snapshots, consents] = await Promise.all([
       readSessionSnapshots(client.core),
-      readPendingApprovals(client.core),
+      readActivationConsents(client.core),
     ]);
     // 둘 다 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
-    if (snapshots === null || approvals === null) return null;
-    return { snapshots, approvals };
+    if (snapshots === null || consents === null) return null;
+    return { snapshots, consents };
+  }
+
+  async function refreshConsents() {
+    const consents = await readActivationConsents(client.core);
+    if (consents === null) return;
+    const open = new Set(consents.map((one) => one.release));
+    for (const [id, entry] of entries) {
+      if (entry.kind === "activation" && !open.has(id)) entries.delete(id);
+    }
+    for (const one of consents) put(consent(one));
+    publish();
   }
 
   function replace(
-    read: { snapshots: SessionSnapshot[]; approvals: PendingApproval[] },
+    read: { snapshots: SessionSnapshot[]; consents: ActivationConsent[] },
   ) {
     // snapshot에서 첫 신호를 들은 session이거나 없는 session은 기다리지 않는다.
     for (const session of [...waitingStart.keys()]) {
@@ -311,10 +304,7 @@ export function createWaitingStore(
       entry.kind === "coding_start"
     );
     const next = replaceTurnRequests(read.snapshots);
-    for (const request of read.approvals) {
-      const kind = approvalWaitingKind(request);
-      if (kind) next.push(approval(request, kind));
-    }
+    for (const one of read.consents) next.push(consent(one));
     next.sort((a, b) => a.receivedAt < b.receivedAt ? -1 : 1);
     entries = new Map();
     for (const entry of next) put(entry);
@@ -325,22 +315,6 @@ export function createWaitingStore(
   return {
     get: state.get,
     subscribe: state.subscribe,
-    async refresh() {
-      const approvals = await readPendingApprovals(client.core);
-      if (approvals === null) return;
-      const pending = new Set(approvals.map((request) => request.id));
-      for (const [id, entry] of entries) {
-        if (
-          (entry.kind === "activation" || entry.kind === "reaction") &&
-          !pending.has(id)
-        ) entries.delete(id);
-      }
-      for (const request of approvals) {
-        const kind = approvalWaitingKind(request);
-        if (kind) put(approval(request, kind));
-      }
-      publish();
-    },
     start() {
       const stopRuntime = terminals?.onRuntime(watchStart);
       const stopEvents = client.subscribe(

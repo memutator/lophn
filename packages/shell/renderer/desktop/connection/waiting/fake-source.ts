@@ -1,13 +1,14 @@
 // gallery와 dev-mock이 쓰는 대기 목록 fake. events의 fake Gateway에 대기 항목을 채우고, 결정과 질문 답 route를
 // 메모리에서 받아 항목을 빼고 event를 흘린다.
 import {
-  approvalsDecide,
-  approvalsDecideTurn,
-  approvalsPending,
-  type PendingApproval,
-  type RequestChoice,
-  type TurnPermissionRequest,
-} from "../../../../../protocol/approvals/mod.ts";
+  type TurnRequest,
+  turnRequestDecide,
+} from "../../../../../protocol/approvals/turn-request.ts";
+import {
+  type ActivationConsent,
+  activationConsent,
+  activationConsents,
+} from "../../../../../protocol/apps/activation/consent.ts";
 import {
   type SessionSnapshot,
   sessionSnapshotsList,
@@ -17,9 +18,7 @@ import {
   type AskQuestion,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
-import type { JsonObject } from "../../../../../protocol/base/json-values.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
-import type { AgentRef } from "../../../../../protocol/lophn-agent/places.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { createFakeSource, type FakeSource } from "../events/fake-source.ts";
 import type { SettledRow } from "./settled.ts";
@@ -37,227 +36,116 @@ const ago = (minutes: number) =>
 interface FakeSession {
   readonly id: string;
   readonly agent: CallAgent;
-  /** intent의 요청한 agent. coding session은 그 앱의 App Engineer가 맡긴 일로 둔다. */
-  readonly actor: AgentRef;
   readonly place: SessionSnapshot["place"];
 }
 
 const OPERATOR_SESSION: FakeSession = {
   id: id("ses", 1),
   agent: { role: "operator", agent: id("agt", 1) },
-  actor: { role: "operator", agent: id("agt", 1) },
-  place: { kind: "project", id: PROJECT },
-};
-const MANAGER_SESSION: FakeSession = {
-  id: id("ses", 2),
-  agent: { role: "project_manager", project: PROJECT },
-  actor: { role: "project_manager", project: PROJECT },
   place: { kind: "project", id: PROJECT },
 };
 const CODING_SESSION: FakeSession = {
   id: id("ses", 3),
   agent: { role: "coding_agent", app: ORDERS },
-  actor: { role: "app_engineer", app: ORDERS },
   place: { kind: "app", id: ORDERS },
 };
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
   agent: { role: "lophn" },
-  actor: { role: "lophn" },
   place: null,
 };
-
-type Turn = Omit<TurnPermissionRequest, "id" | "created_at" | "session">;
 
 function turnRequest(
   n: number,
   session: FakeSession,
   minutes: number,
-  parts: Pick<Turn, "intent" | "choices">,
-): { session: FakeSession; request: TurnPermissionRequest } {
-  const origin = {
-    kind: "turn" as const,
-    session: session.id,
-    turn: id("trn", n),
-    tool_call: id("tcl", n),
-  };
+  subject: TurnRequest["subject"],
+  alwaysPatterns: string[] = [],
+): { session: FakeSession; request: TurnRequest } {
   return {
     session,
     request: {
       id: id("apr", n),
       session: session.id,
-      turn: origin.turn,
-      tool_call: origin.tool_call,
-      intent: { ...parts.intent, origin },
-      choices: parts.choices,
-      fingerprint: "0".repeat(64),
+      turn: id("trn", n),
+      tool_call: id("tcl", n),
+      subject,
+      always_patterns: alwaysPatterns,
       created_at: ago(minutes),
     },
   };
 }
 
-const TOOL_CHOICES: RequestChoice[] = ["once", "session", "always", "reject"];
-const ALLOW_CHOICES: RequestChoice[] = ["allow", "reject"];
+export const SHELL_COMMAND = () =>
+  turnRequest(
+    11,
+    OPERATOR_SESSION,
+    1,
+    { kind: "shell", command: "git push --force origin main" },
+    ["git push *"],
+  );
 
-type Draft = Pick<TurnPermissionRequest, "intent">["intent"];
-
-function agentIntent(
-  session: FakeSession,
-  rest: Pick<Draft, "kind" | "target" | "effect" | "input">,
-): Draft {
-  return {
-    ...rest,
-    actor: { kind: "agent", agent: session.actor, session: session.id },
-    origin: { kind: "event", seq: "1" },
-  };
-}
-
-export const APP_TOOL_CALL = () =>
-  turnRequest(11, OPERATOR_SESSION, 1, {
-    intent: agentIntent(OPERATOR_SESSION, {
-      kind: "app_tool",
-      target: { kind: "app_tool", app: BUDGET, tool: "entries.create" },
-      effect: "write",
-      input: { category: "refunds", amount: 1800, month: "2026-09" },
-    }),
-    choices: TOOL_CHOICES,
-  });
-
+// 지금은 할당된 tool의 바깥 효과를 묻지 않아 실제로는 이 물음이 나오지 않는다. tool 카드의 그림 하나로 둔다.
 export const EXTERNAL_CALL = () =>
   turnRequest(12, OPERATOR_SESSION, 4, {
-    intent: agentIntent(OPERATOR_SESSION, {
-      kind: "mcp_tool",
-      target: { kind: "mcp_tool", server: "mail", tool: "send_message" },
-      effect: "external",
-      input: { to: "finance@phroner.example", subject: "Sep close" },
-    }),
-    choices: TOOL_CHOICES,
-  });
-
-export const CONFIG_EDIT = () =>
-  turnRequest(13, MANAGER_SESSION, 6, {
-    intent: agentIntent(MANAGER_SESSION, {
-      kind: "settings_edit",
-      target: { kind: "settings_edit", what: "instructions", id: null },
-      effect: "write",
-      input: { section: "Review rules", lines: 12 },
-    }),
-    choices: ALLOW_CHOICES,
+    kind: "mcp_tool",
+    server: "mail",
+    tool: "send_message",
+    effect: "external",
   });
 
 export const CODING_ASK = () =>
   turnRequest(14, CODING_SESSION, 2, {
-    intent: agentIntent(CODING_SESSION, {
-      kind: "app_tool",
-      target: { kind: "app_tool", app: ORDERS, tool: "orders.list" },
-      effect: "read",
-      input: {},
-    }),
-    choices: ["once", "reject"],
+    kind: "harness",
+    harness: "claude",
+    tool: "Bash",
+    summary: null,
   });
-
-function pending(
-  n: number,
-  minutes: number,
-  intent: PendingApproval["intent"],
-): PendingApproval {
-  return {
-    id: id("apr", n),
-    intent,
-    choices: [...ALLOW_CHOICES],
-    status: "pending",
-    reject_reason: null,
-    applied: null,
-    created_seq: String(n),
-    decided_seq: null,
-    created_at: ago(minutes),
-    decided_at: null,
-  };
-}
-
-function activationIntent(
-  release: string,
-  comparison: JsonObject,
-  agent: AgentRef,
-  session: string,
-): PendingApproval["intent"] {
-  return {
-    kind: "activation",
-    actor: { kind: "agent", agent, session },
-    target: { kind: "activation", app: ORDERS, release },
-    effect: "read",
-    input: comparison,
-    origin: { kind: "activation", app: ORDERS, release },
-  };
-}
 
 const RELEASE_6 = id("rel", 6);
 const RELEASE_7 = id("rel", 7);
 
-export const ACTIVATION = () =>
-  pending(
-    21,
-    3,
-    activationIntent(
-      RELEASE_7,
-      {
-        previous_release: RELEASE_6,
-        first: false,
-        added_resources: [
-          "net.fetch:api.payments.example:443",
-          "secret.use:PAYMENTS_KEY",
-          "fs.write:/exports/**",
-        ],
-        added_tools: [{ app: INVENTORY, tool: "stock.adjust" }],
-        loss_steps: [{
-          from: 3,
-          to: 4,
-          loss: [
-            { kind: "drop_table", table: "legacy_orders" },
-            { kind: "drop_column", table: "orders", column: "note" },
-            { kind: "narrow_type", table: "orders", column: "total" },
-          ],
-        }],
-      },
-      { role: "app_engineer", app: ORDERS },
-      OPERATOR_SESSION.id,
-    ),
-  );
+export const ACTIVATION = (): ActivationConsent => ({
+  app: ORDERS,
+  release: RELEASE_7,
+  comparison: {
+    previous_release: RELEASE_6,
+    first: false,
+    added_resources: [
+      "net.fetch:api.payments.example:443",
+      "secret.use:PAYMENTS_KEY",
+      "fs.write:/exports/**",
+    ],
+    added_tools: [{ app: INVENTORY, tool: "stock.adjust" }],
+    loss_steps: [{
+      from: 3,
+      to: 4,
+      loss: [
+        { kind: "drop_table", table: "legacy_orders" },
+        { kind: "drop_column", table: "orders", column: "note" },
+        { kind: "narrow_type", table: "orders", column: "total" },
+      ],
+    }],
+  },
+  requested_at: ago(3),
+});
 
-export const FIRST_ACTIVATION = () =>
-  pending(
-    22,
-    1,
-    activationIntent(
-      id("rel", 1),
-      {
-        previous_release: null,
-        first: true,
-        added_resources: [
-          "net.fetch:rates.example.org:443",
-          "secret.use:RATES_KEY",
-          "fs.read:/imports/**",
-        ],
-        added_tools: [{ app: ORDERS, tool: "refunds.create" }],
-        loss_steps: [],
-      },
-      { role: "app_engineer", app: BUDGET },
-      OPERATOR_SESSION.id,
-    ),
-  );
-
-export const REACTION = () =>
-  pending(23, 5, {
-    kind: "reaction",
-    actor: { kind: "program", seq: "42" },
-    target: { kind: "reaction", event: "ReleaseActivationFailed" },
-    effect: "read",
-    input: {
-      app: ORDERS,
-      summary: "Refund total does not match the order lines",
-    },
-    origin: { kind: "event", seq: "42" },
-  });
+export const FIRST_ACTIVATION = (): ActivationConsent => ({
+  app: BUDGET,
+  release: id("rel", 1),
+  comparison: {
+    previous_release: null,
+    first: true,
+    added_resources: [
+      "net.fetch:rates.example.org:443",
+      "secret.use:RATES_KEY",
+      "fs.read:/imports/**",
+    ],
+    added_tools: [{ app: ORDERS, tool: "refunds.create" }],
+    loss_steps: [],
+  },
+  requested_at: ago(1),
+});
 
 const QUESTION_GROUP = id("qgr", 1);
 const QUESTION_TURN = id("trn", 31);
@@ -274,42 +162,38 @@ const QUESTION: readonly AskQuestion[] = [{
   multiSelect: false,
 }];
 
-type Item = ReturnType<typeof turnRequest> | PendingApproval | "question";
+type Item =
+  | ReturnType<typeof turnRequest>
+  | ActivationConsent
+  | "question";
 
 /** 모든 종류가 섞인 한 목록. */
 export const allItems = (): readonly Item[] => [
-  APP_TOOL_CALL(),
+  SHELL_COMMAND(),
   CODING_ASK(),
   "question",
   ACTIVATION(),
-  REACTION(),
 ];
 
 /** 결정한 뒤 잠깐 남는 줄 시나리오. */
 export const SETTLED: readonly SettledRow[] = [
   {
-    id: "settled-accepted",
+    id: "settled-allowed",
     title: "Activate a new version of App 000001",
-    who: "App Engineer · Session 000001 · App 000001",
-    state: "accepted",
-  },
-  {
-    id: "settled-applied",
-    title: "Open a session with App Engineer?",
-    who: "Reaction · App 000002",
-    state: "applied",
+    who: "App 000001",
+    state: "allowed",
   },
   {
     id: "settled-denied",
-    title: "Use the send_message tool",
+    title: "Run a command",
     who: "Operator · Session 000001 · Project 000001",
     state: "denied",
     agent: "Operator",
   },
   {
     id: "settled-cancelled",
-    title: "Change settings",
-    who: "Project Manager · Session 000002 · Project 000001",
+    title: "Run a command",
+    who: "Operator · Session 000001 · Project 000001",
     state: "cancelled",
   },
 ];
@@ -337,7 +221,7 @@ export function createFakeWaiting(
 ): FakeSource {
   const sessions = new Map<string, SessionSnapshot>();
   const used: FakeSession[] = [];
-  let approvals: PendingApproval[] = [];
+  let consents: ActivationConsent[] = [];
   let questionSession: FakeSession | null = null;
 
   function snapshotOf(session: FakeSession): SessionSnapshot {
@@ -348,6 +232,7 @@ export function createFakeWaiting(
         agent: session.agent,
         place: session.place,
         state: "waiting",
+        // ap-cleanup이 snapshot schema에서 지울 때까지 빈 배열로 둔다.
         permission_requests: [],
         turn_requests: [],
         questions: [],
@@ -370,14 +255,14 @@ export function createFakeWaiting(
           tool_call: QUESTION_CALL,
         }],
       });
-    } else if ("session" in item && "request" in item) {
+    } else if ("request" in item) {
       const snapshot = snapshotOf(item.session);
       sessions.set(snapshot.session, {
         ...snapshot,
-        permission_requests: [...snapshot.permission_requests, item.request],
+        turn_requests: [...snapshot.turn_requests, item.request],
       });
-    } else if ("intent" in item) {
-      approvals.push(item as PendingApproval);
+    } else {
+      consents.push(item);
     }
   }
 
@@ -414,30 +299,29 @@ export function createFakeWaiting(
         return ok({ ...COMMON, snapshots: [...sessions.values()] });
       }
       if (
-        key === `read:${approvalsPending.resource}/${approvalsPending.method}`
+        key ===
+          `read:${activationConsents.resource}/${activationConsents.method}`
       ) {
-        return ok({ ...COMMON, requests: approvals });
+        return ok({ ...COMMON, consents });
       }
       if (
         key ===
-          `memory:${approvalsDecideTurn.resource}/${approvalsDecideTurn.method}`
+          `memory:${turnRequestDecide.resource}/${turnRequestDecide.method}`
       ) {
         const session = sessions.get(String(body.session));
-        const request = session?.permission_requests.find((r) =>
+        const request = session?.turn_requests.find((r) =>
           r.id === body.request
         );
         if (!session || !request) return fail("not_found");
         const choice = body.choice as { kind: string; reason?: string };
         sessions.set(session.session, {
           ...session,
-          permission_requests: session.permission_requests.filter((r) =>
-            r !== request
-          ),
+          turn_requests: session.turn_requests.filter((r) => r !== request),
         });
         const allowed = choice.kind !== "reject";
         emitEvent(base, {
           session: session.session,
-          type: "PermissionResolved",
+          type: "TurnRequestClosed",
           at: at(),
           payload: {
             request: request.id,
@@ -446,41 +330,29 @@ export function createFakeWaiting(
         });
         return ok({
           outcome: allowed
-            ? {
-              outcome: "allow",
-              scope: choice.kind === "allow" ? "once" : choice.kind,
-            }
+            ? { outcome: "allow", scope: choice.kind }
             : { outcome: "reject", reason: choice.reason ?? null },
         });
       }
       if (
-        key === `command:${approvalsDecide.resource}/${approvalsDecide.method}`
+        key ===
+          `command:${activationConsent.resource}/${activationConsent.method}`
       ) {
-        const request = approvals.find((r) => r.id === body.request);
-        if (!request) return fail("not_found");
-        const choice = body.choice as { kind: string; reason?: string };
-        approvals = approvals.filter((r) => r !== request);
-        const allowed = choice.kind === "allow";
+        const decided = body.input as { release: string; choice: string };
+        const consent = consents.find((c) => c.release === decided.release);
+        if (!consent) return fail("not_found");
+        consents = consents.filter((c) => c !== consent);
         emitEvent(base, {
-          seq: "100",
-          type: "ApprovalDecided",
-          subject: request.id,
-          actor: "user",
+          type: "ActivationConsentClosed",
+          subject: consent.release,
           at: at(),
           payload: {
-            kind: request.intent.kind,
-            decision: allowed ? "allow" : "reject",
-            applied: allowed ? { state: "applied" } : null,
+            app: consent.app,
+            release: consent.release,
+            outcome: decided.choice,
           },
         });
-        return ok({
-          request: {
-            ...request,
-            status: allowed ? "allow" : "reject",
-            reject_reason: choice.reason ?? null,
-            decided_at: at(),
-          },
-        });
+        return ok({ release: consent.release, outcome: decided.choice });
       }
       if (key === `memory:${askRead.resource}/${askRead.method}`) {
         return questionSession === null

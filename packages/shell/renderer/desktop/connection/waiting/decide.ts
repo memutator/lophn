@@ -1,11 +1,11 @@
-// 사람의 결정을 route로 보낸다. 항목을 목록에서 빼는 것은 이 호출이 아니라 PermissionResolved·QuestionResolved와
-// snapshot 읽기다. 대화 쪽 core source도 같은 호출을 쓴다.
+// 사람의 결정을 route로 보낸다. 항목을 목록에서 빼는 것은 이 호출이 아니라 TurnRequestClosed·
+// ActivationConsentClosed·QuestionResolved와 snapshot 읽기다. 대화 쪽 core source도 같은 호출을 쓴다.
 import {
-  approvalsDecide,
-  approvalsDecideTurn,
-  type PendingApproval,
-  type TurnChoice,
-} from "../../../../../protocol/approvals/mod.ts";
+  type TurnRequest,
+  type TurnRequestChoice,
+  turnRequestDecide,
+} from "../../../../../protocol/approvals/turn-request.ts";
+import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import {
   type AskAnswer,
   askAnswer,
@@ -16,7 +16,8 @@ import { commandCall } from "../../../command-call.ts";
 import type { CoreSource } from "../connection.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 
-export type WaitingChoice = TurnChoice["kind"];
+/** once·always·reject는 turn request의 선택지이고 allow는 activation 동의만 쓴다. */
+export type WaitingChoice = TurnRequestChoice["kind"] | "allow";
 
 /** 거절 이유는 한 줄 500자 안으로 맞춘다. 비면 이유가 없다. */
 function reasonOf(reason: string | undefined): string | undefined {
@@ -26,9 +27,9 @@ function reasonOf(reason: string | undefined): string | undefined {
 
 /** 사람이 고른 허락 범위나 거절을 route의 choice로 바꾼다. 대기 목록과 대화 화면의 결정이 같은 값을 보낸다. */
 export function turnChoiceOf(
-  choice: WaitingChoice,
+  choice: TurnRequestChoice["kind"],
   reason?: string,
-): TurnChoice {
+): TurnRequestChoice {
   if (choice !== "reject") return { kind: choice };
   const why = reasonOf(reason);
   return why === undefined
@@ -36,13 +37,17 @@ export function turnChoiceOf(
     : { kind: "reject", reason: why };
 }
 
-/** 결정 직후 남는 줄의 상태. 접수와 적용 성공을 구별한다. */
-export type SettledState =
-  | "accepted"
-  | "applied"
-  | "failed"
-  | "denied"
-  | "cancelled";
+/** 카드가 둘 단추. always는 더해질 규칙 줄(shell request만 가진다)이 있을 때만 있다. 대화 화면도 이것으로 고른다. */
+export function turnChoicesOf(
+  request: Pick<TurnRequest, "always_patterns">,
+): readonly TurnRequestChoice["kind"][] {
+  return request.always_patterns.length > 0
+    ? ["once", "always", "reject"]
+    : ["once", "reject"];
+}
+
+/** 결정 직후 남는 줄의 상태. */
+export type SettledState = "allowed" | "denied" | "cancelled";
 
 type DecideResult =
   | { readonly ok: true; readonly state: SettledState }
@@ -50,17 +55,9 @@ type DecideResult =
 
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
 
-function settledOfPending(request: PendingApproval): SettledState {
-  if (request.status === "reject") return "denied";
-  if (request.status === "cancelled") return "cancelled";
-  if (request.applied?.state === "applied") return "applied";
-  if (request.applied?.state === "failed") return "failed";
-  return "accepted";
-}
-
 /**
- * 권한 요청과 보류 request(activation, reaction)의 결정. turn 안 request는 memory route로,
- * 보류 request는 command로 보낸다. 선택지가 request의 것인지는 core가 가른다.
+ * 권한 요청(turn request)과 activation 동의의 결정. turn request는 memory route로, activation 동의는
+ * command로 보낸다.
  */
 export async function decideWaiting(
   core: CoreSource,
@@ -69,10 +66,11 @@ export async function decideWaiting(
   reason?: string,
 ): Promise<DecideResult> {
   if (entry.kind === "permission") {
+    if (choice === "allow") return UNAVAILABLE;
     const reply = await core.call({
       kind: "memory",
-      resource: approvalsDecideTurn.resource,
-      method: approvalsDecideTurn.method,
+      resource: turnRequestDecide.resource,
+      method: turnRequestDecide.method,
       body: {
         session: entry.request.session,
         request: entry.id,
@@ -83,38 +81,36 @@ export async function decideWaiting(
     if (!reply.ok) {
       return { ok: false, code: reply.error?.code ?? "unavailable" };
     }
-    const parsed = approvalsDecideTurn.output.safeParse(reply.value);
+    const parsed = turnRequestDecide.output.safeParse(reply.value);
     if (!parsed.success) return UNAVAILABLE;
     const outcome = parsed.data.outcome.outcome;
     return {
       ok: true,
       state: outcome === "allow"
-        ? "applied"
+        ? "allowed"
         : outcome === "reject"
         ? "denied"
         : "cancelled",
     };
   }
-  if (entry.kind === "activation" || entry.kind === "reaction") {
-    // command는 입력을 봉투에 담아 보낸다. 같은 request의 같은 결정은 같은 key라 core가 한 번만 접수한다.
-    const why = reasonOf(reason);
-    const decision = choice !== "reject"
-      ? { kind: "allow" as const }
-      : why === undefined
-      ? { kind: "reject" as const }
-      : { kind: "reject" as const, reason: why };
-    const reply = await core.call(commandCall(approvalsDecide, {
-      input: { request: entry.id, choice: decision },
-      compare: {},
-      key: `approvals-decide-${entry.id}-${decision.kind}`,
+  if (entry.kind === "activation") {
+    if (choice !== "allow" && choice !== "reject") return UNAVAILABLE;
+    // command는 입력을 봉투에 담아 보낸다. 같은 동의의 같은 결정은 같은 key라 core가 한 번만 접수한다.
+    const reply = await core.call(commandCall(activationConsent, {
+      input: { release: entry.request.release, choice },
+      compare: { requested_at: entry.request.requested_at },
+      key: `activation-consent-${entry.request.release}-${choice}`,
     })).catch(() => null);
     if (!reply) return UNAVAILABLE;
     if (!reply.ok) {
       return { ok: false, code: reply.error?.code ?? "unavailable" };
     }
-    const parsed = approvalsDecide.output.safeParse(reply.value);
+    const parsed = activationConsent.output.safeParse(reply.value);
     if (!parsed.success) return UNAVAILABLE;
-    return { ok: true, state: settledOfPending(parsed.data.request) };
+    return {
+      ok: true,
+      state: parsed.data.outcome === "allow" ? "allowed" : "denied",
+    };
   }
   // coding agent의 물음과 질문은 이 길로 결정하지 않는다.
   return UNAVAILABLE;
@@ -154,5 +150,5 @@ export async function answerQuestion(
   }).catch(() => null);
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
-  return { ok: true, state: "applied" };
+  return { ok: true, state: "allowed" };
 }

@@ -11,16 +11,16 @@ import {
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
 import {
-  approvalsPending,
-  type PendingApproval,
-} from "../../../../../protocol/approvals/mod.ts";
+  type ActivationConsent,
+  activationConsents,
+} from "../../../../../protocol/apps/activation/consent.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
 import { matchesCondition } from "./client.ts";
 
 /** 다시 붙을 때 read가 돌려줄 지금 상태. */
 interface FakeSnapshot {
   readonly snapshots: readonly SessionSnapshot[];
-  readonly approvals: readonly PendingApproval[];
+  readonly consents: readonly ActivationConsent[];
 }
 
 export interface FakeSource extends CoreSource {
@@ -35,7 +35,7 @@ export interface FakeSource extends CoreSource {
   watched(): readonly EventCondition[];
 }
 
-const EMPTY: FakeSnapshot = { snapshots: [], approvals: [] };
+const EMPTY: FakeSnapshot = { snapshots: [], consents: [] };
 const COMMON = { as_of_seq: "0", next_cursor: null };
 
 export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
@@ -95,12 +95,12 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
         });
       }
       if (
-        input.resource === approvalsPending.resource &&
-        input.method === approvalsPending.method
+        input.resource === activationConsents.resource &&
+        input.method === activationConsents.method
       ) {
         return Promise.resolve({
           ok: true,
-          value: { ...COMMON, requests: snapshot.approvals },
+          value: { ...COMMON, consents: snapshot.consents },
         });
       }
       return Promise.resolve(unavailable);

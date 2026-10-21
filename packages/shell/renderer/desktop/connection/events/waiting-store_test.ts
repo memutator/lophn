@@ -1,8 +1,6 @@
 import { assertEquals } from "@std/assert";
-import type {
-  PendingApproval,
-  TurnPermissionRequest,
-} from "../../../../../protocol/approvals/mod.ts";
+import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
+import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import { busEventSchema } from "../../../../../protocol/events/mod.ts";
 import { createEventClient } from "./client.ts";
 import { createFakeSource } from "./fake-source.ts";
@@ -18,66 +16,45 @@ const AT = "2026-10-16T09:00:00.000Z";
 const id = (prefix: string, n: number) =>
   `${prefix}_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
 
-function permission(n: number): TurnPermissionRequest {
+function permission(n: number): TurnRequest {
   return {
     id: id("apr", n),
     session: SES,
     turn: TURN,
     tool_call: CALL,
-    intent: {
-      kind: "app_tool",
-      actor: { kind: "agent", agent: { role: "lophn" }, session: SES },
-      target: { kind: "app_tool", app: APP, tool: "orders.list" },
-      effect: "read",
-      input: {},
-      origin: { kind: "turn", session: SES, turn: TURN, tool_call: CALL },
-    },
-    choices: ["once", "reject"],
-    fingerprint: "0".repeat(64),
+    subject: { kind: "shell", command: "git push origin main" },
+    always_patterns: ["git push *"],
     created_at: AT,
   };
 }
 
-function activation(n: number): PendingApproval {
+function consent(): ActivationConsent {
   return {
-    id: id("apr", n),
-    intent: {
-      kind: "activation",
-      actor: { kind: "program", seq: "1" },
-      target: { kind: "activation", app: APP, release: REL },
-      effect: "read",
-      input: {
-        previous_release: null,
-        first: true,
-        added_resources: [],
-        added_tools: [],
-        loss_steps: [],
-      },
-      origin: { kind: "activation", app: APP, release: REL },
+    app: APP,
+    release: REL,
+    comparison: {
+      previous_release: null,
+      first: true,
+      added_resources: [],
+      added_tools: [],
+      loss_steps: [],
     },
-    choices: ["allow", "reject"],
-    status: "pending",
-    reject_reason: null,
-    applied: null,
-    created_seq: "1",
-    decided_seq: null,
-    created_at: AT,
-    decided_at: null,
+    requested_at: AT,
   };
 }
 
 // schema를 통과하는 event만 흘린다. 틀린 fixture는 여기서 던진다.
-const permissionRequested = (n: number) =>
+const turnRequestOpened = (n: number) =>
   busEventSchema.parse({
     session: SES,
-    type: "PermissionRequested",
+    type: "TurnRequestOpened",
     at: AT,
     payload: { request: permission(n) },
   });
-const permissionResolved = (n: number) =>
+const turnRequestClosed = (n: number) =>
   busEventSchema.parse({
     session: SES,
-    type: "PermissionResolved",
+    type: "TurnRequestClosed",
     at: AT,
     payload: { request: id("apr", n), outcome: "allow" },
   });
@@ -88,12 +65,12 @@ const questionAsked = (n: number) =>
     at: AT,
     payload: { group: id("qgr", n), turn: TURN, tool_call: CALL },
   });
-const approvalRequested = (n: number) =>
+const consentRequested = () =>
   busEventSchema.parse({
-    type: "ApprovalRequested",
-    subject: id("apr", n),
+    type: "ActivationConsentRequested",
+    subject: REL,
     at: AT,
-    payload: { request: activation(n) },
+    payload: { app: APP, release: REL },
   });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -107,11 +84,11 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
       agent: { role: "lophn" },
       place: null,
       state: "waiting",
-      permission_requests: [permission(1)],
-      turn_requests: [],
+      permission_requests: [],
+      turn_requests: [permission(1)],
       questions: [],
     }],
-    approvals: [activation(2)],
+    consents: [consent()],
   });
   const store = createWaitingStore(
     createEventClient(source),
@@ -121,16 +98,17 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   );
   const stop = store.start();
   await settle();
-  assertEquals(ids(store), [id("apr", 1), id("apr", 2)]);
+  assertEquals(ids(store), [id("apr", 1), REL]);
 
   // 같은 event를 두 번 받아도 항목은 하나다.
-  source.emitEvent(permissionRequested(3));
-  source.emitEvent(permissionRequested(3));
-  source.emitEvent(approvalRequested(2));
+  source.emitEvent(turnRequestOpened(3));
+  source.emitEvent(turnRequestOpened(3));
+  source.emitEvent(consentRequested());
   source.emitEvent(questionAsked(4));
+  await settle();
   assertEquals(store.get().count, 4);
 
-  // 끊긴 사이 1·2번은 해결됐다. 다시 붙을 때 읽은 snapshot이 목록을 통째로 맞춘다.
+  // 끊긴 사이 1번과 동의는 해결됐다. 다시 붙을 때 읽은 snapshot이 목록을 통째로 맞춘다.
   source.disconnect();
   source.reconnect({
     snapshots: [{
@@ -138,15 +116,15 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
       agent: { role: "lophn" },
       place: null,
       state: "waiting",
-      permission_requests: [permission(3)],
-      turn_requests: [],
+      permission_requests: [],
+      turn_requests: [permission(3)],
       questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],
     }],
-    approvals: [],
+    consents: [],
   });
   // snapshot을 읽는 동안 온 event는 맞춘 뒤에 적용된다.
-  source.emitEvent(permissionRequested(5));
-  source.emitEvent(permissionResolved(3));
+  source.emitEvent(turnRequestOpened(5));
+  source.emitEvent(turnRequestClosed(3));
   await settle();
   assertEquals(ids(store), [id("qgr", 4), id("apr", 5)]);
   assertEquals(
@@ -155,7 +133,7 @@ Deno.test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요
   );
 
   // snapshot으로 들어온 것은 toast를 만들지 않고 live event는 만든다.
-  assertEquals(reactionsOf(permissionRequested(3), "snapshot"), []);
-  assertEquals(reactionsOf(permissionRequested(3), "live").length, 1);
+  assertEquals(reactionsOf(turnRequestOpened(3), "snapshot"), []);
+  assertEquals(reactionsOf(turnRequestOpened(3), "live").length, 1);
   stop();
 });

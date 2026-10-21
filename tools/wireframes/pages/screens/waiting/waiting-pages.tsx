@@ -8,13 +8,11 @@ import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/c
 import {
   ACTIVATION,
   allItems,
-  APP_TOOL_CALL,
-  CONFIG_EDIT,
   createFakeWaiting,
   EXTERNAL_CALL,
   FIRST_ACTIVATION,
-  REACTION,
   SETTLED,
+  SHELL_COMMAND,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import {
   useWaitingPanel,
@@ -40,19 +38,19 @@ const sid = (prefix: string, n: number) =>
 const AT = "2026-10-16T09:00:00.000Z";
 
 // 반응 층이 읽는 것과 같은 event를 fake로 만들어 reactionsOf에 넣는다. 정적 화면이라 overlay 창은 쓰지 않는다.
-const permission = APP_TOOL_CALL();
+const permission = SHELL_COMMAND();
 const FAKE_EVENTS = [
   {
     session: permission.session.id,
-    type: "PermissionRequested",
+    type: "TurnRequestOpened",
     at: AT,
     payload: { request: permission.request },
   },
   {
-    type: "ApprovalRequested",
-    subject: ACTIVATION().id,
+    type: "ActivationConsentRequested",
+    subject: ACTIVATION().release,
     at: AT,
-    payload: { request: ACTIVATION() },
+    payload: { app: ACTIVATION().app, release: ACTIVATION().release },
   },
   {
     session: sid("ses", 4),
@@ -142,17 +140,17 @@ function Over(
   );
 }
 
-const idOf = (item: { request: { id: string } } | { id: string }) =>
-  "request" in item ? item.request.id : item.id;
+const idOf = (item: { request: { id: string } } | { release: string }) =>
+  "request" in item ? item.request.id : item.release;
 
-/** 대기 목록: 모든 session의 대기 요청이 한 목록에 종류별로 나뉜다. coding agent의 물음은 lophn에서 답하지 않고 터미널 탭으로 보낸다. */
+/** 대기 목록: 모든 session의 대기 요청이 한 목록에 종류별로 나뉜다. 권한 요청(shell 명령과 coding agent), 질문, activation 동의 세 묶음이다. coding agent의 물음은 lophn에서 답하지 않고 터미널 탭으로 보낸다. */
 export const WaitingList = () => (
   <Over items={allItems()} initial={{ open: true }} />
 );
 
-/** 권한 요청 셋을 세부까지 펼친 상태: 대상, 정규화한 입력, 효과가 보인다. tool과 MCP tool은 선택지가 넷이고 설정 고치기는 둘이다. */
+/** 권한 요청 둘: shell 명령은 접지 않고 code 줄로 보이며 Deny, Always allow(더해질 규칙 줄이 있을 때만), Allow once이고, MCP tool은 세부를 펼치면 대상과 효과가 보이며 Deny, Allow once다. 지금은 할당된 tool의 바깥 효과를 묻지 않아서 tool 물음은 실제로는 나오지 않고 카드 그림만 둔다. */
 export const WaitingPermission = () => {
-  const items = [APP_TOOL_CALL(), CONFIG_EDIT(), EXTERNAL_CALL()];
+  const items = [SHELL_COMMAND(), EXTERNAL_CALL()];
   return (
     <Over
       items={items}
@@ -163,19 +161,22 @@ export const WaitingPermission = () => {
 
 /** 거절 이유: Deny를 누르면 이유 칸이 열린다. 비워도 되고, 적으면 요청한 agent의 tool 결과로 간다. */
 export const WaitingDenyReason = () => {
-  const items = [APP_TOOL_CALL(), EXTERNAL_CALL()];
+  const items = [SHELL_COMMAND(), EXTERNAL_CALL()];
   return (
     <Over
       items={items}
       initial={{
         open: true,
-        denying: { id: idOf(items[0]), reason: "Ask Budget's owner first." },
+        denying: {
+          id: idOf(items[0]),
+          reason: "Ask the release owner first.",
+        },
       }}
     />
   );
 };
 
-/** activation 허락 카드를 펼친 상태: 이전 release보다 늘어난 선언과 손실 단계만 보인다. */
+/** activation 동의 카드를 펼친 상태: 이전 release보다 늘어난 선언과 손실 단계만 보인다. 요청한 agent가 없어 거절 이유 칸이 없다. */
 export const WaitingActivation = () => {
   const item = ACTIVATION();
   return (
@@ -191,20 +192,12 @@ export const WaitingFirstActivation = () => {
   );
 };
 
-/** 물음인 reaction을 펼친 상태: 어떤 domain event로 어떤 agent의 session을 열지 보이고 허락·거절한다. */
-export const WaitingReaction = () => {
-  const item = REACTION();
-  return (
-    <Over items={[item]} initial={{ open: true, expanded: [idOf(item)] }} />
-  );
-};
-
-/** 결정한 뒤 잠깐 남는 줄: 접수와 적용 성공을 구별하고, 거절과 cancelled를 구별한다. */
+/** 결정한 뒤 잠깐 남는 줄: 허락, 거절, cancelled를 구별한다. */
 export const WaitingSettled = () => (
   <Over items={["question"]} initial={{ open: true, settled: SETTLED }} />
 );
 
-/** toast 묶음: 권한 요청, 허락 요청, 질문, 앱 재시작 멈춤. 창 위 overlay라 layout을 차지하지 않는다. */
+/** toast 묶음: 권한 요청, activation 동의, 질문, 앱 재시작 멈춤, kind 위반. 창 위 overlay라 layout을 차지하지 않는다. */
 export const WaitingToasts = () => (
   <Over items={allItems()} initial={{ open: false }} toasts />
 );

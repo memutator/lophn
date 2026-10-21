@@ -35,8 +35,8 @@ const SESSIONS_CONDITION: EventCondition = {
     "SessionEnded",
     "TurnStarted",
     "TurnEnded",
-    "PermissionRequested",
-    "PermissionResolved",
+    "TurnRequestOpened",
+    "TurnRequestClosed",
     "QuestionAsked",
     "QuestionResolved",
   ],
@@ -127,10 +127,10 @@ export function createSessionsStore(client: EventClient): SessionsStore {
         record.base = "idle";
         break;
       }
-      case "PermissionRequested":
+      case "TurnRequestOpened":
         recordOf(event.session).pending.add(event.payload.request.id);
         break;
-      case "PermissionResolved":
+      case "TurnRequestClosed":
         recordOf(event.session).pending.delete(event.payload.request);
         break;
       case "QuestionAsked":
@@ -157,7 +157,7 @@ export function createSessionsStore(client: EventClient): SessionsStore {
         turnActive: snapshot.state === "running" ||
           snapshot.state === "waiting",
         pending: new Set([
-          ...snapshot.permission_requests.map((request) => request.id),
+          ...snapshot.turn_requests.map((request) => request.id),
           ...snapshot.questions.map((question) => question.group),
         ]),
         ended: null,

@@ -17,7 +17,6 @@ type Loose = {
   reads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   apiReads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   files?: readonly { resource?: unknown; method?: unknown }[];
-  workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
   uploadRoutes?: readonly { resource?: unknown; method?: unknown }[];
   memoryRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
@@ -164,11 +163,6 @@ export function assemble(
       }
       for (const file of registration.files ?? []) {
         const route = routeOf(routes, file as Route);
-        if (!route.ok) return route;
-        assembled.routes.push(route.value);
-      }
-      for (const worker of registration.workerRoutes ?? []) {
-        const route = routeOf(routes, worker as Route);
         if (!route.ok) return route;
         assembled.routes.push(route.value);
       }

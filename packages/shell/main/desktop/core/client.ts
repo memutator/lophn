@@ -106,16 +106,6 @@ export interface CoreSession {
     input: unknown,
     bytes: Uint8Array,
   ): Promise<CallResult>;
-  /**
-   * worker route에 request byte channel을 붙여 보낸다(제보의 선택한 PNG).
-   * 입력은 upload와 같은 header이고 core는 바이트를 해석하지 않고 worker로 넘긴다.
-   */
-  workerBytes(
-    resource: string,
-    method: string,
-    input: unknown,
-    bytes: Uint8Array,
-  ): Promise<CallResult>;
 }
 
 interface SessionInput {
@@ -259,9 +249,6 @@ export function openSession(input: SessionInput): CoreSession {
     },
     upload(resource, method, body, bytes) {
       return sendBytes(routeOf("upload", resource, method), body, bytes);
-    },
-    workerBytes(resource, method, body, bytes) {
-      return sendBytes(routeOf("worker", resource, method), body, bytes);
     },
   };
 

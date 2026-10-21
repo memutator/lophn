@@ -10,7 +10,6 @@ import type {
   FileRoute,
   MemoryRoute,
   UploadRoute,
-  WorkerRoute,
 } from "../../../protocol/base/mod.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 
@@ -23,10 +22,9 @@ type TeamRegistration = {
   // ledger snapshot 없이 core가 바로 여는 read. dispatcher가 기다리므로 async여도 된다.
   // 경로는 같은 registry에서 모으므로 reads·files와 겹치면 거절한다.
   apiReads?: readonly ApiReadDefinition[];
-  // HTTP route registry가 command·read와 같은 출처에서 모으는 file·worker route.
+  // HTTP route registry가 command·read와 같은 출처에서 모으는 file route.
   // command·read route는 definitions에서 온다. 여기 적힌 것은 그것과 겹치면 거절한다.
   files?: readonly FileRoute[];
-  workerRoutes?: readonly WorkerRoute[];
   // 바이트 body route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes?: readonly UploadRoute[];
   // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.

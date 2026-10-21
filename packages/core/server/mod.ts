@@ -6,8 +6,6 @@ export {
   type MemoryHandler,
   type ReadHandler,
   type UploadHandler,
-  type WorkerRouteTarget,
-  type WorkerTargets,
 } from "./dispatch.ts";
 export {
   BODY_TIMEOUT_MS,
@@ -34,7 +32,6 @@ export {
   isReadRoute,
   isSubscribePath,
   isUploadRoute,
-  isWorkerRoute,
   type RouteEntry,
   RouteRegistry,
 } from "./routes.ts";

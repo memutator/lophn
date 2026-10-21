@@ -57,7 +57,6 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import { packagesGuideBody } from "../../protocol/apps/mod.ts";
-import type { WorkerRoute } from "../../protocol/base/mod.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -75,8 +74,6 @@ type LedgerRegistration = {
   files?: readonly unknown[];
   // 이 팀이 blob 준비 통로에서 쓰는 purpose와 상한.
   blobPurposes?: readonly unknown[];
-  // worker route. serving은 core 조립이 연결하고(테스트 주입 포함), 등록만 여기서 한다.
-  workerRoutes?: readonly WorkerRoute[];
   ports?: readonly TxPortRegistration[];
 };
 

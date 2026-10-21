@@ -53,4 +53,4 @@ export const diagnosticsWriteRequestSchema = workerRequestSchema(
 
 // request_id가 요청과 같은지는 runtime이 검사한다. 공통 worker failure는 그대로 쓴다.
 
-// descriptor의 shape만 둔다. defineWorker도 HTTP route 등록도 하지 않는다.
+// descriptor의 shape만 둔다. HTTP route 등록은 하지 않는다.

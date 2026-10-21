@@ -6,7 +6,6 @@ import {
   type Route,
   routePath,
   type UploadRoute,
-  type WorkerRoute,
 } from "../../protocol/base/mod.ts";
 import { GATEWAY_PATH } from "../../protocol/events/mod.ts";
 import { ROUTES } from "../../protocol/registry.ts";
@@ -55,10 +54,6 @@ export function isFileRoute(route: Route): route is FileRoute {
 
 export function isMemoryRoute(route: Route): route is MemoryRoute {
   return route.kind === "memory";
-}
-
-export function isWorkerRoute(route: Route): route is WorkerRoute {
-  return route.kind === "worker";
 }
 
 // Gateway WS는 RPC 세 구간이 아니다. 정확한 경로 하나만 받는다.

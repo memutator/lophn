@@ -161,14 +161,6 @@ function teamRegistration(team: TeamModule): Loose | undefined {
   const fromLedger = team.createLedgerRegistration
     ? team.createLedgerRegistration({} as never)
     : undefined;
-  const problems = team.problemsTestDefinitions as Loose | undefined;
-  if (problems) {
-    return {
-      commands: problems.commands ?? [],
-      ports: toArray(problems.ports) as TxPortRegistration[],
-      blobFields: problems.blobFields ?? [],
-    };
-  }
   const sources = [
     direct,
     fromLedger,
@@ -195,7 +187,7 @@ function toArray(ports: unknown): unknown[] {
 
 // 팀은 port를 배열로도, 이름 있는 객체로도 내보낸다. 있는 값만 모은다.
 // 등록 모양은 {key, create}다. read snapshot 전용 port 구현(fromTx·fromSnapshot,
-// create가 없는 problems·coding-agent 모양)은 writer에서 판정에 쓰지 않으므로 거른다.
+// create가 없는 coding-agent 모양)은 writer에서 판정에 쓰지 않으므로 거른다.
 // 없는 create를 등록하면 tx-ports가 registry 전체를 닫으므로 다른 팀의 command까지 죽는다.
 function portList(ports: unknown): TxPortRegistration[] {
   if (!ports) return [];

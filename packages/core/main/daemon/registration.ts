@@ -108,14 +108,12 @@ export function assemble(
     const fromLedger = team.createLedgerRegistration
       ? asLoose(team.createLedgerRegistration(environment as never))
       : undefined;
-    const fromProblems = asLoose(team.problemsTestDefinitions);
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
     // schema·route가 core에 안 들어간다.
     const registrations = [
       asLoose(direct),
       fromLedger,
-      fromProblems,
       fromLophnAgent,
     ].filter((item): item is Loose => item !== undefined);
     for (const registration of registrations) {

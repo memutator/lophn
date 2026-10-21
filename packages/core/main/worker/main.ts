@@ -4,8 +4,6 @@ import {
   runKindsWorker,
 } from "../../projects/kinds/worker/run.ts";
 import { runReleaseWorker } from "../../apps/releases/worker/run.ts";
-import { runnerReady, TEST_RUNNER_KIND } from "./test-runner.ts";
-import { runRunnerService } from "../../problems/tests/work/runner-service.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
 
 const WORKER_ENTRIES: Readonly<
@@ -14,12 +12,6 @@ const WORKER_ENTRIES: Readonly<
   "platform/io": runPlatformIo,
   [KINDS_WORKER_KIND]: runKindsWorker,
   "apps/release": runReleaseWorker,
-  [TEST_RUNNER_KIND]: async () => {
-    const ready = runnerReady(TEST_RUNNER_KIND);
-    if (!ready.ok) throw new Error(ready.error.message);
-    // RequestTest runner service(problems/tests)가 test-runner kind process의 session 하나로 돈다(stdin 하나).
-    await runRunnerService();
-  },
   "apps/data": runDataWorker,
 };
 

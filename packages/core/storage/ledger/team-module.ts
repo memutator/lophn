@@ -43,6 +43,5 @@ type TeamRegistration = {
 export type TeamModule = {
   createCoreRegistration?: () => TeamRegistration;
   createLedgerRegistration?: (environment: never) => unknown;
-  problemsTestDefinitions?: unknown;
   lophnAgentDefinitions?: unknown;
 };

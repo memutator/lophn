@@ -134,7 +134,7 @@ export async function run(): Promise<void> {
 
 if (import.meta.main) await run();
 
-// supervisor와 test runner가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
+// supervisor와 preview가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
 // 줄에서, blueprint는 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
 // 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
 async function boot(): Promise<void> {

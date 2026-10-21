@@ -1,6 +1,5 @@
-// preview·test 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱 호출)는
-// 모두 대역이다. 예외 경로는 없다(preview와 test의 오류는 앱 log에 쓰지 않는다).
-// problems test runner의 mode=test 자식도 같은 묶음을 쓴다(core/problems/tests/work/app-driver.ts).
+// preview 자식 하나의 broker 서비스 묶음. 외부에 닿는 서비스(net·secret·다른 앱 호출)는
+// 모두 대역이다. 예외 경로는 없다(preview의 오류는 앱 log에 쓰지 않는다).
 import type { BrokerServices } from "../../permissions/mod.ts";
 import type { PreviewScope } from "../model.ts";
 import {

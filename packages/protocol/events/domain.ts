@@ -3,7 +3,6 @@ import { actorSchema } from "../base/actor.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { defineEvent, type EventDefinition } from "../base/event.ts";
-import { verificationRecorded } from "../problems/tests.ts";
 
 // domain event는 Ledger에 남고 Reactor가 반응한다. 이 목록 밖의 변경은 domain event를 만들지 않는다.
 // 같은 tx 규칙: 아래 event는 그 도메인 상태를 바꾸는 command가 같은 transaction에서 쓴다.
@@ -16,10 +15,7 @@ export const codingSessionEnded = defineEvent("CodingSessionEnded", {
   payload: z.strictObject({ app: idSchema("app") }),
 });
 
-export const DOMAIN_EVENTS = [
-  codingSessionEnded,
-  verificationRecorded,
-] as const;
+export const DOMAIN_EVENTS = [codingSessionEnded] as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number]["type"];
 
@@ -41,6 +37,5 @@ function domainEventEnvelopeSchema<
 
 export const domainEventSchema = z.discriminatedUnion("type", [
   domainEventEnvelopeSchema(codingSessionEnded),
-  domainEventEnvelopeSchema(verificationRecorded),
 ]);
 export type DomainEvent = z.infer<typeof domainEventSchema>;

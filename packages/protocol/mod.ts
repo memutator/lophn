@@ -15,7 +15,6 @@ import { ROUTES as documentsRoutes } from "./projects/mod.ts";
 import { ROUTES as domainsRoutes } from "./domains/mod.ts";
 import { ROUTES as platformRoutes } from "./registry.ts";
 import { ROUTES as shellRoutes } from "./shell/mod.ts";
-import { ROUTES as problemsRoutes } from "./problems/mod.ts";
 
 export const ALL_ROUTES = [
   ...platformRoutes,
@@ -24,6 +23,5 @@ export const ALL_ROUTES = [
   ...domainsRoutes,
   ...codingAgentRoutes,
   ...appsRoutes,
-  ...problemsRoutes,
   ...lophnAgentRoutes,
 ];

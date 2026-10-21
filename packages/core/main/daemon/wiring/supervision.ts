@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
-import { TEST_RUNNER_KIND } from "../../../problems/tests/runner.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import { denoDir, repoRoot } from "../paths.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
@@ -23,8 +22,6 @@ export const supervisionWiring: WiringFactory = () => ({
           ...(Deno.env.get("DENO_DIR")
             ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
             : {}),
-          // test runner는 자식에 메모리 경계(systemd-run)를 걸 때 같은 session bus를 찾는다.
-          ...(kind === TEST_RUNNER_KIND ? sessionBusEnv() : {}),
         }),
       }),
     );
@@ -88,16 +85,6 @@ function optionalEnv(name: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-// test runner가 쓰는 session bus 위치. secret 값이 아니다.
-function sessionBusEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const name of ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]) {
-    const value = Deno.env.get(name);
-    if (value !== undefined) env[name] = value;
-  }
-  return env;
 }
 
 // platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크와 실행은 열지 않는다.

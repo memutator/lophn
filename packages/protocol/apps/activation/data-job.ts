@@ -6,7 +6,7 @@ import {
   activationDataResultSchema,
 } from "./activation.ts";
 
-// data worker job 입력. migration·backup·restore 프로세스와 problems test runner가
+// data worker job 입력. migration·backup·restore 프로세스가
 // 같은 진입점으로 읽는다. inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 한다.
 const ACTIVATION_DATA_JOB_KINDS = [
   "inspect",

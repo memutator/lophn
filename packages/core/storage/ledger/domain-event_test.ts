@@ -64,7 +64,7 @@ Deno.test("domain event가 상태와 같은 tx에 쓰인다", async () => {
     const ledger = opened.value;
     const write = (fail: boolean) =>
       ledger.transaction({ actor: "user" }, (tx) => {
-        tx.sql.run("insert into states (id) values (?)", [tx.newId("tkt")]);
+        tx.sql.run("insert into states (id) values (?)", [tx.newId("prj")]);
         tx.emit(codingSessionEnded, tx.newId("ses"), { app: tx.newId("app") });
         return fail ? err({ code: "conflict", message: "no" }) : ok(undefined);
       });

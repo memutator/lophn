@@ -27,6 +27,7 @@ import {
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
 
@@ -238,17 +239,9 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
 
     // rewind-needs-idle: 허락을 기다리며 도는 turn 위에서는 rewind를 시작하지 않는다.
     fake.reset();
+    const ask = await shellAsk(folder);
     fake.script([
-      {
-        reply: {
-          kind: "tool",
-          calls: [{
-            id: "t1",
-            name: "file_write",
-            arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
-          }],
-        },
-      },
+      { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
     const session = await openSession(core, {
@@ -269,7 +262,7 @@ Deno.test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사�
       apps: [],
     }, { session_state: "open", active_turn: null, applying_rewind: null });
     assertEquals(busy.ok ? "ok" : busy.error.code, "conflict");
-    await decide(core, session, request, "allow");
+    await decide(core, session, request, "once");
     const turn = await waitTurnEnd(core, session);
     assertEquals(turn.outcome?.kind, "completed");
     assertEquals((await core.call(rewindList, { session })).reverts, []);

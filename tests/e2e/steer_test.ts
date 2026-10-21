@@ -19,6 +19,7 @@ import {
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -34,19 +35,11 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
     await connectFakeProvider(core, fake);
     const folder = `${run.work}/proj`;
     await Deno.mkdir(folder);
+    const ask = await shellAsk(folder);
     const { project } = await openProject(core, folder);
 
     fake.script([
-      {
-        reply: {
-          kind: "tool",
-          calls: [{
-            id: "t1",
-            name: "file_write",
-            arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
-          }],
-        },
-      },
+      { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
     const session = await openSession(core, {
@@ -66,7 +59,7 @@ Deno.test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요�
       delivery: "steer",
       refs: [],
     })).message;
-    await decide(core, session, request, "allow");
+    await decide(core, session, request, "once");
     const turn = await waitTurnEnd(core, session);
 
     // 단정 1: 둘째 요청의 마지막 user message에 tool_result와 steer의 text가 같이 있다.

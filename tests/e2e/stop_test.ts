@@ -3,7 +3,7 @@
 //   닫히고, archive·delete는 한 tx이며 도는 turn은 interrupted로 닫힌다), `approvals`(낡은 허락은 쓰이지 않는다).
 // - 현실적 회귀: core가 turn을 닫았는데 child의 model 요청이 계속 열려 token을 쓰는 것, 멈춘 뒤에도 tool이 시작되는 것,
 //   멈춤 신호가 child에 안 가 turn이 running으로 남는 것, 멈췄는데 shell 명령이 계속 돌거나 늦게 끝나 반쯤 쓴 file이 남는 것,
-//   멈춘 뒤 도착한 `allow`가 쓰기를 일으키는 것, session을 archive하거나 지웠는데 model 요청이 token을 계속 쓰는 것.
+//   멈춘 뒤 도착한 `once`가 명령을 돌리는 것, session을 archive하거나 지웠는데 model 요청이 token을 계속 쓰는 것.
 // - 왜 지금 test로 못 잡나: harness loop는 `stop()`을 부르는 쪽(in-process)만 본다. core의 `turns/stop` → 감독 pipe →
 //   child의 loop → HTTP 연결 끊김과 shell process, 그리고 archive·delete의 연쇄는 process를 건너야 이어진다.
 import { assert, assertEquals } from "@std/assert";
@@ -14,7 +14,7 @@ import {
   toolCallList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
-import { approvalsDecideTurn } from "../../packages/protocol/approvals/mod.ts";
+import { turnRequestDecide } from "../../packages/protocol/approvals/mod.ts";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { runtimePids } from "../support/core/process.ts";
@@ -29,6 +29,7 @@ import {
   waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -216,18 +217,10 @@ Deno.test("shell이 도는 중 멈추면 shell process group이 죽는다", asyn
   });
 });
 
-Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 쓰기를 일으키지 못한다", async () => {
+Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 일으키지 못한다", async () => {
   await inProject(async ({ core, fake, proj, project }) => {
-    fake.script([{
-      reply: {
-        kind: "tool",
-        calls: [{
-          id: "w1",
-          name: "file_write",
-          arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
-        }],
-      },
-    }]);
+    const ask = await shellAsk(proj);
+    fake.script([{ reply: ask.reply("w1") }]);
     const session = await openSession(core, {
       role: "project_manager",
       project,
@@ -236,18 +229,18 @@ Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 쓰기를 �
     const { request } = await waitPermission(core, session);
     await stopTurn(core, (await runningTurn(core, session)).id);
     const ended = await waitTurnEnd(core, session);
-    const late = await core.tryCall(approvalsDecideTurn, {
+    const late = await core.tryCall(turnRequestDecide, {
       session,
       request,
-      choice: { kind: "allow" },
+      choice: { kind: "once" },
     });
 
     // route: 늦은 허락은 거절되고 대기 중이던 요청은 비었다.
-    assert(!late.ok, "멈춘 뒤의 allow가 받아들여졌다");
+    assert(!late.ok, "멈춘 뒤의 once가 받아들여졌다");
     const { snapshots } = await core.call(sessionSnapshotsList, {
       sessions: [session],
     });
-    assertEquals(snapshots[0].permission_requests, []);
+    assertEquals(snapshots[0].turn_requests, []);
     // ledger
     assertEquals(ended.outcome, {
       kind: "interrupted",
@@ -259,10 +252,7 @@ Deno.test("허락을 기다리는 중 멈추면 늦게 온 허락이 쓰기를 �
       "허락 없이 멈춘 call이 success로 기록됐다",
     );
     // disk
-    assertEquals(
-      await Deno.stat(`${proj}/LOPHN.md`).then(() => true, () => false),
-      false,
-    );
+    assertEquals(await ask.exists(), true);
     // fake가 받은 요청
     assertEquals(fake.journal().length, 1);
   });

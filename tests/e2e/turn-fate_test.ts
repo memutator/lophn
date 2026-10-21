@@ -21,6 +21,7 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { runtimePids } from "../support/core/process.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
   startFakeServer,
@@ -91,17 +92,9 @@ async function folderAddedMidTurn(
   second: string,
 ) {
   fake.reset();
+  const ask = await shellAsk(folder);
   fake.script([
-    {
-      reply: {
-        kind: "tool",
-        calls: [{
-          id: "t1",
-          name: "file_write",
-          arguments: JSON.stringify({ path: "LOPHN.md", content: "rules" }),
-        }],
-      },
-    },
+    { reply: ask.reply("t1") },
     { reply: { kind: "text", text: "done" } },
     { reply: { kind: "text", text: "again" } },
   ]);
@@ -117,7 +110,7 @@ async function folderAddedMidTurn(
     purpose: "",
     folders: [{ path: second, description: "", subfolders: [] }],
   });
-  await decide(core, session, request, "allow");
+  await decide(core, session, request, "once");
   await waitTurnEnd(core, session, 0);
   await settle(core, old);
   await say(core, session, "again");
@@ -130,7 +123,7 @@ async function folderAddedMidTurn(
     "completed",
   ]);
   // disk
-  assertEquals(await Deno.readTextFile(`${folder}/LOPHN.md`), "rules");
+  assertEquals(await ask.exists(), false);
   // process
   const pids = await runtimePids(core.run.home);
   assertEquals(pids.length, 1);

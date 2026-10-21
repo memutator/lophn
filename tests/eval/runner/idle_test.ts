@@ -51,8 +51,8 @@ const asking: Snapshot = {
   waiting: [{ session: "ses_a", questions: 1, permissions: 0 }],
 };
 
-Deno.test("waitUntilIdle: with a human role, waiting and pending approvals block idle until it acts, then graceMs applies", async () => {
-  // 처음 세 번은 보류 허락(session 상태에 안 드러난다), 그다음 ask 대기, 이후 조용하다.
+Deno.test("waitUntilIdle: with a human role, waiting and pending consents block idle until it acts, then quietMs applies", async () => {
+  // 처음 세 번은 동의 대기(session 상태에 안 드러난다), 그다음 ask 대기, 이후 조용하다.
   const reads = (call: number): Snapshot =>
     call < 3 ? { ...quiet, pendingApprovals: 1 } : call < 5 ? asking : quiet;
   const h = harness(reads);
@@ -62,11 +62,11 @@ Deno.test("waitUntilIdle: with a human role, waiting and pending approvals block
   const result = await waitUntilIdle(h.read, h, {
     quietMs: 1_000,
     pollMs: 250,
-    hooks: { act, graceMs: 4_000 },
+    hooks: { act },
   });
   assertEquals(result.kind, "idle");
-  // 마지막 처리는 call 4(t=1000). call 5에서 조용함이 시작(t=1250)하고 graceMs 뒤 t=5250에 idle이다.
-  assertEquals(h.clock.nowMs(), 5_250);
+  // 마지막 처리는 call 4(t=1000). call 5에서 조용함이 시작(t=1250)하고 quietMs 뒤 t=2250에 idle이다.
+  assertEquals(h.clock.nowMs(), 2_250);
 
   // 사람 역할이 없으면 waiting은 그대로 조용함이다.
   const plain = harness(() => asking);

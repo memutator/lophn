@@ -1,4 +1,4 @@
-export { choosePending, chooseTurn } from "./approve.ts";
+export { chooseConsent, chooseTurn } from "./approve.ts";
 export { ANSWER_DEFAULT, buildAnswers, type EarlierAnswer } from "./answers.ts";
 export {
   HUMAN_FILES,

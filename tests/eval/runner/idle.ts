@@ -1,5 +1,5 @@
 import type { Clock } from "../../../packages/base/mod.ts";
-import { approvalsPending } from "../../../packages/protocol/approvals/mod.ts";
+import { activationConsents } from "../../../packages/protocol/apps/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import { receivedMessageList } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
@@ -11,10 +11,10 @@ export type Waiting = {
 };
 
 export type Snapshot = {
-  running: string[]; // state가 running인 session. coding session은 running·unknown·waiting이 모두 든다
-  waiting: Waiting[]; // ask 질문이나 허락을 사람이 답할 때까지 멈춘 role agent session
+  running: string[]; // state가 running인 session
+  waiting: Waiting[]; // ask 질문이나 turn request를 사람이 답할 때까지 멈춘 role agent session
   unstarted: { session: string; message: string }[]; // turn이 아직 가져가지 않은 입력
-  pendingApprovals?: number; // 보류 request 수(activation). session 상태에 안 드러난다. 없으면 0
+  pendingApprovals?: number; // 동의 대기 수(activation). session 상태에 안 드러난다. 없으면 0
 };
 
 export type IdleResult =
@@ -22,13 +22,11 @@ export type IdleResult =
   | { kind: "timeout"; unstarted: string[]; running: string[] };
 
 export type IdleHooks = {
-  // 사람 역할 tick. waiting이나 보류 approval이 있을 때 poll마다 부르고, 하나라도 처리했으면 참이다.
-  // 있으면 waiting과 보류 approval은 조용함이 아니다.
+  // 사람 역할 tick. waiting이나 동의 대기가 있을 때 poll마다 부르고, 하나라도 처리했으면 참이다.
+  // 있으면 waiting과 동의 대기는 조용함이 아니다.
   act?(): Promise<boolean>;
   // 문자열(이유)을 주면 바로 timeout으로 끝낸다. 비용 상한이 쓴다.
   over?(): Promise<string | null>;
-  // act가 한 번이라도 참이면 조용함이 quietMs 대신 이만큼 이어져야 idle이다.
-  graceMs?: number;
 };
 
 export type IdleOptions = {
@@ -59,7 +57,6 @@ export async function waitUntilIdle(
   } = options;
   const start = deps.clock.nowMs();
   const firstSeen = new Map<string, number>(); // turn이 안 된 입력 → 처음 본 때
-  let needMs = quietMs;
   let quietSince: number | null = null;
   for (;;) {
     const snapshot = await read();
@@ -90,16 +87,13 @@ export async function waitUntilIdle(
     const pending = snapshot.pendingApprovals ?? 0;
     const humanDue = snapshot.waiting.length > 0 || pending > 0;
     let acted = false;
-    if (hooks.act !== undefined && humanDue) {
-      acted = await hooks.act();
-      if (acted) needMs = hooks.graceMs ?? quietMs;
-    }
+    if (hooks.act !== undefined && humanDue) acted = await hooks.act();
     const quiet = !acted && snapshot.running.length === 0 &&
       snapshot.unstarted.length === 0 &&
       (hooks.act === undefined || !humanDue);
     if (quiet) {
       quietSince ??= now;
-      if (now - quietSince >= needMs) {
+      if (now - quietSince >= quietMs) {
         return { kind: "idle", waiting: snapshot.waiting };
       }
     } else {
@@ -110,9 +104,7 @@ export async function waitUntilIdle(
   }
 }
 
-// coding session은 role agent와 달리 입력(receivedMessageList)을 읽지 않고, 일하는 중(running)이거나 신호를 못 받았거나(unknown)
-// 터미널에서 물음이 떠 사람의 attach를 기다리는 중(waiting)이면 모두 running에 넣는다. 안 넣으면 role agent가 쉬는 동안
-// trial이 coding agent를 기다리지 않고 끝난다. 입력은 첫 page만 읽는다(판단 case는 입력이 적다).
+// 입력은 첫 page만 읽는다(판단 case는 입력이 적다).
 export async function readSnapshot(
   core: Core,
   options: { approvals?: boolean } = {},
@@ -120,16 +112,12 @@ export async function readSnapshot(
   const { snapshots } = await core.call(sessionSnapshotsList, {});
   const snapshot: Snapshot = { running: [], waiting: [], unstarted: [] };
   for (const item of snapshots) {
-    if (item.agent.role === "coding_agent") {
-      if (item.state !== "idle") snapshot.running.push(item.session);
-      continue;
-    }
     if (item.state === "running") snapshot.running.push(item.session);
     if (item.state === "waiting") {
       snapshot.waiting.push({
         session: item.session,
         questions: item.questions.length,
-        permissions: item.permission_requests.length,
+        permissions: item.turn_requests.length,
       });
     }
     const { messages } = await core.call(receivedMessageList, {
@@ -143,7 +131,7 @@ export async function readSnapshot(
   }
   if (options.approvals) {
     snapshot.pendingApprovals =
-      (await core.call(approvalsPending, {})).requests.length;
+      (await core.call(activationConsents, {})).consents.length;
   }
   return snapshot;
 }

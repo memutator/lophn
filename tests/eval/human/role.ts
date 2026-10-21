@@ -1,9 +1,9 @@
 import type { Clock } from "../../../packages/base/mod.ts";
 import {
-  approvalsDecide,
-  approvalsDecideTurn,
-  approvalsPending,
-} from "../../../packages/protocol/approvals/mod.ts";
+  activationConsent,
+  activationConsents,
+} from "../../../packages/protocol/apps/mod.ts";
+import { turnRequestDecide } from "../../../packages/protocol/approvals/mod.ts";
 import { sessionSnapshotsList } from "../../../packages/protocol/events/mod.ts";
 import {
   askAnswer,
@@ -12,7 +12,7 @@ import {
 } from "../../../packages/protocol/lophn-agent/ask-tool.ts";
 import type { Core } from "../../support/core/mod.ts";
 import type { HumanRecord, HumanSpec } from "../types.ts";
-import { choosePending, chooseTurn } from "./approve.ts";
+import { chooseConsent, chooseTurn } from "./approve.ts";
 import { buildAnswers, type EarlierAnswer } from "./answers.ts";
 import { type HumanDefinition, loadHumanDefinition } from "./definition.ts";
 import {
@@ -53,6 +53,7 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
   const seenQuestions = new Set<string>();
   const written = new Set<string>();
   const seenRequests = new Set<string>();
+  const seenConsents = new Set<string>();
   const earlier: EarlierAnswer[] = [];
   const pendingQuestions = new Map<string, AskQuestion[]>();
   let lastRemind = 0;
@@ -163,10 +164,10 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
     }
 
     for (const snap of snapshots) {
-      for (const request of snap.permission_requests) {
+      for (const request of snap.turn_requests) {
         if (seenRequests.has(request.id)) continue;
         const { choice, rule } = chooseTurn(spec.approve, request);
-        const res = await call(approvalsDecideTurn, {
+        const res = await call(turnRequestDecide, {
           session: snap.session,
           request: request.id,
           choice,
@@ -176,8 +177,7 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
           path: "turn",
           session: snap.session,
           request: request.id,
-          kind: request.intent.kind,
-          target: request.intent.target,
+          subject: request.subject,
           choice: choice.kind,
           rule,
           error: res.ok ? null : `${res.error.code}: ${res.error.message}`,
@@ -189,30 +189,32 @@ export function createHumanRole(deps: HumanDeps): HumanRole {
       }
     }
 
-    // activation은 이 길로 온다. 아무도 기다리지 않아 session 상태에 안 드러난다.
-    const pending = await call(approvalsPending, {});
-    if (pending.ok) {
-      for (const request of pending.value.requests) {
-        if (seenRequests.has(request.id)) continue;
-        const { choice, rule } = choosePending(spec.approve, request);
-        const res = await call(approvalsDecide, {
-          request: request.id,
-          choice,
-        });
+    // activation 동의는 session에 안 드러난다: App Engineer turn은 waiting_consent를 받고 바로 끝난다.
+    // 같은 release를 다시 물으면 requested_at이 바뀌므로 열쇠에 넣어 새 줄로 다시 답한다.
+    const consents = await call(activationConsents, {});
+    if (consents.ok) {
+      for (const consent of consents.value.consents) {
+        const key = `${consent.release}@${consent.requested_at}`;
+        if (seenConsents.has(key)) continue;
+        const { choice, rule } = chooseConsent(spec.approve);
+        const res = await call(
+          activationConsent,
+          { release: consent.release, choice },
+          { requested_at: consent.requested_at },
+        );
         rec.decisions.push({
           at: clock.now(),
-          path: "pending",
-          session: null,
-          request: request.id,
-          kind: request.intent.kind,
-          target: request.intent.target,
-          choice: choice.kind,
+          path: "consent",
+          app: consent.app,
+          release: consent.release,
+          comparison: consent.comparison,
+          choice,
           rule,
           error: res.ok ? null : `${res.error.code}: ${res.error.message}`,
         });
         if (res.ok) acted++;
         if (res.ok || CLOSED.includes(res.error.code)) {
-          seenRequests.add(request.id);
+          seenConsents.add(key);
         }
       }
     }

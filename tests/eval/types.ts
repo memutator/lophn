@@ -9,10 +9,8 @@
 //   전체 기록은 `.dev-data/eval/<RunRecord.id>/`에 있다.
 // - `CheckInput.core`가 null이면 fixture 확인이다.
 
-import type {
-  IntentKind,
-  RequestChoice,
-} from "../../packages/protocol/approvals/mod.ts";
+import type { ActivationComparison } from "../../packages/protocol/apps/mod.ts";
+import type { TurnRequest } from "../../packages/protocol/approvals/mod.ts";
 import type { Id } from "../../packages/protocol/base/mod.ts";
 import type {
   AskAnswer,
@@ -125,9 +123,13 @@ export type Fixtures = {
   wrong: { trial: TrialRecord; fails: string[] }[]; // fails에 적은 program check id가 떨어져야 한다
 };
 
-// 적지 않은 종류는 "reject"다. 규칙에 없는 허락을 소리 없이 주지 않는다.
-// 앱 첫 activation은 `activation: "allow"`, Gate가 사람에게 묻는 tool·MCP tool은 `app_tool`·`mcp_tool`에 "once" 등을 적는다.
-export type ApproveRule = Partial<Record<IntentKind, RequestChoice>>;
+// 적지 않은 것은 reject다. 규칙에 없는 허락을 소리 없이 주지 않는다.
+// activation은 첫 activation·넓힌 선언·손실 migration의 동의, shell은 shell 규칙이 ask인 명령의 turn request다.
+// 앱 tool, MCP tool, agent call은 묻지 않아 규칙이 없다(architecture/approval.md).
+export type ApproveRule = {
+  activation?: "allow" | "reject";
+  shell?: "once" | "always" | "reject";
+};
 
 // card는 요구 카드 글이다(roadmap "요구 카드"). 이름@n으로 가리키지 않고 시나리오 file 안에 둔다.
 // 시나리오 hash가 시나리오 file로 재어지므로 카드를 고치면 시나리오 n이 오른다. 새 VersionKind가 필요 없다.
@@ -234,7 +236,7 @@ export type Metrics = {
 
 // ---- 사람 역할의 기록 ----
 
-// 사람 역할이 한 일(정의 버전, 답한 질문, 허락 결정).
+// 사람 역할이 한 일(정의 버전, 답한 질문, 동의와 turn request 결정).
 export type HumanRecord = {
   definition: string; // `human@<n>` (human.json의 n)
   answers: {
@@ -246,18 +248,31 @@ export type HumanRecord = {
     error: string | null; // 모델 호출 오류(default로 채웠으면 이유), askAnswer 오류
     model: string | null; // 그 답을 낸 subagent의 model. 모르면 null
   }[];
-  decisions: {
-    at: string;
-    path: "turn" | "pending";
-    session: string | null;
-    request: string;
-    kind: IntentKind; // intent.kind
-    target: unknown; // intent.target 그대로
-    choice: string; // once | allow | reject
-    rule: RequestChoice | null; // 시나리오 규칙. null이면 규칙 없음
-    error: string | null;
-  }[];
+  decisions: HumanDecision[];
 };
+
+// 동의는 session이 없고 turn request는 비교가 없어 갈래로 나눈다.
+export type HumanDecision =
+  | {
+    at: string;
+    path: "consent";
+    app: string;
+    release: string;
+    comparison: ActivationComparison; // 사람이 본 비교 그대로
+    choice: "allow" | "reject";
+    rule: "allow" | "reject" | null; // 시나리오 규칙. null이면 규칙 없음
+    error: string | null;
+  }
+  | {
+    at: string;
+    path: "turn";
+    session: string;
+    request: string; // apr_...
+    subject: TurnRequest["subject"];
+    choice: "once" | "always" | "reject";
+    rule: "once" | "always" | "reject" | null;
+    error: string | null;
+  };
 
 // run 요약(commit)에는 답 글을 넣지 않는다.
 export type HumanSummary = {

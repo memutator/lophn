@@ -1,7 +1,7 @@
 // 두 질문
 // - contract: 사람 역할은 시나리오 허락 규칙 밖의 일을 허락하지 않고, 같은 request를 두 번 결정하지 않는다.
 //   질문은 대기 entry가 되고, 답이 오면 모든 질문에 순서대로 질문 글 그대로의 답이 askAnswer로 간다(askAnswer는 question이 글자 그대로 같아야 받는다).
-// - 현실적 회귀: 규칙 없는 permission이 허락되어 시나리오가 모르는 grant가 생기는 것. 어긋난 답으로 ask가 invalid_input이 되어 trial이 상한까지 멈추는 것.
+// - 현실적 회귀: 규칙 없는 동의나 turn request가 허락되어 시나리오가 모르는 허락이 생기는 것. 어긋난 답으로 ask가 invalid_input이 되어 trial이 상한까지 멈추는 것.
 // - 왜 지금 test로 못 잡나: core 없이 도는 pure test다. 가짜 tryCall과 임시 폴더만 쓴다.
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { manualClock } from "../../../packages/base/mod.ts";
@@ -39,16 +39,27 @@ const QUESTIONS: AskQuestion[] = [
   },
 ];
 
-type Call = { key: string; input: Record<string, unknown> };
+type Call = {
+  key: string;
+  input: Record<string, unknown>;
+  compare: unknown;
+};
+
+const REQUESTED_AT = "2026-01-01T00:00:00.000Z";
+const ULID = "0".repeat(26);
 
 function fakePort(
-  extra: { questions?: boolean; answerError?: string } = {},
+  extra: {
+    questions?: boolean;
+    answerError?: string;
+    alwaysPatterns?: string[];
+  } = {},
 ) {
   const calls: Call[] = [];
   const port: HumanPort = {
-    tryCall: (route, input) => {
+    tryCall: (route, input, compare) => {
       const key = `${route.resource}/${route.method}`;
-      calls.push({ key, input: input as Record<string, unknown> });
+      calls.push({ key, input: input as Record<string, unknown>, compare });
       let value: unknown = {};
       if (key === "session_snapshots/list") {
         value = {
@@ -57,20 +68,46 @@ function fakePort(
             questions: extra.questions
               ? [{ group: "qgr_a", turn: "trn_a", tool_call: "tcl_a" }]
               : [],
-            permission_requests: [{
-              id: "apr_turn",
-              session: "ses_a",
-              intent: { kind: "app_tool", target: { kind: "app_tool" } },
-              choices: ["once", "session", "always", "reject"],
-            }],
+            turn_requests: [
+              {
+                id: `apr_${ULID}`,
+                session: "ses_a",
+                turn: `trn_${ULID}`,
+                tool_call: `tcl_${ULID}`,
+                subject: { kind: "shell", command: "rm -r build" },
+                always_patterns: extra.alwaysPatterns ?? ["rm -r *"],
+                created_at: REQUESTED_AT,
+              },
+              {
+                id: `apr_${ULID.slice(0, 25)}1`,
+                session: "ses_a",
+                turn: `trn_${ULID}`,
+                tool_call: `tcl_${ULID.slice(0, 25)}1`,
+                subject: {
+                  kind: "app_tool",
+                  app: `app_${ULID}`,
+                  tool: "calendar.list",
+                  effect: "read",
+                },
+                always_patterns: [],
+                created_at: REQUESTED_AT,
+              },
+            ],
           }],
         };
-      } else if (key === "approvals/pending") {
+      } else if (key === "activations/consents") {
         value = {
-          requests: [{
-            id: "apr_pend",
-            intent: { kind: "activation", target: { kind: "activation" } },
-            choices: ["allow", "reject"],
+          consents: [{
+            app: `app_${ULID}`,
+            release: `rel_${ULID}`,
+            comparison: {
+              previous_release: null,
+              first: true,
+              added_resources: [],
+              added_tools: [],
+              loss_steps: [],
+            },
+            requested_at: REQUESTED_AT,
           }],
         };
       } else if (key === "ask/read") {
@@ -96,8 +133,8 @@ const deps = (dir: string, logs: string[] = []) => ({
   log: (line: string) => logs.push(line),
 });
 
-async function run(approve: ApproveRule) {
-  const { port, calls } = fakePort();
+async function run(approve: ApproveRule, alwaysPatterns?: string[]) {
+  const { port, calls } = fakePort({ alwaysPatterns });
   const dir = await Deno.makeTempDir();
   const role = createHumanRole({
     ...deps(dir),
@@ -106,41 +143,49 @@ async function run(approve: ApproveRule) {
   });
   await role.tick();
   await role.tick();
-  return { calls, role };
+  return calls;
 }
 
-Deno.test("human role decides only by the scenario rule and once per request", async () => {
-  const none = await run({ activation: "allow" });
-  const turn = none.calls.filter((c) => c.key === "approvals/decide_turn");
-  const pend = none.calls.filter((c) => c.key === "approvals/decide");
-  assertEquals(turn.length, 1);
-  assertEquals((turn[0].input.choice as { kind: string }).kind, "reject");
-  assertEquals(pend.length, 1);
-  assertEquals(pend[0].input.choice, { kind: "allow" });
-  assertEquals(none.role.record().decisions.map((d) => d.rule), [
-    null,
-    "allow",
-  ]);
-
-  const session = await run({ app_tool: "session" });
-  const sessionTurn = session.calls.find((c) =>
-    c.key === "approvals/decide_turn"
-  );
-  assertEquals(sessionTurn?.input.choice, { kind: "session" });
-  const sessionPend = session.calls.find((c) => c.key === "approvals/decide");
-  assertEquals((sessionPend?.input.choice as { kind: string }).kind, "reject");
-
-  // 규칙 값이 선택지에 없으면 만들어 내지 않고 거절한다. allow만 once로 좁힌다.
-  const narrowed = await run({ app_tool: "allow", activation: "once" });
-  assertEquals(
-    narrowed.calls.find((c) => c.key === "approvals/decide_turn")?.input.choice,
-    { kind: "once" },
-  );
-  assertEquals(
-    (narrowed.calls.find((c) => c.key === "approvals/decide")?.input
-      .choice as { kind: string }).kind,
-    "reject",
-  );
+Deno.test("human role allows only what the scenario rule says and answers each request once", async () => {
+  const shellId = `apr_${ULID}`;
+  const toolId = `apr_${ULID.slice(0, 25)}1`;
+  const cases: {
+    approve: ApproveRule;
+    patterns?: string[];
+    consent: "allow" | "reject";
+    shell: string;
+  }[] = [
+    {
+      approve: { activation: "allow", shell: "once" },
+      consent: "allow",
+      shell: "once",
+    },
+    { approve: {}, consent: "reject", shell: "reject" },
+    {
+      approve: { shell: "always" },
+      patterns: [],
+      consent: "reject",
+      shell: "reject",
+    },
+  ];
+  for (const c of cases) {
+    const calls = await run(c.approve, c.patterns);
+    const consents = calls.filter((x) => x.key === "activations/consent");
+    assertEquals(consents.length, 1);
+    assertEquals(consents[0].input, {
+      release: `rel_${ULID}`,
+      choice: c.consent,
+    });
+    assertEquals(consents[0].compare, { requested_at: REQUESTED_AT });
+    const decides = calls.filter((x) => x.key === "turn_requests/decide");
+    assertEquals(decides.length, 2);
+    const kindOf = (id: string) =>
+      (decides.find((x) => x.input.request === id)?.input.choice as {
+        kind: string;
+      }).kind;
+    assertEquals(kindOf(shellId), c.shell);
+    assertEquals(kindOf(toolId), "reject");
+  }
 });
 
 const DEFAULT = ANSWER_DEFAULT;

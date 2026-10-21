@@ -52,8 +52,9 @@ import {
 } from "../../apps/runtime/observations/memory.ts";
 import {
   type CrashEvent,
-  createCrashObserver,
+  crashLogText,
 } from "../../apps/runtime/observations/crash.ts";
+import { resolveStackFrames } from "../../apps/runtime/observations/stack-frames.ts";
 import {
   type AppLogFile,
   createAppLogFile,
@@ -77,14 +78,9 @@ import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
   type AppCallPort,
   type BrokerChild,
-  type ProblemsReport,
   type ReadyReceiver,
   socketFlags,
 } from "../../apps/permissions/mod.ts";
-import {
-  problemReport,
-  reportAcceptanceSchema,
-} from "../../../protocol/problems/mod.ts";
 import {
   appCallTool,
   processApplyRequestSchema,
@@ -298,7 +294,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const memories = new Map<string, MemoryObserver>();
   // 자식 nonce별 app credential과 stderr 꼬리. 자식이 끝나면 지운다.
   const credentials = new Map<string, string>();
-  const lastCredential = new Map<string, string>();
+  // nonce별 bundle hash. 예외 stack을 그 release의 봉인된 bundle 사본으로 풀 때 쓴다.
+  const bundleHashes = new Map<string, string>();
   const tails = new Map<string, string>();
   const waiting = new Map<string, (credential: string) => void>();
   const logFiles = new Map<string, AppLogFile>();
@@ -314,78 +311,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       startChangesets.set(child.processNonce, notice.startChangeset);
     },
   };
-
-  function problemsFor(child: BrokerChild): ProblemsReport {
-    return {
-      async report(request) {
-        // 보고는 그 자식의 app credential로만 core에 간다. app·release·mode는 그 credential이 정한다.
-        const bearer = credentials.get(child.processNonce);
-        if (bearer === undefined) {
-          return err({
-            code: "unavailable",
-            message: "the app has no reporting credential",
-          });
-        }
-        let response: { status: number; body: unknown };
-        try {
-          response = await io.post(
-            `${problemReport.resource}/${problemReport.method}`,
-            bearer,
-            {
-              report_id: request.reportId,
-              name: request.name,
-              message: request.message,
-              observed_at: request.observedAt,
-              ...(request.details === undefined
-                ? {}
-                : { details: request.details }),
-              ...(request.invocation === undefined
-                ? {}
-                : { invocation: request.invocation }),
-            },
-          );
-        } catch {
-          return err({ code: "unavailable", message: "core is unreachable" });
-        }
-        const accepted = reportAcceptanceSchema.safeParse(response.body);
-        if (response.status === 200 && accepted.success) {
-          return ok(accepted.data);
-        }
-        return err({
-          code: errorCodeOf(response.status, response.body),
-          message: "the report was refused",
-        });
-      },
-      async observe(observation) {
-        // 잡은 예외도 그 자식의 app credential로만 core에 간다. 본문이 앱을 정하지 않는다.
-        const bearer = credentials.get(child.processNonce);
-        if (bearer === undefined) {
-          return err({
-            code: "unavailable",
-            message: "the app has no reporting credential",
-          });
-        }
-        let response: { status: number; body: unknown };
-        try {
-          response = await io.post(
-            "problems/observe-exception",
-            bearer,
-            observation,
-          );
-        } catch {
-          return err({ code: "unavailable", message: "core is unreachable" });
-        }
-        const accepted = reportAcceptanceSchema.safeParse(response.body);
-        if (response.status === 200 && accepted.success) {
-          return ok(accepted.data);
-        }
-        return err({
-          code: errorCodeOf(response.status, response.body),
-          message: "the report was refused",
-        });
-      },
-    };
-  }
 
   // 그 자식의 app credential로 core 경로를 부른다. 호출한 앱과 release는 그 credential이 정하고
   // 본문이 정하지 않는다.
@@ -479,7 +404,16 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     ready,
     appCall,
     platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
-    problems: problemsFor,
+    exceptions: {
+      frames: (child, stack) =>
+        io.dataRoot === undefined ? Promise.resolve([]) : resolveStackFrames({
+          dataRoot: io.dataRoot,
+          app: child.app,
+          bundleHash: bundleHashes.get(child.processNonce) ?? null,
+          stack,
+        }),
+      append: (app, entry) => logFileOf(app)?.append(entry),
+    },
     secrets,
     ...(io.brokerAdapters ?? {}),
   };
@@ -517,7 +451,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     return created;
   }
 
-  // pr-log-exception, pr-log-view-error가 같은 file에 줄을 더한다. dataRoot가 없으면 undefined다.
+  // supervisor가 stdout·stderr, 예외, 비정상 종료를 같은 file에 쓴다. dataRoot가 없으면 undefined다.
   function logFileOf(app: string): AppLogFile | undefined {
     if (io.dataRoot === undefined) return undefined;
     const found = logFiles.get(app);
@@ -568,7 +502,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     return created;
   }
 
-  // 자식의 stderr 꼬리를 남기며 읽는다. V8 OOM 근거를 찾는 데만 쓰고 보고에 싣지 않는다.
+  // 자식의 stderr 꼬리를 남기며 읽는다. V8 OOM 근거를 찾는 데만 쓰고 log 줄에 싣지 않는다.
   function tee(source: ByteSource, nonce: string): ByteSource {
     const decoder = new TextDecoder();
     return {
@@ -634,7 +568,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       throw new Error("app credential was not issued");
     }
     credentials.set(request.nonce, credential);
-    lastCredential.set(request.desired.app, credential);
+    bundleHashes.set(request.nonce, request.desired.bundleHash);
     return credential;
   }
 
@@ -831,13 +765,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       io.childExited?.(processNonce);
     },
     onEvent(event) {
-      void observeEvent(event);
+      observeEvent(event);
     },
   };
 
-  // 실패의 근거를 구별해 problems로 보낸다. 어느 앱·release인지는 본문이 아니라 그 자식의
-  // app credential이 정한다. 전송이 실패해도 supervisor는 계속 돈다.
-  async function observeEvent(event: SupervisorEvent): Promise<void> {
+  // 실패의 근거를 구별해 그 앱 log에 한 줄 쓴다. 쓰기 실패는 writer가 삼키므로 supervisor는 계속 돈다.
+  function observeEvent(event: SupervisorEvent): void {
     if (event.kind === "exit") {
       const memory = memories.get(event.app);
       memory?.setChild(null);
@@ -852,28 +785,14 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       : event.kind === "start_failed"
       ? { kind: "start_failed", reason: event.reason }
       : { kind: "crash_loop", exits: event.exits };
-    const nonce = "processNonce" in event ? event.processNonce : undefined;
-    const bearer = (nonce === undefined ? undefined : credentials.get(nonce)) ??
-      lastCredential.get(event.app);
-    const observer = createCrashObserver({
-      ids: io.ids,
-      now: () => io.clock.nowMs(),
-      report: async (input) => {
-        if (bearer === undefined) throw new Error("no process observer");
-        const response = await io.post(
-          "problems/observe-exception",
-          bearer,
-          input,
-        );
-        if (response.status !== 200) throw new Error("report was refused");
-      },
-    });
-    try {
-      await observer.observe(crash);
-    } catch { /* 관측 실패가 supervisor를 멈추지 않는다 */ }
-    if (event.kind === "exit" && nonce !== undefined) {
-      credentials.delete(nonce);
-      tails.delete(nonce);
+    const text = crashLogText(crash);
+    if (text !== undefined) {
+      logFileOf(event.app)?.append({ invocation: null, text });
+    }
+    if (event.kind === "exit") {
+      credentials.delete(event.processNonce);
+      tails.delete(event.processNonce);
+      bundleHashes.delete(event.processNonce);
     }
   }
 

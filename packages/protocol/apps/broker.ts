@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { secretNameSchema } from "../secrets/secrets.ts";
 import { exceptionObservationInputSchema } from "../problems/exception-observation.ts";
-import { reportAcceptanceSchema } from "../problems/reports.ts";
 import {
   invocationIdSchema,
   jsonValueSchema,
@@ -61,11 +60,6 @@ export const brokerSecretUseInputSchema = z.strictObject({
   }),
 });
 export const brokerSecretUseOutputSchema = z.object({ used: z.literal(true) });
-
-// 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다.
-// report id·발생 시각·invocation은 SDK가 첫 전송 전에 고정한 값이다. 없으면 supervisor가
-// id와 시각을 정하고 invocation은 연결하지 않은 것으로 남긴다.
-export const brokerProblemReportOutputSchema = reportAcceptanceSchema;
 
 // 잡은 예외의 관측. app·release·mode는 자식 연결의 credential이 정하고 본문은 관측만 담는다.
 export const brokerProblemObserveInputSchema = z.strictObject({

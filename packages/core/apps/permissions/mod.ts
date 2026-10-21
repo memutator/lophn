@@ -72,9 +72,9 @@ export {
   type ReadyService,
 } from "./broker/ready.ts";
 export {
-  createProblemReportService,
-  type ProblemReportService,
-  type ProblemsReport,
+  createExceptionLogService,
+  type ExceptionLog,
+  type ExceptionLogService,
 } from "./broker/problems.ts";
 export { secretAllowanceOver } from "./secret-allowance.ts";
 export { secretValueHandler } from "./secret-value.ts";

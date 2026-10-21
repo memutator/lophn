@@ -1,12 +1,9 @@
 // preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret)는 모두 대역이다. 선언은 그 bundle의
 // 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
-import { err } from "../../../base/mod.ts";
 import {
   type BrokerServices,
-  createProblemReportService,
   createReadyService,
-  type ProblemsReport,
 } from "../../apps/permissions/mod.ts";
 import {
   createPreviewBrokerServices,
@@ -42,22 +39,8 @@ export async function previewScopeFromBundle(info: {
   }
 }
 
-// preview의 보고는 개발 진단이고 운영 problem을 열거나 닫지 않는다. 진단 전달 길(preview 전용
-// credential)이 아직 없어서 전달하지 않고 이유를 낸다. 성공을 꾸미지 않는다.
-const closedProblems: ProblemsReport = {
-  report: () =>
-    Promise.resolve(err({
-      code: "unavailable",
-      message: "preview diagnostics are not connected",
-    })),
-};
 export function previewServicesFor(scope: PreviewScope): BrokerServices {
-  const built = createPreviewBrokerServices({
-    scope,
-    problems: createProblemReportService({
-      problems: closedProblems,
-    }),
-  });
+  const built = createPreviewBrokerServices({ scope });
   // preview의 DB는 일회용이라 시작 changeset을 어디에도 남기지 않는다. 알림만 받는다.
   return {
     ...built.services,

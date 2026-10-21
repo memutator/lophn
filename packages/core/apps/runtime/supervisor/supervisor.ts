@@ -49,7 +49,7 @@ export type DesiredApp = {
   dataPath: string;
 };
 
-// 프로세스 실패의 근거가 되는 사실. 조립이 problems 관측(crash)으로 바꾼다.
+// 프로세스 실패의 근거가 되는 사실. 조립이 앱 log 한 줄로 쓴다.
 export type SupervisorEvent =
   | {
     kind: "exit";
@@ -109,7 +109,7 @@ export type SupervisorDeps = {
     desired: DesiredApp,
   ) => Promise<void>;
   stopGraceMs?: number;
-  // 실패 근거 사실을 받는다. 던져도 supervisor는 계속 돈다.
+  // 실패 근거 사실을 받아 앱 log 한 줄로 쓴다. 던져도 supervisor는 계속 돈다.
   onEvent?: (event: SupervisorEvent) => void;
   // 자식 종료를 관측하면 알린다. 결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다.
   // 어떤 이유의 종료든 부른다.

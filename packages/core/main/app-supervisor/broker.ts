@@ -13,11 +13,11 @@ import {
   createAppsCallService,
   createBrokerEndpoint,
   createBrokerHub,
+  createExceptionLogService,
   createNetFetchService,
-  createProblemReportService,
   createReadyService,
   createSecretUseService,
-  type ProblemsReport,
+  type ExceptionLog,
   type ReadyReceiver,
   type RedactionGate,
   type SecretDelivery,
@@ -35,15 +35,13 @@ export type BrokerAdapters = {
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
   netTransport?: typeof globalThis.fetch;
   netScheme?: "https" | "http";
-  problems: (child: BrokerChild) => ProblemsReport;
+  // 잡은 예외를 그 앱 log 줄로 쓴다.
+  exceptions: ExceptionLog;
   secrets: { delivery: SecretDelivery; redaction: RedactionGate };
 };
 
 // 자식 하나가 쓰는 broker 서비스들이다. 연결의 신원은 서비스 호출마다 endpoint가 넘긴다.
-function servicesFor(
-  child: BrokerChild,
-  adapters: BrokerAdapters,
-): BrokerServices {
+function servicesFor(adapters: BrokerAdapters): BrokerServices {
   const ports = adapters.platformPorts();
   return {
     ready: createReadyService({ receiver: adapters.ready }),
@@ -65,9 +63,7 @@ function servicesFor(
       redaction: adapters.secrets.redaction,
       platformPorts: ports,
     }),
-    problems: createProblemReportService({
-      problems: adapters.problems(child),
-    }),
+    exceptions: createExceptionLogService({ log: adapters.exceptions }),
     appsCall: createAppsCallService({ core: adapters.appCall }),
   };
 }
@@ -115,7 +111,7 @@ export function createSupervisorBroker(deps: {
       };
       const endpoint = hub.register(
         session,
-        opened.services ?? servicesFor(opened.child, deps.adapters),
+        opened.services ?? servicesFor(deps.adapters),
       );
       try {
         listening.set(

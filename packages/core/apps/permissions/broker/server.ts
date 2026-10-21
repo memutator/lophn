@@ -7,7 +7,7 @@ import { APP_BROKER_PATHS } from "../../../../protocol/apps/calls/mod.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
-import type { ProblemReportService } from "./problems.ts";
+import type { ExceptionLogService } from "./problems.ts";
 import type { ReadyService } from "./ready.ts";
 import type { AppsCallService } from "./apps-call.ts";
 
@@ -15,7 +15,6 @@ const BROKER_ROUTES = {
   ready: "/_lophn/broker/ready",
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
-  problemsReport: APP_BROKER_PATHS.problemsReport,
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
 } as const;
@@ -26,7 +25,7 @@ export type BrokerServices = {
   ready?: ReadyService;
   net?: NetFetchService;
   secrets?: SecretUseService;
-  problems?: ProblemReportService;
+  exceptions?: ExceptionLogService;
   appsCall?: AppsCallService;
 };
 
@@ -47,7 +46,7 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { ready, net, secrets, problems, appsCall } = services;
+  const { ready, net, secrets, exceptions, appsCall } = services;
   if (ready) {
     table.set(
       BROKER_ROUTES.ready,
@@ -56,12 +55,11 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
   if (secrets) table.set(BROKER_ROUTES.secretsUse, (c, b) => secrets.use(c, b));
-  if (problems) {
-    table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
-    if (problems.observe) {
-      const observe = problems.observe.bind(problems);
-      table.set(BROKER_ROUTES.problemsObserve, (c, b) => observe(c, b));
-    }
+  if (exceptions) {
+    table.set(
+      BROKER_ROUTES.problemsObserve,
+      (c, b) => exceptions.observe(c, b),
+    );
   }
   if (appsCall) {
     table.set(BROKER_ROUTES.appsCall, (c, b) => appsCall.call(c, b));

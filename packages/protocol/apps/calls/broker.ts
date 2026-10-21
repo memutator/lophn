@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { problemReportInputSchema } from "../../problems/problem-report.ts";
 import {
   invocationIdSchema,
   jsonValueSchema,
@@ -13,7 +12,6 @@ import { toolCallOutputSchema } from "./call.ts";
 // 앱 process가 broker socket으로 부르는 경로.
 export const APP_BROKER_PATHS = {
   call: "/_lophn/broker/apps/call",
-  problemsReport: "/_lophn/broker/problems/report",
 } as const;
 
 // 자식 credential·현재 mode·nonce에 묶인다. 신원은 요청 본문이 정하지 않는다.
@@ -30,8 +28,3 @@ export const brokerAppCallInputSchema = z.strictObject({
   parent_invocation: invocationIdSchema.nullable(),
 });
 export const brokerAppCallOutputSchema = toolCallOutputSchema;
-
-export const brokerReportProblemInputSchema = problemReportInputSchema
-  .safeExtend(
-    childFields,
-  );

@@ -4,10 +4,10 @@ lead만 고친다. `tools/status.py approval-simplify build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ap-assign-store` | assign | 1 | ap-contract, ap-legacy | running | assign/ap-assign-store |  |  |
+| `ap-assign-store` | assign | 1 | ap-contract, ap-legacy | merged | assign/ap-assign-store | ea5a898a7 |  |
 | `ap-call-judge` | call-judge | 1 | 없음 | merged | call-judge/ap-call-judge | abd6b0f4d |  |
 | `ap-contract` | contract | 1 | 없음 | merged | contract/ap-contract | bdf4a25a5 |  |
-| `ap-gate` | gate | 1 | ap-contract | running | gate/ap-gate |  |  |
+| `ap-gate` | gate | 1 | ap-contract | merged | gate/ap-gate | 182023e9d |  |
 | `ap-legacy` | legacy | 1 | 없음 | merged | legacy/ap-legacy | 65c016434 |  |
 | `ap-reaction` | reaction | 1 | 없음 | merged | reaction/ap-reaction | ede903703 |  |
 | `ap-settings-edit` | settings-edit | 1 | 없음 | merged | settings-edit/ap-settings-edit | ede53ee96 |  |

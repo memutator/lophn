@@ -60,7 +60,7 @@
   - 로그인 때 `--tray`로 켜는 autostart가 있다. packaged build만 된다(`packages/shell/main/desktop/autostart.ts`).
   - data root마다 core는 하나다(instance lock, `packages/core/main/daemon/core.ts:81`).
 - scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 10개다(Reactor 5초 등).
-- domain event는 정의만 남은 `CodingSessionEnded` 하나이고 Reactor에 handler가 없다(`packages/protocol/events/domain.ts`). `reactor-remove`가 둘 다 지운다. Reactor를 rule engine으로 만들거나 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md:65`).
+- domain event와 Reactor가 없다(`reactor-remove`). 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 하고, 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md`).
 - 앱 tool
   - 부르는 쪽은 user, agent, app뿐이고 program은 없다(`packages/protocol/apps/calls/call.ts:93-110`, `packages/core/apps/calls/caller.ts:18-26`).
   - 호출은 120초에 끊긴다(`packages/core/apps/runtime/supervisor/relay.ts:20`). write는 앱마다 하나씩 돈다(`architecture/app-call.md`).
@@ -119,7 +119,7 @@
 - schedule은 lophn(tray 포함)이 켜져 있을 때만 돈다. 상주 daemon이나 OS service를 따로 만들지 않는다. 근거: 창을 닫아도 tray에 core가 남고 autostart가 있다. data root마다 core는 하나다.
 - 놓친 차례는 몇 번이든 한 번으로 친다. 근거: 10일 주기를 세 번 놓쳤다고 세 번 옮길 일이 없다. 몇 번 놓쳤는지는 기록에 남긴다.
 - 앞 차례가 돌면 이번 차례를 건너뛴다. 근거: 같은 job이 겹쳐 돌면 같은 바깥 효과가 두 번 난다.
-- schedule을 Reactor와 domain event에 얹지 않는다. 근거: Reactor를 rule engine으로 만들지 않았고(`architecture/event.md:65`), domain event는 "그 뒤에 꼭 움직여야 하는 일"만 남긴다.
+- schedule을 event 반응에 얹지 않는다. 근거: event에 반응하는 장치가 없고, 뒤에 움직일 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`).
 - 계속 떠서 push하는 event source(websocket, 상주 script, webhook)는 만들지 않는다. 근거: 끌어 읽기(`architecture/event.md:66`)로 충분하다. webhook은 공개 endpoint가 필요해 개인 로컬 작업 공간(PRODUCT 5절)과 맞지 않는다.
 
 ## 권한 (`approval.md`)

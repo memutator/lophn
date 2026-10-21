@@ -31,13 +31,12 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 
 계기와 묻는 조건
 - 계기는 ticket 확인됨이고 release 준비만으로는 시작하지 않는다. App Engineer가 검증하기 전의 것을 운영에 올리지 않으려는 것이다.
-- app test가 되돌리기를 증명하지 못한 write tool(만든 입력의 호출이 실패함)은 activation을 막지 않는다. examples ticket이면 examples run이 남은 것을 앱 problem으로 알린다(`coding-agent.md`). 막으면 앞선 상태가 있어야 하는 tool을 가진 정상 앱이 올라가지 못한다.
+- app test가 되돌리기를 증명하지 못한 write tool(만든 입력의 호출이 실패함)은 activation을 막지 않는다. 증명하지 못한 tool은 app test가 pass 이유 한 줄에 남기고(`coding-agent.md`) 알림은 없다. 막으면 앞선 상태가 있어야 하는 tool을 가진 정상 앱이 올라가지 못한다.
 - 계기가 domain event라서 꺼졌다 켜져도 Reactor가 이어 간다. handler는 다시 불려도 안전하다. 이은 release가 prepared가 아니면 아무것도 하지 않는다.
 - 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 tool이 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 - 사람이 허락한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 grant가 바뀔 수 있다.
-- 새 release가 다른 domain이 쓰는 공개 tool을 지우면 activation은 시작되지 않고 release는 `prepared`로 남는다. 막기는 machine command `activation.block`이 막힌 사실을 event와 같은 tx로 남긴다(오류를 내는 command는 event를 되돌리기 때문이다).
-- release가 active가 되어 공개 tool이 바뀌거나 지워지면 그 tool의 domain과 그 tool을 쓰는 다른 domain마다 `PublicToolsChanged{domain, change: changed}`를 낸다(domain마다 하나). 받는 쪽은 그 domain 그릇의 Project Manager나 App Engineer다. 막혔을 때는 `change: blocked`를 지운 tool의 domain마다 낸다. 그 domain은 이 앱의 것이라 받는 쪽은 그 앱의 App Engineer다. 단위와 규칙은 `architecture/domain.md`다.
+- 새 release가 다른 domain이 쓰는 공개 tool을 지우면 activation은 시작되지 않고 release는 `prepared`로 남는다. 막기는 machine command `activation.block`이 판정해 `blocked`만 돌려준다. 막은 일이나 공개 tool이 바뀐 일을 agent에게 알리는 event는 없다. 규칙은 `architecture/domain.md`다.
 - 보류 request는 approvals의 `Approvals` port(`request(id)`, `pending()`)로만 읽는다. approvals 표를 건너 읽으면 그 표 모양이 바뀔 때 activation이 조용히 깨진다.
 - 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 새 ticket 확인이나 새 release가 계기다. 실패는 다시 시도하지 않고 실패로 끝낸다.
 - 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지지만 Reactor가 cursor 뒤의 event부터 다시 반응한다.

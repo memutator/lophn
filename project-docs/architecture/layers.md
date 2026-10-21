@@ -28,7 +28,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 ```
 
 - 화살표 방향으로만 import한다. 거꾸로 가는 import가 문제다.
-- feature module끼리는 problems → apps 하나만 있다. problem은 "앱의 문제"라 앱을 띄우고 읽어야 한다. `domains`는 projects·apps를 import하지 않는다. 그릇 확인은 wiring이 꽂는 port다(`architecture/domain.md`).
+- feature module끼리는 problems → apps 하나만 있다. `problems`는 test runner(app test, examples)만 남은 module이고, test는 앱을 띄우고 읽어야 한다. 앱 log와 예외 stack 풀이는 problems가 아니라 apps 안에 있다(`packages/core/apps/runtime/observations/`). `domains`는 projects·apps를 import하지 않는다. 그릇 확인은 wiring이 꽂는 port다(`architecture/domain.md`).
 - lophn-agent는 feature module과 role 층이 tool과 규칙을 꽂는 harness라 그들 아래에 둔다. role 이름, place 종류, feature module의 route를 몰라야 하는 쪽이다.
 - agent-roles는 lophn의 role 층이다. role, role별 tool 목록, role prompt와 guide, place 정보, role 규칙이 든 tool, credential의 role 몫을 갖는다. feature module과 같은 높이이고 서로 import하지 않는다.
 
@@ -74,7 +74,7 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 |---|---|---|
 | 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`packages/core/lophn-agent/tools/registry.ts`, `packages/core/lophn-agent/tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
 | 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
-| feature module tool | 각 feature module | `apps/agent-tools/`(ticket, app, package, release, visual), `problems/agent-tools.ts`, `domains/agent-tools.ts`(domain.list·get·create) |
+| feature module tool | 각 feature module | `apps/agent-tools/`(ticket, app, 앱 진단 읽기 `runtime.ts`, package, release, visual), `domains/agent-tools.ts`(domain.list·get·create) |
 | lophn role 층 | `agent-roles` | role별 tool 목록과 순서(`tool-lists.ts`), role 규칙이 든 tool(guide, settings, instructions, operator, kind), credential의 role 몫(`credentials.ts`), role prompt·guide(`roles/`), place 정보(`place/`), role 명령, file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), role 표(`agents/role-table.ts`: built-in 이름·기본 profile·정의 file 자리), Operator 조회, place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
 
 - harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·feature module·role 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, role 목록·prompt·place 재료·credential 상한도 조립이 role 층에서 꽂는다.
@@ -84,4 +84,4 @@ core는 daemon main thread, writer·reader Worker, I/O Worker, agent runtime chi
 - feature module tool 하나를 더할 때 고치는 곳: 그 module의 `agent-tools`와 protocol의 route, role 층 `tool-lists.ts`의 role 목록과 `TOOL_ORDER`에 한 줄씩.
 - role마다 다른 값과 규칙은 harness가 type만 갖고(`lophn-agent/agents/role-table.ts`의 `AgentRoleTable`, `places/ports.ts`의 `PlaceRoleRules`, `extensions/project-settings.ts`의 `ProjectLayer`) 값은 role 층이 낸다. 조립(`main/daemon/wiring/lophn-agent-team.ts`, `instructions-registration.ts`, `lophn-agent-registration.ts`, `main/agent-runtime/product-driver.ts`)이 꽂는다. role과 ref·session 행을 오가는 순수 변환(`placeOfAgentRef`, `agentRefOfColumns`, `agentIdentityOf`)은 role 정체성을 이미 가진 `protocol/lophn-agent/places.ts`에 둔다.
 - 아직 harness 폴더에 feature module의 protocol import가 남은 file이 10개 있다(동적 앱 tool, `packages/core/lophn-agent/run-loop/runtime-access.ts`, `packages/core/lophn-agent/tools/runtime-permissions.ts`, call·file tool 일부). `tools/check-deps.ts`의 `HARNESS_LEFTOVERS`가 file마다 이유와 함께 목록으로 두고(rule `harness-domain`, 대상 protocol 이름은 `HARNESS_FEATURE_PROTOCOLS`) 새 위반만 막는다. 목록의 file이 위반을 다 없애면 check가 빼라고 알린다. `extensions/`처럼 import도 role 이름도 없이 role 규칙을 다시 짜는 곳은 check가 못 보므로 path·층 규칙은 role 층 값을 받아 쓴다.
-- feature module tool 정의 file(`apps/agent-tools/**`, `problems/agent-tools.ts`)은 base, protocol, 같은 폴더, `lophn-agent/tools/spi.ts`만 import하고, `agent-roles/tools/**`는 storage·store·ledger·register와 `node:sqlite`를 import하지 않는다(rule `tool-file`).
+- feature module tool 정의 file(`apps/agent-tools/**`)은 base, protocol, 같은 폴더, `lophn-agent/tools/spi.ts`만 import하고, `agent-roles/tools/**`는 storage·store·ledger·register와 `node:sqlite`를 import하지 않는다(rule `tool-file`).

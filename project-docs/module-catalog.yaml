@@ -65,6 +65,7 @@ modules:
 
   - path: packages/core/problems
     boundary: problems
+    notes: test runner만 남았다(app test, examples, rewind 증명). 앱을 띄워 검사하므로 apps를 import한다(feature module 가운데 이 방향 하나). 앱 log와 예외 stack 풀이는 apps/runtime/observations/에 있다.
 
   - path: packages/core/projects
     boundary: projects

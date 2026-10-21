@@ -34,7 +34,7 @@ L1~L11은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pr
 - L4. 기획이 앱을 만들거나 고치는 일로 정해지면, lophn은 그 앱의 App Engineer에게 답을 받지 않는 call로 맡긴다. 새 앱이면 lophn이 먼저 앱을 등록한다(project를 고르지 않는다). (등록을 뺀 나머지는 제안)
 - L5. 기획에 자료 묶음이나 검색이 필요하면, lophn은 그 project의 Project Manager에게 결과를 받는 call로 맡긴다. (제안)
 - L6. 사람이 lophn 사용법이나 설정의 뜻을 물으면, lophn은 제품 안내와 지금 설정값으로 답한다. (제안)
-- L7. 사람이 앱이 잘 도는지 물으면, lophn은 앱 상태, 열린 문제, 진행 중인 ticket을 읽어 확인한 사실과 해석을 나눠 답한다. (제안)
+- L7. 사람이 앱이 잘 도는지 물으면, lophn은 앱 상태, 앱 log, 실패한 호출 기록, 진행 중인 ticket을 읽어 확인한 사실과 해석을 나눠 답한다. (제안)
 - L8. 사람이 Operator를 원하면, lophn은 직접 만들지 않고 그 그릇의 Project Manager나 App Engineer에게 call로 맡긴다.
 - L9. 사람이 새 앱이나 앱의 변경을 원하면, lophn은 기획 전에 place 정보의 domain 지도(domain마다 owner, 목적, 공개 tool, 그 공개 tool을 쓰는 다른 domain, 앱마다 그 앱이 주인인 package)에서 다른 domain의 공개 tool이나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
 - L10. 기획이 다른 domain의 공개 tool을 쓰거나, tool을 공개로 내거나, 코드를 package로 옮기는 것처럼 domain 경계를 넘으면, lophn은 이유와 함께 사람에게 제안하고 사람이 정한다. 같은 package나 공개 tool을 여러 domain이 쓰는지는 지도에서 lophn이 읽고, program이 알려 주지 않는다.
@@ -50,10 +50,10 @@ L1~L11은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pr
 
 ### App Engineer
 
-A1~A16은 앱 코드의 일이다. A17 이후는 앱의 source와 package, domain, 공개 tool의 일이다.
+A1~A15는 앱 코드의 일이다(A16은 없앴다). A17 이후는 앱의 source와 package, domain, 공개 tool의 일이다.
 
 - A1. 사람이 앱을 만들거나 고쳐 달라고 하면, App Engineer가 ticket을 만든다.
-- A2. 앱에 문제가 열리거나 다시 열려 program이 부르면, App Engineer가 그 문제로 ticket을 만든다.
+- A2. 사람이 앱이 이상하다고 하거나 앱이 잘못 도는 것 같으면, App Engineer가 앱 상태, 앱 log, 호출 기록을 읽어 읽은 것과 추정을 나눠 말한 뒤 원인을 고치는 ticket을 만든다. 읽은 log 줄은 ticket의 goal에 적는다.
 - A3. 사람이 앱 화면에서 annotation을 보내면, App Engineer가 받아 ticket을 만들고 그 annotation을 근거로 붙인다.
 - A4. ticket을 맡기기 전에, App Engineer가 blueprint(tool, 입력, 효과, domain, 공개 여부, permission, 의존)를 쓰거나 고치고 검사 결과를 읽는다.
 - A5. ticket을 맡기기 전에, App Engineer가 앱이 쓸 package와 정확한 version을 골라 blueprint의 의존에 고정한다.
@@ -66,13 +66,12 @@ A1~A16은 앱 코드의 일이다. A17 이후는 앱의 source와 package, domai
 - A12. 앱 밖의 재사용이나 domain 경계를 넘는 기획을 판단해야 하면, App Engineer는 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - A13. 앱이 읽을 자료 묶음이 필요하면, App Engineer는 그 project의 Project Manager에게 결과를 받는 call로 맡긴다. (제안)
 - A14. 사람이나 lophn이 그 앱의 Operator를 청하면, App Engineer가 그 앱에 Operator를 만들거나 고친다. 다른 앱의 Operator는 다루지 않는다.
-- A15. 앱을 만들거나 기능을 더하는 ticket을 만들 때, App Engineer는 보고할 실패 분기와 이름을 ticket에 적고, coding agent가 그 자리에 `reportProblem`을 둔다.
-- A16. 문제를 해결됨으로 닫을 때, App Engineer는 그 문제의 마지막 발생 뒤에 고친 release가 active가 된 뒤에만 닫을 수 있다(program이 막는다). 고친 release 없이 닫을 일이면 사람에게 묻는다.
+- A15. 앱을 만들거나 기능을 더하는 ticket을 만들 때, App Engineer는 보고할 실패 분기와 이름을 ticket에 적고, coding agent가 그 자리에 `reportProblem`을 둔다. 그 호출은 앱 log에 error 한 줄을 쓰고, App Engineer가 `app.logs`로 읽는다.
 - A17. 앱의 source 폴더를 잇거나 앱이 만든 package를 publish하는 것은 App Engineer가 자기 앱에 대해서만 한다. 다른 앱의 것은 자격이 막는다. publish한 앱이 그 package의 주인이 된다.
 - A18. 앱에 domain이 더 필요하면, App Engineer가 `domain.create`로 그 앱에 만든다. tool을 선언할 때 `domain`은 그 tool이 다루는 객체의 domain이다.
 - A19. 앱의 domain에 뜻이나 절차가 필요하면, App Engineer가 그 domain의 `DOMAIN.md`, kind 파일, skill을 쓰거나 고친다.
 - A20. 자기 앱이 쓰는 package에서 난 문제는, App Engineer가 고치지 않고 package 주인 앱(`package.get`의 `owner_app`)의 App Engineer에게 답을 받지 않는 call로 맡긴다.
-- A21. 공개 tool의 변경이나 막힘 때문에 program이 부르면, App Engineer가 바뀐 tool을 읽고 그 tool을 부르는 skill을 다시 본다. 다른 domain이 쓰는 공개 tool을 지우려다 막혔으면 tool을 되살리는 ticket을 만들거나, 그 tool을 쓰는 domain의 Project Manager나 App Engineer에게 알린 뒤 사람에게 묻는다.
+- A21. 공개 tool은 다른 domain이 기대는 약속이다. 다른 domain이 쓰는 공개 tool을 지우는 release는 program이 activation을 막으므로, 지우려면 App Engineer가 그 tool을 쓰는 domain의 Project Manager나 App Engineer에게 답을 받지 않는 call로 알린 뒤 사람에게 묻고, 아니면 tool을 되살리는 ticket을 만든다.
 
 ### Project Manager
 
@@ -80,7 +79,7 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 
 - C1. 사람이나 agent가 kind를 청하거나 domain에 kind가 아직 없으면, Project Manager가 그 domain의 kind 파일(`kinds.yaml`)을 쓰거나 고친다.
 - C2. kind를 나누거나 합칠 때, Project Manager는 kind 사이 참조가 최소가 되게 경계를 긋는다.
-- C3. kind 파일을 고치면, 판 없이 저장하는 대로 program이 검사해 맞으면 바로 쓰고 틀리면 앞의 맞던 kind를 계속 쓰며 problem을 연다.
+- C3. kind 파일을 고치면, 판 없이 저장하는 대로 program이 검사해 맞으면 바로 쓰고 틀리면 앞의 맞던 kind를 계속 쓴다.
 - C6. 문서가 kind를 어겨 program이 부르면, Project Manager가 위반 근거를 읽고 kind 파일을 고칠지 사람에게 문서를 고치라고 할지 정한다.
 - C7. 용어의 뜻이 필요하면, Project Manager는 정하지 않고 사람에게 묻는다. 답이 없으면 그 변경을 하지 않는다.
 - C8. 새 project나 앱이 필요하다고 판단하거나 domain 경계를 넘는 재사용이나 기획을 판단해야 하면, Project Manager는 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
@@ -128,7 +127,7 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 - T7. 받는 곳은 보내는 쪽이 고르고, 열린 session으로 보냈는데 닫혀 있으면 새로 열지 않는다. "열린 session, 없으면 새 session"은 놓치면 안 되는 것에만 쓴다.
 - T8. 받는 agent는 보낸 쪽이 놓인 place가 아니라 넘기는 일이 어느 그릇(project나 app)과 domain에 관한 것인지로 정하고, 보내는 agent가 그것을 함께 적는다. 경우는 5.2의 표다.
 - T9. 받을 agent가 없거나, grant 밖이거나, 받는 session이 닫혀 있으면, 이유와 함께 실패가 보낸 session에 돌아온다. 답을 받지 않는 call도 배달 실패는 돌아온다.
-- T10. 넘기는 내용은 맡긴 글 하나와 근거 링크(ticket, problem, 파일 경로, 보낸 session)이고, 보낸 쪽의 대화 원문은 복사하지 않는다.
+- T10. 넘기는 내용은 맡긴 글 하나와 근거 링크(ticket, annotation, 파일 경로, 보낸 session)이고, 보낸 쪽의 대화 원문은 복사하지 않는다.
 - T11. 결과를 받는 call을 받은 agent는 일이 끝나면 답을 보낸다. 맡지 않을 때도 답으로 이유를 보낸다. lophn agent session은 저절로 끝나지 않아 program이 끝을 알 수 없기 때문이다.
 - T12. 보낸 agent는 call을 보낸 뒤 기다리며 막히지 않고, 답은 새 입력으로 받는다.
 - T13. 보낸 session이 archive되었거나 지워졌으면, 결과는 받은 session에만 남는다.
@@ -169,11 +168,9 @@ Operator ──────call(none)────▶ App Engineer      : 앱 버
 coding agent ─────보고───────▶ App Engineer      : 맡은 일을 끝냈을 때(대화를 닫음)
              ───메시지───────▶ App Engineer      : blueprint나 의존을 바꿔야 하거나 막혔을 때
 
-program ────────reaction─────▶ App Engineer      : 문제 열림·다시 열림, 반복 종료, activation 실패(그 앱)
-        ────────reaction─────▶ 그릇의 PM | AE    : 문서의 kind 위반(위반이 생긴 domain의 그릇)
-        ────────reaction─────▶ 그릇의 PM | AE    : 공개 tool 바뀜(tool의 domain과 쓰는 domain들), 막힘(tool의 domain)
+program ────────reaction─────▶ App Engineer      : activation 실패(그 앱)
         ─────domain event────▶ 맡긴 App Engineer : 완료 보고, claim 만료, 보고 없는 coding agent session 끝(끌 수 없음)
-        ──────────알림───────▶ 사람              : 반복 종료와 kind 위반(toast), 선언이 넓어진 release의 activation 허락, 물음(toast)
+        ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), 선언이 넓어진 release의 activation 허락, 물음(toast)
 
 call(result) 받은 쪽 ────답─────▶ 보낸 쪽       : 맡은 일을 끝냈을 때, 맡지 않을 때
 lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정이나 취향이 필요할 때
@@ -212,18 +209,16 @@ role 이름만으로는 받는 agent가 하나로 정해지지 않는다(Project
 - 고른 agent가 없으면(그 그릇이 없거나 그 이름의 Operator가 없으면) 넘기기가 막히고 이유가 돌아온다(T9).
 - 새 앱은 lophn이 먼저 등록하고, 그 앱의 App Engineer에게 "app" 방법으로 맡긴다.
 
-## 6. program이 agent를 부르는 때
+## 6. program이 agent를 부르거나 사람에게 알리는 때
 
-E4를 뺀 나머지는 reaction grant를 따르고, 기본은 묻지 않고 session을 연다. E4는 맡긴 call을 닫는 사실이라 끌 수 없다.
+program이 agent를 부르는 것은 E3와 E4 둘이다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고 agent를 열지 않는다(E2, E5). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. E3는 reaction grant를 따르고, 기본은 묻지 않고 session을 연다. E4는 맡긴 call을 닫는 사실이라 끌 수 없다.
 
-- E1. 앱에 문제가 열리거나 해결된 문제가 다시 열리면, program이 그 앱의 App Engineer를 부른다.
-- E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 그 앱의 App Engineer를 부르고 사람에게 toast로 알린다.
+- E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. App Engineer는 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
 - E3. activation이 실패하면, program이 그 release 앱의 App Engineer를 부른다.
 - E4. coding agent가 완료를 보고하거나, claim이 만료되거나, 보고 없이 session이 끝나면, program이 맡긴 App Engineer session에 알린다. 그 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
-- E5. 문서가 kind를 어기면(위반이 새로 열리거나 다시 열리면), program이 위반이 생긴 domain 그릇의 Project Manager나 App Engineer를 부르고 사람에게 toast로 알린다.
+- E5. 문서가 kind를 어기면(위반이 새로 생기면), program이 사람에게 toast로 알린다. agent는 부르지 않는다. Project Manager나 App Engineer는 사람이 청하면 `kind.check`로 검사한다.
 - E6. ticket이 확인됨이 되어 그 release의 activation이 시작되고 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 사람에게 activation 허락을 묻는다.
-- E7. release가 active가 되어 공개 tool이 바뀌거나 지워지면, program이 그 tool의 domain과 그 tool을 쓰는 다른 domain마다 그 그릇의 Project Manager나 App Engineer를 부른다(domain마다 한 번).
-- E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 activation을 막고 그 tool의 domain 그릇의 App Engineer를 부른다.
+- E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 activation을 막는다. 막은 것을 agent에게 알리지는 않는다.
 
 ## 7. 하지 않는 것
 

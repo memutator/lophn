@@ -56,7 +56,7 @@ elements:
 
           - id: app-runtime
             kind: component
-            description: 앱의 실행과 capability.
+            description: 앱의 실행과 capability. 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이를 포함한다.
 
           - id: app-data
             kind: component
@@ -76,7 +76,7 @@ elements:
 
       - id: problems
         kind: subsystem
-        description: 앱 문제의 감지, 증거, 확인, 닫기와 domain의 kind 위반 problem.
+        description: test runner. 앱 test(플랫폼 검사)와 ticket의 tool 예시(examples)를 격리 사본에서 돌려 결과(pass, fail, 증명 못 함)를 기록한다.
 
       - id: agent-roles
         kind: component
@@ -244,7 +244,6 @@ interfaces:
     defined_by: agent-tools
     provided_by:
       - apps
-      - problems
       - domains
       - agent-roles
     used_by:

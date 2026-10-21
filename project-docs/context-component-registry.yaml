@@ -217,7 +217,7 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: agent와 앱이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 줄, 기록, rewind.
+    description: agent와 앱이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 줄, 기록, rewind, 앱 log.
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
@@ -302,10 +302,10 @@ components:
   - id: architecture-kinds
     kind: doc
     roles: [planner, lead]
-    description: domain의 kind 파일과 그 자리, 바뀔 때 검사, kinds worker pipeline, kind.list·kind.check, 위반이 domain problem이 되는 길, prompt의 kind 글.
+    description: domain의 kind 파일과 그 자리, 바뀔 때 검사, kinds worker pipeline, kind.list·kind.check, 새 위반을 사람에게 알리는 길, prompt의 kind 글.
     path: project-docs/architecture/kinds.md
     change_reasons:
-      boundaries: [kinds, problems, domains]
+      boundaries: [kinds, domains]
       paths: [packages/core/agent-roles/place/place-folders.ts, packages/core/lophn-agent/prompt-assembly/kind-text.ts, packages/protocol/domains/paths.ts]
 
   - id: architecture-domain
@@ -314,7 +314,7 @@ components:
     description: domain entity(project나 app 안의 책임 경계). owner, 앱의 첫 domain, 지침 층과 Operator 좁히기, 앱 tool의 domain, 다른 domain의 비공개 tool 거르기, domain 사이 장치(release 막기, 깨우기, lophn 지도, package 주인).
     path: project-docs/architecture/domain.md
     change_reasons:
-      boundaries: [domains, apps, agent-roles, agents, agent-tools, problems, kinds]
+      boundaries: [domains, apps, agent-roles, agents, agent-tools, kinds]
       paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/]
       note: domain을 만들거나 보관하는 규칙, 앱 tool의 domain 칸, 맡은 domain을 정하는 규칙이 바뀔 때.
 

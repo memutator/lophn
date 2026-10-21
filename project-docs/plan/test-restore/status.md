@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py test-restore build`가 `tasks/*.md`에서 id
 | `tr-eval-versions` | eval | 1 | 없음 | merged | eval/tr-eval-versions | eec5a3283 |  |
 | `tr-shell-instructions-card` | shell | 1 | 없음 | merged | shell/tr-shell-instructions-card | 04a2e9202 |  |
 | `tr-support-app` | support | 1 | 없음 | merged | support/tr-support-app | 39dd2e801 |  |
-| `tr-e2e-app-activation` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-activation |  |  |
+| `tr-e2e-app-activation` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-activation | f45c3a012 |  |
 | `tr-e2e-app-call-kinds` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-call-kinds | 1bbad5b07 |  |
 | `tr-e2e-app-fix` | e2e | 2 | tr-support-app | running | e2e/tr-e2e-app-fix |  |  |
 | `tr-e2e-app-release` | e2e | 2 | tr-support-app | merged | e2e/tr-e2e-app-release | c74f81a15 |  |

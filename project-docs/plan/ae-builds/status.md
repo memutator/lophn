@@ -19,6 +19,6 @@ lead만 고친다. `tools/status.py ae-builds build`가 `tasks/*.md`에서 id, �
 | `ab-release-activate` | release | 2 | ab-reaction-core | merged | release/ab-release-activate | 5afbe258c |  |
 | `ab-release-prepare` | release | 3 | 없음 | merged | release/ab-release-prepare | f068e449c |  |
 | `ab-ticket-refs` | ticket | 3 | 없음 | merged | ticket/ab-ticket-refs | 38ac3c6cb |  |
-| `ab-prompt` | prompt | 4 | 없음 | running | prompt/ab-prompt |  |  |
+| `ab-prompt` | prompt | 4 | 없음 | merged | prompt/ab-prompt | 4ecee1515 |  |
 | `ab-runner-delete` | runner | 4 | ab-ticket-delete | running | runner/ab-runner-delete |  |  |
 | `ab-ticket-delete` | ticket | 4 | 없음 | merged | ticket/ab-ticket-delete | 796a29136 |  |

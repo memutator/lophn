@@ -14,6 +14,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 | eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | `tests/eval/` | `deno task eval`, `deno task eval:experiment <id>` |
 
 - `tools/check.ts`는 `tests`를 package 하나로 본다. 어느 package가 바뀌어도 `tests`의 fmt, lint, `deno check`, harness와 support의 `*_test.ts`가 같이 돈다.
+- 개편 동안 `tests/e2e`, `tests/eval`과 그것만 쓰는 `tests/support`를 check의 type check와 test에서 뺐다(`tools/check.ts`의 `NOT_CHECKED`). fmt와 lint는 그대로 본다. e2e를 되살리는 계획이 이 줄과 그 목록을 지운다.
 - `tests/e2e`와 `tests/live`는 check의 `deno test`에 들지 않는다. `deno.json`의 `test.exclude`를 쓰지 않고 `--ignore`로 뺀다. `test.exclude`에 든 폴더는 인자로 직접 줘도 돌지 않아 `deno task e2e`가 못 돈다. CLI `--ignore`는 root `deno.json`의 `exclude`를 대체하므로 check는 그 목록(`DENO_EXCLUDED`)을 같이 준다.
 - `deno task e2e`는 `--parallel` 없이 file 순서대로 돈다. flow마다 core를 띄운다. E2E file 수의 상한은 없고 시간 예산이 있다: 전체가 10분 안에 끝나야 한다. 넘으면 행을 harness로 내리거나 같은 준비를 쓰는 file로 묶는다.
 

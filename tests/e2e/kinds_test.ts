@@ -1,35 +1,30 @@
 // 세 질문
-// - contract: boundary `kinds`·`problems`·`events`(그릇의 domain 폴더에 처음 쓴 kind 파일의 문서 위반이 kinds worker를 거쳐
-//   domain problem으로 열리고, 새 위반이면 `KindViolationFound`가 그 그릇의 Project Manager session을 한 번 연다).
-// - 현실적 회귀: watch가 domain 폴더를 못 봐 처음 쓴 `kinds.yaml`을 놓친다, worker launch spec의 읽기 권한에 project 폴더나 kind
-//   파일이 빠져 worker가 못 읽는다, dispatcher의 machine 자격이 `problem.sync_domain`을 못 부른다, reaction이 project owner
-//   domain의 Project Manager를 못 찾는다, 같은 위반이 sync마다 session을 또 연다.
-// - 왜 지금 test로 못 잡나: `kinds-file_test.ts`와 `packages/core/problems/domain/commands_test.ts`는 한 쪽씩만 본다.
-//   core watch -> worker process -> machine command -> Reactor -> Router -> Project Manager turn은 process를 건너야 보인다.
+// - contract: boundary `kinds`·`events`·`event-stream`(kind 파일이 가리키는 문서에 새 위반이 생기면 kinds worker의 sync 답을
+//   dispatcher가 앞 sync와 메모리에서 견주어 남지 않는 `KindViolationFound {domain, count}`를 Bus로 한 번 내고 Gateway가
+//   받는다. session은 열리지 않는다. 켠 뒤 그 domain의 첫 sync는 기준만 둔다).
+// - 현실적 회귀: worker launch spec의 읽기 권한에 project 폴더나 kind 파일이 빠진다, dispatcher가 Bus에 못 내거나 Gateway가
+//   남지 않는 event를 거르지 못한다, 켠 뒤 첫 sync가 있던 위반을 모두 새것으로 알린다, 같은 위반을 sync마다 다시 알린다,
+//   위반이 다시 session을 연다.
+// - 왜 지금 test로 못 잡나: dispatcher의 비교를 보는 unit이 없고(`packages/core/projects/kinds/host`에는 `handlers_test.ts`뿐이다),
+//   kind route -> dispatcher -> worker process -> Bus -> Gateway WebSocket은 process를 건너야 보인다.
 //
-// 앱이 없는 project 길이라 core 기동뿐이다. fake 대답은 reaction session turn의 text 하나다. 제품은 domain 폴더를 turn 시작 때
-// agent runtime이 만들고 Project Manager가 file tool로 `kinds.yaml`을 쓰지만, file tool의 범위는 이 flow의 contract가 아니라서
-// 폴더와 파일을 직접 쓴다(순서는 제품과 같다: domain 생성 -> 폴더 -> 처음 쓴 kinds.yaml).
+// fake 대답은 없다. 앱이 없는 project 길이라 `appCoreEnv` 없이 `bootCore(run)`이다. 폴더와 파일은 사람이 editor로 저장하듯
+// 직접 쓴다.
 import { assertEquals } from "@std/assert";
 import {
   domainCreate,
   domainFolder,
   domainKindsFile,
 } from "../../packages/protocol/domains/mod.ts";
-import {
-  agentSessionList,
-  receivedMessageList,
-} from "../../packages/protocol/lophn-agent/mod.ts";
-import { problemListDomain } from "../../packages/protocol/problems/mod.ts";
+import { agentSessionList } from "../../packages/protocol/lophn-agent/mod.ts";
+import { kindCheck } from "../../packages/protocol/projects/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openProject,
-  settle,
   until,
-  waitTurnEnd,
 } from "../support/core/human.ts";
-import { runtimePids } from "../support/core/process.ts";
+import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 const KINDS = `kinds:
@@ -43,67 +38,52 @@ const KINDS = `kinds:
         required: true
 `;
 
-// program 메시지로 열린 Project Manager session이다.
-async function reactionSessions(core: Core, project: string) {
-  const { sessions } = await core.call(agentSessionList, {
-    agent: { role: "project_manager", project },
-  });
-  const found: string[] = [];
-  for (const { id } of sessions) {
-    const { messages } = await core.call(receivedMessageList, { session: id });
-    if (messages[0]?.from.kind === "program") found.push(id);
-  }
-  return found;
-}
+const INVALID_NOTE = "---\ntitle: a\n---\n";
 
-Deno.test("E2E domain 폴더에 처음 쓴 kind 파일의 문서 위반은 domain problem이 되어 Project Manager를 한 번 부른다", async (t) => {
+const found = (frame: { event: { type: string } }) =>
+  frame.event.type === "KindViolationFound";
+
+Deno.test("E2E kind 파일이 가리키는 문서에 새 위반이 생기면 Gateway가 KindViolationFound 하나를 받고 session은 열리지 않으며, 켠 뒤 첫 sync가 본 위반은 알리지 않는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
+  let gateway: Gateway | undefined;
   try {
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const c = core;
+    const folder = `${c.run.work}/notes-project`;
+    await Deno.mkdir(`${folder}/notes`, { recursive: true });
+    await Deno.writeTextFile(`${folder}/notes/a.md`, INVALID_NOTE);
+    const { project } = await openProject(c, folder, "notes-project");
+    const g = gateway = await connectGateway(c, {
+      conditions: [{ types: ["KindViolationFound"] }],
+    });
+    const domain = c.ids.newId("dom");
+    const total = async () =>
+      (await c.call(kindCheck, { domain, query: {} })).total;
 
-    await t.step("first-kinds-file-opens-problem", async () => {
-      const folder = `${c.run.work}/notes-project`;
-      await Deno.mkdir(`${folder}/notes`, { recursive: true });
-      await Deno.writeTextFile(`${folder}/notes/a.md`, "---\ntitle: a\n---\n");
-      const { project } = await openProject(c, folder, "notes-project");
-      fake.script([{ reply: { kind: "text", text: "noted" } }]);
-
-      // active domain 폴더는 runtime child의 권한 폴더라 만들어지면 child가 다시 뜬다. 그 전에 끝낸다.
-      const before = await runtimePids(c.run.home);
-      const domain = await c.call(domainCreate, {
+    await t.step("first-sync-is-baseline", async () => {
+      // domain을 만들면 감시가 바로 sync해 기준을 잡는다. 파일을 먼저 둬야 위반이 있는 domain을 처음 sync하는 처지가 된다.
+      await Deno.mkdir(domainFolder(c.run.home, domain), { recursive: true });
+      await Deno.writeTextFile(domainKindsFile(c.run.home, domain), KINDS);
+      await c.call(domainCreate, {
+        id: domain,
         name: "notes",
         title: "Notes",
         purpose: "Notes kept in this project",
         owner: { kind: "project", id: project },
       });
-      if (before.length > 0) await settle(c, before);
-      await Deno.mkdir(domainFolder(c.run.home, domain.id), {
-        recursive: true,
-      });
-      await Deno.writeTextFile(domainKindsFile(c.run.home, domain.id), KINDS);
-
-      const [problem] = await until("domain problem이 열림", async () => {
-        const { problems } = await c.call(problemListDomain, {
-          domain: domain.id,
-          state: "open",
-        });
-        return problems.length > 0 ? problems : undefined;
-      });
-      const [session] = await until(
-        "Project Manager session이 열림",
-        async () => {
-          const found = await reactionSessions(c, project);
-          return found.length > 0 ? found : undefined;
-        },
+      await until(
+        "kind 파일이 적용됨",
+        async () => (await total()) === 1 ? true : undefined,
       );
-      await waitTurnEnd(c, session!);
+      // 그 전에 Bus가 낸 event frame은 이 ready보다 먼저 와 있다.
+      await g.watch([{ types: ["KindViolationFound"] }]);
 
-      // ledger: 문구(message)는 단정하지 않는다.
-      const { message: _message, ...violation } = problem!.violation;
+      // route: 문구(message)는 단정하지 않는다.
+      const { violations } = await c.call(kindCheck, { domain, query: {} });
+      const { message: _message, ...violation } = violations[0]!;
       assertEquals(violation, {
         source: "document",
         rule: "required",
@@ -111,14 +91,45 @@ Deno.test("E2E domain 폴더에 처음 쓴 kind 파일의 문서 위반은 domai
         path: "notes/a.md",
         field: "status",
       });
-      // route: turn의 place 정보가 kind.get으로 다시 sync해도 같은 위반이라 둘째 session이 열리지 않는다.
-      assertEquals(await reactionSessions(c, project), [session]);
-      // fake
-      const journal = fake.journal();
-      assertEquals(journal.length, 1);
-      assertEquals(journal[0]!.mismatch, null);
+      // event
+      assertEquals(
+        g.frames().filter(
+          (frame) => frame.type === "event" && found(frame),
+        ),
+        [],
+      );
+    });
+
+    await t.step("new-violation-notifies-once", async () => {
+      await Deno.writeTextFile(`${folder}/notes/b.md`, INVALID_NOTE);
+      // 감시에만 기대지 않는다. 감시는 힌트이고 놓쳐도 읽기 앞 sync가 따라잡는 것이 계약이다.
+      await until(
+        "새 위반이 보임",
+        async () => (await total()) === 2 ? true : undefined,
+      );
+      const frame = await g.next("event", found);
+      await g.watch([{ types: ["KindViolationFound"] }]);
+
+      // event
+      const { event } = frame;
+      if (event.type !== "KindViolationFound") throw new Error("다른 event");
+      assertEquals(event.subject, domain);
+      assertEquals(event.payload, { domain, count: 1 });
+      assertEquals(
+        g.frames().filter((item) => item.type === "event" && found(item))
+          .length,
+        1,
+      );
+      // ledger: session이 열리지 않는다.
+      const { sessions } = await c.call(agentSessionList, {
+        agent: { role: "project_manager", project },
+      });
+      assertEquals(sessions, []);
+      // fake: 어떤 turn도 model을 부르지 않았다.
+      assertEquals(fake.journal().length, 0);
     });
   } finally {
+    await gateway?.close().catch(() => {});
     await core?.kill().catch(() => {});
     await fake.close();
     await run.remove();

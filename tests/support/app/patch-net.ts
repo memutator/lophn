@@ -1,13 +1,14 @@
 // net·secret 길(cap-net·cap-secret)의 E2E가 쓰는 patch다. template에 external tool `fetch_local`을 더한다.
-// blueprint 선언·SDK 의존·import map·handler를 같이 더해 platform app test(선언과 등록 handler가 같다, 의존이 같다)를
-// 통과해야 한다.
+// blueprint 선언·SDK 의존·import map·handler를 같이 더해 release 준비의 handler 검사(선언과 등록 handler를 대조한다)를
+// 지나야 한다.
 //
 // - fetch_local {}: external. `useSecret`으로 secret을 목적지에 묶은 뒤 같은 목적지로 `netFetch`하고 `{ status, body }`를
 //   돌려준다. 값은 앱이 모르고 broker가 `Authorization: Bearer`로 붙인다.
 //
-// test mode에서 handler 본문은 돌지 않는다. platform app test는 입력이 없는 external api에 입력 계약을 어긴 값만 보내고
-// (거절은 handler 앞에서 일어난다) rewind는 write만 부르므로 대역을 끼우지 않는다. 본문은 live에서만 돌고, test mode에서
-// broker는 외부에 닿는 요청을 거절한다(`liveOnly`).
+// release 준비의 handler 검사와 preview 자식은 handler 본문을 부르지 않거나 broker가 바깥 요청을 거절한다(`liveOnly`,
+// `packages/core/apps/permissions/broker/net-fetch.ts`). 본문은 live에서만 돈다.
+
+import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
   path: string,
@@ -24,8 +25,7 @@ export async function netFetchPatch(
   options: { port: number; secret: string },
 ): Promise<void> {
   const { port, secret } = options;
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  const slug = await sampleDomain(dir);
   const blueprint = `${dir}/blueprint.ts`;
   await replaceOnce(
     blueprint,

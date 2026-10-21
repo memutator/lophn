@@ -1,7 +1,8 @@
 // 세 질문
 // - contract: boundary `app-runtime`·`app-spi`(tool 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
 //   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(tool),
-//   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다).
+//   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다),
+//   `approvals`(할당이 agent의 앱 호출을 연다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
 //   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것, net/fetch가 실제 core에서 나가지 못하는 것과
 //   secret 사용이 늘 `unavailable`이었던 것.
@@ -9,10 +10,10 @@
 //   agent -> core -> 앱 process 왕복은 process를 건너야 한다. net·secret의 unit은 `transport`를 끼워 넣어 supervisor
 //   권한(host 없는 --allow-net)과 process 경계를 지나지 않는다.
 //
-// fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 둘이다(allow-session-scope의
-// 첫 session만 셋: 호출 둘과 text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool
-// 이름 규칙(`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다
-// (비공개 tool은 그 domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다(README 정한 것 11).
+// fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 `agent-calls-app`의 둘뿐이다(호출과
+// text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool 이름 규칙
+// (`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다(비공개 tool은 그
+// domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   appCallTool,
@@ -21,26 +22,21 @@ import {
   appRewindPlan,
   appRuntime,
 } from "../../packages/protocol/apps/mod.ts";
-import {
-  agentGrantsSet,
-  approvalsDecideTurn,
-  approvalsPending,
-} from "../../packages/protocol/approvals/mod.ts";
+import { agentAssignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   operatorCreate,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
-import { activateTestApp, type TestApp } from "../support/app/activate.ts";
+import { activateTestApp } from "../support/app/activate.ts";
 import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
-import { appCoreEnv } from "../support/coding/deps.ts";
+import { appCoreEnv } from "../support/app/deps.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openSession,
   say,
-  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import {
@@ -101,7 +97,6 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
-  let app: TestApp | undefined;
   const loopback = startLoopback();
   const token = crypto.randomUUID();
   try {
@@ -109,7 +104,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
     await connectFakeProvider(core, fake);
     const put = await core.upload(NET_SECRET, new TextEncoder().encode(token));
     assert(put.ok, "secrets/put가 거절됐다");
-    app = await activateTestApp(core, fake, {
+    const app = await activateTestApp(core, fake, {
       name: "Calls",
       slug: "calls",
       patch: async (dir) => {
@@ -128,10 +123,10 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
       definition: { name: "Caller", body: "use the app" },
     });
     const operator = { role: "operator", agent } as const;
-    await c.call(agentGrantsSet, {
+    await c.call(agentAssignmentSet, {
       agent: operator,
-      entries: [{ kind: "app", app: id, tools: [] }],
-    });
+      entries: [{ app: id, removed_tools: [] }],
+    }, { revision: 0 });
 
     await t.step("agent-calls-app", async () => {
       fake.reset();
@@ -217,8 +212,6 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
       assertEquals(invocation?.status, "succeeded");
       assertEquals(invocation?.caller, user);
       assertNotEquals(invocation?.changeset, null);
-      // route
-      assertEquals((await c.call(approvalsPending, {})).requests, []);
       // app state
       assert((await items(c, id)).includes("by-hand"));
     });
@@ -266,72 +259,7 @@ Deno.test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process
       // process
       assertEquals(await nonceOf(c, id), nonce);
     });
-
-    // 한 session에서 허락한 "이 session 동안"은 그 session에만 유효하다. 두 session을 case 둘로 나눈다.
-    let granted = "";
-    await t.step(
-      "allow-session-scope: 허락한 session은 다시 묻지 않는다",
-      async () => {
-        fake.reset();
-        const ping = (callId: string) => callApp(callId, "external_ping", {});
-        fake.script([
-          { reply: ping("p1") },
-          { reply: ping("p2") },
-          text("done"),
-        ]);
-        const session = await openSession(c, operator);
-        granted = session;
-        await say(c, session, "ping twice");
-        const { request } = await waitPermission(c, session);
-        await c.call(approvalsDecideTurn, {
-          session,
-          request,
-          choice: { kind: "session" },
-        });
-        // route: 둘째 호출을 또 물으면 turn이 멈춰 여기서 실패한다.
-        await waitTurnEnd(c, session);
-        // ledger
-        const { invocations } = await c.call(appInvocations, {
-          app: id,
-          session,
-          effect: "external",
-        });
-        assertEquals(invocations.map((item) => item.status), [
-          "succeeded",
-          "succeeded",
-        ]);
-      },
-    );
-
-    await t.step(
-      "allow-session-scope: 다른 session은 같은 호출을 다시 묻고 거절하면 거절로 닫힌다",
-      async () => {
-        fake.reset();
-        fake.script([
-          { reply: callApp("p3", "external_ping", {}) },
-          text("done"),
-        ]);
-        const session = await openSession(c, operator);
-        assertNotEquals(session, granted);
-        await say(c, session, "ping once");
-        // route
-        const { request } = await waitPermission(c, session);
-        await c.call(approvalsDecideTurn, {
-          session,
-          request,
-          choice: { kind: "reject" },
-        });
-        await waitTurnEnd(c, session);
-        // ledger
-        const { invocations } = await c.call(appInvocations, {
-          app: id,
-          session,
-        });
-        assertEquals(invocations.map((item) => item.status), ["denied"]);
-      },
-    );
   } finally {
-    await app?.gateway.close().catch(() => {});
     await core?.kill().catch(() => {});
     await loopback.close();
     await fake.close();

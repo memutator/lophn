@@ -1,10 +1,10 @@
-// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 셋을 더한다. blueprint 선언과 handler를 같이 더해
-// platform app test(선언과 등록 handler가 같다, 되돌림)를 통과해야 한다. write의 fixture 입력은 선언에서 가장 단순한
-// 값(`kb`는 minimum)으로 만들어지므로 입력이 그 값으로도 성공해야 한다.
+// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 둘을 더한다. blueprint 선언과 handler를 같이 더해 release 준비의
+// handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 지나야 한다.
 //
 // - big_write {kb}: write. `kb` KiB 글을 한 row에 넣고 표의 row 수를 돌려준다.
 // - put_text {text}: write. 길이 제한이 없는 글 하나를 저장하고 row 수를 돌려준다.
-// - external_ping {}: external. 바깥에 나가지 않고 `ok`만 돌려준다. agent grant 기본이 "묻기"다.
+
+import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
   path: string,
@@ -17,8 +17,7 @@ async function replaceOnce(
 }
 
 export async function callPatch(dir: string): Promise<void> {
-  // 앱 slug가 그 앱의 domain 이름이다.
-  const slug = dir.split("/").at(-1);
+  const slug = await sampleDomain(dir);
   // 같은 첫 단계에 표를 더한다. 이 release가 처음이라 공개한 단계를 고치는 것이 아니다.
   await replaceOnce(
     `${dir}/migrations/0-1.sql`,
@@ -64,15 +63,6 @@ create table note (
         public: false,
       },
       {
-        name: "external_ping",
-        title: "External ping",
-        description: "Answer ok without leaving the machine.",
-        effect: "external",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
         name: "add_item",`,
   );
   const api = `${dir}/src/tools.ts`;
@@ -99,7 +89,6 @@ export function registerTools(deps: Deps = defaults): void {
   tool("put_text", async (input: unknown) => {
     const text = String((input as { text?: unknown } | null)?.text ?? "");
     return await withStore(deps, "put_text", (store) => putNote(store, text));
-  });
-  tool("external_ping", () => ({ ok: true }));`,
+  });`,
   );
 }

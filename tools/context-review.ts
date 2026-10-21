@@ -3,7 +3,7 @@
 //       deno run --allow-read tools/context-review.ts --modules <path,path,...>
 // 바뀐 file → module-catalog의 module → boundary ID → registry의 change_reasons.boundaries가 그 ID인 조각.
 // change_reasons.paths가 바뀐 file을 덮는 조각도 낸다. module이 부모 boundary(예: core/apps → apps)에 걸려 있으면
-// 어느 자식이 바뀌었는지 path로는 모르므로 그 아래 boundary(app-releases, app-tickets …)에 걸린 조각도 낸다.
+// 어느 자식이 바뀌었는지 path로는 모르므로 그 아래 boundary(app-releases, app-runtime …)에 걸린 조각도 낸다.
 // 자식이 자기 module을 따로 가지면(core 아래 approvals) 그 자식은 넓히지 않는다.
 // --range면 조각의 path 자체가 그 범위에서 바뀌었는지(=같은 변경에서 고쳤는지)도 표시한다.
 import { parse } from "@std/yaml";

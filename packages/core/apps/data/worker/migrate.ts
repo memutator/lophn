@@ -42,7 +42,7 @@ function unavailable(message: string): Result<never> {
 }
 
 // script_hash는 단계 파일 byte의 sha256이다. 파일 이름은 앱 템플릿의 `migrations/<from>-<to>.sql`이고
-// release.prepare의 data_changes가 같은 규칙으로 hash를 낸다(`dataChangesOf`). "sha256:" 접두는 있어도 같다.
+// release.record의 data_changes가 같은 규칙으로 hash를 낸다(`dataChangesOf`). "sha256:" 접두는 있어도 같다.
 function plain(hash: string): string {
   return hash.startsWith(HASH_PREFIX) ? hash.slice(HASH_PREFIX.length) : hash;
 }

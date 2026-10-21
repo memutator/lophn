@@ -82,7 +82,7 @@ export const appTools = defineRead({
 });
 
 // `app.tool_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
-// 돌려주는 칸이 이것뿐이라 source 경로, problem, ticket은 새지 않는다. 호출 모양(inputSchema, outputSchema)은
+// 돌려주는 칸이 이것뿐이라 source 경로, 앱 log, 호출 기록은 새지 않는다. 호출 모양(inputSchema, outputSchema)은
 // 입력에 app이 있을 때만 싣는다(전체 목록에서는 칸이 없다). 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
 // inputSchema는 인자가 없으면 null, outputSchema는 선언했을 때만 있다.
 const appToolIndexEntrySchema = z.object({

@@ -549,3 +549,60 @@ guard: 없음
 고치려면: snapshot에서 `state === "unknown"`인 열린 coding session도 세고, runtime으로 센 session도 snapshot의 state로 거른다(작음). 추천.
 
 닫음: session snapshot이 coding session의 `harness`를 싣는다(`packages/protocol/events/snapshot.ts`, `packages/core/main/daemon/wiring/session-snapshots.ts`). `waiting-store.ts` `replace`가 snapshot에서 `unknown`이고 첫 신호가 `SessionStarted`인 harness의 coding session에 runtime 길과 같은 `waitStart` delay를 걸고, 첫 신호를 들은 coding session은 `done`에 넣어 다시 붙은 뒤 온 runtime event가 항목을 다시 띄우지 않는다.
+
+## example을 고친 reported ticket을 다시 넘기면 거절되고 model은 이유를 모른다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/agent-roles, packages/core/lophn-agent]
+closed: fixed
+guard: 없음
+```
+
+지금: coding agent가 보고하면 program이 ticket의 examples를 돌린다. 떨어지면 `ticket_check_results`에 fail만 남고 ticket은 `reported` 그대로다(`apps/tickets/checks.ts`). App Engineer 지침(`agent-roles/roles/app-engineer/prompt.md`)은 "example 자체가 틀렸으면 `ticket.update`로 고치고 coding agent에게 다시 넘긴다"고 했다. `ticket.update`(`apps/tickets/commands.ts`)는 goal과 check만 바꾸고 state는 두며, 맡기기 시작(`apps/tickets/coding/transport.ts`의 `start`)은 `open`이나 `failed` ticket만 받아 `ticket_unavailable`(code `unavailable`)로 거절한다. `ticket.verify`에 `failed`를 먼저 넣어야 다시 넘길 수 있다. 지침에는 이제 그 순서를 썼지만 model이 빼먹으면 그대로 막힌다. model이 받는 글은 `lophn-agent/tools/work.ts`의 `FAILURE_SUMMARIES`가 code마다 고정한 "tool is unavailable"뿐이라 `details.reason`이 닿지 않는다. 재현: eval `calendar-user` 첫 run. examples step 3이 떨어졌고, App Engineer는 지침대로 `ticket.update` 뒤 `call to:{role:"coding_agent", place}`을 했다가 `unavailable`을 두 번 받고 turn을 끝냈다. 앱은 켜지지 않았다. 앞서 `calendar-mvp` run 하나도 다시 넘기기에서 같은 글로 멈췄다(detail은 확인 못 함).
+
+영향: 첫 보고의 examples가 떨어진 앱 만들기가 그 자리에서 멈춘다. 사람은 만들다 만 앱을 받고, App Engineer는 무엇을 해야 풀리는지 알 길이 없다.
+
+고치려면:
+- examples가 떨어지면 program이 ticket을 `failed`로 둔다. examples를 못 넘긴 ticket은 어차피 verified가 될 수 없다(작음. `checks.ts`에서 verdict를 같이 쓴다. App Engineer의 `ticket.verify` 실패 기록 단계가 빠진다). **추천.**
+- coding 시작 실패의 `details.reason`(`not_connected`, `cannot_launch`, `no_source_folder`, `ticket_unavailable`)을 model 글에 붙인다(작음. 넷 다 범위 밖 대상의 이름이나 존재를 드러내지 않는다). 추천안과 같이 한다.
+
+닫음: ticket, examples check, coding agent에게 맡기기를 지웠다. App Engineer가 앱을 직접 짓고 preview에서 확인한 뒤 `release.activate`로 올린다. `release.prepare`의 검사 실패는 오류 code가 아니라 `{status: "failed", stage, reason}` 출력이라 이유가 model에 닿는다.
+
+## `app.link_source`가 없는 폴더를 받아 그 앱의 coding agent가 뜨지 못한다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: `app.link_source`(`apps/agent-tools/app.ts`)는 경로를 풀어 `app.connect_source`로 넘기고, 그 command(`apps/registration/commands.ts`의 `connectSource`)는 폴더가 있는지 보지 않고 `source_path`를 적는다. 맡기기 전 template 깔기(`apps/tickets/coding/scaffold-source.ts`)는 `source_path`가 비었을 때만 하므로 건너뛴다. coding 터미널은 없는 폴더에서 열리다 실패하고(`open_failed`), session은 보고 없이 끝난다. 재현: eval `calendar-user`·`calendar-dev` 셋째 run. App Engineer가 blueprint를 먼저 쓰려다 `blueprint.check` not_found를 받고 `…/apps/<id>/calendar`를 지어내 연결했다. 그 뒤 다시 넘긴 다섯 번 모두 터미널이 열리지 않았다.
+
+영향: agent 실수 한 번으로 그 앱의 코딩이 막힌다. App Engineer에게는 call이 accepted로 보이고 session이 바로 끝날 뿐이라 이유를 모른다. 사람이 Settings에서 source를 다시 고치기 전까지 풀리지 않는다.
+
+고치려면:
+- 연결 전에 폴더가 있고 git 저장소인지 본다. command는 tx 안이라 파일을 못 보므로 template 깔기처럼 writer 앞에서 본다(작음). **추천.**
+- App Engineer의 `app.link_source`를 뺀다(작음. 사람이 가리킨 기존 저장소를 App Engineer가 잇는 길이 없어진다).
+
+닫음: `app.connect_source`는 writer 앞 처리(`packages/core/apps/registration/source-folder.ts`의 `withSourceFolder`)가 폴더가 있고, git 저장소의 맨 위이고, commit이 있는지 먼저 보고 아니면 `invalid_input`이다. 새 앱의 source 폴더는 `app.create`가 commit된 뒤 core가 깔고 잇는다. git subprocess가 필요해 test는 두지 않았다.
+
+## 지운 배포 skill의 얇은 사본이 사람 home에 남는다
+
+```yaml
+kind: bug
+modules: [packages/coding-agent, packages/protocol]
+closed: fixed
+guard: `packages/coding-agent/harnesses/install_test.ts`의 "설치는 lophn이 놓은 지운 skill의 얇은 사본만 지우고, 사람이 고친 사본, 다른 file이 더 든 폴더, 다른 이름의 skill 폴더는 남긴다"
+```
+
+지금: `lophn harness install`은 `CODING_SKILL_NAMES`(`packages/protocol/coding-agent/harness-adapter.ts`)에 든 이름마다 `<home>/<skillDir>/<name>/SKILL.md`에 얇은 skill을 쓰기만 하고, 목록에서 빠진 이름의 사본은 지우지 않는다(`packages/coding-agent/harnesses/install.ts`의 `installSkill`). `lophn-repair`를 목록과 원본에서 지웠으므로, 앞서 설치한 사람의 `~/.claude/skills/lophn-repair/SKILL.md`가 그대로 남는다. 그 skill은 "`lophn guide lophn-repair`의 출력을 따른다"뿐인데, 이 이름은 이제 `guide` 입력 검사에서 거절된다.
+
+영향: 그 사람의 coding agent는 어느 폴더에서든 `lophn-repair` skill을 목록에서 보고, 고르면 거절만 받는다. `ae-builds`가 `lophn-build-app`을 지우면 같은 일이 한 번 더 난다.
+
+고치려면:
+- 설치가 lophn이 쓴 얇은 사본(내용이 `thinSkill`의 꼴) 가운데 목록에 없는 이름을 지운다(작음). 사람이 고친 사본은 내용이 달라 남는다. 추천. `lophn-build-app`을 지우는 계획에서 같이 한다.
+- 그대로 두고 사람이 지운다(없음. 사람이 알아야 한다).
+
+닫음: 배포 skill(`lophn-build-app`)과 `CODING_SKILL_NAMES`를 지웠다. `lophn harness install`은 skill을 놓지 않고 `RETIRED_SKILL_NAMES`(`lophn-build-app`, `lophn-repair`)의 사본 가운데 폴더에 `SKILL.md` 하나뿐이고 글이 lophn이 쓰던 꼴과 byte까지 같은 것만 지운다. 설치는 coding session을 열 때만 저절로 돌고 지금은 여는 길이 없어, 옛 사본이 있는 사람은 `lophn harness install`을 한 번 돌려야 한다.

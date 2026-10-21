@@ -1,6 +1,6 @@
 // 읽기 전용 bundle 사본과 seal.
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
-// 그 안의 정규 `blueprint.json` 자리는 problems test runner가 쓴다.
+// 그 안의 정규 `blueprint.json`은 release 준비가 읽어 `release.record`에 싣는다(control.ts).
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   appBundleCopy,

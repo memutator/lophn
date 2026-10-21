@@ -1,6 +1,6 @@
 # activation
 
-ticket 확인됨 뒤 prepared release를 운영 앱으로 올리는 순서와 실패 복구. `project-docs/architecture/activation.md`.
+App Engineer가 준비한 release를 운영 앱으로 올리는 순서와 실패 복구, 그 앞의 release 준비. `project-docs/architecture/activation.md`.
 
 ## migration 단계가 실패한 이유가 release 준비의 결과에 닿지 않는다
 

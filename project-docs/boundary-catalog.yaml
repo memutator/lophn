@@ -72,7 +72,7 @@ elements:
 
       - id: problems
         kind: subsystem
-        description: test runner. 앱 test(플랫폼 검사)와 ticket의 tool 예시(examples)를 격리 사본에서 돌려 결과(pass, fail, 증명 못 함)를 기록한다.
+        description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`). test runner는 지웠다. release의 data 검사는 app-releases의 준비가 한다.
 
       - id: agent-roles
         kind: component
@@ -229,7 +229,6 @@ interfaces:
       - run-loop
       - app-runtime
       - app-releases
-      - problems
       - diagnostics
       - shell
 

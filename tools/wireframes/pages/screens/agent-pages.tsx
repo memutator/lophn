@@ -22,6 +22,7 @@ import {
   RequestErrorScene,
   RewindScene,
   SenderChipsScene,
+  SkipScene,
 } from "./agent-tab/scenes.tsx";
 import {
   ANTHROPIC,
@@ -206,3 +207,5 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
+/** skip을 켠 session. */
+export const AgentSkip = SkipScene;

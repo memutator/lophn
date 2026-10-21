@@ -221,6 +221,7 @@ export const conversation = {
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
   "conversation.label.since-now": "now",
+  "conversation.label.skip-permissions": "Skip permissions",
   "conversation.label.slash-menu": "Commands",
   "conversation.label.slash-unknown": "Unknown command: /{name}",
   "conversation.label.provider-toggle": "Show all {provider} models",

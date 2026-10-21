@@ -280,6 +280,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.session-untitled": Record<never, never>;
   "conversation.label.since-now": Record<never, never>;
+  "conversation.label.skip-permissions": Record<never, never>;
   "conversation.label.slash-menu": Record<never, never>;
   "conversation.label.slash-unknown": {
     name: "string";

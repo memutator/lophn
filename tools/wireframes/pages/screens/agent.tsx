@@ -21,6 +21,7 @@ import {
   AgentSessionArchived,
   AgentSessions,
   AgentSessionsEdit,
+  AgentSkip,
   ManageModels,
   ManageModelsConnect,
   ManageModelsCustom,
@@ -116,6 +117,13 @@ export const agentArea: Area = {
       description:
         "결정 뒤 대화에 남는 줄 넷이다. 한 번 허락, 항상 허락, 거절(이유 포함), cancelled(이 일이 끝나서 없어진 요청)를 구별한다.",
       render: () => <AgentApprovalStates />,
+    },
+    {
+      id: "new-agent-skip",
+      title: "Agent · skip permissions",
+      description:
+        "입력칸 밖 아래 줄 오른쪽 끝의 스위치로 이 session의 skip을 켜고 끈다. 켜면 shell 명령을 묻지 않지만 deny 규칙은 막는다. 바꾼 값은 다음 turn부터다. 아직 만들지 않은 새 session과 archive한 session에는 스위치가 없다.",
+      render: () => <AgentSkip />,
     },
     {
       id: "new-agent-commands",

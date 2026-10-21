@@ -48,6 +48,7 @@ export type AgentsPlaceholders = {
   "agents.empty.grants-apps": Record<never, never>;
   "agents.heading.grants-apps": Record<never, never>;
   "agents.heading.server-form": Record<never, never>;
+  "agents.heading.skip": Record<never, never>;
   "agents.label.agent-instructions": Record<never, never>;
   "agents.label.auth-api-key": Record<never, never>;
   "agents.label.auth-bearer": Record<never, never>;
@@ -96,6 +97,7 @@ export type AgentsPlaceholders = {
   };
   "agents.label.protected-key": Record<never, never>;
   "agents.label.role-project-manager": Record<never, never>;
+  "agents.label.skip-start": Record<never, never>;
   "agents.label.tab-definition": Record<never, never>;
   "agents.label.tab-grants": Record<never, never>;
   "agents.notice.credential-later": Record<never, never>;
@@ -119,6 +121,7 @@ export type AgentsPlaceholders = {
   "agents.notice.profile-help": Record<never, never>;
   "agents.notice.protected-key": Record<never, never>;
   "agents.notice.server-name-help": Record<never, never>;
+  "agents.notice.skip-help": Record<never, never>;
   "agents.notice.skills-agent-only": Record<never, never>;
   "agents.notice.skills-dropped": {
     names: "string";

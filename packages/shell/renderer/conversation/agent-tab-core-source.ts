@@ -33,6 +33,7 @@ import {
 } from "./agent-tab-core-source-rewind.ts";
 import {
   archiveSessionOf,
+  changeSkipOf,
   compactSessionOf,
   createActiveTimes,
   createFaceCache,
@@ -121,6 +122,7 @@ function createSource(
     },
     renameSession: (session, title) => renameSessionTo(env, session, title),
     archiveSession: (session) => archiveSessionOf(env, session),
+    changeSkip: (session, skip) => changeSkipOf(env, session, skip),
     deleteSession: (session) => deleteSessionOf(env, session),
     forkSession: (input) => forkSessionOf(env, input),
     compactSession: (session) => compactSessionOf(env, session),

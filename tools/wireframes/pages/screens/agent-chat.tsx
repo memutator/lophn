@@ -76,6 +76,7 @@ function entryOf(row: SessionRow): SessionEntry {
     activeAt: new Date(NOW.getTime() - day * 24 * 60 * MINUTE - 5 * MINUTE)
       .toISOString(),
     archived: row.group === "archived",
+    skip: false,
   };
 }
 
@@ -141,6 +142,7 @@ export function ChatShell(
       status: running ? "working" : "idle",
       activeAt: new Date(NOW.getTime() - 5 * MINUTE).toISOString(),
       archived,
+      skip: false,
     };
 
   useDrive(async () => {

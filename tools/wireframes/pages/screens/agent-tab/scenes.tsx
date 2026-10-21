@@ -49,6 +49,8 @@ export const ApprovalScene = () => <Scene sub="approval" />;
 export const ApprovalDenyScene = () => <Scene sub="approval-deny" />;
 /** 결정 뒤 대화에 남는 줄 넷: 한 번 허락, 항상 허락, 거절, 일이 끝나 취소된 것을 구별한다. */
 export const ApprovalStatesScene = () => <Scene sub="approval-states" />;
+/** skip을 켠 session. composer 아래 줄 오른쪽 끝의 Skip permissions 스위치가 켜져 있다. */
+export const SkipScene = () => <Scene sub="skip" />;
 /** rewind: 내 메시지에서 그 시점으로 되돌리는 panel이 대화 화면 안에 열린다. 앱은 앱마다 고른다. */
 export const RewindScene = () => <Scene sub="rewind" />;
 /** `/recap`: session을 짧게 요약해 보이고 대화 이력은 그대로 둔다. */

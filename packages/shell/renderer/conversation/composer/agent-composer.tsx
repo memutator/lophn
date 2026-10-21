@@ -1,5 +1,5 @@
 // Agent 탭의 composer. 입력칸 안 아래 줄에 [+]·[model · option ▾]·[Stop]·[↑], 입력칸 밖 아래 줄에 project(또는 앱)
-// 표시와 권한 요약 ▾, 입력칸 위에 떼어 낼 수 있는 context chip이 있다. agent를 고르는 칸은 없다(session 안에서
+// 표시와 권한 요약 ▾(열린 session이면 줄 오른쪽 끝에 Skip permissions 스위치), 입력칸 위에 떼어 낼 수 있는 context chip이 있다. agent를 고르는 칸은 없다(session 안에서
 // agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다. 일하는 중 보낸 메시지는 다음 turn을 기다리고, 도는
 // turn에 올리는 일은 `QueuedMessages`의 [Send now]가 한다. `/`로 시작하는 글은 명령 창이 맡는다.
 import {
@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Switch } from "@lophn/ui/input";
 import { Popover } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
@@ -63,6 +64,8 @@ interface AgentComposerProps {
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
   permissions: PermissionsData | null;
+  /** 이 session의 skip(묻지 않고 실행). 주면 아래 줄 오른쪽 끝에 스위치를 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
+  skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void };
   onDraft: (patch: Partial<Pick<Draft, "text" | "selection">>) => void;
   /** chip 하나의 ✕. 그 chip을 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
   onAttach: () => void;
@@ -276,6 +279,18 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
           )}
         </Popover>
+        {props.skip === undefined
+          ? null
+          : (
+            <span className={styles.skip} data-composer-skip="">
+              <Switch
+                label={t("conversation.label.skip-permissions")}
+                size="sm"
+                checked={props.skip.on}
+                onCheckedChange={props.skip.onChange}
+              />
+            </span>
+          )}
       </div>
     </div>
   );

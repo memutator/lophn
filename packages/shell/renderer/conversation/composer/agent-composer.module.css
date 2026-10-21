@@ -133,6 +133,10 @@
   gap: var(--space-3);
 }
 
+.skip {
+  margin-left: auto;
+}
+
 .place {
   display: inline-flex;
   align-items: center;

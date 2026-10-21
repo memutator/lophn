@@ -79,6 +79,8 @@ export interface AgentDraft {
   readonly domains?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
+  /** 새 session을 skip으로 시작한다. Operator만 가지고 사람만 쓴다. */
+  readonly skip?: boolean;
   readonly body: string;
 }
 

@@ -55,6 +55,8 @@ import {
 export const AGENT_TAB_SCENES = [
   /** 끝난 일 하나: 요청, tool 줄, 답, 편집 카드, 끝난 turn. */
   "report",
+  /** skip을 켠 session. 대화는 `report`와 같다. */
+  "skip",
   /** 일하는 중에 steer로 보낸 메시지와 할 일. `/recap`과 `/permissions`도 이 장면에서 연다. */
   "working",
   "queued",
@@ -297,6 +299,7 @@ interface SceneData {
 function sceneData(scene: AgentTabScene): SceneData {
   switch (scene) {
     case "report":
+    case "skip":
       return {
         agent: LOPHN,
         title: "Week 41 summary",
@@ -861,6 +864,7 @@ export function createFakeAgentTabSource(
         : "idle",
       activeAt: at(-5),
       archived: false,
+      skip: options.scene === "skip",
     },
     {
       id: SESSION_EARLIER,
@@ -868,6 +872,7 @@ export function createFakeAgentTabSource(
       status: "idle",
       activeAt: at(-2 * 24 * 60),
       archived: false,
+      skip: false,
     },
     {
       id: SESSION_ARCHIVED,
@@ -875,6 +880,7 @@ export function createFakeAgentTabSource(
       status: "idle",
       activeAt: at(-12 * 24 * 60),
       archived: true,
+      skip: false,
     },
   ];
   const threads = new Map<string, ThreadView>();
@@ -1161,6 +1167,7 @@ export function createFakeAgentTabSource(
         status: "idle",
         activeAt: at(0),
         archived: false,
+        skip: false,
       }];
       threads.set(id, EMPTY_THREAD);
       const picked = models.get("new");
@@ -1173,6 +1180,11 @@ export function createFakeAgentTabSource(
     },
     renameSession(session, title) {
       patchSession(session, { title });
+      notify();
+      return DONE;
+    },
+    changeSkip(session, skip) {
+      patchSession(session, { skip });
       notify();
       return DONE;
     },
@@ -1194,7 +1206,8 @@ export function createFakeAgentTabSource(
       const last = through === null
         ? entries.length
         : entries.findIndex((entry) => entry.id === through) + 1;
-      sessions = [...sessions, { ...origin, id, status: "idle" }];
+      // fork는 skip을 가져가지 않는다.
+      sessions = [...sessions, { ...origin, id, status: "idle", skip: false }];
       threads.set(id, {
         ...EMPTY_THREAD,
         entries: entries.slice(0, last).filter((entry) =>

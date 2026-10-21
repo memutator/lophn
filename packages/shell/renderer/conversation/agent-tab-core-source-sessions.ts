@@ -14,6 +14,7 @@ import {
 import type { CallAgent } from "../../../protocol/lophn-agent/calls.ts";
 import {
   archiveSession,
+  changeSessionSkip,
   deleteSession,
   forkSession,
   renameSession,
@@ -226,6 +227,7 @@ export async function readSessions(
       status: statusOf(states.get(session.id)),
       activeAt: active[index] ?? env.nowIso(),
       archived: session.lifecycle === "archived",
+      skip: session.skip,
     })),
   };
 }
@@ -261,6 +263,24 @@ export async function renameSessionTo(
       key: `sessions-rename-${session}-${record.value.state_seq}-${await keyTag(
         trimmed,
       )}`,
+    }),
+  );
+}
+
+export async function changeSkipOf(
+  env: Env,
+  session: string,
+  skip: boolean,
+): Promise<SourceResult<void>> {
+  const record = await readSession(env, session);
+  if (!record.ok) return record;
+  return dropValue(
+    await env.command(changeSessionSkip, {
+      input: { session, skip },
+      compare: { state_seq: record.value.state_seq },
+      key: `sessions-skip-${session}-${record.value.state_seq}-${
+        skip ? "on" : "off"
+      }`,
     }),
   );
 }

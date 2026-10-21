@@ -51,6 +51,7 @@ export const agents = {
     "No apps. An assigned app brings all of its tools.",
   "agents.heading.grants-apps": "Apps",
   "agents.heading.server-form": "Add a server for this agent only",
+  "agents.heading.skip": "Skip permissions",
   "agents.label.agent-instructions": "Instructions for this agent",
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
@@ -88,6 +89,7 @@ export const agents = {
   "agents.label.place-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
   "agents.label.role-project-manager": "Project Manager",
+  "agents.label.skip-start": "Start new sessions with Skip permissions",
   "agents.label.tab-definition": "Definition",
   "agents.label.tab-grants": "Grants",
   "agents.notice.credential-later":
@@ -121,6 +123,8 @@ export const agents = {
     "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
   "agents.notice.server-name-help":
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
+  "agents.notice.skip-help":
+    "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-agent-only":
     "The chip says which layer a skill comes from. Switch a skill off to leave it out for this agent. A skill that is off in a layer above stays off.",
   "agents.notice.skills-dropped":

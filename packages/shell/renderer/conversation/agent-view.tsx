@@ -423,6 +423,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     status: "idle",
     activeAt: new Date(now()).toISOString(),
     archived: false,
+    skip: false,
   };
   const empty = messages.length === 0 && draft.outgoing === null;
   const hint = empty && props.hint !== undefined
@@ -585,6 +586,13 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           place={agent.place}
           permissionSummary={agent.permissionSummary}
           permissions={permissions}
+          skip={session === null || entry === null || readOnly ? undefined : {
+            on: entry.skip,
+            onChange: (on) =>
+              void perform(() => source.changeSkip(session, on)).then((ok) =>
+                ok ? refresh() : undefined
+              ),
+          }}
           onDraft={(patch) => drafts.save(key, patch)}
           onAttach={host.attach}
           onLoadPermissions={() => void loadPermissions()}

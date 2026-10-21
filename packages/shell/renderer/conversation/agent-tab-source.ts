@@ -60,6 +60,8 @@ export interface SessionEntry {
   /** 마지막 활동 시각(ISO). */
   readonly activeAt: string;
   readonly archived: boolean;
+  /** 묻지 않고 실행한다. deny 규칙은 skip에서도 막는다. */
+  readonly skip: boolean;
 }
 
 /** 본문의 한 part. */
@@ -533,6 +535,8 @@ export interface AgentTabSource {
   ): Promise<SourceResult<void>>;
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
+  /** 사람만 바꾼다. 바꾼 값은 다음 turn부터다(turn mode는 turn을 시작할 때 정한다). */
+  changeSkip(session: string, skip: boolean): Promise<SourceResult<void>>;
   /** 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. */
   deleteSession(session: string): Promise<SourceResult<void>>;
   /** 같은 agent의 새 session `id`로 복사한다. through가 null이면 마지막 확정 메시지까지다. */

@@ -84,14 +84,15 @@ function synthesizedResult(
   };
 }
 
-// 인자는 JSON 객체여야 한다. 비어 있으면 인자 없는 호출이다(adapter가 같은 규칙으로 완성을
-// 확인한다). 그 밖의 것은 고치지 않고 원문을 그대로 둔다.
+// 인자는 JSON 객체여야 한다. 비어 있거나 `null`이면 인자 없는 호출이다(adapter가 같은 규칙으로
+// 완성을 확인한다). 그 밖의 것은 고치지 않고 원문을 그대로 둔다.
 function parseToolArgs(
   args: string,
 ): { ok: true; value: unknown } | { ok: false } {
   if (args.trim().length === 0) return { ok: true, value: {} };
   try {
     const value: unknown = JSON.parse(args);
+    if (value === null) return { ok: true, value: {} };
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
       return { ok: true, value };
     }

@@ -8,15 +8,6 @@ import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
-// prompt-assemble이 준 경계 위치(최대 3곳). Anthropic breakpoint
-// 상한은 4개라 3개는 상한 안이다.
-
-type CacheBoundaries = {
-  system: boolean;
-  tools: boolean;
-  final_user: boolean;
-};
-
 // Anthropic thinking.signature와 redacted_thinking.data 원문. 사람이 읽을
 // 본문(thinking text)은 상태에 두지 않는다.
 type OpaqueReasoningState = {
@@ -49,21 +40,25 @@ type ToolDefinition = {
 };
 
 // cache 표시. 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다.
+// 표시는 system 층(최대 셋. turn-prompt.ts의 CACHED)과 대화 끝 하나라 Anthropic 상한 4개 안이다.
+// tools는 system 앞이라 role 층 표시가 함께 덮는다.
 const CACHE_CONTROL = { type: "ephemeral" } as const;
 
-// 마지막 block에만 경계 표시를 건다(Pi 1483–1509). 배열이 아니면 원값을 돌려준다.
-function markLast(value: unknown, boundary: boolean): unknown {
-  if (!boundary || !Array.isArray(value) || value.length === 0) return value;
-  const blocks = [...value];
-  const last = blocks[blocks.length - 1];
-  if (last === null || typeof last !== "object" || Array.isArray(last)) {
-    return value;
+// 대화 끝 표시. 마지막 message의 마지막 content block에 달고 원본은 고치지 않는다.
+// 끝 block은 turn마다 새로 생긴 tool 결과나 사람 글이라 다음 call이 앞 call이 쓴 prefix를 읽는다.
+function markConversationEnd(messages: readonly unknown[]): unknown[] {
+  const last = messages[messages.length - 1] as
+    | { content?: unknown }
+    | undefined;
+  if (!Array.isArray(last?.content) || last.content.length === 0) {
+    return [...messages];
   }
+  const blocks = [...last.content];
   blocks[blocks.length - 1] = {
-    ...(last as Record<string, unknown>),
+    ...(blocks[blocks.length - 1] as Record<string, unknown>),
     cache_control: CACHE_CONTROL,
   };
-  return blocks;
+  return [...messages.slice(0, -1), { ...last, content: blocks }];
 }
 
 // tool 결과 안의 이미지 block이다.
@@ -150,24 +145,22 @@ export function buildRequest(input: {
   system?: unknown;
   messages: readonly unknown[];
   tools?: readonly ToolDefinition[];
-  boundaries?: CacheBoundaries;
   reasoning?: OpaqueReasoningState | undefined;
   // option 값이 싣는 조각이다. 만든 body에 깊게 합친다.
   request_patch?: JsonObject;
 }): Record<string, unknown> {
-  const boundaries = input.boundaries ??
-    { system: false, tools: false, final_user: false };
-  const messages = pairedMessages(input.messages, input.reasoning);
   const body: Record<string, unknown> = {
     model: input.model,
     max_tokens: input.max_tokens,
-    messages: markLast(messages, boundaries.final_user),
+    messages: markConversationEnd(
+      pairedMessages(input.messages, input.reasoning),
+    ),
   };
   if (input.system !== undefined) {
-    body.system = markLast(input.system, boundaries.system);
+    body.system = input.system;
   }
   if (input.tools?.length) {
-    body.tools = markLast(input.tools, boundaries.tools);
+    body.tools = input.tools;
   }
   return mergeRequestPatch(body, input.request_patch);
 }
@@ -448,12 +441,13 @@ function streamError(out: StreamResult): Verdict {
   return { kind: "failed", code: "unknown", providerCode: type || undefined };
 }
 
+// 빈 글과 `null`은 인자 없는 호출이다.
 function verifiedJson(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed !== null && typeof parsed === "object" &&
-      !Array.isArray(parsed);
+    return parsed === null || typeof parsed === "object" &&
+        !Array.isArray(parsed);
   } catch {
     return false;
   }

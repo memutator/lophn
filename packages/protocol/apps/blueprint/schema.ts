@@ -317,7 +317,11 @@ export function validateInput(
   value?: unknown,
 ): ValidationResult<JsonValue | undefined> {
   if (schema === null) {
-    return value === undefined
+    // 입력 없음, null, {}를 모두 입력 없음으로 받는다. model이 인자 없는 호출을 이 셋으로 보낸다.
+    const empty = value === undefined || value === null ||
+      (typeof value === "object" && !Array.isArray(value) &&
+        Object.keys(value).length === 0);
+    return empty
       ? { ok: true, value: undefined }
       : invalid("tool accepts no input");
   }

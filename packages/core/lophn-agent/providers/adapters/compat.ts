@@ -85,13 +85,13 @@ export function verifyStateFree(input: {
 // 같을 때만 재전송 대상이다. 다르거나 한쪽이 없으면 깨진 턴으로 보고 그 시그니처를
 // 재전송하지 않는다(Hermes 487–524).
 
-// tool 인자 JSON 검증. 비어 있으면 인자 없는 호출로 본다.
+// tool 인자 JSON 검증. 비어 있거나 `null`이면 인자 없는 호출로 본다.
 export function verifiedJsonObject(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed !== null && typeof parsed === "object" &&
-      !Array.isArray(parsed);
+    return parsed === null || typeof parsed === "object" &&
+        !Array.isArray(parsed);
   } catch {
     return false;
   }

@@ -74,8 +74,9 @@ export const turnLimitsSchema = z.strictObject(turnLimitsFields);
 const turnLimitsOutputSchema = z.object(turnLimitsFields);
 export type TurnLimits = z.infer<typeof turnLimitsSchema>;
 
+// 앱 하나를 짓는 turn에 model call이 약 85번 든다. 오래 도는 turn은 active_ms와 stall_ms가 멈춘다.
 export const DEFAULT_TURN_LIMITS = {
-  model_attempts: 30,
+  model_attempts: 150,
   stall_ms: 300_000,
   active_ms: 1_800_000,
 } as const;

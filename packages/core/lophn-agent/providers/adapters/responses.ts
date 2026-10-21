@@ -373,8 +373,8 @@ function verifiedJsonObject(text: string): boolean {
   if (text.trim().length === 0) return true;
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed !== null && typeof parsed === "object" &&
-      !Array.isArray(parsed);
+    return parsed === null || typeof parsed === "object" &&
+        !Array.isArray(parsed);
   } catch {
     return false;
   }

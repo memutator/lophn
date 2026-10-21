@@ -9,8 +9,8 @@ Deno.test("shell 환경에 lophn token과 secret이 나가지 않는다", () => 
     LOPHN_HOME: "/data",
     ANTHROPIC_API_KEY: "k",
     GITHUB_TOKEN: "g",
-  });
-  assertEquals(env, { PATH: "/usr/bin", HOME: "/home/x" });
+  }, "/opt/deno/bin/deno");
+  assertEquals(env, { PATH: "/opt/deno/bin:/usr/bin", HOME: "/home/x" });
   for (const name of Object.keys(env)) {
     assertEquals((SHELL_ENV_NAMES as readonly string[]).includes(name), true);
   }

@@ -109,7 +109,7 @@ function anthropicMessages(
   });
 }
 
-// Anthropic Messages 번역. cache 표시는 system 층에 이미 있어 adapter의 경계 표시는 모두 끈다.
+// Anthropic Messages 번역. cache 표시는 system 층(anthropicSystem)과 대화 끝(buildRequest)이 단다.
 // model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다.
 export function anthropicPacker(input: {
   model: string;
@@ -124,7 +124,6 @@ export function anthropicPacker(input: {
       system: anthropicSystem(request),
       messages: anthropicMessages(request.messages, input.images),
       tools: anthropicTools(request),
-      boundaries: { system: false, tools: false, final_user: false },
       request_patch: input.requestPatch,
     }),
     opaque_bytes: 0,

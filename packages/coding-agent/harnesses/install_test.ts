@@ -3,7 +3,7 @@ import { installGlobal, type InstallPorts } from "./install.ts";
 
 function memory(files: Map<string, string>): InstallPorts {
   return {
-    skills: ["lophn-build-app", "lophn-repair"].map((name) => ({
+    skills: ["lophn-build-app"].map((name) => ({
       name,
       files: [{
         path: "SKILL.md",

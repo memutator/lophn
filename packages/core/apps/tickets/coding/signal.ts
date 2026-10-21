@@ -67,7 +67,6 @@ const codingSignalSchema = z.discriminatedUnion("kind", [
     detections: z.array(harnessDetectionSchema),
     defaults: codingOptionsSchema,
   }),
-  z.strictObject({ kind: z.literal("app_of"), session }),
   z.strictObject({ kind: z.literal("recover") }),
 ]);
 export type CodingSignal = z.infer<typeof codingSignalSchema>;
@@ -77,15 +76,15 @@ export const codingSignal = defineCommand({
   method: "signal",
   name: "ApplyCodingSignal",
   input: codingSignalSchema,
-  output: z.object({ accepted: z.boolean(), app: z.string().nullable() }),
+  output: z.object({ accepted: z.boolean() }),
   compare: z.strictObject({}),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable", "internal"],
 });
 
-type SignalResult = Result<{ accepted: boolean; app: string | null }>;
+type SignalResult = Result<{ accepted: boolean }>;
 
-const accepted = (): SignalResult => ok({ accepted: true, app: null });
+const accepted = (): SignalResult => ok({ accepted: true });
 
 // 끝난 session의 행이 없으면(켠 뒤 정리됨) session을 받는 쪽으로 가리킨 call을 찾는다.
 function closeByReceiver(
@@ -108,8 +107,7 @@ function applySignal(
 ): SignalResult {
   switch (signal.kind) {
     case "hook": {
-      const applied = applyHook(tx, memory, signal);
-      return applied.ok ? ok({ ...applied.value, app: null }) : applied;
+      return applyHook(tx, memory, signal);
     }
     case "message": {
       const sent = applyMessage(tx, signal);
@@ -134,10 +132,6 @@ function applySignal(
       memory.detections = detectionsByHarness(signal.detections);
       memory.defaults = signal.defaults;
       return accepted();
-    case "app_of": {
-      const row = loadSession(tx.sql, signal.session);
-      return ok({ accepted: row !== null, app: row?.app ?? null });
-    }
     case "recover": {
       const recovered = recoverCoding(tx);
       return recovered.ok ? accepted() : recovered;

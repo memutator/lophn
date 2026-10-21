@@ -6,7 +6,6 @@ import {
   harnessReport,
 } from "../../../../protocol/coding-agent/harness-report.ts";
 import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
-import { codingSourceDiff } from "../../../../protocol/coding-agent/source-diff.ts";
 import { CODING_MCP_PATH } from "../../../../protocol/coding-agent/mcp.ts";
 import {
   codingTerminalExited,
@@ -18,7 +17,6 @@ import {
   serializeMessageContent,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { createReleaseSourceReader } from "../../../apps/releases/bundle/read.ts";
 import { createCodingTokens } from "../../../server/identity/mod.ts";
 import {
   CODING_REACTION_TEXTS,
@@ -144,10 +142,6 @@ export const codingSessionsWiring: WiringFactory = () => {
     }],
     records: () => [CODING_CONTEXT],
     build(ctx) {
-      const sourceReader = createReleaseSourceReader({
-        ledgerPath: ctx.ledgerPath,
-        dataRoot: ctx.root.path,
-      });
       // registry는 마지막 wiring이 열므로 처음 쓸 때 만든다.
       let tokens: ReturnType<typeof createCodingTokens> | undefined;
       const relay = createCodingRelay({
@@ -178,8 +172,6 @@ export const codingSessionsWiring: WiringFactory = () => {
           return current.ok ? await ctx.runtime.record(current.value) : current;
         },
         send: (frame) => ctx.gateway.send(frame),
-        // release bundle의 source를 읽는다.
-        sources: () => sourceReader,
         // server는 relay보다 늦게 열리므로 부를 때 읽는다.
         mcpUrl() {
           const port = ctx.peek.server?.port ?? 0;
@@ -222,7 +214,6 @@ export const codingSessionsWiring: WiringFactory = () => {
         memory: [
           [key(codingHook), handlers.hook],
           [key(codingMessageSend), handlers.message],
-          [key(codingSourceDiff), handlers.source],
           [key(harnessReport), handlers.report],
           [key(harnessList), handlers.list],
           [key(codingTerminalResult), handlers.result],

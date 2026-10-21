@@ -7,7 +7,6 @@ import { HARNESS_COMMANDS } from "./commands/harness.ts";
 import { HOOK_COMMANDS } from "./commands/hook.ts";
 import { MESSAGE_COMMANDS } from "./commands/message.ts";
 import { PACKAGE_COMMANDS } from "./commands/package.ts";
-import { PROBLEM_COMMANDS } from "./commands/problem.ts";
 import { RELEASE_COMMANDS } from "./commands/release.ts";
 import { TICKET_COMMANDS } from "./commands/ticket.ts";
 import type { CommandEntry } from "./commands/types.ts";
@@ -19,7 +18,6 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...APP_COMMANDS,
   ...RELEASE_COMMANDS,
   ...PACKAGE_COMMANDS,
-  ...PROBLEM_COMMANDS,
   ...HARNESS_COMMANDS,
   ...GUIDE_COMMANDS,
 ];

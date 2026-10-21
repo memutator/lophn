@@ -37,7 +37,6 @@ export * from "./token.ts";
 export * from "./cli-commands.ts";
 export * from "./hook.ts";
 export * from "./message.ts";
-export * from "./source-diff.ts";
 export * from "./harness-report.ts";
 export * from "./terminal-requests.ts";
 export * from "./transport.ts";

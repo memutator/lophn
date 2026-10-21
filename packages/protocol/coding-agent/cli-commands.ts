@@ -18,19 +18,11 @@ import {
   getVerification,
   requestTest,
 } from "../problems/tests.ts";
-import {
-  problemGet,
-  problemGetOccurrence,
-  problemList,
-  problemMore,
-} from "../problems/problem-views.ts";
-import { reportBody } from "../problems/report-body.ts";
 import { CODING_SKILL_NAMES } from "./harness-adapter.ts";
 import { harnessDetectionSchema, harnessIdSchema } from "./harnesses.ts";
 import { codingHook, HOOK_ROUTES } from "./hook.ts";
 import { HARNESS_ROUTES } from "./harness-report.ts";
 import { codingMessageSend, MESSAGE_ROUTES } from "./message.ts";
-import { codingSourceDiff, SOURCE_DIFF_ROUTES } from "./source-diff.ts";
 import { TERMINAL_ROUTES } from "./terminal-requests.ts";
 import {
   ticketClaim,
@@ -44,7 +36,6 @@ import { ticketList, ticketShow } from "./ticket/routes.ts";
 export const CODING_ROUTES = [
   ...HOOK_ROUTES,
   ...MESSAGE_ROUTES,
-  ...SOURCE_DIFF_ROUTES,
   ...HARNESS_ROUTES,
   ...TERMINAL_ROUTES,
 ] as const;
@@ -220,36 +211,6 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
       version: packageVersionNameSchema.optional(),
     }),
     packagesVersions.output,
-  ),
-  token(
-    "problem list",
-    problemList,
-    problemList.input,
-    problemList.output,
-  ),
-  token("problem show", problemGet, problemGet.input, problemGet.output),
-  token("problem more", problemMore, problemMore.input, problemMore.output),
-  token(
-    "problem occurrence",
-    problemGetOccurrence,
-    problemGetOccurrence.input,
-    problemGetOccurrence.output,
-  ),
-  // feedback_state는 problem report의 등록된 blob field가 아니라 늘 실패하므로 고르지 못하게 뺀다.
-  token(
-    "problem body",
-    reportBody,
-    reportBody.input.extend({
-      field: reportBody.input.shape.field.exclude(["feedback_state"]),
-      length_bytes: z.number().int().min(1).max(262_144).default(65_536),
-    }),
-    reportBody.output,
-  ),
-  token(
-    "problem diff",
-    codingSourceDiff,
-    codingSourceDiff.input,
-    codingSourceDiff.output,
   ),
   {
     name: "harness detect",

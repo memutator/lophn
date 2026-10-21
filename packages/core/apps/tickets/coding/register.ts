@@ -9,7 +9,6 @@ import {
   harnessReport,
 } from "../../../../protocol/coding-agent/harness-report.ts";
 import { codingMessageSend } from "../../../../protocol/coding-agent/message.ts";
-import { codingSourceDiff } from "../../../../protocol/coding-agent/source-diff.ts";
 import {
   codingTerminalExited,
   codingTerminalResult,
@@ -38,7 +37,6 @@ const codingDefinitions = {
   memoryRoutes: [
     codingHook,
     codingMessageSend,
-    codingSourceDiff,
     harnessReport,
     harnessList,
     codingTerminalResult,

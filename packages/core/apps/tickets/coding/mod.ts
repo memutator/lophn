@@ -8,6 +8,5 @@ export { type CodingSignal, codingSignal } from "./signal.ts";
 export { createCodingRelay, type SignalResult } from "./relay.ts";
 export { CODING_REACTION_TEXTS } from "./close-call.ts";
 export { CODING_TERMINAL_TOPIC } from "./events.ts";
-export { type ReleaseSourceReader } from "./source-diff.ts";
 export { codingDefaultHarness, codingDefaultModel } from "./settings.ts";
 export { sourcelessAppNamed, withScaffoldedSource } from "./scaffold-source.ts";

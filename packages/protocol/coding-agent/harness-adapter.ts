@@ -30,7 +30,7 @@ export type HarnessAdapter = {
   } | null;
 };
 
-export const CODING_SKILL_NAMES = ["lophn-build-app", "lophn-repair"] as const;
+export const CODING_SKILL_NAMES = ["lophn-build-app"] as const;
 
 export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
   claude: {

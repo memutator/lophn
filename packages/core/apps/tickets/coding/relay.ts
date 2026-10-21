@@ -15,7 +15,6 @@ import {
   harnessList,
   harnessReport,
 } from "../../../../protocol/coding-agent/harness-report.ts";
-import { codingSourceDiff } from "../../../../protocol/coding-agent/source-diff.ts";
 import {
   codingTerminalExited,
   type CodingTerminalRequest,
@@ -31,9 +30,8 @@ import type { CommitAction } from "../../../storage/ledger/mod.ts";
 import { CODING_REVOKE_TOPIC, CODING_TERMINAL_TOPIC } from "./events.ts";
 import { harnessList as harnessItems } from "./harnesses.ts";
 import type { CodingSignal } from "./signal.ts";
-import { type ReleaseSourceReader, sourceDiff } from "./source-diff.ts";
 
-export type SignalResult = { accepted: boolean; app: string | null };
+export type SignalResult = { accepted: boolean };
 
 type CodingRelayDeps = {
   // core 안 machine 자격으로 writer에 command를 낸다. 같은 key는 효과가 한 번이다.
@@ -46,8 +44,6 @@ type CodingRelayDeps = {
   record(credentialRef: string): Promise<Result<void>>;
   // 연결된 shell main에 터미널 요청 frame을 보낸다. 연결이 없으면 unavailable이다.
   send(frame: GatewayServerFrame): Result<void>;
-  // 없으면 source diff는 unavailable이다.
-  sources(): ReleaseSourceReader | undefined;
   // coding agent가 쓸 MCP endpoint url이다. server가 열리기 전이면 null이라 MCP 없이 띄운다.
   mcpUrl(): string | null;
 };
@@ -103,36 +99,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
       tickets: input.data.refs ?? [],
     } as never);
     return done.ok ? ok({ accepted: true as const }) : done;
-  };
-
-  const source: Handler = async (ctx, raw) => {
-    const input = codingSourceDiff.input.safeParse(raw);
-    if (!input.success) return bad("source diff input is not valid");
-    let app: string | null | undefined = input.data.app;
-    const session = codingSession(ctx);
-    if (session !== null) {
-      // coding agent는 token이 정한 앱만 본다.
-      const found = await signal({ kind: "app_of", session } as never);
-      if (!found.ok) return found;
-      app = found.value.app;
-    } else if (app !== undefined && ctx.conditions.app !== app) {
-      return err({ code: "forbidden", message: "the app is not yours" });
-    }
-    if (app === undefined || app === null) {
-      return err({ code: "forbidden", message: "the app is unknown" });
-    }
-    const reader = deps.sources();
-    if (reader === undefined) {
-      return err({
-        code: "unavailable",
-        message: "release sources are not readable",
-      });
-    }
-    return await sourceDiff(reader, {
-      app,
-      from_release: input.data.from_release,
-      to_release: input.data.to_release,
-    });
   };
 
   const report: Handler = async (_ctx, raw) => {
@@ -260,7 +226,6 @@ export function createCodingRelay(deps: CodingRelayDeps) {
     handlers: {
       hook,
       message,
-      source,
       report,
       list,
       result,

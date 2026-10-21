@@ -1,20 +1,21 @@
 ---
 name: lophn-build-app
-description: "맡겨진 구현 ticket 하나로 lophn 앱을 만드는 절차. lophn CLI로 ticket 읽기와 claim, 구현, release 준비, 실제 테스트, preview, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않는다."
+description: "맡겨진 구현이나 수리 ticket 하나로 lophn 앱을 만들거나 고치는 절차. lophn CLI로 ticket 읽기와 claim, 구현, release 준비, 실제 테스트, preview, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않는다."
 ---
 
 # lophn 앱 제작
 
-맡겨진 구현(implementation) ticket 하나를 앱으로 만드는 절차다. 모든 작업은
-ticket 하나의 현재 claim 아래에서만 한다. 통로는 `lophn` CLI 하나다. 이 터미널의
-working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
+맡겨진 구현(implementation)이나 수리 ticket 하나로 앱을 만들거나 고치는 절차다.
+모든 작업은 ticket 하나의 현재 claim 아래에서만 한다. 통로는 `lophn` CLI 하나다.
+이 터미널의 working directory가 앱 source 폴더이고 CLI는 그 앱 하나만 본다.
 
 ## 시작 조건
 
 - 맡겨진 ticket만 claim한다. `lophn ticket list`로 열린 ticket이 보이는 것은
   착수 지시가 아니다. 목록에서 일을 골라 claim하지 않는다.
-- 사람이 ticket 없이 "이 앱을 만들어 줘"라고만 했으면 code를 시작하지 않는다.
-  lophn의 App Engineer가 요청을 ticket으로 정리해 맡길 것이라고 안내한다.
+- 사람이 ticket 없이 "이 앱을 만들어 줘"나 "고쳐 줘"라고만 했으면 code를
+  시작하지 않는다. lophn의 App Engineer가 요청을 ticket으로 정리해 맡길 것이라고
+  안내한다.
 
 ## 명령
 
@@ -51,7 +52,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
 3. 현재 앱을 읽는다. `app show`, `app blueprint`로 선언된 tool(blueprint의
    `tools`)과 화면을 보고, ticket이 가리킨 source를 읽는다(component 겹과 요소
    글자, 화면 이름으로 source를 검색해 찾는다). 앱 root의 안내 파일이 있으면
-   먼저 읽는다.
+   먼저 읽는다. 고치는 ticket이면 `app status`, `app logs`, `app invocations`로
+   증상의 근거를 읽는다.
 4. 쓸 package를 찾는다. 새 code를 쓰기 전에 이 앱이 의존으로 선언한 package의
    API와 예제를 읽는다. 내장 SDK(`@lophn/app-ui`, `@lophn/blueprint`,
    `@lophn/cap-tool`, `@lophn/cap-store`, `@lophn/cap-problem`, `@lophn/cap-fs`,
@@ -92,8 +94,8 @@ core가 token에서 채워 주지 않는다. 값은 `ticket show` 출력의 `app
    손으로 고치지 않는다. 기존 fixture와 ticket의 지킬 것을 보존한다. ticket이
    적은 실패 분기마다 `@lophn/cap-problem`의 `reportProblem(name,
    message)`을
-   그 자리에 둔다. 원인이 다른 실패는 이름을 나눈다(같은 이름은 한 problem으로
-   묶인다). 진입점이 이미 보고하는 잡히지 않은 예외와 handler가 던진 `Error`는
+   그 자리에 둔다. 앱 log에 error 한 줄이 남는다. 원인이 다른 실패는 이름을
+   나눈다. 진입점이 앱 log에 쓰는 잡히지 않은 예외와 handler가 던진 `Error`는
    따로 보고하지 않는다. 대상은 거절로 끝나는 업무 분기, 외부 호출 실패, 조용히
    넘어가는 fallback이다. ticket에 보고 자리가 없는데 필요해 보이면
    `message send`로 App Engineer에게 청한다. 규칙은 cap-problem `guide.md`를

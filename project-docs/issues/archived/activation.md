@@ -216,3 +216,22 @@ guard: 없음
 - `detail: true`가 허락된 자격에 observations 내용을 싣는다(작음~중간. 그 blob에 앱 출력이 들어 있어 누가 읽을지 정해야 한다).
 
 닫음: 남긴다. 검사가 떨어지면 fail 이유 한 줄이 검사별 이름과 이유(`필수 검사 N개가 통과하지 못했다: <검사>(<이유>)`, `app-test/judge.ts`의 `judgeAppTest`)를 싣고 coding agent와 사람은 그 줄을 읽는다. 증명 못 한 write tool도 pass 이유 한 줄에 실려 core가 그 줄을 읽는다(`unprovenOfReason`). observations blob의 원문(앱 출력이 든다)은 읽을 사람이 필요해질 때 `detail: true` 자격과 함께 정한다.
+
+## examples가 아닌 ticket의 release에서 "증명 못 함" write tool을 알리지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/problems, packages/core/apps]
+closed: kept
+guard: 없음
+```
+
+지금: app test `rewind` 검사가 만든 입력의 호출이 실패한 write tool을 "증명 못 함"으로 두고(증거 `unproven`, pass 이유 한 줄), problem은 examples ticket의 examples run이 끝날 때만 낸다(`project-docs/issues/archived/activation.md`의 "write app-api의 rewind 검사가 fail로 나온다"의 다시 정한 것). check가 `app_test`·`text`인 ticket의 release는 증명 못 한 write tool이 있어도 problem이 없다.
+
+지금 이미 하는 것: App Engineer 지침이 write tool을 바꾸는 ticket에 examples check를 쓰게 하고 `rewind_unproven` problem을 받으면 그 tool의 examples ticket을 만들게 한다(`packages/core/agent-roles/roles/app-engineer/prompt.md`). 지침이라 program이 막지는 않는다.
+
+영향: App Engineer가 지침을 어기고 examples 없이 활성화한 release의 write tool은 되돌리기가 틀려도 아무도 모른다. rewind가 그 tool의 호출을 틀리게 되돌리면 사람이 고른 시점의 앱 data가 어긋난다.
+
+고치려면: activation 때 그 release의 app test 증거에서 `unproven`을 읽어 problem으로 낸다(중간. activation(`packages/core/apps/releases/activation`)이 app test 증거를 모르므로 apps → problems port가 필요하다). 지침이 지켜지는지 보고 필요해질 때 한다.
+
+닫음: 남긴다. 알릴 길(앱 problem `rewind_unproven`)을 지웠다. program은 증명 못 한 write tool을 agent에게 알리지 않고, 그 결과는 app test pass 이유 한 줄(`packages/core/problems/tests/unproven.ts`의 `unprovenNote`)에만 남는다. rewind 증명 자체는 ticket과 test runner를 지우는 계획이 같이 지운다.

@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `pr-check-exclude` | check-exclude | 1 | 없음 | todo |  |  |  |
+| `pr-check-exclude` | check-exclude | 1 | 없음 | merged | check-exclude/pr-check-exclude | 7243fc574 |  |
 | `pr-cli-problem` | cli-problem | 2 | pr-check-exclude | todo |  |  |  |
 | `pr-issues-ui-screen` | issues-ui | 2 | pr-check-exclude | todo |  |  |  |
 | `pr-log-contract` | log | 2 | pr-check-exclude | todo |  |  |  |

@@ -43,6 +43,7 @@ export type TrialDeps = {
   sleep: (ms: number) => Promise<void>;
   key: string; // 어디에도 찍거나 쓰지 않는다
   model: string;
+  effort?: string; // 진짜 model의 effort 선택. 없으면 catalog 기본값
   runId: string;
   evalDir: string; // 전체 기록 폴더(.dev-data/eval)
   source: SourceInfo;
@@ -91,6 +92,7 @@ export async function runTrial(
     await attachRealModels(core, {
       key: deps.key,
       model: deps.model,
+      options: deps.effort === undefined ? {} : { effort: deps.effort },
       real: scenario.real.map((p) => agentRefOf(ctx.world, p)),
     });
 

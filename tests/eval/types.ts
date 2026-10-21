@@ -352,6 +352,7 @@ export type RunRecord = {
     checks: VersionRef; // kind "checks". tests/eval/checks 전체의 버전
   };
   model: string; // 요청한 model 이름
+  effort?: string; // 요청한 effort. 없으면 catalog 기본값으로 돌았다
   source: SourceInfo;
   trials: TrialResult[];
 };

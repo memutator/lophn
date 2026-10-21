@@ -113,6 +113,7 @@ export async function runScenario(args: ScenarioArgs): Promise<ScenarioRun> {
       checks: args.checks,
     },
     model: deps.model,
+    ...(deps.effort === undefined ? {} : { effort: deps.effort }),
     source: { commit: deps.source.commit, dirty: deps.source.dirty },
     // 이미 들어온 채점을 합쳐 쓴다. 요약이 없던 사이에 들어온 채점은 foldRun이 못 합친다.
     trials: foldJudge(

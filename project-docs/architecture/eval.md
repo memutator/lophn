@@ -5,7 +5,7 @@
 ## 흐름
 
 ```
-deno task eval --scenario <id> | --all [--model m] [--trials N] [--budget usd] [--trial-budget usd] [--keep]
+deno task eval --scenario <id> | --all [--model m] [--effort e] [--trials N] [--budget usd] [--trial-budget usd] [--keep]
   tests/eval/run.ts → runner/cli.ts
     discover          scenarios/**/*.scenario.ts의 default export
     버전 확인          재료 hash(restore), 시나리오·criterion·judge hash(versions)를 registry와 댄다

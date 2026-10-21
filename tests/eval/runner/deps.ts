@@ -11,6 +11,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export function trialDepsOf(args: {
   key: string;
   model: string;
+  effort?: string;
   variant: Variant;
   trialBudgetUsd: number;
   saveEnabled: boolean;
@@ -25,6 +26,7 @@ export function trialDepsOf(args: {
     sleep,
     key: args.key,
     model: args.model,
+    effort: args.effort,
     evalDir: EVAL_DIR,
     source: args.source,
     judge: args.judge,

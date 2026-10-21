@@ -21,7 +21,7 @@ runner는 eval CLI를 돌리고, 진행을 보고, 사람 역할의 답과 judge
    deno task eval:experiment <id> [--checkout <path>] [--base <rev>] [--budget <usd>]
    ```
    `eval:experiment`도 gate를 먼저 돌린다(`--skip-gate`는 쓰지 않는다). `--budget`은 caller가 줄 때만 쓴다. `eval:experiment`는 `.env`를 읽고 `eval:gate`는 읽지 않는다.
-   판단 case를 그냥 돌리는 `deno task eval --scenario <id>... [--trials N] [--model <name>] [--budget <usd>]`도 2, 3만 다르고 나머지는 같다(spec과 `result.json`이 없어 `run.md`는 시나리오별 stdout 줄을 적는다).
+   판단 case를 그냥 돌리는 `deno task eval --scenario <id>... [--trials N] [--model <name>] [--effort <value>] [--budget <usd>]`도 2, 3만 다르고 나머지는 같다(spec과 `result.json`이 없어 `run.md`는 시나리오별 stdout 줄을 적는다).
 4. 도는 동안 아래 "진행 확인"을 하면서 질문에 답하고 채점한다.
 5. process가 끝나면 stdout 마지막 줄 `[verdict] <decision>`을 본다. 이유 줄(들여쓴 줄)은 그 위에 있다.
    - 이유에 `채점 대기`가 있거나 `[pending] <run> n건`이 찍혔으면 아래 "채점하기"로 비운 뒤 **같은 명령을 다시 돈다**. 끝난 trial은 그대로 두고 판정을 다시 계산한다(정책이 더 돌리라고 하면 trial이 더 돈다). 이유: `inconclusive`는 이어 돌릴 수 있다.

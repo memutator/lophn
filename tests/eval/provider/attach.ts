@@ -16,7 +16,13 @@ import { runtimePids } from "../../support/core/process.ts";
 // model이 없어 provider를 부르지 않고 끝난다.
 export async function attachRealModels(
   core: Core,
-  input: { key: string; model: string; real: AgentRef[]; endpoint?: string },
+  input: {
+    key: string;
+    model: string;
+    options?: Record<string, string>;
+    real: AgentRef[];
+    endpoint?: string;
+  },
 ): Promise<{ provider: string; model: ModelChoice }> {
   // 전역 기본이 남아 있으면 real이 아닌 참가자도 model을 받아 비용과 채점이 틀어진다.
   if ((await core.call(modelDefaultRead, {})).default !== null) {
@@ -56,7 +62,7 @@ export async function attachRealModels(
   const model: ModelChoice = {
     provider: id,
     model_name: input.model,
-    option_values: {},
+    option_values: input.options ?? {},
   };
   for (const agent of input.real) {
     const read = await core.call(agentDefinitionRead, { agent });

@@ -24,7 +24,7 @@ import { installSignals } from "./signals.ts";
 import { TRIAL_CAP_USD } from "./spend.ts";
 
 const USAGE =
-  "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--trials N] [--budget <usd>] [--trial-budget <usd>] [--keep]";
+  "사용법: deno task eval (--scenario <id> [--scenario <id>...] | --all) [--model <name>] [--effort <value>] [--trials N] [--budget <usd>] [--trial-budget <usd>] [--keep]";
 
 // 채점 대기인 judge check는 떨어진 것이 아니다.
 export function passed(trial: TrialResult): boolean {
@@ -61,6 +61,7 @@ export async function main(args: string[]): Promise<number> {
         scenario: { type: "string", multiple: true },
         all: { type: "boolean" },
         model: { type: "string", default: "claude-sonnet-5-5" },
+        effort: { type: "string" },
         trials: { type: "string", default: "1" },
         budget: { type: "string", default: "50" },
         "trial-budget": { type: "string", default: String(TRIAL_CAP_USD) },
@@ -132,6 +133,7 @@ export async function main(args: string[]): Promise<number> {
   const deps = trialDepsOf({
     key,
     model: values.model!,
+    ...(values.effort === undefined ? {} : { effort: values.effort }),
     variant: variant.value,
     trialBudgetUsd: trialBudget,
     saveEnabled: true,

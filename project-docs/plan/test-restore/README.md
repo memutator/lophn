@@ -27,7 +27,7 @@
 
   | e2e | 확인하는 것 |
   |---|---|
-  | `app-activation` | migration이 실패하면 data와 앞 release가 남고 실패가 `release_activate` 결과의 `migration_failed`(단계와 SQLite 오류 글)와 release `failure`에 실린다. 선언을 넓히면 `waiting_consent`이고, 새 release가 나오면 옛 동의 줄이 닫힌다(늦은 동의는 `conflict`). 되돌리기, drain 동안 잡아 둔 호출, 재시작 뒤에도 남는 허락은 그대로 본다 |
+  | `app-activation` | migration이 실패하면 data와 앞 release가 남고 실패가 `release_activate` 결과의 `migration_failed`(단계와 SQLite 오류 글)와 release `failure`에 실린다. 선언을 넓히면 `waiting_consent`이고, 새 release의 activation이 시작되면 옛 동의 줄이 닫힌다(늦은 동의는 `conflict`. 새 release도 동의를 기다리면 옛 줄은 열린 채다, `packages/core/apps/releases/activation/commands.ts` 185-196). 되돌리기, drain 동안 잡아 둔 호출, 재시작 뒤에도 남는 허락은 그대로 본다 |
   | `app-release` | template 앱으로 `release.prepare` → `preview.start`·`preview.call`·`preview.stop`(live ledger와 data는 그대로) → `release.activate` → 동의 allow·reject. bundle file 수, source map, 읽기 전용 sdk. 준비가 떨어지면 `{status:"failed", stage, reason}`이고 release 행이 없다 |
   | `operator` | 할당의 `removed_tools`로 뺀 tool이 보이지 않는다, domain 좁히기, 할당 없음, session 중 바뀌면 알림. `operator.create`는 묻지 않는다 |
   | `app-call` | agent가 앱 부르기, 큰 changeset, 사람이 부르기, net·secret loopback, 너무 큰 입력. 묻는 단계 둘은 뺀다 |
@@ -52,7 +52,9 @@ agent가 정한 것(2026-10-22):
 ## 지켜볼 것
 
 - `app.create` 직후 약 1초 동안 App Engineer의 agent runtime 자식이 다시 뜬다(새 source가 그 place 폴더라서). 그 사이 시작한 turn이 끊길 수 있다. 처음 드러날 곳: `registration_test`, `annotation_test`, `agent-call_test`의 operator-to-app-ae. flake이면 test에 `settle`을 넣고, lead는 사람이 쓸 때도 생기는지 보고 제품 이슈로 올린다.
-- `release.prepare`는 build, migration 검사, preview 시작을 tool 호출 하나 안에서 한다. tool 호출 한도를 넘으면 helper가 다른 길(예: `release.get` 폴링)을 써야 한다.
+- `release.prepare`는 build, migration 검사, preview 시작을 tool 호출 하나 안에서 한다. agent 쪽에는 tool 호출 시간 한도가 없고, core가 준비를 360초에 `failed {stage: "build"}`로 끊고 `release.activate`는 120초 뒤 `running`을 돌려준다. test helper는 그만큼 기다린다(`tr-support-app`).
+- release 준비가 handler 없는 tool로 떨어질 때 reason이 tool 이름 대신 `probe was rejected (409)`일 수 있다(앱 진입점 `packages/core/apps/runtime/entrypoint/control.ts` 52-57이 먼저 거절하고 `packages/core/main/app-supervisor/assembly.ts` 583이 그 글만 싣는다). `tr-e2e-app-release`가 실제 글을 보고에 적는다. 그렇다면 lead가 `issues/activation.md`에 올린다.
+- `.lophn/import-map.json`은 앱을 등록할 때만 쓰인다. App Engineer가 나중에 더한 의존은 map에 없어 앱의 `deno task check`·`test`가 떨어질 수 있다. `tr-eval-restore`가 확인하면 lead가 이슈로 올린다.
 - `deno task e2e:deps`의 offline 의존 cache가 `release.prepare`의 migration 검사와 preview 시작까지 덮는지 첫 run이 정한다.
 - `tests/support/coding/cli_test.ts`는 지금 `NOT_CHECKED`에 가려 실패하고 있다. 지우는 file이다.
 
@@ -72,6 +74,8 @@ agent가 정한 것(2026-10-22):
 - 다 끝나면
   - 문서: `architecture/testing.md`(앱 길, `tests/support` 표), `architecture/eval.md`(coding driver, human role 동의, restore, judge, DESIGN.md check), roadmap `eval.md`(case 표와 머리의 상태 줄), `.claude/skills/write-test/SKILL.md` 88-89, `.claude/skills/eval-run/SKILL.md`의 coding 절과 동의 답하기
   - 뒤 계획 README의 `LOPHN_LAND_SKIP_E2E` 줄(`headless-run` 72, `schedule-job` 87, `workflow` 64)을 지운다. e2e가 다시 돈다.
+  - `tests/eval/registry/scenario/calendar-api.json`: `tr-eval-scenario-fix`와 `tr-eval-calendar-build`가 다 merge된 뒤 key 없는 runner(`env -u ANTHROPIC_API_KEY deno run --allow-all tests/eval/run.ts --scenario calendar-api`)로 올린다. calendar helper가 바뀌면 그 hash가 바뀌기 때문이다. eval 확인은 늘 이 꼴로 돌린다(`deno task eval`은 `.env`를 읽는다).
+  - 사람에게 알린다: 사람이 commit하지 않은 재료 `calendar-app-dev@1`, `calendar-app-user@1`은 부모가 지운 `calendar-call@3`이라 main checkout의 `materials_test`가 떨어진다.
   - 이슈: `issues/agent-definition.md`의 Instructions 카드 이슈를 닫고, `issues/eval.md`의 coding token 이중 셈은 driver를 지워 닫는다(`issue` skill). 지켜볼 것에서 드러난 제품 문제는 새 이슈로 올린다.
   - changelog 열린 판에 항목을 덧붙이고, 계획 폴더를 지운다.
 - 사람에게 묻는 것: push. 그 밖은 planner에게 묻는다.

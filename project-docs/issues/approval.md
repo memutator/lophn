@@ -19,3 +19,16 @@ modules: [packages/core/lophn-agent, packages/core/approvals]
 - `mcp_off`·server 설정이 바뀔 때 그 server를 `detach`한다. 중간. 바뀜을 알리는 길을 새로 둔다.
 
 추천: 첫째. 앱 tool이 call 때 지금 할당을 읽는 것과 같은 꼴이다.
+
+## shell 물음을 거절한 이유가 agent에게 가지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: 사람이 turn request를 거절하며 이유를 적으면 화면은 그 이유를 보낸다(`packages/shell/renderer/desktop/connection/waiting/decide.ts` 36-37). 그런데 tool 호출을 멈추는 `packages/core/lophn-agent/tools/work.ts`의 `rejected` 갈래(197-203)는 이유를 버리고 고정 글 "the person rejected this tool call"만 agent에게 준다. `architecture/approval.md` "묻는 길"은 "거절 이유는 agent에게 그대로 간다"고 적는다.
+
+영향: 사람이 "그 폴더 말고 build 폴더만 지워"처럼 이유를 적어 거절해도 agent는 왜 거절됐는지 모르고 같은 명령을 다시 묻거나 일을 멈춘다. 사람은 같은 말을 대화로 다시 해야 한다.
+
+고치려면: `rejected` 결과에 이유가 있으면 summary에 붙인다(예: `the person rejected this tool call: <이유>`). 작음. **추천.**

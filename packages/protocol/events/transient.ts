@@ -60,8 +60,28 @@ const settingsChanged = defineTransientEvent("SettingsChanged", {
   payload: z.strictObject({ keys: z.array(z.string().min(1)) }),
 });
 
+// crash loop 기록이 commit된 뒤 core가 낸다. 사람에게 앱이 멈췄다고 알리는 toast만 듣는다.
+const appRestartHalted = defineTransientEvent("AppRestartHalted", {
+  subject: idSchema("app"),
+  payload: z.strictObject({
+    release: idSchema("rel"),
+    crashes: z.number().int().min(1),
+  }),
+});
+
+// kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다. count는 그 새 위반 수다.
+const kindViolationFound = defineTransientEvent("KindViolationFound", {
+  subject: idSchema("dom"),
+  payload: z.strictObject({
+    domain: idSchema("dom"),
+    count: z.number().int().min(1),
+  }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(approvalRequested),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
+  transientEventEnvelopeSchema(appRestartHalted),
+  transientEventEnvelopeSchema(kindViolationFound),
 ]);

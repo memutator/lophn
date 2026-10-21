@@ -33,98 +33,28 @@ type NewWorkDeps = {
   events: { at(seq: string): Promise<Result<unknown | null>> };
   // 앱을 받는 event는 그 앱의 App Engineer를 부른다. 앱이 없으면 not_found다. wiring이 ledger 연결로 꽂는다.
   agentOfApp(app: string): Result<AgentRef>;
-  // domain을 받는 event는 그 domain 그릇의 agent(project면 PM, 앱이면 App Engineer)를 부른다.
-  // owner가 보관됐거나 없으면 not_found다.
-  agentOfDomain(domain: string): Promise<Result<AgentRef>>;
 };
 
 type NewWork = Extract<DomainEvent, { type: ReactionEventType }>;
 
 const newWorkHandlerName = (type: ReactionEventType) => `new-work:${type}`;
 
-// event를 받을 agent. 앱 일은 그 앱의 App Engineer, domain 일은 그 domain 그릇의 agent다.
-async function agentOf(
-  deps: NewWorkDeps,
-  event: NewWork,
-): Promise<Result<AgentRef>> {
-  switch (event.type) {
-    case "ProblemOpened":
-    case "ProblemReopened":
-    case "ReleaseActivationFailed":
-      return deps.agentOfApp(event.payload.app);
-    case "AppRestartHalted":
-      return deps.agentOfApp(event.subject);
-    case "KindViolationFound":
-    case "PublicToolsChanged":
-      return await deps.agentOfDomain(event.payload.domain);
-  }
-}
-
-// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다. agent는 agentOf(event)다.
+// program이 쓴 글이다. 앱이나 agent가 쓴 글을 섞지 않는다. 받는 agent는 그 앱의 App Engineer다.
 function callOf(
   event: NewWork,
   agent: AgentRef,
 ): Omit<CallEnvelope, "call"> {
-  const from = { kind: "program" as const, event_seq: event.seq };
-  const base = {
-    from,
-    reply: "none" as const,
+  return {
+    from: { kind: "program", event_seq: event.seq },
+    reply: "none",
     reply_to: null,
     dedup: null,
     options: null,
+    to: { kind: "new_session", agent },
+    body:
+      `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,
+    refs: [{ kind: "ticket", ticket: event.payload.ticket }],
   };
-  const to = { kind: "new_session" as const, agent };
-  switch (event.type) {
-    case "ProblemOpened":
-      return {
-        ...base,
-        to,
-        body: "A new problem was opened for this app.",
-        refs: [{ kind: "problem", problem: event.subject }],
-      };
-    case "ProblemReopened":
-      return {
-        ...base,
-        to,
-        body: "A solved problem happened again on the active release.",
-        refs: [{ kind: "problem", problem: event.subject }],
-      };
-    case "AppRestartHalted":
-      return {
-        ...base,
-        to,
-        body:
-          `The app crashed ${event.payload.crashes} times in a short time, so its automatic restart stopped. Release: ${event.payload.release}.`,
-        refs: [],
-      };
-    case "ReleaseActivationFailed":
-      return {
-        ...base,
-        to,
-        body:
-          `Release ${event.subject} failed to activate (${event.payload.failure.code}).`,
-        refs: [{ kind: "ticket", ticket: event.payload.ticket }],
-      };
-    case "KindViolationFound":
-      return {
-        ...base,
-        to,
-        body:
-          "New kind violations were found in this domain. Read them with kind.check.",
-        refs: [],
-      };
-    case "PublicToolsChanged": {
-      const tools = event.payload.tools.join(", ");
-      return {
-        ...base,
-        to,
-        body: event.payload.change === "changed"
-          ? `A tool of an app you use or own changed (${tools}). Re-check the skills that call it.`
-          : `A release was blocked because it removes public tools that other domains use (${tools}).`,
-        refs: [],
-      };
-    }
-  }
 }
 
 function intentOf(event: NewWork): Intent {
@@ -150,7 +80,7 @@ async function sendKey(event: NewWork): Promise<Result<string>> {
 async function send(deps: NewWorkDeps, event: NewWork): Promise<Result<void>> {
   const key = await sendKey(event);
   if (!key.ok) return key;
-  const agent = await agentOf(deps, event);
+  const agent = deps.agentOfApp(event.payload.app);
   if (!agent.ok) return agent;
   return await deps.router.send(callOf(event, agent.value), key.value);
 }
@@ -209,14 +139,9 @@ export function registerNewWorkHandlers(
   reactor: Reactor,
   deps: NewWorkDeps,
 ): void {
-  reactor.on("ProblemOpened", handlerFor("ProblemOpened", deps));
-  reactor.on("ProblemReopened", handlerFor("ProblemReopened", deps));
-  reactor.on("AppRestartHalted", handlerFor("AppRestartHalted", deps));
   reactor.on(
     "ReleaseActivationFailed",
     handlerFor("ReleaseActivationFailed", deps),
   );
-  reactor.on("KindViolationFound", handlerFor("KindViolationFound", deps));
-  reactor.on("PublicToolsChanged", handlerFor("PublicToolsChanged", deps));
   deps.approvals.registerApplier("reaction", applier(deps));
 }

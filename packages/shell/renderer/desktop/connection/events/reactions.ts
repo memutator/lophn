@@ -31,7 +31,7 @@ function toast(
   kind: string,
   id: string,
   params: Record<string, string>,
-  action: ReactionAction,
+  action?: ReactionAction,
 ): readonly Reaction[] {
   return [{
     id: `${kind}:${id}`,
@@ -71,22 +71,20 @@ export function reactionsOf(
         },
       );
     case "AppRestartHalted":
-      // 반응이 여는 App Engineer session은 나중에 SessionStarted로 생기니 지금은 session id를 모른다.
+      // 열 session이 없어 단추는 그 앱 공간을 연다.
       return toast(
         "restart-halted",
-        event.seq,
+        `${event.subject}:${event.at}`,
         { app: event.subject, crashes: String(event.payload.crashes) },
         { kind: "session", session: null, app: event.subject },
       );
-    case "KindViolationFound": {
-      // 받는 agent는 domain 그릇에 따라 Project Manager나 App Engineer라 waiting 목록을 연다.
+    case "KindViolationFound":
+      // 단추가 없다. 알림만 하고, 위반은 domain 화면에서 본다.
       return toast(
         "kind-violation",
-        event.seq,
+        `${event.subject}:${event.at}`,
         { count: String(event.payload.count) },
-        { kind: "waiting" },
       );
-    }
     default:
       return NONE;
   }

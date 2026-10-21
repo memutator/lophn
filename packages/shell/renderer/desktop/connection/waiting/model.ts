@@ -101,22 +101,12 @@ const SETTINGS_LABELS = {
 } as const;
 
 const EVENT_LABELS = {
-  ProblemOpened: "waiting.label.event-problem-opened",
-  ProblemReopened: "waiting.label.event-problem-reopened",
-  AppRestartHalted: "waiting.label.event-app-restart-halted",
   ReleaseActivationFailed: "waiting.label.event-activation-failed",
-  KindViolationFound: "waiting.label.event-kind-violation",
-  PublicToolsChanged: "waiting.label.event-public-tools-changed",
 } as const;
 
-// 이 event가 여는 session의 agent. 앱 일은 App Engineer가, domain 일은 그 domain을 가진 PM 또는 App Engineer가 받는다.
+// 이 event가 여는 session의 agent. 앱 일이라 App Engineer가 받는다.
 const OPENS_LABELS = {
-  ProblemOpened: "waiting.label.agent-app-engineer",
-  ProblemReopened: "waiting.label.agent-app-engineer",
-  AppRestartHalted: "waiting.label.agent-app-engineer",
   ReleaseActivationFailed: "waiting.label.agent-app-engineer",
-  KindViolationFound: "waiting.label.agent-domain-owner",
-  PublicToolsChanged: "waiting.label.agent-domain-owner",
 } as const;
 
 const DECLARED_LABELS = {
@@ -343,7 +333,7 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
       const eventText = event === null ? "" : t(EVENT_LABELS[event]);
       const opens = t(
         event === null
-          ? "waiting.label.agent-domain-owner"
+          ? "waiting.label.agent-app-engineer"
           : OPENS_LABELS[event],
       );
       const detail = Object.keys(intent.input).length === 0

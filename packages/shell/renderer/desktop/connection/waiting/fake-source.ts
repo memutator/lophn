@@ -250,7 +250,7 @@ export const REACTION = () =>
   pending(23, 5, {
     kind: "reaction",
     actor: { kind: "program", seq: "42" },
-    target: { kind: "reaction", event: "ProblemOpened" },
+    target: { kind: "reaction", event: "ReleaseActivationFailed" },
     effect: "read",
     input: {
       app: ORDERS,

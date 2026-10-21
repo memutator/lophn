@@ -238,10 +238,6 @@ export const routerWiring: WiringFactory = () => {
         owner.kind === "project"
           ? { role: "project_manager", project: owner.id }
           : { role: "app_engineer", app: owner.id };
-      const agentOfDomain = (domain: string): Result<AgentRef> => {
-        const owner = ownerOfDomain(domain);
-        return owner.ok ? ok(agentOfOwner(owner.value)) : owner;
-      };
       // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
@@ -410,7 +406,6 @@ export const routerWiring: WiringFactory = () => {
         router: reaction,
         events: createEventsReader(eventsConnection.sql),
         agentOfApp,
-        agentOfDomain: (domain) => Promise.resolve(agentOfDomain(domain)),
       });
       return ok({
         writer: (inner) =>

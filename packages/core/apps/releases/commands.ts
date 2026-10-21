@@ -23,10 +23,7 @@ import {
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
-import {
-  publicToolsChanged,
-  releaseActivationFailed,
-} from "../../../protocol/events/mod.ts";
+import { releaseActivationFailed } from "../../../protocol/events/mod.ts";
 import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
@@ -55,7 +52,7 @@ import {
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";
-import { blockedToolsOf, changeNoticesOf } from "./public-tools.ts";
+import { blockedToolsOf } from "./public-tools.ts";
 import {
   insertRelease,
   loadActiveRelease,
@@ -265,7 +262,7 @@ export function createReleaseCommands(): {
         });
       },
     },
-    // 시작 전 막기. 막으면 그 앱의 App Engineer를 부를 event를 낸다. release는 prepared로 남는다.
+    // 시작 전 막기. release는 prepared로 남는다.
     blockActivation: {
       route: activationBlock,
       handle(tx, ctx, input) {
@@ -285,21 +282,12 @@ export function createReleaseCommands(): {
         }
         const blocked = blockedToolsOf(tx, release);
         if (!blocked.ok) return blocked;
-        if (blocked.value.length === 0) return ok({ blocked: false });
-        for (const notice of blocked.value) {
-          tx.emit(publicToolsChanged, release.app, {
-            release: release.id,
-            domain: notice.domain,
-            change: "blocked",
-            tools: notice.tools,
-          } as never);
-        }
-        return ok({ blocked: true });
+        return ok({ blocked: blocked.value.length > 0 });
       },
     },
     // activation 확정. 같은 시도와 실제 데이터 결과·준비 확인(hash·handler·schema)을 확인한 뒤 새 active 참조,
     // 이전 superseded, 앱 이름·설명 갱신(첫 성공은 run_enabled), 앱 grant 맞추기, 복구본 정리를 한 transaction으로
-    // 바꾼다. 응답을 잃은 재전송은 같은 결과를 돌려준다. 성공은 event가 아니지만 tool 선언이 바뀌었으면 PublicToolsChanged를 낸다.
+    // 바꾼다. 응답을 잃은 재전송은 같은 결과를 돌려준다. 성공은 event가 아니다.
     completeActivation: {
       route: activationComplete,
       handle(tx, ctx, input) {
@@ -340,9 +328,6 @@ export function createReleaseCommands(): {
         if (stored.value === null) return absent();
         const proven = checkReady(tx, release, activation, input, stored.value);
         if (!proven.ok) return proven;
-        // 사용 관계는 이전 release가 아직 active일 때 읽어야 이전 선언으로 센다.
-        const notices = changeNoticesOf(tx, release);
-        if (!notices.ok) return notices;
         const at = tx.now();
         const nextApp = {
           ...app,
@@ -378,14 +363,6 @@ export function createReleaseCommands(): {
           "granted",
         );
         if (!synced.ok) return synced;
-        for (const notice of notices.value) {
-          tx.emit(publicToolsChanged, release.app, {
-            release: release.id,
-            domain: notice.domain,
-            change: "changed",
-            tools: notice.tools,
-          } as never);
-        }
         // 복구본은 필요 없다. 기다리던 이전으로 돌아가기 요청도 이 앱의 지금 상태에서는 낡았다.
         const discarded = discardBackups(tx, release.app);
         if (!discarded.ok) return discarded;

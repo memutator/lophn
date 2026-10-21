@@ -65,18 +65,14 @@ const FAKE_EVENTS = [
     },
   },
   {
-    seq: "7",
     type: "AppRestartHalted",
     subject: sid("app", 1),
-    actor: "machine",
     at: AT,
     payload: { release: sid("rel", 7), crashes: 3 },
   },
   {
-    seq: "8",
     type: "KindViolationFound",
     subject: sid("dom", 1),
-    actor: "machine",
     at: AT,
     payload: { domain: sid("dom", 1), count: 2 },
   },

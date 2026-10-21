@@ -54,11 +54,12 @@ export function toastText(
         t("waiting.toast-restart-halted.button"),
       );
     case "waiting.toast-kind-violation.title":
-      return text(
-        t("waiting.toast-kind-violation.title"),
-        t("waiting.toast-kind-violation.body", { count: Number(p.count) }),
-        t("waiting.toast-kind-violation.button"),
-      );
+      return {
+        title: t("waiting.toast-kind-violation.title"),
+        body: t("waiting.toast-kind-violation.body", {
+          count: Number(p.count),
+        }),
+      };
     default:
       throw new Error(`unknown toast ${reaction.titleKey}`);
   }

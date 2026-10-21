@@ -112,13 +112,8 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.group-system": Record<never, never>;
   "settings.label.reaction-activation-failed": Record<never, never>;
   "settings.label.reaction-ask": Record<never, never>;
-  "settings.label.reaction-kind-violation": Record<never, never>;
   "settings.label.reaction-off": Record<never, never>;
   "settings.label.reaction-open": Record<never, never>;
-  "settings.label.reaction-problem-opened": Record<never, never>;
-  "settings.label.reaction-problem-reopened": Record<never, never>;
-  "settings.label.reaction-public-tools-changed": Record<never, never>;
-  "settings.label.reaction-restart-halted": Record<never, never>;
   "settings.label.reactions-target": Record<never, never>;
   "settings.label.reading-width": Record<never, never>;
   "settings.label.reason": Record<never, never>;
@@ -171,13 +166,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.problems-detail_collection.help": Record<never, never>;
   "settings.problems-detail_collection.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
-  "settings.reaction.kind-violation-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
-  "settings.reaction.opens-domain-owner": Record<never, never>;
-  "settings.reaction.problem-opened-when": Record<never, never>;
-  "settings.reaction.problem-reopened-when": Record<never, never>;
-  "settings.reaction.public-tools-changed-when": Record<never, never>;
-  "settings.reaction.restart-halted-when": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;
   "settings.shell-density.name": Record<never, never>;
   "settings.shell-reading_width.help": Record<never, never>;

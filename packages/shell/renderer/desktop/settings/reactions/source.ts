@@ -6,12 +6,7 @@ export type { SourceResult };
 
 /** 새 일을 여는 domain event. 맡긴 call을 닫는 event는 끌 수 없어 여기 없다. */
 export const REACTION_EVENTS = [
-  "ProblemOpened",
-  "ProblemReopened",
-  "AppRestartHalted",
   "ReleaseActivationFailed",
-  "KindViolationFound",
-  "PublicToolsChanged",
 ] as const;
 
 export type ReactionEvent = typeof REACTION_EVENTS[number];

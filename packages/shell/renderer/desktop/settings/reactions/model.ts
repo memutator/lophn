@@ -16,40 +16,10 @@ interface ReactionRow {
 
 export const REACTION_ROWS: readonly ReactionRow[] = [
   {
-    event: "ProblemOpened",
-    name: "settings.label.reaction-problem-opened",
-    when: "settings.reaction.problem-opened-when",
-    opens: "settings.reaction.opens-app-engineer",
-  },
-  {
-    event: "ProblemReopened",
-    name: "settings.label.reaction-problem-reopened",
-    when: "settings.reaction.problem-reopened-when",
-    opens: "settings.reaction.opens-app-engineer",
-  },
-  {
-    event: "AppRestartHalted",
-    name: "settings.label.reaction-restart-halted",
-    when: "settings.reaction.restart-halted-when",
-    opens: "settings.reaction.opens-app-engineer",
-  },
-  {
     event: "ReleaseActivationFailed",
     name: "settings.label.reaction-activation-failed",
     when: "settings.reaction.activation-failed-when",
     opens: "settings.reaction.opens-app-engineer",
-  },
-  {
-    event: "KindViolationFound",
-    name: "settings.label.reaction-kind-violation",
-    when: "settings.reaction.kind-violation-when",
-    opens: "settings.reaction.opens-domain-owner",
-  },
-  {
-    event: "PublicToolsChanged",
-    name: "settings.label.reaction-public-tools-changed",
-    when: "settings.reaction.public-tools-changed-when",
-    opens: "settings.reaction.opens-domain-owner",
   },
 ];
 
@@ -68,7 +38,7 @@ export function modeOf(stored: unknown): ReactionMode {
     : DEFAULT_MODE;
 }
 
-/** 설정 key. `ProblemOpened` → `reactions.problem_opened`. */
+/** 설정 key. `ReleaseActivationFailed` → `reactions.release_activation_failed`. */
 export function settingKeyOf(event: ReactionEvent): string {
   return `reactions.${
     event.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
@@ -76,10 +46,5 @@ export function settingKeyOf(event: ReactionEvent): string {
 }
 
 export const DEFAULT_MODES: ReactionModes = {
-  ProblemOpened: DEFAULT_MODE,
-  ProblemReopened: DEFAULT_MODE,
-  AppRestartHalted: DEFAULT_MODE,
   ReleaseActivationFailed: DEFAULT_MODE,
-  KindViolationFound: DEFAULT_MODE,
-  PublicToolsChanged: DEFAULT_MODE,
 };

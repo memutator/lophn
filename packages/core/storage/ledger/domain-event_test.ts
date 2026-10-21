@@ -6,7 +6,7 @@ import {
   ok,
   seededRandom,
 } from "../../../base/mod.ts";
-import { problemOpened } from "../../../protocol/events/mod.ts";
+import { ticketVerified } from "../../../protocol/events/mod.ts";
 import type { BusEvent } from "../../../protocol/events/mod.ts";
 import { applyMigrations } from "../migration/mod.ts";
 import {
@@ -64,11 +64,8 @@ Deno.test("domain event가 상태와 같은 tx에 쓰인다", async () => {
     const ledger = opened.value;
     const write = (fail: boolean) =>
       ledger.transaction({ actor: "user" }, (tx) => {
-        tx.sql.run("insert into states (id) values (?)", [tx.newId("prb")]);
-        tx.emit(problemOpened, tx.newId("prb"), {
-          app: tx.newId("app"),
-          report: tx.newId("rpt"),
-        });
+        tx.sql.run("insert into states (id) values (?)", [tx.newId("tkt")]);
+        tx.emit(ticketVerified, tx.newId("tkt"), { app: tx.newId("app") });
         return fail ? err({ code: "conflict", message: "no" }) : ok(undefined);
       });
 
@@ -86,7 +83,7 @@ Deno.test("domain event가 상태와 같은 tx에 쓰인다", async () => {
     await Promise.all(pending);
     assertEquals([count("states"), count("events")], [1, 1]);
     assertEquals(published.length, 1);
-    assertEquals(published[0].event.type, "ProblemOpened");
+    assertEquals(published[0].event.type, "TicketVerified");
     assertEquals(published[0].eventsVisible, 1);
 
     ledger.close();

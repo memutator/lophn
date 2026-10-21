@@ -45,7 +45,6 @@ export type DataPlaceholders = {
   "waiting.label.activation-new": Record<never, never>;
   "waiting.label.agent-app-engineer": Record<never, never>;
   "waiting.label.agent-coding": Record<never, never>;
-  "waiting.label.agent-domain-owner": Record<never, never>;
   "waiting.label.agent-lophn": Record<never, never>;
   "waiting.label.agent-operator": Record<never, never>;
   "waiting.label.agent-project-manager": Record<never, never>;
@@ -61,11 +60,6 @@ export type DataPlaceholders = {
   "waiting.label.effect-read": Record<never, never>;
   "waiting.label.effect-write": Record<never, never>;
   "waiting.label.event-activation-failed": Record<never, never>;
-  "waiting.label.event-app-restart-halted": Record<never, never>;
-  "waiting.label.event-kind-violation": Record<never, never>;
-  "waiting.label.event-public-tools-changed": Record<never, never>;
-  "waiting.label.event-problem-opened": Record<never, never>;
-  "waiting.label.event-problem-reopened": Record<never, never>;
   "waiting.label.fact-detail": Record<never, never>;
   "waiting.label.fact-effect": Record<never, never>;
   "waiting.label.fact-event": Record<never, never>;
@@ -177,7 +171,6 @@ export type DataPlaceholders = {
   };
   "waiting.toast-question.button": Record<never, never>;
   "waiting.toast-question.body": Record<never, never>;
-  "waiting.toast-kind-violation.button": Record<never, never>;
   "waiting.toast-kind-violation.body": {
     count: "plural";
   };

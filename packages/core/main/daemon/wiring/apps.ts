@@ -14,6 +14,7 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { At } from "../../../../protocol/base/values.ts";
+import type { BusEvent } from "../../../../protocol/events/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import type {
   BlobReadInput,
@@ -88,6 +89,8 @@ import {
 } from "../../../server/identity/mod.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
+import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
+import { withAfterCommit } from "../../../storage/ledger/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -294,12 +297,22 @@ export const appsWiring: WiringFactory = () => {
 
       return ok({
         writer: (inner) =>
-          withStartInvocation(
-            withTestDefaults(
-              withReleasePreparation(inner, appsControl.commands),
-              appsControl.testDefaults,
+          withAfterCommit(
+            withStartInvocation(
+              withTestDefaults(
+                withReleasePreparation(inner, appsControl.commands),
+                appsControl.testDefaults,
+              ),
+              { ledger, sql: link.sql, clock: ctx.clock, ids },
             ),
-            { ledger, sql: link.sql, clock: ctx.clock, ids },
+            // 다른 topic은 router·coding wiring의 applier가 따로 본다.
+            (actions) => {
+              for (const action of actions) {
+                if (action.topic === APP_RESTART_HALTED_TOPIC) {
+                  ctx.peek.bus?.publish(action.data as BusEvent);
+                }
+              }
+            },
           ),
         memory: [
           ["apps/call_tool", callToolHandler(path)],

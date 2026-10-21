@@ -11,10 +11,6 @@ import {
   type ProblemReportBlobInput,
   recordProblemReport,
 } from "../../../protocol/problems/mod.ts";
-import {
-  problemOpened,
-  problemReopened,
-} from "../../../protocol/events/mod.ts";
 import { insertProblemSnapshot } from "../snapshots/mod.ts";
 import {
   conflict,
@@ -156,10 +152,6 @@ function reopenIfRecurred(
      where id = ?`,
     [tx.now(), problem.state_changed_at, report.release, problem.id],
   );
-  tx.emit(problemReopened, problem.id, {
-    app: report.app,
-    report: report.id,
-  });
   return ok(true);
 }
 
@@ -180,7 +172,6 @@ function attachToProblem(
        values (?, ?, ?, ?, 'open', ?, 1)`,
       [id, report.app, key, report.name, tx.now()],
     );
-    tx.emit(problemOpened, id, { app: report.app, report: report.id });
     return ok(id);
   }
   if (input.existing_problem !== null && input.existing_problem !== found.id) {

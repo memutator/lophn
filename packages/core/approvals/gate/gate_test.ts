@@ -15,23 +15,15 @@ const SESSION = "ses_0000000000000000000000000a";
 const REL = "rel_0000000000000000000000000a";
 const AGENT = { role: "lophn" } as const;
 
-const open: ReactionGrant = {
-  ProblemOpened: "open",
-  ProblemReopened: "off",
-  AppRestartHalted: "ask",
-  ReleaseActivationFailed: "open",
-  KindViolationFound: "open",
-  PublicToolsChanged: "open",
-};
-
 function grants(
   entries: AgentGrantEntry[] | null,
   app: GateGrants["app"] = [],
+  mode: ReactionGrant["ReleaseActivationFailed"] = "open",
 ): GateGrants {
   return {
     app,
     agent: entries === null ? null : { agent: AGENT, entries },
-    reaction: open,
+    reaction: { ReleaseActivationFailed: mode },
   };
 }
 
@@ -167,14 +159,24 @@ const cases: [string, Intent, GateGrants, GateVerdict][] = [
     grants([{ kind: "settings", setting: "never" }]),
     run,
   ],
-  ["reaction open", reaction("ProblemOpened"), grants(null), run],
+  [
+    "reaction open",
+    reaction("ReleaseActivationFailed"),
+    grants(null),
+    run,
+  ],
   [
     "reaction off",
-    reaction("ProblemReopened"),
-    grants(null),
+    reaction("ReleaseActivationFailed"),
+    grants(null, [], "off"),
     deny("reaction_off"),
   ],
-  ["reaction ask", reaction("AppRestartHalted"), grants(null), ask],
+  [
+    "reaction ask",
+    reaction("ReleaseActivationFailed"),
+    grants(null, [], "ask"),
+    ask,
+  ],
   [
     "activation 첫 release는 ask",
     activation({ first: true }),

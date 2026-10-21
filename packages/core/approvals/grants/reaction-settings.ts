@@ -10,7 +10,7 @@ import {
   type SettingDeclaration,
 } from "../../../protocol/config/mod.ts";
 
-// Settings › Agents 화면용 선언 다섯. 이름과 설명 wording key는 settingWordingKey가 key에서 만든다.
+// Settings › Agents 화면용 선언. 이름과 설명 wording key는 settingWordingKey가 key에서 만든다.
 export const reactionSettings = Object.fromEntries(
   REACTION_EVENT_TYPES.map((type) => [
     type,

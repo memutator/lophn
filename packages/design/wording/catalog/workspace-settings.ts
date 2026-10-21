@@ -119,13 +119,8 @@ export const workspaceSettings = {
   "settings.label.group-system": "System",
   "settings.label.reaction-activation-failed": "Activation failed",
   "settings.label.reaction-ask": "Ask",
-  "settings.label.reaction-kind-violation": "Kind violation",
   "settings.label.reaction-off": "Off",
   "settings.label.reaction-open": "Open without asking",
-  "settings.label.reaction-problem-opened": "Problem opened",
-  "settings.label.reaction-problem-reopened": "Problem reopened",
-  "settings.label.reaction-public-tools-changed": "Public tool changed",
-  "settings.label.reaction-restart-halted": "App restart halted",
   "settings.label.reactions-target": "your reaction settings",
   "settings.label.reading-width": "Reading width",
   "settings.label.reason": "Reason",
@@ -177,20 +172,8 @@ export const workspaceSettings = {
   "settings.problems-detail_collection.name": "Collect problem details",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
-  "settings.reaction.kind-violation-when":
-    "A project gets kind violations it did not have at the last check.",
   "settings.reaction.opens-app-engineer":
     "Opens: a new session for that app's App Engineer.",
-  "settings.reaction.opens-domain-owner":
-    "Opens: a new session for the Project Manager or App Engineer that holds that domain.",
-  "settings.reaction.problem-opened-when":
-    "An app reports a problem for the first time.",
-  "settings.reaction.problem-reopened-when":
-    "A problem marked resolved shows up again in the active release.",
-  "settings.reaction.public-tools-changed-when":
-    "A release changes or is blocked from removing a public tool that an app you use or own offers.",
-  "settings.reaction.restart-halted-when":
-    "An app kept crashing and lophn stopped restarting it.",
   "settings.shell-density.help":
     "How much room lists and tables leave between rows.",
   "settings.shell-density.name": "Density",

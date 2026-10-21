@@ -1,5 +1,4 @@
-// 계약 위반 toast를 누르면 그 project의 Project Manager session으로 간다. reaction이 이미 연 session이 있으면
-// 그 session의 Agent 탭을, 없으면 새 session 탭을 연다. 위반 내용은 붙이지 않는다. PM이 직접 읽는다.
+// 그 project의 Project Manager session을 연다. 이미 연 session이 있으면 그 session의 Agent 탭을, 없으면 새 session 탭을 연다.
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import { openAgent } from "../kinds/agent.tsx";
 import type { TabHost } from "../kinds/host.ts";

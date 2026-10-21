@@ -98,14 +98,7 @@ export const agentGrantSchema = z.strictObject({
 export type AgentGrant = z.infer<typeof agentGrantSchema>;
 
 // 새 일을 여는 domain event. 맡긴 call을 닫는 셋은 끌 수 없어서 여기 없다.
-export const REACTION_EVENT_TYPES = [
-  "ProblemOpened",
-  "ProblemReopened",
-  "AppRestartHalted",
-  "ReleaseActivationFailed",
-  "KindViolationFound",
-  "PublicToolsChanged",
-] as const;
+export const REACTION_EVENT_TYPES = ["ReleaseActivationFailed"] as const;
 export const reactionEventTypeSchema = z.enum(REACTION_EVENT_TYPES);
 export type ReactionEventType = z.infer<typeof reactionEventTypeSchema>;
 
@@ -116,12 +109,7 @@ type ReactionMode = z.infer<typeof reactionModeSchema>;
 export const DEFAULT_REACTION_MODE: ReactionMode = "open";
 
 export const reactionGrantSchema = z.strictObject({
-  ProblemOpened: reactionModeSchema,
-  ProblemReopened: reactionModeSchema,
-  AppRestartHalted: reactionModeSchema,
   ReleaseActivationFailed: reactionModeSchema,
-  KindViolationFound: reactionModeSchema,
-  PublicToolsChanged: reactionModeSchema,
 });
 export type ReactionGrant = z.infer<typeof reactionGrantSchema>;
 

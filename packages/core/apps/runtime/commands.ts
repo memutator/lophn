@@ -15,7 +15,6 @@ import {
   type RuntimeObservation,
   type RuntimeState,
 } from "../../../protocol/apps/mod.ts";
-import { appRestartHalted } from "../../../protocol/events/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import {
   type AppAccessTarget,
@@ -23,11 +22,15 @@ import {
   loadApp,
   replaceApp,
 } from "../registration/mod.ts";
+import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { projection } from "./model.ts";
 import { CRASH_LIMIT } from "./supervisor/restart-policy.ts";
 
 // supervisor가 crash loop로 멈출 때 보내는 reason code다(supervisor.ts의 CRASH_LOOP와 같은 값).
 const CRASH_LOOP_CODE = "crash_loop";
+
+// commit 뒤 Bus로 내는 남지 않는 event의 topic이다(apps wiring이 낸다).
+export const APP_RESTART_HALTED_TOPIC = "app_restart_halted";
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "app not found" });
@@ -247,11 +250,13 @@ export function createRuntimeCommands(): {
             release: input.release,
             reason: input.reason,
           });
-          // crash loop로 멈춤은 같은 transaction에서 domain event로도 남긴다. 멈춘 횟수는 한도를 넘긴 수다.
+          // crash loop로 멈춤은 commit 뒤 남지 않는 event로 알린다. 멈춘 횟수는 한도를 넘긴 수다.
           if (input.reason.code === CRASH_LOOP_CODE) {
-            tx.emit(appRestartHalted, input.app, {
-              release: input.release,
-              crashes: CRASH_LIMIT + 1,
+            tx.port(afterCommit).push(APP_RESTART_HALTED_TOPIC, {
+              type: "AppRestartHalted",
+              subject: input.app,
+              at: tx.now(),
+              payload: { release: input.release, crashes: CRASH_LIMIT + 1 },
             });
           }
         }

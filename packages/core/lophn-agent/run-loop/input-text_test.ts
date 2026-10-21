@@ -71,7 +71,7 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
     from: program,
     call: null,
     reply: null,
-    event: "ProblemOpened",
+    event: "ReleaseActivationFailed",
   } as RoutedInput;
   assertEquals(
     receivedText(
@@ -80,7 +80,7 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
         from: program,
         call: null,
         reply: null,
-        event: "ProblemOpened",
+        event: "ReleaseActivationFailed",
       },
       "opened",
     ),

@@ -9,10 +9,9 @@ interface FakeReactionsOptions {
   readFails?: boolean;
 }
 
-/** 화면 확인용 대표 값: 다시 열림은 묻고 kind 위반은 끈다. */
+/** 화면 확인용 대표 값: 묻는다. */
 export const SAMPLE_MODES: Partial<ReactionModes> = {
-  ProblemReopened: "ask",
-  KindViolationFound: "off",
+  ReleaseActivationFailed: "ask",
 };
 
 export function fakeReactions(options: FakeReactionsOptions = {}) {

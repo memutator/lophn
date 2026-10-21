@@ -6,7 +6,7 @@ import {
   ok,
   seededRandom,
 } from "../../../base/mod.ts";
-import { problemOpened } from "../../../protocol/events/mod.ts";
+import { ticketVerified } from "../../../protocol/events/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { applyMigrations } from "../../storage/migration/mod.ts";
 import {
@@ -45,10 +45,7 @@ Deno.test("꺼졌다 켜지면 Reactor가 cursor 뒤부터 이어 반응하고 �
     const ledger = opened.value;
     const written = ledger.transaction({ actor: "user" }, (tx) => {
       for (let i = 0; i < 3; i++) {
-        tx.emit(problemOpened, tx.newId("prb"), {
-          app: tx.newId("app"),
-          report: tx.newId("rpt"),
-        });
+        tx.emit(ticketVerified, tx.newId("tkt"), { app: tx.newId("app") });
       }
       return ok(undefined);
     });
@@ -98,7 +95,7 @@ Deno.test("꺼졌다 켜지면 Reactor가 cursor 뒤부터 이어 반응하고 �
       });
 
     const first = makeReactor();
-    first.on("ProblemOpened", handler);
+    first.on("TicketVerified", handler);
     await first.wake();
     // 첫 event의 cursor 저장이 실패해 backoff 중이다. 시각이 지나기 전에는 다시 하지 않는다.
     assertEquals(calls, ["1"]);
@@ -112,7 +109,7 @@ Deno.test("꺼졌다 켜지면 Reactor가 cursor 뒤부터 이어 반응하고 �
 
     // 꺼졌다 켠다. cursor(1) 뒤인 둘째 event부터 잇는다.
     const second = makeReactor();
-    second.on("ProblemOpened", handler);
+    second.on("TicketVerified", handler);
     await second.wake();
     assertEquals(calls, ["1", "1", "2", "2", "3"]);
     await second.wake();

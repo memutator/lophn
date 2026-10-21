@@ -16,24 +16,6 @@ import { verificationRecorded } from "../problems/tests.ts";
 // commit 뒤 같은 event를 Bus에도 낸다(구현은 core/events).
 // payload는 받는 handler가 쓰는 칸만 둔다. actor는 envelope에 있다.
 
-export const problemOpened = defineEvent("ProblemOpened", {
-  subject: idSchema("prb"),
-  payload: z.strictObject({ app: idSchema("app"), report: idSchema("rpt") }),
-});
-
-export const problemReopened = defineEvent("ProblemReopened", {
-  subject: idSchema("prb"),
-  payload: z.strictObject({ app: idSchema("app"), report: idSchema("rpt") }),
-});
-
-export const appRestartHalted = defineEvent("AppRestartHalted", {
-  subject: idSchema("app"),
-  payload: z.strictObject({
-    release: idSchema("rel"),
-    crashes: z.number().int().min(1),
-  }),
-});
-
 export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
   subject: idSchema("rel"),
   payload: z.strictObject({
@@ -43,27 +25,6 @@ export const releaseActivationFailed = defineEvent("ReleaseActivationFailed", {
       code: z.enum(ACTIVATION_FAILURE_CODES),
       summary: z.string().min(1),
     }),
-  }),
-});
-
-// count는 이번 호출에서 새로 열렸거나 다시 열린 위반 수다.
-export const kindViolationFound = defineEvent("KindViolationFound", {
-  subject: idSchema("dom"),
-  payload: z.strictObject({
-    domain: idSchema("dom"),
-    count: z.number().int().min(1),
-  }),
-});
-
-// domain은 깨울 domain이다(그 owner의 PM 또는 App Engineer가 받는다). 한 사실에 domain마다 event 하나를 낸다.
-// tools는 바뀌거나 막힌 공개 tool 이름이다.
-export const publicToolsChanged = defineEvent("PublicToolsChanged", {
-  subject: idSchema("app"),
-  payload: z.strictObject({
-    release: idSchema("rel"),
-    domain: idSchema("dom"),
-    change: z.enum(["changed", "blocked"]),
-    tools: z.array(z.string().min(1)),
   }),
 });
 
@@ -115,12 +76,7 @@ export const ticketVerified = defineEvent("TicketVerified", {
 });
 
 export const DOMAIN_EVENTS = [
-  problemOpened,
-  problemReopened,
-  appRestartHalted,
   releaseActivationFailed,
-  kindViolationFound,
-  publicToolsChanged,
   ticketCompletionReported,
   ticketClaimExpired,
   codingSessionEndedUnreported,
@@ -148,12 +104,7 @@ function domainEventEnvelopeSchema<
 }
 
 export const domainEventSchema = z.discriminatedUnion("type", [
-  domainEventEnvelopeSchema(problemOpened),
-  domainEventEnvelopeSchema(problemReopened),
-  domainEventEnvelopeSchema(appRestartHalted),
   domainEventEnvelopeSchema(releaseActivationFailed),
-  domainEventEnvelopeSchema(kindViolationFound),
-  domainEventEnvelopeSchema(publicToolsChanged),
   domainEventEnvelopeSchema(ticketCompletionReported),
   domainEventEnvelopeSchema(ticketClaimExpired),
   domainEventEnvelopeSchema(codingSessionEndedUnreported),
@@ -167,12 +118,7 @@ export type DomainEvent = z.infer<typeof domainEventSchema>;
 type DomainEventKind = "new_work" | "call_closing" | "program";
 
 const DOMAIN_EVENT_KINDS = {
-  ProblemOpened: "new_work",
-  ProblemReopened: "new_work",
-  AppRestartHalted: "new_work",
   ReleaseActivationFailed: "new_work",
-  KindViolationFound: "new_work",
-  PublicToolsChanged: "new_work",
   TicketCompletionReported: "call_closing",
   TicketClaimExpired: "call_closing",
   CodingSessionEndedUnreported: "call_closing",

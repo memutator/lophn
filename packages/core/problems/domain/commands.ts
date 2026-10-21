@@ -9,7 +9,6 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { problemSyncDomain } from "../../../protocol/problems/mod.ts";
-import { kindViolationFound } from "../../../protocol/events/mod.ts";
 import { KINDS_DISPATCH_PRINCIPAL } from "../../../protocol/projects/mod.ts";
 import { diffDomainProblems, type ExistingDomainProblem } from "./model.ts";
 
@@ -85,14 +84,6 @@ function handleSyncDomain(
        set state = 'resolved', state_changed_at = ?, seq = seq + 1 where id = ?`,
       [now, id],
     );
-  }
-  // 이전에 없던 위반이 생겼을 때만 알린다. 줄거나 사라지는 것은 event가 아니다.
-  const found = diff.insert.length + diff.reopen.length;
-  if (found > 0) {
-    tx.emit(kindViolationFound, input.domain, {
-      domain: input.domain,
-      count: found,
-    });
   }
   return ok({
     opened: diff.insert.length,

@@ -51,7 +51,6 @@ import {
   coreCodingConnectionsSource,
   windowCodingApi,
 } from "./settings/connections/core-source.ts";
-import { coreIssuesSource } from "../app-frame/app-detail/issues/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnArtifactApi } from "../../ipc/artifact.ts";
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
@@ -65,7 +64,6 @@ import {
   BrowserOverlayProvider,
 } from "../browser/browser-api.tsx";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
-import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -99,7 +97,6 @@ const settingsPanels = mock?.settingsPanels ?? {
   coding: coreCodingConnectionsSource(core, { coding: windowCodingApi() }),
   browser: windowBrowserSettings(),
 };
-const issues = mock?.issues ?? coreIssuesSource(core);
 // 작업대는 제품 core 통로로 읽고 쓴다.
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
@@ -141,8 +138,7 @@ const bridges = globalThis as {
   lophnShell?:
     & OverlayApi
     & Partial<LophnShellViewsApi>
-    & Partial<LophnShellAnnotateApi>
-    & Partial<LophnShellFeedbackBegin>;
+    & Partial<LophnShellAnnotateApi>;
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
   lophnBrowser?: LophnBrowserApi;
@@ -157,10 +153,6 @@ const annotate: LophnShellAnnotateApi | undefined = mock?.annotate ??
   (typeof bridges.lophnShell?.setMode === "function"
     ? bridges.lophnShell as LophnShellAnnotateApi
     : undefined);
-const feedback: LophnShellFeedbackBegin | undefined = mock?.feedback ??
-  (typeof bridges.lophnShell?.beginFeedback === "function"
-    ? bridges.lophnShell as LophnShellFeedbackBegin
-    : undefined);
 const browser: LophnBrowserApi | null = mock?.browser ??
   bridges.lophnBrowser ?? null;
 const artifact: LophnArtifactApi | null = bridges.lophnArtifact ?? null;
@@ -174,7 +166,7 @@ const palette: PaletteDeps | undefined =
     : undefined;
 
 // 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read로
-// 프로젝트 탭의 앱 패널 열기를 세우고, 문제 알리기는 아직 core 통로가 없어 두지 않는다.
+// 프로젝트 탭의 앱 패널 열기를 세운다.
 const appViews: AppViewsDeps | null = mock?.appViews ??
   (views
     ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
@@ -203,12 +195,10 @@ mount(
                     apps={apps}
                     settings={settings}
                     settingsPanels={settingsPanels}
-                    issues={issues}
                     appDetail={appDetail}
                     views={views}
                     annotate={annotate}
                     overlay={bridges.lophnShell}
-                    feedback={feedback}
                     instructions={mock?.instructions ??
                       windowInstructionsSource()}
                     agentViewSource={agentViewSource}

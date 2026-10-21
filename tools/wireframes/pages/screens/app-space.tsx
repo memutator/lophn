@@ -13,10 +13,6 @@ import {
   CodingOpenedToast,
   CodingPermission,
   CodingRunning,
-  IssueRecurred,
-  IssuesList,
-  ReportExisting,
-  ReportNew,
   RewindConfirm,
   RewindConflict,
   RewindDone,
@@ -31,21 +27,20 @@ import { MockDesktop } from "../../mock/mock-desktop.tsx";
 export const appSpaceArea: Area = {
   id: "app-space",
   title: "App space",
-  summary:
-    "앱 공간. Version, Access, Activity, rewind, Issues, 문제 보고, annotate, coding 탭.",
+  summary: "앱 공간. Version, Access, Activity, rewind, annotate, coding 탭.",
   pages: [
     {
       id: "app-space",
       title: "App space",
       description:
-        "앱 공간. 상단 바에 앱 이름과 [Report a problem], 본문에 앱 view, 운영 탭(Issues 등). 앱 view는 안내 상자로 그린다.",
+        "앱 공간. 상단 바에 앱 이름, 본문에 앱 view. 앱 view는 안내 상자로 그린다.",
       render: () => <MockDesktop route={openApp(APP_BUDGET)} />,
     },
     {
       id: "new-app-space",
       title: "App space · frame",
       description:
-        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Report a problem], [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, Manage가 있다.",
+        "앱 공간이다. 탭 줄 없이 앱 화면이 title bar 아래 전체를 쓴다. title bar에 [Annotate], 앱 상세 단추가 있고, 펼친 agent select에 lophn, App Engineer, Operator 둘, Manage가 있다.",
       render: () => <AppSpaceFrame />,
     },
     {
@@ -66,7 +61,7 @@ export const appSpaceArea: Area = {
       id: "new-app-version-applied",
       title: "App space · Version (applied)",
       description:
-        "오른쪽 패널의 App details 탭 안에 Version, Access, Activity, Issues 넷이 있다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
+        "오른쪽 패널의 App details 탭 안에 Version, Access, Activity 셋이 있다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
       render: () => <VersionApplied />,
     },
     {
@@ -133,34 +128,6 @@ export const appSpaceArea: Area = {
       render: () => <RewindConflict />,
     },
     {
-      id: "new-app-issues",
-      title: "App space · Issues list",
-      description:
-        "상태(Open, Resolved, Ignored)와 기간으로 거르는 문제 목록이다. 한 줄은 영향 한 문장, 접수 수, 마지막 시각, 상태이고 재발한 문제에는 Recurred 표시가 붙는다.",
-      render: () => <IssuesList />,
-    },
-    {
-      id: "new-app-issue-detail",
-      title: "App space · Issue detail (recurred)",
-      description:
-        "재발한 문제의 상세다. 이전 해결 시각과 다시 난 release, 접수 수, 처음과 마지막 시각, 발생 목록, 근거(원래 source 위치의 stack, log, release와 commit, 제보 글)가 있다. [Mark resolved]와 [Ignore]는 확인 없이 바로 바뀐다.",
-      render: () => <IssueRecurred />,
-    },
-    {
-      id: "new-app-report",
-      title: "App space · report a problem",
-      description:
-        "제보 dialog다. 글만 보내고 screenshot과 화면 상태는 없다. 새 문제로 보낸다.",
-      render: () => <ReportNew />,
-    },
-    {
-      id: "new-app-report-existing",
-      title: "App space · report to an existing problem",
-      description:
-        "Send it as에서 기존 문제의 또 다른 접수를 고르면 열린 문제 가운데 하나를 고르는 칸이 생긴다.",
-      render: () => <ReportExisting />,
-    },
-    {
       id: "new-app-annotate",
       title: "App space · annotate (picking)",
       description:
@@ -171,7 +138,7 @@ export const appSpaceArea: Area = {
       id: "new-app-annotate-list",
       title: "App space · annotations list",
       description:
-        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. 문제가 되지 않고 App Engineer session의 메시지가 된다.",
+        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to App Engineer]로 한 번에 보낸다. App Engineer session의 메시지가 된다.",
       render: () => <AnnotateList />,
     },
     {

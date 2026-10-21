@@ -8,7 +8,6 @@ import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
-import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type {
   AppFrameViewState,
   LophnShellViewsApi,
@@ -24,8 +23,6 @@ import { useTerminalOpenRequests } from "../terminal/use-terminal-open-requests.
 import { keyOf } from "../workspace/agents/agent-key.ts";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { AppDetail } from "./app-detail/app-detail.tsx";
-import { IssuesTab } from "./app-detail/issues/issues-tab.tsx";
-import type { IssuesSource } from "./app-detail/issues/source.ts";
 import type { AppDetailSource } from "./app-detail/source.ts";
 import {
   type AgentPaneState,
@@ -45,7 +42,6 @@ import {
   EmbeddedView,
   ViewCoversProvider,
 } from "./embedded-view.tsx";
-import { ReportButton } from "./report-button.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import styles from "./app-space.module.css";
@@ -55,14 +51,8 @@ interface AppSpaceProps {
   source: AppsSource;
   /** shell preload의 view 통로. 없으면 앱 화면을 열 수 없다고 보인다. */
   views?: LophnShellViewsApi;
-  /** [Report a problem] 통로. 없으면 깃발 단추를 두지 않는다. */
-  feedback?: LophnShellFeedbackBegin;
   /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
   detail?: AppDetailSource;
-  /** 운영 패널 Issues 탭의 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
-  issues?: IssuesSource;
-  /** 있으면 운영 패널을 Issues 탭으로, 그 문제를 고른 채 연다. */
-  issueProblem?: string;
   /**
    * 이 앱 자리의 agent 목록과 관리 통로(project Agents 탭과 같은 source). 없으면 agent select를 두지 않는다.
    */
@@ -153,10 +143,7 @@ export function AppSpace(
     app,
     source,
     views,
-    feedback,
     detail,
-    issues,
-    issueProblem,
     agents,
     agentViewSource,
     onInstructions,
@@ -188,11 +175,9 @@ export function AppSpace(
   // 오른쪽 패널. 열린 탭(details, agent, terminal)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   const [pane, setPane] = useState<AgentPaneState | null>(null);
   const [coding, setCoding] = useState<PaneTerminal | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(issueProblem !== undefined);
-  const [panelTab, setPanelTab] = useState<PanelTab>(
-    issueProblem !== undefined ? "details" : "agent",
-  );
-  const [panelOpen, setPanelOpen] = useState(issueProblem !== undefined);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>("agent");
+  const [panelOpen, setPanelOpen] = useState(false);
   const [opened, setOpened] = useState(false);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
@@ -217,7 +202,7 @@ export function AppSpace(
 
   const status: AppStatus | null = row ? appStatus(row, run) : null;
 
-  // 본문 view의 상태. crash해도 view_session은 남아 깃발 단추가 동작한다.
+  // 본문 view의 상태. crash해도 view_session은 남아 annotate 통로가 동작한다.
   const [viewState, setViewState] = useState<AppFrameViewState | null>(null);
   const viewSession = viewState?.view_session ?? null;
 
@@ -465,14 +450,6 @@ export function AppSpace(
               },
             }
             : {})}
-          report={feedback
-            ? (
-              <ReportButton
-                feedback={feedback}
-                viewSession={embedded ? viewSession : null}
-              />
-            )
-            : null}
           decisions={
             <WaitingLayer
               onOpenSession={showSession}
@@ -547,17 +524,6 @@ export function AppSpace(
                   onInstructions={onInstructions}
                   onOpenDomainDoc={onDomainDoc}
                   onOpenSession={showSession}
-                  initialTab={issueProblem !== undefined ? "issues" : undefined}
-                  issues={issues
-                    ? (
-                      <IssuesTab
-                        app={app}
-                        source={issues}
-                        now={() => new Date()}
-                        initialProblem={issueProblem}
-                      />
-                    )
-                    : undefined}
                 />
               )
               : null}

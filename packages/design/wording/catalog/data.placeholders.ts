@@ -8,17 +8,6 @@ export type DataPlaceholders = {
   "launcher.connection.disconnected": Record<never, never>;
   "launcher.connection.failed": Record<never, never>;
   "launcher.connection.starting": Record<never, never>;
-  "report-problem.button.copy-text": Record<never, never>;
-  "report-problem.button.send": Record<never, never>;
-  "report-problem.button.view-issue": Record<never, never>;
-  "report-problem.error.rejected": Record<never, never>;
-  "report-problem.error.too-long": Record<never, never>;
-  "report-problem.error.unreachable": Record<never, never>;
-  "report-problem.label.what-happened": Record<never, never>;
-  "report-problem.notice.copy-text": Record<never, never>;
-  "report-problem.status.received": Record<never, never>;
-  "report-problem.status.sending": Record<never, never>;
-  "report-problem.title.report": Record<never, never>;
   "secret-input.button.cancel": Record<never, never>;
   "secret-input.button.save": Record<never, never>;
   "secret-input.error.invalid": Record<never, never>;

@@ -39,11 +39,9 @@ import type { SettingsSource } from "./settings/source.ts";
 import type { SettingsPanels } from "./settings/settings-screen.tsx";
 import { ConnectProviderHost } from "./settings/providers/connect-host.tsx";
 import { applyAppearance } from "./settings/appearance/model.ts";
-import type { IssuesSource } from "../app-frame/app-detail/issues/source.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
-import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 
@@ -82,10 +80,6 @@ interface DesktopProps {
   views?: LophnShellViewsApi;
   /** shell preload의 Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
   annotate?: LophnShellAnnotateApi;
-  /** [Report a problem] 통로. 앱 공간 바의 버튼이 쓴다. */
-  feedback?: LophnShellFeedbackBegin;
-  /** 앱 공간 Issues 탭 통로. 없으면 Issues 탭은 아직 없다고 보인다. */
-  issues?: IssuesSource;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
   agentViewSource?: AgentTabSourceFactory;
   /** 창 위 overlay. toast를 띄운다. 없으면 toast를 띄우지 않는다. */
@@ -147,8 +141,6 @@ export function Desktop(
     appDetail,
     views,
     annotate,
-    feedback,
-    issues,
     agentViewSource,
     overlay,
     detached,
@@ -163,7 +155,7 @@ export function Desktop(
   // Settings로 간다. 이미 Settings여도 고른 항목부터 다시 연다.
   const settingsSpace = (pane?: SettingsPane) => {
     // Settings 자신과, Settings에서 연 전역 지침 편집기는 앞 자리가 아니다. 한 번 쓰고 끝나는 시작값(열 파일,
-    // Project Manager, 문제)은 버려 돌아올 때 다시 일어나지 않게 한다.
+    // Project Manager)은 버려 돌아올 때 다시 일어나지 않게 한다.
     const global = route.space === "instructions" &&
       route.instructions?.layer === "global";
     if (route.space !== "settings" && !global) {
@@ -177,18 +169,13 @@ export function Desktop(
     setRoute(openSettings(pane));
   };
   const appSpace = (app: string) => setRoute(openApp(app));
-  // domain 지침(DOMAIN.md)을 연 앱 공간. [Back]이 그 앱 공간으로 돌아간다. 한 번 쓰고 끝나는 시작값(session, 문제)은 버린다.
+  // domain 지침(DOMAIN.md)을 연 앱 공간. [Back]이 그 앱 공간으로 돌아간다. 한 번 쓰고 끝나는 시작값(session)은 버린다.
   const beforeDomainDoc = useRef<Route | null>(null);
   const openDomainDoc = (domain: string) => {
     beforeDomainDoc.current = route.space === "app" && route.app
       ? openApp(route.app)
       : null;
     setRoute(openInstructions({ layer: "domain", place: domain }));
-  };
-  // 접수된 feedback이 묶인 Issue. 그 앱 공간을 Issues 탭으로, 그 문제를 고른 채 연다.
-  const issueTarget = (app: string, problem: string) => {
-    setVisits((value) => value + 1);
-    setRoute({ ...openApp(app), issueProblem: problem });
   };
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
@@ -333,14 +320,11 @@ export function Desktop(
   } else if (route.space === "app" && route.app && apps && live) {
     space = (
       <AppSpace
-        key={route.issueProblem ? `${route.app}:${visits}` : route.app}
+        key={route.app}
         app={route.app}
         source={apps}
         views={views}
-        feedback={feedback}
         detail={appDetail}
-        issues={issues}
-        issueProblem={route.issueProblem}
         agents={workspace?.agentsSource}
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
@@ -407,7 +391,6 @@ export function Desktop(
           <DesktopIntents
             intents={intents}
             catalog={catalog}
-            onIssue={issueTarget}
             go={go}
           />
         )

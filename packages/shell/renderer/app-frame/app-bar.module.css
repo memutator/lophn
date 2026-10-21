@@ -28,10 +28,6 @@
   color: var(--color-text-primary);
 }
 
-.report:empty {
-  display: none;
-}
-
 /* 묶음 사이 얇은 구분선 */
 .sep {
   flex: none;

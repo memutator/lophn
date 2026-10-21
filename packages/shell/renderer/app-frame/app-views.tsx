@@ -44,8 +44,6 @@ export interface AppViewsDeps {
    * 않는다.
    */
   screens?(): Promise<ScreensRead>;
-  /** view에 묶인 [Report a problem]. 없으면 버튼을 잠근다. */
-  report?(view_session: string): void;
 }
 
 const AppViewsContext = createContext<AppViewsDeps | null>(null);

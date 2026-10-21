@@ -3,12 +3,10 @@
 // 가짜 통로는 core·파일·secret·coding agent에 닿지 않는다.
 import type { LophnBrowserApi } from "../../../ipc/browser.ts";
 import type { LophnShellAnnotateApi } from "../../../ipc/annotation.ts";
-import type { LophnShellFeedbackBegin } from "../../../ipc/feedback.ts";
 import type { LophnShellViewsApi } from "../../../ipc/app-frame.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
-import type { IssuesSource } from "../../app-frame/app-detail/issues/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
@@ -24,13 +22,7 @@ import { fakeAnnotate } from "../../app-frame/testdata/fake-annotate.ts";
 import { seedWorkbench } from "../dev-seed.ts";
 import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import { mockApps, mockSettings, mockSettingsPanels } from "./admin.ts";
-import {
-  mockAppDetail,
-  mockAppViews,
-  mockFeedback,
-  mockIssues,
-  mockViews,
-} from "./app-space.ts";
+import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { mockCore, mockEvents } from "./requests.ts";
 import { mockInstructions, mockProjects } from "./launcher.ts";
@@ -47,12 +39,10 @@ export interface DevMock {
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
-  readonly issues: IssuesSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
   readonly annotate: LophnShellAnnotateApi;
   readonly appViews: AppViewsDeps;
-  readonly feedback: LophnShellFeedbackBegin;
   readonly browser: LophnBrowserApi;
   /** Agent 탭·앱 공간의 Agent 칸이 agent마다 얻는 source. */
   readonly agentViewSource: AgentTabSourceFactory;
@@ -101,12 +91,10 @@ export function devMock(
     apps,
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
-    issues: mockIssues(),
     appDetail: mockAppDetail(),
     views,
     annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
-    feedback: mockFeedback(),
     browser: fakeBrowserApi().api,
     agentViewSource: mockAgentTabSource(),
     events: mockEvents(),

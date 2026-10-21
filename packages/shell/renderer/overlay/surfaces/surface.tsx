@@ -23,10 +23,6 @@ import {
 } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
 import type { OverlaySurface, PaletteIcon } from "../../../ipc/overlay.ts";
-import {
-  FeedbackDialog,
-  type FeedbackDialogApi,
-} from "../feedback/feedback-dialog.tsx";
 import type { SurfaceActions, SurfaceMount } from "../registry.ts";
 import styles from "./surface.module.css";
 
@@ -217,35 +213,22 @@ function PaletteSurface(
 }
 
 // host마다 React root 하나를 둔다. 지울 때 Radix focus 복귀는 이미 꺼져 있어 focus를 옮기지 않는다.
-// main이 연 [Report a problem] 표면은 feedback 통로로만 제출·취소하는 report-problem dialog다.
 export function surfaceMount(
-  { timer = systemTimer, clock = systemClock, feedback }: {
+  { timer = systemTimer, clock = systemClock }: {
     timer?: Timer;
     clock?: Clock;
-    feedback?: FeedbackDialogApi;
   } = {},
 ): SurfaceMount {
   return (host, surface, actions) => {
     const root = createRoot(host);
     root.render(
-      surface.feedback !== undefined && feedback !== undefined
-        ? (
-          <FeedbackDialog
-            draftRef={surface.feedback}
-            problems={surface.feedbackProblems}
-            api={feedback}
-            host={host}
-          />
-        )
-        : (
-          <SurfaceView
-            surface={surface}
-            host={host}
-            actions={actions}
-            timer={timer}
-            clock={clock}
-          />
-        ),
+      <SurfaceView
+        surface={surface}
+        host={host}
+        actions={actions}
+        timer={timer}
+        clock={clock}
+      />,
     );
     return () => root.unmount();
   };

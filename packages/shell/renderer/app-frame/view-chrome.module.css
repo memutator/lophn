@@ -1,4 +1,4 @@
-/* 앱 패널·카드 위 한 줄 크롬. 앱 bounds 밖이다. 이름, 모드, 연결 상태, 끝에 문제 알리기. */
+/* 앱 패널·카드 위 한 줄 크롬. 앱 bounds 밖이다. 이름, 모드, 연결 상태, 끝에 [Open again]. */
 .chrome {
   display: flex;
   flex: 0 0 auto;

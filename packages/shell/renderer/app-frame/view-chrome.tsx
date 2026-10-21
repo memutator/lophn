@@ -1,12 +1,9 @@
-// 앱 패널·카드 위의 shell 크롬. 앱 이름·모드·연결 상태와 그 view에 묶인
-// [Report a problem]을 앱 bounds 밖 shell renderer에 둔다. 앱 화면이 멈추거나 깨져도 이 줄은
-// shell이 그리므로 그대로 동작한다. 버튼은 이 크롬이 감싼 view_session 하나에만 묶인다.
+// 앱 패널·카드 위의 shell 크롬. 앱 이름·모드·연결 상태를 앱 bounds 밖 shell renderer에 둔다.
+// 앱 화면이 멈추거나 깨져도 이 줄은 shell이 그리므로 그대로 동작한다.
 // 화면이 멈추거나 crash하면 그 상태와 [Open again]을 둔다. 새 view는 사람이 누를 때만 지금
 // 연결로 연다.
-import { Flag } from "lucide-react";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
-import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/wording";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
@@ -39,9 +36,8 @@ interface ViewChromeProps {
   mode: "live" | "preview";
   /** 아직 view가 없으면 null이다. */
   connection: Connection | null;
-  /** 이 크롬이 감싼 view. 없으면 문제 알리기를 누를 수 없다. */
+  /** 이 크롬이 감싼 view. 없으면 [Open again]을 누를 수 없다. */
   viewSession: string | null;
-  onReport?: (view_session: string) => void;
   /** 화면 process 상태. 없으면 ok다. */
   health?: Health;
   /** 깨진 view를 지금 연결로 새로 연다. */
@@ -49,8 +45,7 @@ interface ViewChromeProps {
 }
 
 export function ViewChrome(
-  { name, mode, connection, viewSession, onReport, health, onReopen }:
-    ViewChromeProps,
+  { name, mode, connection, viewSession, health, onReopen }: ViewChromeProps,
 ) {
   const state = connection === null ? null : CONNECTION[connection];
   const broken = health === undefined || health === "ok"
@@ -94,18 +89,6 @@ export function ViewChrome(
             {t("common.button.open-again")}
           </Button>
         )}
-        <Tooltip content={t("common.button.report-problem")}>
-          <IconButton
-            icon={Flag}
-            label={t("common.button.report-problem")}
-            size="sm"
-            data-report-problem={viewSession ?? ""}
-            disabled={viewSession === null || onReport === undefined}
-            onClick={() => {
-              if (viewSession !== null) onReport?.(viewSession);
-            }}
-          />
-        </Tooltip>
       </span>
     </div>
   );

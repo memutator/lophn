@@ -11,19 +11,7 @@ import {
   GRANT_RESERVE,
   GRANT_SECRET,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
-import {
-  fakeIssues,
-  ISSUES,
-  PRB_LIST,
-  PRB_SHIP,
-  PRB_SLIP,
-  PRB_TOTAL,
-} from "../../../../../packages/shell/renderer/app-frame/app-detail/issues/testdata/fake-source.ts";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
-import {
-  FeedbackDialog,
-  type FeedbackDialogApi,
-} from "../../../../../packages/shell/renderer/overlay/feedback/feedback-dialog.tsx";
 import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
 import type { LophnShellViewsApi } from "../../../../../packages/shell/ipc/app-frame.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -50,20 +38,13 @@ import {
   type CodingScene,
 } from "../../../mock/app-space/coding-terminal.ts";
 import { APP_NAME } from "../../../mock/app-space/data.ts";
-import {
-  click,
-  find,
-  press,
-  type,
-  useDrive,
-  wait,
-} from "../../../mock/drive.ts";
+import { click, find, press, useDrive, wait } from "../../../mock/drive.ts";
 import {
   OrdersView,
   type ViewMarks,
 } from "../../../mock/app-space/orders-view.tsx";
 
-type OpsTab = "version" | "access" | "activity" | "issues";
+type OpsTab = "version" | "access" | "activity";
 type ActivationState = "applied" | "applying" | "failed";
 type RewindStage = "confirm" | "running" | "done" | "conflict";
 type PaneView = "agent" | "terminal" | "details";
@@ -85,14 +66,8 @@ interface AppSpaceProps {
     readonly open?: string | null;
     readonly rewind?: RewindStage | null;
   };
-  readonly issue?: string | null;
   /** agent select를 펼친 채 시작한다. */
   readonly agentMenu?: boolean;
-  /** 제보 dialog를 연 채 시작한다. */
-  readonly report?: {
-    readonly existing?: boolean;
-    readonly chosen?: string | null;
-  };
   /** annotate mode를 켠 채 시작한다. */
   readonly annotate?: {
     readonly marks: ViewMarks;
@@ -140,28 +115,11 @@ const TAB_LABEL = {
   version: "app-detail.label.tab-version",
   access: "app-detail.label.tab-access",
   activity: "app-detail.label.tab-activity",
-  issues: "app-detail.label.tab-issues",
 } as const satisfies Record<OpsTab, string>;
-// pages.tsx가 고르는 이름을 fake source의 id로 옮긴다.
-const ISSUE_ID: Record<string, string> = {
-  "iss-1": PRB_SHIP,
-  "iss-2": PRB_TOTAL,
-  "iss-3": PRB_LIST,
-  "iss-4": PRB_SLIP,
-};
 const CALL_ID: Record<string, string> = { "i-20": "inv_38" };
 const REWIND_FROM = "inv_32";
-const REPEAT_TEXT =
-  "Happened again today. The total shows 41.99 for the 10% discount.";
 
 const noop = () => {};
-
-// 제보 dialog 아래 통로. 보내면 접수만 하고 아무 데도 닿지 않는다.
-const FEEDBACK_API: Omit<FeedbackDialogApi, "cancelFeedback"> = {
-  sendFeedback: () =>
-    Promise.resolve({ report: "rpt_gallery", problem: PRB_TOTAL }),
-  openFeedbackIssue: () => Promise.resolve(),
-};
 
 function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
   const base = mockViews();
@@ -210,7 +168,6 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
         ? "conflict"
         : "applied",
     }).source,
-    issues: fakeIssues().source,
     agents: createFakeAgentsSource(),
     agentViewSource: mockAgentTabSource(),
     annotate: fakeAnnotate({
@@ -254,37 +211,13 @@ function shownMarks(
 
 export function AppSpace(props: AppSpaceProps = {}) {
   const [region, setRegion] = useState<HTMLElement | null>(null);
-  const [reporting, setReporting] = useState(false);
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
   const fakes = useMemo(() => build(props, setRegion), []);
-  const feedback = useMemo(() => ({
-    beginFeedback: () => {
-      setReporting(true);
-      return Promise.resolve({ draftRef: "drf_gallery" });
-    },
-  }), []);
 
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
 
   useDrive(async () => {
-    const { panel, activity, issue, report, pane, terminal } = props;
-    if (report !== undefined) {
-      await click("[data-report-problem]");
-      if (report.existing) {
-        await type('[data-feedback="text"]', REPEAT_TEXT);
-        await press('[data-feedback-phase] [role="combobox"]');
-        await click(
-          '[role="option"]',
-          t("report-problem.label.option-existing"),
-        );
-        const chosen = ISSUES.find((item) =>
-          item.id === ISSUE_ID[report.chosen ?? ""]
-        );
-        if (chosen !== undefined) {
-          await click('[data-feedback="problems"] button', chosen.impact);
-        }
-      }
-    }
+    const { panel, activity, pane, terminal } = props;
     if (panel !== undefined) {
       await click('[data-app-bar="app-details"]');
       await press('[role="tab"]', t(TAB_LABEL[panel]));
@@ -296,7 +229,6 @@ export function AppSpace(props: AppSpaceProps = {}) {
         await click(`[data-rewind-start="${REWIND_FROM}"]`);
         if (activity.rewind !== "confirm") await click("[data-rewind-confirm]");
       }
-      if (issue) await click(`[data-issue="${ISSUE_ID[issue] ?? issue}"]`);
     }
     if (props.agentMenu === true) await press("[data-agent-select]");
     // 터미널만 있는 장면은 coding 요청이 agent 탭을 함께 연다. panel과 함께 쓰면 요청이 탭을 더하지 않으니 select로 연다.
@@ -321,22 +253,13 @@ export function AppSpace(props: AppSpaceProps = {}) {
     }
   });
 
-  const dialogApi: FeedbackDialogApi = {
-    ...FEEDBACK_API,
-    cancelFeedback: () => {
-      setReporting(false);
-      return Promise.resolve();
-    },
-  };
   return (
     <EventsProvider client={fakes.events}>
       <RealAppSpace
         app={APP}
         source={fakes.source}
         views={fakes.views}
-        feedback={feedback}
         detail={fakes.detail}
-        issues={fakes.issues}
         agents={fakes.agents}
         agentViewSource={fakes.agentViewSource}
         annotate={fakes.annotate}
@@ -348,18 +271,6 @@ export function AppSpace(props: AppSpaceProps = {}) {
         <OrdersView marks={shownMarks(props, annotating)} />,
         region,
       )}
-      {reporting
-        ? (
-          <FeedbackDialog
-            draftRef="drf_gallery"
-            api={dialogApi}
-            host={document.body}
-            problems={ISSUES.filter((item) => item.status !== "ignored").map((
-              item,
-            ) => ({ id: item.id, title: item.impact, count: item.count }))}
-          />
-        )
-        : null}
     </EventsProvider>
   );
 }

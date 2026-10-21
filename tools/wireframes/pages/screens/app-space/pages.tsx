@@ -45,22 +45,6 @@ export function RewindConflict() {
   return <AppSpace panel="activity" activity={{ rewind: "conflict" }} />;
 }
 
-export function IssuesList() {
-  return <AppSpace panel="issues" />;
-}
-
-export function IssueRecurred() {
-  return <AppSpace panel="issues" issue="iss-2" />;
-}
-
-export function ReportNew() {
-  return <AppSpace report={{}} />;
-}
-
-export function ReportExisting() {
-  return <AppSpace report={{ existing: true, chosen: "iss-2" }} />;
-}
-
 export function AnnotatePicking() {
   return (
     <AppSpace

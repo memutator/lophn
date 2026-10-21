@@ -1,5 +1,5 @@
 // 앱 공간의 위쪽 바(`/apps/:app`). 앞쪽은 런처 복귀, 앱 이름, 연결 상태다. 뒤쪽은 글자 없이
-// tooltip만 있는 아이콘 단추이고 순서는 [대기 목록] [Annotate, Report] | [Agent, 앱 상세] | ⌘다. 켜진 것은 눌린 모양이다.
+// tooltip만 있는 아이콘 단추이고 순서는 [대기 목록] [Annotate] | [Agent, 앱 상세] | ⌘다. 켜진 것은 눌린 모양이다.
 // 바는 shell 크롬이라 앱 view bounds에 들어가지 않는다.
 import type { ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
@@ -22,8 +22,6 @@ interface AppBarProps {
   onDetails: () => void;
   /** 없으면(annotate 통로가 없는 창) Annotate 단추를 두지 않는다. */
   annotate?: { readonly on: boolean; readonly onToggle: () => void };
-  /** 깃발 단추. */
-  report?: ReactNode;
   /** 대기 목록 pill. */
   decisions?: ReactNode;
   /** agent select. */
@@ -60,12 +58,11 @@ export function AppBar(
     detailsOpen,
     onDetails,
     annotate,
-    report,
     decisions,
     agentSelect,
   }: AppBarProps,
 ) {
-  const marking = annotate !== undefined || report !== undefined;
+  const marking = annotate !== undefined;
   return (
     <TopBar
       leading={
@@ -96,7 +93,6 @@ export function AppBar(
               data="annotate"
             />
           )}
-          <span className={styles.report} data-report-slot="">{report}</span>
           {marking ? <span className={styles.sep} aria-hidden="true" /> : null}
           {agentSelect}
           <BarButton

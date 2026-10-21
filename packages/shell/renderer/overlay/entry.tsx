@@ -3,14 +3,12 @@ import "@lophn/ui/base.css";
 import "../chrome.css";
 import { t } from "@lophn/wording";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { FeedbackDialogApi } from "./feedback/feedback-dialog.tsx";
 import { overlayRegistry } from "./registry.ts";
 import { surfaceMount } from "./surfaces/surface.tsx";
 import styles from "./entry.module.css";
 
 declare global {
   var lophnShell: OverlayApi;
-  var lophnFeedback: FeedbackDialogApi | undefined;
 }
 const root = document.getElementById("root");
 if (root) {
@@ -31,7 +29,7 @@ if (root) {
     () => {
       status.hidden = false;
     },
-    surfaceMount({ feedback: globalThis.lophnFeedback }),
+    surfaceMount(),
   );
   retry.addEventListener("click", () => {
     status.hidden = true;

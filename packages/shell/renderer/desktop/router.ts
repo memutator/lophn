@@ -22,8 +22,6 @@ export interface Route {
   readonly settingsPane?: SettingsPane;
   /** instructions 공간이 여는 지침 층. settings·project-workspace·app-detail의 [Instructions]가 쓴다. */
   readonly instructions?: InstructionsPlace;
-  /** app 공간에서 Issues 탭으로, 고른 채 열 문제. report-problem dialog의 [View issue]가 쓴다. */
-  readonly issueProblem?: string;
   /** project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
   /** project 공간에서 그 project의 Project Manager를 열어 시작한다. */

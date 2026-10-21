@@ -17,7 +17,7 @@ lead만 고친다. `tools/status.py problem-remove build`가 `tasks/*.md`에서 
 | `pr-log-writer` | log | 3 | pr-log-contract | merged | log/pr-log-writer | a00e54e3b |  |
 | `pr-problem-refs` | problem-refs | 3 | pr-reactions | merged | problem-refs/pr-problem-refs | 5b22ff291 |  |
 | `pr-log-read` | log | 4 | pr-log-writer, pr-problems-core | todo |  |  |  |
-| `pr-problems-core` | problems-core | 4 | pr-reactions, pr-test-runner-reports, pr-cli-problem, pr-log-exception, pr-kinds-toast, pr-problem-refs, pr-issues-ui-main | todo |  |  |  |
+| `pr-problems-core` | problems-core | 4 | pr-reactions, pr-test-runner-reports, pr-cli-problem, pr-log-exception, pr-kinds-toast, pr-problem-refs, pr-issues-ui-main | running | problems-core/pr-problems-core |  |  |
 | `pr-agent-tools` | agent-tools | 5 | pr-log-read, pr-problem-refs | todo |  |  |  |
 | `pr-cleanup` | cleanup | 5 | pr-problems-core, pr-log-read, pr-log-view-error, pr-agent-tools, pr-role-prompts | todo |  |  |  |
 | `pr-log-view-error` | log | 5 | pr-log-read, pr-log-exception, pr-issues-ui-main | todo |  |  |  |

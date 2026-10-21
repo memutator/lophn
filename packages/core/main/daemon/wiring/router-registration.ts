@@ -35,7 +35,7 @@ import type { InputTransport } from "../../../router/ports.ts";
 import { afterCommit } from "../../../storage/ledger/after-commit.ts";
 import { AGENT_EVENT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 
-// 열린 coding session을 찾고 목록에 싣고 이름으로 coding agent를 고른다. 새 session은 Router가 transport start로 연다.
+// 열린 coding session을 찾고 목록에 싣고 이름으로 coding agent를 고른다.
 function withCodingSessions(
   directory: SessionDirectory,
   sql: Pick<Sql, "get" | "all">,
@@ -130,9 +130,6 @@ const environment: RouterEnvironment = {
     return {
       directory: withCodingSessions(directory, view.sql, placeDepsOf(view.sql)),
       transport,
-      coding: {
-        start: (tx, input) => tx.port(CodingTransport).start(tx, input),
-      },
       store: createCallStore(),
     };
   },

@@ -2,9 +2,6 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import type {
-  CodingStartResult,
-} from "../../protocol/coding-agent/transport.ts";
-import type {
   AgentCallRecord,
   CallAgent,
   CallFailReason,
@@ -13,7 +10,6 @@ import type {
   CallState,
   CallTo,
 } from "../../protocol/lophn-agent/calls.ts";
-import type { CodingOptions } from "../../protocol/coding-agent/harness-id.ts";
 import {
   addressingOf,
   calId,
@@ -37,18 +33,6 @@ export type RouterDeps = {
   directory: SessionDirectory;
   transport: InputTransport;
   store: CallStore;
-  // 새 coding session을 열거나 앱 줄에 세운다. 없으면 coding 맡기기는 unavailable이다.
-  coding?: {
-    start(
-      tx: Tx,
-      input: {
-        call: Id<"cal">;
-        app: string;
-        ticket: string;
-        options: CodingOptions;
-      },
-    ): Result<CodingStartResult>;
-  };
 };
 
 export interface Router {
@@ -69,7 +53,7 @@ export interface Router {
     by: CallFrom,
     input: { call: string; reason?: string },
   ): Result<AgentCallRecord>;
-  // Reactor handler(coding-agent)가 맡긴 call을 닫는다. 같은 tx 안에서 부른다. 이미 끝났으면 그대로 둔다.
+  // coding 쪽(coding session의 끝)이 맡긴 call을 닫는다. 같은 tx 안에서 부른다. 이미 끝났으면 그대로 둔다.
   close(
     tx: Tx,
     call: string,
@@ -87,8 +71,7 @@ export interface Router {
 
 // 받는 곳을 푼 결과. 실패하면 이유와, 행에 남길 수 있는 풀린 받는 곳(이름을 못 풀었으면 null)이다.
 type Resolved =
-  // target이 null이면 새 coding session을 여는 맡기기다(`launchCoding`).
-  | { ok: true; to: CallTo; target: TargetSession | null }
+  | { ok: true; to: CallTo; target: TargetSession }
   | { ok: false; reason: CallFailReason; to: CallTo | null };
 
 function failed(
@@ -97,6 +80,13 @@ function failed(
 ): Resolved {
   return { ok: false, reason, to };
 }
+
+// coding agent는 call을 받지 않는다. 받는 곳이 없는 것이라 누가 보내도 같은 답이고 call 행을 쓰지 않는다.
+const notCoding = () =>
+  err({
+    code: "invalid_input" as const,
+    message: "a coding agent does not take calls",
+  });
 
 export function createRouter(deps: RouterDeps): Router {
   const { directory, transport, store } = deps;
@@ -107,9 +97,6 @@ export function createRouter(deps: RouterDeps): Router {
     agent: CallAgent,
     to: CallTo,
   ): Result<Resolved> {
-    if (agent.role === "coding_agent") {
-      return ok({ ok: true, to, target: null });
-    }
     const opened = directory.open(tx, agent, from);
     if (opened.ok) return ok({ ok: true, to, target: opened.value });
     if (opened.error.code === "conflict") return ok(failed("closed", to));
@@ -127,6 +114,10 @@ export function createRouter(deps: RouterDeps): Router {
     let to: CallTo;
     switch (addressing.form) {
       case "resolved":
+        if (
+          addressing.to.kind !== "open_session" &&
+          addressing.to.agent.role === "coding_agent"
+        ) return notCoding();
         to = addressing.to;
         break;
       case "session":
@@ -134,6 +125,7 @@ export function createRouter(deps: RouterDeps): Router {
         break;
       case "named":
       case "named_or_session": {
+        if (addressing.named.role === "coding_agent") return notCoding();
         const agent = directory.resolveAgent(addressing.named);
         if (!agent.ok) {
           return agent.error.code === "not_found"
@@ -153,6 +145,7 @@ export function createRouter(deps: RouterDeps): Router {
       return open(tx, from, to.agent, to);
     }
     const target = directory.find(sesId(to.session));
+    if (target?.agent.role === "coding_agent") return notCoding();
     if (to.kind === "open_session") {
       if (target === null) return ok(failed("not_found", to));
       if (!target.accepting) return ok(failed("closed", to));
@@ -263,69 +256,6 @@ export function createRouter(deps: RouterDeps): Router {
     return ok({ call, state: "failed", fail_reason: reason, session: null });
   }
 
-  // agent가 coding agent에게 ticket 하나를 맡긴다. 그 앱에 끝나지 않은 session이 있으면 줄에 서고, 줄에서 나중에
-  // 열리면 coding 쪽이 받는 session을 적는다.
-  function launchCoding(
-    tx: Tx,
-    input: RouteInput,
-    to: CallTo,
-    call: string | null,
-  ): Result<RouteResult> {
-    if (
-      call === null || input.from.kind !== "agent" ||
-      to.kind === "open_session" ||
-      to.agent.role !== "coding_agent"
-    ) {
-      return err({
-        code: "invalid_input",
-        message: "only an agent hands a ticket to a coding agent",
-      });
-    }
-    if (deps.coding === undefined) {
-      return err({
-        code: "unavailable",
-        message: "the coding agent transport is not wired",
-      });
-    }
-    const ticket = input.refs.find((ref) => ref.kind === "ticket");
-    if (ticket === undefined) {
-      return err({
-        code: "invalid_input",
-        message: "a coding hand-off names its ticket in refs",
-      });
-    }
-    const started = deps.coding.start(tx, {
-      call: calId(call),
-      app: to.agent.app,
-      ticket: ticket.ticket,
-      options: input.options ?? {},
-    });
-    if (!started.ok) return started;
-    const receiver = started.value.status === "started"
-      ? started.value.session
-      : null;
-    const stored = store.insert(
-      tx,
-      newRecord(
-        tx,
-        call,
-        input.from.session,
-        input,
-        to,
-        receiver,
-        "accepted",
-        null,
-      ),
-    );
-    if (!stored.ok) return stored;
-    return ok({
-      call,
-      state: "accepted",
-      fail_reason: null,
-      session: receiver,
-    });
-  }
-
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
     const from = input.from;
     if (from.kind === "agent" && input.dedup !== null) {
@@ -351,7 +281,6 @@ export function createRouter(deps: RouterDeps): Router {
     }
     const { to, target } = resolved.value;
     const call = from.kind === "agent" ? tx.newId("cal") : null;
-    if (target === null) return launchCoding(tx, input, to, call);
     const delivered = transport.deliver(
       tx,
       target,
@@ -363,11 +292,7 @@ export function createRouter(deps: RouterDeps): Router {
         input.reply === "none"
       ? "done"
       : "accepted";
-    // 앱 줄에 선 coding 맡기기는 아직 받는 session이 없다.
-    const receiver = delivered.value === "queued" &&
-        target.transport === "harness" && to.kind === "new_session"
-      ? null
-      : target.session;
+    const receiver = target.session;
     if (call !== null && from.kind === "agent") {
       const stored = store.insert(
         tx,

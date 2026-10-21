@@ -44,7 +44,6 @@ import {
 } from "../../../lophn-agent/places/mod.ts";
 import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
-  callsReact,
   callsRecover,
   CANCEL_TEXT,
   FAILURE_TEXTS,
@@ -66,7 +65,7 @@ const ROUTER_CONTEXT: AuthenticatedContext = {
   principal: ROUTER_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [callsRecover.name, callsReact.name],
+    operations: [callsRecover.name],
     targets: {},
   },
   conditions: {},
@@ -140,10 +139,7 @@ function createCallBodyPreparer(deps: {
     const input = envelope.input;
     const texts: string[] = [];
     let next = envelope;
-    if (
-      name === callSend.name || name === callReply.name ||
-      name === callsReact.name
-    ) {
+    if (name === callSend.name || name === callReply.name) {
       const body = (input as { body?: unknown } | null)?.body;
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
       if (typeof body !== "string") return ok(envelope);

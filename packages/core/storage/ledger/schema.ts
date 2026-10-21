@@ -51,11 +51,7 @@ create table command_results (
   )
 );
 create index command_results_at on command_results (at);
-${IMMUTABLE("command_results")}
-create table subscriber_cursors (
-  subscriber text primary key,
-  processed_through_seq integer not null check (processed_through_seq >= 0)
-);`,
+${IMMUTABLE("command_results")}`,
   },
   {
     id: "immutable-insert-guards",

@@ -946,7 +946,6 @@ export function withReleasePreparation(
         replayed: false,
         first_seq: null,
         last_seq: null,
-        wake: false,
       });
     },
   };

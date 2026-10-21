@@ -39,7 +39,6 @@ import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
 import { admitAgentTurn, turnDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
-import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import {
   actorKind,
   authorityTarget,
@@ -108,7 +107,6 @@ type Session = {
   tx: Tx;
   seal: () => void;
   now: () => string;
-  checkCursor: (subscriber: string) => Result<void>;
   confirmation: ConfirmationBridge | undefined;
   // 이번 transaction이 예약한 handle. commit 성공만 소비한다.
   reserved: ConfirmationRef | undefined;
@@ -123,7 +121,7 @@ function applyCommand(
   input: unknown,
   compare: unknown,
 ): Result<CommandSuccess> {
-  const { record, tx, seal, now, checkCursor } = session;
+  const { record, tx, seal, now } = session;
   if (
     envelope.turn !== undefined &&
     ctx.conditions.turn !== undefined &&
@@ -153,7 +151,7 @@ function applyCommand(
   // 재전달은 여기까지 오지 않는다. 이미 소비한 handle로 새 변경을 시작하지 않는다.
   const reserved = reserveConfirmation(session, envelope);
   if (!reserved.ok) return reserved;
-  const cas = casAgrees(record, compare, input, checkCursor);
+  const cas = casAgrees(compare);
   if (!cas.ok) return cas;
   // agent의 command는 자격에 묶인 turn만이다. 끝난 turn은 감사 보완만 통과한다.
   const admitted = admitAgentTurn(
@@ -194,7 +192,6 @@ function applyCommand(
     replayed: false,
     first_seq: seqText(span.value.first),
     last_seq: seqText(span.value.last),
-    wake: span.value.first !== null,
   });
 }
 
@@ -247,7 +244,6 @@ function commitCommand(
 ): Result<CommandSuccess> {
   // checkCredential은 BEGIN IMMEDIATE 뒤 한 번만 부른다. Tx와 handler는 같은 current를 본다.
   let current: AuthenticatedContext | undefined;
-  let authority: RequestContext | undefined;
   let reserved: ConfirmationRef | undefined;
   let committed = false;
   try {
@@ -265,12 +261,10 @@ function commitCommand(
           ),
         );
         if (!request.ok) return request;
-        authority = request.value;
         txDeps.dispatch = createCommandDispatch(
           commands,
           credential.value,
           request.value,
-          (subscriber) => authorizeReactorCursor(subscriber, request.value),
           definition.route.name,
         );
         return ok({
@@ -281,7 +275,7 @@ function commitCommand(
       },
       txDeps,
       (tx, seal) => {
-        if (current === undefined || authority === undefined) {
+        if (current === undefined) {
           return err(internalError());
         }
         const session: Session = {
@@ -289,8 +283,6 @@ function commitCommand(
           tx,
           seal,
           now: () => deps.clock.now(),
-          checkCursor: (subscriber) =>
-            authorizeReactorCursor(subscriber, authority),
           confirmation: deps.confirmation,
           reserved: undefined,
         };

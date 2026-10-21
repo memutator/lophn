@@ -64,7 +64,6 @@ Deno.test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고
         replayed: false,
         first_seq: null,
         last_seq: null,
-        wake: false,
       }));
     },
   } as Writer;

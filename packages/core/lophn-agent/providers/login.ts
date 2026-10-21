@@ -190,7 +190,6 @@ function wrapped(result: Result<unknown>): Result<CommandSuccess> {
       replayed: false,
       first_seq: null,
       last_seq: null,
-      wake: false,
     })
     : result;
 }

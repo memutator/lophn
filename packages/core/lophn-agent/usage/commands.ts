@@ -20,7 +20,7 @@ import {
 import { assertCall, callFromRow, type CallRow } from "./model.ts";
 
 // 등록 순서: 입력 검사 → CAS 비교 → 쓰기. 짧은 transaction 하나. event는 쓰지 않는다.
-// executor는 processed_through_seq만 검사하므로 state_seq 비교 기준은
+// executor는 compare 칸을 검사하지 않으므로 state_seq 비교 기준은
 // handler가 현재 행을 읽어 직접 본다(provider checkRevision와 같은 방식).
 // 오류 본문은 어디에도 저장하지 않는다. credential 값은 참조만 남는다.
 

@@ -88,7 +88,6 @@ export function replay(row: StoredRow): Result<{
   replayed: true;
   first_seq: string | null;
   last_seq: string | null;
-  wake: false;
 }> {
   let result: unknown;
   try {
@@ -101,42 +100,15 @@ export function replay(row: StoredRow): Result<{
     replayed: true,
     first_seq: seqText(row.first_seq),
     last_seq: seqText(row.last_seq),
-    wake: false,
   });
 }
 
-// compare의 각 기준을 현재 행과 비교한다. 하나라도 다르면 handler 전에 conflict다.
-// 기준 없는 생성은 빈 객체다. 도메인 표가 아직 없으면 그 키는 handler가 거절한다.
-export function casAgrees(
-  sql: Sql,
-  compare: unknown,
-  input: unknown,
-  checkCursor: (subscriber: string) => Result<void>,
-): Result<void> {
+// compare는 객체여야 한다. 기준 없는 생성은 빈 객체다. 각 기준은 handler가 현재 행과 비교한다.
+export function casAgrees(compare: unknown): Result<void> {
   if (
     compare === null || typeof compare !== "object" || Array.isArray(compare)
   ) {
     return err({ code: "invalid_input", message: "compare가 객체가 아니다" });
-  }
-  const expected = compare as Record<string, unknown>;
-  if (!("processed_through_seq" in expected)) return ok(undefined);
-  const subscriber = input !== null && typeof input === "object"
-    ? (input as Record<string, unknown>)["subscriber"]
-    : undefined;
-  const seq = expected["processed_through_seq"];
-  if (typeof subscriber !== "string" || typeof seq !== "string") {
-    return err({ code: "invalid_input", message: "cursor CAS가 없다" });
-  }
-  // owner 거절과 CAS 불일치를 구별하기 전에 현재 자격으로 cursor read도 검사한다.
-  const allowed = checkCursor(subscriber);
-  if (!allowed.ok) return allowed;
-  const row = sql.get(
-    "select processed_through_seq from subscriber_cursors where subscriber = ?",
-    [subscriber],
-  );
-  const stored = row === undefined ? 0n : row["processed_through_seq"];
-  if (typeof stored !== "bigint" || stored.toString() !== seq) {
-    return err({ code: "conflict", message: "CAS 기준이 현재 기록과 다르다" });
   }
   return ok(undefined);
 }

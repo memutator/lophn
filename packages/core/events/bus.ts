@@ -3,7 +3,7 @@ import type { BusEvent, EventCondition } from "../../protocol/events/mod.ts";
 import type { Bus, BusSink } from "./ports.ts";
 
 // 조건 여럿은 OR이다. 조건이 없으면 어떤 event도 맞지 않는다.
-// session을 건 조건은 session이 없는 event(domain, 남지 않는 event)와 맞지 않는다.
+// session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다.
 function eventMatches(
   conditions: readonly EventCondition[],
   event: BusEvent,

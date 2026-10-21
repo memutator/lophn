@@ -83,7 +83,6 @@ export function openWriteLink(deps: WriteLinkDeps): Result<WriteLink> {
           registerBlobRef: (reference) => register(connection.sql, reference),
           emit: () => unsupported("emit"),
           port: () => unsupported("port"),
-          advanceSubscriberCursor: () => unsupported("subscriber cursor"),
           call: () => unsupported("call"),
         };
         const result = fn(tx);

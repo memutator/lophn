@@ -25,8 +25,6 @@ export type CommandSuccess = {
   replayed: boolean;
   first_seq: string | null;
   last_seq: string | null;
-  // commit 뒤에만 켜진다. 배포기는 reader에서 커밋된 event를 읽는다.
-  wake: boolean;
   // commit 뒤에 main thread가 적용할 일(입력함에 넣기, agent event 내기). 재전달에는 없다.
   after_commit?: CommitAction[];
 };

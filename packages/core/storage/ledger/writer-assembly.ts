@@ -24,7 +24,6 @@ import {
 import { defineTxPort } from "./tx-ports.ts";
 import {
   createAfterCommitCollector,
-  LEDGER_COMMANDS,
   type LedgerConnection,
   type TxPortRegistration,
   type WriterRegistration,
@@ -72,7 +71,7 @@ export async function assembleWriter(
   // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
   let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
   const clock = writerClock(boot, () => fixedMs);
-  const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
+  const commands: CommandDefinition[] = [];
   const afterCommit = createAfterCommitCollector();
   const ports: TxPortRegistration[] = [
     afterCommit.registration,

@@ -114,7 +114,6 @@ async function attempt(c: Case) {
         replayed: false,
         first_seq: null,
         last_seq: null,
-        wake: false,
       }));
     },
     readResult: () => Promise.resolve(ok(null)),

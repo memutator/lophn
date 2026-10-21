@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineCommand, defineRead } from "../base/route.ts";
+import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, seqSchema } from "../base/values.ts";
 import { actorSchema } from "../base/actor.ts";
@@ -73,40 +73,4 @@ export const eventsList = defineRead({
   output: eventsListOutputSchema,
   actors: ["user", "coding_agent", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
-});
-
-// 반응 없는 구간만 이 command다. 비교 기준은 자기 cursor의 이전 seq이고 감소할 수 없다.
-const advanceSubscriberCursorInputSchema = z.strictObject({
-  subscriber: z.string().min(1),
-  scanned_through_seq: seqSchema,
-});
-
-const advanceSubscriberCursorCompareSchema = z.strictObject({
-  processed_through_seq: seqSchema,
-});
-
-// 반응 command의 idempotency 기준.
-export const reactionKeySchema = z.strictObject({
-  subscriber: z.string().min(1),
-  cause_seq: seqSchema,
-  reaction: z.string().min(1),
-});
-
-export type ReactionKey = z.infer<typeof reactionKeySchema>;
-
-export const advanceSubscriberCursor = defineCommand({
-  resource: "events",
-  method: "advance-cursor",
-  name: "AdvanceSubscriberCursor",
-  input: advanceSubscriberCursorInputSchema,
-  output: z.object({ processed_through_seq: seqSchema }),
-  compare: advanceSubscriberCursorCompareSchema,
-  actors: ["machine"],
-  errors: [
-    "unauthorized",
-    "forbidden",
-    "invalid_input",
-    "conflict",
-    "unavailable",
-  ],
 });

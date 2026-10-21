@@ -46,12 +46,6 @@ export interface Tx {
   registerBlobRef(
     reference: BlobRefRegistration,
   ): Result<PermanentBlobReference>;
-  // 반응 command의 소유 변경과 subscriber 처리 위치를 같은 transaction에 확정한다.
-  // 위치가 줄어들면 err이고 handler는 그 결과를 그대로 돌려 전체를 rollback한다.
-  advanceSubscriberCursor(
-    subscriber: string,
-    through_seq: string,
-  ): Result<void>;
   // registry가 dispatchable을 검사한다. 새 transaction·actor·commit은 만들지 않는다.
   call<R extends CommandRoute>(
     route: R,

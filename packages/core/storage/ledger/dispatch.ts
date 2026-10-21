@@ -34,7 +34,6 @@ export function createCommandDispatch(
   commands: ReadonlyMap<string, CommandDefinition>,
   ctx: AuthenticatedContext,
   request: AuthenticatedContext,
-  checkCursor: (subscriber: string) => Result<void>,
   outer?: string,
 ): CommandDispatch {
   // 바깥 이름은 순환 검사용이다. 깊이 4는 안쪽 call만 센다.
@@ -65,12 +64,7 @@ export function createCommandDispatch(
       turnDisposition(definition.value),
     );
     if (!admitted.ok) return admitted;
-    const compared = casAgrees(
-      tx.sql,
-      checked.value.compare,
-      checked.value.input,
-      checkCursor,
-    );
+    const compared = casAgrees(checked.value.compare);
     if (!compared.ok) return compared;
     stack.push(name);
     let raw: unknown;

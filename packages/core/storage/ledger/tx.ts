@@ -1,11 +1,5 @@
 import type { Clock, IdSource, Result } from "../../../base/mod.ts";
-import {
-  err,
-  formatSeq,
-  internalError,
-  ok,
-  parseSeq,
-} from "../../../base/mod.ts";
+import { err, formatSeq, internalError, ok } from "../../../base/mod.ts";
 import {
   type RequestContext,
   type Sql,
@@ -29,7 +23,6 @@ import {
   isTransactionLost,
   type LedgerConnection,
 } from "./sqlite.ts";
-import { authorizeReactorCursor } from "../../events/subscriber-registration.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import {
@@ -284,38 +277,6 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     registerBlobRef(reference) {
       live();
       return deps.registerBlobRef(reference);
-    },
-    advanceSubscriberCursor(subscriber, throughSeq) {
-      live();
-      const allowed = authorizeReactorCursor(subscriber, ctx.request);
-      if (!allowed.ok) throw fail(allowed);
-      const parsed = parseSeq(throughSeq);
-      if (!parsed.ok || parsed.value < 0n) {
-        return err({ code: "invalid_input", message: "seq가 아니다" });
-      }
-      const current = measured(false, () =>
-        sql.get(
-          "select processed_through_seq from subscriber_cursors where subscriber = ?",
-          [subscriber],
-        ));
-      if (current !== undefined) {
-        const stored = current["processed_through_seq"];
-        if (typeof stored !== "bigint" || parsed.value < stored) {
-          return err({
-            code: "conflict",
-            message: "subscriber 처리 위치는 줄일 수 없다",
-          });
-        }
-      }
-      measured(true, () =>
-        sql.run(
-          `insert into subscriber_cursors (subscriber, processed_through_seq)
-         values (?, ?)
-         on conflict (subscriber) do update set
-           processed_through_seq = excluded.processed_through_seq`,
-          [subscriber, parsed.value],
-        ));
-      return ok(undefined);
     },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();

@@ -4,24 +4,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { advanceSubscriberCursor } from "../../../protocol/events/mod.ts";
-import { defineSyncCommand } from "./handler.ts";
 import { turnAdmission } from "./turn-admission.ts";
-
-// 반응 없는 구간의 cursor만 올린다. 줄어들면 conflict이고 event는 없다.
-const advanceSubscriberCursorCommand = defineSyncCommand(
-  advanceSubscriberCursor,
-  (tx: Tx, _ctx: RequestContext, input, _compare) => {
-    const advanced = tx.advanceSubscriberCursor(
-      input.subscriber,
-      input.scanned_through_seq,
-    );
-    if (!advanced.ok) return advanced;
-    return ok({ processed_through_seq: input.scanned_through_seq });
-  },
-);
-
-export const LEDGER_COMMANDS = [advanceSubscriberCursorCommand];
 
 type TurnDisposition = {
   // 끝난 turn에서도 통과하는 감사 보완. 새 대상 변경이 아니다.

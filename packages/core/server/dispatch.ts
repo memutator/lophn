@@ -17,12 +17,7 @@ import {
   type Route,
   UPLOAD_INPUT_HEADER,
   type UploadRoute,
-  type WorkerRoute,
 } from "../../protocol/base/mod.ts";
-import type {
-  WorkerRequest,
-  WorkerResponse,
-} from "../../protocol/supervision/mod.ts";
 import type { CommandEnvelope, Writer } from "../storage/ledger/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 import {
@@ -49,7 +44,6 @@ import {
   isMemoryRoute,
   isReadRoute,
   isUploadRoute,
-  isWorkerRoute,
   type RouteEntry,
 } from "./routes.ts";
 
@@ -102,19 +96,6 @@ export type UploadHandler = (
   body: UploadBody,
 ) => Promise<Result<unknown>>;
 
-// file·worker route가 등록된 worker kind의 감독 pipe로 넘기는 통로. 준비 여부·기한·응답
-// 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다.
-export type WorkerRouteTarget = {
-  forward(
-    request: WorkerRequest,
-    bytes?: Uint8Array,
-  ): Promise<Result<WorkerResponse, LophnError>>;
-  // 바이트 body를 받는 worker route의 상한. 없으면 JSON body만 받는다.
-  requestBytesMax?: number;
-};
-
-export type WorkerTargets = ReadonlyMap<string, WorkerRouteTarget>;
-
 // core entry가 조립한다. 없는 handler는 그 route를 제공하지 않는 것이다.
 export type DispatchDeps = {
   credentials: CredentialRegistry;
@@ -123,9 +104,8 @@ export type DispatchDeps = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
-  // file route를 stream으로 서빙하는 대상. 있으면 workers의 같은 route보다 먼저 쓴다.
+  // file route를 stream으로 서빙하는 대상.
   fileStreams?: ReadonlyMap<string, FileStreamHandler>;
-  workers?: WorkerTargets;
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
   confirmation?: ConfirmationBridge | RouteConfirmation;
@@ -200,7 +180,7 @@ function scopeTarget(ctx: AuthenticatedContext): CredentialTarget {
   return target;
 }
 
-// worker·file route도 credential operation scope를 먼저 검사한다. 범위 밖이면 worker에 닿지 않는다.
+// route의 credential operation scope를 먼저 검사한다.
 function scopeAllowed(
   ctx: AuthenticatedContext,
   operation: string,
@@ -232,22 +212,6 @@ export async function dispatchHttp(
       return await upload(request, route, ctx, deps);
     } catch (thrown) {
       return rejected(asInternalError(thrown));
-    }
-  }
-  if (isWorkerRoute(route)) {
-    const target = deps.workers?.get(routeKey(route));
-    if (target?.requestBytesMax !== undefined && isByteBody(request)) {
-      try {
-        return await workerWithBytes(
-          request,
-          route,
-          target.requestBytesMax,
-          ctx,
-          deps,
-        );
-      } catch (thrown) {
-        return rejected(asInternalError(thrown));
-      }
     }
   }
   const maxBytes = deps.bodyLimit?.(route) ?? deps.jsonMaxBytes;
@@ -289,10 +253,6 @@ export async function dispatchHttp(
     if (isFileRoute(route)) {
       const split = fileConfirmation(parsed.value);
       return await file(route, split.input, split.confirmation, ctx, deps);
-    }
-    if (isWorkerRoute(route)) {
-      const split = fileConfirmation(parsed.value);
-      return await worker(route, split.input, split.confirmation, ctx, deps);
     }
     return rejected({ code: "not_found", message: "route not found" });
   } catch (thrown) {
@@ -528,7 +488,7 @@ async function file(
   if (!parsed.success) {
     return rejected({ code: "invalid_input", message: "invalid file body" });
   }
-  // credential operation scope를 먼저 본다. 범위 밖이면 worker에 닿지 않는다.
+  // credential operation scope를 먼저 본다. 범위 밖이면 handler에 닿지 않는다.
   const scoped = scopeAllowed(ctx, route.name);
   if (!scoped.ok) return fromFailure(scoped.error);
   if (route.confirmation === "required") {
@@ -548,41 +508,7 @@ async function file(
   }
   const streaming = deps.fileStreams?.get(routeKey(route));
   if (streaming) return await fileStream(route, streaming, parsed.data, ctx);
-  // file route도 등록된 worker kind로 넘긴다. 등록된 바이트 응답 통로가 없으면 unavailable이다.
-  const target = deps.workers?.get(routeKey(route));
-  if (!target) {
-    return rejected({ code: "unavailable", message: "file unavailable" });
-  }
-  const envelope: WorkerRequest = {
-    type: "worker_request",
-    request_id: `${ctx.credential_ref}/${deps.clock.nowMs()}`,
-    op: route.name,
-    payload: parsed.data,
-  };
-  const answer = await target.forward(envelope);
-  if (!answer.ok) return rejected(answer.error);
-  const response = answer.value;
-  if (response.request_id !== envelope.request_id) {
-    return rejected({ code: "internal", message: "worker response mismatch" });
-  }
-  if (!response.ok) return rejected(commonWorkerError(response.error));
-  // 성공 payload는 원본 bytes다. core는 바이트를 해석·저장하지 않는다.
-  if (!validBytesPayload(response.payload)) {
-    return rejected(asInternalError(new Error("file bytes")));
-  }
-  // worker가 저장된 media type을 함께 주면 그것을 보낸다. 없으면 route의 fallback이다.
-  // 형식이 어긋난 값은 fallback으로 바꾸지 않고 internal로 거절한다.
-  const contentType = response.payload.media_type === undefined
-    ? route.output.contentType
-    : response.payload.media_type;
-  if (!validMediaType(contentType)) {
-    return rejected(asInternalError(new Error("file media type")));
-  }
-  return {
-    status: 200,
-    bytes: new Uint8Array(response.payload.bytes),
-    contentType,
-  };
+  return rejected({ code: "unavailable", message: "file unavailable" });
 }
 
 async function fileStream(
@@ -610,114 +536,6 @@ const MEDIA_TYPE = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
 function validMediaType(value: unknown): value is string {
   return typeof value === "string" && value.length <= 255 &&
     MEDIA_TYPE.test(value);
-}
-
-// file route와 같은 길이다. worker route의 JSON 결과·공통 오류는 envelope를 벗기지 않고
-// route 등록 schema로 검사한 뒤 그대로 200·공통 상태로 낸다.
-async function worker(
-  route: WorkerRoute,
-  value: unknown,
-  confirmation: string | undefined,
-  ctx: AuthenticatedContext,
-  deps: DispatchDeps,
-  // 바이트 body를 함께 받는 요청의 읽기. 범위·대상 검사를 통과한 뒤에만 부른다.
-  readBytes?: () => Promise<Result<Uint8Array, RequestFailure>>,
-): Promise<HttpResult> {
-  const parsed = route.input.safeParse(value);
-  if (!parsed.success) {
-    return rejected({ code: "invalid_input", message: "invalid worker body" });
-  }
-  // credential operation scope를 먼저 본다. 범위 밖이면 worker에 닿지 않는다.
-  const scoped = scopeAllowed(ctx, route.name);
-  if (!scoped.ok) return fromFailure(scoped.error);
-  const target = deps.workers?.get(routeKey(route));
-  if (!target) {
-    return rejected({ code: "unavailable", message: "worker unavailable" });
-  }
-  if (route.confirmation === "required") {
-    if (!deps.confirmation) {
-      return rejected({
-        code: "unavailable",
-        message: "사람 결정 확인을 사용할 수 없다",
-      });
-    }
-    // 소비는 넘기기 전이다. 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다.
-    const consumed = await consumeRouteConfirmation(
-      deps.confirmation,
-      route,
-      parsed.data,
-      confirmation,
-    );
-    if (!consumed.ok) return rejected(consumed.error);
-  }
-  let bytes: Uint8Array | undefined;
-  if (readBytes !== undefined) {
-    const read = await readBytes();
-    if (!read.ok) return fromFailure(read.error);
-    bytes = read.value;
-  }
-  const envelope: WorkerRequest = {
-    type: "worker_request",
-    request_id: `${ctx.credential_ref}/${deps.clock.nowMs()}`,
-    op: route.name,
-    payload: parsed.data,
-  };
-  const answer = await target.forward(envelope, bytes);
-  if (!answer.ok) return rejected(answer.error);
-  const response = answer.value;
-  if (response.request_id !== envelope.request_id) {
-    return rejected({ code: "internal", message: "worker response mismatch" });
-  }
-  if (!response.ok) return rejected(commonWorkerError(response.error));
-  const output = route.output.safeParse(response.payload);
-  if (!output.success) {
-    return rejected(asInternalError(new Error("worker output")));
-  }
-  return { status: 200, json: output.data };
-}
-
-function isByteBody(request: Request): boolean {
-  const type = request.headers.get("content-type");
-  return type !== null &&
-    type.split(";", 1)[0].trim().toLowerCase() === UPLOAD_TYPE;
-}
-
-// 바이트 body를 받는 worker route. upload와 같은 모양(입력은 header의 base64url JSON, body는
-// octet-stream)이고, core는 바이트를 해석하지 않고 worker로 중계만 한다.
-async function workerWithBytes(
-  request: Request,
-  route: WorkerRoute,
-  maxBytes: number,
-  ctx: AuthenticatedContext,
-  deps: DispatchDeps,
-): Promise<HttpResult> {
-  const encoded = request.headers.get(UPLOAD_INPUT_HEADER);
-  const decoded = encoded === null ? undefined : decodeInputHeader(encoded);
-  if (decoded === undefined) {
-    return rejected({ code: "invalid_input", message: "invalid worker body" });
-  }
-  const input = parseLimitedJson(decoded);
-  if (!input.ok) return fromFailure(input.error);
-  return await worker(
-    route,
-    input.value,
-    undefined,
-    ctx,
-    deps,
-    () => readLimitedBody(request, { maxBytes, timeoutMs: deps.bodyTimeoutMs }),
-  );
-}
-
-// file route의 성공 payload. worker가 돌려주는 원본 bytes다. core는 해석하지 않는다.
-function validBytesPayload(
-  value: unknown,
-): value is { bytes: number[]; media_type?: string } {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return Array.isArray(record.bytes) &&
-    record.bytes.every((byte) => typeof byte === "number");
 }
 
 // worker 오류는 코드만 믿고 message·details는 버린다. worker 문장이 caller에게 새지 않는다

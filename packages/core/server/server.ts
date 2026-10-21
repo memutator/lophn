@@ -15,10 +15,6 @@ import {
   createAdmission,
 } from "../supervision/responsiveness/mod.ts";
 import {
-  forwardToWorker,
-  type WorkerRouteTarget as ResponsivenessTarget,
-} from "../supervision/responsiveness/mod.ts";
-import {
   type DispatchDeps,
   dispatchHttp,
   type FileHandler,
@@ -26,8 +22,6 @@ import {
   type MemoryHandler,
   type ReadHandler,
   type UploadHandler,
-  type WorkerRouteTarget,
-  type WorkerTargets,
 } from "./dispatch.ts";
 import {
   BODY_TIMEOUT_MS,
@@ -53,9 +47,8 @@ export type ApiServerOptions = {
   files?: ReadonlyMap<string, FileHandler>;
   // file route를 stream으로 서빙하는 대상(큰 파일). core 메모리에 한 파일을 모으지 않는다.
   fileStreams?: ReadonlyMap<string, FileStreamHandler>;
-  workers?: ReadonlyMap<string, ResponsivenessTarget>;
   uploads?: ReadonlyMap<string, UploadHandler>;
-  // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
+  // file route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
   confirmation?: ConfirmationBridge | RouteConfirmation;
   // Gateway WebSocket이 구독하는 Bus. 없으면 Gateway는 unavailable이다.
   bus?: Bus;
@@ -93,9 +86,6 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     memory: options.memory,
     files: options.files,
     fileStreams: options.fileStreams,
-    workers: options.workers === undefined
-      ? undefined
-      : adaptedWorkers(options.workers),
     uploads: options.uploads,
     confirmation: options.confirmation,
     bodyLimit: options.bodyLimit,
@@ -356,21 +346,4 @@ function commandRefused(): { status: number; json: unknown } {
 
 function json(reason: ReturnType<typeof failure>): Response {
   return Response.json(errorBody(reason.error), { status: reason.status });
-}
-
-// 감독 pipe 통로(forwardToWorker)를 dispatch가 기다리는 모양으로 맞춘다.
-// 준비 여부·기한·응답 상한은 responsiveness의 forwardToWorker가 본다.
-function adaptedWorkers(
-  workers: ReadonlyMap<string, ResponsivenessTarget>,
-): WorkerTargets {
-  const adapted = new Map<string, WorkerRouteTarget>();
-  for (const [name, target] of workers) {
-    adapted.set(name, {
-      forward: (request, bytes) => forwardToWorker(target, request, bytes),
-      ...(target.limits?.requestBytesMax === undefined
-        ? {}
-        : { requestBytesMax: target.limits.requestBytesMax }),
-    });
-  }
-  return adapted;
 }

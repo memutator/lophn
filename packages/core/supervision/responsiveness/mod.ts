@@ -23,7 +23,6 @@ export {
   type StartResult,
   type Supervisor,
 } from "./supervisor.ts";
-export { forwardToWorker, type WorkerRouteTarget } from "./forward.ts";
 export { createIoScheduler } from "./scheduler.ts";
 export { type Admission, createAdmission } from "./admission.ts";
 export { createWorkerChannel, type WorkerChannel } from "./worker-channel.ts";

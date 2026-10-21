@@ -15,7 +15,6 @@ const ROUTE_KINDS = [
   "command",
   "read",
   "file",
-  "worker",
   "memory",
   "upload",
 ] as const;
@@ -69,11 +68,6 @@ export type FileRoute<I extends z.ZodType = z.ZodType> = RouteBase<
   { contentType: string }
 >;
 
-export type WorkerRoute<
-  I extends z.ZodType = z.ZodType,
-  O extends z.ZodType = z.ZodType,
-> = RouteBase<"worker", I, O>;
-
 // core 메모리 route. ledger queue를 거치지 않고 입력·출력을 그대로 JSON으로 주고받는다.
 export type MemoryRoute<
   I extends z.ZodType = z.ZodType,
@@ -91,7 +85,6 @@ export type Route =
   | CommandRoute
   | ReadRoute
   | FileRoute
-  | WorkerRoute
   | MemoryRoute
   | UploadRoute;
 
@@ -189,14 +182,6 @@ export function defineFile<I extends z.ZodType>(
   const { contentType, ...rest } = options;
   return define("file", { ...rest, output: { contentType } }) as
     & FileRoute<I>
-    & Partial<ConfirmationDeclaration<I>>;
-}
-
-export function defineWorker<I extends z.ZodType, O extends z.ZodType>(
-  options: DefineOptions<I, O> & Partial<ConfirmationDeclaration<I>>,
-): WorkerRoute<I, O> & Partial<ConfirmationDeclaration<I>> {
-  return define("worker", options) as
-    & WorkerRoute<I, O>
     & Partial<ConfirmationDeclaration<I>>;
 }
 

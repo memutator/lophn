@@ -4,12 +4,7 @@ import {
   blobReadResultSchema,
   preparedBlobSchema,
 } from "../storage/blob.ts";
-import {
-  defineCommand,
-  defineMemory,
-  defineRead,
-  defineWorker,
-} from "../base/route.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import { defineEvent } from "../base/event.ts";
@@ -192,26 +187,6 @@ export const packagesVersions = defineRead({
 });
 
 // 해당 version의 사용 안내. 정확한 version만 받는다.
-const packagesGuideInputSchema = z.strictObject({
-  name: packageNameSchema,
-  version: packageVersionNameSchema,
-});
-// 안내 원문은 blob store의 guide_hash 대상이다(blobs/read로 읽는다).
-const packagesGuideOutputSchema = withReadCommon(z.object({
-  name: packageNameSchema,
-  version: packageVersionNameSchema,
-  guide_hash: z.string().regex(/^[0-9a-f]{64}$/),
-}));
-const packagesGuide = defineWorker({
-  resource: "packages",
-  method: "guide",
-  name: "packages.guide",
-  input: packagesGuideInputSchema,
-  output: packagesGuideOutputSchema,
-  actors: readActors,
-  errors: readErrors,
-});
-
 // 안내 원문(`package_version/guide` blob)의 읽기다. 일반 `blobs/read`를 열지 않고 이 한 field만 읽는다:
 // owner_kind·field는 고정이고 입력은 package 이름·정확한 version과 읽을 구간뿐이라 다른 blob(문서 판 파일·
 // format module·problem log 등)을 가리킬 수 없다. 등록되지 않은 version·안내 없는 version은 없는 것과 같은 답이다.
@@ -261,7 +236,6 @@ export const PACKAGE_ROUTES = [
   packagesBuiltin,
   packagesList,
   packagesVersions,
-  packagesGuide,
   packagesGuideBody,
   packagesUsage,
 ] as const;

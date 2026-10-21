@@ -1,5 +1,5 @@
 // active domain 그릇(project의 등록 폴더들, 앱의 source 폴더)의 파일 변화를 core가 `Deno.watchFs`로 보고, 바뀌면 그
-// domain을 다시 sync하게 한다. 사람이 열지 않아도 위반이 늘면 problem으로 올리려는 것이 전부라 신호는 힌트일
+// domain을 다시 sync하게 한다. 사람이 열지 않아도 위반이 늘면 사람에게 알리려는 것이 전부라 신호는 힌트일
 // 뿐이다: 변화 목록·이력·event를 만들지 않고, 놓쳐도 다음 읽기 앞 sync가 따라잡는다.
 //
 // - 감시 대상: domain마다 (a) 그 root들 아래 `kindWatchFolders(적용 중인 kinds)`, (b) domain 폴더

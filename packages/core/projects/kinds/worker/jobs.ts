@@ -1,6 +1,6 @@
 // kinds worker의 일: sync·get·list·check. scan(2초 규칙)은 sync만 한다. get·list·check는 index를 있는 그대로
 // 읽는다. core의 dispatcher가 읽기 앞에 늘 sync를 보내므로 읽기는 최대 2초 묵은 것이고, 모든 scan의 결과가 sync
-// 답을 지나야 core가 위반을 비교해 problem으로 올린다. 아직 sync가 없던 domain(kinds_state 행이 없음)는 kinds
+// 답을 지나야 core가 앞 결과와 비교해 새 위반을 사람에게 알린다. 아직 sync가 없던 domain(kinds_state 행이 없음)는 kinds
 // 파일이 없는 domain으로 답한다.
 import {
   canonicalize,

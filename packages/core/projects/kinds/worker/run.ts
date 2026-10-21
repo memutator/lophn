@@ -2,8 +2,8 @@
 // - `kinds.sync`: kinds 파일과 domain 그릇의 파일을 훑어 derived/kinds.sqlite를 갱신하고 상태와 위반을 답한다
 //   (이 worker가 그 파일의 유일한 writer다).
 // - `kinds.get`·`kinds.list`·`kinds.check`: 훑지 않고 index를 있는 그대로 읽어 답한다(훑는 일은 sync만 한다).
-// worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 위반은 답에 실어 보내고 problem으로 올리는 일은 core가
-// 한다.
+// worker는 `lophn.db`를 열지 않고 core에도 닿지 않는다. 위반은 답에 실어 보내고 새 위반을 사람에게 알리는 일은 core가
+// 앞 결과와 비교해 한다.
 import type { z } from "zod";
 import { err, type Result, systemClock } from "../../../../base/mod.ts";
 import type { Clock, LophnError } from "../../../../base/mod.ts";

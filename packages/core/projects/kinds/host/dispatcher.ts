@@ -1,12 +1,11 @@
-// domain마다 kinds worker에 일을 보내고, 위반을 problem으로 올리는 조립.
+// domain마다 kinds worker에 일을 보내고, 새 위반을 사람에게 알리는 조립.
 //
 // - `sync`: 그 domain을 훑게 한다. 같은 domain의 도는 요청은 합치고, 직전 sync가 끝난 지 2초 안이면 새로
-//   요청하지 않는다(`force`는 건너뛴다). 응답의 위반 hash가 마지막으로 올린 값과 다르면 `problem.sync_domain`
-//   command를 낸다. 위반은 이 길로만 올라간다(감시와 읽기 앞 sync가 같은 길이다).
-// - `ask`: sync 뒤에 get·list·check를 worker에 묻는다. 읽기만으로는 problem을 올리지 않는다.
+//   요청하지 않는다(`force`는 건너뛴다). 응답의 위반을 앞 sync의 위반과 메모리에서 비교해 앞에 없던 위반이
+//   있으면 `found`를 부른다(감시와 읽기 앞 sync가 같은 길이다). 켠 뒤 그 domain의 첫 sync는 기준만 둔다.
+// - `ask`: sync 뒤에 get·list·check를 worker에 묻는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { domainKindsFile } from "../../../../protocol/domains/paths.ts";
-import { problemSyncDomain } from "../../../../protocol/problems/mod.ts";
 import {
   kindCheck,
   kindGet,
@@ -15,7 +14,6 @@ import {
   type KindsSyncResponse,
   kindsSyncResponseSchema,
 } from "../../../../protocol/projects/mod.ts";
-import type { CommandEnvelope } from "../../../storage/ledger/mod.ts";
 import type { KindsProcess } from "./process.ts";
 
 // 직전 sync가 끝난 뒤 새로 요청하지 않는 시간(초기 구현값)과, worker가 한 일을 끝내기를 기다리는 한도.
@@ -34,9 +32,8 @@ type KindsDispatchDeps = {
   dataRoot: string;
   // domain 그릇의 폴더들(project면 등록 폴더, 앱이면 source 폴더). 그릇이 없거나 보관됐거나 폴더가 없으면 null이다.
   roots(domain: string): string[] | null;
-  // 좁은 machine 자격으로 command를 낸다.
-  command(envelope: CommandEnvelope): Promise<Result<unknown>>;
-  newId(prefix: string): string;
+  // 앞 sync에 없던 위반이 count개 있을 때 부른다.
+  found(domain: string, count: number): void;
   // 단조 시계(ms). 2초 규칙만 쓴다.
   nowMs(): number;
   log?(message: string): void;
@@ -59,8 +56,8 @@ export function createKindsDispatcher(
 ): KindsDispatcher {
   const inflight = new Map<string, Promise<Result<KindsSyncResponse>>>();
   const last = new Map<string, { at: number; response: KindsSyncResponse }>();
-  // 마지막으로 problem에 올린 위반 hash. 메모리뿐이라 core를 다시 켠 뒤 첫 sync는 늘 올린다.
-  const reported = new Map<string, string>();
+  // domain마다 앞 sync의 위반 정체성 집합. 메모리뿐이라 core를 다시 켠 뒤 첫 sync는 기준만 된다.
+  const known = new Map<string, Set<string>>();
 
   // worker 요청 공통 꼴. roots가 없는 domain은 not_found다.
   function request(domain: string, extra: Record<string, unknown>) {
@@ -96,29 +93,22 @@ export function createKindsDispatcher(
     );
   }
 
-  async function report(domain: string, response: KindsSyncResponse) {
-    if (reported.get(domain) === response.violations_hash) return;
-    const input = {
-      domain,
-      violations: response.violations.map((violation) => ({
-        id: deps.newId("prb"),
-        violation,
-      })),
-      truncated: response.truncated,
-    };
-    const sent = await deps.command({
-      command: problemSyncDomain.name,
-      input,
-      idempotency_key: `kinds-dispatch/sync/${crypto.randomUUID()}`,
-      compare: {},
-      prepared: [],
-    });
-    if (sent.ok) reported.set(domain, response.violations_hash);
-    else {
-      // 기억하지 않으므로 다음 sync가 다시 올린다.
-      deps.log?.(
-        `${problemSyncDomain.name}: ${sent.error.code}: ${sent.error.message}`,
-      );
+  function compare(domain: string, response: KindsSyncResponse) {
+    const now = new Set(
+      response.violations.map((v) =>
+        JSON.stringify([v.source, v.kind, v.path, v.field, v.rule])
+      ),
+    );
+    const before = known.get(domain);
+    known.set(domain, now);
+    if (before === undefined) return;
+    let count = 0;
+    for (const identity of now) if (!before.has(identity)) count++;
+    if (count === 0) return;
+    try {
+      deps.found(domain, count);
+    } catch (cause) {
+      deps.log?.(`found: ${cause instanceof Error ? cause.message : cause}`);
     }
   }
 
@@ -137,7 +127,7 @@ export function createKindsDispatcher(
       return err({ code: "internal", message: "invalid kinds sync answer" });
     }
     last.set(domain, { at: deps.nowMs(), response: parsed.data });
-    await report(domain, parsed.data);
+    compare(domain, parsed.data);
     return ok(parsed.data);
   }
 

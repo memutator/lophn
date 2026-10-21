@@ -1,13 +1,10 @@
-// kinds worker(documents/kinds)를 띄우고 부리는 조립. domain 그릇의 폴더와 kinds 파일의 변화를 보고, 위반을
-// problem으로 올리고, `kind.get`·`kind.list`·`kind.check` core 메모리 route를 worker에 묻는 handler로 답한다.
+// kinds worker(documents/kinds)를 띄우고 부리는 조립. domain 그릇의 폴더와 kinds 파일의 변화를 보고, 새 위반을
+// 남지 않는 event로 알리고, `kind.get`·`kind.list`·`kind.check` core 메모리 route를 worker에 묻는 handler로 답한다.
 // 띄우지 못해도 core는 계속 선다: 읽기는 unavailable이다.
-import { createIdSource, ok } from "../../../../base/mod.ts";
+import { ok } from "../../../../base/mod.ts";
 import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
-import { problemSyncDomain } from "../../../../protocol/problems/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
-import type { OperationPolicy } from "../../../server/identity/mod.ts";
-import { kindsDispatchCredential } from "../../../projects/kinds/host/credential.ts";
 import {
   createKindsDispatcher,
   type KindsDispatcher,
@@ -50,14 +47,6 @@ export const kindsWiring: WiringFactory = () => {
   let link: Connection | undefined;
   return {
     name: "kinds",
-    // kinds dispatch(machine)가 위반을 problem으로 올린다.
-    operations: () => [
-      {
-        name: problemSyncDomain.name,
-        actors: ["machine"],
-        kind: "command",
-      } satisfies OperationPolicy,
-    ],
     build(ctx) {
       // domain·그릇 표를 읽는 짧은 ledger 연결이다.
       const opened = openConnection(ctx.ledgerPath);
@@ -83,20 +72,7 @@ export const kindsWiring: WiringFactory = () => {
         }),
       });
     },
-    async start(ctx) {
-      const { runtime } = ctx;
-      const issued = await ctx.registry.issue(kindsDispatchCredential());
-      const current = issued.ok
-        ? ctx.registry.revalidate({
-          credential_ref: issued.value.credential_ref,
-        })
-        : issued;
-      const recorded = issued.ok && current.ok
-        ? await runtime.record(current.value)
-        : current;
-      if (!(issued.ok && recorded.ok)) return ok(undefined);
-      const credentialRef = issued.value.credential_ref;
-      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+    start(ctx) {
       const process = createKindsProcess({
         supervisor: ctx.io,
         channel: createWorkerChannel(),
@@ -111,13 +87,13 @@ export const kindsWiring: WiringFactory = () => {
         process,
         dataRoot: ctx.root.path,
         roots: (domain) => rootsOfDomain(link!.sql, domain),
-        command: (envelope) => {
-          const context = runtime.current(credentialRef);
-          return context.ok
-            ? ctx.writer.command(context.value as never, envelope)
-            : Promise.resolve(context);
-        },
-        newId: (prefix) => ids.newId(prefix),
+        found: (domain, count) =>
+          ctx.bus.publish({
+            type: "KindViolationFound",
+            subject: domain,
+            at: ctx.clock.now(),
+            payload: { domain, count },
+          }),
         nowMs: () => performance.now(),
         log: (message) => console.error(`kinds worker: ${message}`),
       });
@@ -138,7 +114,7 @@ export const kindsWiring: WiringFactory = () => {
         log: (message) => console.error(message),
       });
       void watch.start();
-      return ok(undefined);
+      return Promise.resolve(ok(undefined));
     },
     closeIntake() {
       watch?.stop();

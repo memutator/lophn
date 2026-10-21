@@ -28,7 +28,6 @@ import {
   callInputSchema,
   dataJobInputSchema,
   desiredAppSchema,
-  logsInputSchema,
   type ObservationWire,
   observeInputSchema,
   previewLaunchSchema,
@@ -41,10 +40,6 @@ import {
 } from "../../apps/runtime/control-protocol.ts";
 import type { PreparationService } from "../../apps/releases/preparation.ts";
 import type { DataJobRunner } from "./data-runner.ts";
-import {
-  createLogBuffer,
-  type LogBuffer,
-} from "../../apps/runtime/observations/log-buffer.ts";
 import {
   createMemoryObserver,
   type MemoryObserver,
@@ -62,6 +57,7 @@ import {
 import {
   type ByteSource,
   createStreamDecoder,
+  drain,
 } from "../../apps/runtime/observations/stream-decoder.ts";
 import type {
   AppEnvironment,
@@ -73,7 +69,6 @@ import {
   type PreviewScope,
 } from "../../apps/preview/mod.ts";
 import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
-import { diagnosticSchema } from "../../../protocol/supervision/mod.ts";
 import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
   type AppCallPort,
@@ -175,7 +170,6 @@ type Assembly = {
   onCredential(response: { request_id: string; credential: string }): void;
   // preview 프로세스 수명. 운영 supervisor와 따로 한 앱에 하나만 쥔다(apps/preview).
   previews: PreviewLauncher;
-  logs(app: string): LogBuffer | undefined;
   // 앱 자식의 RSS 표본기. 자식을 띄운 적이 없으면 없다.
   memory(app: string): MemoryObserver | undefined;
   // 관측 timer를 거둔다. supervisor 정지는 따로다.
@@ -290,7 +284,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     credential: "",
     apiPort: 0,
   };
-  const buffers = new Map<string, LogBuffer>();
   const memories = new Map<string, MemoryObserver>();
   // 자식 nonce별 app credential과 stderr 꼬리. 자식이 끝나면 지운다.
   const credentials = new Map<string, string>();
@@ -420,37 +413,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const broker = createSupervisorBroker({ adapters: brokerAdapters });
   const previewBroker = createSupervisorBroker({ adapters: brokerAdapters });
 
-  function send(message: unknown): void {
-    try {
-      void Promise.resolve(io.send(message)).catch(() => undefined);
-    } catch { /* pipe가 닫혔다. core 단절 처리가 이어서 자식을 끝낸다. */ }
-  }
-
-  function bufferOf(app: string): LogBuffer {
-    const found = buffers.get(app);
-    if (found) return found;
-    const created = createLogBuffer({
-      app,
-      redact,
-      now: () => io.clock.nowMs(),
-      // 버린 줄은 core가 안전한 진단으로 받는다(supervisor pipe).
-      onLoss(loss) {
-        const diagnostic = diagnosticSchema.safeParse({
-          type: "diagnostic",
-          kind: "app_log_line_loss",
-          payload: {
-            component: "apps/supervisor",
-            observed_at: io.clock.now(),
-            ...loss,
-          },
-        });
-        if (diagnostic.success) send(diagnostic.data);
-      },
-    });
-    buffers.set(app, created);
-    return created;
-  }
-
   // supervisor가 stdout·stderr, 예외, 비정상 종료를 같은 file에 쓴다. dataRoot가 없으면 undefined다.
   function logFileOf(app: string): AppLogFile | undefined {
     if (io.dataRoot === undefined) return undefined;
@@ -466,26 +428,9 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     return created;
   }
 
-  // 같은 stream을 두 번 읽을 수 없어 file이 읽은 byte를 buffer에도 넘긴다.
-  function feedBuffer(source: ByteSource, log: LogBuffer): ByteSource {
-    const decoder = createStreamDecoder({
-      onLine: (line) => log.addLine(line),
-      onDropped: () => log.addUnsafeDrop(),
-    });
-    return {
-      async read(buffer) {
-        let count: number | null;
-        try {
-          count = await source.read(buffer);
-        } catch (thrown) {
-          decoder.finish();
-          throw thrown;
-        }
-        if (count === null) decoder.finish();
-        else decoder.push(buffer.subarray(0, count));
-        return count;
-      },
-    };
+  // 읽는 쪽이 없는 출력은 읽어서 버린다. 읽지 않으면 pipe가 차서 자식이 막힌다.
+  function discard(source: ByteSource): void {
+    void drain(source, createStreamDecoder({ onLine() {}, onDropped() {} }));
   }
 
   function memoryOf(app: string): MemoryObserver {
@@ -710,15 +655,14 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         await broker.closed(nonce);
         throw thrown;
       }
-      const log = bufferOf(request.app);
       const stderr = tee(spawned.stderr, nonce);
       const file = logFileOf(request.app);
       if (file) {
-        void file.attach(feedBuffer(spawned.stdout, log));
-        void file.attach(feedBuffer(stderr, log));
+        void file.attach(spawned.stdout);
+        void file.attach(stderr);
       } else {
-        void log.attach(spawned.stdout);
-        void log.attach(stderr);
+        discard(spawned.stdout);
+        discard(stderr);
       }
       memoryOf(request.app).setChild({
         pid: spawned.pid,
@@ -855,10 +799,9 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw thrown;
       }
       void spawned.exited.then(() => previewBroker.closed(request.nonce));
-      // 출력은 운영 앱 log와 섞이지 않는 preview 자리로 모은다. 읽지 않으면 자식이 막힌다.
-      const log = bufferOf(`preview:${request.app}`);
-      void log.attach(spawned.stdout);
-      void log.attach(spawned.stderr);
+      // preview 출력은 app log file에 남기지 않는다.
+      discard(spawned.stdout);
+      discard(spawned.stderr);
       return {
         identity: {
           pid: spawned.pid,
@@ -928,33 +871,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return Promise.resolve({
         observation: observation ? wireOf(observation) : null,
       });
-    },
-    [SUPERVISOR_OPS.logs]: async (payload) => {
-      const input = parse(logsInputSchema, payload);
-      const buffer = buffers.get(input.app);
-      if (!buffer) {
-        return {
-          state: "none",
-          lines: [],
-          collected_at: null,
-          truncated: false,
-        };
-      }
-      const query = {
-        ...(input.invocation === undefined
-          ? {}
-          : { invocation: input.invocation }),
-        limit: input.limit,
-        ...(input.max_bytes === undefined
-          ? {}
-          : { max_bytes: input.max_bytes }),
-        ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-      };
-      // 살아 있는 자식의 stream은 끝나지 않으므로 기다리지 않고 지금 모인 줄을 준다. 자식이 끝난
-      // 직후의 조회만 마지막 flush를 최대 20ms 기다린다.
-      const alive = (supervisor.observation(input.app)?.processNonce ?? "") !==
-        "";
-      return alive ? buffer.read(query) : await buffer.collect(query);
     },
     [SUPERVISOR_OPS.block]: (payload) => {
       const input = parse(blockInputSchema, payload);
@@ -1103,7 +1019,6 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     onCredential(response) {
       waiting.get(response.request_id)?.(response.credential);
     },
-    logs: (app) => buffers.get(app),
     memory: (app) => memories.get(app),
     shutdown() {
       for (const memory of memories.values()) memory.stop();

@@ -17,8 +17,6 @@ import {
   blockOutputSchema,
   callOutputSchema,
   dataJobOutputSchema,
-  logsOutputSchema,
-  type LogsWire,
   type ObservationWire,
   observeOutputSchema,
   type PreviewLaunch,
@@ -222,15 +220,6 @@ function shaped<T>(
 export type SupervisorClient = {
   reconcile(desired: DesiredApp): Promise<Result<void>>;
   observe(app: string): Promise<Result<ObservationWire | null>>;
-  logs(
-    app: string,
-    query: {
-      invocation?: string;
-      limit: number;
-      max_bytes?: number;
-      cursor?: string;
-    },
-  ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
   // 그 앱의 broker 연결을 새 요청부터 막고 막은 연결 수를 돌려준다.
   block(app: string): Promise<Result<number>>;
@@ -294,12 +283,6 @@ export function createSupervisorClient(
         await channel.request(SUPERVISOR_OPS.observe, { app }),
       );
       return answer.ok ? ok(answer.value.observation) : answer;
-    },
-    async logs(app, query) {
-      return shaped(
-        logsOutputSchema,
-        await channel.request(SUPERVISOR_OPS.logs, { app, ...query }),
-      );
     },
     async restart(app, processNonce) {
       const answer = shaped(

@@ -23,7 +23,6 @@ const descriptions: Record<Diagnostic["kind"], string> = {
   invalid_report: "Invalid report observed.",
   shell_view_lifetime: "Shell view lifetime observed.",
   app_invocation_delivery_loss: "App invocation delivery loss observed.",
-  app_log_line_loss: "App log lines omitted.",
 };
 
 export function createSafeLog(options: {

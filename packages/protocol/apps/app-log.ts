@@ -28,7 +28,6 @@ import { releaseIdSchema } from "./apps.ts";
 // - 화면 오류: `view_error <observation> <name>: <message>`.
 
 export const APP_LOG_FILE_MAX_BYTES = 8 * 1024 * 1024;
-// 옛 LOG_LINE_MAX_LENGTH와 같은 값이다. 옛 log 모듈이 이 file을 import하게 되므로 거꾸로 import하지 않는다.
 export const APP_LOG_TEXT_MAX_CHARS = 300;
 export const APP_LOG_READ_MAX_LINES = 1000;
 export const APP_LOG_READ_DEFAULT_LINES = 200;

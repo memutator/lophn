@@ -17,8 +17,6 @@ export const SUPERVISOR_OPS = {
   reconcile: "apps.reconcile",
   // 앱 하나의 현재 프로세스 관측.
   observe: "apps.observe",
-  // 앱의 최근 log 조각.
-  logs: "apps.logs",
   // 그 nonce의 프로세스를 새 nonce로 다시 띄운다.
   restart: "apps.restart",
   // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다.
@@ -97,22 +95,6 @@ export type ObservationWire = z.infer<typeof observationWireSchema>;
 export const observeOutputSchema = z.strictObject({
   observation: observationWireSchema.nullable(),
 });
-
-export const logsInputSchema = z.strictObject({
-  app: appId,
-  invocation: z.string().optional(),
-  limit: z.number().int().min(1).max(200),
-  max_bytes: z.number().int().positive().optional(),
-  cursor: z.string().regex(/^[0-9]+$/).optional(),
-});
-export const logsOutputSchema = z.strictObject({
-  state: z.enum(["none", "off", "timeout", "ok"]),
-  lines: z.array(z.string().max(300)).max(200),
-  collected_at: z.string().nullable(),
-  truncated: z.boolean(),
-  next_cursor: z.string().nullable().optional(),
-});
-export type LogsWire = z.infer<typeof logsOutputSchema>;
 
 export const restartInputSchema = z.strictObject({
   app: appId,

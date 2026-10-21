@@ -1,5 +1,5 @@
-// 현재 RuntimeState와 최대 200줄 log의 read. ledger write queue를 거치지 않는다.
-// 관측·log source는 조립이 주입하고, 없으면 null·none으로 명시한다.
+// 현재 RuntimeState와 앱 log의 read. ledger write queue를 거치지 않는다.
+// 관측 source와 log file 읽기는 조립이 주입하고, 없으면 null·빈 줄로 명시한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   AuthenticatedContext,
@@ -7,18 +7,16 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import {
   type App,
+  APP_LOG_READ_DEFAULT_LINES,
+  APP_LOG_TEXT_MAX_CHARS,
+  appLogLineSchema,
   appLogs,
-  type AppLogState,
   appRuntime,
-  LOG_LINE_MAX_COUNT,
-  LOG_LINE_MAX_LENGTH,
   type RuntimeObservation,
   type RuntimeState,
 } from "../../../protocol/apps/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import { projection } from "./model.ts";
-
-const DEFAULT_LOG_LIMIT = LOG_LINE_MAX_COUNT;
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "app not found" });
@@ -31,27 +29,9 @@ type RuntimeObservationSource = (
   observed_at: string | null;
 } | undefined;
 
-type RuntimeLogSource = (
-  app: string,
-  input: {
-    invocation?: string;
-    limit: number;
-    max_bytes?: number;
-    cursor?: string;
-  },
-) => {
-  state: AppLogState;
-  lines: string[];
-  collected_at: string | null;
-  truncated: boolean;
-  next_cursor?: string | null;
-} | undefined;
-
 type RuntimeReadDeps = {
   // 현재 supervisor 관측. 없으면 observation은 null이다.
   observation?: RuntimeObservationSource;
-  // supervisor log buffer 조회. 없으면 state는 none이다.
-  logs?: RuntimeLogSource;
 };
 
 export function createRuntimeReads(
@@ -94,35 +74,18 @@ export function createRuntimeReads(
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return notFound();
-        // machine(problems collector)은 credential scope가 이 앱을 직접 이름 지었을 때만 읽는다.
-        // 앱 대상이 없는 machine 자격은 operation이 있어도 없는 앱과 같은 응답이다.
-        if (
-          ctx.actor === "machine" &&
-          ctx.scope.targets.app !== input.app
-        ) return notFound();
         const access = authorizeApp(snapshot.port, ctx, appLogs.name, {
           kind: "app",
           app: app.value,
         });
         if (denied(access)) return notFound();
         if (!access.ok) return access;
-        const limit = input.limit ?? DEFAULT_LOG_LIMIT;
-        // source 없음. 존재하지 않는 수집 값을 만들지 않는다.
-        const feed = deps.logs?.(input.app, {
-          invocation: input.invocation,
-          limit,
-          max_bytes: input.max_bytes,
-          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-        });
+        // 줄은 메인 스레드가 file에서 읽어 덮는다(reader Worker는 data root를 모른다).
         return ok({
-          ...(feed ?? {
-            state: "none" as AppLogState,
-            lines: [],
-            collected_at: null,
-            truncated: false,
-          }),
+          lines: [],
+          truncated: false,
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: feed?.next_cursor ?? null,
+          next_cursor: null,
         });
       },
     },
@@ -141,35 +104,16 @@ type MainRead = (
 ) => Result<unknown> | Promise<Result<unknown>>;
 
 // 메인 스레드에서만 닿는 supervisor 메모리. reader Worker는 이 값을 볼 수 없어서 reader가 먼저
-// 접근 판정과 ledger 기준 값을 만들고, 메인이 현재 관측·log로 덮는다.
+// 접근 판정과 ledger 기준 값을 만들고, 메인이 현재 관측으로 덮는다.
 export type RuntimeSources = {
   // 질의가 실패하면 그 관측은 없는 것이다. 과거 event로 생존을 추정하지 않는다.
   observation(app: string): Promise<Result<RuntimeObservation | null>>;
-  logs(
-    app: string,
-    query: {
-      invocation?: string;
-      limit: number;
-      max_bytes?: number;
-      cursor?: string;
-    },
-  ): Promise<
-    Result<{
-      state: AppLogState;
-      lines: string[];
-      collected_at: string | null;
-      truncated: boolean;
-      next_cursor?: string | null;
-    }>
-  >;
   // 지금 ledger의 App. 상태 계산에 쓴다.
   app(
     app: string,
   ): Promise<
     Result<Pick<App, "active_release" | "status" | "run_enabled"> | null>
   >;
-  // 알려진 secret까지 지운 줄. 안전화를 끝내지 못하면 null이다(fail-closed).
-  redact(line: string): string | null;
   now(): string;
 };
 
@@ -201,10 +145,14 @@ export function withRuntimeObservation(
   };
 }
 
-// apps.logs: 접근을 통과한 앱의 supervisor log buffer를 받아 redaction한 줄로 돌려준다.
-export function withRuntimeLogs(
+// apps.logs: 접근을 통과한 앱의 log file(`app.log.1`, `app.log` 순서의 글)을 읽어 거른 줄로 덮는다.
+export function withAppLogFile(
   base: MainRead,
-  sources: RuntimeSources,
+  deps: {
+    read(app: string): Promise<string[]>;
+    // 알려진 secret까지 지운 줄. 안전화를 끝내지 못하면 null이다(fail-closed).
+    redact(line: string): string | null;
+  },
 ): MainRead {
   return async (ctx, input) => {
     const pooled = await base(ctx, input);
@@ -212,41 +160,49 @@ export function withRuntimeLogs(
     const query = input as {
       app: string;
       invocation?: string;
+      since?: string;
+      until?: string;
       limit?: number;
-      max_bytes?: number;
-      cursor?: string;
     };
-    const feed = await sources.logs(query.app, {
-      ...(query.invocation === undefined
-        ? {}
-        : { invocation: query.invocation }),
-      limit: query.limit ?? DEFAULT_LOG_LIMIT,
-      ...(query.max_bytes === undefined ? {} : { max_bytes: query.max_bytes }),
-      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-    });
-    // supervisor에 닿지 못하면 source가 없는 것이다. 없는 log를 만들지 않는다.
-    if (!feed.ok) return pooled;
-    const lines: string[] = [];
-    for (const line of feed.value.lines) {
-      const safe = sources.redact(line);
+    const limit = query.limit ?? APP_LOG_READ_DEFAULT_LINES;
+    const matched: { text: string; at: string; invocation: string | null }[] =
+      [];
+    for (const text of await deps.read(query.app)) {
+      for (const raw of text.split("\n")) {
+        // crash로 반쯤 쓴 줄은 건너뛴다.
+        let json: unknown;
+        try {
+          json = JSON.parse(raw);
+        } catch {
+          continue;
+        }
+        const line = appLogLineSchema.safeParse(json);
+        if (!line.success) continue;
+        const { at, invocation } = line.data;
+        if (query.invocation !== undefined && invocation !== query.invocation) {
+          continue;
+        }
+        // At은 고정 꼴이라 글자 비교가 시각 비교다.
+        if (query.since !== undefined && at < query.since) continue;
+        if (query.until !== undefined && at >= query.until) continue;
+        matched.push(line.data);
+      }
+    }
+    const lines = [];
+    for (const line of matched.slice(-limit)) {
+      const safe = deps.redact(line.text);
       if (safe === null) {
-        return ok({
-          ...(pooled.value as object),
-          state: "none" as AppLogState,
-          lines: [],
-          collected_at: null,
-          truncated: false,
+        return err({
+          code: "unavailable",
+          message: "app log could not be made safe",
         });
       }
-      lines.push(safe.slice(0, LOG_LINE_MAX_LENGTH));
+      lines.push({ ...line, text: safe.slice(0, APP_LOG_TEXT_MAX_CHARS) });
     }
     return ok({
       ...(pooled.value as object),
-      state: feed.value.state,
       lines,
-      collected_at: feed.value.collected_at,
-      truncated: feed.value.truncated,
-      next_cursor: feed.value.next_cursor ?? null,
+      truncated: matched.length > limit,
     });
   };
 }

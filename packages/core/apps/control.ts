@@ -1,5 +1,5 @@
-// core 안 apps 제어 조립. runtime·logs read의 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로,
-// release 준비·activation 진행, app credential 발급을 한곳에서 잇는다.
+// core 안 apps 제어 조립. runtime·logs read의 메인 스레드 덮기(logs는 log file에서 읽는다),
+// supervisor 감독 pipe의 질의 통로, release 준비·activation 진행, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/core/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 // 앱 호출(`app.call_tool`)·invocation·rewind는 wiring/apps.ts가 각 module을 잇는다.
 import {
@@ -21,6 +21,8 @@ import {
   appCallTool,
   type AppGrant,
   appGrantsList,
+  appLogFile,
+  appLogPreviousFile,
   appLogs,
   appRecordStarted,
   appRecordStopped,
@@ -76,7 +78,7 @@ import {
 } from "./runtime/supervisor-link.ts";
 import {
   type RuntimeSources,
-  withRuntimeLogs,
+  withAppLogFile,
   withRuntimeObservation,
 } from "./runtime/reads.ts";
 import {
@@ -419,12 +421,10 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         observed.value === null ? null : runtimeObservationOf(observed.value),
       );
     },
-    logs: (app, query) => client.logs(app, query),
     async app(id) {
       const found = await facts.app(id);
       return found;
     },
-    redact: deps.redact,
     now: () => deps.clock.now(),
   };
 
@@ -690,10 +690,19 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         );
       }
       const logs = reads.get(`${appLogs.resource}/${appLogs.method}`);
-      if (logs) {
+      const logRoot = deps.activation?.dataRoot ?? deps.previews?.dataRoot;
+      // data root가 없는 부분 조립은 덮지 않는다. reader의 빈 답이 그대로 간다.
+      if (logs && logRoot !== undefined) {
         reads.set(
           `${appLogs.resource}/${appLogs.method}`,
-          withRuntimeLogs(logs, sources) as ReadHandler,
+          withAppLogFile(logs, {
+            read: (app) =>
+              Promise.all([
+                readTextOrEmpty(appLogPreviousFile(logRoot, app)),
+                readTextOrEmpty(appLogFile(logRoot, app)),
+              ]),
+            redact: deps.redact,
+          }) as ReadHandler,
         );
       }
       // 등록 때 unavailable로 올린 `activations.queue`를 driver가 읽는 줄로 덮는다.
@@ -783,6 +792,15 @@ function repoRoot(): string {
 
 // 앱 socket을 두는 폴더. XDG runtime 디렉터리가 있으면 거기, 없으면 사용자별 임시 폴더 아래에
 // data root마다 하위 폴더 하나다(packages/core/apps/runtime/processes/socket-dir.ts와 같은 규칙).
+async function readTextOrEmpty(path: string): Promise<string> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch (thrown) {
+    if (thrown instanceof Deno.errors.NotFound) return "";
+    throw thrown;
+  }
+}
+
 export function appSocketRoot(dataRoot: string, runtimeDir?: string): string {
   const xdg = runtimeDir ?? Deno.env.get("XDG_RUNTIME_DIR");
   const key = socketRootKey(dataRoot);

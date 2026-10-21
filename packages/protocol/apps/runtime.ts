@@ -2,7 +2,6 @@ import { z } from "zod";
 import { atSchema, sha256Schema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
-import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { appIdSchema } from "../projects/values.ts";
 import {
@@ -11,6 +10,7 @@ import {
   appSchema,
   releaseIdSchema,
 } from "./apps.ts";
+import { appLogsReadInputSchema, appLogsReadOutputSchema } from "./app-log.ts";
 
 const RUNTIME_STATES = [
   "preparing",
@@ -188,38 +188,14 @@ export const appRuntime = defineRead({
   errors: readErrors,
 });
 
-export const LOG_LINE_MAX_COUNT = 200;
-export const LOG_LINE_MAX_LENGTH = 300;
-const logLineSchema = z.string().max(LOG_LINE_MAX_LENGTH);
-const APP_LOG_STATES = ["none", "off", "timeout", "ok"] as const;
-const appLogStateSchema = z.enum(APP_LOG_STATES);
-export type AppLogState = z.infer<typeof appLogStateSchema>;
-const appLogsInputSchema = z.strictObject({
-  app: appIdSchema,
-  invocation: idSchema("inv").optional(),
-  limit: z.number().int().min(1).max(LOG_LINE_MAX_COUNT).optional(),
-  // 이어 읽기다. 앞선 응답의 next_cursor만 받는다(더 오래된 줄 쪽으로 이어진다).
-  cursor: z.string().regex(/^[0-9]+$/).optional(),
-  max_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
-    .optional(),
-});
-// none=source 없음, off=수집 꺼짐, timeout=예산 초과, ok=조회 성공이다.
-// 부분 확보와 cap은 truncated로 구별하므로 ok도 완전 수집을 뜻하지 않는다.
-export const appLogsOutputSchema = withReadCommon(z.object({
-  state: appLogStateSchema,
-  lines: z.array(logLineSchema).max(LOG_LINE_MAX_COUNT),
-  collected_at: atSchema.nullable(),
-  truncated: z.boolean(),
-}));
-// machine은 problems report collector만 부른다. 그 credential의 scope가 operation `app.logs`와
-// 대상 app을 함께 이름 짓는 경우에만 열리고(그 밖은 없는 앱과 같은 응답), 판정은 read handler가 한다.
+// 앱 log는 앱마다 file에서 읽는다. 입출력 모양은 app-log.ts에 있다.
 export const appLogs = defineRead({
   resource: "apps",
   method: "logs",
   name: "app.logs",
-  input: appLogsInputSchema,
-  output: appLogsOutputSchema,
-  actors: [...readActors, "machine"],
+  input: appLogsReadInputSchema,
+  output: appLogsReadOutputSchema,
+  actors: readActors,
   errors: readErrors,
 });
 

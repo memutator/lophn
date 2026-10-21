@@ -312,7 +312,6 @@ const DIAGNOSTIC_KINDS = [
   "invalid_report",
   "shell_view_lifetime",
   "app_invocation_delivery_loss",
-  "app_log_line_loss",
 ] as const;
 type DiagnosticKind = (typeof DIAGNOSTIC_KINDS)[number];
 const diagnostic = <K extends DiagnosticKind, P extends z.ZodType>(
@@ -382,16 +381,6 @@ export const diagnosticSchema = z.discriminatedUnion("kind", [
       lost_bytes: count,
       first_lost_at: atSchema,
       reason: z.enum(["memory_limit", "non_retryable_error"]),
-    }),
-  ),
-  diagnostic(
-    "app_log_line_loss",
-    z.strictObject({
-      ...diagnosticObservation,
-      app: idSchema("app"),
-      invocation: idSchema("inv").optional(),
-      dropped_lines: count,
-      reason: z.enum(["buffer_limit", "unsafe_truncation"]),
     }),
   ),
 ]);

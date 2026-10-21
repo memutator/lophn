@@ -12,6 +12,7 @@ import {
   annotationsGet,
   annotationUploadScreenshot,
 } from "./annotation.ts";
+import { appLogViewError } from "./app-log.ts";
 import { appToolIndex, appTools } from "./blueprint/read.ts";
 import { blueprintCheck } from "./blueprint/check.ts";
 import {
@@ -55,6 +56,7 @@ export const ROUTES = [
   appGet,
   appRuntime,
   appLogs,
+  appLogViewError,
   annotationUploadScreenshot,
   annotationSend,
   annotationsGet,

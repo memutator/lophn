@@ -2,14 +2,14 @@
 // `app:view-error`로 `{observation, name, message}`만 보내고, 앱·release·mode·view 연결은
 // main이 IPC를 보낸 실제 view에서 정해 붙인다. 페이지는 자기가 어느 앱인지 모르고, 앱·release·mode는
 // main이 정한다. 모르는 field가 있는 메시지는 버린다. 깨진 페이지가 오류를 쏟아도 view마다 창당 상한까지만
-// 보낸다. 원문은 collector의 bounded memory로만 가고 main log에는 개수와 view 참조만 남긴다.
+// 보낸다. 원문은 core가 그 앱 log에 쓰고 main log에는 개수와 view 참조만 남긴다.
 import type { ConnectTarget } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
-// core problems/reporting의 REPORTING_LIMITS 중 new_reports_per_window·window_ms와 같은 값이다.
+// 깨진 페이지가 오류를 쏟아도 앱 log를 채우지 않게 view마다 창당 상한을 둔다.
 const VIEW_ERRORS_PER_WINDOW = 20;
 const VIEW_ERROR_WINDOW_MS = 60_000;
-// 한 메시지의 글자 상한. 자동 보고 본문 상한(256 KiB) 안에 머문다.
+// 한 메시지의 글자 상한. `appLogViewError` 입력 상한과 같은 값이다.
 const VIEW_ERROR_NAME_MAX_CHARS = 256;
 const VIEW_ERROR_MESSAGE_MAX_CHARS = 16_384;
 
@@ -51,68 +51,21 @@ function checkViewError(value: unknown):
   };
 }
 
-/** collector `observe-exception` 본문. */
-interface ExceptionObservation {
-  report_id: string;
-  observed_at: string;
-  observation: ViewErrorObservation;
-  error: {
-    name: string;
-    message: string | null;
-    message_missing_reason: { reason: string } | null;
-    stack: null;
-    stack_missing_reason: { reason: string };
-  };
-  error_missing_reason: null;
-  invocation: null;
-}
-
-/** 오류를 귀속할 view. registry가 sender view에서 정한 값만 싣는다. */
-interface ViewErrorOrigin {
-  view_session: string;
-  generation: number;
+/** core `app.log_view_error` 입력. 앱·release·mode는 sender view에서 정한 값이다. */
+interface ViewErrorForward {
   app: string;
   release: string | null;
   mode: ConnectTarget["mode"];
-  bundle_hash: string;
-}
-
-interface ViewErrorForward {
-  view: ViewErrorOrigin;
-  observation: ExceptionObservation;
+  observation: ViewErrorObservation;
+  name: string;
+  message: string | null;
 }
 
 interface ViewErrorDeps {
-  /** 인증된 client로 collector에 보낸다. 받지 못했으면 false다. */
+  /** 인증된 client로 core에 보낸다. 받지 못했으면 false다. */
   send(forward: ViewErrorForward): Promise<boolean>;
-  ids: { reportId(): string };
-  clock: { nowMs(): number; nowIso(): string };
+  clock: { nowMs(): number };
   log(line: string): void;
-}
-
-const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
-
-/** 보고 id(`rpt_` + 소문자 ULID). 시각 48bit와 무작위 80bit(10 byte)다. */
-export function reportIdOf(nowMs: number, random: Uint8Array): string {
-  let time = "";
-  let rest = Math.max(0, Math.floor(nowMs));
-  for (let index = 0; index < 10; index++) {
-    time = CROCKFORD[rest % 32] + time;
-    rest = Math.floor(rest / 32);
-  }
-  let bits = 0;
-  let value = 0;
-  let tail = "";
-  for (const byte of random.subarray(0, 10)) {
-    value = (value << 8) | byte;
-    bits += 8;
-    while (bits >= 5) {
-      bits -= 5;
-      tail += CROCKFORD[(value >> bits) & 31];
-    }
-    value &= (1 << bits) - 1;
-  }
-  return `rpt_${time}${tail.padEnd(16, "0")}`;
 }
 
 export function createViewErrors(deps: ViewErrorDeps) {
@@ -147,30 +100,12 @@ export function createViewErrors(deps: ViewErrorDeps) {
         return;
       }
       const forward: ViewErrorForward = {
-        view: {
-          view_session: view.view_session,
-          generation: view.generation,
-          app: view.target.app,
-          release: view.binding.release,
-          mode: view.target.mode,
-          bundle_hash: view.binding.bundleHash,
-        },
-        observation: {
-          report_id: deps.ids.reportId(),
-          observed_at: deps.clock.nowIso(),
-          observation: input.observation,
-          error: {
-            name: input.name,
-            message: input.message,
-            message_missing_reason: input.message === null
-              ? { reason: "view_message_missing" }
-              : null,
-            stack: null,
-            stack_missing_reason: { reason: "view_stack_not_collected" },
-          },
-          error_missing_reason: null,
-          invocation: null,
-        },
+        app: view.target.app,
+        release: view.binding.release,
+        mode: view.target.mode,
+        observation: input.observation,
+        name: input.name,
+        message: input.message,
       };
       let sent = false;
       try {

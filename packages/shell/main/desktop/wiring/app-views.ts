@@ -5,6 +5,7 @@ import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { appLogViewError } from "../../../../protocol/apps/mod.ts";
 import { VIEW_STATE_CHANNEL } from "../../../ipc/app-frame.ts";
 import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
 import { createEntryScreen } from "../../app-frame/blueprint-source.ts";
@@ -13,7 +14,7 @@ import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
 import { createExternalLinks } from "../../app-frame/external-link.ts";
 import type { Outcome } from "../../app-frame/app-connection.ts";
 import { createAppFrame } from "../../app-frame/registry.ts";
-import { createViewErrors, reportIdOf } from "../../app-frame/view-error.ts";
+import { createViewErrors } from "../../app-frame/view-error.ts";
 import {
   createViewIpc,
   registerViewIpc,
@@ -176,9 +177,9 @@ export function register(
       if (!session) return false;
       try {
         const result = await session.internal(
-          "worker",
-          "problems",
-          "observe-view-error",
+          "memory",
+          appLogViewError.resource,
+          appLogViewError.method,
           forward,
         );
         return result.ok;
@@ -186,11 +187,7 @@ export function register(
         return false;
       }
     },
-    ids: { reportId: () => reportIdOf(Date.now(), randomBytes(10)) },
-    clock: {
-      nowMs: () => Date.now(),
-      nowIso: () => new Date().toISOString(),
-    },
+    clock: { nowMs: () => Date.now() },
     log,
   });
 

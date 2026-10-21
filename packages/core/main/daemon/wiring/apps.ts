@@ -6,6 +6,7 @@ import {
   sha256Hex,
 } from "../../../../base/mod.ts";
 import {
+  appLogViewError,
   blueprintCheck,
   packagePublish,
   packageRegisterVersion,
@@ -65,6 +66,7 @@ import {
   screenFileStream,
   withStartInvocation,
 } from "../../../apps/routes.ts";
+import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { checkBlueprint } from "../../../apps/blueprint/check.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
@@ -317,6 +319,13 @@ export const appsWiring: WiringFactory = () => {
         memory: [
           ["apps/call_tool", callToolHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
+          [
+            `${appLogViewError.resource}/${appLogViewError.method}`,
+            viewErrorLogHandler({
+              request: (op, payload) =>
+                appsControl.channel.request(op, payload),
+            }),
+          ],
           // supervisor(machine)가 앱 요청에 붙일 secret 값을 받는다. 현재 grant 판정은 secretAttach가 한다.
           [
             "apps/secret_value",

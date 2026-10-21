@@ -23,6 +23,7 @@ import {
 import type { CoreLink } from "../../apps/runtime/core-link.ts";
 import {
   activationAppInputSchema,
+  appendLogInputSchema,
   applyInputSchema,
   blockInputSchema,
   callInputSchema,
@@ -875,6 +876,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     [SUPERVISOR_OPS.block]: (payload) => {
       const input = parse(blockInputSchema, payload);
       return Promise.resolve({ blocked: broker.blockApp(input.app) });
+    },
+    [SUPERVISOR_OPS.appendLog]: (payload) => {
+      const input = parse(appendLogInputSchema, payload);
+      const file = logFileOf(input.app);
+      file?.append({ invocation: null, text: input.text });
+      return Promise.resolve({ written: file !== undefined });
     },
     [SUPERVISOR_OPS.restart]: async (payload) => {
       const input = parse(restartInputSchema, payload);

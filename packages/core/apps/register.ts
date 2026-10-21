@@ -7,6 +7,7 @@ import {
 } from "./registration/mod.ts";
 import {
   appCallTool,
+  appLogViewError,
   appRegistrationLookup,
   appRewind,
   appRewindPlan,
@@ -203,6 +204,7 @@ export function createLedgerRegistration(
     memoryRoutes: [
       appCallTool,
       appRewind,
+      appLogViewError,
       // handler는 wiring/apps.ts가 붙인다.
       appsSecretValue,
       blueprintCheck,

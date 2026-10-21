@@ -21,6 +21,8 @@ export const SUPERVISOR_OPS = {
   restart: "apps.restart",
   // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다.
   block: "apps.block",
+  // 앱 log file에 줄 하나를 쓴다. 쓰는 쪽은 supervisor 하나다.
+  appendLog: "apps.append_log",
   // core가 앱 process에 보내는 호출 하나와 뒤집은 changeset 적용. supervisor는 그 process의
   // control socket으로 중계만 한다.
   call: "apps.call",
@@ -106,6 +108,13 @@ export const blockInputSchema = z.strictObject({ app: appId });
 export const blockOutputSchema = z.strictObject({
   blocked: z.number().int().min(0),
 });
+
+export const appendLogInputSchema = z.strictObject({
+  app: appId,
+  invocation: z.null(),
+  text: z.string().min(1),
+});
+export const appendLogOutputSchema = z.strictObject({ written: z.boolean() });
 
 // preview 프로세스 하나의 시작 입력이다. core가 nonce와 disposable 영역(dataPath)을 먼저 만들고
 // 운영 DesiredApp과 같은 모양으로 알린다. release는 준비 전 bundle이면 null이다.

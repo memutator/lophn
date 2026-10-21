@@ -51,7 +51,7 @@
   - session snapshot의 `idle|running|waiting`(`packages/core/main/daemon/wiring/session-snapshots.ts:52-56`)은 아직 turn이 가져가지 않은 메시지를 idle로 본다.
   - eval은 1초 동안 조용한 것과 시작 안 된 메시지 검사로 끝을 짐작한다(`tests/eval/runner/idle.ts`).
   - 받은 메시지가 들어간 turn은 `receivedMessageList`의 `turn`으로, 그 turn의 끝은 `TurnEnded`(`packages/protocol/lophn-agent/turn-values.ts:11-60`)로, 답은 `ReadTurnResult`(`packages/protocol/lophn-agent/turn-reads.ts:57`)로 읽는다.
-- 물음은 기한 없이 기다린다. turn 안 request(`packages/core/approvals/turn-requests.ts`)와 `ask` 질문(`packages/core/lophn-agent/tools/questions/wait.ts`)이 그렇고, 결정 command는 user만 받는다.
+- 물음은 attended turn에서만 기한 없이 기다린다(turn 안 request `packages/core/approvals/turn-requests.ts`, `ask` 질문 `packages/core/lophn-agent/tools/questions/wait.ts`. 결정 command는 user만 받는다). unattended turn은 shell `ask`를 묻지 않고 `ask` tool은 `unattended`를 바로 돌려준다. turn mode는 `turns.mode`에 있고, unattended를 여는 입구는 아직 없다(`architecture/approval.md`).
 - CLI와 자격
   - CLI(`packages/coding-agent/cli`)는 명령이 31개이고 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 그 ticket을 맡긴 App Engineer로 고정이다.
   - user token은 core가 parent pipe의 hello frame에만 쓴다(`packages/core/main/daemon/parent.ts:52-105`). 파일에는 없다.
@@ -69,7 +69,7 @@
 - 앱 secret은 Bearer만 붙는다(`packages/sdk/cap-secret`). OAuth refresh는 MCP에만 있다(`packages/core/lophn-agent/extensions/mcp-oauth.ts`).
 - 사람에게 알리는 길
   - toast 종류 다섯은 renderer가 정한다(`packages/shell/renderer/desktop/connection/events/reactions.ts:20-26`).
-  - 꺼졌다 켜져도 남는 것은 대기 목록의 보류 request(`approval_requests` 표)뿐이다.
+  - 꺼졌다 켜져도 남는 것은 대기 목록의 activation 동의(`activation_consents` 표)뿐이다.
 
 ## 무엇을 만드나
 
@@ -124,7 +124,7 @@
 
 ## 권한 (`approval.md`)
 
-권한은 같은 날 `project-docs/products/roadmap/approval.md`로 다시 설계했다.
+권한은 같은 날 `project-docs/products/roadmap/approval.md`로 다시 설계했고, 계획 `approval-simplify`가 turn mode(attended, unattended, skip)와 그 전파를 만들었다(`architecture/approval.md`). run과 job은 받는 turn을 unattended로 여는 입구만 더하면 된다.
 
 - headless run과 job, 그리고 그 안의 call 사슬은 unattended다. 물음 없이 돌고, deny만 막힌다. `ask` tool은 "사람이 없다"를 바로 돌려준다.
 - job은 agent가 만들고 켠다. 사람이 시킨 것이 승낙이다(사람, 2026-10-20).
@@ -142,7 +142,7 @@ flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 �
   1. `headless-run`: core run, CLI, run session의 화면.
   2. `schedule-job`: scheduler, job 표와 기록, program caller, 놓친 차례, hold card, job 화면.
   3. flow는 `workflow.md`의 계획이 연다.
-- `headless-run`은 `approval.md`의 계획(`approval-simplify`) 뒤에 연다. unattended mode가 run의 전제다.
+- unattended mode(run의 전제)는 `approval-simplify`가 만들었다.
 - 실제로는 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21. `problem-ticket.md` "단계").
 - gdrive OAuth는 flow와 따로 열 수 있다.
 

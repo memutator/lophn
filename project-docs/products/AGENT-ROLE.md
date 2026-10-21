@@ -20,7 +20,7 @@ place는 agent가 놓여 일하는 그릇 하나다. 그릇은 project(폴더 �
 - P9. 같은 project에 놓인 agent는 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place에는 `LOPHN.md`가 없다. lophn은 tool로 읽는다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, Project Manager의 file 범위 밖이라 사람이 editor로 고친다.
 - P11. 그릇마다 domain이 있다. project는 0개여도 되고, 앱은 등록할 때 앱 이름의 domain이 하나 생겨 0개가 되지 않는다. domain은 그 그릇의 Project Manager나 App Engineer가 만들고, 사람도 만든다.
-- P12. agent는 맡은 domain의 `DOMAIN.md`, kind, skill, tool만 받는다. Project Manager와 App Engineer는 그릇의 domain 전부를, Operator는 정의에서 고른 domain(고르지 않으면 그릇의 전부)을 맡는다. 다른 그릇의 domain은 grant 받은 공개 tool로만 쓴다.
+- P12. agent는 맡은 domain의 `DOMAIN.md`, kind, skill, tool만 받는다. Project Manager와 App Engineer는 그릇의 domain 전부를, Operator는 정의에서 고른 domain(고르지 않으면 그릇의 전부)을 맡는다. 다른 그릇의 domain은 할당받은 공개 tool로만 쓴다.
 
 ## 2. role마다 언제 무엇을 하나
 
@@ -46,7 +46,7 @@ L1~L11은 lophn의 built-in role 지침에 쓸 재료다. 의미 판단이라 pr
 - O4. 일하다 앱의 버그나 모자란 기능을 만나면, Operator는 직접 고치지 않고 그 앱의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - O5. 고쳐진 결과를 받아야 일을 이어갈 수 있으면, Operator는 그 앱의 App Engineer에게 결과를 받는 call로 맡기고 결과가 돌아오면 이어서 일한다.
 - O6. domain의 `DOMAIN.md`, kind 파일, skill을 바꿔야 하면, Operator는 직접 고치지 않고 그 그릇의 Project Manager나 App Engineer에게 call로 맡긴다. Operator가 쓰는 것은 고른 domain의 artifact뿐이다.
-- O7. 자기 정의나 grant를 바꿔야 하면, Operator는 사람에게 올린다. (제안)
+- O7. 자기 정의나 할당을 바꿔야 하면, Operator는 사람에게 올린다. (제안)
 
 ### App Engineer
 
@@ -86,7 +86,7 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 - C9. 사람이나 lophn이 그 project의 Operator를 청하면, Project Manager가 그 project에 Operator를 만들거나 고친다. 다른 project의 Operator는 다루지 않는다. Operator가 맡을 domain을 고른다.
 - C10. 사람이나 agent가 앱을 만들거나 고쳐 달라고 하면, Project Manager는 직접 하지 않고 그 앱의 App Engineer에게 call로 맡긴다. 새 앱이면 lophn에게 맡긴다.
 - C24. project에 새 업무가 생기면, Project Manager가 `domain.create`로 그 project에 domain을 만들고 그 domain의 `DOMAIN.md`와 skill을 쓰거나 고친다.
-- C25. 다른 domain의 공개 tool을 Operator가 쓰게 하려면, Project Manager는 이유와 함께 사람에게 grant를 제안한다. grant는 사람이 준다. (제안)
+- C25. 다른 domain의 공개 tool을 Operator가 쓰게 하려면, Project Manager는 이유와 함께 사람에게 할당을 제안한다. 할당은 사람이 한다. (제안)
 - C26. 자기 Operator가 쓰는 package에서 난 문제는, Project Manager가 package 주인 앱(`package.get`의 `owner_app`)의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - C27. 자기 domain이 쓰는 공개 tool이 바뀌어 program이 부르면, Project Manager가 바뀐 tool을 읽고 그 tool을 부르는 skill(자기 Operator의 것 포함)을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, Project Manager나 그 domain을 고른 Operator가 domain의 artifact를 쓴다.
@@ -103,8 +103,8 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
-- H3. agent에게 앱 tool, 외부 MCP tool, 다른 agent, lophn 쪽 설정을 할당할 때, 사람이 대상마다 실행 때 묻는지를 정한다. 앱은 앱 단위로 할당하고 tool마다 빼거나 묻는지를 바꿀 수 있다. agent가 맡지 않은 domain의 tool은 공개(`public`) tool만 할당할 수 있다.
-- H4. agent가 "물음"인 동작을 하려 하면, 사람이 toast나 모든 session의 대기 목록에서 그 request에 답한다.
+- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 Operator의 정의)이 할당이고 정의에서 끈다. agent가 맡지 않은 domain의 tool은 공개(`public`) tool만 쓸 수 있다.
+- H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. App Engineer가 검증 결과를 올리면, 사람이 받아 확인한다.
 - H6. 사람은 project 창과 app space에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
 
@@ -120,13 +120,13 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 
 - T1. 넘기는 것은 모두 Router 한 입구로 받는 session에 입력을 넣는 것이고, 입력에는 call 봉투(보낸 쪽, 받는 곳, 답 방식, 어느 call에 대한 답인지)가 붙는다.
 - T2. 누구에게 넘길지는 보내는 agent가 판단한다.
-- T3. 넘길 수 있는지는 agent grant가 정하고, grant에 없는 agent를 부르면 막히고 이유가 돌아온다.
-- T4. agent grant의 기본은 모든 lophn agent가 다른 role을 묻지 않고 부를 수 있는 것이고, 사람은 할당 때 이것을 끄거나 물음으로 바꾼다.
-- T5. 부르는 것 자체에는 묻지 않고, 받은 agent의 동작은 받은 agent의 grant로 다시 걸러진다.
-- T6. 보낸 agent의 grant와 session 허락은 받은 agent에게 넘어가지 않는다.
+- T3. 넘기는 것은 묻지도 막지도 않는다. 누구에게 넘길지는 지침과 workflow가 정한다.
+- T4. 사람이 없는 turn(unattended)이 보낸 call로 열린 turn은 unattended이고, 그 답과 실패·취소 알림도 따라간다. 사람이 있는 turn이 보낸 call은 사람이 있는 turn(attended)으로 열린다. skip은 call을 따라 가지 않는다.
+- T5. 부르는 것 자체에는 묻지 않고, 받은 agent의 동작은 받은 agent의 할당으로 다시 걸러진다.
+- T6. 보낸 agent의 할당과 skip은 받은 agent에게 넘어가지 않는다.
 - T7. 받는 곳은 보내는 쪽이 고르고, 열린 session으로 보냈는데 닫혀 있으면 새로 열지 않는다. "열린 session, 없으면 새 session"은 놓치면 안 되는 것에만 쓴다.
 - T8. 받는 agent는 보낸 쪽이 놓인 place가 아니라 넘기는 일이 어느 그릇(project나 app)과 domain에 관한 것인지로 정하고, 보내는 agent가 그것을 함께 적는다. 경우는 5.2의 표다.
-- T9. 받을 agent가 없거나, grant 밖이거나, 받는 session이 닫혀 있으면, 이유와 함께 실패가 보낸 session에 돌아온다. 답을 받지 않는 call도 배달 실패는 돌아온다.
+- T9. 받을 agent가 없거나 받는 session이 닫혀 있으면, 이유와 함께 실패가 보낸 session에 돌아온다. 답을 받지 않는 call도 배달 실패는 돌아온다.
 - T10. 넘기는 내용은 맡긴 글 하나와 근거 링크(ticket, annotation, 파일 경로, 보낸 session)이고, 보낸 쪽의 대화 원문은 복사하지 않는다.
 - T11. 결과를 받는 call을 받은 agent는 일이 끝나면 답을 보낸다. 맡지 않을 때도 답으로 이유를 보낸다. lophn agent session은 저절로 끝나지 않아 program이 끝을 알 수 없기 때문이다.
 - T12. 보낸 agent는 call을 보낸 뒤 기다리며 막히지 않고, 답은 새 입력으로 받는다.
@@ -170,13 +170,13 @@ coding agent ─────보고───────▶ App Engineer      : �
 
 program ────────reaction─────▶ App Engineer      : activation 실패(그 앱)
         ─────domain event────▶ 맡긴 App Engineer : 완료 보고, claim 만료, 보고 없는 coding agent session 끝(끌 수 없음)
-        ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), 선언이 넓어진 release의 activation 허락, 물음(toast)
+        ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), 선언이 넓어진 release의 activation 동의, shell 물음(toast)
 
 call(result) 받은 쪽 ────답─────▶ 보낸 쪽       : 맡은 일을 끝냈을 때, 맡지 않을 때
 lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정이나 취향이 필요할 때
 ```
 
-- 위 선은 대표적인 것이다. lophn agent 사이에서는 agent grant가 허락하면 어느 방향으로든 넘길 수 있다.
+- 위 선은 대표적인 것이다. lophn agent 사이에서는 어느 방향으로든 넘길 수 있다.
 - coding agent와 이어진 선은 App Engineer 하나뿐이다.
 - program은 부르기만 하고 받지 않는다.
 
@@ -211,18 +211,18 @@ role 이름만으로는 받는 agent가 하나로 정해지지 않는다(Project
 
 ## 6. program이 agent를 부르거나 사람에게 알리는 때
 
-program이 agent를 부르는 것은 E3와 E4 둘이다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고 agent를 열지 않는다(E2, E5). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. E3는 reaction grant를 따르고, 기본은 묻지 않고 session을 연다. E4는 맡긴 call을 닫는 사실이라 끌 수 없다.
+program이 agent를 부르는 것은 E3와 E4 둘이다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고 agent를 열지 않는다(E2, E5). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. E3는 reaction 설정(켬, 끔)을 따르고, 기본은 켬이다. E4는 맡긴 call을 닫는 사실이라 끌 수 없다.
 
 - E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. App Engineer는 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
 - E3. activation이 실패하면, program이 그 release 앱의 App Engineer를 부른다.
 - E4. coding agent가 완료를 보고하거나, claim이 만료되거나, 보고 없이 session이 끝나면, program이 맡긴 App Engineer session에 알린다. 그 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
 - E5. 문서가 kind를 어기면(위반이 새로 생기면), program이 사람에게 toast로 알린다. agent는 부르지 않는다. Project Manager나 App Engineer는 사람이 청하면 `kind.check`로 검사한다.
-- E6. ticket이 확인됨이 되어 그 release의 activation이 시작되고 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 사람에게 activation 허락을 묻는다.
+- E6. ticket이 확인됨이 되어 그 release의 activation이 시작되고 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 activation을 막는다. 막은 것을 agent에게 알리지는 않는다.
 
 ## 7. 하지 않는 것
 
 - agent가 다른 agent를 자식(subagent)으로 띄워 결과를 기다리는 구조를 두지 않는다. 넘기는 것은 늘 다른 session이다.
-- 누가 누구를 부를 수 있는지를 고정 표로 두지 않는다. grant가 정한다.
+- 누가 누구를 부를 수 있는지를 고정 표로 두지 않는다. 부르기는 막지 않고 지침이 정한다.
 - 보낸 쪽의 대화를 복사하거나 권한을 물려주지 않는다.
 - 보낸 쪽이 결과를 기다리며 막히는 동기 호출, 자동 재시도, 실패를 조용히 버리기.

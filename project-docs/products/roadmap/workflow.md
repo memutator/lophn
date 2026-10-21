@@ -90,7 +90,7 @@ contacts:
   - Operator는 `{role: "operator", place, name}`으로 정확히 맞춰 푼다(`packages/core/agent-roles/place/session-directory.ts:49-75`).
 - **받는 쪽이 보는 것.** `<lophn-call from="agent:ses_..." call reply>`다(`packages/core/lophn-agent/run-loop/input-text.ts:127-150`). 보낸 쪽의 role, 이름, place를 모르고, 봉투에 workflow 칸도 없다. refs 종류는 `ticket`, `problem`, `file`, `session`, `annotation` 다섯이다.
 - **domain 폴더.** `<data>/domains/<dom_id>/`에 `DOMAIN.md`, `kinds.yaml`, `skills/`, `artifacts/`가 있다(`packages/protocol/domains/paths.ts`). `DOMAIN.md`, `kinds.yaml`, `skills/`는 그릇의 PM이나 App Engineer가 file tool로 쓴다. workflow를 읽는 코드는 없다.
-- **agent grant.** 줄이 없으면 묻지 않고 부른다(T4, `packages/core/approvals/gate/gate.ts:85-96`). `excluded`만 막는다.
+- **agent call 판정.** 없다. 부르는 것 자체에는 묻지도 막지도 않고, 받은 agent는 자기 할당으로만 일한다(AGENT-ROLE T3, T5, `architecture/approval.md`).
 - **coding agent와 이어진 선은 App Engineer 하나뿐이다**(AGENT-ROLE 5.1).
 
 ## 무엇을 만드나

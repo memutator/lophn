@@ -1,6 +1,6 @@
 # activation
 
-coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 앱 process, 앱 DB, 앱 grant, 들어오는 호출을 한꺼번에 바꾸는 일이라 여러 module(app-releases, app-runtime, app-data, approvals, app-tickets)이 순서를 지켜야 한다. 도중에 core가 꺼지거나 새 release가 뜨지 못해도 앱이 반쯤 바뀐 채 남으면 안 된다. 이 문서는 activation을 여는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 되돌리는 약속을 다룬다.
+coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 앱 process, 앱 DB, 앱 grant, 들어오는 호출을 한꺼번에 바꾸는 일이라 여러 module(app-releases, app-runtime, app-data, app-tickets)이 순서를 지켜야 한다. 도중에 core가 꺼지거나 새 release가 뜨지 못해도 앱이 반쯤 바뀐 채 남으면 안 된다. 이 문서는 activation을 여는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 되돌리는 약속을 다룬다.
 
 ## 흐름
 
@@ -10,7 +10,7 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
      ticket에 이은 prepared release를 찾는다 (없거나 이미 활성이면 끝)
      선언 비교: 새 선언 중 지금 active 앱 grant가 안 덮는 것 / 첫 activation / migration의 loss 선언
        ├ 늘지 않음 ──────────────────────────────────────────────┐
-       └ 늘었음 ─▶ 보류 request (approvals) ─▶ 사람이 허락 ─▶ ApprovalDecided ─▶ handler ─┤
+       └ 늘었음 ─▶ 동의 대기(activation_consents 표) ─▶ 사람이 동의(activation.consent) ─▶ driver sweep ─┤
                                                                                              ▼
                                                        앱마다 하나만 돈다 (메모리. 돌고 있으면 conflict로 거절)
  시도 하나:
@@ -33,11 +33,16 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - 계기는 ticket 확인됨이고 release 준비만으로는 시작하지 않는다. App Engineer가 검증하기 전의 것을 운영에 올리지 않으려는 것이다.
 - app test가 되돌리기를 증명하지 못한 write tool(만든 입력의 호출이 실패함)은 activation을 막지 않는다. 증명하지 못한 tool은 app test가 pass 이유 한 줄에 남기고(`coding-agent.md`) 알림은 없다. 막으면 앞선 상태가 있어야 하는 tool을 가진 정상 앱이 올라가지 못한다.
 - 계기가 domain event라서 꺼졌다 켜져도 Reactor가 이어 간다. handler는 다시 불려도 안전하다. 이은 release가 prepared가 아니면 아무것도 하지 않는다.
-- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 tool이 더해지는 것은 묻지 않고 agent grant의 효과별 기본값이 받는다.
+- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
-- 사람이 허락한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 grant가 바뀔 수 있다.
+- 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
 - 새 release가 다른 domain이 쓰는 공개 tool을 지우면 activation은 시작되지 않고 release는 `prepared`로 남는다. 막기는 machine command `activation.block`이 판정해 `blocked`만 돌려준다. 막은 일이나 공개 tool이 바뀐 일을 agent에게 알리는 event는 없다. 규칙은 `architecture/domain.md`다.
-- 보류 request는 approvals의 `Approvals` port(`request(id)`, `pending()`)로만 읽는다. approvals 표를 건너 읽으면 그 표 모양이 바뀔 때 activation이 조용히 깨진다.
+- 동의는 activation의 상태다. approvals를 거치지 않는다. 묻기는 driver가 machine 자격으로 `activation.ask_consent`를 불러 `activation_consents` 표에 줄을 쓰고, 사람이 `activation.consent`(사람 자격만, compare `{requested_at}`)로 동의하거나 거절한다. 대기 목록은 `activations.consents`를 읽고 남지 않는 event `ActivationConsentRequested`·`ActivationConsentClosed`로 고친다.
+  - 동의 대기는 표에 남아 재시작을 넘는다. 메모리에 두면 재시작 때 사라지는데, Reactor cursor는 `TicketVerified`를 이미 지나 다시 묻지 않는다.
+  - 허락도 표에 남긴다(`allowed_at`). 허락만 메모리로 넘기면 commit 뒤 시작 전에 꺼질 때 허락을 잃는다. 허락한 줄은 driver의 sweep이 시작한다.
+  - 같은 release는 한 줄이다. Reactor가 같은 `TicketVerified`를 다시 처리해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).
+  - 거절은 줄을 지우고 release는 `prepared`로 남는다. 이유를 받지 않는다(읽는 곳이 없다).
+  - unattended에서도 동의는 사람이 한다. 저절로 동의하는 장치를 두지 않는다.
 - 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 새 ticket 확인이나 새 release가 계기다. 실패는 다시 시도하지 않고 실패로 끝낸다.
 - 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지지만 Reactor가 cursor 뒤의 event부터 다시 반응한다.
 
@@ -55,12 +60,12 @@ coding agent가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
 - 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
 - 실패 기록과 `ReleaseActivationFailed`는 같은 tx다. 기록이 없는 실패나 기록만 있고 App Engineer가 모르는 실패가 없게 한다.
-- 더 새 release의 activation이 시작되면 이전 release를 기다리던 보류 request를 취소한다.
+- 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 cancelled). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
 
 ## 왜 이 모양인가
 
 - 계기를 "release 준비 끝남" event로 하지 않았다. 준비는 coding agent의 일이고 운영에 올리는 판단은 ticket 확인됨이 한다. 준비 끝남은 domain event가 아니다.
-- 계기를 domain event로 둔 이유는 보류 request의 결정(`ApprovalDecided`)이 handler를 다시 부르는 것과 같은 꼴이라서다. 별도 트리거나 polling을 두지 않는다.
+- 동의를 generic approval(보류 request와 applier)에서 activation의 상태로 옮겼다. 보류 request 길을 쓰던 것은 activation과 reaction의 물음 둘뿐이었고, reaction의 물음을 지우자 activation 하나를 위해 표, applier, 결정 event를 둘 이유가 없어졌다.
 - 묻는 판단에서 DB 사본에 migration을 돌려 손실을 재는 안을 버렸다. 선언을 믿는 철학과 어긋나고 data가 크면 비싸다. 대신 migration이 있으면 늘 복구본을 먼저 확정해 둔다.
 - 새 process를 commit 전에 준비 모드로 먼저 띄우는 이유는, commit 뒤에 띄우다 실패하면 이미 바뀐 active 참조를 되돌려야 하기 때문이다. 확인이 끝난 것만 commit한다.
 - 이전 release로 돌아가기를 사람에게만 열었다. 앱을 쓰는 모두에게 영향이 가는 일이고, 앱 rewind와 같은 이유다. 돌아가도 DB는 되돌리지 않는다. data를 거꾸로 돌리는 것은 별개의 위험이라 schema가 같을 때만 허락한다.

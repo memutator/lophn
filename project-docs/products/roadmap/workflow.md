@@ -1,6 +1,6 @@
 # workflow: agent들이 서로 넘기며 도는 일을 선언한다
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 미결정은 "정할 것"에 기록만 하고 정하지 않았다. 권한은 `approval.md`가 다룬다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 미결정은 "정할 것"에 기록만 하고 정하지 않았다. 권한은 `approval.md`가 다룬다. "지금 코드"는 2026-10-22에 개편(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`, `agent-definition`, `test-restore`) 뒤 main에 맞췄다.
 배경 문서: `project-docs/architecture/agent-call.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/domain.md`, `project-docs/architecture/eval.md`, `project-docs/products/AGENT-ROLE.md`, `project-docs/products/roadmap/headless-schedule.md`.
 
 ## 왜
@@ -8,7 +8,7 @@
 - 큰 일은 agent 여럿이 역할을 나눠 서로 넘기며 돈다. 이 저장소의 eval loop가 그 예다(아래).
 - lophn에는 이것을 만들 길이 없다.
   - 참가자마다 "누구에게, 언제, 어떻게 넘기나"를 알려 줄 곳이 없다. 연락처 목록은 모든 agent에게 같은 전역 목록 하나다.
-  - 받는 쪽은 누가 보냈는지 모른다.
+  - 받는 쪽은 보낸 session ID만 알고, 누가 보냈는지(role, 이름, place) 모른다.
 - program이 workflow를 알게 하면(단계 순서, 상태, "끝내기 전에는 call 금지", "상위 책임자에게 묻지 마") 그 코드는 domain에 기댄다. agent 성능이 오를수록 덜어내야 할 규칙이라 유지보수가 어렵고 반감기가 짧다.
 
 ## 예: eval loop
@@ -66,7 +66,7 @@ contacts:
 ### 결정적 처리와 검증
 
 - workflow에 필요한 결정적 처리와 검증은 그 workflow의 domain 쪽 program이 한다. eval의 `tests/eval`과 같다.
-- 그 program은 lophn agent가 직접 짠다. 길고 복잡하면 coding agent에게 맡길 수 있다(2026-10-21, `problem-ticket.md`).
+- 그 program은 lophn agent가 직접 짠다. 길고 복잡한 것은 coding agent의 일이다(2026-10-21, `problem-ticket.md`). 지금 lophn agent가 coding agent에게 맡기는 길은 없다. Router가 받는 곳이 `coding_agent`인 call을 거절한다("정할 것" 6).
 
 ### kind
 
@@ -76,22 +76,23 @@ contacts:
 ## 지금 코드
 
 - **연락처 목록**("Agents you can call")
-  - `packages/core/agent-roles/place/place-info.ts:132-145`가 그리고, `packages/core/agent-roles/place/place-data.ts:381-478`이 turn마다 읽는다.
-  - 줄은 role, 이름, place와 role마다 고정된 한 문장뿐이다(`place-data.ts:73-81`). Operator 줄은 모두 "Works with the kinds and tools it was granted."다.
-  - 목록은 모든 role에게 같다: 열린 session, lophn, 모든 PM, 모든 App Engineer, 모든 Operator. grant에서 `excluded`인 것만 빠진다.
-  - 자리는 system block 4(place 층, cache 경계)다(`packages/core/lophn-agent/prompt-assembly/turn-prompt.ts:202-207`). 바뀌면 다음 turn에 cache miss가 한 번 나고 `agents_changed` notice가 붙는다.
+  - `packages/core/agent-roles/place/place-info.ts`의 `agentLines`가 그리고, `packages/core/agent-roles/place/place-data.ts`의 `readPlaceData`가 turn마다 읽는다.
+  - 줄은 role, 이름, place와 role마다 고정된 한 문장(`ROLE_LINE`)뿐이다. Operator 줄은 모두 "Works with the kinds and tools it was granted."다.
+  - 목록은 모든 role에게 같다: 열린 session(coding session은 뺀다), lophn, active project의 PM, active 앱의 App Engineer, 정의가 온전한 모든 Operator. 자기 자신만 빠지고 할당(`agent_assignments`)은 목록을 거르지 않는다.
+  - 자리는 system block 4(place 층, cache 경계)다(`packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`의 `assembleTurnPrompt`). 바뀌면 다음 turn에 cache miss가 한 번 나고 `agents_changed` notice가 붙는다.
 - **Operator 정의**
-  - `<data>/projects/<prj>/agents/<agt_id>.md` 또는 `<data>/apps/<app>/agents/<agt_id>.md`다. 칸은 `name`, `profile`, `model`, `skills`, `domains`, `mcp_off`, `mcp_servers`와 body(지침) 여덟이다(`packages/protocol/lophn-agent/operators.ts:19-34`).
+  - `<data>/projects/<prj>/agents/<agt_id>.md` 또는 `<data>/apps/<app>/agents/<agt_id>.md`다. 칸은 `name`, `profile`, `model`, `skills`, `domains`, `mcp_off`, `mcp_servers`, `skip`과 body(지침) 아홉이다(`packages/protocol/lophn-agent/operators.ts`의 `operatorDefinitionSchema`).
   - `description` 칸이 없고, 다른 agent를 가리킬 칸도 없다.
-  - 만들고 고치는 쪽은 사람(UI)과, 자기 place 안의 PM과 App Engineer(`operator.create`, `operator.update`, `packages/core/agent-roles/tools/operator.ts:117-200`)다. grant와 `mcp_servers`는 사람만 정한다.
+  - 만들고 고치는 쪽은 사람(UI)과, 자기 place 안의 PM과 App Engineer(`operator.create`, `operator.update`, `packages/core/agent-roles/tools/operator.ts`)다. 할당(앱 줄과 뺀 tool, `architecture/approval.md`), `mcp_servers`, `skip`은 사람만 정한다. tool 입력에 없다.
 - **call**
-  - tool `call`(`packages/core/lophn-agent/tools/bundles/call.ts:26-81`)의 `to`는 세 가지다: 열린 session, `{role, place?, name?}`의 새 session, 열린 session이 없으면 새 session(`fallback: "new"`). `reply`는 `none|result|conversation`이다(`packages/protocol/lophn-agent/calls.ts:15`).
-  - `conversation`은 PM, AE, coding agent만 쓴다고 tool 설명에만 적혀 있고, 코드는 막지 않는다.
-  - Operator는 `{role: "operator", place, name}`으로 정확히 맞춰 푼다(`packages/core/agent-roles/place/session-directory.ts:49-75`).
-- **받는 쪽이 보는 것.** `<lophn-call from="agent:ses_..." call reply>`다(`packages/core/lophn-agent/run-loop/input-text.ts:127-150`). 보낸 쪽의 role, 이름, place를 모르고, 봉투에 workflow 칸도 없다. refs 종류는 `ticket`, `problem`, `file`, `session`, `annotation` 다섯이다.
+  - tool `call`(`packages/core/lophn-agent/tools/bundles/call.ts`의 `CALL_TOOLS`)의 `to`는 세 가지다: 열린 session, `{role, place?, name?}`의 새 session, 열린 session이 없으면 새 session(`fallback: "new"`). `reply`는 `none|result|conversation`이다(`packages/protocol/lophn-agent/calls.ts`의 `CALL_REPLIES`).
+  - `conversation`은 PM과 App Engineer만 쓴다고 tool 설명에만 적혀 있고, 코드는 막지 않는다.
+  - Operator는 `{role: "operator", place, name}`으로 정확히 맞춰 푼다(`packages/core/agent-roles/place/session-directory.ts`의 `resolveNamed`).
+  - 받는 곳이 role `coding_agent`로 풀리면 Router가 `invalid_input`으로 거절한다(`packages/core/router/router.ts`의 `resolve`).
+- **받는 쪽이 보는 것.** `<lophn-call from="agent:ses_..." call="..." reply="...">`다(`packages/core/lophn-agent/run-loop/input-text.ts`의 `callText`). 보낸 쪽의 role, 이름, place를 모르고, 봉투에 workflow 칸도 없다. refs 종류는 `file`, `session`, `annotation` 셋이다(`CallRef`, `packages/protocol/lophn-agent/calls.ts`).
 - **domain 폴더.** `<data>/domains/<dom_id>/`에 `DOMAIN.md`, `kinds.yaml`, `skills/`, `artifacts/`가 있다(`packages/protocol/domains/paths.ts`). `DOMAIN.md`, `kinds.yaml`, `skills/`는 그릇의 PM이나 App Engineer가 file tool로 쓴다. workflow를 읽는 코드는 없다.
-- **agent call 판정.** 없다. 부르는 것 자체에는 묻지도 막지도 않고, 받은 agent는 자기 할당으로만 일한다(AGENT-ROLE T3, T5, `architecture/approval.md`).
-- **coding agent와 이어진 선은 App Engineer 하나뿐이다**(AGENT-ROLE 5.1).
+- **agent call 판정.** 없다. 부르는 것 자체에는 묻지도 막지도 않고, 받은 agent는 자기 할당으로만 일한다(AGENT-ROLE T3, T5, T6, `architecture/agent-call.md`, `architecture/approval.md`).
+- **coding agent.** lophn agent가 부르는 선은 없다(위 call). App Engineer가 앱을 직접 짓는다. coding agent가 보내는 메시지의 받는 쪽은 맡긴 App Engineer 하나뿐이다(AGENT-ROLE 5.1, `packages/coding-agent/cli`의 `message send`).
 
 ## 무엇을 만드나
 
@@ -106,14 +107,14 @@ contacts:
 - 이 workflow에서 lophn program의 책임은 작게 둔다. 선언된 workflow에 따라 call 정책과 연락처를 알려 주는 데까지다.
 - "안 끝냈으니 call 금지", "상위 책임자에게 못 물어본다" 같은 딱딱한 규칙을 program에 두지 않는다. agent 성능이 오를수록 덜어내야 하고, 유지보수가 어렵고, 코드의 반감기가 짧다.
 - 결정적 처리와 검증은 agent가 짜게 한다. 그래야 lophn이 domain에 기대지 않는다. 짜는 것은 coding agent다.
-  - 2026-10-21에 바꿨다: lophn agent가 직접 짠다. lophn agent가 하지 않는 것은 길고 복잡한 coding agent의 일이다(`problem-ticket.md`).
+  - 2026-10-21에 바꿨다: lophn agent가 직접 짠다. lophn agent가 하지 않는 것은 길고 복잡한 coding agent의 일이다(`problem-ticket.md`). 지금 lophn agent가 coding agent를 부르는 길은 없다(Router가 거절한다).
 - 참가자는 있는 agent다. workflow file 안에서 일회용 agent를 정의하지 않는다.
 - 앞서 말한 headless run, schedule, flow도 workflow의 kind 하나로 둘 수 있다.
 - workflow 안에서는 묻지 않는다. workflow로 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이다. 권한 설계는 `approval.md`(unattended mode)다.
 
 ## 정한 것 (agent)
 
-- 연락처는 알려 주기만 하고 call을 막지 않는다. 부를 수 있는지는 grant가 정한다. 근거: 위 사람의 원칙과 `architecture/agent-call.md`의 "받은 메시지는 허락이 아니다. program이 막는 것은 이것 하나다".
+- 연락처는 알려 주기만 하고 call을 막지 않는다. 연락처 밖도 부를 수 있고, 부르는 것 자체는 어디서도 묻거나 막지 않는다. 받은 agent는 자기 할당으로만 일한다. 근거: 위 사람의 원칙과 `architecture/agent-call.md`의 "받은 메시지는 허락이 아니다. program이 막는 것은 이것 하나다".
 - 선언은 domain에 둔다. 근거: prompt에는 맡은 domain의 것만 싣는다(`architecture/domain.md` 최소 context). skill과 같은 주인(PM, App Engineer)이 쓴다.
 - 연락처 칸은 배달 방식(`to`, `reply`, `session`)과 한 줄 `when`뿐이다. 근거: Router가 이미 받는 칸이라 새 규칙이 없다.
 - workflow 상태 표를 두지 않는다. 근거: 진행은 session과 call 기록(`agent_calls`)이 이미 남긴다.
@@ -128,11 +129,11 @@ contacts:
 3. **봉투에 무엇을 싣나.** 보낸 참가자 이름과 workflow 이름이다. workflow 밖의 call에도 보낸 쪽의 role과 이름을 보일지 정한다.
 4. **agent 하나가 workflow 여럿의 참가자일 때.** prompt에 모두 실을지, 받은 call의 workflow만 알릴지 정한다.
 5. **place를 건너는 workflow.** domain은 그릇 하나에 속한다. 다른 그릇의 agent를 참가자로 둘 수 있는지 정한다. 다른 그릇의 domain은 공개 tool로만 참조한다는 규칙(`architecture/domain.md`)과 맞춰 본다.
-6. **coding agent를 참가자로 둘 수 있나.** 2026-10-21 App Engineer가 coding agent에게 맡기는 흐름은 막았다. coding agent 연결을 얼마나 남길지는 이 물음 때문에 보류했다(`problem-ticket.md` "정할 것" 1). workflow가 coding agent 같은 다른 harness를 부를 길을 정할 때 같이 정한다.
-7. **선언이 틀렸을 때.** 참가자 이름이 풀리지 않거나 꼴이 틀리면, `kinds.yaml`처럼 problem을 열지 그 줄만 뺄지 정한다.
+6. **coding agent를 참가자로 둘 수 있나.** 2026-10-21 App Engineer가 coding agent에게 맡기는 흐름은 막았다. 지금 Router는 받는 곳이 `coding_agent`로 풀리는 call을 `invalid_input`으로 거절한다. coding agent 연결을 얼마나 남길지는 이 물음 때문에 보류했다(`problem-ticket.md` "정할 것" 1). workflow가 coding agent 같은 다른 harness를 부를 길을 정할 때 같이 정한다.
+7. **선언이 틀렸을 때.** 참가자 이름이 풀리지 않거나 꼴이 틀리면, `kinds.yaml`처럼 앞의 맞던 선언을 계속 쓰고 틀렸다고 알릴지(`architecture/kinds.md`의 `state: invalid`, `using: previous`) 그 줄만 뺄지 정한다.
 8. **시작.** 선언에 시작 참가자를 적을지 정한다. 사람이 화면에서 workflow를 고르는 길과 CLI(`lophn workflow run`?)도 정한다.
 9. **flow의 선언.** program이 이끄는 kind는 같은 file에 driver program을 적을지 정한다.
-10. **`reply: conversation`.** 참가자(Operator)끼리 대화형 call을 쓸 수 있게 할지 정한다. 지금은 tool 설명만 PM, AE, coding agent로 좁힌다.
+10. **`reply: conversation`.** 참가자(Operator)끼리 대화형 call을 쓸 수 있게 할지 정한다. 지금은 tool 설명만 PM과 App Engineer로 좁힌다.
 11. **비용 상한.** loop가 돌며 쓰는 model 비용의 상한을 workflow program이 지킬지, lophn이 지킬지 정한다. eval은 program이 `--budget`으로 지킨다.
 12. **화면.** 사람이 workflow와 그 진행을 어디서 보나. 지금 call 진행은 사람 화면의 대상이 아니다(`architecture/event.md`). PRODUCT 4절 축 2(agent의 결과를 GUI로)와 같이 본다.
 
@@ -142,7 +143,7 @@ contacts:
 - 그 뒤 계획 `workflow`로 연다: 선언 읽기, 연락처 절, 보낸 참가자 알리기, 시작. flow는 "정할 것" 1을 정한 뒤 따로 연다.
 
 test(AGENTS.md "속도", `write-test` skill):
-- 연락처가 grant를 넓히지 않는다. 연락처에 있어도 grant에서 `excluded`인 참가자는 부르지 못한다.
+- 연락처가 할당을 넓히지 않는다. 연락처에 있는 참가자를 받은 agent는 그래도 자기 할당에 없는 앱 tool을 쓰지 못한다.
 - 한 domain의 workflow 연락처가 그 domain을 맡지 않은 agent의 prompt에 실리지 않는다.
 
 계획 끝에 고칠 것:
@@ -159,6 +160,6 @@ test(AGENTS.md "속도", `write-test` skill):
 ## 하지 않는 것
 
 - **workflow 상태 machine, 단계 순서 강제, 끝 판정.** 진행은 session과 call 기록으로 본다.
-- **연락처로 call 막기.** 막는 것은 grant다.
+- **연락처로 call 막기.** call은 연락처 안팎을 가리지 않고 묻지도 막지도 않는다. 받은 agent의 동작은 그 agent의 할당이 거른다.
 - **workflow 전용 판정과 검증을 lophn core에 두기.** domain 쪽 program이 한다.
 - **workflow file 안의 일회용 agent.** 참가자는 있는 agent다.

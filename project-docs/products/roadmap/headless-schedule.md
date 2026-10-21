@@ -1,6 +1,6 @@
 # headless와 schedule: lophn agent를 화면 없이 부르고, 정해진 때 돌린다
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 권한은 `approval.md`가 다룬다(아래 "권한"). flow는 같은 날 workflow의 kind로 정해 `project-docs/products/roadmap/workflow.md`로 옮겼다. 이 문서는 run과 job을 다룬다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. 권한은 `approval.md`가 다룬다(아래 "권한"). flow는 같은 날 workflow의 kind로 정해 `project-docs/products/roadmap/workflow.md`로 옮겼다. 이 문서는 run과 job을 다룬다. "지금 코드"는 2026-10-22에 개편(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`, `agent-definition`, `test-restore`) 뒤 main에 맞췄다.
 배경 문서: `project-docs/architecture/place-session.md`, `project-docs/architecture/event.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/eval.md`, `project-docs/products/AGENT-ROLE.md`.
 
 ## 왜
@@ -44,31 +44,31 @@
 
 ## 지금 코드
 
-- session 열기 `OpenSession`(`packages/protocol/lophn-agent/agent-sessions.ts:47-52`)과 메시지 `SendMessage`(`packages/protocol/lophn-agent/inputs.ts:21-47`)는 user actor만 받는다. 열 때 입력은 agent ref뿐이고 model은 없다. Operator는 `agt_` id로 가리킨다.
-- turn은 agent runtime child가 500ms마다 입력함을 보고 시작한다(`packages/core/main/agent-runtime/product-driver.ts:282,315-355`).
+- session 열기 `OpenSession`(`packages/protocol/lophn-agent/agent-sessions.ts`의 `openAgentSession`)과 메시지 `SendMessage`(`packages/protocol/lophn-agent/inputs.ts`의 `sendMessage`)는 user actor만 받는다. 열 때 입력은 agent ref뿐이고 model은 없다. Operator는 `agt_` id로 가리킨다.
+- turn은 agent runtime child가 500ms마다 입력함을 보고 시작한다(`packages/core/main/agent-runtime/product-driver.ts`의 `startTurnPump`, `PUMP_IDLE_MS`).
 - "일이 끝났다"는 신호가 없다.
   - session은 저절로 끝나지 않는다(`architecture/place-session.md`, AGENT-ROLE T11).
-  - session snapshot의 `idle|running|waiting`(`packages/core/main/daemon/wiring/session-snapshots.ts:52-56`)은 아직 turn이 가져가지 않은 메시지를 idle로 본다.
+  - session snapshot의 `idle|running|waiting`(`packages/core/main/daemon/wiring/session-snapshots.ts`)은 아직 turn이 가져가지 않은 메시지를 idle로 본다.
   - eval은 1초 동안 조용한 것과 시작 안 된 메시지 검사로 끝을 짐작한다(`tests/eval/runner/idle.ts`).
-  - 받은 메시지가 들어간 turn은 `receivedMessageList`의 `turn`으로, 그 turn의 끝은 `TurnEnded`(`packages/protocol/lophn-agent/turn-values.ts:11-60`)로, 답은 `ReadTurnResult`(`packages/protocol/lophn-agent/turn-reads.ts:57`)로 읽는다.
+  - 받은 메시지가 들어간 turn은 `receivedMessageList`의 `turn`으로, 그 turn의 끝은 `TurnEnded`(`packages/protocol/lophn-agent/turn-values.ts`의 outcome)로, 답은 `ReadTurnResult`(`packages/protocol/lophn-agent/turn-reads.ts`의 `turnResult`)로 읽는다.
 - 물음은 attended turn에서만 기한 없이 기다린다(turn 안 request `packages/core/approvals/turn-requests.ts`, `ask` 질문 `packages/core/lophn-agent/tools/questions/wait.ts`. 결정 command는 user만 받는다). unattended turn은 shell `ask`를 묻지 않고 `ask` tool은 `unattended`를 바로 돌려준다. turn mode는 `turns.mode`에 있고, unattended를 여는 입구는 아직 없다(`architecture/approval.md`).
 - CLI와 자격
-  - CLI(`packages/coding-agent/cli`)는 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 그 앱의 App Engineer로 고정이다.
-  - user token은 core가 parent pipe의 hello frame에만 쓴다(`packages/core/main/daemon/parent.ts:52-105`). 파일에는 없다.
+  - CLI(`packages/coding-agent/cli`)는 coding token(`LOPHN_CODING_TOKEN`)만 받는다. lophn agent에게 보내는 명령은 `message send`뿐이고, 받는 쪽은 일을 맡긴 App Engineer로 고정이다.
+  - user token은 core가 parent pipe의 hello frame에만 쓴다(`packages/core/main/daemon/parent.ts`의 `greet`). 파일에는 없다.
 - core는 Electron main의 child다.
-  - 창을 닫아도 tray에 남고, tray의 Quit만 멈춘다(`packages/shell/main/desktop/quit.ts:1-3`).
+  - 창을 닫아도 tray에 남고, tray의 Quit만 멈춘다(`packages/shell/main/desktop/quit.ts` 머리 주석).
   - 로그인 때 `--tray`로 켜는 autostart가 있다. packaged build만 된다(`packages/shell/main/desktop/autostart.ts`).
-  - data root마다 core는 하나다(instance lock, `packages/core/main/daemon/core.ts:81`).
-- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 wiring마다 쓴 `setInterval` 9개다(앱 control sweep 1초, annotation sweep, rewind sweep, storage prune 등).
+  - data root마다 core는 하나다(instance lock, `packages/base/install/instance-lock.ts`의 `acquireInstanceLock`을 `packages/core/main/daemon/core.ts`가 시작할 때 부른다).
+- scheduler가 없다. Clock은 `now()`와 `nowMs()`뿐이다(`packages/base/clock.ts`). 주기 loop는 `setInterval`을 직접 쓴 곳 7개다(`packages/core` 안. 앱 control sweep 1초 `packages/core/apps/control.ts`, annotation sweep, rewind sweep, storage prune, io worker gc 등).
 - domain event와 Reactor가 없다(`reactor-remove`). 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 하고, 사용자 hook을 여는 안은 하지 않았다(`architecture/event.md`).
 - 앱 tool
-  - 부르는 쪽은 user, agent, app뿐이고 program은 없다(`packages/protocol/apps/calls/call.ts:93-110`, `packages/core/apps/calls/caller.ts:18-26`).
-  - 호출은 120초에 끊긴다(`packages/core/apps/runtime/supervisor/relay.ts:20`). write는 앱마다 하나씩 돈다(`architecture/app-call.md`).
-  - 앱은 invocation 밖(자기 timer)에서 다른 tool, secret, agent를 부르지 못한다. 앱이 부를 수 있는 broker 길은 `apps/call`과 `problems/report`뿐이다(`architecture/app-call.md:34`, `packages/protocol/apps/calls/broker.ts:14-17`).
-  - 앱이 lophn에 사실을 밀어 넣는 길은 없고, Operator가 읽기 tool로 끌어 읽는다(`architecture/event.md:66`).
+  - 부르는 쪽은 user, agent, app뿐이고 program은 없다(`packages/protocol/apps/calls/call.ts`의 `actors`, `packages/core/apps/calls/caller.ts`의 `CallAuth`와 `VerifiedCaller`).
+  - 호출은 120초에 끊긴다(`packages/core/apps/runtime/supervisor/relay.ts`의 `CALL_TIMEOUT_MS`). write는 앱마다 하나씩 돈다(`architecture/app-call.md`).
+  - 앱은 invocation 밖(자기 timer)에서 다른 tool, secret, agent를 부르지 못한다. 앱이 부를 수 있는 broker 길은 `apps/call` 하나뿐이다(`packages/protocol/apps/calls/broker.ts`의 `APP_BROKER_PATHS`). 부모 invocation이 없는 호출은 `forbidden`이다(`packages/core/apps/calls/caller.ts`의 `verifyCaller`).
+  - 앱이 lophn에 사실을 밀어 넣는 길은 없고, Operator가 읽기 tool로 끌어 읽는다(`architecture/event.md` "왜 이 모양인가").
 - 앱 secret은 Bearer만 붙는다(`packages/sdk/cap-secret`). OAuth refresh는 MCP에만 있다(`packages/core/lophn-agent/extensions/mcp-oauth.ts`).
 - 사람에게 알리는 길
-  - toast 종류 다섯은 renderer가 정한다(`packages/shell/renderer/desktop/connection/events/reactions.ts:20-26`).
+  - toast 종류 다섯(permission, activation, question, restart-halted, kind-violation)은 renderer가 정한다(`packages/shell/renderer/desktop/connection/events/reactions.ts`의 `REACTION_EVENT_TYPES`).
   - 꺼졌다 켜져도 남는 것은 대기 목록의 activation 동의(`activation_consents` 표)뿐이다.
 
 ## 무엇을 만드나
@@ -120,7 +120,7 @@
 - 놓친 차례는 몇 번이든 한 번으로 친다. 근거: 10일 주기를 세 번 놓쳤다고 세 번 옮길 일이 없다. 몇 번 놓쳤는지는 기록에 남긴다.
 - 앞 차례가 돌면 이번 차례를 건너뛴다. 근거: 같은 job이 겹쳐 돌면 같은 바깥 효과가 두 번 난다.
 - schedule을 event 반응에 얹지 않는다. 근거: event에 반응하는 장치가 없고, 뒤에 움직일 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`).
-- 계속 떠서 push하는 event source(websocket, 상주 script, webhook)는 만들지 않는다. 근거: 끌어 읽기(`architecture/event.md:66`)로 충분하다. webhook은 공개 endpoint가 필요해 개인 로컬 작업 공간(PRODUCT 5절)과 맞지 않는다.
+- 계속 떠서 push하는 event source(websocket, 상주 script, webhook)는 만들지 않는다. 근거: 끌어 읽기(`architecture/event.md` "왜 이 모양인가")로 충분하다. webhook은 공개 endpoint가 필요해 개인 로컬 작업 공간(PRODUCT 5절)과 맞지 않는다.
 
 ## 권한 (`approval.md`)
 
@@ -143,7 +143,7 @@ flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 �
   2. `schedule-job`: scheduler, job 표와 기록, program caller, 놓친 차례, hold card, job 화면.
   3. flow는 `workflow.md`의 계획이 연다.
 - unattended mode(run의 전제)는 `approval-simplify`가 만들었다.
-- 실제로는 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval을 되살린 뒤에 연다(사람, 2026-10-21).
+- 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval도 되살렸다(`test-restore`). 계획 `headless-run`과 `schedule-job`은 열려 있고 2026-10-22 main에 맞춰 다시 정렬했다. 위 순서대로 연다.
 - gdrive OAuth는 flow와 따로 열 수 있다.
 
 test(AGENTS.md "속도", `write-test` skill):

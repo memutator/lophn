@@ -491,7 +491,7 @@ components:
   - id: tests-support
     kind: tool
     roles: [worker]
-    description: test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider, 함수 대답과 줄), core(daemon을 pipe로 띄우기, 사람 역할 helper), gateway(shell의 Gateway 역할), coding(CLI in-process, e2e:deps), app(template 앱 띄우기와 patch), fake-oauth(발급자), annotation. flow의 단계는 test file에 쓴다.
+    description: test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider, 함수 대답과 줄), core(daemon을 pipe로 띄우기, 사람 역할 helper, 묻게 하는 shell 명령), gateway(shell의 Gateway 역할), app(template 앱을 App Engineer의 release 길로 띄우기, patch, e2e:deps), fake-oauth(발급자), annotation. flow의 단계는 test file에 쓴다.
     path: tests/support/
     run: test file이 import한다(직접 돌리지 않는다)
     change_reasons:

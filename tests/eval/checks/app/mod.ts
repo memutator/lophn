@@ -9,7 +9,11 @@ export {
   diagnosisChecks,
 } from "./diagnose.ts";
 export { appToolCalled } from "./calls.ts";
-export { askedAgainInput, cardCoveredInput } from "./judge-input.ts";
+export {
+  askedAgainInput,
+  cardCoveredInput,
+  rootCauseInput,
+} from "./judge-input.ts";
 export {
   appEngineerCalls,
   DESIGN_SECTIONS,

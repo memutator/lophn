@@ -38,11 +38,7 @@ import {
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
 import { appTools } from "../../protocol/apps/blueprint/read.ts";
-import {
-  observeException,
-  problemReport,
-  requestTest,
-} from "../../protocol/problems/mod.ts";
+import { requestTest } from "../../protocol/problems/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
@@ -165,13 +161,9 @@ const SUPERVISOR_OPERATIONS = [
   // 앱의 외부 요청에 붙일 secret 값을 core가 현재 grant로 다시 판정해 건넨다.
   appsSecretValue.name,
 ];
-// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, 문제 보고, process
-// 관측뿐이다. 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다.
-const APP_CHILD_OPERATIONS = [
-  appCallTool.name,
-  problemReport.name,
-  observeException.name,
-];
+// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출뿐이다. 호출은 앱 process의
+// broker가 그 자식의 credential로 core를 부른다.
+const APP_CHILD_OPERATIONS = [appCallTool.name];
 
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
 export function appsOperationPolicies(): OperationPolicy[] {
@@ -190,8 +182,6 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["machine", "agent", "app"],
       kind: "command",
     },
-    // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
-    { name: appLogs.name, actors: ["machine"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appTools.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },
@@ -221,8 +211,6 @@ export function appsOperationPolicies(): OperationPolicy[] {
     })),
     // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다.
     { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
-    { name: problemReport.name, actors: ["app"], kind: "command" },
-    { name: observeException.name, actors: ["app"], kind: "command" },
     // release 준비 접수·진행은 coding agent와 machine, 취소는 machine만 한다. 확정(release.prepare)은 아니다.
     ...[releasePrepareBundle, releasePreparation].map((
       route,
@@ -766,7 +754,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
   };
 }
 
-// 발급기: supervisor 자식이 요청하는 app credential. 문제 보고와 process 관측만 닿는다.
+// 발급기: supervisor 자식이 요청하는 app credential. 다른 앱 호출만 닿는다.
 export function appCredentialIssuer(
   registry: CredentialRegistry,
 ): AppCredentialIssuer {

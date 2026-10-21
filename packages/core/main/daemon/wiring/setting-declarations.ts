@@ -4,7 +4,6 @@ import {
 } from "../../../apps/tickets/coding/mod.ts";
 import { reactionSettings } from "../../../approvals/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
-import { detailCollectionSetting } from "../../../problems/register.ts";
 import type { WiringFactory } from "./context.ts";
 
 // 각 module이 선언한 설정을 `settingDeclarations` 칸에 모은다. config wiring이 build에서 읽으므로 그보다 앞에 둔다.
@@ -13,7 +12,6 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
   prepare(ctx) {
     ctx.provide("settingDeclarations", [
       ...lophnAgentSettings,
-      detailCollectionSetting,
       ...Object.values(reactionSettings),
       codingDefaultHarness,
       codingDefaultModel,

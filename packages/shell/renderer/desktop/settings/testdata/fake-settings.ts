@@ -53,9 +53,6 @@ export const SAMPLE_DECLARED: readonly SettingEntry[] = [
     { type: "array", items: { type: "string" } },
     { default: [], chosen: ["*.log", "dist/"] },
   ),
-  declared("problems.detail_collection", { type: "boolean" }, {
-    default: true,
-  }),
 ];
 
 interface FakeSettingsOptions {

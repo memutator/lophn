@@ -34,7 +34,7 @@ export { releasesSchemaSteps } from "./schema.ts";
 export { createReleaseCommands } from "./commands.ts";
 export { createActivationQueueRead, createReleaseReads } from "./reads.ts";
 export { asksFor, compareForActivation } from "./compare.ts";
-export { declarationsOfBlueprint, permissionLabel } from "./facts.ts";
+export { declarationsOfBlueprint } from "./facts.ts";
 export {
   findReleaseForTicket,
   insertRelease,
@@ -44,8 +44,6 @@ export {
   loadReleases,
   loadStoredBlueprint,
   releaseDeclarations,
-  releaseLookupOf,
-  releaseWording,
 } from "./store.ts";
 // activation: 한 시도를 순서대로 진행·복원·이어받는 모듈과 봉인 사본에서 앱 자식 입력을 만드는 함수다.
 // 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(packages/core/main/app-supervisor 조립).

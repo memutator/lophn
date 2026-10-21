@@ -4,7 +4,6 @@ import type { KindLaunchSpec } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../../supervision/security/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
-export const COLLECTOR_KIND = "problems/report-collector";
 
 // runner가 동시에 도는 두 요청이 나눠 쓰는 고정 socket slot이다. Deno는 Unix socket 듣기·연결에 정확한
 // 경로의 net 허락을 요구하므로 요청마다 만든 경로가 아니라 이 slot의 경로만 쓴다.
@@ -34,7 +33,7 @@ const LIMIT_TOOLS = [
 
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고, 승인된 Deno 실행 파일과 자식을
 // 거는 platform 도구만 --allow-run으로 받는다. net은 고정 socket 경로와 가상 host,
-// core loopback(요청별 machine credential으로 command를 부르고 보고를 낸다)뿐이다.
+// core loopback(요청별 machine credential으로 command를 부른다)뿐이다.
 export function testRunnerSpec(input: {
   dataRoot: string;
   deno: string;
@@ -76,42 +75,6 @@ export function testRunnerSpec(input: {
     ],
     policy: "always",
     memory_limit_bytes: 536_870_912,
-  };
-  const checked = checkLaunchSpec(spec);
-  return checked.ok ? checked.value : undefined;
-}
-
-// report collector는 준비 폴더의 bundle 사본과 blueprint만 읽고, core loopback에만
-// 닿는다. 쓰기·자식 실행 권한은 없다.
-export function reportCollectorSpec(input: {
-  dataRoot: string;
-}): KindLaunchSpec | undefined {
-  if (!input.dataRoot.startsWith("/")) {
-    return undefined;
-  }
-  const entry = new URL(
-    "../reporting/worker/collector.ts",
-    import.meta.url,
-  ).pathname;
-  // --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은
-  // `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444다(releases/bundle/seal.ts),
-  // 등록 시점 spec은 credential의 bundle_hash로 찾는 그 부모 폴더만 이름 짓는다.
-  // ledger·blob store는 직접 열지 않는다. FFI는 launchArgv가 플래그를 내지 않는다.
-  const bundles = `${input.dataRoot}/apps`;
-  const spec: KindLaunchSpec = {
-    kind: COLLECTOR_KIND,
-    entry,
-    allow_read: [bundles],
-    allow_write: [],
-    allow_net: ["127.0.0.1"],
-    allow_run: [],
-    allow_sys: [],
-    // 환경은 명시한 안전 변수만: 띄운 뒤 root·kind를 읽는 것뿐이다. HOME·PATH는
-    // supervisor env callback이 프로세스 env로만 넘기고 Deno는 permission 없이
-    // OS env에서 캐시 위치를 찾는다.
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
-    policy: "always",
-    memory_limit_bytes: 268_435_456,
   };
   const checked = checkLaunchSpec(spec);
   return checked.ok ? checked.value : undefined;

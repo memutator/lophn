@@ -109,7 +109,6 @@ export function assemble(
       ? asLoose(team.createLedgerRegistration(environment as never))
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
-    const fromProblemsReport = asLoose(team.problemsReportDefinitions);
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     const fromTickets = asLoose(team.ticketDefinitions);
     // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
@@ -118,7 +117,6 @@ export function assemble(
       asLoose(direct),
       fromLedger,
       fromProblems,
-      fromProblemsReport,
       fromLophnAgent,
       fromTickets,
     ].filter((item): item is Loose => item !== undefined);

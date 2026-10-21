@@ -42,12 +42,7 @@ import {
   createReleaseReads,
 } from "./releases/reads.ts";
 import { releasesSchemaSteps } from "./releases/schema.ts";
-import {
-  loadActiveBlueprint,
-  releaseDeclarations,
-  releaseWording,
-} from "./releases/store.ts";
-import { ProblemWordingPort } from "../../protocol/problems/mod.ts";
+import { loadActiveBlueprint, releaseDeclarations } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
 import { PACKAGE_GUIDE_BLOB_FIELD } from "./packages/blobs.ts";
@@ -233,9 +228,6 @@ export function createLedgerRegistration(
       // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
       // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
       { key: currentDeclarations, create: () => releaseDeclarations },
-      // 보고 당시 release의 선언 code 문구다. problems의 문구 projection이
-      // 같은 snapshot sql로 읽는다.
-      { key: ProblemWordingPort, create: () => releaseWording },
     ],
   };
 }
@@ -268,13 +260,11 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.usage,
     ],
     // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
-    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다.
     ports: new Map<unknown, unknown>([
       [
         currentDeclarations,
         releaseDeclarations,
       ],
-      [ProblemWordingPort, releaseWording],
     ]),
   };
 }

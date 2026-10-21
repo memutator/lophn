@@ -163,8 +163,6 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.note.coding-signal": Record<never, never>;
   "settings.note.not-set": Record<never, never>;
   "settings.note.reactions-ask": Record<never, never>;
-  "settings.problems-detail_collection.help": Record<never, never>;
-  "settings.problems-detail_collection.name": Record<never, never>;
   "settings.reaction.activation-failed-when": Record<never, never>;
   "settings.reaction.opens-app-engineer": Record<never, never>;
   "settings.shell-density.help": Record<never, never>;

@@ -405,8 +405,8 @@ export const appsWiring: WiringFactory = () => {
       // apps/supervisor. 앱 프로세스 감독이다. machine credential과 서명 검증 공개 key를 hello에
       // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
       // 계속 선다: supervisor 관측이 없는 상태(unavailable)로 답한다.
-      // collector는 요청 credential을 ledger 행으로 다시 읽는다. 메모리 발급만으로는
-      // 선언 보고가 unauthorized가 된다.
+      // 앱 자식의 app.call_tool이 writer를 지난다. writer는 ledger 행으로 기록되지 않은
+      // 자격의 command를 거절하므로 메모리 발급만으로는 unauthorized가 된다.
       const childIssuer = appCredentialIssuer(registry);
       appsControl.useIssuer({
         ...childIssuer,

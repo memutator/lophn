@@ -3,14 +3,12 @@ import {
   type ReleaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { ProblemWordingFact } from "../../../protocol/problems/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import type {
   AppDeclarations,
   CurrentDeclarations,
 } from "../permissions/mod.ts";
-import { permissionLabel } from "./facts.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -173,62 +171,6 @@ export function findReleaseForTicket(
   return row === undefined ? ok(null) : releaseFromRow(sql, row);
 }
 
-type ReleaseFactRow = {
-  id: string;
-  app: string;
-  number: number;
-  code_commit: string;
-  activated_at: ReleaseRecord["activated_at"];
-  // 그 release가 선언한 바깥 자원 이름이다.
-  resources: string[];
-};
-
-// problems의 `ReleaseLookup`을 구조로 맞춘다. module끼리 import하지 않으므로 조립이 끼운다.
-export function releaseLookupOf(sql: Query): {
-  get(id: string): Result<ReleaseFactRow | null>;
-  activeOf(app: string): Result<ReleaseFactRow | null>;
-  previousOf(id: string): Result<ReleaseFactRow | null>;
-} {
-  function factOf(row: SqlRow | undefined): Result<ReleaseFactRow | null> {
-    if (row === undefined) return ok(null);
-    try {
-      const declarations = JSON.parse(String(row.declarations)) as {
-        permissions: Blueprint["permissions"];
-      };
-      return ok({
-        id: String(row.id),
-        app: String(row.app),
-        number: Number(row.number),
-        code_commit: String(row.code_commit),
-        activated_at:
-          row.activated_at === null || row.activated_at === undefined
-            ? null
-            : String(row.activated_at),
-        resources: [...new Set(declarations.permissions.map(permissionLabel))]
-          .sort(),
-      });
-    } catch {
-      return invalidStored();
-    }
-  }
-  return {
-    get: (id) => factOf(sql.get("SELECT * FROM releases WHERE id = ?", [id])),
-    activeOf: (app) =>
-      factOf(
-        sql.get("SELECT * FROM releases WHERE app = ? AND status = 'active'", [
-          app,
-        ]),
-      ),
-    previousOf: (id) =>
-      factOf(sql.get(
-        `SELECT prev.* FROM releases prev
-          JOIN releases cur ON cur.id = ? AND prev.app = cur.app
-         WHERE prev.number < cur.number ORDER BY prev.number DESC LIMIT 1`,
-        [id],
-      )),
-  };
-}
-
 export function nextReleaseNumber(sql: Query, app: string): number {
   const row = sql.get(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM releases WHERE app = ?",
@@ -291,23 +233,3 @@ export const releaseDeclarations: CurrentDeclarations = {
     }
   },
 };
-
-// problems의 `ProblemWording` port 구현이다. 보고 당시 release에 고정한
-// blueprint의 선언 문구와 앱 등록 기록의 이름을 부른 쪽의 snapshot sql로 읽는다. 보고 당시
-// 문구다: 새 release가 선언을 바꾸거나 지워도 이전 보고의 답은 그 release의 선언이다. 앱
-// 이름은 선언이 없어도 부르는 쪽이 fallback에 붙일 수 있게 항상 준다. 그 release가 없거나
-// 선언에 그 code가 없으면 declaration이 null이다.
-export function releaseWording(
-  sql: Query,
-  app: string,
-  release: string,
-  code: string,
-): Result<ProblemWordingFact | null> {
-  const appRow = sql.get("SELECT name FROM apps WHERE id = ?", [app]);
-  const app_name = appRow === undefined ? app : String(appRow.name);
-  // 새 blueprint에는 problem code 선언이 없다. 선언 문구는 늘 없는 것이다.
-  void code;
-  const stored = loadStoredBlueprint(sql, release);
-  if (!stored.ok) return stored;
-  return ok({ app_name, declaration: null });
-}

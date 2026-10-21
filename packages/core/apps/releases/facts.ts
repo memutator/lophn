@@ -22,20 +22,3 @@ export function declarationsOfBlueprint(
     tools: blueprint.tools.map((tool) => tool.name),
   };
 }
-
-// 요구 permission의 비교 이름이다. 같은 요구는 같은 이름이다.
-export function permissionLabel(
-  requirement: Blueprint["permissions"][number],
-): string {
-  const scope = requirement.scope as Record<string, unknown>;
-  if ("path" in scope) {
-    return `${requirement.kind}:${String(scope.path)}${
-      scope.recursive === true ? "/**" : ""
-    }`;
-  }
-  if ("host" in scope) {
-    return `${requirement.kind}:${String(scope.host)}:${String(scope.port)}`;
-  }
-  if ("name" in scope) return `${requirement.kind}:${String(scope.name)}`;
-  return `${requirement.kind}:${String(scope.key)}`;
-}

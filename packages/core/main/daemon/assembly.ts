@@ -6,11 +6,7 @@ import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./wiring/lophn-agent-team.ts";
-import {
-  createLedgerRegistration as createProblemsRegistration,
-  problemsReportDefinitions,
-  problemsTestDefinitions,
-} from "../../problems/register.ts";
+import { problemsTestDefinitions } from "../../problems/register.ts";
 import { ticketDefinitions } from "../../apps/tickets/register.ts";
 import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/tickets/ports.ts";
 import type { WiringFactory } from "./wiring/context.ts";
@@ -35,7 +31,6 @@ import {
   lophnAgentSessionWiring,
 } from "./wiring/lophn-agent-session.ts";
 import { routerWiring } from "./wiring/router.ts";
-import { problemsWiring } from "./wiring/problems.ts";
 import { problemsTestsWiring } from "./wiring/problems-tests.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import { kindsWiring } from "./wiring/kinds.ts";
@@ -60,8 +55,6 @@ export const TEAMS = [
   { createLedgerRegistration: createAppsRegistration },
   { createLedgerRegistration: createDomainsRegistration },
   { problemsTestDefinitions },
-  { problemsReportDefinitions },
-  { createLedgerRegistration: createProblemsRegistration },
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { ticketDefinitions },
@@ -128,7 +121,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   appsTicketsWiring,
   codingSessionsWiring,
   annotationsWiring,
-  problemsWiring,
   problemsTestsWiring,
   lophnAgentExtensionsWiring,
   lophnAgentRuntimeWiring,

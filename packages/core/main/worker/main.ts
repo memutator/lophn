@@ -6,11 +6,6 @@ import {
 import { runReleaseWorker } from "../../apps/releases/worker/run.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./test-runner.ts";
 import { runRunnerService } from "../../problems/tests/work/runner-service.ts";
-import {
-  COLLECTOR_KIND,
-  collectorReady,
-  runCollectorWorker,
-} from "../../problems/reporting/worker/collector.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
 
 const WORKER_ENTRIES: Readonly<
@@ -24,11 +19,6 @@ const WORKER_ENTRIES: Readonly<
     if (!ready.ok) throw new Error(ready.error.message);
     // RequestTest runner service(problems/tests)가 test-runner kind process의 session 하나로 돈다(stdin 하나).
     await runRunnerService();
-  },
-  [COLLECTOR_KIND]: () => {
-    const ready = collectorReady(COLLECTOR_KIND);
-    if (!ready.ok) return Promise.reject(new Error(ready.error.message));
-    return runCollectorWorker();
   },
   "apps/data": runDataWorker,
 };

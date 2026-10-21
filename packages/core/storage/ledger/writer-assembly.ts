@@ -161,20 +161,13 @@ function teamRegistration(team: TeamModule): Loose | undefined {
   const fromLedger = team.createLedgerRegistration
     ? team.createLedgerRegistration({} as never)
     : undefined;
-  // problems 팀은 tests와 reporting 두 등록을 같은 모듈이 내보낸다. 둘 다 모은다.
-  const problems: Loose[] = [
-    team.problemsTestDefinitions,
-    team.problemsReportDefinitions,
-  ].filter(defined).map((value) => value as Loose);
-  if (problems.length > 0) {
-    const commands = problems.flatMap((value) => value.commands ?? []);
-    const ports: TxPortRegistration[] = problems.flatMap((value) =>
-      toArray(value.ports) as TxPortRegistration[]
-    );
-    const blobFields: BlobFieldDefinition[] = problems.flatMap((value) =>
-      value.blobFields ?? []
-    );
-    return { commands, ports, blobFields };
+  const problems = team.problemsTestDefinitions as Loose | undefined;
+  if (problems) {
+    return {
+      commands: problems.commands ?? [],
+      ports: toArray(problems.ports) as TxPortRegistration[],
+      blobFields: problems.blobFields ?? [],
+    };
   }
   const sources = [
     direct,

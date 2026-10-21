@@ -167,9 +167,6 @@ export const workspaceSettings = {
     "That feature won't start. Everything else keeps working.",
   "settings.note.reactions-ask":
     "Ask puts a request in the waiting list and opens the session when you allow it. Events that close a task handed to an App Engineer are not listed; they always reach that App Engineer.",
-  "settings.problems-detail_collection.help":
-    "Keep a snapshot with each reported problem.",
-  "settings.problems-detail_collection.name": "Collect problem details",
   "settings.reaction.activation-failed-when":
     "A new release could not be activated.",
   "settings.reaction.opens-app-engineer":

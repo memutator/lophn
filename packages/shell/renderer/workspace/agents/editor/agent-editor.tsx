@@ -1,7 +1,7 @@
 // agent 하나의 설정 화면. Project Manager, App Engineer, Operator, lophn이 같은 화면을 쓰고 새 Operator 만들기도 같다.
 // Definition 탭에 profile·이름·놓을 곳·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
 // 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import { Button } from "@lophn/ui/primitives";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
@@ -150,6 +150,9 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  // 저장은 한 줄로 이어 보낸다. 앞 저장이 끝나기 전에 다음 변화를 보내면 옛 revision이라 conflict가 난다.
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  const revision = useRef(0);
   const [domains, setDomains] = useState<readonly DomainView[] | null>(null);
 
   useEffect(() => {
@@ -216,6 +219,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     setGrants({ kind: "loading" });
     void source.grants(project, agent).then((result) => {
       if (live) {
+        if (result.ok) revision.current = result.value.revision;
         setGrants(
           result.ok
             ? { kind: "ready", view: result.value }
@@ -354,30 +358,30 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     const assignment = detail.assignment;
     const before = grants.view;
     setGrants({ kind: "ready", view: { ...before, entries } });
-    void source.setGrants(project, assignment, entries, before.revision).then(
-      async (result) => {
-        if (result.ok) {
-          const { revision } = result.value;
-          setGrants((now) =>
-            now.kind === "ready"
-              ? { kind: "ready", view: { ...now.view, revision } }
-              : now
-          );
-          return;
-        }
-        const fresh = await source.grants(project, assignment);
-        setGrants(
-          fresh.ok ? { kind: "ready", view: fresh.value } : {
-            kind: "ready",
-            view: before,
-          },
-        );
-        setNotice({
-          title: "agents.title.change-failed",
-          body: "project-workspace.notice.agents-change-failed",
-        });
-      },
-    );
+    saving.current = saving.current.then(async () => {
+      const result = await source.setGrants(
+        project,
+        assignment,
+        entries,
+        revision.current,
+      );
+      if (result.ok) {
+        revision.current = result.value.revision;
+        return;
+      }
+      const fresh = await source.grants(project, assignment);
+      if (fresh.ok) revision.current = fresh.value.revision;
+      setGrants(
+        fresh.ok ? { kind: "ready", view: fresh.value } : {
+          kind: "ready",
+          view: before,
+        },
+      );
+      setNotice({
+        title: "agents.title.change-failed",
+        body: "project-workspace.notice.agents-change-failed",
+      });
+    });
   };
 
   return (

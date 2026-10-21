@@ -53,7 +53,6 @@ run 둘을 견줄 때는 `deno task eval:scorecard diff <idA> <idB>`가 있다.
 
 - 고치기 전에 같은 규칙을 시험하는 **다른 요청의 case**를 `cases`에 먼저 쓴다. 고친 줄에 맞춰 case를 쓰지 않는다. 이유: 시나리오 하나에 맞춘 고침을 걸러 내려는 것이다.
 - 판정 규칙과 예산, trial 정책은 돌리기 전에 적는다. 방금 본 결과를 보고 규칙을 고르지 않는다.
-- **variant의 coding 길**: hook 처리 코드나 coding skill의 설명을 고치는 experiment는 coding 시나리오로 재지 않는다. hook과 skill 설명은 사람이 한 번 설치한 주 checkout 것이라 variant에서도 그대로다. agent가 치는 CLI 명령과 skill 본문(`lophn guide`)은 variant 것이 돈다. 이유: 설치를 variant마다 다시 하면 사람의 전역 설정을 고친다.
 
 ## report.md
 

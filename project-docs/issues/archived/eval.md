@@ -134,3 +134,20 @@ guard: `tests/eval/restore/materials_test.ts`
 - 그대로 두고 시나리오 머리 주석에 한계를 적는다(작음. 재는 context가 제품과 계속 다르다).
 
 닫음: `operators-home@5`가 월말정리를 `{app: "가계부"}`에 두고 `restoreOperators`가 app place를 `world.apps`로 푼다. 월말정리는 가계부 앱의 domain을 맡는다. 가계부는 켜진 앱이 아니라서 O6·O7·T19-op에서 부를 앱 tool은 없다. 앱 tool 결과를 보는 O4는 bug가 심긴 `calendar-app-bug@2`와 그 앱 place의 Operator로 다시 지었다.
+
+## coding session이 여럿이면 run 요약의 coding token이 session 수만큼 겹쳐 세어진다
+
+```yaml
+kind: bug
+modules: [tests]
+closed: fixed
+guard: 없음
+```
+
+지금: `tests/eval/coding/metrics/jsonl.ts`의 `readClaudeUsage`는 cwd의 Claude Code project 폴더 안 jsonl을 모두 읽는다("trial마다 cwd가 새 폴더라 모두 그 trial의 것"). 같은 앱의 coding session은 모두 같은 source 폴더(cwd)에서 뜨므로, session마다 trial 전체의 합계가 붙고 run 요약은 그것을 다시 더한다. 재현: calendar-user 넷째 run은 session 2개라 요약이 output 69,434였는데 실제는 34,717이다. 앱 직접 짜기 일회성 run은 session 5개라 요약이 output 84,185였는데 실제는 16,837이다.
+
+영향: coding agent의 token과 시간을 App Engineer나 다른 run과 견줄 때 session 수만큼 부풀어 보인다.
+
+고치려면: usage를 session이 아니라 trial에서 cwd마다 한 번 읽는다(작음. trace의 usage 칸을 trial 쪽으로 옮긴다). 또는 jsonl의 sessionId로 session마다 나눈다(작음. Claude Code session id는 core의 `coding_sessions.external_session`에 있다). **추천: sessionId로 나누기**(session별 수치가 남는다).
+
+닫음: coding agent driver와 수치(`tests/eval/coding/`)를 지웠다. 제품에 coding session을 띄우는 길이 없어(Router가 `coding_agent` call을 거절한다) eval이 coding token을 세는 코드도 없다. coding agent 연결을 살리면 그때 session id로 나눠 센다.

@@ -1,15 +1,10 @@
-// 사람 결정 handle 발급. 기능 화면(문제 결정, provider 끊기)에서 사람이 누르면
+// 사람 결정 handle 발급. 기능 화면(provider 끊기)에서 사람이 누르면
 // renderer가 결정 이름과 대상만 보낸다. 여기서 정본을 core에서 다시 읽어 내용 기준을 만들고 core에
 // handle을 등록한다. renderer는 handle 참조만 받아 `confirmation: required` route를 부른다.
 // 원문은 core가 만들고 이 모듈에는 참조만 온다. 정본과 맞지 않는 결정은 handle을 받지 못한다.
 import type { DecisionHandleRequest } from "../../ipc/confirmation.ts";
 import { type DecisionCore, failed, type Read } from "./core.ts";
 import { contentBasis, earlierDeadline } from "./handle.ts";
-import {
-  PROBLEM_CONCERN,
-  PROBLEM_DECISION,
-  readProblemDecision,
-} from "./problem-decision.ts";
 import {
   PROVIDER_CONCERN,
   PROVIDER_DISCONNECT,
@@ -34,9 +29,6 @@ function readCanonical(
   request: DecisionHandleRequest,
 ): Promise<Read> {
   const { concern, decision } = request;
-  if (concern === PROBLEM_CONCERN && decision === PROBLEM_DECISION) {
-    return readProblemDecision(core, request);
-  }
   if (concern === PROVIDER_CONCERN && decision === PROVIDER_DISCONNECT) {
     return readProviderDisconnect(core, request);
   }

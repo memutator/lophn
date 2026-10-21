@@ -37,7 +37,7 @@ export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
 }
 
 /**
- * main이 창에 시키는 것(전역 팔레트, feedback의 Issue 열기). 표에 있는 이름과 검사한 대상만 넘긴다.
+ * main이 창에 시키는 것(전역 팔레트). 표에 있는 이름만 넘긴다.
  * 막 연 창에서는 renderer가 구독하기 전에 올 수 있어 preload가 곧바로 듣고 마지막 하나를 들고 있다가
  * 첫 구독에 넘긴다.
  */
@@ -46,14 +46,7 @@ export function createIntentApi(transport: ShortcutTransport): IntentApi {
   let held: DesktopIntent | null = null;
   transport.on(DESKTOP_INTENT_CHANNEL, (_event, payload) => {
     if (!isDesktopIntent(payload)) return;
-    // 대상 링크는 검사한 값만 새 객체로 넘긴다.
-    const intent: DesktopIntent = typeof payload === "string"
-      ? payload
-      : Object.freeze({
-        kind: payload.kind,
-        app: payload.app,
-        problem: payload.problem,
-      });
+    const intent: DesktopIntent = payload;
     if (listeners.size === 0) {
       held = intent;
       return;

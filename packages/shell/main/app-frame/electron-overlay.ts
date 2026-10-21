@@ -55,7 +55,6 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     security.session(adapter);
   }
   const registry = new ContentsRegistry();
-  let feedbackEnded: ((draftRef: string) => void) | undefined;
   const windows = new Set<OverlayController>();
   const byWindow = new Map<BrowserWindow, OverlayController>();
   const denied = {
@@ -90,14 +89,6 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     /** sender 검사에 쓰는 registry. terminal IPC가 같은 등록 표를 본다. */
     overlayRegistry(): ContentsRegistry {
       return registry;
-    },
-    /** 그 창의 overlay. feedback dialog를 main이 열고 닫을 때 쓴다. */
-    controller(window: BrowserWindow): OverlayController | undefined {
-      return byWindow.get(window);
-    },
-    /** feedback 통로 밖에서 닫힌 dialog(overlay crash·창 닫힘)를 feedback에 알린다. */
-    onFeedbackEnded(listener: (draftRef: string) => void): void {
-      feedbackEnded = listener;
     },
     /** 앱 view를 붙인 창의 overlay를 다시 맨 위에 둔다(z-order는 main만 바꾼다). */
     raise(window: BrowserWindow): void {
@@ -202,7 +193,6 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
           set: (callback, ms) => setTimeout(callback, ms),
           clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
         },
-        feedbackEnded: (draftRef) => feedbackEnded?.(draftRef),
       });
       windows.add(controller);
       byWindow.set(window, controller);

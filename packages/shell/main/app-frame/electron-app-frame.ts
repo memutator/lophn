@@ -10,12 +10,14 @@ import {
   WebContentsView,
 } from "electron";
 
-import { FEEDBACK_LIMITS } from "../../ipc/feedback.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
 import type { AppViewOrder } from "./view-order.ts";
 import type { AppViewContents, AppViewHost, ViewBounds } from "./registry.ts";
 import type { AppSessionHandle } from "./session-policy.ts";
+
+// annotation screenshot의 긴 변 상한. app-frame/capture.ts의 SCREENSHOT_LONG_SIDE와 같다.
+const SCREENSHOT_LONG_SIDE = 1600;
 
 interface ElectronAppViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
@@ -129,8 +131,8 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       if (image.isEmpty()) throw new Error("capture is empty");
       const { width, height } = image.getSize();
       const long = Math.max(width, height);
-      if (long > FEEDBACK_LIMITS.png_long_side) {
-        const scale = FEEDBACK_LIMITS.png_long_side / long;
+      if (long > SCREENSHOT_LONG_SIDE) {
+        const scale = SCREENSHOT_LONG_SIDE / long;
         image = image.resize({
           width: Math.max(1, Math.floor(width * scale)),
           height: Math.max(1, Math.floor(height * scale)),

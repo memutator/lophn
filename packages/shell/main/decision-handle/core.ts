@@ -67,7 +67,3 @@ export function record(value: unknown): Record<string, unknown> {
     ? value as Record<string, unknown>
     : {};
 }
-
-export function text(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}

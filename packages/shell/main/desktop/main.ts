@@ -17,7 +17,6 @@ import * as crash from "./wiring/crash.ts";
 import * as desktop from "./wiring/desktop.ts";
 import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
-import * as feedback from "./wiring/feedback.ts";
 import * as layout from "./wiring/layout.ts";
 
 const ctx = createShellContext();
@@ -32,7 +31,6 @@ const browserViews = add(browser.register(ctx));
 const artifacts = add(artifact.register(ctx, browserViews));
 const views = add(appViews.register(ctx, browserViews, artifacts));
 add(appCalls.register(ctx, views));
-add(feedback.register(ctx, views));
 add(annotate.register(ctx, views, artifacts));
 add(secretInput.register(ctx));
 add(appearance.register(ctx));

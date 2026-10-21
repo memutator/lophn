@@ -38,7 +38,6 @@ import {
   type CardDisplay,
   checkOpen,
   type ConnectionState,
-  type FeedbackViewSnapshot,
   sameConnection,
   stateOf as state,
   targetOf,
@@ -53,7 +52,6 @@ export type {
   BoundView,
   CardDisplay,
   ConnectionState,
-  FeedbackViewSnapshot,
   ViewBounds,
   ViewListing,
 } from "./view-model.ts";
@@ -434,23 +432,6 @@ export function createAppFrame(deps: AppFrameDeps) {
         return undefined;
       }
       return boundViewOf(entry);
-    },
-
-    /** [Report a problem]의 버튼 시점 view. 없는 view는 undefined다. */
-    feedbackView(view_session: string): FeedbackViewSnapshot | undefined {
-      const entry = entries.get(view_session);
-      if (entry === undefined) return undefined;
-      return {
-        view_session,
-        window: entry.window,
-        generation: entry.generation,
-        app: entry.target.app,
-        release: entry.target.release,
-        mode: entry.target.mode,
-        screen: entry.target.screen,
-        bundleHash: entry.binding.bundleHash,
-        processNonce: entry.binding.processNonce,
-      };
     },
 
     /** annotate가 쓰는 view 입구. 없는 view는 undefined다. */

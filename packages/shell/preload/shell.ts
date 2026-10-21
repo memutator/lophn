@@ -18,7 +18,6 @@ import { createFolderApi } from "./folder-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
-import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
@@ -72,17 +71,9 @@ contextBridge.exposeInMainWorld(
       },
       ...createViewsApi(ipcRenderer),
       ...createAnnotateApi(ipcRenderer),
-      ...createFeedbackBegin(ipcRenderer),
     })
     : createShellApi(ipcRenderer, role),
 );
-// [Report a problem] dialog의 제출·취소는 overlay view만 갖는다.
-if (role === "overlay") {
-  contextBridge.exposeInMainWorld(
-    "lophnFeedback",
-    createOverlayFeedback(ipcRenderer),
-  );
-}
 // 터미널과 창 shortcut, main이 시키는 것은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
 if (role === "shell") {
   contextBridge.exposeInMainWorld(

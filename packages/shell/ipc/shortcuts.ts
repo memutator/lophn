@@ -42,33 +42,11 @@ export const DESKTOP_INTENT_CHANNEL = "shell:intent";
  */
 const DESKTOP_INTENTS = ["global-palette"] as const;
 
-/**
- * [Report a problem]으로 접수된 feedback이 묶인 Issue. 그 앱 공간을 연다.
- * 앱·문제 ID는 main이 접수 결과에서 정하고 화면에는 보이지 않는다.
- */
-interface AppIssueIntent {
-  readonly kind: "app-issue";
-  readonly app: string;
-  readonly problem: string;
-}
-
-export type DesktopIntent = typeof DESKTOP_INTENTS[number] | AppIssueIntent;
-
-const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const PROBLEM_ID = /^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+export type DesktopIntent = typeof DESKTOP_INTENTS[number];
 
 export function isDesktopIntent(value: unknown): value is DesktopIntent {
-  if (typeof value === "string") {
-    return (DESKTOP_INTENTS as readonly string[]).includes(value);
-  }
-  if (typeof value !== "object" || value === null) return false;
-  const target = value as Record<string, unknown>;
-  if (target.kind === "app-issue") {
-    return Object.keys(target).sort().join(",") === "app,kind,problem" &&
-      typeof target.app === "string" && APP_ID.test(target.app) &&
-      typeof target.problem === "string" && PROBLEM_ID.test(target.problem);
-  }
-  return false;
+  return typeof value === "string" &&
+    (DESKTOP_INTENTS as readonly string[]).includes(value);
 }
 
 export interface IntentApi {

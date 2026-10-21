@@ -110,19 +110,6 @@ export interface ViewListing {
   card: CardDisplay | null;
 }
 
-/** [Report a problem]이 버튼 시점에 고정하는 view. */
-export interface FeedbackViewSnapshot {
-  view_session: string;
-  window: string;
-  generation: number;
-  app: string;
-  release: string | null;
-  mode: ViewMode;
-  screen: string;
-  bundleHash: string;
-  processNonce: string;
-}
-
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const SIZES: readonly string[] = ["full", "panel", "card"];

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { FeedbackProblem } from "./feedback.ts";
-
 const coordinate = z.number().int().min(0).max(32768);
 export const rectSchema = z.object({
   x: coordinate,
@@ -97,14 +95,8 @@ export type OverlayModel = z.infer<typeof overlayModelSchema>;
 type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
 export type PaletteIcon = typeof PALETTE_ICONS[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;
-/**
- * `feedback`는 main이 연 [Report a problem] dialog의 draftRef다. shell renderer는 열 수 없다.
- * `feedbackProblems`는 그 앱의 열린 문제이고 없으면 고르기 없이 새 문제로만 보낸다.
- */
 export type OverlaySurface = OverlayOpen & OverlayIdentity & {
   rect: Rect;
-  feedback?: string;
-  feedbackProblems?: readonly FeedbackProblem[];
 };
 export type OverlaySnapshot = {
   generation: number;

@@ -15,7 +15,7 @@
 - 읽을 것:
   - 계획: `project-docs/plan/schedule-job/README.md`의 "정한 것"(`hold`는 대기 목록 card로 알리고 사람이 [지금 실행]이나 [건너뛰기])과 "뼈대 검토에서 정한 것"의 "`hold`로 기다리는 줄"(같은 줄에 접기, 제때 온 차례가 `superseded`로 닫기, 도는 중의 [지금 실행]은 `conflict`이고 card가 남는다)
   - roadmap: `project-docs/products/roadmap/headless-schedule.md`의 "놓친 차례"(알림은 꺼졌다 켜져도 대기 목록에 남는다)
-  - 앞 계획: `project-docs/plan/approval-simplify/README.md`("activation 동의는 activation module의 상태와 사람의 동의 command로 옮긴다. 대기 목록에 같이 보인다", 보류 request 표를 지운다). 앞 계획 land 뒤 path 확인: 그 계획이 대기 목록 file을 어떻게 남겼는지 먼저 본다.
+  - 앞 계획 `approval-simplify`(land됨, `project-docs/products/change-log/0.6.0.md`의 "approval을 할당, 기다리는 turn 하나, turn mode, shell 규칙으로 줄인다"): activation 동의는 activation module의 상태와 사람의 동의 command이고 대기 목록에 같이 보인다(`project-docs/architecture/activation.md`). 보류 request 표는 없다. 대기 목록 file이 지금 어떤지 먼저 본다(`packages/shell/renderer/desktop/connection/waiting/`).
   - 낱말: `project-docs/plan/schedule-job/tasks/sj-shell-job-screen.md`의 "내놓는 것"(화면 낱말 "Scheduled job")
   - 계약: `project-docs/plan/schedule-job/tasks/sj-jobs-contract.md`(route 표, `compare`, `jobDecideHold`의 `conflict`)와 코드 `packages/protocol/jobs/jobs.ts`(`JobHold`, `JobRecord`, `JobRunRecord`, `jobHolds`, `jobDecideHold`), `packages/protocol/jobs/values.ts`(`JobAction`), `packages/protocol/events/transient.ts`(`JobChanged`)
   - architecture: `project-docs/architecture/approval.md`의 "request"(카드 내용은 program이 만든다, 침묵은 결정이 아니다), `project-docs/architecture/event.md`의 "agent event와 화면"(조건을 건 뒤 ready에 읽는다, session 없는 event는 종류 조건으로만 받는다), `project-docs/architecture/ui-kit.md`의 "gallery가 정본이다"

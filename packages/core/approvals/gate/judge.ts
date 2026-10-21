@@ -7,7 +7,7 @@ import type {
 import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import { normalize, shellPieces, shellVerdict } from "./shell-match.ts";
 
-// 사람이 정할 것(approval-simplify README 1): 할당한 tool의 바깥 효과는 attended에서도 묻지 않는다.
+// 할당한 tool의 바깥 효과는 attended에서도 묻지 않는다(사람, 2026-10-21. `project-docs/architecture/approval.md`).
 // 사람이 묻기로 정하면 이 상수만 켠다.
 const ASK_EXTERNAL_WHEN_ATTENDED = false;
 

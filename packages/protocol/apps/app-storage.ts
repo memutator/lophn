@@ -20,6 +20,20 @@ export function appDataFolder(dataRoot: string, app: string): string {
   return `${appFolder(dataRoot, app)}/data`;
 }
 
+// log는 어느 fs grant로도 열리지 않는 자리다. 쓰는 쪽은 app supervisor 하나다(app-log.ts).
+export function appLogFolder(dataRoot: string, app: string): string {
+  return `${appFolder(dataRoot, app)}/logs`;
+}
+
+export function appLogFile(dataRoot: string, app: string): string {
+  return `${appLogFolder(dataRoot, app)}/app.log`;
+}
+
+// 돌린 앞 file. 하나만 둔다.
+export function appLogPreviousFile(dataRoot: string, app: string): string {
+  return `${appLogFolder(dataRoot, app)}/app.log.1`;
+}
+
 export function appBundleCopy(
   dataRoot: string,
   app: string,

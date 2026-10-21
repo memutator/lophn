@@ -76,7 +76,7 @@ export const TICKET_TOOLS: readonly ToolDefinition[] = [
     input: ticketCreateInputSchema,
     routes: [ticketCreate],
     description:
-      "Open a ticket for a coding agent: a goal (all the coding agent reads, so for a new app or feature the whole design), one acceptance check: app_test (the platform checks), examples (tool calls with their expected results, which the program runs on the reported release) or text (judged by you), and optional evidence links (problem, ticket, release, file, annotation).",
+      "Open a ticket for a coding agent: a goal (all the coding agent reads, so for a new app or feature the whole design), one acceptance check: app_test (the platform checks), examples (tool calls with their expected results, which the program runs on the reported release) or text (judged by you), and optional evidence links (ticket, release, file, annotation).",
     effect: "write",
     handler: async (input, ctx) => {
       const made = await commandOf(

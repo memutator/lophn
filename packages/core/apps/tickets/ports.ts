@@ -14,10 +14,9 @@ import type { AnnotationLookup } from "../annotations/ports.ts";
 import { checkTicketClaim } from "./claims.ts";
 import { createTicketSessionEnd } from "./session-end.ts";
 
-// ticket 근거(problem, release)가 어느 앱의 것인지 읽는다. 없으면 null이다. 두 표는 같은
+// ticket 근거 release가 어느 앱의 것인지 읽는다. 없으면 null이다. releases 표는 같은
 // ledger라 tx.sql로 읽고, 읽지 못하면(표 없음 등) 닫힌 채로 unavailable이다.
 type TicketEvidenceLookupPort = {
-  problemApp(id: string): Result<string | null>;
   releaseApp(id: string): Result<string | null>;
 };
 export const TicketEvidenceLookup: PortKey<TicketEvidenceLookupPort> =
@@ -29,22 +28,21 @@ export const TicketAnnotationLookup: PortKey<AnnotationLookup> = definePort<
   AnnotationLookup
 >("apps.AnnotationLookup");
 
-function appOf(tx: Tx, table: "problems" | "releases", id: string) {
+function releaseAppOf(tx: Tx, id: string) {
   try {
-    const row = tx.sql.get(`select app from ${table} where id = ?`, [id]);
+    const row = tx.sql.get("select app from releases where id = ?", [id]);
     return ok(row === undefined ? null : String(row["app"]));
   } catch {
     return err({
       code: "unavailable" as const,
-      message: `${table} could not be read`,
+      message: "releases could not be read",
     });
   }
 }
 
 const ports: TxPortRegistration[] = [
   defineTxPort(TicketEvidenceLookup, (tx): TicketEvidenceLookupPort => ({
-    problemApp: (id) => appOf(tx, "problems", id),
-    releaseApp: (id) => appOf(tx, "releases", id),
+    releaseApp: (id) => releaseAppOf(tx, id),
   })),
   // release 준비가 지금 claim을 확인한다.
   defineTxPort(

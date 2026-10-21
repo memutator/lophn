@@ -87,9 +87,8 @@ export const acceptanceCheckSchema = z.discriminatedUnion("kind", [
 ]);
 export type AcceptanceCheck = z.infer<typeof acceptanceCheckSchema>;
 
-// 근거 링크. 문제, 다른 ticket, release, 앱 source 파일, 화면 annotation.
+// 근거 링크. 다른 ticket, release, 앱 source 파일, 화면 annotation.
 const ticketEvidenceSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
   z.strictObject({ kind: z.literal("ticket"), id: ticketIdSchema }),
   z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
   z.strictObject({ kind: z.literal("file"), path: sourceRelativePathSchema }),
@@ -116,7 +115,6 @@ export const ticketEvidenceReadSchema = z.union([
     annotation: annotationReadSchema.nullable(),
   }),
   z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("problem"), id: idSchema("prb") }),
     z.strictObject({ kind: z.literal("ticket"), id: ticketIdSchema }),
     z.strictObject({ kind: z.literal("release"), id: idSchema("rel") }),
     z.strictObject({ kind: z.literal("file"), path: sourceRelativePathSchema }),

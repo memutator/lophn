@@ -261,14 +261,11 @@ function checkEvidence(
       if (found.value === null || found.value.app !== app) {
         return invalid("evidence ticket is not in this app");
       }
-    } else if (item.kind === "problem" || item.kind === "release") {
-      const lookup = tx.port(TicketEvidenceLookup);
-      const found = item.kind === "problem"
-        ? lookup.problemApp(item.id)
-        : lookup.releaseApp(item.id);
+    } else if (item.kind === "release") {
+      const found = tx.port(TicketEvidenceLookup).releaseApp(item.id);
       if (!found.ok) return found;
       if (found.value !== app) {
-        return invalid(`evidence ${item.kind} is not in this app`);
+        return invalid("evidence release is not in this app");
       }
     }
   }

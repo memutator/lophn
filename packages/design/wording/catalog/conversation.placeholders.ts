@@ -137,7 +137,6 @@ export type ConversationPlaceholders = {
   "conversation.label.edit-made": Record<never, never>;
   "conversation.label.evidence-annotation": Record<never, never>;
   "conversation.label.evidence-file": Record<never, never>;
-  "conversation.label.evidence-problem": Record<never, never>;
   "conversation.label.evidence-session": Record<never, never>;
   "conversation.label.evidence-ticket": Record<never, never>;
   "conversation.label.grant-allow": Record<never, never>;

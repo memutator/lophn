@@ -422,12 +422,12 @@ function sceneData(scene: AgentTabScene): SceneData {
       };
     case "sender-chips": {
       const reaction = envelope(
-        { kind: "reaction", event: "App stopped restarting" },
-        "Eval board crashed 5 times in 2 minutes, so lophn stopped restarting it. Look at the problem and decide what to do.",
+        { kind: "reaction", event: "Activation failed" },
+        "Release rel_12 failed to activate (migration_failed). Read the evidence and make a ticket that fixes the cause.",
         [{
-          kind: "problem",
-          text: "P-12 Eval board keeps crashing on start",
-          target: fakeId("prb", 12),
+          kind: "ticket",
+          text: "T-12 Eval board keeps crashing on start",
+          target: fakeId("tkt", 12),
         }],
         null,
       );

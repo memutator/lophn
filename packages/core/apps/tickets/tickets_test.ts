@@ -235,7 +235,7 @@ Deno.test("확인됨은 App Engineer가 정하고 닫힌 ticket은 고칠 수 �
 
 Deno.test("examples check의 ticket은 예시가 맞지 않으면 verified가 되지 못하고, 맞으면 된다", () => {
   const { tx, insert, row, db } = open();
-  // problems 표의 이 gate가 읽는 칸만 흉내 낸다.
+  // verifications 표의 이 gate가 읽는 칸만 흉내 낸다.
   db.exec(`CREATE TABLE verifications (
     id TEXT PRIMARY KEY, ticket TEXT, ticket_completion_seq TEXT,
     ticket_check_hash TEXT)`);

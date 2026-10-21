@@ -2,7 +2,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
 // ticket 표. 내용(goal, acceptance_check, 근거)은 닫히기(verified, cancelled) 전까지 고칠 수 있고
 // 닫힌 뒤에는 trigger가 막는다. 보고(completion)와 결과는 쌓이기만 한다.
-// cross-owner FK(apps, releases, problems)는 그 표가 이 step 이후에도 없을 수 있어 두지 않는다.
+// cross-owner FK(apps, releases)는 그 표가 이 step 이후에도 없을 수 있어 두지 않는다.
 // 존재·범위는 command가 같은 transaction에서 검사한다.
 const IMMUTABLE = (table: string) => `
 create trigger ${table}_no_update
@@ -61,7 +61,7 @@ export const ticketSchemaSteps: readonly SchemaStep[] = [{
     CREATE TABLE ticket_references (
       ticket TEXT NOT NULL REFERENCES tickets(id),
       position INTEGER NOT NULL CHECK (position >= 0),
-      kind TEXT NOT NULL CHECK (kind IN ('problem', 'ticket', 'release', 'file', 'annotation')),
+      kind TEXT NOT NULL CHECK (kind IN ('ticket', 'release', 'file', 'annotation')),
       target TEXT NOT NULL,
       PRIMARY KEY (ticket, position),
       UNIQUE (ticket, kind, target)

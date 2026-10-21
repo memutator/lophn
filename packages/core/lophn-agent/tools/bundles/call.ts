@@ -34,7 +34,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
       "(role is project_manager, app_engineer, operator, lophn or coding_agent; place is {project: name} or {app: name}, lophn has none, an Operator needs name), " +
       'or both with fallback: "new" to use the open session and open a new one if it is closed. Names must match exactly. ' +
       "reply: none (no answer), result (the receiver answers with reply) or conversation (Project Manager, App Engineer and coding agent only). " +
-      "body: what you hand over. refs: links {kind: ticket|problem|file|session|annotation, ...}. " +
+      "body: what you hand over. refs: links {kind: ticket|file|session|annotation, ...}. " +
       'To hand a ticket to a coding agent use to: {role: "coding_agent", place: {app}} with a ticket ref and optional options {harness, model}. ' +
       "If it fails, the result says why (not_found, not_allowed, closed). A closed session is not reopened; call its role and place to open a new one.",
     effect: "read",

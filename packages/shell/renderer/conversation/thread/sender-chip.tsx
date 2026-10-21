@@ -26,7 +26,6 @@ const ROLE_LABEL: Record<AgentRole, MessageKey> = {
 
 const EVIDENCE_LABEL: Record<EvidenceRef["kind"], MessageKey> = {
   ticket: "conversation.label.evidence-ticket",
-  problem: "conversation.label.evidence-problem",
   file: "conversation.label.evidence-file",
   session: "conversation.label.evidence-session",
   annotation: "conversation.label.evidence-annotation",
@@ -117,7 +116,7 @@ interface SenderPanelProps {
   message: string;
   sender: Sender;
   source: Pick<AgentTabSource, "envelope">;
-  /** ticket·problem·파일·annotation 근거 링크를 연다. 없으면 링크가 아니라 글이다. */
+  /** ticket·파일·annotation 근거 링크를 연다. 없으면 링크가 아니라 글이다. */
   onOpenRef?: ((ref: EvidenceRef) => void) | undefined;
   /** 보낸 session의 탭을 연다. 없으면 링크가 아니라 글이다. */
   onOpenSession?: ((session: string) => void) | undefined;

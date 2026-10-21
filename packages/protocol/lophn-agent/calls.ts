@@ -84,7 +84,6 @@ export type CallTo = z.infer<typeof callToSchema>;
 function refSchemas(strict: boolean) {
   return z.discriminatedUnion("kind", [
     obj(strict, { kind: z.literal("ticket"), ticket: idSchema("tkt") }),
-    obj(strict, { kind: z.literal("problem"), problem: idSchema("prb") }),
     obj(strict, { kind: z.literal("file"), path: z.string().min(1) }),
     obj(strict, { kind: z.literal("session"), session: idSchema("ses") }),
     obj(strict, { kind: z.literal("annotation"), id: annotationIdSchema }),

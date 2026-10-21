@@ -121,7 +121,6 @@ export const conversation = {
   "conversation.label.edit-made": "Edited",
   "conversation.label.evidence-annotation": "Annotation",
   "conversation.label.evidence-file": "File",
-  "conversation.label.evidence-problem": "Problem",
   "conversation.label.evidence-session": "Session",
   "conversation.label.evidence-ticket": "Ticket",
   "conversation.label.grant-allow": "Runs without asking",

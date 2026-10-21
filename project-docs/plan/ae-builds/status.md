@@ -14,8 +14,8 @@ lead만 고친다. `tools/status.py ae-builds build`가 `tasks/*.md`에서 id, �
 | `ab-router` | router | 1 | ab-coding-move | merged | router/ab-router | a03c8b649 |  |
 | `ab-runtime` | runtime | 1 | 없음 | merged | runtime/ab-runtime | 554ed770e |  |
 | `ab-source` | source | 1 | ab-coding-move | merged | source/ab-source | 106188735 |  |
-| `ab-coding-detach` | coding | 2 | 없음 | todo |  |  |  |
-| `ab-reaction-core` | reaction | 2 | 없음 | todo |  |  |  |
+| `ab-coding-detach` | coding | 2 | 없음 | running | coding/ab-coding-detach |  |  |
+| `ab-reaction-core` | reaction | 2 | 없음 | merged | reaction/ab-reaction-core | 0347eb6c9 |  |
 | `ab-release-activate` | release | 2 | ab-reaction-core | todo |  |  |  |
 | `ab-release-prepare` | release | 3 | 없음 | todo |  |  |  |
 | `ab-ticket-refs` | ticket | 3 | 없음 | todo |  |  |  |

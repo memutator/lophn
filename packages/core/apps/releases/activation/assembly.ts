@@ -2,7 +2,7 @@
 //   1. 운영 DesiredApp: 활성 release의 봉인 bundle 사본과 현재 grant에서 푼 permission으로 앱 자식의 flag를
 //      만들어 supervisor에 알린다(`bundleFlags`). AI가 쓴 앱 코드의 실수가 퍼지지 않게 선언 ∩ active grant 밖의 접근은
 //      flag에 없다.
-//   2. activation: `TicketVerified` Reactor handler(handler.ts)가 앱마다 하나만(queue.ts)
+//   2. activation: App Engineer의 `release.activate`(판정은 handler.ts)가 앱마다 하나만(queue.ts)
 //      시작한 release를 `activation.start`로 열고 `runActivation`이 순서대로 진행한다. core가 다시 뜨거나
 //      supervisor가 끊긴 뒤의 진행 중 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받는다.
 //      단계의 실제 일은 `ActivationPorts`로 끼운다: 자식 종료·후보 준비·열기는 supervisor, 앱 DB 작업은
@@ -20,7 +20,6 @@ import {
 } from "../../../../base/mod.ts";
 import {
   activationAskConsent,
-  activationBlock,
   type ActivationComparison,
   activationComplete,
   type ActivationDataResult,
@@ -37,6 +36,7 @@ import {
   appRecordUnavailable,
   decodeActivationDataJobOutput,
   encodeActivationDataJobInput,
+  type ReleaseActivateOutput,
   type ReleaseRecord,
 } from "../../../../protocol/apps/mod.ts";
 import type { RequestContext, Sql } from "../../../../protocol/server/mod.ts";
@@ -60,7 +60,6 @@ import {
 } from "../../permissions/mod.ts";
 import { asksFor, compareForActivation } from "../compare.ts";
 import {
-  findReleaseForTicket,
   loadActiveRelease,
   loadRelease,
   loadStoredBlueprint,
@@ -140,8 +139,8 @@ export type ActivationDriver = {
   settled(): Promise<void>;
   // Bus·접수·changeset port를 끼운다.
   attach(late: ActivationLate): void;
-  // Reactor에 등록하는 handler(`ticketVerified`).
-  readonly handlers: ReturnType<typeof createActivationHandlers>;
+  // release 하나를 판정하고 시도가 끝나기를 기다린다(`release.activate`). 상한을 넘으면 running이다.
+  activate(release: string): Promise<Result<ReleaseActivateOutput>>;
   // `activations.queue` read의 원천이다. 도는 것(메모리)과 사람을 기다리는 동의 줄(ledger)을 합친다.
   queueEntries(
     app: string | undefined,
@@ -156,6 +155,11 @@ export type ActivationDriver = {
   // 알리지 못하면 false이고 다음 sweep이 이어서 맞춘다.
   applyGrants(app: string): Promise<boolean>;
 };
+
+// 시작한 시도를 기다리는 상한. `shell.run`의 기본 timeout과 앱 tool 호출 상한(CALL_TIMEOUT_MS)과 같아 tool 하나가
+// turn을 이보다 오래 붙들지 않는다. drain 유예(30초)와 후보 준비(90초)가 드는 보통의 activation은 들어가고,
+// 큰 migration(data job 상한 300초)은 넘을 수 있어 running이다.
+const ACTIVATE_WAIT_MS = 120_000;
 
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
@@ -655,21 +659,8 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
 
   const handlers = createActivationHandlers({
     releases: {
-      forTicket: (ticket) =>
-        ledgerRead((sql) => findReleaseForTicket(sql, ticket)),
       get: currentRelease,
       comparison: comparisonOf,
-      async blocked(release) {
-        const done = await sendValue(
-          activationBlock.name,
-          { release: release.id },
-          `activation-block-${release.id}`,
-          true,
-        );
-        return done.ok
-          ? ok((done.value as { blocked: boolean }).blocked)
-          : done;
-      },
     },
     consents: {
       async ask(release, comparison) {
@@ -683,6 +674,77 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     },
     enqueue,
   });
+
+  async function activate(id: string): Promise<Result<ReleaseActivateOutput>> {
+    // supervisor 통로 없이 시작하면 종료를 확인하지 못해 시도가 activating으로 남는다(sweep이 bound를 보는 것과 같은 이유).
+    if (late === undefined || !deps.bound()) {
+      return unavailable("activation is unavailable");
+    }
+    const found = currentRelease(id);
+    if (!found.ok) return found;
+    const release = found.value;
+    if (release === null) {
+      return err({ code: "not_found", message: "release is not found" });
+    }
+    if (release.status !== "prepared") {
+      return err({ code: "conflict", message: "release is not prepared" });
+    }
+    if (queue.running(release.app) !== undefined) {
+      return err({
+        code: "conflict",
+        message: "an activation is already running for the app",
+      });
+    }
+    const judged = await handlers.activate(release);
+    if (!judged.ok) return judged;
+    if (judged.value === "waiting_consent") {
+      return ok({ status: "waiting_consent", release: id });
+    }
+    const job = queue.running(release.app);
+    if (job !== undefined) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          job,
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, ACTIVATE_WAIT_MS);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    const after = currentRelease(id);
+    if (!after.ok) return after;
+    const now = after.value;
+    if (now === null) {
+      return unavailable("release is unavailable");
+    }
+    if (now.status === "active") {
+      return ok({
+        status: "active",
+        release: id,
+        previous_release: now.activation?.previous_release ?? null,
+      });
+    }
+    if (now.status === "failed" && now.failure !== null) {
+      return ok({ status: "failed", release: id, failure: now.failure });
+    }
+    if (now.status === "activating") {
+      return ok({ status: "running", release: id });
+    }
+    if (now.status === "prepared") {
+      // 기다리는 사이 비교가 달라져 reconsider가 다시 물었으면 동의를 기다린다.
+      const waiting = ledgerRead((sql) => ok(waitingConsents(sql, now.app)));
+      if (waiting.ok && waiting.value.some((row) => row.release === id)) {
+        return ok({ status: "waiting_consent", release: id });
+      }
+    }
+    return err({
+      code: "conflict",
+      message: "the activation did not start",
+    });
+  }
 
   function activatingRows(): Result<{ id: string; app: string }[]> {
     return withLedger((sql) =>
@@ -763,7 +825,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     attach(next) {
       late = next;
     },
-    handlers,
+    activate,
     queueEntries(app) {
       const entries = queue.list(app, (one) => late?.heldCalls(one) ?? 0);
       const waiting = ledgerRead((sql) => ok(waitingConsents(sql, app)));

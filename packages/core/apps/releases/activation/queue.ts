@@ -61,6 +61,10 @@ export function createActivationQueue() {
         }
       }
     },
+    // 그 앱에 도는 job. 없으면 undefined다.
+    running(app: string): Promise<void> | undefined {
+      return jobs.get(app);
+    },
     get size(): number {
       return entries.size;
     },

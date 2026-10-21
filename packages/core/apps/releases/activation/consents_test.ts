@@ -103,10 +103,8 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
   const started: string[] = [];
   const handlers = createActivationHandlers({
     releases: {
-      forTicket: () => loadRelease(tx.sql, REL),
       get: () => loadRelease(tx.sql, REL),
       comparison: () => Promise.resolve(ok(comparison)),
-      blocked: () => Promise.resolve(ok(false)),
     },
     consents: {
       ask: (release, compared) => {
@@ -122,8 +120,11 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
       return ok(undefined);
     },
   });
-  const verified = () =>
-    handlers.ticketVerified.handle({ subject: TICKET } as never, {} as never);
+  const activate = () => {
+    const found = loadRelease(tx.sql, REL);
+    if (!found.ok || found.value === null) throw new Error("no release");
+    return handlers.activate(found.value);
+  };
   const allow = () =>
     call(
       "consent",
@@ -132,9 +133,9 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
       { requested_at: waitingConsents(tx.sql)[0].requested_at },
     );
 
-  // TicketVerified는 시작하지 않고 기다리는 줄 하나를 만든다. 다시 받아도 하나다.
-  await verified();
-  await verified();
+  // release.activate의 판정은 시작하지 않고 기다리는 줄 하나를 만든다. 다시 불러도 하나다.
+  assertEquals(await activate(), ok("waiting_consent"));
+  assertEquals(await activate(), ok("waiting_consent"));
   assertEquals(started, []);
   assertEquals(waitingConsents(tx.sql).length, 1);
 

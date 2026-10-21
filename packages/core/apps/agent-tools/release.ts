@@ -1,10 +1,12 @@
 import { ok } from "../../../base/mod.ts";
 import {
+  releaseActivate,
   releasesGetRecord,
   releasesListRecords,
 } from "../../../protocol/apps/mod.ts";
 import { getVerification } from "../../../protocol/problems/mod.ts";
 import {
+  commandOf,
   countSummary,
   defineTool,
   fitted,
@@ -72,6 +74,30 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
         release: record,
         tests,
       }, ["tests"]));
+    },
+  }),
+  defineTool({
+    name: "release.activate",
+    input: z.strictObject({ release: idSchema("rel") }),
+    routes: [releaseActivate],
+    description:
+      "Activate a prepared release of your app and wait for the result: active, or failed with the reason. A first activation, new permissions or a data loss migration need the person's consent: then it returns waiting_consent at once and the person sees the result. If the activation takes longer than two minutes it returns running; check app.status.",
+    effect: "write",
+    handler: async (input, ctx) => {
+      const { release } = input;
+      const done = await commandOf(
+        ctx.core,
+        releaseActivate,
+        { release },
+        {},
+        ctx.tool_call,
+      );
+      if (!done.ok) return done;
+      const out = done.value;
+      const summary = out.status === "failed"
+        ? `release ${release} failed: ${out.failure.code}: ${out.failure.summary}`
+        : `release ${release} is ${out.status}`;
+      return ok(fitted(summary, out));
     },
   }),
 ];

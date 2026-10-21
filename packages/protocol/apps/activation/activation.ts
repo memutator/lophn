@@ -24,7 +24,6 @@ import { lossStepSchema } from "./migration.ts";
 const MAX = Number.MAX_SAFE_INTEGER;
 
 // 시도 id. event seq가 아니라 독립 id다.
-// ReleaseActivationFailed event는 attempt를 싣지 않고 { app, ticket, failure: { code, summary } }를 싣는다.
 export const activationAttemptIdSchema = idSchema("act");
 
 export const ACTIVATION_FAILURE_CODES = [
@@ -39,7 +38,7 @@ export const ACTIVATION_FAILURE_CODES = [
 ] as const;
 const activationFailureCodeSchema = z.enum(ACTIVATION_FAILURE_CODES);
 
-// restored는 이전 release가 다시 도는지(이전이 없으면 null). event payload의 failure는 code, summary만 싣는다.
+// restored는 이전 release가 다시 도는지(이전이 없으면 null).
 const activationFailureSchema = z.object({
   code: activationFailureCodeSchema,
   summary: z.string().regex(/\S/),
@@ -186,18 +185,6 @@ export const activationStart = defineCommand({
   errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
 });
 
-// 시작하기 전에 판정 handler가 부른다. release가 지울 공개 tool을 다른 domain이 쓰면 blocked true를 돌려준다.
-// 아무것도 쓰지 않는다. release는 prepared로 남는다.
-export const activationBlock = defineCommand({
-  resource: "activations",
-  method: "block",
-  name: "activation.block",
-  input: z.strictObject({ release: releaseIdSchema }),
-  output: z.object({ blocked: z.boolean() }),
-  actors: machine,
-  errors: ["forbidden", "conflict", "unavailable", "internal"],
-});
-
 export const activationRecordBackup = defineCommand({
   resource: "activations",
   method: "record_backup",
@@ -341,7 +328,6 @@ export const releasesGetRecord = defineRead({
 
 export const ACTIVATION_ROUTES = [
   activationStart,
-  activationBlock,
   activationRecordBackup,
   activationRecordDataChange,
   activationRecordDataRestore,

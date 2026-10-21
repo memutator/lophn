@@ -17,6 +17,7 @@ import {
   blueprintCheck,
   packagePublish,
   packagesBuiltin,
+  releaseActivate,
   releaseCancelPreparation,
   releasePreparation,
 } from "../../protocol/apps/mod.ts";
@@ -177,7 +178,6 @@ export function createLedgerRegistration(
       releaseCommands.prepare,
       releaseCommands.prepareBundle,
       releaseCommands.startActivation,
-      releaseCommands.blockActivation,
       releaseCommands.completeActivation,
       releaseCommands.failActivation,
       releaseCommands.activatePrevious,
@@ -217,6 +217,8 @@ export function createLedgerRegistration(
       // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
       releasePreparation,
       releaseCancelPreparation,
+      // 올리고 끝나기를 기다리는 일도 writer 앞(`withReleasePreparation`)이 처리한다.
+      releaseActivate,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
     files: [appScreenFile],

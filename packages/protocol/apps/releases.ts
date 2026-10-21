@@ -323,9 +323,52 @@ export const releasesListInputSchema = z.strictObject({
 export const releasesGetInputSchema = z.strictObject({
   release: releaseIdSchema,
 });
+
+// App Engineer가 prepared release를 올린다. activation이 끝날 때까지 기다리되 상한을 넘으면 running이다.
+// 동의가 필요하면 묻기만 하고 waiting_consent를 바로 돌려준다. failure는 release의 failure 그대로다
+// (activation.ts가 이 file을 import하므로 그쪽 schema를 가져오지 않고 같은 꼴로 적는다).
+const releaseActivateOutputSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("active"),
+    release: releaseIdSchema,
+    previous_release: releaseIdSchema.nullable(),
+  }),
+  z.object({
+    status: z.literal("failed"),
+    release: releaseIdSchema,
+    failure: z.object({
+      code: z.string().min(1),
+      summary: z.string().min(1),
+      restored: z.boolean().nullable(),
+    }),
+  }),
+  z.object({
+    status: z.literal("waiting_consent"),
+    release: releaseIdSchema,
+  }),
+  z.object({ status: z.literal("running"), release: releaseIdSchema }),
+]);
+export type ReleaseActivateOutput = z.infer<typeof releaseActivateOutputSchema>;
+export const releaseActivate = defineCommand({
+  resource: "releases",
+  method: "activate",
+  name: "release.activate",
+  input: z.strictObject({ release: releaseIdSchema }),
+  output: releaseActivateOutputSchema,
+  actors: ["agent"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
+});
+
 export const RELEASE_ROUTES = [
   releasePrepareBundle,
   releasePreparation,
   releaseCancelPreparation,
   releasePrepare,
+  releaseActivate,
 ] as const;

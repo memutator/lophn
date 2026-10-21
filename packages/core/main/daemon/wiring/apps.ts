@@ -282,7 +282,7 @@ export const appsWiring: WiringFactory = () => {
           (ctx.peek.bundleLocator ??
             bundleLocatorOf(ctx.root.path, link.sql)).dir(target),
       };
-      // activation: 다른 module의 port를 끼우고 Reactor에 등록한다. 끼우기 전에는 일하지 않는다.
+      // activation: 다른 module의 port를 끼운다. 끼우기 전에는 일하지 않는다.
       const activation = appsControl.activation;
       if (activation !== null) {
         activation.attach({
@@ -305,7 +305,6 @@ export const appsWiring: WiringFactory = () => {
               ),
           },
         });
-        ctx.reactor.on("TicketVerified", activation.handlers.ticketVerified);
       }
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);

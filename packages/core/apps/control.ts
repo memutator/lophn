@@ -12,7 +12,6 @@ import {
 } from "../../base/mod.ts";
 import {
   activationAskConsent,
-  activationBlock,
   activationComplete,
   activationFail,
   activationRecordBackup,
@@ -35,6 +34,7 @@ import {
   previewsGet,
   previewsStart,
   previewsStop,
+  releaseActivate,
   releaseCancelPreparation,
   releasePreparation,
   releasePrepareBundle,
@@ -119,8 +119,6 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       // activation 진행(apps/releases)이 시도의 상태를 읽고 참조·결과를 확정하고 사용 불가를 남긴다.
       releasesGetRecord.name,
       activationStart.name,
-      // 다른 domain이 쓰는 공개 tool을 지우는 release를 판정 단계에서 막는다.
-      activationBlock.name,
       // 선언이 넓어진 release는 사람의 동의를 묻는다(동의 표). 허락한 뒤 시작은 driver가 한다.
       activationAskConsent.name,
       activationRecordBackup.name,
@@ -197,7 +195,6 @@ export function appsOperationPolicies(): OperationPolicy[] {
       activationComplete,
       activationFail,
       activationStart,
-      activationBlock,
       activationAskConsent,
       releasesGetRecord,
     ].map((route): OperationPolicy => ({
@@ -564,6 +561,37 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       opened.value.close();
     }
   }
+  // App Engineer가 자기 앱의 prepared release를 올린다. 범위 밖과 없는 release는 같은 not_found다.
+  // memory 처리기는 operation을 따로 보지 않아 여기서 직접 판정한다.
+  const releaseActivateHandler: MemoryHandler = async (ctx, input) => {
+    if (activation === null) {
+      return err({ code: "unavailable", message: "activation is unavailable" });
+    }
+    const id = (input as { release: string }).release;
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return internalError();
+    let release;
+    try {
+      release = loadRelease(opened.value.sql, id);
+    } catch {
+      return internalError();
+    } finally {
+      opened.value.close();
+    }
+    if (!release.ok) return internalError();
+    const missing = err({
+      code: "not_found" as const,
+      message: "release not found",
+    });
+    if (release.value === null) return missing;
+    const allowed = createTargetAuthorizer(ctx)(ctx, releaseActivate.name, {
+      app: release.value.app,
+    });
+    if (!allowed.ok) {
+      return allowed.error.code === "forbidden" ? allowed : missing;
+    }
+    return await activation.activate(id);
+  };
   const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
     const body = input as { app: string; request_key: string };
     const source = await releaseGate(
@@ -681,6 +709,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       [releasePrepareBundle.name, releasePrepareBundleHandler],
       [releasePreparation.name, releasePreparationHandler],
       [releaseCancelPreparation.name, releaseCancelHandler],
+      [releaseActivate.name, releaseActivateHandler],
     ]),
     testDefaults,
     sourceRootOf: releaseGate,

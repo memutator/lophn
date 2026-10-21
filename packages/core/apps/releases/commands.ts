@@ -10,7 +10,6 @@ import {
   activationActivatePrevious,
   activationAskConsent,
   type ActivationAttempt,
-  activationBlock,
   activationComplete,
   activationConsent,
   type ActivationDataResult,
@@ -53,7 +52,6 @@ import {
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";
-import { blockedToolsOf } from "./public-tools.ts";
 import {
   insertRelease,
   loadActiveRelease,
@@ -188,8 +186,6 @@ function activatingOf(tx: Pick<Tx, "sql">, app: string): string | null {
   return row === undefined ? null : String(row.id);
 }
 
-const BLOCKED_MESSAGE = "release removes public tools used by another domain";
-
 function outputRelease(release: ReleaseRecord): Release {
   return {
     ...release,
@@ -202,7 +198,6 @@ export function createReleaseCommands(): {
   prepare: CommandDefinition<typeof releasePrepare>;
   prepareBundle: CommandDefinition<typeof releasePrepareBundle>;
   startActivation: CommandDefinition<typeof activationStart>;
-  blockActivation: CommandDefinition<typeof activationBlock>;
   completeActivation: CommandDefinition<typeof activationComplete>;
   failActivation: CommandDefinition<typeof activationFail>;
   activatePrevious: CommandDefinition<typeof activationActivatePrevious>;
@@ -210,7 +205,7 @@ export function createReleaseCommands(): {
   consent: CommandDefinition<typeof activationConsent>;
 } {
   return {
-    // activation 시작. Reactor handler가 시작한 앱의 activation에서 driver가 machine 자격으로 부른다.
+    // activation 시작. `release.activate`나 동의 뒤 sweep이 시작한 앱의 activation에서 driver가 machine 자격으로 부른다.
     // 시작 때는 CAS를 하지 않는다: 무엇을 activate하는지는 시작을 정할 때 정해졌고, 데이터의 실제 상태는
     // 종료를 확인한 뒤 읽는다. 앱마다 시도는 하나다.
     startActivation: {
@@ -245,10 +240,6 @@ export function createReleaseCommands(): {
         ) {
           return invalid("the data schema differs from the active release");
         }
-        // 판정 handler만 믿지 않는다. 읽기에 실패해도 막는다.
-        const blocked = blockedToolsOf(tx, release);
-        if (!blocked.ok) return blocked;
-        if (blocked.value.length > 0) return conflict(BLOCKED_MESSAGE);
         const activation: ActivationAttempt = {
           attempt: tx.newId("act"),
           previous_release: active.value?.id ?? null,
@@ -276,29 +267,6 @@ export function createReleaseCommands(): {
           attempt: activation.attempt,
           previous_release: activation.previous_release,
         });
-      },
-    },
-    // 시작 전 막기. release는 prepared로 남는다.
-    blockActivation: {
-      route: activationBlock,
-      handle(tx, ctx, input) {
-        const actor = requireMachine(ctx, "activation.block");
-        if (!actor.ok) return actor;
-        const found = releaseAndApp(
-          tx,
-          ctx,
-          activationBlock.name,
-          input.release,
-          unreachableTarget,
-        );
-        if (!found.ok) return found;
-        const { release } = found.value;
-        if (release.status !== "prepared" && release.status !== "superseded") {
-          return conflict("the release cannot be activated from its status");
-        }
-        const blocked = blockedToolsOf(tx, release);
-        if (!blocked.ok) return blocked;
-        return ok({ blocked: blocked.value.length > 0 });
       },
     },
     // activation 확정. 같은 시도와 실제 데이터 결과·준비 확인(hash·handler·schema)을 확인한 뒤 새 active 참조,
@@ -471,10 +439,6 @@ export function createReleaseCommands(): {
         if (activatingOf(tx, release.app) !== null) {
           return conflict("an activation is in progress for the app");
         }
-        // 시작이 거절할 요청을 남기면 sweep이 계속 다시 시도한다.
-        const blocked = blockedToolsOf(tx, release);
-        if (!blocked.ok) return blocked;
-        if (blocked.value.length > 0) return conflict(BLOCKED_MESSAGE);
         tx.sql.run(
           `INSERT INTO activation_requests (release, requested_at)
            VALUES (?, ?) ON CONFLICT (release) DO NOTHING`,
@@ -483,7 +447,7 @@ export function createReleaseCommands(): {
         return ok({});
       },
     },
-    // 동의 묻기. machine만 한다(Reactor handler가 driver를 지나 부른다). 같은 release는 줄 하나라서 같은 비교로 다시 부르면
+    // 동의 묻기. machine만 한다(`release.activate`가 driver를 지나 부른다). 같은 release는 줄 하나라서 같은 비교로 다시 부르면
     // 아무것도 바꾸지 않는다(허락한 줄도 그대로). 비교가 달라졌으면 줄을 덮어 다시 사람을 기다린다.
     askConsent: {
       route: activationAskConsent,

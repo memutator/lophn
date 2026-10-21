@@ -1,8 +1,5 @@
 import type { Result } from "../../../base/mod.ts";
-import type {
-  AnnotationId,
-  AnnotationRead,
-} from "../../../protocol/apps/annotation.ts";
+import type { AnnotationId } from "../../../protocol/apps/annotation.ts";
 
 // annotation module이 core 바깥에 기대는 것. 구현은 lead가 조립한다.
 type AppId = string;
@@ -45,9 +42,4 @@ export type AnnotationDelivery = {
     text: string;
     annotations: readonly AnnotationId[];
   }): Promise<Result<{ session: SessionId; message: MessageId }>>;
-};
-
-export type AnnotationLookup = {
-  /** ticket 근거를 읽는 쪽(core/apps/tickets)이 core 안에서 부른다. annotation-core가 구현한다. */
-  byIds(ids: readonly AnnotationId[]): Result<readonly AnnotationRead[]>;
 };

@@ -3,7 +3,6 @@ export {
   appendRequestObservation,
   requestTestCommand,
 } from "./commands.ts";
-export { requestExamples } from "./examples-request.ts";
 export { recordVerificationCommand } from "./record.ts";
 export {
   canListVerifications,

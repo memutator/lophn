@@ -10,42 +10,14 @@ import { verificationRecorded } from "../problems/tests.ts";
 // commit 뒤 같은 event를 Bus에도 낸다(구현은 core/events).
 // payload는 받는 handler가 쓰는 칸만 둔다. actor는 envelope에 있다.
 
-// session은 완료를 보고한 coding session이다. lophn이 다시 켜진 뒤 Reactor가 call을 찾는 데 쓴다.
-export const ticketCompletionReported = defineEvent(
-  "TicketCompletionReported",
-  {
-    subject: idSchema("tkt"),
-    payload: z.strictObject({
-      app: idSchema("app"),
-      release: idSchema("rel"),
-      session: idSchema("ses"),
-    }),
-  },
-);
-
-export const ticketClaimExpired = defineEvent("TicketClaimExpired", {
-  subject: idSchema("tkt"),
-  payload: z.strictObject({ app: idSchema("app"), session: idSchema("ses") }),
-});
-
-export const codingSessionEndedUnreported = defineEvent(
-  "CodingSessionEndedUnreported",
-  {
-    subject: idSchema("ses"),
-    payload: z.strictObject({ app: idSchema("app"), ticket: idSchema("tkt") }),
-  },
-);
-
-export const ticketVerified = defineEvent("TicketVerified", {
-  subject: idSchema("tkt"),
+// 쓰는 곳이 없다. 목록이 비면 Reactor와 commit publisher의 type이 서지 않아, Reactor를 지울 때 같이 지운다.
+export const codingSessionEnded = defineEvent("CodingSessionEnded", {
+  subject: idSchema("ses"),
   payload: z.strictObject({ app: idSchema("app") }),
 });
 
 export const DOMAIN_EVENTS = [
-  ticketCompletionReported,
-  ticketClaimExpired,
-  codingSessionEndedUnreported,
-  ticketVerified,
+  codingSessionEnded,
   verificationRecorded,
 ] as const;
 
@@ -68,10 +40,7 @@ function domainEventEnvelopeSchema<
 }
 
 export const domainEventSchema = z.discriminatedUnion("type", [
-  domainEventEnvelopeSchema(ticketCompletionReported),
-  domainEventEnvelopeSchema(ticketClaimExpired),
-  domainEventEnvelopeSchema(codingSessionEndedUnreported),
-  domainEventEnvelopeSchema(ticketVerified),
+  domainEventEnvelopeSchema(codingSessionEnded),
   domainEventEnvelopeSchema(verificationRecorded),
 ]);
 export type DomainEvent = z.infer<typeof domainEventSchema>;

@@ -3,14 +3,15 @@ import {
   annotationSend,
   annotationUploadScreenshot,
 } from "../../../protocol/apps/annotation.ts";
+import { CodingSessionLookup } from "../../../protocol/coding-agent/token.ts";
 import {
-  defineTxPort,
   type ReaderRegistration,
+  snapshotPort,
 } from "../../storage/ledger/mod.ts";
-import { TicketAnnotationLookup } from "../tickets/ports.ts";
+import { codingSessionLookup } from "../coding/lookup.ts";
 import { ANNOTATION_BLOB_FIELDS, ANNOTATION_BLOB_PURPOSES } from "./blobs.ts";
 import { createAnnotationCommands } from "./commands.ts";
-import { annotationLookup, createAnnotationReads } from "./reads.ts";
+import { createAnnotationReads } from "./reads.ts";
 import { annotationSchemaSteps } from "./schema.ts";
 
 const commands = createAnnotationCommands();
@@ -30,10 +31,6 @@ const annotationDefinitions = {
   // handler는 core 조립(wiring/annotations.ts)이 route 이름으로 붙인다.
   memoryRoutes: [annotationSend],
   uploadRoutes: [annotationUploadScreenshot],
-  // ticket이 근거 annotation을 같은 transaction에서 읽는다.
-  ports: [
-    defineTxPort(TicketAnnotationLookup, (tx) => annotationLookup(tx.sql)),
-  ],
 };
 
 export function createCoreRegistration() {
@@ -44,7 +41,9 @@ export function createCoreRegistration() {
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [reads.get],
-    // 같은 port는 tickets 등록이 낸다(reader Worker가 모든 등록의 port를 모든 read에 준다).
-    ports: new Map<unknown, unknown>(),
+    // coding agent의 annotations.get이 자기 앱을 이 port로 찾는다.
+    ports: new Map<unknown, unknown>([
+      [CodingSessionLookup, snapshotPort((s) => codingSessionLookup(s.sql))],
+    ]),
   };
 }

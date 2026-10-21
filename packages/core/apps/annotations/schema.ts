@@ -3,7 +3,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // annotation 표. 묶음은 보낸 사실이고 annotation은 그 안의 한 칸이다. 묶음 하나는 target 하나다
 // (app, artifact, file). cross-owner FK(apps, releases, projects, domains)는 두지 않는다. 앱 존재와 보관은
 // command가 같은 transaction에서 검사하고, artifact의 domain과 file의 project는 전달 단계가 확인한다.
-// annotation_refs는 이 annotation을 가리키는 session 기록(session_message)과 ticket이다.
+// annotation_refs는 이 annotation을 가리키는 session 기록(session_message)이다.
 // 하나도 없어진 annotation은 sweep이 지운다.
 export const annotationSchemaSteps: readonly SchemaStep[] = [{
   id: "apps.annotations.tables",
@@ -46,7 +46,7 @@ export const annotationSchemaSteps: readonly SchemaStep[] = [{
 
     CREATE TABLE annotation_refs (
       annotation TEXT NOT NULL REFERENCES annotations(id),
-      owner_kind TEXT NOT NULL CHECK (owner_kind IN ('session_message', 'ticket')),
+      owner_kind TEXT NOT NULL CHECK (owner_kind IN ('session_message')),
       owner_id TEXT NOT NULL,
       PRIMARY KEY (annotation, owner_kind, owner_id)
     ) STRICT;

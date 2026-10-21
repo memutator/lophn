@@ -1,32 +1,32 @@
 import { assert, assertEquals } from "@std/assert";
 import { ROLES } from "../../protocol/lophn-agent/places.ts";
 import { builtinToolNames } from "../agent-roles/tool-lists.ts";
-import { ticketCreate } from "../../protocol/coding-agent/ticket/mod.ts";
+import { appConnectSource } from "../../protocol/apps/apps.ts";
 import { agentConditions, roleOperations } from "../agent-roles/credentials.ts";
 import { FILE_HOOKS } from "../agent-roles/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
 import { inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 
 // agent credential 상한은 core가 대조하는 route 이름이어야 한다. tool 이름이면 command가 forbidden이다.
-Deno.test("App Engineer의 credential 상한에 ticket.create tool이 부르는 route 이름이 들고 Project Manager의 상한에는 없다", () => {
+Deno.test("App Engineer의 credential 상한에 app.link_source tool이 부르는 route 이름이 들고 Project Manager의 상한에는 없다", () => {
   const operations = roleOperations(
     "app_engineer",
     agentTools({ file: FILE_HOOKS }),
   );
-  assert(operations.includes(ticketCreate.name));
-  assertEquals(ticketCreate.name, "CreateTicket");
-  assert(!operations.includes("ticket.create"));
+  assert(operations.includes(appConnectSource.name));
+  assertEquals(appConnectSource.name, "app.connect_source");
+  assert(!operations.includes("app.link_source"));
   const manager = roleOperations(
     "project_manager",
     agentTools({ file: FILE_HOOKS }),
   );
-  assert(!manager.includes(ticketCreate.name));
+  assert(!manager.includes(appConnectSource.name));
   // 앱 place의 Operator는 App Engineer의 쓰기 route에 닿지 못하고 자기 앱 하나에 묶인다.
   const operator = roleOperations(
     "operator",
     agentTools({ file: FILE_HOOKS }),
   );
-  assert(!operator.includes(ticketCreate.name));
+  assert(!operator.includes(appConnectSource.name));
   const ids = { session: "s", turn: "t", process: "p" };
   assertEquals(
     agentConditions({

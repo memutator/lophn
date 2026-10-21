@@ -1,4 +1,4 @@
-// annotations.get과 ticket 근거를 읽는 AnnotationLookup. 읽는 쪽 값에 screenshot_path(blob object 파일 경로)를 싣는다.
+// annotations.get. 읽는 쪽 값에 screenshot_path(blob object 파일 경로)를 싣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
@@ -13,7 +13,6 @@ import type {
   RequestContext,
   Sql,
 } from "../../../protocol/server/mod.ts";
-import type { AnnotationLookup } from "./ports.ts";
 import { loadAnnotations, loadBatch } from "./store.ts";
 
 type Query = Pick<Sql, "get" | "all">;
@@ -117,9 +116,4 @@ function foundByAnnotation(sql: Query, id: string) {
   return batch === null
     ? null
     : { batch: batch.batch, annotations: [annotation] };
-}
-
-// ticket.show가 근거 annotation을 값으로 풀 때 읽는다.
-export function annotationLookup(sql: Query): AnnotationLookup {
-  return { byIds: (ids) => ok(loadAnnotations(sql, ids)) };
 }

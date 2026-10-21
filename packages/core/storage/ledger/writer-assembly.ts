@@ -173,7 +173,6 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     direct,
     fromLedger,
     team.lophnAgentDefinitions,
-    team.ticketDefinitions,
   ].filter(defined);
   if (sources.length === 0) return undefined;
   return {

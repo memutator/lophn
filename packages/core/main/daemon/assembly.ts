@@ -7,11 +7,8 @@ import {
   lophnAgentDefinitions,
 } from "./wiring/lophn-agent-team.ts";
 import { problemsTestDefinitions } from "../../problems/register.ts";
-import { ticketDefinitions } from "../../apps/tickets/register.ts";
-import { createCoreRegistration as createTicketPortsRegistration } from "../../apps/tickets/ports.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { appsWiring } from "./wiring/apps.ts";
-import { appsTicketsWiring } from "./wiring/apps-tickets.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { codingSessionsWiring } from "./wiring/coding-sessions.ts";
 import { codingMcpWiring } from "./wiring/coding-mcp.ts";
@@ -57,8 +54,6 @@ export const TEAMS = [
   { problemsTestDefinitions },
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
-  { ticketDefinitions },
-  { createCoreRegistration: createTicketPortsRegistration },
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
@@ -78,8 +73,6 @@ export const TEAM_MODULES = [
   new URL("../../domains/register.ts", import.meta.url).href,
   new URL("../../problems/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
-  new URL("../../apps/tickets/register.ts", import.meta.url).href,
-  new URL("../../apps/tickets/ports.ts", import.meta.url).href,
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
   new URL("./wiring/instructions-registration.ts", import.meta.url).href,
   new URL("../../approvals/registration.ts", import.meta.url).href,
@@ -118,7 +111,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   codingMcpWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,
-  appsTicketsWiring,
   codingSessionsWiring,
   annotationsWiring,
   problemsTestsWiring,

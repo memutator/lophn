@@ -24,8 +24,6 @@ const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 
 // 읽기 tool은 모든 role이 갖는다.
 const READ_TOOLS = [
-  "ticket.list",
-  "ticket.get",
   "app.list",
   "app.get",
   "blueprint.check",
@@ -57,10 +55,6 @@ const APP_TOOL_NAMES = [
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
   app_engineer: [
-    "ticket.create",
-    "ticket.update",
-    "ticket.verify",
-    "ticket.cancel",
     "app.link_source",
     "package.publish",
     "release.prepare",
@@ -111,12 +105,6 @@ export const TOOL_ORDER = [
   "session.list",
   "ask",
   "skill.read",
-  "ticket.list",
-  "ticket.get",
-  "ticket.create",
-  "ticket.update",
-  "ticket.verify",
-  "ticket.cancel",
   "app.list",
   "app.get",
   "app.tools",

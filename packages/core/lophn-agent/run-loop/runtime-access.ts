@@ -44,12 +44,6 @@ import { domainList } from "../../../protocol/domains/mod.ts";
 import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
   agentGrantsGet,
-  applyApprovedAction,
-  approvalsGet,
-  approvalsList,
-  approvalsText,
-  cancelApprovalRequest,
-  createApprovalRequest,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appTools } from "../../../protocol/apps/blueprint/read.ts";
@@ -102,11 +96,6 @@ export const RUNTIME_MACHINE_ROUTES = [
   finishToolCall,
   toolCallRead,
   toolCallList,
-  approvalsGet,
-  approvalsList,
-  approvalsText,
-  applyApprovedAction,
-  cancelApprovalRequest,
   // OAuth 발급자 호출(MCP, provider)을 core 대신 보낸다: core에는 외부 fetch가 없다.
   issuerRequestTake,
   issuerRequestDone,
@@ -132,11 +121,9 @@ export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
   ...new Set(RUNTIME_MACHINE_ROUTES.map((route) => route.name)),
 ];
 
-// 외부 MCP tool이 쓰는 operation이다. 소유 contract와, 미분류·쓰기·external 호출이 사람에게
-// 묻는 approval request 생성이다. 요청자는 이 turn의 agent 자격과 같아야 한다.
+// 외부 MCP tool이 쓰는 operation이다.
 export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
   EXTERNAL_TOOL_CONTRACT,
-  createApprovalRequest.name,
 ];
 
 // Gate가 걸리는 tool과 `ask`가 사람의 결정을 기다리는 입구다. 기다림은 core가 쥐고 호출 하나가 결과가 날 때까지 열려 있다.

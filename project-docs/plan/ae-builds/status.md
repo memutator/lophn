@@ -7,8 +7,8 @@ lead만 고친다. `tools/status.py ae-builds build`가 `tasks/*.md`에서 id, �
 | `ab-cli` | cli | 1 | 없음 | merged | cli/ab-cli | 5a5c045a7 |  |
 | `ab-coding-move` | coding | 1 | 없음 | merged | coding/ab-coding-move | 6bb240c7b |  |
 | `ab-coding-tab` | coding | 1 | 없음 | merged | coding/ab-coding-tab | 35794b569 |  |
-| `ab-preview` | preview | 1 | ab-cli | running | preview/ab-preview |  |  |
-| `ab-publish` | publish | 1 | ab-source | todo |  |  |  |
+| `ab-preview` | preview | 1 | ab-cli | merged | preview/ab-preview | ebfe5f065 |  |
+| `ab-publish` | publish | 1 | ab-source | merged | publish/ab-publish | e13e69b8c |  |
 | `ab-reaction-screen` | reaction | 1 | 없음 | merged | reaction/ab-reaction-screen | bc0eb5cc1 |  |
 | `ab-release-checks` | release | 1 | 없음 | merged | release/ab-release-checks | df5b686ea |  |
 | `ab-router` | router | 1 | ab-coding-move | merged | router/ab-router | a03c8b649 |  |

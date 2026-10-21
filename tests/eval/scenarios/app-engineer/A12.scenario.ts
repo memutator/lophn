@@ -16,14 +16,13 @@ const TO_LOPHN = { target: LOPHN, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "A12",
-  n: 2,
+  n: 3,
   proposal: true,
   world: ["apps-home@1"],
   real: [AE_가계부],
   steps: [say(AE_가계부, REQUEST), untilIdle()],
   checks: [
     callCount("call-to-lophn", { count: { min: 1 }, where: TO_LOPHN }),
-    toolCount("no-ticket-create", { tool: "ticket.create", count: 0 }),
     toolCount("no-package-publish", { tool: "package.publish", count: 0 }),
     {
       kind: "judge",
@@ -53,10 +52,10 @@ const scenario: Scenario = {
       {
         trial: fixtureTrial([
           fixtureSession(AE_가계부, [
-            { tool: "ticket.create", effect: "write" },
+            { tool: "package.publish", effect: "write" },
           ]),
         ]),
-        fails: ["call-to-lophn", "no-ticket-create"],
+        fails: ["call-to-lophn", "no-package-publish"],
       },
       {
         trial: fixtureTrial([

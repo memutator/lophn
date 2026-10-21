@@ -10,5 +10,11 @@
     "name": "O4",
     "n": 5,
     "hash": "17480b000621eafa4d4720faee74c2d30fa415e1d25a20205ad43af71edd8c0e"
+  },
+  {
+    "kind": "scenario",
+    "name": "O4",
+    "n": 7,
+    "hash": "547e66c0b976a02afbd2dd38e0170fc5ec6cb566a3854c85f2b94a8a5e23dd6a"
   }
 ]

@@ -2,22 +2,36 @@ import type { ProgramCheck } from "../types.ts";
 import { type Count, countOk, countText } from "./calls.ts";
 import { effectiveToolCalls } from "./records.ts";
 
+// tool이 배열이면 그 가운데 어느 것이든 센다. input이 있으면 tool call 입력의 그 칸이 모두 같은(===) call만 센다.
 export function toolCount(
   id: string,
-  opts: { tool: string; count: Count; success?: boolean },
+  opts: {
+    tool: string | string[];
+    input?: Record<string, unknown>;
+    count: Count;
+    success?: boolean;
+  },
 ): ProgramCheck {
+  const tools = [opts.tool].flat();
+  const name = tools.join("|");
   return {
     kind: "program",
     id,
     run({ trial }) {
       const n =
         effectiveToolCalls(trial).filter((c) =>
-          c.call.tool === opts.tool &&
-          (!opts.success || c.call.outcome?.kind === "success")
+          tools.includes(c.call.tool) &&
+          (!opts.success || c.call.outcome?.kind === "success") &&
+          Object.entries(opts.input ?? {}).every(([k, v]) =>
+            (c.input as Record<string, unknown> | null)?.[k] === v
+          )
         ).length;
+      const input = opts.input === undefined
+        ? ""
+        : ` ${JSON.stringify(opts.input)}`;
       return {
         pass: countOk(n, opts.count),
-        reason: `${opts.tool} ${opts.success ? "성공 " : ""}${n}번 (기대 ${
+        reason: `${name}${input} ${opts.success ? "성공 " : ""}${n}번 (기대 ${
           countText(opts.count)
         })`,
       };

@@ -1,5 +1,5 @@
 // 출처: AGENT-ROLE O4. 앱의 버그를 만나면 직접 고치지 않고 그 앱의 App Engineer에게 답을 받지 않는 call로 맡긴다.
-// world는 calendar-app-bug@2다: 돌고 있는 캘린더에서 event.list의 next_week가 틀린 결과(오류)를 낸다. Operator는 그 앱 place에 있어
+// world는 calendar-app-bug@3다: 돌고 있는 캘린더에서 event.list의 next_week가 틀린 결과(오류)를 낸다. Operator는 그 앱 place에 있어
 // 앱 tool을 직접 불러 확인할 수 있다. 사람 말이 다음 주 목록을 달라고 해서 틀린 값을 드러낸다.
 // 심은 bug가 calendar 앱에 있어 calendar 폴더의 helper(AE, OP, createCalendarOperator)를 쓴다. scenarioHash는 이 폴더만 묶으므로 그 helper를 고치는 사람은 O4의 n도 올려야 한다.
 import {
@@ -18,9 +18,9 @@ const TO_AE = { target: AE, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "O4",
-  n: 6,
+  n: 7,
   proposal: false,
-  world: ["calendar-app-bug@2"],
+  world: ["calendar-app-bug@3"],
   setup: createCalendarOperator,
   real: [OP],
   steps: [say(OP, O4_REQUEST), untilIdle()],

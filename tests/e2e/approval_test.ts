@@ -1,7 +1,7 @@
-// 세 질문(allow-once-consumed와 ask 행은 아래 Deno.test에 따로 있다)
-// - contract: boundary `approvals`(묻는 쓰기는 사람의 결정 전에 실행되지 않고, 허락은 그 intent에 한 번, 거절 이유는 agent에게 간다), `agent-tools`.
-// - 현실적 회귀: Gate를 건너뛰고 쓰기가 실행되는 수정(허락 전에 file이 생김), 거절했는데 쓰기가 되는 수정, turn이 기다리다가 결정 뒤 이어 가지 못하는 수정.
-// - 왜 지금 test로 못 잡나: approvals_test·gate_test는 판정과 request 표만 본다. child process에서 세워진 turn이 core의 결정으로 이어지는 왕복은 process를 건너야만 보인다.
+// 세 질문(ask 행은 아래 Deno.test에 따로 있다)
+// - contract: boundary `approvals`(묻는 shell 명령은 사람의 결정 전에 실행되지 않고, `once`는 기다리던 그 호출을 풀고, 거절은 tool 결과로 agent에게 간다), `agent-tools`.
+// - 현실적 회귀: Gate를 건너뛰어 결정 전에 명령이 도는 수정, 거절했는데 도는 수정, 결정 뒤 turn이 이어 가지 못하는 수정.
+// - 왜 지금 test로 못 잡나: judge_test는 순수 판정만 본다. child의 `tool_gate/check` → core 메모리 request → 사람 route → child가 이어 가는 왕복은 process를 건너야 보인다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
   askAnswer,
@@ -21,20 +21,11 @@ import {
   waitQuestion,
   waitTurnEnd,
 } from "../support/core/human.ts";
+import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
   startFakeServer,
 } from "../support/fake-server/mod.ts";
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await Deno.stat(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return false;
-    throw error;
-  }
-}
 
 // 둘째 model 요청의 마지막 user message에서 call id의 tool_result 내용을 글로 돌려준다.
 function toolResultOf(fake: FakeServer, id: string): string {
@@ -49,69 +40,49 @@ function toolResultOf(fake: FakeServer, id: string): string {
   return JSON.stringify((block as { content?: unknown }).content ?? null);
 }
 
-// LOPHN.md 쓰기를 한 번 시키고 Gate 앞에서 세워진 것을 확인한 뒤 결정을 내린다.
-async function writeAndDecide(
+// 묻는 shell 명령을 한 번 시키고 Gate 앞에서 세워진 것을 확인한 뒤 결정을 내린다.
+async function askAndDecide(
   core: Core,
   fake: FakeServer,
   project: string,
   folder: string,
-  sub: string,
-  choice: "allow" | "reject",
+  name: string,
+  choice: "once" | "reject",
 ) {
+  const ask = await shellAsk(folder, name);
   fake.reset();
   fake.script([
-    {
-      reply: {
-        kind: "tool",
-        calls: [{
-          id: "t1",
-          name: "file_write",
-          arguments: JSON.stringify({
-            path: `${sub}/LOPHN.md`,
-            content: "rules",
-          }),
-        }],
-      },
-    },
+    { reply: ask.reply("t1") },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const file = `${folder}/${sub}/LOPHN.md`;
   const session = await openSession(core, { role: "project_manager", project });
-  await say(core, session, "write the rules");
+  await say(core, session, "remove it");
   const { request } = await waitPermission(core, session);
-  const before = await exists(file);
+  const before = await ask.exists();
   await decide(core, session, request, choice);
   await waitTurnEnd(core, session);
   const { tool_calls } = await core.call(toolCallList, { session });
-  return { file, before, calls: tool_calls, result: toolResultOf(fake, "t1") };
+  return { ask, before, calls: tool_calls, result: toolResultOf(fake, "t1") };
 }
 
-Deno.test("묻는 쓰기는 허락 전에 실행되지 않고, 거절하면 쓰이지 않으며 거절이 agent에게 간다", async () => {
+Deno.test("묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행되며 거절하면 실행되지 않고 거절이 agent에게 간다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
   try {
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
-    // 두 행이 같은 project 폴더(proj)를 쓰되 file은 서로 다른 하위 폴더에 둔다(project를 둘 만들면 runtime 재기동이 한 번 더 든다).
+    // 두 행이 같은 project 폴더(proj)를 쓰되 폴더는 서로 다른 하위 폴더에 둔다(project를 둘 만들면 runtime 재기동이 한 번 더 든다).
     const folder = `${run.work}/proj`;
-    await Deno.mkdir(`${folder}/a`, { recursive: true });
-    await Deno.mkdir(`${folder}/b`);
+    await Deno.mkdir(folder);
     const { project } = await openProject(core, folder);
 
-    const allowed = await writeAndDecide(
-      core,
-      fake,
-      project,
-      folder,
-      "a",
-      "allow",
-    );
-    assertEquals(allowed.before, false);
-    assertEquals(await Deno.readTextFile(allowed.file), "rules");
-    assertEquals(allowed.calls.map((c) => c.outcome?.kind), ["success"]);
+    const once = await askAndDecide(core, fake, project, folder, "a", "once");
+    assertEquals(once.before, true);
+    assertEquals(await once.ask.exists(), false);
+    assertEquals(once.calls.map((c) => c.outcome?.kind), ["success"]);
 
-    const rejected = await writeAndDecide(
+    const rejected = await askAndDecide(
       core,
       fake,
       project,
@@ -119,11 +90,12 @@ Deno.test("묻는 쓰기는 허락 전에 실행되지 않고, 거절하면 쓰�
       "b",
       "reject",
     );
-    assertEquals(rejected.before, false);
-    assertEquals(await exists(rejected.file), false);
-    assertEquals(rejected.calls.length, 1);
-    assertNotEquals(rejected.calls[0].outcome?.kind, "success");
-    assertNotEquals(rejected.result, allowed.result);
+    assertEquals(rejected.before, true);
+    assertEquals(await rejected.ask.exists(), true);
+    assertEquals(rejected.calls.map((c) => c.outcome), [
+      { kind: "not_executed", code: "rejected" },
+    ]);
+    assertNotEquals(rejected.result, once.result);
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();
@@ -216,52 +188,6 @@ Deno.test("ask: 사람의 답과 기다리는 중 보낸 말이 tool 결과로 �
     // 그 말은 tool 결과가 됐을 뿐 새 turn을 열지 않는다.
     assertEquals((await turnsOf(core, spoken.session)).length, 1);
     assert(!spoken.closed.ok && spoken.closed.error.code === "not_found");
-  } finally {
-    await core?.kill().catch(() => {});
-    await fake.close();
-    await run.remove();
-  }
-});
-
-Deno.test("allow-once-consumed: 한 번 허락은 그 쓰기에만 쓰이고 같은 쓰기를 다시 하면 다시 묻는다", async () => {
-  const run = await createRun();
-  const fake = await startFakeServer();
-  let core: Core | undefined;
-  try {
-    core = await bootCore(run);
-    await connectFakeProvider(core, fake);
-    const folder = `${run.work}/proj`;
-    await Deno.mkdir(folder, { recursive: true });
-    const { project } = await openProject(core, folder);
-    const write = (id: string, content: string) => ({
-      id,
-      name: "file_write",
-      arguments: JSON.stringify({ path: "LOPHN.md", content }),
-    });
-    fake.script([
-      {
-        reply: {
-          kind: "tool",
-          calls: [write("t1", "rules-1"), write("t2", "rules-2")],
-        },
-      },
-      { reply: { kind: "text", text: "done" } },
-    ]);
-    const session = await openSession(core, {
-      role: "project_manager",
-      project,
-    });
-    await say(core, session, "write the rules twice");
-    const first = await waitPermission(core, session);
-    await decide(core, session, first.request, "allow");
-    const second = await waitPermission(core, session);
-    assertNotEquals(second.request, first.request);
-    await decide(core, session, second.request, "allow");
-    await waitTurnEnd(core, session);
-
-    assertEquals(await Deno.readTextFile(`${folder}/LOPHN.md`), "rules-2");
-    assert(toolResultOf(fake, "t1"));
-    assert(toolResultOf(fake, "t2"));
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

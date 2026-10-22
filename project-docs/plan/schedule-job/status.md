@@ -16,6 +16,6 @@ lead만 고친다. `tools/status.py schedule-job build`가 `tasks/*.md`에서 id
 | `sj-shell-hold-card` | shell | 3 | sj-jobs-wireframe | merged | shell/sj-shell-hold-card | 910a7ef72 |  |
 | `sj-shell-job-labels` | shell | 3 | sj-jobs-wireframe | merged | shell/sj-shell-job-labels | 16a843f09 |  |
 | `sj-shell-jobs-screen` | shell | 3 | sj-jobs-wireframe | merged | shell/sj-shell-jobs-screen | a975e1723 |  |
-| `sj-docs` | docs | 4 | sj-jobs-scheduler | running | docs/sj-docs |  |  |
+| `sj-docs` | docs | 4 | sj-jobs-scheduler | merged | docs/sj-docs | 6ca0592cb |  |
 | `sj-jobs-scheduler` | jobs | 4 | sj-jobs-due, sj-runs-job-origin, sj-workflows-job-start | merged | jobs/sj-jobs-scheduler | fafddad9f | 선행이 모두 merged이고 wave 3 화면 task와 소유가 겹치지 않아 wave 3 끝을 기다리지 않고 띄움 |
 | `sj-shell-jobs-sidebar` | shell | 4 | sj-jobs-sidebar-wireframe, sj-shell-jobs-screen, sj-shell-job-labels | merged | shell/sj-shell-jobs-sidebar | c26ad2174 |  |

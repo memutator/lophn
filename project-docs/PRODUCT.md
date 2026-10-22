@@ -108,10 +108,11 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
 - workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk
+- job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`)
 
 **그다음**
 - agent의 결과를 추상화한 GUI(4절 축 2). MVP에서는 채팅 안에서 앱의 부품을 가져다 쓰는 데까지 간다.
-- program이 이끄는 workflow(flow), coding agent 같은 다른 harness를 workflow 참가자로 두기, job이 workflow를 시작하기(`products/roadmap/workflow.md`)
+- program이 이끄는 workflow(flow), coding agent 같은 다른 harness를 workflow 참가자로 두기(`products/roadmap/workflow.md`)
 
 ## 7. 다른 문서
 

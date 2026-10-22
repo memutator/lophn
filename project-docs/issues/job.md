@@ -16,3 +16,20 @@ modules: [packages/core/jobs, packages/core/main]
 고치려면:
 - 작음: 바퀴마다 `open()`이 준 줄 가운데 `run`이 있고 `running`인 줄의 run 상태를 `starter.waitRun` 대신 한 번 읽어(`runService.get` 같은 read) 끝났으면 `ended`를 다시 적는다. 지금 `closeFinished`가 workflow 줄에 하는 일과 같은 자리다. 추천.
 - 중간: `ended`가 실패하면 그 자리에서 몇 번 다시 부른다. 오류가 길게 가면 같은 일이 생긴다.
+
+## 컴퓨터가 잠든 사이 놓친 hold job의 차례는 묻지 않고 돈다
+
+```yaml
+kind: bug
+modules: [packages/core/jobs]
+```
+
+지금: `packages/core/jobs/due.ts`의 `turnFor`는 `startup && job.missed_policy === "hold"`일 때만 줄을 `held`로 만든다. lophn이 켜진 채 컴퓨터가 잠들었다 깨면 scheduler timer가 늦게 울려 여러 차례가 한꺼번에 오지만 startup claim이 아니라 `queued`로 바로 돈다(`missed_count`만 남는다).
+
+영향: `hold`를 고른 job(예: 매일 09:00, 놓치면 묻기)이 노트북을 덮어 둔 밤을 지나 낮에 열면 사람에게 묻지 않고 돈다. lophn을 껐다 켠 때와 동작이 다르다.
+
+고치려면:
+- 작음: 조건을 `(startup || count > 1) && hold`로 넓힌다. 한 차례 이상을 통째로 놓쳤으면 놓친 차례로 친다. 추천.
+- 작음: 차례 시각보다 일정 시간(예: 주기의 절반) 늦으면 놓친 것으로 친다. 기준이 하나 더 생긴다.
+
+정할 것: 잠든 사이 놓친 차례도 놓친 차례로 칠지(추천: 한 차례 이상 놓쳤으면 친다).

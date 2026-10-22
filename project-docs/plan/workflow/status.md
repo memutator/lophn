@@ -15,12 +15,12 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-decl-reader` | workflows | 2 | wf-contract | merged | workflows/wf-decl-reader | 4b2169127 |  |
 | `wf-step-input` | workflows | 2 | wf-contract | merged | workflows/wf-step-input | 6522369b1 |  |
 | `wf-store` | workflows | 2 | wf-contract | merged | workflows/wf-store | 8ac529c7e |  |
-| `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |
+| `wf-sidebar-activity` | activity | 3 | wf-wireframe | running | activity/wf-sidebar-activity |  |  |
 | `wf-artifact-serve` | artifact | 3 | wf-artifact-source | merged | artifact/wf-artifact-serve | e0c3f993d |  |
 | `wf-kit-build` | kit | 3 | wf-kit-graph | merged | kit/wf-kit-build | f836544d4 |  |
 | `wf-artifact-tab` | shell | 3 | wf-artifact-source | merged | shell/wf-artifact-tab | bac76fcf0 |  |
 | `wf-commands` | workflows | 3 | wf-store, wf-step-input | merged | workflows/wf-commands | 180a54a29 |  |
-| `wf-screen-source` | shell | 4 | wf-wireframe, wf-service | todo |  |  |  |
+| `wf-screen-source` | shell | 4 | wf-wireframe, wf-service | running | shell/wf-screen-source |  |  |
 | `wf-service` | workflows | 4 | wf-commands, wf-decl-reader | merged | workflows/wf-service | 671cf2678 |  |
 | `wf-screen-tab` | shell | 5 | wf-screen-source, wf-artifact-tab | todo |  |  |  |
 | `wf-screen-sidebar` | shell | 6 | wf-screen-tab, wf-sidebar-activity | todo |  |  |  |

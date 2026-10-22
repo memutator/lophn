@@ -81,6 +81,7 @@ export function createWorkflowReads(): {
             state: instance.state,
             current: instance.current,
             input: instance.input,
+            started_by: instance.started_by,
             created_at: instance.created_at,
             finished_at: instance.finished_at,
             last_line: last.value,

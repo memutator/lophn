@@ -19,6 +19,16 @@ export const lineBySchema = z.discriminatedUnion("kind", [
 ]);
 export type LineBy = z.infer<typeof lineBySchema>;
 
+const userBy = z.strictObject({ kind: z.literal("user") });
+const lophnBy = z.strictObject({ kind: z.literal("lophn") });
+
+// 시작한 쪽: 사람(StartWorkflow) 또는 job
+export const startedBySchema = z.discriminatedUnion("kind", [
+  userBy,
+  z.strictObject({ kind: z.literal("job"), job: idSchema("job") }),
+]);
+export type StartedBy = z.infer<typeof startedBySchema>;
+
 // in·out은 없으면 "", next 안은 stepName 또는 "end"다.
 export const instanceStepSchema = z.strictObject({
   name: stepNameSchema,
@@ -45,7 +55,7 @@ export const workflowInstanceSchema = z.object({
   participants: z.record(participantKeySchema, participantSchema), // 시작할 때 선언에서 옮긴 것
   steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
   current: currentSchema,
-  started_by: lineBySchema,
+  started_by: startedBySchema,
   created_at: atSchema,
   finished_at: atSchema.nullable(),
   state_seq: seqSchema,
@@ -158,9 +168,6 @@ function line<K extends string, S extends z.ZodRawShape, B extends z.ZodType>(
   });
 }
 
-const userBy = z.strictObject({ kind: z.literal("user") });
-const lophnBy = z.strictObject({ kind: z.literal("lophn") });
-
 export const reportLineSchema = line("report", lineBySchema, {
   step: stepNameSchema,
   text: z.string(),
@@ -170,7 +177,7 @@ export const reportLineSchema = line("report", lineBySchema, {
 export type ReportLine = z.infer<typeof reportLineSchema>;
 
 export const workflowLineSchema = z.discriminatedUnion("kind", [
-  line("started", userBy, { step: stepNameSchema, text: z.string() }),
+  line("started", startedBySchema, { step: stepNameSchema, text: z.string() }),
   reportLineSchema,
   line("edit", lineBySchema, {
     op: z.enum(["add_step", "update_step", "remove_step", "end", "hand_now"]),
@@ -237,6 +244,7 @@ export const workflowInstanceSummarySchema = z.object({
   state: workflowStateSchema,
   current: currentSchema,
   input: z.string(),
+  started_by: startedBySchema,
   created_at: atSchema,
   finished_at: atSchema.nullable(),
   last_line: workflowLineSchema.nullable(),

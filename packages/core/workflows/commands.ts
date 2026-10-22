@@ -246,7 +246,7 @@ export function createWorkflowCommands(
         };
         addLine(scope, {
           kind: "started",
-          by: input.started_by as { kind: "user" },
+          by: input.started_by,
           step: input.handoff.step,
           text: input.input,
         });

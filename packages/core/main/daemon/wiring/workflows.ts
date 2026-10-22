@@ -347,6 +347,7 @@ export const workflowsWiring: WiringFactory = () => {
         ids,
       });
       service = built;
+      ctx.provide("workflowService", built);
 
       // 자격 판정은 하지 않는다. 줄에 적을 by만 호출한 자격에서 정한다.
       const byOf = (who: AuthenticatedContext): LineBy =>
@@ -410,7 +411,7 @@ export const workflowsWiring: WiringFactory = () => {
           ],
           [
             route(workflowStart),
-            handler((i, who) => built.start(i, byOf(who))),
+            handler((i) => built.start(i, { kind: "user" })),
           ],
           [
             route(workflowReport),

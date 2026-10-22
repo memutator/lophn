@@ -3,9 +3,9 @@ import type { Id } from "../../protocol/base/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import type {
   InstanceStep,
-  LineBy,
   Participant,
   ReportLine,
+  StartedBy,
   WorkflowInstance,
   WorkflowLine,
   WorkflowState,
@@ -41,7 +41,7 @@ export function insertInstance(
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
-    started_by: LineBy;
+    started_by: StartedBy;
     created_at: string;
   },
 ): void {

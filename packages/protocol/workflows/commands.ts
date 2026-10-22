@@ -16,6 +16,7 @@ import {
   instanceStepSchema,
   lineBySchema,
   notHandedReasonSchema,
+  startedBySchema,
   workflowEditSchema,
   workflowInstanceSchema,
 } from "./instances.ts";
@@ -63,7 +64,7 @@ export const workflowInstanceCreate = defineCommand({
     input: z.string(),
     participants: z.record(participantKeySchema, participantSchema),
     steps: z.array(instanceStepSchema),
-    started_by: lineBySchema,
+    started_by: startedBySchema,
     handoff: handoffPlanSchema,
   }),
   output: z.object({

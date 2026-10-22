@@ -5,6 +5,7 @@ import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
   LineBy,
   ReportLine,
+  StartedBy,
   workflowEdit,
   workflowInstanceApply,
   workflowInstanceRead,
@@ -142,7 +143,7 @@ export function createWorkflowService(deps: {
       });
     },
 
-    async start(input: z.output<typeof workflowStart.input>, by: LineBy) {
+    async start(input: z.output<typeof workflowStart.input>, by: StartedBy) {
       const [projectRef, name] = input.workflow.split("/") as [string, string];
       const project = await projects.resolve(projectRef);
       if (!project.ok) return project;
@@ -296,6 +297,8 @@ export function createWorkflowService(deps: {
     },
   };
 }
+
+export type WorkflowService = ReturnType<typeof createWorkflowService>;
 
 function skip(id: string, code: string): void {
   console.error(`workflows: skipped ${id} (${code})`);

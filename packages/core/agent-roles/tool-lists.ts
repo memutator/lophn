@@ -55,6 +55,14 @@ const APP_TOOL_NAMES = [
   "app.invocations",
 ] as const;
 
+// Operator는 job이 부르는 쪽이라 job tool을 받지 않는다.
+const JOB_TOOL_NAMES = [
+  "job.create",
+  "job.update",
+  "job.delete",
+  "job.list",
+] as const;
+
 const ROLE_WRITE_TOOLS = {
   lophn: ["app.create"],
   app_engineer: [
@@ -85,6 +93,7 @@ export function builtinToolNames(role: Role): readonly string[] {
     ...READ_TOOLS,
     ...(role === "lophn" ? LOPHN_ONLY_READ_TOOLS : WORK_TOOLS),
     ...(role === "lophn" || role === "app_engineer" ? APP_TOOL_NAMES : []),
+    ...(role === "operator" ? [] : JOB_TOOL_NAMES),
     ...ROLE_WRITE_TOOLS[role],
   ];
 }
@@ -141,4 +150,8 @@ export const TOOL_ORDER = [
   "workflow.get",
   "workflow.report",
   "workflow.edit",
+  "job.create",
+  "job.update",
+  "job.delete",
+  "job.list",
 ] as const;

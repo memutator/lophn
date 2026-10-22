@@ -9,6 +9,7 @@ import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
 import { domain } from "./catalog/domain.ts";
 import { project } from "./catalog/project.ts";
+import { workflow } from "./catalog/workflow.ts";
 import { workspace } from "./catalog/workspace.ts";
 import { workspaceSettings } from "./catalog/workspace-settings.ts";
 
@@ -23,6 +24,7 @@ export const AREAS = {
   data,
   domain,
   project,
+  workflow,
   workspace,
   "workspace-settings": workspaceSettings,
 } as const;
@@ -37,6 +39,7 @@ export const en = {
   ...data,
   ...domain,
   ...project,
+  ...workflow,
   ...workspace,
   ...workspaceSettings,
 } as const;

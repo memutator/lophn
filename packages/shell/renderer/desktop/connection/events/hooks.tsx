@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
 } from "react";
 import type { TerminalApi } from "../../../../ipc/terminal.ts";
@@ -80,4 +81,30 @@ export function useSessionEvents(session: string): SessionEventsState {
 /** store 없이 event를 직접 듣는 쪽(toast 호스트)이 쓴다. */
 export function useEventClient(): EventClient {
   return useStores().client;
+}
+
+/**
+ * workflow instance가 바뀌었다는 신호만 듣는다. 끊긴 동안 놓친 것은 화면이 열릴 때와 Refresh에서 다시 읽어 맞춘다.
+ */
+export function useWorkflowChanges(
+  onChange: (
+    instance: string,
+    payload: { project: string; workflow: string },
+  ) => void,
+): void {
+  const client = useEventClient();
+  const latest = useRef(onChange);
+  latest.current = onChange;
+  useEffect(
+    () =>
+      client.subscribe({ types: ["WorkflowInstanceChanged"] }, (message) => {
+        if (
+          message.kind === "event" &&
+          message.event.type === "WorkflowInstanceChanged"
+        ) {
+          latest.current(message.event.subject, message.event.payload);
+        }
+      }),
+    [client],
+  );
 }

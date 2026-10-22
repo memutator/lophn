@@ -20,6 +20,11 @@ import type {
   ProjectView,
   ReadResult,
   RunFilter,
+  WorkflowEntryView,
+  WorkflowInstanceFilter,
+  WorkflowInstanceSummaryView,
+  WorkflowInstanceView,
+  WorkflowLineView,
   WorkspaceSource,
 } from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
@@ -48,6 +53,24 @@ interface DomainListValue {
 
 interface RunListValue {
   runs: RunRecordView[];
+  next_cursor: string | null;
+}
+
+interface WorkflowListValue {
+  workflows: (Omit<WorkflowEntryView, "invalid"> & {
+    state: "ok" | "invalid";
+  })[];
+}
+
+interface WorkflowInstanceListValue {
+  instances: WorkflowInstanceSummaryView[];
+  next_cursor: string | null;
+}
+
+interface WorkflowReadValue {
+  instance: WorkflowInstanceView;
+  last_reports: Record<string, WorkflowLineView>;
+  lines: WorkflowLineView[];
   next_cursor: string | null;
 }
 
@@ -271,6 +294,117 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           next: page.next_cursor,
         };
       }),
+
+    async workflows(id) {
+      const reply = await core.call({
+        kind: "memory",
+        resource: "workflows",
+        method: "list",
+        body: { project: id },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      return {
+        ok: true,
+        value: (reply.value as WorkflowListValue).workflows.map((entry) => ({
+          key: entry.key,
+          project: entry.project,
+          name: entry.name,
+          invalid: entry.state === "invalid",
+          startable: entry.startable,
+          kind: entry.kind,
+          problem: entry.problem,
+          steps: entry.steps,
+          artifacts: entry.artifacts,
+        })),
+      };
+    },
+
+    workflowInstances: (filter: WorkflowInstanceFilter) =>
+      collect<WorkflowInstanceSummaryView>(
+        core,
+        "workflow_instances",
+        "list",
+        { ...filter },
+        (value) => {
+          const page = value as WorkflowInstanceListValue;
+          return {
+            items: page.instances.map((entry) => ({
+              id: entry.id,
+              project: entry.project,
+              workflow: entry.workflow,
+              state: entry.state,
+              current: entry.current,
+              input: entry.input,
+              created_at: entry.created_at,
+              finished_at: entry.finished_at,
+              last_line: entry.last_line,
+            })),
+            next: page.next_cursor,
+          };
+        },
+      ),
+
+    // 줄은 200개씩이고 오름차순이라 collect(줄만 모으는 꼴)가 맞지 않는다.
+    async workflowInstance(instance) {
+      const lines: WorkflowLineView[] = [];
+      let cursor: string | undefined;
+      let last: WorkflowReadValue | undefined;
+      for (let index = 0; index < PAGE_LIMIT; index += 1) {
+        const reply = await core.call({
+          kind: "read",
+          resource: "workflow_instances",
+          method: "read",
+          body: cursor === undefined ? { instance } : { instance, cursor },
+        });
+        if (!reply.ok) {
+          return { ok: false, message: reply.error?.code ?? "internal" };
+        }
+        last = reply.value as WorkflowReadValue;
+        lines.push(...last.lines);
+        if (last.next_cursor === null) break;
+        cursor = last.next_cursor;
+      }
+      return {
+        ok: true,
+        value: {
+          instance: last!.instance,
+          last_reports: last!.last_reports,
+          lines,
+        },
+      };
+    },
+
+    async startWorkflow({ workflow, text, step }) {
+      const reply = await core.call({
+        kind: "memory",
+        resource: "workflows",
+        method: "start",
+        body: { workflow, text, ...(step === undefined ? {} : { step }) },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      return {
+        ok: true,
+        value: {
+          instance: (reply.value as { instance: { id: string } }).instance.id,
+        },
+      };
+    },
+
+    async stopWorkflow(instance) {
+      const reply = await core.call({
+        kind: "memory",
+        resource: "workflows",
+        method: "stop",
+        body: { instance },
+      });
+      return reply.ok
+        ? { ok: true, value: null }
+        : { ok: false, message: reply.error?.code ?? "internal" };
+    },
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

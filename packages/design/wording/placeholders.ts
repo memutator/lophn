@@ -9,6 +9,7 @@ import type { ConversationPlaceholders } from "./catalog/conversation.placeholde
 import type { DataPlaceholders } from "./catalog/data.placeholders.ts";
 import type { DomainPlaceholders } from "./catalog/domain.placeholders.ts";
 import type { ProjectPlaceholders } from "./catalog/project.placeholders.ts";
+import type { WorkflowPlaceholders } from "./catalog/workflow.placeholders.ts";
 import type { WorkspacePlaceholders } from "./catalog/workspace.placeholders.ts";
 import type { WorkspaceSettingsPlaceholders } from "./catalog/workspace-settings.placeholders.ts";
 import type { MessageKey } from "./en.ts";
@@ -23,6 +24,7 @@ export type PlaceholderKinds =
   & DataPlaceholders
   & DomainPlaceholders
   & ProjectPlaceholders
+  & WorkflowPlaceholders
   & WorkspacePlaceholders
   & WorkspaceSettingsPlaceholders;
 

@@ -17,6 +17,10 @@ const COMMON_TOOLS = [
   "session.list",
   "ask",
   "skill.read",
+  "workflow.list",
+  "workflow.get",
+  "workflow.report",
+  "workflow.edit",
 ] as const;
 
 // lophn을 뺀 세 role이 갖는다.
@@ -133,4 +137,8 @@ export const TOOL_ORDER = [
   "instructions.read",
   "operator.create",
   "operator.update",
+  "workflow.list",
+  "workflow.get",
+  "workflow.report",
+  "workflow.edit",
 ] as const;

@@ -1,6 +1,6 @@
 # workflow: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로 land했다. 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
 
 ## 원칙: lophn program은 최대한 약하다
 
@@ -10,22 +10,11 @@
 
 ## 남은 일
 
-1. **workflow별 layout(계획 `workflow-shell`).** 아래 "화면과 shell". 탭 kind(`workflow:<name>`), workflow 목록 읽기(`source.workflows(project)`), sidebar의 Workflows 항목은 계획 `workflow`가 만들었다.
-2. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. 아래 "정할 것" 1을 정한 뒤 연다.
-3. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 정한다.
-4. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
-5. **job이 instance를 시작하는 것.** `headless-schedule.md`의 job 계획(`schedule-job`)과 맞춘다. 지금 시작은 사람(화면, CLI)뿐이다.
-6. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
-
-## 화면과 shell
-
-- **workflow가 layout의 최상위 객체다.**
-  - workflow마다 자기 pane, tab, float, detached, minimized를 갖는다. 지금은 project 창 하나가 layout 하나다(`architecture/workspace-layout.md`).
-  - title bar의 selector로 workflow를 바꾼다. 바꾸면 그 workflow의 layout으로 통째로 바뀐다.
-  - workflow에 들지 않는 일(파일, terminal, 대화)을 위한 default desk를 하나 둔다.
-- **workflow의 layout에서 보는 것:** instance, 사람 step의 대화, artifact(있으면). workflow 탭(기본 view)은 계획 `workflow`가 만들었다.
-- project sidebar의 activity bar(Explorer, Agents, Artifacts, Domains, Workflows)는 계획 `workflow`가 만들었다.
-- 모양은 계획에서 wireframe으로 정한다(`ui-design` skill).
+1. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. 아래 "정할 것" 1을 정한 뒤 연다.
+2. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 정한다.
+3. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
+4. **job이 instance를 시작하는 것.** `headless-schedule.md`의 job 계획(`schedule-job`)과 맞춘다. 지금 시작은 사람(화면, CLI)뿐이다.
+5. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
 
 ## 정한 것 (사람)
 
@@ -66,9 +55,6 @@
   3. workflow artifact. 정적인 것(workflow 내용을 node처럼 시각화)과 instance의 실제 상태까지 반영해 보이는 것 둘이다.
 - 모든 workflow에 3이 필요한 것은 아니다. workflow를 만들 때 정한다. PM이 물어보면 된다.
 - workflow를 만드는 것은 PM의 책임이다.
-- shell에서 workflow가 layout의 최상위 객체다.
-  - workflow 자체가 pane, tab, float, detached, minimized를 갖는다.
-  - title bar 중앙의 별도 selector로 전환한다.
 - workflow의 node 시각화 방식을 domain에도 적용한다. 그래서 우리 kit에서 재사용 가능하게 만든다.
 - sidebar는 VS Code 같은 activity bar(리본)로 바꾼다. 항목이 너무 많아져 segmented toggle로는 감당하지 못한다.
 
@@ -81,7 +67,6 @@
 
 ## 끝남 기준
 
-- title bar selector로 eval workflow와 default desk를 오가면 각자의 layout(pane, tab, float, detached, minimized)이 그대로 돌아온다. 탭이 사라지거나 두 자리에 있지 않다.
 - `flow` workflow를 사람이 시작하면 그 program이 report를 내고, 기록과 화면이 `agent` workflow와 같다.
 - lophn core에 eval을 아는 코드와 report 글을 해석하는 코드가 없다.
 

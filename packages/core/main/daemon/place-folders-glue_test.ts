@@ -31,6 +31,7 @@ Deno.test("PM과 App Engineer의 쓰기 폴더는 자기 그릇의 폴더와 dom
   assertEquals(placeFoldersOf({ sql }, "/data", "ses_pm"), [
     "/work/a",
     "/data/domains/dom_pa",
+    "/data/projects/prj_a/workflows",
   ]);
   assertEquals(placeFoldersOf({ sql }, "/data", "ses_ae"), [
     "/src/a",

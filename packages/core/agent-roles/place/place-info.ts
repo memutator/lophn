@@ -74,6 +74,8 @@ export type PlaceData = {
   map: readonly MapDomain[];
   // 앱 place만. 앱의 활성 release가 없으면 null.
   release: { version: string; tool_names: readonly string[] } | null;
+  // project place의 PM만. 만들어 둔 workflows 폴더의 절대 path다. 다른 role은 null
+  workflowsFolder: string | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -114,6 +116,9 @@ function placeLines(data: PlaceData): string[] {
     const lines = [`Place: project ${project.name}. ${project.purpose}`];
     if (project.folders.length > 0) {
       lines.push(`  Folders: ${project.folders.map(folderText).join(", ")}`);
+    }
+    if (data.workflowsFolder !== null) {
+      lines.push(`  Workflows folder: ${data.workflowsFolder}`);
     }
     for (const folder of project.subfolders) {
       lines.push(`    ${folderText(folder)}`);

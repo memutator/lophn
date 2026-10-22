@@ -52,6 +52,7 @@ import { lstat, open, readdir } from "node:fs/promises";
 import { listArtifactEntries } from "../../agent-roles/place/artifact-list.ts";
 import { placeDataFolder } from "../../agent-roles/place/data-folder.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
+import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -147,6 +148,8 @@ function placeFiles(): PlaceFiles {
     domainFolder: (domain) => root === null ? null : domainFolder(root, domain),
     dataFolder: (place) =>
       root === null ? null : placeDataFolder(root, place as never),
+    workflowsFolder: (project) =>
+      root === null ? null : workflowsFolder(root, project),
     ensureDir: (path) => Deno.mkdir(path, { recursive: true }),
     listArtifacts: (folder) =>
       listArtifactEntries(folder, {

@@ -54,6 +54,8 @@ export type PlaceFiles = {
   domainFolder(domain: string): string | null;
   // place의 data 폴더. 폴더 자체는 core가 place를 만들 때 이미 만든다.
   dataFolder(place: { kind: "project" | "app"; id: string }): string | null;
+  // project의 `workflows/` 폴더. data root를 모르면 null.
+  workflowsFolder(project: string): string | null;
   ensureDir(path: string): Promise<void>;
   listArtifacts(folder: string): Promise<readonly ArtifactEntry[]>;
 };
@@ -466,6 +468,20 @@ async function readPlaceData(
     await add(row.agent, row.name, row.place);
   }
 
+  // PM의 turn 시작에 workflows 폴더를 만든다(없는 허용 폴더는 file scope가 건너뛴다). 만들지 못하면 범위에서 빠진 채 간다.
+  let workflowsFolder: string | null = null;
+  if (place?.kind === "project") {
+    const folder = files.workflowsFolder(place.id);
+    if (folder !== null) {
+      if (role === "project_manager") {
+        try {
+          await files.ensureDir(folder);
+          workflowsFolder = folder;
+        } catch { /* 폴더가 없으면 범위에서 빠진다 */ }
+      } else workflowsFolder = folder;
+    }
+  }
+
   const scope = placeScope({
     role,
     place,
@@ -474,6 +490,7 @@ async function readPlaceData(
     domains: scopeDomains,
     dataFolder: place === null ? null : files.dataFolder(place),
     allProjectFolders,
+    workflowsFolder,
   });
   return ok({
     place: {
@@ -487,6 +504,7 @@ async function readPlaceData(
       projects: projectList,
       map,
       release,
+      workflowsFolder: role === "project_manager" ? workflowsFolder : null,
     },
     scope,
   });

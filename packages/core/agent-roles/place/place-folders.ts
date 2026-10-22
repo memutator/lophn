@@ -14,6 +14,8 @@ export type PlaceFacts = {
   dataFolder: string | null;
   // active project 전체 폴더. lophn만 쓴다
   allProjectFolders: readonly string[];
+  // place가 project일 때 그 project의 `workflows/` 절대 경로. 쓰는 것은 그 project의 PM뿐이다(아래 placeScope)
+  workflowsFolder: string | null;
 };
 
 // base는 상대 경로를 푸는 기준일 뿐 읽기·쓰기 허락이 아니다.
@@ -45,6 +47,10 @@ export function placeScope(facts: PlaceFacts): FolderScope {
     (role === "app_engineer" && place.kind === "app")
   ) {
     const folders = [...own, ...domainFolders];
+    // workflows/는 그 project의 PM만 읽고 쓴다. 이 분기가 규칙의 유일한 자리다. facts에는 role과 상관없이 채워진다.
+    if (
+      role === "project_manager" && facts.workflowsFolder !== null
+    ) folders.push(facts.workflowsFolder);
     return withBase(folders, [...folders]);
   }
   // Operator는 domain의 `artifacts/`만 쓴다. DOMAIN.md·kinds.yaml·skills/는 열지 않는다. project의 폴더는 쓰고
@@ -57,17 +63,19 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   return { read: [], write: [] };
 }
 
-// agent runtime child의 Deno 권한용 합: 열린 project 폴더, 열린 앱 source, 모든 domain 폴더.
+// agent runtime child의 Deno 권한용 합: 열린 project 폴더, 열린 앱 source, 모든 domain 폴더, 열린 project의 workflows 폴더.
 export function runtimeFolders(input: {
   projectFolders: readonly string[];
   appSources: readonly string[];
   domainFolders: readonly string[];
+  workflowFolders: readonly string[];
 }): FolderScope {
   const folders = [
     ...new Set([
       ...input.projectFolders,
       ...input.appSources,
       ...input.domainFolders,
+      ...input.workflowFolders,
     ]),
   ];
   return { read: folders, write: [...folders] };

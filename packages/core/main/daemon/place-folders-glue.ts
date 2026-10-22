@@ -6,6 +6,7 @@ import {
   domainArtifactsFolder,
   domainFolder,
 } from "../../../protocol/domains/paths.ts";
+import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import {
   type PlaceFacts,
   placeScope,
@@ -17,6 +18,8 @@ import { activeDomainIds, domainsOfOwner } from "../../domains/lookups.ts";
 import {
   activeProjectFolderPaths,
   projectFolderPaths,
+  projectIds,
+  projectStatusOf,
 } from "../../projects/lookups.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
@@ -61,11 +64,15 @@ export function placeFoldersOf(
       ? null
       : placeDataFolder(dataRoot, { kind: place.kind, id } as never),
     allProjectFolders: [],
+    workflowsFolder: place?.kind === "project"
+      ? workflowsFolder(dataRoot, place.id)
+      : null,
   };
   return placeScope(facts).write;
 }
 
-// agent runtime child의 Deno 권한용 폴더: 열린 project 폴더와 앱 source 전체, 모든 active domain의 폴더다.
+// agent runtime child의 Deno 권한용 폴더: 열린 project 폴더와 앱 source 전체, 모든 active domain의 폴더, active project의
+// workflows 폴더다.
 export function runtimeFoldersOf(
   lookup: Lookup,
   dataRoot: string,
@@ -76,5 +83,8 @@ export function runtimeFoldersOf(
     domainFolders: activeDomainIds(lookup.sql).map((domain) =>
       domainFolder(dataRoot, domain)
     ),
+    workflowFolders: projectIds(lookup.sql)
+      .filter((id) => projectStatusOf(lookup.sql, id) === "active")
+      .map((id) => workflowsFolder(dataRoot, id)),
   });
 }

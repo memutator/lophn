@@ -39,6 +39,7 @@ const app = {
 const files: PlaceFiles = {
   domainFolder: (dom) => `/d/${dom}`,
   dataFolder: (place) => `/data/${place.id}`,
+  workflowsFolder: (project) => `/data/${project}/workflows`,
   ensureDir: () => Promise.resolve(),
   listArtifacts: (folder) =>
     Promise.resolve([{
@@ -189,4 +190,49 @@ Deno.test("lophn의 지도에는 공개 tool만 실리고 package는 주인 앱 
   assert(!text.includes("hidden"));
   assert(text.includes("show ← beta"));
   assert(text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"));
+});
+
+Deno.test("project의 workflows 폴더는 그 place의 PM의 prompt와 쓰기 범위에만 있고 Operator에는 없다", async () => {
+  const PRJ = id("prj", "1");
+  const call = fakeCall({
+    "/projects/get": {
+      project: {
+        id: PRJ,
+        name: "books",
+        title: "Books",
+        purpose: "p",
+        revision: "1",
+        status: "active",
+        folders: [{
+          path: "/p1",
+          description: "d",
+          subfolders: [],
+          found: true,
+        }],
+      },
+    },
+    "/calls/sendable": { sessions: [], queued_coding: [] },
+    "/domains/list": { domains: [] },
+  });
+  const projectPlace = { kind: "project", id: PRJ };
+  const workflows = `/data/${PRJ}/workflows`;
+  const pm = await placeData(
+    call,
+    {
+      ...agent("project_manager", projectPlace, []),
+      agent: { role: "project_manager", project: PRJ },
+    } as ResolvedAgent,
+    files,
+  );
+  assert(pm.ok);
+  assert(pm.value.place.text.includes(`Workflows folder: ${workflows}\n`));
+  assertEquals(pm.value.scope.write, ["/p1", workflows]);
+  const operator = await placeData(
+    call,
+    agent("operator", projectPlace, []),
+    files,
+  );
+  assert(operator.ok);
+  assert(!operator.value.place.text.includes("Workflows folder"));
+  assertEquals(operator.value.scope.write, ["/p1"]);
 });

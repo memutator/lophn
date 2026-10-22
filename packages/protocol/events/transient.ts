@@ -2,6 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
+import { workflowNameSchema } from "../workflows/values.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -93,6 +94,19 @@ const kindViolationFound = defineTransientEvent("KindViolationFound", {
   }),
 });
 
+// instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
+// CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
+const workflowInstanceChanged = defineTransientEvent(
+  "WorkflowInstanceChanged",
+  {
+    subject: idSchema("wfi"),
+    payload: z.strictObject({
+      project: idSchema("prj"),
+      workflow: workflowNameSchema,
+    }),
+  },
+);
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
@@ -100,4 +114,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(kindViolationFound),
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),
+  transientEventEnvelopeSchema(workflowInstanceChanged),
 ]);

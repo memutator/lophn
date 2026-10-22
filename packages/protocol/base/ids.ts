@@ -32,6 +32,7 @@ const ID_PREFIXES = {
   anb: "AnnotationBatch",
   dom: "Domain",
   run: "Run",
+  wfi: "WorkflowInstance",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

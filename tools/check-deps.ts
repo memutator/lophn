@@ -66,7 +66,13 @@ function numberedName(segment: string): boolean {
 // feature module끼리는 서로 import하지 않는다(project-docs/architecture/layers.md).
 const CORE_HARNESS = "lophn-agent";
 const CORE_ROLES = "agent-roles";
-const CORE_FEATURES = new Set(["projects", "apps", "domains", "runs"]);
+const CORE_FEATURES = new Set([
+  "projects",
+  "apps",
+  "domains",
+  "runs",
+  "workflows",
+]);
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
   return parts[0] === "packages" && parts[1] === "core" && parts.length > 3

@@ -1,6 +1,6 @@
 # ws-wire-selector
 
-title bar 가운데에 승인된 `DeskSelector`를 달고 자리를 바꾸게 한다. selector의 선택지는 기본 자리와 project의 workflow 목록이다. workflow 자리를 처음 열면 그 workflow의 탭이 열린 layout으로 시작하고, 목록에서 사라진 workflow의 자리는 기본 자리로 합친다. wireframe 승인 뒤에 돈다.
+title bar 왼쪽에 승인된 `ProjectSelector / DeskSelector` 경로를 달고(파일 경로 breadcrumb을 뺀다) project와 자리를 바꾸게 한다. selector의 선택지는 기본 자리와 project의 workflow 목록이다. workflow 자리를 처음 열면 그 workflow의 탭이 열린 layout으로 시작하고, 목록에서 사라진 workflow의 자리는 기본 자리로 합친다. wireframe 승인 뒤에 돈다.
 
 - 단위: wire (wave 3)
 - 선행: ws-wire-state, ws-desk-wireframe. 앞은 이 task가 쓰는 state이고, 뒤는 사람이 승인한 selector 모양이다.
@@ -12,13 +12,13 @@ title bar 가운데에 승인된 `DeskSelector`를 달고 자리를 바꾸게 �
 - 읽을 것:
   - 계획: `project-docs/plan/workflow-shell/README.md`의 "정한 것"(selector 목록, 사라진 workflow는 기본 자리로 합친다)과 "사람이 정할 것"
   - 승인된 wireframe: gallery의 `project-desk-*` page(`tools/wireframes/pages/screens/project-desk.tsx`)와 사람의 승인 때 정한 것(ws-desk-wireframe의 보고)
-  - 계약 brief: `project-docs/plan/workflow-shell/tasks/ws-wire-state.md`(`switchTo`, `mergeVanished`), `ws-desk-wireframe.md`(`DeskSelector`, `TopBar`의 `center`), `ws-model.md`(`DEFAULT_DESK`, `vanishedDesks`)
+  - 계약 brief: `project-docs/plan/workflow-shell/tasks/ws-wire-state.md`(`switchTo`, `mergeVanished`), `ws-desk-wireframe.md`(`DeskSelector`, `ProjectSelector`. 끝의 "사람 피드백 반영" 절), `ws-model.md`(`DEFAULT_DESK`, `vanishedDesks`)
   - 계획 `workflow`: `project-docs/plan/workflow/tasks/wf-screen-source.md`(`WorkspaceSource.workflows(project)`가 주는 `WorkflowEntryView`: `name`, `invalid: boolean`, 틀린 선언도 담은 평평한 배열), `wf-screen-tab.md`(탭 kind `workflow`, `workflowTab`, `openWorkflow`), `wf-screen-sidebar.md`(`WorkflowPanel`이 source를 직접 읽고 `workspace.tsx`는 두 줄만 고친다)
   - 코드: land한 `workspace/workspace.tsx`(`TopBar` 호출부, `openTab`, `wf-screen-sidebar`가 고친 두 줄), `workspace/kinds/kind.ts`(`TabKindDef`), `workspace/kinds/workflow.tsx`(`wf-screen-tab`이 land한 것)
   - skill: `.claude/skills/wording/SKILL.md`, `.claude/skills/ui-design/SKILL.md`(wireframe을 옮기는 규칙)
 - 계약:
   - 쓰는 것
-    - ws-desk-wireframe: `DeskSelector`, `DeskOption`, `DeskSelectorProps`, `TopBar`의 `center`
+    - ws-desk-wireframe: `DeskSelector`, `DeskOption`, `DeskSelectorProps`, `ProjectSelector`, `ProjectOption`, `ProjectSelectorProps`
     - ws-wire-state: `desks`, `switchTo(key, seed)`, `mergeVanished(liveKeys)`, `emptyView`
     - 계획 `workflow`: `source.workflows(project)`(`ReadResult<readonly WorkflowEntryView[]>`. entry의 `name`과 `invalid`. 틀린 선언도 담긴다), workflow 탭 kind(`packages/shell/renderer/workspace/kinds/workflow.tsx`)가 내놓는 `workflowTab(name: string, instance?: string): TabItem`(`wf-screen-tab`이 내놓는 순수 함수. `openWorkflow`도 이것을 쓴다). 이 이름이 없으면 시작하지 말고 lead에게 알린다.
   - 내놓는 것
@@ -39,14 +39,14 @@ title bar 가운데에 승인된 `DeskSelector`를 달고 자리를 바꾸게 �
 
 ## 할 일
 
-지금: `TopBar`에 `center`가 없고(ws-desk-wireframe가 더한다), `host.openTab`은 `openAcrossDesks`만 쓰며(ws-wire-state), workflow 탭 kind는 sidebar 입구와 함께 land해 있다.
+지금: 상단 바 왼쪽은 `LauncherButton`(sidebar 접힘)·`Breadcrumbs`·`MinimizedBar`이고, `host.openTab`은 `openAcrossDesks`만 쓰며(ws-wire-state), workflow 탭 kind는 sidebar 입구와 함께 land해 있다.
 
 1. `kinds/kind.ts`: `TabKindDef`에 `homeDesk?(tab: TabItem): string | undefined`를 더한다. 주석은 "이 탭이 사는 자리 key. 있으면 탭을 여는 길이 그 자리로 건너가서 연다"(왜: 정한 것 2). lead가 더한 소유대로 `kinds/workflow.tsx`의 `workflowKind`에 `homeDesk(tab)`을 더해 탭 필드의 workflow 이름을 돌려준다(없거나 문자열이 아니면 undefined).
 2. `workspace.tsx`에서 목록을 쓴다.
    - `workflowList` state(`ReadResult<readonly WorkflowEntryView[]> | null`)를 더하고 `source.workflows(project)`를 직접 읽는다(정한 것 5). 읽기마다 `live` guard를 둔다(앞 project의 결과를 버린다).
    - selector menu를 열 때(`DeskSelector`의 열림 변화. wireframe이 정한 자리)와 project를 연 직후 한 번 읽는다. 성공(`ok: true`)한 결과로만 `mergeVanished(names)`를 부른다. 실패나 `null`(읽는 중)이면 부르지 않는다. 이미 불렀던 같은 목록으로는 다시 부르지 않는다(`vanishedDesks`가 비면 `mergeVanished`가 아무것도 안 한다).
 3. `options`·`seed`를 만든다(계약 "내놓는 것"). 읽는 중·실패일 때의 `options`는 `desks.desks`의 key를 쓴다. 기본 자리 label은 wording key(`project-workspace.label.desk-default`, ws-desk-wireframe가 더한 것)다.
-4. `TopBar`에 `center={<DeskSelector … />}`를 넘긴다. 승인된 wireframe이 selector를 숨기는 조건(예: workflow가 없는 project)을 정했으면 그대로 `center`를 `undefined`로 둔다.
+4. 상단 바 왼쪽을 승인된 wireframe대로 바꾼다. 아래 "사람 피드백 반영" 절을 따른다.
 5. `homeDesk`를 쓴다: `openTab`의 맨 앞에 `home = tabKindOf(tab.kind)?.homeDesk?.(tab)`이 있고 보이는 자리와 다르면 `switchTo(home, openTabIn(emptyView(), tab, () => false))`를 부른 뒤 지금 흐름(`openAcrossDesks`)으로 이어 그 탭이 그 자리에서 선택되게 한다. 이미 그 자리에 있으면 `switchTo`는 자리만 바꾸고 `openAcrossDesks`가 탭을 고른다.
 6. wording: selector에 필요한 문구가 wireframe 승인 때 더 생겼으면 `catalog/project.ts`에 key를 더하고 `deno task wording`을 돌린다.
 7. `deno task dev:mock`(renderer를 먼저 build)에서 사람이 볼 수 있게 한다. fake source(`wf-screen-source`의 fake)가 workflow 둘과 틀린 선언 하나를 주는지 확인한다.
@@ -70,3 +70,20 @@ title bar 가운데에 승인된 `DeskSelector`를 달고 자리를 바꾸게 �
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: workflow 폴더 이름을 바꾸면 옛 이름의 자리가 기본 자리로 합쳐진다(정한 것 4). 그 밖에 알게 된 것.
+
+## 사람 피드백 반영 (lead가 더함, 2026-10-22)
+
+사람이 wireframe을 보고 상단 바를 바꿨다(README "정한 것"의 "title bar 왼쪽은 `project ▾ / desk ▾`다"). 위와 다르면 이 절이 이긴다.
+
+- 추가 소유
+  - `packages/shell/renderer/workspace/model.ts`: `breadcrumbs` 함수만 지운다(쓰는 곳이 `workspace.tsx`뿐이다). `Crumb` type은 `top-path/breadcrumbs.tsx`가 쓰므로 남긴다. `Breadcrumbs` component도 Settings가 쓰므로 남긴다.
+  - `packages/shell/renderer/workspace/source.ts`, `core-source.ts`, `fake-source.ts`: project 목록 읽기를 더한다.
+  - `packages/shell/renderer/desktop/main.tsx`: `Workspace`에 project를 여는 callback 한 줄.
+  - `tools/wireframes/pages/screens/project-app.tsx`, `tools/wireframes/pages/screens/project-window.tsx`: 상단 바를 직접 그리는 gallery page라서 `Breadcrumbs`를 새 왼쪽 경로로 바꾼다(project 창 모양이 gallery 기준과 어긋나지 않게).
+- 할 일
+  1. `workspace.tsx` 상단 바 왼쪽 순서: (sidebar 접힘이면) `LauncherButton` → `ProjectSelector` → `/` → `DeskSelector`(workflow 목록에 항목이 있거나 layout에 workflow 자리가 있을 때) → `MinimizedBar`. `Breadcrumbs`와 `crumbs`를 지운다. `TopBar`에는 `center`가 없다.
+  2. `WorkspaceSource`에 `projects(): Promise<ReadResult<readonly { id: string; title: string }[]>>`를 더한다. core는 `projects.list`(active)다. launcher의 `readProjects`(`desktop/launcher/projects/core-source.ts`)를 import할 수 있으면 그것을 쓰고 사본을 만들지 않는다. fake는 project 셋 이상을 준다.
+  3. project 목록은 workflow 목록과 같은 때(project를 연 직후, menu를 열 때) 읽는다. 읽는 중이거나 실패면 `options`는 지금 project 하나(label은 `loaded.project?.title`)다.
+  4. `Workspace` props에 `onOpenProject?: (project: string) => void`를 더하고 `desktop/main.tsx`가 launcher의 project card와 같은 route(`openProject(id)`)로 잇는다. `onSelect(id)`는 지금 project와 다를 때만 부른다. 떠나는 project의 layout 저장과 detached 창 닫기는 지금 project를 떠나는 길 그대로다.
+  5. `grep -rn "breadcrumbs(" packages tools`가 0줄이다(`Breadcrumbs` component를 쓰는 Settings는 남는다).
+- 넘길 줄: 계획 `workflow`의 `wf-screen-source`가 `source.ts`·`core-source.ts`·`fake-source.ts`에 더한 줄과 겹친 곳.

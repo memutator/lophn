@@ -2,7 +2,7 @@
 
 - **목표:** project 창의 layout을 desk마다 따로 갖게 한다.
   - desk는 default desk 하나와 그 project의 workflow마다 하나다. desk마다 자기 pane, tab, float, detached, minimized를 갖는다.
-  - title bar 가운데 selector로 desk를 바꾼다.
+  - title bar 왼쪽 경로 `project ▾ / desk ▾`의 desk menu로 desk를 바꾼다.
 - **재료:**
   - roadmap `project-docs/products/roadmap/workflow.md`의 "화면과 shell"과 "정한 것 (사람)"
   - architecture: `workspace-layout.md` 전체, `browser-tab.md`, `ui-kit.md`
@@ -43,6 +43,10 @@ roadmap을 따른다. 아래는 이 계획에 걸려 agent가 정한 것이다(2
   - workflow desk를 처음 열면 그 workflow의 탭(계획 `workflow`의 탭 kind)이 열린 layout으로 시작한다.
 - **목록에서 사라진 workflow의 desk는 default desk로 합친다.** 그 desk의 탭을 default desk로 옮기고 desk를 지운다. 근거: 탭이 말없이 사라지지 않는다.
 - **단축키는 두지 않는다.** 지금 float, detach와 같다.
+- **title bar 왼쪽은 `project ▾ / desk ▾`다(사람, 2026-10-22 wireframe을 보고).**
+  - 파일 경로 breadcrumb(`project / notes.md`)을 project 창 상단 바에서 뺀다. selector는 가운데가 아니라 그 자리(왼쪽)에 둔다. 근거(사람): minimized span 단추들이 자리를 써야 한다.
+  - project 쪽도 menu다. 고르면 그 project를 이 창에서 연다(launcher의 project card와 같은 route). project 창이 `projects.list`를 읽는다.
+  - workflow가 없는 project는 `project ▾`만 보인다.
 
 ## 사람이 정할 것
 

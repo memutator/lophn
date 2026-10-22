@@ -4,6 +4,8 @@ import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
 import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
 import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
+import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
+import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
 import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
@@ -55,6 +57,8 @@ export const TEAMS = [
   { createLedgerRegistration: createDomainsRegistration },
   { createLedgerRegistration: createRunsRegistration },
   { createLedgerRegistration: createWorkflowsRegistration },
+  { createLedgerRegistration: createJobsRegistration },
+  { createCoreRegistration: createJobsCoreRegistration },
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { createCoreRegistration: createApprovalsRegistration },
@@ -76,6 +80,8 @@ export const TEAM_MODULES = [
   new URL("../../domains/register.ts", import.meta.url).href,
   new URL("../../runs/register.ts", import.meta.url).href,
   new URL("../../workflows/register.ts", import.meta.url).href,
+  new URL("../../jobs/register.ts", import.meta.url).href,
+  new URL("./wiring/jobs-registration.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
   new URL("./wiring/instructions-registration.ts", import.meta.url).href,

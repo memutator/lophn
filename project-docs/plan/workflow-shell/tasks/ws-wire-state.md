@@ -4,7 +4,7 @@ project 창 `Workspace`의 layout state를 `WorkspaceView` 하나에서 `Workspa
 
 - 단위: wire (wave 2)
 - 선행: ws-model, ws-layout-map, ws-detached-show, ws-desk-wireframe. 앞 셋은 이 task가 import하는 계약이고, wireframe은 사람이 승인해야 renderer wiring이 돈다.
-- 시작 조건: 계획 `workflow`의 `wf-screen-sidebar`가 main에 land했다(lead가 확인한 뒤에 띄운다. `status.py`의 선행 줄은 이 계획의 id만 읽는다). 그 task가 `workspace.tsx`에 workflow 줄을 연결하는 줄을 먼저 고치고, 이 task는 그 위에서 한다.
+- 시작 조건: ~~계획 `workflow`의 `wf-screen-sidebar`가 main에 land했다.~~ 사람이 바꿨다(2026-10-22): `wf-screen-sidebar`를 기다리지 않고 먼저 돈다. 이 task는 workflow 코드를 쓰지 않는다. 계획 `workflow`의 `workspace.tsx` 고침(`wf-sidebar-activity`의 `onRail` 줄, `wf-screen-sidebar`의 두 줄)이 뒤에 이 변경 위로 rebase한다. 아래 "읽을 것"의 "`wf-screen-sidebar`가 land한 `workspace.tsx`"는 아직 없으니 건너뛴다.
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/workspace.tsx`
   - `packages/shell/renderer/workspace/kinds/host.ts`

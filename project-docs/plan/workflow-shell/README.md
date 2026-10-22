@@ -18,7 +18,7 @@
 - **돌리는 방식:** worker(`sonnet-high`). orchestrate skill대로 한다. task id는 `ws-`로 시작한다.
 - **시작 조건:**
   - model, schema, detached, wireframe task(wave 1)는 바로 돌 수 있다.
-  - renderer 연결 task는 계획 `workflow`의 `wf-screen-sidebar`가 main에 land한 뒤에 돈다.
+  - renderer 연결 task는 계획 `workflow`의 `wf-screen-sidebar`가 main에 land한 뒤에 돈다. 단 `ws-wire-state`는 workflow 코드를 쓰지 않아 먼저 돈다(사람, 2026-10-22). `ws-wire-selector`는 그대로 기다린다.
   - workflow 목록 읽기는 `workflow`의 `wf-screen-source`가 renderer source에 내놓는 `workflows(project)`를 쓴다. 이 계획에서 따로 만들지 않는다.
 
 ## 정한 것

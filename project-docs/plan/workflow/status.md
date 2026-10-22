@@ -16,7 +16,7 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-step-input` | workflows | 2 | wf-contract | merged | workflows/wf-step-input | 6522369b1 |  |
 | `wf-store` | workflows | 2 | wf-contract | merged | workflows/wf-store | 8ac529c7e |  |
 | `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |
-| `wf-artifact-serve` | artifact | 3 | wf-artifact-source | running | artifact/wf-artifact-serve |  |  |
+| `wf-artifact-serve` | artifact | 3 | wf-artifact-source | merged | artifact/wf-artifact-serve | e0c3f993d |  |
 | `wf-kit-build` | kit | 3 | wf-kit-graph | running | kit/wf-kit-build |  |  |
 | `wf-artifact-tab` | shell | 3 | wf-artifact-source | merged | shell/wf-artifact-tab | bac76fcf0 |  |
 | `wf-commands` | workflows | 3 | wf-store, wf-step-input | merged | workflows/wf-commands | 180a54a29 |  |

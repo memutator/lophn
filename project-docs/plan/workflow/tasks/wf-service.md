@@ -72,3 +72,13 @@ memory route 다섯(`ListWorkflows`, `StartWorkflow`, `ReportWorkflow`, `EditWor
 - 넘길 줄: `runs` wiring의 `stop` 반복을 베낀 곳(runs.ts는 이 task의 소유가 아니다).
 - 계약 바꾸기 요청: `wf-contract`의 port나 `HandoffPlan`을 바꿔야 하면 여기에 적는다.
 - **무겁게 짠 것**, **알려진 미완 동작**: 없으면 "없음".
+
+## (lead가 더함)
+
+- **추가 소유: `packages/core/main/daemon/assembly.ts`의 정확히 세 자리.** 이유: `register.ts`(`wf-commands`)의 memory route 다섯은 handler(이 task의 wiring)와 같이 붙어야 core가 뜬다(`core.ts`의 `memoryRouteMismatch`). 그래서 등록과 wiring을 이 task가 같이 넣고 `boot.sh`로 확인한다.
+  - import `createLedgerRegistration as createWorkflowsRegistration`(`../../workflows/register.ts`)와 `workflowsWiring`(`./wiring/workflows.ts`).
+  - `TEAMS`에 `{ createLedgerRegistration: createWorkflowsRegistration }`를 runs 줄 바로 뒤에, `TEAM_MODULES`에 `new URL("../../workflows/register.ts", import.meta.url).href`를 runs 줄 바로 뒤에.
+  - `WIRINGS`에 `workflowsWiring`을 `runsWiring` 바로 뒤에. `WIRINGS` 위 주석 목록에 "workflows는 runs와 같은 이유로 router 뒤다" 한 줄.
+  - 다른 줄은 고치지 않는다(계획 `schedule-job`도 이 file에 줄을 더한다).
+- `packages/core/workflows/mod.ts`는 lead가 고친다. export할 이름을 "등록할 것"에 적는다.
+- 끝나면 `boot.sh`의 두 기동이 `exit 0`이어야 한다. memory route와 handler가 어긋나면 기동이 "memory route와 handler가 맞지 않는다"로 멈춘다.

@@ -128,7 +128,7 @@ workflow 탭과 project sidebar의 activity bar(그 안의 Workflows 입구 포�
 
 사람이 gallery Drafts(`draft-workflow-*`, `draft-activity-bar-*`)를 보고 추천안 그대로 승인했다(2026-10-22). renderer task는 아래를 그대로 옮긴다.
 
-1. activity bar: 폭 56px(`--layout-sidebar-collapsed`), icon 20px, 버튼 높이 48px. 열린 항목은 왼쪽 2px 띠와 배경 둘 다. 열린 icon을 다시 누르면 bar만 남게 접힌다. 창이 640px보다 좁으면 panel이 저절로 접힌다. Workflows icon은 lucide `Workflow`, Agents는 `commonIcons.roles`(`Users`). panel은 240px이고 bar와 합쳐 296px이다.
+1. activity bar: 폭 56px(`--layout-sidebar-collapsed`), icon 20px, 버튼 높이 48px. 열린 항목은 왼쪽 2px 띠와 배경 둘 다. 열린 icon을 다시 누르면 bar만 남게 접힌다. 창이 좁으면 panel이 저절로 접히고 bar만 남는다(`model.ts`의 `sidebarView`: 1024px 미만은 기본 접힘, 640px 미만은 sidebar를 숨긴다). Workflows icon은 lucide `Workflow`, Agents는 `commonIcons.roles`(`Users`). panel은 240px이고 bar와 합쳐 296px이다.
 2. 탭: workflow 하나가 탭 하나다(key `workflow:<name>`, 필드 `{ workflow, instance? }`). 탭 안에서 instance를 고른다.
 3. instance 기본 view: step 줄마다 상태 icon과 글, 마지막 report는 세 줄까지, 줄 기록은 `<details>`(지금 step은 펼침). "Your turn" 줄이 step 위에 서고 [Open conversation]은 지금 step의 가장 나중 `handed` 줄 `receiver` session을 연다. `not_handed`·`lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. graph는 없다.
 4. [Start] dialog는 입력 글(필수)과 첫 step 고르기. static [Open artifact]는 탭 머리, [Open instance artifact]는 instance 머리의 [Stop] 옆이다. [Stop]은 확인 없이 멈춘다.

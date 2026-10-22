@@ -17,6 +17,7 @@ export type SettingsPane =
   | "tools"
   | "coding"
   | "shell-rules"
+  | "jobs"
   | "diagnostics";
 
 interface SettingsPaneEntry {
@@ -92,6 +93,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
     id: "system",
     label: "settings.label.group-system",
     panes: [
+      {
+        id: "jobs",
+        label: "settings.label.tab-jobs",
+        icon: settingsIcons.jobs,
+      },
       {
         id: "diagnostics",
         label: "settings.label.tab-diagnostics",

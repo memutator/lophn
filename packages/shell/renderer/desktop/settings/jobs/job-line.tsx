@@ -1,32 +1,31 @@
 // job 한 줄과 펼친 기록. data는 props로 받는다. 줄 오른쪽 끝 고정 열에 switch, Edit, Delete, 기록 토글이 있다.
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { StatusMark } from "@lophn/ui/feedback";
+import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
+import { t } from "@lophn/wording";
 
-import { commonIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
-import type {
-  JobRunView,
-  JobView,
-  NAMES,
-} from "../../mock/jobs-screen-data.ts";
+import { commonIcons } from "../../../icons/mod.ts";
 import {
   actionText,
   creatorText,
-  everyText,
   missedText,
   nextText,
   runText,
   runWhen,
+  scheduleText,
   STATE,
   whenText,
-} from "./jobs-text.ts";
+} from "./model.ts";
+import type { JobNames, JobRunView, JobView } from "./source.ts";
 import styles from "./jobs.module.css";
+
+/** 펼친 줄의 기록. 읽는 중이면 loading, 읽지 못했으면 failed. 펴지 않았으면 undefined. */
+export type History = readonly JobRunView[] | "loading" | "failed";
 
 export interface JobLineProps {
   job: JobView;
-  names: typeof NAMES;
-  /** 펼쳤을 때만 읽은 기록. 펴지 않았으면 undefined. */
-  history: readonly JobRunView[] | undefined;
+  names: JobNames;
+  history: History | undefined;
   onToggle: () => void;
   onEnabled: (enabled: boolean) => void;
   onEdit: () => void;
@@ -48,6 +47,7 @@ export function JobLine(
     onOpenProject,
   }: JobLineProps,
 ) {
+  const now = new Date();
   const action = actionText(job.action, names);
   const last = job.last_run;
   const open = history !== undefined;
@@ -60,7 +60,7 @@ export function JobLine(
         <div className={styles.main}>
           <span className={styles.title}>{job.title}</span>
           <span className={styles.line}>
-            {everyText(job.every, job.at)} · {nextText(job)}
+            {scheduleText(job.every, job.at)} · {nextText(job, now)}
           </span>
           <span className={styles.line}>
             <span className={styles.summary}>{action.summary}</span>
@@ -71,15 +71,15 @@ export function JobLine(
           </span>
           <span className={styles.last}>
             {last === null
-              ? <span className={styles.meta}>Has not run yet</span>
+              ? <span className={styles.meta}>{t("jobs.label.not-yet")}</span>
               : (
                 <>
                   <StatusMark
                     tone={STATE[last.state].tone}
-                    label={STATE[last.state].label}
+                    label={t(STATE[last.state].label)}
                   />
                   <span className={styles.meta}>
-                    {whenText(last.started_at ?? last.due_at)}
+                    {whenText(last.started_at ?? last.due_at, now)}
                   </span>
                 </>
               )}
@@ -88,18 +88,24 @@ export function JobLine(
         <div className={styles.controls}>
           <div className={styles.switchSlot}>
             <Switch
-              label={job.enabled ? "On" : "Off"}
+              label={job.enabled
+                ? t("settings.label.value-on")
+                : t("settings.label.value-off")}
               checked={job.enabled}
               onCheckedChange={onEnabled}
             />
           </div>
-          <Button size="sm" data-job-edit="" onClick={onEdit}>Edit</Button>
+          <Button size="sm" data-job-edit="" onClick={onEdit}>
+            {t("settings.button.edit")}
+          </Button>
           <Button size="sm" data-job-delete="" onClick={onDelete}>
-            Delete
+            {t("jobs.button.delete")}
           </Button>
           <IconButton
             icon={open ? commonIcons.collapse : commonIcons.expand}
-            label={open ? "Hide history" : "Show history"}
+            label={open
+              ? t("jobs.button.hide-history")
+              : t("jobs.button.show-history")}
             size="sm"
             data-job-toggle=""
             aria-expanded={open}
@@ -109,10 +115,14 @@ export function JobLine(
       </div>
       {history === undefined
         ? null
+        : history === "loading"
+        ? <Skeleton lines={2} />
+        : history === "failed"
+        ? <p className={styles.noHistory}>{t("jobs.error.history")}</p>
         : history.length === 0
-        ? <p className={styles.noHistory}>It has not run yet.</p>
+        ? <p className={styles.noHistory}>{t("jobs.note.no-history")}</p>
         : (
-          <ul className={styles.history} aria-label="History">
+          <ul className={styles.history} aria-label={t("jobs.label.history")}>
             {history.map((row) => (
               <li
                 key={row.id}
@@ -122,10 +132,10 @@ export function JobLine(
               >
                 <StatusMark
                   tone={STATE[row.state].tone}
-                  label={STATE[row.state].label}
+                  label={t(STATE[row.state].label)}
                 />
                 <span className={styles.runText}>{runText(row)}</span>
-                <span className={styles.runWhen}>{runWhen(row)}</span>
+                <span className={styles.runWhen}>{runWhen(row, now)}</span>
                 <span className={styles.runAction}>
                   {row.session === null ? null : (
                     <Button
@@ -133,7 +143,7 @@ export function JobLine(
                       variant="ghost"
                       onClick={() => onOpenSession(row.session!)}
                     >
-                      Open session
+                      {t("waiting.button.open-session")}
                     </Button>
                   )}
                   {row.instance !== null && project !== null
@@ -143,7 +153,7 @@ export function JobLine(
                         variant="ghost"
                         onClick={() => onOpenProject(project)}
                       >
-                        Open project
+                        {t("jobs.button.open-project")}
                       </Button>
                     )
                     : null}

@@ -1,6 +1,7 @@
 import {
   Activity,
   Bot,
+  CalendarClock,
   Globe,
   Palette,
   Plug,
@@ -21,4 +22,5 @@ export const settingsIcons = {
   coding: SquareTerminal,
   shellRules: ShieldCheck,
   diagnostics: Activity,
+  jobs: CalendarClock,
 };

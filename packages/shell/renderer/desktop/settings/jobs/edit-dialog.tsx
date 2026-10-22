@@ -4,30 +4,22 @@ import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
+import { t } from "@lophn/wording";
 
-import type { JobView } from "../../mock/jobs-screen-data.ts";
-import { MISSED_OPTIONS } from "./jobs-text.ts";
+import { agentName, MISSED_OPTIONS } from "./model.ts";
+import type { JobPatch, JobView, MissedPolicy } from "./source.ts";
 import styles from "./jobs.module.css";
 
-export interface JobChange {
-  readonly title: string;
-  readonly every: string;
-  readonly at: string | null;
-  readonly missed_policy: JobView["missed_policy"];
-}
-
 const UNITS = [
-  { value: "m", label: "Minutes" },
-  { value: "h", label: "Hours" },
-  { value: "d", label: "Days" },
-];
+  { value: "m", label: "jobs.label.unit-minutes" },
+  { value: "h", label: "jobs.label.unit-hours" },
+  { value: "d", label: "jobs.label.unit-days" },
+] as const;
 
 export function EditDialog(
-  { job, creator, onSave, onClose }: {
+  { job, onSave, onClose }: {
     job: JobView;
-    /** "Project Manager" 같은 만든 agent 이름. 안내 글에 쓴다. */
-    creator: string;
-    onSave: (change: JobChange) => void;
+    onSave: (patch: Required<JobPatch>) => void;
     onClose: () => void;
   },
 ) {
@@ -42,10 +34,10 @@ export function EditDialog(
     <Dialog
       open
       onOpenChange={(open) => open || onClose()}
-      title="Edit scheduled job"
+      title={t("jobs.heading.edit")}
       actions={
         <>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{t("settings.button.cancel")}</Button>
           <Button
             variant="primary"
             disabled={!valid}
@@ -55,16 +47,16 @@ export function EditDialog(
                 title: title.trim(),
                 every: `${count}${unit}`,
                 at: unit === "d" ? time : null,
-                missed_policy: missed as JobView["missed_policy"],
+                missed_policy: missed as MissedPolicy,
               })}
           >
-            Save
+            {t("settings.button.save")}
           </Button>
         </>
       }
     >
       <div className={styles.form}>
-        <Field label="Title">
+        <Field label={t("jobs.label.title")}>
           <Input
             value={title}
             maxLength={80}
@@ -72,23 +64,27 @@ export function EditDialog(
           />
         </Field>
         <div className={styles.pair}>
-          <Field label="Every">
+          <Field label={t("jobs.label.every")}>
             <Input
               inputMode="numeric"
               value={count}
               onChange={(event) => setCount(event.target.value)}
             />
           </Field>
-          <Field label="Unit">
-            <Select options={UNITS} value={unit} onValueChange={setUnit} />
+          <Field label={t("jobs.label.unit")}>
+            <Select
+              options={UNITS.map((one) => ({
+                value: one.value,
+                label: t(one.label),
+              }))}
+              value={unit}
+              onValueChange={setUnit}
+            />
           </Field>
         </div>
         {unit === "d"
           ? (
-            <Field
-              label="At"
-              help="The time of day on this computer."
-            >
+            <Field label={t("jobs.label.at")} help={t("jobs.note.at-help")}>
               <Input
                 type="time"
                 value={time}
@@ -97,15 +93,18 @@ export function EditDialog(
             </Field>
           )
           : null}
-        <Field label="If missed">
+        <Field label={t("jobs.label.if-missed")}>
           <Select
-            options={MISSED_OPTIONS}
+            options={MISSED_OPTIONS.map((one) => ({
+              value: one.value,
+              label: t(one.label),
+            }))}
             value={missed}
             onValueChange={setMissed}
           />
         </Field>
         <p className={styles.note}>
-          What the job does cannot be changed here. Ask {creator} to change it.
+          {t("jobs.note.edit-readonly", { agent: agentName(job.creator) })}
         </p>
       </div>
     </Dialog>

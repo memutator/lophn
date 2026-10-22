@@ -15,6 +15,7 @@ import {
   fakeShellRules,
   SAMPLE_SHELL_RULES,
 } from "../settings/shell-rules/testdata/fake-source.ts";
+import { fakeJobs } from "../settings/jobs/testdata/fake-source.ts";
 import { fakeConnections } from "../settings/connections/testdata/fake-source.ts";
 import { appRow, fakeApps } from "../../apps/testdata/fake-apps.ts";
 import type { SettingsSource } from "../settings/source.ts";
@@ -44,6 +45,7 @@ export function mockSettingsPanels(): SettingsPanels {
     appearance: fakeAppearance().source,
     coding: fakeConnections().source,
     browser: fakeBrowserSettings().source,
+    jobs: fakeJobs().source,
   };
 }
 

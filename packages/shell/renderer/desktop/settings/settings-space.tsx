@@ -182,6 +182,8 @@ export function SettingsSpace(
                 onPane={setSettingsPane}
                 source={settings}
                 onInstructions={onInstructions}
+                onOpenSession={onOpenSession}
+                onProject={onProject}
               />
             )
             : (

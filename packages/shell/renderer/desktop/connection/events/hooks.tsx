@@ -108,3 +108,21 @@ export function useWorkflowChanges(
     [client],
   );
 }
+
+/**
+ * job이나 job run이 바뀌었다는 신호만 듣는다. 끊긴 동안 놓친 것은 화면이 열릴 때와 기록을 다시 열 때 읽어 맞춘다.
+ */
+export function useJobChanges(onChange: () => void): void {
+  const client = useEventClient();
+  const latest = useRef(onChange);
+  latest.current = onChange;
+  useEffect(
+    () =>
+      client.subscribe({ types: ["JobChanged"] }, (message) => {
+        if (message.kind === "event" && message.event.type === "JobChanged") {
+          latest.current();
+        }
+      }),
+    [client],
+  );
+}

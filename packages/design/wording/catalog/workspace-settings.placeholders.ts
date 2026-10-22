@@ -2,6 +2,111 @@
 import type { workspaceSettings } from "./workspace-settings.ts";
 
 export type WorkspaceSettingsPlaceholders = {
+  "jobs.button.delete": Record<never, never>;
+  "jobs.button.hide-history": Record<never, never>;
+  "jobs.button.open-project": Record<never, never>;
+  "jobs.button.show-history": Record<never, never>;
+  "jobs.empty.list": Record<never, never>;
+  "jobs.error.delete": Record<never, never>;
+  "jobs.error.history": Record<never, never>;
+  "jobs.error.save": Record<never, never>;
+  "jobs.heading.delete": {
+    title: "string";
+  };
+  "jobs.heading.edit": Record<never, never>;
+  "jobs.label.action-agent": {
+    agent: "string";
+  };
+  "jobs.label.action-tool": Record<never, never>;
+  "jobs.label.action-tool-detail": {
+    app: "string";
+    tool: "string";
+  };
+  "jobs.label.action-workflow": Record<never, never>;
+  "jobs.label.action-workflow-detail": {
+    project: "string";
+    workflow: "string";
+  };
+  "jobs.label.agent-app-engineer": Record<never, never>;
+  "jobs.label.agent-lophn": Record<never, never>;
+  "jobs.label.agent-operator": Record<never, never>;
+  "jobs.label.agent-project-manager": Record<never, never>;
+  "jobs.label.at": Record<never, never>;
+  "jobs.label.created-by": {
+    agent: "string";
+  };
+  "jobs.label.created-by-place": {
+    agent: "string";
+    place: "string";
+  };
+  "jobs.label.every": Record<never, never>;
+  "jobs.label.every-days": {
+    n: "plural";
+  };
+  "jobs.label.every-days-at": {
+    n: "plural";
+    time: "string";
+  };
+  "jobs.label.every-hours": {
+    n: "plural";
+  };
+  "jobs.label.every-minutes": {
+    n: "plural";
+  };
+  "jobs.label.history": Record<never, never>;
+  "jobs.label.if-missed": Record<never, never>;
+  "jobs.label.missed-hold": Record<never, never>;
+  "jobs.label.missed-option-hold": Record<never, never>;
+  "jobs.label.missed-option-run": Record<never, never>;
+  "jobs.label.missed-run": Record<never, never>;
+  "jobs.label.next": {
+    time: "string";
+  };
+  "jobs.label.not-yet": Record<never, never>;
+  "jobs.label.state-cancelled": Record<never, never>;
+  "jobs.label.state-done": Record<never, never>;
+  "jobs.label.state-failed": Record<never, never>;
+  "jobs.label.state-held": Record<never, never>;
+  "jobs.label.state-interrupted": Record<never, never>;
+  "jobs.label.state-queued": Record<never, never>;
+  "jobs.label.state-running": Record<never, never>;
+  "jobs.label.state-skipped": Record<never, never>;
+  "jobs.label.target": Record<never, never>;
+  "jobs.label.title": Record<never, never>;
+  "jobs.label.turned-off": Record<never, never>;
+  "jobs.label.unit": Record<never, never>;
+  "jobs.label.unit-days": Record<never, never>;
+  "jobs.label.unit-hours": Record<never, never>;
+  "jobs.label.unit-minutes": Record<never, never>;
+  "jobs.note.at-help": Record<never, never>;
+  "jobs.note.delete": Record<never, never>;
+  "jobs.note.edit-readonly": {
+    agent: "string";
+  };
+  "jobs.note.intro": Record<never, never>;
+  "jobs.note.no-history": Record<never, never>;
+  "jobs.note.run-cancelled": Record<never, never>;
+  "jobs.note.run-done": Record<never, never>;
+  "jobs.note.run-done-missed": {
+    count: "plural";
+  };
+  "jobs.note.run-failed": Record<never, never>;
+  "jobs.note.run-failed-start": {
+    message: "string";
+  };
+  "jobs.note.run-held": Record<never, never>;
+  "jobs.note.run-held-missed": {
+    count: "plural";
+  };
+  "jobs.note.run-interrupted": Record<never, never>;
+  "jobs.note.run-queued": Record<never, never>;
+  "jobs.note.run-running": Record<never, never>;
+  "jobs.note.run-running-missed": {
+    count: "plural";
+  };
+  "jobs.note.run-skipped-overlap": Record<never, never>;
+  "jobs.note.run-skipped-person": Record<never, never>;
+  "jobs.note.run-skipped-superseded": Record<never, never>;
   "settings.appearance.accent-help": Record<never, never>;
   "settings.appearance.background-help": Record<never, never>;
   "settings.appearance.code-font-help": Record<never, never>;
@@ -139,6 +244,7 @@ export type WorkspaceSettingsPlaceholders = {
   "settings.label.tab-diagnostics": Record<never, never>;
   "settings.label.tab-extensions": Record<never, never>;
   "settings.label.tab-general": Record<never, never>;
+  "settings.label.tab-jobs": Record<never, never>;
   "settings.label.tab-providers": Record<never, never>;
   "settings.label.tab-shell-rules": Record<never, never>;
   "settings.label.text-size": Record<never, never>;

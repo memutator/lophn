@@ -43,7 +43,7 @@ export function fakeArtifactApi(
           ? `/fake/artifacts/${source.name}/index.html`
           : source.kind === "file"
           ? source.path
-          : `/fake/workflows/${source.workflow}/index.html`,
+          : `/fake/workflows/${source.workflow}/artifacts/${source.view}/index.html`,
         title: options.title ?? name,
         loading: false,
         health: "ok",

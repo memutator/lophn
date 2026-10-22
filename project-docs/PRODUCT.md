@@ -20,7 +20,7 @@ lophn은 사용자의 도메인에 기대지 않는다. lophn의 도메인은 �
 
 | 층 | 무엇 | 누구의 것 |
 |---|---|---|
-| 사용자의 도메인 | 캘린더, 거래처, 견적, 내 문서의 계약. 앱, domain(kind 파일, `DOMAIN.md`, skill, artifact, 앱 tool), 사용자 package로 만들어진다 | 사용자가 온전히 소유한다. 범용화나 정규화를 신경 쓰지 않고 그 사람에게 맞춘다 |
+| 사용자의 도메인 | 캘린더, 거래처, 견적, 내 문서의 계약. 앱, domain(kind 파일, `DOMAIN.md`, skill, artifact, 앱 tool), 사용자 package, 사람과 agent가 step을 넘기며 도는 workflow로 만들어진다 | 사용자가 온전히 소유한다. 범용화나 정규화를 신경 쓰지 않고 그 사람에게 맞춘다 |
 | lophn의 도메인 | 그 software를 만들고, 고정하고, 관측하고, 고치고, 되돌리고, 권한을 주는 일. release, preview, invocation, 앱 log, grant, event | lophn |
 
 - 사용자의 도메인은 그릇 안에 domain으로 나뉜다. 그릇은 project(폴더 작업 공간)와 app(software 작업 공간)이고, domain은 그 안의 책임 경계다. 그릇 하나에 domain이 여럿 있을 수 있고, 모든 앱은 domain을 하나 이상 가진다. 다른 그릇의 domain은 같은 것을 또 만들지 않고 공개 tool로 참조한다(`architecture/domain.md`).
@@ -50,10 +50,10 @@ lophn 안에서는 이렇게 나뉜다.
 
 | 주체 | 맡는 일 |
 |---|---|
-| 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다 |
+| 사람 | 도메인을 이야기한다. 무엇을 만들지와 취향을 정한다. 앞에서 한 번 허락한다(grant). 결과를 확인한다. workflow에서는 step을 맡아 agent와 논의하는 참가자다 |
 | lophn agent | 무엇을 만들고 고칠지 정한다(lophn은 기획하고 맡기며 경계를 넘는 판단을 한다. Project Manager는 한 project와 그 domain을, App Engineer는 한 앱의 코드와 그 domain을 맡는다). 개인 앱은 App Engineer가 직접 설계하고 짓고 고친다. 쓰고 돌본다(Operator). 길고 복잡한 coding agent의 일은 하지 않는다 |
 | coding agent | 길고 복잡한 코딩을 맡는다. 사람이 원래 쓰던 Claude Code, Codex 등이다 |
-| lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 앱 log, grant 판정, invocation 기록과 rewind, event |
+| lophn program | 결정적인 판정을 맡는다: release 고정과 검사, 관측과 앱 log, grant 판정, invocation 기록과 rewind, event. workflow에서는 판정하지 않고 말한 대로 기록하고 보이고 전한다(아래) |
 
 ### 책임은 일마다 근거를 따져 나눈다
 
@@ -68,6 +68,14 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 같은 질문이라도 근거가 다르면 답이 다르다. 사람이 고친 문서가 kind 계약을 깨는 일은 고친 사람이 자기가 계약을 깼는지 모를 수 있다. 그런 일은 program이 결정적으로 검사하는 쪽이 맞다.
 
+### workflow에서 lophn program은 최대한 약하다
+
+사람과 agent 여럿이 step을 넘기며 도는 일(workflow)은 project의 PM이 정의하고, 사람이 instance로 시작한다(`architecture/workflow.md`).
+- lophn program은 workflow 안의 agent와 program이 하는 말을 믿고, 기록하고, 보이고, 다음 담당에게 전할 뿐이다. step이 통과했는지 모르고, 순서를 강제하지 않는다.
+- 아무리 정형화된 일이라도 예외 처리는 program이 할 수 없다. 그래서 정책과 예외(순서 바꾸기, 다시 하기, 뒤 step 고치기)는 workflow 안의 agent가 instance를 고쳐 다룬다.
+- 진짜 결정적이고 딱딱한 제약이 필요하면 그것은 그 workflow가 쓰는 program의 책임이다. lophn core는 workflow의 domain을 모른다.
+- agent는 자기 step의 prompt와 in/out만 받는다. domain처럼 workflow도 캡슐화를 지킨다.
+
 ## 4. 핵심은 추상화
 
 바이브코딩 사용자 대부분은 소프트웨어 공학을 모른다. lophn은 두 축으로 그것을 추상화한다.
@@ -78,7 +86,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - lophn agent, coding agent, lophn process가 함께 고친다.
 - 쓸데없는 결정 피로를 줄인다. 결정은 앞에서 몰아서 하고 그 뒤에는 믿고 쓰며, 실수는 묻는 것으로 막지 않고 rewind로 복구한다.
 
-**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 작업 목록이 아니라 내 앱에서 무엇이 달라졌는지다. 설계 메모나 agent끼리 주고받는 call처럼 agent가 만들고 읽는 것은 사람 화면에 따로 보이지 않는다.
+**축 2. agent의 결과를 GUI로 추상화한다.** 사람에게 최종적으로 오는 interface가 채팅 화면에 갇혀서는 안 된다. 그렇다고 ERP 화면을 다시 만드는 것도 아니다. 예를 들어 ERP를 agent에게 시킨다면, 사람에게는 agent의 결과를 추상화한 새로운 GUI가 필요하다. 앱에 대해서도 사람에게 필요한 것은 로그 화면이 아니다. 앱 개발에서도 사람에게 필요한 것은 작업 목록이 아니라 내 앱에서 무엇이 달라졌는지다. 설계 메모나 agent끼리 주고받는 call처럼 agent가 만들고 읽는 것은 사람 화면에 따로 보이지 않는다. 사람이 맡긴 workflow instance의 진행은 보인다. workflow가 project 창 layout의 맨 위 단위(desk)이고, PM이 고르면 node로 그린 artifact가 그 상태를 보인다.
 
 ## 5. 하지 않는 것
 
@@ -99,9 +107,11 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - 앱: App Engineer가 직접 짓기(blueprint, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
+- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk
 
 **그다음**
 - agent의 결과를 추상화한 GUI(4절 축 2). MVP에서는 채팅 안에서 앱의 부품을 가져다 쓰는 데까지 간다.
+- program이 이끄는 workflow(flow), coding agent 같은 다른 harness를 workflow 참가자로 두기, job이 workflow를 시작하기(`products/roadmap/workflow.md`)
 
 ## 7. 다른 문서
 

@@ -226,10 +226,19 @@ export async function cliMain(
     ? body.value === undefined ? {} : { input: body.value }
     : { ...(body.value as Record<string, unknown> | undefined) };
   slots.forEach((slot, index) => candidate[slot] = rest[index]);
-  // 이 칸들은 run 명령만 받는다. 다른 명령은 strict 입력이 "모르는 칸"으로 거절한다.
+  // flag가 위치 인자를 덮어쓰지 못하게 한다(`workflow report <step>`과 `--step`).
+  if (parsed.step !== undefined && slots.includes("step")) {
+    return await fail({
+      code: "invalid_input",
+      message: "<step> 위치 인자와 --step을 같이 쓰지 않는다",
+    });
+  }
+  // 이 칸들은 run·workflow 명령만 받는다. 다른 명령은 strict 입력이 "모르는 칸"으로 거절한다.
   if (parsed.agent !== undefined) candidate.agent = parsed.agent;
   if (parsed.session !== undefined) candidate.session = parsed.session;
   if (parsed.schema !== undefined) candidate.schema = parsed.schema;
+  if (parsed.step !== undefined) candidate.step = parsed.step;
+  if (parsed.next !== undefined) candidate.next = parsed.next;
   if (parsed.async) candidate.async = true;
   // flag가 만든 칸은 route 입력이 아니다. route 입력의 칸(예: previews.start의 `input`)은 이름이 같아도 남는다.
   const flagKeys: string[] = [];

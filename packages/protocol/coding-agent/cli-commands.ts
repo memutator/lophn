@@ -192,6 +192,30 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     "run cancel",
     z.strictObject({ run: idSchema("run") }),
   ),
+  // workflow 명령도 route를 표에 두지 않는다(`cli/commands/workflow.ts`가 `protocol/workflows`의 route를 부른다).
+  // 문자열 검사는 core의 route schema가 한다. 여기는 id와 `new | same`만 좁힌다.
+  user(
+    "workflow start",
+    z.strictObject({
+      workflow: z.string().min(1).describe("<project 이름>/<name>"),
+      text: z.string().min(1),
+      step: z.string().min(1).optional().describe(
+        "첫 step 이름 (없으면 선언의 시작 step)",
+      ),
+    }),
+  ),
+  user(
+    "workflow report",
+    z.strictObject({
+      instance: idSchema("wfi"),
+      step: z.string().min(1),
+      text: z.string().min(1),
+      next: z.string().min(1).optional().describe("다음 step 이름 또는 end"),
+      session: z.enum(["new", "same"]).optional().describe("new | same"),
+    }),
+  ),
+  user("workflow stop", z.strictObject({ instance: idSchema("wfi") })),
+  user("workflow show", z.strictObject({ instance: idSchema("wfi") })),
   {
     name: "harness detect",
     auth: "local",

@@ -1,6 +1,6 @@
 // CLI argv parser. 정본 이름은 `lophn <group> <command>`다. 별칭·implicit stdin·모르는 option은 없다.
 // 위치 인자는 command 이름과 command가 받는 값(`hook <harness> <event>`, `agent run <prompt>`,
-// `tool call <app> <tool>`, `run wait|show|cancel <run>`)뿐이고, 나머지 입력은 JSON 하나다.
+// `tool call <app> <tool>`, `run wait|show|cancel <run>`, `workflow start|report|stop|show`)뿐이고, 나머지 입력은 JSON 하나다.
 
 export type ParsedArgs = {
   positional: string[];
@@ -12,6 +12,8 @@ export type ParsedArgs = {
   agent: string | undefined;
   session: string | undefined;
   schema: string | undefined;
+  step: string | undefined;
+  next: string | undefined;
   async: boolean;
   errors: string[];
 };
@@ -23,6 +25,8 @@ const VALUE_FLAGS = [
   "--agent",
   "--session",
   "--schema",
+  "--step",
+  "--next",
 ] as const;
 
 // argv를 읽어 구조화 입력으로 바꾼다. 모르는 flag·값 없는 flag·flag 중복은 errors에 남기고
@@ -38,6 +42,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     agent: undefined,
     session: undefined,
     schema: undefined,
+    step: undefined,
+    next: undefined,
     async: false,
     errors: [],
   };
@@ -81,6 +87,8 @@ const FLAG_KEYS = {
   "--agent": "agent",
   "--session": "session",
   "--schema": "schema",
+  "--step": "step",
+  "--next": "next",
 } as const;
 
 function assign(parsed: ParsedArgs, flag: string, value: string): void {

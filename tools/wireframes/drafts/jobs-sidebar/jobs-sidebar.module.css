@@ -1,0 +1,74 @@
+/* Scheduled jobs panel의 줄. 줄 전체가 하나의 단추이고 switch는 그 위 오른쪽 끝 고정 열에 놓인다(단추 안에 단추를 넣지 않는다). */
+.row {
+  position: relative;
+  display: flex;
+}
+
+.main {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) var(--motion-ease),
+    color var(--motion-duration-short) var(--motion-ease);
+}
+
+.main:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.main:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+/* 제목은 switch 열 앞에서 줄어든다. */
+.title {
+  min-width: var(--space-0);
+  overflow: hidden;
+  padding-right: calc(var(--space-12) + var(--space-4));
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 아래 줄: 주기 글과 상태 하나. 좁으면 줄을 바꾼다. */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-0) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.switchSlot {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+  width: calc(var(--space-12) + var(--space-4));
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-4);
+}

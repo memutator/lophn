@@ -3,6 +3,8 @@ import type { Area } from "../pages/types.ts";
 import { jobsScreenPages } from "./jobs-screen/pages.tsx";
 // jobs-origin
 import { jobsOriginPages } from "./jobs-origin/pages.tsx";
+// jobs-sidebar
+import { jobsSidebarPages } from "./jobs-sidebar/pages.tsx";
 
 export const draftsArea: Area = {
   id: "experiments",
@@ -14,5 +16,7 @@ export const draftsArea: Area = {
     ...jobsScreenPages,
     // jobs-origin
     ...jobsOriginPages,
+    // jobs-sidebar
+    ...jobsSidebarPages,
   ],
 };

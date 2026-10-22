@@ -9,6 +9,8 @@ import {
   DataTable,
   DistributionChart,
   GraphDiagram,
+  type GraphEdge,
+  type GraphNode,
   LineChart,
   List,
   ListItem,
@@ -63,6 +65,60 @@ const RELOAD = {
   action: { label: "Reload", onSelect: NOOP },
 };
 const CATEGORIES = ["Sep 24", "Sep 25", "Sep 26"];
+
+// workflow step 견본: 다섯 tone이 한 번씩 나오고 report에서 spec으로 되돌아가는 edge가 있다.
+// 상태 이름은 앱이 정한 글이고 component는 뜻을 모른다.
+const STEP_STATUS_NODES: readonly GraphNode[] = [
+  { id: "spec", label: "Spec", status: { label: "Approved", tone: "good" } },
+  {
+    id: "run",
+    label: "Run",
+    status: { label: "Running", tone: "warning" },
+    note: "Step 3 of 5",
+  },
+  {
+    id: "review",
+    label: "Review",
+    status: { label: "Needs input", tone: "serious" },
+  },
+  {
+    id: "report",
+    label: "Report",
+    status: { label: "Failed", tone: "critical" },
+  },
+  {
+    id: "archive",
+    label: "Archive",
+    status: { label: "Pending", tone: "neutral" },
+  },
+];
+const STEP_STATUS_EDGES: readonly GraphEdge[] = [
+  { from: "spec", to: "run" },
+  { from: "run", to: "review" },
+  { from: "run", to: "report" },
+  { from: "review", to: "archive" },
+  { from: "report", to: "spec" },
+];
+// 긴 note는 줄여 보이고 전체는 hover tooltip으로 읽는다.
+const STEP_NOTE_NODES: readonly GraphNode[] = [
+  { id: "spec", label: "Spec" },
+  {
+    id: "run",
+    label: "Run",
+    status: { label: "Failed", tone: "critical" },
+    note:
+      "The report step could not read the quarterly export because the file was missing columns.",
+  },
+  {
+    id: "report",
+    label: "Report",
+    status: { label: "Waiting", tone: "neutral" },
+  },
+];
+const STEP_NOTE_EDGES: readonly GraphEdge[] = [
+  { from: "spec", to: "run" },
+  { from: "run", to: "report" },
+];
 
 const CHART_STATE = { onRetry: NOOP, empty: RELOAD, timeZone: "UTC" };
 
@@ -599,7 +655,7 @@ export function KitData() {
       </Section>
       <Section
         title="GraphDiagram"
-        note="node와 edge의 연결 구조. 값의 크기가 아니라 관계를 보인다."
+        note="node와 edge의 연결 구조. node마다 상태(label, tone)와 짧은 글을 넘길 수 있고, 긴 글은 줄여 보이고 hover하면 전체가 나온다."
       >
         <Row label="values">
           <Wide>
@@ -607,6 +663,24 @@ export function KitData() {
               {...CHART_STATE}
               nodes={STEPS.nodes}
               edges={STEPS.edges}
+            />
+          </Wide>
+        </Row>
+        <Row label="status">
+          <Wide>
+            <GraphDiagram
+              {...CHART_STATE}
+              nodes={STEP_STATUS_NODES}
+              edges={STEP_STATUS_EDGES}
+            />
+          </Wide>
+        </Row>
+        <Row label="long note">
+          <Wide>
+            <GraphDiagram
+              {...CHART_STATE}
+              nodes={STEP_NOTE_NODES}
+              edges={STEP_NOTE_EDGES}
             />
           </Wide>
         </Row>

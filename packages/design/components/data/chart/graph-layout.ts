@@ -9,11 +9,18 @@ import type { GraphEdge, GraphNode } from "./types.ts";
 const px = (value: string) => Number.parseFloat(value);
 
 export const NODE_HEIGHT = px(tokens.table.row.compact);
+// 첫 줄(label) 아래에 줄마다 caption 줄 높이만큼 늘어난다. 맨 아래 여백은 NODE_HEIGHT에 이미 있다.
+const LINE = px(tokens.type.caption.line);
+const LABEL_LINE = px(tokens.type.small.line);
+export const ICON_SIZE = px(tokens.icon.size.small);
+export const ICON_GAP = px(tokens.space[2]);
 const PAD = px(tokens.space[5]);
 const ROW_GAP = px(tokens.space[5]);
 const COLUMN_GAP = px(tokens.space[10]);
 // 이보다 긴 이름은 줄여 보이고 전체는 tooltip으로 읽는다.
 const LABEL_LIMIT = 24;
+// note는 node 폭을 밀지 않도록 이만큼에서 줄인다.
+export const NOTE_LIMIT = 40;
 
 function shorten(label: string, limit = LABEL_LIMIT): string {
   const characters = [...label];
@@ -22,8 +29,39 @@ function shorten(label: string, limit = LABEL_LIMIT): string {
     : `${characters.slice(0, limit - 1).join("")}…`;
 }
 
+// node 높이: status와 note가 없으면 NODE_HEIGHT이고, 있는 줄마다 늘어난다.
+export function nodeHeight(node: GraphNode): number {
+  const lines = (node.status === undefined ? 0 : 1) +
+    (node.note === undefined ? 0 : 1);
+  return NODE_HEIGHT + lines * LINE;
+}
+
+// 상태 줄은 아이콘과 글이 한 줄이다.
+function statusWidth(node: GraphNode): number {
+  return node.status === undefined
+    ? 0
+    : ICON_SIZE + ICON_GAP + textWidth(shorten(node.status.label));
+}
+
+function nodeTextWidth(node: GraphNode): number {
+  return largest([
+    textWidth(shorten(node.label)),
+    statusWidth(node),
+    node.note === undefined ? 0 : textWidth(shorten(node.note, NOTE_LIMIT)),
+  ]);
+}
+
 interface PlacedNode extends GraphNode {
   readonly shortLabel: string;
+  readonly shortStatus?: string;
+  readonly shortNote?: string;
+  // node 위쪽에서 각 줄 가운데까지의 거리.
+  readonly labelY: number;
+  readonly statusY: number;
+  readonly noteY: number;
+  // 상태 줄(아이콘+글)을 가운데에 두는 왼쪽 x(node 안 상대).
+  readonly statusX: number;
+  readonly height: number;
   readonly layer: number;
   readonly x: number;
   readonly y: number;
@@ -127,26 +165,38 @@ export function layoutGraph(
     ),
   );
   const gap = Math.max(COLUMN_GAP, edgeRoom);
-  const rows = largest(columns.map((column) => column.length));
-  const height = rows * NODE_HEIGHT + (rows - 1) * ROW_GAP;
+  const spanOf = (column: readonly GraphNode[]) =>
+    column.reduce((sum, node) => sum + nodeHeight(node), 0) +
+    (column.length - 1) * ROW_GAP;
+  const height = largest(columns.map(spanOf));
   const placed = new Map<string, PlacedNode>();
   let x = 0;
   columns.forEach((column, layer) => {
-    const width = largest(
-      column.map((node) => textWidth(shorten(node.label)) + PAD * 2),
-    );
-    const span = column.length * NODE_HEIGHT + (column.length - 1) * ROW_GAP;
-    const offset = (height - span) / 2;
-    column.forEach((node, row) =>
+    const width = largest(column.map((node) => nodeTextWidth(node) + PAD * 2));
+    let y = (height - spanOf(column)) / 2;
+    for (const node of column) {
+      const nodeH = nodeHeight(node);
+      const statusY = NODE_HEIGHT / 2 + LABEL_LINE / 2 + LINE / 2;
+      const noteY = statusY + (node.status === undefined ? 0 : LINE);
       placed.set(node.id, {
         ...node,
         shortLabel: shorten(node.label),
+        shortStatus: node.status && shorten(node.status.label),
+        shortNote: node.note === undefined
+          ? undefined
+          : shorten(node.note, NOTE_LIMIT),
+        labelY: NODE_HEIGHT / 2,
+        statusY,
+        noteY,
+        statusX: (width - statusWidth(node)) / 2,
         layer,
         x,
-        y: offset + row * (NODE_HEIGHT + ROW_GAP),
+        y,
         width,
-      })
-    );
+        height: nodeH,
+      });
+      y += nodeH + ROW_GAP;
+    }
     x += width + gap;
   });
   const placedEdges = edges.map((edge) => {
@@ -156,11 +206,11 @@ export function layoutGraph(
     const forward = to.layer > from.layer;
     const start: [number, number] = [
       forward ? from.x + from.width : from.x,
-      from.y + NODE_HEIGHT / 2,
+      from.y + from.height / 2,
     ];
     const end: [number, number] = [
       forward ? to.x : to.x + to.width,
-      to.y + NODE_HEIGHT / 2,
+      to.y + to.height / 2,
     ];
     return {
       ...edge,

@@ -55,6 +55,7 @@ export {
   type ScatterChartProps,
 } from "./chart/scatter-chart.tsx";
 // node와 edge의 연결 구조. 값의 크기가 아니라 관계를 보일 때 쓴다.
+// node마다 상태(label, tone)와 짧은 글을 넘길 수 있고, 상태 값의 뜻은 component가 모른다.
 export {
   GraphDiagram,
   type GraphDiagramProps,
@@ -66,6 +67,7 @@ export type {
 export type {
   GraphEdge,
   GraphNode,
+  NodeStatus,
   ScatterGroup,
   ScatterPoint,
   Series,

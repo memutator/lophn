@@ -184,6 +184,33 @@
   font-size: var(--type-small-size);
 }
 
+/* 상태 줄: tone 색은 아이콘에만 쓰고 글은 보조 글색이다. */
+.nodeStatus {
+  color: var(--status-neutral-marker);
+}
+
+.nodeStatus[data-tone="good"] {
+  color: var(--status-good-marker);
+}
+
+.nodeStatus[data-tone="warning"] {
+  color: var(--status-warning-marker);
+}
+
+.nodeStatus[data-tone="serious"] {
+  color: var(--status-serious-marker);
+}
+
+.nodeStatus[data-tone="critical"] {
+  color: var(--status-critical-marker);
+}
+
+.nodeStatusLabel,
+.nodeNote {
+  fill: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+}
+
 .edge {
   fill: none;
   stroke: var(--color-border-strong);
@@ -225,13 +252,18 @@
   z-index: var(--z-tooltip);
 }
 
+/* 긴 글(note)은 줄바꿈되어 읽힌다. 짧은 글은 한 줄 그대로다. */
 .tooltipTitle {
   grid-column: 1 / -1;
   color: var(--color-text-secondary);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .tooltipName {
   color: var(--color-text-secondary);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .tooltipValue {

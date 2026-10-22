@@ -1,5 +1,6 @@
 // 그리기 전에 입력 모양을 검사한다. 세션 시각 블록은 agent가 만든 data를 넘기므로
 // 타입을 믿지 않고 실행 시점에 다시 본다. 통과하지 못하면 geometry를 만들지 않는다(NaN·Infinity가 SVG로 가지 않게).
+import { tokens } from "../../../tokens.ts";
 import { ALL_PAIRS_MAX, foldsFinite } from "./palette.ts";
 import type {
   GraphEdge,
@@ -192,6 +193,11 @@ interface GraphInput {
   readonly edges: readonly GraphEdge[];
 }
 
+function isStatus(value: unknown): boolean {
+  return isRecord(value) && isText(value.label) && isText(value.tone) &&
+    Object.hasOwn(tokens.status, value.tone);
+}
+
 export function checkGraph(
   input: { nodes: unknown; edges: unknown },
 ): Checked<GraphInput> {
@@ -199,7 +205,10 @@ export function checkGraph(
   if (
     !everyDense<GraphNode>(
       nodes,
-      (node) => isRecord(node) && isKey(node.id) && isText(node.label),
+      (node) =>
+        isRecord(node) && isKey(node.id) && isText(node.label) &&
+        (node.status === undefined || isStatus(node.status)) &&
+        (node.note === undefined || isText(node.note)),
     )
   ) return invalid;
   const ids = nodes.map((node) => node.id);

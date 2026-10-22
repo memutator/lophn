@@ -5,8 +5,10 @@ import {
   type ChartLocaleProps,
   type ChartStateProps,
 } from "./chart-frame.tsx";
+import { Icon } from "../../primitives/icon/icon.tsx";
+import { STATUS_ICONS } from "../../feedback/status-mark/status-mark.tsx";
 import { type Box, GEOMETRY } from "./geometry.ts";
-import { layoutGraph, NODE_HEIGHT } from "./graph-layout.ts";
+import { ICON_GAP, ICON_SIZE, layoutGraph } from "./graph-layout.ts";
 import { Tooltip } from "./marks.tsx";
 import type { GraphEdge, GraphNode } from "./types.ts";
 import { useActive } from "./use-active.ts";
@@ -97,18 +99,52 @@ function GraphPlot(
                 x={node.x}
                 y={node.y}
                 width={node.width}
-                height={NODE_HEIGHT}
+                height={node.height}
                 rx={GEOMETRY.barRadius}
               />
               <text
                 className={styles.nodeLabel}
                 x={node.x + node.width / 2}
-                y={node.y + NODE_HEIGHT / 2}
+                y={node.y + node.labelY}
                 textAnchor="middle"
                 dominantBaseline="middle"
               >
                 {node.shortLabel}
               </text>
+              {node.status && (
+                <g
+                  className={styles.nodeStatus}
+                  data-tone={node.status.tone}
+                  transform={`translate(${node.x + node.statusX},${
+                    node.y + node.statusY
+                  })`}
+                >
+                  <g transform={`translate(0,${-ICON_SIZE / 2})`}>
+                    <Icon
+                      icon={STATUS_ICONS[node.status.tone]}
+                      pixels={ICON_SIZE}
+                    />
+                  </g>
+                  <text
+                    className={styles.nodeStatusLabel}
+                    x={ICON_SIZE + ICON_GAP}
+                    dominantBaseline="middle"
+                  >
+                    {node.shortStatus}
+                  </text>
+                </g>
+              )}
+              {node.shortNote !== undefined && (
+                <text
+                  className={styles.nodeNote}
+                  x={node.x + node.width / 2}
+                  y={node.y + node.noteY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  {node.shortNote}
+                </text>
+              )}
             </g>
           ))}
         </g>
@@ -118,7 +154,9 @@ function GraphPlot(
             box={box}
             width={svgWidth}
             title={current.label}
-            rows={[]}
+            rows={current.note === undefined
+              ? []
+              : [{ name: current.note, value: "" }]}
           />
         )}
       </svg>

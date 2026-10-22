@@ -11,6 +11,7 @@
   - `packages/shell/renderer/workspace/core-source.ts`
   - `packages/shell/renderer/workspace/fake-source.ts`
   - `packages/shell/renderer/desktop/main.tsx`
+  - `packages/shell/renderer/workspace/sidebar/run-list.tsx`와 `packages/shell/renderer/workspace/sidebar/project-sidebar.module.css`의 Background 칸 규칙(`.runRow`부터 `.runState`까지). 끝의 "사람이 고른 모양" 두 가지만 고친다
 - 읽을 것:
   - brief `project-docs/plan/headless-run/tasks/hr-screen-wireframe.md`의 "내놓는 것"과 "정한 것", 그 task가 merge한 gallery page `new-agent-sidebar-runs`, `new-app-runs`, `new-app-runs-empty`. 사람이 gallery에서 brief와 다른 모양을 골랐으면 lead가 이 brief 끝에 적는다
   - 계약: `project-docs/plan/headless-run/tasks/hr-contract-runs.md`의 `ListRuns`(`runs/list`, read, actor user, 입력 `{ session?, agent?, place?, state?, cursor? }`, `place`는 `{ project }` 또는 `{ app }`, 출력 `withReadCommon({ runs })`, 새것이 앞)와 `runRecordSchema`
@@ -53,7 +54,7 @@
 ## 끝남
 
 - `deno task check`가 통과한다.
-- `deno task wireframes`가 되고 gallery 모양이 바뀌지 않는다(이 task는 gallery file을 고치지 않는다).
+- `deno task wireframes`가 되고 gallery 모양은 끝의 "사람이 고른 모양" 두 가지만 바뀐다(이 task는 gallery file을 고치지 않는다. page가 `RunList`를 쓰므로 따라 바뀐다). `new-agent-sidebar` page는 바뀌지 않는다.
 - `deno run -A packages/shell/renderer/build.ts`로 renderer bundle이 선다.
 - 위험 test: 없음. 화면이다.
 - 남지 않음:
@@ -73,3 +74,15 @@
 - 계약 바꾸기 요청: hr-screen-wireframe의 props나 hr-contract-runs의 `ListRuns`를 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 사람이 고른 모양
+
+사람이 gallery를 보고 지금 모양에 두 가지만 고치기로 했다. 나머지 배치, 이름, 문구는 그대로다. 둘 다 `run-list.tsx`의 `RunList`가 그리므로 project sidebar(`new-agent-sidebar-runs`)와 앱 Background 목록(`new-app-runs`)이 같이 바뀐다.
+
+1. **이름이 잘리지 않게 시각을 이름 아래 줄로 내린다.** 지금은 run 줄 오른쪽 끝 열(`.runMeta`)에 시각과 상태가 쌓여 이름이 `Experiment ...`처럼 잘린다.
+   - run 줄은 두 줄이다: 윗줄이 이름, 아랫줄이 caption 글씨로 시각. failed·cancelled면 아랫줄이 `시각 · Failed`, `시각 · Cancelled`다(Recent의 `agent · 시각` 줄과 같은 꼴, failed는 지금처럼 critical 색). 오른쪽 끝 고정 열은 없앤다.
+   - run이 연 session 줄은 오른쪽 시각을 보이지 않는다(run 줄에 이미 있다). 제목이 그 폭을 다 쓴다. `SessionItem`에 시각을 감추는 선택 prop을 더하고, agent 묶음과 Recent의 session 줄은 그대로 둔다.
+2. **running 점을 하나만 보인다.** 지금은 run 줄 오른쪽과 그 아래 session 줄 앞에 파란 점이 둘 보인다.
+   - run 아래에 session 줄이 있으면 run 줄에는 점을 그리지 않는다. session 줄의 점이 상태를 보인다.
+   - session 줄이 없는 run(tool run, `--session`으로 이어 쓴 run)이 running이면 run 줄 오른쪽 끝에 점 하나를 그린다.
+

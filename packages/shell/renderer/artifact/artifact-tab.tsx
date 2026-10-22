@@ -51,7 +51,11 @@ interface ArtifactTabProps {
 function signatureOf(source: ArtifactSource): string {
   return source.kind === "artifact"
     ? `artifact\n${source.domain}\n${source.name}`
-    : `file\n${source.project}\n${source.path}`;
+    : source.kind === "file"
+    ? `file\n${source.project}\n${source.path}`
+    : `workflow\n${source.project}\n${source.workflow}\n${source.view}\n${
+      source.instance ?? ""
+    }`;
 }
 
 export function ArtifactTab(props: ArtifactTabProps) {
@@ -90,7 +94,9 @@ function OpenTab(
   const signature = signatureOf(source);
   const name = source.kind === "artifact"
     ? source.name
-    : fileNameOf(source.path);
+    : source.kind === "file"
+    ? fileNameOf(source.path)
+    : source.workflow;
   const nameRef = useRef(name);
   nameRef.current = name;
   const report = (next: ArtifactViewState) => {

@@ -33,13 +33,17 @@ export function fakeArtifactApi(
       if (options.missing) return Promise.reject(new Error("not_found"));
       const name = source.kind === "artifact"
         ? source.name
-        : source.path.split("/").at(-1) ?? source.path;
+        : source.kind === "file"
+        ? source.path.split("/").at(-1) ?? source.path
+        : source.workflow;
       latest = {
         view_session: `fake-artifact-${++count}`,
         source,
         file: source.kind === "artifact"
           ? `/fake/artifacts/${source.name}/index.html`
-          : source.path,
+          : source.kind === "file"
+          ? source.path
+          : `/fake/workflows/${source.workflow}/index.html`,
         title: options.title ?? name,
         loading: false,
         health: "ok",

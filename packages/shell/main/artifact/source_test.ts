@@ -68,3 +68,60 @@ test(".html이 아니거나 일반 file이 아닌 대상은 file 대상으로 �
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("workflow artifact는 그 project의 workflows/ 밖으로 root를 풀지 못한다", async () => {
+  const { root } = await setup();
+  try {
+    const A = "prj_a";
+    const workflows = join(root, "projects", A, "workflows");
+    const folder = join(workflows, "flow", "artifacts");
+    await mkdir(join(folder, "instance"), { recursive: true });
+    await writeFile(join(folder, "instance", "index.html"), "<html></html>");
+    const outside = join(root, "outside");
+    await mkdir(outside);
+    await writeFile(join(outside, "index.html"), "<html></html>");
+    await symlink(outside, join(folder, "static"));
+    // 다른 project의 workflow artifact를 가리키는 symlink도 workflows/ 밖이다.
+    const other = join(
+      root,
+      "projects",
+      "prj_b",
+      "workflows",
+      "flow",
+      "artifacts",
+      "static",
+    );
+    await mkdir(other, { recursive: true });
+    await writeFile(join(other, "index.html"), "<html></html>");
+    await mkdir(join(workflows, "other", "artifacts"), { recursive: true });
+    await symlink(other, join(workflows, "other", "artifacts", "static"));
+
+    const open = (
+      workflow: string,
+      view: "static" | "instance",
+      instance?: string,
+    ) =>
+      resolveSource(
+        root,
+        { kind: "workflow", project: A, workflow, view, instance },
+        nodeArtifactFs,
+      );
+    const bad = await open("../x", "static");
+    assert.equal(!bad.ok && bad.error.code, "invalid_input");
+    const missing = await open("flow", "instance");
+    assert.equal(!missing.ok && missing.error.code, "invalid_input");
+    const escaped = await open("flow", "static");
+    assert.equal(!escaped.ok && escaped.error.code, "not_found");
+    const borrowed = await open("other", "static");
+    assert.equal(!borrowed.ok && borrowed.error.code, "not_found");
+    const good = await open(
+      "flow",
+      "instance",
+      "wfi_01jz0000000000000000000000",
+    );
+    assert.ok(good.ok && good.value.entry === "index.html");
+    assert.equal(good.value.scope, "wfi_01jz0000000000000000000000");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

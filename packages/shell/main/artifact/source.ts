@@ -6,19 +6,33 @@ import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, sep } from "node:path";
 
 import { err, ok, type Result } from "../../../base/result.ts";
-import { artifactNameSchema } from "../../ipc/artifact.ts";
+import { artifactNameSchema, workflowNameSchema } from "../../ipc/artifact.ts";
 import { ARTIFACT_ENTRY } from "../../../protocol/domains/artifact.ts";
 import { domainArtifactsFolder } from "../../../protocol/domains/paths.ts";
+import {
+  WORKFLOW_ARTIFACT_ENTRY,
+  workflowArtifactFolder,
+  workflowsFolder,
+} from "../../../protocol/workflows/paths.ts";
 
 export type ArtifactSource =
   | { kind: "artifact"; domain: string; name: string }
-  | { kind: "file"; project: string; path: string };
+  | { kind: "file"; project: string; path: string }
+  | {
+    kind: "workflow";
+    project: string;
+    workflow: string;
+    view: "static" | "instance";
+    instance?: string;
+  };
 
 export type ResolvedSource = {
   root: string;
   entry: string;
   file: string;
   name: string | null;
+  /** root가 같아도 host를 가르는 값. workflow instance view의 instance id, 아니면 null. */
+  scope: string | null;
 };
 
 export type ArtifactFs = {
@@ -53,6 +67,9 @@ export async function resolveSource(
   fs: ArtifactFs,
 ): Promise<Result<ResolvedSource>> {
   if (source.kind === "file") return await resolveFile(source.path, fs);
+  if (source.kind === "workflow") {
+    return await resolveWorkflow(dataRoot, source, fs);
+  }
   if (!artifactNameSchema.safeParse(source.name).success) {
     return err({ code: "invalid_input", message: "invalid artifact name" });
   }
@@ -63,7 +80,46 @@ export async function resolveSource(
     if (!root.startsWith((await fs.realpath(folder)) + sep)) return notFound();
     const file = join(root, ARTIFACT_ENTRY);
     if (!(await fs.lstat(file)).isFile()) return notFound();
-    return ok({ root, entry: ARTIFACT_ENTRY, file, name: source.name });
+    return ok({
+      root,
+      entry: ARTIFACT_ENTRY,
+      file,
+      name: source.name,
+      scope: null,
+    });
+  } catch {
+    return notFound();
+  }
+}
+
+async function resolveWorkflow(
+  dataRoot: string,
+  source: Extract<ArtifactSource, { kind: "workflow" }>,
+  fs: ArtifactFs,
+): Promise<Result<ResolvedSource>> {
+  const { project, workflow, view, instance } = source;
+  if (
+    !workflowNameSchema.safeParse(workflow).success ||
+    (view === "instance") !== (instance !== undefined)
+  ) {
+    return err({ code: "invalid_input", message: "invalid workflow source" });
+  }
+  try {
+    const root = await fs.realpath(
+      workflowArtifactFolder(dataRoot, project, workflow, view),
+    );
+    // AI가 쓴 root가 그 project의 workflows 밖(사람의 다른 폴더)을 가리키면 닫는다.
+    const folder = await fs.realpath(workflowsFolder(dataRoot, project));
+    if (!root.startsWith(folder + sep)) return notFound();
+    const file = join(root, WORKFLOW_ARTIFACT_ENTRY);
+    if (!(await fs.lstat(file)).isFile()) return notFound();
+    return ok({
+      root,
+      entry: WORKFLOW_ARTIFACT_ENTRY,
+      file,
+      name: workflow,
+      scope: instance ?? null,
+    });
   } catch {
     return notFound();
   }
@@ -83,7 +139,13 @@ async function resolveFile(
   try {
     const file = await fs.realpath(path);
     if (!(await fs.stat(file)).isFile()) return notFound();
-    return ok({ root: dirname(file), entry: basename(file), file, name: null });
+    return ok({
+      root: dirname(file),
+      entry: basename(file),
+      file,
+      name: null,
+      scope: null,
+    });
   } catch {
     return notFound();
   }

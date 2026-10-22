@@ -74,12 +74,14 @@ export const artifactKind: TabKindDef = {
         domain: source.domain,
         name: source.name,
       }
-      : {
+      : source.kind === "file"
+      ? {
         kind: "artifact",
         key: tab.key,
         project: source.project,
         path: source.path,
-      };
+      }
+      : null;
   },
   // 옮길 상태가 없다. 받는 창이 다시 연다.
   transfer: () => Promise.resolve({ value: null, views: [] }),

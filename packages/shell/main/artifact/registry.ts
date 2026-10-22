@@ -68,8 +68,8 @@ interface ArtifactViewsDeps {
   >;
   /** 봉한 session을 한 번 세운다. 못 세우면 던진다. */
   ensureSession(): Promise<void>;
-  /** root마다 host를 달리해 origin을 가른다. */
-  registerRoot(root: string): string;
+  /** root(와 scope)마다 host를 달리해 origin을 가른다. */
+  registerRoot(root: string, scope: string | null): string;
   watch(
     input: { dir: string; recursive: boolean; debounceMs: number },
     onChange: () => void,
@@ -93,10 +93,17 @@ interface Entry extends Omit<Placed, "contents"> {
 
 const notOpen = () => failure("invalid_input", "view is not open");
 
-const sameSource = (a: ArtifactSource, b: ArtifactSource) =>
-  a.kind === "artifact"
-    ? b.kind === "artifact" && a.domain === b.domain && a.name === b.name
-    : b.kind === "file" && a.project === b.project && a.path === b.path;
+const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
+  if (a.kind === "artifact") {
+    return b.kind === "artifact" && a.domain === b.domain && a.name === b.name;
+  }
+  if (a.kind === "file") {
+    return b.kind === "file" && a.project === b.project && a.path === b.path;
+  }
+  return b.kind === "workflow" && a.project === b.project &&
+    a.workflow === b.workflow && a.view === b.view &&
+    (a.instance ?? null) === (b.instance ?? null);
+};
 
 export function createArtifactViews(deps: ArtifactViewsDeps) {
   const entries = new Map<string, Entry>();
@@ -177,6 +184,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
     return {
       view_session: entry.view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
+      // workflow artifact는 사람의 .html과 같은 file 길로 그 project의 PM이 받는다.
       target: entry.source.kind === "artifact"
         ? {
           kind: "artifact",
@@ -234,7 +242,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
       }
       const { root, entry: entryName, file } = resolved.value;
       const view_session = deps.ids.viewSession();
-      const host = deps.registerRoot(root);
+      const host = deps.registerRoot(root, resolved.value.scope);
       const entry: Entry = {
         view_session,
         window,
@@ -255,7 +263,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
         watch: deps.watch(
           {
             dir: root,
-            recursive: source.kind === "artifact",
+            recursive: source.kind !== "file",
             debounceMs: RELOAD_DEBOUNCE_MS,
           },
           () => {
@@ -290,6 +298,17 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
         push(entry);
       }
       return { ok: true, value: null };
+    },
+
+    /** instance가 바뀌었다. 그 instance를 여는 view만 다시 load한다. */
+    reloadInstance(instance: string): void {
+      for (const entry of entries.values()) {
+        if (
+          entry.source.kind === "workflow" &&
+          entry.source.instance === instance &&
+          entry.health === "ok"
+        ) entry.contents.reload();
+      }
     },
 
     annotateView(view_session: string): AnnotateViewPort | undefined {

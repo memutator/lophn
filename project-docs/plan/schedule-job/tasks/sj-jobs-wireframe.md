@@ -101,3 +101,4 @@ job 화면, 대기 목록의 hold card, run 줄과 instance 줄에 붙는 job �
   - 이 draft는 아직 그리지 않았다. draft를 그리고 사람이 본 뒤 renderer task를 연다. renderer brief는 planner가 쓴다.
   - 걸린 job을 가르는 재료는 `JobRecord`에 다 있다(`creator.project`, `action.agent_place`, `action.project`). 계약은 바꾸지 않는다.
 - 나머지 draft(Settings 화면, hold card, run·instance 줄 제목)는 추천대로 승인했다. hold card의 앱과 project는 짧은 id로 둔다.
+- project 사이드바 panel draft(`draft-jobs-sidebar-*`)를 그린 대로 승인했다.

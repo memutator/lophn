@@ -99,6 +99,13 @@ export function inputText(input: TextInput): string {
         ...refLines(input.refs),
       ].join("\n");
     }
+    case "step": {
+      const { instance, step } = input.step ?? { instance: "", step: "" };
+      return [
+        wrap(INPUT_TAGS.step, { instance, step }, input.body),
+        "This was sent by lophn for a workflow instance. When your step is done, report it with the workflow.report tool.",
+      ].join("\n");
+    }
     case "notice": {
       const tag = INPUT_TAGS.notice;
       const { kind, detail } = noticeParts(input);
@@ -148,12 +155,19 @@ function callText(input: TextInput): string {
 }
 
 // 뒤 turn의 history에 들어가는 받은 메시지다. 받은 turn의 입력과 같은 함수로 싸서 출처 표지가 turn이 끝나도
-// 남게 한다. 봉투가 싣는 칸(from, call, reply_to, reply, event, fail_reason)으로 받은 turn의 입력과 같은
+// 남게 한다. 봉투가 싣는 칸(from, call, reply_to, reply, event, fail_reason, step)으로 받은 turn의 입력과 같은
 // 글을 만든다. 사람 메시지는 싸지 않는다.
 export function receivedText(
   message: Pick<
     ReceivedMessage,
-    "from" | "call" | "reply_to" | "refs" | "reply" | "event" | "fail_reason"
+    | "from"
+    | "call"
+    | "reply_to"
+    | "refs"
+    | "reply"
+    | "event"
+    | "fail_reason"
+    | "step"
   >,
   body: string,
 ): string {
@@ -171,8 +185,10 @@ export function receivedText(
     outcome: null,
     event: null,
     notice: null,
+    step: message.step as RoutedInput["step"],
   } as const;
   if (from.kind === "program") {
+    if (message.step !== null) return inputText({ ...base, kind: "step" });
     if (message.reply_to === null) {
       return inputText({ ...base, kind: "reaction", event: message.event });
     }

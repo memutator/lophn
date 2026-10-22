@@ -266,6 +266,7 @@ function noticeText(body: string): string {
     outcome: null,
     event: null,
     notice: "tools_changed",
+    step: null,
   });
 }
 

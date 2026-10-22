@@ -82,7 +82,7 @@ export function createTurnSource(
 // 그래서 입력은 "commit 뒤 할 일"로 모아 두고 main thread의 `createInboxApplier`가 commit 뒤에 입력함에 넣는다.
 // harness session은 coding-agent 단위의 구현이 맡고 둘을 묶는 것은 wiring이다.
 export function createLophnInputTransport(deps: {
-  // `message`가 null인 입력(call·reply·reaction·notice)을 받는 session 기록에 쓴다. 배달하는 tx에서
+  // `message`가 null인 입력(call·reply·reaction·notice·step)을 받는 session 기록에 쓴다. 배달하는 tx에서
   // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.
   record(
     tx: Tx,
@@ -143,6 +143,7 @@ export function createLophnInputTransport(deps: {
         outcome: null,
         event: null,
         notice: "call_cancelled",
+        step: null,
         unattended,
       });
     },

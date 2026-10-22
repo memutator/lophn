@@ -42,7 +42,7 @@ export type RoutedInput = {
   // 사람 메시지만 steer가 될 수 있다.
   delivery: InputDelivery;
   // 받는 session 기록의 message. 사람 메시지는 보내는 쪽이 먼저 쓰고 그 id를 싣는다.
-  // 나머지(call·reply·reaction·notice)는 null이고, transport가 배달하는 tx에서 기록을 쓴다.
+  // 나머지(call·reply·reaction·notice·step)는 null이고, transport가 배달하는 tx에서 기록을 쓴다.
   message: Id<"msg"> | null;
   // kind가 call일 때 답 방식.
   reply: CallReply | null;
@@ -54,7 +54,9 @@ export type RoutedInput = {
   event: string | null;
   // kind가 notice면 그 종류.
   notice: NoticeKind | null;
-  // 사람 메시지, reaction, coding agent 입력은 false. agent의 call과 답은 보낸 turn이 실은 표시.
+  // kind가 step이면 그 workflow instance와 step 이름.
+  step: { instance: Id<"wfi">; step: string } | null;
+  // 사람 메시지, reaction, coding agent 입력은 false. step은 workflow가 실은 표시(true). agent의 call과 답은 보낸 turn이 실은 표시.
   // 늦은 실패와 취소 알림은 그 call의 표시.
   unattended: boolean;
 };

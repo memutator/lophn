@@ -96,7 +96,7 @@ const SOURCE = {
   scope: "call-body",
 };
 
-function textBytes(text: string): Uint8Array {
+export function textBytes(text: string): Uint8Array {
   return serializeMessageContent({
     schema_version: 1,
     parts: [{ kind: "text", text }],
@@ -105,7 +105,7 @@ function textBytes(text: string): Uint8Array {
 
 // 받는 session 기록은 글을 blob으로 둔다. command 안에서 쓰는 글은 그 command를 부른 자격의 이름으로 미리
 // 준비돼 있어야 한다. 보낸 call의 본문, 실패를 보낸 session에 돌려주는 고정 문구, 취소 알림이다.
-async function prepareTexts(
+export async function prepareTexts(
   relay: BodyPrepare,
   ctx: AuthenticatedContext,
   texts: readonly string[],
@@ -458,6 +458,7 @@ export const routerWiring: WiringFactory = () => {
                 outcome: null,
                 event: null,
                 notice: null,
+                step: null,
                 unattended: false,
               },
               at: pending.created_at,

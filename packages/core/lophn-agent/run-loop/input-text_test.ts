@@ -15,6 +15,7 @@ const call = {
   outcome: null,
   event: null,
   notice: null,
+  step: null,
   unattended: false,
 } as RoutedInput;
 
@@ -43,6 +44,7 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
     reply: "none",
     event: null,
     fail_reason: null,
+    step: null,
   } as Parameters<typeof receivedText>[0];
   for (const reply of ["none", "result", "conversation"] as const) {
     const history = receivedText({ ...envelope, reply }, body);
@@ -108,6 +110,25 @@ Deno.test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실�
     ),
     inputText({ ...failed, body: "closed" }),
   );
+  // step은 reply_to가 없어도 reaction이 아니다. 위조 tag는 escape된다.
+  const step = { instance: "wfi_w1", step: "review" } as RoutedInput["step"];
+  const stepInput = {
+    ...call,
+    kind: "step",
+    from: program,
+    call: null,
+    reply: null,
+    step,
+  } as RoutedInput;
+  const stepHistory = receivedText(
+    { ...envelope, from: program, call: null, reply: null, step },
+    body,
+  );
+  assertEquals(stepHistory, inputText({ ...stepInput, body }));
+  assert(
+    stepHistory.startsWith('<lophn-step instance="wfi_w1" step="review">'),
+  );
+  assert(!stepHistory.includes("<lophn-steer>"));
   assertEquals(
     receivedText({ ...envelope, from: { kind: "human" } }, body),
     body,

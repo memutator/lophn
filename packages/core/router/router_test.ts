@@ -162,6 +162,40 @@ Deno.test("the same dedup makes one call and one session", () => {
   assertEquals(delivered.length, 1);
 });
 
+// 권한 경계다. workflow가 보낸 step은 unattended 표시를 싣고 받는 session 하나에만, call 행 없이 닿는다.
+Deno.test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿으며 call 행을 만들지 않는다", () => {
+  const step = { instance: "wfi_1" as never, step: "review" };
+  for (const to of [{ session: RECEIVER }, { role: "lophn" }] as const) {
+    const { tx, router, rows, delivered } = setup({
+      [SENDER]: target(SENDER, true),
+      [RECEIVER]: target(RECEIVER, true),
+    });
+    const routed = router.route(tx, {
+      from: { kind: "program" },
+      to,
+      reply: "none",
+      body: "do the step",
+      refs: [],
+      reply_to: null,
+      dedup: null,
+      options: null,
+      kind: "step",
+      delivery: "next_turn",
+      step,
+      unattended: true,
+    });
+    assert(routed.ok);
+    assertEquals(delivered.length, 1);
+    const sent = delivered[0]!;
+    assertEquals(sent.to, RECEIVER);
+    assertEquals(sent.input.unattended, true);
+    assertEquals(sent.input.kind, "step");
+    assertEquals(sent.input.step, step);
+    assertEquals(sent.input.call, null);
+    assertEquals(rows.size, 0);
+  }
+});
+
 // 권한 경계다. unattended는 call 봉투를 따라 가고, attended 사슬로 새면 사람 없이 도는 turn이 묻는 길을 연다.
 Deno.test("attended turn이 보낸 call은 attended로 열린다. unattended가 attended 사슬로 새지 않는다", () => {
   for (const mark of [false, true]) {

@@ -11,7 +11,7 @@ import {
   callReplySchema,
 } from "./calls.ts";
 
-// 사람의 보내기만 steer를 고른다. call, reply, reaction, notice는 항상 next_turn이라 값이 없다.
+// 사람의 보내기만 steer를 고른다. call, reply, reaction, notice, step은 항상 next_turn이라 값이 없다.
 const INPUT_DELIVERIES = ["next_turn", "steer"] as const;
 export const inputDeliverySchema = z.enum(INPUT_DELIVERIES);
 export type InputDelivery = z.infer<typeof inputDeliverySchema>;
@@ -51,7 +51,7 @@ export const sendMessage = defineCommand({
 // 그 id로 screenshot을 읽는다.
 // reply, event, fail_reason은 뒤 turn의 history가 받은 turn의 입력과 같은 글을 만들게 배달 때 싣는다.
 // 해당 종류가 아니면 null이다: reply는 call의 답 방식, event는 reaction이 알리는 사실 이름, fail_reason은
-// program이 보낸 실패한 답의 이유.
+// program이 보낸 실패한 답의 이유, step은 workflow가 보낸 step 입력의 instance와 step 이름.
 export const receivedEnvelopeSchema = z.object({
   from: callFromOutputSchema,
   call: idSchema("cal").nullable(),
@@ -60,6 +60,8 @@ export const receivedEnvelopeSchema = z.object({
   reply: callReplySchema.nullable(),
   event: z.string().nullable(),
   fail_reason: callFailReasonSchema.nullable(),
+  // step 입력이 가리키는 workflow instance와 step 이름. step이 아니면 null이다.
+  step: z.object({ instance: idSchema("wfi"), step: z.string() }).nullable(),
 });
 
 // 받는 쪽이 본문의 tag를 고르는 기준이다. coding_agent 메시지는 call 종류로 들어온다.
@@ -69,6 +71,7 @@ const routedInputKindSchema = z.enum([
   "reply",
   "reaction",
   "notice",
+  "step",
 ]);
 export type RoutedInputKind = z.infer<typeof routedInputKindSchema>;
 

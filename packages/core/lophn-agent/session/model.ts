@@ -102,6 +102,8 @@ create table messages (
   fail_reason text check (fail_reason in ('not_found', 'closed', 'receiver_ended', 'lophn_restarted')),
   delivery text not null default 'next_turn' check (delivery in ('next_turn', 'steer')),
   unattended integer not null default 0 check (unattended in (0, 1)),
+  step_instance text,
+  step_name text,
   turn text,
   body text not null check (length(body) = 64),
   created_seq integer not null unique check (created_seq >= 1),
@@ -109,13 +111,15 @@ create table messages (
   state_seq integer not null check (state_seq >= created_seq),
   check ((from_kind in ('human', 'program')) = (from_ref is null)),
   check (delivery = 'next_turn' or from_kind = 'human'),
-  check (unattended = 0 or from_kind = 'human')
+  check (unattended = 0 or from_kind = 'human'),
+  check ((step_instance is null) = (step_name is null)),
+  check (step_instance is null or from_kind = 'program')
 ) strict;
 create index messages_session_created on messages (session, created_seq);
 create index messages_turn on messages (turn);
 create trigger messages_content_immutable
 before update of id, session, from_kind, from_ref, call, reply_to, refs,
-  reply, event, fail_reason, delivery, unattended, body, created_seq, created_at on messages
+  reply, event, fail_reason, delivery, unattended, step_instance, step_name, body, created_seq, created_at on messages
 begin
   select raise(abort, 'a confirmed message is never overwritten');
 end;
@@ -302,6 +306,8 @@ type MessageRow = {
   event: string | null;
   fail_reason: ReceivedMessage["fail_reason"];
   delivery: "next_turn" | "steer";
+  step_instance: string | null;
+  step_name: string | null;
   turn: string | null;
   body: string;
   created_seq: string;
@@ -310,8 +316,8 @@ type MessageRow = {
 };
 
 export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
-  reply_to, refs, reply, event, fail_reason, delivery, turn, body, created_seq,
-  created_at, state_seq`;
+  reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, turn, body,
+  created_seq, created_at, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
   return {
@@ -326,6 +332,8 @@ export function messageRowOf(row: SqlRow): MessageRow {
     event: text(row["event"]),
     fail_reason: text(row["fail_reason"]) as MessageRow["fail_reason"],
     delivery: String(row["delivery"]) as MessageRow["delivery"],
+    step_instance: text(row["step_instance"]),
+    step_name: text(row["step_name"]),
     turn: text(row["turn"]),
     body: String(row["body"]),
     created_seq: String(row["created_seq"]),
@@ -362,6 +370,9 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
     reply: row.reply,
     event: row.event,
     fail_reason: row.fail_reason,
+    step: row.step_instance === null
+      ? null
+      : { instance: row.step_instance, step: row.step_name! },
     turn: row.turn,
     delivery: row.delivery,
     body: row.body,

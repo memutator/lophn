@@ -176,6 +176,7 @@ export function createRouter(deps: RouterDeps): Router {
       outcome: null,
       event: input.event ?? null,
       notice: null,
+      step: input.step ?? null,
       unattended: input.unattended === true,
     };
   }
@@ -348,6 +349,7 @@ export function createRouter(deps: RouterDeps): Router {
           : null,
         event: null,
         notice: null,
+        step: null,
         // 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
         unattended: input.unattended === true,
       }, null);

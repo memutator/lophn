@@ -60,6 +60,7 @@ function stub(rows: Row[], request: number): CoreCall {
           reply: row.reply,
           event: null,
           fail_reason: null,
+          step: null,
         })),
         ...common,
       }));

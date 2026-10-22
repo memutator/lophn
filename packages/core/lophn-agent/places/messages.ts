@@ -12,7 +12,7 @@ import type { RoutedInput } from "../../router/ports.ts";
 import { createCheckpoint } from "../session/rewind/mod.ts";
 import { loadSession, nextMessageSeq } from "../session/model.ts";
 
-// call, reply, reaction, notice를 받는 session 기록(messages 행)에 쓴다. lophn InputTransport가 배달하는
+// call, reply, reaction, notice, step을 받는 session 기록(messages 행)에 쓴다. lophn InputTransport가 배달하는
 // tx에서 부른다. 사람 메시지는 보내는 쪽이 먼저 쓰므로 `message`가 있으면 그 id를 돌려줄 뿐이다.
 // 본문 blob은 호출한 자격의 이름으로 준비돼 있어야 한다.
 export function createReceivedRecorder(deps: { principal(): string }) {
@@ -40,9 +40,9 @@ export function createReceivedRecorder(deps: { principal(): string }) {
       const from = input.from;
       tx.sql.run(
         `insert into messages (id, session, from_kind, from_ref, call,
-           reply_to, refs, reply, event, fail_reason, delivery, turn, body,
+           reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, turn, body,
            created_seq, created_at, state_seq)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
         [
           id,
           session,
@@ -57,6 +57,8 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           input.kind === "reaction" ? input.event : null,
           input.outcome?.reason ?? null,
           from.kind === "human" ? input.delivery : "next_turn",
+          input.step?.instance ?? null,
+          input.step?.step ?? null,
           hash,
           seq,
           tx.now(),
@@ -80,8 +82,10 @@ export function createReceivedRecorder(deps: { principal(): string }) {
         },
       });
       if (!registered.ok) return registered;
-      // turn을 시작하는 call과 답도 rewind로 돌아갈 시점이다.
-      if (input.kind === "call" || input.kind === "reply") {
+      // turn을 시작하는 call, 답, step도 rewind로 돌아갈 시점이다.
+      if (
+        input.kind === "call" || input.kind === "reply" || input.kind === "step"
+      ) {
         const checkpoint = createCheckpoint(tx, {
           id,
           session,

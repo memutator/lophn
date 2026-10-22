@@ -1,3 +1,10 @@
+export {
+  entryOf,
+  type ParsedDeclaration,
+  parseDeclaration,
+  participantsOf,
+  stepsOf,
+} from "./declaration.ts";
 export type {
   DefinitionFile,
   StepTurn,

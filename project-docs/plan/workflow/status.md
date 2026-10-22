@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-role-text` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-write-scope` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-wireframe` | shell | 2 | wf-contract | running | shell/wf-wireframe |  |  |
-| `wf-decl-reader` | workflows | 2 | wf-contract | running | workflows/wf-decl-reader |  |  |
+| `wf-decl-reader` | workflows | 2 | wf-contract | merged | workflows/wf-decl-reader | 4b2169127 |  |
 | `wf-step-input` | workflows | 2 | wf-contract | running | workflows/wf-step-input |  |  |
 | `wf-store` | workflows | 2 | wf-contract | running | workflows/wf-store |  |  |
 | `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |

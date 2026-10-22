@@ -29,6 +29,7 @@ import { projectDeskArea } from "./screens/project-desk.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
 import { settingsArea } from "./screens/settings.tsx";
+import { workflowArea } from "./screens/workflow.tsx";
 import type { Area, Group, Page } from "./types.ts";
 
 const ALL_GROUPS: readonly Group[] = [
@@ -66,6 +67,7 @@ const ALL_GROUPS: readonly Group[] = [
       appSpaceArea,
       artifactArea,
       domainArea,
+      workflowArea,
       settingsArea,
       questionsArea,
     ],

@@ -117,6 +117,7 @@ function fakeDetached(taken?: DetachedTaken): LophnDetachedApi {
       Promise.resolve({ bounds: { x: 0, y: 0, width: 960, height: 600 } }),
     focus: () => Promise.resolve(),
     close: () => Promise.resolve(),
+    showOnly: (input) => Promise.resolve({ missing: input.keys }),
     take: () =>
       taken === undefined
         ? Promise.reject(new Error("not_found"))

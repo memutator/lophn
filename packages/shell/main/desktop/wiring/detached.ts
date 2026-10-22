@@ -94,6 +94,12 @@ export function register(ctx: ShellContext, views: AppViews): Detached {
       const window = live(ref);
       if (window !== undefined) reveal(window, ctx.headless);
     },
+    setHidden: (ref, hidden) => {
+      const window = live(ref);
+      if (window === undefined) return;
+      if (hidden) window.hide();
+      else if (!ctx.headless.headless) window.showInactive();
+    },
     isAlive: (ref) => live(ref) !== undefined,
     send,
     owns: views.owns,

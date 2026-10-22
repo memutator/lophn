@@ -7,6 +7,7 @@ import {
   DETACHED_OPEN_CHANNEL,
   DETACHED_OPEN_TAB_CHANNEL,
   DETACHED_REMOVE_CHANNEL,
+  DETACHED_SHOW_CHANNEL,
   DETACHED_TAKE_CHANNEL,
   type DetachedBounds,
   detachedEventSchema,
@@ -50,6 +51,8 @@ export function createDetachedApi(
       close: async (input) => {
         await call<null>(transport, DETACHED_CLOSE_CHANNEL, input);
       },
+      showOnly: (input) =>
+        call<{ missing: string[] }>(transport, DETACHED_SHOW_CHANNEL, input),
       take: () => call<DetachedTaken>(transport, DETACHED_TAKE_CHANNEL),
       dock: async (input) => {
         await call<null>(transport, DETACHED_DOCK_CHANNEL, input);

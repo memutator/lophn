@@ -32,6 +32,7 @@ function setup() {
     };
   };
   let windows = 0;
+  const hidden = new Map<string, boolean>();
   const handlers = new Map(
     createDetachedIpc({
       registry,
@@ -43,6 +44,7 @@ function setup() {
       }),
       closeWindow: () => {},
       focusWindow: () => {},
+      setHidden: (ref, value) => hidden.set(ref, value),
       isAlive: () => true,
       send: () => {},
       owns: () => true,
@@ -54,7 +56,7 @@ function setup() {
       ok: boolean;
       value?: unknown;
     };
-  return { entries, senders, contentsOf, call };
+  return { entries, senders, contentsOf, call, hidden };
 }
 
 test("project를 떠났다 돌아온 detached terminal은 PTY 참조를 한 번만 받는다", () => {
@@ -97,4 +99,44 @@ test("project를 떠났다 돌아온 detached terminal은 PTY 참조를 한 번�
   )
     .value as DetachedTaken;
   assert.equal(again.transfer, null);
+});
+
+test("showOnly는 보낸 project 창의 detached 창만 숨기고 보이며, 없는 key는 missing이다", () => {
+  const { senders, contentsOf, call, hidden } = setup();
+  senders.set(1, { ref: "project-1", detached: false });
+  senders.set(2, { ref: "project-2", detached: false });
+  senders.set(3, { ref: "detached-1", detached: true });
+  const one = contentsOf(1, "app://desktop/");
+  const two = contentsOf(2, "app://desktop/");
+  const open = (win: typeof one, key: string) =>
+    call("shell:detached-open", win, {
+      project: PROJECT,
+      tab: { key, kind: "terminal" },
+      transfer: null,
+      bounds: null,
+    });
+  open(one, "a"); // detached-1
+  open(one, "b"); // detached-2
+  open(two, "c"); // detached-3
+  // 숨김 상태는 setHidden 호출이 있을 때만 map에 생긴다. 처음 창은 보인다.
+  const shown = (ref: string) => hidden.get(ref) !== true;
+
+  const reply = call("shell:detached-show", one, { keys: ["a", "x"] });
+  assert.deepEqual(reply.value, { missing: ["x"] });
+  assert.equal(shown("detached-1"), true);
+  assert.equal(shown("detached-2"), false);
+  assert.equal(shown("detached-3"), true);
+
+  // detached 창이 보내면 거절되고 상태는 그대로다.
+  const forbidden = call(
+    "shell:detached-show",
+    contentsOf(3, "app://desktop/"),
+    {
+      keys: [],
+    },
+  ) as { ok: boolean; error?: { code: string } };
+  assert.equal(forbidden.ok, false);
+  assert.equal(forbidden.error?.code, "forbidden");
+  assert.equal(shown("detached-1"), true);
+  assert.equal(shown("detached-2"), false);
 });

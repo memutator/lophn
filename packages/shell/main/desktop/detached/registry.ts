@@ -14,6 +14,8 @@ export interface DetachedEntry {
   transfer: TabTransfer | null;
   /** true면 창 닫기(×)를 가로채지 않는다(dock·remove·close·project 창 닫힘) */
   silent: boolean;
+  /** 떠난 자리라 숨긴 창. 닫지 않았으므로 PTY와 앱 view가 산다. */
+  hidden: boolean;
   /** 창이 알린 마지막 resume 값(kind가 정한 JSON). 없으면 null. 창을 조용히 닫을 때 `kept`로 옮긴다. */
   resume: unknown;
 }
@@ -54,6 +56,11 @@ export class DetachedRegistry {
   setTab(ref: string, tab: DetachedTab): void {
     const entry = this.#entries.get(ref);
     if (entry !== undefined) entry.tab = tab;
+  }
+
+  setHidden(ref: string, hidden: boolean): void {
+    const entry = this.#entries.get(ref);
+    if (entry !== undefined) entry.hidden = hidden;
   }
 
   setResume(ref: string, resume: unknown): void {

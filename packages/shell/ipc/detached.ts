@@ -19,6 +19,7 @@ const boundsSchema = z.strictObject({
 export const DETACHED_OPEN_CHANNEL = "shell:detached-open";
 export const DETACHED_FOCUS_CHANNEL = "shell:detached-focus";
 export const DETACHED_CLOSE_CHANNEL = "shell:detached-close";
+export const DETACHED_SHOW_CHANNEL = "shell:detached-show";
 // detached 창 → main. 보낸 창이 detached 창이어야 한다.
 export const DETACHED_TAKE_CHANNEL = "shell:detached-take";
 export const DETACHED_DOCK_CHANNEL = "shell:detached-dock";
@@ -68,6 +69,9 @@ export const detachedOpenSchema = z.strictObject({
 export const detachedFocusSchema = z.strictObject({ key: tabKey });
 // null이면 이 project 창의 detached 창 전부
 export const detachedCloseSchema = z.strictObject({ key: tabKey.nullable() });
+export const detachedShowSchema = z.strictObject({
+  keys: z.array(tabKey).max(20),
+});
 export const detachedDockSchema = z.strictObject({
   tab: detachedTabSchema,
   transfer: tabTransferSchema,
@@ -172,6 +176,8 @@ export interface LophnDetachedApi {
   }>;
   focus(input: { key: string }): Promise<void>;
   close(input: { key: string | null }): Promise<void>;
+  /** 입력 목록의 창만 보이고(focus는 가져오지 않는다) 나머지는 숨긴다(닫지 않는다). 이 project 창에 창이 없는 key는 `missing`으로 돌려주고, 열기는 쓰는 쪽이 `open`으로 한다. */
+  showOnly(input: { keys: string[] }): Promise<{ missing: string[] }>;
   // detached 창
   take(): Promise<DetachedTaken>;
   dock(input: DetachedDockInput): Promise<void>;

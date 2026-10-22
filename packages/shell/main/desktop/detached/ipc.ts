@@ -10,6 +10,7 @@ import {
   DETACHED_OPEN_CHANNEL,
   DETACHED_OPEN_TAB_CHANNEL,
   DETACHED_REMOVE_CHANNEL,
+  DETACHED_SHOW_CHANNEL,
   DETACHED_TAKE_CHANNEL,
   type DetachedBounds,
   detachedChangedSchema,
@@ -19,6 +20,7 @@ import {
   detachedFocusSchema,
   detachedOpenSchema,
   type DetachedReply,
+  detachedShowSchema,
   detachedTabInputSchema,
   type DetachedTaken,
 } from "../../../ipc/detached.ts";
@@ -44,6 +46,8 @@ interface DetachedIpcDeps {
   closeWindow(ref: string): void;
   /** 최소화를 풀고 앞으로 가져온다. */
   focusWindow(ref: string): void;
+  /** 창을 숨기거나(hide) focus 없이 보인다. 창 조작은 Electron을 아는 wiring이 한다. */
+  setHidden(ref: string, hidden: boolean): void;
   isAlive(ref: string): boolean;
   send(ref: string, event: DetachedEvent): void;
   owns(window: string, views: readonly string[]): boolean;
@@ -124,6 +128,8 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     const existing = entries.byParentKey(parent, body.tab.key);
     if (existing !== undefined) {
       deps.focusWindow(existing.ref);
+      // focusWindow가 창을 보이게 하므로 표도 맞춘다.
+      entries.setHidden(existing.ref, false);
       return fail("conflict", "the tab already has a window");
     }
     const views = body.transfer?.views ?? [];
@@ -148,6 +154,7 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
         views: [],
       }),
       silent: false,
+      hidden: false,
       resume: body.transfer === null ? kept : null,
     });
     const moved = deps.moveViews(sender.ref, created.ref, views);
@@ -176,7 +183,25 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     );
     if (entry === undefined) return fail("not_found", "no detached window");
     deps.focusWindow(entry.ref);
+    entries.setHidden(entry.ref, false);
     return { ok: true, value: null };
+  };
+
+  const showOnly: Handler = (event, input) => {
+    const checked = guard(event, detachedShowSchema, input, "project");
+    if (!checked.ok) return checked;
+    const { sender, input: body } = checked.value;
+    const keys = new Set(body.keys);
+    for (const entry of entries.childrenOf(sender.ref)) {
+      const hidden = !keys.has(entry.key);
+      if (hidden === entry.hidden) continue;
+      deps.setHidden(entry.ref, hidden);
+      entries.setHidden(entry.ref, hidden);
+    }
+    const missing = body.keys.filter((key) =>
+      entries.byParentKey(sender.ref, key) === undefined
+    );
+    return { ok: true, value: { missing } };
   };
 
   const close: Handler = (event, input) => {
@@ -279,6 +304,7 @@ export function createDetachedIpc(deps: DetachedIpcDeps) {
     [DETACHED_OPEN_CHANNEL, open],
     [DETACHED_FOCUS_CHANNEL, focus],
     [DETACHED_CLOSE_CHANNEL, close],
+    [DETACHED_SHOW_CHANNEL, showOnly],
     [DETACHED_TAKE_CHANNEL, take],
     [DETACHED_DOCK_CHANNEL, dock],
     [DETACHED_CHANGED_CHANNEL, changed],

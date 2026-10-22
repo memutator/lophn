@@ -6,10 +6,10 @@ lead만 고친다. `tools/status.py schedule-job build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `sj-jobs-contract` | jobs | 1 | 없음 | merged | jobs/sj-jobs-contract | 7d6ddcf38 |  |
 | `sj-jobs-wireframe` | shell | 1 | 없음 | merged | shell/sj-jobs-wireframe | e09123a17 |  |
-| `sj-apps-program-caller` | apps | 2 | sj-jobs-contract | todo |  |  |  |
-| `sj-jobs-store` | jobs | 2 | sj-jobs-contract | todo |  |  |  |
-| `sj-jobs-tools` | roles | 2 | sj-jobs-contract | todo |  |  |  |
-| `sj-workflows-job-start` | workflows | 2 | sj-jobs-contract | todo |  |  |  |
+| `sj-apps-program-caller` | apps | 2 | sj-jobs-contract | running | apps/sj-apps-program-caller |  |  |
+| `sj-jobs-store` | jobs | 2 | sj-jobs-contract | running | jobs/sj-jobs-store |  |  |
+| `sj-jobs-tools` | roles | 2 | sj-jobs-contract | running | roles/sj-jobs-tools |  |  |
+| `sj-workflows-job-start` | workflows | 2 | sj-jobs-contract | running | workflows/sj-workflows-job-start |  |  |
 | `sj-jobs-due` | jobs | 3 | sj-jobs-store | todo |  |  |  |
 | `sj-runs-job-origin` | runs | 3 | sj-apps-program-caller | todo |  |  |  |
 | `sj-shell-hold-card` | shell | 3 | sj-jobs-wireframe | todo |  |  |  |

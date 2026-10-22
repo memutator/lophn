@@ -90,6 +90,17 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 - C26. 자기 Operator가 쓰는 package에서 난 문제는, Project Manager가 package 주인 앱(`package.get`의 `owner_app`)의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - C27. 자기 domain이 쓰는 공개 tool이 바뀌었다고 그 앱의 App Engineer가 알리면, Project Manager가 바뀐 tool을 읽고 그 tool을 부르는 skill(자기 Operator의 것 포함)을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, Project Manager나 그 domain을 고른 Operator가 domain의 artifact를 쓴다.
+- C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, Project Manager가 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project의 Project Manager뿐이다(`architecture/workflow.md`).
+
+### workflow 참가자
+
+W1~W5는 어느 role이든 workflow instance의 step을 받은 agent의 규칙이다. lophn은 말한 대로 기록하고 전할 뿐 순서, 결과, 고칠 자격을 판정하지 않는다.
+
+- W1. step 메시지(`<lophn-step>`)를 받으면, 받은 agent는 그 step의 prompt대로 일하고 `workflow.report`로 어떻게 됐는지 글과 다음 step(`next`, 후보 가운데 하나나 `end`)을 낸다. `next`가 없는 report는 진행 글이라 아무에게도 넘어가지 않는다. 긴 결과는 file에 두고 경로를 쓴다.
+- W2. step 메시지 하나가 그 agent가 workflow에 대해 받는 전부다(그 step의 prompt, 받은 것, 낼 것, 다음 후보). `workflow.md`, 다른 step, 다른 참가자는 모른다. 더 알아야 하면 그 step의 prompt가 무엇을 읽으라고 말한다.
+- W3. 예외가 생기면, 참가자가 `workflow.edit`로 instance를 고친다(step 더하기·고치기·지우기, 끝, 지금 넘기기). 누가 고칠지는 workflow가 정한다(coordinator 참가자를 둘 수 있다). 누가 고쳤는지 줄로 남는다.
+- W4. step 메시지가 연 turn은 사람이 없는 turn(unattended)이다. 받은 agent는 그래도 자기 할당으로만 일한다(T5, T6).
+- W5. lophn이 다시 켜져 넘긴 step이 `lophn_restarted`로 남았으면, 참가자나 사람이 확인하고 필요하면 `hand_now`로 다시 넘긴다. lophn은 다시 넣지 않는다.
 
 ### coding agent
 
@@ -109,6 +120,8 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. App Engineer가 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H6. 사람은 project 창과 app space에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
+- H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
+- H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
 
 ## 3. 넘기는 길
 
@@ -117,6 +130,7 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - R3. reaction: program이 보내는 답 없는 알림이다. 지금은 맡긴 coding session의 끝 하나이고, coding session을 여는 길이 없어 쓰이지 않는다.
 - R4. 사람에게 올림(escalate): 사람의 결정이나 취향이 필요하면 session에서 사람에게 묻는다. 이것은 call도 동작 허락(approval)도 아니다. escalate라는 말은 이것에만 쓴다.
 - R5. App Engineer는 coding agent에게 맡기지 않는다. 받는 곳이 coding agent로 풀리는 call은 Router가 거절한다. 연결 장치가 연 coding session과 주고받는 것은 대화로 주고받는 call이고, session이 끝나면 닫힌다.
+- R6. step 메시지: 사람이 시작한 workflow instance에서 참가자의 report나 고치기가 말한 step의 담당에게 program이 넣는 입력이다. call이 아니다(call 행과 답 방식이 없다). 답 대신 report를 낸다(W1).
 
 ## 4. 넘길 때의 규칙
 
@@ -167,6 +181,8 @@ Operator ──────call(none)────▶ App Engineer      : 앱 버
          ──────call(none)────▶ Project Manager | App Engineer : domain의 DOMAIN.md, kind 파일, skill을 바꿔야 할 때(그 그릇의 쪽)
 
 program ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), activation 동의(첫 activation, 넓어진 선언, data 손실), shell 물음(toast)
+workflow ───step 메시지───────▶ 참가자 agent      : 사람의 시작, report의 next, 고치기의 지금 넘기기가 그 step을 말했을 때
+참가자 agent ──report·고치기──▶ workflow          : step을 끝냈거나 진행을 알리거나 예외를 다룰 때
 
 call(result) 받은 쪽 ────답─────▶ 보낸 쪽       : 맡은 일을 끝냈을 때, 맡지 않을 때
 lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정이나 취향이 필요할 때
@@ -174,7 +190,7 @@ lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정�
 
 - 위 선은 대표적인 것이다. lophn agent 사이에서는 어느 방향으로든 넘길 수 있다.
 - coding agent에게 가는 선은 없다. App Engineer가 앱을 직접 짓는다. 연결 장치는 남고, 연결된 coding session이 있다면 그 선은 App Engineer 하나뿐이다.
-- program은 agent를 부르지 않는다. activation 실패는 `release.activate`의 결과로 돌아간다.
+- program은 스스로 정해 agent를 부르지 않는다. activation 실패는 `release.activate`의 결과로 돌아간다. workflow의 step 메시지는 사람과 참가자가 말한 대로 전하는 것이다(E9).
 
 ### 5.2 받는 agent 고르기
 
@@ -199,6 +215,7 @@ role 이름만으로는 받는 agent가 하나로 정해지지 않는다(Project
 | App Engineer @app | 하나 | 이름 | prj | app | × |
 | coding agent | × | × | × | 맡긴 App Engineer(닫혔으면 그 앱의 새 session) | × |
 | program | × | × | × | 맡긴 coding session의 끝(맡긴 App Engineer) | × |
+| workflow step | 하나 | 이름(place가 없으면 instance의 project) | 선언의 project, 없으면 instance의 project | 선언의 app(꼭 있다) | × |
 
 - 같은 role끼리도 넘길 수 있다. 예를 들어 한 앱의 App Engineer가 package 주인 앱의 App Engineer에게 넘긴다.
 - "같음 / prj"와 "같음 / app"은 같은 place의 일이면 같은 place의 그 role, 다른 그릇의 일이면 보내는 쪽이 적은 그릇의 그 role이다.
@@ -207,7 +224,7 @@ role 이름만으로는 받는 agent가 하나로 정해지지 않는다(Project
 
 ## 6. program이 agent를 부르거나 사람에게 알리는 때
 
-program은 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고(E2, E5), activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(E3). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 남은 예외는 맡긴 call을 닫는 사실인 E4 하나이고 끌 수 없다.
+program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고(E2, E5), activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(E3). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 남은 예외는 맡긴 call을 닫는 사실인 E4 하나이고 끌 수 없다.
 
 - E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. App Engineer는 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
 - E3. activation이 실패하면, program이 실패 기록을 남기고 `release.activate`의 결과로 돌려준다. 동의 뒤에 시작한 시도의 결과는 사람이 화면에서 본다. App Engineer를 부르지 않는다.
@@ -215,6 +232,7 @@ program은 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 
 - E5. 문서가 kind를 어기면(위반이 새로 생기면), program이 사람에게 toast로 알린다. agent는 부르지 않는다. Project Manager나 App Engineer는 사람이 청하면 `kind.check`로 검사한다.
 - E6. App Engineer가 `release.activate`한 release가 첫 activation이거나 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
+- E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
 
 ## 7. 하지 않는 것
 

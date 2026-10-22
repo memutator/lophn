@@ -11,6 +11,7 @@ import { documentEditorKind } from "./document-editor.ts";
 import { registerTabKind } from "./kind.ts";
 import { searchKind } from "./search.ts";
 import { terminalKind } from "./terminal.ts";
+import { workflowKind } from "./workflow.ts";
 
 const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
@@ -21,6 +22,7 @@ const BUILT_IN_TAB_KINDS = [
   agentKind,
   browserKind,
   artifactKind,
+  workflowKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

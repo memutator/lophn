@@ -5,15 +5,21 @@ import {
   Bookmark,
   ChevronDown,
   ChevronRight,
+  Circle,
+  CircleCheck,
+  CirclePlay,
+  CircleStop,
   FileText,
   FolderKanban,
   Layers,
   Link,
   type LucideIcon,
+  MessageCircleMore,
   Plus,
   Search,
   Settings,
   Users,
+  Workflow,
 } from "lucide-react";
 
 // 여러 화면(Settings sidebar, 대화, 작업대)이 같이 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
@@ -32,4 +38,11 @@ export const commonIcons = {
   back: ArrowLeft,
   expand: ChevronRight,
   collapse: ChevronDown,
+  workflow: Workflow,
+  // workflow 탭이 instance와 step의 상태를 아이콘으로도 보이는 데 쓴다.
+  stateRunning: CirclePlay,
+  stateEnded: CircleCheck,
+  stateStopped: CircleStop,
+  stateYourTurn: MessageCircleMore,
+  stateNotReached: Circle,
 } as const satisfies Record<string, LucideIcon>;

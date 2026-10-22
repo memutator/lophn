@@ -13,6 +13,7 @@ import { documentEditorKind } from "./document-editor.tsx";
 import type { TabKindDef } from "./kind.ts";
 import { searchKind } from "./search.tsx";
 import { terminalKind } from "./terminal.tsx";
+import { workflowKind } from "./workflow.tsx";
 
 const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
@@ -24,6 +25,7 @@ const BUILT_IN_TAB_KINDS = [
   browserKind,
   browserDevtoolsKind,
   artifactKind,
+  workflowKind,
 ] as const;
 
 const kinds = new Map<string, TabKindDef>();

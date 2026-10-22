@@ -1,0 +1,142 @@
+/* workflow 탭의 머리, 오류 안내, instance 목록 절. 본문은 최대 폭 기둥을 가로 가운데에 둔다. */
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: calc(var(--page-overview) + var(--layout-pane-padding-wide) * 2);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+
+.headIcon {
+  display: flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.headText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.title {
+  margin: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 행동 단추 묶음. 줄 오른쪽 끝에 붙어 이름 길이와 상관없이 같은 자리다. */
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.problem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.problemMark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--type-small-line);
+}
+
+.problemMark[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+.problemMark[data-tone="neutral"] {
+  color: var(--status-neutral-text);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.refresh {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* 알림은 탭 위쪽에 toast로 뜬다. 높이 0으로 붙어 있어 본문을 밀지 않는다. */
+.toastSlot {
+  position: sticky;
+  top: var(--space-3);
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: var(--space-0);
+  pointer-events: none;
+}
+
+.toastSlot > div {
+  width: 100%;
+  max-width: var(--page-form);
+  pointer-events: auto;
+}
+
+/* disabled 단추의 tooltip을 받는 틀. 단추는 focus를 못 받아서 이 틀이 받는다. */
+.tipTarget {
+  display: inline-flex;
+}

@@ -10,12 +10,14 @@ export type WorkflowPlaceholders = {
   "workflow.button.stop": Record<never, never>;
   "workflow.empty.instances": Record<never, never>;
   "workflow.empty.not-found": Record<never, never>;
+  "workflow.empty.sidebar": Record<never, never>;
   "workflow.error.instances-failed": Record<never, never>;
   "workflow.error.load-failed": Record<never, never>;
   "workflow.error.not-startable": Record<never, never>;
   "workflow.error.start-failed": Record<never, never>;
   "workflow.error.stop-failed": Record<never, never>;
   "workflow.heading.instances": Record<never, never>;
+  "workflow.heading.list": Record<never, never>;
   "workflow.heading.start": {
     workflow: "string";
   };
@@ -32,6 +34,7 @@ export type WorkflowPlaceholders = {
   "workflow.label.first-step": Record<never, never>;
   "workflow.label.input": Record<never, never>;
   "workflow.label.instance": Record<never, never>;
+  "workflow.label.invalid": Record<never, never>;
   "workflow.label.kind": Record<never, never>;
   "workflow.label.line-edit-add-step": {
     step: "string";
@@ -58,6 +61,8 @@ export type WorkflowPlaceholders = {
   "workflow.label.lines": {
     count: "number";
   };
+  "workflow.label.list-target": Record<never, never>;
+  "workflow.label.not-startable": Record<never, never>;
   "workflow.label.note-line": {
     who: "string";
     text: "string";
@@ -75,6 +80,10 @@ export type WorkflowPlaceholders = {
   "workflow.label.role-operator": Record<never, never>;
   "workflow.label.role-project-manager": Record<never, never>;
   "workflow.label.role-unknown": Record<never, never>;
+  "workflow.label.running-count": {
+    count: "plural";
+  };
+  "workflow.label.sidebar-tab": Record<never, never>;
   "workflow.label.started-at": {
     when: "string";
   };

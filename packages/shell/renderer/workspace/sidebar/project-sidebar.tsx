@@ -1,4 +1,4 @@
-// project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains
+// project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains / Workflows
 // 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
 import {
   type PointerEvent as ReactPointerEvent,
@@ -25,9 +25,15 @@ import {
   type PanelSession,
   useAgentPanel,
 } from "./use-agent-panel.ts";
+import { WorkflowPanel } from "./workflow-panel.tsx";
 import styles from "./project-sidebar.module.css";
 
-export type SidebarTab = "explorer" | "agent" | "artifact" | "domain";
+export type SidebarTab =
+  | "explorer"
+  | "agent"
+  | "artifact"
+  | "domain"
+  | "workflow";
 
 export interface Reveal {
   readonly path: string;
@@ -55,6 +61,11 @@ const ACTIVITY_ENTRIES: readonly ActivityEntry[] = [
     label: t("domain.label.sidebar-tab"),
     icon: commonIcons.series,
   },
+  {
+    key: "workflow",
+    label: t("workflow.label.sidebar-tab"),
+    icon: commonIcons.workflow,
+  },
 ];
 
 interface ProjectSidebarProps {
@@ -72,6 +83,8 @@ interface ProjectSidebarProps {
   artifactPanel?: ReactNode;
   /** Domains 줄 menu의 Open DOMAIN.md. 주지 않으면 아무것도 하지 않는다. */
   onOpenDomainDoc?: (domain: string) => void;
+  /** Workflows 줄을 누르면 그 workflow의 탭을 연다. 주지 않으면 아무것도 하지 않는다. */
+  onOpenWorkflow?: (workflow: string) => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
@@ -108,6 +121,7 @@ export function ProjectSidebar(
     runs,
     artifactPanel = null,
     onOpenDomainDoc,
+    onOpenWorkflow,
     current = null,
     initialTab = "explorer",
     reveal = null,
@@ -218,6 +232,16 @@ export function ProjectSidebar(
                   project={project.id}
                   source={source}
                   onOpenDoc={onOpenDomainDoc ?? (() => {})}
+                />
+              )
+              : null}
+            {tab === "workflow" && project !== null
+              ? (
+                <WorkflowPanel
+                  key={project.id}
+                  project={project.id}
+                  source={source}
+                  onOpen={onOpenWorkflow ?? (() => {})}
                 />
               )
               : null}

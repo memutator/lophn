@@ -108,6 +108,7 @@ import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
+import { openWorkflow } from "./kinds/workflow.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
@@ -1281,6 +1282,7 @@ export function Workspace(props: WorkspaceProps) {
                 }}
                 onManage={() => openAgents(host)}
                 onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
                 onResizeStart={(event) => {
                   const start = sidebar.chosenWidth;
                   const startShown = sidebarShown.width;

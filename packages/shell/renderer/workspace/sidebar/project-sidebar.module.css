@@ -636,3 +636,18 @@
 .runState[data-tone="failed"] {
   color: var(--status-critical-text);
 }
+
+/* Workflows: 오류가 있는 workflow는 아이콘과 아래 줄을 critical 색으로 보인다. */
+.runIcon[data-tone="critical"],
+.sessionMeta[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+/* 도는 instance가 있다는 점. 숫자 글이 이름이라 점만으로 뜻을 싣지 않는다. */
+.workflowDot {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--status-good-marker);
+}

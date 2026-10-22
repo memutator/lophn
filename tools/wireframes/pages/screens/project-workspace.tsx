@@ -1,4 +1,11 @@
+import { useMemo, useState } from "react";
+
 import type { Area } from "../types.ts";
+import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { fakeWorkspaceSource } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
+import { ProjectSidebar } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   AgentsGroup,
@@ -60,11 +67,69 @@ import {
   BrowserTabPage,
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
+import { ProjectApp } from "./project-app.tsx";
+import { documentTab } from "../../mock/phroner-data.ts";
 import {
   MockDesktop,
   type PaneSpec,
   PROJECT_GROCERY,
 } from "../../mock/mock-desktop.tsx";
+
+// WorkflowPanel은 workflow 변경 event를 듣는다. Workspace 밖에서 세우는 page는 provider를 직접 둔다.
+function WithEvents({ children }: { children: React.ReactNode }) {
+  const [client] = useState(() => createEventClient(createFakeSource()));
+  return <EventsProvider client={client}>{children}</EventsProvider>;
+}
+
+/** sidebar · Workflows. fake source의 기본 목록이 줄이 된다: 도는 instance가 있는 workflow, 쉬는 workflow, 오류 workflow, flow. */
+function SidebarWorkflows() {
+  const tab = documentTab("eval/experiments/exp-008-query-tools.md");
+  return (
+    <WithEvents>
+      <ProjectApp
+        sidebar={{ mode: "workflow" }}
+        panes={[{ tabs: [tab], selected: tab.key }]}
+      />
+    </WithEvents>
+  );
+}
+
+/** workflow가 하나도 없는 project의 sidebar. */
+function SidebarWorkflowsEmpty() {
+  const source = useMemo(() => fakeWorkspaceSource({ workflows: [] }), []);
+  const noop = () => {};
+  return (
+    <WithEvents>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          background: "var(--color-surface-base)",
+        }}
+      >
+        <ProjectSidebar
+          mode="open"
+          width={240}
+          project={{ id: "prj_empty", title: "phroner", folders: [] }}
+          source={source}
+          agents={[]}
+          sessions={[]}
+          initialTab="workflow"
+          onOpenFile={noop}
+          onMove={(from, to) => source.rename(from, to)}
+          onTrash={(path) => source.trash(path)}
+          onRail={noop}
+          onAgent={noop}
+          onSession={noop}
+          onManage={noop}
+          onToggle={noop}
+          onLauncher={noop}
+        />
+      </div>
+    </WithEvents>
+  );
+}
 
 const NOTES = {
   key: "/home/mina/Documents/grocery/notes.md",
@@ -284,6 +349,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "Agents와 Recent 사이의 Background 묶음이다. 화면 없이 시작된 일(CLI, 예약)이 run 줄로 있고, 받은 agent의 avatar와 이름, 시작 시각, 상태가 보인다. 일하는 중은 점, 실패와 취소는 글자이고 끝난 것은 시각만 있다. run이 연 session은 그 줄 아래에 들여 쓰여 있고 Agents 묶음과 Recent에는 없다. 맨 아래 lophn run은 기존 session으로 이어 쓴 것이라 아래가 비어 있다. 새것부터 5개만 보인다.",
       render: () => <AgentsRuns />,
+    },
+    {
+      id: "new-sidebar-workflows",
+      title: "Sidebar · Workflows",
+      description:
+        "activity bar의 Workflows 항목을 고른 모양이다. workflow마다 아이콘, 이름, 아래 줄이 있고, 도는 instance가 있으면 아래 줄에 도는 수와 오른쪽 끝 점이 보인다. 선언이 틀린 workflow는 경고 아이콘과 빨간 글자이고 flow는 여기서 시작하지 못한다는 글이 보인다. 줄을 누르면 그 workflow의 탭이 열린다.",
+      render: () => <SidebarWorkflows />,
+    },
+    {
+      id: "new-sidebar-workflows-empty",
+      title: "Sidebar · Workflows · empty",
+      description:
+        "workflow가 하나도 없는 project의 Workflows panel이다. 안내 글 한 줄만 있다.",
+      render: () => <SidebarWorkflowsEmpty />,
     },
     {
       id: "new-sidebar-collapsed",

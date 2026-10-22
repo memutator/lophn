@@ -6,6 +6,7 @@
 - 선행: sj-jobs-sidebar-wireframe, sj-shell-jobs-screen, sj-shell-job-labels. 사람의 draft 승인도 기다린다(lead가 본다).
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/sidebar/job-panel.tsx` (새 file)
+  - `packages/shell/renderer/workspace/sidebar/job-panel.module.css` (새 file)
   - `packages/shell/renderer/workspace/sidebar/project-sidebar.tsx`
   - `packages/shell/renderer/workspace/sidebar/project-sidebar.module.css`
   - `packages/shell/renderer/workspace/workspace.tsx`
@@ -60,3 +61,16 @@
 - 넘길 줄
 - 계약 바꾸기 요청
 - **무겁게 짠 것**, **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+- 사람이 draft를 그린 대로 승인했다(2026-10-22).
+- draft 보고의 정한 것(그대로 옮긴다):
+  - 줄 전체가 button 하나이고 Switch는 그 위 오른쪽 끝 고정 열에 겹쳐 둔다(button 안에 button을 넣지 않는다). 제목은 Switch 열 앞에서 줄어든다. 아래 줄은 길면 접히고 Failed 표시는 제 줄로 내려간다.
+  - Switch는 Settings와 같은 "On"/"Off" label(design `Switch`가 보이는 label을 요구한다), `size="sm"`.
+  - 상태 순서: Turned off → Waiting for your decision(`last_run.state === "held"`) → Next.
+  - "Open all jobs"는 빈 상태에도 보이고 화살표가 없다.
+- 추가 소유: `packages/shell/renderer/workspace/sidebar/job-panel.module.css`(새 file). draft의 `drafts/jobs-sidebar/jobs-sidebar.module.css`를 옮긴다. `project-sidebar.module.css`에는 더하지 않는다.
+- draft의 `jobs-text.ts`는 옮기지 않는다. 주기 글, 다음 차례 글, 실패 글은 merge된 `desktop/settings/jobs/model.ts`의 함수와 `jobs.*` key를 쓰고, 없는 글("Waiting for your decision", 빈 상태 두 줄, "Open all jobs", 항목 이름)만 key를 더한다.
+- `JobNames`(`desktop/settings/jobs/source.ts`)에 `operators`가 있다. panel 줄은 이름을 쓰지 않으니 읽지 않아도 된다.
+- draft `frame.tsx`의 `"jobs" as SidebarTab` cast는 `SidebarTab`에 `"jobs"`를 더하면서 없어진다.

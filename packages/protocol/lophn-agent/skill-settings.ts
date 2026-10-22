@@ -56,6 +56,12 @@ export const BUILTIN_SKILLS: readonly {
     menu: false,
   },
   {
+    name: "guide-workflows",
+    roles: ["project_manager"],
+    can_disable: false,
+    menu: false,
+  },
+  {
     name: "check-kinds",
     roles: ["project_manager"],
     can_disable: false,

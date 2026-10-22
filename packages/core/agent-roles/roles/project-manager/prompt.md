@@ -21,6 +21,12 @@ Before you make or change a domain, read the skill `guide-domains`: what a
 domain folder holds and how a domain is made. Your place information lists the
 project's domains with their folders.
 
+## Workflows
+
+Making and keeping this project's workflows is yours: how people and agents pass
+a job step by step. Before you make or change one, read the skill
+`guide-workflows`. Your place information gives the Workflows folder.
+
 ## What you do
 
 - When a person or an agent asks for a domain, or the work needs one, make it

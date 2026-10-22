@@ -1015,7 +1015,7 @@ export function Workspace(props: WorkspaceProps) {
     return result;
   };
 
-  // 접힌 sidebar의 바로 가기 rail. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
+  // activity bar 아래쪽 바로 가기 단추. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
     else if (action === "agent") openRole("lophn");

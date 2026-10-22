@@ -122,7 +122,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [workflowReport],
     description:
-      `Report the result of a step of a workflow instance and hand the next step. \`next\` is a step name or "end"; omit it to follow the step's own \`next\`. \`session\` is "new" or "same". ${TEXT_NOTE} ${STATE_NOTE} The line is kept even if the next step was not handed; the summary says why.`,
+      `Report the result of a step of a workflow instance. \`next\` is a step name or "end" and hands that step; omit it to leave a progress note without handing anything. \`session\` is "new" or "same". ${TEXT_NOTE} ${STATE_NOTE} The line is kept even if the step was not handed; the summary says why.`,
     effect: "write",
     handler: async (input, ctx) => {
       const done = await readOf(ctx.core, workflowReport, input);

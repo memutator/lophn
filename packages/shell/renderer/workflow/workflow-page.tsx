@@ -110,6 +110,19 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               />
             </span>
             <span>{entry.problem.message}</span>
+            {entry.invalid || entry.kind === "flow"
+              ? (
+                // 목록 절이 없는 탭도 정의를 다시 읽을 수 있어야 한다(선언을 고친 뒤).
+                <span className={styles.refresh}>
+                  <IconButton
+                    icon={workspaceIcons.refresh}
+                    label={t("workflow.button.refresh")}
+                    size="sm"
+                    onClick={state.refresh}
+                  />
+                </span>
+              )
+              : null}
           </p>
         )}
         {entry.invalid || entry.kind === "flow"

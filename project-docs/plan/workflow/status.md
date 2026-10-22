@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `wf-contract` | workflows | 1 | 없음 | todo |  |  |  |
+| `wf-contract` | workflows | 1 | 없음 | merged | workflows/wf-contract | a2d63f5e8 |  |
 | `wf-artifact-source` | artifact | 2 | wf-contract | todo |  |  |  |
 | `wf-cli` | cli | 2 | wf-contract | todo |  |  |  |
 | `wf-kit-graph` | kit | 2 | wf-contract | todo |  |  |  |

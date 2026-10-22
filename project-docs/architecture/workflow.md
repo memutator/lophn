@@ -86,6 +86,13 @@ artifact
 - `WorkflowInstanceChanged`가 오면 그 instance를 여는 view만 다시 load한다.
 - kit은 전역 `LophnKit.renderGraph(element, {nodes, edges})`를 내고 node에 `status`(label, tone)와 `note`를 받는다. 상태 값의 뜻은 component가 모르고 artifact가 정한다(`architecture/ui-kit.md`). lophn의 기본 화면은 graph를 그리지 않는다.
 
+화면
+- workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안에서 instance를 고르고, 고른 instance는 layout에 남는다(`packages/shell/renderer/workspace/kinds/workflow.tsx`, 본문 `packages/shell/renderer/workflow/`).
+- 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 `flow`는 이유 한 줄을 보이고 시작하지 못한다. instance 목록은 새것이 앞이다. 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, step 없는 `edit`)은 머리에 둔다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을, instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
+- 사람 화면이 부르는 memory route는 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`뿐이다(`packages/shell/main/desktop/core/allowlist.ts`). report와 고치기는 agent가 한다. 사람이 순서를 바꾸고 싶으면 그 agent에게 말한다.
+- 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `WorkflowInstanceChanged`가 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
+- project sidebar의 activity bar에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `WorkflowInstanceChanged` 때 읽는다.
+
 ## 왜 이 모양인가
 
 - lophn program은 최대한 약하다. 순서, 결과, 고칠 자격을 판정하면 그 코드가 workflow의 정책에 기대고, agent 성능이 오를수록 덜어내야 할 규칙이 된다. 예외는 program이 다룰 수 없어서 workflow 안의 agent가 다룬다. 결정적 제약이 필요하면 그 workflow의 program이 진다(`project-docs/products/roadmap/workflow.md` "원칙").

@@ -156,9 +156,9 @@ export function desksFromStored(layout: unknown): WorkspaceDesks | null {
     const view = viewOfDesk(desk);
     if (view !== null) desks[key] = view;
   }
-  if (desks[DEFAULT_DESK] === undefined) return null;
+  if (!Object.hasOwn(desks, DEFAULT_DESK)) return null;
   const active = typeof value.active_desk === "string" &&
-      desks[value.active_desk] !== undefined
+      Object.hasOwn(desks, value.active_desk)
     ? value.active_desk
     : DEFAULT_DESK;
   return { active, desks };

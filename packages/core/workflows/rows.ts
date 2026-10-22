@@ -1,0 +1,70 @@
+import { err, ok, type Result } from "../../base/mod.ts";
+import {
+  type WorkflowInstance,
+  workflowInstanceSchema,
+  type WorkflowLine,
+  workflowLineSchema,
+} from "../../protocol/workflows/mod.ts";
+
+// createSql은 INTEGER를 bigint로 준다. 1n === 1은 늘 거짓이라 Number()·String()으로 읽는다.
+export function instanceFromRow(
+  row: Record<string, unknown>,
+): Result<WorkflowInstance> {
+  const parsed = workflowInstanceSchema.safeParse({
+    id: row.id,
+    project: row.project,
+    workflow: row.workflow,
+    input: row.input,
+    state: row.state,
+    participants: JSON.parse(String(row.participants)),
+    steps: JSON.parse(String(row.steps)),
+    current: row.current_step === null
+      ? null
+      : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
+    started_by: JSON.parse(String(row.started_by)),
+    created_at: row.created_at,
+    finished_at: row.finished_at,
+    state_seq: String(row.state_seq),
+  });
+  return parsed.success
+    ? ok(parsed.data)
+    : err({ code: "internal", message: "invalid stored workflow" });
+}
+
+// kind에 없는 칸은 schema가 버린다(step은 ended·stopped에 없고 text는 report·started만 쓴다).
+export function lineFromRow(
+  row: Record<string, unknown>,
+): Result<WorkflowLine> {
+  const parsed = workflowLineSchema.safeParse({
+    instance: row.instance,
+    seq: String(row.seq),
+    at: row.at,
+    kind: row.kind,
+    by: JSON.parse(String(row.by)),
+    step: row.step,
+    text: row.body,
+    ...(row.data === null ? {} : JSON.parse(String(row.data))),
+  });
+  return parsed.success
+    ? ok(parsed.data)
+    : err({ code: "internal", message: "invalid stored workflow line" });
+}
+
+// 남길 줄: instance, seq, at은 appendLine이 채운다.
+export type NewLine = WorkflowLine extends infer L
+  ? L extends unknown ? Omit<L, "instance" | "seq" | "at"> : never
+  : never;
+
+// 줄을 step, body(started·report의 글), data(나머지 칸)로 가른다.
+export function lineColumns(
+  line: NewLine,
+): { step: string | null; body: string | null; data: string | null } {
+  const { kind: _kind, by: _by, step, text, ...rest } = line as
+    & Record<string, unknown>
+    & { step?: string | null; text?: string };
+  return {
+    step: step ?? null,
+    body: text ?? null,
+    data: Object.keys(rest).length === 0 ? null : JSON.stringify(rest),
+  };
+}

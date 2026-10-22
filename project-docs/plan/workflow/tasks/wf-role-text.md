@@ -1,105 +1,84 @@
 # wf-role-text
 
-role 글에 workflow를 더한다: 제품 고정 규칙(`PRODUCT_INSTRUCTIONS`)에는 `<lophn-call>`의 `workflow`·`participant` 속성 뜻, workflow 안의 call에 열쇠를 다는 법, domain의 `workflows/`를 쓰는 사람을, 내장 skill `guide-domains`에는 `workflows/<name>.md`(꼴, 쓰는 사람, `workflow.list`)를, PM과 App Engineer 지침에는 workflow를 쓰기 전에 `guide-domains`를 읽으라는 말을 적는다.
+role이 읽는 글을 쓴다. 내장 skill `guide-workflows`, Project Manager 지침 한 줄, 모든 role의 제품 규칙에 step 메시지 tag와 workflow tool 쓰는 법.
 
-- 단위: role (wave 2)
-- 선행: wf-contract-shapes
+- 단위: roles (wave 2)
+- 선행: wf-contract
 - 소유(이 task만 고친다):
+  - `packages/core/agent-roles/skills/guide-workflows/SKILL.md`(새 file)
+  - `packages/protocol/lophn-agent/skill-settings.ts`
   - `packages/core/agent-roles/roles/prompts.ts`
-  - `packages/core/agent-roles/roles/{project-manager,app-engineer}/prompt.md`
-  - `packages/core/agent-roles/skills/guide-domains/SKILL.md`
+  - `packages/core/agent-roles/roles/project-manager/prompt.md`
 - 읽을 것:
-  - 계획: `project-docs/plan/workflow/README.md`의 "정한 것"(시작은 entry에게 일을 주는 것, `reply: conversation`은 쓰지 않는다, 쓰는 것은 그 domain의 PM이나 App Engineer)과 "뼈대 검토에서 정한 것"(연락처는 이름이 오른 참가자 모두가 받는다, 열쇠는 `<domain>/<이름>`, model은 call에 `workflow`만 준다, 풀리지 않는 참가자는 file 전체를 뺀다)
-  - 계약 모양: `project-docs/plan/workflow/tasks/wf-contract-shapes.md`의 "선언 file", "receiver tag", "봉투"
-  - roadmap: `project-docs/products/roadmap/workflow.md`의 "모양"(eval loop 예, lophn이 하지 않는 일)
-  - architecture: `project-docs/architecture/agent-definition.md`("모든 role에 같은 말은 제품 고정 규칙(`PRODUCT_INSTRUCTIONS`) 한 곳에 둔다", "사용 안내는 내장 skill이다", "Router가 넣는 입력은 모두 user role이고 `lophn-` tag로 출처를 밝힌다", "고정 규칙은 영어 고정 본문 하나"), `project-docs/architecture/domain.md`("`DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer만 쓴다")
-  - 결정: `project-docs/products/change-log/0.6.0.md`의 "command는 skill이고, guide는 skill이 되고, 지침은 한 번만 말한다"(`PRODUCT_INSTRUCTIONS`로 옮기는 말의 기준, domain 폴더 설명은 `guide-domains`)
-  - boundary·module: `project-docs/boundary-catalog.yaml`의 `agent-roles`, `project-docs/module-catalog.yaml`의 `packages/core/agent-roles`
+  - 제품 결정: `project-docs/products/roadmap/workflow.md`의 "원칙: lophn program은 최대한 약하다", "정의: 선언, `workflow.md`, artifact", "instance와 report", "instance 고치기", "agent가 아는 것 (캡슐화)", "사람 step", "node 시각화 (kit)"
+  - architecture: `project-docs/architecture/agent-definition.md`(제품 고정 규칙은 system의 1번 cache 경계, 같은 재료는 같은 bytes), `project-docs/architecture/artifact.md`(봉한 view)
+  - 본보기 글: `packages/core/agent-roles/skills/guide-artifact/SKILL.md`(frontmatter `name`·`description`, 절 나누기, 영어), `packages/core/agent-roles/roles/project-manager/prompt.md`("## Domains" 절이 `guide-domains`를 먼저 읽게 하는 꼴), `packages/core/agent-roles/roles/prompts.ts`의 `PRODUCT_INSTRUCTIONS`
+  - 같은 계획의 brief: `wf-write-scope.md`(`Workflows folder:` 줄), `wf-kit-graph.md`(node의 `status`·`note` 칸과 tone 값), `wf-kit-build.md`(`LophnKit.renderGraph`), `wf-artifact-serve.md`(`/_lophn/kit.js`, `/_lophn/kit.css`, `data/_instance.json`의 모양), `wf-agent-tools.md`(tool 입력 칸), `wf-contract.md`("step 입력"의 본문 label)
 - 계약:
-  - 쓰는 것: 선언 file 꼴(`entry`, `participants`, `contacts`, body), receiver tag 속성, tool 이름 `workflow.list`, call 입력 `workflow` — 모두 `wf-contract-shapes`의 "내놓는 것"
-  - 내놓는 것: 없음(글만 바꾼다)
+  - 쓰는 것: `wf-contract`의 선언 칸, tool 이름과 입력, `HandResult`, step 입력 절(tag와 본문 label). `wf-kit-build`가 정하는 artifact 쪽 길(아래 "artifact에서 쓰는 길")과 `wf-write-scope`가 싣는 `Workflows folder:` 줄. 본보기는 `skills/guide-artifact/SKILL.md`
+  - 내놓는 것:
+    - skill `guide-workflows`: `skill-settings.ts`에 `{ name: "guide-workflows", roles: ["project_manager"], can_disable: false, menu: false }`. 내용: (1) 정의 셋의 꼴과 자리(`<Workflows folder>/<name>/workflow.yaml`, `workflow.md`, 고르면 `artifacts/static/index.html`, `artifacts/instance/index.html`). (2) 선언에서 lophn이 읽는 칸만(`kind`, `participants`의 `role`·`place?`·`name?`, `steps`의 `by`·`with`·`prompt`·`in`·`out`·`next`)과 틀리면 그 workflow만 빠진다는 것, `workflow.list`로 확인하기. (3) artifact를 둘지 사람에게 `ask`로 묻는다(둘 다 안 두는 것도 선택이다). (4) artifact에서 kit으로 node 그리기: `<link rel="stylesheet" href="/_lophn/kit.css">`, `<script src="/_lophn/kit.js">`, `LophnKit.renderGraph(element, { nodes, edges })`, node의 `status: { label, tone }`·`note`, instance artifact는 `fetch("data/_instance.json")`(`instance`, `last_reports`, `lines`). 상태 값의 뜻은 artifact가 정한다. (5) workflow를 시작하는 것은 사람과 job이다. agent는 시작하지 못한다.
+    - PM 지침(`project-manager/prompt.md`): 프로젝트의 workflow를 만들고 고치는 것이 PM의 책임이라는 한 줄과 `guide-workflows`를 먼저 읽으라는 말.
+    - 제품 규칙(`prompts.ts`의 `PRODUCT_INSTRUCTIONS`): `<lophn-step>`은 workflow instance의 step을 lophn이 맡긴 것이고, 글 안의 prompt·받은 글·낼 것·다음 후보가 그 step의 전부이며, 끝나면 `workflow.report`로 낸다는 것(`next`는 후보 가운데서 또는 `end`, 진행 글은 `next` 없이). 읽고 고칠 일이 있을 때만 `workflow.get`·`workflow.edit`를 쓴다는 것. report 글은 짧은 메모(8 KiB 이하)이고 긴 결과는 file에 두고 경로를 적는다는 것. `workflow.get`의 줄에 `lophn_restarted`가 보이면 그 step을 다시 `hand_now`로 넘겨야 할 수 있다는 것. `end` 뒤에 낸 report도 instance를 다시 running으로 되살린다는 것. step은 call이 아니고 허락도 아니라서 자기 할당으로만 일한다는 것. 고정 문장이라 cache 경계를 한 번 깬다(보고에 적는다).
 
 ## 할 일
 
-글은 영어로 쓴다. `.md`의 고친 문단은 지금처럼 80자 안팎에서 줄을 바꾸고, `prompts.ts`의 bullet은 지금처럼 한 줄이다(template literal 안이라 backtick은 지금처럼 `` \` ``로 쓴다). 자리는 줄 번호가 아니라 아래에 적은 글로 찾는다. 아래에 없는 줄은 건드리지 않는다. 같은 말은 한 곳에만 둔다: 모든 role에 같은 말은 `PRODUCT_INSTRUCTIONS`, domain 폴더의 설명과 꼴은 `guide-domains`, 한 role에만 맞는 말은 그 role 지침이다(`agent-definition.md`).
+1. **skill 등록.** `packages/protocol/lophn-agent/skill-settings.ts`의 `BUILTIN_SKILLS`에 `{ name: "guide-workflows", roles: ["project_manager"], can_disable: false, menu: false }`를 `guide-artifact` 항목 뒤에 더한다. 폴더 이름과 frontmatter `name`이 같아야 발견된다(`guide-artifact`와 같은 꼴).
+2. **skill 글.** `packages/core/agent-roles/skills/guide-workflows/SKILL.md`(새 file). frontmatter는 `name: guide-workflows`와 한두 문장 `description`(1024자 이하, 영어)이다. 본문은 영어이고 `guide-artifact`처럼 짧은 절로 나눈다. 아래 절이 들어간다. 값과 이름은 이 brief의 계약(위 "쓰는 것")과 같아야 한다. 바꿔야 하면 보고의 "계약 바꾸기 요청"이다.
+   - **What a workflow is.** project의 `<Workflows folder>/<name>/` 폴더 하나: `workflow.yaml`(선언), `workflow.md`(선언을 사람과 PM이 읽는 글), 고르는 artifact(`artifacts/static/index.html`, `artifacts/instance/index.html`). `<Workflows folder>`는 place 정보의 `Workflows folder:` 줄에 있는 절대 경로이고, 절대 경로로 `file.write`한다(상대 경로는 사람의 project 폴더로 간다. `guide-artifact`와 같은 이유). `<name>`은 slug. instance는 사람이 시작하고(나중에 job도) agent는 시작하지 못한다. 시작하는 tool이 없다.
+   - **The declaration.** lophn이 읽는 칸만 적는다: `kind: agent`(`flow`는 아직 시작하지 못한다), `participants`의 `role`(`lophn | project_manager | app_engineer | operator | human | harness`)·`place?`·`name?`, `steps`의 `by`·`with`·`prompt`·`in`·`out`·`next`. 다른 칸은 lophn이 읽지 않는다. `project_manager`와 `operator`는 `place`를 안 쓰면 이 project이고, `app_engineer`는 `place: {app: <앱 이름>}`이 꼭 있어야 하고, `operator`는 `name`이 꼭 있다. `harness`는 선언은 되지만 넘기지 못한다. 사람 step은 `by`가 `human` 참가자이고 `with`가 사람과 대화하는 agent다. `next`는 step 이름 목록이고 `end`는 끝이다(`end`는 step 이름이 될 수 없다). 첫 step은 `steps`의 첫 key다. 작은 예 하나(roadmap의 eval 예를 줄인 것).
+   - **A step message is all a participant gets.** 참가자는 자기 step의 `prompt`, 받는 것(`in`과 앞 step의 report 글), 낼 것(`out`), 다음 후보(`next`)만 받는다. `workflow.md`와 다른 step과 workflow 전체는 모른다. 그래서 `prompt`는 혼자서 읽어도 일이 되게 쓴다(필요한 절대 경로, 어디에 무엇을 남기는지, 끝나면 어떤 글로 report하는지). 어떤 참가자가 `workflow.md`를 읽어야 하면 그 step의 `prompt`가 그렇게 말한다. step 메시지의 label은 `Receives:`, `Received:`, `Produces:`, `Next candidates:`다(`wf-contract`의 "step 입력").
+   - **After you write it.** `workflow.list`로 확인한다: 틀린 선언은 그 workflow만 빠지고 `problem`에 이유가 있다. 가리키는 이름(`by`, `with`, `next`)이 있는지는 읽을 때 검사하지 않고, 넘길 때 "넘기지 못함"으로 드러난다. 선언은 instance를 시작할 때 복사된다. 도는 instance는 선언을 고쳐도 그대로이고, 그 instance의 step은 참가자가 `workflow.edit`로 고친다.
+   - **Artifacts are optional: ask.** 그림은 모든 workflow에 필요하지 않다. 만들기 전에 `ask`로 사람에게 정한다: 정적 artifact(workflow의 step을 node로 그린 것), instance artifact(한 instance의 지금 상태), 둘 다, 둘 다 안 둠. 안 두는 것도 좋은 답이다. 묻지 않고 만들지 않는다.
+   - **Drawing nodes with the kit.** 봉한 view의 규칙(네트워크 없음, 외부 library 없음, 토큰 CSS)은 `guide-artifact`를 따른다. 단 kit 하나가 있다: 일반 `<script>`(module이 아니다) `<script src="/_lophn/kit.js"></script>`와 `<link rel="stylesheet" href="/_lophn/kit.css">`를 불러 `LophnKit.renderGraph(el, { nodes, edges })`를 부른다. 같은 경로가 domain artifact에서도 된다.
+     - node는 `{ id, label, status?: { label, tone }, note? }`다. `tone`은 `good | warning | serious | critical | neutral` 중 하나여야 한다. 다른 값을 넣으면 도표가 읽을 수 없는 상태(error)로 그려진다. `note`는 짧은 글이다. edge는 `{ from, to, label? }`다. 상태 값의 뜻은 artifact가 정한다(예: 지금 step은 `running`, report가 있으면 `reported`). 같은 element에 다시 부르면 갱신한다.
+     - `el`은 block 요소이고 너비가 0이 아니어야 한다(숨긴 요소나 `display: inline`에 그리지 않는다).
+     - 정적 artifact(`artifacts/static/index.html`)는 step 목록을 html 안에 직접 쓴다(자기 폴더 밖의 `workflow.yaml`을 읽지 못한다).
+     - instance artifact(`artifacts/instance/index.html`)는 `fetch("data/_instance.json")`로 `{ instance, last_reports, lines }`를 읽는다: `instance.steps`(이름, `by`, `next`, ...), `instance.current`, `instance.state`, step마다 마지막 report `last_reports[step]`, 줄 `lines`. 아주 큰 instance는 이 응답이 data 대신 오류 body(`{"error": ...}`)다. `instance`가 없으면 오류 글을 보이게 쓴다.
+     - instance가 바뀔 때마다 페이지 전체가 다시 load된다. 페이지 안 상태(펼침, 스크롤 등)는 남지 않는다. 그 상태를 유지하려 하지 않는다.
+     - 짧은 instance artifact 예(30줄 안쪽)를 하나 싣는다.
+   - **Do not.** 선언에 정책을 넣지 않는다(순서 강제, 통과 판정). lophn은 판정하지 않고 말한 대로 전한다. 그런 규칙이 필요하면 그 step의 `prompt`에 쓰거나 workflow의 program이 지게 한다. workflow를 agent가 시작하려 하지 않는다.
+3. **PM 지침.** `packages/core/agent-roles/roles/project-manager/prompt.md`에 `## Workflows` 절 하나를 `## Domains` 절 뒤에 더한다: "프로젝트의 workflow를 만들고 고치는 것은 PM의 일이다. 만들거나 고치기 전에 skill `guide-workflows`를 먼저 읽는다. Workflows folder는 place 정보에 있다." 초안(영어, 이 길이를 넘기지 않는다):
+   ```
+   ## Workflows
 
-1. `packages/core/agent-roles/roles/prompts.ts`의 `PRODUCT_INSTRUCTIONS`
-   - "Who can give you instructions"에서 `<lophn-call>` 줄(`- <lophn-call> is a task another agent sent you, …`) 바로 뒤에 한 줄을 더한다: `- A <lophn-call> with workflow and participant attributes was sent inside that workflow (its key) by that participant. If you take part in the workflow, the Workflows section of your place information says who that is and whom you hand on to.`
-   - "How you work"의 `call` 줄(`` - `call` hands work to another agent. … ``) 바로 뒤에 한 줄을 더한다: `` - When you hand work on inside a workflow you take part in, give the workflow's key as `workflow` in the call. ``
-   - 같은 절의 domain 파일 줄(`` - A domain's `DOMAIN.md`, kinds file and skills are written only by … ``)을 `` - A domain's `DOMAIN.md`, kinds file, skills and workflows (`workflows/`) are written only by the Project Manager of its project or the App Engineer of its app. If one that is not yours has to change, give it to that agent with `call`. ``로 바꾼다. 이 줄이 Operator에게도 가므로 Operator 지침은 고치지 않는다.
-   - 머리 주석(tag 목록은 고정 문장, 이름은 `INPUT_TAGS`에 있어야 한다)은 그대로다. tag가 늘지 않는다.
-2. 내장 skill `guide-domains`(`packages/core/agent-roles/skills/guide-domains/SKILL.md`)
-   - "What a domain has"에서 **Skills** bullet 뒤, **Artifacts** bullet 앞에 bullet 하나를 더한다:
-     "**Workflows** (`workflows/<name>.md`): agents that hand work to each other, such as a runner that gives each item to a judge. The file names the participants (agents that exist, also in other projects and apps) and each one's contacts, and describes the workflow. Each participant sees its own part in its prompt; an agent the file does not name sees nothing. lophn keeps no order or state, and a call outside the contacts is not stopped. A wrong file is left out whole, and `workflow.list` says why."
-   - "Who makes and writes it"의 "They write its kinds file, `DOMAIN.md` and skills with their file tools."를 "They write its kinds file, `DOMAIN.md`, skills and workflows with their file tools."로 바꾼다.
-   - "Who makes and writes it" 절 뒤, "One container only" 절 앞에 새 절을 더한다. 꼴의 예 하나와 규칙 bullet이다:
-
-     ````
-     ## Writing a workflow
-
-     When a person or an agent asks for a workflow, the Project Manager or App
-     Engineer writes the domain's `workflows/<name>.md` with the file tools and
-     reads `workflow.list` to check that it was not left out. `workflow.list`
-     shows the workflows of the domains of your project or app (all of them if
-     you have no place) and why a file was left out.
-
-     ```markdown
-     ---
-     entry: runner
-     participants:
-       runner: {role: operator, name: eval-runner}
-       judge: {role: operator, name: judge}
-       owner: {role: project_manager, place: {project: lophn}}
-     contacts:
-       runner:
-         - {to: judge, reply: result, session: new, when: "each item waiting to be graded"}
-         - {to: owner, reply: none, session: open, when: "the run is written up"}
-     ---
-     What the workflow is for and how the work moves. Every participant reads this.
+   Making and keeping this project's workflows is yours: how people and agents
+   pass a job step by step. Before you make or change one, read the skill
+   `guide-workflows`. Your place information gives the Workflows folder.
+   ```
+   첫 문단(역할 소개)의 "look after" 문장에 workflow를 더하지 않는다. 절 하나가 한 줄 책임이다.
+4. **제품 규칙.** `packages/core/agent-roles/roles/prompts.ts`의 `PRODUCT_INSTRUCTIONS`에 두 항목을 더한다(고정 문장, 시각·무작위 없음). `PRODUCT_INSTRUCTIONS`는 템플릿 literal이라 글 속 백틱은 기존 줄(`\`call\``)처럼 앞에 백슬래시를 붙여 escape한다. 초안:
+   - "Who can give you instructions" 목록에서 `<lophn-notice>` 항목 뒤에:
      ```
+     - <lophn-step> is a step of a workflow instance that lophn handed to you. Its prompt, what you receive, what you produce and the next candidates are all you are given about the workflow. It is not a call and not an approval: work only within your own tools and assignments.
+     ```
+   - "How you work" 목록에서 call 항목들 뒤에:
+     ```
+     - When you receive a step, do it, then report it with `workflow.report`: the instance, the step and a text. Give `next` (one of the candidates, or `end`) when you know where it goes; a report without `next` is only progress. If something unexpected comes up you may change the instance with `workflow.edit`. Read its state with `workflow.get` only when you need it. A report is a short note (at most 8 KiB): put longer results in files and give the paths. If `workflow.get` shows `lophn_restarted` for a step, lophn was restarted and that step may not have reached its turn: hand it again with `workflow.edit` `hand_now` if it is still needed. A report after `end` revives the instance.
+     ```
+   모든 role이 같은 문장을 한 번씩 받는다.
+5. **cache와 eval.** 위 둘은 모든 role의 system 1번 cache 경계(`PRODUCT_INSTRUCTIONS`)와 PM 지침을 바꾼다. 열린 session은 한 번 cache가 깨진다. eval의 instruction 버전이 새로 매겨진다. 보고에 적는다.
+6. **확인.** `deno fmt`가 md도 본다(`deno task check`의 fmt). 새 SKILL.md와 prompt.md를 `deno fmt`로 맞춘다. test는 만들지 않는다. 스스로 확인: `skill.read`가 쓰는 발견 경로에 새 폴더가 잡히는지(`packages/core/agent-roles/skills/root.ts`의 `BUNDLED_SKILLS_ROOT` 아래 폴더라 코드 변경이 필요 없다).
 
-     - The file name and the participant names are slugs. The workflow's key is
-       `<domain name>/<file name>`.
-     - `role` is `lophn`, `project_manager`, `app_engineer` or `operator`.
-       `place` is `{project: <name>}` or `{app: <name>}`; left out, it is the
-       domain's own project or app. A participant may be in another project or
-       app. An Operator needs `name`. lophn has no place or name.
-     - `entry` is the participant that is given the work first.
-     - `reply` is `none` or `result`. `session` is `new` (a new session for each
-       call, like a judge) or `open` (a colleague whose session goes on). `when`
-       is one line.
-     - Participants are agents that exist; a workflow does not create agents. If
-       a participant does not resolve to exactly one agent, or two participants
-       are the same agent, the whole file is left out.
-     ````
-   - frontmatter의 `description`은 바꾸지 않는다(이미 "what it holds, who makes and writes it"이다).
-3. Project Manager 지침(`packages/core/agent-roles/roles/project-manager/prompt.md`)
-   - "## Domains"의 "Before you make or change a domain, read the skill `guide-domains`: what a domain folder holds and how a domain is made."를 "Before you make or change a domain or write a workflow, read the skill `guide-domains`: what a domain folder holds, how a domain is made and how a workflow file is written."로 바꾼다.
-   - "## What you do"의 "Write the domain's `DOMAIN.md` and skills with the file tools."를 "Write the domain's `DOMAIN.md`, skills and workflows with the file tools."로 바꾼다.
-4. App Engineer 지침(`packages/core/agent-roles/roles/app-engineer/prompt.md`)
-   - "## Domains of the app" 첫 문단의 같은 문장("Before you make or change a domain, read the skill `guide-domains`: what a domain folder holds and how a domain is made.")을 3의 첫 글과 같은 글로 바꾼다.
-5. role 지침과 skill 글이 바뀌어 eval의 instruction·skill 판(`tests/eval/registry/`)이 새 판이 된다. eval이 돌 때 저절로 매기고 `deno task check`는 보지 않는다. `tests/`의 코드에서 이 글을 맞춰 보는 곳은 없다(2026-10-22 main에서 `grep -rn --include=*.ts "How you work\|guide-domains\|kinds file and skills" tests` 0줄. `tests/eval/registry/`와 `tests/eval/runs/`의 JSON은 기록이라 고치지 않는다).
+## 정한 것
 
-정한 것:
-- 꼴과 규칙은 `guide-domains` 한 곳에 두고 PM·App Engineer 지침에 두 번 쓰지 않는다. 이유: `agent-definition.md`가 같은 말을 한 곳에 두게 하고, domain 폴더 설명을 `guide-domains`로 옮겼다. 이 skill은 lophn·PM·App Engineer에게 간다.
-- Operator 지침은 고치지 않는다. 이유: "domain 파일은 PM이나 App Engineer만 쓰고, 아니면 call한다"는 말은 `PRODUCT_INSTRUCTIONS`의 한 줄이고 그 줄에 workflows를 더한다.
+- **`guide-workflows`는 PM에게만 간다.** 다른 role은 workflow를 만들지 않고 step을 받아 report하는 쪽이라 제품 규칙 두 줄이면 된다.
+- **step 받는 규칙은 `PRODUCT_INSTRUCTIONS`에, PM 책임은 `prompt.md`에 둔다.** 이유: step 규칙은 모든 role이 같은 문장으로 받아야 하고(고정 문장이라 cache가 role 지침 앞에서 공유된다), PM 책임은 PM의 지침이다. `lophn`·App Engineer·Operator의 `prompt.md`는 고치지 않는다.
+- **step 메시지 tag 설명에 workflow 전체를 싣지 않는다.** roadmap 캡슐화: system prompt에 workflow를 싣지 않는다.
 
 ## 끝남
 
 - `deno task check`가 통과한다.
-- 위험 test: 없음(글만 바꾼다).
-- 남지 않음: `grep -n "kinds file and skills are written only" packages/core/agent-roles/roles/prompts.ts`가 0줄이다.
-- 한 곳만: `grep -rln "entry: runner" packages/core/agent-roles`가 `packages/core/agent-roles/skills/guide-domains/SKILL.md` 하나다.
-- 안 고침: `git diff --stat main -- packages/core/agent-roles/roles/operator/prompt.md packages/core/agent-roles/roles/lophn/prompt.md`가 비어 있다.
+- 위험 test: 없음.
+- 남지 않음: 없음(옛 이름을 지우는 task가 아니다). 새 글이 가리키는 이름이 코드와 같은지 grep으로 확인한다: `grep -rn "LophnKit\|_lophn/kit\|Workflows folder:\|workflow\.report\|workflow\.edit\|workflow\.get\|workflow\.list" packages/core/agent-roles`가 이 task의 글에만 나온다(다른 task가 먼저 land했으면 그 이름과 철자까지 같은지 대조).
 
 ## 보고
 
-- 바꾼 file
-- 통과한 check
-- 등록할 것: 없음
-- 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
-- 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳
-- 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
-- **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
-- **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+- 바꾼 file, 통과한 check.
+- 등록할 것: 없음(`BUILTIN_SKILLS`는 이 task가 고친다).
+- 안 쓰게 된 export: 없음.
+- 정한 것: 위 "정한 것" 밖에 worker가 정한 것.
+- 넘길 줄: 없음이 기본.
+- 계약 바꾸기 요청: 글이 쓴 이름이 다른 brief와 안 맞았으면 적는다(kit 전역 이름, 가상 path, tool 입력 칸, `Workflows folder:` 줄).
+- cache: 모든 role의 system 1번 cache 경계와 PM 지침이 바뀌어 cache가 한 번 깨지고 eval의 instruction·skill 버전이 새로 매겨진다고 적는다.
+- **무겁게 짠 것**, **알려진 미완 동작**: 없으면 "없음".

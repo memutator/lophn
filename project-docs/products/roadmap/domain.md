@@ -92,6 +92,7 @@
 - 계획 `domain-entity`는 land했다: domain entity를 두고, `domain-place`가 합친 것을 되돌리고, domain 단위로 맞췄다(changelog `0.5.0`).
 - 계획 `test-restore`가 e2e와 eval을 새 설계로 되살렸다. land는 다시 e2e를 돈다.
 - **그 뒤:** 바꾼 eval 시나리오를 진짜 model로 한 번씩 돌린다(changelog `0.5.0` 후속).
+- **node 시각화.** workflow의 node 시각화를 domain에도 쓴다(사람, 2026-10-22). kit component와 artifact에서 쓰는 길은 `roadmap/workflow.md`가 만든다. domain에서 무엇을 node로 그릴지는 그 뒤에 정한다.
 - **필요해지면:**
   - artifact를 화면에서 지우기(`roadmap/artifact.md`)
   - app-preview(보류, `roadmap/app-preview.md`)

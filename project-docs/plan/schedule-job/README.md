@@ -82,7 +82,7 @@ roadmap `headless-schedule.md`의 "정한 것"을 따른다. 정리하면 이렇
 
 ## lead가 할 일
 
-- `workflow`와 같이 돌 수 있다. 두 계획이 겹치는 file은 `packages/core/agent-roles/tool-lists.ts`(`sj-jobs-tools`, `wf-decl-reader`가 각자 tool 줄을 더한다) 하나다. 나중에 land하는 lead가 rebase 때 두 쪽 줄을 다 남긴다.
+- `workflow`와 같이 돌 수 있다. 겹치는 file은 계획 `workflow`의 README "lead가 할 일"이 적는다(2026-10-22 뼈대 대조: tool 목록과 agent tool test, `ids.ts`, `events/transient.ts`, `check-deps.ts`, renderer `workspace/source.ts`·`workspace.tsx`·sidebar, wording). 나중에 land하는 lead가 rebase 때 두 쪽을 다 남긴다.
 - merge할 때마다 바뀐 곳의 test를 돌린다.
 - `deno task check`는 `tests/e2e`, `tests/eval`, `tests/support`도 type check하고 `tests/eval`의 test도 돈다. protocol type, route, helper를 바꾸는 task는 그것을 쓰는 `tests/` 줄도 같이 고친다(brief에 적었다).
 - land(`project-docs/plan/tools/lead/land.sh`)는 `check:full`과 `deno task e2e`를 돈다. `LOPHN_LAND_SKIP_E2E`를 쓰지 않는다. 있는 e2e가 깨지면 이 계획 안에서 고친다. 새 e2e는 더하지 않고 eval은 돌리지 않는다(사람).

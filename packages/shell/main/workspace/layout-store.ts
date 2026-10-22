@@ -1,4 +1,4 @@
-// <home>/shell/layout.json은 main만 쓴다. 원자 교체 temp 파일 뒤 rename이고,
+// <home>/shell/layouts/<prj_id>.json은 main만 쓴다. 원자 교체 temp 파일 뒤 rename이고,
 // 폴더 0700·파일 0600(Windows는 mode bit가 없어 기본 ACL이 사용자 limit이다)을
 // 유지한다. 본문·결정·token은 여기 남지 않는다.
 import { join } from "node:path";
@@ -12,16 +12,16 @@ import {
 } from "./atomic-file.ts";
 import { type LayoutResult, parseLayoutFile } from "./layout.ts";
 
-/** layout.json 파일 경로. `<root>/shell/layout.json` 고정이다. */
-function layoutPath(dataRoot: string): string {
-  return join(dataRoot, "shell", "layout.json");
+/** project마다 파일 하나다. 이름은 바뀔 수 있어 id를 쓴다. */
+function layoutPath(dataRoot: string, project: string): string {
+  return join(dataRoot, "shell", "layouts", `${project}.json`);
 }
 
 export interface LayoutStore {
-  /** 현재 layout. 파일이 없으면 null이고 손상은 안전한 오류다. */
-  read(): Promise<StoreResult<LayoutResult | null>>;
+  /** 그 project의 layout. 파일이 없으면 null이고 손상은 안전한 오류다. */
+  read(project: string): Promise<StoreResult<LayoutResult | null>>;
   /** 원자 교체로 쓴다. 실패하면 기존 파일을 그대로 둔다. */
-  write(content: string): Promise<StoreResult<null>>;
+  write(project: string, content: string): Promise<StoreResult<null>>;
 }
 
 export function createLayoutStore(
@@ -29,9 +29,9 @@ export function createLayoutStore(
   deps: Partial<StoreDeps> = {},
 ): LayoutStore {
   const impl: StoreDeps = { ...defaultStoreDeps, ...deps };
-  const file = layoutPath(dataRoot);
   return {
-    async read(): Promise<StoreResult<LayoutResult | null>> {
+    async read(project: string): Promise<StoreResult<LayoutResult | null>> {
+      const file = layoutPath(dataRoot, project);
       let raw: Uint8Array;
       try {
         raw = await impl.readFile(file);
@@ -52,8 +52,8 @@ export function createLayoutStore(
       }
       return { ok: true, value: parseLayoutFile(parsed) };
     },
-    write(content: string): Promise<StoreResult<null>> {
-      return writeFileAtomic(file, content, impl);
+    write(project: string, content: string): Promise<StoreResult<null>> {
+      return writeFileAtomic(layoutPath(dataRoot, project), content, impl);
     },
   };
 }

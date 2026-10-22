@@ -28,13 +28,23 @@ const readInput = z.strictObject({ project: projectId });
 
 const saveInput = z.strictObject({
   project: projectId,
-  last_space: z.string().min(1).max(80),
-  panes: z.array(z.unknown()).min(1).max(2),
-  split_ratio: z.number(),
-  focused_pane: z.number().int().min(0).max(1),
-  floats: z.array(z.unknown()).max(20),
-  detached: z.array(z.strictObject({ tab: z.unknown(), bounds: z.unknown() }))
-    .max(20),
+  active_desk: z.string().min(1).max(200),
+  desks: z.record(
+    z.string().min(1).max(200),
+    z.strictObject({
+      panes: z.array(z.unknown()).min(1).max(2),
+      split_ratio: z.number(),
+      focused_pane: z.number().int().min(0).max(1),
+      floats: z.array(z.unknown()).max(20),
+      detached: z.array(
+        z.strictObject({ tab: z.unknown(), bounds: z.unknown() }),
+      )
+        .max(20),
+    }),
+  ).refine((desks) => {
+    const count = Object.keys(desks).length;
+    return count >= 1 && count <= 200;
+  }),
 });
 
 interface LayoutIpcMain {
@@ -99,7 +109,7 @@ export function registerLayoutIpc(
       if (!parsed.ok) {
         return { ok: false, code: "unreadable", message: "" };
       }
-      const stored = await deps.store.read();
+      const stored = await deps.store.read(parsed.value.project);
       if (!stored.ok) {
         return { ok: false, code: "unreadable", message: "" };
       }
@@ -128,26 +138,28 @@ export function registerLayoutIpc(
         return { ok: false, code: "invalid_input", message: "" };
       }
       const live = deps.detachedBounds(event);
-      const detached = parsed.value.detached.map((item) => {
-        const key = (item.tab as { key?: unknown } | null)?.key;
-        const bounds = typeof key === "string" ? live.get(key) : undefined;
-        return bounds === undefined ? item : { ...item, bounds };
-      });
+      const desks = Object.fromEntries(
+        Object.entries(parsed.value.desks).map(([name, desk]) => [name, {
+          ...desk,
+          detached: desk.detached.map((item) => {
+            const key = (item.tab as { key?: unknown } | null)?.key;
+            const bounds = typeof key === "string" ? live.get(key) : undefined;
+            return bounds === undefined ? item : { ...item, bounds };
+          }),
+        }]),
+      );
       const valid = validateLayout({
         schema_version: SCHEMA_VERSION,
         project: parsed.value.project,
-        last_space: parsed.value.last_space,
-        panes: parsed.value.panes,
-        split_ratio: parsed.value.split_ratio,
-        focused_pane: parsed.value.focused_pane,
-        floats: parsed.value.floats,
-        detached,
         window_bounds: clampBounds(deps.bounds(event)),
+        active_desk: parsed.value.active_desk,
+        desks,
       });
       if (!valid.ok) {
         return { ok: false, code: "invalid_input", message: "" };
       }
       const written = await deps.store.write(
+        parsed.value.project,
         JSON.stringify(toLayoutFile(valid.layout)),
       );
       return written.ok

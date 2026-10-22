@@ -1,4 +1,4 @@
-// WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이 있다.
+// WorkspaceLayout 값. 파일 계약이다. 판 2부터 떠 있는 탭(floats)이, 판 3부터 detached 탭(OS 창)이, 판 4부터 자리(desk)가 있다.
 // renderer가 보내는 wire 모양은 ipc/workspace.ts가 정한다. 여기는 파일에 남는
 // schema 원본과 검증·기본값의 순수 동작만 둔다.
 import { z } from "zod";
@@ -6,7 +6,10 @@ import { z } from "zod";
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const LAYOUT_SCHEMA_VERSION = 3;
+export const LAYOUT_SCHEMA_VERSION = 4;
+
+// default 자리의 key. workflow 이름은 slug라 `_`로 시작할 수 없어 겹치지 않는다. renderer model.ts의 DEFAULT_DESK와 짝이다.
+export const DEFAULT_DESK = "_default";
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
 // 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, 파일을 읽는
@@ -64,20 +67,45 @@ const layoutDetachedSchema = z.strictObject({
   bounds: windowBounds,
 });
 
-// WorkspaceLayout. 승인·credential·앱 업무 상태·preview·transient 탭은 schema에 없다.
-export const workspaceLayoutSchema = z.strictObject({
-  schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
-  project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-  window_bounds: windowBounds,
-  last_space: z.string().min(1).max(80),
+// 자리 하나. 판 3의 최상위 칸과 같은 값이 자리마다 있다.
+const deskSchema = z.strictObject({
   panes: z.array(layoutPaneSchema).min(1).max(2),
   split_ratio: z.number().finite().gt(0).lt(1),
   focused_pane: z.number().int().min(0).max(1),
   floats: z.array(layoutFloatSchema).max(20),
   detached: z.array(layoutDetachedSchema).max(20),
 }).refine(
-  (layout) => layout.focused_pane < layout.panes.length,
+  (desk) => desk.focused_pane < desk.panes.length,
   { message: "focused_pane is not a valid pane index" },
+);
+
+export type WorkspaceDesk = z.infer<typeof deskSchema>;
+
+// 자리 key. workflow 이름이거나 DEFAULT_DESK다.
+export const deskKey = z.string().min(1).max(200).refine(
+  (key) => ![...key].some((ch) => ch <= "\u001f" || ch === "\u007f"),
+  { message: "desk key has a control character" },
+);
+
+// WorkspaceLayout. 승인·credential·앱 업무 상태·preview·transient 탭은 schema에 없다.
+export const workspaceLayoutSchema = z.strictObject({
+  schema_version: z.literal(LAYOUT_SCHEMA_VERSION),
+  project: z.string().regex(/^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
+  window_bounds: windowBounds,
+  active_desk: deskKey,
+  desks: z.record(deskKey, deskSchema),
+}).refine(
+  (layout) => {
+    const count = Object.keys(layout.desks).length;
+    return count >= 1 && count <= 200;
+  },
+  { message: "desks must have 1 to 200 entries" },
+).refine(
+  (layout) => Object.hasOwn(layout.desks, DEFAULT_DESK),
+  { message: "desks has no default desk" },
+).refine(
+  (layout) => Object.hasOwn(layout.desks, layout.active_desk),
+  { message: "active_desk is not in desks" },
 );
 
 export type WorkspaceLayout = z.infer<typeof workspaceLayoutSchema>;

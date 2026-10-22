@@ -123,3 +123,18 @@ workflow 탭과 project sidebar의 activity bar(그 안의 Workflows 입구 포�
 - 계약 바꾸기 요청: `wf-contract`의 type이 화면에 모자라거나 남으면(예: `lines`에 step 없는 줄을 그릴 칸이 없다) 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 사람이 고른 모양
+
+사람이 gallery Drafts(`draft-workflow-*`, `draft-activity-bar-*`)를 보고 추천안 그대로 승인했다(2026-10-22). renderer task는 아래를 그대로 옮긴다.
+
+1. activity bar: 폭 56px(`--layout-sidebar-collapsed`), icon 20px, 버튼 높이 48px. 열린 항목은 왼쪽 2px 띠와 배경 둘 다. 열린 icon을 다시 누르면 bar만 남게 접힌다. 창이 640px보다 좁으면 panel이 저절로 접힌다. Workflows icon은 lucide `Workflow`, Agents는 `commonIcons.roles`(`Users`). panel은 240px이고 bar와 합쳐 296px이다.
+2. 탭: workflow 하나가 탭 하나다(key `workflow:<name>`, 필드 `{ workflow, instance? }`). 탭 안에서 instance를 고른다.
+3. instance 기본 view: step 줄마다 상태 icon과 글, 마지막 report는 세 줄까지, 줄 기록은 `<details>`(지금 step은 펼침). "Your turn" 줄이 step 위에 서고 [Open conversation]은 지금 step의 가장 나중 `handed` 줄 `receiver` session을 연다. `not_handed`·`lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. graph는 없다.
+4. [Start] dialog는 입력 글(필수)과 첫 step 고르기. static [Open artifact]는 탭 머리, [Open instance artifact]는 instance 머리의 [Stop] 옆이다. [Stop]은 확인 없이 멈춘다.
+
+옮길 때 바꿀 것(gallery 전용이었던 것):
+- `whenOf`(`tools/wireframes/mock/workflow-data.ts`)는 `formatRelativeTime(new Date(at), new Date())`로 바꾼다.
+- lucide를 바로 import한 icon(Workflow, CirclePlay, CircleStop, MessageCircleMore 등)은 `packages/shell/renderer/icons/*.ts` 묶음으로 옮긴다.
+- 박은 영어 문구는 `workflow.*` wording key로 옮긴다.
+- `frame.tsx`와 gallery의 클릭 상태(`pages.tsx`의 `TabBody`·`WorkflowFrame`)는 옮기지 않는다.

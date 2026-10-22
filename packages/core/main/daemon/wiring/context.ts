@@ -67,6 +67,8 @@ import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
+import type { RunService } from "../../../runs/mod.ts";
+import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -239,6 +241,9 @@ type Late = {
   // API server가 쓰는 쓰기 앞 처리기를 모두 접은 writer다. core 안에서 command를 내는 곳은 날 writer(runtime.writer)가 아니라
   // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, 입력함 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
   writer: Writer;
+  // runs와 workflows가 낸다. jobs가 차례마다 run을 열고 instance를 시작할 때 쓴다.
+  runService: RunService;
+  workflowService: ReturnType<typeof createWorkflowService>;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -287,6 +292,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   inbox: true,
   questionWaits: true,
   writer: true,
+  runService: true,
+  workflowService: true,
 };
 
 export type WiringContext = {

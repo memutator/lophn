@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py schedule-job build`가 `tasks/*.md`에서 id
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `sj-jobs-contract` | jobs | 1 | 없음 | todo |  |  |  |
-| `sj-jobs-wireframe` | shell | 1 | 없음 | todo |  |  |  |
+| `sj-jobs-contract` | jobs | 1 | 없음 | running | jobs/sj-jobs-contract |  |  |
+| `sj-jobs-wireframe` | shell | 1 | 없음 | running | shell/sj-jobs-wireframe |  |  |
 | `sj-apps-program-caller` | apps | 2 | sj-jobs-contract | todo |  |  |  |
 | `sj-jobs-store` | jobs | 2 | sj-jobs-contract | todo |  |  |  |
 | `sj-jobs-tools` | roles | 2 | sj-jobs-contract | todo |  |  |  |

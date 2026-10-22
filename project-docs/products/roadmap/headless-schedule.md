@@ -25,7 +25,7 @@
 | 층 | 무엇 | 예 |
 |---|---|---|
 | run | agent 호출 하나, 또는 앱 tool 호출 하나 | `lophn agent run --async ...` |
-| job | 언제(주기) + 무엇(원샷 run 하나, 또는 flow) + 놓쳤을 때 할 일 | 10일마다 `drive.sync_folder` |
+| job | 언제(주기) + 무엇(원샷 run 하나, workflow instance 시작, 또는 flow) + 놓쳤을 때 할 일 | 10일마다 `drive.sync_folder` |
 | flow | 앱 tool과 agent 호출을 섞어 짠 program. 검증과 오류 처리를 스스로 한다. program이 이끄는 workflow다(`workflow.md`) | 1시간마다 feed를 보고, 새 기사만 Operator에게 번역시켜 저장 |
 
 - 간단한 일은 원샷 run으로 job에 바로 건다. 복잡한 일은 flow로 짜서 job에 건다. 무엇이 간단한지는 job을 만드는 agent가 판단한다.
@@ -80,6 +80,7 @@
   - 차례마다 job run 기록을 남긴다.
 - **주기.** 간격(`every: 10d`)과 하루 중 시각(`at: "09:00"`, 선택)을 쓴다. cron 문법은 쓰지 않는다.
 - **원샷.** 차례가 오면 run(`architecture/run.md`)을 연다. 앱 tool을 부르는 쪽에 program을 더한다.
+- **workflow 시작.** 차례가 오면 project의 `kind: agent` workflow instance를 시작한다(`architecture/workflow.md`). 지금 시작은 사람(화면, CLI)뿐이다. roadmap `workflow.md`가 시작하는 길로 사람과 job을 정했다.
 - **hold 알림.** 대기 목록에 [지금 실행]과 [건너뛰기] card를 둔다.
 - **화면.** job 목록과 job run 기록을 어디에 둘지는 계획에서 wireframe으로 정한다. job이 만든 run의 session은 run 아래로 묶는 모양(`architecture/run.md` "화면")을 쓴다.
 
@@ -108,6 +109,7 @@
 - schedule은 lophn(tray 포함)이 켜져 있을 때만 돈다. 상주 daemon이나 OS service를 따로 만들지 않는다. 근거: 창을 닫아도 tray에 core가 남고 autostart가 있다. data root마다 core는 하나다.
 - 놓친 차례는 몇 번이든 한 번으로 친다. 근거: 10일 주기를 세 번 놓쳤다고 세 번 옮길 일이 없다. 몇 번 놓쳤는지는 기록에 남긴다.
 - 앞 차례가 돌면 이번 차례를 건너뛴다. 근거: 같은 job이 겹쳐 돌면 같은 바깥 효과가 두 번 난다.
+- job의 할 일에 workflow instance 시작을 둔다(2026-10-22). 근거: roadmap `workflow.md`가 instance를 시작하는 길로 사람, run, job을 정했다. 앞 instance가 아직 running이면 이번 차례는 건너뛴다(같은 job이 겹쳐 돌지 않는 규칙 그대로).
 - schedule을 event 반응에 얹지 않는다. 근거: event에 반응하는 장치가 없고, 뒤에 움직일 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`).
 - 계속 떠서 push하는 event source(websocket, 상주 script, webhook)는 만들지 않는다. 근거: 끌어 읽기(`architecture/event.md` "왜 이 모양인가")로 충분하다. webhook은 공개 endpoint가 필요해 개인 로컬 작업 공간(PRODUCT 5절)과 맞지 않는다.
 
@@ -129,7 +131,7 @@ flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 �
 
 - 계획 셋을 순서대로 연다.
   1. `headless-run`(land했다. `architecture/run.md`): core run, CLI, run session의 화면.
-  2. `schedule-job`: scheduler, job 표와 기록, program caller, 놓친 차례, hold card, job 화면.
+  2. `schedule-job`: scheduler, job 표와 기록, program caller, workflow 시작, 놓친 차례, hold card, job 화면. 2026-10-22 headless-run, workflow, workflow-shell이 land한 뒤 계획을 새로 썼다.
   3. flow는 `workflow.md`의 계획이 연다.
 - unattended mode(run의 전제)는 `approval-simplify`가 만들었다.
 - 개편(`ae-builds`, `reactor-remove`, `agent-definition`)이 끝나고 e2e와 eval도 되살렸다(`test-restore`). `headless-run`은 land했고 `schedule-job`이 다음이다.

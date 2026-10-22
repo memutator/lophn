@@ -1,61 +1,84 @@
 # sj-jobs-scheduler
 
-lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring을 만든다. 주입한 Clock과 timer로 깨어 `job.claim_due`를 부르고, 받은 job run마다 `headless-run`의 "core의 run 연산"으로 run을 시작하고(그 run의 turn은 unattended다) 끝을 기록한다. 기록 event나 Bus에 얹지 않는다.
+lophn(tray 포함)이 켜져 있는 동안 도는 scheduler loop와 그 wiring을 만든다. 주입한 Clock과 timer port로 깨어 `job.claim_due`를 부르고, 받은 job run마다 run을 열거나 workflow instance를 시작하고, 끝을 job run에 적는다. 기록 event나 Bus에 얹지 않는다(`architecture/event.md`).
 
-- 단위: jobs (wave 3)
-- 선행: 없음
+- 단위: jobs (wave 4)
+- 선행: `sj-jobs-due`, `sj-runs-job-origin`, `sj-workflows-job-start`
 - 소유(이 task만 고친다):
-  - `packages/core/jobs/scheduler.ts`(새 file)
-  - `packages/core/main/daemon/wiring/jobs.ts`(새 file)
+  - `packages/core/jobs/scheduler.ts` (새 file)
+  - `packages/core/jobs/scheduler_test.ts` (새 file)
+  - `packages/core/main/daemon/wiring/jobs.ts` (새 file)
 - 읽을 것:
-  - architecture: `project-docs/architecture/event.md`("지키는 것"의 "Bus": Bus에 내는 것은 commit 뒤, core 안 command는 접힌 writer `ctx.writer`로, Bus는 놓칠 수 있고 정본은 표다. "이어서 움직이는 일": 꺼진 사이 끝나지 못한 일은 켤 때 owner가 자기 표에서 닫는다), `project-docs/architecture/layers.md`(scheduler는 feature module `jobs`에 두고 조립은 `core/main`이 한다)
-  - boundary·module: `project-docs/boundary-catalog.yaml`의 `jobs`(lead가 더한다), `events`, `storage`. `project-docs/module-catalog.yaml`의 `packages/core/jobs`
-  - 본보기: `packages/core/main/daemon/wiring/annotations.ts`(machine 자격 `ANNOTATIONS_CONTEXT`와 `records`, `ctx.writer.command`, `start`에서 한 번 돌고 timer를 걸어 `closeWork`에서 멈춤), `packages/core/main/daemon/wiring/coding-sessions.ts`와 `router.ts`의 `build`가 내는 `writer: (inner) => ... withAfterCommit(inner, apply)`, `packages/core/main/daemon/wiring/apps.ts`의 `AppViewChanged` 내기(`ctx.peek.bus?.publish`), `packages/core/main/daemon/wiring/context.ts`(hook 순서, `Built.writer`), `packages/core/storage/ledger/after-commit.ts`(`withAfterCommit`, `CommitAction`), `packages/core/main/daemon/wiring/lophn-agent-runtime.ts`의 `createIdSource({clock, random})`
-  - 제품 결정: `project-docs/products/roadmap/headless-schedule.md`의 "놓친 차례"와 "정한 것 (agent)"(켜져 있을 때만 돈다, 자동 재시도 없음, event 반응에 얹지 않는다), `project-docs/plan/schedule-job/README.md`의 "뼈대 검토에서 정한 것"(timer port, 할당은 부를 때만, 도는 run은 job을 지워도 끝까지)과 "살 단계 검토에서 정한 것"(run 시작 helper, `Late` 칸)
-  - `sj-jobs-due`의 `packages/core/jobs/due.ts`(claim이 같은 줄을 두 번 넘기지 않는 규칙)
+  - architecture: `project-docs/architecture/event.md`(scheduler를 기록 event나 Bus에 얹지 않는다. 화면 신호는 남지 않는 event), `project-docs/architecture/run.md`("끝을 아는 법", "켤 때와 session 끝", `WaitRun`이 최대 60초만 기다리는 이유), `project-docs/architecture/workflow.md`(instance 상태 `running|ended|stopped`와 끝은 기록일 뿐이라는 것, 시작 route는 사람만), `project-docs/architecture/approval.md`(unattended), `project-docs/architecture/layers.md`(wiring의 자리)
+  - boundary·module: `project-docs/boundary-catalog.yaml`의 `jobs`, `project-docs/module-catalog.yaml`의 `packages/core/jobs`와 `packages/core/main`
+  - 본보기 코드:
+    - wiring 전체: `packages/core/main/daemon/wiring/runs.ts`(machine 자격 둘, `command`·`read` helper, 접은 writer 사용, `start`·`closeIntake`), `packages/core/main/daemon/wiring/workflows.ts`(`withAfterCommit`으로 topic을 Bus event로 바꾸는 `writer` 층, `store.read`·`readAll`)
+    - 값 나누기와 구동 순서: `packages/core/main/daemon/wiring/context.ts`(`Late`, `LATE_KEYS`, 위 머리 주석의 구동·종료 순서), `packages/core/main/daemon/assembly.ts`(`WIRINGS` 주석: runs·workflows가 router 뒤인 이유)
+    - 서비스: `packages/core/runs/service.ts`(`start`, `wait`의 60초 상한과 `close()`), `packages/core/workflows/service.ts`의 `start(input, by)`
+    - timer 대역: `packages/core/runs/ports.ts`의 `Timers`·`systemTimers`, `packages/core/runs/service_test.ts`(`timers: { set: () => 0, clear: () => {} }`)
+    - 수동 clock: `packages/base/clock.ts`의 `manualClock`
+  - 제품 결정: 계획 README의 "정한 것"의 "언제 도나", "할 일"(workflow 시작, 앱 tool 호출)
 - 계약:
-  - 쓰는 것: `sj-jobs-contract`의 `JobSchedulerDeps`, `JobSchedulerStore`, `JobRunStarter`, `JobScheduler`, `JobTimers`, `JOBS_CHANGED_TOPIC`, scheduler route(`jobClaimDue`, `jobRunStarted`, `jobRunEnded`), 남지 않는 event `JobChanged`. `sj-runs-job-origin`의 helper(예: `runStartOfJobAction`. job에 저장된 AgentRef로 run 시작 입력을 만든다)와 run 시작 `start(input, by)`. `headless-run`의 run 기다리기. run service는 lead가 `packages/core/main/daemon/wiring/context.ts`의 `Late`에 등록한 칸으로 받는다
-  - 내놓는 것: `createJobScheduler(deps: JobSchedulerDeps): JobScheduler`. wiring `jobsWiring`: machine 자격 `machine:jobs`(scheduler route만), `JOBS_CHANGED_TOPIC`을 받아 `JobChanged`를 내고 scheduler를 깨우는 writer 층, start에서 scheduler 시작, closeWork에서 멈춤. 등록할 것(lead): assembly `WIRINGS`
+  - 쓰는 것: `sj-jobs-contract`의 `JobSchedulerDeps`·`JobSchedulerStore`·`JobStarter`·`JobScheduler`·`JobTimers`·`JOBS_CHANGED_TOPIC`, route `job.claim_due`·`job_run.open`·`job_run.started`·`job_run.ended`(TS export 이름 `jobClaimDue`·`jobRunOpen`·`jobRunStarted`·`jobRunEnded`), 남지 않는 event `JobChanged`. `Late`의 `runService`·`workflowService`(`sj-runs-job-origin`, `sj-workflows-job-start`가 낸다)
+  - 내놓는 것
+    - `createJobScheduler(deps: JobSchedulerDeps): JobScheduler`
+    - `jobsWiring: WiringFactory`: machine 자격 `machine:jobs`(scope는 `job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `ReadWorkflowInstance`), `JOBS_CHANGED_TOPIC`을 받아 `JobChanged`를 내고 scheduler를 깨우는 writer 층(`withAfterCommit`), `start`에서 scheduler 시작, `closeWork`에서 멈춤. `JobStarter` adapter(`runService`·`workflowService` 사용). 등록할 것(lead): `assembly.ts`의 `WIRINGS`(runs와 workflows wiring 뒤), `Late` 칸.
+
+## 정한 것
+
+- 한 번에 한 바퀴만 돈다. **깨어나는 길이 무엇이든(timer, `wake()`, 1시간 상한) 바퀴는 같다.** 바퀴:
+  1. `open()`으로 도는 줄을 읽고, action이 `workflow_start`이고 `running`이며 `instance`가 있는 줄마다 `instanceState`로 instance를 본다. `running`이 아니면 닫는다(`ended`는 `done`, `stopped`는 `cancelled`). `running`이면 그대로 둔다(그동안 같은 job의 새 차례는 claim이 `overlap`으로 건너뛴다). 읽기가 실패한 줄은 그대로 둔다. **이 단계는 claim 앞에서 한다.** 이유: 차례가 온 순간의 겹침 판정(`job.claim_due`)이 지금 instance 상태를 보게 하려는 것이다. 이미 끝난 instance의 줄을 열어 두면 새 차례가 잘못 건너뛴다.
+  2. `claimDue(startup)`.
+  3. 받은 줄마다 차례로 `starter.start`. 실패하면 `ended(failed, "<code>: <message>")`. 성공하면 `started(...)`를 적고, run이 있으면 `waitRun`을 기다리지 않고 띄워 끝나면 `ended`를 적는다. instance를 시작한 줄은 `waitRun`이 없고 다음 바퀴의 1이 닫는다.
+  4. claim이 준 `next_due_at`으로 timer를 건다.
+  도는 중에 `wake()`가 오면 표시만 해 두었다가 바퀴가 끝나면 한 바퀴 더 돈다(합쳐서 한 번).
+- `start()`는 첫 바퀴를 `startup: true`로 돌린다. **`startup`은 claim이 한 번 성공할 때까지 `true`다.** claim이 실패하면 core 기동을 막지 않고 1분 뒤 다시 하는데, 그 재시도도 `startup: true`다(켤 때 한 번의 일이 빠지지 않게 한다).
+- timer: `next_due_at`에 맞추되 한 번에 최대 1시간까지만 잔다(`setTimeout` 상한과 시계가 바뀌는 일). `next_due_at`이 null이어도 1시간 뒤 다시 본다(workflow instance의 끝을 보려면 깨야 한다). **1시간에 깨어도 같은 바퀴를 돈다**(claim은 차례가 없으면 빈 답을 주는 싼 호출이다). 이유: 1을 깰 때마다 해야 하고 길을 둘로 나누지 않는다. 잠은 최소 1초다(`next_due_at - clock.nowMs()`를 1초~1시간으로 자른다). 이유: writer의 `tx.now()`가 아주 조금 앞서 claim이 비어도 `next_due_at`이 이미 지난 때로 남아 곧바로 다시 깨는 loop가 되는 것을 막는다.
+- `waitRun`이 오류거나 종료로 그치면 거짓 끝을 적지 않는다. 그 줄은 다음 기동이 `interrupted`로 닫는다.
+- `started`·`ended`가 `not_found`(그 사이 job이 지워짐)나 `conflict`(켤 때 이미 닫힘)를 돌려주면 정상으로 본다. 그 밖의 오류는 `console.error`로 한 줄 남기고 그대로 둔다(다음 기동이 닫는다).
+- `stop()`은 timer를 풀고 도는 바퀴를 기다린다. 띄운 `waitRun`은 기다리지 않는다. `start()` 전과 `stop()` 뒤의 `wake()`는 아무것도 하지 않는다(첫 바퀴가 `startup: true`로 돌기 전에 다른 바퀴가 먼저 돌면 안 된다).
+- 자동 재시도는 없다. 시작하지 못한 차례는 failed 줄로 남고 다음 차례를 기다린다.
+- global timer(`setTimeout`)와 `Date.now`는 쓰지 않는다. scheduler는 주입한 `JobTimers`와 `Clock`만 쓰고, wiring은 `runs/mod.ts`의 `systemTimers`(모양이 `JobTimers`와 같다)를 넘긴다.
+- `workflow_start`가 `not_handed`로 돌아와도 instance가 만들어졌으면 시작한 것으로 본다(`started`에 instance를 적는다). instance가 `running`인 동안은 겹침이고, 사람이 workflow 탭에서 멈추면 닫힌다(README "끝나지 않은 instance가 이어지면 건너뛴 기록이 쌓이고 사람은 그것을 화면에서 본다").
 
 ## 할 일
 
-1. `packages/core/jobs/scheduler.ts`(새 file): `createJobScheduler(deps)`. import는 `packages/base`, `packages/protocol/jobs/`, 같은 module의 `ports.ts`뿐이다. 시각은 `deps.clock`, timer는 `deps.timers`로만 받는다(`setTimeout`, `Date.now`를 쓰지 않는다. `next_due_at` 글을 ms로 바꾸는 `Date.parse`는 된다).
-   - 한 번에 한 줄로 돈다. claim 한 번과 받은 줄 시작하기를 "한 바퀴"로 하고, 도는 중에 `wake()`가 오면 표시만 해 두었다가 그 바퀴가 끝나면 한 바퀴 더 돈다.
-   - `start()`: `claimDue(true)`로 첫 바퀴를 돌고 `ok`를 돌려준다. claim이 실패해도 core 기동을 막지 않는다. `console.error`로 남기고 1분 뒤 다시 한다.
-   - `wake()`: 멈췄으면 아무것도 안 한다. 아니면 `claimDue(false)` 바퀴를 연다(위 한 줄 규칙).
-   - 한 바퀴: `claimDue`가 준 `start`의 줄마다 차례로
-     1. `deps.runs.start(action, {job, job_run, creator, place})`. 실패면 `deps.store.ended(job_run, "failed", "<code>: <message>")`(시작 오류. README "`jobRunEnded`에 선택 칸 `reason`을 둔다"). 정한 것: 시작하지 못한 run은 job run 실패로 남기고 다시 하지 않는다(roadmap "자동 재시도는 없다").
-     2. 성공이면 `deps.store.started(job_run, run, session)`을 기다린다. 실패(job이 지워져 `not_found` 등)는 남기기만 하고 run은 그대로 둔다(README "도는 run은 끝까지 돈다").
-     3. `deps.runs.wait(run)`은 기다리지 않고 띄운다. 끝나면 `deps.store.ended(job_run, state)`. wait가 오류면 남기기만 하고 줄은 그대로 둔다. 거짓으로 끝을 적으면 다음 차례가 앞 run과 겹쳐 돈다. 그 줄은 다음 기동이 `interrupted`로 닫는다. reject도 잡는다.
-   - 할당: 앱 tool run을 할당이 막으면 그 run이 `failed`로 끝나고 3이 그대로 `failed`를 적는다. 만들 때는 보지 않는다(README "할당은 부를 때만 확인한다").
-   - timer: 바퀴가 끝나면 claim이 준 `next_due_at`에 맞춰 건다. 정한 것: 한 번에 최대 1시간까지만 잔다. `setTimeout`은 2^31-1ms(약 24.8일)를 넘는 값을 곧바로 부르고(10d job이 끝없이 claim을 부른다), 시계가 바뀌는 일도 있다. 1시간에 깨어 아직 차례 전이면 claim 없이 다시 건다(claim은 command라 부를 때마다 `command_results` 줄이 하나 남는다). `next_due_at`이 null이면 1시간 뒤 다시 본다.
-   - `stop()`: 멈춤 표시, timer 풀기, 도는 바퀴를 기다린다. 띄운 run 기다리기는 기다리지 않는다(agent turn은 길다. 끊긴 run은 다음 기동이 놓친 차례로 센다).
-2. `packages/core/main/daemon/wiring/jobs.ts`(새 file): `jobsWiring: WiringFactory`.
-   - machine 자격 `JOBS_CONTEXT: AuthenticatedContext`: `principal`·`credential_ref` `"machine:jobs"`, `actor: "machine"`, `scope.operations`는 `jobClaimDue.name`, `jobRunStarted.name`, `jobRunEnded.name` 셋, `targets: {}`, `conditions: {}`. `records: () => [JOBS_CONTEXT]`(`annotations.ts`의 `ANNOTATIONS_CONTEXT` 꼴).
-   - `build(ctx)`: `ok({writer: (inner) => withAfterCommit(inner, apply)})`. `apply`는 topic이 `JOBS_CHANGED_TOPIC`인 일마다 `ctx.peek.bus?.publish({type: "JobChanged", subject: job, at: ctx.clock.now(), payload: {job_run}})`를 내고 scheduler를 깨운다. 다른 topic은 건너뛴다. 사람과 agent의 command도 core 안 command도 접힌 writer를 지나므로 여기서 다 받는다.
-   - `JobSchedulerStore` adapter: `ctx.writer.command(JOBS_CONTEXT, {command: <route>.name, input, compare: {}, idempotency_key, prepared: []})`. 결과는 `done.value.result`다(`annotations.ts`의 `run` 꼴). key는 claim이 `createIdSource({clock: ctx.clock, random: ctx.random}).newId("idk")`, 시작과 끝은 `job.run_started:<job_run>`, `job.run_ended:<job_run>`이다(같은 줄의 같은 일은 한 번이다).
-   - `JobRunStarter` adapter: run service는 lead가 `context.ts`의 `Late`에 등록한 칸에서 받는다(README "살 단계 검토에서 정한 것". 칸 이름은 그 등록을 따른다). `start(action, by)`는 `service.start(runStartOfJobAction(action), by)`의 `{run, session}`을 돌려준다(`sj-runs-job-origin`. job에 저장된 AgentRef와 place로 시작한다. 이름과 place를 다시 풀지 않는다). `wait(run)`은 run이 `running`이 아닐 때까지 `headless-run`의 run 기다리기(service `wait(run, timeout_ms)`, 한 번에 `RUN_WAIT_MAX_MS`까지)를 되풀이하고 끝 상태를 돌려준다. 종료 중에는 되풀이를 그친다. runs wiring의 `closeIntake`가 service `close()`로 걸린 기다리기를 running인 채 풀기 때문이다(`hr-runs-core`). 그친 줄은 다음 기동이 `interrupted`로 닫는다.
-   - `JobTimers`: `{set: (run, ms) => setTimeout(run, ms), clear: (handle) => clearTimeout(handle as number)}`. 조립이라 global timer를 여기서만 쓴다.
-   - `start(ctx)`: scheduler를 만들어 변수에 둔 뒤 `scheduler.start()`를 돌려준다(시작 중 `apply`가 깨워도 그 변수를 본다).
-   - `closeWork()`: `await scheduler?.stop()`
-   - zone은 `sj-jobs-store`의 `jobs-registration.ts`가 tx port `jobZonePort`로 꽂는다. 이 wiring은 `environment` hook을 두지 않는다(writer Worker에 닿지 않는다).
-   - 기록 event(`tx.emit`)로 일을 넘기지 않는다.
+1. **`scheduler.ts`: `createJobScheduler(deps: JobSchedulerDeps): JobScheduler`.** 상태는 닫힘 안에 둔다(timer handle, 도는 바퀴의 promise, `again` 표시, `stopped`, `startupDone`). 전역 상태를 두지 않는다. `start()`, `wake()`, `stop()`은 "정한 것"대로다. 상수는 file 위에 이름을 붙인다(`HOUR_MS`, `RETRY_MS = 60_000`, `MIN_SLEEP_MS = 1_000`).
+   - 시작 helper는 action별로 가르지 않는다. `starter.start(job, jobRun)`이 알아서 하고, scheduler가 아는 것은 돌려받은 `{run, instance, session}` 가운데 `run`이 있으면 `waitRun`을 띄운다는 것뿐이다. 이유: run과 instance의 차이는 `JobStarter` 뒤에 있다.
+   - 이 file은 `core/runs`·`core/workflows`를 import하지 않는다(feature module끼리 import 금지). `ports.ts`의 type만 쓴다.
+2. **`scheduler_test.ts`: 위험 test 하나.** 아래 "끝남"을 본다. 준비: `manualClock`, 호출을 기록하는 가짜 `timers`(`set`이 `{run, ms}`를 모으고 `clear`가 뺀다), 가짜 `store`(`open`이 돌려줄 줄을 test가 바꾼다, `claimDue`는 `{start: [], next_due_at: null}`, `ended` 호출을 기록한다), 가짜 `starter`(`instanceState`가 test가 바꾸는 값을 준다). 모두 이미 풀린 promise를 돌려주므로 microtask를 몇 번 흘리면(`for (let i = 0; i < 10; i++) await Promise.resolve()`) 바퀴가 끝난다. 실제로 기다리지 않는다.
+3. **`wiring/jobs.ts`: `jobsWiring: WiringFactory`.** `runs.ts`·`workflows.ts` 꼴이다.
+   - **자격.** `machine:jobs`(actor machine, scope operations는 `job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `ReadWorkflowInstance`의 route `name`). `records: () => [JOBS_CONTEXT]`.
+   - **`build(ctx)`.** `command`·`read` helper는 `runs.ts` 그대로다(접은 `ctx.writer.command`, `ctx.runtime.reads.get(...)`. `ctx.writer`는 build가 끝난 뒤 채워지므로 부를 때 읽는다). `store`(`JobSchedulerStore`)는 route 넷을 그대로 감싼다(`claimDue(startup)` → `{start, next_due_at}`, `open()` → `.open`, `started`, `ended`의 `reason`은 있을 때만 싣는다). `starter`는 아래. `createJobScheduler({clock: ctx.clock, timers: systemTimers, store, starter})`.
+   - **`starter`.** `runService`와 `workflowService`는 `ctx.runService`·`ctx.workflowService`(`Late`)이고 build가 아니라 부를 때 읽는다.
+     - `start(job, jobRun)`: `agent_run`이면 `runService.start({kind: "agent_resolved", agent: action.agent, place: runPlaceOf(action.agent_place), prompt, ...input, ...schema}, {job: job.id, job_run: jobRun.id, creator: job.creator, creator_place: placeOfAgentRef(job.creator) ?? null})` → `{run: run.id, instance: null, session: run.session}`. `tool_run`이면 `runService.start({kind: "tool", app: action.app, tool, ...input}, origin)` → `{run: run.id, instance: null, session: null}`. `workflow_start`면 `workflowService.start({workflow: `${action.project}/${action.workflow}`, text, ...step}, {kind: "job", job: job.id})` → `{run: null, instance: instance.id, session: null}`. 없는 칸은 `...(x === undefined ? {} : {x})` 꼴로 싣는다(`exactOptionalPropertyTypes`).
+     - `waitRun(run)`: `runService.wait(run, 60_000)`을 run이 `running`을 벗어날 때까지 되풀이한다. 오류면 그 오류를 돌려주고, wiring이 `closeWork`에서 세운 `closing`이면 `unavailable`을 돌려 멈춘다. 이유: `wait`는 최대 60초만 기다리고(`run.md`), `runService.close()`가 걸린 wait를 풀어 주기 때문이다.
+     - `instanceState(instance)`: `ReadWorkflowInstance`를 `{instance}`만 주고 한 번 읽어 `.instance.state`를 돌려준다(첫 쪽이면 충분하다. 줄 쪽 넘기기는 필요 없다).
+     - `runPlaceOf(place: Place | null): RunPlace | null`은 `wiring/runs.ts`의 같은 이름 함수와 같은 여섯 줄이다. wiring file끼리 import하지 않으므로 여기 한 벌을 다시 둔다.
+   - **`writer` 층.** `workflows.ts`처럼 `withAfterCommit(inner, actions => ...)`. `JOBS_CHANGED_TOPIC`만 보고(다른 topic은 건드리지 않는다), 각 action마다 `ctx.bus.publish({type: "JobChanged", subject: data.job, at: ctx.clock.now(), payload: {job_run: data.job_run}})`를 내고, 한 묶음에 한 번 `scheduler.wake()`를 부른다. 이유: job을 만들거나 켜거나 hold를 결정하면 다음 차례 시각이 바뀌므로 timer를 다시 건다. 이 신호는 scheduler가 부른 `started`·`ended`에서도 오는데, 바퀴가 합쳐지고(`again`) 빈 claim은 신호를 내지 않아 끝난다.
+   - **`start(ctx)`.** `await scheduler.start()` 뒤 `ok(undefined)`. 이 hook은 `runsWiring`·`workflowsWiring`의 `start`(reconcile) 뒤에 도는 순서여야 한다(그래서 `WIRINGS`에서 workflows 뒤). 이유: 켤 때 run과 instance를 먼저 맞춘 뒤에 첫 claim이 도는 차례를 낸다.
+   - **`closeWork()`.** `closing = true` 뒤 `await scheduler.stop()`.
+4. 이 task는 `packages/core/main/daemon/wiring/context.ts`와 `assembly.ts`를 고치지 않는다(소유 밖). `Late`의 `runService`·`workflowService` 칸은 lead가 계약 wave와 함께 등록했다(wave 2 전). 칸이 없어 type check가 막히면 고치지 말고 멈춰서 보고한다. 아래 "보고"의 등록 목록을 lead에게 넘긴다.
 
 ## 끝남
 
 - `deno task check`가 통과한다.
-- 위험 test: 없음. 같은 job이 겹쳐 돌지 않는 것은 표(`claimed_at`, 도는 줄 unique index)가 지키고 `sj-jobs-due`의 test가 본다. timer와 run을 띄우는 test는 만들지 않는다.
-- `grep -rn "setTimeout(\|setInterval(\|Date.now(" packages/core/jobs`가 0줄이다(timer와 시각은 주입한다).
-- `grep -rn "tx.emit\|defineEvent" packages/core/main/daemon/wiring/jobs.ts packages/core/jobs`가 0줄이다(event에 얹지 않는다).
+- 위험 test(`packages/core/jobs/scheduler_test.ts`): "workflow를 시작하는 job은 앞 차례가 시작한 instance가 running인 동안 job run을 닫지 않고, running이 아니면 닫는다". 표 둘(`ended` → `done`, `stopped` → `cancelled`)로 본다. 판정은 가짜 store의 `ended` 호출과 호출 순서로 한다.
+  - `start()` 한 바퀴: `open`이 `workflow_start`의 `running` 줄(instance 있음)을 주고 `instanceState`가 `running`이면 `ended`가 불리지 않는다. 호출 순서가 `open` → `instanceState` → `claimDue(startup: true)`다(겹침 판정 앞에서 읽는다).
+  - 기록한 timer를 불러(또는 `wake()`) 다음 바퀴를 돌린다. `instanceState`를 `ended`(또는 `stopped`)로 바꾸면 그 바퀴가 `ended(jobRun, "done")`(또는 `"cancelled"`)을 한 번 부르고, 이 바퀴의 `claimDue`는 `startup: false`다.
+  - 건 timer의 `ms`는 1시간을 넘지 않는다.
+- 남지 않음: `grep -rn "setTimeout\|setInterval\|Date.now" packages/core/jobs packages/core/main/daemon/wiring/jobs.ts`가 0줄이다. `grep -rn "TODO" packages/core/jobs/scheduler.ts packages/core/jobs/scheduler_test.ts packages/core/main/daemon/wiring/jobs.ts`가 0줄이다.
+- 돌리는 법: `deno test --no-check packages/core/jobs/scheduler_test.ts`.
 
 ## 보고
 
-- 바꾼 file
-- 통과한 check
-- 등록할 것: lead가 고칠 목록 file. `packages/core/main/daemon/assembly.ts`의 `WIRINGS`에 `jobsWiring`(events와 run service를 내는 runs wiring 뒤). run service의 `Late` 칸이 아직 없으면 그 칸과 runs wiring의 `ctx.provide`. 등록 뒤 `project-docs/plan/tools/lead/boot.sh`로 core가 두 번 뜨는지 본다(이 task의 worktree에서는 `WIRINGS`에 없어서 기동이 이 wiring을 돌리지 않는다)
-- 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
-- 정한 것: 문서에 답이 없어 worker가 정한 것
-- 넘길 줄: 남의 file을 최소로 맞춘 곳
-- 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
-- **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
-- **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+- 바꾼 file, 통과한 check.
+- 등록할 것(lead):
+  - `packages/core/main/daemon/assembly.ts`: `import { jobsWiring } from "./wiring/jobs.ts"`와 `WIRINGS`의 `workflowsWiring` 바로 뒤, `lophnAgentExtensionsWiring` 앞에 `jobsWiring`. 목록 위 주석에 "jobs는 runs·workflows 뒤다. 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다"를 더한다.
+  - `packages/core/main/daemon/wiring/context.ts`: `Late`와 `LATE_KEYS`의 `runService`·`workflowService`는 `sj-jobs-contract` 보고의 목록과 같다. 이 task는 읽기만 한다.
+  - (`TEAMS`·`TEAM_MODULES`는 `sj-jobs-store`의 보고다.)
+- 안 쓰게 된 export: 없음.
+- 정한 것: 위 "정한 것" 밖에 worker가 정한 것.
+- 넘길 줄: 남의 file을 최소로 맞춘 곳.
+- 계약 바꾸기 요청: `JobSchedulerStore`·`JobStarter`·`JobScheduler`의 모양을 바꿔야 하면 고치지 말고 여기 적는다.
+- **무겁게 짠 것**, **알려진 미완 동작**: 없으면 "없음". 예: `ended`가 일시 오류로 실패하면 그 줄이 다음 기동까지 `running`이라 그 job의 차례가 계속 건너뛰는 것(고치려면 바퀴마다 `running` run 줄을 다시 `waitRun`에 붙이는 일), 시간대나 시계가 크게 바뀐 뒤 `next_due_at`을 다시 계산하지 않는 것.

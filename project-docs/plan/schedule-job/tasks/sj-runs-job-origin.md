@@ -1,71 +1,83 @@
 # sj-runs-job-origin
 
-`headless-run`의 "core의 run 연산"이 job에서 시작한 run을 받게 한다. `headless-run`은 "tool run의 부른 쪽은 사람이다"로 정했고, 여기에 job이 연 tool run은 부른 쪽이 program인 길을 더한다. agent run은 그대로 새 session을 열고 그 session을 돌려준다.
+run 기록에 그 run을 연 job을 남기고, core 안 run 시작이 job의 시작(이미 푼 agent, program caller로 부르는 tool run)을 받게 한다. `StartRun` route와 CLI는 바꾸지 않는다.
 
-- 단위: runs (wave 2)
-- 선행: sj-apps-program-caller. program caller 모양이 있어야 tool run이 부를 수 있다.
+- 단위: runs (wave 3)
+- 선행: `sj-apps-program-caller`
 - 소유(이 task만 고친다):
-  - `packages/protocol/runs/`(run 기록과 `CreateRun` 입력의 `job` 칸만)
-  - `packages/core/runs/`(`headless-run`이 만든 run module)
+  - `packages/protocol/runs/runs.ts`
+  - `packages/core/runs/`
   - `packages/core/main/daemon/wiring/runs.ts`
 - 읽을 것:
-  - 계획: `project-docs/plan/schedule-job/README.md`의 "정한 것"(job의 원샷 run이 부를 수 있는 것은 `headless-run`의 run과 같다)과 "뼈대 검토에서 정한 것"(job이 부를 agent는 만들 때 AgentRef로 풀어 저장한다. 할당은 부를 때만 확인한다)
-  - architecture: `headless-run`이 계획 끝에 쓰는 run 문서(`project-docs/architecture/` 아래)의 run 시작, "끝"을 정하는 규칙(tool run outcome `denied` → `tool_denied`), tool run의 부른 쪽. 문서가 아직 없으면 `project-docs/plan/headless-run/tasks/hr-contract-runs.md`, `hr-runs-core.md`, `hr-runs-wiring.md`를 본다. `project-docs/architecture/app-call.md`의 "지키는 것"(부른 쪽 확인). `project-docs/architecture/approval.md`의 "turn mode"(unattended)
-  - 제품 결정: `project-docs/products/AGENT-ROLE.md`의 T5, T6(받은 agent는 자기 할당으로 일하고 보낸 쪽 권한은 넘어가지 않는다)
-  - boundary·module: `project-docs/module-catalog.yaml`의 `packages/core/runs`(`headless-run`이 더한 줄), `project-docs/boundary-catalog.yaml`의 `core-api`
-  - 계약: `project-docs/plan/schedule-job/tasks/sj-jobs-contract.md`(`JobAction`, `JobRunStarter`), `project-docs/plan/schedule-job/tasks/sj-apps-program-caller.md`(`CallAuth` program, wire caller program), `project-docs/plan/schedule-job/tasks/sj-jobs-scheduler.md`(이 시작을 감싸는 adapter)
-  - 코드: `packages/core/runs/service.ts`(run service와 port `agents`·`tools`), `packages/core/main/daemon/wiring/runs.ts`(tools port 구현과 사람 caller), `packages/core/main/daemon/wiring/context.ts`(wiring 사이에 나누는 값), `packages/core/apps/calls/caller.ts`(`CallAuth`)
-  - skill: `.claude/skills/write-test/SKILL.md`
+  - 계획: `project-docs/plan/schedule-job/README.md`의 "정한 것" 중 "할 일"(agent 호출, 앱 tool 호출, run 기록과 instance에 job을 단다), `tasks/sj-jobs-contract.md`의 "접점 › run의 `job` 칸"
+  - architecture
+    - `project-docs/architecture/run.md`: "지키는 것"의 "시작"(이름을 다 푼 뒤에 session을 열고 run을 만든다), "tool run"(부른 쪽은 사람이다), "끝을 아는 법", "켤 때와 session 끝", "읽기"(`ListRuns`는 core에서 거른다)
+    - `project-docs/architecture/app-call.md`의 "부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다"(program caller는 core 안 연산만 만든다)
+    - `project-docs/architecture/approval.md`의 "turn mode"(run 입력은 `unattended: true`)
+    - `project-docs/architecture/layers.md`: `runs`는 lophn-agent와 다른 feature module을 import하지 않고 `ports.ts`의 port를 wiring이 끼운다
+  - boundary·module: `project-docs/boundary-catalog.yaml`의 `runs`(와 `core-api`), `project-docs/module-catalog.yaml`의 `packages/core/runs`
+  - 코드
+    - `packages/protocol/runs/runs.ts`: `runRecordSchema`, `startRunInputSchema`(route 입력), `runCreate`(`placeFits`, `kindFits`)
+    - `packages/core/runs/`: `schema.ts`(`runsSchemaSteps`), `store.ts`(`runFromRow`, `insertRun`), `commands.ts`(`create`가 `insertRun`에 입력을 펼쳐 넘긴다), `ports.ts`(`RunTools`, `ResolvedAgent`), `service.ts`(`start`, `startAgent`, `startTool`, `callTool`), `text.ts`(`runMessageText`), `mod.ts`, `service_test.ts`, `store_test.ts`
+    - `packages/core/main/daemon/wiring/runs.ts`: `tools.call`(지금 사람 caller), `agents`, `build`의 service 조립
+    - 이 task가 부르는 쪽의 자격 모양: `packages/core/apps/calls/caller.ts`의 `CallAuth`(program 갈래, `sj-apps-program-caller`가 만든 것)
+  - 읽기만 한다(바꾸지 않는다): `packages/coding-agent/cli/commands/run.ts`(run 기록을 그대로 낸다), `packages/shell/renderer/workspace/core-source.ts`의 `runs`(칸을 하나씩 골라 옮긴다. `job`을 싣는 일은 `sj-shell-job-labels`)
 - 계약:
-  - 쓰는 것: `headless-run`의 run 연산(시작, 기다리기, 읽기, 취소)과 "run의 모양". `sj-apps-program-caller`의 `CallAuth`(actor `program`)와 wire caller `program`. `sj-jobs-contract`의 `JobAction`, `JobRunStarter`
-  - 내놓는 것: core 안 run 시작에 `by?: {job, job_run, creator: AgentRef, place: Place | null}`를 더한다. `by`가 있는 tool run은 caller `program`으로 부른다. 시작 결과는 `{run, session: Id<"ses"> | null}`(agent run이면 연 session)이다. `sj-jobs-scheduler`의 `JobRunStarter` adapter가 이것을 감싼다. 할당은 부를 때만 확인한다. `by`가 있는 tool run의 호출이 할당 밖으로 막히면(outcome `denied`) 그 run은 `headless-run`의 규칙대로 `failed`(`tool_denied`)로 끝나고, 기다리기가 그 끝을 돌려주어 job run이 실패로 남는다.
+  - 쓰는 것: `idSchema("job")`·`idSchema("jbr")`(`sj-jobs-contract`), `sj-apps-program-caller`의 `CallAuth` program 갈래와 wire caller `program`
+  - 내놓는 것(`sj-jobs-contract`의 "run의 `job` 칸"이 정한 모양 그대로)
+    - `runRecordSchema`와 `CreateRun` 입력에 `job: Id<"job"> | null`. `runs` 표에 `job` 칸(schema step을 그 자리에서 고친다). `ListRuns`·`ReadRun`이 그대로 싣는다.
+    - `RunService.start(input, origin?)`: `origin = {job, job_run, creator: AgentRef, creator_place: Place | null}`. 입력에 이미 푼 agent로 부르는 갈래 `{kind: "agent_resolved", agent: AgentRef, place: RunPlace | null, prompt, input?, schema?}`를 더한다(이름 풀기를 건너뛰고 늘 새 session을 연다). route `StartRun`의 입력 schema에는 더하지 않는다.
+    - `RunTools.call(run, app, tool, input, origin?)`. `origin`이 있으면 wiring이 caller `{kind: "program", job, job_run}`과 자격 `{actor: "program", program: {job, job_run, agent: creator, place: creator_place}}`로 `appCallPath.call`을 부른다. 없으면 지금처럼 사람 caller다.
+    - runs wiring이 service를 `ctx.provide("runService", ...)`로 낸다. `Late` 칸은 lead가 계약 wave와 함께 등록한다(wave 2 전).
+
+## 정한 것
+
+- `origin`은 route 입력이 아니라 core 안 인자다(사람 자격이나 CLI가 program caller를 만들지 못하게 한다).
+- run의 끝을 아는 법과 실패 이유는 바꾸지 않는다. 할당 밖 tool 호출은 outcome `denied`이므로 run이 `failed`(`tool_denied`)로 끝난다.
+- run의 place는 부른 agent의 place(`agent_resolved`의 `place`)다. creator의 place가 아니다. Operator의 place는 `AgentRef`에 없어 job이 만들 때 푼 `agent_place`를 그대로 받는다.
+- 차례마다 이름을 다시 풀지 않는다. 그 사이 Operator 정의가 없어졌으면 session을 열지 못해 run이 `start_failed`로 끝난다.
+- `origin`은 메모리에만 있다. tool run은 켤 때 `lophn_restarted`로 닫히므로 다시 쓸 일이 없다.
+- tool run의 `app`은 job이 저장한 `Id<"app">`를 그대로 `StartRun`의 `app` 칸(`kind: "tool"`)으로 넘긴다. `resolveApp`이 id, slug, 이름을 모두 받으므로(`appByName`) 새 입력 갈래를 만들지 않는다. 앱이 없어졌으면 `not_found`로 `start`가 `err`를 돌려주고 job run을 닫는 것은 scheduler의 일이다.
+- `agent_resolved`는 `RunService.start`의 입력 type에만 더하고 route 입력 schema(`runStart`)에는 더하지 않는다. route의 discriminated union이 `agent`·`tool`만 받으므로 사람이 `agent_resolved`를 보내면 `invalid_input`이다. `origin` 없는 `agent_resolved`를 따로 막지 않는다(부르는 곳이 core 안 wiring 하나다).
+- `runs.job`은 FK가 없다. job을 지워도 run 기록은 남고 `job`은 없는 id를 가리킨다(README "job 지우기는 job과 그 기록을 지운다. 도는 run은 끝까지 돈다"). 화면은 제목을 못 찾으면 원래 이름으로 보인다.
+- `ListRuns`에 job으로 거르는 칸과 `runs.job` index를 더하지 않는다. 읽는 쪽이 없다(job 화면은 job run 줄의 `run` id로 `ReadRun`을 부른다).
+- DDL은 그 자리에서 고친다(`runs.tables`에 `job TEXT` 칸). migration, 새 schema step을 만들지 않는다(AGENTS.md "호환성"). 옛 data root(`.dev-data` 포함)는 `history_mismatch`로 뜨지 않으니 지우고 새로 만든다. changelog 줄은 lead가 쓴다. 사람의 `~/.lophn`은 건드리지 않는다.
 
 ## 할 일
 
-`packages/core/runs/`, `packages/protocol/runs/`, `packages/core/main/daemon/wiring/runs.ts`의 이름(`createRunService`, `start`, `wait`, port `agents`(`resolve`가 `{agent, place}`를 준다)·`tools`, `CreateRun`(`place` 칸), `RunPlace`, `RunStore.create`)은 `headless-run` brief의 것이다. 시작 전에 그 file을 열어 land한 이름을 확인하고 그것을 쓴다. 다른 이름을 쓴 곳은 보고의 "정한 것"에 적는다.
-
-1. `by` 모양을 둔다(`packages/core/runs/`의 service 입력 type 자리). 근거: 계약 "내놓는 것".
-   - `{ job: Id<"job">; job_run: Id<"jbr">; creator: AgentRef; place: Place | null }`. `Id`는 `packages/protocol/base/ids.ts`, `AgentRef`·`Place`는 `packages/protocol/lophn-agent/places.ts`에서 온다. runs는 다른 feature module과 lophn-agent를 import하지 않는다(`tools/check-deps.ts`).
-2. 시작이 `by`를 받게 한다: `start(input, by?)`.
-   - 정한 것: `by`는 route 입력 칸이 아니라 core 안 인자다. route `StartRun`의 입력 schema(`packages/protocol/runs/`)와 그 handler는 고치지 않는다. (이유: 사람 자격이나 CLI가 program caller를 만들지 못하게 한다. `CallAuth` program은 core 안 run 연산만 만든다는 계약이다.)
-3. 이미 푼 agent로 시작하는 agent run을 둔다. 근거: README "뼈대 검토에서 정한 것"(이름은 job을 만들 때 core가 AgentRef로 풀어 저장한다).
-   - core 안 시작 입력의 agent run에 `AgentRef`를 그대로 받는 갈래를 더한다. 이 갈래는 이름 풀기(port `agents.resolve`)를 건너뛰고, 늘 새 session을 연다(`session` 칸이 없다). route `StartRun` 입력에는 더하지 않는다.
-   - 이 갈래도 run의 place(`CreateRun`의 `place`, `headless-run` README "run은 만들 때 place를 기록한다")를 싣는다. 갈래의 입력은 `agents.resolve`가 내는 것과 같은 `{agent: AgentRef, place: RunPlace | null}`이고, place는 job에 저장된 `JobAction.agent_place`(`Place`를 `RunPlace`로 옮긴다)다. run 때 Operator를 다시 찾지 않는다(planner, 2026-10-22: job을 만들 때 이름과 같이 푼 place를 저장해 넘긴다. Operator의 `AgentRef`에는 place가 없다). 그 사이 Operator 정의가 없어졌으면 `agents.open`이 실패해 run이 `start_failed`로 끝나고 job run도 실패로 남는다. run의 place는 부른 agent의 place다. `by.place`(job을 만든 agent의 place)가 아니다.
-   - 정한 것: 차례마다 이름을 다시 풀지 않는다. (이유: job은 만들 때 푼 AgentRef를 저장한다. 다시 풀면 그 사이 이름이 바뀐 다른 agent를 부를 수 있다.)
-   - `JobAction`을 시작 입력으로 옮기는 작은 함수를 `packages/core/runs/`에 둔다(예: `runStartOfJobAction(action)`). `agent_run {agent, agent_place, prompt, input?, schema?}`는 위 갈래로, `tool_run {app, tool, input?}`는 tool run 입력으로 옮긴다. `sj-jobs-scheduler`의 adapter가 `start(<옮긴 입력>, by)`로 쓴다.
-   - `by`는 agent run의 동작을 바꾸지 않는다. 그 turn은 `headless-run`의 run처럼 unattended이고, 받은 agent는 자기 할당으로 일한다(AGENT-ROLE T5, T6). creator의 할당은 tool run에만 쓴다.
-4. `by`가 있는 tool run은 program caller로 부른다. 근거: 계약 "내놓는 것", `sj-apps-program-caller`의 `CallAuth`와 wire caller.
-   - run service의 port `tools.call(run, app, tool, input)`에 `by?`를 더하고, `start`가 받은 `by`를 그대로 넘긴다.
-   - port 구현(`packages/core/main/daemon/wiring/runs.ts`)을 고친다. `by`가 없으면 지금처럼 사람 caller(`{ kind: "person", view_session: <run id> }`, 자격 `{ actor: "user" }`)다. `by`가 있으면 target `{ mode: "live", app, release: null }`, caller `{ kind: "program", job: by.job, job_run: by.job_run }`, 자격 `{ actor: "program", program: { job: by.job, job_run: by.job_run, agent: by.creator, place: by.place } }`로 `ctx.appCallPath.call`을 부른다.
-   - run의 끝은 `headless-run`의 규칙 그대로다: outcome `succeeded` → `done`, `failed` → `tool_failed`, `denied` → `tool_denied`(message에 denial code. 할당 밖이면 `gate_blocked`), `unknown` → `tool_unknown`. 이 규칙은 고치지 않는다.
-5. 시작 결과에서 run과 session을 바로 준다. 근거: 계약 "내놓는 것", `sj-jobs-contract`의 `JobRunStarter.start`.
-   - `start`의 결과에서 run id와 session(agent run이면 연 session, tool run이면 null)을 끝을 기다리지 않고 얻을 수 있어야 한다. session은 run 기록을 만들 때 이미 정해진다. `job.run_started`가 이 session을 기록한다.
-   - 지금 `start`가 run 기록을 돌려주면 기록의 `id`와 `session`이 그것이니 모양을 바꾸지 않는다. id만 돌려주면 `{ run, session }`을 돌려주게 바꾼다. route `StartRun`의 출력은 바꾸지 않는다.
-6. run service를 jobs wiring이 부를 수 있게 낸다.
-   - `sj-jobs-scheduler`의 `packages/core/main/daemon/wiring/jobs.ts`가 시작과 기다리기를 부르려면 run service가 runs wiring 밖으로 나와야 한다. `headless-run`의 runs wiring이 아직 내지 않으면 `packages/core/main/daemon/wiring/context.ts`의 `Late`에 slot(예: `runs`)을 두고 `runs.ts`가 `ctx.provide`한다. module-catalog의 `packages/core/main` 줄대로 wiring file끼리 import하지 않는다.
-   - `context.ts`는 소유 밖이다(README "run service를 jobs wiring에 넘기는 자리는 lead가 등록한다"). slot은 보고의 "등록할 것"에 적고, `runs.ts`의 provide 한 줄은 4와 같이 한다.
-7. run 기록에 그 run을 연 job을 남긴다. 근거: README "살 단계 검토에서 정한 것"(run 기록에 `job` 칸을 둔다. sidebar가 job이 연 run에 job의 `title`을 보인다, `sj-shell-job-screen`).
-   - `packages/protocol/runs/runs.ts`의 `runRecordSchema`와 `CreateRun` 입력에 `job: idSchema("job").nullable()`을 더한다. job이 연 run이면 그 job id, 아니면 null이다. `ListRuns`와 `ReadRun`의 출력에 그대로 실린다.
-   - `packages/core/runs/`의 `runs` 표(schema step `runs.tables`)에 `job` 칸을 더하고 `start`가 `by.job`(없으면 null)으로 채운다. schema step은 그 자리에서 고치고 migration은 두지 않는다(AGENTS.md "호환성"). 개발 data는 지우고 새로 만든다.
-   - `tests/`에서 run 기록을 만들거나 단정하는 곳이 있으면(`grep -rn "runs/create\|runRecordSchema\|runCreate" tests`) 같이 고친다. 지금 main에는 없다.
+1. protocol `runs.ts`: `runRecordSchema`에 `job: idSchema("job").nullable()`(주석: job이 연 run만 값이 있다). `runCreate` 입력에 `job: idSchema("job").nullable()`. `startRunInputSchema`와 `runStart`는 건드리지 않는다. 이유: 화면과 CLI가 읽는 `RunRecord`가 이 schema 하나다(`ReadRun`, `ListRuns`, `WaitRun`, `CancelRun`이 모두 싣는다).
+2. 표: `core/runs/schema.ts`의 `runs.tables`에 `job TEXT` 칸을 더한다(step id 그대로). `store.ts`: `runFromRow`가 `job: row.job`을 싣고, `insertRun`의 입력에 `job: string | null`을 더해 INSERT 칸과 값에 넣는다. `commands.ts`의 `create`는 `{ ...input, created_at }`를 넘기므로 고칠 것이 없다(확인만).
+3. `store_test.ts`: `insertRun` 호출에 `job: null`을 더한다(type이 요구한다). 다른 test를 더하지 않는다.
+4. `core/runs/ports.ts`: `RunOrigin = { job: Id<"job">; job_run: Id<"jbr">; creator: AgentRef; creator_place: Place | null }`를 export한다. `RunTools.call`에 마지막 인자 `origin?: RunOrigin`. `mod.ts`가 `RunOrigin`을 export한다. 이유: wiring이 같은 type으로 받고, 뒤의 scheduler task가 wiring을 통해 이 모양을 채운다(jobs module은 runs를 import하지 않는다).
+5. `core/runs/service.ts`
+   - 입력 type: `ResolvedAgentStart = { kind: "agent_resolved"; agent: AgentRef; place: RunPlace | null; prompt: string; input?: JsonValue; schema?: Record<string, JsonValue> }`를 만들고 `start(input: StartInput | ResolvedAgentStart, origin?: RunOrigin)`로 한다.
+   - `startAgent`: 앞의 검사(`agent`·`session` 정확히 하나, `coding_agent`, schema 읽기, prompt 크기)는 `kind: "agent"`일 때만 하고, schema 읽기와 prompt 크기 검사는 두 갈래가 같이 쓴다. `resolved`는 `agent_resolved`면 입력의 `{agent, place}`를 그대로, 아니면 지금처럼 `resolve`/`agentOf`다. `opened`는 `agent_resolved`이면 늘 true(새 session)다. `store.create`에 `job: origin?.job ?? null`.
+   - `startTool`: `store.create`에 `job: origin?.job ?? null`, `callTool(run, app, tool, input, origin)`이 `tools.call(run, app, tool, input, origin)`을 부른다.
+   - 끝을 아는 법(`settleFromTurn`, `callTool`의 outcome 분기), `cancel`, `reconcile`은 고치지 않는다.
+6. `wiring/runs.ts`
+   - `tools.call(run, app, tool, input, origin?)`: `origin === undefined`면 지금 그대로. 있으면 `appCallPath.call({ target, tool, input?, caller: { kind: "program", job: origin.job, job_run: origin.job_run } }, { actor: "program", program: { job: origin.job, job_run: origin.job_run, agent: origin.creator, place: origin.creator_place } })`.
+   - `build`에서 `service = built` 다음에 `ctx.provide("runService", built)`. `Late` 칸은 lead가 계약 wave와 함께 이미 등록했다. 칸이 없어 type check가 막히면 고치지 말고 멈춰서 보고한다.
+7. 읽는 쪽 확인(바꾸지 않는다): CLI `run show|wait`과 `agent run --json`은 기록을 그대로 내므로 `job`이 저절로 실린다. renderer의 run 읽기는 칸을 골라 옮겨서 `job`이 빠진다. 이를 싣는 일은 `sj-shell-job-labels`의 몫이다(`RunRecordView.job`).
+8. 확인: `deno test --no-check packages/core/runs`.
 
 ## 끝남
 
 - `deno task check`가 통과한다.
-- 위험 test: 없음. 할당 밖 호출이 막히는 것은 `sj-apps-program-caller`의 test "job이 부르는 앱 tool은 그 job을 만든 agent의 할당 밖이면 실행되지 않는다"가 core 호출 경로에서 본다. 이 task는 `by`를 넘기기만 하고, 넘긴 인자를 세는 test는 쓰지 않는다(write-test "쓰지 않는 test").
-- 남지 않음:
-  - `grep -n 'kind: "program"' packages/core/main/daemon/wiring/runs.ts`가 1줄 이상이다(job의 tool run이 사람 caller로 가지 않는다).
-  - `packages/protocol/runs`에서 바뀐 것은 run 기록과 `CreateRun` 입력의 `job` 칸뿐이다. `StartRun`의 입력 schema는 그대로다(`by`와 이미 푼 agent 갈래는 route 입력에 없다).
-  - `packages/core/runs/`에 `TODO`·`FIXME`가 없다.
+- 위험 test: 없음(할당 밖 호출이 막히는 것은 `sj-apps-program-caller`의 test가 호출 경로에서 본다).
+- 남지 않음
+  - program caller를 만드는 곳은 `wiring/runs.ts`의 `tools.call` 하나다: `grep -rn 'kind: "program", job' packages --include=*.ts`가 그 한 곳과 `sj-apps-program-caller`의 test뿐이다.
+  - `grep -rn "agent_resolved" packages/protocol`이 0줄이다(route 입력에 더하지 않았다).
+  - `grep -n "insertRun(" -r packages`의 호출이 모두 `job`을 넘긴다(type이 강제한다).
 
 ## 보고
 
 - 바꾼 file
 - 통과한 check
-- 등록할 것: run service를 다른 wiring에 내는 `packages/core/main/daemon/wiring/context.ts`의 slot(6에서 더해야 했다면)
-- 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다)
-- 정한 것: 문서에 답이 없어 worker가 정한 것. 앞 계획 land 뒤 이름이 brief와 달랐던 곳
-- 넘길 줄: 소유 밖에서 최소로 맞춘 곳
+- 등록할 것: `Late`의 `runService: RunService`(`packages/core/runs/mod.ts`의 type)와 `LATE_KEYS` 줄은 lead가 계약 wave와 함께 이미 더했다. 칸의 type이 이 task가 낸 `RunService`와 다르면 어디가 다른지 적는다.
+- 안 쓰게 된 export(남이 쓰던 것은 지우지 않는다): 없음 예상
+- 정한 것: 문서에 답이 없어 worker가 정한 것
+- 넘길 줄: 없음
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
+- 고치지 않은 문서(lead가 끝에 고친다): `architecture/run.md`(job 칸, `agent_resolved`, program caller로 부르는 tool run)
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"

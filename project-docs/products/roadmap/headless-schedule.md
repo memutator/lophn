@@ -70,7 +70,7 @@
 
 ### 1. headless run (land했다)
 
-`architecture/run.md`. run 화면의 data 연결(`hr-screen-data`)은 계획 `headless-run`이 이어 한다.
+`architecture/run.md`.
 
 ### 2. job
 

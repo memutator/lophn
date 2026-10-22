@@ -52,7 +52,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 끝을 아는 법
 - 끝은 늘 run의 `input_message`를 가져간 turn에서만 본다. 받은 메시지의 `turn`을 읽고 그 turn의 state와 outcome을 읽는다. Bus 이벤트가 알려 준 turn id는 어느 run의 것인지 찾는 데만 쓰고 믿지 않는다. 같은 session에 먼저 들어온 다른 입력의 답을 돌려주면 안 된다.
 - Bus는 놓칠 수 있다. 정본은 표이고, `TurnEnded` 구독과 `WaitRun`의 깨움은 표를 다시 보게 하는 신호일 뿐이다. `WaitRun`은 기다리기 전과 깬 뒤에 표를 읽고, 끝나지 않은 agent run이면 turn을 직접 한 번 본다. `ReadRun`과 `ListRuns`는 표만 읽는다.
-- 답은 그 turn에서 그 session의 agent가 남긴 마지막 메시지의 글이다(text part를 줄바꿈으로 이은 것). agent가 다른 agent에게 call을 보내고 turn을 끝하면 그때의 답이 결과이고, 나중에 온 답은 session에만 남는다.
+- 답은 그 turn에서 그 session의 agent가 남긴 마지막 메시지의 글이다(text part를 줄바꿈으로 이은 것). agent가 다른 agent에게 call을 보내고 turn을 끝내면 그때의 답이 결과이고, 나중에 온 답은 session에만 남는다.
 - schema가 있으면 글 전체를 감싼 code fence 하나는 벗기고 JSON으로 읽어 schema로 검사한다. 그 밖에는 고치지 않는다. 틀리면 `invalid_output`이다.
 - outcome이 failed면 `turn_failed`, interrupted면 `turn_interrupted`(reason이 `restarted`면 `lophn_restarted`), completed인데 답이 없으면 `no_answer`다.
 - `WaitRun`은 끝났거나 `timeout_ms`(최대 60초)가 지나면 돌려준다. 그때는 running일 수 있어 CLI가 되풀이해 기다린다.
@@ -97,7 +97,8 @@ CLI와 자격(`architecture/coding-agent.md`)
 - run이 연 session은 sidebar에 그대로 두지 않고 그 run 아래로 묶어 보인다. 쌓일 session을 그대로 두면 job이 하루에 session을 수십 개 만든다. 묶는 것은 `session_opened`가 true인 run의 session뿐이다. `--session`으로 이어 쓴 session은 원래 자리에 둔다.
   - project agent(lophn, Project Manager)의 session은 project sidebar의 Background 칸에서, App Engineer와 앱 place Operator의 session은 그 앱 공간의 agent 목록(Background)에서 묶는다. tool run은 session이 없어 run 목록에만 보인다.
   - Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
-- 지금 화면 코드는 wireframe 단계다. `project-sidebar.tsx`와 `app-space.tsx`가 optional `runs` prop을 받고 `tools/wireframes`에 그 모양이 있지만, `packages/shell/renderer/workspace/workspace.tsx`는 아직 `runs`를 넘기지 않고 workspace source에도 run 읽기가 없다. 그래서 실제 화면에는 run 칸이 뜨지 않는다. 계획 `headless-run`의 `hr-screen-data`가 이 data를 잇는다.
+- project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `place: { project }`와 `agent: { role: "lophn" }`로 두 번 읽어 합친다. 앱 공간은 Background 목록이 열려 있는 동안 `place: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
+- run 줄은 이름 아래에 시작한 시각을 둔다. run 아래에 session 줄이 있으면 running 점은 그 session 줄에만 보인다.
 
 ## 왜 이 모양인가
 

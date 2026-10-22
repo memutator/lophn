@@ -19,8 +19,10 @@ import type {
   LayoutRead,
   ProjectView,
   ReadResult,
+  RunFilter,
   WorkspaceSource,
 } from "./source.ts";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 interface DocumentRow {
   id: string;
@@ -41,6 +43,11 @@ interface ProjectGetValue {
 
 interface DomainListValue {
   domains: DomainView[];
+  next_cursor: string | null;
+}
+
+interface RunListValue {
+  runs: RunRecordView[];
   next_cursor: string | null;
 }
 
@@ -247,6 +254,23 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           };
         },
       ),
+
+    runs: (filter: RunFilter) =>
+      collect<RunRecordView>(core, "runs", "list", { ...filter }, (value) => {
+        const page = value as RunListValue;
+        return {
+          items: page.runs.map((run) => ({
+            id: run.id,
+            kind: run.kind,
+            target: run.target,
+            session: run.session,
+            session_opened: run.session_opened,
+            state: run.state,
+            created_at: run.created_at,
+          })),
+          next: page.next_cursor,
+        };
+      }),
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.
     async files(id) {

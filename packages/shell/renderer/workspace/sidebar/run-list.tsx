@@ -57,8 +57,10 @@ function Dot({ status }: { status: PanelSession["status"] }) {
 }
 
 export function SessionItem(
-  { session, agentName, onSession }: {
+  { session, agentName, hideWhen, onSession }: {
     session: PanelSession;
+    /** true면 오른쪽 시각을 보이지 않는다(run 아래 session 줄은 run 줄에 시각이 있다). */
+    hideWhen?: boolean;
     /** 있으면 제목 아래에 "agent · 시각"을 보인다(Recent). */
     agentName?: string;
     onSession: (session: PanelSession) => void;
@@ -80,7 +82,7 @@ export function SessionItem(
             ? null
             : <span className={styles.sessionMeta}>{agentName} · {when}</span>}
         </span>
-        {agentName === undefined
+        {agentName === undefined && hideWhen !== true
           ? <span className={styles.sessionWhen}>{when}</span>
           : null}
       </button>
@@ -88,28 +90,29 @@ export function SessionItem(
   );
 }
 
-// 오른쪽 끝 고정 열: 시각 아래에 상태. done은 상태 표시가 없다.
-function RunState({ state }: { state: RunStateView }) {
-  if (state === "running") {
-    return (
-      <span
-        className={styles.sessionDot}
-        data-state="working"
-        role="img"
-        aria-label={t("common.label.tab-working")}
-      />
-    );
-  }
-  if (state === "done") return null;
+// 이름 아래 줄. 시각 뒤에 failed·cancelled만 상태를 붙인다. done은 상태 표시가 없다.
+function RunMeta({ run }: { run: RunRow }) {
+  const when = formatRelativeTime(new Date(run.at), new Date());
   return (
-    <span className={styles.runState} data-tone={state}>
-      {state === "failed"
-        ? t("run-list.label.failed")
-        : t("run-list.label.cancelled")}
+    <span className={styles.sessionMeta}>
+      {when}
+      {run.state === "failed" || run.state === "cancelled"
+        ? (
+          <>
+            {" · "}
+            <span className={styles.runState} data-tone={run.state}>
+              {run.state === "failed"
+                ? t("run-list.label.failed")
+                : t("run-list.label.cancelled")}
+            </span>
+          </>
+        )
+        : null}
     </span>
   );
 }
 
+// session 줄이 있는 run은 점을 그리지 않는다. 그 줄의 점이 상태를 보인다.
 export function RunList(
   { runs, onSession }: {
     runs: readonly RunRow[];
@@ -136,19 +139,23 @@ export function RunList(
                 </span>
               )
               : <Avatar profile={run.profile} size="sm" />}
-            <span className={styles.label}>{run.name}</span>
-            <span className={styles.runMeta}>
-              <span className={styles.sessionWhen}>
-                {formatRelativeTime(new Date(run.at), new Date())}
-              </span>
-              <RunState state={run.state} />
+            <span className={styles.sessionText}>
+              <span className={styles.label}>{run.name}</span>
+              <RunMeta run={run} />
             </span>
+            {run.session === null && run.state === "running"
+              ? <Dot status="working" />
+              : null}
           </div>
           {run.session === null
             ? null
             : (
               <ul className={`${styles.list} ${styles.sessions}`} role="list">
-                <SessionItem session={run.session} onSession={onSession} />
+                <SessionItem
+                  session={run.session}
+                  hideWhen
+                  onSession={onSession}
+                />
               </ul>
             )}
         </li>

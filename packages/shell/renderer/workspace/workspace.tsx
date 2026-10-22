@@ -60,12 +60,15 @@ import type { RailAction } from "./sidebar/rail.tsx";
 import {
   agentByRole,
   type KnownSessions,
+  panelRuns,
   panelSessions,
+  runOpenedSessions,
 } from "./sidebar/panel-sessions.ts";
 import { Panes } from "./panes/panes.tsx";
 import { Floats } from "./floats/floats.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
 import { toStoredLayout, viewFromStored } from "./layout-map.ts";
 import {
   PaletteButton,
@@ -252,6 +255,31 @@ export function Workspace(props: WorkspaceProps) {
       live = false;
     };
   }, [agentViewSource, sidebarAgents.agents, projectId, sessionIds]);
+  // sidebar의 Background 묶음. run event가 계약에 없어서 처음과 session 상태가 바뀔 때마다 다시 읽는다.
+  // 이 project에 놓인 agent(Project Manager·Operator)의 run과 lophn의 run을 합친다.
+  const [runRecords, setRunRecords] = useState<readonly RunRecordView[]>([]);
+  useEffect(() => {
+    let live = true;
+    void Promise.all([
+      source.runs({ place: { project: projectId } }),
+      source.runs({ agent: { role: "lophn" } }),
+    ]).then(([inProject, lophn]) => {
+      if (!live) return;
+      // 하나라도 실패하면 앞 값을 둔다.
+      if (!inProject.ok || !lophn.ok) return;
+      const byId = new Map(
+        [...inProject.value, ...lophn.value].map((run) => [run.id, run]),
+      );
+      setRunRecords(
+        [...byId.values()].sort((a, b) =>
+          Date.parse(b.created_at) - Date.parse(a.created_at)
+        ),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, projectId, sessionStates]);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
   const [view, setView] = useState<WorkspaceView>(freshView);
@@ -1106,6 +1134,15 @@ export function Workspace(props: WorkspaceProps) {
 
   const currentTab = focused?.tabs.find((tab) => tab.key === focused.selected);
 
+  // run이 연 session은 sidebar의 session 목록에서 빼 그 run 아래에 둔다.
+  const allSessions = panelSessions(
+    sessionStates,
+    sidebarAgents.agents,
+    projectId,
+    knownSessions,
+  );
+  const runOpened = runOpenedSessions(runRecords);
+
   return (
     <ViewCoversProvider value={covers}>
       <ViewKeepsProvider value={keeps}>
@@ -1118,11 +1155,12 @@ export function Workspace(props: WorkspaceProps) {
                 project={loaded.project}
                 source={source}
                 agents={sidebarAgents.agents}
-                sessions={panelSessions(
-                  sessionStates,
+                sessions={allSessions.filter((item) => !runOpened.has(item.id))}
+                runs={panelRuns(
+                  runRecords,
                   sidebarAgents.agents,
                   projectId,
-                  knownSessions,
+                  allSessions,
                 )}
                 artifactPanel={
                   <ArtifactPanel

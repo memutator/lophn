@@ -543,7 +543,7 @@
   font-size: var(--type-caption-size);
 }
 
-/* Background: run 줄. 누르는 곳이 아니라 session 줄의 윗머리다. 오른쪽 끝 고정 열에 시각과 상태가 쌓인다. */
+/* Background: run 줄. 누르는 곳이 아니라 session 줄의 윗머리다. 이름 아래 줄에 시각(과 failed·cancelled)이 온다. */
 .runRow {
   box-sizing: border-box;
   align-items: center;
@@ -563,20 +563,6 @@
   justify-content: center;
   width: var(--space-7);
   height: var(--space-7);
-  color: var(--color-text-muted);
-}
-
-.runMeta {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: var(--space-11);
-}
-
-.runState {
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
   color: var(--color-text-muted);
 }
 

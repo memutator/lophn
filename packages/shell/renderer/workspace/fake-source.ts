@@ -2,6 +2,7 @@
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
 import { fakeDomainStore } from "./domains/fake-domains.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
 import type {
   DomainView,
   FolderEntry,
@@ -114,6 +115,8 @@ interface FakeWorkspaceOptions {
   readonly failing?: readonly string[];
   /** project의 domain. 기본은 FAKE_DOMAINS다. */
   readonly domains?: readonly DomainView[];
+  /** run 기록. 거르지 않고 그대로 돌려준다. 기본은 빈 목록이다. */
+  readonly runs?: readonly RunRecordView[];
 }
 
 export function fakeWorkspaceSource(
@@ -213,6 +216,7 @@ export function fakeWorkspaceSource(
     reveal: () => done,
     ...domainStore.actions,
     domains: () => Promise.resolve({ ok: true, value: domainStore.active() }),
+    runs: () => Promise.resolve({ ok: true, value: options.runs ?? [] }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "no layout" }),

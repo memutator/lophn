@@ -326,6 +326,9 @@ export function Desktop(
         views={views}
         detail={appDetail}
         agents={workspace?.agentsSource}
+        runs={workspace === undefined
+          ? undefined
+          : () => workspace.runs({ place: { app: route.app! } })}
         agentViewSource={agentViewSource}
         onSettings={settingsSpace}
         onDomainDoc={instructions ? openDomainDoc : undefined}

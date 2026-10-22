@@ -1,9 +1,11 @@
 // 작업대가 읽는 통로. documents의 projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
+import type { CallAgent } from "../../../protocol/lophn-agent/calls.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 /** 연결 폴더. 하위 폴더 경로는 이 폴더 기준 상대 경로다. */
 export interface ProjectFolderView {
@@ -75,6 +77,14 @@ export type FileOpResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly code: FileFailure };
 
+/** `runs/list`의 거르기 칸. 같은 이름의 `ListRuns` 입력으로 간다. */
+export interface RunFilter {
+  readonly place?:
+    | { readonly project: string }
+    | { readonly app: string };
+  readonly agent?: CallAgent;
+}
+
 export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
@@ -104,6 +114,8 @@ export interface WorkspaceSource extends DomainActions {
   readonly agentsSource?: AgentsSource;
   /** project 키워드 검색 통로. 없으면 Search 탭과 여는 길을 두지 않는다. */
   readonly searchSource?: FileSearchSource;
+  /** run 기록, 새것이 앞. project sidebar와 앱 공간이 읽는다. */
+  runs(filter: RunFilter): Promise<ReadResult<readonly RunRecordView[]>>;
   /** project가 가진 active domain들. */
   domains(project: string): Promise<ReadResult<readonly DomainView[]>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */

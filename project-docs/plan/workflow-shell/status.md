@@ -8,6 +8,6 @@ lead만 고친다. `tools/status.py workflow-shell build`가 `tasks/*.md`에서 
 | `ws-layout-map` | layout | 1 | ws-model, ws-detached-show | merged | layout/ws-layout-map | f8d7401f3 |  |
 | `ws-schema` | layout | 1 | 없음 | merged | layout/ws-schema | ed2426e90 |  |
 | `ws-model` | model | 1 | 없음 | merged | model/ws-model | aa5c84637 |  |
-| `ws-desk-wireframe` | screen | 1 | 없음 | review | screen/ws-desk-wireframe | bb0ef56cf | wireframe 승인 대기 |
+| `ws-desk-wireframe` | screen | 1 | 없음 | merged | screen/ws-desk-wireframe | b67eeb9ff | wireframe 승인 대기 |
 | `ws-wire-state` | wire | 2 | ws-model, ws-layout-map, ws-detached-show, ws-desk-wireframe | todo |  |  |  |
 | `ws-wire-selector` | wire | 3 | ws-wire-state, ws-desk-wireframe | todo |  |  |  |

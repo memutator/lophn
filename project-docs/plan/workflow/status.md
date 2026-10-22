@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-write-scope` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-wireframe` | shell | 2 | wf-contract | running | shell/wf-wireframe |  |  |
 | `wf-decl-reader` | workflows | 2 | wf-contract | merged | workflows/wf-decl-reader | 4b2169127 |  |
-| `wf-step-input` | workflows | 2 | wf-contract | running | workflows/wf-step-input |  |  |
+| `wf-step-input` | workflows | 2 | wf-contract | merged | workflows/wf-step-input | 6522369b1 |  |
 | `wf-store` | workflows | 2 | wf-contract | merged | workflows/wf-store | 8ac529c7e |  |
 | `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |
 | `wf-artifact-serve` | artifact | 3 | wf-artifact-source | todo |  |  |  |

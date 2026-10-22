@@ -52,12 +52,14 @@ export type AppSpacePlaceholders = {
     release: "string";
   };
   "app-detail.label.called-by-person": Record<never, never>;
+  "app-detail.label.called-by-program": Record<never, never>;
   "app-detail.label.called-by-restart": Record<never, never>;
   "app-detail.label.caller-app": {
     name: "string";
   };
   "app-detail.label.caller-app-unnamed": Record<never, never>;
   "app-detail.label.caller-person": Record<never, never>;
+  "app-detail.label.caller-program": Record<never, never>;
   "app-detail.label.caller-start": Record<never, never>;
   "app-detail.label.calls-held": Record<never, never>;
   "app-detail.label.cancelled": Record<never, never>;

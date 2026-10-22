@@ -20,7 +20,10 @@ import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentRef } from "../../../protocol/lophn-agent/places.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
+import type { CallAuth } from "./caller.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
+import { parseProcessCall } from "../runtime/entrypoint/wire.ts";
+import { processCallRequestSchema } from "../../../protocol/apps/calls/process-wire.ts";
 import { decodeChangeset, settleResponse } from "./record.ts";
 
 const clock = manualClock(Date.parse("2026-10-16T00:00:00.000Z"));
@@ -57,6 +60,11 @@ function setup() {
     grants: null as AppGrant[] | null,
     // agentToolCall이 돌려주는 agent. null이면 tool call을 모른다.
     agent: { role: "lophn" } as AgentRef | null,
+    // 이름에 "priv."가 붙은 tool만 비공개고 domain은 "dom"이다. 기본 tool은 공개다.
+    // creator가 맡은 domain id. null이면 읽지 못한다.
+    domains: [] as string[] | null,
+    // 앱 domain 이름 "dom"의 id. null이면 찾지 못한다.
+    toolDomainId: "dom_a" as string | null,
   };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
@@ -102,6 +110,8 @@ function setup() {
         ok({
           release: state.release,
           effect: tool.startsWith("w.") ? "write" : "read",
+          public: !tool.includes("priv."),
+          domain: "dom",
         }),
       findPreview: (_app, nonce, tool) => {
         const effect = nonce === state.preview.nonce
@@ -124,6 +134,11 @@ function setup() {
         entries: state.assignment ??
           madeApps.map((app) => ({ app, removed_tools: [] })),
       }),
+    agentDomainsOf: () =>
+      state.domains === null
+        ? err({ code: "unavailable", message: "unreadable" })
+        : ok(state.domains),
+    toolDomainOf: () => ok(state.toolDomainId),
     appGrantsOf: (app) =>
       Promise.resolve(ok(
         state.grants ??
@@ -181,6 +196,20 @@ function appCaller(
   };
 }
 
+const JOB = ids.newId("job") as Id<"job">;
+const RUN = ids.newId("jbr") as Id<"jbr">;
+
+function programCaller(job: Id<"job">, run: Id<"jbr">): AppToolCaller {
+  return { kind: "program", job, job_run: run };
+}
+
+function programAuth(): CallAuth {
+  return {
+    actor: "program",
+    program: { job: JOB, job_run: RUN, agent: { role: "lophn" }, place: null },
+  };
+}
+
 // 해시 계산이 실제 thread를 지나므로 macrotask를 넉넉히 비운다.
 async function tick() {
   for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
@@ -228,6 +257,31 @@ Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invo
           caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
         },
         { actor: "user" },
+      ),
+    ],
+    // 사람·agent credential로 program이라고 주장, program 자격이 다른 job_run의 본문을 보냄
+    [
+      "person claims program",
+      t.path.call(
+        { ...person(a, "r.get"), caller: programCaller(JOB, RUN) },
+        { actor: "user" },
+      ),
+    ],
+    [
+      "agent claims program",
+      t.path.call(
+        { ...person(a, "r.get"), caller: programCaller(JOB, RUN) },
+        { actor: "agent" },
+      ),
+    ],
+    [
+      "other job run",
+      t.path.call(
+        {
+          ...person(a, "r.get"),
+          caller: programCaller(JOB, ids.newId("jbr") as Id<"jbr">),
+        },
+        programAuth(),
       ),
     ],
     // 모르는 tool call
@@ -610,5 +664,134 @@ Deno.test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 
     });
     assertEquals(status(result), want, name);
     assertEquals(t.sent.length - before, want === "succeeded" ? 1 : 0, name);
+  }
+});
+
+Deno.test("job이 부르는 앱 tool은 그 job을 만든 agent의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+  const assigned = newApp();
+  const other = newApp();
+  const rows: {
+    name: string;
+    app: Id<"app">;
+    tool: string;
+    domains?: string[] | null;
+    toolDomainId?: string | null;
+    want: string;
+  }[] = [
+    { name: "not assigned", app: other, tool: "r.get", want: "gate_blocked" },
+    {
+      name: "removed tool",
+      app: assigned,
+      tool: "r.removed",
+      want: "gate_blocked",
+    },
+    {
+      name: "private tool of another domain",
+      app: assigned,
+      tool: "priv.get",
+      domains: ["dom_b"],
+      want: "gate_blocked",
+    },
+    {
+      name: "unreadable creator domains",
+      app: assigned,
+      tool: "priv.get",
+      domains: null,
+      want: "gate_blocked",
+    },
+    {
+      name: "tool domain not found",
+      app: assigned,
+      tool: "priv.get",
+      domains: ["dom_a"],
+      toolDomainId: null,
+      want: "gate_blocked",
+    },
+    {
+      name: "lophn creator, private tool",
+      app: assigned,
+      tool: "priv.get",
+      domains: [],
+      want: "gate_blocked",
+    },
+    {
+      name: "public tool of another domain",
+      app: assigned,
+      tool: "r.get",
+      domains: ["dom_b"],
+      want: "succeeded",
+    },
+    {
+      name: "private tool of own domain",
+      app: assigned,
+      tool: "priv.get",
+      domains: ["dom_a"],
+      want: "succeeded",
+    },
+  ];
+  for (const row of rows) {
+    const t = setup();
+    t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+    t.state.domains = row.domains === undefined ? [] : row.domains;
+    if (row.toolDomainId !== undefined) t.state.toolDomainId = row.toolDomainId;
+    const result = await t.path.call(
+      {
+        ...person(row.app, row.tool),
+        caller: programCaller(JOB, RUN),
+      },
+      programAuth(),
+    );
+    assertEquals(status(result), row.want, row.name);
+    if (row.want === "gate_blocked") {
+      assertEquals(t.sent.length, 0, row.name);
+      const [record] = [...t.records.values()];
+      assertEquals(record.status, "denied", row.name);
+      assertEquals(record.caller, programCaller(JOB, RUN), row.name);
+    } else {
+      assertEquals(t.sent.length, 1, row.name);
+    }
+  }
+});
+
+Deno.test("앱 process의 parseProcessCall은 네 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
+  const callers: [string, unknown, boolean][] = [
+    ["person", { kind: "person", view_session: "v1" }, true],
+    [
+      "agent",
+      { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+      true,
+    ],
+    [
+      "app",
+      {
+        kind: "app",
+        app: newApp(),
+        release: REL,
+        parent_invocation: null,
+      },
+      true,
+    ],
+    ["program", programCaller(JOB, RUN), true],
+    ["program without job_run", { kind: "program", job: JOB }, false],
+    ["unknown kind", { kind: "timer", job: JOB }, false],
+  ];
+  for (const [name, caller, accepted] of callers) {
+    const request = {
+      invocation: ids.newId("inv"),
+      tool: "r.get",
+      context: {
+        app: newApp(),
+        release: REL,
+        mode: "live",
+        effect: "read",
+        caller,
+      },
+    };
+    assertEquals(
+      processCallRequestSchema.safeParse(request).success,
+      accepted,
+      name,
+    );
+    assertEquals(parseProcessCall(request) !== undefined, accepted, name);
   }
 });

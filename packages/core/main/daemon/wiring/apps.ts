@@ -41,6 +41,7 @@ import {
 } from "../../../apps/control.ts";
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
+import { agentDomainPorts } from "../agent-domains.ts";
 import { secretValueHandler } from "../../../apps/permissions/mod.ts";
 import {
   type ChangesetBlobs,
@@ -222,6 +223,18 @@ export const appsWiring: WiringFactory = () => {
       const callers: CallerDirectory = createCallerDirectory(link.sql);
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
+      const domains = agentDomainPorts(link.sql);
+      // 읽지 못하면 unavailable로 올려 Gate가 막는 쪽으로 실패하게 한다.
+      const readDomains = <T>(read: () => T): Result<T> => {
+        try {
+          return ok(read());
+        } catch {
+          return err({
+            code: "unavailable",
+            message: "domains cannot be read",
+          });
+        }
+      };
       const { path, intake } = createAppCalls({
         callers,
         lookup: appToolLookupOf(link.sql, appsControl.previews),
@@ -229,6 +242,10 @@ export const appsWiring: WiringFactory = () => {
         ledger,
         link: appsControl.link,
         assignmentOf: (agent) => loadAssignment(link.sql, agent),
+        agentDomainsOf: (agent) =>
+          readDomains(() => domains.agentDomains(agent)),
+        toolDomainOf: (app, name) =>
+          readDomains(() => domains.domainOf(app, name)),
         async appGrantsOf(app) {
           const listed = await ctx.runtime.readers.read(
             appGrantsList,

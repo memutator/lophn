@@ -160,6 +160,8 @@ export function appToolLookupOf(
       return ok({
         release: stored.value.release.id as Id<"rel">,
         effect: declared.effect,
+        public: declared.public,
+        domain: declared.domain,
       });
     },
   };

@@ -148,6 +148,7 @@ export type Caller =
     readonly appName: string | null;
     readonly releaseNumber: number | null;
   }
+  | { readonly kind: "program" }
   | { readonly kind: "start"; readonly reason: "activation" | "restart" };
 
 export type CallState = "done" | "failed" | "waiting" | "running" | "unknown";

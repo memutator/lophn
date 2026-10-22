@@ -24,7 +24,8 @@ type InvocationCaller =
     app: string;
     release: string;
     parent_invocation: string | null;
-  };
+  }
+  | { kind: "program"; job: string; job_run: string };
 
 function caller(value: unknown): InvocationCaller | undefined {
   const source = record(value);
@@ -54,6 +55,13 @@ function caller(value: unknown): InvocationCaller | undefined {
         : id(source.parent_invocation, "inv");
       if (!app || !release || parent === undefined) return;
       return { kind: "app", app, release, parent_invocation: parent };
+    }
+    case "program": {
+      if (exact(source, ["kind", "job", "job_run"])) return;
+      const job = id(source.job, "job");
+      const jobRun = id(source.job_run, "jbr");
+      if (!job || !jobRun) return;
+      return { kind: "program", job, job_run: jobRun };
     }
     default:
       return;

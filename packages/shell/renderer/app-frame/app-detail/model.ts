@@ -136,6 +136,8 @@ export function callerText(caller: Caller): string {
       return t("app-detail.label.caller-app", {
         name: caller.appName ?? t("app-detail.label.caller-app-unnamed"),
       });
+    case "program":
+      return t("app-detail.label.caller-program");
     case "start":
       return t("app-detail.label.caller-start");
   }

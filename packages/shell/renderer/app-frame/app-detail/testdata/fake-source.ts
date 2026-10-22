@@ -159,7 +159,7 @@ const ACTIVITY: readonly ActivityRow[] = [
   row(
     "inv_38",
     "2026-10-15T14:38:00",
-    ANALYST,
+    { kind: "program" },
     "orders.exportToSheet",
     "external",
     "done",

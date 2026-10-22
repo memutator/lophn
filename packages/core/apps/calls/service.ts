@@ -172,6 +172,7 @@ export function createAppCalls(
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
     const { release, effect } = found.value;
+    const declared = { public: found.value.public, domain: found.value.domain };
 
     const base: CallRecordBase = {
       id: deps.ids.newId("inv") as Id<"inv">,
@@ -194,7 +195,7 @@ export function createAppCalls(
     const tooBig = checkSize(input, base);
     if (tooBig !== null) return tooBig;
 
-    return run(input, caller, base);
+    return run(input, caller, base, declared);
   }
 
   // 큰 입력은 control frame에 담기지 않는다. 다시 해도 안 되므로 기록·Gate·줄 앞에서 거절한다.
@@ -248,6 +249,7 @@ export function createAppCalls(
     input: ToolCallInput,
     caller: VerifiedCaller,
     base: CallRecordBase,
+    declared: { public: boolean; domain: string },
   ): Promise<Result<ToolCallOutput>> {
     const app = base.app;
     let phase: Phase = "gate";
@@ -279,7 +281,7 @@ export function createAppCalls(
       if (caller.kind !== "person") {
         const allowed = await callAllowed(
           caller,
-          { app, tool: input.tool, effect: base.effect },
+          { app, tool: input.tool, effect: base.effect, ...declared },
           deps,
         );
         if (abandoned) return null;

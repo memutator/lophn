@@ -167,6 +167,9 @@ async function callerName(
   if (caller.kind === "person") {
     return t("conversation.label.rewind-caller-person");
   }
+  if (caller.kind === "program") {
+    return t("conversation.label.rewind-caller-program");
+  }
   if (caller.kind === "agent") {
     const read = await readSession(env, caller.session);
     return read.ok ? roleLabel(read.value.agent.role) : caller.session;

@@ -10,7 +10,8 @@ export type AppToolCaller =
     app: string;
     release: string;
     parent_invocation: string | null;
-  };
+  }
+  | { kind: "program"; job: string; job_run: string };
 
 export type InvocationContext = {
   app: string;

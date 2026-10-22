@@ -35,7 +35,7 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       mode TEXT NOT NULL CHECK (mode IN ('live', 'preview')),
       operation TEXT NOT NULL CHECK (json_valid(operation)),
       caller TEXT CHECK (caller IS NULL OR json_valid(caller)),
-      caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app')),
+      caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app', 'program')),
       session TEXT,
       turn TEXT,
       effect TEXT NOT NULL CHECK (effect IN ('read', 'write', 'external')),

@@ -176,6 +176,7 @@ export const conversation = {
   "conversation.label.rewind-apps-head":
     "Apps this session wrote to after this message",
   "conversation.label.rewind-caller-person": "You",
+  "conversation.label.rewind-caller-program": "Scheduled job",
   "conversation.label.rewind-conversation": "Conversation",
   "conversation.label.rewind-files":
     "Also restore files changed with file tools",

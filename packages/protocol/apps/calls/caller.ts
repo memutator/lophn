@@ -24,5 +24,11 @@ export const appToolCallerSchema = z.discriminatedUnion("kind", [
     release: releaseIdSchema,
     parent_invocation: invocationIdSchema.nullable(),
   }),
+  // job이 연 tool run의 호출. job·run 모양은 core가 만든 자격과 맞춰 본다.
+  z.strictObject({
+    kind: z.literal("program"),
+    job: idSchema("job"),
+    job_run: idSchema("jbr"),
+  }),
 ]);
 export type AppToolCaller = z.infer<typeof appToolCallerSchema>;

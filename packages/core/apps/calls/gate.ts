@@ -13,6 +13,9 @@ import type { VerifiedCaller } from "./caller.ts";
 export type CallGateDeps = {
   assignmentOf(agent: AgentRef): Result<AgentAssignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
+  // program caller의 domain 거르기 재료. creator가 맡은 domain id와 앱 domain 이름의 id다.
+  agentDomainsOf(agent: AgentRef): Result<readonly string[]>;
+  toolDomainOf(app: Id<"app">, name: string): Result<string | null>;
 };
 
 // 앱 tool 판정은 shell 규칙을 보지 않는다.
@@ -23,14 +26,49 @@ const NO_SHELL_RULES: ShellRuleLayers = { floor: [], layers: [] };
 // judge가 ask를 내도 run-loop tool gate가 이미 물은 것이라 지나간다.
 export async function callAllowed(
   caller: Exclude<VerifiedCaller, { kind: "person" }>,
-  target: { app: Id<"app">; tool: string; effect: ToolEffect },
+  target: {
+    app: Id<"app">;
+    tool: string;
+    effect: ToolEffect;
+    public: boolean;
+    domain: string;
+  },
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
+  if (caller.kind === "program") {
+    // 할당은 호출 때 읽는다. job 호출은 사람이 없는 호출이다.
+    const assignment = deps.assignmentOf(caller.agent);
+    if (!assignment.ok) return assignment;
+    const judged = judge(
+      {
+        kind: "app_tool",
+        app: target.app,
+        tool: target.tool,
+        effect: target.effect,
+      },
+      assignment.value,
+      NO_SHELL_RULES,
+      "unattended",
+    );
+    if (judged.kind === "deny") return ok(false);
+    if (target.public) return ok(true);
+    // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 맡은 domain의 tool.
+    // 읽지 못하면 막는다.
+    const id = deps.toolDomainOf(target.app, target.domain);
+    const domains = deps.agentDomainsOf(caller.agent);
+    if (!id.ok || !domains.ok || id.value === null) return ok(false);
+    return ok(domains.value.includes(id.value));
+  }
   if (caller.kind === "agent") {
     const assignment = deps.assignmentOf(caller.agent);
     if (!assignment.ok) return assignment;
     const judged = judge(
-      { kind: "app_tool", ...target },
+      {
+        kind: "app_tool",
+        app: target.app,
+        tool: target.tool,
+        effect: target.effect,
+      },
       assignment.value,
       NO_SHELL_RULES,
       "attended",

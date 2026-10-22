@@ -352,6 +352,9 @@ async function callerOf(
       ]);
       return { kind: "app", app: caller.app, appName, releaseNumber };
     }
+    // 제목은 읽지 않는다. job이 지워졌을 수 있다.
+    case "program":
+      return { kind: "program" };
   }
 }
 

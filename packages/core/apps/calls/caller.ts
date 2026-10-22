@@ -7,8 +7,15 @@ import type { Flight } from "./intake.ts";
 
 // previewOnly는 route 입력이 아니라 core 안 호출자만 켠다(preview로만 가는 credential).
 export type CallAuth = {
-  actor: "user" | "agent" | "app";
+  actor: "user" | "agent" | "app" | "program";
   app?: Id<"app">;
+  // actor가 program일 때만 있다. route는 이 자격을 만들지 못하고 core 안 run 연산만 만든다.
+  program?: {
+    job: Id<"job">;
+    job_run: Id<"jbr">;
+    agent: AgentRef;
+    place: Place | null;
+  };
   previewOnly?: true;
 };
 
@@ -23,7 +30,14 @@ export type VerifiedCaller =
     turn: Id<"trn">;
     toolCall: Id<"tcl">;
   }
-  | { kind: "app"; app: Id<"app">; parent: Flight };
+  | { kind: "app"; app: Id<"app">; parent: Flight }
+  | {
+    kind: "program";
+    job: Id<"job">;
+    job_run: Id<"jbr">;
+    agent: AgentRef;
+    place: Place | null;
+  };
 
 type CallerChecks = {
   callers: CallerDirectory;
@@ -31,7 +45,12 @@ type CallerChecks = {
   flight(id: Id<"inv">): Flight | undefined;
 };
 
-const KIND_OF_ACTOR = { user: "person", agent: "agent", app: "app" } as const;
+const KIND_OF_ACTOR = {
+  user: "person",
+  agent: "agent",
+  app: "app",
+  program: "program",
+} as const;
 
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
@@ -82,6 +101,30 @@ export function verifyCaller(
       session: caller.session as Id<"ses">,
       turn: caller.turn as Id<"trn">,
       toolCall: caller.tool_call as Id<"tcl">,
+    });
+  }
+
+  if (caller.kind === "program") {
+    if (input.target.mode !== "live" || input.target.release !== null) {
+      return err({
+        code: "invalid_input",
+        message: "program calls target the live active release",
+      });
+    }
+    // 본문은 주장일 뿐이라 core가 만든 자격과 맞춰 본다.
+    const { program } = auth;
+    if (
+      program === undefined || program.job !== caller.job ||
+      program.job_run !== caller.job_run
+    ) {
+      return forbidden("job run does not match the credential");
+    }
+    return ok({
+      kind: "program",
+      job: program.job,
+      job_run: program.job_run,
+      agent: program.agent,
+      place: program.place,
     });
   }
 

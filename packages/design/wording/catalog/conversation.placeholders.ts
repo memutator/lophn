@@ -219,6 +219,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.label.rewind-apps-head": Record<never, never>;
   "conversation.label.rewind-caller-person": Record<never, never>;
+  "conversation.label.rewind-caller-program": Record<never, never>;
   "conversation.label.rewind-conversation": Record<never, never>;
   "conversation.label.rewind-files": Record<never, never>;
   "conversation.label.rewind-hidden": {

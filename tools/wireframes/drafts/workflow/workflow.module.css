@@ -1,0 +1,743 @@
+/* workflow wireframe의 모든 모양. renderer task가 아래 구역별로 나눠 옮긴다.
+   탭 본문(workflow-page, instance-list, instance-view, start-dialog) / activity bar / workflow panel / frame(gallery 전용). */
+
+/* ---- frame (gallery 전용): 창 하나. activity bar, panel, 탭 줄과 본문 ---- */
+.stage {
+  position: absolute;
+  inset: var(--space-0);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-base);
+}
+
+.stage > * + * {
+  border-top: var(--border-width) solid var(--color-border-strong);
+}
+
+.window {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow: hidden;
+  background: var(--color-surface-base);
+  font-family: var(--font-sans);
+}
+
+.windowSized {
+  align-self: flex-start;
+  border-right: var(--border-width) solid var(--color-border-strong);
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.caption {
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-6);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.identity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+.identityBody {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-6) var(--layout-pane-padding-wide);
+}
+
+/* ---- activity bar: 왼쪽 끝 icon 세로 줄 ---- */
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--layout-sidebar-collapsed);
+  border-right: var(--border-width) solid var(--color-border-base);
+  background: var(--tab-strip-bar);
+}
+
+.barHead {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--window-top-bar);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+}
+
+.barGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-2) var(--space-0);
+}
+
+.barSpacer {
+  flex: 1;
+}
+
+.barButton {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--space-11);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) var(--motion-ease),
+    color var(--motion-duration-short) var(--motion-ease);
+}
+
+.barButton:hover {
+  background: var(--tab-strip-hover);
+  color: var(--color-text-primary);
+}
+
+.barButton:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+/* 열린 항목: 왼쪽 띠와 배경 둘 다. */
+.barButton[data-active] {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+.barButton[data-active]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: var(--space-0);
+  width: var(--tab-indicator);
+  background: var(--color-focus);
+}
+
+/* ---- panel: bar 옆 열. 열린 항목의 본문 ---- */
+.panel {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--layout-container-card);
+  min-height: var(--space-0);
+  border-right: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-subtle);
+}
+
+.panelHead {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--window-top-bar);
+  padding: var(--space-0) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.panelBody {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4) var(--space-6);
+}
+
+.panelEmpty {
+  margin: var(--space-0);
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* Workflows panel의 줄. run 줄(.runRow)과 같은 꼴: 아이콘, 이름과 아래 줄, 오른쪽 끝 표시. */
+.wfList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.wfRow {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: var(--space-0);
+  min-height: var(--control-md-height);
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wfRow:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.wfRow[data-active] {
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+.wfRow:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.wfIcon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  color: var(--color-text-muted);
+}
+
+.wfIcon[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+.wfText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.wfName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wfMeta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wfMeta[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+/* 도는 instance가 있다는 점. 숫자 글이 이름이라 점만으로 뜻을 싣지 않는다. */
+.wfDot {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--status-good-marker);
+}
+
+/* ---- 탭 본문: 최대 폭 기둥을 가로 가운데에 ---- */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: var(--page-overview);
+  margin: var(--space-0) auto;
+  font-family: var(--font-sans);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+
+.headIcon {
+  display: flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.headText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: var(--space-0);
+}
+
+.title {
+  margin: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 행동 단추 묶음. 줄 오른쪽 끝에 붙어 이름 길이와 상관없이 같은 자리다. */
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.problem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.problemMark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--type-small-line);
+}
+
+.problemMark[data-tone="critical"] {
+  color: var(--status-critical-text);
+}
+
+.problemMark[data-tone="neutral"] {
+  color: var(--status-neutral-text);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.sectionHead .actions {
+  gap: var(--space-2);
+}
+
+/* 알림 toast는 탭 본문 위쪽 가운데에 뜬다. 탭 본문 상자가 기준 위치다. */
+.toastSlot {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  left: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.toastSlot > div {
+  width: 100%;
+  max-width: calc(var(--page-reading-default) + var(--space-10));
+  pointer-events: auto;
+}
+
+/* ---- instance 목록 ---- */
+.instances {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  position: relative;
+  max-height: calc(var(--space-12) * 4);
+  overflow-y: auto;
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.instanceRow {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-4);
+  border: var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.instanceRow:hover {
+  background: var(--color-surface-muted);
+}
+
+.instanceRow[aria-current="true"] {
+  background: var(--color-selection);
+}
+
+.instanceRow:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.instanceInput {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instanceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 상태 표시: 아이콘과 글. 색은 거들 뿐이다. */
+.stateMark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.stateMark[data-shown="running"] {
+  color: var(--status-good-text);
+}
+
+.stateMark[data-shown="human"] {
+  color: var(--status-warning-text);
+}
+
+.stateMark[data-shown="ended"] {
+  color: var(--status-neutral-text);
+}
+
+.stateMark[data-shown="stopped"] {
+  color: var(--status-serious-text);
+}
+
+/* ---- instance 기본 view ---- */
+.instance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.instanceHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+
+.when {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.inputText {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.inputLabel {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+/* 사람 차례 줄: 안내 글과 오른쪽 끝 [Open conversation]. */
+.turn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.turnIcon {
+  display: flex;
+  flex: none;
+  color: var(--status-warning-text);
+}
+
+.turnText {
+  flex: 1;
+  min-width: var(--space-0);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  list-style: none;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.stepMark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--type-body-line);
+  color: var(--color-text-muted);
+}
+
+.step[data-shown="current"] .stepMark {
+  color: var(--status-good-text);
+}
+
+.step[data-shown="human"] .stepMark {
+  color: var(--status-warning-text);
+}
+
+.step[data-shown="stopped"] .stepMark {
+  color: var(--status-serious-text);
+}
+
+.step[data-shown="reported"] .stepMark {
+  color: var(--status-neutral-text);
+}
+
+.stepMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.stepHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+
+.stepName {
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stepWho {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.stepStatus {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.step[data-shown="current"] .stepStatus {
+  color: var(--status-good-text);
+}
+
+.step[data-shown="human"] .stepStatus {
+  color: var(--status-warning-text);
+}
+
+.step[data-shown="stopped"] .stepStatus {
+  color: var(--status-serious-text);
+}
+
+/* 마지막 report 글은 세 줄까지 보이고 나머지는 줄 펼침에서 읽는다. */
+.report {
+  display: -webkit-box;
+  margin: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.reportWho {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: var(--space-0);
+  color: var(--status-serious-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.notice > :first-child {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+.lineToggle {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  cursor: pointer;
+}
+
+.lineToggle:hover {
+  color: var(--color-text-primary);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: calc(var(--space-12) + var(--space-9)) minmax(0, 1fr)
+    auto;
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.lineWho {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineText {
+  min-width: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.lineWhen {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Start dialog ---- */
+.dialogFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* disabled 단추의 tooltip을 받는 틀. 단추는 focus를 못 받아서 이 틀이 받는다. */
+.tipTarget {
+  display: inline-flex;
+}

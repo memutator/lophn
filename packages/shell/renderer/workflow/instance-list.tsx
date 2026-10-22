@@ -75,6 +75,17 @@ export function InstanceList(
                     when: whenOf(item.finished_at ?? item.created_at),
                   })}
               </span>
+              {item.started_by.kind === "job"
+                ? (
+                  <span data-started-by="job">
+                    {item.started_by.title === null
+                      ? t("workflow.label.job-meta-untitled")
+                      : t("workflow.label.job-meta", {
+                        title: item.started_by.title,
+                      })}
+                  </span>
+                )
+                : null}
             </span>
           </button>
         </li>

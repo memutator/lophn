@@ -18,6 +18,7 @@ import type {
 import { StateMark } from "./instance-list.tsx";
 import {
   headLines,
+  jobWho,
   notHandedKey,
   roleKey,
   shownOf,
@@ -63,6 +64,10 @@ function whoOf(
 ): string {
   if (line.by.kind === "user") return t("workflow.label.role-human");
   if (line.by.kind === "lophn") return t("workflow.label.role-lophn");
+  if (line.by.kind === "job") {
+    const by = detail.instance.started_by;
+    return jobWho(by.kind === "job" ? by.title : null);
+  }
   const session = line.by.session;
   const handed = detail.lines.find((item) =>
     item.kind === "handed" && item.receiver === session
@@ -159,6 +164,17 @@ export function InstanceView(
             when: whenOf(instance.created_at),
           })}
         </span>
+        {instance.started_by.kind === "job"
+          ? (
+            <span className={styles.when} data-started-by="job">
+              {instance.started_by.title === null
+                ? t("workflow.label.started-by-job-untitled")
+                : t("workflow.label.started-by-job", {
+                  title: instance.started_by.title,
+                })}
+            </span>
+          )
+          : null}
         <span className={styles.actions}>
           {hasArtifact
             ? (

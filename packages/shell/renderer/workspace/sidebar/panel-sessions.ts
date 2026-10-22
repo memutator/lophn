@@ -120,6 +120,7 @@ export function panelRuns(
     return [{
       id: record.id,
       agent: row.assignment,
+      title: record.job?.title ?? null,
       state: record.state,
       at: Date.parse(record.created_at),
       session: record.session_opened

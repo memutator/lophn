@@ -12,7 +12,9 @@ import type {
   WorkflowInstanceDetailView,
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
+  WorkflowLineBy,
   WorkflowLineView,
+  WorkflowStartedBy,
   WorkflowState,
   WorkspaceSource,
 } from "./source.ts";
@@ -208,6 +210,7 @@ function instanceOf(
   current: WorkflowInstanceView["current"],
   startedMinutesAgo: number,
   finishedMinutesAgo: number | null,
+  startedBy: WorkflowStartedBy = { kind: "user" },
 ): WorkflowInstanceView {
   return {
     id,
@@ -218,7 +221,7 @@ function instanceOf(
     participants: PARTICIPANTS,
     steps: EVAL_STEPS.map((step) => ({ ...step, next: [...step.next] })),
     current,
-    started_by: { kind: "user" },
+    started_by: startedBy,
     created_at: minutesAgo(startedMinutesAgo),
     finished_at: finishedMinutesAgo === null
       ? null
@@ -253,13 +256,18 @@ function reportOf(
   };
 }
 
-function startLines(instance: string, input: string, minutes: number) {
+function startLines(
+  instance: string,
+  input: string,
+  minutes: number,
+  by: WorkflowLineBy = user,
+) {
   return [
     {
       instance,
       seq: "1",
       at: minutesAgo(minutes),
-      by: user,
+      by,
       kind: "started",
       step: "plan",
       text: input,
@@ -431,8 +439,22 @@ const endedReport = reportOf(
   "Wrote the conclusion into loop/findings/F-012.md.",
   "end",
 );
+// ended는 job이 시작한 instance다(제목 있는 쪽). 지워진 job의 모양은 core-source가 title null로 준다.
+const endedStartedBy = {
+  kind: "job",
+  job: "job_fakeweeklyreview",
+  title: "Weekly review",
+} as const satisfies WorkflowStartedBy;
 const ended: WorkflowInstanceDetailView = {
-  instance: instanceOf(IDS.ended, endedInput, "ended", null, 310, 240),
+  instance: instanceOf(
+    IDS.ended,
+    endedInput,
+    "ended",
+    null,
+    310,
+    240,
+    endedStartedBy,
+  ),
   last_reports: {
     plan: endedPlan,
     execute: endedRun,
@@ -440,7 +462,10 @@ const ended: WorkflowInstanceDetailView = {
     report: endedReport,
   },
   lines: [
-    ...startLines(IDS.ended, endedInput, 310),
+    ...startLines(IDS.ended, endedInput, 310, {
+      kind: "job",
+      job: endedStartedBy.job,
+    }),
     endedPlan,
     {
       instance: IDS.ended,
@@ -729,6 +754,7 @@ function summaryOf(
     state: instance.state,
     current: instance.current,
     input: instance.input,
+    started_by: instance.started_by,
     created_at: instance.created_at,
     finished_at: instance.finished_at,
     last_line: lines.at(-1) ?? null,

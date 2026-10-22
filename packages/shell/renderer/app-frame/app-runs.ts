@@ -84,7 +84,8 @@ export function useAppRuns(
           return record.target.app === app
             ? [{
               id: record.id,
-              name: record.target.tool,
+              name: record.job?.title ?? record.target.tool,
+              via: record.job === null ? null : record.target.tool,
               profile: null,
               state: record.state,
               at,
@@ -101,7 +102,8 @@ export function useAppRuns(
         if (agent === undefined) return [];
         return [{
           id: record.id,
-          name: agent.name,
+          name: record.job?.title ?? agent.name,
+          via: record.job === null ? null : agent.name,
           profile: agent.profile,
           state: record.state,
           at,

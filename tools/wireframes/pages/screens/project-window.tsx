@@ -280,6 +280,12 @@ const panelSessionOf = (
   };
 };
 
+// job이 연 run의 제목. `mock/agents-data.ts`의 RUNS id로 건다.
+const RUN_JOB_TITLES: Readonly<Record<string, string>> = {
+  "run-1": "Morning digest",
+  "run-5": "Weekly review",
+};
+
 // run이 연 session은 열린 채 run 아래에 묶이고 `sessions`에는 넣지 않는다.
 const PANEL_RUNS: readonly PanelRun[] = RUNS.flatMap((run) => {
   const agent = agentIdOf(run.agent);
@@ -288,6 +294,7 @@ const PANEL_RUNS: readonly PanelRun[] = RUNS.flatMap((run) => {
   return [{
     id: run.id,
     agent,
+    title: RUN_JOB_TITLES[run.id] ?? null,
     state: run.state,
     at: whenMs(run.when),
     session: row === undefined ? null : panelSessionOf(row, true),

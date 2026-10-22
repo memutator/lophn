@@ -128,7 +128,17 @@ export type WorkflowState = "running" | "ended" | "stopped";
 export type WorkflowLineBy =
   | { readonly kind: "user" }
   | { readonly kind: "agent"; readonly session: string }
-  | { readonly kind: "lophn" };
+  | { readonly kind: "lophn" }
+  | { readonly kind: "job"; readonly job: string };
+
+/** instance를 시작한 쪽. job이면 제목을 붙여 온다(지워진 job은 null). */
+export type WorkflowStartedBy =
+  | { readonly kind: "user" }
+  | {
+    readonly kind: "job";
+    readonly job: string;
+    readonly title: string | null;
+  };
 
 /** instance 줄. 줄은 instance 안에서 1부터 이어 센다(seq는 글). */
 export type WorkflowLineView =
@@ -200,7 +210,7 @@ export interface WorkflowInstanceView {
     readonly step: string;
     readonly human_turn: boolean;
   } | null;
-  readonly started_by: WorkflowLineBy;
+  readonly started_by: WorkflowStartedBy;
   readonly created_at: string;
   readonly finished_at: string | null;
 }
@@ -212,6 +222,7 @@ export interface WorkflowInstanceSummaryView {
   readonly state: WorkflowState;
   readonly current: WorkflowInstanceView["current"];
   readonly input: string;
+  readonly started_by: WorkflowStartedBy;
   readonly created_at: string;
   readonly finished_at: string | null;
   readonly last_line: WorkflowLineView | null;

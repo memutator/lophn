@@ -24,6 +24,8 @@ export interface PanelRun {
   readonly id: string;
   /** 받는 agent 줄의 `SidebarAgent.assignment`. */
   readonly agent: string;
+  /** job이 연 run이면 그 job의 제목. */
+  readonly title: string | null;
   readonly state: RunStateView;
   /** 시작한 때(epoch ms, `created_at`). */
   readonly at: number;
@@ -84,7 +86,8 @@ function agentPanelOf(
         const agent = names.get(run.agent);
         return agent === undefined ? [] : [{
           id: run.id,
-          name: agent.name,
+          name: run.title ?? agent.name,
+          via: run.title === null ? null : agent.name,
           profile: agent.profile,
           state: run.state,
           at: run.at,

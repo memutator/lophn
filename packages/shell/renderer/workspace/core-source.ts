@@ -9,6 +9,7 @@ import type {
   LayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { readProjects } from "../desktop/launcher/projects/core-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreDomainActions } from "./domains/core-calls.ts";
@@ -26,6 +27,7 @@ import type {
   WorkflowInstanceSummaryView,
   WorkflowInstanceView,
   WorkflowLineView,
+  WorkflowStartedBy,
   WorkspaceSource,
 } from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
@@ -52,8 +54,11 @@ interface DomainListValue {
   next_cursor: string | null;
 }
 
+/** core가 주는 started_by. 제목은 화면이 `job.list`로 붙인다. */
+type RawStartedBy = { kind: "user" } | { kind: "job"; job: string };
+
 interface RunListValue {
-  runs: RunRecordView[];
+  runs: (Omit<RunRecordView, "job"> & { job: string | null })[];
   next_cursor: string | null;
 }
 
@@ -64,12 +69,16 @@ interface WorkflowListValue {
 }
 
 interface WorkflowInstanceListValue {
-  instances: WorkflowInstanceSummaryView[];
+  instances: (Omit<WorkflowInstanceSummaryView, "started_by"> & {
+    started_by: RawStartedBy;
+  })[];
   next_cursor: string | null;
 }
 
 interface WorkflowReadValue {
-  instance: WorkflowInstanceView;
+  instance: Omit<WorkflowInstanceView, "started_by"> & {
+    started_by: RawStartedBy;
+  };
   last_reports: Record<string, WorkflowLineView>;
   lines: WorkflowLineView[];
   next_cursor: string | null;
@@ -102,6 +111,47 @@ const PAGE_LIMIT = 20;
 const FILE_DOCUMENT_LIMIT = 200;
 
 type Page<T> = { items: T[]; next: string | null };
+
+type JobTitles = ReadonlyMap<string, string>;
+
+// job 제목 표. 제목은 꾸밈이라 읽기에 실패하면 빈 표로 두고 run·instance 읽기는 그대로 간다.
+async function readJobTitles(core: CoreSource): Promise<JobTitles> {
+  const read = await collect<{ id: string; title: string }>(
+    core,
+    jobList.resource,
+    jobList.method,
+    {},
+    (value) => {
+      const page = value as {
+        jobs: { id: string; title: string }[];
+        next_cursor: string | null;
+      };
+      return { items: page.jobs, next: page.next_cursor };
+    },
+  );
+  return new Map(
+    read.ok ? read.value.map((job) => [job.id, job.title] as const) : [],
+  );
+}
+
+// job이 하나도 없으면 `job.list`를 읽지 않는다.
+async function titlesFor(
+  core: CoreSource,
+  jobs: readonly (string | null)[],
+): Promise<JobTitles> {
+  return jobs.some((job) => job !== null)
+    ? await readJobTitles(core)
+    : new Map();
+}
+
+function startedByOf(by: RawStartedBy, titles: JobTitles): WorkflowStartedBy {
+  return by.kind === "user"
+    ? by
+    : { kind: "job", job: by.job, title: titles.get(by.job) ?? null };
+}
+
+const jobOf = (started: RawStartedBy) =>
+  started.kind === "job" ? started.job : null;
 
 async function collect<T>(
   core: CoreSource,
@@ -289,11 +339,24 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         },
       ),
 
-    runs: (filter: RunFilter) =>
-      collect<RunRecordView>(core, "runs", "list", { ...filter }, (value) => {
-        const page = value as RunListValue;
-        return {
-          items: page.runs.map((run) => ({
+    async runs(filter: RunFilter) {
+      const read = await collect<RunListValue["runs"][number]>(
+        core,
+        "runs",
+        "list",
+        { ...filter },
+        (value) => {
+          const page = value as RunListValue;
+          return { items: page.runs, next: page.next_cursor };
+        },
+      );
+      if (!read.ok) return read;
+      const titles = await titlesFor(core, read.value.map((run) => run.job));
+      return {
+        ok: true as const,
+        value: read.value.map((run): RunRecordView => {
+          const title = run.job === null ? undefined : titles.get(run.job);
+          return {
             id: run.id,
             kind: run.kind,
             target: run.target,
@@ -301,10 +364,13 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             session_opened: run.session_opened,
             state: run.state,
             created_at: run.created_at,
-          })),
-          next: page.next_cursor,
-        };
-      }),
+            job: run.job === null || title === undefined
+              ? null
+              : { id: run.job, title },
+          };
+        }),
+      };
+    },
 
     async workflows(id) {
       const reply = await core.call({
@@ -332,30 +398,40 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       };
     },
 
-    workflowInstances: (filter: WorkflowInstanceFilter) =>
-      collect<WorkflowInstanceSummaryView>(
+    async workflowInstances(filter: WorkflowInstanceFilter) {
+      const read = await collect<
+        WorkflowInstanceListValue["instances"][number]
+      >(
         core,
         "workflow_instances",
         "list",
         { ...filter },
         (value) => {
           const page = value as WorkflowInstanceListValue;
-          return {
-            items: page.instances.map((entry) => ({
-              id: entry.id,
-              project: entry.project,
-              workflow: entry.workflow,
-              state: entry.state,
-              current: entry.current,
-              input: entry.input,
-              created_at: entry.created_at,
-              finished_at: entry.finished_at,
-              last_line: entry.last_line,
-            })),
-            next: page.next_cursor,
-          };
+          return { items: page.instances, next: page.next_cursor };
         },
-      ),
+      );
+      if (!read.ok) return read;
+      const titles = await titlesFor(
+        core,
+        read.value.map((entry) => jobOf(entry.started_by)),
+      );
+      return {
+        ok: true as const,
+        value: read.value.map((entry): WorkflowInstanceSummaryView => ({
+          id: entry.id,
+          project: entry.project,
+          workflow: entry.workflow,
+          state: entry.state,
+          current: entry.current,
+          input: entry.input,
+          started_by: startedByOf(entry.started_by, titles),
+          created_at: entry.created_at,
+          finished_at: entry.finished_at,
+          last_line: entry.last_line,
+        })),
+      };
+    },
 
     // 줄은 200개씩이고 오름차순이라 collect(줄만 모으는 꼴)가 맞지 않는다.
     async workflowInstance(instance) {
@@ -377,10 +453,14 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         if (last.next_cursor === null) break;
         cursor = last.next_cursor;
       }
+      const titles = await titlesFor(core, [jobOf(last!.instance.started_by)]);
       return {
         ok: true,
         value: {
-          instance: last!.instance,
+          instance: {
+            ...last!.instance,
+            started_by: startedByOf(last!.instance.started_by, titles),
+          },
           last_reports: last!.last_reports,
           lines,
         },

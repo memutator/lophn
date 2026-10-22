@@ -24,13 +24,17 @@ export interface RunRecordView {
   readonly session_opened: boolean;
   readonly state: RunStateView;
   readonly created_at: string;
+  /** job이 연 run이고 그 job이 아직 있으면 id와 제목. 지워진 job이면 일반 run처럼 null. */
+  readonly job: { readonly id: string; readonly title: string } | null;
 }
 
 /** 목록의 run 한 줄. */
 export interface RunRow {
   readonly id: string;
-  /** agent 이름 또는 tool 이름. */
+  /** 첫 줄. job이 연 run이면 job 제목, 아니면 agent 이름 또는 tool 이름. */
   readonly name: string;
+  /** job이 연 run이면 둘째 줄에 시각 앞으로 가는 agent 이름 또는 tool 이름. */
+  readonly via: string | null;
   /** agent의 avatar. tool run은 null이라 tool 아이콘을 그린다. */
   readonly profile: AvatarProfile | null;
   readonly state: RunStateView;
@@ -95,7 +99,7 @@ function RunMeta({ run }: { run: RunRow }) {
   const when = formatRelativeTime(new Date(run.at), new Date());
   return (
     <span className={styles.sessionMeta}>
-      {when}
+      {run.via === null ? when : `${run.via} · ${when}`}
       {run.state === "failed" || run.state === "cancelled"
         ? (
           <>

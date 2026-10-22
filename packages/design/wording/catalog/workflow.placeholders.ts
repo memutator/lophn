@@ -35,6 +35,10 @@ export type WorkflowPlaceholders = {
   "workflow.label.input": Record<never, never>;
   "workflow.label.instance": Record<never, never>;
   "workflow.label.invalid": Record<never, never>;
+  "workflow.label.job-meta": {
+    title: "string";
+  };
+  "workflow.label.job-meta-untitled": Record<never, never>;
   "workflow.label.kind": Record<never, never>;
   "workflow.label.line-edit-add-step": {
     step: "string";
@@ -76,6 +80,10 @@ export type WorkflowPlaceholders = {
   "workflow.label.role-app-engineer": Record<never, never>;
   "workflow.label.role-harness": Record<never, never>;
   "workflow.label.role-human": Record<never, never>;
+  "workflow.label.role-job": {
+    title: "string";
+  };
+  "workflow.label.role-job-untitled": Record<never, never>;
   "workflow.label.role-lophn": Record<never, never>;
   "workflow.label.role-operator": Record<never, never>;
   "workflow.label.role-project-manager": Record<never, never>;
@@ -87,6 +95,10 @@ export type WorkflowPlaceholders = {
   "workflow.label.started-at": {
     when: "string";
   };
+  "workflow.label.started-by-job": {
+    title: "string";
+  };
+  "workflow.label.started-by-job-untitled": Record<never, never>;
   "workflow.label.state-ended": Record<never, never>;
   "workflow.label.state-human": Record<never, never>;
   "workflow.label.state-running": Record<never, never>;

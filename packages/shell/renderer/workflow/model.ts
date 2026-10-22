@@ -1,5 +1,5 @@
 // workflow 탭이 읽은 값을 화면에 그릴 꼴로 바꾸는 순수 함수와 protocol 값 → wording key 표.
-import { formatRelativeTime, type MessageKey } from "@lophn/wording";
+import { formatRelativeTime, type MessageKey, t } from "@lophn/wording";
 
 import type {
   WorkflowInstanceDetailView,
@@ -16,6 +16,12 @@ export const shownOf = (
   current: WorkflowInstanceView["current"],
 ): Shown =>
   state !== "running" ? state : current?.human_turn ? "human" : "running";
+
+/** job이 한 일의 담당 글. 지워진 job은 제목이 null이다. */
+export const jobWho = (title: string | null): string =>
+  title === null
+    ? t("workflow.label.role-job-untitled")
+    : t("workflow.label.role-job", { title });
 
 export const STATE_KEY: Record<Shown, MessageKey> = {
   running: "workflow.label.state-running",

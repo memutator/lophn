@@ -48,7 +48,7 @@ export function AgentsGroup() {
   );
 }
 
-/** sidebar · Agent의 Background 묶음. run 줄 아래에 그 run이 연 session이 들여 쓰여 있다. `--session`으로 이어 쓴 run은 아래가 비어 있다. */
+/** sidebar · Agent의 Background 묶음. run 줄 아래에 그 run이 연 session이 들여 쓰여 있다. `--session`으로 이어 쓴 run은 아래가 비어 있다. job이 연 run 둘은 이름 자리에 job 제목이 오고 둘째 줄에 agent 이름이 온다. */
 export function AgentsRuns() {
   const tab = documentTab(EXP);
   return (

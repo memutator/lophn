@@ -36,7 +36,7 @@ const ago = (minutes: number) =>
 
 /**
  * 이 앱의 고정 run 기록. App Engineer 둘(running, failed)과 이 앱에 놓인 Operator 하나(done)의 agent run은 session을 열었고,
- * Orders tool run 둘(done, failed)은 session이 없다. 다른 앱의 run이나 lophn run도 섞여 있어 목록이 이 앱 것만 남기는 것을 보인다.
+ * Orders tool run 둘(done, failed)은 session이 없다. Operator의 run 하나와 tool run 하나(done)는 job이 열어 job 제목이 이름 자리에 온다. 다른 앱의 run이나 lophn run도 섞여 있어 목록이 이 앱 것만 남기는 것을 보인다.
  */
 export function fixedRuns(app: string): readonly RunRecordView[] {
   const engineer = { role: "app_engineer", app } as const;
@@ -53,6 +53,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: true,
       state: "running",
       created_at: ago(3),
+      job: null,
     },
     {
       id: "run_operator_done",
@@ -62,6 +63,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: true,
       state: "done",
       created_at: ago(55),
+      job: { id: "job_fakebudgetcheck", title: "Check budget limits" },
     },
     {
       id: "run_tool_done",
@@ -71,6 +73,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: false,
       state: "done",
       created_at: ago(90),
+      job: { id: "job_fakeexport", title: "Export orders nightly" },
     },
     {
       id: "run_engineer_failed",
@@ -80,6 +83,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: true,
       state: "failed",
       created_at: ago(5 * 60),
+      job: null,
     },
     {
       id: "run_tool_failed",
@@ -89,6 +93,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: false,
       state: "failed",
       created_at: ago(26 * 60),
+      job: null,
     },
     {
       id: "run_other_app",
@@ -101,6 +106,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: false,
       state: "done",
       created_at: ago(30),
+      job: null,
     },
     {
       id: "run_lophn",
@@ -110,6 +116,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
       session_opened: false,
       state: "done",
       created_at: ago(20),
+      job: null,
     },
   ];
 }

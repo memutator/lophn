@@ -107,6 +107,13 @@ const workflowInstanceChanged = defineTransientEvent(
   },
 );
 
+// job이나 job run이 바뀐 command가 commit된 뒤 낸다. 대기 목록과 job 화면이 다시 읽으라는 신호다.
+// run과 instance 줄은 지금의 session event와 WorkflowInstanceChanged 때 다시 읽으므로 따로 알리지 않는다.
+const jobChanged = defineTransientEvent("JobChanged", {
+  subject: idSchema("job"),
+  payload: z.strictObject({ job_run: idSchema("jbr").nullable() }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
@@ -115,4 +122,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),
   transientEventEnvelopeSchema(workflowInstanceChanged),
+  transientEventEnvelopeSchema(jobChanged),
 ]);

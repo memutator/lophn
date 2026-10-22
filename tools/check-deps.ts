@@ -72,6 +72,7 @@ const CORE_FEATURES = new Set([
   "domains",
   "runs",
   "workflows",
+  "jobs",
 ]);
 function coreModule(path: string): string | undefined {
   const parts = path.split("/");
@@ -155,6 +156,7 @@ const FEATURE_TOOL_PLACES = [
   "packages/core/apps/agent-tools/",
   "packages/core/domains/agent-tools.ts",
   "packages/core/workflows/agent-tools.ts",
+  "packages/core/jobs/agent-tools.ts",
 ];
 const ROLE_TOOL_DIR = `packages/core/${CORE_ROLES}/tools/`;
 const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;

@@ -33,6 +33,8 @@ const ID_PREFIXES = {
   dom: "Domain",
   run: "Run",
   wfi: "WorkflowInstance",
+  job: "Job",
+  jbr: "JobRun",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

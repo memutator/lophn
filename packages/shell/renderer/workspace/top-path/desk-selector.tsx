@@ -26,6 +26,8 @@ export interface DeskSelectorProps {
   /** options의 key. */
   readonly active: string;
   readonly onSelect: (key: string) => void;
+  /** menu가 열리고 닫힐 때. 열 때 목록을 다시 읽는 데 쓴다. */
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 const pixels = iconPixels("small");
@@ -58,11 +60,12 @@ interface PathMenuProps {
   }[];
   readonly active: string;
   readonly onSelect: (id: string) => void;
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 // project·desk selector가 같이 쓰는 경로 조각: 이름과 chevron 단추 하나, 누르면 목록 menu.
 export function PathMenu(
-  { kind, label, icon, items, active, onSelect }: PathMenuProps,
+  { kind, label, icon, items, active, onSelect, onOpenChange }: PathMenuProps,
 ) {
   const current = items.find((item) => item.id === active) ?? items[0];
   return (
@@ -95,12 +98,15 @@ export function PathMenu(
         ),
       }))}
       onSelect={onSelect}
+      onOpenChange={onOpenChange}
     />
   );
 }
 
 // 상단 바 왼쪽 경로의 자리(desk) 조각. 틀린 선언은 오류 표시가 붙지만 고를 수 있다(선언을 고치는 동안에도 자리는 열 수 있어야 한다).
-export function DeskSelector({ options, active, onSelect }: DeskSelectorProps) {
+export function DeskSelector(
+  { options, active, onSelect, onOpenChange }: DeskSelectorProps,
+) {
   return (
     <PathMenu
       kind="desk"
@@ -113,6 +119,7 @@ export function DeskSelector({ options, active, onSelect }: DeskSelectorProps) {
       }))}
       active={active}
       onSelect={onSelect}
+      onOpenChange={onOpenChange}
     />
   );
 }

@@ -74,6 +74,18 @@ export function devMock(
       ...bench.source,
       // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
       agentsSource: createFakeAgentsSource(),
+      // 목록도 런처 카드의 것이다(보관된 카드는 뺀다).
+      projects: async () => {
+        const cards = await projects.list();
+        return cards.ok
+          ? {
+            ok: true,
+            value: cards.value.filter((item) => !item.archived).map((
+              { id, title },
+            ) => ({ id, title })),
+          }
+          : { ok: false, message: cards.code };
+      },
       project: async (id) => {
         const read = await bench.source.project(id);
         const cards = await projects.list();

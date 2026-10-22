@@ -32,11 +32,6 @@
   overflow: hidden;
 }
 
-/* project·desk selector를 감싸 목록 읽기 이벤트만 받는다. 배치에는 끼지 않는다. */
-.path {
-  display: contents;
-}
-
 .trailing {
   display: flex;
   align-items: center;

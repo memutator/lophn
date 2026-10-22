@@ -1,11 +1,4 @@
-import {
-  type ReactNode,
-  type SyntheticEvent,
-  useEffect,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -562,8 +555,8 @@ export function Workspace(props: WorkspaceProps) {
       if (shownProject.current === mine) setProjectList(result);
     });
   };
-  const readListsFrom = (event: SyntheticEvent<HTMLElement>) => {
-    if (event.currentTarget.contains(event.target as Node)) readLists();
+  const readListsOnOpen = (open: boolean) => {
+    if (open) readLists();
   };
   useEffect(() => {
     setWorkflowList(null);
@@ -1395,40 +1388,35 @@ export function Workspace(props: WorkspaceProps) {
                       {sidebarShown.launcherInTopBar
                         ? <LauncherButton onLauncher={onLauncher} />
                         : null}
-                      {/* selector를 열 때 목록을 다시 읽는다. menu는 portal이라 React event가 올라오므로 DOM 안의 trigger만 본다. */}
-                      <span
-                        className={styles.path}
-                        onPointerDownCapture={readListsFrom}
-                        onKeyDownCapture={readListsFrom}
-                      >
-                        <ProjectSelector
-                          options={projectOptions}
-                          active={projectId}
-                          onSelect={(id) => {
-                            if (id !== projectId) props.onOpenProject?.(id);
-                          }}
-                        />
-                        {deskOptions.length > 1
-                          ? (
-                            <>
-                              <PathSep />
-                              <DeskSelector
-                                options={deskOptions}
-                                active={desks.active}
-                                onSelect={(key) =>
-                                  switchTo(
-                                    key,
-                                    openTabIn(
-                                      emptyView(),
-                                      workflowTab(key),
-                                      () => false,
-                                    ),
-                                  )}
-                              />
-                            </>
-                          )
-                          : null}
-                      </span>
+                      <ProjectSelector
+                        options={projectOptions}
+                        active={projectId}
+                        onSelect={(id) => {
+                          if (id !== projectId) props.onOpenProject?.(id);
+                        }}
+                        onOpenChange={readListsOnOpen}
+                      />
+                      {deskOptions.length > 1
+                        ? (
+                          <>
+                            <PathSep />
+                            <DeskSelector
+                              options={deskOptions}
+                              active={desks.active}
+                              onOpenChange={readListsOnOpen}
+                              onSelect={(key) =>
+                                switchTo(
+                                  key,
+                                  openTabIn(
+                                    emptyView(),
+                                    workflowTab(key),
+                                    () => false,
+                                  ),
+                                )}
+                            />
+                          </>
+                        )
+                        : null}
                       <MinimizedBar
                         items={view.floats.filter((item) => item.minimized)}
                         stripTab={stripTab}

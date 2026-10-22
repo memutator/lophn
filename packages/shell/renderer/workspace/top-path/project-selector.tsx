@@ -16,11 +16,12 @@ export interface ProjectSelectorProps {
   /** 지금 project id. */
   readonly active: string;
   readonly onSelect: (id: string) => void;
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 // 상단 바 왼쪽 경로의 project 조각. 고르면 그 project를 이 창에서 연다.
 export function ProjectSelector(
-  { options, active, onSelect }: ProjectSelectorProps,
+  { options, active, onSelect, onOpenChange }: ProjectSelectorProps,
 ) {
   return (
     <PathMenu
@@ -30,6 +31,7 @@ export function ProjectSelector(
       items={options}
       active={active}
       onSelect={onSelect}
+      onOpenChange={onOpenChange}
     />
   );
 }

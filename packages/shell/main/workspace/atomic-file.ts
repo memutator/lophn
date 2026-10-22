@@ -1,4 +1,4 @@
-// shell main이 json 파일을 원자 교체로 쓰는 하나뿐인 길이다(layout.json, bookmarks.json).
+// shell main이 json 파일을 원자 교체로 쓰는 하나뿐인 길이다(layouts/<prj_id>.json, bookmarks.json).
 // temp 파일 뒤 rename이고, 폴더 0700·파일 0600(Windows는 mode bit가 없어 기본 ACL이
 // 사용자 limit이다)을 유지한다.
 import { chmod, mkdir, open, readFile, rename, unlink } from "node:fs/promises";

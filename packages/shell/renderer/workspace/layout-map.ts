@@ -1,11 +1,13 @@
-// 화면 탭(TabItem)과 layout 파일 탭을 오간다. 파일에 남는 것은 schema 필드뿐이다.
+// 화면 자리(WorkspaceDesks)와 layout 파일(`active_desk`, `desks`)을 오간다. 파일에 남는 것은 schema 필드뿐이다.
 import {
+  DEFAULT_DESK,
   type DetachedItem,
   type FloatItem,
   normalizePane,
   type PaneState,
-  storableView,
+  storableDesks,
   type TabItem,
+  type WorkspaceDesks,
   type WorkspaceView,
 } from "./model.ts";
 import { tabKindOf } from "./kinds/registry.ts";
@@ -100,10 +102,10 @@ function detachedFromStored(value: unknown): DetachedItem | null {
   };
 }
 
-/** 저장된 layout에서 화면이 쓰는 부분만 꺼낸다. 검증은 main이 이미 했다. */
-export function viewFromStored(layout: unknown): WorkspaceView | null {
-  if (typeof layout !== "object" || layout === null) return null;
-  const value = layout as {
+/** 저장된 자리 하나를 view로 바꾼다. 검증은 main이 이미 했다. */
+function viewOfDesk(desk: unknown): WorkspaceView | null {
+  if (typeof desk !== "object" || desk === null) return null;
+  const value = desk as {
     panes?: { tabs?: unknown[]; selected_tab?: string | null }[];
     split_ratio?: number;
     focused_pane?: number;
@@ -144,14 +146,25 @@ export function viewFromStored(layout: unknown): WorkspaceView | null {
   };
 }
 
-/** renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. */
-export function toStoredLayout(input: {
-  project: string;
-  view: WorkspaceView;
-  lastSpace: string;
-}): {
-  project: string;
-  last_space: string;
+/** 저장된 layout의 모든 자리를 꺼낸다. 맞출 수 없는 자리는 빠지고, `DEFAULT_DESK`가 없으면 null이다. */
+export function desksFromStored(layout: unknown): WorkspaceDesks | null {
+  if (typeof layout !== "object" || layout === null) return null;
+  const value = layout as { active_desk?: unknown; desks?: unknown };
+  if (typeof value.desks !== "object" || value.desks === null) return null;
+  const desks: Record<string, WorkspaceView> = {};
+  for (const [key, desk] of Object.entries(value.desks)) {
+    const view = viewOfDesk(desk);
+    if (view !== null) desks[key] = view;
+  }
+  if (desks[DEFAULT_DESK] === undefined) return null;
+  const active = typeof value.active_desk === "string" &&
+      desks[value.active_desk] !== undefined
+    ? value.active_desk
+    : DEFAULT_DESK;
+  return { active, desks };
+}
+
+interface StoredDesk {
   panes: { tabs: Record<string, unknown>[]; selected_tab: string | null }[];
   split_ratio: number;
   focused_pane: number;
@@ -165,8 +178,10 @@ export function toStoredLayout(input: {
     tab: Record<string, unknown>;
     bounds: DetachedItem["bounds"];
   }[];
-} {
-  const view = storableView(input.view);
+}
+
+/** view 하나를 schema 상한 안의 자리로 줄인다. transient 탭은 이미 빠진 view를 받는다. */
+function storedDesk(view: WorkspaceView): StoredDesk {
   const panes = view.panes.slice(0, 2).map((pane) => {
     const tabs = pane.tabs.flatMap((tab) => {
       const stored = toStoredTab(tab);
@@ -199,12 +214,29 @@ export function toStoredLayout(input: {
     return tab === null ? [] : [{ tab, bounds: item.bounds }];
   }).slice(0, 20);
   return {
-    project: input.project,
-    last_space: input.lastSpace,
     panes: kept,
     split_ratio: ratio,
     focused_pane: focused,
     floats,
     detached,
+  };
+}
+
+/** renderer가 main에 보내는 layout. window bounds와 schema 판은 main이 채운다. */
+export function toStoredLayout(input: {
+  project: string;
+  desks: WorkspaceDesks;
+}): {
+  project: string;
+  active_desk: string;
+  desks: Record<string, StoredDesk>;
+} {
+  const desks = storableDesks(input.desks);
+  return {
+    project: input.project,
+    active_desk: desks.active,
+    desks: Object.fromEntries(
+      Object.entries(desks.desks).map(([key, view]) => [key, storedDesk(view)]),
+    ),
   };
 }

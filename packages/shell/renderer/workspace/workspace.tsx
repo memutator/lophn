@@ -17,6 +17,7 @@ import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
 import {
+  activeView,
   allTabs,
   applyDrag,
   attachDetached,
@@ -27,6 +28,7 @@ import {
   type CloseScope,
   closeTab,
   closeTargets,
+  desksFromView,
   detachTab,
   dockTab,
   findTab,
@@ -69,7 +71,7 @@ import { Floats } from "./floats/floats.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
-import { toStoredLayout, viewFromStored } from "./layout-map.ts";
+import { desksFromStored, toStoredLayout } from "./layout-map.ts";
 import {
   PaletteButton,
   useMainCommand,
@@ -314,8 +316,9 @@ export function Workspace(props: WorkspaceProps) {
         failed: !project.ok,
       });
       if (layout.ok && layout.available) {
-        const restored = viewFromStored(layout.layout);
-        if (restored) {
+        const desks = desksFromStored(layout.layout);
+        if (desks) {
+          const restored = activeView(desks);
           setView(restored);
           setFloatFocused(false);
           // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
@@ -365,8 +368,7 @@ export function Workspace(props: WorkspaceProps) {
   const persist = (next: WorkspaceView) => {
     void source.saveLayout(toStoredLayout({
       project: projectId,
-      view: withPositions(next),
-      lastSpace: "project",
+      desks: desksFromView(withPositions(next)),
     }));
   };
   const persistRef = useRef(persist);

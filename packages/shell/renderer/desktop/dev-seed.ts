@@ -5,6 +5,7 @@ import {
   fakeWorkspaceSource,
 } from "../workspace/fake-source.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";
+import { DEFAULT_DESK } from "../workspace/model.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { fakeEditorFiles } from "../editor/fake-source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
@@ -140,22 +141,28 @@ const SEEDED: WorkspaceSource = {
       ok: true,
       available: true,
       layout: {
-        panes: [
-          {
-            tabs: [
-              { key: "doc_notes", kind: "document_editor", title: "notes" },
-              { key: "doc_plan", kind: "document_editor", title: "plan" },
+        active_desk: DEFAULT_DESK,
+        desks: {
+          [DEFAULT_DESK]: {
+            panes: [
+              {
+                tabs: [
+                  { key: "doc_notes", kind: "document_editor", title: "notes" },
+                  { key: "doc_plan", kind: "document_editor", title: "plan" },
+                ],
+                selected_tab: "doc_notes",
+              },
+              {
+                tabs: [{ key: "term_1", kind: "terminal", title: "shell" }],
+                selected_tab: "term_1",
+              },
             ],
-            selected_tab: "doc_notes",
+            split_ratio: 0.5,
+            focused_pane: 0,
+            floats: [],
+            detached: [],
           },
-          {
-            tabs: [{ key: "term_1", kind: "terminal", title: "shell" }],
-            selected_tab: "term_1",
-          },
-        ],
-        split_ratio: 0.5,
-        focused_pane: 0,
-        information_panel: { open: false, tab: "info" },
+        },
       },
     }),
   saveLayout: () => Promise.resolve({ ok: true }),

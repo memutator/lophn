@@ -18,6 +18,7 @@ import {
   openSettings,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
+import { DEFAULT_DESK } from "../../../packages/shell/renderer/workspace/model.ts";
 import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
@@ -175,19 +176,24 @@ function layoutOf(
   floats: readonly FloatSpec[],
 ) {
   return {
-    panes: panes.map((pane) => ({
-      tabs: pane.tabs.map(storedTab),
-      selected_tab: pane.selected,
-    })),
-    split_ratio: 0.5,
-    focused_pane: 0,
-    floats: floats.map((float) => ({
-      tab: storedTab(float.tab),
-      rect: float.rect,
-      minimized: float.minimized ?? false,
-      origin_pane: float.originPane ?? 0,
-    })),
-    information_panel: { open: false, tab: "info" },
+    active_desk: DEFAULT_DESK,
+    desks: {
+      [DEFAULT_DESK]: {
+        panes: panes.map((pane) => ({
+          tabs: pane.tabs.map(storedTab),
+          selected_tab: pane.selected,
+        })),
+        split_ratio: 0.5,
+        focused_pane: 0,
+        floats: floats.map((float) => ({
+          tab: storedTab(float.tab),
+          rect: float.rect,
+          minimized: float.minimized ?? false,
+          origin_pane: float.originPane ?? 0,
+        })),
+        detached: [],
+      },
+    },
   };
 }
 

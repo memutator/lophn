@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py workflow-shell build`가 `tasks/*.md`에서 
 | `ws-model` | model | 1 | 없음 | merged | model/ws-model | aa5c84637 |  |
 | `ws-desk-wireframe` | screen | 1 | 없음 | merged | screen/ws-desk-wireframe | b67eeb9ff | wireframe 승인 대기 |
 | `ws-wire-state` | wire | 2 | ws-model, ws-layout-map, ws-detached-show, ws-desk-wireframe | merged | wire/ws-wire-state | 0c13bfc5d |  |
-| `ws-wire-selector` | wire | 3 | ws-wire-state, ws-desk-wireframe | todo |  |  |  |
+| `ws-wire-selector` | wire | 3 | ws-wire-state, ws-desk-wireframe | merged | wire/ws-wire-selector | 128353e48 |  |

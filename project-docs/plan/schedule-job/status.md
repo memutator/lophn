@@ -17,4 +17,4 @@ lead만 고친다. `tools/status.py schedule-job build`가 `tasks/*.md`에서 id
 | `sj-shell-job-labels` | shell | 3 | sj-jobs-wireframe | merged | shell/sj-shell-job-labels | 16a843f09 |  |
 | `sj-shell-jobs-screen` | shell | 3 | sj-jobs-wireframe | merged | shell/sj-shell-jobs-screen | a975e1723 |  |
 | `sj-jobs-scheduler` | jobs | 4 | sj-jobs-due, sj-runs-job-origin, sj-workflows-job-start | merged | jobs/sj-jobs-scheduler | fafddad9f | 선행이 모두 merged이고 wave 3 화면 task와 소유가 겹치지 않아 wave 3 끝을 기다리지 않고 띄움 |
-| `sj-shell-jobs-sidebar` | shell | 4 | sj-jobs-sidebar-wireframe, sj-shell-jobs-screen, sj-shell-job-labels | todo |  |  |  |
+| `sj-shell-jobs-sidebar` | shell | 4 | sj-jobs-sidebar-wireframe, sj-shell-jobs-screen, sj-shell-job-labels | running | shell/sj-shell-jobs-sidebar |  |  |

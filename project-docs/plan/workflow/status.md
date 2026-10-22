@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-cli` | cli | 2 | wf-contract | merged | cli/wf-cli | 71b8bb989 |  |
 | `wf-kit-graph` | kit | 2 | wf-contract | merged | kit/wf-kit-graph | 6d0f78962 |  |
 | `wf-agent-tools` | roles | 2 | wf-contract | merged | roles/wf-agent-tools | 337b038d1 |  |
-| `wf-role-text` | roles | 2 | wf-contract | running | roles/wf-role-text |  |  |
+| `wf-role-text` | roles | 2 | wf-contract | merged | roles/wf-role-text | 57650425a |  |
 | `wf-write-scope` | roles | 2 | wf-contract | merged | roles/wf-write-scope | 275d9cdb3 |  |
 | `wf-wireframe` | shell | 2 | wf-contract | review | shell/wf-wireframe | 368a8d587 | 사람 승인 대기 |
 | `wf-decl-reader` | workflows | 2 | wf-contract | merged | workflows/wf-decl-reader | 4b2169127 |  |

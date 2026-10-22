@@ -47,10 +47,12 @@ roadmap을 따른다. 아래는 이 계획에 걸려 agent가 정한 것이다(2
   - 파일 경로 breadcrumb(`project / notes.md`)을 project 창 상단 바에서 뺀다. selector는 가운데가 아니라 그 자리(왼쪽)에 둔다. 근거(사람): minimized span 단추들이 자리를 써야 한다.
   - project 쪽도 menu다. 고르면 그 project를 이 창에서 연다(launcher의 project card와 같은 route). project 창이 `projects.list`를 읽는다.
   - workflow가 없는 project는 `project ▾`만 보인다.
+  - 사람이 고친 wireframe을 승인했다(2026-10-22). 기본 desk 이름 "Main", 틀린 선언은 ⚠ 표시를 붙이고 고를 수 있음, 즉시 전환, 목록 읽기 실패는 따로 알리지 않음. project menu는 active project 목록만이다.
+  - sidebar 머리의 project 이름과 상단 바 `project ▾`가 겹쳐 보이는 것은 이 계획에서 그대로 둔다(사람). sidebar 머리는 계획 `workflow`가 sidebar를 activity bar로 바꿀 때 정한다.
 
 ## 사람이 정할 것
 
-- title bar selector와 desk 바꾸기의 wireframe을 본다. 사람이 보기 전에는 renderer task가 돌지 않는다.
+- ~~title bar selector와 desk 바꾸기의 wireframe을 본다.~~ 승인했다(2026-10-22, "정한 것").
 
 ## 순서
 

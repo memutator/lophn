@@ -80,6 +80,8 @@ title bar 왼쪽에 승인된 `ProjectSelector / DeskSelector` 경로를 달고(
   - `packages/shell/renderer/workspace/source.ts`, `core-source.ts`, `fake-source.ts`: project 목록 읽기를 더한다.
   - `packages/shell/renderer/desktop/main.tsx`: `Workspace`에 project를 여는 callback 한 줄.
   - `tools/wireframes/pages/screens/project-app.tsx`, `tools/wireframes/pages/screens/project-window.tsx`: 상단 바를 직접 그리는 gallery page라서 `Breadcrumbs`를 새 왼쪽 경로로 바꾼다(project 창 모양이 gallery 기준과 어긋나지 않게).
+  - `packages/shell/renderer/workspace/workspace.module.css`의 `.leading`: 약 440px보다 좁으면 왼쪽 경로가 bar 밖으로 넘친다(ws-desk-wireframe 보고). 넘치지 않게 한다.
+- 승인된 모양의 조각: `desk-selector.tsx`의 `PathSep`(`/`)과 `PathMenu`(두 selector가 같이 쓰는 trigger·menu), 본보기는 gallery `tools/wireframes/pages/screens/project-desk/frame.tsx`의 `PathLeading`이다. `DeskSelector`는 options가 둘 이상(기본 desk 말고 하나라도 있을 때)일 때만 `PathSep`과 같이 그린다.
 - 할 일
   1. `workspace.tsx` 상단 바 왼쪽 순서: (sidebar 접힘이면) `LauncherButton` → `ProjectSelector` → `/` → `DeskSelector`(workflow 목록에 항목이 있거나 layout에 workflow 자리가 있을 때) → `MinimizedBar`. `Breadcrumbs`와 `crumbs`를 지운다. `TopBar`에는 `center`가 없다.
   2. `WorkspaceSource`에 `projects(): Promise<ReadResult<readonly { id: string; title: string }[]>>`를 더한다. core는 `projects.list`(active)다. launcher의 `readProjects`(`desktop/launcher/projects/core-source.ts`)를 import할 수 있으면 그것을 쓰고 사본을 만들지 않는다. fake는 project 셋 이상을 준다.

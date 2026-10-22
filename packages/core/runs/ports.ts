@@ -4,6 +4,7 @@ import type { ToolCallOutput } from "../../protocol/apps/calls/call.ts";
 import type {
   AgentRef,
   NamedAgent,
+  Place,
   TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { RunPlace, RunRecord } from "../../protocol/runs/mod.ts";
@@ -12,6 +13,15 @@ import type { Input } from "../../protocol/server/mod.ts";
 
 // Operator의 place는 AgentRef에 없다. 이름을 푸는 쪽(wiring)이 place를 같이 준다.
 export type ResolvedAgent = { agent: AgentRef; place: RunPlace | null };
+
+// job이 run을 열 때 붙이는 출처다. 메모리에만 있고 route 입력이 아니다.
+// creator는 job을 만든 agent, creator_place는 그 place다(run의 place가 아니다).
+export type RunOrigin = {
+  job: Id<"job">;
+  job_run: Id<"jbr">;
+  creator: AgentRef;
+  creator_place: Place | null;
+};
 
 export type TurnOfMessage = {
   turn: Id<"trn">;
@@ -50,6 +60,7 @@ export type RunTools = {
     app: Id<"app">,
     tool: string,
     input: JsonValue | undefined,
+    origin?: RunOrigin,
   ): Promise<Result<ToolCallOutput>>;
 };
 

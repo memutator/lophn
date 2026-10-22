@@ -39,6 +39,7 @@ function runFromRow(row: Record<string, unknown>): Result<RunRecord> {
     turn: row.turn,
     invocation: row.invocation,
     schema: row.schema === null ? null : JSON.parse(String(row.schema)),
+    job: row.job,
     state: row.state,
     result: row.result === null ? null : JSON.parse(String(row.result)),
     error: row.error_reason === null
@@ -78,15 +79,16 @@ export function insertRun(
     session_opened: boolean;
     input_message: string | null;
     schema: unknown;
+    job: string | null;
     created_at: string;
   },
 ): void {
   const agent = (run.target as { agent?: AgentRef }).agent;
   sql.run(
     `INSERT INTO runs
-      (id, kind, target, session, session_opened, input_message, schema, state,
+      (id, kind, target, session, session_opened, input_message, schema, job, state,
        created_at, state_seq, agent_key, place_key)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?)`,
     [
       run.id,
       run.kind,
@@ -95,6 +97,7 @@ export function insertRun(
       run.session_opened ? 1 : 0,
       run.input_message,
       run.schema === null ? null : JSON.stringify(run.schema),
+      run.job,
       run.created_at,
       nextStateSeq(sql),
       agent === undefined ? null : agentKeyOf(agent),

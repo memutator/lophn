@@ -10,6 +10,7 @@ const list = (values: readonly string[]) =>
 
 // run 한 행. 다른 module의 표(session, message, turn)는 물리 FK 없이 id만 적는다.
 // - agent_key·place_key는 ListRuns 거르기용이다. 만들 때 정하고 바뀌지 않는다.
+// - job은 그 run을 연 job의 id다. FK가 없어 job을 지워도 남는다.
 // - result는 JSON 글이다. JSON null과 SQL NULL은 읽을 때 둘 다 null이다.
 // - state_seq는 이 표 안에서 이어 센다(기록 event를 남기지 않는다).
 // - 끝난 행은 다시 바뀌지 않는다.
@@ -26,6 +27,7 @@ export const runsSchemaSteps: readonly SchemaStep[] = [{
       turn TEXT,
       invocation TEXT,
       schema TEXT CHECK (schema IS NULL OR json_valid(schema)),
+      job TEXT,
       state TEXT NOT NULL CHECK (state IN (${list(RUN_STATES)})),
       result TEXT CHECK (result IS NULL OR json_valid(result)),
       error_reason TEXT CHECK (

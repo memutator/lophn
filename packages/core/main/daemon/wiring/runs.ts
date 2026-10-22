@@ -36,7 +36,11 @@ import {
   placeDepsOf,
 } from "../../../lophn-agent/places/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import { createRunService, systemTimers } from "../../../runs/mod.ts";
+import {
+  createRunService,
+  type RunOrigin,
+  systemTimers,
+} from "../../../runs/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -287,13 +291,39 @@ export const runsWiring: WiringFactory = () => {
           app: Id<"app">,
           tool: string,
           input: Parameters<typeof ctx.appCallPath.call>[0]["input"],
-        ) =>
-          ctx.appCallPath.call({
+          origin?: RunOrigin,
+        ) => {
+          const call = {
             target: { mode: "live", app, release: null },
             tool,
             ...(input === undefined ? {} : { input }),
-            caller: { kind: "person", view_session: run },
-          }, { actor: "user" }),
+          } as const;
+          // job이 연 run은 program caller로 부른다. 자격의 agent·place는 job을 만든 쪽이다.
+          return origin === undefined
+            ? ctx.appCallPath.call(
+              { ...call, caller: { kind: "person", view_session: run } },
+              { actor: "user" },
+            )
+            : ctx.appCallPath.call(
+              {
+                ...call,
+                caller: {
+                  kind: "program",
+                  job: origin.job,
+                  job_run: origin.job_run,
+                },
+              },
+              {
+                actor: "program",
+                program: {
+                  job: origin.job,
+                  job_run: origin.job_run,
+                  agent: origin.creator,
+                  place: origin.creator_place,
+                },
+              },
+            );
+        },
       };
 
       const store = {
@@ -343,6 +373,7 @@ export const runsWiring: WiringFactory = () => {
         timers: systemTimers,
       });
       service = built;
+      ctx.provide("runService", built);
       const handler = (
         call: (input: never) => Promise<Result<RunRecord>>,
       ): MemoryHandler =>

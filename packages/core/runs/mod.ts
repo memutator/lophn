@@ -3,6 +3,7 @@ export { readAnswer, runMessageText } from "./text.ts";
 export {
   type ResolvedAgent,
   type RunAgents,
+  type RunOrigin,
   type RunStore,
   type RunTools,
   systemTimers,

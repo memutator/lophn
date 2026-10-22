@@ -82,6 +82,7 @@ export const runRecordSchema = z.object({
     reason: z.enum(RUN_FAIL_REASONS),
     message: z.string(),
   }).nullable(), // failed만
+  job: idSchema("job").nullable(), // job이 연 run만 값이 있다
   created_at: atSchema,
   finished_at: atSchema.nullable(), // running이 아니면 있다
   state_seq: seqSchema,
@@ -242,6 +243,7 @@ export const runCreate = defineCommand({
     session_opened: z.boolean(),
     input_message: idSchema("msg").nullable(),
     schema: outputSchemaSchema.nullable(),
+    job: idSchema("job").nullable(),
   }).refine(kindFits, KIND_MESSAGE).refine(
     (v) => placeFits(v.target, v.place),
     { message: "run place does not fit its target" },

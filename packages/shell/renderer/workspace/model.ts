@@ -789,6 +789,239 @@ export function storableView(view: WorkspaceView): WorkspaceView {
   });
 }
 
+// 자리(desk) 층. 아래 함수는 위의 WorkspaceView 함수를 부르기만 한다.
+
+/** slug가 될 수 없는 값이다(`_`로 시작). workflow 이름과 겹치지 않는다. */
+export const DEFAULT_DESK = "_default";
+
+// main/workspace/schema.ts의 상한과 같다. 넘기면 schema가 저장을 통째로 거절한다.
+const DESK_FLOATS_MAX = 20;
+const DESK_DETACHED_MAX = 20;
+
+export interface WorkspaceDesks {
+  /** 지금 보이는 자리의 key. `desks`에 늘 있다. */
+  readonly active: string;
+  /**
+   * 자리 key → 그 자리의 WorkspaceView. `DEFAULT_DESK`는 늘 있고 합쳐서 지워지지 않는다.
+   * 나머지 key는 그 project 안의 workflow 이름(slug)이다.
+   */
+  readonly desks: Readonly<Record<string, WorkspaceView>>;
+}
+
+export function emptyView(): WorkspaceView {
+  return {
+    panes: [{ tabs: [], selected: null }],
+    splitRatio: SPLIT_EQUAL,
+    focusedPane: 0,
+    floats: [],
+    detached: [],
+  };
+}
+
+export function desksFromView(view: WorkspaceView): WorkspaceDesks {
+  return { active: DEFAULT_DESK, desks: { [DEFAULT_DESK]: view } };
+}
+
+export function activeView(desks: WorkspaceDesks): WorkspaceView {
+  return desks.desks[desks.active]!;
+}
+
+/** `key` 자리의 view만 바꾼다. 없는 자리거나 같은 view면 같은 참조다. */
+export function setDeskView(
+  desks: WorkspaceDesks,
+  key: string,
+  view: WorkspaceView,
+): WorkspaceDesks {
+  if (!Object.hasOwn(desks.desks, key) || desks.desks[key] === view) {
+    return desks;
+  }
+  return { ...desks, desks: { ...desks.desks, [key]: view } };
+}
+
+/** 보이는 자리의 view만 바꾼다. */
+export function setActiveView(
+  desks: WorkspaceDesks,
+  view: WorkspaceView,
+): WorkspaceDesks {
+  return setDeskView(desks, desks.active, view);
+}
+
+/** 그 key의 탭이 있는 자리. 보이는 자리를 먼저 본다. */
+export function deskOfTab(
+  desks: WorkspaceDesks,
+  key: string,
+): string | undefined {
+  if (findTab(activeView(desks), key) !== undefined) return desks.active;
+  return Object.entries(desks.desks).find(([, view]) =>
+    findTab(view, key) !== undefined
+  )?.[0];
+}
+
+/** 자리를 건너 모든 탭. */
+export function allDeskTabs(desks: WorkspaceDesks): TabItem[] {
+  return Object.values(desks.desks).flatMap(allTabs);
+}
+
+// 자리마다 change를 적용한다. 바뀐 자리가 없으면 desks 그대로다.
+function mapDesks(
+  desks: WorkspaceDesks,
+  change: (view: WorkspaceView) => WorkspaceView,
+): WorkspaceDesks {
+  let changed = false;
+  const next: Record<string, WorkspaceView> = {};
+  for (const [key, view] of Object.entries(desks.desks)) {
+    next[key] = change(view);
+    if (next[key] !== view) changed = true;
+  }
+  return changed ? { ...desks, desks: next } : desks;
+}
+
+export function mapDeskTabs(
+  desks: WorkspaceDesks,
+  change: (tab: TabItem) => TabItem,
+): WorkspaceDesks {
+  return mapDesks(desks, (view) => mapTabs(view, change));
+}
+
+export function storableDesks(desks: WorkspaceDesks): WorkspaceDesks {
+  return mapDesks(desks, storableView);
+}
+
+// view에서 drop에 든 key의 탭을 뺀다. 빈 칸 정리와 선택 옮기기는 기존 닫기 함수가 한다.
+function withoutKeys(
+  view: WorkspaceView,
+  drop: ReadonlySet<string>,
+): WorkspaceView {
+  let next = view;
+  for (const { key } of allTabs(view)) {
+    if (!drop.has(key)) continue;
+    next = isDetached(next, key)
+      ? closeDetached(next, key)
+      : isFloated(next, key)
+      ? closeFloat(next, key)
+      : closeTab(next, holderOf(next, key), key);
+  }
+  return next;
+}
+
+/**
+ * 자리를 바꾼다. 있는 자리면 `active`만 바꾸고, 없는 자리면 `seed`로 만든다. 새 자리에서는 다른
+ * 자리에 이미 있는 탭을 뺀다(탭 하나는 자리를 건너서도 한 곳에만 있다).
+ */
+export function switchDesk(
+  desks: WorkspaceDesks,
+  key: string,
+  seed: WorkspaceView,
+): WorkspaceDesks {
+  if (key === desks.active) return desks;
+  if (Object.hasOwn(desks.desks, key)) return { ...desks, active: key };
+  const taken = new Set(allDeskTabs(desks).map((tab) => tab.key));
+  return {
+    active: key,
+    desks: { ...desks.desks, [key]: withoutKeys(seed, taken) },
+  };
+}
+
+/** openTabIn의 자리 층 판. 탭이 다른 자리에 있으면 그 자리로 가서 연다. */
+export function openAcrossDesks(
+  desks: WorkspaceDesks,
+  tab: TabItem,
+  isUnsaved: (key: string) => boolean,
+  after?: string,
+): WorkspaceDesks {
+  const at = deskOfTab(desks, tab.key);
+  const next = at === undefined || at === desks.active
+    ? desks
+    : { ...desks, active: at };
+  return setActiveView(
+    next,
+    openTabIn(activeView(next), tab, isUnsaved, after),
+  );
+}
+
+/** `DEFAULT_DESK`가 아니고 `liveKeys`에 없는 자리 key. */
+export function vanishedDesks(
+  desks: WorkspaceDesks,
+  liveKeys: readonly string[],
+): string[] {
+  return Object.keys(desks.desks).filter((key) =>
+    key !== DEFAULT_DESK && !liveKeys.includes(key)
+  );
+}
+
+/**
+ * `key` 자리의 탭을 `DEFAULT_DESK`로 옮기고 그 자리를 지운다. docked는 focus 칸 끝, floated는
+ * floats 끝, detached는 detached 끝이다. floats·detached 상한을 넘는 탭은 docked로 간다.
+ * 옮긴 docked 탭의 preview는 푼다. 이미 같은 key가 있으면 옮기지 않는다.
+ */
+export function mergeDeskIntoDefault(
+  desks: WorkspaceDesks,
+  key: string,
+): WorkspaceDesks {
+  const gone = desks.desks[key];
+  if (key === DEFAULT_DESK || gone === undefined) return desks;
+  let base = desks.desks[DEFAULT_DESK]!;
+  const taken = new Set(allTabs(base).map((tab) => tab.key));
+  const dock = (tab: TabItem) => {
+    const focus = base.focusedPane;
+    base = {
+      ...base,
+      panes: base.panes.map((pane, index) =>
+        index === focus
+          ? normalizePane({
+            tabs: [...pane.tabs, { ...tab, preview: false }],
+            selected: pane.selected,
+          })
+          : pane
+      ),
+    };
+  };
+  const fresh = (tab: TabItem) => {
+    if (taken.has(tab.key)) return false;
+    taken.add(tab.key);
+    return true;
+  };
+  for (const tab of gone.panes.flatMap((pane) => pane.tabs)) {
+    if (fresh(tab)) dock(tab);
+  }
+  for (const float of gone.floats) {
+    if (!fresh(float.tab)) continue;
+    if (base.floats.length >= DESK_FLOATS_MAX) {
+      dock(float.tab);
+      continue;
+    }
+    base = {
+      ...base,
+      floats: [...base.floats, {
+        ...float,
+        tab: { ...float.tab, preview: false },
+        originPane: Math.min(float.originPane, base.panes.length - 1),
+      }],
+    };
+  }
+  for (const item of gone.detached) {
+    if (!fresh(item.tab)) continue;
+    if (base.detached.length >= DESK_DETACHED_MAX) {
+      dock(item.tab);
+      continue;
+    }
+    base = {
+      ...base,
+      detached: [...base.detached, {
+        ...item,
+        tab: { ...item.tab, preview: false },
+      }],
+    };
+  }
+  const rest = Object.fromEntries(
+    Object.entries(desks.desks).filter(([name]) => name !== key),
+  );
+  return {
+    active: desks.active === key ? DEFAULT_DESK : desks.active,
+    desks: { ...rest, [DEFAULT_DESK]: base },
+  };
+}
+
 interface SplitLayout {
   /** 화면에 그릴 칸 수. 폭이 부족하면 1이다. */
   readonly visiblePanes: 1 | 2;

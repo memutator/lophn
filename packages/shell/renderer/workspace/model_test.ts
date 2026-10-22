@@ -1,20 +1,27 @@
 import { assertEquals } from "@std/assert";
 
 import {
+  activeView,
+  allDeskTabs,
   allTabs,
   attachDetached,
   closeDetached,
   closeFloat,
   closeTab,
   closeTargets,
+  DEFAULT_DESK,
+  deskOfTab,
   detachTab,
   dockTab,
+  emptyView,
   findTab,
   floatTab,
   isDetached,
+  mergeDeskIntoDefault,
   minimizeFloat,
   moveTab,
   moveTabBy,
+  openAcrossDesks,
   openDetachedTab,
   openFloat,
   openTabIn,
@@ -22,8 +29,11 @@ import {
   raiseFloat,
   reopenTab,
   restoreFloat,
+  setActiveView,
   storableView,
+  switchDesk,
   type TabItem,
+  type WorkspaceDesks,
   type WorkspaceView,
 } from "./model.ts";
 
@@ -336,4 +346,226 @@ Deno.test("transient 탭은 저장할 view에 없다", () => {
     allTabs(storableView(docked)).map((t) => t.key).includes("t3"),
     true,
   );
+});
+
+Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 합쳐도 모든 자리의 탭이 사라지거나 둘이 되지 않고 맞는 자리에 있다", () => {
+  const area = { width: 1000, height: 700 };
+  const bounds = { x: 100, y: 80, width: 800, height: 600 };
+  const rect = { x: 5, y: 6, width: 400, height: 300 };
+  const float = (key: string, minimized = false) => ({
+    tab: tab(key),
+    rect,
+    minimized,
+    originPane: 0,
+  });
+  const fillers = Array.from({ length: 17 }, (_, i) => float(`x${i}`));
+  const view = (
+    panes: PaneState[],
+    floats: WorkspaceView["floats"] = [],
+    detached: WorkspaceView["detached"] = [],
+  ): WorkspaceView => ({
+    panes,
+    splitRatio: 0.5,
+    focusedPane: 0,
+    floats,
+    detached,
+  });
+  // DEFAULT_DESK는 합칠 때 floats가 19개가 되게 채워 둔다(d1을 floated로 만들면 19).
+  const start: WorkspaceDesks = {
+    active: DEFAULT_DESK,
+    desks: {
+      [DEFAULT_DESK]: view(
+        [
+          { tabs: [tab("d1"), tab("d2")], selected: "d1" },
+          { tabs: [tab("d3")], selected: "d3" },
+        ],
+        [...fillers, float("df")],
+        [{ tab: tab("dd"), bounds }],
+      ),
+      alpha: view(
+        [{ tabs: [tab("a1", true), tab("a2")], selected: "a1" }],
+        [float("af", true), float("af2", true)],
+      ),
+      beta: view([{ tabs: [], selected: null }], [], [{
+        tab: tab("bd"),
+        bounds,
+      }]),
+    },
+  };
+  const known = new Set(allDeskTabs(start).map((t) => t.key));
+  const placeOf = (d: WorkspaceDesks, key: string) => {
+    const at = deskOfTab(d, key);
+    if (at === undefined) return undefined;
+    const v = d.desks[at]!;
+    const place = v.panes.some((p) => p.tabs.some((t) => t.key === key))
+      ? "pane"
+      : v.floats.some((f) => f.tab.key === key)
+      ? "float"
+      : "detached";
+    return `${at}/${place}`;
+  };
+  const onActive =
+    (fn: (v: WorkspaceView) => WorkspaceView) => (d: WorkspaceDesks) =>
+      setActiveView(d, fn(activeView(d)));
+  const seed = view(
+    [
+      { tabs: [tab("a1"), tab("g1"), tab("d3")], selected: "a1" },
+    ],
+    [float("df")],
+    [{ tab: tab("bd"), bounds }],
+  );
+  // 이름, 함수, 이 step이 새로 여는 key, step 뒤 [key, "자리/위치"]들, step 뒤 active.
+  const steps: [
+    string,
+    (d: WorkspaceDesks) => WorkspaceDesks,
+    string?,
+    [string, string][]?,
+    string?,
+  ][] = [
+    ["float d1", onActive((v) => floatTab(v, "d1", area)), , [[
+      "d1",
+      `${DEFAULT_DESK}/float`,
+    ]]],
+    ["detach d2", onActive((v) => detachTab(v, "d2", bounds)), , [[
+      "d2",
+      `${DEFAULT_DESK}/detached`,
+    ]]],
+    [
+      "있는 자리로 (seed는 무시)",
+      (d) => switchDesk(d, "alpha", seed),
+      ,
+      [],
+      "alpha",
+    ],
+    [
+      "없는 자리로 (다른 자리에 있는 탭은 빠진다)",
+      (d) => switchDesk(d, "gamma", seed),
+      "g1",
+      [["g1", "gamma/pane"], ["a1", "alpha/pane"], [
+        "d3",
+        `${DEFAULT_DESK}/pane`,
+      ], [
+        "bd",
+        "beta/detached",
+      ]],
+      "gamma",
+    ],
+    [
+      "다른 자리의 docked 열기",
+      (d) => openAcrossDesks(d, tab("a2"), () => false),
+      ,
+      [["a2", "alpha/pane"]],
+      "alpha",
+    ],
+    [
+      "다른 자리의 detached 열기",
+      (d) => openAcrossDesks(d, tab("bd"), () => false),
+      ,
+      [["bd", "beta/detached"]],
+      "beta",
+    ],
+    [
+      "다른 자리의 minimized floated 열기",
+      (d) => openAcrossDesks(d, tab("af"), () => false),
+      ,
+      [["af", "alpha/float"]],
+      "alpha",
+    ],
+    [
+      "어느 자리에도 없는 탭 열기",
+      (d) => openAcrossDesks(d, tab("n1"), () => false),
+      "n1",
+      [["n1", "alpha/pane"]],
+      "alpha",
+    ],
+    [
+      "default의 docked 열기",
+      (d) => openAcrossDesks(d, tab("d3"), () => false),
+      ,
+      [],
+      DEFAULT_DESK,
+    ],
+    [
+      "DEFAULT_DESK 합치기는 그대로",
+      (d) => mergeDeskIntoDefault(d, DEFAULT_DESK),
+      ,
+      [],
+      DEFAULT_DESK,
+    ],
+    [
+      "없는 자리 합치기는 그대로",
+      (d) => mergeDeskIntoDefault(d, "zzz"),
+      ,
+      [],
+      DEFAULT_DESK,
+    ],
+    [
+      "보이지 않는 자리 합치기",
+      (d) => mergeDeskIntoDefault(d, "gamma"),
+      ,
+      [["g1", `${DEFAULT_DESK}/pane`]],
+      DEFAULT_DESK,
+    ],
+    ["alpha로", (d) => switchDesk(d, "alpha", emptyView()), , [], "alpha"],
+    [
+      "보이는 자리 합치기 (floats 상한을 넘는 탭은 docked)",
+      (d) => mergeDeskIntoDefault(d, "alpha"),
+      ,
+      [
+        ["af2", `${DEFAULT_DESK}/float`],
+        ["af", `${DEFAULT_DESK}/pane`],
+        ["a1", `${DEFAULT_DESK}/pane`],
+        ["a2", `${DEFAULT_DESK}/pane`],
+        ["n1", `${DEFAULT_DESK}/pane`],
+      ],
+      DEFAULT_DESK,
+    ],
+    [
+      "detached만 있는 자리 합치기",
+      (d) => mergeDeskIntoDefault(d, "beta"),
+      ,
+      [["bd", `${DEFAULT_DESK}/detached`]],
+      DEFAULT_DESK,
+    ],
+  ];
+  let desks = start;
+  for (const [name, run, open, at, active] of steps) {
+    desks = run(desks);
+    for (const [key, place] of at ?? []) {
+      assertEquals(placeOf(desks, key), place, name);
+    }
+    if (active !== undefined) assertEquals(desks.active, active, name);
+    assertEquals(Object.hasOwn(desks.desks, desks.active), true, name);
+    assertEquals(Object.hasOwn(desks.desks, DEFAULT_DESK), true, name);
+    if (open !== undefined) known.add(open);
+    const keys = allDeskTabs(desks).map((t) => t.key);
+    assertEquals([...keys].sort(), [...known].sort(), name);
+    assertEquals(new Set(keys).size, keys.length, name);
+    for (const v of Object.values(desks.desks)) {
+      for (const pane of v.panes) {
+        assertEquals(
+          pane.tabs.length === 0 ||
+            pane.tabs.some((t) => t.key === pane.selected),
+          true,
+          name,
+        );
+      }
+    }
+    if (name.startsWith("다른 자리의 minimized")) {
+      assertEquals(activeView(desks).floats.at(-1)!.tab.key, "af", name);
+      assertEquals(activeView(desks).floats.at(-1)!.minimized, false, name);
+    }
+    if (name.startsWith("보이는 자리 합치기")) {
+      assertEquals(Object.keys(desks.desks), [DEFAULT_DESK, "beta"], name);
+      const merged = desks.desks[DEFAULT_DESK]!;
+      const af2 = merged.floats.find((f) => f.tab.key === "af2")!;
+      assertEquals([af2.rect, af2.minimized], [rect, true], name);
+      assertEquals(
+        merged.panes.flatMap((p) => p.tabs).some((t) => t.preview === true),
+        false,
+        name,
+      );
+    }
+  }
+  assertEquals(Object.keys(desks.desks), [DEFAULT_DESK]);
 });

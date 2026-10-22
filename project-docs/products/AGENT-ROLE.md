@@ -75,7 +75,7 @@ A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source
 
 ### Project Manager
 
-C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경계를 넘는 일이다. 앱의 일(예전 C10~C23)은 App Engineer가 맡는다.
+C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경계를 넘는 일, workflow 정의(C29)다. 앱의 일(예전 C10~C23)은 App Engineer가 맡는다.
 
 - C1. 사람이나 agent가 kind를 청하거나 domain에 kind가 아직 없으면, Project Manager가 그 domain의 kind 파일(`kinds.yaml`)을 쓰거나 고친다.
 - C2. kind를 나누거나 합칠 때, Project Manager는 kind 사이 참조가 최소가 되게 경계를 긋는다.

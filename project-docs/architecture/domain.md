@@ -40,7 +40,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
      지침   전역 → LOPHN.md(project 그릇만) → DOMAIN.md(맡은 domain을 이름순으로) → agent 본문
      place  Domains 절(이름, 제목, 목적, 폴더), domain별 kind 글, domain별 artifact 목록
      tool   할당된 앱 가운데 맡은 domain의 tool 전부 + 다른 domain의 public tool   (이름 domain__<domain>__<tool>)
-     file   PM: project 폴더 + domain 폴더 / App Engineer: 앱 source + domain 폴더
+     file   PM: project 폴더 + domain 폴더 + project의 workflows/ / App Engineer: 앱 source + domain 폴더
             Operator: 그릇 폴더(앱 source는 읽기만) + 고른 domain의 artifacts/
 
  domain 사이

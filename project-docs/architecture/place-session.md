@@ -28,7 +28,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 
 - role과 place는 session을 열 때 정해지고 바뀌지 않는다. role에 맞지 않는 place, 없거나 보관된 place에는 열지 않는다.
   - agent 정의, 할당, 지침, file 범위가 모두 role+place에서 나온다. 열린 session의 role이나 place를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
-- session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call의 새 session과 program 알림(맡긴 coding session의 끝, `open_session_or_new`)으로 연다.
+- session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(맡긴 coding session의 끝, `open_session_or_new`)으로 연다.
   - 열 때의 검사(role과 place, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
 - role은 넷이다. lophn은 전체에 하나, Project Manager는 project마다 하나, App Engineer는 앱마다 하나, Operator는 사람이 project나 앱에 만든 만큼이다. 앞의 셋은 더하거나 지우지 않고 Operator만 사람이 만들고 지운다.
   - place는 project 또는 app이다(`Place`). 앱은 project에 묶이지 않고 앱마다 app place가 있다. 앱의 일은 그 앱의 App Engineer가 맡는다. coding agent는 lophn 밖의 제품이고 coding session의 place는 그 앱이다.
@@ -39,26 +39,26 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
 - archive와 지움은 모든 영향을 한 tx에 묶는다. 일부만 적용된 끝이 없어야 한다. 보낸 call의 답은 취소하지 않는다(받은 session에만 남는다).
   - 도는 turn은 interrupted(`session_ended`)로 닫고 진행한다. agent runtime child에도 `turn_stop`을 보내 진행 중인 model 요청을 끊는다. 끝나는 session이 받은 call은 receiver_ended로 닫혀 보낸 쪽이 안다.
-- place를 보관하면 그 place의 session은 open인 채 남지만 새 입력(사람 메시지, call, reaction)을 받지 않고, Router에는 closed로 보인다. 다시 꺼내면 이어서 받는다.
+- place를 보관하면 그 place의 session은 open인 채 남지만 새 입력(사람 메시지, call, step, reaction)을 받지 않고, Router에는 closed로 보인다. 다시 꺼내면 이어서 받는다.
   - 보관은 되돌릴 수 있는 일이라 session을 끝내면 안 된다.
-- lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
+- lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. 입력함에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
   - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 place의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
 - agent runtime child가 죽거나 바뀌면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다. project 폴더, provider, MCP, skill이 바뀌어 child를 바꿀 때는 도는 turn이 끝날 때까지 미룬다.
 - fork는 이력만 복사한다. 같은 role, place, agent의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
   - skip도 가져가지 않는다. 새 session은 Operator 정의의 기본값(Operator가 아니면 꺼짐)으로 시작한다.
-- checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다.
+- checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답, step)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다.
   - Claude Code checkpointing도 turn 중 보낸 메시지는 checkpoint로 치지 않는다.
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 범위는 place가 정한다: Project Manager는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 domain 폴더(`<data>/domains/<dom>/`)를 읽고 쓴다. App Engineer는 앱 source 폴더와 그 앱의 domain 폴더를 읽고 쓴다. Operator는 그릇 폴더(project의 폴더들, 앱 source)를 읽고, 고른 domain의 `artifacts/`를 쓴다. 앱 place의 Operator는 앱 source를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
+- file tool의 범위는 place가 정한다: Project Manager는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 domain 폴더(`<data>/domains/<dom>/`), 그 project의 `workflows/`(`<data>/projects/<prj>/workflows/`)를 읽고 쓴다. `workflows/`는 PM에게만 열린다(`architecture/workflow.md`). App Engineer는 앱 source 폴더와 그 앱의 domain 폴더를 읽고 쓴다. Operator는 그릇 폴더(project의 폴더들, 앱 source)를 읽고, 고른 domain의 `artifacts/`를 쓴다. 앱 place의 Operator는 앱 source를 읽기만 한다(쓰기는 App Engineer의 일이다). lophn은 등록된 모든 project 폴더를 읽기만 한다.
   - lophn은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
   - 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 role의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더이고, App Engineer의 범위는 그 source 폴더 하나다. 같은 `<data>/apps/<app>/`의 `agents/`(agent 정의)도 열지 않는다.
   - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 PM의 범위 밖이다. 사람이 editor로 고친다. 앱 place에는 `LOPHN.md`가 없다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source)이고, 없으면 place의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
   - `placeScope`(`packages/core/agent-roles/place/place-folders.ts`)가 role과 place와 맡은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 Operator에게는 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 `artifacts/`로 좁힌다(`main/daemon/place-folders-glue.ts`). agent runtime process의 Deno 권한은 session이 아니라 process 하나의 것이라 `placeScope`를 거치지 않고 같은 파일의 `runtimeFolders`가 만든다. 폴더 종류를 더하면 두 곳을 같이 고친다. 한쪽만 고치면 file tool은 열렸는데 child가 거절하거나 그 반대가 된다.
-  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더, 열린 앱의 source 폴더, 모든 active domain 폴더 전체의 합(읽기와 쓰기)이다. session마다의 범위는 file tool이 지킨다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결, domain 만들기와 보관) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
+  - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더, 열린 앱의 source 폴더, 모든 active domain 폴더, active project의 `workflows/` 폴더 전체의 합(읽기와 쓰기)이다. session마다의 범위는 file tool이 지킨다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결, domain 만들기와 보관, project 보관) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
 
 ## 왜 이 모양인가
 

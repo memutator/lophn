@@ -29,7 +29,7 @@ print(f"""Do the lophn task `{tid}`.
 - If the auto-mode classifier blocks a command, do not work around it with another command. Report what was blocked and do what you can.
 - When checks pass, commit on this branch: an English imperative subject line and a body, ending with a `Co-Authored-By:` line with your model name. No requirement ids or task numbers.
 - Do not push, merge, rebase, or touch other branches. Do not use `git stash`: the stash stack is shared by every worktree of this repository.
-- Stop every process you started (for example an `http.server` for screenshots) before you report.
+- Start a gallery server only as `timeout 900 python3 -m http.server 0 -d tools/wireframes` (port 0 picks a free port and prints it; it ends by itself). Run any other long-lived process you start (monitors, `tail -f`) under `timeout` too. Stop every process you started before you report.
 - Do not commit changes to `packages/shell/main/node_modules` (symlink) or `packages/shell/main/desktop/core/deno.lock` made by the check. Add files by path and look at `git diff --cached --stat` before committing.
 - Do not start sub-agents. Do not edit project-docs.
 - Never call a real model provider.

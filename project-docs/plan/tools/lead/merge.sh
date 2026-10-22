@@ -21,6 +21,8 @@ echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $FRO
 git diff $FROM $B | grep -nE '^\+.*(TODO|FIXME)' && echo "WARN: TODO/FIXME"
 git -C $W status --short | grep -v node_modules | sed 's/^/dirty: /'
 git -C $W rebase --onto $BASE $FROM >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
+# 뒤에서 끊겨 다시 돌릴 때 이미 옮긴 plan branch commit을 또 옮기지 않게 기준을 지금 BASE로 적는다.
+git config "branch.$B.lophnBase" "$(git rev-parse $BASE)"
 out=$(cd $W && deno task check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: worktree full check failed"; exit 1; }
 git merge --ff-only -q $B || { echo "STOP: ff failed"; exit 1; }
 [ -e packages/shell/main/node_modules ] || { echo "STOP: lead worktree node_modules missing (worktree-prep)"; exit 1; }

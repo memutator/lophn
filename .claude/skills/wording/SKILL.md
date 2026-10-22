@@ -41,7 +41,7 @@ description: 화면에 보이는 문구(label, 단추, 안내, 오류)를 더하
 
 ## key를 지우기 전에
 
-- **template literal로 만드는 key가 있다.** ``t(`secret-input.title.${purpose}`)``나 ``t(`project-workspace.label.sidebar-tab-${key}`)`` 같은 호출은 key 전체 문자열이 코드에 없다. key 전체로 grep해 "쓰는 곳 없음"으로 보고 지우면 안 된다(실제로 `common.label.tab-${dot}` 류를 지운 적이 있다).
+- **template literal로 만드는 key가 있다.** ``t(`secret-input.title.${purpose}`)``나 ``t(`conversation.label.media-${media}`)`` 같은 호출은 key 전체 문자열이 코드에 없다. key 전체로 grep해 "쓰는 곳 없음"으로 보고 지우면 안 된다(실제로 `common.label.tab-${dot}` 류를 지운 적이 있다).
 - 지우기 전에 key의 **앞부분**(`secret-input.title.`)으로 `packages`와 `tools`를 grep한다(catalog와 `.placeholders.ts` 제외). template 호출이 보이면 그 union의 모든 값에 대응하는 key를 남긴다.
 - check-wording은 `t("...")`의 문자열 literal만 확인한다. template 호출이 깨졌는지는 type check(`deno task check`)가 잡는다. 지운 뒤 이 둘을 모두 돌린다.
 - key 이름을 바꿀 때도 같다. 앞부분 grep으로 쓰는 곳을 다 찾아 바꾼다.

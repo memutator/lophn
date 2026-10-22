@@ -43,8 +43,8 @@ lophn 꺼짐                   끝(PTY 안 살림)   회수      Router의 켤 �
 - **coding agent가 lophn에 닿는 길은 CLI와 MCP endpoint 둘이고 인증은 같은 앱 하나 범위의 token이다.** token은 session이 끝나면 회수하고, 회수한 token의 새 호출은 거절한다. 다른 앱의 것은 볼 수 없다.
   - MCP endpoint(`POST /mcp`, operation `coding.mcp`)는 그 앱의 tool만 보이고, 호출은 그 앱의 지금 도는 preview로만 간다. preview가 없으면 `unavailable`이고 live 앱은 부르지 않는다([app-call.md](app-call.md)). coding agent는 자기 코드를 harness의 tool 호출로 확인하고, 사용자 data에는 닿지 않는다.
   - CLI 명령은 `message send`, `hook`, `app show`, `app preview start|stop`, `app status`, `app blueprint`, `app invocations`, `app logs`, `package list|show`, `harness detect|refresh|install`이다(`CODING_CLI_COMMANDS`, `packages/protocol/coding-agent/cli-commands.ts`). release 명령은 없다. release 준비와 activation은 App Engineer의 일이다.
-- **같은 CLI를 사람도 쓴다.** 명령의 `auth`는 `coding_token`, `user`, `local` 셋이다. `user` 명령(`agent run`, `tool call`, `run wait|show|cancel`, `architecture/run.md`)은 `LOPHN_CODING_TOKEN`이 있으면 그것을, 없으면 `<data root>/run/user-token`(core가 켤 때 쓰는 user token, 0600)을 쓴다.
-  - coding session 안에서는 coding token이 먼저다. 그래서 run route는 앱 하나 범위의 token에는 `forbidden`이다. coding agent가 lophn agent를 부르는 길은 열지 않는다. App Engineer가 coding agent에게 맡기는 흐름이 막혀 있어 괜찮다.
+- **같은 CLI를 사람도 쓴다.** 명령의 `auth`는 `coding_token`, `user`, `local` 셋이다. `user` 명령(`agent run`, `tool call`, `run wait|show|cancel`, `architecture/run.md`와 `workflow start|report|stop|show`, `architecture/workflow.md`)은 `LOPHN_CODING_TOKEN`이 있으면 그것을, 없으면 `<data root>/run/user-token`(core가 켤 때 쓰는 user token, 0600)을 쓴다.
+  - coding session 안에서는 coding token이 먼저다. 그래서 run과 workflow route는 앱 하나 범위의 token에는 `forbidden`이다. coding agent가 lophn agent를 부르는 길은 열지 않는다. App Engineer가 coding agent에게 맡기는 흐름이 막혀 있어 괜찮다.
   - `not_found` 글을 "현재 token으로 읽을 수 없다. 없는 대상이거나 이 앱 범위 밖이다"로 바꾸는 것은 coding token(`appScoped`)일 때만이다. user token의 `not_found`는 core의 글 그대로다.
   - user token file이 없으면 lophn이 꺼진 것이라 `unavailable`로 끝난다(exit 5). CLI가 core를 띄우지 않는다.
 - **MCP 설정은 그 session의 실행 계획(argv, env)에만 싣고 사람의 전역 설정에 쓰지 않는다.** token 원문은 env `LOPHN_CODING_TOKEN`에만 있고 설정은 그 이름만 가리킨다. argv는 `ps`에 보이기 때문이다. core의 port가 아직 열리지 않았으면 MCP 없이 띄운다.

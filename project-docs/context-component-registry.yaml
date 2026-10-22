@@ -85,7 +85,7 @@ components:
     description: lophn 제품 안의 agent 목록, place, 책임, call과 사람에게 올림의 정책.
     path: project-docs/products/AGENT-ROLE.md
     change_reasons:
-      boundaries: [agents, agent-roles, router]
+      boundaries: [agents, agent-roles, router, workflows]
 
   - id: roadmap
     kind: doc
@@ -245,6 +245,7 @@ components:
     path: project-docs/architecture/workflow.md
     change_reasons:
       boundaries: [workflows, router, agent-roles, coding-agent-cli]
+      paths: [packages/shell/renderer/workflow/, packages/shell/renderer/workspace/kinds/workflow.tsx, packages/shell/renderer/workspace/sidebar/workflow-panel.tsx, packages/shell/renderer/artifact-kit/, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/daemon/wiring/workflows-files.ts]
 
   - id: architecture-agent-definition
     kind: doc

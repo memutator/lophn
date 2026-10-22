@@ -4,16 +4,17 @@ title bar 왼쪽에 승인된 `ProjectSelector / DeskSelector` 경로를 달고(
 
 - 단위: wire (wave 3)
 - 선행: ws-wire-state, ws-desk-wireframe. 앞은 이 task가 쓰는 state이고, 뒤는 사람이 승인한 selector 모양이다.
-- 시작 조건: 계획 `workflow`의 `wf-screen-sidebar`(그 앞의 `wf-screen-tab`, `wf-screen-source` 포함)가 main에 land했다. 그 task들이 workflow 탭 kind와 workflow 목록 읽기(`source.workflows(project)`)를 내놓는다. lead가 확인한 뒤에 띄운다(`status.py`의 선행 줄은 이 계획의 id만 읽는다). lead가 시작할 때 이 task의 소유에 `packages/shell/renderer/workspace/kinds/workflow.tsx`(`wf-screen-tab`의 file)를 더한다.
+- 시작 조건: 계획 `workflow`의 `wf-screen-sidebar`(그 앞의 `wf-screen-tab`, `wf-screen-source` 포함)가 main에 land했다(2026-10-22 land. 계획 `workflow`는 닫혔다). 그 task들이 workflow 탭 kind와 workflow 목록 읽기(`source.workflows(project)`)를 내놓는다. lead가 확인한 뒤에 띄운다(`status.py`의 선행 줄은 이 계획의 id만 읽는다). lead가 시작할 때 이 task의 소유에 `packages/shell/renderer/workspace/kinds/workflow.tsx`(`wf-screen-tab`의 file)를 더한다.
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/workspace.tsx`
   - `packages/shell/renderer/workspace/kinds/kind.ts`
   - `packages/design/wording`(key만)
+  - `packages/shell/renderer/workspace/kinds/workflow.tsx`(lead가 더함: `homeDesk`)
 - 읽을 것:
   - 계획: `project-docs/plan/workflow-shell/README.md`의 "정한 것"(selector 목록, 사라진 workflow는 기본 자리로 합친다)과 "사람이 정할 것"
   - 승인된 wireframe: gallery의 `project-desk-*` page(`tools/wireframes/pages/screens/project-desk.tsx`)와 사람의 승인 때 정한 것(ws-desk-wireframe의 보고)
   - 계약 brief: `project-docs/plan/workflow-shell/tasks/ws-wire-state.md`(`switchTo`, `mergeVanished`), `ws-desk-wireframe.md`(`DeskSelector`, `ProjectSelector`. 끝의 "사람 피드백 반영" 절), `ws-model.md`(`DEFAULT_DESK`, `vanishedDesks`)
-  - 계획 `workflow`: `project-docs/plan/workflow/tasks/wf-screen-source.md`(`WorkspaceSource.workflows(project)`가 주는 `WorkflowEntryView`: `name`, `invalid: boolean`, 틀린 선언도 담은 평평한 배열), `wf-screen-tab.md`(탭 kind `workflow`, `workflowTab`, `openWorkflow`), `wf-screen-sidebar.md`(`WorkflowPanel`이 source를 직접 읽고 `workspace.tsx`는 두 줄만 고친다)
+  - 계획 `workflow`(닫혔다. brief는 지워졌다): `packages/shell/renderer/workspace/source.ts`(`workflows(project)`가 주는 `WorkflowEntryView`: `name`, `invalid: boolean`, 틀린 선언도 담은 평평한 배열), `kinds/workflow.tsx`(탭 kind `workflow`, `workflowTab(name, instance?)`은 key `workflow:<name>`, fields `{ workflow, instance? }`, `openWorkflow(host, workflow, instance?)`), `sidebar/workflow-panel.tsx`(`WorkflowPanel`이 source를 직접 읽는다), `project-docs/architecture/workflow.md`의 "화면"
   - 코드: land한 `workspace/workspace.tsx`(`TopBar` 호출부, `openTab`, `wf-screen-sidebar`가 고친 두 줄), `workspace/kinds/kind.ts`(`TabKindDef`), `workspace/kinds/workflow.tsx`(`wf-screen-tab`이 land한 것)
   - skill: `.claude/skills/wording/SKILL.md`, `.claude/skills/ui-design/SKILL.md`(wireframe을 옮기는 규칙)
 - 계약:
@@ -89,3 +90,9 @@ title bar 왼쪽에 승인된 `ProjectSelector / DeskSelector` 경로를 달고(
   4. `Workspace` props에 `onOpenProject?: (project: string) => void`를 더하고 `desktop/main.tsx`가 launcher의 project card와 같은 route(`openProject(id)`)로 잇는다. `onSelect(id)`는 지금 project와 다를 때만 부른다. 떠나는 project의 layout 저장과 detached 창 닫기는 지금 project를 떠나는 길 그대로다.
   5. `grep -rn "breadcrumbs(" packages tools`가 0줄이다(`Breadcrumbs` component를 쓰는 Settings는 남는다).
 - 넘길 줄: 계획 `workflow`의 `wf-screen-source`가 `source.ts`·`core-source.ts`·`fake-source.ts`에 더한 줄과 겹친 곳.
+
+## 계획 `workflow` land 뒤 (lead가 더함, 2026-10-22)
+
+- `ws-wire-state`가 만든 `_mergeVanished`(부르는 곳이 없어 lint 때문에 밑줄을 붙였다)를 `mergeVanished`로 이름을 바꾸고 부른다.
+- `workspace.tsx`에서 계획 `workflow`가 고친 곳: `import { openWorkflow } from "./kinds/workflow.tsx";`와 `<ProjectSidebar … onOpenWorkflow={(workflow) => openWorkflow(host, workflow)} />`. sidebar의 workflow 줄을 누르면 이 길이 `host.openTab`을 지나므로 `homeDesk`로 그 workflow의 desk로 간다.
+- **Workflows sidebar 줄 강조(추가 소유: `packages/shell/renderer/workspace/sidebar/workflow-panel.tsx`, `packages/shell/renderer/workspace/sidebar/project-sidebar.tsx`).** 승인된 workflow wireframe은 열린 workflow의 줄을 강조했지만 `WorkflowPanel`에 그 prop이 없다. 보이는 desk가 workflow desk면(`desks.active !== DEFAULT_DESK`) 그 이름의 줄을 강조한다. `WorkflowPanel`에 `active?: string`, `ProjectSidebar`에 그것을 넘기는 prop 하나를 더하고, 강조 모양은 sidebar의 다른 줄이 고른 상태를 그리는 것과 같게 한다(새 CSS를 만들지 않는다).

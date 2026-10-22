@@ -264,6 +264,7 @@ export function Desktop(
   if (route.space === "project" && route.project && workspace && live) {
     space = (
       <Workspace
+        key={route.project}
         projectId={route.project}
         source={workspace}
         windowWidth={windowWidth}

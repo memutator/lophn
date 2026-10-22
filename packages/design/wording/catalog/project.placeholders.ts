@@ -171,6 +171,9 @@ export type ProjectPlaceholders = {
   "project-workspace.heading.agents": Record<never, never>;
   "project-workspace.label.agent-waiting": Record<never, never>;
   "project-workspace.label.choose-app": Record<never, never>;
+  "project-workspace.label.desk-default": Record<never, never>;
+  "project-workspace.label.desk-invalid": Record<never, never>;
+  "project-workspace.label.desk-selector": Record<never, never>;
   "project-workspace.label.explorer-actions": Record<never, never>;
   "project-workspace.label.explorer-name": Record<never, never>;
   "project-workspace.label.files-in": {

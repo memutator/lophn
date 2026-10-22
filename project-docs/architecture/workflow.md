@@ -82,7 +82,7 @@ agent tool과 CLI
 
 artifact
 - workflow artifact는 봉한 view로 연다(`architecture/artifact.md`). source는 `{kind: workflow, project, workflow, view: static | instance, instance?}`이고 root는 그 project의 `workflows/` 안이어야 한다(realpath). instance view는 instance마다 host가 달라 origin이 갈린다.
-- 봉한 scheme이 가상 file을 준다. instance view의 `data/_instance.json`(`ReadWorkflowInstance`를 끝까지 읽은 `{instance, last_reports, lines}`, 4 MiB가 넘거나 못 읽으면 503)과 `_lophn/kit.js`·`_lophn/kit.css`(renderer build의 `artifact-kit/entry.js`·`entry.css`)다.
+- 봉한 scheme이 가상 file을 준다. instance view의 `data/_instance.json`(`ReadWorkflowInstance`를 끝까지 읽은 `{instance, last_reports, lines}`, 4 MiB가 넘거나 못 읽으면 503)과, 모든 artifact view에 있는 `_lophn/kit.js`·`_lophn/kit.css`(renderer build의 `artifact-kit/entry.js`·`entry.css`)다.
 - `WorkflowInstanceChanged`가 오면 그 instance를 여는 view만 다시 load한다.
 - kit은 전역 `LophnKit.renderGraph(element, {nodes, edges})`를 내고 node에 `status`(label, tone)와 `note`를 받는다. 상태 값의 뜻은 component가 모르고 artifact가 정한다(`architecture/ui-kit.md`). lophn의 기본 화면은 graph를 그리지 않는다.
 

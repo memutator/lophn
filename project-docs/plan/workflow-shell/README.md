@@ -71,4 +71,5 @@ roadmap을 따른다. 아래는 이 계획에 걸려 agent가 정한 것이다(2
   - `architecture/workspace-layout.md`에 desk 층, selector, 저장 꼴을 적는다.
   - roadmap `workflow.md`에서 land된 것을 지운다.
   - changelog 열린 판에 항목을 덧붙이고, 계획 폴더를 지운다.
+- **ws-wire-selector merge 때 `workspace-layout` 이슈(bug)로 올린다.** desk 바꾸기 화면이 생겨야 사람이 겪는 길이 되므로 그때 코드와 대조해 쓴다: desk를 떠나면 일반 browser 탭의 `<webview>`를 놓아 돌아오면 page를 다시 load한다, 다른 desk에 있는 terminal은 `openBridgeUrl`이 찾지 못한다(`host.view`가 보이는 desk다), workflow 폴더 이름을 바꾸면 옛 이름의 desk가 기본 desk로 합쳐진다.
 - **사람에게 묻는 것:** push, wireframe 승인.

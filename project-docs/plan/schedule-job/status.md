@@ -10,8 +10,8 @@ lead만 고친다. `tools/status.py schedule-job build`가 `tasks/*.md`에서 id
 | `sj-jobs-store` | jobs | 2 | sj-jobs-contract | merged | jobs/sj-jobs-store | f3a0a9e5e |  |
 | `sj-jobs-tools` | roles | 2 | sj-jobs-contract | merged | roles/sj-jobs-tools | b8fdcf070 |  |
 | `sj-workflows-job-start` | workflows | 2 | sj-jobs-contract | merged | workflows/sj-workflows-job-start | 26b820ade |  |
-| `sj-jobs-due` | jobs | 3 | sj-jobs-store | todo |  |  |  |
-| `sj-runs-job-origin` | runs | 3 | sj-apps-program-caller | todo |  |  |  |
+| `sj-jobs-due` | jobs | 3 | sj-jobs-store | running | jobs/sj-jobs-due |  |  |
+| `sj-runs-job-origin` | runs | 3 | sj-apps-program-caller | running | runs/sj-runs-job-origin |  |  |
 | `sj-shell-hold-card` | shell | 3 | sj-jobs-wireframe | todo |  |  |  |
 | `sj-shell-job-labels` | shell | 3 | sj-jobs-wireframe | todo |  |  |  |
 | `sj-shell-jobs-screen` | shell | 3 | sj-jobs-wireframe | todo |  |  |  |

@@ -1,4 +1,11 @@
-import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type SyntheticEvent,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type { TabItem as StripTab } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { SettingsPane } from "../desktop/settings/model.ts";
@@ -12,7 +19,8 @@ import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { openProjectManager } from "./reactions/project-manager.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
-import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
+import { DeskSelector, PathSep } from "./top-path/desk-selector.tsx";
+import { ProjectSelector } from "./top-path/project-selector.tsx";
 import { MinimizedBar } from "./minimized/minimized-bar.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
@@ -21,13 +29,13 @@ import {
   allDeskTabs,
   applyDrag,
   attachDetached,
-  breadcrumbs,
   clampSidebar,
   closeDetached,
   closeFloat,
   type CloseScope,
   closeTab,
   closeTargets,
+  DEFAULT_DESK,
   deskOfTab,
   desksFromView,
   detachTab,
@@ -46,6 +54,7 @@ import {
   openAcrossDesks,
   openDetachedTab,
   openFloat,
+  openTabIn,
   pinTab,
   raiseFloat,
   reopenTab,
@@ -78,7 +87,13 @@ import {
 import { Panes } from "./panes/panes.tsx";
 import { Floats } from "./floats/floats.tsx";
 import { NewTabMenu } from "./add-tab-menu.tsx";
-import type { FileRow, ProjectView, WorkspaceSource } from "./source.ts";
+import type {
+  FileRow,
+  ProjectView,
+  ReadResult,
+  WorkflowEntryView,
+  WorkspaceSource,
+} from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 import { desksFromStored, toStoredLayout } from "./layout-map.ts";
 import {
@@ -108,7 +123,7 @@ import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
-import { openWorkflow } from "./kinds/workflow.tsx";
+import { openWorkflow, workflowTab } from "./kinds/workflow.tsx";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { WebviewHostProvider, WebviewLayer } from "../browser/webview-host.tsx";
@@ -141,6 +156,8 @@ export interface WorkspaceProps {
   bodyWidth: number;
   /** 런처로 돌아간다. */
   onLauncher: () => void;
+  /** 상단 바 project selector에서 고른 project를 이 창에서 연다. 없으면 목록을 고를 수 없다. */
+  onOpenProject?: (project: string) => void;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
   /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
@@ -284,6 +301,13 @@ export function Workspace(props: WorkspaceProps) {
   }, [source, projectId, sessionStates]);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
+  // 상단 바 selector의 목록. null은 아직 안 읽었거나 읽는 중이다. 실패와 읽는 중에는 합치지 않는다.
+  const [workflowList, setWorkflowList] = useState<
+    ReadResult<readonly WorkflowEntryView[]> | null
+  >(null);
+  const [projectList, setProjectList] = useState<
+    ReadResult<readonly { id: string; title: string }[]> | null
+  >(null);
   // 자리(desk)마다 view 하나. 화면이 그리고 고치는 것은 보이는 자리의 view뿐이다.
   const [desks, setDesks] = useState(() => desksFromView(emptyView()));
   const view = activeView(desks);
@@ -347,7 +371,28 @@ export function Workspace(props: WorkspaceProps) {
   }, [projectId, source]);
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
-  const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
+  // 목록을 못 읽었거나 읽는 중이면 기본 자리와 layout에 이미 있는 workflow 자리만 보인다.
+  const deskOptions = [
+    { key: DEFAULT_DESK, label: t("project-workspace.label.desk-default") },
+    ...(workflowList?.ok === true
+      ? workflowList.value.map((entry) => ({
+        key: entry.name,
+        label: entry.name,
+        invalid: entry.invalid,
+      }))
+      : Object.keys(desks.desks).filter((key) => key !== DEFAULT_DESK).map((
+        key,
+      ) => ({ key, label: key }))),
+  ];
+  const listedProjects = (projectList?.ok === true ? projectList.value : [])
+    .map((item) => ({ id: item.id, label: item.title }));
+  // 지금 project가 목록에 없으면(목록을 못 읽었거나 막 보관됨) 앞에 둔다.
+  const projectOptions = listedProjects.some((item) => item.id === projectId)
+    ? listedProjects
+    : [
+      { id: projectId, label: loaded.project?.title ?? "" },
+      ...listedProjects,
+    ];
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
 
@@ -484,8 +529,7 @@ export function Workspace(props: WorkspaceProps) {
   };
 
   // 사라진 workflow의 자리를 default로 합친다. 합치며 docked가 된 detached 탭의 창은 닫는다.
-  // 부르는 곳은 ws-wire-selector가 단다(그때 밑줄을 뗀다).
-  const _mergeVanished = (liveKeys: readonly string[]) => {
+  const mergeVanished = (liveKeys: readonly string[]) => {
     const current = latestDesks.current;
     const gone = vanishedDesks(current, liveKeys);
     if (gone.length === 0) return;
@@ -502,6 +546,30 @@ export function Workspace(props: WorkspaceProps) {
     }
     commit(next, true, true);
   };
+
+  // selector 목록을 읽는다. project를 연 직후와 selector를 열 때 부른다. 사라진 자리는 읽기에 성공한
+  // 목록으로만 합친다(실패나 읽는 중에 합치면 자리의 탭이 모두 기본 자리로 옮겨진다).
+  const shownProject = useRef(projectId);
+  shownProject.current = projectId;
+  const readLists = () => {
+    const mine = projectId;
+    void source.workflows(mine).then((result) => {
+      if (shownProject.current !== mine) return;
+      setWorkflowList(result);
+      if (result.ok) mergeVanished(result.value.map((entry) => entry.name));
+    });
+    void source.projects().then((result) => {
+      if (shownProject.current === mine) setProjectList(result);
+    });
+  };
+  const readListsFrom = (event: SyntheticEvent<HTMLElement>) => {
+    if (event.currentTarget.contains(event.target as Node)) readLists();
+  };
+  useEffect(() => {
+    setWorkflowList(null);
+    setProjectList(null);
+    if (readyProject === projectId) readLists();
+  }, [projectId, source, readyProject]);
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
   // 하는 첫 번째 장치이고, 두 번째는 openTabIn이 저장 안 된 preview 탭을 바꿔 쓰지 않는 것이다.
@@ -546,6 +614,15 @@ export function Workspace(props: WorkspaceProps) {
   // (탭 key는 작업대 안에서 유일하다). preview 탭은 그 칸의 preview 자리를 바꿔 쓴다(openTabIn).
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
+    // 사는 자리가 있는 탭(workflow)은 그 자리로 건너가서 연다. 이미 어느 자리에 열려 있으면 아래가 그 자리로 간다.
+    const home = tabKindOf(tab.kind)?.homeDesk?.(tab);
+    if (
+      home !== undefined && home !== latestDesks.current.active &&
+      options?.select !== false &&
+      deskOfTab(latestDesks.current, tab.key) === undefined
+    ) {
+      switchTo(home, openTabIn(emptyView(), tab, () => false));
+    }
     const all = latestDesks.current;
     const at = deskOfTab(all, tab.key);
     // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다. 다른 자리의 것이면 그 자리로 건너간다.
@@ -1283,6 +1360,9 @@ export function Workspace(props: WorkspaceProps) {
                 onManage={() => openAgents(host)}
                 onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
                 onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
+                activeWorkflow={desks.active === DEFAULT_DESK
+                  ? undefined
+                  : desks.active}
                 onResizeStart={(event) => {
                   const start = sidebar.chosenWidth;
                   const startShown = sidebarShown.width;
@@ -1315,7 +1395,40 @@ export function Workspace(props: WorkspaceProps) {
                       {sidebarShown.launcherInTopBar
                         ? <LauncherButton onLauncher={onLauncher} />
                         : null}
-                      <Breadcrumbs crumbs={crumbs} />
+                      {/* selector를 열 때 목록을 다시 읽는다. menu는 portal이라 React event가 올라오므로 DOM 안의 trigger만 본다. */}
+                      <span
+                        className={styles.path}
+                        onPointerDownCapture={readListsFrom}
+                        onKeyDownCapture={readListsFrom}
+                      >
+                        <ProjectSelector
+                          options={projectOptions}
+                          active={projectId}
+                          onSelect={(id) => {
+                            if (id !== projectId) props.onOpenProject?.(id);
+                          }}
+                        />
+                        {deskOptions.length > 1
+                          ? (
+                            <>
+                              <PathSep />
+                              <DeskSelector
+                                options={deskOptions}
+                                active={desks.active}
+                                onSelect={(key) =>
+                                  switchTo(
+                                    key,
+                                    openTabIn(
+                                      emptyView(),
+                                      workflowTab(key),
+                                      () => false,
+                                    ),
+                                  )}
+                              />
+                            </>
+                          )
+                          : null}
+                      </span>
                       <MinimizedBar
                         items={view.floats.filter((item) => item.minimized)}
                         stripTab={stripTab}

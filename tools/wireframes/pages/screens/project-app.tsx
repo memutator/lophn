@@ -1,5 +1,5 @@
 // 동작하는 project 화면. 칸마다 탭 줄이 있고, activity bar 바로 가기·sidebar·+ 메뉴·검색·상단 검색·toast·대화·문서의 링크가 탭을 열면
-// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·Breadcrumbs·Palette·Menu와
+// 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 TopBar·ProjectSelector·Palette·Menu와
 // 실제 sidebar(`ProjectSidebar`)·design `TabStrip`·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가 넘긴다).
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -7,7 +7,7 @@ import {
   PaletteButton,
   TopBar,
 } from "../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
-import { Breadcrumbs } from "../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
+import { ProjectSelector } from "../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
 import { LauncherButton } from "../../../../packages/shell/renderer/workspace/launcher-button.tsx";
 import { TabStrip } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import { Palette, type PaletteItem } from "@lophn/ui/overlay";
@@ -30,11 +30,7 @@ import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { DocumentPane, type InfoPanel } from "./documents.tsx";
 import { documentTab } from "../../mock/phroner-data.ts";
 import { FileSearch } from "./project-files/file-search.tsx";
-import {
-  crumbsOfPath,
-  fileKey,
-  isOutside,
-} from "../../mock/project-files/file-data.ts";
+import { fileKey, isOutside } from "../../mock/project-files/file-data.ts";
 import {
   PageNewTabMenu,
   PageSidebar,
@@ -83,30 +79,14 @@ export const CHAT_TAB: TabSpec = {
   kind: "agent",
   title: "lophn",
 };
+// 상단 바 왼쪽 경로의 project 조각. 이 page는 project 하나뿐이다.
+const PROJECT_OPTIONS = [{ id: "phroner", label: "phroner" }];
 const ENGINEER_TAB: TabSpec = {
   key: "chat:engineer",
   kind: "agent",
   title: "Project Manager",
   sub: "engineer",
 };
-
-function crumbsOf(tab: TabSpec | undefined): string[] {
-  if (tab === undefined) return ["phroner"];
-  switch (tab.kind) {
-    case "document":
-      return crumbsOfPath(tab.sub ?? tab.title);
-    case "search":
-      return ["phroner", tab.sub === "files" ? "Search files" : "Search"];
-    case "terminal":
-      return ["phroner", "Terminal"];
-    case "agent":
-      return ["phroner", tab.title];
-    case "agents":
-      return ["phroner", "Agents"];
-    case "operator":
-      return ["phroner", "Agents", tab.title];
-  }
-}
 
 // 상단 검색(돋보기·Ctrl+K)의 후보. 파일은 이름이나 경로로 연다.
 const FILE_ITEM = (path: string): PaletteItem & { tab: () => TabSpec } => ({
@@ -382,8 +362,6 @@ export function ProjectApp(
     }
   };
 
-  const focusTab = panes[0]?.tabs.find((tab) => tab.key === panes[0].selected);
-  const crumbs = crumbsOf(focusTab);
   const items = paletteItems(paletteQuery);
   return (
     <GalleryConnectHost agents={agents}>
@@ -405,7 +383,11 @@ export function ProjectApp(
               leading={
                 <div className={workspace.leading}>
                   {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                  <Breadcrumbs crumbs={crumbs.map((label) => ({ label }))} />
+                  <ProjectSelector
+                    options={PROJECT_OPTIONS}
+                    active="phroner"
+                    onSelect={() => {}}
+                  />
                 </div>
               }
               trailing={

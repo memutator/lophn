@@ -270,6 +270,7 @@ export function Desktop(
         windowWidth={windowWidth}
         bodyWidth={windowWidth - 240}
         onLauncher={launcher}
+        onOpenProject={(project) => setRoute(openProject(project))}
         onSettings={settingsSpace}
         onProjectInstructions={instructions
           ? () =>

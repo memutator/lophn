@@ -34,6 +34,10 @@ export const workflowKind: TabKindDef = {
   kind: "workflow",
   labelKey: "workflow.label.kind",
   icon: commonIcons.workflow,
+  homeDesk(tab) {
+    const workflow = tab.fields?.workflow;
+    return typeof workflow === "string" ? workflow : undefined;
+  },
   fromStored(stored, { key }) {
     const { workflow, instance } = stored;
     if (typeof workflow !== "string") return null;

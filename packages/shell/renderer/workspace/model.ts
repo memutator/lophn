@@ -1069,21 +1069,9 @@ export function ratioFromDrag(bodyWidth: number, leftWidth: number): number {
   return clamped / usable;
 }
 
-/** 상단 경로의 한 조각. focus 칸의 활성 탭을 따른다. */
+/** 상단 경로의 한 조각(Settings의 breadcrumb이 쓴다). */
 export interface Crumb {
   readonly label: string;
-}
-
-/** focus 칸 활성 탭의 경로. 프로젝트 이름 뒤에 탭 제목이 온다. */
-export function breadcrumbs(
-  projectTitle: string,
-  view: WorkspaceView,
-): readonly Crumb[] {
-  const pane = view.panes[view.focusedPane];
-  const tab = pane?.tabs.find((item) => item.key === pane.selected);
-  const crumbs: Crumb[] = [{ label: projectTitle }];
-  if (tab) crumbs.push({ label: tab.title });
-  return crumbs;
 }
 
 /** drag 결과. overlay pointer DTO(ipc/overlay)의 drag-end·drag-cancel에 대응한다. */

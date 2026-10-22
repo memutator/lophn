@@ -85,6 +85,8 @@ interface ProjectSidebarProps {
   onOpenDomainDoc?: (domain: string) => void;
   /** Workflows 줄을 누르면 그 workflow의 탭을 연다. 주지 않으면 아무것도 하지 않는다. */
   onOpenWorkflow?: (workflow: string) => void;
+  /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
+  activeWorkflow?: string;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
@@ -122,6 +124,7 @@ export function ProjectSidebar(
     artifactPanel = null,
     onOpenDomainDoc,
     onOpenWorkflow,
+    activeWorkflow,
     current = null,
     initialTab = "explorer",
     reveal = null,
@@ -241,6 +244,7 @@ export function ProjectSidebar(
                   key={project.id}
                   project={project.id}
                   source={source}
+                  active={activeWorkflow}
                   onOpen={onOpenWorkflow ?? (() => {})}
                 />
               )

@@ -28,6 +28,13 @@
   align-items: center;
   gap: var(--space-4);
   min-width: var(--space-0);
+  /* 좁으면 경로가 줄다 못 줄 때 bar 밖으로 나가지 않고 잘린다. */
+  overflow: hidden;
+}
+
+/* project·desk selector를 감싸 목록 읽기 이벤트만 받는다. 배치에는 끼지 않는다. */
+.path {
+  display: contents;
 }
 
 .trailing {

@@ -26,6 +26,8 @@ export interface TabKindDef {
   iconOf?(tab: TabItem, host: TabHost): ReactNode | null;
   /** 탭이 디스크 파일이면 그 절대 경로. 탭 menu의 Copy Path·Reveal in Explorer가 쓴다. */
   pathOf?(tab: TabItem): string | null;
+  /** 이 탭이 사는 자리(desk) key. 있으면 탭을 여는 길이 그 자리로 건너가서 연다(없는 자리는 그 탭이 열린 채 만든다). 없으면 보이는 자리다. */
+  homeDesk?(tab: TabItem): string | undefined;
   /** 탭 이름 뒤의 상태 점(Agent 탭의 session 상태). null이면 점이 없다. */
   dotOf?(tab: TabItem, host: TabHost): TabDot | null;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */

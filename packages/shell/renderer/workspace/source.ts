@@ -236,6 +236,8 @@ export type LayoutRead =
 
 export interface WorkspaceSource extends DomainActions {
   project(id: string): Promise<ReadResult<ProjectView>>;
+  /** active project 목록. 상단 바의 project selector가 읽는다. */
+  projects(): Promise<ReadResult<readonly { id: string; title: string }[]>>;
   /** 폴더 한 단계를 디스크에서 읽는다(절대 경로). Explorer가 폴더를 펼칠 때 그 폴더만 부른다. */
   list(path: string): Promise<ReadResult<readonly FolderEntry[]>>;
   /** 새 파일·폴더. 없는 위쪽 폴더도 만들고, 이미 있으면 `conflict`다(덮어쓰지 않는다). */

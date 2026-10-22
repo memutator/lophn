@@ -9,6 +9,7 @@ import type {
   LayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { readProjects } from "../desktop/launcher/projects/core-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreDomainActions } from "./domains/core-calls.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
@@ -230,6 +231,16 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
   return {
     project,
+
+    async projects() {
+      const read = await readProjects(core, "active");
+      return read.ok
+        ? {
+          ok: true,
+          value: read.value.map(({ id, title }) => ({ id, title })),
+        }
+        : { ok: false, message: read.code };
+    },
 
     ...coreDomainActions(core),
 

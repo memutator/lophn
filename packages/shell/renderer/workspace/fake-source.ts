@@ -776,6 +776,15 @@ export function fakeWorkspaceSource(
           })),
         },
       }),
+    projects: () =>
+      Promise.resolve({
+        ok: true,
+        value: [
+          { id: PROJECT, title: "phroner" },
+          { id: "prj_01h455vb4pex5v6nkc6gd5fd01", title: "grocery-budget" },
+          { id: "prj_01h455vb4pex5v6nkc6gd5fd02", title: "eval-lab" },
+        ],
+      }),
     list(path): Promise<ReadResult<readonly FolderEntry[]>> {
       const nodes = find(mounts, path);
       if (nodes === undefined || failing.includes(path)) {

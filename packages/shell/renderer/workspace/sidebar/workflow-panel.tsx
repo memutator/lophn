@@ -23,9 +23,11 @@ function metaOf(entry: WorkflowEntryView, running: number): string {
 }
 
 export function WorkflowPanel(
-  { project, source, onOpen }: {
+  { project, source, active, onOpen }: {
     project: string;
     source: WorkspaceSource;
+    /** 보이는 desk가 이 workflow의 것이면 그 이름. 그 줄을 고른 상태로 그린다. */
+    active?: string;
     onOpen: (workflow: string) => void;
   },
 ) {
@@ -89,6 +91,7 @@ export function WorkflowPanel(
               type="button"
               className={`${styles.item} ${styles.sessionItem}`}
               data-workflow={entry.name}
+              data-active={entry.name === active || undefined}
               title={entry.problem?.message}
               onClick={() => onOpen(entry.name)}
             >

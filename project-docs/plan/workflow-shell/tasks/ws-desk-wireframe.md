@@ -99,3 +99,40 @@ title bar 가운데에 자리(desk) selector를 놓고 자리를 바꾸는 모�
 - 사람이 승인 때 정할 것(위 할 일 6)
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## 사람 피드백 반영 (lead가 더함, 2026-10-22)
+
+사람이 첫 wireframe을 보고 정했다. 위 "할 일"·"계약"과 다르면 이 절이 이긴다.
+
+- **project 창 상단 바에서 파일 경로 breadcrumb(`project / notes.md`)을 뺀다.** 그 자리, 곧 왼쪽에 `project ▾ / desk ▾`를 둔다. 가운데에 두지 않는다. 근거(사람): minimized span 단추들이 자리를 써야 한다.
+- **project 쪽도 menu다.** 고르면 그 project를 이 창에서 연다(launcher에서 project card를 누른 것과 같은 route).
+- **workflow가 없는 project는 `project ▾`만 보인다.** `/ desk ▾`를 그리지 않는다.
+- 기본 desk 이름 "Main", 틀린 선언은 ⚠ 표시를 붙이고 고를 수 있음, 즉시 전환, 목록 읽기 실패는 따로 알리지 않음은 첫 wireframe 그대로다. 사람이 고친 wireframe을 보고 확정한다.
+
+바뀐 계약
+- `TopBar`의 `center`를 되돌린다. `top-bar.tsx`, `top-bar.module.css`는 plan branch와 같게 둔다(이 task의 diff에 남지 않는다).
+- `DeskSelector`, `DeskOption`, `DeskSelectorProps`는 그대로다(이름과 props). 모양만 경로 조각에 맞춘다.
+- 새 `ProjectSelector`(`packages/shell/renderer/workspace/top-path/project-selector.tsx`, 이 task 소유에 더한다)
+  ```ts
+  export interface ProjectOption {
+    readonly id: string;     // prj_…
+    readonly label: string;  // project 이름
+  }
+  export interface ProjectSelectorProps {
+    readonly options: readonly ProjectOption[]; // 목록을 못 읽었거나 읽는 중이면 지금 project 하나뿐이다
+    readonly active: string;                    // 지금 project id
+    readonly onSelect: (id: string) => void;
+  }
+  ```
+  - 두 selector의 trigger와 menu가 같은 모양이면 한 안쪽 조각을 같이 쓴다(사본을 만들지 않는다).
+  - 목록의 출처는 wiring task가 정한다(project 창에서 `projects.list`를 읽는다). 이 task는 fake data로 그린다.
+- 상단 바 왼쪽(`TopBar.leading`) 순서: (sidebar가 접혔을 때) `LauncherButton` → `ProjectSelector` → `/` → `DeskSelector`(workflow가 있을 때) → `MinimizedBar`. 오른쪽은 지금 그대로다.
+- 좁을 때 양보 순서: `MinimizedBar`가 먼저 `+N`으로 접히고, 그다음 desk 이름, 그다음 project 이름이 ellipsis로 준다.
+
+할 일
+1. `top-bar.tsx`·`top-bar.module.css`를 plan branch 판으로 되돌린다.
+2. `ProjectSelector`를 만들고 `DeskSelector`와 trigger·menu 모양을 맞춘다. wording key `project-workspace.label.project-selector`(접근성 이름)를 `catalog/project.ts`에 더하고 `deno task wording`을 돌린다. 안 쓰게 된 key가 생기면 지운다.
+3. gallery 틀(`project-desk/frame.tsx` 등)에서 `Breadcrumbs`를 빼고 왼쪽 경로를 위 순서로 그린다. fake project 목록(지금 project 포함 셋 이상)을 둔다.
+4. page id는 그대로 두고 내용을 고친다. `project-desk-default`는 `project ▾`만, `project-desk-failed`는 workflow 목록과 project 목록을 둘 다 못 읽은 상태(project menu에 지금 project 하나), `project-desk-narrow`는 위 양보 순서, `project-desk-platforms`는 macOS 신호등 옆과 Windows에서 왼쪽 경로가 어떻게 놓이는지다.
+5. page를 하나 더한다: `project-desk-project-menu`(project menu를 연 채).
+6. 사람이 볼 것을 보고에 적는다: sidebar가 열려 있으면 sidebar 머리의 project 이름과 상단 바의 `project ▾`가 겹쳐 보인다. 그대로 둘지 사람이 정한다(sidebar 머리는 이 task의 소유가 아니다).

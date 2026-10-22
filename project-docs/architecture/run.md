@@ -59,7 +59,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 
 unattended
 - run 입력은 `SendMessage`에 `unattended: true`를 실은 사람 메시지다. 이 메시지가 연 turn은 unattended라 묻지 않고, 그 turn이 보낸 call 사슬도 unattended다(`architecture/approval.md` "turn mode", `architecture/agent-call.md`).
-- 표시는 `messages.unattended` 열에 남지만 tag 글과 받은 봉투에는 실리지 않는다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다(core 안 자격 `machine:runs`). CLI가 여는 run은 `--dangerously-skip-permissions` 없이 처음부터 unattended다.
+- 표시는 `messages.unattended` 열에 남지만 tag 글과 받은 봉투에는 실리지 않는다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다(core 안 자격 `machine:runs`). CLI가 여는 run은 `--dangerously-skip-permissions` 없이 처음부터 unattended다. 사람 메시지가 아닌 unattended 입력은 workflow의 step 입력이다(`architecture/workflow.md`).
 
 취소
 - `CancelRun`은 run을 먼저 `cancelled`로 닫고 뒷일을 한다. 뒷일의 오류는 기록에 남기지 않는다.

@@ -238,6 +238,14 @@ components:
     change_reasons:
       boundaries: [runs, agent-sessions, router, coding-agent-cli, coding-agent-cli-interface]
 
+  - id: architecture-workflow
+    kind: doc
+    roles: [planner, lead]
+    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit.
+    path: project-docs/architecture/workflow.md
+    change_reasons:
+      boundaries: [workflows, router, agent-roles, coding-agent-cli]
+
   - id: architecture-agent-definition
     kind: doc
     roles: [planner, lead]

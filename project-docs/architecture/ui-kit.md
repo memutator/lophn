@@ -32,6 +32,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 - package export(`packages/design/deno.json`): `.`(token), `./primitives`, `./input`, `./layout`, `./navigation`, `./data`, `./feedback`, `./overlay`, `./reading`, `./shared`, `./base.css`, `./tokens.css`. 분류를 건너 한꺼번에 내는 barrel은 없다.
 - chart(LineChart, BarChart, DistributionChart, ScatterChart, GraphDiagram)는 `components/data/chart/`이고 `@lophn/ui/data`로 나간다. d3는 design `deno.json`의 의존이다.
+- `GraphDiagram`의 node는 `status`(label, tone)와 짧은 `note`를 받는다. tone은 `tokens.status`의 key이고 아이콘에만 색을 쓴다. component는 상태 값의 뜻을 모른다. 뜻은 그리는 쪽(workflow artifact, domain)이 정한다.
 
 ## 무엇을 어디에 두나
 
@@ -69,6 +70,16 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(blueprint, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
 내장 sdk는 package catalog에 등록하지 않는다. coding agent는 import map이 가리키는 설치 사본의 `guide.md`를 읽는다. coding agent의 `package list`·`package show`는 사용자 package 몫이다. 모든 role의 `package.list`는 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `package.get`은 `@lophn/` 이름이면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모아 guide로 준다.
+
+## artifact에 닿는 길
+
+봉한 artifact view는 모듈을 import하지 못하고 바깥 library도 받지 않는다(`architecture/artifact.md`). 그래서 kit을 판을 고정한 browser build 하나로 묶어 가상 path로 준다. 사용자 앱의 `lophn-sdk:` 사본과 상관없는 길이다.
+
+1. 제품 build(`packages/shell/renderer/build.ts`)가 화면 셋(esm)과 함께 `artifact-kit/entry.tsx`를 IIFE로 묶어 `dist/artifact-kit/entry.js`와 `entry.css`를 낸다. 판은 repo의 lock이 잠근 그대로다. minify하지 않는다: CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남아야 AI가 쓴 page의 CSS와 부딪히지 않는다. `entry.css`에는 component CSS만 있다. token은 artifact 문서에 appearance가 이미 넣는다.
+2. 전역은 `LophnKit.renderGraph(element, {nodes, edges, locale?, timeZone?})` 하나다. 같은 element에 다시 부르면 갱신한다. 그 네 칸만 받고 상태 prop(`onRetry`, `empty`)은 entry가 채운다. 다른 component는 내놓지 않는다.
+3. shell main의 봉한 scheme이 이 둘을 workflow artifact에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다(PM skill `guide-workflows`).
+
+check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `deno run -A packages/shell/renderer/build.ts`로 이 entry가 서는지 본다.
 
 ## gallery가 정본이다
 

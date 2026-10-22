@@ -19,7 +19,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  받는 곳이 coding_agent로 풀리면 ─▶ invalid_input (call 행 없음. 지금 coding session을 여는 길이 없다)
 ```
 
-보낸 쪽은 사람, program(늦은 실패와 취소의 알림, tools_changed 알림, 맡긴 coding session의 끝. 종류만 있고 근거 칸이 없다), agent session, coding agent session 넷이다. 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(App Engineer와 coding agent만)이다.
+보낸 쪽은 사람, program(늦은 실패와 취소의 알림, tools_changed 알림, 맡긴 coding session의 끝, workflow의 step 메시지. 종류만 있고 근거 칸이 없다), agent session, coding agent session 넷이다. step 메시지는 `kind: step`이고 call 행이 없다(`architecture/workflow.md`). 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(App Engineer와 coding agent만)이다.
 
 ## 지키는 것
 
@@ -39,8 +39,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고, Router가 그 표시를 봉투, 입력함 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).
   - 답의 표시는 call 행이 아니라 답한 turn에서 온다. unattended call을 받은 session에 사람이 끼어들어 attended turn이 답하면 그 답은 attended다.
   - 늦은 실패(receiver_ended, lophn_restarted)와 취소 알림은 그 call 행의 표시를 따른다. 그러지 않으면 unattended 사슬의 알림 turn이 attended가 되어 사람 없이 shell `ask`에 멈춘다.
-  - reaction, coding agent 입력, 화면의 사람 메시지는 표시가 없어 attended다. skip은 실리지 않는다(사람이 정한 것은 그 대화다). 예외는 run 입력이다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지는 unattended turn을 연다(`architecture/run.md`).
-  - agent call의 표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만들고, mode는 `turns.mode`에 남는다. run 입력은 `messages.unattended`에 남기되(켤 때 입력함에 되돌리지 않으려고) 태그 글과 받은 봉투에는 싣지 않는다.
+  - reaction, coding agent 입력, 화면의 사람 메시지는 표시가 없어 attended다. skip은 실리지 않는다(사람이 정한 것은 그 대화다). 예외는 둘이다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)와 workflow가 넣은 step 입력(`architecture/workflow.md`)은 unattended turn을 연다.
+  - agent call의 표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만들고, mode는 `turns.mode`에 남는다. run 입력은 `messages.unattended`에 남기되(켤 때 입력함에 되돌리지 않으려고) 태그 글과 받은 봉투에는 싣지 않는다. step 입력의 표시는 입력함 입력(`RoutedInput`)에만 있고, 받은 봉투와 `messages`에는 instance와 step(`step_instance`, `step_name`)만 남는다.
 - 보낸 쪽의 대화 원문은 넘기지 않는다. body와 refs만 간다. body는 redaction을 거친 뒤에만 받는 session 기록에 들어간다.
   - 고정 문구(늦은 실패 알림, 취소 알림)와 body는 tx 안에서 blob을 만들 수 없어서 command 앞단이 미리 준비해 둔다.
 - `agent_calls` 행은 agent가 보낸 call에만 둔다. 사람 메시지와 reaction(program 알림)은 행이 없다. coding session 끝 알림이 두 번 가지 않는 것은 이미 끝난 call을 다시 닫지 않는 것이 막는다.

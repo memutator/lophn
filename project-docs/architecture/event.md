@@ -21,8 +21,8 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 
 - 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind, domain). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
 - agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문). 메모리뿐이고 seq가 없다.
-- 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 새 kind 위반 `KindViolationFound`). 메모리뿐이다.
-- Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림(맡긴 coding session의 끝)이 모두 여기로 들어가, lophn agent는 run-loop 입력함으로 coding agent는 harness adapter로 간다.
+- 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 새 kind 위반 `KindViolationFound`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`). 메모리뿐이다.
+- Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림(맡긴 coding session의 끝), workflow의 step 메시지가 모두 여기로 들어가, lophn agent는 run-loop 입력함으로 coding agent는 harness adapter로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
 - session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. coding session은 harness도 싣는다. 화면이 붙거나 다시 붙을 때 읽는다.
 
@@ -34,6 +34,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 - program은 agent를 부르지 않는다. 앱의 오류나 activation 실패로 agent session을 열지 않는다. activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(`architecture/activation.md`). 앱이 어떻게 도는지는 App Engineer와 lophn이 앱 상태와 앱 log(`app.status`, `app.logs`, `app.invocations`)를 직접 읽어 안다(`architecture/app-call.md`).
 - 맡긴 coding session의 끝도 그렇다. 끝을 아는 command가 같은 tx에서 call을 닫고 맡긴 App Engineer에게 한 번 알린다(`architecture/coding-agent.md`). 따로 하면 Router의 실패 알림이 같은 사실을 한 번 더 보낸다.
 - 앱 재시작 멈춤(`AppRestartHalted`)과 새 kind 위반(`KindViolationFound`)은 사람에게 toast만 띄우는 일이라 남지 않는 event다. 앞은 crash loop로 멈춘 기록(`AppUnavailable`)을 commit한 뒤 apps wiring이 내고, 뒤는 kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다(`architecture/kinds.md`). 놓쳐도 앱 상태와 `kind.check`가 지금 상태를 보여 준다.
+- workflow instance의 행이나 줄을 바꾼 command가 commit되면 workflows wiring이 `WorkflowInstanceChanged`(subject instance, payload project와 workflow)를 한 번 낸다. CLI로 낸 report는 session event가 없어 사람 화면과 instance artifact view가 알 길이 이것뿐이다. 받으면 다시 읽고, 놓친 화면은 열 때 다시 읽는다. 정의 file이 바뀐 것은 알리지 않는다(`architecture/workflow.md`).
 
 events 표
 - Ledger 행은 고치거나 지우지 않는다. compare 기준과 관측 읽기가 seq를 가리킨다. 지우는 것은 사람이 요청한 session delete 하나뿐이다.
@@ -58,7 +59,7 @@ agent event와 화면
 ## 왜 이 모양인가
 
 - 모든 변경을 event로 만들던 옛 구조는 type이 150개 가까이 되었고 화면 구독도 ledger를 읽었다. 반응이 필요한 10개 안팎을 domain event로 남겼다가, 그 일도 아는 command가 같은 tx에서 하게 되어 domain event와 Reactor를 모두 지웠다. 상태는 각 module의 표가 정본이다.
-- 일반 change notification(어느 대상이 바뀜)은 두지 않았다. 받을 화면이 없다. 열린 앱 화면을 다시 그리는 것만 남지 않는 event 하나로 둔다.
+- 일반 change notification(어느 대상이 바뀜)은 두지 않았다. 받을 화면이 없다. 열린 앱 화면을 다시 그리는 것과 workflow instance를 다시 읽는 것만 남지 않는 event로 둔다. workflow는 session 밖(CLI)에서도 바뀌어 session event로 알 수 없다.
 - agent event를 저장하는 안은 버렸다. 조사한 harness(Claude Code, Codex, OpenCode, Hermes 등)와 paseo 모두 대화는 session 기록이 정본이고 event는 흘리는 신호다. seq와 replay는 비용만 든다. 대신 snapshot에 대기 중인 요청까지 담아, 늦게 붙은 화면도 답을 기다리는 요청을 본다.
 - agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. turn 시작 신호가 없는 곳(Claude Code)과 session 시작이 첫 turn인 곳(Hermes, OpenClaw)이 있어서, coding agent는 harness가 알려 준 것만 바꾸고 나머지는 process 종료로 알거나 unknown으로 둔다.
 - coding agent의 끝남은 turn 종료가 아니라 session(터미널 process)의 끝이다. turn이 끝난 것은 멈췄다는 뜻일 뿐이다. 일을 해냈는지는 program이 판정하지 않고 맡긴 App Engineer가 마지막 메시지와 앱 source를 보고 정한다.

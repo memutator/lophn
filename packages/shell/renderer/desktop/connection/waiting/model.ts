@@ -3,6 +3,8 @@
 import { formatRelativeTime, t } from "@lophn/wording";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
+import type { JobAction } from "../../../../../protocol/jobs/values.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
@@ -228,6 +230,31 @@ function activationView(comparison: ActivationConsent["comparison"]) {
   return { added, loss, first: comparison.first };
 }
 
+/** job이 할 일 한 줄. 앱은 id뿐이라 짧은 id로 보인다. */
+function jobActionText(action: JobAction): string {
+  switch (action.kind) {
+    case "agent_run":
+      return t("waiting.notice.job-agent", {
+        agent: agentLabel(action.agent),
+      });
+    case "tool_run":
+      return t("waiting.notice.job-tool", {
+        tool: action.tool,
+        app: appText(action.app),
+      });
+    case "workflow_start":
+      return t("waiting.notice.job-workflow", { workflow: action.workflow });
+  }
+}
+
+/** 놓친 수와 마지막 차례 시각. */
+export function jobHoldNote(hold: JobHold, now = new Date()): string {
+  return t("waiting.notice.job-missed", {
+    count: hold.job_run.missed_count,
+    due: formatRelativeTime(new Date(hold.job_run.due_at), now),
+  });
+}
+
 const NO_LINES: readonly Line[] = [];
 
 export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
@@ -259,6 +286,12 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
     case "coding":
     case "permission":
       return { ...base, ...permissionView(entry.request) };
+    case "job_hold":
+      return {
+        ...base,
+        title: entry.hold.job.title,
+        description: jobActionText(entry.hold.job.action),
+      };
     case "activation": {
       const view = activationView(entry.request.comparison);
       const counts = { declared: view.added.length, lost: view.loss.length };

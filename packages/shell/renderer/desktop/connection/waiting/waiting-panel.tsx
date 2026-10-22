@@ -4,6 +4,7 @@ import { t } from "@lophn/wording";
 import { useEventClient } from "../events/hooks.tsx";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { ActivationCard } from "./cards/activation-card.tsx";
+import { JobHoldCard } from "./cards/job-hold-card.tsx";
 import { CodingCard } from "./cards/coding-card.tsx";
 import type { OnDecide } from "./cards/decision.tsx";
 import {
@@ -23,6 +24,7 @@ const GROUPS = [
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
+  { title: "waiting.label.group-job", kinds: ["job_hold"] },
 ] as const;
 
 const SETTLED_MARK = {
@@ -142,6 +144,10 @@ export function WaitingPanel(
         );
       case "activation":
         return <ActivationCard key={entry.id} {...props} />;
+      case "job_hold":
+        return (
+          <JobHoldCard key={entry.id} entry={entry} view={view} core={core} />
+        );
     }
   }
 

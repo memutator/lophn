@@ -6,6 +6,9 @@ import {
   WaitingActivation,
   WaitingDenyReason,
   WaitingFirstActivation,
+  WaitingJobHoldConflict,
+  WaitingJobHoldKinds,
+  WaitingJobHolds,
   WaitingList,
   WaitingPermission,
   WaitingSettled,
@@ -21,7 +24,7 @@ export const questionsArea: Area = {
       id: "new-waiting-list",
       title: "Waiting · list",
       description:
-        "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청(shell 명령, coding agent), 질문, 앱 업데이트(activation 동의)가 세 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
+        "창 위 pill(5 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청(shell 명령, coding agent), 질문, 앱 업데이트(activation 동의), 예약된 job의 놓친 차례가 네 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다. coding agent 항목은 harness 아이콘과 [Answer in terminal]만 있다.",
       render: () => <WaitingList />,
     },
     {
@@ -58,6 +61,27 @@ export const questionsArea: Area = {
       description:
         "결정한 뒤 목록에 잠깐 남는 줄 셋이다. 허락, 거절, cancelled(원래 일이 끝남)를 나눈다.",
       render: () => <WaitingSettled />,
+    },
+    {
+      id: "waiting-job-hold-list",
+      title: "Waiting · scheduled jobs",
+      description:
+        "대기 목록의 네 번째 묶음 Scheduled jobs다. hold 정책 job이 놓친 차례를 [Skip]이나 [Start now]로 정한다. 정하면 card는 목록에서 빠지고 남는 줄과 toast는 없다.",
+      render: () => <WaitingJobHolds />,
+    },
+    {
+      id: "waiting-job-hold-kinds",
+      title: "Waiting · job kinds",
+      description:
+        "job hold card의 세 가지 할 일: agent 호출(받는 agent), 앱 tool 호출(tool과 앱의 짧은 id), workflow 시작(workflow 이름). 카드에는 job 제목, 만든 agent와 place, 놓친 수와 마지막 차례 시각이 보인다.",
+      render: () => <WaitingJobHoldKinds />,
+    },
+    {
+      id: "waiting-job-hold-conflict",
+      title: "Waiting · start blocked",
+      description:
+        "앞 차례가 아직 돌아 [Start now]를 누르면 막힌 상태다(Weekly review). card는 남고 사유 글이 단추 위에 보이며 [Skip]은 쓸 수 있다.",
+      render: () => <WaitingJobHoldConflict />,
     },
     {
       id: "new-waiting-toasts",

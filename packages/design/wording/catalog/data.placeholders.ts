@@ -40,6 +40,8 @@ export type DataPlaceholders = {
   "waiting.button.cancel": Record<never, never>;
   "waiting.button.deny": Record<never, never>;
   "waiting.button.open-session": Record<never, never>;
+  "waiting.button.skip": Record<never, never>;
+  "waiting.button.start-now": Record<never, never>;
   "waiting.label.activation-first": Record<never, never>;
   "waiting.label.activation-new": Record<never, never>;
   "waiting.label.agent-app-engineer": Record<never, never>;
@@ -64,6 +66,7 @@ export type DataPlaceholders = {
   "waiting.label.group-activation": Record<never, never>;
   "waiting.label.group-permission": Record<never, never>;
   "waiting.label.group-question": Record<never, never>;
+  "waiting.label.group-job": Record<never, never>;
   "waiting.label.hide-details": Record<never, never>;
   "waiting.label.loss-drop-column": Record<never, never>;
   "waiting.label.loss-drop-table": Record<never, never>;
@@ -119,6 +122,21 @@ export type DataPlaceholders = {
   "waiting.notice.coding-start": Record<never, never>;
   "waiting.notice.decide-failed": Record<never, never>;
   "waiting.notice.empty": Record<never, never>;
+  "waiting.notice.job-agent": {
+    agent: "string";
+  };
+  "waiting.notice.job-conflict": Record<never, never>;
+  "waiting.notice.job-missed": {
+    count: "plural";
+    due: "string";
+  };
+  "waiting.notice.job-tool": {
+    tool: "string";
+    app: "string";
+  };
+  "waiting.notice.job-workflow": {
+    workflow: "string";
+  };
   "waiting.notice.mcp-tool": {
     target: "string";
   };

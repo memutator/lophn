@@ -29,6 +29,8 @@ export const data = {
   "waiting.button.cancel": "Cancel",
   "waiting.button.deny": "Deny",
   "waiting.button.open-session": "Open session",
+  "waiting.button.skip": "Skip",
+  "waiting.button.start-now": "Start now",
   "waiting.label.activation-first":
     "Declared by this version (nothing was active before)",
   "waiting.label.activation-new": "New since the last version",
@@ -54,6 +56,7 @@ export const data = {
   "waiting.label.group-activation": "App updates",
   "waiting.label.group-permission": "Permission requests",
   "waiting.label.group-question": "Questions",
+  "waiting.label.group-job": "Scheduled jobs",
   "waiting.label.hide-details": "Hide details",
   "waiting.label.loss-drop-column": "Drops column",
   "waiting.label.loss-drop-table": "Drops table",
@@ -90,6 +93,13 @@ export const data = {
     "The coding agent hasn't reported in yet. You may need to confirm something in its terminal tab, such as trusting the folder.",
   "waiting.notice.decide-failed": "Couldn't send your answer. Try again.",
   "waiting.notice.empty": "No notifications.",
+  "waiting.notice.job-agent": "Asks {agent}.",
+  "waiting.notice.job-conflict":
+    "The previous turn is still going. Try again when it finishes.",
+  "waiting.notice.job-missed":
+    "{count, plural, one {Missed once} other {Missed # times}}. The last turn was due {due}.",
+  "waiting.notice.job-tool": "Uses {tool} in {app}.",
+  "waiting.notice.job-workflow": "Starts workflow {workflow}.",
   "waiting.notice.mcp-tool": "Uses {target}, a tool on an outside server.",
   "waiting.notice.shell": "Runs the command shown below.",
   "waiting.notice.question-in-session":

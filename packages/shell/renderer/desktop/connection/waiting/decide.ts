@@ -6,6 +6,7 @@ import {
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import { jobDecideHold } from "../../../../../protocol/jobs/jobs.ts";
 import {
   type AskAnswer,
   askAnswer,
@@ -114,6 +115,29 @@ export async function decideWaiting(
   }
   // coding agent의 물음과 질문은 이 길로 결정하지 않는다.
   return UNAVAILABLE;
+}
+
+/**
+ * job의 놓친 차례를 정한다. 항목은 JobChanged 뒤 다시 읽을 때 빠진다. key는 누를 때마다 새로 만든다:
+ * 같은 key는 core가 이전 결과를 돌려줘서, conflict로 막힌 뒤 앞 차례가 끝나고 다시 눌러도 옛 conflict가 온다.
+ */
+export async function decideJobHold(
+  core: CoreSource,
+  entry: WaitingEntry & { kind: "job_hold" },
+  choice: "run_now" | "skip",
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly code: string }
+> {
+  const reply = await core.call(commandCall(jobDecideHold, {
+    input: { job_run: entry.id, choice },
+    compare: {},
+    key: `job-hold-${entry.id}-${choice}-${crypto.randomUUID()}`,
+  })).catch(() => null);
+  if (!reply) return UNAVAILABLE;
+  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
+  return jobDecideHold.output.safeParse(reply.value).success
+    ? { ok: true }
+    : UNAVAILABLE;
 }
 
 /** 대기 중인 질문 묶음의 질문 목록. 풀렸거나 읽지 못하면 null이다. */

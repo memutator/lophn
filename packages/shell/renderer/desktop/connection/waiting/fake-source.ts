@@ -14,6 +14,11 @@ import {
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
 import {
+  jobDecideHold,
+  type JobHold,
+  jobHolds,
+} from "../../../../../protocol/jobs/jobs.ts";
+import {
   askAnswer,
   type AskQuestion,
   askRead,
@@ -147,6 +152,98 @@ export const FIRST_ACTIVATION = (): ActivationConsent => ({
   requested_at: ago(1),
 });
 
+const hoursAgo = (hours: number) => ago(hours * 60);
+const jid = (prefix: string, n: number) =>
+  `${prefix}_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`;
+
+function jobHold(
+  n: number,
+  dueHoursAgo: number,
+  missed: number,
+  job: Pick<JobHold["job"], "title" | "creator" | "every" | "at" | "action">,
+): JobHold {
+  const due = hoursAgo(dueHoursAgo);
+  return {
+    job: {
+      id: jid("job", n),
+      ...job,
+      missed_policy: "hold",
+      enabled: true,
+      next_due_at: hoursAgo(-6),
+      last_run: {
+        job_run: jid("jbr", n),
+        state: "held",
+        due_at: due,
+        started_at: null,
+        ended_at: null,
+      },
+      created_at: hoursAgo(24 * 30),
+      updated_at: hoursAgo(48),
+    },
+    job_run: {
+      id: jid("jbr", n),
+      job: jid("job", n),
+      due_at: due,
+      missed_count: missed,
+      state: "held",
+      reason: null,
+      run: null,
+      instance: null,
+      session: null,
+      started_at: null,
+      ended_at: null,
+      created_at: ago(dueHoursAgo * 60 - 5),
+    },
+  };
+}
+
+/** lophn이 만든 agent 호출. 한 번 놓쳤다. */
+export const JOB_HOLD_AGENT = () =>
+  jobHold(11, 9, 1, {
+    title: "Morning digest",
+    creator: { role: "lophn" },
+    every: "1d",
+    at: "09:00",
+    action: {
+      kind: "agent_run",
+      agent: { role: "project_manager", project: PROJECT },
+      agent_place: { kind: "project", id: PROJECT },
+      prompt:
+        "Summarize yesterday's finished tasks and list the open questions for today.",
+    },
+  });
+
+/** App Engineer가 만든 앱 tool 호출. 한 번 놓쳤다. */
+export const JOB_HOLD_TOOL = () =>
+  jobHold(13, 6, 1, {
+    title: "Archive old orders",
+    creator: { role: "app_engineer", app: ORDERS },
+    every: "12h",
+    at: null,
+    action: { kind: "tool_run", app: ORDERS, tool: "archive_old" },
+  });
+
+/** Project Manager가 만든 workflow 시작. 세 번 놓쳤다. */
+export const JOB_HOLD_WORKFLOW = () =>
+  jobHold(12, 48, 3, {
+    title: "Weekly review",
+    creator: { role: "project_manager", project: PROJECT },
+    every: "7d",
+    at: "10:00",
+    action: {
+      kind: "workflow_start",
+      project: PROJECT,
+      workflow: "weekly-review",
+      text: "Review last week's experiments and propose next steps.",
+    },
+  });
+
+/** 앞 차례가 아직 돌아 [Start now]가 conflict로 막히는 workflow 시작. */
+export const JOB_HOLD_BLOCKED = () => ({
+  ...JOB_HOLD_WORKFLOW(),
+  blocked: true as const,
+});
+
 const QUESTION_GROUP = id("qgr", 1);
 const QUESTION_TURN = id("trn", 31);
 const QUESTION_CALL = id("tcl", 31);
@@ -165,6 +262,8 @@ const QUESTION: readonly AskQuestion[] = [{
 type Item =
   | ReturnType<typeof turnRequest>
   | ActivationConsent
+  | JobHold
+  | ReturnType<typeof JOB_HOLD_BLOCKED>
   | "question";
 
 /** 모든 종류가 섞인 한 목록. */
@@ -173,6 +272,7 @@ export const allItems = (): readonly Item[] => [
   CODING_ASK(),
   "question",
   ACTIVATION(),
+  JOB_HOLD_AGENT(),
 ];
 
 /** 결정한 뒤 잠깐 남는 줄 시나리오. */
@@ -222,6 +322,8 @@ export function createFakeWaiting(
   const sessions = new Map<string, SessionSnapshot>();
   const used: FakeSession[] = [];
   let consents: ActivationConsent[] = [];
+  let holds: JobHold[] = [];
+  const blocked = new Set<string>();
   let questionSession: FakeSession | null = null;
 
   function snapshotOf(session: FakeSession): SessionSnapshot {
@@ -259,6 +361,9 @@ export function createFakeWaiting(
         ...snapshot,
         turn_requests: [...snapshot.turn_requests, item.request],
       });
+    } else if ("job_run" in item) {
+      holds.push(item);
+      if ("blocked" in item) blocked.add(item.job_run.id);
     } else {
       consents.push(item);
     }
@@ -351,6 +456,27 @@ export function createFakeWaiting(
           },
         });
         return ok({ release: consent.release, outcome: decided.choice });
+      }
+      if (key === `read:${jobHolds.resource}/${jobHolds.method}`) {
+        return ok({ ...COMMON, holds });
+      }
+      if (
+        key === `command:${jobDecideHold.resource}/${jobDecideHold.method}`
+      ) {
+        const decided = body.input as { job_run: string; choice: string };
+        const hold = holds.find((h) => h.job_run.id === decided.job_run);
+        if (!hold) return fail("not_found");
+        if (decided.choice === "run_now" && blocked.has(decided.job_run)) {
+          return fail("conflict");
+        }
+        holds = holds.filter((h) => h !== hold);
+        emitEvent(base, {
+          type: "JobChanged",
+          subject: hold.job.id,
+          at: at(),
+          payload: { job_run: hold.job_run.id },
+        });
+        return ok({ job_run: hold.job_run });
       }
       if (key === `memory:${askRead.resource}/${askRead.method}`) {
         return questionSession === null

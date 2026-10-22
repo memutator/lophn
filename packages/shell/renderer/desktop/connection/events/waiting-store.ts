@@ -1,7 +1,8 @@
-// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문)을 session을 가리지 않고 한 목록에 든다.
+// 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job의 놓친 차례)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import { HOOK_EVENT_TABLE } from "../../../../../protocol/coding-agent/hook-signal.ts";
 import type { HarnessId } from "../../../../../protocol/coding-agent/harnesses.ts";
 import type {
@@ -10,11 +11,18 @@ import type {
   SessionSnapshot,
 } from "../../../../../protocol/events/mod.ts";
 import type { CallAgent } from "../../../../../protocol/lophn-agent/calls.ts";
-import type { placeOutputSchema } from "../../../../../protocol/lophn-agent/places.ts";
+import {
+  placeOfAgentRef,
+  type placeOutputSchema,
+} from "../../../../../protocol/lophn-agent/places.ts";
 import type { z } from "zod";
 import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
-import { readActivationConsents, readSessionSnapshots } from "./snapshots.ts";
+import {
+  readActivationConsents,
+  readJobHolds,
+  readSessionSnapshots,
+} from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
 type Place = z.infer<typeof placeOutputSchema>;
@@ -48,7 +56,9 @@ export type WaitingEntry =
   | Common & {
     readonly kind: "activation";
     readonly request: ActivationConsent;
-  };
+  }
+  // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
+  | Common & { readonly kind: "job_hold"; readonly hold: JobHold };
 
 export interface WaitingState {
   readonly entries: readonly WaitingEntry[];
@@ -65,6 +75,8 @@ const WAITING_CONDITION: EventCondition = {
     "QuestionResolved",
     "ActivationConsentRequested",
     "ActivationConsentClosed",
+    // session이 없는 event라 session 조건과 섞지 않고 types에만 건다.
+    "JobChanged",
   ],
 };
 
@@ -192,6 +204,18 @@ export function createWaitingStore(
     };
   }
 
+  function jobHold(hold: JobHold): WaitingEntry {
+    return {
+      id: hold.job_run.id,
+      kind: "job_hold",
+      session: null,
+      agent: hold.job.creator,
+      place: placeOfAgentRef(hold.job.creator) ?? null,
+      receivedAt: hold.job_run.created_at,
+      hold,
+    };
+  }
+
   function question(
     session: string,
     request: QuestionRequest,
@@ -240,6 +264,10 @@ export function createWaitingStore(
       case "ActivationConsentClosed":
         entries.delete(event.payload.release);
         break;
+      case "JobChanged":
+        // 어느 줄이 바뀌었는지 event에 없다. hold를 다시 읽어 맞추고, 그 읽기가 publish한다.
+        void refreshHolds();
+        return;
       default:
         return;
     }
@@ -265,13 +293,15 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, consents] = await Promise.all([
+    const [snapshots, consents, holds] = await Promise.all([
       readSessionSnapshots(client.core),
       readActivationConsents(client.core),
+      readJobHolds(client.core),
     ]);
-    // 둘 다 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
+    // snapshot과 동의는 둘 다 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
+    // hold는 따로 본다. 못 읽으면(null) 지금의 job_hold 항목을 둔 채 나머지만 맞춘다.
     if (snapshots === null || consents === null) return null;
-    return { snapshots, consents };
+    return { snapshots, consents, holds };
   }
 
   async function refreshConsents() {
@@ -285,8 +315,23 @@ export function createWaitingStore(
     publish();
   }
 
+  async function refreshHolds() {
+    const holds = await readJobHolds(client.core);
+    if (holds === null) return;
+    const open = new Set(holds.map((one) => one.job_run.id));
+    for (const [id, entry] of entries) {
+      if (entry.kind === "job_hold" && !open.has(id)) entries.delete(id);
+    }
+    for (const one of holds) put(jobHold(one));
+    publish();
+  }
+
   function replace(
-    read: { snapshots: SessionSnapshot[]; consents: ActivationConsent[] },
+    read: {
+      snapshots: SessionSnapshot[];
+      consents: ActivationConsent[];
+      holds: JobHold[] | null;
+    },
   ) {
     // snapshot에서 첫 신호를 들은 session이거나 없는 session은 기다리지 않는다.
     for (const session of [...waitingStart.keys()]) {
@@ -300,15 +345,18 @@ export function createWaitingStore(
         waitStart(snapshot.session, snapshot.agent.app, snapshot.harness);
       } else stopWaitingStart(snapshot.session);
     }
-    const starts = [...entries.values()].filter((entry) =>
-      entry.kind === "coding_start"
+    // coding_start는 snapshot에 없다. hold를 못 읽었으면 지금의 hold 항목도 그대로 둔다.
+    const kept = [...entries.values()].filter((entry) =>
+      entry.kind === "coding_start" ||
+      (read.holds === null && entry.kind === "job_hold")
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
+    for (const one of read.holds ?? []) next.push(jobHold(one));
     next.sort((a, b) => a.receivedAt < b.receivedAt ? -1 : 1);
     entries = new Map();
     for (const entry of next) put(entry);
-    for (const entry of starts) put(entry);
+    for (const entry of kept) put(entry);
     publish();
   }
 

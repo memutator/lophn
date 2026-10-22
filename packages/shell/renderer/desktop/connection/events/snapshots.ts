@@ -8,6 +8,7 @@ import {
   type ActivationConsent,
   activationConsents,
 } from "../../../../../protocol/apps/activation/consent.ts";
+import { type JobHold, jobHolds } from "../../../../../protocol/jobs/jobs.ts";
 
 export async function readSessionSnapshots(
   core: CoreSource,
@@ -36,4 +37,18 @@ export async function readActivationConsents(
   if (!reply?.ok) return null;
   const parsed = activationConsents.output.safeParse(reply.value);
   return parsed.success ? parsed.data.consents : null;
+}
+
+export async function readJobHolds(
+  core: CoreSource,
+): Promise<JobHold[] | null> {
+  const reply = await core.call({
+    kind: "read",
+    resource: jobHolds.resource,
+    method: jobHolds.method,
+    body: {},
+  }).catch(() => null);
+  if (!reply?.ok) return null;
+  const parsed = jobHolds.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.holds : null;
 }

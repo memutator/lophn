@@ -1,8 +1,6 @@
 import type { Area } from "../pages/types.ts";
 // jobs-screen
 import { jobsScreenPages } from "./jobs-screen/pages.tsx";
-// jobs-hold
-import { jobsHoldPages } from "./jobs-hold/pages.tsx";
 // jobs-origin
 import { jobsOriginPages } from "./jobs-origin/pages.tsx";
 
@@ -14,8 +12,6 @@ export const draftsArea: Area = {
   pages: [
     // jobs-screen
     ...jobsScreenPages,
-    // jobs-hold
-    ...jobsHoldPages,
     // jobs-origin
     ...jobsOriginPages,
   ],

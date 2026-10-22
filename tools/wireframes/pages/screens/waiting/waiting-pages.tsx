@@ -11,6 +11,10 @@ import {
   createFakeWaiting,
   EXTERNAL_CALL,
   FIRST_ACTIVATION,
+  JOB_HOLD_AGENT,
+  JOB_HOLD_BLOCKED,
+  JOB_HOLD_TOOL,
+  JOB_HOLD_WORKFLOW,
   SETTLED,
   SHELL_COMMAND,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
@@ -25,6 +29,7 @@ import { reactionsOf } from "../../../../../packages/shell/renderer/desktop/conn
 import { toastText } from "../../../../../packages/shell/renderer/desktop/connection/toasts/toast-text.ts";
 import { ProjectApp } from "../project-app.tsx";
 import { documentTab } from "../../../mock/phroner-data.ts";
+import { click, runSteps, type Step, useDrive } from "../../../mock/drive.ts";
 import { SecretInput } from "../../../../../packages/shell/renderer/secret-input/secret-input.tsx";
 
 const DOC = documentTab("eval/experiments/exp-008-query-tools.md");
@@ -114,13 +119,15 @@ function Toasts() {
 
 // 문서 탭 하나가 열린 project 창의 위쪽 바에 대기 목록 층을 둔다.
 function Over(
-  { items, initial, toasts = false }: {
+  { items, initial, toasts = false, steps = [] }: {
     items: Items;
     initial: WaitingLayerProps["initial"];
     toasts?: boolean;
+    steps?: readonly Step[];
   },
 ) {
   const [client] = useState(() => createEventClient(createFakeWaiting(items)));
+  useDrive(() => runSteps(steps));
   return (
     <EventsProvider client={client}>
       <ProjectApp
@@ -196,6 +203,36 @@ export const WaitingFirstActivation = () => {
 export const WaitingSettled = () => (
   <Over items={["question"]} initial={{ open: true, settled: SETTLED }} />
 );
+
+/** job hold: 놓친 차례가 "Scheduled jobs" 묶음으로 다른 대기 항목 아래에 섞여 있다. 단추는 오른쪽 끝에 [Skip], [Start now]이다. */
+export const WaitingJobHolds = () => (
+  <Over
+    items={[SHELL_COMMAND(), ACTIVATION(), JOB_HOLD_AGENT()]}
+    initial={{ open: true }}
+  />
+);
+
+/** job hold의 세 가지 할 일: agent 호출(받는 agent), 앱 tool 호출(tool과 앱의 짧은 id), workflow 시작(workflow 이름). 놓친 수는 1·1·3이다. */
+export const WaitingJobHoldKinds = () => (
+  <Over
+    items={[JOB_HOLD_AGENT(), JOB_HOLD_TOOL(), JOB_HOLD_WORKFLOW()]}
+    initial={{ open: true }}
+  />
+);
+
+/** 앞 차례가 아직 돌아 [Start now]가 막힌 상태: card는 남고 사유 글이 단추 위에 보이며 [Skip]은 쓸 수 있다. */
+export const WaitingJobHoldConflict = () => {
+  const blocked = JOB_HOLD_BLOCKED();
+  return (
+    <Over
+      items={[JOB_HOLD_AGENT(), blocked]}
+      initial={{ open: true }}
+      steps={[
+        () => click(`[data-job-hold="${blocked.job_run.id}"] [data-start-now]`),
+      ]}
+    />
+  );
+};
 
 /** toast 묶음: 권한 요청, activation 동의, 질문, 앱 재시작 멈춤, kind 위반. 창 위 overlay라 layout을 차지하지 않는다. */
 export const WaitingToasts = () => (

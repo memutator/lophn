@@ -1,10 +1,11 @@
-/* 이름 + chevron. 이름이 길면 줄여 보이고 단추는 줄어든다(상단 바 가운데 자리는 좁아지면 이름을 줄인다). */
+/* 이름 + chevron. 좁아지면 이름이 ellipsis로 줄고 chevron은 남는다. desk가 project보다 먼저 줄어든다. */
 .trigger {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: var(--control-gap);
-  min-width: var(--space-0);
+  flex: 0 1 auto;
+  min-width: var(--space-12);
   max-width: 100%;
   height: var(--control-sm-height);
   padding: var(--space-0) var(--control-sm-pad-x);
@@ -18,6 +19,10 @@
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
   cursor: pointer;
+}
+
+.trigger[data-path-selector="desk"] {
+  flex-shrink: 1000;
 }
 
 .trigger:hover,
@@ -58,4 +63,11 @@
   display: inline-flex;
   flex: none;
   color: var(--status-critical-text);
+}
+
+.sep {
+  flex: none;
+  color: var(--color-text-disabled);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
 }

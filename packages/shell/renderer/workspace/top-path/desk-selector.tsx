@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -40,39 +41,77 @@ function InvalidMark() {
   );
 }
 
-// 상단 바 가운데의 자리 selector. 이름과 chevron 단추 하나이고 누르면 자리 목록이 열린다.
-// 틀린 선언은 오류 표시가 붙지만 고를 수 있다(선언을 고치는 동안에도 자리는 열 수 있어야 한다).
-export function DeskSelector({ options, active, onSelect }: DeskSelectorProps) {
-  const current = options.find((option) => option.key === active) ?? options[0];
+/** 상단 바 왼쪽 경로의 `/`. project 조각과 desk 조각 사이에 둔다. */
+export function PathSep() {
+  return <span className={styles.sep} aria-hidden="true">/</span>;
+}
+
+interface PathMenuProps {
+  /** data 표식(`data-path-selector`)이자 좁을 때 양보 순서다: desk가 project보다 먼저 줄어든다. */
+  readonly kind: "desk" | "project";
+  readonly label: string;
+  readonly icon: LucideIcon;
+  readonly items: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly invalid?: boolean;
+  }[];
+  readonly active: string;
+  readonly onSelect: (id: string) => void;
+}
+
+// project·desk selector가 같이 쓰는 경로 조각: 이름과 chevron 단추 하나, 누르면 목록 menu.
+export function PathMenu(
+  { kind, label, icon, items, active, onSelect }: PathMenuProps,
+) {
+  const current = items.find((item) => item.id === active) ?? items[0];
   return (
     <Menu
       trigger={
         <button
           type="button"
           className={styles.trigger}
-          aria-label={t("project-workspace.label.desk-selector")}
-          data-desk-selector=""
+          aria-label={label}
+          data-path-selector={kind}
         >
           <span className={styles.name}>{current?.label}</span>
           {current?.invalid === true ? <InvalidMark /> : null}
           <Icon icon={commonIcons.collapse} pixels={pixels} />
         </button>
       }
-      items={options.map((option) => ({
-        id: option.key,
-        textValue: option.label,
-        data: { "data-desk-option": option.key },
-        leading: <MenuIcon icon={commonIcons.series} />,
+      items={items.map((item) => ({
+        id: item.id,
+        textValue: item.label,
+        data: { "data-path-option": item.id },
+        leading: <MenuIcon icon={icon} />,
         label: (
           <span className={styles.item}>
-            <span className={styles.name}>{option.label}</span>
-            {option.invalid === true ? <InvalidMark /> : null}
-            {option.key === active
+            <span className={styles.name}>{item.label}</span>
+            {item.invalid === true ? <InvalidMark /> : null}
+            {item.id === active
               ? <Icon icon={conversationIcons.current} pixels={pixels} />
               : null}
           </span>
         ),
       }))}
+      onSelect={onSelect}
+    />
+  );
+}
+
+// 상단 바 왼쪽 경로의 자리(desk) 조각. 틀린 선언은 오류 표시가 붙지만 고를 수 있다(선언을 고치는 동안에도 자리는 열 수 있어야 한다).
+export function DeskSelector({ options, active, onSelect }: DeskSelectorProps) {
+  return (
+    <PathMenu
+      kind="desk"
+      label={t("project-workspace.label.desk-selector")}
+      icon={commonIcons.series}
+      items={options.map((option) => ({
+        id: option.key,
+        label: option.label,
+        invalid: option.invalid,
+      }))}
+      active={active}
       onSelect={onSelect}
     />
   );

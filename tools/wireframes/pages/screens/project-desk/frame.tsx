@@ -11,16 +11,19 @@ import {
 } from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../../../../../packages/shell/renderer/desktop/top-bar/platform.ts";
 import { LauncherButton } from "../../../../../packages/shell/renderer/workspace/launcher-button.tsx";
-import { Breadcrumbs } from "../../../../../packages/shell/renderer/workspace/top-path/breadcrumbs.tsx";
 import {
   type DeskOption,
   DeskSelector,
+  PathSep,
 } from "../../../../../packages/shell/renderer/workspace/top-path/desk-selector.tsx";
+import {
+  type ProjectOption,
+  ProjectSelector,
+} from "../../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
 import { MinimizedBar } from "../../../../../packages/shell/renderer/workspace/minimized/minimized-bar.tsx";
 import { Floats } from "../../../../../packages/shell/renderer/workspace/floats/floats.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import {
-  breadcrumbs,
   closeFloat,
   closeTab,
   dockTab,
@@ -37,7 +40,7 @@ import { GalleryConnectHost } from "../../../mock/connect-host.tsx";
 import { TerminalBody } from "../bodies.tsx";
 import { DocumentPane } from "../documents.tsx";
 import { PageSidebar, stripTabsOf, type TabSpec } from "../project-window.tsx";
-import { DEFAULT_KEY, LAYOUTS } from "./desks.ts";
+import { DEFAULT_KEY, LAYOUTS, PROJECTS } from "./desks.ts";
 
 const specOf = (tab: TabItem): TabSpec => ({
   key: tab.key,
@@ -47,20 +50,15 @@ const specOf = (tab: TabItem): TabSpec => ({
 });
 const stripTab = (tab: TabItem) => stripTabsOf([specOf(tab)])[0]!;
 
-/** 상단 바. 가운데에 selector를 놓는다. 왼쪽과 platform은 부르는 쪽이 정한다. */
+/** 상단 바. 왼쪽에 `project ▾ / desk ▾`를 두고 오른쪽은 palette 단추다. */
 export function DeskBar(
-  { platform, leading, center }: {
-    platform: WindowPlatform;
-    leading: ReactNode;
-    center?: ReactNode;
-  },
+  { platform, leading }: { platform: WindowPlatform; leading: ReactNode },
 ) {
   return (
     <div className={workspace.topBar}>
       <TopBar
         platform={platform}
         leading={<div className={workspace.leading}>{leading}</div>}
-        center={center}
         trailing={
           <div className={workspace.trailing}>
             <PaletteButton />
@@ -71,8 +69,40 @@ export function DeskBar(
   );
 }
 
+/** 왼쪽 경로: project, workflow가 있으면 `/ desk`. desk 목록이 기본 자리뿐이면 desk 조각을 그리지 않는다. */
+export function PathLeading(
+  { projects, project, onProject, desks, desk, onDesk }: {
+    projects: readonly ProjectOption[];
+    project: string;
+    onProject: (id: string) => void;
+    desks: readonly DeskOption[];
+    desk: string;
+    onDesk: (key: string) => void;
+  },
+) {
+  return (
+    <>
+      <ProjectSelector
+        options={projects}
+        active={project}
+        onSelect={onProject}
+      />
+      {desks.length > 1
+        ? (
+          <>
+            <PathSep />
+            <DeskSelector options={desks} active={desk} onSelect={onDesk} />
+          </>
+        )
+        : null}
+    </>
+  );
+}
+
 export interface DeskWindowProps {
   readonly options: readonly DeskOption[];
+  /** project menu의 목록. 읽지 못했으면 지금 project 하나다. */
+  readonly projects?: readonly ProjectOption[];
   /** 시작할 때 켜진 자리. */
   readonly active?: string;
   /** 접힌 sidebar로 시작한다. */
@@ -85,6 +115,7 @@ export interface DeskWindowProps {
 export function DeskWindow(
   {
     options,
+    projects = PROJECTS,
     active: first = DEFAULT_KEY,
     collapsed: firstCollapsed = false,
     width,
@@ -92,6 +123,7 @@ export function DeskWindow(
   }: DeskWindowProps,
 ) {
   const [active, setActive] = useState(first);
+  const [project, setProject] = useState(projects[0]!.id);
   const [collapsed, setCollapsed] = useState(firstCollapsed);
   const [views, setViews] = useState(LAYOUTS);
   const view = views[active]!;
@@ -109,17 +141,6 @@ export function DeskWindow(
         onEditing={() => {}}
       />
     );
-
-  // 고를 것이 없으면(기본 자리뿐) selector를 두지 않는다.
-  const center = options.length > 1
-    ? (
-      <DeskSelector
-        options={options}
-        active={active}
-        onSelect={setActive}
-      />
-    )
-    : undefined;
 
   return (
     <GalleryConnectHost>
@@ -149,11 +170,17 @@ export function DeskWindow(
         <div className={workspace.main}>
           <DeskBar
             platform={platform}
-            center={center}
             leading={
               <>
                 {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <Breadcrumbs crumbs={breadcrumbs("phroner", view)} />
+                <PathLeading
+                  projects={projects}
+                  project={project}
+                  onProject={setProject}
+                  desks={options}
+                  desk={active}
+                  onDesk={setActive}
+                />
                 <MinimizedBar
                   items={view.floats.filter((item) => item.minimized)}
                   stripTab={stripTab}
@@ -188,7 +215,11 @@ export function DeskWindow(
                     />
                     <div className={`${paneStyles.body} ${paneStyles.flush}`}>
                       {tab === undefined
-                        ? <p>{t("project-workspace.empty.no-tabs")}</p>
+                        ? (
+                          <p style={{ padding: "var(--space-8)" }}>
+                            {t("project-workspace.empty.no-tabs")}
+                          </p>
+                        )
                         : renderTab(tab)}
                     </div>
                   </section>

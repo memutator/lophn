@@ -12,8 +12,6 @@ import { WindowControls } from "./window-controls.tsx";
 interface TopBarProps {
   /** 바 왼쪽 자리. 런처는 wordmark를 둔다. */
   leading?: ReactNode;
-  /** 바 가운데 자리. project 창은 자리(desk) selector를 둔다. 없으면 이 자리 자체를 그리지 않는다. */
-  center?: ReactNode;
   /** 바 오른쪽 자리. 런처는 Settings 진입점을 둔다. */
   trailing?: ReactNode;
   /** 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
@@ -23,18 +21,11 @@ interface TopBarProps {
 // 36px 끌기 바. macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋(46px 셋, 138px)을
 // 직접 그린다. 조작 요소만 끌기에서 뺀다.
 export function TopBar(
-  { leading, center, trailing, platform = currentPlatform() }: TopBarProps,
+  { leading, trailing, platform = currentPlatform() }: TopBarProps,
 ) {
   return (
-    <header
-      className={styles.bar}
-      data-platform={platform}
-      data-center={center === undefined ? undefined : ""}
-    >
+    <header className={styles.bar} data-platform={platform}>
       <div className={styles.leading}>{leading}</div>
-      {center === undefined
-        ? null
-        : <div className={styles.center}>{center}</div>}
       <div className={styles.trailing}>{trailing}</div>
       {platform === "mac" ? null : <WindowControls />}
     </header>

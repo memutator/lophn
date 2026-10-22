@@ -4,6 +4,8 @@ import type {
   TabItem,
   WorkspaceView,
 } from "../../../../../packages/shell/renderer/workspace/model.ts";
+import { t } from "@lophn/wording";
+import type { ProjectOption } from "../../../../../packages/shell/renderer/workspace/top-path/project-selector.tsx";
 import type { DeskOption } from "../../../../../packages/shell/renderer/workspace/top-path/desk-selector.tsx";
 
 const doc = (path: string): TabItem => ({
@@ -43,7 +45,10 @@ const view = (
 
 export const DEFAULT_KEY = "_default";
 
-export const DESK_MAIN: DeskOption = { key: DEFAULT_KEY, label: "Main" };
+export const DESK_MAIN: DeskOption = {
+  key: DEFAULT_KEY,
+  label: t("project-workspace.label.desk-default"),
+};
 export const DESK_RELEASE: DeskOption = {
   key: "release-notes",
   label: "release-notes",
@@ -55,6 +60,14 @@ export const DESK_NIGHTLY: DeskOption = {
   label: "nightly-eval",
   invalid: true,
 };
+
+export const PROJECTS: readonly ProjectOption[] = [
+  { id: "prj_phroner", label: "phroner" },
+  { id: "prj_grocery", label: "grocery-budget" },
+  { id: "prj_eval", label: "eval-lab" },
+];
+// 목록을 못 읽으면 지금 project 하나뿐이다.
+export const PROJECTS_FAILED: readonly ProjectOption[] = [PROJECTS[0]!];
 
 /** workflow가 없는 project. */
 export const OPTIONS_NONE: readonly DeskOption[] = [DESK_MAIN];

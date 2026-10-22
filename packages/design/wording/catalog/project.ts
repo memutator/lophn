@@ -169,6 +169,7 @@ export const project = {
   "project-workspace.label.menu-terminal": "Terminal",
   "project-workspace.label.minimized": "Minimized panels",
   "project-workspace.label.path": "Path",
+  "project-workspace.label.project-selector": "Project",
   "project-workspace.label.rail-agent": "Agent",
   "project-workspace.label.rail-search": "Search",
   "project-workspace.label.rail-shortcuts": "Shortcuts",

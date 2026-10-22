@@ -5,16 +5,16 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `wf-contract` | workflows | 1 | 없음 | merged | workflows/wf-contract | a2d63f5e8 |  |
-| `wf-artifact-source` | artifact | 2 | wf-contract | todo |  |  |  |
+| `wf-artifact-source` | artifact | 2 | wf-contract | running | artifact/wf-artifact-source |  |  |
 | `wf-cli` | cli | 2 | wf-contract | todo |  |  |  |
-| `wf-kit-graph` | kit | 2 | wf-contract | todo |  |  |  |
+| `wf-kit-graph` | kit | 2 | wf-contract | running | kit/wf-kit-graph |  |  |
 | `wf-agent-tools` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-role-text` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-write-scope` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-wireframe` | shell | 2 | wf-contract | running | shell/wf-wireframe |  |  |
 | `wf-decl-reader` | workflows | 2 | wf-contract | merged | workflows/wf-decl-reader | 4b2169127 |  |
 | `wf-step-input` | workflows | 2 | wf-contract | running | workflows/wf-step-input |  |  |
-| `wf-store` | workflows | 2 | wf-contract | running | workflows/wf-store |  |  |
+| `wf-store` | workflows | 2 | wf-contract | merged | workflows/wf-store | 8ac529c7e |  |
 | `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |
 | `wf-artifact-serve` | artifact | 3 | wf-artifact-source | todo |  |  |  |
 | `wf-kit-build` | kit | 3 | wf-kit-graph | todo |  |  |  |

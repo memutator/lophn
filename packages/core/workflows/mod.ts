@@ -13,3 +13,6 @@ export type {
   WorkflowStore,
   WorkflowTurns,
 } from "./ports.ts";
+export { createWorkflowReads } from "./reads.ts";
+export { workflowsSchemaSteps } from "./schema.ts";
+export { runningInstances } from "./store.ts";

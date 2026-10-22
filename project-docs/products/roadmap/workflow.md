@@ -1,6 +1,6 @@
 # workflow: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. job이 instance를 시작하는 길은 계획 `schedule-job`으로 land했다(`project-docs/architecture/job.md`). 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
 
 ## 원칙: lophn program은 최대한 약하다
 
@@ -13,8 +13,7 @@
 1. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. 아래 "정할 것" 1을 정한 뒤 연다.
 2. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 정한다.
 3. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
-4. **job이 instance를 시작하는 것.** `headless-schedule.md`의 job 계획(`schedule-job`)과 맞춘다. 지금 시작은 사람(화면, CLI)뿐이다.
-5. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
+4. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
 
 ## 정한 것 (사람)
 

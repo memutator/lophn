@@ -7,6 +7,7 @@ workflow는 사람과 agent가 step을 넘기며 도는 일이다. project의 PM
 ```
  사람: 화면 | CLI (lophn workflow start|report|stop|show)      user token
  agent: tool workflow.list | get | report | edit               (시작 tool은 없다)
+ job: scheduler ─ workflowService.start(…, {kind: "job", job})   (core 안. route 아님, architecture/job.md)
    │  POST /workflows/list|start|report|edit|stop  (memory)   GET workflow_instances/read|list
    ▼
  workflows service (core/workflows/service.ts)
@@ -37,12 +38,13 @@ workflow는 사람과 agent가 step을 넘기며 도는 일이다. project의 PM
 - 목록(`ListWorkflows`)의 step에는 `prompt`·`in`·`out`이 없다. 목록을 읽는 참가자가 다른 step의 글을 알면 캡슐화가 깨진다.
 
 instance와 줄
-- 시작(`StartWorkflow`)은 사람만 한다(actor user). 입력은 자연어 글이고 step을 고르지 않으면 첫 step이다. 시작할 수 없는 workflow는 `conflict`, 없는 step은 `not_found`다.
+- 시작은 사람(`StartWorkflow`, actor user) 또는 job이다. 시작한 쪽은 instance 행의 `started_by`(`{kind: user}` 또는 `{kind: job, job}`)에 남는다. job은 `StartWorkflow` route가 아니라 core 안 `workflowService.start(input, by)`를 부른다. 어느 쪽이든 입력은 자연어 글이고 step을 고르지 않으면 첫 step이다. 시작할 수 없는 workflow는 `conflict`, 없는 step은 `not_found`다.
+  - job이 시작하면 그 job의 job run이 instance가 끝날 때까지 도는 줄로 남고 같은 job의 다음 차례는 건너뛴다. job run은 instance 상태를 따라 닫힌다(`ended`면 done, `stopped`면 cancelled, `architecture/job.md`). 지운 job이 시작한 instance는 `started_by`에 id만 남고 제목이 없다.
 - instance는 시작할 때 선언의 참가자와 step 가운데 읽는 칸만 골라 옮겨 갖는다. 그 뒤 선언이 바뀌어도 instance는 그대로이고, instance의 step은 참가자가 `EditWorkflow`로 고친다.
 - 상태는 `running | ended | stopped`다.
   - `ended`는 누가 그렇게 말했다는 기록일 뿐이다(report의 `next: end`나 edit의 `end`). `running`이었을 때만 `ended` 줄과 `finished_at`을 쓴다. 그 뒤 report나 `hand_now`가 실제로 넘기면(`handed`) 다시 `running`이 되고 `finished_at`이 비워진다. 넘기지 못했으면 `ended` 그대로다.
   - `stopped`는 사람이 멈춘 것이다(`StopWorkflow`, actor user). 멈춘 instance에는 넘기지 않고 고치기와 다시 멈추기를 `conflict`로 거절한다. report는 줄만 남기고 `handed: null`이다. 늦게 온 report를 잃지 않는다.
-- 줄은 여덟 종류다: `started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`. seq는 instance 안에서 1부터 잇는다. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. `handed`·`not_handed`·`ended`·`lophn_restarted`는 lophn이다.
+- 줄은 여덟 종류다: `started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`. seq는 instance 안에서 1부터 잇는다. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`는 lophn이다.
 - 한 command는 instance 행을 한 번 고치고(`state_seq`가 한 번 오른다) commit 뒤 `workflows.changed`를 한 번 낸다. service는 읽은 `state_seq`로 compare를 걸고, `conflict`면 다시 읽어 `state_seq`가 바뀌었을 때만 최대 3번 건다.
 - `ReadWorkflowInstance`는 instance, step마다 가장 나중 report(`last_reports`), 줄 200개씩(`cursor`)을 준다. machine 자격도 받는다. `ListWorkflowInstances`는 project(와 workflow, state)로 거르고 새것이 앞이며 50개씩, 줄마다 마지막 줄을 붙인다.
 
@@ -63,7 +65,7 @@ report와 고치기
 step 입력
 - step 메시지는 입력 종류 `step`이다. 받는 session은 `<lophn-step instance="…" step="…">본문</lophn-step>`과 고정 영어 한 줄("…report it with the workflow.report tool.")로 받는다. 받은 봉투와 `messages` 표(`step_instance`, `step_name`)에 instance와 step이 남아 뒤 turn의 이력이 같은 글을 만든다. call 행은 없다.
 - 본문은 그 step의 `prompt`, 빈 줄, `Receives:` `in`, `Received:` 받은 글, `Produces:` `out`, `Next candidates:` `next`다(빈 칸은 줄째 뺀다). 받은 글은 report 글(시작이면 시작 입력, `hand_now`면 그 글 또는 마지막 report 글 또는 시작 입력)이다. `workflow.md`와 다른 step은 싣지 않는다.
-- step 입력은 unattended 표시를 실어 그 turn이 묻지 않는다(`architecture/approval.md` "turn mode"). 할당은 넓히지 않는다. 받은 agent는 그래도 자기 할당에 없는 앱 tool을 쓰지 못한다. 사람 step의 대화에서 사람이 보낸 메시지가 연 turn은 attended다.
+- step 입력은 unattended 표시를 실어 그 turn이 묻지 않는다(`architecture/approval.md` "turn mode"). 할당은 넓히지 않는다. 받은 agent는 그래도 자기 할당에 없는 앱 tool을 쓰지 못한다. 사람 step의 대화에서 사람이 보낸 메시지가 연 turn은 attended다. job이 시작한 instance의 step 입력도 같다(사람이 없다).
 - step 입력도 call처럼 rewind 시점(checkpoint)이다.
 - 시작 입력, report와 `hand_now`의 글, 본문은 writer 앞단에서 redaction을 거친다. 본문은 받는 session 기록에 들어가므로 `machine:workflows` 이름으로 blob을 준비한다(`architecture/agent-call.md`).
 
@@ -76,7 +78,7 @@ step 입력
 - 정의를 만들고 고치는 법은 PM의 내장 skill `guide-workflows`다.
 
 agent tool과 CLI
-- agent tool `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`을 모든 role이 받는다. 누구든 참가자일 수 있다. 시작하는 tool은 없다. `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.
+- agent tool `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`을 모든 role이 받는다. 누구든 참가자일 수 있다. 시작하는 tool은 없다. 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.
 - 모든 role의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `workflow.get`으로 읽는다.
 - CLI는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`), `stop <instance>`, `show <instance>`다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). program도 이 입구로 report한다. program 자격을 따로 두는 일은 roadmap의 일이다.
 
@@ -88,7 +90,7 @@ artifact
 
 화면
 - workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안에서 instance를 고르고, 고른 instance는 layout에 남는다(`packages/shell/renderer/workspace/kinds/workflow.tsx`, 본문 `packages/shell/renderer/workflow/`).
-- 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 `flow`는 이유 한 줄을 보이고 시작하지 못한다. instance 목록은 새것이 앞이다. 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, step 없는 `edit`)은 머리에 둔다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을, instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
+- 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 `flow`는 이유 한 줄을 보이고 시작하지 못한다. instance 목록은 새것이 앞이고 job이 시작한 instance 줄은 시작한 쪽으로 job 제목을 보인다(지운 job이면 제목 없이 "Scheduled job"). 고른 instance의 머리도 같다. 제목은 읽는 곳이 `job.list`로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, step 없는 `edit`)은 머리에 둔다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을, instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
 - 사람 화면이 부르는 memory route는 `ListWorkflows`, `StartWorkflow`, `StopWorkflow`뿐이다(`packages/shell/main/desktop/core/allowlist.ts`). report와 고치기는 agent가 한다. 사람이 순서를 바꾸고 싶으면 그 agent에게 말한다.
 - 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `WorkflowInstanceChanged`가 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
 - project sidebar의 activity bar에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `WorkflowInstanceChanged` 때 읽는다.
@@ -98,6 +100,7 @@ artifact
 - lophn program은 최대한 약하다. 순서, 결과, 고칠 자격을 판정하면 그 코드가 workflow의 정책에 기대고, agent 성능이 오를수록 덜어내야 할 규칙이 된다. 예외는 program이 다룰 수 없어서 workflow 안의 agent가 다룬다. 결정적 제약이 필요하면 그 workflow의 program이 진다(`project-docs/products/roadmap/workflow.md` "원칙").
 - `ended`를 굳히지 않는다. 끝을 lophn이 굳히면 다시 열어야 할 예외를 agent가 다루지 못한다. 사람이 멈춘 것만 굳힌다.
 - 정본은 표다. CLI로 낸 report는 session event가 없어서 화면이 알 길은 남지 않는 event뿐이고, 놓친 화면은 다시 읽는다(`architecture/event.md`).
+- job은 `StartWorkflow` route가 아니라 core 안 service로 시작한다. 그 route는 사람만 받는 입구(actor user)이고, job은 사람 자격이 없는 machine이 부르는 일이라서다. route를 job에도 열면 "시작은 사람의 일"이라는 입구의 뜻이 흐려진다.
 - 본문과 받는 곳을 command 앞에서 정한다. 본문은 blob이라 tx 안에서 만들 수 없고, 앞에서 정해 넘기면 command는 받은 대로 넣기만 한다. 줄과 입력이 반쪽만 남지 않게 한 tx다.
 - 켤 때 다시 넣지 않는다. 다시 넣으면 바깥 효과가 두 번 날 수 있다. 그래도 말없이 잃지 않게 줄로 남긴다(`architecture/run.md` "켤 때와 session 끝").
 - step 메시지는 그 step만 싣는다. agent는 domain처럼 자기 일의 in/out만 알면 되고, system prompt에 workflow를 싣지 않아 cache도 깨지지 않는다.

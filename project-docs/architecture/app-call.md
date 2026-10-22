@@ -1,15 +1,17 @@
 # app-call
 
-앱은 blueprint `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 넷이다: 사람이 연 앱 화면, agent의 tool(그 앱의 App Engineer는 preview도), 다른 앱, coding agent의 MCP(preview만). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
+앱은 blueprint `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 다섯이다: 사람이 연 앱 화면, agent의 tool(그 앱의 App Engineer는 preview도), 다른 앱, coding agent의 MCP(preview만), job이 연 tool run(program). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
 
 ## 흐름
 
 ```
  person ── shell 앱 화면 ─────┐
  agent  ── run-loop tool ─────┼─ core-api(app.call_tool) ─▶ 호출 경로 (core/apps/calls)
- app    ── sdk ─ broker ──────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation)
+ app    ── sdk ─ broker ──────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run)
+ program ── job run의 tool run ─┤   (core 안 run 연산만. route로는 못 연다)
  coding agent ── MCP /mcp ────┘                preview만(previewOnly): preview bundle 선언으로 판정하고 기록·막기·줄 없이 보낸다
-                                             2 막기               agent는 할당(judge), 앱은 active 앱 grant의 app.call. 묻지 않는다
+                                             2 막기               agent는 할당(judge), program은 만든 agent의 할당(unattended)과 domain 거르기,
+                                                                  앱은 active 앱 grant의 app.call. 묻지 않는다
                                              3 write·external이면 앱별 줄을 얻는다. read는 바로
                                              4 invocation 시작을 남긴다        ─▶ storage (ledger + changeset blob)
                                              5 보낸다
@@ -45,13 +47,18 @@
   - MCP annotation(`readOnlyHint`, `destructiveHint`, `openWorldHint`)은 effect에서 만들어(`toMcpTool`) 바깥에 보일 때만 싣는다. 힌트일 뿐이고 강제하지 않는다.
 - 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다.
   - 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
-- 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 한다.
-  - 끝난 turn이나 꺼진 판의 호출이 실수로 섞이면 막기와 기록이 틀린다. agent와 앱은 늘 live 활성 release만 부른다.
+- 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이 core가 만든 자격과 같아야 한다.
+  - 끝난 turn이나 꺼진 판의 호출이 실수로 섞이면 막기와 기록이 틀린다. agent, 앱, program은 늘 live 활성 release만 부른다.
 - tool 호출은 domain을 싣지 않고 invocation에도 domain이 없다. 어느 domain이 불렀는지는 부른 session의 agent가 맡은 domain으로 안다.
   - 앱 code가 호출자별로 data를 나누는 관례는 core가 지키지 못한다. 그래서 호출에 범위를 싣지 않는다.
 - 다른 domain의 agent는 앱의 `public` tool만 본다. 맡은 domain의 agent는 그 domain의 모든 tool을 본다. 같은 앱의 다른 domain도 다른 domain이다. 어느 domain을 맡았는지는 agent의 place와 정의가 정한다(`architecture/domain.md`, `agent-definition.md`).
 - 호출 경로는 묻지 않고 막기만 한다. agent의 호출은 그 agent의 지금 할당을 `judge`로 보고(할당 안 된 앱, 뺀 tool이면 막는다), 앱의 호출은 부른 앱의 active grant 가운데 `app.call`이 그 대상 앱의 그 tool을 덮는지 본다. 막히면 `denied(gate_blocked)`다. 판정 자리는 write 줄 앞이다.
   - 사람에게 묻는 자리는 run-loop tool gate 하나다(`architecture/approval.md`). agent의 호출이 여기 닿았으면 물을 것은 이미 물었다. 앱이 앱을 부르는 것은 activation 때 사람이 grant로 허락한 것이라 묻지 않는다.
+- program은 job이 연 tool run의 호출이다(`architecture/job.md`). 부른 쪽 사람이 없고 부른 turn도 없다. 자격(`CallAuth.program`: job, job run, 그 job을 만든 agent와 place)은 route가 만들지 못하고 core 안 run 연산이 만든다(`packages/core/main/daemon/wiring/runs.ts`). caller 본문은 `{kind: program, job, job_run}`뿐이고 자격과 같아야 한다(`verifyCaller`).
+  - 판정은 만든 agent의 지금 할당이다. 호출 때 읽고(`judge`를 mode `unattended`로 부른다) 그 job을 만든 뒤에 할당이 바뀌었으면 바뀐 대로 본다. 거기에 domain 거르기를 더한다: 공개(`public`) tool이거나 만든 agent가 맡은 domain의 tool이어야 한다. 그 agent의 tool 목록에 뜰 tool만 부른다는 같은 규칙이다(`packages/core/apps/calls/gate.ts`의 `callAllowed`). 어느 domain을 맡았는지 읽는 셈은 사용 관계와 같다(`packages/core/main/daemon/agent-domains.ts`). 읽지 못하면 막는다.
+  - 막히면 `denied(gate_blocked)`가 기록되고 run은 `tool_denied`로 실패한다. job run은 `failed`다. 그 밖의 줄, 기록, 직렬화는 다른 호출과 같다. invocation의 `caller_kind`에 `program`이 있다.
+  - job은 만든 agent의 할당으로 돈다. 그래서 다른 agent가 그 job을 고치면 남의 할당으로 일을 시키게 되므로 job은 만든 agent만 고친다(`architecture/job.md`).
+  - 앱 process의 caller parser(`packages/core/apps/runtime/entrypoint/wire.ts`)는 protocol schema의 손 사본이라(앱 process는 Zod를 싣지 않는다) caller 네 종류(person, agent, app, program)를 protocol과 같이 받아야 한다. 하나라도 빠지면 그 caller의 호출이 앱에서 말없이 거절된다.
 - write와 external은 앱마다 한 번에 하나다. core의 줄과 앱 process 안의 mutex, 두 겹이다. read는 동시에 돈다.
   - SQLite session은 연결 단위라 두 write가 겹치면 한 changeset에 두 호출의 변경이 섞여 호출 단위로 되돌릴 수 없다. 줄을 쥔 호출이 돌아오지 않아도 줄이 영영 막히지 않게 abandon이 줄을 비운다.
 - changeset은 앱 process(sdk)만 뜨고 적용한다. 앱 DB는 그 앱의 process만 열기 때문이다. core는 보관하고, 뒤집고, 지휘한다.
@@ -100,6 +107,7 @@
 - **뒤집기는 직접 구현했다.** node:sqlite에는 session과 apply는 있고 changeset을 뒤집는 함수(`sqlite3changeset_invert`)가 없다. changeset에는 UPDATE와 DELETE의 원래 값이 들어 있어, SQLite 문서의 changeset format을 읽는 순수 함수로 뒤집는다(base). patchset은 원래 값이 없어 뒤집지 못한다.
 - **호출 단위가 아닌 시점 단위로 되돌린다.** write가 무엇을 읽고 썼는지 모르니, 호출 하나만 빼면 뒤 호출의 전제가 깨진다.
 - **되돌린 invocation을 지우지 않고 표시한다.** 기록은 감사에 쓰이고, 반쯤 되돌아간 DB는 남기지 않는다. 되돌린 것을 다시 하기(redo)는 없다.
+- **program caller를 따로 둔다.** 사람이 연 run의 호출은 사람의 호출이라 Gate를 거치지 않는다. job의 호출은 사람이 없는데 그 사슬을 맡긴 것은 agent가 만든 job이라, 만든 agent의 할당 안이어야 한다. agent caller는 도는 turn과 tool call을 싣고 그것으로 확인하는데 job에는 그것이 없다. 그래서 job과 job run을 싣고 core가 만든 자격과 맞춰 본다. person을 빌려 쓰면 Gate를 건너뛰고, agent를 빌려 쓰면 없는 turn을 만들어야 한다.
 - **agent에게는 앱 tool이 그대로 tool로 보인다**(`domain__<domain>__<tool>`). domain 이름은 모든 domain에서 하나라 앱 id 없이 겹치지 않는다. 앱 할당과 release 선언의 교집합만 tool 정의가 되고 사람이 뺀 tool은 요청에 아예 없다. 효과(read, write, external)와 `outputSchema`는 tool 정의에 싣지 않고 core가 blueprint 선언에서 읽어 줄 세우기와 기록에 쓴다. 조사한 harness 모두 정의에 효과를 싣지 않고 호출 때 판정한다. tool 이름은 parse하지 않고 정의 목록이 (앱, tool)을 안다.
 - **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool, coding agent MCP가 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).

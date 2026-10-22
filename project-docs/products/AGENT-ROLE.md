@@ -102,6 +102,17 @@ W1~W5는 어느 role이든 workflow instance의 step을 받은 agent의 규칙�
 - W4. step 메시지가 연 turn은 사람이 없는 turn(unattended)이다. 받은 agent는 그래도 자기 할당으로만 일한다(T5, T6).
 - W5. lophn이 다시 켜져 넘긴 step이 `lophn_restarted`로 남았으면, 참가자나 사람이 확인하고 필요하면 `hand_now`로 다시 넘긴다. lophn은 다시 넣지 않는다.
 
+### job
+
+J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때의 규칙이다. job은 주기와 할 일 하나(agent 호출, 앱 tool 호출, workflow instance 시작)와 놓친 차례 정책이다(`architecture/job.md`).
+
+- J1. 사람이 정해진 때 도는 일을 청하면, lophn, Project Manager, App Engineer 가운데 그 일을 맡은 agent가 `job.create`로 job을 만든다. Operator는 job tool을 받지 않는다. 사람은 job을 직접 만들지 못하고 agent에게 청한다.
+- J2. agent는 자기가 만든 job만 `job.update`, `job.delete`, `job.list`로 다룬다. 남이 만든 job은 보이지도 않고 고치지 못한다. 사람은 모든 job을 화면에서 고치고 끄고 지운다.
+- J3. job의 차례가 오면 program이 job에 적힌 agent를 부른다. 부를 때마다 새 session이고 사람이 없는 turn(unattended)이다. 받은 agent는 그래도 자기 할당으로만 일한다(T5, T6). 답과 실패는 그 run에 남는다.
+- J4. job이 앱 tool을 부르는 차례는 그 job을 만든 agent의 지금 할당과 맡은 domain 안에서만 된다. 밖이면 막히고 그 차례는 실패로 남는다.
+- J5. job이 부른 agent도 job tool을 받아 job을 만들 수 있다. 막지 않는다. 사람이 모든 job을 화면에서 본다.
+- J6. job의 차례가 실패해도 자동으로 다시 하지 않는다. 다시 하는 것은 사람이 정한다.
+
 ### coding agent
 
 K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 coding agent를 받지 않아 coding agent가 lophn에서 일을 맡지 않는다(P6).
@@ -120,8 +131,9 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. App Engineer가 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H6. 사람은 project 창과 app space에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
-- H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
+- H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
+- H9. 사람은 Settings › System › Scheduled jobs(모든 job)와 project 창의 Scheduled jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다.
 
 ## 3. 넘기는 길
 
@@ -131,6 +143,7 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - R4. 사람에게 올림(escalate): 사람의 결정이나 취향이 필요하면 session에서 사람에게 묻는다. 이것은 call도 동작 허락(approval)도 아니다. escalate라는 말은 이것에만 쓴다.
 - R5. App Engineer는 coding agent에게 맡기지 않는다. 받는 곳이 coding agent로 풀리는 call은 Router가 거절한다. 연결 장치가 연 coding session과 주고받는 것은 대화로 주고받는 call이고, session이 끝나면 닫힌다.
 - R6. step 메시지: 사람이 시작한 workflow instance에서 참가자의 report나 고치기가 말한 step의 담당에게 program이 넣는 입력이다. call이 아니다(call 행과 답 방식이 없다). 답 대신 report를 낸다(W1).
+- R7. job의 run: job의 차례마다 program이 연 run의 입력이다. 받는 agent는 job에 적힌 agent이고 call이 아니다(call 행과 답 방식이 없다). 입력은 사람이 없는 입력(unattended)이고 답은 run 기록에 남는다(J3).
 
 ## 4. 넘길 때의 규칙
 
@@ -182,6 +195,7 @@ Operator ──────call(none)────▶ App Engineer      : 앱 버
 
 program ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), activation 동의(첫 activation, 넓어진 선언, data 손실), shell 물음(toast)
 workflow ───step 메시지───────▶ 참가자 agent      : 사람의 시작, report의 next, 고치기의 지금 넘기기가 그 step을 말했을 때
+job ─────────run─────────────▶ job에 적힌 agent   : 정해진 때 (사람이 청한 job의 차례, 새 session, unattended). 앱 tool 호출이나 workflow instance 시작도 한다
 참가자 agent ──report·고치기──▶ workflow          : step을 끝냈거나 진행을 알리거나 예외를 다룰 때
 
 call(result) 받은 쪽 ────답─────▶ 보낸 쪽       : 맡은 일을 끝냈을 때, 맡지 않을 때
@@ -190,7 +204,7 @@ lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정�
 
 - 위 선은 대표적인 것이다. lophn agent 사이에서는 어느 방향으로든 넘길 수 있다.
 - coding agent에게 가는 선은 없다. App Engineer가 앱을 직접 짓는다. 연결 장치는 남고, 연결된 coding session이 있다면 그 선은 App Engineer 하나뿐이다.
-- program은 스스로 정해 agent를 부르지 않는다. activation 실패는 `release.activate`의 결과로 돌아간다. workflow의 step 메시지는 사람과 참가자가 말한 대로 전하는 것이다(E9).
+- program은 스스로 정해 agent를 부르지 않는다. 정해진 때 job이 agent를 부르는 것은 사람이 시킨 일이다(E10). activation 실패는 `release.activate`의 결과로 돌아간다. workflow의 step 메시지는 사람과 참가자가 말한 대로 전하는 것이다(E9).
 
 ### 5.2 받는 agent 고르기
 
@@ -224,7 +238,7 @@ role 이름만으로는 받는 agent가 하나로 정해지지 않는다(Project
 
 ## 6. program이 agent를 부르거나 사람에게 알리는 때
 
-program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고(E2, E5), activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(E3). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 남은 예외는 맡긴 call을 닫는 사실인 E4 하나이고 끌 수 없다.
+program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고(E2, E5), activation 실패는 `release.activate`를 부른 App Engineer에게 결과로 돌아간다(E3). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 남은 예외는 맡긴 call을 닫는 사실인 E4 하나이고 끌 수 없다. 정해진 때 job이 agent를 부르는 것은 예외가 아니라 사람이 시킨 일의 실행이다(E10).
 
 - E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. App Engineer는 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
 - E3. activation이 실패하면, program이 실패 기록을 남기고 `release.activate`의 결과로 돌려준다. 동의 뒤에 시작한 시도의 결과는 사람이 화면에서 본다. App Engineer를 부르지 않는다.
@@ -233,6 +247,7 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서�
 - E6. App Engineer가 `release.activate`한 release가 첫 activation이거나 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
+- E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이 놓친 차례를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
 
 ## 7. 하지 않는 것
 

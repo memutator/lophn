@@ -18,12 +18,16 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
    │
    └ tool run: 앱 이름을 푼다 ─▶ run 행 ─▶ 앱 호출 경로(사람이 부르는 것과 같은 길, Gate 없음) ─▶ SettleRun
 
+ job scheduler (core 안, route 아님): RunService.start(input, origin) ─ 같은 길. agent는 이름을 이미 푼 agent_resolved 갈래
+   origin이 있는 tool run만 앱 호출 경로를 program caller로 부른다 (만든 agent의 할당과 domain 거르기)
+
  Bus: TurnEnded, SessionEnded ─▶ service가 깨어 표를 다시 본다 (정본은 표)
  켤 때: router가 돌던 turn을 닫은 뒤 reconcile
 ```
 
 - run 기록 한 행(`runs` 표)이 정본이다. 화면과 CLI는 `ReadRun`, `ListRuns`, `WaitRun`으로 읽고, 쓰는 것은 core뿐이다(`CreateRun`, `SettleRun`은 machine 자격만).
 - 상태는 `running`, `done`, `failed`, `cancelled`이고 running에서만 바뀐다. 끝난 행은 trigger가 막아 다시 바뀌지 않는다.
+- job이 연 run만 `job` 칸에 그 job의 id를 갖는다(아니면 null). FK는 없어서 job을 지워도 run은 남는다. job이 run을 여는 것은 `architecture/job.md`다.
 - 실패 이유(`error.reason`)는 경계의 오류 코드 일곱이 아니라 기록의 칸이다.
 
 | 이유 | 뜻 |
@@ -44,6 +48,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 - `StartRun`은 이름을 다 푼 뒤에 session을 열고 run을 만든다. 이름이 안 풀린(`not_found`) 첫 시도는 session도 run도 남기지 않는다.
   - CLI는 `operator:<x>/<이름>`의 `<x>`를 project로 먼저 부르고 `not_found`면 앱으로 다시 부른다. 첫 시도가 무엇이든 남기면 둘째 시도가 일을 두 번 만든다.
   - 순서는 run 행(running) → session 열기 → 메시지 넣기다. 열기나 넣기가 실패하면 그 run을 `start_failed`로 닫는다.
+- core 안 시작은 `RunService.start(input, origin?)`다. `origin`(job, job run, 그 job을 만든 agent와 place)은 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 AgentRef와 place를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
 - agent run은 `agent`(NamedAgent)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. role `coding_agent`, 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
 - 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙인 것이다(`runMessageText`).
 - run이 연 session은 열린 채 남는다(`session_opened`). `session`으로 이어 쓴 run은 session을 열지 않는다.
@@ -72,11 +77,13 @@ unattended
 - 켤 때 입력함은 비고, run 입력은 다시 줄 세우지 않는다(`architecture/place-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 `reconcile`한다. router가 돌던 turn을 닫은 뒤여야 해서 wiring 순서에서 runs는 router 뒤다.
   - running인 tool run은 `lophn_restarted`다. 호출의 결과를 알 길이 없다.
   - agent run은 turn을 다시 본다. 끝난 turn이면 그 결과로 닫고, 아직 turn이 가져가지 않았으면 `lophn_restarted`다. 도는 turn은 그 turn의 `TurnEnded`가 끝낸다.
+- job이 연 run도 같다. 끊긴 run은 `lophn_restarted`로 닫히고, 그 job의 job run은 `interrupted`이며 놓친 차례로 친다(`architecture/job.md` "켤 때").
 - session이 archive되거나 지워지면 그 session에서 running인 run을 `turn_interrupted`(session_ended)로 닫는다. 입력이 줄에 있는 채로 session이 끝나면 turn이 열리지 않아 `TurnEnded`가 오지 않고, run이 영영 running으로 남기 때문이다. 먼저 turn을 한 번 보고 이미 끝난 결과가 있으면 그것을 쓴다.
 
 tool run
 - 앱을 id, slug, 이름으로 푼다(없으면 `not_found`). `StartRun`은 run 행을 만들고 기다리지 않고 돌려준다. 호출은 뒤에서 돌고 끝나면 `SettleRun`한다.
 - 부른 쪽은 사람이다. 앱 화면에서 사람이 누르는 것과 같은 길이고 Gate를 거치지 않는다(`architecture/app-call.md`). run은 session이 없고 `view_session`에 run id를 싣는다.
+  - `origin`이 있는 tool run(job이 연 것)은 사람이 아니다. 같은 길을 program caller로 부르고, 자격은 그 job을 만든 agent와 place를 싣는다(`packages/core/main/daemon/wiring/runs.ts`의 `tools.call`). 만든 agent의 지금 할당과 domain 거르기를 받고 막히면 run이 `tool_denied`다(`architecture/app-call.md`).
 - tool 이름이 없는 것은 `StartRun`에서 막지 않는다. run이 `tool_denied`로 실패한다. 선언을 미리 볼 port를 두지 않는 쪽이 단순하다.
 - 성공이면 `done`이고 result가 tool 결과다. 기록이 남지 않은 읽기면 `invocation`이 null이다.
 
@@ -98,6 +105,7 @@ CLI와 자격(`architecture/coding-agent.md`)
   - project agent(lophn, Project Manager)의 session은 project sidebar의 Background 칸에서, App Engineer와 앱 place Operator의 session은 그 앱 공간의 agent 목록(Background)에서 묶는다. tool run은 session이 없어 run 목록에만 보인다.
   - Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
 - project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `place: { project }`와 `agent: { role: "lophn" }`로 두 번 읽어 합친다. 앱 공간은 Background 목록이 열려 있는 동안 `place: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
+- job이 연 run 줄(그 job이 아직 있을 때)은 이름 자리에 job 제목을 보이고 agent 이름이나 tool 이름은 둘째 줄이다. 제목은 읽는 곳이 `job.list`로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 run 줄은 일반 run과 같다.
 - run 줄은 이름 아래에 시작한 시각을 둔다. run 아래에 session 줄이 있으면 running 점은 그 session 줄에만 보인다.
 
 ## 왜 이 모양인가
@@ -109,5 +117,6 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 새 session을 열 때 이름을 먼저 푼다. 안 풀린 채 session부터 열면 CLI의 project 먼저, app 나중 재시도가 session을 남긴다.
 - 취소할 때 run을 먼저 닫는다. 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.
+- `origin`과 `agent_resolved`는 route 입력에 없고 core 안 `RunService.start`만 받는다. `origin`이 만든 agent의 할당으로 앱 tool을 부르는 program 자격이 되므로, route 입력으로 열려 있으면 누구든 남의 할당을 빌려 쓰는 길이 된다.
 - 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 file을 읽어 사람 자격을 쓸 수 있다는 위험은 신경 쓰지 않는다. coding session 안에서는 coding token이 먼저라 그 자리에서는 run을 부르지 못한다.
 - `invalid_output`을 오류 코드가 아니라 실패 이유로 둔다. 경계의 오류 코드는 일곱으로 두고, run이 어떻게 끝났는지는 run의 기록이다.

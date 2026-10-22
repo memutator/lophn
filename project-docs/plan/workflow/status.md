@@ -11,10 +11,10 @@ lead만 고친다. `tools/status.py workflow build`가 `tasks/*.md`에서 id, �
 | `wf-agent-tools` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-role-text` | roles | 2 | wf-contract | todo |  |  |  |
 | `wf-write-scope` | roles | 2 | wf-contract | todo |  |  |  |
-| `wf-wireframe` | shell | 2 | wf-contract | todo |  |  |  |
-| `wf-decl-reader` | workflows | 2 | wf-contract | todo |  |  |  |
-| `wf-step-input` | workflows | 2 | wf-contract | todo |  |  |  |
-| `wf-store` | workflows | 2 | wf-contract | todo |  |  |  |
+| `wf-wireframe` | shell | 2 | wf-contract | running | shell/wf-wireframe |  |  |
+| `wf-decl-reader` | workflows | 2 | wf-contract | running | workflows/wf-decl-reader |  |  |
+| `wf-step-input` | workflows | 2 | wf-contract | running | workflows/wf-step-input |  |  |
+| `wf-store` | workflows | 2 | wf-contract | running | workflows/wf-store |  |  |
 | `wf-sidebar-activity` | activity | 3 | wf-wireframe | todo |  |  |  |
 | `wf-artifact-serve` | artifact | 3 | wf-artifact-source | todo |  |  |  |
 | `wf-kit-build` | kit | 3 | wf-kit-graph | todo |  |  |  |

@@ -27,6 +27,19 @@ export function scheduleText(every: string, at: string | null): string {
     : t(EVERY_KEY[unit], { n });
 }
 
+/** 이 project에 걸린 job: 그 project의 PM이 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
+export function jobsOfProject(
+  jobs: readonly JobView[],
+  project: string,
+): JobView[] {
+  return jobs.filter(({ creator, action }) =>
+    (creator.role === "project_manager" && creator.project === project) ||
+    (action.kind === "agent_run" && action.agent_place?.kind === "project" &&
+      action.agent_place.id === project) ||
+    (action.kind === "workflow_start" && action.project === project)
+  );
+}
+
 export function nextText(job: JobView, now: Date): string {
   if (!job.enabled || job.next_due_at === null) {
     return t("jobs.label.turned-off");

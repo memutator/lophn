@@ -131,6 +131,17 @@ function SidebarWorkflowsEmpty() {
   );
 }
 
+/** sidebar · Scheduled jobs. phroner에 걸린 job 넷만 줄이 되고 Grocery의 job은 보이지 않는다. */
+function SidebarJobs({ empty = false }: { empty?: boolean }) {
+  const tab = documentTab("eval/experiments/exp-008-query-tools.md");
+  return (
+    <ProjectApp
+      sidebar={{ mode: "jobs", noJobs: empty }}
+      panes={[{ tabs: [tab], selected: tab.key }]}
+    />
+  );
+}
+
 const NOTES = {
   key: "/home/mina/Documents/grocery/notes.md",
   kind: "document_editor",
@@ -363,6 +374,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "workflow가 하나도 없는 project의 Workflows panel이다. 안내 글 한 줄만 있다.",
       render: () => <SidebarWorkflowsEmpty />,
+    },
+    {
+      id: "project-window-jobs",
+      title: "Sidebar · Scheduled jobs",
+      description:
+        "activity bar의 Workflows 아래 Scheduled jobs 항목(Settings와 같은 달력 아이콘)을 고른 모양이다. 그 project에 걸린 job만 줄로 보이고(다른 project의 job은 보이지 않는다), 줄은 제목, 오른쪽 끝 고정 열의 switch, 아래 줄(주기 글과 상태 하나, 실패는 표시)이다. 줄과 맨 아래 단추를 누르면 Settings의 Scheduled jobs로 간다.",
+      render: () => <SidebarJobs />,
+    },
+    {
+      id: "project-window-jobs-empty",
+      title: "Sidebar · Scheduled jobs · empty",
+      description:
+        "이 project에 걸린 job이 하나도 없을 때의 Scheduled jobs panel이다. 사람은 job을 만들지 못하고 agent에게 말하라는 안내와, 모든 job 화면(Settings)으로 가는 단추가 있다.",
+      render: () => <SidebarJobs empty />,
     },
     {
       id: "new-sidebar-collapsed",

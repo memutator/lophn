@@ -272,6 +272,7 @@ export function Desktop(
         onLauncher={launcher}
         onOpenProject={(project) => setRoute(openProject(project))}
         onSettings={settingsSpace}
+        jobs={settingsPanels?.jobs}
         onProjectInstructions={instructions
           ? () =>
             setRoute(openInstructions({

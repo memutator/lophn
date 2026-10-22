@@ -1,14 +1,20 @@
 // project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains / Workflows
-// 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
+// (통로가 있으면 Scheduled jobs도) 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
   useState,
 } from "react";
-import { artifactIcons, commonIcons, workspaceIcons } from "../../icons/mod.ts";
+import {
+  artifactIcons,
+  commonIcons,
+  settingsIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
 import {
@@ -19,6 +25,7 @@ import {
 import { AgentPanel } from "./agent-panel.tsx";
 import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
+import { JobPanel } from "./job-panel.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import {
   type PanelRun,
@@ -33,7 +40,8 @@ export type SidebarTab =
   | "agent"
   | "artifact"
   | "domain"
-  | "workflow";
+  | "workflow"
+  | "jobs";
 
 export interface Reveal {
   readonly path: string;
@@ -68,6 +76,12 @@ const ACTIVITY_ENTRIES: readonly ActivityEntry[] = [
   },
 ];
 
+const JOBS_ENTRY: ActivityEntry = {
+  key: "jobs",
+  label: t("jobs.label.sidebar-tab"),
+  icon: settingsIcons.jobs,
+};
+
 interface ProjectSidebarProps {
   mode: "open" | "collapsed";
   width: number;
@@ -87,6 +101,10 @@ interface ProjectSidebarProps {
   onOpenWorkflow?: (workflow: string) => void;
   /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
   activeWorkflow?: string;
+  /** Scheduled jobs 탭의 통로. 주지 않으면 그 항목을 두지 않는다. */
+  jobs?: JobsSource;
+  /** Scheduled jobs 탭의 줄과 [Open all jobs]. Settings › Scheduled jobs를 연다. */
+  onOpenJobs?: () => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** 처음 보이는 탭. 기본은 Explorer다. */
@@ -125,6 +143,8 @@ export function ProjectSidebar(
     onOpenDomainDoc,
     onOpenWorkflow,
     activeWorkflow,
+    jobs,
+    onOpenJobs,
     current = null,
     initialTab = "explorer",
     reveal = null,
@@ -176,7 +196,7 @@ export function ProjectSidebar(
       aria-label={t("project-workspace.sidebar.label")}
     >
       <ActivityBar
-        entries={ACTIVITY_ENTRIES}
+        entries={jobs ? [...ACTIVITY_ENTRIES, JOBS_ENTRY] : ACTIVITY_ENTRIES}
         selected={tab}
         open={!collapsed}
         onSelect={select}
@@ -246,6 +266,16 @@ export function ProjectSidebar(
                   source={source}
                   active={activeWorkflow}
                   onOpen={onOpenWorkflow ?? (() => {})}
+                />
+              )
+              : null}
+            {tab === "jobs" && project !== null && jobs
+              ? (
+                <JobPanel
+                  key={project.id}
+                  project={project.id}
+                  source={jobs}
+                  onOpenSettings={onOpenJobs ?? (() => {})}
                 />
               )
               : null}

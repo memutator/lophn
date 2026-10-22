@@ -4,9 +4,12 @@ import type { workspaceSettings } from "./workspace-settings.ts";
 export type WorkspaceSettingsPlaceholders = {
   "jobs.button.delete": Record<never, never>;
   "jobs.button.hide-history": Record<never, never>;
+  "jobs.button.open-all": Record<never, never>;
   "jobs.button.open-project": Record<never, never>;
   "jobs.button.show-history": Record<never, never>;
   "jobs.empty.list": Record<never, never>;
+  "jobs.empty.sidebar": Record<never, never>;
+  "jobs.empty.sidebar-ask": Record<never, never>;
   "jobs.error.delete": Record<never, never>;
   "jobs.error.history": Record<never, never>;
   "jobs.error.save": Record<never, never>;
@@ -63,6 +66,7 @@ export type WorkspaceSettingsPlaceholders = {
     time: "string";
   };
   "jobs.label.not-yet": Record<never, never>;
+  "jobs.label.sidebar-tab": Record<never, never>;
   "jobs.label.state-cancelled": Record<never, never>;
   "jobs.label.state-done": Record<never, never>;
   "jobs.label.state-failed": Record<never, never>;
@@ -78,6 +82,7 @@ export type WorkspaceSettingsPlaceholders = {
   "jobs.label.unit-days": Record<never, never>;
   "jobs.label.unit-hours": Record<never, never>;
   "jobs.label.unit-minutes": Record<never, never>;
+  "jobs.label.waiting-decision": Record<never, never>;
   "jobs.note.at-help": Record<never, never>;
   "jobs.note.delete": Record<never, never>;
   "jobs.note.edit-readonly": {

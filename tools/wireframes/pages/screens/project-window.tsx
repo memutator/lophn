@@ -2,12 +2,24 @@
 // component를 그대로 쓰고, sidebar(`ProjectSidebar`)·탭 줄(design `TabStrip`)·새 탭 menu(`NewTabMenu`)도 실제
 // renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일(`PageSidebar`, `PageNewTabMenu`,
 // `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일(`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
-import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import type {
   TabDot,
   TabItem,
 } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
+import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { fakeJobs } from "../../../../packages/shell/renderer/desktop/settings/jobs/testdata/fake-source.ts";
+import type { JobView } from "../../../../packages/shell/renderer/desktop/settings/jobs/source.ts";
 import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { click, type } from "../../mock/drive.ts";
@@ -155,6 +167,8 @@ export interface SidebarSpec {
   readonly mode?: SidebarTab;
   /** 루트를 고르는 menu를 연 채 시작한다. */
   readonly rootMenu?: boolean;
+  /** Scheduled jobs 탭에 이 project에 걸린 job이 하나도 없다. */
+  readonly noJobs?: boolean;
   /** Explorer에서 사람이 한 조작을 하고 멈춘 모양. */
   readonly act?: ExplorerAct;
 }
@@ -452,6 +466,112 @@ function useSidebarScript(
   }, []);
 }
 
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+const at = (offset: number) => new Date(Date.now() + offset).toISOString();
+const GROCERY_ID = "prj_grocery";
+
+const job = (
+  n: number,
+  fields:
+    & Pick<JobView, "title" | "creator" | "every" | "at" | "action">
+    & Partial<JobView>,
+): JobView => ({
+  id: `job_${n}`,
+  missed_policy: "run",
+  enabled: true,
+  next_due_at: null,
+  last_run: null,
+  ...fields,
+});
+
+/** phroner에 걸린 job 넷(PM이 만든 것, PM을 부르는 것, Operator를 부르는 것, workflow를 시작하는 것)과 Grocery의 job 하나. 마지막은 보이지 않아야 한다. */
+const JOBS: readonly JobView[] = [
+  job(1, {
+    title: "Weekly review",
+    creator: { role: "project_manager", project: PROJECT_ID },
+    every: "7d",
+    at: "10:00",
+    action: {
+      kind: "workflow_start",
+      project: PROJECT_ID,
+      workflow: "weekly-review",
+    },
+    next_due_at: at(4 * DAY),
+    last_run: { state: "done", due_at: at(-3 * DAY), started_at: at(-3 * DAY) },
+  }),
+  job(2, {
+    title: "Morning digest",
+    creator: { role: "lophn" },
+    every: "1d",
+    at: "09:00",
+    action: {
+      kind: "agent_run",
+      agent: { role: "project_manager", project: PROJECT_ID },
+      agent_place: { kind: "project", id: PROJECT_ID },
+      prompt: "Summarize yesterday's finished tasks.",
+    },
+    missed_policy: "hold",
+    next_due_at: at(3 * HOUR),
+    last_run: { state: "held", due_at: at(-2 * HOUR), started_at: null },
+  }),
+  job(3, {
+    title: "Bookkeeping notes",
+    creator: { role: "lophn" },
+    every: "1d",
+    at: "23:30",
+    action: {
+      kind: "agent_run",
+      agent: { role: "operator", agent: "agt_bookkeeper" },
+      agent_place: { kind: "project", id: PROJECT_ID },
+      prompt: "Write today's bookkeeping notes.",
+    },
+    missed_policy: "hold",
+    enabled: false,
+    last_run: {
+      state: "done",
+      due_at: at(-9 * HOUR),
+      started_at: at(-9 * HOUR),
+    },
+  }),
+  job(4, {
+    title: "Nightly eval run",
+    creator: { role: "lophn" },
+    every: "1d",
+    at: "02:00",
+    action: {
+      kind: "workflow_start",
+      project: PROJECT_ID,
+      workflow: "eval-run",
+    },
+    next_due_at: at(11 * HOUR),
+    last_run: {
+      state: "failed",
+      due_at: at(-13 * HOUR),
+      started_at: at(-13 * HOUR),
+    },
+  }),
+  job(5, {
+    title: "Grocery price check",
+    creator: { role: "project_manager", project: GROCERY_ID },
+    every: "6h",
+    at: null,
+    action: {
+      kind: "agent_run",
+      agent: { role: "project_manager", project: GROCERY_ID },
+      agent_place: { kind: "project", id: GROCERY_ID },
+      prompt: "Compare this week's prices.",
+    },
+    next_due_at: at(2 * HOUR),
+    last_run: {
+      state: "done",
+      due_at: at(-4 * HOUR),
+      started_at: at(-4 * HOUR),
+    },
+  }),
+];
+
 /**
  * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn·Project Manager·Operator 둘과
  * 그 session)를 넘긴다. 접으면 activity bar만 남는다: 항목 넷(누르면 펼침) · 아래쪽 Terminal · Agent · Search.
@@ -459,39 +579,49 @@ function useSidebarScript(
 export function PageSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
   useSidebarScript(ref, props);
+  // JobPanel과 WorkflowPanel이 event를 듣는다.
+  const [client] = useState(() => createEventClient(createFakeSource()));
+  const jobs = useMemo(
+    () => fakeJobs({ jobs: props.noJobs === true ? [] : JOBS }).source,
+    [props.noJobs],
+  );
   return (
-    <div ref={ref} style={{ display: "contents" }}>
-      <ProjectSidebar
-        mode={props.collapsed ? "collapsed" : "open"}
-        width={props.collapsed ? 56 : 240}
-        project={PROJECT}
-        source={DEMO_SOURCE}
-        agents={AGENTS}
-        sessions={PANEL_SESSIONS}
-        {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
-        current={props.current === undefined ? null : absolute(props.current)}
-        initialTab={props.mode}
-        onOpenFile={(path) =>
-          props.onOpenFile(
-            path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
-              ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
-              : path,
-          )}
-        onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
-        onTrash={(path) => DEMO_SOURCE.trash(path)}
-        onRail={props.onRail}
-        onAgent={(agent) => props.onAgent(agent.assignment)}
-        onSession={(session) => {
-          const row = [...SESSIONS, ...RUN_SESSIONS].find((item) =>
-            item.id === session.id
-          );
-          if (row) props.onSession?.(row);
-        }}
-        onManage={props.onManage}
-        onToggle={props.onToggle}
-        onLauncher={() => {}}
-      />
-    </div>
+    <EventsProvider client={client}>
+      <div ref={ref} style={{ display: "contents" }}>
+        <ProjectSidebar
+          mode={props.collapsed ? "collapsed" : "open"}
+          width={props.collapsed ? 56 : 240}
+          project={PROJECT}
+          source={DEMO_SOURCE}
+          jobs={jobs}
+          onOpenJobs={() => {}}
+          agents={AGENTS}
+          sessions={PANEL_SESSIONS}
+          {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
+          current={props.current === undefined ? null : absolute(props.current)}
+          initialTab={props.mode}
+          onOpenFile={(path) =>
+            props.onOpenFile(
+              path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
+                ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
+                : path,
+            )}
+          onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
+          onTrash={(path) => DEMO_SOURCE.trash(path)}
+          onRail={props.onRail}
+          onAgent={(agent) => props.onAgent(agent.assignment)}
+          onSession={(session) => {
+            const row = [...SESSIONS, ...RUN_SESSIONS].find((item) =>
+              item.id === session.id
+            );
+            if (row) props.onSession?.(row);
+          }}
+          onManage={props.onManage}
+          onToggle={props.onToggle}
+          onLauncher={() => {}}
+        />
+      </div>
+    </EventsProvider>
   );
 }
 

@@ -1,10 +1,13 @@
 export const workspaceSettings = {
   "jobs.button.delete": "Delete",
   "jobs.button.hide-history": "Hide history",
+  "jobs.button.open-all": "Open all jobs",
   "jobs.button.open-project": "Open project",
   "jobs.button.show-history": "Show history",
   "jobs.empty.list":
     "No scheduled jobs yet. Ask an agent to set one up, for example by saying “Every morning at 9, summarize what changed”.",
+  "jobs.empty.sidebar": "No scheduled jobs for this project.",
+  "jobs.empty.sidebar-ask": "Ask an agent to schedule one.",
   "jobs.error.delete": "Could not delete the job.",
   "jobs.error.history": "Could not read the history.",
   "jobs.error.save": "Could not save the changes.",
@@ -38,6 +41,7 @@ export const workspaceSettings = {
   "jobs.label.missed-run": "If missed: starts once",
   "jobs.label.next": "Next {time}",
   "jobs.label.not-yet": "Has not started yet",
+  "jobs.label.sidebar-tab": "Scheduled jobs",
   "jobs.label.state-cancelled": "Cancelled",
   "jobs.label.state-done": "Done",
   "jobs.label.state-failed": "Failed",
@@ -53,6 +57,7 @@ export const workspaceSettings = {
   "jobs.label.unit-days": "Days",
   "jobs.label.unit-hours": "Hours",
   "jobs.label.unit-minutes": "Minutes",
+  "jobs.label.waiting-decision": "Waiting for your decision",
   "jobs.note.at-help": "The time of day on this computer.",
   "jobs.note.delete":
     "This deletes the job and its history. Anything that is running keeps going until it finishes.",

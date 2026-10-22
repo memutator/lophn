@@ -68,6 +68,7 @@ import {
 } from "./model.ts";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
+import type { JobsSource } from "../desktop/settings/jobs/source.ts";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
 import type { RailAction } from "./sidebar/activity-bar.tsx";
 import {
@@ -153,6 +154,8 @@ export interface WorkspaceProps {
   onOpenProject?: (project: string) => void;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
+  /** sidebar Scheduled jobs 탭의 통로. 없으면 그 항목을 두지 않는다. */
+  jobs?: JobsSource;
   /** project의 LOPHN.md 편집을 연다(Agents 탭의 Instructions [Edit]). 없으면 그 단추는 아무것도 하지 않는다. */
   onProjectInstructions?: () => void;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
@@ -1321,6 +1324,8 @@ export function Workspace(props: WorkspaceProps) {
                     onOpen={(domain, name) => openArtifact(host, domain, name)}
                   />
                 }
+                jobs={props.jobs}
+                onOpenJobs={() => onSettings("jobs")}
                 current={currentTab?.kind === "document_editor"
                   ? currentTab.key
                   : null}

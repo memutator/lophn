@@ -23,7 +23,7 @@ import {
   ProjectSidebar,
   type SidebarTab,
 } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
-import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/rail.tsx";
+import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/activity-bar.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import type {
   PanelRun,
@@ -131,7 +131,7 @@ export function stripTabsOf(
   }));
 }
 
-/** 접힌 sidebar rail의 바로 가기. 누르면 그 탭을 연다. */
+/** activity bar 아래쪽 바로 가기. 누르면 그 탭을 연다. */
 export type RailAction = SidebarRailAction;
 
 export interface SidebarSpec {
@@ -141,7 +141,7 @@ export interface SidebarSpec {
   readonly menuFor?: string;
   /** 접힌 sidebar로 시작한다. */
   readonly collapsed?: boolean;
-  /** rail의 이 단추 tooltip을 열어 둔 채로 그린다. */
+  /** activity bar 아래쪽 바로 가기의 이 단추 tooltip을 열어 둔 채로 그린다. */
   readonly railTooltip?: RailAction;
   /** 이 agent 줄에 hover한 것처럼 "+"를 보인다. */
   readonly hoverAgent?: string;
@@ -447,7 +447,7 @@ function useSidebarScript(
 
 /**
  * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn·Project Manager·Operator 둘과
- * 그 session)를 넘긴다. 접으면 바로 가기 rail이 된다: 펼치기 · Terminal · Agent · Search.
+ * 그 session)를 넘긴다. 접으면 activity bar만 남는다: 항목 넷(누르면 펼침) · 아래쪽 Terminal · Agent · Search.
  */
 export function PageSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);

@@ -1,29 +1,24 @@
-// project 창의 sidebar. 머리(launcher 단추·project 이름·접기 단추) 아래 아이콘 탭 Explorer / Agent / Artifacts / Domains
-// 가운데 하나만 보이고, 접으면 바로 가기 rail이 된다. 탭이 넷이라 240px에서 글자 이름이 잘려 아이콘만 두고 이름은 tooltip이다.
+// project 창의 sidebar = activity bar + panel. 왼쪽 activity bar(늘 보임)에서 Explorer / Agents / Artifacts / Domains
+// 가운데 하나를 고르면 오른쪽 panel(머리: launcher 단추·project 이름)에 그 본문이 보인다. 접으면 bar만 남는다.
 import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
   useState,
 } from "react";
-import { TabStrip } from "../../parts/tab-strip/tab-strip.tsx";
-import { Icon, IconButton } from "@lophn/ui/primitives";
-import { Tooltip } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
-import {
-  artifactIcons,
-  commonIcons,
-  conversationIcons,
-  workspaceIcons,
-} from "../../icons/mod.ts";
+import { artifactIcons, commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { LauncherButton } from "../launcher-button.tsx";
+import {
+  ActivityBar,
+  type ActivityEntry,
+  type RailAction,
+} from "./activity-bar.tsx";
 import { AgentPanel } from "./agent-panel.tsx";
 import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
-import { Rail, type RailAction } from "./rail.tsx";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import {
   type PanelRun,
@@ -39,24 +34,28 @@ export interface Reveal {
   readonly nonce: number;
 }
 
-const TABS: readonly SidebarTab[] = [
-  "explorer",
-  "agent",
-  "artifact",
-  "domain",
+const ACTIVITY_ENTRIES: readonly ActivityEntry[] = [
+  {
+    key: "explorer",
+    label: t("project-workspace.label.sidebar-tab-explorer"),
+    icon: workspaceIcons.folder,
+  },
+  {
+    key: "agent",
+    label: t("project-workspace.label.sidebar-tab-agent"),
+    icon: commonIcons.roles,
+  },
+  {
+    key: "artifact",
+    label: t("project-workspace.label.sidebar-tab-artifact"),
+    icon: artifactIcons.kind,
+  },
+  {
+    key: "domain",
+    label: t("domain.label.sidebar-tab"),
+    icon: commonIcons.series,
+  },
 ];
-
-const TAB_ICONS = {
-  explorer: workspaceIcons.folder,
-  agent: conversationIcons.dock,
-  artifact: artifactIcons.kind,
-  domain: commonIcons.series,
-} as const;
-
-const tabLabel = (key: SidebarTab) =>
-  key === "domain"
-    ? t("domain.label.sidebar-tab")
-    : t(`project-workspace.label.sidebar-tab-${key}`);
 
 interface ProjectSidebarProps {
   mode: "open" | "collapsed";
@@ -141,57 +140,36 @@ export function ProjectSidebar(
   }, [focusExplorer]);
   const panel = useAgentPanel(agents, sessions, runs);
   const collapsed = mode === "collapsed";
-  const toggleLabel = collapsed
-    ? t("project-workspace.button.expand-sidebar")
-    : t("project-workspace.button.collapse-sidebar");
+  // 접혀 있거나 열린 항목을 다시 누르면 접힘 상태가 바뀐다. 다른 항목이면 panel만 바뀐다.
+  const select = (key: SidebarTab) => {
+    setTab(key);
+    if (collapsed || key === tab) onToggle();
+  };
   const folders = project?.folders ?? [];
   return (
     <nav
-      className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}
+      className={styles.sidebar}
       data-sidebar={mode}
       style={{ width: `${width}px` }}
       aria-label={t("project-workspace.sidebar.label")}
     >
-      <div className={styles.header}>
-        {collapsed ? null : (
-          <span className={styles.headerContent}>
-            <LauncherButton onLauncher={onLauncher} />
-            <span className={styles.title} data-project-title="">
-              {project?.title ?? ""}
+      <ActivityBar
+        entries={ACTIVITY_ENTRIES}
+        selected={tab}
+        open={!collapsed}
+        onSelect={select}
+        onRail={onRail}
+      />
+      {collapsed ? null : (
+        <div className={styles.panel}>
+          <div className={styles.header}>
+            <span className={styles.headerContent}>
+              <LauncherButton onLauncher={onLauncher} />
+              <span className={styles.title} data-project-title="">
+                {project?.title ?? ""}
+              </span>
             </span>
-          </span>
-        )}
-        <Tooltip content={toggleLabel}>
-          <IconButton
-            icon={workspaceIcons.sidebar}
-            label={toggleLabel}
-            data-sidebar-toggle=""
-            aria-expanded={!collapsed}
-            onClick={onToggle}
-          />
-        </Tooltip>
-      </div>
-      {collapsed ? <Rail onRail={onRail} /> : (
-        <>
-          <TabStrip
-            compact
-            tabs={TABS.map((key) => {
-              const label = tabLabel(key);
-              return {
-                key,
-                title: "",
-                icon: (
-                  <Tooltip content={label}>
-                    <span role="img" aria-label={label}>
-                      <Icon icon={TAB_ICONS[key]} pixels={iconPixels("base")} />
-                    </span>
-                  </Tooltip>
-                ),
-              };
-            })}
-            selected={tab}
-            onSelect={(key) => setTab(key as SidebarTab)}
-          />
+          </div>
           <div className={styles.body} data-sidebar-tab={tab}>
             {tab === "explorer"
               ? folders.length === 0
@@ -239,7 +217,7 @@ export function ProjectSidebar(
               )
               : null}
           </div>
-        </>
+        </div>
       )}
       {onResizeStart && !collapsed
         ? (

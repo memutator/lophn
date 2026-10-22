@@ -67,7 +67,7 @@ export function NewTabMenu() {
   );
 }
 
-/** 접힌 sidebar = 바로 가기 rail. 위에서부터 펼치기·Terminal·Agent·Search이고, Search의 tooltip이 보인다. */
+/** 접힌 sidebar = activity bar만 남는다. 아래쪽 바로 가기 Terminal·Agent·Search 가운데 Search의 tooltip이 보인다. */
 export function SidebarCollapsed() {
   return (
     <ProjectApp

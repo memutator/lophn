@@ -289,7 +289,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-sidebar-collapsed",
       title: "Sidebar · collapsed",
       description:
-        "접은 sidebar는 바로 가기 rail이 된다. 위에서부터 펼치기, Terminal, Agent, Search이고 Search는 project 키워드 검색을 연다.",
+        "접은 sidebar는 activity bar의 icon 줄만 남는다. 항목을 누르면 그 panel이 열리고, 아래쪽 바로 가기는 Terminal, Agent, Search이며 Search는 project 키워드 검색을 연다.",
       render: () => <SidebarCollapsed />,
     },
     {
@@ -450,7 +450,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-file-search",
       title: "Search · find in files",
       description:
-        "rail의 Search가 여는 project 키워드 검색이다. 검색어, 폴더 고르기, 경로 순과 줄 순의 결과, 일치한 부분이 칠해진 snippet이 있다. 취소, 건너뛴 파일 안내, 더 보기는 없다.",
+        "activity bar 아래쪽 Search가 여는 project 키워드 검색이다. 검색어, 폴더 고르기, 경로 순과 줄 순의 결과, 일치한 부분이 칠해진 snippet이 있다. 취소, 건너뛴 파일 안내, 더 보기는 없다.",
       render: () => <FileSearchResults />,
     },
     {

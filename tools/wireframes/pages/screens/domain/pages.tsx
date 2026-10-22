@@ -11,8 +11,8 @@ import { AppSpace } from "../app-space/space.tsx";
 
 const noop = () => {};
 
-// sidebar의 네 번째 탭(Domains)을 연다. 탭은 아이콘뿐이라 자리로 찾는다.
-const openDomainsTab = () => click('[data-sidebar] [role="tab"]', undefined, 3);
+// activity bar의 Domains 항목을 눌러 panel을 연다.
+const openDomainsTab = () => click('[data-sidebar] [data-activity="domain"]');
 
 const openRowMenu = (title: string) =>
   press("button", new RegExp(`^Actions for ${title}$`));

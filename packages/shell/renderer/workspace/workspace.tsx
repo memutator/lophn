@@ -67,7 +67,7 @@ import {
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import { ProjectSidebar } from "./sidebar/project-sidebar.tsx";
-import type { RailAction } from "./sidebar/rail.tsx";
+import type { RailAction } from "./sidebar/activity-bar.tsx";
 import {
   agentByRole,
   type KnownSessions,

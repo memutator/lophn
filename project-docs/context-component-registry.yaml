@@ -85,7 +85,7 @@ components:
     description: lophn 제품 안의 agent 목록, place, 책임, call과 사람에게 올림의 정책.
     path: project-docs/products/AGENT-ROLE.md
     change_reasons:
-      boundaries: [agents, agent-roles, router, workflows]
+      boundaries: [agents, agent-roles, router, workflows, jobs]
 
   - id: roadmap
     kind: doc
@@ -178,7 +178,7 @@ components:
     description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
     path: project-docs/architecture/approval.md
     change_reasons:
-      boundaries: [approvals, agent-tools, agent-roles]
+      boundaries: [approvals, agent-tools, agent-roles, jobs]
 
   - id: architecture-testing
     kind: doc
@@ -217,10 +217,11 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: agent와 앱이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 줄, 기록, rewind, 앱 log.
+    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log.
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
+      paths: [packages/protocol/apps/calls/, packages/core/apps/calls/]
 
   - id: architecture-place-session
     kind: doc
@@ -246,6 +247,15 @@ components:
     change_reasons:
       boundaries: [workflows, router, agent-roles, coding-agent-cli]
       paths: [packages/shell/renderer/workflow/, packages/shell/renderer/workspace/kinds/workflow.tsx, packages/shell/renderer/workspace/sidebar/workflow-panel.tsx, packages/shell/renderer/artifact-kit/, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/daemon/wiring/workflows-files.ts]
+
+  - id: architecture-job
+    kind: doc
+    roles: [planner, lead]
+    description: 정해진 때 agent run, tool run, workflow 시작을 돌리는 job과 scheduler. 놓친 차례, 겹침, hold, 서머타임, 만든 agent만 고치기, program caller, 켤 때 복구, job 화면.
+    path: project-docs/architecture/job.md
+    change_reasons:
+      boundaries: [jobs]
+      paths: [packages/core/main/daemon/wiring/jobs.ts, packages/core/main/daemon/wiring/jobs-registration.ts, packages/shell/renderer/desktop/settings/jobs/, packages/shell/renderer/workspace/sidebar/job-panel.tsx, packages/shell/renderer/desktop/connection/waiting/cards/job-hold-card.tsx]
 
   - id: architecture-agent-definition
     kind: doc
@@ -332,7 +342,7 @@ components:
     path: project-docs/architecture/domain.md
     change_reasons:
       boundaries: [domains, apps, agent-roles, agents, agent-tools, kinds]
-      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/]
+      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/, packages/core/main/daemon/agent-domains.ts, packages/core/apps/calls/gate.ts]
       note: domain을 만들거나 보관하는 규칙, 앱 tool의 domain 칸, 맡은 domain을 정하는 규칙이 바뀔 때.
 
   - id: skill-planner-persona

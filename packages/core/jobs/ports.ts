@@ -12,7 +12,7 @@ import type {
   JobTurn,
 } from "../../protocol/jobs/mod.ts";
 
-// 시각은 Clock으로 읽고 timer는 이 port로 받는다. 시험은 가짜를 꽂는다.
+// 시각은 Clock으로 읽고 timer는 이 port로 받는다. 테스트는 가짜를 꽂는다.
 export type JobTimers = {
   set(run: () => void, ms: number): unknown;
   clear(handle: unknown): void;

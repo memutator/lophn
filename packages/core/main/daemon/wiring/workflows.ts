@@ -33,10 +33,10 @@ import {
   type Writer,
 } from "../../../storage/ledger/mod.ts";
 import {
+  createWorkflowService,
   runningInstances,
   WORKFLOW_CHANGED_TOPIC,
 } from "../../../workflows/mod.ts";
-import { createWorkflowService } from "../../../workflows/service.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { createWorkflowFiles } from "./workflows-files.ts";

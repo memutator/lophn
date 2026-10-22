@@ -21,3 +21,4 @@ export {
   createLedgerRegistration,
   createReaderRegistration,
 } from "./register.ts";
+export { createWorkflowService } from "./service.ts";

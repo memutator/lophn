@@ -74,7 +74,7 @@ export const FAKE_DOMAINS: readonly DomainView[] = [
   },
 ];
 
-// 아래는 tools/wireframes/mock/workflow-data.ts의 사본이다(renderer가 tools/를 import하지 못한다). 시각은
+// 승인한 workflow wireframe의 fixture다. gallery의 workflow page도 이것을 쓴다. 시각은
 // 고정 기준(2026-10-22T09:30Z)에서 센다.
 const FAKE_NOW = new Date("2026-10-22T09:30:00.000Z");
 

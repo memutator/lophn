@@ -61,7 +61,9 @@ export function actionText(
     case "agent_run":
       return {
         summary: t("jobs.label.action-agent", {
-          agent: agentName(action.agent),
+          agent: action.agent.role === "operator"
+            ? names.operators[action.agent.agent] ?? agentName(action.agent)
+            : agentName(action.agent),
         }),
         detail: action.prompt,
       };

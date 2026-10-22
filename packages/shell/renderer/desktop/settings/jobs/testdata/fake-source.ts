@@ -30,6 +30,7 @@ const BUDGET = id("app", 2);
 const NAMES: JobNames = {
   projects: { [GROCERY]: "Grocery", [PHRONER]: "Phroner" },
   apps: { [ORDERS]: "Orders", [BUDGET]: "Budget" },
+  operators: { [id("agt", 1)]: "Bookkeeper" },
 };
 
 export const JOB_DIGEST = id("job", 1);

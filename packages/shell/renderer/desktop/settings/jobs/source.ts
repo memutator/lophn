@@ -69,6 +69,8 @@ export interface JobRunView {
 export interface JobNames {
   readonly apps: Readonly<Record<string, string>>;
   readonly projects: Readonly<Record<string, string>>;
+  /** Operator agent id → 이름. */
+  readonly operators: Readonly<Record<string, string>>;
 }
 
 export interface JobPatch {

@@ -6,6 +6,7 @@ import {
   jobRunList,
   jobUpdate,
 } from "../../../../../protocol/jobs/jobs.ts";
+import { agentDefinitionList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { coreAppsSource } from "../../../apps/core-source.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { readProjects } from "../../launcher/projects/core-source.ts";
@@ -63,9 +64,21 @@ export function coreJobsSource(core: CoreSource): JobsSource {
     async list() {
       const jobs = await readAll<JobView>(core, jobList, {}, "jobs");
       if (!jobs.ok) return jobs;
-      const [projects, apps] = await Promise.all([
+      // place를 주지 않으면 모든 자리의 agent가 온다. 한 번에 오고 cursor는 받지 않는다.
+      const [projects, apps, agents] = await Promise.all([
         readProjects(core),
         coreAppsSource(core).list(),
+        call<
+          {
+            agents: { agent: { role: string; agent?: string }; name: string }[];
+          }
+        >(
+          core,
+          "read",
+          agentDefinitionList.resource,
+          agentDefinitionList.method,
+          {},
+        ),
       ]);
       const names: JobNames = {
         projects: projects.ok
@@ -73,6 +86,15 @@ export function coreJobsSource(core: CoreSource): JobsSource {
           : {},
         apps: apps.ok
           ? Object.fromEntries(apps.value.map((one) => [one.id, one.name]))
+          : {},
+        operators: agents.ok
+          ? Object.fromEntries(
+            agents.value.agents.flatMap((row) =>
+              row.agent.role === "operator"
+                ? [[row.agent.agent!, row.name]]
+                : []
+            ),
+          )
           : {},
       };
       return { ok: true, value: { jobs: jobs.value, names } };

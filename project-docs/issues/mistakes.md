@@ -10,7 +10,7 @@ kind: mistake
 modules: [tools]
 ```
 
-지금: 계획 `workflow`에서 두 worker가 자기가 띄운 process를 남긴 채 보고했다. 한 worker는 gallery 확인 뒤 `tail -f` monitor 둘을 남겼다가 lead가 다시 시키자 껐다. 다른 worker는 gallery screenshot을 찍으려고 worktree에서 `python3 -m http.server 8741 -d tools/wireframes`를 띄웠는데, PID를 적지 않았고 Bash 호출이 돌아온 뒤에는 끌 길이 없다고 보고했다. ps·fuser·pkill이 금지라서다. 결국 lead가 port, cmdline, cwd로 그 process 하나를 확인하고 PID로 껐다. `project-docs/issues/archived/mistakes.md`의 "core를 subshell로 띄워 `$!`가 deno를 가리키지 않음"과 같은 종류다. 그때는 core 기동만 script(`lead/boot.sh`)로 주었다.
+지금: 계획 `workflow`에서 두 worker가 자기가 띄운 process를 남긴 채 보고했다. 한 worker는 gallery 확인 뒤 `tail -f` monitor 둘을 남겼다가 lead가 다시 시키자 껐다. 다른 worker는 gallery screenshot을 찍으려고 worktree에서 `python3 -m http.server 8741 -d tools/wireframes`를 띄웠는데, PID를 적지 않았고 Bash 호출이 돌아온 뒤에는 끌 길이 없다고 보고했다. ps·fuser·pkill이 금지라서다. 결국 lead가 port, cmdline, cwd로 그 process 하나를 확인하고 PID로 껐다. 세 번째 worker는 screenshot server(`http.server 8765`)를 "껐다"고 보고했지만 남아 있었고, merge.sh가 worktree를 지운 뒤에도 지운 `dist`를 붙잡고 port를 막았다. 다음 worker가 그 port에서 남의 옛 gallery를 찍어 버렸다. lead가 같은 방법으로 껐다. `project-docs/issues/archived/mistakes.md`의 "core를 subshell로 띄워 `$!`가 deno를 가리키지 않음"과 같은 종류다. 그때는 core 기동만 script(`lead/boot.sh`)로 주었다.
 
 영향: 남은 server가 port를 잡아 다음 worker가 다른 port를 찾아야 하고(이번에도 8731이 이미 잡혀 있었다), merge.sh가 worktree를 지운 뒤에도 server가 지운 폴더를 붙잡고 남는다. 찾아 끄려다 남의 process를 끌 위험이 다시 생긴다.
 

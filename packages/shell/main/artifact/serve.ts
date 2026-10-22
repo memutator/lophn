@@ -20,6 +20,14 @@ const CSP = [
   "base-uri 'self'",
 ].join("; ");
 
+const INSTANCE_PATH = "data/_instance.json";
+// 가상 kit file. 요청 path가 아니라 이 고정 이름 둘만 dist에서 읽는다.
+const KIT_PATHS: Record<string, { name: "kit.js" | "kit.css"; type: string }> =
+  {
+    "_lophn/kit.js": { name: "kit.js", type: "text/javascript; charset=utf-8" },
+    "_lophn/kit.css": { name: "kit.css", type: "text/css; charset=utf-8" },
+  };
+
 const CONTENT_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".htm": "text/html; charset=utf-8",
@@ -41,6 +49,9 @@ const CONTENT_TYPES: Record<string, string> = {
 
 export function createArtifactServer(deps: {
   rootOf(host: string): string | undefined;
+  scopeOf(host: string): string | undefined;
+  readInstance(instance: string): Promise<string | null>;
+  kit(name: "kit.js" | "kit.css"): Promise<Uint8Array<ArrayBuffer> | null>;
   maxBytes: number;
 }): (request: Request) => Promise<Response> {
   const headers = (type: string, policy: string) => ({
@@ -66,11 +77,36 @@ export function createArtifactServer(deps: {
     if (path.endsWith("/")) path += "index.html";
     const head = request.method === "HEAD";
 
-    if (path.replace(/^\/+/, "") === ENTRIES_PATH) {
+    const key = path.replace(/^\/+/, "");
+    if (key === ENTRIES_PATH) {
       return new Response(head ? null : await listDataEntries(root), {
         status: 200,
         headers: headers("application/json; charset=utf-8", CSP),
       });
+    }
+
+    const kit = KIT_PATHS[key];
+    if (kit !== undefined) {
+      const body = await deps.kit(kit.name);
+      if (body === null) return notFound();
+      return new Response(head ? null : body, {
+        status: 200,
+        headers: headers(kit.type, CSP),
+      });
+    }
+
+    const scope = key === INSTANCE_PATH
+      ? deps.scopeOf(url.hostname)
+      : undefined;
+    if (scope !== undefined) {
+      const json = await deps.readInstance(scope);
+      return new Response(
+        head ? null : json ?? JSON.stringify({ error: "unavailable" }),
+        {
+          status: json === null ? 503 : 200,
+          headers: headers("application/json; charset=utf-8", CSP),
+        },
+      );
     }
 
     const resolved = await resolveInsideRoot(root, path);

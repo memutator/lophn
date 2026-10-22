@@ -35,7 +35,13 @@ async function setup() {
   await symlink(join(base, "out", "secret.txt"), join(root, "data", "leak"));
   const roots = createArtifactRoots();
   const host = roots.register(root);
-  const serve = createArtifactServer({ rootOf: roots.rootOf, maxBytes: 50 });
+  const serve = createArtifactServer({
+    rootOf: roots.rootOf,
+    scopeOf: roots.scopeOf,
+    readInstance: () => Promise.resolve(null),
+    kit: () => Promise.resolve(null),
+    maxBytes: 50,
+  });
   const get = (path: string) =>
     serve(new Request(`lophn-artifact://${host}${path}`));
   return { base, root, get };

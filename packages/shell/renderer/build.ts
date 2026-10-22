@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const entries = ["desktop", "overlay", "secret-input"];
+const screens = ["desktop", "overlay", "secret-input"];
 
 function fileUrl(path: string): URL {
   return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
@@ -56,10 +56,26 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   };
 }
 
-const defaultEntries = entries.map((name) => ({
-  in: join(name, "entry.tsx"),
-  out: name,
-}));
+// 화면은 <name>/<name>.js(esm)로, artifact kit은 <script>로 불러서 artifact-kit/entry.js(iife)로 나간다.
+const entries: readonly {
+  in: string;
+  out: string;
+  dir: string;
+  format: esbuild.Format;
+}[] = [
+  ...screens.map((name) => ({
+    in: join(name, "entry.tsx"),
+    out: name,
+    dir: name,
+    format: "esm" as const,
+  })),
+  {
+    in: join("artifact-kit", "entry.tsx"),
+    out: "entry",
+    dir: "artifact-kit",
+    format: "iife",
+  },
+];
 
 // 같은 specifier가 다른 판을 가리키면 React가 두 벌이 될 수 있어 build를 멈춘다.
 function addImport(
@@ -107,10 +123,7 @@ async function addPackage(
   mergeImports(imports, config.imports ?? {}, new URL("deno.json", directory));
 }
 
-async function build(
-  outdir = join(here, "dist"),
-  entryPoints: readonly { in: string; out: string }[] = defaultEntries,
-): Promise<void> {
+async function build(outdir = join(here, "dist")): Promise<void> {
   // 없는 workspace 폴더의 탐색을 피하되 임시 map에서도 로컬 import의 기준 경로를 유지한다.
   const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
   const configPath = join(scratch, "deno.json");
@@ -140,16 +153,13 @@ async function build(
     // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.
     await addPackage(imports, new URL("../base/", design));
     await writeFile(configPath, JSON.stringify({ imports }));
-    for (const entry of entryPoints) {
-      const directory = entryPoints === defaultEntries
-        ? join(outdir, entry.out)
-        : outdir;
+    for (const entry of entries) {
       await esbuild.build({
         absWorkingDir: here,
-        entryPoints: [entry],
-        outdir: directory,
+        entryPoints: [{ in: entry.in, out: entry.out }],
+        outdir: join(outdir, entry.dir),
         bundle: true,
-        format: "esm",
+        format: entry.format,
         jsx: "automatic",
         assetNames: "[name]",
         // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.
@@ -162,7 +172,7 @@ async function build(
       });
     }
     // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    for (const name of ["desktop", "overlay", "secret-input"]) {
+    for (const name of screens) {
       await mkdir(join(outdir, name), { recursive: true });
       await copyFile(
         join(here, name, "index.html"),

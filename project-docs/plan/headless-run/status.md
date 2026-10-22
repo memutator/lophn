@@ -11,4 +11,4 @@ lead만 고친다. `tools/status.py headless-run build`가 `tasks/*.md`에서 id
 | `hr-screen-wireframe` | screen | 2 | hr-contract-runs | merged | screen/hr-screen-wireframe | e5c60cfea |  |
 | `hr-session-input` | session | 2 | hr-contract-runs | merged | session/hr-session-input | 7270d6b5e |  |
 | `hr-runs-wiring` | runs | 3 | hr-runs-core, hr-session-input | merged | runs/hr-runs-wiring | d5f8cb27a |  |
-| `hr-screen-data` | screen | 3 | hr-screen-wireframe | running | screen/hr-screen-data |  |  |
+| `hr-screen-data` | screen | 3 | hr-screen-wireframe | merged | screen/hr-screen-data | 1db54bb68 |  |

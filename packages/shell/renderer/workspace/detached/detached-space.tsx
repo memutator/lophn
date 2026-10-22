@@ -30,7 +30,7 @@ import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { useTabHostSlices } from "../use-tab-host-slices.ts";
 import { tabKindOf } from "../kinds/registry.ts";
 import type { TabHost } from "../kinds/host.ts";
-import type { TabItem, WorkspaceView } from "../model.ts";
+import { allTabs, type TabItem, type WorkspaceView } from "../model.ts";
 import type { WorkspaceProps } from "../workspace.tsx";
 import styles from "./detached-space.module.css";
 
@@ -175,6 +175,7 @@ function DetachedTab(
     props: hostProps,
     appScreens: false,
     view,
+    windowTabs: () => allTabs(view),
     viewKeeps: keeps,
     // 이 창에는 탭 줄이 없다. project 창에 docked로 연다.
     openTab: (next) => {

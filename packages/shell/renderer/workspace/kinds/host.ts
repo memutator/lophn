@@ -71,6 +71,8 @@ export interface TabHost {
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   readonly view: WorkspaceView;
+  /** 이 창 전체의 탭. 자리가 여럿인 창은 모든 자리의 탭이라 key를 만들거나 열린 탭을 찾을 때 쓴다. */
+  windowTabs(): readonly TabItem[];
   /** 탭 view의 보관소. Float·Dock으로 다시 mount되어도 browser view를 이어 쓰는 데 쓴다. */
   readonly viewKeeps: ViewKeeps;
   /**

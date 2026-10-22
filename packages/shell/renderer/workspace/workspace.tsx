@@ -18,7 +18,7 @@ import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
 import {
   activeView,
-  allTabs,
+  allDeskTabs,
   applyDrag,
   attachDetached,
   breadcrumbs,
@@ -28,31 +28,40 @@ import {
   type CloseScope,
   closeTab,
   closeTargets,
+  deskOfTab,
   desksFromView,
   detachTab,
   dockTab,
+  emptyView,
   findTab,
   floatTab,
   isDetached,
   isFloated,
+  mapDeskTabs,
   mapTabs,
+  mergeDeskIntoDefault,
   minimizeFloat,
   moveTab,
   moveTabBy,
+  openAcrossDesks,
   openDetachedTab,
   openFloat,
-  openTabIn,
   pinTab,
   raiseFloat,
   reopenTab,
   restoreFloat,
+  setActiveView,
+  setDeskView,
   setFloatRect,
   shiftTab,
   SIDEBAR_WIDTH,
   type SidebarState,
   sidebarView,
   stepTab,
+  switchDesk,
   type TabItem,
+  vanishedDesks,
+  type WorkspaceDesks,
   type WorkspaceView,
 } from "./model.ts";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
@@ -167,16 +176,6 @@ interface Loaded {
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const CLOSED_TABS_MAX = 10;
 
-function freshView(): WorkspaceView {
-  return {
-    panes: [{ tabs: [], selected: null }],
-    splitRatio: 0.5,
-    focusedPane: 0,
-    floats: [],
-    detached: [],
-  };
-}
-
 // OS 파일 선택기. 창에 통로가 없으면 Document 항목을 두지 않는다.
 function filePicker(): (() => Promise<string | null>) | undefined {
   const bridge = (globalThis as {
@@ -284,7 +283,9 @@ export function Workspace(props: WorkspaceProps) {
   }, [source, projectId, sessionStates]);
   // 배치를 다 읽은 project. 시작 route는 이 project의 배치가 선 뒤에 연다.
   const [readyProject, setReadyProject] = useState<string | null>(null);
-  const [view, setView] = useState<WorkspaceView>(freshView);
+  // 자리(desk)마다 view 하나. 화면이 그리고 고치는 것은 보이는 자리의 view뿐이다.
+  const [desks, setDesks] = useState(() => desksFromView(emptyView()));
+  const view = activeView(desks);
   const [sidebar, setSidebar] = useState<SidebarState>({
     chosenWidth: SIDEBAR_WIDTH,
     collapsedByUser: false,
@@ -316,11 +317,14 @@ export function Workspace(props: WorkspaceProps) {
         failed: !project.ok,
       });
       if (layout.ok && layout.available) {
-        const desks = desksFromStored(layout.layout);
-        if (desks) {
-          const restored = activeView(desks);
-          setView(restored);
+        const restoredDesks = desksFromStored(layout.layout);
+        if (restoredDesks) {
+          const restored = activeView(restoredDesks);
+          latestDesks.current = restoredDesks;
+          latest.current = restored;
+          setDesks(restoredDesks);
           setFloatFocused(false);
+          // 보이는 자리의 detached 창만 연다. 다른 자리의 것은 그 자리로 갈 때 syncDetached가 연다.
           // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
           // transfer가 없어 terminal은 PTY에 다시 붙지 못한다(재시작과 같다).
           for (const item of restored.detached) {
@@ -347,6 +351,8 @@ export function Workspace(props: WorkspaceProps) {
   const contentWidth = mainSize?.width ?? bodyWidth;
 
   // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
+  const latestDesks = useRef(desks);
+  latestDesks.current = desks;
   const latest = useRef(view);
   latest.current = view;
   // 저장 안 된 변경이 있는 탭. 탭 줄의 ●와 preview 탭 보호가 같은 session을 본다.
@@ -359,16 +365,15 @@ export function Workspace(props: WorkspaceProps) {
   >({});
   const positionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const withPositions = (next: WorkspaceView): WorkspaceView =>
-    mapTabs(next, (tab) => {
-      const position = positions.current[tab.key] ?? tab.readPosition;
-      return position === undefined ? tab : { ...tab, readPosition: position };
-    });
+  const withPosition = (tab: TabItem): TabItem => {
+    const position = positions.current[tab.key] ?? tab.readPosition;
+    return position === undefined ? tab : { ...tab, readPosition: position };
+  };
 
-  const persist = (next: WorkspaceView) => {
+  const persist = (next: WorkspaceDesks) => {
     void source.saveLayout(toStoredLayout({
       project: projectId,
-      desks: desksFromView(withPositions(next)),
+      desks: mapDeskTabs(next, withPosition),
     }));
   };
   const persistRef = useRef(persist);
@@ -381,7 +386,7 @@ export function Workspace(props: WorkspaceProps) {
     }
     positionTimer.current = setTimeout(() => {
       positionTimer.current = null;
-      persistRef.current(latest.current);
+      persistRef.current(latestDesks.current);
     }, 200);
   };
 
@@ -397,12 +402,13 @@ export function Workspace(props: WorkspaceProps) {
     if (positionTimer.current === null) return;
     clearTimeout(positionTimer.current);
     positionTimer.current = null;
-    persistRef.current(latest.current);
+    persistRef.current(latestDesks.current);
   }, []);
 
   // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
   useEffect(() => {
-    const live = new Set(allTabs(view).map((tab) => tab.key));
+    // 다른 자리의 탭도 layout에 있는 동안은 산다. 자리를 건너가도 app panel의 native view가 이어진다.
+    const live = new Set(allDeskTabs(desks).map((tab) => tab.key));
     for (const key of keeps.keys()) if (!live.has(key)) keeps.release(key);
     // detached 탭의 <webview>는 그 창이 갖는다. 여기 남기면 page가 두 창에 산다.
     const shown = new Set([
@@ -412,7 +418,7 @@ export function Workspace(props: WorkspaceProps) {
     for (const key of webviews.keys()) {
       if (!shown.has(key)) webviews.release(key);
     }
-  }, [view, keeps, webviews]);
+  }, [desks, keeps, webviews]);
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
   useEffect(() => () => {
     queueMicrotask(() => {
@@ -420,11 +426,42 @@ export function Workspace(props: WorkspaceProps) {
     });
   }, [keeps]);
 
-  const update = (next: WorkspaceView) => {
-    latest.current = next;
-    setView(next);
-    persist(next);
+  // detached 창을 보이는 자리에 맞춘다. 창이 없는 key(다른 자리에 있다가 지금 보이게 된 것)는 연다.
+  const syncDetached = (next: WorkspaceDesks) => {
+    const api = props.detached;
+    if (api === undefined) return;
+    const items = activeView(next).detached;
+    void api.showOnly({ keys: items.map((item) => item.tab.key) }).then(
+      ({ missing }) => {
+        for (const key of missing) {
+          const item = items.find((candidate) => candidate.tab.key === key);
+          if (item === undefined) continue;
+          // 거절은 무시한다. 복원과 같다.
+          void api.open({
+            project: projectId,
+            tab: slimDetachedTab(item.tab),
+            transfer: null,
+            bounds: item.bounds,
+          }).catch(() => {});
+        }
+      },
+    ).catch(() => {});
   };
+
+  // 자리 state를 바꾸는 유일한 길이다. latest(보이는 자리의 view)도 같이 맞춘다.
+  const commit = (next: WorkspaceDesks, save = true, sync = false) => {
+    const switched = next.active !== latestDesks.current.active;
+    latestDesks.current = next;
+    latest.current = activeView(next);
+    setDesks(next);
+    if (save) persist(next);
+    if (switched || sync) syncDetached(next);
+  };
+  const update = (next: WorkspaceView) =>
+    commit(setActiveView(latestDesks.current, next));
+  // 보이는 자리가 아닐 수 있는 자리의 view를 바꾼다.
+  const updateAt = (at: string, next: WorkspaceView) =>
+    commit(setDeskView(latestDesks.current, at, next));
   const updateRef = useRef(update);
   updateRef.current = update;
 
@@ -437,6 +474,32 @@ export function Workspace(props: WorkspaceProps) {
     if (topFloat(latest.current)?.tab.key !== key) return;
     setFloatFocused(false);
     focusPaneBody(latest.current.focusedPane);
+  };
+
+  // 자리를 바꾼다. 없는 자리면 seed로 만든다. 저장과 detached 창 맞추기는 commit이 한다.
+  const switchTo = (key: string, seed: WorkspaceView) => {
+    commit(switchDesk(latestDesks.current, key, seed));
+    setFloatFocused(false);
+  };
+
+  // 사라진 workflow의 자리를 default로 합친다. 합치며 docked가 된 detached 탭의 창은 닫는다.
+  // 부르는 곳은 ws-wire-selector가 단다(그때 밑줄을 뗀다).
+  const _mergeVanished = (liveKeys: readonly string[]) => {
+    const current = latestDesks.current;
+    const gone = vanishedDesks(current, liveKeys);
+    if (gone.length === 0) return;
+    const next = gone.reduce(mergeDeskIntoDefault, current);
+    const detachedKeys = (from: WorkspaceDesks) =>
+      new Set(
+        Object.values(from.desks).flatMap((item) =>
+          item.detached.map((entry) => entry.tab.key)
+        ),
+      );
+    const still = detachedKeys(next);
+    for (const key of detachedKeys(current)) {
+      if (!still.has(key)) void props.detached?.close({ key }).catch(() => {});
+    }
+    commit(next, true, true);
   };
 
   // 파일을 고치면(저장 상태가 바뀌면) 그 preview 탭을 고정한다. 저장 안 된 탭이 preview로 사라지지 않게
@@ -459,36 +522,41 @@ export function Workspace(props: WorkspaceProps) {
 
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
-    const current = latest.current;
+    const at = deskOfTab(latestDesks.current, key);
+    if (at === undefined) return;
+    const current = latestDesks.current.desks[at]!;
     if (isDetached(current, key)) {
       void props.detached?.close({ key }).catch(() => {});
-      update(closeDetached(current, key));
+      updateAt(at, closeDetached(current, key));
       return;
     }
     if (isFloated(current, key)) {
-      leaveTopFloat(key);
-      update(closeFloat(current, key));
+      if (at === latestDesks.current.active) leaveTopFloat(key);
+      updateAt(at, closeFloat(current, key));
       return;
     }
-    const at = current.panes.findIndex((item) =>
+    const pane = current.panes.findIndex((item) =>
       item.tabs.some((candidate) => candidate.key === key)
     );
-    if (at >= 0) update(closeTab(current, at, key));
+    updateAt(at, closeTab(current, pane, key));
   };
 
   // focus 칸 끝에 붙이고 고른다. 같은 key가 어느 칸에 있으면 새로 붙이지 않고 그 칸에서 고른다
   // (탭 key는 작업대 안에서 유일하다). preview 탭은 그 칸의 preview 자리를 바꿔 쓴다(openTabIn).
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
   const openTab: TabHost["openTab"] = (tab, options) => {
-    const current = latest.current;
-    // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다.
-    if (isDetached(current, tab.key)) {
+    const all = latestDesks.current;
+    const at = deskOfTab(all, tab.key);
+    // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다. 다른 자리의 것이면 그 자리로 건너간다.
+    if (at !== undefined && isDetached(all.desks[at]!, tab.key)) {
+      if (at !== all.active) commit(switchDesk(all, at, emptyView()));
       void props.detached?.focus({ key: tab.key }).catch(() => {});
       return;
     }
     const select = options?.select !== false;
     if (!select) {
-      if (findTab(current, tab.key) !== undefined) return;
+      if (at !== undefined) return;
+      const current = latest.current;
       const target = current.focusedPane;
       update({
         ...current,
@@ -503,7 +571,7 @@ export function Workspace(props: WorkspaceProps) {
       });
       return;
     }
-    update(openTabIn(current, tab, isUnsaved, options?.after));
+    commit(openAcrossDesks(all, tab, isUnsaved, options?.after));
   };
 
   // popup 같은 탭을 floated로 연다. `.content`를 못 쟀으면 칸에 붙인다.
@@ -518,19 +586,17 @@ export function Workspace(props: WorkspaceProps) {
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
   const patchTab: TabHost["patchTab"] = (key, patch, options) => {
-    const current = latest.current;
-    const next = mapTabs(
-      current,
+    const next = mapDeskTabs(
+      latestDesks.current,
       (tab) =>
         tab.key === key
           ? { ...tab, ...(typeof patch === "function" ? patch(tab) : patch) }
           : tab,
     );
     if (options?.later === true) {
-      latest.current = next;
-      setView(next);
+      commit(next, false);
       persistLater();
-    } else update(next);
+    } else commit(next);
   };
 
   // 팔레트 파일 행이 주는 문서 행을 파일 탭으로 연다. id가 경로면 그대로 연다.
@@ -586,6 +652,7 @@ export function Workspace(props: WorkspaceProps) {
     props,
     appScreens: appViews?.screens !== undefined,
     view,
+    windowTabs: () => allDeskTabs(latestDesks.current),
     viewKeeps: keeps,
     openTab,
     openFloat: openFloatTab,
@@ -658,6 +725,9 @@ export function Workspace(props: WorkspaceProps) {
   useEffect(() => {
     if (terminal === undefined) return;
     return terminal.store.onSelect((key) => {
+      const at = deskOfTab(latestDesks.current, key);
+      if (at === undefined) return;
+      if (at !== latestDesks.current.active) switchTo(at, emptyView());
       if (isDetached(latest.current, key)) {
         void props.detached?.focus({ key }).catch(() => {});
         return;
@@ -667,16 +737,16 @@ export function Workspace(props: WorkspaceProps) {
         update(restoreFloat(latest.current, key));
         return;
       }
-      const at = latest.current.panes.findIndex((pane) =>
-        pane.tabs.some((tab) => tab.key === key)
+      const pane = latest.current.panes.findIndex((item) =>
+        item.tabs.some((tab) => tab.key === key)
       );
-      if (at < 0) return;
+      if (pane < 0) return;
       setFloatFocused(false);
       update({
         ...latest.current,
-        focusedPane: at,
+        focusedPane: pane,
         panes: latest.current.panes.map((item, index) =>
-          index === at ? { ...item, selected: key } : item
+          index === pane ? { ...item, selected: key } : item
         ),
       });
     });
@@ -695,7 +765,7 @@ export function Workspace(props: WorkspaceProps) {
       { value: null, views: [] });
     if (transfer === null) return;
     // transfer가 탭 값을 바꿨을 수 있고 그 사이 탭이 닫혔을 수 있다.
-    const tab = findTab(withPositions(latest.current), key);
+    const tab = findTab(mapTabs(latest.current, withPosition), key);
     if (tab === undefined) return;
     let bounds;
     try {
@@ -718,37 +788,48 @@ export function Workspace(props: WorkspaceProps) {
     update(detachTab(latest.current, key, bounds));
   };
 
-  // 최신 작업대를 보도록 ref로 건넨다.
+  // 최신 작업대를 보도록 ref로 건넨다. key가 있는 event는 그 탭이 있는 자리에 적용한다(보이는 자리가
+  // 아니어도). 숨은 자리의 창은 숨었을 뿐이라 갑자기 사라지면(docked) 그 자리의 view가 받는다.
   const onDetachedEvent = (event: DetachedEvent) => {
-    const current = latest.current;
-    if (event.kind === "docked") {
-      if (!isDetached(current, event.key)) return;
-      const tab = event.tab as TabItem;
-      if (event.transfer !== null) {
-        tabKindOf(tab.kind)?.receive?.(tab, event.transfer, hostRef.current);
-      }
-      update(attachDetached(current, event.key, tab));
-      setFloatFocused(false);
-      focusPaneBody(latest.current.focusedPane);
-    } else if (event.kind === "moved") {
+    const all = latestDesks.current;
+    const visible = latest.current;
+    if (event.kind === "moved") {
       // main이 저장할 때 살아 있는 창의 bounds를 채운다.
-      persistRef.current(current);
-    } else if (event.kind === "changed") {
-      if (!isDetached(current, event.key)) return;
-      update({
-        ...current,
-        detached: current.detached.map((item) =>
-          item.tab.key === event.key
-            ? { ...item, tab: event.tab as TabItem }
-            : item
-        ),
-      });
+      persistRef.current(all);
     } else if (event.kind === "open-tab") {
-      openTab(distinctAgentTab(current, event.tab as TabItem));
-    } else if (event.kind === "closed") {
-      update(closeDetached(current, event.key));
+      openTab(
+        distinctAgentTab(visible, event.tab as TabItem, allDeskTabs(all)),
+      );
     } else if (event.kind === "opened") {
-      update(openDetachedTab(current, event.tab as TabItem, event.bounds));
+      update(openDetachedTab(visible, event.tab as TabItem, event.bounds));
+    } else if (
+      event.kind === "docked" || event.kind === "changed" ||
+      event.kind === "closed"
+    ) {
+      const at = deskOfTab(all, event.key);
+      if (at === undefined) return;
+      const current = all.desks[at]!;
+      if (event.kind !== "closed" && !isDetached(current, event.key)) return;
+      if (event.kind === "docked") {
+        const tab = event.tab as TabItem;
+        if (event.transfer !== null) {
+          tabKindOf(tab.kind)?.receive?.(tab, event.transfer, hostRef.current);
+        }
+        updateAt(at, attachDetached(current, event.key, tab));
+        if (at === all.active) {
+          setFloatFocused(false);
+          focusPaneBody(latest.current.focusedPane);
+        }
+      } else if (event.kind === "changed") {
+        updateAt(at, {
+          ...current,
+          detached: current.detached.map((item) =>
+            item.tab.key === event.key
+              ? { ...item, tab: event.tab as TabItem }
+              : item
+          ),
+        });
+      } else updateAt(at, closeDetached(current, event.key));
     }
   };
   const onDetachedEventRef = useRef(onDetachedEvent);
@@ -896,7 +977,7 @@ export function Workspace(props: WorkspaceProps) {
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
-    allTabs(latest.current).filter((tab) =>
+    allDeskTabs(latestDesks.current).filter((tab) =>
       tab.kind === "document_editor" &&
       (tab.key === path || tab.key.startsWith(`${path}/`))
     );
@@ -1033,9 +1114,8 @@ export function Workspace(props: WorkspaceProps) {
         while (closedTabs.current.length > 0) {
           const [last, ...rest] = closedTabs.current;
           closedTabs.current = rest;
-          const open = latest.current.panes.some((item) =>
-            item.tabs.some((tab) => tab.key === last!.tab.key)
-          );
+          const open = deskOfTab(latestDesks.current, last!.tab.key) !==
+            undefined;
           if (open) continue;
           update(reopenTab(latest.current, last!.tab, last!.pane, last!.index));
           focusPaneBody(latest.current.focusedPane);

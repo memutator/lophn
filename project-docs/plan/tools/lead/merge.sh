@@ -15,6 +15,8 @@ W=$MAIN/.claude/worktrees/$id
 # 그 뒤의 commit만 task의 것이다(옛 base의 commit을 다시 올리다 충돌한 일이 여섯 번 있다).
 FROM=$(git config --get "branch.$B.lophnBase" || true)
 if [ -z "$FROM" ] || ! git merge-base --is-ancestor "$FROM" "$B"; then FROM=$(git merge-base $BASE $B); fi
+# 충돌을 손으로 풀어 이미 plan branch 위에 있으면 옮길 것은 그 뒤뿐이다(옛 lophnBase로 plan commit을 또 옮기다 충돌했다).
+if git merge-base --is-ancestor "$BASE" "$B"; then FROM=$(git rev-parse $BASE); fi
 nm=$(git diff --stat $FROM $B | grep -c node_modules)
 [ "$nm" != 0 ] && { echo "STOP: node_modules in diff"; exit 1; }
 echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $FROM $B | sed 's/^/  /'

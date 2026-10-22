@@ -100,3 +100,4 @@ job 화면, 대기 목록의 hold card, run 줄과 instance 줄에 붙는 job �
 - job을 project 창의 activity bar에도 둔다. Workflow panel처럼 "Scheduled jobs" 항목과 panel을 더하고, 그 project와 걸린 job(그 project의 PM이 만든 것, 그 project의 agent를 부르거나 그 project의 workflow를 시작하는 것)만 줄로 보인다. 줄은 제목, Switch, 주기 글, 다음 차례나 대기 상태다. 맨 아래 "Open all jobs →"는 Settings › System › Scheduled jobs로 간다. 모든 job을 모은 화면은 Settings에 그대로 둔다.
   - 이 draft는 아직 그리지 않았다. draft를 그리고 사람이 본 뒤 renderer task를 연다. renderer brief는 planner가 쓴다.
   - 걸린 job을 가르는 재료는 `JobRecord`에 다 있다(`creator.project`, `action.agent_place`, `action.project`). 계약은 바꾸지 않는다.
+- 나머지 draft(Settings 화면, hold card, run·instance 줄 제목)는 추천대로 승인했다. hold card의 앱과 project는 짧은 id로 둔다.

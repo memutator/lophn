@@ -74,6 +74,10 @@ elements:
         kind: subsystem
         description: 화면 없이 부르는 lophn agent 호출 하나나 앱 tool 호출 하나(run)와 그 기록. 끝은 그 입력이 연 turn이나 tool 호출의 끝이다.
 
+      - id: workflows
+        kind: subsystem
+        description: project에 PM이 정의한 workflow를 instance로 돌리고, 참가자의 report와 고친 기록을 남기고, 말한 step의 담당에게 step 메시지를 넣는다. 판정과 넘기기 정책을 두지 않는다.
+
       - id: problems
         kind: subsystem
         description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`). test runner는 지웠다. release의 data 검사는 app-releases의 준비가 한다.
@@ -245,6 +249,7 @@ interfaces:
       - apps
       - domains
       - agent-roles
+      - workflows
     used_by:
       - run-loop
 

@@ -1,5 +1,6 @@
-// terminal 안 프로그램이 연 URL을 browser 탭으로 연다. main이 push하고, 이 창의 terminal이면
-// 탭을 연 뒤에만 ack한다. 이 창의 terminal이 아니면 ack하지 않아 다른 창이나 OS browser로 간다.
+// terminal 안 프로그램이 연 URL을 browser 탭으로 연다. main이 push하고, 이 창의 terminal(어느
+// desk든)이면 탭을 연 뒤에만 ack한다. 이 창의 terminal이 아니면 ack하지 않아 다른 창이나
+// OS browser로 간다.
 import { useEffect, useRef } from "react";
 
 import type { TerminalApi } from "../../ipc/terminal.ts";
@@ -30,13 +31,17 @@ export function bridgeAfter(
   return view.panes[1 - at].tabs.at(-1)?.key;
 }
 
-/** 이 창에 그 terminal이 있으면 URL을 browser 탭으로 열고 true. 없으면 false다. */
+/**
+ * 이 창의 어느 desk에든 그 terminal이 있으면 URL을 browser 탭으로 열고 true. 없으면 false다.
+ * 다른 desk의 terminal이면 그 desk로 건너가 terminal 바로 뒤에 연다(그 desk의 view를 몰라
+ * 반대쪽 pane 규칙은 쓰지 않는다).
+ */
 export function openBridgeUrl(
   host: TabHost,
   store: TerminalStore,
   request: BridgeOpenRequest,
 ): boolean {
-  const terminal = allTabs(host.view).find((tab) =>
+  const terminal = host.windowTabs().find((tab) =>
     tab.kind === "terminal" &&
     store.get(tab.key)?.terminalRef === request.terminal_ref
   );
@@ -47,12 +52,13 @@ export function openBridgeUrl(
   } catch {
     // 주소로 읽히지 않으면 url 그대로 이름이다.
   }
+  const visible = allTabs(host.view).some((tab) => tab.key === terminal.key);
   host.openTab({
     key: `browser-bridge-${Date.now().toString(36)}-${++bridgeCount}`,
     kind: "browser",
     title,
     fields: { url: request.url },
-  }, { after: bridgeAfter(host.view, terminal.key) });
+  }, { after: visible ? bridgeAfter(host.view, terminal.key) : terminal.key });
   return true;
 }
 

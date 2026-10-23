@@ -486,6 +486,20 @@ Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 �
       DEFAULT_DESK,
     ],
     [
+      "새 탭이 after로 다른 자리의 탭을 가리키면 그 자리에서 그 뒤에 열기",
+      (d) => openAcrossDesks(d, tab("n2"), () => false, "a1"),
+      "n2",
+      [["n2", "alpha/pane"]],
+      "alpha",
+    ],
+    [
+      "default로",
+      (d) => switchDesk(d, DEFAULT_DESK, emptyView()),
+      ,
+      [],
+      DEFAULT_DESK,
+    ],
+    [
       "DEFAULT_DESK 합치기는 그대로",
       (d) => mergeDeskIntoDefault(d, DEFAULT_DESK),
       ,
@@ -554,6 +568,12 @@ Deno.test("자리에서 float, detach하고 자리를 바꾸고 건너 열고 �
     if (name.startsWith("다른 자리의 minimized")) {
       assertEquals(activeView(desks).floats.at(-1)!.tab.key, "af", name);
       assertEquals(activeView(desks).floats.at(-1)!.minimized, false, name);
+    }
+    if (name.startsWith("새 탭이 after로")) {
+      const keys = activeView(desks).panes.flatMap((p) => p.tabs).map((t) =>
+        t.key
+      );
+      assertEquals(keys[keys.indexOf("a1") + 1], "n2", name);
     }
     if (name.startsWith("보이는 자리 합치기")) {
       assertEquals(Object.keys(desks.desks), [DEFAULT_DESK, "beta"], name);

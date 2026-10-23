@@ -922,14 +922,18 @@ export function switchDesk(
   };
 }
 
-/** openTabIn의 자리 층 판. 탭이 다른 자리에 있으면 그 자리로 가서 연다. */
+/**
+ * openTabIn의 자리 층 판. 탭이 다른 자리에 있으면 그 자리로 가서 연다. 새 탭이면 `after`의
+ * 탭이 있는 자리로 가서 그 뒤에 연다(다른 자리 terminal이 연 URL을 사람이 봐야 해서다).
+ */
 export function openAcrossDesks(
   desks: WorkspaceDesks,
   tab: TabItem,
   isUnsaved: (key: string) => boolean,
   after?: string,
 ): WorkspaceDesks {
-  const at = deskOfTab(desks, tab.key);
+  const at = deskOfTab(desks, tab.key) ??
+    (after === undefined ? undefined : deskOfTab(desks, after));
   const next = at === undefined || at === desks.active
     ? desks
     : { ...desks, active: at };

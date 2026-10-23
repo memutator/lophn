@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py app-oauth build`가 `tasks/*.md`에서 id, �
 |---|---|---|---|---|---|---|---|
 | `ao-access-wireframe` | ao-access | 1 | 없음 | running | ao-access/ao-access-wireframe |  |  |
 | `ao-contract` | ao-contract | 1 | 없음 | running | ao-contract/ao-contract |  |  |
-| `ao-oauth-core` | ao-oauth | 1 | 없음 | running | ao-oauth/ao-oauth-core |  |  |
+| `ao-oauth-core` | ao-oauth | 1 | 없음 | merged | ao-oauth/ao-oauth-core | 34cd4d17d |  |
 | `ao-net-fetch` | ao-net | 2 | 없음 | todo |  |  |  |
 | `ao-oauth-service` | ao-oauth | 2 | 없음 | todo |  |  |  |
 | `ao-oauth-wiring` | ao-oauth | 2 | ao-oauth-service | todo |  |  |  |

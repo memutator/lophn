@@ -44,6 +44,11 @@ Deno.test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸
     ["missing public", [{ ...tool, public: undefined }]],
     ["missing domain", [{ ...tool, domain: undefined }]],
     ["domain not a slug", [{ ...tool, domain: "Items_1" }]],
+    ["reserved domain", [{ ...tool, domain: "file" }]],
+    ["same agent tool name", [
+      { ...tool, name: "event.list" },
+      { ...tool, name: "event_list" },
+    ]],
     ["project_scope", [{ ...tool, project_scope: false }]],
     ["old key field", [{ ...tool, key: "x" }]],
   ];

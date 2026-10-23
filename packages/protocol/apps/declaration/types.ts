@@ -177,7 +177,42 @@ export const INPUT_TYPES = new Set<InputType>([
 
 export const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 // slugSchema(protocol/projects/values.ts)와 같은 규칙. 이 file은 의존성이 없어 따로 쓴다.
-export const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+// 앱 tool의 agent 이름은 `<domain>_<tool>`이다. tool.load 묶음 규칙이 wire 이름 첫 `_` 앞을 묶음 이름으로 보므로,
+// 내장 tool의 자원 이름(wire 이름 첫 `_` 앞)과 `mcp`는 domain 이름이 될 수 없다. 새 내장 자원을 더하면 여기도 더한다
+// (core/main/tool-names_test.ts가 잡는다). 순수 declaration graph가 보도록 이 file에 둔다.
+export const RESERVED_DOMAIN_NAMES: readonly string[] = [
+  "file",
+  "pdf",
+  "image",
+  "shell",
+  "web",
+  "call",
+  "reply",
+  "cancel",
+  "session",
+  "ask",
+  "skill",
+  "tool",
+  "app",
+  "domain",
+  "declaration",
+  "package",
+  "release",
+  "preview",
+  "kind",
+  "settings",
+  "visual",
+  "instructions",
+  "operator",
+  "workflow",
+  "job",
+  "mcp",
+];
+export function isDomainName(name: string): boolean {
+  return name.length <= 63 && DOMAIN_NAME.test(name) &&
+    !RESERVED_DOMAIN_NAMES.includes(name);
+}
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SEMVER =

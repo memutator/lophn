@@ -5,8 +5,11 @@ import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead, defineUpload } from "../base/route.ts";
 import { sha256Schema } from "../base/values.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
-import { appIdSchema, projectIdSchema } from "../projects/values.ts";
-import { artifactNameSchema } from "../domains/values.ts";
+import {
+  appIdSchema,
+  projectIdSchema,
+  slugSchema,
+} from "../projects/values.ts";
 import { screenKeySchema } from "./channel-values.ts";
 import { releaseIdSchema } from "./apps.ts";
 
@@ -54,7 +57,7 @@ export const annotationTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("artifact"),
     domain: idSchema("dom"),
-    name: artifactNameSchema,
+    name: slugSchema,
   }),
   z.strictObject({ kind: z.literal("file"), project: projectIdSchema }),
 ]);

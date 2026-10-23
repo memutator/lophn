@@ -3,7 +3,11 @@ import { TOOL_ORDER } from "../../../packages/core/agent-roles/tool-lists.ts";
 import { rolePrompt } from "../../../packages/core/agent-roles/roles/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
 import type { Role } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { toWireToolName } from "../../../packages/protocol/lophn-agent/tool-catalog.ts";
+import { RESERVED_DOMAIN_NAMES } from "../../../packages/protocol/apps/declaration/mod.ts";
+import {
+  MCP_TOOL_PREFIX,
+  toWireToolName,
+} from "../../../packages/protocol/lophn-agent/tool-catalog.ts";
 import type {
   CollectedModelCall,
   CollectedToolCall,
@@ -38,8 +42,10 @@ const ROLE_SET: Record<Role, true> = {
 export const ROLES = Object.keys(ROLE_SET);
 const SKILL_ROOTS = ["packages/core/agent-roles/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
-// harness가 아니라 world의 tool이다.
-const WORLD_TOOL = /^(domain__|mcp__|ext_)/;
+// harness가 아니라 world의 tool이다. 앱 tool은 `<domain>_<tool>`이고 내장 자원 이름이 아닌 domain이다.
+const isWorldTool = (wireName: string) =>
+  wireName.startsWith(MCP_TOOL_PREFIX) ||
+  !RESERVED_DOMAIN_NAMES.includes(wireName.split("_")[0]);
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 
@@ -275,7 +281,7 @@ export async function seenComponents(
       add(await measureInstruction(role, deps.texts));
       for (const t of body.tools) {
         const wireName = String(t.name);
-        if (WORLD_TOOL.test(wireName)) continue;
+        if (isWorldTool(wireName)) continue;
         const name = wire.get(wireName);
         const file = name === undefined ? undefined : tools.get(name);
         if (name === undefined || file === undefined) {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { defineRead } from "../base/route.ts";
-import { domainIdSchema } from "../domains/values.ts";
+import { idSchema } from "../base/ids.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { toolNameSchema } from "./channel-values.ts";
 
@@ -18,7 +18,7 @@ const readErrors = [
 export const appToolUseSchema = z.object({
   app: appIdSchema,
   tool: toolNameSchema,
-  domain: domainIdSchema,
+  domain: idSchema("dom"),
   source: z.enum(["grant", "invocation"]),
 });
 export type AppToolUse = z.infer<typeof appToolUseSchema>;

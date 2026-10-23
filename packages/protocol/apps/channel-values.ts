@@ -43,7 +43,6 @@ export const toolKeySchema = z.string().refine(
 );
 
 // tool 이름. MCP tool 이름 문자 집합이고 선언 검사(declaration/tools.ts)와 같은 규칙이다.
-// 길이는 agent tool 이름(`domain__<domain>__<tool>`)에 들어가도록 64다.
 export const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/, {
   message: "tool name must be 1-64 characters of letters, digits, _ - .",
 });

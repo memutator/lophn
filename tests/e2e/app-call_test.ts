@@ -12,7 +12,7 @@
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 `agent-calls-app`의 둘뿐이다(호출과
 // text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool 이름 규칙
-// (`domain__<domain>__<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다(비공개 tool은 그
+// (`<domain>_<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 앱 place의 Operator다(비공개 tool은 그
 // domain을 맡은 agent만 본다). 앱 activation helper의 App Engineer 대답은 행 몫에 세지 않는다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import {
@@ -65,7 +65,7 @@ const NET_SECRET = "e2e.net.token";
 // 요청의 tool 목록에서 tool로 끝나는 tool을 골라 부른다.
 function callApp(id: string, tool: string, input: unknown) {
   return (request: JournalEntry) => {
-    const name = toolNames(request).find((item) => item.endsWith(`__${tool}`));
+    const name = toolNames(request).find((item) => item.endsWith(`_${tool}`));
     if (name === undefined) throw new Error(`${tool} tool이 요청에 없다`);
     return {
       kind: "tool" as const,

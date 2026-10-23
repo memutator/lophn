@@ -2,10 +2,10 @@
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
 
 import {
-  DOMAIN_NAME,
   exactKeys,
   type InputSchema,
   invalid,
+  isDomainName,
   isObject,
   nonBlank,
   type ScreenDeclaration,
@@ -17,7 +17,7 @@ import { unique } from "./json.ts";
 import { validateSchemaNode } from "./schema.ts";
 import { screenPath } from "./scope.ts";
 
-// toolNameSchema(channel-values.ts)와 같은 규칙. MCP tool 이름 문자 집합이고, 길이는 agent tool 이름에 들어가도록 64다.
+// toolNameSchema(channel-values.ts)와 같은 규칙. MCP tool 이름 문자 집합이다.
 // 이 file은 의존성이 없어 따로 쓴다.
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
@@ -126,10 +126,7 @@ export function validateScreensAndTools(
     if (typeof item.public !== "boolean") {
       return invalid(`tool ${item.name} public must be boolean`);
     }
-    if (
-      typeof item.domain !== "string" || item.domain.length > 63 ||
-      !DOMAIN_NAME.test(item.domain)
-    ) {
+    if (typeof item.domain !== "string" || !isDomainName(item.domain)) {
       return invalid(`tool ${item.name} domain must be a domain name`);
     }
     if (domains && !domains.includes(item.domain)) {
@@ -162,6 +159,18 @@ export function validateScreensAndTools(
   }
   if (unique(tools.map((tool) => tool.name), "tool")) {
     return invalid("duplicate tool");
+  }
+  // agent tool 이름은 `<domain>_<tool의 . → _>`라 `event.list`와 `event_list`는 같은 이름이 된다.
+  const seen = new Map<string, string>();
+  for (const tool of tools) {
+    const wire = `${tool.domain}_${tool.name.replaceAll(".", "_")}`;
+    const other = seen.get(wire);
+    if (other !== undefined) {
+      return invalid(
+        `tools ${other} and ${tool.name} have the same agent tool name ${wire}`,
+      );
+    }
+    seen.set(wire, tool.name);
   }
 
   return { ok: true, value: { screens, tools } };

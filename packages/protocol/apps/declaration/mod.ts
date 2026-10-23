@@ -20,7 +20,11 @@ export type {
   ValidationError,
   ValidationResult,
 } from "./types.ts";
-export { OAUTH_RESERVED_PARAMS } from "./types.ts";
+export {
+  isDomainName,
+  OAUTH_RESERVED_PARAMS,
+  RESERVED_DOMAIN_NAMES,
+} from "./types.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";
 export { canonicalJson } from "./json.ts";
 export { toMcpTool, toolAnnotations } from "./tools.ts";

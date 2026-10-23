@@ -8,9 +8,9 @@ import {
   asJson,
   DECLARATION_KEYS,
   type DeclarationOptions,
-  DOMAIN_NAME,
   exactKeys,
   invalid,
+  isDomainName,
   isObject,
   type JsonValue,
   nonBlank,
@@ -47,10 +47,7 @@ export function validateDeclaration(
   if (
     domains !== undefined &&
     (!Array.isArray(domains) ||
-      domains.some((name) =>
-        typeof name !== "string" || name.length > 63 ||
-        !DOMAIN_NAME.test(name)
-      ))
+      domains.some((name) => typeof name !== "string" || !isDomainName(name)))
   ) {
     return invalid("domains must be domain names");
   }

@@ -20,4 +20,3 @@ export {
   designFirst,
 } from "./design-doc.ts";
 export { appDesignInput } from "./design.ts";
-export { appToolSession } from "./fixtures.ts";

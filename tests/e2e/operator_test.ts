@@ -25,6 +25,7 @@ import {
   domainFolder,
   domainList,
 } from "../../packages/protocol/domains/mod.ts";
+import { RESERVED_DOMAIN_NAMES } from "../../packages/protocol/apps/declaration/mod.ts";
 import { appTools } from "../../packages/protocol/apps/declaration/read.ts";
 import {
   agentAssignmentGet,
@@ -103,17 +104,17 @@ const addItem = (name: string) => (title: string) => ({
   }],
 });
 
-// 요청의 app tool 중 이름이 `__add_item`으로 끝나는 것을 고른다.
+// 요청의 app tool 중 이름이 `_add_item`으로 끝나는 것을 고른다.
 const callAddItem = (title: string) => (request: JournalEntry) => {
-  const name = toolNames(request).find((item) => item.endsWith("__add_item"));
+  const name = toolNames(request).find((item) => item.endsWith("_add_item"));
   if (name === undefined) throw new Error("요청에 add_item tool이 없다");
   return addItem(name)(title);
 };
 
 const appToolsOf = (fake: FakeServer, index = 0) =>
   toolNames(fake.journal()[index]).filter((name) =>
-    name.startsWith("domain__")
-  );
+    !RESERVED_DOMAIN_NAMES.includes(name.split("_")[0])
+  ).sort();
 
 // 앱 화면의 사람이 읽는 list_items 결과를 글로 돌려준다.
 async function itemsOf(core: Core, app: string): Promise<string> {
@@ -180,8 +181,13 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await waitTurnEnd(core, first.session);
     // fake
     assertEquals(
-      appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
-      ["add_item", "list_items", "shelf_count", "shelf_list"],
+      appToolsOf(fake),
+      [
+        "notes-shelf_shelf_count",
+        "notes-shelf_shelf_list",
+        "notes_add_item",
+        "notes_list_items",
+      ],
     );
     // ledger
     const written = await sessionWrites(core, id, first.session);
@@ -197,7 +203,7 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     fake.reset();
     fake.script([
       {
-        reply: addItem(`domain__${slug}__add_item`)("op-removed"),
+        reply: addItem(`${slug}_add_item`)("op-removed"),
       },
       text,
     ]);
@@ -209,8 +215,8 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     await waitTurnEnd(core, removed.session);
     // fake
     assertEquals(
-      appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
-      ["list_items", "shelf_count", "shelf_list"],
+      appToolsOf(fake),
+      ["notes-shelf_shelf_count", "notes-shelf_shelf_list", "notes_list_items"],
     );
     assert(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
     // ledger
@@ -256,8 +262,8 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     assert(system.includes("Zebra rule"));
     assert(!system.includes("Quokka rule"));
     assertEquals(
-      appToolsOf(fake).map((name) => name.split("__").at(-1)).sort(),
-      ["add_item", "list_items", "shelf_count"],
+      appToolsOf(fake),
+      ["notes-shelf_shelf_count", "notes_add_item", "notes_list_items"],
     );
 
     // no-assignment: 할당 없이 만든 Operator에는 활성 앱이 있어도 app tool이 하나도 없다.
@@ -295,8 +301,8 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     );
     const notice = lastUserText(after);
     assert(notice.includes("tools_changed"));
-    assert(notice.includes(`domain__${slug}__list_items`));
-    assert(notice.includes(`domain__${slug}__add_item`));
+    assert(notice.includes(`${slug}_list_items`));
+    assert(notice.includes(`${slug}_add_item`));
     const declaration = await core.call(appTools, { app: id });
     for (const api of declaration.tools) {
       assert(!notice.includes(api.description));

@@ -3,11 +3,15 @@
 // no-input hash의 정규 JSON null은 tool·schema·release 결합을 대신하지 않는다.
 
 import {
+  defineOwn,
   exactKeys,
   invalid,
   isObject,
   type JsonValue,
   LISTEN_HOSTS,
+  OAUTH_RESERVED_PARAMS,
+  type OAuthDeclaration,
+  ownKeys,
   type PermissionKind,
   type PermissionScope,
   SECRET_NAME,
@@ -100,6 +104,85 @@ function portOf(value: unknown): number | undefined {
     : undefined;
 }
 
+function oauthEndpoint(value: unknown): boolean {
+  if (typeof value !== "string" || value.length > 2048) return false;
+  if (value.includes("#")) return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password) return false;
+  if (url.protocol === "https:") return true;
+  return url.protocol === "http:" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]");
+}
+
+// secret.use의 oauth 블록 검사와 정규화. activation의 선언 비교가 순서만 바뀐 선언을 같게 보도록
+// 키 순서·scopes 정렬·빈 params 제거를 여기서 정한다. 같은 함수를 permissions.ts의 Zod 사본이 부른다.
+export function oauthScope(value: unknown): ValidationResult<OAuthDeclaration> {
+  if (!isObject(value)) return invalid("oauth must be an object");
+  const bad = exactKeys(
+    value,
+    ["authorization_endpoint", "token_endpoint", "scopes", "params"],
+    ["authorization_endpoint", "token_endpoint", "scopes"],
+  );
+  if (bad) return invalid(`oauth ${bad}`);
+  if (!oauthEndpoint(value.authorization_endpoint)) {
+    return invalid(
+      "oauth authorization_endpoint must be https or loopback http",
+    );
+  }
+  if (!oauthEndpoint(value.token_endpoint)) {
+    return invalid("oauth token_endpoint must be https or loopback http");
+  }
+  const scopes = value.scopes;
+  if (
+    !Array.isArray(scopes) || scopes.length > 32 ||
+    scopes.some((scope) =>
+      typeof scope !== "string" || scope.length < 1 || scope.length > 200 ||
+      /[\s\p{Cc}"\\]/u.test(scope)
+    )
+  ) {
+    return invalid("oauth scopes must be up to 32 plain tokens");
+  }
+  const oauth: OAuthDeclaration = {
+    authorization_endpoint: value.authorization_endpoint as string,
+    token_endpoint: value.token_endpoint as string,
+    scopes: [...new Set(scopes as string[])].sort(),
+  };
+  if (value.params !== undefined) {
+    if (!isObject(value.params)) {
+      return invalid("oauth params must be an object");
+    }
+    const keys = ownKeys(value.params);
+    if (!keys || keys.length > 8) {
+      return invalid("oauth params must have at most 8 entries");
+    }
+    const params: Record<string, string> = {};
+    for (const key of keys.sort()) {
+      const item = value.params[key];
+      if (
+        !/^[A-Za-z0-9_.-]{1,64}$/.test(key) ||
+        (OAUTH_RESERVED_PARAMS as readonly string[]).includes(key)
+      ) {
+        return invalid("oauth params key is invalid or reserved");
+      }
+      if (
+        typeof item !== "string" || item.length < 1 || item.length > 256 ||
+        /\p{Cc}/u.test(item)
+      ) {
+        return invalid("oauth params value is invalid");
+      }
+      defineOwn(params, key, item);
+    }
+    if (keys.length > 0) oauth.params = params;
+  }
+  return { ok: true, value: oauth };
+}
+
 export function permissionScope(
   kind: PermissionKind,
   value: unknown,
@@ -109,8 +192,12 @@ export function permissionScope(
     ? ["path", "recursive"]
     : kind.startsWith("net.")
     ? ["host", "port"]
-    : ["name"];
-  const unexpected = exactKeys(value, keys, keys);
+    : ["name", "oauth"];
+  const unexpected = exactKeys(
+    value,
+    keys,
+    kind === "secret.use" ? ["name"] : keys,
+  );
   if (unexpected) return invalid(`permission scope ${unexpected}`);
   if (kind === "fs.read" || kind === "fs.write") {
     if (lexicalPath(value.path, false)) {
@@ -137,7 +224,12 @@ export function permissionScope(
   if (typeof value.name !== "string" || !SECRET_NAME.test(value.name)) {
     return invalid("secret name is invalid");
   }
-  return { ok: true, value: { name: value.name } };
+  if (value.oauth === undefined) {
+    return { ok: true, value: { name: value.name } };
+  }
+  const oauth = oauthScope(value.oauth);
+  if (!oauth.ok) return oauth;
+  return { ok: true, value: { name: value.name, oauth: oauth.value } };
 }
 
 export function scopeKey(kind: string, scope: PermissionScope): string {

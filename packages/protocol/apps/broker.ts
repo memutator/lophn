@@ -29,6 +29,31 @@ export const brokerReadyInputSchema = z.strictObject({
 
 // core 제어 연결이 살아 있는지. EOF면 새 호출부터 닫는다.
 
+export const NET_FETCH_BODY_MAX_BYTES = 10 * 1024 * 1024;
+export const NET_FETCH_HEADERS_MAX = 32;
+// 인증은 core가 useSecret으로 붙인다. 앱이 직접 넣지 못하는 header다.
+export const NET_FETCH_FORBIDDEN_HEADERS = [
+  "authorization",
+  "cookie",
+  "host",
+  "content-length",
+  "proxy-authorization",
+];
+
+export type NetFetchBody = string | { base64: string };
+
+// 풀어 쓴 byte 수다. broker와 SDK가 같은 규칙을 본다(SDK는 protocol을 import할 수 없어
+// 같은 규칙을 사본으로 둔다). base64는 padding 규칙에 맞는 값을 가정한다.
+export function fetchBodyBytes(body: NetFetchBody): number {
+  if (typeof body === "string") return new TextEncoder().encode(body).length;
+  const text = body.base64;
+  const pad = text.endsWith("==") ? 2 : text.endsWith("=") ? 1 : 0;
+  return (text.length / 4) * 3 - pad;
+}
+
+const BASE64 =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
 // 전송부가 exact host·port·redirect와 grant를 매번 검사한다. 앱은 결과만 받는다.
 export const brokerNetFetchInputSchema = z.strictObject({
   ...childFields,
@@ -38,6 +63,33 @@ export const brokerNetFetchInputSchema = z.strictObject({
   port: z.number().int().min(1).max(65535),
   method: z.string().min(1),
   path: z.string().min(1),
+  headers: z.record(
+    z.string().regex(/^[A-Za-z0-9-]{1,64}$/),
+    z.string().max(4096).refine((value) => !/[\r\n\0]/.test(value)),
+  ).optional(),
+  body: z.union([
+    z.string(),
+    z.strictObject({ base64: z.string().regex(BASE64) }),
+  ]).optional(),
+}).superRefine((value, context) => {
+  const headers = Object.keys(value.headers ?? {});
+  if (headers.length > NET_FETCH_HEADERS_MAX) {
+    context.addIssue({ code: "custom", message: "too many headers" });
+  }
+  if (
+    headers.some((key) =>
+      NET_FETCH_FORBIDDEN_HEADERS.includes(key.toLowerCase())
+    )
+  ) {
+    context.addIssue({ code: "custom", message: "header is not allowed" });
+  }
+  if (value.body === undefined) return;
+  if (["GET", "HEAD"].includes(value.method.toUpperCase())) {
+    context.addIssue({ code: "custom", message: "GET and HEAD have no body" });
+  }
+  if (fetchBodyBytes(value.body) > NET_FETCH_BODY_MAX_BYTES) {
+    context.addIssue({ code: "custom", message: "body is too large" });
+  }
 });
 export const brokerNetFetchOutputSchema = z.object({
   status: z.number().int().min(100).max(599),

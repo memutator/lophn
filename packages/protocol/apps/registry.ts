@@ -41,6 +41,12 @@ import {
   activationConsent,
   activationConsents,
 } from "./activation/mod.ts";
+import {
+  appsOAuthBegin,
+  appsOAuthCancel,
+  appsOAuthClientSet,
+  appsOAuthState,
+} from "./oauth.ts";
 import { appsSecretValue } from "./secret-use.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
 import { RELEASE_ROUTES } from "./releases.ts";
@@ -76,6 +82,10 @@ export const ROUTES = [
   appRewinds,
   appScreenFile,
   appsSecretValue,
+  appsOAuthClientSet,
+  appsOAuthBegin,
+  appsOAuthCancel,
+  appsOAuthState,
   appUsage,
   ...APP_GRANT_ROUTES,
   ...PACKAGE_ROUTES,

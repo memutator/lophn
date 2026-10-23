@@ -8,6 +8,7 @@ export type {
   InputType,
   JsonObject,
   JsonValue,
+  OAuthDeclaration,
   PermissionKind,
   PermissionRequirement,
   PermissionScope,
@@ -19,6 +20,7 @@ export type {
   ValidationError,
   ValidationResult,
 } from "./types.ts";
+export { OAUTH_RESERVED_PARAMS } from "./types.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";
 export { canonicalJson } from "./json.ts";
 export { toMcpTool, toolAnnotations } from "./tools.ts";

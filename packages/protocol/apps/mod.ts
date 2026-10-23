@@ -17,6 +17,7 @@ export * from "./channel-values.ts";
 export * from "./socket-slots.ts";
 export * from "./broker.ts";
 export * from "./secret-use.ts";
+export * from "./oauth.ts";
 export * from "./app-start.ts";
 export * from "./invocations.ts";
 export * from "./grants.ts";

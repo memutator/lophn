@@ -116,6 +116,14 @@ export function validateBlueprint(
       "permission",
     )
   ) return invalid("duplicate permission");
+  // secret 이름 하나에 인증 방식 하나다. OAuth 상태가 이름마다 하나라서다.
+  if (
+    unique(
+      permissions.filter((permission) => permission.kind === "secret.use")
+        .map((permission) => (permission.scope as { name: string }).name),
+      "secret",
+    )
+  ) return invalid("duplicate permission");
 
   const uses = validateUses(connectionItems, dependencyItems, owner);
   if (!uses.ok) return uses;

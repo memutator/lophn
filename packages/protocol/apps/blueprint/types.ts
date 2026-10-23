@@ -79,10 +79,34 @@ export type PermissionKind =
   | "net.listen"
   | "secret.use";
 
+// secret.use의 OAuth 블록. 끝점은 https이거나 loopback http다(검사는 scope.ts의 oauthScope).
+export type OAuthDeclaration = {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  // 정규화 때 정렬하고 중복을 없앤다.
+  scopes: string[];
+  // authorize URL에 더할 추가 parameter. 비면 칸을 두지 않는다.
+  params?: Record<string, string>;
+};
+
+// core가 authorize URL을 만들 때도 같은 목록으로 params의 덮어쓰기를 막는다.
+export const OAUTH_RESERVED_PARAMS = [
+  "response_type",
+  "client_id",
+  "redirect_uri",
+  "scope",
+  "state",
+  "code_challenge",
+  "code_challenge_method",
+  "code_verifier",
+  "client_secret",
+  "grant_type",
+] as const;
+
 export type PermissionScope =
   | { path: string; recursive: boolean }
   | { host: string; port: number }
-  | { name: string };
+  | { name: string; oauth?: OAuthDeclaration };
 
 export type PermissionRequirement = {
   kind: PermissionKind;

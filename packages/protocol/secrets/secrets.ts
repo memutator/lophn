@@ -10,6 +10,7 @@ const SECRET_PURPOSES = [
 export type SecretPurpose = (typeof SECRET_PURPOSES)[number];
 
 // 이름은 `secrets.json`의 key다. 앞머리(`provider.`, `mcp.`, `mcp-oauth.`)가 이름 공간이다.
+// `app-oauth.`는 앱 OAuth의 갱신 token·meta·client이고 어디로도 보내지 않는다.
 export const secretNameSchema = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
 
 // 일반 caller의 credential을 빌려 secret 경계를 넓히지 않는다.

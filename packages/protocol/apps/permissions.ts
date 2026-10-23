@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { toolKeySchema } from "./channel-values.ts";
-import { hostOf } from "./blueprint/scope.ts";
+import { hostOf, oauthScope } from "./blueprint/scope.ts";
 
 // blueprint.permissions에는 이 중 fs·net·secret·document만 들어간다.
 // app.call·agent.commands는 Grant scope이며 blueprint 요구가 아니다.
@@ -42,8 +42,21 @@ const listenScopeSchema = z.strictObject({
   host: z.enum(LISTEN_HOSTS),
   port: portSchema,
 });
+// 규칙은 blueprint/scope.ts의 oauthScope 하나다. 저장된 값은 이미 정규화돼 있어 여기서 고치지 않는다.
+const oauthSchema = z.strictObject({
+  authorization_endpoint: z.string(),
+  token_endpoint: z.string(),
+  scopes: z.array(z.string()),
+  params: z.record(z.string(), z.string()).optional(),
+}).superRefine((value, context) => {
+  const checked = oauthScope(value);
+  if (!checked.ok) {
+    context.addIssue({ code: "custom", message: checked.error.message });
+  }
+});
 const secretScopeSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_.:-]+$/),
+  oauth: oauthSchema.optional(),
 });
 const documentScopeSchema = z.strictObject({
   key: z.string().min(1),

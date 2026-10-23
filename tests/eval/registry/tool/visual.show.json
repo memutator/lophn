@@ -10,5 +10,11 @@
     "name": "visual.show",
     "n": 2,
     "hash": "b4314e2c3b221ea15476867c0f42f09dfaed1bdd0f78fafb7fc90c645d1381d4"
+  },
+  {
+    "kind": "tool",
+    "name": "visual.show",
+    "n": 3,
+    "hash": "eead562f1d2790549f3de54245c4bc2bacf0ad9bc0cbf314f4cbb7cfb6fd5a30"
   }
 ]

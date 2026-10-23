@@ -4,5 +4,11 @@
     "name": "release.prepare",
     "n": 1,
     "hash": "1eda3f03761e098144943860d1729e0c023a905d2d97dc1ec107682d89d1c327"
+  },
+  {
+    "kind": "tool",
+    "name": "release.prepare",
+    "n": 2,
+    "hash": "a30d9cc81bb6373a4064617e59b50c53ad1ed853c89507c0f1fe3a4d6ff72766"
   }
 ]

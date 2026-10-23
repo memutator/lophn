@@ -1,0 +1,5 @@
+{
+  "name": "@lophn/flow",
+  "version": "1.0.0",
+  "exports": "./mod.ts"
+}

@@ -8,6 +8,6 @@ lead만 고친다. `tools/status.py app-oauth build`가 `tasks/*.md`에서 id, �
 | `ao-contract` | ao-contract | 1 | 없음 | merged | ao-contract/ao-contract | 34d9fa65b |  |
 | `ao-oauth-core` | ao-oauth | 1 | 없음 | merged | ao-oauth/ao-oauth-core | 34cd4d17d |  |
 | `ao-net-fetch` | ao-net | 2 | 없음 | merged | ao-net/ao-net-fetch | cd3e4b2ce |  |
-| `ao-oauth-service` | ao-oauth | 2 | 없음 | running | ao-oauth/ao-oauth-service |  |  |
+| `ao-oauth-service` | ao-oauth | 2 | 없음 | merged | ao-oauth/ao-oauth-service | 920f1da18 |  |
 | `ao-oauth-wiring` | ao-oauth | 2 | ao-oauth-service | todo |  |  |  |
 | `ao-access-screen` | ao-access | 3 | 없음 | todo |  |  |  |

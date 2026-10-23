@@ -4,9 +4,9 @@ lead만 고친다. `tools/status.py app-oauth build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ao-access-wireframe` | ao-access | 1 | 없음 | todo |  |  |  |
-| `ao-contract` | ao-contract | 1 | 없음 | todo |  |  |  |
-| `ao-oauth-core` | ao-oauth | 1 | 없음 | todo |  |  |  |
+| `ao-access-wireframe` | ao-access | 1 | 없음 | running | ao-access/ao-access-wireframe |  |  |
+| `ao-contract` | ao-contract | 1 | 없음 | running | ao-contract/ao-contract |  |  |
+| `ao-oauth-core` | ao-oauth | 1 | 없음 | running | ao-oauth/ao-oauth-core |  |  |
 | `ao-net-fetch` | ao-net | 2 | 없음 | todo |  |  |  |
 | `ao-oauth-service` | ao-oauth | 2 | 없음 | todo |  |  |  |
 | `ao-oauth-wiring` | ao-oauth | 2 | ao-oauth-service | todo |  |  |  |

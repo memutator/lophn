@@ -40,7 +40,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, coding agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
 - agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`SetAgentAssignment`)는 사람만 하고 읽기는 사람과 machine뿐이다. Operator 정의를 만들고 고치는 tool은 `mcp_servers`와 `skip`을 입력으로 받지 않는다.
 - 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다.
-- 선언(blueprint의 효과, MCP `readOnlyHint`)은 믿는다.
+- 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
 
 묻는 길
 - 묻는 길은 turn 안 request 하나다(`packages/core/approvals/turn-requests.ts`). 메모리에 있고, 물은 turn이 기다린다. 재시작하면 비고 기다리던 turn은 cancelled를 받는다.

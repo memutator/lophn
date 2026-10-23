@@ -104,7 +104,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - 데스크톱 앱(shell)과 로컬 core
 - lophn agent: lophn, Project Manager, App Engineer, Operator
 - coding agent 연결: 터미널 탭의 TUI, CLI, MCP. App Engineer는 coding agent에게 맡기지 않는다(연결을 얼마나 남길지는 보류)
-- 앱: App Engineer가 직접 짓기(blueprint, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
+- 앱: App Engineer가 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
 - workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. PM이 쓴 code(`flow.ts`)가 sandbox 안에서 agent와 앱 tool을 부르는 flow

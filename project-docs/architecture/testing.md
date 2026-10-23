@@ -57,7 +57,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 - App Engineer의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
 
-제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 blueprint의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
+제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, sandbox 밖 읽기, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 선언의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
 
 - 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `Deno.serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
 - agent가 앱 tool을 부르는 행은 사람이 앱을 할당한 Operator로 부른다(`agentAssignmentSet {entries: [{app, removed_tools: []}]}`, compare `{revision: 0}`. `app-call_test.ts`, `app-data-rewind_test.ts`, `operator_test.ts`). 할당한 앱의 tool만 tool 목록에 뜬다(`project-docs/architecture/approval.md` "할당").

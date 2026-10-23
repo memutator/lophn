@@ -57,9 +57,9 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 ## 사용자 앱에 닿는 길
 
-1. 앱 template(`packages/core/apps/packages/template/app/deno.json.tmpl`)이 `@lophn/ui`(root와 sub-path 11개)와 `@lophn/app-ui`, `@lophn/wording`, `@lophn/blueprint`를 `lophn-sdk:<name>@1.0.0/<경로>`로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon json, d3)도 같은 판으로 적는다. 앱의 import map이 사본 안 bare import까지 풀기 때문이다.
+1. 앱 template(`packages/core/apps/packages/template/app/deno.json.tmpl`)이 `@lophn/ui`(root와 sub-path 11개)와 `@lophn/app-ui`, `@lophn/wording`, `@lophn/declaration`을 `lophn-sdk:<name>@1.0.0/<경로>`로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon json, d3)도 같은 판으로 적는다. 앱의 import map이 사본 안 bare import까지 풀기 때문이다.
 2. `lophn-sdk:` 값은 data root의 설치 사본 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)을 가리킨다. 사본은 read-only다(file 0444, 폴더 0555). 앱 폴더의 개발용 map(`.lophn/import-map.json`)은 template의 `check`·`test`·`wording` task가 먼저 `scripts/refresh-import-map.ts`로 `deno.json`에서 다시 쓴다. `lophn-sdk:` 값의 설치 위치는 지금 map의 같은 판 항목에서 읽고 `npm:`·`jsr:`는 그대로 옮긴다. 그래서 앱이 `deno.json`에 더한 의존이 바로 풀린다. release 준비는 staging에서 map을 따로 만든다.
-3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/blueprint`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
+3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/declaration`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
 4. release 준비(`releases/prepare/from-source.ts`)가 잠근 import의 설치 사본을 `readSdkCopies`로 읽어 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
 5. 앱을 고치는 agent는 template의 `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.
 
@@ -68,7 +68,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - lophn update → 실행 중인 앱: 앱은 판을 고정하고, release bundle에 굳힌 사본으로 돈다.
 - 사용자가 component를 고치려면 그 file을 앱 `src/`로 복사해 쓴다. 복사한 file은 앱 것이라 lophn의 UI update가 닿지 않는다. 별도 eject 도구는 없다.
 
-설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(blueprint, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
+설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
 내장 sdk는 package catalog에 등록하지 않는다. coding agent는 import map이 가리키는 설치 사본의 `guide.md`를 읽는다. coding agent의 `package list`·`package show`는 사용자 package 몫이다. 모든 role의 `package.list`는 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `package.get`은 `@lophn/` 이름이면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모아 guide로 준다.
 

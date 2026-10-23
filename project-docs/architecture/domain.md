@@ -30,8 +30,8 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
    skills/     ── 같은 쪽 ──▶ skill 층(내장 < 전역 < domain)
    artifacts/  ── PM·App Engineer와 그 domain을 고른 Operator ──▶ sidebar Artifacts, 봉한 view
 
- 앱 blueprint ── tools[]: { name, …, public, domain: <그 앱의 domain 이름> }
-   release 준비(release 기록 command, preview bundle 사본)·blueprint.check·activation 직전 재검사 ── 앱의 active domain 이름 안에 있어야 한다
+ 앱 선언 ── tools[]: { name, …, public, domain: <그 앱의 domain 이름> }
+   release 준비(release 기록 command, preview bundle 사본)·declaration.check·activation 직전 재검사 ── 앱의 active domain 이름 안에 있어야 한다
 
  turn ── ResolvedAgent.domains(맡은 domain id) ──▶ ToolContext.domains
    PM·App Engineer: 그릇의 active domain 전부
@@ -64,7 +64,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **`DOMAIN.md`·`kinds.yaml`·`skills/`는 그 그릇의 PM이나 App Engineer만 쓴다.** Operator는 고른 domain의 `artifacts/`만 쓴다. 나머지를 바꿀 일은 그릇의 PM이나 App Engineer에게 call한다. 셋 다 Gate 없이 file tool로 쓰고 rewind로 되돌린다. 지침 Gate는 project의 `LOPHN.md`뿐이다.
   - rewind의 쓰기 폴더는 sessions 표만 보고 정하므로 Operator에게도 그릇의 domain 폴더 전부를 넉넉히 잡는다. 실제 쓰기는 file tool이 `placeScope`로 좁힌다.
   - project의 `workflows/`도 그 project의 PM만 읽고 쓴다(`placeScope`의 PM 분기). Operator, App Engineer, lophn에는 열리지 않는다. rewind의 쓰기 폴더(`placeScope(...).write`)와 runtime child의 권한(`runtimeFolders`의 active project workflows 폴더)도 같이 따른다(`architecture/workflow.md`).
-- **앱 tool의 `domain`은 필수이고 그 앱의 active domain 이름이어야 한다.** 정본 검사 `validateBlueprint`에 앱의 domain 목록을 주는 곳은 넷이다: release를 기록하는 command `release.record`(`packages/core/apps/releases/commands.ts`, 준비의 검사가 끝난 뒤라 domain이 틀리면 release가 생기지 않는다), release 준비의 preview bundle 사본(`createCopyPreviewBundles`), `blueprint.check`, activation 직전 재검사. 목록을 읽지 못하면 `unavailable`이다. 모든 domain이 보관된 앱은 모든 tool이 거절된다.
+- **앱 tool의 `domain`은 필수이고 그 앱의 active domain 이름이어야 한다.** 정본 검사 `validateDeclaration`에 앱의 domain 목록을 주는 곳은 넷이다: release를 기록하는 command `release.record`(`packages/core/apps/releases/commands.ts`, 준비의 검사가 끝난 뒤라 domain이 틀리면 release가 생기지 않는다), release 준비의 preview bundle 사본(`createCopyPreviewBundles`), `declaration.check`, activation 직전 재검사. 목록을 읽지 못하면 `unavailable`이다. 모든 domain이 보관된 앱은 모든 tool이 거절된다.
 - **다른 domain의 비공개 tool은 보이지 않는다.** 앱 할당이 있어도 agent의 tool 목록에도, `app.tools` 결과에도 없다. 같은 앱의 다른 domain이라도 그렇다(경계는 앱이 아니라 domain이다). tool의 domain을 읽지 못하면 비공개로 본다(막는 쪽으로 실패한다).
   - Grants 탭(할당 편집)은 맡은 domain의 tool이나 어느 domain의 public tool만 후보로 보인다. core의 할당 쓰기(`packages/core/approvals/assignment/`)는 domain을 검사하지 않으므로 agent에게 막는 곳은 이 목록 거르기 하나다.
   - job이 연 tool run(program caller)과 flow instance가 연 tool run(flow caller)에는 목록이 없어서 부를 때 같은 규칙으로 거른다. job을 만든 agent(flow는 그 project의 PM)가 맡은 domain의 tool이나 public tool이 아니면 `denied`다(`packages/core/apps/calls/gate.ts`, 맡은 domain 셈은 사용 관계와 같은 `packages/core/main/daemon/agent-domains.ts`. `architecture/app-call.md`, `architecture/job.md`).

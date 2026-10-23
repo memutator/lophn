@@ -34,7 +34,7 @@
 |---|---|---|
 | lophn | 전체에 하나 | 기획, project·app 만들기, 경계를 넘는 판단(새 domain, 나누기와 합치기 제안, 재사용, package로 빼기). domain들의 공개 면 지도만 본다 |
 | Project Manager | project마다 하나 | 그 project의 domain을 만들고 고친다(kind 파일, `DOMAIN.md`, skill, artifact). project Operator를 만든다 |
-| App Engineer | app마다 하나 | 앱 코드(설계, 구현, blueprint, release, package)와 그 app의 domain을 맡는다 |
+| App Engineer | app마다 하나 | 앱 코드(설계, 구현, 선언, release, package)와 그 app의 domain을 맡는다 |
 | Operator | project나 app에 여럿 | 그 그릇에서 일한다. 정의에서 domain을 고른다(고르지 않으면 그릇의 domain 전부). skill은 고른 domain의 것 가운데서 고른다 |
 | coding agent | 바깥 harness | App Engineer가 맡기는 흐름은 막혀 있다(`problem-ticket.md`). terminal은 app space에 열린다 |
 
@@ -49,7 +49,7 @@
 | 글 | `DOMAIN.md`. 뜻, 쓰는 법, program이 검사하지 못하는 규칙. 맡은 agent가 file tool로 쓴다(Gate 없이, rewind로 되돌린다) | `<data>/domains/<dom>/DOMAIN.md` |
 | skill | domain 안의 일 하나의 절차. 정형화하지 않은 지침이라 program이 파싱하지 않는다 | `<data>/domains/<dom>/skills/` |
 | artifact | agent가 파일로 쓴 결과 문서(HTML과 data). 앱이 아니다 | `<data>/domains/<dom>/artifacts/<name>/` |
-| tool | 앱 domain만. 앱의 tool 선언에 `domain` 칸을 두어, tool이 다루는 객체의 domain 것으로 적는다. 공개 여부(`public`)는 tool마다 둔다 | 앱 blueprint |
+| tool | 앱 domain만. 앱의 tool 선언에 `domain` 칸을 두어, tool이 다루는 객체의 domain 것으로 적는다. 공개 여부(`public`)는 tool마다 둔다 | 앱의 선언 |
 
 - **지침 층:** 전역 → 그릇의 `LOPHN.md`(project) → 맡은 domain의 `DOMAIN.md` → agent 정의 본문이다.
 - **PM과 App Engineer의 prompt:** 자기 그릇의 domain을 모두 싣는다. 예산을 넘으면 이름과 한 줄만 싣는다.

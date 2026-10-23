@@ -63,7 +63,7 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
 ## 왜 이 모양인가
 
 - **agent는 place에 놓이고 session은 그 agent의 대화다.** 옛 assignment 상태 machine(누가 무엇을 맡았나)은 place에 놓인 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
-- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, blueprint, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 등록하고 그 앱의 App Engineer에게 call로 맡긴다), 구현은 App Engineer가 직접 한다.
+- **App Engineer는 앱마다 하나, session은 여럿이다.** Project Manager와 같은 모양이다. 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱의 App Engineer가 맡고, Project Manager는 project의 domain과 Operator를 맡는다. 앱을 만드는 일의 기획은 lophn이 맡고(lophn이 앱을 등록하고 그 앱의 App Engineer에게 call로 맡긴다), 구현은 App Engineer가 직접 한다.
 - **앱 place에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 App Engineer와 앱 place의 Operator는 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 맡은 domain의 `DOMAIN.md`, agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.

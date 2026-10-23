@@ -96,7 +96,7 @@ const addItemTool = (
     kind: "tool" as const,
     calls: [{
       id: "tc_add",
-      name: toolNames(request).find((name) => name.endsWith("__add_item")) ??
+      name: toolNames(request).find((name) => name.endsWith("_add_item")) ??
         "tool_not_offered",
       arguments: JSON.stringify({ title }),
     }],

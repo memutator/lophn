@@ -68,9 +68,9 @@ async function answerSection({ trial, core }: CheckInput): Promise<string> {
 
 const scenario: Scenario = {
   id: "L7",
-  n: 5,
+  n: 6,
   proposal: true,
-  world: ["calendar-app-bug@3"],
+  world: ["calendar-app-bug@4"],
   real: [LOPHN],
   steps: [
     callApi("캘린더", "event.list", { range: "next_week" }),

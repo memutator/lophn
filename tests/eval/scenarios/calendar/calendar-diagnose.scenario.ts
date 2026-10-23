@@ -33,9 +33,9 @@ const REST: FxStep[] = [
 
 const scenario: Scenario = {
   id: "calendar-diagnose",
-  n: 6,
+  n: 7,
   proposal: false,
-  world: ["calendar-app-bug@3"],
+  world: ["calendar-app-bug@4"],
   real: [AE],
   limits: { idle_ms: 60 * 60_000 },
   human: { card: CARD_DIAGNOSE, approve: { activation: "allow" } },

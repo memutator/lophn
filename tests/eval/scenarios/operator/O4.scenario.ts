@@ -18,9 +18,9 @@ const TO_AE = { target: AE, reply: "none" } as const;
 
 const scenario: Scenario = {
   id: "O4",
-  n: 7,
+  n: 8,
   proposal: false,
-  world: ["calendar-app-bug@3"],
+  world: ["calendar-app-bug@4"],
   setup: createCalendarOperator,
   real: [OP],
   steps: [say(OP, O4_REQUEST), untilIdle()],

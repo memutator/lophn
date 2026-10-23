@@ -1,0 +1,10 @@
+{
+  "kind": "package",
+  "ids": {},
+  "needs": [
+    "notify-app@4"
+  ],
+  "parent": null,
+  "produced_by": null,
+  "content_hash": "233027c9684c51018e324eb8da4cea50dc521d72c84a4092606d9f626587324c"
+}

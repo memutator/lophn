@@ -6,9 +6,9 @@ import { APP, CARD_USER, SAY_USER } from "./spec.ts";
 
 const scenario: Scenario = {
   id: "calendar-user",
-  n: 2,
+  n: 3,
   proposal: false,
-  world: ["notify-app@3", "date-range@3", "calendar-blank@1"],
+  world: ["notify-app@4", "date-range@4", "calendar-blank@1"],
   real: [AE],
   limits: { idle_ms: 90 * 60_000 },
   human: { card: CARD_USER, approve: { activation: "allow" } },

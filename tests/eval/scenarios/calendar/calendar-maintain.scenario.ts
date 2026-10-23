@@ -25,9 +25,9 @@ const flow = aeFlowSteps(goal);
 
 const scenario: Scenario = {
   id: "calendar-maintain",
-  n: 6,
+  n: 7,
   proposal: false,
-  world: ["calendar-app@3", "calendar-data@3"],
+  world: ["calendar-app@4", "calendar-data@4"],
   real: [AE],
   limits: { idle_ms: 60 * 60_000 },
   human: { card: CARD_MAINTAIN, approve: { activation: "allow" } },
@@ -48,7 +48,7 @@ const scenario: Scenario = {
       kind: "judge",
       id: "card-covered",
       premise: ["release-advanced"],
-      criterion: "card-covered@4",
+      criterion: "card-covered@5",
       input: cardCoveredInput(CARD_MAINTAIN, APP),
     },
     {

@@ -16,5 +16,11 @@
     "name": "calendar-api",
     "n": 6,
     "hash": "07a034b3a2ead2611a0105d91e96ad0035c58b145ba36760926c2e985ae72ae8"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-api",
+    "n": 7,
+    "hash": "89d121ce7bcbd6ef4f80f228d3bb48540c9aa96fb8732d6711ad53b0558fb742"
   }
 ]

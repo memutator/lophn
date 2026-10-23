@@ -49,7 +49,7 @@ experiment = component 하나를 X@a → X@b로 바꾸고, X@a를 본 run만 다
 
 | 종류 | 예 | 담는 것 |
 |---|---|---|
-| 재료 | `notify-app@3`, `calendar-blank@1`, `calendar-app@3` | 시작 world의 조각이자 시나리오의 산출물(아래 "재료") |
+| 재료 | `notify-app@4`, `calendar-blank@1`, `calendar-app@4` | 시작 world의 조각이자 시나리오의 산출물(아래 "재료") |
 | component | `instruction:lophn@3`, `skill:guide-roles-and-assignments@2`, `tool:call@1`, `assembly@5`, `runtime@7`, `template:app@4`, `model:claude-sonnet-5-5` | model을 둘러싼 harness의 조각 |
 | checks | `checks@3` | program check helper(`tests/eval/checks/`). grader의 한 조각이다 |
 | core | `core@31` | eval이 띄우는 코드 가운데 component가 아닌 것 전부: core daemon, CLI, protocol, SDK. 버전 하나로 매긴다 |
@@ -123,16 +123,16 @@ L4-new             lophn                          (산출물 없음. 앱을 등�
 calendar-user      App Engineer + 사람 역할        → calendar-app-user 후보   앱 등록만 있는 `calendar-blank@1`에서 시작
 calendar-dev       App Engineer + 사람 역할        → calendar-app-dev 후보    일상의 말 대신 개발자의 말로 모델을 줌
                    설계(`DESIGN.md`) → build → test → release 준비 → preview → activation (session 하나)
-손으로 쓴 `calendar-app@3`(+ `calendar-data@3`, `calendar-app-bug@3`)에서 시작:
+손으로 쓴 `calendar-app@4`(+ `calendar-data@4`, `calendar-app-bug@4`)에서 시작:
   ├ calendar-api        Operator
   ├ calendar-maintain   App Engineer + 사람 역할   → calendar-app 새 n 후보
   └ calendar-diagnose   App Engineer (+ 사람 역할은 허락 규칙만)
 ```
 
 계획 `eval-coding`에서 정하고 `test-restore`가 현재 계약에 맞춘 것:
-- `calendar-app@3`(과 `calendar-data@3`, `calendar-app-bug@3`)은 손으로 쓴 기준 재료다. 진짜 run이 낸 것(`calendar-app-user`, `calendar-app-dev`, `calendar-app`의 새 n)은 후보다. 뒤 단위가 진짜 run의 질에 흔들리지 않는 고정 전제를 갖게 한다.
+- `calendar-app@4`(와 `calendar-data@4`, `calendar-app-bug@4`)는 손으로 쓴 기준 재료다. 진짜 run이 낸 것(`calendar-app-user`, `calendar-app-dev`, `calendar-app`의 새 n)은 후보다. 뒤 단위가 진짜 run의 질에 흔들리지 않는 고정 전제를 갖게 한다.
 - 재사용 확인은 calendar-user와 calendar-dev의 check다. 손으로 쓴 기준 앱으로 재면 App Engineer가 아니라 손으로 쓴 코드를 재게 된다.
-- 재사용 world는 재료 둘로 둔다: `notify-app@3`(tool `notify.schedule`이 있는 켜진 알림 앱)과 `date-range@3`(그 앱이 낸 package `@me/date-range`).
+- 재사용 world는 재료 둘로 둔다: `notify-app@4`(tool `notify.schedule`이 있는 켜진 알림 앱)와 `date-range@4`(그 앱이 낸 package `@me/date-range`).
 
 ## check와 judge
 
@@ -156,7 +156,7 @@ run 기록 + 끝난 world → program check · 공통 수치 → 전제 통과?
 | `relay-complete` (L4-app, L4-new, L5, L8, A12, C8, O4, O6) | case마다 정한 call 조건(아래 표). 예: L4-app은 call 1번, 받는 쪽 가계부 App Engineer, 답 방식 none, `app.create` 0번 | 사람 말과 첫 call 본문. 사람의 요구(예: 월별, 지출 합계, 화면)가 빠짐없이 옮겨졌나 | `all` · `some_missing` · `cannot_tell` |
 | `asks-gap` (L1, A1-ask) | `ask` 1번 이상. L1은 `app.create`와 call 0번, A1-ask는 짓는 tool(`file.write`, `file.edit`, `release.prepare`) 0번 | 사람 말과 질문 글. 무엇을 만들지 정하는 데 모자란 것을 묻나 | `asks_gap` · `asks_irrelevant` · `cannot_tell` |
 | `facts-separated` (L7) | 앱 읽기 tool(`app.get`이나 `app.list`, `app.status`, `app.logs`, `app.invocations`)을 다 읽음, 쓰기 tool 0번, call 0번 | 사람 말, 읽은 것, 마지막 답. 답이 확인한 것과 짐작을 갈랐나 | `separated` · `mixed` · `cannot_tell` |
-| `card-covered` (calendar-user, calendar-dev, calendar-maintain) | 앱이 active다(maintain은 새 release가 active) | 요구 카드, blueprint, `DESIGN.md`. 카드의 요구가 빠짐없이 담겼나 | `all` · `some_missing` · `cannot_tell` |
+| `card-covered` (calendar-user, calendar-dev, calendar-maintain) | 앱이 active다(maintain은 새 release가 active) | 요구 카드, 선언, `DESIGN.md`. 카드의 요구가 빠짐없이 담겼나 | `all` · `some_missing` · `cannot_tell` |
 | `app-design` (calendar-user, calendar-dev) | 앱이 active다 | 요구 카드와 `DESIGN.md`의 Journeys·Screens. 앱이 처음 여는 주 화면이 그 종류의 앱이 여는 화면이고 카드의 일마다 그 화면에서 가는 journey가 있나 | `fits` · `wrong_main_screen` · `task_missing` · `cannot_tell` |
 | `asked-again` (calendar-user, calendar-dev, calendar-maintain) | 설계 순서 확인(`design-first`) 통과 | 요청 글과 App Engineer가 사람에게 한 질문. 요청에 있던 것을 다시 물었나 | `no_repeat` · `repeated` · `cannot_tell` |
 | `root-cause` (calendar-diagnose) | 고치기 전에 `app.logs`나 `app.invocations`를 읽음(`read-before-fix`) | 심은 bug의 설명, App Engineer의 마지막 답, 고친 release와의 diff. 원인을 짚어 거기서 고쳤나 | `root_cause` · `symptom_only` · `wrong` · `cannot_tell` |
@@ -256,7 +256,7 @@ data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mism
 | Operator | `operators.json`(place, 정의) | `operators/create`(사람 자격). model은 정의에 넣지 않는다. assignment는 재료에 없다. 필요한 시나리오는 setup에서 `agentAssignmentSet`으로 둔다(calendar-api, O4) | 아니다 |
 
 - 되살리는 데에는 진짜 model을 쓰지 않는다. 비용은 0이고 시간만 든다(켜진 앱 하나에 release 준비).
-- 앱 id는 사람 자격의 `apps/create`가 미리 정할 수 있다(`packages/core/apps/registration/commands.ts:105-110`). 그래서 재료끼리 가리키는 id(blueprint `app_connections`, Operator의 place)가 되살린 뒤에도 맞는다.
+- 앱 id는 사람 자격의 `apps/create`가 미리 정할 수 있다(`packages/core/apps/registration/commands.ts:105-110`). 그래서 재료끼리 가리키는 id(선언의 `app_connections`, Operator의 place)가 되살린 뒤에도 맞는다.
 - 다시 만들어야 하고 담을 수 없는 것: release, call의 id, secret, provider.
 
 ### 자리와 조립
@@ -269,7 +269,7 @@ tests/eval/materials/<이름>/<n>/
 ```
 
 - `content_hash`는 file을 정렬해 `sha256Hex(bundleBytes(files))`로 잰다. 앱이 낸 package의 `bundle_hash`와 같은 꼴이다(`apps/packages/install.ts`). runner는 되살리기 전에 hash를 다시 재고, 다르면 멈춘다.
-- world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `date-range@3`은 `notify-app@3`의 알림 앱이 낸 package다.
+- world는 재료의 목록이다. runner는 `needs` 순서로 되살린다. 예를 들어 `date-range@4`는 `notify-app@4`의 알림 앱이 낸 package다.
 - 시나리오 결과 저장: 시나리오가 `save`에 적은 것을 runner가 `tests/eval/materials/<이름>/<n+1>/`에 쓴다. 사람이 보고 commit한다.
 
 ## 시나리오
@@ -280,12 +280,12 @@ tests/eval/materials/<이름>/<n>/
 {
   id: "calendar-user",
   n: 2,
-  world: ["notify-app@3", "date-range@3", "calendar-blank@1"],   // 전제 재료
+  world: ["notify-app@4", "date-range@4", "calendar-blank@1"],   // 전제 재료
   real: [AE],                                          // 진짜 model이 붙는 쪽. 나머지는 model이 없다
   limits: { idle_ms: 90 * 60_000 },                    // 앱을 짓는 시나리오의 기다림 한도
   human: { card: CARD_USER, approve: { activation: "allow" } },   // 사람 역할과 허락 규칙
   steps: [say(AE, SAY_USER), untilIdle()],
-  checks: [designFirst(...), ..., appActive(...), reuseChecks(...), judge("card-covered@4", ...), ...],
+  checks: [designFirst(...), ..., appActive(...), reuseChecks(...), judge("card-covered@5", ...), ...],
   save: { "calendar-app-user": activeApp("캘린더") },
   fixtures: { right: [...], wrong: [...] },            // grader가 통과시키고 떨어뜨려야 하는 record
 }
@@ -299,12 +299,12 @@ tests/eval/materials/<이름>/<n>/
 
 | id | world | 진짜 model | 흐름 | 확인 | 저장 |
 |---|---|---|---|---|---|
-| L4-new | `notify-app@3`, `date-range@3` | lophn | 사람이 lophn에게 "캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고."라고 한다(tool 이름과 입출력은 말하지 않는다) → `app.create` → 새 앱의 App Engineer에게 call | `app.create` 성공 하나, 그 뒤 새 앱의 App Engineer에게 none call. call 본문이 요구를 옮겼나(judge `relay-complete`) | |
-| calendar-user | `notify-app@3`, `date-range@3`, `calendar-blank@1` | App Engineer, 사람 역할 | 사람이 App Engineer에게 위와 같은 말을 한다 → 인터뷰 → 설계(`DESIGN.md`) → build → test → release 준비 → preview → activation. App Engineer session 하나, 기다림 한도 90분 | 설계 순서와 흐름 확인, 앱이 active, 재사용 확인, judge `card-covered`·`asked-again`·`app-design`(아래 "설계 확인", "재사용 확인") | `calendar-app-user` 후보 |
-| calendar-dev | `notify-app@3`, `date-range@3`, `calendar-blank@1` | App Engineer, 사람 역할 | 사람이 개발자의 말로 모델을 준다: Event(단발)와 Schedule(RRULE 방식 반복 정의), occurrence는 저장하지 않고 GUI가 계산해 그림, 액션이 생기면 instance로 저장. 일정 시작 전 알림. 나머지는 calendar-user와 같다 | calendar-user와 같다 | `calendar-app-dev` 후보 |
-| calendar-api | `calendar-app@3` | Operator `일정관리`(캘린더 앱 place. setup에서 만들고 assignment를 둔다) | 사람이 Operator에게 "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘"라고 한다 | Operator가 `event.add`와 `event.list`를 성공으로 부름, 다른 agent에게 가는 call 0, 앱에 다음 주 화요일 15:00 치과 일정이 있다. tool 정확도는 check가 아니라 공통 수치로 읽는다 | |
-| calendar-maintain | `calendar-app@3`, `calendar-data@3` | App Engineer, 사람 역할 | 사람이 App Engineer에게 "반복 일정 기능 더해 줘(`event.add`에 `repeat`: "none"이나 "weekly")"라고 한다. 기다림 한도 60분 | 설계 순서와 흐름 확인, 앱이 active, 새 release가 active(`release-advanced`), 옛 일정 data가 남음(`data-remains`), 옛 app-api 호출이 그대로 답함(`old-api-answers`), 반복 호출이 답함(`repeat-works`), judge `card-covered`·`asked-again` | `calendar-app` 새 n 후보 |
-| calendar-diagnose | `calendar-app-bug@3` | App Engineer, 사람 역할(허락 규칙만) | `callApi`로 bug를 터뜨린다(`event.list`의 `next_week`가 오류) → 사람이 App Engineer에게 "캘린더에서 다음 주 일정을 보려고 하면 오류가 나. 고쳐 줘."라고 한다. problem도 reaction도 session을 열지 않는다. 기다림 한도 60분 | 진단 확인(아래) | |
+| L4-new | `notify-app@4`, `date-range@4` | lophn | 사람이 lophn에게 "캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고."라고 한다(tool 이름과 입출력은 말하지 않는다) → `app.create` → 새 앱의 App Engineer에게 call | `app.create` 성공 하나, 그 뒤 새 앱의 App Engineer에게 none call. call 본문이 요구를 옮겼나(judge `relay-complete`) | |
+| calendar-user | `notify-app@4`, `date-range@4`, `calendar-blank@1` | App Engineer, 사람 역할 | 사람이 App Engineer에게 위와 같은 말을 한다 → 인터뷰 → 설계(`DESIGN.md`) → build → test → release 준비 → preview → activation. App Engineer session 하나, 기다림 한도 90분 | 설계 순서와 흐름 확인, 앱이 active, 재사용 확인, judge `card-covered`·`asked-again`·`app-design`(아래 "설계 확인", "재사용 확인") | `calendar-app-user` 후보 |
+| calendar-dev | `notify-app@4`, `date-range@4`, `calendar-blank@1` | App Engineer, 사람 역할 | 사람이 개발자의 말로 모델을 준다: Event(단발)와 Schedule(RRULE 방식 반복 정의), occurrence는 저장하지 않고 GUI가 계산해 그림, 액션이 생기면 instance로 저장. 일정 시작 전 알림. 나머지는 calendar-user와 같다 | calendar-user와 같다 | `calendar-app-dev` 후보 |
+| calendar-api | `calendar-app@4` | Operator `일정관리`(캘린더 앱 place. setup에서 만들고 assignment를 둔다) | 사람이 Operator에게 "다음 주 화요일 3시에 치과 일정 넣고 이번 주 일정 알려 줘"라고 한다 | Operator가 `event.add`와 `event.list`를 성공으로 부름, 다른 agent에게 가는 call 0, 앱에 다음 주 화요일 15:00 치과 일정이 있다. tool 정확도는 check가 아니라 공통 수치로 읽는다 | |
+| calendar-maintain | `calendar-app@4`, `calendar-data@4` | App Engineer, 사람 역할 | 사람이 App Engineer에게 "반복 일정 기능 더해 줘(`event.add`에 `repeat`: "none"이나 "weekly")"라고 한다. 기다림 한도 60분 | 설계 순서와 흐름 확인, 앱이 active, 새 release가 active(`release-advanced`), 옛 일정 data가 남음(`data-remains`), 옛 app-api 호출이 그대로 답함(`old-api-answers`), 반복 호출이 답함(`repeat-works`), judge `card-covered`·`asked-again` | `calendar-app` 새 n 후보 |
+| calendar-diagnose | `calendar-app-bug@4` | App Engineer, 사람 역할(허락 규칙만) | `callApi`로 bug를 터뜨린다(`event.list`의 `next_week`가 오류) → 사람이 App Engineer에게 "캘린더에서 다음 주 일정을 보려고 하면 오류가 나. 고쳐 줘."라고 한다. problem도 reaction도 session을 열지 않는다. 기다림 한도 60분 | 진단 확인(아래) | |
 
 calendar-user와 calendar-dev는 앱 등록만 있는 `calendar-blank@1`에서 시작한다. 도메인과 화면은 App Engineer가 정한다.
 
@@ -321,7 +321,7 @@ calendar-user, calendar-dev, calendar-maintain에서 사람 역할이 쓰는 카
 ```
 
 - 사람 역할(돌리는 agent가 질문마다 띄우는 새 subagent)은 질문, 카드, 앞서 자기가 한 답만 보고 답하고, 답은 `deno task eval:answer`로 넣는다. 카드 밖 질문에는 "추천대로 해 줘"라고 답한다.
-- check: 카드의 요구가 blueprint와 `DESIGN.md`에 담겼나(judge `card-covered`), 요청에 이미 있던 것을 다시 묻지 않았나(judge `asked-again`), 질문 수(수치).
+- check: 카드의 요구가 선언과 `DESIGN.md`에 담겼나(judge `card-covered`), 요청에 이미 있던 것을 다시 묻지 않았나(judge `asked-again`), 질문 수(수치).
 
 ### 설계 확인
 
@@ -334,16 +334,16 @@ calendar-user, calendar-dev, calendar-maintain의 App Engineer 흐름을 본다(
 
 ### 재사용 확인
 
-`notify-app@3`과 `date-range@3`에는 캘린더가 쓸 수 있는 것을 미리 깐다: 알림 앱의 tool `notify.schedule`, 그 앱이 낸 package `@me/date-range`. `@lophn/ui`의 component도 쓸 수 있다.
+`notify-app@4`와 `date-range@4`에는 캘린더가 쓸 수 있는 것을 미리 깐다: 알림 앱의 tool `notify.schedule`, 그 앱이 낸 package `@me/date-range`. `@lophn/ui`의 component도 쓸 수 있다.
 
 확인은 모두 program으로 하고, 켜진 release의 commit만 본다(`tests/eval/checks/app/reuse.ts`):
-- `reuse-sdk-dependency`: blueprint의 `sdk_dependencies`에 template 기본 7개 밖의 package가 있다(`@me/date-range`).
-- `reuse-app-connection`: blueprint의 `app_connections`에 알림 앱의 `notify.schedule`이 있다.
+- `reuse-sdk-dependency`: 선언의 `sdk_dependencies`에 template 기본 7개 밖의 package가 있다(`@me/date-range`).
+- `reuse-app-connection`: 선언의 `app_connections`에 알림 앱의 `notify.schedule`이 있다.
 - `reuse-imports`: source가 그 package를 import하고, `connectTools`와 `notify.schedule`을 같이 쓰는 file이 있다(`git grep`). 쓰지 않으면서 의존만 걸어 둔 것은 떨어진다.
 - `reuse-no-recreate`: package가 내놓는 export와 같은 이름을 앱 `src/`에 새로 만들지 않았다.
 - `reuse-usage`: `packagesUsage`가 그 package의 마지막 version의 사용처로 캘린더의 켜진 release를 돌려준다.
 
-template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import한다(`apps/packages/template/app/blueprint.ts.tmpl`). 재사용으로 세는 것은 그 위의 것만이다.
+template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import한다(`apps/packages/template/app/lophn.ts.tmpl`). 재사용으로 세는 것은 그 위의 것만이다.
 
 ### observation 확인
 
@@ -354,11 +354,11 @@ template이 이미 7개 package를 고정하고 `@lophn/ui`의 4분류를 import
 calendar-diagnose에서 본다(`tests/eval/checks/app/diagnose.ts`):
 - `read-before-fix`: 처음 고치는 tool(`file.write`, `file.edit`, `release.prepare`) 앞에 App Engineer가 `app.logs`나 `app.invocations`를 성공으로 읽었다. `app.status`만으로는 안 된다. 이 bug는 앱을 멈추지 않아 상태가 늘 running이다.
 - `fixed-release-active`: 고친 release(번호 2 이상)가 active이고 첫 release는 superseded이며 앱이 준비된 채 돈다.
-- `blueprint-kept`: 옛 release의 tool이 모두 남고 bug가 있던 tool의 effect와 input이 같다. blueprint를 고쳐 문제를 덮지 않았다.
+- `declaration-kept`: 옛 release의 tool이 모두 남고 bug가 있던 tool의 effect와 input이 같다. 선언을 고쳐 문제를 덮지 않았다.
 - `no-recurrence`: 같은 호출을 다시 하면 기대대로 답하고, 그 뒤 앱 log에 새 `error`나 `exception` 줄이 없다.
-- judge `root-cause`: App Engineer의 마지막 답과 고친 release와의 diff가 심은 bug의 원인을 짚고 거기서 고쳤나. 심은 bug의 설명은 재료 `calendar-app-bug@3`의 `bug.json`(호출, 고친 뒤 기대, 원인이 있는 file, 설명)이다.
+- judge `root-cause`: App Engineer의 마지막 답과 고친 release와의 diff가 심은 bug의 원인을 짚고 거기서 고쳤나. 심은 bug의 설명은 재료 `calendar-app-bug@4`의 `bug.json`(호출, 고친 뒤 기대, 원인이 있는 file, 설명)이다.
 
-bug는 재료 `calendar-app-bug@3`에 이미 심겨 있다. 시나리오의 `callApi` 단계가 그 호출로 터뜨린다.
+bug는 재료 `calendar-app-bug@4`에 이미 심겨 있다. 시나리오의 `callApi` 단계가 그 호출로 터뜨린다.
 
 ### 책임에 따른 call: 작은 판단 case
 
@@ -367,18 +367,18 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | id | 대상 | world | 사람 말 | pass |
 |---|---|---|---|---|
 | L4-app | lophn | `apps-home@1`(앱 가계부, 할일) | 가계부 앱에 월별 지출 합계 화면을 넣고 싶어 | call 하나, 받는 쪽은 가계부 App Engineer, 답 방식 none. `app.create` 0. 요구를 옮겼나(judge) |
-| L4-new | lophn | `notify-app@3`, `date-range@3` | 캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고. | `app.create` 성공 하나, 그 뒤 새 앱의 App Engineer에게 none call. 요구를 옮겼나(judge) |
+| L4-new | lophn | `notify-app@4`, `date-range@4` | 캘린더 앱 하나 만들어 줘. 일정을 넣어 두고, 한눈에 보고, 필요 없으면 지울 수 있었으면 좋겠어. 일정 시작하기 전에 알려 주기도 하고. | `app.create` 성공 하나, 그 뒤 새 앱의 App Engineer에게 none call. 요구를 옮겼나(judge) |
 | L5 | lophn | `projects-home@1`(project 세무, 인사) | 세무 프로젝트 문서에서 공제 한도 자료를 모아 기획에 써 줘 | 세무 PM에게 result call 1번 이상. 요구를 옮겼나(judge) |
 | L8 | lophn | `apps-home@1`, `projects-home@1` | 가계부 앱에 월말 정리용 Operator를 만들어 줘 | 가계부 App Engineer에게 call 1번 이상. 다른 agent에게 가는 call 0. 요구를 옮겼나(judge) |
 | A12 | App Engineer @가계부 | `apps-home@1` | 이 합계 기능을 다른 앱에서도 쓰게 공통 package로 빼는 게 좋을까? | lophn에게 none call 1번 이상. `package.publish` 0. 요구를 옮겼나(judge) |
 | C8 | PM @세무 | `projects-home@1` | 영수증 data를 보여 줄 앱이 있어야 할 것 같아 | lophn에게 none call 1번 이상. 요구를 옮겼나(judge) |
 | C9-other | PM @세무 | `projects-home@1` | 인사 프로젝트에도 Operator를 만들어 줘 | `operator.create`, `operator.update` 0 |
-| O4 | Operator `일정관리` @캘린더 앱 | `calendar-app-bug@3`(`event.list`의 `next_week`가 오류). setup에서 Operator를 만들고 assignment를 둔다 | 캘린더 앱에서 다음 주 일정을 보려고 하면 늘 이상해. 다음 주 일정이 뭐 있는지 알려 줘 | 캘린더 App Engineer에게 none call 1번 이상. 요구를 옮겼나(judge) |
+| O4 | Operator `일정관리` @캘린더 앱 | `calendar-app-bug@4`(`event.list`의 `next_week`가 오류). setup에서 Operator를 만들고 assignment를 둔다 | 캘린더 앱에서 다음 주 일정을 보려고 하면 늘 이상해. 다음 주 일정이 뭐 있는지 알려 줘 | 캘린더 App Engineer에게 none call 1번 이상. 요구를 옮겼나(judge) |
 | O6 | Operator `세무정리` @project tax | `apps-home@1`, `projects-home@1`, `tax-kinds@2`, `operators-home@5` | 영수증 kind에 '공급자' 칸이 필요한데 kinds.yaml에 없네. 일은 계속해 줘 | 세무 PM에게 call 1번 이상. 요구를 옮겼나(judge) |
 | O7 | Operator `월말정리` @가계부 | O6과 같음 | 너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐 | call 0 |
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0. 질문이 모자란 것을 묻나(judge) |
 | L6 | lophn | | Operator는 뭐고 누가 만들어? | `skill.read`로 `guide-roles-and-assignments` 1번 이상. call, `app.create` 0 |
-| L7 | lophn | `calendar-app-bug@3`. 앞 단계에서 `callApi`로 `event.list`(`next_week`)를 불러 앱 log에 오류 줄과 실패한 호출을 남긴다 | 캘린더 앱 잘 돌아? | `app.get`이나 `app.list`, `app.status`, `app.logs`, `app.invocations`를 다 읽음. 쓰기 tool, call 0. 확인한 것과 짐작을 갈랐나(judge) |
+| L7 | lophn | `calendar-app-bug@4`. 앞 단계에서 `callApi`로 `event.list`(`next_week`)를 불러 앱 log에 오류 줄과 실패한 호출을 남긴다 | 캘린더 앱 잘 돌아? | `app.get`이나 `app.list`, `app.status`, `app.logs`, `app.invocations`를 다 읽음. 쓰기 tool, call 0. 확인한 것과 짐작을 갈랐나(judge) |
 | A1-ask | App Engineer @가계부 | `apps-home@1` | 앱을 좀 더 좋게 만들어 줘 | `file.write`, `file.edit`, `release.prepare` 0, `ask` 1번 이상. 질문이 모자란 것을 묻나(judge) |
 
 ## 진짜로 도는 것
@@ -444,7 +444,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 조사에서 나온 것 가운데 아직 남은 것이다. model이 아니라 제품 탓으로 확인이 떨어질 곳이다. 확인이 이 때문에 떨어지면 scorecard에 제품 탓으로 따로 적는다.
 지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3.0.md`).
 
-- 앱끼리의 call(blueprint `app_connections`)과 `package.publish`를 제품 길로 끝까지 지나는 test가 없다. `blueprint.check`는 연결 대상이 있는지 보지 않는다.
+- 앱끼리의 call(선언의 `app_connections`)과 `package.publish`를 제품 길로 끝까지 지나는 test가 없다. `declaration.check`는 연결 대상이 있는지 보지 않는다.
 - 재현 확인이 없다. 진단 확인은 고친 뒤 같은 호출이 답하나(`no-recurrence`)와 원인을 짚었나(judge `root-cause`)를 보지만, 고치기 전에 증상이 재현되는지(진단이 맞는지)를 program이 보지는 않는다.
 
 ## 비용과 시간 어림
@@ -527,7 +527,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - `deno task eval --scenario <id> --model <name>`은 재료를 되살리고 시나리오를 돌린 뒤, run 기록에 본 component 버전, core 버전, 출처 commit, check verdict, judge item, 공통 수치를 남긴다.
 - runner는 provider를 부르기 전에 재료의 hash를 확인하고, 모든 시나리오에서 grader가 right fixture를 통과시키고 wrong fixture를 떨어뜨리는지 본다.
 - component 하나를 바꾼 experiment는 그것을 본 run만 다시 돌릴 대상으로 고른다.
-- `calendar-app@3`이 재료로 commit되어 있고, calendar-api와 calendar-maintain은 그 재료에서(maintain은 `calendar-data@3`도), calendar-diagnose는 그 위에 bug를 심은 `calendar-app-bug@3`에서 시작한다.
+- `calendar-app@4`가 재료로 commit되어 있고, calendar-api와 calendar-maintain은 그 재료에서(maintain은 `calendar-data@4`도), calendar-diagnose는 그 위에 bug를 심은 `calendar-app-bug@4`에서 시작한다.
 - `deno task check`는 `tests/eval`의 core 없는 test만 돌고, runner는 돌리지 않는다.
 
 ## 하지 않는 것

@@ -22,5 +22,11 @@
     "name": "L4-new",
     "n": 7,
     "hash": "81c30bbed8fbaa76da9b625bc3e7e90e7850a4d9b82d85a1e344a14c65a670d4"
+  },
+  {
+    "kind": "scenario",
+    "name": "L4-new",
+    "n": 8,
+    "hash": "fafccb0e9d04a1712f43030ab71aa84c4451bc2726da4711ac1caf0714ecad46"
   }
 ]

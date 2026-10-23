@@ -11,9 +11,9 @@ const LIST = { tool: "domain__fx__event.list" } as const;
 
 const scenario: Scenario = {
   id: "calendar-api",
-  n: 6,
+  n: 7,
   proposal: false,
-  world: ["calendar-app@3"],
+  world: ["calendar-app@4"],
   setup: createCalendarOperator,
   real: [OP],
   steps: [say(OP, SAY_API), untilIdle()],

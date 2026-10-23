@@ -16,5 +16,11 @@
     "name": "calendar-maintain",
     "n": 6,
     "hash": "bc1b159a0531faf106e6e24cb32acb292da2dbbb453b8bd2e4d919b1eb72b4a4"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-maintain",
+    "n": 7,
+    "hash": "b1bf90a3c8d7fd7940d4d6e22842673d8042cf2e5d2c81e388cd78949977cc93"
   }
 ]

@@ -16,5 +16,11 @@
     "name": "calendar-diagnose",
     "n": 6,
     "hash": "da4dcd247d2f1baf10e79661590b8ba7783d74c4da7bc9f8f6f1301ffc598eaf"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-diagnose",
+    "n": 7,
+    "hash": "49bd8a5ee7bc9a3b838d422cb91c2ce299e22d14abb153c1fcc33f92607ea136"
   }
 ]

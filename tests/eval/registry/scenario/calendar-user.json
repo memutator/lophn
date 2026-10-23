@@ -10,5 +10,11 @@
     "name": "calendar-user",
     "n": 2,
     "hash": "33234f54a867f904cf46a98294e169617e570aa04d259f101db393540784a930"
+  },
+  {
+    "kind": "scenario",
+    "name": "calendar-user",
+    "n": 3,
+    "hash": "f6c2f65de25e701f3df3685479558a7da37705f8c3f7c94eb6ecea3d89d1cda7"
   }
 ]

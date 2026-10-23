@@ -266,7 +266,7 @@ export function buildAppChecks(card: string, request: string): Check[] {
       kind: "judge",
       id: "card-covered",
       premise: ["app-active"],
-      criterion: "card-covered@4",
+      criterion: "card-covered@5",
       input: cardCoveredInput(card, APP),
     },
     {

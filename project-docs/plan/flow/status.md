@@ -9,5 +9,5 @@ lead만 고친다. `tools/status.py flow build`가 `tasks/*.md`에서 id, 단위
 | `fl-sdk` | sdk | 2 | fl-contract | merged | sdk/fl-sdk | aee0b85ee |  |
 | `fl-shell` | shell | 2 | fl-contract | merged | shell/fl-shell | 881a03be6 |  |
 | `fl-workflows` | workflows | 2 | fl-contract | merged | workflows/fl-workflows | f35f1329f |  |
-| `fl-check` | check | 3 | fl-workflows, fl-sdk | running | check/fl-check |  |  |
-| `fl-host` | host | 3 | fl-workflows, fl-runs | running | host/fl-host |  |  |
+| `fl-check` | check | 3 | fl-workflows, fl-sdk | merged | check/fl-check | a9b89db33 |  |
+| `fl-host` | host | 3 | fl-workflows, fl-runs | merged | host/fl-host | 5e837aff5 |  |

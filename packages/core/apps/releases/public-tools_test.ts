@@ -1,8 +1,8 @@
 import { assertEquals } from "@std/assert";
-import type { Blueprint } from "../blueprint/mod.ts";
+import type { AppDeclaration } from "../declaration/mod.ts";
 import { removedPublicOf } from "./public-tools.ts";
 
-type Tool = Blueprint["tools"][number];
+type Tool = AppDeclaration["tools"][number];
 
 const tool = (
   name: string,

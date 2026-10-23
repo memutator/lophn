@@ -9,13 +9,13 @@ import {
 import {
   appConnectSource,
   appLogViewError,
-  blueprintCheck,
+  declarationCheck,
   packagePublish,
   packageRegisterVersion,
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
-import type { PermissionScope } from "../../../../protocol/apps/blueprint/mod.ts";
+import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
 import {
   type AppGrant,
   appGrantsList,
@@ -54,7 +54,7 @@ import {
   type AppOAuthDeclared,
   createAppOAuth,
 } from "../../../apps/oauth/mod.ts";
-import { releaseDeclarations } from "../../../apps/releases/mod.ts";
+import { releaseFacts } from "../../../apps/releases/mod.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import {
   type ChangesetBlobs,
@@ -92,7 +92,7 @@ import {
 } from "../../../apps/routes.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
-import { checkBlueprint } from "../../../apps/blueprint/check.ts";
+import { checkDeclaration } from "../../../apps/declaration/check.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
@@ -390,14 +390,14 @@ export const appsWiring: WiringFactory = () => {
             }),
           ],
           [
-            `${blueprintCheck.resource}/${blueprintCheck.method}`,
-            checkBlueprint({
+            `${declarationCheck.resource}/${declarationCheck.method}`,
+            checkDeclaration({
               dataRoot: ctx.root.path,
               domainNamesOf,
               sourceRootOf: (context, app) =>
                 appsControl.sourceRootOf(
                   context,
-                  blueprintCheck,
+                  declarationCheck,
                   app,
                   "not_found",
                 ),
@@ -597,19 +597,19 @@ function declaredOAuth(
   if (!opened.ok) return opened;
   const { sql } = opened.value;
   try {
-    const declarations = releaseDeclarations.get(sql, app);
-    if (!declarations.ok) return declarations;
-    if (declarations.value === null) return ok([]);
+    const facts = releaseFacts.get(sql, app);
+    if (!facts.ok) return facts;
+    if (facts.value === null) return ok([]);
     const grants = loadGrants(sql, { app, status: "active" });
     if (!grants.ok) return grants;
     const { access } = effectiveScope({
       app,
-      declarations: declarations.value,
+      facts: facts.value,
       grants: grants.value,
       targetCommands: () => undefined,
     });
     const result: AppOAuthDeclared[] = [];
-    for (const requirement of declarations.value.permissions) {
+    for (const requirement of facts.value.permissions) {
       const scope = requirement.scope as PermissionScope;
       if (requirement.kind !== "secret.use" || !("oauth" in scope)) continue;
       if (scope.oauth === undefined) continue;

@@ -67,7 +67,7 @@ const READ_WORDS = [
   "list",
   "show",
   "status",
-  "blueprint",
+  "declaration",
   "invocations",
   "logs",
   "detect",

@@ -16,8 +16,8 @@ export type VendorRule = {
   generated?: Readonly<Record<string, string>>;
 };
 
-// @lophn/blueprint: 정본 검증기는 protocol/apps/blueprint의 의존성 없는 파일들이다(read.ts·check.ts는 zod를 써서 뺀다).
-const BLUEPRINT: VendorRule = {
+// @lophn/declaration: 정본 검증기는 protocol/apps/declaration의 의존성 없는 파일들이다(read.ts·check.ts는 zod를 써서 뺀다).
+const DECLARATION: VendorRule = {
   files: Object.fromEntries(
     [
       "mod.ts",
@@ -29,13 +29,13 @@ const BLUEPRINT: VendorRule = {
       "tools.ts",
       "value.ts",
     ].map((file) => [
-      `protocol/apps/blueprint/${file}`,
-      `vendor/protocol/apps/blueprint/${file}`,
+      `protocol/apps/declaration/${file}`,
+      `vendor/protocol/apps/declaration/${file}`,
     ]),
   ),
   rewrite: {
-    "../../protocol/apps/blueprint/mod.ts":
-      "vendor/protocol/apps/blueprint/mod.ts",
+    "../../protocol/apps/declaration/mod.ts":
+      "vendor/protocol/apps/declaration/mod.ts",
   },
 };
 
@@ -80,7 +80,7 @@ const CAP_PROBLEM: VendorRule = {
 };
 
 const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
-  "@lophn/blueprint": BLUEPRINT,
+  "@lophn/declaration": DECLARATION,
   "@lophn/cap-problem": CAP_PROBLEM,
   "@lophn/cap-store": CAP_STORE,
 };

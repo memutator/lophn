@@ -1,6 +1,6 @@
 // 읽기 전용 bundle 사본과 seal.
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
-// 그 안의 정규 `blueprint.json`은 release 준비가 읽어 `release.record`에 싣는다(control.ts).
+// 그 안의 정규 `declaration.json`은 release 준비가 읽어 `release.record`에 싣는다(control.ts).
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   appBundleCopy,
@@ -39,8 +39,8 @@ export function bundleCopyPath(
   return ok(appBundleCopy(dataRoot, app, bundleHash));
 }
 
-// 정규 blueprint.json 자리. bundle 사본 안의 고정 이름이다.
-export const BLUEPRINT_COPY_NAME = "blueprint.json";
+// 정규 declaration.json 자리. bundle 사본 안의 고정 이름이다.
+export const DECLARATION_COPY_NAME = "declaration.json";
 export const MANIFEST_COPY_NAME = "manifest.json";
 
 function relativeCopyPath(path: string): Result<string, SealFailure> {
@@ -102,7 +102,7 @@ export async function writeBundle(
       written.push({ path, bytes });
     };
     for (const file of input.bundleFiles) push(file.path, file.bytes);
-    push(BLUEPRINT_COPY_NAME, input.blueprintJson);
+    push(DECLARATION_COPY_NAME, input.blueprintJson);
     push(
       MANIFEST_COPY_NAME,
       new TextEncoder().encode(JSON.stringify(input.manifest)),

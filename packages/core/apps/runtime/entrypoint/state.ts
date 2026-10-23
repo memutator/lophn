@@ -1,5 +1,5 @@
 // 프로세스 수명의 호출 상태. entry가 만들어 넘긴다.
-import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
+import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import type { BrokerClient } from "./broker-client.ts";
 import type { StoreAccess } from "./cap-host.ts";
 
@@ -25,7 +25,7 @@ function createMutex(): Mutex {
 
 export type RuntimeState = {
   identity: ProcessIdentity;
-  blueprint: Blueprint;
+  blueprint: AppDeclaration;
   broker: BrokerClient;
   store: StoreAccess;
   dataSchema: number;
@@ -44,7 +44,7 @@ export type RuntimeState = {
 
 export function createRuntimeState(input: {
   identity: ProcessIdentity;
-  blueprint: Blueprint;
+  blueprint: AppDeclaration;
   broker: BrokerClient;
   store: StoreAccess;
   dataSchema: number;

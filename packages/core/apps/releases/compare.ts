@@ -8,10 +8,7 @@ import type {
   AppGrant,
   DataChange,
 } from "../../../protocol/apps/mod.ts";
-import {
-  type AppDeclarations,
-  compareDeclarations,
-} from "../permissions/mod.ts";
+import { type AppFacts, compareFacts } from "../permissions/mod.ts";
 
 // 비교는 command 꼴로 한다. 새 blueprint에는 confirm·revert가 없어서 그 칸은 늘 비어 있다.
 
@@ -21,11 +18,11 @@ import {
 export function compareForActivation(input: {
   previous: { id: string; data_schema: number } | null;
   grants: readonly AppGrant[];
-  declarations: Pick<AppDeclarations, "permissions" | "app_connections">;
+  facts: Pick<AppFacts, "permissions" | "app_connections">;
   next: { data_changes: readonly DataChange[] };
 }): ActivationComparison {
   const { previous } = input;
-  const gap = compareDeclarations(input.grants, input.declarations);
+  const gap = compareFacts(input.grants, input.facts);
   const from = previous?.data_schema ?? 0;
   return {
     previous_release: previous === null

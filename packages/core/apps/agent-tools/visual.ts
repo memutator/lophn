@@ -1,5 +1,5 @@
 import { ok } from "../../../base/mod.ts";
-import { appTools } from "../../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { recordMessage } from "../../../protocol/lophn-agent/mod.ts";
 import { cardViewDeclared } from "./app-card.ts";
 import {

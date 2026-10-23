@@ -97,14 +97,14 @@ Deno.test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 �
   });
 });
 
-Deno.test("깐 blueprint·cap-store·cap-problem 사본이 repo 없이 import된다", async () => {
+Deno.test("깐 declaration·cap-store·cap-problem 사본이 repo 없이 import된다", async () => {
   await withTemp(async (dataRoot) => {
     const installed = await installSdkCopies({
       dataRoot,
       packagesRoot: REPO_PACKAGES,
     });
     assert(installed.ok);
-    for (const name of ["blueprint", "cap-store", "cap-problem"]) {
+    for (const name of ["declaration", "cap-store", "cap-problem"]) {
       const copy = await import(`file://${dataRoot}/sdk/${name}/1.0.0/mod.ts`);
       assert(Object.keys(copy).length > 0, name);
     }

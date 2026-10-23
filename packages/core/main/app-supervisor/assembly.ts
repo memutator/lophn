@@ -137,7 +137,7 @@ type SupervisorIo = {
   credentialWaitMs?: number;
   // 자식 종료를 관측하면 알린다(결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다).
   childExited?: (processNonce: string) => void;
-  // preview 자식이 선언한 외부 범위(고정 bundle의 blueprint)다. 기본은 bundle 사본의 blueprint.json을 읽는다.
+  // preview 자식이 선언한 외부 범위(고정 bundle의 blueprint)다. 기본은 bundle 사본의 declaration.json을 읽는다.
   previewScopeOf?: (info: {
     app: string;
     bundleHash: string;

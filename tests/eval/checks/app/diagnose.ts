@@ -5,7 +5,7 @@ import {
   appLogs,
   appRuntime,
 } from "../../../../packages/protocol/apps/mod.ts";
-import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import { releasesListRecords } from "../../../../packages/protocol/apps/activation/activation.ts";
 import { canonicalize } from "../../../../packages/base/mod.ts";
 import type { ProgramCheck } from "../../types.ts";

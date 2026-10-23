@@ -23,8 +23,8 @@ export {
 export { buildManifest, manifestBytes } from "./bundle/manifest.ts";
 export { lockAppImports, readSdkCopies } from "./bundle/lock.ts";
 export {
-  BLUEPRINT_COPY_NAME,
   bundleCopyPath,
+  DECLARATION_COPY_NAME,
   sealCopy,
 } from "./bundle/seal.ts";
 export { buildScreens, FIXED_UI_DEPENDENCIES } from "./ui-build/build.ts";
@@ -34,16 +34,16 @@ export { releasesSchemaSteps } from "./schema.ts";
 export { createReleaseCommands } from "./commands.ts";
 export { createActivationQueueRead, createReleaseReads } from "./reads.ts";
 export { asksFor, compareForActivation } from "./compare.ts";
-export { declarationsOfBlueprint } from "./facts.ts";
+export { factsOfDeclaration } from "./facts.ts";
 export {
   findPreparedRelease,
   insertRelease,
-  loadActiveBlueprint,
+  loadActiveDeclaration,
   loadActiveRelease,
   loadRelease,
   loadReleases,
-  loadStoredBlueprint,
-  releaseDeclarations,
+  loadStoredDeclaration,
+  releaseFacts,
 } from "./store.ts";
 // activation: 한 시도를 순서대로 진행·복원·이어받는 모듈과 봉인 사본에서 앱 자식 입력을 만드는 함수다.
 // 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(packages/core/main/app-supervisor 조립).

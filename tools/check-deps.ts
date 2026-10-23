@@ -1,5 +1,5 @@
 // 실행: deno run --allow-read tools/check-deps.ts [root]
-import { checkBlueprintGraph } from "./deps-blueprint.ts";
+import { checkDeclarationGraph } from "./deps-declaration.ts";
 import { readImports, readStringSites } from "./deps-imports.ts";
 import {
   directory,
@@ -392,7 +392,7 @@ async function checkRepo(root: string): Promise<Violation[]> {
       );
     }
   }
-  checkBlueprintGraph(sources, add);
+  checkDeclarationGraph(sources, add);
   for (const edge of cyclicEdges(edges)) {
     add(
       edge.file,

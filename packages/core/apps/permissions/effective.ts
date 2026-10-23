@@ -1,6 +1,6 @@
 import { canonicalize } from "../../../base/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/mod.ts";
-import type { AppDeclarations } from "./declarations.ts";
+import type { AppFacts } from "./facts.ts";
 
 // 실행 범위 = 현재 release 요구 ∩ 현재 active 앱 grant.
 // 읽는 쪽(supervisor·broker)이 app_grants.list의 결과와 현재 선언으로 계산한다. 이 함수는 IO가 없다.
@@ -30,7 +30,7 @@ export type EffectiveScope = {
 type EffectiveInput = {
   app: string;
   // 현재 release의 선언. release가 없으면 null이고 실행 범위는 0이다.
-  declarations: AppDeclarations | null;
+  facts: AppFacts | null;
   // 이 앱과 다른 앱의 grant가 섞여 있어도 된다. active이고 이 앱의 것만 쓴다.
   grants: readonly AppGrant[];
   // target 앱의 현재 tool key. 모르는 앱은 undefined이고 호출 범위가 없다.
@@ -48,14 +48,14 @@ function sorted(values: Iterable<string>): string[] {
 
 export function effectiveScope(input: EffectiveInput): EffectiveScope {
   const empty: EffectiveScope = { access: [], app_calls: [] };
-  const declarations = input.declarations;
-  if (declarations === null) return empty;
+  const facts = input.facts;
+  if (facts === null) return empty;
   const grants = input.grants.filter((grant) =>
     grant.status === "active" && grant.app === input.app
   );
 
   const access: AccessEntry[] = [];
-  for (const requirement of declarations.permissions) {
+  for (const requirement of facts.permissions) {
     if (!ACCESS_KINDS.has(requirement.kind)) continue;
     const wanted = canonicalize(requirement.scope);
     const granted = grants.some((grant) =>
@@ -76,9 +76,9 @@ export function effectiveScope(input: EffectiveInput): EffectiveScope {
   );
 
   const appCalls: { app: string; tools: string[] }[] = [];
-  for (const target of sorted(declarations.app_connections.map((c) => c.app))) {
+  for (const target of sorted(facts.app_connections.map((c) => c.app))) {
     const declared = new Set(
-      declarations.app_connections.filter((c) => c.app === target)
+      facts.app_connections.filter((c) => c.app === target)
         .flatMap((c) => c.tools),
     );
     const live = new Set(input.targetCommands(target) ?? []);

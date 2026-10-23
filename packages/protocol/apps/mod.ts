@@ -3,8 +3,15 @@ export * from "./app-storage.ts";
 export * from "./runtime.ts";
 export * from "./app-log.ts";
 export { ROUTES } from "./registry.ts";
-export * from "./blueprint.ts";
-export * from "./blueprint/check.ts";
+export type {
+  InputSchema,
+  InputType,
+  JsonObject,
+  JsonValue,
+  ValidationResult,
+} from "./declaration/mod.ts";
+export { validateInput } from "./declaration/mod.ts";
+export * from "./declaration/check.ts";
 export {
   type AppGrantScope,
   appGrantScopeSchema,

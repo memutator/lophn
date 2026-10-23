@@ -3,7 +3,7 @@ import { defineMemory } from "../base/route.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
 import { appIdSchema } from "./channel-values.ts";
 
-// 앱 선언의 secret.use oauth 블록(blueprint/types.ts)으로 사람이 앱 OAuth 로그인을 하는 route다.
+// 앱 선언의 secret.use oauth 블록(declaration/types.ts)으로 사람이 앱 OAuth 로그인을 하는 route다.
 // 갱신 token·meta·client는 `app-oauth.` 이름 공간의 secret이고 core 밖으로 나가지 않는다.
 // access token은 선언한 이름 그대로 두어 apps.secret_value가 앱 쪽으로 돌려준다.
 export const APP_OAUTH_PREFIX = "app-oauth.";

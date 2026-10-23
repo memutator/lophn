@@ -53,7 +53,7 @@ Deno.test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 dom
     number: 1,
     code_commit: "0".repeat(40),
     bundle_hash: "0".repeat(64),
-    blueprint_hash: "0".repeat(64),
+    declaration_hash: "0".repeat(64),
     data_schema: 1,
     data_changes: [],
     created_by: "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",

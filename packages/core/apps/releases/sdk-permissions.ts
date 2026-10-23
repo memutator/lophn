@@ -1,7 +1,7 @@
 // release 준비가 blueprint의 `sdk_dependencies`와 `permissions`를 맞춰 보는 검사다.
 // core는 SDK 코드를 import하지 않아서 각 capability package의 `REQUIRED_PERMISSIONS`를 같은 값으로
 // 옮겨 쓴다. SDK의 `checkDeclaration`과 같은 결과여야 한다. 검사도 import도 grant를 주지 않는다.
-import type { Blueprint } from "../blueprint/mod.ts";
+import type { AppDeclaration } from "../declaration/mod.ts";
 
 // 각 group에서 하나 이상을 선언해야 한다.
 const SDK_REQUIRED_PERMISSIONS: Readonly<
@@ -21,7 +21,7 @@ type SdkPermissionFailure = {
 
 // 요구 permission이 없는 첫 의존을 낸다. 모두 갖췄으면 undefined다.
 export function missingSdkPermission(
-  blueprint: Pick<Blueprint, "sdk_dependencies" | "permissions">,
+  blueprint: Pick<AppDeclaration, "sdk_dependencies" | "permissions">,
 ): SdkPermissionFailure | undefined {
   const declared = new Set(
     blueprint.permissions.map((permission) => permission.kind),

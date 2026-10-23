@@ -26,7 +26,7 @@ import {
   loadActiveRelease,
   loadRelease,
   loadReleases,
-  loadStoredBlueprint,
+  loadStoredDeclaration,
 } from "./store.ts";
 
 const PAGE = 50;
@@ -218,10 +218,10 @@ export function createReleaseReads(): {
     activationCompare: {
       route: activationsCompare,
       handle(snapshot, ctx, input) {
-        const stored = loadStoredBlueprint(snapshot.sql, input.release);
+        const stored = loadStoredDeclaration(snapshot.sql, input.release);
         if (!stored.ok) return stored;
         if (stored.value === null) return notFound();
-        const { release, declarations } = stored.value;
+        const { release, facts } = stored.value;
         const allowed = visible(
           snapshot,
           ctx,
@@ -249,7 +249,7 @@ export function createReleaseReads(): {
           comparison: compareForActivation({
             previous,
             grants: grants.value,
-            declarations,
+            facts,
             next: { data_changes: release.data_changes },
           }),
           as_of_seq: snapshot.as_of_seq,

@@ -2,7 +2,7 @@ import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
   appToolIndex,
   appTools,
-} from "../../../protocol/apps/blueprint/read.ts";
+} from "../../../protocol/apps/declaration/read.ts";
 import {
   appGet,
   appList,
@@ -189,9 +189,7 @@ async function readPlaceData(
       name: found.name,
       purpose: found.description,
       source: appSource,
-      blueprint: appSource === null
-        ? "blueprint.ts"
-        : `${appSource}/blueprint.ts`,
+      blueprint: appSource === null ? "lophn.ts" : `${appSource}/lophn.ts`,
     };
     if (found.active_release !== null) {
       const tools = await readOf(call, appTools, { app: found.id });

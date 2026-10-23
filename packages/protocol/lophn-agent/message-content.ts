@@ -14,7 +14,7 @@ export const MESSAGE_BODY_OWNER_KIND = "message";
 export const MESSAGE_BODY_FIELD = "body";
 const encoder = new TextEncoder();
 
-// `visual.show`가 대화에 보이는 앱 카드. view는 앱 blueprint 화면 key다.
+// `visual.show`가 대화에 보이는 앱 카드. view는 앱 선언 화면 key다.
 const appCardFields = {
   kind: z.literal("app_card"),
   app: idSchema("app"),

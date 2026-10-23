@@ -5,7 +5,7 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 //
 // 정규 blueprint JSON(`blueprint`)과 거기서 만든 선언 사실(`declarations`)을 준비 때 한 번 같이 둔다.
 // core는 파일을 읽지 않고 command·read는 동기라서 현재 release의 선언·설명·비교를 읽을 자리가
-// ledger뿐이다. blueprint blob이 정본이고 이 열은 `blueprint_hash`와 같은 byte의 사본이다.
+// ledger뿐이다. blueprint blob이 정본이고 이 열은 `declaration_hash`와 같은 byte의 사본이다.
 // app·backup 참조는 다른 표의 생성 순서에 기대지 않으려고 물리 FK를 두지 않는다.
 export const releasesSchemaSteps: readonly SchemaStep[] = [{
   id: "apps.releases.tables",
@@ -16,7 +16,7 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
       number INTEGER NOT NULL CHECK (number > 0),
       code_commit TEXT NOT NULL CHECK (length(code_commit) = 40),
       bundle_hash TEXT NOT NULL CHECK (length(bundle_hash) = 64),
-      blueprint_hash TEXT NOT NULL CHECK (length(blueprint_hash) = 64),
+      declaration_hash TEXT NOT NULL CHECK (length(declaration_hash) = 64),
       data_schema INTEGER NOT NULL CHECK (data_schema >= 0),
       data_changes TEXT NOT NULL CHECK (json_valid(data_changes)),
       created_by TEXT NOT NULL CHECK (length(created_by) > 0),
@@ -45,7 +45,7 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [{
     WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
       OR NEW.code_commit <> OLD.code_commit
       OR NEW.bundle_hash <> OLD.bundle_hash
-      OR NEW.blueprint_hash <> OLD.blueprint_hash
+      OR NEW.declaration_hash <> OLD.declaration_hash
       OR NEW.data_schema <> OLD.data_schema
       OR NEW.data_changes <> OLD.data_changes
       OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at

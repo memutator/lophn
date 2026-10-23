@@ -13,8 +13,8 @@ import {
   annotationUploadScreenshot,
 } from "./annotation.ts";
 import { appLogViewError } from "./app-log.ts";
-import { appToolIndex, appTools } from "./blueprint/read.ts";
-import { blueprintCheck } from "./blueprint/check.ts";
+import { appToolIndex, appTools } from "./declaration/read.ts";
+import { declarationCheck } from "./declaration/check.ts";
 import {
   appCallTool,
   appInvocation,
@@ -73,7 +73,7 @@ export const ROUTES = [
   annotationsGet,
   appTools,
   appToolIndex,
-  blueprintCheck,
+  declarationCheck,
   appCallTool,
   appInvocations,
   appInvocation,

@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { toMcpTool } from "../../../protocol/apps/blueprint/mod.ts";
+import { toMcpTool } from "../../../protocol/apps/declaration/mod.ts";
 import type {
   ToolCallOutput,
   ToolOutcome,
@@ -7,7 +7,7 @@ import type {
 import { type JsonValue, parseActor } from "../../../protocol/base/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { McpCallResult, McpTools } from "../../server/mod.ts";
-import type { ToolDeclaration } from "../blueprint/mod.ts";
+import type { ToolDeclaration } from "../declaration/mod.ts";
 import type { AppToolCallPath } from "../ports.ts";
 import type { CurrentPreview } from "../preview/mod.ts";
 

@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../../base/mod.ts";
-import { appTools } from "../../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import type {
   AgentAssignment,
   AssignmentEntry,

@@ -1,5 +1,5 @@
 // core가 보낸 call 요청 하나에 invocation 하나. 결과는 응답으로 돌려주고 기록은 core가 남긴다.
-import { validateInput } from "../../../../protocol/apps/blueprint/mod.ts";
+import { validateInput } from "../../../../protocol/apps/declaration/mod.ts";
 import { encodeChangeset, inputHashOf } from "./cap-host.ts";
 import { CALL_BODY_MAX_BYTES, RESULT_MAX_BYTES } from "./limits.ts";
 import { fitChangeset } from "./fit.ts";

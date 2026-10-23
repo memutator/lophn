@@ -46,7 +46,7 @@ import {
   agentAssignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
-import { appTools } from "../../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";

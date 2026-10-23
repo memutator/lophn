@@ -1,6 +1,6 @@
 // judge가 받는 입력을 만든다. fixture(core === null)에서도 빈 글이 아닌 글을 돌려준다.
 import { appGet } from "../../../../packages/protocol/apps/mod.ts";
-import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import { releasesListRecords } from "../../../../packages/protocol/apps/activation/activation.ts";
 import type { Id } from "../../../../packages/protocol/base/mod.ts";
 import {
@@ -46,7 +46,7 @@ export function cardCoveredInput(
             JSON.stringify(a.inputSchema)
           }`
         ),
-        ...bp.declarations.app_connections.map((c) =>
+        ...bp.facts.app_connections.map((c) =>
           `connection: ${c.app} -> ${c.tools.join(", ")}`
         ),
       ].join("\n");

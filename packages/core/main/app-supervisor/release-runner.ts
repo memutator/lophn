@@ -112,17 +112,17 @@ function readOutcome(
     const parsed = JSON.parse(line) as {
       ok?: boolean;
       bundle_hash?: string;
-      blueprint_hash?: string;
+      declaration_hash?: string;
       stage?: string;
       reason?: string;
     };
     if (
       parsed.ok === true && typeof parsed.bundle_hash === "string" &&
-      typeof parsed.blueprint_hash === "string"
+      typeof parsed.declaration_hash === "string"
     ) {
       return ok({
         bundle_hash: parsed.bundle_hash,
-        blueprint_hash: parsed.blueprint_hash,
+        declaration_hash: parsed.declaration_hash,
       });
     }
     if (parsed.ok === false && typeof parsed.reason === "string") {

@@ -49,11 +49,11 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 
 정확한 peer다. 범위가 아니라 정확한 판을 쓴다.
 
-| peer               | version |
-| ------------------ | ------- |
-| `react`            | 19.3.0  |
-| `lucide-react`     | 1.51.0  |
-| `@lophn/blueprint` | 1.0.0   |
+| peer                 | version |
+| -------------------- | ------- |
+| `react`              | 19.3.0  |
+| `lucide-react`       | 1.51.0  |
+| `@lophn/declaration` | 1.0.0   |
 
 ## 사용
 
@@ -62,7 +62,7 @@ blueprint 선언으로 버튼을 만들고 앱 root를 경계로 감싼다.
 ```tsx
 import { AppErrorBoundary, ToolButton } from "@lophn/app-ui";
 
-const archive = blueprint.tools.find((tool) =>
+const archive = declaration.tools.find((tool) =>
   tool.name === "archive-shipped"
 )!;
 

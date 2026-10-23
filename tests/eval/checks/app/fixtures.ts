@@ -16,7 +16,7 @@ export function appToolSession(
       app: "app_fx_x",
       release: "rel_fx",
       command: c.call.tool.slice(APP_TOOL_PREFIX.length),
-      blueprint_hash: "0".repeat(64),
+      declaration_hash: "0".repeat(64),
       definition_hash: "0".repeat(64),
       permission_basis: { grant: "grt_fx", scope: "fx", basis_seq: "0" },
     } as unknown as ToolCall["app_tool"];

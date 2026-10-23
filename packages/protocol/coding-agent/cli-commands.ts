@@ -6,7 +6,7 @@
 // 앱 id를 입력에 넣어야 한다. 앱 id는 session을 맡긴 쪽이 첫 prompt로 알려 준다.
 import { z } from "zod";
 import { appGet } from "../apps/apps.ts";
-import { appTools } from "../apps/blueprint/read.ts";
+import { appTools } from "../apps/declaration/read.ts";
 import { appInvocations } from "../apps/calls/invocation.ts";
 import { packageVersionNameSchema } from "../apps/packages.ts";
 import { packagesList, packagesVersions } from "../apps/package-routes.ts";
@@ -133,7 +133,7 @@ export const CODING_CLI_COMMANDS: readonly CodingCliCommand[] = [
     previewsStop.output,
   ),
   token("app status", appRuntime, appRuntime.input, appRuntime.output),
-  token("app blueprint", appTools, appTools.input, appTools.output),
+  token("app declaration", appTools, appTools.input, appTools.output),
   token(
     "app invocations",
     appInvocations,

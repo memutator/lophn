@@ -41,7 +41,7 @@ const handler = secretValueHandler({
     },
     allowance: secretAllowanceOver({
       sql,
-      declarations: () =>
+      facts: () =>
         ok({
           release: RELEASE,
           permissions: scopes.map((one) => ({ ...one, reason: "test" })),

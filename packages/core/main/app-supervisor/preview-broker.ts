@@ -27,7 +27,7 @@ export async function previewScopeFromBundle(info: {
   const root = info.dataPath.slice(0, at);
   try {
     const text = await Deno.readTextFile(
-      `${root}/apps/${info.app}/bundles/${info.bundleHash}/blueprint.json`,
+      `${root}/apps/${info.app}/bundles/${info.bundleHash}/declaration.json`,
     );
     const blueprint = JSON.parse(text) as { permissions?: unknown };
     if (!Array.isArray(blueprint.permissions)) return CLOSED_SCOPE;

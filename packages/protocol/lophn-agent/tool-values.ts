@@ -49,7 +49,7 @@ const appToolFields = {
   app: idSchema("app"),
   release: idSchema("rel"),
   command: nonempty,
-  blueprint_hash: hash,
+  declaration_hash: hash,
   definition_hash: hash,
   permission_basis: z.strictObject({
     grant: idSchema("grt"),

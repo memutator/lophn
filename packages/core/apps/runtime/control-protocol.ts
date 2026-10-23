@@ -165,7 +165,7 @@ export const releasePreparationOutputSchema = z.strictObject({
   request_key: requestKey,
   status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
   bundle_hash: sha256.nullable(),
-  blueprint_hash: sha256.nullable(),
+  declaration_hash: sha256.nullable(),
   failure: z.strictObject({
     stage: z.enum(["build", "dependencies", "migration"]),
     reason: z.string(),

@@ -40,7 +40,7 @@ import {
   releaseRecord,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
-import { appTools } from "../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../protocol/apps/declaration/read.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
@@ -608,7 +608,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       let blueprint: unknown;
       try {
         blueprint = JSON.parse(
-          await Deno.readTextFile(`${copy.value.root}/blueprint.json`),
+          await Deno.readTextFile(`${copy.value.root}/declaration.json`),
         );
       } catch {
         return err({
@@ -630,7 +630,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           app,
           commit,
           bundle_hash: bundleHash,
-          blueprint_hash: snapshot.blueprint_hash,
+          declaration_hash: snapshot.declaration_hash,
           blueprint,
           manifest: copy.value.manifest,
           data_schema: copy.value.dataSchema,

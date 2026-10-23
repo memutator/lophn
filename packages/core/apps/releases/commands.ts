@@ -20,7 +20,7 @@ import {
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
-import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
+import { canonicalJson, validateDeclaration } from "../declaration/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import type {
   CommandDefinition,
@@ -42,14 +42,14 @@ import {
 } from "../data/mod.ts";
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
-import { declarationsOfBlueprint } from "./facts.ts";
+import { factsOfDeclaration } from "./facts.ts";
 import { removedPublicToolsOf } from "./public-tools.ts";
 import {
   findPreparedRelease,
   insertRelease,
   loadActiveRelease,
   loadRelease,
-  loadStoredBlueprint,
+  loadStoredDeclaration,
   nextReleaseNumber,
 } from "./store.ts";
 import { inProgress, storeActivation } from "./activation/state.ts";
@@ -238,7 +238,7 @@ export function createReleaseCommands(): {
         if ((active.value?.id ?? null) !== activation.previous_release) {
           return conflict("the current release changed");
         }
-        const stored = loadStoredBlueprint(tx.sql, release.id);
+        const stored = loadStoredDeclaration(tx.sql, release.id);
         if (!stored.ok) return stored;
         if (stored.value === null) return absent();
         const proven = checkReady(tx, release, activation, input, stored.value);
@@ -246,8 +246,8 @@ export function createReleaseCommands(): {
         const at = tx.now();
         const nextApp = {
           ...app,
-          name: stored.value.blueprint.name,
-          description: stored.value.blueprint.description,
+          name: stored.value.declaration.name,
+          description: stored.value.declaration.description,
           active_release: release.id,
           // 첫 성공만 실행을 허용한다. 사람이 멈춘 앱의 다음 release가 실행 허용을 되돌리지 않는다.
           run_enabled: active.value === null ? true : app.run_enabled,
@@ -274,7 +274,7 @@ export function createReleaseCommands(): {
         const synced = syncAppGrants(
           tx,
           release.app,
-          stored.value.declarations,
+          stored.value.facts,
           "granted",
         );
         if (!synced.ok) return synced;
@@ -496,7 +496,7 @@ export function createReleaseCommands(): {
         } catch {
           return unavailable("domains are unavailable");
         }
-        const validated = validateBlueprint(input.blueprint, {
+        const validated = validateDeclaration(input.declaration, {
           app: input.app,
           domains: lookup.ofOwner({ kind: "app", id: input.app }, "active")
             .map((domain) => domain.name),
@@ -504,7 +504,7 @@ export function createReleaseCommands(): {
         if (!validated.ok) return invalid(validated.error.message);
         const blueprint = validated.value;
         const canonical = canonicalJson(blueprint as never);
-        if (sha256(canonical) !== input.blueprint_hash) {
+        if (sha256(canonical) !== input.declaration_hash) {
           return invalid("blueprint does not match its hash");
         }
         // bundle 안 manifest가 실제로 이 blueprint와 이 hash를 가리켜야 한다.
@@ -516,10 +516,12 @@ export function createReleaseCommands(): {
           return invalid("manifest does not match the bundle hash");
         }
         const pinned = manifest.files.find((file) =>
-          file.path === "blueprint.json"
+          file.path === "declaration.json"
         );
-        if (pinned?.hash !== input.blueprint_hash) {
-          return invalid("bundle blueprint.json does not match the blueprint");
+        if (pinned?.hash !== input.declaration_hash) {
+          return invalid(
+            "bundle declaration.json does not match the blueprint",
+          );
         }
         // blueprint는 SDK와 사용자 package만 선언한다(npm·jsr은 선언 문법이 없다). bundle에 담긴 그 둘이 선언과 같아야 한다.
         if (
@@ -558,7 +560,7 @@ export function createReleaseCommands(): {
           });
         }
         const id = tx.newId("rel");
-        const declarations = declarationsOfBlueprint(id, blueprint);
+        const declarations = factsOfDeclaration(id, blueprint);
         if (declarations === undefined) {
           return invalid("blueprint declarations are not valid");
         }
@@ -568,7 +570,7 @@ export function createReleaseCommands(): {
           number: nextReleaseNumber(tx.sql, input.app),
           code_commit: input.commit,
           bundle_hash: input.bundle_hash,
-          blueprint_hash: input.blueprint_hash,
+          declaration_hash: input.declaration_hash,
           data_schema: input.data_schema,
           data_changes: input.data_changes,
           created_by: input.created_by,
@@ -652,7 +654,7 @@ function checkReady(
     result: ActivationDataResult;
     attestation: ReadyAttestation;
   },
-  stored: { declarations: { tools: readonly string[] } },
+  stored: { facts: { tools: readonly string[] } },
 ): Result<void> {
   const { result, attestation } = input;
   if (
@@ -673,7 +675,7 @@ function checkReady(
   if (!recorded) {
     return unavailable("the data change is not recorded");
   }
-  const declared = [...stored.declarations.tools].sort();
+  const declared = [...stored.facts.tools].sort();
   const reported = [...attestation.tools].sort();
   if (
     attestation.release !== release.id ||

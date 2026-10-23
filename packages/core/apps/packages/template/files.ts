@@ -19,7 +19,7 @@ const SUFFIX = ".tmpl";
 // 앱 템플릿이 반드시 가지는 파일. 이것이 빠진 폴더는 템플릿이 아니다.
 export const REQUIRED_TEMPLATE_FILES = [
   "main.ts",
-  "blueprint.ts",
+  "lophn.ts",
   "deno.json",
   "deno.lock",
   "AGENTS.md",

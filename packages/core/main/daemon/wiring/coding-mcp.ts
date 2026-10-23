@@ -1,7 +1,7 @@
 import { err, ok } from "../../../../base/mod.ts";
 import { CODING_MCP_OPERATION } from "../../../../protocol/coding-agent/mod.ts";
 import { createCodingMcpTools } from "../../../apps/mcp/mod.ts";
-import { loadActiveBlueprint } from "../../../apps/releases/store.ts";
+import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { createMcpEndpoint } from "../../../server/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
@@ -30,8 +30,8 @@ export const codingMcpWiring: WiringFactory = () => ({
         const opened = openConnection(ctx.ledgerPath);
         if (!opened.ok) return opened;
         try {
-          const loaded = loadActiveBlueprint(opened.value.sql, app);
-          return loaded.ok ? ok(loaded.value?.blueprint.tools ?? []) : loaded;
+          const loaded = loadActiveDeclaration(opened.value.sql, app);
+          return loaded.ok ? ok(loaded.value?.declaration.tools ?? []) : loaded;
         } finally {
           opened.value.close();
         }

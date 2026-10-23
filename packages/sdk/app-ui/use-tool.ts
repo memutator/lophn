@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { ToolDeclaration } from "@lophn/blueprint";
+import type { ToolDeclaration } from "@lophn/declaration";
 
 // 버튼이 쓰는 blueprint tool 선언.
 export type ToolSpec = Pick<ToolDeclaration, "name" | "title">;

@@ -112,8 +112,9 @@ async function runDeno(
   }
 }
 
-const EVAL_BLUEPRINT = new URL("../ui-build/eval-blueprint.ts", import.meta.url)
-  .pathname;
+const EVAL_DECLARATION =
+  new URL("../ui-build/eval-declaration.ts", import.meta.url)
+    .pathname;
 const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url)
   .pathname;
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
@@ -233,7 +234,7 @@ export async function prepareFromSource(
   const config = find("deno.json");
   if (config === undefined) return fail("deno_json_missing");
   if (find(APP_MODULE) === undefined) return fail("entrypoint_missing");
-  if (find("blueprint.ts") === undefined) return fail("blueprint_missing");
+  if (find("lophn.ts") === undefined) return fail("declaration_missing");
   let imports: Record<string, string>;
   try {
     const parsed = JSON.parse(new TextDecoder().decode(config.bytes)) as {
@@ -277,13 +278,15 @@ export async function prepareFromSource(
       "--no-config",
       `--import-map=${staging}/.lophn/import-map.json`,
       `--allow-read=${staging},${sdkRoot}`,
-      EVAL_BLUEPRINT,
-      `${staging}/blueprint.ts`,
+      EVAL_DECLARATION,
+      `${staging}/lophn.ts`,
     ], { cwd: staging, signal: deps.signal, limitMs });
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
     if (evaluated.code !== 0) {
-      return fail(denoHead("blueprint_eval_failed", evaluated.stderr, staging));
+      return fail(
+        denoHead("declaration_eval_failed", evaluated.stderr, staging),
+      );
     }
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될

@@ -8,9 +8,9 @@ import {
   RELEASE_PREPARATION_LIMIT_MS,
 } from "../../../../protocol/apps/mod.ts";
 import {
-  extractBlueprint,
+  extractDeclaration,
   type ExtractSpawner,
-} from "../../blueprint/extract.ts";
+} from "../../declaration/extract.ts";
 import { buildManifest } from "../bundle/manifest.ts";
 import { bundleCopyPath, writeBundle } from "../bundle/seal.ts";
 import { buildScreens } from "../ui-build/build.ts";
@@ -157,7 +157,7 @@ export async function prepareRelease(
     dependencies: input.uiDependencies,
   });
   if (!built.ok) return fail(built.error.reason, built.error.code);
-  const blueprint = await extractBlueprint(
+  const blueprint = await extractDeclaration(
     input.blueprintSource,
     (value) => {
       if (
@@ -186,7 +186,7 @@ export async function prepareRelease(
     ...vendorCopies,
     ...entryFiles,
     ...lockedMap,
-    { path: "blueprint.json", bytes: blueprintBytes },
+    { path: "declaration.json", bytes: blueprintBytes },
   ];
   let bundleBytes = 0;
   const hashed: { path: string; hash: string }[] = [];
@@ -219,7 +219,7 @@ export async function prepareRelease(
     copyPath: copy.value,
     manifest: manifest.value,
     blueprintJson: blueprintBytes,
-    bundleFiles: files.filter((file) => file.path !== "blueprint.json"),
+    bundleFiles: files.filter((file) => file.path !== "declaration.json"),
   });
   if (!sealed.ok) {
     await removePartial(copy.value);

@@ -30,7 +30,7 @@ const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 const READ_TOOLS = [
   "app.list",
   "app.get",
-  "blueprint.check",
+  "declaration.check",
   "package.list",
   "package.get",
   "release.list",
@@ -129,7 +129,7 @@ export const TOOL_ORDER = [
   "domain.create",
   "app.create",
   "app.link_source",
-  "blueprint.check",
+  "declaration.check",
   "package.list",
   "package.get",
   "package.publish",

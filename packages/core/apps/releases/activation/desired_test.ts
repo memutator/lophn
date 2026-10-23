@@ -21,7 +21,7 @@ Deno.test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다"
     await Deno.writeTextFile(`${copy.value}/manifest.json`, manifest);
     await Deno.writeTextFile(`${copy.value}/import-map.json`, "{}");
     await Deno.writeTextFile(
-      `${copy.value}/blueprint.json`,
+      `${copy.value}/declaration.json`,
       JSON.stringify({
         name: "Items",
         description: "Keeps items.",

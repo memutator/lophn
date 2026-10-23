@@ -32,7 +32,7 @@ export const workPlaceOutputSchema = z.discriminatedUnion(
   workPlaceOutputBranches,
 );
 
-// apps/blueprint command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
+// apps/declaration command key와 같은 local 모양. 존재·grant 판정은 runtime이다.
 export const toolKeySchema = z.string().min(1).refine(
   (value) =>
     value.trim().length > 0 && !/\p{Cc}/u.test(value) && !value.includes("*"),

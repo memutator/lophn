@@ -3,11 +3,11 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import type { Blueprint } from "../blueprint/mod.ts";
+import type { AppDeclaration } from "../declaration/mod.ts";
 import { appToolUsers, usagePorts } from "../usage/mod.ts";
-import { loadActiveBlueprint } from "./store.ts";
+import { loadActiveDeclaration } from "./store.ts";
 
-type Tool = Blueprint["tools"][number];
+type Tool = AppDeclaration["tools"][number];
 
 // 공개였던 tool이 사라졌거나 비공개가 됐으면 지운 것이다.
 export function removedPublicOf(
@@ -28,10 +28,10 @@ export function removedPublicToolsOf(
   app: string,
   nextTools: readonly Tool[],
 ): Result<{ tool: string; domains: string[] }[]> {
-  const previous = loadActiveBlueprint(tx.sql, app);
+  const previous = loadActiveDeclaration(tx.sql, app);
   if (!previous.ok) return previous;
   if (previous.value === null) return ok([]);
-  const removed = removedPublicOf(previous.value.blueprint.tools, nextTools);
+  const removed = removedPublicOf(previous.value.declaration.tools, nextTools);
   if (removed.length === 0) return ok([]);
   let ports, lookup;
   try {

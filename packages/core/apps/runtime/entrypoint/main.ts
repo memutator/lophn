@@ -6,7 +6,7 @@ import { BROKER_PATHS } from "./limits.ts";
 import { publishReady, startRuntime } from "./startup.ts";
 import { startControlServer } from "./control-server.ts";
 import { parseAppStart } from "./start-input.ts";
-import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
+import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
 
 const OBSERVER = "@lophn/cap-problem";
@@ -29,7 +29,7 @@ type MainDeps = {
   importModule: (specifier: string) => Promise<unknown>;
   clock?: { now: () => string; nowMs: () => number };
   ids?: { newId: (prefix: string) => string };
-  blueprint: Blueprint;
+  blueprint: AppDeclaration;
   broker: BrokerTransport;
   dataSchema: number;
   // 예외 관측은 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
@@ -143,8 +143,8 @@ async function boot(): Promise<void> {
   const start = parseAppStart(line);
   if (!start) throw new Error("app start input is invalid");
   const bundleDir = bundleDirectory();
-  const blueprint = await readBlueprint(bundleDir);
-  if (!blueprint) throw new Error("app blueprint is missing");
+  const blueprint = await readDeclaration(bundleDir);
+  if (!blueprint) throw new Error("app declaration is missing");
   const broker = start.broker_socket;
   const credential = start.broker_credential;
   await main({
@@ -158,7 +158,7 @@ async function boot(): Promise<void> {
   });
 }
 
-// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 blueprint.json·migrations가
+// `@lophn/app`이 가리키는 main.ts의 폴더다. 봉인 bundle 사본이면 declaration.json·migrations가
 // 이 폴더에 있다.
 function bundleDirectory(): string {
   const url = new URL(import.meta.resolve("@lophn/app"));
@@ -272,13 +272,13 @@ async function readStdinLine(): Promise<string | null> {
   return result.value ? new TextDecoder().decode(result.value) : null;
 }
 
-async function readBlueprint(
+async function readDeclaration(
   bundleDir: string,
-): Promise<Blueprint | undefined> {
+): Promise<AppDeclaration | undefined> {
   try {
     return JSON.parse(
-      await Deno.readTextFile(`${bundleDir}/blueprint.json`),
-    ) as Blueprint;
+      await Deno.readTextFile(`${bundleDir}/declaration.json`),
+    ) as AppDeclaration;
   } catch {
     return;
   }

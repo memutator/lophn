@@ -28,7 +28,7 @@ export type PreparationFailure = {
 
 export type PreparationOutcome = {
   bundle_hash: string;
-  blueprint_hash: string;
+  declaration_hash: string;
 };
 
 export type PreparationSnapshot = {
@@ -36,7 +36,7 @@ export type PreparationSnapshot = {
   request_key: string;
   status: PreparationStatus;
   bundle_hash: string | null;
-  blueprint_hash: string | null;
+  declaration_hash: string | null;
   // failed일 때만 값이 있다.
   failure: PreparationFailure | null;
 };
@@ -76,7 +76,7 @@ function snapshotOf(
       request_key: requestKey,
       status: "unknown",
       bundle_hash: null,
-      blueprint_hash: null,
+      declaration_hash: null,
       failure: null,
     };
   }
@@ -86,7 +86,7 @@ function snapshotOf(
     request_key: requestKey,
     status: entry.status,
     bundle_hash: done?.bundle_hash ?? null,
-    blueprint_hash: done?.blueprint_hash ?? null,
+    declaration_hash: done?.declaration_hash ?? null,
     failure: entry.status === "failed" ? entry.failure : null,
   };
 }

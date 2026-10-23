@@ -5,11 +5,14 @@ Deno.test("sdk_dependencies에서 template 밖 이름을 가려낼 수 있다", 
   const text = `export default makeBlueprint({
     name: "앱",
     sdk_dependencies: [
-      { name: "@lophn/blueprint", version: "1.0.0" },
+      { name: "@lophn/declaration", version: "1.0.0" },
       { name: "@me/notify-kit", version: "1.0.0" },
     ],
   });`;
-  assertEquals(blueprintSdkNames(text), ["@lophn/blueprint", "@me/notify-kit"]);
+  assertEquals(blueprintSdkNames(text), [
+    "@lophn/declaration",
+    "@me/notify-kit",
+  ]);
 });
 
 Deno.test("의존 선언 줄과 주석·문자열은 import가 아니고 import 꼴은 import다", () => {

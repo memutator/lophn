@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import type { ToolDeclaration } from "../blueprint/mod.ts";
+import type { ToolDeclaration } from "../declaration/mod.ts";
 import type { CurrentPreview } from "../preview/mod.ts";
 import { type CodingMcpDeps, createCodingMcpTools } from "./serve.ts";
 

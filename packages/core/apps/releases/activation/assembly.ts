@@ -63,7 +63,7 @@ import { asksFor, compareForActivation } from "../compare.ts";
 import {
   loadActiveRelease,
   loadRelease,
-  loadStoredBlueprint,
+  loadStoredDeclaration,
 } from "../store.ts";
 import {
   bundleFlags,
@@ -197,20 +197,22 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     release: string,
   ): Promise<Result<ResolvedRequirement[]>> {
     const stored = withLedger((sql) => ({
-      blueprint: loadStoredBlueprint(sql, release),
+      declaration: loadStoredDeclaration(sql, release),
       sources: loadApps(sql, undefined),
     }));
     if (!stored.ok) return stored;
-    if (!stored.value.blueprint.ok || stored.value.blueprint.value === null) {
+    if (
+      !stored.value.declaration.ok || stored.value.declaration.value === null
+    ) {
       return unavailable("release is unavailable");
     }
     if (!stored.value.sources.ok) return unavailable("apps are unavailable");
     const grants = await grantsOf(app);
     if (!grants.ok) return grants;
-    const declarations = stored.value.blueprint.value.declarations;
+    const facts = stored.value.declaration.value.facts;
     const effective = effectiveScope({
       app,
-      declarations,
+      facts,
       grants: grants.value,
       targetCommands: () => undefined,
     });
@@ -227,7 +229,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     for (const entry of effective.access) {
       // 앱이 듣는 socket은 Deno flag로 한정할 수 없어 허락하지 않는다.
       if (entry.kind === "net.listen") continue;
-      const declared = declarations.permissions.find((requirement) =>
+      const declared = facts.permissions.find((requirement) =>
         requirement.kind === entry.kind &&
         JSON.stringify(requirement.scope) === JSON.stringify(entry.scope)
       );
@@ -327,7 +329,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     release: ReleaseRecord,
   ): Promise<Result<ActivationComparison>> {
     const read = ledgerRead((sql) => {
-      const stored = loadStoredBlueprint(sql, release.id);
+      const stored = loadStoredDeclaration(sql, release.id);
       if (!stored.ok) return stored;
       const active = loadActiveRelease(sql, release.app);
       if (!active.ok) return active;
@@ -345,7 +347,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         ? null
         : { id: active.id, data_schema: active.data_schema },
       grants: grants.value,
-      declarations: read.value.stored.declarations,
+      facts: read.value.stored.facts,
       next: { data_changes: release.data_changes },
     }));
   }

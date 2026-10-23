@@ -2,7 +2,7 @@
 // 실행 범위 = 현재 release 선언 ∩ 현재 active grant. 읽는 쪽이 계산한 값을
 // 요청마다 다시 받으므로 회수는 다음 사용부터 거절된다. 여기서 IO는 하지 않는다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { hostOf } from "../../../../protocol/apps/blueprint-scope.ts";
+import { hostOf } from "../../../../protocol/apps/declaration/scope.ts";
 import type { EffectiveScope } from "../effective.ts";
 import type { BrokerChild } from "./invocations.ts";
 

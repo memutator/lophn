@@ -52,7 +52,7 @@ Failure branches.
 The source folder exists from registration (`Source folder:` in your place
 information). Use `app.link_source` only for an existing git repo with a commit.
 
-1. Blueprint: edit `blueprint.ts` first, read it with `blueprint.check`. Pin
+1. Declaration: edit `lophn.ts` first, read it with `declaration.check`. Pin
    exact package versions. Declare other apps' tools in `app_connections`.
 2. Code: read `AGENTS.md` in the source folder (layout, commands, SDK guide),
    then write with the file tools.

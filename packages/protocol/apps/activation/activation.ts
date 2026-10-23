@@ -63,7 +63,7 @@ export const releaseRecordSchema = z.object({
   number: z.number().int().positive().max(MAX),
   code_commit: z.string().regex(/^[0-9a-f]{40}$/),
   bundle_hash: sha256Schema,
-  blueprint_hash: sha256Schema,
+  declaration_hash: sha256Schema,
   data_schema: z.number().int().nonnegative().max(MAX),
   data_changes: z.array(dataChangeSchema),
   created_by: actorSchema,
@@ -101,9 +101,9 @@ export const releaseRecord = defineCommand({
     app: appIdSchema,
     commit: z.string().regex(/^[0-9a-f]{40}$/),
     bundle_hash: sha256Schema,
-    blueprint_hash: sha256Schema,
-    // 정규 blueprint JSON. core가 검증기와 hash로 `blueprint_hash`와 같은지 확인한다.
-    blueprint: z.record(z.string(), z.unknown()),
+    declaration_hash: sha256Schema,
+    // 정규 선언 JSON. core가 검증기와 hash로 `declaration_hash`와 같은지 확인한다.
+    declaration: z.record(z.string(), z.unknown()),
     manifest: bundleManifestSchema,
     data_schema: z.number().int().nonnegative().max(MAX),
     data_changes: z.array(dataChangeSchema),

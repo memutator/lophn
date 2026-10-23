@@ -3,12 +3,9 @@ import {
   type ReleaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import type { Blueprint } from "../blueprint/mod.ts";
+import type { AppDeclaration } from "../declaration/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
-import type {
-  AppDeclarations,
-  CurrentDeclarations,
-} from "../permissions/mod.ts";
+import type { AppFacts, CurrentFacts } from "../permissions/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -30,7 +27,7 @@ function releaseFromRow(row: SqlRow): Result<ReleaseRecord> {
       number: Number(row.number),
       code_commit: row.code_commit,
       bundle_hash: row.bundle_hash,
-      blueprint_hash: row.blueprint_hash,
+      declaration_hash: row.declaration_hash,
       data_schema: Number(row.data_schema),
       data_changes: parseJson(row.data_changes),
       created_by: row.created_by,
@@ -98,20 +95,20 @@ export function loadActiveRelease(
   return releaseFromRow(row);
 }
 
-type StoredBlueprint = {
+type StoredDeclaration = {
   release: ReleaseRecord;
-  blueprint: Blueprint;
-  declarations: AppDeclarations;
+  declaration: AppDeclaration;
+  facts: AppFacts;
 };
 
-function storedOf(row: SqlRow): Result<StoredBlueprint> {
+function storedOf(row: SqlRow): Result<StoredDeclaration> {
   const release = releaseFromRow(row);
   if (!release.ok) return release;
   try {
     return ok({
       release: release.value,
-      blueprint: JSON.parse(String(row.blueprint)) as Blueprint,
-      declarations: JSON.parse(String(row.declarations)) as AppDeclarations,
+      declaration: JSON.parse(String(row.blueprint)) as AppDeclaration,
+      facts: JSON.parse(String(row.declarations)) as AppFacts,
     });
   } catch {
     return invalidStored();
@@ -119,22 +116,22 @@ function storedOf(row: SqlRow): Result<StoredBlueprint> {
 }
 
 // release에 고정한 blueprint와 선언 사실. 준비 뒤 불변이다.
-export function loadStoredBlueprint(
+export function loadStoredDeclaration(
   sql: Query,
   release: string,
-): Result<StoredBlueprint | null> {
+): Result<StoredDeclaration | null> {
   const row = sql.get("SELECT * FROM releases WHERE id = ?", [release]);
   return row === undefined ? ok(null) : storedOf(row);
 }
 
 // 앱이 채택한 release의 고정 blueprint. active release가 없으면 null이다.
-export function loadActiveBlueprint(
+export function loadActiveDeclaration(
   sql: Query,
   app: string,
   release?: string,
-): Result<StoredBlueprint | null> {
+): Result<StoredDeclaration | null> {
   if (release !== undefined) {
-    const found = loadStoredBlueprint(sql, release);
+    const found = loadStoredDeclaration(sql, release);
     return !found.ok || found.value === null || found.value.release.app === app
       ? found
       : ok(null);
@@ -172,12 +169,12 @@ export function nextReleaseNumber(sql: Query, app: string): number {
 export function insertRelease(
   tx: Pick<Tx, "sql">,
   release: ReleaseRecord,
-  canonicalBlueprint: string,
-  declarations: AppDeclarations,
+  canonicalDeclaration: string,
+  declarations: AppFacts,
 ): void {
   tx.sql.run(
     `INSERT INTO releases
-      (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema,
+      (id, app, number, code_commit, bundle_hash, declaration_hash, data_schema,
        data_changes, created_by, created_at, status, activation,
        failure, blueprint, declarations)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
@@ -187,22 +184,22 @@ export function insertRelease(
       release.number,
       release.code_commit,
       release.bundle_hash,
-      release.blueprint_hash,
+      release.declaration_hash,
       release.data_schema,
       JSON.stringify(release.data_changes),
       release.created_by,
       release.created_at,
       release.status,
-      canonicalBlueprint,
+      canonicalDeclaration,
       JSON.stringify(declarations),
     ],
   );
 }
 
-// permissions의 `currentDeclarations` port 구현이다. 앱이 채택한 release(status = active)의 선언
+// permissions의 `currentFacts` port 구현이다. 앱이 채택한 release(status = active)의 선언
 // 사실을 부른 쪽의 transaction·snapshot sql로 읽는다. active release가 없으면 null이다.
 // App.active_release 참조는 같은 transaction에서 바뀌므로 읽는 쪽이 따로 맞추지 않는다.
-export const releaseDeclarations: CurrentDeclarations = {
+export const releaseFacts: CurrentFacts = {
   get(sql, app) {
     const row = sql.get(
       "SELECT declarations FROM releases WHERE app = ? AND status = 'active'",
@@ -210,7 +207,7 @@ export const releaseDeclarations: CurrentDeclarations = {
     );
     if (row === undefined) return ok(null);
     try {
-      return ok(JSON.parse(String(row.declarations)) as AppDeclarations);
+      return ok(JSON.parse(String(row.declarations)) as AppFacts);
     } catch {
       return invalidStored();
     }

@@ -30,7 +30,7 @@ import type {
 import { createTargetAuthorizer, type Writer } from "../storage/ledger/mod.ts";
 import { loadApp } from "./registration/mod.ts";
 import type { PreviewService } from "./preview/mod.ts";
-import { loadActiveBlueprint, loadRelease } from "./releases/store.ts";
+import { loadActiveDeclaration, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
 import { bundleCopyPath } from "./releases/mod.ts";
 import { createAppRewindCommand } from "./rewind/mod.ts";
@@ -148,12 +148,12 @@ export function appToolLookupOf(
       return ok(found === undefined ? null : { effect: found.effect });
     },
     find(app, release, tool) {
-      const stored = loadActiveBlueprint(sql, app, release ?? undefined);
+      const stored = loadActiveDeclaration(sql, app, release ?? undefined);
       if (!stored.ok) return stored;
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
-      const declared = stored.value.blueprint.tools.find((entry) =>
+      const declared = stored.value.declaration.tools.find((entry) =>
         entry.name === tool
       );
       if (declared === undefined) return ok(null);

@@ -1,5 +1,5 @@
 // 시작은 ready=false·accepting=false. 앱 code load 뒤에 등록 handler로 attestation을 만든다.
-import type { Blueprint } from "../../../../protocol/apps/blueprint/mod.ts";
+import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
 import {
@@ -19,7 +19,7 @@ type Started = {
 
 export function startRuntime(deps: {
   line: string;
-  blueprint: Blueprint;
+  blueprint: AppDeclaration;
   broker: BrokerTransport;
   dataSchema: number;
 }): Started {

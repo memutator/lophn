@@ -35,7 +35,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
     name: string;
     previous: typeof previous | null;
     grants: AppGrant[];
-    declarations: typeof same;
+    facts: typeof same;
     changes: DataChange[];
     asks: boolean;
   }[] = [
@@ -43,7 +43,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
       name: "선언이 같고 손실이 없다",
       previous,
       grants: [grantFor("a.example")],
-      declarations: same,
+      facts: same,
       changes: [step([])],
       asks: false,
     },
@@ -51,7 +51,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
       name: "지나는 단계가 손실을 선언했다",
       previous,
       grants: [grantFor("a.example")],
-      declarations: same,
+      facts: same,
       changes: [step([{ kind: "drop_table", table: "old" }])],
       asks: true,
     },
@@ -59,7 +59,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
       name: "이미 지난 단계의 손실은 묻지 않는다",
       previous: { ...previous, data_schema: 2 },
       grants: [grantFor("a.example")],
-      declarations: same,
+      facts: same,
       changes: [step([{ kind: "drop_table", table: "old" }])],
       asks: false,
     },
@@ -67,7 +67,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
       name: "grant가 덮지 않는 바깥 자원이 있다",
       previous,
       grants: [grantFor("a.example")],
-      declarations: {
+      facts: {
         permissions: [net("a.example"), net("b.example")],
         app_connections: [],
       },
@@ -78,7 +78,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
       name: "이전 release가 없다",
       previous: null,
       grants: [],
-      declarations: { permissions: [], app_connections: [] },
+      facts: { permissions: [], app_connections: [] },
       changes: [],
       asks: true,
     },
@@ -87,7 +87,7 @@ Deno.test("손실을 선언하면 묻는다", () => {
     const comparison = compareForActivation({
       previous: one.previous,
       grants: one.grants,
-      declarations: one.declarations,
+      facts: one.facts,
       next: { data_changes: one.changes },
     });
     assertEquals(asksFor(comparison), one.asks, one.name);
@@ -115,7 +115,7 @@ Deno.test("migration 파일 머리의 loss 줄이 비교까지 닿는다", async
     const comparison = compareForActivation({
       previous: { id: "rel_01arz3ndektsv4rrffq69g5fb1", data_schema: 1 },
       grants: [],
-      declarations: { permissions: [], app_connections: [] },
+      facts: { permissions: [], app_connections: [] },
       next: { data_changes: changes.value },
     });
     assertEquals(comparison.loss_steps.length, 1);

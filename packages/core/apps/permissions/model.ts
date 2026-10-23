@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { hostOf } from "../../../protocol/apps/blueprint-scope.ts";
+import { hostOf } from "../../../protocol/apps/declaration/scope.ts";
 // fs scope의 path는 lexical 절대 경로다(contracts). 여기서는 부여 때 푼
 // 실제 절대 경로로 바꿔 경계를 정한다.
 

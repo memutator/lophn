@@ -18,7 +18,7 @@ import {
   appsOAuthClientSet,
   appsOAuthState,
   appsSecretValue,
-  blueprintCheck,
+  declarationCheck,
   packagePublish,
   packagesBuiltin,
   releaseActivate,
@@ -34,10 +34,10 @@ import { rewindSchemaSteps } from "./rewind/mod.ts";
 import {
   createGrantCommands,
   createGrantsReads,
-  currentDeclarations,
+  currentFacts,
   permissionsSchemaSteps,
 } from "./permissions/mod.ts";
-import { createBlueprintReads } from "./blueprint/reads.ts";
+import { createDeclarationReads } from "./declaration/reads.ts";
 import {
   activationAttemptGate,
   createReleaseCommands,
@@ -47,7 +47,7 @@ import {
   createReleaseReads,
 } from "./releases/reads.ts";
 import { releasesSchemaSteps } from "./releases/schema.ts";
-import { loadActiveBlueprint, releaseDeclarations } from "./releases/store.ts";
+import { loadActiveDeclaration, releaseFacts } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
 import { PACKAGE_GUIDE_BLOB_FIELD } from "./packages/blobs.ts";
@@ -125,7 +125,7 @@ export function createLedgerRegistration(
   // release 준비 확정과 그 읽기(list·get·compare), 고정 blueprint 읽기.
   const releaseCommands = createReleaseCommands();
   const releaseReads = createReleaseReads();
-  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
+  const blueprintReads = createDeclarationReads(loadActiveDeclaration);
   return {
     // 보호 backup blob(일반 blob 읽기 없음)과 공개 SDK 사용 안내 blob(일반 읽기 허용).
     blobFields: [
@@ -213,7 +213,7 @@ export function createLedgerRegistration(
       appsOAuthBegin,
       appsOAuthCancel,
       appsOAuthState,
-      blueprintCheck,
+      declarationCheck,
       packagesBuiltin,
       packagePublish,
       // release 준비와 올리기는 supervisor 진행을 기다리는 command route라 ledger handler가 없다.
@@ -235,7 +235,7 @@ export function createLedgerRegistration(
       },
       // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
       // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
-      { key: currentDeclarations, create: () => releaseDeclarations },
+      { key: currentFacts, create: () => releaseFacts },
     ],
   };
 }
@@ -248,7 +248,7 @@ export function createReaderRegistration(): ReaderRegistration {
   const runtimeReads = createRuntimeReads();
   const grantReads = createGrantsReads();
   const releaseReads = createReleaseReads();
-  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
+  const blueprintReads = createDeclarationReads(loadActiveDeclaration);
   return {
     reads: [
       reads.list,
@@ -271,8 +271,8 @@ export function createReaderRegistration(): ReaderRegistration {
     // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
     ports: new Map<unknown, unknown>([
       [
-        currentDeclarations,
-        releaseDeclarations,
+        currentFacts,
+        releaseFacts,
       ],
     ]),
   };

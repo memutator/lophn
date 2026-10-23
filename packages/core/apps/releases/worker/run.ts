@@ -106,7 +106,7 @@ async function acceptRelease(
   return {
     bundle_hash: prepared.value.bundleHash,
     copy_path: prepared.value.copyPath,
-    blueprint_hash: prepared.value.blueprintHash,
+    declaration_hash: prepared.value.blueprintHash,
   };
 }
 

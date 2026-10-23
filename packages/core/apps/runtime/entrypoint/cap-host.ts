@@ -4,8 +4,8 @@
 // capability는 unavailable이다.
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
-import { canonicalJson } from "../../../../protocol/apps/blueprint/mod.ts";
-import type { JsonValue } from "../../../../protocol/apps/blueprint/mod.ts";
+import { canonicalJson } from "../../../../protocol/apps/declaration/mod.ts";
+import type { JsonValue } from "../../../../protocol/apps/declaration/mod.ts";
 import type { InvocationContext } from "../../invocations/context.ts";
 import type { BrokerResponse } from "./broker-client.ts";
 

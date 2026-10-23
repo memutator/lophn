@@ -5,7 +5,7 @@
     "@lezer/markdown": "npm:@lezer/markdown@1.7.2",
     "@lophn/app": "./main.ts",
     "@lophn/app-ui": "lophn-sdk:@lophn/app-ui@1.0.0/mod.ts",
-    "@lophn/blueprint": "lophn-sdk:@lophn/blueprint@1.0.0/mod.ts",
+    "@lophn/declaration": "lophn-sdk:@lophn/declaration@1.0.0/mod.ts",
     "@lophn/cap-problem": "lophn-sdk:@lophn/cap-problem@1.0.0/mod.ts",
     "@lophn/cap-tool": "lophn-sdk:@lophn/cap-tool@1.0.0/mod.ts",
     "@lophn/cap-store": "lophn-sdk:@lophn/cap-store@1.0.0/mod.ts",
@@ -63,7 +63,7 @@
   },
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build-ui.ts",
-    "check": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno check --import-map=.lophn/import-map.json main.ts blueprint.ts src scripts tests",
+    "check": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno check --import-map=.lophn/import-map.json main.ts lophn.ts src scripts tests",
     "test": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno test --no-prompt --import-map=.lophn/import-map.json --allow-read --allow-write --allow-env",
     "wording": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno run --import-map=.lophn/import-map.json --allow-read --allow-write scripts/generate-wording.ts"
   }

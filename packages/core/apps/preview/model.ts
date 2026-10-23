@@ -1,7 +1,7 @@
 // preview 값과 판정. preview는 별도 entity·ID·운영 상태·ledger 표가 아니다.
 // 프로세스 메모리와 disposable 파일에만 있다.
 import type { RuntimeReason } from "../../../protocol/apps/mod.ts";
-import type { Blueprint } from "../blueprint/mod.ts";
+import type { AppDeclaration } from "../declaration/mod.ts";
 import type { LimitKey } from "../permissions/mod.ts";
 
 // core가 supervisor에 알리는 preview 시작 입력이다. runtime/control-protocol의 PreviewLaunch와 같은
@@ -62,7 +62,7 @@ export type PreviewScope = {
 };
 
 export function previewScopeOf(
-  blueprint: Pick<Blueprint, "permissions">,
+  blueprint: Pick<AppDeclaration, "permissions">,
 ): PreviewScope {
   const secrets: string[] = [];
   const net: { host: string; port: number }[] = [];

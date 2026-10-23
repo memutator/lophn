@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { appAssignees } from "../../approvals/assignment/usage.ts";
-import { loadActiveBlueprint } from "../releases/store.ts";
+import { loadActiveDeclaration } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 
 export type ToolUser = {
@@ -20,9 +20,9 @@ export function appToolUsers(
   ports: UsagePorts,
   app: string,
 ): Result<ToolUser[]> {
-  const active = loadActiveBlueprint(sql, app);
+  const active = loadActiveDeclaration(sql, app);
   if (!active.ok) return active;
-  const tools = active.value?.blueprint.tools ?? [];
+  const tools = active.value?.declaration.tools ?? [];
   const domainOfTool = new Map<string, string>();
   for (const tool of tools) {
     const domain = ports.domainOf(app, tool.domain);

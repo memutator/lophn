@@ -7,7 +7,7 @@ import {
   appsOAuthClientSet,
   appsOAuthState,
 } from "../../../protocol/apps/mod.ts";
-import type { OAuthDeclaration } from "../../../protocol/apps/blueprint/mod.ts";
+import type { OAuthDeclaration } from "../../../protocol/apps/declaration/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/mod.ts";
 import {
   type AuthDeadline,

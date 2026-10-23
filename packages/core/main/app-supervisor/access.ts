@@ -3,7 +3,7 @@
 // 접근을 얻지 못한다. 읽기는 supervisor의 machine credential로 core read route를 부른다(`apps/tools`와
 // `app_grants/list`). 범위 계산은 IO 없는 `effectiveScope`가 한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { appTools } from "../../../protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import {
   type AppGrant,
   appGrantsList,
@@ -54,10 +54,10 @@ async function activeGrants(
 
 // 앱 하나의 현재 선언과 active grant를 core에서 읽는다. active release가 없으면 null이다.
 type Loaded = {
-  declared: AppBlueprintView;
+  declared: AppDeclarationView;
   grants: AppGrant[];
 };
-type AppBlueprintView = ReturnType<typeof appTools.output.parse>;
+type AppDeclarationView = ReturnType<typeof appTools.output.parse>;
 
 async function load(
   deps: { post: CorePost; bearer: () => string },
@@ -95,8 +95,8 @@ export function createCoreBrokerAccess(deps: {
       if (!loaded.ok) return loaded;
       if (loaded.value === null) return ok(null);
       const { declared: view, grants } = loaded.value;
-      const declared = view.declarations;
-      const declarations = {
+      const declared = view.facts;
+      const facts = {
         release: view.release,
         permissions: declared.permissions,
         app_connections: declared.app_connections.map((use) => ({
@@ -110,7 +110,7 @@ export function createCoreBrokerAccess(deps: {
         // 다른 앱 호출은 이 범위를 쓰지 않는다. core의 호출 경로(Gate)가 판정한다.
         scope: effectiveScope({
           app,
-          declarations,
+          facts,
           grants,
           targetCommands: () => undefined,
         }),

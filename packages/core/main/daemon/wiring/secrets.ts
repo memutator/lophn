@@ -1,6 +1,6 @@
 import { err, ok } from "../../../../base/mod.ts";
 import { secretAllowanceOver } from "../../../apps/permissions/mod.ts";
-import { releaseDeclarations } from "../../../apps/releases/mod.ts";
+import { releaseFacts } from "../../../apps/releases/mod.ts";
 import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.ts";
 import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
@@ -71,7 +71,7 @@ export const secretsWiring: WiringFactory = () => {
             try {
               return secretAllowanceOver({
                 sql,
-                declarations: (app) => releaseDeclarations.get(sql, app),
+                facts: (app) => releaseFacts.get(sql, app),
                 platformPorts: () => {
                   const port = ctx.peek.server?.port ?? 0;
                   return port === 0 ? [] : [port];

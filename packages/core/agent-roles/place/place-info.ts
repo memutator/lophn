@@ -100,7 +100,7 @@ function appLines(
 ): string[] {
   const lines: string[] = [];
   if (app.source !== null) lines.push(`${indent}Source folder: ${app.source}`);
-  lines.push(`${indent}Blueprint: ${app.blueprint}`);
+  lines.push(`${indent}Declaration: ${app.blueprint}`);
   if (release !== null) {
     const tools = release.tool_names.length > 0
       ? [...release.tool_names].sort(cmp).join(", ")

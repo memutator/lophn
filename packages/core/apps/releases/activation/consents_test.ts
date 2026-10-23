@@ -64,7 +64,7 @@ Deno.test("사람이 동의하기 전에는 선언이 넓어진 release가 activ
       number: 1,
       code_commit: "0".repeat(40),
       bundle_hash: "0".repeat(64),
-      blueprint_hash: "0".repeat(64),
+      declaration_hash: "0".repeat(64),
       data_schema: 1,
       data_changes: [],
       created_by: "coding_agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza",

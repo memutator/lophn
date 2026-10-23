@@ -25,7 +25,7 @@ import {
   domainFolder,
   domainList,
 } from "../../packages/protocol/domains/mod.ts";
-import { appTools } from "../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../packages/protocol/apps/declaration/read.ts";
 import {
   agentAssignmentGet,
   agentAssignmentSet,

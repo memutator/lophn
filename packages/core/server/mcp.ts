@@ -1,5 +1,5 @@
 import type { Result } from "../../base/mod.ts";
-import type { McpTool } from "../../protocol/apps/blueprint/mod.ts";
+import type { McpTool } from "../../protocol/apps/declaration/mod.ts";
 import { RPC_JSON_MAX_BYTES } from "../../protocol/base/mod.ts";
 import {
   CODING_MCP_SERVER_NAME,

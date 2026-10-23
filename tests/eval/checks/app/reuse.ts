@@ -1,7 +1,7 @@
 // 재사용 확인. 켜진 release의 code만 센다: source는 working tree가 아니라 active release의 code_commit이다.
 // 선언(blueprint)·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
 import { appGet } from "../../../../packages/protocol/apps/mod.ts";
-import { appTools } from "../../../../packages/protocol/apps/blueprint/read.ts";
+import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import {
   packagesUsage,
   packagesVersions,
@@ -19,7 +19,7 @@ export type ReuseSpec = {
 
 // packages/core/apps/packages/template/app/blueprint.ts.tmpl의 sdk_dependencies와 같아야 한다.
 export const TEMPLATE_SDK_NAMES = [
-  "@lophn/blueprint",
+  "@lophn/declaration",
   "@lophn/cap-problem",
   "@lophn/cap-tool",
   "@lophn/cap-store",
@@ -172,7 +172,7 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
     reuseCheck("reuse-app-connection", spec, async (core, src) => {
       const target = await findApp(core, notify.app);
       const blueprint = await core.call(appTools, { app: src.app.id });
-      const hit = blueprint.declarations.app_connections.some((c) =>
+      const hit = blueprint.facts.app_connections.some((c) =>
         c.app === target.id && c.tools.includes(notify.api)
       );
       return {

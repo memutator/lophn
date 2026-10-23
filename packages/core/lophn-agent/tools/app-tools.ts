@@ -4,7 +4,7 @@ import {
   type InputSchema,
   type ToolCallOutput,
 } from "../../../protocol/apps/mod.ts";
-import type { AppTool } from "../../../protocol/apps/blueprint/read.ts";
+import type { AppTool } from "../../../protocol/apps/declaration/read.ts";
 import type { AssignmentEntry } from "../../../protocol/approvals/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";

@@ -25,13 +25,13 @@ export { loadGrants } from "./store.ts";
 export { createGrantsReads } from "./reads.ts";
 export { permissionsSchemaSteps } from "./schema.ts";
 export {
-  type AppDeclarations,
-  compareDeclarations,
-  type CurrentDeclarations,
-  currentDeclarations,
-  declarationsOf,
+  type AppFacts,
+  compareFacts,
+  type CurrentFacts,
+  currentFacts,
+  factsOf,
   resourceLabel,
-} from "./declarations.ts";
+} from "./facts.ts";
 export { type EffectiveScope, effectiveScope } from "./effective.ts";
 export type { BrokerChild } from "./broker/invocations.ts";
 export {

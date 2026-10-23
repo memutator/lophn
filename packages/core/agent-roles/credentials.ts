@@ -10,7 +10,10 @@ import { kindGet, projectApi } from "../../protocol/projects/mod.ts";
 import { domainGet, domainList } from "../../protocol/domains/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
-import { appToolIndex, appTools } from "../../protocol/apps/blueprint/read.ts";
+import {
+  appToolIndex,
+  appTools,
+} from "../../protocol/apps/declaration/read.ts";
 import { appUsage } from "../../protocol/apps/usage.ts";
 import { packagesList } from "../../protocol/apps/mod.ts";
 import { AGENT_BASE_OPERATIONS } from "../lophn-agent/run-loop/mod.ts";

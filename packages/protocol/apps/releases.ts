@@ -18,8 +18,8 @@ export const RELEASE_SOURCE_MAX_BYTES = 64 * MIB;
 export const RELEASE_BUNDLE_MAX_BYTES = 256 * MIB;
 export const RELEASE_FILE_MAX_COUNT = 10_000;
 export const RELEASE_PREPARATION_LIMIT_MS = 300_000;
-// blueprint TS 추출 자식 상한.
-export const BLUEPRINT_EXTRACT_LIMIT_MS = 10_000;
+// 선언 TS 추출 자식 상한.
+export const DECLARATION_EXTRACT_LIMIT_MS = 10_000;
 
 const RELEASE_STATUSES = [
   "prepared",

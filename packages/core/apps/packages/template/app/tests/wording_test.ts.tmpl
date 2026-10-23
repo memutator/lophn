@@ -3,13 +3,13 @@
 import { assertEquals } from "@std/assert";
 import { checkSource, errorsOf } from "@lophn/wording/check";
 import { render } from "@lophn/wording/generate";
-import blueprint, { makeBlueprint } from "../blueprint.ts";
+import declaration, { makeDeclaration } from "../lophn.ts";
 import { en } from "../src/wording/en.ts";
 import { t } from "../src/wording/t.ts";
 
 const root = new URL("../", import.meta.url);
 // key의 첫 구간은 이 앱의 screen key와 common이다.
-const screens = [...blueprint.screens.map((screen) => screen.key), "common"];
+const screens = [...declaration.screens.map((screen) => screen.key), "common"];
 
 function screenSources(): { path: string; text: string }[] {
   const found: { path: string; text: string }[] = [];
@@ -103,15 +103,15 @@ Deno.test("wording: changing catalog text never changes a tool name or screen ke
   const rewritten = Object.fromEntries(
     Object.entries(en).map(([key, value]) => [key, `${value} (changed)`]),
   ) as unknown as Record<keyof typeof en, string>;
-  const changed = makeBlueprint(rewritten);
+  const changed = makeDeclaration(rewritten);
   assertEquals(
     changed.tools.map((tool) => tool.name),
-    blueprint.tools.map((tool) => tool.name),
+    declaration.tools.map((tool) => tool.name),
   );
   assertEquals(
     changed.screens.map((s) => s.key),
-    blueprint.screens.map((s) => s.key),
+    declaration.screens.map((s) => s.key),
   );
   // 문구는 따라 바뀌지만 이름은 같다.
-  assertEquals(changed.description !== blueprint.description, true);
+  assertEquals(changed.description !== declaration.description, true);
 });

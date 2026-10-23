@@ -3,11 +3,11 @@ import { type AppGrant, appGrantRevoke } from "../../../protocol/apps/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { authorizeApp, loadApp } from "../registration/mod.ts";
 import {
-  type AppDeclarations,
-  compareDeclarations,
+  type AppFacts,
+  compareFacts,
   declaredScopes,
   resourceLabel,
-} from "./declarations.ts";
+} from "./facts.ts";
 import { isSameOrInside } from "./model.ts";
 import {
   insertGrant,
@@ -62,15 +62,15 @@ type GrantDecision = "granted" | "not_needed";
 export function syncAppGrants(
   tx: Pick<Tx, "sql" | "newId" | "now">,
   app: string,
-  declarations: Pick<AppDeclarations, "permissions" | "app_connections">,
+  facts: Pick<AppFacts, "permissions" | "app_connections">,
   decision: GrantDecision,
 ): Result<{ created: AppGrant[]; revoked: AppGrant[] }> {
   const loaded = loadGrants(tx.sql, { app, status: "active" });
   if (!loaded.ok) return loaded;
   const active = loaded.value;
   const allowed = decision === "granted";
-  const want = declaredScopes(app, declarations);
-  const gap = compareDeclarations(active, declarations);
+  const want = declaredScopes(app, facts);
+  const gap = compareFacts(active, facts);
   const at = tx.now();
   const created: AppGrant[] = [];
   const revoked: AppGrant[] = [];

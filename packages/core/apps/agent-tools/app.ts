@@ -5,9 +5,9 @@ import {
   appCreate,
   appGet,
   appList,
-  blueprintCheck,
+  declarationCheck,
 } from "../../../protocol/apps/mod.ts";
-import { appToolIndex } from "../../../protocol/apps/blueprint/read.ts";
+import { appToolIndex } from "../../../protocol/apps/declaration/read.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
 import {
   commandOf,
@@ -163,15 +163,15 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     },
   }),
   defineTool({
-    name: "blueprint.check",
+    name: "declaration.check",
     input: z.strictObject({ app: idSchema("app") }),
-    routes: [blueprintCheck],
+    routes: [declarationCheck],
     description:
       "Check the blueprint of an app and return errors, warnings and the permission review separately. Edit the blueprint file with the file tools.",
     effect: "read",
     handler: async (input, ctx) => {
       const { app } = input;
-      const checked = await readOf(ctx.core, blueprintCheck, { app });
+      const checked = await readOf(ctx.core, declarationCheck, { app });
       if (!checked.ok) return checked;
       const { errors, warnings, permission_review } = checked.value;
       return ok(fitted(

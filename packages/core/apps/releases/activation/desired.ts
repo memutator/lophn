@@ -1,6 +1,6 @@
 // 봉인 bundle 사본에서 앱 자식의 시작 입력을 만든다. 운영 DesiredApp과
 // preview의 `PreviewBundle`이 같은 함수로 사본의 entry·import map·command·화면·data schema·flag를 읽는다.
-// 사본의 모양: manifest.json, blueprint.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
+// 사본의 모양: manifest.json, declaration.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
 // screens/, 설치 SDK 사본 sdk/<이름>/<version>/, 앱 deno.lock, migrations/<from>-<to>.sql. 자식의 읽기 허락은
 // 사본 root를 덮는다(`appFlags`의 bundle). 파일은 async로만 읽는다(core module graph).
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
@@ -13,8 +13,8 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import {
   type ToolDeclaration,
-  validateBlueprint,
-} from "../../blueprint/mod.ts";
+  validateDeclaration,
+} from "../../declaration/mod.ts";
 import {
   appFlags,
   type FlagSet,
@@ -23,8 +23,8 @@ import {
 } from "../../permissions/mod.ts";
 import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
 import {
-  BLUEPRINT_COPY_NAME,
   bundleCopyPath,
+  DECLARATION_COPY_NAME,
   MANIFEST_COPY_NAME,
 } from "../bundle/seal.ts";
 import { RUNTIME_CONFIG_PATH } from "../bundle/runtime-entry.ts";
@@ -140,7 +140,7 @@ export async function readBundleCopy(
   }
   let blueprintText: string;
   try {
-    blueprintText = await Deno.readTextFile(`${root}/${BLUEPRINT_COPY_NAME}`);
+    blueprintText = await Deno.readTextFile(`${root}/${DECLARATION_COPY_NAME}`);
     await Deno.stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
   } catch {
     return unavailable("bundle copy is incomplete");
@@ -157,7 +157,7 @@ export async function readBundleCopy(
     if (!names.ok) return unavailable("app domains cannot be read");
     domains = names.value;
   }
-  const blueprint = validateBlueprint(raw, { app, domains });
+  const blueprint = validateDeclaration(raw, { app, domains });
   if (!blueprint.ok) {
     return unavailable(
       `bundle blueprint is invalid: ${blueprint.error.message}`,

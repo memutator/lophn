@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { GrantPermissionRequirement } from "../../../protocol/apps/mod.ts";
 import { permissionsSchemaSteps } from "./schema.ts";
-import { compareDeclarations } from "./declarations.ts";
+import { compareFacts } from "./facts.ts";
 import { syncAppGrants } from "./commands.ts";
 import { loadGrants } from "./store.ts";
 
@@ -64,7 +64,7 @@ Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지
     assertEquals(hosts(), ["a.example"]);
 
     // ① 선언이 같으면 비교가 비고 grant는 그대로다.
-    assertEquals(compareDeclarations(active(), one), {
+    assertEquals(compareFacts(active(), one), {
       added_resources: [],
       added_tools: [],
     });
@@ -73,7 +73,7 @@ Deno.test("넓어진 선언은 사람이 허락하기 전에 앱 grant가 되지
     assertEquals(active(), before);
 
     // ② 새 host는 목록에 뜨고 허락 없이는 grant가 되지 않는다.
-    assertEquals(compareDeclarations(active(), two).added_resources, [
+    assertEquals(compareFacts(active(), two).added_resources, [
       "net.fetch:b.example:443",
     ]);
     assert(syncAppGrants(tx, APP, two, "not_needed").ok);

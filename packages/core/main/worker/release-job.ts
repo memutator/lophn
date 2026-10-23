@@ -25,7 +25,7 @@ type ReleaseJobResult =
   | {
     ok: true;
     bundle_hash: string;
-    blueprint_hash: string;
+    declaration_hash: string;
   }
   | {
     ok: false;
@@ -96,7 +96,7 @@ if (import.meta.main) {
     result = await checkSealedCopy(input, prepared.value.bundleHash) ?? {
       ok: true,
       bundle_hash: prepared.value.bundleHash,
-      blueprint_hash: prepared.value.blueprintHash,
+      declaration_hash: prepared.value.blueprintHash,
     };
   }
   console.log(JSON.stringify(result));

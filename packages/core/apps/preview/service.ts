@@ -14,7 +14,7 @@ import type {
 } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { z } from "zod";
-import type { ToolDeclaration } from "../blueprint/mod.ts";
+import type { ToolDeclaration } from "../declaration/mod.ts";
 import type { FlagSet } from "../permissions/mod.ts";
 import type { PreviewArea } from "./area.ts";
 import {

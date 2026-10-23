@@ -12,4 +12,4 @@ lead만 고친다. `tools/status.py blueprint-remove build`가 `tasks/*.md`에�
 | `br-shell` | br-shell | 2 | 없음 | merged | br-shell/br-shell | 499d87fbf |  |
 | `br-eval-checks` | br-eval-checks | 3 | 없음 | running | br-eval-checks/br-eval-checks |  |  |
 | `br-eval-materials` | br-eval-materials | 3 | br-eval-checks | todo |  |  |  |
-| `br-tests-support` | br-tests-support | 3 | 없음 | running | br-tests-support/br-tests-support |  |  |
+| `br-tests-support` | br-tests-support | 3 | 없음 | merged | br-tests-support/br-tests-support | 5df7b5342 |  |

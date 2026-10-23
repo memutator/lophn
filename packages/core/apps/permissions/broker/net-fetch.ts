@@ -169,6 +169,12 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
       let hops = 0;
       let current = target;
       let currentMethod = method;
+      // 앱 header는 처음 목적지의 origin으로만 간다(API key 같은 값이 redirect로 새지 않게).
+      const appHeaders = { ...input.headers };
+      let currentBody: string | Uint8Array<ArrayBuffer> | undefined =
+        typeof input.body === "object"
+          ? Uint8Array.from(atob(input.body.base64), (c) => c.charCodeAt(0))
+          : input.body;
       while (true) {
         let response: Response;
         // 목적지가 바뀐 hop은 값을 다시 찾으므로 redirect로 다른 host에 값이 새지 않는다.
@@ -177,14 +183,19 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
           urlHost(current),
           urlPort(current),
         );
+        const headers = new Headers(
+          current.origin === target.origin ? appHeaders : {},
+        );
+        if (secret !== undefined) {
+          headers.set("Authorization", `Bearer ${secret}`);
+        }
         try {
           response = await send(current, {
             method: currentMethod,
             redirect: "manual",
             signal: AbortSignal.timeout(timeout),
-            headers: secret === undefined
-              ? {}
-              : { Authorization: `Bearer ${secret}` },
+            headers,
+            ...(currentBody === undefined ? {} : { body: currentBody }),
           });
         } catch {
           return unavailable("request failed");
@@ -224,6 +235,10 @@ export function createNetFetchService(deps: NetFetchDeps): NetFetchService {
               currentMethod !== "GET" && currentMethod !== "HEAD")
           ) {
             currentMethod = "GET";
+            currentBody = undefined;
+            for (const key of Object.keys(appHeaders)) {
+              if (key.toLowerCase() === "content-type") delete appHeaders[key];
+            }
           }
           current = next;
           continue;

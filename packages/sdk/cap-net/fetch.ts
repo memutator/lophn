@@ -14,6 +14,18 @@ export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [200, 400];
 
 const METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 const READ_METHODS = new Set(["GET", "HEAD"]);
+// 아래 네 상수는 packages/protocol/apps/broker.ts의 NET_FETCH_*와 같아야 한다(SDK는 protocol을
+// import할 수 없어 사본이다). broker가 정본으로 한 번 더 거절한다.
+const BODY_MAX_BYTES = 10 * 1024 * 1024;
+const HEADERS_MAX = 32;
+const FORBIDDEN_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "host",
+  "content-length",
+  "proxy-authorization",
+]);
+const HEADER_KEY = /^[A-Za-z0-9-]{1,64}$/;
 // 상대가 일시적으로 못 받는다고 답한 상태다. 읽기만 다시 부른다.
 const RETRY_STATUSES = new Set([429, 502, 503, 504]);
 
@@ -24,6 +36,10 @@ export type NetRequest = {
   // "/"로 시작하는 경로. 목적지를 바꾸는 경로는 broker가 거절한다.
   path: string;
   method?: string;
+  // Authorization·Cookie·Host·Content-Length는 못 쓴다. 인증은 @lophn/cap-secret이 붙인다.
+  headers?: Record<string, string>;
+  // 글 또는 bytes, 10 MiB까지. GET·HEAD에는 못 싣는다.
+  body?: string | Uint8Array;
 };
 
 export type NetFetchOptions = {
@@ -63,6 +79,29 @@ function check(request: NetRequest, method: string): void {
     throw invalid("path must start with /");
   }
   if (!METHODS.has(method)) throw invalid("method is not supported");
+  const keys = Object.keys(request.headers ?? {});
+  if (keys.length > HEADERS_MAX) throw invalid("too many headers");
+  for (const key of keys) {
+    if (!HEADER_KEY.test(key)) throw invalid("header name is invalid");
+    if (FORBIDDEN_HEADERS.has(key.toLowerCase())) {
+      throw invalid("header is not allowed");
+    }
+  }
+  if (request.body === undefined) return;
+  if (READ_METHODS.has(method)) throw invalid("GET and HEAD have no body");
+  const size = typeof request.body === "string"
+    ? new TextEncoder().encode(request.body).length
+    : request.body.byteLength;
+  if (size > BODY_MAX_BYTES) throw invalid("body is too large");
+}
+
+function encodeBody(body: string | Uint8Array): string | { base64: string } {
+  if (typeof body === "string") return body;
+  let binary = "";
+  for (let i = 0; i < body.length; i += 0x8000) {
+    binary += String.fromCharCode(...body.subarray(i, i + 0x8000));
+  }
+  return { base64: btoa(binary) };
 }
 
 function timedOut(): CapabilityError {
@@ -147,6 +186,10 @@ export function createNetClient(deps: NetClientDeps = {}): NetClient {
         port: request.port,
         method,
         path: request.path,
+        ...(request.headers === undefined ? {} : { headers: request.headers }),
+        ...(request.body === undefined
+          ? {}
+          : { body: encodeBody(request.body) }),
       };
       const requested = {
         permission: "net.fetch",

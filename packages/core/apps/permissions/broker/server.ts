@@ -4,6 +4,7 @@
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import { APP_BROKER_PATHS } from "../../../../protocol/apps/calls/mod.ts";
+import { NET_FETCH_BODY_MAX_BYTES } from "../../../../protocol/apps/mod.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
@@ -20,6 +21,13 @@ const BROKER_ROUTES = {
 } as const;
 
 const BROKER_BODY_MAX_BYTES = 1_048_576;
+// net/fetch는 10 MiB bytes의 base64와 envelope 여유(64 KiB)를 담는다. 나머지 경로는 기본 상한이다.
+const BODY_MAX_BYTES_BY_PATH = new Map<string, number>([
+  [
+    BROKER_ROUTES.netFetch,
+    Math.ceil(NET_FETCH_BODY_MAX_BYTES / 3) * 4 + 64 * 1024,
+  ],
+]);
 
 export type BrokerServices = {
   ready?: ReadyService;
@@ -126,7 +134,10 @@ export function createBrokerEndpoint(options: {
         return failed({ code: "unavailable", message: "broker is closing" });
       }
       const text = await request.text();
-      if (new TextEncoder().encode(text).length > BROKER_BODY_MAX_BYTES) {
+      if (
+        new TextEncoder().encode(text).length >
+          (BODY_MAX_BYTES_BY_PATH.get(path) ?? BROKER_BODY_MAX_BYTES)
+      ) {
         return failed({ code: "invalid_input", message: "body is too large" });
       }
       let body: unknown;

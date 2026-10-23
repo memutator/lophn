@@ -15,11 +15,20 @@ loopback 듣기는 별도 package가 없다. `Deno.serve`를 쓴다. 주소와 p
 import { createNetClient, netFetch } from "@lophn/cap-net";
 ```
 
-- `netFetch({ host, port, path, method? }, options?)` — command 안에서 부른다.
-  `{ status, body }`를 돌려준다. host·port는 grant에 적힌 정확한 값이다. 요청은
-  https이고, loopback host는 http다. 사람이 켠 host·port만 나간다.
-  header·body·credential은 앱이 붙이지 않는다. 인증이 필요하면
-  `@lophn/cap-secret`을 쓴다.
+- `netFetch({ host, port, path, method?, headers?, body? }, options?)` — command
+  안에서 부른다. `{ status, body }`를 돌려준다. host·port는 grant에 적힌 정확한
+  값이다. 요청은 https이고, loopback host는 http다. 사람이 켠 host·port만
+  나간다.
+  - `body`는 글 또는 `Uint8Array`이고 10 MiB까지다. `GET`·`HEAD`에는 못 싣는다.
+    `headers`는 32개까지다.
+  - 앱이 못 쓰는 header는 `Authorization`, `Cookie`, `Host`, `Content-Length`,
+    `Proxy-Authorization`이다(대소문자 무관). 인증이 필요하면
+    `@lophn/cap-secret`의 `useSecret`을 쓴다. `Authorization`은 lophn이 붙인다.
+  - redirect에서 앱 header는 처음 목적지와 같은 origin으로만 다시 간다.
+    301·302·303은 `GET`으로 바꾸고 body와 `content-type`을 버린다.
+  - 응답은 여전히 1 MiB 이하의 글·JSON이다.
+  - 큰 본문은 시도 하나의 기본 timeout(10초)이 짧을 수 있다. `timeoutMs`를
+    키운다.
 - `createNetClient({ host?, sleep? })` — 시험이나 preview에서 host를 바꿔
   끼운다.
 - options: `timeoutMs`(시도 하나, 기본 10000), `retries`, `retryDelaysMs` (기본
@@ -55,6 +64,16 @@ const { status, body } = await netFetch(
   { host: "api.example.com", port: 443, path: "/v1/usage" },
   { timeoutMs: 5000 },
 );
+
+// JSON 본문과 header를 보내는 쓰기. 큰 본문이면 timeoutMs를 키운다.
+await netFetch({
+  host: "api.example.com",
+  port: 443,
+  path: "/v1/items",
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ name: "a" }),
+}, { timeoutMs: 30_000 });
 ```
 
 ## version 정책

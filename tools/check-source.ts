@@ -1,6 +1,7 @@
 // 소스 낱말 검사: 주석과 test 이름의 옛 요구 ID·작업 번호, 쓰지 않는 말.
 // 실행: deno run --allow-read tools/check-source.ts [root]
 // 이름과 경로의 판·단계·작업 번호는 check-deps.ts가, 화면 문구는 check-wording.ts가 본다.
+import { SHELL_ROUTES } from "../packages/shell/main/desktop/core/routes.ts";
 import { walk } from "./check-deps.ts";
 import { readImports, readStringSites } from "./deps-imports.ts";
 import {
@@ -129,6 +130,70 @@ async function checkExternalFetch(
   return issues;
 }
 
+// SHELL_ROUTE: shell(main·renderer)가 core route를 문자열(kind, resource, method)로 부르는데 protocol의 route 목록(SHELL_ROUTES)에 없는 짝이면 type check가 못 본다.
+// 읽는 꼴(문자열 literal이 쉼표로 이어진 줄을 호출 이름 바로 뒤에서 찾는다. 줄이 나뉘거나 제네릭이 끼어도 된다):
+// - call·internal·coreInternal("read", "apps", "get", …): kind가 첫 인자
+// - read·memory·command·upload<T>("skills", "read", …): kind가 호출 이름
+// - fileStream("apps", "screen_file", …): file route
+// - "memory:settings/list" 같은 이름 문자열(renderer 허용 목록)
+// 못 읽는 꼴: kind나 resource, method가 변수인 호출(`internal(kind, …)`), link.command(route, …)처럼 route 객체를 넘기는 호출(type이 본다).
+const SHELL_ROUTE_ROOTS = /^packages\/shell\/(?:main|renderer)\//;
+const ROUTE_NAMES = new Set(
+  SHELL_ROUTES.map((r) => `${r.kind}:${r.resource}/${r.method}`),
+);
+const KIND_FIRST = ["call", "internal", "coreInternal"];
+const KIND_BY_CALLEE: Record<string, string> = {
+  read: "read",
+  memory: "memory",
+  command: "command",
+  upload: "upload",
+  fileStream: "file",
+};
+const ROUTE_KINDS = ["command", "read", "file", "memory", "upload"];
+const CALLEE = new RegExp(
+  `(?<![\\w$])(${
+    [...KIND_FIRST, ...Object.keys(KIND_BY_CALLEE)].join("|")
+  })\\s*(?:<[\\s\\S]*?>)?\\s*\\(\\s*$`,
+);
+const ROUTE_NAME = new RegExp(`^(?:${ROUTE_KINDS.join("|")}):[\\w-]+/[\\w-]+$`);
+function checkShellRoutes(file: string, source: string): Issue[] {
+  const sites = readStringSites(source);
+  const calls: { name: string; line: number }[] = [];
+  for (let i = 0; i < sites.length; i++) {
+    const first = sites[i];
+    if (ROUTE_NAME.test(first.specifier)) {
+      calls.push({ name: first.specifier, line: first.line });
+    }
+    if (
+      i > 0 && /^\s*,\s*$/.test(source.slice(sites[i - 1].end, first.start))
+    ) {
+      continue;
+    }
+    const callee = CALLEE.exec(
+      source.slice(Math.max(0, first.start - 400), first.start),
+    )?.[1];
+    if (!callee) continue;
+    const run = [first.specifier];
+    for (let j = i + 1; j < sites.length; j++) {
+      if (!/^\s*,\s*$/.test(source.slice(sites[j - 1].end, sites[j].start))) {
+        break;
+      }
+      run.push(sites[j].specifier);
+    }
+    const [kind, resource, method] = KIND_FIRST.includes(callee)
+      ? run
+      : [KIND_BY_CALLEE[callee], ...run];
+    if (!ROUTE_KINDS.includes(kind) || method === undefined) continue;
+    calls.push({ name: `${kind}:${resource}/${method}`, line: first.line });
+  }
+  return calls.filter((c) => !ROUTE_NAMES.has(c.name)).map((c) => ({
+    file,
+    line: c.line,
+    rule: "SHELL_ROUTE",
+    message: `protocol에 없는 route를 부른다: ${c.name}`,
+  }));
+}
+
 export async function checkSource(root: string): Promise<Issue[]> {
   const issues: Issue[] = [];
   const { files } = await walk(root);
@@ -154,6 +219,10 @@ export async function checkSource(root: string): Promise<Issue[]> {
     });
   }
   issues.push(...await checkExternalFetch(root, files, sources));
+  for (const [file, source] of sources) {
+    if (!SHELL_ROUTE_ROOTS.test(file) || /_test\.tsx?$/.test(file)) continue;
+    issues.push(...checkShellRoutes(file, source));
+  }
   return issues;
 }
 

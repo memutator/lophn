@@ -38,7 +38,7 @@ job
 - 할 일은 셋 가운데 하나다.
   - `agent_run`: 부를 agent(`{role, place?, name?}`)와 prompt, 선택 입력 JSON과 출력 schema.
   - `tool_run`: 앱(id, slug, 이름)과 tool 이름, 선택 입력 JSON.
-  - `workflow_start`: `<project 이름>/<name>`, 시작 입력 글, 선택 step.
+  - `workflow_start`: `<project 이름>/<name>`, 시작 입력 글, 선택 step. `kind: agent`와 `kind: flow`를 다 시작한다. step은 agent workflow의 시작 자리이고 flow에 주면 차례에 `invalid_input`으로 실패한다.
 - 이름은 만들 때(또는 `action`을 바꿀 때) core가 풀어 id로 저장한다(agent는 AgentRef와 place, 앱과 project는 id). 앱의 tool 이름과 workflow file은 차례에 부를 때 본다. 못 풀면 만들지 못하고(`not_found`, coding agent는 `invalid_input`), 차례에 못 찾으면 그 job run이 실패로 남는다.
 - `title`은 1~80자이고 목록, card, run 줄과 instance 줄에 보일 이름이다.
 - 놓친 차례 정책은 `run`(켜지면 바로 한 번 돈다)과 `hold`(사람에게 묻는다) 둘이다.
@@ -102,14 +102,14 @@ job run
 할 일마다 시작과 끝
 - agent_run은 이름을 푼 agent로 run을 연다(`runService.start`의 `agent_resolved` 갈래). 차례마다 새 session을 열고 unattended 사람 메시지로 turn을 연다. 끝은 `waitRun`이 돌려준 run의 상태다. `ended` 기록이 오류로 못 적혔어도 바퀴마다 열린 run 줄의 run 상태를 한 번 읽어(`starter.runState`, 기다리지 않는다) 끝났으면 `ended`를 다시 적는다. 다시 부르기 loop는 없다. 그렇지 않으면 그 job의 차례가 다음 기동까지 모두 `skipped(overlap)`가 된다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
 - tool_run은 run 연산이 앱 호출 경로를 program caller로 부른다(아래 권한). 막히면 run이 `tool_denied`로 실패하고 job run이 `failed`다.
-- workflow_start는 `workflowService.start`를 시작한 쪽 `{kind: "job", job}`으로 직접 부른다. 사람만 받는 `StartWorkflow` route는 그대로다. 시작하지 못하면(`conflict` 등) job run이 `failed`다. 끝은 scheduler가 다음 바퀴에 instance 상태를 읽어 안다: `ended`면 `done`, `stopped`면 `cancelled`. 한 번 닫은 줄은 instance가 다시 열려도 되살리지 않는다.
+- workflow_start는 `workflowService.start`를 시작한 쪽 `{kind: "job", job}`으로 직접 부른다. 사람만 받는 `StartWorkflow` route는 그대로다. flow면 service가 그 process를 띄운다. job 쪽은 agent workflow와 다를 것이 없다. 시작하지 못하면(`conflict` 등) job run이 `failed`다. 끝은 scheduler가 다음 바퀴에 instance 상태를 읽어 안다: `ended`면 `done`, `stopped`면 `cancelled`. 한 번 닫은 줄은 instance가 다시 열려도 되살리지 않는다.
 - 시작하지 못한 차례(이름이 안 풀림, run 시작 실패)는 그 자리에서 `failed`로 닫는다. `waitRun`이 오류로 그치거나 lophn이 꺼지는 중이면 거짓 끝을 적지 않고 줄을 둔다. 다음 켤 때 `interrupted`로 닫힌다.
 - `started`나 `ended`가 `not_found`(그 사이 job이 지워짐)나 `conflict`(켤 때 이미 닫힘)면 정상이라 넘긴다. 그 밖의 오류는 log 한 줄이다.
 
 켤 때
 - 첫 바퀴는 run 줄의 run 상태를 읽지 않는다. runs가 끊긴 run을 이미 `lophn_restarted`로 닫아 두었으므로 읽으면 그 줄이 `failed`로 닫혀 아래 `interrupted`와 놓친 차례 계산이 사라진다. workflow 줄은 첫 바퀴도 읽는다.
 - 첫 바퀴의 startup claim이 남은 도는 줄을 먼저 닫는다. `running` 줄과 `queued`인데 넘겨진(`claimed_at`) 줄은 `interrupted`로 닫는다. 넘겼지만 `started`를 적었는지 알 길이 없는 줄이라 action과 상관없이 닫는다.
-- 예외는 workflow_start의 `running` 줄이다. instance는 lophn 없이도 돌았으므로(켤 때 `architecture/workflow.md`가 보는 것은 넘긴 step뿐이다) 줄을 둔다. 다음 바퀴가 instance 상태를 읽어 닫는다.
+- 예외는 workflow_start의 `running` 줄이다. agent instance는 lophn 없이도 돌았으므로(켤 때 `architecture/workflow.md`가 보는 것은 넘긴 step뿐이다) 줄을 둔다. 다음 바퀴가 instance 상태를 읽어 닫는다. flow instance는 켤 때 process 없이 `ended`로 닫히므로(다시 띄우지 않는다) 다음 바퀴가 그 줄을 `done`으로 닫고 다음 차례는 평소대로 돈다.
 - 닫은 줄은 놓친 차례로 하나 더 친다. 켤 때 run 쪽도 같은 일을 한다: 끊긴 run은 `lophn_restarted`로 닫히고(`architecture/run.md`) job run은 `interrupted`다. 그 job은 정책대로 한 번 다시 돌거나(`run`) card로 묻는다(`hold`).
 - wiring 순서에서 jobs는 runs와 workflows 뒤다(`packages/core/main/daemon/assembly.ts`의 `WIRINGS`). 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 

@@ -90,7 +90,7 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 - C26. 자기 Operator가 쓰는 package에서 난 문제는, Project Manager가 package 주인 앱(`package.get`의 `owner_app`)의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - C27. 자기 domain이 쓰는 공개 tool이 바뀌었다고 그 앱의 App Engineer가 알리면, Project Manager가 바뀐 tool을 읽고 그 tool을 부르는 skill(자기 Operator의 것 포함)을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, Project Manager나 그 domain을 고른 Operator가 domain의 artifact를 쓴다.
-- C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, Project Manager가 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project의 Project Manager뿐이다(`architecture/workflow.md`).
+- C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, Project Manager가 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project의 Project Manager뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 Project Manager의 할당과 맡은 domain 안에서만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다.
 
 ### workflow 참가자
 
@@ -101,6 +101,7 @@ W1~W5는 어느 role이든 workflow instance의 step을 받은 agent의 규칙�
 - W3. 예외가 생기면, 참가자가 `workflow.edit`로 instance를 고친다(step 더하기·고치기·지우기, 끝, 지금 넘기기). 누가 고칠지는 workflow가 정한다(coordinator 참가자를 둘 수 있다). 누가 고쳤는지 줄로 남는다.
 - W4. step 메시지가 연 turn은 사람이 없는 turn(unattended)이다. 받은 agent는 그래도 자기 할당으로만 일한다(T5, T6).
 - W5. lophn이 다시 켜져 넘긴 step이 `lophn_restarted`로 남았으면, 참가자나 사람이 확인하고 필요하면 `hand_now`로 다시 넘긴다. lophn은 다시 넣지 않는다.
+- W6. flow workflow는 참가자 대신 code(`flow.ts`)가 step을 돈다. flow가 agent를 부르면 그것은 step 메시지가 아니라 run이다(R8). 받은 agent는 report를 내지 않고 답을 남긴다. report는 code가 낸다. lophn이 다시 켜지면 도는 flow는 다시 띄우지 않고 끝난 것으로 닫는다.
 
 ### job
 
@@ -144,6 +145,7 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - R5. App Engineer는 coding agent에게 맡기지 않는다. 받는 곳이 coding agent로 풀리는 call은 Router가 거절한다. 연결 장치가 연 coding session과 주고받는 것은 대화로 주고받는 call이고, session이 끝나면 닫힌다.
 - R6. step 메시지: 사람이 시작한 workflow instance에서 참가자의 report나 고치기가 말한 step의 담당에게 program이 넣는 입력이다. call이 아니다(call 행과 답 방식이 없다). 답 대신 report를 낸다(W1).
 - R7. job의 run: job의 차례마다 program이 연 run의 입력이다. 받는 agent는 job에 적힌 agent이고 call이 아니다(call 행과 답 방식이 없다). 입력은 사람이 없는 입력(unattended)이고 답은 run 기록에 남는다(J3).
+- R8. flow의 run: flow code가 `agent(...)`로 연 run의 입력이다. 받는 agent는 code가 고른 누구든 되고 call이 아니다. 입력은 unattended이고, 받은 agent는 자기 할당으로만 일한다(T5, T6). 답은 run 기록에 남고 code가 받는다.
 
 ## 4. 넘길 때의 규칙
 
@@ -196,6 +198,7 @@ Operator ──────call(none)────▶ App Engineer      : 앱 버
 program ──────────알림───────▶ 사람              : 앱의 반복 종료와 새 kind 위반(toast), activation 동의(첫 activation, 넓어진 선언, data 손실), shell 물음(toast)
 workflow ───step 메시지───────▶ 참가자 agent      : 사람의 시작, report의 next, 고치기의 지금 넘기기가 그 step을 말했을 때
 job ─────────run─────────────▶ job에 적힌 agent   : 정해진 때 (사람이 청한 job의 차례, 새 session, unattended). 앱 tool 호출이나 workflow instance 시작도 한다
+flow ────────run─────────────▶ code가 고른 agent  : flow instance의 code가 agent(...)를 부를 때 (새 session, unattended). 앱 tool 호출과 report도 한다
 참가자 agent ──report·고치기──▶ workflow          : step을 끝냈거나 진행을 알리거나 예외를 다룰 때
 
 call(result) 받은 쪽 ────답─────▶ 보낸 쪽       : 맡은 일을 끝냈을 때, 맡지 않을 때
@@ -204,7 +207,7 @@ lophn agent 누구든 ─묻기(escalate)─▶ 사람      : 사람의 결정�
 
 - 위 선은 대표적인 것이다. lophn agent 사이에서는 어느 방향으로든 넘길 수 있다.
 - coding agent에게 가는 선은 없다. App Engineer가 앱을 직접 짓는다. 연결 장치는 남고, 연결된 coding session이 있다면 그 선은 App Engineer 하나뿐이다.
-- program은 스스로 정해 agent를 부르지 않는다. 정해진 때 job이 agent를 부르는 것은 사람이 시킨 일이다(E10). activation 실패는 `release.activate`의 결과로 돌아간다. workflow의 step 메시지는 사람과 참가자가 말한 대로 전하는 것이다(E9).
+- program은 스스로 정해 agent를 부르지 않는다. 정해진 때 job이 agent를 부르는 것은 사람이 시킨 일이다(E10). flow가 agent를 부르는 것은 Project Manager가 쓴 code를 사람이나 job이 시작한 것이다(E11). activation 실패는 `release.activate`의 결과로 돌아간다. workflow의 step 메시지는 사람과 참가자가 말한 대로 전하는 것이다(E9).
 
 ### 5.2 받는 agent 고르기
 
@@ -248,6 +251,7 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서�
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
 - E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
+- E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 sandbox 안 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 그 project Project Manager의 할당 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
 
 ## 7. 하지 않는 것
 

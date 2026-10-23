@@ -1,6 +1,6 @@
 # workflow: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. job이 instance를 시작하는 길은 계획 `schedule-job`으로 land했다(`project-docs/architecture/job.md`). 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. job이 instance를 시작하는 길은 계획 `schedule-job`으로, `kind: flow`(workflow 폴더의 `flow.ts`를 sandbox process로 띄우는 길, SDK `@lophn/flow`, flow caller, `workflow.check`)는 계획 `flow`로 land했다(`project-docs/architecture/job.md`, `project-docs/architecture/workflow.md` "flow"). 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
 
 ## 원칙: lophn program은 최대한 약하다
 
@@ -10,10 +10,8 @@
 
 ## 남은 일
 
-1. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. code는 workflow 폴더에 둔다(2026-10-23). 띄우는 길과 자격("정할 것" 1)은 계획에서 정한다.
-2. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 계획에서 정한다.
-3. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
-4. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
+1. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
+2. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
 
 ## 정한 것 (사람)
 
@@ -57,18 +55,8 @@
 - workflow의 node 시각화 방식을 domain에도 적용한다. 그래서 우리 kit에서 재사용 가능하게 만든다.
 - sidebar는 VS Code 같은 activity bar(리본)로 바꾼다. 항목이 너무 많아져 segmented toggle로는 감당하지 못한다.
 
-2026-10-23 (planner 추천을 사람이 골랐다)
-- flow의 code는 workflow 폴더(`<data>/projects/<prj>/workflows/<name>/`)에 `workflow.yaml` 옆 file로 둔다. 선언, 글, code가 한 폴더에 모인다. 쓰는 것은 그 폴더를 쓰는 PM이고, PM의 file 쓰기라 rewind로 되돌아간다.
-- 앱으로 두지 않는다. 앱 tool의 120초 제한과 write 직렬화 밖에서 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다.
-- 사람의 저장소(project 폴더)에 두지 않는다. workflow 정의 전체가 data 폴더에 있어 code만 보내면 정의가 두 곳으로 갈라진다.
-
-## 정할 것
-
-1. **flow code를 띄우는 길과 자격.** 사는 곳은 정했다(위 2026-10-23). 띄우는 법, 자격, 권한은 계획 `flow`(`project-docs/plan/flow/README.md` "정한 것")가 정했다. land하면 이 항목을 지운다.
-
 ## 끝남 기준
 
-- `flow` workflow를 사람이 시작하면 그 program이 report를 내고, 기록과 화면이 `agent` workflow와 같다.
 - lophn core에 eval을 아는 코드와 report 글을 해석하는 코드가 없다.
 
 ## 하지 않는 것

@@ -76,7 +76,7 @@ elements:
 
       - id: workflows
         kind: subsystem
-        description: project에 PM이 정의한 workflow를 instance로 돌리고, 참가자의 report와 고친 기록을 남기고, 말한 step의 담당에게 step 메시지를 넣는다. 판정과 넘기기 정책을 두지 않는다.
+        description: project에 PM이 정의한 workflow를 instance로 돌리고, 참가자의 report와 고친 기록을 남기고, 말한 step의 담당에게 step 메시지를 넣는다. flow면 그 code를 띄우는 port를 부르고 code의 report와 process의 끝을 줄로 남긴다. 판정과 넘기기 정책을 두지 않는다.
 
       - id: jobs
         kind: subsystem

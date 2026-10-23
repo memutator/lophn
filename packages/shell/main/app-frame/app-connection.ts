@@ -168,7 +168,7 @@ export function createAppConnector(call: CoreCaller) {
     const reply = await call("read", "apps", "tools", { app, release });
     if (!reply.ok) return undefined;
     const value = record(reply.value);
-    const permissions = record(value?.declarations)?.permissions;
+    const permissions = record(value?.facts)?.permissions;
     if (value?.release !== release || !Array.isArray(permissions)) {
       return undefined;
     }

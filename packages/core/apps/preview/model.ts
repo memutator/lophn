@@ -62,11 +62,11 @@ export type PreviewScope = {
 };
 
 export function previewScopeOf(
-  blueprint: Pick<AppDeclaration, "permissions">,
+  declaration: Pick<AppDeclaration, "permissions">,
 ): PreviewScope {
   const secrets: string[] = [];
   const net: { host: string; port: number }[] = [];
-  for (const requirement of blueprint.permissions) {
+  for (const requirement of declaration.permissions) {
     const scope = requirement.scope as Record<string, unknown>;
     if (requirement.kind === "secret.use") secrets.push(String(scope["name"]));
     else if (requirement.kind === "net.fetch") {

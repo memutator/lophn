@@ -9,7 +9,7 @@ import type { BrokerChild } from "./invocations.ts";
 export type AccessState = {
   release: string;
   scope: EffectiveScope;
-  // 현재 고정 blueprint의 command key 전체.
+  // 현재 고정 선언의 command key 전체.
   tools: readonly string[];
 };
 

@@ -13,7 +13,7 @@ Deno.test("handler 없는 tool을 선언한 앱의 probe는 409로 거절하고 
       mode: "preview",
       processNonce: "nonce",
     },
-    blueprint: { tools: [{ name: "add_item" }] } as never,
+    declaration: { tools: [{ name: "add_item" }] } as never,
     broker: {} as never,
     store: {} as never,
     dataSchema: 1,

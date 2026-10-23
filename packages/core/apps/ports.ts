@@ -56,8 +56,8 @@ export interface CallerDirectory {
 }
 
 /**
- * 구현: app-calls-assembly(`core/apps/blueprint` 읽기). 쓰는 곳: app-calls-path.
- * 활성 release(release가 null일 때) 또는 고정 release의 blueprint 선언. 없는 tool은 null.
+ * 구현: app-calls-assembly(`core/apps/declaration` 읽기). 쓰는 곳: app-calls-path.
+ * 활성 release(release가 null일 때) 또는 고정 release의 선언. 없는 tool은 null.
  * `findPreview`는 그 앱의 지금 preview(nonce가 맞을 때)가 띄운 bundle의 선언이다.
  */
 export interface AppToolLookup {

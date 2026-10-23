@@ -78,7 +78,7 @@ async function run(
   call: ProcessCall,
   record: boolean,
 ): Promise<InvokeResult> {
-  const declaration = state.blueprint.tools.find((tool) =>
+  const declaration = state.declaration.tools.find((tool) =>
     tool.name === call.tool
   );
   if (!declaration) return failed("not_found", "tool is not declared", null);

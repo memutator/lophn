@@ -86,7 +86,7 @@ type CapHostPort = {
 };
 
 // 정규 입력의 sha256이다. 호출 경계는 이미 입력을 검증하고 default를 채웠고, 입력이 없으면 정규 JSON
-// null이다. blueprint의 `canonicalInputHash`와 같은 값이다.
+// null이다. 선언의 `canonicalInputHash`와 같은 값이다.
 export function inputHashOf(input: unknown): string {
   return createHash("sha256").update(
     canonicalJson(input === undefined ? null : input as JsonValue),

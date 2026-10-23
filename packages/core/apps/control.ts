@@ -605,15 +605,15 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       }
       const changes = await dataChangesOf(copy.value);
       if (!changes.ok) return changes;
-      let blueprint: unknown;
+      let declaration: unknown;
       try {
-        blueprint = JSON.parse(
+        declaration = JSON.parse(
           await Deno.readTextFile(`${copy.value.root}/declaration.json`),
         );
       } catch {
         return err({
           code: "unavailable",
-          message: "bundle blueprint cannot be read",
+          message: "bundle declaration cannot be read",
         });
       }
       const machine = deps.activation.machine();
@@ -631,7 +631,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           commit,
           bundle_hash: bundleHash,
           declaration_hash: snapshot.declaration_hash,
-          blueprint,
+          declaration,
           manifest: copy.value.manifest,
           data_schema: copy.value.dataSchema,
           data_changes: changes.value,

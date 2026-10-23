@@ -1,5 +1,5 @@
 // preview 자식의 broker 서비스 조립. 외부에 닿는 서비스(net·secret)는 모두 대역이다. 선언은 그 bundle의
-// 고정 blueprint가 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
+// 고정 선언이 정하고 grant는 없다. 운영 자식의 broker와 hub를 나눠서 한 앱의 운영 정지·회수가
 // preview의 연결을 막지 않고 그 반대도 같다.
 import {
   type BrokerServices,
@@ -29,10 +29,10 @@ export async function previewScopeFromBundle(info: {
     const text = await Deno.readTextFile(
       `${root}/apps/${info.app}/bundles/${info.bundleHash}/declaration.json`,
     );
-    const blueprint = JSON.parse(text) as { permissions?: unknown };
-    if (!Array.isArray(blueprint.permissions)) return CLOSED_SCOPE;
+    const declaration = JSON.parse(text) as { permissions?: unknown };
+    if (!Array.isArray(declaration.permissions)) return CLOSED_SCOPE;
     return previewScopeOf(
-      blueprint as Parameters<typeof previewScopeOf>[0],
+      declaration as Parameters<typeof previewScopeOf>[0],
     );
   } catch {
     return CLOSED_SCOPE;

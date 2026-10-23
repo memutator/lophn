@@ -29,7 +29,7 @@ type MainDeps = {
   importModule: (specifier: string) => Promise<unknown>;
   clock?: { now: () => string; nowMs: () => number };
   ids?: { newId: (prefix: string) => string };
-  blueprint: AppDeclaration;
+  declaration: AppDeclaration;
   broker: BrokerTransport;
   dataSchema: number;
   // 예외 관측은 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
@@ -71,7 +71,7 @@ async function main(deps: MainDeps): Promise<void> {
   if (!line) throw new Error("app start input missing");
   const started = startRuntime({
     line,
-    blueprint: deps.blueprint,
+    declaration: deps.declaration,
     broker: deps.broker,
     dataSchema: deps.dataSchema,
   });
@@ -135,7 +135,7 @@ export async function run(): Promise<void> {
 if (import.meta.main) await run();
 
 // supervisor와 preview가 시작 입력을 stdin 한 줄로 준다. broker socket과 credential은 그
-// 줄에서, blueprint는 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
+// 줄에서, 선언은 `@lophn/app`이 가리키는 bundle 폴더에서 읽는다(앱 자식에는 env
 // 권한이 없다). 하나라도 없으면 stub으로 뜨지 않고 실패로 끝난다.
 async function boot(): Promise<void> {
   const line = await readStdinLine();
@@ -143,14 +143,14 @@ async function boot(): Promise<void> {
   const start = parseAppStart(line);
   if (!start) throw new Error("app start input is invalid");
   const bundleDir = bundleDirectory();
-  const blueprint = await readDeclaration(bundleDir);
-  if (!blueprint) throw new Error("app declaration is missing");
+  const declaration = await readDeclaration(bundleDir);
+  if (!declaration) throw new Error("app declaration is missing");
   const broker = start.broker_socket;
   const credential = start.broker_credential;
   await main({
     readLine: () => Promise.resolve(line),
     importModule: (specifier) => import(specifier),
-    blueprint,
+    declaration,
     broker: unixBroker(broker),
     dataSchema: await bundleDataSchema(bundleDir),
     reportTransport: (input) =>

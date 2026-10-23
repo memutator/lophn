@@ -137,7 +137,7 @@ type SupervisorIo = {
   credentialWaitMs?: number;
   // 자식 종료를 관측하면 알린다(결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다).
   childExited?: (processNonce: string) => void;
-  // preview 자식이 선언한 외부 범위(고정 bundle의 blueprint)다. 기본은 bundle 사본의 declaration.json을 읽는다.
+  // preview 자식이 선언한 외부 범위(고정 bundle의 선언)다. 기본은 bundle 사본의 declaration.json을 읽는다.
   previewScopeOf?: (info: {
     app: string;
     bundleHash: string;
@@ -768,7 +768,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const sockets = socketFlags(request.sockets);
       if (!sockets.ok) throw new Error(sockets.error.message);
       // preview 자식도 연결하기 전에 broker socket이 듣고 있어야 한다. 외부에 닿는 서비스는 모두 대역이고
-      // 선언은 그 bundle의 고정 blueprint가 정한다.
+      // 선언은 그 bundle의 고정 선언이 정한다.
       const started = startFieldsOf(request.startLine);
       if (started === undefined) {
         throw new Error("the start input has no broker credential");

@@ -38,9 +38,9 @@ function listed(names: readonly string[]): string {
   return names.length > 5 ? `${head} and ${names.length - 5} more` : head;
 }
 
-// blueprint와 등록된 handler의 차이. 둘 다 비면 맞는 것이다.
+// 선언과 등록된 handler의 차이. 둘 다 비면 맞는 것이다.
 function toolMismatch(state: RuntimeState): string {
-  const declared = state.blueprint.tools.map((tool) => tool.name);
+  const declared = state.declaration.tools.map((tool) => tool.name);
   const registered = attestation(state).tools;
   const missing = declared.filter((name) => !registered.includes(name));
   const extra = registered.filter((name) => !declared.includes(name));

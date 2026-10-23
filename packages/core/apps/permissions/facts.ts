@@ -7,15 +7,15 @@ import type {
   GrantPermissionRequirement,
 } from "../../../protocol/apps/mod.ts";
 
-// grant가 기대는 현재 release의 선언이다. releases(apps/releases)가 고정 blueprint에서
-// 만들어 port로 내놓는다. permissions는 blueprint 내용을 읽거나 해석하지 않는다.
+// grant가 기대는 현재 release의 선언 사실(facts)이다. releases(apps/releases)가 고정 선언에서
+// 만들어 port로 내놓는다. permissions는 선언 내용을 읽거나 해석하지 않는다.
 // 앱 grant와 닿는 것은 바깥 자원 요구(permissions)와 다른 앱 tool 선언(app_connections)이다.
 export type AppFacts = {
   release: string;
   permissions: readonly GrantPermissionRequirement[];
   // 이 앱이 부르겠다고 선언한 다른 앱의 tool.
   app_connections: readonly { app: string; tools: readonly string[] }[];
-  // 현재 blueprint의 command key 전체. broker가 호출한 command가 선언된 것인지 본다.
+  // 현재 선언의 command key 전체. broker가 호출한 command가 선언된 것인지 본다.
   tools: readonly string[];
 };
 

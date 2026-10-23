@@ -65,10 +65,10 @@ async function load(
 ): Promise<Result<Loaded | null>> {
   const bearer = deps.bearer();
   if (bearer === "") return unavailable("core is not connected");
-  let blueprint: { status: number; body: unknown };
+  let declaration: { status: number; body: unknown };
   let grants: Result<AppGrant[]>;
   try {
-    [blueprint, grants] = await Promise.all([
+    [declaration, grants] = await Promise.all([
       deps.post("apps/tools", bearer, { app }),
       activeGrants(deps.post, bearer, app),
     ]);
@@ -76,10 +76,12 @@ async function load(
     return unavailable("core is unreachable");
   }
   // active release가 없거나 앱을 모르면 실행 범위가 없다. 같은 not_found라 구별하지 않는다.
-  if (blueprint.status === 404) return ok(null);
-  if (blueprint.status !== 200) return unavailable("blueprint is unavailable");
-  const parsed = appTools.output.safeParse(blueprint.body);
-  if (!parsed.success) return unavailable("blueprint answered badly");
+  if (declaration.status === 404) return ok(null);
+  if (declaration.status !== 200) {
+    return unavailable("declaration is unavailable");
+  }
+  const parsed = appTools.output.safeParse(declaration.body);
+  if (!parsed.success) return unavailable("declaration answered badly");
   if (!grants.ok) return grants;
   return ok({ declared: parsed.data, grants: grants.value });
 }

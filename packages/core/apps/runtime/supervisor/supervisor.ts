@@ -40,7 +40,7 @@ export type DesiredApp = {
   runEnabled: boolean;
   archived: boolean;
   tools: string[];
-  // 현재 blueprint가 선언한 화면과 크기. connection은 이 선언과의 교집합만 받는다.
+  // 현재 선언의 화면과 크기. connection은 이 선언과의 교집합만 받는다.
   screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
   flags: FlagSet;

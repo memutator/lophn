@@ -134,7 +134,7 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
   };
 }
 
-// release에 고정한 blueprint의 tool 선언. release가 null이면 지금 활성 release다.
+// release에 고정한 선언의 tool 선언. release가 null이면 지금 활성 release다.
 // preview 선언은 그 preview가 띄운 bundle의 것이다. 아직 release가 없어도 찾는다.
 export function appToolLookupOf(
   sql: Pick<Sql, "get" | "all">,

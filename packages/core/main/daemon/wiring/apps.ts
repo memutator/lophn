@@ -166,7 +166,7 @@ export const appsWiring: WiringFactory = () => {
         const current = runtime.current(APPS_CONTROL_PRINCIPAL);
         return current.ok ? current.value : undefined;
       };
-      // 앱의 active domain 이름. link가 열린 뒤에 읽는다(blueprint 검사, 실행을 여는 사본 읽기, preview).
+      // 앱의 active domain 이름. link가 열린 뒤에 읽는다(선언 검사, 실행을 여는 사본 읽기, preview).
       const domainNamesOf = (app: string): Promise<Result<string[]>> => {
         try {
           return Promise.resolve(

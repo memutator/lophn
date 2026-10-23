@@ -122,10 +122,10 @@ export function createLedgerRegistration(
   // 앱 grant는 activation이 만들고, 사람은 거두기만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
-  // release 준비 확정과 그 읽기(list·get·compare), 고정 blueprint 읽기.
+  // release 준비 확정과 그 읽기(list·get·compare), 고정 선언 읽기.
   const releaseCommands = createReleaseCommands();
   const releaseReads = createReleaseReads();
-  const blueprintReads = createDeclarationReads(loadActiveDeclaration);
+  const declarationReads = createDeclarationReads(loadActiveDeclaration);
   return {
     // 보호 backup blob(일반 blob 읽기 없음)과 공개 SDK 사용 안내 blob(일반 읽기 허용).
     blobFields: [
@@ -186,8 +186,8 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.appTool,
-      blueprintReads.appToolIndex,
+      declarationReads.appTool,
+      declarationReads.appToolIndex,
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,
@@ -234,7 +234,7 @@ export function createLedgerRegistration(
         }),
       },
       // 현재 release의 선언 사실이다. grant·broker 읽기가 선언과 교집합을 본다
-      // 준비 때 고정한 blueprint에서 만든 값을 읽는다.
+      // 준비 때 고정한 선언에서 만든 값을 읽는다.
       { key: currentFacts, create: () => releaseFacts },
     ],
   };
@@ -248,13 +248,13 @@ export function createReaderRegistration(): ReaderRegistration {
   const runtimeReads = createRuntimeReads();
   const grantReads = createGrantsReads();
   const releaseReads = createReleaseReads();
-  const blueprintReads = createDeclarationReads(loadActiveDeclaration);
+  const declarationReads = createDeclarationReads(loadActiveDeclaration);
   return {
     reads: [
       reads.list,
       reads.get,
-      blueprintReads.appTool,
-      blueprintReads.appToolIndex,
+      declarationReads.appTool,
+      declarationReads.appToolIndex,
       releaseReads.listRecords,
       releaseReads.getRecord,
       releaseReads.activationCompare,

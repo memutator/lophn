@@ -25,7 +25,7 @@ function createMutex(): Mutex {
 
 export type RuntimeState = {
   identity: ProcessIdentity;
-  blueprint: AppDeclaration;
+  declaration: AppDeclaration;
   broker: BrokerClient;
   store: StoreAccess;
   dataSchema: number;
@@ -44,7 +44,7 @@ export type RuntimeState = {
 
 export function createRuntimeState(input: {
   identity: ProcessIdentity;
-  blueprint: AppDeclaration;
+  declaration: AppDeclaration;
   broker: BrokerClient;
   store: StoreAccess;
   dataSchema: number;

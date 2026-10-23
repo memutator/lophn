@@ -19,7 +19,7 @@ type Started = {
 
 export function startRuntime(deps: {
   line: string;
-  blueprint: AppDeclaration;
+  declaration: AppDeclaration;
   broker: BrokerTransport;
   dataSchema: number;
 }): Started {
@@ -34,7 +34,7 @@ export function startRuntime(deps: {
       mode: parsed.mode,
       processNonce: parsed.process_nonce,
     },
-    blueprint: deps.blueprint,
+    declaration: deps.declaration,
     dataSchema: deps.dataSchema,
     controlSocket: parsed.control_socket,
     store,

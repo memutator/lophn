@@ -45,7 +45,7 @@ type PreviewSupervisor = {
 export type PreviewBundle = {
   entry: string;
   importMap: string;
-  // bundle blueprint의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
+  // bundle 선언의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
   tools: readonly ToolDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;

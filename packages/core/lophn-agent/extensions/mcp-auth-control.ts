@@ -86,7 +86,7 @@ function oauthServerOf(
 }
 
 // 기다림 시한 timer다. 신호가 중단되면 timer를 지우고 일찍 돌아온다.
-const timerDeadline: AuthDeadline = (ms, signal) =>
+export const timerDeadline: AuthDeadline = (ms, signal) =>
   new Promise((resolve) => {
     if (signal.aborted) return resolve("aborted");
     const timer = setTimeout(() => {

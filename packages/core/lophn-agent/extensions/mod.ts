@@ -80,6 +80,7 @@ export {
   type McpToolsSource,
 } from "./mcp-tools.ts";
 export { createMcpOAuth, type McpOAuthServer } from "./mcp-oauth.ts";
+export { timerDeadline } from "./mcp-auth-control.ts";
 export {
   createMcpOAuthVault,
   type McpAuthKey,

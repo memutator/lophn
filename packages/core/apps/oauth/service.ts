@@ -16,6 +16,7 @@ import {
   createMcpOAuthVault,
   type HttpFetch,
   type McpOAuthServer,
+  timerDeadline,
 } from "../../lophn-agent/extensions/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 
@@ -55,21 +56,6 @@ export type AppOAuth = {
 
 // 만료가 가까우면 이 시간 전부터 갱신한다. 값을 보내기 직전에 갱신하므로 요청이 가는 동안 만료되지 않을 만큼이다.
 const REFRESH_SKEW_MS = 5 * 60_000;
-
-// 기다림 시한 timer다. 신호가 중단되면 timer를 지우고 일찍 돌아온다.
-const timerDeadline: AuthDeadline = (ms, signal) =>
-  new Promise((resolve) => {
-    if (signal.aborted) return resolve("aborted");
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve("elapsed");
-    }, ms);
-    function onAbort() {
-      clearTimeout(timer);
-      resolve("aborted");
-    }
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
 
 const SIGN_IN_REQUIRED = err({
   code: "conflict" as const,

@@ -17,6 +17,7 @@ import {
   type ModelChoice,
   type Role,
   startTurn,
+  toWireToolName,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
   type TurnMode,
@@ -157,6 +158,8 @@ type PreparerDeps = {
   >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
   roleTools(role: Role): readonly string[];
+  // roleTools 가운데 deferred-tools를 켠 session이 이름만 알리는 내장 tool.
+  deferredTools(role: Role): readonly string[];
   // role마다 다른 이름·기본 profile 규칙. role 층이 정해 조립이 넘긴다.
   roles: AgentRoleTable;
   instructions: InstructionDeps;
@@ -204,10 +207,22 @@ export type TurnPreparer = {
 };
 
 // session을 시작할 때 고정한 tool 목록이다. 정의는 model에 보인 그대로이고 handler는 turn마다 붙인다.
+// deferred는 deferred-tools를 켠 session이 숨긴 tool의 정본 이름이다. 꺼진 session은 null이고 끝까지 끈다:
+// 숨겨 둔 적 없는 tool을 이력이 이미 불렀을 수 있다.
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
+  deferred: ReadonlySet<string> | null;
 };
+
+// 숨긴 tool의 wire 이름을 정렬해 tool.load 설명 끝에 붙인다. 같은 session은 늘 같은 bytes다.
+function describeToolLoad(
+  tool: ToolDefinition,
+  deferred: ReadonlySet<string>,
+): ToolDefinition {
+  const wire = [...deferred].map(toWireToolName).sort();
+  return { ...tool, description: `${tool.description} ${wire.join(", ")}` };
+}
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
 type Seen = { basis: SeenBasis; compaction: string | null };
@@ -376,20 +391,42 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
+    // 켤지는 session의 첫 turn이 정하고 그 뒤로는 바꾸지 않는다.
+    const fixedNow = fixedBySession.get(start.session);
+    const deferral = fixedNow === undefined
+      ? model.value.deferrable
+      : fixedNow.deferred !== null;
+
     // role이 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다.
-    const current: readonly ToolDefinition[] = [
+    const plain: readonly ToolDefinition[] = [
       ...selectTools(
         deps.roleTools(session.agent.role),
-        { input_media: model.value.inputMedia },
+        { input_media: model.value.inputMedia, deferral },
         deps.toolkit.definitions,
       ),
       ...(appTool?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
+    // 숨기는 것은 role의 숨긴 목록에 든 내장 tool과 외부 MCP tool이다. 앱 tool은 숨기지 않는다.
+    const hidden = new Set(deps.deferredTools(session.agent.role));
+    const deferred: ReadonlySet<string> | null = !deferral
+      ? null
+      : fixedNow?.deferred ?? new Set([
+        ...plain.filter((tool) => hidden.has(tool.name)).map((tool) =>
+          tool.name
+        ),
+        ...external.map((tool) => tool.definition.name),
+      ]);
+    const current = deferred === null
+      ? plain
+      : plain.map((tool) =>
+        tool.name === "tool.load" ? describeToolLoad(tool, deferred) : tool
+      );
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
       current,
+      deferred,
       appTool,
       external,
       model: model.value,
@@ -434,6 +471,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
+    const deferred = fixed.deferred ?? new Set<string>();
     const listed: ToolDefinition[] = fixed.definitions.map((tool) => {
       const handler = legacy.get(tool.name);
       if (tool.handler !== undefined || handler === undefined) return tool;
@@ -475,6 +513,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         place,
         domains: resolved.domains,
         listed,
+        deferred,
         core: agentCall,
         clock,
         ids,
@@ -521,10 +560,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         prompt: {
           role_prompt: role.value,
           // 정본 이름이다. model에는 wire 이름으로 간다.
+          // 숨김 표시는 이 turn의 provider·model이 받을 때만 wire로 간다. 아니면 보통 정의다.
           tools: fixed.definitions.map((tool) => ({
             name: tool.name,
             description: tool.description,
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
+            ...(model.deferrable && deferred.has(tool.name)
+              ? { deferred: true }
+              : {}),
           })),
           instructions,
           skills: promptSkills(
@@ -750,6 +793,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       fixedBySession.set(start.session, {
         definitions: m.current,
         key: await keyOf(m.current),
+        deferred: m.deferred,
       });
     }
     const fixed = fixedBySession.get(start.session)!;

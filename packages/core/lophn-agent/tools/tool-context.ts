@@ -34,6 +34,8 @@ export type ToolContext = {
   domains: readonly string[];
   // 그 session이 시작할 때 고정한 tool 목록.
   listed: readonly ToolDefinition[];
+  // listed 가운데 이 session이 숨긴 tool의 정본 이름. deferred-tools가 꺼진 session은 비어 있다.
+  deferred: ReadonlySet<string>;
   // core route를 부른다. agent 자격이다.
   core: CoreCall;
   // Gate가 걸리는 tool만 executeToolCall이 부른다. 판정, 사람에게 묻기, 기다리기를 core가 한 번에 한다.

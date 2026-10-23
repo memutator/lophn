@@ -60,13 +60,15 @@ export async function definitionHash(tool: ToolDefinition): Promise<string> {
 }
 
 // role이 고정한 이름 목록에 든 정의다. 순서는 `definitions` 순서다(같은 판의 같은 bytes).
-// model이 image를 받지 못하면 `image.read`를 뺀다. 정의가 없는 이름은 건너뛴다.
+// model이 image를 받지 못하면 `image.read`를 뺀다. deferred-tools를 켜지 않은 session이면 `tool.load`를 뺀다.
+// 정의가 없는 이름은 건너뛴다.
 export function selectTools(
   names: readonly string[],
-  model: { input_media: readonly string[] },
+  model: { input_media: readonly string[]; deferral?: boolean },
   definitions: readonly ToolDefinition[],
 ): readonly ToolDefinition[] {
   const allowed = new Set(names);
   if (!model.input_media.includes("image")) allowed.delete("image.read");
+  if (model.deferral !== true) allowed.delete("tool.load");
   return definitions.filter((tool) => allowed.has(tool.name));
 }

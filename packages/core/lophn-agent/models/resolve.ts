@@ -23,10 +23,12 @@ import {
 import type { IdleDeps } from "../providers/invoke.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import { supportsDeferredTools } from "../providers/definitions.ts";
 import {
   anthropicPacker,
   cappedOutput,
   chatPacker,
+  deferralHeaders,
   type ModelBinding,
   OUTPUT_CAP,
   responsesPacker,
@@ -231,8 +233,15 @@ export function createModelResolver(deps: ModelResolverDeps) {
     if (!wire.ok) return wire;
     const limits = { ...resolved.value, ...wire.value };
 
+    const deferrable = supportsDeferredTools(
+      provider.definition.key,
+      selection.model_name,
+    );
     const invoke = createInvokeModelCall({
-      transport: withRequestHeaders(transport, limits.request_headers),
+      transport: withRequestHeaders(
+        transport,
+        deferralHeaders(limits.request_headers, deferrable),
+      ),
       nowMs,
       at: formatAt,
       idle: deps.idle,
@@ -295,6 +304,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
       usageRevision: limits.price_basis?.revision ?? "unknown",
       pack,
       invoke,
+      deferrable,
       // provider가 아직 연결돼 있고 같은 연결일 때만 보낸다. Disconnect하면 읽기가 없다고 답하고,
       // 같은 ID로 다시 Connect하면 logged_in_at이 달라진다.
       available: async () => {

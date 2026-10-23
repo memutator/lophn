@@ -1,6 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { ROLES } from "../../protocol/lophn-agent/places.ts";
-import { builtinToolNames } from "../agent-roles/tool-lists.ts";
+import {
+  builtinToolNames,
+  deferredToolNames,
+} from "../agent-roles/tool-lists.ts";
 import { appConnectSource } from "../../protocol/apps/apps.ts";
 import { agentConditions, roleOperations } from "../agent-roles/credentials.ts";
 import { FILE_HOOKS } from "../agent-roles/hooks.ts";
@@ -59,4 +62,17 @@ Deno.test("모든 내장 tool의 입력이 model에 보낼 JSON Schema로 바뀐
     }
   }
   assertEquals(failed, []);
+});
+
+// 목록에 없는 이름을 숨겼다고 적으면 tool.load가 그 tool을 영영 못 불러오고 어긋남을 아무도 모른다.
+Deno.test("숨긴 목록의 이름마다 그 role 목록에 든다", () => {
+  for (const role of ROLES) {
+    const listed = new Set(builtinToolNames(role));
+    assertEquals(
+      deferredToolNames(role).filter((name) => !listed.has(name)),
+      [],
+      role,
+    );
+    assert(!deferredToolNames(role).includes("tool.load"));
+  }
 });

@@ -8,6 +8,7 @@ import { CALL_TOOLS } from "../lophn-agent/tools/bundles/call.ts";
 import { createFileTools } from "../lophn-agent/tools/bundles/file.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
+import { TOOL_TOOLS } from "../lophn-agent/tools/bundles/tool.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
 import type { ToolDefinition } from "../lophn-agent/tools/mod.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
@@ -34,6 +35,7 @@ export function agentTools(
     ...CALL_TOOLS,
     ...ASK_TOOLS,
     ...SKILL_TOOLS,
+    ...TOOL_TOOLS,
   ];
   const at = (tool: ToolDefinition) =>
     DECLARED_ORDER.get(tool.name) ?? Number.MAX_SAFE_INTEGER;

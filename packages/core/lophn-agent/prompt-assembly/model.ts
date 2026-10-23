@@ -18,6 +18,8 @@ export type PromptTool = {
   name: string;
   description: string;
   input_schema: unknown;
+  // 이름만 알리고 정의는 `tool.load`가 펼친다. 요청이 켜진 session이고 이번 provider·model이 받을 때만 true다.
+  deferred?: boolean;
 };
 
 // 이력에 들어오는 조각. reasoning 본문은 조립에서 빠진다.
@@ -32,6 +34,8 @@ export type HistoryPart =
     media_type: string;
     data_base64: string;
   }
+  // tool.load가 불러온 tool의 wire 이름이다. id는 tool_result와 같고 adapter가 tool reference나 글로 바꾼다.
+  | { kind: "tool_result_reference"; id: string; names: string[] }
   | { kind: "reasoning"; text: string };
 
 export type HistoryMessage = {

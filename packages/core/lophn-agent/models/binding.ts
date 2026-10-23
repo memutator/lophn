@@ -51,7 +51,36 @@ export type ModelBinding = {
   invoke: InvokeModelCall;
   // provider가 켜져 있고 쓸 수 있는지.
   available(): Promise<boolean>;
+  // 이 provider·model이 defer_loading과 tool_reference를 받는지. session의 켜짐은 prepare가 따로 정한다.
+  deferrable: boolean;
 };
+
+// 받는 model에는 beta header를 늘 붙인다. 쓰지 않는 요청에 붙어도 해가 없고, header가 요청마다 달라지지 않는다.
+// 옵션이 이미 정한 anthropic-beta 값이 있으면 쉼표로 잇는다.
+const DEFERRAL_BETA = "advanced-tool-use-2025-11-20";
+
+export function deferralHeaders(
+  headers: Readonly<Record<string, string>>,
+  deferrable: boolean,
+): Record<string, string> {
+  if (!deferrable) return { ...headers };
+  const name =
+    Object.keys(headers).find((key) =>
+      key.toLowerCase() === "anthropic-beta"
+    ) ?? "anthropic-beta";
+  const have = (headers[name] ?? "").split(",").filter((v) => v !== "");
+  return {
+    ...headers,
+    [name]: have.includes(DEFERRAL_BETA)
+      ? have.join(",")
+      : [...have, DEFERRAL_BETA].join(","),
+  };
+}
+
+// tool.load의 결과를 글로 그릴 때(tool reference를 쓰지 않는 요청) 쓰는 문장이다.
+function loadedText(names: readonly string[]): string {
+  return `Loaded: ${names.join(", ")}`;
+}
 
 // 이미지 입력이 없는 model에는 이미지를 보내지 않고 글 한 줄로 바꾼다.
 const IMAGE_OMITTED = "(image omitted: this model does not accept image input)";
@@ -59,6 +88,7 @@ const IMAGE_OMITTED = "(image omitted: this model does not accept image input)";
 function anthropicMessages(
   messages: readonly PromptMessage[],
   images: boolean,
+  deferred: boolean,
 ): unknown[] {
   return messages.map((message) => {
     const content: Record<string, unknown>[] = [];
@@ -103,6 +133,31 @@ function anthropicMessages(
             extra,
           ];
         }
+      } else if (part.kind === "tool_result_reference") {
+        // 숨긴 tool을 쓰는 요청이면 결과가 tool reference뿐이다. 아니면 결과 글 뒤에 이름을 글로 잇는다.
+        const result = content.find((block) =>
+          block.type === "tool_result" && block.tool_use_id === part.id
+        );
+        const references = deferred
+          ? part.names.map((name) => ({
+            type: "tool_reference",
+            tool_name: name,
+          }))
+          : null;
+        if (result === undefined) {
+          content.push({
+            type: "tool_result",
+            tool_use_id: part.id,
+            content: references ?? loadedText(part.names),
+          });
+        } else if (references !== null) {
+          result.content = references;
+        } else {
+          const text = result.content;
+          result.content = Array.isArray(text)
+            ? [...text, { type: "text", text: loadedText(part.names) }]
+            : [text, loadedText(part.names)].filter((v) => v !== "").join("\n");
+        }
       }
     }
     return { role: message.role, content };
@@ -111,6 +166,15 @@ function anthropicMessages(
 
 // Anthropic Messages 번역. cache 표시는 system 층(anthropicSystem)과 대화 끝(buildRequest)이 단다.
 // model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다.
+// 이름만 알리는 정의에는 defer_loading을 붙인다. anthropicTools는 request.tools와 같은 순서다.
+function deferredAnthropicTools(request: PromptRequest) {
+  return anthropicTools(request).map((tool, at) =>
+    request.tools[at].deferred === true
+      ? { ...tool, defer_loading: true }
+      : tool
+  );
+}
+
 export function anthropicPacker(input: {
   model: string;
   maxTokens: number;
@@ -122,8 +186,12 @@ export function anthropicPacker(input: {
       model: input.model,
       max_tokens: input.maxTokens,
       system: anthropicSystem(request),
-      messages: anthropicMessages(request.messages, input.images),
-      tools: anthropicTools(request),
+      messages: anthropicMessages(
+        request.messages,
+        input.images,
+        request.tools.some((tool) => tool.deferred === true),
+      ),
+      tools: deferredAnthropicTools(request),
       request_patch: input.requestPatch,
     }),
     opaque_bytes: 0,
@@ -193,6 +261,26 @@ function responsesInput(
               : result.output),
             extra,
           ];
+        }
+      } else if (part.kind === "tool_result_reference") {
+        const result = items.find((item) => {
+          const typed = item as { type: string; call_id?: string };
+          return typed.type === "function_call_output" &&
+            typed.call_id === part.id;
+        }) as { output: string | unknown[] } | undefined;
+        if (result === undefined) {
+          items.push({
+            type: "function_call_output",
+            call_id: part.id,
+            output: loadedText(part.names),
+          });
+        } else if (typeof result.output === "string") {
+          result.output = `${result.output}\n${loadedText(part.names)}`;
+        } else {
+          result.output.push({
+            type: "input_text",
+            text: loadedText(part.names),
+          });
         }
       }
     }
@@ -270,6 +358,18 @@ function chatMessages(
       flush();
       if (part.kind === "tool_result") {
         out.push({ role: "tool", tool_call_id: part.id, content: part.text });
+      } else if (part.kind === "tool_result_reference") {
+        const result = out.find((item) => {
+          const typed = item as { role: string; tool_call_id?: string };
+          return typed.role === "tool" && typed.tool_call_id === part.id;
+        }) as { content: string } | undefined;
+        if (result === undefined) {
+          out.push({
+            role: "tool",
+            tool_call_id: part.id,
+            content: loadedText(part.names),
+          });
+        } else result.content = `${result.content}\n${loadedText(part.names)}`;
       } else if (part.kind === "tool_result_image") {
         pictures.push(
           images

@@ -38,7 +38,10 @@ import {
   createCompactor,
 } from "../../lophn-agent/session/compactor.ts";
 import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
-import { builtinToolNames } from "../../agent-roles/tool-lists.ts";
+import {
+  builtinToolNames,
+  deferredToolNames,
+} from "../../agent-roles/tool-lists.ts";
 import { rolePrompt } from "../../agent-roles/roles/prompts.ts";
 import { ROLE_TABLE } from "../../agent-roles/agents/role-table.ts";
 import { PROJECT_LAYER } from "../../agent-roles/place/project-layer.ts";
@@ -235,6 +238,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       rolePrompt,
       placeData: (call, agent) => placeData(call, agent, placeFiles()),
       roleTools: builtinToolNames,
+      deferredTools: deferredToolNames,
       roles: ROLE_TABLE,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.

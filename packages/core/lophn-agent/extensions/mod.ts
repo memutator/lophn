@@ -87,6 +87,7 @@ export {
   type McpGrant,
   mcpOAuthSecretDestinations,
   type McpOAuthVault,
+  type McpTokenNames,
   mcpTokenNames,
   type McpVaultSecrets,
 } from "./mcp-oauth-vault.ts";

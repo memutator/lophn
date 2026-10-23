@@ -25,11 +25,13 @@ export function mcpAuthKeyId(key: McpAuthKey): string {
   return `${scopeOf(key.place)}\0${key.name}`;
 }
 
+export type McpTokenNames = { access: string; refresh: string; meta: string };
+
 // 서버 하나의 token 이름이다. 서버 이름과 place에서 정해진다: 설정 schema는 `mcp-oauth.` 이름을 받지 않으므로
 // 설정이 다른 서버의 token을 가리킬 수 없다.
 export function mcpTokenNames(
   key: McpAuthKey,
-): { access: string; refresh: string; meta: string } {
+): McpTokenNames {
   const base = `mcp-oauth.${scopeOf(key.place)}.${key.name}`;
   return {
     access: `${base}.access`,
@@ -38,12 +40,9 @@ export function mcpTokenNames(
   };
 }
 
-// token이 묶인 조합이다. 이 중 하나라도 지금 설정과 다르면 token은 쓰지 않는다.
-type McpGrantBinding = {
-  issuer: string;
-  server_url: string;
-  client_id: string;
-};
+// token이 묶인 조합이다. 이 중 하나라도 지금 설정과 다르면 token은 쓰지 않는다. MCP는 `{ issuer, server_url,
+// client_id }`를 쓰고, 앱 OAuth는 자기 조합을 넣는다.
+type McpGrantBinding = Record<string, string>;
 
 export type McpGrant = {
   access_token: string;
@@ -96,18 +95,13 @@ function metaOf(text: string): Meta | null {
       typeof record["expires_at_ms"] !== "number") ||
     typeof record["token_endpoint"] !== "string" ||
     binding === undefined || binding === null ||
-    typeof binding["issuer"] !== "string" ||
-    typeof binding["server_url"] !== "string" ||
-    typeof binding["client_id"] !== "string"
+    typeof binding !== "object" ||
+    !Object.values(binding).every((v) => typeof v === "string")
   ) return null;
   return {
     expires_at_ms: record["expires_at_ms"] as number | null,
     token_endpoint: record["token_endpoint"],
-    binding: {
-      issuer: binding["issuer"],
-      server_url: binding["server_url"],
-      client_id: binding["client_id"],
-    },
+    binding: binding as Record<string, string>,
   };
 }
 
@@ -122,16 +116,20 @@ export function mcpOAuthSecretDestinations(
   const meta = secrets.get(`${name.slice(0, -suffix.length)}.meta`);
   if (!meta.ok) return [];
   const parsed = metaOf(meta.value);
-  const destination = parsed === null
+  const serverUrl = parsed?.binding["server_url"];
+  const destination = serverUrl === undefined
     ? undefined
-    : secretDestinationOf(parsed.binding.server_url);
+    : secretDestinationOf(serverUrl);
   return destination === undefined ? [] : [destination];
 }
 
 export function createMcpOAuthVault(options: {
   secrets: McpVaultSecrets;
+  // 보관 이름이다. 기본은 MCP 서버의 이름이다.
+  names?: (key: McpAuthKey) => McpTokenNames;
 }): McpOAuthVault {
   const { secrets } = options;
+  const namesOf = options.names ?? mcpTokenNames;
   const queues = new Map<string, Promise<unknown>>();
 
   // 같은 서버의 보관 작업은 차례로 한다: 저장과 지움이 겹쳐 반쯤 지워진 벌을 읽지 않는다.
@@ -154,7 +152,7 @@ export function createMcpOAuthVault(options: {
   }
 
   function loadNow(key: McpAuthKey): Result<McpGrant | null> {
-    const names = mcpTokenNames(key);
+    const names = namesOf(key);
     const meta = read(names.meta);
     if (!meta.ok) return meta;
     const access = read(names.access);
@@ -178,7 +176,7 @@ export function createMcpOAuthVault(options: {
 
     save(key, grant) {
       return serial(key, async () => {
-        const names = mcpTokenNames(key);
+        const names = namesOf(key);
         const meta: Meta = {
           expires_at_ms: grant.expires_at_ms,
           token_endpoint: grant.token_endpoint,
@@ -201,7 +199,7 @@ export function createMcpOAuthVault(options: {
 
     remove(key) {
       return serial(key, async () => {
-        const names = mcpTokenNames(key);
+        const names = namesOf(key);
         let failed = false;
         for (const name of [names.access, names.refresh, names.meta]) {
           if (!(await secrets.delete(name)).ok) failed = true;

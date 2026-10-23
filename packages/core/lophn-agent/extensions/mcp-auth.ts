@@ -2,7 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { cryptoRandom, type RandomSource } from "../../../base/mod.ts";
 import type { McpAuthFailure } from "../../../protocol/lophn-agent/mod.ts";
 import type { HttpFetch } from "./adapters/mcp-http.ts";
-import { httpRequest } from "./adapters/mcp-http.ts";
+import { endpointReason, httpRequest } from "./adapters/mcp-http.ts";
 
 // HTTP 인증.
 // 인증 없음·사람이 지정한 Bearer 토큰·사람이
@@ -156,7 +156,24 @@ type OAuthStartInput = {
   redirectPort: number;
   state: string;
   challenge: string;
+  // 앱 선언이 더하는 authorize parameter다.
+  params?: Record<string, string>;
 };
+
+// 앱 선언이 authorize URL에서 덮지 못하는 key다. protocol/apps의 OAUTH_RESERVED_PARAMS와 같은 목록이다
+// (harness는 protocol/apps를 import할 수 없어 복사한다).
+const RESERVED_PARAMS: readonly string[] = [
+  "response_type",
+  "client_id",
+  "redirect_uri",
+  "scope",
+  "state",
+  "code_challenge",
+  "code_challenge_method",
+  "code_verifier",
+  "client_secret",
+  "grant_type",
+];
 
 function authorizationUrl(
   input: OAuthStartInput,
@@ -170,13 +187,13 @@ function authorizationUrl(
       message: "authorization endpoint가 URL이 아니다",
     });
   }
-  if (endpoint.protocol !== "https:") {
-    return err({
-      code: "invalid_input",
-      message: "authorization endpoint는 https다",
-    });
-  }
+  // 앱 선언은 개발·test를 위해 loopback http 끝점을 받는다. MCP의 https-only는 mcp-oauth가 지킨다.
+  const reason = endpointReason(endpoint.href);
+  if (reason !== null) return err({ code: "invalid_input", message: reason });
   const url = new URL(endpoint.href);
+  for (const [name, value] of Object.entries(input.params ?? {})) {
+    if (!RESERVED_PARAMS.includes(name)) url.searchParams.set(name, value);
+  }
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", input.clientId);
   if (input.scopes.length > 0) {
@@ -193,7 +210,7 @@ function authorizationUrl(
 }
 
 // OAuth token 교환이다. code·verifier·redirect_port로 token endpoint를
-// 부른다. endpoint는 https다.
+// 부른다. endpoint 검사는 httpRequest가 한다(https 또는 loopback http).
 type TokenExchangeInput = {
   tokenEndpoint: string;
   code: string;
@@ -216,18 +233,6 @@ async function exchangeToken(
   fetch: HttpFetch,
   signal: AbortSignal,
 ): Promise<Result<TokenExchangeOutcome>> {
-  let endpoint: URL;
-  try {
-    endpoint = new URL(input.tokenEndpoint);
-  } catch {
-    return err({
-      code: "invalid_input",
-      message: "token endpoint가 URL이 아니다",
-    });
-  }
-  if (endpoint.protocol !== "https:") {
-    return err({ code: "invalid_input", message: "token endpoint는 https다" });
-  }
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code: input.code,
@@ -279,6 +284,18 @@ async function exchangeToken(
   });
 }
 
+function jsonRecord(bytes: Uint8Array): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    return parsed !== null && typeof parsed === "object" &&
+        !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // OAuth refresh이다. 만료 토큰은 같은 연결에서 한 번에 하나만 갱신한다.
 type RefreshOutcome = {
   access_token: string;
@@ -292,22 +309,15 @@ export async function refreshToken(
     refreshToken: string;
     clientId: string;
     clientSecret: string | null;
+    // 거절(재인증 필요)로 볼 응답이다. 기본은 status >= 400이다.
+    rejected?: (
+      status: number,
+      body: Record<string, unknown> | null,
+    ) => boolean;
   },
   fetch: HttpFetch,
   signal: AbortSignal,
 ): Promise<Result<RefreshOutcome>> {
-  let endpoint: URL;
-  try {
-    endpoint = new URL(input.tokenEndpoint);
-  } catch {
-    return err({
-      code: "invalid_input",
-      message: "token endpoint가 URL이 아니다",
-    });
-  }
-  if (endpoint.protocol !== "https:") {
-    return err({ code: "invalid_input", message: "token endpoint는 https다" });
-  }
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: input.refreshToken,
@@ -328,14 +338,15 @@ export async function refreshToken(
       message: response.detail,
     });
   }
-  if (response.status >= 400) {
-    // 갱신 거절(폐기된 refresh token 등)은 재인증 필요다.
-    return err({
-      code: "forbidden",
-      message: "갱신 거절이다. 재인증이 필요하다",
-    });
-  }
   if (response.status !== 200) {
+    const rejected = input.rejected ?? ((status: number) => status >= 400);
+    if (rejected(response.status, jsonRecord(response.body))) {
+      // 갱신 거절(폐기된 refresh token 등)은 재인증 필요다.
+      return err({
+        code: "forbidden",
+        message: "갱신 거절이다. 재인증이 필요하다",
+      });
+    }
     return err({
       code: "unavailable",
       message: `token endpoint가 ${response.status}로 답했다`,
@@ -412,6 +423,8 @@ export function createMcpAuth(options: {
     clientId: string;
     scopes: readonly string[];
     listener: CallbackListener;
+    clientSecret?: string | null;
+    params?: Record<string, string>;
   }): Promise<Result<{ url: URL; verifier: string; state: string }>>;
   // 사람이 돌아온 callback을 받아 token 교환을 마친다. 기다리는 동안 취소나 시한으로 끝난다.
   complete(input: {
@@ -426,6 +439,7 @@ export function createMcpAuth(options: {
     verifier: string;
     tokenEndpoint: string;
     clientId: string;
+    clientSecret: string | null;
     stateValue: string;
     listener: CallbackListener;
     startedAt: number;
@@ -468,21 +482,6 @@ export function createMcpAuth(options: {
           message: "OAuth 시작이 이미 진행 중이다",
         });
       }
-      let endpoint: URL;
-      try {
-        endpoint = new URL(input.authorizationEndpoint);
-      } catch {
-        return err({
-          code: "invalid_input",
-          message: "authorization endpoint가 URL이 아니다",
-        });
-      }
-      if (endpoint.protocol !== "https:") {
-        return err({
-          code: "invalid_input",
-          message: "authorization endpoint는 https다",
-        });
-      }
       const verifier = pkceVerifier(random);
       const challenge = await pkceChallengeS256(verifier);
       // 무작위 state다(사람이 시작한 OAuth의 cryptographic state).
@@ -496,6 +495,7 @@ export function createMcpAuth(options: {
         redirectPort: input.listener.port(),
         state: stateValue,
         challenge,
+        ...(input.params === undefined ? {} : { params: input.params }),
       });
       if (!url.ok) return url;
       // 위의 await 동안 다른 시작이 끼어들었을 수 있다.
@@ -510,6 +510,7 @@ export function createMcpAuth(options: {
         verifier,
         tokenEndpoint: input.tokenEndpoint,
         clientId: input.clientId,
+        clientSecret: input.clientSecret ?? null,
         stateValue,
         listener: input.listener,
         startedAt: options.nowMs(),
@@ -574,7 +575,7 @@ export function createMcpAuth(options: {
           verifier: held.verifier,
           clientId: held.clientId,
           redirectPort: held.listener.port(),
-          clientSecret: null,
+          clientSecret: held.clientSecret,
         },
         input.fetch,
         merged,

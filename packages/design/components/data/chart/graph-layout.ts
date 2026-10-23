@@ -17,6 +17,8 @@ export const ICON_GAP = px(tokens.space[2]);
 const PAD = px(tokens.space[5]);
 const ROW_GAP = px(tokens.space[5]);
 const COLUMN_GAP = px(tokens.space[10]);
+// 되돌아가는 edge 하나가 node 줄 위 여백에서 차지하는 높이.
+const LANE = px(tokens.space[6]);
 // 이보다 긴 이름은 줄여 보이고 전체는 tooltip으로 읽는다.
 const LABEL_LIMIT = 24;
 // note는 node 폭을 밀지 않도록 이만큼에서 줄인다.
@@ -148,6 +150,29 @@ function layers(
 
 const link = linkHorizontal();
 
+type Point = readonly [number, number];
+
+// 꺾이는 곳을 LANE/2 반지름으로 둥글린 직교 경로.
+function roundedPath(points: readonly Point[]): string {
+  let d = `M${points[0]}`;
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const [prev, at, next] = [points[i - 1], points[i], points[i + 1]];
+    const before = Math.hypot(at[0] - prev[0], at[1] - prev[1]);
+    const after = Math.hypot(next[0] - at[0], next[1] - at[1]);
+    const r = Math.min(LANE / 2, before / 2, after / 2);
+    const enter = [
+      at[0] + ((prev[0] - at[0]) / before) * r,
+      at[1] + ((prev[1] - at[1]) / before) * r,
+    ];
+    const leave = [
+      at[0] + ((next[0] - at[0]) / after) * r,
+      at[1] + ((next[1] - at[1]) / after) * r,
+    ];
+    d += `L${enter}Q${at} ${leave}`;
+  }
+  return `${d}L${points[points.length - 1]}`;
+}
+
 // 검증을 마친 입력(id가 겹치지 않고 edge가 있는 node를 가리킴)을 받는다.
 export function layoutGraph(
   nodes: readonly GraphNode[],
@@ -168,12 +193,14 @@ export function layoutGraph(
   const spanOf = (column: readonly GraphNode[]) =>
     column.reduce((sum, node) => sum + nodeHeight(node), 0) +
     (column.length - 1) * ROW_GAP;
-  const height = largest(columns.map(spanOf));
+  // 되돌아가는 edge는 사이 node 뒤로 지나지 않게 node 줄 위 여백으로 돌린다. edge마다 줄 하나다.
+  const top = back.size * LANE;
+  const height = top + largest(columns.map(spanOf));
   const placed = new Map<string, PlacedNode>();
   let x = 0;
   columns.forEach((column, layer) => {
     const width = largest(column.map((node) => nodeTextWidth(node) + PAD * 2));
-    let y = (height - spanOf(column)) / 2;
+    let y = top + (height - top - spanOf(column)) / 2;
     for (const node of column) {
       const nodeH = nodeHeight(node);
       const statusY = NODE_HEIGHT / 2 + LABEL_LINE / 2 + LINE / 2;
@@ -199,25 +226,50 @@ export function layoutGraph(
     }
     x += width + gap;
   });
-  const placedEdges = edges.map((edge) => {
+  let backLane = 0;
+  const placedEdges = edges.map((edge, index) => {
     const from = placed.get(edge.from)!;
     const to = placed.get(edge.to)!;
-    // 되돌아가는 edge는 왼쪽 면에서 나가 앞 층의 오른쪽 면으로 들어간다.
-    const forward = to.layer > from.layer;
+    const shortLabel = edge.label === undefined
+      ? undefined
+      : shorten(edge.label);
+    if (back.has(index)) {
+      // 출발 node 위에서 나가 여백 줄을 가로질러 도착 node 위로 들어간다. 같은 층에서 위에 다른 node가
+      // 있으면 그 node를 뚫지 않게 출발은 왼쪽 면, 도착은 오른쪽 면에서 층 사이 틈으로 돌아 나간다.
+      const laneY = top - (backLane++ + 0.5) * LANE;
+      const out: Point[] = columns[from.layer][0].id === from.id
+        ? [[from.x + from.width / 2, from.y], [from.x + from.width / 2, laneY]]
+        : [
+          [from.x, from.y + from.height / 2],
+          [from.x - gap / 3, from.y + from.height / 2],
+          [from.x - gap / 3, laneY],
+        ];
+      const into: Point[] = columns[to.layer][0].id === to.id
+        ? [[to.x + to.width / 2, laneY], [to.x + to.width / 2, to.y]]
+        : [
+          [to.x + to.width + gap / 3, laneY],
+          [to.x + to.width + gap / 3, to.y + to.height / 2],
+          [to.x + to.width, to.y + to.height / 2],
+        ];
+      return {
+        ...edge,
+        path: roundedPath([...out, ...into]),
+        labelX: (out[out.length - 1][0] + into[0][0]) / 2,
+        labelY: laneY,
+        shortLabel,
+      };
+    }
     const start: [number, number] = [
-      forward ? from.x + from.width : from.x,
+      from.x + from.width,
       from.y + from.height / 2,
     ];
-    const end: [number, number] = [
-      forward ? to.x : to.x + to.width,
-      to.y + to.height / 2,
-    ];
+    const end: [number, number] = [to.x, to.y + to.height / 2];
     return {
       ...edge,
       path: link({ source: start, target: end }) ?? "",
       labelX: (start[0] + end[0]) / 2,
       labelY: (start[1] + end[1]) / 2,
-      shortLabel: edge.label === undefined ? undefined : shorten(edge.label),
+      shortLabel,
     };
   });
   return {

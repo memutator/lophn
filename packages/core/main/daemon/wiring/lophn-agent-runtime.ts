@@ -218,6 +218,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             ...message,
             payload: { ...message.payload, component: AGENT_RUNTIME_KIND },
           }).catch(() => {}),
+        stderr: (line) => console.error(`agent runtime: ${line}`),
         registry: ctx.registry,
         record: (context) => runtime.record(context),
         turns: createTurnSource({

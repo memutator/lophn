@@ -177,6 +177,8 @@ type AgentRuntimeDeps = {
   >[0]["conditionsFor"];
   // child가 보낸 lophn_internal 분류(처리 못한 예외로 죽기 직전). 다른 kind는 받지 않는다.
   diagnostic?(message: Extract<Diagnostic, { kind: "lophn_internal" }>): void;
+  // child가 stderr에 쓴 줄. 진단 원문은 child가 이미 안전화해서 쓴다.
+  stderr?(line: string): void;
   registry: CredentialRegistry;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   epoch: string;
@@ -325,6 +327,7 @@ export async function startAgentRuntimeChild(
         }).catch(() => {});
       },
       onFrame: (frame: Frame) => handler.onFrame(frame),
+      onStderr: (line: string) => deps.stderr?.(line),
       // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않고, 돌던 turn은 닫힌다.
       // 입력함의 도는 표시는 ledger가 닫힌 뒤에 푼다: 먼저 풀면 새 입력이 아직 running인 행과 겹친다.
       onEnd() {

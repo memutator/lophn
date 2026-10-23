@@ -64,7 +64,7 @@
 
 ## 정할 것
 
-1. **flow code를 띄우는 길과 자격.** 사는 곳은 정했다(위 2026-10-23). lophn이 그 code를 따로 process로 띄우는 법, 그 process가 run을 부르고 report를 낼 자격, 줄 권한(네트워크, file)은 계획을 열 때 planner가 정한다. 제품 동작이 바뀌면 사람에게 묻는다.
+1. **flow code를 띄우는 길과 자격.** 사는 곳은 정했다(위 2026-10-23). 띄우는 법, 자격, 권한은 계획 `flow`(`project-docs/plan/flow/README.md` "정한 것")가 정했다. land하면 이 항목을 지운다.
 
 ## 끝남 기준
 

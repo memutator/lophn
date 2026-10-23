@@ -4,6 +4,9 @@ import type { appSpace } from "./app-space.ts";
 export type AppSpacePlaceholders = {
   "app-detail.button.back-to-activity": Record<never, never>;
   "app-detail.button.cancel": Record<never, never>;
+  "app-detail.button.change-client-id": Record<never, never>;
+  "app-detail.button.change-client-secret": Record<never, never>;
+  "app-detail.button.change-value": Record<never, never>;
   "app-detail.button.go-back": {
     release: "string";
   };
@@ -12,6 +15,11 @@ export type AppSpacePlaceholders = {
     name: "string";
   };
   "app-detail.button.rewind-from-here": Record<never, never>;
+  "app-detail.button.save-client-id": Record<never, never>;
+  "app-detail.button.set-client-secret": Record<never, never>;
+  "app-detail.button.set-value": Record<never, never>;
+  "app-detail.button.sign-in": Record<never, never>;
+  "app-detail.button.sign-in-again": Record<never, never>;
   "app-detail.error.go-back-failed": {
     release: "string";
   };
@@ -70,6 +78,9 @@ export type AppSpacePlaceholders = {
   "app-detail.label.changes-resource": Record<never, never>;
   "app-detail.label.changes-wider": Record<never, never>;
   "app-detail.label.cleaning-up": Record<never, never>;
+  "app-detail.label.client-id": Record<never, never>;
+  "app-detail.label.client-secret": Record<never, never>;
+  "app-detail.label.client-secret-optional": Record<never, never>;
   "app-detail.label.col-call": Record<never, never>;
   "app-detail.label.col-caller": Record<never, never>;
   "app-detail.label.col-effect": Record<never, never>;
@@ -101,6 +112,13 @@ export type AppSpacePlaceholders = {
   "app-detail.label.loss-drop-table": Record<never, never>;
   "app-detail.label.loss-narrow-type": Record<never, never>;
   "app-detail.label.nothing-changed": Record<never, never>;
+  "app-detail.label.oauth-not-signed-in": Record<never, never>;
+  "app-detail.label.oauth-sign-in-at": {
+    host: "string";
+    scopes: "string";
+  };
+  "app-detail.label.oauth-signed-in": Record<never, never>;
+  "app-detail.label.oauth-waiting": Record<never, never>;
   "app-detail.label.outcome-cannot": Record<never, never>;
   "app-detail.label.outcome-done": Record<never, never>;
   "app-detail.label.outcome-not-changed": Record<never, never>;
@@ -131,6 +149,8 @@ export type AppSpacePlaceholders = {
   "app-detail.label.role-lophn": Record<never, never>;
   "app-detail.label.role-operator": Record<never, never>;
   "app-detail.label.role-project-manager": Record<never, never>;
+  "app-detail.label.secret-not-set": Record<never, never>;
+  "app-detail.label.secret-set": Record<never, never>;
   "app-detail.label.session-unnamed": Record<never, never>;
   "app-detail.label.state-done": Record<never, never>;
   "app-detail.label.state-failed": Record<never, never>;
@@ -166,6 +186,7 @@ export type AppSpacePlaceholders = {
     release: "string";
   };
   "app-detail.note.access-intro": Record<never, never>;
+  "app-detail.note.access-intro-secrets": Record<never, never>;
   "app-detail.note.activity-scope": Record<never, never>;
   "app-detail.note.applying-first": Record<never, never>;
   "app-detail.note.applying-keeps": {
@@ -194,6 +215,14 @@ export type AppSpacePlaceholders = {
   "app-detail.note.no-activity": Record<never, never>;
   "app-detail.note.no-other-apps": Record<never, never>;
   "app-detail.note.no-resources": Record<never, never>;
+  "app-detail.note.oauth-failed-callback-timeout": Record<never, never>;
+  "app-detail.note.oauth-failed-exchange-failed": Record<never, never>;
+  "app-detail.note.oauth-failed-expired": Record<never, never>;
+  "app-detail.note.oauth-failed-refresh-rejected": Record<never, never>;
+  "app-detail.note.oauth-failed-state-mismatch": Record<never, never>;
+  "app-detail.note.oauth-failed-store-failed": Record<never, never>;
+  "app-detail.note.oauth-needs-client-id": Record<never, never>;
+  "app-detail.note.oauth-opens-browser": Record<never, never>;
   "app-detail.note.resource-file-read": {
     when: "string";
   };

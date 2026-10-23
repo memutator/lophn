@@ -1,10 +1,18 @@
 export const appSpace = {
   "app-detail.button.back-to-activity": "Back to Activity",
   "app-detail.button.cancel": "Cancel",
+  "app-detail.button.change-client-id": "Change",
+  "app-detail.button.change-client-secret": "Change client secret",
+  "app-detail.button.change-value": "Change value",
   "app-detail.button.go-back": "Go back to {release}",
   "app-detail.button.revoke": "Revoke",
   "app-detail.button.rewind-app": "Rewind {name}",
   "app-detail.button.rewind-from-here": "Rewind from here",
+  "app-detail.button.save-client-id": "Save",
+  "app-detail.button.set-client-secret": "Set client secret",
+  "app-detail.button.set-value": "Set value",
+  "app-detail.button.sign-in": "Sign in",
+  "app-detail.button.sign-in-again": "Sign in again",
   "app-detail.error.go-back-failed":
     "Couldn't go back to {release}. Nothing changed.",
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
@@ -48,6 +56,9 @@ export const appSpace = {
   "app-detail.label.changes-resource": "Outside resource",
   "app-detail.label.changes-wider": "Wider declarations",
   "app-detail.label.cleaning-up": "Cleaning up",
+  "app-detail.label.client-id": "Client ID",
+  "app-detail.label.client-secret": "Client secret",
+  "app-detail.label.client-secret-optional": "Not set (optional)",
   "app-detail.label.col-call": "Call",
   "app-detail.label.col-caller": "Caller",
   "app-detail.label.col-effect": "Effect",
@@ -74,6 +85,10 @@ export const appSpace = {
   "app-detail.label.loss-drop-table": "Drops table",
   "app-detail.label.loss-narrow-type": "Narrows the type of",
   "app-detail.label.nothing-changed": "Nothing changed",
+  "app-detail.label.oauth-not-signed-in": "Not signed in",
+  "app-detail.label.oauth-sign-in-at": "Sign in at {host} · {scopes}",
+  "app-detail.label.oauth-signed-in": "Signed in",
+  "app-detail.label.oauth-waiting": "Waiting for you to finish in your browser",
   "app-detail.label.outcome-cannot": "Can't be undone",
   "app-detail.label.outcome-done": "Undone",
   "app-detail.label.outcome-not-changed": "Not changed",
@@ -97,6 +112,8 @@ export const appSpace = {
   "app-detail.label.role-lophn": "lophn",
   "app-detail.label.role-operator": "Agent",
   "app-detail.label.role-project-manager": "Project Manager",
+  "app-detail.label.secret-not-set": "Not set",
+  "app-detail.label.secret-set": "Set",
   "app-detail.label.session-unnamed": "session",
   "app-detail.label.state-done": "Done",
   "app-detail.label.state-failed": "Failed",
@@ -127,6 +144,8 @@ export const appSpace = {
   "app-detail.label.went-back": "Went back to {release}",
   "app-detail.note.access-intro":
     "Access is set when a release is applied. It can only be taken back here, not added.",
+  "app-detail.note.access-intro-secrets":
+    "Access is set when a release is applied. It can be taken back here, not added. Secret values are set here.",
   "app-detail.note.activity-scope":
     "Writes, external calls, app starts and failed reads. Successful reads are not listed.",
   "app-detail.note.applying-first":
@@ -159,6 +178,19 @@ export const appSpace = {
   "app-detail.note.no-activity": "No activity yet.",
   "app-detail.note.no-other-apps": "This app can't call other apps.",
   "app-detail.note.no-resources": "This app has no outside resources.",
+  "app-detail.note.oauth-failed-callback-timeout":
+    "You didn't finish signing in in time.",
+  "app-detail.note.oauth-failed-exchange-failed":
+    "The service rejected the sign-in.",
+  "app-detail.note.oauth-failed-expired": "The sign-in expired. Sign in again.",
+  "app-detail.note.oauth-failed-refresh-rejected":
+    "The service ended the sign-in. Sign in again.",
+  "app-detail.note.oauth-failed-state-mismatch":
+    "The sign-in response didn't match this request.",
+  "app-detail.note.oauth-failed-store-failed":
+    "lophn couldn't save the sign-in.",
+  "app-detail.note.oauth-needs-client-id": "Add the client ID to sign in.",
+  "app-detail.note.oauth-opens-browser": "Signing in opens your browser.",
   "app-detail.note.resource-file-read": "Can read files here. Allowed {when}.",
   "app-detail.note.resource-file-write":
     "Can read and change files here. Allowed {when}.",

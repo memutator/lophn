@@ -167,8 +167,11 @@ async function callerName(
   if (caller.kind === "person") {
     return t("conversation.label.rewind-caller-person");
   }
-  if (caller.kind === "program" || caller.kind === "flow") {
+  if (caller.kind === "program") {
     return t("conversation.label.rewind-caller-program");
+  }
+  if (caller.kind === "flow") {
+    return t("conversation.label.rewind-caller-flow");
   }
   if (caller.kind === "agent") {
     const read = await readSession(env, caller.session);

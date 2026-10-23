@@ -25,9 +25,19 @@ import { stripTabsOf } from "../project-window.tsx";
 
 const noop = () => {};
 
-// FAKE_WORKFLOW_INSTANCES의 순서: running, humanTurn, notHanded, restarted, ended, stopped.
-const [RUNNING, HUMAN_TURN, NOT_HANDED, RESTARTED, ENDED, STOPPED] =
-  FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
+// FAKE_WORKFLOW_INSTANCES의 순서: running, humanTurn, notHanded, restarted, ended, stopped,
+// 그 뒤에 nightly-flow의 도는 것, program_exited로 닫힌 것, 켜질 때 닫힌 것.
+const [
+  RUNNING,
+  HUMAN_TURN,
+  NOT_HANDED,
+  RESTARTED,
+  ENDED,
+  STOPPED,
+  FLOW_RUNNING,
+  FLOW_EXITED,
+  FLOW_RESTARTED,
+] = FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
 const [DOC_TAB] = stripTabsOf([documentTab("loop/findings/F-009.md")]);
@@ -111,13 +121,23 @@ export const Restarted = () => (
 );
 export const Invalid = () => <WorkflowWindow name="broken-draft" />;
 
-export function Flow() {
+export const Flow = () => (
+  <WorkflowWindow name="nightly-flow" instance={FLOW_RUNNING} />
+);
+export const FlowExited = () => (
+  <WorkflowWindow name="nightly-flow" instance={FLOW_EXITED} />
+);
+export const FlowRestarted = () => (
+  <WorkflowWindow name="nightly-flow" instance={FLOW_RESTARTED} />
+);
+
+export function FlowMissing() {
   // disabled [Start]는 focus를 못 받아서 tooltip을 받는 틀에 focus를 준다.
   useDrive(async () => {
     await click("[data-start-tip]");
     document.querySelector<HTMLElement>("[data-start-tip]")?.focus();
   });
-  return <WorkflowWindow name="nightly-flow" />;
+  return <WorkflowWindow name="missing-flow" />;
 }
 
 // [Start]를 눌러 dialog를 열고 입력 글을 채운다.
@@ -132,6 +152,11 @@ const fillStartDialog = async () => {
 export function StartDialog() {
   useDrive(fillStartDialog);
   return <WorkflowWindow name="eval-loop" instance={RUNNING} />;
+}
+
+export function StartDialogFlow() {
+  useDrive(fillStartDialog);
+  return <WorkflowWindow name="nightly-flow" instance={FLOW_RUNNING} />;
 }
 
 export function StartFailed() {

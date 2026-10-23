@@ -131,6 +131,8 @@ function CalledBy(
       );
     case "program":
       return <span>{t("app-detail.label.called-by-program")}</span>;
+    case "flow":
+      return <span>{t("app-detail.label.called-by-flow")}</span>;
     case "start":
       return (
         <span>

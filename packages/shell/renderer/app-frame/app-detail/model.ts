@@ -138,6 +138,8 @@ export function callerText(caller: Caller): string {
       });
     case "program":
       return t("app-detail.label.caller-program");
+    case "flow":
+      return t("app-detail.label.caller-flow");
     case "start":
       return t("app-detail.label.caller-start");
   }

@@ -174,6 +174,7 @@ export const conversation = {
     "{count, plural, one {# write} other {# writes}} by this session after this message",
   "conversation.label.rewind-apps-head":
     "Apps this session wrote to after this message",
+  "conversation.label.rewind-caller-flow": "Workflow",
   "conversation.label.rewind-caller-person": "You",
   "conversation.label.rewind-caller-program": "Scheduled job",
   "conversation.label.rewind-conversation": "Conversation",

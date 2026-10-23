@@ -12,7 +12,6 @@ export const workflow = {
     "No workflows yet. Ask the Project Manager to write one.",
   "workflow.error.instances-failed": "Couldn't load the workflow instances.",
   "workflow.error.load-failed": "Couldn't load the workflows.",
-  "workflow.error.not-startable": "This workflow can't be started.",
   "workflow.error.start-failed": "Couldn't start the workflow. Try again.",
   "workflow.error.stop-failed": "Couldn't stop the workflow. Try again.",
   "workflow.heading.instances": "Instances",
@@ -39,7 +38,6 @@ export const workflow = {
   "workflow.label.line-started": "Started with: {text}",
   "workflow.label.lines": "Lines ({count, number})",
   "workflow.label.list-target": "workflows",
-  "workflow.label.not-startable": "Flow · can't be started here",
   "workflow.label.note-line": "{who}: {text}",
   "workflow.label.note-stopped": "Stopped by you",
   "workflow.label.notes": "Notes",
@@ -51,6 +49,7 @@ export const workflow = {
   "workflow.label.role-job-untitled": "Scheduled job",
   "workflow.label.role-lophn": "lophn",
   "workflow.label.role-operator": "Operator",
+  "workflow.label.role-program": "Program",
   "workflow.label.role-project-manager": "Project Manager",
   "workflow.label.role-unknown": "An agent",
   "workflow.label.running-count":
@@ -69,10 +68,11 @@ export const workflow = {
   "workflow.label.step-waiting": "Not reached",
   "workflow.label.steps": "Steps",
   "workflow.label.sub-agent": "agent · {count, number} running",
-  "workflow.label.sub-flow": "flow",
+  "workflow.label.sub-flow": "flow · {count, number} running",
   "workflow.label.sub-unreadable": "unreadable",
   "workflow.label.target": "this workflow",
   "workflow.note.input-help": "What the first step should work on.",
+  "workflow.note.input-help-flow": "The flow gets this text as its input.",
   "workflow.note.not-handed-harness":
     "Couldn't send it on: the coding agent for this step isn't available.",
   "workflow.note.not-handed-no-with":
@@ -83,8 +83,12 @@ export const workflow = {
     "Couldn't send it on: the next step isn't in the workflow.",
   "workflow.note.not-handed-unresolved":
     "Couldn't send it on: no agent could be found for this step.",
+  "workflow.note.program-exited": "The program exited with code {code}.",
+  "workflow.note.program-signal": "The program was stopped before it finished.",
   "workflow.note.restarted":
     "lophn restarted; this step may need to be sent again.",
+  "workflow.note.restarted-flow":
+    "lophn restarted while the flow was running, so the flow ended. It isn't started again.",
   "workflow.note.your-turn":
     "Your turn on {step}. {agent} is waiting to talk it through with you.",
   "workflow.title.read-failed": "Couldn't refresh {workflow}",

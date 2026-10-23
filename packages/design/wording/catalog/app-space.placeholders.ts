@@ -51,6 +51,7 @@ export type AppSpacePlaceholders = {
     name: "string";
     release: "string";
   };
+  "app-detail.label.called-by-flow": Record<never, never>;
   "app-detail.label.called-by-person": Record<never, never>;
   "app-detail.label.called-by-program": Record<never, never>;
   "app-detail.label.called-by-restart": Record<never, never>;
@@ -58,6 +59,7 @@ export type AppSpacePlaceholders = {
     name: "string";
   };
   "app-detail.label.caller-app-unnamed": Record<never, never>;
+  "app-detail.label.caller-flow": Record<never, never>;
   "app-detail.label.caller-person": Record<never, never>;
   "app-detail.label.caller-program": Record<never, never>;
   "app-detail.label.caller-start": Record<never, never>;

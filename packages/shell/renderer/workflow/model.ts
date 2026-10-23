@@ -113,13 +113,15 @@ export function stepRows(detail: WorkflowInstanceDetailView): StepRow[] {
   });
 }
 
-/** step이 없는 줄(ended, stopped, step 없는 edit). instance 머리 쪽에 둔다. */
+/** step이 없는 줄(ended, stopped, program_exited, step 없는 edit과 lophn_restarted). instance 머리 쪽에 둔다. */
 export const headLines = (
   detail: WorkflowInstanceDetailView,
 ): WorkflowLineView[] =>
   detail.lines.filter((line) =>
     line.kind === "ended" || line.kind === "stopped" ||
-    (line.kind === "edit" && line.step === null)
+    line.kind === "program_exited" ||
+    ((line.kind === "edit" || line.kind === "lophn_restarted") &&
+      line.step === null)
   );
 
 /** 사람 차례이면 지금 step을 가장 나중에 받은 줄(받은 참가자와 대화 session). */

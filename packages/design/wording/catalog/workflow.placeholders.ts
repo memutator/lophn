@@ -13,7 +13,6 @@ export type WorkflowPlaceholders = {
   "workflow.empty.sidebar": Record<never, never>;
   "workflow.error.instances-failed": Record<never, never>;
   "workflow.error.load-failed": Record<never, never>;
-  "workflow.error.not-startable": Record<never, never>;
   "workflow.error.start-failed": Record<never, never>;
   "workflow.error.stop-failed": Record<never, never>;
   "workflow.heading.instances": Record<never, never>;
@@ -66,7 +65,6 @@ export type WorkflowPlaceholders = {
     count: "number";
   };
   "workflow.label.list-target": Record<never, never>;
-  "workflow.label.not-startable": Record<never, never>;
   "workflow.label.note-line": {
     who: "string";
     text: "string";
@@ -86,6 +84,7 @@ export type WorkflowPlaceholders = {
   "workflow.label.role-job-untitled": Record<never, never>;
   "workflow.label.role-lophn": Record<never, never>;
   "workflow.label.role-operator": Record<never, never>;
+  "workflow.label.role-program": Record<never, never>;
   "workflow.label.role-project-manager": Record<never, never>;
   "workflow.label.role-unknown": Record<never, never>;
   "workflow.label.running-count": {
@@ -111,16 +110,24 @@ export type WorkflowPlaceholders = {
   "workflow.label.sub-agent": {
     count: "number";
   };
-  "workflow.label.sub-flow": Record<never, never>;
+  "workflow.label.sub-flow": {
+    count: "number";
+  };
   "workflow.label.sub-unreadable": Record<never, never>;
   "workflow.label.target": Record<never, never>;
   "workflow.note.input-help": Record<never, never>;
+  "workflow.note.input-help-flow": Record<never, never>;
   "workflow.note.not-handed-harness": Record<never, never>;
   "workflow.note.not-handed-no-with": Record<never, never>;
   "workflow.note.not-handed-unknown-participant": Record<never, never>;
   "workflow.note.not-handed-unknown-step": Record<never, never>;
   "workflow.note.not-handed-unresolved": Record<never, never>;
+  "workflow.note.program-exited": {
+    code: "string";
+  };
+  "workflow.note.program-signal": Record<never, never>;
   "workflow.note.restarted": Record<never, never>;
+  "workflow.note.restarted-flow": Record<never, never>;
   "workflow.note.your-turn": {
     step: "string";
     agent: "string";

@@ -94,7 +94,7 @@ export interface WorkflowEntryView {
   /** workflow 이름(slug). project 안에서 자리와 탭의 key다. */
   readonly name: string;
   readonly invalid: boolean;
-  /** false면 시작하지 못한다(invalid 또는 kind flow). */
+  /** false면 시작하지 못한다(invalid 또는 flow.ts가 없다). */
   readonly startable: boolean;
   readonly kind: "agent" | "flow" | null;
   readonly problem: {
@@ -129,7 +129,8 @@ export type WorkflowLineBy =
   | { readonly kind: "user" }
   | { readonly kind: "agent"; readonly session: string }
   | { readonly kind: "lophn" }
-  | { readonly kind: "job"; readonly job: string };
+  | { readonly kind: "job"; readonly job: string }
+  | { readonly kind: "program" };
 
 /** instance를 시작한 쪽. job이면 제목을 붙여 온다(지워진 job은 null). */
 export type WorkflowStartedBy =
@@ -149,7 +150,12 @@ export type WorkflowLineView =
     readonly by: WorkflowLineBy;
   }
   & (
-    | { readonly kind: "started"; readonly step: string; readonly text: string }
+    | {
+      readonly kind: "started";
+      /** flow는 시작 step이 없다. */
+      readonly step: string | null;
+      readonly text: string;
+    }
     | {
       readonly kind: "report";
       readonly step: string;
@@ -182,8 +188,14 @@ export type WorkflowLineView =
     | { readonly kind: "stopped" }
     | {
       readonly kind: "lophn_restarted";
-      readonly step: string;
-      readonly receiver: string;
+      /** flow는 step도 받은 쪽도 없다. */
+      readonly step: string | null;
+      readonly receiver: string | null;
+    }
+    | {
+      readonly kind: "program_exited";
+      readonly code: number | null;
+      readonly stderr_tail: string;
     }
   );
 

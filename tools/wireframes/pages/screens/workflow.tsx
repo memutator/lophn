@@ -3,12 +3,16 @@ import {
   Empty,
   Ended,
   Flow,
+  FlowExited,
+  FlowMissing,
+  FlowRestarted,
   HumanTurn,
   Invalid,
   NotHanded,
   Restarted,
   Running,
   StartDialog,
+  StartDialogFlow,
   StartFailed,
   Stopped,
 } from "./workflow/pages.tsx";
@@ -17,7 +21,7 @@ export const workflowArea: Area = {
   id: "workflow",
   title: "Workflow",
   summary:
-    "project의 workflow 하나가 탭 하나다. instance 목록과 instance 하나의 기본 view(step마다 마지막 report와 줄, 사람 차례, 멈춤), 시작 dialog.",
+    "project의 workflow 하나가 탭 하나다. instance 목록과 instance 하나의 기본 view(step마다 마지막 report와 줄, 사람 차례, 멈춤), 시작 dialog. flow도 같은 탭이다(Program이 낸 report, 종료 줄).",
   pages: [
     {
       id: "workflow-tab-empty",
@@ -79,8 +83,29 @@ export const workflowArea: Area = {
       id: "workflow-tab-flow",
       title: "Workflow tab · flow",
       description:
-        "kind가 flow인 workflow다. [Start]가 꺼져 있고 이유를 tooltip으로 보인다(열어 둠).",
+        "startable flow의 도는 instance다. step은 program이 맡아 담당 글이 없고 report는 Program이 쓴다.",
       render: () => <Flow />,
+    },
+    {
+      id: "workflow-tab-flow-exited",
+      title: "Workflow tab · flow program exited",
+      description:
+        "flow의 program이 오류로 끝나 닫힌 instance다. 상태는 Ended이고 머리 아래에 끝 code 줄과 stderr 끝 줄(코드 블록)이 보인다.",
+      render: () => <FlowExited />,
+    },
+    {
+      id: "workflow-tab-flow-restarted",
+      title: "Workflow tab · flow closed by restart",
+      description:
+        "flow가 도는 중에 lophn이 다시 켜져 닫힌 instance다. 머리 아래에 flow가 끝났고 다시 시작하지 않는다는 글이 보인다.",
+      render: () => <FlowRestarted />,
+    },
+    {
+      id: "workflow-tab-flow-missing",
+      title: "Workflow tab · flow file missing",
+      description:
+        "flow.ts가 없는 flow workflow다. [Start]가 꺼져 있고 이유를 tooltip으로 보인다(열어 둠). instance 목록 절의 빈 안내에는 [Start] 대신 [Refresh]가 있다.",
+      render: () => <FlowMissing />,
     },
     {
       id: "workflow-tab-artifact",
@@ -95,6 +120,13 @@ export const workflowArea: Area = {
       description:
         "[Start]가 여는 dialog다. 입력 글(필수)과 시작할 step을 받고 기본은 첫 step이다. 글을 채워 [Start]를 누를 수 있는 상태다.",
       render: () => <StartDialog />,
+    },
+    {
+      id: "workflow-start-dialog-flow",
+      title: "Start dialog · flow",
+      description:
+        "flow의 시작 dialog다. 입력 글만 받고 first step 칸이 없다. flow는 입력 글을 program의 입력으로 받는다.",
+      render: () => <StartDialogFlow />,
     },
     {
       id: "workflow-start-failed",

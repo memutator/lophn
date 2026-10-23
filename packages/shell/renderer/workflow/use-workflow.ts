@@ -30,7 +30,7 @@ export interface UseWorkflow {
   closeNotice(): void;
   refresh(): void;
   /** 성공하면 true. 실패하면 알림을 띄우고 false다. */
-  start(text: string, step: string): Promise<boolean>;
+  start(text: string, step?: string): Promise<boolean>;
   stop(): void;
 }
 
@@ -140,11 +140,7 @@ export function useWorkflow(
       if (!result.ok) {
         setNotice({
           title: t("workflow.title.start-failed", { workflow }),
-          body: t(
-            result.message === "conflict"
-              ? "workflow.error.not-startable"
-              : "workflow.error.start-failed",
-          ),
+          body: t("workflow.error.start-failed"),
         });
         return false;
       }

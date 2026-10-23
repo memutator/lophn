@@ -17,8 +17,7 @@ type Loaded =
   | { state: "ready"; entries: readonly WorkflowEntryView[] };
 
 function metaOf(entry: WorkflowEntryView, running: number): string {
-  if (entry.invalid) return t("workflow.label.invalid");
-  if (!entry.startable) return t("workflow.label.not-startable");
+  if (entry.problem !== null) return t("workflow.label.invalid");
   return t("workflow.label.running-count", { count: running });
 }
 

@@ -1,9 +1,11 @@
 // instance 하나의 기본 view. 목록과 글만 그린다(graph는 artifact의 일이다).
 // 머리(상태, 시작 입력, 사람 차례, [Stop]) 아래에 step마다 담당, 마지막 report 글, 그 step의 줄 펼침이 온다.
 import { Button, Icon } from "@lophn/ui/primitives";
+import { CodeBlock } from "@lophn/ui/reading";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
+import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
 import {
   browserIcons,
   commonIcons,
@@ -64,6 +66,7 @@ function whoOf(
 ): string {
   if (line.by.kind === "user") return t("workflow.label.role-human");
   if (line.by.kind === "lophn") return t("workflow.label.role-lophn");
+  if (line.by.kind === "program") return t("workflow.label.role-program");
   if (line.by.kind === "job") {
     const by = detail.instance.started_by;
     return jobWho(by.kind === "job" ? by.title : null);
@@ -120,7 +123,15 @@ function textOf(
     case "stopped":
       return t("workflow.label.state-stopped");
     case "lophn_restarted":
-      return t("workflow.note.restarted");
+      return t(
+        line.step === null
+          ? "workflow.note.restarted-flow"
+          : "workflow.note.restarted",
+      );
+    case "program_exited":
+      return line.code === null
+        ? t("workflow.note.program-signal")
+        : t("workflow.note.program-exited", { code: String(line.code) });
   }
 }
 
@@ -237,6 +248,9 @@ export function InstanceView(
             {notes.map((line) => (
               <li key={line.seq}>
                 {noteOf(detail, line)} · {whenOf(line.at)}
+                {line.kind === "program_exited" && line.stderr_tail !== ""
+                  ? <CodeBlock code={line.stderr_tail} />
+                  : null}
               </li>
             ))}
           </ul>
@@ -255,9 +269,17 @@ export function InstanceView(
             <div className={styles.stepMain}>
               <div className={styles.stepHead}>
                 <span className={styles.stepName}>{row.step.name}</span>
-                <span className={styles.stepWho}>
-                  {assignee(instance, row.step)}
-                </span>
+                {
+                  // flow의 step은 program이 맡는다. 참가자가 아니라 담당 글이 없다.
+                  row.step.by === FLOW_STEP_BY &&
+                    instance.participants[row.step.by] === undefined
+                    ? null
+                    : (
+                      <span className={styles.stepWho}>
+                        {assignee(instance, row.step)}
+                      </span>
+                    )
+                }
                 <span className={styles.stepStatus}>
                   {t(STEP_KEY[row.shown])}
                 </span>

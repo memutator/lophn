@@ -110,7 +110,7 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               />
             </span>
             <span>{entry.problem.message}</span>
-            {entry.invalid || entry.kind === "flow"
+            {entry.invalid
               ? (
                 // 목록 절이 없는 탭도 정의를 다시 읽을 수 있어야 한다(선언을 고친 뒤).
                 <span className={styles.refresh}>
@@ -125,48 +125,51 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               : null}
           </p>
         )}
-        {entry.invalid || entry.kind === "flow"
-          ? null
-          : (
-            <section className={styles.section}>
-              <div className={styles.sectionHead}>
-                <h2 className={styles.sectionTitle}>
-                  {t("workflow.heading.instances")}
-                </h2>
-                <span className={styles.count}>{instances?.length ?? 0}</span>
-                <span className={styles.refresh}>
-                  <IconButton
-                    icon={workspaceIcons.refresh}
-                    label={t("workflow.button.refresh")}
-                    size="sm"
-                    onClick={state.refresh}
-                  />
-                </span>
-              </div>
-              {instances === null ? <Skeleton shape="line" lines={3} /> : null}
-              {instances?.length === 0
-                ? (
-                  <EmptyState
-                    icon={commonIcons.workflow}
-                    message={t("workflow.empty.instances")}
-                    action={{
+        {entry.invalid ? null : (
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2 className={styles.sectionTitle}>
+                {t("workflow.heading.instances")}
+              </h2>
+              <span className={styles.count}>{instances?.length ?? 0}</span>
+              <span className={styles.refresh}>
+                <IconButton
+                  icon={workspaceIcons.refresh}
+                  label={t("workflow.button.refresh")}
+                  size="sm"
+                  onClick={state.refresh}
+                />
+              </span>
+            </div>
+            {instances === null ? <Skeleton shape="line" lines={3} /> : null}
+            {instances?.length === 0
+              ? (
+                <EmptyState
+                  icon={commonIcons.workflow}
+                  message={t("workflow.empty.instances")}
+                  action={entry.startable
+                    ? {
                       label: t("workflow.button.start"),
                       onSelect: () => setStarting(true),
+                    }
+                    : {
+                      label: t("workflow.button.refresh"),
+                      onSelect: state.refresh,
                     }}
-                  />
-                )
-                : null}
-              {instances !== null && instances.length > 0
-                ? (
-                  <InstanceList
-                    instances={instances}
-                    selected={instance}
-                    onSelect={onInstance}
-                  />
-                )
-                : null}
-            </section>
-          )}
+                />
+              )
+              : null}
+            {instances !== null && instances.length > 0
+              ? (
+                <InstanceList
+                  instances={instances}
+                  selected={instance}
+                  onSelect={onInstance}
+                />
+              )
+              : null}
+          </section>
+        )}
         {detail === null ? null : (
           <InstanceView
             detail={detail}
@@ -206,7 +209,7 @@ function Head(
   const sub = entry.kind === "agent"
     ? t("workflow.label.sub-agent", { count: running })
     : entry.kind === "flow"
-    ? t("workflow.label.sub-flow")
+    ? t("workflow.label.sub-flow", { count: running })
     : t("workflow.label.sub-unreadable");
   return (
     <header className={styles.head}>

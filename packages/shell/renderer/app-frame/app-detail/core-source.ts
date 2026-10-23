@@ -354,8 +354,9 @@ async function callerOf(
     }
     // 제목은 읽지 않는다. job이 지워졌을 수 있다.
     case "program":
-    case "flow":
       return { kind: "program" };
+    case "flow":
+      return { kind: "flow" };
   }
 }
 

@@ -96,6 +96,8 @@ const PARTICIPANTS = {
   human: { role: "human" },
 } as const;
 
+const FLOW_STEPS = ["fetch", "summarize", "publish"] as const;
+
 export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
   {
     key: "phroner/eval-loop",
@@ -144,10 +146,26 @@ export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
     name: "nightly-flow",
     invalid: false,
     kind: "flow",
+    startable: true,
+    problem: null,
+    steps: FLOW_STEPS.map((name) => ({
+      name,
+      by: "program",
+      with: null,
+      next: [],
+    })),
+    artifacts: { static: false, instance: false },
+  },
+  {
+    key: "phroner/missing-flow",
+    project: PROJECT,
+    name: "missing-flow",
+    invalid: false,
+    kind: "flow",
     startable: false,
     problem: {
-      reason: "not_agent",
-      message: "This workflow is a flow. Flows can't be started from here yet.",
+      reason: "no_flow_file",
+      message: "flow.ts is missing in the workflow folder.",
     },
     steps: null,
     artifacts: { static: false, instance: false },
@@ -161,6 +179,9 @@ const IDS = {
   stopped: "wfi_01h455vb4pex5v6nkc6gd5fd04",
   notHanded: "wfi_01h455vb4pex5v6nkc6gd5fd05",
   restarted: "wfi_01h455vb4pex5v6nkc6gd5fd06",
+  flowRunning: "wfi_01h455vb4pex5v6nkc6gd5fd07",
+  flowExited: "wfi_01h455vb4pex5v6nkc6gd5fd08",
+  flowRestarted: "wfi_01h455vb4pex5v6nkc6gd5fd09",
 } as const;
 
 const EVAL_STEPS = [
@@ -231,6 +252,7 @@ function instanceOf(
 
 // 줄 모양 helper. 줄은 instance 안에서 1부터 이어 센다.
 const lophn = { kind: "lophn" } as const;
+const program = { kind: "program" } as const;
 const user = { kind: "user" } as const;
 const agent = (session: string) => ({ kind: "agent", session }) as const;
 
@@ -252,6 +274,27 @@ function reportOf(
     step,
     text,
     next,
+    session: "new",
+  };
+}
+
+// flow의 report는 program이 낸다.
+function programReportOf(
+  instance: string,
+  seq: number,
+  minutes: number,
+  step: string,
+  text: string,
+): ReportLine {
+  return {
+    instance,
+    seq: String(seq),
+    at: minutesAgo(minutes),
+    by: program,
+    kind: "report",
+    step,
+    text,
+    next: null,
     session: "new",
   };
 }
@@ -678,7 +721,203 @@ const restarted: WorkflowInstanceDetailView = {
   ],
 };
 
-/** eval-loop의 instance. 새것이 앞이다. */
+// ---- flow: nightly-flow의 instance. participants가 없고 step은 program이 맡는다 ----
+function flowInstanceOf(
+  id: string,
+  input: string,
+  state: WorkflowState,
+  current: WorkflowInstanceView["current"],
+  startedMinutesAgo: number,
+  finishedMinutesAgo: number | null,
+  startedBy: WorkflowStartedBy = { kind: "user" },
+): WorkflowInstanceView {
+  return {
+    id,
+    project: PROJECT,
+    workflow: "nightly-flow",
+    input,
+    state,
+    participants: {},
+    steps: FLOW_STEPS.map((name) => ({
+      name,
+      by: "program",
+      with: null,
+      prompt: "",
+      in: "",
+      out: "",
+      next: [],
+    })),
+    current,
+    started_by: startedBy,
+    created_at: minutesAgo(startedMinutesAgo),
+    finished_at: finishedMinutesAgo === null
+      ? null
+      : minutesAgo(finishedMinutesAgo),
+  };
+}
+
+function flowStarted(
+  instance: string,
+  input: string,
+  minutes: number,
+  by: WorkflowLineBy = user,
+): WorkflowLineView {
+  return {
+    instance,
+    seq: "1",
+    at: minutesAgo(minutes),
+    by,
+    kind: "started",
+    step: null,
+    text: input,
+  };
+}
+
+const FETCH_TEXT = "Fetched 42 new items from 3 sources.";
+const SUMMARIZE_TEXT = "Summarized 31 of 42 items so far.";
+
+const flowRunningInput = "Digest the overnight feed changes";
+const flowRunningFetch = programReportOf(
+  IDS.flowRunning,
+  2,
+  7,
+  "fetch",
+  FETCH_TEXT,
+);
+const flowRunningSummarize = programReportOf(
+  IDS.flowRunning,
+  3,
+  2,
+  "summarize",
+  SUMMARIZE_TEXT,
+);
+const flowRunning: WorkflowInstanceDetailView = {
+  instance: flowInstanceOf(
+    IDS.flowRunning,
+    flowRunningInput,
+    "running",
+    { step: "summarize", human_turn: false },
+    8,
+    null,
+  ),
+  last_reports: {
+    fetch: flowRunningFetch,
+    summarize: flowRunningSummarize,
+  },
+  lines: [
+    flowStarted(IDS.flowRunning, flowRunningInput, 8),
+    flowRunningFetch,
+    flowRunningSummarize,
+  ],
+};
+
+// program_exited: job이 시작한 flow의 program이 code 1로 끝났다.
+const flowExitedInput = "Digest the weekly feed changes";
+const flowExitedBy = {
+  kind: "job",
+  job: "job_fakenightlydigest",
+  title: "Nightly digest",
+} as const satisfies WorkflowStartedBy;
+const flowExitedFetch = programReportOf(
+  IDS.flowExited,
+  2,
+  203,
+  "fetch",
+  FETCH_TEXT,
+);
+const flowExitedSummarize = programReportOf(
+  IDS.flowExited,
+  3,
+  201,
+  "summarize",
+  "Summarized 12 of 42 items, then the summary model stopped answering.",
+);
+const flowExited: WorkflowInstanceDetailView = {
+  instance: flowInstanceOf(
+    IDS.flowExited,
+    flowExitedInput,
+    "ended",
+    null,
+    205,
+    200,
+    flowExitedBy,
+  ),
+  last_reports: {
+    fetch: flowExitedFetch,
+    summarize: flowExitedSummarize,
+  },
+  lines: [
+    flowStarted(IDS.flowExited, flowExitedInput, 205, {
+      kind: "job",
+      job: flowExitedBy.job,
+    }),
+    flowExitedFetch,
+    flowExitedSummarize,
+    {
+      instance: IDS.flowExited,
+      seq: "4",
+      at: minutesAgo(200),
+      by: lophn,
+      kind: "program_exited",
+      code: 1,
+      stderr_tail: [
+        "error: Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'items')",
+        "    at summarize (file:///flows/nightly-flow/flow.ts:41:23)",
+        "    at async main (file:///flows/nightly-flow/flow.ts:58:5)",
+      ].join("\n"),
+    },
+    {
+      instance: IDS.flowExited,
+      seq: "5",
+      at: minutesAgo(200),
+      by: lophn,
+      kind: "ended",
+    },
+  ],
+};
+
+// lophn_restarted: flow가 도는 중에 lophn이 꺼졌다 켜져 flow가 닫혔다(다시 시작하지 않는다).
+const flowRestartedInput = "Digest the feed changes since Monday";
+const flowRestartedFetch = programReportOf(
+  IDS.flowRestarted,
+  2,
+  398,
+  "fetch",
+  FETCH_TEXT,
+);
+const flowRestarted: WorkflowInstanceDetailView = {
+  instance: flowInstanceOf(
+    IDS.flowRestarted,
+    flowRestartedInput,
+    "ended",
+    null,
+    400,
+    380,
+  ),
+  last_reports: { fetch: flowRestartedFetch },
+  lines: [
+    flowStarted(IDS.flowRestarted, flowRestartedInput, 400),
+    flowRestartedFetch,
+    {
+      instance: IDS.flowRestarted,
+      seq: "3",
+      at: minutesAgo(380),
+      by: lophn,
+      kind: "lophn_restarted",
+      step: null,
+      receiver: null,
+    },
+    {
+      instance: IDS.flowRestarted,
+      seq: "4",
+      at: minutesAgo(380),
+      by: lophn,
+      kind: "ended",
+    },
+  ],
+};
+
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋이 붙는다. 새것이 앞이다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -686,6 +925,9 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   restarted,
   ended,
   stopped,
+  flowRunning,
+  flowExited,
+  flowRestarted,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
@@ -912,8 +1154,13 @@ export function fakeWorkspaceSource(
       if (!entry.startable || entry.steps === null) {
         return Promise.resolve({ ok: false, message: "conflict" });
       }
-      const first = step ?? entry.steps[0]?.name;
-      if (!entry.steps.some((item) => item.name === first)) {
+      const isFlow = entry.kind === "flow";
+      // flow는 시작 step이 없다. step을 보내면 core가 거절한다.
+      if (isFlow && step !== undefined) {
+        return Promise.resolve({ ok: false, message: "invalid_input" });
+      }
+      const first = isFlow ? null : step ?? entry.steps[0]?.name;
+      if (!isFlow && !entry.steps.some((item) => item.name === first)) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
       const id = `wfi_fake${instances.length + 1}`;
@@ -924,14 +1171,14 @@ export function fakeWorkspaceSource(
         workflow: entry.name,
         input: text,
         state: "running",
-        participants: PARTICIPANTS,
+        participants: isFlow ? {} : PARTICIPANTS,
         steps: entry.steps.map((item) => ({
           ...item,
           prompt: "",
           in: "",
           out: "",
         })),
-        current: { step: first, human_turn: false },
+        current: first === null ? null : { step: first, human_turn: false },
         started_by: { kind: "user" },
         created_at: at,
         finished_at: null,

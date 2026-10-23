@@ -4,5 +4,11 @@
     "name": "job.list",
     "n": 1,
     "hash": "9f55abc86d2a729a2eb9cf5d501ecd365f0a142df50000ed25f1a2de5fd3bafc"
+  },
+  {
+    "kind": "tool",
+    "name": "job.list",
+    "n": 2,
+    "hash": "ef76f24c4aa5c7ebd225d330b752fb4e72e229391ee2ec6dd66253ae512cb2e0"
   }
 ]

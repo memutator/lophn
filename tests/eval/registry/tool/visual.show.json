@@ -16,5 +16,11 @@
     "name": "visual.show",
     "n": 3,
     "hash": "eead562f1d2790549f3de54245c4bc2bacf0ad9bc0cbf314f4cbb7cfb6fd5a30"
+  },
+  {
+    "kind": "tool",
+    "name": "visual.show",
+    "n": 4,
+    "hash": "17bd5ee84400c6a39dbd5913503e8304301916303ee9247b36a189e383f2b59e"
   }
 ]

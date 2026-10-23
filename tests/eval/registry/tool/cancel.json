@@ -16,5 +16,11 @@
     "name": "cancel",
     "n": 3,
     "hash": "95ce249d3de510ee429fe61a8c9211dab624bd60b0ef722be09577919d4530f8"
+  },
+  {
+    "kind": "tool",
+    "name": "cancel",
+    "n": 4,
+    "hash": "5cef61dfba194c3bf39a1102bd38eba944916114a3f1e03d737f4300db6357f5"
   }
 ]

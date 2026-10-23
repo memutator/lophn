@@ -22,5 +22,11 @@
     "name": "package.list",
     "n": 4,
     "hash": "dbf6500ea065a78192c9760d9c3345e99736e00876908b5ed2cf0bc1b2277f59"
+  },
+  {
+    "kind": "tool",
+    "name": "package.list",
+    "n": 5,
+    "hash": "389a74a26368623e0cf069be149661d59dceea6b6384a204844df0627e17953f"
   }
 ]

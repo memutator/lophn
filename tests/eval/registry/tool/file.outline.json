@@ -10,5 +10,11 @@
     "name": "file.outline",
     "n": 2,
     "hash": "1c17e37e71ab5ccbce82ca7b542771eb2e6a507e88a7154c6cfb69a615691950"
+  },
+  {
+    "kind": "tool",
+    "name": "file.outline",
+    "n": 3,
+    "hash": "36f96c15e18e49f760aabb468ac06dd49276a14828c07d8cefab10c0bcce6143"
   }
 ]

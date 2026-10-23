@@ -60,7 +60,14 @@
 
 ## 승인에서 바뀐 것
 
-(lead가 wireframe 승인 때 사람이 바꾼 모양을 여기 적는다. 없으면 비워 둔다.)
+사람이 lead의 추천안대로 승인했다. Drafts 모양을 그대로 옮기되 둘을 바꾼다.
+
+- Client ID 칸도 Client secret 칸, 상태 칸과 같은 왼쪽 선 안(`.setting`)에 둔다. 입력(`Field` + `Input` + [Save]) 상태도 같다. Drafts의 setup page에서는 입력 칸만 선 밖에 있었다.
+- `app-detail.note.oauth-failed-callback-timeout`의 문구를 "Sign-in timed out. Try again."으로 바꾼다.
+
+그대로 둔 것: client id 입력은 줄 안에 둔다(펼치지 않는다). OAuth 줄과 plain 줄은 "Outside resources" 목록 하나에 섞는다. 들여 쓴 칸의 왼쪽 선 모양은 그대로다. "Signing in opens your browser." 안내는 `none`이고 client id가 있을 때만 보인다. 좁은 폭에서 plain 줄의 pill과 이름이 접히는 것은 막지 않는다.
+
+(lead가 더함) wireframe이 새로 만든 `app-detail.note.access-intro-secrets`를 탭 머리 안내로 쓰고, 옛 `app-detail.note.access-intro`는 쓰는 곳이 없어지면 지운다(옛 문구의 "It can only be taken back here"가 값 넣기와 맞지 않는다).
 
 ## 보고
 

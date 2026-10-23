@@ -11,7 +11,6 @@
 ## 남은 일
 
 1. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
-2. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
 
 ## 정한 것 (사람)
 

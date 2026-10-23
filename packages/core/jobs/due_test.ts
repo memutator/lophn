@@ -198,3 +198,40 @@ Deno.test("a job does not run again while its previous turn is running", () => {
     t.db.close();
   }
 });
+
+// 컴퓨터가 잠든 사이 timer가 늦으면 hold job이 묻지 않고 돌아 버린다.
+Deno.test("a turn handled over 10 minutes late counts as missed and hold asks", () => {
+  const t = setup();
+  try {
+    const hold = t.job(TOOL, "hold", T(9));
+    t.setNow(T(9, 10));
+    assertEquals(t.claim(false).start.length, 1);
+    assertEquals(t.runs(hold).map((r) => r.state), ["queued"]);
+  } finally {
+    t.db.close();
+  }
+
+  const h = setup();
+  try {
+    const hold = h.job(TOOL, "hold", T(9));
+    h.setNow(T(13, 5));
+    assertEquals(h.claim(false).start, []);
+    const rows = h.runs(hold);
+    assertEquals(rows.map((r) => r.state), ["held"]);
+    assertEquals(rows[0]!.missed_count, 5);
+  } finally {
+    h.db.close();
+  }
+
+  const r = setup();
+  try {
+    const run = r.job(TOOL, "run", T(9));
+    r.setNow(T(13, 5));
+    const claimed = r.claim(false);
+    assertEquals(claimed.start.length, 1);
+    assertEquals(claimed.start[0]!.job_run.missed_count, 5);
+    assertEquals(r.runs(run).map((x) => x.state), ["queued"]);
+  } finally {
+    r.db.close();
+  }
+});

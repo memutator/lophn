@@ -3,11 +3,11 @@ import type { Id } from "../../protocol/base/mod.ts";
 import type { JobTurn } from "../../protocol/jobs/mod.ts";
 import type { JobScheduler, JobSchedulerDeps } from "./ports.ts";
 
-const HOUR_MS = 3_600_000;
+const MAX_SLEEP_MS = 60_000;
 const RETRY_MS = 60_000;
 const MIN_SLEEP_MS = 1_000;
 
-// 깨어나는 길(timer, wake, 1시간 상한)이 무엇이든 바퀴는 같다. 한 번에 한 바퀴만 돈다.
+// 깨어나는 길(timer, wake, 최대 잠)이 무엇이든 바퀴는 같다. 한 번에 한 바퀴만 돈다.
 // 기록 event나 Bus에 얹지 않는다. 신호는 wiring이 wake()로 준다.
 export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
   const { clock, timers, store, starter } = deps;
@@ -56,18 +56,30 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
       return;
     }
     for (const { job, job_run } of open.value) {
-      if (
-        job.action.kind !== "workflow_start" || job_run.state !== "running" ||
-        job_run.instance === null
-      ) continue;
-      const state = await starter.instanceState(job_run.instance as Id<"wfi">);
+      if (job_run.state !== "running") continue;
+      if (job.action.kind === "workflow_start") {
+        if (job_run.instance === null) continue;
+        const state = await starter.instanceState(
+          job_run.instance as Id<"wfi">,
+        );
+        if (!state.ok || state.value === "running") continue;
+        logUnlessGone(
+          "closing a job run",
+          await store.ended(
+            job_run.id as Id<"jbr">,
+            state.value === "ended" ? "done" : "cancelled",
+          ),
+        );
+        continue;
+      }
+      // watch가 끝 기록을 못 적은 줄을 다시 닫는다. 켜는 첫 바퀴는 읽지 않는다: runs가 끊긴 run을
+      // 이미 failed로 닫아 두어, 여기서 닫으면 startup claim의 interrupted와 놓친 차례 계산이 사라진다.
+      if (!startupDone || job_run.run === null) continue;
+      const state = await starter.runState(job_run.run as Id<"run">);
       if (!state.ok || state.value === "running") continue;
       logUnlessGone(
         "closing a job run",
-        await store.ended(
-          job_run.id as Id<"jbr">,
-          state.value === "ended" ? "done" : "cancelled",
-        ),
+        await store.ended(job_run.id as Id<"jbr">, state.value),
       );
     }
   }
@@ -118,8 +130,8 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
     for (const turn of claimed.value.start) await launch(turn);
     const due = claimed.value.next_due_at;
     sleep(
-      due === null ? HOUR_MS : Math.min(
-        HOUR_MS,
+      due === null ? MAX_SLEEP_MS : Math.min(
+        MAX_SLEEP_MS,
         Math.max(MIN_SLEEP_MS, Date.parse(due) - clock.nowMs()),
       ),
     );

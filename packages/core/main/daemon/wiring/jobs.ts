@@ -189,6 +189,11 @@ export const jobsWiring: WiringFactory = () => {
             if (state !== "running") return ok({ state });
           }
         },
+        // timeout 0이면 wait는 읽기 한 번이다.
+        async runState(run) {
+          const waited = await ctx.runService.wait(run, 0);
+          return waited.ok ? ok(waited.value.state) : waited;
+        },
         async instanceState(instance) {
           const done = await read<Output<typeof workflowInstanceRead>>(
             workflowInstanceRead,

@@ -124,6 +124,9 @@ function queuedRun(
   touched.set(job, id);
 }
 
+// 켜진 채 이만큼 넘게 늦게 처리한 차례는 켤 때와 같이 놓친 차례다(컴퓨터가 잠든 사이 timer가 늦은 경우).
+const LATE_MS = 10 * 60_000;
+
 // 한 job의 차례를 줄로 만든다.
 function turnFor(
   tx: Tx,
@@ -143,7 +146,11 @@ function turnFor(
   const turns = came ? dueTurns(spec, job.next_due_at!, now) : null;
   const count = turns?.count ?? 0;
   const interrupted = closed.has(id) ? 1 : 0;
-  const missed = startup ? count + interrupted : Math.max(count - 1, 0);
+  // 기준은 가장 오래된 온 차례(next_due_at)다. 잠든 사이 여럿이 쌓여도 잡힌다.
+  const late = came &&
+    Date.parse(now) - Date.parse(job.next_due_at!) > LATE_MS;
+  const missedNow = startup || late;
+  const missed = missedNow ? count + interrupted : Math.max(count - 1, 0);
   const dueAt = turns?.last ?? closed.get(id)!;
 
   const open = tx.sql.get(
@@ -163,7 +170,7 @@ function turnFor(
     });
     replaceJobRun(tx.sql, skipped, { ended_at: now });
     touched.set(id, skipped);
-  } else if (startup && job.missed_policy === "hold") {
+  } else if (missedNow && job.missed_policy === "hold") {
     const held = tx.sql.get(
       "SELECT id, missed_count FROM job_runs WHERE job = ? AND state = 'held'",
       [id],

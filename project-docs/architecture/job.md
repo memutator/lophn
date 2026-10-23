@@ -14,13 +14,14 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
    └ commit 뒤 afterCommit "jobs.changed" ─▶ Bus JobChanged (남지 않는 event) + scheduler.wake()
                                               └▶ 화면이 job·hold를 다시 읽는다
 
- scheduler 바퀴 (core/jobs/scheduler.ts, 한 번에 한 바퀴)      깨우는 것: timer | wake | 1시간 상한
+ scheduler 바퀴 (core/jobs/scheduler.ts, 한 번에 한 바퀴)      깨우는 것: timer | wake | 최대 잠 1분
    1 store.open      도는 줄 가운데 workflow_start의 running 줄: instance가 ended → done, stopped → cancelled
+                     그 밖의 running 줄(run이 있음): run이 끝났으면 그 상태로 다시 닫는다 (켜는 첫 바퀴는 제외)
    2 job.claim_due   온 차례를 job run 줄로 만들고 시작할 줄(queued)을 한 번만 넘긴다. 다음 차례 시각도 받는다
    3 starter.start   agent_run | tool_run → runService.start(…, origin)   workflow_start → workflowService.start(…, {kind: "job"})
    4 job_run.started 줄을 running으로, run·instance·session id를 적는다
    5 run이면 waitRun으로 기다렸다가 job_run.ended (done | failed | cancelled)
-   6 다음 차례까지 timer를 건다 (최소 1초, 최대 1시간)
+   6 다음 차례까지 timer를 건다 (최소 1초, 최대 1분)
 
  tool_run: run 연산이 앱 호출 경로를 program caller로 부른다 ─▶ 만든 agent의 할당과 domain 거르기 (architecture/app-call.md)
  켤 때: 첫 바퀴가 startup claim이다. 도는 중 끊긴 줄을 interrupted로 닫고 꺼진 사이 온 차례를 놓친 차례로 접는다
@@ -54,14 +55,15 @@ job
 
 언제 도나
 - lophn(tray 포함)이 켜져 있을 때만 돈다. 상주 daemon이나 OS service는 없다. scheduler는 주입한 Clock과 작은 timer port(`set`, `clear`)로 깨어난다(`packages/base`의 Clock은 `now()`와 `nowMs()` 그대로다).
-- 깨우는 길은 셋이고 바퀴는 같다. 다음 차례 시각 timer, `wake()`(job command의 commit 뒤), 1시간 상한이다. 대기는 다음 차례까지이고 최소 1초, 최대 1시간이다(켜진 job이 없으면 1시간). 한 번에 한 바퀴만 돌고, 도는 사이 온 wake는 바퀴를 끝낸 뒤 한 번 더 돈다.
+- 깨우는 길은 셋이고 바퀴는 같다. 다음 차례 시각 timer, `wake()`(job command의 commit 뒤), 최대 잠이다. 대기는 다음 차례까지이고 최소 1초, 최대 1분이다(켜진 job이 없으면 1분). 컴퓨터가 잠든 사이 timer는 가지 않을 수 있어(잠든 시간을 세지 않는 시계로 잰다고 본다) 깬 뒤 늦지 않게 바퀴가 돌도록 최대 잠을 짧게 둔다. 할 일이 없는 바퀴는 읽기뿐이라 싸다. 한 번에 한 바퀴만 돌고, 도는 사이 온 wake는 바퀴를 끝낸 뒤 한 번 더 돈다.
 - `claim_due`가 실패하면 60초 뒤 다시 한다. 첫 claim이 한 번 성공할 때까지는 재시도도 startup claim이다. 켤 때 한 번의 일이 빠지지 않게 하려는 것이다.
 - 주기를 바꾸거나 `at`을 바꾸거나 꺼 둔 job을 다시 켜면 그때부터 새로 센다(`next_due_at`을 지금 뒤의 첫 차례로 다시 잡는다). 놓친 것으로 치지 않는다.
 
 놓친 차례
 - 한 번의 `claim_due`가 한 job에서 온 차례를 몇 개 보든 job run 줄은 하나다. 마지막 차례를 `due_at`으로 쓰고 접은 수를 `missed_count`에 적는다(제때 온 차례는 0).
   - 켤 때(startup claim)는 온 차례가 모두 놓친 차례다. 도는 중 lophn이 꺼져 끊긴 차례도 놓친 차례로 하나 더 친다(`closeLeftovers`). 켜진 채 timer가 늦어 여럿이 한꺼번에 오면 하나는 제때로 치고 나머지가 놓친 차례다.
-  - 정책 `hold`는 켤 때의 놓친 차례에만 걸린다. 켜진 채 온 차례는 늦어도 `run`처럼 돈다.
+  - 켜진 채여도 가장 오래된 온 차례(`next_due_at`)보다 10분 넘게 늦게 처리하면 켤 때와 같다. 온 차례가 모두 놓친 차례다(컴퓨터가 잠들었다 깬 경우). 10분 안이면 제때다.
+  - 정책 `hold`는 켤 때와 10분 넘게 늦은 놓친 차례에 걸린다. 제때 온 차례는 `run`처럼 돈다.
 - 몇 번을 놓쳐도 한 번만 돈다. 10일 주기를 세 번 놓쳤다고 세 번 옮길 일이 없어서다. 몇 번 놓쳤는지는 기록에 남는다.
 
 겹침
@@ -70,7 +72,7 @@ job
 - unique index 둘(`job_runs_open`, `job_runs_held`)이 코드가 틀려도 표가 한 겹 더 막는다. 도는 줄(`queued`, `running`)과 기다리는 줄(`held`)은 job마다 하나다.
 
 hold
-- `hold` job이 켤 때 놓친 차례가 있으면 줄을 `held`로 남기고 대기 목록에 card가 뜬다. 사람이 [Start now]나 [Skip]을 고른다(`job.decide_hold`). [Skip]은 `skipped`(`person`)이고 [Start now]는 줄을 `queued`로 돌려 scheduler를 깨운다.
+- `hold` job이 켤 때(또는 10분 넘게 늦게 처리한) 놓친 차례가 있으면 줄을 `held`로 남기고 대기 목록에 card가 뜬다. 사람이 [Start now]나 [Skip]을 고른다(`job.decide_hold`). [Skip]은 `skipped`(`person`)이고 [Start now]는 줄을 `queued`로 돌려 scheduler를 깨운다.
 - 기다리는 동안 또 놓친 차례는 같은 줄에 접는다(`due_at`을 옮기고 `missed_count`를 더한다). card가 쌓이지 않는다.
 - 제때 온 차례가 돌게 되면 기다리던 줄은 `superseded`로 닫는다(`skipped`). job이 돌게 되었으니 [Start now]를 기다릴 이유가 없다.
 - 앞 차례가 도는 중 [Start now]를 누르면 `conflict`이고 줄은 `held`로 남아 card가 남는다.
@@ -98,13 +100,14 @@ job run
 - 자동 재시도는 없다. 실패한 차례는 기록에 남고, 다시 하기는 사람이나 flow의 일이다.
 
 할 일마다 시작과 끝
-- agent_run은 이름을 푼 agent로 run을 연다(`runService.start`의 `agent_resolved` 갈래). 차례마다 새 session을 열고 unattended 사람 메시지로 turn을 연다. 끝은 `waitRun`이 돌려준 run의 상태다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
+- agent_run은 이름을 푼 agent로 run을 연다(`runService.start`의 `agent_resolved` 갈래). 차례마다 새 session을 열고 unattended 사람 메시지로 turn을 연다. 끝은 `waitRun`이 돌려준 run의 상태다. `ended` 기록이 오류로 못 적혔어도 바퀴마다 열린 run 줄의 run 상태를 한 번 읽어(`starter.runState`, 기다리지 않는다) 끝났으면 `ended`를 다시 적는다. 다시 부르기 loop는 없다. 그렇지 않으면 그 job의 차례가 다음 기동까지 모두 `skipped(overlap)`가 된다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
 - tool_run은 run 연산이 앱 호출 경로를 program caller로 부른다(아래 권한). 막히면 run이 `tool_denied`로 실패하고 job run이 `failed`다.
 - workflow_start는 `workflowService.start`를 시작한 쪽 `{kind: "job", job}`으로 직접 부른다. 사람만 받는 `StartWorkflow` route는 그대로다. 시작하지 못하면(`conflict` 등) job run이 `failed`다. 끝은 scheduler가 다음 바퀴에 instance 상태를 읽어 안다: `ended`면 `done`, `stopped`면 `cancelled`. 한 번 닫은 줄은 instance가 다시 열려도 되살리지 않는다.
 - 시작하지 못한 차례(이름이 안 풀림, run 시작 실패)는 그 자리에서 `failed`로 닫는다. `waitRun`이 오류로 그치거나 lophn이 꺼지는 중이면 거짓 끝을 적지 않고 줄을 둔다. 다음 켤 때 `interrupted`로 닫힌다.
 - `started`나 `ended`가 `not_found`(그 사이 job이 지워짐)나 `conflict`(켤 때 이미 닫힘)면 정상이라 넘긴다. 그 밖의 오류는 log 한 줄이다.
 
 켤 때
+- 첫 바퀴는 run 줄의 run 상태를 읽지 않는다. runs가 끊긴 run을 이미 `lophn_restarted`로 닫아 두었으므로 읽으면 그 줄이 `failed`로 닫혀 아래 `interrupted`와 놓친 차례 계산이 사라진다. workflow 줄은 첫 바퀴도 읽는다.
 - 첫 바퀴의 startup claim이 남은 도는 줄을 먼저 닫는다. `running` 줄과 `queued`인데 넘겨진(`claimed_at`) 줄은 `interrupted`로 닫는다. 넘겼지만 `started`를 적었는지 알 길이 없는 줄이라 action과 상관없이 닫는다.
 - 예외는 workflow_start의 `running` 줄이다. instance는 lophn 없이도 돌았으므로(켤 때 `architecture/workflow.md`가 보는 것은 넘긴 step뿐이다) 줄을 둔다. 다음 바퀴가 instance 상태를 읽어 닫는다.
 - 닫은 줄은 놓친 차례로 하나 더 친다. 켤 때 run 쪽도 같은 일을 한다: 끊긴 run은 `lophn_restarted`로 닫히고(`architecture/run.md`) job run은 `interrupted`다. 그 job은 정책대로 한 번 다시 돌거나(`run`) card로 묻는다(`hold`).
@@ -125,7 +128,7 @@ job run
 
 ## 왜 이 모양인가
 
-- scheduler를 기록 event나 Bus에 얹지 않는다. 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`). job command는 표만 바꾸고, commit 뒤 `jobs.changed`는 timer를 다시 걸라는 신호일 뿐이다. 신호를 놓쳐도 정본은 표라서 다음 timer나 1시간 상한이 같은 표를 다시 읽는다. Reactor 같은 반응 장치(cursor, 멱등 key, backoff)를 지지 않는다.
+- scheduler를 기록 event나 Bus에 얹지 않는다. 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`). job command는 표만 바꾸고, commit 뒤 `jobs.changed`는 timer를 다시 걸라는 신호일 뿐이다. 신호를 놓쳐도 정본은 표라서 다음 timer나 최대 잠이 같은 표를 다시 읽는다. Reactor 같은 반응 장치(cursor, 멱등 key, backoff)를 지지 않는다.
 - 다른 module의 표를 SQL로 읽지 않는다(`architecture/layers.md`). 그래서 workflow job run은 scheduler가 닫는다. jobs가 workflows의 표를 읽을 수도 workflows가 jobs를 알 수도 없으니, 켜져 있는 동안 scheduler가 바퀴마다 instance 상태를 읽는 길만 남는다.
 - 겹침 판정을 `job_runs` 표 하나로 한다. 앞 차례가 run이든 instance든 "도는 줄이 있나"는 같은 질문이라 할 일마다 다른 표를 묻지 않는다. unique index는 코드가 틀려도 같은 바깥 효과가 두 번 나지 않게 하는 한 겹이다.
 - hold를 job마다 한 줄에 접는다. 몇 번을 놓쳤든 사람에게 같은 질문을 쌓지 않는다. 제때 온 차례가 돌면 그 줄은 쓸모가 없어져 `superseded`로 닫는다.

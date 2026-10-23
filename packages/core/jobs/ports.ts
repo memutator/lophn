@@ -75,6 +75,10 @@ export type JobStarter = {
   waitRun(
     run: Id<"run">,
   ): Promise<Result<{ state: "done" | "failed" | "cancelled" }>>;
+  // 한 번 읽고 기다리지 않는다.
+  runState(
+    run: Id<"run">,
+  ): Promise<Result<"running" | "done" | "failed" | "cancelled">>;
   instanceState(
     instance: Id<"wfi">,
   ): Promise<Result<"running" | "ended" | "stopped">>;

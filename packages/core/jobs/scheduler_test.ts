@@ -45,6 +45,7 @@ for (
     const starter: JobStarter = {
       start: () => Promise.reject(new Error("unused")),
       waitRun: () => Promise.reject(new Error("unused")),
+      runState: () => Promise.reject(new Error("unused")),
       instanceState: () => {
         calls.push("instanceState");
         return Promise.resolve(ok(instance));
@@ -63,7 +64,7 @@ for (
     await scheduler.start();
     assertEquals(calls, ["open", "instanceState", "claimDue:true"]);
     assertEquals(timers.length, 1);
-    assertEquals(timers[0]!.ms <= 3_600_000, true);
+    assertEquals(timers[0]!.ms <= 60_000, true);
 
     instance = state;
     calls.length = 0;

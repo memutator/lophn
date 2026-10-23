@@ -63,8 +63,8 @@
   },
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build-ui.ts",
-    "check": "deno check --import-map=.lophn/import-map.json main.ts blueprint.ts src scripts tests",
-    "test": "deno test --no-prompt --import-map=.lophn/import-map.json --allow-read --allow-write --allow-env",
-    "wording": "deno run --import-map=.lophn/import-map.json --allow-read --allow-write scripts/generate-wording.ts"
+    "check": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno check --import-map=.lophn/import-map.json main.ts blueprint.ts src scripts tests",
+    "test": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno test --no-prompt --import-map=.lophn/import-map.json --allow-read --allow-write --allow-env",
+    "wording": "deno run --no-config --allow-read --allow-write=.lophn scripts/refresh-import-map.ts && deno run --import-map=.lophn/import-map.json --allow-read --allow-write scripts/generate-wording.ts"
   }
 }

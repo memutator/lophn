@@ -1,0 +1,58 @@
+// deno.json의 imports에서 개발용 import map(.lophn/import-map.json)을 다시 쓴다. check·test·wording이 먼저 돌려
+// 앱이 deno.json에 더한 npm:·jsr: 의존이 풀리게 한다. 앱의 map이 아직 없을 때도 돌아야 해서 import가 없다.
+// lophn-sdk: 값의 설치 위치는 지금 map의 lophn-sdk 항목 중 deno.json과 version까지 같은 것에서 읽는다(import-map.ts의 devImportMap과 같은 규칙).
+const appDir = new URL("../", import.meta.url);
+const mapUrl = new URL(".lophn/import-map.json", appDir);
+
+const config = JSON.parse(
+  await Deno.readTextFile(new URL("deno.json", appDir)),
+) as { imports?: Record<string, string> };
+const declared = config.imports ?? {};
+
+let current: Record<string, string> = {};
+try {
+  current =
+    (JSON.parse(await Deno.readTextFile(mapUrl)) as { imports: Record<string, string> })
+      .imports;
+} catch (thrown) {
+  if (!(thrown instanceof Deno.errors.NotFound)) throw thrown;
+}
+
+// `lophn-sdk:@lophn/<이름>@<version>/<경로>` -> `<이름>/<version>/<경로>`(@me는 `@me/<이름>/...`).
+function installRelative(value: string): string | undefined {
+  const sdk = /^lophn-sdk:@([^/@]+)\/([^/@]+)@([^/@]+)(?:\/(.*))?$/.exec(value);
+  if (sdk === null) return undefined;
+  const part = sdk[1] === "me" ? `@me/${sdk[2]}` : sdk[2];
+  return `${part}/${sdk[3]}/${sdk[4] ?? ""}`;
+}
+
+// map의 다른 lophn-sdk 항목에서 `.../sdk/`까지의 설치 위치를 뗀다.
+let sdkBase: string | undefined;
+for (const [key, value] of Object.entries(declared)) {
+  const relative = installRelative(value);
+  const mapped = current[key];
+  if (relative !== undefined && mapped?.endsWith(relative)) {
+    sdkBase = mapped.slice(0, -relative.length);
+    break;
+  }
+}
+
+const imports: Record<string, string> = {};
+for (const [key, value] of Object.entries(declared)) {
+  const relative = installRelative(value);
+  if (relative !== undefined) {
+    if (sdkBase === undefined) {
+      throw new Error(
+        `${key}: lophn-sdk 설치 위치를 .lophn/import-map.json에서 찾지 못했다`,
+      );
+    }
+    imports[key] = sdkBase + relative;
+  } else if (value.startsWith("./") || value.startsWith("../")) {
+    imports[key] = new URL(value, appDir).href;
+  } else {
+    imports[key] = value;
+  }
+}
+
+await Deno.mkdir(new URL(".lophn/", appDir), { recursive: true });
+await Deno.writeTextFile(mapUrl, JSON.stringify({ imports }, null, 2) + "\n");

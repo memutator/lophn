@@ -67,6 +67,9 @@ Package를 쓴다.
 
 ## 명령
 
+`check`·`test`·`wording`은 먼저 `deno.json`에서 `.lophn/import-map.json`을 다시 쓴다.
+그래서 `deno.json`에 `npm:`·`jsr:` 의존을 더하면 바로 풀린다.
+
 - `deno task test`: 앱 test(blueprint·업무 규칙·문구).
 - `deno task build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
   결과를 bundle에 담는다.

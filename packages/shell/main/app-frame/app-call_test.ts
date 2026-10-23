@@ -37,7 +37,7 @@ function setup() {
     });
   };
   const appCall = createAppCall({
-    blueprint: () =>
+    declaration: () =>
       Promise.resolve({
         ok: true,
         value: {

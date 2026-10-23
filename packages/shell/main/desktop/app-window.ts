@@ -59,7 +59,7 @@ interface AppWindowSurface {
 interface AppWindowDeps {
   /** 그 앱의 현재 기록. `apps/get {app}`이다. */
   readApp(app: string): Promise<CallResult>;
-  /** 그 release에서 전용 창에 여는 screen. blueprint가 full 크기로 선언한 첫 screen이다. */
+  /** 그 release에서 전용 창에 여는 screen. 선언에 full 크기로 적힌 첫 screen이다. */
   entryScreen(app: string, release: string): Promise<Outcome<string>>;
   create(config: AppWindowConfig): AppWindowSurface;
   frame: Pick<AppFrameService, "open" | "setBounds" | "closeWindow">;

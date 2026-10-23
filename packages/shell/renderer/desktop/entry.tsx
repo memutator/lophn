@@ -167,7 +167,7 @@ const palette: PaletteDeps | undefined =
     }
     : undefined;
 
-// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read로
+// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언 read로
 // 프로젝트 탭의 앱 패널 열기를 세운다.
 const appViews: AppViewsDeps | null = mock?.appViews ??
   (views

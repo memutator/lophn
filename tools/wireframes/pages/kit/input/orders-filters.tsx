@@ -9,7 +9,7 @@ import {
   SearchFilter,
 } from "@lophn/ui/input";
 
-// 앱 blueprint의 read tool 입력. tool 이름과 화면 문구는 따로 둔다.
+// 앱 선언의 read tool 입력. tool 이름과 화면 문구는 따로 둔다.
 export interface OrdersQuery {
   from: string;
   to: string;

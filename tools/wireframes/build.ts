@@ -106,7 +106,7 @@ async function importMap(): Promise<Record<string, string>> {
   );
   await addPackage(imports, join(root, "packages/design"));
   await addPackage(imports, join(root, "packages/design/wording"));
-  // 앱 bridge를 쓰는 예제(order-actions)의 package. blueprint는 type만 써서 bundle에 들어가지 않는다.
+  // 앱 bridge를 쓰는 예제(order-actions)의 package. 선언은 type만 써서 bundle에 들어가지 않는다.
   await addPackage(imports, join(root, "packages/sdk/app-ui"));
   return imports;
 }

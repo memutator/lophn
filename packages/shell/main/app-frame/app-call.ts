@@ -1,6 +1,6 @@
 // `app:call-tool`의 main service. 앱 preload가 보낸 `{tool, input}`만 받고, 앱·release·mode는
 // IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). tool은 그 view의 고정
-// blueprint가 선언한 것만 core의 `apps.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락은
+// 선언에 있는 것만 core의 `apps.call_tool`로 보낸다. 입력 검사와 default는 앱 process가 하고, 허락은
 // core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
@@ -13,7 +13,7 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-/** blueprint의 tool 선언 중 main이 쓰는 것. */
+/** 앱 선언의 tool 중 main이 쓰는 것. */
 interface ToolDeclaration {
   name: string;
   title: string;
@@ -22,7 +22,7 @@ interface ToolDeclaration {
   hasInput: boolean;
 }
 
-export interface Blueprint {
+export interface AppDeclaration {
   tools: readonly ToolDeclaration[];
 }
 
@@ -40,16 +40,16 @@ const CALL_INPUT_MAX_BYTES = 64 * 1024;
 // 앱 응답을 페이지로 넘기는 상한. 넘으면 결과를 넘기지 않는다.
 const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
 
-/** 고정 bundle의 blueprint를 읽는다. 같은 bundle은 같은 blueprint다. */
-export type BlueprintSource = (view: {
+/** 고정 bundle의 선언을 읽는다. 같은 bundle은 같은 선언이다. */
+export type DeclarationSource = (view: {
   app: string;
   release: string | null;
   mode: ConnectTarget["mode"];
   bundleHash: string;
-}) => Promise<Outcome<Blueprint>>;
+}) => Promise<Outcome<AppDeclaration>>;
 
 interface AppCallDeps {
-  blueprint: BlueprintSource;
+  declaration: DeclarationSource;
   call: CoreCaller;
 }
 
@@ -178,18 +178,20 @@ function outcomeOf(outcome: unknown): CallOutcome<unknown> {
 }
 
 export function createAppCall(deps: AppCallDeps) {
-  const blueprints = new Map<string, Blueprint>();
-  async function blueprintOf(view: BoundView): Promise<Outcome<Blueprint>> {
+  const declarations = new Map<string, AppDeclaration>();
+  async function declarationOf(
+    view: BoundView,
+  ): Promise<Outcome<AppDeclaration>> {
     const key = view.binding.bundleHash;
-    const known = blueprints.get(key);
+    const known = declarations.get(key);
     if (known !== undefined) return { ok: true, value: known };
-    const read = await deps.blueprint({
+    const read = await deps.declaration({
       app: view.target.app,
       release: view.binding.release,
       mode: view.target.mode,
       bundleHash: key,
     });
-    if (read.ok) remember(blueprints, key, read.value);
+    if (read.ok) remember(declarations, key, read.value);
     return read;
   }
 
@@ -200,9 +202,9 @@ export function createAppCall(deps: AppCallDeps) {
       if (call === undefined) {
         return fail("invalid_input", "call is invalid");
       }
-      const blueprint = await blueprintOf(view);
-      if (!blueprint.ok) return fail("unavailable", "app is not available");
-      const declared = blueprint.value.tools.find((tool) =>
+      const declaration = await declarationOf(view);
+      if (!declaration.ok) return fail("unavailable", "app is not available");
+      const declared = declaration.value.tools.find((tool) =>
         tool.name === call.tool
       );
       if (declared === undefined) return NOT_AVAILABLE;

@@ -1,7 +1,7 @@
-// 앱 화면 예: 앱 blueprint의 tool 선언으로 버튼을 만든다.
+// 앱 화면 예: 앱 선언의 tool 선언으로 버튼을 만든다.
 import { type AppBridge, ToolButton, type ToolSpec } from "@lophn/app-ui";
 
-// 앱 blueprint의 tools 중 이 화면이 쓰는 것.
+// 앱 선언의 tools 중 이 화면이 쓰는 것.
 export const TOOLS = {
   sync: { name: "sync-orders", title: "Sync orders" },
   archive: { name: "archive-shipped", title: "Archive shipped orders" },

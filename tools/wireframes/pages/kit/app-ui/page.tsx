@@ -7,7 +7,7 @@ export function KitAppUi() {
     <Page>
       <Section
         title="order-actions"
-        note="blueprint command를 버튼으로 두고 누르면 확인 없이 바로 호출한다."
+        note="앱 선언의 tool을 버튼으로 두고 누르면 확인 없이 바로 호출한다."
       >
         <Example>
           <div className={kit.panel}>

@@ -31,6 +31,6 @@ export interface AppsSource {
   runtime(app: string): Promise<SourceResult<RunState>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
-  /** 그 version에서 앱 공간에 여는 화면. blueprint가 full 크기로 선언한 첫 화면이다. */
+  /** 그 version에서 앱 공간에 여는 화면. 선언에 full 크기로 적힌 첫 화면이다. */
   entryScreen(app: string, release: string): Promise<SourceResult<string>>;
 }

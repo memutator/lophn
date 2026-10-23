@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { appLogViewError } from "../../../../protocol/apps/mod.ts";
 import { VIEW_STATE_CHANNEL } from "../../../ipc/app-frame.ts";
 import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
-import { createEntryScreen } from "../../app-frame/blueprint-source.ts";
+import { createEntryScreen } from "../../app-frame/declaration-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
 import { createExternalLinks } from "../../app-frame/external-link.ts";
@@ -192,7 +192,7 @@ export function register(
   });
 
   // 앱 전용 창. 본문 view와 같은 appFrame·Electron adapter로 연다.
-  // 전용 창의 screen은 core의 `apps/tools` read로 읽은 blueprint가 정한다(`full` 크기를 선언한 첫
+  // 전용 창의 screen은 core의 `apps/tools` read로 읽은 선언이 정한다(`full` 크기를 선언한 첫
   // screen). 읽지 못하거나 그런 screen이 없으면 unavailable이고, 그때 `--open-app`은 기본 창을
   // 앞으로 가져온다.
   const appWindows = createAppWindows({

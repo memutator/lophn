@@ -1,10 +1,10 @@
-// 앱 view의 고정 blueprint를 core의 `apps/tools`로 읽는다. 읽는 release는 view가 묶인 것이라
+// 앱 view의 고정 선언을 core의 `apps/tools`로 읽는다. 읽는 release는 view가 묶인 것이라
 // 지금 active release가 달라도 view가 보는 선언 그대로다. release 없는 preview는 이 read로 알 수
 // 없어 unavailable이다.
 import { type CallResult, failure, type Outcome } from "./app-connection.ts";
-import type { Blueprint, BlueprintSource } from "./app-call.ts";
+import type { AppDeclaration, DeclarationSource } from "./app-call.ts";
 
-type BlueprintRead = (
+type DeclarationRead = (
   app: string,
   release: string,
 ) => Promise<CallResult>;
@@ -15,31 +15,33 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-/** release의 blueprint. 읽지 못하거나 다른 release가 오면 실패다. */
-async function readBlueprint(
-  read: BlueprintRead,
+/** release의 선언. 읽지 못하거나 다른 release가 오면 실패다. */
+async function readDeclaration(
+  read: DeclarationRead,
   app: string,
   release: string,
 ): Promise<Outcome<Record<string, unknown>>> {
   const got = await read(app, release);
-  if (!got.ok) return failure("unavailable", "blueprint is not available");
-  const blueprint = record(got.value);
-  if (blueprint === undefined || blueprint.release !== release) {
+  if (!got.ok) return failure("unavailable", "declaration is not available");
+  const declaration = record(got.value);
+  if (declaration === undefined || declaration.release !== release) {
     return failure("conflict", "the app version changed");
   }
-  return { ok: true, value: blueprint };
+  return { ok: true, value: declaration };
 }
 
-export function createBlueprintSource(read: BlueprintRead): BlueprintSource {
-  return async (view): Promise<Outcome<Blueprint>> => {
+export function createDeclarationSource(
+  read: DeclarationRead,
+): DeclarationSource {
+  return async (view): Promise<Outcome<AppDeclaration>> => {
     if (view.mode !== "live" || view.release === null) {
-      return failure("unavailable", "blueprint is not available");
+      return failure("unavailable", "declaration is not available");
     }
-    const found = await readBlueprint(read, view.app, view.release);
+    const found = await readDeclaration(read, view.app, view.release);
     if (!found.ok) return found;
     const tools = found.value.tools;
     if (!Array.isArray(tools)) {
-      return failure("unavailable", "blueprint is not available");
+      return failure("unavailable", "declaration is not available");
     }
     return {
       ok: true,
@@ -59,12 +61,12 @@ export function createBlueprintSource(read: BlueprintRead): BlueprintSource {
   };
 }
 
-/** release의 전용 창 screen. blueprint가 `full` 크기를 선언한 첫 screen이다. */
+/** release의 전용 창 screen. 선언에 `full` 크기로 적힌 첫 screen이다. */
 export function createEntryScreen(
-  read: BlueprintRead,
+  read: DeclarationRead,
 ): (app: string, release: string) => Promise<Outcome<string>> {
   return async (app, release) => {
-    const found = await readBlueprint(read, app, release);
+    const found = await readDeclaration(read, app, release);
     if (!found.ok) return found;
     const screens = Array.isArray(found.value.screens)
       ? found.value.screens

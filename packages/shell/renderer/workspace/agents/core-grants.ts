@@ -1,5 +1,5 @@
 // 할당을 읽고 저장하는 부분과 붙일 수 있는 앱 목록. 붙은 것은 agent_assignments가, 붙일 수 있는 앱과 tool은
-// 앱 목록과 활성 release의 blueprint가 말한다. MCP server는 설정한 층이 곧 할당이라 여기에 없다.
+// 앱 목록과 활성 release의 선언이 말한다. MCP server는 설정한 층이 곧 할당이라 여기에 없다.
 import {
   agentAssignmentSet,
   type AssignmentEntry,
@@ -17,7 +17,7 @@ interface AppRow {
   project: string;
 }
 
-interface BlueprintValue {
+interface DeclarationValue {
   tools: {
     name: string;
     description: string;
@@ -37,15 +37,15 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
   const found: GrantApp[] = [];
   for (const app of apps.value.apps) {
     if (app.status !== "active") continue;
-    // 활성 release가 없는 앱은 blueprint가 없다. 붙일 수 없어 목록에서 뺀다.
-    const blueprint = await link.read<BlueprintValue>("apps", "tools", {
+    // 활성 release가 없는 앱은 선언이 없다. 붙일 수 없어 목록에서 뺀다.
+    const declaration = await link.read<DeclarationValue>("apps", "tools", {
       app: app.id,
     });
-    if (!blueprint.ok) continue;
+    if (!declaration.ok) continue;
     found.push({
       app: app.id,
       name: app.name,
-      tools: blueprint.value.tools.map((command) => ({
+      tools: declaration.value.tools.map((command) => ({
         tool: command.name,
         detail: command.description,
         effect: command.effect,

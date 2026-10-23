@@ -19,7 +19,7 @@ export type AppRead =
   /** not_found는 없는 앱과 범위 밖 앱을 같게 답한다. */
   | { readonly ok: false; readonly code: "not_found" | "unavailable" };
 
-/** blueprint가 선언한 화면 하나. */
+/** 앱 선언의 화면 하나. */
 interface AppScreen {
   readonly key: string;
   readonly label: string;
@@ -98,7 +98,7 @@ interface AppListValue {
   next_cursor?: string | null;
 }
 
-interface BlueprintValue {
+interface DeclarationValue {
   screens: {
     key: string;
     label: string;
@@ -111,7 +111,7 @@ const APP_PAGE_LIMIT = 10;
 
 /**
  * 프로젝트 탭에 고를 수 있는 앱과 그 화면 선언. 활성 앱 목록(core `apps.list`)에서
- * 판이 채택된 앱의 blueprint(`apps.tools`)를 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
+ * 판이 채택된 앱의 선언(`apps.tools`)을 읽는다. 하나를 읽지 못한 앱은 없는 앱과 같게 빠지고,
  * 목록을 읽지 못하면 실패다.
  */
 export function coreAppScreens(core: CoreSource): NonNullable<
@@ -145,11 +145,11 @@ export function coreAppScreens(core: CoreSource): NonNullable<
         body: { app: app.id },
       });
       if (!reply.ok) continue;
-      const blueprint = reply.value as BlueprintValue;
+      const declaration = reply.value as DeclarationValue;
       found.push({
         app: app.id,
         name: app.name,
-        screens: blueprint.screens.map((screen) => ({
+        screens: declaration.screens.map((screen) => ({
           key: screen.key,
           label: screen.label,
           sizes: screen.sizes,

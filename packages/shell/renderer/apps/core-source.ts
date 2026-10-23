@@ -95,8 +95,8 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return result.ok ? { ok: true, value: rowOf(result.value) } : result;
     },
 
-    // 앱 공간 본문에 여는 화면은 blueprint read(`/apps/tools`)가 준다. 그 release의
-    // blueprint가 `full` 크기를 선언한 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
+    // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의
+    // 선언에 `full` 크기로 적힌 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
     async entryScreen(app, release) {
       const result = await call<{
         release: string;

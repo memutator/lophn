@@ -94,7 +94,6 @@ export {
 export {
   type AuthDeadline,
   authHeaders,
-  bindingChanged,
   type CallbackListener,
   createMcpAuth,
 } from "./mcp-auth.ts";

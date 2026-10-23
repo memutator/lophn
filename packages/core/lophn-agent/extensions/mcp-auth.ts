@@ -19,43 +19,6 @@ import { endpointReason, httpRequest } from "./adapters/mcp-http.ts";
 // 인증 방식이다(설정 schema의 auth kind).
 type McpAuthKind = "none" | "bearer" | "api_key" | "oauth2";
 
-// 사람이 지정한 Bearer·API 키의 인증 비밀이 묶인 서버 연결 대상이다. 값은
-// 이 모양 어디에도 없고 참조만 있다(platform/secrets).
-type CredentialBinding = {
-  // 서버 URL이다. URL이 바뀌면 옛 인증 비밀을 재사용하지 않는다.
-  server_url: string;
-  // 보관 이름이다(`mcp-<server>`).
-  secret_name: string;
-};
-
-// OAuth 발급자에 묶인 인증 비밀이다. 발급자·계정이 바뀌면 옛 token을
-// 재사용하지 않는다.
-type OAuthBinding = {
-  // OAuth 발급자다(설정 schema의 issuer). 발급자가 바뀌면 옛 token을
-  // 재사용하지 않는다.
-  issuer: string;
-  // 서버 URL이다. URL이 바뀌면 옛 token을 재사용하지 않는다.
-  server_url: string;
-  // 사용 계정이다(사람이 로그인해 확인한 계정 식별). 계정이 바뀌면 옛 token을
-  // 재사용하지 않는다. 없으면 아직 확인한 계정이 없는 것이다.
-  account: string | null;
-  // secret 보관 이름이다(`mcp-<server>` 앞 규칙).
-  secret_name: string;
-};
-
-// URL·issuer·계정이 바뀌었는지 본다. 하나라도 다르면 옛 비밀을 재사용하지
-// 않는다. 같으면 같은 binding이고 재사용이다.
-export function bindingChanged(
-  left: CredentialBinding | OAuthBinding,
-  right: CredentialBinding | OAuthBinding,
-): boolean {
-  return left.server_url !== right.server_url ||
-    ("issuer" in left ? left.issuer : null) !==
-      ("issuer" in right ? right.issuer : null) ||
-    ("account" in left ? left.account : null) !==
-      ("account" in right ? right.account : null);
-}
-
 // 인증 헤더 붙이기다. Bearer는 `authorization: Bearer <token>`이고 API 키는
 // 사람이 정한 헤더 이름에 값 그대로다. redirect가 같은 origin이 아니면 인증
 // 헤더를 넘기지 않는다(adapter의 httpRequest가 거른다).

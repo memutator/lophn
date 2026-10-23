@@ -70,7 +70,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 
 ### workflow에서 lophn program은 최대한 약하다
 
-사람과 agent 여럿이 step을 넘기며 도는 일(workflow)은 project의 PM이 정의하고, 사람이 instance로 시작한다(`architecture/workflow.md`).
+사람과 agent 여럿이 step을 넘기며 도는 일(workflow)은 project의 PM이 정의하고, 사람이나 job이 instance로 시작한다(`architecture/workflow.md`). PM이 쓴 code가 agent와 앱 tool을 불러 가며 이끄는 workflow(flow)도 같다.
 - lophn program은 workflow 안의 agent와 program이 하는 말을 믿고, 기록하고, 보이고, 다음 담당에게 전할 뿐이다. step이 통과했는지 모르고, 순서를 강제하지 않는다.
 - 아무리 정형화된 일이라도 예외 처리는 program이 할 수 없다. 그래서 정책과 예외(순서 바꾸기, 다시 하기, 뒤 step 고치기)는 workflow 안의 agent가 instance를 고쳐 다룬다.
 - 진짜 결정적이고 딱딱한 제약이 필요하면 그것은 그 workflow가 쓰는 program의 책임이다. lophn core는 workflow의 domain을 모른다.
@@ -107,12 +107,12 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - 앱: App Engineer가 직접 짓기(blueprint, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log
 - domain: kind 파일과 검사, `DOMAIN.md`, skill, artifact, 앱 tool의 domain
 - grant와 approval, event, rewind
-- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk
+- workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. PM이 쓴 code(`flow.ts`)가 sandbox 안에서 agent와 앱 tool을 부르는 flow
 - job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`)
 
 **그다음**
 - agent의 결과를 추상화한 GUI(4절 축 2). MVP에서는 채팅 안에서 앱의 부품을 가져다 쓰는 데까지 간다.
-- program이 이끄는 workflow(flow), coding agent 같은 다른 harness를 workflow 참가자로 두기(`products/roadmap/workflow.md`)
+- coding agent 같은 다른 harness를 workflow 참가자로 두기(`products/roadmap/workflow.md`)
 
 ## 7. 다른 문서
 

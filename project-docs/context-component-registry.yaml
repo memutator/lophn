@@ -242,11 +242,11 @@ components:
   - id: architecture-workflow
     kind: doc
     roles: [planner, lead]
-    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit.
+    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit, flow code의 sandbox process와 SDK, `workflow.check`.
     path: project-docs/architecture/workflow.md
     change_reasons:
       boundaries: [workflows, router, agent-roles, coding-agent-cli]
-      paths: [packages/shell/renderer/workflow/, packages/shell/renderer/workspace/kinds/workflow.tsx, packages/shell/renderer/workspace/sidebar/workflow-panel.tsx, packages/shell/renderer/artifact-kit/, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/daemon/wiring/workflows-files.ts]
+      paths: [packages/shell/renderer/workflow/, packages/shell/renderer/workspace/kinds/workflow.tsx, packages/shell/renderer/workspace/sidebar/workflow-panel.tsx, packages/shell/renderer/artifact-kit/, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/flows.ts, packages/core/main/flow-host/, packages/sdk/flow/]
 
   - id: architecture-job
     kind: doc

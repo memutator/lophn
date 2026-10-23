@@ -55,7 +55,7 @@ A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source
 - A1. 사람이 앱을 만들거나 고쳐 달라고 하면, App Engineer가 짓기 전에 설계(재사용, 모델, journey, 화면, tool, 실패 분기)를 앱 source의 `DESIGN.md`에 쓰거나 고친 뒤 직접 짓는다.
 - A2. 사람이 앱이 이상하다고 하거나 앱이 잘못 도는 것 같으면, App Engineer가 앱 상태, 앱 log, 호출 기록을 읽어 읽은 것과 추정을 나눠 말한 뒤 원인을 고친다.
 - A3. 사람이 앱 화면에서 annotation을 보내면, App Engineer가 받아 그 화면에 대한 사람의 요청으로 읽고 고친다.
-- A4. 코드를 쓰기 전에, App Engineer가 선언(tool, 입력, 효과, domain, 공개 여부, permission, 의존)를 쓰거나 고치고 검사 결과를 읽는다.
+- A4. 코드를 쓰기 전에, App Engineer가 선언(tool, 입력, 효과, domain, 공개 여부, permission, 의존)을 쓰거나 고치고 검사 결과를 읽는다.
 - A5. 코드를 쓰기 전에, App Engineer가 앱이 쓸 package와 정확한 version을 골라 선언의 의존에 고정한다.
 - A6. App Engineer가 앱 source에 코드를 쓰고, `shell.run`으로 앱 test와 type 검사를 돌린 뒤 commit한다.
 - A7. App Engineer가 `release.prepare`로 지금 commit의 release를 준비한다. program이 그 자리에서 의존성, migration, 선언과 handler 일치를 검사하고, 떨어지면 단계와 이유를 돌려준다. App Engineer가 고치고 다시 준비한다.
@@ -121,7 +121,7 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 - K1. 맡긴 글(call 본문)을 첫 prompt로 받으면, coding agent는 연결된 앱 source에서 일한다.
 - K2. coding agent는 구현, 디버깅, 수정, 앱 test, preview를 한다. release 준비와 activation은 App Engineer의 일이다.
 - K3. 일이 끝나면, coding agent는 CLI로 한 일과 남은 일을 App Engineer에게 메시지로 알린다. session의 끝은 터미널 process의 끝이다.
-- K4. 선언이나 의존을 바꿔야 하거나 막히면, coding agent는 CLI로 App Engineer에게 메시지를 보낸다. 맡긴 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
+- K4. 맡은 일에 필요하면 coding agent가 선언(`lophn.ts`)을 코드보다 먼저 직접 고치고, `deno.json`의 import map도 같은 정확한 version으로 함께 고친다. 막혔을 때만 CLI로 App Engineer에게 메시지를 보낸다. 맡긴 session이 닫혀 있으면 그 앱의 App Engineer 새 session이 받는다.
 - K5. session이 끝나면, 그 session의 token은 lophn이 거둔다.
 
 ### 사람

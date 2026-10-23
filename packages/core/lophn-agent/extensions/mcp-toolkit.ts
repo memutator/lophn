@@ -91,6 +91,8 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 판정 근거의
   // configuration_revision도 여기서 온다.
   const known = new Map<string, Map<string, McpRuntimeServer>>();
+  // source가 받은 options다. call이 지금 설정을 다시 읽을 때 같은 place·agent 층으로 읽는다.
+  const sourced = new Map<string, McpSourceOptions | undefined>();
 
   const stateOf = (assignment: string, server: string): RefreshState =>
     refresh.get(assignment)?.get(server) ?? "fresh";
@@ -277,6 +279,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
           options?.agent,
         );
         if (!registered.ok) return registered;
+        sourced.set(assignment, options);
         const byServer = knownOf(assignment);
         byServer.clear();
         for (const server of registered.value) {
@@ -345,6 +348,22 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
             return err({
               code: "unavailable",
               message: "서버 설정이 등록되어 있지 않다",
+            });
+          }
+          // 도는 turn 안에서 사람이 끈 server는 연결이 살아 있어도 부르지 않는다. 읽기가 실패해도 거절이다.
+          // agent 정의 층의 off는 turn 시작 때 정한 값이라 여기서 바뀌지 않는다.
+          const options = sourced.get(assignmentId);
+          const now = await serversOf(options?.place ?? null, options?.agent);
+          const live = now.ok
+            ? now.value.find((s) => s.name === invoke.server)
+            : undefined;
+          if (
+            live === undefined || !live.enabled ||
+            options?.skip?.has(invoke.server)
+          ) {
+            return err({
+              code: "unavailable",
+              message: "the MCP server was turned off, so the call is rejected",
             });
           }
           for (;;) {

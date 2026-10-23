@@ -199,7 +199,9 @@ async function askGate(
         tool,
         "not_executed",
         "rejected",
-        "the person rejected this tool call",
+        result.reason === null || result.reason === ""
+          ? "the person rejected this tool call"
+          : `the person rejected this tool call: ${result.reason}`,
         effect,
       );
     case "cancelled":

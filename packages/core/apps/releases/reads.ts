@@ -1,5 +1,5 @@
 // releases.list_records·get_record, activations.compare·consents·queue.
-// 불변 Release를 준비 순서로 읽고, 이전 release와의 비교를 고정 blueprint 둘로 만든다.
+// 불변 Release를 준비 순서로 읽고, 이전 release와의 비교를 고정 선언 둘로 만든다.
 // 범위 밖 앱의 release는 없는 것과 같다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";

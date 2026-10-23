@@ -1,5 +1,5 @@
 // release 준비 흐름.
-// extract → 상한 → UI build → blueprint extract → seal → blob prepare.
+// extract → 상한 → UI build → 선언 extract → seal → blob prepare.
 // 준비는 지정한 commit의 object에서 읽으므로 도중에 원본이 바뀌어도 결과가 달라지지 않는다.
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
@@ -38,7 +38,7 @@ export type PrepareReleaseInput = {
   sourceRoot: string;
   commit: string;
   entrypoint: string;
-  blueprintSource: string;
+  declarationSource: string;
   screens: readonly { path: string; bytes: Uint8Array }[];
   // 화면 build가 JS 말고 만든 자원(index.html·CSS·글꼴). 그대로 bundle에 담고 runtime이 screens/ 아래에서 내준다.
   assets?: readonly { path: string; bytes: Uint8Array }[];
@@ -58,7 +58,7 @@ export type PrepareReleaseInput = {
 export type PreparedRelease = {
   bundleHash: string;
   copyPath: string;
-  blueprintHash: string;
+  declarationHash: string;
   manifest: BundleManifest;
 };
 
@@ -123,7 +123,7 @@ export async function prepareRelease(
   for (const file of extracted.value) sourceBytes += file.bytes.byteLength;
   const sourceLimit = counter.addSource(sourceBytes, extracted.value.length);
   if (sourceLimit) return fromLimit(sourceLimit);
-  // 화면·화면 map·blueprint가 더해지기 전에 파일 수만 먼저 본다.
+  // 화면·화면 map·선언이 더해지기 전에 파일 수만 먼저 본다.
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
   const sdkCopies = input.sdkCopies ?? [];
@@ -157,8 +157,8 @@ export async function prepareRelease(
     dependencies: input.uiDependencies,
   });
   if (!built.ok) return fail(built.error.reason, built.error.code);
-  const blueprint = await extractDeclaration(
-    input.blueprintSource,
+  const declaration = await extractDeclaration(
+    input.declarationSource,
     (value) => {
       if (
         typeof value === "object" && value !== null && "name" in value &&
@@ -171,12 +171,14 @@ export async function prepareRelease(
     deps.extract,
     Math.min(10_000, limitMs),
   );
-  if (!blueprint.ok) return fail(blueprint.error.reason, blueprint.error.code);
+  if (!declaration.ok) {
+    return fail(declaration.error.reason, declaration.error.code);
+  }
   if (now() - started > limitMs) return fail("elapsed_ms");
   if (deps.cancelled?.()) return fail("cancelled");
 
-  const blueprintBytes = new TextEncoder().encode(
-    blueprint.value.canonicalJson,
+  const declarationBytes = new TextEncoder().encode(
+    declaration.value.canonicalJson,
   );
   const files = [
     ...extracted.value,
@@ -186,7 +188,7 @@ export async function prepareRelease(
     ...vendorCopies,
     ...entryFiles,
     ...lockedMap,
-    { path: "declaration.json", bytes: blueprintBytes },
+    { path: "declaration.json", bytes: declarationBytes },
   ];
   let bundleBytes = 0;
   const hashed: { path: string; hash: string }[] = [];
@@ -218,7 +220,7 @@ export async function prepareRelease(
   const sealed = existing ? { ok: true as const } : await writeBundle({
     copyPath: copy.value,
     manifest: manifest.value,
-    blueprintJson: blueprintBytes,
+    declarationJson: declarationBytes,
     bundleFiles: files.filter((file) => file.path !== "declaration.json"),
   });
   if (!sealed.ok) {
@@ -243,7 +245,7 @@ export async function prepareRelease(
   return ok({
     bundleHash,
     copyPath: copy.value,
-    blueprintHash: await sha256Hex(blueprintBytes),
+    declarationHash: await sha256Hex(declarationBytes),
     manifest: manifest.value,
   });
 }

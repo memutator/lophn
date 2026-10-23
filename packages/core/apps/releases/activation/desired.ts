@@ -106,8 +106,8 @@ export async function dataChangesOf(
 }
 
 // 앱의 bundle 사본을 읽는다. 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나
-// import map·blueprint를 읽지 못하면 unavailable이다. 사본 파일은 읽기만 한다.
-// `domainNamesOf`를 주면 blueprint tool의 domain을 그 앱의 domain 목록에 대조한다(실행하려고 여는 쪽이 준다).
+// import map·선언을 읽지 못하면 unavailable이다. 사본 파일은 읽기만 한다.
+// `domainNamesOf`를 주면 declaration tool의 domain을 그 앱의 domain 목록에 대조한다(실행하려고 여는 쪽이 준다).
 // 목록을 읽지 못하면 unavailable이다. 없으면 domain은 보지 않는다.
 export async function readBundleCopy(
   dataRoot: string,
@@ -138,18 +138,20 @@ export async function readBundleCopy(
   if (await sha256Hex(manifestText) !== bundleHash) {
     return unavailable("bundle copy does not match its hash");
   }
-  let blueprintText: string;
+  let declarationText: string;
   try {
-    blueprintText = await Deno.readTextFile(`${root}/${DECLARATION_COPY_NAME}`);
+    declarationText = await Deno.readTextFile(
+      `${root}/${DECLARATION_COPY_NAME}`,
+    );
     await Deno.stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
   } catch {
     return unavailable("bundle copy is incomplete");
   }
   let raw: unknown;
   try {
-    raw = JSON.parse(blueprintText);
+    raw = JSON.parse(declarationText);
   } catch {
-    return unavailable("bundle blueprint is invalid");
+    return unavailable("bundle declaration is invalid");
   }
   let domains: string[] | undefined;
   if (domainNamesOf !== undefined) {
@@ -157,10 +159,10 @@ export async function readBundleCopy(
     if (!names.ok) return unavailable("app domains cannot be read");
     domains = names.value;
   }
-  const blueprint = validateDeclaration(raw, { app, domains });
-  if (!blueprint.ok) {
+  const declaration = validateDeclaration(raw, { app, domains });
+  if (!declaration.ok) {
     return unavailable(
-      `bundle blueprint is invalid: ${blueprint.error.message}`,
+      `bundle declaration is invalid: ${declaration.error.message}`,
     );
   }
   return ok({
@@ -168,9 +170,11 @@ export async function readBundleCopy(
     manifest,
     entry: `${root}/${manifest.entrypoint}`,
     importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
-    tools: blueprint.value.tools,
+    tools: declaration.value.tools,
     screens: Object.fromEntries(
-      blueprint.value.screens.map((screen) => [screen.key, [...screen.sizes]]),
+      declaration.value.screens.map((
+        screen,
+      ) => [screen.key, [...screen.sizes]]),
     ),
     dataSchema: dataSchemaOf(manifest),
   });

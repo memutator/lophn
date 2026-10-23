@@ -1,4 +1,4 @@
-// 이전 release와의 비교. 고정 blueprint 둘의 정적 비교다.
+// 이전 release와의 비교. 고정 선언 둘의 정적 비교다.
 // 같은 입력 schema라는 이유로 호환을 주장하지 않는다: 효과·확인·되돌림이 바뀌면 동작 변경이고,
 // 이름·설명만 바뀐 것은 따로 낸다. 업무 의미의 동일성은 증명하지 않으므로 바뀐 것이 있으면
 // `review_required`다. 데이터 계약은 apps/data 근거(`data_schema`·`data_changes`), 접근 요청은
@@ -10,7 +10,7 @@ import type {
 } from "../../../protocol/apps/mod.ts";
 import { type AppFacts, compareFacts } from "../permissions/mod.ts";
 
-// 비교는 command 꼴로 한다. 새 blueprint에는 confirm·revert가 없어서 그 칸은 늘 비어 있다.
+// 비교는 command 꼴로 한다. 새 선언에는 confirm·revert가 없어서 그 칸은 늘 비어 있다.
 
 // activation에서 묻는 판정 값이다. 선언 비교는 grant 덮음 하나다: 새 release의 선언 가운데 지금 active
 // grant가 덮지 않는 것이 늘어난 것이고, 이전 release와 선언을 따로 비교하지 않는다. data 손실은 이번에 지나는

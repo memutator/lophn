@@ -14,7 +14,7 @@ async function seal(
   return await sealBundle({
     copyPath,
     manifest,
-    blueprintJson: encode("{}"),
+    declarationJson: encode("{}"),
     bundleFiles,
   });
 }

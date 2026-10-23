@@ -96,7 +96,7 @@ if (import.meta.main) {
     result = await checkSealedCopy(input, prepared.value.bundleHash) ?? {
       ok: true,
       bundle_hash: prepared.value.bundleHash,
-      declaration_hash: prepared.value.blueprintHash,
+      declaration_hash: prepared.value.declarationHash,
     };
   }
   console.log(JSON.stringify(result));

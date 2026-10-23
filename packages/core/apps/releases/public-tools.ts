@@ -1,5 +1,5 @@
 // release가 지우는 공개 tool과, 그것을 다른 domain이 쓰는지의 판정. 막지 않고 준비 결과의 알림으로 싣는다.
-// 비교 재료는 active release에 고정된 blueprint와 새 blueprint의 tool이다.
+// 비교 재료는 active release에 고정된 선언과 새 선언의 tool이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";

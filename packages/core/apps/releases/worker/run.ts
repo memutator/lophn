@@ -81,7 +81,7 @@ function isPrepareInput(value: unknown): value is PrepareReleaseInput {
     typeof record.sourceRoot === "string" &&
     typeof record.commit === "string" &&
     typeof record.entrypoint === "string" &&
-    typeof record.blueprintSource === "string" &&
+    typeof record.declarationSource === "string" &&
     Array.isArray(record.screens) && Array.isArray(record.dependencies);
 }
 
@@ -106,7 +106,7 @@ async function acceptRelease(
   return {
     bundle_hash: prepared.value.bundleHash,
     copy_path: prepared.value.copyPath,
-    declaration_hash: prepared.value.blueprintHash,
+    declaration_hash: prepared.value.declarationHash,
   };
 }
 

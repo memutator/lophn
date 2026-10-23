@@ -1,6 +1,6 @@
 // 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
 // release worker 안에서 돈다: commit을 staging에 풀고, 앱 import map을 bundle 안 설치 사본 경로로
-// 잠그고, blueprint 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌리고, npm·jsr 의존을 한 번
+// 잠그고, 선언 값을 권한 좁은 Deno로 평가하고, 앱의 화면 build를 직접 돌리고, npm·jsr 의존을 한 번
 // 받아 둔 결과를 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만 읽는다.
 // staging은 끝나면 늘 지운다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -39,7 +39,7 @@ type SourcePrepareDeps = PrepareDeps & {
   deno?: string;
   // 취소 신호. 실행 중인 자식은 SIGKILL하고 부분 결과를 확정하지 않는다.
   signal?: AbortSignal;
-  // blueprint 값 평가와 화면 build 한 번의 상한(ms).
+  // 선언 값 평가와 화면 build 한 번의 상한(ms).
   stepLimitMs?: number;
 };
 
@@ -55,7 +55,7 @@ function fail(
 }
 
 // deno stderr의 앞 5줄 500자. 색 escape와 staging 경로를 지워 앱 source 기준 경로로 보이게 한다.
-// reason에 붙어 agent가 고칠 곳(blueprint, 화면 code, package 판)을 가리킨다.
+// reason에 붙어 agent가 고칠 곳(선언, 화면 code, package 판)을 가리킨다.
 function denoHead(code: string, stderr: string, staging: string): string {
   const esc = String.fromCharCode(27);
   const text = stderr.replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
@@ -351,7 +351,7 @@ export async function prepareFromSource(
       commit: input.commit,
       entrypoint: platformEntry.entrypoint,
       entryFiles: platformEntry.files,
-      blueprintSource: evaluated.stdout.trim(),
+      declarationSource: evaluated.stdout.trim(),
       screens: screens.screens,
       assets: screens.assets,
       dependencies: [

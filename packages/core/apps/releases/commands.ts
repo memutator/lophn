@@ -265,7 +265,7 @@ export function createReleaseCommands(): {
         storeActivation(tx, release.id, "active", activation, null, at);
         const next = appSchema.safeParse(nextApp);
         if (!next.success) {
-          return unavailable("blueprint name and description are not valid");
+          return unavailable("declaration name and description are not valid");
         }
         const replaced = replaceApp(tx, next.data);
         if (!replaced.ok) return replaced;
@@ -489,7 +489,7 @@ export function createReleaseCommands(): {
         if (app.value.status === "archived") {
           return conflict("archived app cannot prepare a release");
         }
-        // 정규 blueprint는 검증기를 통과한 것만 hash로 고정한다.
+        // 정규 선언은 검증기를 통과한 것만 hash로 고정한다.
         let lookup;
         try {
           lookup = tx.port(domainLookupPort);
@@ -502,12 +502,12 @@ export function createReleaseCommands(): {
             .map((domain) => domain.name),
         });
         if (!validated.ok) return invalid(validated.error.message);
-        const blueprint = validated.value;
-        const canonical = canonicalJson(blueprint as never);
+        const declaration = validated.value;
+        const canonical = canonicalJson(declaration as never);
         if (sha256(canonical) !== input.declaration_hash) {
-          return invalid("blueprint does not match its hash");
+          return invalid("declaration does not match its hash");
         }
-        // bundle 안 manifest가 실제로 이 blueprint와 이 hash를 가리켜야 한다.
+        // bundle 안 manifest가 실제로 이 선언과 이 hash를 가리켜야 한다.
         const manifest = input.manifest;
         if (
           sha256(new TextDecoder().decode(manifestBytes(manifest))) !==
@@ -520,17 +520,17 @@ export function createReleaseCommands(): {
         );
         if (pinned?.hash !== input.declaration_hash) {
           return invalid(
-            "bundle declaration.json does not match the blueprint",
+            "bundle declaration.json does not match the declaration",
           );
         }
-        // blueprint는 SDK와 사용자 package만 선언한다(npm·jsr은 선언 문법이 없다). bundle에 담긴 그 둘이 선언과 같아야 한다.
+        // 선언에는 SDK와 사용자 package만 적는다(npm·jsr은 선언 문법이 없다). bundle에 담긴 그 둘이 선언과 같아야 한다.
         if (
-          canonicalJson(blueprint.sdk_dependencies as never) !==
+          canonicalJson(declaration.sdk_dependencies as never) !==
             canonicalJson(manifestDependencies(manifest) as never)
         ) {
-          return invalid("manifest dependencies differ from the blueprint");
+          return invalid("manifest dependencies differ from the declaration");
         }
-        const missing = missingSdkPermission(blueprint);
+        const missing = missingSdkPermission(declaration);
         if (missing !== undefined) {
           return err({
             code: "invalid_input",
@@ -544,7 +544,7 @@ export function createReleaseCommands(): {
         const chain = checkDataChanges(input.data_changes, input.data_schema);
         if (!chain.ok) return chain;
         const removedTools = (): ReturnType<typeof removedPublicToolsOf> =>
-          removedPublicToolsOf(tx, input.app, blueprint.tools);
+          removedPublicToolsOf(tx, input.app, declaration.tools);
         const existing = findPreparedRelease(
           tx.sql,
           input.app,
@@ -560,9 +560,9 @@ export function createReleaseCommands(): {
           });
         }
         const id = tx.newId("rel");
-        const declarations = factsOfDeclaration(id, blueprint);
-        if (declarations === undefined) {
-          return invalid("blueprint declarations are not valid");
+        const facts = factsOfDeclaration(id, declaration);
+        if (facts === undefined) {
+          return invalid("declaration facts are not valid");
         }
         const release = releaseRecordSchema.safeParse({
           id,
@@ -581,7 +581,7 @@ export function createReleaseCommands(): {
           failure: null,
         });
         if (!release.success) return invalid("invalid release");
-        insertRelease(tx, release.data, canonical, declarations);
+        insertRelease(tx, release.data, canonical, facts);
         const removed = removedTools();
         if (!removed.ok) return removed;
         return ok({
@@ -599,7 +599,7 @@ function requireMachine(ctx: RequestContext, route: string): Result<void> {
     : err({ code: "forbidden", message: `${route} is machine only` });
 }
 
-// bundle에 담긴 의존 가운데 blueprint가 선언하는 것(SDK와 사용자 package)이다. 이름순으로 낸다.
+// bundle에 담긴 의존 가운데 선언에 적힌 것(SDK와 사용자 package)이다. 이름순으로 낸다.
 function manifestDependencies(
   manifest: {
     sdk_dependencies: readonly { name: string; version: string }[];

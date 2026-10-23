@@ -107,15 +107,15 @@ function storedOf(row: SqlRow): Result<StoredDeclaration> {
   try {
     return ok({
       release: release.value,
-      declaration: JSON.parse(String(row.blueprint)) as AppDeclaration,
-      facts: JSON.parse(String(row.declarations)) as AppFacts,
+      declaration: JSON.parse(String(row.declaration)) as AppDeclaration,
+      facts: JSON.parse(String(row.facts)) as AppFacts,
     });
   } catch {
     return invalidStored();
   }
 }
 
-// release에 고정한 blueprint와 선언 사실. 준비 뒤 불변이다.
+// release에 고정한 선언과 선언 사실. 준비 뒤 불변이다.
 export function loadStoredDeclaration(
   sql: Query,
   release: string,
@@ -124,7 +124,7 @@ export function loadStoredDeclaration(
   return row === undefined ? ok(null) : storedOf(row);
 }
 
-// 앱이 채택한 release의 고정 blueprint. active release가 없으면 null이다.
+// 앱이 채택한 release의 고정 선언. active release가 없으면 null이다.
 export function loadActiveDeclaration(
   sql: Query,
   app: string,
@@ -170,13 +170,13 @@ export function insertRelease(
   tx: Pick<Tx, "sql">,
   release: ReleaseRecord,
   canonicalDeclaration: string,
-  declarations: AppFacts,
+  facts: AppFacts,
 ): void {
   tx.sql.run(
     `INSERT INTO releases
       (id, app, number, code_commit, bundle_hash, declaration_hash, data_schema,
        data_changes, created_by, created_at, status, activation,
-       failure, blueprint, declarations)
+       failure, declaration, facts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
     [
       release.id,
@@ -191,7 +191,7 @@ export function insertRelease(
       release.created_at,
       release.status,
       canonicalDeclaration,
-      JSON.stringify(declarations),
+      JSON.stringify(facts),
     ],
   );
 }
@@ -202,12 +202,12 @@ export function insertRelease(
 export const releaseFacts: CurrentFacts = {
   get(sql, app) {
     const row = sql.get(
-      "SELECT declarations FROM releases WHERE app = ? AND status = 'active'",
+      "SELECT facts FROM releases WHERE app = ? AND status = 'active'",
       [app],
     );
     if (row === undefined) return ok(null);
     try {
-      return ok(JSON.parse(String(row.declarations)) as AppFacts);
+      return ok(JSON.parse(String(row.facts)) as AppFacts);
     } catch {
       return invalidStored();
     }

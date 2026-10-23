@@ -70,14 +70,14 @@ async function chmodOrFail(
   return ok(undefined);
 }
 
-// bundle byte·manifest·정규 blueprint JSON을 사본에 쓴다. 파일은 0444로 좁히지만 폴더는 열어 둔다.
+// bundle byte·manifest·정규 선언 JSON을 사본에 쓴다. 파일은 0444로 좁히지만 폴더는 열어 둔다.
 // 연결(symlink)은 만들지 않는다: 준비 자식은 앱 폴더에만 write가 있어 `Deno.symlink`(unscoped read·write 요구)를 못 한다.
 // 연결 만들기와 폴더 좁히기는 권한이 있는 core가 `sealCopy`로 마친다.
 export async function writeBundle(
   input: {
     copyPath: string;
     manifest: BundleManifest;
-    blueprintJson: Uint8Array;
+    declarationJson: Uint8Array;
     bundleFiles: readonly { path: string; bytes: Uint8Array }[];
   },
 ): Promise<Result<void, SealFailure>> {
@@ -102,7 +102,7 @@ export async function writeBundle(
       written.push({ path, bytes });
     };
     for (const file of input.bundleFiles) push(file.path, file.bytes);
-    push(DECLARATION_COPY_NAME, input.blueprintJson);
+    push(DECLARATION_COPY_NAME, input.declarationJson);
     push(
       MANIFEST_COPY_NAME,
       new TextEncoder().encode(JSON.stringify(input.manifest)),

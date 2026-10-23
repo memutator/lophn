@@ -314,3 +314,37 @@ guard: packages/shell/renderer/workspace/keybindings_test.ts "한글 입력 상�
 - (중간) native view의 키를 모두 shell renderer에 보내 renderer의 matcher가 고르게 한다. 키마다 IPC가 생기고 page가 받을 키를 renderer가 다시 돌려줘야 한다.
 
 닫음: `web-contents-created`가 `<webview>` guest의 창을 `hostWebContents`로 찾는다. 작업대 단축키 표의 탭 이동·닫기·다시 열기 줄(`tab.next`·`tab.prev`·`tab.close`·`tab.reopen`·`tab.move-left`·`tab.move-right`)을 모든 OS에서 `main`으로 바꿔 `listenShortcuts`가 page 대신 삼켜 shell renderer로 보낸다. Linux·Windows에서 shell renderer 자신의 키는 main이 삼키지 않고 renderer가 받는다(터미널의 Ctrl+W를 shell로 보내기 위해).
+
+## 대화 입력창의 붙이기 단추가 아무 일도 하지 않는다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/design]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/shell/renderer/conversation/composer/agent-composer.tsx`가 붙이기 단추(`conversation.button.attach`, `onAttach`)를 그린다. host는 둘 다 빈 함수다(`packages/shell/renderer/workspace/kinds/agent.tsx`와 `packages/shell/renderer/app-frame/side-panel.tsx`의 `attach: () => {}`). 붙인 것(`attached`) 기구는 지웠다.
+
+영향: 사람이 대화 입력창의 + 단추를 눌러도 아무 일도 일어나지 않는다.
+
+고치려면: 단추와 `onAttach`, host의 `attach`, wording key `conversation.button.attach`를 지우고 wireframe을 맞춘다(작음). 추천. 붙이기 기능을 만들 때 다시 더한다.
+
+닫음: 단추, `onAttach`, `AgentViewHost.attach`, 두 host의 `attach`, 아이콘 `conversationIcons.attach`, wording key `conversation.button.attach`를 지우고 wireframe 둘을 맞췄다. 붙이기 기능을 만들 때 다시 더한다.
+
+## shell이 문자열로 부르는 core route가 지워져도 check가 잡지 못한다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/shell/renderer, tools]
+closed: fixed
+guard: tools/check-source.ts rule SHELL_ROUTE
+```
+
+지금: shell main과 renderer는 core route를 `call("read", "<resource>", "<method>", …)`처럼 문자열로 부른다(예: `packages/shell/main/app-frame/app-connection.ts`). route를 지우거나 이름을 바꿔도 type check와 core 기동은 통과한다. `releases.get`을 지운 commit 뒤 데스크톱 앱의 모든 live 앱 화면이 "Couldn't load <앱>"으로 떴고, 나흘 뒤 사람이 앱을 열어 보고서야 드러났다. 안 쓰는 export를 정리하다 화면 셋이 부르던 route를 지운 일도 앞서 있었다. 지금은 worker 지침의 "method를 문자열로도 grep한다"만 막는다.
+
+영향: 사람이 데스크톱 앱에서 그 기능을 쓸 수 없다. e2e는 Electron 화면을 띄우지 않아 보지 못한다.
+
+고치려면: `tools/check-source.ts`에 규칙 하나. shell의 문자열 route 호출(resource·method 짝)을 모아 protocol의 route 목록에 없는 짝을 막는다(작음). 추천.
+
+닫음: `tools/check-source.ts`의 규칙 `SHELL_ROUTE`가 `packages/shell/main`·`packages/shell/renderer`의 문자열 route 호출(`call`·`internal`·`coreInternal`은 kind가 첫 인자, `read`·`memory`·`command`·`upload`·`fileStream`은 호출 이름이 kind)과 `"memory:settings/list"` 같은 이름 문자열을 `SHELL_ROUTES`(`packages/shell/main/desktop/core/routes.ts`)에 대어 없는 짝을 막는다. kind·resource·method가 변수인 호출은 읽지 않는다. 처음 돌렸을 때 깨진 호출은 없었다.

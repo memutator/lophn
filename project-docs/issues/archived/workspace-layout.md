@@ -89,3 +89,17 @@ modules: [packages/shell/renderer, packages/shell/main]
 - 영향: 같은 실행에서 project를 다시 열기만 해도 detached terminal의 출력과 돌던 명령(dev server, coding agent)에 다시 닿을 수 없다. PTY는 앱을 끌 때까지 남는다. docked·floated terminal은 같은 경우에 다시 붙는다.
 - 고치려면: (1) main이 조용히 닫은 detached 창 항목의 마지막 탭 값과 transfer를 (project, key)로 이 실행 동안 들고 있다가 같은 key의 `open({ transfer: null })`에 쓴다(중간). terminal의 마지막 `terminal_ref`·`generation`은 detached 창이 `changed`로 알리는 탭 값에 실어야 한다. (2) 떠날 때 detached 창을 닫지 않고 dock시킨다(작음, 대신 다시 열 때 창이 돌아오지 않는다). 추천: (1).
 - 닫음: detached 창이 `changed`의 `resume`(kind의 `resume`, terminal은 PTY 참조)을 알리고 main이 `DetachedRegistry`에 이 실행 동안만 들고 있다가, project를 떠나며 조용히 닫힌 창의 값을 (project, key)로 남겨 같은 key의 `open({ transfer: null })`에 한 번 쓰고 지운다. 개별 close·dock·remove와 앱 종료에서도 지우고 디스크에는 쓰지 않는다.
+
+## 다른 desk에 있는 terminal이 연 URL은 browser 탭이 아니라 OS browser로 열린다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: packages/shell/renderer/workspace/model_test.ts의 openAcrossDesks 줄 "새 탭이 after로 다른 자리의 탭을 가리키면 그 자리에서 그 뒤에 열기"
+```
+
+- 지금: `packages/shell/renderer/terminal/use-bridge-open-requests.ts`의 `openBridgeUrl`이 그 terminal을 `allTabs(host.view)`(보이는 desk)에서만 찾는다. 다른 desk에 있으면 false를 돌려 ack하지 않고, main(`packages/shell/main/browser-bridge/bridge.ts`)이 1.5초 뒤 `declined`로 답해 shim이 OS browser로 연다.
+- 영향: 링크를 browser 탭으로 열게 설정한 사람이 숨은 desk의 terminal에서 연 URL(예: CLI login)이 OS browser에 열린다. URL은 잃지 않는다.
+- 고치려면: (작음) terminal을 `host.windowTabs()`에서 찾고, 그 terminal의 desk에 browser 탭을 연다. 지금 `openAcrossDesks`는 어디에도 없는 새 탭을 보이는 desk에 붙이므로 desk를 정하는 인자가 필요하다. 추천: 작음 안.
+- 닫음: `packages/shell/renderer/terminal/use-bridge-open-requests.ts`의 `openBridgeUrl`이 terminal을 `host.windowTabs()`(모든 desk)에서 찾고, 보이지 않는 desk의 terminal이면 `after: terminal.key`로 연다. `packages/shell/renderer/workspace/model.ts`의 `openAcrossDesks`는 새 탭의 `after`가 다른 desk에 있으면 그 desk로 건너가 그 탭 바로 뒤에 연다. 사람이 로그인 page를 보게 그 desk로 넘어간다.

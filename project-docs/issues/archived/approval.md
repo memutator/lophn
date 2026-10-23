@@ -91,3 +91,41 @@ guard: packages/core/approvals/gate/judge_test.ts의 "floor deny와 사람이 �
 정한 것(사람, 2026-10-21): 추천대로 넓힌다.
 
 닫음: `PRODUCT_SHELL_RULES.floor`가 `rm`의 flag 순서 넷(`-rf`, `-fr`, `-r -f`, `-f -r`)과 대상 다섯(`/`, `~`, `~/`, 글자 그대로의 `/*`·`~/*`)의 곱, `mkfs*`, `dd * of=/dev/*`를 `sudo` 앞붙임 있이와 없이 둘 다 막는다. ask에 `rm -f -r*`를 더했다. `--no-preserve-root`, `$HOME`, `/home/<사람>`은 여전히 floor 밖이다(규칙은 경계가 아니다).
+
+## session 도중 끈 MCP server의 tool이 그 session 끝까지 돈다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/approvals]
+closed: fixed
+guard: packages/core/lophn-agent/extensions/mcp-toolkit_test.ts의 test "session 도중 끈 MCP server의 tool은 그 session에서 부르면 거절된다"
+```
+
+지금: tool 목록은 session을 시작할 때 고정한다(`project-docs/architecture/agent-definition.md`). 빠진 앱 tool은 call 때 `judge`(`packages/core/approvals/gate/judge.ts`)가 지금 할당을 읽어 막는다. MCP tool은 `judge`가 늘 `run`을 낸다. MCP server는 설정한 층이 곧 할당이고 끄기는 `mcp_off`라 할당 줄이 없기 때문이다. 연결 쪽 `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `call()`은 session 시작 때 고정한 server 상태만 본다. `packages/core/lophn-agent/extensions/mcp-connections.ts`의 `detach`를 `mcp_off` 바뀜에 부르는 곳도 없다. 그런데 `packages/core/lophn-agent/run-loop/prepare.ts`의 `toolsNotice`는 agent에게 "빠진 tool은 … 지금부터 못 쓴다"고 알린다.
+
+영향: 사람이 도는 session의 agent에게서 MCP server(예: 메일 보내기)를 끄면, agent는 그 session이 끝날 때까지 그 server의 tool을 묻지 않고 부를 수 있다. 사람이 거둔 권한이 바로 거둬지지 않는다. 옛 agent grant에는 MCP tool 줄이 있어 Gate가 call 때 막았다.
+
+고치려면:
+- `mcp-toolkit.ts`의 `call()`이 부를 때마다 그 agent의 지금 층(`serversOf`)을 읽어 꺼진 server면 거절한다. 작음~중간. call마다 설정 읽기가 하나 는다.
+- `mcp_off`·server 설정이 바뀔 때 그 server를 `detach`한다. 중간. 바뀜을 알리는 길을 새로 둔다.
+
+추천: 첫째. 앱 tool이 call 때 지금 할당을 읽는 것과 같은 꼴이다.
+
+닫음: `packages/core/lophn-agent/extensions/mcp-toolkit.ts`의 `call()`이 부를 때마다 `source()`가 받은 place·agent로 `serversOf`를 다시 읽어, server가 없거나 꺼졌거나 `skip`에 있거나 읽기가 실패하면 `unavailable`로 거절한다. 연결은 끊지 않는다. Operator 정의 층의 `off`는 turn 시작 값이라 다음 turn부터 막힌다(그때 `known` 검사가 막는다).
+
+## shell 물음을 거절한 이유가 agent에게 가지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: 없음
+```
+
+지금: 사람이 turn request를 거절하며 이유를 적으면 화면은 그 이유를 보낸다(`packages/shell/renderer/desktop/connection/waiting/decide.ts` 36-37). 그런데 tool 호출을 멈추는 `packages/core/lophn-agent/tools/work.ts`의 `rejected` 갈래(197-203)는 이유를 버리고 고정 글 "the person rejected this tool call"만 agent에게 준다. `architecture/approval.md` "묻는 길"은 "거절 이유는 agent에게 그대로 간다"고 적는다.
+
+영향: 사람이 "그 폴더 말고 build 폴더만 지워"처럼 이유를 적어 거절해도 agent는 왜 거절됐는지 모르고 같은 명령을 다시 묻거나 일을 멈춘다. 사람은 같은 말을 대화로 다시 해야 한다.
+
+고치려면: `rejected` 결과에 이유가 있으면 summary에 붙인다(예: `the person rejected this tool call: <이유>`). 작음. **추천.**
+
+닫음: `packages/core/lophn-agent/tools/work.ts`의 `askGate` `rejected` 갈래가 이유가 비어 있지 않으면 summary를 `the person rejected this tool call: <이유>`로 준다.

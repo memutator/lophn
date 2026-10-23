@@ -9,7 +9,6 @@ export const conversation = {
   "conversation.button.approval-deny": "Deny",
   "conversation.button.archive": "Archive",
   "conversation.button.archived-toggle": "Archived ({count, number})",
-  "conversation.button.attach": "Add attachment",
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",

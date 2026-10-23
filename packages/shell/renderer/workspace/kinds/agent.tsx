@@ -119,11 +119,10 @@ function viewHost(
     // Fork가 만든 session은 같은 agent의 새 탭이다. 이 탭은 자기 session에 남는다.
     openForked: (session) =>
       openAgent(host, { agent, name: tab.title, session }),
-    // 사용량 화면과 첨부는 이 화면의 몫이 아니라 아직 길이 없다.
+    // 사용량 화면은 이 화면의 몫이 아니라 아직 길이 없다.
     showUsage: () => {},
     // 탭만 닫는다. session은 그대로 남는다.
     closeTab: () => host.removeTab(tab.key),
-    attach: () => {},
     openConnections: slice.openConnections,
   };
 }

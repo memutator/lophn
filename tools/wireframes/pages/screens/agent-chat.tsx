@@ -217,7 +217,6 @@ export function ChatShell(
           onDraft={(patch) => {
             if (patch.text !== undefined) setText(patch.text);
           }}
-          onAttach={() => {}}
           onLoadPermissions={() => {}}
           onEditPermissions={() => {}}
           onSend={() => {

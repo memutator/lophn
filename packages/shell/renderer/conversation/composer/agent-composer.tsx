@@ -68,7 +68,6 @@ interface AgentComposerProps {
   skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void };
   onDraft: (patch: Partial<Pick<Draft, "text" | "selection">>) => void;
   /** chip 하나의 ✕. 그 chip을 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
-  onAttach: () => void;
   /** 권한 요약을 열었다. host가 `permissions`를 읽는다. */
   onLoadPermissions: () => void;
   /** 권한 보기의 [Edit in Agents]. */
@@ -209,12 +208,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             )
             : null}
           <div className={styles.row} data-composer-row="">
-            <IconButton
-              icon={conversationIcons.attach}
-              label={t("conversation.button.attach")}
-              size="sm"
-              onClick={props.onAttach}
-            />
             <span className={styles.spacer} />
             <ModelPicker {...picker} />
             {working

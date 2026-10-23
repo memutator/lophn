@@ -300,10 +300,9 @@ function AgentBody(
     openAgentSettings: () => props.onSettings?.("tools"),
     // Fork가 만든 session은 같은 칸에서 연다.
     openForked: (session) => onState({ mode: "agent", assignment, session }),
-    // 사용량 화면과 첨부 통로는 아직 이 칸에 없다.
+    // 사용량 화면은 아직 이 칸에 없다.
     showUsage: () => {},
     closeTab: () => props.onCloseTab("agent"),
-    attach: () => {},
     ...(props.onSettings === undefined ? {} : {
       openConnections: () => props.onSettings?.("providers"),
     }),

@@ -66,8 +66,6 @@ export interface AgentViewHost {
   showUsage: () => void;
   /** 탭·칸만 닫는다. session은 그대로 남는다. */
   closeTab: () => void;
-  /** composer의 [+]. */
-  attach: () => void;
   /** 설정의 연결 자리로 간다. */
   openConnections?: () => void;
 }
@@ -574,7 +572,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
               ),
           }}
           onDraft={(patch) => drafts.save(key, patch)}
-          onAttach={host.attach}
           onLoadPermissions={() => void loadPermissions()}
           onEditPermissions={host.openPermissions}
           onSend={() => void send()}

@@ -168,7 +168,6 @@ export function Conversation(
           openForked: setSession,
           showUsage: () => {},
           closeTab: () => {},
-          attach: () => {},
         }}
         now={now}
       />

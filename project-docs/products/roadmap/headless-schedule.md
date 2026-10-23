@@ -1,19 +1,20 @@
 # headless와 schedule: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. headless run은 계획 `headless-run`으로(`project-docs/architecture/run.md`), job은 계획 `schedule-job`으로(`project-docs/architecture/job.md`), flow는 계획 `flow`로(`project-docs/architecture/workflow.md` "flow") land했다. 이 문서에 남은 것은 gdrive OAuth다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 planner가 정리했다. headless run은 계획 `headless-run`으로(`project-docs/architecture/run.md`), job은 계획 `schedule-job`으로(`project-docs/architecture/job.md`), flow는 계획 `flow`로(`project-docs/architecture/workflow.md` "flow"), 앱 secret의 OAuth와 `netFetch` 본문은 계획 `app-oauth`로(`project-docs/architecture/app-call.md`) land했다. 이 문서에 남은 것은 gdrive 앱으로 끝남 기준을 돌려 보는 것이다.
 배경 문서: `project-docs/architecture/job.md`, `project-docs/architecture/run.md`, `project-docs/architecture/workflow.md`, `project-docs/architecture/app-call.md`, `project-docs/products/AGENT-ROLE.md`.
 
 ## 왜
 
-- 정해진 때 저절로 도는 일(10일마다 gdrive 폴더의 파일을 옮긴다)은 job과 flow로 짤 수 있다. 남은 것은 앱이 gdrive에 닿는 길이다.
+- 정해진 때 저절로 도는 일(10일마다 gdrive 폴더의 파일을 옮긴다)은 job과 flow로 짤 수 있고, 앱은 OAuth secret으로 gdrive에 닿는다. 남은 것은 그 앱을 실제로 짓고 돌려 보는 것이다.
 
 ## 지금 코드
 
-- 앱 secret은 Bearer만 붙는다(`packages/sdk/cap-secret`). OAuth refresh는 MCP에만 있다(`packages/core/lophn-agent/extensions/mcp-oauth.ts`).
+- 앱이 `secret.use`에 `oauth`를 선언하면 사람이 앱 Access 탭에서 client를 넣고 sign-in하고, core가 값을 보내기 직전에 refresh한다(`packages/sdk/cap-secret/guide.md` "OAuth secret"). `netFetch`가 본문(10 MiB)과 header를 보낸다(`packages/sdk/cap-net/guide.md`).
+- gdrive 앱은 아직 없다.
 
 ## 무엇을 만드나
 
-- **gdrive.** 앱이 gdrive를 쓰려면 OAuth refresh가 필요한데, 앱 secret은 Bearer만 된다. MCP 쪽 OAuth(`mcp-oauth.ts`)를 앱 secret에도 여는 일이다. gdrive 예를 돌리기 전에 한다.
+- **gdrive 앱.** App Engineer가 OAuth secret으로 Drive 앱을 짓고, 10일마다 파일을 옮기는 job을 건다. 사람은 Google Cloud에 OAuth client("Desktop app")를 만들어 앱 Access 탭에 넣는다. 계획이 아니라 앱을 짓는 일이다.
 
 ## 정한 것 (사람, 2026-10-20)
 

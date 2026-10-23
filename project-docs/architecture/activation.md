@@ -36,7 +36,7 @@ App Engineer가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - 계기는 App Engineer의 `release.activate`이고 release 준비만으로는 시작하지 않는다. 앱의 주인이 준비한 release를 preview에서 확인한 뒤 올리게 하려는 것이다.
 - `release.activate`는 시작한 시도의 끝을 120초까지 기다린다(`ACTIVATE_WAIT_MS`, `packages/core/apps/releases/activation/assembly.ts`). 넘으면 `running`을 돌려주고 시도는 core 안에서 이어 가며, App Engineer는 `app.status`와 `release.get`으로 본다. 120초는 `shell.run`의 기본 timeout과 앱 tool 호출 상한과 같아 tool 하나가 turn을 이보다 오래 붙들지 않는다.
 - 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 driver sweep이 하고 그 결과는 사람이 화면에서 본다. program이 App Engineer를 다시 부르지 않는다.
-- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
+- 묻는지는 program이 선언으로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 선언 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 - 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
 - 새 release가 다른 domain이 쓰는 공개 tool을 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 tool과 쓰는 domain 이름을 싣고, 앱의 주인인 App Engineer가 정한다. 규칙은 `architecture/domain.md`다.

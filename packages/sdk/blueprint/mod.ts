@@ -7,6 +7,7 @@ export type {
   InputType,
   JsonObject,
   JsonValue,
+  OAuthDeclaration,
   PermissionKind,
   PermissionRequirement,
   PermissionScope,

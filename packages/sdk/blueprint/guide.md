@@ -16,8 +16,8 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
 - `validateInput(schema, value)` — tool 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `Blueprint`, `ScreenDeclaration`, `ToolDeclaration`, `ToolEffect`,
-  `AppToolUseDeclaration`, `PermissionRequirement`, `SDKDependency`,
-  `ValidationResult`, `ValidationError`
+  `AppToolUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
+  `SDKDependency`, `ValidationResult`, `ValidationError`
 
 ## blueprint 칸
 
@@ -33,6 +33,18 @@ import { defineBlueprint, validateBlueprint } from "@lophn/blueprint";
   `domain`은 필수이고 tool이 다루는 객체의 domain이다. 이 앱의 domain 이름 중
   하나이고, 앱을 만들면 앱 이름의 domain이 하나 생긴다. 다른 domain은 사람이나
   App Engineer가 `domain.create`로 만든 뒤 쓴다.
+- `permissions` — 앱이 바깥에 닿는 자원이다. 항목은 `{kind, scope, reason}`이고
+  kind는 `fs.read`·`fs.write`(`{path, recursive}`), `net.fetch`·`net.listen`
+  (`{host, port}`), `secret.use`(`{name, oauth?}`)다. 같은 `name`의
+  `secret.use`는 하나뿐이다.
+  - `oauth`를 두면 그 secret은 사람이 sign-in해 받은 OAuth access token이다.
+    `{authorization_endpoint, token_endpoint, scopes, params?}`이고 끝점은
+    https이거나 loopback http다. `scopes`는 정렬하고 중복을 지운다. `params`는
+    authorize URL에 더할 parameter(8개까지)이고 `client_id`, `scope`,
+    `redirect_uri`, `state` 같은 OAuth 표준 key는 쓸 수 없다. 쓰는 법은
+    `@lophn/cap-secret` guide다.
+  - `oauth` 칸(끝점, scope, params)을 바꾸면 늘어난 선언이라 activation 때
+    사람에게 다시 묻는다.
 - `app_connections` — 이 앱이 부를 다른 앱의 tool이다. 항목은
   `{app, tools: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
 

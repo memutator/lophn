@@ -97,8 +97,12 @@
 - 앱이 바깥으로 나가는 길은 SDK 셋(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`)뿐이고, 어느 길이든 선언 ∩ 사람의 grant 안이다. 앱 process의 Deno 권한에는 외부 net이 없다.
   - net: 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. supervisor는 lophn의 코드라 host 없는 `--allow-net`으로 뜨고(`net_any`, launch spec은 agent runtime과 apps supervisor만 허락한다), 앱 process가 아니라 broker가 요청마다 목적지(host·port)를 선언 ∩ grant로 검사한다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.
   - loopback 목적지는 http, 그 밖은 https다. 사람이 켠 같은 컴퓨터의 서비스를 부르려는 것이고 기계 밖으로 나가지 않는다. https에서 http로 내려가는 redirect는 거절한다.
+  - 앱은 요청에 본문(글 또는 bytes, 풀어 쓴 크기 10 MiB까지)과 header(32개까지)를 싣는다. `Authorization`·`Cookie`·`Host`·`Content-Length`·`Proxy-Authorization`은 schema(`brokerNetFetchInputSchema`)가 거절하고 `GET`·`HEAD`에는 본문이 없다. 인증은 앱이 아니라 secret 길이 붙인다. redirect가 301·302(GET·HEAD 아님)·303이면 `GET`으로 바꾸고 본문과 `content-type`을 버리며, 307·308은 method와 본문을 그대로 다시 보낸다. 앱 header는 처음 목적지와 같은 origin의 hop에만 실린다. 응답은 지금처럼 1 MiB 이하의 글·JSON이다.
   - secret: 앱의 `useSecret`은 이름과 목적지를 말할 뿐 값을 읽지 못한다. broker가 secret 이름 선언 ∩ grant와 그 목적지의 `net.fetch` 허락을 검사하면, supervisor가 core route `apps.secret_value`로 값을 한 번 받는다. 이 route는 supervisor의 machine 자격만 부르고, 부른 supervisor가 지금 보는 live 자식과 맞을 때, core가 현재 선언 ∩ active grant로 다시 판정해 통과할 때, 알려진 값 registry가 그 값을 알 때만 값을 준다. 모르는 값은 redaction이 지우지 못해서다.
-  - supervisor는 받은 값을 같은 invocation의 같은 (host, port) 요청에만 `Authorization: Bearer`로 붙이고, 60초가 지나면 버린다. redirect로 목적지가 바뀌면 값을 다시 찾아 붙지 않는다. 앱의 응답과 오류에 값이 없고, 앱이 찍어도 log의 redaction이 지운다. 다른 방식의 인증은 쓰는 앱이 생길 때 더한다.
+  - supervisor는 받은 값을 같은 invocation의 같은 (host, port) 요청에만 `Authorization: Bearer`로 붙이고, 60초가 지나면 버린다. redirect로 목적지가 바뀌면 값을 다시 찾아 붙지 않는다. 앱의 응답과 오류에 값이 없고, 앱이 찍어도 log의 redaction이 지운다. Bearer 말고 다른 방식의 인증은 쓰는 앱이 생길 때 더한다.
+  - OAuth secret: 선언의 `secret.use`에 `oauth`(authorize·token 끝점, scope, 추가 authorize parameter)가 있으면 그 이름의 값은 사람이 sign-in해 받은 access token이다. 사람이 앱 Access 탭에서 client id와 client secret(선택)을 넣고 [Sign in]을 누르면 core가 loopback callback을 열고 authorize URL(PKCE)을 만들고 shell이 OS browser로 연다. core가 background에서 callback을 받아 token으로 바꾸고 화면은 상태(`apps/oauth_state`)를 다시 읽는다. 끝점은 https이거나 loopback http다.
+  - OAuth secret의 값은 `apps.secret_value`가 보내기 직전에 core가 refresh한다(남은 시간 5분 이하, 이름마다 한 번에 하나, 발급자 호출 대기열). 발급자가 400·401·`invalid_grant`로 거절하면 access·refresh·meta를 지우고 상태를 `failed`(`refresh_rejected`)로 두며 앱은 `conflict`("oauth sign-in required")를 받는다. 닿지 못하거나 5xx면 지금 token이 만료 전일 때 그 token을 보내고, 만료 뒤면 `unavailable`이다. client id나 선언의 끝점·scope·parameter가 바뀌면 옛 token을 쓰지 않는다(상태 `none`).
+  - refresh token, meta, client id·secret은 `app-oauth.<이름>.refresh|.meta|.client_id|.client`에 두고 어느 호출로도 보내지 않는다(`core/secrets/file-attach.ts`). OAuth가 없는 secret의 값도 사람이 같은 탭에서 보호된 입력 창으로 넣는다.
   - fs: 앱 process의 Deno `--allow-read`·`--allow-write`가 선언 ∩ grant한 경로다. 운영 bundle은 읽기만 되고 source, 다른 앱 DB, 플랫폼 credential, 앱 log file은 어느 grant로도 열리지 않는다.
   - live 자식만 바깥에 닿는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 broker가 거절한다(`liveOnly`). SDK의 stand-in이 그 자리를 채운다.
 
@@ -116,6 +120,9 @@
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).
 - **바깥 net의 목적지 검사는 OS 권한이 아니라 broker가 요청마다 한다.** supervisor의 `allow_net`을 grant된 host 목록으로 두면 OS 수준 경계가 남지만 grant가 바뀔 때마다 모든 앱이 다시 뜬다. 앱 process에는 net이 없고 supervisor는 lophn의 코드라서, 요청마다 현재 선언 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.
+- **OAuth access token은 선언한 secret 이름 그대로 둔다.** 그러면 broker의 판정, `apps.secret_value`, supervisor의 Bearer 붙이기가 OAuth를 몰라도 된다. OAuth가 더하는 것은 값을 보내기 직전의 refresh 하나다. 앱이 token을 받아 직접 refresh하면 refresh token이 앱 코드에 닿는다.
+- **refresh 거절만 sign-in을 끝낸다.** MCP OAuth는 400 이상을 모두 거절로 보지만 앱 OAuth는 400·401·`invalid_grant`만 그렇게 본다(provider 구독 OAuth와 같다). 발급자의 일시 오류로 사람이 다시 sign-in해야 하는 일을 막으려는 것이다.
+- **client는 사람이 그 서비스에 만든 것을 넣는다.** Google 같은 곳은 자동 등록이 없고, lophn이 자기 client를 들고 다니려면 서비스마다 심사를 받아야 한다. OAuth는 표준 authorization code와 PKCE로만 열고 서비스에 맞춘 것은 선언의 추가 parameter(`access_type=offline` 같은 것)뿐이다.
 - **앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다.** 앱 안에서 쓰게 하면 앱 code가 log를 지우거나 고칠 수 있고, 권한을 열어야 한다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다.
 - **저장하는 problem 모델 대신 log를 primitive로 둔다.** 오류를 상태 machine(열림, 닫힘), 묶음, 보고 표로 올리면 계약과 tool이 앱 쪽 진단보다 무거워진다. lophn은 줄을 남기고 읽게만 하고, 무엇이 문제인지 읽고 판단하는 일은 agent가 한다.
 - **예외 stack은 쓸 때 원래 source 줄로 푼다.** 봉인된 bundle 사본은 agent의 file 범위 밖이라 agent가 stack의 bundle 위치를 직접 풀 수 없다. 당시 release의 source map으로 supervisor가 풀어 읽을 수 있는 줄만 남긴다.

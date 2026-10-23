@@ -22,6 +22,7 @@ Deno.test("run이 연 session은 다시 읽어도 session_opened가 참이다(IN
       input_message: "msg_01hzzzzzzzzzzzzzzzzzzzzzza",
       schema: null,
       job: null,
+      instance: null,
       created_at: "2026-01-01T00:00:00.000Z",
     });
     const run = loadRun(sql, id);

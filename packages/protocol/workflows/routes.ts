@@ -54,12 +54,24 @@ export const workflowStart = defineMemory({
     text: z.string().min(1),
     step: stepNameSchema.optional(),
   }),
+  // flow는 넘기지 않아 handed가 null이다.
   output: z.object({
     instance: workflowInstanceSchema,
-    handed: handResultSchema,
+    handed: handResultSchema.nullable(),
   }),
   actors: ["user"],
   errors: [...readErrors, "conflict"],
+});
+
+// errors가 비면 통과다.
+export const workflowCheck = defineMemory({
+  resource: "workflows",
+  method: "check",
+  name: "CheckWorkflow",
+  input: z.strictObject({ workflow: workflowKeySchema }),
+  output: z.object({ errors: z.array(z.string()) }),
+  actors: ["agent"],
+  errors: [...readErrors],
 });
 
 // handed는 넘기지 않았을 때 null이다. line은 report 줄의 seq다(뒤따르는 handed·ended 줄이 아니다).
@@ -146,6 +158,7 @@ export const workflowInstanceList = defineRead({
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
+  workflowCheck,
   workflowReport,
   workflowEdit,
   workflowStop,

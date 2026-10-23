@@ -49,6 +49,18 @@ type Settlement =
 // ended: 입력을 가져간 turn이 끝났다. running: 아직 turn이 없거나 돌고 있거나 알 수 없다.
 type TurnState = "ended" | "running" | "none";
 
+// job이 연 run과 flow instance가 연 run을 가르는 칸이다.
+function originColumns(
+  origin: RunOrigin | undefined,
+): { job: Id<"job"> | null; instance: Id<"wfi"> | null } {
+  return {
+    job: origin !== undefined && "job" in origin ? origin.job : null,
+    instance: origin !== undefined && "instance" in origin
+      ? origin.instance
+      : null,
+  };
+}
+
 export type RunService = ReturnType<typeof createRunService>;
 
 export function createRunService(deps: {
@@ -197,7 +209,7 @@ export function createRunService(deps: {
       session_opened: opened,
       input_message: message,
       schema: input.schema ?? null,
-      job: origin?.job ?? null,
+      ...originColumns(origin),
     });
     if (!created.ok) return created;
 
@@ -227,7 +239,7 @@ export function createRunService(deps: {
       session_opened: false,
       input_message: null,
       schema: null,
-      job: origin?.job ?? null,
+      ...originColumns(origin),
     });
     if (!created.ok) return created;
     // 기다리지 않는다. 끝나면 settle한다.

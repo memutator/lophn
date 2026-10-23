@@ -30,5 +30,7 @@ export const appToolCallerSchema = z.discriminatedUnion("kind", [
     job: idSchema("job"),
     job_run: idSchema("jbr"),
   }),
+  // flow instance가 연 tool run의 호출.
+  z.strictObject({ kind: z.literal("flow"), instance: idSchema("wfi") }),
 ]);
 export type AppToolCaller = z.infer<typeof appToolCallerSchema>;

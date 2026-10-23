@@ -69,6 +69,7 @@ import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-a
 import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
+import type { WorkflowFlows } from "../../../workflows/ports.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -244,6 +245,8 @@ type Late = {
   // runs와 workflows가 낸다. jobs가 차례마다 run을 열고 instance를 시작할 때 쓴다.
   runService: RunService;
   workflowService: ReturnType<typeof createWorkflowService>;
+  // flows wiring이 낸다. workflows wiring이 먼저 만들어지므로 부를 때 읽는다.
+  flowHost: WorkflowFlows;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -294,6 +297,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   writer: true,
   runService: true,
   workflowService: true,
+  flowHost: true,
 };
 
 export type WiringContext = {

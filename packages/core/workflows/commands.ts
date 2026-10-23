@@ -247,10 +247,12 @@ export function createWorkflowCommands(
         addLine(scope, {
           kind: "started",
           by: input.started_by,
-          step: input.handoff.step,
+          step: input.handoff?.step ?? null,
           text: input.input,
         });
-        const handed = handOff(scope, router, input.handoff);
+        const handed = input.handoff === null
+          ? ok(null)
+          : handOff(scope, router, input.handoff);
         if (!handed.ok) return handed;
         const instance = finish(tx, scope);
         return instance.ok
@@ -363,6 +365,9 @@ export function createWorkflowCommands(
             });
             break;
           }
+          case "program_exited":
+          case "flow_restarted":
+            return fail("conflict", "not supported yet");
         }
         const instance = finish(tx, scope);
         return instance.ok

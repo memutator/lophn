@@ -57,6 +57,9 @@ export const workflowTextSchema = z.string().min(1).refine(
   { message: `text is over ${WORKFLOW_TEXT_MAX_BYTES} bytes` },
 );
 
+// flow instance의 step `by`. flow는 참가자가 없다.
+export const FLOW_STEP_BY = "program";
+
 export const WORKFLOW_STATES = ["running", "ended", "stopped"] as const;
 export const workflowStateSchema = z.enum(WORKFLOW_STATES);
 export type WorkflowState = z.infer<typeof workflowStateSchema>;
@@ -70,5 +73,6 @@ export const WORKFLOW_LINE_KINDS = [
   "ended",
   "stopped",
   "lophn_restarted",
+  "program_exited",
 ] as const;
 export type WorkflowLineKind = (typeof WORKFLOW_LINE_KINDS)[number];

@@ -298,6 +298,12 @@ export const runsWiring: WiringFactory = () => {
             tool,
             ...(input === undefined ? {} : { input }),
           } as const;
+          if (origin !== undefined && "instance" in origin) {
+            return Promise.resolve(err({
+              code: "unavailable" as const,
+              message: "flow tool calls are not wired yet",
+            }));
+          }
           // job이 연 run은 program caller로 부른다. 자격의 agent·place는 job을 만든 쪽이다.
           return origin === undefined
             ? ctx.appCallPath.call(

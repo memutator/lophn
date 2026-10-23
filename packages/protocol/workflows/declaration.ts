@@ -21,15 +21,23 @@ const declarationStepSchema = z.looseObject({
 
 // 첫 step이 steps의 첫 key라서 하나는 있어야 한다. 순서는 object의 key 순서에 기댄다.
 // 정수 꼴 key는 stepNameSchema가 글자로 시작하게 해서 이미 막혀 있다.
+const hasStep = (steps: Record<string, unknown>) =>
+  Object.keys(steps).length > 0;
+const NEEDS_STEP = { message: "steps needs at least one step" };
+
 export const workflowDeclarationSchema = z.discriminatedUnion("kind", [
   z.looseObject({
     kind: z.literal("agent"),
     participants: z.record(participantKeySchema, declarationParticipantSchema),
     steps: z.record(stepNameSchema, declarationStepSchema).refine(
-      (steps) => Object.keys(steps).length > 0,
-      { message: "steps needs at least one step" },
+      hasStep,
+      NEEDS_STEP,
     ),
   }),
-  z.looseObject({ kind: z.literal("flow") }),
+  // flow는 참가자가 없고 step 이름만 읽는다(화면이 줄 때문에 쓴다).
+  z.looseObject({
+    kind: z.literal("flow"),
+    steps: z.record(stepNameSchema, z.unknown()).refine(hasStep, NEEDS_STEP),
+  }),
 ]);
 export type WorkflowDeclaration = z.infer<typeof workflowDeclarationSchema>;

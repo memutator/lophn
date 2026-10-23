@@ -65,11 +65,11 @@ export const workflowInstanceCreate = defineCommand({
     participants: z.record(participantKeySchema, participantSchema),
     steps: z.array(instanceStepSchema),
     started_by: startedBySchema,
-    handoff: handoffPlanSchema,
+    handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
   }),
   output: z.object({
     instance: workflowInstanceSchema,
-    handed: handResultSchema,
+    handed: handResultSchema.nullable(),
   }),
   actors: ["machine"],
   errors: [
@@ -98,6 +98,15 @@ const changeSchema = z.discriminatedUnion("kind", [
     step: z.string(),
     receiver: idSchema("ses"),
   }),
+  // flow process가 끝나면 wf-service가 by lophn으로 부른다. 줄을 남기고 running이면 ended로 닫는다.
+  z.strictObject({
+    kind: z.literal("program_exited"),
+    code: z.number().int().nullable(),
+    stderr_tail: z.string(),
+  }),
+  // 켤 때 running인 flow instance마다 wf-service가 by lophn으로 부른다(process는 다시 띄우지 않는다).
+  // lophn_restarted 줄(step null, receiver null)을 남기고 running이면 ended로 닫는다.
+  z.strictObject({ kind: z.literal("flow_restarted") }),
 ]);
 
 export const workflowInstanceApply = defineCommand({

@@ -13,6 +13,7 @@ import type { Input, Output } from "../../protocol/server/mod.ts";
 export type DefinitionFile = {
   name: string;
   declaration: string | null;
+  flow: boolean; // flow.ts가 있다
   artifacts: { static: boolean; instance: boolean };
 };
 
@@ -60,4 +61,17 @@ export type WorkflowStore = {
   ): Promise<Result<Output<typeof workflowInstanceRead>>>;
   // 모든 project의 running instance.
   running(): Promise<Result<WorkflowInstance[]>>;
+};
+
+// flow process를 띄우고 멈춘다. 구현은 flows wiring이 끼운다.
+export type WorkflowFlows = {
+  // err이면 service가 programExited로 instance를 닫는다.
+  launch(start: {
+    instance: Id<"wfi">;
+    project: Id<"prj">;
+    workflow: string;
+    input: string;
+  }): Promise<Result<void>>;
+  // process를 죽이고 그 instance가 연 run을 취소한다. process가 없으면 ok.
+  stop(instance: Id<"wfi">): Promise<Result<void>>;
 };

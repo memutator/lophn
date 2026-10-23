@@ -2,6 +2,7 @@
 // 자리는 `<data>/projects/<prj>/workflows/<name>/`이고 정의 file, workflow.md, artifact가 든다.
 export const WORKFLOWS_FOLDER = "workflows";
 export const WORKFLOW_DECLARATION_FILE = "workflow.yaml";
+export const WORKFLOW_FLOW_FILE = "flow.ts";
 export const WORKFLOW_DOC_FILE = "workflow.md";
 export const WORKFLOW_ARTIFACT_ENTRY = "index.html";
 

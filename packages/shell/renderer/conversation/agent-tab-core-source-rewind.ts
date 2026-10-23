@@ -167,7 +167,7 @@ async function callerName(
   if (caller.kind === "person") {
     return t("conversation.label.rewind-caller-person");
   }
-  if (caller.kind === "program") {
+  if (caller.kind === "program" || caller.kind === "flow") {
     return t("conversation.label.rewind-caller-program");
   }
   if (caller.kind === "agent") {

@@ -16,12 +16,22 @@ export type ResolvedAgent = { agent: AgentRef; place: RunPlace | null };
 
 // job이 run을 열 때 붙이는 출처다. 메모리에만 있고 route 입력이 아니다.
 // creator는 job을 만든 agent, creator_place는 그 place다(run의 place가 아니다).
-export type RunOrigin = {
+export type JobOrigin = {
   job: Id<"job">;
   job_run: Id<"jbr">;
   creator: AgentRef;
   creator_place: Place | null;
 };
+
+// flow instance가 run을 열 때 붙이는 출처다. creator는 그 project의 PM이다.
+export type InstanceOrigin = {
+  instance: Id<"wfi">;
+  creator: AgentRef;
+  creator_place: Place | null;
+};
+
+// tag 없이 `job` 키와 `instance` 키로 가른다. jobs wiring이 낸 값을 그대로 두려는 것이다.
+export type RunOrigin = JobOrigin | InstanceOrigin;
 
 export type TurnOfMessage = {
   turn: Id<"trn">;

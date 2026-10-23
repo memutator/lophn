@@ -2,6 +2,7 @@ import { err, ok } from "../../../../base/mod.ts";
 import {
   WORKFLOW_ARTIFACT_ENTRY,
   WORKFLOW_DECLARATION_FILE,
+  WORKFLOW_FLOW_FILE,
   workflowArtifactFolder,
   workflowFolder,
   workflowNameSchema,
@@ -64,6 +65,9 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
             `${
               workflowFolder(dataRoot, project, name)
             }/${WORKFLOW_DECLARATION_FILE}`,
+          ),
+          flow: await isFile(
+            `${workflowFolder(dataRoot, project, name)}/${WORKFLOW_FLOW_FILE}`,
           ),
           artifacts: {
             static: await entry("static"),

@@ -1,6 +1,7 @@
 import { parse } from "@std/yaml";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
+  FLOW_STEP_BY,
   type InstanceStep,
   type Participant,
   type WorkflowDeclaration,
@@ -103,13 +104,17 @@ export function entryOf(
       ...base,
       state: "ok",
       kind: "flow",
-      startable: false,
-      problem: {
-        reason: "not_agent",
-        message: "only agent workflows can be started",
-      },
+      startable: file.flow,
+      problem: file.flow
+        ? null
+        : { reason: "no_flow_file", message: "flow.ts is missing" },
       participants: null,
-      steps: null,
+      steps: Object.keys(declaration.steps).map((name) => ({
+        name,
+        by: FLOW_STEP_BY,
+        with: null,
+        next: [],
+      })),
     };
   }
   return {

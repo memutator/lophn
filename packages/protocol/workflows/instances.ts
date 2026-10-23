@@ -16,6 +16,7 @@ export const lineBySchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("user") }),
   z.strictObject({ kind: z.literal("agent"), session: idSchema("ses") }),
   z.strictObject({ kind: z.literal("lophn") }),
+  z.strictObject({ kind: z.literal("program") }),
 ]);
 export type LineBy = z.infer<typeof lineBySchema>;
 
@@ -177,7 +178,10 @@ export const reportLineSchema = line("report", lineBySchema, {
 export type ReportLine = z.infer<typeof reportLineSchema>;
 
 export const workflowLineSchema = z.discriminatedUnion("kind", [
-  line("started", startedBySchema, { step: stepNameSchema, text: z.string() }),
+  line("started", startedBySchema, {
+    step: stepNameSchema.nullable(), // flow는 step이 없다
+    text: z.string(),
+  }),
   reportLineSchema,
   line("edit", lineBySchema, {
     op: z.enum(["add_step", "update_step", "remove_step", "end", "hand_now"]),
@@ -201,9 +205,15 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
   line("ended", lophnBy, {}),
   line("stopped", userBy, {}),
   // 켤 때 넘긴 step 메시지가 turn에 가져가지 않았거나 restart로 끊긴 것을 남긴다. 상태와 current는 바꾸지 않는다.
+  // flow instance는 넘긴 곳이 없어 step과 receiver가 null이다.
   line("lophn_restarted", lophnBy, {
-    step: z.string(),
-    receiver: idSchema("ses"),
+    step: z.string().nullable(),
+    receiver: idSchema("ses").nullable(),
+  }),
+  // flow process가 끝났다. 신호로 죽으면 code가 null이다.
+  line("program_exited", lophnBy, {
+    code: z.number().int().nullable(),
+    stderr_tail: z.string(),
   }),
 ]);
 export type WorkflowLine = z.infer<typeof workflowLineSchema>;
@@ -220,7 +230,7 @@ export const workflowEntrySchema = z.object({
       "no_declaration",
       "invalid_yaml",
       "invalid_declaration",
-      "not_agent",
+      "no_flow_file",
     ]),
     message: z.string(),
   }).nullable(),

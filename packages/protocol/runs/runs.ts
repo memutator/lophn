@@ -59,6 +59,10 @@ function kindFits(v: {
     v.input_message === null && v.schema === null;
 }
 
+const notJobAndInstance = (v: { job: unknown; instance: unknown }) =>
+  v.job === null || v.instance === null;
+const NOT_BOTH = { message: "a run has a job or an instance, not both" };
+
 const KIND_MESSAGE = { message: "run kind does not fit its target and fields" };
 
 export const runRecordSchema = z.object({
@@ -83,6 +87,7 @@ export const runRecordSchema = z.object({
     message: z.string(),
   }).nullable(), // failed만
   job: idSchema("job").nullable(), // job이 연 run만 값이 있다
+  instance: idSchema("wfi").nullable(), // flow instance가 연 run만 값이 있다
   created_at: atSchema,
   finished_at: atSchema.nullable(), // running이 아니면 있다
   state_seq: seqSchema,
@@ -91,9 +96,12 @@ export const runRecordSchema = z.object({
     kindFits(v) && (v.kind === "agent" || (v.turn === null)) &&
     (v.kind === "tool" || v.invocation === null),
   KIND_MESSAGE,
-).refine((v) => (v.error !== null) === (v.state === "failed"), {
-  message: "only failed runs have an error",
-}).refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
+).refine(notJobAndInstance, NOT_BOTH).refine(
+  (v) => (v.error !== null) === (v.state === "failed"),
+  {
+    message: "only failed runs have an error",
+  },
+).refine((v) => (v.finished_at !== null) === (v.state !== "running"), {
   message: "only finished runs have finished_at",
 });
 export type RunRecord = z.infer<typeof runRecordSchema>;
@@ -244,7 +252,8 @@ export const runCreate = defineCommand({
     input_message: idSchema("msg").nullable(),
     schema: outputSchemaSchema.nullable(),
     job: idSchema("job").nullable(),
-  }).refine(kindFits, KIND_MESSAGE).refine(
+    instance: idSchema("wfi").nullable(),
+  }).refine(kindFits, KIND_MESSAGE).refine(notJobAndInstance, NOT_BOTH).refine(
     (v) => placeFits(v.target, v.place),
     { message: "run place does not fit its target" },
   ),

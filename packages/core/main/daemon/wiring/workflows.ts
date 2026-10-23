@@ -117,7 +117,7 @@ function withStepText(
       input = {
         ...raw,
         input: safe(raw.input),
-        handoff: safeHandoff(raw.handoff),
+        handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
       };
     } else {
       const raw = envelope.input as Input<typeof workflowInstanceApply>;

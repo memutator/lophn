@@ -24,6 +24,7 @@
 ## 끝남 기준
 
 - 앱이 gdrive를 OAuth refresh로 쓴다. 10일마다 폴더의 파일을 옮기는 job이 그 앱 tool을 부른다.
+- 사람이 진짜 Google로 sign-in, refresh, Drive 호출을 해 본다. 계획 `app-oauth`에서 미뤘다(가짜 발급자로는 sign-in을 해 볼 수 없다).
 
 ## 하지 않는 것
 

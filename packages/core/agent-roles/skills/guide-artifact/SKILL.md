@@ -164,10 +164,8 @@ Two things are worth drawing:
   values with no edges.
 
 The artifact cannot read `kinds.yaml` or call a tool, so you write the diagram
-data into `data/*.json` yourself (for example `data/map.json` with
-`{ nodes,
-edges }`) and the page reads it. When the kinds change, change the
-data too.
+data into `data/*.json` yourself (for example `data/map.json` with `nodes` and
+`edges`) and the page reads it. When the kinds change, change the data too.
 
 ```html
 <!doctype html>

@@ -242,7 +242,10 @@ page (open sections, scroll) is kept. Do not try to keep it.
     };
   });
   const edges = instance.steps.flatMap((s) =>
-    s.next.filter((n) => n !== "end").map((to) => ({ from: s.name, to }))
+    s.next.filter((n) => n !== "end" && n !== s.name).map((to) => ({
+      from: s.name,
+      to,
+    }))
   );
   LophnKit.renderGraph(document.getElementById("graph"), { nodes, edges });
 })();

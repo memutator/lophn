@@ -11,7 +11,7 @@
 // 둘(tool 넷을 실은 대답 하나와 text)을 건다.
 //
 // 한 Deno.test, core 하나, 앱 둘. 앞 단계의 앱과 release를 다음 단계가 이어 쓰므로 순서대로 돈다.
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   releasesGetRecord,
   releasesListRecords,
@@ -251,10 +251,10 @@ Deno.test("E2E App Engineer가 준비하고 preview로 확인한 template 앱은
         const failed = await prepareRelease(c, fake, broken, {
           goal: "Make the first release of the broken app",
         });
-        // fake·route: reason 글은 단정하지 않는다.
+        // fake·route: probe 거절의 reason에 빠진 tool 이름이 실린다.
         assert(failed.status === "failed", JSON.stringify(failed));
         assertEquals(failed.stage, "handlers");
-        assert(failed.reason !== "");
+        assertStringIncludes(failed.reason, "add_item");
         // ledger
         assertEquals(
           (await c.call(releasesListRecords, { app: broken.app })).releases,

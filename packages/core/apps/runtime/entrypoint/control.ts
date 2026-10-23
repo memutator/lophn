@@ -32,11 +32,24 @@ export function attestation(state: RuntimeState) {
   };
 }
 
-function appToolsMatchBlueprint(state: RuntimeState): boolean {
-  const declared = state.blueprint.tools.map((tool) => tool.name).sort();
-  const registered = [...attestation(state).tools].sort();
-  return declared.length === registered.length &&
-    declared.every((key, index) => key === registered[index]);
+// tool 이름 5개와 "and N more". 앱 process가 preview 쪽을 import하지 않아 launcher의 같은 규칙을 여기 둔다.
+function listed(names: readonly string[]): string {
+  const head = names.slice(0, 5).join(", ");
+  return names.length > 5 ? `${head} and ${names.length - 5} more` : head;
+}
+
+// blueprint와 등록된 handler의 차이. 둘 다 비면 맞는 것이다.
+function toolMismatch(state: RuntimeState): string {
+  const declared = state.blueprint.tools.map((tool) => tool.name);
+  const registered = attestation(state).tools;
+  const missing = declared.filter((name) => !registered.includes(name));
+  const extra = registered.filter((name) => !declared.includes(name));
+  const parts: string[] = [];
+  if (missing.length > 0) {
+    parts.push(`declared without a handler: ${listed(missing)}`);
+  }
+  if (extra.length > 0) parts.push(`handler not declared: ${listed(extra)}`);
+  return parts.join("; ");
 }
 
 export function handleControl(
@@ -49,13 +62,8 @@ export function handleControl(
     if (!input || input.process_nonce !== state.identity.processNonce) {
       return error(401, "unauthorized", "probe nonce mismatch");
     }
-    if (!appToolsMatchBlueprint(state)) {
-      return error(
-        409,
-        "conflict",
-        "registered tool differ from the blueprint",
-      );
-    }
+    const mismatch = toolMismatch(state);
+    if (mismatch !== "") return error(409, "conflict", mismatch);
     state.ready = true;
     return { status: 200, body: attestation(state) };
   }

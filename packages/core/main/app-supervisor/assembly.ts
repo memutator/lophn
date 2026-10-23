@@ -578,9 +578,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         }
         // 서명·nonce·handler 불일치는 기다린다고 낫지 않는다. 준비 중(503)만 다시 본다.
         if (answered.value.status !== 503) {
+          const message = (answered.value.body as
+            | { error?: { message?: unknown } }
+            | null)?.error?.message;
           return {
             ok: false as const,
-            reason: `probe was rejected (${answered.value.status})`,
+            // reason에 길이 상한이 없어 앱이 준 글은 자른다.
+            reason: typeof message === "string"
+              ? `probe was rejected (${answered.value.status}): ${
+                message.slice(0, 500)
+              }`
+              : `probe was rejected (${answered.value.status})`,
           };
         }
       } else {

@@ -5,10 +5,10 @@ lead만 고친다. `tools/status.py bug-sweep build`가 `tasks/*.md`에서 id, �
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `bs-agent-gate` | agent | 1 | 없음 | merged | agent/bs-agent-gate | 5abd85e18 |  |
-| `bs-app-import-map` | apps | 1 | 없음 | running | apps/bs-app-import-map |  |  |
+| `bs-app-import-map` | apps | 1 | 없음 | merged | apps/bs-app-import-map | 9c1689173 |  |
 | `bs-release-probe-reason` | apps | 1 | 없음 | running | apps/bs-release-probe-reason |  |  |
 | `bs-runtime-stderr` | core | 1 | 없음 | merged | core/bs-runtime-stderr | 8de37172a |  |
-| `bs-graph-back-edge` | design | 1 | 없음 | running | design/bs-graph-back-edge |  |  |
+| `bs-graph-back-edge` | design | 1 | 없음 | merged | design/bs-graph-back-edge | 7e0ddc74d |  |
 | `bs-jobs` | jobs | 1 | 없음 | merged | jobs/bs-jobs | 0a099ad96 |  |
 | `bs-attach-remove` | shell | 1 | 없음 | merged | shell/bs-attach-remove | d3d50ffb0 |  |
 | `bs-bridge-other-desk` | shell | 1 | 없음 | merged | shell/bs-bridge-other-desk | d7e7fb9d5 |  |

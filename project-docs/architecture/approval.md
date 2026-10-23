@@ -33,7 +33,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 
 판정
 - `judge`는 IO 없는 함수다(`packages/core/approvals/gate/judge.ts`). 시각, 상태, 전역을 읽지 않는다. 같은 입력은 같은 결과다.
-- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. session 도중 끈 MCP server는 아직 막지 않는다(`project-docs/issues/approval.md`).
+- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. Operator 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 - `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
 - `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다.
 - 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, coding agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
@@ -43,7 +43,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 
 묻는 길
 - 묻는 길은 turn 안 request 하나다(`packages/core/approvals/turn-requests.ts`). 메모리에 있고, 물은 turn이 기다린다. 재시작하면 비고 기다리던 turn은 cancelled를 받는다.
-- 침묵이나 카드 닫기는 결정이 아니고 기한도 없다. 원래 일이 끝나면 cancelled로 닫고 요청자는 거절과 구별해 받는다. 거절 이유는 agent에게 그대로 간다.
+- 침묵이나 카드 닫기는 결정이 아니고 기한도 없다. 원래 일이 끝나면 cancelled로 닫고 요청자는 거절과 구별해 받는다. 거절 이유는 agent에게 그대로 간다(tool 결과 `the person rejected this tool call: <이유>`, `packages/core/lophn-agent/tools/work.ts`).
 - 물은 입력을 그대로 실행한다. 허락은 메모리에서 기다리는 같은 호출을 풀 뿐이고, 다시 판정하거나 입력을 비교하지 않는다. 바꿔치기할 틈이 없어 fingerprint를 두지 않는다.
 - 선택지는 `once`, `always`, `reject`다. "이 session 동안" 허락은 없다.
 - `always`는 request의 `always_patterns`를 allow 규칙으로 더한다. shell request에만 있고, 비면 `always`를 받지 않는다(`invalid_input`). 카드는 그 줄을 그대로 보여 사람이 무엇을 허락하는지 본다.

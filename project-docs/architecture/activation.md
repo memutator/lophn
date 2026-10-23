@@ -62,6 +62,7 @@ App Engineer가 준비한 release가 운영 앱이 되는 순간이다. 도는 �
 - commit 뒤의 실패(업무 통로를 못 엶)는 복원하지 않고 같은 release를 다시 띄운다. ledger가 이미 새 release를 채택했고, 옛 복구본으로 덮으면 새 release가 받은 데이터를 잃는다.
 - 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
 - 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
+- 앱 진입점의 handler 확인(`/probe`)이 거절하면 그 이유가 고칠 tool을 가리킨다. 진입점(`packages/core/apps/runtime/entrypoint/control.ts`)이 blueprint와 등록된 handler를 비교해 409 본문 message에 빠진 tool(`declared without a handler: …`)과 더해진 tool(`handler not declared: …`)을 각 5개와 `and N more`로 싣고, supervisor의 `probeChild`(`packages/core/main/app-supervisor/assembly.ts`)가 그 message를 500자까지 reason에 붙인다. release 준비의 `handlers` 실패 reason이 이 글이다. probe가 통과한 뒤 preview launcher가 하는 비교와 같은 꼴이다.
 - 실패 기록(release의 `failure`: code, summary, 복원했는지)은 fail 한 tx에 남는다. `release.activate`는 끝난 시도의 이 기록을 읽어 돌려준다. 실패를 알리려고 program이 agent를 부르지 않는다.
 - 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 cancelled). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
 

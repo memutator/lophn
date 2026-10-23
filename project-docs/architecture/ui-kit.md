@@ -33,6 +33,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - package export(`packages/design/deno.json`): `.`(token), `./primitives`, `./input`, `./layout`, `./navigation`, `./data`, `./feedback`, `./overlay`, `./reading`, `./shared`, `./base.css`, `./tokens.css`. 분류를 건너 한꺼번에 내는 barrel은 없다.
 - chart(LineChart, BarChart, DistributionChart, ScatterChart, GraphDiagram)는 `components/data/chart/`이고 `@lophn/ui/data`로 나간다. d3는 design `deno.json`의 의존이다.
 - `GraphDiagram`의 node는 `status`(label, tone)와 짧은 `note`를 받는다. tone은 `tokens.status`의 key이고 아이콘에만 색을 쓴다. component는 상태 값의 뜻을 모른다. 뜻은 그리는 쪽(workflow artifact, domain)이 정한다.
+- `GraphDiagram`의 되돌아가는 edge(도착 층이 출발 층보다 앞)는 node 줄 위 여백으로 돌려 그린다(`graph-layout.ts`). edge마다 여백에 줄 하나를 더하고, 출발 node 위에서 나가 그 줄을 지나 도착 node 위로 들어간다. 출발이나 도착 node 위에 같은 층의 다른 node가 있으면 그 끝은 옆 면에서 층 사이 틈으로 돈다. 사이 node 뒤로 지나면 첫 step으로 돌아가는지 사이 step으로 가는지 가르지 못한다.
 
 ## 무엇을 어디에 두나
 
@@ -57,7 +58,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 ## 사용자 앱에 닿는 길
 
 1. 앱 template(`packages/core/apps/packages/template/app/deno.json.tmpl`)이 `@lophn/ui`(root와 sub-path 11개)와 `@lophn/app-ui`, `@lophn/wording`, `@lophn/blueprint`를 `lophn-sdk:<name>@1.0.0/<경로>`로 적는다. 사본 안 component가 bare import하는 npm 의존(react, radix, lucide, `@lezer/markdown`, catppuccin icon json, d3)도 같은 판으로 적는다. 앱의 import map이 사본 안 bare import까지 풀기 때문이다.
-2. `lophn-sdk:` 값은 data root의 설치 사본 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)을 가리킨다. 사본은 read-only다(file 0444, 폴더 0555).
+2. `lophn-sdk:` 값은 data root의 설치 사본 `sdk/<이름 뒤쪽>/<판>`(`packageInstallPath`, 예: `sdk/ui/1.0.0`)을 가리킨다. 사본은 read-only다(file 0444, 폴더 0555). 앱 폴더의 개발용 map(`.lophn/import-map.json`)은 template의 `check`·`test`·`wording` task가 먼저 `scripts/refresh-import-map.ts`로 `deno.json`에서 다시 쓴다. `lophn-sdk:` 값의 설치 위치는 지금 map의 같은 판 항목에서 읽고 `npm:`·`jsr:`는 그대로 옮긴다. 그래서 앱이 `deno.json`에 더한 의존이 바로 풀린다. release 준비는 staging에서 map을 따로 만든다.
 3. 화면 build(`releases/ui-build/build.ts`)는 `FIXED_UI_DEPENDENCIES`(`@lophn/blueprint`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/wording`, `react`, `react-dom`)를 esbuild `external`로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
 4. release 준비(`releases/prepare/from-source.ts`)가 잠근 import의 설치 사본을 `readSdkCopies`로 읽어 release bundle에 굳힌다. 실행 중인 앱은 그 bundle의 사본만 본다.
 5. 앱을 고치는 agent는 template의 `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.

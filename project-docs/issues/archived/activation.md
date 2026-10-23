@@ -276,3 +276,22 @@ guard: packages/core/apps/releases/activation/orchestrator_test.ts
 고치려면: data job 결과 줄(`packages/protocol/apps/activation/data-job.ts`)에 실패한 단계와 글을 싣고, `job.ts`가 `failed`를 넘기고, `data-runner.ts`, activation port의 `data.migrate`(`packages/core/apps/releases/activation/assembly.ts`), `changeData`가 그 글을 `migration_failed` summary까지 옮긴다(중간. protocol과 port를 같이 바꾼다). 글은 `applyStep`이 이미 한 줄 300자로 자른다. **추천.**
 
 닫음: data job 결과 줄(`packages/protocol/apps/activation/data-job.ts`)에 되돌아간 단계와 SQLite 오류 글(`failed`)을 싣고, `job.ts`가 넘기고, activation port의 `data.migrate`(`assembly.ts`)가 그것을 err로 내어 `changeData`와 orchestrator가 `migration_failed` summary에 `the data change failed: step 2-3 was rolled back: <오류 글>`로 싣는다. 글 꼴은 release 준비 검사와 같은 `rolledBackStepText`(protocol data-job module)다.
+
+## App Engineer가 `deno.json`에 더한 의존이 앱 폴더의 `deno task check`·`test`에서 풀리지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: 템플릿 `deno.json`(`packages/core/apps/packages/template/app/deno.json.tmpl`)의 `check`·`test`·`wording` task는 `--import-map=.lophn/import-map.json`으로 돌아 `deno.json`의 `imports`를 읽지 않는다. 그 map은 `scaffoldApp`(`packages/core/apps/packages/template/scaffold.ts`)이 쓰는데, 부르는 곳은 `app.create`가 source 폴더를 깔 때(`packages/core/apps/registration/source-folder.ts`, `packages/core/main/daemon/wiring/apps.ts`의 `withSourceFolder`) 하나다. App Engineer가 나중에 `deno.json`에 `npm:`·`jsr:` 의존을 더하면 map에 그 이름이 없어 `deno task check`와 `deno task test`가 "not in import map"으로 떨어진다. release 준비는 staging에서 map을 새로 만들어(`packages/core/apps/releases/prepare/from-source.ts`) 지나가므로 둘이 어긋난다. eval 되살리기는 재료의 `deno.json`을 얹은 뒤 `scaffoldApp`을 다시 불러 피한다(`tests/eval/restore/active-app.ts`).
+
+영향: App Engineer 지침(`packages/core/agent-roles/roles/app-engineer/prompt.md` "Test")은 준비 전에 앱 폴더에서 `deno task check`·`deno task test`를 돌리게 한다. 의존을 더한 앱은 그 단계가 늘 떨어져 App Engineer가 map을 손으로 고치거나 test 없이 준비로 간다. map을 다시 쓸 tool도 없다.
+
+고치려면:
+- 템플릿 task가 돌기 전에 `deno.json`에서 dev map을 다시 쓴다. 설치 SDK 위치는 지금 map의 `lophn-sdk` 항목에서 읽는다(작음). **추천.** 사람과 agent 모두 같은 task로 돈다.
+- core가 `shell.run`이나 file 쓰기 뒤 앱 source의 `deno.json`이 바뀌었으면 map을 다시 쓴다(중간. agent tool 길에 앱 일을 섞는다).
+
+닫음: 앱 template의 `check`·`test`·`wording` task가 먼저 `scripts/refresh-import-map.ts`(`packages/core/apps/packages/template/app/scripts/refresh-import-map.ts.tmpl`)로 `deno.json`의 `imports`에서 `.lophn/import-map.json`을 다시 쓴다. `lophn-sdk:` 값의 설치 위치는 지금 map의 같은 판 항목에서 읽고, `./`·`../` 값은 앱 폴더 기준 file URL, 나머지는 그대로다. 앱 지침 `AGENTS.md`의 "명령" 절이 알린다.

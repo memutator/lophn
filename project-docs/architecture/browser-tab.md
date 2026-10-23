@@ -49,7 +49,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
    child가 $BROWSER <url>:
      shim ─ {v:1,key,url}\n ─▶ b.sock ─▶ bridge.handleLine: parseBridgeRequest → key 표 → 설정(web/local) linkTarget
        browser_tab이면 모든 shell 창에 shell:terminal-bridge-open push
-         ─▶ 그 terminal 탭을 가진 창의 Workspace(useBridgeOpenRequests)가 browser 탭을 열고 ack
+         ─▶ 그 terminal 탭을 가진 창(어느 desk든)의 Workspace(useBridgeOpenRequests)가 browser 탭을 열고 ack
        1500ms 안의 첫 ack ─▶ {"result":"pane"}, 아니면 {"result":"declined"}
      shim: pane이면 끝, 그 밖(declined·접속 실패·3000ms)은 bridge env를 지운 env로 xdg-open/open
    terminal Ctrl/Cmd-click(@xterm/addon-web-links) ─▶ shell:terminal-link ─▶ bridge.openLink: 같은 판정·같은 push, 탭이 안 열리면 main이 OS browser로
@@ -85,7 +85,7 @@ workspace pane에서 인터넷 page를 여는 탭 kind `browser`의 메커니즘
 - **shim은 앱이 켜질 때마다 main이 per-run 폴더에 써 넣는다.** sh에 박는 `process.execPath`가 packaged와 dev에서 달라 설치 묶음에 싣지 않는다. Electron을 node로 띄워 사용자 PATH의 `node`를 기대하지 않는다. shim은 URL·key를 출력하지 않고, OS opener에 넘길 때 `BROWSER`·`LPN_BROWSER_BRIDGE`·`ELECTRON_RUN_AS_NODE`를 지운다(안 지우면 `xdg-open`이 shim을 다시 부른다).
 - **폴더 자리는 core socket 폴더 규칙을 따른다.** socket 경로가 104 byte 이상이면 bridge를 켜지 않고 로그 한 줄만 남긴다. 앱과 shell 탭은 그대로 뜬다(OS browser). 폴더는 app ready 뒤 single-instance lock을 가진 process만 만든다(두 번째 instance는 ready 전에 `will-quit` 없이 끝나 지울 기회가 없다). 시작할 때 죽은 pid의 `shell-<pid>` 폴더를 지우고, 앱을 끌 때 자기 폴더를 동기로 지운다.
 - **link를 열 곳은 core 선언 설정 `shell.browser.web_links`·`shell.browser.local_links`(`browser_tab` | `system_browser`, 기본 `browser_tab`)다.** main이 요청마다 `memory:settings/list`로 읽고, 못 읽으면 기본값이다. Settings › Browser › Links가 고친다. key 글자는 `packages/core/config/shell-settings.ts`와 `policy.ts`의 `LINK_SETTING_KEYS` 두 곳에 있다(shell은 core를 import하지 못한다).
-- **여는 자리는 renderer가 정한다(`bridgeAfter`).** pane이 둘이면 반대쪽 pane 끝, 하나면 terminal 탭 바로 뒤, terminal이 floated이면 focus pane이다. 그냥 click은 text 선택이고 Ctrl/Cmd-click만 link다. OSC 8 자동 링크는 지금도 삼킨다.
+- **여는 자리는 renderer가 정한다(`bridgeAfter`).** pane이 둘이면 반대쪽 pane 끝, 하나면 terminal 탭 바로 뒤, terminal이 floated이면 focus pane이다. terminal이 보이지 않는 desk에 있으면 그 desk로 넘어가 terminal 탭 바로 뒤에 연다(`openTab`의 `after`가 다른 desk의 탭이면 그 desk로 건너간다). 로그인 URL은 사람이 그 page를 봐야 해서 넘어간다. 그 desk의 view를 hook이 모르므로 반대쪽 pane 규칙은 보이는 desk에만 쓴다. 그냥 click은 text 선택이고 Ctrl/Cmd-click만 link다. OSC 8 자동 링크는 지금도 삼킨다.
 - **browser 탭 layout은 `{key, url}`만 저장한다.** title, history, favicon, DevTools 자리는 저장하지 않는다. 다시 열면 그 url을 load한다.
 
 ## 왜 이 모양인가

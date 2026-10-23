@@ -6,4 +6,4 @@ lead만 고친다. `tools/status.py deferred-tools build`가 `tasks/*.md`에서 
 |---|---|---|---|---|---|---|---|
 | `deferred-tools` | deferred-tools | 1 | 없음 | merged | deferred-tools/deferred-tools | 137e011a1 |  |
 | `app-tool-names` | deferred-tools | 2 | 없음 | merged | deferred-tools/app-tool-names | 4dd056796 |  |
-| `defer-by-tool` | deferred-tools | 2 | 없음 | running | deferred-tools/defer-by-tool |  |  |
+| `defer-by-tool` | deferred-tools | 2 | 없음 | merged | deferred-tools/defer-by-tool | 67dcfab96 |  |

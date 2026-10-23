@@ -49,6 +49,9 @@ Call `kind.check` right away (with `domain` if you have more than one).
 Call `kind.list` for each new kind and check that the items you meant to include
 come back. Tell the person which kinds you wrote and what is left undecided.
 
+If the domain has a kind map artifact (see "Drawing a domain" in
+`guide-artifact`), change its data too when you change the kinds file.
+
 ## When documents break the kinds
 
 The person tells you, or `kind.check` shows violations. lophn does not open a

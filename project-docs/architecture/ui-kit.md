@@ -78,7 +78,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 1. 제품 build(`packages/shell/renderer/build.ts`)가 화면 셋(esm)과 함께 `artifact-kit/entry.tsx`를 IIFE로 묶어 `dist/artifact-kit/entry.js`와 `entry.css`를 낸다. 판은 repo의 lock이 잠근 그대로다. minify하지 않는다: CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남아야 AI가 쓴 page의 CSS와 부딪히지 않는다. `entry.css`에는 component CSS만 있다. token은 artifact 문서에 appearance가 이미 넣는다.
 2. 전역은 `LophnKit.renderGraph(element, {nodes, edges, locale?, timeZone?})` 하나다. 같은 element에 다시 부르면 갱신한다. 그 네 칸만 받고 상태 prop(`onRetry`, `empty`)은 entry가 채운다. 다른 component는 내놓지 않는다.
-3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 지금 PM skill `guide-workflows`에만 있다.
+3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 skill `guide-artifact`에 있고, workflow artifact에만 걸린 것은 PM skill `guide-workflows`에 있다.
 
 check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `deno run -A packages/shell/renderer/build.ts`로 이 entry가 서는지 본다.
 

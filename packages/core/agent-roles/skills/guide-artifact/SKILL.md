@@ -120,6 +120,85 @@ body {
 }
 ```
 
+## Drawing nodes with the kit
+
+The kit draws a node diagram. It is the one library the sealed view gives you,
+and it works in a workflow artifact and in a domain artifact.
+
+- Load it with a plain `<script>` (not a module) and a stylesheet:
+  `<link rel="stylesheet" href="/_lophn/kit.css">` and
+  `<script src="/_lophn/kit.js"></script>`.
+- Call `LophnKit.renderGraph(element, { nodes, edges })`. Calling it again on
+  the same element updates it. The element must be a block with a width that is
+  not 0 (not hidden, not `display: inline`).
+- A node is `{ id, label, status?: { label, tone }, note? }`. `tone` must be one
+  of `good`, `warning`, `serious`, `critical`, `neutral`. `note` is a short
+  text. An edge is `{ from, to, label? }`.
+- If the data breaks a rule, the whole diagram is drawn as unreadable (error),
+  not just the bad part. The rules: every `id` is non-empty and unique; the
+  `from` and `to` of every edge are ids of existing nodes; an edge from a node
+  to itself is not allowed (leave it out); `tone` is one of the five values. A
+  cycle (A to B and back to A) is fine.
+- What a status value means is yours to decide (for example `running` for the
+  current step and `reported` when a report exists).
+
+## Drawing a domain
+
+A domain artifact can draw the domain as nodes. It is optional: before you make
+one, ask the person with `ask` whether they want a picture. None is a good
+answer. Do not make one without asking.
+
+Two things are worth drawing:
+
+- **Kind map:** each kind is a node and each `ref` field is an edge from the
+  kind that has the field to the kind in `to`, with the field name as the edge
+  `label`. A `ref` to its own kind would be an edge from a node to itself: leave
+  it out and, if it matters, say it in the node's `note`. For the number of
+  items, call `kind.list` with `aggregate: [{ op: "count", as: "n" }]` for each
+  kind and put it in the `note`.
+- **State flow:** if a kind has an `enum` field that means a state (`status`,
+  `stage`), each value is a node. Call `kind.list` with the same `aggregate` and
+  `group_by` set to that field, and put the number of items of each value in the
+  `note`. The order between values (the edges) is the domain's meaning: take it
+  from `DOMAIN.md` or from what the person says. If you do not know it, draw the
+  values with no edges.
+
+The artifact cannot read `kinds.yaml` or call a tool, so you write the diagram
+data into `data/*.json` yourself (for example `data/map.json` with
+`{ nodes,
+edges }`) and the page reads it. When the kinds change, change the
+data too.
+
+```html
+<!doctype html>
+<title>Kind map</title>
+<meta name="description"
+  content="The kinds of this domain and how they point at each other.">
+<link rel="stylesheet" href="/_lophn/kit.css">
+<div id="graph" style="display:block;width:100%"></div>
+<script src="/_lophn/kit.js"></script>
+<script>
+fetch("data/map.json")
+  .then((r) => r.json())
+  .then((map) => LophnKit.renderGraph(document.getElementById("graph"), map));
+</script>
+```
+
+with, for example, `data/map.json`:
+
+```json
+{
+  "nodes": [
+    { "id": "receipt", "label": "receipt", "note": "42 items" },
+    { "id": "vendor", "label": "vendor", "note": "7 items" }
+  ],
+  "edges": [{ "from": "receipt", "to": "vendor", "label": "vendor" }]
+}
+```
+
+An Operator does not write kind files, but it can draw the same diagram in an
+artifact of a domain it was given.
+
 ## Changes show at once
 
 When you change a file in the folder, a tab that has it open reloads. There are

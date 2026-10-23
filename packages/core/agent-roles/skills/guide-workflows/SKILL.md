@@ -192,22 +192,9 @@ not make one without asking.
 
 ## Drawing nodes with the kit
 
-An artifact is a sealed view, so follow `guide-artifact` (no network, no
-external library, theme tokens). One thing is added: the kit, which draws a node
-diagram. It works in a workflow artifact and in a domain artifact.
-
-- Load it with a plain `<script>` (not a module) and a stylesheet:
-  `<link rel="stylesheet" href="/_lophn/kit.css">` and
-  `<script src="/_lophn/kit.js"></script>`.
-- Call `LophnKit.renderGraph(element, { nodes, edges })`. Calling it again on
-  the same element updates it. The element must be a block with a width that is
-  not 0 (not hidden, not `display: inline`).
-- A node is `{ id, label, status?: { label, tone }, note? }`. `tone` must be one
-  of `good`, `warning`, `serious`, `critical`, `neutral`; any other value draws
-  the diagram as unreadable (error). `note` is a short text. An edge is
-  `{ from, to, label? }`.
-- What a status value means is yours to decide (for example `running` for the
-  current step and `reported` when a report exists).
+Follow "Drawing nodes with the kit" in `guide-artifact`: how to load the kit,
+the `renderGraph` call, the shape of nodes and edges and the rules. A workflow
+artifact adds only the following.
 
 The static artifact (`artifacts/static/index.html`) writes its steps straight in
 the HTML: it cannot read `workflow.yaml`, which is outside its folder.

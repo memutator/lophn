@@ -39,7 +39,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
    lophn: 없다(place가 없다)
      지침   전역 → LOPHN.md(project 그릇만) → DOMAIN.md(맡은 domain을 이름순으로) → agent 본문
      place  Domains 절(이름, 제목, 목적, 폴더), domain별 kind 글, domain별 artifact 목록
-     tool   할당된 앱 가운데 맡은 domain의 tool 전부 + 다른 domain의 public tool   (이름 domain__<domain>__<tool>)
+     tool   할당된 앱 가운데 맡은 domain의 tool 전부 + 다른 domain의 public tool   (이름 <domain>_<tool>)
      file   PM: project 폴더 + domain 폴더 + project의 workflows/ / App Engineer: 앱 source + domain 폴더
             Operator: 그릇 폴더(앱 source는 읽기만) + 고른 domain의 artifacts/
 
@@ -53,7 +53,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 ## 지키는 것
 
 - **domain은 그릇 하나에 속하고 owner를 바꾸지 않는다.** owner는 `{kind: "project" | "app", id}`다. 이름은 slug이고 보관한 것까지 모든 domain에서 하나다(`domains.name` UNIQUE). 이름 바꾸기와 그릇 옮기기는 없다. `id`, `name`, owner 열은 trigger가 바꾸지 못하게 한다.
-  - 이름이 하나뿐이라 agent tool 이름 `domain__<domain>__<tool>`에 앱 id가 없어도 겹치지 않는다.
+  - 이름이 하나뿐이고 `_`가 없어 agent tool 이름 `<domain>_<tool>`에 앱 id가 없어도 겹치지 않는다. 내장 tool 자원 이름(`file`, `app`, `release`, `job` …)과 `call`, `reply`, `cancel`, `ask`, `mcp`는 domain 이름으로 쓰지 못한다(`packages/protocol/apps/declaration/types.ts`의 `RESERVED_DOMAIN_NAMES`). 그래서 이름이 이 낱말 하나인 앱은 만들 수 없다(앱 slug가 domain 이름이 된다).
 - **`domains` module은 projects·apps를 import하지 않는다.** `domain.create`가 그릇이 있는지 보는 길은 wiring이 꽂는 `ownerLookupPort`다. 앱을 만드는 command는 `domainProvisioningPort`로 같은 tx 안에서 domain을 만든다. 그 command가 이미 그릇을 확인했으므로 provisioning은 owner를 다시 보지 않는다.
 - **앱은 domain이 0개가 되지 않는다.** `app.create`가 같은 tx에서 `{name: slug, title: name, purpose: description, owner: app}`을 만든다. 그 이름이 이미 있으면 앱도 만들지 않는다(`conflict`). 앱의 마지막 active domain은 보관하지 못한다. project는 domain이 0개여도 된다(폴더와 coding만 쓰는 project).
 - **`domain.create`는 Gate에 묻지 않는다.** 그릇 안에 만드는 것이라 권한이 넓어지지 않는다. agent는 자격 조건(`conditions.project`·`conditions.app`)의 그릇에만 만들고, 조건이 없는 agent(lophn)는 만들지 못한다. id를 미리 정하는 것과 보관·되살리기는 사람만 한다.

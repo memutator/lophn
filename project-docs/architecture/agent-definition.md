@@ -19,7 +19,7 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
            2 지침 층 (전역, LOPHN.md, DOMAIN.md, agent)   ← cache 경계
            3 skill 목록 (이름과 설명)
            4 place 정보                    ← cache 경계
-   tools[] 정렬된 정의
+   tools[] 정렬된 정의 (켜진 session은 숨긴 정의에 defer_loading. tool.load 결과의 tool_reference로 펼친다)
    대화    Router 입력(tag로 출처 표시) ... 끝에 notice   ← 마지막 block에 cache 경계
         ▲
         └─ 지난 turn이 본 판(seen)과 비교해 바뀐 층·목록만 notice로 끝에 덧붙인다.
@@ -43,6 +43,14 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **Operator 정의의 `skip`은 그 Operator 새 session의 skip 기본값이다.** 켜 두면 새 session이 skip으로 시작해 shell `ask`를 묻지 않는다(deny 규칙은 막는다). `mcp_servers`처럼 사람만 쓴다: PM과 App Engineer의 `operator.create`·`operator.update` 입력에 없다. session의 skip은 사람이 대화 화면에서 켜고 끄고(`ChangeSessionSkip`), fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다(`architecture/place-session.md`).
 - **tool 목록은 session을 시작할 때 고정한다.** session 도중 activation이나 할당으로 앱 tool, MCP tool이 더해지거나 빠져도 `tools[]`는 그대로 두고 대화 끝에 notice로 알린다. 빠진 tool은 목록에 남아도 부를 때 막힌다. 앱 tool은 Gate가 지금 할당을 읽고, MCP tool은 연결 쪽 `call`이 지금 server 설정을 다시 읽는다(`architecture/approval.md`). notice는 program이 쓴 고정 문장만 쓰고 앱이 쓴 글(tool 설명)은 넣지 않는다. notice도 다음 turn부터는 이력의 앞부분(prefix)이라, 앱 글이 들어가면 그 글이 바뀔 때마다 같은 재료가 같은 bytes가 아니게 되어 cache가 깨진다.
 - **role의 tool 목록은 코드가 고정하고, 목록 밖 tool은 정의에도 실행에도 없다.** 사람은 목록을 넓히거나 좁히지 않는다. 넓히는 길은 할당 하나다. 읽기 tool은 모든 role에 주고 쓰기 tool만 role로 나눈다. 목록은 role 층(`agent-roles/tool-lists.ts`)에 있고, 목록의 이름마다 정의가 있고 정의마다 어느 목록에 든다(`main/agent-tools_test.ts`). 어긋나면 agent가 그 tool을 말없이 못 본다.
+- **tool 정의는 늦게 싣는다: 숨긴 tool은 이름만 알리고 `tool.load`로 펼친다.** 숨김은 정의를 늦게 싣는 장치이고 role 구분이 아니다(role 구분은 위 목록이 한다).
+  - 켜는 곳: built-in `anthropic` provider 정의(key `anthropic`)의 Claude 4.5 이상·5 세대·Fable·Mythos model(`packages/core/lophn-agent/providers/definitions.ts`의 `supportsDeferredTools`). 켤지는 session의 tool 목록을 고정할 때(첫 turn) 같이 정하고 session 동안 바꾸지 않는다.
+  - 숨는 것: 그 session 고정 목록 가운데 정의에 `defer: true`가 있는 내장 tool(Claude Code의 `shouldDefer`), 앱 tool 전부, 외부 MCP tool 전부. `defer: true`는 tool 하나에 한 번 적고 모든 role에 같다.
+  - 숨긴 정의도 매 요청 `tools[]`에 `defer_loading: true`로 모두 싣는다. `tool.load` 결과는 `tool_reference` 조각이라 API가 그 자리에서 정의를 펼치고 prefix는 그대로다. `tool.load` description 끝에 그 session의 숨긴 wire 이름을 정렬해 싣는다(이름만, 앱이 쓴 설명은 넣지 않는다). 받는 model의 요청에는 beta header `advanced-tool-use-2025-11-20`를 늘 붙인다.
+  - `tool.load`의 항목은 wire 이름이거나 묶음 이름이다. 항목 `g`는 wire 이름이 `g`와 같거나 `g_`로 시작하는 숨긴 tool에 맞는다(`job`, 앱 domain `calendar`, `mcp__<server>`). 숨긴 tool만 펼친다. session 목록 밖이면 `not_found`, 숨기지 않은 tool이면 `invalid_input`이고 하나라도 틀리면 전체가 실패한다(`packages/core/lophn-agent/tools/bundles/tool_test.ts`). 목록 밖 tool을 펼치면 role 목록과 할당이라는 권한 경계를 넘는다. model은 code만 본다(`executeToolCall`이 실패 문장을 code별 고정 문장으로 바꾼다).
+  - 불러온 tool은 session 동안 남는다. 다음 turn부터 이력에 앞 turn의 성공한 `tool.load` 호출과 결과를 그 turn의 요청 뒤, 답 앞에 다시 싣는다(`packages/core/lophn-agent/session/history.ts`의 `readLoads`). 저장된 tool 호출 기록과 결과 본문을 읽고, compaction·숨김·접힘이 그 요청과 같이 덜어 낸다.
+  - 실행 쪽(`executeToolCall`, Gate)은 이번 요청의 `tools[]`가 아니라 session 고정 목록을 본다. 숨김은 model이 보는 것만 바꾼다.
+  - 켜진 session의 뒤 turn이 deferral을 못 받는 provider·model로 가면 모든 정의를 보통으로 싣고 `tool.load` 결과를 `Loaded: a, b` 글로 그린다. 꺼진 채 시작한 session은 끝까지 끄고 목록에 `tool.load`가 없다.
 - **모든 앱의 tool 목록을 읽는 tool(`app.tools`)은 lophn과 App Engineer 목록에만 있다.** 새 앱을 청받았을 때 이미 있는 기능을 찾고, App Engineer가 선언의 `app_connections`에 정확한 tool key를 적으려는 것이다. 읽기 전용 route `app.tool_index`가 active 앱의 이름·설명과 tool(name, title, description, effect, public, domain)만 주고, 앱 하나를 지정하면 `inputSchema`와 선언된 `outputSchema`도 준다. 이 route는 앱 범위 판정을 하지 않는다. App Engineer의 자격이 자기 앱 하나(`conditions.app`)로 묶여 있어 기존 `app.list`·`app.get`의 검사는 그대로 두고, 돌려주는 칸을 이것으로 한정해 다른 앱의 source, ticket은 열리지 않게 했다.
 - **다른 domain의 비공개 tool은 agent의 tool 목록에도 `app.tools` 결과에도 없다.** agent는 맡은 domain의 tool을 모두 보고, 다른 domain(같은 앱의 다른 domain 포함)은 `public`인 tool만 본다(domain이 없는 lophn은 `public`만 본다). tool의 domain이나 부른 agent의 domain을 읽지 못하면 뺀다(막는 쪽으로 실패한다). 걸러내기는 할당한 앱의 tool을 모으는 자리(`packages/core/lophn-agent/tools/app-public.ts`)와 `app.tools`의 결과 두 곳에서 같은 규칙으로 한다. 규칙은 `architecture/domain.md`다.
 - **내장 SDK(`@lophn/*`)는 package tool이 설치 사본에서 읽는다.** `package.list`는 catalog의 앱 package 뒤에 `builtin` 칸을 싣고 `package.get`은 `@lophn/` 이름이면 `packages.builtin`으로 설치 사본(`<data root>/sdk`)의 판과 `guide.md`를 읽는다. 내장 SDK는 catalog에 등록하지 않고 설치 사본이 정본이다. 어느 role도 그 폴더를 file tool로 읽지 못하므로 tool이 대신 읽어 준다.
@@ -96,5 +104,6 @@ lophn agent 하나는 role(고정), place, 설정 층으로 정의되고, turn�
 - **skill 발견은 동기 구현 하나다.** core의 read handler(`ReadSkills`, `ListCommands`, agents read)가 동기라 비동기 발견을 부를 수 없고, turn 준비는 비동기 함수 안에서 동기 함수를 그대로 부른다. 파일 IO는 `SkillFiles` port로 받아 core module graph에 동기 file API가 없다.
 - **model catalog는 OpenCode 꼴이다.** OpenCode와 Codex는 catalog snapshot을 넣고 실행 때 받는다. 손으로 쓴 목록은 새 model이 나와도 판을 올리기 전에는 쓸 수 없다. models.dev 항목의 `limit.input`이 없으면 context 한도를 입력 한계로 두고, 출력 예약은 입력 예산이 따로 뺀다.
 - **오래된 이미지만 빼고 기록은 그대로 둔다.** tool 호출 기록과 그 출력 blob에는 이미지 base64가 남는다. 기록에서 빼는 길은 model call이 막히지 않으니 실제로 막힐 때 한다.
-- **deferred tool(이름만 싣고 `tool.search`로 불러오기)은 두지 않는다.** 켜는 tool이 없었다. tool 목록이 커져 실제로 막히면 그때 만든다.
+- **tool 정의를 늦게 싣는 꼴은 Claude Code의 ToolSearch를 따른다.** tool 정의가 role prompt, skill 목록, tool을 합친 고정 부분의 약 80%였고(role마다 34~52개), Anthropic 문서는 30~50개를 넘으면 고르는 정확도가 떨어진다고 한다. Claude Code처럼 숨김을 tool 정의의 표시로 두고 MCP는 통째로 숨긴다. 내장 tool은 role 목록 넷이 모두 숨기던 드문 15개에 `defer: true`를 붙였다. 앱 tool도 MCP처럼 숨긴다. 옛 `tool.search`는 정의를 tool 결과 글로 돌려줘 provider가 선언되지 않은 tool 호출을 받는다는 보장이 없었다. 이번에는 API의 `defer_loading`과 `tool_reference`를 쓴다. 처음에는 role prompt에 이름이 나오는지로 role마다 숨김 목록을 따로 두었는데, 숨김이 role 구분과 섞여 버렸다(사람, 2026-10-23).
+- **keyword 검색 대신 묶음 이름으로 불러온다.** 내장 `<자원>_<동사>`, 앱 `<domain>_<tool>`, MCP `mcp__<server>__<tool>`이 모두 이름 앞부분이 묶음이라 접두사 하나로 된다. Claude Code는 불러온 정의만 `tools[]`에 싣지만 우리는 매 요청 모두 실어 불러온 이름을 `tools[]`를 위해 따로 추적하지 않는다. custom provider는 `anthropic-messages`여도 proxy나 호환 API가 이 칸을 모를 수 있어 끈다. OpenAI responses의 `tool_search`와 chat-completions 계열은 wire 모양이 달라 아직 켜지 않는다.
 - **kind 글은 맡은 domain의 것만 받는다.** PM과 App Engineer는 그릇의 domain 전부를, Operator는 고른 domain을 받는다. 일을 좁히는 것은 `domains`와 skill이다. kind 글, `DOMAIN.md`, 앱 tool이 모두 같은 domain 단위로 좁혀지므로 따로 고르는 칸을 두지 않는다.

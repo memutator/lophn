@@ -10,6 +10,7 @@ import {
   GRANT_HOST,
   GRANT_RESERVE,
   GRANT_SECRET,
+  type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
 import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
@@ -67,6 +68,8 @@ interface AppSpaceProps {
   readonly version?: ActivationState;
   /** Access 탭에서 이미 거두기를 요청한 항목. */
   readonly revoking?: readonly string[];
+  /** Access 탭의 secret 줄들. 없으면 plain secret 하나다. */
+  readonly secrets?: SecretsFake;
   readonly activity?: {
     readonly open?: string | null;
     readonly rewind?: RewindStage | null;
@@ -201,6 +204,7 @@ function build(props: AppSpaceProps, onRegion: (region: HTMLElement) => void) {
     }).source,
     detail: fakeDetail({
       ...(props.version === undefined ? {} : { activation: props.version }),
+      ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
       ...(props.revoking === undefined ? {} : {
         revoking: props.revoking.map((id) => GRANTS[id] ?? id),
       }),

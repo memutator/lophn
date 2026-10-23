@@ -8,6 +8,8 @@ import type {
   Caller,
   CallState,
   LossLine,
+  OAuthReason,
+  OAuthState,
   ResourceKind,
   RewindOutcome,
 } from "./source.ts";
@@ -113,6 +115,38 @@ export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
       return t("app-detail.note.resource-listen", { when });
     case "secret":
       return t("app-detail.note.resource-secret");
+  }
+}
+
+const FAILED_NOTE: Record<OAuthReason, () => string> = {
+  callback_timeout: () => t("app-detail.note.oauth-failed-callback-timeout"),
+  state_mismatch: () => t("app-detail.note.oauth-failed-state-mismatch"),
+  exchange_failed: () => t("app-detail.note.oauth-failed-exchange-failed"),
+  refresh_rejected: () => t("app-detail.note.oauth-failed-refresh-rejected"),
+  expired: () => t("app-detail.note.oauth-failed-expired"),
+  store_failed: () => t("app-detail.note.oauth-failed-store-failed"),
+};
+
+/** OAuth 줄의 상태 표시. 실패는 이유가 글이 된다. */
+export function oauthStatus(
+  state: OAuthState,
+  reason: OAuthReason | null,
+): { tone: "neutral" | "warning" | "good" | "critical"; label: string } {
+  switch (state) {
+    case "none":
+      return {
+        tone: "neutral",
+        label: t("app-detail.label.oauth-not-signed-in"),
+      };
+    case "in_progress":
+      return { tone: "warning", label: t("app-detail.label.oauth-waiting") };
+    case "signed_in":
+      return { tone: "good", label: t("app-detail.label.oauth-signed-in") };
+    case "failed":
+      return {
+        tone: "critical",
+        label: FAILED_NOTE[reason ?? "store_failed"](),
+      };
   }
 }
 

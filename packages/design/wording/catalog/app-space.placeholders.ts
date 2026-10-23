@@ -25,6 +25,8 @@ export type AppSpacePlaceholders = {
   };
   "app-detail.error.revoke-failed": Record<never, never>;
   "app-detail.error.rewind-failed": Record<never, never>;
+  "app-detail.error.secret-failed": Record<never, never>;
+  "app-detail.error.sign-in-failed": Record<never, never>;
   "app-detail.heading.active-release": Record<never, never>;
   "app-detail.heading.active-release-named": {
     release: "string";
@@ -185,7 +187,6 @@ export type AppSpacePlaceholders = {
   "app-detail.label.went-back": {
     release: "string";
   };
-  "app-detail.note.access-intro": Record<never, never>;
   "app-detail.note.access-intro-secrets": Record<never, never>;
   "app-detail.note.activity-scope": Record<never, never>;
   "app-detail.note.applying-first": Record<never, never>;

@@ -1,16 +1,21 @@
 // AppDetailSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로
 // 이미 검사했고, 아래 type은 그 schema에서 나온 protocol type이다. 거두기·돌아가기·상태 바꾸기는 사람의
 // 결정이지만 확인 창 없이 이 탭에서 바로 보낸다.
-import type {
-  ActivationComparison,
-  ActivationQueueEntry,
-  AppGrant,
-  AppInvocation,
-  AppToolCaller,
-  ReleaseRecord,
-  Rewind,
-  RewindPlan,
+import {
+  type ActivationComparison,
+  type ActivationQueueEntry,
+  type AppGrant,
+  type AppInvocation,
+  appOAuthNames,
+  type appsOAuthState,
+  type AppToolCaller,
+  type ReleaseRecord,
+  type Rewind,
+  type RewindPlan,
 } from "../../../../protocol/apps/mod.ts";
+import type { SecretFileStatus } from "../../../../protocol/secrets/secret-file.ts";
+import type { OpenExternalApi } from "../../../ipc/open-external.ts";
+import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
 import type { z } from "zod";
 
 import type { CommandRoute } from "../../../../protocol/base/route.ts";
@@ -19,6 +24,11 @@ import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
+import {
+  enterSecret,
+  windowLinkOpener,
+  windowSecretInputOpener,
+} from "../../desktop/settings/core-call.ts";
 import { coreDomainActions } from "../../workspace/domains/core-calls.ts";
 import type { DomainView } from "../../workspace/source.ts";
 import type {
@@ -37,6 +47,7 @@ import type {
   ResourceKind,
   ResourceRow,
   RewindItem,
+  SecretInfo,
   SourceResult,
   VersionView,
 } from "./source.ts";
@@ -217,7 +228,28 @@ function versionView(
 
 // ---- Access ----
 
-function resourceOf(grant: AppGrant): ResourceRow | null {
+type OAuthLine = z.output<typeof appsOAuthState.output>["secrets"][number];
+
+function secretInfo(
+  scope: Extract<AppGrant["scope"], { kind: "secret.use" }>,
+  configured: boolean,
+  line: OAuthLine | undefined,
+): SecretInfo {
+  const oauth = scope.oauth;
+  return {
+    configured,
+    oauth: oauth === undefined ? null : {
+      authorizeHost: new URL(oauth.authorization_endpoint).host,
+      scopes: oauth.scopes,
+      clientId: line?.client_id ?? null,
+      clientSecretSet: line?.client_secret_set ?? false,
+      state: line?.state ?? "none",
+      reason: line?.reason ?? null,
+    },
+  };
+}
+
+function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
   const scope = grant.scope;
   const kinds: Partial<Record<typeof scope.kind, ResourceKind>> = {
     "fs.read": "file-read",
@@ -243,6 +275,7 @@ function resourceOf(grant: AppGrant): ResourceRow | null {
     // 접수한 거두기는 이 화면이 기억한다. core는 정리 중을 따로 읽게 하지 않는다.
     revoking: false,
     revoked: grant.status === "revoked",
+    ...(secret === undefined ? {} : { secret }),
   };
 }
 
@@ -375,7 +408,27 @@ function rewindOutcome(item: RewindPlan["items"][number]) {
     : "cannot" as const;
 }
 
-export function coreAppDetailSource(core: CoreSource): AppDetailSource {
+interface AppDetailDeps {
+  /** 보호 입력 창. */
+  openSecret: SecretInputOpenApi["open"] | undefined;
+  openLink: OpenExternalApi["openExternal"] | undefined;
+}
+
+const stored = async <T>(
+  reply: Promise<SourceResult<T>>,
+): Promise<SourceResult<true>> => {
+  const result = await reply;
+  return result.ok ? { ok: true, value: true } : result;
+};
+
+export function coreAppDetailSource(
+  core: CoreSource,
+  deps: Partial<AppDetailDeps> = {},
+): AppDetailSource {
+  const openSecret = "openSecret" in deps
+    ? deps.openSecret
+    : windowSecretInputOpener();
+  const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
   return {
     ...coreDomainActions(core),
 
@@ -502,12 +555,53 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
       );
       if (!result.ok) return result;
       const names = lookups(core);
+      const secrets = result.value.flatMap((grant) =>
+        grant.scope.kind === "secret.use" ? [grant.scope] : []
+      );
+      const none = Promise.resolve({ ok: true, value: null } as const);
+      const [status, oauth, appName] = await Promise.all([
+        secrets.length === 0 ? none : call<{ secrets: SecretFileStatus[] }>(
+          core,
+          "memory",
+          "secrets",
+          "status",
+          { names: secrets.map((scope) => scope.name) },
+        ),
+        secrets.some((scope) => scope.oauth !== undefined)
+          ? call<z.output<typeof appsOAuthState.output>>(
+            core,
+            "memory",
+            "apps",
+            "oauth_state",
+            { app },
+          )
+          : none,
+        names.appName(app),
+      ]);
+      if (!status.ok) return status;
+      if (!oauth.ok) return oauth;
+      const configured = new Set(
+        status.value?.secrets.filter((item) => item.configured)
+          .map((item) => item.name),
+      );
+      const lines = new Map(
+        oauth.value?.secrets.map((line) => [line.name, line]),
+      );
       const resources: ResourceRow[] = [];
       const appTools: AppToolRow[] = [];
       for (const grant of result.value) {
         const scope = grant.scope;
         if (scope.kind !== "app.call") {
-          const row = resourceOf(grant);
+          const row = resourceOf(
+            grant,
+            scope.kind === "secret.use"
+              ? secretInfo(
+                scope,
+                configured.has(scope.name),
+                lines.get(scope.name),
+              )
+              : undefined,
+          );
           if (row !== null) resources.push(row);
           continue;
         }
@@ -540,7 +634,7 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
           revoked: grant.status === "revoked",
         });
       }
-      const view: AccessView = { resources, appTools };
+      const view: AccessView = { appName, resources, appTools };
       return { ok: true, value: view };
     },
 
@@ -548,6 +642,51 @@ export function coreAppDetailSource(core: CoreSource): AppDetailSource {
       const reply = await command(core, appGrantRevoke, { grant });
       return reply.ok ? { ok: true, value: true } : reply;
     },
+
+    setSecretValue: (name, subject) =>
+      enterSecret(openSecret, { name, purpose: "app", subject }),
+
+    setOAuthClientId: (app, name, clientId) =>
+      stored(
+        call(core, "memory", "apps", "oauth_client_set", {
+          app,
+          name,
+          client_id: clientId,
+        }),
+      ),
+
+    setOAuthClientSecret: (name, subject) =>
+      enterSecret(openSecret, {
+        name: appOAuthNames(name).client,
+        purpose: "app",
+        subject,
+      }),
+
+    // 열 곳이 없거나 열기가 실패하면 시작한 sign-in이 남지 않게 닫는다.
+    async signIn(app, name) {
+      const begun = await call<{ url: string }>(
+        core,
+        "memory",
+        "apps",
+        "oauth_begin",
+        { app, name },
+      );
+      if (!begun.ok) return begun;
+      let opened = false;
+      if (openLink !== undefined) {
+        try {
+          opened = (await openLink(begun.value.url)).ok;
+        } catch {
+          opened = false;
+        }
+      }
+      if (opened) return { ok: true, value: true };
+      await call(core, "memory", "apps", "oauth_cancel", { app, name });
+      return { ok: false, code: "unavailable" };
+    },
+
+    cancelSignIn: (app, name) =>
+      stored(call(core, "memory", "apps", "oauth_cancel", { app, name })),
 
     async activity(app) {
       const [invocations, releases, active] = await Promise.all([

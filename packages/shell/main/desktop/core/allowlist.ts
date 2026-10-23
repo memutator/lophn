@@ -6,6 +6,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - MCP server 로그인의 시작·완료·상태 읽기·취소(Settings › Tools and skills의 [Sign in]·[Cancel sign-in])
 // - 설정 읽기·바꾸기, secret 상태 읽기·지우기, 진단 상태 읽기(Settings). secret 값 넣기(`secrets/put`)는 upload라
 //   main의 secret 입력 창만 부른다.
+// - 앱 OAuth 로그인의 client id 넣기·시작·취소·상태 읽기(앱 공간 Access 탭 secret 줄). client secret 값은 보호 입력 창이 받는다.
 // - Grants의 MCP tool 목록 읽기(`agent-mcp-tools/list`). 같은 resource의 `take`·`done`은 runtime만 부른다.
 // - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
 // - 대화 입력함의 지금 보내기·빼기(`session_inputs/steer_now`·`remove`)
@@ -19,6 +20,10 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/state",
   "memory:agent-mcp-auth/cancel",
   "memory:agent-mcp-tools/list",
+  "memory:apps/oauth_client_set",
+  "memory:apps/oauth_begin",
+  "memory:apps/oauth_cancel",
+  "memory:apps/oauth_state",
   "memory:settings/list",
   "memory:settings/update",
   "memory:secrets/status",

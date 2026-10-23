@@ -34,6 +34,30 @@ export function AccessRevoking() {
   return <AppSpace panel="access" revoking={["secret", "reserve"]} />;
 }
 
+export function AccessSecrets() {
+  return <AppSpace panel="access" secrets="plain" />;
+}
+
+export function AccessOAuthSetup() {
+  return <AppSpace panel="access" secrets="oauth-setup" />;
+}
+
+export function AccessOAuthReady() {
+  return <AppSpace panel="access" secrets="oauth-ready" />;
+}
+
+export function AccessOAuthWaiting() {
+  return <AppSpace panel="access" secrets="oauth-waiting" />;
+}
+
+export function AccessOAuthSignedIn() {
+  return <AppSpace panel="access" secrets="oauth-signed-in" />;
+}
+
+export function AccessOAuthFailed() {
+  return <AppSpace panel="access" secrets="oauth-failed" />;
+}
+
 export function ActivityLog() {
   return <AppSpace panel="activity" activity={{ open: "i-20" }} />;
 }

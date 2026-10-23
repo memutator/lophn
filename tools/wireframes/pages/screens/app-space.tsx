@@ -3,7 +3,13 @@ import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock
 import { openApp } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   AccessGrants,
+  AccessOAuthFailed,
+  AccessOAuthReady,
+  AccessOAuthSetup,
+  AccessOAuthSignedIn,
+  AccessOAuthWaiting,
   AccessRevoking,
+  AccessSecrets,
   ActivityLog,
   AgentPaneOpen,
   AnnotateList,
@@ -106,6 +112,48 @@ export const appSpaceArea: Area = {
       description:
         "거두기를 요청한 뒤다. 요청 접수(새 호출 막힘)와 정리(이전 process 종료 확인 뒤 다시 시작)를 두 단계로 나눠 보인다.",
       render: () => <AccessRevoking />,
+    },
+    {
+      id: "new-app-access-secrets",
+      title: "App space · Access (secrets)",
+      description:
+        "Access 탭의 Outside resources 목록에 있는 plain secret 줄 둘이다. 이름 아래에 Not set/Set이 있고 줄 오른쪽 끝에 [Set value]/[Change value]와 [Revoke]가 있다. 값은 보호된 입력 창이 받으므로 여기 그리지 않고, 값과 token은 어디에도 보이지 않는다.",
+      render: () => <AccessSecrets />,
+    },
+    {
+      id: "new-app-access-oauth-setup",
+      title: "App space · Access (OAuth setup)",
+      description:
+        "OAuth secret 줄의 처음 상태다. 이름 아래에 앱이 선언한 sign-in 곳(host와 scope, 사람이 바꿀 수 없음)이 있고, 왼쪽 선 안에 client id 입력과 [Save], client secret(선택)의 [Set client secret]이 있다. client id가 없어 [Sign in]은 꺼져 있고 이유 글이 줄 아래에 있다. 아래에 plain secret 줄이 섞여 있다.",
+      render: () => <AccessOAuthSetup />,
+    },
+    {
+      id: "new-app-access-oauth-ready",
+      title: "App space · Access (OAuth ready)",
+      description:
+        "client id와 client secret이 있는 상태다. 각 값 옆에 [Change]가 있고 client id는 값을 보인다(secret은 Set만). [Sign in]이 켜져 있고 누르면 OS browser가 열린다는 안내 한 줄이 있다.",
+      render: () => <AccessOAuthReady />,
+    },
+    {
+      id: "new-app-access-oauth-waiting",
+      title: "App space · Access (OAuth waiting)",
+      description:
+        "[Sign in]을 눌러 browser가 열린 뒤 상태(in_progress)다. Waiting for you to finish in your browser와 [Cancel]이 있다. 화면은 이 동안 상태를 다시 읽는다.",
+      render: () => <AccessOAuthWaiting />,
+    },
+    {
+      id: "new-app-access-oauth-signed-in",
+      title: "App space · Access (OAuth signed in)",
+      description:
+        "sign-in이 끝난 상태(signed_in)다. Signed in 표시와 [Sign in again]이 있다. token은 보이지 않는다.",
+      render: () => <AccessOAuthSignedIn />,
+    },
+    {
+      id: "new-app-access-oauth-failed",
+      title: "App space · Access (OAuth failed)",
+      description:
+        "실패 이유 여섯(callback_timeout, state_mismatch, exchange_failed, refresh_rejected, expired, store_failed)을 줄 하나씩 위아래로 쌓았다. 같은 앱에 OAuth secret이 여럿일 때 줄이 어떻게 쌓이는지도 보인다. 이유 글이 상태 자리에 있고 [Sign in again]이 있다.",
+      render: () => <AccessOAuthFailed />,
     },
     {
       id: "new-app-activity",

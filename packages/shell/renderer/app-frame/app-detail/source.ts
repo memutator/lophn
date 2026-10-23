@@ -88,6 +88,32 @@ export type ResourceKind =
   | "listen"
   | "secret";
 
+export type OAuthState = "none" | "in_progress" | "signed_in" | "failed";
+
+export type OAuthReason =
+  | "callback_timeout"
+  | "state_mismatch"
+  | "exchange_failed"
+  | "refresh_rejected"
+  | "expired"
+  | "store_failed";
+
+/** secret 줄 하나의 상태. 값·token은 없다. */
+export interface SecretInfo {
+  /** 값이 들어 있는가. OAuth 줄에서는 쓰지 않는다. */
+  readonly configured: boolean;
+  readonly oauth: null | {
+    /** 앱이 선언한 sign-in 곳. 사람이 바꿀 수 없다. */
+    readonly authorizeHost: string;
+    readonly scopes: readonly string[];
+    readonly clientId: string | null;
+    readonly clientSecretSet: boolean;
+    readonly state: OAuthState;
+    /** state가 failed일 때만 있다. */
+    readonly reason: OAuthReason | null;
+  };
+}
+
 /** 앱이 activation 때 받은 바깥 자원 하나. 거두는 단위는 grant다. */
 export interface ResourceRow {
   readonly grant: string;
@@ -99,6 +125,8 @@ export interface ResourceRow {
   readonly revoking: boolean;
   /** 정리까지 끝나 거둬졌다. */
   readonly revoked: boolean;
+  /** kind가 secret일 때만 있다. */
+  readonly secret?: SecretInfo;
 }
 
 /** 다른 앱의 tool을 부를 수 있는 grant 하나. */
@@ -119,6 +147,8 @@ export interface AppToolRow {
 }
 
 export interface AccessView {
+  /** 보호 입력 창에 보일 앱 이름. 읽지 못하면 null이다. */
+  readonly appName: string | null;
   readonly resources: readonly ResourceRow[];
   readonly appTools: readonly AppToolRow[];
 }
@@ -243,6 +273,24 @@ export interface AppDetailSource extends DomainActions {
   access(app: string): Promise<SourceResult<AccessView>>;
   /** 바깥 자원이나 다른 앱 tool을 거둔다. 요청 접수까지다. 정리는 읽기로 본다. */
   revoke(grant: string): Promise<SourceResult<true>>;
+  /** 보호 입력 창으로 secret 값을 넣는다. 값은 이 안을 지나지 않는다. */
+  setSecretValue(
+    name: string,
+    subject: string,
+  ): Promise<SourceResult<"stored" | "cancelled">>;
+  setOAuthClientId(
+    app: string,
+    name: string,
+    clientId: string,
+  ): Promise<SourceResult<true>>;
+  /** client secret을 보호 입력 창으로 넣는다. */
+  setOAuthClientSecret(
+    name: string,
+    subject: string,
+  ): Promise<SourceResult<"stored" | "cancelled">>;
+  /** sign-in 주소를 OS browser로 연다. 끝나기는 기다리지 않고, 화면이 access()를 다시 읽어 본다. */
+  signIn(app: string, name: string): Promise<SourceResult<true>>;
+  cancelSignIn(app: string, name: string): Promise<SourceResult<true>>;
 
   activity(app: string): Promise<SourceResult<ActivityView>>;
   rewindPlan(

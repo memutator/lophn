@@ -9,12 +9,14 @@ import type {
   AppDomainRow,
   AppToolRow,
   Caller,
+  OAuthReason,
   ReleaseCard,
   ReleaseChanges,
   ResourceRow,
   RewindItem,
   RewindPlanView,
   RewindResult,
+  SecretInfo,
   SourceResult,
   VersionView,
 } from "../source.ts";
@@ -75,6 +77,14 @@ const RELEASES: readonly ReleaseCard[] = [
 ];
 
 type ActivationFake = "applied" | "applying" | "failed";
+/** Access 탭의 secret 줄들. 없으면 plain secret 하나(SHIPBOB_API_KEY, 값 있음)다. */
+export type SecretsFake =
+  | "plain"
+  | "oauth-setup"
+  | "oauth-ready"
+  | "oauth-waiting"
+  | "oauth-signed-in"
+  | "oauth-failed";
 type RewindFake = "applied" | "conflict" | "pending";
 
 interface FakeOptions {
@@ -90,6 +100,8 @@ interface FakeOptions {
   revoking?: readonly string[];
   /** 이 이름의 읽기는 실패한다. */
   failing?: readonly string[];
+  /** Access 탭의 secret 줄들. */
+  secrets?: SecretsFake;
   /** 다른 앱 이름. */
   names?: Readonly<Record<string, string>>;
 }
@@ -99,6 +111,76 @@ export const GRANT_SECRET = "grt_01h455vb4pex5v6nkc6gd5fd02";
 const GRANT_FILE = "grt_01h455vb4pex5v6nkc6gd5fd03";
 const GRANT_LOOKUP = "grt_01h455vb4pex5v6nkc6gd5fd04";
 export const GRANT_RESERVE = "grt_01h455vb4pex5v6nkc6gd5fd05";
+
+const drive = {
+  authorizeHost: "accounts.google.com",
+  scopes: ["drive.file"],
+  clientId: "412907-drive.apps.googleusercontent.com",
+  clientSecretSet: true,
+  state: "none",
+  reason: null,
+} as const;
+
+const plain = (configured: boolean): SecretInfo => ({
+  configured,
+  oauth: null,
+});
+
+const oauthRow = (
+  oauth: Partial<NonNullable<SecretInfo["oauth"]>>,
+): SecretInfo => ({
+  configured: false,
+  oauth: { ...drive, ...oauth },
+});
+
+// 서비스마다 host와 scope가 다른 OAuth secret 여섯이 한 목록에 쌓인다. 실패 이유마다 한 줄이다.
+const FAILED_SERVICES: readonly [
+  string,
+  OAuthReason,
+  string,
+  readonly string[],
+][] = [
+  ["GDRIVE_TOKEN", "callback_timeout", "accounts.google.com", ["drive.file"]],
+  [
+    "GMAIL_TOKEN",
+    "state_mismatch",
+    "accounts.google.com",
+    ["gmail.readonly", "gmail.send"],
+  ],
+  ["NOTION_TOKEN", "exchange_failed", "api.notion.com", ["read_content"]],
+  ["SLACK_TOKEN", "refresh_rejected", "slack.com", ["chat:write"]],
+  ["GITHUB_TOKEN", "expired", "github.com", ["repo"]],
+  [
+    "DROPBOX_TOKEN",
+    "store_failed",
+    "www.dropbox.com",
+    ["files.content.write"],
+  ],
+];
+
+const SECRETS: Record<SecretsFake, readonly (readonly [string, SecretInfo])[]> =
+  {
+    plain: [
+      ["SMTP_PASSWORD", plain(false)],
+      ["WEBHOOK_KEY", plain(true)],
+    ],
+    "oauth-setup": [
+      ["GDRIVE_TOKEN", oauthRow({ clientId: null, clientSecretSet: false })],
+      ["SMTP_PASSWORD", plain(true)],
+    ],
+    "oauth-ready": [["GDRIVE_TOKEN", oauthRow({})]],
+    "oauth-waiting": [["GDRIVE_TOKEN", oauthRow({ state: "in_progress" })]],
+    "oauth-signed-in": [[
+      "GDRIVE_TOKEN",
+      { ...oauthRow({ state: "signed_in" }), configured: true },
+    ]],
+    "oauth-failed": FAILED_SERVICES.map((
+      [name, reason, authorizeHost, scopes],
+    ) => [
+      name,
+      oauthRow({ state: "failed", reason, authorizeHost, scopes }),
+    ]),
+  };
 
 const YOU: Caller = { kind: "person" };
 const ANALYST: Caller = {
@@ -291,6 +373,13 @@ export function fakeDetail(options: FakeOptions = {}) {
     );
   };
 
+  const acted = <T>(name: string, value: T): Promise<SourceResult<T>> =>
+    Promise.resolve(
+      failing.has(name)
+        ? { ok: false, code: "unavailable" }
+        : { ok: true, value },
+    );
+
   const versionsView = (): VersionView => {
     const activation = options.activation ?? "applied";
     const active = RELEASES.find((item) => item.id === activeId) ?? null;
@@ -331,6 +420,7 @@ export function fakeDetail(options: FakeOptions = {}) {
       kind: ResourceRow["kind"],
       name: string,
       grantedAt: string,
+      secret?: SecretInfo,
     ): ResourceRow => ({
       grant,
       kind,
@@ -338,7 +428,27 @@ export function fakeDetail(options: FakeOptions = {}) {
       grantedAt,
       revoking: requested.has(grant) && !revoked.has(grant),
       revoked: revoked.has(grant),
+      ...(secret === undefined ? {} : { secret }),
     });
+    const secrets = options.secrets === undefined
+      ? [
+        resource(
+          GRANT_SECRET,
+          "secret",
+          "SHIPBOB_API_KEY",
+          "2026-10-15T13:58:00",
+          plain(true),
+        ),
+      ]
+      : SECRETS[options.secrets].map(([name, info], index) =>
+        resource(
+          index === 0 ? GRANT_SECRET : `grt_01h455vb4pex5v6nkc6gd5fe${index}`,
+          "secret",
+          name,
+          "2026-10-15T13:58:00",
+          info,
+        )
+      );
     const appTool = (
       grant: string,
       app: string,
@@ -355,6 +465,7 @@ export function fakeDetail(options: FakeOptions = {}) {
       revoked: revoked.has(grant),
     });
     return {
+      appName: "Orders",
       resources: [
         resource(
           GRANT_HOST,
@@ -362,12 +473,7 @@ export function fakeDetail(options: FakeOptions = {}) {
           "api.shipbob.com:443",
           "2026-10-15T13:58:00",
         ),
-        resource(
-          GRANT_SECRET,
-          "secret",
-          "SHIPBOB_API_KEY",
-          "2026-10-15T13:58:00",
-        ),
+        ...secrets,
         resource(
           GRANT_FILE,
           "file-write",
@@ -448,6 +554,26 @@ export function fakeDetail(options: FakeOptions = {}) {
       requested.add(grant);
       if ((options.cleanup ?? "pending") === "done") revoked.add(grant);
       return Promise.resolve({ ok: true, value: true });
+    },
+    setSecretValue: (name, subject) => {
+      calls.push(["setSecretValue", name, subject]);
+      return acted("setSecretValue", "stored" as const);
+    },
+    setOAuthClientId: (app, name, clientId) => {
+      calls.push(["setOAuthClientId", app, name, clientId]);
+      return acted("setOAuthClientId", true as const);
+    },
+    setOAuthClientSecret: (name, subject) => {
+      calls.push(["setOAuthClientSecret", name, subject]);
+      return acted("setOAuthClientSecret", "stored" as const);
+    },
+    signIn: (app, name) => {
+      calls.push(["signIn", app, name]);
+      return acted("signIn", true as const);
+    },
+    cancelSignIn: (app, name) => {
+      calls.push(["cancelSignIn", app, name]);
+      return acted("cancelSignIn", true as const);
     },
     activity: () =>
       reply("activity", {

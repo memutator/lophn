@@ -18,6 +18,8 @@ export const appSpace = {
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
   "app-detail.error.rewind-failed":
     "Couldn't start the rewind. Nothing changed.",
+  "app-detail.error.secret-failed": "Couldn't save that. Try again.",
+  "app-detail.error.sign-in-failed": "Sign-in didn't work. Try again.",
   "app-detail.heading.active-release": "Active release",
   "app-detail.heading.active-release-named": "Active release ({release})",
   "app-detail.heading.being-applied": "Being applied",
@@ -142,8 +144,6 @@ export const appSpace = {
   "app-detail.label.undo-none": "None",
   "app-detail.label.version-target": "this app's versions",
   "app-detail.label.went-back": "Went back to {release}",
-  "app-detail.note.access-intro":
-    "Access is set when a release is applied. It can only be taken back here, not added.",
   "app-detail.note.access-intro-secrets":
     "Access is set when a release is applied. It can be taken back here, not added. Secret values are set here.",
   "app-detail.note.activity-scope":
@@ -179,7 +179,7 @@ export const appSpace = {
   "app-detail.note.no-other-apps": "This app can't call other apps.",
   "app-detail.note.no-resources": "This app has no outside resources.",
   "app-detail.note.oauth-failed-callback-timeout":
-    "You didn't finish signing in in time.",
+    "Sign-in timed out. Try again.",
   "app-detail.note.oauth-failed-exchange-failed":
     "The service rejected the sign-in.",
   "app-detail.note.oauth-failed-expired": "The sign-in expired. Sign in again.",

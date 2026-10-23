@@ -31,6 +31,10 @@ export function secretValueHandler(deps: {
   attach: SecretAttachPort;
   known: () => KnownSecretMatch | undefined;
   observe(app: string): Promise<Result<LiveChild | null>>;
+  // 값을 보내기 직전에 부른다(앱 OAuth의 refresh). undefined면 할 일이 없다. 실패하면 값을 보내지 않는다.
+  prepare?(
+    input: { app: string; name: string },
+  ): Promise<Result<void> | undefined>;
 }): MemoryHandler {
   return async (caller, body) => {
     const parsed = appsSecretValue.input.safeParse(body);
@@ -68,6 +72,11 @@ export function secretValueHandler(deps: {
       conditions: { process, task, app: input.app, release: input.release },
       credential_ref: caller.credential_ref,
     };
+    const prepared = await deps.prepare?.({
+      app: input.app,
+      name: input.name,
+    });
+    if (prepared !== undefined && !prepared.ok) return prepared;
     let value: SecretValue | undefined;
     const sent = await deps.attach.send(
       {

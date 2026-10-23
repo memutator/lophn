@@ -90,6 +90,13 @@ export function resourceLabel(scope: ResourceScope): string {
   if (scope.kind === "net.fetch" || scope.kind === "net.listen") {
     return `${scope.kind}:${scope.host}:${scope.port}`;
   }
+  if (scope.kind === "secret.use" && scope.oauth !== undefined) {
+    // 사람이 refresh token이 갈 token 끝점의 host를 동의 화면에서 본다.
+    const { authorization_endpoint, token_endpoint, scopes } = scope.oauth;
+    return `${scope.kind}:${scope.name} oauth:${
+      new URL(authorization_endpoint).host
+    } → ${new URL(token_endpoint).host} scopes:${scopes.join(" ")}`;
+  }
   return `${scope.kind}:${scope.name}`;
 }
 

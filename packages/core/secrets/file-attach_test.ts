@@ -96,3 +96,31 @@ Deno.test("app secret leaves only when the grant allows the name and destination
     }
   }
 });
+
+Deno.test("OAuth refresh, meta, client and host id never leave, whatever the allowance says", async () => {
+  const open = createFileSecretAttach({
+    file: { get: () => ok(VALUE) },
+    allowance: () => ok(undefined),
+    processes: () => true,
+    destinations: { allowed: () => [STRIPE] },
+  });
+  const names = [
+    "app-oauth.stripe_key.refresh",
+    "app-oauth.stripe_key.meta",
+    "app-oauth.stripe_key.client",
+    "app-oauth.stripe_key.client_id",
+    "provider-oauth.host-id",
+  ];
+  for (const name of names) {
+    for (const app of [true, false]) {
+      let got: string | undefined;
+      const sent = await open.send(input(name, STRIPE, app), (value) => {
+        got = String(value);
+        return Promise.resolve(ok({ sent: true }));
+      });
+      assert(!sent.ok, `${name} app=${app}`);
+      assertEquals(sent.error.code, "forbidden", `${name} app=${app}`);
+      assertEquals(got, undefined, `${name} app=${app}`);
+    }
+  }
+});

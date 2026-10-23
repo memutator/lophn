@@ -7,7 +7,10 @@
 // 호출(context의 `conditions.app`)만 보낸다. 앱 호출이 앞의 셋을 가리키거나 앱 호출이 아닌 쪽이 앱 secret을
 // 가리키면 거절한다. 이름 공간이 갈라져 있어야 설정이 다른 이름 공간의 이름을 가리켜도 그 값이 엉뚱한
 // 목적지로 가지 않는다.
+// `app-oauth.`(앱 OAuth의 refresh·meta·client)와 `provider-oauth.`(provider 로그인 token·host id)는 core 밖으로
+// 나가지 않는 이름이라 누가 불러도 막는다. 앞머리 없음으로 떨어뜨리면 앱 호출이 allowance만 맞아 보낼 수 있다.
 import { err, type Result } from "../../base/mod.ts";
+import { APP_OAUTH_PREFIX } from "../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   type ProcessLivenessCheck,
@@ -28,7 +31,14 @@ type SecretDestinations = {
   ): readonly SecretDestination[] | Promise<readonly SecretDestination[]>;
 };
 
-function purposeOf(name: string): SecretPurpose {
+// `provider-oauth.`의 정의는 lophn-agent/providers/oauth-secrets.ts다(secrets는 harness를 import하지 못해 literal).
+const PROVIDER_OAUTH_PREFIX = "provider-oauth.";
+
+// 앞머리가 정하는 용도다. 어느 호출에도 보내지 않는 이름은 undefined다.
+function purposeOf(name: string): SecretPurpose | undefined {
+  if (
+    name.startsWith(APP_OAUTH_PREFIX) || name.startsWith(PROVIDER_OAUTH_PREFIX)
+  ) return undefined;
   if (name.startsWith("provider.")) return "provider_credential";
   if (name.startsWith("mcp.") || name.startsWith("mcp-oauth.")) {
     return "external_mcp_credential";
@@ -56,6 +66,7 @@ export function createFileSecretAttach(options: {
       if (!options.processes(input.context)) return err(FORBIDDEN);
       const { name, destination } = input.use;
       const purpose = purposeOf(name);
+      if (purpose === undefined) return err(FORBIDDEN);
       const forApp = input.context.conditions.app !== undefined;
       if ((purpose === "app_secret") !== forApp) return err(FORBIDDEN);
       const granted = options.allowance({

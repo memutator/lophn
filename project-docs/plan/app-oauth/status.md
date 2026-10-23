@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py app-oauth build`가 `tasks/*.md`에서 id, �
 | `ao-net-fetch` | ao-net | 2 | 없음 | merged | ao-net/ao-net-fetch | cd3e4b2ce |  |
 | `ao-oauth-service` | ao-oauth | 2 | 없음 | merged | ao-oauth/ao-oauth-service | 920f1da18 |  |
 | `ao-oauth-wiring` | ao-oauth | 2 | ao-oauth-service | merged | ao-oauth/ao-oauth-wiring | 4c21ad6a4 |  |
-| `ao-access-screen` | ao-access | 3 | 없음 | todo |  |  |  |
+| `ao-access-screen` | ao-access | 3 | 없음 | running | ao-access/ao-access-screen |  |  |

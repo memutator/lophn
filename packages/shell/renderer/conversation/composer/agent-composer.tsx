@@ -67,7 +67,6 @@ interface AgentComposerProps {
   /** 이 session의 skip(묻지 않고 실행). 주면 아래 줄 오른쪽 끝에 스위치를 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
   skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void };
   onDraft: (patch: Partial<Pick<Draft, "text" | "selection">>) => void;
-  /** chip 하나의 ✕. 그 chip을 뗀다. 보내기 전에는 아무것도 보내지 않는다. */
   /** 권한 요약을 열었다. host가 `permissions`를 읽는다. */
   onLoadPermissions: () => void;
   /** 권한 보기의 [Edit in Agents]. */

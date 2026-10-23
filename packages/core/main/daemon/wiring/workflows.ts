@@ -36,6 +36,7 @@ import {
   createWorkflowService,
   runningInstances,
   WORKFLOW_CHANGED_TOPIC,
+  type WorkflowFlows,
 } from "../../../workflows/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -132,6 +133,9 @@ function withStepText(
             ...change,
             edit: { ...change.edit, text: safe(change.edit.text) },
           }
+          // process stderr는 AI가 짠 code가 쓴 글이다. 줄에 남는 글은 여기가 마지막 관문이다.
+          : change.kind === "program_exited"
+          ? { ...change, stderr_tail: safe(change.stderr_tail) }
           : change,
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
       };
@@ -339,11 +343,27 @@ export const workflowsWiring: WiringFactory = () => {
         },
       };
 
+      // flowHost는 flows wiring이 나중에 provide한다. 부를 때 읽고, 없으면 launch는 unavailable이다.
+      const flows: WorkflowFlows = {
+        launch: (start) => {
+          const host = ctx.peek.flowHost;
+          return host === undefined
+            ? Promise.resolve(err({
+              code: "unavailable" as const,
+              message: "flow host is not running",
+            }))
+            : host.launch(start);
+        },
+        stop: (instance) =>
+          ctx.peek.flowHost?.stop(instance) ?? Promise.resolve(ok(undefined)),
+      };
+
       const built = createWorkflowService({
         files: createWorkflowFiles(ctx.root.path),
         projects,
         turns,
         store,
+        flows,
         ids,
       });
       service = built;

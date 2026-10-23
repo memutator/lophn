@@ -16,6 +16,7 @@ import type {
 } from "../../protocol/workflows/mod.ts";
 import {
   entryOf,
+  flowStepsOf,
   parseDeclaration,
   participantsOf,
   stepsOf,
@@ -23,6 +24,7 @@ import {
 import { planHandoff } from "./plan.ts";
 import type {
   WorkflowFiles,
+  WorkflowFlows,
   WorkflowProjects,
   WorkflowStore,
   WorkflowTurns,
@@ -55,9 +57,10 @@ export function createWorkflowService(deps: {
   projects: WorkflowProjects;
   turns: WorkflowTurns;
   store: WorkflowStore;
+  flows: WorkflowFlows;
   ids: IdSource;
 }) {
-  const { files, projects, turns, store, ids } = deps;
+  const { files, projects, turns, store, flows, ids } = deps;
 
   // 상태를 읽어 command 입력을 만들고 state_seq로 건다. conflict면 다시 읽어 state_seq가 바뀌었을 때만
   // 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
@@ -89,6 +92,18 @@ export function createWorkflowService(deps: {
     const read = await store.read(id as Id<"wfi">);
     if (!read.ok) return skip(id, read.error.code);
     const { instance, lines } = read.value;
+    // flow instance는 started 줄에 step이 없다. process는 다시 띄우지 않고 닫는다(바깥 효과가 두 번 나지 않게).
+    const started = lines.find((l) => l.kind === "started");
+    if (started?.kind === "started" && started.step === null) {
+      const closed = await store.apply({
+        instance: id,
+        change: { kind: "flow_restarted" },
+        by: { kind: "lophn" },
+        handoff: null,
+      }, { state_seq: instance.state_seq });
+      if (!closed.ok) skip(id, closed.error.code);
+      return;
+    }
     const at = lines.findLastIndex((l) => l.kind === "handed");
     const handed = lines[at];
     if (handed?.kind !== "handed") return;
@@ -123,7 +138,26 @@ export function createWorkflowService(deps: {
     if (!applied.ok) skip(id, applied.error.code);
   }
 
+  async function programExited(
+    input: { instance: Id<"wfi">; code: number | null; stderr_tail: string },
+  ): Promise<Result<void>> {
+    const done = await apply(input.instance, ({ instance }) =>
+      ok({
+        instance: instance.id,
+        change: {
+          kind: "program_exited",
+          code: input.code,
+          stderr_tail: input.stderr_tail,
+        },
+        by: { kind: "lophn" },
+        handoff: null,
+      }));
+    return done.ok ? ok(undefined) : done;
+  }
+
   return {
+    programExited,
+
     async list(
       input: z.output<typeof workflowList.input>,
       defaultProject: string | null,
@@ -155,13 +189,47 @@ export function createWorkflowService(deps: {
       }
       const entry = entryOf(project.value.id, input.workflow, file);
       const parsed = parseDeclaration(file);
-      if (
-        !entry.startable || !parsed.ok || parsed.declaration.kind !== "agent"
-      ) {
+      if (!entry.startable || !parsed.ok) {
         return fail(
           "conflict",
           entry.problem?.message ?? "workflow cannot be started",
         );
+      }
+      if (parsed.declaration.kind === "flow") {
+        if (input.step !== undefined) {
+          return fail("invalid_input", "a flow has no step to start from");
+        }
+        const id = ids.newId("wfi") as Id<"wfi">;
+        const created = await store.create({
+          id,
+          project: project.value.id,
+          workflow: name,
+          input: input.text,
+          participants: {},
+          steps: flowStepsOf(parsed.declaration),
+          started_by: by,
+          handoff: null,
+        });
+        if (!created.ok) return created;
+        // process 인자에는 redaction을 거친 instance.input을 넘긴다.
+        const launched = await flows.launch({
+          instance: id,
+          project: project.value.id,
+          workflow: name,
+          input: created.value.instance.input,
+        });
+        if (launched.ok) return created;
+        // 시작은 성공이다. 이유가 program_exited → ended 줄로 남아야 사람이 본다.
+        await programExited({
+          instance: id,
+          code: null,
+          stderr_tail: launched.error.message,
+        });
+        const again = await store.read(id);
+        return ok({
+          instance: again.ok ? again.value.instance : created.value.instance,
+          handed: null,
+        });
       }
       const steps = stepsOf(parsed.declaration);
       const participants = participantsOf(parsed.declaration);
@@ -193,8 +261,9 @@ export function createWorkflowService(deps: {
       const done = await apply(input.instance, ({ instance, lines }) => {
         const next = input.next ?? null;
         // stopped·end·next 없음은 넘기지 않는다. stopped의 report는 줄만 남는다.
-        const hands = instance.state !== "stopped" && next !== null &&
-          next !== "end";
+        // flow(program)의 report도 넘기지 않는다. next는 current를 옮기고 닫는 데만 쓴다.
+        const hands = by.kind !== "program" && instance.state !== "stopped" &&
+          next !== null && next !== "end";
         const session = input.session ?? "new";
         return ok({
           instance: instance.id,
@@ -279,6 +348,8 @@ export function createWorkflowService(deps: {
       for (const session of sessions) {
         await turns.stopSession(session as Id<"ses">);
       }
+      // process를 죽인다. 늦게 오는 program_exited는 stopped라 줄만 남는다. 못 죽여도 기록하지 않는다.
+      await flows.stop(input.instance as Id<"wfi">);
       return ok({ instance: done.value.instance });
     },
 

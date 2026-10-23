@@ -15,6 +15,7 @@ import type { DefinitionFile } from "./ports.ts";
 
 type Problem = NonNullable<WorkflowEntry["problem"]>;
 type AgentDeclaration = Extract<WorkflowDeclaration, { kind: "agent" }>;
+type FlowDeclaration = Extract<WorkflowDeclaration, { kind: "flow" }>;
 
 export type ParsedDeclaration =
   | { ok: true; declaration: WorkflowDeclaration }
@@ -80,6 +81,19 @@ export function stepsOf(declaration: AgentDeclaration): InstanceStep[] {
   }));
 }
 
+// flow의 by·prompt 등은 읽지 않는다. instance도 step 목록을 가져야 화면이 그린다.
+export function flowStepsOf(declaration: FlowDeclaration): InstanceStep[] {
+  return Object.keys(declaration.steps).map((name) => ({
+    name,
+    by: FLOW_STEP_BY,
+    with: null,
+    prompt: "",
+    in: "",
+    out: "",
+    next: [],
+  }));
+}
+
 export function entryOf(
   project: Id<"prj">,
   key: string,
@@ -109,11 +123,11 @@ export function entryOf(
         ? null
         : { reason: "no_flow_file", message: "flow.ts is missing" },
       participants: null,
-      steps: Object.keys(declaration.steps).map((name) => ({
-        name,
-        by: FLOW_STEP_BY,
-        with: null,
-        next: [],
+      steps: flowStepsOf(declaration).map((s) => ({
+        name: s.name,
+        by: s.by,
+        with: s.with,
+        next: s.next,
       })),
     };
   }

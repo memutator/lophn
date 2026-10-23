@@ -40,10 +40,10 @@ async function start(input: Record<string, unknown>, ctx: RunContext): Out {
   if (!started.ok) return started;
   const { instance, handed } = started.value as {
     instance: { id: string };
-    handed: HandResult;
+    handed: HandResult | null;
   };
   const stdout = ctx.json ? { instance, handed } : instance.id;
-  if (handed.outcome === "not_handed") {
+  if (handed?.outcome === "not_handed") {
     return ok(
       new ExitWith(
         CLI_EXITS.success,

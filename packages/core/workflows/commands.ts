@@ -309,6 +309,17 @@ export function createWorkflowCommands(
               next: change.next,
               session: change.session,
             });
+            if (input.by.kind === "program") {
+              // flow는 넘기지 않는다. stopped나 ended 뒤의 report는 줄만 남고 다시 running이 되지 않는다.
+              if (scope.draft.state === "running") {
+                scope.draft.current = {
+                  step: change.step,
+                  human_turn: false,
+                };
+                if (change.next === "end") endDraft(scope);
+              }
+              break;
+            }
             if (stopped || change.next === null) break;
             if (change.next === "end") {
               endDraft(scope);
@@ -365,9 +376,27 @@ export function createWorkflowCommands(
             });
             break;
           }
-          case "program_exited":
-          case "flow_restarted":
-            return fail("conflict", "not supported yet");
+          case "program_exited": {
+            // 남은 참가자가 없어 아무도 이어 갈 수 없다. 이미 ended·stopped면 줄만 남는다.
+            line = addLine(scope, {
+              kind: "program_exited",
+              by: LOPHN,
+              code: change.code,
+              stderr_tail: change.stderr_tail,
+            });
+            endDraft(scope);
+            break;
+          }
+          case "flow_restarted": {
+            line = addLine(scope, {
+              kind: "lophn_restarted",
+              by: LOPHN,
+              step: null,
+              receiver: null,
+            });
+            endDraft(scope);
+            break;
+          }
         }
         const instance = finish(tx, scope);
         return instance.ok

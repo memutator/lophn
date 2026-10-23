@@ -1,5 +1,6 @@
 export {
   entryOf,
+  flowStepsOf,
   type ParsedDeclaration,
   parseDeclaration,
   participantsOf,
@@ -9,6 +10,7 @@ export type {
   DefinitionFile,
   StepTurn,
   WorkflowFiles,
+  WorkflowFlows,
   WorkflowProjects,
   WorkflowStore,
   WorkflowTurns,

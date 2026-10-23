@@ -27,5 +27,12 @@ export const appsSecretValue = defineMemory({
   }),
   output: z.strictObject({ value: z.string() }),
   actors: ["machine"],
-  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+  // conflict: 앱 OAuth secret에 sign-in이 필요하다(`APP_OAUTH_SIGN_IN_REQUIRED`).
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
 });

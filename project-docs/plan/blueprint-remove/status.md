@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py blueprint-remove build`가 `tasks/*.md`에�
 | `br-move` | br-move | 1 | 없음 | merged | br-move/br-move | 1564ed128 |  |
 | `br-agent-text` | br-agent-text | 2 | 없음 | running | br-agent-text/br-agent-text |  |  |
 | `br-docs` | br-docs | 2 | 없음 | running | br-docs/br-docs |  |  |
-| `br-release` | br-release | 2 | 없음 | running | br-release/br-release |  |  |
+| `br-release` | br-release | 2 | 없음 | merged | br-release/br-release | e1ad682f9 |  |
 | `br-runtime` | br-runtime | 2 | 없음 | running | br-runtime/br-runtime |  |  |
 | `br-shell` | br-shell | 2 | 없음 | running | br-shell/br-shell |  |  |
 | `br-eval-checks` | br-eval-checks | 3 | 없음 | todo |  |  |  |

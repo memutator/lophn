@@ -13,7 +13,7 @@ import type { VerifiedCaller } from "./caller.ts";
 export type CallGateDeps = {
   assignmentOf(agent: AgentRef): Result<AgentAssignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
-  // program caller의 domain 거르기 재료. creator가 맡은 domain id와 앱 domain 이름의 id다.
+  // program·flow caller의 domain 거르기 재료. creator(또는 PM)가 맡은 domain id와 앱 domain 이름의 id다.
   agentDomainsOf(agent: AgentRef): Result<readonly string[]>;
   toolDomainOf(app: Id<"app">, name: string): Result<string | null>;
 };
@@ -35,8 +35,9 @@ export async function callAllowed(
   },
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
-  if (caller.kind === "program") {
-    // 할당은 호출 때 읽는다. job 호출은 사람이 없는 호출이다.
+  if (caller.kind === "program" || caller.kind === "flow") {
+    // 할당은 호출 때 읽는다. job과 flow 호출은 사람이 없는 호출이다.
+    // 할당을 읽는 agent는 job의 creator 또는 flow instance의 project PM이다.
     const assignment = deps.assignmentOf(caller.agent);
     if (!assignment.ok) return assignment;
     const judged = judge(

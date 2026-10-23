@@ -1,4 +1,9 @@
+import { appToolCallerSchema } from "../../../protocol/apps/calls/caller.ts";
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
+
+// CHECK 목록은 protocol 원본에서 만든다. kind가 늘어도 기록이 말없이 실패하지 않는다.
+const CALLER_KINDS = appToolCallerSchema.options
+  .map((o) => `'${o.shape.kind.value}'`).join(", ");
 
 // invocation 기록 표. app·release는 물리 FK를 두지 않는다(참조하는 releases 표는 다른 조립이다).
 // JSON 값(operation·caller·summary)은 TEXT에 둔다. session·turn은 caller에서 뽑은 찾기용 칸이다.
@@ -35,7 +40,7 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [{
       mode TEXT NOT NULL CHECK (mode IN ('live', 'preview')),
       operation TEXT NOT NULL CHECK (json_valid(operation)),
       caller TEXT CHECK (caller IS NULL OR json_valid(caller)),
-      caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app', 'program')),
+      caller_kind TEXT CHECK (caller_kind IN (${CALLER_KINDS})),
       session TEXT,
       turn TEXT,
       effect TEXT NOT NULL CHECK (effect IN ('read', 'write', 'external')),

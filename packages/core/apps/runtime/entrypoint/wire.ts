@@ -25,7 +25,8 @@ type InvocationCaller =
     release: string;
     parent_invocation: string | null;
   }
-  | { kind: "program"; job: string; job_run: string };
+  | { kind: "program"; job: string; job_run: string }
+  | { kind: "flow"; instance: string };
 
 function caller(value: unknown): InvocationCaller | undefined {
   const source = record(value);
@@ -62,6 +63,11 @@ function caller(value: unknown): InvocationCaller | undefined {
       const jobRun = id(source.job_run, "jbr");
       if (!job || !jobRun) return;
       return { kind: "program", job, job_run: jobRun };
+    }
+    case "flow": {
+      if (exact(source, ["kind", "instance"])) return;
+      const instance = id(source.instance, "wfi");
+      return instance ? { kind: "flow", instance } : undefined;
     }
     default:
       return;

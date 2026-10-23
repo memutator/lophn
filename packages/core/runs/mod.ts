@@ -1,6 +1,8 @@
 export { createRunService, type RunService } from "./service.ts";
 export { readAnswer, runMessageText } from "./text.ts";
 export {
+  type InstanceOrigin,
+  type JobOrigin,
   type ResolvedAgent,
   type RunAgents,
   type RunOrigin,

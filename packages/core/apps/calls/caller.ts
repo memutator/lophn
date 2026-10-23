@@ -7,12 +7,18 @@ import type { Flight } from "./intake.ts";
 
 // previewOnly는 route 입력이 아니라 core 안 호출자만 켠다(preview로만 가는 credential).
 export type CallAuth = {
-  actor: "user" | "agent" | "app" | "program";
+  actor: "user" | "agent" | "app" | "program" | "flow";
   app?: Id<"app">;
   // actor가 program일 때만 있다. route는 이 자격을 만들지 못하고 core 안 run 연산만 만든다.
   program?: {
     job: Id<"job">;
     job_run: Id<"jbr">;
+    agent: AgentRef;
+    place: Place | null;
+  };
+  // actor가 flow일 때만 있다. program과 같이 route는 만들지 못하고 core 안 run 연산만 만든다.
+  flow?: {
+    instance: Id<"wfi">;
     agent: AgentRef;
     place: Place | null;
   };
@@ -37,6 +43,12 @@ export type VerifiedCaller =
     job_run: Id<"jbr">;
     agent: AgentRef;
     place: Place | null;
+  }
+  | {
+    kind: "flow";
+    instance: Id<"wfi">;
+    agent: AgentRef;
+    place: Place | null;
   };
 
 type CallerChecks = {
@@ -50,6 +62,7 @@ const KIND_OF_ACTOR = {
   agent: "agent",
   app: "app",
   program: "program",
+  flow: "flow",
 } as const;
 
 function forbidden(message: string): Result<never> {
@@ -125,6 +138,25 @@ export function verifyCaller(
       job_run: program.job_run,
       agent: program.agent,
       place: program.place,
+    });
+  }
+
+  if (caller.kind === "flow") {
+    if (input.target.mode !== "live" || input.target.release !== null) {
+      return err({
+        code: "invalid_input",
+        message: "flow calls target the live active release",
+      });
+    }
+    const { flow } = auth;
+    if (flow === undefined || flow.instance !== caller.instance) {
+      return forbidden("workflow instance does not match the credential");
+    }
+    return ok({
+      kind: "flow",
+      instance: flow.instance,
+      agent: flow.agent,
+      place: flow.place,
     });
   }
 

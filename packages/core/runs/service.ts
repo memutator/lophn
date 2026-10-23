@@ -310,6 +310,35 @@ export function createRunService(deps: {
     return running.ok ? running.value : [];
   }
 
+  async function cancel(id: Id<"run">): Promise<Result<RunRecord>> {
+    const read = await store.read(id);
+    if (!read.ok) return read;
+    const run = read.value;
+    if (run.state !== "running") {
+      return err({ code: "conflict", message: "run is not running" });
+    }
+    const cancelled = await store.settle({ run: id, state: "cancelled" });
+    if (!cancelled.ok) return cancelled;
+    release(id);
+    // tool run은 앱 호출을 멈추지 않는다. 뒤 단계의 오류는 기록에 남기지 않는다.
+    if (run.input_message !== null && run.session !== null) {
+      const message = run.input_message as Id<"msg">;
+      const session = run.session as Id<"ses">;
+      let found = await agents.turnOf(message);
+      if (found.ok && found.value === null) {
+        const queued = await agents.unqueue(session, message);
+        // 그 사이 가져갔다.
+        if (!queued.ok && queued.error.code === "conflict") {
+          found = await agents.turnOf(message);
+        } else return cancelled;
+      }
+      if (found.ok && found.value?.state === "running") {
+        await agents.stop(found.value.turn);
+      }
+    }
+    return cancelled;
+  }
+
   return {
     start(
       input: StartInput | ResolvedAgentStart,
@@ -346,33 +375,13 @@ export function createRunService(deps: {
       return refresh(id);
     },
 
-    async cancel(id: Id<"run">): Promise<Result<RunRecord>> {
-      const read = await store.read(id);
-      if (!read.ok) return read;
-      const run = read.value;
-      if (run.state !== "running") {
-        return err({ code: "conflict", message: "run is not running" });
+    cancel,
+
+    // best-effort: 이미 끝난 run(conflict)은 버린다. process는 죽이지 않는다.
+    async cancelOfInstance(instance: Id<"wfi">): Promise<void> {
+      for (const run of await runningRuns()) {
+        if (run.instance === instance) await cancel(run.id as Id<"run">);
       }
-      const cancelled = await store.settle({ run: id, state: "cancelled" });
-      if (!cancelled.ok) return cancelled;
-      release(id);
-      // tool run은 앱 호출을 멈추지 않는다. 뒤 단계의 오류는 기록에 남기지 않는다.
-      if (run.input_message !== null && run.session !== null) {
-        const message = run.input_message as Id<"msg">;
-        const session = run.session as Id<"ses">;
-        let found = await agents.turnOf(message);
-        if (found.ok && found.value === null) {
-          const queued = await agents.unqueue(session, message);
-          // 그 사이 가져갔다.
-          if (!queued.ok && queued.error.code === "conflict") {
-            found = await agents.turnOf(message);
-          } else return cancelled;
-        }
-        if (found.ok && found.value?.state === "running") {
-          await agents.stop(found.value.turn);
-        }
-      }
-      return cancelled;
     },
 
     async turnEnded(

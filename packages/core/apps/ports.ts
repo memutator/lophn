@@ -30,7 +30,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * Gate는 묻지 않고 막기만 한다(사람을 기다리지 않는다). 사람 화면(`person`)은 거치지 않는다. 순서:
  * - actor가 agent면 할당으로 `judge`를 부른다. `deny`면 `denied(gate_blocked)`이고 `ask`는 run-loop tool gate가
  *   이미 물은 것이라 지나간다.
- * - actor가 program(job이 연 tool run)이면 만든 agent의 할당을 mode `unattended`로 `judge`한 뒤, 공개 tool이 아니면
+ * - actor가 program(job이 연 tool run)이나 flow(workflow instance가 연 tool run)이면 만든 agent(job의 creator, project PM)의 할당을 mode `unattended`로 `judge`한 뒤, 공개 tool이 아니면
  *   creator가 맡은 domain의 tool인지 본다. 아니거나 domain을 읽지 못하면 `denied(gate_blocked)`.
  * - actor가 app이면 부른 앱의 active grant `app.call`이 그 앱의 그 tool을 덮는지 본다. 아니면 `denied(gate_blocked)`.
  */
@@ -69,7 +69,7 @@ export interface AppToolLookup {
     {
       release: Id<"rel">;
       effect: "read" | "write" | "external";
-      // 공개 tool 여부와 tool의 domain 이름(program caller의 domain 거르기 재료).
+      // 공개 tool 여부와 tool의 domain 이름(program·flow caller의 domain 거르기 재료).
       public: boolean;
       domain: string;
     } | null

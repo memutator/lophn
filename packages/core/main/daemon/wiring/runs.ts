@@ -299,12 +299,23 @@ export const runsWiring: WiringFactory = () => {
             ...(input === undefined ? {} : { input }),
           } as const;
           if (origin !== undefined && "instance" in origin) {
-            return Promise.resolve(err({
-              code: "unavailable" as const,
-              message: "flow tool calls are not wired yet",
-            }));
+            return ctx.appCallPath.call(
+              {
+                ...call,
+                caller: { kind: "flow", instance: origin.instance },
+              },
+              {
+                actor: "flow",
+                flow: {
+                  instance: origin.instance,
+                  agent: origin.creator,
+                  place: origin.creator_place,
+                },
+              },
+            );
           }
-          // job이 연 run은 program caller로 부른다. 자격의 agent·place는 job을 만든 쪽이다.
+          // job이 연 run은 program caller로, instance가 연 run은 flow caller로 부른다.
+          // 자격의 agent·place는 job을 만든 쪽, instance의 project PM이다.
           return origin === undefined
             ? ctx.appCallPath.call(
               { ...call, caller: { kind: "person", view_session: run } },

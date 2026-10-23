@@ -203,6 +203,24 @@ function programCaller(job: Id<"job">, run: Id<"jbr">): AppToolCaller {
   return { kind: "program", job, job_run: run };
 }
 
+const WFI = ids.newId("wfi") as Id<"wfi">;
+const PRJ = ids.newId("prj") as Id<"prj">;
+
+function flowCaller(instance: Id<"wfi">): AppToolCaller {
+  return { kind: "flow", instance };
+}
+
+function flowAuth(instance = WFI): CallAuth {
+  return {
+    actor: "flow",
+    flow: {
+      instance,
+      agent: { role: "project_manager", project: PRJ } as AgentRef,
+      place: { kind: "project", id: PRJ },
+    },
+  };
+}
+
 function programAuth(): CallAuth {
   return {
     actor: "program",
@@ -282,6 +300,42 @@ Deno.test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invo
           caller: programCaller(JOB, ids.newId("jbr") as Id<"jbr">),
         },
         programAuth(),
+      ),
+    ],
+    // flow 주장: 사람·agent credential, program 자격, 다른 종류 본문, 다른 instance
+    [
+      "person claims flow",
+      t.path.call(
+        { ...person(a, "r.get"), caller: flowCaller(WFI) },
+        { actor: "user" },
+      ),
+    ],
+    [
+      "agent claims flow",
+      t.path.call(
+        { ...person(a, "r.get"), caller: flowCaller(WFI) },
+        { actor: "agent" },
+      ),
+    ],
+    [
+      "program credential claims flow",
+      t.path.call(
+        { ...person(a, "r.get"), caller: flowCaller(WFI) },
+        programAuth(),
+      ),
+    ],
+    [
+      "flow credential claims program",
+      t.path.call(
+        { ...person(a, "r.get"), caller: programCaller(JOB, RUN) },
+        flowAuth(),
+      ),
+    ],
+    [
+      "other instance",
+      t.path.call(
+        { ...person(a, "r.get"), caller: flowCaller(WFI) },
+        flowAuth(ids.newId("wfi") as Id<"wfi">),
       ),
     ],
     // 모르는 tool call
@@ -667,7 +721,7 @@ Deno.test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 
   }
 });
 
-Deno.test("job이 부르는 앱 tool은 그 job을 만든 agent의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+Deno.test("job과 workflow instance가 부르는 앱 tool은 만든 agent(job의 creator, project PM)의 할당이나 domain 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
@@ -729,31 +783,37 @@ Deno.test("job이 부르는 앱 tool은 그 job을 만든 agent의 할당이나 
       want: "succeeded",
     },
   ];
-  for (const row of rows) {
-    const t = setup();
-    t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
-    t.state.domains = row.domains === undefined ? [] : row.domains;
-    if (row.toolDomainId !== undefined) t.state.toolDomainId = row.toolDomainId;
-    const result = await t.path.call(
-      {
-        ...person(row.app, row.tool),
-        caller: programCaller(JOB, RUN),
-      },
-      programAuth(),
-    );
-    assertEquals(status(result), row.want, row.name);
-    if (row.want === "gate_blocked") {
-      assertEquals(t.sent.length, 0, row.name);
-      const [record] = [...t.records.values()];
-      assertEquals(record.status, "denied", row.name);
-      assertEquals(record.caller, programCaller(JOB, RUN), row.name);
-    } else {
-      assertEquals(t.sent.length, 1, row.name);
+  const kinds: [string, AppToolCaller, () => CallAuth][] = [
+    ["program", programCaller(JOB, RUN), programAuth],
+    ["flow", flowCaller(WFI), flowAuth],
+  ];
+  for (const [kind, caller, auth] of kinds) {
+    for (const row of rows) {
+      const name = `${kind}: ${row.name}`;
+      const t = setup();
+      t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+      t.state.domains = row.domains === undefined ? [] : row.domains;
+      if (row.toolDomainId !== undefined) {
+        t.state.toolDomainId = row.toolDomainId;
+      }
+      const result = await t.path.call(
+        { ...person(row.app, row.tool), caller },
+        auth(),
+      );
+      assertEquals(status(result), row.want, name);
+      if (row.want === "gate_blocked") {
+        assertEquals(t.sent.length, 0, name);
+        const [record] = [...t.records.values()];
+        assertEquals(record.status, "denied", name);
+        assertEquals(record.caller, caller, name);
+      } else {
+        assertEquals(t.sent.length, 1, name);
+      }
     }
   }
 });
 
-Deno.test("앱 process의 parseProcessCall은 네 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
+Deno.test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
   const callers: [string, unknown, boolean][] = [
     ["person", { kind: "person", view_session: "v1" }, true],
     [
@@ -772,6 +832,10 @@ Deno.test("앱 process의 parseProcessCall은 네 caller 종류에서 processCal
       true,
     ],
     ["program", programCaller(JOB, RUN), true],
+    ["flow", flowCaller(WFI), true],
+    ["flow without instance", { kind: "flow" }, false],
+    ["flow with a job field", { kind: "flow", instance: WFI, job: JOB }, false],
+    ["flow with another id kind", { kind: "flow", instance: JOB }, false],
     ["program without job_run", { kind: "program", job: JOB }, false],
     ["unknown kind", { kind: "timer", job: JOB }, false],
   ];

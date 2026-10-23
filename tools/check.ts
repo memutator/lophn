@@ -157,9 +157,17 @@ async function buildSteps(
     FOLDERS[p]
   );
   // md도 준다. package 안 deno.json이 md를 fmt하므로 full은 보는데 빠른 check만 놓쳐 main이 두 번 깨졌다.
-  // config가 md를 빼는 package에서는 deno fmt가 알아서 건너뛴다.
+  // root config(tools, tests, sdk 등)는 md를 include하지 않는데, file로 주면 include를 넘어 fmt된다
+  // (tests/eval/scorecards가 그렇게 막혔다). 그래서 자기 deno.json이 있는 package의 md만 준다.
   const fmtFiles = (await Promise.all(
-    pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js|jsonc?|md)$/)),
+    pkgFolders.map(async (f) =>
+      packageFiles(
+        f,
+        await exists(`${f}/deno.json`)
+          ? /\.(tsx?|js|jsonc?|md)$/
+          : /\.(tsx?|js|jsonc?)$/,
+      )
+    ),
   )).flat();
   const lintFiles = (await Promise.all(
     pkgFolders.map((f) => packageFiles(f, /\.(tsx?|js)$/)),

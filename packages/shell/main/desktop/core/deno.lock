@@ -89,7 +89,6 @@
         ]
       },
       "jsr:@lophn/base": {},
-      "jsr:@lophn/blueprint@1.0.0": {},
       "jsr:@lophn/cap-fs@1.0.0": {},
       "jsr:@lophn/cap-net@1.0.0": {},
       "jsr:@lophn/cap-problem@1.0.0": {},
@@ -97,6 +96,8 @@
       "jsr:@lophn/cap-store@1.0.0": {},
       "jsr:@lophn/cap-tool@1.0.0": {},
       "jsr:@lophn/coding-agent": {},
+      "jsr:@lophn/declaration@1.0.0": {},
+      "jsr:@lophn/flow@1.0.0": {},
       "jsr:@lophn/protocol": {},
       "jsr:@lophn/shell-renderer": {
         "dependencies": [

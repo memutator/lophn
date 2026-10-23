@@ -1,5 +1,5 @@
 // 앱 data rewind E2E용 patch다. 한 write의 changeset은 한도 안(add_blob {kb: 100}은 약 100KiB)이고 셋을 합치면 control
-// frame 한도(256KiB)를 넘는다. blueprint 선언과 handler를 같이 더해 release 준비의 handler 검사(blueprint 선언과
+// frame 한도(256KiB)를 넘는다. 선언과 handler를 같이 더해 release 준비의 handler 검사(선언과
 // 등록 handler가 같다)를 통과한다.
 //
 // touch_blob은 read로 선언했지만 실제로는 가장 앞선 blob row를 고친다(changeset이 안 남는다). 선언과 동작이 다른 앱
@@ -18,10 +18,10 @@ async function replaceOnce(
 }
 
 export async function rewindPatch(dir: string): Promise<void> {
-  // 견본 blueprint의 domain이 그 앱의 domain 이름이다.
+  // 견본 선언의 domain이 그 앱의 domain 이름이다.
   const slug = await sampleDomain(dir);
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `      {
         name: "add_item",`,
     `      {

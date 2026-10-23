@@ -1,4 +1,4 @@
-// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 둘을 더한다. blueprint 선언과 handler를 같이 더해 release 준비의
+// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 둘을 더한다. 선언과 handler를 같이 더해 release 준비의
 // handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 지나야 한다.
 //
 // - big_write {kb}: write. `kb` KiB 글을 한 row에 넣고 표의 row 수를 돌려준다.
@@ -29,7 +29,7 @@ create table note (
 );`,
   );
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `      {
         name: "add_item",`,
     `      {

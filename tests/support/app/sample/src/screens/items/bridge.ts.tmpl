@@ -1,5 +1,5 @@
 // 화면이 앱 tool을 부르는 유일한 통로. lophn의 앱 preload가 `window.lophnApp`을 주고, 부를 수 있는 것은
-// 이 view의 고정 blueprint에 선언한 tool 이름뿐이다. 화면은 앱 socket·credential을 알지 못한다.
+// 이 view의 고정 선언에 있는 tool 이름뿐이다. 화면은 앱 socket·credential을 알지 못한다.
 export type Item = { id: number; title: string; created_at: string };
 
 type LophnApp = {

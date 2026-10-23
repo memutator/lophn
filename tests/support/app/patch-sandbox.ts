@@ -1,5 +1,5 @@
 // 선언한 권한이 비어 있는 앱이 그 밖으로 나가려는 patch다. release 준비의 handler 검사(선언과 등록 handler가 같다)를 통과해야 해서
-// blueprint 선언과 handler를 같이 더한다.
+// 선언과 handler를 같이 더한다.
 import { sampleDomain } from "./source.ts";
 
 /**
@@ -9,15 +9,17 @@ import { sampleDomain } from "./source.ts";
  */
 export async function escapePatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
-  const blueprint = `${dir}/blueprint.ts`;
-  const text = await Deno.readTextFile(blueprint);
+  const declaration = `${dir}/lophn.ts`;
+  const text = await Deno.readTextFile(declaration);
   const slot = `      {
         name: "add_item",`;
-  if (!text.includes(slot)) throw new Error(`${blueprint}에 patch 자리가 없다`);
+  if (!text.includes(slot)) {
+    throw new Error(`${declaration}에 patch 자리가 없다`);
+  }
   const field = (description: string) =>
     `{ type: "string", description: "${description}", minLength: 1 }`;
   await Deno.writeTextFile(
-    blueprint,
+    declaration,
     text.replace(
       slot,
       `      {

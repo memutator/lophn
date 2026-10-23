@@ -13,10 +13,10 @@ async function replaceOnce(
 }
 
 export async function slowPatch(dir: string): Promise<void> {
-  // 견본 blueprint의 domain이 그 앱의 domain 이름이다.
+  // 견본 선언의 domain이 그 앱의 domain 이름이다.
   const slug = await sampleDomain(dir);
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `      {
         name: "add_item",`,
     `      {

@@ -1,6 +1,6 @@
 import { sampleDomain } from "./source.ts";
 
-// release activation E2E가 template 위에 얹는 patch다. 각 patch는 blueprint 선언과 handler를 같이 바꿔 release 준비의
+// release activation E2E가 template 위에 얹는 patch다. 각 patch는 선언과 handler를 같이 바꿔 release 준비의
 // 검사(빈 DB와 active release schema에서 migration, handler 대조)를 지나야 한다. 같은 source에 차례로 얹으므로 앞 patch가
 // 만든 자리를 다시 찾지 않는다.
 
@@ -30,7 +30,7 @@ create unique index item_title on item (title);
 // 선언만 넓힌다. 앱 code는 그 permission을 쓰지 않는다.
 async function addNetFetch(dir: string, host: string): Promise<void> {
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `    permissions: [],`,
     `    permissions: [{
       kind: "net.fetch",
@@ -60,10 +60,10 @@ export async function codeOnlyPatch(dir: string): Promise<void> {
 
 /** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
 export async function slowReadPatch(dir: string): Promise<void> {
-  // source 폴더 이름은 slug가 아니라 앱 id라, 견본 blueprint에서 domain을 읽는다.
+  // source 폴더 이름은 slug가 아니라 앱 id라, 견본 선언에서 domain을 읽는다.
   const slug = await sampleDomain(dir);
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `      {
         name: "add_item",`,
     `      {

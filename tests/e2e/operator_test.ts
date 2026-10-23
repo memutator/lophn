@@ -297,8 +297,8 @@ Deno.test("E2E Operator: 할당한 앱의 tool만 tool 목록에 오르고, 할�
     assert(notice.includes("tools_changed"));
     assert(notice.includes(`domain__${slug}__list_items`));
     assert(notice.includes(`domain__${slug}__add_item`));
-    const blueprint = await core.call(appTools, { app: id });
-    for (const api of blueprint.tools) {
+    const declaration = await core.call(appTools, { app: id });
+    for (const api of declaration.tools) {
       assert(!notice.includes(api.description));
     }
     // ledger

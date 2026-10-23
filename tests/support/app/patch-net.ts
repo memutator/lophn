@@ -1,5 +1,5 @@
 // net·secret 길(cap-net·cap-secret)의 E2E가 쓰는 patch다. template에 external tool `fetch_local`을 더한다.
-// blueprint 선언·SDK 의존·import map·handler를 같이 더해 release 준비의 handler 검사(선언과 등록 handler를 대조한다)를
+// 선언·SDK 의존·import map·handler를 같이 더해 release 준비의 handler 검사(선언과 등록 handler를 대조한다)를
 // 지나야 한다.
 //
 // - fetch_local {}: external. `useSecret`으로 secret을 목적지에 묶은 뒤 같은 목적지로 `netFetch`하고 `{ status, body }`를
@@ -26,9 +26,9 @@ export async function netFetchPatch(
 ): Promise<void> {
   const { port, secret } = options;
   const slug = await sampleDomain(dir);
-  const blueprint = `${dir}/blueprint.ts`;
+  const declaration = `${dir}/lophn.ts`;
   await replaceOnce(
-    blueprint,
+    declaration,
     `      {
         name: "add_item",`,
     `      {
@@ -44,7 +44,7 @@ export async function netFetchPatch(
         name: "add_item",`,
   );
   await replaceOnce(
-    blueprint,
+    declaration,
     `    permissions: [],`,
     `    permissions: [
       {
@@ -60,7 +60,7 @@ export async function netFetchPatch(
     ],`,
   );
   await replaceOnce(
-    blueprint,
+    declaration,
     `      { name: "@lophn/cap-tool", version: "1.0.0" },`,
     `      { name: "@lophn/cap-tool", version: "1.0.0" },
       { name: "@lophn/cap-net", version: "1.0.0" },

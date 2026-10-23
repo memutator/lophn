@@ -1,6 +1,6 @@
 // 앱의 둘째 domain E2E용 patch다. 둘째 domain에 read tool 둘을 더한다: 하나는 비공개(shelf_list), 하나는 공개(shelf_count).
 // 그 domain을 맡지 않은 agent에게 비공개 tool은 가려지고 공개 tool은 보이는지 model 요청의 tool 목록으로 보려는 것이다.
-// blueprint 선언과 handler를 같이 더해 release 준비의 handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 통과한다.
+// 선언과 handler를 같이 더해 release 준비의 handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 통과한다.
 
 import type { AppPatch } from "./source.ts";
 
@@ -28,7 +28,7 @@ export function domainPatch(domain: string): AppPatch {
       },
 `;
     await replaceOnce(
-      `${dir}/blueprint.ts`,
+      `${dir}/lophn.ts`,
       `      {
         name: "add_item",`,
       `${declare("shelf_list", "List shelf", false)}${

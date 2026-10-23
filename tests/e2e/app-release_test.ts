@@ -51,7 +51,7 @@ async function countFiles(dir: string): Promise<number> {
   return count;
 }
 
-// blueprint는 add_item을 선언한 채라 handler 검사(stage `handlers`)에서 떨어진다.
+// 선언은 add_item을 선언한 채라 handler 검사(stage `handlers`)에서 떨어진다.
 const dropAddItemHandler: AppPatch = async (dir) => {
   const path = `${dir}/src/tools.ts`;
   const from = `  tool("add_item", addItemHandler(deps));\n`;

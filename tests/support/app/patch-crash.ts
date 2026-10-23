@@ -13,12 +13,12 @@ async function replaceOnce(
 
 /**
  * read tool `crash`를 더한다. handler는 `{ok: true}`를 돌려주고 같은 tick 뒤에 처리되지 않는 오류를 던져
- * 앱 process가 죽는다. blueprint 선언과 handler가 같아 release 준비의 handler 검사를 통과한다.
+ * 앱 process가 죽는다. 선언과 handler가 같아 release 준비의 handler 검사를 통과한다.
  */
 export async function crashPatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   await replaceOnce(
-    `${dir}/blueprint.ts`,
+    `${dir}/lophn.ts`,
     `      {
         name: "add_item",`,
     `      {

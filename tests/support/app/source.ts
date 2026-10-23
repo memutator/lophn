@@ -108,10 +108,10 @@ export async function createAppSource(
 
 /** 견본의 첫 tool `domain`이다. 견본 위의 앱이면 앱 slug(= 앱 domain)다. patch가 새 tool의 domain을 이것으로 채운다. */
 export async function sampleDomain(dir: string): Promise<string> {
-  const found = (await Deno.readTextFile(`${dir}/blueprint.ts`)).match(
+  const found = (await Deno.readTextFile(`${dir}/lophn.ts`)).match(
     /domain:\s*"([a-z0-9-]+)"/,
   );
-  if (found === null) throw new Error(`${dir}/blueprint.ts에 domain이 없다`);
+  if (found === null) throw new Error(`${dir}/lophn.ts에 domain이 없다`);
   return found[1]!;
 }
 

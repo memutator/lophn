@@ -233,7 +233,11 @@ async function postUnix(
     "",
     encoded,
   ].join("\r\n");
-  await conn.write(new TextEncoder().encode(payload));
+  // Conn.write는 요청 전체보다 적게 쓰고 돌아올 수 있다. 큰 net/fetch 본문이 잘리지 않게 끝까지 쓴다.
+  const bytes = new TextEncoder().encode(payload);
+  for (let sent = 0; sent < bytes.length;) {
+    sent += await conn.write(bytes.subarray(sent));
+  }
   const chunks: Uint8Array[] = [];
   const buffer = new Uint8Array(8192);
   while (true) {

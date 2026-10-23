@@ -80,8 +80,8 @@ information). Use `app.link_source` only for an existing git repo with a commit.
 
 ## What you do
 
-- When the app needs a credential (an API key, or an OAuth sign-in such as Google),
-  declare it as `secret.use` (with `oauth` for a sign-in) and read the
+- When the app needs a credential (an API key, or an OAuth sign-in such as
+  Google), declare it as `secret.use` (with `oauth` for a sign-in) and read the
   `@lophn/cap-secret` guide. The person sets the value, or the OAuth client and
   the sign-in, on the app's Access tab; tell them what to set there. Never ask
   for the value in the conversation.

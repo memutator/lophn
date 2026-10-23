@@ -500,11 +500,12 @@ components:
   - id: tool-check-source
     kind: tool
     roles: [worker]
-    description: 주석과 test 이름의 요구 ID, task 번호, TODO·FIXME, 옛 말을 잡는다. check의 source 단계.
+    description: 주석과 test 이름의 요구 ID, task 번호, TODO·FIXME, 옛 말, core main graph의 bare fetch(`EXTERNAL_FETCH`), shell이 문자열로 부르는 route 가운데 `SHELL_ROUTES`에 없는 것(`SHELL_ROUTE`)을 잡는다. check의 source 단계.
     path: tools/check-source.ts
     run: deno task check
     change_reasons:
-      note: 쓰지 않기로 한 말이나 꼴이 늘 때.
+      paths: [packages/shell/main/desktop/core/routes.ts]
+      note: 쓰지 않기로 한 말이나 꼴이 늘 때. shell이 core route를 부르는 꼴이 바뀔 때.
 
   - id: tool-dev
     kind: tool

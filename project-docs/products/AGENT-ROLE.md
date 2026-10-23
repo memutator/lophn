@@ -127,13 +127,13 @@ K1~K5는 coding agent 연결 장치가 남긴 규칙이다. 지금은 Router가 
 
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
-- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 Operator의 정의)이 할당이고 정의에서 끈다. agent가 맡지 않은 domain의 tool은 공개(`public`) tool만 쓸 수 있다.
-- H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
+- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 Operator의 정의)이 할당이고 정의에서 끈다. Workspace와 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. agent가 맡지 않은 domain의 tool은 공개(`public`) tool만 쓸 수 있다.
+- H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. App Engineer가 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H6. 사람은 project 창과 app space에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
-- H9. 사람은 Settings › System › Scheduled jobs(모든 job)와 project 창의 Scheduled jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다.
+- H9. 사람은 Settings › System › Scheduled jobs(모든 job)와 project 창의 Scheduled jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
 
 ## 3. 넘기는 길
 
@@ -247,7 +247,7 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서�
 - E6. App Engineer가 `release.activate`한 release가 첫 activation이거나 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
 - E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
-- E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이 놓친 차례를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
+- E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
 
 ## 7. 하지 않는 것
 

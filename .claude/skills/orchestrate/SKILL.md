@@ -127,7 +127,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - lead가 쓸 문서(이슈 닫기, changelog, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.
 - wiring에 memory handler만 붙이고 팀 registration의 `memoryRoutes`에 route를 빼면 요청이 늘 `not_found`인데 check와 기동은 통과했다(여섯 route가 그랬다). 지금은 core 기동이 둘을 대조해 멈춘다.
 - turn 경로(model resolver 같은 runtime 쪽 코드)가 machine 자격으로 새 read를 부르면 `packages/core/lophn-agent/run-loop/runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`에 그 route를 더한다. 빠지면 unit(가짜 machine)과 core 기동은 통과하고, e2e에서 모든 turn이 시작하자마자 `configuration_unavailable`로 끝났다.
-- land와 merge를 background로 돌릴 때 출력은 `| tail`로 받지 말고 file로 받는다. land.sh는 단계 출력을 변수에 담았다가 끝에만 찍는다. e2e가 도는 동안의 진행은 그 test의 data root(`/tmp/lophn-e2e-*`)에 새 file이 쓰이는지로 본다(e2e가 멈춘 것을 40분 동안 몰랐다).
+- land와 merge를 background로 돌릴 때 출력은 `| tail`로 받지 말고 file로 받는다. land.sh는 단계마다 시각과 단계 이름 한 줄(`lock을 잡았다`, `check:full`, `e2e`, `core 두 번 기동`, `main fast-forward`)을 바로 찍고, 단계의 출력은 실패할 때만 찍는다. "다른 land가 끝나기를 기다린다" 뒤에 `lock을 잡았다`가 없으면 아직 기다리는 중이다. e2e가 도는 동안의 진행은 그 test의 data root(`/tmp/lophn-e2e-*`)에 새 file이 쓰이는지로 본다(e2e가 멈춘 것을 40분 동안 몰랐다).
 - 다른 계획의 land가 e2e를 돌리는 동안 같이 e2e를 돌리면 앱 crash-loop 단계(그때 `reaction_test`, 지금 `app-restart_test`)가 멈춘 일이 한 번 있다(혼자 돌리면 통과, 원인은 확인 전). 그래서 land.sh가 lock으로 하나씩 돈다. 손으로 `pgrep -f 'land.sh …'`로 기다리지 않는다. 그 pattern이 기다리는 shell 자신의 command line에 있어 영영 끝나지 않았다.
 - e2e가 한 test에서 끝없이 기다리면 먼저 그 run의 turn이 모두 실패하는지 본다(그 run data root의 `lophn.db` `turns.outcome_reason`). 모든 turn이 `configuration_unavailable`이던 bug가 40분 멈춘 land로 보였다.
 - check가 `packages/shell/main/desktop/core/deno.lock`을 고쳐 둔다. lead worktree나 task worktree에 그 변경이 남아 있으면 rebase가 막히니 merge·land 전에 `git checkout --`로 되돌린다.

@@ -24,7 +24,7 @@ import {
 const SCHEDULE_NOTE =
   "`every` is `<number><m|h|d>` (minutes, hours, days; e.g. `30m`, `6h`, `1d`). `at` is a local `HH:MM` of this computer and is only for `d` units. `missed_policy` says what to do with a turn lophn missed while it was off: `run` runs it once when lophn is back on, `hold` leaves a card that asks the person.";
 const ACTION_NOTE =
-  "Each turn runs without a person, and `action` is one of: `agent_run` (a new session of the agent `{role, place?, name?}` with `prompt`), `tool_run` (one tool call of an app, which runs only within the allotment of the agent that created the job), `workflow_start` (starts a workflow instance with `text`).";
+  "Each turn runs without a person, and `action` is one of: `agent_run` (a new session of the agent `{role, place?, name?}` with `prompt`), `tool_run` (one tool call of an app, which runs only within the allotment of the agent that created the job), `workflow_start` (starts an instance of an agent or flow workflow, named `<project name>/<name>`, with `text`; `step` picks where an agent workflow starts and is `invalid_input` for a flow).";
 const OWN_NOTE = "You can change or delete only jobs you created.";
 const RESTART_NOTE =
   "Changing `every` or `at`, or turning a job back on, restarts the count from now.";

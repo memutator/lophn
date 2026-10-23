@@ -14,6 +14,7 @@ import type {
 } from "../../../../protocol/server/mod.ts";
 import {
   type LineBy,
+  workflowCheck,
   workflowEdit,
   workflowInstanceApply,
   workflowInstanceCreate,
@@ -40,6 +41,7 @@ import {
 } from "../../../workflows/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
+import { checkWorkflow } from "../../flow-host/check.ts";
 import { createWorkflowFiles } from "./workflows-files.ts";
 import { prepareTexts } from "./router.ts";
 
@@ -444,6 +446,13 @@ export const workflowsWiring: WiringFactory = () => {
           [
             route(workflowStop),
             handler((i, who) => built.stop(i, byOf(who))),
+          ],
+          [
+            route(workflowCheck),
+            checkWorkflow({
+              dataRoot: ctx.root.path,
+              resolveProject: projects.resolve,
+            }),
           ],
         ],
       });

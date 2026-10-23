@@ -4,9 +4,11 @@ import {
   reportLineSchema,
   sessionChoiceSchema,
   stepNameSchema,
+  workflowCheck,
   workflowEdit,
   workflowEditInputSchema,
   workflowInstanceRead,
+  workflowKeySchema,
   workflowList,
   workflowReport,
   workflowTextSchema,
@@ -79,7 +81,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ instance: idSchema("wfi") }),
     routes: [workflowInstanceRead],
     description:
-      `Read a workflow instance: state, steps, current step, the last report of each step and the last ${LAST_LINES} lines. \`lines\` and \`last_reports\` are newest first. A \`lophn_restarted\` line means lophn was off and on again and the message of that step may not have reached the turn. It is not handed again; hand it again with workflow.edit \`hand_now\` if needed.`,
+      `Read a workflow instance: state, steps, current step, the last report of each step and the last ${LAST_LINES} lines. \`lines\` and \`last_reports\` are newest first. A \`lophn_restarted\` line means lophn was off and on again and the message of that step may not have reached the turn. It is not handed again; hand it again with workflow.edit \`hand_now\` if needed. A line \`by: program\` is a report that a flow made; \`program_exited\` says the flow process ended (its exit code and the last stderr line), and the instance is \`ended\` then.`,
     effect: "read",
     handler: async (input, ctx) => {
       let cursor: string | undefined;
@@ -144,6 +146,25 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
       const done = await readOf(ctx.core, workflowEdit, body);
       if (!done.ok) return done;
       return ok(fitted(handedSummary("edited", done.value), done.value));
+    },
+  }),
+  defineTool({
+    name: "workflow.check",
+    input: z.strictObject({ workflow: workflowKeySchema }),
+    routes: [workflowCheck],
+    description:
+      "Type-check the flow.ts of a flow workflow (`<project>/<name>`) against the installed `@lophn/flow` SDK and return the errors. Type check only: it does not run the flow and does not start an instance. No errors means it passes.",
+    effect: "read",
+    handler: async (input, ctx) => {
+      const checked = await readOf(ctx.core, workflowCheck, input);
+      if (!checked.ok) return checked;
+      const { errors } = checked.value;
+      return ok(fitted(
+        errors.length === 0
+          ? `flow.ts of ${input.workflow} has no type errors`
+          : `flow.ts of ${input.workflow} has ${errors.length} errors`,
+        { errors },
+      ));
     },
   }),
 ];

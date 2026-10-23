@@ -82,6 +82,7 @@ const ROLE_WRITE_TOOLS = {
     "operator.create",
     "operator.update",
     "domain.create",
+    "workflow.check",
   ],
 } as const satisfies Record<Role, readonly string[]>;
 
@@ -150,6 +151,7 @@ export const TOOL_ORDER = [
   "workflow.get",
   "workflow.report",
   "workflow.edit",
+  "workflow.check",
   "job.create",
   "job.update",
   "job.delete",

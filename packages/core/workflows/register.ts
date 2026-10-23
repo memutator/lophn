@@ -1,4 +1,5 @@
 import {
+  workflowCheck,
   workflowEdit,
   workflowList,
   workflowReport,
@@ -14,7 +15,7 @@ type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
-  // 다섯 route의 handler는 core 조립(wf-service)이 붙인다. 여기 넣어야 agent credential이 닿는 route 목록에 든다.
+  // 여섯 route의 handler는 core 조립(wf-service)이 붙인다. 여기 넣어야 agent credential이 닿는 route 목록에 든다.
   memoryRoutes?: readonly unknown[];
 };
 
@@ -35,6 +36,7 @@ export function createLedgerRegistration(
       workflowReport,
       workflowEdit,
       workflowStop,
+      workflowCheck,
     ],
   };
 }

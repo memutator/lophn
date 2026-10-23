@@ -6,8 +6,8 @@ description: Write a workflow: a folder in the project's Workflows folder with a
 # Workflow
 
 A workflow is how people and agents pass a job from step to step. You write its
-definition as files. A person starts an instance of it (a job may start one
-later). There is no tool that starts an instance, so an agent cannot start one.
+definition as files. A person or a job starts it. There is no tool that starts
+an instance, so an agent cannot start one.
 
 lophn only records what the participants say and passes it on to the next step.
 It does not check a result, does not judge whether a step passed and does not
@@ -36,7 +36,8 @@ a lowercase slug (`eval-loop`).
 lophn reads only these fields. Any other field is the workflow's own and lophn
 does not read it or call it wrong.
 
-- `kind`: `agent`. `flow` is declared but cannot be started yet.
+- `kind`: `agent`, or `flow`. With `flow`, a program (`flow.ts`) runs the steps;
+  see Flow workflows below.
 - `participants`: a map from a key you choose to `{ role, place?, name? }`.
   - `role` is one of `lophn`, `project_manager`, `app_engineer`, `operator`,
     `human`, `harness`.
@@ -80,6 +81,82 @@ steps:
     next: [spec, end]
 ```
 
+## Flow workflows
+
+With `kind: flow`, a program runs the steps instead of agents passing a message
+along. The folder is:
+
+```
+<Workflows folder>/nightly/
+├── workflow.yaml     kind: flow and steps
+├── flow.ts           the code
+├── workflow.md       the same in plain words
+└── artifacts/        optional
+```
+
+lophn reads only `kind: flow` and `steps` from `workflow.yaml`. The keys of
+`steps` are the step names that the screens and `report` use. The other fields
+(`by`, `prompt`, `participants`) are not read by lophn; use them as notes only.
+`flow.ts` may import other files of the same folder by a relative path.
+
+```ts
+import { agent, input, report, tool } from "@lophn/flow";
+
+const draft = await agent<{ title: string }>({
+  agent: { role: "app_engineer", place: { app: "notes" } },
+  prompt: "Write a title for this note.",
+  input,
+  schema: { type: "object", required: ["title"] },
+});
+if (!draft.ok) {
+  await report({ step: "draft", text: draft.message, next: "end" });
+} else {
+  await tool({ app: "notes", tool: "notes.add", input: draft.result });
+  await report({ step: "draft", text: draft.result.title, next: "end" });
+}
+```
+
+The SDK `@lophn/flow` gives five things:
+
+- `input`: the text the instance was started with.
+- `instance`: the instance id.
+- `agent({ agent, prompt, input?, schema? })`: calls one agent as a run, waits
+  until it ends and gives its answer. `agent` is `{ role, place?, name? }`.
+- `tool({ app, tool, input? })`: calls one tool of an app.
+- `report({ step, text, next? })`: the same as `workflow.report`. `next: "end"`
+  ends the instance.
+
+`agent`, `tool` and `report` never throw. They give `{ ok: true, result }` or
+`{ ok: false, reason, message }`.
+
+Failure and trying again are the code's job. lophn does not retry and does not
+judge whether a call succeeded. So the code looks at `ok: false` and decides:
+call again, tell with `report`, or throw to end. When it throws or finishes, the
+instance becomes `ended`, with the exit code and the last stderr line kept. If
+lophn is turned off and on, a running flow is not started again; its instance is
+closed as `ended`.
+
+The sandbox: a flow runs as one process inside a sandbox. It can read only its
+workflow folder and the installed SDK. It has no network, no file writing, no
+running of other programs and no environment variables. Everything that reaches
+outside goes through an app tool (`tool`) or an agent (`agent`). `console.log`
+goes to stderr and shows in the last line of the instance when it ends. It can
+import only `@lophn/flow`, files of the same folder and the JavaScript built-ins
+that need no permission (no `npm:`, no URL, no `jsr:`).
+
+Allotment: an app tool that a flow calls works only within your current
+allotment as the PM of this project and the domains you hold. Before you write
+the flow, ask the person with `ask` to allot that app to you. Without the
+allotment, `tool` comes back with `ok: false`. An agent that a flow calls can be
+anyone, but the agent works only within its own allotment.
+
+After you write or change `flow.ts`, run `workflow.check` with
+`<project>/<name>` and read the type errors. It does not run the flow, so it
+does not show that the flow works. No errors means it passes.
+
+Starting: a person (the screen, the CLI) or a job starts it. You and other
+agents cannot. The start text arrives as `input`.
+
 ## A step message is all a participant gets
 
 A participant receives its own step's `prompt`, what it receives (`in` and the
@@ -95,9 +172,10 @@ participant has to read `workflow.md`, that step's `prompt` says so.
 ## After you write it
 
 Run `workflow.list`. A wrong declaration drops only that workflow, and its
-`problem` says why. The names that `by`, `with` and `next` point to are not
-checked when the file is read: a wrong one shows up when a step is handed, as a
-step that could not be handed.
+`problem` says why. A flow whose declaration is wrong or whose `flow.ts` is
+missing shows a `problem` too (`no_flow_file`). The names that `by`, `with` and
+`next` point to are not checked when the file is read: a wrong one shows up when
+a step is handed, as a step that could not be handed.
 
 The declaration is copied when an instance starts. Changing the file does not
 change a running instance. The participants of that instance change its steps

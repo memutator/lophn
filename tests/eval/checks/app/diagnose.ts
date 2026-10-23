@@ -70,8 +70,8 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
         }, runtime ${runtime.state.state}${up ? " ready" : ""}`,
       };
     }),
-    // blueprint를 고쳐 문제를 덮지 않았다: 옛 release의 tool이 모두 남고 bug.api의 effect와 input이 같다.
-    liveCheck("blueprint-kept", async (core) => {
+    // 선언을 고쳐 문제를 덮지 않았다: 옛 release의 tool이 모두 남고 bug.api의 effect와 input이 같다.
+    liveCheck("declaration-kept", async (core) => {
       const app = await findApp(core, spec.app);
       const { app: got } = await core.call(appGet, { app: app.id });
       const { releases } = await core.call(releasesListRecords, {
@@ -88,7 +88,7 @@ export function diagnosisChecks(spec: DiagnoseSpec): ProgramCheck[] {
       } catch (e) {
         return {
           pass: false,
-          reason: `옛 release ${first.number}의 blueprint를 못 읽음: ${
+          reason: `옛 release ${first.number}의 선언을 못 읽음: ${
             e instanceof Error ? oneLine(e.message, 200) : String(e)
           }`,
         };

@@ -137,7 +137,7 @@ export type HumanSpec = { card: string; approve: ApproveRule };
 
 // 시나리오가 끝난 world에서 남길 것. 키는 새 재료 이름(`calendar-app`), 값은 무엇을 남기나.
 // 쓰기는 runner가 `tests/eval/materials/<이름>/<n+1>/`에 한다.
-export type SaveSource = { kind: "active_app"; app: string }; // 켜진 앱: source repo(blueprint 포함)와 manifest, active 표시
+export type SaveSource = { kind: "active_app"; app: string }; // 켜진 앱: source repo(선언 포함)와 manifest, active 표시
 export type Save = Record<string, SaveSource>;
 
 export type Scenario = {

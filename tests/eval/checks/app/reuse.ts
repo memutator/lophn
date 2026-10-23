@@ -1,5 +1,5 @@
 // 재사용 확인. 켜진 release의 code만 센다: source는 working tree가 아니라 active release의 code_commit이다.
-// 선언(blueprint)·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
+// 선언·연결 선언·실제 import·새로 만들지 않음·core가 고정한 사용처를 따로 봐서 어느 단계에서 새는지 보인다.
 import { appGet } from "../../../../packages/protocol/apps/mod.ts";
 import { appTools } from "../../../../packages/protocol/apps/declaration/read.ts";
 import {
@@ -17,7 +17,7 @@ export type ReuseSpec = {
   pkg: { name: string; exports: string[] };
 };
 
-// packages/core/apps/packages/template/app/blueprint.ts.tmpl의 sdk_dependencies와 같아야 한다.
+// packages/core/apps/packages/template/app/lophn.ts.tmpl의 sdk_dependencies와 같아야 한다.
 export const TEMPLATE_SDK_NAMES = [
   "@lophn/declaration",
   "@lophn/cap-problem",
@@ -28,8 +28,8 @@ export const TEMPLATE_SDK_NAMES = [
   "@lophn/wording",
 ];
 
-// blueprint.ts의 `sdk_dependencies: [ ... ]` 블록에서 `name: "..."`들을 뽑는다.
-export function blueprintSdkNames(text: string): string[] {
+// lophn.ts의 `sdk_dependencies: [ ... ]` 블록에서 `name: "..."`들을 뽑는다.
+export function declarationSdkNames(text: string): string[] {
   const key = text.indexOf("sdk_dependencies");
   const open = key === -1 ? -1 : text.indexOf("[", key);
   if (open === -1) return [];
@@ -158,8 +158,8 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
   const { pkg, notify } = spec;
   return [
     reuseCheck("reuse-sdk-dependency", spec, async (_core, src) => {
-      const names = blueprintSdkNames(
-        await git(src.dir, ["show", `${src.commit}:blueprint.ts`]),
+      const names = declarationSdkNames(
+        await git(src.dir, ["show", `${src.commit}:lophn.ts`]),
       );
       const extra = names.filter((n) => !TEMPLATE_SDK_NAMES.includes(n));
       return {
@@ -171,8 +171,8 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
     }),
     reuseCheck("reuse-app-connection", spec, async (core, src) => {
       const target = await findApp(core, notify.app);
-      const blueprint = await core.call(appTools, { app: src.app.id });
-      const hit = blueprint.facts.app_connections.some((c) =>
+      const declaration = await core.call(appTools, { app: src.app.id });
+      const hit = declaration.facts.app_connections.some((c) =>
         c.app === target.id && c.tools.includes(notify.api)
       );
       return {
@@ -186,7 +186,7 @@ export function reuseChecks(spec: ReuseSpec): ProgramCheck[] {
     reuseCheck("reuse-imports", spec, async (_core, src) => {
       const lines = await grep(src.dir, src.commit, pkg.name, [
         ".",
-        ":(exclude)blueprint.ts",
+        ":(exclude)lophn.ts",
         ":(exclude)deno.json",
         ":(exclude)deno.lock",
         ":(exclude)tests",

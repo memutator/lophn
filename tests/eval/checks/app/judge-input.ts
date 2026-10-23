@@ -36,17 +36,17 @@ export function cardCoveredInput(
   app: string,
 ): (input: CheckInput) => Promise<string> {
   return async (input) => {
-    let blueprint = "(not available)";
+    let declaration = "(not available)";
     if (input.core !== null) {
       const found = await findApp(input.core, app);
-      const bp = await input.core.call(appTools, { app: found.id });
-      blueprint = [
-        ...bp.tools.map((a) =>
+      const read = await input.core.call(appTools, { app: found.id });
+      declaration = [
+        ...read.tools.map((a) =>
           `- ${a.name} (${a.effect}): ${a.description} input=${
             JSON.stringify(a.inputSchema)
           }`
         ),
-        ...bp.facts.app_connections.map((c) =>
+        ...read.facts.app_connections.map((c) =>
           `connection: ${c.app} -> ${c.tools.join(", ")}`
         ),
       ].join("\n");
@@ -54,7 +54,7 @@ export function cardCoveredInput(
     const text = await designOf(input, app);
     return joinInput([
       { label: "CARD", text: card },
-      { label: "BLUEPRINT", text: clip(blueprint) },
+      { label: "DECLARATION", text: clip(declaration) },
       {
         label: "DESIGN",
         text: text === null ? "(DESIGN.md not found)" : clip(text),

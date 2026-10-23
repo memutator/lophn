@@ -1,15 +1,15 @@
 import { assert, assertEquals } from "@std/assert";
-import { blueprintSdkNames, definesName, importsPackage } from "./reuse.ts";
+import { declarationSdkNames, definesName, importsPackage } from "./reuse.ts";
 
 Deno.test("sdk_dependencies에서 template 밖 이름을 가려낼 수 있다", () => {
-  const text = `export default makeBlueprint({
+  const text = `export default defineApp({
     name: "앱",
     sdk_dependencies: [
       { name: "@lophn/declaration", version: "1.0.0" },
       { name: "@me/notify-kit", version: "1.0.0" },
     ],
   });`;
-  assertEquals(blueprintSdkNames(text), [
+  assertEquals(declarationSdkNames(text), [
     "@lophn/declaration",
     "@me/notify-kit",
   ]);

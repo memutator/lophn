@@ -60,6 +60,7 @@ function handedSummary(
 export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "workflow.list",
+    defer: true,
     input: z.strictObject({ project: z.string().min(1).optional() }),
     routes: [workflowList],
     description:
@@ -150,6 +151,7 @@ export const WORKFLOW_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "workflow.check",
+    defer: true,
     input: z.strictObject({ workflow: workflowKeySchema }),
     routes: [workflowCheck],
     description:

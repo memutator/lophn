@@ -88,6 +88,7 @@ export const createFileTools = (
   }),
   defineTool({
     name: "pdf.read",
+    defer: true,
     input: z.strictObject({ path, pages: z.string().regex(/^\d+(-\d+)?$/) }),
     routes: [],
     description:

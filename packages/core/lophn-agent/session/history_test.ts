@@ -41,6 +41,9 @@ function stub(rows: Row[], request: number): CoreCall {
         ok({ reverts: [], hidden_from_seq: null, ...common }),
       );
     }
+    if (path === "/tool-calls/list") {
+      return Promise.resolve(ok({ tool_calls: [], ...common }));
+    }
     if (path === "/session_messages/list") {
       return Promise.resolve(ok({
         messages: rows.map((row) => ({

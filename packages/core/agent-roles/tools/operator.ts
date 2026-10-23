@@ -133,6 +133,7 @@ export const OPERATOR_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "operator.update",
+    defer: true,
     input: operatorDefinition.partial().extend({
       operator: agentNameSchema,
       domains: domainNames.optional(),

@@ -33,6 +33,7 @@ function ownerOf(ctx: ToolContext): DomainOwner | null {
 export const DOMAIN_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "domain.list",
+    defer: true,
     input: z.strictObject({}),
     routes: [domainList],
     description:
@@ -54,6 +55,7 @@ export const DOMAIN_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "domain.get",
+    defer: true,
     input: z.strictObject({ domain: domainIdSchema }),
     routes: [domainGet],
     description: "Read a domain: name, title, purpose, owner and status.",

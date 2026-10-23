@@ -171,6 +171,7 @@ export const PACKAGE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "package.publish",
+    defer: true,
     input: packagePublishInputSchema.omit({
       key: true,
       path: true,

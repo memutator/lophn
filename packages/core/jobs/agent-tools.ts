@@ -32,6 +32,7 @@ const RESTART_NOTE =
 export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "job.create",
+    defer: true,
     input: z.strictObject({
       title: jobTitleSchema,
       every: jobEverySchema,
@@ -58,6 +59,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.update",
+    defer: true,
     input: z.strictObject({
       job: jobIdSchema,
       title: jobTitleSchema.optional(),
@@ -88,6 +90,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.delete",
+    defer: true,
     input: z.strictObject({ job: jobIdSchema }),
     routes: [jobDelete],
     description:
@@ -107,6 +110,7 @@ export const JOB_AGENT_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "job.list",
+    defer: true,
     input: z.strictObject({}),
     routes: [jobList],
     description:

@@ -4,7 +4,7 @@ import {
   DATA_START_MARKER,
   defuseTransmittedText,
 } from "../safety/mod.ts";
-import type { HistoryMessage, PromptRequest } from "./model.ts";
+import type { HistoryMessage, HistoryPart, PromptRequest } from "./model.ts";
 
 // Compact summary의 준비이다. 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
@@ -20,6 +20,9 @@ export type SessionMessage = {
   seq: bigint;
   role: "user" | "assistant";
   text: string;
+  // 앞 turn의 tool.load 호출과 결과처럼 글이 아닌 조각이다. 있으면 text 대신 이 조각이 그 message다.
+  // seq는 붙어 있는 사람 요청의 것이라 compaction·숨김·접힘이 그 요청과 같이 덜어 낸다.
+  parts?: readonly HistoryPart[];
 };
 
 // rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
@@ -95,14 +98,15 @@ export function sessionMaterial(conversation: SessionConversation): {
 } {
   const history: HistoryMessage[] = [];
   for (const message of visibleMessages(conversation)) {
-    const part = { kind: "text" as const, text: message.text };
+    const parts = message.parts ??
+      [{ kind: "text" as const, text: message.text }];
     const last = history[history.length - 1];
     if (last !== undefined && last.role === message.role) {
       history[history.length - 1] = {
         role: last.role,
-        parts: [...last.parts, part],
+        parts: [...last.parts, ...parts],
       };
-    } else history.push({ role: message.role, parts: [part] });
+    } else history.push({ role: message.role, parts });
   }
   return {
     compact_summary: conversation.compaction?.text ?? null,

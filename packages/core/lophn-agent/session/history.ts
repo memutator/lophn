@@ -6,6 +6,10 @@ import {
   receivedMessageList,
   rewindList,
   sessionSummary,
+  toolCallList,
+  type ToolResult,
+  toWireToolName,
+  turnBody,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SessionConversation,
@@ -20,6 +24,7 @@ import {
   type RevertRow,
 } from "./rewind/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import { historyResultParts } from "../run-loop/history.ts";
 import { receivedText } from "../run-loop/input-text.ts";
 
 // 새 turn의 prompt가 쓰는 session의 이전 대화다. Compact한
@@ -68,6 +73,73 @@ async function readRewound(
     folds.push({ ...fold, text: summary.value.text });
   }
   return ok({ hidden: hiddenRangesOf(rows), folds });
+}
+
+// 앞 turn들이 불러온 tool의 이력이다: 성공한 tool.load 호출(assistant)과 결과(user)를 turn별로, 호출 순서대로 모은다.
+// 이미 저장된 tool 호출 기록과 결과 본문을 읽고 새 표를 만들지 않는다. 결과 content.names가 요청 그대로의 입력이다.
+async function readLoads(
+  machine: CoreCall,
+  session: string,
+): Promise<Result<Map<string, SessionMessage[]>>> {
+  const loads = new Map<string, SessionMessage[]>();
+  let cursor: string | undefined;
+  for (let page = 0;; page++) {
+    if (page >= MAX_PAGES) {
+      return err({
+        code: "unavailable",
+        message: "the session has too many tool calls to read",
+      });
+    }
+    const listed = await readOf(machine, toolCallList, {
+      session,
+      limit: 100,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    if (!listed.ok) return listed;
+    for (const call of listed.value.tool_calls) {
+      if (call.tool !== "tool.load" || call.outcome?.kind !== "success") {
+        continue;
+      }
+      const body = await readOf(machine, turnBody, {
+        kind: "tool_call_output",
+        id: call.id,
+      });
+      if (!body.ok) return body;
+      const result = body.value.value as ToolResult;
+      const name = toWireToolName(call.tool);
+      const names = (result.content as { names: string[] }).names;
+      loads.set(call.turn, [
+        ...(loads.get(call.turn) ?? []),
+        {
+          seq: 0n,
+          role: "assistant",
+          text: "",
+          parts: [{
+            kind: "tool_use",
+            id: call.response_key,
+            name,
+            input: { names },
+          }],
+        },
+        {
+          seq: 0n,
+          role: "user",
+          text: "",
+          parts: historyResultParts({
+            key: call.response_key,
+            name,
+            status: "success",
+            code: call.outcome.code,
+            result,
+          }),
+        },
+      ]);
+    }
+    const next = listed.value.next_cursor;
+    if (next === null || next === undefined) break;
+    cursor = next;
+  }
+  return ok(loads);
 }
 
 export async function readSessionConversation(
@@ -167,7 +239,7 @@ export async function readSessionConversation(
           : 1
       );
 
-  const messages: SessionMessage[] = [];
+  const built: { turn: string | null; message: SessionMessage }[] = [];
   for (let at = 0; at < taken.length; at += BODY_BATCH) {
     const batch = taken.slice(at, at + BODY_BATCH);
     const bodies = await Promise.all(
@@ -181,7 +253,10 @@ export async function readSessionConversation(
       if (!body.ok) return body;
       const entry = batch[index]!;
       if (body.value === null) {
-        messages.push({ seq: entry.seq, role: entry.role, text: "" });
+        built.push({
+          turn: entry.turn,
+          message: { seq: entry.seq, role: entry.role, text: "" },
+        });
         continue;
       }
       // 카드뿐인 답은 글이 없어 이력에 넣지 않는다. 글 없는 취소 알림은 tag만으로 뜻이 있다.
@@ -190,18 +265,47 @@ export async function readSessionConversation(
       ).join("\n");
       if (entry.role === "assistant") {
         if (text.trim() !== "") {
-          messages.push({ seq: entry.seq, role: "assistant", text });
+          built.push({
+            turn: entry.turn,
+            message: { seq: entry.seq, role: "assistant", text },
+          });
         }
         continue;
       }
       if (text.trim() === "" && entry.received.from.kind === "human") continue;
-      messages.push({
-        seq: entry.seq,
-        role: entry.role,
-        text: receivedText(entry.received, text),
+      built.push({
+        turn: entry.turn,
+        message: {
+          seq: entry.seq,
+          role: entry.role,
+          text: receivedText(entry.received, text),
+        },
       });
     }
   }
+  // 불러온 tool은 session 동안 남는다: 앞 turn의 tool.load 호출과 결과를 그 turn의 요청 뒤, 답 앞에 놓는다.
+  // 요약이 덮거나 숨기거나 접은 요청의 turn에는 놓지 않는다. Compact가 읽을 때(요청 없음)는 이력이 아니라 읽지 않는다.
+  if (input.request !== null) {
+    const loads = await readLoads(machine, input.session);
+    if (!loads.ok) return loads;
+    for (const [turn, calls] of loads.value) {
+      let at = built.findIndex((b) =>
+        b.turn === turn && b.message.role === "assistant"
+      );
+      if (at < 0) at = built.findLastIndex((b) => b.turn === turn) + 1;
+      const request = built[at - 1];
+      if (request?.turn !== turn) continue;
+      built.splice(
+        at,
+        0,
+        ...calls.map((message) => ({
+          turn,
+          message: { ...message, seq: request.message.seq },
+        })),
+      );
+    }
+  }
+  const messages = built.map((b) => b.message);
   return ok({
     compaction,
     // 되돌린 적이 없는 session은 이 두 칸을 두지 않는다.

@@ -158,8 +158,6 @@ type PreparerDeps = {
   >;
   // role이 고정한 tool 이름 목록. 어느 role이 어느 tool을 보는지는 role 층이 정한다.
   roleTools(role: Role): readonly string[];
-  // roleTools 가운데 deferred-tools를 켠 session이 이름만 알리는 내장 tool.
-  deferredTools(role: Role): readonly string[];
   // role마다 다른 이름·기본 profile 규칙. role 층이 정해 조립이 넘긴다.
   roles: AgentRoleTable;
   instructions: InstructionDeps;
@@ -397,26 +395,23 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       ? model.value.deferrable
       : fixedNow.deferred !== null;
 
-    // role이 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다.
+    // role이 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다. 숨기지 않는 session에는 tool.load가 없다.
     const plain: readonly ToolDefinition[] = [
       ...selectTools(
         deps.roleTools(session.agent.role),
-        { input_media: model.value.inputMedia, deferral },
+        { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
-      ),
+      ).filter((tool) => deferral || tool.name !== "tool.load"),
       ...(appTool?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
-    // 숨기는 것은 role의 숨긴 목록에 든 내장 tool과 외부 MCP tool이다. 앱 tool은 숨기지 않는다.
-    const hidden = new Set(deps.deferredTools(session.agent.role));
+    // 숨기는 것은 defer 표시가 있는 내장 tool과 앱 tool, 외부 MCP tool 전부다.
     const deferred: ReadonlySet<string> | null = !deferral
       ? null
-      : fixedNow?.deferred ?? new Set([
-        ...plain.filter((tool) => hidden.has(tool.name)).map((tool) =>
-          tool.name
-        ),
-        ...external.map((tool) => tool.definition.name),
-      ]);
+      : fixedNow?.deferred ?? new Set(
+        plain.filter((tool) => tool.defer === true || tool.origin !== "builtin")
+          .map((tool) => tool.name),
+      );
     const current = deferred === null
       ? plain
       : plain.map((tool) =>

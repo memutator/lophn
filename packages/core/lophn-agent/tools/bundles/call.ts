@@ -102,6 +102,7 @@ export const CALL_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "session.list",
+    defer: true,
     input: none,
     routes: [callSendable],
     description:

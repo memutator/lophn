@@ -29,6 +29,9 @@ export type ToolDefinition = {
   // registry와 Gate만 읽는다. model에 보이는 정의에는 없다.
   effect: ToolEffect;
   origin: ToolOrigin;
+  // 이름만 알리고 정의는 `tool.load`가 펼친다. Claude Code의 shouldDefer와 같고 모든 role에 같다.
+  // 앱 tool과 외부 MCP tool은 이 칸 없이 늘 숨는다(origin).
+  defer?: true;
   // 실행. 정의에 handler가 없는 tool(앱, MCP)은 handlers 표로 실행한다.
   handler?: ToolCallHandler;
   // Gate가 걸리는 tool만 둔다. null이면 그 호출은 거치지 않는다.
@@ -60,15 +63,13 @@ export async function definitionHash(tool: ToolDefinition): Promise<string> {
 }
 
 // role이 고정한 이름 목록에 든 정의다. 순서는 `definitions` 순서다(같은 판의 같은 bytes).
-// model이 image를 받지 못하면 `image.read`를 뺀다. deferred-tools를 켜지 않은 session이면 `tool.load`를 뺀다.
-// 정의가 없는 이름은 건너뛴다.
+// model이 image를 받지 못하면 `image.read`를 뺀다. 정의가 없는 이름은 건너뛴다.
 export function selectTools(
   names: readonly string[],
-  model: { input_media: readonly string[]; deferral?: boolean },
+  model: { input_media: readonly string[] },
   definitions: readonly ToolDefinition[],
 ): readonly ToolDefinition[] {
   const allowed = new Set(names);
   if (!model.input_media.includes("image")) allowed.delete("image.read");
-  if (model.deferral !== true) allowed.delete("tool.load");
   return definitions.filter((tool) => allowed.has(tool.name));
 }

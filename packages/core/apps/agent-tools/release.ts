@@ -21,6 +21,7 @@ import { idSchema } from "../../../protocol/base/ids.ts";
 export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "release.list",
+    defer: true,
     input: z.strictObject({ app: idSchema("app") }),
     routes: [releasesListRecords],
     description:
@@ -49,6 +50,7 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
   }),
   defineTool({
     name: "release.get",
+    defer: true,
     input: z.strictObject({ release: idSchema("rel") }),
     routes: [releasesGetRecord],
     description:

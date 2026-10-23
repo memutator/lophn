@@ -89,7 +89,7 @@ C1~C9는 kind와 Operator, C24 이후는 domain의 skill과 artifact, domain 경
 - C25. 다른 domain의 공개 tool을 Operator가 쓰게 하려면, Project Manager는 이유와 함께 사람에게 할당을 제안한다. 할당은 사람이 한다. (제안)
 - C26. 자기 Operator가 쓰는 package에서 난 문제는, Project Manager가 package 주인 앱(`package.get`의 `owner_app`)의 App Engineer에게 답을 받지 않는 call로 맡긴다.
 - C27. 자기 domain이 쓰는 공개 tool이 바뀌었다고 그 앱의 App Engineer가 알리면, Project Manager가 바뀐 tool을 읽고 그 tool을 부르는 skill(자기 Operator의 것 포함)을 다시 본다.
-- C28. agent가 쓴 결과 문서가 필요하면, Project Manager나 그 domain을 고른 Operator가 domain의 artifact를 쓴다.
+- C28. agent가 쓴 결과 문서가 필요하면, Project Manager나 그 domain을 고른 Operator가 domain의 artifact를 쓴다. node 그림(kind 지도, 상태 흐름)은 둘지 사람에게 묻고 정한다. workflow 그림(C29)과 같다.
 - C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, Project Manager가 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project의 Project Manager뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 Project Manager의 할당과 맡은 domain 안에서만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다.
 
 ### workflow 참가자

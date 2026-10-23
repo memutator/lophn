@@ -10,8 +10,8 @@
 
 ## 남은 일
 
-1. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. 아래 "정할 것" 1을 정한 뒤 연다.
-2. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 정한다.
+1. **`kind: flow`와 결정적 program이 사는 곳.** program이 앱 tool과 agent 호출(run)을 섞어 부르고 agent처럼 report를 낸다(`headless-schedule.md`에서 옮겨 왔다). 기록, 화면, instance 고치기는 `agent`와 같다. 지금 `flow` 선언은 읽히지만 시작하지 못한다. code는 workflow 폴더에 둔다(2026-10-23). 띄우는 길과 자격("정할 것" 1)은 계획에서 정한다.
+2. **program의 report 자격.** 지금 CLI `lophn workflow report`는 user token으로 낸다. program 자격을 따로 둘지는 "정할 것" 1과 같이 계획에서 정한다.
 3. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
 4. **domain artifact의 node 그림.** kit은 모든 artifact view에 나온다. domain 쪽에 쓰는 법을 싣는 일은 `roadmap/domain.md` "node 시각화"다.
 
@@ -57,12 +57,14 @@
 - workflow의 node 시각화 방식을 domain에도 적용한다. 그래서 우리 kit에서 재사용 가능하게 만든다.
 - sidebar는 VS Code 같은 activity bar(리본)로 바꾼다. 항목이 너무 많아져 segmented toggle로는 감당하지 못한다.
 
+2026-10-23 (planner 추천을 사람이 골랐다)
+- flow의 code는 workflow 폴더(`<data>/projects/<prj>/workflows/<name>/`)에 `workflow.yaml` 옆 file로 둔다. 선언, 글, code가 한 폴더에 모인다. 쓰는 것은 그 폴더를 쓰는 PM이고, PM의 file 쓰기라 rewind로 되돌아간다.
+- 앱으로 두지 않는다. 앱 tool의 120초 제한과 write 직렬화 밖에서 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다.
+- 사람의 저장소(project 폴더)에 두지 않는다. workflow 정의 전체가 data 폴더에 있어 code만 보내면 정의가 두 곳으로 갈라진다.
+
 ## 정할 것
 
-1. **결정적 program이 사는 곳.** lophn agent가 직접 짠다는 것은 정했다(2026-10-21). 사는 곳은 정하지 않았다.
-   - 앱이면 release와 App Engineer가 따라온다. 대신 program이 agent를 부르는 SDK(`cap-agent`)와, 앱 tool의 120초 제한과 write 직렬화 밖에서 도는 entry가 필요하다(`headless-schedule.md` "지금 코드").
-   - 앱이 아니면 고정, 관측, 고칠 주인을 무엇이 맡는지 정해야 한다.
-   - program이 report를 내는 CLI의 자격도 같이 정한다.
+1. **flow code를 띄우는 길과 자격.** 사는 곳은 정했다(위 2026-10-23). lophn이 그 code를 따로 process로 띄우는 법, 그 process가 run을 부르고 report를 낼 자격, 줄 권한(네트워크, file)은 계획을 열 때 planner가 정한다. 제품 동작이 바뀌면 사람에게 묻는다.
 
 ## 끝남 기준
 

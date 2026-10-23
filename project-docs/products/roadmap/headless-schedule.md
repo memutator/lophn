@@ -80,7 +80,7 @@
 
 ## 정할 것
 
-flow가 사는 곳과 flow의 preview·test는 `workflow.md` "정할 것" 1로 옮겼다. 앱 tool 하나로는 flow를 짤 수 없다는 사실(호출 120초 제한, 앱마다 write 직렬)도 거기서 본다.
+flow가 사는 곳은 `workflow.md`에서 정했다(2026-10-23, workflow 폴더). 띄우는 길과 자격, flow의 preview·test는 `workflow.md` "정할 것" 1이다. 앱 tool 하나로 flow를 짜지 않는 까닭(호출 120초 제한, 앱마다 write 직렬)도 거기에 있다.
 
 ## 단계
 

@@ -1,4 +1,5 @@
 import {
+  canonicalize,
   createIdSource,
   err,
   ok,
@@ -14,6 +15,7 @@ import {
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
+import type { PermissionScope } from "../../../../protocol/apps/blueprint/mod.ts";
 import {
   type AppGrant,
   appGrantsList,
@@ -42,7 +44,18 @@ import {
 import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
 import { agentDomainPorts } from "../agent-domains.ts";
-import { secretValueHandler } from "../../../apps/permissions/mod.ts";
+import {
+  effectiveScope,
+  loadGrants,
+  secretValueHandler,
+} from "../../../apps/permissions/mod.ts";
+import {
+  type AppOAuth,
+  type AppOAuthDeclared,
+  createAppOAuth,
+} from "../../../apps/oauth/mod.ts";
+import { releaseDeclarations } from "../../../apps/releases/mod.ts";
+import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import {
   type ChangesetBlobs,
   closeUnfinishedInvocations,
@@ -98,7 +111,10 @@ import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
-import { withAfterCommit } from "../../../storage/ledger/mod.ts";
+import {
+  openConnection,
+  withAfterCommit,
+} from "../../../storage/ledger/mod.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -111,6 +127,7 @@ export const appsWiring: WiringFactory = () => {
   let control: AppsControl | undefined;
   let write: WriteLink | undefined;
   let invocations: InvocationLedger | undefined;
+  let oauth: AppOAuth | undefined;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
@@ -130,6 +147,16 @@ export const appsWiring: WiringFactory = () => {
       const { runtime } = ctx;
       const redactLine = createProductRedactor(ctx.knownSecrets);
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+      const appOAuth = createAppOAuth({
+        secrets: ctx.secretStore,
+        // issuerRequests는 lophn-agent-provider-login wiring이 이 wiring 뒤에 만든다. 부를 때 읽는다.
+        fetch: (url, init) => ctx.issuerRequests.fetch(url, init),
+        openListener: openCallbackListener,
+        declared: (app) => Promise.resolve(declaredOAuth(ctx, app)),
+        nowMs: () => ctx.clock.nowMs(),
+        random: ctx.random,
+      });
+      oauth = appOAuth;
       // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
       const apiPorts = () => {
         const port = ctx.peek.server?.port ?? 0;
@@ -339,6 +366,7 @@ export const appsWiring: WiringFactory = () => {
             { dataRoot: ctx.root.path, writer: () => ctx.writer },
           ),
         memory: [
+          ...appOAuth.handlers,
           ["apps/call_tool", callToolHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
           [
@@ -358,6 +386,7 @@ export const appsWiring: WiringFactory = () => {
                 const observed = await appsControl.client.observe(app);
                 return observed.ok ? ok(observed.value) : observed;
               },
+              prepare: (input) => appOAuth.prepare(input),
             }),
           ],
           [
@@ -550,12 +579,54 @@ export const appsWiring: WiringFactory = () => {
       control?.stop();
     },
     // writer가 닫히기 전에 이 wiring의 ledger 연결을 닫는다.
-    closeWork() {
+    async closeWork() {
+      // 기다리는 sign-in의 listener가 남지 않게 한다.
+      await oauth?.endAll();
       write?.close();
       write = undefined;
     },
   };
 };
+
+// 앱의 현재 선언 가운데 oauth를 가진 secret.use마다, 현재 선언 ∩ active grant에 들었는지(secretsWiring의 allowance와 같은 판정)를 낸다.
+function declaredOAuth(
+  ctx: WiringContext,
+  app: string,
+): Result<readonly AppOAuthDeclared[]> {
+  const opened = openConnection(ctx.ledgerPath);
+  if (!opened.ok) return opened;
+  const { sql } = opened.value;
+  try {
+    const declarations = releaseDeclarations.get(sql, app);
+    if (!declarations.ok) return declarations;
+    if (declarations.value === null) return ok([]);
+    const grants = loadGrants(sql, { app, status: "active" });
+    if (!grants.ok) return grants;
+    const { access } = effectiveScope({
+      app,
+      declarations: declarations.value,
+      grants: grants.value,
+      targetCommands: () => undefined,
+    });
+    const result: AppOAuthDeclared[] = [];
+    for (const requirement of declarations.value.permissions) {
+      const scope = requirement.scope as PermissionScope;
+      if (requirement.kind !== "secret.use" || !("oauth" in scope)) continue;
+      if (scope.oauth === undefined) continue;
+      const wanted = canonicalize(scope);
+      result.push({
+        name: scope.name,
+        oauth: scope.oauth,
+        granted: access.some((entry) =>
+          entry.kind === "secret.use" && canonicalize(entry.scope) === wanted
+        ),
+      });
+    }
+    return ok(result);
+  } finally {
+    opened.value.close();
+  }
+}
 
 // /packages/guide_body. owner_kind·field가 `package_version`·`guide`로 고정이라 입력으로 다른 blob을
 // 가리킬 수 없다. 자격은 이 route의 operation(`packages.guide_body`)이고 일반 `blobs/read`는 필요 없다.

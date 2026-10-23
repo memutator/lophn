@@ -11,5 +11,5 @@ lead만 고친다. `tools/status.py blueprint-remove build`가 `tasks/*.md`에�
 | `br-runtime` | br-runtime | 2 | 없음 | merged | br-runtime/br-runtime | c8e476f85 |  |
 | `br-shell` | br-shell | 2 | 없음 | merged | br-shell/br-shell | 499d87fbf |  |
 | `br-eval-checks` | br-eval-checks | 3 | 없음 | merged | br-eval-checks/br-eval-checks | d8d7126f2 |  |
-| `br-eval-materials` | br-eval-materials | 3 | br-eval-checks | running | br-eval-materials/br-eval-materials |  |  |
+| `br-eval-materials` | br-eval-materials | 3 | br-eval-checks | merged | br-eval-materials/br-eval-materials | 9b7907d17 |  |
 | `br-tests-support` | br-tests-support | 3 | 없음 | merged | br-tests-support/br-tests-support | 5df7b5342 |  |

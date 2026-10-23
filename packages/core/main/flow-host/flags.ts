@@ -15,10 +15,21 @@ const FIXED = [
 // deno-lint-ignore no-control-regex
 const ONE_ITEM = /[,\x00-\x1f\x7f]/;
 
+// 넘으면 process가 죽고 program_exited 줄에 끝 code와 stderr가 남는다.
+const MEMORY_LIMIT_FLAG = "--v8-flags=--max-old-space-size=512";
+
 export function flowFlags(
-  paths: { workflowFolder: string; sdkRoot: string },
+  paths: {
+    workflowFolder: string;
+    sdkRoot: string;
+    // workflow 폴더 안에서 폴더 밖을 가리키는 symlink의 lexical 경로. Deno는 허락한 폴더 안의 link를
+    // 따라가므로 deny하지 않으면 flow가 그 대상을 읽는다.
+    outsideLinks: readonly string[];
+  },
 ): Result<string[]> {
-  for (const path of [paths.workflowFolder, paths.sdkRoot]) {
+  for (
+    const path of [paths.workflowFolder, paths.sdkRoot, ...paths.outsideLinks]
+  ) {
     if (ONE_ITEM.test(path)) {
       return err({
         code: "invalid_input",
@@ -26,9 +37,14 @@ export function flowFlags(
       });
     }
   }
+  const deny = paths.outsideLinks.length === 0
+    ? []
+    : [`--deny-read=${[...paths.outsideLinks].sort().join(",")}`];
   return ok([
     ...FIXED,
     `--allow-read=${paths.workflowFolder},${paths.sdkRoot}`,
+    ...deny,
+    MEMORY_LIMIT_FLAG,
   ]);
 }
 
@@ -36,6 +52,7 @@ export function flowFlags(
 export function flowArgv(input: {
   workflowFolder: string;
   sdkRoot: string;
+  outsideLinks: readonly string[];
   importMap: string;
   entry: string;
   flow: string;

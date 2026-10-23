@@ -137,12 +137,14 @@ lophn is turned off and on, a running flow is not started again; its instance is
 closed as `ended`.
 
 The sandbox: a flow runs as one process inside a sandbox. It can read only its
-workflow folder and the installed SDK. It has no network, no file writing, no
-running of other programs and no environment variables. Everything that reaches
-outside goes through an app tool (`tool`) or an agent (`agent`). `console.log`
-goes to stderr and shows in the last line of the instance when it ends. It can
-import only `@lophn/flow`, files of the same folder and the JavaScript built-ins
-that need no permission (no `npm:`, no URL, no `jsr:`).
+workflow folder and the installed SDK; a symlink in the folder that points
+outside it cannot be read. It has no network, no file writing, no running of
+other programs and no environment variables. Its memory is capped at 512 MiB;
+over that the process dies. Everything that reaches outside goes through an app
+tool (`tool`) or an agent (`agent`). `console.log` and `Deno.stdout.write` go to
+stderr and show in the last line of the instance when it ends. It can import
+only `@lophn/flow`, files of the same folder and the JavaScript built-ins that
+need no permission (no `npm:`, no URL, no `jsr:`).
 
 Allotment: an app tool that a flow calls works only within your current
 allotment as the PM of this project and the domains you hold. Before you write

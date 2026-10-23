@@ -67,9 +67,13 @@ function valueError(message: string): Outcome {
   return { ok: false, reason: "invalid_input", message };
 }
 
+// entry.ts가 flow.ts를 import하기 전에 Deno.stdout.write를 stderr로 돌린다. 통로는 이 module을
+// 읽을 때 잡아 둔 원래 write만 쓴다. entry.ts가 이 module을 먼저 import하므로 잡기가 돌리기보다 앞선다.
+const writeToCore = Deno.stdout.write.bind(Deno.stdout);
+
 async function writeAll(bytes: Uint8Array): Promise<void> {
   let rest = bytes;
-  while (rest.length > 0) rest = rest.subarray(await Deno.stdout.write(rest));
+  while (rest.length > 0) rest = rest.subarray(await writeToCore(rest));
 }
 
 function request(body: RequestBody): Promise<Outcome> {

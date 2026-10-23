@@ -9,6 +9,9 @@ const toStderr = console.error.bind(console);
 for (const name of ["log", "info", "debug", "warn", "trace", "dir", "table"]) {
   (console as unknown as Record<string, unknown>)[name] = toStderr;
 }
+// wire.ts가 원래 write를 이미 잡아 뒀다(위 import가 먼저 돈다). 이제 flow.ts의 Deno.stdout.write는 stderr로 간다.
+Deno.stdout.write = (p) => Deno.stderr.write(p);
+Deno.stdout.writeSync = (p) => Deno.stderr.writeSync(p);
 
 function die(error: unknown): never {
   toStderr(error instanceof Error ? error.stack ?? String(error) : error);

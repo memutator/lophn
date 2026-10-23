@@ -4,6 +4,7 @@ import { flowArgv, flowFlags } from "./flags.ts";
 const paths = {
   workflowFolder: "/data/projects/prj_1/workflows/w",
   sdkRoot: "/data/sdk",
+  outsideLinks: [] as string[],
 };
 
 Deno.test("flow process flags allow only reading the workflow folder and the SDK", () => {
@@ -19,6 +20,7 @@ Deno.test("flow process flags allow only reading the workflow folder and the SDK
     "--no-lock",
     "--quiet",
     "--allow-read",
+    "--v8-flags",
   ]);
   const read = flags.value.find((f) => f.startsWith("--allow-read="))!;
   assertEquals(read.slice("--allow-read=".length).split(","), [
@@ -42,18 +44,37 @@ Deno.test("flow process flags allow only reading the workflow folder and the SDK
   }
 });
 
+Deno.test("flow flags deny reading outside symlinks and always cap memory", () => {
+  const none = flowFlags(paths);
+  assert(none.ok);
+  assert(!none.value.some((f) => f.startsWith("--deny-read")));
+  assert(none.value.includes("--v8-flags=--max-old-space-size=512"));
+
+  const links = [`${paths.workflowFolder}/b`, `${paths.workflowFolder}/a`];
+  const some = flowFlags({ ...paths, outsideLinks: links });
+  assert(some.ok);
+  assert(some.value.includes("--v8-flags=--max-old-space-size=512"));
+  assertEquals(
+    some.value.find((f) => f.startsWith("--deny-read=")),
+    `--deny-read=${paths.workflowFolder}/a,${paths.workflowFolder}/b`,
+  );
+});
+
 Deno.test("flow flags refuse a path that would split into two allowed items", () => {
   for (const bad of ["/a,/etc", "/a\n/etc", "/a\0"]) {
     const a = flowFlags({ ...paths, workflowFolder: bad });
     const b = flowFlags({ ...paths, sdkRoot: bad });
+    const c = flowFlags({ ...paths, outsideLinks: [bad] });
     assert(!a.ok && a.error.code === "invalid_input");
     assert(!b.ok && b.error.code === "invalid_input");
+    assert(!c.ok && c.error.code === "invalid_input");
   }
 });
 
 Deno.test("flow argv puts every flag before the entry", () => {
   const argv = flowArgv({
     ...paths,
+    outsideLinks: ["/data/projects/prj_1/workflows/w/link"],
     importMap: "/data/flows/import-map.json",
     entry: "/data/sdk/flow/1.0.0/entry.ts",
     flow: "/data/projects/prj_1/workflows/w/flow.ts",

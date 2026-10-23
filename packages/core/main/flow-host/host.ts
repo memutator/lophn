@@ -13,6 +13,7 @@ import {
   workflowFolder,
 } from "../../../protocol/workflows/paths.ts";
 import { devImportMap, packageInstallPath } from "../../apps/packages/mod.ts";
+import { realPathResolver } from "../../apps/permissions/mod.ts";
 import {
   createStreamDecoder,
   drain,
@@ -242,9 +243,13 @@ export function createFlowHost(
       return err({ code: "conflict", message: "flow is already running" });
     }
     const folder = workflowFolder(dataRoot, project, start.workflow);
+    // 훑기와 launch 사이에 새로 생긴 link는 막지 못한다(앱의 symlink-changes와 같은 한계).
+    // 대상을 못 푸는 link도 목록에 들어온다.
+    const links = await realPathResolver("", dataRoot).linksIn(folder);
     const argv = flowArgv({
       workflowFolder: folder,
       sdkRoot: `${dataRoot}/sdk`,
+      outsideLinks: links.map((found) => found.link),
       importMap: importMapPath,
       entry: `${dataRoot}/${installed.value}/${FLOW_ENTRY_FILE}`,
       flow: `${folder}/${WORKFLOW_FLOW_FILE}`,

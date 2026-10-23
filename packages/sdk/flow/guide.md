@@ -44,12 +44,15 @@ import { agent, input, instance, report, tool } from "@lophn/flow";
 
 ## sandbox
 
-읽기는 workflow 폴더와 SDK뿐이다. 쓰기, 네트워크, 환경 변수, 다른 program 실행이
-없다. 바깥 효과는 모두 `tool(...)`과 `agent(...)`로 한다.
+읽기는 workflow 폴더와 SDK뿐이다. 폴더 안의 symlink가 폴더 밖을 가리키면 그
+link는 읽히지 않는다. 쓰기, 네트워크, 환경 변수, 다른 program 실행이 없다. 바깥
+효과는 모두 `tool(...)`과 `agent(...)`로 한다. memory는 512 MiB까지고 넘으면
+process가 끝난다.
 
 ## 하지 않는 것
 
-- `Deno.stdout`에 직접 쓰지 않는다. core와의 통로가 깨지고 process가 끝난다.
+- `Deno.stdout.write`·`writeSync`로 쓴 것도 `console.log`처럼 stderr로 간다.
+  통로(stdout)에는 닿지 못한다.
 - 결과 type을 검사하지 않는다.
 - 다시 하기와 시간 제한을 두지 않는다.
 

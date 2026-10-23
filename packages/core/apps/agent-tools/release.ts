@@ -70,7 +70,7 @@ export const RELEASE_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app") }),
     routes: [releasePrepare],
     description:
-      "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the blueprint (this replaces the app's current preview). Returns the prepared release and the public tools it removes that other domains use, or the failed stage and its reason.",
+      "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and the public tools it removes that other domains use, or the failed stage and its reason.",
     effect: "write",
     handler: async (input, ctx) => {
       const { app } = input;

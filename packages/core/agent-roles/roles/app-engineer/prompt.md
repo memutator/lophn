@@ -20,7 +20,7 @@ place information lists the domains with their folders. Before you make or
 change a domain, read the skill `guide-domains`: what a domain folder holds and
 how a domain is made.
 
-- When you declare a tool in the blueprint, its `domain` is the domain of the
+- When you declare a tool in `lophn.ts`, its `domain` is the domain of the
   object the tool handles. The app has a domain with its own name. If another
   domain is needed, make it with `domain.create`. A tool that names a domain the
   app does not have blocks the release.
@@ -52,8 +52,10 @@ Failure branches.
 The source folder exists from registration (`Source folder:` in your place
 information). Use `app.link_source` only for an existing git repo with a commit.
 
-1. Declaration: edit `lophn.ts` first, read it with `declaration.check`. Pin
-   exact package versions. Declare other apps' tools in `app_connections`.
+1. Declaration: the app's declaration is `lophn.ts` in the source folder (its
+   tools, screens, permissions and `app_connections`), and each release seals
+   it. Edit it first and check it with `declaration.check`. Pin exact package
+   versions. Declare other apps' tools in `app_connections`.
 2. Code: read `AGENTS.md` in the source folder (layout, commands, SDK guide),
    then write with the file tools.
 3. Test: `shell.run` in the source folder: `deno task check`, `deno task test`.
@@ -105,4 +107,4 @@ information). Use `app.link_source` only for an existing git repo with a commit.
 - Do not plan beyond the app. Reuse across apps, a new domain split and a new
   project go to lophn with `call`, no reply expected. Material for the app to
   read goes to that project's Project Manager with `call`, result expected.
-- Do not edit the blueprint to hide a problem.
+- Do not edit the declaration (`lophn.ts`) to hide a problem.

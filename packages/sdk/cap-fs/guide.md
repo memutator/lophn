@@ -4,9 +4,9 @@
 
 허락된 경로의 파일 read·write·watch를 얇은 typed client로 묶는다. 이 package를
 import해도 grant가 생기지 않는다. 실제 접근 범위는 앱 프로세스의 Deno flag이고,
-그 flag는 blueprint가 선언하고 사람이 grant한 `fs.read`·`fs.write` 경로의
-교집합이다. 지금 되는 것: blueprint에 `fs.read`·`fs.write`와 경로를 선언하고,
-사람이 허락한 경로만 읽고 쓴다.
+그 flag는 선언이 정하고 사람이 grant한 `fs.read`·`fs.write` 경로의 교집합이다.
+지금 되는 것: 선언에 `fs.read`·`fs.write`와 경로를 적고, 사람이 허락한 경로만
+읽고 쓴다.
 
 ## 공개 API와 type
 
@@ -28,8 +28,8 @@ import {
   `{ close(), done }`를 돌려준다.
 - 거절은 `CapabilityError`다. `code === "forbidden"`이면 `permission`(`fs.read`
   또는 `fs.write`)과 `scope`(`{ path, recursive }`)가 있다. 그 이름과 경로를
-  blueprint `permissions`에 선언하고 사람에게 grant를 요청한다.
-- `checkDeclaration(blueprint)` — 이 package를 쓰는 선언이 `fs.read` 또는
+  선언의 `permissions`에 선언하고 사람에게 grant를 요청한다.
+- `checkDeclaration(declaration)` — 이 package를 쓰는 선언이 `fs.read` 또는
   `fs.write`를 빠뜨렸는지 검사한다.
 - type: `FsEvent`, `FsWatcher`, `WatchOptions`, `WriteOptions`,
   `CapabilityError`, `DeclarationCheck`

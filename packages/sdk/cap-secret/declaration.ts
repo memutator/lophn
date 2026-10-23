@@ -22,18 +22,20 @@ export type DeclarationCheck =
       code: "invalid_input";
       message: string;
       package: string;
-      // 이 중 하나 이상을 blueprint permissions에 선언해야 한다.
+      // 이 중 하나 이상을 선언의 permissions에 선언해야 한다.
       permissions: readonly string[];
     };
   };
 
-export function checkDeclaration(blueprint: DeclarationLike): DeclarationCheck {
-  const uses = (blueprint.sdk_dependencies ?? []).some((dependency) =>
+export function checkDeclaration(
+  declaration: DeclarationLike,
+): DeclarationCheck {
+  const uses = (declaration.sdk_dependencies ?? []).some((dependency) =>
     dependency.name === PACKAGE
   );
   if (!uses) return { ok: true };
   const declared = new Set(
-    (blueprint.permissions ?? []).map((permission) => permission.kind),
+    (declaration.permissions ?? []).map((permission) => permission.kind),
   );
   for (const group of REQUIRED_PERMISSIONS) {
     if (group.some((kind) => declared.has(kind))) continue;
@@ -43,7 +45,7 @@ export function checkDeclaration(blueprint: DeclarationLike): DeclarationCheck {
         code: "invalid_input",
         message: `${PACKAGE} needs ${
           group.join(" or ")
-        } in the blueprint permissions`,
+        } in the declaration permissions`,
         package: PACKAGE,
         permissions: group,
       },

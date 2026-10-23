@@ -12,9 +12,9 @@ handler로 돌려준다.
 import { currentContext, runWith, tool, traceName } from "@lophn/cap-tool";
 ```
 
-- `tool(name, handle)` — blueprint `tools`에 선언한 `name`의 handler를 등록한다.
-  같은 이름을 두 번 등록하면 던진다. handler는 입력 하나를 받고 결과를
-  돌려주거나 `ToolRejection`을 던진다.
+- `tool(name, handle)` — 선언의 `tools`에 있는 `name`의 handler를 등록한다. 같은
+  이름을 두 번 등록하면 던진다. handler는 입력 하나를 받고 결과를 돌려주거나
+  `ToolRejection`을 던진다.
 - `runWith(context, work)` — invocation 문맥 안에서 업무를 돌린다.
 - `currentContext()` — 현재 invocation 문맥(앱·release·mode·invocation·부른
   쪽)을 읽는다.
@@ -46,7 +46,7 @@ read tool은 DB를 바꾸지 않는다고 선언을 믿는다.
 ## 요구 permission
 
 handler 등록과 문맥 전달은 요구 permission이 없다. `connectTools`는 import만으로
-아무것도 열지 않는다. blueprint `app_connections`에 대상 앱과 tool과 목적을
+아무것도 열지 않는다. 선언의 `app_connections`에 대상 앱과 tool과 목적을
 선언하고 사람이 방향 있는 앱 쌍과 범위를 허락해야 한다.
 
 ## peer 의존

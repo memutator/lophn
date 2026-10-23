@@ -3,7 +3,8 @@
 ## 목적
 
 모든 앱이 같은 apps/declaration 계약으로 선언을 작성하고 검사하는 도우미다.
-앱마다 blueprint schema의 다른 사본을 만들지 않는다.
+선언은 앱 code 안의 `lophn.ts`이고 release와 함께 봉인된다. 앱마다 선언 schema의
+다른 사본을 만들지 않는다.
 
 ## 공개 API와 type
 
@@ -11,15 +12,15 @@
 import { defineApp, validateDeclaration } from "@lophn/declaration";
 ```
 
-- `defineApp(declaration)` — blueprint 선언을 만든다.
-- `validateDeclaration(value)` — blueprint 값을 검사한다(`ValidationResult`).
+- `defineApp(declaration)` — 앱의 선언(`lophn.ts`의 default export)을 만든다.
+- `validateDeclaration(value)` — 선언 값을 검사한다(`ValidationResult`).
 - `validateInput(schema, value)` — tool 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `ToolDeclaration`, `ToolEffect`,
   `AppToolUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
   `SDKDependency`, `ValidationResult`, `ValidationError`
 
-## blueprint 칸
+## 선언의 칸
 
 `name`, `description`, `screens`, `tools`, `permissions`, `app_connections`,
 `sdk_dependencies`만 있다. 알 수 없는 칸은 거절한다.

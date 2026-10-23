@@ -40,7 +40,7 @@ import { createNetClient, netFetch } from "@lophn/cap-net";
   요청을 두 번 받아도 되는지(멱등)를 앱의 계약으로 확인한다.
 - 거절은 `CapabilityError`다. `forbidden`이면 `permission`(`net.fetch`)과
   `scope`(`{ host, port }`)를 알린다. 거절은 다시 부르지 않는다.
-- `checkDeclaration(blueprint)` — 이 package를 쓰는 선언이 `net.fetch`를
+- `checkDeclaration(declaration)` — 이 package를 쓰는 선언이 `net.fetch`를
   빠뜨렸는지 검사한다.
 - type: `NetClient`, `NetRequest`, `NetFetchOptions`, `NetResponse`,
   `CapabilityError`, `DeclarationCheck`

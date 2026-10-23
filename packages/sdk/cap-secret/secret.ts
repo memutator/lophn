@@ -78,7 +78,7 @@ export function createSecretStandIn(
           new CapabilityError({
             code: "forbidden",
             message:
-              `secret.use {"name":"${request.name}"} is not permitted. Declare this permission in the blueprint and ask the person to grant it.`,
+              `secret.use {"name":"${request.name}"} is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
             permission: "secret.use",
             scope: { name: request.name },
           }),

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { ToolDeclaration } from "@lophn/declaration";
 
-// 버튼이 쓰는 blueprint tool 선언.
+// 버튼이 쓰는 선언의 tool.
 export type ToolSpec = Pick<ToolDeclaration, "name" | "title">;
 
 export type ToolInput =

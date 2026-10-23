@@ -19,7 +19,7 @@ import { useSecret } from "@lophn/cap-secret";
   destination으로 `netFetch`하면 lophn이 `Authorization: Bearer <값>`으로
   붙인다. 값은 앱에 없다. 다른 command나 다른 목적지(redirect로 바뀐 곳
   포함)에는 붙지 않고, 준비한 값은 60초 뒤 사라진다. 사람이 앱 Access 탭에서
-  넣은 값(OAuth secret이면 sign-in한 access token)과 blueprint의
+  넣은 값(OAuth secret이면 sign-in한 access token)과 선언의
   `secret.use`·`net.fetch`, 사람의 허락이 필요하다. 목적지는 https이고 이 기계
   밖으로 나가지 않는 loopback만 http이며, `net.fetch` grant가 허락한 정확한
   host·port여야 한다. 호출마다 사람 확인을 받지 않고, tool을 부른 쪽(사람
@@ -34,15 +34,15 @@ import { useSecret } from "@lophn/cap-secret";
   부르지 않는다. OAuth secret에 sign-in이 필요하면(한 적 없음, 서비스가
   sign-in을 끝냄) `conflict`이고 message는 `oauth sign-in required`다. 앱은
   사람에게 앱 Access 탭에서 다시 sign-in하라고 알린다.
-- `checkDeclaration(blueprint)` — 이 package를 쓰는 선언이 `secret.use`와
+- `checkDeclaration(declaration)` — 이 package를 쓰는 선언이 `secret.use`와
   `net.fetch`를 빠뜨렸는지 검사한다.
 - type: `SecretClient`, `SecretUseRequest`, `SecretUseResult`, `SecretStandIn`,
   `CapabilityError`, `DeclarationCheck`
 
 ## OAuth secret
 
-Google Drive처럼 OAuth로 여는 서비스는 blueprint의 `secret.use`에 `oauth`를
-둔다. 표준 authorization code와 PKCE다.
+Google Drive처럼 OAuth로 여는 서비스는 선언의 `secret.use`에 `oauth`를 둔다.
+표준 authorization code와 PKCE다.
 
 ```ts
 {

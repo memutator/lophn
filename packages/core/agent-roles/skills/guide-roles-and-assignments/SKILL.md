@@ -25,10 +25,10 @@ looks after the project's domains: it makes them, and writes their kinds files,
 used at once, without asking you. It does not look after apps.
 
 App Engineer is one per app, created when you register the app. It decides what
-the app should do, designs it, writes its code and blueprint, checks it in a
-preview and releases it. It also looks after the app's domains the same way the
-Project Manager looks after a project's. To start a new app you ask lophn; the
-app is not placed in a project.
+the app should do, designs it, writes its code and declaration (`lophn.ts`),
+checks it in a preview and releases it. It also looks after the app's domains
+the same way the Project Manager looks after a project's. To start a new app you
+ask lophn; the app is not placed in a project.
 
 Operator is an agent you create for a project or an app. It does repeated or
 routine work with the kinds of the domains you let it work with and the tools

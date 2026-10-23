@@ -24,13 +24,13 @@ export const VISUAL_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app"), view: nonblank }),
     routes: [appTools, recordMessage],
     description:
-      "Show an app card in the conversation. view is a screen key of the app's blueprint that declares the card size.",
+      "Show an app card in the conversation. view is a screen key of the app's declaration that declares the card size.",
     effect: "read",
     handler: async (input, ctx) => {
       const { app, view } = input;
-      const blueprint = await readOf(ctx.core, appTools, { app });
-      if (!blueprint.ok) return blueprint;
-      if (!cardViewDeclared(blueprint.value.screens, view)) {
+      const read = await readOf(ctx.core, appTools, { app });
+      if (!read.ok) return read;
+      if (!cardViewDeclared(read.value.screens, view)) {
         return notFound("the app has no such card view");
       }
       const posted = await commandOf(

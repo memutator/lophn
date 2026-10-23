@@ -14,7 +14,7 @@ export interface ToolButtonProps {
   tool: ToolSpec;
   // 입력, 또는 누를 때 입력을 만드는 함수. 없으면 null이다.
   input?: ToolInput | (() => ToolInput);
-  // 버튼 글. 없으면 blueprint tool의 title이다.
+  // 버튼 글. 없으면 선언한 tool의 title이다.
   children?: string;
   // 앱 view의 `lophnApp`. 없으면 window의 것을 쓴다.
   app?: AppBridge;
@@ -25,7 +25,7 @@ export interface ToolButtonProps {
   disabled?: boolean;
 }
 
-// blueprint tool 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
+// 선언한 tool 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
 export function ToolButton(
   {
     tool,

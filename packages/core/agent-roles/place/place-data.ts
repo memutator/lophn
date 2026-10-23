@@ -189,7 +189,7 @@ async function readPlaceData(
       name: found.name,
       purpose: found.description,
       source: appSource,
-      blueprint: appSource === null ? "lophn.ts" : `${appSource}/lophn.ts`,
+      declaration: appSource === null ? "lophn.ts" : `${appSource}/lophn.ts`,
     };
     if (found.active_release !== null) {
       const tools = await readOf(call, appTools, { app: found.id });

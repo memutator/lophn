@@ -79,7 +79,7 @@ export function fromBroker(
     code,
     message: `${permission} ${
       JSON.stringify(scope)
-    } is not permitted. Declare this permission in the blueprint and ask the person to grant it.`,
+    } is not permitted. Declare this permission in the declaration and ask the person to grant it.`,
     permission,
     scope,
   });

@@ -91,7 +91,7 @@ export function firstPromptOf(app: string, prompt: string): string {
   return [
     `lophn 앱 ${app}의 일을 맡아 진행해 줘.`,
     "1. 연결된 앱 source에서 작업한다.",
-    "2. 막히거나 blueprint 변경이 필요하면 `lophn message send`로 알린다.",
+    "2. 선언(`lophn.ts`)이 정본이다. 맡은 일에 필요하면 코드보다 먼저 직접 고치고 `deno.json`의 import map도 같은 정확한 version으로 함께 고친다. 막혔을 때만 `lophn message send`로 알린다.",
     "3. 끝나면 한 일과 남은 일을 `lophn message send`로 알린다.",
     "아래 <assignment>가 App Engineer가 맡긴 일이다.",
     "<assignment>",

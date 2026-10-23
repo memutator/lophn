@@ -2,7 +2,7 @@
 
 ## 목적
 
-앱 view의 bridge(`lophnApp`)를 쓰는 UI 둘이다. blueprint tool 하나를 부르는
+앱 view의 bridge(`lophnApp`)를 쓰는 UI 둘이다. 선언한 tool 하나를 부르는
 `ToolButton`·`useTool`과 앱 화면 root의 `AppErrorBoundary`다. 호출은 앱 view의
 `lophnApp.callTool` 하나로만 한다. 호출이 허락되는지, 사람이 정해야 하는지는
 lophn이 정하고 앱 안에 따로 확인 dialog를 두지 않는다. 조작은 lophn 화면과 같은
@@ -17,8 +17,8 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 
 - `ToolButton({tool, input?, children?, app?, onDone?, onFailed?, variant?, size?, disabled?})`
   — tool 하나의 버튼이다.
-  - `tool`은 blueprint tool 선언의 `name`·`title`이다. 버튼 글은 `children`,
-    없으면 선언의 `title`이다. DOM에는 `data-tool={tool.name}`이 붙는다.
+  - `tool`은 선언한 tool의 `name`·`title`이다. 버튼 글은 `children`, 없으면
+    선언의 `title`이다. DOM에는 `data-tool={tool.name}`이 붙는다.
   - 부르는 동안 버튼은 눌리지 않고(`aria-busy`) 시계 아이콘을 보인다. 같은
     버튼을 다시 눌러도 두 번 부르지 않는다.
   - 실패하면 원문 없이 "<label> didn't finish. Try again."을 버튼 옆에 남기고
@@ -42,8 +42,8 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 
 ## 요구 permission
 
-없다. 부르는 tool의 permission은 그 앱의 blueprint 선언이 정한다.
-`AppErrorBoundary`의 오류 전달은 플랫폼이 이미 여는 통로라 따로 선언하지 않는다.
+없다. 부르는 tool의 permission은 그 앱의 선언이 정한다. `AppErrorBoundary`의
+오류 전달은 플랫폼이 이미 여는 통로라 따로 선언하지 않는다.
 
 ## peer 의존
 
@@ -57,7 +57,7 @@ import { AppErrorBoundary, ToolButton, useTool } from "@lophn/app-ui";
 
 ## 사용
 
-blueprint 선언으로 버튼을 만들고 앱 root를 경계로 감싼다.
+선언으로 버튼을 만들고 앱 root를 경계로 감싼다.
 
 ```tsx
 import { AppErrorBoundary, ToolButton } from "@lophn/app-ui";

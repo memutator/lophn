@@ -55,7 +55,7 @@ export type PlaceData = {
   self: { role: Role; name: string };
   // 이 agent가 놓인 place. project 또는 app 중 하나다.
   project: PlaceProject | null;
-  app: (PlaceApp & { blueprint: string }) | null;
+  app: (PlaceApp & { declaration: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
   // 쓰고 있는 kind 글. lophn과 kind가 없는 그릇은 null.
@@ -100,7 +100,7 @@ function appLines(
 ): string[] {
   const lines: string[] = [];
   if (app.source !== null) lines.push(`${indent}Source folder: ${app.source}`);
-  lines.push(`${indent}Declaration: ${app.blueprint}`);
+  lines.push(`${indent}Declaration: ${app.declaration}`);
   if (release !== null) {
     const tools = release.tool_names.length > 0
       ? [...release.tool_names].sort(cmp).join(", ")

@@ -76,7 +76,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app").optional() }),
     routes: [appToolIndex, domainList],
     description:
-      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Tools of other domains show only when public. Use it to see what apps already do and to get exact tool names for blueprint app_connections.",
+      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Tools of other domains show only when public. Use it to see what apps already do and to get exact tool names for `app_connections` in the app's declaration.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appToolIndex, input);
@@ -167,7 +167,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app") }),
     routes: [declarationCheck],
     description:
-      "Check the blueprint of an app and return errors, warnings and the permission review separately. Edit the blueprint file with the file tools.",
+      "Check the declaration of an app and return errors, warnings and the permission review separately. The declaration is `lophn.ts` in the app's source, sealed with each release; edit it with the file tools.",
     effect: "read",
     handler: async (input, ctx) => {
       const { app } = input;
@@ -176,8 +176,8 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
       const { errors, warnings, permission_review } = checked.value;
       return ok(fitted(
         errors.length === 0
-          ? `blueprint of app ${app} has no errors`
-          : `blueprint of app ${app} has ${errors.length} errors`,
+          ? `declaration of app ${app} has no errors`
+          : `declaration of app ${app} has ${errors.length} errors`,
         { errors, warnings, permission_review },
       ));
     },

@@ -10,7 +10,9 @@ export type CommonPlaceholders = {
   "common.button.columns": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
+  "common.button.next-month": Record<never, never>;
   "common.button.next-page": Record<never, never>;
+  "common.button.previous-month": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.register": Record<never, never>;
@@ -61,6 +63,8 @@ export type CommonPlaceholders = {
   "common.label.palette-key-close": Record<never, never>;
   "common.label.palette-key-move": Record<never, never>;
   "common.label.palette-key-open": Record<never, never>;
+  "common.label.pick-date": Record<never, never>;
+  "common.label.pick-dates": Record<never, never>;
   "common.label.range-custom": Record<never, never>;
   "common.label.range-last-30-days": Record<never, never>;
   "common.label.range-last-7-days": Record<never, never>;

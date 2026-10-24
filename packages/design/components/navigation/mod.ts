@@ -1,5 +1,5 @@
 // navigation: 화면 안에서 오가는 control.
-// 탭 묶음의 root. 한 화면 안의 같은 층 보기를 오갈 때 쓴다. 작업대 문서 탭은 shell이 따로 둔다.
+// 탭 묶음의 root. 한 화면 안의 같은 층 보기를 오갈 때 쓴다. 본문은 두고 거르는 값만 바꾸면 SegmentedControl이다. 작업대 문서 탭은 shell이 따로 둔다.
 export { Tabs, type TabsProps } from "./tabs/tabs.tsx";
 // Tab들을 한 줄로 묶는다. Tabs 바로 안에 한 번 둔다.
 export { TabList } from "./tabs/tabs.tsx";

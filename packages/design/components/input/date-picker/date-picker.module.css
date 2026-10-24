@@ -1,0 +1,5 @@
+/* Popover는 trigger 폭보다 좁아지지 않는다. 넓은 칸에서 열어도 달력이 가운데에 선다. */
+.panel {
+  display: flex;
+  justify-content: center;
+}

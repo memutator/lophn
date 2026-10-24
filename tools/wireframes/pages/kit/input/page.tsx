@@ -1,10 +1,15 @@
 // Kit · input. @lophn/ui/input의 component와 예제(control-sizes, orders-filters).
 import { useContext, useState } from "react";
 import {
+  Calendar,
   Checkbox,
+  DatePicker,
+  DateRangePicker,
+  type DaySpan,
   Field,
   FieldContext,
   Input,
+  SegmentedControl,
   Select,
   SwatchPicker,
   Switch,
@@ -47,8 +52,29 @@ const SWATCHES = [
   },
 ];
 
+const STATUSES = [
+  { value: "complete", label: "Complete" },
+  { value: "incomplete", label: "Incomplete" },
+  { value: "pending", label: "Pending" },
+];
+
+const VIEWS = [
+  { value: "day", label: "Day" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "year", label: "Year", disabled: true },
+];
+
 export function KitInput() {
   const [swatch, setSwatch] = useState("blue");
+  const [status, setStatus] = useState("complete");
+  const [view, setView] = useState("week");
+  const [day, setDay] = useState("2026-10-09");
+  const [due, setDue] = useState("");
+  const [span, setSpan] = useState<DaySpan | undefined>({
+    from: "2026-10-12",
+    to: "2026-10-16",
+  });
   const options = [
     { value: "daily", label: "Daily" },
     { value: "weekly", label: "Weekly" },
@@ -134,6 +160,109 @@ export function KitInput() {
             <Switch label="Wrap long lines" />
             <Switch label="Disabled, on" defaultChecked disabled />
             <Switch label="Disabled" disabled />
+          </div>
+        </div>
+      </Section>
+      <Section
+        title="SegmentedControl"
+        note="두세 개 가운데 하나를 늘 펼쳐 고른다. 칸 폭은 같고 높이는 같은 size의 Button과 같다. 방향키로 옮긴다."
+      >
+        <div className={kit.column}>
+          <SegmentedControl
+            label="Status"
+            options={STATUSES}
+            value={status}
+            onValueChange={setStatus}
+          />
+          <SegmentedControl
+            label="View"
+            size="sm"
+            options={VIEWS}
+            value={view}
+            onValueChange={setView}
+          />
+          <div className={kit.field}>
+            <Field label="Repeat" help="In a Field the group takes the label.">
+              <SegmentedControl
+                label="Repeat"
+                options={options}
+                value="weekly"
+                onValueChange={() => {}}
+              />
+            </Field>
+          </div>
+        </div>
+      </Section>
+      <Section
+        title="Calendar"
+        note="날짜를 고르는 달력 한 장. 오늘은 테두리, 고른 날은 ink, 기간 사이는 selection 색이다. min·max 밖은 누를 수 없다."
+      >
+        <div className={kit.colTwo}>
+          <Calendar selected={day} onPick={setDay} now={EXAMPLE_NOW} />
+          <Calendar
+            selected={{ from: "2026-10-12", to: "2026-10-16" }}
+            onPick={() => {}}
+            now={EXAMPLE_NOW}
+            min="2026-10-05"
+            max="2026-10-28"
+          />
+        </div>
+      </Section>
+      <Section
+        title="DatePicker and DateRangePicker"
+        note="Select와 같은 칸이고 누르면 Calendar가 뜬다. 기간은 두 번 눌러 양 끝을 고른다."
+      >
+        <div className={kit.colTwo}>
+          <div className={kit.column}>
+            <div className={kit.field}>
+              <Field label="Due date">
+                <DatePicker
+                  value={due}
+                  onValueChange={setDue}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Start date" error="Pick a date after today.">
+                <DatePicker
+                  value="2026-10-01"
+                  onValueChange={() => {}}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Disabled date">
+                <DatePicker
+                  value="2026-10-06"
+                  onValueChange={() => {}}
+                  now={EXAMPLE_NOW}
+                  disabled
+                />
+              </Field>
+            </div>
+          </div>
+          <div className={kit.column}>
+            <div className={kit.field}>
+              <Field label="Trip">
+                <DateRangePicker
+                  value={span}
+                  onValueChange={setSpan}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Leave" help="Nothing picked yet.">
+                <DateRangePicker
+                  value={undefined}
+                  onValueChange={() => {}}
+                  now={EXAMPLE_NOW}
+                  size="sm"
+                />
+              </Field>
+            </div>
           </div>
         </div>
       </Section>

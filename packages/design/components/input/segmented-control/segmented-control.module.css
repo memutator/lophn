@@ -1,0 +1,88 @@
+.group {
+  box-sizing: border-box;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: var(--space-1);
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.option {
+  position: relative;
+  display: flex;
+  min-width: var(--space-0);
+}
+
+.input {
+  position: absolute;
+  inset: var(--space-0);
+  margin: var(--space-0);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}
+
+.segment {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-0);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--type-tracking-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color var(--motion-duration-short) var(--motion-ease),
+    color var(--motion-duration-short) var(--motion-ease);
+}
+
+.sm .segment {
+  height: calc(var(--control-sm-height) - var(--space-2));
+  padding: var(--space-0) var(--control-sm-pad-x);
+}
+
+.md .segment {
+  height: calc(var(--control-md-height) - var(--space-2));
+  padding: var(--space-0) var(--control-md-pad-x);
+}
+
+.lg .segment {
+  height: calc(var(--control-lg-height) - var(--space-2));
+  padding: var(--space-0) var(--control-lg-pad-x);
+}
+
+.input:hover:not(:disabled) + .segment {
+  color: var(--color-text-primary);
+}
+
+.input:checked + .segment {
+  background: var(--color-ink-background);
+  color: var(--color-ink-text);
+}
+
+.input:focus-visible + .segment {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.input:disabled + .segment {
+  color: var(--color-text-disabled);
+}
+
+.input:checked:disabled + .segment {
+  background: var(--color-surface-subtle);
+}

@@ -211,7 +211,8 @@ export function desktopEntry(): string {
     "Icon=lophn",
     "Type=Application",
     "Categories=Development;",
-    "StartupWMClass=lophn",
+    // Electron은 X11 WM_CLASS를 앱 이름(shell main package.json의 name)으로 둔다. 이름을 바꾸면 userData 폴더가 옮겨져 이쪽을 맞춘다.
+    "StartupWMClass=lophn-shell-main",
     "Terminal=false",
     "",
   ].join("\n");

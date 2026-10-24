@@ -14,7 +14,7 @@ import { CloseGuards } from "../../editor/close-guard.ts";
 import type { CoreConnection } from "../core/connection.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
-import type { InstalledTray } from "../tray.ts";
+import { appIconPath, type InstalledTray } from "../tray.ts";
 import { connectCore } from "./core.ts";
 import {
   type DesktopWindows,
@@ -64,6 +64,8 @@ export type ShellContext = {
   here: string;
   dataRoot: string;
   headless: HeadlessMode;
+  /** lophn 표식 PNG. tray와 창 아이콘. */
+  appIcon: string;
   overlays: ReturnType<typeof electronOverlays>;
   /** 순서는 최근에 focus를 받은 창이 끝이다. 창 밖에서 온 일은 끝의 창에 시킨다. */
   windows: Set<BrowserWindow>;
@@ -143,6 +145,12 @@ export function createShellContext(): ShellContext {
     here,
     dataRoot,
     headless,
+    appIcon: appIconPath({
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      // build 결과에서 here는 packages/shell/main/dist다.
+      desktopDir: join(here, "..", "desktop"),
+    }),
     overlays,
     windows,
     detached: new Set(),

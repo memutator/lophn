@@ -55,12 +55,7 @@ import { registerViewSchemes } from "../security.ts";
 import { createShellHandler } from "../shell-protocol.ts";
 import { listenShortcuts } from "../shortcuts.ts";
 import { startSingleInstance } from "../single-instance.ts";
-import {
-  installTray,
-  TRAY_ICON_SIZE,
-  type TrayFactory,
-  trayIconPath,
-} from "../tray.ts";
+import { installTray, TRAY_ICON_SIZE, type TrayFactory } from "../tray.ts";
 import { createWindowControl } from "../window-controls.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Coding } from "./coding.ts";
@@ -291,12 +286,7 @@ export function register(
       if (!headless.headless) {
         ctx.tray.current = installTray({
           factory: electronTray,
-          icon: trayIconPath({
-            packaged: app.isPackaged,
-            resourcesPath: process.resourcesPath,
-            // build 결과에서 here는 packages/shell/main/dist다.
-            desktopDir: join(ctx.here, "..", "desktop"),
-          }),
+          icon: ctx.appIcon,
           actions: {
             openWindow: () => desktop.show(),
             openLauncher: () => desktop.open(),

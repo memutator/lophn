@@ -160,8 +160,8 @@ interface IconLocation {
   desktopDir: string;
 }
 
-/** lophn 표식. packaged는 resources 옆, 개발 실행은 desktop 폴더. */
-export function trayIconPath(location: IconLocation): string {
+/** lophn 표식. tray와 창(작업 표시줄) 아이콘이 같이 쓴다. packaged는 resources 옆, 개발 실행은 desktop 폴더. */
+export function appIconPath(location: IconLocation): string {
   return location.packaged
     ? join(location.resourcesPath, "icon.png")
     : join(location.desktopDir, "icon.png");

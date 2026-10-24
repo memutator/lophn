@@ -102,7 +102,9 @@ export function openDesktopWindow(
       : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
-        const window = new BrowserWindow(surfaceOptions(config, headless));
+        const window = new BrowserWindow(
+          surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
+        );
         const shotName = `window-${++shotSerial}`;
         if (headless.headless) {
           window.webContents.once("did-finish-load", () =>

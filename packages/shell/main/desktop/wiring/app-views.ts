@@ -209,7 +209,9 @@ export function register(
       coreInternal("read", "apps", "tools", { app, release })
     ),
     create: (config: AppWindowConfig) => {
-      const window = new BrowserWindow(surfaceOptions(config, headless));
+      const window = new BrowserWindow(
+        surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
+      );
       // 창 자신은 page가 없다. 새 창 요청도 받지 않는다.
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
       const ref = windowRef(window);

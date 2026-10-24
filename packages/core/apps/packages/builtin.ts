@@ -39,9 +39,96 @@ async function readTextOrNull(path: string): Promise<string | null> {
   }
 }
 
-// components/<분류>/mod.ts에서 분류의 index를 줄 단위로 뽑는다. export 문 바로 위 `//` 주석이 "언제 쓰나" 한 줄이라
-// 따로 쓰면 낡는다. type export와 주석 없는 export는 뺀다.
-function indexOfCategory(category: string, mod: string): string {
+// 선언 위의 주석 줄(`//`, JSDoc)이다.
+function isComment(line: string): boolean {
+  const trimmed = line.trimStart();
+  return trimmed.startsWith("//") || trimmed.startsWith("/*") ||
+    trimmed.startsWith("*");
+}
+
+// source에서 `interface|type <name>` 선언 하나를 바로 위 주석과 함께 그대로 옮긴다. interface는 `}`에서, type은
+// 괄호 밖 `;`에서 끝난다(deno fmt가 type 끝에 `;`를 붙인다). 못 찾으면 null이다.
+function declarationOf(
+  lines: readonly string[],
+  name: string,
+  exported: boolean,
+): string | null {
+  const head = new RegExp(
+    `^${exported ? "export " : ""}(interface|type) ${name}\\b`,
+  );
+  const start = lines.findIndex((line) => head.test(line));
+  if (start === -1) return null;
+  const isType = /^(export )?type /.test(lines[start]);
+  let first = start;
+  while (first > 0 && isComment(lines[first - 1])) first -= 1;
+  let depth = 0;
+  for (let at = start; at < lines.length; at += 1) {
+    for (const char of lines[at]) {
+      if (char === "{" || char === "(") depth += 1;
+      if (char === "}" || char === ")") depth -= 1;
+    }
+    const end = lines[at].trimEnd();
+    if (depth === 0 && (isType ? end.endsWith(";") : end.endsWith("}"))) {
+      return lines.slice(first, at + 1).join("\n");
+    }
+  }
+  return null;
+}
+
+// 내보낸 type의 정의다. extends가 가리키는 같은 file의 내보내지 않은 type(`NativeInput` 같은 native 속성 묶음)을
+// 앞에 붙인다. 그것 없이는 무엇을 더 받는지 보이지 않는다.
+function typesOf(source: string, names: readonly string[]): string[] {
+  const lines = source.split("\n");
+  const found: string[] = [];
+  for (const name of names) {
+    const declaration = declarationOf(lines, name, true);
+    if (declaration === null) continue;
+    const parents = /\bextends ([\w, ]+)\{/.exec(declaration)?.[1] ?? "";
+    for (const parent of parents.split(",").map((part) => part.trim())) {
+      const local = parent === "" ? null : declarationOf(lines, parent, false);
+      if (local !== null && !found.includes(local)) found.push(local);
+    }
+    found.push(declaration);
+  }
+  return found;
+}
+
+// 내보낸 type이 없는 component는 `export function <name>(`의 첫 인자 type을 옮긴다. 이름 붙은 type이면 그 정의이고,
+// 인자 자리에 바로 쓴 type이면 signature 한 줄이다. 인자가 없으면 null이다. 부르는 쪽이 component(PascalCase)만 넘긴다.
+function signatureOf(lines: readonly string[], name: string): string | null {
+  const start = lines.findIndex((line) =>
+    line.startsWith(`export function ${name}(`)
+  );
+  if (start === -1) return null;
+  const text = lines.slice(start).join("\n");
+  const open = text.indexOf("(");
+  let depth = 0;
+  let colon = -1;
+  let close = -1;
+  for (let at = open; at < text.length && close === -1; at += 1) {
+    const char = text[at];
+    if (char === "(" || char === "{") depth += 1;
+    if (char === ")" || char === "}") depth -= 1;
+    if (char === ":" && depth === 1 && colon === -1) colon = at;
+    if (depth === 0) close = at;
+  }
+  if (colon === -1 || close === -1) return null;
+  const type = text.slice(colon + 1, close).trim().replace(/,$/, "");
+  if (/^\w+$/.test(type)) {
+    return declarationOf(lines, type, false) ??
+      declarationOf(lines, type, true);
+  }
+  return `function ${name}(props: ${type.replace(/\s+/g, " ")})`;
+}
+
+// components/<분류>/mod.ts에서 분류의 index를 뽑는다. export 문 바로 위 `//` 주석이 "언제 쓰나" 한 줄이라 따로 쓰면
+// 낡는다. 같은 문이 내보내는 type(Props 등)은 component source의 정의를 주석째 옮겨 props를 보인다. 내보낸 type이 없으면
+// component signature의 인자 type이다. 주석 없는 export는 뺀다.
+async function indexOfCategory(
+  folder: string,
+  category: string,
+  mod: string,
+): Promise<string> {
   // 첫 줄은 분류 설명이라 다음 export의 주석에 섞지 않는다.
   const [summary, ...body] = mod.split("\n");
   const lines = [
@@ -65,16 +152,29 @@ function indexOfCategory(category: string, mod: string): string {
       comment = [];
       continue;
     }
-    if (!statement.includes("}")) continue;
-    const names = statement.slice(
+    if (!/from "[^"]+";/.test(statement)) continue;
+    const parts = statement.slice(
       statement.indexOf("{") + 1,
       statement.indexOf("}"),
-    )
-      .split(",").map((part) => part.trim()).filter((part) =>
-        part !== "" && !part.startsWith("type ")
-      );
+    ).split(",").map((part) => part.trim()).filter((part) => part !== "");
+    const names = parts.filter((part) => !part.startsWith("type "));
+    const types = parts.filter((part) => part.startsWith("type "))
+      .map((part) => part.slice("type ".length));
+    const from = /from "([^"]+)";/.exec(statement)?.[1];
     if (names.length > 0 && comment.length > 0) {
       lines.push(`- ${names.join(", ")}: ${comment.join(" ")}`);
+      const source = from === undefined ? null : await readTextOrNull(
+        new URL(from, `file://${folder}/components/${category}/`).pathname,
+      );
+      const found = source === null
+        ? []
+        : types.length > 0
+        ? typesOf(source, types)
+        : names.filter((name) => /^[A-Z][a-z]/.test(name))
+          .flatMap((name) => signatureOf(source.split("\n"), name) ?? []);
+      if (found.length > 0) {
+        lines.push("", "```ts", found.join("\n\n"), "```", "");
+      }
     }
     statement = null;
     comment = [];
@@ -82,8 +182,8 @@ function indexOfCategory(category: string, mod: string): string {
   return lines.join("\n");
 }
 
-// guide.md가 있으면 그것이다. 없고 components/<분류>/mod.ts가 있으면(@lophn/ui) 분류마다 export 이름과 "언제 쓰나"
-// 한 줄의 index를 잇는다. 둘 다 없으면 null이다.
+// guide.md가 있으면 그것이다. 없고 components/<분류>/mod.ts가 있으면(@lophn/ui) 분류마다 export 이름, "언제 쓰나"
+// 한 줄, props 정의의 index를 잇는다. 둘 다 없으면 null이다.
 async function guideOf(folder: string): Promise<string | null> {
   const written = await readTextOrNull(`${folder}/guide.md`);
   if (written !== null) return written;
@@ -93,7 +193,9 @@ async function guideOf(folder: string): Promise<string | null> {
     const mod = await readTextOrNull(
       `${folder}/components/${category}/mod.ts`,
     );
-    if (mod !== null) sections.push(indexOfCategory(category, mod));
+    if (mod !== null) {
+      sections.push(await indexOfCategory(folder, category, mod));
+    }
   }
   return sections.length === 0 ? null : sections.join("\n\n");
 }

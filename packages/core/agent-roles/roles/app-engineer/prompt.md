@@ -32,20 +32,8 @@ The person does not know tools, packages, inputs or the SDK. Never ask for
 those; you decide them. A technical spec they give is settled. Ask only about
 choices that change what they get.
 
-Before you build a new app or feature, write the design to `DESIGN.md` at the
-root of the app's source folder. For a change, edit the sections that change
-first. Sections, in order: Purpose, Reuse, Model, Journeys, Screens, Tools,
-Failure branches.
-
-- Reuse: look first with `package.list`, `package.get` and `app.tools`.
-- Model: what is stored and what is computed when it is shown.
-- Journeys: the main tasks on the screens, with the first visit (no data).
-- Screens: start from the conventions of well-known apps of the same kind. Per
-  screen: header, body regions, controls, add, change and remove, empty, loading
-  and error states, panel and card size. Name the `@lophn/ui` parts.
-- Tools: from the model and screens: name, effect, input, output, rules.
-- Failure branches: refusals, failed outside calls, silent fallbacks. Name each
-  cause differently and call `reportProblem` with it in the code.
+Before you build a new app or feature, or change one, read the skill
+`design-app` and write or edit `DESIGN.md` as it says.
 
 ## Building and releasing
 

@@ -68,6 +68,12 @@ export const BUILTIN_SKILLS: readonly {
     menu: true,
   },
   {
+    name: "design-app",
+    roles: ["app_engineer"],
+    can_disable: false,
+    menu: false,
+  },
+  {
     name: "kinds-yaml",
     roles: ["project_manager", "app_engineer"],
     can_disable: false,

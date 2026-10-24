@@ -90,6 +90,7 @@ import type {
 } from "./source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 import { desksFromStored, toStoredLayout } from "./layout-map.ts";
+import { agentOf } from "./agent/tab-fields.ts";
 import {
   PaletteButton,
   useMainCommand,
@@ -506,6 +507,24 @@ export function Workspace(props: WorkspaceProps) {
     commit(setDeskView(latestDesks.current, at, next));
   const updateRef = useRef(update);
   updateRef.current = update;
+
+  // 저장된 agent 탭은 제목 없이 되살아나고, 본문을 그린 탭만 이름을 채운다. 작업대가 다시 열리면(Settings나 런처에
+  // 다녀오거나 연결이 잠깐 끊기면) 고르지 않은 탭의 이름이 비므로 agent 목록의 이름으로 채운다.
+  useEffect(() => {
+    const nameOf = (tab: TabItem) =>
+      tab.kind === "agent" && tab.title === ""
+        ? sidebarAgents.agents.find((row) => row.assignment === agentOf(tab))
+          ?.name
+        : undefined;
+    if (!allDeskTabs(desks).some((tab) => nameOf(tab) !== undefined)) return;
+    commit(
+      mapDeskTabs(latestDesks.current, (tab) => {
+        const name = nameOf(tab);
+        return name === undefined ? tab : { ...tab, title: name };
+      }),
+      false,
+    );
+  }, [desks, sidebarAgents.agents]);
 
   // focus가 맨 위 floated 패널에 있는지. 저장하지 않는다. 늘 한 곳(칸 또는 패널)만 focus 색이고
   // 접히지 않은 패널이 없으면 칸이다.

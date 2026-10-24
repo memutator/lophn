@@ -17,10 +17,6 @@ const STOP_GRACE_MS = 5_000;
 /** hello가 이 안에 오지 않으면 core 시작이 실패다. */
 const HELLO_TIMEOUT_MS = 30_000;
 
-// core 자신은 설치 코드·data root·loopback·고정 child만 연다.
-// loopback의 IPv6 주소는 Deno 규칙대로 대괄호가 필요하다.
-const CORE_PERMISSION_FLAGS = ["--allow-sys=uid,gid,statfs"];
-
 interface CoreSpawn {
   command: string;
   args: readonly string[];
@@ -46,23 +42,6 @@ function packagedDenoDir(home: string = homedir()): string {
   return join(home, ".cache", "lophn", "deno");
 }
 
-/** packaged core의 읽기·쓰기·환경·실행 권한. 일반 `--allow-all`·ffi·전체 환경 접근은 없다. */
-function packagedPermissionFlags(
-  options: LaunchOptions,
-  denoDir: string,
-): string[] {
-  // platform/ 옆의 guides/는 설치 묶음의 읽기 전용 안내다.
-  return [
-    `--allow-read=${[options.repoRoot, options.dataRoot, denoDir].join(",")}`,
-    `--allow-write=${options.dataRoot}`,
-    "--allow-env=LOPHN_HOME,LOPHN_INSTALL_ROOT,HOME,PATH,DENO_DIR,XDG_RUNTIME_DIR,XDG_CACHE_HOME,NODE_V8_COVERAGE",
-    // kill과 설치된 Deno 말고는 실행하지 않는다.
-    `--allow-run=/usr/bin/kill,${options.denoBinary}`,
-    "--allow-net=127.0.0.1,[::1]",
-    ...CORE_PERMISSION_FLAGS,
-  ];
-}
-
 /** `deno run <flags> packages/core/main/daemon/main.ts`. argv·env에 credential은 없다. */
 function coreLaunch(options: LaunchOptions): CoreSpawn {
   const entry = join(
@@ -80,14 +59,11 @@ function coreLaunch(options: LaunchOptions): CoreSpawn {
     LOPHN_HOME: options.dataRoot,
   };
   if (options.packaged && !env.DENO_DIR) env.DENO_DIR = packagedDenoDir();
+  // core는 lophn 자신의 코드라 권한을 좁히지 않는다. 개발·test와 같은 권한이어야 test한 것이 그대로 배포된다.
+  // sandbox는 AI가 쓴 코드를 돌리는 process(앱, flow, release 준비 자식)가 각자 갖는다. packaged는 시작에
+  // 의존성을 받지 않는다.
   const flags = options.packaged
-    ? [
-      "run",
-      "--cached-only",
-      "--frozen",
-      "--no-prompt",
-      ...packagedPermissionFlags(options, env.DENO_DIR!),
-    ]
+    ? ["run", "--cached-only", "--frozen", "--no-prompt", "--allow-all"]
     : ["run", "--allow-all"];
   return {
     command: options.denoBinary,

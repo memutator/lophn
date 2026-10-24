@@ -147,6 +147,7 @@ export function DeskWindow(
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           position: "absolute",
           top: 0,
           bottom: 0,
@@ -159,37 +160,37 @@ export function DeskWindow(
           }),
         }}
       >
-        <PageSidebar
-          collapsed={collapsed}
-          onToggle={() => setCollapsed(!collapsed)}
-          onRail={() => {}}
-          onOpenFile={() => {}}
-          onAgent={() => {}}
-          onManage={() => {}}
+        <DeskBar
+          platform={platform}
+          leading={
+            <>
+              <LauncherButton onLauncher={() => {}} />
+              <PathLeading
+                projects={projects}
+                project={project}
+                onProject={setProject}
+                desks={options}
+                desk={active}
+                onDesk={setActive}
+              />
+              <MinimizedBar
+                items={view.floats.filter((item) => item.minimized)}
+                stripTab={stripTab}
+                onRestore={(key) => update((v) => restoreFloat(v, key))}
+                onDock={(key) => update((v) => dockTab(v, key))}
+                onClose={(key) => update((v) => closeFloat(v, key))}
+              />
+            </>
+          }
         />
         <div className={workspace.main}>
-          <DeskBar
-            platform={platform}
-            leading={
-              <>
-                {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                <PathLeading
-                  projects={projects}
-                  project={project}
-                  onProject={setProject}
-                  desks={options}
-                  desk={active}
-                  onDesk={setActive}
-                />
-                <MinimizedBar
-                  items={view.floats.filter((item) => item.minimized)}
-                  stripTab={stripTab}
-                  onRestore={(key) => update((v) => restoreFloat(v, key))}
-                  onDock={(key) => update((v) => dockTab(v, key))}
-                  onClose={(key) => update((v) => closeFloat(v, key))}
-                />
-              </>
-            }
+          <PageSidebar
+            collapsed={collapsed}
+            onToggle={() => setCollapsed(!collapsed)}
+            onRail={() => {}}
+            onOpenFile={() => {}}
+            onAgent={() => {}}
+            onManage={() => {}}
           />
           <div ref={content} className={workspace.content}>
             <div className={paneStyles.panes}>

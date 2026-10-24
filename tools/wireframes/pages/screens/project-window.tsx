@@ -618,7 +618,7 @@ export function PageSidebar(props: SidebarProps) {
           }}
           onManage={props.onManage}
           onToggle={props.onToggle}
-          onLauncher={() => {}}
+          onSettings={() => {}}
         />
       </div>
     </EventsProvider>

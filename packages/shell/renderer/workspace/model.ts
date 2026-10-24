@@ -29,8 +29,6 @@ interface SidebarView {
   readonly mode: SidebarMode;
   /** 화면에 차지하는 폭. hidden은 0. */
   readonly width: number;
-  /** 런처 복귀를 상단 바로 옮겨야 하는지. */
-  readonly launcherInTopBar: boolean;
 }
 
 /**
@@ -43,22 +41,14 @@ export function sidebarView(
   userChoseWidth: boolean,
 ): SidebarView {
   if (windowWidth < BREAKPOINT_SM) {
-    return { mode: "hidden", width: 0, launcherInTopBar: true };
+    return { mode: "hidden", width: 0 };
   }
   const collapsed = state.collapsedByUser ||
     (!userChoseWidth && windowWidth < BREAKPOINT_MD);
   if (collapsed) {
-    return {
-      mode: "collapsed",
-      width: SIDEBAR_COLLAPSED,
-      launcherInTopBar: true,
-    };
+    return { mode: "collapsed", width: SIDEBAR_COLLAPSED };
   }
-  return {
-    mode: "open",
-    width: clampSidebar(state.chosenWidth),
-    launcherInTopBar: false,
-  };
+  return { mode: "open", width: clampSidebar(state.chosenWidth) };
 }
 
 /** drag 폭을 200~400px로 가둔다. */

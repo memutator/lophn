@@ -124,7 +124,7 @@ function SidebarWorkflowsEmpty() {
           onSession={noop}
           onManage={noop}
           onToggle={noop}
-          onLauncher={noop}
+          onSettings={noop}
         />
       </div>
     </WithEvents>

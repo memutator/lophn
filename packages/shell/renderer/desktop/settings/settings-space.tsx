@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { Tooltip } from "@lophn/ui/overlay";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/wording";
 
@@ -11,7 +12,7 @@ import {
   type SidebarState,
   sidebarView,
 } from "../../workspace/model.ts";
-import { commonIcons } from "../../icons/mod.ts";
+import { commonIcons, workspaceIcons } from "../../icons/mod.ts";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
 import { SettingsSidebar } from "./sidebar/sidebar.tsx";
 import {
@@ -84,6 +85,9 @@ export function SettingsSpace(
   const frameRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
+  const toggleLabel = shown.mode === "collapsed"
+    ? t("project-workspace.button.expand-sidebar")
+    : t("project-workspace.button.collapse-sidebar");
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -125,54 +129,61 @@ export function SettingsSpace(
       data-settings-pane={settingsPane}
       ref={frameRef}
     >
-      <SettingsSidebar
-        mode={shown.mode}
-        width={shown.width}
-        pane={settingsPane}
-        onLauncher={onLauncher}
-        onToggle={() =>
-          setSidebar((state) => ({
-            ...state,
-            collapsedByUser: shown.mode !== "collapsed",
-          }))}
-        onPane={setSettingsPane}
-      />
+      <div className={styles.topBar}>
+        <TopBar
+          leading={
+            <span className={styles.leading}>
+              <LauncherButton onLauncher={onLauncher} />
+              {shown.mode === "hidden" ? null : (
+                <Tooltip content={toggleLabel}>
+                  <IconButton
+                    icon={workspaceIcons.sidebar}
+                    label={toggleLabel}
+                    data-sidebar-toggle=""
+                    aria-expanded={shown.mode === "open"}
+                    onClick={() =>
+                      setSidebar((state) => ({
+                        ...state,
+                        collapsedByUser: shown.mode !== "collapsed",
+                      }))}
+                  />
+                </Tooltip>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={commonIcons.back}
+                data-settings-back=""
+                onClick={onBack}
+              >
+                {t("common.button.back")}
+              </Button>
+              <Breadcrumbs
+                crumbs={[
+                  { label: t("settings.title.screen") },
+                  { label: paneLabel(settingsPane) },
+                ]}
+              />
+            </span>
+          }
+          trailing={
+            <span className={styles.trailing}>
+              <WaitingLayer
+                onOpenSession={onOpenSession}
+                onAnswerInTerminal={onAnswerInTerminal}
+              />
+              <PaletteButton />
+            </span>
+          }
+        />
+      </div>
       <div className={styles.main}>
-        <div className={styles.topBar}>
-          <TopBar
-            leading={
-              <span className={styles.leading}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={commonIcons.back}
-                  data-settings-back=""
-                  onClick={onBack}
-                >
-                  {t("common.button.back")}
-                </Button>
-                {shown.launcherInTopBar
-                  ? <LauncherButton onLauncher={onLauncher} />
-                  : null}
-                <Breadcrumbs
-                  crumbs={[
-                    { label: t("settings.title.screen") },
-                    { label: paneLabel(settingsPane) },
-                  ]}
-                />
-              </span>
-            }
-            trailing={
-              <span className={styles.trailing}>
-                <WaitingLayer
-                  onOpenSession={onOpenSession}
-                  onAnswerInTerminal={onAnswerInTerminal}
-                />
-                <PaletteButton />
-              </span>
-            }
-          />
-        </div>
+        <SettingsSidebar
+          mode={shown.mode}
+          width={shown.width}
+          pane={settingsPane}
+          onPane={setSettingsPane}
+        />
         <div className={styles.content}>
           {settings
             ? (

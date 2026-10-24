@@ -195,6 +195,7 @@ export type ProjectPlaceholders = {
   "project-workspace.label.path": Record<never, never>;
   "project-workspace.label.project-selector": Record<never, never>;
   "project-workspace.label.rail-agent": Record<never, never>;
+  "project-workspace.label.rail-browser": Record<never, never>;
   "project-workspace.label.rail-search": Record<never, never>;
   "project-workspace.label.rail-shortcuts": Record<never, never>;
   "project-workspace.label.rail-terminal": Record<never, never>;

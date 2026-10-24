@@ -7,7 +7,7 @@ import { iconPixels, useObservedSize } from "@lophn/ui/shared";
 import { workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { SettingsEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { openProjectManager } from "./reactions/project-manager.ts";
@@ -1111,7 +1111,9 @@ export function Workspace(props: WorkspaceProps) {
   // activity bar 아래쪽 바로 가기 단추. 통로가 없는 단추는 열 탭이 없어 아무것도 하지 않는다.
   const onRail = (action: RailAction) => {
     if (action === "terminal") openTerminalTab(host);
-    else if (action === "agent") openRole("lophn");
+    else if (action === "browser") {
+      if (browserApi !== null) openBrowserTab(host);
+    } else if (action === "agent") openRole("lophn");
     else openSearchShortcut(host);
   };
 
@@ -1323,167 +1325,170 @@ export function Workspace(props: WorkspaceProps) {
       <ViewKeepsProvider value={keeps}>
         <WebviewHostProvider value={webviews}>
           <div className={styles.workspace} data-space="project" ref={frameRef}>
-            {sidebarShown.mode === "hidden" ? null : (
-              <ProjectSidebar
-                mode={sidebarShown.mode === "collapsed" ? "collapsed" : "open"}
-                width={sidebarShown.width}
-                project={loaded.project}
-                source={source}
-                agents={sidebarAgents.agents}
-                sessions={allSessions.filter((item) => !runOpened.has(item.id))}
-                runs={panelRuns(
-                  runRecords,
-                  sidebarAgents.agents,
-                  projectId,
-                  allSessions,
-                )}
-                artifactPanel={
-                  <ArtifactPanel
-                    domains={domains}
-                    onOpen={(domain, name) => openArtifact(host, domain, name)}
-                  />
+            <div className={styles.topBar}>
+              <TopBar
+                leading={
+                  <span className={styles.leading}>
+                    <LauncherButton onLauncher={onLauncher} />
+                    <ProjectSelector
+                      options={projectOptions}
+                      active={projectId}
+                      onSelect={(id) => {
+                        if (id !== projectId) props.onOpenProject?.(id);
+                      }}
+                      onOpenChange={readListsOnOpen}
+                    />
+                    {deskOptions.length > 1
+                      ? (
+                        <>
+                          <PathSep />
+                          <DeskSelector
+                            options={deskOptions}
+                            active={desks.active}
+                            onOpenChange={readListsOnOpen}
+                            onSelect={(key) =>
+                              switchTo(
+                                key,
+                                openTabIn(
+                                  emptyView(),
+                                  workflowTab(key),
+                                  () => false,
+                                ),
+                              )}
+                          />
+                        </>
+                      )
+                      : null}
+                    <MinimizedBar
+                      items={view.floats.filter((item) => item.minimized)}
+                      stripTab={stripTab}
+                      onRestore={(key) => {
+                        setFloatFocused(true);
+                        update(restoreFloat(latest.current, key));
+                      }}
+                      onDock={(key) => {
+                        update(dockTab(latest.current, key));
+                        focusPaneBody(latest.current.focusedPane);
+                      }}
+                      onClose={(key) => close(null, key)}
+                    />
+                  </span>
                 }
-                jobs={props.jobs}
-                onOpenJobs={() => onSettings("jobs")}
-                current={currentTab?.kind === "document_editor"
-                  ? currentTab.key
-                  : null}
-                onLauncher={onLauncher}
-                onToggle={toggleSidebar}
-                reveal={reveal}
-                focusExplorer={explorerFocus}
-                onOpenFile={(path, keep) =>
-                  openFile(host, path, { preview: keep !== true })}
-                onMove={moveFile}
-                onTrash={trashFile}
-                onRail={onRail}
-                onAgent={(agent) =>
-                  openAgent(host, {
+                trailing={
+                  <span className={styles.trailing}>
+                    <WaitingLayer
+                      onOpenSession={(session) =>
+                        runToastAction({ kind: "session", session })}
+                      onAnswerInTerminal={(session) =>
+                        void terminal?.store.focusSession(session)}
+                    />
+                    {noticesHidden && hasNotices
+                      ? (
+                        <Tooltip
+                          content={t("project-workspace.button.show-notices")}
+                        >
+                          <IconButton
+                            icon={workspaceIcons.notices}
+                            label={t("project-workspace.button.show-notices")}
+                            data-show-notices=""
+                            onClick={() => setNoticesHidden(false)}
+                          />
+                        </Tooltip>
+                      )
+                      : null}
+                    <PaletteButton />
+                  </span>
+                }
+              />
+            </div>
+            <div className={styles.main}>
+              {sidebarShown.mode === "hidden" ? null : (
+                <ProjectSidebar
+                  mode={sidebarShown.mode === "collapsed"
+                    ? "collapsed"
+                    : "open"}
+                  width={sidebarShown.width}
+                  project={loaded.project}
+                  source={source}
+                  agents={sidebarAgents.agents}
+                  sessions={allSessions.filter((item) =>
+                    !runOpened.has(item.id)
+                  )}
+                  runs={panelRuns(
+                    runRecords,
+                    sidebarAgents.agents,
+                    projectId,
+                    allSessions,
+                  )}
+                  artifactPanel={
+                    <ArtifactPanel
+                      domains={domains}
+                      onOpen={(domain, name) =>
+                        openArtifact(host, domain, name)}
+                    />
+                  }
+                  jobs={props.jobs}
+                  onOpenJobs={() => onSettings("jobs")}
+                  current={currentTab?.kind === "document_editor"
+                    ? currentTab.key
+                    : null}
+                  onToggle={toggleSidebar}
+                  onSettings={() => onSettings()}
+                  reveal={reveal}
+                  focusExplorer={explorerFocus}
+                  onOpenFile={(path, keep) =>
+                    openFile(host, path, { preview: keep !== true })}
+                  onMove={moveFile}
+                  onTrash={trashFile}
+                  onRail={onRail}
+                  onAgent={(agent) => openAgent(host, {
                     agent: agent.assignment,
                     name: agent.name,
                   })}
-                onSession={(session) => {
-                  const row = sidebarAgents.agents.find((agent) =>
-                    agent.assignment === session.agent
-                  );
-                  if (row !== undefined) {
-                    openAgent(host, {
-                      agent: row.assignment,
-                      name: row.name,
-                      session: session.id,
+                  onSession={(session) => {
+                    const row = sidebarAgents.agents.find((agent) =>
+                      agent.assignment === session.agent
+                    );
+                    if (row !== undefined) {
+                      openAgent(host, {
+                        agent: row.assignment,
+                        name: row.name,
+                        session: session.id,
+                      });
+                    }
+                  }}
+                  onManage={() => openAgents(host)}
+                  onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                  onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
+                  activeWorkflow={desks.active === DEFAULT_DESK
+                    ? undefined
+                    : desks.active}
+                  onResizeStart={(event) => {
+                    const start = sidebar.chosenWidth;
+                    const startShown = sidebarShown.width;
+                    let last = start;
+                    startPointerDrag(event, {
+                      move: (dx) => {
+                        last = clampSidebar(startShown + dx);
+                        setSidebar((current) => ({
+                          ...current,
+                          chosenWidth: last,
+                        }));
+                      },
+                      finish: (outcome) => {
+                        const applied = applyDrag(start, last, outcome);
+                        setSidebar((current) => ({
+                          ...current,
+                          chosenWidth: applied,
+                        }));
+                        if (outcome.type === "drag-end") {
+                          setUserChoseWidth(true);
+                        }
+                      },
                     });
-                  }
-                }}
-                onManage={() => openAgents(host)}
-                onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
-                onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                activeWorkflow={desks.active === DEFAULT_DESK
-                  ? undefined
-                  : desks.active}
-                onResizeStart={(event) => {
-                  const start = sidebar.chosenWidth;
-                  const startShown = sidebarShown.width;
-                  let last = start;
-                  startPointerDrag(event, {
-                    move: (dx) => {
-                      last = clampSidebar(startShown + dx);
-                      setSidebar((current) => ({
-                        ...current,
-                        chosenWidth: last,
-                      }));
-                    },
-                    finish: (outcome) => {
-                      const applied = applyDrag(start, last, outcome);
-                      setSidebar((current) => ({
-                        ...current,
-                        chosenWidth: applied,
-                      }));
-                      if (outcome.type === "drag-end") setUserChoseWidth(true);
-                    },
-                  });
-                }}
-              />
-            )}
-            <div className={styles.main}>
-              <div className={styles.topBar}>
-                <TopBar
-                  leading={
-                    <span className={styles.leading}>
-                      {sidebarShown.launcherInTopBar
-                        ? <LauncherButton onLauncher={onLauncher} />
-                        : null}
-                      <ProjectSelector
-                        options={projectOptions}
-                        active={projectId}
-                        onSelect={(id) => {
-                          if (id !== projectId) props.onOpenProject?.(id);
-                        }}
-                        onOpenChange={readListsOnOpen}
-                      />
-                      {deskOptions.length > 1
-                        ? (
-                          <>
-                            <PathSep />
-                            <DeskSelector
-                              options={deskOptions}
-                              active={desks.active}
-                              onOpenChange={readListsOnOpen}
-                              onSelect={(key) =>
-                                switchTo(
-                                  key,
-                                  openTabIn(
-                                    emptyView(),
-                                    workflowTab(key),
-                                    () => false,
-                                  ),
-                                )}
-                            />
-                          </>
-                        )
-                        : null}
-                      <MinimizedBar
-                        items={view.floats.filter((item) => item.minimized)}
-                        stripTab={stripTab}
-                        onRestore={(key) => {
-                          setFloatFocused(true);
-                          update(restoreFloat(latest.current, key));
-                        }}
-                        onDock={(key) => {
-                          update(dockTab(latest.current, key));
-                          focusPaneBody(latest.current.focusedPane);
-                        }}
-                        onClose={(key) => close(null, key)}
-                      />
-                    </span>
-                  }
-                  trailing={
-                    <span className={styles.trailing}>
-                      <WaitingLayer
-                        onOpenSession={(session) =>
-                          runToastAction({ kind: "session", session })}
-                        onAnswerInTerminal={(session) =>
-                          void terminal?.store.focusSession(session)}
-                      />
-                      {noticesHidden && hasNotices
-                        ? (
-                          <Tooltip
-                            content={t("project-workspace.button.show-notices")}
-                          >
-                            <IconButton
-                              icon={workspaceIcons.notices}
-                              label={t("project-workspace.button.show-notices")}
-                              data-show-notices=""
-                              onClick={() => setNoticesHidden(false)}
-                            />
-                          </Tooltip>
-                        )
-                        : null}
-                      <PaletteButton />
-                      <SettingsEntry onSettings={() => onSettings()} />
-                    </span>
-                  }
+                  }}
                 />
-              </div>
+              )}
               <div className={styles.content} ref={mainRef}>
                 {noticesHidden
                   ? null

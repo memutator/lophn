@@ -16,7 +16,6 @@ import { t } from "@lophn/wording";
 
 import type { JobsSource } from "../../desktop/settings/jobs/source.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
-import { LauncherButton } from "../launcher-button.tsx";
 import {
   ActivityBar,
   type ActivityEntry,
@@ -126,7 +125,7 @@ interface ProjectSidebarProps {
   onSession: (session: PanelSession) => void;
   onManage: () => void;
   onToggle: () => void;
-  onLauncher: () => void;
+  onSettings: () => void;
   onResizeStart?: (event: ReactPointerEvent<HTMLElement>) => void;
 }
 
@@ -158,7 +157,7 @@ export function ProjectSidebar(
     onSession,
     onManage,
     onToggle,
-    onLauncher,
+    onSettings,
     onResizeStart,
   }: ProjectSidebarProps,
 ) {
@@ -201,17 +200,10 @@ export function ProjectSidebar(
         open={!collapsed}
         onSelect={select}
         onRail={onRail}
+        onSettings={onSettings}
       />
       {collapsed ? null : (
         <div className={styles.panel}>
-          <div className={styles.header}>
-            <span className={styles.headerContent}>
-              <LauncherButton onLauncher={onLauncher} />
-              <span className={styles.title} data-project-title="">
-                {project?.title ?? ""}
-              </span>
-            </span>
-          </div>
           <div className={styles.body} data-sidebar-tab={tab}>
             {tab === "explorer"
               ? folders.length === 0

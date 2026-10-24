@@ -1,9 +1,10 @@
-/* 옛 AppShell처럼 sidebar가 창 높이를 다 쓰고 상단 바는 본문 열 위에만 있다. */
+/* 상단 바가 창 폭 전체를 쓰고 sidebar와 본문은 그 아래에 나란히 선다. */
 /* 창 전체를 덮는다. 페이지 자체는 scroll하지 않는다. */
 .workspace {
   position: fixed;
   inset: var(--space-0);
   display: flex;
+  flex-direction: column;
   min-width: var(--space-0);
   overflow: hidden;
   background: var(--color-surface-base);
@@ -12,7 +13,6 @@
 .main {
   display: flex;
   flex: 1;
-  flex-direction: column;
   min-width: var(--space-0);
   min-height: var(--space-0);
 }

@@ -366,38 +366,38 @@ export function ProjectApp(
   return (
     <GalleryConnectHost agents={agents}>
       <div className={workspace.workspace}>
-        <PageSidebar
-          {...sidebar}
-          collapsed={collapsed}
-          onToggle={() => setCollapsed(!collapsed)}
-          onRail={rail}
-          onOpenFile={(id) => open(documentTab(id))}
-          onAgent={(id) => open(newConversationTab(id))}
-          onManage={() => open(AGENTS_TAB)}
-          onSession={(row) => open(sessionTab(row))}
-        />
+        <div className={workspace.topBar}>
+          <TopBar
+            platform="linux"
+            leading={
+              <div className={workspace.leading}>
+                <LauncherButton onLauncher={() => {}} />
+                <ProjectSelector
+                  options={PROJECT_OPTIONS}
+                  active="phroner"
+                  onSelect={() => {}}
+                />
+              </div>
+            }
+            trailing={
+              <div className={workspace.trailing}>
+                {titleExtra}
+                <PaletteButton onClick={() => setPalette(true)} />
+              </div>
+            }
+          />
+        </div>
         <div className={workspace.main}>
-          <div className={workspace.topBar}>
-            <TopBar
-              platform="linux"
-              leading={
-                <div className={workspace.leading}>
-                  {collapsed ? <LauncherButton onLauncher={() => {}} /> : null}
-                  <ProjectSelector
-                    options={PROJECT_OPTIONS}
-                    active="phroner"
-                    onSelect={() => {}}
-                  />
-                </div>
-              }
-              trailing={
-                <div className={workspace.trailing}>
-                  {titleExtra}
-                  <PaletteButton onClick={() => setPalette(true)} />
-                </div>
-              }
-            />
-          </div>
+          <PageSidebar
+            {...sidebar}
+            collapsed={collapsed}
+            onToggle={() => setCollapsed(!collapsed)}
+            onRail={rail}
+            onOpenFile={(id) => open(documentTab(id))}
+            onAgent={(id) => open(newConversationTab(id))}
+            onManage={() => open(AGENTS_TAB)}
+            onSession={(row) => open(sessionTab(row))}
+          />
           <div className={paneStyles.panes}>
             {panes.map((pane, index) => {
               return (

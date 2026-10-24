@@ -1,11 +1,13 @@
-// project 창 왼쪽 끝의 icon 세로 줄. 위쪽은 panel 항목, 아래쪽은 바로 가기(Terminal, Agent, Search).
+// project 창 왼쪽 끝의 icon 세로 줄. 위쪽은 panel 항목, 아래쪽은 바로 가기(Terminal, Browser, Agent, Search)와 맨 밑 Settings.
 // 항목을 누르면 그 panel을 열고 열린 항목을 다시 누르면 접는다. 열린 항목에는 왼쪽 띠와 배경을 둔다.
 import { Icon, type IconProps } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import {
+  browserIcons,
   conversationIcons,
   paletteIcons,
+  settingsEntryIcon,
   workspaceIcons,
 } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
@@ -19,17 +21,18 @@ export interface ActivityEntry {
   readonly icon: IconProps["icon"];
 }
 
-const RAIL_ACTIONS = ["terminal", "agent", "search"] as const;
+const RAIL_ACTIONS = ["terminal", "browser", "agent", "search"] as const;
 export type RailAction = typeof RAIL_ACTIONS[number];
 
 const RAIL_ICONS: Readonly<Record<RailAction, IconProps["icon"]>> = {
   terminal: workspaceIcons.terminal,
+  browser: browserIcons.globe,
   agent: conversationIcons.dock,
   search: paletteIcons.search,
 };
 
 export function ActivityBar(
-  { entries, selected, open, onSelect, onRail }: {
+  { entries, selected, open, onSelect, onRail, onSettings }: {
     entries: readonly ActivityEntry[];
     /** 마지막으로 고른 panel. */
     selected: SidebarTab;
@@ -37,10 +40,12 @@ export function ActivityBar(
     open: boolean;
     onSelect: (key: SidebarTab) => void;
     onRail: (action: RailAction) => void;
+    onSettings: () => void;
   },
 ) {
   const labels: Readonly<Record<RailAction, string>> = {
     terminal: t("project-workspace.label.rail-terminal"),
+    browser: t("project-workspace.label.rail-browser"),
     agent: t("project-workspace.label.rail-agent"),
     search: t("project-workspace.label.rail-search"),
   };
@@ -51,7 +56,6 @@ export function ActivityBar(
       aria-orientation="vertical"
       aria-label={t("project-workspace.label.activity-bar")}
     >
-      <div className={styles.activityHead} />
       <div className={styles.activityGroup}>
         {entries.map((entry) => {
           const active = open && entry.key === selected;
@@ -92,6 +96,17 @@ export function ActivityBar(
             </button>
           </Tooltip>
         ))}
+        <Tooltip content={t("common.button.settings")}>
+          <button
+            type="button"
+            className={styles.activityButton}
+            aria-label={t("common.button.settings")}
+            data-entry="settings"
+            onClick={onSettings}
+          >
+            <Icon icon={settingsEntryIcon} pixels={iconPixels("large")} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

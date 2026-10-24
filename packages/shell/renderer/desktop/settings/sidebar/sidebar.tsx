@@ -1,10 +1,8 @@
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Icon } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
-import { workspaceIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
-import { LauncherButton } from "../../../workspace/launcher-button.tsx";
 import { SETTINGS_GROUPS, type SettingsPane } from "../model.ts";
 import styles from "./sidebar.module.css";
 
@@ -14,20 +12,15 @@ interface SettingsSidebarProps {
   width: number;
   /** 고른 항목. */
   pane: SettingsPane;
-  onLauncher: () => void;
-  onToggle: () => void;
   onPane: (pane: SettingsPane) => void;
 }
 
 // Settings sidebar. 항목을 묶음(General, Agents, System)별로 줄지어 놓고, 접으면 아이콘만 남는다.
 export function SettingsSidebar(
-  { mode, width, pane, onLauncher, onToggle, onPane }: SettingsSidebarProps,
+  { mode, width, pane, onPane }: SettingsSidebarProps,
 ) {
   if (mode === "hidden") return null;
   const collapsed = mode === "collapsed";
-  const toggleLabel = collapsed
-    ? t("project-workspace.button.expand-sidebar")
-    : t("project-workspace.button.collapse-sidebar");
   return (
     <nav
       className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}
@@ -35,23 +28,6 @@ export function SettingsSidebar(
       style={{ width: `${width}px` }}
       aria-label={t("settings.title.screen")}
     >
-      <div className={styles.header}>
-        {collapsed ? null : (
-          <span className={styles.headerContent}>
-            <LauncherButton onLauncher={onLauncher} />
-            <span className={styles.title}>{t("settings.title.screen")}</span>
-          </span>
-        )}
-        <Tooltip content={toggleLabel}>
-          <IconButton
-            icon={workspaceIcons.sidebar}
-            label={toggleLabel}
-            data-sidebar-toggle=""
-            aria-expanded={!collapsed}
-            onClick={onToggle}
-          />
-        </Tooltip>
-      </div>
       <div className={`${styles.list} ${styles.groups}`}>
         {SETTINGS_GROUPS.map((group) => (
           <section key={group.id}>

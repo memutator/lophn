@@ -53,7 +53,7 @@ export function ProjectDomainsEmpty() {
         onSession={noop}
         onManage={noop}
         onToggle={noop}
-        onLauncher={noop}
+        onSettings={noop}
       />
     </div>
   );

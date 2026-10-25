@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `chat-md` | chat-md | 1 | 없음 | running | chat-md/chat-md |  |  |
-| `chat-protocol` | chat-protocol | 1 | 없음 | running | chat-protocol/chat-protocol |  |  |
+| `chat-protocol` | chat-protocol | 1 | 없음 | merged | chat-protocol/chat-protocol | 14d5c437f |  |
 | `chip-remove` | chip-remove | 1 | chat-protocol, chat-md | todo |  |  |  |
 | `link` | link | 1 | 없음 | merged | link/link | abeb29a13 |  |
 | `stream-redact` | stream | 1 | 없음 | running | stream/stream-redact |  |  |

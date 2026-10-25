@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode, useMemo } from "react";
+import { Fragment, type MouseEvent, type ReactNode, useMemo } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { Icon } from "../../primitives/icon/icon.tsx";
 import {
@@ -13,6 +13,12 @@ import { parseMarkdown, type ParseOptions } from "./parse.ts";
 
 export interface MarkdownProps extends ParseOptions {
   source: string;
+  /** reading(기본): 읽기 본문 16/28. chat: 대화 글 body 14/22와 좁은 간격. */
+  variant?: "reading" | "chat";
+  /** show(기본): image를 그린다. link: 불러오지 않고 alt 글(비면 주소)의 link로 둔다. */
+  images?: "show" | "link";
+  /** 글 조각(kind "text")과 inline code 하나(kind "code")를 호출자가 그린다. undefined를 돌려주면 기본으로 그린다. link 글 안에서는 부르지 않는다. */
+  renderText?: (text: string, kind: "text" | "code") => ReactNode;
   // 있으면 link를 창 안에서 따라가지 않고 호출자가 연다(외부 링크 정책은 shell이 맡는다).
   onOpenLink?: (href: string) => void;
   clipboard?: Clipboard;
@@ -21,6 +27,18 @@ export interface MarkdownProps extends ParseOptions {
 interface RenderContext {
   onOpenLink?: (href: string) => void;
   clipboard: Clipboard;
+  images: "show" | "link";
+  renderText?: (text: string, kind: "text" | "code") => ReactNode;
+}
+
+function linkOnClick(
+  open: ((href: string) => void) | undefined,
+  href: string,
+): ((event: MouseEvent) => void) | undefined {
+  return open === undefined ? undefined : (event: MouseEvent) => {
+    event.preventDefault();
+    open(href);
+  };
 }
 
 const HEADING_CLASS = [styles.h1, styles.h2, styles.h3, styles.h4];
@@ -32,21 +50,41 @@ function inlines(
 ): ReactNode[] {
   return content.map((inline, index) => {
     switch (inline.kind) {
-      case "text":
-        return inline.text;
+      case "text": {
+        const rendered = context.renderText?.(inline.text, "text");
+        return rendered === undefined
+          ? inline.text
+          : <Fragment key={index}>{rendered}</Fragment>;
+      }
       case "emphasis":
         return <em key={index}>{inlines(inline.children, context)}</em>;
       case "strong":
         return <strong key={index}>{inlines(inline.children, context)}</strong>;
       case "strike":
         return <del key={index}>{inlines(inline.children, context)}</del>;
-      case "code":
-        return (
-          <code key={index} className={styles.inlineCode}>{inline.text}</code>
-        );
+      case "code": {
+        const rendered = context.renderText?.(inline.text, "code");
+        return rendered === undefined
+          ? <code key={index} className={styles.inlineCode}>{inline.text}</code>
+          : <Fragment key={index}>{rendered}</Fragment>;
+      }
       case "break":
         return <br key={index} />;
-      case "image":
+      case "image": {
+        if (context.images === "link" && inline.src !== undefined) {
+          const href = inline.src;
+          return (
+            <a
+              key={index}
+              className={styles.link}
+              href={href}
+              rel="noreferrer noopener"
+              onClick={linkOnClick(context.onOpenLink, href)}
+            >
+              {inline.alt || href}
+            </a>
+          );
+        }
         return inline.src === undefined
           ? <span key={index}>{inline.alt}</span>
           : (
@@ -59,23 +97,22 @@ function inlines(
               referrerPolicy="no-referrer"
             />
           );
+      }
       case "link": {
-        const children = inlines(inline.children, context);
+        // <a> 안에 button(artifact path link)을 넣지 않는다.
+        const children = inlines(inline.children, {
+          ...context,
+          renderText: undefined,
+        });
         const href = inline.href;
         if (href === undefined) return <span key={index}>{children}</span>;
-        const open = context.onOpenLink;
         return (
           <a
             key={index}
             className={styles.link}
             href={href}
             rel="noreferrer noopener"
-            onClick={open
-              ? (event: MouseEvent) => {
-                event.preventDefault();
-                open(href);
-              }
-              : undefined}
+            onClick={linkOnClick(context.onOpenLink, href)}
           >
             {children}
           </a>
@@ -101,7 +138,12 @@ function listItem(item: ListItem, index: number, context: RenderContext) {
   }
   return (
     <li key={index} className={styles.task} data-task={item.task}>
-      <span className={styles.taskMark}>
+      <span
+        className={styles.taskMark}
+        role="checkbox"
+        aria-checked={item.task}
+        aria-disabled="true"
+      >
         <Icon
           icon={item.task ? SquareCheck : Square}
           pixels={iconPixels("base")}
@@ -163,28 +205,30 @@ function block(item: Block, index: number, context: RenderContext): ReactNode {
       return <pre key={index} className={styles.html}>{item.text}</pre>;
     case "table":
       return (
-        <table key={index} className={styles.table}>
-          <thead>
-            <tr>
-              {item.header.map((cell, column) => (
-                <th key={column} className={alignClass(item.align[column])}>
-                  {inlines(cell, context)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {item.rows.map((row, at) => (
-              <tr key={at}>
-                {row.map((cell, column) => (
-                  <td key={column} className={alignClass(item.align[column])}>
+        <div key={index} className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                {item.header.map((cell, column) => (
+                  <th key={column} className={alignClass(item.align[column])}>
                     {inlines(cell, context)}
-                  </td>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {item.rows.map((row, at) => (
+                <tr key={at}>
+                  {row.map((cell, column) => (
+                    <td key={column} className={alignClass(item.align[column])}>
+                      {inlines(cell, context)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       );
   }
 }
@@ -198,16 +242,27 @@ function blocks(
 
 // Lezer Markdown을 React 글과 element로만 그린다. raw HTML은 실행하지 않는다.
 export function Markdown(
-  { source, resolveImage, onOpenLink, clipboard = systemClipboard }:
-    MarkdownProps,
+  {
+    source,
+    resolveImage,
+    onOpenLink,
+    variant = "reading",
+    images = "show",
+    renderText,
+    clipboard = systemClipboard,
+  }: MarkdownProps,
 ) {
   const document = useMemo(
     () => parseMarkdown(source, { resolveImage }),
     [source, resolveImage],
   );
   return (
-    <div className={styles.markdown}>
-      {blocks(document.blocks, { onOpenLink, clipboard })}
+    <div
+      className={variant === "chat"
+        ? `${styles.markdown} ${styles.chat}`
+        : styles.markdown}
+    >
+      {blocks(document.blocks, { onOpenLink, clipboard, images, renderText })}
     </div>
   );
 }

@@ -74,6 +74,30 @@ function Chat({ children }: { children: ReactNode }) {
   );
 }
 
+// markdown으로 쓴 agent 답. 목록·표·code fence·task list·image link와 backtick 속 artifact path를 보인다.
+const CHANGED = [
+  `Written to \`${FOLDER}/spending/index.html\` — here is what I changed:`,
+  "",
+  "- groceries and dining",
+  "- two more rows",
+  "",
+  "| Item | Count |",
+  "| --- | --- |",
+  "| Orders | 12 |",
+  "| Late | 2 |",
+  "",
+  "```ts",
+  "const total = 12;",
+  "```",
+  "",
+  "- [x] summed the month",
+  "- [ ] checked last month",
+  "",
+  "![chart](https://example.com/chart.png)",
+  "",
+  `The details are in \`${FOLDER}/receipts-q3/index.html\`.`,
+].join("\n");
+
 /** 위는 평소 모양과 목록에 없어 글 그대로인 path, 아래는 hover해 설명이 뜬 모양이다. */
 export function ChatLink() {
   useDrive(async () => {
@@ -100,6 +124,7 @@ export function ChatLink() {
         time="10:44"
         text={`Done. I wrote the chart to ${FOLDER}/spending/index.html and put the figures in its data folder.`}
       />
+      <Turn id="msg_link_3" time="10:45" text={CHANGED} />
     </Chat>
   );
 }

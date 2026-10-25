@@ -1,5 +1,5 @@
-// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 앱 카드로 보이고, 보내지 못했거나 결과를
-// 모르는 사람 말 아래에 다음 행동을 둔다.
+// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글(agent는 markdown, 사람은 plain)과 앱 카드로
+// 보이고, 보내지 못했거나 결과를 모르는 사람 말 아래에 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
@@ -11,6 +11,7 @@ import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
 import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import { ArtifactText } from "./artifact-text.tsx";
+import { ChatMarkdown } from "./chat-markdown.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { splitAttachmentText } from "../../../../protocol/lophn-agent/message-attachments.ts";
 import { textOfBody } from "../agent-view-model.ts";
@@ -24,6 +25,8 @@ interface MessageBodyProps {
   fallback?: string | undefined;
   /** 글 안 artifact path를 link로 그리는 길. 없으면 글 그대로다. */
   artifacts?: ArtifactsSlice | undefined;
+  /** 사람 글. markdown으로 읽지 않고 글 그대로 보인다. */
+  plain?: boolean;
 }
 
 /**
@@ -31,7 +34,7 @@ interface MessageBodyProps {
  * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다.
  */
 export function MessageBody(
-  { message, body, fallback, artifacts }: MessageBodyProps,
+  { message, body, fallback, artifacts, plain }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
     // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
@@ -40,13 +43,21 @@ export function MessageBody(
         {body.parts.map((part, index) => {
           switch (part.kind) {
             case "text":
-              return (
-                <ArtifactText
-                  key={index}
-                  text={part.text}
-                  artifacts={artifacts}
-                />
-              );
+              return plain
+                ? (
+                  <ArtifactText
+                    key={index}
+                    text={part.text}
+                    artifacts={artifacts}
+                  />
+                )
+                : (
+                  <ChatMarkdown
+                    key={index}
+                    text={part.text}
+                    artifacts={artifacts}
+                  />
+                );
             case "app_card":
               return (
                 <VisualBlock
@@ -63,7 +74,9 @@ export function MessageBody(
     );
   }
   if (fallback !== undefined) {
-    return <ArtifactText text={fallback} artifacts={artifacts} />;
+    return plain
+      ? <ArtifactText text={fallback} artifacts={artifacts} />
+      : <ChatMarkdown text={fallback} artifacts={artifacts} />;
   }
   if (body?.state === "failed") {
     return (
@@ -125,6 +138,7 @@ export function UserBody(
               fallback: split.text,
             }
             : {})}
+          plain
         />
       )}
       {action === "edit"

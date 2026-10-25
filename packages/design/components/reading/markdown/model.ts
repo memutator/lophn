@@ -13,6 +13,7 @@ export type Align = "left" | "center" | "right" | undefined;
 export type Block =
   | { kind: "heading"; level: number; id: string; children: Inline[] }
   | { kind: "paragraph"; children: Inline[] }
+  // language는 fence info의 첫 낱말(언어 이름)이다.
   | { kind: "code"; language?: string; text: string }
   | { kind: "quote"; children: Block[] }
   | {

@@ -5,7 +5,7 @@ import styles from "../reading.module.css";
 
 export interface CodeBlockProps {
   code: string;
-  // fenced code의 info 글. 글로만 보이고 해석하지 않는다.
+  // fence info의 첫 낱말(언어 이름). 글로만 보이고 해석하지 않는다.
   language?: string;
   clipboard?: Clipboard;
 }

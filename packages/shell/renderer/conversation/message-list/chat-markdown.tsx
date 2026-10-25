@@ -1,0 +1,57 @@
+// agent가 쓴 글 하나를 chat 모양 markdown으로 그린다. artifact path는 button link, link는 shell 창 밖으로,
+// image는 불러오지 않고 alt 글의 link로 둔다(agent 답의 image 주소로 대화가 새지 않게 한다).
+import type { ReactElement, ReactNode } from "react";
+import { Markdown } from "@lophn/ui/reading";
+
+import { artifactMentions } from "../../../../protocol/domains/artifact.ts";
+import { windowLinkOpener } from "../../desktop/settings/core-call.ts";
+import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import {
+  ArtifactLink,
+  artifactPieces,
+  useArtifactReload,
+} from "./artifact-text.tsx";
+
+export interface ChatMarkdownProps {
+  /** agent가 쓴 markdown 원문. 사람 글은 넘기지 않는다(사람 글은 `ArtifactText`). */
+  readonly text: string;
+  /** 이 project의 domain artifact 목록. 있으면 글과 inline code 속 path를 link로 그리고 모르는 path를 보면 목록을 다시 읽는다. 없으면 path는 글 그대로다. */
+  readonly artifacts?: ArtifactsSlice | undefined;
+}
+
+/** markdown 글 전체(원문)에서 모르는 artifact path를 찾아 목록을 다시 읽는다. code 안 path도 본다. */
+export function ChatMarkdown(
+  { text, artifacts }: ChatMarkdownProps,
+): ReactElement {
+  useArtifactReload(text, artifacts);
+  const open = windowLinkOpener();
+  const renderText = artifacts === undefined ? undefined : (
+    piece: string,
+    kind: "text" | "code",
+  ): ReactNode => {
+    if (kind === "text") return artifactPieces(piece, artifacts);
+    // agent는 path를 backtick에 넣는 일이 많다. inline code 전체가 path이면 그것도 link로 둔다.
+    const mentions = artifactMentions(piece, artifacts.names);
+    const one = mentions[0];
+    return mentions.length === 1 && one !== undefined && one.start === 0 &&
+        one.end === piece.length
+      ? (
+        <ArtifactLink
+          artifacts={artifacts}
+          domain={one.domain}
+          name={one.name}
+          label={piece}
+        />
+      )
+      : undefined;
+  };
+  return (
+    <Markdown
+      source={text}
+      variant="chat"
+      images="link"
+      onOpenLink={open === undefined ? undefined : (href) => void open(href)}
+      renderText={renderText}
+    />
+  );
+}

@@ -8,7 +8,7 @@ const CLIPBOARD = { writeText: () => Promise.resolve() };
 const NOOP = () => {};
 const TWO_LINES = ["orders show A-1001", "orders list --late"].join("\n");
 
-// 제목·목록·표·code·link와 raw HTML을 한 글에 담는다. raw HTML은 실행되지 않고 글로 보인다.
+// 제목·목록·task list·넓은 표·code·link와 raw HTML을 한 글에 담는다. raw HTML은 실행되지 않고 글로 보인다.
 const SOURCE = [
   "## Heading",
   "",
@@ -16,18 +16,23 @@ const SOURCE = [
   "",
   "- first item",
   "- second item",
+  "- [x] checked item",
+  "- [ ] unchecked item",
   "",
-  "| Item | Count |",
-  "| --- | --- |",
-  "| Orders | 12 |",
-  "| Late | 2 |",
+  "| Item | Count | Owner | Last change | Status | Reference | Report | Notes |",
+  "| --- | --- | --- | --- | --- | --- | --- | --- |",
+  "| Orders | 12 | Mina Park | 2026-10-19 | open | domains/dom_01j9m3x2k7/artifacts/spending/index.html | reports/2026/10/orders-by-carrier.csv | Waiting for the warehouse count to settle |",
+  "| Late | 2 | Jonas Lee | 2026-10-18 | review | domains/dom_01j9m3x2k7/artifacts/tax-deadlines/index.html | reports/2026/10/late-shipments-by-carrier.csv | Two carriers reported a delay on the same day |",
   "",
-  "```sh",
-  "orders show A-1001",
+  "```ts title=app.ts",
+  "const total = 12;",
   "```",
   "",
   "<script>alert(1)</script>",
 ].join("\n");
+
+// 같은 글에 image를 더한다. chat은 image를 불러오지 않고 alt 글의 link로 그린다.
+const CHAT_SOURCE = `${SOURCE}\n\n![chart](https://example.com/chart.png)`;
 
 const OUTLINE = [
   { id: "summary", title: "Summary", level: 2 },
@@ -44,6 +49,20 @@ export function KitReading() {
       >
         <div className={kit.panel}>
           <Markdown source={SOURCE} clipboard={CLIPBOARD} onOpenLink={NOOP} />
+        </div>
+      </Section>
+      <Section
+        title="Markdown · chat"
+        note="대화 글은 body 14/22와 좁은 간격으로 그린다. image는 불러오지 않고 alt 글의 link로 둔다."
+      >
+        <div className={kit.panel}>
+          <Markdown
+            source={CHAT_SOURCE}
+            variant="chat"
+            images="link"
+            clipboard={CLIPBOARD}
+            onOpenLink={NOOP}
+          />
         </div>
       </Section>
       <Section

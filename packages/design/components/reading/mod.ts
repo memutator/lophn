@@ -1,5 +1,5 @@
 // reading: 읽기 renderer. Markdown(Lezer)·code·diff·목차가 reading.module.css를 함께 쓴다.
-// Markdown 문서를 읽는 글로 그린다. raw HTML은 실행하지 않는다. code만 보일 때는 CodeBlock이다.
+// Markdown 문서를 읽는 글로 그린다. raw HTML은 실행하지 않는다. variant chat은 대화 글, code만 보일 때는 CodeBlock이다.
 export { Markdown, type MarkdownProps } from "./markdown/markdown.tsx";
 // Markdown을 그리지 않고 구조(목차 포함)만 필요할 때 쓰는 parser.
 export { parseMarkdown, type ParseOptions } from "./markdown/parse.ts";

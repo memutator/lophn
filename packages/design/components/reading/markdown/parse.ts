@@ -213,7 +213,10 @@ class Reader {
         const info = node.getChild("CodeInfo");
         const text = node.getChildren("CodeText").map((part) => this.text(part))
           .join("");
-        const language = info ? unescapeText(this.text(info)) : undefined;
+        // fence info는 언어 이름 뒤에 옵션을 더 쓸 수 있다(```ts title=app.ts). label은 첫 낱말만 쓴다.
+        const language = info
+          ? unescapeText(this.text(info)).trim().split(/\s+/)[0] || undefined
+          : undefined;
         return { kind: "code", language, text };
       }
       case "Blockquote":

@@ -41,6 +41,7 @@ import type {
   InvokeModelCall,
   ModelCallInput,
   ModelCallOutput,
+  ModelOutputDelta,
 } from "./work.ts";
 
 const PATHS = {
@@ -100,11 +101,26 @@ type Collector = {
 
 function collectorFor(
   protocol: ModelCallInput["model"]["protocol"],
+  onDelta?: (delta: ModelOutputDelta) => void,
 ): Collector {
+  // 세 adapter와 batch 성공 응답이 같은 push를 지난다. push 앞뒤로 결과의 text 길이를 재서 늘어난 조각을
+  // 넘긴다. adapter file은 고치지 않는다.
+  function pushInto(
+    out: { text: string },
+    apply: (frames: readonly SseFrame[]) => void,
+  ): (frames: readonly SseFrame[]) => void {
+    return (frames) => {
+      const before = out.text.length;
+      apply(frames);
+      if (onDelta !== undefined && out.text.length > before) {
+        onDelta({ kind: "text", text: out.text.slice(before) });
+      }
+    };
+  }
   if (protocol === "anthropic-messages") {
     const out = createStreamResult();
     return {
-      push: (frames) => applyFrames(out, frames),
+      push: pushInto(out, (frames) => applyFrames(out, frames)),
       finish() {
         const verdict = judgeMessages(out);
         return {
@@ -123,7 +139,7 @@ function collectorFor(
   if (protocol === "openai-responses") {
     const out = createResponsesStreamResult();
     return {
-      push: (frames) => applyResponsesFrames(out, frames),
+      push: pushInto(out, (frames) => applyResponsesFrames(out, frames)),
       finish() {
         const verdict = judgeResponses(out);
         return {
@@ -141,7 +157,7 @@ function collectorFor(
   }
   const out = createChatStreamResult();
   return {
-    push: (frames) => applyChatFrames(out, frames),
+    push: pushInto(out, (frames) => applyChatFrames(out, frames)),
     finish() {
       finishChatStream(out);
       completeToolCalls(out);
@@ -304,7 +320,7 @@ async function invoke(
     // 본문은 여기서 버린다.
     return doneFailed(verdict);
   }
-  const collector = collectorFor(input.model.protocol);
+  const collector = collectorFor(input.model.protocol, input.onDelta);
   let firstOutputMs: number | null = null;
   let disconnected = false;
   let over = false;

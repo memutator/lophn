@@ -5,6 +5,7 @@ import type {
   ParentMessage,
   TurnSourceRequest,
 } from "../../../protocol/supervision/mod.ts";
+import { MODEL_OUTPUT_UNITS_MAX } from "../../../protocol/supervision/mod.ts";
 import type {
   AgentEventSink,
   SteeringInput,
@@ -14,8 +15,9 @@ import type { TurnStart } from "../../lophn-agent/run-loop/work.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 
 // 입력함과 Bus는 core 메모리에 있다. runtime은 감독 pipe로 입력함을 읽고(`turn_source_request`) agent event를
-// core Bus로 보낸다(`agent_event`). core 쪽 handler는 `run-loop/turn-pipe.ts`다. 응답이 없으면 읽지 못한 것이고
-// 새 turn을 고르지 않는다. event는 놓칠 수 있다(Bus는 메모리다).
+// core Bus로 보내며(`agent_event`), 쓰는 중인 model 글을 core에 보낸다(`model_output`). core 쪽 handler는
+// `run-loop/turn-pipe.ts`다. 응답이 없으면 읽지 못한 것이고 새 turn을 고르지 않는다. event는 놓칠 수 있다(Bus는
+// 메모리다).
 
 type TurnSourceLink = {
   source: TurnSource;
@@ -101,6 +103,17 @@ export function createTurnSourceLink(options: {
           type: "agent_event",
           event: event as Record<string, unknown>,
         }).catch(() => {});
+      },
+      output(batch) {
+        // 상한을 넘는 조각은 순서대로 나눠 보낸다. 넘는 message 하나만 거절되면 core가 이은 글에서
+        // secret이 갈려 지워지지 않는다.
+        for (let at = 0; at < batch.text.length; at += MODEL_OUTPUT_UNITS_MAX) {
+          void options.send({
+            type: "model_output",
+            ...batch,
+            text: batch.text.slice(at, at + MODEL_OUTPUT_UNITS_MAX),
+          }).catch(() => {});
+        }
       },
     },
     onParent(message) {

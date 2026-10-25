@@ -5,6 +5,7 @@ import type {
   TurnElapsed,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import type { ModelOutputMessage } from "../../../protocol/supervision/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
@@ -69,7 +70,11 @@ export type TurnSource = {
 
 // agent event를 Bus로 보내는 길이다. loop는 child에서 돌므로 감독 pipe가 core Bus까지 나른다. 받는 쪽이
 // 없으면 버린다(Bus는 메모리이고 놓칠 수 있다).
-export type AgentEventSink = { publish(event: AgentEvent): void };
+export type AgentEventSink = {
+  publish(event: AgentEvent): void;
+  // 쓰는 중인 model 글(날 글)을 감독 pipe로 core에 보낸다. core가 redaction해 `ModelOutputStreamed`로 낸다.
+  output(batch: Omit<ModelOutputMessage, "type">): void;
+};
 
 // turn이 call 입력을 가져갔다는 신호다. wiring이 Router의 `markConsumed`에 끼운다. StartTurn이 시작을 확정하는
 // 같은 transaction에서 부른다.
@@ -207,7 +212,8 @@ export type TurnPorts = {
   tools: ToolPort;
   // 시간 값만 저장한다(CheckpointTurn).
   checkpoint(elapsed: TurnElapsed): Promise<void>;
-  // 완전한 tool 없는 답을 남긴다(RecordMessage).
+  // 완전한 model 응답 하나의 글을 그 응답의 agent message로 남긴다(RecordMessage). 마지막 응답은 글이 비어도
+  // 남기고, 중간 응답은 남길 글이 있을 때만 부른다. 그 응답의 tool call보다 먼저 부른다.
   answer(text: string): Promise<Result<void>>;
   finish(request: FinishRequest): Promise<Result<FinishResult>>;
 };

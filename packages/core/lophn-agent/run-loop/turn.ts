@@ -44,7 +44,7 @@ import {
 } from "./tool-batch.ts";
 
 // turn 하나. 순서는 멈춤 확인 → 접수 입력
-// 선택 → 한도 검사 → prompt 조립 → 조립 뒤 입력·멈춤 재확인 → model call 하나(완전 응답 확인) →
+// 선택 → 한도 검사 → prompt 조립 → 조립 뒤 입력·멈춤 재확인 → model call 하나(완전 응답 확인) → 응답 저장 →
 // tool 묶음 → 결과 기록 → 계속·종료 판정이다. 판단은 model이 하고 이 순서와 확인은 machine이 한다.
 
 export type LoopState = {
@@ -499,7 +499,8 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   );
 }
 
-// 완전한 응답 하나를 처리한다: 답이면 기록·종료 판정, tool이면 묶음 실행·결과 기록.
+// 완전한 응답 하나를 처리한다: 응답을 그 응답의 agent message로 남기고, tool이면 묶음 실행·결과 기록, 답이면
+// 종료 판정이다.
 async function afterModel(
   state: LoopState,
   attempt: ModelAttempt,
@@ -507,6 +508,12 @@ async function afterModel(
 ): Promise<TurnResult> {
   const { deps, limiter } = state;
   const ports = deps.ports;
+  // 마지막 응답(tool call이 없는 것)은 글이 비어도 남긴다. run의 답이 그 message의 글이라서다. 중간 응답은
+  // 사람이 볼 글이 있을 때만 남긴다.
+  if (attempt.toolCalls.length === 0 || attempt.text.trim() !== "") {
+    const answered = await ports.answer(attempt.text);
+    if (!answered.ok) return await failWith(state, "configuration_unavailable");
+  }
   if (attempt.toolCalls.length === 0) {
     return await conclude(state, attempt.text, applied);
   }
@@ -563,7 +570,8 @@ async function afterModel(
   return continueTurn;
 }
 
-// tool 없는 완전한 답. 미반영 steering이 있으면 종료하지 않고 새 판단으로 간다.
+// tool 없는 완전한 답. 그 응답의 글은 afterModel이 이미 남겼다. 미반영 steering이 있으면 종료하지 않고 새
+// 판단으로 간다.
 async function conclude(
   state: LoopState,
   text: string,
@@ -574,8 +582,6 @@ async function conclude(
   const fresh = pending.ok &&
     pending.value.steering.some((item) => !applied.has(item.id));
   if (!fresh) {
-    const answered = await deps.ports.answer(text);
-    if (!answered.ok) return await failWith(state, "configuration_unavailable");
     const finished = await finishWith(
       state,
       { kind: "completed", reason: "answer_completed" },

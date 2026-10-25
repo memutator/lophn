@@ -234,11 +234,11 @@ export const runsWiring: WiringFactory = () => {
             message: last,
           });
           if (!body.ok) return body;
-          return ok(
-            body.value.content.parts.flatMap((part) =>
-              part.kind === "text" ? [part.text] : []
-            ).join("\n"),
-          );
+          const text = body.value.content.parts.flatMap((part) =>
+            part.kind === "text" ? [part.text] : []
+          ).join("\n");
+          // 마지막 응답은 글이 비어도 message로 남는다. 그때 run은 답이 없는 것으로 끝나야 한다.
+          return ok(text.trim() === "" ? null : text);
         },
         // turn을 닫은 TurnEnded가 agent runtime의 구독으로 child에 turn_stop을 보낸다.
         // state_seq가 checkpoint로 움직여 compare가 어긋나면 다시 읽어 건다.

@@ -604,6 +604,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       redact: deps.instructions.redact,
       turnInputs: inputs,
       events: deps.events,
+      wait: abortableWait,
       agentHash: resolved.hash,
       model,
       tools: toolSetup,

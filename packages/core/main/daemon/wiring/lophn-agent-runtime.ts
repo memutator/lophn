@@ -226,6 +226,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           starter: createTurnStarter({ inbox }),
         }),
         publish: ctx.bus.publish,
+        // child가 보낸 쓰는 중인 model 날 글. core가 redaction해 `ModelOutputStreamed`로 낸다. 칸은 부를 때 읽는다.
+        output: (batch) => ctx.liveTurns.output(batch),
         inbox,
         // TurnEnded는 commit 뒤에 Bus로 나가 권한 요청과 질문의 기다림을 푼다.
         interruptTurns: () =>

@@ -19,6 +19,7 @@ import type {
   ChildMessage,
   Diagnostic,
   KindLaunchSpec,
+  ModelOutputMessage,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
 import {
@@ -220,6 +221,8 @@ type AgentRuntimeDeps = {
   // child가 사라졌다. 그 child가 돌리던 turn을 ledger에서 interrupted(restarted)로 닫는다.
   interruptTurns?: () => Promise<Result<unknown>>;
   publish?: (event: AgentEvent) => void;
+  // child가 보낸 쓰는 중인 model 날 글이다. core가 redaction해 내므로 Bus에 싣지 않는다. 없으면 버린다.
+  output?: (batch: ModelOutputMessage) => void;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
 };
@@ -273,6 +276,7 @@ export async function startAgentRuntimeChild(
   const pipe = deps.turns === undefined ? undefined : createTurnPipe({
     source: deps.turns,
     publish: deps.publish ?? (() => {}),
+    output: deps.output ?? (() => {}),
   });
 
   // 자식의 blob 준비 요청은 시작마다 새 handler가 받는다. 자식이 끝나면 열린 준비를 닫는다.

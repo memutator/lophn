@@ -64,6 +64,7 @@ import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
+import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createMcpAuthControl } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
@@ -239,6 +240,8 @@ type Late = {
   inbox: Inbox;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
   questionWaits: ReturnType<typeof createQuestionWaits>;
+  // session-snapshots가 낸다. agent runtime이 보낸 쓰는 중인 model 글을 받아 snapshot의 `writing`을 든다.
+  liveTurns: LiveTurns;
   // API server가 쓰는 쓰기 앞 처리기를 모두 접은 writer다. core 안에서 command를 내는 곳은 날 writer(runtime.writer)가 아니라
   // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, 입력함 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
   writer: Writer;
@@ -294,6 +297,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   annotationDelivery: true,
   inbox: true,
   questionWaits: true,
+  liveTurns: true,
   writer: true,
   runService: true,
   workflowService: true,

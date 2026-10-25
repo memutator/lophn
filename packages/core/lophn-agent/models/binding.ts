@@ -321,9 +321,11 @@ function chatMessages(
   const out: unknown[] = [];
   for (const message of messages) {
     if (message.role === "assistant") {
+      // 한 turn의 agent message 여럿이 assistant message 하나의 text part 여럿으로 잇는다. 그대로 붙이면
+      // 글이 맞붙으므로 줄바꿈 둘로 잇는다.
       const text = message.parts.flatMap((part) =>
         part.kind === "text" ? [part.text] : []
-      ).join("");
+      ).join("\n\n");
       const calls = message.parts.flatMap((part) =>
         part.kind === "tool_use"
           ? [{

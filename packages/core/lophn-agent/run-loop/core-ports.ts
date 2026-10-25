@@ -34,6 +34,7 @@ import { toolCallDisplay } from "../tools/display.ts";
 import type {
   AgentEventSink,
   FinishRequest,
+  LoopDeps,
   ModelAttempt,
   Pause,
   PendingInputs,
@@ -46,6 +47,7 @@ import type {
   TurnInputs,
   TurnPorts,
 } from "./ports.ts";
+import { createLiveOutput, messageIdOf } from "./live-turns.ts";
 import { inputText } from "./input-text.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "../models/binding.ts";
@@ -99,6 +101,8 @@ type CorePortsDeps = {
   context(): Promise<Result<TurnContext>>;
   turnInputs: TurnInputs;
   events: AgentEventSink;
+  // 쓰는 중인 글을 core로 보내는 묶음이 기다리는 timer다.
+  wait: LoopDeps["wait"];
 };
 
 const STOP_REASONS: ReadonlySet<string> = new Set<StopReason>([
@@ -140,7 +144,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   }
 
   function publish(
-    type: "ToolCallStarted" | "ToolCallEnded",
+    type: "ToolCallStarted" | "ToolCallEnded" | "MessageRecorded",
     payload: Record<string, unknown>,
   ) {
     deps.events.publish(
@@ -255,6 +259,13 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       const settled = await deps.turnInputs.settled(request.applied.length);
       if (!settled.ok) return settled;
     }
+    const live = createLiveOutput({
+      session: seat.session as Id<"ses">,
+      turn: seat.turn as Id<"trn">,
+      modelCall: id as Id<"mcl">,
+      send: (batch) => deps.events.output(batch),
+      wait: deps.wait,
+    });
     const invoked = await model.invoke({
       callId: id,
       turn: seat.turn,
@@ -266,7 +277,10 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       contextBasisHash: basisBlob.value.hash,
       body: safeBody.value as Record<string, unknown>,
       usageRevision: model.usageRevision,
+      onDelta: live.push,
     }, signal);
+    // 이 attempt의 delta는 이 뒤로 없다. 보내지 않은 묶음은 버린다.
+    live.stop();
     const output = invoked.ok ? invoked.value : undefined;
     const outcome = output?.outcome ?? {
       kind: "failed" as const,
@@ -691,22 +705,27 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       );
     },
     async answer(text) {
-      if (text.trim() === "") return ok(undefined);
       // 답은 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이 turn이
-      // 이 session에서 도는 중인지 본다. 같은 turn·model call의 답은 한 번만 남는다.
+      // 이 session에서 도는 중인지 본다. 한 model 호출의 응답은 message 하나다: id를 그 호출에서 정해
+      // 멈춤 wrapper와 child가 같은 응답을 저장해도 둘째는 같은 id 규칙에 걸린다.
+      const modelCall = lastModelCall!;
+      const message = messageIdOf(modelCall);
       const recorded = await commandOf(
         machine,
         recordMessage,
         {
-          id: ids.newId("msg"),
+          id: message,
           session: seat.session,
           turn: seat.turn,
           content: { schema_version: 1, parts: [{ kind: "text", text }] },
         },
         {},
-        `${seat.turn}:answer:${lastModelCall ?? "none"}`,
+        `${seat.turn}:answer:${modelCall}`,
       );
-      return recorded.ok ? ok(undefined) : recorded;
+      if (!recorded.ok) return recorded;
+      // 그 응답의 tool call보다 먼저 불리므로 MessageRecorded가 그 응답의 ToolCallStarted보다 먼저 간다.
+      publish("MessageRecorded", { message, model_call: modelCall });
+      return ok(undefined);
     },
     finish,
   };

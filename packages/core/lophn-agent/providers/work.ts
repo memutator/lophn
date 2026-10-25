@@ -12,6 +12,10 @@ import type {
 import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
 
+// 받은 글의 늘어난 조각 하나다. redaction 전 날 글이고 core가 화면에 내기 전에 가린다
+// (`run-loop/live-turns.ts`).
+export type ModelOutputDelta = { kind: "text" | "reasoning"; text: string };
+
 // 호출 입력. resolve가 준 판과 turn 근거다.
 export type ModelCallInput = {
   // 시도 id. 호출 시작 기록과 같은 id다.
@@ -33,6 +37,8 @@ export type ModelCallInput = {
   usageRevision: string;
   // 재전송 대상 opaque 추론이 있는 요청의 state-free 계속 검증 입력이다.
   continuation?: { pendingReasoning: boolean; reasoningRequired: boolean };
+  // 받은 글이 늘 때마다 늘어난 조각을 넘긴다. compactor(`session/compactor.ts`)는 넘기지 않는다.
+  onDelta?: (delta: ModelOutputDelta) => void;
 };
 
 // 호출 출력. 순서·대응을 보존한 text·tool requests다.

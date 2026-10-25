@@ -6,6 +6,8 @@ import {
 import {
   agentEventMessageSchema,
   type ChildMessage,
+  type ModelOutputMessage,
+  modelOutputMessageSchema,
   type ParentMessage,
   turnSourceRequestSchema,
   type TurnSourceResponse,
@@ -13,7 +15,8 @@ import {
 import type { TurnSource } from "./ports.ts";
 
 // 입력함과 Bus는 core 메모리에 있다. agent runtime child가 감독 pipe로 보내는 `turn_source_request`와
-// `agent_event`를 core 쪽에서 받는 handler다. 요청은 `TurnSource`를 그대로 부르고 event는 Bus에 낸다.
+// `agent_event`, `model_output`을 core 쪽에서 받는 handler다. 요청은 `TurnSource`를 그대로 부르고 event는
+// Bus에 낸다. 쓰는 중인 model 날 글은 Bus에 싣지 않고 core의 `live-turns.ts`가 redaction한 뒤 낸다.
 
 type TurnPipe = {
   // child message를 처리한다. 응답이 있으면 돌려주고, 이 handler의 message가 아니면 undefined를 돌려준다.
@@ -27,6 +30,7 @@ type TurnPipe = {
 export function createTurnPipe(options: {
   source: TurnSource;
   publish(event: AgentEvent): void;
+  output(batch: ModelOutputMessage): void;
 }): TurnPipe {
   const { source } = options;
 
@@ -78,6 +82,11 @@ export function createTurnPipe(options: {
           ? agentEventSchema.safeParse(parsed.data.event)
           : undefined;
         if (event?.success) options.publish(event.data);
+        return { handled: true };
+      }
+      if (message.type === "model_output") {
+        const parsed = modelOutputMessageSchema.safeParse(message);
+        if (parsed.success) options.output(parsed.data);
         return { handled: true };
       }
       if (message.type !== "turn_source_request") return { handled: false };

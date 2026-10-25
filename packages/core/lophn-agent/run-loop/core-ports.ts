@@ -717,9 +717,12 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   // 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이
   // turn이 이 session에서 도는 중인지 본다. id를 그 호출에서 정해 멈춤 wrapper와 child가 같은
   // 응답을 저장해도 둘째는 같은 id 규칙에 걸린다. 남길 part가 없으면 아무것도 남기지 않는다.
+  // `emptyTextPart`는 answer 길이다: 마지막 응답은 글이 비어도 남겨야 run의 답이 그 응답이 되고,
+  // 빈 답은 no_answer로 끝난다(`wiring/runs.ts`).
   async function recordReply(
     modelCall: string,
     text: string,
+    emptyTextPart = false,
   ): Promise<Result<void>> {
     const parts: { kind: string; text: string; duration_ms?: number | null }[] =
       [];
@@ -730,7 +733,9 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         duration_ms: lastReasoning.duration_ms,
       });
     }
-    if (text.trim() !== "") parts.push({ kind: "text", text });
+    if (text.trim() !== "" || emptyTextPart) {
+      parts.push({ kind: "text", text });
+    }
     if (parts.length === 0) return ok(undefined);
     const message = messageIdOf(modelCall);
     const recorded = await commandOf(
@@ -773,7 +778,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       );
     },
     answer(text) {
-      return recordReply(lastModelCall!, text);
+      return recordReply(lastModelCall!, text, true);
     },
     finish,
   };

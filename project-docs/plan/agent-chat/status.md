@@ -15,6 +15,6 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `stream-core` | stream | 2 | 없음 | merged | stream/stream-core | d5572ac8c | message id는 msg_+mcl ULID. 마지막 응답은 빈 글도 저장하고 runs answer는 빈 글을 null로 본다. lead probe(fake): 중간 글+tool 뒤 run 답=마지막 응답, 빈 마지막=no_answer. workflow는 turn 상태만 본다 |
 | `tool-title-core` | tool-title | 2 | 없음 | merged | tool-title/tool-title-core | 7b29e36ba |  |
 | `clock-shell` | clock | 3 | reasoning-shell | todo |  |  |  |
-| `reasoning-shell` | reasoning | 3 | stream-shell | todo |  |  |  |
+| `reasoning-shell` | reasoning | 3 | stream-shell | running | reasoning/reasoning-shell |  |  |
 | `stream-shell` | stream | 3 | 없음 | merged | stream/stream-shell | 0704eb55d |  |
 | `tool-title-shell` | tool-title | 3 | clock-shell | todo |  |  |  |

@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `chat-protocol` | chat-protocol | 1 | 없음 | merged | chat-protocol/chat-protocol | 14d5c437f |  |
 | `chip-remove` | chip-remove | 1 | chat-protocol, chat-md | running | chip-remove/chip-remove |  |  |
 | `link` | link | 1 | 없음 | merged | link/link | abeb29a13 |  |
-| `stream-redact` | stream | 1 | 없음 | running | stream/stream-redact |  |  |
+| `stream-redact` | stream | 1 | 없음 | merged | stream/stream-redact | 591ba2f24 |  |
 | `clock-core` | clock | 2 | reasoning-core | todo |  |  |  |
 | `highlight` | highlight | 2 | chat-md | todo |  |  |  |
 | `reasoning-core` | reasoning | 2 | stream-core | todo |  |  |  |

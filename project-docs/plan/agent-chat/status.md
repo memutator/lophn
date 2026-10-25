@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `chip-remove` | chip-remove | 1 | chat-protocol, chat-md | merged | chip-remove/chip-remove | 14cf6273d |  |
 | `link` | link | 1 | 없음 | merged | link/link | abeb29a13 |  |
 | `stream-redact` | stream | 1 | 없음 | merged | stream/stream-redact | 591ba2f24 |  |
-| `clock-core` | clock | 2 | reasoning-core | running | clock/clock-core |  |  |
+| `clock-core` | clock | 2 | reasoning-core | merged | clock/clock-core | 0dcccf32a |  |
 | `highlight` | highlight | 2 | chat-md | merged | highlight/highlight | fd072d4ab | Electron headless(CDP)에서 Worker가 뜨고 ts·sh grammar chunk를 불러온다(CSP 오류 없음). 설치 +9.1MB, .deb +0.9MB |
 | `reasoning-core` | reasoning | 2 | stream-core | merged | reasoning/reasoning-core | d9c57b4b4 | 시간은 README대로 block 시작·끝. 중간 reasoning-only 응답은 modelAttempt가 저장. batch.ts도 reasoning을 나른다(lead 추가 소유) |
 | `stream-core` | stream | 2 | 없음 | merged | stream/stream-core | d5572ac8c | message id는 msg_+mcl ULID. 마지막 응답은 빈 글도 저장하고 runs answer는 빈 글을 null로 본다. lead probe(fake): 중간 글+tool 뒤 run 답=마지막 응답, 빈 마지막=no_answer. workflow는 turn 상태만 본다 |

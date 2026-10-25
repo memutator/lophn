@@ -29,6 +29,8 @@ interface RenderContext {
   clipboard: Clipboard;
   images: "show" | "link";
   renderText?: (text: string, kind: "text" | "code") => ReactNode;
+  // <a> 안에서는 다른 <a>를 만들지 않는다.
+  inLink?: boolean;
 }
 
 function linkOnClick(
@@ -73,6 +75,9 @@ function inlines(
       case "image": {
         if (context.images === "link" && inline.src !== undefined) {
           const href = inline.src;
+          if (context.inLink) {
+            return <span key={index}>{inline.alt || href}</span>;
+          }
           return (
             <a
               key={index}
@@ -99,10 +104,11 @@ function inlines(
           );
       }
       case "link": {
-        // <a> 안에 button(artifact path link)을 넣지 않는다.
+        // <a> 안에 button(artifact path link)이나 a(image link)를 넣지 않는다.
         const children = inlines(inline.children, {
           ...context,
           renderText: undefined,
+          inLink: true,
         });
         const href = inline.href;
         if (href === undefined) return <span key={index}>{children}</span>;

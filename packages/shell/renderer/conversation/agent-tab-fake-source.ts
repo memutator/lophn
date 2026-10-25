@@ -176,13 +176,6 @@ const reportEdit = (minutes: number): ThreadEntry => ({
   },
 });
 
-const TASKS = [
-  { id: "task-1", text: "Read last week's findings", state: "done" },
-  { id: "task-2", text: "Search eval", state: "done" },
-  { id: "task-3", text: "Write report", state: "now" },
-  { id: "task-4", text: "Link findings", state: "later" },
-] as const;
-
 const working = (): ThreadView["turn"] => ({
   id: turn1,
   phase: "working",
@@ -283,7 +276,6 @@ interface SceneData {
   title: string;
   entries: ThreadEntry[];
   turn: ThreadView["turn"];
-  tasks?: ThreadView["tasks"];
   queued?: QueuedView[];
   pending?: ThreadView["pending"];
   /** 메시지 id별 본문. 글만인 message는 text에서 만든다. */
@@ -357,7 +349,6 @@ function sceneData(scene: AgentTabScene): SceneData {
         title: "Week 41 summary",
         entries,
         turn: working(),
-        tasks: TASKS,
         queued: steer ? [] : [{
           id: messageId(5),
           at: at(42),
@@ -860,7 +851,6 @@ export function createFakeAgentTabSource(
     threads.set(SESSION_MAIN, {
       entries: data.entries,
       turn: data.turn,
-      tasks: data.tasks ?? [],
       queued: data.queued ?? [],
       pending: data.pending ?? EMPTY_THREAD.pending,
     });
@@ -1051,7 +1041,6 @@ export function createFakeAgentTabSource(
       return change(session, (view) => ({
         ...view,
         turn: { ...view.turn!, phase: "ended" },
-        tasks: [],
         pending: EMPTY_THREAD.pending,
         entries: [...view.entries, {
           kind: "turn-end",

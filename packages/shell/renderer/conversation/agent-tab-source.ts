@@ -244,12 +244,6 @@ interface EditView {
   readonly removed: number;
 }
 
-interface TaskView {
-  readonly id: string;
-  readonly text: string;
-  readonly state: "done" | "now" | "later";
-}
-
 interface ThreadTools extends EntryBase {
   readonly kind: "tools";
   readonly tool: ToolLineView;
@@ -359,12 +353,10 @@ interface PendingView {
   readonly questions: AskedGroup | null;
 }
 
-/** 한 session 화면 전체: 시간순 줄, 지금 turn, 할 일, 다음 turn 줄, 사람이 답할 것. */
+/** 한 session 화면 전체: 시간순 줄, 지금 turn, 다음 turn 줄, 사람이 답할 것. */
 export interface ThreadView {
   readonly entries: readonly ThreadEntry[];
   readonly turn: TurnView | null;
-  /** 일하는 중의 할 일 목록. 일하지 않으면 비어 있다. */
-  readonly tasks: readonly TaskView[];
   readonly queued: readonly QueuedView[];
   readonly pending: PendingView;
 }
@@ -372,7 +364,6 @@ export interface ThreadView {
 export const EMPTY_THREAD: ThreadView = {
   entries: [],
   turn: null,
-  tasks: [],
   queued: [],
   pending: { approval: null, questions: null },
 };

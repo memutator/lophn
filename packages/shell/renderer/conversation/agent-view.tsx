@@ -13,7 +13,6 @@ import { retryIcon } from "../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { newId } from "../prefixed-id.ts";
-import { ProgressChip } from "./activity/progress-chip.tsx";
 import type { ViewDetail } from "./activity/model.ts";
 import { ViewDetailSelect } from "./activity/view-detail-select.tsx";
 import type {
@@ -489,7 +488,6 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           openForked: host.openForked,
         }}
         onChanged={() => void refresh()}
-        progress={<ProgressChip tasks={thread?.tasks ?? []} />}
         detail={<ViewDetailSelect value={detail} onChange={setDetail} />}
       />
       {offline || data.failed

@@ -656,6 +656,6 @@ export async function readThread(
   };
   return {
     ok: true,
-    value: { entries: out, turn, tasks: [], queued, pending },
+    value: { entries: out, turn, queued, pending },
   };
 }

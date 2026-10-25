@@ -195,7 +195,6 @@ function foldEvent(
       return withEntries({
         ...view,
         turn: { id: turn, phase: "ended", startedAt },
-        tasks: [],
         pending: { approval: null, questions: null },
       }, [...answers, tail]);
     }

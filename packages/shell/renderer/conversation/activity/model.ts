@@ -15,11 +15,3 @@ export interface ToolLineView {
   /** 펼쳤을 때의 하위 줄. */
   lines: readonly string[];
 }
-
-export type TaskState = "done" | "now" | "later";
-
-export interface TaskView {
-  id: string;
-  text: string;
-  state: TaskState;
-}

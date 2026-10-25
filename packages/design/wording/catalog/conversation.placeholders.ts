@@ -294,11 +294,6 @@ export type ConversationPlaceholders = {
   "conversation.label.stopped-after": {
     duration: "string";
   };
-  "conversation.label.tasks": Record<never, never>;
-  "conversation.label.tasks-progress": {
-    done: "number";
-    total: "number";
-  };
   "conversation.label.tool-read-documents": {
     count: "plural";
   };

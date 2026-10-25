@@ -1,5 +1,5 @@
 // Agent 탭 맨 위의 agent header. 탭 안 view bar의 왼쪽에 "[avatar] 이름 · session 제목 ▾"(session switcher),
-// 오른쪽에 "Archived" 표시, 진행 chip, 보기 상세 menu, 더보기 menu가 있다. 더보기 menu는 열린 session이면
+// 오른쪽에 "Archived" 표시, 보기 상세 menu, 더보기 menu가 있다. 더보기 menu는 열린 session이면
 // Rename·Fork·Archive, archive한 session이면 Fork뿐이다(기록만 읽고 입력칸이 없다).
 // session을 바꾸는 일은 source를 부르고, 끝나면 `onChanged`로 목록을 다시 읽게 한다. agent를 고르는 칸은 없다.
 import {
@@ -55,8 +55,6 @@ interface AgentHeaderProps {
   host: AgentHeaderHost;
   /** session 목록이나 제목이 바뀌었다. 목록을 다시 읽는다. */
   onChanged: () => void;
-  /** 진행 chip 자리(thread의 것). */
-  progress?: ReactNode;
   /** 보기 상세 menu 자리(Messages·Compact·Everything). */
   detail?: ReactNode;
 }
@@ -168,7 +166,6 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
             </span>
           )
           : null}
-        {props.progress}
         {props.detail}
         {session === null ? null : (
           <Menu

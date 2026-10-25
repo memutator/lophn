@@ -1,4 +1,4 @@
-/* tool 줄·편집 카드·Worked for·진행 chip의 Tasks popover. 글과 기호로 읽고 색은 보조다. */
+/* tool 줄·편집 카드·Worked for의 모양. 글과 기호로 읽고 색은 보조다. */
 .tool {
   display: flex;
   flex-direction: column;
@@ -94,46 +94,6 @@
   height: var(--border-width);
   background: var(--color-border-subtle);
   content: "";
-}
-
-.tasks {
-  padding: var(--space-3) var(--space-4);
-}
-
-.tasksHead {
-  margin: var(--space-0) var(--space-0) var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.taskList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  list-style: none;
-}
-
-.taskMark {
-  display: inline-block;
-  width: var(--space-7);
-}
-
-.task[data-state="done"] {
-  color: var(--status-good-text);
-}
-
-.task[data-state="now"] {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.task[data-state="later"] {
-  color: var(--color-text-muted);
 }
 
 /* header의 보기 상세 select는 label을 눈에서만 감춘다. 이름은 스크린리더에 남는다. */

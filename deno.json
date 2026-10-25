@@ -69,6 +69,7 @@
     "packages/shell/main",
     "packages/shell/preload",
     "dist",
+    "build",
     "node_modules"
   ]
 }

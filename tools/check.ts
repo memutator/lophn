@@ -49,6 +49,7 @@ const DENO_EXCLUDED = [
   "packages/shell/preload/",
   "node_modules/",
   "dist/",
+  "build/",
   ".claude/",
   ".dev-data/",
   "project-docs/",

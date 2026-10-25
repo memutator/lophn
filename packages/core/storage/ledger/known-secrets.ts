@@ -9,6 +9,8 @@ import { definePort, type PortKey } from "../../../protocol/base/mod.ts";
 
 export type KnownSecretMatch = {
   match(text: string): { index: number; length: number } | undefined;
+  // 끝 글이 알려진 값의 앞부분인 가장 이른 자리다. 값·길이·개수는 내지 않는다.
+  prefixFrom(text: string): number | undefined;
   // core가 현재 참조의 값을 모두 넣었다고 알린 뒤에만 true다. 처음과 값을 다 읽지 못하는
   // 동안은 false라서, 알려진 값을 모른 채 원문을 내보내려는 redactor가 스스로 막는다.
   readonly ready: boolean;

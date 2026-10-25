@@ -57,6 +57,7 @@ const handler = secretValueHandler({
     ready: true,
     match: (text) =>
       text.startsWith(VALUE) ? { index: 0, length: VALUE.length } : undefined,
+    prefixFrom: () => undefined,
   }),
   observe: () =>
     Promise.resolve(

@@ -124,6 +124,7 @@ export function openSecretStore(deps: {
     sync,
     known: {
       match: (text) => coreKnown.match(text),
+      prefixFrom: (text) => coreKnown.prefixFrom(text),
       get ready() {
         return ready;
       },

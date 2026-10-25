@@ -33,6 +33,7 @@ self.onmessage = async (event: MessageEvent) => {
     let ready = false;
     const matcher = Object.freeze({
       match: (text: string) => known.match(text),
+      prefixFrom: (text: string) => known.prefixFrom(text),
       get ready() {
         return ready;
       },

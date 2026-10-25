@@ -1,6 +1,10 @@
 export { createRedactionEngine, type RedactionEngine } from "./engine.ts";
 export { selectSafeFields } from "./fields.ts";
-export { matchCredential, patternRevision } from "./patterns.ts";
+export {
+  credentialPrefixFrom,
+  matchCredential,
+  patternRevision,
+} from "./patterns.ts";
 export {
   createProductRedactor,
   type TextRedactor,

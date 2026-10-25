@@ -90,6 +90,7 @@ async function run(
     known: () => ({
       ready: true,
       match: (text) => ({ index: 0, length: text.length }),
+      prefixFrom: () => undefined,
     }),
     observe: () =>
       Promise.resolve(

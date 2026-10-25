@@ -21,6 +21,8 @@ nm=$(git diff --stat $FROM $B | grep -c node_modules)
 [ "$nm" != 0 ] && { echo "STOP: node_modules in diff"; exit 1; }
 echo "changed files (brief의 소유와 대 본다):"; git diff --name-only $FROM $B | sed 's/^/  /'
 git diff $FROM $B | grep -nE '^\+.*(TODO|FIXME)' && echo "WARN: TODO/FIXME"
+# worker의 check가 고쳐 둔 lock은 commit하지 않는 file인데 남아 있으면 rebase가 막힌다.
+git -C $W checkout -- packages/shell/main/desktop/core/deno.lock 2>/dev/null
 git -C $W status --short | grep -v node_modules | sed 's/^/dirty: /'
 git -C $W rebase --onto $BASE $FROM >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
 # 뒤에서 끊겨 다시 돌릴 때 이미 옮긴 plan branch commit을 또 옮기지 않게 기준을 지금 BASE로 적는다.

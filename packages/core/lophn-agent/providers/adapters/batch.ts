@@ -43,6 +43,20 @@ function messagesFrames(root: Json): SseFrame[] {
         index,
         delta: { type: "text_delta", text: block.text },
       }));
+    } else if (block.type === "thinking") {
+      // 사람이 읽을 reasoning 글. stream과 같은 frame으로 옮긴다.
+      frames.push(frame("content_block_start", {
+        type: "content_block_start",
+        index,
+        content_block: { type: "thinking", thinking: "" },
+      }));
+      if (typeof block.thinking === "string" && block.thinking !== "") {
+        frames.push(frame("content_block_delta", {
+          type: "content_block_delta",
+          index,
+          delta: { type: "thinking_delta", thinking: block.thinking },
+        }));
+      }
     } else if (block.type === "tool_use") {
       frames.push(frame("content_block_start", {
         type: "content_block_start",
@@ -58,7 +72,6 @@ function messagesFrames(root: Json): SseFrame[] {
         },
       }));
     } else {
-      // thinking 같은 사람이 읽을 본문 block은 버린다.
       continue;
     }
     frames.push(frame("content_block_stop", {
@@ -91,7 +104,30 @@ function responsesFrames(root: Json): SseFrame[] {
           }));
         }
       }
-    } else if (item.type === "function_call" || item.type === "reasoning") {
+    } else if (item.type === "reasoning") {
+      // stream과 같은 frame으로 요약 글을 옮긴다. 요약은 reasoning item에만 있다.
+      frames.push(frame("response.output_item.added", {
+        type: "response.output_item.added",
+        item: { type: "reasoning", id: item.id, summary: [] },
+      }));
+      const summary = Array.isArray(item.summary) ? item.summary : [];
+      for (const [summaryIndex, raw] of summary.entries()) {
+        const part = object(raw);
+        if (part?.type !== "summary_text" || typeof part.text !== "string") {
+          continue;
+        }
+        frames.push(frame("response.reasoning_summary_text.delta", {
+          type: "response.reasoning_summary_text.delta",
+          item_id: typeof item.id === "string" ? item.id : "",
+          summary_index: summaryIndex,
+          delta: part.text,
+        }));
+      }
+      frames.push(frame("response.output_item.done", {
+        type: "response.output_item.done",
+        item,
+      }));
+    } else if (item.type === "function_call") {
       frames.push(frame("response.output_item.done", {
         type: "response.output_item.done",
         item,
@@ -125,6 +161,17 @@ function chatFrames(root: Json): SseFrame[] {
   const choice = Array.isArray(root.choices) ? object(root.choices[0]) : null;
   if (choice === null) return [];
   const message = object(choice.message) ?? {};
+  const frames: SseFrame[] = [];
+  // 사람이 읽을 reasoning 글은 content 앞에 온다.
+  if (typeof message.reasoning_content === "string") {
+    frames.push(frame("message", {
+      choices: [{
+        index: 0,
+        delta: { reasoning_content: message.reasoning_content },
+        finish_reason: null,
+      }],
+    }));
+  }
   const delta: Json = {};
   if (typeof message.content === "string") delta.content = message.content;
   if (Array.isArray(message.tool_calls)) {
@@ -133,14 +180,15 @@ function chatFrames(root: Json): SseFrame[] {
       ...(object(call) ?? {}),
     }));
   }
-  return [
+  frames.push(
     frame("message", { choices: [{ index: 0, delta, finish_reason: null }] }),
     frame("message", {
       choices: [{ index: 0, delta: {}, finish_reason: choice.finish_reason }],
       ...(root.usage === undefined ? {} : { usage: root.usage }),
     }),
     { event: "message", data: "[DONE]" },
-  ];
+  );
+  return frames;
 }
 
 export function framesFromBatch(

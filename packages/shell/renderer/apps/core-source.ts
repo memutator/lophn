@@ -1,6 +1,11 @@
 // AppsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다.
-import { appArchive, appUnarchive } from "../../../protocol/apps/apps.ts";
+import {
+  appArchive,
+  appCreate,
+  appUnarchive,
+} from "../../../protocol/apps/apps.ts";
+import { appSlugOf } from "../../../protocol/apps/app-slug.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -9,7 +14,6 @@ import type { AppRow, AppsSource, RunState, SourceResult } from "./source.ts";
 interface AppValue {
   id: string;
   name: string;
-  project: string;
   status: "active" | "archived";
   active_release: string | null;
   revision: string;
@@ -33,7 +37,6 @@ function rowOf(value: AppValue): AppRow {
   return {
     id: value.id,
     name: value.name,
-    project: value.project,
     archived: value.status === "archived",
     release: value.active_release,
     revision: value.revision,
@@ -77,6 +80,28 @@ export function coreAppsSource(core: CoreSource): AppsSource {
         { app },
       );
       return result.ok ? { ok: true, value: result.value.state.state } : result;
+    },
+
+    async create(draft) {
+      // 성공 응답은 route output(App) 그대로다.
+      const result = await call<AppValue>(
+        core,
+        "command",
+        appCreate.method,
+        commandBody(appCreate, {
+          input: {
+            slug: appSlugOf(
+              draft.name,
+              crypto.randomUUID().replaceAll("-", "").slice(0, 8),
+            ),
+            name: draft.name,
+            description: draft.description,
+          },
+          compare: {},
+          key: `apps-create-${crypto.randomUUID()}`,
+        }),
+      );
+      return result.ok ? { ok: true, value: rowOf(result.value) } : result;
     },
 
     async setArchived(app, archived) {

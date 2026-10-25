@@ -1,4 +1,5 @@
 // 런처·앱 공간 테스트의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
+import { newId } from "../../prefixed-id.ts";
 import type { AppRow, AppsSource, RunState, SourceResult } from "../source.ts";
 
 export function appRow(
@@ -9,7 +10,6 @@ export function appRow(
   return {
     id,
     name,
-    project: "prj_01h455vb4pex5v6nkc6gd5fd01",
     archived: false,
     release: null,
     revision: "7",
@@ -23,6 +23,8 @@ interface FakeAppsOptions {
   /** 앱 공간이 여는 화면. 없으면 unavailable이다. */
   screen?: string;
   listFails?: boolean;
+  /** 등록 결과 code. 없으면 성공이다. */
+  createCode?: string;
   /** 보관·꺼내기 결과 code. 없으면 성공이다. */
   archiveCode?: string;
 }
@@ -56,6 +58,15 @@ export function fakeApps(options: FakeAppsOptions = {}) {
       return Promise.resolve(
         run ? { ok: true, value: run } : { ok: false, code: "unavailable" },
       );
+    },
+    create(draft) {
+      calls.push(["create", draft.name, draft.description]);
+      if (options.createCode) {
+        return Promise.resolve({ ok: false, code: options.createCode });
+      }
+      const row = appRow(newId("app"), draft.name);
+      rows = [...rows, row];
+      return Promise.resolve({ ok: true, value: row });
     },
     setArchived(app, archived) {
       calls.push(["archive", app.id, archived, app.revision]);

@@ -30,24 +30,32 @@ export const workspace = {
   "launcher.button.add-folder": "Add folder",
   "launcher.button.archive": "Archive",
   "launcher.button.choose-location": "Choose new location",
+  "launcher.button.create-app": "Create",
   "launcher.button.details": "Details",
   "launcher.button.hide-details": "Hide details",
+  "launcher.button.lophn": "Ask lophn",
   "launcher.button.more": "More actions for {name}",
+  "launcher.button.new-app": "New app",
   "launcher.button.register": "Register",
   "launcher.button.register-project": "Register project",
   "launcher.button.remove-folder": "Remove folder",
   "launcher.button.show-details": "Show details",
   "launcher.button.unarchive": "Unarchive",
+  "launcher.dialog.new-app-note":
+    "An app starts with a name and a one-line purpose. Its App Engineer builds it from there.",
   "launcher.dialog.register-note":
     "A project is a name, a purpose and the folders it works in, if any.",
   "launcher.empty.no-apps": "No apps yet.",
-  "launcher.empty.no-cards":
-    "Nothing to open yet. Register a project to get started.",
   "launcher.empty.no-folders":
     "No folder yet. A project can also hold just its apps' data.",
   "launcher.empty.no-projects": "No projects yet.",
+  "launcher.error.app-create-failed":
+    "{name} wasn't created, so nothing was saved. Try again.",
+  "launcher.error.app-name-taken":
+    "{name} is already taken. Choose a different name.",
   "launcher.error.name-required": "Enter a name.",
   "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
+  "launcher.error.purpose-required": "Enter a purpose.",
   "launcher.error.register-failed":
     "{name} wasn't registered, so nothing was saved. Try again.",
   "launcher.failure.check-damaged-original":
@@ -72,11 +80,12 @@ export const workspace = {
     "Update lophn, or start the version that wrote this data. Then try again.",
   "launcher.failure.update-newer-schema":
     "Update lophn to the newer version, then start it again.",
+  "launcher.field.app-purpose-help":
+    "One line about what the app is for. Its App Engineer reads this.",
   "launcher.field.purpose-help": "What the project is for. Agents read this.",
   "launcher.heading.apps": "Apps",
   "launcher.heading.archived": "Archived",
   "launcher.heading.projects": "Projects",
-  "launcher.label.app-project": "In {name}",
   "launcher.label.apps": "your apps",
   "launcher.label.folder-count":
     "{count, plural, one {# folder} other {# folders}}",
@@ -91,6 +100,8 @@ export const workspace = {
     "Archived projects and apps are hidden above. An archived app doesn't start, and agents stop reacting to new events in an archived project. Their sessions stay.",
   "launcher.title.damaged-original": "Your data can't be read",
   "launcher.title.history-mismatch": "The saved history does not match",
+  "launcher.title.lophn-panel": "lophn",
+  "launcher.title.new-app": "New app",
   "launcher.title.newer-schema": "This data is from a newer lophn",
   "launcher.title.register": "Register project",
   "launcher.title.sandbox-failed": "lophn is blocked by your system",

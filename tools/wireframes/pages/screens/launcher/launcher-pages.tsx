@@ -7,6 +7,7 @@ import { Launcher } from "../../../../../packages/shell/renderer/desktop/launche
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createFakeWaiting } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
+import { mockAgentTabSource } from "../../../../../packages/shell/renderer/desktop/dev-mock/agent.ts";
 import { mockCore } from "../../../../../packages/shell/renderer/desktop/dev-mock/requests.ts";
 import {
   fakeApps,
@@ -46,6 +47,7 @@ function Page(
       ).source,
     [empty],
   );
+  const agentViewSource = useMemo(() => mockAgentTabSource(), []);
   const apps = useMemo(
     () => empty ? fakeApps().source : galleryApps().source,
     [empty],
@@ -59,6 +61,7 @@ function Page(
           platform="linux"
           projects={projects}
           apps={apps}
+          agentViewSource={agentViewSource}
           onSettings={noop}
         />
       </EventsProvider>
@@ -69,13 +72,33 @@ function Page(
 /** 카드가 있는 런처. phroner의 폴더 하나가 사라졌다. */
 export const LauncherProjects = () => <Page />;
 
-/** 프로젝트도 앱도 없는 런처. 다음 행동은 프로젝트 등록 하나다. */
+/** 프로젝트도 앱도 없는 런처. 두 section이 각자 비었음 안내와 행동 하나(Register project, New app)를 보인다. */
 export const LauncherEmpty = () => <Page empty />;
+
+/** 오른쪽 아래 Ask lophn 단추를 눌러 대화 패널을 연 런처. 안은 탭과 같은 Agent 화면이다. */
+export const LauncherLophn = () => (
+  <Page steps={[() => click('[data-entry="lophn"]')]} />
+);
 
 /** 등록 dialog를 연 런처. */
 export const LauncherRegister = () => (
   <Page
     steps={[() => click("[data-register-project]"), ...registerSteps()]}
+  />
+);
+
+/** New app dialog: 이름과 한 줄 목적. */
+export const LauncherNewApp = () => (
+  <Page
+    steps={[
+      () => click("[data-new-app]"),
+      () => type("[data-new-app-form] [data-field='name']", "Reading list"),
+      () =>
+        type(
+          "[data-new-app-form] [data-field='purpose']",
+          "Books I want to read and what I thought of them",
+        ),
+    ]}
   />
 );
 

@@ -4,6 +4,8 @@ import {
   LauncherArchived,
   LauncherCardMenu,
   LauncherEmpty,
+  LauncherLophn,
+  LauncherNewApp,
   LauncherProjectDetail,
   LauncherProjects,
   LauncherRegister,
@@ -36,13 +38,13 @@ export const launcherArea: Area = {
   id: "launcher",
   title: "Launcher",
   summary:
-    "처음 여는 런처. project와 앱을 다루는 유일한 화면이다. 카드와 ⋯ 메뉴, 보관과 복원, 폴더 다시 잡기, project detail, 비었음 안내, 프로젝트 등록, 시작 실패 화면.",
+    "처음 여는 런처. project와 앱을 다루는 유일한 화면이다. 카드와 ⋯ 메뉴, 보관과 복원, 폴더 다시 잡기, project detail, 비었음 안내, 프로젝트 등록, New app, lophn 패널, 시작 실패 화면.",
   pages: [
     {
       id: "launcher-empty",
       title: "Launcher · empty",
       description:
-        "처음 여는 런처. 프로젝트 카드가 없어 비었음 안내만 보인다. first-project 흐름의 1단계(아직 프로젝트 없음)이고, install-lophn은 설치 뒤 처음 여는 자리다.",
+        "처음 여는 런처. 프로젝트도 앱도 없어 두 section이 각자 비었음 안내를 보인다. first-project 흐름의 1단계(아직 프로젝트 없음)이고, install-lophn은 설치 뒤 처음 여는 자리다.",
       render: () => <MockDesktop emptyLauncher />,
     },
     {
@@ -51,6 +53,13 @@ export const launcherArea: Area = {
       description:
         "프로젝트 카드가 있는 런처. 카드는 이름·목적·문서 수·추적 상태를 보이고, 카드를 누르면 그 프로젝트 작업대로 간다.",
       render: () => <MockDesktop />,
+    },
+    {
+      id: "launcher-lophn",
+      title: "Launcher · lophn panel",
+      description:
+        "오른쪽 아래 Ask lophn 단추를 눌러 연 대화 패널. 그 구석에서 열리고 열린 동안 단추는 숨는다. 런처 위에 떠 있고 제목 줄을 끌어 옮기고 가장자리로 크기를 바꾸며 닫아도 session은 남는다. 안은 탭과 같은 Agent 화면이다.",
+      render: () => <LauncherLophn />,
     },
     {
       id: "launcher-start-failed",
@@ -84,7 +93,7 @@ export const launcherArea: Area = {
       id: "new-launcher-empty",
       title: "Launcher · empty",
       description:
-        "project도 앱도 없는 런처다. 다음 행동 단추는 프로젝트 등록 하나다.",
+        "project도 앱도 없는 런처다. Projects와 Apps section이 각자 비었음 안내와 행동 단추 하나(프로젝트 등록, New app)를 보인다.",
       render: () => <LauncherEmpty />,
     },
     {
@@ -128,6 +137,13 @@ export const launcherArea: Area = {
       description:
         "project 등록 dialog다. 이름, 목적, 폴더와 폴더 설명을 받고 짧은 이름 고르기는 없다.",
       render: () => <LauncherRegister />,
+    },
+    {
+      id: "new-launcher-new-app",
+      title: "Launcher · new app",
+      description:
+        "Apps section의 + 단추나 비었음 안내가 여는 dialog다. 이름과 한 줄 목적을 받고, 만들면 그 앱 공간이 App Engineer의 새 session과 함께 열린다. 이름이 겹치면 dialog에 오류가 보인다.",
+      render: () => <LauncherNewApp />,
     },
     {
       id: "new-start-failure",

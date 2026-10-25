@@ -11,6 +11,7 @@ export const conversation = {
   "conversation.button.archived-toggle": "Archived ({count, number})",
   "conversation.button.attach": "Add files or photos",
   "conversation.button.call-cancel": "Cancel",
+  "conversation.button.call-open": "Open conversation",
   "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.delete": "Delete",

@@ -81,6 +81,8 @@ interface AppSpaceProps {
   overlay?: OverlayApi;
   /** 처음에 pane에 열어 둘 agent session. */
   session?: string;
+  /** 이 앱의 App Engineer를 새 session으로 열어 시작한다(방금 만든 앱). */
+  appEngineer?: boolean;
   /** 이 공간의 pane에 없는 agent session을 연다(호스트가 그 session이 있는 화면으로 간다). */
   onOpenSession?: (session: string) => void;
   /** 터미널 탭 통로. 있어야 lophn이 연 coding 터미널을 pane에 받는다. */
@@ -162,6 +164,7 @@ export function AppSpace(
     annotate: annotateApi,
     overlay,
     session,
+    appEngineer,
     onOpenSession,
     terminal,
   }: AppSpaceProps,
@@ -181,11 +184,15 @@ export function AppSpace(
   // 창마다 하나인 덮개 목록. 좁은 창의 오른쪽 패널이 앱 view 자리를 덮는다.
   const covers = useMemo(createViewCovers, []);
   // 오른쪽 패널. 열린 탭(details, agent, terminal)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
-  const [pane, setPane] = useState<AgentPaneState | null>(null);
+  const [pane, setPane] = useState<AgentPaneState | null>(
+    appEngineer
+      ? { mode: "agent", assignment: "app_engineer", session: null }
+      : null,
+  );
   const [coding, setCoding] = useState<PaneTerminal | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [panelTab, setPanelTab] = useState<PanelTab>("agent");
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(appEngineer === true);
   const [opened, setOpened] = useState(false);
   const agentList = useAppAgents(agents, app);
   const paneShown = pane !== null && agents !== undefined;
@@ -230,6 +237,16 @@ export function AppSpace(
 
   const sessions = useSessions().sessions;
 
+  // 그 agent의 가장 최근 열린 session. lophn이 맡긴 일을 받은 session도 여기 있어서, 고르면 빈 새 session 대신
+  // 이어 가던 대화가 열린다. 새 session은 header의 session 목록에서 연다.
+  const latestSession = (assignment: string): string | null =>
+    sessions.filter((item) =>
+      item.ended === null && item.agent !== null &&
+      item.agent.role !== "coding_agent" &&
+      keyOf(item.agent) === assignment &&
+      (item.agent.role !== "app_engineer" || item.agent.app === app)
+    ).at(-1)?.session ?? null;
+
   function openAgent(assignment: string): void {
     // 보고 있는 agent를 다시 고르면 패널을 닫는다.
     if (
@@ -242,7 +259,7 @@ export function AppSpace(
     setPane((current) =>
       current?.mode === "agent" && current.assignment === assignment
         ? current
-        : { mode: "agent", assignment, session: null }
+        : { mode: "agent", assignment, session: latestSession(assignment) }
     );
     showTab("agent");
   }
@@ -255,14 +272,10 @@ export function AppSpace(
     if (agents === undefined || agentViewSource === undefined) return false;
     if (target === null) {
       if (forApp !== app) return false;
-      const latest = sessions.filter((item) =>
-        item.ended === null && item.agent?.role === "app_engineer" &&
-        item.agent.app === app
-      ).at(-1);
       setPane({
         mode: "agent",
         assignment: "app_engineer",
-        session: latest?.session ?? null,
+        session: latestSession("app_engineer"),
       });
     } else {
       const agent = sessions.find((item) => item.session === target)?.agent;
@@ -313,7 +326,11 @@ export function AppSpace(
     // 패널이 안 보이면 열되, 열린 탭이 없던 때만 agent를 보인다.
     if (!panelVisible || shownTab === null) {
       setPane((current) =>
-        current ?? { mode: "agent", assignment: "app_engineer", session: null }
+        current ?? {
+          mode: "agent",
+          assignment: "app_engineer",
+          session: latestSession("app_engineer"),
+        }
       );
       setPanelTab("agent");
     }

@@ -18,6 +18,7 @@ export type ConversationPlaceholders = {
   };
   "conversation.button.attach": Record<never, never>;
   "conversation.button.call-cancel": Record<never, never>;
+  "conversation.button.call-open": Record<never, never>;
   "conversation.button.connect-provider": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.delete": Record<never, never>;

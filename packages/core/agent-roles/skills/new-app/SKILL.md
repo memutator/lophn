@@ -22,5 +22,6 @@ where you start; do not ask again for what they already said.
    expected). Write in the body what the person wants, in their words, and what
    is decided and what is not. Do not design the app in detail; that is the App
    Engineer's work.
-5. Tell the person who took it and where they continue: the App Engineer's
-   conversation in the app window.
+5. Tell the person who took it and where they continue: the conversation your
+   hand-off opened. They open it with "Open conversation" on the hand-off in
+   this chat, or by picking the App Engineer in the app window.

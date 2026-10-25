@@ -14,10 +14,24 @@ export async function readCallState(
   env: Env,
   call: string,
 ): Promise<SourceResult<CallStatus>> {
+  const read = await readCall(env, call);
+  return read.ok ? { ok: true, value: read.value.status } : read;
+}
+
+async function readCall(
+  env: Env,
+  call: string,
+): Promise<SourceResult<{ status: CallStatus; session: string | null }>> {
   const read = await env.read(callRead, { call });
   if (!read.ok) return read;
-  const { state, fail_reason } = read.value.call;
-  return { ok: true, value: { state, reason: fail_reason } };
+  const { state, fail_reason, receiver_session } = read.value.call;
+  return {
+    ok: true,
+    value: {
+      status: { state, reason: fail_reason },
+      session: receiver_session,
+    },
+  };
 }
 
 /** 끝나지 않은 call을 취소한다. 끝난 call은 core가 conflict로 답한다. */
@@ -82,8 +96,8 @@ export async function callViewOf(
   const call = callIdIn(output);
   const given = asRecord(input);
   if (call === null || given === null) return null;
-  const status = await readCallState(env, call);
-  if (!status.ok) return null;
+  const read = await readCall(env, call);
+  if (!read.ok) return null;
   const body = typeof given["body"] === "string" ? given["body"] : "";
   const reply = typeof given["reply"] === "string" &&
       REPLIES.includes(given["reply"])
@@ -94,6 +108,7 @@ export async function callViewOf(
     to: await toLabel(env, asRecord(given["to"]) ?? {}),
     task: body.split("\n")[0] ?? "",
     reply,
-    status: status.value,
+    status: read.value.status,
+    session: read.value.session,
   };
 }

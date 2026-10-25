@@ -9,13 +9,17 @@ export type { SourceResult };
 export interface AppRow {
   readonly id: string;
   readonly name: string;
-  /** 앱이 속한 project의 id. 런처 카드가 이름을 project 목록에서 찾는다. */
-  readonly project: string;
   readonly archived: boolean;
   /** 지금 쓰는 version. 아직 없으면 null이다. */
   readonly release: string | null;
   /** 보관·꺼내기의 비교 기준. */
   readonly revision: string;
+}
+
+/** 새 앱. description은 한 줄이다. */
+export interface AppDraft {
+  readonly name: string;
+  readonly description: string;
 }
 
 /** supervisor가 본 실행 상태. 과거 기록으로 running이라 하지 않는다. */
@@ -29,6 +33,8 @@ export interface AppsSource {
   /** 없는 앱·범위 밖 앱은 null이다. */
   get(app: string): Promise<SourceResult<AppRow | null>>;
   runtime(app: string): Promise<SourceResult<RunState>>;
+  /** 앱을 등록한다. 이름이 다른 앱·domain과 겹치면 `conflict`다. */
+  create(draft: AppDraft): Promise<SourceResult<AppRow>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
   /** 그 version에서 앱 공간에 여는 화면. 선언에 full 크기로 적힌 첫 화면이다. */

@@ -1,6 +1,7 @@
 // 보낸 session의 call 블록. 일반 tool 한 줄 대신 받는 곳, 맡긴 글 한 줄, 답 방식을 보인다. 누르면 그때의 상태를
 // 읽어 보이고, 상태가 바뀌어도 따로 알리지 않는다. 끝나지 않은 call은 머리 줄 오른쪽 [Cancel]로 사람이 취소한다.
-// 답과 실패는 이 블록 안이 아니라 이어지는 새 메시지(ReceivedMessage)로 보인다.
+// 답과 실패는 이 블록 안이 아니라 이어지는 새 메시지(ReceivedMessage)로 보인다. [Open conversation]은 받은 session을
+// 연다. 답 없이 맡긴 일은 사람이 거기서 이어 가야 하기 때문이다.
 import { type ReactElement, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
@@ -83,11 +84,13 @@ function statusText(
 interface CallBlockProps {
   call: CallView;
   source: Pick<AgentTabSource, "callState" | "cancelCall">;
+  /** 받은 session을 연다. 없는 창은 단추를 두지 않는다. */
+  onOpenSession?: ((session: string) => void) | undefined;
   defaultOpen?: boolean;
 }
 
 export function CallBlock(
-  { call, source, defaultOpen = false }: CallBlockProps,
+  { call, source, onOpenSession, defaultOpen = false }: CallBlockProps,
 ): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
   // thread를 읽은 때의 상태에서 시작하고, 열 때와 취소한 뒤에 다시 읽는다.
@@ -139,6 +142,18 @@ export function CallBlock(
             {t(REPLY_LABEL[call.reply])}
           </span>
         </button>
+        {call.session !== null && onOpenSession !== undefined
+          ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              data-call-open=""
+              onClick={() => onOpenSession(call.session!)}
+            >
+              {t("conversation.button.call-open")}
+            </Button>
+          )
+          : null}
         {status.state === "accepted"
           ? (
             <Button

@@ -71,6 +71,8 @@ export interface AgentViewHost {
   openAgentSettings: (target: "skills" | "mcp") => void;
   /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다. */
   openForked: (session: string) => void;
+  /** 다른 session(맡긴 call을 받은 session, 보낸 쪽 session)을 그 session의 창에서 연다. */
+  openSession?: (session: string) => void;
   showUsage: () => void;
   /** 탭·칸만 닫는다. session은 그대로 남는다. */
   closeTab: () => void;
@@ -540,7 +542,7 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           onOpenRef={(ref: EvidenceRef) => {
             if (ref.kind === "file") host.openFile?.(ref.target);
           }}
-          onOpenSession={undefined}
+          onOpenSession={host.openSession}
           artifacts={host.artifacts}
         />
         {layer === null

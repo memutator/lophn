@@ -7,6 +7,16 @@
   background: var(--color-surface-floor);
 }
 
+/* 오른쪽 아래에 떠 있는 lophn 단추. 누르면 같은 구석에서 lophn 패널이 열린다. */
+.lophnEntry {
+  position: absolute;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: var(--z-sticky);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover);
+}
+
 /* 준비 전·실패 화면은 공간에 속하지 않아 표면 배경을 쓴다. */
 .window[data-gated] {
   background: var(--color-surface-base);
@@ -226,13 +236,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
-}
-
-.emptyNote {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
 }
 
 /* 접힌 Archived 묶음: 카드 격자 아래에 한 줄씩. */

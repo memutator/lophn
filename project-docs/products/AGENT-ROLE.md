@@ -15,7 +15,7 @@ place는 agent가 놓여 일하는 그릇 하나다. 그릇은 project(폴더 �
 - P4. 사람은 project place와 app place에 Operator를 필요한 만큼 만든다.
 - P5. Project Manager는 project마다 하나이고 project를 등록하면 생긴다. 자기 project와 그 domain을 맡는다. App Engineer는 앱마다 하나이고 앱을 등록하면 생긴다. 앱 코드와 그 앱의 domain을 맡는다. 둘 다 사람이 더하거나 지울 수 없다.
 - P6. coding agent는 lophn 밖의 harness다. App Engineer는 coding agent에게 일을 맡기지 않고 앱을 직접 짓는다. 연결 장치(그 앱의 source 폴더를 작업 위치로 여는 session 하나, place는 그 앱, terminal은 app space)는 남지만 여는 길이 없고, 얼마나 남길지는 보류다.
-- P7. 사람은 sidebar로, 앱 화면에서는 title bar의 agent select(lophn, 그 앱의 App Engineer와 Operator)로, 어디서든 toast로 agent를 부른다.
+- P7. 사람은 sidebar로, 런처에서는 오른쪽 아래 Ask lophn 단추가 여는 떠 있는 패널로, 앱 화면에서는 title bar의 agent select(lophn, 그 앱의 App Engineer와 Operator)로, 어디서든 toast로 agent를 부른다.
 - P8. 사람은 앱을 만들거나 고치는 일을 App Engineer에게 청하고, App Engineer가 직접 짓는다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개다.
 - P9. 같은 project에 놓인 agent는 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place에는 `LOPHN.md`가 없다. lophn은 tool로 읽는다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, Project Manager의 file 범위 밖이라 사람이 editor로 고친다.

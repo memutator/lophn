@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -11,6 +11,8 @@ import {
   LAUNCHER,
   openApp,
   openInstructions,
+  openLauncher,
+  openNewApp,
   openProject,
   openSettings,
   type Route,
@@ -147,6 +149,14 @@ export function Desktop(
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
+  // 런처의 lophn 패널이 열 session. route가 바뀔 때마다 새 객체라 같은 session도 다시 연다.
+  const lophnRequest = useMemo(
+    () =>
+      route.space === "launcher" && route.session !== undefined
+        ? { session: route.session }
+        : undefined,
+    [route],
+  );
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
@@ -187,14 +197,8 @@ export function Desktop(
   };
 
   // session을 그 session이 있는 창에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간이다.
-  // place가 없는 lophn의 session은 마지막으로 연 project 창에서 연다. project를 연 적이 없으면 런처로 간다.
+  // place가 없는 lophn의 session은 지금 project 창이면 거기서 열고, 아니면 런처의 lophn 패널에서 연다.
   const { sessions } = useSessions();
-  const lastProject = useRef<string | null>(null);
-  useEffect(() => {
-    if (route.space === "project" && route.project) {
-      lastProject.current = route.project;
-    }
-  }, [route]);
   const known = useRef(sessions);
   known.current = sessions;
   const openSession = (session: string) => {
@@ -203,9 +207,9 @@ export function Desktop(
     if (place?.kind === "project") {
       setRoute(openProject(place.id, { session }));
     } else if (place?.kind === "app") setRoute(openApp(place.id, session));
-    else if (lastProject.current !== null) {
-      setRoute(openProject(lastProject.current, { session }));
-    } else launcher();
+    else if (route.space === "project" && route.project) {
+      setRoute(openProject(route.project, { session }));
+    } else setRoute(openLauncher(session));
   };
   // coding agent 카드의 [Answer in terminal]. 그 session의 탭이 이 창에도 main에도 없으면 그 session의 창으로 간 뒤 다시 고른다.
   const [focusRequest, setFocusRequest] = useState<{ session: string } | null>(
@@ -341,6 +345,7 @@ export function Desktop(
         overlay={overlay}
         terminal={terminal}
         session={route.session}
+        appEngineer={route.appEngineer}
         onOpenSession={openSession}
       />
     );
@@ -376,8 +381,11 @@ export function Desktop(
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}
         onApp={appSpace}
+        onNewApp={(app) => setRoute(openNewApp(app))}
         onOpenSession={openSession}
         onAnswerInTerminal={answerInTerminal}
+        agentViewSource={agentViewSource}
+        lophnRequest={lophnRequest}
       />
     );
   }

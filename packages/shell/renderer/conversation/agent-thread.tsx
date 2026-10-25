@@ -229,7 +229,12 @@ function itemsOf(
       case "call":
         add(
           entry,
-          <CallBlock key={entry.id} call={entry.call} source={props.source} />,
+          <CallBlock
+            key={entry.id}
+            call={entry.call}
+            source={props.source}
+            onOpenSession={props.onOpenSession}
+          />,
         );
         break;
       case "questions":

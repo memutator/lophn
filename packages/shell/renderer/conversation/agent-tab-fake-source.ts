@@ -222,6 +222,7 @@ const CALL_OPEN = {
   task: "Find what the 3 regressions have in common.",
   reply: "result",
   status: { state: "accepted", reason: null },
+  session: sessionId(10),
 } as const;
 
 const CALL_FAILED = {
@@ -229,6 +230,7 @@ const CALL_FAILED = {
   task: "Plan exp-013 so it isolates the recipe lookup.",
   reply: "result",
   status: { state: "failed", reason: "receiver_ended" },
+  session: sessionId(8),
 } as const;
 
 const CALL_CANCELLED = {
@@ -236,6 +238,7 @@ const CALL_CANCELLED = {
   task: "Check the eval context against the new reports.",
   reply: "result",
   status: { state: "cancelled", reason: null },
+  session: sessionId(11),
 } as const;
 
 const ASKED: readonly AskedQuestion[] = [

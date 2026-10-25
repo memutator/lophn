@@ -1,4 +1,5 @@
 export * from "./apps.ts";
+export * from "./app-slug.ts";
 export * from "./app-storage.ts";
 export * from "./runtime.ts";
 export * from "./app-log.ts";

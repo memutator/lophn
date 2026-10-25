@@ -120,6 +120,8 @@ export interface CallView {
   readonly task: string;
   readonly reply: CallReply;
   readonly status: CallStatus;
+  /** 받은 session. 받는 곳을 풀지 못했으면 null이다. */
+  readonly session: string | null;
 }
 
 // ---- 질문 ----

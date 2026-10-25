@@ -36,23 +36,33 @@ export type WorkspacePlaceholders = {
   "launcher.button.add-folder": Record<never, never>;
   "launcher.button.archive": Record<never, never>;
   "launcher.button.choose-location": Record<never, never>;
+  "launcher.button.create-app": Record<never, never>;
   "launcher.button.details": Record<never, never>;
   "launcher.button.hide-details": Record<never, never>;
+  "launcher.button.lophn": Record<never, never>;
   "launcher.button.more": {
     name: "string";
   };
+  "launcher.button.new-app": Record<never, never>;
   "launcher.button.register": Record<never, never>;
   "launcher.button.register-project": Record<never, never>;
   "launcher.button.remove-folder": Record<never, never>;
   "launcher.button.show-details": Record<never, never>;
   "launcher.button.unarchive": Record<never, never>;
+  "launcher.dialog.new-app-note": Record<never, never>;
   "launcher.dialog.register-note": Record<never, never>;
   "launcher.empty.no-apps": Record<never, never>;
-  "launcher.empty.no-cards": Record<never, never>;
   "launcher.empty.no-folders": Record<never, never>;
   "launcher.empty.no-projects": Record<never, never>;
+  "launcher.error.app-create-failed": {
+    name: "string";
+  };
+  "launcher.error.app-name-taken": {
+    name: "string";
+  };
   "launcher.error.name-required": Record<never, never>;
   "launcher.error.picker-failed": Record<never, never>;
+  "launcher.error.purpose-required": Record<never, never>;
   "launcher.error.register-failed": {
     name: "string";
   };
@@ -67,13 +77,11 @@ export type WorkspacePlaceholders = {
   "launcher.failure.update-damaged-original": Record<never, never>;
   "launcher.failure.update-history-mismatch": Record<never, never>;
   "launcher.failure.update-newer-schema": Record<never, never>;
+  "launcher.field.app-purpose-help": Record<never, never>;
   "launcher.field.purpose-help": Record<never, never>;
   "launcher.heading.apps": Record<never, never>;
   "launcher.heading.archived": Record<never, never>;
   "launcher.heading.projects": Record<never, never>;
-  "launcher.label.app-project": {
-    name: "string";
-  };
   "launcher.label.apps": Record<never, never>;
   "launcher.label.folder-count": {
     count: "plural";
@@ -88,6 +96,8 @@ export type WorkspacePlaceholders = {
   "launcher.note.archived": Record<never, never>;
   "launcher.title.damaged-original": Record<never, never>;
   "launcher.title.history-mismatch": Record<never, never>;
+  "launcher.title.lophn-panel": Record<never, never>;
+  "launcher.title.new-app": Record<never, never>;
   "launcher.title.newer-schema": Record<never, never>;
   "launcher.title.register": Record<never, never>;
   "launcher.title.sandbox-failed": Record<never, never>;

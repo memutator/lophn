@@ -36,6 +36,7 @@ import { STAY } from "./annotate/use-view-toast.ts";
 import type { AppSpaceAgent } from "./agent-select.tsx";
 import { useViewCover } from "./embedded-view.tsx";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import styles from "./side-panel.module.css";
 
 /** 탭이 무엇이든 폭은 하나다. 탭을 바꿔도 앱 view 자리가 흔들리지 않는다. */
@@ -300,6 +301,8 @@ function AgentBody(
     openAgentSettings: () => props.onSettings?.("tools"),
     // Fork가 만든 session은 같은 칸에서 연다.
     openForked: (session) => onState({ mode: "agent", assignment, session }),
+    // 이 앱의 session이면 이 칸, 아니면 그 session의 창으로 간다(toast의 [Open]과 같은 길).
+    openSession: (session) => runToastAction({ kind: "session", session }),
     // 사용량 화면은 아직 이 칸에 없다.
     showUsage: () => {},
     closeTab: () => props.onCloseTab("agent"),

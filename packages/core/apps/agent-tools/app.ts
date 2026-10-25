@@ -5,6 +5,7 @@ import {
   appCreate,
   appGet,
   appList,
+  appSlugOf,
   declarationCheck,
 } from "../../../protocol/apps/mod.ts";
 import { appToolIndex } from "../../../protocol/apps/declaration/read.ts";
@@ -26,19 +27,6 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 });
 const path = z.string().min(1);
 const none = z.strictObject({});
-
-const SLUG_MAX = 63;
-
-// 앱 이름에서 slug를 만든다. 영문 숫자가 하나도 없는 이름(한글 등)이면 tool call ID로 정한다.
-function slugOf(name: string, fallback: string): string {
-  const slug = name.toLowerCase().normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^[^a-z]+/, "")
-    .replace(/-+$/, "")
-    .slice(0, SLUG_MAX)
-    .replace(/-+$/, "");
-  return slug === "" ? `app-${fallback}` : slug;
-}
 
 export const APP_TOOLS: readonly ToolDefinition[] = [
   defineTool({
@@ -125,7 +113,7 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
         ctx.core,
         appCreate,
         {
-          slug: slugOf(name, ctx.tool_call.slice(-8).toLowerCase()),
+          slug: appSlugOf(name, ctx.tool_call.slice(-8).toLowerCase()),
           name,
           description: purpose.trim().replace(/\s*[\r\n]+\s*/g, " "),
         },

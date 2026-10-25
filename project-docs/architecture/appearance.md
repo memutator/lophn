@@ -31,7 +31,7 @@ main  wiring/appearance.ts  (channel shell:appearance)
 |---|---|---|
 | `shell.theme` | system, light, dark | CSS가 아니라 `data-theme`과 `nativeTheme.themeSource` |
 | `shell.accent` | ink, blue, green, purple, orange | `color.ink`(background·text·hover), `color.focus`, `color.selection` |
-| `shell.background` | warm, neutral, cool | `color.surface` 넷, `color.border` 셋, `color.text` 넷, `tabStrip.bar·hover`, `floating.surface·hover` |
+| `shell.background` | warm, neutral, cool | `color.surface` 넷, `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
 | `shell.font`, `shell.font_custom` | pretendard, system, custom | `font.sans` |
 | `shell.code_font`, `shell.code_font_custom` | jetbrains-mono, system, custom | `font.mono` |
 | `shell.text_size` | default, small, large | `type.*.size·line`(비율 0.92, 1.12) |

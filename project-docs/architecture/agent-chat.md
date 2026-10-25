@@ -1,0 +1,67 @@
+# agent-chat
+
+agent chat 화면 셋(Agent 탭, 앱 공간 agent 칸, 런처 lophn 칸)이 함께 쓰는 길이다. 셋 다 `AgentView` → `AgentThread`(`packages/shell/renderer/conversation/`)를 쓴다. agent 답은 provider가 쓰는 대로 흘러 markdown으로 그려지고, reasoning과 tool 줄과 "Worked for"가 agent가 한 일과 걸린 시간을 보인다. 여러 module에 걸친다. provider adapter(`packages/core/lophn-agent/providers/`), run-loop child(`run-loop/turn.ts`, `core-ports.ts`, `live-turns.ts`의 `createLiveOutput`), 감독 pipe(`main/agent-runtime/turn-source-link.ts` → `run-loop/turn-pipe.ts`), core 메모리(`run-loop/live-turns.ts`의 `createLiveTurns`, `withLiveTurns`, `main/daemon/wiring/session-snapshots.ts`), tool 제목(`packages/core/lophn-agent/tools/display.ts`, `packages/core/lophn-agent/tools/reads.ts`), renderer(`conversation/live-text.ts`, `agent-tab-data.ts`, `agent-tab-core-source-thread.ts`, `message-list/`, `activity/`), design(`components/reading/`)과 shell의 highlight Worker(`renderer/highlight/`)다.
+
+## 흐름
+
+```
+ provider SSE ─ adapter(messages·responses·chat-completions) ─ text·reasoning 쌓기
+                        │ invoke.ts collector가 늘어난 조각을 onDelta로 (reasoning은 block 시작·끝도 빈 조각으로)
+                        ▼
+ run-loop child: createLiveOutput (attempt 하나, 50ms 묶음, 날 글)
+                        │ 감독 pipe `model_output` {session, turn, model_call, kind, text}  ← redaction 전
+                        ▼
+ core: createLiveTurns (session마다 attempt 하나의 날 글·낸 글)
+        쌓인 날 글 전체 ─ redactSettled(text, known) ─ 붙잡는 자리 앞까지 ─▶ ModelOutputStreamed {offset, text}
+        snapshot `writing` = 낸 글                                         │
+                        │                                                   ▼
+ 응답이 끝나면 child: RecordMessage(machine, id = msg_<mcl ULID>) ─▶ MessageRecorded ─▶ Bus ─▶ Gateway ─▶ shell
+                                                                                                  │
+ shell renderer: thread snapshot(writing → live) + event 접기(foldDelta, MessageRecorded, TurnEnded)
+        live 글 ─ throttle 100ms ─ closeOpenFence ─ ChatMarkdown(Markdown variant chat)
+        CodeBlock ─ HighlighterProvider ─ Shiki Worker(highlight-worker.js, grammar chunk lazy)
+```
+
+- model 응답 하나가 agent message 하나다. 글이나 reasoning이 있는 응답은 tool call과 같이 와도 그 응답의 tool call보다 먼저 저장한다. 그래서 `MessageRecorded`가 그 응답의 `ToolCallStarted`보다 먼저 온다. 마지막 응답(tool call 없음)은 글이 비어도 저장한다.
+- 사람이 멈추면 core의 writer 앞 처리기 `withLiveTurns`가 `StopTurn` 앞에서 그 turn의 `writing`(사람이 본 글)을 machine `RecordMessage`로 저장하고 `MessageRecorded`를 낸 뒤, 끝난 순간까지의 active를 `CheckpointTurn`으로 마감하고 `StopTurn`을 넘긴다. `ctx.writer`를 지나는 모든 `StopTurn`(화면, run, workflow)이 같은 길이다.
+- reasoning은 같은 delta 길에 `kind: "reasoning"`으로 흐르고 저장할 때 message part `{kind: "reasoning", text, duration_ms}`가 된다(part 순서는 reasoning, text). 시간은 provider가 알린 reasoning block의 시작부터 끝까지다.
+- 시간: core가 lophn turn마다 active(사람 기다림 제외)를 메모리로 센다. 승인 request와 질문이 열리면 멈추고, 마지막 기다림이 닫히면 `TurnResumed {turn, active_ms}`를 낸다. snapshot의 `elapsed`가 도는 turn의 값이다. turn이 끝날 때는 child가 `FinishTurn` 앞에서, core가 `StopTurn`·`InterruptTurns` 앞에서 active를 마감해 `TurnEnded.active_ms`가 끝난 순간까지의 값을 싣는다.
+- tool 제목: tool 정의마다 `display(input) → {category, title}`이 있고 `toolCallDisplay`(`packages/core/lophn-agent/tools/display.ts`)가 지금의 redaction을 거친 뒤 한 줄 120자로 자른다. `ToolCallStarted`(child, 감독 pipe의 redact)와 `ListToolCalls`(core API read, 저장된 입력 blob과 core의 redaction)가 같은 함수를 부르고, 제목은 저장하지 않는다.
+
+## 지키는 것
+
+secret
+- live 글의 redaction은 core가 한다. child는 날 글을 `model_output`으로 보낼 뿐이고 core가 attempt마다 쌓인 날 글 전체에 `redactSettled`를 건다. batch마다 따로 가리면 두 batch에 걸친 secret이 나간다.
+- 붙잡는 자리(`hold_from`)는 core 안에서만 쓴다. 감독 pipe의 `redact_request`·`redact_response`에 싣지 않는다. child가 "이 끝이 secret의 앞부분인가"를 물을 수 있으면 글을 골라 거듭 물어 값을 한 자씩 알아낼 수 있다.
+- 붙잡는 자리는 상수 길이가 아니다. 끝 글이 알려진 값의 앞부분(값 전체 포함)이거나 credential 규칙의 match로 이어질 수 있는 가장 이른 자리이고, 지운 span 안에 떨어지면 그 span의 시작이다(`run-loop/runtime-redaction.ts`의 `redactSettled`, `KnownSecretMatch.prefixFrom`, `packages/base/redaction/patterns.ts`의 `credentialPrefixFrom`). 상수로 붙잡으면 그보다 긴 token(OAuth, JWT, PEM)의 앞부분이 나간다.
+- 알려진 값을 아직 다 모르면(`ready`가 아님) 내지 않는다. 앞서 낸 자리를 redaction이 바꾸면 그 attempt의 그 kind는 더 내지 않는다(화면이 본 글을 되돌리지 않는다).
+- attempt가 끝나면 붙잡은 꼬리는 나가지 않는다. 저장된 message 본문(`message-body.ts`의 준비 단계가 redaction한다)이 live 글을 대신한다.
+- reasoning 글과 tool 제목은 지금의 redaction을 거친다. tool 제목은 자르기 전에 redaction한다(120자 경계에 걸친 secret의 앞부분이 남지 않게). redaction을 끝내지 못하면 제목은 tool 이름이다.
+
+데이터
+- 한 model 호출의 message는 하나다. message id를 `model_call`에서 정해(`messageIdOf`) 멈춤 길과 child가 같은 응답을 둘 다 저장하려 해도 둘째는 같은 id 규칙에 걸린다.
+- provider가 끊어 retry하는 attempt(partial)의 글은 버린다. 다른 `model_call`의 조각이 오면 core와 화면이 앞 글을 버린다. `ToolCallStarted`와 `TurnEnded`도 그 turn의 쓰는 중인 글을 비우고, 저장된 `model_call`과 끝난 turn의 늦은 조각은 버린다.
+- run의 답은 그 turn의 마지막 agent message의 글이다(`architecture/run.md`). 마지막 응답을 빈 글이어도 저장하므로 중간 응답의 글이 답이 되지 않고, 빈 답은 지금처럼 `no_answer`다(`wiring/runs.ts`).
+- reasoning 글은 model 이력으로 가지 않는다. 이력(`session/history.ts`, turn 안의 `state.history`)은 text part만 읽는다. opaque 상태(signature, `encrypted_content`)는 지금처럼 adapter의 opaque handle로만 되돌아간다.
+- agent event는 저장하지 않는다. 쓰는 중인 글은 core 메모리(`createLiveTurns`)에만 있고, 늦게 붙거나 다시 붙은 화면은 snapshot의 `writing`(낸 글 그대로)과 그 뒤 delta의 `offset`으로 맞춘다. offset이 맞지 않으면(gap) 화면은 model 호출 하나에서 한 번 snapshot을 다시 읽는다.
+
+화면
+- agent 글은 markdown(`ChatMarkdown` → design `Markdown` variant chat)이고 사람 글은 plain(`ArtifactText`)이다. 사람이 친 `*`, `_`는 모양으로 바뀌지 않는다.
+- chat의 markdown image는 불러오지 않고 alt 글의 link로 둔다. agent 답의 image URL로 대화가 새는 길(`![](https://…?q=<secret>)`)을 막는다. 바깥 image는 main CSP(`img-src 'self' data: blob:`)도 막는다.
+- link는 renderer `onOpenLink`(→ `lophnShell.openExternal`)와 shell 창의 navigation guard(`desktop/navigation-guard.ts`의 `decideShellNavigation`) 둘 다가 막는다. shell 창 main frame은 `lophn-shell://desktop` 밖으로 가지 않고 `http`/`https`는 OS browser로, 새 창 요청은 deny다. renderer만 막으면 다음에 `<a href>`를 그리는 화면이 또 뚫린다.
+- 닫히지 않은 code fence는 그릴 때만 닫는다(`closeOpenFence`). 저장된 본문은 고치지 않는다.
+- highlight는 Shiki의 JS regex engine을 Worker에서 돌리고 token 배열을 React span으로 그린다. HTML 문자열을 넣지 않고 CSP(`shell-protocol.ts`, wasm·eval 없음)를 바꾸지 않는다. 자라는 code block은 받은 결과가 지금 code의 앞부분이면 그만큼 칠하고 나머지는 plain으로 붙인다.
+- 승인 카드에는 agent가 쓴 설명(`shell.run`의 `description`)을 싣지 않는다. `description`은 tool 줄 제목에만 쓴다(`architecture/approval.md` "카드 내용은 program이 GateCall에서 만든다").
+- "Worked for"는 active다. 기다린 시간(wall − active)은 1초 이상일 때 완료 줄 tooltip이다. 일하는 중 줄은 `active + (now − 기준 시각)`이라 기다림 뒤에 건너뛰지 않는다. coding agent는 `active_ms`가 null이라 wall이다.
+
+## 왜 이 모양인가
+
+- token streaming이 정석이다(Claude, ChatGPT, Codex, Hermes). 지금 구현에서 옮기는 비용은 근거로 쓰지 않았다(사람, 2026-10-25).
+- live 글을 child에서 가리는 안을 버렸다. child가 붙잡을 자리를 core에 물어야 하고, 그 물음이 secret 값을 한 자씩 알아내는 길이 된다. 값을 아는 곳(core)이 가리고 붙잡는다. child는 이미 `redact_request`로 날 글을 core에 보내므로 날 글을 보내는 것은 새 노출이 아니다.
+- 쓰는 중인 글을 core 한 곳(`live-turns.ts`)에 둔다. 날 글을 받는 곳(감독 pipe)과 snapshot을 싣는 곳(`session-snapshots` wiring)이 다르지만, 한 곳에 있어야 retry·저장·멈춤에서 날 글과 낸 글이 같이 비워진다. wiring끼리 import하지 않으므로 늦은 칸 `ctx.liveTurns`로 넘긴다.
+- 멈춘 글은 core가 `StopTurn` 앞에서 저장한다. child가 멈춤을 알 때는 core가 turn을 이미 닫아 `RecordMessage`가 거절한다. handler는 writer Worker에서 돌아 core 메모리를 읽지 못한다.
+- `TurnResumed`는 core가 낸다. child는 Gate 판정마다 기다림 표시를 돌려 진짜 사람 기다림을 가르지 못하고, 사람 기다림 event(turn request, 질문)는 core Bus에 있다.
+- tool 제목은 저장하지 않고 읽을 때 만든다. redaction 규칙이 바뀌어도 옛 제목에 secret이 남지 않고 화면 셋이 같은 제목을 쓴다. 그래서 `ListToolCalls`는 blob을 기다릴 수 있고 지금의 redaction이 있는 core API read다.
+- model이 쓰는 설명은 `shell.run`에만 둔다. 비교한 harness들이 모인 대로다: file·web tool은 인자 template으로 읽히고, shell 명령만 읽기 어렵다. 칸은 선택이라 비면 명령 첫 줄을 쓴다.
+- markdown은 이미 있는 Lezer `Markdown`을 쓴다. URL 정책과 raw HTML 규칙이 그 안에 있다. highlight는 비교한 세 앱이 모두 쓰는 Shiki다. grammar는 언어를 미리 고르지 않고 lazy chunk로 둔다(설치본 약 9 MB).
+- reasoning을 보인다. 버리던 이유는 opaque 상태의 규칙이었지 보이지 않기로 한 제품 결정이 아니었다. 요약을 받으려면 요청에 실어야 한다(Anthropic adaptive thinking `display: "summarized"`, OpenAI Responses `reasoning.summary: "auto"`).

@@ -1,22 +1,3 @@
 # shell
 
 데스크톱 앱(packages/shell)의 화면과 그 source. architecture 문서는 아직 없다.
-
-## 파일 읽기의 markdown link를 누르면 shell 창이 그 web page로 넘어간다
-
-```yaml
-kind: bug
-modules: [packages/shell/main, packages/shell/renderer, packages/design]
-```
-
-지금:
-- `packages/shell/renderer/editor/markdown-pane.tsx`(56줄)은 `<Markdown source={text} />`로 `onOpenLink`를 넘기지 않는다. `MarkdownPane`을 쓰는 곳은 `editor/text-file-view.tsx:329` 하나다.
-- `onOpenLink`가 없으면 `Markdown`은 link를 `target`도 click handler도 없는 `<a href>`로 그린다(`packages/design/components/reading/markdown/markdown.tsx` 62-83줄). `safeUrl`이 `http:`, `https:`, `mailto:`를 통과시킨다.
-- shell 창(`shell/main/desktop/window.ts`의 `openWindow`, `desktop/wiring/desktop-window.ts`)에는 `will-frame-navigate`, `will-navigate`, `setWindowOpenHandler`가 없다. 같은 guard는 secret 입력 창, artifact view, browser view, app view, overlay에만 있다.
-- 그래서 사람이 `.md` 파일의 읽기 화면에서 `https://` link를 누르면 shell 창 전체가 그 page로 넘어간다(코드로 확인, 실행은 안 해 봄). 넘어간 page는 `ipc-guard.ts`의 origin 검사로 `lophnShell`을 부르지 못한다.
-
-영향: 사람이 그 창의 lophn 화면을 잃는다(탭, 도는 agent 화면이 인터넷 page로 바뀐다). 읽는 `.md`는 agent가 쓰거나 인터넷에서 온 글일 수 있다. chat 글을 markdown으로 그리면 같은 길이 agent 답마다 열린다(roadmap `agent-chat.md`).
-
-고치려면:
-- 추천(작음): shell 창 webContents에 `will-frame-navigate` guard와 `setWindowOpenHandler(() => ({ action: "deny" }))`를 둔다. main frame이 `lophn-shell://` 밖으로 가면 막고, `http`/`https`면 기존 `shell:open-external` 길(`shell/main/desktop/open-external.ts`)로 넘긴다. `MarkdownPane`에도 `onOpenLink`로 `lophnShell.openExternal`을 넘긴다. 막는 결정 함수에 unit test 하나(sandbox 경계).
-- renderer의 `onOpenLink`만 넘기기(더 작음): 이 화면은 막지만 다음에 `<a href>`를 그리는 화면이 또 뚫린다.

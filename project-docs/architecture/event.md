@@ -11,6 +11,8 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
  apps·kinds wiring ── 남지 않는 event (commit 뒤) ─┐
  approvals ── turn 안 request의 agent event ───────┤
  run-loop ─ child-supervision-protocol ─ core가 publish ─ agent event ─┤
+ run-loop ─ model_output(날 글) ─ core live-turns가 redaction ─ ModelOutputStreamed ─┤
+ core live-turns ─ 사람 기다림이 닫힘 ─ TurnResumed ─────────────────────┤
  harness adapter ─ agent event ─────────────────────────────────────────┤
                                     ▼
                                Bus(메모리)
@@ -20,11 +22,11 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 ```
 
 - 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind, domain). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
-- agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문). 메모리뿐이고 seq가 없다.
+- agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문), 쓰는 중인 model 글의 조각(`ModelOutputStreamed`), 저장된 agent message(`MessageRecorded`), 사람 기다림 뒤 다시 도는 순간(`TurnResumed`). 메모리뿐이고 seq가 없다. 글이 흐르는 길과 시간은 `architecture/agent-chat.md`다.
 - 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 새 kind 위반 `KindViolationFound`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`). 메모리뿐이다.
 - Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림(맡긴 coding session의 끝), workflow의 step 메시지가 모두 여기로 들어가, lophn agent는 run-loop 입력함으로 coding agent는 harness adapter로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
-- session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. coding session은 harness도 싣는다. 화면이 붙거나 다시 붙을 때 읽는다.
+- session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. coding session은 harness도 싣는다. lophn session은 아직 저장되지 않은 model 호출 하나의 글(`writing`, redaction을 거친 것)과 도는 turn의 active(`elapsed`)도 싣는다. 화면이 붙거나 다시 붙을 때 읽는다.
 
 ## 지키는 것
 
@@ -49,9 +51,10 @@ Bus
 - reader Worker는 모든 등록의 port를 모든 read에 붙인다. read가 다른 등록의 port를 쓰는 일이 있어서다. 같은 port를 두 등록이 내면 기동 때 멈춘다(조용히 덮이지 않게).
 - Bus는 놓칠 수 있다. 정본은 각 module의 표와 session 기록이고 놓친 화면은 snapshot을 다시 읽는다. 그래서 commit 뒤 Bus로 내는 데 실패해도 command는 실패하지 않는다.
 - Bus는 core 안에 하나뿐이다. agent runtime은 child process라 agent event를 감독 pipe로 보내고 core가 publish한다. 조건 검사와 연결 관리가 한 곳에 있게 하려는 것이다.
+- 쓰는 중인 model 글은 agent event가 아니라 날 글(감독 pipe `model_output`)로 core에 간다. core가 쌓인 글 전체를 redaction하고 secret이 시작됐을 수 있는 끝을 붙잡은 뒤 `ModelOutputStreamed`로 낸다. 붙잡는 자리는 child에 알리지 않는다.
 
 agent event와 화면
-- agent event는 저장하지 않고 replay하지 않는다. 대화의 정본은 session 기록이고, 놓친 화면은 snapshot을 다시 읽는다.
+- agent event는 저장하지 않고 replay하지 않는다. 대화의 정본은 session 기록이고, 놓친 화면은 snapshot을 다시 읽는다. 쓰는 중인 글과 도는 turn의 active는 core 메모리(`packages/core/lophn-agent/run-loop/live-turns.ts`)에만 있고 snapshot이 싣는다. delta의 offset이 snapshot의 글 길이와 맞지 않으면 화면이 snapshot을 다시 읽는다.
 - 화면은 조건을 걸고 ready를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다.
 - session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다.
 - Gateway는 느린 구독자를 버퍼 한도에서 끊고 Bus는 던진 sink를 해제한다. 구독자 하나 때문에 publish가 막히면 command 경로가 막힌다.

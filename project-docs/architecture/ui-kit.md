@@ -54,6 +54,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 - design 안 file끼리는 component file을 상대 경로로 직접 가리킨다. 분류 `mod.ts`나 package 이름(`@lophn/ui/...`)을 거치지 않는다. `data/mod.ts` → `chart/chart-frame.tsx` → `@lophn/ui/data` 같은 순환이 생기기 때문이다.
 - CSS는 token 변수만 쓴다(`packages/design/style-check`가 `packages/design/`, `packages/shell/renderer/`, `packages/sdk/*/`를 본다).
 - 사람이 고른 appearance는 같은 token 변수를 덮어써서 모든 문서와 사용자 앱에 닿는다. 흐름과 값은 `architecture/appearance.md`다.
+- design이 모르는 능력은 React context로 받는다. reading의 `CodeBlock`은 highlighter를 `HighlighterProvider`에서 받아 token 배열(`CodeToken`)을 span으로 그린다. shell desktop 창이 Shiki Worker(`packages/shell/renderer/highlight/`)를 주고, context가 없는 곳(사용자 앱, gallery의 다른 Row)은 plain이다. 색은 design token `code.*`(Shiki css-variables theme의 `--code-*` 변수와 같은 이름)다. 그래서 design은 shiki를 import하지 않고 앱 template의 의존도 늘지 않는다.
 
 ## 사용자 앱에 닿는 길
 

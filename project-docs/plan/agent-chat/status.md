@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `highlight` | highlight | 2 | chat-md | running | highlight/highlight |  |  |
 | `reasoning-core` | reasoning | 2 | stream-core | todo |  |  |  |
 | `stream-core` | stream | 2 | 없음 | running | stream/stream-core |  |  |
-| `tool-title-core` | tool-title | 2 | 없음 | running | tool-title/tool-title-core |  |  |
+| `tool-title-core` | tool-title | 2 | 없음 | merged | tool-title/tool-title-core | 7b29e36ba |  |
 | `clock-shell` | clock | 3 | reasoning-shell | todo |  |  |  |
 | `reasoning-shell` | reasoning | 3 | stream-shell | todo |  |  |  |
 | `stream-shell` | stream | 3 | 없음 | todo |  |  |  |

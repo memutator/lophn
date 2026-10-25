@@ -17,4 +17,4 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `clock-shell` | clock | 3 | reasoning-shell | merged | clock/clock-shell | 9ed9bcd52 |  |
 | `reasoning-shell` | reasoning | 3 | stream-shell | merged | reasoning/reasoning-shell | 27af0d74e | lead 앱 확인(fake raw thinking SSE): thinking만 올 때 Thinking, 멈추면 Thought로 저장, 끝난 응답은 Thought for {d}와 펼친 요약 |
 | `stream-shell` | stream | 3 | 없음 | merged | stream/stream-shell | 0704eb55d | lead 앱 확인(headless Electron+진짜 core+fake stall): live 글이 markdown으로 흐르고 열린 ts fence가 닫혀 highlight된다. Stop 뒤 본 글이 저장된 message로 남는다 |
-| `tool-title-shell` | tool-title | 3 | clock-shell | todo |  |  |  |
+| `tool-title-shell` | tool-title | 3 | clock-shell | running | tool-title/tool-title-shell |  |  |

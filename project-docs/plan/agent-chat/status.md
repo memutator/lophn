@@ -10,9 +10,9 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `link` | link | 1 | 없음 | merged | link/link | abeb29a13 |  |
 | `stream-redact` | stream | 1 | 없음 | merged | stream/stream-redact | 591ba2f24 |  |
 | `clock-core` | clock | 2 | reasoning-core | todo |  |  |  |
-| `highlight` | highlight | 2 | chat-md | merged | highlight/highlight | fd072d4ab |  |
+| `highlight` | highlight | 2 | chat-md | merged | highlight/highlight | fd072d4ab | Electron headless(CDP)에서 Worker가 뜨고 ts·sh grammar chunk를 불러온다(CSP 오류 없음). 설치 +9.1MB, .deb +0.9MB |
 | `reasoning-core` | reasoning | 2 | stream-core | running | reasoning/reasoning-core |  |  |
-| `stream-core` | stream | 2 | 없음 | merged | stream/stream-core | d5572ac8c |  |
+| `stream-core` | stream | 2 | 없음 | merged | stream/stream-core | d5572ac8c | message id는 msg_+mcl ULID. 마지막 응답은 빈 글도 저장하고 runs answer는 빈 글을 null로 본다(no_answer 그대로) |
 | `tool-title-core` | tool-title | 2 | 없음 | merged | tool-title/tool-title-core | 7b29e36ba |  |
 | `clock-shell` | clock | 3 | reasoning-shell | todo |  |  |  |
 | `reasoning-shell` | reasoning | 3 | stream-shell | todo |  |  |  |

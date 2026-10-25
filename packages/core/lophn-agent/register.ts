@@ -117,8 +117,14 @@ import {
   createToolReads,
   deleteSessionToolCalls,
   toolCallBodyFields,
+  toolCallListRead,
+  type ToolDefinition,
   toolsSchemaSteps,
 } from "./tools/mod.ts";
+import { createFileTools } from "./tools/bundles/file.ts";
+import { SHELL_TOOLS } from "./tools/bundles/shell.ts";
+import { WEB_TOOLS } from "./tools/bundles/web.ts";
+import type { FileHooks } from "./tools/ports.ts";
 import {
   type AgentRef,
   issuerRequestDone,
@@ -330,6 +336,23 @@ const traceReads = createTraceReads();
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
 const toolReads = createToolReads();
+
+// 사람 화면의 tool 줄 제목을 만들 내장 정의다. core는 tool을 실행하지 않고 `display`만 읽으므로 hook은
+// 부르지 않는 자리를 넘긴다. 다른 module의 tool과 앱·MCP tool은 display가 없어 표에 없어도 같은
+// fallback(other, tool 이름)이다.
+const CORE_FILE_HOOKS: FileHooks = {
+  aroundWrite: () =>
+    Promise.resolve(
+      err({ code: "unavailable", message: "core does not run file tools" }),
+    ),
+};
+const displayTools: ReadonlyMap<string, ToolDefinition> = new Map(
+  [
+    ...createFileTools(CORE_FILE_HOOKS),
+    ...SHELL_TOOLS,
+    ...WEB_TOOLS,
+  ].map((definition) => [definition.name, definition]),
+);
 
 // agent 자격의 command(tool call 기록 같은)는 자격에 묶인 turn이 진행 중일 때만 통과한다
 // (platform/ledger). 판정은 이 concern의 turns 표를 같은 Tx에서 읽는다. 없는 turn은
@@ -605,6 +628,13 @@ export function createLedgerRegistration(
         ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
         redact: environment.redactBody ?? UNATTACHED_REDACT,
       }),
+      // tool 줄 제목도 body view와 같은 지금의 redaction으로 만든다. pool read가 아니라 여기서
+      // 저장된 tool 입력 blob을 읽는다.
+      toolCallListRead({
+        ...(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+        redact: environment.redactBody ?? UNATTACHED_REDACT,
+        definitionOf: (tool) => displayTools.get(tool),
+      }),
       // 연결 가능 provider의 내장 정의는 ledger row가 아니라 동봉
       // product catalog다. snapshot이 없어도 답하므로 api read 길이다.
       createProviderDefinitionsRead(),
@@ -827,7 +857,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationReads.compactRequests,
       commandReads.list,
       toolReads.read,
-      toolReads.list,
       traceReads.read,
       revertReads.preview,
       revertReads.checkpoints,
@@ -907,7 +936,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         conversationReads.compactRequests,
         commandReads.list,
         toolReads.read,
-        toolReads.list,
         traceReads.read,
       ],
       ports: new Map(),

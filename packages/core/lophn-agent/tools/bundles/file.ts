@@ -14,6 +14,15 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 const path = z.string().min(1);
 const lineCount = z.number().int().positive();
 
+// offset이나 limit이 있을 때만 범위를 붙인다. 시작은 offset ?? 1이고 limit이 없으면 끝은 비운다.
+function lineRange(input: { offset?: number; limit?: number }): string {
+  if (input.offset === undefined && input.limit === undefined) return "";
+  const start = input.offset ?? 1;
+  return input.limit === undefined
+    ? ` (${start}-)`
+    : ` (${start}-${start + input.limit - 1})`;
+}
+
 // place 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기 기록은 hook이 맡는다.
 
 export const createFileTools = (
@@ -30,6 +39,10 @@ export const createFileTools = (
     description:
       "Read a UTF-8 text file in the place folder by line. Relative paths start at the place's first folder. offset is a 1-based line, limit a line count.",
     effect: "read",
+    display: (input) => ({
+      category: "read",
+      title: `Read ${input.path}${lineRange(input)}`,
+    }),
     handler: (input, ctx) => readFile(input, ctx),
   }),
   defineTool({
@@ -62,6 +75,7 @@ export const createFileTools = (
     description:
       "List files whose path matches a glob (**, *, ?, {a,b}) under path, or the place's first folder.",
     effect: "read",
+    display: (input) => ({ category: "list", title: `List ${input.pattern}` }),
     handler: (input, ctx) => globFiles(input, ctx),
   }),
   defineTool({
@@ -75,6 +89,12 @@ export const createFileTools = (
     description:
       "Search text files with a regular expression. Returns path:line:text. glob narrows the files.",
     effect: "read",
+    display: (input) => ({
+      category: "search",
+      title: `Search ${input.pattern}${
+        input.path === undefined ? "" : ` in ${input.path}`
+      }`,
+    }),
     handler: (input, ctx) => grepFiles(input, ctx),
   }),
   defineTool({
@@ -84,6 +104,7 @@ export const createFileTools = (
     description:
       "Show the heading tree of a markdown file with the line range of each section. Read a section with file.read using offset and limit.",
     effect: "read",
+    display: (input) => ({ category: "list", title: `Outline ${input.path}` }),
     handler: (input, ctx) => outlineFile(input, ctx),
   }),
   defineTool({
@@ -94,6 +115,10 @@ export const createFileTools = (
     description:
       'Read the text of a pdf page range, for example pages "1-5". At most 20 pages per call.',
     effect: "read",
+    display: (input) => ({
+      category: "read",
+      title: `Read ${input.path} (pages ${input.pages})`,
+    }),
     handler: (input, ctx) => readPdf(input, ctx),
   }),
   defineTool({
@@ -103,6 +128,7 @@ export const createFileTools = (
     description:
       "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model. path can also be annotation:<id> to open the screenshot of an annotation, or attachment:<id> to open an image the person attached to a message.",
     effect: "read",
+    display: (input) => ({ category: "read", title: `Read ${input.path}` }),
     handler: (input, ctx) => readImage(input, ctx),
   }),
 ];

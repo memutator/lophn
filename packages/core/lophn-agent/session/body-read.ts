@@ -19,7 +19,7 @@ import { loadMessage, loadSession } from "./model.ts";
 export type MessageBodyEnvironment = {
   // ledger snapshot 하나에서 판정한다. 연결은 판정을 마치면 닫는다.
   snapshot<T>(
-    read: (sql: Pick<Sql, "get">, asOfSeq: string) => Result<T>,
+    read: (sql: Pick<Sql, "get" | "all">, asOfSeq: string) => Result<T>,
   ): Result<T>;
   // blob store의 그 구간. 없거나 관측 hash가 다르면 err다.
   bytes(

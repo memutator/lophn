@@ -1,6 +1,9 @@
 import type { z } from "zod";
 import type { Result } from "../../../base/mod.ts";
-import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  ToolCallDisplay,
+  ToolResult,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { ToolCallHandler, ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 
@@ -19,6 +22,8 @@ type ToolSpec<I extends z.ZodType> = {
     input: z.infer<I>,
     ctx: ToolContext,
   ) => ReturnType<NonNullable<ToolDefinition["gate"]>>;
+  // 사람 화면의 tool 줄 제목. handler와 같은 이유로 입력 type이 맞다.
+  display?: (input: z.infer<I>) => ToolCallDisplay;
 };
 
 // 내장 tool 정의다. operations는 routes의 이름이다.
@@ -37,6 +42,10 @@ export function defineTool<I extends z.ZodType>(
     ...(spec.gate === undefined
       ? {}
       : { gate: spec.gate as ToolDefinition["gate"] }),
+    // `toolCallDisplay`가 spec.input으로 검사한 뒤에만 부르므로 입력 type이 맞다.
+    ...(spec.display === undefined
+      ? {}
+      : { display: spec.display as ToolDefinition["display"] }),
     operations: spec.routes.map((route) => route.name),
   };
 }

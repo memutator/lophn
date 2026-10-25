@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { canonicalize, type Result, sha256Hex } from "../../../base/mod.ts";
 import type { GateCall } from "../../../protocol/approvals/mod.ts";
 import type {
+  ToolCallDisplay,
   ToolEffect,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -34,6 +35,9 @@ export type ToolDefinition = {
   defer?: true;
   // 실행. 정의에 handler가 없는 tool(앱, MCP)은 handlers 표로 실행한다.
   handler?: ToolCallHandler;
+  // 사람 화면의 tool 줄 제목이다. 값은 실행기 검사(`input`)를 지난 입력만 받고 redaction 전 글이다.
+  // 저장하지 않고 model에 보이지 않는다.
+  display?: (input: unknown) => ToolCallDisplay;
   // Gate가 걸리는 tool만 둔다. null이면 그 호출은 거치지 않는다.
   // 값은 Gate에 넘길 호출이다. core를 읽어야 정해지는 호출이 있어 Promise도 된다.
   gate?: (

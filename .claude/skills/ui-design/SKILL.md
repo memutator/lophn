@@ -50,7 +50,7 @@ deno task wireframes     # tools/wireframes/dist/ 에 bundle (1초 안팎, dist�
 deno task check
 ```
 
-- 보기: bundle은 module script라 `file://`로 열면 빈 화면이다. `timeout 900 python3 -m http.server 0 -d tools/wireframes`로 띄운다. port 0이면 빈 port를 골라 첫 줄에 찍고, 15분 뒤 저절로 끝나서 끄는 손잡이를 잃어도 남지 않는다. 그 port의 `http://localhost:<port>/dist/index.html`을 연다(dist를 root로 띄우면 다시 build할 때 폴더가 지워져 server가 빈다). 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다. headless Chrome의 `--screenshot`으로 같은 주소를 찍어 볼 수 있다.
+- 보기: bundle은 module script라 `file://`로 열면 빈 화면이다. `PYTHONUNBUFFERED=1 timeout 900 python3 -m http.server 0 -d tools/wireframes`로 띄운다. port 0이면 빈 port를 골라 첫 줄에 찍고(출력이 pipe면 `PYTHONUNBUFFERED` 없이는 그 줄이 buffer에 남는다), 15분 뒤 저절로 끝나서 끄는 손잡이를 잃어도 남지 않는다. 그 port의 `http://localhost:<port>/dist/index.html`을 연다(dist를 root로 띄우면 다시 build할 때 폴더가 지워져 server가 빈다). 한 화면만 보려면 `index.html?frame=<page id>&theme=dark`. 위쪽에서 Light·Dark를 바꾼다. headless Chrome의 `--screenshot`으로 같은 주소를 찍어 볼 수 있다.
 - 실제 앱에서 보기: `deno task dev:mock` (core 없이 메모리 fake data, renderer를 먼저 build한다).
 - `deno task check`가 type check로 component API 어긋남을 잡는다. tools는 design, sdk, shell을 쓰는 package라서 그중 하나가 바뀌면 tools의 `deno check`가 돈다. design component의 props를 바꾸고 wireframe 쪽을 안 맞추면 여기서 걸린다. 같이 도는 것: fmt, lint, deps, style(CSS 구조), wording, kit.
 - step `kit`(`tools/check-kit.ts`)이 kit 동기화를 본다. (1) `tools/wireframes`의 CSS는 `drafts/` 안과 `gallery.module.css`, `pages/kit/kit.module.css`에만 있다. (2) 분류 `mod.ts`가 값으로 내보내는 PascalCase 이름(component)마다 `pages/kit/` 아래에 한 번은 나온다. (3) design의 `.tsx`는 분류 폴더(8개와 `_shared`) 안에만 있고, 값을 내보내는 `export { … } from` 문마다 윗줄에 `//` 한 줄 문서가 있다. design에 component를 더하면 그 분류 kit page에 견본을 같이 더한다.

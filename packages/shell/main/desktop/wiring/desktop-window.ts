@@ -1,5 +1,10 @@
 // shell 창 열기. 창이 열리고 닫힐 때의 영역별 반응은 context의 windowHooks로 받는다.
-import { app, BrowserWindow } from "electron";
+import {
+  app,
+  BrowserWindow,
+  type Event as ElectronEvent,
+  shell,
+} from "electron";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -7,6 +12,8 @@ import { WINDOW_STATE_CHANNEL } from "../../../ipc/window-controls.ts";
 import type { DesktopIntent } from "../../../ipc/shortcuts.ts";
 import { DESKTOP_INTENT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { capturePaints, reveal, surfaceOptions } from "../headless.ts";
+import { decideShellNavigation } from "../navigation-guard.ts";
+import { openExternalLink } from "../open-external.ts";
 import { DESKTOP_URL } from "../shell-protocol.ts";
 import {
   type CreatedWindow,
@@ -25,6 +32,8 @@ export type DesktopWindows = {
 };
 
 let shotSerial = 0;
+
+type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
 
 /**
  * 창 밖에서 온 일(전역 팔레트 키)을 가장 최근 창에 시킨다. 사람이
@@ -105,6 +114,35 @@ export function openDesktopWindow(
         const window = new BrowserWindow(
           surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
         );
+        // shell 창의 main frame은 lophn-shell://desktop 밖으로 가지 않는다. http·https는
+        // open-external로 넘긴다. Electron 44에서 main frame은 will-frame-navigate가 먼저 오고,
+        // 거기서 막으면 will-navigate는 오지 않는다. 그래서 will-navigate는 듣지 않는다.
+        const open = (url: string) =>
+          headless.headless ? Promise.resolve() : shell.openExternal(url);
+        const guard = (event: NavigationEvent) => {
+          const decision = decideShellNavigation({
+            url: event.url,
+            isMainFrame: event.isMainFrame,
+          });
+          if (decision.allow) return;
+          event.preventDefault();
+          if (decision.external) {
+            void openExternalLink({ open, log: ctx.log }, event.url);
+          }
+        };
+        window.webContents.on("will-frame-navigate", guard);
+        window.webContents.on("will-redirect", guard);
+        // ctrl·가운데 click과 target=_blank link가 여기로 온다.
+        window.webContents.setWindowOpenHandler((details) => {
+          const decision = decideShellNavigation({
+            url: details.url,
+            isMainFrame: true,
+          });
+          if (!decision.allow && decision.external) {
+            void openExternalLink({ open, log: ctx.log }, details.url);
+          }
+          return { action: "deny" };
+        });
         const shotName = `window-${++shotSerial}`;
         if (headless.headless) {
           window.webContents.once("did-finish-load", () =>

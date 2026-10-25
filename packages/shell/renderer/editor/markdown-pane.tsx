@@ -7,6 +7,7 @@ import {
   MarkdownEditor,
   type MarkdownEditorHandle,
 } from "./markdown-editor.tsx";
+import { windowLinkOpener } from "../desktop/settings/core-call.ts";
 import styles from "./markdown-pane.module.css";
 
 interface MarkdownPaneProps {
@@ -35,6 +36,8 @@ export function MarkdownPane(
     onScroll,
   }: MarkdownPaneProps,
 ) {
+  // gallery처럼 `lophnShell`이 없는 곳에서는 undefined이고, link를 넘기지 않는다.
+  const openLink = windowLinkOpener();
   return (
     <div
       ref={scrollRef}
@@ -53,7 +56,14 @@ export function MarkdownPane(
                 onChange={onChange}
               />
             )
-            : <Markdown source={text} />}
+            : (
+              <Markdown
+                source={text}
+                onOpenLink={openLink === undefined
+                  ? undefined
+                  : (href) => void openLink(href)}
+              />
+            )}
         </div>
       </ReadingFrame>
     </div>

@@ -1,8 +1,8 @@
 // shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS
 // 기본 browser로 연다. HTTP·HTTPS이면서 userinfo가 없고 8,192자 이하인 URL만 열고, 기록에는
 // origin·path만 남겨 query·fragment(OAuth state·비밀)를 쓰지 않는다. 앱 view의 링크 경로
-// (`app:open-external`, app-frame/external-link.ts)와 caller를 섞지 않는다. 이 통로는 desktop 창
-// 본문만 부른다.
+// (`app:open-external`, app-frame/external-link.ts)와 caller를 섞지 않는다. desktop 창 본문과
+// shell 창의 navigation guard가 이 규칙을 같이 쓴다.
 import { z } from "zod";
 
 import type { OpenExternalReply } from "../../ipc/open-external.ts";
@@ -21,13 +21,36 @@ import {
 const openInputSchema = z.strictObject({ url: z.string() });
 
 interface OpenExternalDeps {
-  registry: ContentsRegistry;
   /** OS 기본 browser로 연다. 실패하면 reject한다. */
   open(url: string): Promise<void>;
   log(line: string): void;
 }
 
-export function createOpenExternal(deps: OpenExternalDeps) {
+/**
+ * 검사·기록·열기 하나. IPC 통로와 shell 창의 navigation guard가 같은 규칙을 쓴다:
+ * http·https만, userinfo 거절, 8,192자 상한, 기록은 origin·path만.
+ */
+export async function openExternalLink(
+  deps: OpenExternalDeps,
+  url: string,
+): Promise<OpenExternalReply> {
+  const checked = checkExternalUrl(url);
+  if (checked === undefined) return { ok: false, code: "invalid_input" };
+  const { origin, path } = externalLinkRecord(checked);
+  try {
+    await deps.open(checked);
+  } catch {
+    deps.log(`shell link not opened origin=${origin} path=${path}`);
+    return { ok: false, code: "unavailable" };
+  }
+  deps.log(`shell link opened origin=${origin} path=${path}`);
+  return { ok: true };
+}
+
+/** desktop 창 본문의 `shell:open-external`. caller·입력 검사 뒤 같은 함수를 부른다. */
+export function createOpenExternal(
+  deps: OpenExternalDeps & { registry: ContentsRegistry },
+) {
   return async (
     event: IpcEvent,
     input: unknown,
@@ -37,16 +60,7 @@ export function createOpenExternal(deps: OpenExternalDeps) {
       return { ok: false, code: "forbidden" };
     }
     const parsed = checkInput(openInputSchema, input);
-    const url = parsed.ok ? checkExternalUrl(parsed.value.url) : undefined;
-    if (url === undefined) return { ok: false, code: "invalid_input" };
-    const { origin, path } = externalLinkRecord(url);
-    try {
-      await deps.open(url);
-    } catch {
-      deps.log(`shell link not opened origin=${origin} path=${path}`);
-      return { ok: false, code: "unavailable" };
-    }
-    deps.log(`shell link opened origin=${origin} path=${path}`);
-    return { ok: true };
+    if (!parsed.ok) return { ok: false, code: "invalid_input" };
+    return await openExternalLink(deps, parsed.value.url);
   };
 }

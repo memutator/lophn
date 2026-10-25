@@ -158,8 +158,12 @@ export function assembleTrace(input: TraceInput): TurnTrace {
   const { turn, models, tools } = input;
   const modelMs = sum(models.map((m) => m.duration_ms));
   const toolMs = sum(tools.map((t) => t.duration_ms));
-  // turn 전체 경과는 단조 누적값(active)이다. 시작·종료 시각의 차이는 쓰지 않는다.
+  // active는 사람 기다림을 뺀 누적값이고, wall은 시작부터 끝까지다. 끝나지 않은 turn은 wall을 모른다.
   const active = turn === null ? modelMs + toolMs : turn.elapsed_active_ms;
+  const wall = turn !== null && turn.state === "finished" &&
+      turn.started_at !== null && turn.finished_at !== null
+    ? Math.max(0, Date.parse(turn.finished_at) - Date.parse(turn.started_at))
+    : active;
   const firstOutput = [...models]
     .sort((a, b) => a.attempt_order - b.attempt_order)
     .find((m) => m.first_output_ms !== null)?.first_output_ms ?? null;
@@ -178,7 +182,7 @@ export function assembleTrace(input: TraceInput): TurnTrace {
     handoff_links: [],
     activity: activityOf(models, tools),
     times: {
-      wall_ms: active,
+      wall_ms: wall,
       active_ms: active,
       model_ms: modelMs,
       first_output_ms: firstOutput,

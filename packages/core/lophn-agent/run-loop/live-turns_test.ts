@@ -190,6 +190,7 @@ Deno.test("멈추면 사람이 본 글이 turn이 끝나기 전에 agent message
     ids: { newId: (prefix) => `${prefix}_0ccccccccccccccccccccccccc` },
     clock,
     publish: (event) => events.push(event),
+    turnRow: () => null,
   });
   const stopped = await wrapped.command(context, {
     command: "StopTurn",

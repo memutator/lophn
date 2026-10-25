@@ -6,7 +6,10 @@ import {
   type SessionSnapshot,
   sessionSnapshotsList,
 } from "../../../../protocol/events/snapshot.ts";
-import { recordMessage } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  checkpointTurn,
+  recordMessage,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   codingPlace,
@@ -31,13 +34,17 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 멈춘 turn의 쓰는 중인 글을 machine 자격으로 저장하는 core 안 자격이다. 기동 때 ledger에 기록한다.
+// 멈춘 turn의 쓰는 중인 글을 저장하고, core가 끝내는 turn의 active를 마감하는 core 안 자격이다.
+// 기동 때 ledger에 기록한다.
 const LIVE_TURNS_PRINCIPAL = "machine:live-turns";
 
 const LIVE_TURNS_CONTEXT: AuthenticatedContext = {
   principal: LIVE_TURNS_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [recordMessage.name], targets: {} },
+  scope: {
+    operations: [recordMessage.name, checkpointTurn.name],
+    targets: {},
+  },
   conditions: {},
   credential_ref: LIVE_TURNS_PRINCIPAL,
 };
@@ -69,9 +76,32 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             "ToolCallStarted",
             "TurnStarted",
             "TurnEnded",
+            "TurnRequestOpened",
+            "TurnRequestClosed",
+            "QuestionAsked",
+            "QuestionResolved",
           ],
         }],
-        { send: (event) => liveTurns.apply(event), close() {} },
+        {
+          send: (event) => {
+            // coding session은 사람 기다림을 알리지 않으므로 시간은 세지 않는다. 쓰는 중인 글을 비우는
+            // 것은 그대로다.
+            if (
+              event.type === "TurnStarted" &&
+              loadSession(lookup, event.session) === undefined
+            ) {
+              liveTurns.apply(event, false);
+              return;
+            }
+            // 마지막 사람 기다림이 닫히면 `TurnResumed`다. 구독 안에서 바로 내면 같은 event를 받는 다른
+            // 구독자보다 먼저 닿으므로 다음 microtask로 미룬다.
+            const resumed = liveTurns.apply(event);
+            if (resumed !== null) {
+              queueMicrotask(() => ctx.bus.publish(resumed));
+            }
+          },
+          close() {},
+        },
       );
       const snapshotsOf = (sessions: string[] | undefined) => {
         const snapshots: SessionSnapshot[] = [];
@@ -93,6 +123,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
               ? "running"
               : "idle",
             writing: liveTurns.writing(row.id),
+            elapsed: liveTurns.elapsed(row.id),
             turn_requests,
             questions,
           } as SessionSnapshot);
@@ -144,6 +175,20 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
             clock: ctx.clock,
             publish: (event) => ctx.bus.publish(event),
+            turnRow: (turn) => {
+              const row = sql.get(
+                `select state, state_seq, elapsed_active_ms, elapsed_stall_ms
+                   from turns where id = ?`,
+                [turn],
+              );
+              if (row === undefined) return null;
+              return {
+                state: String(row["state"]) as "running" | "finished",
+                state_seq: String(row["state_seq"]),
+                elapsed_active_ms: Number(row["elapsed_active_ms"]),
+                elapsed_stall_ms: Number(row["elapsed_stall_ms"]),
+              };
+            },
           }),
       });
     },

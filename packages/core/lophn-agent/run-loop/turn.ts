@@ -123,6 +123,8 @@ async function finishWith(
   facts?: ConfirmedFacts,
 ): Promise<TurnResult> {
   const confirmed = facts ?? await confirmedFacts(state);
+  // 끝난 순간까지의 active를 `TurnEnded`가 싣게 한다. 마지막 checkpoint 뒤에 흐른 시간이 빠지지 않게 한다.
+  await state.deps.ports.checkpoint(state.limiter.snapshot());
   const finished = await state.deps.ports.finish({
     outcome,
     facts: confirmed,

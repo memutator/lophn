@@ -120,6 +120,13 @@ export type ConversationPlaceholders = {
   "conversation.label.delete-session": {
     title: "string";
   };
+  "conversation.label.duration-hours": {
+    hours: "number";
+  };
+  "conversation.label.duration-hours-minutes": {
+    hours: "number";
+    minutes: "number";
+  };
   "conversation.label.duration-minutes": {
     minutes: "number";
   };
@@ -310,6 +317,9 @@ export type ConversationPlaceholders = {
   "conversation.label.view-detail": Record<never, never>;
   "conversation.label.view-everything": Record<never, never>;
   "conversation.label.view-messages": Record<never, never>;
+  "conversation.label.waited-for": {
+    duration: "string";
+  };
   "conversation.label.worked-for": {
     duration: "string";
   };

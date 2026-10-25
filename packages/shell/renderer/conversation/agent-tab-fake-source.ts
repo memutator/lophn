@@ -204,6 +204,7 @@ const working = (): ThreadView["turn"] => ({
   id: turn1,
   phase: "working",
   startedAt: at(41),
+  elapsed: { activeMs: 0, at: at(41) },
 });
 
 function received(
@@ -327,10 +328,11 @@ function sceneData(scene: AgentTabScene): SceneData {
             at: at(43),
             turn: turn1,
             outcome: "completed",
-            durationMs: 18_000,
+            activeMs: 18_000,
+            waitedMs: 0,
           },
         ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41) },
+        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
         bodies: {
           [messageId(2)]: [
             { kind: "reasoning", text: REASONING, durationMs: 12_000 },
@@ -409,7 +411,7 @@ function sceneData(scene: AgentTabScene): SceneData {
           message:
             "OpenAI rejected the request (400): the Priority speed option is not enabled for this account. Nothing was changed.",
         }],
-        turn: { id: turn1, phase: "ended", startedAt: at(41) },
+        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
       };
     case "sender-chips": {
       const notice = envelope(
@@ -530,7 +532,7 @@ function sceneData(scene: AgentTabScene): SceneData {
           call(3, 49, CALL_FAILED),
           received(2, 50, notice.task, notice.sender, { replyTo: callId(3) }),
         ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41) },
+        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
         envelopes: { [messageId(1)]: answer, [messageId(2)]: notice },
       };
     }
@@ -539,7 +541,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         agent: LOPHN,
         title: "Weekly report",
         entries: [user(1, 41, REQUEST), agent(2, 41)],
-        turn: { id: turn1, phase: "waiting", startedAt: at(41) },
+        turn: { id: turn1, phase: "waiting", startedAt: at(41), elapsed: null },
         pending: {
           approval: null,
           questions: {
@@ -628,7 +630,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         agent: LOPHN,
         title: "Weekly report",
         entries: [user(1, 41, REQUEST), agent(2, 41)],
-        turn: { id: turn1, phase: "waiting", startedAt: at(41) },
+        turn: { id: turn1, phase: "waiting", startedAt: at(41), elapsed: null },
         pending: {
           approval: {
             id: requestId(1),
@@ -666,8 +668,17 @@ function sceneData(scene: AgentTabScene): SceneData {
           result(2, "allowed", "always", null),
           result(3, "denied", null, "Keep last week's report for now."),
           result(4, "cancelled", null, null),
+          {
+            kind: "turn-end",
+            id: "end-1",
+            at: at(43),
+            turn: turn1,
+            outcome: "completed",
+            activeMs: 3_900_000,
+            waitedMs: 300_000,
+          },
         ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41) },
+        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
       };
     }
     case "empty":
@@ -915,10 +926,16 @@ export function createFakeAgentTabSource(
           at: at(-12 * 24 * 60 + 3),
           turn: turnId(30),
           outcome: "completed",
-          durationMs: 9_000,
+          activeMs: 9_000,
+          waitedMs: 0,
         },
       ],
-      turn: { id: turnId(30), phase: "ended", startedAt: at(-12 * 24 * 60) },
+      turn: {
+        id: turnId(30),
+        phase: "ended",
+        startedAt: at(-12 * 24 * 60),
+        elapsed: null,
+      },
     });
     bodies.set(messageId(31), [{
       kind: "text",
@@ -1040,6 +1057,7 @@ export function createFakeAgentTabSource(
         }));
       }
       const turn = running ? view.turn!.id : nextId("trn");
+      const startedAt = sentAt();
       patchSession(session, { status: "working" });
       return change(session, (current) => ({
         ...current,
@@ -1047,13 +1065,14 @@ export function createFakeAgentTabSource(
           ...current.entries,
           {
             ...user(0, 50, text, { id, delivery, turn }),
-            at: sentAt(),
+            at: startedAt,
           },
         ],
         turn: running ? current.turn : {
           id: turn,
           phase: "working",
-          startedAt: sentAt(),
+          startedAt,
+          elapsed: { activeMs: 0, at: startedAt },
         },
       }));
     },
@@ -1098,7 +1117,8 @@ export function createFakeAgentTabSource(
           at: at(52),
           turn,
           outcome: "stopped",
-          durationMs: 4000,
+          activeMs: 4000,
+          waitedMs: 0,
         }],
       }));
     },

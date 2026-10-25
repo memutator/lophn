@@ -285,7 +285,27 @@ interface ThreadTurnEnd extends EntryBase {
   readonly kind: "turn-end";
   readonly turn: string;
   readonly outcome: "completed" | "stopped" | "failed";
-  readonly durationMs: number;
+  /** agent가 일한 시간(사람 기다림 제외). core가 turn 끝에 마감한 값이다. */
+  readonly activeMs: number;
+  /** 사람을 기다린 시간(wall − active). */
+  readonly waitedMs: number;
+}
+
+/**
+ * 끝난 turn의 두 시간. wall은 시작부터 끝까지이고, active를 모르면(coding agent) wall을 active로 쓴다.
+ * 시작도 모르면 둘 다 0이다.
+ */
+export function turnEndTimes(
+  startedAt: string | null,
+  finishedAt: string,
+  activeMs: number | null,
+): { activeMs: number; waitedMs: number } {
+  const wall = startedAt === null
+    ? null
+    : Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt));
+  const active = activeMs ?? wall ?? 0;
+  const waited = wall === null ? 0 : Math.max(0, wall - active);
+  return { activeMs: active, waitedMs: waited };
 }
 
 /** 요청이 거절되는 등 server 요청이 실패했다. 오류와 [Retry]가 대화에 남는다. */
@@ -344,6 +364,11 @@ export interface TurnView {
   readonly phase: "working" | "waiting" | "ended";
   /** 걸린 시간을 셀 때 쓴다. 모르면 null이다. */
   readonly startedAt: string | null;
+  /**
+   * 도는 turn이 `at`까지 일한 시간(사람 기다림 제외). 일하는 중 줄은 `activeMs + (now − at)`을 보인다.
+   * 모르면 null이다.
+   */
+  readonly elapsed: { readonly activeMs: number; readonly at: string } | null;
 }
 
 /** 다음 turn을 기다리는 사람 메시지. 도는 중에 보냈다. */

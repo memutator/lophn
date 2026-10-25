@@ -463,7 +463,14 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     draft.outgoing?.phase === "accepted";
   const working = active?.phase === "working" || (active === null && sending)
     ? {
-      since: active?.startedAt == null ? null : Date.parse(active.startedAt),
+      clock: active === null ? null : active.elapsed !== null
+        ? {
+          activeMs: active.elapsed.activeMs,
+          at: Date.parse(active.elapsed.at),
+        }
+        : active.startedAt === null
+        ? null
+        : { activeMs: 0, at: Date.parse(active.startedAt) },
     }
     : null;
   const hint = empty && props.hint !== undefined

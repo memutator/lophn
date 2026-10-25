@@ -25,7 +25,7 @@ export function AgentTurn(
   { agent, time, copyText, children }: {
     agent: { readonly name: string; readonly profile: AvatarProfile };
     time: string;
-    /** 덩어리의 마지막 agent 글. 누를 때 읽는다. */
+    /** 덩어리에서 글이 비어 있지 않은 마지막 agent 메시지. 누를 때 읽는다. */
     copyText?: () => string;
     children: ReactNode;
   },
@@ -184,25 +184,34 @@ function CopyText({ text }: { text: () => string }): ReactElement {
 
 /**
  * agent가 일하는 동안 대화 끝에 서는 한 줄. 300ms 안에 끝나는 일에는 보이지 않고, 10초가 넘으면 걸린 시간을
- * 붙인다. `since`를 모르면 이 줄이 처음 선 때부터 잰다.
+ * 붙인다. `clock`은 core가 센 active와 그 기준 시각이고, 모르면 이 줄이 처음 선 때부터 잰다.
  */
 export function WorkingRow(
-  { since, now }: { since: number | null; now: () => number },
+  { clock, now }: {
+    clock: { activeMs: number; at: number } | null;
+    now: () => number;
+  },
 ): ReactElement | null {
   const shown = useDelayedLoading(true);
-  const [start] = useState(() => since ?? now());
+  const [start] = useState(now);
   const [, setTick] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setTick((tick) => tick + 1), TICK_MS);
     return () => clearInterval(timer);
   }, []);
   if (!shown) return null;
-  const elapsed = now() - (since ?? start);
+  const elapsed = clock === null
+    ? Math.max(0, now() - start)
+    : Math.max(0, clock.activeMs + now() - clock.at);
   return (
-    <div className={styles.working} data-working="">
+    <div className={styles.working} data-working="" role="status">
       <Shimmer>{t("conversation.label.status-working")}</Shimmer>
       {elapsed >= ELAPSED_AFTER_MS
-        ? <span className={styles.elapsed}>{duration(elapsed)}</span>
+        ? (
+          <span className={styles.elapsed} aria-hidden="true">
+            {duration(elapsed)}
+          </span>
+        )
         : null}
     </div>
   );

@@ -54,8 +54,8 @@ interface AgentThreadProps {
   live: LiveText | null;
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
-  /** agent가 일하는 중이다. `since`는 turn이 시작한 시각(ms)이고 모르면 null이다. */
-  working: { readonly since: number | null } | null;
+  /** agent가 일하는 중이다. `clock`은 core가 센 active와 그 기준 시각(ms)이고 모르면 null이다. */
+  working: { readonly clock: { activeMs: number; at: number } | null } | null;
   now: () => number;
   /** 내 말에 첨부한 이미지의 그림 주소. */
   imageUrl: (id: string) => Promise<string | null>;
@@ -117,7 +117,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
   }
   if (props.working !== null) {
     nodes.push(
-      <WorkingRow key="working" since={props.working.since} now={props.now} />,
+      <WorkingRow key="working" clock={props.working.clock} now={props.now} />,
     );
   }
   return (
@@ -282,7 +282,8 @@ function itemsOf(
           : (
             <WorkedFor
               key={entry.id}
-              durationMs={entry.durationMs}
+              activeMs={entry.activeMs}
+              waitedMs={entry.waitedMs}
               stopped={entry.outcome === "stopped"}
             />
           );

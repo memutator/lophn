@@ -22,6 +22,7 @@ import type {
   ThreadView,
   TurnView,
 } from "./agent-tab-source.ts";
+import { turnEndTimes } from "./agent-tab-source.ts";
 import { foldDelta } from "./live-text.ts";
 
 // ---- event를 줄로 접는 규칙 ----
@@ -82,6 +83,7 @@ function senderOf(
  * event 하나를 줄에 접는다. 같은 event를 두 번 접어도 같은 결과다(id로 한 번만 든다).
  * - MessageReceived: 사람이 도는 중에 다음 turn으로 보낸 것은 `queued`에, 나머지는 줄에 든다.
  * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다. 다른 turn의 live 글은 버린다.
+ * - TurnResumed: 마지막 사람 기다림이 닫혀 다시 도는 순간이다. 그 turn의 elapsed를 event의 active와 at으로 맞춘다.
  * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙이고 그 turn의 live 글을 버린다. 실패하고 오류가 있으면 꼬리
  *   대신 오류 줄이다.
  * - ModelOutputStreamed: 그 model 호출의 live 글을 delta로 잇는다. offset이 앞 글 길이를 넘으면 gap을 세운다.
@@ -131,6 +133,7 @@ function foldEvent(
         id: turn,
         phase: "working",
         startedAt: event.at,
+        elapsed: { activeMs: 0, at: event.at },
       };
       const next: ThreadView = {
         ...view,
@@ -201,12 +204,21 @@ function foldEvent(
           : null,
       }]);
     }
+    case "TurnResumed": {
+      const { turn, active_ms } = event.payload;
+      if (view.turn?.id !== turn) return view;
+      return {
+        ...view,
+        turn: {
+          ...view.turn,
+          elapsed: { activeMs: active_ms, at: event.at },
+        },
+      };
+    }
     case "TurnEnded": {
-      const { turn, outcome, messages, error } = event.payload;
+      const { turn, outcome, messages, error, active_ms } = event.payload;
       const startedAt = view.turn?.id === turn ? view.turn.startedAt : null;
-      const durationMs = startedAt === null
-        ? 0
-        : Math.max(0, Date.parse(event.at) - Date.parse(startedAt));
+      const times = turnEndTimes(startedAt, event.at, active_ms);
       const answers: ThreadEntry[] = messages.map((id) => ({
         kind: "message",
         id,
@@ -238,11 +250,12 @@ function foldEvent(
             : outcome.kind === "failed"
             ? "failed"
             : "stopped",
-          durationMs,
+          activeMs: times.activeMs,
+          waitedMs: times.waitedMs,
         };
       return withEntries({
         ...view,
-        turn: { id: turn, phase: "ended", startedAt },
+        turn: { id: turn, phase: "ended", startedAt, elapsed: null },
         pending: { approval: null, questions: null },
         live: view.live?.turn === turn ? null : view.live,
         dropped: { ...view.dropped, turn },

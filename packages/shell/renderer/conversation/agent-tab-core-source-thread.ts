@@ -37,6 +37,7 @@ import type {
   ThreadView,
   TurnView,
 } from "./agent-tab-source.ts";
+import { turnEndTimes } from "./agent-tab-source.ts";
 import type { Env } from "./agent-tab-core-source-env.ts";
 import { asRecord, callViewOf } from "./agent-tab-core-source-calls.ts";
 import {
@@ -441,10 +442,6 @@ async function toolEntries(
 
 // ---------------------------------------------------------------- thread
 
-function secondsBetween(from: string, to: string): number {
-  return Math.max(0, Date.parse(to) - Date.parse(from));
-}
-
 function tailOf(turn: TurnRecord): ThreadEntry | null {
   if (turn.state !== "finished" || turn.outcome === null) return null;
   const at = turn.finished_at ?? turn.started_at;
@@ -458,13 +455,15 @@ function tailOf(turn: TurnRecord): ThreadEntry | null {
       message: turn.outcome.reason.replaceAll("_", " "),
     };
   }
+  const times = turnEndTimes(turn.started_at, at, turn.elapsed.active_ms);
   return {
     kind: "turn-end",
     id: `end-${turn.id}`,
     at,
     turn: turn.id,
     outcome: turn.outcome.kind === "completed" ? "completed" : "stopped",
-    durationMs: secondsBetween(turn.started_at, at),
+    activeMs: times.activeMs,
+    waitedMs: times.waitedMs,
   };
 }
 
@@ -693,6 +692,12 @@ export async function readThread(
       ? "waiting"
       : "working",
     startedAt: current.started_at,
+    elapsed: running && sessionSnapshot?.elapsed?.turn === current.id
+      ? {
+        activeMs: sessionSnapshot.elapsed.active_ms,
+        at: sessionSnapshot.elapsed.at,
+      }
+      : null,
   };
   return {
     ok: true,

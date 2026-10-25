@@ -107,6 +107,9 @@ export const conversation = {
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
   "conversation.label.delete-session": "Delete {title}",
+  "conversation.label.duration-hours": "{hours, number}h",
+  "conversation.label.duration-hours-minutes":
+    "{hours, number}h {minutes, number}m",
   "conversation.label.duration-minutes": "{minutes, number}m",
   "conversation.label.duration-minutes-seconds":
     "{minutes, number}m {seconds, number}s",
@@ -240,6 +243,7 @@ export const conversation = {
   "conversation.label.view-detail": "View detail",
   "conversation.label.view-everything": "Everything",
   "conversation.label.view-messages": "Messages",
+  "conversation.label.waited-for": "Waited {duration} for you",
   "conversation.label.worked-for": "Worked for {duration}",
   "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",

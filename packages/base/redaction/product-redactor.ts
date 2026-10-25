@@ -10,7 +10,7 @@
 import { matchCredential } from "./patterns.ts";
 import { REDACTION_REPLACEMENT } from "./model.ts";
 
-// core의 알려진 secret matcher와 같은 모양이다(base는 core를 import하지 않는다).
+// core의 알려진 secret matcher 중 이 redactor가 쓰는 match·ready 부분이다(base는 core를 import하지 않는다).
 type KnownSecretMatch = {
   match(text: string): { index: number; length: number } | undefined;
   readonly ready: boolean;

@@ -15,6 +15,6 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `stream-core` | stream | 2 | 없음 | merged | stream/stream-core | d5572ac8c | message id는 msg_+mcl ULID. 마지막 응답은 빈 글도 저장하고 runs answer는 빈 글을 null로 본다. lead probe(fake): 중간 글+tool 뒤 run 답=마지막 응답, 빈 마지막=no_answer. workflow는 turn 상태만 본다 |
 | `tool-title-core` | tool-title | 2 | 없음 | merged | tool-title/tool-title-core | 7b29e36ba |  |
 | `clock-shell` | clock | 3 | reasoning-shell | running | clock/clock-shell |  |  |
-| `reasoning-shell` | reasoning | 3 | stream-shell | merged | reasoning/reasoning-shell | 27af0d74e |  |
+| `reasoning-shell` | reasoning | 3 | stream-shell | merged | reasoning/reasoning-shell | 27af0d74e | lead 앱 확인(fake raw thinking SSE): thinking만 올 때 Thinking, 멈추면 Thought로 저장, 끝난 응답은 Thought for {d}와 펼친 요약 |
 | `stream-shell` | stream | 3 | 없음 | merged | stream/stream-shell | 0704eb55d | lead 앱 확인(headless Electron+진짜 core+fake stall): live 글이 markdown으로 흐르고 열린 ts fence가 닫혀 highlight된다. Stop 뒤 본 글이 저장된 message로 남는다 |
 | `tool-title-shell` | tool-title | 3 | clock-shell | todo |  |  |  |

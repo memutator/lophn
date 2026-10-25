@@ -6,7 +6,7 @@ import { seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { inputDeliverySchema } from "./inputs.ts";
 import {
-  agentMessageContentInputSchema,
+  messageContentInputSchema,
   messageContentSchema,
   userMessageContentInputSchema,
 } from "./message-content.ts";
@@ -122,8 +122,8 @@ const recordMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
   turn: idSchema("trn"),
-  // agent는 글·시각 블록, machine은 글만 낸다(owner가 actor로 검사한다).
-  content: agentMessageContentInputSchema,
+  // agent는 글·앱 카드, machine은 글·reasoning을 낸다(owner가 자격으로 고른다).
+  content: messageContentInputSchema,
 });
 export const recordMessage = defineCommand({
   resource: "messages",

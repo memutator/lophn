@@ -23,6 +23,23 @@ const toolOutcomeKindSchema = z.enum(TOOL_OUTCOME_KINDS);
 // 내장 tool 이름과 입력 schema는 다른 최상위가 부르지 않으므로 여기 두지 않는다.
 export const toolNameSchema = nonempty.max(64);
 
+// tool 줄에 보이는 분류와 제목. 저장하지 않고 ToolCallStarted·ListToolCalls를 낼 때 만들며
+// 지금의 redaction을 거친다. title이 한 줄이고 120자에서 잘라 `…`를 붙이는 것은 만드는 쪽이 지킨다.
+export const TOOL_CALL_CATEGORIES = [
+  "read",
+  "list",
+  "search",
+  "command",
+  "web",
+  "other",
+] as const;
+export type ToolCallCategory = (typeof TOOL_CALL_CATEGORIES)[number];
+export const toolCallDisplaySchema = z.object({
+  category: z.enum(TOOL_CALL_CATEGORIES),
+  title: z.string().min(1),
+});
+export type ToolCallDisplay = z.infer<typeof toolCallDisplaySchema>;
+
 const TOOL_DECISIONS = ["allow", "ask", "deny"] as const;
 
 const toolDecisionFields = {
@@ -181,13 +198,25 @@ function callShape(value: Call) {
   return value.started_at === null || value.started_at <= value.finished_at;
 }
 
-export const toolCallOutputSchema = z.object({
+const toolCallOutputFields = {
   ...toolCallFields,
   app_tool: appToolBindingOutputSchema.nullable(),
   extension: toolExtensionOutputSchema.nullable(),
   decision: toolDecisionOutputSchema.nullable(),
   outcome: toolOutcomeOutputSchema.nullable(),
+};
+
+export const toolCallOutputSchema = z.object(toolCallOutputFields).refine(
+  callShape,
+  { message: "tool call state, outcome and retry do not agree" },
+);
+export type ToolCall = z.infer<typeof toolCallOutputSchema>;
+
+// 목록에 실어 보내는 call 하나. display는 저장하지 않는다.
+export const listedToolCallOutputSchema = z.object({
+  ...toolCallOutputFields,
+  display: toolCallDisplaySchema,
 }).refine(callShape, {
   message: "tool call state, outcome and retry do not agree",
 });
-export type ToolCall = z.infer<typeof toolCallOutputSchema>;
+export type ListedToolCall = z.infer<typeof listedToolCallOutputSchema>;

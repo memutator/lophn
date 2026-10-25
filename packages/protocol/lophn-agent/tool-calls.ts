@@ -11,6 +11,7 @@ import { defineEvent } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
+  listedToolCallOutputSchema,
   toolCallOutputSchema,
   toolDecisionSchema,
   toolEffectSchema,
@@ -238,6 +239,7 @@ const toolCallListInputSchema = z.strictObject({
   turn: idSchema("trn").optional(),
   session: idSchema("ses").optional(),
   model_call: idSchema("mcl").optional(),
+  tool: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),
   limit: z.number().int().positive().max(100).optional(),
 }).refine(
@@ -247,7 +249,7 @@ const toolCallListInputSchema = z.strictObject({
   { message: "list needs a turn, a session or a model call" },
 );
 const toolCallListOutputSchema = withReadCommon(z.object({
-  tool_calls: z.array(toolCallOutputSchema),
+  tool_calls: z.array(listedToolCallOutputSchema),
 }));
 
 export const toolCallList = defineRead({

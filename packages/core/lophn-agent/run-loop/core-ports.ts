@@ -30,6 +30,7 @@ import {
   type ToolDefinition,
   toolForWireName,
 } from "../tools/mod.ts";
+import { toolCallDisplay } from "../tools/display.ts";
 import type {
   AgentEventSink,
   FinishRequest,
@@ -455,9 +456,16 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const definition = definitionOf(call.name);
     const id = ids.newId("tcl") as Id<"tcl">;
     const recorded = await record(call, id, definition);
+    const display = await toolCallDisplay(
+      definition,
+      definition?.name ?? call.name,
+      call.input,
+      deps.redact,
+    );
     publish("ToolCallStarted", {
       tool_call: id,
       tool: definition?.name ?? call.name,
+      display,
     });
     const startedMs = clock.nowMs();
 

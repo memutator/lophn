@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { atSchema } from "../base/values.ts";
+import { atSchema, durationMsSchema } from "../base/values.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
 import {
   callAgentOutputSchema,
   callFromOutputSchema,
 } from "../lophn-agent/calls.ts";
 import { placeOutputSchema } from "../lophn-agent/places.ts";
+import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
 import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 
@@ -14,7 +15,9 @@ import { eventTypeSchema } from "../base/event.ts";
 // coding agent는 SessionStarted, MessageReceived, TurnStarted, TurnEnded, SessionEnded와
 // harness가 물어 올 때의 TurnRequestOpened·TurnRequestClosed만 낸다.
 // lophn agent의 ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
-// subagent와 model 호출은 event로 두지 않는다.
+// MessageRecorded는 agent runtime이 감독 pipe로 내고 core가 Bus에 낸다.
+// ModelOutputStreamed(agent runtime이 보낸 날 글을 core가 redaction한 것)와 TurnResumed는 core가 낸다.
+// model 호출의 시작·끝은 event로 두지 않는다(쓰는 중인 글만 흐른다).
 
 type AgentEventDefinition<
   T extends string = string,
@@ -46,6 +49,7 @@ function agentEventEnvelopeSchema<
 const turn = idSchema("trn");
 const toolCall = idSchema("tcl");
 const group = idSchema("qgr");
+const modelCall = idSchema("mcl");
 
 // title은 싣지 않는다. 필요하면 session을 read로 읽는다.
 const sessionStarted = defineAgentEvent(
@@ -76,21 +80,57 @@ const turnStarted = defineAgentEvent(
   z.strictObject({ turn, input_message: idSchema("msg") }),
 );
 
-// outcome은 turnOutcomeSchema와 같은 값이다.
+// outcome은 turnOutcomeSchema와 같은 값이다. active_ms는 lophn agent만 싣고 coding agent는 null이다
+// (harness가 사람 기다림을 알리지 않아 일한 시간을 모른다).
 const turnEnded = defineAgentEvent(
   "TurnEnded",
   z.strictObject({
     turn,
     outcome: turnOutcomeOutputSchema,
     messages: z.array(idSchema("msg")),
+    active_ms: durationMsSchema.nullable(),
     error: z.strictObject({ code: z.string().min(1), message: z.string() })
       .nullable(),
   }),
 );
 
+// 사람 기다림(승인, 질문)이 끝나 turn이 다시 일하는 순간이다. envelope의 at이 그 순간이고 active_ms는
+// 그때까지 사람 기다림을 뺀 시간이다.
+const turnResumed = defineAgentEvent(
+  "TurnResumed",
+  z.strictObject({ turn, active_ms: durationMsSchema }),
+);
+
+// core가 낸다. offset은 같은 model_call·kind에서 앞서 낸 글의 UTF-16 길이이고 redaction을 거친 글로 센다.
+// 다른 model_call의 조각이 오면 앞 model 호출의 쓰는 중인 글을 버린다. 쌓인 글 전체에 redaction을 걸고
+// 끝을 붙잡는 규칙은 내는 쪽이 지킨다.
+const modelOutputStreamed = defineAgentEvent(
+  "ModelOutputStreamed",
+  z.strictObject({
+    turn,
+    model_call: modelCall,
+    kind: z.enum(["text", "reasoning"]),
+    offset: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    text: z.string().min(1),
+  }),
+);
+
+// agent runtime이 model 응답의 agent message를 RecordMessage로 저장한 뒤 낸다. 화면은 그 model_call의
+// 쓰는 중인 글을 버리고 message 본문을 읽는다.
+const messageRecorded = defineAgentEvent(
+  "MessageRecorded",
+  z.strictObject({ turn, message: idSchema("msg"), model_call: modelCall }),
+);
+
+// display는 낼 때 만들고 지금의 redaction을 거친다.
 const toolCallStarted = defineAgentEvent(
   "ToolCallStarted",
-  z.strictObject({ turn, tool_call: toolCall, tool: z.string().min(1) }),
+  z.strictObject({
+    turn,
+    tool_call: toolCall,
+    tool: z.string().min(1),
+    display: toolCallDisplaySchema,
+  }),
 );
 
 const toolCallEnded = defineAgentEvent(
@@ -151,6 +191,9 @@ export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(messageReceived),
   agentEventEnvelopeSchema(turnStarted),
   agentEventEnvelopeSchema(turnEnded),
+  agentEventEnvelopeSchema(turnResumed),
+  agentEventEnvelopeSchema(modelOutputStreamed),
+  agentEventEnvelopeSchema(messageRecorded),
   agentEventEnvelopeSchema(toolCallStarted),
   agentEventEnvelopeSchema(toolCallEnded),
   agentEventEnvelopeSchema(turnRequestOpened),

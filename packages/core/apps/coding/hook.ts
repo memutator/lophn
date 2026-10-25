@@ -118,6 +118,7 @@ function apply(
         turn: row.turn ?? tx.newId("trn"),
         outcome,
         messages: [],
+        active_ms: null,
         error: outcome.kind === "failed"
           ? {
             code: "harness_failed",

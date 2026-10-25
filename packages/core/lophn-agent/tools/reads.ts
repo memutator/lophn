@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type ToolCall,
+  type ListedToolCall,
   toolCallList,
   toolCallRead,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -37,8 +37,12 @@ function cursorOf(afterId: string): string {
   return btoa(JSON.stringify({ after_id: afterId }));
 }
 
-function toCalls(rows: readonly SqlRow[]): ToolCall[] {
-  return rows.map((row) => callFromRow(row as CallRow));
+// 목록은 낼 때 제목을 만들고, 아직 tool마다의 제목 규칙이 없어 tool 이름을 `other`로 싣는다.
+function toCalls(rows: readonly SqlRow[]): ListedToolCall[] {
+  return rows.map((row) => {
+    const call = callFromRow(row as CallRow);
+    return { ...call, display: { category: "other", title: call.tool } };
+  });
 }
 
 export function createToolReads(): {
@@ -80,6 +84,10 @@ export function createToolReads(): {
         if (input.model_call !== undefined) {
           clauses.push("model_call = ?");
           params.push(input.model_call);
+        }
+        if (input.tool !== undefined) {
+          clauses.push("tool = ?");
+          params.push(input.tool);
         }
         if (after.value !== null) {
           clauses.push("id > ?");

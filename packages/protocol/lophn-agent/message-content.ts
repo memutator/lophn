@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
+import { durationMsSchema } from "../base/values.ts";
 
 // 본문 blob 하나의 정규 직렬화 상한이다. 요청은 본문 값을 싣고 RPC JSON 상한이 256KiB
-// 이므로 id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
-// 글뿐이라 64KiB(스키마가 검사), agent 답은 글과 카드를 합쳐 240KiB다. agent 답의
-// 합계는 core가 준비 전에 검사한다.
+// 이므로 id·links 여유가 요청 상한 안에 남도록, 사람 말은 글뿐이라 64KiB(스키마가 검사)이고
+// agent·machine 답은 글·카드·reasoning을 합쳐 240KiB다. agent·machine 답의 합계는 core가
+// 준비 전에 검사한다.
 export const MESSAGE_TEXT_CONTENT_MAX_BYTES = 65536;
 export const MESSAGE_CONTENT_MAX_BYTES = 245760;
 // 본문 blob 준비·참조의 이름. 준비 주체는 보낸 사람의 자격이고 참조는 permanent다.
@@ -23,13 +24,38 @@ const appCardFields = {
 const appCardPartInputSchema = z.strictObject(appCardFields);
 const appCardPartSchema = z.object(appCardFields);
 
+const textPartInputSchema = z.strictObject({
+  kind: z.literal("text"),
+  text: z.string(),
+});
+// provider가 준 읽을 수 있는 reasoning이다. 없으면 ""이고 시간을 모르면 duration_ms가 null이다.
+const reasoningPartInputSchema = z.strictObject({
+  kind: z.literal("reasoning"),
+  text: z.string(),
+  duration_ms: durationMsSchema.nullable(),
+});
+
 const messagePartInputSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("text"), text: z.string() }),
+  textPartInputSchema,
   appCardPartInputSchema,
+  reasoningPartInputSchema,
 ]);
 const messagePartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   appCardPartSchema,
+  z.object({
+    kind: z.literal("reasoning"),
+    text: z.string(),
+    duration_ms: durationMsSchema.nullable(),
+  }),
+]);
+const agentPartInputSchema = z.discriminatedUnion("kind", [
+  textPartInputSchema,
+  appCardPartInputSchema,
+]);
+const machinePartInputSchema = z.discriminatedUnion("kind", [
+  textPartInputSchema,
+  reasoningPartInputSchema,
 ]);
 
 function canonicalBytes(block: unknown): number | undefined {
@@ -50,7 +76,7 @@ function withinBytes(content: unknown, max: number): boolean {
   return size !== undefined && size <= max;
 }
 
-const messageContentInputSchema = z.strictObject({
+export const messageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
   parts: z.array(messagePartInputSchema).min(1),
 });
@@ -59,20 +85,23 @@ export const messageContentSchema = z.object({
   parts: z.array(messagePartSchema).min(1),
 });
 
-const textPartInput = z.strictObject({
-  kind: z.literal("text"),
-  text: z.string(),
-});
-
 // 사람 메시지는 글만 받는다.
 export const userMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
-  parts: z.array(textPartInput).min(1),
+  parts: z.array(textPartInputSchema).min(1),
 }).refine((value) => withinBytes(value, MESSAGE_TEXT_CONTENT_MAX_BYTES), {
   message: "message content is too large",
 });
-// agent 답은 글, 시각 블록, 앱 카드를 받는다.
-export const agentMessageContentInputSchema = messageContentInputSchema;
+// agent 답은 글과 앱 카드를 받는다.
+export const agentMessageContentInputSchema = z.strictObject({
+  schema_version: z.literal(1),
+  parts: z.array(agentPartInputSchema).min(1),
+});
+// machine 답은 글과 reasoning을 받는다. byte 상한은 owner가 준비 전에 본다.
+export const machineMessageContentInputSchema = z.strictObject({
+  schema_version: z.literal(1),
+  parts: z.array(machinePartInputSchema).min(1),
+});
 
 // 요청은 본문 값(MessageContent)을 싣는다. renderer·shell·runtime은 blob을 준비하지
 // 않는다: core가 redaction을 거친 값을 blob으로 준비하고 command가 같은 transaction에서

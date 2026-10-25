@@ -78,12 +78,15 @@ export async function readBody(
   if (known !== undefined) return { ok: true, value: known };
   const read = await env.read(messageBody, { message });
   if (!read.ok) return read;
-  const parts = read.value.content.parts.map((part): BodyPart => {
+  const parts = read.value.content.parts.flatMap((part): BodyPart[] => {
     switch (part.kind) {
       case "text":
-        return { kind: "text", text: part.text };
+        return [{ kind: "text", text: part.text }];
       case "app_card":
-        return { kind: "app_card", app: part.app, view: part.view };
+        return [{ kind: "app_card", app: part.app, view: part.view }];
+      // reasoning은 대화 본문이 아니라 reasoning 줄이 그린다.
+      case "reasoning":
+        return [];
     }
   });
   memo.bodies.set(message, parts);

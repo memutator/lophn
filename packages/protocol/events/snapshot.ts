@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
+import { atSchema, durationMsSchema } from "../base/values.ts";
 import { harnessIdSchema } from "../coding-agent/harness-id.ts";
 import { defineRead } from "../base/route.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
@@ -23,6 +24,20 @@ const sessionSnapshotSchema = z.object({
   state: sessionStateSchema,
   // coding session만 싣는다. 첫 신호가 SessionStarted인 harness인지 창이 알아야 해서다.
   harness: harnessIdSchema.optional(),
+  // lophn session만 싣는다. 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것)이고
+  // text·reasoning의 길이가 그 뒤 delta의 offset이다.
+  writing: z.object({
+    turn: idSchema("trn"),
+    model_call: idSchema("mcl"),
+    text: z.string(),
+    reasoning: z.string(),
+  }).nullable().optional(),
+  // lophn session만 싣는다. 도는 turn이 at까지 일한 시간이고 running이면 화면이 active_ms + (now − at)을 보인다.
+  elapsed: z.object({
+    turn: idSchema("trn"),
+    active_ms: durationMsSchema,
+    at: atSchema,
+  }).nullable().optional(),
   turn_requests: z.array(turnRequestSchema),
   questions: z.array(z.object({
     group: idSchema("qgr"),

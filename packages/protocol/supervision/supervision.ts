@@ -228,6 +228,21 @@ export const agentEventMessageSchema = z.strictObject({
   event: z.record(z.string(), z.unknown()),
 });
 
+// agent runtime이 model 호출 하나에서 받은 글을 짧게 묶어 core에 보내는 날 글(redaction 전)이다. 앞 message에
+// 이어지는 조각이고 pipe는 순서대로 간다. core가 쌓인 글 전체를 redaction해 `ModelOutputStreamed`로 낸다.
+// 날 글은 `redact_request`로도 이미 core에 간다. 상한을 넘는 글은 child가 나눠 보낸다(넘는 message 하나만
+// 거절되면 글 가운데가 빈다). core는 답하지 않는다.
+export const MODEL_OUTPUT_UNITS_MAX = 32_768;
+export const modelOutputMessageSchema = z.strictObject({
+  type: z.literal("model_output"),
+  session: idSchema("ses"),
+  turn: idSchema("trn"),
+  model_call: idSchema("mcl"),
+  kind: z.enum(["text", "reasoning"]),
+  text: z.string().min(1).max(MODEL_OUTPUT_UNITS_MAX),
+});
+export type ModelOutputMessage = z.infer<typeof modelOutputMessageSchema>;
+
 // agent runtime이 model로 보낼 글을 core의 안전화에 맡기는 통로(lophn-agent/harness/run-loop). 알려진 secret
 // 값은 core의 보호 registry에만 있고 child로 가지 않는다. child가 글 조각(window)을 보내면 core가 같은
 // 검출 규칙과 알려진 값으로 지울 자리(index·length, 조각 안의 UTF-16 위치)만 돌려준다. 요청 하나는 조각
@@ -398,6 +413,7 @@ export const childMessageSchema = z.union([
   agentCredentialEndSchema,
   turnSourceRequestSchema,
   agentEventMessageSchema,
+  modelOutputMessageSchema,
   redactRequestSchema,
   secretSendRequestSchema,
   blobPrepareRequestSchema,

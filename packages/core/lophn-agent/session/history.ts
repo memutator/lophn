@@ -92,14 +92,13 @@ async function readLoads(
     }
     const listed = await readOf(machine, toolCallList, {
       session,
+      tool: "tool.load",
       limit: 100,
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (!listed.ok) return listed;
     for (const call of listed.value.tool_calls) {
-      if (call.tool !== "tool.load" || call.outcome?.kind !== "success") {
-        continue;
-      }
+      if (call.outcome?.kind !== "success") continue;
       const body = await readOf(machine, turnBody, {
         kind: "tool_call_output",
         id: call.id,

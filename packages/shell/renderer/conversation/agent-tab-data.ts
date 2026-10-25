@@ -23,6 +23,8 @@ import type {
   TurnView,
 } from "./agent-tab-source.ts";
 import { turnEndTimes } from "./agent-tab-source.ts";
+import type { ToolCallView } from "./activity/model.ts";
+import { toolEntriesOf } from "./activity/tool-groups.ts";
 import { foldDelta } from "./live-text.ts";
 
 // ---- event를 줄로 접는 규칙 ----
@@ -90,8 +92,9 @@ function senderOf(
  *   이미 저장된 model 호출이나 끝난 turn의 늦은 조각은 버린다.
  * - MessageRecorded: agent message 줄 하나를 더하고 그 model 호출의 live 글을 버린다. 줄의 `text`는 그때의
  *   live 글이라 본문을 읽기 전에 빈 자리가 없다.
- * - ToolCall*: tool 이름만 아는 줄. call과 ask는 전용 카드가 그리므로 줄을 만들지 않는다. 그 turn의 live
- *   글은 버린다(글이 있는 응답은 tool보다 먼저 저장되어 `MessageRecorded`가 먼저 온다).
+ * - ToolCallStarted·ToolCallEnded: tool 줄은 snapshot과 같은 묶기 함수(`toolEntriesOf`)로 묶는다. ask·call·
+ *   edit/write는 줄을 만들지 않는다. 그 turn의 live 글은 버린다(글이 있는 응답은 tool보다 먼저 저장되어
+ *   `MessageRecorded`가 먼저 온다).
  * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 접지 않는다(coding 카드가 그린다). 질문 내용은
  *   event에 없어 따로 읽고, 허락 범위(once·always)도 event에 없어 결과 줄은 범위를 모른다.
  * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
@@ -262,7 +265,7 @@ function foldEvent(
       }, [...answers, tail]);
     }
     case "ToolCallStarted": {
-      const { tool_call, tool, turn } = event.payload;
+      const { tool_call: toolCall, tool, turn, display } = event.payload;
       const live = view.live !== null && view.live.turn === turn
         ? view.live
         : null;
@@ -271,13 +274,64 @@ function foldEvent(
         live: null,
         dropped: { ...view.dropped, modelCall: live.modelCall },
       };
-      if (tool === "ask" || tool === "call") return cleared;
-      return withEntries(cleared, [{
-        kind: "tools",
-        id: tool_call,
-        at: event.at,
-        tool: { id: tool_call, label: tool, lines: [] },
-      }]);
+      if (
+        tool === "ask" || tool === "call" || tool === "file.write" ||
+        tool === "file.edit"
+      ) return cleared;
+      // 같은 event를 두 번 접어도 같은 결과다.
+      const known = cleared.entries.some((entry) =>
+        entry.kind === "tools" &&
+        entry.calls.some((call) => call.id === toolCall)
+      );
+      if (known) return cleared;
+      // 끝에 이어진 tools 줄에 이 call을 더해 다시 묶는다. 사이에 메시지가 있으면 거기서 묶음이 끊긴다.
+      let from = cleared.entries.length;
+      while (from > 0 && cleared.entries[from - 1]!.kind === "tools") from -= 1;
+      const tail = cleared.entries.slice(from);
+      const calls: ToolCallView[] = [
+        ...tail.flatMap((entry) => entry.kind === "tools" ? entry.calls : []),
+        {
+          id: toolCall,
+          tool,
+          category: display.category,
+          title: display.title,
+          state: "running",
+          startedAt: event.at,
+          durationMs: null,
+        },
+      ];
+      return {
+        ...cleared,
+        entries: [
+          ...cleared.entries.slice(0, from),
+          ...toolEntriesOf(calls, event.at),
+        ],
+      };
+    }
+    case "ToolCallEnded": {
+      const { tool_call: toolCall, outcome } = event.payload;
+      let found = false;
+      const entries = view.entries.map((entry): ThreadEntry => {
+        if (
+          entry.kind !== "tools" ||
+          !entry.calls.some((call) => call.id === toolCall)
+        ) return entry;
+        found = true;
+        return {
+          ...entry,
+          calls: entry.calls.map((call): ToolCallView =>
+            call.id !== toolCall ? call : {
+              ...call,
+              state: outcome,
+              durationMs: call.startedAt === null ? null : Math.max(
+                0,
+                Date.parse(event.at) - Date.parse(call.startedAt),
+              ),
+            }
+          ),
+        };
+      });
+      return found ? { ...view, entries } : view;
     }
     case "TurnRequestOpened": {
       const { id, subject, always_patterns } = event.payload.request;

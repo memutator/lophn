@@ -13,6 +13,7 @@ import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-defini
 import type { Role } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
+import type { ToolCallView } from "./activity/model.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
@@ -232,16 +233,6 @@ export interface ThreadMessage extends EntryBase {
   readonly text: string | null;
 }
 
-/** tool 줄. trace에 없는 줄은 없다. */
-interface ToolLineView {
-  /** tool call ID(`tcl_…`) 또는 묶음 key. */
-  readonly id: string;
-  /** 접힌 한 줄, 예: "Read 3 documents". */
-  readonly label: string;
-  /** 펼쳤을 때의 하위 줄. */
-  readonly lines: readonly string[];
-}
-
 interface EditView {
   readonly id: string;
   /** 바뀐 문서 ID(`doc_…`). [Open]이 이 문서의 탭을 연다. */
@@ -251,9 +242,10 @@ interface EditView {
   readonly removed: number;
 }
 
+/** 이어진 call 묶음 하나. call이 하나면 그 call 줄이다. */
 interface ThreadTools extends EntryBase {
   readonly kind: "tools";
-  readonly tool: ToolLineView;
+  readonly calls: readonly ToolCallView[];
 }
 
 /** 되돌아가는 편집을 undo하는 기능은 없다. 되돌리려면 rewind다. */
@@ -478,6 +470,12 @@ export interface RewindChoice {
 
 // ---- source ----
 
+/** tool 호출의 입력이나 결과 본문. 사람 화면용으로 지금의 redaction을 거친 값이고, 64 KiB를 넘으면 앞부분만이다. */
+export interface ToolCallBodyView {
+  readonly value: unknown;
+  readonly truncated: boolean;
+}
+
 export interface SendInput {
   readonly session: string;
   /** 메시지 id와 idempotency key. 같은 id·key로 다시 보내면 core가 이전 결과를 돌려준다. */
@@ -505,6 +503,11 @@ export interface AgentTabSource {
     session: string,
     toolCall: string,
   ): Promise<SourceResult<readonly AskedQuestion[]>>;
+  /** call 줄을 펼칠 때 읽는다. 아직 출력이 없으면 output은 not_found다. */
+  toolCallBody(
+    toolCall: string,
+    part: "input" | "output",
+  ): Promise<SourceResult<ToolCallBodyView>>;
 
   // model(session 범위). session이 null이면 source가 고른 값을 쥐고 있다가 openSession 때 그 session에 저장한다.
   model(

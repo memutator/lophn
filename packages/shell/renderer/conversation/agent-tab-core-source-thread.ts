@@ -2,8 +2,6 @@
 // 사람 메시지, 지금 turn, 사람이 답할 것, 쓰는 중인 글. snapshot을 처음과 다시 붙을 때(와 turn이 끝났을 때)만 읽고 그
 // 사이는 화면이 agent event를 줄로 접는다. 줄 순서는 메시지의 created_seq이고, 메시지가 아닌 줄은 그 turn의 메시지
 // 사이에 시각순으로 둔다. 본문과 끝난 tool 호출은 한 번 읽으면 바뀌지 않으므로 기억한다.
-import { t } from "@lophn/wording";
-
 import { askRead } from "../../../protocol/lophn-agent/ask-tool.ts";
 import type { ReceivedMessage } from "../../../protocol/lophn-agent/received-messages.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
@@ -13,7 +11,10 @@ import {
   receivedMessageRead,
 } from "../../../protocol/lophn-agent/received-messages.ts";
 import { toolCallList } from "../../../protocol/lophn-agent/tool-calls.ts";
-import type { ToolCall } from "../../../protocol/lophn-agent/tool-values.ts";
+import type {
+  ListedToolCall,
+  ToolCall,
+} from "../../../protocol/lophn-agent/tool-values.ts";
 import type { TurnRecord } from "../../../protocol/lophn-agent/turn-values.ts";
 import {
   turnBodyView,
@@ -35,9 +36,12 @@ import type {
   ThreadHidden,
   ThreadMessage,
   ThreadView,
+  ToolCallBodyView,
   TurnView,
 } from "./agent-tab-source.ts";
 import { turnEndTimes } from "./agent-tab-source.ts";
+import type { ToolCallState, ToolCallView } from "./activity/model.ts";
+import { toolEntriesOf } from "./activity/tool-groups.ts";
 import type { Env } from "./agent-tab-core-source-env.ts";
 import { asRecord, callViewOf } from "./agent-tab-core-source-calls.ts";
 import {
@@ -54,7 +58,7 @@ interface ThreadMemo {
   readonly bodies: Map<string, readonly BodyPart[]>;
   readonly roles: Map<string, AgentRole>;
   /** `<종류>:<id>` → tool 호출의 입력·결과 본문. */
-  readonly views: Map<string, unknown>;
+  readonly views: Map<string, ToolCallBodyView>;
 }
 
 export function createThreadMemo(): ThreadMemo {
@@ -227,16 +231,46 @@ async function viewOf(
   kind: "tool_call_input" | "tool_call_output",
   id: string,
 ): Promise<unknown> {
+  const read = await readToolCallBodyMemo(env, memo, kind, id);
+  return read.ok ? read.value.value : null;
+}
+
+async function readToolCallBodyMemo(
+  env: Env,
+  memo: ThreadMemo,
+  kind: "tool_call_input" | "tool_call_output",
+  id: string,
+): Promise<SourceResult<ToolCallBodyView>> {
   const key = `${kind}:${id}`;
-  if (memo.views.has(key)) return memo.views.get(key);
+  const known = memo.views.get(key);
+  if (known !== undefined) return { ok: true, value: known };
   const read = await env.read(turnBodyView, { kind, id });
-  if (!read.ok) return null;
-  memo.views.set(key, read.value.value);
-  return read.value.value;
+  if (!read.ok) return read;
+  const view = { value: read.value.value, truncated: read.value.truncated };
+  memo.views.set(key, view);
+  return { ok: true, value: view };
+}
+
+/** call 줄을 펼칠 때 읽는 입력이나 결과. 실패는 그 code 그대로다. */
+export function readToolCallBody(
+  env: Env,
+  memo: ThreadMemo,
+  toolCall: string,
+  part: "input" | "output",
+): Promise<SourceResult<ToolCallBodyView>> {
+  return readToolCallBodyMemo(
+    env,
+    memo,
+    part === "input" ? "tool_call_input" : "tool_call_output",
+    toolCall,
+  );
 }
 
 /** 이 session의 tool 호출 기록. 가장 나중 것부터 상한까지만 그린다. */
-async function readToolCalls(env: Env, session: string): Promise<ToolCall[]> {
+async function readToolCalls(
+  env: Env,
+  session: string,
+): Promise<ListedToolCall[]> {
   const listed = await env.pages(
     toolCallList,
     { session },
@@ -265,15 +299,31 @@ function turnOfCall(
   );
 }
 
-function lineOf(call: ToolCall): string {
-  return call.outcome === null || call.outcome.kind === "success"
-    ? call.tool
-    : `${call.tool} (${call.outcome.kind})`;
+/** call 기록 하나를 화면 값으로. 끝난 call의 상태는 `core-ports.ts`의 `endedOutcome`과 같은 가르기다. */
+function toolCallView(call: ListedToolCall): ToolCallView {
+  return {
+    id: call.id,
+    tool: call.tool,
+    category: call.display.category,
+    title: call.display.title,
+    state: callStateOf(call),
+    startedAt: call.started_at,
+    durationMs: call.duration_ms,
+  };
 }
 
-/** 읽기 tool은 "Read N documents" 한 줄로, 나머지는 같은 tool이 이어지면 한 줄로 묶는다. */
-function bucketOf(tool: string): string {
-  return tool === "file.read" ? "documents" : tool;
+function callStateOf(call: ListedToolCall): ToolCallState {
+  if (call.state !== "finished") return "running";
+  const outcome = call.outcome;
+  if (outcome === null) return "error";
+  if (outcome.kind === "success") return "ok";
+  if (outcome.kind === "not_executed") {
+    if (outcome.code === "cancelled") return "cancelled";
+    if (outcome.code === "denied" || outcome.code === "rejected") {
+      return "denied";
+    }
+  }
+  return "error";
 }
 
 async function askEntry(
@@ -354,7 +404,7 @@ async function toolEntries(
   const retried = new Set(
     all.flatMap((call) => call.retry_of === null ? [] : [call.retry_of]),
   );
-  let run: ToolCall[] = [];
+  let run: ListedToolCall[] = [];
   let runTurn: TurnRecord | undefined;
   const callAt = (call: ToolCall, turn: TurnRecord) =>
     call.started_at ?? call.finished_at ?? turn.started_at;
@@ -378,22 +428,10 @@ async function toolEntries(
       run = [];
       return;
     }
-    const documents = bucketOf(first.tool) === "documents";
-    put(runTurn, {
-      kind: "tools",
-      id: first.id,
-      at: first.started_at ?? first.finished_at ?? runTurn.started_at,
-      tool: {
-        id: first.id,
-        label: documents
-          ? t("conversation.label.tool-read-documents", { count: run.length })
-          : t("conversation.label.tool-used", {
-            count: run.length,
-            tool: first.tool,
-          }),
-        lines: run.map(lineOf),
-      },
-    });
+    const calls = run.map(toolCallView);
+    for (const entry of toolEntriesOf(calls, callAt(first, runTurn))) {
+      put(runTurn, entry);
+    }
     run = [];
   };
   for (const call of all) {
@@ -429,9 +467,7 @@ async function toolEntries(
     }
     if (
       run.length > 0 &&
-      (runTurn?.id !== turn.id ||
-        bucketOf(run[0]!.tool) !== bucketOf(call.tool) ||
-        interrupted(call, turn))
+      (runTurn?.id !== turn.id || interrupted(call, turn))
     ) flush();
     runTurn = turn;
     run.push(call);

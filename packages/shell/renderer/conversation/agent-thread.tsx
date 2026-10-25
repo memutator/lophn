@@ -64,7 +64,7 @@ interface AgentThreadProps {
   drafts: DraftStore;
   source: Pick<
     AgentTabSource,
-    "envelope" | "callState" | "cancelCall" | "retryTurn"
+    "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
   >;
   initialScroll: number | null;
   onScroll: (position: number | null) => void;
@@ -225,8 +225,10 @@ function itemsOf(
           entry,
           <ToolLine
             key={entry.id}
-            tool={entry.tool}
+            calls={entry.calls}
             detail={props.detail === "everything" ? "expanded" : "collapsed"}
+            now={props.now}
+            readBody={props.source.toolCallBody}
           />,
         );
         break;

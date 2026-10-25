@@ -72,6 +72,7 @@ export type ConversationPlaceholders = {
   "conversation.error.refresh-models": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
   "conversation.error.too-long": Record<never, never>;
+  "conversation.error.tool-body-failed": Record<never, never>;
   "conversation.label.approval": Record<never, never>;
   "conversation.label.approval-app": {
     id: "string";
@@ -306,12 +307,29 @@ export type ConversationPlaceholders = {
   "conversation.label.thought-for": {
     duration: "string";
   };
-  "conversation.label.tool-read-documents": {
+  "conversation.label.tool-call-cancelled": Record<never, never>;
+  "conversation.label.tool-call-denied": Record<never, never>;
+  "conversation.label.tool-call-failed": Record<never, never>;
+  "conversation.label.tool-input": Record<never, never>;
+  "conversation.label.tool-listed": {
+    count: "plural";
+  };
+  "conversation.label.tool-output": Record<never, never>;
+  "conversation.label.tool-ran": {
+    count: "plural";
+  };
+  "conversation.label.tool-read": {
+    count: "plural";
+  };
+  "conversation.label.tool-searched": {
     count: "plural";
   };
   "conversation.label.tool-used": {
     count: "plural";
     tool: "string";
+  };
+  "conversation.label.tool-web": {
+    count: "plural";
   };
   "conversation.label.view-compact": Record<never, never>;
   "conversation.label.view-detail": Record<never, never>;
@@ -323,6 +341,7 @@ export type ConversationPlaceholders = {
   "conversation.label.worked-for": {
     duration: "string";
   };
+  "conversation.note.tool-body-truncated": Record<never, never>;
   "conversation.notice.answer-failed": Record<never, never>;
   "conversation.notice.approval-paused": {
     agent: "string";

@@ -51,6 +51,7 @@ import {
   readBody,
   readEnvelope,
   readThread,
+  readToolCallBody,
 } from "./agent-tab-core-source-thread.ts";
 
 interface AgentCoreDeps {
@@ -88,6 +89,8 @@ function createSource(
     callState: (call) => readCallState(env, call),
     questions: (session, toolCall) =>
       readAskedQuestions(env, session, toolCall),
+    toolCallBody: (toolCall, part) =>
+      readToolCallBody(env, memo, toolCall, part),
 
     model: (session, query) => modelPart.model(session, query),
     chooseModel: (session, model, query) =>

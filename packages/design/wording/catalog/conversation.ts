@@ -72,6 +72,7 @@ export const conversation = {
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
+  "conversation.error.tool-body-failed": "Couldn't load the input and output.",
   "conversation.label.approval": "Approval",
   "conversation.label.approval-app": "App {id}",
   "conversation.label.approval-allowed": "Allowed",
@@ -235,16 +236,30 @@ export const conversation = {
   "conversation.label.thinking": "Thinking",
   "conversation.label.thought": "Thought",
   "conversation.label.thought-for": "Thought for {duration}",
-  "conversation.label.tool-read-documents":
-    "{count, plural, one {Read # document} other {Read # documents}}",
+  "conversation.label.tool-call-cancelled": "Cancelled",
+  "conversation.label.tool-call-denied": "Denied",
+  "conversation.label.tool-call-failed": "Failed",
+  "conversation.label.tool-input": "Input",
+  "conversation.label.tool-listed":
+    "{count, plural, one {Listed # folder} other {Listed # folders}}",
+  "conversation.label.tool-output": "Output",
+  "conversation.label.tool-ran":
+    "{count, plural, one {Ran # command} other {Ran # commands}}",
+  "conversation.label.tool-read":
+    "{count, plural, one {Read # file} other {Read # files}}",
+  "conversation.label.tool-searched":
+    "{count, plural, one {Searched # time} other {Searched # times}}",
   "conversation.label.tool-used":
     "{count, plural, one {Used {tool}} other {Used {tool} # times}}",
+  "conversation.label.tool-web":
+    "{count, plural, one {Used the web # time} other {Used the web # times}}",
   "conversation.label.view-compact": "Compact",
   "conversation.label.view-detail": "View detail",
   "conversation.label.view-everything": "Everything",
   "conversation.label.view-messages": "Messages",
   "conversation.label.waited-for": "Waited {duration} for you",
   "conversation.label.worked-for": "Worked for {duration}",
+  "conversation.note.tool-body-truncated": "Only the first 64 KiB is shown.",
   "conversation.notice.answer-failed": "Couldn't send your answers. Try again.",
   "conversation.notice.approval-paused": "{agent} is paused until you decide.",
   "conversation.notice.call-answered": "The answer is in the messages below.",

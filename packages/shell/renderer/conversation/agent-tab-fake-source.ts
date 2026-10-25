@@ -19,8 +19,11 @@ import type {
   ThreadEntry,
   ThreadMessage,
   ThreadView,
+  ToolCallBodyView,
 } from "./agent-tab-source.ts";
 import { EMPTY_THREAD } from "./agent-tab-source.ts";
+import type { ToolCallView } from "./activity/model.ts";
+import { toolEntriesOf } from "./activity/tool-groups.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type {
   PickerModelRef,
@@ -172,20 +175,171 @@ function agent(
   return user(n, minutes, "", { actor: "agent", text: null, ...over });
 }
 
-const tools = (minutes: number): ThreadEntry => ({
-  kind: "tools",
-  id: toolId(1),
-  at: at(minutes),
-  tool: {
-    id: toolId(1),
-    label: "Read 3 documents",
-    lines: [
-      "docs/reports/2026-w38.md",
-      "docs/reports/2026-w39.md",
-      "eval/findings.md",
-    ],
+/** call 하나. 시각은 장면의 분 단위 시각이다. */
+function toolCall(
+  n: number,
+  minutes: number,
+  fields: Pick<ToolCallView, "tool" | "category" | "title">,
+  over: Partial<ToolCallView> = {},
+): ToolCallView {
+  return {
+    id: toolId(n),
+    tool: fields.tool,
+    category: fields.category,
+    title: fields.title,
+    state: "ok",
+    startedAt: at(minutes),
+    durationMs: 1_200,
+    ...over,
+  };
+}
+
+// report 장면: 탐색 묶음 하나와 description을 제목으로 쓰는 command 하나.
+const REPORT_CALLS: readonly ToolCallView[] = [
+  toolCall(1, 41, {
+    tool: "file.read",
+    category: "read",
+    title: "Read docs/reports/2026-w39.md",
+  }, { durationMs: 900 }),
+  toolCall(2, 41, {
+    tool: "file.read",
+    category: "read",
+    title: "Read eval/findings.md",
+  }, { durationMs: 700 }),
+  toolCall(3, 41, {
+    tool: "file.grep",
+    category: "search",
+    title: "Search regression in eval",
+  }, { durationMs: 2_400 }),
+  toolCall(4, 41, {
+    tool: "file.glob",
+    category: "list",
+    title: "List eval/runs/*.json",
+  }, { durationMs: 300 }),
+  toolCall(5, 42, {
+    tool: "shell.run",
+    category: "command",
+    title: "Count regressions per scenario",
+  }, { durationMs: 3_100 }),
+];
+
+// working 장면: 끝난 command와 도는 command 하나.
+const WORKING_CALLS: readonly ToolCallView[] = [
+  toolCall(6, 41, {
+    tool: "shell.run",
+    category: "command",
+    title: "Run the weekly eval",
+  }, { durationMs: 4_200 }),
+  toolCall(7, 41, {
+    tool: "shell.run",
+    category: "command",
+    title: "Check the run log",
+  }, {
+    state: "running",
+    startedAt: new Date(NOW - 5_000).toISOString(),
+    durationMs: null,
+  }),
+];
+
+function inputBody(value: unknown): ToolCallBodyView {
+  return { value, truncated: false };
+}
+
+function resultBody(summary: string, content: unknown): ToolCallBodyView {
+  return {
+    value: {
+      status: "success",
+      summary,
+      content,
+      complete: true,
+      source: null,
+      continuation: null,
+      pending: [],
+    },
+    truncated: false,
+  };
+}
+
+function shellBody(stdout: string): ToolCallBodyView {
+  return resultBody("exit code 0", {
+    exit_code: 0,
+    timed_out: false,
+    stdout,
+    stderr: "",
+    stdout_truncated: false,
+    stderr_truncated: false,
+  });
+}
+
+const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
+  [toolId(1)]: {
+    input: inputBody({ path: "docs/reports/2026-w39.md" }),
+    output: resultBody("read docs/reports/2026-w39.md lines 1-28", {
+      text: "# Week 39\n\nRegressions: 2\nImprovements: 5",
+      start_line: 1,
+      end_line: 28,
+      total_lines: 28,
+    }),
   },
-});
+  [toolId(2)]: {
+    input: inputBody({ path: "eval/findings.md" }),
+    output: resultBody("read eval/findings.md lines 1-16", {
+      text: "## Findings\n\n- F-011 query-recipe-gap\n- F-012 sched-edit",
+      start_line: 1,
+      end_line: 16,
+      total_lines: 16,
+    }),
+  },
+  [toolId(3)]: {
+    input: inputBody({ pattern: "regression", path: "eval" }),
+    output: resultBody("found 3 matches", {
+      matches: [
+        { path: "eval/findings.md", line: 4, text: "- F-011 query-recipe-gap" },
+        { path: "eval/findings.md", line: 5, text: "- F-012 sched-edit" },
+      ],
+    }),
+  },
+  [toolId(4)]: {
+    input: inputBody({ pattern: "eval/runs/*.json" }),
+    output: resultBody("found 6 files", {
+      paths: [
+        "eval/runs/week-37.json",
+        "eval/runs/week-38.json",
+        "eval/runs/week-39.json",
+        "eval/runs/week-40.json",
+      ],
+    }),
+  },
+  [toolId(5)]: {
+    input: inputBody({
+      command: "rg -c regression eval/runs/*.json | sort -t: -k2 -nr",
+      description: "Count regressions per scenario",
+    }),
+    // 64 KiB를 넘는 결과는 JSON 글의 앞부분 문자열로 온다.
+    output: {
+      truncated: true,
+      value:
+        '{"status":"success","summary":"exit code 0","content":{"exit_code":0,"stdout":"11 eval/runs/week-39.json\\n8 eval/runs/week-40.json\\n',
+    },
+  },
+};
+
+const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
+  [toolId(6)]: {
+    input: inputBody({
+      command: "deno task eval --week 41",
+      description: "Run the weekly eval",
+    }),
+    output: shellBody("Ran 24 scenarios: 21 passed, 3 failed."),
+  },
+  // 도는 call은 아직 출력이 없다(not_found).
+  [toolId(7)]: {
+    input: inputBody({
+      command: "tail -n 40 .dev-data/eval/run.log",
+      description: "Check the run log",
+    }),
+  },
+};
 
 const reportEdit = (minutes: number): ThreadEntry => ({
   kind: "edit",
@@ -308,6 +462,14 @@ interface SceneData {
   /** 메시지 id별 본문. 글만인 message는 text에서 만든다. */
   bodies?: Record<string, readonly BodyPart[]>;
   envelopes?: Record<string, Envelope>;
+  /** call id별 입력·출력. 없는 칸은 not_found다. */
+  toolBodies?: Record<
+    string,
+    {
+      readonly input?: ToolCallBodyView;
+      readonly output?: ToolCallBodyView;
+    }
+  >;
 }
 
 function sceneData(scene: AgentTabScene): SceneData {
@@ -319,7 +481,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         title: "Week 41 summary",
         entries: [
           user(1, 41, REQUEST),
-          tools(41),
+          ...toolEntriesOf(REPORT_CALLS, at(41)),
           agent(2, 42),
           reportEdit(42),
           {
@@ -342,6 +504,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             },
           ],
         },
+        toolBodies: REPORT_TOOL_BODIES,
       };
     case "working":
     case "rewind":
@@ -350,6 +513,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         user(1, 41, REQUEST),
         agent(2, 41),
         reportEdit(41),
+        ...toolEntriesOf(WORKING_CALLS, at(41)),
       ];
       const bodies: SceneData["bodies"] = {
         [messageId(2)]: [
@@ -396,6 +560,7 @@ function sceneData(scene: AgentTabScene): SceneData {
           text: "Also add the exp-008 numbers to the report.",
         }],
         bodies,
+        toolBodies: WORKING_TOOL_BODIES,
       };
     }
     case "request-error":
@@ -897,7 +1062,7 @@ export function createFakeAgentTabSource(
     },
     {
       id: SESSION_ARCHIVED,
-      title: "Which docs are not linked",
+      title: data.title,
       status: "idle",
       activeAt: at(-12 * 24 * 60),
       archived: true,
@@ -915,33 +1080,12 @@ export function createFakeAgentTabSource(
       dropped: EMPTY_THREAD.dropped,
     });
     threads.set(SESSION_EARLIER, EMPTY_THREAD);
+    // archive한 session도 report 장면과 같은 기록을 보인다.
     threads.set(SESSION_ARCHIVED, {
       ...EMPTY_THREAD,
-      entries: [
-        user(30, -12 * 24 * 60, "Which folders in docs/ are not linked?"),
-        agent(31, -12 * 24 * 60 + 2),
-        {
-          kind: "turn-end",
-          id: "end-30",
-          at: at(-12 * 24 * 60 + 3),
-          turn: turnId(30),
-          outcome: "completed",
-          activeMs: 9_000,
-          waitedMs: 0,
-        },
-      ],
-      turn: {
-        id: turnId(30),
-        phase: "ended",
-        startedAt: at(-12 * 24 * 60),
-        elapsed: null,
-      },
+      entries: data.entries,
+      turn: data.turn,
     });
-    bodies.set(messageId(31), [{
-      kind: "text",
-      text:
-        "Two: docs/drafts/ and docs/old-reports/. Nothing links to them and the newest file is from March.",
-    }]);
   }
   for (const entry of data.entries) {
     if (entry.kind === "message" && entry.text !== null) {
@@ -1009,6 +1153,10 @@ export function createFakeAgentTabSource(
       return asked?.toolCall === toolCall && asked.questions !== null
         ? ok(asked.questions)
         : fail("not_found");
+    },
+    toolCallBody(toolCall, part) {
+      const found = data.toolBodies?.[toolCall]?.[part];
+      return found === undefined ? fail("not_found") : ok(found);
     },
 
     model: (session, query) => ok(pickerView(scenarioOf(session), query)),

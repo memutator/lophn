@@ -1,4 +1,4 @@
-// 대화 줄의 부품. agent의 말 한 덩어리(AgentTurn과 Said), 한 줄 안내(Quiet), 내 메시지(UserMessage), 일하는 중
+// 대화 줄의 부품. agent의 말 한 덩어리(AgentTurn과 Said), 내 메시지(UserMessage), 일하는 중
 // 줄(WorkingRow). 조립은 부르는 쪽이 한다. 이 부품들은 children을 놓기만 하고 source 값을 읽지 않는다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
@@ -64,11 +64,6 @@ export function Said(
       {children}
     </div>
   );
-}
-
-/** 내 메시지가 아닌 한 줄 안내(결정을 남기는 말 같은). */
-export function Quiet({ children }: { children: ReactNode }): ReactElement {
-  return <p className={styles.quiet}>{children}</p>;
 }
 
 /**

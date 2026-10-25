@@ -237,7 +237,7 @@ export const SESSIONS: readonly SessionRow[] = [
 
 /**
  * run이 연 session 줄. 열린 채 run 아래에 묶여 보이고 agent 묶음과 Recent에는 없다. `SESSIONS`와 따로 둔다
- * (`sessionsOf`를 쓰는 다른 page의 session switcher가 바뀌지 않게).
+ * (`SESSIONS`를 쓰는 다른 page의 session switcher가 바뀌지 않게).
  */
 export const RUN_SESSIONS: readonly SessionRow[] = [
   {
@@ -314,9 +314,6 @@ export const RUNS: readonly RunData[] = [
   },
   { id: "run-5", agent: "lophn", when: "2 days ago", state: "done" },
 ];
-
-export const sessionsOf = (agent: string): readonly SessionRow[] =>
-  SESSIONS.filter((row) => row.agent === agent);
 
 let fresh = 0;
 

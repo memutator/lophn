@@ -68,7 +68,13 @@ export interface SessionEntry {
 /** 본문의 한 part. */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "app_card"; readonly app: string; readonly view: string };
+  | { readonly kind: "app_card"; readonly app: string; readonly view: string }
+  /** agent 답 앞의 reasoning 요약. 글은 redaction을 거쳤고 없으면 ""다. 복사 글과 model 이력에는 들지 않는다. */
+  | {
+    readonly kind: "reasoning";
+    readonly text: string;
+    readonly durationMs: number | null;
+  };
 
 // ---- 보낸 쪽 ----
 

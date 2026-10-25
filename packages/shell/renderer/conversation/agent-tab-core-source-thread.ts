@@ -85,9 +85,13 @@ export async function readBody(
         return [{ kind: "text", text: part.text }];
       case "app_card":
         return [{ kind: "app_card", app: part.app, view: part.view }];
-      // reasoning은 대화 본문이 아니라 reasoning 줄이 그린다.
+      // reasoning은 글과 달리 agent 답 앞의 reasoning 줄이 그린다.
       case "reasoning":
-        return [];
+        return [{
+          kind: "reasoning",
+          text: part.text,
+          durationMs: part.duration_ms,
+        }];
     }
   });
   memo.bodies.set(message, parts);

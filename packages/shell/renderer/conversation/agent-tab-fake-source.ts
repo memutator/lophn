@@ -131,6 +131,16 @@ const LIVE_TEXT = [
   "const recipe = await lookup(",
 ].join("\n");
 
+// report·skip 장면의 agent 답 앞 reasoning. provider summary처럼 굵은 제목 한 줄과 두세 문장이다.
+const REASONING = [
+  "**Checked the three findings against last week's reports**",
+  "All three regressions touch the recipe lookup, and the run logs show the same stale cache read before each failure. The report states this once instead of repeating it for each finding.",
+].join("\n\n");
+
+// question-answered 장면에서 쓰는 중인 reasoning. 아직 답 글이 시작하지 않아 "Thinking"으로 보인다.
+const LIVE_REASONING =
+  "I have both answers. Next I write the weekly report into docs/reports/ with the two sections you picked.";
+
 // ---- 장면이 쓰는 값 ----
 
 function user(
@@ -322,10 +332,13 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         turn: { id: turn1, phase: "ended", startedAt: at(41) },
         bodies: {
-          [messageId(2)]: [{
-            kind: "text",
-            text: "I wrote the report from the three findings.",
-          }],
+          [messageId(2)]: [
+            { kind: "reasoning", text: REASONING, durationMs: 12_000 },
+            {
+              kind: "text",
+              text: "I wrote the report from the three findings.",
+            },
+          ],
         },
       };
     case "working":
@@ -558,6 +571,14 @@ function sceneData(scene: AgentTabScene): SceneData {
           agent(3, 41),
         ],
         turn: working(),
+        live: {
+          turn: turn1,
+          modelCall: fakeId("mcl", 2),
+          at: at(41),
+          gap: false,
+          text: "",
+          reasoning: LIVE_REASONING,
+        },
         bodies: {
           [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }],
           [messageId(3)]: [{

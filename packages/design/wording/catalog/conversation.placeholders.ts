@@ -294,6 +294,11 @@ export type ConversationPlaceholders = {
   "conversation.label.stopped-after": {
     duration: "string";
   };
+  "conversation.label.thinking": Record<never, never>;
+  "conversation.label.thought": Record<never, never>;
+  "conversation.label.thought-for": {
+    duration: "string";
+  };
   "conversation.label.tool-read-documents": {
     count: "plural";
   };

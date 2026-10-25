@@ -1,5 +1,5 @@
-// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글(agent는 markdown, 사람은 plain)과 앱 카드로
-// 보이고, 보내지 못했거나 결과를 모르는 사람 말 아래에 다음 행동을 둔다.
+// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글(agent는 markdown, 사람은 plain)과 앱 카드,
+// reasoning 줄로 보이고, 보내지 못했거나 결과를 모르는 사람 말 아래에 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
 import { memo } from "react";
 import { IconButton } from "@lophn/ui/primitives";
@@ -14,6 +14,7 @@ import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import { ArtifactText } from "./artifact-text.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
+import { Reasoning } from "./reasoning.tsx";
 import { splitAttachmentText } from "../../../../protocol/lophn-agent/message-attachments.ts";
 import { textOfBody } from "../agent-view-model.ts";
 import styles from "./message-body.module.css";
@@ -28,6 +29,8 @@ interface MessageBodyProps {
   artifacts?: ArtifactsSlice | undefined;
   /** 사람 글. markdown으로 읽지 않고 글 그대로 보인다. */
   plain?: boolean;
+  /** reasoning part를 그린다. 없으면 false다. 사람 말과 받은 메시지는 넘기지 않는다. */
+  reasoning?: boolean;
 }
 
 /**
@@ -35,7 +38,7 @@ interface MessageBodyProps {
  * 없으면 그 상태를 말한다. 빈 말로 보이지 않는다. 다 쓴 message는 live 글이 자라도 다시 그리지 않는다.
  */
 export const MessageBody = memo(function MessageBody(
-  { message, body, fallback, artifacts, plain }: MessageBodyProps,
+  { message, body, fallback, artifacts, plain, reasoning }: MessageBodyProps,
 ): ReactElement {
   if (body?.state === "ready") {
     // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
@@ -69,6 +72,18 @@ export const MessageBody = memo(function MessageBody(
                   title={part.view}
                 />
               );
+            case "reasoning":
+              return reasoning === true
+                ? (
+                  <Reasoning
+                    key={index}
+                    text={part.text}
+                    durationMs={part.durationMs}
+                    thinking={false}
+                    artifacts={artifacts}
+                  />
+                )
+                : null;
           }
         })}
       </div>

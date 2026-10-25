@@ -37,17 +37,29 @@ export function messageTime(at: string, now: Date): string {
   }).format(date);
 }
 
-/** Messages는 tool 줄과 끝난 turn의 꼬리를 그리지 않는다. 줄만 있는 agent 묶음이 이름만 남지 않게 걸러 낸다. */
+/**
+ * Messages는 tool 줄과 끝난 turn의 꼬리를 그리지 않는다. 줄만 있는 agent 묶음이 이름만 남지 않게 걸러 낸다.
+ * reasoning뿐인 agent message도 같은 이유로 뺀다(글 없는 묶음이 남는다). 아직 읽지 않은 본문은 남긴다.
+ */
 export function shownEntries(
   entries: readonly ThreadEntry[],
   detail: ViewDetail,
+  bodyOf: (message: string) => BodyState | undefined,
 ): readonly ThreadEntry[] {
   return detail === "messages"
     ? entries.filter((entry) =>
       entry.kind !== "tools" &&
-      !(entry.kind === "turn-end" && entry.outcome === "completed")
+      !(entry.kind === "turn-end" && entry.outcome === "completed") &&
+      !(entry.kind === "message" && entry.actor === "agent" &&
+        reasoningOnly(bodyOf(entry.id)))
     )
     : entries;
+}
+
+/** 읽은 본문에 reasoning 밖의 part가 없다. */
+function reasoningOnly(body: BodyState | undefined): boolean {
+  return body?.state === "ready" &&
+    body.parts.every((part) => part.kind === "reasoning");
 }
 
 /** 대화의 확정 메시지 전부. 접힌 숨긴 구간 안의 메시지도 든다(펼치면 읽으므로 본문을 읽어 둔다). */

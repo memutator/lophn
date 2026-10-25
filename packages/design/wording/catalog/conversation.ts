@@ -229,6 +229,9 @@ export const conversation = {
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
   "conversation.label.stopped-after": "Stopped after {duration}",
+  "conversation.label.thinking": "Thinking",
+  "conversation.label.thought": "Thought",
+  "conversation.label.thought-for": "Thought for {duration}",
   "conversation.label.tool-read-documents":
     "{count, plural, one {Read # document} other {Read # documents}}",
   "conversation.label.tool-used":

@@ -87,7 +87,11 @@ interface AgentThreadProps {
 export function AgentThread(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
   const live = useThrottledLive(props.live, props.now);
-  const shown = shownEntries(entries, props.detail);
+  const shown = shownEntries(
+    entries,
+    props.detail,
+    (id) => props.drafts.body(id),
+  );
   const nodes = itemsOf(shown, props, entries, false, live);
   // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
   if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
@@ -156,17 +160,19 @@ function itemsOf(
     id: string;
     time: string;
     items: ReactNode[];
-    said: ThreadMessage | null;
+    said: ThreadMessage[];
   } | null = null;
   const flush = () => {
     if (group === null) return;
-    const said = nested ? null : group.said;
+    const said = group.said;
     out.push(
       <AgentTurn
         key={`turn-${group.id}`}
         agent={props.agent}
         time={group.time}
-        {...(said === null ? {} : { copyText: () => textOf(said, props) })}
+        {...(nested || said.length === 0
+          ? {}
+          : { copyText: () => copyTextOf(said, props) })}
       >
         {group.items}
       </AgentTurn>,
@@ -182,10 +188,10 @@ function itemsOf(
       id: entry.id,
       time: clockTime(entry.at),
       items: [],
-      said: null,
+      said: [],
     };
     group.items.push(node);
-    if (said !== null) group.said = said;
+    if (said !== null) group.said.push(said);
   };
 
   for (const entry of list) {
@@ -200,6 +206,7 @@ function itemsOf(
                 body={props.drafts.body(entry.id)}
                 fallback={entry.text ?? undefined}
                 artifacts={props.artifacts}
+                reasoning={props.detail !== "messages"}
               />
             </Said>,
             entry,
@@ -307,7 +314,11 @@ function itemsOf(
           >
             <div className={turns.turns}>
               {itemsOf(
-                shownEntries(entry.entries, props.detail),
+                shownEntries(
+                  entry.entries,
+                  props.detail,
+                  (id) => props.drafts.body(id),
+                ),
                 props,
                 all,
                 true,
@@ -319,11 +330,19 @@ function itemsOf(
         break;
     }
   }
-  if (live !== null && live.text !== "") {
+  if (
+    live !== null &&
+    (live.text !== "" || (props.detail !== "messages" && live.reasoning !== ""))
+  ) {
     const id = `live-${live.modelCall}`;
     add(
       { id, at: live.at },
-      <LiveMessage key={id} live={live} artifacts={props.artifacts} />,
+      <LiveMessage
+        key={id}
+        live={live}
+        reasoning={props.detail !== "messages"}
+        artifacts={props.artifacts}
+      />,
     );
   }
   flush();
@@ -370,6 +389,18 @@ function userMessage(
 function textOf(message: ThreadMessage, props: AgentThreadProps): string {
   return textOfBody(props.drafts.body(message.id)) ?? message.text ??
     props.drafts.textOf(message.id) ?? "";
+}
+
+/** 묶음의 복사 글. 뒤에서부터 글이 있는 첫 message다(reasoning뿐인 message는 글을 내지 않는다). */
+function copyTextOf(
+  messages: readonly ThreadMessage[],
+  props: AgentThreadProps,
+): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const text = textOf(messages[index]!, props);
+    if (text !== "") return text;
+  }
+  return "";
 }
 
 function receivedMessage(

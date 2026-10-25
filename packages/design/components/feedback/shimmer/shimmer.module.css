@@ -1,0 +1,31 @@
+/* 흐린 글자 위로 진한 띠가 오른쪽으로 지나간다. 움직임을 줄인 설정에서는 흐린 글자로 멈춘다. */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-text-muted) 40%,
+    var(--color-text-primary) 50%,
+    var(--color-text-muted) 60%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer var(--motion-pulse) linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    background: none;
+    color: var(--color-text-muted);
+    animation: none;
+  }
+}

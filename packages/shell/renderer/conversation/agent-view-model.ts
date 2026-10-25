@@ -1,6 +1,5 @@
 // Agent 화면의 순수 규칙. 화면은 이 값을 그대로 그린다. 시각은 인자로 받는다.
 import type { BodyState } from "./drafts.ts";
-import type { Outgoing } from "./delivery-state.ts";
 import type {
   AgentFace,
   ThreadEntry,
@@ -25,22 +24,17 @@ export function clockTime(at: string): string {
   }).format(date);
 }
 
-export type DeliveryLabel = "sending" | "received" | "not-sent" | "unconfirmed";
-
-/** 확정 메시지는 접수된 말이다. */
-export const CONFIRMED: DeliveryLabel = "received";
-
-export function outgoingDelivery(outgoing: Outgoing): DeliveryLabel {
-  switch (outgoing.phase) {
-    case "sending":
-      return "sending";
-    case "accepted":
-      return "received";
-    case "not_sent":
-      return "not-sent";
-    case "unconfirmed":
-      return "unconfirmed";
-  }
+/** 메시지 아래에 보이는 시각. 오늘이면 시각만, 다른 날이면 날짜를 붙인다. 잘못된 시각은 비운다. */
+export function messageTime(at: string, now: Date): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  if (date.toDateString() === now.toDateString()) return clockTime(at);
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 /** Messages는 tool 줄과 끝난 turn의 꼬리를 그리지 않는다. 줄만 있는 agent 묶음이 이름만 남지 않게 걸러 낸다. */

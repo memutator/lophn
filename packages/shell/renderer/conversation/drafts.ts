@@ -5,11 +5,14 @@
 // 않는다.
 import type { Outgoing } from "./delivery-state.ts";
 import type { BodyPart } from "./agent-tab-source.ts";
+import type { Attachment } from "./attachments.ts";
 
 export interface Draft {
   readonly text: string;
   /** 커서·선택 범위. 같으면 커서다. */
   readonly selection: readonly [number, number];
+  /** 보낼 말에 붙인 파일과 이미지. */
+  readonly attachments: readonly Attachment[];
   /** 보낸 말 하나. 접수되면 입력칸을 비우고 이것도 지운다. */
   readonly outgoing: Outgoing | null;
   /** 읽던 위치. null이면 맨 아래를 따라간다. */
@@ -19,6 +22,7 @@ export interface Draft {
 const EMPTY_DRAFT: Draft = {
   text: "",
   selection: [0, 0],
+  attachments: [],
   outgoing: null,
   scroll: null,
 };
@@ -68,7 +72,12 @@ export class DraftStore {
    */
   accepted(session: string, outgoing: Outgoing): void {
     this.#texts.set(outgoing.id, outgoing.text);
-    this.save(session, { text: "", selection: [0, 0], outgoing });
+    this.save(session, {
+      text: "",
+      selection: [0, 0],
+      attachments: [],
+      outgoing,
+    });
   }
 
   /**

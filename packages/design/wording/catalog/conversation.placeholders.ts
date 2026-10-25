@@ -16,6 +16,7 @@ export type ConversationPlaceholders = {
   "conversation.button.archived-toggle": {
     count: "number";
   };
+  "conversation.button.attach": Record<never, never>;
   "conversation.button.call-cancel": Record<never, never>;
   "conversation.button.connect-provider": Record<never, never>;
   "conversation.button.check-delivery": Record<never, never>;
@@ -30,9 +31,15 @@ export type ConversationPlaceholders = {
   "conversation.button.manage-models": Record<never, never>;
   "conversation.button.model-reset": Record<never, never>;
   "conversation.button.permissions-edit": Record<never, never>;
+  "conversation.button.preview-image": {
+    name: "string";
+  };
   "conversation.button.question-next": Record<never, never>;
   "conversation.button.question-submit": Record<never, never>;
   "conversation.button.queued-remove": Record<never, never>;
+  "conversation.button.remove-attachment": {
+    name: "string";
+  };
   "conversation.button.remove-model": Record<never, never>;
   "conversation.button.refresh-models": Record<never, never>;
   "conversation.button.rename": Record<never, never>;
@@ -48,6 +55,8 @@ export type ConversationPlaceholders = {
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.error.action-failed": Record<never, never>;
+  "conversation.error.attach-failed": Record<never, never>;
+  "conversation.error.attach-skipped": Record<never, never>;
   "conversation.error.model-effort-none": Record<never, never>;
   "conversation.error.model-info-conflict": Record<never, never>;
   "conversation.error.model-info-failed": Record<never, never>;
@@ -95,6 +104,7 @@ export type ConversationPlaceholders = {
     server: "string";
   };
   "conversation.label.archived": Record<never, never>;
+  "conversation.label.attached-image": Record<never, never>;
   "conversation.label.call-answered": Record<never, never>;
   "conversation.label.call-cancelled": Record<never, never>;
   "conversation.label.call-delivered": Record<never, never>;
@@ -109,10 +119,6 @@ export type ConversationPlaceholders = {
   "conversation.label.delete-session": {
     title: "string";
   };
-  "conversation.label.delivery-not-sent": Record<never, never>;
-  "conversation.label.delivery-received": Record<never, never>;
-  "conversation.label.delivery-sending": Record<never, never>;
-  "conversation.label.delivery-unconfirmed": Record<never, never>;
   "conversation.label.duration-minutes": {
     minutes: "number";
   };
@@ -284,6 +290,9 @@ export type ConversationPlaceholders = {
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-working": Record<never, never>;
   "conversation.label.steer": Record<never, never>;
+  "conversation.label.stopped-after": {
+    duration: "string";
+  };
   "conversation.label.tasks": Record<never, never>;
   "conversation.label.tasks-progress": {
     done: "number";

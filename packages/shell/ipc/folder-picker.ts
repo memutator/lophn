@@ -18,4 +18,6 @@ export interface FolderPickerApi {
   pick(input?: FolderPickInput): Promise<FolderPickReply>;
   /** project 밖 파일 하나의 절대 경로. */
   pickFile(): Promise<FolderPickReply>;
+  /** 끌어 놓거나 붙여 넣은 OS 파일의 절대 경로. 경로가 없는 파일(메모리 이미지)은 null이다. */
+  pathForFile(file: File): string | null;
 }

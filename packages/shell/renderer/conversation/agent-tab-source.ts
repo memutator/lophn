@@ -503,6 +503,16 @@ export interface AgentTabSource {
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;
+  /**
+   * 보낼 이미지 하나를 그 session에 올린다(png·jpeg·gif·webp, 5 MiB까지). 메시지 글에는 돌려받은 id로
+   * `attachmentImageLine`을 적고, 그 session의 agent가 image.read로 연다.
+   */
+  uploadImage(
+    session: string,
+    image: Blob,
+  ): Promise<SourceResult<{ id: string }>>;
+  /** 올린 이미지를 화면에 그릴 주소. 읽지 못하면 null이다. */
+  imageUrl(session: string, id: string): Promise<string | null>;
   /** 다음 turn 줄을 도는 turn에 steer로 올린다. */
   sendQueuedNow(queued: string): Promise<SourceResult<void>>;
   removeQueued(queued: string): Promise<SourceResult<void>>;

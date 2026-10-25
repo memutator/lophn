@@ -37,6 +37,11 @@ export {
   type ToastProps,
   type ToastTone,
 } from "./toast/toast.tsx";
+// 그림 하나를 창 가운데에 크게 보인다. 첨부 이미지 tile을 눌렀을 때처럼 그림만 볼 때 쓴다.
+export {
+  ImagePreview,
+  type ImagePreviewProps,
+} from "./image-preview/image-preview.tsx";
 // Toast들을 오른쪽 아래 층에 쌓는다. 앱 root에 한 번 둔다.
 export { ToastStack } from "./toast/toast.tsx";
 // toast를 띄우는 queue를 앱 root에 둔다. useToast로 어디서든 띄우고, 직접 쌓으려면 Toast와 ToastStack이다.

@@ -1,6 +1,6 @@
 // Agent 화면의 대화 줄. source가 준 시간순 줄을 그린다. 내 말은 오른쪽 bubble, 받은 메시지는 보낸 쪽 chip을 단
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
-// 동안 agent 한 덩어리로 묶는다.
+// 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 선다.
 import type { ReactElement, ReactNode } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/wording";
@@ -11,10 +11,10 @@ import { ToolLine } from "./activity/tool-line.tsx";
 import { WorkedFor } from "./activity/worked-for.tsx";
 import {
   clockTime,
-  CONFIRMED,
-  outgoingDelivery,
+  messageTime,
   shownEntries,
   taskOfCall,
+  textOfBody,
 } from "./agent-view-model.ts";
 import type {
   AgentFace,
@@ -26,7 +26,12 @@ import type {
 import { ApprovalResult } from "./approval-card/approval-card.tsx";
 import { deliveryAction, type Outgoing } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
-import { AgentTurn, Said, UserMessage } from "./message-list/agent-turn.tsx";
+import {
+  AgentTurn,
+  Said,
+  UserMessage,
+  WorkingRow,
+} from "./message-list/agent-turn.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import { ThreadScroll } from "./message-list/thread-scroll.tsx";
 import { QuestionSummary } from "./question-card/question-card.tsx";
@@ -44,6 +49,11 @@ interface AgentThreadProps {
   detail: ViewDetail;
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
+  /** agent가 일하는 중이다. `since`는 turn이 시작한 시각(ms)이고 모르면 null이다. */
+  working: { readonly since: number | null } | null;
+  now: () => number;
+  /** 내 말에 첨부한 이미지의 그림 주소. */
+  imageUrl: (id: string) => Promise<string | null>;
   /** archive한 session이다. 내 말의 Rewind·Fork 단추가 없다. */
   readOnly: boolean;
   drafts: DraftStore;
@@ -73,21 +83,31 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
   const shown = shownEntries(entries, props.detail);
   const nodes = itemsOf(shown, props, entries, false);
+  // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
   if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
     nodes.push(
-      <UserMessage key={`out-${outgoing.id}`} id={outgoing.id}>
+      <UserMessage
+        key={outgoing.id}
+        id={outgoing.id}
+        sending={outgoing.phase === "sending"}
+      >
         <UserBody
           message={outgoing.id}
           body={props.drafts.body(outgoing.id)}
           fallback={props.drafts.textOf(outgoing.id)}
           artifacts={props.artifacts}
-          delivery={outgoingDelivery(outgoing)}
-          provisional
+          imageUrl={props.imageUrl}
+          onOpenFile={props.onOpenFile}
           action={deliveryAction(outgoing)}
           onCheck={props.onCheck}
           onResend={props.onResend}
         />
       </UserMessage>,
+    );
+  }
+  if (props.working !== null) {
+    nodes.push(
+      <WorkingRow key="working" since={props.working.since} now={props.now} />,
     );
   }
   return (
@@ -125,19 +145,36 @@ function itemsOf(
   nested: boolean,
 ): ReactElement[] {
   const out: ReactElement[] = [];
-  let group: { id: string; time: string; items: ReactNode[] } | null = null;
+  let group: {
+    id: string;
+    time: string;
+    items: ReactNode[];
+    said: ThreadMessage | null;
+  } | null = null;
   const flush = () => {
     if (group === null) return;
+    const said = nested ? null : group.said;
     out.push(
-      <AgentTurn key={`turn-${group.id}`} agent={props.agent} time={group.time}>
+      <AgentTurn
+        key={`turn-${group.id}`}
+        agent={props.agent}
+        time={group.time}
+        {...(said === null ? {} : { copyText: () => textOf(said, props) })}
+      >
         {group.items}
       </AgentTurn>,
     );
     group = null;
   };
   const add = (entry: ThreadEntry, node: ReactNode) => {
-    group ??= { id: entry.id, time: clockTime(entry.at), items: [] };
+    group ??= {
+      id: entry.id,
+      time: clockTime(entry.at),
+      items: [],
+      said: null,
+    };
     group.items.push(node);
+    if (entry.kind === "message") group.said = entry;
   };
 
   for (const entry of list) {
@@ -208,21 +245,28 @@ function itemsOf(
       case "approval-result":
         add(entry, <ApprovalResult key={entry.id} result={entry.result} />);
         break;
-      case "turn-end":
-        add(
-          entry,
-          entry.outcome === "completed"
-            ? <WorkedFor key={entry.id} durationMs={entry.durationMs} />
-            : (
-              <div key={entry.id} data-turn-stopped="">
-                <StatusMark
-                  tone="serious"
-                  label={t("conversation.label.status-stopped")}
-                />
-              </div>
-            ),
-        );
+      case "turn-end": {
+        const node = entry.outcome === "failed"
+          ? (
+            <div key={entry.id} data-turn-failed="">
+              <StatusMark
+                tone="serious"
+                label={t("conversation.label.status-stopped")}
+              />
+            </div>
+          )
+          : (
+            <WorkedFor
+              key={entry.id}
+              durationMs={entry.durationMs}
+              stopped={entry.outcome === "stopped"}
+            />
+          );
+        // agent가 아무 말도 하기 전에 끝난 turn은 이름 없이 끝 줄만 남는다.
+        if (group === null) out.push(node);
+        else add(entry, node);
         break;
+      }
       case "provider-error":
         add(
           entry,
@@ -272,7 +316,9 @@ function userMessage(
       key={message.id}
       id={message.id}
       steer={message.delivery === "steer"}
+      time={messageTime(message.at, new Date(props.now()))}
       rewindOpen={props.rewindOpen === message.id}
+      {...(nested ? {} : { copyText: () => textOf(message, props) })}
       {...(actions
         ? {
           onRewind: () => props.onRewind(message.id),
@@ -285,14 +331,20 @@ function userMessage(
         body={props.drafts.body(message.id)}
         fallback={message.text ?? props.drafts.textOf(message.id)}
         artifacts={props.artifacts}
-        delivery={CONFIRMED}
-        provisional={false}
+        imageUrl={props.imageUrl}
+        onOpenFile={props.onOpenFile}
         action="none"
         onCheck={props.onCheck}
         onResend={props.onResend}
       />
     </UserMessage>
   );
+}
+
+/** 복사할 메시지 글. 본문을 읽었으면 그 글이고, 아니면 이 창이 아는 글이다. */
+function textOf(message: ThreadMessage, props: AgentThreadProps): string {
+  return textOfBody(props.drafts.body(message.id)) ?? message.text ??
+    props.drafts.textOf(message.id) ?? "";
 }
 
 function receivedMessage(

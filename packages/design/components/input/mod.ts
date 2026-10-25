@@ -48,6 +48,16 @@ export {
   DateRangePicker,
   type DateRangePickerProps,
 } from "./date-picker/date-range-picker.tsx";
+// 보낼 말에 붙였거나 보낸 말에 붙어 있는 파일 하나. 종류 아이콘과 이름, 붙이는 중이면 작은 [x]다.
+export {
+  AttachmentChip,
+  type AttachmentChipProps,
+} from "./attachment/attachment.tsx";
+// 보낼 말에 붙인 이미지 하나. 작은 정사각 그림에 둥근 [x]가 걸치고, 누르면 ImagePreview로 크게 본다.
+export {
+  AttachmentTile,
+  type AttachmentTileProps,
+} from "./attachment/attachment.tsx";
 // 날짜를 고르는 달력 한 장. 화면에 늘 펼쳐 둘 때 쓰고 칸에 일정을 그리는 월 보기는 아니다. 입력 칸이면 DatePicker다.
 export {
   Calendar,

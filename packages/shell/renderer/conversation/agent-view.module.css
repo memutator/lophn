@@ -83,13 +83,20 @@
   justify-content: center;
   align-items: flex-start;
   padding: var(--space-4) var(--layout-pane-padding-wide);
-  background: var(--color-surface-subtle);
+  background: var(--color-surface-base);
   overflow: auto;
 }
 
-/* 대화 아래에 붙어 있는 것: 질문·승인 카드, 다음 turn 줄, composer. 대화가 scroll해도 늘 보인다. */
+/* 대화 아래에 붙어 있는 것: 질문·승인 카드, 다음 turn 줄, composer. 대화가 scroll해도 늘 보인다.
+   안쪽 폭은 대화 줄(.turns)과 같은 읽기 폭 기둥이다. */
 .bottom {
+  box-sizing: border-box;
   display: flex;
   flex: none;
   flex-direction: column;
+  width: 100%;
+  max-width: calc(var(--page-reading-wide) + var(--layout-pane-padding-wide) *
+    2);
+  margin-inline: auto;
+  padding-inline: var(--layout-pane-padding-wide);
 }

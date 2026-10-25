@@ -1,5 +1,5 @@
-// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 앱 카드로 보이고, 사람 말 아래에 전달 상태와
-// 다음 행동을 둔다.
+// Agent 화면 대화 줄 안의 본문. 확정 메시지 본문을 읽은 결과를 글과 앱 카드로 보이고, 보내지 못했거나 결과를
+// 모르는 사람 말 아래에 다음 행동을 둔다.
 import type { ReactElement, ReactNode } from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
@@ -7,25 +7,14 @@ import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
 import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
-import type { DeliveryLabel } from "../agent-view-model.ts";
 import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
 import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import { ArtifactText } from "./artifact-text.tsx";
+import { MessageAttachments } from "./message-attachments.tsx";
+import { splitAttachmentText } from "../../../../protocol/lophn-agent/message-attachments.ts";
+import { textOfBody } from "../agent-view-model.ts";
 import styles from "./message-body.module.css";
-
-const DELIVERY_LABEL: Record<
-  DeliveryLabel,
-  | "conversation.label.delivery-sending"
-  | "conversation.label.delivery-received"
-  | "conversation.label.delivery-not-sent"
-  | "conversation.label.delivery-unconfirmed"
-> = {
-  sending: "conversation.label.delivery-sending",
-  received: "conversation.label.delivery-received",
-  "not-sent": "conversation.label.delivery-not-sent",
-  unconfirmed: "conversation.label.delivery-unconfirmed",
-};
 
 interface MessageBodyProps {
   message: string;
@@ -91,29 +80,53 @@ export function MessageBody(
 }
 
 interface UserBodyProps extends MessageBodyProps {
-  delivery: DeliveryLabel;
-  /** 아직 확정되지 않은 말이다. */
-  provisional: boolean;
+  /** 첨부한 이미지의 그림 주소. */
+  imageUrl?: (id: string) => Promise<string | null>;
+  /** 첨부한 파일 chip을 눌렀다. */
+  onOpenFile?: ((path: string) => void) | undefined;
   /** 전달 상태가 사람에게 요구하는 다음 행동. 확정 메시지는 "none"이다. */
   action: DeliveryAction;
   onCheck: () => void;
   onResend: () => void;
 }
 
-/** 내 말의 본문. 접수 표시를 말 아래에 두고, 보내지 못했거나 결과를 모르면 다음 행동을 곁들인다. */
+/**
+ * 내 말의 본문. 글 끝의 첨부 줄은 떼어 글 위에 chip과 그림으로 보인다. 잘 받은 말에는 표시가 없고, 보내지
+ * 못했거나 결과를 모르면 다음 행동을 곁들인다.
+ */
 export function UserBody(
-  { delivery, provisional, action, onCheck, onResend, ...rest }: UserBodyProps,
+  { action, onCheck, onResend, imageUrl, onOpenFile, ...rest }: UserBodyProps,
 ): ReactElement {
+  const raw = textOfBody(rest.body) ?? rest.fallback;
+  const split = raw === undefined ? null : splitAttachmentText(raw);
+  const attached = split !== null &&
+    (split.files.length > 0 || split.images.length > 0);
   return (
-    <div
-      className={styles.mine}
-      data-user-body=""
-      data-provisional={provisional || undefined}
-    >
-      <MessageBody {...rest} />
-      <span className={styles.meta}>
-        <span data-delivery={delivery}>{t(DELIVERY_LABEL[delivery])}</span>
-      </span>
+    <div className={styles.mine} data-user-body="">
+      {attached
+        ? (
+          <MessageAttachments
+            files={split.files}
+            images={split.images}
+            imageUrl={imageUrl}
+            onOpenFile={onOpenFile}
+          />
+        )
+        : null}
+      {attached && split.text === "" ? null : (
+        <MessageBody
+          {...rest}
+          {...(attached
+            ? {
+              body: {
+                state: "ready",
+                parts: [{ kind: "text", text: split.text }],
+              },
+              fallback: split.text,
+            }
+            : {})}
+        />
+      )}
       {action === "edit"
         ? <Notice>{t("conversation.notice.not-sent")}</Notice>
         : null}

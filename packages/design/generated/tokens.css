@@ -15,6 +15,7 @@
   --color-ink-background: #1a1a18;
   --color-ink-text: #ffffff;
   --color-ink-hover: #32322f;
+  --color-ink-soft: #dde9f8;
   --color-link: #1f66c1;
   --color-focus: #2a78d6;
   --color-selection: #e7f0fb;
@@ -135,6 +136,10 @@
   --control-lg-pad-x: 14px;
   --control-lg-icon: 16px;
   --control-gap: 6px;
+  --attachment-chip: 28px;
+  --attachment-tile: 56px;
+  --attachment-remove: 16px;
+  --attachment-remove-icon: 10px;
   --icon-size-small: 14px;
   --icon-size-base: 16px;
   --icon-size-large: 20px;
@@ -242,6 +247,7 @@
   --color-ink-background: #f3f3f0;
   --color-ink-text: #161615;
   --color-ink-hover: #d9d8d2;
+  --color-ink-soft: #223c5c;
   --color-link: #6da7ec;
   --color-focus: #3987e5;
   --color-selection: #16263b;
@@ -328,6 +334,7 @@
     --color-ink-background: #f3f3f0;
     --color-ink-text: #161615;
     --color-ink-hover: #d9d8d2;
+    --color-ink-soft: #223c5c;
     --color-link: #6da7ec;
     --color-focus: #3987e5;
     --color-selection: #16263b;

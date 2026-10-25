@@ -24,6 +24,7 @@ export const vars = {
       "background": "var(--color-ink-background)",
       "text": "var(--color-ink-text)",
       "hover": "var(--color-ink-hover)",
+      "soft": "var(--color-ink-soft)",
     },
     "link": "var(--color-link)",
     "focus": "var(--color-focus)",
@@ -221,6 +222,12 @@ export const vars = {
       "icon": "var(--control-lg-icon)",
     },
     "gap": "var(--control-gap)",
+  },
+  "attachment": {
+    "chip": "var(--attachment-chip)",
+    "tile": "var(--attachment-tile)",
+    "remove": "var(--attachment-remove)",
+    "removeIcon": "var(--attachment-remove-icon)",
   },
   "icon": {
     "size": {

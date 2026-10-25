@@ -7,6 +7,7 @@ import { Button, FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import {
   Dialog,
   FloatPanel,
+  ImagePreview,
   Menu,
   MenuIcon,
   Palette,
@@ -224,6 +225,31 @@ export function KitOverlay() {
                 )}
               </Opens>
             </div>
+          )}
+        </Stage>
+      </Section>
+      <Section
+        title="ImagePreview"
+        note="그림 하나를 크게 본다. 단추로 연다. 바깥이나 Esc나 [x]로 닫는다."
+      >
+        <Stage height={320} center>
+          {(container) => (
+            <Opens label="Open image">
+              {(open, setOpen) => (
+                <ImagePreview
+                  src={open
+                    ? `data:image/svg+xml;utf8,${
+                      encodeURIComponent(
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300"><rect width="480" height="300" fill="#2a78d6"/><circle cx="140" cy="130" r="60" fill="#fab219"/></svg>',
+                      )
+                    }`
+                    : null}
+                  alt="screenshot.png"
+                  onClose={() => setOpen(false)}
+                  container={container}
+                />
+              )}
+            </Opens>
           )}
         </Stage>
       </Section>

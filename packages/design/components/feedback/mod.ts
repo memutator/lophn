@@ -22,6 +22,8 @@ export {
 } from "./error-state/error-state.tsx";
 // 오래된 값 옆에 마지막 갱신의 나이를 글로 보인다. 값이 없을 때가 아니라 낡았을 때 쓴다.
 export { StaleNote, type StaleNoteProps } from "./stale-note/stale-note.tsx";
+// 지금 도는 일의 이름을 흐르는 빛으로 보인다. agent가 일하는 동안처럼 끝을 모르는 짧은 기다림에 쓴다.
+export { Shimmer, type ShimmerProps } from "./shimmer/shimmer.tsx";
 // 상태 하나를 색과 아이콘과 글로 보이는 표시. 잠깐 뜨는 알림이 필요하면 Toast를 쓴다.
 export {
   STATUS_ICONS,

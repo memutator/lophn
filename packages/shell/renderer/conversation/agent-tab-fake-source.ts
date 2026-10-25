@@ -1,5 +1,6 @@
 // AgentTabSource의 메모리 fake. wireframe의 Agent 탭 장면 전부를 `scene` 이름으로 골라 낸다(gallery와 dev-mock이 쓴다).
 // 쓰기는 기록을 바꾸고 `changed`로 알려 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
+import { splitAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
 import type {
   AgentFace,
   AgentTabSource,
@@ -803,8 +804,15 @@ function fail<T>(code: string): Promise<SourceResult<T>> {
 const DONE = ok<void>(undefined);
 
 export function createFakeAgentTabSource(
-  options: { scene?: AgentTabScene; picker?: FakePicker } = {},
+  options: {
+    scene?: AgentTabScene;
+    picker?: FakePicker;
+    /** 보낸 말과 시작한 turn의 시각. 없으면 장면의 고정 시각이다(gallery). */
+    now?: () => number;
+  } = {},
 ): AgentTabSource {
+  const sentAt = () =>
+    options.now === undefined ? at(50) : new Date(options.now()).toISOString();
   const picker = options.picker ?? {};
   const pickerView = (scenario: PickerScenario, query: string) =>
     modelView(scenario, query, picker);
@@ -888,6 +896,8 @@ export function createFakeAgentTabSource(
   const listeners = new Set<() => void>();
   let counter = 100;
   const nextId = (prefix: string) => fakeId(prefix, counter++);
+  // 올린 이미지의 blob 주소. 메모리에만 있다.
+  const images = new Map<string, string>();
   const notify = () => listeners.forEach((listener) => listener());
   const thread = (session: string) => threads.get(session) ?? EMPTY_THREAD;
   const change = (session: string, patch: (view: ThreadView) => ThreadView) => {
@@ -962,6 +972,13 @@ export function createFakeAgentTabSource(
     runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
 
+    uploadImage(_session, image) {
+      const id = nextId("att");
+      images.set(id, URL.createObjectURL(image));
+      return ok({ id });
+    },
+    imageUrl: (_session, id) => Promise.resolve(images.get(id) ?? null),
+
     send({ session, id, text, delivery }) {
       bodies.set(id, [{ kind: "text", text }]);
       const view = thread(session);
@@ -969,14 +986,15 @@ export function createFakeAgentTabSource(
         view.turn?.phase === "waiting";
       if (session && sessions.some((item) => item.id === session)) {
         const known = sessions.find((item) => item.id === session)!;
-        if (known.title === null) {
-          patchSession(session, { title: text.slice(0, 60) });
+        const title = splitAttachmentText(text).text;
+        if (known.title === null && title !== "") {
+          patchSession(session, { title: title.slice(0, 60) });
         }
       }
       if (running && delivery === "next_turn") {
         return change(session, (current) => ({
           ...current,
-          queued: [...current.queued, { id, at: at(50), text }],
+          queued: [...current.queued, { id, at: sentAt(), text }],
         }));
       }
       const turn = running ? view.turn!.id : nextId("trn");
@@ -985,16 +1003,15 @@ export function createFakeAgentTabSource(
         ...current,
         entries: [
           ...current.entries,
-          user(0, 50, text, {
-            id,
-            delivery,
-            turn,
-          }),
+          {
+            ...user(0, 50, text, { id, delivery, turn }),
+            at: sentAt(),
+          },
         ],
         turn: running ? current.turn : {
           id: turn,
           phase: "working",
-          startedAt: at(50),
+          startedAt: sentAt(),
         },
       }));
     },

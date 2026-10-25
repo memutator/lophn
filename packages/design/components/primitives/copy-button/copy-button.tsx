@@ -1,4 +1,4 @@
-import { Copy } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { t } from "@lophn/wording";
 import { IconButton } from "../icon-button/icon-button.tsx";
 import { type Clipboard, componentMark } from "../../_shared/shared.ts";
@@ -15,11 +15,11 @@ export interface CopyButtonProps {
 
 // 개발자 ID·code 복사. 실패하면 중립 문장을 옆에 두고 같은 버튼으로 다시 시도한다.
 export function CopyButton({ text, label, clipboard }: CopyButtonProps) {
-  const { failed, copy } = useCopy(clipboard);
+  const { failed, copied, copy } = useCopy(clipboard);
   return (
     <span className={styles.copy} {...componentMark("CopyButton")}>
       <IconButton
-        icon={Copy}
+        icon={copied ? Check : Copy}
         size="sm"
         label={label}
         onClick={() => copy(text)}

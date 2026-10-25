@@ -64,6 +64,10 @@
         "hover": {
           "light": "#32322f",
           "dark": "#d9d8d2"
+        },
+        "soft": {
+          "light": "#dde9f8",
+          "dark": "#223c5c"
         }
       },
       "link": {
@@ -354,6 +358,12 @@
         "icon": "16px"
       },
       "gap": "6px"
+    },
+    "attachment": {
+      "chip": "28px",
+      "tile": "56px",
+      "remove": "16px",
+      "removeIcon": "10px"
     },
     "icon": {
       "size": {

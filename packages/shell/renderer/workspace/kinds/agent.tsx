@@ -190,9 +190,13 @@ export const agentKind: TabKindDef = {
     const drafts = host.agentView?.drafts;
     if (!drafts) return Promise.resolve({ value: null, views: [] });
     const session = sessionOf(tab);
+    // 이미지는 이 창 메모리의 Blob이라 넘기지 못한다. 파일 경로만 따라간다.
     const found = drafts.entries((key) =>
       session === null ? key.startsWith("new:") : key === session
-    );
+    ).map(([key, draft]): [string, Draft] => [key, {
+      ...draft,
+      attachments: draft.attachments.filter((item) => item.kind === "file"),
+    }]);
     return Promise.resolve({ value: { drafts: found }, views: [] });
   },
   receive(_tab, { value }, host) {

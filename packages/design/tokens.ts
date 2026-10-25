@@ -26,6 +26,8 @@ export const tokens = {
       background: { light: "#1a1a18", dark: "#f3f3f0" },
       text: { light: "#ffffff", dark: "#161615" },
       hover: { light: "#32322f", dark: "#d9d8d2" },
+      // accent를 옅게 깐 바탕(내 말 bubble). 글자는 text.primary다. focus를 base에 light 16%·dark 34% 섞었다.
+      soft: { light: "#dde9f8", dark: "#223c5c" },
     },
     link: { light: "#1f66c1", dark: "#6da7ec" },
     focus: { light: "#2a78d6", dark: "#3987e5" },
@@ -158,6 +160,13 @@ export const tokens = {
     md: { height: "32px", padX: "12px", icon: "16px" },
     lg: { height: "36px", padX: "14px", icon: "16px" },
     gap: "6px",
+  },
+  // 보낼 말에 붙인 첨부: 파일 chip 높이, 이미지 tile 한 변, 지우기 [x] 단추와 그 아이콘.
+  attachment: {
+    chip: "28px",
+    tile: "56px",
+    remove: "16px",
+    removeIcon: "10px",
   },
   // Lucide 기본 크기 16·20px과 선 1.5, 정한 14px.
   icon: { size: { small: "14px", base: "16px", large: "20px" }, stroke: 1.5 },

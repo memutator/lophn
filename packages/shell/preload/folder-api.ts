@@ -9,8 +9,16 @@ interface FolderTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
 }
 
-// 경로는 main이 연 OS dialog의 결과만 온다. 통로 실패는 고정 오류로 바꾼다.
-export function createFolderApi(transport: FolderTransport): FolderPickerApi {
+/** Electron `webUtils`. File.path가 없어져 preload에서만 경로를 얻는다. */
+interface FilePaths {
+  getPathForFile(file: File): string;
+}
+
+// 경로는 main이 연 OS dialog의 결과나 사람이 끌어 놓은 파일의 것만 온다. 통로 실패는 고정 오류로 바꾼다.
+export function createFolderApi(
+  transport: FolderTransport,
+  paths: FilePaths,
+): FolderPickerApi {
   async function invoke(
     channel: string,
     input: unknown,
@@ -25,6 +33,13 @@ export function createFolderApi(transport: FolderTransport): FolderPickerApi {
     {
       pick: (input) => invoke(FOLDER_PICK_CHANNEL, input ?? {}),
       pickFile: () => invoke(FILE_PICK_CHANNEL, {}),
+      pathForFile: (file) => {
+        try {
+          return paths.getPathForFile(file) || null;
+        } catch {
+          return null;
+        }
+      },
     } satisfies FolderPickerApi,
   );
 }

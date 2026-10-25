@@ -5,6 +5,7 @@ import {
   ErrorState,
   Loading,
   ReadState,
+  Shimmer,
   Skeleton,
   StaleNote,
   StatusMark,
@@ -117,6 +118,14 @@ export function KitFeedback() {
         </Row>
         <Row label="3 days ago">
           <StaleNote updatedAt={new Date("2026-10-08T12:00:00Z")} now={NOW} />
+        </Row>
+      </Section>
+      <Section
+        title="Shimmer"
+        note="끝을 모르는 짧은 기다림. 움직임을 줄인 설정에서는 흐린 글자로 멈춘다."
+      >
+        <Row label="working">
+          <Shimmer>Working</Shimmer>
         </Row>
       </Section>
       <Section

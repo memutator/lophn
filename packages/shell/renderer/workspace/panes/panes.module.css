@@ -16,6 +16,11 @@
   min-height: var(--space-0);
 }
 
+/* Explorer의 파일을 이 칸 위로 끄는 중이다. */
+.pane[data-drop] {
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
 .sized {
   flex-grow: 0;
   flex-shrink: 0;

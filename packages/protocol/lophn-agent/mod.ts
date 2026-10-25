@@ -34,6 +34,8 @@ export * from "./calls.ts";
 export * from "./inputs.ts";
 export * from "./tool-catalog.ts";
 export * from "./ask-tool.ts";
+export * from "./message-images.ts";
+export * from "./message-attachments.ts";
 export * from "./input-tags.ts";
 export * from "./kind-text.ts";
 export * from "./received-messages.ts";

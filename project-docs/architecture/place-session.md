@@ -59,6 +59,10 @@ lophn의 agent는 place(project 또는 app)에 놓이고, 그 agent와 하는 �
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source)이고, 없으면 place의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
   - `placeScope`(`packages/core/agent-roles/place/place-folders.ts`)가 role과 place와 맡은 domain에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다. rewind는 sessions 표만 보고 폴더를 정하므로 Operator에게는 그릇의 domain 폴더 전부를 넉넉히 잡고, 실제 쓰기는 file tool이 `artifacts/`로 좁힌다(`main/daemon/place-folders-glue.ts`). agent runtime process의 Deno 권한은 session이 아니라 process 하나의 것이라 `placeScope`를 거치지 않고 같은 파일의 `runtimeFolders`가 만든다. 폴더 종류를 더하면 두 곳을 같이 고친다. 한쪽만 고치면 file tool은 열렸는데 child가 거절하거나 그 반대가 된다.
   - agent runtime process는 하나라 Deno 권한은 열린(active) project 폴더, 열린 앱의 source 폴더, 모든 active domain 폴더, active project의 `workflows/` 폴더 전체의 합(읽기와 쓰기)이다. session마다의 범위는 file tool이 지킨다. 폴더 목록이 바뀌면(project·앱 등록, 앱 source 연결, domain 만들기와 보관, project 보관) process를 다시 띄운다. 도는 turn이 있으면 끊지 않고 다음 주기(1초)에 다시 본다(`packages/core/lophn-agent/run-loop/runtime.ts`).
+- 사람이 메시지에 붙인 이미지는 메시지 content(글뿐)에 넣지 않는다. 화면이 먼저 `message-images/upload`로 session에 올려 id(`att_...`)를 받고, 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄을 적는다. agent는 `image.read`로 연다.
+  - 바이트는 project 폴더 밖인 `<data>/message-images/<session>/<id>.<ext>`에 둔다(png, jpeg, gif, webp, 5 MiB 이하, 내용의 첫 byte로 형식 확인). agent의 file tool 범위 밖이고 `attachment:<id>`로만 열린다.
+  - `image.read`는 `message-images/path`(agent 전용 memory route)로 경로를 푼다. core는 입력의 session이 credential의 session과 같을 때만 풀어서, 다른 session의 id는 forbidden이거나 not_found다. 사람 화면은 `message-images/read`(file route)로 다시 그린다.
+  - session을 지워도 이미지 파일은 지우지 않는다(알려진 빈틈).
 
 ## 왜 이 모양인가
 

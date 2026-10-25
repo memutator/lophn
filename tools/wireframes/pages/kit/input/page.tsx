@@ -1,6 +1,8 @@
 // Kit · input. @lophn/ui/input의 component와 예제(control-sizes, orders-filters).
 import { useContext, useState } from "react";
 import {
+  AttachmentChip,
+  AttachmentTile,
   Calendar,
   Checkbox,
   DatePicker,
@@ -16,11 +18,20 @@ import {
   Textarea,
 } from "@lophn/ui/input";
 
+import { FileIcon } from "@lophn/ui/primitives";
+
 import { ControlSizes } from "./control-sizes.tsx";
 import { OrdersFilters } from "./orders-filters.tsx";
 import { Example, kit, Page, Section } from "../kit.tsx";
 
 const EXAMPLE_NOW = new Date("2026-10-06T15:30:00Z");
+// 견본 그림. 바깥 파일 없이 그린다.
+const SAMPLE_IMAGE = `data:image/svg+xml;utf8,${
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="120" height="90" fill="#2a78d6"/><circle cx="40" cy="40" r="18" fill="#fab219"/></svg>',
+  )
+}`;
+const NOOP = () => {};
 
 // Field가 넘기는 id·오류 상태를 FieldContext로 읽어 보이는 최소 입력.
 function ContextReader() {
@@ -290,6 +301,33 @@ export function KitInput() {
           <Field label="Context, invalid" error="invalid가 true가 된다.">
             <ContextReader />
           </Field>
+        </div>
+      </Section>
+      <Section
+        title="AttachmentChip and AttachmentTile"
+        note="보낼 말에 붙인 파일과 이미지. 붙이는 중에는 [x]가 있고 보낸 뒤에는 없다."
+      >
+        <div className={kit.row}>
+          <AttachmentChip
+            name="chest-layout.md"
+            icon={<FileIcon name="chest-layout.md" size={16} />}
+            title="/home/me/phroner/docs/chest-layout.md"
+            onRemove={NOOP}
+            removeLabel="Remove chest-layout.md"
+          />
+          <AttachmentChip
+            name="report.pdf"
+            icon={<FileIcon name="report.pdf" size={16} />}
+            onOpen={NOOP}
+          />
+          <AttachmentTile
+            src={SAMPLE_IMAGE}
+            alt="screenshot.png"
+            onOpen={NOOP}
+            onRemove={NOOP}
+            removeLabel="Remove screenshot.png"
+          />
+          <AttachmentTile src={SAMPLE_IMAGE} alt="sent.png" />
         </div>
       </Section>
       <Section

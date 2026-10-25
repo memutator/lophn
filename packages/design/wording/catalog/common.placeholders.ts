@@ -8,6 +8,7 @@ export type CommonPlaceholders = {
   "common.button.clear": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
+  "common.button.copy": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-month": Record<never, never>;
@@ -47,6 +48,7 @@ export type CommonPlaceholders = {
   "common.label.all-of": {
     dimension: "string";
   };
+  "common.label.copied": Record<never, never>;
   "common.label.date-from": Record<never, never>;
   "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {

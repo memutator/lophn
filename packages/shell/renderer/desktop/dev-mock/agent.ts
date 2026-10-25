@@ -17,7 +17,7 @@ export function mockAgentTabSource(
     const key = `${agent.assignment}:${agent.place.kind}:${agent.place.id}`;
     let fake = fakes.get(key);
     if (fake === undefined) {
-      fake = createFakeAgentTabSource({ scene });
+      fake = createFakeAgentTabSource({ scene, now: Date.now });
       fakes.set(key, fake);
     }
     return fake;

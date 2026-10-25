@@ -23,6 +23,7 @@ import {
   sendText,
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
+import { createImageSource } from "./agent-tab-core-source-images.ts";
 import { createModelPart } from "./agent-tab-core-source-model.ts";
 import {
   createRewindIds,
@@ -74,6 +75,7 @@ function createSource(
   const faceCache = createFaceCache(env);
   const activeTimes = createActiveTimes();
   const modelPart = createModelPart(env);
+  const images = createImageSource(core);
   const retryIds = new Map<string, string>();
   const rewindIds = createRewindIds();
 
@@ -99,6 +101,8 @@ function createSource(
     permissions: () => readPermissions(env),
 
     send: (input) => sendText(env, input),
+    uploadImage: (session, image) => images.uploadImage(session, image),
+    imageUrl: (session, id) => images.imageUrl(session, id),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),
     removeQueued: (queued) => removeQueuedMessage(env, queued),
     stop: (turn, key) => stopTurnOf(env, turn, key),

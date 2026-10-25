@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import { DECISION_HANDLE_CHANNEL } from "../ipc/confirmation-channels.ts";
 import type {
@@ -84,8 +84,11 @@ if (role === "shell") {
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),
   );
-  // 프로젝트 등록의 OS 폴더 선택기. 경로는 main이 연 dialog의 결과만 온다.
-  contextBridge.exposeInMainWorld("lophnFolders", createFolderApi(ipcRenderer));
+  // 프로젝트 등록의 OS 폴더 선택기와 끌어 놓은 파일의 경로. 경로는 main이 연 dialog나 사람이 놓은 파일의 것만 온다.
+  contextBridge.exposeInMainWorld(
+    "lophnFolders",
+    createFolderApi(ipcRenderer, webUtils),
+  );
   // 상단 바의 최소화·최대화·닫기. 동작 이름만 보내고 창은 main이 정한다.
   contextBridge.exposeInMainWorld(
     "lophnWindow",

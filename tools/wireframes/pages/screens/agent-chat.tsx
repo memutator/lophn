@@ -204,7 +204,11 @@ export function ChatShell(
           source={source}
           session={session.id === "" ? null : session.id}
           agentName={agent}
-          draft={{ text, selection: [text.length, text.length] }}
+          draft={{
+            text,
+            selection: [text.length, text.length],
+            attachments: [],
+          }}
           working={running}
           locked={false}
           tooLong={false}

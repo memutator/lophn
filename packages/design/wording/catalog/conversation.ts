@@ -9,6 +9,7 @@ export const conversation = {
   "conversation.button.approval-deny": "Deny",
   "conversation.button.archive": "Archive",
   "conversation.button.archived-toggle": "Archived ({count, number})",
+  "conversation.button.attach": "Add files or photos",
   "conversation.button.call-cancel": "Cancel",
   "conversation.button.connect-provider": "Connect provider",
   "conversation.button.check-delivery": "Check whether it arrived",
@@ -23,9 +24,11 @@ export const conversation = {
   "conversation.button.manage-models": "Manage models",
   "conversation.button.model-reset": "Reset",
   "conversation.button.permissions-edit": "Edit in Agents",
+  "conversation.button.preview-image": "Preview {name}",
   "conversation.button.question-next": "Next",
   "conversation.button.question-submit": "Submit",
   "conversation.button.queued-remove": "Remove from the queue",
+  "conversation.button.remove-attachment": "Remove {name}",
   "conversation.button.remove-model": "Remove model",
   "conversation.button.refresh-models": "Refresh models",
   "conversation.button.rename": "Rename",
@@ -42,6 +45,10 @@ export const conversation = {
   "conversation.empty.no-messages":
     "Nothing here yet. Write what you need below.",
   "conversation.error.action-failed": "That didn't work. Try again.",
+  "conversation.error.attach-failed":
+    "Couldn't attach the image, so the message wasn't sent. Try again.",
+  "conversation.error.attach-skipped":
+    "Some files couldn't be attached. Images must be PNG, JPEG, GIF or WebP up to 5 MB.",
   "conversation.error.model-effort-none": "Choose at least one effort.",
   "conversation.error.model-info-conflict":
     "This model's details changed elsewhere. The latest is loaded; save again to keep your edits.",
@@ -86,6 +93,7 @@ export const conversation = {
   "conversation.label.approval-target-tool": "{tool} in {app}",
   "conversation.label.approval-target-mcp-tool": "{tool} on {server}",
   "conversation.label.archived": "Archived",
+  "conversation.label.attached-image": "Attached image",
   "conversation.label.call-answered": "Answered",
   "conversation.label.call-cancelled": "Cancelled",
   "conversation.label.call-delivered": "Delivered",
@@ -98,10 +106,6 @@ export const conversation = {
   "conversation.label.coding-queued": "Waiting for a coding agent",
   "conversation.label.composer-message": "Message",
   "conversation.label.delete-session": "Delete {title}",
-  "conversation.label.delivery-not-sent": "Not sent",
-  "conversation.label.delivery-received": "Received",
-  "conversation.label.delivery-sending": "Sending",
-  "conversation.label.delivery-unconfirmed": "Not confirmed",
   "conversation.label.duration-minutes": "{minutes, number}m",
   "conversation.label.duration-minutes-seconds":
     "{minutes, number}m {seconds, number}s",
@@ -223,6 +227,7 @@ export const conversation = {
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
+  "conversation.label.stopped-after": "Stopped after {duration}",
   "conversation.label.tasks": "Tasks",
   "conversation.label.tasks-progress":
     "Tasks · {done, number} of {total, number}",

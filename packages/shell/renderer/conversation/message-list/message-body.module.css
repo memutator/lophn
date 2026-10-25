@@ -1,4 +1,4 @@
-/* 확정 메시지 본문과 사람 말 아래의 접수 표시. 옛 읽기 본문 글꼴을 따른다. */
+/* 확정 메시지 본문과 사람 말 아래의 다음 행동. 옛 읽기 본문 글꼴을 따른다. */
 .body {
   display: flex;
   flex-direction: column;
@@ -29,20 +29,40 @@
   gap: var(--space-2);
 }
 
-/* 확정 전 말은 점선 윤곽으로 임시임을 보인다. 확정 메시지가 오면 이 줄이 바뀐다. */
-.mine[data-provisional] {
-  outline: var(--border-width) dashed var(--color-border-strong);
-  outline-offset: var(--space-2);
-  border-radius: var(--radius-sm);
+/* bubble 안 글 위의 첨부. 그림은 정한 높이까지만 크고, 파일은 이름 chip이다. */
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
-.meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
+/* 그림은 정한 상자(320×192) 안에 비율대로 들어간다. 퍼센트 폭은 flex 안에서 단추보다 넓어져 겹친다. */
+.image,
+.imagePending {
+  display: block;
+  max-width: calc(var(--space-12) * 5);
+  max-height: calc(var(--space-12) * 3);
+  border-radius: var(--radius-md);
+}
+
+.imagePending {
+  width: var(--space-12);
+  height: var(--space-12);
+  background: var(--color-surface-muted);
+}
+
+.imageButton {
+  display: block;
+  flex: none;
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.imageButton:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
 }
 
 .notice {

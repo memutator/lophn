@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
@@ -68,6 +68,13 @@ import {
   type ProfileUploadHandler,
 } from "./agents/mod.ts";
 import {
+  type MessageImageDeps,
+  messageImageFileHandler,
+  type MessageImageFiles,
+  messageImagePathHandler,
+  messageImageUploadHandler,
+} from "./message-images.ts";
+import {
   createTurnCommands,
   createTurnReads,
   deleteSessionTurns,
@@ -124,6 +131,9 @@ import {
   mcpToolsList,
   mcpToolsRequestDone,
   mcpToolsRequestTake,
+  messageImagePath,
+  messageImageRead,
+  messageImageUpload,
   type Place,
   profileImageRead,
   profileImageUpload,
@@ -481,10 +491,13 @@ const NODE_AGENT_FILES = new URL(
   "./agents/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodeAgentFiles, createNodeProfileImageFiles } = await import(
-  NODE_AGENT_FILES
-) as {
+const {
+  createNodeAgentFiles,
+  createNodeMessageImageFiles,
+  createNodeProfileImageFiles,
+} = await import(NODE_AGENT_FILES) as {
   createNodeAgentFiles(): AgentFileSystem;
+  createNodeMessageImageFiles(): MessageImageFiles;
   createNodeProfileImageFiles(): ProfileImageFiles;
 };
 
@@ -504,6 +517,25 @@ export function agentProfileHandlers(
   return {
     upload: profileImageUploadHandler(deps),
     file: profileImageFileHandler(deps),
+  };
+}
+
+// 메시지에 붙인 이미지의 upload·file·path 처리기다. core.ts가 route 이름으로 붙인다.
+export function messageImageHandlers(
+  readers: ProfileReaders,
+  dataRoot: string,
+  ids: IdSource,
+) {
+  const deps: MessageImageDeps = {
+    root: dataRoot,
+    files: createNodeMessageImageFiles(),
+    readers,
+    ids,
+  };
+  return {
+    upload: messageImageUploadHandler(deps),
+    file: messageImageFileHandler(deps),
+    path: messageImagePathHandler(deps),
   };
 }
 
@@ -834,12 +866,14 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       askWait,
       askRead,
       askAnswer,
+      // image.read가 `attachment:<id>`를 파일 경로로 푸는 입구. handler는 wiring/lophn-agent.ts가 붙인다.
+      messageImagePath,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
-    uploadRoutes: [profileImageUpload],
-    files: [profileImageRead],
+    uploadRoutes: [profileImageUpload, messageImageUpload],
+    files: [profileImageRead, messageImageRead],
     // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
     // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.
   };

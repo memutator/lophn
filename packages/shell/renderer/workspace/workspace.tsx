@@ -1509,6 +1509,11 @@ export function Workspace(props: WorkspaceProps) {
                 <Panes
                   view={view}
                   focusedPane={inFloats ? null : view.focusedPane}
+                  onDropPath={(pane, path) => {
+                    setFloatFocused(false);
+                    update({ ...latest.current, focusedPane: pane });
+                    openFile(host, path);
+                  }}
                   bodyWidth={contentWidth}
                   windowWidth={measuredWindow}
                   onSelect={(pane, key) => {

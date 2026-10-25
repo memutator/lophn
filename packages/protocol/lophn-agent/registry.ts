@@ -21,6 +21,7 @@ import { TURN_READS } from "./turn-reads.ts";
 import { CALL_ROUTES } from "./calls.ts";
 import { QUEUED_INPUT_ROUTES, sendMessage } from "./inputs.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
+import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
 import { AGENT_DEFINITION_ROUTES } from "./agent-definitions.ts";
 import { connectProvider } from "./providers.ts";
@@ -66,6 +67,7 @@ export const ROUTES = [
   sendMessage,
   ...QUEUED_INPUT_ROUTES,
   ...ASK_ROUTES,
+  ...MESSAGE_IMAGE_ROUTES,
   ...RECEIVED_MESSAGE_ROUTES,
   ...AGENT_DEFINITION_ROUTES,
   connectProvider,

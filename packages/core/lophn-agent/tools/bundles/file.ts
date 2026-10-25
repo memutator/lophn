@@ -101,7 +101,7 @@ export const createFileTools = (
     input: z.strictObject({ path }),
     routes: [],
     description:
-      "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model. path can also be annotation:<id> to open the screenshot of an annotation.",
+      "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model. path can also be annotation:<id> to open the screenshot of an annotation, or attachment:<id> to open an image the person attached to a message.",
     effect: "read",
     handler: (input, ctx) => readImage(input, ctx),
   }),

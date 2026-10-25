@@ -2,7 +2,7 @@
 // 이름이 token과 똑같다. 기본 preset(ink, warm, pretendard, jetbrains-mono, default, comfortable)은
 // 비어 있거나 tokens.ts의 값이고, 기본이 아닌 것만 token을 덮어쓴다.
 // 색은 대비를 계산해 정했다: ink 글자와 바탕 4.5:1 이상(hover 포함), focus와 모든 surface 3:1 이상,
-// primary·secondary·muted 글자와 모든 surface 4.5:1 이상.
+// primary·secondary·muted 글자와 모든 surface 4.5:1 이상, primary 글자와 ink.soft 4.5:1 이상.
 import { type Themed, tokens } from "./tokens.ts";
 
 type Shape<T> = T extends { readonly light: string; readonly dark: string }
@@ -20,6 +20,7 @@ interface InkPreset {
       readonly background: Themed;
       readonly text: Themed;
       readonly hover: Themed;
+      readonly soft: Themed;
     };
     readonly focus: Themed;
     readonly selection: Themed;
@@ -32,8 +33,9 @@ const ink = (
   hover: Themed,
   focus: Themed,
   selection: Themed,
+  soft: Themed,
 ): InkPreset => ({
-  color: { ink: { background, text, hover }, focus, selection },
+  color: { ink: { background, text, hover, soft }, focus, selection },
 });
 
 const accent = {
@@ -43,6 +45,7 @@ const accent = {
     { light: "#32322f", dark: "#d9d8d2" },
     { light: "#2a78d6", dark: "#3987e5" },
     { light: "#e7f0fb", dark: "#16263b" },
+    { light: "#dde9f8", dark: "#223c5c" },
   ),
   blue: ink(
     { light: "#1d5bbf", dark: "#7db0f2" },
@@ -50,6 +53,7 @@ const accent = {
     { light: "#164a9e", dark: "#5f9be8" },
     { light: "#2468c9", dark: "#3987e5" },
     { light: "#e7f0fb", dark: "#16263b" },
+    { light: "#dce7f6", dark: "#223c5c" },
   ),
   green: ink(
     { light: "#1b7a3c", dark: "#6fcb8b" },
@@ -57,6 +61,7 @@ const accent = {
     { light: "#145f2d", dark: "#55b573" },
     { light: "#1f8a45", dark: "#3fae62" },
     { light: "#e4f3e8", dark: "#14281b" },
+    { light: "#dbece1", dark: "#244a2f" },
   ),
   purple: ink(
     { light: "#6b3fc4", dark: "#b79cf5" },
@@ -64,6 +69,7 @@ const accent = {
     { light: "#5632a0", dark: "#a086e6" },
     { light: "#7a4fd6", dark: "#9475ea" },
     { light: "#eee8fa", dark: "#221a38" },
+    { light: "#eae3f8", dark: "#41365d" },
   ),
   orange: ink(
     { light: "#b34a0c", dark: "#f29a5c" },
@@ -71,6 +77,7 @@ const accent = {
     { light: "#8f3a08", dark: "#e0884a" },
     { light: "#c2570f", dark: "#e8803a" },
     { light: "#fbece0", dark: "#33200f" },
+    { light: "#f5e4d9", dark: "#5d3a22" },
   ),
 } as const;
 

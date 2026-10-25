@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   SESSION_AUTO_TITLE_MAX,
   sessionTitleSchema,
+  splitAttachmentText,
 } from "../../../protocol/lophn-agent/mod.ts";
 
 // session 제목 만들기.
@@ -35,8 +36,13 @@ function firstGraphemes(text: string, max: number): string {
 // 3. 앞 60자(글자)를 자른다. 자른 자리가 공백이면 끝 공백을 뺀다.
 //
 // 뺀 뒤 남은 글이 없으면(빈 본문·공백뿐) null이다. 번호 이름("Conversation N")은 만들지 않는다.
+// 글 끝의 첨부 줄은 제목에 넣지 않고, 첨부만 보낸 말은 첫 파일 이름이 제목이다.
 function autoSessionTitle(text: string): string | null {
-  const flat = text.replace(LINE_BREAK_RUN, " ").trim();
+  const split = splitAttachmentText(text);
+  const body = split.text.trim() === "" && split.files.length > 0
+    ? split.files[0]!.slice(split.files[0]!.lastIndexOf("/") + 1)
+    : split.text;
+  const flat = body.replace(LINE_BREAK_RUN, " ").trim();
   const title = firstGraphemes(flat, SESSION_AUTO_TITLE_MAX).trimEnd();
   return title === "" ? null : title;
 }

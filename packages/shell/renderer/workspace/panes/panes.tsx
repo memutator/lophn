@@ -20,7 +20,7 @@ import {
   type TabItem,
   type WorkspaceView,
 } from "../model.ts";
-import { startPointerDrag } from "../drag.ts";
+import { PATH_DRAG_TYPE, startPointerDrag } from "../drag.ts";
 import styles from "./panes.module.css";
 
 /** 칸 폭이 이보다 좁으면 본문 여백을 16px로 줄인다. */
@@ -58,6 +58,8 @@ interface PanesProps {
   onMove: (key: string, toPane: number, before?: string | null) => void;
   /** 경계 drag가 끝나거나 두 번 눌렀을 때의 비율. */
   onRatio: (ratio: number) => void;
+  /** Explorer에서 끌어 온 파일을 그 칸에 연다. */
+  onDropPath: (pane: number, path: string) => void;
   /** 마지막 칸 탭 줄 끝의 새 탭(+) 단추. */
   newTab?: ReactNode;
   /** 탭 줄이 그리는 탭 하나(아이콘, 이름 뒤 상태 점). */
@@ -94,6 +96,7 @@ export function Panes(
     onFocus,
     onMove,
     onRatio,
+    onDropPath,
     newTab,
     stripTab,
     renderTab,
@@ -201,6 +204,7 @@ export function Panes(
               onReveal={onReveal}
               onReorder={(key, before) => onMove(key, index, before)}
               onFocus={() => onFocus(index)}
+              onDropPath={(path) => onDropPath(index, path)}
             />
           </Fragment>
         );
@@ -232,6 +236,7 @@ interface PaneViewProps {
   onReveal: (path: string) => void;
   onReorder: (key: string, before: string | null) => void;
   onFocus: () => void;
+  onDropPath: (path: string) => void;
 }
 
 function PaneView(
@@ -257,11 +262,14 @@ function PaneView(
     onReveal,
     onReorder,
     onFocus,
+    onDropPath,
   }: PaneViewProps,
 ) {
   const [menu, setMenu] = useState<
     { key: string; x: number; y: number } | null
   >(null);
+  // Explorer의 파일을 이 칸 위로 끄는 중이다.
+  const [dropping, setDropping] = useState(false);
   const menuTab = menu === null
     ? undefined
     : pane.tabs.find((tab) => tab.key === menu.key);
@@ -373,8 +381,27 @@ function PaneView(
       style={width === null
         ? undefined
         : { width: `${width}px`, flexBasis: `${width}px` }}
+      data-drop={dropping ? "" : undefined}
       onPointerDown={onFocus}
       onFocusCapture={onFocus}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes(PATH_DRAG_TYPE)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setDropping(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          setDropping(false);
+        }
+      }}
+      onDrop={(event) => {
+        setDropping(false);
+        const path = event.dataTransfer.getData(PATH_DRAG_TYPE);
+        if (path === "") return;
+        event.preventDefault();
+        onDropPath(path);
+      }}
     >
       <TabStrip
         tabs={pane.tabs.map(stripTab)}

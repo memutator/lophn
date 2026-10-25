@@ -50,6 +50,7 @@ import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
+import { messageImagePath } from "../../../protocol/lophn-agent/message-images.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
@@ -129,6 +130,8 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
 // Gate가 걸리는 tool과 `ask`가 사람의 결정을 기다리는 입구다. 기다림은 core가 쥐고 호출 하나가 결과가 날 때까지 열려 있다.
 // 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 역할의 상한에 더한다.
 const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
+// image.read가 사람이 붙인 이미지(`attachment:<id>`)를 파일 경로로 푼다. session은 core가 credential로 가른다.
+const MESSAGE_IMAGE_ROUTES: readonly string[] = [messageImagePath.name];
 
 // 어느 역할이든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent 할당과 tool 목록이
 // 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. 역할 몫은 role 층이 더한다.
@@ -136,4 +139,5 @@ export const AGENT_BASE_OPERATIONS: readonly string[] = [
   APP_TOOL_CONTRACT,
   ...EXTERNAL_TOOL_OPERATIONS,
   ...HUMAN_WAIT_ROUTES,
+  ...MESSAGE_IMAGE_ROUTES,
 ];

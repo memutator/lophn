@@ -3,6 +3,7 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
+  Copy,
   ListPlus,
   type LucideIcon,
   MessageSquare,
@@ -10,10 +11,12 @@ import {
   MessagesSquare,
   PanelRightClose,
   PencilLine,
+  Plus,
   RotateCw,
   Search,
   SearchCheck,
   Square,
+  X,
 } from "lucide-react";
 
 // 대화 도크가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 이 묶음이 고른다.
@@ -32,4 +35,8 @@ export const conversationIcons = {
   expand: ChevronDown,
   search: Search,
   current: Check,
+  copy: Copy,
+  copied: Check,
+  attach: Plus,
+  removeAttachment: X,
 } as const satisfies Record<string, LucideIcon>;

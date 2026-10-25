@@ -1,14 +1,20 @@
 // lophn-agent의 정의 쪽(provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
 // wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
-import { ok } from "../../../../base/mod.ts";
+import { createIdSource, ok } from "../../../../base/mod.ts";
 import {
+  messageImagePath,
+  messageImageRead,
+  messageImageUpload,
   profileImageRead,
   profileImageUpload,
   providerRead,
   type ProviderRecord,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { appCreate } from "../../../../protocol/apps/mod.ts";
-import { agentProfileHandlers } from "../../../lophn-agent/register.ts";
+import {
+  agentProfileHandlers,
+  messageImageHandlers,
+} from "../../../lophn-agent/register.ts";
 import { ROLE_TABLE } from "../../../agent-roles/agents/role-table.ts";
 import { withAppEngineer } from "../../../agent-roles/agents/app-engineer.ts";
 import {
@@ -45,7 +51,16 @@ export const lophnAgentWiring: WiringFactory = () => ({
       ctx.root.path,
       ROLE_TABLE,
     );
+    const images = messageImageHandlers(
+      ctx.runtime.readers,
+      ctx.root.path,
+      createIdSource({ clock: ctx.clock, random: ctx.random }),
+    );
+    const key = (route: { resource: string; method: string }) =>
+      `${route.resource}/${route.method}`;
     return ok({
+      // image.read의 `attachment:<id>` 풀이: agent가 자기 session의 이미지만 푼다.
+      memory: [[key(messageImagePath), images.path]],
       writer: (inner) =>
         withAppEngineer(
           inner,
@@ -59,16 +74,16 @@ export const lophnAgentWiring: WiringFactory = () => ({
           appCreate.name,
         ),
       // profile 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
-      uploads: [[
-        `${profileImageUpload.resource}/${profileImageUpload.method}`,
-        profiles.upload,
-      ]],
+      uploads: [
+        [key(profileImageUpload), profiles.upload],
+        [key(messageImageUpload), images.upload],
+      ],
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
       // profile 이미지 읽기: 정의의 profile이 가리키는 파일을 실제 형식의 Content-Type으로 흘린다.
-      fileStreams: [[
-        `${profileImageRead.resource}/${profileImageRead.method}`,
-        profiles.file,
-      ]],
+      fileStreams: [
+        [key(profileImageRead), profiles.file],
+        [key(messageImageRead), images.file],
+      ],
     });
   },
 });

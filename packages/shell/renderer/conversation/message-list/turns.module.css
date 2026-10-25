@@ -1,8 +1,13 @@
-/* 대화 줄의 배치. 내 메시지는 오른쪽 bubble, agent 묶음은 왼쪽에 avatar·이름·시각을 위에 한 번 둔다. */
+/* 대화 줄의 배치. 내 메시지는 오른쪽 bubble, agent 묶음은 왼쪽에 avatar·이름·시각을 위에 한 번 둔다.
+   줄은 탭 가운데의 읽기 폭 기둥이고 composer(.bottom)도 같은 폭이다. */
 .turns {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  width: 100%;
+  max-width: var(--page-reading-wide);
+  margin-inline: auto;
 }
 
 .userTurn {
@@ -11,35 +16,69 @@
   flex-direction: column;
   align-items: flex-end;
   align-self: flex-end;
-  max-width: 78%;
-}
-
-.userRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  max-width: 82%;
 }
 
 .bubble {
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-lg);
-  background: var(--color-surface-muted);
+  background: var(--color-ink-soft);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
   user-select: text;
 }
 
-/* hover나 키보드 focus가 오면 보인다. */
-.actions {
-  display: inline-flex;
+/* 보내는 중인 말. 받았다는 답이 오면 제 농도가 된다. */
+.userTurn[data-sending] .bubble {
+  opacity: 0.6;
+}
+
+/* 메시지 아래 줄: 시각과 단추. 자리는 늘 잡아 두고 hover나 키보드 focus에서 보인다. */
+.messageActions {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
+  min-height: var(--control-sm-height);
+  margin-top: var(--space-1);
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--motion-duration-short) var(--motion-ease);
 }
 
-.userTurn:hover .actions,
-.actions:focus-within {
+.userTurn > .messageActions {
+  justify-content: flex-end;
+}
+
+.userTurn:hover > .messageActions,
+.agentTurn:hover > .messageActions,
+.messageActions:focus-within,
+.userTurn[data-open] > .messageActions,
+.turns > .agentTurn:last-child > .messageActions {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.messageTime {
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+}
+
+/* 대화 끝의 일하는 중 줄. */
+.working {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--type-body-line);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.elapsed {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .agentTurn {
@@ -88,11 +127,6 @@
 .quiet {
   margin: var(--space-0);
   color: var(--color-text-muted);
-}
-
-/* rewind panel이 열린 동안 단추를 계속 보인다. */
-.userTurn[data-open] .actions {
-  opacity: 1;
 }
 
 /* 도는 turn에 steer로 들어간 메시지의 표시. */

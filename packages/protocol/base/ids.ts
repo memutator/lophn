@@ -30,6 +30,7 @@ const ID_PREFIXES = {
   rwd: "Rewind",
   ann: "Annotation",
   anb: "AnnotationBatch",
+  att: "Attachment",
   dom: "Domain",
   run: "Run",
   wfi: "WorkflowInstance",

@@ -17,6 +17,7 @@ import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { editorIcons, workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/wording";
 
+import { PATH_DRAG_TYPE } from "../drag.ts";
 import { FileConfirm } from "../file-actions.tsx";
 import type {
   FileOpResult,
@@ -491,8 +492,9 @@ export function Explorer(
 
   const onDragStart = (row: FileRow, event: DragEvent<HTMLDivElement>) => {
     dragging.current = row.id;
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.effectAllowed = "copyMove";
     event.dataTransfer.setData("text/plain", row.id);
+    if (!row.folder) event.dataTransfer.setData(PATH_DRAG_TYPE, row.id);
   };
   const onDragOver = (row: FileRow | null, event: DragEvent<HTMLElement>) => {
     // 줄 위에서는 바깥(빈 자리 = 루트)으로 새지 않게 한다.

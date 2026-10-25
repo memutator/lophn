@@ -1,7 +1,13 @@
 // Agent 화면: 한 agent의 한 session을 보이는 탭 본문. 위에서 아래로 header, 대화 줄, composer 위의 질문·승인 카드와
 // "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { IconButton } from "@lophn/ui/primitives";
 import { retryIcon } from "../icons/mod.ts";
 import { formatRelativeTime, t } from "@lophn/wording";
@@ -42,6 +48,8 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
+import { composeAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
+import { windowPathOf, windowReadImage } from "./window-paths.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { QueuedMessages } from "./queued/queued-messages.tsx";
@@ -88,10 +96,15 @@ type Layer =
   | { readonly kind: "rewind"; readonly message: string }
   | { readonly kind: "permissions" };
 
-type Problem = "open-failed" | "stop-failed" | "action-failed";
+type Problem =
+  | "open-failed"
+  | "stop-failed"
+  | "action-failed"
+  | "attach-failed";
 
 const PROBLEM_TEXT = {
   "open-failed": "conversation.error.open-failed",
+  "attach-failed": "conversation.error.attach-failed",
   "stop-failed": "conversation.error.stop-failed",
   "action-failed": "conversation.error.action-failed",
 } as const;
@@ -161,6 +174,11 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
   const offline = data.connection === "reconnecting";
   const messages = messagesOf(thread);
   const readOnly = entry?.archived === true;
+  const imageUrl = useCallback(
+    (id: string) =>
+      session === null ? Promise.resolve(null) : source.imageUrl(session, id),
+    [source, session],
+  );
 
   // 보던 session이 없어졌으면 새 session으로 간다.
   useEffect(() => {
@@ -223,8 +241,12 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
       return null;
     }
     setProblem(null);
-    drafts.save(id, { text: draft.text, selection: draft.selection });
-    drafts.save(key, { text: "", selection: [0, 0] });
+    drafts.save(id, {
+      text: draft.text,
+      selection: draft.selection,
+      attachments: draft.attachments,
+    });
+    drafts.save(key, { text: "", selection: [0, 0], attachments: [] });
     onSessionChange(id);
     return id;
   };
@@ -259,12 +281,35 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     await deliver(target, outgoing);
   };
 
+  // 첨부한 이미지는 보내기 전에 그 session에 올리고, 파일 경로와 함께 글 끝의 줄로 싣는다. 하나라도 못 올리면
+  // 보내지 않고 글과 첨부는 그대로 남는다.
   const send = async () => {
     if (readOnly || composerLocked(draft.outgoing)) return;
-    const text = draft.text;
-    if (text.trim() === "" || !fitsMessage(text)) return;
+    const { attachments } = draft;
+    if (draft.text.trim() === "" && attachments.length === 0) return;
+    if (!fitsMessage(draft.text)) return;
     const target = await ensureSession();
-    if (target !== null) await dispatch(text, target);
+    if (target === null) return;
+    const images: string[] = [];
+    for (const item of attachments) {
+      if (item.kind !== "image") continue;
+      const uploaded = await source.uploadImage(target, item.image);
+      if (!uploaded.ok) {
+        setProblem("attach-failed");
+        return;
+      }
+      images.push(uploaded.value.id);
+    }
+    const files = attachments.flatMap((item) =>
+      item.kind === "file" ? [item.path] : []
+    );
+    const text = composeAttachmentText(
+      drafts.draft(target).text,
+      files,
+      images,
+    );
+    if (!fitsMessage(text)) return;
+    await dispatch(text, target);
   };
 
   // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다.
@@ -412,6 +457,14 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
     skip: false,
   };
   const empty = messages.length === 0 && draft.outgoing === null;
+  // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 질문·승인을 기다리는 동안은 카드가 대신 말한다.
+  const sending = draft.outgoing?.phase === "sending" ||
+    draft.outgoing?.phase === "accepted";
+  const working = active?.phase === "working" || (active === null && sending)
+    ? {
+      since: active?.startedAt == null ? null : Date.parse(active.startedAt),
+    }
+    : null;
   const hint = empty && props.hint !== undefined
     ? props.hint
     : t("conversation.placeholder.ask", { agent: agent.name });
@@ -465,6 +518,9 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           entries={thread?.entries ?? []}
           detail={detail}
           outgoing={draft.outgoing}
+          working={working}
+          now={now}
+          imageUrl={imageUrl}
           readOnly={readOnly}
           drafts={drafts}
           source={source}
@@ -555,6 +611,8 @@ function Screen(props: AgentViewProps & { data: ViewData }) {
           session={session}
           agentName={agent.name}
           draft={draft}
+          pathOf={windowPathOf()}
+          readImage={windowReadImage()}
           working={active !== null}
           locked={composerLocked(draft.outgoing)}
           tooLong={!fitsMessage(draft.text)}

@@ -1,4 +1,6 @@
 import { mount } from "../entry.tsx";
+import { HighlighterProvider } from "@lophn/ui/reading";
+import { createWorkerHighlighter } from "../highlight/client.ts";
 import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
 import { devSeed } from "./dev-seed.ts";
@@ -174,44 +176,49 @@ const appViews: AppViewsDeps | null = mock?.appViews ??
     ? { views, app: coreAppRead(core), screens: coreAppScreens(core) }
     : null);
 
+// 파일 읽기와 chat의 code block이 같은 Worker를 쓴다. Worker는 첫 highlight 때 뜬다.
+const highlighter = createWorkerHighlighter();
+
 mount(
   <div className={styles.root}>
-    <AppViewsProvider value={appViews}>
-      <BrowserApiProvider value={browser}>
-        <ArtifactApiProvider value={artifact}>
-          <AnnotateApiProvider value={annotate}>
-            <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
-              <ConversationProvider deps={conversation}>
-                <EventsProvider client={events}>
-                  <Desktop
-                    source={core}
-                    initial={start}
-                    workspace={workspace}
-                    editor={bench ? bench.editor : editor}
-                    windowWidth={seed ? 1440 : undefined}
-                    terminal={terminal}
-                    catalog={catalog}
-                    palette={palette}
-                    projects={projects}
-                    intents={bridges.lophnIntents}
-                    apps={apps}
-                    settings={settings}
-                    settingsPanels={settingsPanels}
-                    appDetail={appDetail}
-                    views={views}
-                    annotate={annotate}
-                    overlay={bridges.lophnShell}
-                    instructions={mock?.instructions ??
-                      windowInstructionsSource()}
-                    agentViewSource={agentViewSource}
-                    detached={bridges.lophnDetached}
-                  />
-                </EventsProvider>
-              </ConversationProvider>
-            </BrowserOverlayProvider>
-          </AnnotateApiProvider>
-        </ArtifactApiProvider>
-      </BrowserApiProvider>
-    </AppViewsProvider>
+    <HighlighterProvider value={highlighter}>
+      <AppViewsProvider value={appViews}>
+        <BrowserApiProvider value={browser}>
+          <ArtifactApiProvider value={artifact}>
+            <AnnotateApiProvider value={annotate}>
+              <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
+                <ConversationProvider deps={conversation}>
+                  <EventsProvider client={events}>
+                    <Desktop
+                      source={core}
+                      initial={start}
+                      workspace={workspace}
+                      editor={bench ? bench.editor : editor}
+                      windowWidth={seed ? 1440 : undefined}
+                      terminal={terminal}
+                      catalog={catalog}
+                      palette={palette}
+                      projects={projects}
+                      intents={bridges.lophnIntents}
+                      apps={apps}
+                      settings={settings}
+                      settingsPanels={settingsPanels}
+                      appDetail={appDetail}
+                      views={views}
+                      annotate={annotate}
+                      overlay={bridges.lophnShell}
+                      instructions={mock?.instructions ??
+                        windowInstructionsSource()}
+                      agentViewSource={agentViewSource}
+                      detached={bridges.lophnDetached}
+                    />
+                  </EventsProvider>
+                </ConversationProvider>
+              </BrowserOverlayProvider>
+            </AnnotateApiProvider>
+          </ArtifactApiProvider>
+        </BrowserApiProvider>
+      </AppViewsProvider>
+    </HighlighterProvider>
   </div>,
 );

@@ -1,5 +1,13 @@
 // Kit · reading. @lophn/ui/reading의 Markdown·CodeBlock·Toc·DiffMark와 예제(weekly-report).
-import { CodeBlock, DiffMark, Markdown, Toc } from "@lophn/ui/reading";
+import {
+  CodeBlock,
+  type CodeLine,
+  DiffMark,
+  type Highlighter,
+  HighlighterProvider,
+  Markdown,
+  Toc,
+} from "@lophn/ui/reading";
 
 import { WeeklyReport } from "./weekly-report.tsx";
 import { Example, kit, Page, Row, Section } from "../kit.tsx";
@@ -7,6 +15,47 @@ import { Example, kit, Page, Row, Section } from "../kit.tsx";
 const CLIPBOARD = { writeText: () => Promise.resolve() };
 const NOOP = () => {};
 const TWO_LINES = ["orders show A-1001", "orders list --late"].join("\n");
+
+// gallery는 Shiki를 싣지 않는다. 고정한 token으로 highlighter가 준 색만 본다.
+const HIGHLIGHTED_LINES: readonly CodeLine[] = [
+  [{
+    text: "// orders that arrived late",
+    color: "var(--code-token-comment)",
+    italic: true,
+  }],
+  [
+    { text: "export ", color: "var(--code-token-keyword)" },
+    { text: "function ", color: "var(--code-token-keyword)" },
+    { text: "lateOrders", color: "var(--code-token-function)" },
+    { text: "(", color: "var(--code-token-punctuation)" },
+    { text: "orders", color: "var(--code-token-parameter)" },
+    { text: ")", color: "var(--code-token-punctuation)" },
+    { text: " {", color: "var(--code-token-punctuation)" },
+  ],
+  [
+    { text: "  const ", color: "var(--code-token-keyword)" },
+    { text: "limit", color: "var(--code-token-parameter)" },
+    { text: " = ", color: "var(--code-token-punctuation)" },
+    { text: "12", color: "var(--code-token-constant)" },
+    { text: ";", color: "var(--code-token-punctuation)" },
+  ],
+  [
+    { text: "  return ", color: "var(--code-token-keyword)" },
+    { text: "orders", color: "var(--code-token-parameter)" },
+    {
+      text: ".filter((order) => order.status === ",
+      color: "var(--code-token-punctuation)",
+    },
+    { text: '"late"', color: "var(--code-token-string)" },
+    { text: ");", color: "var(--code-token-punctuation)" },
+  ],
+];
+const HIGHLIGHTED_CODE = HIGHLIGHTED_LINES
+  .map((line) => line.map((token) => token.text).join(""))
+  .join("\n");
+const HIGHLIGHTER: Highlighter = {
+  highlight: () => Promise.resolve(HIGHLIGHTED_LINES),
+};
 
 // 제목·목록·task list·넓은 표·code·link와 raw HTML을 한 글에 담는다. raw HTML은 실행되지 않고 글로 보인다.
 const SOURCE = [
@@ -67,7 +116,7 @@ export function KitReading() {
       </Section>
       <Section
         title="CodeBlock"
-        note="code 조각 하나와 복사 단추. language는 글로만 보인다."
+        note="code 조각 하나와 복사 단추. language는 글로만 보인다. highlighter가 있으면 token 색으로 그린다."
       >
         <Row label="with language">
           <CodeBlock
@@ -75,6 +124,15 @@ export function KitReading() {
             language="sh"
             clipboard={CLIPBOARD}
           />
+        </Row>
+        <Row label="highlighted">
+          <HighlighterProvider value={HIGHLIGHTER}>
+            <CodeBlock
+              code={HIGHLIGHTED_CODE}
+              language="ts"
+              clipboard={CLIPBOARD}
+            />
+          </HighlighterProvider>
         </Row>
         <Row label="no language">
           <CodeBlock

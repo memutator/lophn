@@ -13,6 +13,13 @@ export type {
 export { safeUrl } from "./markdown/url.ts";
 // code 한 덩어리를 복사 단추와 함께 보인다. 문서 전체가 아니라 code 조각 하나에 쓴다.
 export { CodeBlock, type CodeBlockProps } from "./code-block/code-block.tsx";
+// CodeBlock에 code highlighter를 준다. 없으면 code는 plain이다.
+export {
+  type CodeLine,
+  type CodeToken,
+  type Highlighter,
+  HighlighterProvider,
+} from "./code-block/highlighter.ts";
 export type { DiffLine } from "./diff-view/diff-view.tsx";
 // 문서의 제목 목차. ReadingFrame이 정한 자리에 따라 옆 목록이나 머리 선택으로 그린다.
 export { Toc, TOC_MAX_LEVEL, type TocProps } from "./toc/toc.tsx";

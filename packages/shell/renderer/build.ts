@@ -57,11 +57,13 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
 }
 
 // 화면은 <name>/<name>.js(esm)로, artifact kit은 <script>로 불러서 artifact-kit/entry.js(iife)로 나간다.
+// highlight worker만 grammar chunk를 따로 내려고 splitting한다.
 const entries: readonly {
   in: string;
   out: string;
   dir: string;
   format: esbuild.Format;
+  splitting?: boolean;
 }[] = [
   ...screens.map((name) => ({
     in: join(name, "entry.tsx"),
@@ -74,6 +76,13 @@ const entries: readonly {
     out: "entry",
     dir: "artifact-kit",
     format: "iife",
+  },
+  {
+    in: join("highlight", "worker.ts"),
+    out: "highlight-worker",
+    dir: "desktop",
+    format: "esm",
+    splitting: true,
   },
 ];
 
@@ -153,6 +162,11 @@ async function build(outdir = join(here, "dist")): Promise<void> {
     // renderer가 import하는 protocol 런타임 code가 `@lophn/base`를 쓴다.
     await addPackage(imports, new URL("../base/", design));
     await writeFile(configPath, JSON.stringify({ imports }));
+    // hash 이름이라 다시 묶으면 옛 grammar chunk가 쌓인다. scripts/stage.ts가 dist를 통째로 복사한다.
+    await rm(join(outdir, "desktop", "highlight"), {
+      recursive: true,
+      force: true,
+    });
     for (const entry of entries) {
       await esbuild.build({
         absWorkingDir: here,
@@ -160,6 +174,8 @@ async function build(outdir = join(here, "dist")): Promise<void> {
         outdir: join(outdir, entry.dir),
         bundle: true,
         format: entry.format,
+        splitting: entry.splitting ?? false,
+        chunkNames: "highlight/[name]-[hash]",
         jsx: "automatic",
         assetNames: "[name]",
         // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.

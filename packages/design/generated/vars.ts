@@ -343,6 +343,23 @@ export const vars = {
     "brightCyan": "var(--terminal-bright-cyan)",
     "brightWhite": "var(--terminal-bright-white)",
   },
+  "code": {
+    "foreground": "var(--code-foreground)",
+    "token": {
+      "constant": "var(--code-token-constant)",
+      "string": "var(--code-token-string)",
+      "comment": "var(--code-token-comment)",
+      "keyword": "var(--code-token-keyword)",
+      "parameter": "var(--code-token-parameter)",
+      "function": "var(--code-token-function)",
+      "stringExpression": "var(--code-token-string-expression)",
+      "punctuation": "var(--code-token-punctuation)",
+      "link": "var(--code-token-link)",
+      "inserted": "var(--code-token-inserted)",
+      "deleted": "var(--code-token-deleted)",
+      "changed": "var(--code-token-changed)",
+    },
+  },
   "window": {
     "topBar": "var(--window-top-bar)",
     "control": "var(--window-control)",

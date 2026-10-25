@@ -533,6 +533,62 @@
         "dark": "#e5e5e5"
       }
     },
+    "code": {
+      "foreground": {
+        "light": "#1a1a18",
+        "dark": "#f3f3f0"
+      },
+      "token": {
+        "constant": {
+          "light": "#08704a",
+          "dark": "#b5cea8"
+        },
+        "string": {
+          "light": "#a31515",
+          "dark": "#ce9178"
+        },
+        "comment": {
+          "light": "#008000",
+          "dark": "#6a9955"
+        },
+        "keyword": {
+          "light": "#0000ff",
+          "dark": "#569cd6"
+        },
+        "parameter": {
+          "light": "#001080",
+          "dark": "#9cdcfe"
+        },
+        "function": {
+          "light": "#795e26",
+          "dark": "#dcdcaa"
+        },
+        "stringExpression": {
+          "light": "#001080",
+          "dark": "#9cdcfe"
+        },
+        "punctuation": {
+          "light": "#1a1a18",
+          "dark": "#d4d4d4"
+        },
+        "link": {
+          "light": "#0451a5",
+          "dark": "#3794ff"
+        },
+        "inserted": {
+          "light": "#506f0a",
+          "dark": "#9bb955"
+        },
+        "deleted": {
+          "light": "#ad0707",
+          "dark": "#f14c4c"
+        },
+        "changed": {
+          "light": "#006b99",
+          "dark": "#3794ff"
+        }
+      }
+    },
     "window": {
       "topBar": "36px",
       "control": "46px",

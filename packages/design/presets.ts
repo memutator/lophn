@@ -106,6 +106,7 @@ const palette = ({ surface, border, text, derived }: Palette) =>
         disabled: text[3],
       },
     },
+    code: { foreground: text[0] },
     tabStrip: { bar: derived[0], hover: derived[1] },
     floating: { surface: derived[2], hover: derived[3] },
   }) satisfies TokenOverride;

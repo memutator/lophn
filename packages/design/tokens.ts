@@ -244,6 +244,26 @@ export const tokens = {
     brightCyan: { light: "#0598bc", dark: "#29b8db" },
     brightWhite: { light: "#a5a5a5", dark: "#e5e5e5" },
   },
+  // code highlight 색. Shiki css-variables theme(variablePrefix "--code-")의 변수와 이름이 같다.
+  // VS Code Light+·Dark+에서 골랐고, code block 바탕(surface-subtle, background preset 셋)에서
+  // light·dark 모두 4.5:1을 넘게 조정했다. foreground는 color.text.primary와 같은 값이다.
+  code: {
+    foreground: { light: "#1a1a18", dark: "#f3f3f0" },
+    token: {
+      constant: { light: "#08704a", dark: "#b5cea8" },
+      string: { light: "#a31515", dark: "#ce9178" },
+      comment: { light: "#008000", dark: "#6a9955" },
+      keyword: { light: "#0000ff", dark: "#569cd6" },
+      parameter: { light: "#001080", dark: "#9cdcfe" },
+      function: { light: "#795e26", dark: "#dcdcaa" },
+      stringExpression: { light: "#001080", dark: "#9cdcfe" },
+      punctuation: { light: "#1a1a18", dark: "#d4d4d4" },
+      link: { light: "#0451a5", dark: "#3794ff" },
+      inserted: { light: "#506f0a", dark: "#9bb955" },
+      deleted: { light: "#ad0707", dark: "#f14c4c" },
+      changed: { light: "#006b99", dark: "#3794ff" },
+    },
+  },
   // 창 위쪽 바 높이, 창 조절 단추 폭, 닫기 단추 hover 색.
   window: {
     topBar: "36px",

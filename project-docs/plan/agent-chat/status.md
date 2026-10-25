@@ -16,5 +16,5 @@ lead만 고친다. `tools/status.py agent-chat build`가 `tasks/*.md`에서 id, 
 | `tool-title-core` | tool-title | 2 | 없음 | merged | tool-title/tool-title-core | 7b29e36ba |  |
 | `clock-shell` | clock | 3 | reasoning-shell | todo |  |  |  |
 | `reasoning-shell` | reasoning | 3 | stream-shell | running | reasoning/reasoning-shell |  |  |
-| `stream-shell` | stream | 3 | 없음 | merged | stream/stream-shell | 0704eb55d |  |
+| `stream-shell` | stream | 3 | 없음 | merged | stream/stream-shell | 0704eb55d | lead 앱 확인(headless Electron+진짜 core+fake stall): live 글이 markdown으로 흐르고 열린 ts fence가 닫혀 highlight된다. Stop 뒤 본 글이 저장된 message로 남는다 |
 | `tool-title-shell` | tool-title | 3 | clock-shell | todo |  |  |  |

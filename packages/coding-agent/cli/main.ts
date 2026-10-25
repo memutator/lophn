@@ -23,7 +23,7 @@ import { parseArgs, type ParsedArgs } from "./parser.ts";
 import { matchCommand } from "./registry.ts";
 import { ExitWith, type RunContext } from "./commands/types.ts";
 
-const VERSION = "0.1.0";
+const VERSION = "0.8.0";
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
 type CliOptions = {

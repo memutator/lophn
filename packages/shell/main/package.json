@@ -6,7 +6,7 @@
   "description": "lophn desktop",
   "desktopName": "lophn.desktop",
   "author": "lophn developers <lophn@localhost>",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "scripts": {
     "build": "node build.ts",
     "rebuild": "electron-rebuild -f -m node_modules/node-pty",

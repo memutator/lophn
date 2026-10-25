@@ -1,5 +1,11 @@
 import { t } from "@lophn/wording";
-import { type CSSProperties, Fragment, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { CopyButton } from "../../primitives/copy-button/copy-button.tsx";
 import { type Clipboard, systemClipboard } from "../../_shared/shared.ts";
 import styles from "../reading.module.css";
@@ -62,20 +68,28 @@ export function CodeBlock(
 ) {
   const highlighter = useHighlighter();
   const [highlighted, setHighlighted] = useState<Highlighted | null>(null);
+  // code가 자라는 동안에는 앞서 보낸 요청의 답도 쓴다. 늦게 온 답도 지금 code의 앞부분이면 칠할 수 있다.
+  // highlighter나 language가 바뀌거나 unmount하면 앞선 답은 버린다.
+  const generation = useRef(0);
+  useEffect(() => {
+    generation.current += 1;
+    return () => {
+      generation.current += 1;
+    };
+  }, [highlighter, language]);
   useEffect(() => {
     if (highlighter === null || language === undefined) return;
-    let live = true;
+    const asked = generation.current;
     highlighter.highlight(code, language).then(
       (lines) => {
-        if (live) setHighlighted(lines === null ? null : { code, lines });
+        if (generation.current !== asked) return;
+        setHighlighted(lines === null ? null : { code, lines });
       },
       () => {
-        if (live) setHighlighted(null);
+        if (generation.current !== asked) return;
+        setHighlighted(null);
       },
     );
-    return () => {
-      live = false;
-    };
   }, [highlighter, code, language]);
   return (
     <figure className={styles.codeBlock}>

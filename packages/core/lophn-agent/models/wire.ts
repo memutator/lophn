@@ -68,8 +68,10 @@ const messagesEffort: EffortPiece = (value, axis) => {
   }
   const name = lookup(MESSAGES_EFFORT_NAMES, value);
   if (name === undefined) return undefined;
+  // 지금 Claude model의 adaptive thinking은 기본 display가 "omitted"라 사고 글이 빈 채로
+  // 온다. 화면에 보일 요약을 받으려면 요청에 summarized를 싣는다. budget 쪽은 기본이 요약이다.
   const piece: JsonObject = {
-    thinking: { type: "adaptive" },
+    thinking: { type: "adaptive", display: "summarized" },
     output_config: { effort: name },
   };
   return piece;
@@ -86,7 +88,12 @@ const REASONING_EFFORT_NAMES: Readonly<Record<string, string>> = {
 
 const responsesEffort: EffortPiece = (value) => {
   const name = lookup(REASONING_EFFORT_NAMES, value);
-  return name === undefined ? undefined : { reasoning: { effort: name } };
+  if (name === undefined) return undefined;
+  // 요약 글을 받으려면 요청에 summary를 실어야 한다. "none"(off)은 요약이 없다.
+  const piece: JsonObject = name === "none"
+    ? { reasoning: { effort: name } }
+    : { reasoning: { effort: name, summary: "auto" } };
+  return piece;
 };
 
 // Chat Completions 호환 server(deepseek-v4 계열)는 max를 받는다. OpenAI Responses는 받지 않는다.

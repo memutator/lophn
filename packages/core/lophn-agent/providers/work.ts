@@ -13,7 +13,8 @@ import type { FailureVerdict } from "./failures.ts";
 import type { ToolCall } from "./adapters/messages.ts";
 
 // 받은 글의 늘어난 조각 하나다. redaction 전 날 글이고 core가 화면에 내기 전에 가린다
-// (`run-loop/live-turns.ts`).
+// (`run-loop/live-turns.ts`). reasoning의 빈 조각은 block의 시작·끝 표시다: 읽을 글
+// 없이 암호화만 온 reasoning도 시간을 재게 한다.
 export type ModelOutputDelta = { kind: "text" | "reasoning"; text: string };
 
 // 호출 입력. resolve가 준 판과 turn 근거다.
@@ -46,6 +47,9 @@ export type ModelCallOutput = {
   id: string;
   outcome: ModelOutcome;
   text: string;
+  // 사람이 읽을 reasoning 글이다. null은 reasoning이 없었고 ""는 읽을 글 없이 있었다.
+  // opaque 상태와 model 이력에는 가지 않는다.
+  reasoning: string | null;
   toolCalls: ToolCall[];
   // 완성 확인 뒤 tool만 실행 대상이다. partial·failed의 tool은 없다.
   usage?: TokenUsage;

@@ -11,6 +11,7 @@ import {
 } from "../../../base/mod.ts";
 import {
   agentMessageContentInputSchema,
+  machineMessageContentInputSchema,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
   MESSAGE_TEXT_CONTENT_MAX_BYTES,
@@ -146,11 +147,14 @@ export function createMessageBodyPreparer(deps: {
     ) return ok(envelope);
     const kind = parseActor(ctx.actor)?.kind;
     const record = envelope.input as { content?: unknown };
-    // 사람과 machine은 글만, agent는 글과 카드다(MessageContent).
+    // 사람은 글만, machine은 글과 reasoning, agent는 글과 카드다(MessageContent).
     const schema = kind === "agent"
       ? agentMessageContentInputSchema
+      : kind === "machine"
+      ? machineMessageContentInputSchema
       : userMessageContentInputSchema;
-    const max = kind === "agent"
+    // 답 글에 reasoning이 붙으면 64KiB를 넘기 쉽다. agent와 같은 상한을 쓴다.
+    const max = kind === "agent" || kind === "machine"
       ? MESSAGE_CONTENT_MAX_BYTES
       : MESSAGE_TEXT_CONTENT_MAX_BYTES;
     const redacted = redactValue(

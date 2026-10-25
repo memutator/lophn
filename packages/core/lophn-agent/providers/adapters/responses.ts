@@ -141,6 +141,12 @@ export function buildRequest(input: {
 // stream 결과. tool 인자는 response.output_item.done을 본 것만 완성이다.
 type ResponsesStreamResult = {
   text: string;
+  // 사람이 읽을 reasoning 요약. null은 reasoning이 없었다. ""는 있었지만 요약이 없다.
+  reasoning: string | null;
+  // 마지막으로 요약 글을 더한 자리. 자리가 바뀌면 "\n\n"으로 잇는다.
+  lastSummary: { itemId: string; summaryIndex: number } | null;
+  // 마지막 reasoning item이 끝났다. delta 시각을 재는 쪽이 그 끝을 안다.
+  reasoningEnded: boolean;
   toolCalls: ToolCall[];
   // 인자가 완성된 function call. done을 보지 못한 call은 여기 없다.
   completedCallIds: string[];
@@ -160,6 +166,9 @@ type ResponsesStreamResult = {
 export function createResponsesStreamResult(): ResponsesStreamResult {
   return {
     text: "",
+    reasoning: null,
+    lastSummary: null,
+    reasoningEnded: false,
     toolCalls: [],
     completedCallIds: [],
     responseEnded: false,
@@ -168,13 +177,15 @@ export function createResponsesStreamResult(): ResponsesStreamResult {
   };
 }
 
-// reasoning item의 encrypted_content를 결과로 모은다. 사람이 읽을 reasoning
-// 본문(summary text)은 버린다.
+// reasoning item의 encrypted_content와 끝을 결과로 모은다. 사람이 읽을 요약 글은
+// applyFrame이 `reasoning`으로 따로 모은다.
 function collectReasoning(
   out: ResponsesStreamResult,
   item: Record<string, unknown>,
 ): void {
   if (item.type !== "reasoning") return;
+  out.reasoning ??= "";
+  out.reasoningEnded = true;
   const encrypted = item.encrypted_content;
   if (typeof encrypted === "string" && encrypted.length > 0) {
     out.reasoningItems.push(encrypted);
@@ -234,6 +245,29 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
   }
   if (type === "response.output_item.added") {
     // delta 누적은 output_item.done이 확정 신호다. added는 관측만 한다.
+    const item = record.item;
+    if (
+      item !== null && typeof item === "object" && !Array.isArray(item) &&
+      (item as Record<string, unknown>).type === "reasoning"
+    ) {
+      out.reasoning ??= "";
+      out.reasoningEnded = false;
+    }
+    return;
+  }
+  if (type === "response.reasoning_summary_text.delta") {
+    const delta = record.delta;
+    if (typeof delta !== "string" || delta === "") return;
+    out.reasoning ??= "";
+    const itemId = typeof record.item_id === "string" ? record.item_id : "";
+    const summaryIndex = typeof record.summary_index === "number"
+      ? record.summary_index
+      : -1;
+    const samePlace = out.lastSummary?.itemId === itemId &&
+      out.lastSummary?.summaryIndex === summaryIndex;
+    if (out.reasoning !== "" && !samePlace) out.reasoning += "\n\n";
+    out.reasoning += delta;
+    out.lastSummary = { itemId, summaryIndex };
     return;
   }
   if (type === "response.completed" || type === "response.incomplete") {
@@ -268,14 +302,14 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     out.responseEnded = true;
     return;
   }
-  // function_call_arguments.delta·reasoning_summary_text.delta 등은 무시한다.
-  // reasoning summary는 사람이 읽을 본문이므로 제외한다.
+  // function_call_arguments.delta와 reasoning 요약의 part·done event는 무시한다.
+  // 요약 글(delta)은 위에서 받는다.
   if (
-    type.startsWith("reasoning_summary") || type.startsWith("reasoning_text") ||
+    type.startsWith("response.reasoning_summary") ||
+    type.startsWith("response.reasoning_text") ||
     type.startsWith("response.output_text.annotation") ||
     type === "response.created" || type === "response.in_progress" ||
     type === "response.queued" ||
-    type === "response.reasoning_summary_part.added" ||
     type === "response.content_part.added" ||
     type === "response.content_part.done" ||
     type === "response.output_text.done" ||

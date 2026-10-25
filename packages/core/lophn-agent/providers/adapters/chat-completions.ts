@@ -1,7 +1,7 @@
 // OpenAI Chat Completions adapter. 요청 번역(messages·tools,
 // stream=true, stream_options.include_usage)과 SSE 응답 번역(delta.tool_calls를
 // index로 누적, finish_reason 판정, usage 정규화)을 여기 둔다. tool_calls[].id↔
-// tool message tool_call_id 대응, DeepSeek reasoning_content 제외, Gemini OpenAI
+// tool message tool_call_id 대응, DeepSeek reasoning_content 수집, Gemini OpenAI
 // 호환 endpoint, Ollama·LM Studio·llama.cpp loopback 무인증과 tool call id 누락
 // 처리를 여기다. 오류 코드의 HTTP·본문 분류는 failures.ts가 맡는다.
 
@@ -156,6 +156,8 @@ export function buildRequest(input: {
 // stream 결과. tool 인자는 finish_reason chunk를 본 것만 완성이다.
 type ChatStreamResult = {
   text: string;
+  // 사람이 읽을 reasoning 글. null은 reasoning이 없었다. ""는 있었지만 읽을 글이 없다.
+  reasoning: string | null;
   toolCalls: ToolCall[];
   // finish_reason을 본 뒤 확정된 tool. 못 본 call은 여기 없다.
   completedToolIds: string[];
@@ -181,6 +183,7 @@ const MAX_CHAT_TOOL_CALLS = 128;
 export function createChatStreamResult(): ChatStreamResult {
   return {
     text: "",
+    reasoning: null,
     toolCalls: [],
     completedToolIds: [],
     usage: undefined,
@@ -226,8 +229,8 @@ function applyDeltaToolCalls(
   }
 }
 
-// choice 하나를 누적한다. reasoning 본문 필드(reasoning_content 등)는 누적
-// 대상이 아니다 — content만 더하므로 자연히 제외된다.
+// choice 하나를 누적한다. 응답의 reasoning_content는 사람이 읽을 reasoning으로
+// 모은다. 요청에는 보내지 않는다(applyPadding).
 function applyChoice(
   out: ChatStreamResult,
   choice: Record<string, unknown>,
@@ -238,6 +241,9 @@ function applyChoice(
   const delta = choice.delta;
   if (delta === null || typeof delta !== "object") return;
   const record = delta as Record<string, unknown>;
+  if (typeof record.reasoning_content === "string") {
+    out.reasoning = (out.reasoning ?? "") + record.reasoning_content;
+  }
   if (typeof record.content === "string") {
     out.text += record.content;
   }

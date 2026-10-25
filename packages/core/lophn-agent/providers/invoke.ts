@@ -85,6 +85,7 @@ function emptyUsage(revision: string): TokenUsage {
 
 type Collected = {
   text: string;
+  reasoning: string | null;
   toolCalls: ToolCall[];
   usage?: TokenUsage;
   kind: "complete" | "partial" | "refused" | "failed";
@@ -103,28 +104,52 @@ function collectorFor(
   protocol: ModelCallInput["model"]["protocol"],
   onDelta?: (delta: ModelOutputDelta) => void,
 ): Collector {
-  // 세 adapter와 batch 성공 응답이 같은 push를 지난다. push 앞뒤로 결과의 text 길이를 재서 늘어난 조각을
-  // 넘긴다. adapter file은 고치지 않는다.
+  // 세 adapter와 batch 성공 응답이 같은 push를 지난다. push 앞뒤로 결과의 text·reasoning
+  // 길이를 재서 늘어난 조각을 넘긴다. reasoning은 block의 시작·끝도 빈 조각으로 넘긴다:
+  // 읽을 글 없이 암호화만 온 reasoning도 시간을 재게 한다. adapter file은 고치지 않는다.
   function pushInto(
-    out: { text: string },
+    out: { text: string; reasoning: string | null },
     apply: (frames: readonly SseFrame[]) => void,
+    // Chat Completions에는 block 경계가 없다. 마지막 reasoning delta가 끝이다.
+    ended?: () => boolean,
   ): (frames: readonly SseFrame[]) => void {
     return (frames) => {
       const before = out.text.length;
+      // -1은 reasoning이 아직 없었다는 뜻이다.
+      const reasoningBefore = out.reasoning?.length ?? -1;
+      const endedBefore = ended?.() ?? false;
       apply(frames);
-      if (onDelta !== undefined && out.text.length > before) {
+      if (onDelta === undefined) return;
+      if (out.text.length > before) {
         onDelta({ kind: "text", text: out.text.slice(before) });
+      }
+      if (out.reasoning === null) return;
+      if (reasoningBefore < 0) {
+        onDelta({ kind: "reasoning", text: out.reasoning });
+      } else if (out.reasoning.length > reasoningBefore) {
+        onDelta({
+          kind: "reasoning",
+          text: out.reasoning.slice(reasoningBefore),
+        });
+      }
+      if (ended !== undefined && !endedBefore && ended()) {
+        onDelta({ kind: "reasoning", text: "" });
       }
     };
   }
   if (protocol === "anthropic-messages") {
     const out = createStreamResult();
     return {
-      push: pushInto(out, (frames) => applyFrames(out, frames)),
+      push: pushInto(
+        out,
+        (frames) => applyFrames(out, frames),
+        () => out.reasoningEnded,
+      ),
       finish() {
         const verdict = judgeMessages(out);
         return {
           text: out.text,
+          reasoning: out.reasoning,
           toolCalls: out.toolCalls.filter((call) => call !== undefined),
           usage: out.usage,
           kind: verdict.kind,
@@ -139,11 +164,16 @@ function collectorFor(
   if (protocol === "openai-responses") {
     const out = createResponsesStreamResult();
     return {
-      push: pushInto(out, (frames) => applyResponsesFrames(out, frames)),
+      push: pushInto(
+        out,
+        (frames) => applyResponsesFrames(out, frames),
+        () => out.reasoningEnded,
+      ),
       finish() {
         const verdict = judgeResponses(out);
         return {
           text: out.text,
+          reasoning: out.reasoning,
           toolCalls: out.toolCalls,
           usage: out.usage,
           kind: verdict.kind,
@@ -164,6 +194,7 @@ function collectorFor(
       const verdict = judgeChat(out);
       return {
         text: out.text,
+        reasoning: out.reasoning,
         toolCalls: out.toolCalls.filter((call) => call !== undefined),
         usage: out.usage,
         kind: verdict.kind,
@@ -286,6 +317,7 @@ async function invoke(
       id,
       outcome,
       text: "",
+      reasoning: null,
       toolCalls: [],
       usage: emptyUsage(usageRevision),
       durationMs: deps.nowMs() - startedMs,
@@ -365,6 +397,7 @@ async function invoke(
   const usage = collected.usage ?? emptyUsage(usageRevision);
   const extra = {
     text: collected.text,
+    reasoning: collected.reasoning,
     toolCalls: collected.kind === "complete" ? collected.toolCalls : [],
     usage: { ...usage, definition_revision: usageRevision },
     firstOutputMs,

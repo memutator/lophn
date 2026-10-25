@@ -136,6 +136,9 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     storeValue(deps.blobs, deps.redact, purpose, value);
   let attempts = 0;
   let lastModelCall: string | null = null;
+  // 직전 model 호출의 사람이 읽을 reasoning과 잰 시간이다. `answer`가 그 응답의 message에
+  // reasoning part로 싣는다. ModelAttempt에는 싣지 않는다(그 응답 하나의 자리다).
+  let lastReasoning: { text: string; duration_ms: number | null } | null = null;
   const definitionOf = (name: string) =>
     toolForWireName(deps.tools.listed, name);
 
@@ -191,6 +194,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     signal: AbortSignal,
   ): Promise<Result<ModelAttempt>> {
     attempts += 1;
+    lastReasoning = null;
     // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않고, 저장한
     // 바이트와 보낸 바이트가 같다. 조립 근거도 전송 전에 저장하며 저장하지 못하면 보내지 않는다.
     const safeBody = await redactValue(deps.redact, request.body);
@@ -266,6 +270,10 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       send: (batch) => deps.events.output(batch),
       wait: deps.wait,
     });
+    // reasoning 시간은 adapter가 알린 block의 시작(첫 reasoning delta)부터 끝(마지막
+    // reasoning delta)까지다. 읽을 글 없이 암호화만 와도 빈 조각으로 시작·끝이 온다.
+    let reasoningFirstMs: number | null = null;
+    let reasoningLastMs: number | null = null;
     const invoked = await model.invoke({
       callId: id,
       turn: seat.turn,
@@ -277,11 +285,24 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       contextBasisHash: basisBlob.value.hash,
       body: safeBody.value as Record<string, unknown>,
       usageRevision: model.usageRevision,
-      onDelta: live.push,
+      onDelta: (delta) => {
+        if (delta.kind === "reasoning") {
+          const at = clock.nowMs();
+          reasoningFirstMs ??= at;
+          reasoningLastMs = at;
+        }
+        live.push(delta);
+      },
     }, signal);
     // 이 attempt의 delta는 이 뒤로 없다. 보내지 않은 묶음은 버린다.
     live.stop();
     const output = invoked.ok ? invoked.value : undefined;
+    lastReasoning = output?.reasoning == null ? null : {
+      text: output.reasoning,
+      duration_ms: reasoningFirstMs === null || reasoningLastMs === null
+        ? null
+        : reasoningLastMs - reasoningFirstMs,
+    };
     const outcome = output?.outcome ?? {
       kind: "failed" as const,
       code: "credential_unavailable" as const,
@@ -334,6 +355,15 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       return err(
         invoked.ok ? { code: "internal", message: "no output" } : invoked.error,
       );
+    }
+    // 글이 없는 reasoning 응답은 turn.ts의 answer 조건(tool call이 없거나 글이 있다)에
+    // 걸리지 않는다. 그 응답도 agent message 하나이므로 tool call보다 먼저 여기서 남긴다.
+    if (
+      outcome.kind === "complete" && output.text.trim() === "" &&
+      output.toolCalls.length > 0
+    ) {
+      const recorded = await recordReply(id, "");
+      if (!recorded.ok) return recorded;
     }
     return ok({
       id,
@@ -683,6 +713,44 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     return finished;
   }
 
+  // 그 model 호출의 응답을 agent message 하나로 남긴다. part 순서는 reasoning, text다. 답은
+  // 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이
+  // turn이 이 session에서 도는 중인지 본다. id를 그 호출에서 정해 멈춤 wrapper와 child가 같은
+  // 응답을 저장해도 둘째는 같은 id 규칙에 걸린다. 남길 part가 없으면 아무것도 남기지 않는다.
+  async function recordReply(
+    modelCall: string,
+    text: string,
+  ): Promise<Result<void>> {
+    const parts: { kind: string; text: string; duration_ms?: number | null }[] =
+      [];
+    if (lastReasoning !== null) {
+      parts.push({
+        kind: "reasoning",
+        text: lastReasoning.text,
+        duration_ms: lastReasoning.duration_ms,
+      });
+    }
+    if (text.trim() !== "") parts.push({ kind: "text", text });
+    if (parts.length === 0) return ok(undefined);
+    const message = messageIdOf(modelCall);
+    const recorded = await commandOf(
+      machine,
+      recordMessage,
+      {
+        id: message,
+        session: seat.session,
+        turn: seat.turn,
+        content: { schema_version: 1, parts },
+      },
+      {},
+      `${seat.turn}:answer:${modelCall}`,
+    );
+    if (!recorded.ok) return recorded;
+    // 그 응답의 tool call보다 먼저 불리므로 MessageRecorded가 그 응답의 ToolCallStarted보다 먼저 간다.
+    publish("MessageRecorded", { message, model_call: modelCall });
+    return ok(undefined);
+  }
+
   return {
     stop,
     inputs,
@@ -704,28 +772,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         `${seat.turn}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}`,
       );
     },
-    async answer(text) {
-      // 답은 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이 turn이
-      // 이 session에서 도는 중인지 본다. 한 model 호출의 응답은 message 하나다: id를 그 호출에서 정해
-      // 멈춤 wrapper와 child가 같은 응답을 저장해도 둘째는 같은 id 규칙에 걸린다.
-      const modelCall = lastModelCall!;
-      const message = messageIdOf(modelCall);
-      const recorded = await commandOf(
-        machine,
-        recordMessage,
-        {
-          id: message,
-          session: seat.session,
-          turn: seat.turn,
-          content: { schema_version: 1, parts: [{ kind: "text", text }] },
-        },
-        {},
-        `${seat.turn}:answer:${modelCall}`,
-      );
-      if (!recorded.ok) return recorded;
-      // 그 응답의 tool call보다 먼저 불리므로 MessageRecorded가 그 응답의 ToolCallStarted보다 먼저 간다.
-      publish("MessageRecorded", { message, model_call: modelCall });
-      return ok(undefined);
+    answer(text) {
+      return recordReply(lastModelCall!, text);
     },
     finish,
   };

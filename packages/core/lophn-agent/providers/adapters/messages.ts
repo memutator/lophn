@@ -9,7 +9,7 @@ import { mergeRequestPatch } from "./request-patch.ts";
 import type { SseFrame } from "./stream.ts";
 
 // Anthropic thinking.signature와 redacted_thinking.data 원문. 사람이 읽을
-// 본문(thinking text)은 상태에 두지 않는다.
+// 본문(thinking text)은 상태에 두지 않고, 응답 결과의 `reasoning`으로 따로 모은다.
 type OpaqueReasoningState = {
   signature?: string;
   data?: string;
@@ -172,6 +172,15 @@ export type ToolCall = { id: string; name: string; args: string };
 // stream 결과. tool 인자는 content_block_stop을 본 것만 완성이다.
 type StreamResult = {
   text: string;
+  // 사람이 읽을 reasoning 글. null은 reasoning이 없었다. ""는 있었지만 읽을 글이
+  // 없다(redacted_thinking, 빈 thinking block).
+  reasoning: string | null;
+  // 마지막으로 reasoning 글을 더한 thinking block index. block이 바뀌면 "\n\n"으로 잇는다.
+  lastReasoningBlock: number | null;
+  // thinking·redacted_thinking block의 index. content_block_stop으로 그 block의 끝을 안다.
+  reasoningBlocks: number[];
+  // 마지막 reasoning block이 끝났다. delta 시각을 재는 쪽이 그 끝을 안다.
+  reasoningEnded: boolean;
   toolCalls: ToolCall[];
   // 인자가 완성된 tool. stop을 보지 못한 tool은 여기 없다.
   completedToolIds: string[];
@@ -193,6 +202,10 @@ type StreamResult = {
 export function createStreamResult(): StreamResult {
   return {
     text: "",
+    reasoning: null,
+    lastReasoningBlock: null,
+    reasoningBlocks: [],
+    reasoningEnded: false,
     toolCalls: [],
     completedToolIds: [],
     messageEnded: false,
@@ -260,6 +273,13 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     const block = record.content_block as Record<string, unknown> | undefined;
     if (index === undefined || block === undefined) return;
     noteBlock(out, index, true);
+    if (block.type === "thinking" || block.type === "redacted_thinking") {
+      out.reasoning ??= "";
+      out.reasoningEnded = false;
+      if (!out.reasoningBlocks.includes(index)) {
+        out.reasoningBlocks.push(index);
+      }
+    }
     if (block.type === "tool_use") {
       out.toolCalls[index] = {
         id: typeof block.id === "string" ? block.id : "",
@@ -286,13 +306,25 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
       if (slot !== undefined) slot.args += delta.partial_json;
       return;
     }
-    // thinking_delta는 사람이 읽을 본문이다. 제외한다.
+    if (delta.type === "thinking_delta" && typeof delta.thinking === "string") {
+      out.reasoning ??= "";
+      // 빈 block의 글은 아무것도 더하지 않는다.
+      if (delta.thinking !== "") {
+        if (out.reasoning !== "" && out.lastReasoningBlock !== index) {
+          out.reasoning += "\n\n";
+        }
+        out.reasoning += delta.thinking;
+        out.lastReasoningBlock = index;
+      }
+      return;
+    }
     return;
   }
   if (type === "content_block_stop") {
     const index = typeof record.index === "number" ? record.index : undefined;
     if (index === undefined) return;
     noteBlock(out, index, false);
+    if (out.reasoningBlocks.includes(index)) out.reasoningEnded = true;
     const slot = out.toolCalls[index];
     if (slot !== undefined && !out.completedToolIds.includes(slot.id)) {
       out.completedToolIds.push(slot.id);
